@@ -3,7 +3,8 @@
 **Základ změřen 2026-08-02 na `17a8b9a8`; pre-fix OS-isolated scan proběhl na
 `24457ba2`; registry klasifikace byla opravena v `06309bc8`, post-fix scan
 aktuálního registru proběhl na `a85c344f` a izolovaný HTTP/restart baseline na
-`ac320335`.**
+`ac320335`. Fresh-clone Studio probe proběhl na dokumentačním HEAD `df8f1039`
+se zdrojovým stromem shodným s `ac320335`.**
 Neutrální dokument, nezávislý na nástroji.
 Pravidla vývoje: [`CONTRACT.md`](CONTRACT.md) · Detail: [`docs/inventory/`](docs/inventory/)
 
@@ -65,9 +66,43 @@ Lokální raw evidence zůstává mimo Git v
 `.intentsmith-artifacts/runtime-baseline.qAU9qe/`; sanitizované JSON souhrny mají
 SHA-256 `2700a942…d8c37` před restartem a `8d123f79…42bb68` po restartu. Toto
 je **current-checkout pozorování**, nikoliv přenositelná release evidence:
-neobsahuje commitnutý runner ani environment manifest. Podporuje další směr,
-ale samo neprokazuje fresh-clone instalaci ani Theia runtime; ty zůstávají
-otevřenou částí M0.
+neobsahuje commitnutý runner ani environment manifest. Tento starší baseline
+sám neprokazoval fresh-clone instalaci ani Theia runtime; následný WP-M0-E je
+změřil samostatně níže a odkryl dvě Studio produktové vady.
+
+### Aktuální Studio baseline
+
+WP-M0-E na `df8f1039` použil dva disposable čisté klony; produktové cesty jsou
+od `ac320335` beze změny. `npm ci`, frozen Yarn install a production Theia build
+prošly exit `0`. Build zabalil byte-identický commitnutý
+`c3-chat-panel/lib/browser/chat-panel-module.js`, nikoliv stale TS source.
+Samostatný package build `@c3/chat-panel` skončil exit `1` na šesti chybných
+importech a před selháním změnil 4 trackované a vytvořil 36 untracked generated
+výstupů pouze v disposable klonu. Repozitář přitom v `docs/dev-checklist.md`
+výslovně označuje commitnutý JS za ručně udržovaný runtime a `tsc -b` zakazuje.
+
+Diagnostický runtime v OS network namespace při počátečním bootu přešel do
+`ready`, provedl WS handshake a přes skutečný Studio panel vrátil
+deterministické `17*23 = 391` za 24 ms. Současně odkryl dvě produktové vady:
+
+- renderer se pokusil načíst Google Fonts i pod blokovaným outboundem;
+- šest běžných Studio HTTP requestů vracelo `403`, protože browser request na
+  wire nenesl local capability header. Kontrolní opaque-origin request bez
+  capability vrátil `403`, s platnou capability `200`; backendová hranice je
+  tedy správně fail-closed a rozbitá je browser delivery cesta.
+
+DevTools Network záznam nebyl zachován jako strojově čitelný artefakt; konkrétní
+URL, wire header a Fonts pokus jsou current-host observation, zatímco uložený
+backend log potvrzuje opakovaná boundary odmítnutí. Při teardownu přibližně šest
+minut po startu skončil Electron po ztrátě GPU procesu `SIGTRAP`, současně s
+řízeným `SIGTERM` backendu. Diagnostický namespace a `--no-sandbox` neumožňují
+rozlišit environment teardown od produktové vady: počáteční journey prošla,
+stabilita a clean shutdown nejsou prokázané.
+
+Detail, přesné build příkazy a lokální screenshot/logy jsou v
+[`docs/inventory/21-studio-ws.md`](docs/inventory/21-studio-ws.md). M0 tím
+získalo fresh-clone install/build a initial boot/chat pozorování, ale Studio
+část končí `PRODUCT_FAIL + STABILITY_INCONCLUSIVE`, ne `PASS`.
 
 ---
 
@@ -122,9 +157,9 @@ sám nikdy neposouvá schopnost na `USER_JOURNEY_VERIFIED`.
 | 18b | Explicitně vyvolaná kontrola navrhne upgrade, který lze schválit či odmítnout. | `RUNTIME_VERIFIED` | Úmyslný check→approve/reject→rollback a finální disposition. |
 | 19 | Explicitně otevřený katalog transakčně instaluje, aktualizuje či odebere balíček. | `EXISTS` | Lokální katalog a external install/rollback journey. |
 | 20 | Uživatel generuje, ruší a spravuje média bez konfliktu o VRAM. | `EXISTS` + `BROKEN` | Studio render I/O a neukončený `healthTimer`; chybí ComfyUI journey. |
-| 21 | Ve Studiu chatuje, vidí progress, ruší práci a po reconnectu obnoví stav. | `EXISTS` + `BROKEN` | Theia runtime není current-SHA ověřen; Google Fonts vytváří tichý outbound. |
+| 21 | Ve Studiu chatuje, vidí progress, ruší práci a po reconnectu obnoví stav. | `RUNTIME_VERIFIED` + `BROKEN` | Fresh-clone initial boot, WS a deterministický chat prošly; HTTP capability delivery vrací 403, Google Fonts vytváří tichý outbound a stabilita/clean shutdown nejsou prokázané. |
 
-Souhrn: **1 `ACCEPTED/PASS`, 12 `RUNTIME_VERIFIED`, 9 `EXISTS`; 6 řádků
+Souhrn: **1 `ACCEPTED/PASS`, 13 `RUNTIME_VERIFIED`, 8 `EXISTS`; 6 řádků
 mají dílčí `BROKEN`**. Žádná další schopnost zatím nemá obhajitelný stav
 `USER_JOURNEY_VERIFIED`. Inventury jsou detailní pracovní podklad; tento lehký
 obraz je jediný stavový souhrn.
@@ -241,6 +276,8 @@ Zaznamenané, rozhodnuté, ne zapomenuté.
 | Nedostupná Ollama při klasifikaci | Opravena na jeden pokus; změřeno přibližně 80 ms místo 6 091 ms |
 | Automatické online model discovery | `C3_ENABLE_ONLINE_DISCOVERY`, default off; ostatní explicitní outbound plochy čekají na jednotnou policy |
 | C3 Studio Google Fonts | `c3-chat-panel/lib/browser/chat-panel-module.js` vkládá dvě `fonts.googleapis.com` URL bez opt-inu; potvrzené otevřené L0-12 porušení pro M0/M1 |
+| C3 Studio local HTTP | Skutečný renderer má bootstrap i validní capability, ale šest změřených HTTP requestů ji neposílá a končí 403; WS a deterministický chat přitom fungují. Browser delivery se musí opravit bez oslabení fail-closed backend boundary. |
+| C3 Studio source/build | Funkční ručně udržovaný `lib` je skutečný entrypoint a clean product build jej zachová; stale TS package build je nekompilovatelný a jeho spuštění by po povrchní opravě mohlo funkční UI přepsat. |
 | `multi-source-external.test.js` | Explicitní public-service smoke; není deterministická offline evidence |
 | L0-8 specialist boundary | Potvrzeně porušený; strict injection versus public extension SDK vyžaduje rozhodnutí operátora |
 | Self-learning | PatternTracker má produkční zápisy, ale `getRelevantPatterns()` nemá produkčního volajícího; `pattern-miner.js` nemá produkční import a cross-project learner nemá prokázanou smyčku. M4 vyžaduje jeden uzavřený same-project E2E. |

@@ -279,6 +279,34 @@ Theia runtime a nemá commitnutý runner/environment manifest. Je to
 current-checkout pozorování, nikoliv přenositelná release evidence, a proto samo
 M0 neuzavírá.
 
+WP-M0-E následně na dokumentačním HEAD `df8f1039` se zdrojovým stromem shodným
+s `ac320335` provedl fresh-clone Studio probe. `npm ci`, frozen Yarn install a
+production Theia build prošly exit `0`; commitnuté plné UI zůstalo byteově
+stejné. Diagnostický runtime v OS network namespace při počátečním bootu přešel
+do `ready`, navázal WS a přes skutečný panel vrátil `17*23 = 391` za 24 ms.
+
+Probe ale končí `COMPLETED_WITH_PRODUCT_FAIL`, protože:
+
+- skutečný package build `@c3/chat-panel` končí exit `1` na šesti chybných TS
+  importech a jeho částečný emit zanechá 4 změněné + 36 nových generated
+  souborů v disposable klonu;
+- repozitář sám potvrzuje, že funkční `lib` je ručně udržovaný source-of-truth
+  a stale TS se nesmí nechat přepsat přes něj; product build jej pouze zabalí;
+- renderer se pod blokovaným outboundem pokusil načíst Google Fonts;
+- šest běžných Studio HTTP requestů vracelo 403, protože browser neposlal local
+  capability header. Kontrolní request bez capability vrátil 403 a s platnou
+  capability 200, takže backendová boundary se nesmí oslabit.
+
+Síťové detaily jsou current-host DevTools observation, nikoliv zachovaný
+strojově čitelný export. Přibližně šest minut po startu skončil Electron během
+teardownu diagnostického namespace po GPU fatalu signálem `SIGTRAP`, zatímco
+backend přijal řízený `SIGTERM`. Počáteční journey tedy prošla, ale stabilita a
+clean shutdown zůstávají `INCONCLUSIVE`.
+
+Přesné instalační/build příkazy, hashe, metodická omezení a screenshot/log jsou v
+`docs/inventory/21-studio-ws.md`; lokální artefakty v
+`.intentsmith-artifacts/m0e-studio-probe-df8f1039/`.
+
 ### Stav M0 a nejbližší spustitelný balík
 
 | Část | Stav | Zbývá |
@@ -287,13 +315,15 @@ M0 neuzavírá.
 | Backend/runtime | `PARTIAL` | Fresh-clone install provenance; backendový HTTP restart už je current-SHA ověřen. |
 | Offline boundary | `MEASURED` | Před M6 opravit release-policy sentinel a aktivovat pravdivý PDF toolchain set. |
 | Capability picture | `DRAFT_COMPLETE` | 22/22 je v `SYSTEM-MAP.md`; operátorské přijetí neznamená automaticky PASS jednotlivých schopností. |
-| Studio/Theia | `OPEN` | Autoritativní source/build, frozen install, runtime a základní WS journey. |
+| Studio/Theia | `PARTIAL / PRODUCT_FAIL` | Frozen install, product build, initial boot, WS a deterministický chat jsou změřené; stabilita je inconclusive. Zbývá přijmout source disposition, opravit browser capability delivery a odstranit Fonts egress. |
 | L0-8 specialist boundary | `CARRIED_BLOCKER` | Vlastník: integrační vlastník `WP-M3-BOUNDARY`. Termín: před jeho prvním zapisujícím commitem; do té doby platí zákaz nových interních importů specialistů. |
 
-**WP-M0-E je připravený takto:**
+**WP-M0-E je diagnosticky dokončený takto:**
 
-1. **Výsledek:** víme, který zdroj vytváří skutečné Studio a zda clean build
-   zachová dnešní UI; na Linuxu se otevře Theia a připojí WS bez tichého egressu.
+1. **Výsledek:** skutečný source-of-truth je ručně udržovaný commitnutý `lib`;
+   clean product build jej zachová, Theia se otevře, WS i deterministický chat
+   fungují. Package build, local HTTP a outbound podmínky neprošly; stabilita a
+   clean shutdown nejsou tímto probe prokázané.
 2. **Povolené cesty:** celý strom jen read-only; zápisy pouze do disposable
    klonu a jeho artifact rootu. **Zakázané:** osm rozpracovaných inventur,
    v současném checkoutu celé `c3-ide/**/lib/**` včetně
@@ -303,21 +333,22 @@ M0 neuzavírá.
    skutečný package entrypoint.
 4. **Vstup:** source revision `ac320335`; dokumentační commity mohou být navíc,
    ale nesmějí změnit source digest.
-5. **Demo:** screenshot/log otevřeného Studia, WS connect a jeden
-   deterministický chat; před/po Git diff build outputu. Interaktivní část
-   vyžaduje dostupný X11/Wayland display a Electron přístup k němu; chybějící
-   display je pojmenovaný environment `BLOCKED`, ne produktový `FAIL`.
-6. **Test:** pozitivně frozen install/build/boot. Dependency install smí použít
-   auditovaný egress podle lockfile; po instalaci běží runtime se zablokovaným
-   outboundem a nulovým unexpected requestem. Build nesmí potichu nahradit jiné UI.
-7. **Stop:** build přepíše funkční runtime jinou implementací, vyžádá
-   necommitnutou lock změnu, native ABI zásah nebo nepopsaný outbound. Pak se
-   pouze zachová evidence a rozhodne source-of-truth v M1-STUDIO.
-8. **Příkaz:** v disposable klonu
-   `npm ci`, poté
-   `corepack yarn --cwd c3-ide install --frozen-lockfile` a
-   `corepack yarn --cwd c3-ide build` a
-   `corepack yarn --cwd c3-ide start`.
+5. **Demo:** screenshot/log z X11 Studia, stav `ready`, WS handshake a
+   deterministický chat 24 ms jsou zachované v lokálním artifact rootu;
+   Electron log zachovává i teardown `SIGTRAP`.
+6. **Test:** frozen install/build a initial boot/journey `PASS`;
+   `@c3/chat-panel` package build, nulový runtime outbound a Studio HTTP cesty
+   `FAIL`; stabilita/clean shutdown `INCONCLUSIVE`. Výsledky se neslučují do
+   zeleného souhrnu.
+7. **Stop:** dotčená zapisující část je zastavená před opravou. Operátor musí
+   přijmout source disposition; backendový local guard se nesmí oslabit a stale
+   TS se nesmí nechat přepsat přes funkční UI.
+8. **Reprodukce:** v disposable klonu `npm ci`; poté z adresáře `c3-ide/`
+   `corepack yarn install --frozen-lockfile`, `corepack yarn build` a
+   `corepack yarn workspace @c3/chat-panel build`. Runtime používá skutečný
+   X11/Wayland display a OS network namespace. Příkazy se nespouštějí z kořene
+   přes `corepack yarn --cwd`, protože kořenový `packageManager` je `npm` a
+   Corepack takový příkaz odmítne dřív, než zpracuje `--cwd`.
 
 ## 5. M1 — Lokální runtime páteř
 
@@ -365,13 +396,20 @@ jádra:
 6. gateway přijme HTTP `200` s prázdným modelovým obsahem jako úspěch;
 7. synthesis a finalizer mohou každý spustit vlastní refinement, zatímco
    telemetrie je neumí rozlišit;
-8. commitnutý 7 062řádkový Studio runtime a malý TS source nejsou prokázané
-   jako tatáž implementace; čistý build může produkt přepsat;
+8. commitnutý 7 062řádkový Studio runtime je podle package entrypointu i
+   `docs/dev-checklist.md` skutečný ručně udržovaný source; malý stale TS source
+   je jiná implementace a jeho package build je nekompilovatelný;
 9. dnešní persistence „restart“ test používá jeden in-memory store; skutečný
    backend stop/start byl doložen až M0 probe, ještě ne Studio journey;
 10. provider failure po úspěšných tool datech se dnes mění na implicitní
     fallback. Kontrakt musí rozhodnout, zda je výsledek explicitně `degraded`,
-    nebo terminální `error`.
+    nebo terminální `error`;
+11. Electron bootstrap i validní local capability v rendereru existují, ale
+    skutečné browser requesty capability header neposílají. Šest základních
+    HTTP cest končí 403, zatímco WS a deterministický chat fungují;
+12. diagnostický Electron runtime skončil při teardownu po GPU fatalu
+    `SIGTRAP`; kvůli namespace a `--no-sandbox` není stabilita ani produktový
+    crash prokázaný a M1 journey musí otestovat bounded soak i clean shutdown.
 
 ### Implementačně připravené Work Packages M1
 
@@ -402,8 +440,8 @@ focused regression sady.
 7. **Stop:** operátor veřejné schéma nepřijal, kontrakt by musel obsahovat M2
    effect/approval authority nebo by TS/JS sdílení vyžadovalo novou závislost.
 8. **Ověření:** **NOVÝ:** `node tests/m1-contract.test.js`; existující:
-   `node tests/ws-bridge.test.js`; v disposable klonu
-   `corepack yarn --cwd c3-ide workspace @c3/protocol build`.
+   `node tests/ws-bridge.test.js`; v disposable klonu z adresáře `c3-ide/`
+   `corepack yarn workspace @c3/protocol build`.
 
 #### WP-M1-CHAT — pravdivý turn a persistence
 
@@ -463,17 +501,22 @@ focused regression sady.
    pouze podle source-of-truth rozhodnutí; nové Studio client/journey testy.
    **Zakázané:** chat controller, routes, LLM, quality a přijatý protocol.
 3. **Connector:** konzument `ConversationCommand/Result` a `CoreEvent` v1.
-4. **Závislost:** `WP-M1-CONTRACT` a výsledek `WP-M0-E`; první checkpoint vybere
-   autoritativní Studio source. Doporučení je zachovat funkční současné UI a
-   udělat clean build reprodukovatelný, nikoli je nahradit menší stale variantou.
+4. **Závislost:** `WP-M1-CONTRACT` a výsledek `WP-M0-E`; první checkpoint nechá
+   operátora přijmout disposition. Změřený současný source-of-truth je ručně
+   udržovaný `lib`; doporučení je zachovat funkční UI, odstranit nepravdivý TS
+   build kontrakt a případnou pozdější relokaci udělat byte/behavior preserving,
+   nikoli produkt nahradit menší stale variantou.
    Oprava cancelu začíná ve Studio klientovi (`wsSendCancel` / `_cancelExecution`)
    doplněním `conversationId`; správná scoped backend větev se zachová a její
    `cancel all` kompatibilní fallback se pouze negativně otestuje.
 5. **Demo:** skutečná Theia, dva panely s prokládanými eventy, jeden cancel a
    jeden success, provider stop, restart/reconnect a nulový Fonts request.
-6. **Test:** WS/HTTP parity; `503` nikdy assistant; cancel A neovlivní B; late
-   assistant po cancelu je odmítnut; každá terminal větev vypne spinner;
-   neplatný rehydrate ID zmizí; clean build načte stejné runtime chování.
+6. **Test:** WS/HTTP parity; browser local capability projde na přesný backend
+   origin a nikdy jinam; základní Studio HTTP cesty nevracejí boundary `403`;
+   `503` nikdy assistant; cancel A neovlivní B; late assistant po cancelu je
+   odmítnut; každá terminal větev vypne spinner; neplatný rehydrate ID zmizí;
+   clean build načte stejné runtime chování a nevytvoří Fonts request; bounded
+   soak a řízený shutdown skončí bez renderer/GPU crashu.
 7. **Stop:** build přepisuje/odstraňuje dnešní UX, potřebuje novou browser test
    závislost, mění connector nebo zatahuje effect/auto-exec scope.
 8. **Ověření:** `node tests/ws-bridge.test.js`; **NOVÝ:**
@@ -835,26 +878,31 @@ mohou pokračovat.
    evidence a tohoto prováděcího detailu; osm uživatelských inventur nepřebírat.
 2. Operátorsky přijmout produktový kontrakt a roadmapu; případné změny scope se
    zapíší jako rozhodnutí, ne jako tichá editace.
-3. Spustit `WP-M0-E` v disposable čistém klonu: frozen Studio install/build,
-   source/output diff a skutečný Theia→WS deterministic journey. Backendový
-   restart i post-fix offline izolace už byly naměřené a bez nového driftu se
-   neopakují jen kvůli proceduře.
-4. Operátorsky rozhodnout L0-8 nejpozději před `WP-M3-BOUNDARY`; M0 jej může
+3. Přijmout disposition z dokončeného `WP-M0-E`. Doporučení: pro zachování
+   funkční parity ponechat ručně udržovaný `lib` jako současný autoritativní
+   runtime, zneškodnit nepravdivý stale TS build kontrakt a případnou relokaci
+   dělat později jako behavior-preserving změnu, nikoliv přepis UI.
+4. Po operátorském rozšíření zapisujícího scope uzavřít dvě M0 Studio vady:
+   browser capability delivery bez oslabení backend guardu a Google Fonts
+   outbound. Potom zopakovat frozen build a skutečný Theia→WS/HTTP journey;
+   backendový restart ani post-fix offline profil bez nového driftu neopakovat.
+5. Operátorsky rozhodnout L0-8 nejpozději před `WP-M3-BOUNDARY`; M0 jej může
    uzavřít pouze jako explicitně pojmenovaný blocker s vlastníkem a termínem.
-5. Schválit celé navržené veřejné schéma `WP-M1-CONTRACT`: identitu a scope,
+6. Schválit celé navržené veřejné schéma `WP-M1-CONTRACT`: identitu a scope,
    status union, korelaci eventů, scoped cancel i model-purpose enum; uvnitř
    tohoto rozhodnutí zvlášť uzavřít `degraded` versus `error` a streaming mimo
    v1. Teprve potom implementovat connector.
-6. V jediném worktree integrovat CHAT, MODEL a STUDIO po samostatných malých
+7. V jediném worktree integrovat CHAT, MODEL a STUDIO po samostatných malých
    commitech proti připnuté v1; read-only review může běžet paralelně. Nakonec
    QUALITY/integration. GPU běhy se nesouběží.
-7. Po M1 demonstraci otevřít M2 effect authority a project-change journey.
+8. Po M1 demonstraci otevřít M2 effect authority a project-change journey.
 
 ## 14. Rozhodovací fronta — otázka až ve chvíli, kdy má data
 
 | Rozhodnutí | Kdy je skutečně potřeba | Jaká evidence musí být na stole |
 |---|---|---|
 | Přijetí `PRODUCT.md` a `ROADMAP.md` | Teď, před uzavřením M0 | Tento 22/22 obraz, backend baseline, offline scan a známý Studio gap. |
+| Autoritativní Studio source/build disposition | Teď, před prvním zapisujícím Studio WP | WP-M0-E fresh-clone build/runtime diff, `docs/dev-checklist.md`, plný `lib` proti stale TS a dopad obou variant na funkční paritu. |
 | `degraded` versus terminální `error` po částečném tool výsledku | Před freeze M1 connectoru | Dvě ukázkové HTTP/WS odpovědi, persistence dopad a Studio UX obou variant. |
 | Streaming v 1.0 | Po přijetí non-streaming M1 baseline | Cold/warm whole-response latency, cílový TTFT a cena změny tří connectorů. |
 | Strict injection versus veřejná extension boundary pro L0-8 | Před M3-BOUNDARY | Skutečný import graph, specialista E2E a nejmenší prototyp obou variant. |
