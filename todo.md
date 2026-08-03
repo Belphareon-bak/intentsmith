@@ -2,6 +2,14 @@
 
 > Generováno analýzou codebase v132.0.0 (2026-03-27)
 
+> **Historický, neautoritativní snapshot.** Tento soubor není aktivní backlog ani
+> zdroj rozsahu IntentSmithu. Obsahuje dobové odhady, které se mohou rozcházet se
+> současným kódem a operátorskými rozhodnutími. Aktuální produkt určuje
+> [`PRODUCT.md`](PRODUCT.md), evoluční směr [`DIRECTION.md`](DIRECTION.md),
+> prováděcí pořadí [`ROADMAP.md`](ROADMAP.md) a změřený stav
+> [`SYSTEM-MAP.md`](SYSTEM-MAP.md). Položka se přebírá pouze tehdy, když ji
+> současné runtime měření otevře v konkrétním Work Package.
+
 ---
 
 ## 🔴 Vysoká priorita

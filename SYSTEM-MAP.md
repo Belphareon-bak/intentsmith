@@ -1,8 +1,9 @@
 # IntentSmith — mapa systému
 
 **Základ změřen 2026-08-02 na `17a8b9a8`; pre-fix OS-isolated scan proběhl na
-`24457ba2`; registry klasifikace byla opravena v `06309bc8` a post-fix scan
-aktuálního registru proběhl na `a85c344f`.**
+`24457ba2`; registry klasifikace byla opravena v `06309bc8`, post-fix scan
+aktuálního registru proběhl na `a85c344f` a izolovaný HTTP/restart baseline na
+`ac320335`.**
 Neutrální dokument, nezávislý na nástroji.
 Pravidla vývoje: [`CONTRACT.md`](CONTRACT.md) · Detail: [`docs/inventory/`](docs/inventory/)
 
@@ -46,6 +47,28 @@ uznával jen network/server/ollama/gpu, takže sada potřebující Python musela
 zůstat `ACTIVE` a padat. To je přesně mezera, kvůli které `G0-C7` tuhle třídu
 chyby nezachytil. Doplněno `requirements.toolchain`.
 
+### Aktuální runtime baseline
+
+Na přesném `ac320335` proběhl server v izolovaném runtime rootu s prázdným
+`HOME/XDG/TMP`, vlastní DB, projekty a output adresářem, bez zděděných tajemství
+a s vypnutým online discovery, ComfyUI a autonomií:
+
+- health `200` za 19 ms a založení konverzace `201`;
+- skutečný HTTP deterministický dotaz `17 * 23` vrátil přesný výsledek za 22 ms;
+- skutečný HTTP modelový dotaz přes `qwen3.5:27b` vrátil odpověď za 24 784 ms;
+- před restartem byly uloženy přesně čtyři turny; po stop/start nad stejnou DB
+  byly načteny stejné čtyři role za 19 ms;
+- samostatná modelová behavior sada CRE prošla **9/9**, exit `0`; studená první
+  klasifikace trvala 20 966 ms, následující přibližně 1,1–1,3 s.
+
+Lokální raw evidence zůstává mimo Git v
+`.intentsmith-artifacts/runtime-baseline.qAU9qe/`; sanitizované JSON souhrny mají
+SHA-256 `2700a942…d8c37` před restartem a `8d123f79…42bb68` po restartu. Toto
+je **current-checkout pozorování**, nikoliv přenositelná release evidence:
+neobsahuje commitnutý runner ani environment manifest. Podporuje další směr,
+ale samo neprokazuje fresh-clone instalaci ani Theia runtime; ty zůstávají
+otevřenou částí M0.
+
 ---
 
 ## Rozsah
@@ -57,7 +80,7 @@ chyby nezachytil. Doplněno `requirements.toolchain`.
 | Registrovaných testových programů | **356** (`260 ACTIVE`, `81 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v DB / migrací | 95 / 47 |
 | HTTP rout | ~230 |
-| **Schopností v `ACCEPTED/PASS`** | **1 z 22** (#2 CRE); #1 server/routing/DB má historicky schválených 13/13 chování, ale podle nového kontraktu mu chybí clean-clone provenance a testovaný výsledný SHA, proto je zatím `RUNTIME_VERIFIED` |
+| **Schopností v `ACCEPTED/PASS`** | **1 z 22** (#2 CRE); #1 server/routing/DB je zatím `RUNTIME_VERIFIED` — jeho suite má 13 interních checků, zatímco behavior dokument obsahuje 16 řádků, takže tvrzení „13/13 chování“ není platný akceptační součet |
 
 Registry fingerprint po pravdivém external splitu je
 `35c590edcd7de9ecab6db870a0118e3ae67ff37ea99f58943c6b180ea04c60f4`.
@@ -67,6 +90,44 @@ registry řádek sám proto není akceptační důkaz. Report SHA-256 je
 
 Tool census ze zdroje: **3 JavaScript soubory, 5 694 řádků, 153 top-level
 nástrojových deklarací**. Počet 213 v dřívější inventuře byl textový false count.
+
+---
+
+## Lehký capability picture 22/22
+
+Stav je nejsilnější aktuálně doložená příčka, nikoliv procento hotovosti.
+`BROKEN` označuje potvrzenou dílčí vadu a může stát vedle příčky. Modulový test
+sám nikdy neposouvá schopnost na `USER_JOURNEY_VERIFIED`.
+
+| # | Uživatelské chování | Stav | Nejbližší chybějící důkaz nebo potvrzená vada |
+|---|---|---|---|
+| 1 | Spustí server na loopbacku, připraví DB a obslouží API. | `RUNTIME_VERIFIED` | Fresh-clone install a přesné sjednocení 16 behavior řádků s důkazy. |
+| 2 | CRE vybere hlídaný intent; deterministická cesta nevolá model. | `ACCEPTED/PASS` | Přijaté offline i Ollama behavior sady jsou 10/10 a 9/9. |
+| 3 | Modelový požadavek jde na lokální Ollamu nebo skončí typovanou chybou. | `RUNTIME_VERIFIED` | HTTP/WS provider outage, timeout a cancel bez false-success. |
+| 4 | Uživatel založí či obnoví konverzaci a historie přežije restart. | `RUNTIME_VERIFIED` | Current-SHA HTTP restart prošel; chybí cancel/error persistence journey. |
+| 5 | Výsledek je deterministicky ohodnocen bez přidání nového obsahu. | `RUNTIME_VERIFIED` | Změřit score delta, přínos a latenci refinementu na korpusu. |
+| 6 | Chat request projde routingem, syntézou a finalizací do jednoho pravdivého výsledku. | `RUNTIME_VERIFIED` | Celý success/error/cancel/timeout journey přes veřejnou hranici. |
+| 7 | Expertiza se vybere a měřitelně ovlivní odpověď. | `RUNTIME_VERIFIED` + `BROKEN` | Explicitní `code_reviewer` se stále neroutuje; chybí route→chat E2E. |
+| 8 | Zapnutý specialista využije expertizu a nástroje; vypnutý nezasáhne. | `RUNTIME_VERIFIED` + `BROKEN` | L0-8 interní import a chybějící enable→route→output→disable E2E. |
+| 9 | Skill z triggeru získá vstupy a approval a provede známý postup. | `RUNTIME_VERIFIED` | Celý skill až po ověřený výstup a negativní effect boundary. |
+| 10 | Lifecycle vede projekt od záměru přes plán a provedení ke kontrole. | `RUNTIME_VERIFIED` | Celý SPEC→roadmap→build→review a recovery journey. |
+| 11 | Po approvalu provede scoped patch, test a při selhání rollback. | `EXISTS` | Skutečný uživatelský patch/test/diff/rollback journey. |
+| 12 | Code Intelligence vysvětlí projekt a vrátí schválenou konvenci do dalšího kontextu. | `EXISTS` + `BROKEN` | Pattern miner nemá produkční import; chybí learn→next-context round-trip. |
+| 13 | Governance zachytí architektonický, API nebo regresní drift. | `EXISTS` | Reálný lifecycle checkpoint, který vadu skutečně zablokuje. |
+| 14 | Zapnutý agent reaguje na zdroj a ukáže výsledek; vypnutý nic neudělá. | `RUNTIME_VERIFIED` | První viditelný agent E2E a disabled negativní cesta. |
+| 15 | Projektová paměť se uloží, vrátí a lze ji zeslabit či smazat. | `EXISTS` + `BROKEN` | PatternTracker se zapisuje, ale nemá produkčního konzumenta. |
+| 16 | Typovaný nástroj projde jednotnou policy/approval hranicí a vrátí strukturovaný výsledek. | `EXISTS` | Chat/skill→tool→effect→audit journey a společná M2 authority. |
+| 17 | Uživatel nakonfiguruje a obdrží auditovanou notifikaci. | `EXISTS` | Skutečné doručení ve Studiu a negativní channel cesta. |
+| 18a | Uživatel vidí lokální modely a stabilní role přizpůsobené VRAM. | `RUNTIME_VERIFIED` | Current-SHA role/binding/degradation journey přes API a Studio. |
+| 18b | Explicitně vyvolaná kontrola navrhne upgrade, který lze schválit či odmítnout. | `RUNTIME_VERIFIED` | Úmyslný check→approve/reject→rollback a finální disposition. |
+| 19 | Explicitně otevřený katalog transakčně instaluje, aktualizuje či odebere balíček. | `EXISTS` | Lokální katalog a external install/rollback journey. |
+| 20 | Uživatel generuje, ruší a spravuje média bez konfliktu o VRAM. | `EXISTS` + `BROKEN` | Studio render I/O a neukončený `healthTimer`; chybí ComfyUI journey. |
+| 21 | Ve Studiu chatuje, vidí progress, ruší práci a po reconnectu obnoví stav. | `EXISTS` + `BROKEN` | Theia runtime není current-SHA ověřen; Google Fonts vytváří tichý outbound. |
+
+Souhrn: **1 `ACCEPTED/PASS`, 12 `RUNTIME_VERIFIED`, 9 `EXISTS`; 6 řádků
+mají dílčí `BROKEN`**. Žádná další schopnost zatím nemá obhajitelný stav
+`USER_JOURNEY_VERIFIED`. Inventury jsou detailní pracovní podklad; tento lehký
+obraz je jediný stavový souhrn.
 
 ---
 
@@ -182,7 +243,7 @@ Zaznamenané, rozhodnuté, ne zapomenuté.
 | C3 Studio Google Fonts | `c3-chat-panel/lib/browser/chat-panel-module.js` vkládá dvě `fonts.googleapis.com` URL bez opt-inu; potvrzené otevřené L0-12 porušení pro M0/M1 |
 | `multi-source-external.test.js` | Explicitní public-service smoke; není deterministická offline evidence |
 | L0-8 specialist boundary | Potvrzeně porušený; strict injection versus public extension SDK vyžaduje rozhodnutí operátora |
-| Self-learning | PatternTracker má runtime čtení; cross-project learner nemá prokázanou produkční smyčku. M4 vyžaduje jeden uzavřený same-project E2E |
+| Self-learning | PatternTracker má produkční zápisy, ale `getRelevantPatterns()` nemá produkčního volajícího; `pattern-miner.js` nemá produkční import a cross-project learner nemá prokázanou smyčku. M4 vyžaduje jeden uzavřený same-project E2E. |
 | Lineární matching rout, regex per request | Naměřeno 0,87 ms — vědomě ponecháno |
 | Rate limiter je na loopbacku mrtvý kód | Vědomě ponecháno |
 
