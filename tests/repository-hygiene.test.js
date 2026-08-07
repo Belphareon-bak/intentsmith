@@ -19,6 +19,19 @@ assert.equal(listed.status, 0, listed.stderr);
 
 const tracked = listed.stdout.split('\0').filter(Boolean);
 const trackedSet = new Set(tracked);
+const forbiddenStudioFontHosts = /fonts\.(?:googleapis|gstatic)\.com/i;
+for (const relative of tracked) {
+  const isRunnableStudioAsset = (
+    relative.startsWith('c3-ide/')
+    || relative.startsWith('docs/archive/c3-studio/v7-fix-payload/')
+  ) && /\.(?:css|html|js)$/.test(relative);
+  if (!isRunnableStudioAsset) continue;
+  assert.doesNotMatch(
+    readFileSync(resolve(repoRoot, relative), 'utf8'),
+    forbiddenStudioFontHosts,
+    `tracked Studio asset must not load a remote Google font: ${relative}`,
+  );
+}
 for (const lockPath of [
   'package-lock.json',
   'c3-ide/yarn.lock',

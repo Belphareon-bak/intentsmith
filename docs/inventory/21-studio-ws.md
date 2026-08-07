@@ -185,3 +185,23 @@ cest, vše exit `0`. Běh byl zatím diagnostický: používá necommitnutý CDP
 ještě neprovádí negativní trojúhelník ani 65sekundový soak a stále zachytil
 Google Fonts pokus. Proto transportní implementace sama #21 neuzavírá; závazný
 fresh-clone journey a odstranění egressu jsou následující checkpointy.
+
+### Odstranění vzdálených fontů (2026-08-07)
+
+Dva aktivní `<link>` loadery v autoritativním chat-panel runtime, vzdálený
+`@import` v ručním theme preview a stejný loader v inertním historickém v7
+payloadu byly odstraněny. Existující `font-family` stacky zůstaly beze změny a
+použijí lokální nebo systémové fallbacky; nové font assets se nebundlují a
+dnešní typografie se nepovažuje za finální UI kontrakt. Repository hygiene nyní
+odmítne obě Google Fonts domény v každém trackovaném `.js`, `.css` a `.html`
+Studio assetu včetně archivního payloadu.
+
+První disposable build scan byl správně odmítnut, protože sdílený
+`c3-ide/node_modules` nesl workspace symlink do staršího klonu a zabalil jeho
+chat-panel. Po vlastní frozen Yarn instalaci v prospective exportu, čistém
+application buildu (exit `0`, pět existujících warnings) a kontrole výsledného
+frontend bundle nezůstala žádná Google Fonts doména. Následný fresh-profile
+Electron/CDP běh v blokovaném network namespace zachytil `external: []`, lokální
+startup/POST transport zůstal funkční a Electron i backend skončily
+`code=0, signal=null`. Jde stále o diagnostický prospective-index běh; trvalý
+registered runner s negativním trojúhelníkem a soakem je další checkpoint.

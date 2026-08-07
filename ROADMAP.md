@@ -321,7 +321,7 @@ Přesné instalační/build příkazy, hashe, metodická omezení a screenshot/l
 | Backend/runtime | `PARTIAL` | Fresh-clone install provenance; backendový HTTP restart už je current-SHA ověřen. |
 | Offline boundary | `MEASURED` | Před M6 opravit release-policy sentinel a aktivovat pravdivý PDF toolchain set. |
 | Capability picture | `DRAFT_COMPLETE` | 22/22 je v `SYSTEM-MAP.md`; operátorské přijetí neznamená automaticky PASS jednotlivých schopností. |
-| Studio/Theia | `PARTIAL / PRODUCT_FAIL` | Autoritativní runtime je chráněný a bounded Electron-main transport prošel focused i prospective live ověřením bez změny backend guardu. Zbývá odstranit Fonts egress a připnout fresh-clone negativní journey, 65s soak a clean shutdown. |
+| Studio/Theia | `PARTIAL` | Autoritativní runtime je chráněný, bounded Electron-main transport prošel prospective live ověřením a po odstranění Google Fonts dal fresh-profile diagnostický běh nulový egress. Zbývá připnout registered fresh-clone negativní journey, 65s soak a clean shutdown. |
 | L0-8 specialist boundary | `CARRIED_BLOCKER` | Vlastník: integrační vlastník `WP-M3-BOUNDARY`. Termín: před jeho prvním zapisujícím commitem; do té doby platí zákaz nových interních importů specialistů. |
 
 **WP-M0-E je diagnosticky dokončený takto:**
@@ -890,9 +890,9 @@ mohou pokračovat.
    autoritativní runtime; stale TS se archivuje a package `build`, `watch`,
    `clean` ani historický fix script jej nesmějí přepsat nebo smazat.
 4. **Aktivní práce:** bounded browser HTTP transport je implementovaný bez
-   oslabení backend guardu a prošel prospective production runtime ověřením.
-   Nyní odstranit Google Fonts outbound a potom zopakovat frozen build a
-   skutečný Theia→WS/HTTP negativní journey s bounded soakem a čistým shutdownem;
+   oslabení backend guardu a Google Fonts loadery jsou odstraněné bez vizuálního
+   kontraktu. Nyní zopakovat frozen build a skutečný Theia→WS/HTTP negativní
+   journey s nulovým egresssem, bounded soakem a čistým shutdownem;
    současné UI se ověřuje funkčně, nikoliv jako finální vizuální baseline.
 5. Operátorsky rozhodnout L0-8 nejpozději před `WP-M3-BOUNDARY`; M0 jej může
    uzavřít pouze jako explicitně pojmenovaný blocker s vlastníkem a termínem.

@@ -59,11 +59,6 @@ var C=Object.assign({},_C_DEFAULT);
 /* Font-size scaling — _fs(base) returns scaled px value, containers stay fixed */
 var _fsScale=1;
 function _fs(b){return Math.round(b*_fsScale*10)/10;}
-/* Load Google Fonts at startup — base fonts for settings + pro theme fonts */
-(function(){if(!document.getElementById('c3-base-fonts')){
-  var lk=document.createElement('link');lk.id='c3-base-fonts';lk.rel='stylesheet';
-  lk.href='https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Fira+Code:wght@400;500;600&display=swap';
-  document.head.appendChild(lk);}})();
 /* Glass background mappings for pro themes — used instead of solid hex for CSS vars */
 var _PRO_GLASS={
   matrix:{bg0:'transparent',bg1:'rgba(2,4,16,0.90)',bg2:'rgba(4,8,24,0.88)',bg3:'rgba(6,16,32,0.85)',bg4:'rgba(10,20,40,0.82)',bg5:'rgba(14,26,50,0.80)'},
@@ -148,12 +143,6 @@ function _injectProThemeCSS(themeId){
   var sid='c3-pro-theme-css';var ex=document.getElementById(sid);
   if(!ex){ex=document.createElement('style');ex.id=sid;document.head.appendChild(ex);}
   if(!themeId||themeId==='clean'){ex.textContent='';return;}
-  /* Load Google Fonts for pro themes */
-  if(!document.getElementById('c3-pro-fonts')){
-    var lk=document.createElement('link');lk.id='c3-pro-fonts';lk.rel='stylesheet';
-    lk.href='https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;600;700&family=Zen+Kaku+Gothic+Antique:wght@300;400;500;700&family=Yuji+Boku&family=Inter:wght@300;400;500;600;700&display=swap';
-    document.head.appendChild(lk);
-  }
   /* Targeted transparency on Theia wrapper containers only.
      Background image goes on body directly. React inline styles (C.bg*) provide glass. */
   function _pro(B,BLUR){return '\
