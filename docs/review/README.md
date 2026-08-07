@@ -3,6 +3,7 @@
 **Autor:** Claude (`claude-opus-5`), na žádost operátora
 **Založeno:** 2026-08-01 na `17a8b9a80137222233dceaf24a3d2cfbe55b06e0` (`codex/s1-legacy-loopback-containment`)
 **Naposledy doplněno:** 2026-08-07 o čtyři sondy měřené na `1fc8f03e649dd561fb279ce68e5c119d35faad55`
+a o `MODULE-GRAPH` měřený na `13701b2a500feac94d13322433721125793c4587`
 
 ---
 
@@ -53,8 +54,15 @@ zápis do `docs/convergence/`, `src/` a `tests/` má vlastní pravidla podle
 | [OUTBOUND-CENSUS](2026-08-07-OUTBOUND-CENSUS.md) | 08-07 | 82 call sites, empirická negativní kontrola, nálezy `OB-1`..`OB-3` |
 | [AUTH-MATRIX](2026-08-07-AUTH-MATRIX.md) | 08-07 | 272 route + WS povrch, negativní kontrola, nálezy `AM-1`..`AM-4` |
 | [SECRET-TYPES](2026-08-07-SECRET-TYPES.md) | 08-07 | Kategorie k rotaci, varianty remediace historie, nálezy `SEC-1`..`SEC-3` |
+| [MODULE-GRAPH](2026-08-07-MODULE-GRAPH.md) | 08-07 | Modulový graf `src/**`, mapa švů, dosažitelnost a cykly, nálezy `MG-1`..`MG-7` |
 
-Zadání, ze kterých čtyři srpnové sondy vznikly, jsou v [`docs/wp/`](../wp/).
+Zadání, ze kterých pět srpnových sond vzniklo, jsou v [`docs/wp/`](../wp/).
+
+`MODULE-GRAPH` má vedle reportu dva soubory, které jsou jeho součástí:
+[`2026-08-07-module-graph.mjs`](2026-08-07-module-graph.mjs) je měřidlo a
+[`2026-08-07-MODULE-GRAPH.json`](2026-08-07-MODULE-GRAPH.json) jeho strojově
+čitelný výstup. Nástroj **není zapojený do `package.json`** ani do L1 linky —
+leží u svého reportu, aby se dal spustit znovu, ne aby se spouštěl sám.
 
 ## Jak s tím naložit
 
