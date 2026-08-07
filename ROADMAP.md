@@ -321,7 +321,7 @@ Přesné instalační/build příkazy, hashe, metodická omezení a screenshot/l
 | Backend/runtime | `PARTIAL` | Fresh-clone install provenance; backendový HTTP restart už je current-SHA ověřen. |
 | Offline boundary | `MEASURED` | Před M6 opravit release-policy sentinel a aktivovat pravdivý PDF toolchain set. |
 | Capability picture | `DRAFT_COMPLETE` | 22/22 je v `SYSTEM-MAP.md`; operátorské přijetí neznamená automaticky PASS jednotlivých schopností. |
-| Studio/Theia | `PARTIAL` | Autoritativní runtime je chráněný a implicitní Google Fonts egress odstraněný. Ne-vizuální Electron boundary runner je registrovaný jako `BLOCKED`; jeho kontrakt zahrnuje striktní C3/Theia síťové oddělení, deterministický WS turn, 65s live-ready soak a clean shutdown. Zbývá skutečný fresh-clone install/build/runtime běh; existence runneru sama není acceptance evidence. |
+| Studio/Theia | `MEASURED` | Fresh clone na `7236d221` prošel instalací a buildem; po dvou zachovaných červených kalibračních bězích následovaly dva samostatné runtime `PASS` s nulovým egresssem, 65s live-ready soakem a čistým shutdownem. Runner zůstává registry `BLOCKED`, dokud auditní orchestrátor nedodá build envelope; M1 cancel/reconnect journey není hotový. |
 | L0-8 specialist boundary | `CARRIED_BLOCKER` | Vlastník: integrační vlastník `WP-M3-BOUNDARY`. Termín: před jeho prvním zapisujícím commitem; do té doby platí zákaz nových interních importů specialistů. |
 
 **WP-M0-E je diagnosticky dokončený takto:**
@@ -329,6 +329,15 @@ Přesné instalační/build příkazy, hashe, metodická omezení a screenshot/l
 Následný implementační checkpoint nepřipíná vzhled současného UI. Studio používá
 jen jako dočasný nosič runtime a přes CDP pozoruje výhradně síťový transport;
 DOM, screenshoty, CSS a privátní `_c3` session model jsou mimo kontrakt.
+
+**Aktuální automatizovaná revalidace (2026-08-08):** remote fresh clone na
+`7236d221` prošel `npm ci`, frozen Yarn instalací a production buildem. První
+běh skončil na časném pre-CDP `SIGTRAP`; druhý odhalil chybný předpoklad runneru
+o legacy `cre_decision`. Po opravě následovaly dva po sobě jdoucí `PASS`, oba
+exit `0`, s nulovým external/other-loopback provozem, přesným security
+trojúhelníkem, korelovaným deterministickým turnem, 65s live-ready soakem a
+čistými exity. Červené výsledky zůstávají v review balíčku a nepřeznačují se.
+Viz [`Studio Electron boundary evidence`](docs/review/2026-08-08-STUDIO-ELECTRON-BOUNDARY.md).
 
 1. **Výsledek:** operátor přijal, že skutečný source-of-truth je ručně
    udržovaný commitnutý `lib`;
@@ -903,11 +912,11 @@ mohou pokračovat.
 3. **Přijato a právě implementováno:** ručně udržovaný `lib` je současný
    autoritativní runtime; stale TS se archivuje a package `build`, `watch`,
    `clean` ani historický fix script jej nesmějí přepsat nebo smazat.
-4. **Aktivní práce:** bounded browser HTTP transport je implementovaný bez
-   oslabení backend guardu a Google Fonts loadery jsou odstraněné bez vizuálního
-   kontraktu. Nyní zopakovat frozen build a skutečný Theia→WS/HTTP negativní
-   journey s nulovým egresssem, bounded soakem a čistým shutdownem;
-   současné UI se ověřuje funkčně, nikoliv jako finální vizuální baseline.
+4. **Dokončený M0 runtime checkpoint:** bounded browser HTTP transport,
+   odstranění Google Fonts a fresh-clone Theia→WS/HTTP negativní journey mají
+   dva po sobě jdoucí `PASS` na `7236d221`. Současné UI bylo pouze funkčním
+   nosičem, ne vizuální baseline. Zbývá standardizovat build envelope, aby
+   registrovaná T5 sada nemusela pravdivě zůstávat `BLOCKED`.
 5. Operátorsky rozhodnout L0-8 nejpozději před `WP-M3-BOUNDARY`; M0 jej může
    uzavřít pouze jako explicitně pojmenovaný blocker s vlastníkem a termínem.
 6. Schválit celé navržené veřejné schéma `WP-M1-CONTRACT`: identitu a scope,
@@ -924,7 +933,7 @@ mohou pokračovat.
 | Rozhodnutí | Kdy je skutečně potřeba | Jaká evidence musí být na stole |
 |---|---|---|
 | Přijetí `PRODUCT.md` a `ROADMAP.md` | Teď, před uzavřením M0 | Tento 22/22 obraz, backend baseline, offline scan a známý Studio gap. |
-| Autoritativní Studio source/build disposition | Teď, před prvním zapisujícím Studio WP | WP-M0-E fresh-clone build/runtime diff, `docs/dev-checklist.md`, plný `lib` proti stale TS a dopad obou variant na funkční paritu. |
+| Autoritativní Studio source/build disposition | **Rozhodnuto 2026-08-07** | Commitnutý `lib` je runtime; stale TS je inertní archiv a současné UI není finální vizuální baseline. |
 | `degraded` versus terminální `error` po částečném tool výsledku | Před freeze M1 connectoru | Dvě ukázkové HTTP/WS odpovědi, persistence dopad a Studio UX obou variant. |
 | Streaming v 1.0 | Po přijetí non-streaming M1 baseline | Cold/warm whole-response latency, cílový TTFT a cena změny tří connectorů. |
 | Strict injection versus veřejná extension boundary pro L0-8 | Před M3-BOUNDARY | Skutečný import graph, specialista E2E a nejmenší prototyp obou variant. |

@@ -1,7 +1,8 @@
 # Studio CDP evidence contract
 
 **Stav:** implementovaný reducer a registrovaný `BLOCKED` runtime runner;
-skutečný fresh-clone běh ještě není acceptance evidence
+fresh-clone envelope na `7236d221` dal dva po sobě jdoucí runtime `PASS`, ale
+standardní auditní build envelope ještě není automatizovaný
 
 **Scope:** `WP-M0-E`, capability `C3-001`
 
@@ -87,12 +88,19 @@ Procesní cleanup potvrzuje exity a prázdnost audit-owned process group.
 Netvrdí ochranu proti potomkovi, který by úmyslně unikl přes novou session
 (`setsid()`); tvrdší důkaz by vyžadoval PID namespace nebo suite-owned cgroup.
 
-## Co ještě chybí
+## Fresh-clone výsledek a co ještě chybí
 
-Samotná existence runneru netvrdí `C3-001 PASS`. Je vedený jako `BLOCKED`, dokud
-fresh-clone envelope před jeho aktivací nedodá instalaci a produkční build a
-neproběhne tento kontrakt. Build je prerekvizitou envelope, nikoliv stavem,
-který si runner smí vyrobit během měření:
+Fresh clone z remote na `7236d221` provedl `npm ci`, frozen Yarn install a
+production build, vše exit `0`. Po opravě chybné interpretace legacy route
+eventu proběhly dva samostatné runtime běhy v nových privátních profilech; oba
+skončily `PASS`, exit `0`, se shodnými funkčními, síťovými, boundary a shutdown
+výsledky. Úplná chronologie včetně dvou předchozích červených kalibračních běhů
+je v [`2026-08-08-STUDIO-ELECTRON-BOUNDARY.md`](../review/2026-08-08-STUDIO-ELECTRON-BOUNDARY.md).
+
+Runner zůstává v registru `BLOCKED`, dokud standardní auditní orchestrátor
+nedodá vlastní frozen install/production-build envelope. Jednorázově ručně
+splněná prerekvizita není automatizovaná nightly acceptance evidence. Samotný
+runtime runner si build během měření správně nevyrábí. Ověřený kontrakt:
 
 1. pořídí snapshot až po minimálně 65 sekundách živého spojení;
 2. doloží sedm startup route rodin, skutečný `POST /api/settings` a WS provoz;

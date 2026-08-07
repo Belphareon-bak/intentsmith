@@ -4,7 +4,8 @@
 `24457ba2`; registry klasifikace byla opravena v `06309bc8`, post-fix scan
 aktuálního registru proběhl na `a85c344f` a izolovaný HTTP/restart baseline na
 `ac320335`. Fresh-clone Studio probe proběhl na dokumentačním HEAD `df8f1039`
-se zdrojovým stromem shodným s `ac320335`.**
+se zdrojovým stromem shodným s `ac320335`; registrovaný Electron boundary
+runner byl znovu fresh-clone ověřen na `7236d221`.**
 Neutrální dokument, nezávislý na nástroji.
 Pravidla vývoje: [`CONTRACT.md`](CONTRACT.md) · Detail: [`docs/inventory/`](docs/inventory/)
 
@@ -107,6 +108,22 @@ Detail, přesné build příkazy a lokální screenshot/logy jsou v
 získalo fresh-clone install/build a initial boot/chat pozorování, ale Studio
 část končí `PRODUCT_FAIL + STABILITY_INCONCLUSIVE`, ne `PASS`.
 
+Následná oprava zachovala autoritativní `lib`, odstranila Google Fonts egress a
+normalizovala opaque Electron Origin pouze za přesnou local capability. Na
+`7236d221` pak remote fresh clone prošel `npm ci`, frozen Yarn instalací a
+production buildem. První automatizovaný běh skončil časným pre-CDP `SIGTRAP`,
+druhý odkryl chybnou interpretaci legacy `cre_decision` v runneru. Po opravě
+proběhly dva samostatné `PASS`, exit `0`: 648 CDP událostí, nulový external i
+other-loopback provoz, přesný boundary trojúhelník, korelovaný deterministický
+turn bez provider requestu či efektu, nejméně 65 s live-ready a čisté exity
+Electronu i backendu. Současný vzhled nebyl hodnocen. Červené běhy i oba PASS
+artefakty jsou v
+[`docs/review/2026-08-08-STUDIO-ELECTRON-BOUNDARY.md`](docs/review/2026-08-08-STUDIO-ELECTRON-BOUNDARY.md).
+
+T5 runner zůstává registry `BLOCKED`, protože standardní auditní orchestrátor
+zatím nevyrábí jeho production build. To neanuluje current-host fresh-clone
+výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readiness.
+
 ---
 
 ## Rozsah
@@ -114,17 +131,16 @@ získalo fresh-clone install/build a initial boot/chat pozorování, ale Studio
 | | |
 |---|---:|
 | `src/**/*.js` | **144 944 ř.**, 405 souborů |
-| `tests/**/*.js` | **143 023 ř.**, 351 trackovaných `.js` souborů |
-| Registrovaných testových programů | **356** (`260 ACTIVE`, `81 BLOCKED`, `15 HISTORICAL`) |
+| `tests/**/*.js` | **146 899 ř.**, 354 trackovaných `.js` souborů |
+| Registrovaných testových programů | **359** (`262 ACTIVE`, `82 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v DB / migrací | 95 / 47 |
 | HTTP rout | ~230 |
 | **Schopností v `ACCEPTED/PASS`** | **1 z 22** (#2 CRE); #1 server/routing/DB je zatím `RUNTIME_VERIFIED` — jeho suite má 13 interních checků, zatímco behavior dokument obsahuje 16 řádků, takže tvrzení „13/13 chování“ není platný akceptační součet |
 
-Registry fingerprint po pravdivém external splitu je
-`35c590edcd7de9ecab6db870a0118e3ae67ff37ea99f58943c6b180ea04c60f4`.
-Post-fix scan jej váže na `a85c344f`; `lastGreen.commit` však zůstává prázdný a
-registry řádek sám proto není akceptační důkaz. Report SHA-256 je
-`a3af7b8531509c8be753ac87920dbeab9a5ac133d10634664a078c8c99925535`.
+Aktuální registry fingerprint je
+`a199104675cd861b939aa3f910f9d4ec441770d1eed2ad7e4e2a4da65bf45ee5`.
+Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
+fingerprint; současný registry řádek sám není akceptační důkaz.
 
 Tool census ze zdroje: **3 JavaScript soubory, 5 694 řádků, 153 top-level
 nástrojových deklarací**. Počet 213 v dřívější inventuře byl textový false count.
@@ -160,7 +176,7 @@ sám nikdy neposouvá schopnost na `USER_JOURNEY_VERIFIED`.
 | 18b | Explicitně vyvolaná kontrola navrhne upgrade, který lze schválit či odmítnout. | `RUNTIME_VERIFIED` | Úmyslný check→approve/reject→rollback a finální disposition. |
 | 19 | Explicitně otevřený katalog transakčně instaluje, aktualizuje či odebere balíček. | `EXISTS` | Lokální katalog a external install/rollback journey. |
 | 20 | Uživatel generuje, ruší a spravuje média bez konfliktu o VRAM. | `EXISTS` + `BROKEN` | Studio render I/O a neukončený `healthTimer`; chybí ComfyUI journey. |
-| 21 | Ve Studiu chatuje, vidí progress, ruší práci a po reconnectu obnoví stav. | `RUNTIME_VERIFIED` + `BROKEN` | Fresh-clone initial boot, WS a deterministický chat prošly; HTTP capability delivery vrací 403, Google Fonts vytváří tichý outbound a stabilita/clean shutdown nejsou prokázané. |
+| 21 | Ve Studiu chatuje, vidí progress, ruší práci a po reconnectu obnoví stav. | `RUNTIME_VERIFIED` + `BROKEN` | HTTP capability, nulový egress, deterministický WS turn, 65s soak a clean shutdown prošly dvakrát z fresh clone. Chybí dva panely, scoped cancel, reconnect/provider-failure journey a standardní build envelope; jeden dřívější pre-CDP `SIGTRAP` zůstává residual. |
 
 Souhrn: **1 `ACCEPTED/PASS`, 13 `RUNTIME_VERIFIED`, 8 `EXISTS`; 6 řádků
 mají dílčí `BROKEN`**. Žádná další schopnost zatím nemá obhajitelný stav

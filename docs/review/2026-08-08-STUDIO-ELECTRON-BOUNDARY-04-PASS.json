@@ -1,0 +1,396 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "intentsmith.studio-electron-boundary",
+  "sourceRevision": "7236d221b9f70669514d6910276e522c2bfe020c",
+  "verdict": "PASS",
+  "uiEvaluation": "excluded-non-final-ui",
+  "isolation": {
+    "networkNamespace": "owned-loopback-only",
+    "display": "scoped-x11",
+    "electronSandbox": "disabled-for-user-namespace-probe",
+    "ambientRuntimeEnvironment": "process-neutral-allowlist-only"
+  },
+  "build": {
+    "provenance": "fresh-clone-envelope-required",
+    "electronMainSha256": "1d2173c7907ebe77e2943171b324f3f8f783bfdbbd86332f53cb198d05ad7fce",
+    "frontendBundleSha256": "b3b6dd8059628c8752e2c7ee38fa593a995d372099df222689284ac840d47a26",
+    "frontendIndexSha256": "c2714b9f273ff3076b18a76119b6d09d16db11a572da306cbe866bcd64cd8e3f",
+    "preloadSha256": "85ee77c927b91fbe34ad48411a6d3c228957ac10a8de4ad306aecfa35de8b1f0"
+  },
+  "observation": {
+    "requiredDurationMs": 65000,
+    "actualDurationMs": 65885,
+    "networkCaptureDurationMs": 66659
+  },
+  "network": {
+    "snapshot": {
+      "schemaVersion": 2,
+      "counts": {
+        "events": 648,
+        "protectedHttp": 27,
+        "websockets": 1,
+        "theiaControlPlaneHttp": 5,
+        "theiaControlPlaneWebSockets": 1,
+        "ignored": 96,
+        "malformed": 0,
+        "ambiguous": 0,
+        "orphaned": 0,
+        "externalAttempts": 0,
+        "otherLoopbackAttempts": 0,
+        "unsupportedNetworkAttempts": 0
+      },
+      "http": [
+        {
+          "routeId": "agents-list",
+          "targetClass": "protected",
+          "methodClass": "GET",
+          "status": 200,
+          "statusClass": "2xx",
+          "terminalClass": "response",
+          "originClass": "opaque",
+          "fetchSiteClass": "cross-site",
+          "capabilityClass": "match",
+          "preflightClass": "not-applicable",
+          "allowOriginClass": "opaque",
+          "headerSource": "extra-info",
+          "responseSource": "extra-info",
+          "redirected": false,
+          "count": 3
+        },
+        {
+          "routeId": "api-health",
+          "targetClass": "protected",
+          "methodClass": "GET",
+          "status": 200,
+          "statusClass": "2xx",
+          "terminalClass": "response",
+          "originClass": "opaque",
+          "fetchSiteClass": "cross-site",
+          "capabilityClass": "match",
+          "preflightClass": "not-applicable",
+          "allowOriginClass": "opaque",
+          "headerSource": "extra-info",
+          "responseSource": "extra-info",
+          "redirected": false,
+          "count": 3
+        },
+        {
+          "routeId": "api-other",
+          "targetClass": "protected",
+          "methodClass": "GET",
+          "status": 200,
+          "statusClass": "2xx",
+          "terminalClass": "response",
+          "originClass": "opaque",
+          "fetchSiteClass": "cross-site",
+          "capabilityClass": "match",
+          "preflightClass": "not-applicable",
+          "allowOriginClass": "opaque",
+          "headerSource": "extra-info",
+          "responseSource": "extra-info",
+          "redirected": false,
+          "count": 2
+        },
+        {
+          "routeId": "conversations-list",
+          "targetClass": "protected",
+          "methodClass": "GET",
+          "status": 200,
+          "statusClass": "2xx",
+          "terminalClass": "response",
+          "originClass": "opaque",
+          "fetchSiteClass": "cross-site",
+          "capabilityClass": "match",
+          "preflightClass": "not-applicable",
+          "allowOriginClass": "opaque",
+          "headerSource": "extra-info",
+          "responseSource": "extra-info",
+          "redirected": false,
+          "count": 3
+        },
+        {
+          "routeId": "conversations-list",
+          "targetClass": "protected",
+          "methodClass": "POST",
+          "status": 201,
+          "statusClass": "2xx",
+          "terminalClass": "response",
+          "originClass": "opaque",
+          "fetchSiteClass": "cross-site",
+          "capabilityClass": "match",
+          "preflightClass": "not-applicable",
+          "allowOriginClass": "opaque",
+          "headerSource": "extra-info",
+          "responseSource": "extra-info",
+          "redirected": false,
+          "count": 1
+        },
+        {
+          "routeId": "expertises-list",
+          "targetClass": "protected",
+          "methodClass": "GET",
+          "status": 200,
+          "statusClass": "2xx",
+          "terminalClass": "response",
+          "originClass": "opaque",
+          "fetchSiteClass": "cross-site",
+          "capabilityClass": "match",
+          "preflightClass": "not-applicable",
+          "allowOriginClass": "opaque",
+          "headerSource": "extra-info",
+          "responseSource": "extra-info",
+          "redirected": false,
+          "count": 3
+        },
+        {
+          "routeId": "health-root",
+          "targetClass": "protected",
+          "methodClass": "GET",
+          "status": 200,
+          "statusClass": "2xx",
+          "terminalClass": "response",
+          "originClass": "opaque",
+          "fetchSiteClass": "cross-site",
+          "capabilityClass": "match",
+          "preflightClass": "not-applicable",
+          "allowOriginClass": "opaque",
+          "headerSource": "extra-info",
+          "responseSource": "extra-info",
+          "redirected": false,
+          "count": 4
+        },
+        {
+          "routeId": "media-history",
+          "targetClass": "protected",
+          "methodClass": "GET",
+          "status": 404,
+          "statusClass": "4xx",
+          "terminalClass": "response",
+          "originClass": "opaque",
+          "fetchSiteClass": "cross-site",
+          "capabilityClass": "match",
+          "preflightClass": "not-applicable",
+          "allowOriginClass": "opaque",
+          "headerSource": "extra-info",
+          "responseSource": "extra-info",
+          "redirected": false,
+          "count": 3
+        },
+        {
+          "routeId": "projects-list",
+          "targetClass": "protected",
+          "methodClass": "GET",
+          "status": 200,
+          "statusClass": "2xx",
+          "terminalClass": "response",
+          "originClass": "opaque",
+          "fetchSiteClass": "cross-site",
+          "capabilityClass": "match",
+          "preflightClass": "not-applicable",
+          "allowOriginClass": "opaque",
+          "headerSource": "extra-info",
+          "responseSource": "extra-info",
+          "redirected": false,
+          "count": 3
+        },
+        {
+          "routeId": "settings",
+          "targetClass": "protected",
+          "methodClass": "POST",
+          "status": 200,
+          "statusClass": "2xx",
+          "terminalClass": "response",
+          "originClass": "opaque",
+          "fetchSiteClass": "cross-site",
+          "capabilityClass": "match",
+          "preflightClass": "not-applicable",
+          "allowOriginClass": "opaque",
+          "headerSource": "extra-info",
+          "responseSource": "extra-info",
+          "redirected": false,
+          "count": 1
+        },
+        {
+          "routeId": "system-info",
+          "targetClass": "protected",
+          "methodClass": "GET",
+          "status": 200,
+          "statusClass": "2xx",
+          "terminalClass": "response",
+          "originClass": "opaque",
+          "fetchSiteClass": "cross-site",
+          "capabilityClass": "match",
+          "preflightClass": "not-applicable",
+          "allowOriginClass": "opaque",
+          "headerSource": "extra-info",
+          "responseSource": "extra-info",
+          "redirected": false,
+          "count": 1
+        }
+      ],
+      "websockets": [
+        {
+          "targetClass": "protected",
+          "routeId": "ws-bridge",
+          "handshakeStatus": 101,
+          "originClass": "opaque",
+          "capabilityProtocolClass": "match",
+          "requestProtocolSetClass": "exact",
+          "responseProtocolSetClass": "exact",
+          "protocolV1Offered": true,
+          "protocolV1Selected": true,
+          "sentFrames": 2,
+          "receivedFrames": 11,
+          "frameErrors": 0,
+          "closed": false,
+          "count": 1
+        }
+      ],
+      "theiaControlPlane": {
+        "http": [
+          {
+            "routeId": "theia-socket-io",
+            "targetClass": "theia-control-plane",
+            "transportClass": "polling",
+            "phaseClass": "polling-handshake",
+            "methodClass": "GET",
+            "status": 200,
+            "statusClass": "2xx",
+            "terminalClass": "response",
+            "responseSource": "extra-info",
+            "redirected": false,
+            "count": 1
+          },
+          {
+            "routeId": "theia-socket-io",
+            "targetClass": "theia-control-plane",
+            "transportClass": "polling",
+            "phaseClass": "polling-session",
+            "methodClass": "GET",
+            "status": 200,
+            "statusClass": "2xx",
+            "terminalClass": "response",
+            "responseSource": "extra-info",
+            "redirected": false,
+            "count": 2
+          },
+          {
+            "routeId": "theia-socket-io",
+            "targetClass": "theia-control-plane",
+            "transportClass": "polling",
+            "phaseClass": "polling-session",
+            "methodClass": "POST",
+            "status": 200,
+            "statusClass": "2xx",
+            "terminalClass": "response",
+            "responseSource": "extra-info",
+            "redirected": false,
+            "count": 2
+          }
+        ],
+        "websockets": [
+          {
+            "targetClass": "theia-control-plane",
+            "routeId": "theia-socket-io",
+            "transportClass": "websocket",
+            "phaseClass": "websocket-upgrade",
+            "handshakeStatus": 101,
+            "sentFrames": 192,
+            "receivedFrames": 205,
+            "frameErrors": 0,
+            "closed": false,
+            "count": 1
+          }
+        ]
+      },
+      "externalByScheme": {
+        "http": 0,
+        "https": 0,
+        "ws": 0,
+        "wss": 0
+      },
+      "anomalies": []
+    },
+    "evaluation": {
+      "verdict": "PASS",
+      "failures": []
+    }
+  },
+  "boundaryMatrix": [
+    {
+      "case": "cross-site-no-origin-with-capability",
+      "status": 403,
+      "outcome": "rejected"
+    },
+    {
+      "case": "opaque-origin-without-capability",
+      "status": 403,
+      "outcome": "rejected"
+    },
+    {
+      "case": "electron-opaque-origin-with-capability",
+      "status": 200,
+      "outcome": "accepted"
+    }
+  ],
+  "functional": {
+    "transport": "websocket",
+    "requestClass": "deterministic-arithmetic",
+    "conversationCreated": true,
+    "sent": true,
+    "turnStarts": 1,
+    "routingDecisions": 1,
+    "conversationRouteDecisions": 1,
+    "unexpectedRouteDecisions": 0,
+    "unexpectedAgentEvents": 0,
+    "assistantMessages": 1,
+    "turnEndsOk": 1,
+    "modelProviderRequestsDuringTurn": 0,
+    "forbiddenEffects": 0,
+    "errorSignals": 0,
+    "assistantMatches": true,
+    "assistantCorrelated": true,
+    "assistantModeValid": true,
+    "disconnected": false,
+    "orderValid": true,
+    "resultClass": "terminal-idle"
+  },
+  "soakLifecycle": {
+    "assistantMessages": 1,
+    "systemMessages": 0,
+    "disconnects": 0,
+    "turnStarts": 1,
+    "turnEnds": 1,
+    "routingDecisions": 1,
+    "conversationRouteDecisions": 1,
+    "unexpectedRouteDecisions": 0,
+    "unexpectedAgentEvents": 0,
+    "forbiddenEffects": 0,
+    "agentErrors": 0,
+    "idleSignals": 1
+  },
+  "shutdown": {
+    "electron": {
+      "started": true,
+      "exitCode": 0,
+      "signal": null,
+      "requestedSignal": "none",
+      "forced": false,
+      "processGroupClean": true
+    },
+    "backend": {
+      "started": true,
+      "exitCode": 0,
+      "signal": null,
+      "requestedSignal": "SIGTERM",
+      "forced": false,
+      "processGroupClean": true
+    },
+    "portFileRemoved": true,
+    "processGroupsClean": true
+  },
+  "diagnostics": {
+    "backendLogSha256": "627b3a1e4814b1a2a873d552521e48b31ac48f166468677188b62b1a9168fcd0",
+    "electronLogSha256": "0d81fcb5dcb6ea93903c9171ba7960f19f16ba25e8282c88b63748f1a3547c9c"
+  }
+}

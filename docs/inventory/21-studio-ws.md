@@ -205,3 +205,26 @@ Electron/CDP běh v blokovaném network namespace zachytil `external: []`, loká
 startup/POST transport zůstal funkční a Electron i backend skončily
 `code=0, signal=null`. Jde stále o diagnostický prospective-index běh; trvalý
 registered runner s negativním trojúhelníkem a soakem je další checkpoint.
+
+### Registrovaný fresh-clone boundary runner (2026-08-08)
+
+Na remote fresh clone přesného `7236d221` proběhly `npm ci`, frozen Yarn install
+a production Theia build, vše exit `0`. Současné UI nebylo testováno vizuálně:
+runner nepoužívá DOM, screenshoty ani privátní `_c3`; přes CDP sleduje síť a
+přes veřejné `C3WS.send`/`C3Bus` provede transportní journey.
+
+První běh skončil `FAIL electron-exited-before-cdp` po časném `SIGTRAP`. Druhý
+skončil `FAIL functional-websocket-probe-failed`, protože runner očekával
+`LOCAL` v legacy eventu `cre_decision`, který ve skutečnosti nese mode detection
+`conversation`. Po opravě testovacího kontraktu následovaly dva po sobě jdoucí
+`PASS`, oba exit `0`. V obou bylo 648 CDP událostí, nula external a
+other-loopback pokusů, přesně jeden C3 WS a jeden Theia WS, správný boundary
+trojúhelník, jeden korelovaný deterministický turn bez provider requestu či
+efektu, 65s live-ready soak a čisté exity obou procesů.
+
+Úplná chronologie a čtyři sanitizované JSON artefakty jsou v
+[`2026-08-08-STUDIO-ELECTRON-BOUNDARY.md`](../review/2026-08-08-STUDIO-ELECTRON-BOUNDARY.md).
+Raw profil, testovací DB, capability a logy nejsou commitnuté. Registrovaná T5
+sada zůstává `BLOCKED`, dokud nightly/audit orchestrátor neumí dodat frozen
+install a production-build envelope. Capability #21 tím není `PASS`: M1 stále
+musí ověřit multi-panel korelaci, scoped cancel, reconnect a provider failure.

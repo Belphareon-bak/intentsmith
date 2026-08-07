@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "intentsmith.studio-electron-boundary",
+  "sourceRevision": "4643b0e676ea42a275b01cabda28586f978ff579",
+  "verdict": "FAIL",
+  "uiEvaluation": "excluded-non-final-ui",
+  "failureCode": "functional-websocket-probe-failed"
+}
