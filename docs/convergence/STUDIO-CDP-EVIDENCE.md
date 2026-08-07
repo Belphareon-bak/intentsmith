@@ -65,11 +65,15 @@ autorita. Jen její striktní `/socket.io/` control-plane transport je oddělen 
 C3 backendu; jiný loopback cíl zůstává fail-closed.
 
 Funkční WS probe vytvoří vlastní konverzaci a požaduje korelovanou sekvenci
-`turn_start -> LOCAL decision -> právě jedna aritmeticky správná assistant
-odpověď -> turn_end(ok) -> idle`. Suite-owned model-provider sentinel navíc
-požaduje nula skutečně přijatých provider requestů během turnu; samotná absence
-`llm_*` událostí nestačí. Další CRE rozhodnutí, tool/effect event nebo error
-výsledek zneplatní. Oddělený monitor se instaluje až po transport-ready a od
+`turn_start -> právě jeden conversation route event -> právě jedna aritmeticky
+správná assistant odpověď -> turn_end(ok) -> idle`. Legacy event pojmenovaný
+`cre_decision` dnes publikuje mode detection (`conversation`), nikoli finální
+CRE intent (`LOCAL`); runner z něj proto netvrdí neexistující údaj ani neparsuje
+interní text `system_step` jako veřejný kontrakt. Determinismus dokládá přesný
+výsledek, nulový počet skutečně přijatých requestů suite-owned model-provider
+sentinel během turnu a nulové LLM/tool/edit efekty. Samotná absence `llm_*`
+událostí nestačí. Další route event, tool/effect event nebo error výsledek
+zneplatní. Oddělený monitor se instaluje až po transport-ready a od
 tohoto bodu zůstává aktivní plných nejméně 65 sekund; boot a celková síťová
 capture doba se evidují odděleně.
 

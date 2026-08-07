@@ -423,6 +423,10 @@ jádra:
 12. diagnostický Electron runtime skončil při teardownu po GPU fatalu
     `SIGTRAP`; kvůli namespace a `--no-sandbox` není stabilita ani produktový
     crash prokázaný a M1 journey musí otestovat bounded soak i clean shutdown.
+13. legacy WS event `cre_decision` dnes nese mode detection (`conversation`),
+    nikoli finální CRE intent (`LOCAL`). M0 runner proto determinismus dokládá
+    přesným výsledkem, nulovým provider provozem a nulovými efekty; M1 connector
+    musí pojmenování a sémantiku eventu sjednotit bez domýšlení chybějícího pole.
 
 ### Implementačně připravené Work Packages M1
 

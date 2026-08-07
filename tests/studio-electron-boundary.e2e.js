@@ -947,9 +947,9 @@ async function installSoakLifecycleMonitor(cdp) {
       disconnects: 0,
       turnStarts: 0,
       turnEnds: 0,
-      creDecisions: 0,
-      localDecisions: 0,
-      unexpectedDecisions: 0,
+      routingDecisions: 0,
+      conversationRouteDecisions: 0,
+      unexpectedRouteDecisions: 0,
       unexpectedAgentEvents: 0,
       forbiddenEffects: 0,
       agentErrors: 0,
@@ -964,9 +964,10 @@ async function installSoakLifecycleMonitor(cdp) {
         if (type === 'turn_start') counts.turnStarts += 1;
         else if (type === 'turn_end') counts.turnEnds += 1;
         else if (type === 'cre_decision') {
-          counts.creDecisions += 1;
-          if (wrapped?.event?.payload?.intent === 'LOCAL') counts.localDecisions += 1;
-          else counts.unexpectedDecisions += 1;
+          counts.routingDecisions += 1;
+          if (wrapped?.event?.payload?.intent === 'conversation') {
+            counts.conversationRouteDecisions += 1;
+          } else counts.unexpectedRouteDecisions += 1;
         } else if ([
           'llm_start',
           'llm_token',
@@ -1046,9 +1047,9 @@ async function rendererFunctionalWsProbe(cdp) {
       let idleOrder = null;
       const counts = {
         turnStarts: 0,
-        creDecisions: 0,
-        localDecisions: 0,
-        unexpectedDecisions: 0,
+        routingDecisions: 0,
+        conversationRouteDecisions: 0,
+        unexpectedRouteDecisions: 0,
         unexpectedAgentEvents: 0,
         assistantMessages: 0,
         turnEndsOk: 0,
@@ -1102,9 +1103,10 @@ async function rendererFunctionalWsProbe(cdp) {
         }
         if (!turnId || event.turnId !== turnId) return;
         if (event.type === 'cre_decision') {
-          counts.creDecisions += 1;
-          if (event.payload?.intent === 'LOCAL') counts.localDecisions += 1;
-          else counts.unexpectedDecisions += 1;
+          counts.routingDecisions += 1;
+          if (event.payload?.intent === 'conversation') {
+            counts.conversationRouteDecisions += 1;
+          } else counts.unexpectedRouteDecisions += 1;
         } else if ([
           'llm_start',
           'llm_token',
@@ -1288,9 +1290,9 @@ export function validateFunctional(result) {
     result?.conversationCreated === true
     && result.sent === true
     && result.turnStarts === 1
-    && result.creDecisions === 1
-    && result.localDecisions === 1
-    && result.unexpectedDecisions === 0
+    && result.routingDecisions === 1
+    && result.conversationRouteDecisions === 1
+    && result.unexpectedRouteDecisions === 0
     && result.unexpectedAgentEvents === 0
     && result.assistantMessages === 1
     && result.turnEndsOk === 1
@@ -1314,9 +1316,9 @@ export function validateSoakLifecycle(result) {
     && result.disconnects === 0
     && result.turnStarts === 1
     && result.turnEnds === 1
-    && result.creDecisions === 1
-    && result.localDecisions === 1
-    && result.unexpectedDecisions === 0
+    && result.routingDecisions === 1
+    && result.conversationRouteDecisions === 1
+    && result.unexpectedRouteDecisions === 0
     && result.unexpectedAgentEvents === 0
     && result.forbiddenEffects === 0
     && result.agentErrors === 0
@@ -1413,9 +1415,9 @@ export function successEvidence({
       conversationCreated: functional.conversationCreated,
       sent: functional.sent,
       turnStarts: functional.turnStarts,
-      creDecisions: functional.creDecisions,
-      localDecisions: functional.localDecisions,
-      unexpectedDecisions: functional.unexpectedDecisions,
+      routingDecisions: functional.routingDecisions,
+      conversationRouteDecisions: functional.conversationRouteDecisions,
+      unexpectedRouteDecisions: functional.unexpectedRouteDecisions,
       unexpectedAgentEvents: functional.unexpectedAgentEvents,
       assistantMessages: functional.assistantMessages,
       turnEndsOk: functional.turnEndsOk,
@@ -1435,9 +1437,9 @@ export function successEvidence({
       disconnects: soakMonitor.disconnects,
       turnStarts: soakMonitor.turnStarts,
       turnEnds: soakMonitor.turnEnds,
-      creDecisions: soakMonitor.creDecisions,
-      localDecisions: soakMonitor.localDecisions,
-      unexpectedDecisions: soakMonitor.unexpectedDecisions,
+      routingDecisions: soakMonitor.routingDecisions,
+      conversationRouteDecisions: soakMonitor.conversationRouteDecisions,
+      unexpectedRouteDecisions: soakMonitor.unexpectedRouteDecisions,
       unexpectedAgentEvents: soakMonitor.unexpectedAgentEvents,
       forbiddenEffects: soakMonitor.forbiddenEffects,
       agentErrors: soakMonitor.agentErrors,
