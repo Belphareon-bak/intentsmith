@@ -289,17 +289,18 @@ function strippedCzechTokens(markdown) {
   return markdownProse(markdown).match(strippedCzechTokenPattern) || [];
 }
 
-function rootReadmeMatchesRegistry(markdown, registry) {
-  const counts = registry.suites.reduce((result, suite) => {
-    result[suite.state] = (result[suite.state] || 0) + 1;
-    return result;
-  }, {});
-  return markdown.includes(`**${registry.suites.length} registrovaných testovacích programů**`)
-    && markdown.includes(
-      `(\`${counts.ACTIVE || 0} ACTIVE\`, \`${counts.BLOCKED || 0} BLOCKED\`, `
-      + `\`${counts.KNOWN_DEFECTIVE || 0} KNOWN_DEFECTIVE\`, `
-      + `\`${counts.HISTORICAL || 0} HISTORICAL\`)`,
-    );
+function rootReadmeHasCurrentUserPath(markdown) {
+  const requiredClaims = [
+    '**Stav: aktivní vývoj před 1.0.**',
+    '[docs/INSTALL.md](docs/INSTALL.md)',
+    '[docs/USAGE.md](docs/USAGE.md)',
+    '[PRODUCT.md](PRODUCT.md)',
+    '[SYSTEM-MAP.md](SYSTEM-MAP.md)',
+    './scripts/install.sh --minimal',
+    './scripts/run.sh',
+  ];
+  return requiredClaims.every(claim => markdown.includes(claim))
+    && !/registrovaných testovacích programů|\`\d+ ACTIVE\`/.test(markdown);
 }
 
 function currentToolInventory() {
@@ -343,16 +344,15 @@ function entrypointDocumentsAreValid(agentsMarkdown, claudeMarkdown) {
     && targets.every(target => existsSync(new URL(`../${target}`, import.meta.url)));
 }
 
-test('current README keeps restored Czech headings and prose', () => {
+test('documentation index keeps the current Czech user path and authority order', () => {
   assert(!docsReadme.includes('**Známé poškození:**'));
   for (const heading of [
-    '## Spuštění',
-    '### Nástroje & Bezpečnost',
-    '### Plánování & Vývoj',
-    '### Další',
-    '### Konverzační testy (vyžadují Ollama + GPU)',
+    '## Začínám jako uživatel',
+    '## Autoritativní dokumenty',
+    '## Technická práce',
+    '## Jak dokumentaci udržovat aktuální',
   ]) {
-    assert(docsReadme.includes(heading), `missing restored heading: ${heading}`);
+    assert(docsReadme.includes(heading), `missing current heading: ${heading}`);
   }
   const strippedTokens = strippedCzechTokens(docsReadme);
   assertEqual(
@@ -362,14 +362,13 @@ test('current README keeps restored Czech headings and prose', () => {
   );
 });
 
-test('root README state counts derive from the committed registry', () => {
-  assert(rootReadmeMatchesRegistry(rootReadme, committedRegistry));
+test('root README exposes the current user path without volatile registry counts', () => {
+  assert(rootReadmeHasCurrentUserPath(rootReadme));
 });
 
-test('root README rejects drift from the committed registry', () => {
-  assert(!rootReadmeMatchesRegistry(
-    rootReadme.replace('`261 ACTIVE`', '`260 ACTIVE`'),
-    committedRegistry,
+test('root README rejects a missing measured-state authority link', () => {
+  assert(!rootReadmeHasCurrentUserPath(
+    rootReadme.replaceAll('[SYSTEM-MAP.md](SYSTEM-MAP.md)', 'SYSTEM-MAP'),
   ));
 });
 
