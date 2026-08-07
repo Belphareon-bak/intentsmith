@@ -116,9 +116,10 @@ Options:
   --profile=a,b                 Include only explicit registry profiles
   --suite=ID[,ID]               Include only exact stable registry IDs
   --exclude=a,b                 Exclude profiles
-  --allow-blocker=ollama,gpu    Permit soft local prerequisites
+  --allow-blocker=ollama,gpu    Permit exact named local prerequisites
+                                 (toolchains require toolchain:<name>)
   --no-block                    Bypass soft blockers in disposable fixtures
-                                 (never state, external-network, or unowned server)
+                                 (never state, external-network, server, or toolchains)
   --allow-dirty                 Permit non-dry-run audits from a dirty worktree
   --timeout-minutes=N           Per-suite timeout, default 10
   --deadline-hours=N            Total deadline, default 8
@@ -158,7 +159,69 @@ function blockersFor(suite) {
   if (suite.requirements.gpu) blockers.add('gpu');
   if (suite.requirements.modelFixture) blockers.add('model-fixture');
   if (suite.requirements.network === 'external') blockers.add('external-network');
+  for (const toolchain of suite.requirements.toolchain || []) {
+    blockers.add(`toolchain:${toolchain}`);
+  }
   return [...blockers].sort();
+}
+
+function blockerIsDisallowed(blocker, opts) {
+  if (blocker === 'model-fixture') return false;
+  if (isHardBlocker(blocker)) return true;
+  if (blocker.startsWith('toolchain:')) {
+    return !opts.allowBlockers.has(blocker);
+  }
+  return !opts.noBlock && !opts.allowBlockers.has(blocker);
+}
+
+async function prepareToolchainEnvironment(suite, opts, hostEnv = process.env) {
+  const declared = new Set(suite.requirements.toolchain || []);
+  const result = { ok: true, blockers: [], env: {}, forwardedKeys: [] };
+  if (!declared.has('x11-display')) return result;
+  if (!opts.allowBlockers.has('toolchain:x11-display')) return result;
+
+  const display = hostEnv.INTENTSMITH_STUDIO_DISPLAY || hostEnv.DISPLAY;
+  if (typeof display !== 'string' || display.length === 0) {
+    return { ...result, ok: false, blockers: ['toolchain:x11-display:missing-display'] };
+  }
+  if (!/^:\d+(?:\.\d+)?$/.test(display)) {
+    return { ...result, ok: false, blockers: ['toolchain:x11-display:invalid-display'] };
+  }
+
+  const xauthority = hostEnv.INTENTSMITH_STUDIO_XAUTHORITY || hostEnv.XAUTHORITY;
+  if (typeof xauthority !== 'string' || !path.isAbsolute(xauthority)) {
+    return { ...result, ok: false, blockers: ['toolchain:x11-display:missing-xauthority'] };
+  }
+  let metadata;
+  try {
+    metadata = await lstat(xauthority);
+  } catch {
+    return { ...result, ok: false, blockers: ['toolchain:x11-display:invalid-xauthority'] };
+  }
+  const ownedByCurrentUser = typeof process.getuid !== 'function'
+    || !Number.isInteger(metadata.uid)
+    || metadata.uid === process.getuid();
+  if (
+    !metadata.isFile()
+    || metadata.isSymbolicLink()
+    || !ownedByCurrentUser
+    || (metadata.mode & 0o077) !== 0
+    || (metadata.mode & 0o400) === 0
+  ) {
+    return { ...result, ok: false, blockers: ['toolchain:x11-display:invalid-xauthority'] };
+  }
+
+  return {
+    ...result,
+    env: {
+      INTENTSMITH_STUDIO_DISPLAY: display,
+      INTENTSMITH_STUDIO_XAUTHORITY: xauthority,
+    },
+    forwardedKeys: [
+      'INTENTSMITH_STUDIO_DISPLAY',
+      'INTENTSMITH_STUDIO_XAUTHORITY',
+    ],
+  };
 }
 
 export async function runAudit(options = {}) {
@@ -289,13 +352,9 @@ export async function runAudit(options = {}) {
       const suite = await nextSuite();
       if (!suite) return;
 
-      const disallowedBlockers = suite.blockers.filter(blocker => (
-        blocker !== 'model-fixture'
-        && (
-          isHardBlocker(blocker)
-        || (!opts.noBlock && !opts.allowBlockers.has(blocker))
-        )
-      ));
+      const disallowedBlockers = suite.blockers.filter(
+        blocker => blockerIsDisallowed(blocker, opts),
+      );
       let result;
       if (requestedTerminationSignal) {
         result = makeSkippedResult(
@@ -306,25 +365,35 @@ export async function runAudit(options = {}) {
       } else if (disallowedBlockers.length) {
         result = makeBlockedResult(suite, sourceRevision, disallowedBlockers);
       } else {
-        const modelFixturePreflight = suite.requirements.modelFixture
-          ? await runModelFixturePreflight(suite, opts)
-          : null;
-        if (modelFixturePreflight && !modelFixturePreflight.ok) {
+        const toolchainPreflight = await prepareToolchainEnvironment(suite, opts);
+        if (!toolchainPreflight.ok) {
           result = makeBlockedResult(
             suite,
             sourceRevision,
-            modelFixturePreflight.issues.map(issue => `model-fixture:${issue.code}`),
-            modelFixturePreflight,
+            toolchainPreflight.blockers,
           );
         } else {
-          result = await runSuite({
-            suite,
-            opts,
-            sourceRevision,
-            logsDir,
-            deadlineAt,
-            modelFixturePreflight,
-          });
+          const modelFixturePreflight = suite.requirements.modelFixture
+            ? await runModelFixturePreflight(suite, opts)
+            : null;
+          if (modelFixturePreflight && !modelFixturePreflight.ok) {
+            result = makeBlockedResult(
+              suite,
+              sourceRevision,
+              modelFixturePreflight.issues.map(issue => `model-fixture:${issue.code}`),
+              modelFixturePreflight,
+            );
+          } else {
+            result = await runSuite({
+              suite,
+              opts,
+              sourceRevision,
+              logsDir,
+              deadlineAt,
+              modelFixturePreflight,
+              toolchainPreflight,
+            });
+          }
         }
       }
 
@@ -433,6 +502,7 @@ async function runSuite({
   logsDir,
   deadlineAt,
   modelFixturePreflight = null,
+  toolchainPreflight = null,
 }) {
   if (requestedTerminationSignal) {
     return makeSkippedResult(
@@ -513,6 +583,8 @@ async function runSuite({
     xdgDataDir,
     xdgStateDir,
     gitConfigPath,
+    toolchainEnvironment: toolchainPreflight?.env,
+    forwardedToolchainKeys: toolchainPreflight?.forwardedKeys,
   });
 
   writeLog(log, logError, `$ ${suite.command.join(' ')}\n`);
@@ -709,6 +781,8 @@ function makeSuiteEnvironment({
   xdgDataDir,
   xdgStateDir,
   gitConfigPath,
+  toolchainEnvironment = {},
+  forwardedToolchainKeys = [],
 }) {
   const inheritedKeys = [
     'PATH',
@@ -761,6 +835,7 @@ function makeSuiteEnvironment({
     C3_LOG_LEVEL: 'warn',
     PYTHONNOUSERSITE: '1',
   });
+  Object.assign(env, toolchainEnvironment);
 
   if (suite.requirements.server) env.C3_URL = 'http://127.0.0.1:3335';
   if (suite.requirements.ollama) env.OLLAMA_URL = 'http://127.0.0.1:11434';
@@ -770,6 +845,7 @@ function makeSuiteEnvironment({
     evidence: {
       inheritedKeys: inheritedKeys.filter(key => process.env[key] !== undefined),
       forwardedRuntimeKeys: pdfRuntimeKeys.filter(key => process.env[key] !== undefined),
+      forwardedToolchainKeys: [...forwardedToolchainKeys],
       sourceRevision: env.INTENTSMITH_TEST_SOURCE_REVISION,
       home: homeDir,
       temp: tempDir,

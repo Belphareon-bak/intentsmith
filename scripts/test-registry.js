@@ -25,6 +25,7 @@ const TEST_STATES = new Set([
   'HISTORICAL',
 ]);
 const NETWORK_REQUIREMENTS = new Set(['none', 'loopback', 'external']);
+const TOOLCHAIN_NAME_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 const OFFLINE_OWNED_LOOPBACK_FIXTURE =
   'isolated-home-and-owned-loopback-server';
 const MODEL_FIXTURE_REQUIRED_SUITE_IDS = new Set([
@@ -208,12 +209,14 @@ export function validateTestRegistry(registry, candidates) {
         const named = Array.isArray(requirements.toolchain)
           && requirements.toolchain.length > 0
           && requirements.toolchain.every(
-            name => typeof name === 'string' && name.trim().length > 0,
+            name => typeof name === 'string' && TOOLCHAIN_NAME_PATTERN.test(name),
           );
         if (!named) {
           errors.push(
-            `${label}.requirements.toolchain must be a non-empty array of names`,
+            `${label}.requirements.toolchain must be a non-empty array of canonical names`,
           );
+        } else if (new Set(requirements.toolchain).size !== requirements.toolchain.length) {
+          errors.push(`${label}.requirements.toolchain must not contain duplicates`);
         }
       }
       if (
@@ -221,7 +224,7 @@ export function validateTestRegistry(registry, candidates) {
         && !hasConcreteBlockedPrerequisite(suite)
       ) {
         errors.push(
-          `${label} BLOCKED state requires external network, server, ollama, or gpu`,
+          `${label} BLOCKED state requires external network, server, ollama, gpu, or a named toolchain`,
         );
       }
       if (suite.profile === 'offline') {
@@ -482,6 +485,9 @@ function formatRequirements(requirements) {
   if (requirements.server) values.push('server');
   if (requirements.ollama) values.push('ollama');
   if (requirements.gpu) values.push('gpu');
+  for (const toolchain of requirements.toolchain || []) {
+    values.push(`toolchain:${toolchain}`);
+  }
   if (requirements.modelFixture) {
     const fixture = requirements.modelFixture;
     values.push(

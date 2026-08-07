@@ -50,6 +50,7 @@ import {
   buildRegistryGateFacts,
 } from '../scripts/gate0-evidence-projections.js';
 import { validateTestRegistry } from '../scripts/test-registry.js';
+import { registryBlockersFor } from '../scripts/nightly-orchestrator.js';
 import {
   auditResultLogIdentityErrors,
   buildGate0Clauses,
@@ -401,11 +402,45 @@ test('BLOCKED registry rows require a concrete parent-verifiable prerequisite', 
   ];
   const errors = validateTestRegistry(registry, candidates);
   assert(errors.some(error => error.includes(
-    'BLOCKED state requires external network, server, ollama, or gpu',
+    'BLOCKED state requires external network, server, ollama, gpu, or a named toolchain',
   )));
   assert(buildRegistryGateFacts(registry).blockedWithoutPrerequisite.includes(
     suiteRecord.id,
   ));
+});
+
+test('registry toolchain prerequisites use unique canonical names', () => {
+  const candidates = [
+    ...committedRegistry.suites.map(suite => suite.path),
+    ...committedRegistry.exclusions.map(exclusion => exclusion.path),
+  ];
+  const invalid = JSON.parse(JSON.stringify(committedRegistry));
+  invalid.suites[0].requirements.toolchain = ['x11-display', 'X11 display'];
+  assert(validateTestRegistry(invalid, candidates).some(error => (
+    error.includes('non-empty array of canonical names')
+  )));
+
+  const duplicate = JSON.parse(JSON.stringify(committedRegistry));
+  duplicate.suites[0].requirements.toolchain = ['x11-display', 'x11-display'];
+  assert(validateTestRegistry(duplicate, candidates).some(error => (
+    error.includes('must not contain duplicates')
+  )));
+});
+
+test('release orchestrator mirrors exact registry toolchain blockers', () => {
+  assertEqual(
+    JSON.stringify(registryBlockersFor({
+      state: 'ACTIVE',
+      requirements: {
+        network: 'none',
+        server: false,
+        ollama: false,
+        gpu: false,
+        toolchain: ['x11-display', 'iproute2'],
+      },
+    })),
+    JSON.stringify(['toolchain:iproute2', 'toolchain:x11-display']),
+  );
 });
 
 test('agent entrypoints are identical pointers to existing authorities', () => {

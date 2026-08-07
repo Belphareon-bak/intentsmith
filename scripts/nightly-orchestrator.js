@@ -1646,7 +1646,7 @@ function countValues(values) {
   return counts;
 }
 
-function registryBlockersFor(suite) {
+export function registryBlockersFor(suite) {
   const blockers = new Set();
   if (suite.state !== 'ACTIVE') blockers.add(`state-${String(suite.state).toLowerCase()}`);
   if (suite.requirements.server) blockers.add('server');
@@ -1654,6 +1654,9 @@ function registryBlockersFor(suite) {
   if (suite.requirements.gpu) blockers.add('gpu');
   if (suite.requirements.modelFixture) blockers.add('model-fixture');
   if (suite.requirements.network === 'external') blockers.add('external-network');
+  for (const toolchain of suite.requirements.toolchain || []) {
+    blockers.add(`toolchain:${toolchain}`);
+  }
   return [...blockers].sort();
 }
 

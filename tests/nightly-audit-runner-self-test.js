@@ -38,6 +38,10 @@ const tempRoots = new Set();
 const activeSignalFixtures = new Set();
 const sourceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const originalUmask = process.umask();
+const originalStudioDisplay = process.env.INTENTSMITH_STUDIO_DISPLAY;
+const originalStudioXauthority = process.env.INTENTSMITH_STUDIO_XAUTHORITY;
+const originalDisplay = process.env.DISPLAY;
+const originalXauthority = process.env.XAUTHORITY;
 const EXECUTION_FIXTURE_TIMEOUT_MS = 1_000;
 let permissiveUmaskActive = false;
 const modelFixtureOnly = process.argv.slice(2).includes('--model-fixture-only');
@@ -436,6 +440,10 @@ writeFileSync(path.join(process.env.TMPDIR, 'observed-env.json'), JSON.stringify
   C3_DB_PATH: process.env.C3_DB_PATH,
   INTENTSMITH_PDF_PYTHON: process.env.INTENTSMITH_PDF_PYTHON,
   C3_PDF_PYTHON: process.env.C3_PDF_PYTHON,
+  DISPLAY: process.env.DISPLAY,
+  XAUTHORITY: process.env.XAUTHORITY,
+  INTENTSMITH_STUDIO_DISPLAY: process.env.INTENTSMITH_STUDIO_DISPLAY,
+  INTENTSMITH_STUDIO_XAUTHORITY: process.env.INTENTSMITH_STUDIO_XAUTHORITY,
   INTENTSMITH_TEST_SOURCE_REVISION: process.env.INTENTSMITH_TEST_SOURCE_REVISION,
   PYTHONNOUSERSITE: process.env.PYTHONNOUSERSITE,
   TEST_SECRET_SENTINEL: process.env.TEST_SECRET_SENTINEL,
@@ -593,6 +601,10 @@ assert.equal(
 assert.equal(observedEnv.C3_DB_PATH, byPath.get('tests/pass.test.js').environment.database);
 assert.equal(observedEnv.INTENTSMITH_PDF_PYTHON, expectedPdfPython);
 assert.equal(observedEnv.C3_PDF_PYTHON, expectedPdfPython);
+assert.equal(observedEnv.DISPLAY, undefined);
+assert.equal(observedEnv.XAUTHORITY, undefined);
+assert.equal(observedEnv.INTENTSMITH_STUDIO_DISPLAY, undefined);
+assert.equal(observedEnv.INTENTSMITH_STUDIO_XAUTHORITY, undefined);
 assert.equal(observedEnv.INTENTSMITH_TEST_SOURCE_REVISION, 'unknown');
 assert.equal(observedEnv.PYTHONNOUSERSITE, '1');
 assert.equal(observedEnv.TEST_SECRET_SENTINEL, undefined);
@@ -962,6 +974,154 @@ assert.equal(blockedRun.verdict, 'BLOCKED');
 assert.equal(blockedRun.exitCode, 2);
 assert.deepEqual(blockedRun.results[0].blockedBy, ['server']);
 
+const toolchainRoot = await makeTempDirectory(
+  path.join(os.tmpdir(), 'c3-audit-runner-toolchain-'),
+);
+await mkdir(path.join(toolchainRoot, 'tests'), { recursive: true });
+await writeFile(path.join(toolchainRoot, 'tests', 'toolchain.test.js'), `
+import { writeFileSync } from 'node:fs';
+import path from 'node:path';
+writeFileSync(
+  path.join(process.env.INTENTSMITH_TEST_ARTIFACT_DIR, 'toolchain-env.json'),
+  JSON.stringify({
+    scopedDisplay: process.env.INTENTSMITH_STUDIO_DISPLAY,
+    scopedXauthorityPresent: Boolean(process.env.INTENTSMITH_STUDIO_XAUTHORITY),
+    rawDisplay: process.env.DISPLAY,
+    rawXauthority: process.env.XAUTHORITY,
+  }),
+);
+`);
+const toolchainNames = [
+  'linux-user-network-namespace',
+  'iproute2',
+  'x11-display',
+];
+await writeFixtureRegistry(toolchainRoot, ['tests/toolchain.test.js'], {
+  requirements: {
+    network: 'none',
+    database: false,
+    server: false,
+    ollama: false,
+    gpu: false,
+    toolchain: toolchainNames,
+  },
+});
+const runToolchainFixture = (runId, options = {}) => runAudit({
+  root: toolchainRoot,
+  outDir: 'data/artifacts/audit-runs',
+  runId,
+  timeoutMs: 5_000,
+  deadlineMs: 10_000,
+  concurrency: 1,
+  allowDirty: true,
+  ...options,
+});
+const expectedToolchainBlockers = toolchainNames
+  .map(name => `toolchain:${name}`)
+  .sort();
+
+const toolchainDefault = await runToolchainFixture('toolchain-default');
+assert.deepEqual(toolchainDefault.results[0].blockedBy, expectedToolchainBlockers);
+assert.equal(toolchainDefault.verdict, 'BLOCKED');
+
+const toolchainNoBlock = await runToolchainFixture('toolchain-no-block', {
+  noBlock: true,
+});
+assert.deepEqual(toolchainNoBlock.results[0].blockedBy, expectedToolchainBlockers);
+
+const toolchainPartial = await runToolchainFixture('toolchain-partial', {
+  allowBlockers: new Set([
+    'toolchain:linux-user-network-namespace',
+    'toolchain:iproute2',
+  ]),
+});
+assert.deepEqual(toolchainPartial.results[0].blockedBy, ['toolchain:x11-display']);
+
+const toolchainGeneric = await runToolchainFixture('toolchain-generic', {
+  noBlock: true,
+  allowBlockers: new Set(['toolchain']),
+});
+assert.deepEqual(toolchainGeneric.results[0].blockedBy, expectedToolchainBlockers);
+
+const allToolchainAllows = new Set(expectedToolchainBlockers);
+const xauthorityPath = path.join(toolchainRoot, 'xauthority');
+await writeFile(xauthorityPath, 'owned-xauthority', { mode: 0o600 });
+delete process.env.INTENTSMITH_STUDIO_DISPLAY;
+delete process.env.DISPLAY;
+delete process.env.INTENTSMITH_STUDIO_XAUTHORITY;
+delete process.env.XAUTHORITY;
+const missingDisplay = await runToolchainFixture('toolchain-missing-display', {
+  allowBlockers: allToolchainAllows,
+});
+assert.deepEqual(
+  missingDisplay.results[0].blockedBy,
+  ['toolchain:x11-display:missing-display'],
+);
+
+process.env.INTENTSMITH_STUDIO_DISPLAY = ':77';
+const missingXauthority = await runToolchainFixture('toolchain-missing-xauthority', {
+  allowBlockers: allToolchainAllows,
+});
+assert.deepEqual(
+  missingXauthority.results[0].blockedBy,
+  ['toolchain:x11-display:missing-xauthority'],
+);
+
+process.env.INTENTSMITH_STUDIO_DISPLAY = ':77';
+process.env.INTENTSMITH_STUDIO_XAUTHORITY = xauthorityPath;
+const toolchainAllowed = await runToolchainFixture('toolchain-allowed', {
+  allowBlockers: allToolchainAllows,
+});
+assert.equal(toolchainAllowed.results[0].status, 'PASS');
+assert.deepEqual(
+  toolchainAllowed.results[0].environment.forwardedToolchainKeys,
+  ['INTENTSMITH_STUDIO_DISPLAY', 'INTENTSMITH_STUDIO_XAUTHORITY'],
+);
+const toolchainChildEnvironment = JSON.parse(await readFile(
+  path.join(
+    toolchainAllowed.results[0].environment.artifacts,
+    'toolchain-env.json',
+  ),
+  'utf8',
+));
+assert.deepEqual(toolchainChildEnvironment, {
+  scopedDisplay: ':77',
+  scopedXauthorityPresent: true,
+});
+
+process.env.INTENTSMITH_STUDIO_DISPLAY = 'remote.example:77';
+const invalidDisplay = await runToolchainFixture('toolchain-invalid-display', {
+  allowBlockers: allToolchainAllows,
+});
+assert.deepEqual(
+  invalidDisplay.results[0].blockedBy,
+  ['toolchain:x11-display:invalid-display'],
+);
+
+process.env.INTENTSMITH_STUDIO_DISPLAY = ':77';
+const xauthoritySymlink = path.join(toolchainRoot, 'xauthority-link');
+await symlink(xauthorityPath, xauthoritySymlink);
+process.env.INTENTSMITH_STUDIO_XAUTHORITY = xauthoritySymlink;
+const symlinkedXauthority = await runToolchainFixture('toolchain-symlink-xauthority', {
+  allowBlockers: allToolchainAllows,
+});
+assert.deepEqual(
+  symlinkedXauthority.results[0].blockedBy,
+  ['toolchain:x11-display:invalid-xauthority'],
+);
+
+const permissiveXauthority = path.join(toolchainRoot, 'xauthority-permissive');
+await writeFile(permissiveXauthority, 'permissive-xauthority', { mode: 0o644 });
+process.env.INTENTSMITH_STUDIO_XAUTHORITY = permissiveXauthority;
+const permissiveXauthorityRun = await runToolchainFixture(
+  'toolchain-permissive-xauthority',
+  { allowBlockers: allToolchainAllows },
+);
+assert.deepEqual(
+  permissiveXauthorityRun.results[0].blockedBy,
+  ['toolchain:x11-display:invalid-xauthority'],
+);
+
 const logOpenFailureRoot = await makeTempDirectory(
   path.join(os.tmpdir(), 'c3-audit-runner-log-open-failure-'),
 );
@@ -1190,6 +1350,10 @@ console.log(
   delete process.env.TEST_SECRET_SENTINEL;
   delete process.env.INTENTSMITH_PDF_PYTHON;
   delete process.env.C3_PDF_PYTHON;
+  restoreEnvironmentValue('INTENTSMITH_STUDIO_DISPLAY', originalStudioDisplay);
+  restoreEnvironmentValue('INTENTSMITH_STUDIO_XAUTHORITY', originalStudioXauthority);
+  restoreEnvironmentValue('DISPLAY', originalDisplay);
+  restoreEnvironmentValue('XAUTHORITY', originalXauthority);
   if (permissiveUmaskActive) process.umask(originalUmask);
   for (const fixture of activeSignalFixtures) {
     await cleanupRunnerSignalFixture(fixture).catch(() => {});
@@ -1197,6 +1361,11 @@ console.log(
   for (const tempRoot of [...tempRoots].reverse()) {
     await rm(tempRoot, { recursive: true, force: true });
   }
+}
+
+function restoreEnvironmentValue(name, value) {
+  if (value === undefined) delete process.env[name];
+  else process.env[name] = value;
 }
 
 async function waitForProcessExit(pid) {
