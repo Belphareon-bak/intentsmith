@@ -199,6 +199,7 @@ Chronologicky, s důvodem. Tohle je ta část, která se z kódu odvodit nedá.
 | 2026-08-03 | **První podporovaná platforma je Linux + Theia + Ollama** | Na této kombinaci se měří install, runtime, GPU a release kvalita; další platformy nejsou pro 1.0 garantované. |
 | 2026-08-07 | **Commitnutý `c3-chat-panel/lib` je současný autoritativní Studio runtime; stale TypeScript je pouze archiv.** | Package `build` ani `clean` jej nesmí přepsat nebo smazat. Případná budoucí relokace bude samostatná behavior-preserving změna, ne přepis funkčního UI. |
 | 2026-08-07 | **Současné Studio UI není finální vizuální ani UX baseline.** | M0/M1 testy připínají funkční transport, security boundary, protokol, stabilitu a lifecycle; dnešní layout, styling a screenshot se nesmí povýšit na finální produktový kontrakt. |
+| 2026-08-07 | **Chybějící browser `Origin` se normalizuje v Electron main pouze pro přesný capability-autorizovaný opaque Studio request.** | Existující renderer capability shim zůstává jediným producentem headeru. Main doplní jen `Origin: null`; nemění `Sec-Fetch-Site`, cíl ani capability. Legacy backend guard se neoslabuje a všechny neshody zůstávají fail-closed. |
 
 ### Co to znamená pro rozsah
 

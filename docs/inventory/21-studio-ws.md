@@ -154,3 +154,34 @@ funkční hranice: start, HTTP/WS, security, outbound, soak a clean shutdown.
 Nezávisle na této volbě musí Studio repair zavřít browser capability delivery,
 Google Fonts egress a přidat skutečný Electron boundary test. Do té doby je
 #21 `RUNTIME_VERIFIED + BROKEN`, nikoliv `PASS`.
+
+### Ohraničená oprava HTTP transportu (2026-08-07)
+
+Root cause se neopravuje druhým renderer shimem ani oslabením serveru. Existující
+`c3-local-http-bootstrap.js` dál přidává capability pouze pro přesný backend
+origin. Nový Electron-main normalizer doplní pravdivé `Origin: null` pouze tehdy,
+když současně souhlasí privátní port file, capability v constant-time porovnání,
+přesný loopback origin a chráněná cesta, metoda/XHR, top-level frame a přesný
+`file://.../lib/frontend/index.html`. Oddělená preflight větev přijme jen
+deklarovanou podporovanou metodu a header names z množiny `Content-Type` +
+capability, přičemž capability header musí být deklarovaný, ale jeho tajná
+hodnota na preflightu být nesmí. Pojmenovaný nebo již přítomný `Origin`,
+cizí frame/cíl/cesta, chybějící či duplicitní capability a neprivátní nebo
+symlinkovaný port file končí beze změny requestu. `Sec-Fetch-Site` se nepřepisuje
+a backendová policy se nemění.
+
+Prospective index byl zkopírován mimo pracovní checkout a proti již zamčeným
+lokálním závislostem prošel production build (`corepack yarn build`, exit `0`,
+pět existujících webpack warnings). Osm autoritativních chat-panel runtime
+souborů zůstalo byteově identických. Skutečný Electron běh v odděleném
+user/network namespace potom potvrdil na wire capability + opaque origin a
+`200` pro startup HTTP cesty i skutečný `POST /api/settings`; volitelná
+`/api/media/history` při vypnutém ComfyUI skončila aplikačním `404`, nikoliv
+boundary `403`. Electron i backend skončily `code=0, signal=null`.
+
+Focused evidence: `tests/upgrade-ux-v125.test.js` **78/78**,
+`tests/ws-bridge.test.js` **64/64** a repository hygiene **1 414** trackovaných
+cest, vše exit `0`. Běh byl zatím diagnostický: používá necommitnutý CDP reducer,
+ještě neprovádí negativní trojúhelník ani 65sekundový soak a stále zachytil
+Google Fonts pokus. Proto transportní implementace sama #21 neuzavírá; závazný
+fresh-clone journey a odstranění egressu jsou následující checkpointy.

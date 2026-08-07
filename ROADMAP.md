@@ -321,7 +321,7 @@ Přesné instalační/build příkazy, hashe, metodická omezení a screenshot/l
 | Backend/runtime | `PARTIAL` | Fresh-clone install provenance; backendový HTTP restart už je current-SHA ověřen. |
 | Offline boundary | `MEASURED` | Před M6 opravit release-policy sentinel a aktivovat pravdivý PDF toolchain set. |
 | Capability picture | `DRAFT_COMPLETE` | 22/22 je v `SYSTEM-MAP.md`; operátorské přijetí neznamená automaticky PASS jednotlivých schopností. |
-| Studio/Theia | `PARTIAL / PRODUCT_FAIL` | Frozen install, product build, initial boot, WS a deterministický chat jsou změřené; stabilita je inconclusive. Zbývá přijmout source disposition, opravit browser capability delivery a odstranit Fonts egress. |
+| Studio/Theia | `PARTIAL / PRODUCT_FAIL` | Autoritativní runtime je chráněný a bounded Electron-main transport prošel focused i prospective live ověřením bez změny backend guardu. Zbývá odstranit Fonts egress a připnout fresh-clone negativní journey, 65s soak a clean shutdown. |
 | L0-8 specialist boundary | `CARRIED_BLOCKER` | Vlastník: integrační vlastník `WP-M3-BOUNDARY`. Termín: před jeho prvním zapisujícím commitem; do té doby platí zákaz nových interních importů specialistů. |
 
 **WP-M0-E je diagnosticky dokončený takto:**
@@ -411,9 +411,11 @@ jádra:
 10. provider failure po úspěšných tool datech se dnes mění na implicitní
     fallback. Kontrakt musí rozhodnout, zda je výsledek explicitně `degraded`,
     nebo terminální `error`;
-11. Electron bootstrap i validní local capability v rendereru existují, ale
-    skutečné browser requesty capability header neposílají. Šest základních
-    HTTP cest končí 403, zatímco WS a deterministický chat fungují;
+11. Electron bootstrap i validní local capability na wire existují, ale původní
+    Chromium request neměl `Origin` a nesl `Sec-Fetch-Site: cross-site`, takže
+    server správně odmítl request před capability větví. Bounded main-process
+    normalizer je implementovaný; fresh-clone negativní journey jej ještě musí
+    připnout bez oslabení serveru;
 12. diagnostický Electron runtime skončil při teardownu po GPU fatalu
     `SIGTRAP`; kvůli namespace a `--no-sandbox` není stabilita ani produktový
     crash prokázaný a M1 journey musí otestovat bounded soak i clean shutdown.
@@ -887,9 +889,10 @@ mohou pokračovat.
 3. **Přijato a právě implementováno:** ručně udržovaný `lib` je současný
    autoritativní runtime; stale TS se archivuje a package `build`, `watch`,
    `clean` ani historický fix script jej nesmějí přepsat nebo smazat.
-4. **Aktivní práce:** opravit browser HTTP transport bez oslabení backend
-   guardu a odstranit Google Fonts outbound. Potom zopakovat frozen build a
-   skutečný Theia→WS/HTTP journey s bounded soakem a čistým shutdownem;
+4. **Aktivní práce:** bounded browser HTTP transport je implementovaný bez
+   oslabení backend guardu a prošel prospective production runtime ověřením.
+   Nyní odstranit Google Fonts outbound a potom zopakovat frozen build a
+   skutečný Theia→WS/HTTP negativní journey s bounded soakem a čistým shutdownem;
    současné UI se ověřuje funkčně, nikoliv jako finální vizuální baseline.
 5. Operátorsky rozhodnout L0-8 nejpozději před `WP-M3-BOUNDARY`; M0 jej může
    uzavřít pouze jako explicitně pojmenovaný blocker s vlastníkem a termínem.

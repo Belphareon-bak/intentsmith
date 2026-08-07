@@ -279,7 +279,7 @@ Zaznamenané, rozhodnuté, ne zapomenuté.
 | Nedostupná Ollama při klasifikaci | Opravena na jeden pokus; změřeno přibližně 80 ms místo 6 091 ms |
 | Automatické online model discovery | `C3_ENABLE_ONLINE_DISCOVERY`, default off; ostatní explicitní outbound plochy čekají na jednotnou policy |
 | C3 Studio Google Fonts | `c3-chat-panel/lib/browser/chat-panel-module.js` vkládá dvě `fonts.googleapis.com` URL bez opt-inu; potvrzené otevřené L0-12 porušení pro M0/M1 |
-| C3 Studio local HTTP | Skutečný renderer má bootstrap, validní metadata a capability na wire, ale Chromium posílá `Origin` nepřítomný + `Sec-Fetch-Site: cross-site`; sedm startup route rodin proto končí 403 před capability větví. Transport se musí opravit bez oslabení fail-closed backend boundary. |
+| C3 Studio local HTTP | Root cause byl potvrzen jako capability na wire + nepřítomný `Origin` + `Sec-Fetch-Site: cross-site`. Electron-main nyní doplňuje `Origin: null` jen pro přesný top-level file Studio request s odpovídající privátní capability; backend guard zůstal beze změny. Focused testy a prospective production runtime dávají startup/POST `2xx`; závazný fresh-clone negativní journey ještě zbývá. |
 | C3 Studio source/build | Operátor přijal funkční ručně udržovaný `lib` jako současný autoritativní runtime. Stale TS je historický archiv; package build/clean/watch ani starý v7 fix payload nesmějí runtime přepsat nebo smazat. Současný vzhled není finální UI kontrakt. |
 | `multi-source-external.test.js` | Explicitní public-service smoke; není deterministická offline evidence |
 | L0-8 specialist boundary | Potvrzeně porušený; strict injection versus public extension SDK vyžaduje rozhodnutí operátora |

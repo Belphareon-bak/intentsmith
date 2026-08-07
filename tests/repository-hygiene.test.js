@@ -37,6 +37,16 @@ assert.equal(
   'tracked C3 Studio local HTTP bootstrap is missing',
 );
 assert.equal(
+  trackedSet.has('c3-ide/applications/electron/c3-local-access.js'),
+  true,
+  'tracked C3 Studio private local-access reader is missing',
+);
+assert.equal(
+  trackedSet.has('c3-ide/applications/electron/c3-local-origin-normalizer.js'),
+  true,
+  'tracked C3 Studio opaque-origin normalizer is missing',
+);
+assert.equal(
   trackedSet.has('c3-ide/shared/legacy-local-object-url-cache.js'),
   true,
   'tracked legacy local media object-URL cache is missing',
@@ -87,6 +97,18 @@ const electronLocalHttpBootstrap = readFileSync(
     repoRoot,
     'c3-ide/applications/electron/c3-local-http-bootstrap.js',
   ),
+  'utf8',
+);
+const electronLocalAccess = readFileSync(
+  resolve(repoRoot, 'c3-ide/applications/electron/c3-local-access.js'),
+  'utf8',
+);
+const electronLocalOriginNormalizer = readFileSync(
+  resolve(repoRoot, 'c3-ide/applications/electron/c3-local-origin-normalizer.js'),
+  'utf8',
+);
+const electronPreload = readFileSync(
+  resolve(repoRoot, 'c3-ide/applications/electron/c3-preload.js'),
   'utf8',
 );
 const chatPanelRuntime = readFileSync(
@@ -246,6 +268,18 @@ assert.match(
   electronWebpack,
   /configs\[0\]\.entry\.bundle\s*=\s*\[\s*path\.resolve\(__dirname,\s*'c3-local-http-bootstrap\.js'\)/,
 );
+assert.match(
+  electronWebpack,
+  /nodeConfig\.config\.entry\['electron-main'\]\s*=\s*\[\s*path\.resolve\(__dirname,\s*'c3-local-origin-normalizer\.js'\)/,
+);
+assert.match(electronPreload, /require\('\.\/c3-local-access'\)/);
+assert.match(electronPreload, /readLocalAccess\(\)/);
+assert.match(electronLocalAccess, /fs\.constants\.O_NOFOLLOW/);
+assert.match(electronLocalAccess, /\(stat\.mode\s*&\s*0o777\)\s*!==\s*0o600/);
+assert.match(electronLocalOriginNormalizer, /Origin:\s*'null'/);
+assert.match(electronLocalOriginNormalizer, /crypto\.timingSafeEqual/);
+assert.match(electronLocalOriginNormalizer, /details\.resourceType\s*!==\s*'xhr'/);
+assert.doesNotMatch(electronLocalOriginNormalizer, /console\./);
 assert.match(
   electronLocalHttpBootstrap,
   /resolved\.url\.origin\s*===\s*access\.backendUrl/,

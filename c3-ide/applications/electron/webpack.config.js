@@ -33,6 +33,21 @@ configs[0].entry.bundle = [
 ];
 configs[2].entry.preload = path.resolve(__dirname, 'c3-preload-entry.js');
 
+if (!nodeConfig.config || !nodeConfig.config.entry?.['electron-main']) {
+  throw new Error(
+    'Electron main config not found — Theia build may have changed.\n' +
+    'Check gen-webpack.node.config.js and update webpack.config.js accordingly.'
+  );
+}
+
+const generatedElectronMainEntry = nodeConfig.config.entry['electron-main'];
+nodeConfig.config.entry['electron-main'] = [
+  path.resolve(__dirname, 'c3-local-origin-normalizer.js'),
+  ...(Array.isArray(generatedElectronMainEntry)
+    ? generatedElectronMainEntry
+    : [generatedElectronMainEntry]),
+];
+
 const nativePlugin = nodeConfig.nativePlugin;
 if (!nativePlugin || typeof nativePlugin.copyRipgrep !== 'function') {
   throw new Error('Theia native webpack plugin does not expose copyRipgrep');

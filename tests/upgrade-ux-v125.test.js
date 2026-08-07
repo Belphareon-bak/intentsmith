@@ -28,6 +28,14 @@ const {
   '../c3-ide/applications/electron/c3-local-http-bootstrap.js',
 );
 const {
+  normalizeLocalAccess: normalizeNodeLocalAccess,
+  readLocalAccess: readNodeLocalAccess,
+} = require('../c3-ide/applications/electron/c3-local-access.js');
+const {
+  installOnSession: installLocalOriginNormalizerOnSession,
+  normalizeOpaqueStudioRequest,
+} = require('../c3-ide/applications/electron/c3-local-origin-normalizer.js');
+const {
   createLegacyLocalObjectUrlCache,
 } = require('../c3-ide/shared/legacy-local-object-url-cache.js');
 
@@ -897,6 +905,279 @@ await testAsync('Electron local fetch canonicalizes the explicit default HTTP po
     calls[0][0].headers.get(LEGACY_LOCAL_CAPABILITY_HEADER),
     capability,
   );
+});
+
+test('Electron Node-side local access reader accepts only a private regular port file', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-local-access-'));
+  const portFile = path.join(root, 'port');
+  const symlink = path.join(root, 'port-link');
+  const capability = 'F'.repeat(43);
+  const payload = JSON.stringify({
+    host: '127.0.0.1',
+    port: 45678,
+    localCapability: capability,
+  });
+  try {
+    fs.writeFileSync(portFile, payload, { encoding: 'utf8', mode: 0o600 });
+    fs.chmodSync(portFile, 0o600);
+    assertEqual(readNodeLocalAccess({ portFile })?.backendUrl, 'http://127.0.0.1:45678');
+    assertEqual(readNodeLocalAccess({ portFile })?.localCapability, capability);
+
+    fs.chmodSync(portFile, 0o644);
+    assertEqual(readNodeLocalAccess({ portFile }), null);
+    fs.chmodSync(portFile, 0o600);
+
+    fs.symlinkSync(portFile, symlink);
+    assertEqual(readNodeLocalAccess({ portFile: symlink }), null);
+    assertEqual(readNodeLocalAccess({ portFile: 'relative-port-file' }), null);
+    assertEqual(
+      normalizeNodeLocalAccess({ host: 'attacker.example', port: 45678, localCapability: capability }),
+      null,
+    );
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+function createOpaqueStudioFrame(overrides = {}) {
+  const frame = {
+    parent: null,
+    origin: 'file://',
+    url: 'file:///opt/intentsmith/lib/frontend/index.html?port=45678',
+    isDestroyed: () => false,
+    ...overrides,
+  };
+  frame.top = Object.hasOwn(overrides, 'top') ? overrides.top : frame;
+  return frame;
+}
+
+function createOpaqueStudioRequest(capability, overrides = {}) {
+  return {
+    url: 'http://127.0.0.1:45678/api/settings',
+    method: 'GET',
+    resourceType: 'xhr',
+    frame: createOpaqueStudioFrame(),
+    requestHeaders: {
+      'Sec-Fetch-Site': 'cross-site',
+      [LEGACY_LOCAL_CAPABILITY_HEADER]: capability,
+    },
+    ...overrides,
+  };
+}
+
+function normalizeStudioFixture(details, capability) {
+  return normalizeOpaqueStudioRequest(details, {
+    expectedFrontendPath: '/opt/intentsmith/lib/frontend/index.html',
+    readAccess: () => ({
+      backendUrl: 'http://127.0.0.1:45678',
+      localCapability: capability,
+    }),
+  });
+}
+
+test('Electron main normalizes only the exact capability-authorized opaque Studio request', () => {
+  const capability = 'G'.repeat(43);
+  const details = createOpaqueStudioRequest(capability);
+  const originalHeaders = { ...details.requestHeaders };
+  const normalized = normalizeStudioFixture(details, capability);
+  assert(normalized, 'exact opaque Studio request must be normalized');
+  assertEqual(normalized.Origin, 'null');
+  assertEqual(normalized['Sec-Fetch-Site'], 'cross-site');
+  assertEqual(normalized[LEGACY_LOCAL_CAPABILITY_HEADER], capability);
+  assertEqual(Object.hasOwn(details.requestHeaders, 'Origin'), false);
+  assertEqual(JSON.stringify(details.requestHeaders), JSON.stringify(originalHeaders));
+
+  const nullOriginFrame = createOpaqueStudioRequest(capability, {
+    frame: createOpaqueStudioFrame({ origin: 'null' }),
+  });
+  assertEqual(normalizeStudioFixture(nullOriginFrame, capability)?.Origin, 'null');
+});
+
+test('Electron main normalizes only an exact declared opaque Studio preflight', () => {
+  const capability = 'P'.repeat(43);
+  const preflight = createOpaqueStudioRequest(capability, {
+    method: 'OPTIONS',
+    requestHeaders: {
+      'Sec-Fetch-Site': 'cross-site',
+      'Access-Control-Request-Method': 'PATCH',
+      'Access-Control-Request-Headers':
+        `content-type, ${LEGACY_LOCAL_CAPABILITY_HEADER.toLowerCase()}`,
+    },
+  });
+  const normalized = normalizeStudioFixture(preflight, capability);
+  assertEqual(normalized?.Origin, 'null');
+  assertEqual(
+    Object.hasOwn(normalized, LEGACY_LOCAL_CAPABILITY_HEADER),
+    false,
+  );
+
+  for (const requestHeaders of [
+    {
+      'Sec-Fetch-Site': 'cross-site',
+      'Access-Control-Request-Method': 'PATCH',
+      'Access-Control-Request-Headers': 'content-type',
+    },
+    {
+      'Sec-Fetch-Site': 'cross-site',
+      'Access-Control-Request-Method': 'CONNECT',
+      'Access-Control-Request-Headers': LEGACY_LOCAL_CAPABILITY_HEADER,
+    },
+    {
+      'Sec-Fetch-Site': 'cross-site',
+      'Access-Control-Request-Method': 'PATCH',
+      'Access-Control-Request-Headers':
+        `${LEGACY_LOCAL_CAPABILITY_HEADER}, authorization`,
+    },
+    {
+      'Sec-Fetch-Site': 'cross-site',
+      'Access-Control-Request-Method': 'PATCH',
+      'Access-Control-Request-Headers':
+        `${LEGACY_LOCAL_CAPABILITY_HEADER}, ${LEGACY_LOCAL_CAPABILITY_HEADER}`,
+    },
+    {
+      'Sec-Fetch-Site': 'cross-site',
+      'Access-Control-Request-Method': 'PATCH',
+      'Access-Control-Request-Headers': LEGACY_LOCAL_CAPABILITY_HEADER,
+      [LEGACY_LOCAL_CAPABILITY_HEADER]: capability,
+    },
+  ]) {
+    assertEqual(
+      normalizeStudioFixture(
+        createOpaqueStudioRequest(capability, {
+          method: 'OPTIONS',
+          requestHeaders,
+        }),
+        capability,
+      ),
+      null,
+    );
+  }
+});
+
+test('Electron main origin normalization fails closed for every mismatched boundary input', () => {
+  const capability = 'H'.repeat(43);
+  const cases = [
+    createOpaqueStudioRequest(capability, {
+      requestHeaders: { 'Sec-Fetch-Site': 'cross-site' },
+    }),
+    createOpaqueStudioRequest(capability, {
+      requestHeaders: {
+        'Sec-Fetch-Site': 'cross-site',
+        [LEGACY_LOCAL_CAPABILITY_HEADER]: 'I'.repeat(43),
+      },
+    }),
+    createOpaqueStudioRequest(capability, {
+      requestHeaders: {
+        'Sec-Fetch-Site': 'cross-site',
+        [LEGACY_LOCAL_CAPABILITY_HEADER]: capability,
+        [LEGACY_LOCAL_CAPABILITY_HEADER.toLowerCase()]: capability,
+      },
+    }),
+    createOpaqueStudioRequest(capability, {
+      requestHeaders: {
+        Origin: 'http://attacker.example',
+        'Sec-Fetch-Site': 'cross-site',
+        [LEGACY_LOCAL_CAPABILITY_HEADER]: capability,
+      },
+    }),
+    createOpaqueStudioRequest(capability, { url: 'http://localhost:45678/api/settings' }),
+    createOpaqueStudioRequest(capability, { url: 'http://127.0.0.1:45679/api/settings' }),
+    createOpaqueStudioRequest(capability, { url: 'https://127.0.0.1:45678/api/settings' }),
+    createOpaqueStudioRequest(capability, { url: 'http://user@127.0.0.1:45678/api/settings' }),
+    createOpaqueStudioRequest(capability, { url: 'http://127.0.0.1:45678/api/settings#fragment' }),
+    createOpaqueStudioRequest(capability, { url: 'http://127.0.0.1:45678/apiary' }),
+    createOpaqueStudioRequest(capability, { method: 'TRACE' }),
+    createOpaqueStudioRequest(capability, { resourceType: 'image' }),
+    createOpaqueStudioRequest(capability, {
+      requestHeaders: {
+        [LEGACY_LOCAL_CAPABILITY_HEADER]: capability,
+      },
+    }),
+    createOpaqueStudioRequest(capability, {
+      frame: createOpaqueStudioFrame({ parent: {} }),
+    }),
+    createOpaqueStudioRequest(capability, {
+      frame: createOpaqueStudioFrame({ top: {} }),
+    }),
+    createOpaqueStudioRequest(capability, {
+      frame: createOpaqueStudioFrame({ origin: 'http://attacker.example' }),
+    }),
+    createOpaqueStudioRequest(capability, {
+      frame: createOpaqueStudioFrame({ url: 'file:///opt/other/index.html' }),
+    }),
+    createOpaqueStudioRequest(capability, {
+      frame: createOpaqueStudioFrame({ isDestroyed: () => true }),
+    }),
+  ];
+
+  for (const details of cases) {
+    assertEqual(
+      normalizeStudioFixture(details, capability),
+      null,
+      `mismatched request must not be normalized: ${details.method} ${details.url}`,
+    );
+  }
+  assertEqual(
+    normalizeOpaqueStudioRequest(createOpaqueStudioRequest(capability), {
+      expectedFrontendPath: '/opt/intentsmith/lib/frontend/index.html',
+      readAccess: () => null,
+    }),
+    null,
+  );
+});
+
+test('Electron main owns one bounded onBeforeSendHeaders normalizer', () => {
+  const capability = 'J'.repeat(43);
+  let filter;
+  let listener;
+  const fakeSession = {
+    webRequest: {
+      onBeforeSendHeaders(nextFilter, nextListener) {
+        filter = nextFilter;
+        listener = nextListener;
+      },
+    },
+  };
+  assertThrows(
+    () => installLocalOriginNormalizerOnSession({
+      webRequest: {
+        onBeforeSendHeaders() {
+          throw new Error('synthetic registration failure');
+        },
+      },
+    }),
+    /synthetic registration failure/,
+  );
+  assertEqual(installLocalOriginNormalizerOnSession(fakeSession), true);
+  assertEqual(installLocalOriginNormalizerOnSession(fakeSession), false);
+  assertEqual(filter.urls.length, 2);
+  assertEqual(typeof listener, 'function');
+
+  const priorPortFile = process.env.C3_PORT_FILE;
+  const priorTheiaProjectPath = process.env.THEIA_APP_PROJECT_PATH;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'normalizer-session-'));
+  const portFile = path.join(root, 'port');
+  try {
+    fs.writeFileSync(portFile, JSON.stringify({
+      host: '127.0.0.1',
+      port: 45678,
+      localCapability: capability,
+    }), { mode: 0o600 });
+    fs.chmodSync(portFile, 0o600);
+    process.env.C3_PORT_FILE = portFile;
+    process.env.THEIA_APP_PROJECT_PATH = '/opt/intentsmith';
+    let callbackResult;
+    listener(createOpaqueStudioRequest(capability), result => {
+      callbackResult = result;
+    });
+    assertEqual(callbackResult.requestHeaders.Origin, 'null');
+  } finally {
+    if (priorPortFile === undefined) delete process.env.C3_PORT_FILE;
+    else process.env.C3_PORT_FILE = priorPortFile;
+    if (priorTheiaProjectPath === undefined) delete process.env.THEIA_APP_PROJECT_PATH;
+    else process.env.THEIA_APP_PROJECT_PATH = priorTheiaProjectPath;
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
