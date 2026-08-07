@@ -7423,6 +7423,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-STUDIO-CDP-EVIDENCE-TEST",
+      "path": "tests/studio-cdp-evidence.test.js",
+      "argv": [
+        "node",
+        "tests/studio-cdp-evidence.test.js"
+      ],
+      "capabilityId": "C3-001",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-SYMBOL-INDEX-TEST",
       "path": "tests/symbol-index.test.js",
       "argv": [
