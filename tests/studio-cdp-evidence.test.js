@@ -12,6 +12,7 @@ import {
 } from '../scripts/studio-cdp-evidence.js';
 
 const BACKEND = 'http://127.0.0.1:47831';
+const THEIA_CONTROL_PLANE = 'http://localhost:39001';
 const CAPABILITY = 'A'.repeat(43);
 const WRONG_CAPABILITY = 'B'.repeat(43);
 const CAPABILITY_HEADER = 'X-IntentSmith-Local-Capability';
@@ -27,6 +28,7 @@ function evaluateStudioCdpEvidence(
 function reducer(options = {}) {
   return createStudioCdpEvidenceReducer({
     backendOrigin: BACKEND,
+    controlPlaneOrigin: THEIA_CONTROL_PLANE,
     expectedCapability: CAPABILITY,
     ...options,
   });
@@ -131,6 +133,81 @@ function ingestValidWebSocket(target, overrides = {}) {
   if (overrides.closed) target.ingest('Network.webSocketClosed', { requestId });
 }
 
+function ingestTheiaPolling(target, overrides = {}) {
+  const requestId = overrides.requestId || 'theia-polling';
+  const method = overrides.method || 'GET';
+  const query = overrides.query || 'EIO=4&transport=polling&t=abc123';
+  const url = overrides.url || `${THEIA_CONTROL_PLANE}/socket.io/?${query}`;
+  const status = overrides.status ?? 200;
+  target.ingest('Network.requestWillBeSent', {
+    requestId,
+    request: {
+      url,
+      method,
+      headers: { Cookie: 'THEIA_POLLING_COOKIE_SECRET' },
+      postData: 'THEIA_POLLING_BODY_SECRET',
+    },
+  });
+  target.ingest('Network.requestWillBeSentExtraInfo', {
+    requestId,
+    headers: { Cookie: 'THEIA_POLLING_WIRE_COOKIE_SECRET' },
+  });
+  target.ingest('Network.responseReceived', {
+    requestId,
+    response: { status, headers: { 'Set-Cookie': 'THEIA_POLLING_SET_COOKIE_SECRET' } },
+  });
+  target.ingest('Network.responseReceivedExtraInfo', {
+    requestId,
+    statusCode: status,
+    headers: { 'Set-Cookie': 'THEIA_POLLING_WIRE_SET_COOKIE_SECRET' },
+  });
+  if (overrides.failed) {
+    target.ingest('Network.loadingFailed', {
+      requestId,
+      errorText: 'THEIA_POLLING_FAILURE_SECRET',
+    });
+  }
+}
+
+function ingestValidTheiaWebSocket(target, overrides = {}) {
+  const requestId = overrides.requestId || 'theia-ws-main';
+  const query = overrides.query || 'EIO=4&transport=websocket&sid=sid123';
+  const url = overrides.url || `${THEIA_CONTROL_PLANE.replace('http:', 'ws:')}/socket.io/?${query}`;
+  target.ingest('Network.webSocketCreated', { requestId, url });
+  target.ingest('Network.webSocketWillSendHandshakeRequest', {
+    requestId,
+    request: {
+      headers: { Cookie: 'THEIA_WS_COOKIE_SECRET' },
+    },
+  });
+  target.ingest('Network.webSocketHandshakeResponseReceived', {
+    requestId,
+    response: {
+      status: overrides.status ?? 101,
+      headers: { 'Set-Cookie': 'THEIA_WS_SET_COOKIE_SECRET' },
+    },
+  });
+  for (let index = 0; index < (overrides.sentFrames ?? 1); index += 1) {
+    target.ingest('Network.webSocketFrameSent', {
+      requestId,
+      response: { payloadData: 'THEIA_WS_SENT_SECRET' },
+    });
+  }
+  for (let index = 0; index < (overrides.receivedFrames ?? 1); index += 1) {
+    target.ingest('Network.webSocketFrameReceived', {
+      requestId,
+      response: { payloadData: 'THEIA_WS_RECEIVED_SECRET' },
+    });
+  }
+  if (overrides.frameError) {
+    target.ingest('Network.webSocketFrameError', {
+      requestId,
+      errorMessage: 'THEIA_WS_ERROR_SECRET',
+    });
+  }
+  if (overrides.closed) target.ingest('Network.webSocketClosed', { requestId });
+}
+
 function completeObservation(overrides = {}) {
   const target = reducer(overrides.reducerOptions);
   const routes = [
@@ -145,6 +222,12 @@ function completeObservation(overrides = {}) {
   for (const [path, status] of routes) ingestHttp(target, { path, status });
   ingestHttp(target, { path: '/api/settings', method: 'POST', status: 200 });
   ingestValidWebSocket(target, overrides.websocket);
+  if (overrides.theiaPolling !== false) {
+    ingestTheiaPolling(target, overrides.theiaPolling || {});
+  }
+  if (overrides.theiaWebSocket !== false) {
+    ingestValidTheiaWebSocket(target, overrides.theiaWebSocket || {});
+  }
   return target;
 }
 
@@ -159,6 +242,7 @@ test('classifies exact backend routes without retaining query data', () => {
     classifyNetworkTarget(
       `${BACKEND}/api/projects?token=QUERY_SECRET`,
       BACKEND,
+      THEIA_CONTROL_PLANE,
     ),
     { targetClass: 'protected', routeId: STUDIO_ROUTE_IDS.PROJECTS_LIST },
   );
@@ -166,22 +250,38 @@ test('classifies exact backend routes without retaining query data', () => {
 
 test('classifies exact WebSocket authority and path', () => {
   assert.deepEqual(
-    classifyNetworkTarget('ws://127.0.0.1:47831/c3/ws', BACKEND),
+    classifyNetworkTarget(
+      'ws://127.0.0.1:47831/c3/ws',
+      BACKEND,
+      THEIA_CONTROL_PLANE,
+    ),
     { targetClass: 'protected', routeId: STUDIO_ROUTE_IDS.WS_BRIDGE },
   );
 });
 
 test('separates other loopback, external, internal and malformed targets', () => {
   assert.equal(
-    classifyNetworkTarget('http://127.0.0.1:47832/api/health', BACKEND).targetClass,
+    classifyNetworkTarget(
+      'http://127.0.0.1:47832/api/health',
+      BACKEND,
+      THEIA_CONTROL_PLANE,
+    ).targetClass,
     'other-loopback',
   );
   assert.equal(
-    classifyNetworkTarget('http://localhost:47831/api/health', BACKEND).targetClass,
+    classifyNetworkTarget(
+      'http://localhost:47831/api/health',
+      BACKEND,
+      THEIA_CONTROL_PLANE,
+    ).targetClass,
     'other-loopback',
   );
   assert.equal(
-    classifyNetworkTarget('https://127.0.0.1:47831/api/health', BACKEND).targetClass,
+    classifyNetworkTarget(
+      'https://127.0.0.1:47831/api/health',
+      BACKEND,
+      THEIA_CONTROL_PLANE,
+    ).targetClass,
     'other-loopback',
   );
   for (const url of [
@@ -189,27 +289,104 @@ test('separates other loopback, external, internal and malformed targets', () =>
     'http://192.168.1.5/a',
     'https://example.invalid/a',
   ]) {
-    assert.equal(classifyNetworkTarget(url, BACKEND).targetClass, 'external');
+    assert.equal(
+      classifyNetworkTarget(url, BACKEND, THEIA_CONTROL_PLANE).targetClass,
+      'external',
+    );
   }
   for (const url of ['file:///home/alice/a', 'data:text/plain,x', 'blob:null/id']) {
-    assert.equal(classifyNetworkTarget(url, BACKEND).targetClass, 'internal');
+    assert.equal(
+      classifyNetworkTarget(url, BACKEND, THEIA_CONTROL_PLANE).targetClass,
+      'internal',
+    );
   }
-  assert.equal(classifyNetworkTarget('not a URL', BACKEND).targetClass, 'malformed');
   assert.equal(
-    classifyNetworkTarget('ftp://attacker.invalid/SECRET', BACKEND).targetClass,
+    classifyNetworkTarget('not a URL', BACKEND, THEIA_CONTROL_PLANE).targetClass,
+    'malformed',
+  );
+  assert.equal(
+    classifyNetworkTarget(
+      'ftp://attacker.invalid/SECRET',
+      BACKEND,
+      THEIA_CONTROL_PLANE,
+    ).targetClass,
     'unsupported-network',
   );
+});
+
+test('classifies only strict Socket.IO Engine.IO transport on the exact Theia authority', () => {
+  for (const [url, transportClass, phaseClass] of [
+    [`${THEIA_CONTROL_PLANE}/socket.io/?EIO=4&transport=polling&t=abc123`, 'polling', 'polling-handshake'],
+    [`${THEIA_CONTROL_PLANE}/socket.io/?transport=polling&EIO=4&sid=sid_123&t=next1`, 'polling', 'polling-session'],
+    [`${THEIA_CONTROL_PLANE.replace('http:', 'ws:')}/socket.io/?EIO=4&transport=websocket&sid=sid-123`, 'websocket', 'websocket-upgrade'],
+  ]) {
+    assert.deepEqual(
+      classifyNetworkTarget(url, BACKEND, THEIA_CONTROL_PLANE),
+      {
+        targetClass: 'theia-control-plane',
+        routeId: STUDIO_ROUTE_IDS.THEIA_SOCKET_IO,
+        transportClass,
+        phaseClass,
+      },
+    );
+  }
+});
+
+test('unexpected Theia path, query, protocol or authority remains fail-closed', () => {
+  for (const url of [
+    `${THEIA_CONTROL_PLANE}/socket.io?EIO=4&transport=polling`,
+    `${THEIA_CONTROL_PLANE}/socket.io/extra?EIO=4&transport=polling`,
+    `${THEIA_CONTROL_PLANE}/socket.io/?transport=polling`,
+    `${THEIA_CONTROL_PLANE}/socket.io/?EIO=4&transport=polling`,
+    `${THEIA_CONTROL_PLANE}/socket.io/?EIO=3&transport=polling`,
+    `${THEIA_CONTROL_PLANE}/socket.io/?EIO=4&transport=websocket`,
+    `${THEIA_CONTROL_PLANE}/socket.io/?EIO=4&transport=polling&unexpected=1`,
+    `${THEIA_CONTROL_PLANE}/socket.io/?EIO=4&EIO=4&transport=polling`,
+    `${THEIA_CONTROL_PLANE}/socket.io/?EIO=4&transport=polling&t=a&t=b`,
+    `${THEIA_CONTROL_PLANE}/socket.io/?EIO=4&transport=polling&transport=polling&t=a`,
+    `${THEIA_CONTROL_PLANE}/socket.io/?EIO=4&transport=polling&t=a&sid=s1&sid=s2`,
+    `${THEIA_CONTROL_PLANE}/socket.io/?EIO=4&transport=polling&t=a&sid=`,
+    `${THEIA_CONTROL_PLANE}/socket.io/?EIO=4&transport=polling&t=a&sid=${'x'.repeat(257)}`,
+    `${THEIA_CONTROL_PLANE}/socket.io/?EIO=4&transport=polling&t=a&b64=1`,
+    `${THEIA_CONTROL_PLANE.replace('http:', 'ws:')}/socket.io/?EIO=4&transport=websocket`,
+    `${THEIA_CONTROL_PLANE.replace('http:', 'ws:')}/socket.io/?EIO=4&transport=websocket&sid=s1&sid=s2`,
+    `${THEIA_CONTROL_PLANE.replace('http:', 'ws:')}/socket.io/?EIO=4&transport=websocket&sid=s&t=not-allowed`,
+    'http://localhost:39002/socket.io/?EIO=4&transport=polling',
+    'http://127.0.0.1:39001/socket.io/?EIO=4&transport=polling',
+    'https://localhost:39001/socket.io/?EIO=4&transport=polling',
+    'wss://localhost:39001/socket.io/?EIO=4&transport=websocket',
+  ]) {
+    assert.equal(
+      classifyNetworkTarget(url, BACKEND, THEIA_CONTROL_PLANE).targetClass,
+      'other-loopback',
+      url,
+    );
+  }
 });
 
 test('rejects unsafe reducer configuration without echoing its value', () => {
   assert.throws(() => createStudioCdpEvidenceReducer({
     backendOrigin: 'https://example.invalid/SECRET',
+    controlPlaneOrigin: THEIA_CONTROL_PLANE,
     expectedCapability: CAPABILITY,
   }), /exact HTTP loopback origin/);
   assert.throws(() => createStudioCdpEvidenceReducer({
     backendOrigin: BACKEND,
+    controlPlaneOrigin: THEIA_CONTROL_PLANE,
     expectedCapability: 'CAPABILITY_SECRET',
   }), /valid local capability/);
+  for (const controlPlaneOrigin of [
+    'http://127.0.0.1:39001',
+    'http://localhost',
+    'https://localhost:39001',
+    'http://localhost:39001/socket.io/',
+  ]) {
+    assert.throws(() => createStudioCdpEvidenceReducer({
+      backendOrigin: BACKEND,
+      controlPlaneOrigin,
+      expectedCapability: CAPABILITY,
+    }), /controlPlaneOrigin/);
+  }
 });
 
 suite('Studio CDP evidence — deterministic wire reduction');
@@ -219,8 +396,105 @@ test('complete HTTP and WebSocket observation passes the network contract', () =
   assert.equal(evaluateStudioCdpEvidence(snapshot).verdict, 'PASS');
   assert.equal(snapshot.counts.externalAttempts, 0);
   assert.equal(snapshot.counts.otherLoopbackAttempts, 0);
+  assert.equal(snapshot.counts.websockets, 1);
+  assert.equal(snapshot.counts.theiaControlPlaneHttp, 1);
+  assert.equal(snapshot.counts.theiaControlPlaneWebSockets, 1);
+  assert.equal(snapshot.http.some(record => record.targetClass === 'theia-control-plane'), false);
+  assert.equal(snapshot.websockets.some(record => record.targetClass === 'theia-control-plane'), false);
+  assert.equal(snapshot.theiaControlPlane.http[0].phaseClass, 'polling-handshake');
+  assert.equal(snapshot.theiaControlPlane.websockets[0].phaseClass, 'websocket-upgrade');
   assert.equal(Object.isFrozen(snapshot), true);
   assert.equal(Object.isFrozen(snapshot.http[0]), true);
+});
+
+test('Theia control-plane records never retain authority, query, headers or payload', () => {
+  const snapshot = completeObservation().snapshot();
+  const serialized = JSON.stringify(snapshot.theiaControlPlane);
+  for (const forbidden of [
+    'localhost',
+    '39001',
+    'EIO',
+    'transport=',
+    'sid123',
+    'abc123',
+    'Cookie',
+    'THEIA_',
+  ]) assert.equal(serialized.includes(forbidden), false, `${forbidden} leaked`);
+});
+
+test('bounded polling and one live Theia WebSocket are required independently of C3', () => {
+  const noPolling = completeObservation({ theiaPolling: false });
+  const noPollingResult = evaluateStudioCdpEvidence(noPolling.snapshot());
+  assert.equal(noPollingResult.verdict, 'FAIL');
+  assert.equal(failureCodes(noPollingResult).has('theia-polling-bound-exceeded'), true);
+
+  const noTheiaWebSocket = completeObservation({ theiaWebSocket: false });
+  const result = evaluateStudioCdpEvidence(noTheiaWebSocket.snapshot());
+  assert.equal(result.verdict, 'FAIL');
+  assert.equal(failureCodes(result).has('theia-websocket-contract-failed'), true);
+  assert.equal(noTheiaWebSocket.snapshot().websockets[0].routeId, STUDIO_ROUTE_IDS.WS_BRIDGE);
+});
+
+test('valid initial and session polling GET/POST are bounded without pinning an exact count', () => {
+  const target = completeObservation({ theiaPolling: false });
+  ingestTheiaPolling(target, {
+    requestId: 'poll-handshake',
+    method: 'GET',
+    query: 'EIO=4&transport=polling&t=first1',
+  });
+  ingestTheiaPolling(target, {
+    requestId: 'poll-session-get',
+    method: 'GET',
+    query: 'EIO=4&transport=polling&t=next1&sid=sid1',
+  });
+  ingestTheiaPolling(target, {
+    requestId: 'poll-session-post',
+    method: 'POST',
+    query: 'EIO=4&transport=polling&t=next2&sid=sid1',
+  });
+  const snapshot = target.snapshot();
+  assert.equal(snapshot.counts.theiaControlPlaneHttp, 3);
+  assert.equal(evaluateStudioCdpEvidence(snapshot).verdict, 'PASS');
+  assert.equal(evaluateStudioCdpEvidence(snapshot, {
+    ...STUDIO_M0_POLICY,
+    maxTheiaPollingHttp: 2,
+  }).failures.some(item => item.code === 'theia-polling-bound-exceeded'), true);
+});
+
+test('invalid Theia polling method, status, terminal and handshake phase fail closed', () => {
+  for (const polling of [
+    { requestId: 'bad-method', method: 'DELETE' },
+    { requestId: 'bad-status', status: 500 },
+    { requestId: 'bad-terminal', failed: true },
+    { requestId: 'bad-handshake-method', method: 'POST' },
+  ]) {
+    const target = completeObservation({ theiaPolling: false });
+    ingestTheiaPolling(target, polling);
+    assert.equal(evaluateStudioCdpEvidence(target.snapshot()).verdict, 'FAIL');
+  }
+});
+
+for (const [name, overrides] of [
+  ['rejected handshake', { status: 403 }],
+  ['no sent frames', { sentFrames: 0 }],
+  ['no received frames', { receivedFrames: 0 }],
+  ['frame error', { frameError: true }],
+  ['reconnect close', { closed: true }],
+]) {
+  test(`Theia ${name} cannot satisfy the live control-plane channel`, () => {
+    const target = completeObservation({ theiaWebSocket: overrides });
+    const result = evaluateStudioCdpEvidence(target.snapshot());
+    assert.equal(result.verdict, 'FAIL');
+    assert.equal(failureCodes(result).has('theia-websocket-contract-failed'), true);
+  });
+}
+
+test('one live Theia channel cannot hide an extra reconnect channel', () => {
+  const target = completeObservation();
+  ingestValidTheiaWebSocket(target, { requestId: 'theia-ws-reconnect' });
+  const result = evaluateStudioCdpEvidence(target.snapshot());
+  assert.equal(result.verdict, 'FAIL');
+  assert.equal(failureCodes(result).has('theia-websocket-contract-failed'), true);
 });
 
 test('network success cannot pass without the full bounded soak duration', () => {

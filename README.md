@@ -3,11 +3,12 @@
 Local-first AI pracovní prostředí pro technického power usera: konverzace,
 porozumění projektům a řízené provádění práce na vlastním hardwaru. Cílem je
 žádný tichý outbound; backendové online model discovery je výchozím stavem off,
-ale současný C3 Studio bundle ještě bez opt-inu načítá Google Fonts. Jde o
-otevřený M0/L0-12 nález, nikoli splněný produktový claim.
+a současný autoritativní C3 Studio runtime už neobsahuje implicitní Google Fonts
+egress. Spouštěné Studio UI je stále přechodný runtime, nikoli finální vzhled
+IntentSmithu.
 
-**Verze:** 135.0.0 | **357 registrovaných testovacích programů**
-(`261 ACTIVE`, `81 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`)
+**Verze:** 135.0.0 | **359 registrovaných testovacích programů**
+(`262 ACTIVE`, `82 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`)
 
 > **Stav: aktivní vývoj, M0 — produktová pravda a ověřený baseline.** Jedna z 22
 > schopností je v `ACCEPTED/PASS` (#2 CRE); #1 je pouze `RUNTIME_VERIFIED`.
@@ -317,14 +318,14 @@ intentsmith/
 │   ├── report-gen.json           #   Generování reportů
 │   └── summarizer.json           #   Sumarizace textu
 │
-├── tests/                        # Testy a kanonický registr 357 programů
+├── tests/                        # Testy a kanonický registr 359 programů
 │   ├── harness.js                #   Custom ESM test harness
 │   ├── cre-*.test.js             #   CRE testy (401+)
 │   ├── lifecycle-*.test.js       #   Lifecycle testy (103+)
 │   ├── code-intel-*.test.js      #   Code Intelligence testy (339+)
 │   ├── execution-loop.test.js    #   Execution Engine testy (597+)
 │   ├── upgrade-*.test.js         #   Model Upgrade testy
-│   └── registry.json             #   Kanonický registr 357 programů
+│   └── registry.json             #   Kanonický registr 359 programů
 │
 ├── docs/                         # Aktivní dokumentace + archiv
 │   ├── ARCHITECTURE.md           #   Kompletní architektura

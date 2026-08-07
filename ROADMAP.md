@@ -321,10 +321,14 @@ Přesné instalační/build příkazy, hashe, metodická omezení a screenshot/l
 | Backend/runtime | `PARTIAL` | Fresh-clone install provenance; backendový HTTP restart už je current-SHA ověřen. |
 | Offline boundary | `MEASURED` | Před M6 opravit release-policy sentinel a aktivovat pravdivý PDF toolchain set. |
 | Capability picture | `DRAFT_COMPLETE` | 22/22 je v `SYSTEM-MAP.md`; operátorské přijetí neznamená automaticky PASS jednotlivých schopností. |
-| Studio/Theia | `PARTIAL` | Autoritativní runtime je chráněný, bounded Electron-main transport prošel prospective live ověřením a po odstranění Google Fonts dal fresh-profile diagnostický běh nulový egress. Zbývá připnout registered fresh-clone negativní journey, 65s soak a clean shutdown. |
+| Studio/Theia | `PARTIAL` | Autoritativní runtime je chráněný a implicitní Google Fonts egress odstraněný. Ne-vizuální Electron boundary runner je registrovaný jako `BLOCKED`; jeho kontrakt zahrnuje striktní C3/Theia síťové oddělení, deterministický WS turn, 65s live-ready soak a clean shutdown. Zbývá skutečný fresh-clone install/build/runtime běh; existence runneru sama není acceptance evidence. |
 | L0-8 specialist boundary | `CARRIED_BLOCKER` | Vlastník: integrační vlastník `WP-M3-BOUNDARY`. Termín: před jeho prvním zapisujícím commitem; do té doby platí zákaz nových interních importů specialistů. |
 
 **WP-M0-E je diagnosticky dokončený takto:**
+
+Následný implementační checkpoint nepřipíná vzhled současného UI. Studio používá
+jen jako dočasný nosič runtime a přes CDP pozoruje výhradně síťový transport;
+DOM, screenshoty, CSS a privátní `_c3` session model jsou mimo kontrakt.
 
 1. **Výsledek:** operátor přijal, že skutečný source-of-truth je ručně
    udržovaný commitnutý `lib`;

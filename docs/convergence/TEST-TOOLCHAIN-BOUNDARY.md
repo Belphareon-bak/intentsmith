@@ -26,3 +26,10 @@ The Studio runner remains responsible for mapping those scoped values into its
 owned Electron child and for checking the other explicitly allowed tools. This
 boundary does not by itself mark the Studio journey `ACTIVE` or prove C3 Studio
 runtime acceptance.
+
+Při přímém spuštění runner hlásí chybějící lokální prerequisite jako
+`BLOCKED` s exit `2`. Pokud však audit po explicitním
+`--allow-blocker=toolchain:<name>` runner už spustil, stejný nesplněný interní
+preflight je `FAIL` s exit `1`: operátor právě tvrdil, že prerequisite dodal,
+a auditní orchestrátor neumí ani nesmí post-spawn exit `2` zpětně přeznačit na
+`BLOCKED`.

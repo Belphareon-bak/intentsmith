@@ -1,6 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 
-export const STUDIO_CDP_EVIDENCE_SCHEMA_VERSION = 1;
+export const STUDIO_CDP_EVIDENCE_SCHEMA_VERSION = 2;
 
 export const STUDIO_ROUTE_IDS = Object.freeze({
   HEALTH_ROOT: 'health-root',
@@ -15,6 +15,7 @@ export const STUDIO_ROUTE_IDS = Object.freeze({
   WORKSPACE: 'workspace',
   CHAT: 'chat',
   WS_BRIDGE: 'ws-bridge',
+  THEIA_SOCKET_IO: 'theia-socket-io',
   API_OTHER: 'api-other',
   BACKEND_OTHER: 'backend-other',
 });
@@ -31,6 +32,8 @@ export const STUDIO_M0_POLICY = Object.freeze({
   ]),
   requiredPostRoute: STUDIO_ROUTE_IDS.SETTINGS,
   requiredSoakMs: 65_000,
+  minTheiaPollingHttp: 1,
+  maxTheiaPollingHttp: 128,
 });
 
 const CAPABILITY_PATTERN = /^[A-Za-z0-9_-]{43}$/;
@@ -56,6 +59,11 @@ const INTERNAL_PROTOCOLS = new Set([
 ]);
 const NETWORK_PROTOCOLS = new Set(['http:', 'https:', 'ws:', 'wss:']);
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]']);
+const THEIA_CONTROL_PLANE_HOST = 'localhost';
+const SOCKET_IO_PATH = '/socket.io/';
+const SOCKET_IO_QUERY_KEYS = new Set(['EIO', 'transport', 'sid', 't']);
+const SOCKET_IO_QUERY_VALUE_PATTERN = /^[A-Za-z0-9_-]+$/;
+const SOCKET_IO_QUERY_VALUE_MAX_LENGTH = 256;
 
 function canonicalBackendOrigin(value) {
   let parsed;
@@ -76,6 +84,84 @@ function canonicalBackendOrigin(value) {
     throw new TypeError('backendOrigin must be an exact HTTP loopback origin');
   }
   return parsed.origin;
+}
+
+function canonicalControlPlaneOrigin(value) {
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new TypeError('controlPlaneOrigin must be an absolute URL');
+  }
+  if (
+    parsed.protocol !== 'http:'
+    || parsed.hostname.toLowerCase() !== THEIA_CONTROL_PLANE_HOST
+    || !parsed.port
+    || parsed.username
+    || parsed.password
+    || parsed.pathname !== '/'
+    || parsed.search
+    || parsed.hash
+  ) {
+    throw new TypeError('controlPlaneOrigin must be an exact HTTP localhost origin with an explicit port');
+  }
+  const port = Number.parseInt(parsed.port, 10);
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+    throw new TypeError('controlPlaneOrigin must use a valid explicit port');
+  }
+  return parsed.origin;
+}
+
+function classifySocketIoTransport(parsed) {
+  if (parsed.pathname !== SOCKET_IO_PATH || !parsed.search) return null;
+  const rawPairs = parsed.search.slice(1).split('&');
+  if (rawPairs.length < 2 || rawPairs.some(pair => !pair)) return null;
+
+  const values = new Map();
+  for (const rawPair of rawPairs) {
+    const separator = rawPair.indexOf('=');
+    if (
+      separator <= 0
+      || separator !== rawPair.lastIndexOf('=')
+    ) return null;
+    const key = rawPair.slice(0, separator);
+    const value = rawPair.slice(separator + 1);
+    if (
+      !SOCKET_IO_QUERY_KEYS.has(key)
+      || values.has(key)
+      || !value
+      || value.length > SOCKET_IO_QUERY_VALUE_MAX_LENGTH
+      || !SOCKET_IO_QUERY_VALUE_PATTERN.test(value)
+    ) return null;
+    values.set(key, value);
+  }
+
+  if (values.get('EIO') !== '4') return null;
+  const transport = values.get('transport');
+  if (
+    parsed.protocol === 'http:'
+    && transport === 'polling'
+    && values.has('t')
+    && values.size === (values.has('sid') ? 4 : 3)
+  ) {
+    return Object.freeze({
+      transportClass: 'polling',
+      phaseClass: values.has('sid') ? 'polling-session' : 'polling-handshake',
+    });
+  }
+  if (
+    parsed.protocol === 'ws:'
+    && transport === 'websocket'
+    && values.has('sid')
+    && !values.has('t')
+    && values.size === 3
+  ) {
+    return Object.freeze({
+      transportClass: 'websocket',
+      phaseClass: 'websocket-upgrade',
+    });
+  }
+  return null;
 }
 
 function classifyBackendPath(pathname) {
@@ -99,9 +185,11 @@ function classifyBackendPath(pathname) {
   return STUDIO_ROUTE_IDS.BACKEND_OTHER;
 }
 
-export function classifyNetworkTarget(rawUrl, backendOrigin) {
+export function classifyNetworkTarget(rawUrl, backendOrigin, controlPlaneOrigin) {
   const expectedOrigin = canonicalBackendOrigin(backendOrigin);
   const expected = new URL(expectedOrigin);
+  const exactControlPlaneOrigin = canonicalControlPlaneOrigin(controlPlaneOrigin);
+  const expectedControlPlane = new URL(exactControlPlaneOrigin);
   let parsed;
   try {
     parsed = new URL(rawUrl);
@@ -136,6 +224,26 @@ export function classifyNetworkTarget(rawUrl, backendOrigin) {
         : 'protected',
       routeId,
     });
+  }
+  const sameControlPlaneAuthority = (
+    parsed.hostname.toLowerCase() === expectedControlPlane.hostname.toLowerCase()
+    && parsed.port === expectedControlPlane.port
+    && (
+      parsed.protocol === expectedControlPlane.protocol
+      || (expectedControlPlane.protocol === 'http:' && parsed.protocol === 'ws:')
+    )
+  );
+  if (sameControlPlaneAuthority) {
+    const transport = classifySocketIoTransport(parsed);
+    if (transport) {
+      return Object.freeze({
+        targetClass: 'theia-control-plane',
+        routeId: STUDIO_ROUTE_IDS.THEIA_SOCKET_IO,
+        transportClass: transport.transportClass,
+        phaseClass: transport.phaseClass,
+      });
+    }
+    return Object.freeze({ targetClass: 'other-loopback', routeId: null });
   }
   if (LOOPBACK_HOSTS.has(parsed.hostname.toLowerCase())) {
     return Object.freeze({ targetClass: 'other-loopback', routeId: null });
@@ -428,10 +536,15 @@ function classifyWsProtocols(headers, expectedCapability, response = false) {
 
 export function createStudioCdpEvidenceReducer({
   backendOrigin,
+  controlPlaneOrigin,
   expectedCapability,
   maxRecords = 4096,
 }) {
   const exactBackendOrigin = canonicalBackendOrigin(backendOrigin);
+  const exactControlPlaneOrigin = canonicalControlPlaneOrigin(controlPlaneOrigin);
+  if (exactControlPlaneOrigin === exactBackendOrigin) {
+    throw new TypeError('backendOrigin and controlPlaneOrigin must be distinct');
+  }
   if (!CAPABILITY_PATTERN.test(expectedCapability || '')) {
     throw new TypeError('expectedCapability must be a valid local capability');
   }
@@ -477,7 +590,11 @@ export function createStudioCdpEvidenceReducer({
         addAnomaly(anomalies, 'ambiguous-redirect');
         return;
       }
-      const target = classifyNetworkTarget(params?.request?.url, exactBackendOrigin);
+      const target = classifyNetworkTarget(
+        params?.request?.url,
+        exactBackendOrigin,
+        exactControlPlaneOrigin,
+      );
       if (target.targetClass === 'malformed') {
         malformed += 1;
         addAnomaly(anomalies, 'malformed-url');
@@ -527,7 +644,11 @@ export function createStudioCdpEvidenceReducer({
         addAnomaly(anomalies, 'duplicate-websocket-created');
         return;
       }
-      slot.target = classifyNetworkTarget(params?.url, exactBackendOrigin);
+      slot.target = classifyNetworkTarget(
+        params?.url,
+        exactBackendOrigin,
+        exactControlPlaneOrigin,
+      );
     } else if (method === 'Network.webSocketWillSendHandshakeRequest') {
       slot.requestHeaders.push(classifyWsProtocols(
         params?.request?.headers,
@@ -577,6 +698,7 @@ export function createStudioCdpEvidenceReducer({
   function snapshot() {
     const derivedAnomalies = new Map(anomalies);
     const http = [];
+    const theiaControlPlaneHttp = [];
     const externalByScheme = { http: 0, https: 0, ws: 0, wss: 0 };
     let externalAttempts = 0;
     let otherLoopbackAttempts = 0;
@@ -607,6 +729,21 @@ export function createStudioCdpEvidenceReducer({
       }
       if (new Set(['internal', 'ignored', 'malformed']).has(slot.target.targetClass)) continue;
       const wire = selectWireFacts(slot, derivedAnomalies);
+      if (slot.target.targetClass === 'theia-control-plane') {
+        theiaControlPlaneHttp.push({
+          routeId: slot.target.routeId,
+          targetClass: slot.target.targetClass,
+          transportClass: slot.target.transportClass,
+          phaseClass: slot.target.phaseClass,
+          methodClass: slot.method,
+          status: wire.status,
+          statusClass: wire.statusClass,
+          terminalClass: slot.failed ? 'failed' : wire.status === null ? 'missing' : 'response',
+          responseSource: wire.responseSource,
+          redirected: slot.redirect,
+        });
+        continue;
+      }
       http.push({
         routeId: slot.target.routeId,
         targetClass: slot.target.targetClass,
@@ -626,6 +763,7 @@ export function createStudioCdpEvidenceReducer({
     }
 
     const websockets = [];
+    const theiaControlPlaneWebSockets = [];
     for (const slot of wsSlots.values()) {
       if (!slot.target) {
         orphaned += 1;
@@ -646,6 +784,23 @@ export function createStudioCdpEvidenceReducer({
       if (slot.target.targetClass === 'unsupported-network') {
         unsupportedNetworkAttempts += 1;
         addAnomaly(derivedAnomalies, 'unsupported-network-scheme');
+        continue;
+      }
+      if (slot.target.targetClass === 'theia-control-plane') {
+        if (slot.requestHeaders.length > 1 || slot.responseHeaders.length > 1) {
+          addAnomaly(derivedAnomalies, 'ambiguous-websocket-handshake');
+        }
+        theiaControlPlaneWebSockets.push({
+          targetClass: slot.target.targetClass,
+          routeId: slot.target.routeId,
+          transportClass: slot.target.transportClass,
+          phaseClass: slot.target.phaseClass,
+          handshakeStatus: slot.handshakeStatus,
+          sentFrames: slot.sentFrames,
+          receivedFrames: slot.receivedFrames,
+          frameErrors: slot.frameErrors,
+          closed: slot.closed,
+        });
         continue;
       }
       const request = slot.requestHeaders.length === 1
@@ -681,6 +836,8 @@ export function createStudioCdpEvidenceReducer({
         events,
         protectedHttp: http.length,
         websockets: websockets.length,
+        theiaControlPlaneHttp: theiaControlPlaneHttp.length,
+        theiaControlPlaneWebSockets: theiaControlPlaneWebSockets.length,
         ignored,
         malformed,
         ambiguous: anomaliesOutput
@@ -693,6 +850,10 @@ export function createStudioCdpEvidenceReducer({
       }),
       http: stableAggregate(http),
       websockets: stableAggregate(websockets),
+      theiaControlPlane: Object.freeze({
+        http: stableAggregate(theiaControlPlaneHttp),
+        websockets: stableAggregate(theiaControlPlaneWebSockets),
+      }),
       externalByScheme,
       anomalies: anomaliesOutput,
     });
@@ -791,6 +952,68 @@ export function evaluateStudioCdpEvidence(
     && record.statusClass === '2xx'
   ))) {
     failures.push(failure('missing-settings-post'));
+  }
+
+  const theiaHttp = Array.isArray(snapshot.theiaControlPlane?.http)
+    ? snapshot.theiaControlPlane.http
+    : [];
+  const theiaWebSockets = Array.isArray(snapshot.theiaControlPlane?.websockets)
+    ? snapshot.theiaControlPlane.websockets
+    : [];
+  if (!snapshot.theiaControlPlane || !Array.isArray(snapshot.theiaControlPlane.http)) {
+    failures.push(failure('missing-theia-control-plane-evidence'));
+  }
+  const theiaPollingCount = theiaHttp.reduce(
+    (total, record) => total + (Number.isInteger(record.count) ? record.count : 0),
+    0,
+  );
+  if (
+    !Number.isInteger(policy.minTheiaPollingHttp)
+    || policy.minTheiaPollingHttp < 0
+    || !Number.isInteger(policy.maxTheiaPollingHttp)
+    || policy.maxTheiaPollingHttp < 0
+    || policy.minTheiaPollingHttp > policy.maxTheiaPollingHttp
+    || theiaPollingCount < policy.minTheiaPollingHttp
+    || theiaPollingCount > policy.maxTheiaPollingHttp
+  ) {
+    failures.push(failure('theia-polling-bound-exceeded'));
+  }
+  if (!theiaHttp.every(record => (
+    Number.isInteger(record.count)
+    && record.count > 0
+    && record.routeId === STUDIO_ROUTE_IDS.THEIA_SOCKET_IO
+    && record.targetClass === 'theia-control-plane'
+    && record.transportClass === 'polling'
+    && new Set(['polling-handshake', 'polling-session']).has(record.phaseClass)
+    && new Set(['GET', 'POST']).has(record.methodClass)
+    && (record.phaseClass !== 'polling-handshake' || record.methodClass === 'GET')
+    && record.statusClass === '2xx'
+    && record.terminalClass === 'response'
+    && record.responseSource !== 'missing'
+    && !record.redirected
+  ))) {
+    failures.push(failure('theia-polling-contract-failed'));
+  }
+
+  const theiaWebSocketCount = theiaWebSockets.reduce(
+    (total, record) => total + (Number.isInteger(record.count) ? record.count : 0),
+    0,
+  );
+  const everyTheiaWebSocketValid = theiaWebSocketCount === 1
+    && theiaWebSockets.every(record => (
+      record.count === 1
+      && record.routeId === STUDIO_ROUTE_IDS.THEIA_SOCKET_IO
+      && record.targetClass === 'theia-control-plane'
+      && record.transportClass === 'websocket'
+      && record.phaseClass === 'websocket-upgrade'
+      && record.handshakeStatus === 101
+      && record.sentFrames > 0
+      && record.receivedFrames > 0
+      && record.frameErrors === 0
+      && !record.closed
+    ));
+  if (!everyTheiaWebSocketValid) {
+    failures.push(failure('theia-websocket-contract-failed'));
   }
 
   const websocketCount = snapshot.websockets.reduce(
