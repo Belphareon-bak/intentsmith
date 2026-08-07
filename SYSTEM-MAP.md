@@ -86,10 +86,13 @@ Diagnostický runtime v OS network namespace při počátečním bootu přešel 
 deterministické `17*23 = 391` za 24 ms. Současně odkryl dvě produktové vady:
 
 - renderer se pokusil načíst Google Fonts i pod blokovaným outboundem;
-- šest běžných Studio HTTP requestů vracelo `403`, protože browser request na
-  wire nenesl local capability header. Kontrolní opaque-origin request bez
-  capability vrátil `403`, s platnou capability `200`; backendová hranice je
-  tedy správně fail-closed a rozbitá je browser delivery cesta.
+- sedm startup Studio HTTP rodin, včetně dříve vynechané `/api/agents`, vracelo
+  `403`. Sanitizovaná CDP revalidace na `1fc8f03e` prokázala, že existující
+  bootstrap capability na wire posílá;
+  Chromium ale z `file://` posílá `Origin` nepřítomný a
+  `Sec-Fetch-Site: cross-site`. Backend proto správně odmítá
+  `CROSS_SITE_WITHOUT_ORIGIN` ještě před capability větví. Rozbitý je spoj mezi
+  browser transportem a policy kontraktem, nikoliv instalace shimu.
 
 DevTools Network záznam nebyl zachován jako strojově čitelný artefakt; konkrétní
 URL, wire header a Fonts pokus jsou current-host observation, zatímco uložený
@@ -276,8 +279,8 @@ Zaznamenané, rozhodnuté, ne zapomenuté.
 | Nedostupná Ollama při klasifikaci | Opravena na jeden pokus; změřeno přibližně 80 ms místo 6 091 ms |
 | Automatické online model discovery | `C3_ENABLE_ONLINE_DISCOVERY`, default off; ostatní explicitní outbound plochy čekají na jednotnou policy |
 | C3 Studio Google Fonts | `c3-chat-panel/lib/browser/chat-panel-module.js` vkládá dvě `fonts.googleapis.com` URL bez opt-inu; potvrzené otevřené L0-12 porušení pro M0/M1 |
-| C3 Studio local HTTP | Skutečný renderer má bootstrap i validní capability, ale šest změřených HTTP requestů ji neposílá a končí 403; WS a deterministický chat přitom fungují. Browser delivery se musí opravit bez oslabení fail-closed backend boundary. |
-| C3 Studio source/build | Funkční ručně udržovaný `lib` je skutečný entrypoint a clean product build jej zachová; stale TS package build je nekompilovatelný a jeho spuštění by po povrchní opravě mohlo funkční UI přepsat. |
+| C3 Studio local HTTP | Skutečný renderer má bootstrap, validní metadata a capability na wire, ale Chromium posílá `Origin` nepřítomný + `Sec-Fetch-Site: cross-site`; sedm startup route rodin proto končí 403 před capability větví. Transport se musí opravit bez oslabení fail-closed backend boundary. |
+| C3 Studio source/build | Operátor přijal funkční ručně udržovaný `lib` jako současný autoritativní runtime. Stale TS je historický archiv; package build/clean/watch ani starý v7 fix payload nesmějí runtime přepsat nebo smazat. Současný vzhled není finální UI kontrakt. |
 | `multi-source-external.test.js` | Explicitní public-service smoke; není deterministická offline evidence |
 | L0-8 specialist boundary | Potvrzeně porušený; strict injection versus public extension SDK vyžaduje rozhodnutí operátora |
 | Self-learning | PatternTracker má produkční zápisy, ale `getRelevantPatterns()` nemá produkčního volajícího; `pattern-miner.js` nemá produkční import a cross-project learner nemá prokázanou smyčku. M4 vyžaduje jeden uzavřený same-project E2E. |

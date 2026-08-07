@@ -1,10 +1,9 @@
 {
   "name": "@c3/chat-panel",
   "version": "0.1.0",
-  "description": "C3 Chat Panel — Theia widget with markdown rendering and streaming",
+  "description": "C3 Chat Panel — authoritative committed Studio runtime",
   "main": "lib/browser/chat-panel-module.js",
-  "typings": "lib/browser/chat-panel-module.d.ts",
-  "files": ["lib", "src"],
+  "files": ["lib", "README.md", "scripts"],
   "theiaExtensions": [
     {
       "frontend": "lib/browser/chat-panel-module"
@@ -15,13 +14,9 @@
     "@c3/protocol": "0.1.0",
     "@c3/backend-bridge": "0.1.0"
   },
-  "devDependencies": {
-    "typescript": "~5.3.0",
-    "rimraf": "^5.0.0"
-  },
   "scripts": {
-    "build": "tsc -b",
-    "watch": "tsc -b -w",
-    "clean": "rimraf lib"
+    "build": "node scripts/authoritative-lib-contract.cjs verify",
+    "watch": "node scripts/authoritative-lib-contract.cjs reject-watch",
+    "clean": "node scripts/authoritative-lib-contract.cjs preserve-clean"
   }
 }

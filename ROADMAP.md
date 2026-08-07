@@ -293,9 +293,15 @@ Probe ale končí `COMPLETED_WITH_PRODUCT_FAIL`, protože:
 - repozitář sám potvrzuje, že funkční `lib` je ručně udržovaný source-of-truth
   a stale TS se nesmí nechat přepsat přes něj; product build jej pouze zabalí;
 - renderer se pod blokovaným outboundem pokusil načíst Google Fonts;
-- šest běžných Studio HTTP requestů vracelo 403, protože browser neposlal local
-  capability header. Kontrolní request bez capability vrátil 403 a s platnou
-  capability 200, takže backendová boundary se nesmí oslabit.
+- původně popsaných šest běžných Studio HTTP rodin vracelo 403; pozdější
+  zachovaný capture navíc potvrdil vždy spouštěnou `/api/agents` jako sedmou
+  rodinu. Původní nezachované DevTools pozorování připsalo stav chybějícímu
+  local capability headeru.
+  Následná sanitizovaná CDP revalidace na `1fc8f03e` toto vysvětlení vyvrátila:
+  capability na wire byla, ale Chromium poslalo `Origin` nepřítomný a
+  `Sec-Fetch-Site: cross-site`; policy proto správně skončila
+  `CROSS_SITE_WITHOUT_ORIGIN` dřív, než capability vyhodnotila. Backendová
+  boundary se nesmí oslabit.
 
 Síťové detaily jsou current-host DevTools observation, nikoliv zachovaný
 strojově čitelný export. Přibližně šest minut po startu skončil Electron během
@@ -320,7 +326,8 @@ Přesné instalační/build příkazy, hashe, metodická omezení a screenshot/l
 
 **WP-M0-E je diagnosticky dokončený takto:**
 
-1. **Výsledek:** skutečný source-of-truth je ručně udržovaný commitnutý `lib`;
+1. **Výsledek:** operátor přijal, že skutečný source-of-truth je ručně
+   udržovaný commitnutý `lib`;
    clean product build jej zachová, Theia se otevře, WS i deterministický chat
    fungují. Package build, local HTTP a outbound podmínky neprošly; stabilita a
    clean shutdown nejsou tímto probe prokázané.
@@ -497,15 +504,14 @@ focused regression sady.
 1. **Výsledek:** built Theia správně koreluje panely, ukáže progress i přesný
    terminal, scoped cancel/reconnect a nemá tichý Fonts egress.
 2. **Povolené cesty:** `src/ws-bridge/{ws-server,session-adapter}.js` bez
-   protocolu; relevantní `c3-ide/extensions/c3-chat-panel/{src,lib}/**` a bridge
-   pouze podle source-of-truth rozhodnutí; nové Studio client/journey testy.
+   protocolu; relevantní `c3-ide/extensions/c3-chat-panel/lib/**`, Electron
+   bridge a nové Studio client/journey testy. Archivovaný chat-panel TypeScript
+   není implementační plocha.
    **Zakázané:** chat controller, routes, LLM, quality a přijatý protocol.
 3. **Connector:** konzument `ConversationCommand/Result` a `CoreEvent` v1.
-4. **Závislost:** `WP-M1-CONTRACT` a výsledek `WP-M0-E`; první checkpoint nechá
-   operátora přijmout disposition. Změřený současný source-of-truth je ručně
-   udržovaný `lib`; doporučení je zachovat funkční UI, odstranit nepravdivý TS
-   build kontrakt a případnou pozdější relokaci udělat byte/behavior preserving,
-   nikoli produkt nahradit menší stale variantou.
+4. **Závislost:** `WP-M1-CONTRACT` a výsledek `WP-M0-E`. Operátor přijal ručně
+   udržovaný `lib` jako současný source-of-truth; případná pozdější relokace je
+   byte/behavior-preserving a nesmí produkt nahradit menší stale variantou.
    Oprava cancelu začíná ve Studio klientovi (`wsSendCancel` / `_cancelExecution`)
    doplněním `conversationId`; správná scoped backend větev se zachová a její
    `cancel all` kompatibilní fallback se pouze negativně otestuje.
@@ -878,14 +884,13 @@ mohou pokračovat.
    evidence a tohoto prováděcího detailu; osm uživatelských inventur nepřebírat.
 2. Operátorsky přijmout produktový kontrakt a roadmapu; případné změny scope se
    zapíší jako rozhodnutí, ne jako tichá editace.
-3. Přijmout disposition z dokončeného `WP-M0-E`. Doporučení: pro zachování
-   funkční parity ponechat ručně udržovaný `lib` jako současný autoritativní
-   runtime, zneškodnit nepravdivý stale TS build kontrakt a případnou relokaci
-   dělat později jako behavior-preserving změnu, nikoliv přepis UI.
-4. Po operátorském rozšíření zapisujícího scope uzavřít dvě M0 Studio vady:
-   browser capability delivery bez oslabení backend guardu a Google Fonts
-   outbound. Potom zopakovat frozen build a skutečný Theia→WS/HTTP journey;
-   backendový restart ani post-fix offline profil bez nového driftu neopakovat.
+3. **Přijato a právě implementováno:** ručně udržovaný `lib` je současný
+   autoritativní runtime; stale TS se archivuje a package `build`, `watch`,
+   `clean` ani historický fix script jej nesmějí přepsat nebo smazat.
+4. **Aktivní práce:** opravit browser HTTP transport bez oslabení backend
+   guardu a odstranit Google Fonts outbound. Potom zopakovat frozen build a
+   skutečný Theia→WS/HTTP journey s bounded soakem a čistým shutdownem;
+   současné UI se ověřuje funkčně, nikoliv jako finální vizuální baseline.
 5. Operátorsky rozhodnout L0-8 nejpozději před `WP-M3-BOUNDARY`; M0 jej může
    uzavřít pouze jako explicitně pojmenovaný blocker s vlastníkem a termínem.
 6. Schválit celé navržené veřejné schéma `WP-M1-CONTRACT`: identitu a scope,

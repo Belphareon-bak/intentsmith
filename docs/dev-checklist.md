@@ -96,9 +96,11 @@ If you added a migration in `src/db/migrations/`:
 
 If you modified `c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js`:
 
-- [ ] Rebuild webpack: `cd c3-ide/applications/electron && npx webpack --config gen-webpack.config.js --mode development`
-- [ ] **NEVER run `tsc -b`** on c3-chat-panel (TS source would overwrite hand-written JS)
-- [ ] Test in Electron (not just browser)
+- [ ] Validate the authoritative runtime: from `c3-ide/`, run `corepack yarn workspace @c3/chat-panel build`
+- [ ] Rebuild the product bundle: from `c3-ide/`, run `corepack yarn build`
+- [ ] Package `clean` must report a no-op and preserve `lib`; package `watch` must reject with exit `2`
+- [ ] Test the built Electron transport/runtime, not only the module or browser
+- [ ] Do not treat current layout/styling as the final IntentSmith UI contract
 
 ## Quick Test Commands
 

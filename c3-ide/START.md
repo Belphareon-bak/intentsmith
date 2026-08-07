@@ -64,9 +64,15 @@ Pro změny vizuálu editujte:
 - **Styly** - CSS soubory v `extensions/*/src/browser/styles/`
 - **Témata** - `configs/default-preferences.json`
 
+Výjimka: `extensions/c3-chat-panel/lib/` je současný ručně udržovaný
+autoritativní runtime. Jeho starý TypeScript prototyp je pouze v
+`../docs/archive/c3-studio/c3-chat-panel-ts-prototype/` a nesmí se kompilovat
+zpět do produktu. Současné UI navíc není finální vizuální baseline.
+
 Po změně:
 1. Ctrl+C (ukončit running app)
 2. `yarn build`
 3. `yarn start`
 
-Nebo použijte `yarn watch` pro auto-rebuild.
+Nebo použijte `yarn watch` pro auto-rebuild ostatních aktivních extension
+sources; package-level watch `@c3/chat-panel` je záměrně blokovaný.

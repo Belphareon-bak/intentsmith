@@ -82,11 +82,11 @@ diagnostický `--no-sandbox`; jde o omezení tohoto probe, ne release konfigurac
   `📊 **17*23 = 391**`; backend naměřil celý turn **24 ms**, bez modelu;
 - renderer se přesto pokusil načíst `fonts.googleapis.com`; síťový namespace
   pokus zablokoval;
-- šest běžných HTTP requestů (`/api/health`, `/api/projects`,
+- původně zaznamenaných šest běžných HTTP rodin (`/api/health`, `/api/projects`,
   `/api/conversations`, `/api/expertises`, `/api/media/history`, `/health`)
-  vracelo **403**. DevTools potvrdily, že na wire chybí
-  `X-IntentSmith-Local-Capability`, a backend je odmítl jako
-  `CROSS_SITE_WITHOUT_ORIGIN`;
+  vracelo **403**. Původní nezachované DevTools pozorování je chybně připsalo
+  chybějící capability; sanitizovaná revalidace níže prokázala jinou příčinu a
+  navíc zachytila vždy spouštěnou sedmou rodinu `/api/agents`;
 - kontrolní raw request se stejnými opaque-origin hlavičkami skončil bez
   capability `403` a s capability `200`. Backendová boundary tedy funguje;
   rozbitá je skutečná browser delivery cesta.
@@ -107,18 +107,49 @@ mód `0700`, soubory `0600`; lokální capability hodnota se neeviduje.
 
 Zachované logy dokazují `ready`, WS, chat, opakovaná boundary odmítnutí a
 závěrečný `SIGTRAP`; neobsahují však strojově čitelný export DevTools Network.
-Seznam šesti URL, chybějící capability na wire, Fonts pokus a kontrolní
-`403/200` jsou proto **current-host observation**, nikoliv plně reprodukovatelná
-release evidence. Přesné instalační a build příkazy jsou v tabulce výše;
-runtime podmínky jsou popsané, ale automatizovaný runner dosud neexistuje.
+Původní seznam šesti URL, Fonts pokus a kontrolní `403/200` jsou proto
+**current-host observation**, nikoliv plně reprodukovatelná release evidence.
+Přesné instalační a build příkazy jsou v tabulce výše; runtime podmínky jsou
+popsané, ale automatizovaný runner dosud neexistuje.
 
-### Disposition k rozhodnutí
+### Revalidace skutečných HTTP hlaviček (2026-08-07)
 
-Nejmenší evoluční varianta je zachovat dnešní funkční commitnuté JS jako
-autoritativní runtime, odstranit nepravdivý package build kontrakt a teprve v
-ohraničeném WP případně přesunout stejný kód do jasného source adresáře.
-Přepsat celé UI do stale TS by byla široká náhrada bez doloženého přínosu.
-Operátor musí tuto disposition přijmout před prvním zapisujícím Studio WP.
+Na zdrojovém HEAD `1fc8f03e649dd561fb279ce68e5c119d35faad55` proběhl nový
+fresh production build a skutečný Electron boot v odděleném user+network
+namespace. CDP reducer zpracoval `Network.requestWillBeSent` i
+`requestWillBeSentExtraInfo`, ale z hlaviček zachoval pouze bezpečné hodnoty
+`Origin`, `Sec-Fetch-Site` a boolean přítomnosti capability; hodnotu capability,
+cookies, authorization, body ani plný header dump neuložil.
+
+Výsledek všech pozorovaných základních backend requestů byl:
+
+- existující webpack bootstrap, preload bridge i local-access metadata byly po
+  načtení přítomné;
+- `X-IntentSmith-Local-Capability` byl na wire **přítomný**;
+- `Origin` byl **nepřítomný** a `Sec-Fetch-Site` měl hodnotu `cross-site`;
+- odpověď byla `403`, protože policy záměrně vrací
+  `CROSS_SITE_WITHOUT_ORIGIN` před opaque-origin capability větví;
+- explicitní `Request.mode = 'cors'` browser-owned hlavičky ani výsledek
+  nezměnil;
+- Electron i backend při tomto 35sekundovém diagnostickém běhu skončily
+  řízeně s code `0`, bez signálu.
+
+Sanitizovaný current-host artefakt je v
+`$HOME/.cache/intentsmith-studio-rootcause.7SRi7E/runtime3/artifacts/network-observation.json`
+mimo repozitář. Opravuje diagnózu, ale ještě nenahrazuje plánovaný commitnutý
+runner, bounded soak a fresh-clone acceptance evidence.
+
+### Přijatá source disposition
+
+Operátor 2026-08-07 přijal dnešní funkční commitnuté JS jako autoritativní
+runtime. Stale TypeScript/Tailwind prototyp se přesouvá do inertního archivu;
+package `build` jej nesmí emitovat přes runtime a `clean` jej nesmí smazat.
+Také historický v7 fix payload, který mohl autoritativní soubory přepsat starší
+kopií, musí být neproveditelný. Případná pozdější relokace je samostatná
+behavior-preserving změna, nikoliv přepis UI.
+
+Současné UI není finální vizuální ani UX baseline. Journey připíná jen stabilní
+funkční hranice: start, HTTP/WS, security, outbound, soak a clean shutdown.
 
 Nezávisle na této volbě musí Studio repair zavřít browser capability delivery,
 Google Fonts egress a přidat skutečný Electron boundary test. Do té doby je

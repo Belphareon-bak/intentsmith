@@ -3,7 +3,8 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -40,11 +41,40 @@ assert.equal(
   true,
   'tracked legacy local media object-URL cache is missing',
 );
+assert.equal(
+  trackedSet.has('c3-ide/extensions/c3-chat-panel/scripts/authoritative-lib-contract.cjs'),
+  true,
+  'tracked C3 Studio authoritative-lib contract is missing',
+);
+assert.equal(
+  trackedSet.has('docs/archive/c3-studio/c3-chat-panel-ts-prototype/README.md'),
+  true,
+  'archived chat-panel prototype provenance is missing',
+);
+assert.equal(
+  tracked.some(file => file.startsWith('c3-ide/extensions/c3-chat-panel/src/')),
+  false,
+  'stale chat-panel TypeScript must not remain in the active workspace',
+);
+assert.equal(
+  trackedSet.has('c3-ide/extensions/c3-chat-panel/tsconfig.json'),
+  false,
+  'stale chat-panel TypeScript build config must not remain active',
+);
+assert.equal(
+  trackedSet.has('c3-ide/lib/utils/cn.ts'),
+  false,
+  'orphaned chat-panel TypeScript support must not remain in generated lib',
+);
 
 const rootPackage = JSON.parse(readFileSync(resolve(repoRoot, 'package.json'), 'utf8'));
 const idePackage = JSON.parse(readFileSync(resolve(repoRoot, 'c3-ide/package.json'), 'utf8'));
 const electronPackage = JSON.parse(readFileSync(
   resolve(repoRoot, 'c3-ide/applications/electron/package.json'),
+  'utf8',
+));
+const chatPanelPackage = JSON.parse(readFileSync(
+  resolve(repoRoot, 'c3-ide/extensions/c3-chat-panel/package.json'),
   'utf8',
 ));
 const installer = readFileSync(resolve(repoRoot, 'scripts/install.sh'), 'utf8');
@@ -86,6 +116,89 @@ assert.equal(idePackage.resolutions?.['@vscode/ripgrep'], '1.18.0');
 assert.equal(electronPackage.devDependencies?.['terser-webpack-plugin'], '5.3.17');
 assert.equal(electronPackage.devDependencies?.webpack, '5.109.2');
 assert.equal(electronPackage.devDependencies?.['webpack-cli'], '4.7.0');
+assert.equal(chatPanelPackage.main, 'lib/browser/chat-panel-module.js');
+assert.deepEqual(chatPanelPackage.theiaExtensions, [
+  { frontend: 'lib/browser/chat-panel-module' },
+]);
+assert.deepEqual(chatPanelPackage.files, ['lib', 'README.md', 'scripts']);
+assert.equal(Object.hasOwn(chatPanelPackage, 'typings'), false);
+assert.equal(Object.hasOwn(chatPanelPackage, 'devDependencies'), false);
+assert.deepEqual(chatPanelPackage.scripts, {
+  build: 'node scripts/authoritative-lib-contract.cjs verify',
+  watch: 'node scripts/authoritative-lib-contract.cjs reject-watch',
+  clean: 'node scripts/authoritative-lib-contract.cjs preserve-clean',
+});
+assert.doesNotMatch(
+  JSON.stringify(chatPanelPackage.scripts),
+  /\b(?:tsc|rimraf|rm)\b/,
+  'chat-panel package scripts must not compile over or delete authoritative lib',
+);
+
+const chatPanelRuntimeFiles = [
+  'lib/browser/agent-client.js',
+  'lib/browser/agent-log-renderer.js',
+  'lib/browser/chat-panel-module.js',
+  'lib/browser/event-bus.js',
+  'lib/browser/styles/c3-chat.css',
+  'lib/browser/styles/c3-theme.css',
+  'lib/browser/terminal-client.js',
+  'lib/browser/ws-client.js',
+];
+const chatPanelRoot = resolve(repoRoot, 'c3-ide/extensions/c3-chat-panel');
+const authoritativeLibContract = resolve(
+  chatPanelRoot,
+  'scripts/authoritative-lib-contract.cjs',
+);
+
+function chatPanelRuntimeDigest() {
+  const digest = createHash('sha256');
+  for (const relative of chatPanelRuntimeFiles) {
+    const absolute = resolve(chatPanelRoot, relative);
+    const stat = lstatSync(absolute);
+    assert.equal(stat.isFile(), true, `${relative} must remain a regular file`);
+    assert.equal(stat.isSymbolicLink(), false, `${relative} must not be a symlink`);
+    digest.update(relative);
+    digest.update(String(stat.mode & 0o777));
+    digest.update(readFileSync(absolute));
+  }
+  return digest.digest('hex');
+}
+
+for (const [mode, expectedStatus] of [
+  ['verify', 0],
+  ['preserve-clean', 0],
+  ['reject-watch', 2],
+]) {
+  const before = chatPanelRuntimeDigest();
+  const result = spawnSync(process.execPath, [authoritativeLibContract, mode], {
+    cwd: chatPanelRoot,
+    encoding: 'utf8',
+  });
+  assert.equal(result.error, undefined, String(result.error));
+  assert.equal(
+    result.status,
+    expectedStatus,
+    `authoritative-lib ${mode} failed: ${result.stderr || result.stdout}`,
+  );
+  assert.equal(
+    chatPanelRuntimeDigest(),
+    before,
+    `authoritative-lib ${mode} modified committed runtime`,
+  );
+}
+
+for (const retiredFixer of [
+  'c3-ide/fix-extensions.sh',
+  'c3-ide/fixes/apply-fixes.sh',
+]) {
+  const result = spawnSync('bash', [resolve(repoRoot, retiredFixer)], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+  });
+  assert.equal(result.error, undefined, String(result.error));
+  assert.equal(result.status, 2, `${retiredFixer} must fail closed`);
+  assert.match(result.stderr, /retired/i);
+}
 for (const workspaceKind of ['applications', 'extensions']) {
   const workspaceRoot = resolve(repoRoot, 'c3-ide', workspaceKind);
   for (const workspaceName of readdirSync(workspaceRoot)) {
