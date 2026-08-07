@@ -155,7 +155,7 @@ test('runner uses an explicit non-visual CDP surface and never observes UI state
   assert.match(source, /window\.C3WS/);
   assert.match(source, /window\.C3Bus/);
   assert.equal(source.includes('window._c3'), false);
-  assert.equal(source.includes('.sendChat('), false);
+  assert.equal(source.includes('sendChat'), false);
   assert.match(source, /window\.C3WS\.send\('chat'/);
   assert.match(source, /uiEvaluation: 'excluded-non-final-ui'/);
 });

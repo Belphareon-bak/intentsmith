@@ -48,7 +48,8 @@ canary hodnot.
 `tests/studio-electron-boundary.e2e.js` je záměrně ne-vizuální. Přes CDP čte
 jen `Network.*` a přes renderer volá existující transportní konektory `C3WS`
 a `C3Bus`. Chat odesílá přes obecné `C3WS.send('chat', ...)`; nečte ani nemění
-privátní `_c3`, session model nebo stav komponent. Nečte DOM, selektory,
+specializovaný UI helper `sendChat` ani privátní `_c3`, session model nebo stav
+komponent. Readiness ověřuje tentýž obecný `C3WS.send`. Nečte DOM, selektory,
 screenshoty, layout, CSS ani text ovládacích prvků. Současné UI tedy slouží
 pouze jako dočasný nosič skutečného Electron transportu; test nevytváří
 kontrakt pro finální UI IntentSmithu.

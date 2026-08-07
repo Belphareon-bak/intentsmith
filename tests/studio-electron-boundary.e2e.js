@@ -909,7 +909,7 @@ async function waitForRendererTransport(cdp) {
         bridge: Boolean(window.electronC3?.getLocalAccess?.()),
         shim: window.__intentSmithLegacyLocalFetchV1 === true,
         bus: Boolean(window.C3Bus?.on && window.C3Bus?.off),
-        ws: Boolean(window.C3WS?.sendChat && window.C3WS?.isReady?.())
+        ws: Boolean(window.C3WS?.send && window.C3WS?.isReady?.())
       }))()`);
       if (ready?.bridge && ready?.shim && ready?.bus && ready?.ws) return;
     } catch {
