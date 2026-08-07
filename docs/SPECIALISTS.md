@@ -43,6 +43,15 @@ Viz take: [SPECIALIST-LIFECYCLE.md](SPECIALIST-LIFECYCLE.md) | [EXPERTISES.md](E
 
 Specialist je self-contained balik v `specialists/` adresari. **Nulove hardcoded zavislosti v core** — vsechny domenove data registrovane dynamicky pres `ctx.registries`.
 
+> **Zmereno 2026-08-07 na `1fc8f03e`:** smer core → specialisté je cisty, zadny
+> staticky import z `src/**` do `specialists/**` neexistuje. Opacny smer cisty
+> **neni** — `specialists/accountant-cz/adapters.js:12` importuje `ToolAdapter`
+> z `../../src/expertises/tool-adapter.js`. Je to jedina vykonavana hrana
+> a jediny symbol; `ToolAdapter` v `ctx` chybi, takze pravidlo z
+> [Plugin boundary](#plugin-boundary) pro nej dnes nelze dodrzet. Detail, oba
+> prototypy reseni a mereni:
+> [`docs/review/2026-08-07-L0-8-BOUNDARY.md`](review/2026-08-07-L0-8-BOUNDARY.md).
+
 ```
 specialists/
   accountant-cz/          ← domain specialist (finance)
@@ -126,6 +135,12 @@ TaggedResponse s metadaty { expertise, toolResults }
 
 ### Specialist NESMI:
 - `import ... from '../../src/...'` — warn v121, hard reject v budouci verzi
+  > **Pozor: ta kontrola dnes nic nechyti.** `specialist-loader.js:521-531` cte
+  > pouze `manifest.entry` (tedy `index.js`) a hleda vzor `from '../../src/`.
+  > Skutecne poruseni je v `adapters.js`, ktery entry point neni, a typove
+  > odkazy maji tvar `import('../../src/...')`, ktery vzor nematchuje. Aplikace
+  > teze kontroly na vsech 5 balicku dava **0 varovani**. Zadny test toto
+  > pravidlo nevynucuje.
 - Upravovat globalni stav mimo ctx.registries
 
 ### Fail-safe unregister:
@@ -636,7 +651,21 @@ export function unregister(ctx) {
 }
 ```
 
-**Plugin boundary**: NIKDY neimportujte z `../../src/`. Vše přichází přes `ctx`.
+### Plugin boundary
+
+**Pravidlo**: NIKDY neimportujte z `../../src/`. Vše přichází přes `ctx`.
+
+> **Stav k 2026-08-07:** pravidlo plati pro vsechno, co `ctx` nabizi — `runtime`,
+> `db`, `manifest`, `specialistDir`, `logger`, `knowledgeBase` a `registries`
+> (`autoSelect`, `scenario`, `cre`, `toolExecutor`, `capability`, `expertise`),
+> viz `src/specialists/specialist-loader.js:540-559`.
+>
+> **`ToolAdapter` mezi nimi neni**, takze pro nej pravidlo dnes nema jak byt
+> dodrzeno a dodavany balicek `accountant-cz` ho porusuje. Rozhodnuti mezi
+> strict injection (doplnit do `ctx`) a verejnym extension SDK je otevrene —
+> `ROADMAP.md §14`, evidence v
+> [`docs/review/2026-08-07-L0-8-BOUNDARY.md`](review/2026-08-07-L0-8-BOUNDARY.md).
+> Do rozhodnuti pravidlo **neuvadejte jako vynucovane**.
 
 ### Správa v IDE
 

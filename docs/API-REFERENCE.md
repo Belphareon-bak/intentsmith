@@ -1,7 +1,14 @@
 # C3 Agent — API Reference
 
-> **v135** | ~200 endpoints across 15 route modules
+> **v135** | 272 route definitions / 251 unique keys across 20 source files
 > Generated from source code analysis. All routes are HTTP/1.1, JSON bodies (unless noted).
+>
+> Counted 2026-08-07 on `1fc8f03e`. The earlier figure "~200 endpoints across 15
+> route modules" undercounted: besides `src/routes/*.js` (257) the same table
+> also receives keys from `src/setup/wizard.js` (6), `src/notifications/trust-api.js` (5)
+> and `src/server.js` (4). 21 keys are defined twice — see
+> [Duplicate keys](#duplicate-keys). Full listing and the effect/auth matrix:
+> [`docs/review/2026-08-07-AUTH-MATRIX.md`](review/2026-08-07-AUTH-MATRIX.md).
 
 ## Table of Contents
 
@@ -35,6 +42,7 @@
 
 | Layer | Description |
 |-------|-------------|
+| **Local access boundary** | `evaluateLegacyLocalAccess()` (`src/server.js:1091`) runs **before everything else** on every HTTP request; rejects non-loopback host/origin/capability with `403 LEGACY_LOCAL_ACCESS_REQUIRED`. Verified 2026-08-07: foreign `Origin` and foreign `Host` both → 403, on HTTP and on the WS handshake. **This is the only protection 244 of 251 routes have.** |
 | CORS | `OPTIONS *` → 204 with `Access-Control-Allow-*` headers |
 | Rate limit | Tiered per-IP sliding window (v125): Tier 0 exempt (OPTIONS, health, WS), Tier 1 read 600/min (GET), Tier 2 write 120/min (POST/PUT/DELETE). Disabled on localhost. Proxy: `C3_TRUST_PROXY=true` |
 | Path traversal guard | Static file serving + workspace + project paths validated against root. conversationId + package ID sanitized (v126) |
@@ -44,9 +52,40 @@
 
 | Scope | Mechanism |
 |-------|-----------|
-| `/api/security/*` | `X-Admin-Token` header required (or localhost in dev mode) |
+| `/api/security/*` (7 routes) | `X-Admin-Token` header required (or localhost in dev mode) |
 | Setup routes | No auth (idempotent) |
-| All other routes | No auth (stateless, local-only deployment) |
+| All other routes (244) | No per-route auth. Protected **only** by the local access boundary above |
+
+### What "no per-route auth" means in practice
+
+Verified 2026-08-07 against a running instance with `C3_ADMIN_TOKEN` unset
+(the default — the variable is empty in `.env.example`):
+
+| Request from loopback, no credentials | Result |
+|---|---|
+| `GET /api/projects` | 200 |
+| `POST /api/system/backup` | 200 — backup actually created |
+| `GET /api/security/audit` | 200 — dev + localhost bypass in `requireAuth()` |
+| Same requests with a foreign `Origin` or `Host` | 403 |
+
+State-changing routes reachable this way include filesystem writes
+(`POST /api/workspace/file`), third-party code installation
+(`POST /api/marketplace/install/:type/:id`), destructive DB operations
+(`POST /api/system/vacuum`), and **approval grants**
+(`POST /api/autonomy/approve/:id`, `POST /api/lifecycle/*/approve`) — the last
+group being the mechanism L0-11 depends on.
+
+`validateApiToken()` (`src/routes/security.js:270`) exists, returns `scopes`, and
+is **called from nowhere**. Wiring it is `WP-M5-AUTH`.
+
+### Duplicate keys
+
+Routes are merged by object spread (`src/server.js:804-844`), so a repeated key
+is silently overridden by the later definition. 21 of 272 definitions are
+duplicates. Most are intentional (two branches inside `specialists.js` and
+`marketplace.js`), but **`GET /api/health` is defined in two different files** —
+`src/server.js:800` and `src/routes/misc.js:81`. The spread at `src/server.js:811`
+wins, so the `server.js` definition is dead code.
 
 ---
 
@@ -462,7 +501,11 @@ Lifecycle endpoints are spread across projects and expertises routes:
 
 ## Security
 
-> All `/api/security/*` endpoints require `X-Admin-Token` header.
+> All `/api/security/*` endpoints require `X-Admin-Token` header — **except on
+> localhost when `NODE_ENV` is not `production`**, where `requireAuth()`
+> (`src/routes/security.js:20-38`) lets the request through with no credential.
+> That is the default development configuration; verified 2026-08-07,
+> `GET /api/security/audit` → 200 without a token.
 
 | Method | Path | Query / Body | Response | Side Effects |
 |--------|------|-------------|----------|-------------|

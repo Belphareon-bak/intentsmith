@@ -2,11 +2,65 @@
 
 **Verze:** v1.3 (2026-03-02)
 **Status:** PLAN — ceka na schvaleni
+**Stav implementace overen:** 2026-08-07 na `1fc8f03e` — viz [Stav implementace](#stav-implementace)
+
+> Tento dokument je **navrh**, ne popis hotoveho stavu. Cast je implementovana,
+> cast ne a na nekolika mistech se implementace od navrhu lisi. Sekce
+> [Stav implementace](#stav-implementace) rika, co plati dnes; podrobnosti jsou
+> v [`docs/review/2026-08-07-SECRET-TYPES.md`](review/2026-08-07-SECRET-TYPES.md)
+> a v zadani [`docs/wp/WP-M5-DATA.md`](wp/WP-M5-DATA.md).
+
+---
+
+## Stav implementace
+
+Overeno ctenim `src/core/db-backup.js` a `src/routes/system.js` na revizi
+`1fc8f03e649dd561fb279ce68e5c119d35faad55`.
+
+| Cast navrhu | Stav | Kde |
+|---|---|---|
+| State backup — vytvoreni | **implementovano** | `createStateBackup()`, `src/core/db-backup.js:65` |
+| Vypis zaloh | **implementovano** | `listBackups()`, `:169` |
+| Retence 7 dennich + 4 tydenni | **implementovano** | `pruneBackups()`, `:216` |
+| Statistiky zaloh | **implementovano** | `getBackupStats()`, `:271` |
+| **State restore** | **NEIMPLEMENTOVANO** | slovo `restore` se v `db-backup.js` nevyskytuje |
+| History restore | **NEIMPLEMENTOVANO** | — |
+| Daily drain | implementovano | `drainMessages()` |
+| Auto-clean | implementovano | `autoClean()` |
+
+Zaloha se spousti ze ctyr mist: `src/server.js:192` (startup),
+`src/server.js:1512` (shutdown), `POST /api/system/backup`
+(`src/routes/system.js:715`) a `POST /api/system/shutdown-backup` (`:771`).
+**Zadna route pro restore neexistuje.**
+
+### Kde se implementace lisi od navrhu
+
+| Navrh rika | Skutecnost |
+|---|---|
+| `c3.db` se zalohuje pres `db.backup()` (SQLite native) | `db.pragma('wal_checkpoint(TRUNCATE)')` + `fs.copyFileSync()` (`db-backup.js:86-88`) |
+| `metadata.json` obsahuje `tables_excluded` | neobsahuje; zapisuji se `version`, `schema_version`, `created_at`, `type`, `db_size_bytes`, `files_count`, `total_size_bytes` (`db-backup.js:137-145`) |
+| `schema_version` je verze schematu | je to `SELECT COUNT(*) FROM migrations` (`db-backup.js:126`) — pocet, ktery neurcuje **ktere** migrace probehly |
+| Pruneable log tabulky nejsou v zaloze | jsou — kopiruje se cely soubor `c3.db`, ne vyber tabulek |
+
+### Znama rizika, ktera navrh neresi
+
+**Zaloha stejneho dne se maze a prepisuje.** `db-backup.js:76-78` provede
+`fs.rmSync(backupPath, { recursive: true, force: true })` a teprve pak vytvori
+novy adresar. Nazev je datovy (`c3-state-YYYY-MM-DD.backup`). Ve spojeni se
+zalohou pri startu (`src/server.js:192`) to znamena: **uzivatel s poskozenou
+databazi, ktery restartuje server, prepise jedinou dnesni dobrou zalohu
+poskozenym stavem.**
+
+**Zaloha nese tajemstvi v plaintextu.** `user_settings.data` obsahuje
+`webhookSecret` jako hodnotu (`src/routes/security.js:218-245`) a kopiruje se
+s `c3.db`. Sifrovani at-rest neexistuje. Rotace tajemstvi je proto vratna
+obnovou ze starsi zalohy.
 
 ---
 
 ## Obsah
 
+0. [Stav implementace](#stav-implementace) — co z tohoto navrhu dnes skutecne existuje
 1. [Zakladni princip](#zakladni-princip)
 2. [Rozdeleni dat](#rozdeleni-dat)
 3. [Hybrid model: DB + History soubory](#hybrid-model-db--history-soubory)
@@ -216,7 +270,9 @@ Ochrana: drain query filtruje `WHERE conversation_id NOT IN (SELECT id FROM conv
 
 ### Co obsahuje
 
-1. **c3.db** — `db.backup()` (SQLite native, atomicky)
+1. **c3.db** — `wal_checkpoint(TRUNCATE)` + `fs.copyFileSync()` (synchronni)
+   > Navrh puvodne pocital s `db.backup()` (SQLite native). Implementace ho
+   > nepouziva — viz [Stav implementace](#kde-se-implementace-lisi-od-navrhu).
 2. **skills/*.json** — skill definice
 3. **specialists/*/** — specialist baliky
 4. **data/c3-setup.json** — setup konfigurace
@@ -226,7 +282,8 @@ Ochrana: drain query filtruje `WHERE conversation_id NOT IN (SELECT id FROM conv
 
 - `data/history/` — to je history backup (oddeleny)
 - `data/artifacts/` — velke binarni prilohy
-- Pruneable log tabulky (jsou v DB ale maji kratkou retenci)
+- ~~Pruneable log tabulky~~ — **navrh; implementace je zahrnuje.** Kopiruje se
+  cely soubor `c3.db`, ne vyber tabulek, takze pruneable logy v zaloze jsou.
 
 ### Format
 
@@ -248,6 +305,8 @@ data/backups/
 
 ### metadata.json
 
+Navrh:
+
 ```json
 {
   "version": "91.0.0",
@@ -258,6 +317,24 @@ data/backups/
   "tables_excluded": ["agent_logs", "llm_execution_log", "telemetry_*"]
 }
 ```
+
+Skutecne zapisovana metadata (`db-backup.js:137-145`):
+
+```json
+{
+  "version": "...",
+  "schema_version": 47,
+  "created_at": "...",
+  "type": "state",
+  "db_size_bytes": 0,
+  "files_count": 0,
+  "total_size_bytes": 0
+}
+```
+
+Rozdily: `tables_excluded` se nezapisuje a `schema_version` je
+`SELECT COUNT(*) FROM migrations` — tedy **pocet** migraci, ne identita
+schematu. Kompatibilitni kontrola pri restore na tom stat nemuze.
 
 ### Retence zaloh
 
@@ -778,6 +855,15 @@ Shard se pouziva jen pro `conversations/` (nejvic souboru). `lifecycle/` a `memo
 
 ## Restore scenar
 
+> **NEIMPLEMENTOVANO k 2026-08-07.** Cela tato sekce je navrh. `db-backup.js`
+> umi create/list/prune/stats a nic vic; route pro obnovu neexistuje. Kroky nize
+> jsou zadani pro [`WP-M5-DATA`](wp/WP-M5-DATA.md), ne popis chovani produktu.
+>
+> Nez se restore implementuje, musi se rozhodnout dve veci, ktere tento navrh
+> neresi: prepis zalohy stejneho dne (viz [Stav implementace](#znama-rizika-ktera-navrh-neresi))
+> a to, ze `schema_version` v metadatech je pocet migraci, ne jejich identita —
+> takze krok 4 nize na nem nemuze stat.
+
 ### State restore
 
 1. UI: "Obnovit ze zalohy" → seznam zaloh s datumy a velikostmi
@@ -803,7 +889,13 @@ Po restore muze nastat:
 - **State je novejsi nez history** → v DB jsou konverzace, pro ktere neexistuje JSONL
   - To je normalni stav (zpravy jeste nebyly drainovane)
 
-Invariant: **nikdy neztratite data.** V nejhorsim pripade se nektere konverzace nezobrazi v seznamu, ale JSONL soubory zustanou na disku.
+Zamysleny invariant: **nikdy neztratite data.** V nejhorsim pripade se nektere konverzace nezobrazi v seznamu, ale JSONL soubory zustanou na disku.
+
+> **Neprokazano.** Invariant je formulovany pro restore, ktery neexistuje, a
+> nedrzi proti scenari z [Stav implementace](#znama-rizika-ktera-navrh-neresi):
+> zaloha stejneho dne se prepisuje, takze restart nad poskozenou databazi muze
+> jedinou dobrou zalohu zlikvidovat. Dukaz musi dodat round-trip
+> backup → poskozeni → restore → porovnani ve [`WP-M5-DATA`](wp/WP-M5-DATA.md).
 
 ### History restore
 

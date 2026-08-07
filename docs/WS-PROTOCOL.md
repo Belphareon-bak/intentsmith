@@ -19,6 +19,38 @@ Backend → IDE:   { type: 'hello_reject', reason: '...', requiredProtocol: 1 }
 
 **Reconnect:** Exponential backoff, `delay = min(1000 * 2^retry, 30000)`, max 12 retries.
 
+## Authentication
+
+**The handshake is the only authentication point. Individual messages are not
+authenticated.**
+
+`createLegacyWebSocketVerifyClient()` (`src/ws-bridge/ws-server.js:117`) validates
+the upgrade request against the same local access boundary the HTTP side uses:
+host, origin, and per-process capability. Verified 2026-08-07 on `1fc8f03e`:
+
+| Handshake | Result |
+|---|---|
+| `Origin: https://evil.example` | **403** |
+| No `Origin` (native IDE client) | connects |
+
+Once connected, every message is trusted. Three message types perform effects
+that would require authorization if they were HTTP routes:
+
+| Message | Effect | Additional guard |
+|---|---|---|
+| `chat` | full chat pipeline — LLM, CRE, tool calls | none |
+| `control` → `edit_approve` | **writes a file**, after `currentHash === baseHash` | hash guard only |
+| `terminal` → `exec` | **runs a shell command**, 120 s timeout | `validateCommand()` — binary whitelist, arg blacklist, path sandbox (`src/executor/shell-security.js:12,56,107`) |
+
+`terminal` is therefore capability-limited but not authenticated: the guard
+constrains **what** can run, not **who** may run it. `edit_approve` is both the
+approval and the effect in one message, which makes it the most sensitive point
+of the WS surface under L0-11.
+
+Adding per-message authorization is `WP-M5-AUTH`; the proposed shape (token
+carried once at handshake, session holds scope) is in
+[`docs/review/2026-08-07-AUTH-MATRIX.md`](review/2026-08-07-AUTH-MATRIX.md).
+
 ## Channels
 
 All post-handshake messages use channel-based envelope: `{ channel: string, data: object }`

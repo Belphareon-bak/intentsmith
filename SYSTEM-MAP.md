@@ -249,16 +249,33 @@ znění v [`CONTRACT.md`](CONTRACT.md) §2.
 6. Patch engine: 3-tier anchor, atomický zápis, plný rollback
 7. Execution loop: max 8 iterací
 8. Specialista neimportuje interní `src/**` — **aktuálně porušeno** jediným
-   vykonávaným importem `specialists/accountant-cz/adapters.js` →
-   `src/expertises/tool-adapter.js`; chybí fail-closed rekurzivní guard
+   vykonávaným importem `specialists/accountant-cz/adapters.js:12` →
+   `src/expertises/tool-adapter.js`; chybí fail-closed rekurzivní guard.
+   Změřeno 2026-08-07: existující guard (`specialist-loader.js:521-531`) čte
+   pouze `manifest.entry`, takže na všech 5 balíčcích vypíše **0 varování**,
+   zatímco porušení trvá. `ToolAdapter` má 0 importů a v `ctx` chybí. Oba
+   prototypy řešení postavené a spuštěné, výstup shodný s baseline —
+   `docs/review/2026-08-07-L0-8-BOUNDARY.md`
 9. Model upgrade nikdy neupgraduje sám
 10. **Legacy listener nikdy neopustí loopback**
 11. Významný efekt zůstává pod přesnou uživatelskou authority — **UNVERIFIED
-    jako celek**; M2 musí spojit existující mediaci/approval cesty a zavřít bypassy
+    jako celek**; M2 musí spojit existující mediaci/approval cesty a zavřít bypassy.
+    Změřeno 2026-08-07: samotné approval route (`POST /api/autonomy/approve/:id`,
+    `POST /api/lifecycle/*/approve`, `POST /api/skills/executions/:id/confirm`)
+    nemají žádnou per-route kontrolu — chrání je totéž co `GET /api/health`.
+    Perzistentní audit efektů neexistuje; jediná audit tabulka `merge_audit_log`
+    je o mergích. `docs/review/2026-08-07-AUTH-MATRIX.md`
 12. Žádná tichá background outbound komunikace — **PARTIAL**; background model
     discovery je off a rodičovský deterministický profil byl empiricky
     skenovaný, ale C3 Studio bundle bez opt-inu vkládá Google Fonts URL a
-    explicitní outbound plochy ještě nemají jednotnou policy
+    explicitní outbound plochy ještě nemají jednotnou policy.
+    Změřeno 2026-08-07: 82 `fetch` call sites, z toho 46 skutečně odchozích.
+    Default konfigurace pod blokující instrumentací neprovedla **žádné** spojení
+    mimo loopback — okno 75 s pokrylo startup, idle, shutdown a 30s agent
+    scheduler, **nepokrylo** 5min poll ani 24h cyklus, pro delší horizont je to
+    `NOT RUN`. Nejtěžší zbývající plocha je LLM-inicovaný egress: `executeWebSearch`
+    a web scrape v tool executoru nemají síťový gate.
+    `docs/review/2026-08-07-OUTBOUND-CENSUS.md`
 13. Učení nerozšiřuje authority, nemění code/config a nekříží projekt bez
     opt-inu — **UNVERIFIED**; M4 vyžaduje negativní boundary testy
 
@@ -271,8 +288,11 @@ Zaznamenané, rozhodnuté, ne zapomenuté.
 | Co | Stav |
 |---|---|
 | Bezpečnost, credentials, privacy incident `P-001`..`P-003` | Odloženo do odladění základu (rozhodnutí operátora) |
-| Chybí globální auth guard; `validateApiToken()` je napsaná a nezapojená | Součást téhož balíku |
-| WS terminal channel přijímá `exec` po handshaku bez tokenu | Neškodné na loopbacku (invariant 10) |
+| Chybí globální auth guard; `validateApiToken()` je napsaná a nezapojená | Součást téhož balíku. Změřeno 2026-08-07: 251 unikátních route, per-route kontrolu má 7; middleware chain neexistuje (server je `http.createServer` + jedna route tabulka), takže guard má právě jedno možné místo. Most k agent route navíc zahazuje hlavičky. `docs/review/2026-08-07-AUTH-MATRIX.md` |
+| WS terminal channel přijímá `exec` po handshaku bez tokenu | Neškodné na loopbacku (invariant 10). Totéž platí pro `control/edit_approve`, který po handshaku **zapisuje soubor**, a pro `chat`. Terminal má capability guard (`shell-security.js` whitelist), ne auth guard |
+| Dvě neslučitelné auth sémantiky | `security.js:20-38` je fail-closed, `agents/api.js:18` fail-open. Dnes latentní — tři handlery, které fail-open guard hlídá, nejsou připojené (`GET /api/secrets` → 404) a `mountAgentRoutes()` je mrtvý kód |
+| `webhookSecret` uložený v plaintextu v `user_settings` | Šifrování at-rest neexistuje; hodnota se kopíruje do každé zálohy, takže rotace je vratná restorem. `api_tokens` naopak drží jen hash. `docs/review/2026-08-07-SECRET-TYPES.md` |
+| Git historie obsahuje `data/c3.db` (+ `-wal`) a jednu přílohu navíc | Mimo `trackedObjectManifest` v `PRIVACY-INCIDENT.json`, který pokrývá containment současného stromu, ne historický rozsah. Vše dosažitelné, obsah neotevřen |
 | Skills mají krok `shell`, jinde je shell denied | Zaznamenáno k prověření |
 | Rehydrate vrací conversation ID bez ověření v DB | Zaznamenáno |
 | Token streaming neexistuje — `onLLMToken` je konzument bez producenta | Odpověď přichází celá |
@@ -282,7 +302,8 @@ Zaznamenané, rozhodnuté, ne zapomenuté.
 | C3 Studio local HTTP | Root cause byl potvrzen jako capability na wire + nepřítomný `Origin` + `Sec-Fetch-Site: cross-site`. Electron-main nyní doplňuje `Origin: null` jen pro přesný top-level file Studio request s odpovídající privátní capability; backend guard zůstal beze změny. Focused testy a prospective production runtime dávají startup/POST `2xx`; závazný fresh-clone negativní journey ještě zbývá. |
 | C3 Studio source/build | Operátor přijal funkční ručně udržovaný `lib` jako současný autoritativní runtime. Stale TS je historický archiv; package build/clean/watch ani starý v7 fix payload nesmějí runtime přepsat nebo smazat. Současný vzhled není finální UI kontrakt. |
 | `multi-source-external.test.js` | Explicitní public-service smoke; není deterministická offline evidence |
-| L0-8 specialist boundary | Potvrzeně porušený; strict injection versus public extension SDK vyžaduje rozhodnutí operátora |
+| L0-8 specialist boundary | Potvrzeně porušený; strict injection versus public extension SDK vyžaduje rozhodnutí operátora. **Evidence pro `§14` je od 2026-08-07 kompletní** — import graph, oba prototypy postavené a spuštěné, srovnávací tabulka. Vedle toho zjištěno, že 5 nástrojů existuje dvakrát bajtově identicky a core kopie `src/expertises/tools/**` nemá v `src/**` konzumenta |
+| `src/expertises/tools/**` bez konzumenta | Runtime cesta vede přes kopii v balíčku specialisty; core kopii drží naživu jen testy. Disposition `RETAIN`/`RETIRE` nerozhodnuta |
 | Self-learning | PatternTracker má produkční zápisy, ale `getRelevantPatterns()` nemá produkčního volajícího; `pattern-miner.js` nemá produkční import a cross-project learner nemá prokázanou smyčku. M4 vyžaduje jeden uzavřený same-project E2E. |
 | Lineární matching rout, regex per request | Naměřeno 0,87 ms — vědomě ponecháno |
 | Rate limiter je na loopbacku mrtvý kód | Vědomě ponecháno |

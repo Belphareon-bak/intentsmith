@@ -753,6 +753,12 @@ aktualizovat, provozovat, diagnostikovat a obnovit na podporovaném Linuxu.
 - `validateApiToken()` existuje, ale není globálně připojený; agents API používá
   vlastní admin token. `WP-M5-AUTH` nejprve sepíše skutečný route/WS matrix a
   pak zavede jediný fail-closed guard bez rozbití loopback development mode.
+  **Matrix je hotový** (2026-08-07, [`docs/review/2026-08-07-AUTH-MATRIX.md`](docs/review/2026-08-07-AUTH-MATRIX.md)):
+  251 unikátních route, per-route kontrolu má 7, zbytek chrání jediná hraniční
+  kontrola. Tři věci mění zadání: middleware chain neexistuje, takže guard má
+  právě jedno možné místo a musí klasifikovat podle klíče route; most k agent
+  route zahazuje hlavičky; a v produktu jsou dvě neslučitelné auth sémantiky.
+  `validateApiToken()` je použitelná bez přepisu a vrací `scopes`.
 - přímé efekty jsou rozptýlené v routes, tools, skills, agentech, marketplace,
   notifications, media a upgrade kódu. M5 je nesmí inventarizovat znovu:
   vychází z přijatého M2 brokeru a pouze hledá zbývající bypassy.
@@ -919,6 +925,20 @@ mohou pokračovat.
 | Open-source náhrada incumbent komponenty | Teprve při změřeném bottlenecku | Baseline, malý pilot, přínos funkcí/kvality, integrace, migrace a rollback. |
 | Remediace kompromitované Git historie | Před M6 freeze | Seznam typů tajemství k rotaci, dopad variant a výslovný operátorský souhlas. |
 | Remote listener/pairing | Až po M6 | Zmražený `RemoteCorePort` a negativně prokázaná oddělená security boundary. |
+
+### Které řádky mají evidence připravenou (2026-08-07)
+
+Čtyři read-only sondy na `1fc8f03e` doplnily podklady pro dva řádky fronty.
+Rozhodnutí zůstávají otevřená — dodána je jen evidence, kterou tabulka vyžaduje.
+
+| Řádek fronty | Stav evidence |
+|---|---|
+| Strict injection versus veřejná extension boundary pro L0-8 | **kompletní** — import graph, oba prototypy postavené a spuštěné se shodným výstupem, srovnávací tabulka: [`docs/review/2026-08-07-L0-8-BOUNDARY.md`](docs/review/2026-08-07-L0-8-BOUNDARY.md). Chybí jen specialista E2E, který je `NAPSÁNO` a patří do `WP-M3-BOUNDARY` |
+| Remediace kompromitované Git historie | **kompletní** — seznam typů k rotaci ověřený proti kódu a dopad tří variant: [`docs/review/2026-08-07-SECRET-TYPES.md`](docs/review/2026-08-07-SECRET-TYPES.md). Zbývá výslovný operátorský souhlas |
+
+Mimo frontu vznikly dva podklady pro `WP-M5-AUTH`:
+[`AUTH-MATRIX`](docs/review/2026-08-07-AUTH-MATRIX.md) a
+[`OUTBOUND-CENSUS`](docs/review/2026-08-07-OUTBOUND-CENSUS.md).
 
 Roadmapa se mění jen při novém důkazu nebo operátorském rozhodnutí. Dokončený
 milník se označí výsledkem a odkazem na demonstraci; nepřepisuje se tak, aby

@@ -1,8 +1,8 @@
 # Externí review — index
 
 **Autor:** Claude (`claude-opus-5`), na žádost operátora
-**Datum:** 2026-08-01
-**Základ:** `17a8b9a80137222233dceaf24a3d2cfbe55b06e0` (`codex/s1-legacy-loopback-containment`)
+**Založeno:** 2026-08-01 na `17a8b9a80137222233dceaf24a3d2cfbe55b06e0` (`codex/s1-legacy-loopback-containment`)
+**Naposledy doplněno:** 2026-08-07 o čtyři sondy měřené na `1fc8f03e649dd561fb279ce68e5c119d35faad55`
 
 ---
 
@@ -17,35 +17,51 @@ a [`GATE-CRITERIA.md`](../convergence/GATE-CRITERIA.md). Řádek v těchto
 dokumentech znamená *„někdo to přečetl a ověřil"*, nikoli *„je to prokázané
 podle pravidel gate"*.
 
-## Proč to nesahá na existující soubory
+## Proč byla složka původně čistě aditivní — a proč to už neplatí
 
-Dvě pravidla repozitáře to zakazují a obě jsou respektována bez výjimky:
+> **Superseded 2026-08-03 rozhodnutím operátora v `CONTRACT.md §8.`**
 
-1. `AGENTS.md` → **„GPT-5.6-sol in Codex is the sole branch writer."**
+Srpnové dokumenty z 08-01 vznikly za dvou pravidel:
+
+1. `AGENTS.md` → *„GPT-5.6-sol in Codex is the sole branch writer."*
 2. `GATE-CRITERIA.md` § Scope of a verdict → *„Any product, source, test,
    configuration, or non-evidence documentation change invalidates the
    candidate verdict."*
 
-Z druhého pravidla plyne, že i pouhá oprava překlepu v `ROADMAP.md` shodí
-právě získaný Gate 0 PASS a vynutí nový běh `C→E→R→A`. Proto je tato složka
-**čistě aditivní**: přidává nový adresář, nemění ani neodstraňuje žádný
-existující soubor, a nezasahuje do `tests/`, `src/` ani `docs/convergence/`.
+Z druhého plynulo, že i oprava překlepu v `ROADMAP.md` shodí Gate 0 PASS. Proto
+byla složka čistě aditivní.
 
-**I tak platí:** pokud se tato složka kdykoli sloučí do kandidátní větve,
-kandidát tím pozbývá platnosti a potřebuje nový attestation. Je to jeden
-soubor navíc ve stromu, což je přesně ten druh změny, který pravidlo popisuje.
-Doporučené řešení je v [WORK-PROPOSAL](2026-08-01-WORK-PROPOSAL.md) §4.
+**Obojí je dnes jinak.** `CONTRACT.md` je jediný zdroj pravdy pro pravidla
+vývoje a `AGENTS.md` s `CLAUDE.md` jsou pouze vstupní ukazatele. `CONTRACT.md §8`
+navíc rozhodl, že **Gate 0 se uplatňuje výhradně při releasu a během vývoje
+neplatí** — takže změna dokumentu už nekazí kandidáta, protože se při vývoji
+žádný kandidát neřeší.
+
+Co z původního režimu platí dál: dokumenty v této složce **nejsou evidence** a
+zápis do `docs/convergence/`, `src/` a `tests/` má vlastní pravidla podle
+`CONTRACT.md §6` a `§7` — zejména pravidlo jednoho zapisujícího vlastníka.
 
 ## Obsah
 
-| Dokument | Co odpovídá |
-|---|---|
-| [STATE-AND-VERIFICATION](2026-08-01-STATE-AND-VERIFICATION.md) | Co jsem nezávisle spustil a co z toho vyšlo; mapa větví; pět nálezů `EX-1`..`EX-5` |
-| [WORK-PROPOSAL](2026-08-01-WORK-PROPOSAL.md) | Na čem se dá pracovat paralelně, aniž to koliduje s S-trackem |
+| Dokument | Datum | Co odpovídá |
+|---|---|---|
+| [STATE-AND-VERIFICATION](2026-08-01-STATE-AND-VERIFICATION.md) | 08-01 | Co jsem nezávisle spustil a co z toho vyšlo; mapa větví; nálezy `EX-1`..`EX-5` |
+| [WORK-PROPOSAL](2026-08-01-WORK-PROPOSAL.md) | 08-01 | Na čem se dá pracovat paralelně, aniž to koliduje s S-trackem |
+| [OPEN-DECISIONS](2026-08-02-OPEN-DECISIONS.md) | 08-02 | Otevřená rozhodnutí před uzavřením M0 |
+| [SMOKE-FINDINGS](2026-08-02-SMOKE-FINDINGS.md) | 08-02 | Nálezy ze smoke běhu |
+| [L0-8-BOUNDARY](2026-08-07-L0-8-BOUNDARY.md) | 08-07 | Import graph, oba prototypy hranice specialisty, nálezy `L8-2`..`L8-4` |
+| [OUTBOUND-CENSUS](2026-08-07-OUTBOUND-CENSUS.md) | 08-07 | 82 call sites, empirická negativní kontrola, nálezy `OB-1`..`OB-3` |
+| [AUTH-MATRIX](2026-08-07-AUTH-MATRIX.md) | 08-07 | 272 route + WS povrch, negativní kontrola, nálezy `AM-1`..`AM-4` |
+| [SECRET-TYPES](2026-08-07-SECRET-TYPES.md) | 08-07 | Kategorie k rotaci, varianty remediace historie, nálezy `SEC-1`..`SEC-3` |
+
+Zadání, ze kterých čtyři srpnové sondy vznikly, jsou v [`docs/wp/`](../wp/).
 
 ## Jak s tím naložit
 
-Nálezy `EX-1`..`EX-5` nejsou zapsané do `RISK-REGISTER.md` ani do žádného
-ledgeru — to je práce vlastníka větve. Jsou formulované tak, aby se daly
-přenést beze změny formulace, včetně navrženého `gateImpact` tam, kde ho
-nález potřebuje.
+Nálezy zde nejsou zapsané do `RISK-REGISTER.md` ani do žádného ledgeru. Jsou
+formulované tak, aby se daly přenést beze změny formulace.
+
+Srpnové sondy navíc měly určeného adresáta: `L0-8-BOUNDARY` a `SECRET-TYPES`
+míří na rozhodovací frontu `ROADMAP.md §14`, `AUTH-MATRIX` a `OUTBOUND-CENSUS`
+jsou vstup pro `WP-M5-AUTH`. Naměřené skutečnosti z nich už jsou promítnuté do
+`SYSTEM-MAP.md`; tyto dokumenty drží detail a postup měření.
