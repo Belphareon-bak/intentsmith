@@ -55,8 +55,9 @@ zápis do `docs/convergence/`, `src/` a `tests/` má vlastní pravidla podle
 | [AUTH-MATRIX](2026-08-07-AUTH-MATRIX.md) | 08-07 | 272 route + WS povrch, negativní kontrola, nálezy `AM-1`..`AM-4` |
 | [SECRET-TYPES](2026-08-07-SECRET-TYPES.md) | 08-07 | Kategorie k rotaci, varianty remediace historie, nálezy `SEC-1`..`SEC-3` |
 | [MODULE-GRAPH](2026-08-07-MODULE-GRAPH.md) | 08-07 | Modulový graf `src/**`, mapa švů, dosažitelnost a cykly, nálezy `MG-1`..`MG-7` |
+| [ENFORCEMENT-AUDIT](2026-08-07-ENFORCEMENT-AUDIT.md) | 08-07 | Má deklarovaný kontrakt vynucovací mechanismus a kdy zafungoval; nálezy `EN-1`..`EN-6` |
 
-Zadání, ze kterých pět srpnových sond vzniklo, jsou v [`docs/wp/`](../wp/).
+Zadání, ze kterých šest srpnových sond vzniklo, jsou v [`docs/wp/`](../wp/).
 
 `MODULE-GRAPH` má vedle reportu dva soubory, které jsou jeho součástí:
 [`2026-08-07-module-graph.mjs`](2026-08-07-module-graph.mjs) je měřidlo a
