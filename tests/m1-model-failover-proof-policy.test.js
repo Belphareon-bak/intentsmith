@@ -94,7 +94,7 @@ test('all seven roles map to the exact ordered 36-test authority', () => {
   assertEqual(total, 36);
 });
 
-test('runner contract is local, complete and explicitly prompt-capture blocked', () => {
+test('runner contract requires actual capture of randomized prompt and grade context', () => {
   const runner = getModelFailoverProofPolicy().runner;
   assertEqual(runner.requireLoopback, true);
   assertEqual(runner.externalNetworkAllowed, false);
@@ -102,7 +102,10 @@ test('runner contract is local, complete and explicitly prompt-capture blocked',
   assertEqual(runner.requireCompleteOrderedSuite, true);
   assertEqual(runner.requireSameBeforeAfterDigest, true);
   assertEqual(runner.promptCaptureRequired, true);
-  assertEqual(runner.promptDeterminismStatus, 'BLOCKED_RANDOMIZED_REASONING_PROMPT_NOT_CAPTURED');
+  assertEqual(
+    runner.randomizedPromptPolicy,
+    'CAPTURE_ACTUAL_PROMPT_AND_VERIFY_GRADE_CONTEXT',
+  );
   assertEqual(runner.perTestTimeoutMs, 30000);
   assertEqual(runner.numCtx, 4096);
 });

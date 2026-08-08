@@ -569,8 +569,15 @@ focused regression sady.
      policy pinuje raw bytes role/suite zdrojů, verzovaný canonical JSON,
      přesnou mapu 7 rolí na 36 seřazených testů a role-specific acceptance
      shape. Default C má issuance vypnuté a všechny prahy i TTL `null`; role
-     measurement hash proto není PASS proof autorita. Repository zatím
-     neobsahuje proof runner, immutable run artifact, terminal
+     measurement hash proto není PASS proof autorita. **Šestý checkpoint je
+     implementovaný:** samostatný measurement-only child odmítne zděděné
+     Node flagy i neznámé environment klíče, povolí pouze exaktní vlastní
+     IPv4 loopback provider, zachytí plný skutečný request/response včetně
+     randomizované matematiky, znovu ověří contract a inventory digest
+     před/po a publikuje kanonický read-only measurement artifact. Artifact je
+     výslovně `NOT_ISSUED`, jeho `sourceRevisionClaim` není samostatným
+     důkazem HEAD a runner neimportuje DB, registry, upgrade manager ani WS.
+     Repository zatím neobsahuje proof issuer/persistence, terminal
      activation/restore, manual supersede, runtime apply, startup rehydrate ani
      scheduler a žádný runtime modul jej nekonzumuje. Chybějící proof
      acceptance prahy a TTL jsou shromážděné v rozhodnutí 015; measurement-only
@@ -1028,10 +1035,13 @@ mohou pokračovat.
    implementované bez modelového effectu. Recovery je záměrně expire→nový CAS,
    takže jiný worker může legitimně vyhrát; není to atomický same-worker reclaim.
    Measurement policy už fail-closed pinuje role-suite autoritu a verzovanou
-   serializaci. Skutečný izolovaný digest proof runner, immutable run artifact,
+   serializaci. Izolovaný measurement-only runner vytváří soukromý kanonický
+   artifact bez DB/proof/binding efektu; fake-provider CHAT a D1 pokrývají
+   ordered suite, skutečný randomizovaný prompt i negativní drift. Proof issuer,
    terminal state-machine, manual supersede, runtime apply, startup rehydrate a
    scheduler zůstávají otevřené a failover se dosud neaktivuje. Proof issuance
-   čeká na prahy a TTL z rozhodnutí 015.
+   čeká na prahy a TTL z rozhodnutí 015; nový skutečný GPU běh zůstává
+   samostatnou blokovanou evidencí, dokud není legitimně čistý checkout.
 7. B4 pokračuje 010/A+ a 011/A, potom v pořadí 014 server → 014 klient → 012
    route → 012 klient → společný DB-backed wire test. Read-only review může
    běžet souběžně; GPU běhy nikdy.

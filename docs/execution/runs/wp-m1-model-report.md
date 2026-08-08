@@ -829,8 +829,10 @@ sampling není seedovaný, prompt/grade funkce jsou v dlouho žijícím procesu
 mutable a partial cancel aggregate může tvrdit plný total. Navazující runner
 proto musí běžet v čerstvém child procesu, zachytit skutečné prompty, options a
 ordered výsledky, zkontrolovat source i inventory digest před/po a uložit
-immutable artifact atomicky s proofem. Terminal writer musí navíc znovu ověřit
-aktuální policy/version/hash; DB trigger tuto živou autoritu sám nezná.
+immutable measurement artifact. Oddělený proof writer jej smí později svázat
+s proofem teprve po schválení acceptance policy; terminal writer musí navíc
+znovu ověřit aktuální policy/version/hash. DB trigger tuto živou autoritu sám
+nezná.
 
 ### Focused ověření checkpointu 12
 
@@ -872,3 +874,88 @@ measurement-only. GPU, Ollama, server ani síť se nespouštěly. Cizí untracke
 `rg docs` ale omylem vypsal jeden jeho odpovídající řádek; tato read-only
 hranice byla porušena a další příkazy už používají jen explicitně jmenované
 vlastněné cesty.
+
+## Checkpoint 13 — izolovaný measurement-only role runner
+
+Nový `scripts/run-model-failover-measurement.js` spustí právě jednu roli a
+její policy-odvozenou ordered suite v samostatném Node procesu. Nevolá legacy
+`ValidationRunner`: prompt factory každé definice zavolá jednou, uloží skutečný
+request i plnou terminální odpověď a matematický `_expected` znovu sváže s
+vylosovanými operandy. Provider smí být jen exact
+`http://127.0.0.1:<port>`; jediné povolené efekty jsou dva
+`GET /api/tags`, jeden `POST /api/chat` na každý test a zápis do privátního
+artifact rootu.
+
+Child odmítne každý neznámý startup environment klíč i libovolný
+`process.execArgv`, poté přepíše runtime na pevný allowlist. Response musí být
+validní UTF-8 a kanonický `/api/chat` objekt s `role: assistant`, `done: true`,
+bez top-level `error`; raw response, counters a content jsou vzájemně svázané.
+Před i po suite se znovu odvodí policy a celý kanonický inventory snapshot;
+kandidát musí mít právě jednu canonical identity a stejný exact digest.
+
+Artefakt se nejprve zapíše, nastaví na `0400`, fsyncne a byteově přečte ze
+staging inode. Parent summary se flushne před publikací a poslední autoritativní
+fallible operací je non-clobber hard link na `measurement.json`. Parent smí
+artifact přijmout jen při společné shodě exit `0`, one-line summary, souboru,
+hashe a pinované validace; samotná existence souboru není úspěch.
+Strukturální validace hlásí `STRUCTURAL_ONLY`; teprve
+exaktní pětice parent pinů včetně `sourceRevisionClaim` vrátí
+`PARENT_PINS_VERIFIED`. Ani perfektní fake-provider výsledek nevydává PASS:
+stav zůstává `NOT_ISSUED`, bez DB, proof, binding nebo broadcast autority.
+
+### Focused a navazující offline ověření checkpointu 13
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-model-failover-measurement.test.js` | 9 passed, 0 failed, 0 skipped | 0 |
+| stejný focused test, pět dalších po sobě jdoucích běhů před posledním hardeningem | každý 8 passed, 0 failed; následně přibyl UTF-8 test | 0 |
+| `node tests/m1-model-failover-proof-policy.test.js` | 9 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-model-failover-repository.test.js` | 14 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-model-failover-schema.test.js` | 10 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-model-settings.test.js` | 14 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-model-identity.test.js` | 16 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-model-contract.test.js` | 29 passed, 0 failed, 0 skipped | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
+| `node tests/repository-hygiene.test.js` | 1 492 trackovaných cest | 0 |
+| `node scripts/validate-test-registry.js --json` | valid; 370 programů; 8 exclusions; fingerprint `8b3c0f76…afe195c` | 0 |
+| `node tests/nightly-audit-runner-self-test.js` | `nightly audit runner self-test: PASS` | 0 |
+| `node tests/nightly-orchestrator-self-test.js` | očekávaný vývojový drift: `deterministic registry contains non-active or optional suites` | 1 |
+| `node --check scripts/run-model-failover-measurement.js` | bez syntax chyby | 0 |
+| `node --check tests/m1-model-failover-measurement.test.js` | bez syntax chyby | 0 |
+| `git diff --check` | bez whitespace chyb | 0 |
+
+Read-only review nejprve vrátilo `CHANGES_REQUIRED`: našlo prompt a inventory
+provenance, kontaminaci přes `NODE_OPTIONS`/přímé Node flagy, nevěrné UTF-8
+dekódování a chybu po publikačním bodu. Po opravách a nových negativních
+testech skončil focused re-review **READY**, bez P0/P1/P2.
+
+Test-truth kontrola prokázala tři samostatné mutační signály. Odstranění vazby
+prompt provenance skončilo `8/1`, vypnutí fatal UTF-8 dekodéru skončilo `8/1`
+a odstranění kontroly `process.execArgv` skončilo `8/1`; všechny tři příkazy
+měly exit `1`. Guardy byly přesnými patchi vrácené a čistý rerun skončil
+`9/0`, exit `0`. Tři přesně identifikované privátní failure artifact adresáře
+vlastněné tímto během neměly hlášený otevřený handle a byly přesunuty do koše;
+`lsof` současně upozornil, že jeho výpis může být neúplný kvůli nesouvisejícím
+Docker mountům. Produktová ani cizí data se nemažou.
+
+### Pravdivé omezení
+
+- Loopback provider i jeho hlášený digest jsou v tomto checkpointu
+  parent-selected vstup. Fake provider může lhát; proto artifact nesmí vydat
+  proof a budoucí issuer musí mít vlastní provider autoritu.
+- Dvě inventory momentky nedokazují, že mutable tag nezměnil obsah mezi
+  jednotlivými chat requesty. Digest-bound proof/issuer musí tuto mezeru zavřít.
+- Runtime network wrapper omezuje `fetch`; přímé `node:http`, `node:net` nebo
+  subprocess efekty budoucích transitive modulů musí zůstat samostatně
+  source-pinned a testované.
+- Zachycený fail před publikačním bodem může zanechat privátní prázdný run
+  adresář, ne finální soubor. Abrupt kill po hard-link commit pointu může
+  zanechat neakceptovaný `measurement.json`; proto je exit `0` povinnou
+  součástí parent kontraktu. Bounded cleanup je pozdější provozní krok.
+- Skutečný T3/GPU/Ollama běh nebyl spuštěn. Auditní runner právem
+  vyžaduje čistý porcelain, který nyní blokuje chráněný cizí untracked
+  dokument; hranice se neobchází.
+
+Cizí `docs/review/2026-08-08-MODULE-INDEPENDENCE.md` zůstal nedotčený a
+nebude zahrnut do checkpoint commitu. GPU, sdílená Ollama, produktový server
+ani externí síť nebyly spuštěné.

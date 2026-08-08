@@ -293,7 +293,7 @@ function buildPolicy() {
       requireCompleteOrderedSuite: true,
       requireSameBeforeAfterDigest: true,
       promptCaptureRequired: true,
-      promptDeterminismStatus: 'BLOCKED_RANDOMIZED_REASONING_PROMPT_NOT_CAPTURED',
+      randomizedPromptPolicy: 'CAPTURE_ACTUAL_PROMPT_AND_VERIFY_GRADE_CONTEXT',
     },
     acceptance: {
       issuanceEnabled: false,
