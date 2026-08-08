@@ -103,6 +103,13 @@ přečíslování.
 Hodnoty jsou snapshot k SHA. Autoritou je test, ne tato čísla; roadmapa je
 z toho důvodu neopakuje.
 
+Implementační commit
+`684263e34a6f18fa76ede578fee25d13bbe3b5a5` byl následně ověřen z nového
+lokálního klonu: **50 souborů, 50 unikátních verzí, 0 duplicit**;
+`tests/schema-migrations.test.js` skončil **36/36**, test registry obsahoval
+**372** programů a repository hygiene zkontrolovala **1 500** trackovaných
+cest. Všechny tři příkazy skončily s exit code `0`.
+
 ## Model paralelní práce
 
 - Implementační vlastník je jediný zapisovatel do `src/db/migrate.js`,
