@@ -6,6 +6,7 @@
 
 import { logger } from '../core/logger.js';
 import { throwIfAborted } from '../core/abort-error.js';
+import { ChatPersistenceError } from '../core/chat-turn-error.js';
 
 // Intents whose answer no model wrote: a clock reading, a shell command's
 // output, a file's contents, a write confirmation. Asking a model to improve
@@ -162,6 +163,7 @@ export async function finalizeChatResponse({
     });
   } catch (err) {
     log.error('ChatController', `Failed to persist assistant turn: ${err.message}`);
+    throw new ChatPersistenceError(err);
   }
 
   return {

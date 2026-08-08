@@ -4933,6 +4933,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-M1-CHAT-CONTRACT-TEST",
+      "path": "tests/m1-chat-contract.test.js",
+      "argv": [
+        "node",
+        "tests/m1-chat-contract.test.js"
+      ],
+      "capabilityId": "C3-004",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-MANIFEST-V2-TEST",
       "path": "tests/manifest-v2.test.js",
       "argv": [

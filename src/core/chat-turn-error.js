@@ -3,11 +3,13 @@
 export const ChatTurnErrorCode = Object.freeze({
   LLM_PROVIDER_UNAVAILABLE: 'LLM_PROVIDER_UNAVAILABLE',
   CHAT_PROCESSING_FAILED: 'CHAT_PROCESSING_FAILED',
+  CHAT_PERSISTENCE_FAILED: 'CHAT_PERSISTENCE_FAILED',
 });
 
 export const ChatTurnErrorMessage = Object.freeze({
   LLM_PROVIDER_UNAVAILABLE: 'Model provider is temporarily unavailable.',
   CHAT_PROCESSING_FAILED: 'Chat processing failed.',
+  CHAT_PERSISTENCE_FAILED: 'Chat response could not be persisted.',
 });
 
 const PROVIDER_FAILURE_TYPES = new Set([
@@ -23,8 +25,9 @@ export class ChatTurnError extends Error {
     statusCode,
     recoverable,
     sourceErrorType = null,
+    cause = null,
   }) {
-    super(message);
+    super(message, cause === null ? undefined : { cause });
     this.name = 'ChatTurnError';
     this.code = code;
     this.statusCode = statusCode;
@@ -54,6 +57,21 @@ export class ChatProcessingError extends ChatTurnError {
       sourceErrorType,
     });
     this.name = 'ChatProcessingError';
+  }
+}
+
+export class ChatPersistenceError extends ChatTurnError {
+  constructor(cause = null) {
+    super(ChatTurnErrorMessage.CHAT_PERSISTENCE_FAILED, {
+      code: ChatTurnErrorCode.CHAT_PERSISTENCE_FAILED,
+      statusCode: 500,
+      // The user turn may already be durable. An automatic retry could create
+      // a duplicate, so this boundary must not advertise a blind retry.
+      recoverable: false,
+      sourceErrorType: 'ASSISTANT_TURN_PERSIST_FAILED',
+      cause,
+    });
+    this.name = 'ChatPersistenceError';
   }
 }
 
