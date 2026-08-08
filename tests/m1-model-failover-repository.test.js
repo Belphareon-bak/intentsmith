@@ -22,7 +22,7 @@ const DIGEST_A = 'a'.repeat(64);
 const DIGEST_B = 'b'.repeat(64);
 const FAILOVER_MODULE_URL = new URL('../src/upgrade/model-failover.js', import.meta.url).href;
 
-const CLAIM_WORKER_SOURCE = `
+const FAILOVER_WORKER_SOURCE = `
   const Database = require('better-sqlite3');
   const { parentPort, workerData } = require('node:worker_threads');
 
@@ -39,7 +39,7 @@ const CLAIM_WORKER_SOURCE = `
       claimToken: () => workerData.prefix + '-claim-token-0001',
     };
     const repository = createModelFailoverRepository(db, {
-      clock: () => 3000,
+      clock: () => workerData.nowMs,
       ids,
     });
     const snapshot = repository.getState(workerData.role);
@@ -52,19 +52,29 @@ const CLAIM_WORKER_SOURCE = `
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, workerData.delayMs);
     }
     try {
-      const result = repository.claimOperation({
-        role: workerData.role,
-        episodeId: snapshot.episodeId,
-        expectedDesiredRevision: snapshot.desiredRevision,
-        expectedRowVersion: snapshot.rowVersion,
-        kind: 'ACTIVATE',
-        leaseMs: 1000,
-      });
+      const result = workerData.action === 'expire'
+        ? repository.expireClaim({
+            role: workerData.role,
+            episodeId: snapshot.episodeId,
+            expectedDesiredRevision: snapshot.desiredRevision,
+            expectedRowVersion: snapshot.rowVersion,
+            expectedOperationId: snapshot.claimOperationId,
+            expectedClaimKind: snapshot.claimKind,
+          })
+        : repository.claimOperation({
+            role: workerData.role,
+            episodeId: snapshot.episodeId,
+            expectedDesiredRevision: snapshot.desiredRevision,
+            expectedRowVersion: snapshot.rowVersion,
+            kind: 'ACTIVATE',
+            leaseMs: 1000,
+          });
       parentPort.postMessage({
         type: 'result',
         prefix: workerData.prefix,
         outcome: result.outcome,
-        operationId: result.claim.operationId,
+        operationId: result.claim?.operationId || result.expiredOperationId,
+        eventId: result.claim?.eventId || result.eventId,
       });
     } catch (error) {
       parentPort.postMessage({
@@ -180,16 +190,37 @@ function claimChat(repository, state, overrides = {}) {
   });
 }
 
-function runClaimRace({ databasePath, role, contenders }) {
+function expireChat(repository, state, overrides = {}) {
+  return repository.expireClaim({
+    role: 'CHAT',
+    episodeId: state.episodeId,
+    expectedDesiredRevision: state.desiredRevision,
+    expectedRowVersion: state.rowVersion,
+    expectedOperationId: state.claimOperationId,
+    expectedClaimKind: state.claimKind,
+    ...overrides,
+  });
+}
+
+function runFailoverRace({
+  databasePath,
+  role,
+  contenders,
+  action = 'claim',
+  nowMs = 3000,
+  expectedRowVersion = 1,
+}) {
   const signalBuffer = new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT);
   const signal = new Int32Array(signalBuffer);
-  const workers = contenders.map(contender => new Worker(CLAIM_WORKER_SOURCE, {
+  const workers = contenders.map(contender => new Worker(FAILOVER_WORKER_SOURCE, {
     eval: true,
     workerData: {
       databasePath,
       role,
       moduleUrl: FAILOVER_MODULE_URL,
       signal: signalBuffer,
+      action,
+      nowMs,
       ...contender,
     },
   }));
@@ -220,7 +251,7 @@ function runClaimRace({ databasePath, role, contenders }) {
     };
 
     watchdog = setTimeout(() => {
-      fail(new Error(`Claim worker race timed out after 5000 ms for ${role}`));
+      fail(new Error(`Failover ${action} worker race timed out after 5000 ms for ${role}`));
     }, 5000);
 
     for (const worker of workers) {
@@ -232,7 +263,7 @@ function runClaimRace({ databasePath, role, contenders }) {
             return;
           }
           if (message.type === 'ready') {
-            assertEqual(message.snapshot.rowVersion, 1);
+            assertEqual(message.snapshot.rowVersion, expectedRowVersion);
             readyCount += 1;
             if (readyCount === workers.length) {
               Atomics.store(signal, 0, 1);
@@ -259,6 +290,10 @@ function runClaimRace({ databasePath, role, contenders }) {
       });
     }
   });
+}
+
+function runClaimRace(options) {
+  return runFailoverRace(options);
 }
 
 suite('M1 model failover repository — desired and incident authority');
@@ -373,7 +408,7 @@ await testAsync('desired and detection projections rollback their preceding audi
   });
 });
 
-suite('M1 model failover repository — two-connection claim CAS');
+suite('M1 model failover repository — two-connection claim and expiry CAS');
 
 await testAsync('BEGIN IMMEDIATE is the only repository write transaction mode', async () => {
   await withRepositories(async ({ firstDb }) => {
@@ -454,6 +489,42 @@ await testAsync('real worker races serialize to one winner and one typed stale l
       );
       assertEqual(repository.getState(scenario.role).claimOperationId, winners[0].operationId);
     }
+  });
+});
+
+await testAsync('real expiry workers serialize to one release and one exact idempotent retry', async () => {
+  await withRepositories(async ({ firstDb, databasePath }) => {
+    const runtime = createRuntime('expiry-race');
+    const repository = createModelFailoverRepository(firstDb, runtime.options);
+    observeChat(repository);
+    runtime.setNow(2000);
+    const detected = detectChat(repository).state;
+    runtime.setNow(3000);
+    const claimed = claimChat(repository, detected, { leaseMs: 500 });
+
+    const results = await runFailoverRace({
+      databasePath,
+      role: 'CHAT',
+      action: 'expire',
+      nowMs: 3501,
+      expectedRowVersion: claimed.state.rowVersion,
+      contenders: [
+        { prefix: 'expiry-a', delayMs: 0 },
+        { prefix: 'expiry-b', delayMs: 40 },
+      ],
+    });
+    assertEqual(results.filter(result => result.outcome === 'EXPIRED').length, 1);
+    assertEqual(results.filter(result => result.outcome === 'ALREADY_EXPIRED').length, 1);
+    assertEqual(results.some(result => result.errorCode === 'MODEL_FAILOVER_DB_BUSY'), false);
+    assertEqual(new Set(results.map(result => result.eventId)).size, 1);
+    assertEqual(
+      repository.listEvents({ role: 'CHAT' })
+        .filter(event => event.eventType === 'CLAIM_EXPIRED').length,
+      1,
+    );
+    const state = repository.getState('CHAT');
+    assertEqual(state.rowVersion, claimed.state.rowVersion + 1);
+    assertEqual(state.claimPresent, false);
   });
 });
 
@@ -691,7 +762,7 @@ await testAsync('busy, identity conflict and corrupt storage remain typed', asyn
   }, { second: true });
 });
 
-await testAsync('expired claim is not stolen or silently renewed', async () => {
+await testAsync('expired claim is released exactly once before a fresh bounded claim', async () => {
   await withRepositories(async ({ firstDb }) => {
     const runtime = createRuntime('expired');
     const repository = createModelFailoverRepository(firstDb, runtime.options);
@@ -701,12 +772,164 @@ await testAsync('expired claim is not stolen or silently renewed', async () => {
     runtime.setNow(3000);
     const claimed = claimChat(repository, detected, { leaseMs: 500 });
     const beforeEvents = repository.listEvents({ role: 'CHAT' }).length;
+    const oldToken = claimed.claim.token;
+
+    runtime.setNow(3500);
+    for (const [field, value] of Object.entries({
+      nowMs: 9999,
+      eventId: 'caller-expiry-event',
+      operationId: 'caller-operation',
+      actor: 'caller:fixture',
+      claimToken: oldToken,
+    })) {
+      const authorityError = captureError(() => expireChat(repository, claimed.state, {
+        [field]: value,
+      }));
+      assertRepositoryError(authorityError, 'MODEL_FAILOVER_AUTHORITY_OVERRIDE_REJECTED');
+      assertEqual(repository.listEvents({ role: 'CHAT' }).length, beforeEvents);
+      assertEqual(runtime.counters.event, 3);
+    }
+    const boundaryError = captureError(() => expireChat(repository, claimed.state));
+    assertRepositoryError(boundaryError, 'MODEL_FAILOVER_CLAIM_NOT_EXPIRED');
+    assertEqual(repository.listEvents({ role: 'CHAT' }).length, beforeEvents);
+    assertEqual(runtime.counters.event, 3);
 
     runtime.setNow(3501);
-    const error = captureError(() => claimChat(repository, claimed.state));
-    assertRepositoryError(error, 'MODEL_FAILOVER_CLAIM_EXPIRED_REQUIRES_RECLAIM');
+    const renewalError = captureError(() => claimChat(repository, claimed.state));
+    assertRepositoryError(renewalError, 'MODEL_FAILOVER_CLAIM_EXPIRED_REQUIRES_RECLAIM');
+    const mismatchError = captureError(() => expireChat(repository, claimed.state, {
+      expectedOperationId: 'expired-wrong-operation',
+    }));
+    assertRepositoryError(mismatchError, 'MODEL_FAILOVER_CLAIM_MISMATCH');
     assertEqual(repository.listEvents({ role: 'CHAT' }).length, beforeEvents);
     assertEqual(repository.getState('CHAT').claimOperationId, claimed.claim.operationId);
+
+    const expired = expireChat(repository, claimed.state);
+    assertEqual(expired.outcome, 'EXPIRED');
+    assertEqual(expired.expiredOperationId, claimed.claim.operationId);
+    assertEqual(expired.state.rowVersion, claimed.state.rowVersion + 1);
+    assertEqual(expired.state.claimPresent, false);
+    assertEqual(Object.hasOwn(expired.state, 'claimToken'), false);
+    const events = repository.listEvents({ role: 'CHAT' });
+    assertEqual(events.length, beforeEvents + 1);
+    assertEqual(events.at(-1).eventType, 'CLAIM_EXPIRED');
+    assertEqual(events.at(-1).operationId, claimed.claim.operationId);
+    assertEqual(events.at(-1).rowVersion, expired.state.rowVersion);
+    assertEqual(events.at(-1).reasonCode, 'EXPIRED_CLAIM_RELEASED');
+    assertEqual(JSON.stringify(events.at(-1).details), '{}');
+
+    const retry = expireChat(repository, claimed.state);
+    assertEqual(retry.outcome, 'ALREADY_EXPIRED');
+    assertEqual(retry.eventId, expired.eventId);
+    assertEqual(repository.listEvents({ role: 'CHAT' }).length, events.length);
+    const conflictingRetry = captureError(() => expireChat(repository, claimed.state, {
+      expectedClaimKind: 'RESTORE',
+    }));
+    assertRepositoryError(conflictingRetry, 'MODEL_FAILOVER_STALE_STATE');
+    assertEqual(repository.listEvents({ role: 'CHAT' }).length, events.length);
+
+    runtime.setNow(3502);
+    const reclaimed = claimChat(repository, expired.state, { leaseMs: 500 });
+    assertEqual(reclaimed.outcome, 'CLAIMED');
+    assert(reclaimed.claim.operationId !== claimed.claim.operationId);
+    assert(reclaimed.claim.token !== oldToken);
+    assertEqual(reclaimed.state.rowVersion, expired.state.rowVersion + 1);
+    assertEqual(Object.hasOwn(reclaimed.state, 'claimToken'), false);
+    const rawClaim = firstDb.prepare(`
+      SELECT claim_operation_id, claim_token
+      FROM model_failover_state WHERE role = 'CHAT'
+    `).get();
+    assertEqual(rawClaim.claim_operation_id, reclaimed.claim.operationId);
+    assertEqual(rawClaim.claim_token, reclaimed.claim.token);
+    assert(rawClaim.claim_token !== oldToken);
+
+    const staleError = captureError(() => expireChat(repository, claimed.state));
+    assertRepositoryError(staleError, 'MODEL_FAILOVER_STALE_STATE');
+    assertEqual(repository.listEvents({ role: 'CHAT' }).length, events.length + 1);
+  });
+});
+
+await testAsync('expiry projection failure rolls back its audit event and preserves the secret claim', async () => {
+  await withRepositories(async ({ firstDb }) => {
+    const runtime = createRuntime('expiry-rollback');
+    const repository = createModelFailoverRepository(firstDb, runtime.options);
+    observeChat(repository);
+    runtime.setNow(2000);
+    const detected = detectChat(repository).state;
+    runtime.setNow(3000);
+    const claimed = claimChat(repository, detected, { leaseMs: 500 });
+    const before = firstDb.prepare(`
+      SELECT row_version, claim_operation_id, claim_token, claim_kind,
+             claim_started_at_ms, claim_expires_at_ms, last_event_id
+      FROM model_failover_state WHERE role = 'CHAT'
+    `).get();
+    const beforeEvents = repository.listEvents({ role: 'CHAT' }).length;
+
+    firstDb.exec(`
+      CREATE TRIGGER fixture_reject_claim_expiry_projection
+      BEFORE UPDATE ON model_failover_state
+      WHEN OLD.claim_token IS NOT NULL AND NEW.claim_token IS NULL
+      BEGIN
+        SELECT RAISE(ABORT, 'fixture rejects claim expiry projection');
+      END;
+    `);
+    runtime.setNow(3501);
+    const error = captureError(() => expireChat(repository, claimed.state));
+    assertRepositoryError(error, 'MODEL_FAILOVER_STORAGE_CONTRACT');
+    assert(!error.message.includes(claimed.claim.token));
+    assert(!JSON.stringify(error.details).includes(claimed.claim.token));
+
+    const after = firstDb.prepare(`
+      SELECT row_version, claim_operation_id, claim_token, claim_kind,
+             claim_started_at_ms, claim_expires_at_ms, last_event_id
+      FROM model_failover_state WHERE role = 'CHAT'
+    `).get();
+    assertEqual(JSON.stringify(after), JSON.stringify(before));
+    assertEqual(repository.listEvents({ role: 'CHAT' }).length, beforeEvents);
+    assertEqual(
+      firstDb.prepare("SELECT count(*) AS count FROM model_failover_events WHERE event_type = 'CLAIM_EXPIRED'").get().count,
+      0,
+    );
+  });
+});
+
+await testAsync('claim-free next row with a non-expiry audit is never an idempotent expiry retry', async () => {
+  await withRepositories(async ({ firstDb }) => {
+    const runtime = createRuntime('non-expiry-row');
+    const repository = createModelFailoverRepository(firstDb, runtime.options);
+    observeChat(repository);
+    runtime.setNow(2000);
+    const detected = detectChat(repository).state;
+    runtime.setNow(3000);
+    const claimed = claimChat(repository, detected, { leaseMs: 500 });
+
+    firstDb.transaction(() => {
+      firstDb.prepare(`
+        INSERT INTO model_failover_events (
+          event_id, event_type, role, binding_revision, row_version, episode_id,
+          operation_id, actor, reason_code, policy_version, state_before,
+          state_after, desired_model_name, desired_digest_sha256, failure_phase,
+          created_at_ms
+        ) VALUES ('non-expiry-failed-event', 'ACTIVATION_FAILED', 'CHAT', 1, 3,
+          ?, ?, 'system:binding-integrity', 'FIXTURE_NON_EXPIRY_TRANSITION',
+          'd-plus-v1', 'DETECTED', 'DETECTED', 'reasoner', ?, 'VERIFICATION', 3501)
+      `).run(claimed.state.episodeId, claimed.claim.operationId, DIGEST_A);
+      firstDb.prepare(`
+        UPDATE model_failover_state
+        SET row_version = 3, claim_operation_id = NULL, claim_token = NULL,
+            claim_kind = NULL, claim_started_at_ms = NULL,
+            claim_expires_at_ms = NULL, updated_at_ms = 3501,
+            last_event_id = 'non-expiry-failed-event'
+        WHERE role = 'CHAT'
+      `).run();
+    }).immediate();
+    const beforeEvents = repository.listEvents({ role: 'CHAT' }).length;
+
+    runtime.setNow(3502);
+    const error = captureError(() => expireChat(repository, claimed.state));
+    assertRepositoryError(error, 'MODEL_FAILOVER_STALE_STATE');
+    assertEqual(repository.listEvents({ role: 'CHAT' }).length, beforeEvents);
+    assertEqual(repository.getState('CHAT').lastEventId, 'non-expiry-failed-event');
   });
 });
 

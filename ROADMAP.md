@@ -535,7 +535,7 @@ focused regression sady.
      skutečného T3 běhu;
    - **B3-FAILOVER (006/D+):** teprve po přijetí IDENTITY samostatný opt-in
      desired/active failover. Přesný scope je nový
-     `src/db/user-settings.js`, `src/upgrade/model-failover.js`, jedna nová
+     `src/db/user-settings.js`, `src/upgrade/model-failover.js`, malé aditivní
      `src/db/migrations/*model_failover*.js`, `model-registry.js`, identity a
      verify části `upgrade-manager.js` a scheduler seam v `src/server.js`.
      Autoritou opt-inu je JSON `user_settings.id=1`; missing/malformed/DB error
@@ -559,10 +559,17 @@ focused regression sady.
      workery projde právě jeden claim a druhý končí typovaným stale výsledkem;
      audit a projekce se při chybě rollbackují společně. Caller nesmí dodat čas,
      event, operation ani token a `USER_APPLY/USER_ROLLBACK` zůstávají zavřené,
-     dokud nevznikne atomický override+supersede seam. Repository zatím
-     neobsahuje proof runner, terminal activation/restore, expired-claim
-     recovery, runtime apply, startup rehydrate ani scheduler a žádný runtime
-     modul jej nekonzumuje.
+     dokud nevznikne atomický override+supersede seam. **Čtvrtý checkpoint je
+     implementovaný:** striktně expirovaný claim lze jednou auditovaně uvolnit
+     a potom znovu claimnout běžným CAS. Rovnost s expiry je stále live;
+     migrace 047 odmítá falešný `CLAIM_EXPIRED`, repository vrací přesný
+     idempotentní retry a dva reálné workery vytvoří jeden release event.
+     Expire a nový claim jsou bezpečně dvě transakce, nikoli garance stejného
+     workera. Repository zatím neobsahuje proof runner, terminal
+     activation/restore, manual supersede, runtime apply, startup rehydrate ani
+     scheduler a žádný runtime modul jej nekonzumuje. Chybějící proof
+     acceptance prahy a TTL jsou shromážděné v rozhodnutí 015; measurement-only
+     runner může pokračovat, PASS issuance zůstává fail-closed.
 3. **Connector:** adaptér `ModelRequest/Result` v1; nemění schéma.
 4. **Závislost:** `WP-M1-CONTRACT`; offline fake běhy nečekají na GPU.
 5. **Demo:** skutečná Ollama odpověď; negativní unavailable cesta používá
@@ -1001,7 +1008,8 @@ mohou pokračovat.
 4. Operátorsky rozhodnout L0-8 nejpozději před `WP-M3-BOUNDARY`; M0 jej může
    uzavřít pouze jako explicitně pojmenovaný blocker s vlastníkem a termínem.
 5. B1 contract a B2 chat jsou implementované; Gate 1 volby 001–014 jsou
-   zapsané, ale B3 a B4 zůstávají pravdivě `BLOCKED`.
+   schválené a zapsané. Nová proof-policy otázka 015 je shromážděná bez
+   zastavení nezávislé práce; B3 a B4 zůstávají pravdivě `BLOCKED`.
 6. **B3-IDENTITY a B3-PROFILE jsou implementované a focused offline
    ověřené:** canonical presence
    identity chrání schválené binding/delete/cleanup cesty a integrity scan je
@@ -1010,10 +1018,12 @@ mohou pokračovat.
    omezuje oba gateway vstupy a conversation compaction; neprohlašuje GPU
    PASS. V jediném worktree po malých commitech následuje nový sériový T3 běh
    od 4096, potom **B3-FAILOVER**. Settings authority a fail-closed storage
-   schema a repository/CAS claim základ jsou implementované bez modelového
-   effectu; skutečný digest proof runner, terminal state-machine, expired-claim
-   recovery, runtime apply, startup rehydrate a scheduler zůstávají otevřené a
-   failover se dosud neaktivuje.
+   schema, repository/CAS claim základ a striktní expired-claim recovery jsou
+   implementované bez modelového effectu. Recovery je záměrně expire→nový CAS,
+   takže jiný worker může legitimně vyhrát; není to atomický same-worker reclaim.
+   Skutečný digest proof runner, terminal state-machine, manual supersede,
+   runtime apply, startup rehydrate a scheduler zůstávají otevřené a failover
+   se dosud neaktivuje. Proof issuance čeká na prahy a TTL z rozhodnutí 015.
 7. B4 pokračuje 010/A+ a 011/A, potom v pořadí 014 server → 014 klient → 012
    route → 012 klient → společný DB-backed wire test. Read-only review může
    běžet souběžně; GPU běhy nikdy.

@@ -120,6 +120,7 @@ const ALL_MIGRATIONS = [
   '2026_04_12_044_v138_runtime_guard',
   '2026_07_30_045_telemetry_aggregation_version',
   '2026_08_08_046_model_failover',
+  '2026_08_08_047_model_failover_claim_expiry',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;

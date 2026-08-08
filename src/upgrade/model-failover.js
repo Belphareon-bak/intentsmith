@@ -781,6 +781,240 @@ export class ModelFailoverRepository {
     });
   }
 
+  expireClaim(inputValue) {
+    const input = requireInput(inputValue);
+    rejectAuthorityOverrides(input, [
+      'nowMs',
+      'eventId',
+      'operationId',
+      'actor',
+      'claimToken',
+    ]);
+    const role = requireRole(input.role);
+    const episodeId = requireString(input.episodeId, 'episodeId');
+    const expectedDesiredRevision = requirePositiveInteger(
+      input.expectedDesiredRevision,
+      'expectedDesiredRevision',
+    );
+    const expectedRowVersion = requirePositiveInteger(
+      input.expectedRowVersion,
+      'expectedRowVersion',
+    );
+    const expectedOperationId = requireString(
+      input.expectedOperationId,
+      'expectedOperationId',
+    );
+    const expectedClaimKind = requireString(
+      input.expectedClaimKind,
+      'expectedClaimKind',
+      { max: 16 },
+    ).toUpperCase();
+    const claim = CLAIMS[expectedClaimKind];
+    if (!claim) {
+      fail('MODEL_FAILOVER_CLAIM_KIND_INVALID', 'Unknown failover claim kind', {
+        kind: expectedClaimKind,
+      });
+    }
+    const nextExpectedRowVersion = incrementSafeInteger(
+      expectedRowVersion,
+      'expectedRowVersion',
+    );
+
+    return this.#write('expireClaim', () => {
+      const desired = this.#desiredRow(role);
+      if (!desired) {
+        fail('MODEL_FAILOVER_DESIRED_MISSING', 'Cannot expire claim without a desired binding', { role });
+      }
+      if (desired.binding_revision !== expectedDesiredRevision) {
+        fail('MODEL_FAILOVER_STALE_DESIRED', 'Desired binding revision no longer matches', {
+          role,
+          expectedDesiredRevision,
+          actualDesiredRevision: desired.binding_revision,
+        });
+      }
+      const state = this.#stateRow(role);
+      if (!state || state.episode_id !== episodeId) {
+        fail('MODEL_FAILOVER_INCIDENT_MISMATCH', 'Failover incident does not match the expiry request', {
+          role,
+          episodeId,
+        });
+      }
+      if (state.desired_revision !== expectedDesiredRevision) {
+        fail('MODEL_FAILOVER_STALE_DESIRED', 'Incident desired revision no longer matches', {
+          role,
+          expectedDesiredRevision,
+          actualDesiredRevision: state.desired_revision,
+        });
+      }
+      if (state.policy_version !== MODEL_FAILOVER_POLICY_VERSION) {
+        fail('MODEL_FAILOVER_POLICY_MISMATCH', 'Failover state policy version is not current', {
+          role,
+          actualPolicyVersion: state.policy_version,
+        });
+      }
+      if (state.row_version === nextExpectedRowVersion
+        && state.claim_token === null) {
+        const expiryEvent = this.db.prepare(`
+          SELECT * FROM model_failover_events
+          WHERE event_id = ? AND event_type = 'CLAIM_EXPIRED'
+            AND role = ? AND binding_revision = ? AND row_version = ?
+            AND episode_id = ? AND operation_id = ? AND policy_version = ?
+            AND state_before = ? AND state_after = ?
+            AND desired_model_name = ? AND desired_digest_sha256 = ?
+            AND reason_code = 'EXPIRED_CLAIM_RELEASED'
+        `).get(
+          state.last_event_id,
+          role,
+          expectedDesiredRevision,
+          nextExpectedRowVersion,
+          episodeId,
+          expectedOperationId,
+          MODEL_FAILOVER_POLICY_VERSION,
+          state.state,
+          state.state,
+          desired.model_name,
+          desired.digest_sha256,
+        );
+        const claimedEvent = this.db.prepare(`
+          SELECT event_id FROM model_failover_events
+          WHERE operation_id = ? AND event_type = ? AND role = ?
+            AND binding_revision = ? AND episode_id = ?
+            AND state_before = ? AND state_after = ?
+            AND desired_model_name = ? AND desired_digest_sha256 = ?
+        `).get(
+          expectedOperationId,
+          claim.eventType,
+          role,
+          expectedDesiredRevision,
+          episodeId,
+          state.state,
+          state.state,
+          desired.model_name,
+          desired.digest_sha256,
+        );
+        if (expiryEvent && claimedEvent) {
+          return {
+            outcome: 'ALREADY_EXPIRED',
+            expiredOperationId: expectedOperationId,
+            eventId: expiryEvent.event_id,
+            state: mapState(state),
+          };
+        }
+      }
+      if (state.row_version !== expectedRowVersion) {
+        fail('MODEL_FAILOVER_STALE_STATE', 'Failover state row version no longer matches', {
+          role,
+          expectedRowVersion,
+          actualRowVersion: state.row_version,
+        });
+      }
+      if (state.claim_token === null) {
+        fail('MODEL_FAILOVER_CLAIM_MISSING', 'Failover state has no claim to expire', { role });
+      }
+      if (state.claim_operation_id !== expectedOperationId
+        || state.claim_kind !== expectedClaimKind) {
+        fail('MODEL_FAILOVER_CLAIM_MISMATCH', 'Claim tuple does not match the expiry request', {
+          role,
+          expectedOperationId,
+          actualOperationId: state.claim_operation_id,
+          expectedKind: expectedClaimKind,
+          actualKind: state.claim_kind,
+        });
+      }
+      if (state.state !== claim.allowedState
+        || state.active_failover !== claim.activeFailover) {
+        fail('MODEL_FAILOVER_CLAIM_STATE_INVALID', 'Claim kind is not valid for the current state', {
+          role,
+          kind: expectedClaimKind,
+          state: state.state,
+          activeFailover: state.active_failover === 1,
+        });
+      }
+      const nowMs = this.#now('expireClaim');
+      if (nowMs < state.updated_at_ms) {
+        fail('MODEL_FAILOVER_CLOCK_ROLLBACK', 'Repository clock moved before failover state', {
+          role,
+          nowMs,
+          updatedAtMs: state.updated_at_ms,
+        });
+      }
+      if (state.claim_expires_at_ms >= nowMs) {
+        fail('MODEL_FAILOVER_CLAIM_NOT_EXPIRED', 'Failover claim is still live', {
+          role,
+          claimExpiresAtMs: state.claim_expires_at_ms,
+          nowMs,
+        });
+      }
+
+      const eventId = this.#id('event');
+
+      this.db.prepare(`
+        INSERT INTO model_failover_events (
+          event_id, event_type, role, binding_revision, row_version, episode_id,
+          operation_id, actor, reason_code, policy_version, state_before,
+          state_after, desired_model_name, desired_digest_sha256, created_at_ms
+        ) VALUES (?, 'CLAIM_EXPIRED', ?, ?, ?, ?, ?, ?, 'EXPIRED_CLAIM_RELEASED',
+          ?, ?, ?, ?, ?, ?)
+      `).run(
+        eventId,
+        role,
+        expectedDesiredRevision,
+        nextExpectedRowVersion,
+        episodeId,
+        expectedOperationId,
+        MODEL_FAILOVER_ACTOR,
+        MODEL_FAILOVER_POLICY_VERSION,
+        state.state,
+        state.state,
+        desired.model_name,
+        desired.digest_sha256,
+        nowMs,
+      );
+      const expired = this.db.prepare(`
+        UPDATE model_failover_state
+        SET row_version = ?, claim_operation_id = NULL, claim_token = NULL,
+            claim_kind = NULL, claim_started_at_ms = NULL,
+            claim_expires_at_ms = NULL, updated_at_ms = ?, last_event_id = ?
+        WHERE role = ? AND desired_revision = ? AND episode_id = ?
+          AND row_version = ? AND state = ? AND active_failover = ?
+          AND policy_version = ? AND claim_operation_id = ?
+          AND claim_kind = ? AND claim_token = ?
+          AND claim_started_at_ms = ? AND claim_expires_at_ms = ?
+          AND claim_expires_at_ms < ?
+      `).run(
+        nextExpectedRowVersion,
+        nowMs,
+        eventId,
+        role,
+        expectedDesiredRevision,
+        episodeId,
+        expectedRowVersion,
+        claim.allowedState,
+        claim.activeFailover,
+        MODEL_FAILOVER_POLICY_VERSION,
+        expectedOperationId,
+        expectedClaimKind,
+        state.claim_token,
+        state.claim_started_at_ms,
+        state.claim_expires_at_ms,
+        nowMs,
+      );
+      if (expired.changes !== 1) {
+        fail('MODEL_FAILOVER_STALE_STATE', 'Expired claim lost its state CAS', {
+          role,
+          expectedRowVersion,
+        });
+      }
+
+      return {
+        outcome: 'EXPIRED',
+        expiredOperationId: expectedOperationId,
+        eventId,
+        state: mapState(this.#stateRow(role)),
+      };
+    });
+  }
+
   listActiveForRestart() {
     return this.#read('listActiveForRestart', () => this.db.prepare(`
       SELECT state.*

@@ -1,7 +1,7 @@
 # 006 — automatický model rebind zůstává blokovaný rozhodnutím L0-9
 
 - **typ:** BLOCK
-- **stav rozhodnutí:** D+ SCHVÁLENO; B3-IDENTITY, B3-PROFILE, FAILOVER SETTINGS AUTHORITY A STORAGE SCHEMA IMPLEMENTOVÁNY, AKTIVACE OTEVŘENÁ
+- **stav rozhodnutí:** D+ SCHVÁLENO; B3-IDENTITY, B3-PROFILE, FAILOVER SETTINGS, STORAGE A CLAIM RECOVERY IMPLEMENTOVÁNY, AKTIVACE OTEVŘENÁ
 - **WP:** WP-M1-MODEL
 - **rail:** R1 USER_AUTHORITY, R3 OBSERVABLE_BEHAVIOR, R6 REVERSIBILITY
 - **vzniklo při:** read-only call-graph kontrole `src/upgrade/model-registry.js:checkBindingIntegrity()`
@@ -207,12 +207,37 @@ busy, identity collision, storage-contract violation a corrupt event JSON mají
 odlišné typované chyby.
 
 Tento checkpoint stále neobsahuje proof runner ani terminal transition,
-expired-claim renew/reclaim, manual supersede, runtime apply, opt-in consumer,
+expired-claim recovery, manual supersede, runtime apply, opt-in consumer,
 startup koordinátor nebo scheduler. Pětiminutový claim je prozatím pouze
-ohraničený storage lease, nikoli schválený limit modelové validace; repository
-se proto nesmí zapojit do proof runneru, dokud recovery nevznikne. Žádný runtime
+ohraničený storage lease, nikoli schválený limit modelové validace. Žádný runtime
 modul repository nekonzumuje a L0-9 se nemění. Focused důkaz je
 `IS-T1-TESTS-M1-MODEL-FAILOVER-REPOSITORY-TEST`.
+
+## Implementační stav B3-FAILOVER claim recovery — 2026-08-08
+
+Migrace 047 doplňuje databázovou autoritu pro `CLAIM_EXPIRED`: event projde
+jen nad přesnou rolí, desired revision, episode, row version, operation,
+policy, stavem a digestem živého claimu, jehož expiry byla striktně překročena.
+Rovnost `now == expiresAt` je stále live. Repository metoda `expireClaim()` v
+jednom `BEGIN IMMEDIATE` vloží audit a plným CAS vyčistí operation, tajný token,
+kind i oba časy; chyba projection rollbackne i event. Přesný retry vrací
+`ALREADY_EXPIRED` bez nového eventu a read API ani chyba tajný token nevydají.
+
+Dva skutečné worker thready načetly stejný pre-expiry snapshot přes dvě WAL
+connections. Po bariéře vznikl právě jeden `EXPIRED`, jeden
+`ALREADY_EXPIRED`, právě jeden společný expiry event a žádný `SQLITE_BUSY`.
+Následný nový claim používá běžný soutěžní CAS. Expire a nový claim jsou
+záměrně dvě transakce: po crashi může stav zůstat dočasně bez claimu a při
+soutěži může vyhrát jiný worker. Jde o safe release-then-compete, nikoli
+same-worker atomic reclaim. RESTORE/REAPPLY expiry dostanou vlastní focused
+fixture až s terminal state writerem; dnes přes veřejné repository ještě není
+aktivní stav dosažitelný.
+
+Recovery stále neaktivuje model, provider, Ollamu, GPU, config ani scheduler.
+Call-graph audit navíc prokázal, že legacy validation rows nejsou digest-bound
+PASS autorita a repozitář nemá schválené role-suite prahy ani proof TTL. Tyto
+hodnoty nejsou domyšlené: rozhodnutí 015 drží issuance vypnuté a dovoluje
+pokračovat pouze measurement-only runnerem. L0-9 se nemění.
 
 ## Implementační stav B3-IDENTITY — 2026-08-08
 

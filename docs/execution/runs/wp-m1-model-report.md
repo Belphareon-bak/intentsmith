@@ -738,3 +738,71 @@ GPU ani Ollama se v tomto checkpointu nespouštějí. Kanonický T3 běh na 4096
 zůstává samostatně blokovaný požadavkem runneru na čistý porcelain, protože
 cizí untracked `docs/review/2026-08-08-MODULE-INDEPENDENCE.md` má vlastnictví
 `UNKNOWN`. Soubor nebyl čten, změněn ani zahrnut do tohoto checkpointu.
+
+## Checkpoint 11 — auditované uvolnění expirovaného claimu
+
+Nová migrace 047 přidává DB trigger pro `CLAIM_EXPIRED`. Event lze vložit jen
+pro přesnou desired revision, episode, row version, operation, policy, stav a
+digest existujícího claimu a pouze při `createdAt > claimExpiresAt`. Rovnost na
+expiry hranici je tedy dál živý claim. Repository metoda `expireClaim()` vloží
+event a plným CAS vyčistí operation, token, kind, start i expiry v jedné
+`BEGIN IMMEDIATE` transakci. Failure po vložení eventu rollbackne event i stav.
+
+Přesné opakování vrátí `ALREADY_EXPIRED` bez nového auditního záznamu; reuse
+stejného operation s jiným claim kindem není vydán za retry. Caller nemůže
+podstrčit clock, event, operation authority ani token. Read API, audit details
+a typovaná chyba token neobsahují. Po uvolnění lze na novém row version použít
+existující `claimOperation()`; starý token ani starý snapshot už autoritu
+nemají.
+
+Skutečný race používá dva worker thready, dvě nezávislé WAL connections a
+bariéru po načtení shodného `rowVersion=2`. Výsledkem je přesně jeden
+`EXPIRED`, jeden `ALREADY_EXPIRED`, jeden společný expiry event a žádný
+`MODEL_FAILOVER_DB_BUSY`. Expirace a následný nový claim jsou vědomě dvě
+transakce: po crashi může projection zůstat bez claimu a v nové soutěži může
+vyhrát jiný worker. Evidence proto netvrdí atomický same-worker reclaim.
+
+### Hranice checkpointu 11
+
+Repository stále není připojené k runtime. Checkpoint neprovádí provider,
+Ollama, GPU, config, override, broadcast, terminal activation, restore ani
+scheduler efekt. RESTORE/REAPPLY expiry dostanou vlastní aktivní-state fixture
+až s terminal writerem. Read-only call-graph audit současně prokázal, že
+legacy validation cache nemůže vydat D+ PASS proof: nemá roli, digest, policy,
+contract hash, immutable run ani inventory snapshots a neexistuje schválený
+suite-level práh. Rozhodnutí 015 proto volí vratný measurement-only default a
+blokuje jen proof issuance/terminal activation do schválení prahů a TTL.
+
+### Focused ověření checkpointu 11
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-model-failover-repository.test.js` | 14 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-model-failover-schema.test.js` | 10 passed, 0 failed, 0 skipped | 0 |
+| `node tests/schema-migrations.test.js` | 28 passed, 0 failed; 49 migrací | 0 |
+| `node tests/m1-model-settings.test.js` | 14 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-model-identity.test.js` | 16 passed, 0 failed, 0 skipped | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
+| `node tests/repository-hygiene.test.js` | 1 490 trackovaných cest | 0 |
+| `node scripts/validate-test-registry.js --json` | valid; 368 programů; 8 exclusions; fingerprint `ed1565a9…1ad16` | 0 |
+| `node --check src/upgrade/model-failover.js` | bez syntax chyby | 0 |
+| `node --check src/db/migrations/2026_08_08_047_model_failover_claim_expiry.js` | bez syntax chyby | 0 |
+| `git diff --check` | bez whitespace chyb | 0 |
+
+Test-truth audit nejprve prokázal tři zelené mutace. Po doplnění jednotlivých
+authority-field asercí, přesných trigger-field negativních případů a
+claim-free/non-expiry row fixture už všechny zčervenají: změna strict expiry
+`<` na `<=` dává schema `9/1`, odstranění zákazu caller `claimToken` dává
+repository `13/1` a odstranění vazby idempotentního retry na konkrétní
+`CLAIM_EXPIRED` event dává repository `13/1`; všechny tři příkazy končí exit
+`1`. První diagnostický pokus byl omylem piped do `tail` bez `pipefail`, takže
+shell vydal nepravdivý exit `0`; tento výsledek nebyl přijat jako evidence a
+všechny mutace byly znovu spuštěné s `set -o pipefail`. Guardy byly přesnými
+patchi vrácené, čistá focused sada skončila `14/0` a `10/0`, exit `0`, a pět
+přesně identifikovaných mutation failure artifact adresářů bylo odstraněno.
+
+Nezávislý read-only review před posledním test-truth doplněním nenašel
+data-integrity blocker a samostatně reprodukoval repository `13/0`, schema
+`10/0`, migration `28/0` se 49 migracemi, syntax i diff check. Cizí untracked
+`docs/review/2026-08-08-MODULE-INDEPENDENCE.md` zůstává `UNKNOWN`, nebyl čten,
+změněn ani zahrnut. GPU, Ollama a síť se nespouštějí.

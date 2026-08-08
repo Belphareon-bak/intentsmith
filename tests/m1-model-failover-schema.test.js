@@ -284,7 +284,7 @@ suite('M1 model failover schema — exact migration contract');
 
 await testAsync('fresh file-backed DB creates all failover tables, indexes and triggers', async () => {
   await withMigratedDb(async (db) => {
-    assertEqual(getCurrentVersion(db), '2026_08_08_046_model_failover');
+    assertEqual(getCurrentVersion(db), '2026_08_08_047_model_failover_claim_expiry');
 
     for (const table of [
       'model_desired_bindings',
@@ -327,6 +327,7 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
     for (const trigger of [
       'trg_model_failover_events_append_only_delete',
       'trg_model_failover_events_append_only_update',
+      'trg_model_failover_events_claim_expired',
       'trg_model_failover_events_fallback_proof',
       'trg_model_failover_events_restore_proof',
       'trg_model_failover_events_terminal_claim',
@@ -353,12 +354,87 @@ await testAsync('second migration run is a no-op with an identical schema snapsh
     const before = schemaSnapshot(db);
     const result = await runMigrations(db);
     assertEqual(result.applied.length, 0);
-    assertEqual(result.skipped.length, 48);
+    assertEqual(result.skipped.length, 49);
     assertEqual(schemaSnapshot(db), before);
   });
 });
 
 suite('M1 model failover schema — fail-closed constraints');
+
+await testAsync('CLAIM_EXPIRED requires the exact claim and strictly passed expiry', async () => {
+  await withMigratedDb(async (db) => {
+    insertDesiredObservedEvent(db);
+    insertDesiredBinding(db);
+    insertDetectedState(db);
+    claimOperation(db);
+
+    const insertExpired = ({
+      eventId,
+      operationId = 'operation-activate-1',
+      actor = 'system:binding-integrity',
+      reasonCode = 'EXPIRED_CLAIM_RELEASED',
+      policyVersion = 'd-plus-v1',
+      stateBefore = 'DETECTED',
+      stateAfter = 'DETECTED',
+      desiredModel = 'qwen3.5:27b',
+      desiredDigest = DIGEST_A,
+      detailsJson = '{}',
+      createdAt,
+    }) => db.prepare(`
+      INSERT INTO model_failover_events (
+        event_id, event_type, role, binding_revision, row_version, episode_id,
+        operation_id, actor, reason_code, policy_version, state_before,
+        state_after, desired_model_name, desired_digest_sha256, details_json,
+        created_at_ms
+      ) VALUES (?, 'CLAIM_EXPIRED', 'CHAT', 1, 3, 'episode-1', ?, ?, ?, ?,
+        ?, ?, ?, ?, ?, ?)
+    `).run(
+      eventId,
+      operationId,
+      actor,
+      reasonCode,
+      policyVersion,
+      stateBefore,
+      stateAfter,
+      desiredModel,
+      desiredDigest,
+      detailsJson,
+      createdAt,
+    );
+
+    assertThrowsMatching(() => insertExpired({
+      eventId: 'event-expiry-at-boundary',
+      createdAt: 3500,
+    }), /matching expired claim/i);
+    assertThrowsMatching(() => insertExpired({
+      eventId: 'event-expiry-wrong-operation',
+      operationId: 'operation-other',
+      createdAt: 3501,
+    }), /matching expired claim/i);
+    for (const [suffix, override] of [
+      ['actor', { actor: 'system:other' }],
+      ['reason', { reasonCode: 'OTHER_REASON' }],
+      ['policy', { policyVersion: 'd-plus-v0' }],
+      ['state-before', { stateBefore: 'FAILED' }],
+      ['state-after', { stateAfter: 'FAILED' }],
+      ['model', { desiredModel: 'other-model' }],
+      ['digest', { desiredDigest: DIGEST_B }],
+      ['details', { detailsJson: '{"unexpected":true}' }],
+    ]) {
+      assertThrowsMatching(() => insertExpired({
+        eventId: `event-expiry-wrong-${suffix}`,
+        createdAt: 3501,
+        ...override,
+      }), /matching expired claim/i);
+    }
+
+    insertExpired({ eventId: 'event-expiry-valid', createdAt: 3501 });
+    assertEqual(
+      db.prepare("SELECT count(*) AS count FROM model_failover_events WHERE event_type = 'CLAIM_EXPIRED'").get().count,
+      1,
+    );
+  });
+});
 
 await testAsync('desired binding rejects invalid role, digest and non-integer revision', async () => {
   await withMigratedDb(async (db) => {
