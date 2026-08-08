@@ -1,6 +1,6 @@
 # WP-M1-CHAT — průběžný report
 
-- **stav:** IMPLEMENTED, M1 exit `PARTIAL` kvůli BLOCK 004 a navazujícímu B3
+- **stav:** B2 `PASS`; M1 celek zůstává `BLOCKED` rozhodnutím 009 v B3
 - **base:** `86defcefd0abb1f1a521d6574f749b4e1122b453`
 - **scope:** B2 podle `docs/execution/m1-batch.md`
 - **produktové checkpointy:** `71769051`, `5a95e1f7`, `f62f3fc5`, `eb01abb2`
@@ -109,8 +109,9 @@ obsahuje jen finální content a sanitizovaná metadata `mode`/`confidence`;
 provider, persistence, generic failure, timeout a user abort nemají `response`.
 
 Legacy `{conversation_id, message}` větev ani její response shape se nemění.
-Platný HTTP `action: cancel` je do rozhodnutí 004 terminální `error` s HTTP 409;
-adaptér tím pravdivě přizná neprovedenou operaci a nepředstírá cancelled turn.
+V tomto historickém checkpointu byl platný HTTP `action: cancel` do rozhodnutí
+004 terminální `error` s HTTP 409; adaptér tím pravdivě přiznal neprovedenou
+operaci a nepředstíral cancelled turn.
 Disconnect používá `IncomingMessage.aborted`/neukončený response close, nikoli
 obecný request `close`; odpojenému peeru se terminál fyzicky neposílá.
 
@@ -129,7 +130,7 @@ Focused adapter sada připíná exact validaci příkazu a výsledku, nezměněn
 trojici identity, persist-before-send pořadí, sanitizované provider/persistence/
 generic terminály, deadline, typed user abort a fail-closed prázdný output.
 
-## Otevřeno po checkpointu 3
+## Otevřeno po checkpointu 3 — historický stav
 
 - explicitní HTTP scoped cancel zůstává jedinou zastavenou větví podle
   rozhodnutí 004; provider error a timeout jsou již připnuté na request adaptéru;
@@ -177,25 +178,52 @@ nevyžaduje předem běžící server, Ollamu ani GPU.
 | `node tests/repository-hygiene.test.js` | 1457 tracked paths | 0 |
 | `git diff --check` | bez chyb | 0 |
 
-## B2 exit stav
+## Checkpoint 5 — conversation-scoped HTTP cancel podle rozhodnutí 004/C
 
-Všechny povinné B2 ověřovací programy byly po produktových commitech znovu
-spuštěny nad čistým HEAD `eb01abb2`:
+Jedna instance `createChatRoutes()` drží privátní registr nejvýše jednoho
+aktivního M1 turnu na `conversationId`. Dva současné HTTP sendy jedné
+konverzace přes tuto instanci proto nemohou vytvořit nejednoznačný cíl; druhý
+končí validním `ConversationResult` s `M1_CONVERSATION_BUSY` dřív, než vstoupí
+do controlleru. Nejde o produktový mutex napříč HTTP a WS nebo více WS
+sessions; tento reziduál je pravdivě veden ve
+`docs/findings/005-http-ws-conversation-mutex-is-local.md` pro B4 a budoucí
+sdílenou concurrency authority.
+
+Cancel bez aktivního cíle končí `M1_HTTP_CANCEL_NOT_ACTIVE`. Platný cancel
+pošle původnímu turnu typed user abort a čeká na jeho pravdivý terminál. HTTP
+200 s terminálem `cancelled` vrátí až po potvrzeném `cancelled` cíli; timeout,
+error ani success cíle se nepřeznačí a skončí
+`M1_HTTP_CANCEL_NOT_CONFIRMED`. Post-await guard navíc odmítne success, pokud by
+controller signál ignoroval. Registr se uklízí v `finally` a maže jen záznam,
+který stále vlastní daný turn.
+
+Cancel operace zachovává vlastní `requestId` a `turnId`; cílení používá pouze
+společný `conversationId`, jak operátor schválil. Negativní test drží současně
+aktivní A a B, odmítne druhý send A, odmítne identitní kolizi bez abortu,
+zruší A dvěma souběžnými idempotentními cancel příkazy a prokáže, že B zůstala
+neabortovaná a skončila `ok`. Další negativní případy připínají bounded čekání
+na nespolupracující handler, zákaz pozdního successu, timeout-before-cancel,
+nový send po unwind a cancel po dokončení. Connector v1 ani legacy HTTP větev
+se nezměnily.
+
+### Focused evidence checkpointu 5
 
 | Příkaz | Výsledek | Exit |
 |---|---:|---:|
+| `node --check src/routes/chat.js` | syntax valid | 0 |
+| `node --check tests/m1-chat-contract.test.js` | syntax valid | 0 |
 | `node tests/deterministic-answer-latency.test.js` | 3 passed, 0 failed | 0 |
 | `node tests/confirmation-ownership.test.js` | 5 passed, 0 failed | 0 |
 | `node tests/routes-smoke.test.js` | 109 passed, 0 failed | 0 |
-| `timeout --signal=TERM --kill-after=10s 180s node tests/chat-persistence.test.js` | 35 passed, 0 failed; HTTP 67,4 ms | 0 |
-| `node tests/m1-chat-contract.test.js` | 15 passed, 0 failed | 0 |
+| `timeout --signal=TERM --kill-after=10s 180s node tests/chat-persistence.test.js` | 35 passed, 0 failed; HTTP 69,7 ms | 0 |
+| `node tests/m1-chat-contract.test.js` | 18 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-contract.test.js` | 26 passed, 0 failed, 0 skipped | 0 |
 
-B2 implementační scope je vyčerpaný bez změny connectoru. M1 exit se ale
-pravdivě nehlásí jako PASS:
+## B2 exit stav
 
-- explicitní HTTP `action: cancel` čeká na operátorskou volbu A/B/C v
-  `docs/decisions/004-m1-http-cancel-target.md`;
-- skutečný modelový request je měřen až v jediném vlastněném GPU okně B3,
-  protože B2 má `src/llm/**` zakázané a B3 je výslovný vlastník GPU;
-- B4 nesmí implementovat Studio scoped cancel, dokud se rozhodnutí 004
-  neuzavře.
+B2 implementační scope je vyčerpaný bez změny connectoru. Povinné deterministic,
+confirmation, route, durable restart a M1 chat sady jsou zelené. Rozhodnutí 004
+je implementačně uzavřené pro factory-local HTTP adaptér a B4 může konzumovat
+conversation-scoped cancel bez tvrzení o globálním mutexu.
+M1 jako celek se pravdivě nehlásí jako PASS, protože referenční GPU konfigurace
+B3 nesplnila post-load headroom a čeká v `docs/decisions/009-m1-gpu-headroom.md`.

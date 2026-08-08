@@ -53,10 +53,13 @@ nerozmrazuje.
 
 **Podklad, který C podpírá:**
 
-- „Zákaz paralelních turnů", kterým je C podmíněná, už fakticky platí:
-  `activeTurns` v `src/ws-bridge/session-adapter.js` je mapa klíčovaná
-  `conversationId`, takže dvě souběžné odpovědi v jedné konverzaci dnes
-  neexistují. C nezavádí nové omezení, jen zapisuje současné chování.
+- Schválená varianta C vyžaduje pro každý transport jednoznačný aktivní cíl na
+  `conversationId`. Následné trasování upřesnilo původní předpoklad: WS
+  `activeTurns` je lokální jedné instanci `createSessionAdapter()` a původní
+  HTTP cesta mutex neměla. B2 proto zavádí nový, pouze factory-local HTTP
+  mutex; netvrdí produktový zákaz souběhu napříč HTTP a WS ani dvěma WS
+  sessions. Tento reziduál vede
+  `docs/findings/005-http-ws-conversation-mutex-is-local.md`.
 - Brief B4 v `docs/execution/m1-batch.md` § B4 bod 4 je už napsaný podle C —
   klient doplní `conversationId` a scoped backend větev se zachová.
 
@@ -71,3 +74,25 @@ nerozmrazuje.
    rušeného turnu — v auditu se tím dvojice rozliší.
 4. Request-scoped cílení zůstává otevřené pro v2; do té doby se nesmí tvrdit,
    že cancel je request-level.
+
+## Implementační uzavření
+
+Jedna instance HTTP adaptéru nyní drží nejvýše jeden aktivní turn na
+`conversationId`. Druhý send stejné konverzace končí `M1_CONVERSATION_BUSY`
+před controllerem. Cancel bez aktivního turnu končí
+`M1_HTTP_CANCEL_NOT_ACTIVE`; shodný `requestId` sendu a cancel operace končí
+`M1_HTTP_CANCEL_IDENTITY_CONFLICT` bez abortu. Platný cancel pošle typed user
+abort a omezeně čeká na terminál cílového turnu. Teprve potvrzený stav
+`cancelled` dovolí odpovědět cancel operaci HTTP 200 s terminalem
+`status: cancelled`; tento tvar se nemůže zaměnit za zobrazitelný nebo
+persistovatelný assistant success. Jiný terminál se nepřeznačí a vrátí
+`M1_HTTP_CANCEL_NOT_CONFIRMED`, vypršení potvrzovací lhůty je pravdivý timeout
+cancel operace.
+
+Cílový send i cancel operace mají každý vlastní validovaný
+`ConversationResult`. Cancel response zachovává vlastní `requestId` a `turnId`,
+zatímco společný `conversationId` je jediný cílový klíč v1. Současně běžící
+jiná konverzace se neabortuje. Schéma connectoru se nezměnilo a
+`targetRequestId` se nepřidával. Dvě souběžné cancel operace nad týmž ještě
+aktivním cílem jsou idempotentní: obě čekají na stejný terminál a obě smějí
+potvrdit cancel pouze tehdy, když jej cíl skutečně potvrdil.

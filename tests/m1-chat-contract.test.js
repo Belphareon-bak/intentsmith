@@ -451,7 +451,7 @@ await testAsync('exact send returns a validated durable ConversationResult with 
   assert.equal(probe.responses[0].body.response.content, '391');
 });
 
-await testAsync('invalid command and unresolved HTTP cancel never reach the controller', async () => {
+await testAsync('invalid command and inactive HTTP cancel never reach the controller', async () => {
   const probe = createRouteProbe(async () => {
     throw new Error('invalid command reached controller');
   });
@@ -482,7 +482,239 @@ await testAsync('invalid command and unresolved HTTP cancel never reach the cont
   assert.equal(cancelProbe.responses[0].body.status, 'error');
   assert.equal(
     cancelProbe.responses[0].body.error.code,
-    'M1_HTTP_CANCEL_TARGET_UNRESOLVED',
+    'M1_HTTP_CANCEL_NOT_ACTIVE',
+  );
+});
+
+await testAsync('HTTP cancel targets one conversation and keeps its own operation identity', async () => {
+  const pending = new Map();
+  let startA;
+  let startB;
+  let releaseAbortA;
+  const startedA = new Promise(resolve => { startA = resolve; });
+  const startedB = new Promise(resolve => { startB = resolve; });
+  const abortAReleased = new Promise(resolve => { releaseAbortA = resolve; });
+  const probe = createRouteProbe(request => {
+    if (request.requestId === 'm1-http-send-A-after-cancel') {
+      return {
+        response: 'conversation A accepted a new turn',
+        mode: 'conversation',
+        confidence: 1,
+      };
+    }
+    return new Promise((resolve, reject) => {
+      pending.set(request.conversationId, { request, resolve });
+      request.signal.addEventListener('abort', () => {
+        if (request.conversationId === 'm1-http-conversation-A') {
+          abortAReleased.then(() => reject(request.signal.reason));
+        } else {
+          reject(request.signal.reason);
+        }
+      }, { once: true });
+      if (request.conversationId === 'm1-http-conversation-A') startA();
+      if (request.conversationId === 'm1-http-conversation-B') startB();
+    });
+  });
+  const commandA = {
+    ...httpCommand,
+    requestId: 'm1-http-send-A',
+    conversationId: 'm1-http-conversation-A',
+    turnId: 'm1-http-turn-A',
+  };
+  const duplicateA = {
+    ...commandA,
+    requestId: 'm1-http-send-A-duplicate',
+    turnId: 'm1-http-turn-A-duplicate',
+  };
+  const commandB = {
+    ...httpCommand,
+    requestId: 'm1-http-send-B',
+    conversationId: 'm1-http-conversation-B',
+    turnId: 'm1-http-turn-B',
+  };
+  const cancelA = {
+    contract: httpCommand.contract,
+    version: httpCommand.version,
+    requestId: 'm1-http-cancel-A',
+    conversationId: commandA.conversationId,
+    turnId: 'm1-http-cancel-turn-A',
+    action: 'cancel',
+  };
+  const secondCancelA = {
+    ...cancelA,
+    requestId: 'm1-http-cancel-A-second',
+    turnId: 'm1-http-cancel-turn-A-second',
+  };
+
+  const responseA = openResponse();
+  const responseB = openResponse();
+  const activeA = probe.route(requestFor(commandA), responseA);
+  await startedA;
+  await probe.route(requestFor(duplicateA), openResponse());
+  const activeB = probe.route(requestFor(commandB), responseB);
+  await startedB;
+
+  const identityConflict = {
+    ...cancelA,
+    requestId: commandA.requestId,
+    turnId: 'm1-http-conflicting-cancel-turn-A',
+  };
+  await probe.route(requestFor(identityConflict), openResponse());
+  const conflictTerminal = probe.responses.at(-1);
+  assert.equal(conflictTerminal.statusCode, 409);
+  assert.equal(conflictTerminal.body.error.code, 'M1_HTTP_CANCEL_IDENTITY_CONFLICT');
+  assert.equal(pending.get(commandA.conversationId).request.signal.aborted, false);
+
+  const cancelOperation = probe.route(requestFor(cancelA), openResponse());
+  const repeatedCancelOperation = probe.route(requestFor(secondCancelA), openResponse());
+  await new Promise(resolve => setImmediate(resolve));
+  releaseAbortA();
+  await Promise.all([activeA, cancelOperation, repeatedCancelOperation]);
+
+  assert.equal(pending.get(commandA.conversationId).request.signal.aborted, true);
+  assert.equal(pending.get(commandB.conversationId).request.signal.aborted, false);
+  pending.get(commandB.conversationId).resolve({
+    response: 'conversation B remains independent',
+    mode: 'conversation',
+    confidence: 1,
+  });
+  await activeB;
+
+  const resumedA = {
+    ...commandA,
+    requestId: 'm1-http-send-A-after-cancel',
+    turnId: 'm1-http-turn-A-after-cancel',
+  };
+  await probe.route(requestFor(resumedA), openResponse());
+  const cancelAfterCompletion = {
+    ...cancelA,
+    requestId: 'm1-http-cancel-A-after-completion',
+    turnId: 'm1-http-cancel-turn-A-after-completion',
+  };
+  await probe.route(requestFor(cancelAfterCompletion), openResponse());
+
+  const byRequestId = new Map(probe.responses.map(entry => [entry.body.requestId, entry]));
+  assert.equal(probe.calls.length, 3, 'only A, B, and resumed A may reach the controller');
+  assert.equal(byRequestId.get(duplicateA.requestId).statusCode, 409);
+  assert.equal(byRequestId.get(duplicateA.requestId).body.error.code, 'M1_CONVERSATION_BUSY');
+
+  const targetTerminal = byRequestId.get(commandA.requestId);
+  assert.equal(targetTerminal.statusCode, 409);
+  assert.equal(targetTerminal.body.status, 'cancelled');
+  assert.equal(targetTerminal.body.error.code, 'CHAT_CANCELLED');
+  assert.equal(Object.hasOwn(targetTerminal.body, 'response'), false);
+
+  const cancelTerminal = byRequestId.get(cancelA.requestId);
+  assert.equal(cancelTerminal.statusCode, 200);
+  assert.equal(cancelTerminal.body.status, 'cancelled');
+  assert.equal(cancelTerminal.body.conversationId, commandA.conversationId);
+  assert.equal(cancelTerminal.body.turnId, cancelA.turnId);
+  assert.equal(cancelTerminal.body.error.code, 'CHAT_CANCELLED');
+  assert.equal(Object.hasOwn(cancelTerminal.body, 'response'), false);
+  assert.equal(byRequestId.get(secondCancelA.requestId).statusCode, 200);
+  assert.equal(byRequestId.get(secondCancelA.requestId).body.status, 'cancelled');
+
+  const independentTerminal = byRequestId.get(commandB.requestId);
+  assert.equal(independentTerminal.statusCode, 200);
+  assert.equal(independentTerminal.body.status, 'ok');
+  assert.equal(independentTerminal.body.response.content, 'conversation B remains independent');
+  assert.equal(byRequestId.get(resumedA.requestId).statusCode, 200);
+  assert.equal(byRequestId.get(resumedA.requestId).body.status, 'ok');
+  assert.equal(byRequestId.get(cancelAfterCompletion.requestId).statusCode, 409);
+  assert.equal(
+    byRequestId.get(cancelAfterCompletion.requestId).body.error.code,
+    'M1_HTTP_CANCEL_NOT_ACTIVE',
+  );
+});
+
+await testAsync('non-cooperative handler cannot turn an aborted request into late success', async () => {
+  let start;
+  let resolveLate;
+  let activeSignal;
+  const started = new Promise(resolve => { start = resolve; });
+  const probe = createRouteProbe(request => new Promise(resolve => {
+    activeSignal = request.signal;
+    resolveLate = resolve;
+    start();
+  }), { timeoutMs: 10 });
+  const send = {
+    ...httpCommand,
+    requestId: 'm1-http-ignore-abort-send',
+    conversationId: 'm1-http-ignore-abort-conversation',
+    turnId: 'm1-http-ignore-abort-turn',
+  };
+  const cancel = {
+    contract: httpCommand.contract,
+    version: httpCommand.version,
+    requestId: 'm1-http-ignore-abort-cancel',
+    conversationId: send.conversationId,
+    turnId: 'm1-http-ignore-abort-cancel-turn',
+    action: 'cancel',
+  };
+
+  const sendPending = probe.route(requestFor(send), openResponse());
+  await started;
+  await probe.route(requestFor(cancel), openResponse());
+  assert.equal(activeSignal.aborted, true);
+
+  const cancelTerminal = probe.responses.find(entry => entry.body.requestId === cancel.requestId);
+  assert.equal(cancelTerminal.statusCode, 504);
+  assert.equal(cancelTerminal.body.status, 'timeout');
+  assert.equal(cancelTerminal.body.error.code, 'CHAT_TIMEOUT');
+
+  resolveLate({ response: 'late false success', mode: 'conversation', confidence: 1 });
+  await sendPending;
+  const targetTerminal = probe.responses.find(entry => entry.body.requestId === send.requestId);
+  assert.equal(targetTerminal.statusCode, 409);
+  assert.equal(targetTerminal.body.status, 'cancelled');
+  assert.equal(Object.hasOwn(targetTerminal.body, 'response'), false);
+});
+
+await testAsync('timeout that precedes cancel is never relabelled as confirmed cancellation', async () => {
+  let start;
+  let releaseTimeout;
+  const started = new Promise(resolve => { start = resolve; });
+  const release = new Promise(resolve => { releaseTimeout = resolve; });
+  let observeTimeout;
+  const timeoutObserved = new Promise(resolve => { observeTimeout = resolve; });
+  const probe = createRouteProbe(request => new Promise((resolve, reject) => {
+    request.signal.addEventListener('abort', () => {
+      observeTimeout(abortSourceOf(request.signal.reason, request.signal));
+      release.then(() => reject(request.signal.reason));
+    }, { once: true });
+    start();
+  }), { timeoutMs: 5 });
+  const send = {
+    ...httpCommand,
+    requestId: 'm1-http-timeout-first-send',
+    conversationId: 'm1-http-timeout-first-conversation',
+    turnId: 'm1-http-timeout-first-turn',
+  };
+  const cancel = {
+    contract: httpCommand.contract,
+    version: httpCommand.version,
+    requestId: 'm1-http-timeout-first-cancel',
+    conversationId: send.conversationId,
+    turnId: 'm1-http-timeout-first-cancel-turn',
+    action: 'cancel',
+  };
+
+  const sendPending = probe.route(requestFor(send), openResponse());
+  await started;
+  assert.equal(await timeoutObserved, AbortSource.TIMEOUT);
+  const cancelPending = probe.route(requestFor(cancel), openResponse());
+  await new Promise(resolve => setImmediate(resolve));
+  releaseTimeout();
+  await Promise.all([sendPending, cancelPending]);
+
+  const byRequestId = new Map(probe.responses.map(entry => [entry.body.requestId, entry]));
+  assert.equal(byRequestId.get(send.requestId).statusCode, 504);
+  assert.equal(byRequestId.get(send.requestId).body.status, 'timeout');
+  assert.equal(byRequestId.get(cancel.requestId).statusCode, 409);
+  assert.equal(byRequestId.get(cancel.requestId).body.status, 'error');
+  assert.equal(
+    byRequestId.get(cancel.requestId).body.error.code,
+    'M1_HTTP_CANCEL_NOT_CONFIRMED',
   );
 });
 

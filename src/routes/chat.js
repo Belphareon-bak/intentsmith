@@ -8,6 +8,7 @@ import {
   abortSourceOf,
   abortWithReason,
   isAbortError,
+  throwIfAborted,
 } from '../core/abort-error.js';
 import {
   M1_CONTRACT_KIND,
@@ -117,6 +118,24 @@ export function createChatRoutes(deps) {
     && configuredM1Timeout > 0
     ? configuredM1Timeout
     : DEFAULT_M1_CHAT_TIMEOUT_MS;
+  const activeM1Turns = new Map();
+
+  async function waitForM1TurnCompletion(activeTurn) {
+    let timeout;
+    try {
+      return await Promise.race([
+        activeTurn.completion,
+        new Promise(resolve => {
+          timeout = setTimeout(
+            () => resolve({ status: 'confirmation-timeout' }),
+            m1ChatTimeoutMs,
+          );
+        }),
+      ]);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
 
   async function handleM1ConversationCommand(req, res, body) {
     const validation = validateConversationCommand(body);
@@ -129,18 +148,86 @@ export function createChatRoutes(deps) {
     }
 
     if (body.action === 'cancel') {
-      // Decision 004: v1 has no separate target identity for an HTTP cancel.
-      // Fail truthfully without claiming the original turn was cancelled.
+      const activeTurn = activeM1Turns.get(body.conversationId);
+      if (!activeTurn) {
+        return sendJSON(res, 409, createM1ConversationResult(body, {
+          status: 'error',
+          error: {
+            code: 'M1_HTTP_CANCEL_NOT_ACTIVE',
+            message: 'The conversation has no active turn to cancel.',
+          },
+        }));
+      }
+      if (body.requestId === activeTurn.requestId) {
+        return sendJSON(res, 409, createM1ConversationResult(body, {
+          status: 'error',
+          error: {
+            code: 'M1_HTTP_CANCEL_IDENTITY_CONFLICT',
+            message: 'The cancel operation must have its own request identity.',
+          },
+        }));
+      }
+
+      abortWithReason(
+        activeTurn.abortController,
+        AbortSource.USER,
+        'Active conversation turn cancelled by an M1 HTTP command',
+      );
+      const targetTerminal = await waitForM1TurnCompletion(activeTurn);
+      if (targetTerminal.status === 'confirmation-timeout') {
+        return sendJSON(res, 504, createM1ConversationResult(body, {
+          status: 'timeout',
+          error: {
+            code: 'CHAT_TIMEOUT',
+            message: 'Timed out while waiting for cancellation confirmation.',
+          },
+        }));
+      }
+      if (targetTerminal.status !== 'cancelled') {
+        return sendJSON(res, 409, createM1ConversationResult(body, {
+          status: 'error',
+          error: {
+            code: 'M1_HTTP_CANCEL_NOT_CONFIRMED',
+            message: 'The active turn did not confirm user cancellation.',
+          },
+        }));
+      }
+
+      logger.info('ChatRoutes', 'M1 conversation-scoped cancel confirmed', {
+        cancelRequestId: body.requestId,
+        targetRequestId: activeTurn.requestId,
+        conversationId: body.conversationId,
+      });
+      return sendJSON(res, 200, createM1ConversationResult(body, {
+        status: 'cancelled',
+        error: {
+          code: 'CHAT_CANCELLED',
+          message: 'The active conversation turn was cancelled.',
+        },
+      }));
+    }
+
+    if (activeM1Turns.has(body.conversationId)) {
       return sendJSON(res, 409, createM1ConversationResult(body, {
         status: 'error',
         error: {
-          code: 'M1_HTTP_CANCEL_TARGET_UNRESOLVED',
-          message: 'HTTP cancel target semantics are unresolved for M1 v1.',
+          code: 'M1_CONVERSATION_BUSY',
+          message: 'The conversation already has an active turn.',
         },
       }));
     }
 
     const abortController = new AbortController();
+    let resolveCompletion;
+    const completion = new Promise(resolve => { resolveCompletion = resolve; });
+    const activeTurn = {
+      requestId: body.requestId,
+      turnId: body.turnId,
+      abortController,
+      completion,
+    };
+    activeM1Turns.set(body.conversationId, activeTurn);
+    let terminalStatus = 'error';
     let peerDisconnected = false;
     const cancelForDisconnect = () => {
       peerDisconnected = true;
@@ -174,6 +261,7 @@ export function createChatRoutes(deps) {
           turnId: body.turnId,
         },
       });
+      throwIfAborted(abortController.signal);
 
       const result = createM1ConversationResult(body, {
         status: 'ok',
@@ -185,6 +273,7 @@ export function createChatRoutes(deps) {
           },
         },
       });
+      terminalStatus = result.status;
       if (!peerDisconnected && !res.writableEnded) {
         sendJSON(res, 200, result);
       }
@@ -195,6 +284,7 @@ export function createChatRoutes(deps) {
         error,
         abortController.signal,
       );
+      terminalStatus = terminal.result.status;
       if (!peerDisconnected && !res.writableEnded) {
         sendJSON(res, terminal.statusCode, terminal.result);
       }
@@ -202,6 +292,10 @@ export function createChatRoutes(deps) {
       clearTimeout(timeout);
       req.off?.('aborted', cancelForDisconnect);
       res.off?.('close', cancelForClosedResponse);
+      if (activeM1Turns.get(body.conversationId) === activeTurn) {
+        activeM1Turns.delete(body.conversationId);
+      }
+      resolveCompletion({ status: terminalStatus });
     }
   }
 
