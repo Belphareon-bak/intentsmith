@@ -13,7 +13,7 @@ import {
 } from '../src/core/abort-error.js';
 import {
   LLMGatewayErrorCode,
-  callWithPolicy,
+  callWithPolicy as callGatewayWithPolicy,
   llmGateway,
 } from '../src/llm/gateway.js';
 import { createAuthToken } from '../src/llm/auth-types.js';
@@ -25,10 +25,27 @@ const originalConcurrencyMax = llmGateway._concurrency.max;
 const originalQueueTimeout = llmGateway._concurrency.queueTimeout;
 const originalStrictMode = llmGateway.strictMode;
 const originalCurrentAuth = llmGateway.currentAuth;
+const originalVramFitProfiles = llmGateway._vramFitProfiles;
 
 let tokenSequence = 0;
 const secretCanary = 'private-prompt-canary-never-audit';
 const runtimeSignals = [];
+const FIT_VRAM_PROFILE = Object.freeze({
+  modelWeightsMb: 1040,
+  kvMbPer1k: 9,
+  observeVram: async () => ({
+    totalMb: 32768,
+    freeMb: 32768,
+    source: 'm1-fixture',
+  }),
+});
+const FIT_VRAM_PROFILES = Object.freeze({
+  'fixture-model:1b': FIT_VRAM_PROFILE,
+});
+
+function callWithPolicy(token, prompt, options = {}) {
+  return callGatewayWithPolicy(token, prompt, options);
+}
 
 function makeToken() {
   tokenSequence += 1;
@@ -81,6 +98,7 @@ try {
   };
   llmGateway._concurrency.max = 1;
   llmGateway._concurrency.queueTimeout = 1000;
+  llmGateway._vramFitProfiles = FIT_VRAM_PROFILES;
 
   suite('M1 model gateway policy — exact provider outcome');
 
@@ -147,6 +165,36 @@ try {
         capability: 'code_generation',
         correlation: correlation('denied-capability'),
       }, LLMGatewayErrorCode.AUTHORIZATION_DENIED],
+      [{
+        capability: 'reasoning',
+        correlation: correlation('reserved-vram-override'),
+        vramFitOptions: { reserveMb: 0 },
+      }, LLMGatewayErrorCode.INVALID_REQUEST],
+      [{
+        capability: 'reasoning',
+        correlation: correlation('reserved-vram-profiles'),
+        _vramFitProfiles: {},
+      }, LLMGatewayErrorCode.INVALID_REQUEST],
+      [{
+        capability: 'reasoning',
+        correlation: correlation('reserved-vram-private-options'),
+        _vramFitOptions: {},
+      }, LLMGatewayErrorCode.INVALID_REQUEST],
+      [{
+        capability: 'reasoning',
+        correlation: correlation('reserved-vram-required-flag'),
+        _requireVramFit: false,
+      }, LLMGatewayErrorCode.INVALID_REQUEST],
+      [{
+        capability: 'reasoning',
+        correlation: correlation('invalid-num-ctx'),
+        num_ctx: -1,
+      }, LLMGatewayErrorCode.INVALID_REQUEST],
+      [{
+        model: { name: 'fixture-model:1b' },
+        capability: 'reasoning',
+        correlation: correlation('invalid-model-object'),
+      }, LLMGatewayErrorCode.INVALID_REQUEST],
     ];
 
     for (const [options, expectedCode] of fixtures) {
@@ -156,6 +204,20 @@ try {
       }));
       assertEqual(error.code, expectedCode);
     }
+    const inheritedOptions = Object.assign(
+      Object.create({
+        model: 'fixture:7b',
+        num_ctx: 4096,
+      }),
+      {
+        capability: 'reasoning',
+        correlation: correlation('prototype-options'),
+      },
+    );
+    const inheritedError = await capturedFailure(
+      callWithPolicy(token, 'not sent', inheritedOptions),
+    );
+    assertEqual(inheritedError.code, LLMGatewayErrorCode.INVALID_REQUEST);
     assertEqual(fetchCalls, 0);
     assertSemaphoreReleased();
   });
@@ -286,7 +348,257 @@ try {
     assertSemaphoreReleased();
   });
 
+  await testAsync('known physical non-fit fails before provider, counters, or success evidence', async () => {
+    runtimeSignals.length = 0;
+    const auditStart = llmGateway.getAuditLogs().length;
+    const callCountStart = llmGateway.callCount;
+    let fetchCalls = 0;
+    globalThis.fetch = async () => {
+      fetchCalls += 1;
+      throw new Error('non-fit request reached provider');
+    };
+
+    const previousVramFitProfiles = llmGateway._vramFitProfiles;
+    let error;
+    try {
+      llmGateway._vramFitProfiles = {
+        'fixture:7b': {
+          modelWeightsMb: 4760,
+          kvMbPer1k: 63,
+          observeVram: async () => ({
+            totalMb: 6035,
+            freeMb: 6035,
+            source: 'm1-nonfit-fixture',
+          }),
+        },
+      };
+      error = await capturedFailure(callWithPolicy(makeToken(), 'non-fit', {
+        model: 'fixture:7b',
+        capability: 'reasoning',
+        num_ctx: 4096,
+        correlation: correlation('vram-nonfit'),
+      }));
+    } finally {
+      llmGateway._vramFitProfiles = previousVramFitProfiles;
+    }
+    assertEqual(error.code, LLMGatewayErrorCode.MODEL_VRAM_NON_FIT);
+    assertEqual(fetchCalls, 0);
+    assertEqual(llmGateway.callCount, callCountStart);
+    const audit = llmGateway.getAuditLogs().slice(auditStart);
+    const nonfit = audit.find(entry => entry.event === 'LLM_CALL_VRAM_NON_FIT');
+    assert(nonfit);
+    assertEqual(nonfit.requiredMb, 5012);
+    assertEqual(nonfit.totalMb, 6035);
+    assertEqual(audit.some(entry => entry.event === 'LLM_CALL_COMPLETE'), false);
+    assertEqual(runtimeSignals.length, 0);
+    assertSemaphoreReleased();
+  });
+
+  await testAsync('trusted footprint is bound to the exact normalized model identity', async () => {
+    const auditStart = llmGateway.getAuditLogs().length;
+    let fetchCalls = 0;
+    globalThis.fetch = async () => {
+      fetchCalls += 1;
+      return providerResponse({ json: { message: { content: 'different model result' } } });
+    };
+
+    const previousVramFitProfiles = llmGateway._vramFitProfiles;
+    let result;
+    try {
+      llmGateway._vramFitProfiles = {
+        'fixture:7b': {
+          modelWeightsMb: 4760,
+          kvMbPer1k: 63,
+          observeVram: async () => ({
+            totalMb: 6035,
+            freeMb: 6035,
+            source: 'must-not-cross-models',
+          }),
+        },
+      };
+      result = await callWithPolicy(makeToken(), 'different-model', {
+        model: 'fixture-other:7b',
+        capability: 'reasoning',
+        num_ctx: 4096,
+        correlation: correlation('vram-model-binding'),
+      });
+    } finally {
+      llmGateway._vramFitProfiles = previousVramFitProfiles;
+    }
+    assertEqual(result.content, 'different model result');
+    assertEqual(fetchCalls, 1);
+    const audit = llmGateway.getAuditLogs().slice(auditStart);
+    const unknown = audit.find(entry => entry.event === 'LLM_VRAM_PREFLIGHT_UNKNOWN');
+    assert(unknown);
+    assertEqual(unknown.vramReason, 'VRAM_FOOTPRINT_UNKNOWN');
+    assertEqual(audit.some(entry => entry.event === 'LLM_CALL_VRAM_NON_FIT'), false);
+    assertSemaphoreReleased();
+  });
+
+  await testAsync('reclaimable VRAM remains unknown and continues one exact provider attempt', async () => {
+    runtimeSignals.length = 0;
+    const auditStart = llmGateway.getAuditLogs().length;
+    let fetchCalls = 0;
+    let requestBody = null;
+    globalThis.fetch = async (_url, options) => {
+      fetchCalls += 1;
+      requestBody = JSON.parse(options.body);
+      return providerResponse({ json: { message: { content: 'swap-safe result' } } });
+    };
+
+    const previousVramFitProfiles = llmGateway._vramFitProfiles;
+    let result;
+    try {
+      llmGateway._vramFitProfiles = {
+        'fixture:7b': {
+          modelWeightsMb: 4760,
+          kvMbPer1k: 63,
+          observeVram: async () => ({
+            totalMb: 8192,
+            freeMb: 2048,
+            source: 'm1-reclaim-fixture',
+          }),
+        },
+      };
+      result = await callWithPolicy(makeToken(), 'reclaimable', {
+        model: 'fixture:7b',
+        capability: 'reasoning',
+        num_ctx: 4096,
+        correlation: correlation('vram-reclaimable'),
+      });
+    } finally {
+      llmGateway._vramFitProfiles = previousVramFitProfiles;
+    }
+    assertEqual(result.content, 'swap-safe result');
+    assertEqual(fetchCalls, 1);
+    assertEqual(requestBody.options.num_ctx, 4096);
+    const audit = llmGateway.getAuditLogs().slice(auditStart);
+    const unknown = audit.find(entry => entry.event === 'LLM_VRAM_PREFLIGHT_UNKNOWN');
+    assert(unknown);
+    assertEqual(unknown.vramReason, 'VRAM_CURRENT_FREE_INSUFFICIENT');
+    assertEqual(audit.some(entry => entry.event === 'LLM_CALL_COMPLETE'), true);
+    assertEqual(runtimeSignals.length, 1);
+    assertEqual(runtimeSignals[0].signalType, 'runtime');
+    assertSemaphoreReleased();
+  });
+
+  await testAsync('broken trusted VRAM observation degrades to unknown without leaking ownership', async () => {
+    const auditStart = llmGateway.getAuditLogs().length;
+    let fetchCalls = 0;
+    globalThis.fetch = async () => {
+      fetchCalls += 1;
+      return providerResponse({ json: { message: { content: 'observer-safe result' } } });
+    };
+
+    const previousVramFitProfiles = llmGateway._vramFitProfiles;
+    let result;
+    try {
+      llmGateway._vramFitProfiles = {
+        'fixture-model:1b': {
+          modelWeightsMb: 1040,
+          kvMbPer1k: 9,
+          observeVram: async () => ({
+            get totalMb() { throw new Error('fixture VRAM getter failed'); },
+            freeMb: 32768,
+            source: 'broken-fixture',
+          }),
+        },
+      };
+      result = await callWithPolicy(makeToken(), 'broken-observer', {
+        model: 'fixture-model:1b',
+        capability: 'reasoning',
+        correlation: correlation('vram-observer-failure'),
+      });
+    } finally {
+      llmGateway._vramFitProfiles = previousVramFitProfiles;
+    }
+    assertEqual(result.content, 'observer-safe result');
+    assertEqual(fetchCalls, 1);
+    const audit = llmGateway.getAuditLogs().slice(auditStart);
+    const unknown = audit.find(entry => entry.event === 'LLM_VRAM_PREFLIGHT_UNKNOWN');
+    assert(unknown);
+    assertEqual(unknown.vramReason, 'VRAM_OBSERVATION_UNAVAILABLE');
+    assertSemaphoreReleased();
+  });
+
   suite('M1 model gateway policy — cancellation and semaphore ownership');
+
+  await testAsync('cancel and deadline during VRAM preflight never reach provider or a slot', async () => {
+    runtimeSignals.length = 0;
+    let fetchCalls = 0;
+    globalThis.fetch = async () => {
+      fetchCalls += 1;
+      throw new Error('preflight-only request reached provider');
+    };
+    const previousVramFitProfiles = llmGateway._vramFitProfiles;
+
+    try {
+      let cancelObserverCalls = 0;
+      llmGateway._vramFitProfiles = {
+        'fixture-model:1b': {
+          modelWeightsMb: 1040,
+          kvMbPer1k: 9,
+          observeVram: async () => {
+            cancelObserverCalls += 1;
+            return new Promise(() => {});
+          },
+        },
+      };
+      const cancelAuditStart = llmGateway.getAuditLogs().length;
+      const controller = new AbortController();
+      const cancelled = callWithPolicy(makeToken(), 'cancel-preflight', {
+        model: 'fixture-model:1b',
+        capability: 'reasoning',
+        timeout: 1000,
+        signal: controller.signal,
+        correlation: correlation('cancel-during-preflight'),
+      });
+      await new Promise(resolve => setImmediate(resolve));
+      assertEqual(cancelObserverCalls, 1);
+      abortWithReason(controller, AbortSource.USER, 'cancel VRAM preflight fixture');
+      const cancelError = await capturedFailure(cancelled);
+      assertEqual(cancelError.name, 'AbortError');
+      assertEqual(cancelError.abortSource, AbortSource.USER);
+      const cancelAudit = llmGateway.getAuditLogs().slice(cancelAuditStart);
+      const cancelEvent = cancelAudit.find(entry => entry.event === 'LLM_CALL_CANCELLED');
+      assert(cancelEvent);
+      assertEqual(cancelEvent.preflight, true);
+      assertSemaphoreReleased();
+
+      let timeoutObserverCalls = 0;
+      llmGateway._vramFitProfiles = {
+        'fixture-model:1b': {
+          modelWeightsMb: 1040,
+          kvMbPer1k: 9,
+          observeVram: async () => {
+            timeoutObserverCalls += 1;
+            return new Promise(() => {});
+          },
+        },
+      };
+      const timeoutAuditStart = llmGateway.getAuditLogs().length;
+      const timeoutError = await capturedFailure(callWithPolicy(makeToken(), 'timeout-preflight', {
+        model: 'fixture-model:1b',
+        capability: 'reasoning',
+        timeout: 5,
+        correlation: correlation('timeout-during-preflight'),
+      }));
+      assertEqual(timeoutObserverCalls, 1);
+      assertEqual(timeoutError.name, 'AbortError');
+      assertEqual(timeoutError.abortSource, AbortSource.TIMEOUT);
+      const timeoutAudit = llmGateway.getAuditLogs().slice(timeoutAuditStart);
+      const timeoutEvent = timeoutAudit.find(entry => entry.event === 'LLM_CALL_TIMEOUT');
+      assert(timeoutEvent);
+      assertEqual(timeoutEvent.preflight, true);
+      assertEqual(timeoutEvent.timeoutOrigin, 'preflight');
+      assertSemaphoreReleased();
+    } finally {
+      llmGateway._vramFitProfiles = previousVramFitProfiles;
+    }
+
+    assertEqual(fetchCalls, 0);
+    assertEqual(runtimeSignals.length, 0);
+  });
 
   await testAsync('pre-abort, in-flight cancel, and gateway timeout never succeed', async () => {
     let fetchCalls = 0;
@@ -299,15 +611,39 @@ try {
 
     const pre = new AbortController();
     abortWithReason(pre, AbortSource.USER, 'pre-cancelled model request');
-    const preError = await capturedFailure(callWithPolicy(makeToken(), 'pre', {
-      model: 'fixture-model:1b',
-      capability: 'reasoning',
-      signal: pre.signal,
-      correlation: correlation('pre-cancel'),
-    }));
+    const preAuditStart = llmGateway.getAuditLogs().length;
+    let preflightObserverCalls = 0;
+    const previousVramFitProfiles = llmGateway._vramFitProfiles;
+    let preError;
+    try {
+      llmGateway._vramFitProfiles = {
+        'fixture-model:1b': {
+          modelWeightsMb: 1040,
+          kvMbPer1k: 9,
+          observeVram: async () => {
+            preflightObserverCalls += 1;
+            return { totalMb: 32768, freeMb: 32768, source: 'should-not-run' };
+          },
+        },
+      };
+      preError = await capturedFailure(callWithPolicy(makeToken(), 'pre', {
+        model: 'fixture-model:1b',
+        capability: 'reasoning',
+        signal: pre.signal,
+        correlation: correlation('pre-cancel'),
+      }));
+    } finally {
+      llmGateway._vramFitProfiles = previousVramFitProfiles;
+    }
     assertEqual(preError.name, 'AbortError');
     assertEqual(preError.abortSource, AbortSource.USER);
+    assertEqual(preflightObserverCalls, 0);
     assertEqual(fetchCalls, 0);
+    const preAudit = llmGateway.getAuditLogs().slice(preAuditStart);
+    const preCancelled = preAudit.find(entry => entry.event === 'LLM_CALL_CANCELLED');
+    assert(preCancelled);
+    assertEqual(preCancelled.preflight, true);
+    assertEqual(preCancelled.abortSource, AbortSource.USER);
     assertSemaphoreReleased();
 
     const active = new AbortController();
@@ -474,6 +810,7 @@ try {
   llmGateway._concurrency.queueTimeout = originalQueueTimeout;
   llmGateway.strictMode = originalStrictMode;
   llmGateway.currentAuth = originalCurrentAuth;
+  llmGateway._vramFitProfiles = originalVramFitProfiles;
   // A failure must not leak an owned slot into later programs.
   llmGateway._concurrency.active = 0;
   llmGateway._concurrency.queue.length = 0;

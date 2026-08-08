@@ -24,7 +24,11 @@ import {
 } from '../core/abort-error.js';
 import { logger } from '../core/logger.js';
 import { modelUniverseStore } from '../upgrade/model-universe-store.js';
-import { getNumCtx } from './model-ctx.js';
+import {
+  VramFitState,
+  fitsVram,
+  getNumCtx,
+} from './model-ctx.js';
 import {
   M1_MODEL_PURPOSE,
 } from '../../contracts/m1/index.js';
@@ -48,6 +52,7 @@ export const LLMGatewayErrorCode = Object.freeze({
   MALFORMED_RESPONSE: 'LLM_PROVIDER_MALFORMED_RESPONSE',
   EMPTY_RESPONSE: 'LLM_PROVIDER_EMPTY_RESPONSE',
   QUEUE_TIMEOUT: 'LLM_QUEUE_TIMEOUT',
+  MODEL_VRAM_NON_FIT: 'MODEL_VRAM_NON_FIT',
 });
 
 export class LLMGatewayError extends Error {
@@ -160,6 +165,15 @@ const M1_CORRELATION_KEYS = Object.freeze([
   'purpose',
 ]);
 const M1_MODEL_PURPOSES = new Set(Object.values(M1_MODEL_PURPOSE));
+const MODEL_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/;
+
+function isModelName(value) {
+  return typeof value === 'string' && MODEL_NAME_PATTERN.test(value);
+}
+
+function isPolicyNumCtx(value) {
+  return Number.isSafeInteger(value) && value >= 512 && value <= 262144;
+}
 
 function safeCorrelation(options = {}, authToken = null) {
   const correlation = isPlainRecord(options.correlation)
@@ -182,6 +196,12 @@ function safeCorrelation(options = {}, authToken = null) {
 }
 
 function validatePolicyBoundary(token, options = {}) {
+  if (!isPlainRecord(options)) {
+    throw new LLMGatewayError(
+      LLMGatewayErrorCode.INVALID_REQUEST,
+      'The model request options must be a plain record.',
+    );
+  }
   const tokenValidation = validateAuthToken(token);
   if (!tokenValidation.valid) {
     throw new LLMGatewayError(
@@ -229,8 +249,84 @@ function validatePolicyBoundary(token, options = {}) {
       'The model request capability is not authorized.',
     );
   }
+  for (const forbiddenKey of [
+    'vramFitOptions',
+    '_vramFitOptions',
+    'vramFitProfiles',
+    '_vramFitProfiles',
+    '_requireVramFit',
+  ]) {
+    if (Object.prototype.hasOwnProperty.call(options, forbiddenKey)) {
+      throw new LLMGatewayError(
+        LLMGatewayErrorCode.INVALID_REQUEST,
+        'The model request contains a reserved policy option.',
+      );
+    }
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(options, 'num_ctx')
+    && !isPolicyNumCtx(options.num_ctx)
+  ) {
+    throw new LLMGatewayError(
+      LLMGatewayErrorCode.INVALID_REQUEST,
+      'The model request has an invalid context size.',
+    );
+  }
+  const effectiveModel = options.model
+    ?? config.models?.CHAT
+    ?? 'qwen3.5:27b';
+  if (!isModelName(effectiveModel)) {
+    throw new LLMGatewayError(
+      LLMGatewayErrorCode.INVALID_REQUEST,
+      'The model request has an invalid model identifier.',
+    );
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(options, 'timeout')
+    && (!Number.isSafeInteger(options.timeout) || options.timeout < 1)
+  ) {
+    throw new LLMGatewayError(
+      LLMGatewayErrorCode.INVALID_REQUEST,
+      'The model request has an invalid timeout.',
+    );
+  }
 
   return safeCorrelation(options, token);
+}
+
+function trustedVramFitOptions(model) {
+  const profiles = llmGateway._vramFitProfiles;
+  if (!isPlainRecord(profiles)) return {};
+  const key = model.toLowerCase();
+  if (!Object.prototype.hasOwnProperty.call(profiles, key)) return {};
+  const profile = profiles[key];
+  return isPlainRecord(profile) ? profile : {};
+}
+
+async function awaitWithAbort(promise, signal) {
+  if (!signal) return promise;
+  if (signal.aborted) {
+    throw abortErrorFromSignal(signal, {
+      fallbackSource: AbortSource.TIMEOUT,
+      message: 'Model preflight cancelled',
+    });
+  }
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const cleanup = () => signal.removeEventListener('abort', onAbort);
+    const settle = callback => value => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      callback(value);
+    };
+    const onAbort = () => settle(reject)(abortErrorFromSignal(signal, {
+      fallbackSource: AbortSource.TIMEOUT,
+      message: 'Model preflight cancelled',
+    }));
+    signal.addEventListener('abort', onAbort, { once: true });
+    Promise.resolve(promise).then(settle(resolve), settle(reject));
+  });
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -330,6 +426,10 @@ class LLMGateway {
       queue: [],  // Array of { resolve, reject, timer }
       queueTimeout: config.sessions?.llmQueueTimeout || 300000,
     };
+
+    // Trusted runtime dependency, never populated from ModelRequest options.
+    // Empty metadata yields UNKNOWN and lets the provider decide safely.
+    this._vramFitProfiles = Object.freeze({});
   }
 
   /** v133: Set DB for usage tracking */
@@ -667,6 +767,7 @@ class LLMGateway {
     const timeout = options.timeout || config.timeouts?.CHAT || 60000;
     const requestType = options.requestType || 'chat';
     const correlation = safeCorrelation(options, authToken);
+    const effectiveNumCtx = options.num_ctx || getNumCtx(model);
 
     const emitRuntimeSignal = (signalType, success, extra = {}) => {
       try {
@@ -693,7 +794,7 @@ class LLMGateway {
         // Signal ingestion must never break core LLM path.
       }
     };
-    
+
     // Build messages (support pre-built array via options.messages)
     const messages = options.messages || (() => {
       const msgs = [];
@@ -717,7 +818,7 @@ class LLMGateway {
         num_predict: effectiveMaxTokens,
         // v72: Allow callers to override context window size (e.g. 1024 for classification)
         // Dynamic default from model-ctx registry (VRAM-optimized per model, set at startup)
-        num_ctx: options.num_ctx || getNumCtx(model),
+        num_ctx: effectiveNumCtx,
       }
     };
 
@@ -1038,10 +1139,157 @@ export async function callWithAuth(token, prompt, options = {}) {
  * callWithAuth(). Precise provider failures are unwrapped for the M1 adapter.
  */
 export async function callWithPolicy(token, prompt, options = {}) {
-  validatePolicyBoundary(token, options);
+  if (!isPlainRecord(options)) {
+    throw new LLMGatewayError(
+      LLMGatewayErrorCode.INVALID_REQUEST,
+      'The model request options must be a plain record.',
+    );
+  }
+  // Snapshot own values once. Prototype properties and changing getters must
+  // never make preflight inspect a different request than the provider sees.
+  const policyOptions = { ...options };
+  validatePolicyBoundary(token, policyOptions);
+  const model = policyOptions.model ?? config.models?.CHAT ?? 'qwen3.5:27b';
+  const numCtx = policyOptions.num_ctx ?? getNumCtx(model);
+  if (!isPolicyNumCtx(numCtx)) {
+    throw new LLMGatewayError(
+      LLMGatewayErrorCode.INVALID_REQUEST,
+      'The model request has an invalid effective context size.',
+    );
+  }
+  const timeoutBudget = policyOptions.timeout ?? config.timeouts?.CHAT ?? 60000;
+  const correlation = safeCorrelation(policyOptions, token);
+  const preflightStartedAt = Date.now();
+  const preflightController = new AbortController();
+  const upstreamSignal = policyOptions.signal;
+  let upstreamAbortHandler = null;
+  if (upstreamSignal?.aborted) {
+    const error = abortErrorFromSignal(upstreamSignal, {
+      fallbackSource: AbortSource.USER,
+      message: 'Model request cancelled before preflight',
+    });
+    const abortSource = abortSourceOf(error, upstreamSignal, AbortSource.USER);
+    llmGateway.audit.log(
+      abortSource === AbortSource.TIMEOUT
+        ? 'LLM_CALL_TIMEOUT'
+        : 'LLM_CALL_CANCELLED',
+      {
+        role: token.role,
+        decisionId: token.decisionId,
+        abortSource,
+        timeout: abortSource === AbortSource.TIMEOUT ? timeoutBudget : null,
+        timeoutOrigin: abortSource === AbortSource.TIMEOUT ? 'preflight' : null,
+        preflight: true,
+        ...correlation,
+      },
+    );
+    throw error;
+  }
+  if (upstreamSignal) {
+    upstreamAbortHandler = () => {
+      if (!preflightController.signal.aborted) {
+        preflightController.abort(abortErrorFromSignal(upstreamSignal, {
+          fallbackSource: AbortSource.USER,
+          message: 'Model request cancelled during preflight',
+        }));
+      }
+    };
+    upstreamSignal.addEventListener('abort', upstreamAbortHandler, { once: true });
+  }
+  const preflightTimer = setTimeout(() => abortWithReason(
+    preflightController,
+    AbortSource.TIMEOUT,
+    `Model preflight timeout after ${timeoutBudget}ms`,
+  ), timeoutBudget);
+
+  let vramFit;
+  try {
+    vramFit = await awaitWithAbort(
+      fitsVram(model, {
+        ...trustedVramFitOptions(model),
+        numCtx,
+      }),
+      preflightController.signal,
+    );
+    if (upstreamSignal?.aborted) {
+      throw abortErrorFromSignal(upstreamSignal, {
+        fallbackSource: AbortSource.USER,
+        message: 'Model request cancelled during preflight',
+      });
+    }
+    if (Date.now() - preflightStartedAt >= timeoutBudget) {
+      throw abortErrorFromSignal(preflightController.signal, {
+        fallbackSource: AbortSource.TIMEOUT,
+        message: `Model preflight timeout after ${timeoutBudget}ms`,
+      });
+    }
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      const abortSource = abortSourceOf(error, upstreamSignal, AbortSource.TIMEOUT);
+      llmGateway.audit.log(
+        abortSource === AbortSource.TIMEOUT
+          ? 'LLM_CALL_TIMEOUT'
+          : 'LLM_CALL_CANCELLED',
+        {
+          role: token.role,
+          decisionId: token.decisionId,
+          abortSource,
+          timeout: abortSource === AbortSource.TIMEOUT ? timeoutBudget : null,
+          timeoutOrigin: abortSource === AbortSource.TIMEOUT ? 'preflight' : null,
+          preflight: true,
+          ...correlation,
+        },
+      );
+    }
+    throw error;
+  } finally {
+    clearTimeout(preflightTimer);
+    if (upstreamAbortHandler && upstreamSignal) {
+      upstreamSignal.removeEventListener('abort', upstreamAbortHandler);
+    }
+  }
+
+  if (vramFit.state === VramFitState.NONFIT) {
+    llmGateway.audit.log('LLM_CALL_VRAM_NON_FIT', {
+      role: token.role,
+      decisionId: token.decisionId,
+      model,
+      errorCode: LLMGatewayErrorCode.MODEL_VRAM_NON_FIT,
+      vramReason: vramFit.reason,
+      requiredMb: vramFit.requiredMb,
+      totalMb: vramFit.totalMb,
+      freeMb: vramFit.freeMb,
+      reserveMb: vramFit.reserveMb,
+      ...correlation,
+    });
+    throw new LLMGatewayError(
+      LLMGatewayErrorCode.MODEL_VRAM_NON_FIT,
+      'The selected model cannot fit in the trusted GPU capacity observation.',
+      { retryable: false },
+    );
+  }
+  if (vramFit.state === VramFitState.UNKNOWN) {
+    llmGateway.audit.log('LLM_VRAM_PREFLIGHT_UNKNOWN', {
+      role: token.role,
+      decisionId: token.decisionId,
+      model,
+      vramReason: vramFit.reason,
+      requiredMb: vramFit.requiredMb,
+      totalMb: vramFit.totalMb,
+      freeMb: vramFit.freeMb,
+      reserveMb: vramFit.reserveMb,
+      ...correlation,
+    });
+  }
+
+  const elapsedPreflightMs = Date.now() - preflightStartedAt;
+  const remainingTimeoutMs = Math.max(1, timeoutBudget - elapsedPreflightMs);
   try {
     return await llmGateway.call(prompt, {
-      ...options,
+      ...policyOptions,
+      model,
+      num_ctx: numCtx,
+      timeout: remainingTimeoutMs,
       retries: 1,
       _authToken: token,
     });

@@ -20,12 +20,214 @@ import { logger } from '../core/logger.js';
 // Per-model effective num_ctx cache
 const _cache = new Map();
 
+export const VramFitState = Object.freeze({
+  FIT: 'fit',
+  NONFIT: 'nonfit',
+  UNKNOWN: 'unknown',
+});
+
+export const VramFitReason = Object.freeze({
+  FIT: 'VRAM_FIT',
+  CAPACITY_NONFIT: 'VRAM_CAPACITY_NONFIT',
+  CURRENT_FREE_INSUFFICIENT: 'VRAM_CURRENT_FREE_INSUFFICIENT',
+  OBSERVATION_UNAVAILABLE: 'VRAM_OBSERVATION_UNAVAILABLE',
+  FOOTPRINT_UNKNOWN: 'VRAM_FOOTPRINT_UNKNOWN',
+  INPUT_INVALID: 'VRAM_INPUT_INVALID',
+});
+
+async function observeDefaultVram() {
+  const { getVramUsageAsync } = await import('../system/gpu-detector.js');
+  return getVramUsageAsync();
+}
+
+function positiveFinite(value) {
+  return Number.isFinite(value) && value > 0;
+}
+
+function nonNegativeFinite(value) {
+  return Number.isFinite(value) && value >= 0;
+}
+
+function validNumCtx(value) {
+  return Number.isSafeInteger(value) && value >= 512;
+}
+
+function modelFootprint(modelName, modelWeightsMb, kvMbPer1k) {
+  if (positiveFinite(modelWeightsMb) && positiveFinite(kvMbPer1k)) {
+    return { modelWeightsMb, kvMbPer1k, source: 'explicit' };
+  }
+  // A parameter count in a tag is not a trusted footprint: quantization,
+  // architecture, aliases and GPU placement can all change the real value.
+  // Only metadata supplied by the runtime owner may support FIT/NONFIT.
+  return null;
+}
+
+function fitResult({
+  state,
+  reason,
+  model,
+  numCtx,
+  requiredMb = null,
+  totalMb = null,
+  freeMb = null,
+  reserveMb,
+  source = null,
+}) {
+  return Object.freeze({
+    state,
+    reason,
+    model,
+    numCtx,
+    requiredMb,
+    totalMb,
+    freeMb,
+    reserveMb,
+    source,
+  });
+}
+
+/**
+ * Classify whether a model request can fit without contacting the provider.
+ *
+ * `nonfit` is intentionally reserved for physical impossibility after
+ * reclaiming other models. Low current free VRAM with sufficient total
+ * capacity is `unknown`, because Ollama may perform a legitimate model swap.
+ */
+export async function fitsVram(modelName, options = {}) {
+  const {
+    numCtx = getNumCtx(modelName),
+    observeVram = observeDefaultVram,
+    modelWeightsMb = null,
+    kvMbPer1k = null,
+    reserveMb = 1024,
+  } = options;
+  const model = typeof modelName === 'string' && modelName.trim().length > 0
+    ? modelName.trim().toLowerCase()
+    : null;
+
+  const hasExplicitWeights = modelWeightsMb !== null && modelWeightsMb !== undefined;
+  const hasExplicitKv = kvMbPer1k !== null && kvMbPer1k !== undefined;
+  const explicitFootprintInvalid = hasExplicitWeights !== hasExplicitKv
+    || (hasExplicitWeights && (
+      !positiveFinite(modelWeightsMb)
+      || !positiveFinite(kvMbPer1k)
+    ));
+  if (
+    !model
+    || !validNumCtx(numCtx)
+    || !nonNegativeFinite(reserveMb)
+    || explicitFootprintInvalid
+  ) {
+    return fitResult({
+      state: VramFitState.UNKNOWN,
+      reason: VramFitReason.INPUT_INVALID,
+      model,
+      numCtx: validNumCtx(numCtx) ? numCtx : null,
+      reserveMb: nonNegativeFinite(reserveMb) ? reserveMb : null,
+    });
+  }
+
+  const footprint = modelFootprint(model, modelWeightsMb, kvMbPer1k);
+  if (!footprint) {
+    return fitResult({
+      state: VramFitState.UNKNOWN,
+      reason: VramFitReason.FOOTPRINT_UNKNOWN,
+      model,
+      numCtx,
+      reserveMb,
+    });
+  }
+  const requiredMb = Math.ceil(
+    footprint.modelWeightsMb + (footprint.kvMbPer1k * numCtx / 1024),
+  );
+
+  let observation;
+  let totalMb;
+  let freeMb;
+  let observationSource;
+  try {
+    observation = typeof observeVram === 'function'
+      ? await observeVram()
+      : null;
+    // Keep property access inside the guarded region. A proxy or a broken
+    // observer must degrade to UNKNOWN, never reject past gateway ownership.
+    totalMb = observation?.totalMb;
+    freeMb = observation?.freeMb;
+    observationSource = observation?.source;
+  } catch {
+    observation = null;
+    totalMb = null;
+    freeMb = null;
+    observationSource = null;
+  }
+  const observationValid = positiveFinite(totalMb)
+    && nonNegativeFinite(freeMb)
+    && freeMb <= totalMb;
+  if (!observationValid) {
+    return fitResult({
+      state: VramFitState.UNKNOWN,
+      reason: VramFitReason.OBSERVATION_UNAVAILABLE,
+      model,
+      numCtx,
+      requiredMb,
+      reserveMb,
+    });
+  }
+
+  const source = typeof observationSource === 'string'
+    && observationSource.trim().length > 0
+    ? observationSource.trim().slice(0, 64)
+    : 'unspecified-observer';
+  if (totalMb - reserveMb < requiredMb) {
+    return fitResult({
+      state: VramFitState.NONFIT,
+      reason: VramFitReason.CAPACITY_NONFIT,
+      model,
+      numCtx,
+      requiredMb,
+      totalMb,
+      freeMb,
+      reserveMb,
+      source,
+    });
+  }
+  if (freeMb - reserveMb >= requiredMb) {
+    return fitResult({
+      state: VramFitState.FIT,
+      reason: VramFitReason.FIT,
+      model,
+      numCtx,
+      requiredMb,
+      totalMb,
+      freeMb,
+      reserveMb,
+      source,
+    });
+  }
+  return fitResult({
+    state: VramFitState.UNKNOWN,
+    reason: VramFitReason.CURRENT_FREE_INSUFFICIENT,
+    model,
+    numCtx,
+    requiredMb,
+    totalMb,
+    freeMb,
+    reserveMb,
+    source,
+  });
+}
+
 /**
  * Set the effective num_ctx for a model.
  * Called by VRAMManager after computing VRAM-aware context, or by initModelNumCtx().
  */
 export function setNumCtx(modelName, numCtx) {
-  if (modelName && Number.isFinite(numCtx) && numCtx >= 512) {
+  if (
+    modelName
+    && Number.isSafeInteger(numCtx)
+    && numCtx >= 512
+    && numCtx <= 262144
+  ) {
     _cache.set(String(modelName).toLowerCase(), numCtx);
   }
 }
@@ -58,9 +260,15 @@ export function clearNumCtxCache() {
  *
  * @param {string} modelName
  * @param {string} [ollamaUrl]
+ * @param {Object} [options]
+ * @param {Function} [options.observeVram] injectable read-only VRAM observer
  * @returns {Promise<number>} computed num_ctx (also stored in cache)
  */
-export async function initModelNumCtx(modelName, ollamaUrl = 'http://127.0.0.1:11434') {
+export async function initModelNumCtx(
+  modelName,
+  ollamaUrl = 'http://127.0.0.1:11434',
+  { observeVram = observeDefaultVram } = {},
+) {
   if (!modelName) return 8192;
 
   let declaredCtx = null;
@@ -96,12 +304,12 @@ export async function initModelNumCtx(modelName, ollamaUrl = 'http://127.0.0.1:1
 
   // ── Step 2: VRAM → how much KV cache fits ───────────────────────────────
   try {
-    const { getVramUsageAsync } = await import('../system/gpu-detector.js');
-    const vram = await getVramUsageAsync();
+    const vram = await observeVram();
     if (vram && vram.totalMb > 0 && vram.usedMb >= 0) {
       // Rough param estimate from model name (e.g. "qwen3.5:27b" → 27)
       const paramMatch = String(modelName).match(/[:\-_](\d+(?:\.\d+)?)b/i);
-      const params = paramMatch ? parseFloat(paramMatch[1]) : 27;
+      const params = paramMatch ? parseFloat(paramMatch[1]) : null;
+      if (!positiveFinite(params)) throw new Error('model footprint unknown');
       const weightsMb = Math.round(620 * params + 420);      // Q4_K_M formula (Q4_K_M)
       const kvPer1k = Math.round(params * 9);                // ~9 MB/1K/B (GQA models)
       const reserved = 1024;                                 // OS + compositor overhead
