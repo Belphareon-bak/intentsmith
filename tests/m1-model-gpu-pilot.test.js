@@ -370,6 +370,13 @@ function summarizeGpuSamples(samples) {
   };
 }
 
+function requirePostCallHeadroom(gpu) {
+  if (gpu.freeMiB >= MINIMUM_HEADROOM_MIB) return;
+  const error = new Error('post-call GPU headroom is unsafe');
+  error.code = 'GPU_PILOT_POST_CALL_HEADROOM_UNSAFE';
+  throw error;
+}
+
 function startGpuMonitor() {
   const samples = [];
   const errors = [];
@@ -497,6 +504,17 @@ async function selfCheck() {
   assert(gpu.freeMiB === 23576 && gpu.usedMiB === 1000, 'GPU parser changed values');
   const apps = parseComputeApps('1234, /usr/bin/ollama, 18000\n');
   assert(apps.length === 1 && apps[0].pid === 1234, 'GPU process parser failed');
+  requirePostCallHeadroom({ ...gpu, freeMiB: MINIMUM_HEADROOM_MIB });
+  let headroomError = null;
+  try {
+    requirePostCallHeadroom({ ...gpu, freeMiB: MINIMUM_HEADROOM_MIB - 1 });
+  } catch (error) {
+    headroomError = error;
+  }
+  assert(
+    headroomError?.code === 'GPU_PILOT_POST_CALL_HEADROOM_UNSAFE',
+    'post-call headroom guard did not fail with its exact type',
+  );
   const safeIssues = validateInitialSafety({
     baseUrl: 'http://127.0.0.1:11434',
     sourceRevision: 'a'.repeat(40),
@@ -617,6 +635,7 @@ async function main() {
   let monitor = null;
   let wireBoundary = null;
   let providerEffectStarted = false;
+  let lastProviderObservation = null;
   let stage = 'preflight';
   try {
     const staticIssues = [];
@@ -806,10 +825,16 @@ async function main() {
       observeComputeApps(),
     ]);
     const postCallLoaded = postCallOllama.loaded.find(model => model.name === MODEL);
+    lastProviderObservation = {
+      loadedModels: postCallOllama.loaded,
+      computeProcessCount: postCallComputeApps.length,
+      allComputeProcessesOllama: postCallComputeApps.every(app => /ollama/i.test(app.processName)),
+      gpu: postCallGpu,
+    };
     assert(postCallLoaded, 'pinned model was unexpectedly unloaded before allocation evidence');
     assert(postCallLoaded.contextWindowTokens === NUM_CTX, 'post-call context changed');
     assert(postCallLoaded.digestSha256 === MODEL_DIGEST, 'post-call model digest changed');
-    assert(postCallGpu.freeMiB >= MINIMUM_HEADROOM_MIB, 'post-call GPU headroom is unsafe');
+    requirePostCallHeadroom(postCallGpu);
     assert(
       postCallComputeApps.every(app => /ollama/i.test(app.processName)),
       'an unrelated compute process appeared during the pilot',
@@ -911,6 +936,7 @@ async function main() {
         : {}),
     };
     report.failureRestoration = failureRestoration;
+    report.failureObservation = lastProviderObservation;
     report.unrestoredState = restorationError?.lastObservation
       || error.lastObservation
       || null;

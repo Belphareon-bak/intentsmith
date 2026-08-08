@@ -1,10 +1,11 @@
 # WP-M1-MODEL — průběžný report
 
-- **stav WP:** IN_PROGRESS
+- **stav WP:** BLOCKED na referenční GPU konfiguraci; offline connector READY
 - **base SHA:** `55c913d6f3cb2354b6447d10ff304e9d0323b1c3`
 - **zapisující větev:** `claude/gate1-mobile-app-progress-5sywlt`
 - **GPU/Ollama v checkpointech 1–2:** NOT RUN
 - **neplánovaný modelový proces při checkpointu 3:** PARTIAL / NOT EVIDENCE
+- **registrovaný GPU pilot v checkpointu 5:** FAIL / stav bezpečně obnoven
 - **push:** neproveden podle dávkového kontraktu
 
 ## Checkpoint 1 — pravdivý fake-provider gateway
@@ -317,3 +318,63 @@ prázdný NVIDIA compute seznam a absenci explicitního systemd override pro
 `OLLAMA_KEEP_ALIVE`, `OLLAMA_MAX_LOADED_MODELS` a `OLLAMA_NUM_PARALLEL`.
 Přirozené obnovení se přesto nepředpokládá jako úspěch: suite na něj čeká a
 měří jej, jinak skončí červeně.
+
+## Checkpoint 5 — první registrovaný GPU běh je červený
+
+Kanonický běh z čistého commitu:
+
+```text
+node scripts/nightly-audit.js \
+  --suite=IS-T3-TESTS-M1-MODEL-GPU-PILOT-TEST \
+  --allow-blocker=ollama,gpu \
+  --concurrency=1 \
+  --timeout-minutes=15 \
+  --deadline-hours=1 \
+  --fail-fast \
+  --run-id=m1-b3-gpu-1f2993a4c76f \
+  --out-dir=.intentsmith-artifacts/test-runs
+```
+
+| Důkaz | Výsledek |
+|---|---|
+| source SHA | `1f2993a4c76f0550eb0de6b47ae2adf1a8bbca05` |
+| registry fingerprint | `01fba11724f59652ca443fade2cc3d1942839deb03db0473edee38b287edec21` |
+| runner | `FAIL`, 0 PASS / 1 FAIL / 0 TIMEOUT / 0 BLOCKED, exit `1` |
+| trvání | 330 451 ms |
+| fáze | `post-run-observation` |
+| přesná třída z diagnostického hashe | `post-call GPU headroom is unsafe`; po loadu méně než 1 024 MiB volné VRAM |
+| přirozené obnovení | 302 759 ms, 61 pollů, 0 loaded modelů, 0 compute procesů, 23 165 MiB volné VRAM |
+| runner report SHA-256 | `eaa8a29e574ef300f6d5ecf632e8fd07d7a0487030f837eacc23b6e627a6b8aa` |
+| suite log SHA-256 | `c7e6f72f846d47804a8548fa105af2dc0721c92d10eb11cc894edf0910bac9bd` |
+| privátní suite artefakt SHA-256 | `dfa139c999167426dd1fc30de18ca0534020c8052daee1b66c898607ff38014f` |
+
+Artefakty zůstávají v ignorovaném vlastněném adresáři
+`.intentsmith-artifacts/test-runs/m1-b3-gpu-1f2993a4c76f/`; do commitu se
+nepřidávají. Bezprostřední následná host kontrola znovu potvrdila prázdné
+`ollama ps`, žádný compute proces a 23 160 MiB volné VRAM. Sdílený stav tedy
+nezůstal změněný.
+
+Výsledek se neopravuje oslabením 1GiB aserce ani změnou modelu/contextu.
+Rozhodovací fronta je v `docs/decisions/009-m1-gpu-headroom.md`. GPU část B3 je
+do operátorského rozhodnutí blokovaná; offline fake-provider a connector část
+zůstává ověřená. Následná úprava sady pouze doplňuje typovaný failure
+`GPU_PILOT_POST_CALL_HEADROOM_UNSAFE` a sanitizovanou post-load observaci, aby
+případný schválený další běh uchoval přesnou hodnotu místo samotného hashe.
+
+### Ověření červeného evidence checkpointu
+
+GPU pilot nebyl znovu spuštěn; níže jsou pouze offline kontroly evidence guardu
+a nezměněných connector kontraktů.
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node --check tests/m1-model-gpu-pilot.test.js` | syntax valid | 0 |
+| `node tests/m1-model-gpu-pilot.test.js --self-check` | `SELF_CHECK_PASS`, včetně přesného headroom failure typu | 0 |
+| `node tests/m1-model-contract.test.js` | 28 passed, 0 failed, 0 skipped | 0 |
+| `node tests/model-ctx.test.js` | 11 passed, 0 failed, 0 skipped | 0 |
+| `node tests/llm-gateway-runtime-signal.test.js` | 7 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-contract.test.js` | 26 passed, 0 failed, 0 skipped | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
+| `node scripts/validate-test-registry.js --json` | 363 programů, 8 exclusions, fingerprint `01fba11724f59652ca443fade2cc3d1942839deb03db0473edee38b287edec21` | 0 |
+| `node tests/repository-hygiene.test.js` | 1 468 trackovaných cest po stagingu decision záznamu | 0 |
+| `git diff --check` | bez whitespace chyb | 0 |
