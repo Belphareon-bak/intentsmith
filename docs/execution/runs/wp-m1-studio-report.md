@@ -83,6 +83,62 @@ pinuje `turn_end` i `error` na `studio-stale-A`.
 | `node tests/repository-hygiene.test.js` | 1469 tracked paths | 0 |
 | `git diff --check` | bez chyb | 0 |
 
+## Checkpoint 2 — serverem ověřený rehydrate acknowledgement
+
+Legacy WS bridge už nepotvrzuje libovolný seznam dodaný klientem. Rehydrate
+vstup je omezen na prvních 32 položek, přijímá jen kanonický M1 tvar identity,
+odstraňuje duplicity a každé ID ověří proti aktivnímu durable
+`ConversationStore`. Chybějící nebo malformed ID se do `validIds` nedostane.
+Jakákoli store výjimka zruší celý výsledek: server nevydá partial autoritativní
+ACK a zavře socket kódem 1011, aby transientní DB chyba nemohla vést ke smazání
+lokálního snapshotu. Log obsahuje pouze počty, nikoli identifikátory konverzací.
+
+Živý loopback test vytvoří jednu skutečnou in-memory konverzaci, provede hello a
+rehydrate přes produkční `attachWebSocketServer()` a požaduje směs existujícího,
+chybějícího, duplicitního a malformed ID. Wire acknowledgement obsahuje přesně
+jedinou existující identitu.
+Stejný wire test pak vyvolá store chybu a připíná close 1011 bez dalšího ACK.
+
+Registrovaná serverová E2E sada 80 dříve používala `rehydrate` jako obecné echo
+libovolného tokenu. To by se pravdivou validací rozbilo a zároveň by testovalo
+neplatný kontrakt. Její tři ordering bariéry nyní předem vytvoří skutečné
+conversation fixtures a všechny čtyři konverzace po testu přesně smažou.
+
+### Co checkpoint negarantuje
+
+- Studio client zatím `rehydrate_ack` nespotřebovává a neplatné panely tedy
+  lokálně neodstraní.
+- Fetch historie zatím nemá reconnect epoch; opožděný starý request může
+  přepsat novější stav a prázdná validní konverzace nevyčistí stale zprávy.
+- `ws:reconnected` se zatím emituje před dokončením rehydrate fetchů a retry
+  exhaustion zůstává tichý. To je následující nezávislý checkpoint.
+- `ConversationStore.exists()` považuje za existující i archivovaný řádek.
+  B4 jej konzervativně zachovává; produktová policy obnovit versus orphanovat
+  archivovanou konverzaci není v M1 stanovena.
+
+### Focused evidence
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node --check src/ws-bridge/ws-server.js` | syntax valid | 0 |
+| `node --check tests/ws-bridge.test.js` | syntax valid | 0 |
+| `node --check tests/e2e/80-ws-semantic-events.e2e.js` | syntax valid | 0 |
+| `node tests/ws-bridge.test.js` | 67 passed, 0 failed | 0 |
+
+Plná `tests/e2e/80-ws-semantic-events.e2e.js` zde spuštěna nebyla: je
+registrovaná jako T3/server a tento offline checkpoint nestartoval produktový
+server ani model. Syntax a nový skutečný loopback rehydrate wire kontrakt jsou
+zelené; serverová E2E zůstává povinnou součástí pozdější B4 journey.
+
+### Commit battery
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
+| `node scripts/validate-test-registry.js --json` | valid, 364 programů, 8 exclusions, fingerprint `b45e4da20315bf8c5edd3e08f74c5c8a6f9925aa0026211c1f047ffbd27691ff` | 0 |
+| `node tests/repository-hygiene.test.js` | 1473 cest | 0 |
+| `git diff --check` | bez chyb | 0 |
+
 ## Blokovaná explorace — HTTP fallback effect authority
 
 Po checkpointu 1 vznikl dependency-free fail-closed parser pro tři legacy
@@ -125,7 +181,8 @@ serverem vynutit read-only/effect authority.
 2. Tři HTTP fallbacky nekontrolují `response.ok` a mohou renderovat error JSON
    jako assistant; jejich izolovaná parser oprava je blokovaná rozhodnutím 011,
    protože stávající route zároveň obchází effect approval.
-3. Rehydrate nepotvrzuje existenci ID, ignoruje ack a nemá reconnect epoch.
+3. Server rehydrate ověřuje durable existenci; client stále ignoruje ack a nemá
+   reconnect epoch ani pravdivý completion/exhaustion stav.
 4. Existující Electron runner obchází veřejný `sendChat()` a připíná legacy
    pořadí assistant-before-turn-end; pro B4 acceptance se musí změnit.
 5. Terminal STOP neruší backendový proces. To je M2 finding mimo B4 chat scope,

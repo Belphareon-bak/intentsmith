@@ -162,7 +162,7 @@ async function cleanupConversationExactly(conversationId) {
   assertEqual(result.status, 404, 'conversation fixture must be hard-deleted');
 }
 
-async function cleanupResources(clients, conversationId = null) {
+async function cleanupResources(clients, conversationIds = []) {
   const errors = [];
   const closeResults = await Promise.allSettled(
     clients.filter(Boolean).map(client => closeClient(client)),
@@ -171,10 +171,14 @@ async function cleanupResources(clients, conversationId = null) {
     if (result.status === 'rejected') errors.push(result.reason);
   }
 
-  try {
-    await cleanupConversationExactly(conversationId);
-  } catch (error) {
-    errors.push(error);
+  const ids = Array.isArray(conversationIds)
+    ? conversationIds.filter(Boolean)
+    : [conversationIds].filter(Boolean);
+  const cleanupResults = await Promise.allSettled(
+    ids.map(conversationId => cleanupConversationExactly(conversationId)),
+  );
+  for (const result of cleanupResults) {
+    if (result.status === 'rejected') errors.push(result.reason);
   }
 
   if (errors.length === 1) throw errors[0];
@@ -379,6 +383,7 @@ suite('WS Semantic Events — Per-Session Isolation');
 await testAsync('a passive client receives none of another session turn', async () => {
   const input = 'Kolik je 11 + 12?';
   const conversationId = await createConv('E2E WS passive isolation');
+  const fixtureConversationIds = [conversationId];
   let activeClient;
   let passiveClient;
 
@@ -414,13 +419,17 @@ await testAsync('a passive client receives none of another session turn', async 
       WS_TIMEOUT,
     );
 
-    const activeBarrierBeforePassive = 'e2e80-active-before-passive';
-    const passiveBarrier = 'e2e80-passive-after-active-turn';
-    const activeBarrierAfterPassive = 'e2e80-active-after-passive';
+    const activeBarrierBeforePassive = await createConv('E2E80 active barrier before passive');
+    fixtureConversationIds.push(activeBarrierBeforePassive);
+    const passiveBarrier = await createConv('E2E80 passive barrier after active turn');
+    fixtureConversationIds.push(passiveBarrier);
+    const activeBarrierAfterPassive = await createConv('E2E80 active barrier after passive');
+    fixtureConversationIds.push(activeBarrierAfterPassive);
 
-    // A rehydrate acknowledgement echoes a unique token and is ordered after
-    // earlier frames on that session. The final active barrier is sent only
-    // after the passive barrier, so leaked passive traffic must precede it.
+    // A rehydrate acknowledgement returns a unique durable conversation ID and
+    // is ordered after earlier frames on that session. The final active barrier
+    // is sent only after the passive barrier, so leaked passive traffic must
+    // precede it. Rehydrate is not a generic arbitrary-token echo.
     activeClient.send({ channel: 'control', data: { action: 'ping' } });
     await awaitControlBarrier(activeClient, activeBarrierBeforePassive);
     passiveClient.send({ channel: 'control', data: { action: 'ping' } });
@@ -474,7 +483,7 @@ await testAsync('a passive client receives none of another session turn', async 
       'passive session must receive no chat, agent, or status event from active session',
     );
   } finally {
-    await cleanupResources([activeClient, passiveClient], conversationId);
+    await cleanupResources([activeClient, passiveClient], fixtureConversationIds);
   }
 }, WS_TIMEOUT + 20_000);
 

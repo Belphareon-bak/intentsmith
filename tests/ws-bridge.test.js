@@ -1491,6 +1491,10 @@ test('T23: attachWebSocketServer and boundary internals are available', () => {
     typeof wsBridgeTestInternals?.createLegacyWebSocketVerifyClient,
     'function',
   );
+  assert.equal(
+    typeof wsBridgeTestInternals?.validateRehydrateConversationIds,
+    'function',
+  );
 });
 
 test('T24: all protocol exports are accessible', () => {
@@ -1513,6 +1517,132 @@ test('T25: createSessionAdapter is exported and functional', () => {
     logger: mockLogger,
   });
   assert.ok(adapter.sessionId);
+});
+
+await asyncTest('T25f: rehydrate ack is durable-only and store failure closes without partial ack', async () => {
+  const { WebSocket } = await import('ws');
+  resetConversationStore();
+  const store = getConversationStore(null);
+  store.ensureConversation('rehydrate-existing-A');
+
+  const capability = createLegacyLocalCapability();
+  const httpServer = createServer((_request, response) => {
+    response.writeHead(404);
+    response.end();
+  });
+  let wss = null;
+  let client = null;
+
+  try {
+    wss = attachWebSocketServer(
+      httpServer,
+      { handle: async () => ({ response: 'unused' }) },
+      mockLogger,
+      { localCapability: capability },
+    );
+    const port = await listenOnOwnedLoopback(httpServer);
+    client = await connectAndHello(WebSocket, `ws://127.0.0.1:${port}/c3/ws`);
+    const ackPromise = new Promise((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error('Timed out waiting for rehydrate_ack')),
+        2_000,
+      );
+      const onMessage = raw => {
+        const message = JSON.parse(raw.toString());
+        if (message.channel !== 'control' || message.data?.action !== 'rehydrate_ack') return;
+        clearTimeout(timer);
+        client.off('message', onMessage);
+        resolve(message.data);
+      };
+      client.on('message', onMessage);
+    });
+    client.send(JSON.stringify({
+      channel: 'control',
+      data: {
+        action: 'rehydrate',
+        conversationIds: [
+          'rehydrate-existing-A',
+          'rehydrate-missing-B',
+          'rehydrate-existing-A',
+          'invalid id',
+        ],
+      },
+    }));
+    assert.deepEqual(await ackPromise, {
+      action: 'rehydrate_ack',
+      validIds: ['rehydrate-existing-A'],
+    });
+
+    let unexpectedAck = false;
+    const onMessage = raw => {
+      const message = JSON.parse(raw.toString());
+      if (message.channel === 'control' && message.data?.action === 'rehydrate_ack') {
+        unexpectedAck = true;
+      }
+    };
+    client.on('message', onMessage);
+    store.exists = () => { throw new Error('private-transient-store-failure'); };
+    const closePromise = new Promise(resolve => {
+      client.once('close', (code, reason) => resolve({ code, reason: reason.toString() }));
+    });
+    client.send(JSON.stringify({
+      channel: 'control',
+      data: {
+        action: 'rehydrate',
+        conversationIds: ['rehydrate-existing-A'],
+      },
+    }));
+    assert.deepEqual(await closePromise, {
+      code: 1011,
+      reason: 'Rehydrate validation unavailable',
+    });
+    client.off('message', onMessage);
+    assert.equal(unexpectedAck, false);
+  } finally {
+    if (client) await closeOwnedWebSocket(client);
+    if (wss && httpServer.listening) {
+      await closeOwnedWebSocketServer(wss, httpServer);
+    } else if (wss) {
+      wss.close();
+    }
+    resetConversationStore();
+  }
+});
+
+test('T25g: rehydrate validation is bounded and store failures fail closed', () => {
+  const candidates = Array.from(
+    { length: 40 },
+    (_, index) => `rehydrate-bounded-${index}`,
+  );
+  let lookupCount = 0;
+  const accepted = wsBridgeTestInternals.validateRehydrateConversationIds(
+    candidates,
+    {
+      exists() {
+        lookupCount++;
+        return true;
+      },
+    },
+  );
+  assert.equal(lookupCount, 32);
+  assert.deepEqual(accepted, {
+    validIds: candidates.slice(0, 32),
+    validationFailed: false,
+  });
+  assert.deepEqual(
+    wsBridgeTestInternals.validateRehydrateConversationIds(
+      ['rehydrate-store-error'],
+      { exists() { throw new Error('private-store-failure'); } },
+    ),
+    { validIds: [], validationFailed: true },
+  );
+  assert.deepEqual(
+    wsBridgeTestInternals.validateRehydrateConversationIds(
+      { conversationIds: ['not-an-array'] },
+      { exists() { return true; } },
+    ),
+    { validIds: [], validationFailed: false },
+  );
 });
 
 {

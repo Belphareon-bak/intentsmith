@@ -26,6 +26,8 @@ import {
 } from './protocol.js';
 import { createSessionAdapter } from './session-adapter.js';
 import { watchProject, unwatchProject } from './file-watcher.js';
+import { getConversationStore } from '../chat/conversation-store.js';
+import { isIdentifier } from '../../contracts/m1/shared.js';
 import {
   evaluateLegacyLocalAccess,
   extractLegacyLocalWebSocketCapability,
@@ -34,6 +36,7 @@ import {
 
 const WS_OPEN = 1;
 const DROP_LOG_INTERVAL = 10;
+const MAX_REHYDRATE_CONVERSATIONS = 32;
 const _wsStats = {
   droppedMessages: 0,
 };
@@ -83,6 +86,33 @@ function recordDroppedMessage(logger, meta = {}) {
   if (_wsStats.droppedMessages % DROP_LOG_INTERVAL === 0) {
     targetLogger.warn('WSBridge', `Dropped ${_wsStats.droppedMessages} websocket message(s)`, meta);
   }
+}
+
+function validateRehydrateConversationIds(candidateIds, store) {
+  if (!Array.isArray(candidateIds) || !store || typeof store.exists !== 'function') {
+    return { validIds: [], validationFailed: false };
+  }
+
+  const validIds = [];
+  const seen = new Set();
+  for (const candidate of candidateIds.slice(0, MAX_REHYDRATE_CONVERSATIONS)) {
+    if (
+      typeof candidate !== 'string'
+      || !isIdentifier(candidate)
+      || seen.has(candidate)
+    ) {
+      continue;
+    }
+    seen.add(candidate);
+    try {
+      if (store.exists(candidate)) validIds.push(candidate);
+    } catch {
+      // Never publish a partial authoritative ACK: the client could erase a
+      // locally cached conversation whose DB lookup only failed transiently.
+      return { validIds: [], validationFailed: true };
+    }
+  }
+  return { validIds, validationFailed: false };
 }
 
 export function getWebSocketBridgeHealth() {
@@ -236,12 +266,28 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
         case 'control':
           if (msg.data?.action === 'rehydrate') {
             // IDE reconnected — validate conversation IDs
-            const convIds = msg.data.conversationIds || [];
-            logger.info('WSBridge', 'Rehydrate request', { conversationIds: convIds });
-            // For now, acknowledge all — full DB validation in Phase 1.2
+            const convIds = Array.isArray(msg.data.conversationIds)
+              ? msg.data.conversationIds
+              : [];
+            const validation = validateRehydrateConversationIds(
+              convIds,
+              getConversationStore(),
+            );
+            if (validation.validationFailed) {
+              logger.warn('WSBridge', 'Rehydrate validation unavailable', {
+                examinedCount: Math.min(convIds.length, MAX_REHYDRATE_CONVERSATIONS),
+              });
+              ws.close(1011, 'Rehydrate validation unavailable');
+              return;
+            }
+            const { validIds } = validation;
+            logger.info('WSBridge', 'Rehydrate request validated', {
+              examinedCount: Math.min(convIds.length, MAX_REHYDRATE_CONVERSATIONS),
+              validCount: validIds.length,
+            });
             safeSend(JSON.stringify({
               channel: 'control',
-              data: { action: 'rehydrate_ack', validIds: convIds }
+              data: { action: 'rehydrate_ack', validIds }
             }));
           } else if (msg.data?.action === 'edit_approve' || msg.data?.action === 'edit_reject') {
             // Edit ACK from IDE
@@ -325,6 +371,7 @@ export function broadcast(channel, data) {
 export const _testInternals = {
   createLegacyWebSocketVerifyClient,
   recordDroppedMessage,
+  validateRehydrateConversationIds,
   resetBridgeState() {
     _wsStats.droppedMessages = 0;
     _wss = null;
