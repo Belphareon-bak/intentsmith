@@ -4607,15 +4607,19 @@ document.addEventListener('keydown',function(e){
       /* Toggle edit mode auto ↔ ask */
       e.preventDefault();e.stopPropagation();
       var es=_sessions[_sessionActive];
-      if(es){es.chat.editMode=es.chat.editMode==='ask'?'auto':'ask';renderChat();}
+      if(es&&!es.chat._preparedSend){es.chat.editMode=es.chat.editMode==='ask'?'auto':'ask';renderChat();}
       break;
     case 'Escape':
       /* Cancel execution or clear autocomplete */
       if(_sessions[_sessionActive]&&_sessions[_sessionActive].chat.acSuggestion){
         _sessions[_sessionActive].chat.acSuggestion=null;renderChat();
         e.preventDefault();
-      }else if(typeof C3WS!=='undefined'&&C3WS.isReady()){
-        if(C3WS.sendCancel(_sessions[_sessionActive]))e.preventDefault();
+      }else{
+        var activeSession=_sessions[_sessionActive];
+        if(_chatCancelPreparedSend(_sessionActive,activeSession))e.preventDefault();
+        else if(typeof C3WS!=='undefined'&&C3WS.isReady()){
+          if(C3WS.sendCancel(activeSession))e.preventDefault();
+        }
       }
       break;
     /* Excluded: Ctrl+W (close window), Ctrl+T (new tab), Ctrl+S (Theia save) */
@@ -5334,7 +5338,7 @@ function _mkSession(){return{
   _openToken:null,       /* guard: project switch during async — stale responses ignored */
   _lifecycleResumed:false, /* guard: lifecycle resume message shown only once */
   _label:'',             /* v90: snapshot label for relay header — persisted */
-  chat:{msgs:[{role:'system',text:'C3 Studio připraven. Začni psát zprávu.'}],ctx:0,expertise:'Výchozí',specialist:null,showExpertises:false,showAllExpertises:false,attachments:[],editMode:'ask',editingIdx:null,editOriginalText:null,acSuggestion:null,acLoading:false,_thinking:null,_delivery:null},
+  chat:{msgs:[{role:'system',text:'C3 Studio připraven. Začni psát zprávu.'}],ctx:0,expertise:'Výchozí',specialist:null,showExpertises:false,showAllExpertises:false,attachments:[],editMode:'ask',editingIdx:null,editOriginalText:null,acSuggestion:null,acLoading:false,_thinking:null,_delivery:null,_sendContextToken:{},_sendTurnToken:{},_preparedSend:null},
   bottom:'split', /* 'agent' | 'terminal' | 'split' | 'mix' */
   log:[],
   term:[{text:'$ ',ts:new Date().toISOString(),type:'prompt'}],
@@ -5347,7 +5351,13 @@ var _sessions=[_mkSession(),_mkSession()];
 /* Expose globally so terminal-client.js and agent-client.js can access session state */
 window._sessions=_sessions;
 function _ensureSessions(){while(_sessions.length<_sessionCount)_sessions.push(_mkSession());}
-function _setSessionCount(n){_sessionCount=Math.max(1,Math.min(3,n));if(_sessionActive>=_sessionCount)_sessionActive=_sessionCount-1;_ensureSessions();renderChat();renderAgent();}
+function _setSessionCount(n){
+  var nextCount=Math.max(1,Math.min(3,n));
+  if(nextCount<_sessionCount){for(var i=nextCount;i<_sessionCount;i++){
+    if(!_chatCancelPreparedSend(i,_sessions[i]))_chatInvalidatePreparedSends(_sessions[i]&&_sessions[i].chat);
+  }}
+  _sessionCount=nextCount;if(_sessionActive>=_sessionCount)_sessionActive=_sessionCount-1;_ensureSessions();renderChat();renderAgent();
+}
 
 /* ── Focus Mode (derived state — no snapshot, no _focusMode variable) ── */
 /* v122.2: Also active when conversation is opened in center-panel mode */
@@ -5378,24 +5388,28 @@ function _isSessionEmpty(s){return !s._convId&&!s._projectId&&(!s.chat||!s.chat.
 function _findFreeRelay(excludeIdx){for(var i=0;i<_sessionCount;i++){if(i===excludeIdx)continue;if(_isSessionEmpty(_sessions[i]))return i;}return -1;}
 /* v90: Relay picker dialog state */
 var _relayPickDialog=null; /* null | {callback, action} */
+function _chatPrepareRelayTarget(idx){
+  var target=_sessions[idx];
+  if(!_chatCancelPreparedSend(idx,target))_chatInvalidatePreparedSends(target&&target.chat);
+}
 function _smartRouteToRelay(callback){
   var free=_findFreeRelay(-1);
-  if(free>=0){_ensureSessions();_switchSession(free);callback(free);return;}
-  if(_sessionCount<3){_setSessionCount(_sessionCount+1);_ensureSessions();var ni=_sessionCount-1;_switchSession(ni);callback(ni);return;}
+  if(free>=0){_ensureSessions();_switchSession(free);_chatPrepareRelayTarget(free);callback(free);return;}
+  if(_sessionCount<3){_setSessionCount(_sessionCount+1);_ensureSessions();var ni=_sessionCount-1;_switchSession(ni);_chatPrepareRelayTarget(ni);callback(ni);return;}
   /* All 3 occupied → show picker */
-  _relayPickDialog={callback:callback};renderChat();
+  _relayPickDialog={callback:function(targetIdx){_chatPrepareRelayTarget(targetIdx);callback(targetIdx);}};renderChat();
 }
 
 /* v91: Open-target dialog — replace current session vs open in new */
 var _openTargetDialog=null; /* null | {type:'conv'|'proj', data:Object, loadFn:Function} */
 function _showOpenDialog(type,data,loadFn){
   var cur=_sessions[_sessionActive];
-  if(_isSessionEmpty(cur)){loadFn(_sessionActive);return;}
+  if(_isSessionEmpty(cur)){_chatPrepareRelayTarget(_sessionActive);loadFn(_sessionActive);return;}
   _openTargetDialog={type:type,data:data,loadFn:loadFn};renderChat();
 }
 function _openTargetDialogAction(choice){
   if(!_openTargetDialog)return;var dlg=_openTargetDialog;_openTargetDialog=null;
-  if(choice==='replace'){var idx=_sessionActive;_sessions[idx]=_mkSession();_ensureSessions();dlg.loadFn(idx);}
+  if(choice==='replace'){var idx=_sessionActive;_chatInvalidatePreparedSends(_sessions[idx]&&_sessions[idx].chat);_sessions[idx]=_mkSession();_ensureSessions();dlg.loadFn(idx);}
   else if(choice==='new'){_smartRouteToRelay(dlg.loadFn);}
   renderChat();
 }
@@ -5404,6 +5418,7 @@ function _openTargetDialogAction(choice){
 var _newChatDialog=null; /* null | {idx, projectId, projectName} */
 
 function _resetSessionToClean(s){
+  _chatInvalidatePreparedSends(s&&s.chat);
   s._label='';s._convId=null;s._agentId=null;s._projectId=null;s._lifecycleResumed=false;
   s.chat.msgs=[{role:'system',text:'Nový chat.'}];s.chat.ctx=0;s.chat.attachments=[];s.chat._thinking=null;s.chat._delivery=null;
 }
@@ -5429,6 +5444,7 @@ function _newChatInProject(idx){
 function _newChatDialogAction(choice){
   if(!_newChatDialog)return;
   var idx=_newChatDialog.idx;var s=_sessions[idx];if(!s){_newChatDialog=null;renderChat();return;}
+  if(choice==='project'||choice==='free')_chatInvalidatePreparedSends(s.chat);
   if(choice==='project'){
     /* New conversation in same project */
     s._label=_newChatDialog.projectName;
@@ -5458,6 +5474,7 @@ function _closeDialogAction(choice){
   var idx=_closeDialog.idx;var s=_sessions[idx];
   _closeDialog=null;
   if(!s){renderChat();return;}
+  if(choice==='conv'||choice==='pane')_chatInvalidatePreparedSends(s.chat);
   if(choice==='conv'){
     /* A) Close conversation only — reset pane to empty state */
     s._convId=null;s._projectId=null;s._agentId=null;s._lifecycleResumed=false;s._label='';
@@ -5479,7 +5496,9 @@ function _closeDialogAction(choice){
     if(_sessionCount>1){
       /* Swap closed pane with last pane if not already last, then reduce count */
       if(idx<_sessionCount-1){
-        var last=_sessions[_sessionCount-1];_sessions[_sessionCount-1]=s;_sessions[idx]=last;
+        var lastIdx=_sessionCount-1;var last=_sessions[lastIdx];
+        if(!_chatCancelPreparedSend(lastIdx,last))_chatInvalidatePreparedSends(last&&last.chat);
+        _sessions[lastIdx]=s;_sessions[idx]=last;
         var tmpTree=_perSessionTree[_sessionCount-1];_perSessionTree[_sessionCount-1]=_perSessionTree[idx];_perSessionTree[idx]=tmpTree;
         if(_sessionActive===_sessionCount-1)_sessionActive=idx;
       }
@@ -5784,6 +5803,7 @@ function _initBusSubscriptions() {
     var s=(typeof ev.idx==='number'&&_sessions[ev.idx])?_sessions[ev.idx]:null;
     if(!s){_sessions.forEach(function(candidate){if(!s&&candidate._convId===ev.sessionId)s=candidate;});}
     if(!s)return;
+    _chatInvalidatePreparedSends(s.chat);
     s._convId=null;s._agentId=null;s._label='';
     if(s.chat){s.chat.msgs=[];s.chat._thinking=null;}
     _persistSessionState();
@@ -6144,10 +6164,65 @@ function _chatMarkNotSent(idx,st,text,delivery,draft){
   renderChat();_chatScrollPane(idx);
 }
 function _chatClearDelivery(st){st._delivery=null;}
+function _chatInvalidatePreparedSends(st){
+  if(!st)return;
+  st._sendContextToken={};st._sendTurnToken={};st._preparedSend=null;st._pendingAttachments=null;
+}
+function _chatCaptureSendContext(idx,s,st,userMsg,rawDraft,filesToRead,ta,text){
+  if(!st._sendContextToken)st._sendContextToken={};st._sendTurnToken={};
+  var prepared={idx:idx,session:s,chat:st,msgs:st.msgs,sessionEpoch:st._sendContextToken,turnEpoch:st._sendTurnToken,
+    convId:s._convId,agentId:s._agentId,projectId:s._projectId,editMode:st.editMode,
+    conversationFocus:!!s._conversationFocus,focusActive:!!(st.specialist||s._conversationFocus),
+    userMsg:userMsg,userMsgIdx:st.msgs.length-1,messageCount:st.msgs.length,
+    rawDraft:rawDraft,attachments:filesToRead,textarea:ta,text:text,thinking:st._thinking};
+  st._preparedSend=prepared;return prepared;
+}
+function _chatSendContextIsCurrent(captured){
+  return!!captured&&captured.idx>=0&&captured.idx<_sessionCount
+    &&_sessions[captured.idx]===captured.session
+    &&captured.session.chat===captured.chat
+    &&captured.chat.msgs===captured.msgs
+    &&captured.chat._sendContextToken===captured.sessionEpoch
+    &&captured.chat._sendTurnToken===captured.turnEpoch
+    &&captured.chat._preparedSend===captured
+    &&captured.chat.msgs.length===captured.messageCount
+    &&captured.chat.msgs[captured.userMsgIdx]===captured.userMsg
+    &&captured.chat._thinking===captured.thinking
+    &&captured.session._convId===captured.convId
+    &&captured.session._agentId===captured.agentId
+    &&captured.session._projectId===captured.projectId
+    &&captured.chat.editMode===captured.editMode
+    &&!!captured.session._conversationFocus===captured.conversationFocus;
+}
+function _chatReleasePreparedSend(captured){
+  if(captured&&captured.chat&&captured.chat._preparedSend===captured)captured.chat._preparedSend=null;
+}
+function _chatRejectPreparedSend(captured,reason){
+  if(!captured||!captured.chat||captured.chat._preparedSend!==captured)return false;
+  _chatReleasePreparedSend(captured);captured.chat._sendContextToken={};captured.chat._sendTurnToken={};captured.chat._pendingAttachments=null;
+  var ownsTimeline=captured.idx>=0&&captured.idx<_sessionCount
+    &&_sessions[captured.idx]===captured.session
+    &&captured.session.chat===captured.chat
+    &&captured.chat.msgs===captured.msgs
+    &&captured.chat.msgs[captured.userMsgIdx]===captured.userMsg;
+  if(!ownsTimeline)return true;
+  captured.userMsg.tag='NOT_SENT';captured.userMsg.deliveryStatus='NOT_SENT';captured.userMsg.deliveryReason=reason;captured.userMsg.retryable=true;
+  _chatRestoreInput(captured.textarea,captured.rawDraft);_chatRestoreAttachments(captured.chat,captured.attachments);
+  if(captured.chat._thinking===captured.thinking)captured.chat._thinking=null;
+  captured.chat._delivery={status:'NOT_SENT',retryable:true,reason:reason,text:captured.text,draft:captured.rawDraft};
+  renderChat();_chatScrollPane(captured.idx);
+  return true;
+}
+function _chatCancelPreparedSend(idx,s){
+  var st=s&&s.chat;var prepared=st&&st._preparedSend;
+  if(!prepared)return false;
+  return _chatRejectPreparedSend(prepared,'CANCELLED_BEFORE_SEND');
+}
 
 function _chatSendPane(idx){
   var ta=document.getElementById('c3-chat-ta-'+idx);
   var s=_sessions[idx];if(!s)return;var st=s.chat;
+  if(st._preparedSend)return;
   st.acSuggestion=null;/* clear autocomplete on send */
   var rawDraft=ta?ta.value:'';
   var t=rawDraft.trim();if(!t&&st.attachments.length===0)return;
@@ -6223,10 +6298,13 @@ function _chatSendPane(idx){
   renderChat();
 
   /* Read attachments then send */
+  var sendContext=_chatCaptureSendContext(idx,s,st,userMsg,rawDraft,filesToRead,ta,txt);
   _readAttachments(filesToRead,function(readFiles){
+    if(!_chatSendContextIsCurrent(sendContext)){_chatRejectPreparedSend(sendContext,'CONTEXT_CHANGED_BEFORE_SEND');return;}
+    _chatReleasePreparedSend(sendContext);
     s.chat._pendingAttachments=readFiles.length>0?readFiles:null;
     /* v92: Track attachments in focus mode file list */
-    if(isFocusActive()&&filesToRead.length>0){
+    if(sendContext.focusActive&&filesToRead.length>0){
       filesToRead.forEach(function(a){if(!_focusFileExists(s,a.name,null)){s._focusFiles.unshift({name:a.name,size:a.size||'',addedAt:Date.now(),type:'attachment'});}});
       renderChat();
     }
@@ -6246,6 +6324,7 @@ function _chatSendPane(idx){
 /* D5: Gap choice button handler — sends user's gap choice as chat message */
 function _chatGapChoice(idx,choice,gapMsgIdx){
   var s=_sessions[idx];if(!s)return;var st=s.chat;
+  if(st._preparedSend)return;
   var txt=choice==='create'?'Vytvoř expertízu':'Bez ní, odpověz rovnou';
   var gapUserMsg={role:'user',text:txt};st.msgs.push(gapUserMsg);
   st._thinking={text:'Zpracovávám...', ts:Date.now()};
@@ -6418,9 +6497,9 @@ function _chatPaneUI(idx,opts){
           /* Edit mode toggle */
           h('div',{style:{display:'flex',alignItems:'center',gap:1,padding:'1px 2px',borderRadius:4,background:C.bg3,flexShrink:0},onClick:function(ev){ev.stopPropagation();}},
             h('div',{style:{padding:'2px 6px',borderRadius:3,fontSize:_fs(9),fontWeight:600,cursor:'pointer',color:st.editMode==='auto'?C.tx1:C.tx4,background:st.editMode==='auto'?C.bg4:'transparent'},
-              onClick:function(){st.editMode='auto';renderChat();_persistSessionState();},title:'Agent edituje soubory automaticky'},'Auto'),
+              onClick:function(){if(st._preparedSend)return;st.editMode='auto';renderChat();_persistSessionState();},title:'Agent edituje soubory automaticky'},'Auto'),
             h('div',{style:{padding:'2px 6px',borderRadius:3,fontSize:_fs(9),fontWeight:600,cursor:'pointer',color:st.editMode==='ask'?C.tx1:C.tx4,background:st.editMode==='ask'?C.bg4:'transparent'},
-              onClick:function(){st.editMode='ask';renderChat();_persistSessionState();},title:'Agent se zeptá před každou editací'},'Review')),
+              onClick:function(){if(st._preparedSend)return;st.editMode='ask';renderChat();_persistSessionState();},title:'Agent se zeptá před každou editací'},'Review')),
           h('div',{style:{flex:1}}),
           /* D5: Specialist indicator or expertise dropdown */
           st.specialist?h('div',{style:{display:'flex',alignItems:'center',gap:3,padding:'2px 6px',borderRadius:4,fontSize:_fs(10),fontWeight:600,flexShrink:0}},
@@ -6774,9 +6853,10 @@ function _mixedContent(s){
 function _cancelExecution(idx) {
   var s = _sessions[idx];
   var chatCancelSent = false;
-  if (typeof C3WS !== 'undefined') chatCancelSent = C3WS.sendCancel(s);
+  var localPreparedCancelled = _chatCancelPreparedSend(idx, s);
+  if (!localPreparedCancelled && typeof C3WS !== 'undefined') chatCancelSent = C3WS.sendCancel(s);
   if (typeof C3Terminal !== 'undefined') C3Terminal.cancel(idx);
-  if (s && chatCancelSent) {
+  if (s && (localPreparedCancelled || chatCancelSent)) {
     s.log.forEach(function(l) { l.active = false; });
     s.log.push({time:new Date().toLocaleTimeString('cs-CZ'),type:'CANCEL',cls:'error',text:'Zrušeno uživatelem',active:true,ts:new Date().toISOString()});
   }

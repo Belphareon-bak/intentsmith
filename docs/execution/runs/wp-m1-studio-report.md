@@ -410,16 +410,57 @@ obsahoval disjunktní chráněnou governance práci v dokumentaci.
 Fresh-clone Theia build, skutečná Electron journey a renderer soak nebyly
 součástí tohoto checkpointu a zůstávají otevřenými B4 podmínkami.
 
+## Checkpoint 6 — korelace async attachment sendu
+
+- **stav dílčího kontraktu:** `PASS`
+- **celý B4 / Gate 1:** nadále `BLOCKED`
+
+Read-only review checkpointu 011 odhalilo, že callback po asynchronním
+`FileReader` nebyl svázaný s původní session. Reset, close, replace, panel
+shrink, relay target nebo změna identity/edit mode před dokončením čtení mohly
+nechat starý prompt odejít do nového kontextu. Oprava zachytí přesný
+session/chat/timeline/user-turn stav, aktivní slot, routing hodnoty a oddělené
+session/turn tokeny. Každý destructive session přechod vlastnictví před změnou
+stavu invaliduje. Druhý send je single-flight odmítnut bez ztráty draftu;
+pre-wire cancel je lokální a nemůže zrušit starší remote turn.
+
+Behaviorální test vykonává skutečný commitnutý send/reset/count slice s
+řízeným `FileReader`. Reset, výměna session, hidden slot, route drift a
+pre-wire cancel vedou k nule WS i fallback efektů; pouhý switch panelu odešle
+správný původní turn. Odstranění active-slot a single-flight guardu i návrat
+chybné exact-length recovery podmínky v oddělených mutacích vždy zčervenaly
+(`37 passed, 1 failed`, exit `1`). Obnovený zdroj prošel `38 passed, 0 failed`,
+exit `0`. Podrobnost a zbývající hranice jsou ve
+[`Findingu 009`](../../findings/009-studio-stale-attachment-send.md).
+
+### Validace checkpointu 6
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-studio-client.test.js` | 38 passed, 0 failed, 0 skipped | 0 |
+| `node tests/ws-bridge.test.js` | 67 passed, 0 failed | 0 |
+| `node tests/m1-contract.test.js` | 26 passed, 0 failed, 0 skipped | 0 |
+| `node tests/upgrade-ux-v125.test.js` | 78 passed, 0 failed, 0 skipped | 0 |
+| `node tests/studio-cdp-evidence.test.js` | 59 passed, 0 failed, 0 skipped | 0 |
+| `node tests/studio-electron-runner-contract.test.js` | 16 passed, 0 failed, 0 skipped | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
+| `node scripts/validate-test-registry.js --json` | valid, 373 programů, 8 exclusions, fingerprint `72417b86…a4690` | 0 |
+| `node tests/repository-hygiene.test.js` | 1507 tracked paths | 0 |
+| `git diff --cached --check` | bez chyb | 0 |
+
+Tento checkpoint nepřidává automatický resend ani durable retry a netvrdí
+globální conversation mutex. Built journey a ostatní B4 rozhodnutí zůstávají
+otevřené.
+
 ## Otevřené nálezy pro další checkpointy
 
 1. Commitnutý `@c3/protocol/lib/index.js` je stale stub. Operátor schválil
    010/A+: odstranit protocol `lib/**` z trackingu, vždy jej vytvořit root
    prebuildem a po něm dodat feature-negotiated M1 wire a terminal ledger.
    Implementace, clean build matrix a built journey ještě chybí.
-2. Async attachment callback nemá session/turn epoch. Reset nebo zavření chatu
-   během `FileReader` operace může nechat starý callback odeslat prompt nebo
-   zapsat `NOT_SENT` do novější session. Jde o samostatný B4 finding; 011/A
-   dokazuje zachování souběžného draftu, nikoli reset/close korelaci.
+2. Async attachment callback je focused uzavřený Findingem 009: reset,
+   close, replace a identity/timeline drift starý callback fail-closed zruší.
+   Durable retry a globální conversation mutex tím nejsou vyřešené.
 3. Race-safe klient a bounded reconnect checkpointy jsou hotové. Rehydrate
    zůstává blokovaný dvěma nezávislými kontrakty: 012/B rozliší existující
    prázdnou historii od 404 a 014/A zakáže partial ACK autoritu.

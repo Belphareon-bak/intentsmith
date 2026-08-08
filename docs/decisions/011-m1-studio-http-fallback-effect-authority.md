@@ -124,13 +124,16 @@ M1 důkaz nezakazuje bezpečné lokální uložení draftu. „Filesystem efekt 
 zde znamená backendový efekt vyvolaný legacy fallbackem; renderer smí přečíst
 uživatelem zvolený attachment před zjištěním stavu transportu.
 
-### Zbývající hranice mimo toto uzavření
+### Navazující korelace async attachmentu
 
 Manuální retry linkage, deduplikace opakovaných `NOT_SENT` bublin a durable
-recovery po restartu nejsou v 011 definované. Async attachment callback také
-zatím nemá turn/session epoch; reset nebo zavření session během čtení souboru
-může nechat starý callback zasáhnout novější stav. Tento samostatný B4 finding
-se nesmí vydávat za vyřešený tímto HTTP-authority checkpointem.
+recovery po restartu nejsou v 011 definované. Samostatný async attachment race
+zachycený po tomto rozhodnutí je focused opravený ve
+[`Findingu 009`](../findings/009-studio-stale-attachment-send.md): callback je
+svázaný se session, turnem, aktivním slotem, routing identity a edit mode.
+Single-flight, lokální pre-wire cancel a reset/close/replace/relay invalidace
+brání pozdnímu effectu. Tato náprava nerozšiřuje 011 na durable retry ani na
+globální conversation mutex.
 
 Celý B4 zůstává `BLOCKED`: chybí 010/A+, 014/A, 012/B, built journey,
 fresh-clone parity a bounded renderer soak. M2 varianta C zůstává otevřená.

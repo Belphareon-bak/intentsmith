@@ -120,9 +120,11 @@ governance dokumentaci a není proto vydáván za plně čistý.
 | `node scripts/validate-test-registry.js --json` | valid, 373 programů, fingerprint `72417b86…a4690` | 0 |
 | `node tests/repository-hygiene.test.js` | 1502 tracked paths | 0 |
 
-Tento follow-up uzavírá pouze 011/A. Async attachment callback bez
-session/turn epoch zůstává explicitní B4 finding; 010/A+, 014/A, 012/B,
-built journey, fresh-clone parity a renderer soak zůstávají otevřené.
+Tento follow-up uzavírá pouze 011/A. Následný focused checkpoint odstranil
+async attachment race přes session/timeline/identity token; důkaz je ve
+`docs/findings/009-studio-stale-attachment-send.md`. Durable retry ani globální
+conversation mutex tím nevznikly. 010/A+, 014/A, 012/B, built journey,
+fresh-clone parity a renderer soak zůstávají otevřené.
 
 ## Skutečný GPU výsledek, který se nesmí přepsat self-checkem
 

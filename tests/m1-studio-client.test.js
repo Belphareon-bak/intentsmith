@@ -165,7 +165,7 @@ function session(conversationId = null) {
   };
 }
 
-function panelSendHarness({ FileReaderClass = null, mode = 'unavailable', input = '' } = {}) {
+function panelSendHarness({ FileReaderClass = null, mode = 'unavailable', input = '', sessionIndex = 0 } = {}) {
   const source = fs.readFileSync(CHAT_PANEL, 'utf8');
   const start = source.indexOf('var _TEXT_EXTS=');
   const end = source.indexOf('function _chatPaneUI', start);
@@ -206,10 +206,16 @@ function panelSendHarness({ FileReaderClass = null, mode = 'unavailable', input 
       specialist: null,
     },
   };
+  const sessions = Array.from({ length: sessionIndex + 1 }, () => session());
+  sessions[sessionIndex] = pane;
 
   const context = vm.createContext({
     C3WS: {
       isReady: () => mode !== 'unavailable',
+      sendCancel() {
+        counters.remoteCancel = (counters.remoteCancel || 0) + 1;
+        return true;
+      },
       sendChat(content, selectedPane, index) {
         counters.wsSend.push({
           content,
@@ -233,12 +239,13 @@ function panelSendHarness({ FileReaderClass = null, mode = 'unavailable', input 
     _focusFileExists: () => false,
     _persistSessionState() {},
     _pollContext: () => { counters.provider++; },
-    _sessionActive: 0,
-    _sessions: [pane],
+    _sessionActive: sessionIndex,
+    _sessionCount: sessions.length,
+    _sessions: sessions,
     console,
     document: {
       getElementById(id) {
-        return id === 'c3-chat-ta-0' ? textarea : null;
+        return id === `c3-chat-ta-${sessionIndex}` ? textarea : null;
       },
     },
     fetch: async (_url, options = {}) => {
@@ -264,17 +271,38 @@ function panelSendHarness({ FileReaderClass = null, mode = 'unavailable', input 
 
   vm.runInContext(
     source.slice(start, end)
-      + '\nmodule.exports={_chatGapChoice,_chatSendPane,_chatTryWsSend};',
+      + '\nmodule.exports={_chatCancelPreparedSend,_chatGapChoice,_chatInvalidatePreparedSends,_chatSendPane,_chatSendContextIsCurrent,_chatTryWsSend};',
     context,
     { filename: `${CHAT_PANEL.pathname}#send-slice` },
   );
 
   return {
     counters,
+    context,
     functions: context.module.exports,
     pane,
     textarea,
   };
+}
+
+function controlledFileReaderClass() {
+  const readers = [];
+  class ControlledFileReader {
+    constructor() {
+      readers.push(this);
+    }
+    readAsText(file) {
+      this.file = file;
+    }
+  }
+  return { ControlledFileReader, readers };
+}
+
+async function finishControlledReader(reader, outcome = 'load') {
+  reader.result = outcome === 'load' ? 'attachment contents' : null;
+  if (outcome === 'load') reader.onload();
+  else reader.onerror();
+  await drainMicrotasks();
 }
 
 function assertNoFallbackEffects(harness, expectedAssistantCount = 0) {
@@ -418,7 +446,8 @@ test('authoritative panel passes the selected session into cancel', () => {
   assert.ok(cancelStart >= 0 && cancelEnd > cancelStart);
   const cancelSource = source.slice(cancelStart, cancelEnd);
   assert.match(cancelSource, /C3WS\.sendCancel\(s\)/);
-  assert.match(source, /C3WS\.sendCancel\(_sessions\[_sessionActive\]\)/);
+  assert.match(source, /_chatCancelPreparedSend\(_sessionActive,activeSession\)/);
+  assert.match(source, /C3WS\.sendCancel\(activeSession\)/);
   assert.doesNotMatch(source, /C3WS\.sendCancel\(\s*\)/);
 });
 
@@ -536,15 +565,7 @@ await testAsync('gap choice failures re-enable the exact choice and never create
 });
 
 await testAsync('failed async attachment send preserves exact original and newer draft independently', async () => {
-  const readers = [];
-  class ControlledFileReader {
-    constructor() {
-      readers.push(this);
-    }
-    readAsText(file) {
-      this.file = file;
-    }
-  }
+  const { ControlledFileReader, readers } = controlledFileReaderClass();
   const rawDraft = '  původní text  \n';
   const exact = panelSendHarness({ input: rawDraft, mode: 'unavailable' });
   exact.functions._chatSendPane(0);
@@ -582,6 +603,321 @@ await testAsync('failed async attachment send preserves exact original and newer
   assertNoFallbackEffects(harness);
 });
 
+await testAsync('stale attachment callbacks cannot cross reset, replacement, or identity boundaries', async () => {
+  const beginPendingSend = () => {
+    const { ControlledFileReader, readers } = controlledFileReaderClass();
+    const harness = panelSendHarness({
+      FileReaderClass: ControlledFileReader,
+      input: 'Vytvoř soubor /owned/stale.txt',
+      mode: 'ready',
+    });
+    harness.pane.chat.attachments.push({
+      file: { path: '/owned/evidence.txt', size: 128 },
+      name: 'evidence.txt',
+      size: '1 KB',
+    });
+    harness.functions._chatSendPane(0);
+    assert.equal(readers.length, 1);
+    return { harness, reader: readers[0] };
+  };
+  const finishRead = async reader => {
+    reader.result = 'attachment contents';
+    reader.onload();
+    await drainMicrotasks();
+  };
+
+  const resetCase = beginPendingSend();
+  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
+  const resetStart = source.indexOf('function _resetSessionToClean');
+  const resetEnd = source.indexOf('function _newChatInProject', resetStart);
+  vm.runInContext(source.slice(resetStart, resetEnd), resetCase.harness.context);
+  resetCase.harness.context._resetSessionToClean(resetCase.harness.pane);
+  await finishRead(resetCase.reader);
+  assert.equal(resetCase.harness.counters.wsSend.length, 0);
+  assert.equal(resetCase.harness.pane.chat.msgs.length, 1);
+  assert.equal(resetCase.harness.pane.chat.msgs[0].text, 'Nový chat.');
+  assert.equal(resetCase.harness.pane.chat._thinking, null);
+  assert.equal(resetCase.harness.pane.chat._delivery, null);
+  assertNoFallbackEffects(resetCase.harness);
+
+  const replacementCase = beginPendingSend();
+  const replacement = {
+    _agentId: null,
+    _convId: null,
+    _projectId: null,
+    chat: { msgs: [{ role: 'system', text: 'replacement' }] },
+  };
+  replacementCase.harness.context._sessions[0] = replacement;
+  await finishRead(replacementCase.reader);
+  assert.equal(replacementCase.harness.counters.wsSend.length, 0);
+  assert.equal(replacement.chat.msgs.length, 1);
+  assert.equal(replacement.chat.msgs[0].text, 'replacement');
+  assertNoFallbackEffects(replacementCase.harness);
+
+  const identityCase = beginPendingSend();
+  identityCase.harness.pane._projectId = 'new-project';
+  identityCase.harness.pane.chat.msgs = [{ role: 'system', text: 'new project' }];
+  await finishRead(identityCase.reader);
+  assert.equal(identityCase.harness.counters.wsSend.length, 0);
+  assert.equal(identityCase.harness.pane.chat.msgs.length, 1);
+  assert.equal(identityCase.harness.pane.chat.msgs[0].text, 'new project');
+  assertNoFallbackEffects(identityCase.harness);
+
+  const multiReader = controlledFileReaderClass();
+  const multi = panelSendHarness({
+    FileReaderClass: multiReader.ControlledFileReader,
+    input: 'two attachments',
+    mode: 'ready',
+  });
+  multi.pane.chat.attachments.push(
+    { file: { size: 1 }, name: 'first.txt', size: '1 B' },
+    { file: { size: 1 }, name: 'second.txt', size: '1 B' },
+  );
+  multi.functions._chatSendPane(0);
+  assert.equal(multiReader.readers.length, 2);
+  await finishControlledReader(multiReader.readers[0]);
+  multi.functions._chatInvalidatePreparedSends(multi.pane.chat);
+  await finishControlledReader(multiReader.readers[1]);
+  assert.equal(multi.counters.wsSend.length, 0);
+  assertNoFallbackEffects(multi);
+});
+
+await testAsync('attachment preparation is single-flight and gap choices cannot overtake it', async () => {
+  const { ControlledFileReader, readers } = controlledFileReaderClass();
+  const harness = panelSendHarness({
+    FileReaderClass: ControlledFileReader,
+    input: 'old draft',
+    mode: 'ready',
+  });
+  harness.pane.chat.msgs.push({
+    _gapChoice: true,
+    _gapResolved: false,
+    role: 'assistant',
+    text: 'choose',
+  });
+  harness.pane.chat.attachments.push({
+    file: { path: '/owned/old.txt', size: 128 },
+    name: 'old.txt',
+    size: '1 KB',
+  });
+  harness.functions._chatSendPane(0);
+  assert.equal(readers.length, 1);
+  assert.equal(harness.pane.chat.msgs.length, 2);
+
+  harness.textarea.value = 'new draft';
+  harness.functions._chatSendPane(0);
+  harness.functions._chatGapChoice(0, 'create', 0);
+  assert.equal(readers.length, 1);
+  assert.equal(harness.pane.chat.msgs.length, 2);
+  assert.equal(harness.textarea.value, 'new draft');
+  assert.equal(harness.pane.chat.msgs[0]._gapResolved, false);
+
+  await finishControlledReader(readers[0]);
+  assert.equal(harness.counters.wsSend.length, 1);
+  assert.equal(harness.counters.wsSend[0].content, 'old draft\n📎 old.txt');
+  assert.equal(harness.textarea.value, 'new draft');
+  assert.equal(harness.pane.chat._preparedSend, null);
+});
+
+await testAsync('pre-wire cancel restores owned input and makes late reader completion inert', async () => {
+  for (const outcome of ['load', 'error']) {
+    const { ControlledFileReader, readers } = controlledFileReaderClass();
+    const harness = panelSendHarness({
+      FileReaderClass: ControlledFileReader,
+      input: 'original draft',
+      mode: 'ready',
+    });
+    const originalAttachment = {
+      file: { path: '/owned/original.txt', size: 128 },
+      name: 'original.txt',
+      size: '1 KB',
+    };
+    const newerAttachment = {
+      file: { path: '/owned/newer.txt', size: 128 },
+      name: 'newer.txt',
+      size: '1 KB',
+    };
+    harness.pane.chat.attachments.push(originalAttachment);
+    harness.functions._chatSendPane(0);
+    harness.textarea.value = 'newer draft';
+    harness.pane.chat.attachments.push(newerAttachment);
+
+    if (outcome === 'load') {
+      const source = fs.readFileSync(CHAT_PANEL, 'utf8');
+      const cancelStart = source.indexOf('function _cancelExecution');
+      const cancelEnd = source.indexOf('/* split mode:', cancelStart);
+      harness.pane.log = [];
+      harness.context.C3Terminal = { cancel() {} };
+      vm.runInContext(source.slice(cancelStart, cancelEnd), harness.context);
+      harness.context._cancelExecution(0);
+    } else {
+      assert.equal(harness.functions._chatCancelPreparedSend(0, harness.pane), true);
+    }
+    assert.equal(harness.counters.wsSend.length, 0);
+    assert.equal(harness.counters.remoteCancel || 0, 0);
+    assert.equal(harness.textarea.value, 'newer draft');
+    assert.equal(
+      harness.pane.chat.attachments.map(item => item.name).join('|'),
+      'original.txt|newer.txt',
+    );
+    assert.equal(harness.pane.chat.msgs[0].tag, 'NOT_SENT');
+    assert.equal(harness.pane.chat.msgs[0].deliveryReason, 'CANCELLED_BEFORE_SEND');
+    assert.equal(harness.pane.chat.msgs[0].retryable, true);
+    assert.equal(harness.pane.chat._thinking, null);
+    assert.equal(harness.pane.chat._delivery.reason, 'CANCELLED_BEFORE_SEND');
+
+    await finishControlledReader(readers[0], outcome);
+    assert.equal(harness.counters.wsSend.length, 0);
+    assert.equal(harness.counters.remoteCancel || 0, 0);
+  }
+});
+
+await testAsync('hidden panes, route drift, and focus switches cannot misroute a prepared send', async () => {
+  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
+  const setCountStart = source.indexOf('function _setSessionCount');
+  const setCountEnd = source.indexOf('/* ── Focus Mode', setCountStart);
+  assert.ok(setCountStart >= 0 && setCountEnd > setCountStart);
+
+  const hiddenReader = controlledFileReaderClass();
+  const hidden = panelSendHarness({
+    FileReaderClass: hiddenReader.ControlledFileReader,
+    input: 'hidden send',
+    mode: 'ready',
+    sessionIndex: 2,
+  });
+  hidden.pane.chat.attachments.push({ file: { size: 1 }, name: 'hidden.txt', size: '1 B' });
+  hidden.functions._chatSendPane(2);
+  hidden.context._sessionCount = 2;
+  await finishControlledReader(hiddenReader.readers[0]);
+  assert.equal(hidden.counters.wsSend.length, 0);
+
+  const shrinkReader = controlledFileReaderClass();
+  const shrink = panelSendHarness({
+    FileReaderClass: shrinkReader.ControlledFileReader,
+    input: 'shrink send',
+    mode: 'ready',
+    sessionIndex: 2,
+  });
+  shrink.pane.chat.attachments.push({ file: { size: 1 }, name: 'shrink.txt', size: '1 B' });
+  shrink.functions._chatSendPane(2);
+  shrink.context._ensureSessions = () => {};
+  vm.runInContext(source.slice(setCountStart, setCountEnd), shrink.context);
+  shrink.context._setSessionCount(2);
+  shrink.context._setSessionCount(3);
+  await finishControlledReader(shrinkReader.readers[0]);
+  assert.equal(shrink.counters.wsSend.length, 0);
+
+  const driftReader = controlledFileReaderClass();
+  const drift = panelSendHarness({
+    FileReaderClass: driftReader.ControlledFileReader,
+    input: 'route drift',
+    mode: 'ready',
+  });
+  drift.pane.chat.attachments.push({ file: { size: 1 }, name: 'drift.txt', size: '1 B' });
+  drift.functions._chatSendPane(0);
+  const newerThinking = { text: 'newer operation' };
+  drift.pane.chat._thinking = newerThinking;
+  drift.pane.chat.editMode = 'auto';
+  await finishControlledReader(driftReader.readers[0]);
+  assert.equal(drift.counters.wsSend.length, 0);
+  assert.equal(drift.pane.chat.msgs[0].tag, 'NOT_SENT');
+  assert.equal(drift.pane.chat._delivery.reason, 'CONTEXT_CHANGED_BEFORE_SEND');
+  assert.equal(drift.pane.chat._thinking, newerThinking);
+
+  const appendReader = controlledFileReaderClass();
+  const append = panelSendHarness({
+    FileReaderClass: appendReader.ControlledFileReader,
+    input: 'owned pending turn',
+    mode: 'ready',
+  });
+  const appendAttachment = { file: { size: 1 }, name: 'append.txt', size: '1 B' };
+  append.pane.chat.attachments.push(appendAttachment);
+  append.functions._chatSendPane(0);
+  append.pane.chat.msgs.push({ role: 'assistant', text: 'older turn completed' });
+  await finishControlledReader(appendReader.readers[0]);
+  assert.equal(append.counters.wsSend.length, 0);
+  assert.equal(append.pane.chat.msgs.length, 2);
+  assert.equal(append.pane.chat.msgs[0].tag, 'NOT_SENT');
+  assert.equal(append.pane.chat.msgs[1].text, 'older turn completed');
+  assert.equal(append.textarea.value, 'owned pending turn');
+  assert.equal(append.pane.chat.attachments[0], appendAttachment);
+  assert.equal(append.pane.chat._delivery.reason, 'CONTEXT_CHANGED_BEFORE_SEND');
+
+  const focusReader = controlledFileReaderClass();
+  const focus = panelSendHarness({
+    FileReaderClass: focusReader.ControlledFileReader,
+    input: 'focused send',
+    mode: 'ready',
+    sessionIndex: 1,
+  });
+  focus.pane._conversationFocus = true;
+  focus.pane.chat.attachments.push({ file: { size: 1 }, name: 'focus.txt', size: '1 B' });
+  focus.functions._chatSendPane(1);
+  focus.context._sessionActive = 0;
+  await finishControlledReader(focusReader.readers[0]);
+  assert.equal(focus.counters.wsSend.length, 1);
+  assert.equal(focus.counters.wsSend[0].index, 1);
+  assert.deepEqual(focus.pane._focusFiles.map(item => item.name), ['focus.txt']);
+
+  const closeReader = controlledFileReaderClass();
+  const close = panelSendHarness({
+    FileReaderClass: closeReader.ControlledFileReader,
+    input: 'moved pane send',
+    mode: 'ready',
+    sessionIndex: 2,
+  });
+  close.pane.chat.attachments.push({ file: { size: 1 }, name: 'move.txt', size: '1 B' });
+  close.functions._chatSendPane(2);
+  close.context._sessions[0].log = [];
+  close.context._sessions[0].term = [];
+  close.context._sessions[2].log = [];
+  close.context._sessions[2].term = [];
+  close.context._closeDialog = { idx: 0 };
+  close.context._perSessionTree = [null, null, null];
+  close.context._wtRoot = '';
+  close.context._wtRawTree = null;
+  close.context.FILES = [];
+  close.context.renderSidebar = () => {};
+  close.context._ensureSessions = () => {};
+  vm.runInContext(source.slice(setCountStart, setCountEnd), close.context);
+  const closeStart = source.indexOf('function _closeDialogAction');
+  const closeEnd = source.indexOf('var _chatContainer', closeStart);
+  vm.runInContext(source.slice(closeStart, closeEnd), close.context);
+  close.context._closeDialogAction('pane');
+  assert.equal(close.context._sessions[0], close.pane);
+  assert.equal(close.pane.chat.msgs[0].tag, 'NOT_SENT');
+  await finishControlledReader(closeReader.readers[0]);
+  assert.equal(close.counters.wsSend.length, 0);
+});
+
+test('all destructive session transitions invalidate prepared sends before reuse', () => {
+  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
+  const smartStart = source.indexOf('function _smartRouteToRelay');
+  const smartEnd = source.indexOf('/* v91: Open-target', smartStart);
+  const showStart = source.indexOf('function _showOpenDialog');
+  const showEnd = source.indexOf('function _openTargetDialogAction', showStart);
+  const closeStart = source.indexOf('function _closeDialogAction');
+  const closeEnd = source.indexOf('var _chatContainer', closeStart);
+  const invalidStart = source.indexOf("C3Bus.on('session:invalid'");
+  const invalidEnd = source.indexOf('/* ── Health state', invalidStart);
+  const escapeStart = source.indexOf("case 'Escape':");
+  const escapeEnd = source.indexOf('/* Excluded:', escapeStart);
+  const cancelStart = source.indexOf('function _cancelExecution');
+  const cancelEnd = source.indexOf('/* split mode:', cancelStart);
+
+  assert.equal(
+    (source.slice(smartStart, smartEnd).match(/_chatPrepareRelayTarget/g) || []).length,
+    3,
+  );
+  assert.match(source.slice(showStart, showEnd), /_chatPrepareRelayTarget\(_sessionActive\)/);
+  assert.match(source.slice(closeStart, closeEnd), /_chatCancelPreparedSend\(lastIdx,last\)/);
+  assert.match(source.slice(invalidStart, invalidEnd), /_chatInvalidatePreparedSends\(s\.chat\)/);
+  assert.match(source.slice(escapeStart, escapeEnd), /if\(_chatCancelPreparedSend\(_sessionActive,activeSession\)\)/);
+  assert.match(source.slice(cancelStart, cancelEnd), /if \(!localPreparedCancelled && typeof C3WS/);
+  assert.match(source, /captured\.idx>=0&&captured\.idx<_sessionCount/);
+  assert.match(source, /captured\.chat\.editMode===captured\.editMode/);
+});
+
 test('new and closed sessions cannot inherit a prior NOT_SENT banner', () => {
   const source = fs.readFileSync(CHAT_PANEL, 'utf8');
   const context = vm.createContext({ Date, module: { exports: {} } });
@@ -589,18 +925,25 @@ test('new and closed sessions cannot inherit a prior NOT_SENT banner', () => {
   const mkEnd = source.indexOf('var _sessions=', mkStart);
   const resetStart = source.indexOf('function _resetSessionToClean');
   const resetEnd = source.indexOf('function _newChatInProject', resetStart);
+  const invalidateStart = source.indexOf('function _chatInvalidatePreparedSends');
+  const invalidateEnd = source.indexOf('function _chatCaptureSendContext', invalidateStart);
   assert.ok(mkStart >= 0 && mkEnd > mkStart && resetStart >= 0 && resetEnd > resetStart);
+  assert.ok(invalidateStart >= 0 && invalidateEnd > invalidateStart);
   vm.runInContext(
     source.slice(mkStart, mkEnd)
       + source.slice(resetStart, resetEnd)
+      + source.slice(invalidateStart, invalidateEnd)
       + '\nmodule.exports={_mkSession,_resetSessionToClean};',
     context,
   );
   const clean = context.module.exports._mkSession();
   assert.equal(clean.chat._delivery, null);
+  assert.ok(clean.chat._sendContextToken);
+  assert.ok(clean.chat._sendTurnToken);
   clean.chat._delivery = { status: 'NOT_SENT' };
   context.module.exports._resetSessionToClean(clean);
   assert.equal(clean.chat._delivery, null);
+  assert.match(source.slice(resetStart, resetEnd), /_chatInvalidatePreparedSends\(s&&s\.chat\)/);
 
   const newActionStart = source.indexOf('function _newChatDialogAction');
   const newActionEnd = source.indexOf('/* v70: Close-pane', newActionStart);
@@ -612,9 +955,23 @@ test('new and closed sessions cannot inherit a prior NOT_SENT banner', () => {
     (source.slice(newActionStart, newActionEnd).match(/chat\._delivery=null/g) || []).length,
     2,
   );
+  assert.match(
+    source.slice(newActionStart, newActionEnd),
+    /_chatInvalidatePreparedSends\(s\.chat\)/,
+  );
   assert.equal(
     (source.slice(closeStart, closeEnd).match(/chat\._delivery=null/g) || []).length,
     2,
+  );
+  assert.match(
+    source.slice(closeStart, closeEnd),
+    /_chatInvalidatePreparedSends\(s\.chat\)/,
+  );
+  const openStart = source.indexOf('function _openTargetDialogAction');
+  const openEnd = source.indexOf('/* v64.4: New-chat', openStart);
+  assert.match(
+    source.slice(openStart, openEnd),
+    /_chatInvalidatePreparedSends\(_sessions\[idx\]&&_sessions\[idx\]\.chat\)/,
   );
 });
 
