@@ -560,3 +560,40 @@ pinů a summary-model race vrátil `UPDATED PASS`. Během práce se objevil ciz�
 untracked `docs/review/2026-08-08-MODULE-INDEPENDENCE.md`; vlastnictví je
 `UNKNOWN`, soubor nebyl čten ani změněn a z B3 checkpointu je explicitně
 vyloučen.
+
+## Checkpoint 8 — fail-closed JSON settings authority pro B3-FAILOVER
+
+Nový `src/db/user-settings.js` odděluje platný JSON dokument od missing,
+malformed a DB-error stavu. Modelový opt-in je `true` pouze při literal boolean
+`models.autoFailoverEnabled: true`; všechny ostatní stavy jsou typované a
+default-off. `updateModelSettings()` používá jednu SQLite transakci, zachovává
+neznámé klíče a odmítne přepsat poškozený dokument. Checkpoint nemění
+`config.models`, nevolá provider, pull, delete ani scheduler.
+
+Read-only call-graph audit současně potvrdil, že plná aktivace ještě nemá
+poctivý kontrakt: generický `/api/settings` může mimo helper nahradit celý
+dokument a existující role score nemá digest. Tyto dvě hranice jsou zapsané v
+rozhodnutí 006 a checkpoint je nevydává za vyřešené.
+
+### Focused ověření checkpointu 8
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-model-settings.test.js` | 14 passed, 0 failed, 0 skipped | 0 |
+| `node scripts/validate-test-registry.js --write-doc` | 366 programů, fingerprint `f98e730c8688ad36f3fd9c922e426122b4a035debbd78814589e3f3ea028364a` | 0 |
+
+Širší focused baterie po opravě reviewerem nalezené sibling-invalid chyby:
+schema migrations `28/0`, model identity `16/0`, artifact validation `151/0`,
+registry valid a `git diff --check`, vše exit `0`. Minimální mutace, která při
+neplatném `autoCleanupDays` ponechala dříve načtené
+`autoFailoverEnabled:true`, skončila `11 passed / 1 failed`, exit `1`; selhal
+přesně nový fail-closed test. Mutace byla vrácena a čistá focused sada znovu
+skončila `14/0`. GPU ani Ollama se v tomto checkpointu nespouštějí.
+
+Nezávislý read-only review vrátil pro tento prerequisite checkpoint `PASS`.
+Před finálním během zachytil kromě sibling-invalid chyby také nepravdivé
+obalení updater chyb jako DB failure a test, který pouze tvrdil restart nad
+stejnou in-memory connection. Finální verze rozlišuje updater, serialization,
+DB read/write i unexpected transaction chyby, skutečně zavře a znovu otevře
+file-backed SQLite a pinuje `BEGIN IMMEDIATE`. Review výslovně nepotvrdilo celý
+D+ failover; legacy whole-document writery zůstávají otevřenou hranicí.

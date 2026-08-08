@@ -1,7 +1,7 @@
 # 006 — automatický model rebind zůstává blokovaný rozhodnutím L0-9
 
 - **typ:** BLOCK
-- **stav rozhodnutí:** D+ SCHVÁLENO; B3-IDENTITY IMPLEMENTOVÁNO, PROFILE/FAILOVER OTEVŘENÉ
+- **stav rozhodnutí:** D+ SCHVÁLENO; B3-IDENTITY A B3-PROFILE IMPLEMENTOVÁNY, FAILOVER SETTINGS AUTHORITY IMPLEMENTOVÁNA, AKTIVACE OTEVŘENÁ
 - **WP:** WP-M1-MODEL
 - **rail:** R1 USER_AUTHORITY, R3 OBSERVABLE_BEHAVIOR, R6 REVERSIBILITY
 - **vzniklo při:** read-only call-graph kontrole `src/upgrade/model-registry.js:checkBindingIntegrity()`
@@ -131,6 +131,31 @@ checku. Persistentní B3-FAILOVER je samostatný navazující milestone nad
 migrací pro desired/active/audit stav, `model-registry.js`, identity částmi
 `upgrade-manager.js` a scheduler seamem v `src/server.js`. Tento rozhodovací
 záznam jej nevydává za implementovaný.
+
+## Implementační stav B3-FAILOVER settings authority — 2026-08-08
+
+`src/db/user-settings.js` nyní vlastní striktní čtení JSON řádku
+`user_settings.id=1` a transakční merge vlastněné `models` sekce. Missing row,
+neplatný JSON, scalar/array dokument, neobjektová `models` sekce, string
+`"true"` i DB chyba vracejí failover jako vypnutý; pouze literal boolean
+`true` v platném dokumentu jej může povolit. Zápis zachová neznámé modelové
+klíče i ostatní sekce a při validační nebo SQLite chybě původní blob nezmění.
+
+Tento checkpoint cestu **neaktivuje**. Read-only call-graph audit potvrdil dvě
+hranice, které se nesmějí obejít:
+
+1. `/api/settings` v `src/routes/misc.js` stále nahrazuje celý JSON dokument a
+   další routes mají vlastní merge writery. Přesměrování těchto writerů přes
+   helper není v přesném B3 scope; do jeho rozhodnutí nelze tvrdit, že helper
+   je jediným writerem celé tabulky.
+2. `validation_suite_scores` váže score na jméno a suite, nikoli na digest.
+   B3 musí provést čerstvou role-suite validaci mezi dvěma shodnými inventory
+   digesty a uložit proof do vlastního auditu; `_verifyModel()` ping ani
+   `artifactVerified:false` score samy nestačí.
+
+Focused důkaz je registrovaná database sada
+`IS-T1-TESTS-M1-MODEL-SETTINGS-TEST`. L0-9 se nemění a failover runtime zůstává
+default-off.
 
 ## Implementační stav B3-IDENTITY — 2026-08-08
 

@@ -540,7 +540,12 @@ focused regression sady.
      verify části `upgrade-manager.js` a scheduler seam v `src/server.js`.
      Autoritou opt-inu je JSON `user_settings.id=1`; missing/malformed/DB error
      fail-close. Je to schválená výjimka do upgrade automatiky, nikoli změna
-     L0-9 před důkazem.
+     L0-9 před důkazem. **První checkpoint je implementovaný:** nový helper
+     typovaně čte JSON, defaultuje failover na `false` a zapisuje vlastněnou
+     `models` sekci transakčním merge. Runtime jej zatím nekonzumuje. Před
+     aktivací zbývá vyřešit generický whole-document writer `/api/settings`
+     bez neautorizovaného rozšíření scope a vytvořit čerstvý role-suite proof
+     svázaný s exaktním digestem; dnešní name-only score takovým důkazem není.
 3. **Connector:** adaptér `ModelRequest/Result` v1; nemění schéma.
 4. **Závislost:** `WP-M1-CONTRACT`; offline fake běhy nečekají na GPU.
 5. **Demo:** skutečná Ollama odpověď; negativní unavailable cesta používá
@@ -987,7 +992,9 @@ mohou pokračovat.
    pravdivě oddělené jako findings 006 a 007. Sdílený runtime profil nyní
    omezuje oba gateway vstupy a conversation compaction; neprohlašuje GPU
    PASS. V jediném worktree po malých commitech následuje nový sériový T3 běh
-   od 4096, potom **B3-FAILOVER**.
+   od 4096, potom **B3-FAILOVER**. Jeho settings authority checkpoint je
+   commitnutelný bez modelového effectu; schema, digest proof, state machine a
+   scheduler zůstávají otevřené a failover se dosud neaktivuje.
 7. B4 pokračuje 010/A+ a 011/A, potom v pořadí 014 server → 014 klient → 012
    route → 012 klient → společný DB-backed wire test. Read-only review může
    běžet souběžně; GPU běhy nikdy.
