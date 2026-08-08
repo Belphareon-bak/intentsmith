@@ -1,7 +1,7 @@
 # 006 — automatický model rebind zůstává blokovaný rozhodnutím L0-9
 
 - **typ:** BLOCK
-- **stav rozhodnutí:** D+ SCHVÁLENO; B3-IDENTITY A B3-PROFILE IMPLEMENTOVÁNY, FAILOVER SETTINGS AUTHORITY IMPLEMENTOVÁNA, AKTIVACE OTEVŘENÁ
+- **stav rozhodnutí:** D+ SCHVÁLENO; B3-IDENTITY, B3-PROFILE, FAILOVER SETTINGS AUTHORITY A STORAGE SCHEMA IMPLEMENTOVÁNY, AKTIVACE OTEVŘENÁ
 - **WP:** WP-M1-MODEL
 - **rail:** R1 USER_AUTHORITY, R3 OBSERVABLE_BEHAVIOR, R6 REVERSIBILITY
 - **vzniklo při:** read-only call-graph kontrole `src/upgrade/model-registry.js:checkBindingIntegrity()`
@@ -156,6 +156,41 @@ hranice, které se nesmějí obejít:
 Focused důkaz je registrovaná database sada
 `IS-T1-TESTS-M1-MODEL-SETTINGS-TEST`. L0-9 se nemění a failover runtime zůstává
 default-off.
+
+## Implementační stav B3-FAILOVER storage schema — 2026-08-08
+
+Migrace `2026_08_08_046_model_failover` zavádí čtyři oddělené autority:
+
+- `model_desired_bindings` je versioned snapshot uživatelem požadovaného
+  bindingu; `binding_revision` se neslučuje s CAS verzí incidentu;
+- `model_failover_state` je pouze projekce otevřeného nebo uzavřeného incidentu
+  s vlastním `row_version` a ohraničeným claimem;
+- `model_failover_proofs` je append-only PASS evidence svázaná s rolí,
+  odpovídající role suite, canonical modelem, přesným digestem, policy,
+  deklarovanými score/count prahy, časovou platností a stejným before/after
+  inventory;
+- `model_failover_events` je append-only audit. Úspěšná aktivační, restore nebo
+  reapply událost nesmí tvrdit `verified`, pokud neodkazuje na proof.
+
+DB trigger odmítne active failover, pokud proof nesouhlasí v roli, canonical
+jménu, digestu, policy nebo době ověření. Stejné kontroly platí před zapsáním
+append-only `ACTIVATED`, `REAPPLIED` a `RESTORED` auditu; úspěšný fallback
+event navíc musí odpovídat skutečnému desired bindingu. Projection smí
+odkazovat jen na event shodný v roli, revision, episode, row version a stavu.
+Samostatný `active_event_id` vždy koření aktivní fallback v terminal
+`ACTIVATED/REAPPLIED` eventu; `last_event_id` může být novější claim pouze když
+state současně nese shodný claim kind, operation a čas. Každý úspěšný terminal
+event navíc vyžaduje živý claim stejné role, desired revision, episode,
+operation, policy a nepřeskočené CAS verze; claim musí platit i v okamžiku
+terminal eventu.
+Schema má samostatný `FAILED` stav s pojmenovanou failure phase; absence řádku
+znamená, že pro roli není evidovaný incident, nikoli implicitní zelený stav.
+
+Jde záměrně jen o storage checkpoint. Dosud neexistuje produkční repository,
+dvouconnection stale-CAS důkaz, claim recovery, role-suite proof runner,
+runtime apply, restore, startup rehydrate ani scheduler. Žádný runtime modul
+nové tabulky nekonzumuje a L0-9 se proto nemění. Focused důkaz je registrovaná
+database sada `IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST`.
 
 ## Implementační stav B3-IDENTITY — 2026-08-08
 

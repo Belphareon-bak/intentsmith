@@ -546,6 +546,15 @@ focused regression sady.
      aktivací zbývá vyřešit generický whole-document writer `/api/settings`
      bez neautorizovaného rozšíření scope a vytvořit čerstvý role-suite proof
      svázaný s exaktním digestem; dnešní name-only score takovým důkazem není.
+     **Druhý checkpoint je implementovaný:** migrace 046 vytváří oddělený
+     versioned desired binding, incident projection s `row_version`,
+     append-only audit a append-only digest-bound PASS proof. DB odmítá active
+     failover i `verified` audit bez čerstvého proofu shodného v roli, suite,
+     canonical name, digestu, policy a deklarovaných PASS prazích. Projection
+     koření aktivní binding v konkrétním `active_event_id`; oddělený
+     `last_event_id` může sledovat claim jen s odpovídajícím claim tuple. Tento
+     checkpoint záměrně ještě neobsahuje repository/CAS operace, proof runner,
+     runtime apply, restore, startup rehydrate ani scheduler.
 3. **Connector:** adaptér `ModelRequest/Result` v1; nemění schéma.
 4. **Závislost:** `WP-M1-CONTRACT`; offline fake běhy nečekají na GPU.
 5. **Demo:** skutečná Ollama odpověď; negativní unavailable cesta používá
@@ -992,9 +1001,10 @@ mohou pokračovat.
    pravdivě oddělené jako findings 006 a 007. Sdílený runtime profil nyní
    omezuje oba gateway vstupy a conversation compaction; neprohlašuje GPU
    PASS. V jediném worktree po malých commitech následuje nový sériový T3 běh
-   od 4096, potom **B3-FAILOVER**. Jeho settings authority checkpoint je
-   commitnutelný bez modelového effectu; schema, digest proof, state machine a
-   scheduler zůstávají otevřené a failover se dosud neaktivuje.
+   od 4096, potom **B3-FAILOVER**. Settings authority a fail-closed storage
+   schema jsou implementované bez modelového effectu; repository/CAS, skutečný
+   digest proof runner, state-machine koordinátor, startup rehydrate a scheduler
+   zůstávají otevřené a failover se dosud neaktivuje.
 7. B4 pokračuje 010/A+ a 011/A, potom v pořadí 014 server → 014 klient → 012
    route → 012 klient → společný DB-backed wire test. Read-only review může
    běžet souběžně; GPU běhy nikdy.

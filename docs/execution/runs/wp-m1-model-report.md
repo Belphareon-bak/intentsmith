@@ -597,3 +597,74 @@ stejnou in-memory connection. Finální verze rozlišuje updater, serialization,
 DB read/write i unexpected transaction chyby, skutečně zavře a znovu otevře
 file-backed SQLite a pinuje `BEGIN IMMEDIATE`. Review výslovně nepotvrdilo celý
 D+ failover; legacy whole-document writery zůstávají otevřenou hranicí.
+
+## Checkpoint 9 — fail-closed storage schema pro B3-FAILOVER
+
+Migrace 046 vytváří čtyři oddělené persistentní kontrakty: versioned desired
+binding, incident projection s nezávislým `row_version`, append-only
+digest-bound role-suite proof a append-only event audit. SQL constrainty
+odmítají neznámé role, nekanonický digest, neinteger revision, role/suite
+nesoulad, výsledek pod deklarovanými PASS prahy a active failover bez čerstvého
+proofu shodného v roli, canonical modelu, digestu a policy. Totéž chrání
+append-only `verified` audit; projection nemůže ukazovat na event jiné role,
+revision, episode, row version nebo stavu. `active_event_id` drží skutečný
+terminal activation/reapply audit i v době, kdy `last_event_id` sleduje
+pozdější claim; claim event bez odpovídajícího claim tuple DB odmítne. Terminal
+event navíc vyžaduje živý claim stejné role, revision, episode, operation,
+policy, časového okna a bez přeskočení `row_version`. Druhý běh všech 48
+migrací je no-op se shodným schema snapshotem.
+
+Tento checkpoint **neimplementuje** repository ani runtime state machine.
+Neprokazuje stale-CAS přes dvě SQLite connections, claim recovery, skutečnou
+modelovou validaci, scheduler, restore ani startup rehydrate. Žádný runtime
+modul nové tabulky nekonzumuje; failover zůstává default-off a L0-9 beze změny.
+
+### Focused ověření checkpointu 9
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-model-failover-schema.test.js` | 9 passed, 0 failed, 0 skipped | 0 |
+| `node tests/schema-migrations.test.js` | 28 passed, 0 failed; 48 migrací | 0 |
+| `node scripts/validate-test-registry.js --write-doc` | 367 programů, fingerprint `9574f104464c9fd403367c295831a95a64c38754d6f8c0ed67d10e1b5e85f340` | 0 |
+
+Nová suite běží na skutečném file-backed SQLite v izolovaném artifact rootu,
+nikoli jen na mocku. GPU ani Ollama se v tomto checkpointu nespouštějí. Cizí
+untracked `docs/review/2026-08-08-MODULE-INDEPENDENCE.md` zůstává vlastnictví
+`UNKNOWN`, nebyl čten ani změněn a není součástí commitu.
+
+První nezávislý read-only review vrátil `CHANGES_REQUIRED`: schema připouštělo
+ručně označený `0/6 PASS`, špatnou suite, expirovaný/policy-mismatched proof a
+append-only `verified` event s proofem cizí role. Oprava přidala role→suite
+vazbu, explicitní score/count prahy, čas/policy kontroly, obsahové proof triggery
+pro activation/reapply/restore a vazby projection→audit. Tři cílené mutace po
+jedné odstranily count práh, rozšířily CHAT suite o vision a odstranily role
+match z verified-event triggeru; každá skončila `7 passed / 1 failed`, exit `1`,
+a byla před čistým během přesně vrácena.
+
+Druhý review odhalil, že samotný `last_event_id` mohl active projection ukotvit
+v neterminálním `ACTIVATION_CLAIMED` eventu a že `activated_at_ms` nebyl svázán
+s časem proofu. Oprava oddělila autoritativní `active_event_id`, váže jej na
+obsahově shodný `ACTIVATED/REAPPLIED` event a dovolí claim jako poslední audit
+jen se shodným state claim tuple. Negativní test nyní samostatně odmítá pozdní
+activation time i claim event bez claimu. Pozitivní round-trip současně provádí
+platný `REAPPLY` claim, nový fresh proof a terminal `REAPPLIED` bez přepsání
+původního času aktivace. Následný audit doplnil desired-binding join přímo do
+`ACTIVATED/REAPPLIED` proof triggeru, takže ani osamocený `verified` event
+nemůže nést cizí desired model, digest nebo revision.
+
+Třetí adversarial review našel, že úspěšný terminal event šlo zapsat bez
+předchozího claimu. Nový terminal-claim trigger proto přijme `ACTIVATED`,
+`REAPPLIED` nebo `RESTORED` pouze nad živým matching claimem. Focused důkaz
+odmítá chybějící claim, cizí operation, expirovaný claim i přeskočenou verzi;
+pozitivně provádí ACTIVATE, REAPPLY a RESTORE. Neúspěšný claim-event + state
+update běží v testu v jedné transakci a ověřuje nulový osiřelý audit po
+rollbacku. Produkční repository s `BEGIN IMMEDIATE`, dvěma connections a
+skutečným CAS zůstává dalším checkpointem, nikoli tvrzením tohoto schématu.
+
+Finální dva nezávislé read-only průchody na shodných SHA-256
+`4c9ce64c…a56d81` (migrace) a `24ceb1a0…b5cc2` (test) vrátily `PASS` pouze pro
+storage kontrakt; oba znovu naměřily `9/0`, exit `0`. Cílená mutation kontrola
+potom dočasně odstranila vazbu terminal eventu na `claim_operation_id`.
+Focused sada zčervenala přesně na wrong-operation aserci: `8 passed / 1 failed`,
+exit `1`. Guard byl přesným patchem vrácen, dva vlastněné failure artifact
+adresáře byly odstraněny a čistý běh skončil znovu `9/0`, exit `0`.

@@ -119,6 +119,7 @@ const ALL_MIGRATIONS = [
   '2026_04_12_043_drafts_table',
   '2026_04_12_044_v138_runtime_guard',
   '2026_07_30_045_telemetry_aggregation_version',
+  '2026_08_08_046_model_failover',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -139,7 +140,8 @@ const EXPECTED_TABLES = [
   'learned_patterns', 'lifecycle_handoff_state', 'llm_execution_log', 'logs',
   'marketplace_catalog_cache', 'marketplace_packages', 'media_generations',
   'memory', 'merge_audit_log', 'messages', 'messages_fts', 'milestones',
-  'model_catalog_cache', 'model_overrides', 'model_performance', 'model_reconciliation_log',
+  'model_catalog_cache', 'model_desired_bindings', 'model_failover_events', 'model_failover_proofs',
+  'model_failover_state', 'model_overrides', 'model_performance', 'model_reconciliation_log',
   'model_runtime_guard',
   'model_signal_events', 'model_universe_derived', 'model_universe_raw',
   'model_usage', 'model_write_log',
