@@ -253,11 +253,29 @@ prahy i proof TTL `null`. Policy neprovádí DB, model, provider, Ollama, GPU,
 config, broadcast ani síťový efekt. Focused offline sada je registrovaná jako
 `IS-T1-TESTS-M1-MODEL-FAILOVER-PROOF-POLICY-TEST`.
 
-Před issuance zbývá izolovaný fresh-child runner, exact prompt/options/result
-artifact, source pin před/po, strict inventory digest před/po, aditivní vazba
-immutable artefaktu na proof a terminální recheck aktuální policy/version/hash.
-Legacy `ValidationRunner` používá `Math.random()` a mutable prompt/grade
-funkce, takže dlouho žijící server nesmí být proof authority. L0-9 se nemění.
+Izolovaný fresh-child runner a exact prompt/options/result measurement artifact
+jsou implementované v následujícím checkpointu. Před issuance dál chybí
+operátorsky schválené prahy a TTL, aditivní vazba immutable artefaktu na proof,
+parentem odvozená autorita kandidáta a terminální recheck aktuální
+policy/version/hash. Legacy `ValidationRunner` není proof authority. L0-9 se
+nemění.
+
+## Implementační stav B3-FAILOVER measurement runner — 2026-08-08
+
+`scripts/run-model-failover-measurement.js` spouští jednu policy-odvozenou
+role suite v čerstvém Node procesu. Startup odmítá zděděné Node flagy a neznámé
+environment klíče, provider je omezený na exaktní vlastní IPv4 loopback origin
+a síťový allowlist obsahuje pouze `GET /api/tags` a `POST /api/chat`. Runner
+zachytí úplné requesty i response bytes, skutečný randomizovaný reasoning prompt
+a grading context; před i po běhu znovu ověří policy a inventory digest.
+
+Výstupem je kanonický privátní artifact `0400`, publikovaný non-clobber hard
+linkem až po read-back validaci. Je výslovně `NOT_ISSUED`, neobsahuje proof ID a
+nemění DB, binding, config ani broadcast. Parent musí kromě artifactu ověřit
+exit `0`, přesně jednu summary, hash, délku a úplnou pětici pinů. Samotný
+`sourceRevisionClaim` ani callerem vybraný provider/digest nejsou nezávislou
+autoritou; tu musí dodat navazující parent/issuer. Focused offline důkaz je
+`IS-T1-TESTS-M1-MODEL-FAILOVER-MEASUREMENT-TEST`.
 
 ## Implementační stav B3-IDENTITY — 2026-08-08
 

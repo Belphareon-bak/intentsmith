@@ -77,7 +77,8 @@ způsobilého PASS proofu a runtime activation. Gate 1 proto zůstává `BLOCKED
 ## Implementační stav measurement policy — 2026-08-08
 
 `src/upgrade/model-failover-proof-policy.js` je jediný fail-closed snapshot
-role-suite autority pro budoucí runner. Pinuje raw bytes i délku obou zdrojů:
+role-suite autority pro izolovaný measurement runner. Pinuje raw bytes i délku
+obou zdrojů:
 
 - `model-profiles.js`: 9 967 B, `16941d6a…264a`;
 - `validation-suites.js`: 39 108 B, `49520a41…b0ef`.
@@ -97,14 +98,22 @@ chybné změně jediného booleovského flagu nepovolil issuance bez konečného
 skóre v `(0,1]`, kladného počtu nepřesahujícího velikost role suite a kladného
 integer TTL; blocking reason musí být současně explicitně vyčištěný na `null`.
 
-Policy není proof runner. Reasoning prompt používá `Math.random()`, modelové
-sampling options nejsou seedované a importované prompt/grade funkce jsou v
-dlouho žijícím procesu mutable. Navazující měřicí běh proto musí vzniknout v
-čerstvém izolovaném child procesu, zkontrolovat source piny před i po běhu a do
-artefaktu uložit skutečné prompty, options a úplnou ordered result sadu. Do té
-doby ani synteticky perfektní výsledek nesmí vytvořit PASS proof nebo DB zápis.
+Policy není proof runner. Implementovaný
+`scripts/run-model-failover-measurement.js` proto vytváří čerstvý izolovaný
+child, kontroluje source piny i inventory před/po a ukládá skutečné prompty,
+options a úplnou ordered result sadu. Reasoning `Math.random()` se
+nedeterministicky neopakuje: skutečně použitý prompt a `_expected` grading
+context jsou zachycené a znovu svázané. I synteticky perfektní výsledek zůstává
+`NOT_ISSUED` a nevytvoří PASS proof ani DB zápis.
 
-Focused sada `IS-T1-TESTS-M1-MODEL-FAILOVER-PROOF-POLICY-TEST` běží offline,
-bez DB, sítě, serveru, Ollamy a GPU. Registrace measurement contractu nemění
-historický Gate 0 fingerprint; ten je release evidence, nikoli vývojová
-autorita.
+Runnerův `sourceRevisionClaim`, callerem zvolený loopback provider a očekávaný
+digest jsou pouze parent piny, nikoli samostatná autorita. Před proof issuance
+proto zbývá parentem odvozená identita kandidáta, schválené prahy a TTL,
+aditivní vazba immutable artefaktu na proof a terminální recheck živé policy,
+validation verze a role contract hashe.
+
+Focused sady `IS-T1-TESTS-M1-MODEL-FAILOVER-PROOF-POLICY-TEST` a
+`IS-T1-TESTS-M1-MODEL-FAILOVER-MEASUREMENT-TEST` běží offline, bez DB,
+produktového serveru, Ollamy a GPU; druhá používá pouze test-owned loopback fake
+provider. Registrace measurement contractu nemění historický Gate 0
+fingerprint; ten je release evidence, nikoli vývojová autorita.
