@@ -671,7 +671,10 @@ await testAsync('manual desired sources and stale incident policy fail closed', 
     const repository = createModelFailoverRepository(firstDb, runtime.options);
 
     const manualError = captureError(() => observeChat(repository, { source: 'USER_APPLY' }));
-    assertRepositoryError(manualError, 'MODEL_FAILOVER_MANUAL_SEAM_NOT_IMPLEMENTED');
+    assertRepositoryError(
+      manualError,
+      'MODEL_FAILOVER_MANUAL_SOURCE_REQUIRES_DEDICATED_API',
+    );
     assertEqual(repository.getDesired('CHAT'), null);
 
     observeChat(repository);

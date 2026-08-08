@@ -227,7 +227,10 @@ async function createCommittedCandidateClone(prefix) {
   execFileSync('git', [
     '-c', 'user.name=IntentSmith Test',
     '-c', 'user.email=intentsmith-test@invalid.local',
-    'commit', '--quiet', '-m', 'fixture: candidate parent source',
+    // A clean candidate can already contain these exact reviewed blobs. The
+    // empty commit still supplies a distinct, real candidate revision without
+    // fabricating source drift merely to make the fixture commit-able.
+    'commit', '--allow-empty', '--quiet', '-m', 'fixture: candidate parent source',
   ], { cwd: cloneRoot, stdio: ['ignore', 'pipe', 'pipe'] });
   return cloneRoot;
 }

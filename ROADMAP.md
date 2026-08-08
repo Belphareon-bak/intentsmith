@@ -623,12 +623,25 @@ focused regression sady.
      `user:` gramatiku fail-close končí bez orphan zápisu. Jde stále jen o
      schema authority: veřejný repository writer v tomto checkpointu
      nepřistává a runtime efekt zůstává nulový.
+     **Desátý checkpoint je implementovaný:** veřejné
+     `recordUserBindingApply()` a `recordUserBindingRollback()` vlastní jedinou
+     `BEGIN IMMEDIATE` transakci přes event, operation, desired revision a
+     případný incident supersede. Vstupy mají přesné allowlisty, request key je
+     idempotentní i po restartu a rollback přidává nový přímý reversal. Dva
+     skutečné WAL workery prokázaly same-key replay i different-key stale CAS.
+     Manual desired se publikuje pouze jako `PENDING_MANUAL` s
+     `NOT_VERIFIED/NOT_APPLIED`; detection je do runtime potvrzení blokovaná.
+     Přesný `DETECTED` nebo ACTIVATE-claimed incident lze atomicky supersedovat,
+     aktivní, `FAILED` a `RESTORED` stav vrací typovaný runtime-coordinator
+     blocker. Pozdější apply i rollback mohou auditovaný terminal projection
+     retireovat, ale chyba po retirementu rollbackne celý authority snapshot.
+     Repository stále nevytváří override, runtime config, proof ani broadcast.
      Repository zatím neobsahuje proof issuer/persistence, terminal
-     activation/restore, manual operation writer, runtime apply, startup
-     rehydrate ani scheduler a žádný runtime modul jej nekonzumuje. Chybějící proof
+     activation/restore, runtime apply, startup rehydrate ani scheduler a žádný
+     runtime modul jej nekonzumuje. Chybějící proof
      acceptance prahy a TTL jsou shromážděné v rozhodnutí 015; measurement-only
-     runner může pokračovat, PASS issuance zůstává fail-closed. Navazující
-     `USER_APPLY/USER_ROLLBACK` repository seam musí zachovat storage garanci
+     runner může pokračovat, PASS issuance zůstává fail-closed. Implementovaný
+     `USER_APPLY/USER_ROLLBACK` repository seam zachovává storage garanci
      `verified=0` bez skutečné verifikace a append-only rollback lineage.
      Legacy `upgrade-manager.js` přesto zůstává druhým netransakčním binding
      commit pointem; jeho sjednocení pro HTTP i chat vlastní B3-FAILOVER runtime
@@ -1092,15 +1105,16 @@ mohou pokračovat.
    inventory, digest a HEAD, spouští child z exact-blob source exportu a vydá
    pouze immutable `NOT_ISSUED` receipt. Fake-provider CHAT a D1 pokrývají
    ordered suite, skutečný randomizovaný prompt i negativní drift. Manual
-   binding storage nyní drží neověřenou append-only apply/rollback lineage a
-   migrace 049 už fail-closed vynucuje přesný atomický incident supersede;
-   veřejné repository operace ale zůstávají zavřené. Migrační preflight je
+   binding storage nyní drží neověřenou append-only apply/rollback lineage,
+   migrace 049 fail-closed vynucuje přesný atomický incident supersede a
+   veřejné repository operace jej provádějí v jednom commit pointu bez runtime
+   effectu. Migrační preflight je
    implementovaný a attestovaný podle
    [rozhodnutí 016](docs/decisions/016-migration-identity-guard.md). Legacy
    binding apply/rollback zůstává explicitním blockerem s vlastníkem a termínem
    ve finding 008. Proof issuer,
-   terminal state-machine, repository writer, runtime apply, startup rehydrate
-   a scheduler zůstávají otevřené a failover se dosud neaktivuje. Proof issuance
+   terminal activation/restore, runtime apply, startup rehydrate a scheduler
+   zůstávají otevřené a failover se dosud neaktivuje. Proof issuance
    čeká na prahy a TTL z rozhodnutí 015; nový skutečný GPU běh zůstává
    samostatnou blokovanou evidencí, dokud není legitimně čistý checkout.
 7. B4 pokračuje 010/A+ a 011/A, potom v pořadí 014 server → 014 klient → 012

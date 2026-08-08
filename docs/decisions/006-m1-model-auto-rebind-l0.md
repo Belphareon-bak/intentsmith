@@ -372,6 +372,43 @@ whitespace. Čtyři izolované mutace těchto guardů skončily pokaždé jední
 očekávaným selháním. Repository writer, runtime config, override, proof a
 broadcast se tímto schema checkpointem nemění; finding 008 zůstává otevřený.
 
+## Implementační stav B3-FAILOVER manual binding repository — 2026-08-09
+
+`src/upgrade/model-failover.js` nyní vystavuje dvě inertní manual operace:
+`recordUserBindingApply()` a `recordUserBindingRollback()`. Oba vstupy mají
+exact allowlist; interní nebo neznámé pole končí
+`MODEL_FAILOVER_AUTHORITY_OVERRIDE_REJECTED` ještě před zápisem. Repository
+odvozuje operation/event identity, canonical target, previous tuple, revision,
+policy, reason, čas i terminal supersede samo.
+
+Jediná top-level `BEGIN IMMEDIATE` transakce zapíše desired event, append-only
+operation, desired projection a případný `SUPERSEDED_BY_USER` event + state
+CAS. Každý návrat zůstává `NOT_VERIFIED/NOT_APPLIED`; efektivní binding je
+`PENDING_MANUAL` bez modelového jména a nové detection končí typovaným
+`MODEL_FAILOVER_RUNTIME_BINDING_UNCONFIRMED`. Request-key replay je stabilní i
+po restartu a rollback je nový přímý reversal konkrétního apply. Same-key a
+different-key závody proběhly nad dvěma skutečnými WAL connections.
+
+Manual operace smí supersedovat pouze přesný `DETECTED` snapshot bez claimu
+nebo s úplným live ACTIVATE claimem. Aktivní failover se odmítne; validní
+`FAILED` a `RESTORED` incidenty mají vlastní runtime-coordinator error code,
+stavovou diagnostiku a explicitní retry prerequisite. Auditovaný
+`SUPERSEDED_BY_USER` lze retireovat před pozdější apply i rollback, ale
+injektovaná chyba v následujícím zápisu obnoví celý původní authority snapshot.
+`RESTORED` se stále neretireuje.
+
+Focused test pokrývá exact input schema, no-op/replay, restart, append-only
+rollback, skutečné WAL races, oba claim/apply ordery, detected i claimed
+supersede, active/failed/restored blockery, malformed origin, schema bypass,
+outer transaction a failure injection po každém durable statement. Tento
+checkpoint nevytváří `model_overrides`, `upgrade_history`, proof, runtime
+config ani `model_changed` a žádný runtime caller jej zatím nekonzumuje.
+Sousední parent-acceptance fixture nyní umí vytvořit distinct kandidátní SHA i
+nad čistým stromem, kde jsou oba pinované source bloby už identické; prázdný
+fixture commit nemění byte-level source pin ani negativní drift kontroly.
+Finding 008 proto zůstává otevřený pro sjednocení legacy HTTP/chat commit
+pointu.
+
 ## Implementační stav B3-IDENTITY — 2026-08-08
 
 Sdílený `src/upgrade/model-identity.js` nyní vlastní konzervativní presence

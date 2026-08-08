@@ -79,3 +79,19 @@ Jde o DB autoritu, nikoli o runtime integraci. Veřejný repository writer v
 tomto checkpointu ještě nepřistává; legacy HTTP/chat cesty, nepravdivé
 `verified=1`, chatová formulace i caller-owned broadcast proto zůstávají beze
 změny a nález dál blokuje M1 acceptance.
+
+## Stav nápravy — manual repository checkpoint
+
+Inertní repository seam nyní plní storage podmínky 1–4 pro oba veřejné vstupy:
+apply i rollback mají exact input allowlist, společnou top-level transakci,
+append-only operation/reversal a atomický incident supersede. Manual stav je
+stále `NOT_VERIFIED/NOT_APPLIED`; `PENDING_MANUAL` nemůže založit detection a
+repository nevytváří override, runtime config ani broadcast. Failure injection
+po každém durable statement i po retirementu terminální projekce vrací celý
+authority snapshot.
+
+Tím se ale neopravují V1–V4 v legacy provozu: `upgrade-manager.js` dál nemá
+společný commit point, zapisuje `verified=1` před ověřením, chat stále může
+tvrdit neprovedené ověření a `model_changed` emituje pouze HTTP caller. Nový
+repository navíc zatím nemá runtime consumera. Finding tedy zůstává
+`OPEN / ASSIGNED` se stejným vlastníkem a termínem.
