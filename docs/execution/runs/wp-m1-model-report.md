@@ -1084,3 +1084,64 @@ pět odpovídajících řádků z chráněného
 `docs/review/2026-08-08-MODULE-INDEPENDENCE.md`. Soubor nebyl upraven, staged
 ani dále čten; navazující dotazy jej explicitně vylučují. Jde o přiznané
 porušení read-only hranice, ne o změnu cizí práce.
+
+## Checkpoint 16 — append-only manual binding storage lineage
+
+Migrace 048 přidává pouze storage autoritu pro budoucí
+`USER_APPLY/USER_ROLLBACK`. Operation journal nese request key, exact
+předchozí a cílovou name/canonical/digest identitu, očekávanou a commitnutou
+revision, aktéra, policy a shodný append-only `DESIRED_CHANGED` event. Každá
+operace je pevně `NOT_VERIFIED` a `NOT_APPLIED`; žádný proof sloupec ani runtime
+efekt neexistuje. Rollback je nový řádek s přímým odkazem na jediný apply a
+další manual apply musí uvést operaci, která vytvořila aktuální revision.
+
+Migrace fail-close odmítne preexistující manual projection bez doložitelné
+operation lineage. Manual projection nelze zapsat bez odpovídajícího eventu a
+journalu, přehrát starou operation nad novější revision, přepsat manual source
+na legacy authority, smazat ani nahradit přes SQLite `INSERT OR REPLACE` při
+výchozím `recursive_triggers=0`. Incident-shaped row/episode/details audit se
+odmítne. DETECTED, aktivně claimnutý i ACTIVATED incident blokuje manual
+operation, dokud repository neumí atomický `SUPERSEDED_BY_USER`; nevznikne ani
+orphan intent. UPDATE/DELETE journalu se odmítá a transaction failure nenechá
+event, operation ani projection orphan. `model_overrides`, `upgrade_history`,
+runtime config, provider, HTTP/chat a broadcast zůstaly nedotčené.
+
+Tento checkpoint proto **neopravuje** legacy `applyUpgrade()` ani
+`rollbackUpgrade()`. Finding 008 zůstává `OPEN / ASSIGNED`: manual repository
+API, atomický `SUPERSEDED_BY_USER` přechod a sjednocení skutečného HTTP/chat
+provozu jsou další samostatné kroky s termínem před M1 acceptance.
+
+### Focused a širší offline ověření
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `C3_LOG_LEVEL=error node tests/m1-model-binding-storage.test.js` | 11 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-failover-schema.test.js` | 10 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-failover-repository.test.js` | 14 passed, 0 failed, 0 skipped; manual repository guard zůstává zavřený | 0 |
+| `C3_LOG_LEVEL=error node tests/schema-migrations.test.js` | 28 passed, 0 failed; 50 migrací | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
+| `node tests/repository-hygiene.test.js` | 1 499 staged/tracked cest | 0 |
+| `node scripts/validate-test-registry.js --json` | valid; 372 programů; 8 exclusions; fingerprint `15763d7a…1651bed` | 0 |
+| syntax obou nových JS souborů | bez chyby | 0 |
+| `git diff --check` | bez whitespace chyb | 0 |
+
+Devět cílených mutací prokázalo test truth:
+
+| Odstraněná garance | Mutační výsledek | Exit |
+|---|---:|---:|
+| pevné `NOT_VERIFIED` | 10 passed / 1 failed | 1 |
+| exact rollback lineage | 10 passed / 1 failed | 1 |
+| manual projection vyžaduje operation journal | 9 passed / 2 failed | 1 |
+| další manual apply vyžaduje exact predecessor | 10 passed / 1 failed | 1 |
+| exact `OLD → NEW` blokuje stale replay | 10 passed / 1 failed | 1 |
+| manual source nemůže uniknout do legacy authority | 10 passed / 1 failed | 1 |
+| incident guard před operation journalem | 10 passed / 1 failed | 1 |
+| manual audit odmítá incident row/episode/details | 10 passed / 1 failed | 1 |
+| manual projection nelze obejít přes `INSERT OR REPLACE` | 10 passed / 1 failed | 1 |
+
+Po každé mutaci byl přesný guard vrácen přesným patchem; finální čistý focused
+focused běh skončil 11/0. Čtyři přesně identifikované zachované artifact
+adresáře z očekávaně červených mutací byly po ověření odstraněny; jiné soubory
+se nemažou. GPU, Ollama, produktový server ani externí síť nebyly spuštěny.
+Tři cizí untracked soubory v `docs/review/` a cizí
+`docs/decisions/016-migration-identity-guard.md` nebyly upraveny ani zahrnuty.

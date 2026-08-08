@@ -1,7 +1,7 @@
 # 006 — automatický model rebind zůstává blokovaný rozhodnutím L0-9
 
 - **typ:** BLOCK
-- **stav rozhodnutí:** D+ SCHVÁLENO; B3-IDENTITY, B3-PROFILE, FAILOVER SETTINGS, STORAGE A CLAIM RECOVERY IMPLEMENTOVÁNY, AKTIVACE OTEVŘENÁ
+- **stav rozhodnutí:** D+ SCHVÁLENO; B3-IDENTITY, B3-PROFILE, FAILOVER SETTINGS, STORAGE, CLAIM RECOVERY A MANUAL BINDING LINEAGE IMPLEMENTOVÁNY, AKTIVACE OTEVŘENÁ
 - **WP:** WP-M1-MODEL
 - **rail:** R1 USER_AUTHORITY, R3 OBSERVABLE_BEHAVIOR, R6 REVERSIBILITY
 - **vzniklo při:** read-only call-graph kontrole `src/upgrade/model-registry.js:checkBindingIntegrity()`
@@ -307,12 +307,42 @@ ani o změnu L0-9. Zděděné Node hooks parent odmítá před svými efekty; te
 kontrakt není OS sandbox a netvrdí, že cizí preload před zahájením Node procesu
 nemohl udělat vlastní efekt.
 
-Manual apply/rollback nyní čeká na dva inertní checkpointy: append-only storage
-lineage a atomické repository operace. Oba musí držet `verified=0` bez skutečné
-verifikace a rollback zapisovat jako nový stav, nikoli `DELETE`. Ani poté se
+Manual apply/rollback má hotový první ze dvou inertních checkpointů:
+append-only storage lineage; atomické repository operace zůstávají otevřené.
+Oba drží nebo musí držet `verified=0` bez skutečné verifikace a rollback
+zapisovat jako nový stav, nikoli `DELETE`. Ani poté se
 nesmí tvrdit runtime integrace: legacy `upgrade-manager.js`, chatová zpráva a
 HTTP-only broadcast tvoří otevřený blocker s vlastníkem a termínem v
 [`finding 008`](../findings/008-model-binding-commit-point-split.md).
+
+## Implementační stav B3-FAILOVER manual binding lineage — 2026-08-08
+
+Migrace `2026_08_08_048_model_binding_operations` přidává append-only journal
+`model_binding_operations`. `USER_APPLY` i `USER_ROLLBACK` nesou request key,
+exact předchozí a cílové name/canonical/digest tuple, očekávanou a commitnutou
+revision, aktéra, policy a jediný shodný `DESIRED_CHANGED` event. Operace je
+trvale `NOT_VERIFIED` a `NOT_APPLIED`; neobsahuje proof a nemůže tvrdit runtime
+efekt. Rollback musí být přesným přímým obrácením konkrétního apply a druhý
+rollback stejného apply databáze odmítne. Další manual apply musí jmenovat
+operaci, která vytvořila aktuální revision.
+
+Manual desired projection bez odpovídající operace se odmítne a migrace
+fail-close zastaví databázi, která by již obsahovala manual projection bez
+doložitelné lineage. Trigger váže přesný `OLD → NEW` přechod, takže starou
+operation nelze přehrát nad novější revision; manual projection nelze přepsat
+na legacy source, smazat ani obejít přes SQLite `INSERT OR REPLACE` při
+`recursive_triggers=0`. Audit event nesmí nést incident row/episode ani
+neprázdné details. Existující incident ve stavu DETECTED, s aktivním claimem i
+ACTIVATED manual operation blokuje, dokud navazující repository nepřidá
+atomický `SUPERSEDED_BY_USER`. Transaction failure fixture prokazuje nulový
+orphan event, operation i projection. Focused sada je registrovaná jako
+`IS-T1-TESTS-M1-MODEL-BINDING-STORAGE-TEST`.
+
+Tento checkpoint nemění `model_overrides`, `upgrade_history`, `config.models`,
+HTTP, chat ani `model_changed`. Neřeší aktivní incident: atomický
+`SUPERSEDED_BY_USER` přechod a repository API jsou další checkpoint. Finding
+008 proto zůstává `OPEN / ASSIGNED` až do jediné společné runtime aplikační
+služby pro HTTP i chat.
 
 ## Implementační stav B3-IDENTITY — 2026-08-08
 

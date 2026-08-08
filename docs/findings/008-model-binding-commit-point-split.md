@@ -51,3 +51,18 @@ neinstalovaného cíle včetně pravdivého pull progressu.
 Dokud tyto podmínky neprojdou, nález blokuje M1 acceptance. Neomezuje inertní
 measurement-only práci, která nevydává proof ani nemění DB, binding, runtime či
 broadcast.
+
+## Stav nápravy — manual storage checkpoint
+
+Migrace 048 už plní storage část bodů 1–4: manual operation je vždy
+`NOT_VERIFIED/NOT_APPLIED`, rollback přidává nový řádek s přesným odkazem na
+apply, journal i audit jsou append-only a projekce bez lineage se odmítne.
+Stará operation se nad novější revision nedá přehrát, manual projection nemůže
+uniknout do legacy source, být smazána ani nahrazena přes `INSERT OR REPLACE` a
+libovolný existující failover incident operaci fail-close odmítne do
+implementace atomického supersede. Focused mutace devíti klíčových guardů
+zčervenaly.
+
+Nález zůstává otevřený. Repository zatím manual operace neprovádí, neumí
+atomicky supersedovat aktivní failover incident a běžný HTTP/chat provoz dál
+teče přes legacy `upgrade-manager.js`. Vlastník i termín v hlavičce se nemění.

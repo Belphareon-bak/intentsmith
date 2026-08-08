@@ -284,10 +284,11 @@ suite('M1 model failover schema — exact migration contract');
 
 await testAsync('fresh file-backed DB creates all failover tables, indexes and triggers', async () => {
   await withMigratedDb(async (db) => {
-    assertEqual(getCurrentVersion(db), '2026_08_08_047_model_failover_claim_expiry');
+    assertEqual(getCurrentVersion(db), '2026_08_08_048_model_binding_operations');
 
     for (const table of [
       'model_desired_bindings',
+      'model_binding_operations',
       'model_failover_events',
       'model_failover_proofs',
       'model_failover_state',
@@ -354,7 +355,7 @@ await testAsync('second migration run is a no-op with an identical schema snapsh
     const before = schemaSnapshot(db);
     const result = await runMigrations(db);
     assertEqual(result.applied.length, 0);
-    assertEqual(result.skipped.length, 49);
+    assertEqual(result.skipped.length, 50);
     assertEqual(schemaSnapshot(db), before);
   });
 });

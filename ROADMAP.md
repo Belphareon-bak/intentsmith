@@ -595,12 +595,26 @@ focused regression sady.
      těsně před publikací. Zděděné Node hooks se odmítnou před efekty
      vlastněnými parentem; nejde o OS sandbox ani tvrzení, že cizí preload před
      startem Node nikdy neběžel.
+     **Osmý checkpoint je implementovaný:** migrace 048 přidává append-only
+     `USER_APPLY/USER_ROLLBACK` operation journal. Každý řádek nese exact
+     předchozí a cílovou artifact identitu, očekávanou i commitnutou revision,
+     request key, aktéra a shodný neověřený `DESIRED_CHANGED` event. Operace
+     zůstává pevně `NOT_VERIFIED/NOT_APPLIED`; rollback je nový stav s přímým
+     odkazem na jediný apply, nikoli `DELETE`. Manual projection bez journalu,
+     přehrání starší operace, odchod z manual authority, smazání či
+     `INSERT OR REPLACE` projection, incident-shaped audit metadata i
+     preexistující manual projection bez provenance se odmítnou. Dokud
+     repository neumí atomický
+     `SUPERSEDED_BY_USER`, jakýkoli incident stejné role blokuje manual
+     operation před zápisem. Jde pouze o storage autoritu: repository writer,
+     incident supersede, `model_overrides`, runtime config a broadcast se
+     nemění.
      Repository zatím neobsahuje proof issuer/persistence, terminal
      activation/restore, manual supersede, runtime apply, startup rehydrate ani
      scheduler a žádný runtime modul jej nekonzumuje. Chybějící proof
      acceptance prahy a TTL jsou shromážděné v rozhodnutí 015; measurement-only
      runner může pokračovat, PASS issuance zůstává fail-closed. Navazující
-     `USER_APPLY/USER_ROLLBACK` storage seam musí od prvního commitu držet
+     `USER_APPLY/USER_ROLLBACK` repository seam musí zachovat storage garanci
      `verified=0` bez skutečné verifikace a append-only rollback lineage.
      Legacy `upgrade-manager.js` přesto zůstává druhým netransakčním binding
      commit pointem; jeho sjednocení pro HTTP i chat vlastní B3-FAILOVER runtime
@@ -1063,7 +1077,9 @@ mohou pokračovat.
    artifact bez DB/proof/binding efektu; parent navíc odvozuje provider,
    inventory, digest a HEAD, spouští child z exact-blob source exportu a vydá
    pouze immutable `NOT_ISSUED` receipt. Fake-provider CHAT a D1 pokrývají
-   ordered suite, skutečný randomizovaný prompt i negativní drift. Legacy
+   ordered suite, skutečný randomizovaný prompt i negativní drift. Manual
+   binding storage nyní drží neověřenou append-only apply/rollback lineage,
+   ale repository operace a incident supersede zůstávají zavřené. Legacy
    binding apply/rollback zůstává explicitním blockerem s vlastníkem a termínem
    ve finding 008. Proof issuer,
    terminal state-machine, manual supersede, runtime apply, startup rehydrate a
