@@ -527,7 +527,12 @@ focused regression sady.
      změna `src/chat/context-compact.js`; existující
      `tests/m1-model-gpu-pilot.test.js` a
      `tests/context-compact-model-ctx.test.js` jsou povolené. Threshold, safety
-     truncate i post-log fill musí používat tentýž efektivní kontext;
+     truncate, provider request i post-log fill musí používat tentýž snapshot
+     efektivního kontextu. **Implementováno a offline ověřeno:** exact
+     `qwen3.5:27b` má commitnutý strop 4096, digest, 1 GiB headroom, 100% GPU
+     residency a zákaz fallbacku; request jej smí snížit, ne zvýšit. Profil
+     není fyzický VRAM FIT důkaz a 4096 zůstává kalibrační kandidát do nového
+     skutečného T3 běhu;
    - **B3-FAILOVER (006/D+):** teprve po přijetí IDENTITY samostatný opt-in
      desired/active failover. Přesný scope je nový
      `src/db/user-settings.js`, `src/upgrade/model-failover.js`, jedna nová
@@ -975,12 +980,14 @@ mohou pokračovat.
    uzavřít pouze jako explicitně pojmenovaný blocker s vlastníkem a termínem.
 5. B1 contract a B2 chat jsou implementované; Gate 1 volby 001–014 jsou
    zapsané, ale B3 a B4 zůstávají pravdivě `BLOCKED`.
-6. **B3-IDENTITY je implementované a focused ověřené:** canonical presence
+6. **B3-IDENTITY a B3-PROFILE jsou implementované a focused offline
+   ověřené:** canonical presence
    identity chrání schválené binding/delete/cleanup cesty a integrity scan je
    detection-only; atomický chat cleanup a retention-time residualy jsou
-   pravdivě oddělené jako findings 006 a 007. V jediném worktree po malých
-   commitech následuje
-   **B3-PROFILE** a nový sériový T3 běh od 4096, potom **B3-FAILOVER**.
+   pravdivě oddělené jako findings 006 a 007. Sdílený runtime profil nyní
+   omezuje oba gateway vstupy a conversation compaction; neprohlašuje GPU
+   PASS. V jediném worktree po malých commitech následuje nový sériový T3 běh
+   od 4096, potom **B3-FAILOVER**.
 7. B4 pokračuje 010/A+ a 011/A, potom v pořadí 014 server → 014 klient → 012
    route → 012 klient → společný DB-backed wire test. Read-only review může
    běžet souběžně; GPU běhy nikdy.

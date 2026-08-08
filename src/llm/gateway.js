@@ -27,7 +27,7 @@ import { modelUniverseStore } from '../upgrade/model-universe-store.js';
 import {
   VramFitState,
   fitsVram,
-  getNumCtx,
+  resolveNumCtx,
 } from './model-ctx.js';
 import {
   M1_MODEL_PURPOSE,
@@ -767,7 +767,7 @@ class LLMGateway {
     const timeout = options.timeout || config.timeouts?.CHAT || 60000;
     const requestType = options.requestType || 'chat';
     const correlation = safeCorrelation(options, authToken);
-    const effectiveNumCtx = options.num_ctx || getNumCtx(model);
+    const effectiveNumCtx = resolveNumCtx(model, options.num_ctx);
 
     const emitRuntimeSignal = (signalType, success, extra = {}) => {
       try {
@@ -1153,7 +1153,7 @@ export async function callWithPolicy(token, prompt, options = {}) {
   const policyOptions = { ...options };
   validatePolicyBoundary(token, policyOptions);
   const model = policyOptions.model ?? config.models?.CHAT ?? 'qwen3.5:27b';
-  const numCtx = policyOptions.num_ctx ?? getNumCtx(model);
+  const numCtx = resolveNumCtx(model, policyOptions.num_ctx);
   if (!isPolicyNumCtx(numCtx)) {
     throw new LLMGatewayError(
       LLMGatewayErrorCode.INVALID_REQUEST,

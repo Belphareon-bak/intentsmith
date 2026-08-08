@@ -1,7 +1,7 @@
 # 009 — referenční model nesplnil minimální post-load GPU headroom
 
 - **typ:** BLOCK
-- **stav rozhodnutí:** A-4096-CALIBRATION SCHVÁLENO; NOVÝ T3 BĚH OTEVŘENÝ
+- **stav rozhodnutí:** A-4096-CALIBRATION PROFIL IMPLEMENTOVÁN; NOVÝ T3 BĚH OTEVŘENÝ
 - **WP:** WP-M1-MODEL
 - **rail:** R3 OBSERVABLE_BEHAVIOR, R4 MEASURED_QUALITY, R7 OPERABILITY
 - **vzniklo při:** registrovaný T3 běh `IS-T3-TESTS-M1-MODEL-GPU-PILOT-TEST`
@@ -87,3 +87,20 @@ Původní `FAIL`, exit 1, zůstává autoritativní evidencí pro 8192. Teprve n
 skutečný běh může uzavřít 009; self-check ani teoretický KV odhad jej
 nenahrazují. Pokud 4096 projde provozně, ale následná quality evidence neudrží
 produktový cíl, otevře se explicitně varianta B místo oslabení guardu.
+
+## Implementační checkpoint B3-PROFILE — 2026-08-08
+
+Commitnutý profil je nyní jedinou logickou autoritou šesti schválených
+dimenzí. `model-ctx.js` jej používá jako startup default a nepřekročitelný
+strop; legacy gateway i connector v1 používají tentýž resolver pro preflight a
+provider wire. Nižší request zůstává povolený. Conversation compaction vyřeší
+model a kontext jednou a stejný snapshot používá pro trigger, safety truncate,
+explicitní provider `num_ctx` a post-log fill.
+
+T3 pilot čte tentýž profil a před prvním `/api/chat` fail-closed ověří svůj
+registry kontrakt, source SHA, přesný CHAT binding, loopback, instalovaný
+digest, prázdnou rezidenci, nulový compute seznam, host VRAM a idle serial
+gateway. PASS vyžaduje jak post-call headroom, tak minimum všech monitorovaných
+vzorků a přesně 100% GPU residency. Sanitizované minimum se uchová i při
+typovaném failure. Offline self-check tyto guardy ověřil bez provider/GPU
+efektu; skutečný 4096 T3 běh zatím **NOT RUN**.

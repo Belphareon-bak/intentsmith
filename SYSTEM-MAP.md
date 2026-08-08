@@ -130,8 +130,8 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 | | |
 |---|---:|
-| `src/**/*.js` | **146 883 ř.**, 406 trackovaných `.js` souborů |
-| `tests/**/*.js` | **152 503 ř.**, 360 trackovaných `.js` souborů |
+| `src/**/*.js` | **147 051 ř.**, 407 trackovaných `.js` souborů |
+| `tests/**/*.js` | **153 104 ř.**, 360 trackovaných `.js` souborů |
 | Registrovaných testových programů | **365** (`268 ACTIVE`, `82 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v DB / migrací | 95 / 47 |
 | HTTP rout | ~230 |
@@ -314,6 +314,7 @@ Zaznamenané, rozhodnuté, ne zapomenuté.
 | Skills mají krok `shell`, jinde je shell denied | Zaznamenáno k prověření |
 | Rehydrate ACK autorita je neúplná | Server prvních 32 ID ověří, ale delší set tiše usekne a přesto vrátí autoritativní ACK; klient komplement `validIds` maže. Missing i funkční in-memory store mohou stejným způsobem označit vše za neplatné. Běžné UI drží 1–3 panely, reachability je dnes hlavně corrupt/manual persisted state. Schváleno 014/A: durable-store guard, úplný partition nebo typovaný reject a bezpečný local restore; implementace otevřená. |
 | Modelová kanonická identita a auto-rebind | **B3-IDENTITY implementováno:** `name` a `name:latest` se shodují v bindingu, overview, informačních validation/usage lookupách, registry delete/auto-clean, `getUnusedOldModels()` i direct system-route fallbacku; jiné explicitní tagy a fuzzy rodinné varianty se neslučují. Integrity check je detection-only a prázdná Ollama je `INCONCLUSIVE`. Name-only skóre není digest-bound verification. Zůstává `PENDING-OWNER` atomický závod chatového cleanupu, který po list-time klasifikaci maže vlastním provider callem (`docs/findings/006-model-cleanup-bypasses-registry-guard.md`), a nesourodé SQLite/ISO timestampy age-based cleanupu (`docs/findings/007-model-cleanup-timestamp-ordering.md`). Dnešní periodický enable je dormantní kvůli chybnému `user_settings.key/value`; nepravdivé `verified:true`, JSON settings authority, desired/active stav, audit a restore patří do B3-FAILOVER. L0-9 se nemění. |
+| Referenční modelový runtime profil | **B3-PROFILE implementováno, GPU evidence otevřená:** exact `qwen3.5:27b` má commitnutý sedmipoložkový profil s digestem, kalibračním stropem `num_ctx=4096`, 1 024 MiB headroomem, 100% GPU residency a zákazem fallbacku. Cache a request mohou kontext snížit, ne zvýšit; legacy i M1 gateway sdílejí resolver. Compaction používá jeden snapshot pro threshold, truncation, model/wire context a post-fill. Profil záměrně neobsahuje odhad vah/KV a bez trusted footprintu zůstává produkční preflight `UNKNOWN/VRAM_FOOTPRINT_UNKNOWN`; nový T3 GPU běh nebyl spuštěn. Media VRAM authority může cache později snížit a zůstává v `docs/findings/003-m1-vram-policy-is-duplicated.md`. |
 | Token streaming neexistuje — `onLLMToken` je konzument bez producenta | Odpověď přichází celá |
 | Nedostupná Ollama při klasifikaci | Opravena na jeden pokus; změřeno přibližně 80 ms místo 6 091 ms |
 | Automatické online model discovery | `C3_ENABLE_ONLINE_DISCOVERY`, default off; ostatní explicitní outbound plochy čekají na jednotnou policy |

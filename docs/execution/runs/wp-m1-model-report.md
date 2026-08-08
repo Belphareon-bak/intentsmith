@@ -1,6 +1,6 @@
 # WP-M1-MODEL — průběžný report
 
-- **stav WP:** B3-IDENTITY READY; BLOCKED na B3-PROFILE, novém referenčním
+- **stav WP:** B3-IDENTITY + B3-PROFILE READY; BLOCKED na novém referenčním
   GPU běhu 009 a B3-FAILOVER; offline connector READY
 - **base SHA:** `55c913d6f3cb2354b6447d10ff304e9d0323b1c3`
 - **zapisující větev:** `claude/gate1-mobile-app-progress-5sywlt`
@@ -481,3 +481,82 @@ vrácené před čistým během:
 Po prvních třech návratech skončila tehdejší čistá sada 14/0; po review doplnila
 obousměrné hranice, `DETECTED` a tie-order důkaz a finální čistá sada skončila
 16/0. GPU ani Ollama tento checkpoint nespustil.
+
+## Checkpoint 7 — commitnutelný runtime profil pro kalibraci 4096
+
+Nový `src/llm/model-runtime-profile.js` je exaktní sedmipoložkový policy
+artefakt. Váže `qwen3.5:27b`, jeho schválený digest, kalibrační
+`contextWindowTokens=4096`, 1 024 MiB headroom, 100% GPU residency a
+`fallbackPolicy=forbid`. Neobsahuje odhad vah ani KV cache, a proto sám
+neautorizuje fyzický `FIT` nebo GPU PASS.
+
+`model-ctx.js` používá profil jako default před dokončením asynchronní startup
+inicializace a jako strop cache. Request jej může snížit; jiný model profil
+nedědí. Legacy gateway i `callWithPolicy()` používají stejný resolver, takže
+tentýž omezený kontext jde do M1 VRAM preflightu i provider wire. Test používá
+trusted footprint hranici, na níž 4096 projde, zatímco raw 8192 je fyzický
+`NONFIT`; tím nepinuje jen výsledný JSON body.
+
+Conversation compaction vytvoří jeden zmrazený budget a předá jej celé
+operaci. Tentýž snapshot řídí threshold, safety truncation, model a explicitní
+provider `num_ctx` i post-compaction fill. Test během `getAllTurns()` změní
+globální summary model a prokazuje, že pozdější fáze autoritu znovu nečtou.
+Media VRAM manager může cache po snapshotu bezpečnostně snížit; tento residual
+je oddělený ve findingu 003 a budoucí oprava má compaction zrušit/retrynout,
+nikoli obejít nižší cap.
+
+T3 pilot nyní před prvním modelovým efektem pinuje profil, runtime CHAT binding
+i exaktní registry kontrakt. Provider-effect flag vzniká až na validním
+`POST /api/chat`, ne před preflightem. Jedna acceptance funkce vyžaduje
+post-call headroom, minimum všech 100ms monitorovaných vzorků a residency v
+exaktním rozsahu 100–100 %. Sanitizované `monitoredMinimumFreeMiB`,
+`postCallFreeMiB` a allocation vstupy se zapisují i do failure reportu. Nový
+GPU/Ollama běh tento checkpoint **nespustil**; 4096 zůstává NOT RUN
+kalibrační kandidát a autoritativní 8192 FAIL se nemění.
+
+### Focused offline ověření checkpointu 7
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node --check src/llm/model-runtime-profile.js` | syntax valid | 0 |
+| `node --check src/llm/model-ctx.js` | syntax valid | 0 |
+| `node --check src/llm/gateway.js` | syntax valid | 0 |
+| `node --check src/chat/context-compact.js` | syntax valid | 0 |
+| `node --check tests/m1-model-gpu-pilot.test.js` | syntax valid | 0 |
+| `node tests/model-ctx.test.js` | 16 passed, 0 failed, 0 skipped | 0 |
+| `node tests/context-compact-model-ctx.test.js` | 2 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-model-contract.test.js` | 29 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-model-gpu-pilot.test.js --self-check` | `SELF_CHECK_PASS`, žádný provider/GPU effect | 0 |
+| `node tests/llm-gateway-runtime-signal.test.js` | 7 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-contract.test.js` | 26 passed, 0 failed, 0 skipped | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
+| `node scripts/validate-test-registry.js --json` | 365 programů, 8 exclusions, fingerprint `25babf6224c53a34d81822e8c039b7e062e118cd3d34c7aaee8b07c8eb38abb0` | 0 |
+| `node tests/repository-hygiene.test.js` | 1 482 trackovaných cest po explicitním stagingu | 0 |
+| `node tests/nightly-audit-runner-self-test.js` | `nightly audit runner self-test: PASS` | 0 |
+| `node tests/nightly-orchestrator-self-test.js` | známý release-policy drift: deterministic registry obsahuje non-active/optional sady | 1 |
+| `git diff --check` | bez whitespace chyb | 0 |
+
+### Mutační signál checkpointu 7
+
+Každá mutace byla po běhu přesně vrácena před čistou baterií:
+
+- profilový kontext `4096 → 8192`: `11 passed / 5 failed`, exit `1`;
+- odstraněný cap legacy gateway: `28 passed / 1 failed`, exit `1`;
+- raw policy kontext použitý ve VRAM preflightu: `28 passed / 1 failed`, exit
+  `1` na trusted FIT/NONFIT hranici;
+- návrat statických `32768` zvlášť do compaction truncation a post-fill:
+  pokaždé `1 passed / 1 failed`, exit `1`;
+- pozdní nové načtení summary modelu místo snapshotu: `1 passed / 1 failed`,
+  exit `1` na modelovém race fixture;
+- odstraněná kontrola monitorovaného minima: pilot self-check exit `1` s
+  přesným `monitored-headroom` guard failure;
+- odstraněná failure observation z typované GPU chyby: pilot self-check exit
+  `1`, protože přesné monitorované minimum zmizelo;
+- odstraněný jeden initial-safety reason: pilot self-check exit `1`, protože
+  exact seřazená množina důvodů nesouhlasila.
+
+Nezávislý read-only diff review po doplnění failure evidence, doslovných schema
+pinů a summary-model race vrátil `UPDATED PASS`. Během práce se objevil cizí
+untracked `docs/review/2026-08-08-MODULE-INDEPENDENCE.md`; vlastnictví je
+`UNKNOWN`, soubor nebyl čten ani změněn a z B3 checkpointu je explicitně
+vyloučen.

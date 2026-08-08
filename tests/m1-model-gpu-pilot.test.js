@@ -29,15 +29,20 @@ import { config } from '../src/config.js';
 import { createAuthToken, LLMCallerRole } from '../src/llm/auth-types.js';
 import { executeM1ModelRequest } from '../src/llm/cre-bridge.js';
 import { llmGateway } from '../src/llm/gateway.js';
+import {
+  MODEL_RUNTIME_PROFILE,
+  validateApprovedModelRuntimeProfile,
+} from '../src/llm/model-runtime-profile.js';
 
 const execFileAsync = promisify(execFile);
 const EXIT_BLOCKED = 2;
 const SUITE_ID = 'IS-T3-TESTS-M1-MODEL-GPU-PILOT-TEST';
-const MODEL = 'qwen3.5:27b';
-const MODEL_DIGEST = '7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e';
-const NUM_CTX = 8192;
+const MODEL = MODEL_RUNTIME_PROFILE.model;
+const MODEL_DIGEST = MODEL_RUNTIME_PROFILE.digestSha256;
+const NUM_CTX = MODEL_RUNTIME_PROFILE.contextWindowTokens;
 const MINIMUM_FREE_VRAM_MIB = 20128;
-const MINIMUM_HEADROOM_MIB = 1024;
+const MINIMUM_HEADROOM_MIB = MODEL_RUNTIME_PROFILE.minimumHeadroomMiB;
+const MINIMUM_GPU_RESIDENCY_PERCENT = MODEL_RUNTIME_PROFILE.minimumGpuResidencyPercent;
 const SAMPLE_INTERVAL_MS = 100;
 const PROVIDER_TIMEOUT_MS = 45000;
 const NATURAL_RESTORE_TIMEOUT_MS = 420000;
@@ -53,8 +58,8 @@ const requirement = Object.freeze({
   minimumFreeVramMiB: MINIMUM_FREE_VRAM_MIB,
   parallelRequests: 1,
   minimumHeadroomMiB: MINIMUM_HEADROOM_MIB,
-  minimumGpuResidencyPercent: 100,
-  fallbackPolicy: 'forbid',
+  minimumGpuResidencyPercent: MINIMUM_GPU_RESIDENCY_PERCENT,
+  fallbackPolicy: MODEL_RUNTIME_PROFILE.fallbackPolicy,
 });
 
 let reportPath = null;
@@ -166,7 +171,7 @@ async function fetchJson(url, options = {}) {
   return response.json();
 }
 
-function installWireBoundary(baseUrl) {
+function installWireBoundary(baseUrl, onProviderAttempt = () => {}) {
   const originalFetch = globalThis.fetch;
   const expectedOrigin = new URL(baseUrl).origin;
   const records = [];
@@ -212,6 +217,7 @@ function installWireBoundary(baseUrl) {
         format: body.format ?? null,
         hasKeepAlive: Object.hasOwn(body, 'keep_alive'),
       }));
+      onProviderAttempt();
     }
     return originalFetch(input, options);
   };
@@ -221,6 +227,51 @@ function installWireBoundary(baseUrl) {
       globalThis.fetch = originalFetch;
     },
   };
+}
+
+function registryContractIssues(entry) {
+  const issues = [];
+  if (entry?.id !== SUITE_ID) issues.push('gpu-pilot-registry-entry-missing');
+  if (entry?.path !== 'tests/m1-model-gpu-pilot.test.js') {
+    issues.push('gpu-pilot-registry-path-drift');
+  }
+  if (JSON.stringify(entry?.argv) !== JSON.stringify([
+    'node',
+    'tests/m1-model-gpu-pilot.test.js',
+  ])) {
+    issues.push('gpu-pilot-registry-argv-drift');
+  }
+  if (entry?.tier !== 'T3' || entry?.profile !== 'model') {
+    issues.push('gpu-pilot-registry-classification-drift');
+  }
+  if (entry?.timeoutMs !== 900000 || entry?.required !== true || entry?.state !== 'ACTIVE') {
+    issues.push('gpu-pilot-registry-execution-drift');
+  }
+  const expectedRequirements = {
+    network: 'loopback',
+    database: false,
+    server: false,
+    ollama: true,
+    gpu: true,
+  };
+  if (JSON.stringify(entry?.requirements) !== JSON.stringify(expectedRequirements)) {
+    issues.push('gpu-pilot-registry-requirements-drift');
+  }
+  return issues;
+}
+
+function validateStaticSafety({ baseUrl, sourceRevision, auditRun, registryEntry, chatModel }) {
+  const issues = [];
+  if (auditRun !== '1') issues.push('audit-run-boundary-missing');
+  if (baseUrl !== 'http://127.0.0.1:11434') issues.push('provider-not-exact-loopback-http');
+  if (!/^[a-f0-9]{40}$/.test(sourceRevision || '')) issues.push('source-revision-unbound');
+  const profileValidation = validateApprovedModelRuntimeProfile(MODEL_RUNTIME_PROFILE);
+  if (!profileValidation.valid) issues.push('runtime-profile-invalid');
+  if (String(chatModel || '').trim().toLowerCase() !== MODEL.toLowerCase()) {
+    issues.push('runtime-chat-binding-drift');
+  }
+  issues.push(...registryContractIssues(registryEntry));
+  return issues;
 }
 
 async function observeOllama(baseUrl) {
@@ -377,6 +428,63 @@ function requirePostCallHeadroom(gpu) {
   throw error;
 }
 
+function requireMonitoredHeadroom(gpuSummary) {
+  if (gpuSummary.minimumFreeMiB >= MINIMUM_HEADROOM_MIB) return;
+  const error = new Error('monitored GPU headroom is unsafe');
+  error.code = 'GPU_PILOT_MONITORED_HEADROOM_UNSAFE';
+  throw error;
+}
+
+function residencyPercent(model) {
+  assert(model.sizeBytes > 0 && model.sizeVramBytes > 0, 'resident allocation missing');
+  return (model.sizeVramBytes / model.sizeBytes) * 100;
+}
+
+function requireGpuResidency(model) {
+  let percent;
+  try {
+    percent = residencyPercent(model);
+  } catch (cause) {
+    const error = new Error('GPU residency observation is unavailable', { cause });
+    error.code = 'GPU_PILOT_RESIDENCY_UNAVAILABLE';
+    throw error;
+  }
+  if (
+    percent + Number.EPSILON < MINIMUM_GPU_RESIDENCY_PERCENT
+    || percent > 100 + Number.EPSILON
+  ) {
+    const error = new Error('model is not exactly fully GPU resident');
+    error.code = 'GPU_PILOT_RESIDENCY_UNSAFE';
+    throw error;
+  }
+  return percent;
+}
+
+function requireObservedGpuAcceptance({ postCallGpu, gpuSummary, loadedModel }) {
+  const observation = Object.freeze({
+    monitoredMinimumFreeMiB: Number.isFinite(gpuSummary?.minimumFreeMiB)
+      ? gpuSummary.minimumFreeMiB
+      : null,
+    postCallFreeMiB: Number.isFinite(postCallGpu?.freeMiB) ? postCallGpu.freeMiB : null,
+    model: typeof loadedModel?.name === 'string' ? loadedModel.name : MODEL,
+    sizeBytes: Number.isFinite(loadedModel?.sizeBytes) ? loadedModel.sizeBytes : null,
+    sizeVramBytes: Number.isFinite(loadedModel?.sizeVramBytes)
+      ? loadedModel.sizeVramBytes
+      : null,
+  });
+  try {
+    requirePostCallHeadroom(postCallGpu);
+    requireMonitoredHeadroom(gpuSummary);
+    return Object.freeze({
+      observation,
+      residencyPercent: requireGpuResidency(loadedModel),
+    });
+  } catch (error) {
+    error.gpuAcceptanceObservation = observation;
+    throw error;
+  }
+}
+
 function startGpuMonitor() {
   const samples = [];
   const errors = [];
@@ -495,6 +603,33 @@ async function persistReport() {
 }
 
 async function selfCheck() {
+  const profileValidation = validateApprovedModelRuntimeProfile(MODEL_RUNTIME_PROFILE);
+  assert(profileValidation.valid, `runtime profile drifted: ${profileValidation.errors.join(',')}`);
+  assert(Object.isFrozen(MODEL_RUNTIME_PROFILE), 'runtime profile must be frozen');
+  assert(requirement.model === MODEL_RUNTIME_PROFILE.model, 'requirement model drifted');
+  assert(requirement.digestSha256 === MODEL_RUNTIME_PROFILE.digestSha256, 'requirement digest drifted');
+  assert(
+    requirement.contextWindowTokens === MODEL_RUNTIME_PROFILE.contextWindowTokens,
+    'requirement context drifted',
+  );
+  assert(
+    requirement.minimumHeadroomMiB === MODEL_RUNTIME_PROFILE.minimumHeadroomMiB,
+    'requirement headroom drifted',
+  );
+  assert(
+    requirement.minimumGpuResidencyPercent === MODEL_RUNTIME_PROFILE.minimumGpuResidencyPercent,
+    'requirement residency drifted',
+  );
+  assert(
+    requirement.fallbackPolicy === MODEL_RUNTIME_PROFILE.fallbackPolicy,
+    'requirement fallback policy drifted',
+  );
+  const registry = JSON.parse(await readFile(path.join(process.cwd(), 'tests/registry.json'), 'utf8'));
+  const registryEntry = registry.suites?.find(suite => suite.id === SUITE_ID);
+  assert(
+    registryContractIssues(registryEntry).length === 0,
+    `GPU pilot registry contract drifted: ${registryContractIssues(registryEntry).join(',')}`,
+  );
   assert(isLoopbackHttpUrl('http://127.0.0.1:11434'), 'IPv4 loopback must pass');
   assert(isLoopbackHttpUrl('http://localhost:11434'), 'localhost must pass');
   assert(!isLoopbackHttpUrl('https://127.0.0.1:11434'), 'TLS origin must fail exact fixture');
@@ -504,17 +639,46 @@ async function selfCheck() {
   assert(gpu.freeMiB === 23576 && gpu.usedMiB === 1000, 'GPU parser changed values');
   const apps = parseComputeApps('1234, /usr/bin/ollama, 18000\n');
   assert(apps.length === 1 && apps[0].pid === 1234, 'GPU process parser failed');
-  requirePostCallHeadroom({ ...gpu, freeMiB: MINIMUM_HEADROOM_MIB });
-  let headroomError = null;
-  try {
-    requirePostCallHeadroom({ ...gpu, freeMiB: MINIMUM_HEADROOM_MIB - 1 });
-  } catch (error) {
-    headroomError = error;
-  }
+  const safeGpuAcceptance = {
+    postCallGpu: { ...gpu, freeMiB: MINIMUM_HEADROOM_MIB },
+    gpuSummary: { minimumFreeMiB: MINIMUM_HEADROOM_MIB },
+    loadedModel: { sizeBytes: 1000, sizeVramBytes: 1000 },
+  };
   assert(
-    headroomError?.code === 'GPU_PILOT_POST_CALL_HEADROOM_UNSAFE',
-    'post-call headroom guard did not fail with its exact type',
+    requireObservedGpuAcceptance(safeGpuAcceptance).residencyPercent === 100,
+    'safe GPU acceptance fixture changed',
   );
+  for (const [label, fixture, expectedCode] of [
+    ['post-call-headroom', {
+      ...safeGpuAcceptance,
+      postCallGpu: { ...gpu, freeMiB: MINIMUM_HEADROOM_MIB - 1 },
+    }, 'GPU_PILOT_POST_CALL_HEADROOM_UNSAFE'],
+    ['monitored-headroom', {
+      ...safeGpuAcceptance,
+      gpuSummary: { minimumFreeMiB: MINIMUM_HEADROOM_MIB - 1 },
+    }, 'GPU_PILOT_MONITORED_HEADROOM_UNSAFE'],
+    ['partial-residency', {
+      ...safeGpuAcceptance,
+      loadedModel: { sizeBytes: 1000, sizeVramBytes: 999 },
+    }, 'GPU_PILOT_RESIDENCY_UNSAFE'],
+    ['impossible-residency', {
+      ...safeGpuAcceptance,
+      loadedModel: { sizeBytes: 1000, sizeVramBytes: 1001 },
+    }, 'GPU_PILOT_RESIDENCY_UNSAFE'],
+  ]) {
+    let error = null;
+    try {
+      requireObservedGpuAcceptance(fixture);
+    } catch (caught) {
+      error = caught;
+    }
+    assert(error?.code === expectedCode, `${label} guard did not fail with its exact type`);
+    assert(
+      error.gpuAcceptanceObservation?.monitoredMinimumFreeMiB
+        === fixture.gpuSummary.minimumFreeMiB,
+      `${label} failure lost the monitored minimum`,
+    );
+  }
   const safeIssues = validateInitialSafety({
     baseUrl: 'http://127.0.0.1:11434',
     sourceRevision: 'a'.repeat(40),
@@ -527,6 +691,25 @@ async function selfCheck() {
     concurrency: { max: 1, active: 0, queued: 0 },
   });
   assert(safeIssues.length === 0, `safe fixture rejected: ${safeIssues.join(',')}`);
+  const staticSafeIssues = validateStaticSafety({
+    baseUrl: 'http://127.0.0.1:11434',
+    sourceRevision: 'a'.repeat(40),
+    auditRun: '1',
+    registryEntry,
+    chatModel: MODEL,
+  });
+  assert(staticSafeIssues.length === 0, `safe static fixture rejected: ${staticSafeIssues.join(',')}`);
+  const bindingDriftIssues = validateStaticSafety({
+    baseUrl: 'http://127.0.0.1:11434',
+    sourceRevision: 'a'.repeat(40),
+    auditRun: '1',
+    registryEntry,
+    chatModel: 'runtime-binding-drift:1b',
+  });
+  assert(
+    bindingDriftIssues.includes('runtime-chat-binding-drift'),
+    'runtime binding drift did not block before provider effect',
+  );
   const unsafeIssues = validateInitialSafety({
     baseUrl: 'http://example.com:11434',
     sourceRevision: 'bad',
@@ -538,7 +721,19 @@ async function selfCheck() {
     computeApps: [{ pid: 7 }],
     concurrency: { max: 2, active: 1, queued: 1 },
   });
-  assert(unsafeIssues.length === 7, `unsafe fixture did not fail closed: ${unsafeIssues.join(',')}`);
+  const expectedUnsafeIssues = [
+    'gpu-compute-process-already-active',
+    'gpu-model-already-resident',
+    'model-gateway-not-serial-and-idle',
+    'pinned-model-digest-mismatch',
+    'preload-free-vram-insufficient',
+    'provider-not-exact-loopback-http',
+    'source-revision-unbound',
+  ];
+  assert(
+    JSON.stringify([...unsafeIssues].sort()) === JSON.stringify(expectedUnsafeIssues),
+    `unsafe fixture reason set drifted: ${unsafeIssues.join(',')}`,
+  );
 
   const hostFetch = globalThis.fetch;
   const fakeFetch = async () => ({ ok: true });
@@ -577,7 +772,9 @@ async function selfCheck() {
         model: 'other:1b', stream: false, options: { num_ctx: NUM_CTX },
       }, 'GPU_PILOT_WIRE_CONTRACT_INVALID'],
       ['wrong-context', 'http://127.0.0.1:11434/api/chat', {
-        model: MODEL, stream: false, options: { num_ctx: 4096 },
+        model: MODEL,
+        stream: false,
+        options: { num_ctx: NUM_CTX === 4096 ? 8192 : 4096 },
       }, 'GPU_PILOT_WIRE_CONTRACT_INVALID'],
       ['streaming', 'http://127.0.0.1:11434/api/chat', {
         model: MODEL, stream: true, options: { num_ctx: NUM_CTX },
@@ -610,13 +807,6 @@ async function main() {
   const registry = JSON.parse(await readFile(path.join(process.cwd(), 'tests/registry.json'), 'utf8'));
   const registryFingerprint = sha256(JSON.stringify(registry));
   const registryEntry = registry.suites?.find(suite => suite.id === SUITE_ID);
-  assert(registryEntry?.path === 'tests/m1-model-gpu-pilot.test.js', 'GPU pilot registry entry is missing');
-  assert(
-    registryEntry.requirements?.ollama === true
-      && registryEntry.requirements?.gpu === true
-      && registryEntry.requirements?.network === 'loopback',
-    'GPU pilot registry prerequisites are incomplete',
-  );
   reportPath = await prepareArtifactPath();
   report = {
     schemaVersion: 1,
@@ -628,6 +818,7 @@ async function main() {
     verdict: 'RUNNING',
     requirement,
     safety: null,
+    gpuAcceptanceObservation: null,
     measurements: null,
     failure: null,
   };
@@ -638,10 +829,13 @@ async function main() {
   let lastProviderObservation = null;
   let stage = 'preflight';
   try {
-    const staticIssues = [];
-    if (process.env.C3_AUDIT_RUN !== '1') staticIssues.push('audit-run-boundary-missing');
-    if (baseUrl !== 'http://127.0.0.1:11434') staticIssues.push('provider-not-exact-loopback-http');
-    if (!/^[a-f0-9]{40}$/.test(sourceRevision)) staticIssues.push('source-revision-unbound');
+    const staticIssues = validateStaticSafety({
+      baseUrl,
+      sourceRevision,
+      auditRun: process.env.C3_AUDIT_RUN,
+      registryEntry,
+      chatModel: config.models?.CHAT,
+    });
     if (staticIssues.length > 0) {
       report.safety = { baseUrl, issues: staticIssues };
       report.verdict = 'BLOCKED';
@@ -652,7 +846,9 @@ async function main() {
       return EXIT_BLOCKED;
     }
 
-    wireBoundary = installWireBoundary(baseUrl);
+    wireBoundary = installWireBoundary(baseUrl, () => {
+      providerEffectStarted = true;
+    });
     const [initialOllama, beforeGpu, computeApps] = await Promise.all([
       observeOllama(baseUrl),
       observeGpu(),
@@ -700,7 +896,6 @@ async function main() {
       'Follow the output format exactly. Do not explain.',
       { maxTokens: 32 },
     );
-    providerEffectStarted = true;
     const cold = await executeMeasured('cold-answer', coldRequest);
     assert(cold.result.status === 'ok', `cold answer ended ${cold.result.status}`);
     assert(cold.result.response.model === MODEL, 'cold answer used a different model');
@@ -713,9 +908,7 @@ async function main() {
     assert(loadedAfterCold, 'pinned model did not become resident after the cold call');
     assert(loadedAfterCold.digestSha256 === MODEL_DIGEST, 'resident model digest changed');
     assert(loadedAfterCold.contextWindowTokens === NUM_CTX, 'resident model context differs from request');
-    assert(loadedAfterCold.sizeBytes > 0 && loadedAfterCold.sizeVramBytes > 0, 'resident allocation missing');
-    const residencyPercent = (loadedAfterCold.sizeVramBytes / loadedAfterCold.sizeBytes) * 100;
-    assert(residencyPercent + Number.EPSILON >= 100, 'model is not fully GPU resident');
+    requireGpuResidency(loadedAfterCold);
 
     stage = 'warm-answer';
     const warmRequest = makeRequest(
@@ -834,13 +1027,18 @@ async function main() {
     assert(postCallLoaded, 'pinned model was unexpectedly unloaded before allocation evidence');
     assert(postCallLoaded.contextWindowTokens === NUM_CTX, 'post-call context changed');
     assert(postCallLoaded.digestSha256 === MODEL_DIGEST, 'post-call model digest changed');
-    requirePostCallHeadroom(postCallGpu);
     assert(
       postCallComputeApps.every(app => /ollama/i.test(app.processName)),
       'an unrelated compute process appeared during the pilot',
     );
 
     const gpuSummary = summarizeGpuSamples(samples);
+    const observedGpuAcceptance = requireObservedGpuAcceptance({
+      postCallGpu,
+      gpuSummary,
+      loadedModel: postCallLoaded,
+    });
+    report.gpuAcceptanceObservation = observedGpuAcceptance.observation;
     assert(
       gpuSummary.peakUsedMiB > beforeGpu.usedMiB + 1000,
       'GPU monitor did not observe the model allocation',
@@ -873,7 +1071,7 @@ async function main() {
         contextWindowTokens: postCallLoaded.contextWindowTokens,
         sizeBytes: postCallLoaded.sizeBytes,
         sizeVramBytes: postCallLoaded.sizeVramBytes,
-        residencyPercent: (postCallLoaded.sizeVramBytes / postCallLoaded.sizeBytes) * 100,
+        residencyPercent: observedGpuAcceptance.residencyPercent,
       },
       gpu: {
         before: beforeGpu,
@@ -937,6 +1135,9 @@ async function main() {
     };
     report.failureRestoration = failureRestoration;
     report.failureObservation = lastProviderObservation;
+    if (error.gpuAcceptanceObservation) {
+      report.gpuAcceptanceObservation = error.gpuAcceptanceObservation;
+    }
     report.unrestoredState = restorationError?.lastObservation
       || error.lastObservation
       || null;

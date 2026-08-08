@@ -21,6 +21,14 @@ explicitním trusted footprintem; nesmí převzít name-only odhad jako fyzický
 `NONFIT`. GPU běh musí uvést přesný zdroj metadat a nesmí automaticky volat
 unload/reload cestu.
 
+B3-PROFILE sjednotil logický runtime strop referenčního modelu pro startup,
+oba gateway vstupy a conversation compaction, ale záměrně nevytvořil fyzický
+footprint. `src/media/vram-manager.js` smí tutéž cache bezpečnostně snížit. Pokud
+se to stane mezi vytvořením compaction snapshotu a získáním gateway slotu,
+gateway správně odešle nižší kontext, zatímco text a post-fill byly odvozené ze
+staršího vyššího snapshotu. Budoucí bezpečný šev je compaction při takovém
+driftu zrušit a zopakovat, nikoli obejít nižší gateway cap.
+
 ## Minimální reprodukce
 
 ```bash

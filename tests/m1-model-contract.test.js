@@ -16,9 +16,11 @@ import {
 import {
   LLMGatewayError,
   LLMGatewayErrorCode,
+  callWithAuth,
   callWithPolicy as callGatewayWithPolicy,
   llmGateway,
 } from '../src/llm/gateway.js';
+import { MODEL_RUNTIME_PROFILE } from '../src/llm/model-runtime-profile.js';
 import {
   LLMCallerRole,
   RoleTokenLimits,
@@ -178,6 +180,65 @@ try {
   llmGateway._vramFitProfiles = FIT_VRAM_PROFILES;
 
   suite('M1 model gateway policy — exact provider outcome');
+
+  await testAsync('reference profile caps both policy and legacy provider wires', async () => {
+    const providerBodies = [];
+    const previousProfiles = llmGateway._vramFitProfiles;
+    llmGateway._vramFitProfiles = Object.freeze({
+      ...previousProfiles,
+      [MODEL_RUNTIME_PROFILE.model]: Object.freeze({
+        modelWeightsMb: 1000,
+        kvMbPer1k: 100,
+        observeVram: async () => ({
+          totalMb: 2500,
+          freeMb: 2500,
+          source: 'profile-cap-boundary',
+        }),
+      }),
+    });
+    globalThis.fetch = async (_url, options = {}) => {
+      providerBodies.push(JSON.parse(options.body));
+      return providerResponse({
+        json: {
+          message: { content: 'profile-capped' },
+          prompt_eval_count: 2,
+          eval_count: 1,
+        },
+      });
+    };
+
+    try {
+      await callWithPolicy(makeToken(), 'policy profile cap', {
+        model: MODEL_RUNTIME_PROFILE.model,
+        num_ctx: MODEL_RUNTIME_PROFILE.contextWindowTokens * 2,
+        capability: 'reasoning',
+        maxTokens: 8,
+        correlation: correlation('profile-policy-cap'),
+      });
+      await callWithAuth(makeToken(), 'legacy profile cap', {
+        model: MODEL_RUNTIME_PROFILE.model,
+        num_ctx: MODEL_RUNTIME_PROFILE.contextWindowTokens * 2,
+        maxTokens: 8,
+        retries: 1,
+        correlation: correlation('profile-legacy-cap'),
+      });
+      await callWithPolicy(makeToken(), 'policy lower context', {
+        model: MODEL_RUNTIME_PROFILE.model,
+        num_ctx: 2048,
+        capability: 'reasoning',
+        maxTokens: 8,
+        correlation: correlation('profile-policy-lower'),
+      });
+
+      assertEqual(providerBodies.length, 3);
+      assertEqual(providerBodies[0].options.num_ctx, MODEL_RUNTIME_PROFILE.contextWindowTokens);
+      assertEqual(providerBodies[1].options.num_ctx, MODEL_RUNTIME_PROFILE.contextWindowTokens);
+      assertEqual(providerBodies[2].options.num_ctx, 2048);
+      assertSemaphoreReleased();
+    } finally {
+      llmGateway._vramFitProfiles = previousProfiles;
+    }
+  });
 
   await testAsync('one valid provider result keeps correlation and never audits prompt content', async () => {
     runtimeSignals.length = 0;

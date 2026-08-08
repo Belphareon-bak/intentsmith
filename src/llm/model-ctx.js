@@ -16,6 +16,10 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { logger } from '../core/logger.js';
+import {
+  capModelContextWindow,
+  getModelRuntimeProfile,
+} from './model-runtime-profile.js';
 
 // Per-model effective num_ctx cache
 const _cache = new Map();
@@ -50,6 +54,12 @@ function nonNegativeFinite(value) {
 
 function validNumCtx(value) {
   return Number.isSafeInteger(value) && value >= 512;
+}
+
+function modelCacheKey(modelName) {
+  return typeof modelName === 'string' && modelName.trim().length > 0
+    ? modelName.trim().toLowerCase()
+    : null;
 }
 
 function modelFootprint(modelName, modelWeightsMb, kvMbPer1k) {
@@ -222,23 +232,39 @@ export async function fitsVram(modelName, options = {}) {
  * Called by VRAMManager after computing VRAM-aware context, or by initModelNumCtx().
  */
 export function setNumCtx(modelName, numCtx) {
-  if (
-    modelName
-    && Number.isSafeInteger(numCtx)
-    && numCtx >= 512
-    && numCtx <= 262144
-  ) {
-    _cache.set(String(modelName).toLowerCase(), numCtx);
-  }
+  const key = modelCacheKey(modelName);
+  const effective = capModelContextWindow(modelName, numCtx);
+  if (key && effective !== null) _cache.set(key, effective);
 }
 
 /**
  * Get the effective num_ctx for a model.
- * Returns the cached VRAM-optimized value, or fallback (default 8192).
+ * Returns the cached VRAM-optimized value, the committed profile ceiling, or
+ * the caller fallback (default 8192), in that order.
  */
 export function getNumCtx(modelName, fallback = 8192) {
-  if (!modelName) return fallback;
-  return _cache.get(String(modelName).toLowerCase()) ?? fallback;
+  const key = modelCacheKey(modelName);
+  if (!key) return fallback;
+  const cached = _cache.get(key);
+  if (validNumCtx(cached)) return cached;
+  return getModelRuntimeProfile(modelName)?.contextWindowTokens ?? fallback;
+}
+
+/**
+ * Resolve a request-level context without allowing it to exceed the effective
+ * cache/profile ceiling. Models without either ceiling preserve a valid
+ * explicit request and do not inherit the reference model profile.
+ */
+export function resolveNumCtx(modelName, requestedNumCtx, fallback = 8192) {
+  const key = modelCacheKey(modelName);
+  const cached = key ? _cache.get(key) : null;
+  const profileLimit = getModelRuntimeProfile(modelName)?.contextWindowTokens ?? null;
+  const ceiling = validNumCtx(cached) ? cached : profileLimit;
+  if (validNumCtx(requestedNumCtx) && requestedNumCtx <= 262144) {
+    return validNumCtx(ceiling) ? Math.min(requestedNumCtx, ceiling) : requestedNumCtx;
+  }
+  if (validNumCtx(ceiling)) return ceiling;
+  return fallback;
 }
 
 /** Clear cache (e.g. after model change). */
@@ -340,10 +366,11 @@ export async function initModelNumCtx(
   numCtx = Math.max(2048, numCtx);
 
   setNumCtx(modelName, numCtx);
+  const effectiveNumCtx = getNumCtx(modelName, numCtx);
 
-  logger.info('ModelCtx', `Initialized ${modelName}: num_ctx=${numCtx}`, {
-    declaredCtx, vramNumCtx, final: numCtx,
+  logger.info('ModelCtx', `Initialized ${modelName}: num_ctx=${effectiveNumCtx}`, {
+    declaredCtx, vramNumCtx, computed: numCtx, final: effectiveNumCtx,
   });
 
-  return numCtx;
+  return effectiveNumCtx;
 }

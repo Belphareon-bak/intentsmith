@@ -15,42 +15,132 @@ import {
   fitsVram,
   getNumCtx,
   initModelNumCtx,
+  resolveNumCtx,
   setNumCtx,
 } from '../src/llm/model-ctx.js';
+import {
+  MODEL_RUNTIME_PROFILE,
+  MODEL_RUNTIME_PROFILE_DRIFT_KEYS,
+  MODEL_RUNTIME_PROFILE_KEYS,
+  getModelRuntimeProfile,
+  validateApprovedModelRuntimeProfile,
+  validateModelRuntimeProfile,
+} from '../src/llm/model-runtime-profile.js';
+
+suite('Committed model runtime profile');
+
+test('pins the exact approved dimensions without claiming a physical VRAM fit', () => {
+  const expectedProfileKeys = [
+    'contextWindowTokens',
+    'digestSha256',
+    'fallbackPolicy',
+    'minimumGpuResidencyPercent',
+    'minimumHeadroomMiB',
+    'model',
+    'schemaVersion',
+  ];
+  const expectedDriftKeys = expectedProfileKeys.filter(key => key !== 'schemaVersion');
+  assertEqual(Object.isFrozen(MODEL_RUNTIME_PROFILE), true);
+  assertEqual(MODEL_RUNTIME_PROFILE.schemaVersion, 1);
+  assertEqual(MODEL_RUNTIME_PROFILE.model, 'qwen3.5:27b');
+  assertEqual(
+    MODEL_RUNTIME_PROFILE.digestSha256,
+    '7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e',
+  );
+  assertEqual(MODEL_RUNTIME_PROFILE.contextWindowTokens, 4096);
+  assertEqual(MODEL_RUNTIME_PROFILE.minimumHeadroomMiB, 1024);
+  assertEqual(MODEL_RUNTIME_PROFILE.minimumGpuResidencyPercent, 100);
+  assertEqual(MODEL_RUNTIME_PROFILE.fallbackPolicy, 'forbid');
+  assertEqual(
+    JSON.stringify(Object.keys(MODEL_RUNTIME_PROFILE).sort()),
+    JSON.stringify(expectedProfileKeys),
+  );
+  assertEqual(JSON.stringify(MODEL_RUNTIME_PROFILE_KEYS), JSON.stringify(expectedProfileKeys));
+  assertEqual(JSON.stringify(MODEL_RUNTIME_PROFILE_DRIFT_KEYS), JSON.stringify(expectedDriftKeys));
+  assertEqual('modelWeightsMb' in MODEL_RUNTIME_PROFILE, false);
+  assertEqual('kvMbPer1k' in MODEL_RUNTIME_PROFILE, false);
+});
+
+test('rejects incomplete, extended, malformed, and dimension-drifted profiles', () => {
+  const missing = { ...MODEL_RUNTIME_PROFILE };
+  delete missing.digestSha256;
+  assertEqual(validateModelRuntimeProfile(missing).valid, false);
+  assertEqual(validateModelRuntimeProfile({ ...MODEL_RUNTIME_PROFILE, provider: 'ollama' }).valid, false);
+  assertEqual(validateModelRuntimeProfile({ ...MODEL_RUNTIME_PROFILE, schemaVersion: 2 }).valid, false);
+  assertEqual(validateModelRuntimeProfile({ ...MODEL_RUNTIME_PROFILE, digestSha256: 'bad' }).valid, false);
+
+  const alternatives = {
+    model: 'other:1b',
+    digestSha256: 'b'.repeat(64),
+    contextWindowTokens: 8192,
+    minimumHeadroomMiB: 2048,
+    minimumGpuResidencyPercent: 99,
+    fallbackPolicy: 'allow',
+  };
+  for (const key of MODEL_RUNTIME_PROFILE_DRIFT_KEYS) {
+    const validation = validateApprovedModelRuntimeProfile({
+      ...MODEL_RUNTIME_PROFILE,
+      [key]: alternatives[key],
+    });
+    assertEqual(validation.valid, false, `${key} drift must fail`);
+    assert(validation.errors.includes(`drift:${key}`), `${key} drift reason missing`);
+  }
+});
+
+test('applies only to the exact reference model identity', () => {
+  assertEqual(getModelRuntimeProfile(' QWEN3.5:27B '), MODEL_RUNTIME_PROFILE);
+  assertEqual(getModelRuntimeProfile('qwen3.5:27b:latest'), null);
+  assertEqual(getModelRuntimeProfile('other:27b'), null);
+});
 
 suite('Effective model context registry');
 
-test('returns the conservative default before initialization', () => {
+test('returns the committed ceiling before reference-model initialization', () => {
   clearNumCtxCache();
-  assertEqual(getNumCtx('qwen3.5:27b'), 8192);
+  assertEqual(getNumCtx('qwen3.5:27b'), 4096);
 });
 
-test('supports an explicit caller fallback', () => {
+test('supports an explicit caller fallback for an unprofiled model', () => {
   clearNumCtxCache();
-  assertEqual(getNumCtx('qwen3.5:27b', 4096), 4096);
+  assertEqual(getNumCtx('fixture:1b', 4096), 4096);
 });
 
 test('normalizes model names for cache lookup', () => {
   clearNumCtxCache();
-  setNumCtx('QWEN3.5:27B', 6144);
-  assertEqual(getNumCtx('qwen3.5:27b'), 6144);
+  setNumCtx('FIXTURE:1B', 6144);
+  assertEqual(getNumCtx('fixture:1b'), 6144);
 });
 
 test('does not cache invalid or unsafe context sizes', () => {
   clearNumCtxCache();
-  setNumCtx('qwen3.5:27b', Number.NaN);
-  setNumCtx('qwen3.5:27b', 511);
-  setNumCtx('qwen3.5:27b', 2048.5);
-  setNumCtx('qwen3.5:27b', 262145);
+  setNumCtx('fixture:1b', Number.NaN);
+  setNumCtx('fixture:1b', 511);
+  setNumCtx('fixture:1b', 2048.5);
+  setNumCtx('fixture:1b', 262145);
   setNumCtx('', 4096);
-  assertEqual(getNumCtx('qwen3.5:27b', 3072), 3072);
+  assertEqual(getNumCtx('fixture:1b', 3072), 3072);
 });
 
 test('cache clear revokes a previously computed value', () => {
   clearNumCtxCache();
-  setNumCtx('qwen3.5:27b', 4096);
+  setNumCtx('fixture:1b', 4096);
   clearNumCtxCache();
-  assertEqual(getNumCtx('qwen3.5:27b', 2048), 2048);
+  assertEqual(getNumCtx('fixture:1b', 2048), 2048);
+});
+
+test('cache and request values can lower but never raise the reference ceiling', () => {
+  clearNumCtxCache();
+  setNumCtx('qwen3.5:27b', 8192);
+  assertEqual(getNumCtx('qwen3.5:27b'), 4096);
+  assertEqual(resolveNumCtx('qwen3.5:27b', 8192), 4096);
+  assertEqual(resolveNumCtx('qwen3.5:27b', 2048), 2048);
+
+  setNumCtx('qwen3.5:27b', 2048);
+  assertEqual(getNumCtx('qwen3.5:27b'), 2048);
+  assertEqual(resolveNumCtx('qwen3.5:27b', 4096), 2048);
+
+  clearNumCtxCache();
+  assertEqual(resolveNumCtx('unprofiled:1b', 32768), 32768);
 });
 
 suite('Offline VRAM fit classification');
@@ -143,6 +233,17 @@ await testAsync('unknown model footprint does not probe the host implicitly', as
   assertEqual(unknown.reason, VramFitReason.FOOTPRINT_UNKNOWN);
   assertEqual(observerCalls, 0);
 
+  const profiledUnknown = await fitsVram(MODEL_RUNTIME_PROFILE.model, {
+    numCtx: MODEL_RUNTIME_PROFILE.contextWindowTokens,
+    observeVram: async () => {
+      observerCalls += 1;
+      return { totalMb: 24576, freeMb: 24576, source: 'fixture' };
+    },
+  });
+  assertEqual(profiledUnknown.state, VramFitState.UNKNOWN);
+  assertEqual(profiledUnknown.reason, VramFitReason.FOOTPRINT_UNKNOWN);
+  assertEqual(observerCalls, 0, 'runtime profile must not become physical FIT evidence');
+
   const explicit = await fitsVram('custom-model', {
     numCtx: 2048,
     modelWeightsMb: 1000,
@@ -186,6 +287,28 @@ await testAsync('initialization respects the model-declared context ceiling', as
     });
     assertEqual(numCtx, 2048);
     assertEqual(getNumCtx('test-model:1b'), 2048);
+  } finally {
+    globalThis.fetch = originalFetch;
+    clearNumCtxCache();
+  }
+});
+
+await testAsync('reference initialization cannot raise the committed ceiling', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    json: async () => ({
+      model_info: { 'qwen.context_length': 262144 },
+    }),
+  });
+
+  try {
+    clearNumCtxCache();
+    const numCtx = await initModelNumCtx('qwen3.5:27b', 'http://unit.test', {
+      observeVram: async () => ({ totalMb: 98304, usedMb: 0 }),
+    });
+    assertEqual(numCtx, 4096);
+    assertEqual(getNumCtx('qwen3.5:27b'), 4096);
   } finally {
     globalThis.fetch = originalFetch;
     clearNumCtxCache();
