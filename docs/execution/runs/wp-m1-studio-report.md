@@ -1,6 +1,6 @@
 # WP-M1-STUDIO — průběžný report
 
-- **stav WP:** `IN_PROGRESS`; checkpointy 1–4 READY
+- **stav WP:** `PARTIAL / BLOCKED` na REVIEW GATE 1; checkpointy 1–4 READY
 - **base SHA:** `b7d0dbf61370b52061e6a736517ecdcb53118209`
 - **scope:** B4 podle `docs/execution/m1-batch.md`
 - **UI baseline:** výslovně mimo scope; spuštěné Studio není finální UI
@@ -265,8 +265,8 @@ na okamžik úspěšné konstrukce a dostal vlastní negativní test. Review tak
 vyžádal test druhého outage po obnově, takže odstranění resetu exhaustion latch
 už nemůže zůstat zelené. Poslední async-close probe odhalil, že late ACK po
 timeoutu mohl před `onclose` vytvořit false-ready a resetovat budget; explicitní
-handshake latch a negativní test tuto větev zavřely. Kontrola shutdownu navíc připnula zachování
-`edit:resolved(disconnect)` pro pending approval.
+handshake latch a negativní test tuto větev zavřely. Kontrola shutdownu navíc
+připnula zachování `edit:resolved(disconnect)` pro pending approval.
 
 ### Commit battery
 
@@ -326,3 +326,23 @@ serverem vynutit read-only/effect authority.
    pořadí assistant-before-turn-end; pro B4 acceptance se musí změnit.
 5. Terminal STOP neruší backendový proces. To je M2 finding mimo B4 chat scope,
    nikoli důvod rozšířit tento checkpoint.
+
+## B4 exit stav pro REVIEW GATE 1
+
+| Povinné chování briefu | Stav | Evidence / důvod |
+|---|---|---|
+| stabilní panel identity a cancel A bez zásahu do B | PASS | client 25/25; WS bridge 67/67 včetně scoped cancel |
+| serverem ověřený rehydrate a invalid ID cleanup | PASS s omezením | ACK wire test, epoch/client negativy; empty-history autorita je BLOCK 012 |
+| bounded reconnect a řízený shutdown | PASS na client contract vrstvě | přesný cap, handshake timeout, async-close race a destroy testy |
+| přesný M1 terminal consumer, late assistant a spinner terminal větve | BLOCKED | runtime delivery kanonického kontraktu čeká na rozhodnutí 010 |
+| HTTP fallback: non-2xx nikdy jako assistant a žádný effect bypass | BLOCKED | rozhodnutí 011; samotný parser by zakryl approval bypass |
+| built Theia multi-panel/cancel/restart journey | NOT RUN | závisí na terminal consumeru; dnešní UI není finální baseline |
+| fresh-clone build parity | NOT RUN pro tento B4 tip | M0-E disposition zůstává platná, ale nový B4 runtime nebyl z clean clone spuštěn |
+| bounded renderer soak na skutečném displeji | NOT RUN / INCONCLUSIVE | prostředí nebylo v B4 použito jako produktový displej; žádný formální PARK zatím nevznikl a M1 exit se netvrdí |
+
+B4 tedy nekončí jako PASS. Bezpečně nezávislý scope je vyčerpaný a další změna
+by musela vybrat některý z blokovaných produktových, connectorových nebo
+datových směrů. Implementační commity B4 jsou `50280fcd`, `d145e95e`,
+`446d197f`, `8e68a92e` a `a4067cd6`; výchozí dependency je `b7d0dbf6`.
+Rozhodovací fronta B4 je 010–013. Souhrnný balík je v
+`docs/execution/review-gate-1.md`.
