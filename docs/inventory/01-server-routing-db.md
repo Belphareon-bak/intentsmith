@@ -80,7 +80,7 @@ Uvádím jen to, co jsem si ověřil. Sporné věci patří do seznamu 3.
 
 | # | Zjištění | Otázka na operátora |
 |---|---|---|
-| **N-1** | **19 z 36 rout v `system.js` obsluhuje modely, upgrady a proposals.** Tedy schopnost #18 (model upgrade), kterou jsi zařadil mimo základ, má víc než polovinu povrchu zapuštěnou přímo v jádrových routách #1. | #18 nejde odložit „nedotýkáním se jí". Buď se její routy z `system.js` vyčlení, nebo je #18 fakticky součástí základu. Co z toho? |
+| **N-1** | **19 z 36 rout v `system.js` obsluhuje správu modelů, upgrady a proposals.** #18 je od té doby rozdělená na core správu #18a a volitelnou automatiku #18b. | Při hluboké inventuře oddělit contract #18a od opt-in #18b; samotná společná route plocha nerozhoduje scope. |
 | **N-2** | **Server při každém startu zapisuje 6 ukázkových agentů do DB** (`src/agents/examples/*.json`) a plánuje je ve scheduleru. Viděl jsem to v logu při prvním bootu. | Jsou ukázkoví agenti produktová funkce, demo data, nebo pozůstatek vývoje? Dnes se chovají jako produkční data. |
 | **N-3** | **`GET /api/license/status`** vrací `tier`, `valid`, `features`, `expiresAt`, `owner` z `licenseManager`. | Existuje licenční model? Pokud ne, je to mrtvá plocha; pokud ano, patří do roadmapy. |
 | **N-4** | **Governor** — 6 rout, modul `src/system/governor/`. `docs/governor-v135-plan.md` ho vede jako **`PLANNED — awaiting approval`** z 2026-03-27, ale routy běží. | Je governor schválený a hotový, nebo běží něco, co čeká na schválení? |

@@ -14,7 +14,9 @@
 **Testy:** 7 sad — `offline` 3, `server` 2, `model` 2. `lastGreen: 0`.
 
 ## Dobré, použije se
-- **Poločas rozpadu místo mazání** — LTM 69 dní, task memory 139 dní. Paměť slábne, nezmizí skokem.
+- **Confidence decay** — LTM 69 dní, task memory 139 dní. Samostatně existuje
+  TTL, explicitní `forget()` a retenční mazání; decay není privacy-delete ani
+  retention mechanismus.
 - **`policy.js` (265 ř.) odděleně** — pravidla, co se smí pamatovat, mimo mechaniku ukládání.
 - **`injection-ranker`** — `score = effConf × relevance`. Co se vloží do promptu, je spočítané, ne heuristika v handleru.
 - **`feedback-detector`** — 6 typů signálu, ze kterých se paměť posiluje.

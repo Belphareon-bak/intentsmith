@@ -29,6 +29,6 @@ Nic prokazatelného.
 ## Nejasné
 | # | Zjištění | Otázka |
 |---|---|---|
-| **E-1** | **`specialist-runtime.js` (572 ř.), `scenario-engine.js` (511 ř.) a `knowledge-base.js` (433 ř.) leží v `src/expertises/`, ale patří ke specialistům (#8), kteří jsou mimo základ.** 1 516 řádků, 16 % schopnosti. | Třetí výskyt téhož vzoru (`N-1`, `P-2`): nízkoprioritní schopnost má kód uvnitř základní. Rozdělit adresář, nebo přijmout, že #7 a #8 jsou jedna schopnost? |
+| **E-1** | **`specialist-runtime.js` (572 ř.), `scenario-engine.js` (511 ř.) a `knowledge-base.js` (433 ř.) leží v `src/expertises/`, ale patří ke specialistům (#8).** 1 516 řádků, 16 % schopnosti. | Specialist platforma + jeden E2E je v 1.0 M3. Hranici řešit extension contractem; samotný přesun souborů nemusí oddělit sdílenou logiku. |
 | **E-2** | **`expertise-layer.js` má 1 682 řádků** a drží registry, 18 vestavěných expertíz, auto-select i enforcement pipeline. | Rozdělit? |
 | **E-3** | **18 expertíz v běhu vs. 15 v dokumentaci.** Tři přibyly (`sazeni`, `translator`, `code_reviewer` odpovídají specialistům). | Jsou to expertizy, nebo expertizy generované specialisty? Souvisí s `E-1`. |

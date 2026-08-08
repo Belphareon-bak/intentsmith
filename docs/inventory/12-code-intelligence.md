@@ -30,6 +30,6 @@ Nic prokazatelného.
 ## Nejasné
 | # | Zjištění | Otázka |
 |---|---|---|
-| **CI-1** | **`debug-agent.js` (508 ř.)** je agent uvnitř code intelligence, zatímco agenti (#14) jsou mimo základ a execution loop je #11. | Kam patří? Popáté týž vzor. |
+| **CI-1** | **`debug-agent.js` (508 ř.)** je agent uvnitř Code Intelligence, zatímco obecná agent platforma je #14 a execution loop #11. | Určit, zda jde o interní algoritmus nebo konzumenta agent connectoru; #14 je v 1.0 M3, takže odklad podle „mimo základ" už neplatí. |
 | **CI-2** | **`perf-analyzer.js` (438 ř.)** — analýza výkonu analyzovaného kódu, nebo výkonu C3 samotného? Z názvu to nepoznám. | Zjistit a zařadit. |
 | **CI-3** | **33 souborů, 11 634 řádků, žádný dominantní soubor** — nejrovnoměrněji rozložená schopnost projektu. | Není otázka, je to pozorování: tenhle modul vypadá architektonicky nejzdravěji. Stojí za to podívat se, proč — může to být vzor pro rozdělení ostatních. |

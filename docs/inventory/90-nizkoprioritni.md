@@ -1,11 +1,12 @@
-# Inventura — schopnosti mimo základ
+# Inventura — rozšíření a volitelné subsystémy
 
 **#8, #14, #17, #18b, #19, #20** · **2026-08-02** · `17a8b9a8`
 
-> `CONTRACT.md` §6: nízkoprioritní schopnosti dostanou **jen inventuru**, aby
-> bylo o čem rozhodovat. Proto jsou v jednom dokumentu a mělčeji než základ.
+> Specialisté a agenti jsou od 2026-08-03 v rozsahu 1.0 jako platforma + jeden
+> reálný E2E každého typu (M3). Ostatní subsystémy vstupují podle schváleného
+> user journey a dependency DAG. Dokument zůstává mělkou výchozí inventurou.
 
-**Celkem mimo základ: ~23 000 řádků, 55 testových sad, `lastGreen: 0` u všech.**
+**Celkem v této skupině: ~23 000 řádků, 55 historicky mapovaných testových sad.**
 
 ---
 
@@ -16,7 +17,10 @@ Balíčky: `accountant-cz`, `code-reviewer`, `dummy-logger`, `sazeni`, `translat
 **Testy:** 23 sad — `offline` 17, `model` 3, `server` 2, `manual` 1
 **Za běhu:** všech 5 registrovaných, **všichni vypnutí**
 
-**Dobré:** soběstačnost (invariant L0-8, žádný `import ../../src/`), `ctx.registries` jako jediné API, deterministický boot přes Kahnův algoritmus, fail-safe unregister, 17 `offline` sad.
+**Dobré:** `ctx.registries`, deterministický boot přes Kahnův algoritmus,
+fail-safe unregister, 17 `offline` sad. **L0-8 dnes neplatí:** accountant-cz má
+jeden vykonávaný přímý import do interního `src/**`; současný loader guard není
+rekurzivní ani fail-closed.
 **Nejasné:** dalších **1 516 řádků specialistů leží v `src/expertises/`** (`specialist-runtime`, `scenario-engine`, `knowledge-base`) — viz `E-1`. Skutečný rozsah #8 je tedy ~2 900 ř., ne 1 379.
 
 ---
@@ -49,7 +53,7 @@ Balíčky: `accountant-cz`, `code-reviewer`, `dummy-logger`, `sazeni`, `translat
 
 **Dobré:** invariant L0-9 (nikdy neupgraduje sám, komunikace jen přes proposals v DB); `proposal-store.js` s cooldownem proti thrashingu; 10 `offline` sad.
 **Nejasné — a je toho hodně:**
-- **~1 475 řádků síťových klientů** (`whatllm-client`, `registry-client`, `online-discovery`) chodí na internet hledat modely. **V local-first produktu je tohle jediná část, která z principu volá ven.**
+- **~1 475 řádků síťových klientů** (`whatllm-client`, `registry-client`, `online-discovery`) chodí na internet hledat modely. Background discovery je default off; nejde ale o jedinou outbound plochu produktu, protože explicitní síť používají také tools, marketplace, agent sources/actions a notifikace.
 - `model-universe-store.js` má 1 919 řádků — největší soubor v celém `src/upgrade/`. Co „universe" je?
 - 9 470 řádků na funkci, kterou si podle tvého zadání nikdo nevyžádal.
 - **Toto je hlavní kandidát na inventuru „co je dobré / zbytečné / nejasné" v tvém původním smyslu.**

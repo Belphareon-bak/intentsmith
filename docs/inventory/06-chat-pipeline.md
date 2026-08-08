@@ -25,6 +25,6 @@ Neurčeno. **Na 20 400 řádků je tahle inventura strukturální, ne řádková
 | # | Zjištění | Otázka |
 |---|---|---|
 | **P-1** | **20 400 řádků a 46 souborů na jednu schopnost.** Obsahuje routing, syntézu, expertizy, lifecycle, soubory, skills, wizard, design. | Rozdělit — a podle čeho? Nabízí se řez podle intentu (konverzační / projektové / souborové / wizard). |
-| **P-2** | **`agent-wizard.js` (671 ř.)** je průvodce tvorbou agenta — schopnost #14 je přitom mimo základ. | Stejný případ jako `N-1` u #18: nízkoprioritní schopnost má povrch v jádru. |
+| **P-2** | **`agent-wizard.js` (671 ř.)** je průvodce tvorbou agenta uvnitř chat handlerů. | Agent platforma + jeden E2E je v 1.0 M3; definovat connector mezi chatem a agent platformou místo odkladu podle adresáře. |
 | **P-3** | **`expertise.js` (895 ř.) v handlerech** vs. `src/expertises/` (9 464 ř.) jako #7. | Kde končí handler a začíná schopnost #7? |
 | **P-4** | **Inventura je zde mělčí než u ostatních schopností.** | Než se na #6 sáhne, potřebuje vlastní hlubší průchod. Doporučuji to jako samostatný úkol, ne jako součást téhle vlny. |
