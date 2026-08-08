@@ -1,8 +1,9 @@
 # WP-M1-CHAT — průběžný report
 
-- **stav:** IN PROGRESS
+- **stav:** IMPLEMENTED, M1 exit `PARTIAL` kvůli BLOCK 004 a navazujícímu B3
 - **base:** `86defcefd0abb1f1a521d6574f749b4e1122b453`
 - **scope:** B2 podle `docs/execution/m1-batch.md`
+- **produktové checkpointy:** `71769051`, `5a95e1f7`, `f62f3fc5`, `eb01abb2`
 
 ## Checkpoint 1 — fail-closed persistence hranice
 
@@ -128,7 +129,7 @@ Focused adapter sada připíná exact validaci příkazu a výsledku, nezměněn
 trojici identity, persist-before-send pořadí, sanitizované provider/persistence/
 generic terminály, deadline, typed user abort a fail-closed prázdný output.
 
-## Zbývá před uzavřením WP
+## Otevřeno po checkpointu 3
 
 - explicitní HTTP scoped cancel zůstává jedinou zastavenou větví podle
   rozhodnutí 004; provider error a timeout jsou již připnuté na request adaptéru;
@@ -175,3 +176,26 @@ nevyžaduje předem běžící server, Ollamu ani GPU.
 | `node tests/artifact-validation.test.js` | 151 passed, 0 failed | 0 |
 | `node tests/repository-hygiene.test.js` | 1457 tracked paths | 0 |
 | `git diff --check` | bez chyb | 0 |
+
+## B2 exit stav
+
+Všechny povinné B2 ověřovací programy byly po produktových commitech znovu
+spuštěny nad čistým HEAD `eb01abb2`:
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/deterministic-answer-latency.test.js` | 3 passed, 0 failed | 0 |
+| `node tests/confirmation-ownership.test.js` | 5 passed, 0 failed | 0 |
+| `node tests/routes-smoke.test.js` | 109 passed, 0 failed | 0 |
+| `timeout --signal=TERM --kill-after=10s 180s node tests/chat-persistence.test.js` | 35 passed, 0 failed; HTTP 67,4 ms | 0 |
+| `node tests/m1-chat-contract.test.js` | 15 passed, 0 failed | 0 |
+
+B2 implementační scope je vyčerpaný bez změny connectoru. M1 exit se ale
+pravdivě nehlásí jako PASS:
+
+- explicitní HTTP `action: cancel` čeká na operátorskou volbu A/B/C v
+  `docs/decisions/004-m1-http-cancel-target.md`;
+- skutečný modelový request je měřen až v jediném vlastněném GPU okně B3,
+  protože B2 má `src/llm/**` zakázané a B3 je výslovný vlastník GPU;
+- B4 nesmí implementovat Studio scoped cancel, dokud se rozhodnutí 004
+  neuzavře.
