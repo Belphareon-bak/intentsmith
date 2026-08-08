@@ -1046,7 +1046,10 @@ class LLMGateway {
             abortSource: 'network',
           });
         } else {
-          logger.warn('LLMGateway', `Error (attempt ${attempt}/${maxRetries}): ${err.message}`);
+          const normalizedError = normalizeProviderFailure(err);
+          logger.warn('LLMGateway', `Provider attempt ${attempt}/${maxRetries} failed`, {
+            errorCode: normalizedError?.code || err?.name || 'LLM_PROVIDER_FAILURE',
+          });
         }
 
         if (attempt < maxRetries) {

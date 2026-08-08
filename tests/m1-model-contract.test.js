@@ -3,7 +3,9 @@
 import {
   assert,
   assertEqual,
+  assertThrows,
   suite,
+  test,
   summary,
   testAsync,
 } from './harness.js';
@@ -12,11 +14,23 @@ import {
   abortWithReason,
 } from '../src/core/abort-error.js';
 import {
+  LLMGatewayError,
   LLMGatewayErrorCode,
   callWithPolicy as callGatewayWithPolicy,
   llmGateway,
 } from '../src/llm/gateway.js';
-import { createAuthToken } from '../src/llm/auth-types.js';
+import {
+  LLMCallerRole,
+  RoleTokenLimits,
+  createAuthToken,
+  validateAuthToken,
+} from '../src/llm/auth-types.js';
+import {
+  executeM1ModelRequest,
+  mapM1ModelFailure,
+} from '../src/llm/cre-bridge.js';
+import { config } from '../src/config.js';
+import { validateModelResult } from '../contracts/m1/index.js';
 import { modelUniverseStore } from '../src/upgrade/model-universe-store.js';
 
 const originalFetch = globalThis.fetch;
@@ -26,6 +40,7 @@ const originalQueueTimeout = llmGateway._concurrency.queueTimeout;
 const originalStrictMode = llmGateway.strictMode;
 const originalCurrentAuth = llmGateway.currentAuth;
 const originalVramFitProfiles = llmGateway._vramFitProfiles;
+const originalModelBindings = { ...config.models };
 
 let tokenSequence = 0;
 const secretCanary = 'private-prompt-canary-never-audit';
@@ -67,6 +82,40 @@ function correlation(suffix) {
   };
 }
 
+function modelRequest(suffix, overrides = {}) {
+  return {
+    contract: 'ModelRequest',
+    version: 1,
+    requestId: `m1-adapter-request-${suffix}`,
+    conversationId: `m1-adapter-conversation-${suffix}`,
+    turnId: `m1-adapter-turn-${suffix}`,
+    callerRole: LLMCallerRole.CRE_DECISION,
+    modelRole: 'CHAT',
+    purpose: 'answer',
+    prompt: secretCanary,
+    ...overrides,
+  };
+}
+
+function modelAuthority(request, overrides = {}) {
+  return createAuthToken({
+    role: request.callerRole,
+    decisionId: request.requestId,
+    auditContext: {
+      sessionId: request.conversationId,
+      stepId: request.turnId,
+    },
+    ...overrides,
+  });
+}
+
+function executeAuthorizedModelRequest(request, runtime = {}) {
+  return executeM1ModelRequest(request, {
+    ...runtime,
+    authToken: modelAuthority(request),
+  });
+}
+
 function providerResponse({ status = 200, json = {}, text = '' } = {}) {
   return {
     ok: status >= 200 && status < 300,
@@ -89,6 +138,34 @@ function assertSemaphoreReleased() {
   const stats = llmGateway.getConcurrencyStats();
   assertEqual(stats.active, 0, 'gateway active slot must be released');
   assertEqual(stats.queued, 0, 'gateway queue must be empty');
+}
+
+function assertM1TerminalAudit(
+  auditStart,
+  request,
+  result,
+  expectedCallerRole = request.callerRole,
+) {
+  const entries = llmGateway.getAuditLogs().slice(auditStart).filter(entry => (
+    entry.event === 'M1_MODEL_RESULT'
+    && entry.requestId === request.requestId
+  ));
+  assertEqual(entries.length, 1, 'request must emit exactly one M1 terminal audit');
+  const [entry] = entries;
+  assertEqual(entry.requestId, result.requestId);
+  assertEqual(entry.conversationId, result.conversationId);
+  assertEqual(entry.turnId, result.turnId);
+  assertEqual(entry.callerRole, expectedCallerRole);
+  assertEqual(
+    entry.modelRole,
+    ['D1', 'D2', 'CODE', 'R1', 'R2', 'CHAT'].includes(request.modelRole)
+      ? request.modelRole
+      : null,
+  );
+  assertEqual(entry.purpose, request.purpose);
+  assertEqual(entry.status, result.status);
+  assertEqual(entry.errorCode, result.error?.code ?? null);
+  return entry;
 }
 
 try {
@@ -803,6 +880,478 @@ try {
       llmGateway._concurrency.queueTimeout = previousQueueTimeout;
     }
   });
+
+  suite('M1 model auth — issued, immutable process-local authority');
+
+  test('token factory rejects prototype roles and freezes all authority fields', () => {
+    assertThrows(() => createAuthToken({
+      role: 'toString',
+      decisionId: 'prototype-role-to-string',
+      auditContext: { sessionId: 'prototype-role-session' },
+    }));
+    assertThrows(() => createAuthToken({
+      role: 'constructor',
+      decisionId: 'prototype-role-constructor',
+      auditContext: { sessionId: 'prototype-role-session' },
+    }));
+
+    const token = makeToken();
+    assertEqual(validateAuthToken(token).valid, true);
+    assertEqual(Object.isFrozen(token), true);
+    assertEqual(Object.isFrozen(token.allowedCapabilities), true);
+    assertEqual(Object.isFrozen(token.auditContext), true);
+    assertThrows(() => token.allowedCapabilities.push('code_generation'));
+    assertThrows(() => { token.maxTokens = 65536; });
+    assertThrows(() => createAuthToken({
+      role: LLMCallerRole.CRE_DECISION,
+      decisionId: 'unknown-capability',
+      auditContext: { sessionId: 'unknown-capability-session' },
+      capabilities: ['not-a-capability'],
+    }));
+  });
+
+  await testAsync('forged, spread, and cloned token fields never authorize a provider effect', async () => {
+    let fetchCalls = 0;
+    globalThis.fetch = async () => {
+      fetchCalls += 1;
+      throw new Error('forged token reached provider');
+    };
+    const issued = makeToken();
+    const fixtures = [
+      { ...issued },
+      structuredClone(issued),
+      {
+        role: 'ATTACKER',
+        decisionId: 'forged-attacker',
+        maxTokens: 65536,
+        allowedCapabilities: ['reasoning'],
+        auditContext: { sessionId: 'forged-session' },
+        issuedAt: Date.now(),
+        expiresAt: Date.now() + 300000,
+      },
+    ];
+    for (let index = 0; index < fixtures.length; index += 1) {
+      const forged = fixtures[index];
+      assertEqual(validateAuthToken(forged).valid, false);
+      const error = await capturedFailure(callWithPolicy(forged, 'not sent', {
+        model: 'fixture-model:1b',
+        capability: 'reasoning',
+        correlation: {
+          ...correlation(`forged-${index}`),
+          callerRole: forged.role,
+        },
+      }));
+      assertEqual(error.code, LLMGatewayErrorCode.AUTHORIZATION_DENIED);
+    }
+    assertEqual(fetchCalls, 0);
+    assertSemaphoreReleased();
+  });
+
+  suite('M1 ModelRequest adapter — exact terminal connector');
+
+  config.models.CHAT = 'fixture-model:1b';
+
+  await testAsync('payload identity never mints, copies, mismatches, or elevates authority', async () => {
+    let fetchCalls = 0;
+    globalThis.fetch = async () => {
+      fetchCalls += 1;
+      throw new Error('unauthorized adapter request reached provider');
+    };
+    const request = modelRequest('authority-boundary');
+    const issued = modelAuthority(request);
+    const otherRequest = modelRequest('foreign-authority');
+    const fixtures = [
+      [null, 'MODEL_AUTHORIZATION_REQUIRED', null],
+      [{ ...issued }, 'MODEL_AUTHORIZATION_REQUIRED', null],
+      [modelAuthority(otherRequest), 'MODEL_AUTHORIZATION_MISMATCH', request.callerRole],
+      [modelAuthority(request, { maxTokens: 65536 }), 'MODEL_AUTHORIZATION_INVALID', request.callerRole],
+    ];
+    for (const [authToken, expectedCode, expectedCallerRole] of fixtures) {
+      const auditStart = llmGateway.getAuditLogs().length;
+      const result = await executeM1ModelRequest(request, { authToken });
+      assertEqual(validateModelResult(result).valid, true);
+      assertEqual(result.status, 'error');
+      assertEqual(result.error.code, expectedCode);
+      assertM1TerminalAudit(auditStart, request, result, expectedCallerRole);
+    }
+    for (const signal of [
+      'not-an-abort-signal',
+      { aborted: false },
+      Object.create(AbortSignal.prototype),
+    ]) {
+      const runtimeError = await capturedFailure(executeM1ModelRequest(request, {
+        authToken: issued,
+        signal,
+      }));
+      assertEqual(runtimeError.code, 'M1_MODEL_RUNTIME_INVALID');
+    }
+    assertEqual(fetchCalls, 0);
+    assertSemaphoreReleased();
+  });
+
+  await testAsync('request identity and nested parameters are snapshotted before asynchronous work', async () => {
+    const request = modelRequest('snapshot', {
+      parameters: { maxTokens: 17, num_ctx: 4096 },
+    });
+    const originalIdentity = {
+      requestId: request.requestId,
+      conversationId: request.conversationId,
+      turnId: request.turnId,
+    };
+    const authToken = modelAuthority(request);
+    const priorProfiles = llmGateway._vramFitProfiles;
+    let observeStarted;
+    let resolveObservation;
+    const started = new Promise(resolve => { observeStarted = resolve; });
+    const observation = new Promise(resolve => { resolveObservation = resolve; });
+    let body = null;
+    globalThis.fetch = async (_url, options) => {
+      body = JSON.parse(options.body);
+      return providerResponse({ json: { message: { content: 'snapshot result' } } });
+    };
+
+    let result;
+    try {
+      llmGateway._vramFitProfiles = {
+        'fixture-model:1b': {
+          modelWeightsMb: 1040,
+          kvMbPer1k: 9,
+          observeVram: async () => {
+            observeStarted();
+            return observation;
+          },
+        },
+      };
+      const pending = executeM1ModelRequest(request, { authToken });
+      await started;
+      request.requestId = 'mutated-request-id';
+      request.conversationId = 'mutated-conversation-id';
+      request.turnId = 'mutated-turn-id';
+      request.parameters.maxTokens = 65536;
+      request.parameters.num_ctx = 32768;
+      resolveObservation({ totalMb: 32768, freeMb: 32768, source: 'snapshot-fixture' });
+      result = await pending;
+    } finally {
+      llmGateway._vramFitProfiles = priorProfiles;
+    }
+
+    assertEqual(result.requestId, originalIdentity.requestId);
+    assertEqual(result.conversationId, originalIdentity.conversationId);
+    assertEqual(result.turnId, originalIdentity.turnId);
+    assertEqual(body.options.num_predict, 17);
+    assertEqual(body.options.num_ctx, 4096);
+    assertSemaphoreReleased();
+  });
+
+  await testAsync('caller attribution survives token expiry after the authorized effect starts', async () => {
+    const request = modelRequest('expiry-during-effect');
+    const authToken = modelAuthority(request);
+    const auditStart = llmGateway.getAuditLogs().length;
+    const realDateNow = Date.now;
+    const startedAt = realDateNow();
+    globalThis.fetch = async () => {
+      Date.now = () => startedAt + 360001;
+      return providerResponse({ json: { message: { content: 'expiry result' } } });
+    };
+
+    let result;
+    try {
+      result = await executeM1ModelRequest(request, { authToken });
+    } finally {
+      Date.now = realDateNow;
+    }
+
+    assertEqual(result.status, 'ok');
+    const terminal = llmGateway.getAuditLogs().slice(auditStart).find(entry => (
+      entry.event === 'M1_MODEL_RESULT'
+      && entry.requestId === request.requestId
+    ));
+    assert(terminal);
+    assertEqual(terminal.callerRole, request.callerRole);
+    assertSemaphoreReleased();
+  });
+
+  await testAsync('valid request binds configured model, role token cap, usage, and terminal audit', async () => {
+    const auditStart = llmGateway.getAuditLogs().length;
+    let fetchCalls = 0;
+    let body = null;
+    globalThis.fetch = async (_url, options) => {
+      fetchCalls += 1;
+      body = JSON.parse(options.body);
+      return providerResponse({
+        json: {
+          message: { content: 'adapter answer' },
+          prompt_eval_count: 7,
+          eval_count: 5,
+        },
+      });
+    };
+
+    const request = modelRequest('success', {
+      systemPrompt: 'bounded system instruction',
+      parameters: {
+        temperature: 0.2,
+        maxTokens: 65536,
+        num_ctx: 4096,
+        format: 'json',
+      },
+    });
+    const result = await executeAuthorizedModelRequest(request);
+
+    assertEqual(fetchCalls, 1);
+    assertEqual(validateModelResult(result).valid, true);
+    assertEqual(result.status, 'ok');
+    assertEqual(result.response.content, 'adapter answer');
+    assertEqual(result.response.model, config.models.CHAT);
+    assertEqual(result.response.usage.promptEvalCount, 7);
+    assertEqual(result.response.usage.evalCount, 5);
+    assertEqual(body.model, config.models.CHAT);
+    assertEqual(body.options.num_predict, RoleTokenLimits.CRE_DECISION);
+    assertEqual(body.options.num_ctx, 4096);
+    assertEqual(body.format, 'json');
+
+    assertM1TerminalAudit(auditStart, request, result);
+    const audit = llmGateway.getAuditLogs().slice(auditStart);
+    assertEqual(JSON.stringify(audit).includes(secretCanary), false);
+    assertSemaphoreReleased();
+  });
+
+  await testAsync('caller-purpose matrix preserves lifecycle code and review authority', async () => {
+    let fetchCalls = 0;
+    let body = null;
+    globalThis.fetch = async (_url, options) => {
+      fetchCalls += 1;
+      body = JSON.parse(options.body);
+      return providerResponse({ json: { message: { content: 'matrix result' } } });
+    };
+
+    const fixtures = [
+      [LLMCallerRole.WORKFLOW_CODER, 'answer', 'CODE'],
+      [LLMCallerRole.WORKFLOW_REVIEWER, 'refine', 'R1'],
+      [LLMCallerRole.SYNTHESIZER, 'synthesize', 'R2'],
+      [LLMCallerRole.WORKFLOW_CLASSIFIER, 'classify', 'D1'],
+    ];
+    for (let index = 0; index < fixtures.length; index += 1) {
+      const [callerRole, purpose, modelRole] = fixtures[index];
+      const request = modelRequest(`matrix-${index}`, {
+        callerRole,
+        purpose,
+        modelRole,
+      });
+      const result = await executeAuthorizedModelRequest(request);
+      assertEqual(result.status, 'ok');
+      assertEqual(validateModelResult(result).valid, true);
+      assertEqual(body.model, config.models[modelRole]);
+    }
+    assertEqual(fetchCalls, fixtures.length);
+    assertSemaphoreReleased();
+  });
+
+  await testAsync('all text model roles are exact deployment bindings, never request overrides', async () => {
+    let fetchCalls = 0;
+    let body = null;
+    globalThis.fetch = async (_url, options) => {
+      fetchCalls += 1;
+      body = JSON.parse(options.body);
+      return providerResponse({ json: { message: { content: 'bound result' } } });
+    };
+
+    const modelRoles = ['D1', 'D2', 'CODE', 'R1', 'R2', 'CHAT'];
+    for (const modelRole of modelRoles) {
+      const request = modelRequest(`binding-${modelRole}`, {
+        modelRole,
+      });
+      const result = await executeAuthorizedModelRequest(request);
+      assertEqual(result.status, 'ok');
+      assertEqual(result.response.model, config.models[modelRole]);
+      assertEqual(body.model, config.models[modelRole]);
+    }
+
+    const overrideRequest = modelRequest('model-override', {
+      parameters: { model: 'attacker-model:latest' },
+    });
+    const rejected = await executeAuthorizedModelRequest(overrideRequest);
+    assertEqual(rejected.status, 'error');
+    assertEqual(rejected.error.code, 'MODEL_PARAMETERS_INVALID');
+    assertEqual(fetchCalls, modelRoles.length);
+    assertSemaphoreReleased();
+  });
+
+  await testAsync('invalid roles, unsupported vision, and unauthorized purposes fail before provider', async () => {
+    let fetchCalls = 0;
+    globalThis.fetch = async () => {
+      fetchCalls += 1;
+      throw new Error('invalid request reached provider');
+    };
+    const fixtures = [
+      [modelRequest('prototype-caller', { callerRole: 'toString' }), 'MODEL_CALLER_ROLE_INVALID', false],
+      [modelRequest('constructor-caller', { callerRole: 'constructor' }), 'MODEL_CALLER_ROLE_INVALID', false],
+      [modelRequest('legacy-caller', { callerRole: LLMCallerRole.LEGACY_DIRECT }), 'MODEL_CALLER_ROLE_UNSUPPORTED', false],
+      [modelRequest('vision-role', { modelRole: 'VISION' }), 'MODEL_ROLE_UNSUPPORTED', true],
+      [modelRequest('unknown-role', { modelRole: 'NOT_A_ROLE' }), 'MODEL_ROLE_INVALID', true],
+      [modelRequest('purpose-denied', { callerRole: LLMCallerRole.SYNTHESIZER }), 'MODEL_PURPOSE_NOT_AUTHORIZED', true],
+      [modelRequest('tool-purpose-gap', { callerRole: LLMCallerRole.TOOL_INTERNAL }), 'MODEL_PURPOSE_NOT_AUTHORIZED', true],
+      [modelRequest('reserved-retries', { parameters: { retries: 3 } }), 'MODEL_PARAMETERS_INVALID', true],
+      [modelRequest('reserved-auth', { parameters: { _authToken: 'forged' } }), 'MODEL_PARAMETERS_INVALID', true],
+      [modelRequest('reserved-correlation', { parameters: { correlation: {} } }), 'MODEL_PARAMETERS_INVALID', true],
+      [modelRequest('reserved-messages', { parameters: { messages: [] } }), 'MODEL_PARAMETERS_INVALID', true],
+      [modelRequest('reserved-signal', { parameters: { signal: {} } }), 'MODEL_PARAMETERS_INVALID', true],
+    ];
+    for (const [request, expectedCode, authorize] of fixtures) {
+      const auditStart = llmGateway.getAuditLogs().length;
+      const result = authorize
+        ? await executeAuthorizedModelRequest(request)
+        : await executeM1ModelRequest(request);
+      assertEqual(validateModelResult(result).valid, true);
+      assertEqual(result.status, 'error');
+      assertEqual(result.error.code, expectedCode);
+      assertM1TerminalAudit(
+        auditStart,
+        request,
+        result,
+        authorize ? request.callerRole : null,
+      );
+    }
+
+    const preAborted = new AbortController();
+    abortWithReason(preAborted, AbortSource.USER, 'must not mask invalid parameters');
+    const invalidParameterRequest = modelRequest('invalid-before-cancel', {
+      parameters: { model: 'forged' },
+    });
+    const invalidParameterAuditStart = llmGateway.getAuditLogs().length;
+    const invalidParameters = await executeAuthorizedModelRequest(
+      invalidParameterRequest,
+      { signal: preAborted.signal },
+    );
+    assertEqual(invalidParameters.status, 'error');
+    assertEqual(invalidParameters.error.code, 'MODEL_PARAMETERS_INVALID');
+    assertM1TerminalAudit(
+      invalidParameterAuditStart,
+      invalidParameterRequest,
+      invalidParameters,
+    );
+
+    const invalid = modelRequest('structural-invalid');
+    delete invalid.prompt;
+    const invalidError = await capturedFailure(executeM1ModelRequest(invalid));
+    assertEqual(invalidError.code, 'M1_MODEL_REQUEST_INVALID');
+    assertEqual(fetchCalls, 0);
+    assertSemaphoreReleased();
+  });
+
+  await testAsync('provider failures remain exact valid ModelResult terminals without false response', async () => {
+    const fixtures = [
+      [() => providerResponse({ json: { message: { content: '   ' } } }), LLMGatewayErrorCode.EMPTY_RESPONSE],
+      [() => providerResponse({ json: { unexpected: true } }), LLMGatewayErrorCode.MALFORMED_RESPONSE],
+      [() => providerResponse({ status: 404 }), LLMGatewayErrorCode.MODEL_NOT_FOUND],
+      [() => providerResponse({ status: 500 }), LLMGatewayErrorCode.PROVIDER_HTTP_ERROR],
+      [() => providerResponse({ status: 503 }), LLMGatewayErrorCode.PROVIDER_UNAVAILABLE],
+      [() => {
+        const error = new TypeError('fetch failed');
+        error.cause = Object.assign(new Error('refused'), { code: 'ECONNREFUSED' });
+        throw error;
+      }, LLMGatewayErrorCode.PROVIDER_UNAVAILABLE],
+    ];
+    let fetchCalls = 0;
+    for (let index = 0; index < fixtures.length; index += 1) {
+      const [provider, expectedCode] = fixtures[index];
+      globalThis.fetch = async () => {
+        fetchCalls += 1;
+        return provider();
+      };
+      const request = modelRequest(`provider-${index}`);
+      const auditStart = llmGateway.getAuditLogs().length;
+      const result = await executeAuthorizedModelRequest(request);
+      assertEqual(validateModelResult(result).valid, true);
+      assertEqual(result.status, 'error');
+      assertEqual(result.error.code, expectedCode);
+      assertEqual(Object.hasOwn(result, 'response'), false);
+      assertEqual(JSON.stringify(result).includes(secretCanary), false);
+      assertM1TerminalAudit(auditStart, request, result);
+      assertSemaphoreReleased();
+    }
+    assertEqual(fetchCalls, fixtures.length);
+  });
+
+  await testAsync('unexpected provider errors leak neither response nor standard logs', async () => {
+    const logCanary = 'LOG-SECRET-CANARY-9e7a';
+    const capturedLogs = [];
+    const originalConsoleLog = console.log;
+    globalThis.fetch = async () => {
+      throw new Error(logCanary);
+    };
+    console.log = (...args) => {
+      capturedLogs.push(args.map(String).join(' '));
+    };
+
+    let result;
+    const request = modelRequest('secret-log');
+    const auditStart = llmGateway.getAuditLogs().length;
+    try {
+      result = await executeAuthorizedModelRequest(request);
+    } finally {
+      console.log = originalConsoleLog;
+    }
+
+    assertEqual(validateModelResult(result).valid, true);
+    assertEqual(result.status, 'error');
+    assertEqual(result.error.code, 'MODEL_PROCESSING_FAILED');
+    assertEqual(JSON.stringify(result).includes(logCanary), false);
+    assertEqual(capturedLogs.join('\n').includes(logCanary), false);
+    assertM1TerminalAudit(auditStart, request, result);
+    assertSemaphoreReleased();
+  });
+
+  await testAsync('user cancel, provider deadline, and queue timeout map to distinct terminal statuses', async () => {
+    let fetchCalls = 0;
+    globalThis.fetch = async (_url, options) => new Promise((_resolve, reject) => {
+      fetchCalls += 1;
+      options.signal.addEventListener('abort', () => reject(options.signal.reason), {
+        once: true,
+      });
+    });
+
+    const cancelledController = new AbortController();
+    abortWithReason(cancelledController, AbortSource.USER, 'cancel adapter fixture');
+    const cancelledRequest = modelRequest('cancelled');
+    const cancelledAuditStart = llmGateway.getAuditLogs().length;
+    const cancelled = await executeAuthorizedModelRequest(cancelledRequest, {
+      signal: cancelledController.signal,
+    });
+    assertEqual(cancelled.status, 'cancelled');
+    assertEqual(cancelled.error.code, 'MODEL_CANCELLED');
+    assertM1TerminalAudit(cancelledAuditStart, cancelledRequest, cancelled);
+
+    const timedOutRequest = modelRequest('timeout', {
+      parameters: { timeout: 5 },
+    });
+    const timedOutAuditStart = llmGateway.getAuditLogs().length;
+    const timedOut = await executeAuthorizedModelRequest(timedOutRequest);
+    assertEqual(timedOut.status, 'timeout');
+    assertEqual(timedOut.error.code, 'MODEL_TIMEOUT');
+    assertM1TerminalAudit(timedOutAuditStart, timedOutRequest, timedOut);
+    assertEqual(fetchCalls, 1);
+
+    const queueTimeout = mapM1ModelFailure(
+      modelRequest('queue-timeout'),
+      new LLMGatewayError(
+        LLMGatewayErrorCode.QUEUE_TIMEOUT,
+        'Model request timed out while waiting for an execution slot.',
+      ),
+    );
+    assertEqual(validateModelResult(queueTimeout).valid, true);
+    assertEqual(queueTimeout.status, 'timeout');
+    assertEqual(queueTimeout.error.code, LLMGatewayErrorCode.QUEUE_TIMEOUT);
+
+    const generic = mapM1ModelFailure(
+      modelRequest('generic-failure'),
+      new Error(secretCanary),
+    );
+    assertEqual(generic.status, 'error');
+    assertEqual(generic.error.code, 'MODEL_PROCESSING_FAILED');
+    assertEqual(JSON.stringify(generic).includes(secretCanary), false);
+    assertSemaphoreReleased();
+  });
 } finally {
   globalThis.fetch = originalFetch;
   modelUniverseStore.recordSignalEvent = originalSignalRecorder;
@@ -811,6 +1360,7 @@ try {
   llmGateway.strictMode = originalStrictMode;
   llmGateway.currentAuth = originalCurrentAuth;
   llmGateway._vramFitProfiles = originalVramFitProfiles;
+  Object.assign(config.models, originalModelBindings);
   // A failure must not leak an owned slot into later programs.
   llmGateway._concurrency.active = 0;
   llmGateway._concurrency.queue.length = 0;

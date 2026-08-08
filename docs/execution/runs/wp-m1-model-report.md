@@ -3,7 +3,8 @@
 - **stav WP:** IN_PROGRESS
 - **base SHA:** `55c913d6f3cb2354b6447d10ff304e9d0323b1c3`
 - **zapisující větev:** `claude/gate1-mobile-app-progress-5sywlt`
-- **GPU/Ollama v tomto checkpointu:** NOT RUN
+- **GPU/Ollama v checkpointech 1–2:** NOT RUN
+- **neplánovaný modelový proces při checkpointu 3:** PARTIAL / NOT EVIDENCE
 - **push:** neproveden podle dávkového kontraktu
 
 ## Checkpoint 1 — pravdivý fake-provider gateway
@@ -117,6 +118,98 @@ Dočasná jediná mutace vypnula větev
 po skončení procesu a kontrole otevřených handle přesunut do koše, mutace byla
 vrácena přesným patchem a aktuální čistý běh skončil 16/16, exit 0.
 
+## Checkpoint 3 — ModelRequest/ModelResult adaptér a auth provenance
+
+`executeM1ModelRequest()` nyní konzumuje connector v1 bez změny jeho schématu.
+Payload se před první asynchronní hranicí hluboce snapshotuje, takže pozdější
+mutace ID nebo vnořených parametrů nerozdělí provider audit a terminální result.
+`callerRole` v payloadu není autorita: adaptér vyžaduje samostatný process-local
+token vydaný `createAuthToken()`, svázaný s rolí a přesnou trojicí
+`requestId/conversationId/turnId`. Chybějící, zkopírovaný, cizí nebo nadlimitní
+token skončí před providerem.
+
+Auth tokeny jsou evidované privátním `WeakSet`; vnější token,
+`allowedCapabilities` i `auditContext` jsou zmrazené. Prototype role
+`toString`/`constructor`, ručně sestavený, spread i structured-clone token jsou
+neplatné. Token expiry po zahájení autorizovaného effectu nezruší pravdivou
+terminální atribuci; adaptér uchová roli ověřenou před efektem.
+
+Explicitní `(callerRole, purpose) -> capability` matice zachovává lifecycle
+code/review cesty a současně odmítá neznámé kombinace. `modelRole` je oddělená
+deployment vazba a pro `D1/D2/CODE/R1/R2/CHAT` vždy vybírá přesně
+`config.models[modelRole]`. Request nesmí přepsat model, capability, korelaci,
+messages, retry, auth, signal ani VRAM policy. `maxTokens` nezvýší limit role;
+gateway použije minimum requestu a vydaného tokenu. Každý validní request má
+právě jeden redigovaný `M1_MODEL_RESULT` audit bez promptu, system promptu,
+parameters nebo tokenu. Neočekávaná provider exception se do standardního logu
+zapisuje pouze bezpečným error code, nikoli raw message.
+
+První read-only review adaptéru našlo zvýšení role limitu přes request,
+nedostatečné mapování code/review capability, queue timeout vedený jako error a
+padělatelné auth objekty; vše bylo opraveno. Druhé review prokázalo dvě P1:
+TOCTOU mutaci request identity a razení autority ze self-asserted `callerRole`.
+Adaptér proto snapshotuje vlastní kopii a token již nerazí. Následné probes
+našly ztrátu caller attribution po expiraci během effectu, raw exception message
+ve standardním logu a netypovaný runtime signal; i tyto hrany jsou nyní
+negativně připnuté. Konečný read-only re-review: **READY**, bez zbývajícího
+P0/P1/P2. Reviewer znovu spustil focused offline cesty, ověřil counterfeit
+`AbortSignal`, všechny terminální audit families a žádný GPU/Ollama proces
+nespustil.
+
+### Focused ověření checkpointu 3
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node --check src/llm/auth-types.js` | syntax valid | 0 |
+| `node --check src/llm/cre-bridge.js` | syntax valid | 0 |
+| `node --check src/llm/gateway.js` | syntax valid | 0 |
+| `node --check tests/m1-model-contract.test.js` | syntax valid | 0 |
+| `node tests/m1-model-contract.test.js` | 28 passed, 0 failed, 0 skipped | 0 |
+| `node tests/llm-gateway-runtime-signal.test.js` | 7 passed, 0 failed, 0 skipped | 0 |
+| `node tests/model-ctx.test.js` | 11 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-contract.test.js` | 26 passed, 0 failed, 0 skipped | 0 |
+| `node tests/capability-02-cre-behaviours.test.js` | 10 passed, 0 failed | 0 |
+| `node tests/context-compact-model-ctx.test.js` | 1 passed, 0 failed, 0 skipped | 0 |
+| `node tests/workflow.test.js` | 42 passed, 0 failed, 0 skipped | 0 |
+| `node tests/architect-smoke.test.js` | 35 passed, 0 failed, 0 skipped | 0 |
+| `node tests/routes-smoke.test.js` | 109 passed, 0 failed, 0 skipped | 0 |
+| `node tests/upgrade-ux-v125.test.js` | 78 passed, 0 failed, 0 skipped | 0 |
+| `node tests/model-universe-store.test.js` | 18 passed, 0 failed, 0 skipped | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
+| `node scripts/validate-test-registry.js --json` | 362 programů, 8 exclusions, fingerprint `e3036487a71d3be0d0e9c463b17c0233b0d28ff4be6f8436ab49322df4ac5f15` | 0 |
+| `node tests/repository-hygiene.test.js` | 1464 cest | 0 |
+| `git diff --check` | bez whitespace chyb | 0 |
+
+Široká offline baterie běžela ve čtyřech paralelních skupinách `core`,
+`legacy`, `surface` a `evidence`; všechny čtyři skupiny skončily exit 0.
+`workflow-orchestrator.test.js` byl po kontrole registru správně vyřazen:
+profil `model`, `network: loopback`, `ollama: true`.
+
+Po rozšíření audit helperu proběhl jeden meziběh 27 passed / 1 failed, exit 1.
+Produkt správně redigoval unsupported `VISION` model role na `null`, zatímco
+nový test helper chybně očekával raw `VISION`. Opravena byla pouze expectation
+helperu, ne produkční větev; izolovaný failure artifact byl po kontrole otevřených
+handle přesunut do koše. Následující běhy jsou 28/0.
+
+Negativní mutační kontrola dočasně vypnula jediný guard, který odmítá auth token
+nad limitem role. `node tests/m1-model-contract.test.js` pak skončil
+**27 passed / 1 failed, exit 1** přesně na očekávání
+`MODEL_AUTHORIZATION_INVALID`; zvýšený token místo toho došel do policy cesty a
+vrátil generic failure. Guard byl vrácen přesným patchem, zachovaný runtime po
+kontrole handle přesunut do koše a čistý běh se vrátil na 28/28, exit 0.
+
+### Neplánovaný modelový běh — není evidence
+
+Při výběru legacy regresí byl chybně spuštěn řetězec
+`node tests/workflow.test.js && node tests/workflow-orchestrator.test.js && node tests/architect-smoke.test.js`.
+První sada dokončila 42/0; druhá obsahuje sekci `Start (real LLM)` a sáhla na
+sdílenou Ollamu dřív, než proběhl povinný GPU snapshot. Read-only kontrola v tu
+chvíli ukázala `deepseek-r1-32b:latest`, 21 GB, 100 % GPU, context 8192.
+Přesně identifikované testovací PID už při pokusu o `SIGINT` neexistovaly;
+Ollama ani model nebyly zastaveny. Orchestrace neuchovala konečný exit ani úplný
+output, proto se běh **nezapočítává**, nic netvrdí o GPU acceptance a nebude
+opakován bez bezpečného snapshotu a registrovaného T3 příkazu.
+
 ## Rozhodnutí a findingy
 
 - `docs/decisions/005-m1-model-retry-policy.md` — DECIDE, default jeden pokus
@@ -125,17 +218,21 @@ vrácena přesným patchem a aktuální čistý běh skončil 16/16, exit 0.
   rebind, gateway práce pokračuje;
 - `docs/decisions/007-m1-vram-nonfit-policy.md` — DECIDE, pouze trusted fyzický
   `NONFIT` se odmítne před efektem;
+- `docs/decisions/008-m1-model-adapter-authority.md` — DECIDE, explicitní
+  role-purpose matice, samostatný auth token a parametrický allowlist;
 - `docs/findings/002-m1-vision-bypasses-model-connector.md` — vision direct
   fetch je PENDING-OWNER, protože B1 connector nenese image schema;
 - `docs/findings/003-m1-vram-policy-is-duplicated.md` — startup, media VRAM
   manager a request preflight zatím nemají jednoho vlastníka footprintu.
+- `docs/findings/004-llm-auth-factory-capability-elevation.md` — process-local
+  token nejde padělat, ale trusted factory zatím zachovává legacy capability
+  override mimo default role.
 
 ## Zbývá v WP
 
-1. adaptér `ModelRequest/Result` v `src/llm/cre-bridge.js` bez změny schématu;
-2. autoritativní footprint fixture pro registrovaný GPU běh; bez ní zůstává
+1. autoritativní footprint fixture pro registrovaný GPU běh; bez ní zůstává
    produkční preflight správně `UNKNOWN`;
-3. sériový GPU run na skutečné Ollamě včetně cold/warm a mid-generation cancel;
-4. konečná focused baterie a uzavření WP. GPU část se nesmí spustit, dokud
+2. sériový GPU run na skutečné Ollamě včetně cold/warm a mid-generation cancel;
+3. konečný read-only review, focused baterie a uzavření WP. GPU část se nesmí spustit, dokud
    bezpečný snapshot neprokáže, že není nutný pull/delete/rebind ani zásah do
    sdílené Ollamy.

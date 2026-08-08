@@ -151,6 +151,21 @@ export const RoleTokenLimits = {
   [LLMCallerRole.LEGACY_DIRECT]: 4096
 };
 
+const issuedAuthTokens = new WeakSet();
+const knownCapabilities = new Set(Object.values(LLMCapability));
+
+function isKnownRole(role) {
+  return (
+    typeof role === 'string'
+    && Object.hasOwn(LLMCallerRole, role)
+    && LLMCallerRole[role] === role
+  );
+}
+
+function isNonEmptyString(value) {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
 /**
  * LLM Authorization Token
  * 
@@ -185,33 +200,54 @@ export function createAuthToken({
   maxTokens = null,
   capabilities = null
 }) {
-  if (!role || !LLMCallerRole[role]) {
+  if (!isKnownRole(role)) {
     throw new Error(`Invalid LLM caller role: ${role}`);
   }
   
-  if (!decisionId) {
+  if (!isNonEmptyString(decisionId)) {
     throw new Error('decisionId is required for LLM auth token');
   }
   
-  if (!auditContext?.sessionId) {
+  if (!isNonEmptyString(auditContext?.sessionId)) {
     throw new Error('auditContext.sessionId is required');
+  }
+
+  if (
+    maxTokens !== null
+    && (!Number.isSafeInteger(maxTokens) || maxTokens < 1)
+  ) {
+    throw new Error('maxTokens must be a positive safe integer');
+  }
+
+  if (
+    capabilities !== null
+    && (
+      !Array.isArray(capabilities)
+      || capabilities.some(capability => !knownCapabilities.has(capability))
+    )
+  ) {
+    throw new Error('capabilities must contain only known LLM capabilities');
   }
   
   const now = Date.now();
-  
-  return {
+  const allowedCapabilities = Object.freeze([
+    ...(capabilities ?? RoleCapabilities[role] ?? []),
+  ]);
+  const token = Object.freeze({
     role,
     decisionId,
     maxTokens: maxTokens ?? RoleTokenLimits[role] ?? 2000,
-    allowedCapabilities: capabilities ?? RoleCapabilities[role] ?? [],
-    auditContext: {
+    allowedCapabilities,
+    auditContext: Object.freeze({
       sessionId: auditContext.sessionId,
       goalId: auditContext.goalId || null,
       stepId: auditContext.stepId || null
-    },
+    }),
     issuedAt: now,
     expiresAt: now + 300000  // 5 minutes default TTL
-  };
+  });
+  issuedAuthTokens.add(token);
+  return token;
 }
 
 /**
@@ -221,18 +257,47 @@ export function createAuthToken({
  * @returns {{ valid: boolean, error?: string }}
  */
 export function validateAuthToken(token) {
-  if (!token) {
+  if (token === null || typeof token !== 'object') {
     return { valid: false, error: 'NO_TOKEN' };
   }
-  
-  if (!token.role) {
-    return { valid: false, error: 'MISSING_ROLE' };
+
+  // Tokens are process-local capabilities, not serializable bearer objects.
+  // A plain object with copied fields must never mint its own LLM authority.
+  if (!issuedAuthTokens.has(token)) {
+    return { valid: false, error: 'UNISSUED_TOKEN' };
   }
-  
-  if (!token.decisionId) {
+
+  if (!isKnownRole(token.role)) {
+    return { valid: false, error: 'INVALID_ROLE' };
+  }
+
+  if (!isNonEmptyString(token.decisionId)) {
     return { valid: false, error: 'MISSING_DECISION_ID' };
   }
-  
+
+  if (!isNonEmptyString(token.auditContext?.sessionId)) {
+    return { valid: false, error: 'MISSING_SESSION_ID' };
+  }
+
+  if (!Number.isSafeInteger(token.maxTokens) || token.maxTokens < 1) {
+    return { valid: false, error: 'INVALID_TOKEN_LIMIT' };
+  }
+
+  if (
+    !Array.isArray(token.allowedCapabilities)
+    || token.allowedCapabilities.some(capability => !knownCapabilities.has(capability))
+  ) {
+    return { valid: false, error: 'INVALID_CAPABILITIES' };
+  }
+
+  if (
+    !Number.isFinite(token.issuedAt)
+    || !Number.isFinite(token.expiresAt)
+    || token.expiresAt < token.issuedAt
+  ) {
+    return { valid: false, error: 'INVALID_TOKEN_LIFETIME' };
+  }
+
   if (Date.now() > token.expiresAt) {
     return { valid: false, error: 'TOKEN_EXPIRED' };
   }
@@ -248,7 +313,7 @@ export function validateAuthToken(token) {
  * @returns {boolean}
  */
 export function hasCapability(token, capability) {
-  if (!token || !token.allowedCapabilities) return false;
+  if (!validateAuthToken(token).valid) return false;
   return token.allowedCapabilities.includes(capability);
 }
 
