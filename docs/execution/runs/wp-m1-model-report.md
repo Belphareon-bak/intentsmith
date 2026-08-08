@@ -1,7 +1,10 @@
 # WP-M1-MODEL — průběžný report
 
-- **stav WP:** B3-IDENTITY + B3-PROFILE READY; BLOCKED na novém referenčním
-  GPU běhu 009 a B3-FAILOVER; offline connector READY
+- **stav WP:** B3-IDENTITY + B3-PROFILE READY; B3-FAILOVER storage a manual
+  repository READY; runtime aktivace a nový referenční GPU běh 009 zůstávají
+  BLOCKED; offline connector READY
+- **poslední ověřený source SHA:**
+  `515fb6f7409ea9ca916f88c1785a4ec032c3121b`
 - **base SHA:** `55c913d6f3cb2354b6447d10ff304e9d0323b1c3`
 - **zapisující větev:** `claude/gate1-mobile-app-progress-5sywlt`
 - **GPU/Ollama v checkpointech 1–2:** NOT RUN
@@ -1145,3 +1148,100 @@ adresáře z očekávaně červených mutací byly po ověření odstraněny; ji
 se nemažou. GPU, Ollama, produktový server ani externí síť nebyly spuštěny.
 Tři cizí untracked soubory v `docs/review/` a cizí
 `docs/decisions/016-migration-identity-guard.md` nebyly upraveny ani zahrnuty.
+
+## Checkpoint 17 — schema autorita pro manual incident supersede
+
+Commit `63e86293b5b72e4d2e58d2267cf5f149af93c262` přidal migraci 049 a
+uzavřel první krok `WP-M1-BINDING-REPOSITORY`. Manual apply/rollback lze nad
+přesným `DETECTED` nebo live `ACTIVATE`-claimed incidentem commitnout pouze
+společně s desired změnou, auditním `SUPERSEDED_BY_USER` a terminálním CAS.
+Event i projekce znovu ověřují původní lineage; `RESTORED` a
+`SUPERSEDED_BY_USER` jsou neměnné. `RESTORED` se záměrně nedá retireovat.
+
+Negativní aserce vlastní stabilní identifikátory guardů a mají pozitivní
+protějšky. Při implementaci čtyři cílené mutace samostatně odstranily state-lineage guard,
+event-lineage guard, terminal immutability a actor-whitespace guard. Každá
+mutace skončila přesně jedním selháním (`15/1`, exit `1`); po vrácení guardu
+focused storage sada skončila `16/0`, exit `0`. Raw příkazy a výstupy mutací
+nebyly zachované a v tomto evidence kroku se znovu nespouštěly; reprodukovaná
+je čistá focused sada níže.
+
+Migrační preflight už nebyl budoucím kritériem: `ROADMAP.md` §5 jej převedla
+do doloženého minulého času a přímo odkazuje na
+[`rozhodnutí 016`](../../decisions/016-migration-identity-guard.md).
+
+## Checkpoint 18 — atomický manual binding repository
+
+Commit `515fb6f7409ea9ca916f88c1785a4ec032c3121b` uzavřel druhý krok
+`WP-M1-BINDING-REPOSITORY`. `recordUserBindingApply()` a
+`recordUserBindingRollback()` mají exact input allowlist a jediný top-level
+`BEGIN IMMEDIATE` commit point přes event, append-only operation, desired
+revision a případný incident supersede. Request-key replay je idempotentní i po
+restartu; rollback je nový přímý reversal, nikdy `DELETE` lineage.
+
+Výstup zůstává pravdivě `PENDING_MANUAL / NOT_VERIFIED / NOT_APPLIED`.
+Repository nevytváří proof, `model_overrides`, runtime config ani broadcast.
+Aktivní, `FAILED` a `RESTORED` incidenty vracejí typovaný runtime-coordinator
+blocker včetně `activeFailover` a `failurePhase`. Failure injection po
+retirementu u apply i rollback obnoví celý authority snapshot.
+
+Při implementaci čtyři repository mutace prokázaly samostatný červený signál: odstranění exact
+input allowlistu skončilo `13/1`, odstranění `FAILED` guardu `13/1`, odstranění
+terminal retirementu `13/1` a odstranění top-level transakce `9/5`; všechny
+mutace měly exit `1`. Po přesném vrácení změn skončil focused test `14/0`,
+exit `0`. Raw příkazy a výstupy mutací nebyly zachované a v tomto evidence
+kroku se znovu nespouštěly; reprodukovaná čistá sada níže je proto silnější
+důkaz současného stavu než historický popis mutací.
+
+### Reprodukce na source SHA 515fb6f7
+
+Následující příkazy byly po commitu znovu spuštěné 2026-08-09 nad
+`515fb6f7409ea9ca916f88c1785a4ec032c3121b`. Cizí změny byly pouze v
+`docs/**`; žádný test nepoužil GPU, Ollamu, produktový server ani externí síť.
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `C3_LOG_LEVEL=error node tests/schema-migrations.test.js` | 36 passed, 0 failed; 51 migrací | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-binding-storage.test.js` | 16 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-binding-repository.test.js` | 14 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-failover-schema.test.js` | 10 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-failover-repository.test.js` | 14 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-failover-parent-acceptance.test.js` | 15 passed, 0 failed, 0 skipped | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
+| `node scripts/validate-test-registry.js --json` | valid; 373 programů; 8 exclusions; fingerprint `72417b86ac74930fd35e2f3916e88fd5d483e8e7ee56ded3909f49fe489a4690` | 0 |
+| `node tests/repository-hygiene.test.js` | 1 502 trackovaných cest | 0 |
+| `git diff --check` | bez whitespace chyb | 0 |
+
+Clean-clone kontrola stejného source SHA navíc reprodukovala binding repository
+`14/0`, parent acceptance `15/0`, artifact validation `151/0`, registry
+fingerprint výše a hygiene nad 1 502 cestami; po odstranění testovacího
+`node_modules` symlinku zůstal clone čistý. První parent-acceptance fixture nad
+již shodnými source bloby neuměla vytvořit odlišný kandidátní commit. Oprava
+použila skutečný `git commit --allow-empty`; nemění source piny a rerun skončil
+`15/0`, exit `0`.
+
+### Procesní odchylky a čas
+
+- Přesný aktivní start obou kroků ani operátorský čas nebyly zachyceny;
+  nevymýšlejí se zpětně. Gitové dokončení je doložené časy commitů:
+  checkpoint 17 `2026-08-09T00:24:33+02:00`, checkpoint 18
+  `2026-08-09T00:31:50+02:00`.
+- Tento report nebyl omylem aktualizovaný ve stejných dvou produktových
+  commitech. Doplňuje jej proto samostatný evidence commit bez změny produktu.
+- `ROADMAP.md` §5 byla výslovně vlastněná tímto WP. Commity ale současně
+  aktualizovaly `SYSTEM-MAP.md`, decision/finding a ve druhém kroku `README.md`,
+  přestože specifické pilotní zadání tyto globální dokumenty po dobu překryvu
+  zmrazilo. Historie se nepřepisuje; odchylka je zde explicitní. Nebyl změněn
+  `CONTRACT.md` §6, `ROADMAP.md` §12, žádný `docs/wp/**` ani zmrazený
+  `docs/review/2026-08-08-*` soubor.
+- Šest cizích pilotních/governance souborů v pracovním stromu zůstalo
+  nedotčených a nevstupuje do tohoto reportu ani commitu. Push nebyl proveden.
+
+### Výsledek pod-WP
+
+`WP-M1-BINDING-REPOSITORY`: **PASS / technicky dokončeno** na source SHA
+`515fb6f7409ea9ca916f88c1785a4ec032c3121b`. Celý `WP-M1-MODEL` a Gate 1
+zůstávají **BLOCKED**: chybí proof issuer/persistence, terminal
+activation/restore, runtime apply, startup rehydrate, scheduler, nový skutečný
+GPU běh a rozhodnutí 015 o prazích a proof TTL. Legacy finding 008 zůstává
+`OPEN / ASSIGNED`; tento inertní repository checkpoint jej nevydává za opravu.
