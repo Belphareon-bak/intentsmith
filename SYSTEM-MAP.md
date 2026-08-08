@@ -130,15 +130,15 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 | | |
 |---|---:|
-| `src/**/*.js` | **144 944 ř.**, 405 souborů |
-| `tests/**/*.js` | **146 899 ř.**, 354 trackovaných `.js` souborů |
-| Registrovaných testových programů | **359** (`262 ACTIVE`, `82 BLOCKED`, `15 HISTORICAL`) |
+| `src/**/*.js` | **146 694 ř.**, 405 trackovaných `.js` souborů |
+| `tests/**/*.js` | **152 047 ř.**, 359 trackovaných `.js` souborů |
+| Registrovaných testových programů | **364** (`267 ACTIVE`, `82 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v DB / migrací | 95 / 47 |
 | HTTP rout | ~230 |
 | **Schopností v `ACCEPTED/PASS`** | **1 z 22** (#2 CRE); #1 server/routing/DB je zatím `RUNTIME_VERIFIED` — jeho suite má 13 interních checků, zatímco behavior dokument obsahuje 16 řádků, takže tvrzení „13/13 chování“ není platný akceptační součet |
 
 Aktuální registry fingerprint je
-`a199104675cd861b939aa3f910f9d4ec441770d1eed2ad7e4e2a4da65bf45ee5`.
+`b45e4da20315bf8c5edd3e08f74c5c8a6f9925aa0026211c1f047ffbd27691ff`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 
@@ -312,12 +312,13 @@ Zaznamenané, rozhodnuté, ne zapomenuté.
 | `webhookSecret` uložený v plaintextu v `user_settings` | Šifrování at-rest neexistuje; hodnota se kopíruje do každé zálohy, takže rotace je vratná restorem. `api_tokens` naopak drží jen hash. `docs/review/2026-08-07-SECRET-TYPES.md` |
 | Git historie obsahuje `data/c3.db` (+ `-wal`) a jednu přílohu navíc | Mimo `trackedObjectManifest` v `PRIVACY-INCIDENT.json`, který pokrývá containment současného stromu, ne historický rozsah. Vše dosažitelné, obsah neotevřen |
 | Skills mají krok `shell`, jinde je shell denied | Zaznamenáno k prověření |
-| Rehydrate vrací conversation ID bez ověření v DB | Zaznamenáno |
+| Rehydrate ACK autorita je neúplná | Server prvních 32 ID ověří, ale delší set tiše usekne a přesto vrátí autoritativní ACK; klient komplement `validIds` maže. Missing i funkční in-memory store mohou stejným způsobem označit vše za neplatné. Běžné UI drží 1–3 panely, reachability je dnes hlavně corrupt/manual persisted state. Schváleno 014/A: durable-store guard, úplný partition nebo typovaný reject a bezpečný local restore; implementace otevřená. |
+| Modelová kanonická identita a auto-rebind | Bare binding se neshoduje s Ollama `:latest` v integrity, overview, registry/direct delete, validating ani auto-clean guardu. Přímé cleanup volání nebo pozdější oprava settings authority by proto mohly odstranit přiřazený model; dnešní periodický enable je navíc dormantní, protože chybně čte neexistující `user_settings.key/value`. Auto-rebind bez ověření vrací/loguje `verified:true` a `model_overrides` dostane default `1`, zatímco `upgrade_history` výsledek ověření vůbec neumí uložit. Schválen D+ směr, ale L0-9 zůstává beze změny do implementace identity, detection-only integrity, JSON settings authority, desired/active stavu, auditu a restore. |
 | Token streaming neexistuje — `onLLMToken` je konzument bez producenta | Odpověď přichází celá |
 | Nedostupná Ollama při klasifikaci | Opravena na jeden pokus; změřeno přibližně 80 ms místo 6 091 ms |
 | Automatické online model discovery | `C3_ENABLE_ONLINE_DISCOVERY`, default off; ostatní explicitní outbound plochy čekají na jednotnou policy |
-| C3 Studio Google Fonts | Oba runtime link loadery, ruční preview import i archivní v7 import jsou odstraněné; hygiene zakazuje obě Google Fonts domény ve spustitelných Studio assetech. Vlastní frozen workspace build i fresh-profile diagnostický CDP běh daly nulový egress; trvalý registered journey ještě zbývá. |
-| C3 Studio local HTTP | Root cause byl potvrzen jako capability na wire + nepřítomný `Origin` + `Sec-Fetch-Site: cross-site`. Electron-main nyní doplňuje `Origin: null` jen pro přesný top-level file Studio request s odpovídající privátní capability; backend guard zůstal beze změny. Focused testy a prospective production runtime dávají startup/POST `2xx`; závazný fresh-clone negativní journey ještě zbývá. |
+| C3 Studio Google Fonts | Oba runtime link loadery, ruční preview import i archivní v7 import jsou odstraněné; hygiene zakazuje obě Google Fonts domény ve spustitelných Studio assetech. Registrovaný runner prošel ve dvou fresh-clone Electron CDP bězích na `7236d221` s nulovým egresssem. Registry zůstává pravdivě `BLOCKED`, dokud standardní auditní orchestrátor nedodá build envelope. |
+| C3 Studio local HTTP | Root cause byl potvrzen jako capability na wire + nepřítomný `Origin` + `Sec-Fetch-Site: cross-site`. Electron-main nyní doplňuje `Origin: null` jen pro přesný top-level file Studio request s odpovídající privátní capability; backend guard zůstal beze změny. Dva fresh-clone negativní journey na `7236d221` prokázaly startup/POST `2xx` i přesný fail-closed security trojúhelník; registry čeká jen na standardní build envelope, nikoli na další ruční journey. |
 | C3 Studio source/build | Operátor přijal funkční ručně udržovaný `lib` jako současný autoritativní runtime. Stale TS je historický archiv; package build/clean/watch ani starý v7 fix payload nesmějí runtime přepsat nebo smazat. Současný vzhled není finální UI kontrakt. |
 | `multi-source-external.test.js` | Explicitní public-service smoke; není deterministická offline evidence |
 | L0-8 specialist boundary | Potvrzeně porušený; strict injection versus public extension SDK vyžaduje rozhodnutí operátora. **Evidence pro `§14` je od 2026-08-07 kompletní** — import graph, oba prototypy postavené a spuštěné, srovnávací tabulka. Vedle toho zjištěno, že 5 nástrojů existuje dvakrát bajtově identicky a core kopie `src/expertises/tools/**` nemá v `src/**` konzumenta |

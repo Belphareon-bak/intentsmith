@@ -1,9 +1,15 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Verze:** 4 · **Datum:** 2026-08-03 · **Vlastník:** operátor · **Stav:** pracovní
+**Verze:** 4 · **Datum:** 2026-08-08 · **Vlastník:** operátor · **Stav:** pracovní
 návrh ke schválení. Explicitní produktová rozhodnutí operátora zůstávají
 závazná podle `DIRECTION.md`; nové členění milníků a exit kritéria začnou řídit
 práci až po přijetí této roadmapy.
+
+Plné operátorské přijetí této verze 4 zůstává otevřené. Pro právě běžící M1 je
+však samostatně přijatým prováděcím kontraktem
+[`docs/execution/m1-batch.md`](docs/execution/m1-batch.md) a operátor 2026-08-08
+výslovně uzavřel rozhodnutí 001–014. Tato omezená autorita neznamená přijetí
+ostatních milníků ani změnu jejich exit kritérií.
 
 **Produkt:** [`PRODUCT.md`](PRODUCT.md) · **Pravidla:**
 [`CONTRACT.md`](CONTRACT.md) · **Směr:** [`DIRECTION.md`](DIRECTION.md) ·
@@ -54,10 +60,10 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 
 ### A. Milníky M0–M7 — kdy a proč
 
-| Milník | Stav 2026-08-03 | Vstup | Uživatelský výsledek |
+| Milník | Stav 2026-08-08 | Vstup | Uživatelský výsledek |
 |---|---|---|---|
 | **M0 Produktová pravda** | `IN_PROGRESS` | současný C3/IntentSmith strom | Víme, co produkt je a co skutečně běží; deklarace nelžou o chování. |
-| **M1 Lokální runtime páteř** | `NOT_STARTED` | M0 accepted | Stabilní Linux → Theia → chat → Ollama → persistence. |
+| **M1 Lokální runtime páteř** | `IN_PROGRESS / GATE_1_BLOCKED` | M0 accepted | Stabilní Linux → Theia → chat → Ollama → persistence. |
 | **M2 Řízená práce nad projektem** | `NOT_STARTED` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
 | **M3 Modulární platforma** | `NOT_STARTED` | M2 accepted | Expertise, tool, skill, specialista a agent přidají schopnost bez obcházení core. |
 | **M4 Auditovatelné self-learning** | `NOT_STARTED` | M2 accepted | Jedna uzavřená, scoped a vratná učící smyčka zlepšuje skutečný scénář. |
@@ -421,17 +427,19 @@ jádra:
    je jiná implementace a jeho package build je nekompilovatelný;
 9. dnešní persistence „restart“ test používá jeden in-memory store; skutečný
    backend stop/start byl doložen až M0 probe, ještě ne Studio journey;
-10. provider failure po úspěšných tool datech se dnes mění na implicitní
-    fallback. Kontrakt musí rozhodnout, zda je výsledek explicitně `degraded`,
-    nebo terminální `error`;
+10. historický nález: provider failure po úspěšných tool datech se měnil na
+    implicitní fallback. Rozhodnutí 001/A nyní připíná terminální `error` a
+    oddělená partial data; produkční konzument partial schématu zatím neexistuje;
 11. Electron bootstrap i validní local capability na wire existují, ale původní
     Chromium request neměl `Origin` a nesl `Sec-Fetch-Site: cross-site`, takže
     server správně odmítl request před capability větví. Bounded main-process
-    normalizer je implementovaný; fresh-clone negativní journey jej ještě musí
-    připnout bez oslabení serveru;
-12. diagnostický Electron runtime skončil při teardownu po GPU fatalu
-    `SIGTRAP`; kvůli namespace a `--no-sandbox` není stabilita ani produktový
-    crash prokázaný a M1 journey musí otestovat bounded soak i clean shutdown.
+    normalizer je implementovaný a dva fresh-clone negativní journey na
+    `7236d221` jej připnuly bez oslabení serveru; M1 ještě vyžaduje vlastní
+    built multi-panel journey nad novým runtime;
+12. historický diagnostický Electron runtime skončil při teardownu po GPU
+    fatalu `SIGTRAP`. Následné dva M0 fresh-clone běhy měly 65s live-ready soak
+    a čistý shutdown; M1 přesto musí samostatně prokázat dvoupanelový
+    provider/cancel/reconnect journey a jeho bounded soak.
 13. legacy WS event `cre_decision` dnes nese mode detection (`conversation`),
     nikoli finální CRE intent (`LOCAL`). M0 runner proto determinismus dokládá
     přesným výsledkem, nulovým provider provozem a nulovými efekty; M1 connector
@@ -501,7 +509,28 @@ focused regression sady.
    modelový výstup mají přesný typ a každé volání je přiřaditelné účelu.
 2. **Povolené cesty:** `src/llm/{auth-types,cre-bridge,gateway,model-ctx}.js`,
    `src/upgrade/{model-registry,model-profiles}.js`, nové model contract testy.
-   **Zakázané:** chat, Studio/WS, quality a online upgrade automatika.
+   **Zakázané:** chat, Studio/WS, quality a online upgrade automatika, kromě
+   následujících přesně schválených follow-up checkpointů:
+   - **B3-IDENTITY (006/D+):** nový `src/upgrade/model-identity.js`, identity
+     comparisons v `model-registry.js` a `upgrade-manager.js`, plus přímý
+     fallback `src/routes/system.js`. Pokryje registry, overview,
+     usage/validation, `getUnusedOldModels()` i všechny delete/cleanup guardy;
+     `checkBindingIntegrity()` přejde na `DETECTED/PROPOSED` a vytvoří přesně
+     nula assign/override/broadcast efektů;
+   - **B3-PROFILE (009/A):** jediný artefakt
+     `src/llm/model-runtime-profile.js`, jeho spotřeba v `model-ctx.js` a úzká
+     změna `src/chat/context-compact.js`; existující
+     `tests/m1-model-gpu-pilot.test.js` a
+     `tests/context-compact-model-ctx.test.js` jsou povolené. Threshold, safety
+     truncate i post-log fill musí používat tentýž efektivní kontext;
+   - **B3-FAILOVER (006/D+):** teprve po přijetí IDENTITY samostatný opt-in
+     desired/active failover. Přesný scope je nový
+     `src/db/user-settings.js`, `src/upgrade/model-failover.js`, jedna nová
+     `src/db/migrations/*model_failover*.js`, `model-registry.js`, identity a
+     verify části `upgrade-manager.js` a scheduler seam v `src/server.js`.
+     Autoritou opt-inu je JSON `user_settings.id=1`; missing/malformed/DB error
+     fail-close. Je to schválená výjimka do upgrade automatiky, nikoli změna
+     L0-9 před důkazem.
 3. **Connector:** adaptér `ModelRequest/Result` v1; nemění schéma.
 4. **Závislost:** `WP-M1-CONTRACT`; offline fake běhy nečekají na GPU.
 5. **Demo:** skutečná Ollama odpověď; negativní unavailable cesta používá
@@ -527,6 +556,14 @@ focused regression sady.
    bridge a nové Studio client/journey testy. Archivovaný chat-panel TypeScript
    není implementační plocha.
    **Zakázané:** chat controller, routes, LLM, quality a přijatý protocol.
+   **Operátorsky schválené Gate 1 výjimky:** 010/A+ smí odstranit stale
+   `c3-protocol/lib/**` z trackingu, změnit `.gitignore` a
+   `c3-ide/package.json` pro jeho generated prebuild; 012/B smí změnit pouze existence-aware history
+   větev v `src/routes/chat.js`; 014/A smí změnit pouze legacy rehydrate control
+   payload/handler v `src/ws-bridge/ws-server.js`, autoritativní Studio klient,
+   localStorage clamp a úzký durable-readiness šev v `conversation-store.js`.
+   Nejde o obecné rozmrazení protocolu, routes ani store a schéma M1 v1 zůstává
+   zakázané.
 3. **Connector:** konzument `ConversationCommand/Result` a `CoreEvent` v1.
 4. **Závislost:** `WP-M1-CONTRACT` a výsledek `WP-M0-E`. Operátor přijal ručně
    udržovaný `lib` jako současný source-of-truth; případná pozdější relokace je
@@ -536,12 +573,26 @@ focused regression sady.
    `cancel all` kompatibilní fallback se pouze negativně otestuje.
 5. **Demo:** skutečná Theia, dva panely s prokládanými eventy, jeden cancel a
    jeden success, provider stop, restart/reconnect a nulový Fonts request.
-6. **Test:** WS/HTTP parity; browser local capability projde na přesný backend
-   origin a nikdy jinam; základní Studio HTTP cesty nevracejí boundary `403`;
-   `503` nikdy assistant; cancel A neovlivní B; late assistant po cancelu je
-   odmítnut; každá terminal větev vypne spinner; neplatný rehydrate ID zmizí;
+6. **Test:** Operátor po nálezu 011 změnil M1 acceptance na **WS send +
+   fail-closed offline stav**. Pro všechny tři send call sites se samostatně
+   ověří unavailable WS, `sendChat() === false` i synchronní throw; s prompty
+   `FILE_WRITE`, `SHELL` a generic tool je počet `/chat`, provider,
+   filesystem i tool efektů přesně nula a input zůstane `NOT_SENT`/retryable.
+   HTTP send parity se
+   vrátí až nad M2 effect authority. Browser local capability projde na přesný
+   backend origin a nikdy jinam; základní Studio HTTP cesty nevracejí boundary
+   `403`; `503` nikdy assistant; cancel A neovlivní B; late assistant po cancelu je
+   odmítnut; každá terminal větev vypne spinner; syntakticky platná identita
+   explicitně uvedená v `invalidIds` úplného ACK zmizí, zatímco lokálně
+   malformed identita zůstane s daty quarantined/degraded;
    clean build načte stejné runtime chování a nevytvoří Fonts request; bounded
-   soak a řízený shutdown skončí bez renderer/GPU crashu.
+   soak a řízený shutdown skončí bez renderer/GPU crashu. Rehydrate ACK je
+   autoritativní jen jako úplný `validIds/invalidIds` partition nad explicitně
+   durable storem; partial ACK, history `404` ani absence ve `validIds` nesmí
+   zrušit identitu. Typovaný matching reject ukončí rehydrate okamžitě jako
+   degraded; cizí/replayed reject se nesmí vydat za terminál aktuálního běhu.
+   Clean-clone protocol output smí před prebuildem chybět; po něm musí být
+   ignorovaný/untracked, exportovat M1 a tracked strom zůstane čistý.
 7. **Stop:** build přepisuje/odstraňuje dnešní UX, potřebuje novou browser test
    závislost, mění connector nebo zatahuje effect/auto-exec scope.
 8. **Ověření:** `node tests/ws-bridge.test.js`; **NOVÝ:**
@@ -905,28 +956,28 @@ mohou pokračovat.
 
 ## 13. Aktuální pořadí
 
-1. Dokončit a reviewovat integraci light 22/22 picture, current-SHA runtime
-   evidence a tohoto prováděcího detailu; osm uživatelských inventur nepřebírat.
-2. Operátorsky přijmout produktový kontrakt a roadmapu; případné změny scope se
-   zapíší jako rozhodnutí, ne jako tichá editace.
-3. **Přijato a právě implementováno:** ručně udržovaný `lib` je současný
-   autoritativní runtime; stale TS se archivuje a package `build`, `watch`,
-   `clean` ani historický fix script jej nesmějí přepsat nebo smazat.
-4. **Dokončený M0 runtime checkpoint:** bounded browser HTTP transport,
+1. Plné přijetí `PRODUCT.md` a roadmapy v4 zůstává otevřené; pro současnou
+   práci je samostatně přijatý M1 batch a rozhodnutí 001–014.
+2. **Dokončený M0-E source checkpoint:** ručně udržovaný chat-panel `lib` je
+   současný autoritativní runtime; stale TS je archiv a package `build`,
+   `watch`, `clean` ani historický fix script jej nesmějí přepsat nebo smazat.
+3. **Dokončený M0 runtime checkpoint:** bounded browser HTTP transport,
    odstranění Google Fonts a fresh-clone Theia→WS/HTTP negativní journey mají
    dva po sobě jdoucí `PASS` na `7236d221`. Současné UI bylo pouze funkčním
    nosičem, ne vizuální baseline. Zbývá standardizovat build envelope, aby
    registrovaná T5 sada nemusela pravdivě zůstávat `BLOCKED`.
-5. Operátorsky rozhodnout L0-8 nejpozději před `WP-M3-BOUNDARY`; M0 jej může
+4. Operátorsky rozhodnout L0-8 nejpozději před `WP-M3-BOUNDARY`; M0 jej může
    uzavřít pouze jako explicitně pojmenovaný blocker s vlastníkem a termínem.
-6. Schválit celé navržené veřejné schéma `WP-M1-CONTRACT`: identitu a scope,
-   status union, korelaci eventů, scoped cancel i model-purpose enum; uvnitř
-   tohoto rozhodnutí zvlášť uzavřít `degraded` versus `error` a streaming mimo
-   v1. Teprve potom implementovat connector.
-7. V jediném worktree integrovat CHAT, MODEL a STUDIO po samostatných malých
-   commitech proti připnuté v1; read-only review může běžet paralelně. Nakonec
-   QUALITY/integration. GPU běhy se nesouběží.
-8. Po M1 demonstraci otevřít M2 effect authority a project-change journey.
+5. B1 contract a B2 chat jsou implementované; Gate 1 volby 001–014 jsou
+   zapsané, ale B3 a B4 zůstávají pravdivě `BLOCKED`.
+6. V jediném worktree po malých commitech: nejdřív **B3-IDENTITY**, potom
+   **B3-PROFILE** a nový sériový T3 běh od 4096, následně **B3-FAILOVER**.
+7. B4 pokračuje 010/A+ a 011/A, potom v pořadí 014 server → 014 klient → 012
+   route → 012 klient → společný DB-backed wire test. Read-only review může
+   běžet souběžně; GPU běhy nikdy.
+8. Teprve po built M1 multi-panel/cancel/provider/reconnect journey, soak a
+   přijetí B3+B4 otevřít B5 QUALITY a následnou B6 exit demonstraci.
+9. M2 effect authority a project-change journey se otevírají až po M1.
 
 ## 14. Rozhodovací fronta — otázka až ve chvíli, kdy má data
 
@@ -934,7 +985,7 @@ mohou pokračovat.
 |---|---|---|
 | Přijetí `PRODUCT.md` a `ROADMAP.md` | Teď, před uzavřením M0 | Tento 22/22 obraz, backend baseline, offline scan a známý Studio gap. |
 | Autoritativní Studio source/build disposition | **Rozhodnuto 2026-08-07** | Commitnutý `lib` je runtime; stale TS je inertní archiv a současné UI není finální vizuální baseline. |
-| `degraded` versus terminální `error` po částečném tool výsledku | Před freeze M1 connectoru | Dvě ukázkové HTTP/WS odpovědi, persistence dopad a Studio UX obou variant. |
+| `degraded` versus terminální `error` po částečném tool výsledku | **Rozhodnuto 2026-08-08: 001/A** | Terminální `error`; partial data mají oddělené schéma, ale `persistPartialToolResults` zatím nemá produkčního konzumenta. |
 | Streaming v 1.0 | Po přijetí non-streaming M1 baseline | Cold/warm whole-response latency, cílový TTFT a cena změny tří connectorů. |
 | Strict injection versus veřejná extension boundary pro L0-8 | Před M3-BOUNDARY | Skutečný import graph, specialista E2E a nejmenší prototyp obou variant. |
 | Zachovat/odložit/ukončit upgrade automatiku 18b | Před M5 conditional freeze | Úmyslný check/approve/reject/rollback journey, outbound a údržbová cena. |

@@ -1,6 +1,7 @@
 # 010 — Jak doručit kanonický M1 kontrakt do autoritativního Studio runtime
 
 - **typ:** BLOCK
+- **stav rozhodnutí:** A+ SCHVÁLENO; IMPLEMENTACE A BUILT JOURNEY OTEVŘENÉ
 - **WP:** WP-M1-STUDIO (jen přesná `CoreEvent` consumer integrace)
 - **rail:** R1, R2, R5
 - **vzniklo při:** B4 call-graph inventura
@@ -51,3 +52,39 @@ z `@c3/protocol` a změnily pouze delivery před Electron buildem.
 
 Žádná varianta nesmí měnit schéma M1 v1 ani oslabit validaci, aby „pasovala“ do
 existujícího bundle.
+
+## Rozhodnutí operátora — 2026-08-08: A+
+
+Operátor schválil variantu A s těmito zpřesněními:
+
+- `contracts/m1/**` zůstává sémantickou autoritou;
+- `c3-ide/extensions/c3-protocol/src/m1.ts` je TypeScript mirror přijatého
+  kontraktu, nikoli archivovaný chat-panel TypeScript;
+- současný stale `c3-protocol/lib/index.js` se odstraní z trackingu a celý
+  `c3-protocol/lib/**` se stane ignorovaným, reprodukovatelným generated
+  outputem, nikoli další ručně udržovanou autoritou;
+- kořenový Studio prebuild tento output z TypeScript mirroru vždy znovu vytvoří
+  ještě před bundlováním; root build nesmí předpokládat, že generated adresář
+  existoval už na vstupu;
+- commitnutý `c3-chat-panel/lib/**` zůstává autoritativním Studio runtime a jeho
+  build/clean ochrana se nesmí oslabit.
+
+Protocol delivery commit musí z čistého klonu prokázat `clean + build`, runtime
+export M1 validátorů, stejnou negativní matici JS/compiled mirroru, zabalení do
+product bundle a čistý tracked strom. Build musí selhat, pokud M1 export chybí
+**po prebuild kroku**, pokud prebuild selže nebo pokud bundle použije stale
+stub. Chybějící generated output **před** prebuildem je naopak očekávaný stav
+čistého klonu, nikoli důvod k selhání.
+
+Samotný zelený protocol build **není B4 acceptance**. Následuje explicitně
+feature-negotiated M1 wire: klient vytvoří `requestId`, `conversationId` i
+`turnId`, server command před efektem validuje a session adapter emituje
+monotónní `CoreEvent` se stejnou identitou. Legacy klient zůstává na své
+pojmenované cestě.
+
+Autoritativní Studio terminal ledger smí vykreslit assistant pouze po validním
+terminálu `ok`. `cancelled`, `timeout` a `error` ukončí spinner bez assistant
+zprávy; duplicate, out-of-order, foreign identity, event po terminálu a late
+`ok` po cancelu se odmítnou. Negotiated M1 nesmí současně renderovat legacy i
+M1 odpověď. Built multi-panel/cancel/provider-failure/reconnect journey je
+poslední důkaz tohoto rozhodnutí.

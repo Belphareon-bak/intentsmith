@@ -48,3 +48,10 @@ destroy; panelový offline handler lze zachovat pro jiné terminal chyby nebo
 odstranit s jeho source testem. Přechod A → C přidá jednu reset/start funkci do
 `ws-client.js`, jednu panelovou command větev a nejméně dva client/journey testy.
 Accepted M1 connector ani server se nemění.
+
+## Rozhodnutí operátora — 2026-08-08
+
+**Potvrzena varianta A.** Reconnect zůstává bounded na 12 pokusů a po vyčerpání
+končí viditelným offline stavem. Ruční Retry akce ani nekonečný background
+reconnect nejsou součástí M1; současný vzhled offline indikace není finální UI
+baseline.

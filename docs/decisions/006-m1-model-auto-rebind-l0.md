@@ -1,6 +1,7 @@
 # 006 — automatický model rebind zůstává blokovaný rozhodnutím L0-9
 
 - **typ:** BLOCK
+- **stav rozhodnutí:** D+ SCHVÁLENO; IMPLEMENTACE A DŮKAZ OTEVŘENÉ
 - **WP:** WP-M1-MODEL
 - **rail:** R1 USER_AUTHORITY, R3 OBSERVABLE_BEHAVIOR, R6 REVERSIBILITY
 - **vzniklo při:** read-only call-graph kontrole `src/upgrade/model-registry.js:checkBindingIntegrity()`
@@ -37,3 +38,96 @@ Varianta A vyžaduje nejméně model registry, nový approval adaptér a tři ne
 scénáře (bez approval, expirovaný approval, restart). Varianta C mění model
 registry a jeho startup/periodic acceptance testy. Varianta B nemá legitimní
 implementační cestu bez operátorské změny kontraktu.
+
+## Rozhodnutí operátora — 2026-08-08: D+
+
+Operátor schválil cílový směr **auditovaný dočasný local failover**, nikoli
+nevyžádaný upgrade. `desired binding` zůstává uživatelskou konfigurací;
+`active failover` je samostatný dočasný stav. L0-9 se nezmění, dokud není celý
+níže uvedený kontrakt implementovaný a negativně prokázaný.
+
+### Proč se současná cesta nesmí pouze zapnout
+
+- `checkBindingIntegrity()`, `isBound()`, `getBoundRoles()`, overview,
+  `deleteModel()` i `runAutoCleanup()` používají exact-name porovnání. Bare
+  jméno `deepseek-r1-32b` se proto neshoduje s Ollama identitou
+  `deepseek-r1-32b:latest`. Pre-check a následný `deleteModel()` guard jsou dvě
+  vrstvy se stejnou exact-name slepotou. Přímé `runAutoCleanup()` nebo budoucí
+  oprava jeho settings authority tak mohou skutečně smazat přiřazený model.
+  Dnešní periodický enable path je latentní z jiného důvodu: čte neexistující
+  `user_settings.key/value` a chybu polkne.
+- Stejná chyba vstupuje do recommendation a validačních lookupů. Po vzniku
+  validačních skóre může být role falešně vyhodnocena jako rozvázaná a dostat
+  jiný model.
+- `assignModel()` předává `skipVerify: true`, ale `applyUpgrade()` tento option
+  pro aktivaci nepoužívá. Nastaví `verified = true` v návratové hodnotě a logu
+  bez ověření; `_persistOverride()` sloupec neuvede, takže DB použije
+  `model_overrides.verified DEFAULT 1`. Auto-rebind caller následnou
+  `_backgroundVerify()` nespouští. `upgrade_history` sloupec `verified` vůbec
+  nemá, takže trvalá historie výsledek ověření neumí vyjádřit. Stav je tedy
+  současně nepravdivý v override a neúplný v historii.
+- Existující `model_overrides.previous_model` a rollback jsou užitečné, ale
+  neoddělují požadovaný binding od dočasného failoveru a neumějí bezpečný
+  automatický návrat po změně uživatelem.
+
+### Schválený kontrakt D+
+
+1. Nový jediný modul `src/upgrade/model-identity.js` vlastní kanonickou
+   modelovou identitu pro integrity check,
+   recommendation, validační a usage lookupy, `_validatingModel`, `isBound`,
+   `getBoundRoles`, overview, `getUnusedOldModels()`, registry delete,
+   `runAutoCleanup` i přímý fallback guard v `src/routes/system.js`. Pro
+   presence porovnání platí
+   `name == name:latest`; audit a ověření současně zachovávají přesný digest,
+   protože obsah `:latest` se může změnit.
+2. B3-IDENTITY nahradí i privátní `_normalizeModelName()` v
+   `src/upgrade/upgrade-manager.js`. Současně musí `checkBindingIntegrity()`
+   přejít na přesný `DETECTED/PROPOSED` výsledek bez `assignModel()` nebo jiné
+   mutace. To platí před opravou aliasů, aby bezpečnější detekce neaktivovala
+   dnešní dormantní auto-rebind.
+3. Auto-failover vyžaduje předchozí explicitní opt-in policy
+   `models.autoFailoverEnabled` v autoritativním JSON řádku
+   `user_settings.id=1`, čteném i zapisovaném jediným helperem
+   `src/db/user-settings.js`; default `false`. Missing/malformed data, DB chyba
+   i restart fail-close. Broken `key/value` pattern se nesmí kopírovat a
+   existující auto-cleanup settings se na tentýž helper převádějí až po přijetí
+   B3-IDENTITY, aby oprava scheduleru nemohla předběhnout delete guardy.
+4. Fallback musí být již lokálně nainstalovaný, čerstvě ověřený pro tutéž roli
+   a vhodný podle role/capability. Cesta nesmí provést pull, delete ani externí
+   síť a runtime guard musí fail-close.
+5. Desired binding a active failover jsou persistentně oddělené. Záznam nese
+   roli, desired i fallback model a digest, binding revision, policy version,
+   actor `system:binding-integrity`, důvod, časy a stav minimálně
+   `DETECTED | ACTIVATED | FAILED | RESTORED | SUPERSEDED_BY_USER`.
+6. Audit nesmí tvrdit `verified: true`, pokud ověření neproběhlo. Selhání
+   persistence, auditu nebo verify znamená nulovou změnu aktivního bindingu.
+7. Po restartu zůstává desired i active stav pravdivý. Návrat původního modelu
+   provede nejvýše jeden restore pouze tehdy, když uživatel mezitím binding
+   nezměnil a binding revision i digest stále souhlasí.
+
+### Minimální negativní důkaz před změnou L0-9
+
+- rozdíl pouze `:latest` nikdy neaktivuje failover a kanonicky bound nebo právě
+  validovaný model nelze smazat registry cestou, přímým route fallbackem ani
+  auto-cleanem;
+- B3-IDENTITY integrity check pro skutečně missing model vytvoří jen
+  `DETECTED/PROPOSED` evidence a přesně nula override/assign/broadcast efektů;
+- usage uložené pod configured bare identitou chrání tentýž installed
+  `:latest` model před chybnou klasifikací „unused“;
+- offline/prázdná Ollama není důkaz odinstalování;
+- opt-in off, stale/missing score, špatná role, neinstalovaný kandidát,
+  verify/runtime-guard/DB/audit failure znamenají nulovou mutaci;
+- souběžné kontroly vytvoří nejvýše jeden efekt; restart zachová stav;
+- uživatelská změna během failoveru zakáže pozdní restore;
+- změněný digest pod stejným `:latest` vyžaduje nové ověření;
+- žádný failover path nevolá pull, delete ani externí síť.
+
+Nejbližší malý milestone B3-IDENTITY smí měnit jen
+`src/upgrade/model-identity.js`, identity comparisons v
+`model-registry.js`/`upgrade-manager.js`, přímý delete fallback v
+`src/routes/system.js` a focused testy. Zároveň vypne dnešní mutaci integrity
+checku. Persistentní B3-FAILOVER je samostatný navazující milestone nad
+`src/db/user-settings.js`, novým `src/upgrade/model-failover.js`, přesnou DB
+migrací pro desired/active/audit stav, `model-registry.js`, identity částmi
+`upgrade-manager.js` a scheduler seamem v `src/server.js`. Tento rozhodovací
+záznam jej nevydává za implementovaný.

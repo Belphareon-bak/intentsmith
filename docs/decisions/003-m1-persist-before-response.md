@@ -35,3 +35,11 @@ hranice bez `await` mezi poslední kontrolou abortu a zápisem assistant turnu.
 Minimálně nový durable outbox/recovery modul, změna `response-finalizer.js`,
 startup recovery v serveru, migrace SQLite a nové crash/restart testy. Není to
 lokální změna jednoho renderu, proto varianta B není součástí M1 dávky.
+
+## Rozhodnutí operátora — 2026-08-08
+
+**Potvrzena varianta A.** Úspěšná odpověď se vrací až po durable zápisu.
+Naměřená request-level persistence latence 67–78 ms drží cíl 100 ms, takže
+dnešní evidence nedává důvod oslabit pravidlo „co uživatel vidí, to je uložené“.
+Případné budoucí respond-then-persist vyžaduje durable outbox a recovery; nesmí
+se vrátit jako pouhé spolknutí chyby finalizeru.

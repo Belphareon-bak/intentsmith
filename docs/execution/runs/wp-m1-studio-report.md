@@ -1,6 +1,8 @@
 # WP-M1-STUDIO — průběžný report
 
-- **stav WP:** `PARTIAL / BLOCKED` na REVIEW GATE 1; checkpointy 1–4 READY
+- **stav WP:** `PARTIAL / BLOCKED` po REVIEW GATE 1; stable-ID/scoped-cancel,
+  reconnect a rehydrate epoch/race/snapshot guardy jsou použitelné, ale
+  identity-cleanup acceptance rehydrate checkpointu blokuje 014
 - **base SHA:** `b7d0dbf61370b52061e6a736517ecdcb53118209`
 - **scope:** B4 podle `docs/execution/m1-batch.md`
 - **UI baseline:** výslovně mimo scope; spuštěné Studio není finální UI
@@ -83,21 +85,38 @@ pinuje `turn_end` i `error` na `studio-stale-A`.
 | `node tests/repository-hygiene.test.js` | 1469 tracked paths | 0 |
 | `git diff --check` | bez chyb | 0 |
 
-## Checkpoint 2 — serverem ověřený rehydrate acknowledgement
+## Checkpoint 2 — historický bounded lookup; identity authority BLOCKED
 
-Legacy WS bridge už nepotvrzuje libovolný seznam dodaný klientem. Rehydrate
-vstup je omezen na prvních 32 položek, přijímá jen kanonický M1 tvar identity,
-odstraňuje duplicity a každé ID ověří proti aktivnímu durable
-`ConversationStore`. Chybějící nebo malformed ID se do `validIds` nedostane.
+Tento checkpoint omezil lookup na prvních 32 položek, přijímal kanonický M1
+tvar identity, odstraňoval duplicity a volal `ConversationStore.exists()`.
+Původní report jej označil jako durable, ale live loopback test ve skutečnosti
+injektuje **in-memory** store. Chybějící nebo malformed ID se do `validIds`
+nedostane.
 Jakákoli store výjimka zruší celý výsledek: server nevydá partial autoritativní
 ACK a zavře socket kódem 1011, aby transientní DB chyba nemohla vést ke smazání
 lokálního snapshotu. Log obsahuje pouze počty, nikoli identifikátory konverzací.
 
-Živý loopback test vytvoří jednu skutečnou in-memory konverzaci, provede hello a
+Živý loopback test vytvoří jednu in-memory konverzaci, provede hello a
 rehydrate přes produkční `attachWebSocketServer()` a požaduje směs existujícího,
 chybějícího, duplicitního a malformed ID. Wire acknowledgement obsahuje přesně
 jedinou existující identitu.
 Stejný wire test pak vyvolá store chybu a připíná close 1011 bez dalšího ACK.
+
+### Post-review korekce checkpointu 2 — BLOCK 014
+
+Tvrzení výše platí jen pro request do 32 položek a explicitní store exception.
+Server request delší než 32 položek tiše usekne a vrátí
+`validationFailed:false`; chybějící store nebo metoda `exists` vrátí prázdný
+ACK se stejnou autoritou. Klient přitom komplement `validIds` čistí. Checkpoint
+tedy **neprokazuje úplnou ACK autoritu** a jeho T25g test přímo připíná vadný
+partial výsledek. Samostatné rozhodnutí
+`docs/decisions/014-m1-rehydrate-ack-authority.md` vyžaduje úplný
+`validIds/invalidIds` partition nebo reject bez ACK. Do implementace a live
+DB-backed wire testu je tato část B4 `BLOCKED`, nikoli „PASS s omezením“.
+
+Běžný UI stav drží 1–3 panely; nad 32 se dnes dostane jen poškozeným či ručně
+editovaným persisted stavem nebo budoucím klientem. To omezuje současnou
+reachability, neproměňuje však neúplný ACK na autoritativní.
 
 Registrovaná serverová E2E sada 80 dříve používala `rehydrate` jako obecné echo
 libovolného tokenu. To by se pravdivou validací rozbilo a zároveň by testovalo
@@ -141,6 +160,10 @@ zelené; serverová E2E zůstává povinnou součástí pozdější B4 journey.
 
 ## Checkpoint 3 — ACK-bound a race-safe client rehydrate
 
+Následující popis zachycuje stav checkpointu v době vzniku. Epoch/race/snapshot
+guardy zůstávají použitelné, ale implicit-complement identity cleanup se po
+nalezení 014 nesmí vydat za přijatý kontrakt.
+
 Studio už po `hello_ack` nenačítá historii naslepo. Nejdřív odešle bounded
 seznam kanonických identit a čeká nejvýše 5 sekund na serverem ověřený
 `rehydrate_ack`. Chybějící, malformed, duplicitní nebo nevyžádané ACK identity
@@ -168,12 +191,21 @@ lokální snapshot zůstane zachován a výsledek je `degraded`. Chybějící at
 serverový kontrakt je samostatný `BLOCK` v
 `docs/decisions/012-m1-rehydrate-empty-history-authority.md`.
 
+Post-review 014 navíc prokázalo, že dnešní klient nečistí jen serverem explicitně
+odmítnutou identitu: za invalidní bere i komplement částečného `validIds` ACK.
+Tato větev se nesmí považovat za přijatou. Po 014 smí syntakticky platnou
+durable identitu zrušit jen explicitní `invalidIds` z úplného ACK nad
+DB-backed storem; in-memory store žádnou takovou autoritu nemá. Matching
+`rehydrate_reject` degraduje bez čekání a lokálně malformed identita zachová
+snapshot v quarantined stavu. Po 012/B typované history `404` pouze degraduje
+a `_convId` zachová.
+
 ### Co checkpoint negarantuje
 
 - Retry counter se stále resetuje už v `onopen`, constructor failure nemá
   scheduler a vyčerpání 12 pokusů je tiché. To je následující D-7 checkpoint.
-- Autoritativní obnova skutečně prázdné durable konverzace čeká na rozhodnutí
-  012; bezpečný klientský fallback raději zachová data.
+- Autoritativní obnova skutečně prázdné durable konverzace čeká na implementaci
+  schváleného 012/B; bezpečný klientský fallback zatím raději zachová data.
 - Přesný M1 `CoreEvent` consumer zůstává blokovaný stale protocol delivery
   rozhodnutím 010 a HTTP send fallback effect authority rozhodnutím 011.
 - Plná Electron journey, bounded soak ani finální UI nebyly v tomto offline
@@ -198,8 +230,9 @@ serverový kontrakt je samostatný `BLOCK` v
 Read-only P1/P2 review nejprve našel dva nepokryté závody: history fetch mohl
 přepsat aktivitu v téže epoše a starý socket guard nebyl testem připnutý. Oba
 mají explicitní negativní test. Review dále našel ACK/empty-history TOCTOU;
-klientská destruktivní větev byla odstraněna a serverový zbytek je BLOCK 012,
-nikoli skrytý PASS.
+klientská destruktivní empty-history větev byla odstraněna, ale serverový
+zbytek je BLOCK 012. Následný review navíc odhalil samostatný partial-ACK
+BLOCK 014. Ani jeden není skrytý PASS.
 
 ### Commit battery
 
@@ -239,10 +272,10 @@ přepnutí jsou v `docs/decisions/013-m1-studio-reconnect-backoff.md`.
 - Studio nemá ruční tlačítko Retry; po exhaustion je dnešní operátorská cesta
   kontrola backendu a restart Studia. Varianta s ručním obnovením budgetu je
   oddělená v rozhodnutí 013.
-- Nejde o přesný M1 terminal consumer ani HTTP fallback opravu; rozhodnutí 010
-  a 011 zůstávají beze změny.
-- Empty-history autorita zůstává BLOCK 012. Reconnect ji nezakrývá a degraded
-  snapshot není vydáván za restored.
+- Nejde o přesný M1 terminal consumer ani HTTP fallback opravu. Operátor později
+  schválil 010/A+ a 011/A; jejich implementace zůstává otevřená.
+- Empty-history a ACK autorita zůstávají implementačně blokované v 012/B a
+  014/A. Reconnect je nezakrývá a degraded snapshot není vydáván za restored.
 - Skutečná Electron journey, bounded renderer soak a finální UI nebyly spuštěny.
 
 ### Focused evidence
@@ -298,6 +331,12 @@ Tím zůstává false-success chování dnešního fallbacku otevřené. Nesmí 
 jen parserem, protože bezpečný výsledek vyžaduje buď fallback vypnout, nebo
 serverem vynutit read-only/effect authority.
 
+Operátor následně schválil variantu A pro M1: všechny tři HTTP send fallbacky
+se sjednotí do lokální fail-closed `NOT_SENT` větve s nulovým `/chat` requestem
+a nulovým efektem. Transportní parita se vrátí až jako C nad M2 authority.
+Původní B4 claim „WS/HTTP parity“ se tím vědomě mění na „WS send + fail-closed
+offline stav“; implementace a negativní důkaz ještě chybí.
+
 ### Evidence dokumentačního checkpointu
 
 | Příkaz | Výsledek | Exit |
@@ -311,17 +350,16 @@ serverem vynutit read-only/effect authority.
 
 ## Otevřené nálezy pro další checkpointy
 
-1. Commitnutý `@c3/protocol/lib/index.js` je stale stub; B4 allowlist nepovoluje
-   bez rozhodnutí měnit protocol build delivery. Přesná consumer integrace je
-   proto zastavená; nezávislé client-state a fail-closed opravy mohou pokračovat,
-   dokud nebude delivery šev rozhodnutý v
-   `docs/decisions/010-m1-studio-protocol-runtime-delivery.md`.
+1. Commitnutý `@c3/protocol/lib/index.js` je stale stub. Operátor schválil
+   010/A+: odstranit protocol `lib/**` z trackingu, vždy jej vytvořit root
+   prebuildem a po něm dodat feature-negotiated M1 wire a terminal ledger.
+   Implementace, clean build matrix a built journey ještě chybí.
 2. Tři HTTP fallbacky nekontrolují `response.ok` a mohou renderovat error JSON
-   jako assistant; jejich izolovaná parser oprava je blokovaná rozhodnutím 011,
-   protože stávající route zároveň obchází effect approval.
-3. Serverem ověřený ACK, race-safe klient i bounded reconnect jsou hotové.
-   Atomické rozlišení prázdné versus mezitím smazané historie dál blokuje
-   rozhodnutí 012.
+   jako assistant a zároveň obcházejí effect approval. 011/A je schválené;
+   fallback se musí vypnout a lokální unsent stav zachovat.
+3. Race-safe klient a bounded reconnect checkpointy jsou hotové. Rehydrate
+   zůstává blokovaný dvěma nezávislými kontrakty: 012/B rozliší existující
+   prázdnou historii od 404 a 014/A zakáže partial ACK autoritu.
 4. Existující Electron runner obchází veřejný `sendChat()` a připíná legacy
    pořadí assistant-before-turn-end; pro B4 acceptance se musí změnit.
 5. Terminal STOP neruší backendový proces. To je M2 finding mimo B4 chat scope,
@@ -332,17 +370,20 @@ serverem vynutit read-only/effect authority.
 | Povinné chování briefu | Stav | Evidence / důvod |
 |---|---|---|
 | stabilní panel identity a cancel A bez zásahu do B | PASS | client 25/25; WS bridge 67/67 včetně scoped cancel |
-| serverem ověřený rehydrate a invalid ID cleanup | PASS s omezením | ACK wire test, epoch/client negativy; empty-history autorita je BLOCK 012 |
+| serverem ověřený rehydrate a invalid ID cleanup | BLOCKED | 012/B není implementováno; 014 prokázalo partial ACK a implicitní komplement cleanup, který dnešní green test připíná |
 | bounded reconnect a řízený shutdown | PASS na client contract vrstvě | přesný cap, handshake timeout, async-close race a destroy testy |
-| přesný M1 terminal consumer, late assistant a spinner terminal větve | BLOCKED | runtime delivery kanonického kontraktu čeká na rozhodnutí 010 |
-| HTTP fallback: non-2xx nikdy jako assistant a žádný effect bypass | BLOCKED | rozhodnutí 011; samotný parser by zakryl approval bypass |
+| přesný M1 terminal consumer, late assistant a spinner terminal větve | BLOCKED | 010/A+ je schválené, ale protocol delivery, negotiated wire, ledger a built journey chybí |
+| HTTP fallback: non-2xx nikdy jako assistant a žádný effect bypass | BLOCKED | 011/A je schválené, ale fail-closed `NOT_SENT` implementace a nulový-effect test chybí |
 | built Theia multi-panel/cancel/restart journey | NOT RUN | závisí na terminal consumeru; dnešní UI není finální baseline |
 | fresh-clone build parity | NOT RUN pro tento B4 tip | M0-E disposition zůstává platná, ale nový B4 runtime nebyl z clean clone spuštěn |
 | bounded renderer soak na skutečném displeji | NOT RUN / INCONCLUSIVE | prostředí nebylo v B4 použito jako produktový displej; žádný formální PARK zatím nevznikl a M1 exit se netvrdí |
 
-B4 tedy nekončí jako PASS. Bezpečně nezávislý scope je vyčerpaný a další změna
-by musela vybrat některý z blokovaných produktových, connectorových nebo
-datových směrů. Implementační commity B4 jsou `50280fcd`, `d145e95e`,
+B4 tedy nekončí jako PASS. Věta o vyčerpaném nezávislém scope platila před
+operátorským rozhodnutím; dnešní další povolený scope tvoří přesně follow-upy
+010/A+, 011/A, 014/A a 012/B v pořadí z rozhodnutí 014. Implementační commity
+B4 jsou `50280fcd`, `d145e95e`,
 `446d197f`, `8e68a92e` a `a4067cd6`; výchozí dependency je `b7d0dbf6`.
-Rozhodovací fronta B4 je 010–013. Souhrnný balík je v
-`docs/execution/review-gate-1.md`.
+Rozhodovací fronta B4 010–014 je operátorsky uzavřená. B4 je přesto `BLOCKED`,
+dokud se 010/A+, 011/A, 012/B a 014/A neimplementují a neprojdou skutečnou
+built journey. 013/A je potvrzený client-contract checkpoint. Souhrnný balík je
+v `docs/execution/review-gate-1.md`.

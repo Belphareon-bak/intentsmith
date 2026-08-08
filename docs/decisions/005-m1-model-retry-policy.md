@@ -37,3 +37,10 @@ Přepnutí na B mění jeden produkční soubor a `tests/m1-model-contract.test.
 adaptér `src/llm/cre-bridge.js` se nemění. Přepnutí na C není lokální změna:
 vyžaduje inventuru a focused evidence všech devatenácti legacy konzumentů, proto
 není vratným defaultem tohoto WP.
+
+## Rozhodnutí operátora — 2026-08-08
+
+**Potvrzena varianta A.** Jeden `ModelRequest` v1 smí vytvořit právě jeden
+provider attempt. Devatenáct legacy konzumentů `callWithAuth()` si dočasně
+ponechává svou stávající retry policy; sjednocení celého produktu bez jejich
+acceptance evidence není součástí M1.

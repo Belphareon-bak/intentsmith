@@ -4,13 +4,17 @@
 
 **CHANGES_REQUIRED / BLOCKED.** B1 je kompletní a B2 je PASS. B3 má zelenou
 offline connector vrstvu, ale skutečný referenční GPU pilot je červený. B4 má
-čtyři reviewované bezpečné checkpointy, ale nemůže pravdivě splnit přesný
-terminal consumer, HTTP fallback authority ani atomickou empty-history obnovu
-bez rozhodnutí operátora. Podle `docs/execution/m1-batch.md` se B5 před tímto
-review nespouští.
+reviewované stable-ID/scoped-cancel a reconnect guardy; z rehydrate checkpointu
+jsou použitelné pouze epoch/race/snapshot ochrany, zatímco identity authority
+je BLOCKED. B4 nemůže pravdivě splnit přesný terminal consumer, HTTP fallback
+authority ani atomickou empty-history obnovu bez implementace potvrzených
+rozhodnutí. Operátor 2026-08-08 uzavřel celou
+frontu 001–014; výběr variant ale sám nevytváří produktový důkaz. Podle
+`docs/execution/m1-batch.md` se B5 před přijetím B2, B3 a B4 nespouští.
 
-Tento verdikt neznamená revert. Dosažené checkpointy jsou použitelné a zelené;
-jen netvoří celý M1 exit.
+Tento verdikt neznamená revert. Přesně pojmenované přijaté části mají zelené
+focused testy; nebezpečný partial-ACK/implicit-complement cleanup mezi ně
+nepatří a netvoří celý M1 exit.
 
 ## Identita kandidáta
 
@@ -25,10 +29,10 @@ jen netvoří celý M1 exit.
 
 | WP | Stav | Co je skutečně hotové | Co brání přijetí |
 |---|---|---|---|
-| B1 `WP-M1-CONTRACT` | COMPLETE | provisional v1 pro Conversation, Model a CoreEvent; fail-closed validátory JS/TS | operátorské potvrzení DECIDE 001–002 |
-| B2 `WP-M1-CHAT` | PASS, čeká na Gate 1 přijetí | persist-before-response, conversation isolation, exact HTTP adapter, scoped cancel, process-restart persistence | potvrzení DECIDE 003; globální HTTP/WS mutex je finding 005, ne skrytý claim |
-| B3 `WP-M1-MODEL` | BLOCKED | exact fake-provider connector, auth/purpose/model binding, VRAM preflight, sanitizované terminal outcomes | odblokování BLOCK 006 a 009; potvrzení DECIDE 005, 007 a 008; nový GPU pilot podle přijatého profilu |
-| B4 `WP-M1-STUDIO` | PARTIAL / BLOCKED | stable ID, scoped cancel, durable ACK validation, race-safe rehydrate, bounded reconnect | odblokování BLOCK 010–012; potvrzení DECIDE 013; skutečná B4 journey, fresh-clone parity a soak nebo jeho výslovné PARK schválení |
+| B1 `WP-M1-CONTRACT` | COMPLETE, rozhodnutí potvrzena | provisional v1 pro Conversation, Model a CoreEvent; fail-closed validátory JS/TS | produkční partial-tool persistence se netvrdí; `persistPartialToolResults` zatím nemá konzumenta |
+| B2 `WP-M1-CHAT` | PASS, operátorsky potvrzený směr | persist-before-response, conversation isolation, exact HTTP adapter, scoped cancel, process-restart persistence | globální HTTP/WS mutex je finding 005, ne skrytý claim |
+| B3 `WP-M1-MODEL` | BLOCKED | exact fake-provider connector, auth/purpose/model binding, VRAM preflight, sanitizované terminal outcomes | implementovat 006/D+ po oddělených milnících; zavést společný profil 009 a provést nový skutečný T3 běh od 4096 |
+| B4 `WP-M1-STUDIO` | PARTIAL / BLOCKED | stable ID, scoped cancel, rehydrate epoch/race/snapshot guardy a bounded reconnect | identity cleanup/ACK autorita je BLOCKED; implementovat 010/A+, 011/A, 012/B a 014/A, potom skutečnou B4 journey, fresh-clone parity a bounded soak |
 
 Autoritativní podrobnosti jsou v:
 
@@ -39,24 +43,26 @@ Autoritativní podrobnosti jsou v:
 
 ## Rozhodovací fronta
 
-| ID | Typ | Vzatý stav | Co má operátor udělat |
+| ID | Typ | Potvrzený stav | Co ještě chybí |
 |---|---|---|---|
-| 001 | DECIDE | partial tool data po selhání zůstává terminal `error` | potvrdit nebo změnit terminal union |
-| 002 | DECIDE | late assistant po cancelu se odmítá | potvrdit nebo změnit single-terminal pravidlo |
-| 003 | DECIDE | persist-then-respond | potvrdit; dnešní testy připínají fail-closed zápis |
-| 004 | původní BLOCK, operátorem uzavřen | varianta C, cancel podle `conversationId` | potvrdit implementační uzavření; v2 `targetRequestId` zůstává odložený |
-| 005 | DECIDE | žádný automatický model retry ve v1 | potvrdit nebo změnit policy |
-| 006 | BLOCK mimo connector checkpoint | auto-rebind bez approval se neměnil | vybrat approval-gated variantu nebo vypnutí; L0 nelze obejít |
-| 007 | DECIDE | `NONFIT` jen z důvěryhodných fyzických dat | potvrdit nebo změnit VRAM policy |
-| 008 | DECIDE-AND-CONTINUE | role-purpose matrix a bounded parameters | potvrdit nebo upravit jediný adapter šev |
-| 009 | BLOCK | 27B reference nesplnila 1 024 MiB post-load headroom | vybrat kontext/model/residency variantu; guard se nesmí oslabit |
-| 010 | BLOCK | exact Studio terminal consumer se neimplementoval | vybrat protocol runtime delivery A/B/C, nebo přijmout odklad bez M1 exit |
-| 011 | BLOCK | legacy HTTP send fallback zůstává bezpečnostně neuzavřený | zvolit vypnutí fallbacku nebo schválenou server effect authority |
-| 012 | BLOCK | `200 []` nesmí smazat lokální snapshot | zvolit existence-aware route nebo atomický rehydrate snapshot |
-| 013 | DECIDE | 12 bounded retries + visible exhaustion | potvrdit nebo zvolit infinite/manual-retry variantu |
+| 001 | DECIDE → A | terminal `error`, partial není assistant | implementace schématu hotová; produkční partial konzument neexistuje a netvrdí se |
+| 002 | DECIDE → A | cancel je definitivní | implementace kontraktu hotová; built Studio consumer čeká na 010 |
+| 003 | DECIDE → A | persist-then-respond | implementováno; 67–78 ms drží cíl 100 ms |
+| 004 | BLOCK → C, potvrzeno | cancel podle `conversationId` | implementováno; v2 `targetRequestId` zůstává odložený |
+| 005 | DECIDE → A | jeden provider attempt jen pro connector v1 | implementováno; legacy retry cesta beze změny |
+| 006 | BLOCK → D+ | auditovaný dočasný local failover s opt-inem | nejdřív společná identity + delete/cleanup guard; potom desired/active persistence, pravdivý audit, verify a restore; L0-9 se zatím nemění |
+| 007 | DECIDE → A | `NONFIT` jen z důvěryhodných fyzických dat | implementováno; produkční trusted metadata a GPU evidence zůstávají pod 009 |
+| 008 | DECIDE → A | role-purpose matrix a bounded parameters | implementováno |
+| 009 | BLOCK → A-4096 calibration | zachovat 27B/digest/1 GiB/100% residency/no fallback | společný runtime profil a nový skutečný sériový T3 běh; 4096 zatím není PASS |
+| 010 | BLOCK → A+ | protocol `lib` untracked + generated prebuild + negotiated M1 wire/ledger | implementace, clean build matrix a built journey |
+| 011 | BLOCK → A nyní / C v M2 | HTTP send fallback vypnout fail-closed | tři call sites, `NOT_SENT` UX a nulový-effect test; WS/HTTP parity je vědomě změněna |
+| 012 | BLOCK → B | existence-aware history route | transakční route a client negativy; GET 404 zachovává `_convId` |
+| 013 | DECIDE → A | 12 bounded retries + visible exhaustion | implementováno na client contract vrstvě; built journey chybí |
+| 014 | BLOCK → A | úplný ACK partition nebo request-bound reject, nikdy partial/in-memory autorita | durable-store guard, server/client reject kontrakt, DB-backed wire test a správný `sessionCount`/`sessionActive` clamp |
 
 Každý detail, varianta a konkrétní cena přepnutí je v odpovídajícím souboru
-`docs/decisions/NNN-*.md`. Tento packet žádnou variantu dodatečně neschvaluje.
+`docs/decisions/NNN-*.md`. Tabulka zapisuje operátorskou volbu; stav WP se mění
+až po implementaci a pojmenovaném důkazu.
 
 ## Nezávislé findingy
 
@@ -110,7 +116,7 @@ Artefakty jsou lokální a ignorované; commitnutý trvalý záznam je
 |---|---:|---:|
 | `node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
 | `node scripts/validate-test-registry.js --json` | valid, 364 programů, 8 exclusions, fingerprint `b45e4da20315bf8c5edd3e08f74c5c8a6f9925aa0026211c1f047ffbd27691ff` | 0 |
-| `node tests/repository-hygiene.test.js` | 1476 tracked paths | 0 |
+| `node tests/repository-hygiene.test.js` | 1477 tracked paths | 0 |
 | `git diff --check` | bez chyb | 0 |
 | `git diff --cached --check` | bez chyb | 0 |
 
@@ -131,15 +137,20 @@ git log --reverse --stat \
 
 ## Podmínky pokračování
 
-1. Operátor projde rozhodnutí 001–013 najednou: potvrdí nebo přepne každý
-   `DECIDE`, odblokuje každý `BLOCK` a potvrdí implementační uzavření 004.
-   Dnešní fronta neobsahuje žádný formální `PARK`.
-2. BLOCK 006 dostane approval-gated nebo vypnutou variantu slučitelnou s L0-9.
-   BLOCK 009 dostane schválenou měřitelnou variantu; GPU pilot se zopakuje až
-   nad novým commitnutým profilem a bez oslabení guardu.
-3. BLOCK 010–012 se musí odblokovat a implementovat tak, aby B4 mohl být
-   přijatý; ponechání 012 jako omezení znamená, že B4 zůstává blokovaný a B5
-   nezačne.
+1. Operátorské volby 001–014 jsou zapsané; dnešní fronta neobsahuje formální
+   `PARK`. Samotný zápis variant žádný BLOCK nezelená.
+2. B3 pokračuje třemi oddělenými milníky: **B3-IDENTITY** sjednotí modelovou
+   identitu a všechny delete/cleanup guardy a současný integrity check přepne
+   na detection-only s nulovou mutací;
+   **B3-PROFILE** zavede společný profil 009 a zopakuje GPU pilot od 4096;
+   **B3-FAILOVER** teprve potom zavede opt-in desired/active stav s pravdivým
+   auditem, verify, restartem a bezpečným restore. Opt-in autorita je JSON
+   `user_settings.id=1` a každá chyba fail-close; L0-9 se změní až po důkazu.
+3. B4 pořadí je explicitní: 010/A+ a 011/A lze udělat nezávisle; rehydrate jde
+   014 server → 014 klient → 012 route → 012 klient → společný DB-backed live
+   wire test. ACK vyžaduje durable store a matching reject končí okamžitě jako
+   degraded. Pro M1 platí WS send + fail-closed `NOT_SENT`; HTTP send parity se
+   vrací až nad M2 effect authority.
 4. Po odblokování B4 proběhne ještě před B5 skutečná Theia multi-panel/cancel/
    restart journey a fresh-clone parity. Bounded soak se buď provede na
    stabilním displeji, nebo jej operátor výslovně schválí jako `PARK` podle
@@ -148,4 +159,5 @@ git log --reverse --stat \
    B6 je až následná integrovaná exit demonstrace všech sedmi scénářů, nikoli
    náhrada za chybějící B4 journey.
 
-Do té doby je správný další stav **čekat na REVIEW GATE 1**, ne spouštět B5.
+Do té doby je správný další stav **implementovat potvrzené Gate 1 follow-upy**,
+ne spouštět B5. Gate 1 zůstává `CHANGES_REQUIRED / BLOCKED`.

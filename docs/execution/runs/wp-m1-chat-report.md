@@ -1,6 +1,7 @@
 # WP-M1-CHAT — průběžný report
 
-- **stav:** B2 `PASS`; M1 celek zůstává `BLOCKED` rozhodnutím 009 v B3
+- **stav:** B2 `PASS`; operátor potvrdil rozhodnutí 003/A a 004/C. M1 celek
+  zůstává `BLOCKED` neimplementovanými follow-upy 006, 009–012 a 014 v B3/B4
 - **base:** `86defcefd0abb1f1a521d6574f749b4e1122b453`
 - **scope:** B2 podle `docs/execution/m1-batch.md`
 - **produktové checkpointy:** `71769051`, `5a95e1f7`, `f62f3fc5`, `eb01abb2`
@@ -53,9 +54,10 @@ aktualizována na nový registr (`264` → `263`); následující běh je zelen�
 
 ## Rozhodnutí
 
-- `docs/decisions/003-m1-persist-before-response.md`
-- `docs/decisions/004-m1-http-cancel-target.md` — blokuje jen explicitní HTTP
-  cancel command; ostatní B2 pokračuje.
+- `docs/decisions/003-m1-persist-before-response.md` — operátor 2026-08-08
+  potvrdil A, persist-then-respond; naměřených 67–78 ms drží cíl 100 ms.
+- `docs/decisions/004-m1-http-cancel-target.md` — operátor znovu potvrdil C i
+  implementační uzavření; v2 `targetRequestId` zůstává odložený.
 
 ## Checkpoint 2 — conversation-owned state a handler failures
 
@@ -226,4 +228,6 @@ confirmation, route, durable restart a M1 chat sady jsou zelené. Rozhodnutí 00
 je implementačně uzavřené pro factory-local HTTP adaptér a B4 může konzumovat
 conversation-scoped cancel bez tvrzení o globálním mutexu.
 M1 jako celek se pravdivě nehlásí jako PASS, protože referenční GPU konfigurace
-B3 nesplnila post-load headroom a čeká v `docs/decisions/009-m1-gpu-headroom.md`.
+B3 nesplnila post-load headroom. Operátor pro 009 zvolil kalibraci od 4096, ale
+společný runtime profil a nový skutečný T3 běh ještě neexistují; B3 navíc čeká
+na oddělené 006/D+ identity a failover checkpointy.

@@ -49,3 +49,9 @@ GPU acceptance scénáře. Varianta C mění stejné dva soubory, ale oslabuje
 negativní kontrakt. Napojení autoritativních metadat skutečného modelu zůstává
 samostatným krokem před GPU tvrzením; bez něj je produkční klasifikace poctivě
 `UNKNOWN`.
+
+## Rozhodnutí operátora — 2026-08-08
+
+**Potvrzena varianta A.** Jen důvěryhodně doložený fyzický `NONFIT` se odmítne
+před provider efektem. `UNKNOWN` se nesmí domyslet ze jména modelu ani z
+momentálně nízké volné VRAM a pokračuje jako dosud.

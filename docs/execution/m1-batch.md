@@ -7,6 +7,11 @@ vstupu; operátor vstoupí až na dvou review gates.
 **Cílový umístění v repu:** `docs/execution/m1-batch.md` (založit až až bude
 volný zapisující vlastník)
 
+**Operátorský stav 2026-08-08:** tento M1 batch a volby 001–014 jsou přijaté
+jako omezená prováděcí autorita. Plné přijetí `ROADMAP.md` v4 tím není
+nahrazené. Follow-upy níže se provádějí po malých sériových checkpointech a
+žádný vybraný BLOCK se nestává PASS bez implementace a důkazu.
+
 ---
 
 ## 0. Jak se to používá
@@ -123,9 +128,11 @@ cesty, označit schopnost jako PASS, přepsat roadmapu tak, aby otázka zmizela.
    git diff --check
    ```
    plus focused testy daného WP z bodu 8 briefu.
-6. **Nový test = update registry ve stejném commitu.** Přidání souboru do
-   `tests/` bez zápisu do `docs/convergence/TEST-REGISTRY.md` shodí bod 5.
-   Zapisuje se i nový fingerprint. (Viz odchylka O-1 v §6.)
+6. **Nový test = update registry ve stejném commitu.** WP přidá kanonický
+   záznam do `tests/registry.json` a přes
+   `node scripts/validate-test-registry.js --write-doc` regeneruje odvozený
+   `docs/convergence/TEST-REGISTRY.md`. Přidání testu bez obou synchronních
+   kroků shodí bod 5. (Viz úzká odchylka O-1 v §6.)
 7. **Artefakty** do `.intentsmith-artifacts/<wp>-<sha>/`, adresář `0700`,
    soubory `0600`. Capability hodnoty, tokeny ani obsah `~/.c3/port` se
    neevidují.
@@ -271,7 +278,24 @@ nejdelší build/journey cyklus, takže jde poslední, kdy je kontrakt nejstabil
 2. **Povolené:** `src/llm/{auth-types,cre-bridge,gateway,model-ctx}.js`,
    `src/upgrade/{model-registry,model-profiles}.js`, nové model contract testy,
    registry, decisions. **Zakázané:** chat, Studio/WS, quality, online upgrade
-   automatika.
+   automatika, s těmito přesnými operátorskými výjimkami:
+   - **B3-IDENTITY / 006:** nový `src/upgrade/model-identity.js`, identity
+     comparisons v `model-registry.js` a `upgrade-manager.js`, plus přímý
+     fallback `src/routes/system.js`; pokryje usage/validation, overview,
+     `getUnusedOldModels()` a všechny delete/cleanup guardy. Integrity check
+     smí jen `DETECTED/PROPOSED`, s nulovým assign/override/broadcast efektem;
+   - **B3-PROFILE / 009:** jediný `src/llm/model-runtime-profile.js`, spotřeba
+     v `model-ctx.js`, pouze `src/chat/context-compact.js` z chat scope a
+     existující GPU/context-compact testy. Threshold, safety truncate i
+     post-log fill používají tentýž efektivní kontext;
+   - **B3-FAILOVER / 006:** až po přijatém IDENTITY samostatně opt-in
+     desired/active persistence. Přesný scope: nový `src/db/user-settings.js`,
+     `src/upgrade/model-failover.js`, jedna
+     `src/db/migrations/*model_failover*.js`, `model-registry.js`, identity/
+     verify části `upgrade-manager.js` a scheduler seam v `src/server.js`.
+     Opt-in čte JSON `user_settings.id=1`; missing/malformed/DB error fail-close.
+     Je to výslovná D+ výjimka, ne obecné rozmrazení online upgrade automatiky
+     a ne změna L0-9 před důkazem.
 3. **Connector:** adaptér `ModelRequest/Result` v1; schéma nemění.
 4. **Závislost:** B1. Offline fake běhy nečekají na GPU — udělej je první.
 5. **Demo:** skutečná odpověď z lokální Ollamy. Negativní cesta používá
@@ -311,6 +335,14 @@ nejdelší build/journey cyklus, takže jde poslední, kdy je kontrakt nejstabil
    přijaté source disposition; nové Studio client/journey testy, registry,
    decisions. **Zakázané:** chat controller, routes, LLM, quality, přijatý
    protocol.
+   **Gate 1 follow-up výjimky schválené operátorem:** 010/A+ smí odstranit stale
+   `c3-protocol/lib/**` z trackingu a změnit jen `.gitignore` a
+   `c3-ide/package.json` pro jeho generated prebuild; 012/B smí změnit jen
+   existence-aware history větev v `src/routes/chat.js`; 014/A smí změnit jen
+   legacy rehydrate control payload/handler,
+   autoritativní klient/localStorage clamp a úzký durable-readiness šev v
+   `conversation-store.js`. Ostatní routes/store, connector schema a
+   `src/ws-bridge/protocol.js` zůstávají zakázané.
 3. **Connector:** konzument `ConversationCommand/Result` a `CoreEvent` v1.
 4. **Závislost:** B1 + přijatá disposition z M0-E.
    **Cancel začíná v klientovi**, ne v backendu: `wsSendCancel` /
@@ -319,20 +351,31 @@ nejdelší build/journey cyklus, takže jde poslední, kdy je kontrakt nejstabil
    pouze negativně otestuje. Nezačínej v `session-adapter.js`.
 5. **Demo:** skutečná Theia, dva panely s prokládanými eventy, jeden cancel a
    jeden success, provider stop, restart/reconnect, nulový Fonts request.
-6. **Test:** WS/HTTP parity; browser local capability projde na přesný backend
-   origin a nikdy jinam; základní Studio HTTP cesty nevracejí boundary `403`;
+6. **Test:** Po operátorském rozhodnutí 011/A platí pro M1 **WS send +
+   fail-closed offline stav**, nikoli původní WS/HTTP send parity. Pro všechny
+   tři send call sites se samostatně ověří unavailable WS,
+   `sendChat() === false` a synchronní throw; s `FILE_WRITE`, `SHELL` a generic
+   tool je počet `/chat`, provider, filesystem i tool efektů přesně nula a
+   input zůstane `NOT_SENT`/retryable. HTTP send parity se vrátí v M2. Browser local
+   capability projde na přesný backend origin a nikdy jinam; základní Studio
+   HTTP cesty nevracejí boundary `403`;
    `503` nikdy jako assistant (dnes `chat-panel-module.js:6125` nekontroluje
    `response.ok`); cancel A neovlivní B; pozdní assistant po cancelu odmítnut;
-   každá terminal větev vypne spinner; neplatný rehydrate ID zmizí; clean build
-   dá stejné runtime chování; bounded soak a řízený shutdown bez renderer/GPU
-   crashu.
+   každá terminal větev vypne spinner; jen explicitní `invalidIds` z úplného
+   ACK nad durable storem zruší syntakticky platnou identitu, history `404` ji
+   zachová a lokálně malformed identita zůstane se snapshotem quarantined;
+   matching reject degraduje ihned, cizí/replayed reject neukončí aktuální běh;
+   clean build dá stejné runtime chování; bounded soak a řízený shutdown bez
+   renderer/GPU crashu. Clean-clone protocol output smí před prebuildem chybět;
+   po něm musí být ignored/untracked, exportovat M1 a tracked strom zůstat čistý.
 7. **Autonomie:**
    - `BLOCK`: build přepisuje nebo maže dnešní UX; potřeba nové browser test
      dependency; změna connectoru; zatažení effect/auto-exec scope.
-   - `DECIDE` **D-6 umístění relokace zdroje:** default = **neprovádět** —
-     `lib` zůstává autoritativní, jen se zneškodní `build`/`clean` skript
-     v `package.json` a `outDir` v `tsconfig.json`. Relokace je vlastní pozdější
-     WP, behavior-preserving.
+   - **D-6 je potvrzené rozhodnutí, ne otevřený DECIDE:** relokace se
+     neprovádí, commitnutý chat-panel `lib` zůstává autoritativní a již
+     implementované ochrany `build`/`clean` se zachovají. Archivovaný TypeScript
+     ani neexistující chat-panel `tsconfig` nejsou implementační plocha;
+     případná relokace je vlastní pozdější behavior-preserving WP.
    - `DECIDE` **D-7 reconnect backoff:** default = fixní strop a viditelný stav,
      ne tiché nekonečné opakování. Šev: `ws-client.js:_scheduleReconnect()`.
    - `PARK`: bounded soak, pokud prostředí neposkytne stabilní displej — ale
@@ -434,6 +477,11 @@ Operátor dostane jeden balík:
 Operátor rozhoduje: potvrdit nebo přepnout každý `DECIDE`; odblokovat `BLOCK`;
 schválit `PARK` nebo poslat zpět. Teprve pak se pouští B5.
 
+**Stav 2026-08-08:** operátor zvolil všechny varianty 001–014. „Odblokovat“ zde
+neznamená změnit štítek dokumentu: 006, 009–012 a 014 zůstávají implementačně
+`BLOCKED`, dokud neprojdou jejich pojmenované důkazy. B5 se proto ještě
+nespouští.
+
 ### GATE 2 — M1 exit, po B5+B6
 
 Navíc:
@@ -450,9 +498,10 @@ Navíc:
 
 | # | Odchylka | Důvod |
 |---|---|---|
-| **O-1** | Roadmapa §5: „`tests/registry.json` … upravuje jen integrační vlastník". Tato dávka nechá každý WP zapsat vlastní testy do `docs/convergence/TEST-REGISTRY.md` ve stejném commitu. | Pravidlo brání konfliktu mezi souběžnými zapisovateli. Při sériovém běhu je běžící WP jediný zapisovatel, takže konflikt nemůže vzniknout — a bez zápisu do registry shodí `validate-test-registry.js` povinnou baterii, tedy nešlo by vůbec commitovat. |
+| **O-1** | Roadmapa §5: „`tests/registry.json` … upravuje jen integrační vlastník". Tato dávka dává běžícímu sériovému WP úzkou výjimku změnit `tests/registry.json` a ve stejném commitu regenerovat `docs/convergence/TEST-REGISTRY.md` přes `--write-doc`. | Pravidlo brání konfliktu mezi souběžnými zapisovateli. Při sériovém běhu je běžící WP jediný zapisovatel, takže konflikt nemůže vzniknout — a bez kanonického záznamu i odvozeného ledgeru shodí `validate-test-registry.js` povinnou baterii. |
 | **O-2** | Roadmapa §12: „Agent zastaví dotčenou část při … nejasnosti." Protokol §1 část nejasností převádí na `DECIDE` s vratným defaultem. | Bez toho dávka neběží déle než jeden WP. Omezeno podmínkou švu a povinným vyčíslením ceny přepnutí; `CONTRACT.md` §7 zakázané kategorie (L0, connector, scope, open source) zůstávají tvrdý `BLOCK`. |
 | **O-3** | Dávka nepokrývá M2. | M2 WP konzumují connectory, které ještě neexistují. Místo toho běží P1 read-only. |
+| **O-4** | B4 bod 6 po Gate 1 nevyžaduje WS/HTTP send parity; vyžaduje WS send + explicitní fail-closed `NOT_SENT` stav. | Call graph prokázal, že legacy `/chat` fallback může provést filesystem/tool efekt bez společné authority. Operátor schválil 011/A nyní a 011/C až v M2; původní parity claim se nesmí vydat za splněný. |
 
 ---
 

@@ -1,6 +1,7 @@
 # 012 — Prázdná Studio historie nemá autoritu smazat lokální snapshot
 
 - **typ:** BLOCK
+- **stav rozhodnutí:** B SCHVÁLENO; IMPLEMENTACE A DŮKAZ OTEVŘENÉ
 - **WP:** WP-M1-STUDIO (jen atomická obnova prázdné historie)
 - **rail:** R1, R4, R5
 - **vzniklo při:** B4 client rehydrate race review
@@ -49,3 +50,31 @@ payload a server/client wire testy.
 
 Do té doby se nesmí `200 []` popsat jako důkaz existence ani použít k mazání
 uživatelského snapshotu.
+
+## Rozhodnutí operátora — 2026-08-08: B
+
+Operátor schválil existence-aware history route. Existence konverzace a její
+zprávy se přečtou v jednom synchronním SQLite snapshotu/transakci:
+
+- existující prázdná konverzace → `200 {messages: []}`;
+- existující neprázdná → `200` s přesnou historií;
+- neexistující nebo hard-deleted → typované
+  `404 CONVERSATION_NOT_FOUND`;
+- DB chyba → `500`, nikdy domyšlené `404` ani `200 []`.
+
+Klient smí přijmout `200 []` jako autoritativně prázdnou historii jen při shodě
+socket epochy, conversation identity a nezměněného lokálního snapshotu.
+`5xx`, timeout, malformed payload i `404` skončí `degraded` a zachovají data.
+
+### Autorita identity a ordering s rozhodnutím 014
+
+Syntakticky platnou durable conversation identitu smí zrušit **pouze explicitní
+`invalidIds` z úplného a validního rehydrate ACK**. Typované `404` z následného
+history GET `_convId` neruší, ani když se lokální snapshot nezměnil; zachová
+identitu do dalšího rehydrate. Tím hard-delete mezi ACK a GET nemůže provést
+druhé zrušení nad pozicí panelu, která už mohla být znovu použita. Lokálně
+malformed identita se neposílá na server ani nemaže: panel se označí jako
+`degraded`/quarantined a zachová uživatelský snapshot k ruční obnově.
+
+Implementace B proto uzavírá autoritu obsahu historie, nikoli autoritu ACK.
+Úplnost a přesné identity-rušící pořadí ACK vlastní samostatné rozhodnutí 014.

@@ -6,7 +6,7 @@
 - **base:** `2a59637e806b1ec5dac6de35b970eee54e1764b0`
 - **implementační commit:** `93b76a78ca06b8a5a1a895aeb71f07b560939949`
 - **větev:** `claude/gate1-mobile-app-progress-5sywlt`
-- **stav:** `COMPLETE`, čeká na souhrnný M1 review gate
+- **stav:** B1 `COMPLETE`; rozhodnutí 001/A a 002/A operátor potvrdil na Gate 1
 - **push:** neproveden; dávka jej v průběhu zakazuje
 
 Base se během přípravy posunul cizím, nepřekrývajícím dokumentačním
@@ -39,16 +39,22 @@ uzavřené uniony a runtime validaci. Standardní registrovaný test jej na
 podporovaném Node 22 skutečně vykoná přes native type stripping; nekontroluje
 jen text zdroje.
 
-## Autonomní rozhodnutí
+## Autonomní defaulty, potvrzené operátorem 2026-08-08
 
 - `D-1`: `degraded` nebyl přidán. Provider failure s dřívějšími tool daty
-  zůstává `error`; sanitizované partial souhrny se mohou persistovat, ale
-  nerenderují se jako assistant. Detail a cena přepnutí jsou v
+  zůstává `error`; schéma dovoluje sanitizované partial souhrny, ale produkční
+  `persistPartialToolResults` dnes nemá konzumenta. Report proto netvrdí, že se
+  partial skutečně ukládá. Nikdy se nerenderuje jako assistant. Detail je v
   `docs/decisions/001-m1-degraded-vs-error.md`.
 - `D-2`: první terminál je definitivní. Pozdní assistant po cancelu se
-  odmítne. Detail a cena přepnutí jsou v
+  odmítne. Detail je v
   `docs/decisions/002-m1-late-assistant-after-cancel.md`.
-- streaming je `PARK`; v1 pouze rezervuje kompatibilní progress event.
+- streaming je podle roadmapy mimo přijatý connector v1; v1 pouze rezervuje
+  kompatibilní progress event. Nejde o formální dávkový `PARK` a nevznikl pro
+  něj parkovací záznam v rozhodovací frontě.
+
+Operátor potvrdil 001/A a 002/A beze změny. Tím je rozhodovací část B1
+uzavřená; produkční Studio consumer a runtime delivery zůstávají B4 scope.
 
 ## Otestovaný kandidát
 

@@ -79,3 +79,10 @@ defaultem role a gateway použije minimum requestu a tokenu.
 
 Přepnutí A -> B mění jednu pojmenovanou matici a focused fixtures. Varianty C a
 D nejsou vratný lokální default a bez operátora se neprovedou.
+
+## Rozhodnutí operátora — 2026-08-08
+
+**Potvrzena varianta A.** Explicitní `(callerRole, purpose) -> capability`
+matice, process-local auth provenance a bounded parameter allowlist zůstávají
+autoritou adaptéru M1. `TOOL_INTERNAL`, `LEGACY_DIRECT` ani vision se do v1
+nedoplňují domyšleným významem.

@@ -44,3 +44,14 @@ Po integraci konzumentů navíc dvě produktové větve
 registrované sady (`tests/m1-chat-contract.test.js`,
 `tests/m1-studio-client.test.js`). Celkem tedy šest produkčních/contract
 souborů a tři testovací sady.
+
+## Rozhodnutí operátora — 2026-08-08
+
+**Potvrzena varianta A.** Provider failure po úspěšných tool efektech zůstává
+terminální `error`. Částečný tool výsledek se nesmí vykreslit ani persistovat
+jako assistant odpověď a M1 nezavádí pátý terminální stav `degraded`.
+
+Toto rozhodnutí nepovyšuje dnešní contract permission na produkční funkci:
+`persistPartialToolResults` nemá v produkčním call graphu konzumenta. M1 proto
+smí tvrdit jen to, že sanitizovaný partial je ve schématu povolený; nesmí
+tvrdit, že jej dnešní runtime skutečně ukládá nebo uživateli zpřístupňuje.

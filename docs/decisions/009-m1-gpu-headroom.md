@@ -1,6 +1,7 @@
 # 009 — referenční model nesplnil minimální post-load GPU headroom
 
 - **typ:** BLOCK
+- **stav rozhodnutí:** A-4096-CALIBRATION SCHVÁLENO; NOVÝ T3 BĚH OTEVŘENÝ
 - **WP:** WP-M1-MODEL
 - **rail:** R3 OBSERVABLE_BEHAVIOR, R4 MEASURED_QUALITY, R7 OPERABILITY
 - **vzniklo při:** registrovaný T3 běh `IS-T3-TESTS-M1-MODEL-GPU-PILOT-TEST`
@@ -58,3 +59,31 @@ navíc potřebuje schválenou změnu bindingu a quality porovnání. Varianta D
 potřebuje latency/throughput baseline a explicitně změněný residency kontrakt.
 Žádná varianta neopravňuje pull, delete, rebind ani oslabení aserce v tomto
 běhu.
+
+## Rozhodnutí operátora — 2026-08-08: A, kalibrace od 4096
+
+Operátor schválil variantu A se zachováním `qwen3.5:27b`, připnutého digestu,
+minimálně 1 024 MiB headroomu, 100% GPU residency a zákazu fallbacku. Hodnota
+`num_ctx=4096` je **první kalibrační kandidát**, nikoli nový PASS ani finální
+produktový profil.
+
+Před opakovaným GPU claimem musí server i T3 pilot číst jediný commitnutý
+autoritativní artefakt `src/llm/model-runtime-profile.js`. Drift test odmítne rozdíl modelu, digestu,
+`num_ctx`, headroomu, residency nebo fallback policy mezi produktem a pilotem.
+Request-level parametr nesmí zvýšit kontext nad profil a conversation
+compaction musí používat stejný efektivní kontext ve všech třech místech:
+thresholdu, safety truncate i post-log fill. Existující T3 pilot a
+`tests/context-compact-model-ctx.test.js` jsou výslovně součástí B3-PROFILE.
+
+Nový sériový T3 běh musí začít s prázdným `ollama ps`, bez cizího compute
+procesu a bez pull/delete/unload/rebind. Provede cold answer, warm answer,
+classify a skutečný mid-generation cancel se čtyřmi přiřaditelnými provider
+efekty. Přijatelné minimum je
+`min(všechny monitorované vzorky free VRAM, post-call free VRAM) >= 1024 MiB`;
+CPU spill nebo residency pod 100 % jsou FAIL. Cleanup musí přirozeně obnovit
+prázdný GPU/Ollama stav.
+
+Původní `FAIL`, exit 1, zůstává autoritativní evidencí pro 8192. Teprve nový
+skutečný běh může uzavřít 009; self-check ani teoretický KV odhad jej
+nenahrazují. Pokud 4096 projde provozně, ale následná quality evidence neudrží
+produktový cíl, otevře se explicitně varianta B místo oslabení guardu.

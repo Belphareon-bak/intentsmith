@@ -111,3 +111,9 @@ Tento checkpoint **není** plná M1 Studio integrace: legacy Studio payload ješ
 nenese `requestId` a `turnId` a klient zatím nekonzumuje kanonický `CoreEvent`
 terminál. Tyto hrany zůstávají otevřené v `WP-M1-STUDIO` a nesmějí se odvozovat
 z pouhé přítomnosti `conversationId`.
+
+## Potvrzení v REVIEW GATE 1 — 2026-08-08
+
+Operátor potvrdil variantu C i popsané implementační uzavření beze změny.
+Request-scoped `targetRequestId` zůstává kandidátem pro v2, nikoli skrytým
+požadavkem M1 v1.

@@ -40,3 +40,9 @@ Po integraci navíc terminální guard v chat adaptéru a Studio klientovi a dv�
 negativní sady (`tests/m1-chat-contract.test.js`,
 `tests/m1-studio-client.test.js`). Celkem tři implementační soubory a tři
 testovací sady.
+
+## Rozhodnutí operátora — 2026-08-08
+
+**Potvrzena varianta A.** Cancel je definitivní terminál. Pozdní assistant se
+odmítne, nepersistuje ani nevyrenderuje; jedna request identity nikdy nedostane
+druhý autoritativní konec.

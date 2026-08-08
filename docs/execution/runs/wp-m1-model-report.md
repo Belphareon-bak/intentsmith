@@ -1,6 +1,7 @@
 # WP-M1-MODEL — průběžný report
 
-- **stav WP:** BLOCKED na referenční GPU konfiguraci; offline connector READY
+- **stav WP:** BLOCKED na 006/D+ a referenční GPU konfiguraci 009; offline
+  connector READY
 - **base SHA:** `55c913d6f3cb2354b6447d10ff304e9d0323b1c3`
 - **zapisující větev:** `claude/gate1-mobile-app-progress-5sywlt`
 - **GPU/Ollama v checkpointech 1–2:** NOT RUN
@@ -211,16 +212,21 @@ Ollama ani model nebyly zastaveny. Orchestrace neuchovala konečný exit ani úp
 output, proto se běh **nezapočítává**, nic netvrdí o GPU acceptance a nebude
 opakován bez bezpečného snapshotu a registrovaného T3 příkazu.
 
-## Rozhodnutí a findingy
+## Rozhodnutí a findingy — stav po REVIEW GATE 1
 
-- `docs/decisions/005-m1-model-retry-policy.md` — DECIDE, default jeden pokus
-  pouze pro connector v1;
-- `docs/decisions/006-m1-model-auto-rebind-l0.md` — BLOCK pouze pro automatický
-  rebind, gateway práce pokračuje;
-- `docs/decisions/007-m1-vram-nonfit-policy.md` — DECIDE, pouze trusted fyzický
-  `NONFIT` se odmítne před efektem;
-- `docs/decisions/008-m1-model-adapter-authority.md` — DECIDE, explicitní
-  role-purpose matice, samostatný auth token a parametrický allowlist;
+- `docs/decisions/005-m1-model-retry-policy.md` — operátor potvrdil A, jeden
+  pokus pouze pro connector v1;
+- `docs/decisions/006-m1-model-auto-rebind-l0.md` — operátor schválil D+;
+  implementace zůstává BLOCKED. Nejdřív jedna kanonická identita pro integrity,
+  recommendation, overview, delete a cleanup bez nové auto mutace; potom
+  oddělený desired/active failover, opt-in, pravdivý audit, verify a restore;
+- `docs/decisions/007-m1-vram-nonfit-policy.md` — operátor potvrdil A, pouze
+  trusted fyzický `NONFIT` se odmítne před efektem;
+- `docs/decisions/008-m1-model-adapter-authority.md` — operátor potvrdil A,
+  explicitní role-purpose matice, samostatný auth token a parametrický allowlist;
+- `docs/decisions/009-m1-gpu-headroom.md` — operátor schválil variantu A a
+  `4096` jako první kalibrační kandidát při zachování 27B/digestu, 1 GiB,
+  100% residency a zákazu fallbacku; nový skutečný T3 běh ještě neproběhl;
 - `docs/findings/002-m1-vision-bypasses-model-connector.md` — vision direct
   fetch je PENDING-OWNER, protože B1 connector nenese image schema;
 - `docs/findings/003-m1-vram-policy-is-duplicated.md` — startup, media VRAM
@@ -231,12 +237,17 @@ opakován bez bezpečného snapshotu a registrovaného T3 příkazu.
 
 ## Zbývá v WP
 
-1. autoritativní footprint fixture pro registrovaný GPU běh; bez ní zůstává
-   produkční preflight správně `UNKNOWN`;
-2. sériový GPU run na skutečné Ollamě včetně cold/warm a mid-generation cancel;
-3. konečný read-only review, focused baterie a uzavření WP. GPU část se nesmí spustit, dokud
-   bezpečný snapshot neprokáže, že není nutný pull/delete/rebind ani zásah do
-   sdílené Ollamy.
+1. B3-IDENTITY: `model-identity.js`, všechny delete/cleanup/usage lookupy a
+   detection-only integrity check s nulovou assign/override/broadcast mutací;
+2. B3-PROFILE: `src/llm/model-runtime-profile.js` pro model/digest/context/
+   headroom/residency/fallback sdílený produktem, compaction a T3 pilotem;
+3. sériový GPU run na skutečné Ollamě od `num_ctx=4096`, včetně cold/warm,
+   classify a mid-generation cancel; před během musí bezpečný snapshot potvrdit
+   nulovou potřebu pull/delete/rebind a prázdný sdílený GPU stav;
+4. B3-FAILOVER: navazující persistentní část 006/D+ nad JSON
+   `user_settings.id=1`, desired/active/audit migrací a vlastním důkazem; až
+   potom případná změna L0-9;
+5. konečný read-only review, focused baterie a uzavření WP.
 
 ## Checkpoint 4 — registrovaný bezpečný T3 GPU pilot (zatím NOT RUN)
 
@@ -354,10 +365,11 @@ nepřidávají. Bezprostřední následná host kontrola znovu potvrdila prázdn
 `ollama ps`, žádný compute proces a 23 160 MiB volné VRAM. Sdílený stav tedy
 nezůstal změněný.
 
-Výsledek se neopravuje oslabením 1GiB aserce ani změnou modelu/contextu.
-Rozhodovací fronta je v `docs/decisions/009-m1-gpu-headroom.md`. GPU část B3 je
-do operátorského rozhodnutí blokovaná; offline fake-provider a connector část
-zůstává ověřená. Následná úprava sady pouze doplňuje typovaný failure
+Výsledek se neopravuje oslabením 1GiB aserce ani nezdokumentovanou změnou
+modelu/contextu. Operátor následně schválil variantu A se společným runtime
+profilem a `4096` pouze jako prvním kalibračním kandidátem. GPU část B3 zůstává
+blokovaná do implementace profilu a nového skutečného T3 běhu; offline
+fake-provider a connector část zůstává ověřená. Následná úprava sady pouze doplňuje typovaný failure
 `GPU_PILOT_POST_CALL_HEADROOM_UNSAFE` a sanitizovanou post-load observaci, aby
 případný schválený další běh uchoval přesnou hodnotu místo samotného hashe.
 
