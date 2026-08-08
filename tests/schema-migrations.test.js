@@ -1,6 +1,7 @@
 // C3-Agent v135.0 — Schema Migration Tests
 // ══════════════════════════════════════════════════════════════════════════════
 //
+// T-SM0:  Migration identity manifest fails before the first DB mutation
 // T-SM1:  Fresh DB — all migrations applied
 // T-SM2:  Idempotent — running twice changes nothing
 // T-SM3:  schema_migrations table tracks all versions
@@ -18,6 +19,9 @@
 
 import { strict as assert } from 'assert';
 import Database from 'better-sqlite3';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 // ─── Test Infrastructure ─────────────────────────────────────────────────────
 
@@ -50,7 +54,14 @@ async function it(name, fn) {
 
 // ─── Imports ─────────────────────────────────────────────────────────────────
 
-import { runMigrations, getCurrentVersion, listMigrations, hasColumn, hasTable } from '../src/db/migrate.js';
+import {
+  runMigrations,
+  getCurrentVersion,
+  listMigrations,
+  hasColumn,
+  hasTable,
+  _testInternals as migrationTestInternals,
+} from '../src/db/migrate.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -68,6 +79,27 @@ function getTableNames(db) {
 
 function getColumnNames(db, table) {
   return db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name);
+}
+
+function assertManifestRejectedBeforeMutation(plan, expectedError, getUpCalls) {
+  const db = freshDb();
+
+  assert.throws(
+    () => migrationTestInternals.runMigrationPlan(db, plan),
+    expectedError
+  );
+  assert.strictEqual(
+    hasTable(db, 'schema_migrations'),
+    false,
+    'schema_migrations must not exist after manifest rejection'
+  );
+  assert.deepStrictEqual(
+    getTableNames(db),
+    [],
+    'invalid manifest must not create any user table'
+  );
+  assert.strictEqual(getUpCalls(), 0, 'no migration up() may run');
+  db.close();
 }
 
 // All migration versions in order (as exported by each migration file, not filenames)
@@ -126,6 +158,10 @@ const ALL_MIGRATIONS = [
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
 const LAST_MIGRATION = ALL_MIGRATIONS[ALL_MIGRATIONS.length - 1];
+const MIGRATIONS_DIR = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../src/db/migrations'
+);
 
 // Expected tables after all migrations
 // NOTE: experts, expert_memory, conversation_experts, custom_experts are DROPPED by migration 014
@@ -158,6 +194,140 @@ const EXPECTED_TABLES = [
   'validation_results', 'validation_suite_scores', 'vat_periods',
   'workflow_patterns', 'workflow_sessions',
 ];
+
+// ══════════════════════════════════════════════════════════════════════════════
+// T-SM0: MIGRATION IDENTITY PREFLIGHT — NO DB MUTATION ON INVALID MANIFEST
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('T-SM0: Migration identity preflight', async () => {
+  await it('matches physical files, manual oracle, and discovered unique versions', async () => {
+    const physicalFiles = fs.readdirSync(MIGRATIONS_DIR)
+      .filter(file => file.endsWith('.js'))
+      .sort();
+    const discovered = await migrationTestInternals.discoverMigrations();
+    migrationTestInternals.validateMigrationPlan(discovered);
+    const discoveredVersions = discovered.map(migration => migration.version);
+
+    assert.strictEqual(physicalFiles.length, ALL_MIGRATIONS.length);
+    assert.strictEqual(new Set(ALL_MIGRATIONS).size, ALL_MIGRATIONS.length);
+    assert.strictEqual(discovered.length, physicalFiles.length);
+    assert.strictEqual(new Set(discoveredVersions).size, discovered.length);
+    assert.deepStrictEqual(discoveredVersions, ALL_MIGRATIONS);
+  });
+
+  await it('rejects duplicate versions before schema_migrations or up()', () => {
+    let upCalls = 0;
+    const up = () => { upCalls++; };
+    const version = '2026_08_08_900_duplicate';
+    const plan = [
+      { version, file: `${version}.js`, description: 'first', up },
+      { version, file: `${version}_second.js`, description: 'second', up },
+    ];
+
+    assertManifestRejectedBeforeMutation(
+      plan,
+      /Duplicate migration version/,
+      () => upCalls
+    );
+  });
+
+  await it('rejects invalid version format before schema_migrations or up()', () => {
+    let upCalls = 0;
+    const plan = [{
+      version: '008',
+      file: '008.js',
+      description: 'invalid format',
+      up: () => { upCalls++; },
+    }];
+
+    assertManifestRejectedBeforeMutation(
+      plan,
+      /invalid version export/,
+      () => upCalls
+    );
+  });
+
+  await it('rejects basename/version mismatch before schema_migrations or up()', () => {
+    let upCalls = 0;
+    const plan = [{
+      version: '2026_08_08_901_expected',
+      file: '2026_08_08_902_other.js',
+      description: 'mismatch',
+      up: () => { upCalls++; },
+    }];
+
+    assertManifestRejectedBeforeMutation(
+      plan,
+      /does not match exported version/,
+      () => upCalls
+    );
+  });
+
+  await it('rejects non-delimited prefix collisions before schema_migrations or up()', () => {
+    let upCalls = 0;
+    const plan = [{
+      version: '2026_08_08_008',
+      file: '2026_08_08_0080_bad.js',
+      description: 'prefix collision',
+      up: () => { upCalls++; },
+    }];
+
+    assertManifestRejectedBeforeMutation(
+      plan,
+      /does not match exported version/,
+      () => upCalls
+    );
+  });
+
+  await it('rejects a missing version export before schema_migrations or up()', () => {
+    let upCalls = 0;
+    const plan = [{
+      version: undefined,
+      file: '2026_08_08_903_missing_version.js',
+      description: 'missing version',
+      up: () => { upCalls++; },
+    }];
+
+    assertManifestRejectedBeforeMutation(
+      plan,
+      /invalid version export/,
+      () => upCalls
+    );
+  });
+
+  await it('rejects a missing up export before schema_migrations', () => {
+    let upCalls = 0;
+    const version = '2026_08_08_904_missing_up';
+    const plan = [{
+      version,
+      file: `${version}.js`,
+      description: 'missing up',
+      up: undefined,
+    }];
+
+    assertManifestRejectedBeforeMutation(
+      plan,
+      /missing an up\(\) export/,
+      () => upCalls
+    );
+  });
+
+  await it('rejects a missing file name before schema_migrations or up()', () => {
+    let upCalls = 0;
+    const plan = [{
+      version: '2026_08_08_905_missing_file',
+      file: undefined,
+      description: 'missing file',
+      up: () => { upCalls++; },
+    }];
+
+    assertManifestRejectedBeforeMutation(
+      plan,
+      /invalid file name/,
+      () => upCalls
+    );
+  });
+});
 
 // ══════════════════════════════════════════════════════════════════════════════
 // T-SM1: FRESH DB — ALL MIGRATIONS APPLIED

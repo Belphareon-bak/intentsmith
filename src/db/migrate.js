@@ -20,6 +20,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const MIGRATIONS_DIR = path.join(__dirname, 'migrations');
+const MIGRATION_VERSION_PATTERN = /^\d{4}_\d{2}_\d{2}_\d{3}(?:_[a-z0-9]+)*$/;
 
 // ─── Internal Helpers ────────────────────────────────────────────────────────
 
@@ -48,10 +49,6 @@ async function discoverMigrations() {
   const migrations = [];
   for (const file of files) {
     const mod = await import(path.join(MIGRATIONS_DIR, file));
-    if (!mod.version || !mod.up) {
-      logger.warn('Migration', `Skipping ${file}: missing version or up() export`);
-      continue;
-    }
     migrations.push({
       version: mod.version,
       description: mod.description || file,
@@ -62,23 +59,61 @@ async function discoverMigrations() {
   return migrations;
 }
 
-// ─── Public API ──────────────────────────────────────────────────────────────
+/**
+ * Validate the complete migration manifest before the runner is allowed to
+ * create schema_migrations or execute any migration body.
+ *
+ * @param {Array<{version: unknown, up: unknown, file: unknown}>} migrations
+ * @returns {Array<{version: string, description: string, up: Function, file: string}>}
+ */
+function validateMigrationPlan(migrations) {
+  if (!Array.isArray(migrations)) {
+    throw new TypeError('Migration manifest must be an array');
+  }
+
+  const versions = new Set();
+
+  for (const migration of migrations) {
+    const file = migration?.file;
+    const version = migration?.version;
+
+    if (typeof file !== 'string' || !file.endsWith('.js')) {
+      throw new Error('Migration manifest entry has an invalid file name');
+    }
+    if (typeof version !== 'string' || !MIGRATION_VERSION_PATTERN.test(version)) {
+      throw new Error(`Migration ${file} has an invalid version export`);
+    }
+    if (typeof migration.up !== 'function') {
+      throw new Error(`Migration ${file} is missing an up() export`);
+    }
+
+    const basename = path.basename(file, '.js');
+    if (basename !== version && !basename.startsWith(`${version}_`)) {
+      throw new Error(
+        `Migration ${file} does not match exported version ${version}`
+      );
+    }
+    if (versions.has(version)) {
+      throw new Error(`Duplicate migration version: ${version}`);
+    }
+    versions.add(version);
+  }
+
+  return migrations;
+}
 
 /**
- * Run all pending migrations in order.
- *
- * Each migration is wrapped in a transaction:
- *   BEGIN → up(db) → INSERT schema_migrations → COMMIT
- *
- * If a migration fails, it rolls back and throws (fail-fast).
+ * Execute a supplied migration plan. Validation deliberately precedes every
+ * database read or write so invalid manifests fail without mutating the DB.
  *
  * @param {import('better-sqlite3').Database} db
- * @returns {Promise<{applied: string[], skipped: string[]}>}
+ * @param {Array<{version: string, description: string, up: Function, file: string}>} migrations
+ * @returns {{applied: string[], skipped: string[]}}
  */
-export async function runMigrations(db) {
+function runMigrationPlan(db, migrations) {
+  validateMigrationPlan(migrations);
   ensureMigrationsTable(db);
   const applied = getAppliedVersions(db);
-  const migrations = await discoverMigrations();
 
   const result = { applied: [], skipped: [] };
 
@@ -97,6 +132,7 @@ export async function runMigrations(db) {
 
     try {
       run();
+      applied.add(migration.version);
       result.applied.push(migration.version);
       logger.info('Migration', `Applied: ${migration.version}`);
     } catch (err) {
@@ -112,6 +148,24 @@ export async function runMigrations(db) {
   }
 
   return result;
+}
+
+// ─── Public API ──────────────────────────────────────────────────────────────
+
+/**
+ * Run all pending migrations in order.
+ *
+ * Each migration is wrapped in a transaction:
+ *   BEGIN → up(db) → INSERT schema_migrations → COMMIT
+ *
+ * If a migration fails, it rolls back and throws (fail-fast).
+ *
+ * @param {import('better-sqlite3').Database} db
+ * @returns {Promise<{applied: string[], skipped: string[]}>}
+ */
+export async function runMigrations(db) {
+  const migrations = await discoverMigrations();
+  return runMigrationPlan(db, migrations);
 }
 
 /**
@@ -133,9 +187,10 @@ export function getCurrentVersion(db) {
  * @returns {Promise<Array<{version: string, description: string, applied: boolean}>>}
  */
 export async function listMigrations(db) {
+  const migrations = await discoverMigrations();
+  validateMigrationPlan(migrations);
   ensureMigrationsTable(db);
   const applied = getAppliedVersions(db);
-  const migrations = await discoverMigrations();
   return migrations.map(m => ({
     version: m.version,
     description: m.description,
@@ -171,5 +226,12 @@ export function hasTable(db, table) {
   ).get(table);
   return !!row;
 }
+
+// Test-only seam: production discovery remains pinned to MIGRATIONS_DIR.
+export const _testInternals = Object.freeze({
+  discoverMigrations,
+  runMigrationPlan,
+  validateMigrationPlan,
+});
 
 export default { runMigrations, getCurrentVersion, listMigrations, hasColumn, hasTable };
