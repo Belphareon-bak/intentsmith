@@ -49,12 +49,13 @@ export class LLMProviderUnavailableError extends ChatTurnError {
 }
 
 export class ChatProcessingError extends ChatTurnError {
-  constructor(sourceErrorType = null) {
+  constructor(sourceErrorType = null, cause = null) {
     super(ChatTurnErrorMessage.CHAT_PROCESSING_FAILED, {
       code: ChatTurnErrorCode.CHAT_PROCESSING_FAILED,
       statusCode: 500,
       recoverable: false,
       sourceErrorType,
+      cause,
     });
     this.name = 'ChatProcessingError';
   }

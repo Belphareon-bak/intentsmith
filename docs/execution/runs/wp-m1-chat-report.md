@@ -15,9 +15,11 @@ Nová sada připíná pořadí persist-before-return a tři záporné hranice: a
 před finalizací, abort během asynchronní práce a timeout na posledním švu před
 persistencí. Ve všech případech je počet zapsaných assistant turnů nula.
 
-Sada je registrovaná jako `IS-T1-TESTS-M1-CHAT-CONTRACT-TEST` v profilu
-`offline`; nevyžaduje server, SQLite ani model a nemůže tedy vydávat tvrzení o
-request-level nebo restartové cestě. Ty zůstávají explicitně otevřené níže.
+První checkpoint sady byl registrovaný jako offline. Checkpoint 2 však načítá
+skutečný controller a tím i izolovanou SQLite/migrace, proto je metadata pravdivě
+zpřísněna na `IS-T2-TESTS-M1-CHAT-CONTRACT-TEST`, fixture `isolated-sqlite` a
+profil `database`. Sada stále nevydává tvrzení o request-level nebo process
+restart cestě; ty zůstávají explicitně otevřené níže.
 
 ### Focused evidence
 
@@ -51,6 +53,51 @@ aktualizována na nový registr (`264` → `263`); následující běh je zelen�
 ## Rozhodnutí
 
 - `docs/decisions/003-m1-persist-before-response.md`
+- `docs/decisions/004-m1-http-cancel-target.md` — blokuje jen explicitní HTTP
+  cancel command; ostatní B2 pokračuje.
+
+## Checkpoint 2 — conversation-owned state a handler failures
+
+`ChatController.handle()` nyní klíčuje controller i persistentní
+`SessionState` stejným `conversationId`, který vlastní durable turny. Sdílený
+transportní `sessionId` proto nemůže přenést preference nebo pokračovací kontext
+mezi dvěma chaty. `conversationId` je také explicitně v handler contextu.
+
+Kanonický timeout z handleru se znovu vyhazuje beze změny zdroje. Obyčejná
+handlerová výjimka se mění na sanitizovaný `CHAT_PROCESSING_FAILED`, ne na
+assistant text. `SessionState.fromJSON()` znovu načítá všechna tři pole, která
+už `toJSON()` zapisovalo: `lastIntent`, `lastDecision`, `lastUserInput`.
+
+Focused sada po této změně: M1 chat 9/0, deterministic latency 3/0,
+confirmation ownership 5/0, routes smoke 109/0, chat persistence 35/0 a WS
+bridge 64/0; všechny exit 0. Registry zůstává na 361 programech, ale pravdivá
+reklasifikace M1 chat sady z offline/T1 na database/T2 změnila fingerprint na
+`e01df433134ae227497e1e881f892424710d2bc988c61baf3964b7b4cb5c5d32`.
+
+### Mutační evidence checkpointu 2
+
+- Návrat ke klíčování controlleru/stavu pomocí transportního `sessionId`
+  skončil 8 passed / 1 failed, exit 1. Selhala pouze izolace: konverzace B
+  pozorovala `owner: conversation-A`.
+- Návrat k převodu handlerových výjimek na assistant error response skončil
+  7 passed / 2 failed, exit 1. Selhal typed timeout i generic terminal failure.
+- Testy během negativní mutace nahrazují `fetch` lokálním stubem a současně
+  vyžadují nula model calls; ani mutační kontrola proto nevyžaduje Ollamu nebo
+  externí síť.
+
+Obě mutace byly po běhu obnoveny cílenými patchi. Původní první běh error
+mutace, který před doplněním stubu sáhl na lokální modelový endpoint, není
+akceptační evidence; byl zachycen jako chyba testovací izolace a opraven před
+commitem.
+
+### Commit battery checkpointu 2
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed | 0 |
+| `node scripts/validate-test-registry.js --json` | valid, 361 programů, 8 exclusions, fingerprint `e01df433134ae227497e1e881f892424710d2bc988c61baf3964b7b4cb5c5d32` | 0 |
+| `node tests/repository-hygiene.test.js` | 1456 tracked paths | 0 |
+| `git diff --check` | bez chyb | 0 |
 
 ## Zbývá před uzavřením WP
 

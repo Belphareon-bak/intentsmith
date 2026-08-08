@@ -4933,21 +4933,21 @@
       "quarantineExpiry": null
     },
     {
-      "id": "IS-T1-TESTS-M1-CHAT-CONTRACT-TEST",
+      "id": "IS-T2-TESTS-M1-CHAT-CONTRACT-TEST",
       "path": "tests/m1-chat-contract.test.js",
       "argv": [
         "node",
         "tests/m1-chat-contract.test.js"
       ],
       "capabilityId": "C3-004",
-      "tier": "T1",
-      "fixture": "isolated-home",
-      "profile": "offline",
+      "tier": "T2",
+      "fixture": "isolated-sqlite",
+      "profile": "database",
       "timeoutMs": 120000,
       "expectedDurationMs": 30000,
       "requirements": {
         "network": "none",
-        "database": false,
+        "database": true,
         "server": false,
         "ollama": false,
         "gpu": false

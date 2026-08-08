@@ -22,8 +22,9 @@ import { getMemoryBank } from '../memory/memory-bank.js';
 import { longTermMemory } from '../memory/long-term.js';
 import { buildBudgetedContext } from './context-budget.js';
 import db from '../db/database.js';
-import { throwIfAborted } from '../core/abort-error.js';
+import { isAbortError, throwIfAborted } from '../core/abort-error.js';
 import {
+  ChatProcessingError,
   isChatTurnError,
   throwIfTerminalChatFailure,
 } from '../core/chat-turn-error.js';
@@ -623,13 +624,13 @@ export class ChatController {
       if (context.signal?.aborted) {
         throwIfAborted(context.signal);
       }
+      if (isAbortError(error)) {
+        throw error;
+      }
       if (isChatTurnError(error)) {
         throw error;
       }
-      return this.#createErrorResponse(
-        `Handler error: ${error.message}`,
-        targetMode
-      );
+      throw new ChatProcessingError('HANDLER_EXCEPTION', error);
     }
   }
 
@@ -1323,7 +1324,11 @@ export class SessionState {
         state.setPreference(key, value);
       }
     }
-    // v44.2 - Restore conversation state
+    // v44.2 - Restore conversation state. These fields are serialized by
+    // toJSON() and must survive the same round-trip as pending clarification.
+    state.#lastIntent = json.lastIntent ?? null;
+    state.#lastDecision = json.lastDecision ?? null;
+    state.#lastUserInput = json.lastUserInput ?? null;
     if (json.pendingDecision) {
       state.setPendingDecision(json.pendingDecision, json.awaitingSlots || []);
     }
@@ -1751,16 +1756,16 @@ ChatController.handle = async function(request) {
     };
   }
 
-  // Get controller and state for this session
-  const controller = sessionManager.getSession(sessionId);
-  const state = sessionManager.getState(sessionId);
-
   // ════════════════════════════════════════════════════════════════════════════
   // v56.0 Sprint 3: CONVERSATION STORE — DB is the single source of truth
   // v66.0: Use IDE's stable conversationId for DB key (not ephemeral WS sessionId)
   // ════════════════════════════════════════════════════════════════════════════
-  const store = getConversationStore();
   const dbConversationId = request.conversationId || sessionId;
+  // Conversation state has the same ownership key as durable turns. A shared
+  // WebSocket/HTTP transport session must never merge two conversations.
+  const controller = sessionManager.getSession(dbConversationId);
+  const state = sessionManager.getState(dbConversationId);
+  const store = getConversationStore();
   store.ensureConversation(dbConversationId, {
     projectId: context.projectId || null,
   });
@@ -1946,6 +1951,7 @@ ChatController.handle = async function(request) {
 
   const fullContext = {
     ...context,
+    conversationId: dbConversationId,
     userId,
     // Persistent state from session (survives across requests)
     project: state.project,
