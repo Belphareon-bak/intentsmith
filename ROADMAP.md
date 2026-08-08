@@ -514,7 +514,12 @@ focused regression sady.
    - **B3-IDENTITY (006/D+):** nový `src/upgrade/model-identity.js`, identity
      comparisons v `model-registry.js` a `upgrade-manager.js`, plus přímý
      fallback `src/routes/system.js`. Pokryje registry, overview,
-     usage/validation, `getUnusedOldModels()` i všechny delete/cleanup guardy;
+     usage/validation, `getUnusedOldModels()`, registry auto-clean a přímý
+     system-route fallback. Chatový cleanup je kanonicky chráněn při vytvoření
+     seznamu, ale jeho direct provider delete zůstává samostatný atomický
+     authority residual v `docs/findings/006-model-cleanup-bypasses-registry-guard.md`;
+     age-based cleanup navíc čeká na sjednocení SQLite/ISO timestampů ve
+     `docs/findings/007-model-cleanup-timestamp-ordering.md`;
      `checkBindingIntegrity()` přejde na `DETECTED/PROPOSED` a vytvoří přesně
      nula assign/override/broadcast efektů;
    - **B3-PROFILE (009/A):** jediný artefakt
@@ -970,8 +975,12 @@ mohou pokračovat.
    uzavřít pouze jako explicitně pojmenovaný blocker s vlastníkem a termínem.
 5. B1 contract a B2 chat jsou implementované; Gate 1 volby 001–014 jsou
    zapsané, ale B3 a B4 zůstávají pravdivě `BLOCKED`.
-6. V jediném worktree po malých commitech: nejdřív **B3-IDENTITY**, potom
-   **B3-PROFILE** a nový sériový T3 běh od 4096, následně **B3-FAILOVER**.
+6. **B3-IDENTITY je implementované a focused ověřené:** canonical presence
+   identity chrání schválené binding/delete/cleanup cesty a integrity scan je
+   detection-only; atomický chat cleanup a retention-time residualy jsou
+   pravdivě oddělené jako findings 006 a 007. V jediném worktree po malých
+   commitech následuje
+   **B3-PROFILE** a nový sériový T3 běh od 4096, potom **B3-FAILOVER**.
 7. B4 pokračuje 010/A+ a 011/A, potom v pořadí 014 server → 014 klient → 012
    route → 012 klient → společný DB-backed wire test. Read-only review může
    běžet souběžně; GPU běhy nikdy.

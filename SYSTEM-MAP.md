@@ -130,15 +130,15 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 | | |
 |---|---:|
-| `src/**/*.js` | **146 694 ř.**, 405 trackovaných `.js` souborů |
-| `tests/**/*.js` | **152 047 ř.**, 359 trackovaných `.js` souborů |
-| Registrovaných testových programů | **364** (`267 ACTIVE`, `82 BLOCKED`, `15 HISTORICAL`) |
+| `src/**/*.js` | **146 883 ř.**, 406 trackovaných `.js` souborů |
+| `tests/**/*.js` | **152 503 ř.**, 360 trackovaných `.js` souborů |
+| Registrovaných testových programů | **365** (`268 ACTIVE`, `82 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v DB / migrací | 95 / 47 |
 | HTTP rout | ~230 |
 | **Schopností v `ACCEPTED/PASS`** | **1 z 22** (#2 CRE); #1 server/routing/DB je zatím `RUNTIME_VERIFIED` — jeho suite má 13 interních checků, zatímco behavior dokument obsahuje 16 řádků, takže tvrzení „13/13 chování“ není platný akceptační součet |
 
 Aktuální registry fingerprint je
-`b45e4da20315bf8c5edd3e08f74c5c8a6f9925aa0026211c1f047ffbd27691ff`.
+`25babf6224c53a34d81822e8c039b7e062e118cd3d34c7aaee8b07c8eb38abb0`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 
@@ -313,7 +313,7 @@ Zaznamenané, rozhodnuté, ne zapomenuté.
 | Git historie obsahuje `data/c3.db` (+ `-wal`) a jednu přílohu navíc | Mimo `trackedObjectManifest` v `PRIVACY-INCIDENT.json`, který pokrývá containment současného stromu, ne historický rozsah. Vše dosažitelné, obsah neotevřen |
 | Skills mají krok `shell`, jinde je shell denied | Zaznamenáno k prověření |
 | Rehydrate ACK autorita je neúplná | Server prvních 32 ID ověří, ale delší set tiše usekne a přesto vrátí autoritativní ACK; klient komplement `validIds` maže. Missing i funkční in-memory store mohou stejným způsobem označit vše za neplatné. Běžné UI drží 1–3 panely, reachability je dnes hlavně corrupt/manual persisted state. Schváleno 014/A: durable-store guard, úplný partition nebo typovaný reject a bezpečný local restore; implementace otevřená. |
-| Modelová kanonická identita a auto-rebind | Bare binding se neshoduje s Ollama `:latest` v integrity, overview, registry/direct delete, validating ani auto-clean guardu. Přímé cleanup volání nebo pozdější oprava settings authority by proto mohly odstranit přiřazený model; dnešní periodický enable je navíc dormantní, protože chybně čte neexistující `user_settings.key/value`. Auto-rebind bez ověření vrací/loguje `verified:true` a `model_overrides` dostane default `1`, zatímco `upgrade_history` výsledek ověření vůbec neumí uložit. Schválen D+ směr, ale L0-9 zůstává beze změny do implementace identity, detection-only integrity, JSON settings authority, desired/active stavu, auditu a restore. |
+| Modelová kanonická identita a auto-rebind | **B3-IDENTITY implementováno:** `name` a `name:latest` se shodují v bindingu, overview, informačních validation/usage lookupách, registry delete/auto-clean, `getUnusedOldModels()` i direct system-route fallbacku; jiné explicitní tagy a fuzzy rodinné varianty se neslučují. Integrity check je detection-only a prázdná Ollama je `INCONCLUSIVE`. Name-only skóre není digest-bound verification. Zůstává `PENDING-OWNER` atomický závod chatového cleanupu, který po list-time klasifikaci maže vlastním provider callem (`docs/findings/006-model-cleanup-bypasses-registry-guard.md`), a nesourodé SQLite/ISO timestampy age-based cleanupu (`docs/findings/007-model-cleanup-timestamp-ordering.md`). Dnešní periodický enable je dormantní kvůli chybnému `user_settings.key/value`; nepravdivé `verified:true`, JSON settings authority, desired/active stav, audit a restore patří do B3-FAILOVER. L0-9 se nemění. |
 | Token streaming neexistuje — `onLLMToken` je konzument bez producenta | Odpověď přichází celá |
 | Nedostupná Ollama při klasifikaci | Opravena na jeden pokus; změřeno přibližně 80 ms místo 6 091 ms |
 | Automatické online model discovery | `C3_ENABLE_ONLINE_DISCOVERY`, default off; ostatní explicitní outbound plochy čekají na jednotnou policy |

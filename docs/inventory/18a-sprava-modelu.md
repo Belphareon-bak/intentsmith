@@ -57,3 +57,25 @@ Nic. 844 řádků, obojí zapojené a pokryté.
 - Žádné automatické stahování ani upgrade modelu v této části — to je celé v 18b.
 - Žádné síťové volání: síťoví klienti (`whatllm-client`, `registry-client`,
   `online-discovery`) jsou v 18b, ne zde. **18a je offline.**
+
+## 7. Runtime follow-up B3-IDENTITY — 2026-08-08
+
+Pozdější runtime probe vyvrátil implicitní předpoklad, že Ollama a config vždy
+použijí byteově stejné jméno. Config měl například bare binding, zatímco Ollama
+vracela `:latest`; registry pak označila přiřazený model jako deletable a přímý
+route fallback skutečně došel k provider delete effectu.
+
+Oprava přidala `src/upgrade/model-identity.js` jako jedinou autoritu pro
+binding/presence safety. Pokrývá role, validating guard, overview,
+validation/usage join, recommendation, registry delete/auto-clean,
+`getUnusedOldModels()` a direct system-route fallback. Integrity scan už binding
+nemění: vrací pouze typované `DETECTED/PROPOSED`, nebo `INCONCLUSIVE` při
+prázdné/nedostupné Ollamě.
+
+Hranice zůstává záměrně úzká: presence identity není identity artefaktu.
+`name:latest` se může pod stejným jménem změnit, proto automatický failover
+později vyžaduje exact digest-bound fresh validation. Chatový cleanup navíc po
+vytvoření unused seznamu používá vlastní provider delete; jeho atomický závod s
+novým bindingem je samostatný `finding 006`, nikoli skrytě rozšířený scope této
+opravy. Age-based cleanup současně porovnává SQLite a ISO timestampy jako text;
+oddělený retention residual je `finding 007`.

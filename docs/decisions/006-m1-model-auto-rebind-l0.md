@@ -1,7 +1,7 @@
 # 006 — automatický model rebind zůstává blokovaný rozhodnutím L0-9
 
 - **typ:** BLOCK
-- **stav rozhodnutí:** D+ SCHVÁLENO; IMPLEMENTACE A DŮKAZ OTEVŘENÉ
+- **stav rozhodnutí:** D+ SCHVÁLENO; B3-IDENTITY IMPLEMENTOVÁNO, PROFILE/FAILOVER OTEVŘENÉ
 - **WP:** WP-M1-MODEL
 - **rail:** R1 USER_AUTHORITY, R3 OBSERVABLE_BEHAVIOR, R6 REVERSIBILITY
 - **vzniklo při:** read-only call-graph kontrole `src/upgrade/model-registry.js:checkBindingIntegrity()`
@@ -131,3 +131,26 @@ checku. Persistentní B3-FAILOVER je samostatný navazující milestone nad
 migrací pro desired/active/audit stav, `model-registry.js`, identity částmi
 `upgrade-manager.js` a scheduler seamem v `src/server.js`. Tento rozhodovací
 záznam jej nevydává za implementovaný.
+
+## Implementační stav B3-IDENTITY — 2026-08-08
+
+Sdílený `src/upgrade/model-identity.js` nyní vlastní konzervativní presence
+identitu pro schválené binding, registry, validation/usage, recommendation,
+upgrade-manager a direct-route cesty. `name` a `name:latest` jsou stejné;
+explicitní jiné tagy, dash/colon heuristiky a quantization varianty zůstávají
+různé. Exact provider name se nepřepisuje a name-only validační řádek nese
+`artifactVerified: false`, protože digest-bound validace patří až do
+B3-FAILOVER.
+
+`checkBindingIntegrity()` vrací strukturované `COMPLETE | INCONCLUSIVE` a
+`DETECTED | PROPOSED` findings. Nevolá assign, override ani broadcast. Prázdná
+nebo nedostupná Ollama je `INCONCLUSIVE`, nikoli důkaz odinstalování.
+
+Focused důkaz je `tests/m1-model-identity.test.js`; jeho mutation probes
+samostatně zčervenaly při odstranění canonical comparatoru, obnovení assignu v
+integrity a odstranění vnějšího auto-clean binding guardu. Širší tvrzení o
+atomickém delete však zůstává otevřené: chatový cleanup má vlastní direct
+provider delete a závod mezi seznamem a efektem. Viz
+[`finding 006`](../findings/006-model-cleanup-bypasses-registry-guard.md).
+Nezávislý review navíc oddělil retention-time chybu mimo identity scope jako
+[`finding 007`](../findings/007-model-cleanup-timestamp-ordering.md).

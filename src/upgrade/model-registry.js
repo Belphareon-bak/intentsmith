@@ -9,6 +9,12 @@
 import { config } from '../config.js';
 import { logger } from '../core/logger.js';
 import { parseModelName } from './model-profiles.js';
+import {
+  canonicalModelName,
+  canonicalModelNameSet,
+  modelNameAliases,
+  sameModelName,
+} from './model-identity.js';
 import { execSync } from 'child_process';
 import fs from 'fs';
 
@@ -26,7 +32,36 @@ const ROLE_PROFILES = {
   VISION: { name: 'Analýza obrázků',   desc: 'Porozumění obrázkům a vizuálnímu obsahu. Vyžaduje vision.',suite: 'vision',    color: '#f59e0b' },
 };
 
-class ModelRegistry {
+function parseValidationTimestamp(value) {
+  const parsed = value ? Date.parse(value) : NaN;
+  return Number.isFinite(parsed) ? parsed : -Infinity;
+}
+
+function normalizeValidationScore(value) {
+  if (value && typeof value === 'object') {
+    return {
+      score: Number.isFinite(value.score) ? value.score : null,
+      updatedAt: value.validatedAt || value.updatedAt || null,
+    };
+  }
+  return { score: Number.isFinite(value) ? value : null, updatedAt: null };
+}
+
+function shouldReplaceValidationScore(current, candidate) {
+  if (!current) return true;
+  const currentTime = parseValidationTimestamp(current.updatedAt);
+  const candidateTime = parseValidationTimestamp(candidate.updatedAt);
+  if (candidateTime !== currentTime) return candidateTime > currentTime;
+  if (candidate.sourcePriority !== current.sourcePriority) {
+    return candidate.sourcePriority > current.sourcePriority;
+  }
+  if (candidate.sourceModel !== current.sourceModel) {
+    return candidate.sourceModel < current.sourceModel;
+  }
+  return candidate.score > current.score;
+}
+
+export class ModelRegistry {
   constructor() {
     this._db = null;
     this._upgradeManager = null;
@@ -90,14 +125,14 @@ class ModelRegistry {
   getBoundRoles(modelName) {
     const roles = [];
     for (const [role, model] of Object.entries(config.models)) {
-      if (model === modelName) roles.push(role);
+      if (sameModelName(model, modelName)) roles.push(role);
     }
     return roles;
   }
 
   /** Check if model is bound to any role */
   isBound(modelName) {
-    return Object.values(config.models).includes(modelName);
+    return Object.values(config.models).some(model => sameModelName(model, modelName));
   }
 
   /** Check if model can be deleted */
@@ -106,7 +141,7 @@ class ModelRegistry {
       const roles = this.getBoundRoles(modelName).join(', ');
       return { deletable: false, reason: `Model je přiřazený k rolím: ${roles}` };
     }
-    if (this._validatingModel === modelName) {
+    if (sameModelName(this._validatingModel, modelName)) {
       return { deletable: false, reason: 'Model je právě validován' };
     }
     return { deletable: true };
@@ -114,56 +149,78 @@ class ModelRegistry {
 
   /** Get validation scores for a model across all suites */
   getValidationScores(modelName) {
-    if (!this._validationRunner) return {};
-    const scores = {};
-    const now = Date.now();
-    for (const suite of SUITES) {
-      const s = this._validationRunner.getScore(modelName, suite);
-      if (s != null) {
-        // Get updatedAt from DB
-        let updatedAt = null;
-        if (this._db) {
-          try {
-            const row = this._db.prepare(
-              'SELECT validated_at FROM validation_suite_scores WHERE model = ? AND suite = ?'
-            ).get(modelName, suite);
-            if (row) updatedAt = row.validated_at;
-          } catch (_) {}
-        }
-        const expired = updatedAt ? (now - Date.parse(updatedAt)) > VALIDATION_TTL_MS : true;
-        scores[suite] = { score: s, updatedAt, expired };
-      } else {
-        scores[suite] = null;
-      }
-    }
-    return scores;
+    const key = canonicalModelName(modelName);
+    if (!key) return {};
+    const consolidated = this.getAllValidationScores()[key] || {};
+    return Object.fromEntries(SUITES.map(suite => [suite, consolidated[suite] || null]));
   }
 
   /** Get all validation scores for all models */
   getAllValidationScores() {
-    if (!this._validationRunner) return {};
     try {
-      const allScores = this._validationRunner.getAllScores();
-      const result = {};
-      for (const [model, suiteScores] of allScores) {
-        result[model] = {};
-        for (const [suite, score] of Object.entries(suiteScores)) {
-          result[model][suite] = { score, updatedAt: null, expired: false };
+      const selected = new Map();
+      const aliasesByScore = new Map();
+      const consider = ({ model, suite, score, updatedAt, sourcePriority }) => {
+        const key = canonicalModelName(model);
+        if (!key || !suite || !Number.isFinite(score)) return;
+        const selectionKey = `${key}\0${suite}`;
+        const candidate = {
+          score,
+          updatedAt: updatedAt || null,
+          sourceModel: String(model),
+          sourcePriority,
+        };
+        if (shouldReplaceValidationScore(selected.get(selectionKey), candidate)) {
+          selected.set(selectionKey, candidate);
+        }
+        if (!aliasesByScore.has(selectionKey)) aliasesByScore.set(selectionKey, new Set());
+        aliasesByScore.get(selectionKey).add(String(model));
+      };
+
+      if (this._validationRunner?.getAllScores) {
+        const allScores = this._validationRunner.getAllScores();
+        for (const [model, suiteScores] of allScores || []) {
+          for (const [suite, rawScore] of Object.entries(suiteScores || {})) {
+            const normalized = normalizeValidationScore(rawScore);
+            consider({ model, suite, ...normalized, sourcePriority: 0 });
+          }
         }
       }
-      // Enrich with timestamps
+
       if (this._db) {
         try {
           const rows = this._db.prepare(
             'SELECT model, suite, score, validated_at FROM validation_suite_scores'
           ).all();
-          const now = Date.now();
           for (const r of rows) {
-            if (!result[r.model]) result[r.model] = {};
-            const expired = (now - Date.parse(r.validated_at)) > VALIDATION_TTL_MS;
-            result[r.model][r.suite] = { score: r.score, updatedAt: r.validated_at, expired };
+            consider({
+              model: r.model,
+              suite: r.suite,
+              score: r.score,
+              updatedAt: r.validated_at,
+              sourcePriority: 1,
+            });
           }
         } catch (_) {}
+      }
+
+      const result = {};
+      const now = Date.now();
+      for (const [selectionKey, score] of [...selected.entries()].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) {
+        const [model, suite] = selectionKey.split('\0');
+        if (!result[model]) result[model] = {};
+        const aliases = [...(aliasesByScore.get(selectionKey) || [])].sort();
+        result[model][suite] = {
+          score: score.score,
+          updatedAt: score.updatedAt,
+          expired: score.updatedAt
+            ? (now - parseValidationTimestamp(score.updatedAt)) > VALIDATION_TTL_MS
+            : true,
+          sourceModel: score.sourceModel,
+          identityAliases: aliases,
+          identityAmbiguous: aliases.length > 1,
+          artifactVerified: false,
+        };
       }
       return result;
     } catch (_) {
@@ -174,10 +231,14 @@ class ModelRegistry {
   /** Get last usage info for a model */
   getUsage(modelName) {
     if (!this._db) return { lastUsedAt: null, requestCount: 0 };
+    const aliases = modelNameAliases(modelName);
+    if (aliases.length === 0) return { lastUsedAt: null, requestCount: 0 };
     try {
+      const placeholders = aliases.map(() => '?').join(', ');
       const row = this._db.prepare(
-        'SELECT MAX(used_at) as last_used, COUNT(*) as cnt FROM model_usage WHERE model = ?'
-      ).get(modelName);
+        `SELECT MAX(used_at) as last_used, COUNT(*) as cnt
+         FROM model_usage WHERE lower(trim(model)) IN (${placeholders})`
+      ).get(...aliases);
       return {
         lastUsedAt: row?.last_used || null,
         requestCount: row?.cnt || 0,
@@ -241,7 +302,7 @@ class ModelRegistry {
     const models = installed.map(m => {
       const boundRoles = this.getBoundRoles(m.name);
       const { deletable, reason } = this.isDeletable(m.name);
-      const vs = allScores[m.name] || {};
+      const vs = allScores[canonicalModelName(m.name)] || {};
       const usage = this.getUsage(m.name);
       const unvalidatedSuites = SUITES.filter(s => !vs[s] || vs[s].expired);
       if (unvalidatedSuites.length > 0) unvalidatedCount++;
@@ -291,8 +352,6 @@ class ModelRegistry {
 
   /** Get models that can be deleted */
   getDeletable() {
-    const bindings = this.getBound();
-    const boundModels = new Set(Object.values(bindings));
     // Uses cached overview if available
     if (this._overviewCache) {
       return this._overviewCache.models
@@ -312,14 +371,15 @@ class ModelRegistry {
 
     let best = null;
     let bestScore = -1;
-    const currentScore = allScores[current]?.[suite]?.score ?? -1;
+    const currentKey = canonicalModelName(current);
+    const currentScore = allScores[currentKey]?.[suite]?.score ?? -1;
 
-    for (const [model, scores] of Object.entries(allScores)) {
-      if (model === current) continue;
+    for (const [model, scores] of Object.entries(allScores).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) {
+      if (model === currentKey) continue;
       const s = scores[suite]?.score;
       if (s != null && s > bestScore) {
         bestScore = s;
-        best = model;
+        best = scores[suite]?.sourceModel || model;
       }
     }
 
@@ -341,7 +401,7 @@ class ModelRegistry {
       const roles = this.getBoundRoles(name).join(', ');
       throw new Error(`Model je přiřazený k rolím: ${roles}`);
     }
-    if (this._validatingModel === name) {
+    if (sameModelName(this._validatingModel, name)) {
       throw new Error('Model je právě validován');
     }
 
@@ -362,7 +422,7 @@ class ModelRegistry {
       // Find size from cache for the WS event
       let freedGB = '?';
       if (this._overviewCache) {
-        const m = this._overviewCache.models.find(m => m.name === name);
+        const m = this._overviewCache.models.find(m => sameModelName(m.name, name));
         if (m) freedGB = m.sizeGB;
       }
 
@@ -399,7 +459,7 @@ class ModelRegistry {
 
     // Filter to models needing validation
     const queue = installed.filter(m => {
-      const scores = allScores[m.name];
+      const scores = allScores[canonicalModelName(m.name)];
       if (!scores) return true;
       // Need validation if any suite is missing or expired
       return SUITES.some(s => !scores[s] || scores[s].expired);
@@ -424,7 +484,7 @@ class ModelRegistry {
 
           // Check model still exists
           const check = await self.getInstalled();
-          if (!check.some(m => m.name === model)) {
+          if (!check.some(m => sameModelName(m.name, model))) {
             logger.warn('ModelRegistry', `Skipping ${model} — no longer installed`);
             continue;
           }
@@ -496,15 +556,15 @@ class ModelRegistry {
   /** Run auto-cleanup of unused models older than `days` */
   async runAutoCleanup(days = 14) {
     const installed = await this.getInstalled();
-    const boundModels = new Set(Object.values(config.models));
+    const boundModels = canonicalModelNameSet(Object.values(config.models));
     const cutoff = new Date(Date.now() - days * 86400000).toISOString();
     const deleted = [];
 
     for (const m of installed) {
       // Skip bound models
-      if (boundModels.has(m.name)) continue;
+      if (boundModels.has(canonicalModelName(m.name))) continue;
       // Skip if currently validating
-      if (this._validatingModel === m.name) continue;
+      if (sameModelName(this._validatingModel, m.name)) continue;
       // Check last usage
       const usage = this.getUsage(m.name);
       if (usage.lastUsedAt && usage.lastUsedAt > cutoff) continue;
@@ -528,35 +588,71 @@ class ModelRegistry {
 
   // ─── Binding Integrity Check ───────────────────────────────────────────────
 
-  /** Check if bound models are still installed, auto-rebind if not */
+  /** Detect missing bindings without changing configuration or broadcasting. */
   async checkBindingIntegrity() {
+    const checkedAt = new Date().toISOString();
     try {
       const installed = await this.getInstalled();
-      if (installed.length === 0) return; // Ollama probably offline
-      const installedNames = new Set(installed.map(m => m.name));
-
-      for (const [role, model] of Object.entries(config.models)) {
-        if (installedNames.has(model)) continue;
-
-        // Model missing! Try to find best alternative
-        const rec = this.getRecommendation(role);
-        if (rec && installedNames.has(rec.model)) {
-          logger.warn('ModelRegistry', `Model ${model} missing for ${role}, rebinding to ${rec.model}`);
-          try {
-            await this.assignModel(role, rec.model, { appliedBy: 'auto-rebind' });
-            this._broadcast('control', {
-              action: 'model_auto_rebound', role, from: model, to: rec.model,
-            });
-          } catch (err) {
-            logger.error('ModelRegistry', `Auto-rebind failed: ${err.message}`);
-          }
-        } else {
-          // No recommendation — just log warning
-          logger.warn('ModelRegistry', `Model ${model} missing for ${role}, no alternative found`);
-        }
+      if (installed.length === 0) {
+        return {
+          schemaVersion: 1,
+          scanStatus: 'INCONCLUSIVE',
+          reason: 'OLLAMA_UNAVAILABLE_OR_EMPTY',
+          checkedAt,
+          installedCount: 0,
+          findings: [],
+        };
       }
+
+      const findings = [];
+
+      for (const [role, model] of Object.entries(config.models).sort(([a], [b]) => a.localeCompare(b))) {
+        if (installed.some(entry => sameModelName(entry.name, model))) continue;
+
+        const rec = this.getRecommendation(role);
+        const installedCandidate = rec
+          ? installed.find(entry => sameModelName(entry.name, rec.model))
+          : null;
+        const candidate = installedCandidate ? {
+          model: installedCandidate.name,
+          digest: installedCandidate.digest || null,
+          score: rec.score,
+          delta: rec.delta,
+        } : null;
+        const state = candidate ? 'PROPOSED' : 'DETECTED';
+        findings.push({
+          role,
+          configuredModel: model,
+          state,
+          reason: 'BOUND_MODEL_NOT_INSTALLED',
+          candidate,
+        });
+        logger.warn(
+          'ModelRegistry',
+          candidate
+            ? `Model ${model} missing for ${role}; proposed local candidate ${candidate.model}`
+            : `Model ${model} missing for ${role}; no local candidate proposed`,
+        );
+      }
+
+      return {
+        schemaVersion: 1,
+        scanStatus: 'COMPLETE',
+        reason: null,
+        checkedAt,
+        installedCount: installed.length,
+        findings,
+      };
     } catch (err) {
       logger.warn('ModelRegistry', `Integrity check failed: ${err.message}`);
+      return {
+        schemaVersion: 1,
+        scanStatus: 'INCONCLUSIVE',
+        reason: 'INTEGRITY_SCAN_FAILED',
+        checkedAt,
+        installedCount: null,
+        findings: [],
+      };
     }
   }
 

@@ -1,7 +1,7 @@
 # WP-M1-MODEL — průběžný report
 
-- **stav WP:** BLOCKED na 006/D+ a referenční GPU konfiguraci 009; offline
-  connector READY
+- **stav WP:** B3-IDENTITY READY; BLOCKED na B3-PROFILE, novém referenčním
+  GPU běhu 009 a B3-FAILOVER; offline connector READY
 - **base SHA:** `55c913d6f3cb2354b6447d10ff304e9d0323b1c3`
 - **zapisující větev:** `claude/gate1-mobile-app-progress-5sywlt`
 - **GPU/Ollama v checkpointech 1–2:** NOT RUN
@@ -217,9 +217,8 @@ opakován bez bezpečného snapshotu a registrovaného T3 příkazu.
 - `docs/decisions/005-m1-model-retry-policy.md` — operátor potvrdil A, jeden
   pokus pouze pro connector v1;
 - `docs/decisions/006-m1-model-auto-rebind-l0.md` — operátor schválil D+;
-  implementace zůstává BLOCKED. Nejdřív jedna kanonická identita pro integrity,
-  recommendation, overview, delete a cleanup bez nové auto mutace; potom
-  oddělený desired/active failover, opt-in, pravdivý audit, verify a restore;
+  B3-IDENTITY je implementované bez auto mutace; oddělený desired/active
+  failover, opt-in, pravdivý audit, verify a restore zůstávají otevřené;
 - `docs/decisions/007-m1-vram-nonfit-policy.md` — operátor potvrdil A, pouze
   trusted fyzický `NONFIT` se odmítne před efektem;
 - `docs/decisions/008-m1-model-adapter-authority.md` — operátor potvrdil A,
@@ -233,20 +232,26 @@ opakován bez bezpečného snapshotu a registrovaného T3 příkazu.
   manager a request preflight zatím nemají jednoho vlastníka footprintu.
 - `docs/findings/004-llm-auth-factory-capability-elevation.md` — process-local
   token nejde padělat, ale trusted factory zatím zachovává legacy capability
-  override mimo default role.
+  override mimo default role;
+- `docs/findings/006-model-cleanup-bypasses-registry-guard.md` — canonical
+  list-time klasifikace je opravená, ale chatový direct delete má stále závod
+  assign-versus-delete a čeká na vlastníka mimo schválený identity scope;
+- `docs/findings/007-model-cleanup-timestamp-ordering.md` — age-based cleanup
+  porovnává produkční SQLite čas s ISO cutoffem lexikograficky; na stejném dni
+  může čerstvější usage vyhodnotit jako starší.
 
 ## Zbývá v WP
 
-1. B3-IDENTITY: `model-identity.js`, všechny delete/cleanup/usage lookupy a
-   detection-only integrity check s nulovou assign/override/broadcast mutací;
-2. B3-PROFILE: `src/llm/model-runtime-profile.js` pro model/digest/context/
+1. B3-PROFILE: `src/llm/model-runtime-profile.js` pro model/digest/context/
    headroom/residency/fallback sdílený produktem, compaction a T3 pilotem;
-3. sériový GPU run na skutečné Ollamě od `num_ctx=4096`, včetně cold/warm,
+2. sériový GPU run na skutečné Ollamě od `num_ctx=4096`, včetně cold/warm,
    classify a mid-generation cancel; před během musí bezpečný snapshot potvrdit
    nulovou potřebu pull/delete/rebind a prázdný sdílený GPU stav;
-4. B3-FAILOVER: navazující persistentní část 006/D+ nad JSON
+3. B3-FAILOVER: navazující persistentní část 006/D+ nad JSON
    `user_settings.id=1`, desired/active/audit migrací a vlastním důkazem; až
    potom případná změna L0-9;
+4. společně vlastněný cleanup follow-up pro atomickou autoritu z findingu 006
+   a numerické timestamp porovnání z findingu 007;
 5. konečný read-only review, focused baterie a uzavření WP.
 
 ## Checkpoint 4 — registrovaný bezpečný T3 GPU pilot (zatím NOT RUN)
@@ -390,3 +395,89 @@ a nezměněných connector kontraktů.
 | `node scripts/validate-test-registry.js --json` | 363 programů, 8 exclusions, fingerprint `01fba11724f59652ca443fade2cc3d1942839deb03db0473edee38b287edec21` | 0 |
 | `node tests/repository-hygiene.test.js` | 1 468 trackovaných cest po stagingu decision záznamu | 0 |
 | `git diff --check` | bez whitespace chyb | 0 |
+
+## Checkpoint 6 — kanonická presence identita a detection-only integrity
+
+Nový `src/upgrade/model-identity.js` zavádí jedinou konzervativní identitu pro
+binding/presence safety. Bare `name` a implicitní `name:latest` jsou stejné bez
+ohledu na case a vnější whitespace; explicitní jiné tagy, dash/colon rodinné
+varianty a quantization varianty zůstávají různé. Provider effect i audit dál
+zachovávají exact observed/requested name. Name-only validation metadata je
+výslovně `artifactVerified: false`; digest-bound autorita nevznikla.
+
+Stejnou identitu nyní používají role a validating guard, overview,
+deterministicky nejnovější validation alias, agregovaný usage, recommendation,
+registry delete/auto-clean, validation queue, `getUnusedOldModels()`, relevantní
+upgrade-manager joins a direct system-route fallback. Dříve reprodukovaný
+bound `identity-fixture` versus installed/requested
+`identity-fixture:latest` už skončí před provider delete.
+
+`checkBindingIntegrity()` je nově čistý detektor: vrací schéma 1,
+`COMPLETE | INCONCLUSIVE` a `DETECTED | PROPOSED` findings. Skutečně missing
+role s lokálně nainstalovaným kandidátem vrátí jeho exact name a digest, ale
+provede přesně nula assign, override a broadcast efektů. Prázdný modelový
+inventář je `OLLAMA_UNAVAILABLE_OR_EMPTY / INCONCLUSIVE`, nikoli uninstall
+evidence.
+
+Read-only call graph současně našel residual mimo povolené cesty:
+`src/chat/handlers/pre-handler.js:model_cleanup` používá unused seznam, ale
+maže vlastním provider callem. Aliasový false-delete je opraven při klasifikaci;
+závod mezi seznamem a novým bindingem zůstává. Je zaevidovaný jako
+`docs/findings/006-model-cleanup-bypasses-registry-guard.md` a tento checkpoint
+proto netvrdí atomickou bezpečnost všech delete cest.
+
+Nezávislý review navíc reprodukoval retention residual: produkční SQLite
+`used_at` a ISO cutoff se porovnávají jako řetězce a na stejném kalendářním dni
+mohou obrátit časové pořadí. Je oddělený jako `finding 007`; canonical alias
+test nyní používá produkční SQLite timestamp, ale záměrně netvrdí opravu cutoff
+policy.
+
+### Focused a povinné ověření checkpointu 6
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node --check src/upgrade/model-identity.js` | syntax valid | 0 |
+| `node --check src/upgrade/model-registry.js` | syntax valid | 0 |
+| `node --check src/upgrade/upgrade-manager.js` | syntax valid | 0 |
+| `node --check src/routes/system.js` | syntax valid | 0 |
+| `node --check tests/m1-model-identity.test.js` | syntax valid | 0 |
+| `node tests/m1-model-identity.test.js` | 16 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-model-contract.test.js` | 28 passed, 0 failed, 0 skipped | 0 |
+| `node tests/model-upgrade.test.js` | 58 passed, 0 failed, 0 skipped | 0 |
+| `node tests/upgrade-apply.test.js` | 32 passed, 0 failed, 0 skipped | 0 |
+| `node tests/upgrade-flow.test.js` | 28 passed, 0 failed, 0 skipped | 0 |
+| `node tests/model-upgrade-phase2.test.js` | 108 passed, 0 failed, 0 skipped | 0 |
+| `node tests/model-upgrade-phase3.test.js` | 68 passed, 0 failed, 0 skipped | 0 |
+| `node tests/validation-suites.test.js` | 73 passed, 0 failed, 0 skipped | 0 |
+| `node tests/upgrade-ux-v125.test.js` | 78 passed, 0 failed, 0 skipped | 0 |
+| `node tests/routes-smoke.test.js` | 109 passed, 0 failed | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
+| `node scripts/validate-test-registry.js --json` | 365 programů, 8 exclusions, fingerprint `25babf6224c53a34d81822e8c039b7e062e118cd3d34c7aaee8b07c8eb38abb0` | 0 |
+| `node tests/repository-hygiene.test.js` | 1 481 trackovaných cest po explicitním stagingu | 0 |
+| `git diff --check` | bez whitespace chyb | 0 |
+
+### Mutační signál
+
+Sedm samostatných minimálních mutací proběhlo pouze v pracovním stromu a bylo přesně
+vrácené před čistým během:
+
+- canonical comparator nahrazený exact string rovností: **5 passed / 9 failed**,
+  exit `1`; zčervenaly binding, overview, auto-clean, route, filtering,
+  apply i integrity;
+- znovuzavedený `assignModel()` v integrity candidate větvi:
+  **13 passed / 1 failed**, exit `1`, přesně na nulové mutaci;
+- odstraněný vnější auto-clean binding guard: **13 passed / 1 failed**,
+  exit `1`, protože bound alias došel do `deleteModel()` callu;
+- jednostranná canonicalizace vnějšího auto-clean guardu po review:
+  **15 passed / 1 failed**, exit `1`, na opačném `:latest` → bare směru;
+- jednostranný validating guard ve stejné auto-clean hranici:
+  **15 passed / 1 failed**, exit `1`, protože reverse-validating alias došel k
+  delete callu;
+- broadcast vložený pouze do `DETECTED` větve bez kandidáta:
+  **15 passed / 1 failed**, exit `1`, na nulové mutaci;
+- odstraněný stabilní source-model tie-break při stejném validation timestampu:
+  **15 passed / 1 failed**, exit `1`, na nezávislosti vůči pořadí DB řádků.
+
+Po prvních třech návratech skončila tehdejší čistá sada 14/0; po review doplnila
+obousměrné hranice, `DETECTED` a tie-order důkaz a finální čistá sada skončila
+16/0. GPU ani Ollama tento checkpoint nespustil.

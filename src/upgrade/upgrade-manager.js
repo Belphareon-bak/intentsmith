@@ -16,6 +16,12 @@ import { config } from '../config.js';
 import { MODEL_PROFILES, parseModelName, isNewerVersion, isSameFamily } from './model-profiles.js';
 import { discover, getUpgradeHints, fetchInstalledModels } from './model-discovery.js';
 import { modelUniverseStore } from './model-universe-store.js';
+import {
+  canonicalModelName,
+  canonicalModelNameSet,
+  modelNameAliases,
+  sameModelName,
+} from './model-identity.js';
 
 // Minimum score for user-facing notifications (lower proposals exist but are silent)
 export const MIN_NOTIFY_SCORE = 6;
@@ -71,15 +77,26 @@ async function _ensureOnlineDiscovery() {
   return _onlineDiscovery;
 }
 
-// ─── Model Name Normalization ────────────────────────────────────────────────
+function _getCatalogEntryByIdentity(catalog, modelName) {
+  if (!catalog?.getCatalogEntry) return null;
+  const exact = catalog.getCatalogEntry(modelName);
+  if (exact) return exact;
+  for (const alias of modelNameAliases(modelName)) {
+    const entry = catalog.getCatalogEntry(alias);
+    if (entry) return entry;
+  }
+  return Array.isArray(catalog.CATALOG)
+    ? catalog.CATALOG.find(entry => sameModelName(entry?.name, modelName)) || null
+    : null;
+}
 
-/**
- * Normalize model name for comparison — strip `:latest` suffix.
- * Ollama returns some models as "model:latest" while config uses bare "model".
- */
-function _normalizeModelName(name) {
-  if (!name) return '';
-  return name.replace(/:latest$/, '');
+function _getMapValueByModelIdentity(map, modelName) {
+  if (!(map instanceof Map)) return undefined;
+  if (map.has(modelName)) return map.get(modelName);
+  for (const [name, value] of map) {
+    if (sameModelName(name, modelName)) return value;
+  }
+  return undefined;
 }
 
 // ─── Feasibility Gate (v118) ────────────────────────────────────────────────
@@ -151,7 +168,9 @@ export function checkFeasibility(candidate, role, hwContext = {}) {
  */
 export function filterCandidates(candidates, profile, opts = {}) {
   const { requirements, preferredFamilies, preferredCategories } = profile;
-  const blockedModels = opts.blockedModels instanceof Set ? opts.blockedModels : null;
+  const blockedModels = opts.blockedModels instanceof Set
+    ? canonicalModelNameSet(opts.blockedModels)
+    : null;
 
   return candidates.filter(c => {
     // Param bounds
@@ -165,10 +184,10 @@ export function filterCandidates(candidates, profile, opts = {}) {
 
     // Skip the current model itself
     const current = profile.getCurrentModel();
-    if (_normalizeModelName(c.name) === _normalizeModelName(current)) return false;
+    if (sameModelName(c.name, current)) return false;
 
     // Runtime safety guard: optionally exclude currently disabled models.
-    if (blockedModels && blockedModels.has(_normalizeModelName(c.name))) return false;
+    if (blockedModels && blockedModels.has(canonicalModelName(c.name))) return false;
 
     return true;
   });
@@ -485,7 +504,7 @@ export class UpgradeManager {
 
       // v125: Check if installed — auto-pull if onPullProgress callback provided
       const installed = await fetchInstalledModels({ timeout: 15000 });
-      const isInstalled = installed.some(m => _normalizeModelName(m.name) === _normalizeModelName(targetModel));
+      const isInstalled = installed.some(m => sameModelName(m.name, targetModel));
 
       if (!isInstalled) {
         if (!opts.onPullProgress) {
@@ -496,14 +515,14 @@ export class UpgradeManager {
         opts.onPullProgress({ status: 'pulled', text: `${targetModel} stažen`, percent: 100 });
         // Verify model appeared after pull
         const recheck = await fetchInstalledModels({ timeout: 10000 });
-        if (!recheck.some(m => _normalizeModelName(m.name) === _normalizeModelName(targetModel))) {
+        if (!recheck.some(m => sameModelName(m.name, targetModel))) {
           throw new Error(`Pull completed but model not found: ${targetModel}`);
         }
       }
 
       // Check not already set (normalize to handle :latest variants)
       const previousModel = config.models[role];
-      if (_normalizeModelName(previousModel) === _normalizeModelName(targetModel)) {
+      if (sameModelName(previousModel, targetModel)) {
         throw new Error(`${role} is already set to ${targetModel}`);
       }
 
@@ -561,7 +580,7 @@ export class UpgradeManager {
 
     // Verify previous model is still installed (15s timeout — Ollama may be busy)
     const installed = await fetchInstalledModels({ timeout: 15000 });
-    if (!installed.some(m => _normalizeModelName(m.name) === _normalizeModelName(previousModel))) {
+    if (!installed.some(m => sameModelName(m.name, previousModel))) {
       throw new Error(`Previous model no longer installed: ${previousModel}`);
     }
 
@@ -787,9 +806,9 @@ export class UpgradeManager {
         'SELECT role, model, previous_model, applied_at FROM model_overrides ORDER BY applied_at DESC LIMIT 50'
       ).all();
 
-      const boundModels = new Set(Object.values(config.models));
+      const boundModels = canonicalModelNameSet(Object.values(config.models));
       return rows
-        .filter(r => !boundModels.has(r.previous_model))
+        .filter(r => !boundModels.has(canonicalModelName(r.previous_model)))
         .map(r => ({
           model: r.previous_model,
           replacedBy: r.model,
@@ -1023,7 +1042,7 @@ export class UpgradeManager {
       const currentParsed = parseModelName(current);
 
       // Find current model's catalog entry or build from local data
-      const currentEntry = _catalog?.getCatalogEntry?.(current) || {
+      const currentEntry = _getCatalogEntryByIdentity(_catalog, current) || {
         name: current,
         family: currentParsed.family,
         category: currentParsed.category,
@@ -1042,9 +1061,8 @@ export class UpgradeManager {
       }
 
       // Filter candidates for this role
-      const currentNorm = _normalizeModelName(current);
       const roleCandidates = discovery.candidates.filter(c => {
-        if (_normalizeModelName(c.name) === currentNorm) return false;
+        if (sameModelName(c.name, current)) return false;
         const guardDecision = this._getRuntimeGuardDecision(c.name);
         if (!guardDecision.allowed) return false;
         // Param bounds from profile
@@ -1060,7 +1078,7 @@ export class UpgradeManager {
       for (const candidate of roleCandidates) {
         // v120.2: Enrich L1 (local) candidates with catalog data
         if (candidate.source === 'local' && _catalog?.getCatalogEntry) {
-          const catEntry = _catalog.getCatalogEntry(candidate.name);
+          const catEntry = _getCatalogEntryByIdentity(_catalog, candidate.name);
           if (catEntry) {
             if (!candidate.capabilities) candidate.capabilities = catEntry.capabilities;
             if (!candidate.benchmarks) candidate.benchmarks = catEntry.benchmarks;
@@ -1099,7 +1117,7 @@ export class UpgradeManager {
         // Compute effective VRAM if catalog entry available
         let effectiveVramMb = candidate.effectiveVramMb;
         if (!effectiveVramMb && _catalog?.computeEffectiveVram) {
-          const entry = _catalog.getCatalogEntry(candidate.name);
+          const entry = _getCatalogEntryByIdentity(_catalog, candidate.name);
           if (entry) effectiveVramMb = _catalog.computeEffectiveVram(entry);
         }
 
@@ -1122,8 +1140,8 @@ export class UpgradeManager {
         let empiricalCtx = {};
         if (_empiricalScorer && empiricalData.has(role)) {
           const roleData = empiricalData.get(role);
-          const candMetrics = roleData?.get(candidate.name);
-          const curMetrics = roleData?.get(current);
+          const candMetrics = _getMapValueByModelIdentity(roleData, candidate.name);
+          const curMetrics = _getMapValueByModelIdentity(roleData, current);
           const candSamples = candMetrics?.sampleCount ?? 0;
           const curSamples = curMetrics?.sampleCount ?? 0;
 
@@ -1357,13 +1375,15 @@ export class UpgradeManager {
       try {
         for (const [role, profile] of Object.entries(MODEL_PROFILES)) {
           const currentModel = profile.getCurrentModel();
-          const normalized = _normalizeModelName(currentModel);
+          const aliases = modelNameAliases(currentModel);
+          if (aliases.length === 0) continue;
+          const placeholders = aliases.map(() => '?').join(', ');
           const result = this._db.prepare(`
             UPDATE upgrade_proposals
             SET status = 'expired', resolved_at = datetime('now')
             WHERE role = ? AND status = 'pending'
-              AND (candidate_model = ? OR candidate_model = ?)
-          `).run(role, currentModel, normalized);
+              AND lower(trim(candidate_model)) IN (${placeholders})
+          `).run(role, ...aliases);
           if (result.changes > 0) {
             logger.info('UpgradeManager', `Startup cleanup: expired ${result.changes} stale proposals for ${role}`);
           }

@@ -15,6 +15,7 @@ import { upgradeManager, UpgradeManager } from '../upgrade/upgrade-manager.js';
 import { broadcast } from '../ws-bridge/ws-server.js';
 import { modelUniverseStore } from '../upgrade/model-universe-store.js';
 import { parseModelName } from '../upgrade/model-profiles.js';
+import { sameModelName } from '../upgrade/model-identity.js';
 import { estimateModelPrior } from '../upgrade/model-similarity.js';
 
 const FEATURE_UNIVERSE_ENABLED = (process.env.C3_MODEL_UNIVERSE_ENABLED || 'true') !== 'false';
@@ -960,7 +961,7 @@ export function createSystemRoutes({ db, sendJSON, parseBody, modelRegistry }) {
         }
 
         // Fallback: direct delete without registry
-        const bound = Object.entries(config.models).filter(([_, m]) => m === modelName);
+        const bound = Object.entries(config.models).filter(([_, m]) => sameModelName(m, modelName));
         if (bound.length > 0) {
           const roles = bound.map(([r]) => r).join(', ');
           return sendJSON(res, 409, { error: `Model still bound to role(s): ${roles}` });
