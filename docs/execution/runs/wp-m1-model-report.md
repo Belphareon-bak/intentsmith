@@ -668,3 +668,73 @@ potom dočasně odstranila vazbu terminal eventu na `claim_operation_id`.
 Focused sada zčervenala přesně na wrong-operation aserci: `8 passed / 1 failed`,
 exit `1`. Guard byl přesným patchem vrácen, dva vlastněné failure artifact
 adresáře byly odstraněny a čistý běh skončil znovu `9/0`, exit `0`.
+
+## Checkpoint 10 — inertní repository a claim CAS pro B3-FAILOVER
+
+Nový `src/upgrade/model-failover.js` přidává storage-only repository nad
+migrací 046. Umí observačně zapsat config/legacy desired binding, založit první
+incident a přidělit časově omezený `ACTIVATE`, `RESTORE` nebo `REAPPLY` claim.
+Repository vlastní clock, episode/event/operation identity i claim token; caller
+se je nemůže pokusit podstrčit. Každá mutace běží v `BEGIN IMMEDIATE` a auditní
+event s projekcí tvoří jednu transakci.
+
+Skutečný worker race používá dvě nezávislé `better-sqlite3` connections nad
+stejným file-backed DB. V obou řízených pořadích vznikl právě jeden vítěz,
+právě jeden `MODEL_FAILOVER_STALE_STATE` loser, nula `SQLITE_BUSY` výsledků a
+právě jeden claim event. Samostatný trigger shodil claim state update až po
+vložení eventu; další dva triggery samostatně odmítly desired a detection
+projekci. Všechny tři rollbacky ponechaly nulový orphan audit. Skutečný close
+a reopen potvrdil persistenci desired, incident a redigovaných claim metadata.
+
+Reviewerem nalezené authority mezery byly před checkpointem zavřeny:
+
+- `USER_APPLY` a `USER_ROLLBACK` failují jako neimplementovaný manual seam,
+  protože bez jedné override+desired+supersede transakce by audit nebyl pravdivý;
+- opakovaná detection s claimem nebo cizí policy se nevydává za idempotentní;
+- busy, identity collision, storage-contract violation a corrupt event JSON
+  mají oddělené typované chyby;
+- claim CAS v `WHERE` pinuje revision, episode, row version, state,
+  `active_failover`, policy a absenci claimu;
+- změna observační autority config↔legacy zvýší desired revision, i když se
+  canonical jméno a digest nezmění.
+
+### Hranice checkpointu 10
+
+Repository není importované žádným runtime modulem a neprovádí modelový, síťový,
+Ollama, GPU, config ani broadcast efekt. Neexistuje proof creation/validation,
+terminal activation nebo restore, manual supersede, claim renew/reclaim,
+runtime apply, opt-in consumer, startup rehydrate ani scheduler. Pětiminutový
+lease není finální modelová policy a repository se nesmí připojit k dlouhému
+proof runneru před recovery checkpointem. Restart test dokládá persistenci, ne
+obnovu vlastnictví rozpracovaného claimu. L0-9 se nemění.
+
+### Focused ověření checkpointu 10
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-model-failover-repository.test.js` | 11 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-model-failover-schema.test.js` | 9 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-model-settings.test.js` | 14 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-model-identity.test.js` | 16 passed, 0 failed, 0 skipped | 0 |
+| `node tests/schema-migrations.test.js` | 28 passed, 0 failed; 48 migrací | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
+| `node tests/repository-hygiene.test.js` | 1 488 trackovaných cest | 0 |
+| `node scripts/validate-test-registry.js --write-doc` | 368 programů, fingerprint `ed1565a94d902224f08a87c8d37e8381ca65d7f3e1365e3e02334d5d79a1ad16` | 0 |
+| `node scripts/validate-test-registry.js --json` | valid; 368 programů; 8 exclusions; stejný fingerprint | 0 |
+| `node --check src/upgrade/model-failover.js` | bez syntax chyby | 0 |
+| `node --check tests/m1-model-failover-repository.test.js` | bez syntax chyby | 0 |
+| `git diff --check` | bez whitespace chyb | 0 |
+
+Dvě jednotlivé mutace prokázaly citlivost evidence. Nahrazení
+`transaction.immediate()` deferred voláním shodilo přesně mode-pin test
+(`8/1`, exit `1`). Odstranění stale-row prechecku shodilo worker race i
+two-snapshot test (`7/2`, exit `1`) a změnilo loser výsledek na nepravdivý
+`CLAIM_HELD`. Obě mutace byly přesným patchem vráceny; čistý běh skončil
+`9/0`, exit `0`; po doplnění busy/identity/corrupt-storage a samostatných
+desired/detection rollback důkazů skončila finální focused sada `11/0`, exit
+`0`.
+
+GPU ani Ollama se v tomto checkpointu nespouštějí. Kanonický T3 běh na 4096
+zůstává samostatně blokovaný požadavkem runneru na čistý porcelain, protože
+cizí untracked `docs/review/2026-08-08-MODULE-INDEPENDENCE.md` má vlastnictví
+`UNKNOWN`. Soubor nebyl čten, změněn ani zahrnut do tohoto checkpointu.

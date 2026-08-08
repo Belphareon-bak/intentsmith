@@ -553,8 +553,16 @@ focused regression sady.
      canonical name, digestu, policy a deklarovaných PASS prazích. Projection
      koření aktivní binding v konkrétním `active_event_id`; oddělený
      `last_event_id` může sledovat claim jen s odpovídajícím claim tuple. Tento
-     checkpoint záměrně ještě neobsahuje repository/CAS operace, proof runner,
-     runtime apply, restore, startup rehydrate ani scheduler.
+     **Třetí checkpoint je implementovaný:** inertní repository pozoruje pouze
+     existující config/legacy desired binding, idempotentně zakládá detection a
+     přiděluje ohraničené claims v `BEGIN IMMEDIATE`. Přes dva skutečné SQLite
+     workery projde právě jeden claim a druhý končí typovaným stale výsledkem;
+     audit a projekce se při chybě rollbackují společně. Caller nesmí dodat čas,
+     event, operation ani token a `USER_APPLY/USER_ROLLBACK` zůstávají zavřené,
+     dokud nevznikne atomický override+supersede seam. Repository zatím
+     neobsahuje proof runner, terminal activation/restore, expired-claim
+     recovery, runtime apply, startup rehydrate ani scheduler a žádný runtime
+     modul jej nekonzumuje.
 3. **Connector:** adaptér `ModelRequest/Result` v1; nemění schéma.
 4. **Závislost:** `WP-M1-CONTRACT`; offline fake běhy nečekají na GPU.
 5. **Demo:** skutečná Ollama odpověď; negativní unavailable cesta používá
@@ -1002,9 +1010,10 @@ mohou pokračovat.
    omezuje oba gateway vstupy a conversation compaction; neprohlašuje GPU
    PASS. V jediném worktree po malých commitech následuje nový sériový T3 běh
    od 4096, potom **B3-FAILOVER**. Settings authority a fail-closed storage
-   schema jsou implementované bez modelového effectu; repository/CAS, skutečný
-   digest proof runner, state-machine koordinátor, startup rehydrate a scheduler
-   zůstávají otevřené a failover se dosud neaktivuje.
+   schema a repository/CAS claim základ jsou implementované bez modelového
+   effectu; skutečný digest proof runner, terminal state-machine, expired-claim
+   recovery, runtime apply, startup rehydrate a scheduler zůstávají otevřené a
+   failover se dosud neaktivuje.
 7. B4 pokračuje 010/A+ a 011/A, potom v pořadí 014 server → 014 klient → 012
    route → 012 klient → společný DB-backed wire test. Read-only review může
    běžet souběžně; GPU běhy nikdy.

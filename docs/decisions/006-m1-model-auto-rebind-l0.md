@@ -186,11 +186,33 @@ terminal eventu.
 Schema má samostatný `FAILED` stav s pojmenovanou failure phase; absence řádku
 znamená, že pro roli není evidovaný incident, nikoli implicitní zelený stav.
 
-Jde záměrně jen o storage checkpoint. Dosud neexistuje produkční repository,
-dvouconnection stale-CAS důkaz, claim recovery, role-suite proof runner,
-runtime apply, restore, startup rehydrate ani scheduler. Žádný runtime modul
-nové tabulky nekonzumuje a L0-9 se proto nemění. Focused důkaz je registrovaná
-database sada `IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST`.
+Jde záměrně jen o storage checkpoint. Focused důkaz je registrovaná database
+sada `IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST`.
+
+## Implementační stav B3-FAILOVER repository/CAS — 2026-08-08
+
+`src/upgrade/model-failover.js` nyní vlastní inertní repository pro tři
+operace: observační desired binding, první detection a ohraničený claim typu
+`ACTIVATE`, `RESTORE` nebo `REAPPLY`. Každý zápis běží přes
+`transaction.immediate()` a auditní event se s projekcí commitne nebo rollbackne
+atomicky. Dva skutečné worker thready nad dvěma SQLite connections prokázaly v
+obou pořadích právě jednoho claim winnera, jednoho typovaného stale losera a
+nulový orphan audit. Claim token je vrácen pouze vítězi a read API jej rediguje.
+
+Clock i event/episode/operation/token identity vlastní repository; pokus calleru
+je dodat se odmítne. `USER_APPLY` a `USER_ROLLBACK` zůstávají fail-closed,
+protože bez jedné transakce nad `model_overrides`, desired revision a
+`SUPERSEDED_BY_USER` by audit lhal o skutečném uživatelském bindingu. SQLite
+busy, identity collision, storage-contract violation a corrupt event JSON mají
+odlišné typované chyby.
+
+Tento checkpoint stále neobsahuje proof runner ani terminal transition,
+expired-claim renew/reclaim, manual supersede, runtime apply, opt-in consumer,
+startup koordinátor nebo scheduler. Pětiminutový claim je prozatím pouze
+ohraničený storage lease, nikoli schválený limit modelové validace; repository
+se proto nesmí zapojit do proof runneru, dokud recovery nevznikne. Žádný runtime
+modul repository nekonzumuje a L0-9 se nemění. Focused důkaz je
+`IS-T1-TESTS-M1-MODEL-FAILOVER-REPOSITORY-TEST`.
 
 ## Implementační stav B3-IDENTITY — 2026-08-08
 
