@@ -106,14 +106,25 @@ nedeterministicky neopakuje: skutečně použitý prompt a `_expected` grading
 context jsou zachycené a znovu svázané. I synteticky perfektní výsledek zůstává
 `NOT_ISSUED` a nevytvoří PASS proof ani DB zápis.
 
-Runnerův `sourceRevisionClaim`, callerem zvolený loopback provider a očekávaný
-digest jsou pouze parent piny, nikoli samostatná autorita. Před proof issuance
-proto zbývá parentem odvozená identita kandidáta, schválené prahy a TTL,
-aditivní vazba immutable artefaktu na proof a terminální recheck živé policy,
+Samotný child runner považuje `sourceRevisionClaim`, callerem zvolený loopback
+provider a očekávaný digest pouze za parent piny. Navazující parent acceptance
+níže už tuto autoritu odvozuje z čistého Git kandidáta, configu a strict
+inventory. Před proof issuance proto zbývají schválené prahy a TTL, aditivní
+vazba immutable artefaktu na proof a terminální recheck živé policy,
 validation verze a role contract hashe.
 
+Navazující parent acceptance už první část uzavřel bez domýšlení autority:
+caller dodá pouze roli a požadované jméno, provider pochází z configu, exact
+model a digest ze strict inventory a source revision z čistého Git kandidáta.
+Child i policy běží z privátního exportu přesných HEAD blobů. Parent ověří
+process outcome, inventory před/po, artifact bytes/mode/path a úplnou pětici
+pinů a vydá immutable `NOT_ISSUED` receipt. Tím se measurement stává
+reprodukovatelnou kandidátní evidencí, nikoli PASS proofem: prahy, TTL,
+atomická proof persistence a terminal activation zůstávají blokované.
+
 Focused sady `IS-T1-TESTS-M1-MODEL-FAILOVER-PROOF-POLICY-TEST` a
-`IS-T1-TESTS-M1-MODEL-FAILOVER-MEASUREMENT-TEST` běží offline, bez DB,
-produktového serveru, Ollamy a GPU; druhá používá pouze test-owned loopback fake
-provider. Registrace measurement contractu nemění historický Gate 0
-fingerprint; ten je release evidence, nikoli vývojová autorita.
+`IS-T1-TESTS-M1-MODEL-FAILOVER-MEASUREMENT-TEST` i
+`IS-T1-TESTS-M1-MODEL-FAILOVER-PARENT-ACCEPTANCE-TEST` běží offline, bez DB,
+produktového serveru, Ollamy a GPU; poslední dvě používají pouze test-owned
+loopback fake provider. Registrace measurement contractu nemění historický
+Gate 0 fingerprint; ten je release evidence, nikoli vývojová autorita.

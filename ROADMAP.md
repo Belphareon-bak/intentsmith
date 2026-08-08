@@ -577,11 +577,33 @@ focused regression sady.
      před/po a publikuje kanonický read-only measurement artifact. Artifact je
      výslovně `NOT_ISSUED`, jeho `sourceRevisionClaim` není samostatným
      důkazem HEAD a runner neimportuje DB, registry, upgrade manager ani WS.
+     **Sedmý checkpoint je implementovaný:** parent přijímá pouze roli a
+     požadované modelové jméno; provider bere z runtime config authority a
+     exact name, canonical name i digest odvozuje ze striktního `/api/tags`.
+     Jakákoli staged, tracked, untracked nebo ignorovaná změna pod `src/`,
+     `scripts/`, `tests/` či v `package.json` běh před provider efektem
+     odmítne, zatímco cizí rozpracované `docs/` do kandidáta nevstupují.
+     Měřený child i policy moduly se načtou z privátního read-only exportu
+     přesných blobů HEAD; parent přijme jen exit 0, prázdný stderr, jediný
+     mode-0400 artifact, shodný inventory před/po a všech pět pinů. Samostatný
+     immutable receipt zůstává `NOT_ISSUED` a deklaruje nulové DB, binding,
+     config a broadcast efekty. Jeho standalone validator potvrzuje pouze
+     `STRUCTURAL_ONLY`; silnější stav vznikne jen proti zvlášť odvozeným parent
+     pinům. Parent run i source-export adresář se znovu ověřují po child běhu a
+     těsně před publikací. Zděděné Node hooks se odmítnou před efekty
+     vlastněnými parentem; nejde o OS sandbox ani tvrzení, že cizí preload před
+     startem Node nikdy neběžel.
      Repository zatím neobsahuje proof issuer/persistence, terminal
      activation/restore, manual supersede, runtime apply, startup rehydrate ani
      scheduler a žádný runtime modul jej nekonzumuje. Chybějící proof
      acceptance prahy a TTL jsou shromážděné v rozhodnutí 015; measurement-only
-     runner může pokračovat, PASS issuance zůstává fail-closed.
+     runner může pokračovat, PASS issuance zůstává fail-closed. Navazující
+     `USER_APPLY/USER_ROLLBACK` storage seam musí od prvního commitu držet
+     `verified=0` bez skutečné verifikace a append-only rollback lineage.
+     Legacy `upgrade-manager.js` přesto zůstává druhým netransakčním binding
+     commit pointem; jeho sjednocení pro HTTP i chat vlastní B3-FAILOVER runtime
+     integrátor s termínem před M1 acceptance, viz
+     `docs/findings/008-model-binding-commit-point-split.md`.
 3. **Connector:** adaptér `ModelRequest/Result` v1; nemění schéma.
 4. **Závislost:** `WP-M1-CONTRACT`; offline fake běhy nečekají na GPU.
 5. **Demo:** skutečná Ollama odpověď; negativní unavailable cesta používá
@@ -1036,8 +1058,12 @@ mohou pokračovat.
    takže jiný worker může legitimně vyhrát; není to atomický same-worker reclaim.
    Measurement policy už fail-closed pinuje role-suite autoritu a verzovanou
    serializaci. Izolovaný measurement-only runner vytváří soukromý kanonický
-   artifact bez DB/proof/binding efektu; fake-provider CHAT a D1 pokrývají
-   ordered suite, skutečný randomizovaný prompt i negativní drift. Proof issuer,
+   artifact bez DB/proof/binding efektu; parent navíc odvozuje provider,
+   inventory, digest a HEAD, spouští child z exact-blob source exportu a vydá
+   pouze immutable `NOT_ISSUED` receipt. Fake-provider CHAT a D1 pokrývají
+   ordered suite, skutečný randomizovaný prompt i negativní drift. Legacy
+   binding apply/rollback zůstává explicitním blockerem s vlastníkem a termínem
+   ve finding 008. Proof issuer,
    terminal state-machine, manual supersede, runtime apply, startup rehydrate a
    scheduler zůstávají otevřené a failover se dosud neaktivuje. Proof issuance
    čeká na prahy a TTL z rozhodnutí 015; nový skutečný GPU běh zůstává

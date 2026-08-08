@@ -959,3 +959,109 @@ Docker mountům. Produktová ani cizí data se nemažou.
 Cizí `docs/review/2026-08-08-MODULE-INDEPENDENCE.md` zůstal nedotčený a
 nebude zahrnut do checkpoint commitu. GPU, sdílená Ollama, produktový server
 ani externí síť nebyly spuštěné.
+
+## Checkpoint 14 — kandidátní parent acceptance bez proof autority
+
+Nový `scripts/run-model-failover-candidate-measurement.js` přijímá pouze roli a
+požadované modelové jméno. Provider origin odvozuje z
+`config.ollama.baseUrl`; exact observed jméno, canonical identitu a digest ze
+striktního `/api/tags`. Caller nemůže dodat provider, digest ani source SHA.
+Git běží přes pevné `/usr/bin/git`, ne přes zděděný `PATH`.
+
+Source guard odmítá staged, tracked, untracked i ignorované položky pod
+`src/`, `scripts/`, `tests/` a změnu `package.json`. Untracked dokumentace je
+z kandidátního scope vynechaná. Konkrétní regresní fixture potvrzuje, že i
+untracked migrace objevitelná přes `readdirSync()` běh zastaví před providerem;
+další fixture totéž dokládá pro ignorovaný `tests/*.tmp` soubor. Samostatná
+mutační kontrola bez `--ignored=matching` tuto ochranu zčervenala.
+Po preflightu parent vytvoří privátní export jedenácti přesných mode-100644
+blobů kandidátního HEAD. Policy a child se načtou z tohoto exportu, ne ze
+živého worktree; před i po měření a znovu těsně před publikací se kontrolují
+jeho přesné soubory, hashe, módy, ownership a link count.
+
+Child je přijat pouze při exit `0`, bez signálu a stderr, s jedinou one-line
+summary a jediným regular mode-0400 `measurement.json`. Parent znovu ověří
+byte length, SHA-256, exact artifact path, inventory před/po a všech pět pinů.
+Samostatný receipt má exact-key validator s negativními mutacemi statusu,
+source, inventory, candidate digestu, path, timing a effect boundary. Bez
+nezávisle předaných parent pinů vrací pouze `STRUCTURAL_ONLY`; self-consistent
+forgery source, inventory, candidate digestu a artifact SHA proti původním
+parent pinům zčervená. Parent run i source-export root se znovu ověřují po child
+procesu a těsně před publikací; focused fixture mění mód celého artifact rootu,
+parent runu, source-export rootu i exact child run directory. Statický wiring
+guard pinuje spuštění child z HEAD exportu a obsah commit-point callbacku.
+Publikace je non-clobber, po odstranění staging linku vyžaduje `nlink=1`,
+finální read-back a directory fsync. CLI důkaz navíc váže oba reportované SHA
+na skutečné receipt/measurement bytes a odmítá `NODE_OPTIONS` i přímý Node flag.
+
+Výsledek zůstává `NOT_ISSUED`. Tento checkpoint neobsahuje GPU/Ollama
+kvalifikaci, proof, DB, binding, config ani broadcast writer. Odmítnutí
+`NODE_OPTIONS` je precondition před efekty vlastněnými parentem; nejde o OS
+sandbox ani zpětný důkaz, že cizí preload před startem Node nic nevykonal.
+Stejně tak `externalNetwork:false` vyjadřuje deklarovanou a source-pinned effect
+boundary tohoto přesného exportu, nikoli OS-level zákaz budoucího přímého
+`node:http`, `node:net` nebo subprocess efektu. Takové rozšíření import closure
+musí zčervenat source pin a vyžaduje nové review i negativní důkaz.
+
+Read-only review současně potvrdil čtyři legacy vady mimo tento inertní
+checkpoint: netransakční apply/rollback, předčasné `verified=1`, nepravdivou
+chatovou zprávu o ověření a HTTP-only `model_changed`. Jsou explicitně vedené
+ve finding 008 s vlastníkem `WP-M1-MODEL / B3-FAILOVER runtime integration` a
+termínem před M1 acceptance. Navazující manual storage/repository seam už od
+prvního commitu musí držet `verified=0` bez verifikace a append-only rollback,
+ale nesmí být vydán za opravu legacy runtime cesty.
+
+Focused běh před širší validační baterií skončil
+`tests/m1-model-failover-parent-acceptance.test.js` **15/0**, exit `0`.
+Registr po přidání sady obsahuje **371** programů a fingerprint
+`6e8d9c111f4b6d70678404fb74e7ef9664dfb07132189f83d4246fd607856a53`.
+Skutečný T3/GPU/Ollama běh nebyl spuštěn.
+
+### Širší offline ověření checkpointu 14
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-model-failover-parent-acceptance.test.js` | 15 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-model-failover-measurement.test.js` | 9 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-model-failover-proof-policy.test.js` | 9 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-model-failover-repository.test.js` | 14 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-model-failover-schema.test.js` | 10 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-model-settings.test.js` | 14 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-model-identity.test.js` | 16 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-model-contract.test.js` | 29 passed, 0 failed, 0 skipped | 0 |
+| `node tests/schema-migrations.test.js` | 28 passed, 0 failed; 49 migrací | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
+| `node tests/repository-hygiene.test.js` | 1 494 trackovaných cest | 0 |
+| `node scripts/validate-test-registry.js --json` | valid; 371 programů; 8 exclusions; fingerprint `6e8d9c11…56a53` | 0 |
+| `node tests/nightly-audit-runner-self-test.js` | `nightly audit runner self-test: PASS` | 0 |
+| `node tests/nightly-orchestrator-self-test.js` | očekávaný vývojový drift: `deterministic registry contains non-active or optional suites` | 1 |
+| `node --check scripts/run-model-failover-candidate-measurement.js` | syntax valid | 0 |
+| `node --check tests/m1-model-failover-parent-acceptance.test.js` | syntax valid | 0 |
+| `git diff --check` | bez whitespace chyb | 0 |
+
+Nezávislý read-only reviewer dal tomuto inertnímu checkpointu
+`APPROVE / READY TO COMMIT`, P0=0 a P1=0. Zapsal jeden neblokující P2:
+již commitnutý child writer fsyncne svůj directory před finálním hardlinkem,
+nikoli znovu po něm. Následná validace chybějící artifact fail-closed odmítne,
+ale crash-durability child publication není stejně silná jako u parent receipt.
+Oprava patří do samostatného malého follow-upu a nemění `NOT_ISSUED` hranici.
+
+Druhý nezávislý test-truth re-audit rovněž skončil `APPROVED`: reprodukoval
+15/0 a potvrdil červený signál pro export wiring, commit-point ordering,
+`process.execArgv`, summary SHA, trusted-authority projection i hardlink guard.
+Čtyři LOW hardening reziduály zůstávají explicitní: rozdělit kombinovanou
+self-consistent forgery na per-field mutace, svázat i tři convenience pole CLI
+summary, v pozitivní fixture nezávisle porovnat každý export s `git show` a
+lexikálně pinovat pořadí `chmod(0400)` před file fsync. Žádný z nich nemění
+aktuální `NOT_ISSUED` výsledek ani blokuje tento checkpoint.
+
+Jedenáct přesně pojmenovaných test-owned adresářů této sady bylo po kontrole
+vlastníka a módu přesunuto do systémového koše, nikoli nevratně smazáno.
+`lsof` nehlásil otevřený handle, ale jeho výpis mohl být neúplný kvůli
+nesouvisejícím Docker mountům. Produktová ani cizí data nebyla dotčena.
+
+Při širokém hledání B3 přes glob `docs/review/2026-08-08-*` se omylem vypsalo
+pět odpovídajících řádků z chráněného
+`docs/review/2026-08-08-MODULE-INDEPENDENCE.md`. Soubor nebyl upraven, staged
+ani dále čten; navazující dotazy jej explicitně vylučují. Jde o přiznané
+porušení read-only hranice, ne o změnu cizí práce.

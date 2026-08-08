@@ -253,12 +253,12 @@ prahy i proof TTL `null`. Policy neprovádí DB, model, provider, Ollama, GPU,
 config, broadcast ani síťový efekt. Focused offline sada je registrovaná jako
 `IS-T1-TESTS-M1-MODEL-FAILOVER-PROOF-POLICY-TEST`.
 
-Izolovaný fresh-child runner a exact prompt/options/result measurement artifact
-jsou implementované v následujícím checkpointu. Před issuance dál chybí
-operátorsky schválené prahy a TTL, aditivní vazba immutable artefaktu na proof,
-parentem odvozená autorita kandidáta a terminální recheck aktuální
-policy/version/hash. Legacy `ValidationRunner` není proof authority. L0-9 se
-nemění.
+V okamžiku checkpointu 12 ještě chyběl izolovaný fresh-child runner,
+parentem odvozená autorita kandidáta i exact prompt/options/result artifact;
+checkpointy 13 a 14 tyto measurement-only mezery níže uzavírají. Před issuance
+dál chybí operátorsky schválené prahy a TTL, aditivní vazba immutable artefaktu
+na proof a terminální recheck aktuální policy/version/hash. Legacy
+`ValidationRunner` není proof authority. L0-9 se nemění.
 
 ## Implementační stav B3-FAILOVER measurement runner — 2026-08-08
 
@@ -276,6 +276,41 @@ exit `0`, přesně jednu summary, hash, délku a úplnou pětici pinů. Samotný
 `sourceRevisionClaim` ani callerem vybraný provider/digest nejsou nezávislou
 autoritou; tu musí dodat navazující parent/issuer. Focused offline důkaz je
 `IS-T1-TESTS-M1-MODEL-FAILOVER-MEASUREMENT-TEST`.
+
+## Implementační stav B3-FAILOVER parent acceptance — 2026-08-08
+
+`scripts/run-model-failover-candidate-measurement.js` už nepřijímá provider,
+digest ani source SHA od calleru. Provider origin čte z `config.ollama.baseUrl`;
+exact observed name, canonical name a digest odvozuje ze striktního loopback
+inventory. Před i těsně před publikací odmítne staged, tracked, untracked i
+ignorované změny pod `src/`, `scripts/`, `tests/` a v `package.json`. Cizí
+untracked práce pod `docs/` není součástí kandidátního zdroje a běh neblokuje.
+
+Policy a child se nenačítají ze živého worktree, ale z privátního exportu
+přesných mode-100644 blobů kandidátního HEAD. Export má před/po kontrolu
+inventáře, hashů, módů, ownership a hardlinků. Parent přijme jen child exit 0,
+nulový stderr, jednu přesnou summary, jediný soukromý mode-0400 artifact,
+shodný inventory před/po a pětici role/model/digest/provider/revision pinů.
+Výsledný read-only receipt má samostatný schema validator, který bez nezávisle
+odvozených parent pinů vrací pouze `STRUCTURAL_ONLY`; self-consistent přepis
+source, inventory, kandidáta a artifact hashe proto nemůže dostat silnější
+verdikt. Parent validuje receipt proti zvlášť sestavené autoritě, před/po child
+znovu ověří privátní run i source-export adresář a publikuje non-clobber s
+finálním read-backem, `nlink=1` a directory fsync. Receipt stále zůstává
+`NOT_ISSUED` a nevytváří proof, DB, binding, config ani broadcast efekt.
+
+Focused offline důkaz je
+`IS-T1-TESTS-M1-MODEL-FAILOVER-PARENT-ACCEPTANCE-TEST`. Nejde o GPU kvalifikaci
+ani o změnu L0-9. Zděděné Node hooks parent odmítá před svými efekty; tento
+kontrakt není OS sandbox a netvrdí, že cizí preload před zahájením Node procesu
+nemohl udělat vlastní efekt.
+
+Manual apply/rollback nyní čeká na dva inertní checkpointy: append-only storage
+lineage a atomické repository operace. Oba musí držet `verified=0` bez skutečné
+verifikace a rollback zapisovat jako nový stav, nikoli `DELETE`. Ani poté se
+nesmí tvrdit runtime integrace: legacy `upgrade-manager.js`, chatová zpráva a
+HTTP-only broadcast tvoří otevřený blocker s vlastníkem a termínem v
+[`finding 008`](../findings/008-model-binding-commit-point-split.md).
 
 ## Implementační stav B3-IDENTITY — 2026-08-08
 
