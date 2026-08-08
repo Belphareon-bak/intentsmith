@@ -4993,6 +4993,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T3-TESTS-M1-MODEL-GPU-PILOT-TEST",
+      "path": "tests/m1-model-gpu-pilot.test.js",
+      "argv": [
+        "node",
+        "tests/m1-model-gpu-pilot.test.js"
+      ],
+      "capabilityId": "C3-010",
+      "tier": "T3",
+      "fixture": "shared-local-model-load-without-admin-actions",
+      "profile": "model",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": false,
+        "server": false,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-MANIFEST-V2-TEST",
       "path": "tests/manifest-v2.test.js",
       "argv": [

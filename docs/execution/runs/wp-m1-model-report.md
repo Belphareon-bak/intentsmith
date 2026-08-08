@@ -236,3 +236,84 @@ opakován bez bezpečného snapshotu a registrovaného T3 příkazu.
 3. konečný read-only review, focused baterie a uzavření WP. GPU část se nesmí spustit, dokud
    bezpečný snapshot neprokáže, že není nutný pull/delete/rebind ani zásah do
    sdílené Ollamy.
+
+## Checkpoint 4 — registrovaný bezpečný T3 GPU pilot (zatím NOT RUN)
+
+Host snapshot před vytvořením pilotu ukázal jednu RTX 3090 s 24 576 MiB,
+23 119 MiB volnými, žádný proces v NVIDIA compute seznamu a prázdné
+`ollama ps`. Připnutý `qwen3.5:27b` s digestem
+`7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e`
+je už nainstalovaný. Snapshot proto nevyžaduje pull, delete, model rebind ani
+zastavení sdílené Ollamy.
+
+Nová sada `tests/m1-model-gpu-pilot.test.js` je registrovaná jako T3/model a
+smí běžet pouze audit runnerem s `--suite
+IS-T3-TESTS-M1-MODEL-GPU-PILOT-TEST --concurrency=1 --timeout-minutes=15` a
+explicitně povolenými lokálními prerekvizitami `ollama,gpu`. Před prvním
+provider efektem fail-closed
+ověří přesný loopback endpoint, source SHA, model/digest, prázdnou rezidenci,
+nulový compute seznam, minimálně 20 128 MiB volné VRAM a idle gateway se
+soubežností jedna. Nikdy nevolá pull/delete/stop/unload/rebind.
+
+„Cold“ zde znamená přesně: cílový model před prvním connector requestem není v
+`/api/ps`, compute seznam je prázdný a jeho načtení vznikne až jako běžný efekt
+prvního requestu. Není to změna `config.models` ani administrativní rebind.
+Protože načtení přesto mění sdílený GPU stav, pilot po posledním requestu čeká
+nejvýše sedm minut na přirozené Ollama expiry a PASS dovolí jen po návratu k
+prázdnému `/api/ps`, prázdnému compute seznamu a GPU paměti v původním
+headroomu. Nikdy stav neobnovuje příkazem stop/unload. Neobnovení je typovaný
+failure, ne důvod stav potichu ponechat. Přirozené expiry není garantovaná
+cleanup operace: běh proto patří pouze do operátorem vyhrazeného GPU okna. Při
+neobnovení suite zachová v privátním artefaktu poslední sanitizovaný stav
+rezidence a VRAM pro následné rozhodnutí operátora; sama Ollamu nezastaví ani
+model neodstraní.
+
+Pilot změří skutečný cold answer, warm answer, JSON classification,
+mid-generation cancel, přesný model/`num_ctx`, VRAM před/peak/po a jeden
+terminální audit na request. Cancel nespouští pevný časovač: čeká na čtvrtý
+provider request, aktivní Ollama compute proces a naměřenou GPU utilizaci
+alespoň `max(80 %, baseline + 30 procentních bodů)`. Teprve pak pošle abort.
+Report rozlišuje požadovaný 100ms sampling interval od skutečného průměrného
+intervalu. Ukládá jen hash a délku odpovědí, ne jejich obsah, prompt ani auth
+token; vlastněný artefakt má mód `0600`.
+
+Každý provider request má limit 45 sekund. Nejhorší povolená cesta jsou tři
+úspěšné requesty, jeden aktivně rušený request a sedmiminutové pozorování
+přirozeného obnovení: samotný provider+restore budget je nejvýše 600 sekund;
+preflight, post-observation a zápis evidence kryje celkový 900sekundový limit
+vynucený výše uvedeným kanonickým příkazem.
+Preflight blocker vrací ze samotné sady exit `2` a verdict `BLOCKED`; pokud jej
+spustí audit runner, runner tento nenaplněný povinný běh správně vykáže jako
+auditní `FAIL`, nikoli jako zelený nebo splněný `BLOCKED` výsledek.
+
+Produkční preflight bez důvěryhodného `modelWeightsMb + kvMbPer1k` zůstane v
+pilotním reportu výslovně `UNKNOWN/VRAM_FOOTPRINT_UNKNOWN`. Skutečné úspěšné
+načtení modelu není zpětně vydáváno za důkaz, že metadata byla známá před
+efektem. Tím zůstává první bod seznamu výše otevřený, i když reálný GPU běh
+později prokáže chování na tomto stroji.
+
+Tento checkpoint zatím GPU ani Ollamu nespustil. Offline `--self-check`
+validuje parsery a negativní safety matrix bez provider nebo GPU effectu;
+skutečný příkaz a výsledky budou doplněny až po commitu sady, aby audit runner
+vázal evidence na čistý source SHA.
+
+### Ověření scaffold checkpointu
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node --check tests/m1-model-gpu-pilot.test.js` | syntax valid | 0 |
+| `node tests/m1-model-gpu-pilot.test.js --self-check` | `SELF_CHECK_PASS`, žádný provider/GPU effect | 0 |
+| `node tests/m1-model-contract.test.js` | 28 passed, 0 failed, 0 skipped | 0 |
+| `node tests/model-ctx.test.js` | 11 passed, 0 failed, 0 skipped | 0 |
+| `node tests/llm-gateway-runtime-signal.test.js` | 7 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-contract.test.js` | 26 passed, 0 failed, 0 skipped | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
+| `node scripts/validate-test-registry.js --json` | 363 programů, 8 exclusions, fingerprint `01fba11724f59652ca443fade2cc3d1942839deb03db0473edee38b287edec21` | 0 |
+| `node tests/repository-hygiene.test.js` | 1 467 trackovaných cest po stagingu nové sady | 0 |
+| `git diff --check` | bez whitespace chyb | 0 |
+
+Read-only host check navíc potvrdil Ollama `0.17.7`, prázdné `ollama ps`,
+prázdný NVIDIA compute seznam a absenci explicitního systemd override pro
+`OLLAMA_KEEP_ALIVE`, `OLLAMA_MAX_LOADED_MODELS` a `OLLAMA_NUM_PARALLEL`.
+Přirozené obnovení se přesto nepředpokládá jako úspěch: suite na něj čeká a
+měří jej, jinak skončí červeně.
