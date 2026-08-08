@@ -908,6 +908,10 @@ stav zůstává `NOT_ISSUED`, bez DB, proof, binding nebo broadcast autority.
 | Příkaz | Výsledek | Exit |
 |---|---:|---:|
 | `node tests/m1-model-failover-measurement.test.js` | 9 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-model-failover-parent-acceptance.test.js` | 15 passed, 0 failed, 0 skipped | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
+| `node tests/repository-hygiene.test.js` | 1 497 trackovaných cest | 0 |
+| `node scripts/validate-test-registry.js --json` | valid; 371 programů; fingerprint `6e8d9c11…56a53` | 0 |
 | stejný focused test, pět dalších po sobě jdoucích běhů před posledním hardeningem | každý 8 passed, 0 failed; následně přibyl UTF-8 test | 0 |
 | `node tests/m1-model-failover-proof-policy.test.js` | 9 passed, 0 failed, 0 skipped | 0 |
 | `node tests/m1-model-failover-repository.test.js` | 14 passed, 0 failed, 0 skipped | 0 |
@@ -1041,24 +1045,39 @@ Skutečný T3/GPU/Ollama běh nebyl spuštěn.
 
 Nezávislý read-only reviewer dal tomuto inertnímu checkpointu
 `APPROVE / READY TO COMMIT`, P0=0 a P1=0. Zapsal jeden neblokující P2:
-již commitnutý child writer fsyncne svůj directory před finálním hardlinkem,
-nikoli znovu po něm. Následná validace chybějící artifact fail-closed odmítne,
-ale crash-durability child publication není stejně silná jako u parent receipt.
-Oprava patří do samostatného malého follow-upu a nemění `NOT_ISSUED` hranici.
+v tomto okamžiku commitnutý child writer fsyncnul svůj directory před finálním
+hardlinkem, nikoli znovu po něm. Následná validace chybějící artifact fail-closed
+odmítla, ale crash-durability child publication nebyla stejně silná jako u
+parent receipt. Následující checkpoint tento P2 uzavírá bez změny
+`NOT_ISSUED` hranice.
 
 Druhý nezávislý test-truth re-audit rovněž skončil `APPROVED`: reprodukoval
 15/0 a potvrdil červený signál pro export wiring, commit-point ordering,
 `process.execArgv`, summary SHA, trusted-authority projection i hardlink guard.
-Čtyři LOW hardening reziduály zůstávají explicitní: rozdělit kombinovanou
+Tři LOW hardening reziduály zůstávají explicitní: rozdělit kombinovanou
 self-consistent forgery na per-field mutace, svázat i tři convenience pole CLI
-summary, v pozitivní fixture nezávisle porovnat každý export s `git show` a
-lexikálně pinovat pořadí `chmod(0400)` před file fsync. Žádný z nich nemění
-aktuální `NOT_ISSUED` výsledek ani blokuje tento checkpoint.
+summary a v pozitivní fixture nezávisle porovnat každý export s `git show`.
+Čtvrtý původní bod — lexikálně pinovat `chmod(0400)` před file fsync — uzavírá
+checkpoint 15. Žádný zbývající bod nemění aktuální `NOT_ISSUED` výsledek ani
+neblokuje tento checkpoint.
 
 Jedenáct přesně pojmenovaných test-owned adresářů této sady bylo po kontrole
 vlastníka a módu přesunuto do systémového koše, nikoli nevratně smazáno.
 `lsof` nehlásil otevřený handle, ale jeho výpis mohl být neúplný kvůli
 nesouvisejícím Docker mountům. Produktová ani cizí data nebyla dotčena.
+
+## Checkpoint 15 — durable namespace child measurement artifactu
+
+Child writer nyní po non-clobber hardlink publication odstraní staging jméno a
+teprve poté znovu fsyncne run directory. `chmod(0400)` zůstává před file fsync;
+hardlink, autoritativní unlink i post-link directory fsync mají staticky
+zapinované pořadí. Pozitivní fixture navíc vyžaduje finální `nlink=1`.
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-model-failover-measurement.test.js` | 9 passed, 0 failed, 0 skipped | 0 |
+
+Změna nevolá GPU, Ollamu, produktový server ani externí síť a nevydává proof.
 
 Při širokém hledání B3 přes glob `docs/review/2026-08-08-*` se omylem vypsalo
 pět odpovídajících řádků z chráněného

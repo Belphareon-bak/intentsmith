@@ -385,6 +385,23 @@ test('runner static imports are Node-only and runtime authorities are an exact a
   ]) {
     assert(!source.includes(forbidden), `Runner contains prohibited authority: ${forbidden}`);
   }
+  const writer = source.slice(
+    source.indexOf('async function writeImmutableArtifact'),
+    source.indexOf('async function writeSuccessSummary'),
+  );
+  const chmodPosition = writer.indexOf('await handle.chmod(0o400);');
+  const fileSyncPosition = writer.indexOf('await handle.sync();');
+  const linkPosition = writer.indexOf('await link(temporaryPath, finalPath);');
+  const unlinkPosition = writer.indexOf('await unlink(temporaryPath);');
+  const postLinkDirectorySync = writer.lastIndexOf('await syncDirectory(runDirectory);');
+  assert(
+    chmodPosition >= 0
+      && fileSyncPosition > chmodPosition
+      && linkPosition > fileSyncPosition
+      && unlinkPosition > linkPosition
+      && postLinkDirectorySync > unlinkPosition,
+    'Artifact publication must fsync file metadata and final directory namespace in order',
+  );
 });
 
 await testAsync('startup environment contamination is rejected before provider or artifact effects', async () => {
@@ -444,6 +461,7 @@ await testAsync('CHAT executes all eight ordered tests and publishes one full im
     assertEqual(metadata.isFile(), true);
     assertEqual(metadata.isSymbolicLink(), false);
     assertEqual(metadata.mode & 0o777, 0o400);
+    assertEqual(metadata.nlink, 1);
 
     const persisted = await readFile(files[0], 'utf8');
     assert(!persisted.endsWith('\n'), 'Canonical artifact must not have a trailing newline');

@@ -575,7 +575,9 @@ focused regression sady.
      IPv4 loopback provider, zachytí plný skutečný request/response včetně
      randomizované matematiky, znovu ověří contract a inventory digest
      před/po a publikuje kanonický read-only measurement artifact. Artifact je
-     výslovně `NOT_ISSUED`, jeho `sourceRevisionClaim` není samostatným
+     po non-clobber hardlinku a odstranění staging jména potvrzen post-link
+     directory fsyncem; bez exit 0 přesto nikdy není přijatelnou evidencí.
+     Je výslovně `NOT_ISSUED`, jeho `sourceRevisionClaim` není samostatným
      důkazem HEAD a runner neimportuje DB, registry, upgrade manager ani WS.
      **Sedmý checkpoint je implementovaný:** parent přijímá pouze roli a
      požadované modelové jméno; provider bere z runtime config authority a

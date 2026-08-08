@@ -40,6 +40,8 @@ import { canonicalizeModelFailoverContract } from '../src/upgrade/model-failover
 const REPOSITORY_ROOT = isolatedTestRuntime.repositoryRoot;
 const PARENT_RELATIVE_PATH = 'scripts/run-model-failover-candidate-measurement.js';
 const PARENT_PATH = path.join(REPOSITORY_ROOT, PARENT_RELATIVE_PATH);
+const CHILD_RELATIVE_PATH = 'scripts/run-model-failover-measurement.js';
+const CHILD_PATH = path.join(REPOSITORY_ROOT, CHILD_RELATIVE_PATH);
 const MODEL_NAME = 'fixture-model:latest';
 const MODEL_DIGEST = '7'.repeat(64);
 const CHILD_TIMEOUT_MS = 25_000;
@@ -217,7 +219,8 @@ async function createCommittedCandidateClone(prefix) {
     cloneRoot,
   ], { stdio: ['ignore', 'pipe', 'pipe'] });
   await copyFile(PARENT_PATH, path.join(cloneRoot, PARENT_RELATIVE_PATH));
-  execFileSync('git', ['add', '--', PARENT_RELATIVE_PATH], {
+  await copyFile(CHILD_PATH, path.join(cloneRoot, CHILD_RELATIVE_PATH));
+  execFileSync('git', ['add', '--', PARENT_RELATIVE_PATH, CHILD_RELATIVE_PATH], {
     cwd: cloneRoot,
     stdio: ['ignore', 'pipe', 'pipe'],
   });

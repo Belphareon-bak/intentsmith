@@ -270,7 +270,9 @@ zachytí úplné requesty i response bytes, skutečný randomizovaný reasoning 
 a grading context; před i po běhu znovu ověří policy a inventory digest.
 
 Výstupem je kanonický privátní artifact `0400`, publikovaný non-clobber hard
-linkem až po read-back validaci. Je výslovně `NOT_ISSUED`, neobsahuje proof ID a
+linkem až po read-back validaci. Po odstranění staging jména se finální
+namespace durable potvrdí directory fsyncem; consumer dál musí vyžadovat child
+exit `0`. Artifact je výslovně `NOT_ISSUED`, neobsahuje proof ID a
 nemění DB, binding, config ani broadcast. Parent musí kromě artifactu ověřit
 exit `0`, přesně jednu summary, hash, délku a úplnou pětici pinů. Samotný
 `sourceRevisionClaim` ani callerem vybraný provider/digest nejsou nezávislou

@@ -1196,21 +1196,17 @@ async function writeImmutableArtifact(runDirectory, canonicalJson, beforePublish
       sha256: sha256(persisted),
       byteLength: Buffer.byteLength(persisted),
     });
-    const directoryHandle = await open(runDirectory, fsConstants.O_RDONLY | fsConstants.O_DIRECTORY);
-    try {
-      await directoryHandle.sync();
-    } finally {
-      await directoryHandle.close();
-    }
+    await syncDirectory(runDirectory);
     // The parent-facing summary is flushed before publication. It is only a
     // candidate locator: consumers must also require exit 0 and the exact file.
-    // This keeps the hard link as the final authoritative fallible operation.
+    // The summary is not an acceptance signal until the child exits 0.
     await beforePublish(publication);
-    // The non-clobber hard link is the publication commit point and the final
-    // fallible operation. Both paths refer to the already fsynced, validated
-    // read-only inode. Cleanup of the private staging name is non-authoritative.
+    // The non-clobber hard link is the publication commit point. Both paths
+    // refer to the already fsynced, validated read-only inode; the namespace
+    // changes become durable only after the post-link directory fsync.
     await link(temporaryPath, finalPath);
-    await unlink(temporaryPath).catch(() => {});
+    await unlink(temporaryPath);
+    await syncDirectory(runDirectory);
     return publication;
   } catch (error) {
     if (handle) await handle.close().catch(() => {});
@@ -1220,6 +1216,15 @@ async function writeImmutableArtifact(runDirectory, canonicalJson, beforePublish
       'Cannot publish immutable measurement artifact',
       { cause: error },
     );
+  }
+}
+
+async function syncDirectory(directory) {
+  const directoryHandle = await open(directory, fsConstants.O_RDONLY | fsConstants.O_DIRECTORY);
+  try {
+    await directoryHandle.sync();
+  } finally {
+    await directoryHandle.close();
   }
 }
 
