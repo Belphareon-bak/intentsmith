@@ -368,8 +368,14 @@ test('root README state counts derive from the committed registry', () => {
 });
 
 test('root README rejects drift from the committed registry', () => {
+  const activeCount = committedRegistry.suites.filter(
+    suiteRecord => suiteRecord.state === 'ACTIVE',
+  ).length;
   assert(!rootReadmeMatchesRegistry(
-    rootReadme.replace('`264 ACTIVE`', '`263 ACTIVE`'),
+    rootReadme.replace(
+      `\`${activeCount} ACTIVE\``,
+      `\`${activeCount - 1} ACTIVE\``,
+    ),
     committedRegistry,
   ));
 });

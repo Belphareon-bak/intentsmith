@@ -87,7 +87,7 @@ try {
     assertEqual(signals.length, 1);
     assertEqual(signals[0].signalType, 'runtime_failed');
     assertEqual(signals[0].success, false);
-    assertEqual(signals[0].errorType, 'ECONNREFUSED');
+    assertEqual(signals[0].errorType, 'LLM_PROVIDER_UNAVAILABLE');
   });
 
   await testAsync('pre-aborted requests cancel once without reaching fetch', async () => {

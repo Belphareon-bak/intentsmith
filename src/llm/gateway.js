@@ -25,12 +25,213 @@ import {
 import { logger } from '../core/logger.js';
 import { modelUniverseStore } from '../upgrade/model-universe-store.js';
 import { getNumCtx } from './model-ctx.js';
+import {
+  M1_MODEL_PURPOSE,
+} from '../../contracts/m1/index.js';
+import {
+  isIdentifier,
+  isPlainRecord,
+} from '../../contracts/m1/shared.js';
 import { 
   validateAuthToken, 
   hasCapability, 
   LLMCallerRole,
   LLMCapability 
 } from './auth-types.js';
+
+export const LLMGatewayErrorCode = Object.freeze({
+  INVALID_REQUEST: 'LLM_INVALID_REQUEST',
+  AUTHORIZATION_DENIED: 'LLM_AUTHORIZATION_DENIED',
+  PROVIDER_UNAVAILABLE: 'LLM_PROVIDER_UNAVAILABLE',
+  PROVIDER_HTTP_ERROR: 'LLM_PROVIDER_HTTP_ERROR',
+  MODEL_NOT_FOUND: 'LLM_MODEL_NOT_FOUND',
+  MALFORMED_RESPONSE: 'LLM_PROVIDER_MALFORMED_RESPONSE',
+  EMPTY_RESPONSE: 'LLM_PROVIDER_EMPTY_RESPONSE',
+  QUEUE_TIMEOUT: 'LLM_QUEUE_TIMEOUT',
+});
+
+export class LLMGatewayError extends Error {
+  constructor(code, message, options = {}) {
+    super(message, options.cause ? { cause: options.cause } : undefined);
+    this.name = 'LLMGatewayError';
+    this.code = code;
+    this.httpStatus = options.httpStatus ?? null;
+    this.retryable = options.retryable === true;
+  }
+}
+
+function providerHttpError(status, cause = null) {
+  if (status === 404) {
+    return new LLMGatewayError(
+      LLMGatewayErrorCode.MODEL_NOT_FOUND,
+      'The requested local model is not available.',
+      { cause, httpStatus: status, retryable: false },
+    );
+  }
+  if (status === 503) {
+    return new LLMGatewayError(
+      LLMGatewayErrorCode.PROVIDER_UNAVAILABLE,
+      'The local model provider is unavailable.',
+      { cause, httpStatus: status, retryable: false },
+    );
+  }
+  return new LLMGatewayError(
+    LLMGatewayErrorCode.PROVIDER_HTTP_ERROR,
+    `The local model provider returned HTTP ${status}.`,
+    { cause, httpStatus: status, retryable: status >= 500 },
+  );
+}
+
+function parseProviderOutput(data) {
+  if (data === null || typeof data !== 'object' || Array.isArray(data)) {
+    throw new LLMGatewayError(
+      LLMGatewayErrorCode.MALFORMED_RESPONSE,
+      'The local model provider returned a malformed response.',
+    );
+  }
+
+  const candidates = [];
+  let recognized = false;
+  if (data.message !== undefined) {
+    recognized = true;
+    if (
+      data.message === null
+      || typeof data.message !== 'object'
+      || Array.isArray(data.message)
+      || typeof data.message.content !== 'string'
+    ) {
+      throw new LLMGatewayError(
+        LLMGatewayErrorCode.MALFORMED_RESPONSE,
+        'The local model provider returned a malformed response.',
+      );
+    }
+    candidates.push(data.message.content);
+  }
+  if (data.response !== undefined) {
+    recognized = true;
+    if (typeof data.response !== 'string') {
+      throw new LLMGatewayError(
+        LLMGatewayErrorCode.MALFORMED_RESPONSE,
+        'The local model provider returned a malformed response.',
+      );
+    }
+    candidates.push(data.response);
+  }
+  if (!recognized) {
+    throw new LLMGatewayError(
+      LLMGatewayErrorCode.MALFORMED_RESPONSE,
+      'The local model provider returned a malformed response.',
+    );
+  }
+
+  const output = candidates.find(candidate => candidate.trim().length > 0);
+  if (output === undefined) {
+    throw new LLMGatewayError(
+      LLMGatewayErrorCode.EMPTY_RESPONSE,
+      'The local model provider returned an empty response.',
+    );
+  }
+  return output;
+}
+
+function normalizeProviderFailure(error) {
+  if (error instanceof LLMGatewayError) return error;
+  if (error?.cause) {
+    const cause = normalizeProviderFailure(error.cause);
+    if (cause instanceof LLMGatewayError) return cause;
+  }
+  const networkCode = error?.code || error?.cause?.code;
+  if (['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'EHOSTUNREACH'].includes(networkCode)) {
+    return new LLMGatewayError(
+      LLMGatewayErrorCode.PROVIDER_UNAVAILABLE,
+      'The local model provider is unavailable.',
+      { cause: error, retryable: true },
+    );
+  }
+  return error;
+}
+
+const M1_CORRELATION_KEYS = Object.freeze([
+  'requestId',
+  'conversationId',
+  'turnId',
+  'callerRole',
+  'modelRole',
+  'purpose',
+]);
+const M1_MODEL_PURPOSES = new Set(Object.values(M1_MODEL_PURPOSE));
+
+function safeCorrelation(options = {}, authToken = null) {
+  const correlation = isPlainRecord(options.correlation)
+    ? options.correlation
+    : {};
+  return {
+    requestId: isIdentifier(correlation.requestId) ? correlation.requestId : null,
+    conversationId: isIdentifier(correlation.conversationId)
+      ? correlation.conversationId
+      : null,
+    turnId: isIdentifier(correlation.turnId) ? correlation.turnId : null,
+    // Authorization owns caller identity. Never persist a caller-supplied
+    // role that disagrees with the token even on legacy call sites.
+    callerRole: isIdentifier(authToken?.role) ? authToken.role : null,
+    modelRole: isIdentifier(correlation.modelRole) ? correlation.modelRole : null,
+    purpose: M1_MODEL_PURPOSES.has(correlation.purpose)
+      ? correlation.purpose
+      : null,
+  };
+}
+
+function validatePolicyBoundary(token, options = {}) {
+  const tokenValidation = validateAuthToken(token);
+  if (!tokenValidation.valid) {
+    throw new LLMGatewayError(
+      LLMGatewayErrorCode.AUTHORIZATION_DENIED,
+      'The model request does not have valid authorization.',
+    );
+  }
+
+  const correlation = options.correlation;
+  if (!isPlainRecord(correlation)) {
+    throw new LLMGatewayError(
+      LLMGatewayErrorCode.INVALID_REQUEST,
+      'The model request is missing correlation metadata.',
+    );
+  }
+  const keys = Object.keys(correlation).sort();
+  const expectedKeys = [...M1_CORRELATION_KEYS].sort();
+  if (
+    keys.length !== expectedKeys.length
+    || keys.some((key, index) => key !== expectedKeys[index])
+    || !isIdentifier(correlation.requestId)
+    || !isIdentifier(correlation.conversationId)
+    || !isIdentifier(correlation.turnId)
+    || !isIdentifier(correlation.callerRole)
+    || !isIdentifier(correlation.modelRole)
+    || !M1_MODEL_PURPOSES.has(correlation.purpose)
+  ) {
+    throw new LLMGatewayError(
+      LLMGatewayErrorCode.INVALID_REQUEST,
+      'The model request has invalid correlation metadata.',
+    );
+  }
+  if (correlation.callerRole !== token.role) {
+    throw new LLMGatewayError(
+      LLMGatewayErrorCode.AUTHORIZATION_DENIED,
+      'The model request caller does not match its authorization.',
+    );
+  }
+  if (
+    typeof options.capability !== 'string'
+    || !hasCapability(token, options.capability)
+  ) {
+    throw new LLMGatewayError(
+      LLMGatewayErrorCode.AUTHORIZATION_DENIED,
+      'The model request capability is not authorized.',
+    );
+  }
+
+  return safeCorrelation(options, token);
+}
 
 // ════════════════════════════════════════════════════════════════════════════
 // AUDIT LOG
@@ -139,20 +340,68 @@ class LLMGateway {
    * otherwise queues and waits. Rejects after queueTimeout.
    * @returns {Promise<void>}
    */
-  async _acquireSlot() {
+  async _acquireSlot(signal = null) {
     if (this._concurrency.active < this._concurrency.max) {
       this._concurrency.active++;
       return;
     }
+    if (signal?.aborted) {
+      throw abortErrorFromSignal(signal, {
+        fallbackSource: AbortSource.USER,
+        message: 'LLM call cancelled by user',
+      });
+    }
 
     // Queue this caller
     return new Promise((resolve, reject) => {
-      const entry = { resolve, reject, timer: null };
-      entry.timer = setTimeout(() => {
+      const entry = {
+        resolve,
+        reject,
+        timer: null,
+        signal,
+        abortHandler: null,
+        settled: false,
+      };
+      const cleanup = () => {
+        if (entry.timer) clearTimeout(entry.timer);
+        if (entry.abortHandler && signal) {
+          signal.removeEventListener('abort', entry.abortHandler);
+        }
+      };
+      entry.grant = () => {
+        if (entry.settled) return false;
+        entry.settled = true;
+        cleanup();
+        resolve();
+        return true;
+      };
+      entry.rejectOwned = error => {
+        if (entry.settled) return false;
+        entry.settled = true;
         const idx = this._concurrency.queue.indexOf(entry);
         if (idx !== -1) this._concurrency.queue.splice(idx, 1);
-        reject(new Error(`LLM_QUEUE_TIMEOUT: Waited ${this._concurrency.queueTimeout}ms for LLM slot`));
+        cleanup();
+        reject(error);
+        return true;
+      };
+      entry.timer = setTimeout(() => {
+        entry.rejectOwned(
+          new LLMGatewayError(
+            LLMGatewayErrorCode.QUEUE_TIMEOUT,
+            `Timed out waiting ${this._concurrency.queueTimeout}ms for a local model slot.`,
+            { retryable: false },
+          ),
+        );
       }, this._concurrency.queueTimeout);
+      if (signal) {
+        entry.abortHandler = () => {
+          entry.rejectOwned(abortErrorFromSignal(signal, {
+            fallbackSource: AbortSource.USER,
+            message: 'LLM call cancelled while waiting for a slot',
+          }));
+        };
+        signal.addEventListener('abort', entry.abortHandler, { once: true });
+      }
       this._concurrency.queue.push(entry);
     });
   }
@@ -161,14 +410,13 @@ class LLMGateway {
    * v125: Release LLM slot. Grants to next queued caller if any.
    */
   _releaseSlot() {
-    if (this._concurrency.queue.length > 0) {
+    while (this._concurrency.queue.length > 0) {
       const next = this._concurrency.queue.shift();
-      clearTimeout(next.timer);
-      next.resolve();
-      // active count stays the same (transferred)
-    } else {
-      this._concurrency.active = Math.max(0, this._concurrency.active - 1);
+      if (next.grant()) return;
+      // A cancelled entry should already be removed, but skip it fail-closed
+      // if a same-tick cancellation raced with slot transfer.
     }
+    this._concurrency.active = Math.max(0, this._concurrency.active - 1);
   }
 
   /**
@@ -303,8 +551,41 @@ class LLMGateway {
     // ════════════════════════════════════════════════════════════════════════
     // v125: CONCURRENCY SEMAPHORE — wait for LLM slot
     // ════════════════════════════════════════════════════════════════════════
-    await this._acquireSlot();
-    let slotAcquired = true;
+    try {
+      await this._acquireSlot(options.signal);
+    } catch (error) {
+      const authToken = options._authToken || this.currentAuth;
+      if (error?.name === 'AbortError' || options.signal?.aborted) {
+        const abortSource = abortSourceOf(error, options.signal);
+        if (abortSource === AbortSource.TIMEOUT) {
+          this.audit.log('LLM_CALL_TIMEOUT', {
+            role: authToken?.role,
+            decisionId: authToken?.decisionId,
+            abortSource,
+            timeout: null,
+            timeoutOrigin: 'upstream',
+            queue: true,
+            ...safeCorrelation(options, authToken),
+          });
+        } else {
+          this.audit.log('LLM_CALL_CANCELLED', {
+            role: authToken?.role,
+            decisionId: authToken?.decisionId,
+            abortSource,
+            queue: true,
+            ...safeCorrelation(options, authToken),
+          });
+        }
+      } else {
+        this.audit.log('LLM_QUEUE_TIMEOUT', {
+          role: authToken?.role,
+          decisionId: authToken?.decisionId,
+          queue: true,
+          ...safeCorrelation(options, authToken),
+        });
+      }
+      throw error;
+    }
 
     // ════════════════════════════════════════════════════════════════════════
     // v44.0: INLINE AUTH TOKEN SUPPORT (avoids race condition)
@@ -321,10 +602,9 @@ class LLMGateway {
     if (!isAuthorizedCall) {
       if (this.strictMode) {
         this.audit.log('UNAUTHORIZED_CALL', {
-          promptPreview: prompt.substring(0, 100),
+          promptLength: typeof prompt === 'string' ? prompt.length : null,
           hasInlineToken: !!options._authToken,
           hasSingletonAuth: !!this.currentAuth,
-          stack: new Error().stack?.split('\n').slice(2, 5).join(' <- ')
         });
         this._releaseSlot();
         throw new Error('LLM_CALL_OUTSIDE_CRE: No valid auth token. All LLM calls must go through CRE with proper authorization.');
@@ -386,6 +666,7 @@ class LLMGateway {
     const model = options.model || config.models?.CHAT || 'qwen3.5:27b';
     const timeout = options.timeout || config.timeouts?.CHAT || 60000;
     const requestType = options.requestType || 'chat';
+    const correlation = safeCorrelation(options, authToken);
 
     const emitRuntimeSignal = (signalType, success, extra = {}) => {
       try {
@@ -404,6 +685,7 @@ class LLMGateway {
             promptLength: prompt?.length ?? 0,
             outputLength: extra.outputLength ?? null,
             queueDepth: this._concurrency.queue.length,
+            correlation,
           },
           scheduleRecompute: extra.scheduleRecompute !== false,
         });
@@ -501,11 +783,24 @@ class LLMGateway {
         if (userAbortHandler) userSignal.removeEventListener('abort', userAbortHandler);
         
         if (!response.ok) {
-          throw new Error(`Ollama HTTP ${response.status}: ${await response.text()}`);
+          // Never put the provider body in logs or a public error: model
+          // servers can echo prompt fragments. Cancel rather than buffering an
+          // attacker-controlled response size.
+          try { await response.body?.cancel?.(); } catch { /* status is authoritative */ }
+          throw providerHttpError(response.status);
         }
-        
-        const data = await response.json();
-        const output = data.message?.content || data.response || '';
+
+        let data;
+        try {
+          data = await response.json();
+        } catch (cause) {
+          throw new LLMGatewayError(
+            LLMGatewayErrorCode.MALFORMED_RESPONSE,
+            'The local model provider returned malformed JSON.',
+            { cause },
+          );
+        }
+        const output = parseProviderOutput(data);
         const duration = Date.now() - startTime;
         
         // Update rate limit counter
@@ -521,7 +816,8 @@ class LLMGateway {
           promptLength: prompt.length,
           outputLength: output.length,
           duration,
-          attempt
+          attempt,
+          ...correlation,
         });
 
         // v133: Usage tracking for auto-cleanup decisions
@@ -571,6 +867,7 @@ class LLMGateway {
               role: authToken?.role,
               decisionId: authToken?.decisionId,
               abortSource: 'user_cancel',
+              ...correlation,
             });
             emitRuntimeSignal('runtime_cancelled', null, {
               attempt,
@@ -604,6 +901,7 @@ class LLMGateway {
               timeout: effectiveTimeoutMs,
               timeoutOrigin,
               model,
+              ...correlation,
             });
             emitRuntimeSignal('runtime_timeout', false, {
               attempt,
@@ -618,13 +916,25 @@ class LLMGateway {
               message: `LLM timeout after ${timeout}ms (model: ${model})`,
             });
           }
-        } else if (err.message?.includes('503') || err.message?.includes('Service Unavailable')) {
-          // v124: Ollama OOM/overload — don't retry, escalate immediately
-          logger.error('LLMGateway', `Ollama OOM/overload (503) — not retrying`, { model });
-          this.audit.log('LLM_CALL_OOM', { role: authToken?.role, decisionId: authToken?.decisionId, model });
-          emitRuntimeSignal('runtime_oom', false, {
+        } else if (
+          err instanceof LLMGatewayError
+          && err.code === LLMGatewayErrorCode.PROVIDER_UNAVAILABLE
+          && err.httpStatus === 503
+        ) {
+          // HTTP 503 does not prove OOM. Preserve the exact provider failure
+          // and do not retry it in either legacy or v1 policy.
+          logger.error('LLMGateway', 'Local model provider unavailable (503) — not retrying', { model });
+          this.audit.log('LLM_CALL_PROVIDER_ERROR', {
+            role: authToken?.role,
+            decisionId: authToken?.decisionId,
+            model,
+            errorCode: err.code,
+            httpStatus: err.httpStatus,
+            ...correlation,
+          });
+          emitRuntimeSignal('runtime_failed', false, {
             attempt,
-            errorType: 'oom_503',
+            errorType: err.code,
             latencyMs: Date.now() - startTime,
           });
           this._releaseSlot();
@@ -649,19 +959,24 @@ class LLMGateway {
       }
     }
     
+    const normalizedLastError = normalizeProviderFailure(lastError);
     this.audit.log('LLM_CALL_FAILED', {
       role: authToken?.role,
       decisionId: authToken?.decisionId,
-      error: lastError?.message
+      errorCode: normalizedLastError?.code || lastError?.name || 'LLM_CALL_FAILED',
+      ...correlation,
     });
     emitRuntimeSignal('runtime_failed', false, {
       attempt: maxRetries,
-      errorType: lastError?.code || lastError?.name || 'runtime_failed',
+      errorType: normalizedLastError?.code || lastError?.name || 'runtime_failed',
       latencyMs: Date.now() - startTime,
     });
 
     this._releaseSlot();
-    throw new Error(`LLM failed after ${maxRetries} attempts: ${lastError?.message}`);
+    throw new Error(
+      `LLM failed after ${maxRetries} attempts: ${lastError?.message}`,
+      { cause: lastError },
+    );
   }
   
   /**
@@ -717,7 +1032,26 @@ export async function callWithAuth(token, prompt, options = {}) {
   });
 }
 
+/**
+ * M1 policy boundary. One connector request produces at most one provider
+ * effect; legacy callers keep their existing retry policy through
+ * callWithAuth(). Precise provider failures are unwrapped for the M1 adapter.
+ */
+export async function callWithPolicy(token, prompt, options = {}) {
+  validatePolicyBoundary(token, options);
+  try {
+    return await llmGateway.call(prompt, {
+      ...options,
+      retries: 1,
+      _authToken: token,
+    });
+  } catch (error) {
+    throw normalizeProviderFailure(error);
+  }
+}
+
 export default {
   llmGateway,
   callWithAuth,
+  callWithPolicy,
 };
