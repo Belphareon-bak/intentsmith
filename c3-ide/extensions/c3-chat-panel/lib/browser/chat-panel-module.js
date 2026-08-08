@@ -5636,6 +5636,17 @@ function _initBusSubscriptions() {
     renderSidebar();_updateStatusIndicator();
   });
 
+  /* WS reconnect budget exhausted — remain visibly offline. */
+  C3Bus.on('ws:reconnect_exhausted', function(ev) {
+    _serverHealth.wsConnected = false;
+    _serverHealth.status = 'offline';
+    if(window._c3)window._c3.agentLog(
+      'TOOL',
+      '❌ Spojení se nepodařilo obnovit po '+ev.attempts+' pokusech. Zkontrolujte backend a restartujte Studio.'
+    );
+    renderSidebar();_updateStatusIndicator();
+  });
+
   /* WS reconnected */
   C3Bus.on('ws:reconnected', function() {
     if(window._c3)window._c3.agentLog('TOOL','✅ Spojení obnoveno.');

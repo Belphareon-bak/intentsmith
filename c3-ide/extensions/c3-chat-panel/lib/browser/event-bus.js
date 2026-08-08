@@ -8,6 +8,7 @@
 //   ws:ready           — WS handshake OK {version, features}
 //   ws:disconnected    — WS connection lost {wasReady}
 //   ws:reconnected     — reconnect + rehydrate settled {status, restoredCount, invalidCount, failedCount}
+//   ws:reconnect_exhausted — bounded retry stopped {attempts, maxAttempts}
 //   chat:message       — assistant response {sessionIdx, content, tag, metadata}
 //   chat:system        — system message {sessionIdx, content}
 //   agent:event        — agent event {sessionIdx, event}

@@ -22,6 +22,10 @@ var _serverFeatures = [];
 var _wsRetryCount = 0;
 var _wsMaxRetry = 12;
 var _wsRetryTimer = null;
+var _wsDestroyed = false;
+var _wsReconnectExhausted = false;
+var _wsHandshakeTimer = null;
+var _wsHandshakeTimeoutMs = 5000;
 var _chatWs = null;
 var _wsConnectionEpoch = 0;
 var _rehydrateEpoch = 0;
@@ -347,14 +351,87 @@ function _handleRehydrateAck(data, connectionEpoch, socket) {
   return true;
 }
 
+function _scheduleReconnect() {
+  if (_wsDestroyed || _wsRetryTimer) return false;
+  if (_wsRetryCount >= _wsMaxRetry) {
+    if (!_wsReconnectExhausted) {
+      _wsReconnectExhausted = true;
+      C3Bus.emit('ws:reconnect_exhausted', {
+        attempts: _wsRetryCount,
+        maxAttempts: _wsMaxRetry
+      });
+    }
+    return false;
+  }
+
+  var delay = Math.min(1000 * Math.pow(2, _wsRetryCount), 30000);
+  _wsRetryCount++;
+  _wsRetryTimer = setTimeout(function() {
+    _wsRetryTimer = null;
+    if (_wsDestroyed) return;
+    _wsConnect();
+  }, delay);
+  return true;
+}
+
+function _clearHandshakeTimer() {
+  if (_wsHandshakeTimer) clearTimeout(_wsHandshakeTimer);
+  _wsHandshakeTimer = null;
+}
+
+function _closeFailedHandshake(connection, reason) {
+  if (
+    _wsDestroyed
+    || !connection
+    || connection.handshakeState !== 'PENDING'
+    || connection.epoch !== _wsConnectionEpoch
+    || connection.socket !== _chatWs
+  ) {
+    return;
+  }
+  connection.handshakeState = 'FAILED';
+  _clearHandshakeTimer();
+  _wsReady = false;
+  try {
+    connection.socket.close(4000, reason);
+  } catch(e) {
+    _scheduleReconnect();
+  }
+}
+
+function _clearPendingEditsOnDisconnect() {
+  Object.keys(_pendingEdits).forEach(function(k) {
+    if (!_pendingEdits[k].resolved) {
+      _pendingEdits[k].resolved = true;
+      C3Bus.emit('edit:resolved', { reqId: k, action: 'disconnect' });
+    }
+  });
+  _pendingEdits = {};
+}
+
 /* ─── Connect ─────────────────────────────────────────────────────────── */
 
 function _wsConnect() {
+  if (_wsDestroyed) return false;
+  if (_wsRetryTimer) {
+    clearTimeout(_wsRetryTimer);
+    _wsRetryTimer = null;
+  }
+  _clearHandshakeTimer();
+  _cancelPendingRehydrate(_wsConnectionEpoch);
+  _wsReady = false;
+
   var _base = (typeof _backendBase !== 'undefined') ? _backendBase : (function(){try{if(typeof window!=='undefined'&&window.electronC3){var u=window.electronC3.getBackendUrl();if(u)return u;}}catch(e){}return 'http://127.0.0.1:3335';})();
   var wsUrl = _base.replace(/^http/, 'ws') + '/c3/ws';
 
   var connectionEpoch = ++_wsConnectionEpoch;
   var socket = null;
+  var previousSocket = _chatWs;
+  _chatWs = null;
+  if (previousSocket && previousSocket.readyState !== 3) {
+    _clearPendingEditsOnDisconnect();
+    try { previousSocket.close(); } catch(e) {}
+  }
   try {
     var _localCapability = null;
     try {
@@ -367,57 +444,68 @@ function _wsConnect() {
       : new WebSocket(wsUrl);
     _chatWs = socket;
   } catch (e) {
-    console.error('[C3 WS] Failed to create WebSocket:', e);
-    return;
+    console.error('[C3 WS] Failed to create WebSocket.');
+    _scheduleReconnect();
+    return false;
   }
+  var connection = {
+    epoch: connectionEpoch,
+    handshakeState: 'PENDING',
+    socket: socket
+  };
 
   socket.onopen = function() {
-    if (connectionEpoch !== _wsConnectionEpoch || socket !== _chatWs) return;
-    _wsRetryCount = 0;
+    if (
+      connection.handshakeState !== 'PENDING'
+      || connectionEpoch !== _wsConnectionEpoch
+      || socket !== _chatWs
+    ) return;
     /* Hello handshake */
-    socket.send(JSON.stringify({
-      type: 'hello',
-      protocolVersion: 1,
-      ideVersion: 'c3-studio-0.2.0',
-      features: ['workspace', 'terminal', 'merge-preview', 'edit-ask', 'audit']
-    }));
+    try {
+      socket.send(JSON.stringify({
+        type: 'hello',
+        protocolVersion: 1,
+        ideVersion: 'c3-studio-0.2.0',
+        features: ['workspace', 'terminal', 'merge-preview', 'edit-ask', 'audit']
+      }));
+    } catch(e) {
+      _closeFailedHandshake(connection, 'Handshake send failed');
+    }
   };
 
   socket.onclose = function() {
     if (connectionEpoch !== _wsConnectionEpoch || socket !== _chatWs) return;
+    if (_wsDestroyed) return;
+    connection.handshakeState = 'CLOSED';
+    _clearHandshakeTimer();
     var wasReady = _wsReady;
     _wsReady = false;
     _cancelPendingRehydrate(connectionEpoch);
 
     /* Clear stale pending edits — backend session is gone */
-    Object.keys(_pendingEdits).forEach(function(k) {
-      if (!_pendingEdits[k].resolved) {
-        _pendingEdits[k].resolved = true;
-        C3Bus.emit('edit:resolved', { reqId: k, action: 'disconnect' });
-      }
-    });
-    _pendingEdits = {};
+    _clearPendingEditsOnDisconnect();
 
     C3Bus.emit('ws:disconnected', { wasReady: wasReady });
 
-    /* Exponential backoff reconnect */
-    if (_wsRetryCount < _wsMaxRetry) {
-      var delay = Math.min(1000 * Math.pow(2, _wsRetryCount), 30000);
-      _wsRetryCount++;
-      _wsRetryTimer = setTimeout(_wsConnect, delay);
-    }
+    _scheduleReconnect();
   };
 
   socket.onerror = function() { /* onclose handles reconnect */ };
 
   socket.onmessage = function(e) {
     if (connectionEpoch !== _wsConnectionEpoch || socket !== _chatWs) return;
+    if (connection.handshakeState === 'FAILED' || connection.handshakeState === 'CLOSED') return;
     var msg;
     try { msg = JSON.parse(e.data); } catch (err) { return; }
 
     /* ═══ Handshake phase ═══ */
     if (msg.type === 'hello_ack') {
+      if (connection.handshakeState !== 'PENDING') return;
+      connection.handshakeState = 'ACCEPTED';
+      _clearHandshakeTimer();
       _wsReady = true;
+      _wsRetryCount = 0;
+      _wsReconnectExhausted = false;
       _serverVersion = msg.serverVersion || msg.backendVersion || null;
       _serverFeatures = msg.features || [];
       console.log('[C3 WS] Handshake OK — server v' + _serverVersion + ' features=' + JSON.stringify(_serverFeatures));
@@ -426,9 +514,12 @@ function _wsConnect() {
       return;
     }
     if (msg.type === 'hello_reject') {
+      if (connection.handshakeState !== 'PENDING') return;
       console.error('[C3 WS] Handshake rejected:', msg.reason);
+      _closeFailedHandshake(connection, 'Handshake rejected');
       return;
     }
+    if (connection.handshakeState !== 'ACCEPTED') return;
 
     /* ═══ Post-handshake: channel routing ═══ */
     var d = msg.data || {};
@@ -506,6 +597,11 @@ function _wsConnect() {
         break;
     }
   };
+  _wsHandshakeTimer = setTimeout(function() {
+    _wsHandshakeTimer = null;
+    _closeFailedHandshake(connection, 'Handshake timeout');
+  }, _wsHandshakeTimeoutMs);
+  return true;
 }
 
 /* ─── Send helpers ────────────────────────────────────────────────────── */
@@ -579,9 +675,17 @@ function wsServerVersion() { return _serverVersion; }
 function wsServerFeatures() { return _serverFeatures; }
 function wsHasFeature(f) { return _serverFeatures.indexOf(f) >= 0; }
 function wsDestroy() {
-  clearTimeout(_wsRetryTimer);
-  _wsMaxRetry = 0;
-  if (_chatWs) { try { _chatWs.close(); } catch(e) {} }
+  _wsDestroyed = true;
+  if (_wsRetryTimer) clearTimeout(_wsRetryTimer);
+  _wsRetryTimer = null;
+  _clearHandshakeTimer();
+  _wsReady = false;
+  _clearPendingEditsOnDisconnect();
+  _cancelPendingRehydrate(_wsConnectionEpoch);
+  _wsConnectionEpoch++;
+  var socket = _chatWs;
+  _chatWs = null;
+  if (socket) { try { socket.close(); } catch(e) {} }
 }
 
 /* ─── Edit ACK tracking ───────────────────────────────────────────────── */

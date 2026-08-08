@@ -1,6 +1,6 @@
 # WP-M1-STUDIO — průběžný report
 
-- **stav WP:** `IN_PROGRESS`; checkpointy 1–3 READY
+- **stav WP:** `IN_PROGRESS`; checkpointy 1–4 READY
 - **base SHA:** `b7d0dbf61370b52061e6a736517ecdcb53118209`
 - **scope:** B4 podle `docs/execution/m1-batch.md`
 - **UI baseline:** výslovně mimo scope; spuštěné Studio není finální UI
@@ -210,6 +210,73 @@ nikoli skrytý PASS.
 | `node tests/repository-hygiene.test.js` | 1474 cest | 0 |
 | `git diff --check` | bez chyb | 0 |
 
+## Checkpoint 4 — bounded reconnect a viditelné vyčerpání
+
+Všechny automatické reconnect pokusy nyní vznikají v jediném
+`_scheduleReconnect()` švu. Po initial spojení může vzniknout nejvýše 12
+opakování s prodlevami `1/2/4/8/16/30×7 s`; třináctý timer nevznikne. Retry
+counter a exhaustion latch se resetují pouze po current `hello_ack`, nikoli po
+samotném otevření socketu.
+
+Pětisekundový handshake timer začíná už po úspěšné konstrukci WebSocketu, takže
+je bounded i socket uvázlý ve `CONNECTING`, nejen otevřené spojení bez ACK.
+Synchronous constructor failure, handshake send failure, timeout a current
+close používají stejný scheduler. Per-connection handshake latch označí timeout,
+reject nebo send failure jako `FAILED` ještě před asynchronním close; pozdní ACK
+proto nemůže krátce vytvořit false-ready ani resetovat backoff. Vyčerpání emituje právě jeden sanitizovaný
+`ws:reconnect_exhausted {attempts,maxAttempts}`; panel nastaví health na offline,
+zapíše operátorskou zprávu a obnoví health indikátor. Nejde o schválení vzhledu
+finálního UI, pouze o funkční viditelnost terminal stavu.
+
+`wsDestroy()` je permanentní shutdown dané client instance: zruší handshake,
+rehydrate i retry timer, zachová disconnect resolution pending editů a žádný
+již zařazený callback nemůže vytvořit socket nebo exhaustion event. Stará socket
+epocha nadále nemůže ovlivnit aktivní spojení. Přijatý vratný default a cena
+přepnutí jsou v `docs/decisions/013-m1-studio-reconnect-backoff.md`.
+
+### Co checkpoint negarantuje
+
+- Studio nemá ruční tlačítko Retry; po exhaustion je dnešní operátorská cesta
+  kontrola backendu a restart Studia. Varianta s ručním obnovením budgetu je
+  oddělená v rozhodnutí 013.
+- Nejde o přesný M1 terminal consumer ani HTTP fallback opravu; rozhodnutí 010
+  a 011 zůstávají beze změny.
+- Empty-history autorita zůstává BLOCK 012. Reconnect ji nezakrývá a degraded
+  snapshot není vydáván za restored.
+- Skutečná Electron journey, bounded renderer soak a finální UI nebyly spuštěny.
+
+### Focused evidence
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node --check c3-ide/extensions/c3-chat-panel/lib/browser/ws-client.js` | syntax valid | 0 |
+| `node --check c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js` | syntax valid | 0 |
+| `node --check tests/m1-studio-client.test.js` | syntax valid | 0 |
+| `node tests/m1-studio-client.test.js` | 25 passed, 0 failed, 0 skipped | 0 |
+| `node tests/ws-bridge.test.js` | 67 passed, 0 failed | 0 |
+| `node tests/m1-contract.test.js` | 26 passed, 0 failed, 0 skipped | 0 |
+| `node tests/upgrade-ux-v125.test.js` | 78 passed, 0 failed, 0 skipped | 0 |
+| `node tests/studio-cdp-evidence.test.js` | 59 passed, 0 failed, 0 skipped | 0 |
+| `node tests/studio-electron-runner-contract.test.js` | 16 passed, 0 failed, 0 skipped | 0 |
+
+Read-only P1/P2 review odhalil, že původní první návrh timeoutoval až od
+`onopen` a neuměl tedy ukončit socket uvázlý v `CONNECTING`. Timer byl přesunut
+na okamžik úspěšné konstrukce a dostal vlastní negativní test. Review také
+vyžádal test druhého outage po obnově, takže odstranění resetu exhaustion latch
+už nemůže zůstat zelené. Poslední async-close probe odhalil, že late ACK po
+timeoutu mohl před `onclose` vytvořit false-ready a resetovat budget; explicitní
+handshake latch a negativní test tuto větev zavřely. Kontrola shutdownu navíc připnula zachování
+`edit:resolved(disconnect)` pro pending approval.
+
+### Commit battery
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
+| `node scripts/validate-test-registry.js --json` | valid, 364 programů, 8 exclusions, fingerprint `b45e4da20315bf8c5edd3e08f74c5c8a6f9925aa0026211c1f047ffbd27691ff` | 0 |
+| `node tests/repository-hygiene.test.js` | 1475 cest | 0 |
+| `git diff --check` | bez chyb | 0 |
+
 ## Blokovaná explorace — HTTP fallback effect authority
 
 Po checkpointu 1 vznikl dependency-free fail-closed parser pro tři legacy
@@ -252,9 +319,9 @@ serverem vynutit read-only/effect authority.
 2. Tři HTTP fallbacky nekontrolují `response.ok` a mohou renderovat error JSON
    jako assistant; jejich izolovaná parser oprava je blokovaná rozhodnutím 011,
    protože stávající route zároveň obchází effect approval.
-3. Serverem ověřený ACK i race-safe klient jsou hotové. Atomické rozlišení
-   prázdné versus mezitím smazané historie blokuje rozhodnutí 012; bounded retry
-   a viditelné exhaustion zůstávají následujícím D-7 checkpointem.
+3. Serverem ověřený ACK, race-safe klient i bounded reconnect jsou hotové.
+   Atomické rozlišení prázdné versus mezitím smazané historie dál blokuje
+   rozhodnutí 012.
 4. Existující Electron runner obchází veřejný `sendChat()` a připíná legacy
    pořadí assistant-before-turn-end; pro B4 acceptance se musí změnit.
 5. Terminal STOP neruší backendový proces. To je M2 finding mimo B4 chat scope,

@@ -21,6 +21,9 @@ function loadClient(sessions, options = {}) {
 
   class FakeWebSocket {
     constructor(url, protocols) {
+      if (typeof options.beforeWebSocketConstruct === 'function') {
+        options.beforeWebSocketConstruct();
+      }
       this.url = url;
       this.protocols = protocols;
       this.readyState = 0;
@@ -33,6 +36,14 @@ function loadClient(sessions, options = {}) {
     }
 
     close() {
+      if (options.deferClose === true) {
+        this.readyState = 2;
+        return;
+      }
+      this.finishClose();
+    }
+
+    finishClose() {
       this.readyState = 3;
       if (typeof this.onclose === 'function') this.onclose();
     }
@@ -54,7 +65,7 @@ function loadClient(sessions, options = {}) {
     _sessions: sessions,
     clearInterval() {},
     clearTimeout: options.clearTimeout || (() => {}),
-    console,
+    console: options.console || console,
     crypto: {
       randomUUID: () => '11111111-2222-4333-8444-555555555555',
     },
@@ -93,7 +104,7 @@ function loadClient(sessions, options = {}) {
 
   client.wsConnect();
   const socket = sockets[0];
-  handshake(socket);
+  if (options.autoHandshake !== false) handshake(socket);
   return { busEvents, client, context, handshake, socket, sockets };
 }
 
@@ -113,6 +124,29 @@ function deferred() {
 
 function sendServerMessage(socket, message) {
   socket.onmessage({ data: JSON.stringify(message) });
+}
+
+function controlledTimers() {
+  const timers = [];
+  return {
+    timers,
+    clearTimeout(timer) {
+      if (timer) timer.cleared = true;
+    },
+    setTimeout(callback, delay) {
+      const timer = { callback, cleared: false, delay, ran: false };
+      timers.push(timer);
+      return timer;
+    },
+    active() {
+      return timers.filter(timer => !timer.cleared && !timer.ran);
+    },
+    run(timer) {
+      assert.ok(timer && !timer.cleared && !timer.ran, 'timer is not runnable');
+      timer.ran = true;
+      timer.callback();
+    },
+  };
 }
 
 /* Retained below as an explicit shape helper for each Studio pane. */
@@ -458,6 +492,7 @@ test('stale socket cannot route events, disconnect the active client, or schedul
     false,
   );
   assert.equal(busEvents.some(event => event.name === 'ws:disconnected'), false);
+  assert.equal(busEvents.some(event => event.name === 'ws:reconnect_exhausted'), false);
   assert.equal(client.wsIsReady(), true);
   assert.equal(timers.length, timerCount);
   assert.equal(sockets.length, socketCount);
@@ -580,6 +615,295 @@ test('panel persists the invalid-session reset applied by transport', () => {
   assert.match(handler, /s\._convId=null;s\._agentId=null;s\._label=''/);
   assert.match(handler, /s\.chat\.msgs=\[\];s\.chat\._thinking=null/);
   assert.match(handler, /_persistSessionState\(\)/);
+});
+
+suite('M1 Studio client — bounded visible reconnect');
+
+test('socket stuck in CONNECTING times out into the bounded scheduler', () => {
+  const clock = controlledTimers();
+  const { busEvents, socket, sockets } = loadClient([session()], {
+    autoHandshake: false,
+    clearTimeout: clock.clearTimeout,
+    setTimeout: clock.setTimeout,
+  });
+
+  assert.equal(socket.readyState, 0);
+  assert.equal(clock.active().length, 1);
+  assert.equal(clock.active()[0].delay, 5000);
+  clock.run(clock.active()[0]);
+
+  assert.equal(socket.readyState, 3);
+  assert.equal(clock.active().length, 1);
+  assert.equal(clock.active()[0].delay, 1000);
+  assert.equal(sockets.length, 1);
+  assert.equal(busEvents.some(event => event.name === 'ws:reconnect_exhausted'), false);
+});
+
+test('open without ACK times out, does not reset backoff, and hello ACK resets it', () => {
+  const clock = controlledTimers();
+  const { client, handshake, socket, sockets } = loadClient([session()], {
+    autoHandshake: false,
+    clearTimeout: clock.clearTimeout,
+    setTimeout: clock.setTimeout,
+  });
+
+  socket.readyState = 1;
+  socket.onopen();
+  const handshakeTimeout = clock.active().find(timer => timer.delay === 5000);
+  clock.run(handshakeTimeout);
+  assert.equal(clock.active().length, 1);
+  assert.equal(clock.active()[0].delay, 1000);
+
+  clock.run(clock.active()[0]);
+  const secondSocket = sockets[1];
+  secondSocket.readyState = 1;
+  secondSocket.onopen();
+  secondSocket.close();
+  assert.equal(clock.active().length, 1);
+  assert.equal(clock.active()[0].delay, 2000);
+
+  clock.run(clock.active()[0]);
+  const acknowledgedSocket = sockets[2];
+  handshake(acknowledgedSocket);
+  assert.equal(client.wsIsReady(), true);
+  acknowledgedSocket.close();
+  assert.equal(clock.active().length, 1);
+  assert.equal(clock.active()[0].delay, 1000);
+});
+
+test('late hello ACK after timeout cannot create false ready or reset backoff', () => {
+  const clock = controlledTimers();
+  const { busEvents, client, socket, sockets } = loadClient([session()], {
+    autoHandshake: false,
+    clearTimeout: clock.clearTimeout,
+    deferClose: true,
+    setTimeout: clock.setTimeout,
+  });
+
+  socket.readyState = 1;
+  socket.onopen();
+  socket.close();
+  socket.finishClose();
+  assert.equal(clock.active()[0].delay, 1000);
+  clock.run(clock.active()[0]);
+
+  const timedOutSocket = sockets[1];
+  const handshakeTimeout = clock.active().find(timer => timer.delay === 5000);
+  clock.run(handshakeTimeout);
+  assert.equal(timedOutSocket.readyState, 2);
+  sendServerMessage(timedOutSocket, {
+    type: 'hello_ack',
+    serverVersion: 'late',
+    features: [],
+  });
+
+  assert.equal(client.wsIsReady(), false);
+  assert.equal(busEvents.some(event => event.name === 'ws:ready'), false);
+  assert.equal(busEvents.some(event => event.name === 'ws:reconnected'), false);
+  timedOutSocket.finishClose();
+  assert.equal(clock.active().length, 1);
+  assert.equal(clock.active()[0].delay, 2000);
+});
+
+test('twelve failed reconnects stop at the exact cap and emit exhaustion once', () => {
+  const clock = controlledTimers();
+  const { busEvents, socket, sockets } = loadClient([session()], {
+    autoHandshake: false,
+    clearTimeout: clock.clearTimeout,
+    setTimeout: clock.setTimeout,
+  });
+  const retryDelays = [];
+
+  socket.readyState = 1;
+  socket.onopen();
+  socket.close();
+  for (let attempt = 0; attempt < 12; attempt++) {
+    assert.equal(clock.active().length, 1);
+    const retryTimer = clock.active()[0];
+    retryDelays.push(retryTimer.delay);
+    clock.run(retryTimer);
+    const currentSocket = sockets.at(-1);
+    currentSocket.readyState = 1;
+    currentSocket.onopen();
+    currentSocket.close();
+  }
+
+  assert.deepEqual(
+    retryDelays,
+    [1000, 2000, 4000, 8000, 16000, 30000, 30000, 30000, 30000, 30000, 30000, 30000],
+  );
+  assert.equal(sockets.length, 13);
+  assert.equal(clock.active().length, 0);
+  assert.equal(
+    JSON.stringify(busEvents.filter(event => event.name === 'ws:reconnect_exhausted')),
+    JSON.stringify([{
+      name: 'ws:reconnect_exhausted',
+      payload: { attempts: 12, maxAttempts: 12 },
+    }]),
+  );
+
+  sockets.at(-1).close();
+  assert.equal(clock.active().length, 0);
+  assert.equal(
+    busEvents.filter(event => event.name === 'ws:reconnect_exhausted').length,
+    1,
+  );
+});
+
+test('constructor failures use the same bounded scheduler without recursion', () => {
+  const clock = controlledTimers();
+  let constructCalls = 0;
+  const { busEvents, sockets } = loadClient([session()], {
+    autoHandshake: false,
+    beforeWebSocketConstruct() {
+      constructCalls++;
+      throw new Error('synthetic constructor failure');
+    },
+    clearTimeout: clock.clearTimeout,
+    console: { error() {}, log() {} },
+    setTimeout: clock.setTimeout,
+  });
+  const retryDelays = [];
+
+  for (let attempt = 0; attempt < 12; attempt++) {
+    assert.equal(clock.active().length, 1);
+    const retryTimer = clock.active()[0];
+    retryDelays.push(retryTimer.delay);
+    clock.run(retryTimer);
+  }
+
+  assert.equal(constructCalls, 13);
+  assert.equal(sockets.length, 0);
+  assert.deepEqual(
+    retryDelays,
+    [1000, 2000, 4000, 8000, 16000, 30000, 30000, 30000, 30000, 30000, 30000, 30000],
+  );
+  assert.equal(clock.active().length, 0);
+  assert.equal(
+    busEvents.filter(event => event.name === 'ws:reconnect_exhausted').length,
+    1,
+  );
+});
+
+test('a successful handshake resets the exhaustion latch for a later outage', () => {
+  const clock = controlledTimers();
+  const { busEvents, client, handshake, socket, sockets } = loadClient([session()], {
+    autoHandshake: false,
+    clearTimeout: clock.clearTimeout,
+    setTimeout: clock.setTimeout,
+  });
+
+  socket.readyState = 1;
+  socket.onopen();
+  socket.close();
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const retryTimer = clock.active()[0];
+    clock.run(retryTimer);
+    const currentSocket = sockets.at(-1);
+    currentSocket.readyState = 1;
+    currentSocket.onopen();
+    currentSocket.close();
+  }
+  assert.equal(
+    busEvents.filter(event => event.name === 'ws:reconnect_exhausted').length,
+    1,
+  );
+
+  assert.equal(client.wsConnect(), true);
+  const recoveredSocket = sockets.at(-1);
+  handshake(recoveredSocket);
+  recoveredSocket.close();
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const retryTimer = clock.active()[0];
+    clock.run(retryTimer);
+    const currentSocket = sockets.at(-1);
+    currentSocket.readyState = 1;
+    currentSocket.onopen();
+    currentSocket.close();
+  }
+
+  assert.equal(
+    busEvents.filter(event => event.name === 'ws:reconnect_exhausted').length,
+    2,
+  );
+});
+
+test('destroyed active client stays stopped without retry or exhaustion', () => {
+  const clock = controlledTimers();
+  const { busEvents, client, sockets } = loadClient([session()], {
+    clearTimeout: clock.clearTimeout,
+    setTimeout: clock.setTimeout,
+  });
+  assert.equal(client.wsIsReady(), true);
+  client.trackEditRequest('edit-destroy', '/owned/file.js', null, 0);
+
+  client.wsDestroy();
+
+  assert.equal(client.wsIsReady(), false);
+  assert.equal(clock.active().length, 0);
+  assert.equal(busEvents.some(event => event.name === 'ws:reconnect_exhausted'), false);
+  assert.equal(
+    JSON.stringify(busEvents.filter(event => event.name === 'edit:resolved').at(-1)),
+    JSON.stringify({
+      name: 'edit:resolved',
+      payload: { reqId: 'edit-destroy', action: 'disconnect' },
+    }),
+  );
+  assert.equal(client.wsConnect(), false);
+  assert.equal(sockets.length, 1);
+});
+
+test('destroy cancels a pending retry and its queued callback cannot reconnect', () => {
+  const clock = controlledTimers();
+  const { busEvents, client, socket, sockets } = loadClient([session()], {
+    autoHandshake: false,
+    clearTimeout: clock.clearTimeout,
+    setTimeout: clock.setTimeout,
+  });
+  socket.readyState = 1;
+  socket.onopen();
+  socket.close();
+  const retryTimer = clock.active()[0];
+  assert.equal(retryTimer.delay, 1000);
+
+  client.wsDestroy();
+  assert.equal(retryTimer.cleared, true);
+  retryTimer.callback();
+
+  assert.equal(sockets.length, 1);
+  assert.equal(clock.active().length, 0);
+  assert.equal(busEvents.some(event => event.name === 'ws:reconnect_exhausted'), false);
+});
+
+test('destroy cancels a pending CONNECTING timeout and its callback is inert', () => {
+  const clock = controlledTimers();
+  const { busEvents, client, sockets } = loadClient([session()], {
+    autoHandshake: false,
+    clearTimeout: clock.clearTimeout,
+    setTimeout: clock.setTimeout,
+  });
+  const handshakeTimer = clock.active()[0];
+  assert.equal(handshakeTimer.delay, 5000);
+
+  client.wsDestroy();
+  assert.equal(handshakeTimer.cleared, true);
+  handshakeTimer.callback();
+
+  assert.equal(sockets.length, 1);
+  assert.equal(clock.active().length, 0);
+  assert.equal(busEvents.some(event => event.name === 'ws:reconnect_exhausted'), false);
+});
+
+test('panel makes reconnect exhaustion visible and keeps health offline', () => {
+  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
+  const start = source.indexOf("C3Bus.on('ws:reconnect_exhausted'");
+  const end = source.indexOf('\n  });', start);
+  assert.ok(start >= 0 && end > start);
+  const handler = source.slice(start, end);
+  assert.match(handler, /_serverHealth\.wsConnected = false/);
+  assert.match(handler, /_serverHealth\.status = 'offline'/);
+  assert.match(handler, /agentLog/);
+  assert.match(handler, /renderSidebar\(\);_updateStatusIndicator\(\)/);
 });
 
 summary();
