@@ -5770,13 +5770,14 @@ function _initBusSubscriptions() {
 
   /* Session invalid (orphan) */
   C3Bus.on('session:invalid', function(ev) {
-    _sessions.forEach(function(s) {
-      if (s._convId === ev.sessionId) {
-        s._convId = null;
-        if(window._c3)window._c3.agentLog('TOOL','⚠️ Konverzace již neexistuje na serveru.');
-      }
-    });
-    renderChat();
+    var s=(typeof ev.idx==='number'&&_sessions[ev.idx])?_sessions[ev.idx]:null;
+    if(!s){_sessions.forEach(function(candidate){if(!s&&candidate._convId===ev.sessionId)s=candidate;});}
+    if(!s)return;
+    s._convId=null;s._agentId=null;s._label='';
+    if(s.chat){s.chat.msgs=[];s.chat._thinking=null;}
+    _persistSessionState();
+    if(window._c3)window._c3.agentLog('TOOL','⚠️ Konverzace již neexistuje na serveru.');
+    renderChat();renderAgent();
   });
 }
 

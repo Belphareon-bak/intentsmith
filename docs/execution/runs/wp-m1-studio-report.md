@@ -1,6 +1,6 @@
 # WP-M1-STUDIO — průběžný report
 
-- **stav WP:** `IN_PROGRESS`; checkpoint 1 READY
+- **stav WP:** `IN_PROGRESS`; checkpointy 1–3 READY
 - **base SHA:** `b7d0dbf61370b52061e6a736517ecdcb53118209`
 - **scope:** B4 podle `docs/execution/m1-batch.md`
 - **UI baseline:** výslovně mimo scope; spuštěné Studio není finální UI
@@ -139,6 +139,77 @@ zelené; serverová E2E zůstává povinnou součástí pozdější B4 journey.
 | `node tests/repository-hygiene.test.js` | 1473 cest | 0 |
 | `git diff --check` | bez chyb | 0 |
 
+## Checkpoint 3 — ACK-bound a race-safe client rehydrate
+
+Studio už po `hello_ack` nenačítá historii naslepo. Nejdřív odešle bounded
+seznam kanonických identit a čeká nejvýše 5 sekund na serverem ověřený
+`rehydrate_ack`. Chybějící, malformed, duplicitní nebo nevyžádané ACK identity
+nemají autoritu načítat ani mazat lokální stav. Mapy identit mají null prototype,
+takže i kontraktně platné ID `constructor` se nechová jako zděděný klíč.
+
+Každé spojení a každý rehydrate běh má vlastní epochu. Stará socket zpráva ani
+close handler nemohou routovat assistant event, shodit aktivní `_wsReady` nebo
+naplánovat reconnect. History fetch smí commitnout data jen při shodě socket
+epochy, conversation identity a lokálního chat snapshotu zachyceného ještě před
+rehydrate requestem. Tím opožděná historie nepřepíše zprávu ani thinking stav
+přidaný před ACK nebo po něm. Non-2xx, malformed payload, timeout a lokální
+aktivita zachovají snapshot a vrátí `degraded`; raw chyba ani identita se do
+completion payloadu nepřenáší.
+
+Serverem odmítnutá identita vyčistí conversation-scoped ID, agent binding,
+label, zprávy a thinking pouze tehdy, když se panel od requestu nezměnil.
+Projektové spojení zůstává zachováno. Panel reset persistuje a znovu vyrenderuje.
+`ws:reconnected` vznikne až po settle všech povolených history requestů a nese
+jen počty `restored`, `invalid` a `failed`.
+
+Prázdný history výsledek není vydáván za autoritativní důkaz prázdné
+konverzace. Dnešní route vrací `200 []` také po hard-delete, takže neprázdný
+lokální snapshot zůstane zachován a výsledek je `degraded`. Chybějící atomický
+serverový kontrakt je samostatný `BLOCK` v
+`docs/decisions/012-m1-rehydrate-empty-history-authority.md`.
+
+### Co checkpoint negarantuje
+
+- Retry counter se stále resetuje už v `onopen`, constructor failure nemá
+  scheduler a vyčerpání 12 pokusů je tiché. To je následující D-7 checkpoint.
+- Autoritativní obnova skutečně prázdné durable konverzace čeká na rozhodnutí
+  012; bezpečný klientský fallback raději zachová data.
+- Přesný M1 `CoreEvent` consumer zůstává blokovaný stale protocol delivery
+  rozhodnutím 010 a HTTP send fallback effect authority rozhodnutím 011.
+- Plná Electron journey, bounded soak ani finální UI nebyly v tomto offline
+  checkpointu spuštěny. Non-visual runner kontrakt byl ověřen, nikoli produktový
+  běh se skutečným displejem.
+
+### Focused evidence
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node --check c3-ide/extensions/c3-chat-panel/lib/browser/ws-client.js` | syntax valid | 0 |
+| `node --check c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js` | syntax valid | 0 |
+| `node --check c3-ide/extensions/c3-chat-panel/lib/browser/event-bus.js` | syntax valid | 0 |
+| `node --check tests/m1-studio-client.test.js` | syntax valid | 0 |
+| `node tests/m1-studio-client.test.js` | 15 passed, 0 failed, 0 skipped | 0 |
+| `node tests/ws-bridge.test.js` | 67 passed, 0 failed | 0 |
+| `node tests/m1-contract.test.js` | 26 passed, 0 failed, 0 skipped | 0 |
+| `node tests/upgrade-ux-v125.test.js` | 78 passed, 0 failed, 0 skipped | 0 |
+| `node tests/studio-cdp-evidence.test.js` | 59 passed, 0 failed, 0 skipped | 0 |
+| `node tests/studio-electron-runner-contract.test.js` | 16 passed, 0 failed, 0 skipped | 0 |
+
+Read-only P1/P2 review nejprve našel dva nepokryté závody: history fetch mohl
+přepsat aktivitu v téže epoše a starý socket guard nebyl testem připnutý. Oba
+mají explicitní negativní test. Review dále našel ACK/empty-history TOCTOU;
+klientská destruktivní větev byla odstraněna a serverový zbytek je BLOCK 012,
+nikoli skrytý PASS.
+
+### Commit battery
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
+| `node scripts/validate-test-registry.js --json` | valid, 364 programů, 8 exclusions, fingerprint `b45e4da20315bf8c5edd3e08f74c5c8a6f9925aa0026211c1f047ffbd27691ff` | 0 |
+| `node tests/repository-hygiene.test.js` | 1474 cest | 0 |
+| `git diff --check` | bez chyb | 0 |
+
 ## Blokovaná explorace — HTTP fallback effect authority
 
 Po checkpointu 1 vznikl dependency-free fail-closed parser pro tři legacy
@@ -181,8 +252,9 @@ serverem vynutit read-only/effect authority.
 2. Tři HTTP fallbacky nekontrolují `response.ok` a mohou renderovat error JSON
    jako assistant; jejich izolovaná parser oprava je blokovaná rozhodnutím 011,
    protože stávající route zároveň obchází effect approval.
-3. Server rehydrate ověřuje durable existenci; client stále ignoruje ack a nemá
-   reconnect epoch ani pravdivý completion/exhaustion stav.
+3. Serverem ověřený ACK i race-safe klient jsou hotové. Atomické rozlišení
+   prázdné versus mezitím smazané historie blokuje rozhodnutí 012; bounded retry
+   a viditelné exhaustion zůstávají následujícím D-7 checkpointem.
 4. Existující Electron runner obchází veřejný `sendChat()` a připíná legacy
    pořadí assistant-before-turn-end; pro B4 acceptance se musí změnit.
 5. Terminal STOP neruší backendový proces. To je M2 finding mimo B4 chat scope,

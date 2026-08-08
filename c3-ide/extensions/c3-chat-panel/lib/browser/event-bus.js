@@ -7,7 +7,7 @@
 // Events:
 //   ws:ready           — WS handshake OK {version, features}
 //   ws:disconnected    — WS connection lost {wasReady}
-//   ws:reconnected     — reconnect + rehydrate done
+//   ws:reconnected     — reconnect + rehydrate settled {status, restoredCount, invalidCount, failedCount}
 //   chat:message       — assistant response {sessionIdx, content, tag, metadata}
 //   chat:system        — system message {sessionIdx, content}
 //   agent:event        — agent event {sessionIdx, event}
@@ -15,7 +15,7 @@
 //   workspace:change   — file watcher batch {data}
 //   status:update      — context%, health {sessionIdx?, data?, health?}
 //   session:changed    — session state changed {idx}
-//   session:invalid    — orphan session {sessionId}
+//   session:invalid    — orphan session cleared {idx, sessionId}
 //   edit:request       — ask-mode edit request {sessionIdx, event}
 //   edit:resolved      — approve/reject done {reqId, action}
 //

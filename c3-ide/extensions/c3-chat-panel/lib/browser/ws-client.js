@@ -23,6 +23,10 @@ var _wsRetryCount = 0;
 var _wsMaxRetry = 12;
 var _wsRetryTimer = null;
 var _chatWs = null;
+var _wsConnectionEpoch = 0;
+var _rehydrateEpoch = 0;
+var _pendingRehydrate = null;
+var _rehydrateAckTimeoutMs = 5000;
 /* Track which session made the last WS request — reliable fallback for routing */
 var _lastSendSessionIdx = 0;
 var _studioConversationCounter = 0;
@@ -89,44 +93,258 @@ function _routeToSession(data) {
 
 /* ─── Rehydration after reconnect ─────────────────────────────────────── */
 
-function _rehydrateSessions() {
-  if (typeof _sessions === 'undefined') return;
-  var _base = (typeof _backendBase !== 'undefined') ? _backendBase : (function(){try{if(typeof window!=='undefined'&&window.electronC3){var u=window.electronC3.getBackendUrl();if(u)return u;}}catch(e){}return 'http://127.0.0.1:3335';})();
+function _rehydrateBaseUrl() {
+  return (typeof _backendBase !== 'undefined') ? _backendBase : (function(){try{if(typeof window!=='undefined'&&window.electronC3){var u=window.electronC3.getBackendUrl();if(u)return u;}}catch(e){}return 'http://127.0.0.1:3335';})();
+}
 
-  /* Send rehydrate control message */
-  var convIds = [];
-  _sessions.forEach(function(s) { if (s._convId) convIds.push(s._convId); });
+function _isCurrentRehydrate(run) {
+  return !!run
+    && run.epoch === _rehydrateEpoch
+    && run.connectionEpoch === _wsConnectionEpoch
+    && run.socket === _chatWs;
+}
 
-  if (convIds.length > 0 && _chatWs && _chatWs.readyState === 1) {
-    _chatWs.send(JSON.stringify({
-      channel: 'control',
-      data: { action: 'rehydrate', conversationIds: convIds }
-    }));
+function _emitRehydrateComplete(run, restoredCount, invalidCount, failedCount) {
+  if (!_isCurrentRehydrate(run)) return;
+  if (typeof fetchBackendData === 'function') {
+    try { fetchBackendData(); } catch(e) {}
   }
+  C3Bus.emit('ws:reconnected', {
+    status: failedCount > 0 ? 'degraded' : 'ok',
+    restoredCount: restoredCount,
+    invalidCount: invalidCount,
+    failedCount: failedCount
+  });
+}
 
-  /* Re-fetch messages for each session */
+function _clearInvalidSession(snapshot) {
+  var s = snapshot.session;
+  if (!s || s._convId !== snapshot.conversationId) return false;
+  s._convId = null;
+  s._agentId = null;
+  s._label = '';
+  if (s.chat) {
+    s.chat.msgs = [];
+    s.chat._thinking = null;
+  }
+  C3Bus.emit('session:invalid', {
+    idx: snapshot.idx,
+    sessionId: snapshot.conversationId
+  });
+  return true;
+}
+
+function _parseHistoryPayload(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data) || !Array.isArray(data.messages)) {
+    return null;
+  }
+  var msgs = [];
+  for (var i = 0; i < data.messages.length; i++) {
+    var m = data.messages[i];
+    if (!m || typeof m !== 'object' || typeof m.role !== 'string' || typeof m.content !== 'string') {
+      return null;
+    }
+    var meta = null;
+    if (m.metadata && typeof m.metadata === 'object' && !Array.isArray(m.metadata)) {
+      meta = m.metadata;
+    } else if (typeof m.metadata === 'string') {
+      try { meta = JSON.parse(m.metadata); } catch(e) { meta = null; }
+    }
+    msgs.push({ role: m.role, text: m.content, tag: (meta && meta.mode) || 'LLM' });
+  }
+  return msgs;
+}
+
+function _captureChatState(snapshot) {
+  if (!snapshot.session || !snapshot.session.chat || !Array.isArray(snapshot.session.chat.msgs)) {
+    return null;
+  }
+  try {
+    return {
+      chat: snapshot.session.chat,
+      signature: JSON.stringify({
+        messages: snapshot.session.chat.msgs,
+        thinking: snapshot.session.chat._thinking
+      })
+    };
+  } catch(e) {
+    return null;
+  }
+}
+
+function _chatStateIsUnchanged(snapshot, captured) {
+  if (!captured || !snapshot.session || snapshot.session.chat !== captured.chat) return false;
+  try {
+    return JSON.stringify({
+      messages: snapshot.session.chat.msgs,
+      thinking: snapshot.session.chat._thinking
+    }) === captured.signature;
+  } catch(e) {
+    return false;
+  }
+}
+
+function _cancelPendingRehydrate(connectionEpoch) {
+  if (_pendingRehydrate && _pendingRehydrate.connectionEpoch === connectionEpoch) {
+    clearTimeout(_pendingRehydrate.timer);
+    _pendingRehydrate = null;
+  }
+  _rehydrateEpoch++;
+}
+
+function _failPendingRehydrate(run) {
+  if (!_isCurrentRehydrate(run)) return;
+  clearTimeout(run.timer);
+  if (_pendingRehydrate === run) _pendingRehydrate = null;
+  _emitRehydrateComplete(run, 0, run.localInvalidCount, run.snapshots.length);
+}
+
+function _rehydrateSessions(connectionEpoch, socket) {
+  if (typeof _sessions === 'undefined') return;
+  if (_pendingRehydrate) clearTimeout(_pendingRehydrate.timer);
+
+  var run = {
+    epoch: ++_rehydrateEpoch,
+    connectionEpoch: connectionEpoch,
+    socket: socket,
+    requestedIds: [],
+    requestedSet: Object.create(null),
+    snapshots: [],
+    localInvalidCount: 0,
+    timer: null
+  };
+
   _sessions.forEach(function(s, idx) {
-    if (s._convId) {
-      fetch(_base + '/api/conversations/' + s._convId + '/messages', { signal: AbortSignal.timeout(5000) })
-      .then(function(r) { return r.json(); })
-      .then(function(data) {
-        var msgs = (data.messages || []).map(function(m) {
-          var meta = null;
-          try { meta = m.metadata ? JSON.parse(m.metadata) : null; } catch(e) {}
-          return { role: m.role, text: m.content, tag: (meta && meta.mode) || 'LLM' };
-        });
-        if (msgs.length > 0) {
-          s.chat.msgs = msgs;
-          C3Bus.emit('session:changed', { idx: idx });
-        }
-      }).catch(function() {});
+    if (!s || !s._convId) return;
+    if (!_isConversationId(s._convId)) {
+      if (_clearInvalidSession({ session: s, idx: idx, conversationId: s._convId })) {
+        run.localInvalidCount++;
+      }
+      return;
+    }
+    var snapshot = { session: s, idx: idx, conversationId: s._convId };
+    snapshot.capturedChatState = _captureChatState(snapshot);
+    run.snapshots.push(snapshot);
+    if (!run.requestedSet[s._convId]) {
+      run.requestedSet[s._convId] = true;
+      run.requestedIds.push(s._convId);
     }
   });
 
-  /* Refresh entity lists */
-  if (typeof fetchBackendData === 'function') fetchBackendData();
+  if (run.requestedIds.length === 0) {
+    _pendingRehydrate = null;
+    _emitRehydrateComplete(run, 0, run.localInvalidCount, 0);
+    return;
+  }
+  if (!_isCurrentRehydrate(run) || !socket || socket.readyState !== 1) {
+    _emitRehydrateComplete(run, 0, run.localInvalidCount, run.snapshots.length);
+    return;
+  }
 
-  C3Bus.emit('ws:reconnected', {});
+  run.timer = setTimeout(function() {
+    _failPendingRehydrate(run);
+  }, _rehydrateAckTimeoutMs);
+  _pendingRehydrate = run;
+  try {
+    socket.send(JSON.stringify({
+      channel: 'control',
+      data: { action: 'rehydrate', conversationIds: run.requestedIds }
+    }));
+  } catch(e) {
+    _failPendingRehydrate(run);
+  }
+}
+
+function _handleRehydrateAck(data, connectionEpoch, socket) {
+  var run = _pendingRehydrate;
+  if (
+    !run
+    || !_isCurrentRehydrate(run)
+    || run.connectionEpoch !== connectionEpoch
+    || run.socket !== socket
+  ) {
+    return false;
+  }
+  clearTimeout(run.timer);
+  _pendingRehydrate = null;
+
+  if (!Array.isArray(data.validIds)) {
+    _emitRehydrateComplete(run, 0, run.localInvalidCount, run.snapshots.length);
+    return true;
+  }
+  var validSet = Object.create(null);
+  for (var i = 0; i < data.validIds.length; i++) {
+    var id = data.validIds[i];
+    if (!_isConversationId(id) || !run.requestedSet[id] || validSet[id]) {
+      _emitRehydrateComplete(run, 0, run.localInvalidCount, run.snapshots.length);
+      return true;
+    }
+    validSet[id] = true;
+  }
+
+  var invalidCount = run.localInvalidCount;
+  var conflictedCount = 0;
+  var validSnapshots = [];
+  run.snapshots.forEach(function(snapshot) {
+    if (validSet[snapshot.conversationId]) {
+      validSnapshots.push(snapshot);
+    } else if (!_chatStateIsUnchanged(snapshot, snapshot.capturedChatState)) {
+      conflictedCount++;
+    } else if (_clearInvalidSession(snapshot)) {
+      invalidCount++;
+    }
+  });
+
+  var base = _rehydrateBaseUrl();
+  var tasks = validSnapshots.map(function(snapshot) {
+    return Promise.resolve().then(function() {
+      return fetch(
+        base + '/api/conversations/' + encodeURIComponent(snapshot.conversationId) + '/messages',
+        { signal: AbortSignal.timeout(5000) }
+      );
+    }).then(function(response) {
+      if (!response || response.ok !== true) throw new Error('rehydrate-http-failed');
+      return response.json();
+    }).then(function(payload) {
+      var msgs = _parseHistoryPayload(payload);
+      if (msgs === null) throw new Error('rehydrate-payload-invalid');
+      if (
+        !_isCurrentRehydrate(run)
+        || snapshot.session._convId !== snapshot.conversationId
+        || !_chatStateIsUnchanged(snapshot, snapshot.capturedChatState)
+      ) {
+        return false;
+      }
+      if (
+        msgs.length === 0
+        && (
+          snapshot.session.chat.msgs.length > 0
+          || snapshot.session.chat._thinking !== null
+            && snapshot.session.chat._thinking !== undefined
+        )
+      ) {
+        return false;
+      }
+      snapshot.session.chat.msgs = msgs;
+      snapshot.session.chat._thinking = null;
+      C3Bus.emit('session:changed', { idx: snapshot.idx });
+      return true;
+    }).catch(function() {
+      return false;
+    });
+  });
+
+  Promise.all(tasks).then(function(results) {
+    if (!_isCurrentRehydrate(run)) return;
+    var restoredCount = results.filter(function(value) { return value === true; }).length;
+    _emitRehydrateComplete(
+      run,
+      restoredCount,
+      invalidCount,
+      conflictedCount + validSnapshots.length - restoredCount
+    );
+  });
+  return true;
 }
 
 /* ─── Connect ─────────────────────────────────────────────────────────── */
@@ -135,6 +353,8 @@ function _wsConnect() {
   var _base = (typeof _backendBase !== 'undefined') ? _backendBase : (function(){try{if(typeof window!=='undefined'&&window.electronC3){var u=window.electronC3.getBackendUrl();if(u)return u;}}catch(e){}return 'http://127.0.0.1:3335';})();
   var wsUrl = _base.replace(/^http/, 'ws') + '/c3/ws';
 
+  var connectionEpoch = ++_wsConnectionEpoch;
+  var socket = null;
   try {
     var _localCapability = null;
     try {
@@ -142,18 +362,20 @@ function _wsConnect() {
         _localCapability = window.electronC3.getLocalCapability();
       }
     } catch (e) {}
-    _chatWs = _localCapability
+    socket = _localCapability
       ? new WebSocket(wsUrl, ['c3-v1', 'c3-local-v1.' + _localCapability])
       : new WebSocket(wsUrl);
+    _chatWs = socket;
   } catch (e) {
     console.error('[C3 WS] Failed to create WebSocket:', e);
     return;
   }
 
-  _chatWs.onopen = function() {
+  socket.onopen = function() {
+    if (connectionEpoch !== _wsConnectionEpoch || socket !== _chatWs) return;
     _wsRetryCount = 0;
     /* Hello handshake */
-    _chatWs.send(JSON.stringify({
+    socket.send(JSON.stringify({
       type: 'hello',
       protocolVersion: 1,
       ideVersion: 'c3-studio-0.2.0',
@@ -161,9 +383,11 @@ function _wsConnect() {
     }));
   };
 
-  _chatWs.onclose = function() {
+  socket.onclose = function() {
+    if (connectionEpoch !== _wsConnectionEpoch || socket !== _chatWs) return;
     var wasReady = _wsReady;
     _wsReady = false;
+    _cancelPendingRehydrate(connectionEpoch);
 
     /* Clear stale pending edits — backend session is gone */
     Object.keys(_pendingEdits).forEach(function(k) {
@@ -184,9 +408,10 @@ function _wsConnect() {
     }
   };
 
-  _chatWs.onerror = function() { /* onclose handles reconnect */ };
+  socket.onerror = function() { /* onclose handles reconnect */ };
 
-  _chatWs.onmessage = function(e) {
+  socket.onmessage = function(e) {
+    if (connectionEpoch !== _wsConnectionEpoch || socket !== _chatWs) return;
     var msg;
     try { msg = JSON.parse(e.data); } catch (err) { return; }
 
@@ -197,7 +422,7 @@ function _wsConnect() {
       _serverFeatures = msg.features || [];
       console.log('[C3 WS] Handshake OK — server v' + _serverVersion + ' features=' + JSON.stringify(_serverFeatures));
       C3Bus.emit('ws:ready', { version: _serverVersion, features: _serverFeatures });
-      _rehydrateSessions();
+      _rehydrateSessions(connectionEpoch, socket);
       return;
     }
     if (msg.type === 'hello_reject') {
@@ -243,7 +468,9 @@ function _wsConnect() {
         break;
 
       case 'control':
-        if (d.action === 'session_invalid') {
+        if (d.action === 'rehydrate_ack') {
+          _handleRehydrateAck(d, connectionEpoch, socket);
+        } else if (d.action === 'session_invalid') {
           C3Bus.emit('session:invalid', { sessionId: d.sessionId || d.conversationId });
         } else if (d.action === 'model_pull_progress') {
           C3Bus.emit('model:pull_progress', d);
