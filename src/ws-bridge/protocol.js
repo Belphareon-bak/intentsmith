@@ -130,3 +130,23 @@ export function buildHelloReject(reason) {
 export function messageId(prefix = 'msg') {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 }
+
+// M1 connector v1 is additive while consumers migrate from the legacy wire
+// shape. The current handshake version therefore remains unchanged.
+export {
+  M1_CONTRACT_KIND,
+  M1_CONTRACT_STAGE,
+  M1_CONTRACT_VERSION,
+  M1_MODEL_PURPOSE,
+  M1_TERMINAL_STATUS,
+  classifyTerminal,
+  decodeM1Contract,
+  encodeM1Contract,
+  validateConversationCommand,
+  validateConversationResult,
+  validateCoreEvent,
+  validateCoreEventStream,
+  validateM1Contract,
+  validateModelRequest,
+  validateModelResult,
+} from '../../contracts/m1/index.js';
