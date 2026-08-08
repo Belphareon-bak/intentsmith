@@ -1,0 +1,53 @@
+# 010 — Jak doručit kanonický M1 kontrakt do autoritativního Studio runtime
+
+- **typ:** BLOCK
+- **WP:** WP-M1-STUDIO (jen přesná `CoreEvent` consumer integrace)
+- **rail:** R1, R2, R5
+- **vzniklo při:** B4 call-graph inventura
+
+## Evidence na stole
+
+B1 vlastní kanonický JavaScript kontrakt v `contracts/m1/**` a TypeScript mirror
+v `c3-ide/extensions/c3-protocol/src/m1.ts`. Produkční balíček
+`@c3/protocol` ale načítá commitnutý `lib/index.js`, který je stale stub;
+`lib/m1.js` vznikl jen při disposable B1 buildu a nebyl commitnut. B4 allowlist
+nepovoluje měnit B1 protocol package ani root Studio build kontrakt.
+
+Autoritativní chat-panel runtime je prostý commitnutý JavaScript v
+`c3-chat-panel/lib/**`. Přímý `require('@c3/protocol')` by proto dnes
+neposkytl M1 validátory a zelený source test by neprokazoval built runtime.
+
+## Varianty
+
+| Varianta | Chování | Dopad na rails | Cena zavedení |
+|---|---|---|---|
+| A — protocol build před Studio buildem | Root build nejprve vytvoří runtime `@c3/protocol/lib`, potom Electron bundle | Jedna kanonická autorita, ale mění root build mimo B4 allowlist | `c3-ide/package.json`, protocol build output policy, runner + fresh-clone testy |
+| B — dependency-free panel adaptér | Autoritativní `c3-chat-panel/lib` validuje jen svůj consumer seam; Node test jej porovnává s `contracts/m1` | Bez build změny, ale vzniká druhá implementace části kontraktu | 1 runtime modul, `ws-client.js`, Studio client test + drift matrix |
+| C — commitnout protocol `lib` | Studio importuje commitnutý build output | Přidává další generated autoritativní plochu vedle panelu | protocol `lib/**`, source/build guards, package + journey testy |
+| D — přesnou integraci odložit | B4 zůstane na korelovaném legacy transportu | Nic nepředstírá, ale M1 exit zůstane nedosažený | report + otevřený blocker; bez produktového diffu |
+
+## Vzatý default a proč
+
+Žádný. Výběr A/C mění soubory vlastněné B1 nebo root build scope, B vytváří
+novou runtime autoritu a D mění dosažitelný výsledek B4. To nejsou alternativy
+uvnitř jednoho předem schváleného švu. Zastavena je pouze přesná M1 terminal
+consumer část; scoped legacy cancel a ostatní nezávislé fail-closed opravy B4
+pokračují.
+
+## Šev
+
+Po rozhodnutí je jediným spotřebitelem `c3-chat-panel/lib/browser/ws-client.js`.
+Varianta B by vložila jeden pojmenovaný modul vedle něj; A/C by zachovaly import
+z `@c3/protocol` a změnily pouze delivery před Electron buildem.
+
+## Cena přepnutí, když operátor rozhodne jinak
+
+- A → B: odstranit root prebuild, přidat 1 panel modul a přepsat 1 consumer;
+  zachovat společnou negativní matici v `tests/m1-studio-client.test.js`.
+- B → A: odstranit 1 panel modul, změnit import v 1 consumeru, doplnit root
+  build + fresh-clone guard; přibližně 4 soubory a 2 testovací sady.
+- C → A: odstranit trackovaný generated output a změnit source/build guard;
+  přibližně 3 policy soubory plus fresh-clone journey.
+
+Žádná varianta nesmí měnit schéma M1 v1 ani oslabit validaci, aby „pasovala“ do
+existujícího bundle.

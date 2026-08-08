@@ -140,8 +140,10 @@ export function createSessionAdapter({
     safeSend(buildChannelMessage(channel, data));
   }
 
-  function sendAgentEvent(type, turnId, payload) {
-    sendChannel(Channel.AGENT, buildAgentEvent(++seq, type, turnId, payload));
+  function sendAgentEvent(type, turnId, payload, conversationId = null) {
+    const event = buildAgentEvent(++seq, type, turnId, payload);
+    if (conversationId) event.conversationId = conversationId;
+    sendChannel(Channel.AGENT, event);
   }
 
   function sendStatus() {
@@ -199,7 +201,11 @@ export function createSessionAdapter({
       ? new TurnTelemetry(turnId, sid, convId)
       : null;
 
-    sendAgentEvent(AgentEventType.TURN_START, turnId, { input: content });
+    const sendTurnEvent = (type, payload) => {
+      sendAgentEvent(type, turnId, payload, requestConversationId);
+    };
+
+    sendTurnEvent(AgentEventType.TURN_START, { input: content });
 
     try {
       // ═══════════════════════════════════════════════════════════════
@@ -226,7 +232,7 @@ export function createSessionAdapter({
 
           // Hook: CRE decision (called in ChatController.process after mode detection)
           onCREDecision: (decision) => {
-            sendAgentEvent(AgentEventType.CRE_DECISION, turnId, {
+            sendTurnEvent(AgentEventType.CRE_DECISION, {
               intent: decision.intent,
               confidence: decision.confidence,
               input: content,
@@ -237,7 +243,7 @@ export function createSessionAdapter({
 
           // Hook: Tool call start (ASYNC — edit interception in ask mode)
           onToolCall: async (tool, args) => {
-            sendAgentEvent(AgentEventType.TOOL_CALL, turnId, { tool, args });
+            sendTurnEvent(AgentEventType.TOOL_CALL, { tool, args });
 
             // E4: Intercept fs.write in ask mode → send diff to IDE, wait for approve/reject
             if (tool === 'fs.write' && options.editMode === 'ask') {
@@ -255,7 +261,7 @@ export function createSessionAdapter({
               } catch { /* new file — baseHash stays null */ }
 
               // Send edit_request with old + new + baseHash
-              sendAgentEvent('edit_request', turnId, {
+              sendTurnEvent('edit_request', {
                 reqId,
                 file: filePath,
                 oldContent,
@@ -268,7 +274,7 @@ export function createSessionAdapter({
               return new Promise((rawResolve, rawReject) => {
                 const timer = setTimeout(() => {
                   editPending.delete(reqId);
-                  sendAgentEvent('edit_timeout', turnId, { reqId, file: filePath });
+                  sendTurnEvent('edit_timeout', { reqId, file: filePath });
                   rawReject(new Error('Edit request timeout (30s)'));
                 }, 30000);
                 const resolve = (v) => { clearTimeout(timer); rawResolve(v); };
@@ -280,7 +286,7 @@ export function createSessionAdapter({
 
           // Hook: Tool call result (called in handleToolCallDecision after execute)
           onToolResult: (tool, result) => {
-            sendAgentEvent(AgentEventType.TOOL_RESULT, turnId, {
+            sendTurnEvent(AgentEventType.TOOL_RESULT, {
               tool,
               success: result.success,
               durationMs: result.durationMs,
@@ -290,22 +296,22 @@ export function createSessionAdapter({
 
           // Hook: LLM synthesis start (called in synthesizeWithLLM before LLM call)
           onLLMStart: (model, tokensIn) => {
-            sendAgentEvent(AgentEventType.LLM_START, turnId, { model, tokensIn });
+            sendTurnEvent(AgentEventType.LLM_START, { model, tokensIn });
           },
 
           // Hook: LLM token (streaming — reserved for future use)
           onLLMToken: (token) => {
-            sendAgentEvent(AgentEventType.LLM_TOKEN, turnId, { token });
+            sendTurnEvent(AgentEventType.LLM_TOKEN, { token });
           },
 
           // Hook: LLM synthesis done (called in synthesizeWithLLM after LLM returns)
           onLLMDone: (tokensOut, durationMs) => {
-            sendAgentEvent(AgentEventType.LLM_DONE, turnId, { tokensOut, durationMs });
+            sendTurnEvent(AgentEventType.LLM_DONE, { tokensOut, durationMs });
           },
 
           // Hook: Output quality gate verdict (called after D6 gate check)
           onGateVerdict: (verdict) => {
-            sendAgentEvent(AgentEventType.GATE_VERDICT, turnId, verdict);
+            sendTurnEvent(AgentEventType.GATE_VERDICT, verdict);
           },
 
           // Hook: System step — structured internal operation detail
@@ -313,7 +319,7 @@ export function createSessionAdapter({
           onSystemStep: (step, detail, level) => {
             const maxLevel = config.features?.agentLogLevel ?? 2;
             if ((level || 1) <= maxLevel) {
-              sendAgentEvent(AgentEventType.SYSTEM_STEP, turnId, { step, detail });
+              sendTurnEvent(AgentEventType.SYSTEM_STEP, { step, detail });
             }
           },
         },
@@ -350,7 +356,7 @@ export function createSessionAdapter({
 
       // Turn end — success
       const telemetrySnapshot = turnTelemetry?.finalize(turnStartTime) ?? null;
-      sendAgentEvent(AgentEventType.TURN_END, turnId, {
+      sendTurnEvent(AgentEventType.TURN_END, {
         status: 'ok',
         durationMs: Date.now() - turnStartTime,
         ...(telemetrySnapshot ? { telemetry: telemetrySnapshot } : {}),
@@ -372,14 +378,14 @@ export function createSessionAdapter({
       ) {
         turnTelemetry?.recordCancel('timeout');
         const snap = turnTelemetry?.finalize(turnStartTime) ?? null;
-        sendAgentEvent(AgentEventType.TURN_END, turnId, {
+        sendTurnEvent(AgentEventType.TURN_END, {
           status: 'timeout',
           durationMs,
           error: err.message,
           ...(snap ? { telemetry: snap } : {}),
         });
         persistTelemetry(snap);
-        sendAgentEvent(AgentEventType.ERROR, turnId, {
+        sendTurnEvent(AgentEventType.ERROR, {
           code: 'TIMEOUT',
           message: err.message,
           recoverable: true,
@@ -387,7 +393,7 @@ export function createSessionAdapter({
       } else if (isAbortError(err)) {
         turnTelemetry?.recordCancel('user');
         const snap = turnTelemetry?.finalize(turnStartTime) ?? null;
-        sendAgentEvent(AgentEventType.TURN_END, turnId, {
+        sendTurnEvent(AgentEventType.TURN_END, {
           status: 'cancelled_by_user',
           durationMs,
           ...(snap ? { telemetry: snap } : {}),
@@ -399,14 +405,14 @@ export function createSessionAdapter({
           ? chatTurnErrorPayload(err)
           : null;
         const snap = turnTelemetry?.finalize(turnStartTime) ?? null;
-        sendAgentEvent(AgentEventType.TURN_END, turnId, {
+        sendTurnEvent(AgentEventType.TURN_END, {
           status: 'error',
           durationMs,
           error: terminalChatError?.message || err.message,
           ...(snap ? { telemetry: snap } : {}),
         });
         persistTelemetry(snap);
-        sendAgentEvent(AgentEventType.ERROR, turnId, {
+        sendTurnEvent(AgentEventType.ERROR, {
           code: terminalChatError?.code || 'UNEXPECTED',
           message: terminalChatError?.message || err.message,
           recoverable: terminalChatError?.recoverable || false,
@@ -436,6 +442,7 @@ export function createSessionAdapter({
       try {
         sendChannel(Channel.STATUS, {
           agentStatus: activeTurns.size > 0 ? 'executing' : 'idle',
+          conversationId: requestConversationId,
         });
       } catch (finallyErr) {
         logger.error('WSSession', `Finally block error: ${finallyErr.message}`, { sessionId: sid });

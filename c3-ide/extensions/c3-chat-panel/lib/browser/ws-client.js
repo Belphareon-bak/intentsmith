@@ -25,6 +25,42 @@ var _wsRetryTimer = null;
 var _chatWs = null;
 /* Track which session made the last WS request — reliable fallback for routing */
 var _lastSendSessionIdx = 0;
+var _studioConversationCounter = 0;
+
+function _isConversationId(value) {
+  return typeof value === 'string'
+    && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value);
+}
+
+function _createStudioConversationId() {
+  _studioConversationCounter++;
+  var randomPart = null;
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      randomPart = crypto.randomUUID();
+    }
+  } catch (e) {}
+  if (!randomPart) {
+    randomPart = Date.now().toString(36) + '-'
+      + _studioConversationCounter.toString(36) + '-'
+      + Math.random().toString(36).slice(2, 10);
+  }
+  return 'studio-' + randomPart;
+}
+
+function _ensureConversationId(session, sessionIdx) {
+  if (!session || typeof session !== 'object') return null;
+  if (_isConversationId(session._convId)) return session._convId;
+  if (session._convId !== null && session._convId !== undefined && session._convId !== '') {
+    return null;
+  }
+  session._convId = _createStudioConversationId();
+  C3Bus.emit('session:identity', {
+    idx: typeof sessionIdx === 'number' ? sessionIdx : null,
+    conversationId: session._convId
+  });
+  return session._convId;
+}
 
 /* ─── Session routing ─────────────────────────────────────────────────── */
 
@@ -256,11 +292,13 @@ function wsSend(channel, data) {
 }
 
 function wsSendChat(content, session, sessionIdx) {
+  var conversationId = _ensureConversationId(session, sessionIdx);
+  if (!conversationId) return false;
   /* Track sender session for reliable routing of response */
   if (typeof sessionIdx === 'number') _lastSendSessionIdx = sessionIdx;
   var payload = {
     content: content,
-    conversationId: session._convId || null,
+    conversationId: conversationId,
     editMode: session.chat.editMode || 'auto',
     agentId: session._agentId || null,
     projectId: session._projectId || null
@@ -288,8 +326,12 @@ function wsSendTerminal(command, session, sessionIdx) {
   });
 }
 
-function wsSendCancel() {
-  return wsSend('control', { action: 'cancel' });
+function wsSendCancel(session) {
+  var conversationId = session && _isConversationId(session._convId)
+    ? session._convId
+    : null;
+  if (!conversationId) return false;
+  return wsSend('control', { action: 'cancel', conversationId: conversationId });
 }
 
 function wsSendEditApprove(reqId) {

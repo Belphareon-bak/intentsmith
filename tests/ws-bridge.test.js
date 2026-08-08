@@ -331,7 +331,7 @@ await asyncTest('T8: processChat sends turn_start, response, turn_end', async ()
     logger: mockLogger,
   });
 
-  await adapter.processChat('Ahoj');
+  await adapter.processChat('Ahoj', { conversationId: 'studio-correlation-A' });
 
   // Should have: turn_start, assistant response, turn_end, status
   const channels = sent.map(m => m.channel);
@@ -343,6 +343,13 @@ await asyncTest('T8: processChat sends turn_start, response, turn_end', async ()
   const agentEvents = sent.filter(m => m.channel === 'agent').map(m => m.data.type);
   assert.ok(agentEvents.includes('turn_start'));
   assert.ok(agentEvents.includes('turn_end'));
+  assert.equal(
+    sent.filter(m => m.channel === 'agent').every(
+      m => m.data.conversationId === 'studio-correlation-A',
+    ),
+    true,
+    'Every turn event must carry the stable conversation routing identity',
+  );
 
   // Check turn_end has ok status
   const turnEnd = sent.find(m => m.channel === 'agent' && m.data.type === 'turn_end');
@@ -351,6 +358,8 @@ await asyncTest('T8: processChat sends turn_start, response, turn_end', async ()
   // Check chat response
   const chatMsg = sent.find(m => m.channel === 'chat' && m.data.type === 'assistant');
   assert.equal(chatMsg.data.content, 'Ahoj!');
+  const finalStatus = sent.find(m => m.channel === 'status');
+  assert.equal(finalStatus.data.conversationId, 'studio-correlation-A');
 });
 
 await asyncTest('T9: concurrent turn rejected', async () => {
@@ -469,7 +478,9 @@ await asyncTest('T10c: stale-turn abort is reported as timeout, not user cancell
   });
 
   try {
-    const turn = adapter.processChat('Force stale timeout');
+    const turn = adapter.processChat('Force stale timeout', {
+      conversationId: 'studio-stale-A',
+    });
     assert.equal(typeof sweepStaleTurns, 'function', 'stale sweep must be scheduled');
     staleNow += 21;
     sweepStaleTurns();
@@ -482,10 +493,12 @@ await asyncTest('T10c: stale-turn abort is reported as timeout, not user cancell
   assert.ok(turnEnd, 'Stale turn should emit turn_end');
   assert.equal(turnEnd.data.payload.status, 'timeout');
   assert.match(turnEnd.data.payload.error, /stale turn timeout/i);
+  assert.equal(turnEnd.data.conversationId, 'studio-stale-A');
 
   const errorEvent = sent.find(m => m.channel === 'agent' && m.data.type === 'error');
   assert.ok(errorEvent, 'Stale turn should emit an error event');
   assert.equal(errorEvent.data.payload.code, 'TIMEOUT');
+  assert.equal(errorEvent.data.conversationId, 'studio-stale-A');
 
   const systemMessage = sent.find(m => m.channel === 'chat' && m.data.type === 'system');
   assert.ok(systemMessage, 'Stale turn should emit a system message');
@@ -518,6 +531,83 @@ await asyncTest('T10d: typed user cancellation outranks timeout-like message tex
   );
   const systemMessage = sent.find(m => m.channel === 'chat' && m.data.type === 'system');
   assert.equal(systemMessage?.data?.content, 'Zpracování zrušeno.');
+});
+
+await asyncTest('T10e: scoped cancel aborts A without affecting B', async () => {
+  const sent = [];
+  const signals = new Map();
+  const releases = new Map();
+  const adapter = createSessionAdapter({
+    send: (json) => sent.push(JSON.parse(json)),
+    handleRequest: async (request) => new Promise((resolve, reject) => {
+      signals.set(request.conversationId, request.signal);
+      releases.set(request.conversationId, resolve);
+      request.signal.addEventListener('abort', () => {
+        reject(request.signal.reason);
+      }, { once: true });
+    }),
+    logger: mockLogger,
+  });
+
+  try {
+    const turnA = adapter.processChat('A', { conversationId: 'studio-cancel-A' });
+    const turnB = adapter.processChat('B', { conversationId: 'studio-cancel-B' });
+    await new Promise(r => setTimeout(r, 10));
+
+    adapter.handleControl({ action: 'cancel', conversationId: 'studio-cancel-A' });
+    await turnA;
+
+    assert.equal(signals.get('studio-cancel-A')?.aborted, true);
+    assert.equal(signals.get('studio-cancel-B')?.aborted, false);
+    assert.equal(
+      sent.some(m => (
+        m.channel === 'agent'
+        && m.data.conversationId === 'studio-cancel-B'
+        && m.data.type === 'turn_end'
+      )),
+      false,
+      'B must remain active after cancelling A',
+    );
+
+    releases.get('studio-cancel-B')({
+      response: 'B complete',
+      mode: 'conversation',
+      confidence: 1,
+      state: {},
+    });
+    await turnB;
+  } finally {
+    adapter.cleanup();
+  }
+
+  const terminalA = sent.find(m => (
+    m.channel === 'agent'
+    && m.data.conversationId === 'studio-cancel-A'
+    && m.data.type === 'turn_end'
+  ));
+  const terminalB = sent.find(m => (
+    m.channel === 'agent'
+    && m.data.conversationId === 'studio-cancel-B'
+    && m.data.type === 'turn_end'
+  ));
+  assert.equal(terminalA?.data?.payload?.status, 'cancelled_by_user');
+  assert.equal(terminalB?.data?.payload?.status, 'ok');
+  assert.equal(
+    sent.some(m => (
+      m.channel === 'chat'
+      && m.data.type === 'assistant'
+      && m.data.conversationId === 'studio-cancel-A'
+    )),
+    false,
+  );
+  assert.equal(
+    sent.find(m => (
+      m.channel === 'chat'
+      && m.data.type === 'assistant'
+      && m.data.conversationId === 'studio-cancel-B'
+    ))?.data?.content,
+    'B complete',
+  );
 });
 
 test('T11: ping returns pong', () => {

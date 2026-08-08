@@ -283,8 +283,10 @@ znění v [`CONTRACT.md`](CONTRACT.md) §2.
     je o mergích. `docs/review/2026-08-07-AUTH-MATRIX.md`
 12. Žádná tichá background outbound komunikace — **PARTIAL**; background model
     discovery je off a rodičovský deterministický profil byl empiricky
-    skenovaný, ale C3 Studio bundle bez opt-inu vkládá Google Fonts URL a
-    explicitní outbound plochy ještě nemají jednotnou policy.
+    skenovaný. Google Fonts egress byl odstraněn ze všech trackovaných Studio
+    ploch a dva fresh-clone Electron CDP běhy na `7236d221` prokázaly nulový
+    external/other-loopback provoz v ohraničeném journey. Explicitní outbound
+    plochy však stále nemají jednotnou policy.
     Změřeno 2026-08-07: 82 `fetch` call sites, z toho 46 skutečně odchozích.
     Default konfigurace pod blokující instrumentací neprovedla **žádné** spojení
     mimo loopback — okno 75 s pokrylo startup, idle, shutdown a 30s agent

@@ -96,3 +96,18 @@ jiná konverzace se neabortuje. Schéma connectoru se nezměnilo a
 `targetRequestId` se nepřidával. Dvě souběžné cancel operace nad týmž ještě
 aktivním cílem jsou idempotentní: obě čekají na stejný terminál a obě smějí
 potvrdit cancel pouze tehdy, když jej cíl skutečně potvrdil.
+
+## B4 Studio checkpoint — legacy transport
+
+Autoritativní Studio runtime nyní přidělí panelu stabilní `conversationId`
+před prvním WS odesláním a `_cancelExecution(idx)` předá do `wsSendCancel()`
+právě vybranou session. Klient proto neumí z tohoto veřejného švu odeslat legacy
+cancel bez cíle. HTTP fallback zatím vlastní vytvoření identity neřeší a zůstává
+otevřeným B4 checkpointem. Backendový fallback „cancel all bez
+`conversationId`“ zůstává zachovaný výhradně pro starší klienty; nový A/B
+regresní test současně dokládá, že scoped cancel A neabortuje B.
+
+Tento checkpoint **není** plná M1 Studio integrace: legacy Studio payload ještě
+nenese `requestId` a `turnId` a klient zatím nekonzumuje kanonický `CoreEvent`
+terminál. Tyto hrany zůstávají otevřené v `WP-M1-STUDIO` a nesmějí se odvozovat
+z pouhé přítomnosti `conversationId`.

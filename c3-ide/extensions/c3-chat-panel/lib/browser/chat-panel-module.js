@@ -4615,7 +4615,7 @@ document.addEventListener('keydown',function(e){
         _sessions[_sessionActive].chat.acSuggestion=null;renderChat();
         e.preventDefault();
       }else if(typeof C3WS!=='undefined'&&C3WS.isReady()){
-        C3WS.sendCancel();e.preventDefault();
+        if(C3WS.sendCancel(_sessions[_sessionActive]))e.preventDefault();
       }
       break;
     /* Excluded: Ctrl+W (close window), Ctrl+T (new tab), Ctrl+S (Theia save) */
@@ -5527,6 +5527,11 @@ function _initBusSubscriptions() {
   C3Bus.on('session:changed', function(ev) {
     renderChat(); renderAgent();
     if (typeof ev.idx === 'number') _chatScrollPane(ev.idx);
+  });
+
+  /* A fresh Studio pane receives a durable routing identity before first send. */
+  C3Bus.on('session:identity', function() {
+    _persistSessionState();
   });
 
   /* WS reconnected — trigger re-render to show restored messages */
@@ -6715,10 +6720,11 @@ function _mixedContent(s){
 }
 /* ── Cancel execution (LLM + terminal) ── */
 function _cancelExecution(idx) {
-  if (typeof C3WS !== 'undefined') C3WS.sendCancel();
-  if (typeof C3Terminal !== 'undefined') C3Terminal.cancel(idx);
   var s = _sessions[idx];
-  if (s) {
+  var chatCancelSent = false;
+  if (typeof C3WS !== 'undefined') chatCancelSent = C3WS.sendCancel(s);
+  if (typeof C3Terminal !== 'undefined') C3Terminal.cancel(idx);
+  if (s && chatCancelSent) {
     s.log.forEach(function(l) { l.active = false; });
     s.log.push({time:new Date().toLocaleTimeString('cs-CZ'),type:'CANCEL',cls:'error',text:'Zrušeno uživatelem',active:true,ts:new Date().toISOString()});
   }
