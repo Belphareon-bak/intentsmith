@@ -192,11 +192,76 @@ Paralelní zapisující WP jsou povolené, pouze když:
 2. mají disjunktní zapisované cesty;
 3. nemění tentýž connector ani jeho sémantiku;
 4. mají jasný způsob předání a integrační pořadí;
-5. modelové/GPU běhy se na jedné RTX 3090 spouštějí sériově.
+5. modelové/GPU běhy se na jedné RTX 3090 spouštějí sériově;
+6. každý má vlastní branch a vlastní checkout.
 
 Connector mění jediný vlastník. Konzumenti pracují proti připnuté verzi a po
 změně musí znovu projít boundary testy. Doporučený strop jsou tři paralelní
 zapisující WP; read-only průzkum může běžet vedle nich.
+
+#### Vlastnictví má dvě úrovně
+
+Vlastnictví se určuje zvlášť pro projekt a zvlášť pro checkout:
+
+- **Projekt:** nejvýše tři zapisující WP, každý s explicitně přidělenými
+  cestami a connectorem;
+- **Checkout:** právě jeden zapisující vlastník v jednom worktree, vždy.
+
+Dvě větve v jednom checkoutu nejsou paralelní práce, jen střídání v čase.
+Skutečně souběžný WP je ta výslovná potřeba, která opravňuje vznik dalšího
+worktree. Ten je efemérní: vzniká po explicitním schválení, žije jen po dobu
+svého WP a po integraci se odstraní.
+
+#### Sdílený checkout jen pro prokazatelně read-only běhy
+
+Souběžné operace smějí sdílet checkout pouze tehdy, jsou-li prokazatelně
+filesystem-read-only. Jakýkoli běh, který vytváří artefakty, cache, DB,
+generovaný dokument nebo jiný stav, používá vlastní checkout nebo explicitně
+izolovaný externí artifact root.
+
+Není to preventivní opatrnost. Sdílený worktree už jednou vyvolal dirty-tree
+race a zneplatnil jinak platný report na shodném SHA — viz `ROADMAP.md` §4,
+„Aktuální evidence“. Efemérní worktree se zakládá na disku, ne v `/tmp`; ten je
+na referenčním stroji tmpfs.
+
+#### Měřený dokument patří integračnímu SHA
+
+Sériové mergování samo neopravuje význam měřených dokumentů. Větev změří
+baseline na svém SHA a po spojení už popisuje jiný strom, i když textový merge
+proběhl čistě. Proto:
+
+- WP zapisuje vlastní report do unikátní cesty a s přesným source SHA;
+- `ROADMAP.md`, `SYSTEM-MAP.md`, generovaný `docs/convergence/TEST-REGISTRY.md`
+  a souhrnný stav aktualizuje integrační vlastník na merge SHA;
+- evidence tvoří DAG, ne jeden přepsaný výsledek: focused důkaz na větvi,
+  integrační důkaz na merge commitu. Merge commit je proto preferovaný před
+  squashem; rebase nebo cherry-pick po vydání evidence vytvoří nové SHA a důkaz
+  se musí přivázat znovu.
+
+Rozsah důkazu podle úrovně: větev focused pozitivní a negativní test; merge
+commit dotčené boundary/integration testy obou WP; milestone fresh-clone
+journey na pojmenovaném SHA; release celý required Gate 0 řetěz podle §8. Běžný
+merge nespouští celý release řetěz — Gate 0 platí u releasu, ne při vývoji.
+
+#### Řízená výjimka: `tests/registry.json`
+
+Registry je jediný soubor, který paralelní WP nutně sdílejí: validátor odmítá
+každý runnable test, který v něm není, a současně vyžaduje aktuální generovaný
+dokument. Branch-local zelená evidence tedy bez zápisu do registru neexistuje.
+Vlastnictví je zde na úrovni `suites/<id>`:
+
+- paralelní WP smí pouze **přidávat** nové záznamy s předem rezervovaným
+  unikátním `suite.id` a `path`;
+- nesmí měnit schéma, `exclusions` ani existující záznam;
+- záznam píše větev, ne integrátor — jinak commit odkazuje na test, který
+  v okamžiku vydání evidence není registrovaný;
+- integrátor při merge provede sjednocení záznamů, generovaný
+  `TEST-REGISTRY.md` vždy zahodí ve prospěch regenerace z výsledného registru
+  a spustí validátor.
+
+Validátor už hlídá duplicitní `id` i `path`, takže ztracený nebo zdvojený
+záznam merge gate zachytí. Rozdělení registru na fragmenty je pozdější
+optimalizace, ne podmínka paralelismu.
 
 ### Rozsah 1.0
 

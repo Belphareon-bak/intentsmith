@@ -2,8 +2,9 @@
 
 **Autor:** Claude (`claude-opus-5`), na žádost operátora
 **Založeno:** 2026-08-01 na `17a8b9a80137222233dceaf24a3d2cfbe55b06e0` (`codex/s1-legacy-loopback-containment`)
-**Naposledy doplněno:** 2026-08-07 o čtyři sondy měřené na `1fc8f03e649dd561fb279ce68e5c119d35faad55`
-a o `MODULE-GRAPH` měřený na `13701b2a500feac94d13322433721125793c4587`
+**Naposledy doplněno:** 2026-08-09 o podklad nezávislosti modulů a přijatý
+procesní pilot paralelního vývoje; poslední P6 snapshot zůstává samostatně
+měřený na `13701b2a500feac94d13322433721125793c4587`.
 
 ---
 
@@ -56,6 +57,8 @@ zápis do `docs/convergence/`, `src/` a `tests/` má vlastní pravidla podle
 | [SECRET-TYPES](2026-08-07-SECRET-TYPES.md) | 08-07 | Kategorie k rotaci, varianty remediace historie, nálezy `SEC-1`..`SEC-3` |
 | [MODULE-GRAPH](2026-08-07-MODULE-GRAPH.md) | 08-07 | Modulový graf `src/**`, mapa švů, dosažitelnost a cykly, nálezy `MG-1`..`MG-7` |
 | [ENFORCEMENT-AUDIT](2026-08-07-ENFORCEMENT-AUDIT.md) | 08-07 | Má deklarovaný kontrakt vynucovací mechanismus a kdy zafungoval; nálezy `EN-1`..`EN-6` |
+| [MODULE-INDEPENDENCE](2026-08-08-MODULE-INDEPENDENCE.md) | 08-08 | Konsolidovaný rozhodovací podklad pro asymetrické jádro, optional moduly a pořadí boundary práce |
+| [PARALLEL-PILOT](2026-08-08-PARALLEL-PILOT.md) | 08-08 | Přijatá pravidla dvou úrovní vlastnictví, boundary ratchet a falsifikovatelná ekonomika prvního pilotu |
 
 Zadání, ze kterých šest srpnových sond vzniklo, jsou v [`docs/wp/`](../wp/).
 

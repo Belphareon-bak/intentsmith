@@ -1060,10 +1060,15 @@ Aktivní WP se vejde do těchto osmi položek:
 8. přesný ověřovací příkaz a výsledek.
 
 Architektura dovoluje nejvýše tři logicky paralelní zapisující WP s disjunktními
-cestami a connectory. **Aktuální operátorské pravidlo jednoho worktree však
-znamená právě jednoho zapisujícího vlastníka v daném okamžiku.** Paralelně mohou
-běžet read-only trace, review a příprava testů bez zápisu. Jeden integrační
-vlastník skládá přírůstky po malých commitech; lokální GPU role jsou sériové.
+cestami a connectory. **Vlastnictví má dvě úrovně: projektově až tři zapisující
+WP, v jednom checkoutu vždy právě jeden zapisující vlastník.** Standardem
+zůstává jeden worktree; další vzniká pouze po explicitním schválení, na disku,
+po dobu skutečně souběžného WP a po integraci se odstraní. Sdílet checkout smějí
+jen prokazatelně filesystem-read-only běhy. Paralelně mohou běžet read-only
+trace, review a příprava testů bez zápisu. Jeden integrační vlastník skládá
+přírůstky po malých commitech a měřené dokumenty aktualizuje na merge SHA;
+lokální GPU role jsou sériové. Podrobná pravidla a kritéria prvního pilotu:
+`docs/review/2026-08-08-PARALLEL-PILOT.md`.
 
 Agent pokračuje autonomně uvnitř schváleného WP. Zastaví dotčenou část při
 změně veřejného connectoru, produktu/scope, bezpečnostní či datové nejasnosti,

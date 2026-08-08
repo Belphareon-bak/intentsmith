@@ -130,10 +130,10 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 | | |
 |---|---:|
-| `src/**/*.js` | **149 798 ř.**, 413 `.js` souborů v checkpointu |
-| `tests/**/*.js` | **158 087 ř.**, 367 `.js` souborů v checkpointu |
-| Registrovaných testových programů | **372** (`275 ACTIVE`, `82 BLOCKED`, `15 HISTORICAL`) |
-| Tabulek v DB / migrací | 100 / 50 |
+| `src/**/*.js` | **151 127 ř.**, 414 `.js` souborů v checkpointu |
+| `tests/**/*.js` | **160 357 ř.**, 368 `.js` souborů v checkpointu |
+| Registrovaných testových programů | **373** (`276 ACTIVE`, `82 BLOCKED`, `15 HISTORICAL`) |
+| Tabulek v DB / migrací | 100 / 51 |
 | HTTP rout | ~230 |
 | **Schopností v `ACCEPTED/PASS`** | **1 z 22** (#2 CRE); #1 server/routing/DB je zatím `RUNTIME_VERIFIED` — jeho suite má 13 interních checků, zatímco behavior dokument obsahuje 16 řádků, takže tvrzení „13/13 chování“ není platný akceptační součet |
 

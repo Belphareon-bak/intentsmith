@@ -336,7 +336,7 @@ tento report neurčuje — je to měřitelné a patří to do rozhodnutí o §6.
 - **neřeší `#6`.** Dodává tvar cyklu, který to rozhodnutí potřebuje;
 - **nepřidává nic do L1.** Měřidlo není v `package.json` a nic ho nespouští
   automaticky. Jestli se má drift hlídat průběžně, je to nový aparát podle
-  `CONTRACT.md §12` a vyžaduje rozhodnutí, ne tichý commit.
+  `ROADMAP.md §12` a vyžaduje rozhodnutí, ne tichý commit.
 
 ---
 

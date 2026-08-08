@@ -5,7 +5,7 @@
 `13701b2a` u P6
 
 Soubory zde jsou **zadání**, ne stav a ne evidence. Jsou to položky
-`CONTRACT.md §12` — osm bodů aktivního Work Package — sepsané dřív, než se WP
+`ROADMAP.md §12` — osm bodů aktivního Work Package — sepsané dřív, než se WP
 aktivuje, plus zadání read-only sond.
 
 **Tohle není board.** Stav práce je podle `CONTRACT.md §6` výhradně
@@ -23,11 +23,21 @@ posílá jeho sekce „Výstup" — ne sem.
 | [P7-ENFORCEMENT-AUDIT](P7-ENFORCEMENT-AUDIT.md) | read-only sonda | **doběhla 2026-08-07** | [ENFORCEMENT-AUDIT](../review/2026-08-07-ENFORCEMENT-AUDIT.md) |
 | [WP-M5-PACKAGE](WP-M5-PACKAGE.md) | zapisující WP | **záložní slot**, nezahájeno | — |
 | [WP-M5-DATA](WP-M5-DATA.md) | zapisující WP | **záložní slot**, nezahájeno | — |
+| [WP-M1-BINDING-REPOSITORY](WP-M1-BINDING-REPOSITORY.md) | zapisující WP | **dokončeno** na `515fb6f7`, evidence `eb7e78b8` | [WP-M1-MODEL report](../execution/runs/wp-m1-model-report.md) |
+| [WP-M1-BOUNDARY-RATCHET](WP-M1-BOUNDARY-RATCHET.md) | zapisující WP | připraveno, **čeká na governance commit** | — |
 
 Zadání sondy zůstává i po doběhnutí — je v něm postup a ověřovací příkaz, kterým
 si lze výsledek přeměřit. Sloupec „stav" je tady jediná výjimka z pravidla, že se
 zde stav nesleduje; drží ho, aby nikdo nespustil hotovou sondu podruhé.
 
-Žádný ze dvou zapisujících WP není schválený k zahájení. Jsou připravené pro
+Ani jeden ze dvou **M5** WP není schválený k zahájení. Jsou připravené pro
 okamžik, kdy zapisující slot uvolní zaparkovaná práce na M1. `WP-M5-PACKAGE` má
 navíc tvrdý BLOCK na pořadí vůči dávce M1 — viz jeho `§0`.
+
+Dvojice **M1** WP původně otevřela bránu prvního paralelního pilotu podle
+[`2026-08-08-PARALLEL-PILOT.md`](../review/2026-08-08-PARALLEL-PILOT.md):
+`WP-M1-BINDING-REPOSITORY` už skončil před vznikem ratchet větve, proto se jako
+souběžný writer neměří. `WP-M1-BOUNDARY-RATCHET` poběží v efemérním worktree na
+disku a jeho skutečným protějškem bude až další explicitně rezervovaný
+main-checkout WP s disjunktními cestami a connectorem. Ratchet **nesmí začít
+před governance commitem** — viz jeho `§0`. Integrace je sériová.
