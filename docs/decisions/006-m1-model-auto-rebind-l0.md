@@ -239,6 +239,26 @@ PASS autorita a repozitář nemá schválené role-suite prahy ani proof TTL. Ty
 hodnoty nejsou domyšlené: rozhodnutí 015 drží issuance vypnuté a dovoluje
 pokračovat pouze measurement-only runnerem. L0-9 se nemění.
 
+## Implementační stav B3-FAILOVER measurement policy — 2026-08-08
+
+Nový `src/upgrade/model-failover-proof-policy.js` fail-closed pinuje raw bytes
+a délku `model-profiles.js` a `validation-suites.js`, znovu odvozuje přesnou
+mapu 7 rolí na 5 suit a 36 ordered test IDs a používá verzovaný canonical JSON
+`sorted-key-json-utf8-v1`. Každá role dostane deterministický
+`measurementContractSha256`; tento hash ale není `role_contract_sha256`
+způsobilého proofu a nemůže aktivovat failover.
+
+Vratný default 015/C drží `issuanceEnabled=false`, role-specific score/count
+prahy i proof TTL `null`. Policy neprovádí DB, model, provider, Ollama, GPU,
+config, broadcast ani síťový efekt. Focused offline sada je registrovaná jako
+`IS-T1-TESTS-M1-MODEL-FAILOVER-PROOF-POLICY-TEST`.
+
+Před issuance zbývá izolovaný fresh-child runner, exact prompt/options/result
+artifact, source pin před/po, strict inventory digest před/po, aditivní vazba
+immutable artefaktu na proof a terminální recheck aktuální policy/version/hash.
+Legacy `ValidationRunner` používá `Math.random()` a mutable prompt/grade
+funkce, takže dlouho žijící server nesmí být proof authority. L0-9 se nemění.
+
 ## Implementační stav B3-IDENTITY — 2026-08-08
 
 Sdílený `src/upgrade/model-identity.js` nyní vlastní konzervativní presence

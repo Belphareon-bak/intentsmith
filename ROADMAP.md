@@ -565,7 +565,12 @@ focused regression sady.
      migrace 047 odmítá falešný `CLAIM_EXPIRED`, repository vrací přesný
      idempotentní retry a dva reálné workery vytvoří jeden release event.
      Expire a nový claim jsou bezpečně dvě transakce, nikoli garance stejného
-     workera. Repository zatím neobsahuje proof runner, terminal
+     workera. **Pátý checkpoint je implementovaný:** immutable measurement
+     policy pinuje raw bytes role/suite zdrojů, verzovaný canonical JSON,
+     přesnou mapu 7 rolí na 36 seřazených testů a role-specific acceptance
+     shape. Default C má issuance vypnuté a všechny prahy i TTL `null`; role
+     measurement hash proto není PASS proof autorita. Repository zatím
+     neobsahuje proof runner, immutable run artifact, terminal
      activation/restore, manual supersede, runtime apply, startup rehydrate ani
      scheduler a žádný runtime modul jej nekonzumuje. Chybějící proof
      acceptance prahy a TTL jsou shromážděné v rozhodnutí 015; measurement-only
@@ -1008,8 +1013,9 @@ mohou pokračovat.
 4. Operátorsky rozhodnout L0-8 nejpozději před `WP-M3-BOUNDARY`; M0 jej může
    uzavřít pouze jako explicitně pojmenovaný blocker s vlastníkem a termínem.
 5. B1 contract a B2 chat jsou implementované; Gate 1 volby 001–014 jsou
-   schválené a zapsané. Nová proof-policy otázka 015 je shromážděná bez
-   zastavení nezávislé práce; B3 a B4 zůstávají pravdivě `BLOCKED`.
+   schválené a zapsané. Proof-policy otázka 015 má implementovaný vratný
+   measurement-only default C; operátorské prahy A/B a proof TTL zůstávají
+   otevřené. B3 a B4 proto zůstávají pravdivě `BLOCKED`.
 6. **B3-IDENTITY a B3-PROFILE jsou implementované a focused offline
    ověřené:** canonical presence
    identity chrání schválené binding/delete/cleanup cesty a integrity scan je
@@ -1021,9 +1027,11 @@ mohou pokračovat.
    schema, repository/CAS claim základ a striktní expired-claim recovery jsou
    implementované bez modelového effectu. Recovery je záměrně expire→nový CAS,
    takže jiný worker může legitimně vyhrát; není to atomický same-worker reclaim.
-   Skutečný digest proof runner, terminal state-machine, manual supersede,
-   runtime apply, startup rehydrate a scheduler zůstávají otevřené a failover
-   se dosud neaktivuje. Proof issuance čeká na prahy a TTL z rozhodnutí 015.
+   Measurement policy už fail-closed pinuje role-suite autoritu a verzovanou
+   serializaci. Skutečný izolovaný digest proof runner, immutable run artifact,
+   terminal state-machine, manual supersede, runtime apply, startup rehydrate a
+   scheduler zůstávají otevřené a failover se dosud neaktivuje. Proof issuance
+   čeká na prahy a TTL z rozhodnutí 015.
 7. B4 pokračuje 010/A+ a 011/A, potom v pořadí 014 server → 014 klient → 012
    route → 012 klient → společný DB-backed wire test. Read-only review může
    běžet souběžně; GPU běhy nikdy.

@@ -806,3 +806,69 @@ data-integrity blocker a samostatně reprodukoval repository `13/0`, schema
 `10/0`, migration `28/0` se 49 migracemi, syntax i diff check. Cizí untracked
 `docs/review/2026-08-08-MODULE-INDEPENDENCE.md` zůstává `UNKNOWN`, nebyl čten,
 změněn ani zahrnut. GPU, Ollama a síť se nespouštějí.
+
+## Checkpoint 12 — fail-closed measurement policy pro B3-FAILOVER
+
+Nový `src/upgrade/model-failover-proof-policy.js` je inertní, jediná
+measurement autorita pro budoucí isolated runner. Pinuje raw-byte SHA-256 i
+délku `model-profiles.js` a `validation-suites.js`, znovu odvozuje přesných 7
+rolí, 5 suit a 36 ordered test IDs a odmítá jednostranný role/suite drift.
+Contract používá verzovaný `sorted-key-json-utf8-v1`; řadí objektové klíče,
+zachovává pořadí polí a fail-closed odmítá ztrátové nebo vykonávané hodnoty.
+
+Varianty 015/A i 015/B mají připravený stabilní šev: jeden globální proof TTL a
+role-specific score/count prahy. Vratný default C drží issuance vypnuté a
+všech 15 hodnot `null`. Guard kromě explicitního `true` vyžaduje score v
+`(0,1]`, kladný count v rozsahu konkrétní suite, kladný integer TTL a explicitně
+vyčištěný blocking reason. Role
+measurement hash není pojmenovaný ani použitelný jako `role_contract_sha256` a
+nemůže vytvořit proof, terminal transition ani runtime efekt.
+
+Policy není modelový běh. Legacy reasoning prompt používá `Math.random()`,
+sampling není seedovaný, prompt/grade funkce jsou v dlouho žijícím procesu
+mutable a partial cancel aggregate může tvrdit plný total. Navazující runner
+proto musí běžet v čerstvém child procesu, zachytit skutečné prompty, options a
+ordered výsledky, zkontrolovat source i inventory digest před/po a uložit
+immutable artifact atomicky s proofem. Terminal writer musí navíc znovu ověřit
+aktuální policy/version/hash; DB trigger tuto živou autoritu sám nezná.
+
+### Focused ověření checkpointu 12
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-model-failover-proof-policy.test.js` | 9 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-model-failover-repository.test.js` | 14 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-model-failover-schema.test.js` | 10 passed, 0 failed, 0 skipped | 0 |
+| `node tests/schema-migrations.test.js` | 28 passed, 0 failed; 49 migrací | 0 |
+| `node tests/m1-model-settings.test.js` | 14 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-model-identity.test.js` | 16 passed, 0 failed, 0 skipped | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
+| `node tests/repository-hygiene.test.js` | 1 492 trackovaných cest | 0 |
+| `node scripts/validate-test-registry.js --json` | valid; 369 programů; 8 exclusions; fingerprint `94d0e298…1c50d` | 0 |
+| `node tests/nightly-audit-runner-self-test.js` | `nightly audit runner self-test: PASS` | 0 |
+| `node tests/nightly-orchestrator-self-test.js` | očekávaný vývojový drift: deterministic registry obsahuje non-active/optional sady | 1 |
+| `node --check src/upgrade/model-failover-proof-policy.js` | bez syntax chyby | 0 |
+| `node --check tests/m1-model-failover-proof-policy.test.js` | bez syntax chyby | 0 |
+| `git diff --check` | bez whitespace chyb | 0 |
+
+První artifact-validation běh pravdivě zčervenal `150/1`, exit `1`, protože
+README po registraci nové ACTIVE sady ještě uvádělo `271` místo `272`. Po
+opravě odvozeného počtu skončil čistý rerun `151/0`, exit `0`. Historický Gate
+0 pin v nightly orchestrátoru se neměnil: podle vývojového kontraktu není
+aktuální registry fingerprint release autoritou a self-test má zůstat červený,
+dokud samostatný release WP pravdivě nezapečetí jeho prerekvizity.
+
+Tři jednotlivé mutation kontroly byly spuštěné s `pipefail`: jednobytový drift
+expected source hashe dal `2/7`, odstranění recursive key sort `1/8` a vyřazení
+issuance guardu `8/1`; všechny skončily exit `1`. Každá mutace byla přesným
+patchem vrácena a čistá sada poté skončila `9/0`, exit `0`. Čtyři přesně
+identifikované failure artifact adresáře byly přesunuty do koše; produktová
+data se nemažou.
+
+Nezávislý read-only design review po opravách znovu spustil focused sadu i
+registry validator a checkpoint označil za strukturálně přijatelný pouze jako
+measurement-only. GPU, Ollama, server ani síť se nespouštěly. Cizí untracked
+`docs/review/2026-08-08-MODULE-INDEPENDENCE.md` nebyl změněn ani staged. Široký
+`rg docs` ale omylem vypsal jeden jeho odpovídající řádek; tato read-only
+hranice byla porušena a další příkazy už používají jen explicitně jmenované
+vlastněné cesty.
