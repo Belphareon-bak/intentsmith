@@ -3,6 +3,98 @@ import {
   chatTurnErrorPayload,
   isChatTurnError,
 } from '../core/chat-turn-error.js';
+import {
+  AbortSource,
+  abortSourceOf,
+  abortWithReason,
+  isAbortError,
+} from '../core/abort-error.js';
+import {
+  M1_CONTRACT_KIND,
+  M1_CONTRACT_VERSION,
+  validateConversationCommand,
+  validateConversationResult,
+} from '../../contracts/m1/index.js';
+
+const DEFAULT_M1_CHAT_TIMEOUT_MS = 5 * 60 * 1000;
+
+function m1Identity(command) {
+  return {
+    requestId: command.requestId,
+    conversationId: command.conversationId,
+    turnId: command.turnId,
+  };
+}
+
+export function createM1ConversationResult(command, terminal) {
+  const result = {
+    contract: M1_CONTRACT_KIND.CONVERSATION_RESULT,
+    version: M1_CONTRACT_VERSION,
+    ...m1Identity(command),
+    ...terminal,
+  };
+  const validation = validateConversationResult(result);
+  if (!validation.valid) {
+    const error = new Error('M1 conversation result violated the connector contract');
+    error.code = 'M1_CONVERSATION_RESULT_INVALID';
+    error.validationErrors = validation.errors;
+    throw error;
+  }
+  return result;
+}
+
+export function mapM1ConversationFailure(command, error, signal = null) {
+  if (isAbortError(error) || signal?.aborted) {
+    const source = abortSourceOf(error, signal);
+    if (source === AbortSource.TIMEOUT) {
+      return {
+        statusCode: 504,
+        result: createM1ConversationResult(command, {
+          status: 'timeout',
+          error: {
+            code: 'CHAT_TIMEOUT',
+            message: 'Chat request timed out.',
+          },
+        }),
+      };
+    }
+    return {
+      statusCode: 409,
+      result: createM1ConversationResult(command, {
+        status: 'cancelled',
+        error: {
+          code: 'CHAT_CANCELLED',
+          message: 'Chat request was cancelled.',
+        },
+      }),
+    };
+  }
+
+  if (isChatTurnError(error)) {
+    const payload = chatTurnErrorPayload(error);
+    return {
+      statusCode: error.statusCode,
+      result: createM1ConversationResult(command, {
+        status: 'error',
+        error: {
+          code: payload.code,
+          message: payload.message,
+        },
+      }),
+    };
+  }
+
+  return {
+    statusCode: 500,
+    result: createM1ConversationResult(command, {
+      status: 'error',
+      error: {
+        code: 'CHAT_PROCESSING_FAILED',
+        message: 'Chat processing failed.',
+      },
+    }),
+  };
+}
 
 function sendTerminalChatError(res, error, sendJSON) {
   if (!isChatTurnError(error)) return false;
@@ -20,6 +112,99 @@ export function createChatRoutes(deps) {
     db, parseBody, sendJSON, sendStaticFile, safeError, safeParseInt,
     logger, ChatController, config, expertiseLayer,
   } = deps;
+  const configuredM1Timeout = deps.m1ChatTimeoutMs;
+  const m1ChatTimeoutMs = Number.isFinite(configuredM1Timeout)
+    && configuredM1Timeout > 0
+    ? configuredM1Timeout
+    : DEFAULT_M1_CHAT_TIMEOUT_MS;
+
+  async function handleM1ConversationCommand(req, res, body) {
+    const validation = validateConversationCommand(body);
+    if (!validation.valid) {
+      return sendJSON(res, 400, {
+        error: 'Invalid M1 ConversationCommand.',
+        code: 'M1_CONVERSATION_COMMAND_INVALID',
+        details: validation.errors,
+      });
+    }
+
+    if (body.action === 'cancel') {
+      // Decision 004: v1 has no separate target identity for an HTTP cancel.
+      // Fail truthfully without claiming the original turn was cancelled.
+      return sendJSON(res, 409, createM1ConversationResult(body, {
+        status: 'error',
+        error: {
+          code: 'M1_HTTP_CANCEL_TARGET_UNRESOLVED',
+          message: 'HTTP cancel target semantics are unresolved for M1 v1.',
+        },
+      }));
+    }
+
+    const abortController = new AbortController();
+    let peerDisconnected = false;
+    const cancelForDisconnect = () => {
+      peerDisconnected = true;
+      abortWithReason(abortController, AbortSource.USER);
+    };
+    const cancelForClosedResponse = () => {
+      if (!res.writableEnded) cancelForDisconnect();
+    };
+    req.once?.('aborted', cancelForDisconnect);
+    res.once?.('close', cancelForClosedResponse);
+
+    const timeout = setTimeout(() => {
+      abortWithReason(
+        abortController,
+        AbortSource.TIMEOUT,
+        `M1 HTTP chat timeout after ${m1ChatTimeoutMs}ms`,
+      );
+    }, m1ChatTimeoutMs);
+
+    try {
+      const controllerResult = await ChatController.handle({
+        message: body.input,
+        sessionId: body.requestId,
+        conversationId: body.conversationId,
+        requestId: body.requestId,
+        turnId: body.turnId,
+        signal: abortController.signal,
+        context: {
+          requestId: body.requestId,
+          conversationId: body.conversationId,
+          turnId: body.turnId,
+        },
+      });
+
+      const result = createM1ConversationResult(body, {
+        status: 'ok',
+        response: {
+          content: controllerResult.response,
+          metadata: {
+            mode: controllerResult.mode,
+            confidence: controllerResult.confidence,
+          },
+        },
+      });
+      if (!peerDisconnected && !res.writableEnded) {
+        sendJSON(res, 200, result);
+      }
+    } catch (error) {
+      logger.error('ChatRoutes', `M1 chat failed: ${error.message}`);
+      const terminal = mapM1ConversationFailure(
+        body,
+        error,
+        abortController.signal,
+      );
+      if (!peerDisconnected && !res.writableEnded) {
+        sendJSON(res, terminal.statusCode, terminal.result);
+      }
+    } finally {
+      clearTimeout(timeout);
+      req.off?.('aborted', cancelForDisconnect);
+      res.off?.('close', cancelForClosedResponse);
+    }
+  }
+
   return {
     // ══════════════════════════════════════════════════════════════════════════
     // Chat Session Management
@@ -423,6 +608,9 @@ export function createChatRoutes(deps) {
     // v56.0 Sprint 3: DB persistence now handled by ConversationStore inside ChatController.handle
     'POST /api/chat': async (req, res) => {
       const body = await parseBody(req);
+      if (body?.contract === M1_CONTRACT_KIND.CONVERSATION_COMMAND) {
+        return handleM1ConversationCommand(req, res, body);
+      }
       const { conversation_id, project_id, message } = body;
 
       if (

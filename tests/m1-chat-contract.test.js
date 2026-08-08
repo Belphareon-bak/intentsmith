@@ -15,7 +15,13 @@ import {
   ChatPersistenceError,
   ChatProcessingError,
   ChatTurnErrorCode,
+  LLMProviderUnavailableError,
 } from '../src/core/chat-turn-error.js';
+import {
+  createChatRoutes,
+  mapM1ConversationFailure,
+} from '../src/routes/chat.js';
+import { validateConversationResult } from '../contracts/m1/index.js';
 import {
   ChatController,
   ChatMode,
@@ -89,6 +95,59 @@ function localHandlerResponse(content) {
       },
     }),
   });
+}
+
+const httpCommand = Object.freeze({
+  contract: 'ConversationCommand',
+  version: 1,
+  requestId: 'm1-http-request-001',
+  conversationId: 'm1-http-conversation-001',
+  turnId: 'm1-http-turn-001',
+  action: 'send',
+  input: 'kolik je 17 * 23?',
+});
+
+function createRouteProbe(handle, { timeoutMs = 1000 } = {}) {
+  const calls = [];
+  const responses = [];
+  const routes = createChatRoutes({
+    db: {},
+    parseBody: async request => request.body,
+    sendJSON: (response, statusCode, body) => {
+      responses.push({ statusCode, body });
+      response.writableEnded = true;
+    },
+    sendStaticFile() {},
+    safeError: error => ({ error: error.message }),
+    safeParseInt: value => Number.parseInt(value, 10),
+    logger: silentLog,
+    ChatController: {
+      handle: async request => {
+        calls.push(request);
+        return handle(request);
+      },
+    },
+    config: {},
+    expertiseLayer: null,
+    m1ChatTimeoutMs: timeoutMs,
+  });
+  return { calls, responses, route: routes['POST /api/chat'] };
+}
+
+function requestFor(body) {
+  return {
+    body,
+    once() {},
+    off() {},
+  };
+}
+
+function openResponse() {
+  return {
+    writableEnded: false,
+    once() {},
+    off() {},
+  };
 }
 
 suite('M1 chat — fail-closed assistant persistence boundary');
@@ -341,6 +400,164 @@ test('serialized conversation fields survive a SessionState round-trip', () => {
   assert.equal(restored.lastIntent, 'SEARCH');
   assert.deepEqual(restored.lastDecision, decision);
   assert.equal(restored.lastUserInput, 'find the current source');
+});
+
+suite('M1 chat — HTTP ConversationCommand adapter');
+
+await testAsync('exact send returns a validated durable ConversationResult with unchanged identity', async () => {
+  const order = [];
+  const probe = createRouteProbe(async request => {
+    order.push('controller-complete');
+    assert.equal(request.requestId, httpCommand.requestId);
+    assert.equal(request.conversationId, httpCommand.conversationId);
+    assert.equal(request.turnId, httpCommand.turnId);
+    assert.deepEqual(request.context, {
+      requestId: httpCommand.requestId,
+      conversationId: httpCommand.conversationId,
+      turnId: httpCommand.turnId,
+    });
+    return {
+      response: '391',
+      mode: 'conversation',
+      confidence: 1,
+    };
+  });
+  const response = openResponse();
+  const originalSend = probe.responses.push.bind(probe.responses);
+  probe.responses.push = value => {
+    order.push('http-send');
+    return originalSend(value);
+  };
+
+  await probe.route(requestFor(httpCommand), response);
+
+  assert.deepEqual(order, ['controller-complete', 'http-send']);
+  assert.equal(probe.calls.length, 1);
+  assert.equal(probe.responses.length, 1);
+  assert.equal(probe.responses[0].statusCode, 200);
+  assert.equal(validateConversationResult(probe.responses[0].body).valid, true);
+  assert.deepEqual(
+    {
+      requestId: probe.responses[0].body.requestId,
+      conversationId: probe.responses[0].body.conversationId,
+      turnId: probe.responses[0].body.turnId,
+    },
+    {
+      requestId: httpCommand.requestId,
+      conversationId: httpCommand.conversationId,
+      turnId: httpCommand.turnId,
+    },
+  );
+  assert.equal(probe.responses[0].body.response.content, '391');
+});
+
+await testAsync('invalid command and unresolved HTTP cancel never reach the controller', async () => {
+  const probe = createRouteProbe(async () => {
+    throw new Error('invalid command reached controller');
+  });
+
+  const invalid = { ...httpCommand };
+  delete invalid.input;
+  await probe.route(requestFor(invalid), openResponse());
+  await probe.route(requestFor({
+    ...httpCommand,
+    action: 'cancel',
+    input: undefined,
+  }), openResponse());
+
+  assert.equal(probe.calls.length, 0);
+  assert.equal(probe.responses[0].statusCode, 400);
+  assert.equal(probe.responses[0].body.code, 'M1_CONVERSATION_COMMAND_INVALID');
+  // Exact-key validation rejects the lingering input before target semantics.
+  assert.equal(probe.responses[1].statusCode, 400);
+
+  const cancelProbe = createRouteProbe(async () => {
+    throw new Error('cancel reached controller');
+  });
+  const { input: _input, ...cancelCommand } = { ...httpCommand, action: 'cancel' };
+  await cancelProbe.route(requestFor(cancelCommand), openResponse());
+  assert.equal(cancelProbe.calls.length, 0);
+  assert.equal(cancelProbe.responses[0].statusCode, 409);
+  assert.equal(validateConversationResult(cancelProbe.responses[0].body).valid, true);
+  assert.equal(cancelProbe.responses[0].body.status, 'error');
+  assert.equal(
+    cancelProbe.responses[0].body.error.code,
+    'M1_HTTP_CANCEL_TARGET_UNRESOLVED',
+  );
+});
+
+await testAsync('provider, persistence, and generic failures are valid non-success terminals', async () => {
+  const fixtures = [
+    {
+      error: new LLMProviderUnavailableError(),
+      statusCode: 503,
+      code: 'LLM_PROVIDER_UNAVAILABLE',
+    },
+    {
+      error: new ChatPersistenceError(new Error('private database detail')),
+      statusCode: 500,
+      code: 'CHAT_PERSISTENCE_FAILED',
+    },
+    {
+      error: new Error('private generic detail'),
+      statusCode: 500,
+      code: 'CHAT_PROCESSING_FAILED',
+    },
+  ];
+
+  for (const fixture of fixtures) {
+    const probe = createRouteProbe(async () => { throw fixture.error; });
+    await probe.route(requestFor(httpCommand), openResponse());
+    const terminal = probe.responses[0];
+    assert.equal(terminal.statusCode, fixture.statusCode);
+    assert.equal(validateConversationResult(terminal.body).valid, true);
+    assert.equal(terminal.body.status, 'error');
+    assert.equal(terminal.body.error.code, fixture.code);
+    assert.equal(Object.hasOwn(terminal.body, 'response'), false);
+    assert.equal(JSON.stringify(terminal.body).includes('private'), false);
+  }
+});
+
+await testAsync('request deadline produces timeout instead of an assistant response', async () => {
+  const probe = createRouteProbe(request => new Promise((resolve, reject) => {
+    request.signal.addEventListener('abort', () => reject(request.signal.reason), {
+      once: true,
+    });
+  }), { timeoutMs: 10 });
+
+  await probe.route(requestFor(httpCommand), openResponse());
+
+  assert.equal(probe.responses.length, 1);
+  assert.equal(probe.responses[0].statusCode, 504);
+  assert.equal(validateConversationResult(probe.responses[0].body).valid, true);
+  assert.equal(probe.responses[0].body.status, 'timeout');
+  assert.equal(probe.responses[0].body.error.code, 'CHAT_TIMEOUT');
+  assert.equal(Object.hasOwn(probe.responses[0].body, 'response'), false);
+});
+
+test('typed user abort maps to cancelled without inventing assistant content', () => {
+  const terminal = mapM1ConversationFailure(
+    httpCommand,
+    createAbortError(AbortSource.USER),
+  );
+  assert.equal(terminal.statusCode, 409);
+  assert.equal(validateConversationResult(terminal.result).valid, true);
+  assert.equal(terminal.result.status, 'cancelled');
+  assert.equal(terminal.result.error.code, 'CHAT_CANCELLED');
+  assert.equal(Object.hasOwn(terminal.result, 'response'), false);
+});
+
+await testAsync('empty controller output fails closed as a contract error terminal', async () => {
+  const probe = createRouteProbe(async () => ({
+    response: '   ',
+    mode: 'conversation',
+    confidence: 1,
+  }));
+  await probe.route(requestFor(httpCommand), openResponse());
+  assert.equal(probe.responses[0].statusCode, 500);
+  assert.equal(validateConversationResult(probe.responses[0].body).valid, true);
+  assert.equal(probe.responses[0].body.status, 'error');
+  assert.equal(probe.responses[0].body.error.code, 'CHAT_PROCESSING_FAILED');
 });
 
 summary();

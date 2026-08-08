@@ -99,13 +99,41 @@ commitem.
 | `node tests/repository-hygiene.test.js` | 1456 tracked paths | 0 |
 | `git diff --check` | bez chyb | 0 |
 
+## Checkpoint 3 — HTTP adapter přijatého connectoru v1
+
+`POST /api/chat` rozlišuje exact `ConversationCommand` pomocí discriminatoru a
+validuje ho kanonickým B1 validátorem. `send` předává původní trojici identity
+do controlleru a vrací pouze znovu validovaný `ConversationResult`. Success
+obsahuje jen finální content a sanitizovaná metadata `mode`/`confidence`;
+provider, persistence, generic failure, timeout a user abort nemají `response`.
+
+Legacy `{conversation_id, message}` větev ani její response shape se nemění.
+Platný HTTP `action: cancel` je do rozhodnutí 004 terminální `error` s HTTP 409;
+adaptér tím pravdivě přizná neprovedenou operaci a nepředstírá cancelled turn.
+Disconnect používá `IncomingMessage.aborted`/neukončený response close, nikoli
+obecný request `close`; odpojenému peeru se terminál fyzicky neposílá.
+
+### Evidence checkpointu 3
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-chat-contract.test.js` | 15 passed, 0 failed | 0 |
+| `node tests/routes-smoke.test.js` | 109 passed, 0 failed | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed | 0 |
+| `node scripts/validate-test-registry.js --json` | valid, 361 programů, 8 exclusions, fingerprint `e01df433134ae227497e1e881f892424710d2bc988c61baf3964b7b4cb5c5d32` | 0 |
+| `node tests/repository-hygiene.test.js` | 1457 tracked paths | 0 |
+| `git diff --check` | bez chyb | 0 |
+
+Focused adapter sada připíná exact validaci příkazu a výsledku, nezměněnou
+trojici identity, persist-before-send pořadí, sanitizované provider/persistence/
+generic terminály, deadline, typed user abort a fail-closed prázdný output.
+
 ## Zbývá před uzavřením WP
 
-- připojit přijatý `ConversationCommand/Result` v1 na HTTP request boundary;
 - změřit deterministický HTTP request pod 100 ms bez LLM;
 - nahradit simulovaný restart v `tests/chat-persistence.test.js` skutečným
   stop/start backendu nad stejnou SQLite;
-- připnout provider error, request timeout, scoped cancel a izolaci dvou
-  konverzací na request-level výsledku;
+- explicitní HTTP scoped cancel zůstává jedinou zastavenou větví podle
+  rozhodnutí 004; provider error a timeout jsou již připnuté na request adaptéru;
 - provést modelový request v odděleném GPU okně nebo jej pravdivě evidovat jako
   neprovedený.
