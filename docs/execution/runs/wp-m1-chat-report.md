@@ -130,10 +130,48 @@ generic terminály, deadline, typed user abort a fail-closed prázdný output.
 
 ## Zbývá před uzavřením WP
 
-- změřit deterministický HTTP request pod 100 ms bez LLM;
-- nahradit simulovaný restart v `tests/chat-persistence.test.js` skutečným
-  stop/start backendu nad stejnou SQLite;
 - explicitní HTTP scoped cancel zůstává jedinou zastavenou větví podle
   rozhodnutí 004; provider error a timeout jsou již připnuté na request adaptéru;
 - provést modelový request v odděleném GPU okně nebo jej pravdivě evidovat jako
   neprovedený.
+
+## Checkpoint 4 — skutečný process restart a durable SQLite
+
+Původní test „restartu“ znovu četl stejný in-memory `ConversationStore`. Nyní
+test spustí backend jako vlastněný child proces, odešle dvě exact M1 konverzace,
+ověří jejich izolaci, server řízeně ukončí a spustí nový OS proces nad stejnou
+privátní SQLite. Oba kompletní message seznamy se po restartu porovnají
+byte-for-byte; PID druhého procesu musí být jiný.
+
+Deterministický `17 * 23` request doběhl bez modelu za **78,4 ms**, tedy pod
+přijatým limitem 100 ms. Child start, každý HTTP request i graceful stop mají
+samostatný limit. Selhání startu uklidí child ještě uvnitř helperu a synchronní
+exit backstop brání osiření serveru při explicitním `process.exit()` testu.
+
+Sada proto už není pravdivě T1/offline. Je registrována jako
+`IS-T3-TESTS-CHAT-PERSISTENCE-TEST`, profil `server`, fixture
+`owned-isolated-local-server`, s požadavky loopback + privátní database;
+nevyžaduje předem běžící server, Ollamu ani GPU.
+
+### Červené diagnostické běhy
+
+- První rozpracovaný pokus neawaitoval asynchronní `it()` a vypsal 34/0,
+  přestože restart nedoběhl. Tento výsledek je neplatná evidence; suite byla
+  změněna tak, aby všechny async testy skutečně awaitovala.
+- První poctivý běh skončil 34 passed / 1 failed, exit 1. Server odmítl krátký
+  `INTENTSMITH_TEST_SERVER_NONCE` a nevytvořil port file. Nonce byl opraven na
+  povolených 32+ bezpečných znaků a start helper nyní uklízí i předčasné
+  readiness selhání.
+
+### Evidence checkpointu 4
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node --check tests/chat-persistence.test.js` | syntax valid | 0 |
+| `timeout --signal=TERM --kill-after=10s 180s node tests/chat-persistence.test.js` | 35 passed, 0 failed; HTTP 78,4 ms | 0 |
+| `node scripts/validate-test-registry.js --write-doc` | 361 programů; doc regenerated | 0 |
+| `node scripts/validate-test-registry.js --json` | valid, 361 programů, 8 exclusions, fingerprint `f7e71f1aafb2089efd6aa3e6aa024e7c42b5035834d48905cd27b24d86df9a36` | 0 |
+| `node scripts/nightly-audit.js --dry-run --suite=IS-T3-TESTS-CHAT-PERSISTENCE-TEST` | 1 server suite; blockers `{}` | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed | 0 |
+| `node tests/repository-hygiene.test.js` | 1457 tracked paths | 0 |
+| `git diff --check` | bez chyb | 0 |

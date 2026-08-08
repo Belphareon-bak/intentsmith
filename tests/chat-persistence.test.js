@@ -2,7 +2,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // T9.1: ConversationStore CRUD
-// T9.2: Session restart survival (simulated)
+// T9.2: Session restart survival (real process + SQLite)
 // T9.3: LTM Context Builder
 // T9.4: Invariant enforcement
 // T9.5: Endpoint session contract
@@ -12,6 +12,12 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { strict as assert } from 'assert';
+import { spawn } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import { request as httpRequest } from 'node:http';
+import { setTimeout as delay } from 'node:timers/promises';
+import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
+import { validateConversationResult } from '../contracts/m1/index.js';
 
 // ─── Test Infrastructure ─────────────────────────────────────────────────────
 
@@ -57,6 +63,211 @@ import {
 } from '../src/chat/ltm-context.js';
 
 import { MemoryKind, LongTermMemory } from '../src/memory/long-term.js';
+
+const SERVER_START_TIMEOUT_MS = 60_000;
+const SERVER_STOP_TIMEOUT_MS = 15_000;
+const ownedServerChildren = new Set();
+
+// `process.exit()` does not wait for child processes. Keep this synchronous
+// backstop so a failed direct test cannot orphan a server after its result is
+// printed. Normal test control still uses stopOwnedServer() and asserts a
+// graceful exit.
+process.once('exit', () => {
+  for (const child of ownedServerChildren) {
+    if (child.exitCode === null && child.signalCode === null) {
+      child.kill('SIGTERM');
+    }
+  }
+});
+
+function boundedTail(value, chunk) {
+  return (value + String(chunk)).slice(-20_000);
+}
+
+function ownedServerEnvironment(nonce) {
+  return {
+    PATH: process.env.PATH || '',
+    LANG: 'C.UTF-8',
+    TZ: 'UTC',
+    HOME: isolatedTestRuntime.home,
+    XDG_CONFIG_HOME: isolatedTestRuntime.xdgConfig,
+    XDG_CACHE_HOME: isolatedTestRuntime.xdgCache,
+    XDG_DATA_HOME: isolatedTestRuntime.xdgData,
+    XDG_STATE_HOME: isolatedTestRuntime.xdgState,
+    TMPDIR: isolatedTestRuntime.temp,
+    TMP: isolatedTestRuntime.temp,
+    TEMP: isolatedTestRuntime.temp,
+    npm_config_cache: isolatedTestRuntime.npmCache,
+    NODE_ENV: 'test',
+    CI: '1',
+    DOTENV_CONFIG_PATH: `${isolatedTestRuntime.runtime}/no-dotenv-file`,
+    DOTENV_CONFIG_QUIET: 'true',
+    C3_HOST: '127.0.0.1',
+    C3_PORT: '0',
+    C3_PORT_FILE: isolatedTestRuntime.portFile,
+    C3_DB_PATH: isolatedTestRuntime.database,
+    C3_PROJECTS_DIR: isolatedTestRuntime.projects,
+    INTENTSMITH_TEST_PROJECTS_DIR: isolatedTestRuntime.projects,
+    INTENTSMITH_TEST_ARTIFACT_DIR: isolatedTestRuntime.artifacts,
+    INTENTSMITH_TEST_SERVER_NONCE: nonce,
+    C3_CORS_ORIGINS: 'http://localhost:3000',
+    C3_ENABLE_AGENTS: 'false',
+    C3_ENABLE_EXPERTISES: 'false',
+    C3_ENABLE_LIFECYCLE: 'false',
+    C3_ENABLE_COMFYUI: 'false',
+    C3_ENABLE_AUTONOMY: 'false',
+    C3_ENABLE_SKILLS: 'false',
+    C3_ENABLE_TELEMETRY: 'false',
+    C3_ENABLE_ONLINE_DISCOVERY: 'false',
+    C3_MODEL_UNIVERSE_ENABLED: 'false',
+    C3_LIFECYCLE_AUTO_COMMIT: 'false',
+    C3_UPDATE_REPO: '',
+    C3_TRACE: '0',
+    C3_LOG_LEVEL: 'warn',
+    OLLAMA_URL: 'invalid://m1-chat-restart-no-provider',
+  };
+}
+
+async function startOwnedServer(nonce) {
+  const child = spawn(process.execPath, ['src/server.js'], {
+    cwd: isolatedTestRuntime.repositoryRoot,
+    env: ownedServerEnvironment(nonce),
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  const state = {
+    child,
+    stdout: '',
+    stderr: '',
+    exitCode: null,
+    signal: null,
+    port: null,
+    capability: null,
+  };
+  ownedServerChildren.add(child);
+  child.stdout.setEncoding('utf8');
+  child.stderr.setEncoding('utf8');
+  child.stdout.on('data', chunk => {
+    state.stdout = boundedTail(state.stdout, chunk);
+  });
+  child.stderr.on('data', chunk => {
+    state.stderr = boundedTail(state.stderr, chunk);
+  });
+  child.on('exit', (code, signal) => {
+    state.exitCode = code;
+    state.signal = signal;
+    ownedServerChildren.delete(child);
+  });
+
+  try {
+    const deadline = Date.now() + SERVER_START_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      if (state.exitCode !== null || state.signal !== null) {
+        throw new Error(
+          `owned server exited before readiness: ${state.stdout} ${state.stderr}`
+            .trim().slice(-2_000),
+        );
+      }
+      if (existsSync(isolatedTestRuntime.portFile)) {
+        try {
+          const payload = JSON.parse(readFileSync(isolatedTestRuntime.portFile, 'utf8'));
+          if (
+            payload.pid === child.pid
+            && payload.testRunNonce === nonce
+            && Number.isInteger(payload.port)
+            && payload.port > 0
+            && /^[A-Za-z0-9_-]{43}$/.test(payload.localCapability || '')
+          ) {
+            state.port = payload.port;
+            state.capability = payload.localCapability;
+            return state;
+          }
+        } catch {
+          // Port file can be observed between the atomic write and JSON parse.
+        }
+      }
+      await delay(25);
+    }
+    throw new Error(
+      `timed out waiting for owned server: ${state.stdout} ${state.stderr}`
+        .trim().slice(-2_000),
+    );
+  } catch (error) {
+    try {
+      await stopOwnedServer(state);
+    } catch (stopError) {
+      error.message += `; cleanup failed: ${stopError.message}`;
+    }
+    throw error;
+  }
+}
+
+async function stopOwnedServer(state) {
+  if (!state?.child || state.exitCode !== null || state.signal !== null) return;
+  state.child.kill('SIGTERM');
+  const deadline = Date.now() + SERVER_STOP_TIMEOUT_MS;
+  while (
+    Date.now() < deadline
+    && state.exitCode === null
+    && state.signal === null
+  ) {
+    await delay(25);
+  }
+  if (state.exitCode === null && state.signal === null) {
+    state.child.kill('SIGKILL');
+    while (state.exitCode === null && state.signal === null) await delay(10);
+    throw new Error('owned server required SIGKILL instead of graceful shutdown');
+  }
+  assert.equal(state.exitCode, 0, `owned server exit: ${state.stderr.slice(-1000)}`);
+}
+
+function requestOwnedServer(state, method, pathname, body = null) {
+  return new Promise((resolve, reject) => {
+    const encoded = body === null ? null : JSON.stringify(body);
+    const request = httpRequest({
+      hostname: '127.0.0.1',
+      port: state.port,
+      path: pathname,
+      method,
+      headers: {
+        'X-IntentSmith-Local-Capability': state.capability,
+        ...(encoded === null ? {} : {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(encoded),
+        }),
+      },
+    }, response => {
+      let raw = '';
+      response.setEncoding('utf8');
+      response.on('data', chunk => {
+        raw += chunk;
+        if (raw.length > 1_000_000) {
+          request.destroy(new Error('owned response exceeded 1 MB'));
+        }
+      });
+      response.on('end', () => {
+        let json = null;
+        try { json = JSON.parse(raw); } catch { /* asserted by caller */ }
+        resolve({ statusCode: response.statusCode, json, raw });
+      });
+    });
+    request.setTimeout(10_000, () => {
+      request.destroy(new Error(`owned ${method} ${pathname} timed out`));
+    });
+    request.on('error', reject);
+    if (encoded !== null) request.write(encoded);
+    request.end();
+  });
+}
+
+function exactMessages(response, conversationId) {
+  assert.equal(response.statusCode, 200, response.raw);
+  assert.ok(Array.isArray(response.json?.messages), 'messages response must be an array');
+  assert.ok(
+    response.json.messages.every(message => message.conversation_id === conversationId),
+    'every restored message must remain owned by its conversation',
+  );
+  return response.json.messages;
+}
 
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -219,23 +430,108 @@ describe('T9.1: ConversationStore CRUD', () => {
 // T9.2: SESSION RESTART SURVIVAL
 // ══════════════════════════════════════════════════════════════════════════════
 
-describe('T9.2: Session restart survival (simulated)', () => {
+describe('T9.2: Session restart survival (real process + SQLite)', async () => {
 
-  it('New store instance reads existing conversations (in-memory shared)', async () => {
-    // Simulate: store1 writes, then "restart" = create store2 reading same backing
-    // In real DB mode this is automatic. For in-memory, we verify the architecture.
-    const store = new ConversationStore(null);
-    store.appendTurn('persist-test', TurnRole.USER, 'Before restart');
-    store.appendTurn('persist-test', TurnRole.ASSISTANT, 'I remember');
+  await it('two chats survive a real backend stop/start with exact durable turns', async () => {
+    const conversationA = 'm1-restart-conversation-A';
+    const conversationB = 'm1-restart-conversation-B';
+    let firstServer = null;
+    let secondServer = null;
+    let firstServerPid = null;
 
-    // In in-memory mode, same store = same data (simulates DB persistence)
-    const turns = store.getRecentTurns('persist-test', 10);
-    assert.equal(turns.length, 2);
-    assert.equal(turns[0].content, 'Before restart');
-    assert.equal(turns[1].content, 'I remember');
+    try {
+      firstServer = await startOwnedServer('m1-chat-restart-first-000000000001');
+      firstServerPid = firstServer.child.pid;
+      const commandA = {
+        contract: 'ConversationCommand',
+        version: 1,
+        requestId: 'm1-restart-request-A',
+        conversationId: conversationA,
+        turnId: 'm1-restart-turn-A',
+        action: 'send',
+        input: 'kolik je 17 * 23?',
+      };
+      const commandB = {
+        contract: 'ConversationCommand',
+        version: 1,
+        requestId: 'm1-restart-request-B',
+        conversationId: conversationB,
+        turnId: 'm1-restart-turn-B',
+        action: 'send',
+        input: 'kolik je 2 + 2?',
+      };
+
+      const startedAt = performance.now();
+      const responseA = await requestOwnedServer(firstServer, 'POST', '/api/chat', commandA);
+      const deterministicLatencyMs = performance.now() - startedAt;
+      assert.equal(responseA.statusCode, 200, responseA.raw);
+      assert.equal(validateConversationResult(responseA.json).valid, true);
+      assert.equal(responseA.json.status, 'ok');
+      assert.ok(responseA.json.response.content.includes('391'));
+      assert.ok(
+        deterministicLatencyMs < 100,
+        `deterministic HTTP latency ${deterministicLatencyMs.toFixed(1)}ms must be <100ms`,
+      );
+      console.log(`     deterministic HTTP latency: ${deterministicLatencyMs.toFixed(1)}ms`);
+
+      const responseB = await requestOwnedServer(firstServer, 'POST', '/api/chat', commandB);
+      assert.equal(responseB.statusCode, 200, responseB.raw);
+      assert.equal(validateConversationResult(responseB.json).valid, true);
+      assert.equal(responseB.json.status, 'ok');
+      assert.ok(responseB.json.response.content.includes('4'));
+
+      const beforeA = exactMessages(
+        await requestOwnedServer(
+          firstServer,
+          'GET',
+          `/api/conversations/${encodeURIComponent(conversationA)}/messages`,
+        ),
+        conversationA,
+      );
+      const beforeB = exactMessages(
+        await requestOwnedServer(
+          firstServer,
+          'GET',
+          `/api/conversations/${encodeURIComponent(conversationB)}/messages`,
+        ),
+        conversationB,
+      );
+      assert.deepEqual(beforeA.map(message => message.role), ['user', 'assistant']);
+      assert.deepEqual(beforeB.map(message => message.role), ['user', 'assistant']);
+      assert.equal(beforeA.some(message => message.content === commandB.input), false);
+      assert.equal(beforeB.some(message => message.content === commandA.input), false);
+
+      await stopOwnedServer(firstServer);
+      firstServer = null;
+      assert.equal(existsSync(isolatedTestRuntime.portFile), false);
+
+      secondServer = await startOwnedServer('m1-chat-restart-second-00000000002');
+      assert.notEqual(secondServer.child.pid, firstServerPid, 'restart must use a new OS process');
+      const afterA = exactMessages(
+        await requestOwnedServer(
+          secondServer,
+          'GET',
+          `/api/conversations/${encodeURIComponent(conversationA)}/messages`,
+        ),
+        conversationA,
+      );
+      const afterB = exactMessages(
+        await requestOwnedServer(
+          secondServer,
+          'GET',
+          `/api/conversations/${encodeURIComponent(conversationB)}/messages`,
+        ),
+        conversationB,
+      );
+      assert.deepEqual(afterA, beforeA);
+      assert.deepEqual(afterB, beforeB);
+    } finally {
+      await stopOwnedServer(firstServer);
+      await stopOwnedServer(secondServer);
+    }
   });
 
-  it('buildHandlerHistory format matches handler expectations', async () => {
+  await it('buildHandlerHistory format matches handler expectations', async () => {
     const store = new ConversationStore(null);
     store.appendTurn('format-test', TurnRole.USER, 'Question');
     store.appendTurn('format-test', TurnRole.ASSISTANT, 'Answer');
@@ -255,7 +551,7 @@ describe('T9.2: Session restart survival (simulated)', () => {
     assert.equal(history[1].response.tag.speaker, 'system');
   });
 
-  it('buildHistoryContext produces LLM-ready string', async () => {
+  await it('buildHistoryContext produces LLM-ready string', async () => {
     const store = new ConversationStore(null);
     store.appendTurn('ctx-test', TurnRole.USER, 'Jaké je počasí?');
     store.appendTurn('ctx-test', TurnRole.ASSISTANT, 'Dnes je slunečno.');
@@ -267,14 +563,14 @@ describe('T9.2: Session restart survival (simulated)', () => {
     assert.ok(ctx.includes('user: A zítra?'));
   });
 
-  it('buildHistoryContext returns empty string for no history', async () => {
+  await it('buildHistoryContext returns empty string for no history', async () => {
     const store = new ConversationStore(null);
     store.ensureConversation('empty-conv');
     const ctx = store.buildHistoryContext('empty-conv');
     assert.equal(ctx, '');
   });
 
-  it('buildHistoryContext limits turns', async () => {
+  await it('buildHistoryContext limits turns', async () => {
     const store = new ConversationStore(null);
     for (let i = 1; i <= 10; i++) {
       store.appendTurn('limit-ctx', TurnRole.USER, `Turn ${i}`);

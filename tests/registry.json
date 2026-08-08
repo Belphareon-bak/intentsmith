@@ -1450,21 +1450,21 @@
       "quarantineExpiry": null
     },
     {
-      "id": "IS-T1-TESTS-CHAT-PERSISTENCE-TEST",
+      "id": "IS-T3-TESTS-CHAT-PERSISTENCE-TEST",
       "path": "tests/chat-persistence.test.js",
       "argv": [
         "node",
         "tests/chat-persistence.test.js"
       ],
       "capabilityId": "C3-003",
-      "tier": "T1",
-      "fixture": "isolated-home",
-      "profile": "offline",
-      "timeoutMs": 120000,
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 180000,
       "expectedDurationMs": 30000,
       "requirements": {
-        "network": "none",
-        "database": false,
+        "network": "loopback",
+        "database": true,
         "server": false,
         "ollama": false,
         "gpu": false
