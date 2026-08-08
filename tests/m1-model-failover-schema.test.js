@@ -284,7 +284,7 @@ suite('M1 model failover schema — exact migration contract');
 
 await testAsync('fresh file-backed DB creates all failover tables, indexes and triggers', async () => {
   await withMigratedDb(async (db) => {
-    assertEqual(getCurrentVersion(db), '2026_08_08_048_model_binding_operations');
+    assertEqual(getCurrentVersion(db), '2026_08_08_049_model_binding_manual_supersede');
 
     for (const table of [
       'model_desired_bindings',
@@ -355,7 +355,7 @@ await testAsync('second migration run is a no-op with an identical schema snapsh
     const before = schemaSnapshot(db);
     const result = await runMigrations(db);
     assertEqual(result.applied.length, 0);
-    assertEqual(result.skipped.length, 50);
+    assertEqual(result.skipped.length, 51);
     assertEqual(schemaSnapshot(db), before);
   });
 });
@@ -631,6 +631,18 @@ await testAsync('verified audit events require a fresh matching artifact proof',
     assertEqual(
       db.prepare("SELECT verified FROM model_failover_events WHERE event_id = 'event-restored-valid'").get().verified,
       1,
+    );
+    assertThrowsMatching(
+      () => db.prepare(`
+        UPDATE model_failover_state
+        SET reason_code = 'MUTATED_AFTER_RESTORE'
+        WHERE role = 'CHAT'
+      `).run(),
+      /terminal failover state is immutable/i,
+    );
+    assertThrowsMatching(
+      () => db.prepare("DELETE FROM model_failover_state WHERE role = 'CHAT'").run(),
+      /audited terminal retirement/i,
     );
   });
 });

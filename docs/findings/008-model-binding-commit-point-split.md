@@ -66,3 +66,16 @@ zčervenaly.
 Nález zůstává otevřený. Repository zatím manual operace neprovádí, neumí
 atomicky supersedovat aktivní failover incident a běžný HTTP/chat provoz dál
 teče přes legacy `upgrade-manager.js`. Vlastník i termín v hlavičce se nemění.
+
+## Stav nápravy — manual supersede schema checkpoint
+
+Migrační identity guard z rozhodnutí 016 je implementovaný a attestovaný před
+přijetím migrace 049. Samotná 049 nyní dovolí přesně auditovaný
+`SUPERSEDED_BY_USER` pouze jako součást úplného operation + desired + incident
+commit pointu a chrání terminální projekce proti změně nebo resurrection.
+`RESTORED` se v tomto checkpointu záměrně neretireuje.
+
+Jde o DB autoritu, nikoli o runtime integraci. Veřejný repository writer v
+tomto checkpointu ještě nepřistává; legacy HTTP/chat cesty, nepravdivé
+`verified=1`, chatová formulace i caller-owned broadcast proto zůstávají beze
+změny a nález dál blokuje M1 acceptance.

@@ -154,6 +154,7 @@ const ALL_MIGRATIONS = [
   '2026_08_08_046_model_failover',
   '2026_08_08_047_model_failover_claim_expiry',
   '2026_08_08_048_model_binding_operations',
+  '2026_08_08_049_model_binding_manual_supersede',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;

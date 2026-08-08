@@ -609,9 +609,23 @@ focused regression sady.
      operation před zápisem. Jde pouze o storage autoritu: repository writer,
      incident supersede, `model_overrides`, runtime config a broadcast se
      nemění.
+     Migrační identita pro tento i každý další checkpoint je už fail-closed:
+     přijaté [rozhodnutí 016](docs/decisions/016-migration-identity-guard.md)
+     zavedlo v `684263e3` kompletní discovery a validaci před první DB mutací;
+     samostatná attestace je `af889e3b`. **Devátý checkpoint je implementovaný
+     na úrovni schématu:** migrace 049 dovolí manual operation nad incidentem
+     pouze v jediné transakci s přesným desired přechodem, auditním
+     `SUPERSEDED_BY_USER` a terminálním CAS. Event i terminální update znovu
+     ověřují původní `DETECTED`/claim lineage; `RESTORED` a
+     `SUPERSEDED_BY_USER` jsou immutable a retireovat lze pouze přesně
+     auditovaný `SUPERSEDED_BY_USER`. Samostatný event, neúplná transakce,
+     změněný incident snapshot, duplicitní origin a caller actor mimo přesnou
+     `user:` gramatiku fail-close končí bez orphan zápisu. Jde stále jen o
+     schema authority: veřejný repository writer v tomto checkpointu
+     nepřistává a runtime efekt zůstává nulový.
      Repository zatím neobsahuje proof issuer/persistence, terminal
-     activation/restore, manual supersede, runtime apply, startup rehydrate ani
-     scheduler a žádný runtime modul jej nekonzumuje. Chybějící proof
+     activation/restore, manual operation writer, runtime apply, startup
+     rehydrate ani scheduler a žádný runtime modul jej nekonzumuje. Chybějící proof
      acceptance prahy a TTL jsou shromážděné v rozhodnutí 015; measurement-only
      runner může pokračovat, PASS issuance zůstává fail-closed. Navazující
      `USER_APPLY/USER_ROLLBACK` repository seam musí zachovat storage garanci
@@ -1078,12 +1092,15 @@ mohou pokračovat.
    inventory, digest a HEAD, spouští child z exact-blob source exportu a vydá
    pouze immutable `NOT_ISSUED` receipt. Fake-provider CHAT a D1 pokrývají
    ordered suite, skutečný randomizovaný prompt i negativní drift. Manual
-   binding storage nyní drží neověřenou append-only apply/rollback lineage,
-   ale repository operace a incident supersede zůstávají zavřené. Legacy
+   binding storage nyní drží neověřenou append-only apply/rollback lineage a
+   migrace 049 už fail-closed vynucuje přesný atomický incident supersede;
+   veřejné repository operace ale zůstávají zavřené. Migrační preflight je
+   implementovaný a attestovaný podle
+   [rozhodnutí 016](docs/decisions/016-migration-identity-guard.md). Legacy
    binding apply/rollback zůstává explicitním blockerem s vlastníkem a termínem
    ve finding 008. Proof issuer,
-   terminal state-machine, manual supersede, runtime apply, startup rehydrate a
-   scheduler zůstávají otevřené a failover se dosud neaktivuje. Proof issuance
+   terminal state-machine, repository writer, runtime apply, startup rehydrate
+   a scheduler zůstávají otevřené a failover se dosud neaktivuje. Proof issuance
    čeká na prahy a TTL z rozhodnutí 015; nový skutečný GPU běh zůstává
    samostatnou blokovanou evidencí, dokud není legitimně čistý checkout.
 7. B4 pokračuje 010/A+ a 011/A, potom v pořadí 014 server → 014 klient → 012

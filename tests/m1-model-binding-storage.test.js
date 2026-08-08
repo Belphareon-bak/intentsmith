@@ -364,13 +364,126 @@ function assertManualOperationBlockedByIncident(db, suffix) {
     targetDigestSha256: DIGEST_B,
     desiredEventId: eventId,
     createdAtMs: 6000,
-  }), /atomic incident supersede seam/i);
+  }), /(?:exact atomic incident supersede|atomic incident supersede seam)/i);
   assertEqual(db.prepare('SELECT COUNT(*) AS count FROM model_binding_operations').get().count, 0);
   assertEqual(
     db.prepare("SELECT binding_revision FROM model_desired_bindings WHERE role = 'CHAT'").get()
       .binding_revision,
     1,
   );
+}
+
+function insertSupersedeEvent(db, input, incident, overrides = {}) {
+  const rowVersion = overrides.rowVersion ?? incident.row_version + 1;
+  return db.prepare(`
+    INSERT INTO model_failover_events (
+      event_id, event_type, role, binding_revision, row_version, episode_id,
+      operation_id, actor, reason_code, policy_version, state_before,
+      state_after, desired_model_name, desired_digest_sha256,
+      fallback_model_name, fallback_canonical_name, fallback_digest_sha256,
+      proof_id, verified, details_json, created_at_ms
+    ) VALUES (?, 'SUPERSEDED_BY_USER', 'CHAT', ?, ?, ?, ?, ?,
+      'USER_BINDING_SUPERSEDED_FAILOVER', ?, 'DETECTED', 'SUPERSEDED_BY_USER',
+      ?, ?, NULL, NULL, NULL, NULL, 0, '{}', ?)
+  `).run(
+    overrides.eventId ?? `${input.operationId}-supersede-event`,
+    input.committedRevision,
+    rowVersion,
+    incident.episode_id,
+    input.operationId,
+    input.actor ?? 'user:fixture',
+    POLICY_VERSION,
+    input.targetModelName,
+    input.targetDigestSha256,
+    input.createdAtMs,
+  );
+}
+
+function updateIncidentSuperseded(db, input, incident, overrides = {}) {
+  const supersedeEventId = overrides.eventId ?? `${input.operationId}-supersede-event`;
+  const detectedAtMs = overrides.detectedAtMs ?? incident.detected_at_ms;
+  return db.prepare(`
+    UPDATE model_failover_state
+    SET desired_revision = ?, state = 'SUPERSEDED_BY_USER', active_failover = 0,
+        fallback_model_name = NULL, fallback_canonical_name = NULL,
+        fallback_digest_sha256 = NULL, proof_id = NULL, active_event_id = NULL,
+        actor = ?, reason_code = 'USER_BINDING_SUPERSEDED_FAILOVER',
+        failure_phase = NULL, proof_verified_at_ms = NULL,
+        row_version = ?, claim_operation_id = NULL, claim_token = NULL,
+        claim_kind = NULL, claim_started_at_ms = NULL,
+        claim_expires_at_ms = NULL, resolved_at_ms = ?, updated_at_ms = ?,
+        last_event_id = ?, detected_at_ms = ?
+    WHERE role = 'CHAT' AND desired_revision = ? AND episode_id = ?
+      AND row_version = ? AND state = 'DETECTED'
+  `).run(
+    input.committedRevision,
+    input.actor ?? 'user:fixture',
+    incident.row_version + 1,
+    input.createdAtMs,
+    input.createdAtMs,
+    supersedeEventId,
+    detectedAtMs,
+    input.expectedRevision,
+    incident.episode_id,
+    incident.row_version,
+  );
+}
+
+function recordIncidentApply(db, {
+  operationId = 'operation-incident-apply-0001',
+  requestKey = 'request-incident-apply-0001',
+  eventId = 'event-incident-apply-0001',
+  actor = 'user:fixture',
+  createdAtMs = 6000,
+  incidentUpdateOverrides = {},
+  skipTerminalUpdate = false,
+  skipForeignKeyCheck = false,
+} = {}) {
+  const incident = db.prepare(`
+    SELECT * FROM model_failover_state WHERE role = 'CHAT'
+  `).get();
+  const input = {
+    operationId,
+    requestKey,
+    kind: 'USER_APPLY',
+    actor,
+    expectedRevision: 1,
+    committedRevision: 2,
+    previousModelName: 'base:latest',
+    previousCanonicalName: 'base',
+    previousDigestSha256: DIGEST_A,
+    targetModelName: 'candidate:latest',
+    targetCanonicalName: 'candidate',
+    targetDigestSha256: DIGEST_B,
+    desiredEventId: eventId,
+    createdAtMs,
+  };
+  insertManualEvent(db, {
+    eventId,
+    operationId,
+    kind: input.kind,
+    revision: input.committedRevision,
+    targetModelName: input.targetModelName,
+    targetDigestSha256: input.targetDigestSha256,
+    actor,
+    createdAtMs,
+  });
+  insertOperation(db, input);
+  db.pragma('defer_foreign_keys = ON');
+  assertEqual(updateProjection(db, input).changes, 1);
+  insertSupersedeEvent(db, input, incident);
+  if (!skipTerminalUpdate) {
+    assertEqual(updateIncidentSuperseded(
+      db,
+      input,
+      incident,
+      incidentUpdateOverrides,
+    ).changes, 1);
+  }
+  if (!skipForeignKeyCheck) {
+    assertEqual(db.prepare('PRAGMA foreign_key_check').get(), undefined);
+  }
+  return { input, incident };
 }
 
 suite('M1 manual model binding storage — append-only unverified lineage');
@@ -423,7 +536,7 @@ await testAsync('migration creates the exact manual operation journal contract',
       WHERE type = 'trigger' AND name LIKE 'trg_model_binding_operations_%'
       ORDER BY name
     `).all().map(row => row.name);
-    assertEqual(triggers.length, 8);
+    assertEqual(triggers.length, 9);
   });
 });
 
@@ -680,16 +793,237 @@ await testAsync('manual operation rejects incident-shaped audit metadata', async
   });
 });
 
-await testAsync('manual operation fails closed for detected, claimed and activated incidents', async () => {
-  for (const variant of ['detected', 'claimed', 'activated']) {
+await testAsync('detected and claimed incidents supersede atomically; activated stays blocked', async () => {
+  for (const variant of ['detected', 'claimed']) {
     await withMigratedDb(async db => {
       insertBaseline(db);
       insertDetectedIncident(db);
-      if (variant !== 'detected') claimDetectedIncident(db);
-      if (variant === 'activated') activateClaimedIncident(db);
-      assertManualOperationBlockedByIncident(db, variant);
+      if (variant === 'claimed') claimDetectedIncident(db);
+      const transaction = db.transaction(() => recordIncidentApply(db, {
+        operationId: `operation-incident-${variant}-apply`,
+        requestKey: `request-incident-${variant}-apply`,
+        eventId: `event-incident-${variant}-apply`,
+      }));
+      transaction.immediate();
+      const state = db.prepare(`
+        SELECT state, desired_revision, row_version, claim_token
+        FROM model_failover_state WHERE role = 'CHAT'
+      `).get();
+      assertEqual(state.state, 'SUPERSEDED_BY_USER');
+      assertEqual(state.desired_revision, 2);
+      assertEqual(state.row_version, variant === 'claimed' ? 3 : 2);
+      assertEqual(state.claim_token, null);
     });
   }
+
+  await withMigratedDb(async db => {
+    insertBaseline(db);
+    insertDetectedIncident(db);
+    claimDetectedIncident(db);
+    activateClaimedIncident(db);
+    assertManualOperationBlockedByIncident(db, 'activated');
+  });
+});
+
+await testAsync('supersede event rejects missing operation and stale desired projection', async () => {
+  await withMigratedDb(async db => {
+    insertBaseline(db);
+    insertDetectedIncident(db);
+    const incident = db.prepare(`
+      SELECT * FROM model_failover_state WHERE role = 'CHAT'
+    `).get();
+    const input = {
+      operationId: 'operation-ordering-apply-0001',
+      requestKey: 'request-ordering-apply-0001',
+      kind: 'USER_APPLY',
+      actor: 'user:fixture',
+      expectedRevision: 1,
+      committedRevision: 2,
+      previousModelName: 'base:latest',
+      previousCanonicalName: 'base',
+      previousDigestSha256: DIGEST_A,
+      targetModelName: 'candidate:latest',
+      targetCanonicalName: 'candidate',
+      targetDigestSha256: DIGEST_B,
+      desiredEventId: 'event-ordering-apply-0001',
+      createdAtMs: 6000,
+    };
+
+    assertThrowsMatching(
+      () => insertSupersedeEvent(db, input, incident),
+      /requires exact operation, desired projection and incident/i,
+    );
+    insertManualEvent(db, {
+      eventId: input.desiredEventId,
+      operationId: input.operationId,
+      kind: input.kind,
+      revision: input.committedRevision,
+      targetModelName: input.targetModelName,
+      targetDigestSha256: input.targetDigestSha256,
+      actor: input.actor,
+      createdAtMs: input.createdAtMs,
+    });
+    insertOperation(db, input);
+    assertThrowsMatching(
+      () => insertSupersedeEvent(db, input, incident),
+      /requires exact operation, desired projection and incident/i,
+    );
+    assertEqual(
+      db.prepare("SELECT state FROM model_failover_state WHERE role = 'CHAT'").get().state,
+      'DETECTED',
+    );
+  });
+});
+
+await testAsync('incomplete supersede cannot commit without terminal incident update', async () => {
+  await withMigratedDb(async db => {
+    insertBaseline(db);
+    insertDetectedIncident(db);
+    const before = JSON.stringify({
+      desired: db.prepare("SELECT * FROM model_desired_bindings WHERE role = 'CHAT'").get(),
+      state: db.prepare("SELECT * FROM model_failover_state WHERE role = 'CHAT'").get(),
+      events: db.prepare('SELECT COUNT(*) AS count FROM model_failover_events').get().count,
+      operations: db.prepare('SELECT COUNT(*) AS count FROM model_binding_operations').get().count,
+    });
+    const incomplete = db.transaction(() => recordIncidentApply(db, {
+      operationId: 'operation-incomplete-apply-0001',
+      requestKey: 'request-incomplete-apply-0001',
+      eventId: 'event-incomplete-apply-0001',
+      skipTerminalUpdate: true,
+      skipForeignKeyCheck: true,
+    }));
+    assertThrowsMatching(() => incomplete.immediate(), /FOREIGN KEY constraint failed/i);
+    const after = JSON.stringify({
+      desired: db.prepare("SELECT * FROM model_desired_bindings WHERE role = 'CHAT'").get(),
+      state: db.prepare("SELECT * FROM model_failover_state WHERE role = 'CHAT'").get(),
+      events: db.prepare('SELECT COUNT(*) AS count FROM model_failover_events').get().count,
+      operations: db.prepare('SELECT COUNT(*) AS count FROM model_binding_operations').get().count,
+    });
+    assertEqual(after, before);
+  });
+});
+
+await testAsync('terminal update rechecks the exact pre-supersede incident snapshot', async () => {
+  await withMigratedDb(async db => {
+    insertBaseline(db);
+    insertDetectedIncident(db);
+    const before = JSON.stringify(db.prepare(`
+      SELECT * FROM model_failover_state WHERE role = 'CHAT'
+    `).get());
+    const tampered = db.transaction(() => recordIncidentApply(db, {
+      operationId: 'operation-toctou-apply-0001',
+      requestKey: 'request-toctou-apply-0001',
+      eventId: 'event-toctou-apply-0001',
+      incidentUpdateOverrides: { detectedAtMs: 1999 },
+    }));
+    assertThrowsMatching(
+      () => tampered.immediate(),
+      /^MODEL_BINDING_SUPERSEDE_STATE_LINEAGE_MISMATCH:/,
+    );
+    assertEqual(
+      JSON.stringify(db.prepare("SELECT * FROM model_failover_state WHERE role = 'CHAT'").get()),
+      before,
+    );
+    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM model_binding_operations').get().count, 0);
+  });
+});
+
+await testAsync('terminal incident cannot be resurrected or mutated', async () => {
+  await withMigratedDb(async db => {
+    insertBaseline(db);
+    insertDetectedIncident(db);
+    db.transaction(() => recordIncidentApply(db, {
+      operationId: 'operation-terminal-apply-0001',
+      requestKey: 'request-terminal-apply-0001',
+      eventId: 'event-terminal-apply-0001',
+    })).immediate();
+    const terminal = db.prepare("SELECT * FROM model_failover_state WHERE role = 'CHAT'").get();
+    const resurrect = db.transaction(() => {
+      db.prepare(`
+        INSERT INTO model_failover_events (
+          event_id, event_type, role, binding_revision, row_version, episode_id,
+          actor, reason_code, policy_version, state_before, state_after,
+          desired_model_name, desired_digest_sha256, created_at_ms
+        ) VALUES ('event-terminal-resurrection', 'DETECTED', 'CHAT', 2, ?, ?,
+          'system:binding-integrity', 'BOUND_MODEL_NOT_INSTALLED', ?,
+          'SUPERSEDED_BY_USER', 'DETECTED', 'candidate:latest', ?, 7000)
+      `).run(terminal.row_version + 1, terminal.episode_id, POLICY_VERSION, DIGEST_B);
+      db.prepare(`
+        UPDATE model_failover_state
+        SET state = 'DETECTED', actor = 'system:binding-integrity',
+            reason_code = 'BOUND_MODEL_NOT_INSTALLED', resolved_at_ms = NULL,
+            row_version = ?, updated_at_ms = 7000,
+            last_event_id = 'event-terminal-resurrection'
+        WHERE role = 'CHAT'
+      `).run(terminal.row_version + 1);
+    });
+    assertThrowsMatching(() => resurrect.immediate(), /terminal failover state is immutable/i);
+    assertEqual(
+      db.prepare("SELECT state FROM model_failover_state WHERE role = 'CHAT'").get().state,
+      'SUPERSEDED_BY_USER',
+    );
+  });
+});
+
+await testAsync('duplicate DETECTED origin and non-user actor grammar fail closed', async () => {
+  await withMigratedDb(async db => {
+    insertBaseline(db);
+    insertDetectedIncident(db);
+    db.prepare(`
+      INSERT INTO model_failover_events (
+        event_id, event_type, role, binding_revision, row_version, episode_id,
+        actor, reason_code, policy_version, state_after, desired_model_name,
+        desired_digest_sha256, created_at_ms
+      ) VALUES ('event-incident-detected-duplicate', 'DETECTED', 'CHAT', 1, 1,
+        'episode-incident-0001', 'system:binding-integrity',
+        'BOUND_MODEL_NOT_INSTALLED', ?, 'DETECTED', 'base:latest', ?, 4000)
+    `).run(POLICY_VERSION, DIGEST_A);
+    assertManualOperationBlockedByIncident(db, 'duplicate-origin');
+  });
+
+  await withMigratedDb(async db => {
+    insertBaseline(db);
+    const invalidActors = [
+      'system:fixture',
+      'user:',
+      'user:bad user',
+      'user:\vbad',
+      'user:\fbad',
+      'user:\u00a0bad',
+      'user:\u2003bad',
+      'user:\ufeffbad',
+    ];
+    for (const [index, actor] of invalidActors.entries()) {
+      const operationId = `operation-invalid-actor-${String(index).padStart(4, '0')}`;
+      const eventId = `event-invalid-actor-${String(index).padStart(4, '0')}`;
+      insertManualEvent(db, {
+        eventId,
+        operationId,
+        kind: 'USER_APPLY',
+        revision: 2,
+        targetModelName: 'candidate:latest',
+        targetDigestSha256: DIGEST_B,
+        actor,
+        createdAtMs: 6000 + index,
+      });
+      assertThrowsMatching(() => insertOperation(db, {
+        operationId,
+        requestKey: `request-invalid-actor-${String(index).padStart(4, '0')}`,
+        kind: 'USER_APPLY',
+        expectedRevision: 1,
+        previousModelName: 'base:latest',
+        previousCanonicalName: 'base',
+        previousDigestSha256: DIGEST_A,
+        targetModelName: 'candidate:latest',
+        targetCanonicalName: 'candidate',
+        targetDigestSha256: DIGEST_B,
+        desiredEventId: eventId,
+        actor,
+        createdAtMs: 6000 + index,
+      }), /requires a user actor/i);
+    }
+    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM model_binding_operations').get().count, 0);
+  });
 });
 
 await testAsync('journal rejects verification claims, runtime claims and mismatched authority', async () => {

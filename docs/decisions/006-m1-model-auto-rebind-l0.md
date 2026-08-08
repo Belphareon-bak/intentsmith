@@ -344,6 +344,34 @@ HTTP, chat ani `model_changed`. Neřeší aktivní incident: atomický
 008 proto zůstává `OPEN / ASSIGNED` až do jediné společné runtime aplikační
 služby pro HTTP i chat.
 
+## Implementační stav B3-FAILOVER manual supersede schema — 2026-08-09
+
+Před migrací 049 byl v `684263e3` zaveden a v `af889e3b` samostatně
+attestován fail-closed migrační preflight podle
+[rozhodnutí 016](016-migration-identity-guard.md). Kompletní discovery a
+validace identity proto proběhne před vznikem `schema_migrations` i před
+kterýmkoli `up()`; migrace 049 už nepřistává bez tohoto guardu.
+
+Migrace `2026_08_08_049_model_binding_manual_supersede` rozšiřuje pouze DB
+autoritu. Manual operation nad incidentem je přípustná jen tehdy, když tatáž
+transakce zapíše přesný desired event a operation, posune desired projekci,
+přidá odpovídající `SUPERSEDED_BY_USER` event a terminálně aktualizuje přesný
+původní `DETECTED` nebo `ACTIVATE`-claimed snapshot. Event i stav mají vlastní
+negativní guard; neúplný zápis nedojde přes deferred foreign key do commitu.
+
+Terminální `RESTORED` a `SUPERSEDED_BY_USER` projekce se nedají znovu otevřít
+ani změnit. Tento checkpoint dovoluje pozdější auditovaný retirement jen pro
+`SUPERSEDED_BY_USER`; kanonický tvar retirementu `RESTORED` není definovaný a
+zůstává fail-closed. Přesná actor gramatika odpovídá JS kontraktu
+`/^user:[^\s]+$/u` a duplicitní kořenový `DETECTED` event operaci blokuje.
+
+Focused storage důkaz má pozitivní detected/claimed protějšek a negativně
+pinuje chybějící operation, stale desired projection, incomplete commit,
+změněný incident snapshot, terminální resurrection, duplicitní origin a actor
+whitespace. Čtyři izolované mutace těchto guardů skončily pokaždé jedním
+očekávaným selháním. Repository writer, runtime config, override, proof a
+broadcast se tímto schema checkpointem nemění; finding 008 zůstává otevřený.
+
 ## Implementační stav B3-IDENTITY — 2026-08-08
 
 Sdílený `src/upgrade/model-identity.js` nyní vlastní konzervativní presence
