@@ -148,3 +148,34 @@ to vyžaduje vlastněné contracts a composition změny ve `WP-M3-BOUNDARY`.
   timerů nebo efektů. Ty musí mít vlastní contract/disabled-boot důkaz.
 - Dokument není přijatá path mapa ani návrh 137 portů; je úplný měřený vstup
   pro operátorské rozhodnutí v `WP-M3-BOUNDARY`.
+
+## Pilotní čas a procesní incident
+
+| Událost | Čas (Europe/Prague) | Commit / výsledek |
+|---|---|---|
+| governance přijata | 01:00:09 | `8116d09f` |
+| diskový worktree registrován | 01:01:55 | `/home/belphareon/worktrees/is-boundary-ratchet` |
+| fáze A dokončena | 01:12:08 | `b7afc721`, 6/6, registry 374 |
+| fáze B dokončena | 01:16:13 | `23d23fc0`, live část pravdivě BLOCKED |
+| fáze C dokončena | 01:16:21 | `954e1ecc` |
+
+Počet vyžádaných operátorských zásahů během A–C: **0**. Přesný `T_saved`,
+`T_recurring`, `T_net` ani návratnost se zatím nevyčíslují: chybí integrační
+konec a běh obsahoval procesní incident, který by číslo zkreslil.
+
+### Incident: dva writeři ve stejném ratchet checkoutu
+
+Po založení větve jiná session přesunula worktree z původní diskové cesty na
+kanonickou cestu výše a současně zapsala jinou implementaci
+`scripts/module-boundary-ratchet.mjs`. V intervalu se překryly i baseline/test
+práce. Osiřelá stará cesta obsahovala pouze jeden nově vzniklý checker soubor;
+byla přesně odstraněna. Cizí implementace nebyla zahozena: stala se základem,
+nad který se doplnila povinná P6 limitation notice, kompatibilní exact-pair
+baseline a šest CLI testů.
+
+Technický výsledek je deterministicky zelený, ale **procesní pilot není platný
+úspěch**. Porušil normativní invariant jeden writer na checkout a místo dvou
+kontrolovaných writerů vznikl třetí neohlášený writer uvnitř stejného WP.
+Integrátor to musí započítat jako tvrdý procesní neúspěch nebo invalidaci tohoto
+pilotního měření; nesmí z něj odvodit kladné `T_net`. Ratchet jako samostatný
+aparát tím zneplatněn není.
