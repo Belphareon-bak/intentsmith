@@ -6,9 +6,10 @@
 offline connector vrstvu, ale skutečný referenční GPU pilot je červený. B4 má
 reviewované stable-ID/scoped-cancel a reconnect guardy; z rehydrate checkpointu
 jsou použitelné pouze epoch/race/snapshot ochrany, zatímco identity authority
-je BLOCKED. B4 nemůže pravdivě splnit přesný terminal consumer, HTTP fallback
-authority ani atomickou empty-history obnovu bez implementace potvrzených
-rozhodnutí. Operátor 2026-08-08 uzavřel celou
+je BLOCKED. 011/A HTTP fallback authority je od `2ead4662` focused PASS; B4
+stále nemůže pravdivě splnit přesný terminal consumer ani atomickou
+empty-history obnovu bez implementace ostatních potvrzených rozhodnutí. Operátor
+2026-08-08 uzavřel celou
 frontu 001–014; výběr variant ale sám nevytváří produktový důkaz. Podle
 `docs/execution/m1-batch.md` se B5 před přijetím B2, B3 a B4 nespouští.
 
@@ -32,7 +33,7 @@ nepatří a netvoří celý M1 exit.
 | B1 `WP-M1-CONTRACT` | COMPLETE, rozhodnutí potvrzena | provisional v1 pro Conversation, Model a CoreEvent; fail-closed validátory JS/TS | produkční partial-tool persistence se netvrdí; `persistPartialToolResults` zatím nemá konzumenta |
 | B2 `WP-M1-CHAT` | PASS, operátorsky potvrzený směr | persist-before-response, conversation isolation, exact HTTP adapter, scoped cancel, process-restart persistence | globální HTTP/WS mutex je finding 005, ne skrytý claim |
 | B3 `WP-M1-MODEL` | BLOCKED | exact fake-provider connector, auth/purpose/model binding, VRAM preflight, sanitizované terminal outcomes | implementovat 006/D+ po oddělených milnících; zavést společný profil 009 a provést nový skutečný T3 běh od 4096 |
-| B4 `WP-M1-STUDIO` | PARTIAL / BLOCKED | stable ID, scoped cancel, rehydrate epoch/race/snapshot guardy a bounded reconnect | identity cleanup/ACK autorita je BLOCKED; implementovat 010/A+, 011/A, 012/B a 014/A, potom skutečnou B4 journey, fresh-clone parity a bounded soak |
+| B4 `WP-M1-STUDIO` | PARTIAL / BLOCKED | stable ID, scoped cancel, rehydrate epoch/race/snapshot guardy, bounded reconnect a 011/A WS-only `NOT_SENT` | identity cleanup/ACK autorita je BLOCKED; implementovat 010/A+, 012/B a 014/A, potom skutečnou B4 journey, fresh-clone parity a bounded soak |
 
 Autoritativní podrobnosti jsou v:
 
@@ -55,7 +56,7 @@ Autoritativní podrobnosti jsou v:
 | 008 | DECIDE → A | role-purpose matrix a bounded parameters | implementováno |
 | 009 | BLOCK → A-4096 calibration | zachovat 27B/digest/1 GiB/100% residency/no fallback | společný runtime profil a nový skutečný sériový T3 běh; 4096 zatím není PASS |
 | 010 | BLOCK → A+ | protocol `lib` untracked + generated prebuild + negotiated M1 wire/ledger | implementace, clean build matrix a built journey |
-| 011 | BLOCK → A nyní / C v M2 | HTTP send fallback vypnout fail-closed | tři call sites, `NOT_SENT` UX a nulový-effect test; WS/HTTP parity je vědomě změněna |
+| 011 | BLOCK → A nyní / C v M2 | HTTP send fallback vypnout fail-closed | **implementováno na `2ead4662`**: tři call sites, `NOT_SENT`, phantom-ID guard a nulový-effect test; WS/HTTP parity je vědomě změněna |
 | 012 | BLOCK → B | existence-aware history route | transakční route a client negativy; GET 404 zachovává `_convId` |
 | 013 | DECIDE → A | 12 bounded retries + visible exhaustion | implementováno na client contract vrstvě; built journey chybí |
 | 014 | BLOCK → A | úplný ACK partition nebo request-bound reject, nikdy partial/in-memory autorita | durable-store guard, server/client reject kontrakt, DB-backed wire test a správný `sessionCount`/`sessionActive` clamp |
@@ -94,6 +95,35 @@ externí síť se v této společné kontrole nepoužily.
 | `timeout --signal=TERM --kill-after=10s 180s node tests/chat-persistence.test.js` | 35 passed, 0 failed | 0 |
 | `node tests/ws-bridge.test.js` | 67 passed, 0 failed | 0 |
 
+## B4 follow-up 011/A na `2ead4662`
+
+Commit `2ead4662e00d0b2e39bc03b9b2eb389e07be87e8` vypnul všechny tři
+legacy HTTP send fallbacky a doplnil lokální `NOT_SENT` stav. Behaviorální
+matice pinuje tři transportní failure režimy, effect-capable prompty, obě
+skutečné gap volby, zachování draftu/attachments/timeline a nulový HTTP i
+simulovaný downstream efekt. Identity prvního sendu se publikuje až po lokálním
+WS enqueue; false ani throw nemohou vytvořit phantom ID pro pozdější rehydrate.
+
+Path-scoped strom `src/`, `scripts/`, `tests/`, `c3-ide/` a decision 011 byl
+pro tento SHA beze změny. Celý checkout obsahoval disjunktní chráněnou
+governance dokumentaci a není proto vydáván za plně čistý.
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-studio-client.test.js` | 33 passed, 0 failed, 0 skipped | 0 |
+| `node tests/ws-bridge.test.js` | 67 passed, 0 failed | 0 |
+| `node tests/m1-contract.test.js` | 26 passed, 0 failed, 0 skipped | 0 |
+| `node tests/upgrade-ux-v125.test.js` | 78 passed, 0 failed, 0 skipped | 0 |
+| `node tests/studio-cdp-evidence.test.js` | 59 passed, 0 failed, 0 skipped | 0 |
+| `node tests/studio-electron-runner-contract.test.js` | 16 passed, 0 failed, 0 skipped | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
+| `node scripts/validate-test-registry.js --json` | valid, 373 programů, fingerprint `72417b86…a4690` | 0 |
+| `node tests/repository-hygiene.test.js` | 1502 tracked paths | 0 |
+
+Tento follow-up uzavírá pouze 011/A. Async attachment callback bez
+session/turn epoch zůstává explicitní B4 finding; 010/A+, 014/A, 012/B,
+built journey, fresh-clone parity a renderer soak zůstávají otevřené.
+
 ## Skutečný GPU výsledek, který se nesmí přepsat self-checkem
 
 Registrovaný T3 pilot běžel z čistého SHA
@@ -126,7 +156,8 @@ Artefakty jsou lokální a ignorované; commitnutý trvalý záznam je
 - B2: `71769051`, `5a95e1f7`, `f62f3fc5`, `eb01abb2`, `55c913d6`;
 - B3 a accepted cancel dependency: `88b25966`, `af46bbf1`, `78e63f03`,
   `ec4008aa`, `1f2993a4`, `c901e767`, `b7d0dbf6`;
-- B4: `50280fcd`, `d145e95e`, `446d197f`, `8e68a92e`, `a4067cd6`.
+- B4: `50280fcd`, `d145e95e`, `446d197f`, `8e68a92e`, `a4067cd6`,
+  follow-up `2ead4662`.
 
 Přesný přehled pro review:
 
@@ -146,8 +177,9 @@ git log --reverse --stat \
    **B3-FAILOVER** teprve potom zavede opt-in desired/active stav s pravdivým
    auditem, verify, restartem a bezpečným restore. Opt-in autorita je JSON
    `user_settings.id=1` a každá chyba fail-close; L0-9 se změní až po důkazu.
-3. B4 pořadí je explicitní: 010/A+ a 011/A lze udělat nezávisle; rehydrate jde
-   014 server → 014 klient → 012 route → 012 klient → společný DB-backed live
+3. 011/A je focused PASS. Zbývající B4 pořadí je explicitní: 010/A+;
+   potom rehydrate postupuje 014 server → 014 klient → 012 route →
+   012 klient → společný DB-backed live
    wire test. ACK vyžaduje durable store a matching reject končí okamžitě jako
    degraded. Pro M1 platí WS send + fail-closed `NOT_SENT`; HTTP send parity se
    vrací až nad M2 effect authority.

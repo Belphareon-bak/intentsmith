@@ -1,8 +1,8 @@
 # WP-M1-STUDIO — průběžný report
 
 - **stav WP:** `PARTIAL / BLOCKED` po REVIEW GATE 1; stable-ID/scoped-cancel,
-  reconnect a rehydrate epoch/race/snapshot guardy jsou použitelné, ale
-  identity-cleanup acceptance rehydrate checkpointu blokuje 014
+  reconnect, rehydrate epoch/race/snapshot guardy a 011/A fail-closed send jsou
+  použitelné, ale identity-cleanup acceptance rehydrate checkpointu blokuje 014
 - **base SHA:** `b7d0dbf61370b52061e6a736517ecdcb53118209`
 - **scope:** B4 podle `docs/execution/m1-batch.md`
 - **UI baseline:** výslovně mimo scope; spuštěné Studio není finální UI
@@ -335,7 +335,9 @@ Operátor následně schválil variantu A pro M1: všechny tři HTTP send fallba
 se sjednotí do lokální fail-closed `NOT_SENT` větve s nulovým `/chat` requestem
 a nulovým efektem. Transportní parita se vrátí až jako C nad M2 authority.
 Původní B4 claim „WS/HTTP parity“ se tím vědomě mění na „WS send + fail-closed
-offline stav“; implementace a negativní důkaz ještě chybí.
+offline stav“. Následující checkpoint tuto schválenou variantu implementuje;
+historický experimentální parser zůstává pouze vysvětlením, proč samotná
+kontrola `response.ok` nebyla acceptance.
 
 ### Evidence dokumentačního checkpointu
 
@@ -348,15 +350,76 @@ offline stav“; implementace a negativní důkaz ještě chybí.
 | `node tests/repository-hygiene.test.js` | 1472 cest | 0 |
 | `git diff --check` | bez chyb | 0 |
 
+## Checkpoint 5 — 011/A WebSocket-only send a `NOT_SENT`
+
+- **implementační SHA:** `2ead4662e00d0b2e39bc03b9b2eb389e07be87e8`
+- **stav dílčího kontraktu:** `PASS`
+- **celý B4 / Gate 1:** nadále `BLOCKED`
+
+Commit odstranil tři effect-capable legacy `POST /chat` fallbacky z
+autoritativního Studio runtime. Normální send, edit resend i obě gap volby
+používají jeden `_chatTryWsSend()` šev. `unavailable`, explicitní `false` i
+synchronní transportní výjimka končí sanitizovaným `NOT_SENT`/retryable
+stavem bez assistant zprávy, context pollu nebo automatického resend. Draft,
+attachments, editovaná timeline a gap tlačítka zůstávají vratné. Funkční
+banner se nepovažuje za finální UI.
+
+Review při tom odhalil first-send ready-to-closed race: původní WS klient
+publikoval nové conversation ID ještě před lokálním enqueue. Neúspěšný send
+tak mohl vytvořit phantom ID, které pozdější rehydrate smazal spolu s lokální
+timeline. Identity nyní používá `prepare → socket queue → publish` commit
+point; false ani throw ji neuloží a nevydá `session:identity`.
+
+Behaviorální matice vykonává skutečné funkce z commitnutého `lib` bundle.
+Promptové větve pokrývají `FILE_WRITE`, `SHELL` i generic-tool vstupy;
+gap API je testované oběma skutečnými fixními volbami. Každý pokus modeluje
+legacy endpoint jako provider/filesystem/shell/tool-capable a pinuje přesně
+nulový HTTP i downstream efekt. Nejde o skutečný provider nebo filesystem
+běh. Browserové přečtení uživatelem zvoleného attachmentu je povolená lokální
+příprava, ne backendový efekt.
+
+### Mutační kontroly
+
+| Mutace | Očekávaný červený výsledek | Exit |
+|---|---:|---:|
+| `sendChat() === false` chybně změněno na `QUEUED_WS` | 27 passed, 2 failed | 1 |
+| identity publish přesunut před `wsSend()` | 31 passed, 2 failed | 1 |
+
+Po každé mutaci byl zdroj obnoven přesnou opačnou záplatou a focused sada
+znovu zezelenala. Žádná aserce nebyla oslabena.
+
+### Validace na implementačním SHA
+
+Před během byl `HEAD` přesně `2ead4662e00d0b2e39bc03b9b2eb389e07be87e8`
+a path-scoped diff pro `src/`, `scripts/`, `tests/`, `c3-ide/` a decision 011
+byl prázdný (`PATH_SCOPED_EXIT=0`). Celý checkout nebyl vydáván za čistý:
+obsahoval disjunktní chráněnou governance práci v dokumentaci.
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-studio-client.test.js` | 33 passed, 0 failed, 0 skipped | 0 |
+| `node tests/ws-bridge.test.js` | 67 passed, 0 failed | 0 |
+| `node tests/m1-contract.test.js` | 26 passed, 0 failed, 0 skipped | 0 |
+| `node tests/upgrade-ux-v125.test.js` | 78 passed, 0 failed, 0 skipped | 0 |
+| `node tests/studio-cdp-evidence.test.js` | 59 passed, 0 failed, 0 skipped | 0 |
+| `node tests/studio-electron-runner-contract.test.js` | 16 passed, 0 failed, 0 skipped | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
+| `node scripts/validate-test-registry.js --json` | valid, 373 programů, 8 exclusions, fingerprint `72417b86ac74930fd35e2f3916e88fd5d483e8e7ee56ded3909f49fe489a4690` | 0 |
+| `node tests/repository-hygiene.test.js` | 1502 tracked paths | 0 |
+
+Fresh-clone Theia build, skutečná Electron journey a renderer soak nebyly
+součástí tohoto checkpointu a zůstávají otevřenými B4 podmínkami.
+
 ## Otevřené nálezy pro další checkpointy
 
 1. Commitnutý `@c3/protocol/lib/index.js` je stale stub. Operátor schválil
    010/A+: odstranit protocol `lib/**` z trackingu, vždy jej vytvořit root
    prebuildem a po něm dodat feature-negotiated M1 wire a terminal ledger.
    Implementace, clean build matrix a built journey ještě chybí.
-2. Tři HTTP fallbacky nekontrolují `response.ok` a mohou renderovat error JSON
-   jako assistant a zároveň obcházejí effect approval. 011/A je schválené;
-   fallback se musí vypnout a lokální unsent stav zachovat.
+2. Async attachment callback nemá session/turn epoch. Reset nebo zavření chatu
+   během `FileReader` operace může nechat starý callback odeslat prompt nebo
+   zapsat `NOT_SENT` do novější session. Jde o samostatný B4 finding; 011/A
+   dokazuje zachování souběžného draftu, nikoli reset/close korelaci.
 3. Race-safe klient a bounded reconnect checkpointy jsou hotové. Rehydrate
    zůstává blokovaný dvěma nezávislými kontrakty: 012/B rozliší existující
    prázdnou historii od 404 a 014/A zakáže partial ACK autoritu.
@@ -369,11 +432,11 @@ offline stav“; implementace a negativní důkaz ještě chybí.
 
 | Povinné chování briefu | Stav | Evidence / důvod |
 |---|---|---|
-| stabilní panel identity a cancel A bez zásahu do B | PASS | client 25/25; WS bridge 67/67 včetně scoped cancel |
+| stabilní panel identity a cancel A bez zásahu do B | PASS | client 33/33; WS bridge 67/67 včetně scoped cancel a phantom-ID negativu |
 | serverem ověřený rehydrate a invalid ID cleanup | BLOCKED | 012/B není implementováno; 014 prokázalo partial ACK a implicitní komplement cleanup, který dnešní green test připíná |
 | bounded reconnect a řízený shutdown | PASS na client contract vrstvě | přesný cap, handshake timeout, async-close race a destroy testy |
 | přesný M1 terminal consumer, late assistant a spinner terminal větve | BLOCKED | 010/A+ je schválené, ale protocol delivery, negotiated wire, ledger a built journey chybí |
-| HTTP fallback: non-2xx nikdy jako assistant a žádný effect bypass | BLOCKED | 011/A je schválené, ale fail-closed `NOT_SENT` implementace a nulový-effect test chybí |
+| HTTP fallback: non-2xx nikdy jako assistant a žádný effect bypass | PASS focused | 011/A na `2ead4662`: tři WS-only větve, `NOT_SENT`, nulový HTTP/simulovaný downstream efekt; built journey stále chybí |
 | built Theia multi-panel/cancel/restart journey | NOT RUN | závisí na terminal consumeru; dnešní UI není finální baseline |
 | fresh-clone build parity | NOT RUN pro tento B4 tip | M0-E disposition zůstává platná, ale nový B4 runtime nebyl z clean clone spuštěn |
 | bounded renderer soak na skutečném displeji | NOT RUN / INCONCLUSIVE | prostředí nebylo v B4 použito jako produktový displej; žádný formální PARK zatím nevznikl a M1 exit se netvrdí |
@@ -382,8 +445,10 @@ B4 tedy nekončí jako PASS. Věta o vyčerpaném nezávislém scope platila př
 operátorským rozhodnutím; dnešní další povolený scope tvoří přesně follow-upy
 010/A+, 011/A, 014/A a 012/B v pořadí z rozhodnutí 014. Implementační commity
 B4 jsou `50280fcd`, `d145e95e`,
-`446d197f`, `8e68a92e` a `a4067cd6`; výchozí dependency je `b7d0dbf6`.
+`446d197f`, `8e68a92e`, `a4067cd6` a `2ead4662`; výchozí dependency je
+`b7d0dbf6`.
 Rozhodovací fronta B4 010–014 je operátorsky uzavřená. B4 je přesto `BLOCKED`,
-dokud se 010/A+, 011/A, 012/B a 014/A neimplementují a neprojdou skutečnou
-built journey. 013/A je potvrzený client-contract checkpoint. Souhrnný balík je
-v `docs/execution/review-gate-1.md`.
+dokud se 010/A+, 012/B a 014/A neimplementují a neprojdou skutečnou built
+journey. 011/A je focused PASS, nikoli celé B4. 013/A je potvrzený
+client-contract checkpoint. Souhrnný balík je v
+`docs/execution/review-gate-1.md`.
