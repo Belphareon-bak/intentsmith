@@ -83,6 +83,38 @@ pinuje `turn_end` i `error` na `studio-stale-A`.
 | `node tests/repository-hygiene.test.js` | 1469 tracked paths | 0 |
 | `git diff --check` | bez chyb | 0 |
 
+## Blokovaná explorace — HTTP fallback effect authority
+
+Po checkpointu 1 vznikl dependency-free fail-closed parser pro tři legacy
+`POST /chat` fallbacky. Experimentální focused sada měla 14 passed / 0 failed,
+exit 0 a dokazovala odmítnutí non-2xx, malformed JSON, prázdných odpovědí a
+úniku raw error textu. Call-graph audit ale prokázal, že parser zachovává
+závažnější vadu: fallback posílá `editMode:'ask'` do route, která jej ignoruje,
+a effect-capable turn může dojít až k přímému filesystem zápisu bez approvalu.
+
+Experimentální produktový a testový diff byl proto cíleně odstraněn před
+commitem. Výsledek 14/14 není acceptance evidence a není uváděn jako oprava.
+Bezpečnostní volba je zachycena v
+`docs/decisions/011-m1-studio-http-fallback-effect-authority.md`; její obecný
+call-graph dopad je `P1-FX-018` v M2 ledgeru. Dotčená HTTP část je `BLOCKED`,
+zatímco reconnect/rehydrate a terminální korelace zůstávají nezávislým
+pokračováním B4.
+
+Tím zůstává false-success chování dnešního fallbacku otevřené. Nesmí se opravit
+jen parserem, protože bezpečný výsledek vyžaduje buď fallback vypnout, nebo
+serverem vynutit read-only/effect authority.
+
+### Evidence dokumentačního checkpointu
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-studio-client.test.js` | 4 passed, 0 failed, 0 skipped | 0 |
+| `node tests/ws-bridge.test.js` | 65 passed, 0 failed | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
+| `node scripts/validate-test-registry.js --json` | valid, 364 programů, 8 exclusions, fingerprint `b45e4da20315bf8c5edd3e08f74c5c8a6f9925aa0026211c1f047ffbd27691ff` | 0 |
+| `node tests/repository-hygiene.test.js` | 1472 cest | 0 |
+| `git diff --check` | bez chyb | 0 |
+
 ## Otevřené nálezy pro další checkpointy
 
 1. Commitnutý `@c3/protocol/lib/index.js` je stale stub; B4 allowlist nepovoluje
@@ -91,7 +123,8 @@ pinuje `turn_end` i `error` na `studio-stale-A`.
    dokud nebude delivery šev rozhodnutý v
    `docs/decisions/010-m1-studio-protocol-runtime-delivery.md`.
 2. Tři HTTP fallbacky nekontrolují `response.ok` a mohou renderovat error JSON
-   jako assistant.
+   jako assistant; jejich izolovaná parser oprava je blokovaná rozhodnutím 011,
+   protože stávající route zároveň obchází effect approval.
 3. Rehydrate nepotvrzuje existenci ID, ignoruje ack a nemá reconnect epoch.
 4. Existující Electron runner obchází veřejný `sendChat()` a připíná legacy
    pořadí assistant-before-turn-end; pro B4 acceptance se musí změnit.

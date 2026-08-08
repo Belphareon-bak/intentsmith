@@ -30,6 +30,7 @@ neintegrovaného dluhu registru nástrojů. Nic z nálezů P1 neopravovala.
 | P1-FX-015 | HIGH | Lifecycle cancel pouze skryje chatový state. | M2-LIFECYCLE |
 | P1-FX-016 | MEDIUM | Restart zanechá aktivní workflow bez recovery. | M2-EFFECT / M2-LIFECYCLE |
 | P1-FX-017 | LOW/MEDIUM | BLOCKED timeout zapisuje a čte rozdílná pole. | M2-LIFECYCLE |
+| P1-FX-018 | HIGH | Studio `ask` není effect authority; HTTP fallback i přímý FILE_WRITE jej obcházejí. | M1-STUDIO / M2-EFFECT |
 
 ## Evidence a acceptance směr
 
@@ -193,3 +194,19 @@ Failure zapisuje `local_plan._lastBlockedAt` a vrací `blockedAt`
 `milestone._blockedAt` (`:1587-1594`).
 
 **Acceptance:** jediné durable pole, schema test a restartový elapsed-time test.
+
+### P1-FX-018 — Studio `ask` není executable write authority
+
+Studio session deklaruje výchozí `editMode:'ask'`, ale legacy `POST /chat`
+stav ignoruje a do controlleru nepředává žádný approval hook
+(`src/routes/chat.js:386-419`). WS adaptér má lokální callback
+(`src/ws-bridge/session-adapter.js:245-285`), jenže přímý `FILE_WRITE` jde mimo
+něj do `src/chat/handlers/file.js:640-645`. Zbylé call sites v
+`src/chat/handlers/decisions.js:268-269,428-429` callback nečekají a generic
+větev po oznámení pokračuje do execution. UI preference tedy není bezpečnostní
+hranice a HTTP hardening ji nesmí vydávat za WS/HTTP parity.
+
+**Acceptance:** každý effect-capable turn vytvoří přesný `EffectRequest`;
+zápis/shell/tool execution začne až po payload-bound, expirovatelném a
+single-use approvalu. Negativní cross-transport test pro HTTP i WS prokáže nula
+write/syscall efektů před grantem a nula efektů po reject/cancel/timeout.
