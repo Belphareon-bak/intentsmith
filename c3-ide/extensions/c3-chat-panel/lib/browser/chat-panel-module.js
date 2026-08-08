@@ -5334,7 +5334,7 @@ function _mkSession(){return{
   _openToken:null,       /* guard: project switch during async — stale responses ignored */
   _lifecycleResumed:false, /* guard: lifecycle resume message shown only once */
   _label:'',             /* v90: snapshot label for relay header — persisted */
-  chat:{msgs:[{role:'system',text:'C3 Studio připraven. Začni psát zprávu.'}],ctx:0,expertise:'Výchozí',specialist:null,showExpertises:false,showAllExpertises:false,attachments:[],editMode:'ask',editingIdx:null,editOriginalText:null,acSuggestion:null,acLoading:false,_thinking:null},
+  chat:{msgs:[{role:'system',text:'C3 Studio připraven. Začni psát zprávu.'}],ctx:0,expertise:'Výchozí',specialist:null,showExpertises:false,showAllExpertises:false,attachments:[],editMode:'ask',editingIdx:null,editOriginalText:null,acSuggestion:null,acLoading:false,_thinking:null,_delivery:null},
   bottom:'split', /* 'agent' | 'terminal' | 'split' | 'mix' */
   log:[],
   term:[{text:'$ ',ts:new Date().toISOString(),type:'prompt'}],
@@ -5405,7 +5405,7 @@ var _newChatDialog=null; /* null | {idx, projectId, projectName} */
 
 function _resetSessionToClean(s){
   s._label='';s._convId=null;s._agentId=null;s._projectId=null;s._lifecycleResumed=false;
-  s.chat.msgs=[{role:'system',text:'Nový chat.'}];s.chat.ctx=0;s.chat.attachments=[];s.chat._thinking=null;
+  s.chat.msgs=[{role:'system',text:'Nový chat.'}];s.chat.ctx=0;s.chat.attachments=[];s.chat._thinking=null;s.chat._delivery=null;
 }
 function _newChatInProject(idx){
   var s=_sessions[idx];if(!s)return;
@@ -5433,7 +5433,7 @@ function _newChatDialogAction(choice){
     /* New conversation in same project */
     s._label=_newChatDialog.projectName;
     s.chat.msgs=[{role:'system',text:'📂 Nová konverzace v projektu: '+_newChatDialog.projectName}];
-    s.chat.ctx=0;s.chat.attachments=[];s._convId=null;s._agentId=null;
+    s.chat.ctx=0;s.chat.attachments=[];s.chat._thinking=null;s.chat._delivery=null;s._convId=null;s._agentId=null;
     /* Create new conversation linked to project */
     fetch(_backendBase+'/api/conversations',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({project_id:_newChatDialog.projectId,title:_newChatDialog.projectName}),signal:AbortSignal.timeout(5000)})
@@ -5441,7 +5441,7 @@ function _newChatDialogAction(choice){
   } else if(choice==='free'){
     /* New conversation outside project */
     s._label='';
-    s.chat.msgs=[{role:'system',text:'Nový chat.'}];s.chat.ctx=0;s.chat.attachments=[];
+    s.chat.msgs=[{role:'system',text:'Nový chat.'}];s.chat.ctx=0;s.chat.attachments=[];s.chat._thinking=null;s.chat._delivery=null;
     s._convId=null;s._agentId=null;s._projectId=null;s._lifecycleResumed=false;
     /* Clear tree for this session */
     _perSessionTree[idx]=null;
@@ -5462,7 +5462,7 @@ function _closeDialogAction(choice){
     /* A) Close conversation only — reset pane to empty state */
     s._convId=null;s._projectId=null;s._agentId=null;s._lifecycleResumed=false;s._label='';
     s.chat.msgs=[];
-    s.chat.ctx=0;s.chat.expertise='Výchozí';s.chat.attachments=[];
+    s.chat.ctx=0;s.chat.expertise='Výchozí';s.chat.attachments=[];s.chat._thinking=null;s.chat._delivery=null;
     var _now=new Date();
     s.log=[{time:_now.toLocaleTimeString('cs-CZ'),type:'SYSTEM',cls:'system',text:'C3 Studio připraven. Začni psát zprávu.',active:true,ts:_now.toISOString()}];
     s.term=[{text:'$ ',ts:_now.toISOString(),type:'prompt'}];
@@ -5473,7 +5473,7 @@ function _closeDialogAction(choice){
     /* B) Close conversation + reduce panel count */
     s._convId=null;s._projectId=null;s._agentId=null;s._lifecycleResumed=false;s._label='';
     s.chat.msgs=[];
-    s.chat.ctx=0;s.chat.expertise='Výchozí';s.chat.attachments=[];
+    s.chat.ctx=0;s.chat.expertise='Výchozí';s.chat.attachments=[];s.chat._thinking=null;s.chat._delivery=null;
     s.log=[];s.term=[{text:'$ ',ts:new Date().toISOString(),type:'prompt'}];
     _perSessionTree[idx]=null;
     if(_sessionCount>1){
@@ -6111,24 +6111,68 @@ function _readAttachments(attachments,callback){
   });
 }
 
+/* M1/011: Chat sends are WebSocket-only until M2 owns one effect authority.
+   A successful WebSocket.send() is queued locally, not acknowledged by server. */
+function _chatTryWsSend(content,session,sessionIdx){
+  try{
+    if(typeof C3WS==='undefined'||!C3WS||typeof C3WS.isReady!=='function'||C3WS.isReady()!==true){
+      return{status:'NOT_SENT',retryable:true,reason:'WS_UNAVAILABLE',serverAcknowledged:false};
+    }
+    if(typeof C3WS.sendChat!=='function'||C3WS.sendChat(content,session,sessionIdx)!==true){
+      return{status:'NOT_SENT',retryable:true,reason:'WS_SEND_REJECTED',serverAcknowledged:false};
+    }
+    return{status:'QUEUED_WS',retryable:false,reason:null,serverAcknowledged:false};
+  }catch(e){
+    return{status:'NOT_SENT',retryable:true,reason:'WS_SEND_FAILED',serverAcknowledged:false};
+  }
+}
+function _chatRestoreInput(ta,text){
+  if(!ta||ta.value)return;
+  ta.value=text||'';ta.style.height='20px';
+  if(typeof ta.scrollHeight==='number')ta.style.height=Math.min(ta.scrollHeight,100)+'px';
+}
+function _chatRestoreAttachments(st,attachments){
+  var current=Array.isArray(st.attachments)?st.attachments:[];
+  (attachments||[]).slice().reverse().forEach(function(item){
+    if(current.indexOf(item)<0)current.unshift(item);
+  });
+  st.attachments=current;
+}
+function _chatMarkNotSent(idx,st,text,delivery,draft){
+  st._thinking=null;st._pendingAttachments=null;
+  st._delivery={status:'NOT_SENT',retryable:true,reason:delivery.reason,text:text,draft:typeof draft==='string'?draft:text};
+  renderChat();_chatScrollPane(idx);
+}
+function _chatClearDelivery(st){st._delivery=null;}
+
 function _chatSendPane(idx){
   var ta=document.getElementById('c3-chat-ta-'+idx);
   var s=_sessions[idx];if(!s)return;var st=s.chat;
   st.acSuggestion=null;/* clear autocomplete on send */
-  var t=ta?ta.value.trim():'';if(!t&&st.attachments.length===0)return;
+  var rawDraft=ta?ta.value:'';
+  var t=rawDraft.trim();if(!t&&st.attachments.length===0)return;
 
   /* ── Edit mode — replace message and resend (branch-from-here) ── */
   if(st.editingIdx!==null&&st.editingIdx!==undefined){
     var editIdx=st.editingIdx;
+    var editSnapshot=st.msgs.map(function(m){return Object.assign({},m);});
     st.editingIdx=null;st.editOriginalText=null;
     st.msgs[editIdx].text=t;
     st.msgs.splice(editIdx+1);/* remove all after edited msg */
     if(ta){ta.value='';ta.style.height='22px';}
     st._thinking={text:'Zpracovávám...', ts:Date.now()};
+    _chatClearDelivery(st);
     renderChat();_chatScrollPane(idx);
-    var sent=false;
-    if(typeof C3WS!=='undefined'&&C3WS.isReady()){sent=C3WS.sendChat(t,s,idx);}
-    if(!sent){fetch(_backendBase+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'chat',message:t,expertise:st.expertise,specialist:st.specialist?st.specialist.id||st.specialist.domain:null,editMode:st.editMode,conversationId:s._convId,agentId:s._agentId||null,projectId:s._projectId||null})}).then(function(r){return r.json();}).then(function(d){st._thinking=null;st.msgs.push({role:'assistant',text:d.response||d.text||JSON.stringify(d),tag:'LLM'});_maybeRefreshExpertises(d.metadata);renderChat();_chatScrollPane(idx);}).catch(function(){st._thinking=null;st.msgs.push({role:'assistant',text:'Backend nedostupný.',tag:'ERROR'});renderChat();});}
+    var editDelivery=_chatTryWsSend(t,s,idx);
+    if(editDelivery.status==='NOT_SENT'){
+      st.msgs=editSnapshot;st.editingIdx=editIdx;
+      st.editOriginalText=editSnapshot[editIdx]?editSnapshot[editIdx].text:null;
+      _chatRestoreInput(ta,rawDraft);_chatMarkNotSent(idx,st,t,editDelivery,rawDraft);return;
+    }
+    if(st.msgs[editIdx]&&st.msgs[editIdx].deliveryStatus==='NOT_SENT'){
+      delete st.msgs[editIdx].deliveryStatus;delete st.msgs[editIdx].retryable;
+      if(st.msgs[editIdx].tag==='NOT_SENT')delete st.msgs[editIdx].tag;
+    }
     setTimeout(function(){_pollContext(idx);},2000);
     return;
   }
@@ -6167,6 +6211,7 @@ function _chatSendPane(idx){
   if(hasFiles){txt=(t?t+'\n':'')+'📎 '+st.attachments.map(function(a){return a.name;}).join(', ');}
   var filesToRead=hasFiles?st.attachments.slice():[];
   st.msgs.push({role:'user',text:txt,id:'umsg-'+Date.now()});
+  var userMsg=st.msgs[st.msgs.length-1];
   st.attachments=[];
   if(ta){ta.value='';ta.style.height='22px';}
   _sessionActive=idx;
@@ -6174,6 +6219,7 @@ function _chatSendPane(idx){
 
   /* v90: Start thinking indicator */
   st._thinking={text:'Zpracovávám...', ts:Date.now()};
+  _chatClearDelivery(st);
   renderChat();
 
   /* Read attachments then send */
@@ -6184,21 +6230,12 @@ function _chatSendPane(idx){
       filesToRead.forEach(function(a){if(!_focusFileExists(s,a.name,null)){s._focusFiles.unshift({name:a.name,size:a.size||'',addedAt:Date.now(),type:'attachment'});}});
       renderChat();
     }
-    /* Send via WS (channel protocol) or HTTP fallback */
-    var sent = false;
-    if (typeof C3WS !== 'undefined' && C3WS.isReady()) {
-      sent = C3WS.sendChat(txt, s, idx);
-    }
-    if (!sent) {
-      var body={type:'chat',message:txt,expertise:st.expertise,specialist:st.specialist?st.specialist.id||st.specialist.domain:null,editMode:st.editMode,conversationId:s._convId,agentId:s._agentId||null,projectId:s._projectId||null};
-      if(readFiles.length>0)body.attachments=readFiles;
-      fetch(_backendBase+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
-      .then(function(r){return r.json();})
-      .then(function(d){st._thinking=null;var msg={role:'assistant',text:d.response||d.text||JSON.stringify(d),tag:'LLM'};if(d.metadata&&d.metadata.awaitingGapChoice){msg._gapChoice=true;msg.tag='SPECIALIST';}st.msgs.push(msg);if(typeof d.contextPercent==='number')st.ctx=d.contextPercent;_maybeRefreshExpertises(d.metadata);
-        /* v92: Track backend output files in focus mode */
-        if(isFocusActive()&&d.metadata&&d.metadata.files){d.metadata.files.forEach(function(f){var nm=f.name||(f.path||'').split('/').pop();if(nm&&!_focusFileExists(s,nm,f.path)){s._focusFiles.unshift({name:nm,path:f.path,size:f.size||'',addedAt:Date.now(),type:'output'});}});}
-        renderChat();_chatScrollPane(idx);})
-      .catch(function(){st._thinking=null;st.msgs.push({role:'assistant',text:'Backend nedostupný. Spusťte: node src/server.js',tag:'ERROR'});renderChat();});
+    /* M1 is WebSocket-only. HTTP parity returns with M2 effect authority. */
+    var delivery=_chatTryWsSend(txt,s,idx);
+    if(delivery.status==='NOT_SENT'){
+      userMsg.tag='NOT_SENT';userMsg.deliveryStatus='NOT_SENT';userMsg.retryable=true;
+      _chatRestoreInput(ta,rawDraft);_chatRestoreAttachments(st,filesToRead);
+      _chatMarkNotSent(idx,st,txt,delivery,rawDraft);return;
     }
     s.chat._pendingAttachments=null;
     /* Poll context after send */
@@ -6207,20 +6244,20 @@ function _chatSendPane(idx){
 }
 
 /* D5: Gap choice button handler — sends user's gap choice as chat message */
-function _chatGapChoice(idx,choice){
+function _chatGapChoice(idx,choice,gapMsgIdx){
   var s=_sessions[idx];if(!s)return;var st=s.chat;
   var txt=choice==='create'?'Vytvoř expertízu':'Bez ní, odpověz rovnou';
-  st.msgs.push({role:'user',text:txt});
+  var gapUserMsg={role:'user',text:txt};st.msgs.push(gapUserMsg);
   st._thinking={text:'Zpracovávám...', ts:Date.now()};
+  _chatClearDelivery(st);
   renderChat();_chatScrollPane(idx);
-  var sent=false;
-  if(typeof C3WS!=='undefined'&&C3WS.isReady()){sent=C3WS.sendChat(txt,s,idx);}
-  if(!sent){
-    var body={type:'chat',message:txt,expertise:st.expertise,specialist:st.specialist?st.specialist.id||st.specialist.domain:null,editMode:st.editMode,conversationId:s._convId,agentId:s._agentId||null,projectId:s._projectId||null};
-    fetch(_backendBase+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
-    .then(function(r){return r.json();})
-    .then(function(d){st._thinking=null;st.msgs.push({role:'assistant',text:d.response||d.text||JSON.stringify(d),tag:'LLM'});if(typeof d.contextPercent==='number')st.ctx=d.contextPercent;_maybeRefreshExpertises(d.metadata);renderChat();_chatScrollPane(idx);})
-    .catch(function(){st._thinking=null;st.msgs.push({role:'assistant',text:'Backend nedostupný.',tag:'ERROR'});renderChat();});
+  var delivery=_chatTryWsSend(txt,s,idx);
+  if(delivery.status==='NOT_SENT'){
+    gapUserMsg.tag='NOT_SENT';gapUserMsg.deliveryStatus='NOT_SENT';gapUserMsg.retryable=true;
+    if(typeof gapMsgIdx==='number'&&st.msgs[gapMsgIdx]&&st.msgs[gapMsgIdx]._gapChoice){
+      st.msgs[gapMsgIdx]._gapResolved=false;
+    }
+    _chatMarkNotSent(idx,st,txt,delivery);
   }
 }
 
@@ -6300,15 +6337,15 @@ function _chatPaneUI(idx,opts){
           h('div',{style:{display:'flex',alignItems:'center',gap:4,marginBottom:2}},
             h('div',{style:{width:18,height:18,borderRadius:'50%',background:u?C.bg4:a?'linear-gradient(135deg,#22c55e,#16a34a)':C.bg3,display:'flex',alignItems:'center',justifyContent:'center',fontSize:a?_fs(6):_fs(8),fontWeight:a?700:400,color:u?C.tx3:a?'#fff':C.tx4}},u?'👤':a?'C3':'⚡'),
             h('span',{style:{fontSize:_fs(10),fontWeight:600,color:C.tx2}},u?'Ty':a?'C3':'System'),
-            m.tag?h('span',{style:{fontSize:_fs(7.5),padding:'1px 3px',borderRadius:3,fontFamily:C.mono,textTransform:'uppercase',background:m.tag==='ERROR'?C.redBg:C.purpleBg,color:m.tag==='ERROR'?C.red:C.purple}},m.tag):null),
+            m.tag?h('span',{style:{fontSize:_fs(7.5),padding:'1px 3px',borderRadius:3,fontFamily:C.mono,textTransform:'uppercase',background:m.tag==='ERROR'||m.tag==='NOT_SENT'?C.redBg:C.purpleBg,color:m.tag==='ERROR'||m.tag==='NOT_SENT'?C.red:C.purple}},m.tag):null),
           h('div',{style:{fontSize:_fs(12),lineHeight:'1.5',color:C.tx1,paddingLeft:22,wordBreak:'break-word',whiteSpace:'pre-wrap'}},m.text),
           /* D5: Gap choice inline buttons */
           m._gapChoice&&!m._gapResolved?h('div',{style:{display:'flex',gap:6,paddingLeft:22,paddingTop:6}},
             h('button',{style:{padding:'5px 12px',borderRadius:6,border:'1px solid #f59e0b',background:'rgba(245,158,11,0.1)',color:'#fbbf24',fontSize:_fs(11),fontWeight:600,cursor:'pointer'},
-              onClick:function(ev){ev.stopPropagation();m._gapResolved=true;_chatGapChoice(idx,'create');}},
+              onClick:function(ev){ev.stopPropagation();m._gapResolved=true;_chatGapChoice(idx,'create',i);}},
               '✨ Vytvořit expertízu'),
             h('button',{style:{padding:'5px 12px',borderRadius:6,border:'1px solid '+C.border2,background:C.bg3,color:C.tx2,fontSize:_fs(11),fontWeight:600,cursor:'pointer'},
-              onClick:function(ev){ev.stopPropagation();m._gapResolved=true;_chatGapChoice(idx,'fallback');}},
+              onClick:function(ev){ev.stopPropagation();m._gapResolved=true;_chatGapChoice(idx,'fallback',i);}},
               '💬 Odpovědět bez ní')):null));}),
       /* v90: Thinking indicator */
       st._thinking?h('div',{key:'thinking',style:{padding:'3px 6px',marginBottom:3,display:'flex',justifyContent:'flex-start'}},
@@ -6322,6 +6359,9 @@ function _chatPaneUI(idx,opts){
               h('span',{style:{width:5,height:5,borderRadius:'50%',background:C.accent,display:'inline-block',animation:'c3-thinking-dot 1.2s ease-in-out infinite',animationDelay:'0.15s'}}),
               h('span',{style:{width:5,height:5,borderRadius:'50%',background:C.accent,display:'inline-block',animation:'c3-thinking-dot 1.2s ease-in-out infinite',animationDelay:'0.3s'}})),
             h('span',{style:{fontSize:_fs(11),color:C.tx3,fontStyle:'italic',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:200}},st._thinking.text||'')))):null),
+    /* M1/011: minimal functional status; final Studio UI is a later product surface. */
+    st._delivery&&st._delivery.status==='NOT_SENT'?h('div',{style:{padding:'5px 10px',borderTop:'1px solid '+C.border,background:C.redBg,color:C.red,fontSize:_fs(10),lineHeight:'1.35',flexShrink:0}},
+      'NOT_SENT · Zpráva nebyla odeslána. Po obnovení WebSocketu akci opakujte; rozepsaná data zůstala zachovaná.'):null,
     /* INPUT */
     h('div',{style:{padding:6,borderTop:'1px solid '+C.border,flexShrink:0},onClick:function(ev){ev.stopPropagation();}},
       h('div',{style:{background:C.bg2,border:'1px solid '+(st._dragOver?C.accent:st.editingIdx!==null?C.accent:C.border2),borderRadius:10,overflow:'visible',position:'relative',transition:'border-color 0.15s'},

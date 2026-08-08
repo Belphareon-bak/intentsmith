@@ -56,18 +56,24 @@ function _createStudioConversationId() {
   return 'studio-' + randomPart;
 }
 
-function _ensureConversationId(session, sessionIdx) {
+function _selectConversationId(session) {
   if (!session || typeof session !== 'object') return null;
-  if (_isConversationId(session._convId)) return session._convId;
+  if (_isConversationId(session._convId)) {
+    return { conversationId: session._convId, isNew: false };
+  }
   if (session._convId !== null && session._convId !== undefined && session._convId !== '') {
     return null;
   }
-  session._convId = _createStudioConversationId();
+  return { conversationId: _createStudioConversationId(), isNew: true };
+}
+
+function _publishConversationId(session, sessionIdx, selected) {
+  if (!selected || !selected.isNew) return;
+  session._convId = selected.conversationId;
   C3Bus.emit('session:identity', {
     idx: typeof sessionIdx === 'number' ? sessionIdx : null,
-    conversationId: session._convId
+    conversationId: selected.conversationId
   });
-  return session._convId;
 }
 
 /* ─── Session routing ─────────────────────────────────────────────────── */
@@ -615,19 +621,22 @@ function wsSend(channel, data) {
 }
 
 function wsSendChat(content, session, sessionIdx) {
-  var conversationId = _ensureConversationId(session, sessionIdx);
-  if (!conversationId) return false;
-  /* Track sender session for reliable routing of response */
-  if (typeof sessionIdx === 'number') _lastSendSessionIdx = sessionIdx;
+  var selected = _selectConversationId(session);
+  if (!selected) return false;
   var payload = {
     content: content,
-    conversationId: conversationId,
+    conversationId: selected.conversationId,
     editMode: session.chat.editMode || 'auto',
     agentId: session._agentId || null,
     projectId: session._projectId || null
   };
   if (session.chat._pendingAttachments) payload.attachments = session.chat._pendingAttachments;
-  return wsSend('chat', payload);
+  if (!wsSend('chat', payload)) return false;
+  /* Identity becomes authoritative only after the frame entered the local socket. */
+  _publishConversationId(session, sessionIdx, selected);
+  /* Track sender session for reliable routing of response. */
+  if (typeof sessionIdx === 'number') _lastSendSessionIdx = sessionIdx;
+  return true;
 }
 
 /* Track terminal reqId → sessionIdx for reliable response routing */

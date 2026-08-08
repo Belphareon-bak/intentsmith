@@ -1,7 +1,7 @@
 # 011 — Studio HTTP fallback a effect authority
 
 - **typ:** BLOCK
-- **stav rozhodnutí:** A PRO M1 / C PRO M2 SCHVÁLENO; IMPLEMENTACE OTEVŘENÁ
+- **stav rozhodnutí:** A PRO M1 IMPLEMENTOVÁNO / C PRO M2 SCHVÁLENO
 - **WP:** WP-M1-STUDIO (jen legacy HTTP fallback pro odeslání chatu)
 - **rail:** R1, R2, R4
 - **vzniklo při:** B4 fail-closed HTTP response checkpoint
@@ -91,3 +91,46 @@ Plná transportní parita se vrátí jako varianta C v M2 teprve nad jednotnou
 `EffectRequest/ApprovalGrant` autoritou. Varianta B se neimplementuje jako
 mezivrstva: bezpečný read-only endpoint by kvůli přímým a generic efektům už
 vyžadoval podstatnou část stejného M2 brokeru.
+
+## Implementační uzavření pro M1 — 2026-08-09
+
+Všechny tři autoritativní Studio send větve nyní používají jediný
+`_chatTryWsSend()` šev. Nedostupný WebSocket, `sendChat() === false` i
+synchronní výjimka končí lokálním `NOT_SENT`/retryable stavem. Send slice
+neobsahuje `fetch()` ani přímý `POST /chat`; nevzniká assistant zpráva,
+context poll ani automatické opakování. Normální draft a attachments, editovaná
+timeline i gap volba zůstávají vratné. Funkční banner je záměrně minimální,
+protože dnešní Studio UI není finální produktová plocha.
+
+První send navíc používá lokální `prepare → socket queue → publish`
+commit point pro conversation identity. Nové ID se do session ani event busu
+nezapíše, pokud frame nebyl lokálně zařazen. Tím nevzniká phantom identita,
+kterou by pozdější rehydrate mohl vyhodnotit jako neexistující a smazat spolu
+s `NOT_SENT` timeline.
+
+Behaviorální sada vyhodnocuje skutečné funkce z commitnutého `lib` runtime:
+
+- tři transportní failure režimy na normálním i editovaném sendu;
+- `FILE_WRITE`, `SHELL` a generic-tool vstupy na obou promptových větvích;
+- obě skutečné gap volby, které z principu nepřijímají libovolný prompt;
+- nulový HTTP request a nulové simulované downstream provider/filesystem/
+  shell/tool efekty pro každý fallback pokus;
+- přesné zachování raw draftu, novějšího souběžného draftu a attachmentu;
+- init/reset `NOT_SENT` stavu a pozitivní kontrolu jednoho WS enqueue bez
+  nepravdivého server-ACK claimu;
+- ready-to-closed a synchronní-throw identity race na skutečném WS klientovi.
+
+M1 důkaz nezakazuje bezpečné lokální uložení draftu. „Filesystem efekt = 0“
+zde znamená backendový efekt vyvolaný legacy fallbackem; renderer smí přečíst
+uživatelem zvolený attachment před zjištěním stavu transportu.
+
+### Zbývající hranice mimo toto uzavření
+
+Manuální retry linkage, deduplikace opakovaných `NOT_SENT` bublin a durable
+recovery po restartu nejsou v 011 definované. Async attachment callback také
+zatím nemá turn/session epoch; reset nebo zavření session během čtení souboru
+může nechat starý callback zasáhnout novější stav. Tento samostatný B4 finding
+se nesmí vydávat za vyřešený tímto HTTP-authority checkpointem.
+
+Celý B4 zůstává `BLOCKED`: chybí 010/A+, 014/A, 012/B, built journey,
+fresh-clone parity a bounded renderer soak. M2 varianta C zůstává otevřená.

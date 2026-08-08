@@ -165,6 +165,136 @@ function session(conversationId = null) {
   };
 }
 
+function panelSendHarness({ FileReaderClass = null, mode = 'unavailable', input = '' } = {}) {
+  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
+  const start = source.indexOf('var _TEXT_EXTS=');
+  const end = source.indexOf('function _chatPaneUI', start);
+  assert.ok(start >= 0 && end > start, 'authoritative panel send slice is missing');
+
+  const textarea = {
+    scrollHeight: 37,
+    style: { height: '22px' },
+    value: input,
+  };
+  const counters = {
+    fetch: 0,
+    filesystem: 0,
+    provider: 0,
+    render: 0,
+    scroll: 0,
+    shell: 0,
+    timers: [],
+    tool: 0,
+    wsSend: [],
+  };
+  const pane = {
+    _agentId: null,
+    _convId: 'studio-send-test',
+    _focusFiles: [],
+    _projectId: null,
+    chat: {
+      _delivery: null,
+      _pendingAttachments: null,
+      _thinking: null,
+      acSuggestion: null,
+      attachments: [],
+      editMode: 'ask',
+      editingIdx: null,
+      editOriginalText: null,
+      expertise: 'Výchozí',
+      msgs: [],
+      specialist: null,
+    },
+  };
+
+  const context = vm.createContext({
+    C3WS: {
+      isReady: () => mode !== 'unavailable',
+      sendChat(content, selectedPane, index) {
+        counters.wsSend.push({
+          content,
+          index,
+          pendingAttachments: selectedPane.chat._pendingAttachments
+            ? JSON.parse(JSON.stringify(selectedPane.chat._pendingAttachments))
+            : null,
+          selectedPane,
+        });
+        if (mode === 'throw') throw new Error('synthetic transport failure');
+        return mode !== 'false';
+      },
+    },
+    Date,
+    FileReader: FileReaderClass || class UnexpectedFileReader {
+      constructor() {
+        throw new Error('binary attachment unexpectedly used FileReader');
+      }
+    },
+    Math,
+    _focusFileExists: () => false,
+    _persistSessionState() {},
+    _pollContext: () => { counters.provider++; },
+    _sessionActive: 0,
+    _sessions: [pane],
+    console,
+    document: {
+      getElementById(id) {
+        return id === 'c3-chat-ta-0' ? textarea : null;
+      },
+    },
+    fetch: async (_url, options = {}) => {
+      counters.fetch++;
+      /* Legacy /chat is effect-capable regardless of what the renderer predicts. */
+      counters.provider++;
+      counters.filesystem++;
+      counters.shell++;
+      counters.tool++;
+      return { ok: true, json: async () => ({ response: 'must not render' }) };
+    },
+    isFocusActive: () => false,
+    module: { exports: {} },
+    renderAgent() {},
+    renderChat: () => { counters.render++; },
+    setTimeout(callback, delay) {
+      counters.timers.push({ callback, delay });
+      return counters.timers.length;
+    },
+    window: { require: undefined },
+    _chatScrollPane: () => { counters.scroll++; },
+  });
+
+  vm.runInContext(
+    source.slice(start, end)
+      + '\nmodule.exports={_chatGapChoice,_chatSendPane,_chatTryWsSend};',
+    context,
+    { filename: `${CHAT_PANEL.pathname}#send-slice` },
+  );
+
+  return {
+    counters,
+    functions: context.module.exports,
+    pane,
+    textarea,
+  };
+}
+
+function assertNoFallbackEffects(harness, expectedAssistantCount = 0) {
+  assert.deepEqual(
+    {
+      fetch: harness.counters.fetch,
+      filesystem: harness.counters.filesystem,
+      provider: harness.counters.provider,
+      shell: harness.counters.shell,
+      tool: harness.counters.tool,
+    },
+    { fetch: 0, filesystem: 0, provider: 0, shell: 0, tool: 0 },
+  );
+  assert.equal(
+    harness.pane.chat.msgs.filter(message => message.role === 'assistant').length,
+    expectedAssistantCount,
+  );
+  assert.equal(harness.counters.timers.length, 0, 'NOT_SENT scheduled an automatic retry');
+}
+
 suite('M1 Studio client — conversation-scoped transport');
 
 test('first send assigns and publishes one stable conversation identity', () => {
@@ -196,6 +326,57 @@ test('first send assigns and publishes one stable conversation identity', () => 
   assert.equal(
     busEvents.filter(event => event.name === 'session:identity').length,
     1,
+  );
+});
+
+test('failed first send cannot publish a phantom identity or lose NOT_SENT state on reconnect', () => {
+  const pane = session();
+  pane.chat.msgs = [{ role: 'user', text: 'draft', tag: 'NOT_SENT' }];
+  const { busEvents, client, handshake, socket, sockets } = loadClient([pane]);
+
+  /* Preserve the readiness latch while reproducing the ready-to-closed race. */
+  socket.readyState = 3;
+  assert.equal(client.wsIsReady(), true);
+  assert.equal(client.wsSendChat('draft', pane, 0), false);
+  assert.equal(pane._convId, null);
+  assert.equal(
+    busEvents.filter(event => event.name === 'session:identity').length,
+    0,
+  );
+
+  client.wsConnect();
+  const reconnected = sockets[1];
+  handshake(reconnected);
+  assert.equal(
+    reconnected.sent.some(message => (
+      message.channel === 'control'
+      && message.data.action === 'rehydrate'
+    )),
+    false,
+  );
+  sendServerMessage(reconnected, {
+    channel: 'control',
+    data: { action: 'rehydrate_ack', validIds: [] },
+  });
+  assert.equal(pane._convId, null);
+  assert.equal(pane.chat.msgs[0].text, 'draft');
+  assert.equal(pane.chat.msgs[0].tag, 'NOT_SENT');
+  assert.equal(busEvents.some(event => event.name === 'session:invalid'), false);
+});
+
+test('synchronous WebSocket send failure leaves a fresh identity unpublished', () => {
+  const pane = session();
+  const { busEvents, client, socket } = loadClient([pane]);
+  socket.send = () => { throw new Error('synthetic socket send failure'); };
+
+  assert.throws(
+    () => client.wsSendChat('draft', pane, 0),
+    /synthetic socket send failure/,
+  );
+  assert.equal(pane._convId, null);
+  assert.equal(
+    busEvents.filter(event => event.name === 'session:identity').length,
+    0,
   );
 });
 
@@ -239,6 +420,286 @@ test('authoritative panel passes the selected session into cancel', () => {
   assert.match(cancelSource, /C3WS\.sendCancel\(s\)/);
   assert.match(source, /C3WS\.sendCancel\(_sessions\[_sessionActive\]\)/);
   assert.doesNotMatch(source, /C3WS\.sendCancel\(\s*\)/);
+});
+
+suite('M1 Studio client — fail-closed send authority');
+
+test('all three send call sites use one WebSocket-only seam and expose NOT_SENT', () => {
+  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
+  const start = source.indexOf('function _chatSendPane');
+  const end = source.indexOf('function _chatPaneUI', start);
+  assert.ok(start >= 0 && end > start);
+  const sendSource = source.slice(start, end);
+
+  assert.equal((sendSource.match(/_chatTryWsSend\(/g) || []).length, 3);
+  assert.doesNotMatch(sendSource, /fetch\s*\(/);
+  assert.doesNotMatch(sendSource, /C3WS\.(?:isReady|sendChat)/);
+  assert.match(source, /_chatGapChoice\(idx,'create',i\)/);
+  assert.match(source, /_chatGapChoice\(idx,'fallback',i\)/);
+  assert.match(source, /NOT_SENT · Zpráva nebyla odeslána/);
+});
+
+await testAsync('normal and edited sends fail closed for every transport failure and effect-capable prompt', async () => {
+  const failureModes = [
+    ['unavailable', 'WS_UNAVAILABLE', 0],
+    ['false', 'WS_SEND_REJECTED', 1],
+    ['throw', 'WS_SEND_FAILED', 1],
+  ];
+  const effectPrompts = [
+    'Vytvoř soubor /owned/m1.txt s obsahem test',
+    'Spusť příkaz touch /owned/m1-shell',
+    'Použij nástroj pro změnu projektu',
+  ];
+
+  for (const [mode, reason, expectedWsCalls] of failureModes) {
+    for (const prompt of effectPrompts) {
+      const normal = panelSendHarness({ mode, input: prompt });
+      const attachment = {
+        file: { path: '/owned/evidence.bin', size: 128 },
+        name: 'evidence.bin',
+        size: '1 KB',
+      };
+      normal.pane.chat.attachments.push(attachment);
+      normal.functions._chatSendPane(0);
+      await drainMicrotasks();
+
+      assert.equal(normal.counters.wsSend.length, expectedWsCalls);
+      assert.equal(normal.pane.chat._thinking, null);
+      assert.equal(normal.pane.chat._pendingAttachments, null);
+      assert.equal(normal.pane.chat._delivery.status, 'NOT_SENT');
+      assert.equal(normal.pane.chat._delivery.retryable, true);
+      assert.equal(normal.pane.chat._delivery.reason, reason);
+      assert.equal(normal.pane.chat.msgs.length, 1);
+      assert.equal(normal.pane.chat.msgs[0].role, 'user');
+      assert.equal(normal.pane.chat.msgs[0].tag, 'NOT_SENT');
+      assert.equal(normal.pane.chat.msgs[0].retryable, true);
+      assert.equal(normal.textarea.value, prompt);
+      assert.equal(normal.pane.chat.attachments.length, 1);
+      assert.equal(normal.pane.chat.attachments[0], attachment);
+      assertNoFallbackEffects(normal);
+
+      const edited = panelSendHarness({ mode, input: prompt });
+      const originalTimeline = [
+        { id: 'edit-user', role: 'user', text: 'původní dotaz' },
+        { id: 'edit-assistant', role: 'assistant', text: 'původní odpověď' },
+      ];
+      edited.pane.chat.msgs = originalTimeline.map(message => ({ ...message }));
+      edited.pane.chat.editingIdx = 0;
+      edited.pane.chat.editOriginalText = 'původní dotaz';
+      edited.functions._chatSendPane(0);
+      await drainMicrotasks();
+
+      assert.equal(edited.counters.wsSend.length, expectedWsCalls);
+      assert.equal(JSON.stringify(edited.pane.chat.msgs), JSON.stringify(originalTimeline));
+      assert.equal(edited.pane.chat.editingIdx, 0);
+      assert.equal(edited.pane.chat.editOriginalText, 'původní dotaz');
+      assert.equal(edited.textarea.value, prompt);
+      assert.equal(edited.pane.chat._thinking, null);
+      assert.equal(edited.pane.chat._delivery.status, 'NOT_SENT');
+      assert.equal(edited.pane.chat._delivery.reason, reason);
+      assertNoFallbackEffects(edited, 1);
+    }
+  }
+});
+
+await testAsync('gap choice failures re-enable the exact choice and never create a fallback effect', async () => {
+  const failureModes = [
+    ['unavailable', 'WS_UNAVAILABLE', 0],
+    ['false', 'WS_SEND_REJECTED', 1],
+    ['throw', 'WS_SEND_FAILED', 1],
+  ];
+
+  for (const [mode, reason, expectedWsCalls] of failureModes) {
+    for (const choice of ['create', 'fallback']) {
+      const harness = panelSendHarness({ mode });
+      harness.pane.chat.msgs = [{
+        _gapChoice: true,
+        _gapResolved: true,
+        role: 'assistant',
+        text: 'Vyberte další postup',
+      }];
+      harness.functions._chatGapChoice(0, choice, 0);
+      await drainMicrotasks();
+
+      assert.equal(harness.counters.wsSend.length, expectedWsCalls);
+      assert.equal(harness.pane.chat.msgs[0]._gapResolved, false);
+      assert.equal(harness.pane.chat.msgs.length, 2);
+      assert.equal(harness.pane.chat.msgs[1].role, 'user');
+      assert.equal(harness.pane.chat.msgs[1].tag, 'NOT_SENT');
+      assert.equal(harness.pane.chat.msgs[1].retryable, true);
+      assert.equal(harness.pane.chat._thinking, null);
+      assert.equal(harness.pane.chat._delivery.status, 'NOT_SENT');
+      assert.equal(harness.pane.chat._delivery.reason, reason);
+      assertNoFallbackEffects(harness, 1);
+    }
+  }
+});
+
+await testAsync('failed async attachment send preserves exact original and newer draft independently', async () => {
+  const readers = [];
+  class ControlledFileReader {
+    constructor() {
+      readers.push(this);
+    }
+    readAsText(file) {
+      this.file = file;
+    }
+  }
+  const rawDraft = '  původní text  \n';
+  const exact = panelSendHarness({ input: rawDraft, mode: 'unavailable' });
+  exact.functions._chatSendPane(0);
+  await drainMicrotasks();
+  assert.equal(exact.textarea.value, rawDraft);
+  assert.equal(exact.pane.chat._delivery.draft, rawDraft);
+  assertNoFallbackEffects(exact);
+
+  const harness = panelSendHarness({
+    FileReaderClass: ControlledFileReader,
+    input: rawDraft,
+    mode: 'unavailable',
+  });
+  const attachment = {
+    file: { path: '/owned/evidence.txt', size: 128 },
+    name: 'evidence.txt',
+    size: '1 KB',
+  };
+  harness.pane.chat.attachments.push(attachment);
+  harness.functions._chatSendPane(0);
+  assert.equal(readers.length, 1);
+  assert.equal(harness.counters.wsSend.length, 0);
+
+  harness.textarea.value = 'novější rozepsaná zpráva';
+  readers[0].result = 'attachment contents';
+  readers[0].onload();
+  await drainMicrotasks();
+
+  assert.equal(harness.textarea.value, 'novější rozepsaná zpráva');
+  assert.equal(harness.pane.chat._delivery.status, 'NOT_SENT');
+  assert.equal(harness.pane.chat._delivery.draft, rawDraft);
+  assert.equal(harness.pane.chat.msgs[0].tag, 'NOT_SENT');
+  assert.equal(harness.pane.chat.attachments.length, 1);
+  assert.equal(harness.pane.chat.attachments[0], attachment);
+  assertNoFallbackEffects(harness);
+});
+
+test('new and closed sessions cannot inherit a prior NOT_SENT banner', () => {
+  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
+  const context = vm.createContext({ Date, module: { exports: {} } });
+  const mkStart = source.indexOf('function _mkSession');
+  const mkEnd = source.indexOf('var _sessions=', mkStart);
+  const resetStart = source.indexOf('function _resetSessionToClean');
+  const resetEnd = source.indexOf('function _newChatInProject', resetStart);
+  assert.ok(mkStart >= 0 && mkEnd > mkStart && resetStart >= 0 && resetEnd > resetStart);
+  vm.runInContext(
+    source.slice(mkStart, mkEnd)
+      + source.slice(resetStart, resetEnd)
+      + '\nmodule.exports={_mkSession,_resetSessionToClean};',
+    context,
+  );
+  const clean = context.module.exports._mkSession();
+  assert.equal(clean.chat._delivery, null);
+  clean.chat._delivery = { status: 'NOT_SENT' };
+  context.module.exports._resetSessionToClean(clean);
+  assert.equal(clean.chat._delivery, null);
+
+  const newActionStart = source.indexOf('function _newChatDialogAction');
+  const newActionEnd = source.indexOf('/* v70: Close-pane', newActionStart);
+  const closeStart = source.indexOf('function _closeDialogAction');
+  const closeEnd = source.indexOf('var _chatContainer', closeStart);
+  assert.ok(newActionStart >= 0 && newActionEnd > newActionStart);
+  assert.ok(closeStart >= 0 && closeEnd > closeStart);
+  assert.equal(
+    (source.slice(newActionStart, newActionEnd).match(/chat\._delivery=null/g) || []).length,
+    2,
+  );
+  assert.equal(
+    (source.slice(closeStart, closeEnd).match(/chat\._delivery=null/g) || []).length,
+    2,
+  );
+});
+
+test('ready WebSocket queues each call site once without claiming server acknowledgement', () => {
+  const seam = panelSendHarness({ mode: 'ready' });
+  const seamResult = seam.functions._chatTryWsSend('hello', seam.pane, 0);
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(seamResult)),
+    {
+      reason: null,
+      retryable: false,
+      serverAcknowledged: false,
+      status: 'QUEUED_WS',
+    },
+  );
+
+  const normal = panelSendHarness({ mode: 'ready', input: 'hello' });
+  normal.pane.chat.attachments.push({
+    file: { path: '/owned/evidence.bin', size: 128 },
+    name: 'evidence.bin',
+    size: '1 KB',
+  });
+  normal.functions._chatSendPane(0);
+  assert.equal(normal.counters.wsSend.length, 1);
+  assert.equal(normal.counters.wsSend[0].content, 'hello\n📎 evidence.bin');
+  assert.equal(normal.counters.wsSend[0].index, 0);
+  assert.equal(normal.counters.wsSend[0].selectedPane, normal.pane);
+  assert.deepEqual(normal.counters.wsSend[0].pendingAttachments, [{
+    content: null,
+    name: 'evidence.bin',
+    path: '/owned/evidence.bin',
+    size: '1 KB',
+    type: 'binary',
+  }]);
+  assert.equal(normal.counters.fetch, 0);
+  assert.equal(normal.textarea.value, '');
+  assert.equal(normal.pane.chat.attachments.length, 0);
+  assert.equal(normal.pane.chat._pendingAttachments, null);
+  assert.equal(normal.pane.chat._delivery, null);
+  assert.equal(normal.pane.chat._thinking.text, 'Zpracovávám...');
+  assert.deepEqual(normal.counters.timers.map(timer => timer.delay), [2000]);
+
+  const edited = panelSendHarness({ mode: 'ready', input: 'nová větev' });
+  edited.pane.chat.msgs = [
+    {
+      deliveryStatus: 'NOT_SENT',
+      retryable: true,
+      role: 'user',
+      tag: 'NOT_SENT',
+      text: 'stará větev',
+    },
+    { role: 'assistant', text: 'stará odpověď' },
+  ];
+  edited.pane.chat.editingIdx = 0;
+  edited.functions._chatSendPane(0);
+  assert.equal(edited.counters.wsSend.length, 1);
+  assert.equal(edited.counters.wsSend[0].content, 'nová větev');
+  assert.equal(edited.counters.wsSend[0].index, 0);
+  assert.equal(edited.counters.wsSend[0].selectedPane, edited.pane);
+  assert.equal(edited.counters.fetch, 0);
+  assert.equal(edited.pane.chat.msgs.length, 1);
+  assert.equal(edited.pane.chat.msgs[0].text, 'nová větev');
+  assert.equal(edited.pane.chat.msgs[0].tag, undefined);
+  assert.equal(edited.pane.chat.msgs[0].deliveryStatus, undefined);
+  assert.equal(edited.pane.chat.msgs[0].retryable, undefined);
+  assert.equal(edited.pane.chat.editingIdx, null);
+  assert.deepEqual(edited.counters.timers.map(timer => timer.delay), [2000]);
+
+  const gap = panelSendHarness({ mode: 'ready' });
+  gap.pane.chat.msgs = [{
+    _gapChoice: true,
+    _gapResolved: true,
+    role: 'assistant',
+    text: 'Vyberte další postup',
+  }];
+  gap.functions._chatGapChoice(0, 'create', 0);
+  assert.equal(gap.counters.wsSend.length, 1);
+  assert.equal(gap.counters.wsSend[0].content, 'Vytvoř expertízu');
+  assert.equal(gap.counters.wsSend[0].index, 0);
+  assert.equal(gap.counters.wsSend[0].selectedPane, gap.pane);
+  assert.equal(gap.counters.fetch, 0);
+  assert.equal(gap.pane.chat.msgs[0]._gapResolved, true);
+  assert.equal(gap.pane.chat.msgs[1].text, 'Vytvoř expertízu');
+  assert.equal(gap.pane.chat._delivery, null);
+  assert.equal(gap.counters.timers.length, 0);
 });
 
 suite('M1 Studio client — acknowledged race-safe rehydrate');
