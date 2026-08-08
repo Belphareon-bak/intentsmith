@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 373
+- Runnable programs: 374
 - Explicit support-module exclusions: 8
-- Profiles: offline=184, database=33, server=37, model=85, soak=19, manual=15
-- States: ACTIVE=276, HISTORICAL=15, BLOCKED=82
+- Profiles: offline=185, database=33, server=37, model=85, soak=19, manual=15
+- States: ACTIVE=277, HISTORICAL=15, BLOCKED=82
 
 ## Execution profiles
 
@@ -304,6 +304,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-MODEL-UPGRADE-PHASE2-TEST` | `tests/model-upgrade-phase2.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODEL-UPGRADE-PHASE3-TEST` | `tests/model-upgrade-phase3.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODEL-UPGRADE-TEST` | `tests/model-upgrade.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-MODULE-BOUNDARY-RATCHET-TEST` | `tests/module-boundary-ratchet.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M1-BOUNDARY-RATCHET |
 | `IS-T1-TESTS-MODULES-TEST` | `tests/modules.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-MULTI-SOURCE-EXTERNAL-TEST` | `tests/multi-source-external.test.js` | `C3-015` | T3 | `model` | 30 s | 2 min | network:external | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MULTI-SOURCE-INTEGRATION-TEST` | `tests/multi-source-integration.test.js` | `C3-015` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
