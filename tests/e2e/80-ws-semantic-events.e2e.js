@@ -71,19 +71,25 @@ function assertExactControl(message, action) {
 }
 
 async function awaitControlBarrier(client, token) {
+  const rehydrateRequestId = `rehydrate-barrier-${token}`;
   client.send({
     channel: 'control',
     data: {
       action: 'rehydrate',
+      rehydrateRequestId,
       conversationIds: [token],
     },
   });
   const acknowledgement = await client.waitForMessage(
     message => message.channel === 'control'
       && message.data?.action === 'rehydrate_ack'
+      && message.data?.rehydrateRequestId === rehydrateRequestId
+      && message.data?.complete === true
       && Array.isArray(message.data?.validIds)
       && message.data.validIds.length === 1
-      && message.data.validIds[0] === token,
+      && message.data.validIds[0] === token
+      && Array.isArray(message.data?.invalidIds)
+      && message.data.invalidIds.length === 0,
     10_000,
   );
   assertEqual(
@@ -92,7 +98,10 @@ async function awaitControlBarrier(client, token) {
       channel: 'control',
       data: {
         action: 'rehydrate_ack',
+        rehydrateRequestId,
+        complete: true,
         validIds: [token],
+        invalidIds: [],
       },
     }),
     `control barrier ${token} must return an exact correlated acknowledgement`,
@@ -450,14 +459,20 @@ await testAsync('a passive client receives none of another session turn', async 
           channel: 'control',
           data: {
             action: 'rehydrate_ack',
+            rehydrateRequestId: `rehydrate-barrier-${activeBarrierBeforePassive}`,
+            complete: true,
             validIds: [activeBarrierBeforePassive],
+            invalidIds: [],
           },
         },
         {
           channel: 'control',
           data: {
             action: 'rehydrate_ack',
+            rehydrateRequestId: `rehydrate-barrier-${activeBarrierAfterPassive}`,
+            complete: true,
             validIds: [activeBarrierAfterPassive],
+            invalidIds: [],
           },
         },
       ]),
@@ -471,7 +486,10 @@ await testAsync('a passive client receives none of another session turn', async 
           channel: 'control',
           data: {
             action: 'rehydrate_ack',
+            rehydrateRequestId: `rehydrate-barrier-${passiveBarrier}`,
+            complete: true,
             validIds: [passiveBarrier],
+            invalidIds: [],
           },
         },
       ]),

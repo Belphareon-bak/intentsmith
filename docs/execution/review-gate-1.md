@@ -6,7 +6,9 @@
 offline connector vrstvu, ale skutečný referenční GPU pilot je červený. B4 má
 reviewované stable-ID/scoped-cancel a reconnect guardy; z rehydrate checkpointu
 jsou použitelné pouze epoch/race/snapshot ochrany, zatímco identity authority
-je BLOCKED. 011/A HTTP fallback authority je od `2ead4662` focused PASS; B4
+je nadále BLOCKED: serverová polovina 014/A je focused opravená, klient a
+společný live wire důkaz ještě ne. 011/A HTTP fallback authority je od
+`2ead4662` focused PASS; B4
 stále nemůže pravdivě splnit přesný terminal consumer ani atomickou
 empty-history obnovu bez implementace ostatních potvrzených rozhodnutí. Operátor
 2026-08-08 uzavřel celou
@@ -33,7 +35,7 @@ nepatří a netvoří celý M1 exit.
 | B1 `WP-M1-CONTRACT` | COMPLETE, rozhodnutí potvrzena | provisional v1 pro Conversation, Model a CoreEvent; fail-closed validátory JS/TS | produkční partial-tool persistence se netvrdí; `persistPartialToolResults` zatím nemá konzumenta |
 | B2 `WP-M1-CHAT` | PASS, operátorsky potvrzený směr | persist-before-response, conversation isolation, exact HTTP adapter, scoped cancel, process-restart persistence | globální HTTP/WS mutex je finding 005, ne skrytý claim |
 | B3 `WP-M1-MODEL` | BLOCKED | exact fake-provider connector, auth/purpose/model binding, VRAM preflight, sanitizované terminal outcomes | implementovat 006/D+ po oddělených milnících; zavést společný profil 009 a provést nový skutečný T3 běh od 4096 |
-| B4 `WP-M1-STUDIO` | PARTIAL / BLOCKED | stable ID, scoped cancel, rehydrate epoch/race/snapshot guardy, bounded reconnect a 011/A WS-only `NOT_SENT` | identity cleanup/ACK autorita je BLOCKED; implementovat 010/A+, 012/B a 014/A, potom skutečnou B4 journey, fresh-clone parity a bounded soak |
+| B4 `WP-M1-STUDIO` | PARTIAL / BLOCKED | stable ID, scoped cancel, rehydrate epoch/race/snapshot guardy, bounded reconnect, 011/A WS-only `NOT_SENT` a serverová autorita 014/A | dokončit 014 klienta, 012/B, 010/A+ a společný DB-backed/built journey, potom fresh-clone parity a bounded soak |
 
 Autoritativní podrobnosti jsou v:
 

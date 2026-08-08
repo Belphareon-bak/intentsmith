@@ -1,4 +1,4 @@
-import './helpers/isolated-test-db.js';
+import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 
 // C3 WS Bridge — Tests for B1-B3 (DEV B)
 // ══════════════════════════════════════════════════════════════════════════════
@@ -15,6 +15,8 @@ import './helpers/isolated-test-db.js';
 
 import { strict as assert } from 'assert';
 import { createServer } from 'node:http';
+import path from 'node:path';
+import Database from 'better-sqlite3';
 
 // ─── Imports ─────────────────────────────────────────────────────────────────
 
@@ -1521,9 +1523,27 @@ test('T25: createSessionAdapter is exported and functional', () => {
 
 await asyncTest('T25f: rehydrate ack is durable-only and store failure closes without partial ack', async () => {
   const { WebSocket } = await import('ws');
+  const sqlite = new Database(path.join(
+    isolatedTestRuntime.runtime,
+    'ws-rehydrate-authority.sqlite',
+  ));
+  sqlite.exec(`
+    CREATE TABLE conversations (
+      id TEXT PRIMARY KEY,
+      title TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  sqlite.prepare('INSERT INTO conversations (id) VALUES (?)')
+    .run('rehydrate-existing-A');
   resetConversationStore();
-  const store = getConversationStore(null);
-  store.ensureConversation('rehydrate-existing-A');
+  const store = getConversationStore({
+    db: sqlite,
+    conversations: {
+      findById: sqlite.prepare('SELECT * FROM conversations WHERE id = ?'),
+    },
+  });
+  assert.equal(store.isDurableReady(), true);
 
   const capability = createLegacyLocalCapability();
   const httpServer = createServer((_request, response) => {
@@ -1542,42 +1562,93 @@ await asyncTest('T25f: rehydrate ack is durable-only and store failure closes wi
     );
     const port = await listenOnOwnedLoopback(httpServer);
     client = await connectAndHello(WebSocket, `ws://127.0.0.1:${port}/c3/ws`);
-    const ackPromise = new Promise((resolve, reject) => {
+    const waitForControl = (targetClient, action) => new Promise((resolve, reject) => {
       const timer = setTimeout(
-        () => reject(new Error('Timed out waiting for rehydrate_ack')),
+        () => reject(new Error(`Timed out waiting for ${action}`)),
         2_000,
       );
       const onMessage = raw => {
         const message = JSON.parse(raw.toString());
-        if (message.channel !== 'control' || message.data?.action !== 'rehydrate_ack') return;
+        if (message.channel !== 'control' || message.data?.action !== action) return;
         clearTimeout(timer);
-        client.off('message', onMessage);
+        targetClient.off('message', onMessage);
         resolve(message.data);
       };
-      client.on('message', onMessage);
+      targetClient.on('message', onMessage);
     });
+    const ackPromise = waitForControl(client, 'rehydrate_ack');
     client.send(JSON.stringify({
       channel: 'control',
       data: {
         action: 'rehydrate',
+        rehydrateRequestId: 'rehydrate-wire-ack-1',
         conversationIds: [
           'rehydrate-existing-A',
           'rehydrate-missing-B',
-          'rehydrate-existing-A',
-          'invalid id',
         ],
       },
     }));
     assert.deepEqual(await ackPromise, {
       action: 'rehydrate_ack',
+      rehydrateRequestId: 'rehydrate-wire-ack-1',
+      complete: true,
       validIds: ['rehydrate-existing-A'],
+      invalidIds: ['rehydrate-missing-B'],
     });
 
-    let unexpectedAck = false;
+    const originalExists = store.exists.bind(store);
+    let lookupCount = 0;
+    store.exists = conversationId => {
+      lookupCount++;
+      return originalExists(conversationId);
+    };
+    const rejectPromise = waitForControl(client, 'rehydrate_reject');
+    client.send(JSON.stringify({
+      channel: 'control',
+      data: {
+        action: 'rehydrate',
+        rehydrateRequestId: 'rehydrate-wire-reject-1',
+        conversationIds: Array.from(
+          { length: 33 },
+          (_, index) => `rehydrate-over-limit-${index}`,
+        ),
+      },
+    }));
+    assert.deepEqual(await rejectPromise, {
+      action: 'rehydrate_reject',
+      rehydrateRequestId: 'rehydrate-wire-reject-1',
+      reason: 'TOO_MANY_CONVERSATIONS',
+    });
+    assert.equal(lookupCount, 0);
+
+    const malformedClose = new Promise(resolve => {
+      client.once('close', (code, reason) => resolve({ code, reason: reason.toString() }));
+    });
+    client.send(JSON.stringify({
+      channel: 'control',
+      data: {
+        action: 'rehydrate',
+        rehydrateRequestId: 'invalid request id',
+        conversationIds: ['rehydrate-existing-A'],
+      },
+    }));
+    assert.deepEqual(await malformedClose, {
+      code: 1008,
+      reason: 'Invalid rehydrate request id',
+    });
+
+    client = await connectAndHello(WebSocket, `ws://127.0.0.1:${port}/c3/ws`);
+    let unexpectedIdentityResponse = false;
     const onMessage = raw => {
       const message = JSON.parse(raw.toString());
-      if (message.channel === 'control' && message.data?.action === 'rehydrate_ack') {
-        unexpectedAck = true;
+      if (
+        message.channel === 'control'
+        && (
+          message.data?.action === 'rehydrate_ack'
+          || message.data?.action === 'rehydrate_reject'
+        )
+      ) {
+        unexpectedIdentityResponse = true;
       }
     };
     client.on('message', onMessage);
@@ -1589,6 +1660,7 @@ await asyncTest('T25f: rehydrate ack is durable-only and store failure closes wi
       channel: 'control',
       data: {
         action: 'rehydrate',
+        rehydrateRequestId: 'rehydrate-wire-unavailable-1',
         conversationIds: ['rehydrate-existing-A'],
       },
     }));
@@ -1597,7 +1669,26 @@ await asyncTest('T25f: rehydrate ack is durable-only and store failure closes wi
       reason: 'Rehydrate validation unavailable',
     });
     client.off('message', onMessage);
-    assert.equal(unexpectedAck, false);
+    assert.equal(unexpectedIdentityResponse, false);
+
+    resetConversationStore();
+    getConversationStore(null);
+    client = await connectAndHello(WebSocket, `ws://127.0.0.1:${port}/c3/ws`);
+    const memoryClosePromise = new Promise(resolve => {
+      client.once('close', (code, reason) => resolve({ code, reason: reason.toString() }));
+    });
+    client.send(JSON.stringify({
+      channel: 'control',
+      data: {
+        action: 'rehydrate',
+        rehydrateRequestId: 'rehydrate-wire-memory-1',
+        conversationIds: ['rehydrate-existing-A'],
+      },
+    }));
+    assert.deepEqual(await memoryClosePromise, {
+      code: 1011,
+      reason: 'Rehydrate validation unavailable',
+    });
   } finally {
     if (client) await closeOwnedWebSocket(client);
     if (wss && httpServer.listening) {
@@ -1606,43 +1697,142 @@ await asyncTest('T25f: rehydrate ack is durable-only and store failure closes wi
       wss.close();
     }
     resetConversationStore();
+    sqlite.close();
+    assert.equal(store.isDurableReady(), false);
   }
 });
 
-test('T25g: rehydrate validation is bounded and store failures fail closed', () => {
+test('T25g: rehydrate validation rejects malformed sets before durable lookup', () => {
   const candidates = Array.from(
-    { length: 40 },
+    { length: 32 },
     (_, index) => `rehydrate-bounded-${index}`,
   );
   let lookupCount = 0;
+  const durableStore = {
+    isDurableReady() { return true; },
+    exists(candidate) {
+      lookupCount++;
+      return Number(candidate.split('-').at(-1)) % 2 === 0;
+    },
+  };
   const accepted = wsBridgeTestInternals.validateRehydrateConversationIds(
     candidates,
-    {
-      exists() {
-        lookupCount++;
-        return true;
-      },
-    },
+    durableStore,
   );
   assert.equal(lookupCount, 32);
   assert.deepEqual(accepted, {
-    validIds: candidates.slice(0, 32),
-    validationFailed: false,
+    status: 'ack',
+    complete: true,
+    validIds: candidates.filter((_, index) => index % 2 === 0),
+    invalidIds: candidates.filter((_, index) => index % 2 === 1),
   });
+
+  lookupCount = 0;
   assert.deepEqual(
     wsBridgeTestInternals.validateRehydrateConversationIds(
-      ['rehydrate-store-error'],
-      { exists() { throw new Error('private-store-failure'); } },
+      [...candidates, 'rehydrate-over-limit-32'],
+      durableStore,
     ),
-    { validIds: [], validationFailed: true },
+    { status: 'reject', reason: 'TOO_MANY_CONVERSATIONS' },
   );
+  assert.equal(lookupCount, 0);
+  lookupCount = 0;
   assert.deepEqual(
     wsBridgeTestInternals.validateRehydrateConversationIds(
-      { conversationIds: ['not-an-array'] },
+      Array.from({ length: 40 }, (_, index) => `rehydrate-forty-${index}`),
+      durableStore,
+    ),
+    { status: 'reject', reason: 'TOO_MANY_CONVERSATIONS' },
+  );
+  assert.equal(lookupCount, 0);
+
+  for (const [candidateIds, reason] of [
+    [[candidates[0], candidates[0]], 'DUPLICATE_CONVERSATION_ID'],
+    [['invalid id'], 'INVALID_CONVERSATION_ID'],
+    [{ conversationIds: ['not-an-array'] }, 'INVALID_CONVERSATION_SET'],
+  ]) {
+    lookupCount = 0;
+    assert.deepEqual(
+      wsBridgeTestInternals.validateRehydrateConversationIds(candidateIds, durableStore),
+      { status: 'reject', reason },
+    );
+    assert.equal(lookupCount, 0);
+  }
+
+  let partialLookupCount = 0;
+  assert.deepEqual(
+    wsBridgeTestInternals.validateRehydrateConversationIds(
+      [
+        'rehydrate-valid-before-error',
+        'rehydrate-invalid-before-error',
+        'rehydrate-store-error',
+      ],
+      {
+        isDurableReady() { return true; },
+        exists(candidate) {
+          partialLookupCount++;
+          if (candidate === 'rehydrate-valid-before-error') return true;
+          if (candidate === 'rehydrate-invalid-before-error') return false;
+          throw new Error('private-store-failure');
+        },
+      },
+    ),
+    { status: 'unavailable' },
+  );
+  assert.equal(partialLookupCount, 3);
+  for (const nonBooleanResult of ['yes', Promise.resolve(true)]) {
+    assert.deepEqual(
+      wsBridgeTestInternals.validateRehydrateConversationIds(
+        ['rehydrate-non-boolean-authority'],
+        {
+          isDurableReady() { return true; },
+          exists() { return nonBooleanResult; },
+        },
+      ),
+      { status: 'unavailable' },
+    );
+  }
+  assert.deepEqual(
+    wsBridgeTestInternals.validateRehydrateConversationIds(
+      ['rehydrate-no-authority'],
       { exists() { return true; } },
     ),
-    { validIds: [], validationFailed: false },
+    { status: 'unavailable' },
   );
+  assert.deepEqual(
+    wsBridgeTestInternals.validateRehydrateConversationIds(
+      ['rehydrate-missing-exists'],
+      { isDurableReady() { return true; } },
+    ),
+    { status: 'unavailable' },
+  );
+  const memoryStore = new ConversationStore(null);
+  memoryStore.ensureConversation('rehydrate-memory-only');
+  assert.equal(memoryStore.isDurableReady(), false);
+  assert.deepEqual(
+    wsBridgeTestInternals.validateRehydrateConversationIds(
+      ['rehydrate-memory-only'],
+      memoryStore,
+    ),
+    { status: 'unavailable' },
+  );
+  const sqliteMemory = new Database(':memory:');
+  sqliteMemory.exec('CREATE TABLE conversations (id TEXT PRIMARY KEY)');
+  const sqliteMemoryStore = new ConversationStore({
+    db: sqliteMemory,
+    conversations: {
+      findById: sqliteMemory.prepare('SELECT * FROM conversations WHERE id = ?'),
+    },
+  });
+  assert.equal(sqliteMemoryStore.isDurableReady(), false);
+  assert.deepEqual(
+    wsBridgeTestInternals.validateRehydrateConversationIds(
+      ['rehydrate-sqlite-memory'],
+      sqliteMemoryStore,
+    ),
+    { status: 'unavailable' },
+  );
+  sqliteMemory.close();
 });
 
 {

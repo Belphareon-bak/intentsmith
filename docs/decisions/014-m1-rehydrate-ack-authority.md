@@ -1,7 +1,8 @@
 # 014 — Rehydrate ACK musí autoritativně pokrýt celý požadovaný set
 
 - **typ:** BLOCK
-- **stav rozhodnutí:** A SCHVÁLENO; IMPLEMENTACE A LIVE WIRE DŮKAZ OTEVŘENÉ
+- **stav rozhodnutí:** A SCHVÁLENO; SERVEROVÝ CHECKPOINT IMPLEMENTOVÁN;
+  KLIENT, 012 A SPOLEČNÝ LIVE WIRE DŮKAZ OTEVŘENÉ
 - **WP:** WP-M1-STUDIO
 - **rail:** R1, R3, R5, R6
 - **vzniklo při:** read-only review serverového limitu a klientského cleanupu
@@ -108,8 +109,33 @@ implementací a skutečného wire důkazu `BLOCKED`.
 
 ### Implementační pořadí
 
-1. server 014: bounded request, request ID, reject/úplný partition a durable-store guard;
+1. server 014: bounded request, request ID, reject/úplný partition a durable-store guard — **implementováno v serverovém checkpointu**;
 2. klient 014: přesný partition, reject, stale/foreign ochrany a bezpečný restore;
 3. route 012: existence a messages v jednom SQLite snapshotu/transakci;
 4. klient 012: autoritativní prázdná historie, zatímco `404` pouze degraduje;
 5. společný DB-backed live wire test.
+
+### Stav serverového checkpointu
+
+Server přijme pouze syntakticky platný `rehydrateRequestId`. Neplatný request
+ID zavře právě tento socket kódem `1008`, protože server nesmí echoovat
+neomezenou nekorelovatelnou hodnotu. Platný request ID a vadný conversation set
+vrací typovaný request-bound reject. Délka nad 32, duplicita, malformed ID i
+ne-array vstup končí před prvním DB lookupem.
+
+Autoritativní ACK vznikne pouze z explicitně durable, otevřeného a file-backed
+SQLite `ConversationStore`. `exists()` musí pro každou položku vrátit přesně
+boolean; Promise, string, chybějící metoda, in-memory store, zavřená DB nebo
+výjimka vrací unavailable a socket `1011`, nikdy partial ACK. Úspěšný ACK nese
+úplný ordered partition `validIds/invalidIds` a přesně opakuje request ID.
+
+Focused wire test používá skutečný file-backed SQLite store. Samostatně pinuje
+1008 pro malformed request ID, 1011 bez ACK/reject pro transientní DB chybu a
+in-memory store a nulový lookup pro over-limit reject. Klientská autorita,
+localStorage clamp, 012 route a společný built/live journey tím nejsou hotové;
+Gate 1 zůstává `BLOCKED`.
+
+Mezi serverovým a klientským commitem je starý klient záměrně fail-closed:
+neposílá request ID a server jeho rehydrate socket zavře `1008`. Tento
+mezistav není přijatelný produktový checkpoint a musí bez prodlevy následovat
+klientská polovina před jakoukoli built journey nebo integračním přijetím.

@@ -1122,9 +1122,12 @@ mohou pokračovat.
    zůstávají otevřené a failover se dosud neaktivuje. Proof issuance
    čeká na prahy a TTL z rozhodnutí 015; nový skutečný GPU běh zůstává
    samostatnou blokovanou evidencí, dokud není legitimně čistý checkout.
-7. B4 pokračuje 010/A+ a 011/A, potom v pořadí 014 server → 014 klient → 012
-   route → 012 klient → společný DB-backed wire test. Read-only review může
-   běžet souběžně; GPU běhy nikdy.
+7. B4 má focused implementované 011/A a serverovou polovinu 014/A: bounded
+   request ID/set, úplný partition, typed reject a explicitní durable-store
+   autoritu. Pokračuje 014 klient → 012 route → 012 klient → společný DB-backed
+   live wire test. 010/A+ protocol delivery je samostatná otevřená dependency
+   před terminal ledgerem a built journey. Read-only review může běžet
+   souběžně; GPU běhy nikdy.
 8. Teprve po built M1 multi-panel/cancel/provider/reconnect journey, soak a
    přijetí B3+B4 otevřít B5 QUALITY a následnou B6 exit demonstraci.
 9. M2 effect authority a project-change journey se otevírají až po M1.

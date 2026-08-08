@@ -37,6 +37,17 @@ import {
 const WS_OPEN = 1;
 const DROP_LOG_INTERVAL = 10;
 const MAX_REHYDRATE_CONVERSATIONS = 32;
+const RehydrateValidationStatus = Object.freeze({
+  ACK: 'ack',
+  REJECT: 'reject',
+  UNAVAILABLE: 'unavailable',
+});
+const RehydrateRejectReason = Object.freeze({
+  INVALID_CONVERSATION_SET: 'INVALID_CONVERSATION_SET',
+  TOO_MANY_CONVERSATIONS: 'TOO_MANY_CONVERSATIONS',
+  INVALID_CONVERSATION_ID: 'INVALID_CONVERSATION_ID',
+  DUPLICATE_CONVERSATION_ID: 'DUPLICATE_CONVERSATION_ID',
+});
 const _wsStats = {
   droppedMessages: 0,
 };
@@ -89,30 +100,69 @@ function recordDroppedMessage(logger, meta = {}) {
 }
 
 function validateRehydrateConversationIds(candidateIds, store) {
-  if (!Array.isArray(candidateIds) || !store || typeof store.exists !== 'function') {
-    return { validIds: [], validationFailed: false };
+  if (!Array.isArray(candidateIds)) {
+    return {
+      status: RehydrateValidationStatus.REJECT,
+      reason: RehydrateRejectReason.INVALID_CONVERSATION_SET,
+    };
+  }
+  if (candidateIds.length > MAX_REHYDRATE_CONVERSATIONS) {
+    return {
+      status: RehydrateValidationStatus.REJECT,
+      reason: RehydrateRejectReason.TOO_MANY_CONVERSATIONS,
+    };
+  }
+
+  const seen = new Set();
+  for (const candidate of candidateIds) {
+    if (typeof candidate !== 'string' || !isIdentifier(candidate)) {
+      return {
+        status: RehydrateValidationStatus.REJECT,
+        reason: RehydrateRejectReason.INVALID_CONVERSATION_ID,
+      };
+    }
+    if (seen.has(candidate)) {
+      return {
+        status: RehydrateValidationStatus.REJECT,
+        reason: RehydrateRejectReason.DUPLICATE_CONVERSATION_ID,
+      };
+    }
+    seen.add(candidate);
+  }
+
+  try {
+    if (
+      !store
+      || typeof store.isDurableReady !== 'function'
+      || store.isDurableReady() !== true
+      || typeof store.exists !== 'function'
+    ) {
+      return { status: RehydrateValidationStatus.UNAVAILABLE };
+    }
+  } catch {
+    return { status: RehydrateValidationStatus.UNAVAILABLE };
   }
 
   const validIds = [];
-  const seen = new Set();
-  for (const candidate of candidateIds.slice(0, MAX_REHYDRATE_CONVERSATIONS)) {
-    if (
-      typeof candidate !== 'string'
-      || !isIdentifier(candidate)
-      || seen.has(candidate)
-    ) {
-      continue;
-    }
-    seen.add(candidate);
+  const invalidIds = [];
+  for (const candidate of candidateIds) {
     try {
-      if (store.exists(candidate)) validIds.push(candidate);
+      const exists = store.exists(candidate);
+      if (exists === true) validIds.push(candidate);
+      else if (exists === false) invalidIds.push(candidate);
+      else return { status: RehydrateValidationStatus.UNAVAILABLE };
     } catch {
       // Never publish a partial authoritative ACK: the client could erase a
       // locally cached conversation whose DB lookup only failed transiently.
-      return { validIds: [], validationFailed: true };
+      return { status: RehydrateValidationStatus.UNAVAILABLE };
     }
   }
-  return { validIds, validationFailed: false };
+  return {
+    status: RehydrateValidationStatus.ACK,
+    complete: true,
+    validIds,
+    invalidIds,
+  };
 }
 
 export function getWebSocketBridgeHealth() {
@@ -265,29 +315,55 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
 
         case 'control':
           if (msg.data?.action === 'rehydrate') {
-            // IDE reconnected — validate conversation IDs
-            const convIds = Array.isArray(msg.data.conversationIds)
-              ? msg.data.conversationIds
-              : [];
+            // IDE reconnected — validate the complete bounded identity set.
+            const rehydrateRequestId = msg.data.rehydrateRequestId;
+            if (!isIdentifier(rehydrateRequestId)) {
+              logger.warn('WSBridge', 'Rejected malformed rehydrate request id');
+              ws.close(1008, 'Invalid rehydrate request id');
+              return;
+            }
+            const convIds = msg.data.conversationIds;
             const validation = validateRehydrateConversationIds(
               convIds,
               getConversationStore(),
             );
-            if (validation.validationFailed) {
+            if (validation.status === RehydrateValidationStatus.UNAVAILABLE) {
               logger.warn('WSBridge', 'Rehydrate validation unavailable', {
-                examinedCount: Math.min(convIds.length, MAX_REHYDRATE_CONVERSATIONS),
+                requestedCount: Array.isArray(convIds) ? convIds.length : null,
               });
               ws.close(1011, 'Rehydrate validation unavailable');
               return;
             }
-            const { validIds } = validation;
+            if (validation.status === RehydrateValidationStatus.REJECT) {
+              logger.warn('WSBridge', 'Rejected malformed rehydrate identity set', {
+                reason: validation.reason,
+                requestedCount: Array.isArray(convIds) ? convIds.length : null,
+              });
+              safeSend(JSON.stringify({
+                channel: 'control',
+                data: {
+                  action: 'rehydrate_reject',
+                  rehydrateRequestId,
+                  reason: validation.reason,
+                },
+              }));
+              return;
+            }
+            const { validIds, invalidIds } = validation;
             logger.info('WSBridge', 'Rehydrate request validated', {
-              examinedCount: Math.min(convIds.length, MAX_REHYDRATE_CONVERSATIONS),
+              examinedCount: convIds.length,
               validCount: validIds.length,
+              invalidCount: invalidIds.length,
             });
             safeSend(JSON.stringify({
               channel: 'control',
-              data: { action: 'rehydrate_ack', validIds }
+              data: {
+                action: 'rehydrate_ack',
+                rehydrateRequestId,
+                complete: true,
+                validIds,
+                invalidIds,
+              },
             }));
           } else if (msg.data?.action === 'edit_approve' || msg.data?.action === 'edit_reject') {
             // Edit ACK from IDE
@@ -371,6 +447,8 @@ export function broadcast(channel, data) {
 export const _testInternals = {
   createLegacyWebSocketVerifyClient,
   recordDroppedMessage,
+  RehydrateRejectReason,
+  RehydrateValidationStatus,
   validateRehydrateConversationIds,
   resetBridgeState() {
     _wsStats.droppedMessages = 0;

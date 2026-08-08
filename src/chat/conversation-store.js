@@ -97,6 +97,29 @@ export class ConversationStore {
     }
   }
 
+  /**
+   * Whether this store can authoritatively answer durable identity queries.
+   *
+   * An in-memory store is useful for focused tests, but it must never be used
+   * to invalidate identities created by the durable SQLite runtime. Keep this
+   * as an explicit capability instead of inferring authority from exists().
+   *
+   * @returns {boolean}
+   */
+  isDurableReady() {
+    try {
+      const database = this.#db?.db;
+      return Boolean(
+        database
+        && database.open === true
+        && database.memory === false
+        && typeof this.#db?.conversations?.findById?.get === 'function'
+      );
+    } catch {
+      return false;
+    }
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Conversation CRUD
   // ─────────────────────────────────────────────────────────────────────────
