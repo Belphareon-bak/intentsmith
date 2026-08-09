@@ -135,7 +135,7 @@ logiku. Řeší se stabilním connectorem a boundary testem.
 | `ApprovalGrant` | approval service | effect broker, UI | exact payload, projekt/run, expiry, single use, revokace |
 | `ToolRequest/Result` | tool registry/executor | chat, skills, specialisté, agenti, MCP adaptéry | typované vstupy/výstupy, risk class, překlad na effect, timeout/cancel |
 | `ProjectContextQuery/Snapshot` | Code Intelligence | chat, skills, specialisté, agenti | project scope, revision a provenance |
-| `ExtensionManifest/Context` | core registration boundary; forma čeká na L0-8 rozhodnutí | skills, specialisté, agenti, MCP adaptéry | verze, capabilities, enable/disable lifecycle, žádný interní import |
+| `ExtensionManifest/Context` | core registration boundary; decision 019 přijalo strict injection | skills, specialisté, agenti, MCP adaptéry | M3 připne verzi, capabilities a enable/disable lifecycle; žádný interní import |
 | `LearningObservation/Proposal/Outcome` | learning layer | paměť, skills, Code Intelligence | scope, evidence, gate, outcome, rollback/forget |
 | `CoreEvent` | core runtime | Studio, notifikace, Remote port | typed progress/status/result bez přístupu do interních modulů |
 | `RemoteCorePort` | core 1.0 | budoucí companion gateway | projekty, konverzace, settings, stored information, approvals, notifications a events; capability negotiation bez legacy bypassu |
@@ -328,7 +328,7 @@ Přesné instalační/build příkazy, hashe, metodická omezení a screenshot/l
 | Offline boundary | `MEASURED` | Před M6 opravit release-policy sentinel a aktivovat pravdivý PDF toolchain set. |
 | Capability picture | `DRAFT_COMPLETE` | 22/22 je v `SYSTEM-MAP.md`; operátorské přijetí neznamená automaticky PASS jednotlivých schopností. |
 | Studio/Theia | `MEASURED` | Fresh clone na `7236d221` prošel instalací a buildem; po dvou zachovaných červených kalibračních bězích následovaly dva samostatné runtime `PASS` s nulovým egresssem, 65s live-ready soakem a čistým shutdownem. Source-level a owned-loopback M1 už pokrývá cancel i automatický reconnect, ale built negotiated Electron journey stále neproběhl; runner zůstává registry `BLOCKED`, dokud auditní orchestrátor nedodá build envelope. |
-| L0-8 specialist boundary | `CARRIED_BLOCKER` | Vlastník: integrační vlastník `WP-M3-BOUNDARY`. Termín: před jeho prvním zapisujícím commitem; do té doby platí zákaz nových interních importů specialistů. |
+| L0-8 specialist boundary | `DECIDED / IMPLEMENTATION_PENDING` | Decision 019 přijalo strict injection a samostatný checker. Pořadí: enforcement → injection → integrátorské utažení baseline; plný manifest/E2E zůstává `WP-M3-BOUNDARY`. Do integrace platí zákaz nových interních importů specialistů. |
 
 **WP-M0-E je diagnosticky dokončený takto:**
 
@@ -564,9 +564,10 @@ focused regression sady.
      transakčním merge. Detection scheduler jej už konzumuje, ale typed writer
      nemá produkčního volajícího a pět legacy mutation cest může stejný blob
      přepsat. [Rozhodnutí 020](docs/decisions/020-m1-model-failover-opt-in-surface.md)
-     je operátorsky přijaté jako 020/E; implementace oddělené revisioned
-     `model_automation_policy` autoritu a explicitní backup/import/reset
-     adaptéry. Před
+     je operátorsky přijaté jako 020/E (`ACCEPTED_E /
+     IMPLEMENTATION_PENDING`); implementace oddělené revisioned
+     `model_automation_policy` autority a explicitních backup/import/reset
+     adaptérů teprve následuje. Před
      aktivací je navíc nutný čerstvý role-suite proof svázaný s exaktním
      digestem; dnešní name-only score takovým důkazem není.
      **Druhý checkpoint je implementovaný:** migrace 046 vytváří oddělený
@@ -851,9 +852,10 @@ focused regression sady.
    ignorovaný/untracked, exportovat M1 a tracked strom zůstane čistý.
 7. **Stop:** build přepisuje/odstraňuje dnešní UX, potřebuje novou browser test
    závislost, mění connector nebo zatahuje effect/auto-exec scope. Akční
-   rollback po verification failure navíc čeká na
-   [022](docs/decisions/022-m1-studio-operation-bound-rollback.md): dnešní
-   role-only route neumí svázat kliknutí s operací, o které uživatel rozhoduje.
+   rollback po verification failure má přijatou variantu
+   [022/A](docs/decisions/022-m1-studio-operation-bound-rollback.md), ale její
+   implementace čeká: dnešní role-only route neumí svázat kliknutí s operací,
+   o které uživatel rozhoduje.
 8. **Ověření:** `node tests/ws-bridge.test.js`; **NOVÝ:**
    `node tests/m1-studio-client.test.js`; v čistém klonu frozen Yarn install,
    build a registrovaný Studio journey. Build neběží v dirty checkoutu.
@@ -962,9 +964,10 @@ dalším použití nevymýšlí znovu.
 
 ### Závislostní sekvence Work Packages
 
-1. Operátor rozhodne L0-8: strict dependency injection, nebo verzované veřejné
-   extension API.
-2. **WP-M3-BOUNDARY:** podle rozhodnutí připne `ExtensionManifest/Context`,
+1. **Předsunuté L0-8 rails:** podle decision 019 nejprve samostatný
+   `WP-M3-L0-8-ENFORCEMENT`, potom `WP-M3-L0-8-INJECTION` a integrační utažení
+   obou baseline. Tyto prerequisite WP nejsou M3 exit ani capability #8.
+2. **WP-M3-BOUNDARY:** připne verzovaný `ExtensionManifest/Context`,
    lifecycle a fail-closed import/registration boundary. Název ani kontrakt
    nepředjímá, že výsledkem musí být veřejné SDK.
 3. Proti této připnuté hranici mohou paralelně běžet:
@@ -996,7 +999,8 @@ dalším použití nevymýšlí znovu.
   approval a audit hranici.
 
 Současný přímý import specialisty do interního `src/**` není přijatelný konečný
-stav. Rozhodnutí v kroku 1 určí podobu hranice; roadmapa ji sama nerozhoduje.
+stav. Decision 019 určila strict injection; roadmapa dál odděluje předsunuté
+uzavření porušení od plné verzované M3 boundary a specialist E2E.
 
 ## 8. M4 — Auditovatelné self-learning
 
@@ -1196,20 +1200,25 @@ Aktivní WP se vejde do těchto osmi položek:
 1. uživatelský výsledek;
 2. povolené a zakázané cesty;
 3. vlastněný connector a jeho verze;
-4. vstupní revision a závislosti;
+4. source evidence revision, pojmenovaný `integration/<batch>` ref, skutečný
+   integrační base revision, závislosti a pořadí v merge queue; exact hodnoty
+   po aktivaci zapisuje unikátní run report, ne statický WP;
 5. malá demonstrace;
 6. focused pozitivní a negativní test;
 7. stop condition / eskalace;
-8. přesný ověřovací příkaz a výsledek.
+8. přesný ověřovací příkaz a očekávaný výsledek pro evidence DAG
+   `subject S -> report-only E_A -> reviewed candidate C -> report-only E_B`;
+   report pinuje `S` a `C`, nikdy SHA commitu, který jej právě zapisuje.
 
 Architektura dovoluje nejvýše tři logicky paralelní zapisující WP s disjunktními
 cestami a connectory. **Vlastnictví má dvě úrovně: projektově až tři zapisující
 WP, v jednom checkoutu vždy právě jeden zapisující vlastník.** Standardem
-zůstává jeden worktree; další vzniká pouze po explicitním schválení, na disku,
-po dobu skutečně souběžného WP a po integraci se odstraní. Sdílet checkout smějí
-jen prokazatelně filesystem-read-only běhy. Paralelně mohou běžet read-only
-trace, review a příprava testů bez zápisu. Jeden integrační vlastník skládá
-přírůstky po malých commitech a měřené dokumenty aktualizuje na merge SHA;
+zůstává jeden writer na worktree; každý souběžný WP má vlastní branch a
+disk-backed checkout. Sdílet checkout smějí jen prokazatelně
+filesystem-read-only běhy. Paralelně mohou běžet read-only trace a review.
+Jeden integrační vlastník skládá PASS kandidáty po jednom přes merge queue,
+měřené dokumenty aktualizuje v report-only obálkách a canonical integration
+branch posune až na metadata-ověřený `E_B` nad prověřeným candidate `C`;
 lokální GPU role jsou sériové. Podrobná pravidla a kritéria prvního pilotu:
 `docs/review/2026-08-08-PARALLEL-PILOT.md`.
 
@@ -1230,13 +1239,18 @@ mohou pokračovat.
    dva po sobě jdoucí `PASS` na `7236d221`. Současné UI bylo pouze funkčním
    nosičem, ne vizuální baseline. Zbývá standardizovat build envelope, aby
    registrovaná T5 sada nemusela pravdivě zůstávat `BLOCKED`.
-4. Operátorsky rozhodnout L0-8 nejpozději před `WP-M3-BOUNDARY`; M0 jej může
-   uzavřít pouze jako explicitně pojmenovaný blocker s vlastníkem a termínem.
-   Směrově slepý exact-edge ratchet P6 je po hardeningu integrován na merge
-   `ec98803a` s baseline 1 010 hran / 3 cykly / 28 souborů; směrové pravidlo
-   dál čeká na přijatou path mapu M3. První paralelní procesní pilot je
-   invalidovaný kvůli dvěma writerům v jednom checkoutu a nesmí být vydán za
-   kladný ekonomický výsledek.
+4. L0-8 je rozhodnuté decision 019 jako strict injection, ale porušení ještě
+   trvá. Nejdřív se integruje samostatný enforcement, potom injection a
+   utažení baseline; plné M3 boundary/E2E zůstává později. Source evidence
+   `0a6bde54` naměřila směrově slepému exact-edge ratchetu P6 1 016 hran,
+   3 cykly a 28 souborů. Aktuální počet se vždy odvodí na přijatém integračním
+   SHA a zapíše do unikátního run reportu; statický kontrakt jej nepřebírá.
+   Směrové pravidlo dál čeká na přijatou path mapu M3. Canonical ref této
+   contract/L0-8 dávky je `integration/gate1-prod-ready-20260809`; první
+   evidence obálka používá
+   `docs/execution/runs/wp-contract-batch-report.md`. První paralelní procesní
+   pilot je invalidovaný kvůli dvěma writerům v jednom checkoutu a nesmí být
+   vydán za kladný ekonomický výsledek.
 5. B1 contract a B2 chat jsou implementované; Gate 1 volby 001–014 jsou
    schválené a zapsané. **Operátor 2026-08-09 přijal i zbývající pětici
    015/020/021/022/023** — 015 `A + 7d provisional`, 020 `E`, 021
@@ -1336,11 +1350,12 @@ mohou pokračovat.
    desired baseline a `DETECTED`, ale nevybírá fallback a nemá claim, proof ani
    runtime autoritu. Podporovaný opt-in povrch je přijatý jako
    [020/E](docs/decisions/020-m1-model-failover-opt-in-surface.md), ale jeho
-   oddělená policy storage ještě není implementovaná. Otevřené
-   zůstávají proof issuer a terminal failover activation/restore. Failover se
-   dosud neaktivuje. Bootstrap 015/A + provizorní 7d TTL je přijatý, ale proof
-   issuer a migrace 059 ještě nejsou implementované; TTL je pouze eligibility a doporučená obnova je explicitně
-   operátorská, sériová a bez background GPU jobu. Nový skutečný GPU běh
+   oddělená policy storage je `IMPLEMENTATION_PENDING`. Otevřené zůstávají
+   proof issuer a terminal failover activation/restore. Failover se dosud
+   neaktivuje. Bootstrap `015/A + provisional 7d` je přijatý, ale proof issuer,
+   persistence, migrace 059 a activation evidence jsou `IMPLEMENTATION_PENDING`;
+   TTL je pouze eligibility a doporučená obnova je explicitně operátorská,
+   sériová a bez background GPU jobu. Nový skutečný GPU běh
    zůstává samostatnou blokovanou evidencí, dokud není legitimně čistý checkout.
 7. B4 má focused implementované 011/A, obě poloviny 014/A a obě poloviny
    012/B: bounded request
@@ -1386,7 +1401,7 @@ mohou pokračovat.
 | Autoritativní Studio source/build disposition | **Rozhodnuto 2026-08-07** | Commitnutý `lib` je runtime; stale TS je inertní archiv a současné UI není finální vizuální baseline. |
 | `degraded` versus terminální `error` po částečném tool výsledku | **Rozhodnuto 2026-08-08: 001/A** | Terminální `error`; partial data mají oddělené schéma, ale `persistPartialToolResults` zatím nemá produkčního konzumenta. |
 | Streaming v 1.0 | Po přijetí non-streaming M1 baseline | Cold/warm whole-response latency, cílový TTFT a cena změny tří connectorů. |
-| Strict injection versus veřejná extension boundary pro L0-8 | Před M3-BOUNDARY | Skutečný import graph, specialista E2E a nejmenší prototyp obou variant. |
+| Strict injection versus veřejná extension boundary pro L0-8 | **Rozhodnuto 2026-08-09: decision 019 / strict injection** | Import graph a oba spuštěné prototypy; implementace a specialista E2E se dokazují odděleně. |
 | Zachovat/odložit/ukončit upgrade automatiku 18b | Před M5 conditional freeze | Úmyslný check/approve/reject/rollback journey, outbound a údržbová cena. |
 | Topologie model delete/use authority | Před uzavřením cleanup C2 a L0-11 | Úplný call graph provider consumerů, race aktivní use→rebind→delete a dopad single-process versus durable cross-process claimu. |
 | Které notifications/marketplace/media plochy jsou podporované | Před M5-CONDITIONAL-SURFACES | Funkční Studio journey, prerekvizity a bezpečnostní/rollback náklady každé plochy. |
@@ -1397,11 +1412,11 @@ mohou pokračovat.
 ### Které řádky mají evidence připravenou (2026-08-07)
 
 Čtyři read-only sondy na `1fc8f03e` doplnily podklady pro dva řádky fronty.
-Rozhodnutí zůstávají otevřená — dodána je jen evidence, kterou tabulka vyžaduje.
+L0-8 bylo následně rozhodnuto; Git-history remediace zůstává otevřená.
 
 | Řádek fronty | Stav evidence |
 |---|---|
-| Strict injection versus veřejná extension boundary pro L0-8 | **kompletní** — import graph, oba prototypy postavené a spuštěné se shodným výstupem, srovnávací tabulka: [`docs/review/2026-08-07-L0-8-BOUNDARY.md`](docs/review/2026-08-07-L0-8-BOUNDARY.md). Chybí jen specialista E2E, který je `NAPSÁNO` a patří do `WP-M3-BOUNDARY` |
+| Strict injection versus veřejná extension boundary pro L0-8 | **rozhodnuto decision 019** — import graph a oba prototypy jsou v [`L0-8-BOUNDARY`](docs/review/2026-08-07-L0-8-BOUNDARY.md). Enforcement, injection a plný specialist E2E zůstávají oddělené neprovedené kroky. |
 | Remediace kompromitované Git historie | **kompletní** — seznam typů k rotaci ověřený proti kódu a dopad tří variant: [`docs/review/2026-08-07-SECRET-TYPES.md`](docs/review/2026-08-07-SECRET-TYPES.md). Zbývá výslovný operátorský souhlas |
 
 Mimo frontu vznikly dva podklady pro `WP-M5-AUTH`:

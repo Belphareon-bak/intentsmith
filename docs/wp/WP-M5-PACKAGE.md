@@ -1,34 +1,20 @@
 # WP-M5-PACKAGE — install profil a docker disposition
 
-**Typ:** zapisující Work Package · **Stav: ZÁLOŽNÍ SLOT — needispečovat do fronty**
-**Vstupní revision:** `1fc8f03e649dd561fb279ce68e5c119d35faad55`
+**Typ:** zapisující Work Package · **Stav: BLOCKED_UNTIL_M3_AND_M4_ACCEPTED_AND_REBASE**
+**Source evidence revision:** `1fc8f03e649dd561fb279ce68e5c119d35faad55`
 **Vlastník:** jediný zapisující vlastník v okamžiku aktivace
 
 ---
 
-## 0. TVRDÝ BLOCK — pořadí vůči dávce M1
+## 0. TVRDÝ BLOCK — M5 nezačíná volným slotem
 
-> **`WP-M5-PACKAGE` smí doběhnout buď celý PŘED `B4`, nebo až PO `B6`.
-> Nikdy mezi nimi.**
+`ROADMAP.md` otevírá M5 až po přijetí M3 a M4. Historický kontrakt vznikl před
+tímto DAG a jeho varianta „před B4“ už není platná. Volný writer během M1, M2,
+M3 ani M4 tento WP neodemkne.
 
-Důvod je měřicí, ne organizační. Tenhle WP sahá na `scripts/install.sh`. `B4`
-i `B6` mají fresh-clone install jako součást journey. Kdyby PACKAGE doskočil
-mezi ně, posune se baseline a `B6` naměří něco jiného než `B4` — journey pak
-neměří build, ale rozdíl mezi dvěma installery. Výsledek by vypadal jako nález
-a byl by artefaktem pořadí.
-
-Před aktivací se proto **explicitně zaznamená**, ve které z obou pozic se WP
-spouští, a při akceptaci se ověří, že mezi `B4` a `B6` do `scripts/install.sh`
-nezasáhl žádný commit.
-
-## 0b. Proč je to záložní slot
-
-Stejně jako u `WP-M5-DATA`: aktivuje se, až M1 zaparkuje na prerekvizitě
-(bezpečné okno pro GPU měření, displej pro soak) a writer slot se uvolní.
-Zařazení do fronty by M1 jen oddálilo.
-
-**Aktivační podmínka:** writer slot volný **a zároveň** splněný BLOCK z `§0`.
-Druhá podmínka je tvrdší — když neplatí, WP se neaktivuje ani při volném slotu.
+Před aktivací integrátor kontrakt rebasuje na přesný post-M3/M4 integration
+SHA, znovu ověří installer/package call graph, owned paths, fresh-clone baseline
+a všechny §12 příkazy. Do té doby se dokument nesmí dispatchnout.
 
 ---
 
@@ -63,8 +49,8 @@ vůči uživateli i vůči `docs/INSTALL.md` a jeho tvar potřebuje souhlas podl
 
 ## 4. Vstupní stav — co je ověřeno (nepřeměřovat)
 
-**Instalace.** `scripts/install.sh` má 534 řádků a šest míst, která inkrementují
-`ERRORS` (řádky 100, 107, 118, 122, **153**, 169). Řádek 214 pak při `ERRORS > 0`
+**Instalace.** `scripts/install.sh` má 534 řádků a sedm míst, která inkrementují
+`ERRORS` (řádky 86, 100, 107, 118, 122, **153**, 169). Řádek 214 pak při `ERRORS > 0`
 instalaci ukončí. Řádek 153 patří PDF bloku, který začíná na 146
 (`PDF_BOOTSTRAP_PYTHON="${PYTHON3:-python3.12}"`) a pokračuje kontrolou DejaVu
 fontů od řádku 157. **Obojí je PDF, obojí dnes tvrdě blokuje instalaci.**
@@ -108,6 +94,13 @@ K tomu minimálně:
   výjimkou;
 - docker cesta buď projde end-to-end, nebo je v `docs/INSTALL.md` pravdivě
   označená jako `unsupported` — třetí možnost neexistuje.
+- hidden nebo ignorovaný vstup, například `docker/.env`, se stejným wildcard
+  literalem musí selhat stejně jako viditelný Dockerfile; source gate nesmí
+  zdědit ignore pravidla pracovního checkoutu;
+- NUL/binary fixture s týmž souvislým literalem musí selhat stejně jako text;
+  scan používá text mode záměrně a nesmí binary detekcí přeskočit obsah;
+- symlink kdekoli v `docker/**` musí selhat před scanem, aby výsledek nezávisel
+  na obsahu mimo commitnutý strom.
 
 ## 7. Stop condition a eskalace
 
@@ -120,15 +113,33 @@ Zastavit a vyžádat souhlas, pokud:
 - se ukáže, že `repository-hygiene` nebo `artifact-validation` test na dnešní
   tvar `install.sh` spoléhá — pak je to sdílená cesta a je potřeba rozhodnout
   pořadí;
-- **BLOCK z `§0` přestane platit** — tedy `B4` proběhlo a `B6` ještě ne. Pak
-  okamžitě zastavit a nechat `scripts/install.sh` v původním stavu.
+- chybí exact přijatý post-M3/M4 integration SHA nebo revalidace tohoto
+  kontraktu proti němu. Dokončený B4/B6 ani volný writer slot tuto dependency
+  nenahrazují; `scripts/install.sh` musí zůstat v původním stavu.
 
 ## 8. Ověřovací příkaz
 
+Docker scope používá záměrně konzervativní source invariant: literal
+`0.0.0.0` nesmí zůstat nikde v `docker/**`, ani v `ARG`, aliasu, interpolaci,
+folded scalaru, komentáři nebo příkladu. Tím gate nezávisí na ambientním
+`.env`, Compose verzi ani pořadí vyhodnocení proměnných. Tento adresář dnes
+nemá legitimní potřebu wildcard literal uchovávat; pokud by vznikla, je to
+nové rozhodnutí, ne důvod gate obejít.
+
 ```bash
+set -euo pipefail
+
 bash -n scripts/install.sh
-grep -n "ERRORS=\$((ERRORS + 1))" scripts/install.sh   # na vstupní revizi 6 míst
-grep -rn "C3_HOST" docker/                              # nesmí zůstat 0.0.0.0
+grep -n "ERRORS=\$((ERRORS + 1))" scripts/install.sh   # na vstupní revizi 7 míst
+IS_M5_PACKAGE_SYMLINKS=$(find docker -type l -print) || exit 1
+test -z "$IS_M5_PACKAGE_SYMLINKS"
+if rg --text --hidden --no-ignore -n -F '0.0.0.0' docker/; then
+  printf '%s\n' 'forbidden wildcard literal remains in docker/**' >&2
+  exit 1
+else
+  IS_M5_PACKAGE_WILDCARD_STATUS=$?
+  test "$IS_M5_PACKAGE_WILDCARD_STATUS" -eq 1
+fi
 ```
 
 WP je hotový, až demonstrace z bodu 5 proběhne **z čerstvého klonu** na

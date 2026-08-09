@@ -1,25 +1,19 @@
 # WP-M5-DATA — backup/restore round-trip
 
-**Typ:** zapisující Work Package · **Stav: ZÁLOŽNÍ SLOT — needispečovat do fronty**
-**Vstupní revision:** `1fc8f03e649dd561fb279ce68e5c119d35faad55`
+**Typ:** zapisující Work Package · **Stav: BLOCKED_UNTIL_M3_AND_M4_ACCEPTED_AND_REBASE**
+**Source evidence revision:** `1fc8f03e649dd561fb279ce68e5c119d35faad55`
 **Vlastník:** jediný zapisující vlastník v okamžiku aktivace
 
 ---
 
-## 0. Proč je to záložní slot, a ne položka fronty
+## 0. TVRDÝ BLOCK — M5 nezačíná volným slotem
 
-Pravidlo jednoho worktree znamená jednoho zapisujícího vlastníka. Zařadit tenhle
-WP do fronty za M1 by M1 neurychlilo — jen prodloužilo frontu.
+`ROADMAP.md` otevírá M5 až po přijetí M3 a M4. Volný writer nebo zaparkované M1
+není dependency edge a tento produktový restore WP neodemkne.
 
-Aktivuje se jinak: ve chvíli, kdy **M1 zaparkuje** na prerekvizitě, kterou nelze
-splnit hned (volné bezpečné okno pro GPU měření, displej pro bounded soak).
-V tu chvíli stojí agent a writer slot je volný. Tehdy se sáhne sem.
-
-**Aktivační podmínka:** writer slot je volný ≥ dobu, do které se vejde bod 5
-(demonstrace). Pokud ne, neaktivovat — rozdělaný restore je horší než žádný.
-
-**Proč právě tenhle WP jako záloha:** vlastněné cesty jsou disjunktní vůči M1
-(žádná se nedotýká chatu, modelu ani Studia) a nemění žádný M1 connector.
+Před aktivací integrátor kontrakt rebasuje na přesný post-M3/M4 integration
+SHA, znovu trasuje aktuální persistence/backup authority, owned paths a všechny
+§12 příkazy. Do té doby se dokument nesmí dispatchnout.
 
 ---
 
@@ -119,12 +113,15 @@ Zastavit a vyžádat souhlas, pokud:
   change connectoru a potřebuje výslovné rozhodnutí o kompatibilitě;
 - restore `specialists/**` narazí na otázku vlastnictví hranice z L0-8 — pak
   patří rozhodnutí do `P2`/`WP-M3-BOUNDARY`, ne sem;
-- **writer slot přestane být volný** (M1 se rozparkuje) — dokončit rozdělaný
-  commit, nebo se čistě vrátit; nenechávat strom v půli.
+- chybí exact přijatý post-M3/M4 integration SHA nebo revalidace persistence,
+  backup a restore authority proti němu. Volný writer ani stav M1 tuto
+  dependency nenahrazují; produktový strom se nesmí začít měnit.
 
 ## 8. Ověřovací příkaz
 
 ```bash
+set -euo pipefail
+
 node --test tests/storage-architecture.test.js
 grep -c "restore" src/core/db-backup.js      # na vstupní revizi 0
 ```
