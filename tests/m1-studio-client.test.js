@@ -1243,6 +1243,13 @@ test('only exact clear invalidates recovery and role-only model_changed is non-a
   harness.listeners['upgrade:verify_cleared']({
     ...failure,
     action: 'upgrade_verify_cleared',
+    model: 'different-model:latest',
+    succeededAttemptRevision: failure.failedAttemptRevision + 1,
+  });
+  assert.equal(harness.snapshot().length, 1, 'clear with a foreign model is not authoritative');
+  harness.listeners['upgrade:verify_cleared']({
+    ...failure,
+    action: 'upgrade_verify_cleared',
     failedAttemptRevision: failure.failedAttemptRevision + 1,
     succeededAttemptRevision: failure.failedAttemptRevision + 2,
   });

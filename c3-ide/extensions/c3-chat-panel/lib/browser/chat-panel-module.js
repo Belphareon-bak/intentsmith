@@ -2433,7 +2433,7 @@ function _upgradeRecoveryIdentity(ev){
   return{role:ev.role,model:ev.model,operationId:ev.operationId,
     committedBindingRevision:ev.committedBindingRevision,failedAttemptRevision:ev.failedAttemptRevision};
 }
-function _upgradeRecoveryKey(v){return v.operationId+'\u0000'+v.committedBindingRevision+'\u0000'+v.failedAttemptRevision;}
+function _upgradeRecoveryKey(v){return v.model+'\u0000'+v.operationId+'\u0000'+v.committedBindingRevision+'\u0000'+v.failedAttemptRevision;}
 function _upgradeRecoveryCompare(a,b){
   if(a.committedBindingRevision!==b.committedBindingRevision)return a.committedBindingRevision-b.committedBindingRevision;
   if(a.failedAttemptRevision!==b.failedAttemptRevision)return a.failedAttemptRevision-b.failedAttemptRevision;

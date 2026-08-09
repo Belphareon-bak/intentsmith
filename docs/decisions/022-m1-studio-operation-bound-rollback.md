@@ -111,7 +111,8 @@ z rozhodnutí 018/Q4:
 - failure a bounded clear event nesou přesnou identitu. Commitnutý Studio
   runtime nabízí dvoukrokové potvrzení, per-role single-flight a token po
   `await`; neúplný/starý event je pouze varování a role-only `model_changed`
-  není autorita pro clear;
+  není autorita pro clear. Clear musí vedle operace a obou revizí přesně
+  odpovídat i modelu;
 - role membership používá vlastní exact klíče, takže prototypová jména jako
   `constructor` nikdy nevytvoří akční záznam;
 - verification failure nad `USER_ROLLBACK` nemá další schválený reversal, a

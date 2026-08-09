@@ -1310,6 +1310,8 @@ prototypová jména. Starý či neúplný event zůstává warn-only,
 stejně jako failure nad `USER_ROLLBACK`, pro který neexistuje schválený další
 reversal. Role-only `model_changed` recovery nečistí. HTTP úspěch vyžaduje `response.ok`,
 `body.ok` a přesný echo tuple; neshodná `2xx` odpověď je `UNKNOWN` bez retry.
+Bounded clear porovnává model, operaci i obě původní revize; cizí model se
+stejným operation/revision tuple akci nezruší.
 
 | Příkaz / kontrola | Výsledek | Exit |
 |---|---:|---:|
@@ -1326,13 +1328,13 @@ reversal. Role-only `model_changed` recovery nečistí. HTTP úspěch vyžaduje 
 | `node scripts/module-boundary-ratchet.mjs` | 1 021/1 021, žádná změna hrany | 0 |
 | `node tests/module-boundary-ratchet.test.js` | 13 passed, 0 failed | 0 |
 
-Pět izolovaných negativních mutací zčervenalo přesně chráněnou větev a po každé
+Šest izolovaných negativních mutací zčervenalo přesně chráněnou větev a po každé
 bylo vráceno: odstranění failed-attempt CAS dalo repository `45/1`; ignorování
 `response.ok` dalo Studio `94/1`; odstranění post-`await` tokenu dalo Studio
 `94/1`; zpřístupnění identity i pro `USER_ROLLBACK` dalo application `103/1`;
 návrat k prototypově děděnému role lookupu vytvořil akční `constructor` záznam
-a Studio sada skončila exit `1`. Finální focused běhy výše jsou až po vrácení
-všech mutací.
+a Studio sada skončila exit `1`; odebrání modelu z exact clear klíče dalo
+Studio `94/1`. Finální focused běhy výše jsou až po vrácení všech mutací.
 
 Tento checkpoint nespustil GPU, Ollamu, externí síť ani Electron. Je to
 source/repository/VM důkaz. Clean-clone attestation a přesné source/evidence SHA
