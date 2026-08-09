@@ -56,3 +56,19 @@ Nic prokazatelně zbytečného. Sporné je níže.
 - Žádnou cestu k modelu mimo `llmGateway` — invariant drží.
 - Žádné volání bez auth tokenu.
 - Žádnou cloudovou cestu: gateway mluví jen s `OLLAMA_URL`.
+
+## 7. Runtime follow-up C2b — 2026-08-09
+
+Historická tabulka výše zůstává snapshotem na `17a8b9a8`; současný runtime už
+má podstatně širší deterministické pokrytí. Gateway je zapojená do
+single-process `model-use-authority`: queued request model nerezervuje, shared
+lease vzniká až po semaphore slotu a drží přes fetch, response body, retry i
+delay. Aktivní mutace skončí před provider efektem a aktivní gateway zablokuje
+delete před inventory.
+
+Focused sada `m1-model-use-authority` má v tomto checkpointu 24 asercí a
+`llm-gateway-runtime-signal` 7; tři cílené mutace zčervenaly. Současně byla
+uzavřena starší timeoutová mezera mezi HTTP hlavičkami a dočtením těla. G-4 je
+proto historicky překonané zjištění, nikoli současný počet testů. Jde zatím o
+`FOCUSED_VERIFIED`, ne fresh-clone důkaz ani dokončený C2: binding cutover,
+exact verify a VRAM disposition zůstávají otevřené.

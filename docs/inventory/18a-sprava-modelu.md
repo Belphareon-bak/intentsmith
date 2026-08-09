@@ -107,3 +107,17 @@ a assign/delete race, ale durable audit zůstává otevřený. Není vyřešené
 mazání proti concurrent pull po posledním snapshotu, již běžící
 inference/vision/embedding práci nebo cross-process claim. Tyto hranice jsou
 pravdivě oddělené ve findingu 010 a brání povýšit L0-11 nad `PARTIAL`.
+
+## 9. Runtime follow-up C2 model-use authority — 2026-08-09
+
+C2a přidalo jednu fail-fast per-canonical single-process autoritu: registry
+validation drží shared lease a pull/delete jsou vzájemně exclusive. C2b
+gateway checkpoint zapojil třetí živou cestu; request drží shared lease přes
+celý provider lifecycle včetně response body a retry delay, ale až po přidělení
+semaphore slotu.
+
+Call graph má nadále pět živých cest. Binding cutover/exact verify a VRAM
+manager nejsou zatím připojené, durable/cross-process autorita není rozhodnutá
+a direct pull stream nemá idle timeout ani recovery. Schopnost #18a proto
+zůstává v tomto řezu `PARTIAL`; focused zelená gateway evidence není release
+ani L0-11 PASS.

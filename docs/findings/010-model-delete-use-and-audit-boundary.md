@@ -3,7 +3,7 @@
 - **vlastník:** navazující checkpoint
   `WP-M1-MODEL-CLEANUP-AUTHORITY / C2–C3`
 - **nalezeno v:** read-only call-graph review cleanup authority
-- **stav:** `PARTIAL_REMEDIATION / C2A_FRESH_CLONE_VERIFIED`
+- **stav:** `PARTIAL_REMEDIATION / C2B_GATEWAY_FOCUSED_VERIFIED`
 - **dopad:** M1 cleanup checkpoint je bezpečnější, L0-11 zůstává `PARTIAL`
 
 ## Evidence
@@ -36,8 +36,16 @@ guardu i direct-pull versus delete v jednom procesu. Error shape
 `MODEL_DELETE_VALIDATING` zůstává pro známou validační cestu kompatibilní;
 ostatní aktivní použití skončí `MODEL_DELETE_IN_USE`.
 
-Gateway navíc smí použít explicitní ne-bound model. Rebind po zahájení
-inference proto sám o sobě nezaručí, že starý model lze bezpečně smazat.
+C2b zapojuje gateway do stejné autority. Shared lease vzniká až po přidělení
+semaphore slotu a drží přes provider fetch, response body, retry pokusy i retry
+delay; queued request model předčasně nerezervuje. Gateway může použít i
+explicitní ne-bound model, takže lease se váže na skutečný request model, ne na
+aktuální role binding. Focused sada skončila 24/24 a zčervenala při odstranění
+acquire, předčasném release i odstranění owned body-abort klasifikace.
+
+Pokryté jsou tím tři z pěti živých cest: registry validation, pull a gateway.
+Binding cutover/exact verify a VRAM manager zůstávají otevřené; tento checkpoint
+se proto nevydává za dokončený C2 ani L0-11 PASS.
 
 Současný mutation owner je in-memory a chrání jeden serverový proces. Delete
 událost má standardní log a best-effort WS broadcast, ale nemá append-only

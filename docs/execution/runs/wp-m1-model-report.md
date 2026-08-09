@@ -1927,3 +1927,49 @@ porcelain zůstal prázdný; žádný GPU/model/network běh nebyl proveden.
 C2a je tím `FRESH_CLONE_VERIFIED`, celý C2 a Gate 1 však zůstávají `PARTIAL` /
 `BLOCKED` kvůli gateway, binding cutover/exact verify, VRAM disposition,
 durable auditu, multiprocess autoritě, remote provideru a retirementu.
+
+## C2b — gateway provider lifecycle
+
+Gateway checkpoint zapojil třetí z pěti živých model-use cest. Semaphore slot
+se přidělí dřív než shared lease; request čekající ve frontě proto neblokuje
+mutaci modelu. Po získání slotu gateway drží per-canonical shared lease přes
+všechny provider pokusy, čtení response body i retry delay. Jeden vnější
+semaphore ownership frame a vnitřní model-use frame vracejí oba zdroje při
+success, provider erroru, malformed response, cancelu, timeoutu i chybě během
+pre-provider setupu.
+
+Při kontrole vyšla najevo starší lifecycle mezera: timeout a upstream cancel se
+po přijetí HTTP hlaviček odpojily ještě před `response.json()`. Provider mohl
+poslat hlavičky a tělo nechat viset bez gateway deadline. Cleanup nyní zůstává
+v per-attempt `finally` až do terminálu body a cizí `AbortError` bez abortu
+vlastněného controlleru se dál klasifikuje jako malformed provider response,
+nikoli jako falešný timeout.
+
+Focused evidence pracovního kandidáta:
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node --check src/llm/gateway.js` | syntax valid | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-use-authority.test.js` | 24 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/llm-gateway-runtime-signal.test.js` | 7 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-contract.test.js` | 29 passed, 0 failed | 0 |
+
+Mutační kontroly byly po každém běhu obnoveny opačným patchem:
+
+| Dočasná mutace | Výsledek | Exit |
+|---|---:|---:|
+| gateway shared acquire odstraněn | 19 passed, 5 failed | 1 |
+| lease uvolněn před providerem | 20 passed, 4 failed | 1 |
+| owned response-body abort klasifikace odstraněna | 22 passed, 2 failed | 1 |
+
+Testy tím dokládají obě strany závodu: aktivní delete/pull odmítne gateway před
+provider fetch a běžící gateway odmítne delete před inventory. Lease je během
+stalled body viditelně aktivní, přetrvá retry mezeru a po terminálu je znovu
+možné získat exclusive mutation. Pre-aborted request zachová canonical cancel
+prioritu i při současné mutaci; veřejný `ModelRequest/Result v1` se nemění.
+
+Tento zápis je pouze `FOCUSED_VERIFIED`. Exact-edge baseline, fresh-clone a
+širší baterie přijdou v navazujícím evidence checkpointu. Binding
+cutover/exact verify, VRAM disposition, durable audit, multiprocess autorita,
+remote provider, retirement a stalled-pull recovery zůstávají otevřené. GPU,
+Ollama ani externí síť nebyly spuštěny. Gate 1 zůstává `BLOCKED`.

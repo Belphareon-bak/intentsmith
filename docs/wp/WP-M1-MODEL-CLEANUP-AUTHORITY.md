@@ -129,6 +129,7 @@ C3_LOG_LEVEL=error node tests/upgrade-flow.test.js
 C3_LOG_LEVEL=error node tests/upgrade-ux-v125.test.js
 C3_LOG_LEVEL=error node tests/m1-model-contract.test.js
 C3_LOG_LEVEL=error node tests/model-upgrade.test.js
+C3_LOG_LEVEL=error node tests/m1-model-use-authority.test.js
 node scripts/module-boundary-ratchet.mjs
 node scripts/validate-test-registry.js --json
 node tests/artifact-validation.test.js

@@ -25,6 +25,10 @@ import {
 import { logger } from '../core/logger.js';
 import { modelUniverseStore } from '../upgrade/model-universe-store.js';
 import {
+  MODEL_ACTIVITY_OWNER,
+  modelUseAuthority,
+} from '../upgrade/model-use-authority.js';
+import {
   VramFitState,
   fitsVram,
   resolveNumCtx,
@@ -687,6 +691,11 @@ class LLMGateway {
       throw error;
     }
 
+    // From this point exactly one outer frame owns the semaphore slot. Keep
+    // the existing body layout stable while making every setup/provider throw
+    // converge on the same release path.
+    try { // semaphore ownership frame
+
     // ════════════════════════════════════════════════════════════════════════
     // v44.0: INLINE AUTH TOKEN SUPPORT (avoids race condition)
     // ════════════════════════════════════════════════════════════════════════
@@ -706,7 +715,6 @@ class LLMGateway {
           hasInlineToken: !!options._authToken,
           hasSingletonAuth: !!this.currentAuth,
         });
-        this._releaseSlot();
         throw new Error('LLM_CALL_OUTSIDE_CRE: No valid auth token. All LLM calls must go through CRE with proper authorization.');
       } else {
         // Non-strict mode (only for tests)
@@ -731,7 +739,6 @@ class LLMGateway {
           capability: options.capability,
           allowed: authToken.allowedCapabilities
         });
-        this._releaseSlot();
         throw new Error(`CAPABILITY_NOT_ALLOWED: ${options.capability}`);
       }
     }
@@ -746,7 +753,6 @@ class LLMGateway {
         role: authToken?.role,
         retryAfter: rateCheck.retryAfter
       });
-      this._releaseSlot();
       throw new Error(`RATE_LIMITED: Retry after ${rateCheck.retryAfter}ms`);
     }
 
@@ -758,11 +764,11 @@ class LLMGateway {
       options.maxTokens || 4096,
       authToken?.maxTokens || 4096
     );
-    
+
     // ════════════════════════════════════════════════════════════════════════
     // MAKE THE CALL
     // ════════════════════════════════════════════════════════════════════════
-    
+
     const model = options.model || config.models?.CHAT || 'qwen3.5:27b';
     const timeout = options.timeout || config.timeouts?.CHAT || 60000;
     const requestType = options.requestType || 'chat';
@@ -804,7 +810,7 @@ class LLMGateway {
       msgs.push({ role: 'user', content: prompt });
       return msgs;
     })();
-    
+
     const body = {
       model,
       messages,
@@ -826,7 +832,7 @@ class LLMGateway {
     if (options.format) {
       body.format = options.format;
     }
-    
+
     let lastError;
     // Per-call override. A caller with an immediate fallback (intent
     // classification) gains nothing from retrying a refused connection,
@@ -835,7 +841,59 @@ class LLMGateway {
     const maxRetries = Number.isInteger(options.retries) && options.retries > 0
       ? options.retries
       : (config.ollama?.retries || 3);
-    
+
+    // Preserve cancellation precedence if the signal changes after the queue
+    // grants a slot but before provider ownership begins. A concurrent model
+    // mutation must not replace the caller's canonical abort outcome.
+    if (options.signal?.aborted) {
+      const abortSource = abortSourceOf(options.signal.reason, options.signal);
+      if (abortSource === AbortSource.TIMEOUT) {
+        this.audit.log('LLM_CALL_TIMEOUT', {
+          role: authToken?.role,
+          decisionId: authToken?.decisionId,
+          abortSource,
+          timeout: null,
+          timeoutOrigin: 'upstream',
+          queue: false,
+          ...correlation,
+        });
+        emitRuntimeSignal('runtime_timeout', false, {
+          attempt: 0,
+          errorType: 'timeout',
+          timeoutMs: null,
+          timeoutOrigin: 'upstream',
+        });
+      } else {
+        this.audit.log('LLM_CALL_CANCELLED', {
+          role: authToken?.role,
+          decisionId: authToken?.decisionId,
+          abortSource,
+          queue: false,
+          ...correlation,
+        });
+        emitRuntimeSignal('runtime_cancelled', null, {
+          attempt: 0,
+          errorType: 'user_cancel',
+          scheduleRecompute: false,
+        });
+      }
+      throw abortErrorFromSignal(options.signal, {
+        fallbackSource: AbortSource.USER,
+        message: abortSource === AbortSource.USER
+          ? 'LLM call cancelled by user'
+          : 'LLM call cancelled before provider ownership',
+      });
+    }
+
+    // A queued call does not own the model. Once the semaphore grants a slot,
+    // hold one shared lease across every provider attempt and retry delay so a
+    // pull/delete mutation cannot invalidate the artifact mid-request.
+    const modelLease = modelUseAuthority.acquireShared({
+      modelName: model,
+      owner: MODEL_ACTIVITY_OWNER.LLM_GATEWAY,
+    });
+
+    try { // model-use ownership frame
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       let timeoutId;
       let userSignal;
@@ -880,9 +938,6 @@ class LLMGateway {
           signal: controller.signal
         });
 
-        clearTimeout(timeoutId);
-        if (userAbortHandler) userSignal.removeEventListener('abort', userAbortHandler);
-        
         if (!response.ok) {
           // Never put the provider body in logs or a public error: model
           // servers can echo prompt fragments. Cancel rather than buffering an
@@ -895,6 +950,12 @@ class LLMGateway {
         try {
           data = await response.json();
         } catch (cause) {
+          if (controller.signal.aborted) {
+            throw abortErrorFromSignal(controller.signal, {
+              fallbackSource: AbortSource.TIMEOUT,
+              message: `LLM timeout after ${timeout}ms (model: ${model})`,
+            });
+          }
           throw new LLMGatewayError(
             LLMGatewayErrorCode.MALFORMED_RESPONSE,
             'The local model provider returned malformed JSON.',
@@ -903,11 +964,11 @@ class LLMGateway {
         }
         const output = parseProviderOutput(data);
         const duration = Date.now() - startTime;
-        
+
         // Update rate limit counter
         this.rateLimits.currentMinuteCalls++;
         this.callCount++;
-        
+
         // Audit successful call
         this.audit.log('LLM_CALL_COMPLETE', {
           role: authToken?.role || 'UNKNOWN',
@@ -936,7 +997,6 @@ class LLMGateway {
           latencyMs: duration,
         });
 
-        this._releaseSlot();
         return {
           content: output,
           model,
@@ -945,7 +1005,7 @@ class LLMGateway {
           promptEvalCount: data.prompt_eval_count || null,
           evalCount: data.eval_count || null,
         };
-        
+
       } catch (err) {
         lastError = err;
 
@@ -975,7 +1035,6 @@ class LLMGateway {
               errorType: 'user_cancel',
               scheduleRecompute: false,
             });
-            this._releaseSlot();
             throw abortErrorFromSignal(userSignal, {
               fallbackSource: AbortSource.USER,
               message: 'LLM call cancelled by user',
@@ -1011,7 +1070,6 @@ class LLMGateway {
               timeoutMs: effectiveTimeoutMs,
               timeoutOrigin,
             });
-            this._releaseSlot();
             throw abortErrorFromSignal(userSignal, {
               fallbackSource: AbortSource.TIMEOUT,
               message: `LLM timeout after ${timeout}ms (model: ${model})`,
@@ -1038,7 +1096,6 @@ class LLMGateway {
             errorType: err.code,
             latencyMs: Date.now() - startTime,
           });
-          this._releaseSlot();
           throw err;
         } else if (err.code === 'ECONNREFUSED' || err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT') {
           // Network errors — retry makes sense (Ollama may be starting/restarting)
@@ -1062,7 +1119,7 @@ class LLMGateway {
         }
       }
     }
-    
+
     const normalizedLastError = normalizeProviderFailure(lastError);
     this.audit.log('LLM_CALL_FAILED', {
       role: authToken?.role,
@@ -1076,11 +1133,16 @@ class LLMGateway {
       latencyMs: Date.now() - startTime,
     });
 
-    this._releaseSlot();
     throw new Error(
       `LLM failed after ${maxRetries} attempts: ${lastError?.message}`,
       { cause: lastError },
     );
+  } finally { // model-use ownership frame
+    modelLease.release();
+  }
+    } finally { // semaphore ownership frame
+      this._releaseSlot();
+    }
   }
   
   /**
