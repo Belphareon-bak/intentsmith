@@ -527,7 +527,7 @@ focused regression sady.
      007 je focused remediovaný; direct bypass a
      assign/delete část findingu 006 jsou opravené. C1 ale netvrdí atomickou
      ochranu proti všemu aktivnímu model-use, více procesům ani durable delete
-     audit. C2a už single-process serializuje delete s direct pull a registry
+     audit. C2a je fresh-clone ověřený a single-process serializuje delete s direct pull a registry
      validací; gateway, binding cutover/verify a rozhodnutí o VRAM residency
      zůstávají. Tyto residualy vlastní
      [`finding 010`](docs/findings/010-model-delete-use-and-audit-boundary.md);
@@ -1209,7 +1209,7 @@ mohou pokračovat.
    retirement rozhodnutí. Registry sdílí binding mutation owner, chrání durable desired/rollback identitu,
    dvakrát ověřuje exact artifact a numericky fail-close řeší retention.
    C1 je fresh-clone ověřený na source `da95ab15` a baseline `3ff178fd`.
-   Finding 007 je remediovaný; finding 006 je `PARTIAL`. C2a má focused
+   Finding 007 je remediovaný; finding 006 je `PARTIAL`. C2a má fresh-clone ověřenou
    per-canonical autoritu pro delete, pull a validaci; gateway,
    binding cutover/verify, VRAM disposition, multiprocess claim a durable audit
    dál drží finding 010 otevřený. Sdílený runtime profil nyní

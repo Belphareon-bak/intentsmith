@@ -1884,3 +1884,46 @@ Baseline metadata proto váže přesný source commit, scanner blob i source tre
 Zelený post-commit ratchet a fresh-clone běh budou zaznamenány až nad
 commitnutým baseline SHA; tento zápis je pouze evidence integrátorského
 rozhodnutí o třech hranách.
+
+### C2a fresh-clone evidence
+
+Baseline commit `19d63e1b496b1c2bddb693d7640cce8f288b4490` byl lokálně
+naklonován přes `git clone --no-local --no-hardlinks` do ignorovaného artifact
+rootu
+`.intentsmith-artifacts/fresh-clone-19d63e1b-hGMLFdnF/repo`. Vstupní HEAD se
+shodoval a porcelain byl prázdný. `npm ci --offline` přidalo 233 balíčků,
+auditovalo 234, našlo 0 vulnerabilities a skončilo exit 0.
+
+Všech 16 registrovaných M1 sad bez GPU, Ollamy a externí sítě prošlo z pouze
+commitnutých dat:
+
+| Sada | Výsledek | Exit |
+|---|---:|---:|
+| `m1-contract` | 26 passed, 0 failed | 0 |
+| `m1-chat-contract` | 21 passed, 0 failed | 0 |
+| `m1-model-contract` | 29 passed, 0 failed | 0 |
+| `m1-model-identity` | 25 passed, 0 failed | 0 |
+| `m1-model-failover-schema` | 13 passed, 0 failed | 0 |
+| `m1-model-failover-repository` | 14 passed, 0 failed | 0 |
+| `m1-model-binding-storage` | 16 passed, 0 failed | 0 |
+| `m1-model-binding-repository` | 39 passed, 0 failed | 0 |
+| `m1-model-binding-application` | 77 passed, 0 failed | 0 |
+| `m1-model-failover-proof-policy` | 9 passed, 0 failed | 0 |
+| `m1-model-failover-measurement` | 9 passed, 0 failed | 0 |
+| `m1-model-failover-parent-acceptance` | 15 passed, 0 failed | 0 |
+| `m1-model-settings` | 14 passed, 0 failed | 0 |
+| `m1-studio-client` | 57 passed, 0 failed | 0 |
+| `m1-model-use-authority` | 14 passed, 0 failed | 0 |
+| `module-boundary-ratchet` | 13 passed, 0 failed | 0 |
+
+Kompatibilitní běhy skončily routes smoke 109/0, confirmation ownership 5/0,
+upgrade-flow 28/0, upgrade UX 78/0, model-upgrade 58/0 a schema migrations
+38/0; vše exit 0. Artifact validation skončila 151/0, hygiene zkontrolovala
+1 525 tracked cest a registry validátor vrátil 376 programů, 8 exclusions a
+fingerprint `0472f18e3cc526a823d0e302c6c2ff9d13a7c60b0c480b940237487799024fd0`.
+Ratchet reprodukoval 1 014/1 014 hran, 3 cykly a 28 souborů v cyklech. Finální
+porcelain zůstal prázdný; žádný GPU/model/network běh nebyl proveden.
+
+C2a je tím `FRESH_CLONE_VERIFIED`, celý C2 a Gate 1 však zůstávají `PARTIAL` /
+`BLOCKED` kvůli gateway, binding cutover/exact verify, VRAM disposition,
+durable auditu, multiprocess autoritě, remote provideru a retirementu.

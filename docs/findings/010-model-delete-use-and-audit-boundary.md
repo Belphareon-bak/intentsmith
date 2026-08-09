@@ -3,7 +3,7 @@
 - **vlastník:** navazující checkpoint
   `WP-M1-MODEL-CLEANUP-AUTHORITY / C2–C3`
 - **nalezeno v:** read-only call-graph review cleanup authority
-- **stav:** `PARTIAL_REMEDIATION / C2A_FOCUSED_VERIFIED`
+- **stav:** `PARTIAL_REMEDIATION / C2A_FRESH_CLONE_VERIFIED`
 - **dopad:** M1 cleanup checkpoint je bezpečnější, L0-11 zůstává `PARTIAL`
 
 ## Evidence
