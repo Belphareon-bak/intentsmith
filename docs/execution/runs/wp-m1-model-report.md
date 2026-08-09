@@ -1531,11 +1531,14 @@ odmítnutím fetch a vyžaduje úklid stejného timeout handle i na chybové ces
 Test-first běh skončil `32 passed / 1 failed`, exit `1`, přesně na chybějícím
 `clearTimeout`. `_verifyModel()` nyní vlastní timer před vstupem do `try` a
 uklízí jej ve `finally`, takže platí pro HTTP chybu, parse chybu i rejected
-fetch. Rerun:
+fetch. Nezávislé review navíc zachytilo, že samotný `finally` by posunul
+původní success abort hranici až za parsování těla. Druhá regrese proto
+vyžaduje `clearTimeout` bezprostředně po přijetí HTTP odpovědi; záložný
+`finally` kryje chybové cesty. Rerun:
 
 | Příkaz | Výsledek | Exit |
 |---|---:|---:|
-| `/usr/bin/time -f 'elapsed=%e exit=%x' env C3_LOG_LEVEL=error node tests/upgrade-apply.test.js` | 33 passed, 0 failed; `elapsed=0.08` | 0 |
+| `/usr/bin/time -f 'elapsed=%e exit=%x' env C3_LOG_LEVEL=error node tests/upgrade-apply.test.js` | 34 passed, 0 failed | 0 |
 
 Nejde o nový provider retry ani změnu 005/A: jeden verify request má dál jeden
 provider effect a 90s timeout zůstává pro skutečné načtení modelu do VRAM.

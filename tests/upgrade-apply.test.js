@@ -515,6 +515,41 @@ await testAsync('original _verifyModel clears its timeout on network error', asy
   }
 });
 
+await testAsync('original _verifyModel clears its timeout before parsing a successful response', async () => {
+  const mgr = new UpgradeManager();
+  const originalFetch = globalThis.fetch;
+  const originalSetTimeout = globalThis.setTimeout;
+  const originalClearTimeout = globalThis.clearTimeout;
+  const timeoutHandle = Object.freeze({ fixture: 'verify-success-timeout' });
+  let clearedHandle = null;
+  globalThis.fetch = async () => ({
+    ok: true,
+    json: async () => {
+      assertEqual(
+        clearedHandle,
+        timeoutHandle,
+        'Successful fetch must release the model-load timeout before parsing the body',
+      );
+      return { message: { content: 'pong' } };
+    },
+  });
+  globalThis.setTimeout = (_callback, delayMs) => {
+    assertEqual(delayMs, 90000);
+    return timeoutHandle;
+  };
+  globalThis.clearTimeout = handle => {
+    clearedHandle = handle;
+  };
+  try {
+    const result = await mgr._verifyModel('fixture-model');
+    assertEqual(result, true, 'Successful verification fixture should pass');
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.setTimeout = originalSetTimeout;
+    globalThis.clearTimeout = originalClearTimeout;
+  }
+});
+
 // ═══════════════════════════════════════════════════════════════════════════════
 suite('End-to-end: persist → load → verify state');
 // ═══════════════════════════════════════════════════════════════════════════════

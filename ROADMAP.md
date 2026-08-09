@@ -724,10 +724,11 @@ focused regression sady.
      upgradu, ne claim migrace. Zdrojový commit `bcc9eb84` prošel `npm ci
      --offline` a celou uvedenou focused/compatibility baterii z `--no-local`
      fresh klonu.
-     Následný resource-lifecycle follow-up přesunul úklid 90s legacy verify
-     timeru do `finally`; deterministická network-error regrese nyní končí
-     33/33 za 0,08 s místo držení hotového procesu přibližně 90 s. Retry policy
-     ani počet provider effectů se tím nemění.
+     Následný resource-lifecycle follow-up doplnil záložný úklid 90s legacy
+     verify timeru do `finally`; původní success hranice zůstává explicitně po
+     přijetí HTTP odpovědi, před parsováním těla. Deterministické regrese nyní
+     končí 34/34 místo držení hotového procesu přibližně 90 s. Retry
+     policy ani počet provider effectů se tím nemění.
 3. **Connector:** adaptér `ModelRequest/Result` v1; nemění schéma.
 4. **Závislost:** `WP-M1-CONTRACT`; offline fake běhy nečekají na GPU.
 5. **Demo:** skutečná Ollama odpověď; negativní unavailable cesta používá

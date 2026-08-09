@@ -847,6 +847,10 @@ export class UpgradeManager {
         signal: controller.signal,
       });
 
+      // Preserve the legacy success boundary: the model-load timeout no
+      // longer owns response-body parsing once the HTTP response arrives.
+      // The finally block remains the fallback for fetch rejection.
+      clearTimeout(timeoutId);
       if (!response.ok) return false;
 
       const data = await response.json();
