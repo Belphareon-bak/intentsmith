@@ -510,7 +510,8 @@ export async function handleNotifications({ rawDb, principal, query }) {
 export async function handleNotificationAck({ rawDb, principal, body }) {
   const ids = Array.isArray(body?.ids) ? body.ids.filter(id => typeof id === 'string').slice(0, 200) : [];
   if (ids.length === 0) return errorResponse(MOBILE_ERRORS.BAD_REQUEST, { field: 'ids', reason: 'required' });
-  const changed = ackMobileNotifications(rawDb, ids);
+  // F-112: the principal's device is part of the write, not merely of the read.
+  const changed = ackMobileNotifications(rawDb, ids, { deviceId: principal.deviceId });
   return { status: 200, body: withEnvelope({ acknowledged: changed }, { principal }) };
 }
 

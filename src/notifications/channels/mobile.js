@@ -118,14 +118,23 @@ export function listMobileNotifications(rawDb, { deviceId = null, afterSeq = 0, 
   const capped = Math.min(Math.max(1, limit), 200);
   // `device_id IS NULL` rows are broadcasts to every device; a device sees
   // those plus the ones addressed to it, and never another device's.
+  //
+  // F-112 / DR-012 A: `read` comes from this device's own receipt, never from
+  // `mobile_notifications.read_at`.  That column is a pre-058 leftover, and one
+  // column on a shared broadcast row cannot hold a per-device fact — reading it
+  // is what made one phone's ACK silence the inbox on every other phone.
   return rawDb.prepare(`
-    SELECT id, device_id, kind, priority, title, body, data_json, created_at, seq, read_at
-      FROM mobile_notifications
-     WHERE seq > ?
-       AND (device_id IS NULL OR device_id = ?)
-     ORDER BY seq ASC
+    SELECT n.id, n.device_id, n.kind, n.priority, n.title, n.body, n.data_json,
+           n.created_at, n.seq,
+           r.read_at AS receipt_at
+      FROM mobile_notifications n
+      LEFT JOIN mobile_notification_receipts r
+        ON r.notification_id = n.id AND r.device_id = ?
+     WHERE n.seq > ?
+       AND (n.device_id IS NULL OR n.device_id = ?)
+     ORDER BY n.seq ASC
      LIMIT ?
-  `).all(afterSeq || 0, deviceId, capped + 1).map(row => ({
+  `).all(deviceId, afterSeq || 0, deviceId, capped + 1).map(row => ({
     id: row.id,
     kind: row.kind,
     priority: row.priority,
@@ -134,17 +143,44 @@ export function listMobileNotifications(rawDb, { deviceId = null, afterSeq = 0, 
     data: row.data_json ? safeParse(row.data_json) : null,
     createdAt: row.created_at,
     seq: row.seq,
-    read: Boolean(row.read_at),
+    read: Boolean(row.receipt_at),
   }));
 }
 
-export function ackMobileNotifications(rawDb, ids = []) {
+/**
+ * Acknowledge, for one device and no other (F-112, `DR-012` A).
+ *
+ * Two things had to change together, and neither is sufficient alone:
+ *
+ *   * the write is scoped to rows this device is **allowed to see**, so an id
+ *     guessed from another device's inbox acknowledges nothing.  The predicate
+ *     is the same one `listMobileNotifications` reads with, on purpose: "can
+ *     acknowledge" must not be a wider set than "can read";
+ *   * the receipt is a row per (notification, device) rather than a column on
+ *     the notification, so a broadcast can be read by one phone without
+ *     becoming read on the rest.
+ *
+ * `INSERT OR IGNORE` makes a repeat ACK mechanically idempotent and keeps the
+ * *first* read time, which is the one that happened.  The count returned is the
+ * number of rows this call actually newly acknowledged — a second identical ACK
+ * reports 0 rather than claiming the work twice.
+ *
+ * @param {Object} rawDb
+ * @param {string[]} ids
+ * @param {{deviceId?: string|null}} options — a missing device acknowledges
+ *   nothing at all, rather than falling back to the pre-058 global behaviour.
+ */
+export function ackMobileNotifications(rawDb, ids = [], { deviceId = null } = {}) {
   if (!Array.isArray(ids) || ids.length === 0) return 0;
+  if (!deviceId) return 0;
   const placeholders = ids.map(() => '?').join(',');
   return rawDb.prepare(`
-    UPDATE mobile_notifications SET read_at = CURRENT_TIMESTAMP
-     WHERE id IN (${placeholders}) AND read_at IS NULL
-  `).run(...ids).changes;
+    INSERT OR IGNORE INTO mobile_notification_receipts (notification_id, device_id)
+    SELECT id, ?
+      FROM mobile_notifications
+     WHERE id IN (${placeholders})
+       AND (device_id IS NULL OR device_id = ?)
+  `).run(deviceId, ...ids, deviceId).changes;
 }
 
 function safeParse(json) {

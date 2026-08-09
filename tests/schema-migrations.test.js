@@ -163,6 +163,7 @@ const ALL_MIGRATIONS = [
   '2026_08_09_055_mobile_gateway',
   '2026_08_09_056_mobile_unknown_reason',
   '2026_08_09_057_mobile_gateway_instances',
+  '2026_08_09_058_mobile_notification_receipts',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -187,8 +188,8 @@ const EXPECTED_TABLES = [
   'learned_patterns', 'lifecycle_handoff_state', 'llm_execution_log', 'logs',
   'marketplace_catalog_cache', 'marketplace_packages', 'media_generations',
   'memory', 'merge_audit_log', 'messages', 'messages_fts', 'milestones',
-  'mobile_approvals', 'mobile_gateway_instances', 'mobile_notifications', 'mobile_operations',
-  'mobile_pairing_codes',
+  'mobile_approvals', 'mobile_gateway_instances', 'mobile_notification_receipts', 'mobile_notifications',
+  'mobile_operations', 'mobile_pairing_codes',
   'model_binding_application_attempts', 'model_binding_operations', 'model_binding_runtime_finalize_cutoffs', 'model_binding_runtime_finalize_receipts', 'model_catalog_cache', 'model_desired_bindings', 'model_failover_events', 'model_failover_proofs',
   'model_failover_state', 'model_overrides', 'model_performance', 'model_reconciliation_log',
   'model_runtime_guard',
