@@ -5,7 +5,7 @@
   FRESH-CLONE VERIFIED; nový referenční GPU běh 009, proof issuer a automatic
   failover zůstávají BLOCKED; offline connector READY
 - **poslední ověřený source SHA:**
-  `e7d89b5ef038e1a32ad2fdff3990d6f9f20d9bec`
+  `bcc9eb8443bf872efb42cb35589906649cc6427a`
 - **base SHA:** `55c913d6f3cb2354b6447d10ff304e9d0323b1c3`
 - **zapisující větev:** `claude/gate1-mobile-app-progress-5sywlt`
 - **GPU/Ollama v checkpointech 1–2:** NOT RUN
@@ -1499,8 +1499,22 @@ preflightů a finální rerun skončil:
 | `C3_LOG_LEVEL=error node tests/m1-model-identity.test.js` | 16 passed, 0 failed, 0 skipped | 0 |
 | `C3_LOG_LEVEL=error node tests/ws-bridge.test.js` | 68 passed, 0 failed | 0 |
 | `C3_LOG_LEVEL=error node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
-| `C3_LOG_LEVEL=error node tests/repository-hygiene.test.js` | 1519 tracked paths checked | 0 |
+| `C3_LOG_LEVEL=error node tests/repository-hygiene.test.js` | 1520 tracked paths checked | 0 |
 | `node scripts/validate-test-registry.js --json` | valid; 375 programů; 8 exclusions; fingerprint `a2f1e67e…f77b8` | 0 |
+
+Zdrojový commit `bcc9eb8443bf872efb42cb35589906649cc6427a` byl následně
+ověřen z lokálního `--no-local` klonu v ignorovaném artifact rootu:
+
+```text
+/home/belphareon/Projects/intentsmith/.intentsmith-artifacts/
+  fresh-clone-bcc9eb84-3s4GHYXT
+```
+
+`git status --short` byl před instalací prázdný. `npm ci --offline` přidalo 233
+balíčků, auditovalo 234, našlo 0 vulnerabilities a skončilo exit `0`. Celá
+tabulka výše pak na témže SHA znovu skončila uvedenými počty a exity; finální
+`git status --short` zůstal prázdný. GPU, Ollama, produktový server ani externí
+síť tento fresh-clone běh nepoužil.
 
 GPU, Ollama, produktový server ani externí síť nebyly spuštěny. Tento
 checkpoint pouze uzavírá auditní identitu a pořadí; nevydává PASS proof,
@@ -1550,6 +1564,11 @@ neaktivuje automatic failover a nemění Gate 1 z `BLOCKED`.
    pinuje jako binding-notification revision, nikoli jako modelový přechod.
    Potlačit event/verzi nebo přidat `changed:false` by změnilo veřejnou WS
    sémantiku a zůstává ve frontě pro společné rozhodnutí.
+9. **Legacy verify timer.** `upgrade-apply.test.js` vytiskne 33/0, ale
+   neúspěšná `_verifyModel()` cesta v `upgrade-manager.js` uklízí 90s timer jen
+   při úspěchu. Proces proto po dokončených asercích zbytečně čeká; jde o
+   `PENDING-OWNER` resource-lifecycle finding pro samostatný malý follow-up,
+   nikoli o selhání tohoto checkpointu.
 
 Backend produktový checkpoint má source SHA i fresh-clone reprodukci popsanou
 výše. GPU, skutečná Ollama ani externí síť nebyly spuštěny. Gate 1 proto

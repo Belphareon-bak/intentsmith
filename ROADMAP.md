@@ -721,7 +721,9 @@ focused regression sady.
      proof issuer, automatic failover, scheduler ani provider efekt. U
      preexistujících kladných rowid/sekvencí nelze zpětně dokázat, zda je
      historicky přidělila DB nebo caller; to je přiznané jednorázové omezení
-     upgradu, ne claim migrace.
+     upgradu, ne claim migrace. Zdrojový commit `bcc9eb84` prošel `npm ci
+     --offline` a celou uvedenou focused/compatibility baterii z `--no-local`
+     fresh klonu.
 3. **Connector:** adaptér `ModelRequest/Result` v1; nemění schéma.
 4. **Závislost:** `WP-M1-CONTRACT`; offline fake běhy nečekají na GPU.
 5. **Demo:** skutečná Ollama odpověď; negativní unavailable cesta používá

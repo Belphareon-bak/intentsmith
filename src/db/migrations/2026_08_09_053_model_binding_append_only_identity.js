@@ -8,7 +8,8 @@
 // caller can explicitly persist that value unless an AFTER guard rejects it.
 //
 // This migration therefore gives every journal one mutually exclusive insert
-// authority, makes pre-existing business triggers silent on authority errors,
+// authority, makes pre-existing business triggers silent on non-sentinel
+// ordering and identity conflicts,
 // and rolls back explicit non-positive sentinel rows after insertion.  Before
 // installing any trigger it also rejects legacy rows with a non-positive
 // ordering value or a NULL TEXT identity.  Positive historical rowid/sequence
