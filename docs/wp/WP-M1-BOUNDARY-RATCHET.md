@@ -8,6 +8,13 @@
 Toto je zadání, ne stav. Stav je podle `CONTRACT.md §6` v `ROADMAP.md`.
 Procesní rámec a kritéria vyhodnocení: [`2026-08-08-PARALLEL-PILOT.md`](../review/2026-08-08-PARALLEL-PILOT.md).
 
+**Aktualizace po integraci:** původní výsledek je v `5332d30e`; follow-up
+hardening začíná `e2dcecd3`. Zachovává pair-based sémantiku, ale deduplikuje
+statickou/dynamickou kolizi po normalizaci, rozlišuje exit `1` (drift) a `2`
+(nástroj/vstup), přesouvá autoritativní scanner do `scripts/` a přidává
+integrátorský baseline writer se schema v2 provenance. Historický datovaný
+scanner zůstává kompatibilitním wrapperem.
+
 ---
 
 ## 0. Vstupní brána — nezačínat dřív
@@ -43,11 +50,11 @@ s prahem.
 
 | | |
 |---|---|
-| **Vlastněné** | `scripts/module-boundary-ratchet.mjs` · `tests/module-boundary-ratchet.test.js` · `tests/fixtures/module-boundary/**` |
+| **Vlastněné** | `scripts/module-boundary-ratchet.mjs` · `scripts/module-graph.mjs` · kompatibilitní `docs/review/2026-08-07-module-graph.mjs` · `tests/module-boundary-ratchet.test.js` · `tests/fixtures/module-boundary/**` |
 | **Registry** | pouze **přidání** jednoho záznamu do `tests/registry.json` |
 | **Generovaný** | branch-local `docs/convergence/TEST-REGISTRY.md` (integrátor ho na merge SHA zahodí a regeneruje) |
 | **Výstup sond** | `docs/review/2026-08-09-LIFECYCLE-PARITY.md`, `docs/review/2026-08-09-IMPORT-CENSUS.md` |
-| **Zakázané** | `src/**` · `docs/review/2026-08-07-module-graph.mjs` · existující záznamy, `schemaVersion` a `exclusions` v registry · `CONTRACT.md` · `ROADMAP.md` · `SYSTEM-MAP.md` · `README.md` · `docs/execution/**` · `docs/decisions/**` · tři zmrazené pilotní dokumenty v `docs/review/2026-08-08-*` |
+| **Zakázané** | `src/**` · existující záznamy, `schemaVersion` a `exclusions` v registry · `CONTRACT.md` · `ROADMAP.md` · `SYSTEM-MAP.md` · `README.md` · `docs/execution/**` · `docs/decisions/**`; změnu přijatého pilotního dokumentu smí provést jen operátorem výslovně schválený integrační follow-up |
 
 **Rezervace registry záznamu** (zapiš současně s testem, ne dřív — validátor
 odmítá registrovanou cestu bez existujícího runnable programu):
@@ -80,12 +87,13 @@ souběžného WP.
 
 ## 5. Co je změřeno — nepřeměřovat
 
-Nástroj `docs/review/2026-08-07-module-graph.mjs` **už existuje a nový scanner
-se nepíše.** Je read-only vůči produktu: čte strom a zapisuje jediný soubor,
-který dostane přes `--out`.
+Autoritativní nástroj je `scripts/module-graph.mjs`; jde o relokovaný původní P6
+scanner, ne druhou implementaci parseru. Je read-only vůči produktu: čte strom
+a zapisuje jediný soubor, který dostane přes `--out`. Datovaný původní vstup
+jen importuje tentýž soubor kvůli reprodukci starší evidence.
 
 ```bash
-node docs/review/2026-08-07-module-graph.mjs . --out /tmp/graph.json
+node scripts/module-graph.mjs . --out /tmp/graph.json
 ```
 
 Vypíše `counts` na stdout a setříděný JSON do `--out`. Naměřeno na
@@ -105,9 +113,12 @@ Pole `edges` je záměrně setříděné pole řetězců, takže `git diff` nad 
 drift grafu, ne pořadí. Klíče výstupu: `meta`, `counts`, `fanIn`, `unreachable`,
 `cycles`, `barrels`, `edges`.
 
-Nástroj **nevidí** `import()` s vypočítanou cestou (10 míst), obsah template
-literálů v `src/domains/scaffolds/**` a `<script src>` v HTML. Checker to nesmí
-zamlčet — do reportu patří stejná věta.
+Protocol 1 **nevidí** `import()` s vypočítanou cestou (10 míst), obsah template
+literálů v `src/domains/scaffolds/**`, `<script src>` v HTML ani `.ts/.d.ts`.
+Statickou a dynamickou syntaxi hlásí odděleně, ale ratchet ji záměrně
+normalizuje na vlastnictví jedné `from → to` dvojice. Checker omezení čte ze
+strukturovaného `graph.meta.limitations`; baseline proto už nepinuje byteově
+shodnou větu.
 
 ## 6. Postup — tři fáze, sekvenčně v jednom checkoutu
 
@@ -130,9 +141,15 @@ zamlčet — do reportu patří stejná věta.
 výhradně přesné dvojice. Checker musí glob v baseline **odmítnout jako neplatný
 formát** — jinak by šel ratchet obejít jedním řádkem.
 
-Baseline na této větvi je **provizorní**. První autoritativní baseline připne
-integrátor na merge SHA — viz `2026-08-08-MODULE-INDEPENDENCE.md §6.3` bod 3.
-Do fixture proto patří i poznámka, že hodnota je branch-local.
+Původní branch baseline byl provizorní; první autoritativní stav připnul
+integrátor v `5332d30e`. Schema v2 nyní vedle exact hran pinuje zdrojový commit,
+jeho Git tree `src/**` a blob scanneru. Není self-referenční: následný commit,
+který obsahuje jen vygenerovaný baseline, je potomkem připnutého zdroje.
+
+Regenerace není ruční editace JSONu. Na čistém Git stromu ji provádí pouze
+explicitní `--write-baseline`; syntetický `--graph` odmítne. Přidané hrany se
+nejprve jen vypíšou a zapisující průchod vyžaduje přesnou opakovanou volbu
+`--accept-edge`. Růst cyklu writer nepřijme vůbec.
 
 #### Ratchet je záměrně směrově slepý
 
@@ -205,6 +222,12 @@ kód používá checker nad skutečným P6 výstupem i test nad fixture.
 3. odebraná hrana → exit 0 + hlášení „baseline lze utáhnout";
 4. glob nebo adresářová výjimka v baseline → odmítnuto jako neplatný formát;
 5. poškozený/chybějící baseline → fail-closed, ne tiché prázdné porovnání.
+6. statická+dynamická forma stejné rozřešené dvojice → jedna normalizovaná
+   hrana; nová dvojice se vypíše právě jednou;
+7. schema v2 → revision/tree/scanner provenance se v Git checkoutu znovu
+   ověří; chybějící nebo cizí commit skončí exit `2`;
+8. writer → migrace v1→v2, odmítnutí neodsouhlasené hrany bez zápisu a zápis
+   až po přesné `--accept-edge`.
 
 Směrový test v seznamu **není** a nemá se doplňovat — důvod je v §6, fáze A.
 
@@ -233,6 +256,19 @@ git diff --check
 ```
 
 Všechny čtyři musí skončit exit 0 a **žádný nesmí sáhnout na síť, Ollamu ani GPU.**
+
+Integrátorský rebaseline po schváleném delta:
+
+```bash
+# 1. pouze review; při ADDED nic nezapíše
+node scripts/module-boundary-ratchet.mjs --write-baseline
+
+# 2. až po review, jedna volba pro každou a pouze přijatou dvojici
+node scripts/module-boundary-ratchet.mjs --write-baseline \
+  --accept-edge "src/from.js -> src/to.js"
+```
+
+CLI vypisuje exit contract přes `node scripts/module-boundary-ratchet.mjs --help`.
 
 ## 11. Co se přes noc NESMÍ stát
 

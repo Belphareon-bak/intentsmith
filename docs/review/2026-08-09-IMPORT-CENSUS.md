@@ -189,3 +189,33 @@ PASS. Follow-up test nyní odvozuje baseline count z fixture, vyžaduje
 `added=0`, `currentEdges <= baselineEdges`, přesný rozdíl `removed` a při
 odebrání povinné `BASELINE_TIGHTENING_AVAILABLE`. Neoslabil se na pouhou
 přítomnost slova PASS.
+
+### Post-integration hardening — follow-up `e2dcecd3`
+
+Review po integraci našlo dvě provozní vady a několik omezení. Follow-up je
+opravuje bez změny pair-based architektonické politiky:
+
+- scanner může emitovat statickou i dynamickou podobu stejné rozřešené dvojice;
+  checker je nyní deduplikuje **až po** odstranění markeru. Kolize tedy nezmění
+  drift na nesouvisející `INVALID_GRAPH` a nová dvojice se reportuje jednou;
+- `--write-baseline` nahradil ruční editaci JSONu. Vyžaduje čistý Git strom,
+  odmítá syntetický graf a růst cyklu, první průchod s novými hranami nic
+  nezapíše a druhý vyžaduje přesnou `--accept-edge` pro každou přijatou hranu;
+- schema v2 váže baseline na zdrojový commit, jeho `src/**` tree a blob
+  scanneru. V Git checkoutu se provenance znovu ověří; čistý export bez `.git`
+  zůstane spustitelný, ale hlásí `UNVERIFIED` místo falešného ověření;
+- autoritativní scanner je `scripts/module-graph.mjs`; datovaná P6 cesta je
+  kompatibilitní wrapper. Limity jsou strukturovaná metadata scanneru, ne
+  byteově připnutá věta baseline;
+- drift má exit `1`, neplatný vstup nebo porucha nástroje exit `2`.
+
+Tím se odstraňuje ruční práce nad tisíciřádkovým allowlistem, ale ne cena review:
+první výpis delta, kontrola a případný druhý přesně autorizovaný writer průchod
+zůstávají `T_recurring` podle pilotu §6.
+
+Snapshot tohoto census zůstává pravdivě **416** souborů na `8116d09f`.
+Relokovaný scanner na follow-up parentu naměřil **417 / 1 004 / 3 / 28**;
+rozdíl jednoho source souboru je revision drift, nikoli oprava historického
+měření. Protocol 1 stále neratchetuje změnu static↔dynamic a neskenuje čtyři
+`.d.ts` soubory; obojí teď vypisuje jako explicitní limit, ne jako pokrytou
+garanci.

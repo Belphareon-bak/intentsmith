@@ -1,9 +1,11 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "5332d30e0ae90f347838ec3c634c700e565b66cc",
-  "scanner": "docs/review/2026-08-07-module-graph.mjs",
-  "note": "computed import() targets are not resolved; template-literal content (including src/domains/scaffolds/**) is ignored; HTML <script src> edges are not modeled",
+  "sourceRevision": "e2dcecd3f536adbea3ddbb02418f23bfc8f21fb8",
+  "sourceTree": "418d6d1cf755c2cad08ee03e75bd19c54db30f73",
+  "scanner": "scripts/module-graph.mjs",
+  "scannerProtocol": 1,
+  "scannerBlob": "559b3518ba3a152a6e953bc6e2b0f33104cd7d5b",
   "limits": {
     "cycles": 3,
     "filesInCycles": 28

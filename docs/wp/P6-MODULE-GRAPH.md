@@ -55,24 +55,27 @@ Sonda začíná od nuly nástrojem, jehož výstup je přeměřitelný.
 7. **Cykly.** SCC > 1. U největšího vypsat celý obsah — je to vstup do otevřené
    otázky „Rozdělení #6" v `CONTRACT.md §9`.
 
-## 4. Nástroj vzniká vedle reportu, ne v `src/**` ani ve `scripts/`
+## 4. Historické umístění sondy a současné vlastnictví
 
-Měřidlo je kód a `src/**` i `scripts/**` mají v tuto chvíli jiného vlastníka.
-Proto:
+Při původní sondě měly `src/**` i `scripts/**` jiného vlastníka. Nástroj proto
+vznikl u reportu a nebyl součástí průběžné linky. Po samostatném operátorském
+přijetí ratchetu se provozní vlastnictví změnilo:
 
-- nástroj leží u svého výstupu v `docs/review/`, jmenuje se stejně jako report;
-- **není zapojený do `package.json`** ani do L1 linky. Průběžné hlídání driftu
-  je nový aparát podle `CONTRACT.md §12` a je to samostatné rozhodnutí;
+- autoritativní nástroj leží v `scripts/module-graph.mjs`; datovaná cesta u
+  reportu je jen kompatibilitní wrapper;
+- **není zapojený do `package.json`**. Průběžné hlídání driftu je přijatý
+  aparát podle `ROADMAP.md §12` a spouští jej registrovaný boundary checker;
 - výstup je setříděný JSON, aby se drift příště zjistil `git diff`em.
 
 ## 5. Výstup
 
-Do `docs/review/`, nikam jinam:
+Historický report a data zůstávají v `docs/review/`; provozní scanner je ve
+`scripts/`:
 
 | Soubor | Co to je |
 |---|---|
 | `2026-08-07-MODULE-GRAPH.md` | report |
-| `2026-08-07-module-graph.mjs` | měřidlo |
+| `scripts/module-graph.mjs` | autoritativní měřidlo; datovaný review vstup je kompatibilitní wrapper |
 | `2026-08-07-MODULE-GRAPH.json` | strojově čitelný graf |
 
 Povinné sekce reportu:
@@ -110,7 +113,7 @@ Zastavit a eskalovat, pokud:
 ## 8. Ověření, že sonda doběhla pravdivě
 
 ```bash
-node docs/review/2026-08-07-module-graph.mjs . --out docs/review/2026-08-07-MODULE-GRAPH.json
+node scripts/module-graph.mjs . --out docs/review/2026-08-07-MODULE-GRAPH.json
 git diff --stat docs/review/2026-08-07-MODULE-GRAPH.json     # na čisté revizi musí být prázdné
 ```
 

@@ -59,6 +59,15 @@ const LEGACY_SCANNER_LIMITS = [
   'HTML <script src> edges are not modeled',
 ].join('; ');
 const GIT_OBJECT_ID = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
+const USAGE = `Usage:
+  node scripts/module-boundary-ratchet.mjs [--root PATH] [--baseline PATH] [--graph PATH]
+  node scripts/module-boundary-ratchet.mjs --write-baseline [--root PATH] [--baseline PATH]
+    [--accept-edge "src/from.js -> src/to.js"]...
+
+Exit codes:
+  0  graph accepted or baseline written
+  1  boundary drift or unaccepted baseline change
+  2  invalid input, scanner failure, Git/provenance failure, or tool defect`;
 
 class RatchetInputError extends Error {
   constructor(code, message) {
@@ -306,9 +315,14 @@ function parseArgs(argv) {
     graph: null,
     writeBaseline: false,
     acceptedEdges: [],
+    help: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
+    if (arg === '--help') {
+      result.help = true;
+      continue;
+    }
     if (arg === '--write-baseline') {
       if (result.writeBaseline) {
         throw new RatchetInputError('INVALID_ARGUMENT', '--write-baseline may be provided only once');
@@ -617,6 +631,11 @@ function writeBaseline(options) {
 function main() {
   try {
     const options = parseArgs(process.argv.slice(2));
+    if (options.help) {
+      console.log(USAGE);
+      process.exitCode = 0;
+      return;
+    }
     if (options.writeBaseline) {
       process.exitCode = writeBaseline(options);
       return;

@@ -2,9 +2,13 @@
 
 **Zadání:** [`docs/wp/P6-MODULE-GRAPH.md`](../wp/P6-MODULE-GRAPH.md)
 **Revision:** `13701b2a500feac94d13322433721125793c4587` · **Datum:** 2026-08-07
-**Měřidlo:** [`2026-08-07-module-graph.mjs`](2026-08-07-module-graph.mjs) ·
+**Měřidlo v době běhu:** [`2026-08-07-module-graph.mjs`](2026-08-07-module-graph.mjs) ·
 **Data:** [`2026-08-07-MODULE-GRAPH.json`](2026-08-07-MODULE-GRAPH.json)
 **Adresát:** operátor · vlastník budoucího kontraktového registru · `WP-M3-BOUNDARY`
+
+**Současný autoritativní vstup:** [`scripts/module-graph.mjs`](../../scripts/module-graph.mjs).
+Datovaná cesta výše zůstává spustitelným wrapperem, takže historická reprodukce
+nepotřebuje jiný parser.
 
 > **Tento dokument není evidence** ve smyslu [`docs/review/README.md`](README.md).
 > Je to vstup rozhodnutí. Nerozhoduje disposition — ta je podle `CONTRACT.md §7`
@@ -60,8 +64,8 @@ nebo se nedělí nic.
 
 ## 1. Jak se měřilo
 
-Nástroj `2026-08-07-module-graph.mjs` projde `src/**`, oddělí kód od komentářů,
-posbírá `import` / `export … from` / `import()` s literálem a rozřeší relativní
+Nástroj, dnes vlastněný jako `scripts/module-graph.mjs`, projde `src/**`, oddělí
+kód od komentářů, posbírá `import` / `export … from` / `import()` s literálem a rozřeší relativní
 specifikátory na soubory. Výstup je setříděný JSON, takže **drift se příště
 přeměří `git diff`em**, ne dalším čtením.
 
@@ -344,7 +348,7 @@ tento report neurčuje — je to měřitelné a patří to do rozhodnutí o §6.
 
 ```bash
 # 1. přeměřit celý graf (přepíše JSON; na čisté revizi musí být diff prázdný)
-node docs/review/2026-08-07-module-graph.mjs . --out docs/review/2026-08-07-MODULE-GRAPH.json
+node scripts/module-graph.mjs . --out docs/review/2026-08-07-MODULE-GRAPH.json
 git diff --stat docs/review/2026-08-07-MODULE-GRAPH.json
 
 # 2. fan-in logger.js: 179 + 5 = 184, žádný jiný tvar

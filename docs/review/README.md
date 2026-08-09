@@ -59,14 +59,19 @@ zápis do `docs/convergence/`, `src/` a `tests/` má vlastní pravidla podle
 | [ENFORCEMENT-AUDIT](2026-08-07-ENFORCEMENT-AUDIT.md) | 08-07 | Má deklarovaný kontrakt vynucovací mechanismus a kdy zafungoval; nálezy `EN-1`..`EN-6` |
 | [MODULE-INDEPENDENCE](2026-08-08-MODULE-INDEPENDENCE.md) | 08-08 | Konsolidovaný rozhodovací podklad pro asymetrické jádro, optional moduly a pořadí boundary práce |
 | [PARALLEL-PILOT](2026-08-08-PARALLEL-PILOT.md) | 08-08 | Přijatá pravidla vlastnictví; technický ratchet integrován, první procesní pilot invalidován |
+| [IMPORT-CENSUS](2026-08-09-IMPORT-CENSUS.md) | 08-09 | Úplný top-level import census, SCC, technický výsledek ratchetu a procesní incident pilotu |
+| [LIFECYCLE-PARITY](2026-08-09-LIFECYCLE-PARITY.md) | 08-09 | Tři lifecycle vstupy, rozdílná persistence/scope a přesné P1 vady legacy cesty |
 
 Zadání, ze kterých šest srpnových sond vzniklo, jsou v [`docs/wp/`](../wp/).
 
-`MODULE-GRAPH` má vedle reportu dva soubory, které jsou jeho součástí:
-[`2026-08-07-module-graph.mjs`](2026-08-07-module-graph.mjs) je měřidlo a
-[`2026-08-07-MODULE-GRAPH.json`](2026-08-07-MODULE-GRAPH.json) jeho strojově
-čitelný výstup. Nástroj **není zapojený do `package.json`** ani do L1 linky —
-leží u svého reportu, aby se dal spustit znovu, ne aby se spouštěl sám.
+`MODULE-GRAPH` má vedle reportu strojově čitelný výstup
+[`2026-08-07-MODULE-GRAPH.json`](2026-08-07-MODULE-GRAPH.json). Autoritativní
+měřidlo se po přijetí průběžného ratchetu přesunulo do
+[`scripts/module-graph.mjs`](../../scripts/module-graph.mjs); datovaný
+[`2026-08-07-module-graph.mjs`](2026-08-07-module-graph.mjs) je kompatibilitní
+CLI pro reprodukci původní evidence. Scanner **není zapojený do `package.json`** —
+spouští jej přímo povinný boundary checker; compatibility wrapper se sám
+nespouští.
 
 ## Jak s tím naložit
 

@@ -160,7 +160,15 @@ function graphFixture({ edges = baseline.edges, cycleLengths = [21, 5, 2] } = {}
 console.log('\n═══ Module boundary ratchet ═══════════════════════════════════');
 
 try {
-  test('current P6 graph matches the provisional exact-edge baseline', () => {
+  test('help documents write mode and distinct exit-code classes', () => {
+    const result = run(['--help']);
+    assertEqual(result.status, 0, result.stderr || result.stdout);
+    assert(result.stdout.includes('--write-baseline'), result.stdout);
+    assert(result.stdout.includes('--accept-edge'), result.stdout);
+    assert(result.stdout.includes('2  invalid input'), result.stdout);
+  });
+
+  test('current P6 graph matches the authoritative exact-edge baseline', () => {
     const result = run();
     assertEqual(result.status, 0, result.stderr || result.stdout);
     assert(result.stdout.includes('MODULE_BOUNDARY_RATCHET_PASS'), result.stdout);

@@ -132,8 +132,9 @@ ostatní čísla jsou přeměřená na téže revision.
 **V1 — lifecycle má tři divergentní vstupy.**
 [`routes/expertises.js:518`](../../src/routes/expertises.js) nečeká na
 `static async create()` ([`planner/lifecycle.js:245`](../../src/planner/lifecycle.js)),
-takže `startSpec()` dostane Promise a odpověď vrací `lifecycleId: undefined` —
-endpoint nefunguje ani v happy pathu. Navíc předává `config` místo
+takže `startSpec()` dostane Promise. Po D1 LLM volání se pokusí uložit spec pod
+`lifecycleId: undefined`; `better-sqlite3` bind odmítne a endpoint skončí `500`
+až po nejdražším kroku. Navíc předává `config` místo
 `lifecycleConfig` a neposílá `projectPath`. Jedenáct volání `resume()` v témže
 souboru vytváří `GitManager(undefined)`.
 [`routes/projects.js:382`](../../src/routes/projects.js) obchází
@@ -178,7 +179,7 @@ modul zůstává v grafu jádra.
 
 | Existuje | Kde | Použít na |
 |---|---|---|
-| Měřidlo modulového grafu | [`2026-08-07-module-graph.mjs`](2026-08-07-module-graph.mjs) | Základ ratchetu; nepsat nový scanner |
+| Měřidlo modulového grafu | [`scripts/module-graph.mjs`](../../scripts/module-graph.mjs) | Autoritativní relokace původního P6 scanneru; datovaný vstup zůstává kompatibilitní wrapper |
 | Kontraktový vzor s verzí, stage a exact-key validací | [`contracts/m1/`](../../contracts/m1/) | Šablona pro další kontrakty jádra |
 | `WP-M3-BOUNDARY` s `ExtensionManifest/Context` | `ROADMAP.md §14` | Domov pro extension hranici |
 | Pravidlo „connector mění jediný vlastník, konzument je připnutý" | `CONTRACT.md §6` | Pravidlo je zapsané, chybí aplikace mimo chat/model |

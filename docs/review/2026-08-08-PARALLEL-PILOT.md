@@ -127,8 +127,10 @@ Plné zadání včetně tří fází, negativních testů a stop conditions:
 `core → optional` v něm **není** — přijatá cestová mapa jádra neexistuje a
 checker si ji vymýšlet nesmí; ratchet proto hlídá jen růst grafu.
 
-Checker **nepíše nový scanner** — konzumuje existující
-[`2026-08-07-module-graph.mjs`](2026-08-07-module-graph.mjs).
+Checker **neduplikuje scanner** — konzumuje autoritativní
+[`scripts/module-graph.mjs`](../../scripts/module-graph.mjs). Datovaný
+[`2026-08-07-module-graph.mjs`](2026-08-07-module-graph.mjs) zůstává pouze
+spustitelným kompatibilitním vstupem pro historickou P6 evidence.
 Branch-local `TEST-REGISTRY.md` je nutný pro zelenou branch evidence, ale
 integrátor jej na merge SHA zahodí a regeneruje z výsledného registru.
 
@@ -159,9 +161,19 @@ hrana je vypsaná jako přesná `from → to` dvojice a má odůvodnění v dan�
 Nevznikl nový SCC/cyklus ani změna cizího connectoru. Ratchet v1 neposuzuje
 směr vrstvy, protože přijatá cestová mapa `core / optional` ještě neexistuje.
 
-Integrátor zkontroluje přesný delta seznam, přeměří graf na merge SHA a připne
-nový exact `from → to` baseline. Je to očekávaná integrační práce a **započítává
-se do `T_cost`**, nikoli do selhání.
+Integrátor zkontroluje přesný delta seznam a spustí
+`node scripts/module-boundary-ratchet.mjs --write-baseline`. Pokud přibyly
+hrany, první průchod nic nezapíše a vypíše `ACCEPTANCE_REQUIRED`; druhý průchod
+musí uvést jednu přesnou `--accept-edge "from -> to"` pro každou a pouze
+schválenou dvojici. Writer odmítá syntetický `--graph`, dirty strom i růst
+cyklů a zapisuje atomicky. Je to očekávaná integrační práce a **započítává se
+do `T_recurring`**, nikoli do selhání.
+
+Schema baseline v2 navíc pinuje `sourceRevision`, Git tree `src/**` a blob
+scanneru. `sourceRevision` je reprodukovatelný zdroj baseline, ne
+self-referenční SHA následného baseline-only commitu: v Git checkoutu musí být
+lokální předek `HEAD` a oba piny se z něj znovu odvodí. Běh bez `.git` zůstane
+funkční pro čistý export, ale provenance pravdivě označí `UNVERIFIED`.
 
 ### 3.2 Legitimní, ale neschválená architektonická změna
 
@@ -242,8 +254,12 @@ ratchet mechanismu; vytvoření počátečního exact baseline a pilotní metrik
 
 **`T_recurring` — opakované:** vytvoření a odstranění každého worktree; případný
 dependency bootstrap; synchronizace větve; řešení registry konfliktu a
-regenerace ledgeru; přeměření a klasifikace graph delta; merge-boundary testy;
-cleanup procesů a artefaktů.
+regenerace ledgeru; přeměření a klasifikace graph delta; první read-only
+baseline review a případný druhý writer průchod s přesnými `--accept-edge`;
+kontrola provenance pinů; merge-boundary testy; cleanup procesů a artefaktů.
+Čas ručního sestavení nebo kontroly seznamu přijatých hran se měří zvlášť —
+automatický writer jej odstraňuje z editace JSONu, nikoli z architektonického
+rozhodnutí.
 
 ```
 T_net        = T_saved - T_recurring

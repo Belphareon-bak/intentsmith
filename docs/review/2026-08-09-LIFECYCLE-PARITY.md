@@ -29,7 +29,7 @@ verdikt je ale úplný pro vady konstrukce, persistence a filesystem scope;
 | Vstup | Vytvoření lifecycle | Project path | SPEC / LLM | Odpověď |
 |---|---|---|---|---|
 | Chat `PROPOSED → ano` | `await ProjectLifecycle.create({ projectId, projectPath, lifecycleConfig, callLLM, executor })` | `context.projectPath`, jinak **nový `/tmp/lc-<čas>`** | `startSpec()` nad skutečnou instancí | phase a `lifecycle.id` se uloží do session state |
-| `POST /api/lifecycle/start` | `ProjectLifecycle.create({ projectId, config })` **bez `await`** | neposílá nic a projekt nenačte | `startSpec(Promise, ...)`; použije default LLM, protože `Promise.callLLM` neexistuje | `lifecycle.id` a `.phase` jsou `undefined`; `JSON.stringify()` je vynechá |
+| `POST /api/lifecycle/start` | `ProjectLifecycle.create({ projectId, config })` **bez `await`** | neposílá nic a projekt nenačte | `startSpec(Promise, ...)`; použije default LLM, protože `Promise.callLLM` neexistuje | po dokončení D1 LLM volání zápis spec s `lifecycle.id === undefined` tvrdě vyhodí výjimku; route končí `500` |
 | `POST /api/projects/lifecycle/start` | vlastní `INSERT OR IGNORE` + `setLcState()` + `bindSessionToLifecycle()` | přijme neověřený `projectPath` z body | LLM nevolá; uloží generický spec a fázi `SPEC` | `200 { ok: true, phase: "SPEC" }`, bez `lifecycleId` |
 
 Chatová cesta je v
@@ -49,9 +49,10 @@ Chatová cesta je v
 místo `lifecycleConfig`. Důsledky jsou dva souběžné toky:
 
 1. `create()` synchronně založí lifecycle row a potom čeká na Git;
-2. route okamžitě spustí `startSpec()` nad Promise. Defaultní LLM může proběhnout,
-   ale výsledek se nemá kam správně uložit, protože `lifecycle.id` je
-   `undefined`.
+2. route okamžitě spustí `startSpec()` nad Promise. Defaultní D1 LLM volání
+   proběhne a až následný `lifecycleRepo.updateSpec.run(..., lifecycle.id)`
+   dostane `undefined`; `better-sqlite3` tento bind tvrdě odmítne. Uživatelský
+   výsledek tedy není tichý `200` bez polí, ale `500` **až po nejdražším kroku**.
 
 Neplatný `projectId` navíc odmítne synchronní DB zápis uvnitř async funkce jako
 zamítnutý Promise, který vnější `try/catch` bez `await` nezachytí.
