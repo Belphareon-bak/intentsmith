@@ -19,6 +19,7 @@ import {
 } from '../src/db/migrate.js';
 import { up as migrateModelPolicy } from '../src/db/migrations/2026_08_09_061_model_automation_policy.js';
 import { createMiscRoutes } from '../src/routes/misc.js';
+import { createSystemRoutes } from '../src/routes/system.js';
 import {
   DEFAULT_MODEL_AUTOMATION_POLICY,
   ModelAutomationPolicyError,
@@ -187,6 +188,70 @@ function createSettingsRouteHarness(db) {
       return response;
     },
   };
+}
+
+function createTypedPolicyRouteHarness(db) {
+  let requestBody = {};
+  let response = null;
+  let parseFailure = null;
+  const effects = { fetch: 0, modelRegistry: 0, modelBinding: 0 };
+  const effectPort = key => new Proxy({}, {
+    get() {
+      effects[key]++;
+      return () => {
+        effects[key]++;
+        throw new Error(`unexpected ${key} effect`);
+      };
+    },
+  });
+  const withFetchTrap = async callback => {
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = () => {
+      effects.fetch++;
+      throw new Error('unexpected provider fetch');
+    };
+    try {
+      return await callback();
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  };
+  const routes = createSystemRoutes({
+    db: { db },
+    modelRegistry: effectPort('modelRegistry'),
+    modelBindingApplication: effectPort('modelBinding'),
+    parseBody: async () => {
+      if (parseFailure) throw parseFailure;
+      return requestBody;
+    },
+    sendJSON: (_res, status, body) => { response = { status, body }; },
+  });
+  return {
+    effects,
+    async get() {
+      response = null;
+      return withFetchTrap(async () => {
+        await routes['GET /api/system/models/settings']({}, {});
+        return response;
+      });
+    },
+    async put(body, options = {}) {
+      requestBody = body;
+      parseFailure = options.parseFailure || null;
+      response = null;
+      return withFetchTrap(async () => {
+        await routes['PUT /api/system/models/settings']({}, {});
+        parseFailure = null;
+        return response;
+      });
+    },
+  };
+}
+
+function assertNoTypedPolicyEffects(harness) {
+  assertEqual(harness.effects.fetch, 0, 'typed policy route must not call a provider');
+  assertEqual(harness.effects.modelRegistry, 0, 'typed policy route must not touch model registry');
+  assertEqual(harness.effects.modelBinding, 0, 'typed policy route must not touch binding authority');
 }
 
 function waitForWorker(worker, timeoutMs = 10000) {
@@ -477,6 +542,137 @@ await testAsync('generic settings GET omits owned keys from a legacy raw row', a
     assertEqual(Object.hasOwn(response.body.models, 'autoFailoverEnabled'), false);
     assertEqual(Object.hasOwn(response.body.models, 'autoCleanupDays'), false);
     assertEqual(readModelAutomationPolicy(db).settings.autoFailoverEnabled, false);
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('typed policy GET and PUT expose one exact revisioned authority', async () => {
+  const db = openDb();
+  try {
+    createPolicySchema(db);
+    const harness = createTypedPolicyRouteHarness(db);
+    const initial = await harness.get();
+    assertEqual(initial.status, 200);
+    assertEqual(initial.body.ok, true);
+    assertEqual(JSON.stringify(initial.body.policy), JSON.stringify({
+      schemaVersion: 1,
+      revision: 1,
+      autoFailoverEnabled: false,
+      autoCleanupEnabled: false,
+      autoCleanupDays: 14,
+      lastEventId: 'policy-event-migration-061',
+      updatedAtMs: readModelAutomationPolicy(db).updatedAtMs,
+    }));
+
+    const committed = await harness.put({
+      expectedRevision: 1,
+      autoFailoverEnabled: true,
+      autoCleanupEnabled: true,
+      autoCleanupDays: 30,
+    });
+    assertEqual(committed.status, 200);
+    assertEqual(Object.keys(committed.body).sort().join(','), 'event,ok,policy');
+    assertEqual(committed.body.ok, true);
+    assertEqual(committed.body.policy.revision, 2);
+    assertEqual(committed.body.policy.autoFailoverEnabled, true);
+    assertEqual(committed.body.policy.autoCleanupEnabled, true);
+    assertEqual(committed.body.policy.autoCleanupDays, 30);
+    assertEqual(committed.body.event.eventKind, 'USER_UPDATE');
+    assertEqual(Object.keys(committed.body.event).sort().join(','), 'actor,eventId,eventKind,requestId,source');
+    assertEqual(committed.body.event.actor, 'user:model-settings-api');
+    assertEqual(committed.body.event.source, 'TYPED_API');
+    assert(/^policy-event-/.test(committed.body.event.eventId));
+    assert(/^policy-request-/.test(committed.body.event.requestId));
+    assertEqual((await harness.get()).body.policy.revision, 2);
+    assertNoTypedPolicyEffects(harness);
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('typed policy PUT rejects invalid and stale bodies without mutation', async () => {
+  const db = openDb();
+  try {
+    createPolicySchema(db);
+    const harness = createTypedPolicyRouteHarness(db);
+    const before = snapshot(db);
+    for (const body of [
+      { ...updateInput(1), extra: true },
+      { ...updateInput(1), autoFailoverEnabled: 'true' },
+      { ...updateInput(1), autoCleanupDays: 0 },
+      {
+        autoFailoverEnabled: true,
+        autoCleanupEnabled: false,
+        autoCleanupDays: 14,
+      },
+    ]) {
+      const response = await harness.put(body);
+      assertEqual(response.status, 400);
+      assertEqual(response.body.ok, false);
+      assertEqual(snapshot(db), before);
+    }
+    const malformed = await harness.put(null, { parseFailure: new Error('invalid JSON') });
+    assertEqual(malformed.status, 400);
+    assertEqual(malformed.body.code, 'MODEL_AUTOMATION_POLICY_INPUT_INVALID');
+    assertEqual(snapshot(db), before);
+
+    const first = await harness.put(updateInput(1));
+    assertEqual(first.status, 200);
+    const afterFirst = snapshot(db);
+    const stale = await harness.put(updateInput(1, { autoCleanupDays: 31 }));
+    assertEqual(stale.status, 409);
+    assertEqual(stale.body.code, 'MODEL_AUTOMATION_POLICY_STALE');
+    assertEqual(snapshot(db), afterFirst);
+    assertNoTypedPolicyEffects(harness);
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('typed policy routes fail closed on a projection/event mismatch', async () => {
+  const db = openDb();
+  try {
+    createPolicySchema(db);
+    db.exec(`
+      DROP TRIGGER trg_model_automation_projection_revision;
+      DROP TRIGGER trg_model_automation_projection_new_event;
+      DROP TRIGGER trg_model_automation_projection_current_event;
+      UPDATE model_automation_policy SET auto_cleanup_days = 31 WHERE id = 1;
+    `);
+    const harness = createTypedPolicyRouteHarness(db);
+    const before = snapshot(db);
+    const read = await harness.get();
+    assertEqual(read.status, 503);
+    assertEqual(read.body.code, 'MODEL_AUTOMATION_POLICY_PROJECTION_INVALID');
+    const write = await harness.put(updateInput(1));
+    assertEqual(write.status, 503);
+    assertEqual(write.body.code, 'MODEL_AUTOMATION_POLICY_INVALID_STATE');
+    assertEqual(snapshot(db), before);
+    assertNoTypedPolicyEffects(harness);
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('typed policy routes report unavailable storage as 503 without effects', async () => {
+  const db = openDb();
+  try {
+    const harness = createTypedPolicyRouteHarness(db);
+    const before = JSON.stringify(db.prepare(
+      "SELECT type, name, sql FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name",
+    ).all());
+    const read = await harness.get();
+    assertEqual(read.status, 503);
+    assertEqual(read.body.code, 'MODEL_AUTOMATION_POLICY_DB_READ_FAILED');
+    const write = await harness.put(updateInput(1));
+    assertEqual(write.status, 503);
+    assertEqual(write.body.code, 'MODEL_AUTOMATION_POLICY_DB_WRITE_FAILED');
+    const after = JSON.stringify(db.prepare(
+      "SELECT type, name, sql FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name",
+    ).all());
+    assertEqual(after, before);
+    assertNoTypedPolicyEffects(harness);
   } finally {
     db.close();
   }

@@ -194,8 +194,15 @@ přesně tři rezervované klíče, odpověď uvádí `ignoredReservedKeys` a
 `featureManager` nikdy nevidí nesanitizovaný dokument. Starý JSON helper nemá
 produkčního konzumenta a jeho pre-061 sada je `HISTORICAL`.
 
-Tento checkpoint ještě **neimplementuje** typed GET/PUT, atomický
-export/import/reset adaptér ani Studio `response.ok`.
+Typed `GET /api/system/models/settings` vrací pouze konzistentní projekci;
+invalidní authority končí 503 bez fallbacku na legacy JSON. Exact
+`PUT /api/system/models/settings` přijímá `expectedRevision` a právě tři
+automation hodnoty. Neplatný nebo neparsovatelný vstup končí 400, stale revision
+409 a nedostupná či nekonzistentní storage 503; žádná z těchto cest nemutuje
+stav. Úspěch appenduje jediný `USER_UPDATE/TYPED_API` event.
+
+Tento checkpoint ještě **neimplementuje** atomický export/import/reset adaptér
+ani Studio `response.ok`.
 Skutečná late-insertion parita s finálně
 přečíslovanými mobilními migracemi zůstává `PENDING_FIRST_COMMON_INTEGRATION_SHA`;
 syntetická náhrada nebyla použita. Aktivace, GPU a Electron nebyly spuštěné.

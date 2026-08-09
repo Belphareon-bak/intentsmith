@@ -2652,3 +2652,25 @@ exit 0 a checkout zůstal čistý. Tento přesný checkpoint je proto
 `FRESH_CLONE_VERIFIED`; nejde o dokončené 020/E ani Gate 1 PASS, protože typed
 API, atomický import/reset, Studio error handling, migrace 062, mobile parita a
 autorizovaný GPU pilot zůstávají otevřené.
+
+## Checkpoint 30 — 020/E typed model-policy API candidate
+
+`src/routes/system.js` přidává `GET /api/system/models/settings` a
+`PUT /api/system/models/settings`. GET nikdy nečte retired JSON a nekonzistentní
+projection/event authority vrací jako typované 503. PUT předává repository
+exact čtyřpoložkové tělo (`expectedRevision` + tři hodnoty), takže unknown,
+missing, string boolean, neplatné cleanup days i neparsovatelný JSON končí 400
+bez mutace. Stale revision končí 409; storage busy/corruption 503. Úspěch vrací
+novou revizi a jediný repository-owned `USER_UPDATE/TYPED_API` event. Route
+nemá provider, binding ani activation port a nemůže vyvolat modelový efekt.
+
+Focused policy sada skončila 24/0 a routes smoke 109/0. Negativní route probe
+navíc připnul přesně nula provider, registry a binding efektů pro GET, úspěšný
+PUT i odmítnuté PUT. Schema migrations
+38/0, coordinator 16/0, identity 25/0, artifact validation 151/0, hygiene
+1 546 cest i registry 378/8 s fingerprintem `cb1259ca…d06e15` skončily exit 0.
+Source candidate ratchet skončil očekávaně exit 1 pouze na jedné nové exact
+hraně `src/routes/system.js → src/db/model-policy.js`; počet cyklů ani cyclic
+membership se nezměnil. Baseline se přijme až po source commitu na čistém
+stromu. Tento checkpoint není fresh-clone evidence ani dokončené 020/E;
+import/reset, Studio a Gate 1 zůstávají otevřené.

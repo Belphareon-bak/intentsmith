@@ -177,7 +177,8 @@ skutečné WAL workery nad stejnou revision mají jednoho vítěze a jednoho sta
 losera. Detection repository i auto-cleanup/overview už čtou pouze tuto novou
 autoritu. Generic GET/POST dropuje tři rezervované klíče a hlásí je přes
 `ignoredReservedKeys`; pre-061 JSON helper nemá produkčního konzumenta a jeho
-sada je `HISTORICAL`. Typed route a explicitní atomické settings adaptéry ještě
-neexistují a scheduler proto zůstává default off.
+sada je `HISTORICAL`. Typed GET/PUT používá exact body a revision CAS; explicitní
+atomické import/reset adaptéry ještě neexistují a scheduler proto zůstává
+default off.
 Skutečná parita s
 mobilními migracemi bude doložená až na společném integračním SHA.

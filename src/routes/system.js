@@ -16,6 +16,10 @@ import { broadcast } from '../ws-bridge/ws-server.js';
 import { modelUniverseStore } from '../upgrade/model-universe-store.js';
 import { parseModelName } from '../upgrade/model-profiles.js';
 import { estimateModelPrior } from '../upgrade/model-similarity.js';
+import {
+  createModelAutomationPolicyRepository,
+  readModelAutomationPolicy,
+} from '../db/model-policy.js';
 
 const FEATURE_UNIVERSE_ENABLED = (process.env.C3_MODEL_UNIVERSE_ENABLED || 'true') !== 'false';
 const FEATURE_UNIVERSE_MIRROR = (process.env.C3_DISCOVERY_MIRROR_DISCOVERED_MODELS || 'true') !== 'false';
@@ -56,11 +60,44 @@ const MODEL_BINDING_HTTP_STATUS = Object.freeze({
   MODEL_FAILOVER_STALE_DESIRED: 409,
 });
 
+const MODEL_AUTOMATION_POLICY_HTTP_STATUS = Object.freeze({
+  MODEL_AUTOMATION_POLICY_INPUT_INVALID: 400,
+  MODEL_AUTOMATION_POLICY_INPUT_SHAPE_INVALID: 400,
+  MODEL_AUTOMATION_POLICY_REVISION_INVALID: 400,
+  MODEL_AUTOMATION_POLICY_AUTO_FAILOVER_INVALID: 400,
+  MODEL_AUTOMATION_POLICY_AUTO_CLEANUP_INVALID: 400,
+  MODEL_AUTOMATION_POLICY_CLEANUP_DAYS_INVALID: 400,
+  MODEL_AUTOMATION_POLICY_STALE: 409,
+  MODEL_AUTOMATION_POLICY_DB_BUSY: 503,
+  MODEL_AUTOMATION_POLICY_ID_CONFLICT: 503,
+  MODEL_AUTOMATION_POLICY_INVALID_STATE: 503,
+  MODEL_AUTOMATION_POLICY_STORAGE_CONTRACT: 503,
+  MODEL_AUTOMATION_POLICY_DB_READ_FAILED: 503,
+  MODEL_AUTOMATION_POLICY_DB_WRITE_FAILED: 503,
+  MODEL_AUTOMATION_POLICY_PROJECTION_INVALID: 503,
+});
+
 function modelBindingHttpStatus(error) {
   if (Number.isInteger(error?.httpStatus) && error.httpStatus >= 400 && error.httpStatus <= 599) {
     return error.httpStatus;
   }
   return MODEL_BINDING_HTTP_STATUS[error?.code] || 500;
+}
+
+function modelAutomationPolicyHttpStatus(code) {
+  return MODEL_AUTOMATION_POLICY_HTTP_STATUS[code] || 500;
+}
+
+function publicModelAutomationPolicy(policy) {
+  return {
+    schemaVersion: policy.schemaVersion,
+    revision: policy.revision,
+    autoFailoverEnabled: policy.settings.autoFailoverEnabled,
+    autoCleanupEnabled: policy.settings.autoCleanupEnabled,
+    autoCleanupDays: policy.settings.autoCleanupDays,
+    lastEventId: policy.lastEventId,
+    updatedAtMs: policy.updatedAtMs,
+  };
 }
 
 function isExactModelRole(profiles, role) {
@@ -435,6 +472,50 @@ export function createSystemRoutes({
     },
 
     // ── Ollama Models (proxy) ─────────────────────────────────────────────
+    'GET /api/system/models/settings': (req, res) => {
+      const policy = readModelAutomationPolicy(rawDb);
+      if (!policy.valid) {
+        return sendJSON(res, 503, {
+          ok: false,
+          code: policy.reason,
+          status: policy.status,
+        });
+      }
+      return sendJSON(res, 200, {
+        ok: true,
+        policy: publicModelAutomationPolicy(policy),
+      });
+    },
+
+    'PUT /api/system/models/settings': async (req, res) => {
+      let body;
+      try {
+        body = await parseBody(req);
+      } catch (_) {
+        return sendJSON(res, 400, {
+          ok: false,
+          code: 'MODEL_AUTOMATION_POLICY_INPUT_INVALID',
+        });
+      }
+      try {
+        const committed = createModelAutomationPolicyRepository(rawDb)
+          .updateFromTypedApi(body);
+        return sendJSON(res, 200, {
+          ok: true,
+          policy: publicModelAutomationPolicy(committed),
+          event: committed.event,
+        });
+      } catch (error) {
+        const code = typeof error?.code === 'string'
+          ? error.code
+          : 'MODEL_AUTOMATION_POLICY_WRITE_FAILED';
+        return sendJSON(res, modelAutomationPolicyHttpStatus(code), {
+          ok: false,
+          code,
+        });
+      }
+    },
+
     'GET /api/system/models': async (req, res) => {
       try {
         const ollamaUrl = config.ollama.baseUrl;
