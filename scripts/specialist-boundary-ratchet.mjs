@@ -36,7 +36,8 @@ const CODE_LIKE_EXTENSIONS = new Set([
   '.jsx', '.ts', '.tsx', '.mts', '.cts', '.coffee', '.wasm',
 ]);
 const SENSITIVE_DYNAMIC_PROPERTIES = new Set([
-  'Function', 'createRequire', 'eval', 'require',
+  'Function', '_load', 'constructor', 'createRequire', 'eval',
+  'getBuiltinModule', 'require',
 ]);
 const DYNAMIC_AUTHORITY_RECEIVERS = new Set([
   'global', 'globalThis', 'module', 'window',
@@ -749,6 +750,12 @@ function analyzeSource({ root, packageRoot, file, source }) {
   const occurrences = [];
   const computedImportIndexes = [];
   const add = (kind, specifier) => {
+    if (specifier === 'module' || specifier === 'node:module') {
+      throw new BoundaryError(
+        'UNPROVEN_DYNAMIC_CODE',
+        `${from}: Node module loader authority is forbidden`,
+      );
+    }
     const to = resolveInternalTarget(root, file, specifier);
     if (to) occurrences.push({ kind, from, to });
   };
@@ -855,7 +862,7 @@ function analyzeSource({ root, packageRoot, file, source }) {
       }
       add('runtime', stringValue(args[0], from));
       index = close;
-    } else if (['eval', 'Function', 'createRequire'].includes(token.value)) {
+    } else if (['_load', 'eval', 'Function', 'createRequire', 'getBuiltinModule'].includes(token.value)) {
       throw new BoundaryError(
         'UNPROVEN_DYNAMIC_CODE',
         `${from}: ${token.value} can hide an indirect module load and is forbidden`,

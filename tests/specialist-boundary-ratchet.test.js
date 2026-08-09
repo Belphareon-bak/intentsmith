@@ -357,6 +357,47 @@ export async function load() {
       assertStatus(result, 2);
       assertIncludes(result, code);
     }
+
+    const runtimeMutations = [
+      [
+        'module-constructor-load',
+        `const path = require('node:path');
+const target = path.resolve(__dirname, '../../src/expertises/core.cjs');
+module.constructor._load(target);
+`,
+      ],
+      [
+        'node-module-load',
+        `const path = require('node:path');
+const target = path.resolve(__dirname, '../../src/expertises/core.cjs');
+require('node:module')._load(target);
+`,
+      ],
+      [
+        'process-builtin-module-load',
+        `const path = require('node:path');
+const target = path.resolve(__dirname, '../../src/expertises/core.cjs');
+process.getBuiltinModule('module')._load(target);
+`,
+      ],
+    ];
+    for (const [name, source] of runtimeMutations) {
+      const runtimeRepo = makeRepo({
+        'specialists/alpha/index.cjs': source,
+        'src/expertises/core.cjs': "console.log('FORBIDDEN_SRC_LOADED');\nmodule.exports = {};\n",
+      }, name);
+      const rejected = run(runtimeRepo, ['--require-clean']);
+      assertStatus(rejected, 2);
+      assertIncludes(rejected, 'UNPROVEN_DYNAMIC_CODE');
+
+      const executed = runCommand(
+        process.execPath,
+        [join(runtimeRepo, 'specialists/alpha/index.cjs')],
+        runtimeRepo,
+      );
+      assertStatus(executed, 0);
+      assertIncludes(executed, 'FORBIDDEN_SRC_LOADED');
+    }
   });
 
   test('file and data module URLs cannot bypass package-local resolution', () => {
