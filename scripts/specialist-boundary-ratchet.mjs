@@ -37,10 +37,10 @@ const CODE_LIKE_EXTENSIONS = new Set([
 ]);
 const SENSITIVE_DYNAMIC_PROPERTIES = new Set([
   'Function', '_load', 'constructor', 'createRequire', 'eval',
-  'getBuiltinModule', 'require',
+  'getBuiltinModule', 'mainModule', 'require',
 ]);
 const DYNAMIC_AUTHORITY_RECEIVERS = new Set([
-  'global', 'globalThis', 'module', 'window',
+  'global', 'globalThis', 'module', 'process', 'window',
 ]);
 const BASELINE_KEYS = Object.freeze([
   'exceptions',

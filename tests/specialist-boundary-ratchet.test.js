@@ -380,6 +380,24 @@ const target = path.resolve(__dirname, '../../src/expertises/core.cjs');
 process.getBuiltinModule('module')._load(target);
 `,
       ],
+      [
+        'computed-module-constructor-load',
+        `const path = require('node:path');
+const target = path.resolve(__dirname, '../../src/expertises/core.cjs');
+const ctor = 'constructor';
+const load = '_load';
+module[ctor][load](target);
+`,
+      ],
+      [
+        'computed-process-builtin-load',
+        `const path = require('node:path');
+const target = path.resolve(__dirname, '../../src/expertises/core.cjs');
+const getter = 'getBuiltinModule';
+const load = '_load';
+process[getter]('module')[load](target);
+`,
+      ],
     ];
     for (const [name, source] of runtimeMutations) {
       const runtimeRepo = makeRepo({
