@@ -38,8 +38,12 @@ a není claim C1.
   věty v `ROADMAP.md` a `SYSTEM-MAP.md`.
 
 **Checkpoint C2 smí navíc vlastnit pouze po samostatném čistém C1 commitu:**
-sedm produkčních model-use consumerů vyjmenovaných ve findingu 010, nový
-neutrální reservation port a focused testy.
+živé produkční model-use consumery potvrzené source-to-effect call graphem,
+nový neutrální reservation port a focused testy. C2a vlastní port,
+delete/validation a pull serializaci; C2b vlastní gateway a binding
+cutover/verify. VRAM residency sémantika je samostatná shromážděná otázka.
+Dormant vision, semantic-index a legacy verify se nezapojují jen kvůli
+původnímu chybnému součtu sedmi.
 
 **Zakázané:** veřejný M1 connector, automatic failover/proof issuance,
 produktové UI, online discovery, změna provider retry policy, GPU/Ollama běh,
@@ -107,7 +111,8 @@ remote delete, přidat cross-process destructive claim nebo zvolit cílový
 durable audit. Nezávislé C1 části pokračují.
 
 C1 nesmí prohlásit active inference za chráněnou. C2 musí zapojit celý skutečný
-call graph, ne jen gateway. Dokud není C2 a auditní disposition hotová, L0-11
+živý call graph, ne jen gateway, a dormant cesty musí pravdivě vyřadit. Dokud
+není C2 a auditní disposition hotová, L0-11
 zůstává `PARTIAL` a Gate 1 `BLOCKED` z dalších již pojmenovaných důvodů.
 Funkční chat cleanup navíc čeká na operátorské rozhodnutí, která historická
 identita už není rollback autoritou a smí být explicitně retireovaná.

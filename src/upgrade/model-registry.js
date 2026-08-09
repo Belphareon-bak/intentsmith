@@ -16,6 +16,10 @@ import {
   normalizeModelDigestSha256,
   sameModelName,
 } from './model-identity.js';
+import {
+  MODEL_ACTIVITY_OWNER,
+  modelUseAuthority,
+} from './model-use-authority.js';
 import { readModelSettings } from '../db/user-settings.js';
 import { execSync } from 'child_process';
 import fs from 'fs';
@@ -169,16 +173,79 @@ export class ModelRegistry {
     this._validatingModel = null;
     this._cleanupRunning = false;
     this._clock = Date.now;
+    this._modelUseAuthority = modelUseAuthority;
   }
 
   /** Wire dependencies (called once in server.js) */
-  init({ db, upgradeManager, modelBindingApplication, validationRunner, broadcast, clock }) {
+  init({
+    db,
+    upgradeManager,
+    modelBindingApplication,
+    validationRunner,
+    broadcast,
+    clock,
+    modelUseAuthority: injectedModelUseAuthority,
+  }) {
     this._db = db;
     this._upgradeManager = upgradeManager;
     this._modelBindingApplication = modelBindingApplication || null;
     this._validationRunner = validationRunner;
     this._broadcast = broadcast || (() => {});
     this._clock = typeof clock === 'function' ? clock : Date.now;
+    this._modelUseAuthority = injectedModelUseAuthority || modelUseAuthority;
+    if (typeof this._modelUseAuthority?.acquireShared !== 'function'
+      || typeof this._modelUseAuthority?.acquireExclusive !== 'function') {
+      registryFail(
+        'MODEL_USE_AUTHORITY_REQUIRED',
+        'Model use authority is unavailable',
+        503,
+      );
+    }
+  }
+
+  #acquireDeleteLease(modelName) {
+    try {
+      return this._modelUseAuthority.acquireExclusive({
+        modelName,
+        owner: MODEL_ACTIVITY_OWNER.MODEL_DELETE,
+      });
+    } catch (error) {
+      if (error?.code === 'MODEL_MUTATION_ACTIVE_USE'
+        && error?.details?.activeOwners?.includes(MODEL_ACTIVITY_OWNER.MODEL_VALIDATION)) {
+        registryFail(
+          'MODEL_DELETE_VALIDATING',
+          `Model právě prochází validací: ${modelName}`,
+          409,
+        );
+      }
+      if (error?.code === 'MODEL_MUTATION_ACTIVE_USE'
+        || error?.code === 'MODEL_MUTATION_EXCLUSIVE_ACTIVE') {
+        registryFail(
+          'MODEL_DELETE_IN_USE',
+          `Model je používán nebo měněn: ${modelName}`,
+          409,
+        );
+      }
+      throw error;
+    }
+  }
+
+  #acquireValidationLease(modelName) {
+    try {
+      return this._modelUseAuthority.acquireShared({
+        modelName,
+        owner: MODEL_ACTIVITY_OWNER.MODEL_VALIDATION,
+      });
+    } catch (error) {
+      if (error?.code === 'MODEL_USE_EXCLUSIVE_ACTIVE') {
+        registryFail(
+          'MODEL_VALIDATION_MODEL_MUTATING',
+          `Model je právě měněn: ${modelName}`,
+          409,
+        );
+      }
+      throw error;
+    }
   }
 
   // ─── Core Queries ──────────────────────────────────────────────────────────
@@ -683,68 +750,73 @@ export class ModelRegistry {
     return this._modelBindingApplication.runExclusiveModelMutation(
       { kind: 'MODEL_DELETE' },
       async () => {
-        this.#assertDeleteAllowed(name);
-        const firstInventory = await this.getInstalled({ strict: true });
-        const planned = resolveInstalledArtifact(firstInventory, name, {
-          digestSha256: expectedDigestSha256,
-        });
-        this.#assertDeleteAllowed(name);
-        const secondInventory = await this.getInstalled({ strict: true });
-        const observed = resolveInstalledArtifact(secondInventory, planned.exactName, {
-          exactName: planned.exactName,
-          digestSha256: planned.digestSha256,
-        });
-        this.#assertDeleteAllowed(observed.exactName);
-
-        const observedModel = secondInventory.find(model => (
-          model.name === observed.exactName
-          && (model.digestSha256 || normalizeModelDigestSha256(model.digest))
-            === observed.digestSha256
-        ));
-        const freedGB = observedModel?.sizeGB || '?';
-
-        const baseUrl = config.ollama?.baseUrl || 'http://127.0.0.1:11434';
-        let resp;
+        const deleteLease = this.#acquireDeleteLease(name);
         try {
-          resp = await fetch(`${baseUrl}/api/delete`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: observed.exactName }),
-            redirect: 'error',
-            signal: AbortSignal.timeout(30_000),
+          this.#assertDeleteAllowed(name);
+          const firstInventory = await this.getInstalled({ strict: true });
+          const planned = resolveInstalledArtifact(firstInventory, name, {
+            digestSha256: expectedDigestSha256,
           });
-        } catch (error) {
-          throw new ModelRegistryError(
-            'MODEL_DELETE_PROVIDER_UNAVAILABLE',
-            `Ollama delete není dostupný pro ${observed.exactName}`,
-            { cause: error, httpStatus: 503 },
+          this.#assertDeleteAllowed(name);
+          const secondInventory = await this.getInstalled({ strict: true });
+          const observed = resolveInstalledArtifact(secondInventory, planned.exactName, {
+            exactName: planned.exactName,
+            digestSha256: planned.digestSha256,
+          });
+          this.#assertDeleteAllowed(observed.exactName);
+
+          const observedModel = secondInventory.find(model => (
+            model.name === observed.exactName
+            && (model.digestSha256 || normalizeModelDigestSha256(model.digest))
+              === observed.digestSha256
+          ));
+          const freedGB = observedModel?.sizeGB || '?';
+
+          const baseUrl = config.ollama?.baseUrl || 'http://127.0.0.1:11434';
+          let resp;
+          try {
+            resp = await fetch(`${baseUrl}/api/delete`, {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: observed.exactName }),
+              redirect: 'error',
+              signal: AbortSignal.timeout(30_000),
+            });
+          } catch (error) {
+            throw new ModelRegistryError(
+              'MODEL_DELETE_PROVIDER_UNAVAILABLE',
+              `Ollama delete není dostupný pro ${observed.exactName}`,
+              { cause: error, httpStatus: 503 },
+            );
+          }
+          if (!resp?.ok) {
+            registryFail('MODEL_DELETE_PROVIDER_FAILED', `Ollama vrátil ${resp?.status ?? 'unknown'}`, 502);
+          }
+
+          this.invalidateCache();
+
+          const result = Object.freeze({
+            ok: true,
+            deleted: observed.exactName,
+            canonicalName: observed.canonicalName,
+            digestSha256: observed.digestSha256,
+            source,
+            freedGB,
+          });
+          this._broadcast('control', {
+            action: 'model_deleted',
+            model: observed.exactName,
+            freedGB,
+          });
+          logger.info(
+            'ModelRegistry',
+            `Deleted model: ${observed.exactName} digest=${observed.digestSha256} source=${source} (freed ~${freedGB} GB)`,
           );
+
+          return result;
+        } finally {
+          deleteLease.release();
         }
-        if (!resp?.ok) {
-          registryFail('MODEL_DELETE_PROVIDER_FAILED', `Ollama vrátil ${resp?.status ?? 'unknown'}`, 502);
-        }
-
-        this.invalidateCache();
-
-        const result = Object.freeze({
-          ok: true,
-          deleted: observed.exactName,
-          canonicalName: observed.canonicalName,
-          digestSha256: observed.digestSha256,
-          source,
-          freedGB,
-        });
-        this._broadcast('control', {
-          action: 'model_deleted',
-          model: observed.exactName,
-          freedGB,
-        });
-        logger.info(
-          'ModelRegistry',
-          `Deleted model: ${observed.exactName} digest=${observed.digestSha256} source=${source} (freed ~${freedGB} GB)`,
-        );
-
-        return result;
       },
     );
   }
@@ -809,6 +881,18 @@ export class ModelRegistry {
             continue;
           }
 
+          let validationLease;
+          try {
+            validationLease = self.#acquireValidationLease(model);
+          } catch (error) {
+            self._broadcast('control', {
+              action: 'model_validation_progress', model,
+              status: 'error', percent: -1,
+              batchIndex: i + 1, batchTotal: queue.length,
+              text: `${model} — Chyba: ${error.message}`,
+            });
+            continue;
+          }
           self._validatingModel = model;
 
           self._broadcast('control', {
@@ -849,9 +933,10 @@ export class ModelRegistry {
               batchIndex: i + 1, batchTotal: queue.length,
               text: `${model} — Chyba: ${err.message}`,
             });
+          } finally {
+            self._validatingModel = null;
+            validationLease.release();
           }
-
-          self._validatingModel = null;
         }
       } finally {
         self._batchRunning = false;
@@ -890,6 +975,7 @@ export class ModelRegistry {
         409,
       );
     }
+    const validationLease = this.#acquireValidationLease(model);
     this._validatingModel = model;
     // Defer the runner by one microtask. The route can publish the accepted
     // reservation before a synchronous progress callback is able to fire.
@@ -898,6 +984,7 @@ export class ModelRegistry {
       .finally(() => {
         if (sameModelName(this._validatingModel, model)) this._validatingModel = null;
         this.invalidateCache();
+        validationLease.release();
       });
     return Object.freeze({ model, suites: Object.freeze([...suiteNames]), completion });
   }

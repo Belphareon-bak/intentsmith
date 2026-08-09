@@ -3,7 +3,7 @@
 - **vlastník:** navazující checkpoint
   `WP-M1-MODEL-CLEANUP-AUTHORITY / C2–C3`
 - **nalezeno v:** read-only call-graph review cleanup authority
-- **stav:** `PENDING-OWNER`
+- **stav:** `PARTIAL_REMEDIATION / C2A_FOCUSED_VERIFIED`
 - **dopad:** M1 cleanup checkpoint je bezpečnější, L0-11 zůstává `PARTIAL`
 
 ## Evidence
@@ -13,15 +13,28 @@ serializuje jej s apply/rollback/rehydrate a chrání runtime, durable desired,
 pending i one-step rollback identitu. Toto je procesní mutation authority,
 nikoli důkaz, že model právě nepoužívá jiný provider consumer.
 
-Skutečný call graph má model-use efekty nejméně v:
+Aktualizovaný source-to-effect call graph na C2 vstupu rozlišuje pět živých
+produkčních cest:
 
 - `src/llm/gateway.js`;
-- `src/upgrade/validation-suites.js`;
-- vision cestě `src/llm/cre-bridge.js`;
-- embeddings v `src/code-intel/semantic-index.js`;
+- registry-owned validaci přes `src/upgrade/validation-suites.js`;
 - `src/media/vram-manager.js`;
-- exact verify v `src/upgrade/model-binding-application.js`;
-- legacy pull/verify v `src/upgrade/upgrade-manager.js`.
+- runtime cutover a exact verify v `src/upgrade/model-binding-application.js`;
+- pull v `src/upgrade/upgrade-manager.js`, volaný jak binding application, tak
+  přímou system route.
+
+Tři dříve započítané cesty nejsou na současném HEAD produkční consumery:
+`analyzeImages()` nemá volajícího v `src/`, `semantic-index.js` není ze `src/`
+importovaný a legacy `_verifyModel()`/`_backgroundVerify()` je dosažitelný jen
+ze starých apply/rollback writerů, které migration 050 blokuje před provider
+efektem. Zůstávají evidované jako dormant kód; nejsou zapojené jen kvůli počtu.
+
+C2a zavádí neutrální single-process per-canonical autoritu. Registry delete a
+pull drží fail-fast exclusive lease; single i batch validace drží shared lease
+po celou práci modelu. Tím se zavírá validation-start po posledním delete
+guardu i direct-pull versus delete v jednom procesu. Error shape
+`MODEL_DELETE_VALIDATING` zůstává pro známou validační cestu kompatibilní;
+ostatní aktivní použití skončí `MODEL_DELETE_IN_USE`.
 
 Gateway navíc smí použít explicitní ne-bound model. Rebind po zahájení
 inference proto sám o sobě nezaručí, že starý model lze bezpečně smazat.
@@ -38,8 +51,9 @@ rozhodnutá.
    `finally`, delete získá fail-fast exclusive lease před inventory.
 2. Aktivní use vrátí `MODEL_DELETE_IN_USE` bez inventory a delete efektu;
    probíhající delete odmítne nový use před provider requestem.
-3. Všech sedm produkčních consumerů je zapojených nebo explicitně vyřazených
-   skutečným call graphem; gateway-only oprava se nesmí vydat za celek.
+3. Všech pět živých consumer cest je zapojených; tři dormant cesty jsou
+   explicitně vyřazené skutečným call graphem. Gateway-only oprava se nesmí
+   vydat za celek.
 4. Operátor rozhodne, zda M1 garantuje pouze jeden proces, nebo vyžaduje durable
    cross-process claim.
 5. Destruktivní intent a terminál dostanou append-only audit dřív, než L0-11
@@ -55,3 +69,9 @@ rozhodnutá.
 - explicitní remote Ollama delete versus loopback-only M1;
 - zdroj a explicitní retirement identity starší než one-step rollback;
 - doba platnosti chatového preview před jednorázovým potvrzením.
+- VRAM unload/reload jako shared artifact-use versus nová exclusive residency
+  autorita vůči gateway semaphore; C2a tuto sémantiku potichu nemění.
+- direct pull stream nemá cancellation signal ani idle timeout; stalled
+  `reader.read()` proto drží single-process writer do restartu. Operátor musí
+  zvolit timeout a provider-outcome reconciliation dřív, než se tato cesta
+  označí jako produkčně zotavitelná.

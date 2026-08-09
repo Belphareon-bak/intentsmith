@@ -1824,3 +1824,46 @@ exit `0`; finální porcelain zůstal prázdný.
 Tato evidence povyšuje pouze C1 na `FRESH_CLONE_VERIFIED / PARTIAL`. GPU pilot,
 skutečná Ollama a rozhodnutí/implementace retirementu, active-use lease,
 durable auditu, remote provideru a cross-process autority zůstávají otevřené.
+
+## C2a — single-process model-use authority
+
+Source-to-effect census opravil původní počet sedmi consumerů. Živé jsou
+gateway, registry validation, VRAM manager, binding cutover/exact verify a
+pull; `analyzeImages`, semantic index a legacy verify nemají produkčního
+volajícího na současném HEAD. C2a proto nezapojuje dormant kód jen pro zelený
+součet.
+
+Nový `model-use-authority.js` drží fail-fast shared/exclusive lease nad
+konzervativní canonical identity. Registry delete získá exclusive lease před
+prvním inventory, single i batch validation drží shared lease do `finally` a
+`UpgradeManager.pullModel()` drží exclusive lease přes celý stream. Binding
+application mutex zůstává v lock orderu vnější a per-model lease vnitřní.
+
+Focused evidence kandidáta:
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `C3_LOG_LEVEL=error node tests/m1-model-use-authority.test.js` | 14 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-identity.test.js` | 25 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/upgrade-flow.test.js` | 28 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/upgrade-ux-v125.test.js` | 78 passed, 0 failed | 0 |
+
+Focused mutace potvrdily, že sada pinuje skutečné hranice, nikoli pouze tvar
+návratové hodnoty:
+
+| Dočasná mutace | Výsledek | Exit |
+|---|---:|---:|
+| delete přeskočí exclusive lease | 10 passed, 4 failed | 1 |
+| validation přeskočí shared lease | 12 passed, 2 failed | 1 |
+| pull přeskočí exclusive lease | 11 passed, 3 failed | 1 |
+
+Po každé mutaci byl zdroj obnoven přesným opačným patchem; čistý focused běh
+poté znovu skončil 14 passed, 0 failed, exit 0. Sada navíc odmítá neplatnou
+mode-owner dvojici, dokládá nezávislost dvou canonical identities a držení
+delete lease až do dokončení provider efektu. Default-wiring test váže registry
+i direct pull na stejný produkční singleton; injected authority zůstává pouze
+explicitní testovací seam.
+
+C2a není celý C2. Gateway, binding cutover/exact verify a VRAM disposition
+zůstávají otevřené; stejně tak multiprocess claim, durable audit, remote delete
+a chat retirement. Gate 1 zůstává `BLOCKED`.

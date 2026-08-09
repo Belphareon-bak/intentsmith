@@ -22,6 +22,10 @@ import {
   modelNameAliases,
   sameModelName,
 } from './model-identity.js';
+import {
+  MODEL_ACTIVITY_OWNER,
+  modelUseAuthority,
+} from './model-use-authority.js';
 
 // Minimum score for user-facing notifications (lower proposals exist but are silent)
 export const MIN_NOTIFY_SCORE = 6;
@@ -1001,79 +1005,87 @@ export class UpgradeManager {
       }
     }
 
-    const response = await fetch(`${baseUrl}/api/pull`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: modelName }),
-      redirect: 'error',
+    const pullLease = modelUseAuthority.acquireExclusive({
+      modelName,
+      owner: MODEL_ACTIVITY_OWNER.MODEL_PULL,
     });
+    try {
+      const response = await fetch(`${baseUrl}/api/pull`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: modelName }),
+        redirect: 'error',
+      });
 
-    if (!response.ok) {
-      throw new Error(`Ollama pull failed: HTTP ${response.status}`);
-    }
+      if (!response.ok) {
+        throw new Error(`Ollama pull failed: HTTP ${response.status}`);
+      }
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let lastPercent = -1;
-    let lastEmitTime = 0;
-    const startTime = Date.now();
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let lastPercent = -1;
+      let lastEmitTime = 0;
+      const startTime = Date.now();
 
-    const STATUS_LABELS = {
-      'pulling manifest': 'Stahuji manifest...',
-      'downloading': null,
-      'verifying sha256 digest': 'Ověřuji integritu...',
-      'writing manifest': 'Zapisuji manifest...',
-      'removing any unused layers': 'Čistím staré vrstvy...',
-      'success': 'Hotovo',
-    };
+      const STATUS_LABELS = {
+        'pulling manifest': 'Stahuji manifest...',
+        'downloading': null,
+        'verifying sha256 digest': 'Ověřuji integritu...',
+        'writing manifest': 'Zapisuji manifest...',
+        'removing any unused layers': 'Čistím staré vrstvy...',
+        'success': 'Hotovo',
+      };
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop();
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
 
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        try {
-          const data = JSON.parse(line);
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const data = JSON.parse(line);
 
-          if (data.status === 'downloading' && data.total > 0) {
-            const percent = Math.round((data.completed / data.total) * 100);
-            const now = Date.now();
-            if (percent >= lastPercent + 5 || (now - lastEmitTime >= 3000) || percent === 100) {
-              lastPercent = percent;
-              lastEmitTime = now;
-              const elapsed = (now - startTime) / 1000;
-              const speed = data.completed / elapsed;
-              const remaining = (data.total - data.completed) / speed;
-              const eta = remaining > 60
-                ? `${Math.round(remaining / 60)}:${String(Math.round(remaining % 60)).padStart(2, '0')}`
-                : `${Math.round(remaining)}s`;
-              const downloadedGB = (data.completed / 1_073_741_824).toFixed(1);
-              const totalGB = (data.total / 1_073_741_824).toFixed(1);
-              const text = `${modelName} — ${percent}% (${downloadedGB}/${totalGB} GB) — ETA ~${eta}`;
+            if (data.status === 'downloading' && data.total > 0) {
+              const percent = Math.round((data.completed / data.total) * 100);
+              const now = Date.now();
+              if (percent >= lastPercent + 5 || (now - lastEmitTime >= 3000) || percent === 100) {
+                lastPercent = percent;
+                lastEmitTime = now;
+                const elapsed = (now - startTime) / 1000;
+                const speed = data.completed / elapsed;
+                const remaining = (data.total - data.completed) / speed;
+                const eta = remaining > 60
+                  ? `${Math.round(remaining / 60)}:${String(Math.round(remaining % 60)).padStart(2, '0')}`
+                  : `${Math.round(remaining)}s`;
+                const downloadedGB = (data.completed / 1_073_741_824).toFixed(1);
+                const totalGB = (data.total / 1_073_741_824).toFixed(1);
+                const text = `${modelName} — ${percent}% (${downloadedGB}/${totalGB} GB) — ETA ~${eta}`;
 
-              if (onProgress) onProgress({ text, percent, downloadedGB, totalGB, eta, status: 'downloading' });
+                if (onProgress) onProgress({ text, percent, downloadedGB, totalGB, eta, status: 'downloading' });
+              }
+            } else if (data.status && STATUS_LABELS[data.status] !== undefined) {
+              const label = STATUS_LABELS[data.status];
+              if (label && onProgress) {
+                onProgress({ text: `${modelName} — ${label}`, percent: -1, status: data.status });
+              }
+            } else if (data.error) {
+              throw new Error(`Ollama pull error: ${data.error}`);
             }
-          } else if (data.status && STATUS_LABELS[data.status] !== undefined) {
-            const label = STATUS_LABELS[data.status];
-            if (label && onProgress) {
-              onProgress({ text: `${modelName} — ${label}`, percent: -1, status: data.status });
-            }
-          } else if (data.error) {
-            throw new Error(`Ollama pull error: ${data.error}`);
+          } catch (parseErr) {
+            if (parseErr.message.startsWith('Ollama pull error')) throw parseErr;
           }
-        } catch (parseErr) {
-          if (parseErr.message.startsWith('Ollama pull error')) throw parseErr;
         }
       }
-    }
 
-    logger.info('UpgradeManager', `Pulled model: ${modelName}`);
+      logger.info('UpgradeManager', `Pulled model: ${modelName}`);
+    } finally {
+      pullLease.release();
+    }
   }
 
   /**
