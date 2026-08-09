@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "sourceRevision": "fd9e0bc3c7be9f1b293d9580e6004cb9801f9e02",
+  "sourceRevision": "a42ec07d9f4ec856d172f8c95e71aae8558859d9",
   "specialistsTree": "d01b8894d88eaf4c688b55c0b2a2d0cc9424906c",
-  "scannerBlob": "9835e6fc58ac594327952b9e1b8aec03fc508253",
+  "scannerBlob": "c3f1fdadf60305f09536f1704d55f26adefc1aba",
   "exceptions": [
     {
       "from": "specialists/accountant-cz/knowledge/seed.js",
