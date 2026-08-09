@@ -528,8 +528,8 @@ focused regression sady.
      assign/delete část findingu 006 jsou opravené. C1 ale netvrdí atomickou
      ochranu proti všemu aktivnímu model-use, více procesům ani durable delete
      audit. C2a je fresh-clone ověřený a single-process serializuje delete s
-     direct pull a registry validací. C2b gateway i binding jsou focused
-     ověřené. Gateway shared lease vzniká až po semaphore slotu a drží přes
+     direct pull a registry validací. C2b gateway i binding jsou fresh-clone
+     ověřené na `cfcb63dd`. Gateway shared lease vzniká až po semaphore slotu a drží přes
      všechny provider pokusy, response body i retry delay. Binding cutover po
      případném pullu rezervuje previous+target přes exact re-resolve, runtime
      prepare, durable zápis, compensation a synchronní finalize; exact
@@ -1217,7 +1217,7 @@ mohou pokračovat.
    C1 je fresh-clone ověřený na source `da95ab15` a baseline `3ff178fd`.
    Finding 007 je remediovaný; finding 006 je `PARTIAL`. C2a má fresh-clone
    ověřenou per-canonical autoritu pro delete, pull a validaci. C2b gateway a
-   binding jsou `FOCUSED_VERIFIED`: queued request model nerezervuje, aktivní
+   binding jsou `FRESH_CLONE_VERIFIED` na `cfcb63dd`: queued request model nerezervuje, aktivní
    provider lifecycle drží lease přes body/retry a všechny terminal paths
    vracejí lease i semaphore. Binding cutover znovu ověří exact identitu pod
    previous+target lease a verification drží target až přes durable success

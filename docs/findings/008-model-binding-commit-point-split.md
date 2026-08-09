@@ -189,6 +189,10 @@ failure. Focused test tento residual reprodukuje; nevydává jej za opravený.
 Operationless legacy override se navíc dál rehydratuje pouze podle jména jako
 `LEGACY_UNVERIFIED`.
 
+Clean-clone běh na `cfcb63dd` reprodukoval 87/87 application asercí i širší
+binding/gateway baterii. To potvrzuje remediovanou race hranici, nikoli chybějící
+durable finalize recovery; stav findingu proto zůstává `PARTIAL_REMEDIATION`.
+
 Další pravdivé meze: dnešní WS broadcaster nevydává delivery receipt, takže
 stav zůstane degraded; current Studio tento nový status dosud nekonzumuje ani
 nenabízí proveditelný rollback; neúspěšná CAS kompenzace je tvrdý in-process

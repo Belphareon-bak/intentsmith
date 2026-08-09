@@ -2,8 +2,8 @@
 
 - **stav WP:** B3-IDENTITY + B3-PROFILE READY; B3-FAILOVER storage, manual
   repository, application-state schema a společný manual runtime cutover
-  FRESH-CLONE VERIFIED; C2b gateway + binding jsou FOCUSED VERIFIED, nikoli
-  fresh-clone; nový referenční GPU běh 009, proof issuer a automatic failover
+  FRESH-CLONE VERIFIED; C2b gateway + binding jsou FRESH-CLONE VERIFIED na
+  `cfcb63dd`, celý C2 však zůstává PARTIAL; nový referenční GPU běh 009, proof issuer a automatic failover
   zůstávají BLOCKED; offline connector READY
 - **poslední ověřený source SHA:**
   `bcc9eb8443bf872efb42cb35589906649cc6427a`
@@ -2087,7 +2087,61 @@ MODULE_BOUNDARY_BASELINE_WRITTEN sourceRevision=0bf2e11db5618b2dcdcbd4cdcc25e5f5
 ```
 
 Zelený post-write ratchet a jeho focused sada jsou součástí tohoto baseline
-checkpointu. Fresh-clone evidence zůstává navazující samostatný commit; tento
-odstavec její budoucí výsledek netvrdí. GPU, Ollama, produktový server ani
-externí síť nebyly spuštěné. C2 zůstává `PARTIAL` (VRAM je pátá živá cesta) a
+checkpointu. Navazující fresh-clone evidence je oddělená níže a váže se na
+pozdější corrective source `cfcb63dd`; nemění baseline provenance
+`0bf2e11d`. GPU, Ollama, produktový server ani externí síť nebyly spuštěné. C2
+zůstává `PARTIAL` (VRAM je pátá živá cesta) a Gate 1 zůstává `BLOCKED`.
+
+### C2b gateway + binding fresh-clone evidence
+
+Autoritativní reprodukce běžela z nového lokálního clone uvnitř vlastněného
+artifact stromu. Testovaný source byl přesný detached HEAD
+`cfcb63dd5cd5560a7b6729ea4420679ae3bcac0d`; Node byl `v22.21.1`, npm
+`10.9.4`. Příkazy instalace:
+
+```text
+git clone --no-local . .intentsmith-artifacts/binding-fresh-cfcb63dd-DmkBKF
+git -C .intentsmith-artifacts/binding-fresh-cfcb63dd-DmkBKF checkout --detach cfcb63dd
+npm ci --offline
+```
+
+Všechny tři příkazy skončily exit 0. Instalace přidala 233 balíčků, auditovala
+234 a hlásila 0 vulnerabilities. Před testy vznikl clone-local
+`.intentsmith-artifacts` s mode 0700; jde o explicitní prerekvizitu isolation
+helperu, nikoli změnu produktu.
+
+Fresh clone reprodukoval tyto výsledky, všechny exit 0:
+
+| Příkaz | Výsledek |
+|---|---:|
+| `C3_LOG_LEVEL=error node tests/m1-model-binding-application.test.js` | 87/0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-use-authority.test.js` | 24/0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-binding-repository.test.js` | 39/0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-binding-storage.test.js` | 16/0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-failover-schema.test.js` | 13/0 |
+| `C3_LOG_LEVEL=error node tests/schema-migrations.test.js` | 38/0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-contract.test.js` | 29/0 |
+| `C3_LOG_LEVEL=error node tests/llm-gateway-runtime-signal.test.js` | 7/0 |
+| `C3_LOG_LEVEL=error node tests/upgrade-flow.test.js` | 28/0 |
+| `C3_LOG_LEVEL=error node tests/upgrade-ux-v125.test.js` | 78/0 |
+| `C3_LOG_LEVEL=error node tests/model-upgrade.test.js` | 58/0 |
+| `C3_LOG_LEVEL=error node tests/routes-smoke.test.js` | 109/0 |
+| `C3_LOG_LEVEL=error node tests/ws-bridge.test.js` | 68/0 |
+| `node scripts/module-boundary-ratchet.mjs` | 1 016/1 016 hran, 3 cykly |
+| `C3_LOG_LEVEL=error node tests/module-boundary-ratchet.test.js` | 13/0 |
+| `node tests/artifact-validation.test.js` | 151/0 |
+| `node tests/repository-hygiene.test.js` | 1 525 tracked cest |
+| `node scripts/validate-test-registry.js --json` | 376 programů, 8 exclusions, fingerprint `0472f18e…24fd0` |
+
+Finální `git status --porcelain=v1 -uall` v clone byl prázdný a `git
+diff --check` skončil exit 0. První neautoritativní pokus na starším SHA
+`175d5f31` měl clone-local artifact root vytvořený obecným `mkdir -p` v mode
+0755; isolation helper proto správně zastavil všechny direct testy před první
+asercí s exit 1. Požadavek nebyl obcházen ani test oslaben: nový clone dostal
+mode 0700 před během a prošel celý.
+
+C2b gateway + binding je tím `FRESH_CLONE_VERIFIED`, ale pouze pro čtyři z pěti
+živých cest. VRAM, cross-process claim, durable delete audit, vzdálený provider,
+stalled-pull recovery, retirement a post-DB runtime-finalize reconciliation
+zůstávají otevřené. GPU, Ollama, produktový server a externí síť byly `NOT RUN`;
 Gate 1 zůstává `BLOCKED`.

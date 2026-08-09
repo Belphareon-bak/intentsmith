@@ -3,7 +3,7 @@
 - **vlastník:** navazující checkpoint
   `WP-M1-MODEL-CLEANUP-AUTHORITY / C2–C3`
 - **nalezeno v:** read-only call-graph review cleanup authority
-- **stav:** `PARTIAL_REMEDIATION / C2B_GATEWAY_AND_BINDING_FOCUSED_VERIFIED`
+- **stav:** `PARTIAL_REMEDIATION / C2B_GATEWAY_AND_BINDING_FRESH_CLONE_VERIFIED`
 - **dopad:** M1 cleanup checkpoint je bezpečnější, L0-11 zůstává `PARTIAL`
 
 ## Evidence
@@ -54,6 +54,11 @@ exact-override lease ji postupně změnilo na 81/87, 86/87 a 86/87, vždy exit 1
 Nezávislý review navíc našel unleased census fail-gate před oběma startup
 větvemi. Po opravě je inventory pouze hint; zpětné vložení current-operation i
 prior-override prechecku dalo pokaždé 86/87, exit 1.
+
+Čistý `git clone --no-local` na source `cfcb63dd` prošel `npm ci --offline`,
+celou binding/gateway focused a compatibility baterií, ratchetem, artifact,
+hygiene i registry validací; všechny child exity byly 0 a finální clone strom
+zůstal čistý. Tento důkaz nemění zbývající 4/5 stav na dokončený C2.
 
 Pokryté jsou tím čtyři z pěti živých cest: registry validation, pull, gateway a
 binding cutover/exact verification. VRAM manager zůstává poslední živou

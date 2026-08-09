@@ -126,4 +126,5 @@ name-only `LEGACY_UNVERIFIED` a post-DB runtime finalize nemá durable recovery.
 Call graph má nadále pět živých cest. Nepřipojený zůstává VRAM manager;
 durable/cross-process autorita není rozhodnutá a direct pull stream nemá idle
 timeout ani recovery. Schopnost #18a proto zůstává v tomto řezu `PARTIAL`;
-focused zelená gateway+binding evidence není release ani L0-11 PASS.
+fresh-clone zelená gateway+binding evidence pokrývá pouze 4/5 živých cest a
+není release ani L0-11 PASS.

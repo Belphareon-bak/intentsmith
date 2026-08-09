@@ -6,8 +6,8 @@
 model identity
 
 **Aktuální stav:** C1 + C2a jsou fresh-clone ověřené. C2b gateway a binding
-cutover/exact verification jsou focused ověřené a pokrývají čtyři z pěti
-živých cest. VRAM, cross-process claim, durable delete audit, operationless
+cutover/exact verification jsou fresh-clone ověřené na `cfcb63dd` a pokrývají
+čtyři z pěti živých cest. VRAM, cross-process claim, durable delete audit, operationless
 legacy rehydrate a post-DB runtime-finalize reconciliation zůstávají otevřené.
 
 Toto zadání uzavírá findings
