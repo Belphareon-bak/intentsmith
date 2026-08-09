@@ -1271,8 +1271,9 @@ mohou pokračovat.
    nepotvrzuje backfillem a interní stav se do veřejného connectoru nemapuje
    jako nový enum. Schema/repository i application/runtime cutover tvoří kvůli
    produkční kompatibilitě jeden nedělitelný source candidate. Review jednotkou
-   je `0a6bde54` spolu s bezprostředním opravným commitem; pouze výsledné SHA smí
-   nést fresh-clone evidence. Otevřené
+   je `0a6bde54` spolu s opravným `7c4aa73c`; výsledné SHA `7c4aa73c` prošlo
+   čistým lokálním klonem, offline instalací a celou focused/compatibility
+   baterií. Otevřené
    zůstávají proof issuer, terminal failover activation/restore a scheduler.
    Failover se dosud neaktivuje. Proof issuance
    čeká na prahy a TTL z rozhodnutí 015; nový skutečný GPU běh zůstává

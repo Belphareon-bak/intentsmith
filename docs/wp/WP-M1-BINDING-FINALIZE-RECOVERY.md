@@ -6,9 +6,8 @@
 
 **Závislost:** dokončený [`WP-M1-BINDING-APPLICATION`](WP-M1-BINDING-APPLICATION.md)
 
-**Stav:** nedělitelný schema/repository/application source candidate je lokálně
-zelený; review jednotkou je `0a6bde54` spolu s bezprostředním opravným commitem;
-fresh-clone evidence následuje na výsledném SHA.
+**Stav:** `FRESH-CLONE VERIFIED` na `7c4aa73c`; review jednotka
+`0a6bde54..7c4aa73c` prošla nezávislým read-only code/evidence review.
 
 Toto je zadání, ne PASS evidence. Stav milníku zůstává v `ROADMAP.md §5`.
 WP uzavírá pouze post-DB runtime-finalize residual z
@@ -153,8 +152,8 @@ Schema/repository a application/runtime cutover tvoří jeden nedělitelný sour
 candidate. Samostatný schema commit by záměrně shodil produkční application
 sadu a dočasně by umožnil vydat nepotvrzený runtime attempt jako manual
 binding. Historii nepřepisujeme: review jednotkou je `0a6bde54` spolu s jeho
-bezprostředním opravným commitem a pouze koncové SHA smí být označené zelenou
-fresh-clone evidencí.
+bezprostředním opravným commitem `7c4aa73c`. Koncové SHA prošlo čistým lokálním
+klonem, `npm ci --offline` a celou předepsanou focused/compatibility baterií.
 
 Implementovaný candidate zachovává veřejný kontrakt: interní
 `RUNTIME_RECONCILIATION_REQUIRED` se mapuje na dosavadní veřejné `PENDING` /

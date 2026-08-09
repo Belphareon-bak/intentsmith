@@ -2,8 +2,8 @@
 
 - **stav:** `PARTIAL_REMEDIATION` — primary application path je
   `FRESH-CLONE VERIFIED` na `e7d89b5ef038e1a32ad2fdff3990d6f9f20d9bec`;
-  post-DB runtime-finalize reconciliation je implementovaný candidate a čeká
-  na vlastní fresh-clone evidenci
+  post-DB runtime-finalize reconciliation je `FRESH-CLONE VERIFIED` na
+  `7c4aa73c18289eebced48511910e35dad21c3be5`
 - **závažnost:** vysoká pro M1 acceptance; runtime failover je dál vypnutý
 - **vlastník:** zapisující vlastník `WP-M1-MODEL / B3-FAILOVER runtime integration`
 - **termín:** před tvrzením, že B3-FAILOVER je runtime-integrated, a nejpozději
@@ -243,8 +243,8 @@ Lokální focused důkaz je zelený a cílené mutace shazují effective-binding
 predicate, historical cutoff a unikátnost history, trigger preflight, finalize
 prerequisite, application receipt, readback/busy recovery, post-commit history
 ochranu i veřejný compatibility mapping. Finding přesto
-zůstává `PARTIAL_REMEDIATION`, dokud tento candidate neprojde fresh-clone
-ověřením na commitnutém SHA. Samostatné produktové rozhodnutí navíc určí, zda
+prošel fresh-clone ověřením na `7c4aa73c`. Celý Finding 008 zůstává
+`PARTIAL_REMEDIATION`, protože samostatné produktové rozhodnutí ještě určí, zda
 při neúspěšném exact startup recovery blokovat jen roli, ukončit server, nebo
-publikovat nový degraded stav; candidate dnešní serverovou dostupnost nemění a
+publikovat nový degraded stav; dnešní serverovou dostupnost candidate nemění a
 nepotvrzený binding za aplikovaný nevydává.

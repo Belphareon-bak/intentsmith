@@ -2154,8 +2154,8 @@ Nezávislé review odmítlo původně plánovaný mezilehlý schema/repository c
 produkční application sada v něm byla červená 58/29 a nepotvrzený runtime
 attempt mohl uniknout jako effective manual binding. Schema, repository,
 application a runtime port proto tvoří jeden nedělitelný source candidate.
-Historie se nepřepisuje: review jednotkou je `0a6bde54` spolu s bezprostředním
-opravným commitem a pouze výsledné SHA smí nést fresh-clone důkaz.
+Historie se nepřepisuje: review jednotkou je `0a6bde54..7c4aa73c` a pouze
+výsledné SHA smí nést fresh-clone důkaz.
 
 Migrace 054 odděluje durable runtime attempt od potvrzeného synchronního
 finalize. Sealed cutoff zachytí všechny pre-054 runtime generace a zabrání
@@ -2245,9 +2245,29 @@ uvedeným nenulovým exit code.
 Po každé mutaci byl zdroj vrácen přesným opačným patchem; finální pozitivní
 focused běh znovu skončil 38/38 + 20/20 + 14/14 + 42/42 + 96/96, vše exit 0.
 
-Tento záznam je zatím `LOCAL_CANDIDATE`, ne fresh-clone důkaz. Po commitnutí
-zdrojové hranice následuje čistý export/clone, offline instalace a opakování
-baterie na konkrétním SHA. GPU, Ollama, produktový server a externí síť nebyly
-spuštěny. Gate 1 zůstává `BLOCKED` nejméně na 015, proof/automatic failover,
-Studio recovery surface, globální VRAM residency authority a autorizovaný GPU
-pilot.
+### Fresh-clone evidence výsledného source SHA
+
+Výsledný source commit `7c4aa73c18289eebced48511910e35dad21c3be5` byl
+ověřen v čistém lokálním klonu
+`/tmp/intentsmith-binding-finalize-loBpzT/repo`; cizí necommitnuté dokumenty z
+hlavního checkoutu v něm nebyly. Přesné instalační a provenance příkazy:
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `git clone --no-local --branch claude/gate1-mobile-app-progress-5sywlt /home/belphareon/Projects/intentsmith /tmp/intentsmith-binding-finalize-loBpzT/repo` | clone lokálního Git objektu | 0 |
+| `git rev-parse HEAD` | `7c4aa73c18289eebced48511910e35dad21c3be5` | 0 |
+| `npm ci --offline` | 233 balíčků; audit 234; 0 vulnerabilities | 0 |
+
+V tomto klonu byly znovu spuštěny všechny pozitivní příkazy z tabulky výše se
+stejnými výsledky: schema 38/0, failover schema 20/0, failover repository 14/0,
+binding repository 42/0, application 96/0, storage 16/0, routes 109/0, WS 68/0,
+upgrade flow 28/0, upgrade UX 78/0, model-upgrade 58/0 a artifact validation
+151/0. Hygiene zkontrolovala 1 527 trackovaných cest; registry měla 376
+programů, 8 exclusions a fingerprint `0472f18e…24fd0`; ratchet potvrdil
+1 016/1 016 hran a tři existující cykly. Všechny subprocessy skončily exit `0`.
+Závěrečné `git diff --check` i `test -z "$(git status --porcelain=v1)"` skončily
+exit `0`.
+
+GPU, Ollama, produktový server a externí síť nebyly spuštěny. Gate 1 zůstává
+`BLOCKED` nejméně na 015, proof/automatic failover, Studio recovery surface,
+globální VRAM residency authority a autorizovaný GPU pilot.
