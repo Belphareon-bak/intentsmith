@@ -157,6 +157,15 @@ bypassem kořenového kontraktu. Kanonické příkazy jsou root `yarn build` a
 consumer nebo že následná změna `c3-protocol/src` za běhu automaticky
 rekonstruuje jeho output.
 
+Na commitnutém SHA `809346e7d29930c8a113a7d8c1b9b155c941b0a5` prošel nový
+lokální clone: frozen Yarn install, root clean a samostatné spuštění
+standardního `prewatch` hooku skončily exit `0`. Po hooku compiled TypeScript
+mirror prošel `27/27`, runtime export probe hlásil
+`PROTOCOL_RUNTIME_EXPORTS_PASS` a tracked/untracked porcelain byl prázdný.
+Autoritativní chat-panel `lib` root clean zachoval. Dlouho běžící watcher se
+pro tento prehook kontrakt nespouštěl; jeho Electron chování patří do built
+journey, nikoli do bootstrap claimu.
+
 Tento checkpoint ještě netvrdí fresh-clone build ani zabalení do Electron
 produktu. Následuje čistý klon, frozen install, `clean + build`, runtime
 negative matrix a kontrola čistého tracked stromu. Teprve potom pokračuje

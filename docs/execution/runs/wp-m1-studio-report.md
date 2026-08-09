@@ -681,7 +681,7 @@ ledger.
 ## Checkpoint 14 — společný build/watch protocol bootstrap candidate
 
 - **stav bootstrap kontraktu:** `IMPLEMENTED / focused contract green`
-- **fresh-clone prewatch důkaz:** čeká na commitnutý SHA
+- **fresh-clone prewatch důkaz:** `PASS` na `809346e7`
 - **negotiated wire / celý B4:** nadále `BLOCKED`
 
 Root build a watch nyní delegují na jediný `prepare:protocol`, který v přesném
@@ -698,6 +698,23 @@ nad commitnutým kandidátem.
 Focused Studio sada prošla `57/57`. Nahrazení `prewatch` přímým Electron watch
 i odstranění `--force` z jediného preparation seamu ji nezávisle shodily na
 `56/1`, exit `1`. Obě přesné mutace byly obnovené.
+
+Nový lokální clone přesně na
+`809346e7d29930c8a113a7d8c1b9b155c941b0a5` provedl:
+
+| Příkaz | Výsledek | Exit |
+|---|---|---:|
+| `corepack yarn install --frozen-lockfile --non-interactive` | frozen install; pouze peer/engine warnings | 0 |
+| `corepack yarn clean` | protocol output odstraněn, chat-panel runtime zachován | 0 |
+| `corepack yarn run prewatch` | clean, forced compile a runtime export verify | 0 |
+| `node tests/m1-contract.test.js --typescript-runtime=<clone>/c3-ide/extensions/c3-protocol/lib/m1.js` | 27 passed, 0 failed | 0 |
+| runtime export probe | `PROTOCOL_RUNTIME_EXPORTS_PASS` | 0 |
+| `git status --porcelain=v1 --untracked-files=all` | prázdný | 0 |
+
+Node při source-mirror testu vydal pouze známé upozornění na chybějící
+`type:module` u TS package. Prewatch claim nezahrnuje dlouho běžící Electron
+watcher ani live rebuild protocol zdroje; tyto silnější výsledky se z tohoto
+běhu neodvozují.
 
 ## Otevřené nálezy pro další checkpointy
 
