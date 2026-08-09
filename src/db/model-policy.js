@@ -31,6 +31,30 @@ export const MODEL_AUTOMATION_POLICY_GENERIC_KEYS = Object.freeze([
   'autoCleanupEnabled',
   'autoCleanupDays',
 ]);
+export const MODEL_SETTINGS_BACKUP_KIND = 'INTENTSMITH_SETTINGS_BACKUP';
+export const MODEL_SETTINGS_BACKUP_SCHEMA_VERSION = 1;
+export const MODEL_SETTINGS_PORTABLE_SECRET_KEYS = Object.freeze([
+  'c3.notif.smtpPass',
+  'webhookSecret',
+]);
+
+const BACKUP_INPUT_KEYS = Object.freeze([
+  'kind',
+  'schemaVersion',
+  'generalSettings',
+  'modelAutomationPolicy',
+  'omittedSensitiveKeys',
+]);
+const BACKUP_INPUT_KEY_SET = new Set(BACKUP_INPUT_KEYS);
+const MODEL_SETTINGS_PORTABLE_SECRET_KEY_SET = new Set(
+  MODEL_SETTINGS_PORTABLE_SECRET_KEYS,
+);
+const POLICY_SETTINGS_KEYS = Object.freeze([
+  'autoFailoverEnabled',
+  'autoCleanupEnabled',
+  'autoCleanupDays',
+]);
+const POLICY_SETTINGS_KEY_SET = new Set(POLICY_SETTINGS_KEYS);
 
 const DEFAULT_IDS = Object.freeze({
   event: () => `policy-event-${randomUUID()}`,
@@ -54,6 +78,149 @@ function isPlainObject(value) {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
   const prototype = Object.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
+}
+
+function cloneJsonDocument(
+  value,
+  errorCode = 'MODEL_AUTOMATION_POLICY_BACKUP_GENERAL_SETTINGS_INVALID',
+) {
+  if (!isPlainObject(value)) {
+    fail(
+      errorCode,
+      'Backup generalSettings must be a plain object',
+    );
+  }
+  let encoded;
+  try {
+    encoded = JSON.stringify(value, (_key, current) => {
+      if (typeof current === 'number' && !Number.isFinite(current)) {
+        throw new TypeError('non-finite number');
+      }
+      if (['bigint', 'function', 'symbol', 'undefined'].includes(typeof current)) {
+        throw new TypeError(`unsupported ${typeof current}`);
+      }
+      if (current !== null
+        && typeof current === 'object'
+        && !Array.isArray(current)
+        && !isPlainObject(current)) {
+        throw new TypeError('non-plain object');
+      }
+      return current;
+    });
+  } catch (error) {
+    throw new ModelAutomationPolicyError(
+      errorCode,
+      'Backup generalSettings must be finite JSON data',
+      { cause: error },
+    );
+  }
+  if (typeof encoded !== 'string') {
+    fail(
+      errorCode,
+      'Backup generalSettings cannot be serialized',
+    );
+  }
+  return { document: JSON.parse(encoded), encoded };
+}
+
+function readStoredGeneralSettings(db) {
+  const row = db.prepare('SELECT data FROM user_settings WHERE id = 1').get();
+  if (!row) return {};
+  let parsed;
+  try {
+    parsed = JSON.parse(row.data);
+  } catch (error) {
+    throw new ModelAutomationPolicyError(
+      'MODEL_AUTOMATION_POLICY_STORED_GENERAL_SETTINGS_INVALID',
+      'Stored general settings are not valid JSON',
+      { cause: error },
+    );
+  }
+  return cloneJsonDocument(
+    parsed,
+    'MODEL_AUTOMATION_POLICY_STORED_GENERAL_SETTINGS_INVALID',
+  ).document;
+}
+
+function stripPortableSecrets(document) {
+  const omittedSensitiveKeys = MODEL_SETTINGS_PORTABLE_SECRET_KEYS.filter(
+    key => Object.hasOwn(document, key),
+  );
+  if (omittedSensitiveKeys.length === 0) {
+    return { document, omittedSensitiveKeys };
+  }
+  const sanitized = { ...document };
+  for (const key of omittedSensitiveKeys) delete sanitized[key];
+  return { document: sanitized, omittedSensitiveKeys };
+}
+
+function requireOmittedSensitiveKeys(value) {
+  if (!Array.isArray(value)
+    || value.some(key => typeof key !== 'string')
+    || new Set(value).size !== value.length
+    || value.some(key => !MODEL_SETTINGS_PORTABLE_SECRET_KEY_SET.has(key))
+    || value.join('\0') !== [...value].sort().join('\0')) {
+    fail(
+      'MODEL_AUTOMATION_POLICY_BACKUP_SENSITIVE_KEYS_INVALID',
+      'Backup omittedSensitiveKeys must be a sorted unique list of supported keys',
+    );
+  }
+  return [...value];
+}
+
+function requirePolicySettings(value) {
+  if (value === null) return null;
+  if (!isPlainObject(value)) {
+    fail(
+      'MODEL_AUTOMATION_POLICY_BACKUP_POLICY_INVALID',
+      'Backup modelAutomationPolicy must be an object or null',
+    );
+  }
+  const unknown = Object.keys(value).filter(key => !POLICY_SETTINGS_KEY_SET.has(key));
+  const missing = POLICY_SETTINGS_KEYS.filter(key => !Object.hasOwn(value, key));
+  if (unknown.length > 0 || missing.length > 0) {
+    fail(
+      'MODEL_AUTOMATION_POLICY_BACKUP_POLICY_INVALID',
+      'Backup modelAutomationPolicy must contain the exact settings fields',
+      { unknown: unknown.sort(), missing },
+    );
+  }
+  return requireExactInput({ expectedRevision: 1, ...value }).settings;
+}
+
+function requireBackupEnvelope(value) {
+  if (!isPlainObject(value)) {
+    fail(
+      'MODEL_AUTOMATION_POLICY_BACKUP_INPUT_INVALID',
+      'Settings backup must be a plain object',
+    );
+  }
+  const unknown = Object.keys(value).filter(key => !BACKUP_INPUT_KEY_SET.has(key));
+  const missing = BACKUP_INPUT_KEYS.filter(key => !Object.hasOwn(value, key));
+  if (unknown.length > 0 || missing.length > 0) {
+    fail(
+      'MODEL_AUTOMATION_POLICY_BACKUP_INPUT_INVALID',
+      'Settings backup must contain the exact versioned fields',
+      { unknown: unknown.sort(), missing },
+    );
+  }
+  if (value.kind !== MODEL_SETTINGS_BACKUP_KIND
+    || value.schemaVersion !== MODEL_SETTINGS_BACKUP_SCHEMA_VERSION) {
+    fail(
+      'MODEL_AUTOMATION_POLICY_BACKUP_VERSION_UNSUPPORTED',
+      'Settings backup kind or schema version is unsupported',
+    );
+  }
+  const cloned = cloneJsonDocument(value.generalSettings);
+  const sanitized = sanitizeGenericModelAutomationSettings(cloned.document);
+  const portable = stripPortableSecrets(sanitized.document);
+  return {
+    generalSettings: portable.document,
+    ignoredReservedKeys: sanitized.ignoredReservedKeys,
+    ignoredSensitiveKeys: portable.omittedSensitiveKeys,
+    omittedSensitiveKeys: requireOmittedSensitiveKeys(value.omittedSensitiveKeys),
+    policySettings: requirePolicySettings(value.modelAutomationPolicy),
+  };
 }
 
 /**
@@ -135,24 +302,6 @@ function requireExactInput(value) {
       autoCleanupDays: value.autoCleanupDays,
     },
   };
-}
-
-function requireResetInput(value) {
-  if (!isPlainObject(value)
-    || Object.keys(value).length !== 1
-    || !Object.hasOwn(value, 'expectedRevision')) {
-    fail(
-      'MODEL_AUTOMATION_POLICY_INPUT_SHAPE_INVALID',
-      'Policy reset accepts only expectedRevision',
-    );
-  }
-  if (!Number.isSafeInteger(value.expectedRevision) || value.expectedRevision < 1) {
-    fail(
-      'MODEL_AUTOMATION_POLICY_REVISION_INVALID',
-      'expectedRevision must be a positive safe integer',
-    );
-  }
-  return value.expectedRevision;
 }
 
 function mapConsistentRow(row) {
@@ -356,30 +505,27 @@ export class ModelAutomationPolicyRepository {
     }
   }
 
-  #commit(inputValue, authority) {
-    const input = requireExactInput(inputValue);
+  #commitValidated(input, authority) {
+    const current = mapConsistentRow(selectConsistentPolicy(this.db));
+    if (!current) {
+      fail(
+        'MODEL_AUTOMATION_POLICY_INVALID_STATE',
+        'Policy projection does not match its append-only event',
+      );
+    }
+    if (current.revision !== input.expectedRevision) {
+      fail(
+        'MODEL_AUTOMATION_POLICY_STALE',
+        'Policy expected revision is stale',
+        { expectedRevision: input.expectedRevision, currentRevision: current.revision },
+      );
+    }
 
-    return this.#write(authority.eventKind, () => {
-      const current = mapConsistentRow(selectConsistentPolicy(this.db));
-      if (!current) {
-        fail(
-          'MODEL_AUTOMATION_POLICY_INVALID_STATE',
-          'Policy projection does not match its append-only event',
-        );
-      }
-      if (current.revision !== input.expectedRevision) {
-        fail(
-          'MODEL_AUTOMATION_POLICY_STALE',
-          'Policy expected revision is stale',
-          { expectedRevision: input.expectedRevision, currentRevision: current.revision },
-        );
-      }
-
-      const eventId = this.#id('event');
-      const requestId = this.#id('request');
-      const createdAtMs = this.#now();
-      const committedRevision = current.revision + 1;
-      const result = this.db.prepare(`
+    const eventId = this.#id('event');
+    const requestId = this.#id('request');
+    const createdAtMs = this.#now();
+    const committedRevision = current.revision + 1;
+    const result = this.db.prepare(`
         UPDATE model_automation_policy
         SET revision = ?,
             auto_failover_enabled = ?,
@@ -388,25 +534,25 @@ export class ModelAutomationPolicyRepository {
             last_event_id = ?,
             updated_at_ms = ?
         WHERE id = 1 AND revision = ? AND last_event_id = ?
-      `).run(
-        committedRevision,
-        input.settings.autoFailoverEnabled ? 1 : 0,
-        input.settings.autoCleanupEnabled ? 1 : 0,
-        input.settings.autoCleanupDays,
-        eventId,
-        createdAtMs,
-        current.revision,
-        current.lastEventId,
+    `).run(
+      committedRevision,
+      input.settings.autoFailoverEnabled ? 1 : 0,
+      input.settings.autoCleanupEnabled ? 1 : 0,
+      input.settings.autoCleanupDays,
+      eventId,
+      createdAtMs,
+      current.revision,
+      current.lastEventId,
+    );
+    if (result.changes !== 1) {
+      fail(
+        'MODEL_AUTOMATION_POLICY_STALE',
+        'Policy changed before the projection commit',
+        { expectedRevision: input.expectedRevision },
       );
-      if (result.changes !== 1) {
-        fail(
-          'MODEL_AUTOMATION_POLICY_STALE',
-          'Policy changed before the projection commit',
-          { expectedRevision: input.expectedRevision },
-        );
-      }
+    }
 
-      this.db.prepare(`
+    this.db.prepare(`
         INSERT INTO model_automation_policy_events (
           event_id,
           request_id,
@@ -424,40 +570,46 @@ export class ModelAutomationPolicyRepository {
           legacy_quarantine_json,
           created_at_ms
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)
-      `).run(
+    `).run(
+      eventId,
+      requestId,
+      current.revision,
+      committedRevision,
+      authority.eventKind,
+      authority.actor,
+      authority.source,
+      current.settings.autoFailoverEnabled ? 1 : 0,
+      current.settings.autoCleanupEnabled ? 1 : 0,
+      current.settings.autoCleanupDays,
+      input.settings.autoFailoverEnabled ? 1 : 0,
+      input.settings.autoCleanupEnabled ? 1 : 0,
+      input.settings.autoCleanupDays,
+      createdAtMs,
+    );
+
+    const committed = mapConsistentRow(selectConsistentPolicy(this.db));
+    if (!committed || committed.revision !== committedRevision) {
+      fail(
+        'MODEL_AUTOMATION_POLICY_INVALID_STATE',
+        'Committed policy does not match its event',
+      );
+    }
+    return {
+      ...committed,
+      event: {
         eventId,
         requestId,
-        current.revision,
-        committedRevision,
-        authority.eventKind,
-        authority.actor,
-        authority.source,
-        current.settings.autoFailoverEnabled ? 1 : 0,
-        current.settings.autoCleanupEnabled ? 1 : 0,
-        current.settings.autoCleanupDays,
-        input.settings.autoFailoverEnabled ? 1 : 0,
-        input.settings.autoCleanupEnabled ? 1 : 0,
-        input.settings.autoCleanupDays,
-        createdAtMs,
-      );
+        eventKind: authority.eventKind,
+        actor: authority.actor,
+        source: authority.source,
+      },
+    };
+  }
 
-      const committed = mapConsistentRow(selectConsistentPolicy(this.db));
-      if (!committed || committed.revision !== committedRevision) {
-        fail(
-          'MODEL_AUTOMATION_POLICY_INVALID_STATE',
-          'Committed policy does not match its event',
-        );
-      }
-      return {
-        ...committed,
-        event: {
-          eventId,
-          requestId,
-          eventKind: authority.eventKind,
-          actor: authority.actor,
-          source: authority.source,
-        },
-      };
+  #commit(inputValue, authority) {
+    const input = requireExactInput(inputValue);
+    return this.#write(authority.eventKind, () => {
+      return this.#commitValidated(input, authority);
     });
   }
 
@@ -473,23 +625,108 @@ export class ModelAutomationPolicyRepository {
     });
   }
 
-  replaceFromSettingsImport(input) {
-    return this.#commit(input, {
-      eventKind: 'BACKUP_IMPORT',
-      actor: 'user:settings-import',
-      source: 'SETTINGS_IMPORT',
+  exportSettingsBackup() {
+    if (this.db.inTransaction) {
+      fail(
+        'MODEL_AUTOMATION_POLICY_TRANSACTION_OWNERSHIP_REQUIRED',
+        'Settings backup export must own its read transaction',
+      );
+    }
+    const transaction = this.db.transaction(() => {
+      const policy = mapConsistentRow(selectConsistentPolicy(this.db));
+      if (!policy) {
+        fail(
+          'MODEL_AUTOMATION_POLICY_INVALID_STATE',
+          'Policy projection does not match its append-only event',
+        );
+      }
+      const stored = readStoredGeneralSettings(this.db);
+      const general = sanitizeGenericModelAutomationSettings(stored).document;
+      const portable = stripPortableSecrets(general);
+      return {
+        kind: MODEL_SETTINGS_BACKUP_KIND,
+        schemaVersion: MODEL_SETTINGS_BACKUP_SCHEMA_VERSION,
+        generalSettings: portable.document,
+        modelAutomationPolicy: { ...policy.settings },
+        omittedSensitiveKeys: portable.omittedSensitiveKeys,
+      };
+    });
+    try {
+      return transaction.deferred();
+    } catch (error) {
+      if (error instanceof ModelAutomationPolicyError) throw error;
+      throw new ModelAutomationPolicyError(
+        'MODEL_AUTOMATION_POLICY_BACKUP_READ_FAILED',
+        'Settings backup export failed',
+        { cause: error },
+      );
+    }
+  }
+
+  replaceFromSettingsImport(value) {
+    const backup = requireBackupEnvelope(value);
+    return this.#write('BACKUP_IMPORT', () => {
+      const current = mapConsistentRow(selectConsistentPolicy(this.db));
+      if (!current) {
+        fail(
+          'MODEL_AUTOMATION_POLICY_INVALID_STATE',
+          'Policy projection does not match its append-only event',
+        );
+      }
+      const stored = readStoredGeneralSettings(this.db);
+      const generalSettings = { ...backup.generalSettings };
+      const preservedSensitiveKeys = [];
+      for (const key of MODEL_SETTINGS_PORTABLE_SECRET_KEYS) {
+        if (Object.hasOwn(stored, key)) {
+          generalSettings[key] = stored[key];
+          preservedSensitiveKeys.push(key);
+        }
+      }
+      this.db.prepare(`
+        INSERT INTO user_settings (id, data, updated_at)
+        VALUES (1, ?, datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+          data = excluded.data,
+          updated_at = excluded.updated_at
+      `).run(JSON.stringify(generalSettings));
+      const committed = this.#commitValidated({
+        expectedRevision: current.revision,
+        settings: backup.policySettings || current.settings,
+      }, {
+        eventKind: 'BACKUP_IMPORT',
+        actor: 'user:settings-import',
+        source: 'SETTINGS_IMPORT',
+      });
+      return {
+        generalSettings,
+        ignoredReservedKeys: backup.ignoredReservedKeys,
+        ignoredSensitiveKeys: backup.ignoredSensitiveKeys,
+        preservedSensitiveKeys,
+        sourceOmittedSensitiveKeys: backup.omittedSensitiveKeys,
+        policy: committed,
+      };
     });
   }
 
-  resetFromGlobalSettings(input) {
-    const expectedRevision = requireResetInput(input);
-    return this.#commit({
-      expectedRevision,
-      ...DEFAULT_MODEL_AUTOMATION_POLICY,
-    }, {
-      eventKind: 'GLOBAL_RESET',
-      actor: 'user:global-reset',
-      source: 'GLOBAL_RESET',
+  resetFromGlobalSettings() {
+    return this.#write('GLOBAL_RESET', () => {
+      const current = mapConsistentRow(selectConsistentPolicy(this.db));
+      if (!current) {
+        fail(
+          'MODEL_AUTOMATION_POLICY_INVALID_STATE',
+          'Policy projection does not match its append-only event',
+        );
+      }
+      this.db.prepare('DELETE FROM user_settings').run();
+      const committed = this.#commitValidated({
+        expectedRevision: current.revision,
+        settings: { ...DEFAULT_MODEL_AUTOMATION_POLICY },
+      }, {
+        eventKind: 'GLOBAL_RESET',
+        actor: 'user:global-reset',
+        source: 'GLOBAL_RESET',
+      });
+      return { generalSettings: {}, policy: committed };
     });
   }
 }

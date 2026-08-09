@@ -201,8 +201,59 @@ automation hodnoty. Neplatný nebo neparsovatelný vstup končí 400, stale revi
 409 a nedostupná či nekonzistentní storage 503; žádná z těchto cest nemutuje
 stav. Úspěch appenduje jediný `USER_UPDATE/TYPED_API` event.
 
-Tento checkpoint ještě **neimplementuje** atomický export/import/reset adaptér
-ani Studio `response.ok`.
+Navazující backend checkpoint implementuje explicitní versioned adaptér přes
+`GET /api/settings/backup`, `POST /api/settings/import` a
+`POST /api/settings/reset`; legacy `/api/reset` používá tentýž reset commit
+point. Export čte general settings i policy v jednom SQLite snapshotu. Import
+a reset drží změnu `user_settings`, policy projekce a právě jeden append-only
+event ve stejném repository-owned `BEGIN IMMEDIATE`. Selhání kteréhokoli
+settings nebo event zápisu rollbackne celek a cizí top-level transakce je
+odmítnutá před mutací.
+
+Portable schema v1 má přesně `kind`, `schemaVersion`, `generalSettings`,
+`modelAutomationPolicy` a `omittedSensitiveKeys`. Export vynechává přesné
+top-level klíče `webhookSecret` a `c3.notif.smtpPass`; import jejich hodnoty
+z dokumentu ignoruje a zachová lokální destination hodnoty. Full SQLite state
+backup zůstává oddělený recovery artefakt. Po durable commitu se runtime
+aplikuje zvlášť; jeho chyba vrací `200`, `runtimeApplied:false` a stabilní code,
+nikoli retry-inducing `500` nad již provedenou změnou.
+
+Review nad `94d2a473` prokázalo další post-commit hranu: výjimka z runtime apply
+následovaná výjimkou diagnostického `logger.warn` dříve propadla do společného
+repository catch a změnila již commitnutý import/reset na HTTP 500. Follow-up
+oddělil repository error boundary před runtime/presentation fází a logger je
+výhradně best-effort. Durable commit proto i při současném selhání runtime a
+diagnostiky vrací pravdivé `200` s `runtimeApplied:false`; regresní test provádí
+import i reset a ověřuje uložený stav i append-only event lineage.
+
+Focused backend sada má 35/0. Pokrývá secret canaries, malformed/unknown schema,
+foreign transaction ownership, unavailable storage, settings i event rollback,
+právě jeden import/reset event a pravdivý post-commit degraded výsledek.
+
+Autoritativní commitnutý Studio `lib` používá pouze nové explicitní endpointy.
+Export kontroluje HTTP i exact envelope a před downloadem znovu odmítne oba
+secret keys. Import/reset změní `_bCfg` pouze z pravdivého serverového
+`ok/success/generalSettings` commitu. Výsledek mutace je explicitně
+`COMMITTED`, `REJECTED` nebo `DELIVERY_UNKNOWN`: pouze doručený non-2xx smí
+obnovit odložený generic save; timeout, ztracená nebo malformed 2xx odpověď
+zachová lokální snapshot, ale až do nového načtení Studia uzamkne další
+whole-document zápis i recovery. Společná generation/token hranice zneplatní
+každý settings GET zahájený před importem/resetem. Obě mutace jsou
+single-flight, object URL se revokuje a starý success timer nemůže smazat
+novější chybu. FileReader error i abort mají viditelný fail-closed výsledek.
+Legacy holý JSON se
+zabalí do schema v1 s `modelAutomationPolicy:null`; policy tedy zachová a jeho
+případné secret keys backend ignoruje. Navazující generic Studio save používá
+serverem vrácený dokument včetně zachovaných lokálních secret hodnot.
+
+VM behavior sada má 110/0 a připíná exact URL/metodu/header/timeout, obě runtime
+větve, definitive reject proti nejasnému doručení, pozdní GET, secret-bearing
+export, koordinaci generic save proti recovery, skutečný Backup panel,
+FileReader chyby, single-flight i timer race. První Review A nad `21ffa72b`
+vrátilo dvě race a stale rozsah jako `CHANGES_REQUIRED`; follow-up je lokálně
+uzavírá, ale opakované read-only review a fresh-clone attestation nového
+subjectu jsou stále otevřené. Nejde proto ještě o úplné uzavření 020/E.
+
 Skutečná late-insertion parita s finálně
 přečíslovanými mobilními migracemi zůstává `PENDING_FIRST_COMMON_INTEGRATION_SHA`;
 syntetická náhrada nebyla použita. Aktivace, GPU a Electron nebyly spuštěné.

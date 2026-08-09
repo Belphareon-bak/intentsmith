@@ -2559,10 +2559,43 @@ var _featureFlags=null;var _ffLoading=false;
 var _secTokens=null;var _secAudit=null;var _secAuditType='all';var _secWebhook=null;var _secSessions=null;var _secNewToken=null;var _secLoading={};
 var _fbCategory='other';var _fbMessage='';var _fbSending=false;var _fbSent=false;var _fbAttachLast=false;var _fbCooldown=0;
 var _fbFiles=[];var _fbAttachLogs=false;
-function _loadBCfg(cb){if(_bCfg&&!_bCfgLoading){if(cb)cb();return;}_bCfgLoading=true;fetch(_backendBase+'/api/settings',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_bCfg=d||{};_bCfgLoading=false;if(cb)cb();renderCenter();}).catch(function(){_bCfg=_bCfg||{};_bCfgLoading=false;if(cb)cb();});}
-function _saveBCfg(){if(!_bCfg)return;clearTimeout(_bCfgSaveTimer);_bCfgSaveTimer=setTimeout(function(){fetch(_backendBase+'/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(_bCfg),signal:AbortSignal.timeout(3000)}).catch(function(){});},500);}
+function _loadBCfg(cb,force){
+  if(_settingsMutationPending){if(cb)cb(false);return Promise.resolve(false);}
+  if(_settingsDeliveryUnknown){if(cb)cb(false);return Promise.resolve(false);}
+  if(_bCfg&&!_bCfgLoading&&force!==true){if(cb)cb(true);return Promise.resolve(true);}
+  var generation=_settingsGeneration;var token=++_bCfgLoadToken;_bCfgLoading=true;
+  return Promise.resolve().then(function(){return fetch(_backendBase+'/api/settings',{signal:AbortSignal.timeout(3000)});}).then(function(response){
+    if(!response||response.ok!==true||typeof response.json!=='function')throw new Error('settings load rejected');
+    return response.json();
+  }).then(function(document){
+    if(token!==_bCfgLoadToken||generation!==_settingsGeneration||_settingsMutationPending)return false;
+    if(!_settingsPlainObject(document))throw new Error('invalid settings document');
+    _bCfg=document;_bCfgLoading=false;if(cb)cb(true);renderCenter();return true;
+  }).catch(function(){
+    if(token!==_bCfgLoadToken||generation!==_settingsGeneration)return false;
+    _bCfgLoading=false;if(!_settingsDeliveryUnknown)_bCfg=_bCfg||{};if(cb)cb(false);renderCenter();return false;
+  });
+}
+function _saveBCfg(){
+  if(!_bCfg||_settingsDeliveryUnknown)return;
+  clearTimeout(_bCfgSaveTimer);_bCfgSaveTimer=null;
+  if(_settingsMutationPending){_settingsDeferredSave=true;return;}
+  _bCfgSaveTimer=setTimeout(function(){
+    _bCfgSaveTimer=null;
+    if(_settingsMutationPending){_settingsDeferredSave=true;return;}
+    if(_settingsDeliveryUnknown)return;
+    if(_bCfgSaveInFlight){_settingsDeferredSave=true;return;}
+    var payload=JSON.stringify(_bCfg);
+    var request=Promise.resolve().then(function(){return fetch(_backendBase+'/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:payload,signal:AbortSignal.timeout(3000)});}).catch(function(){});
+    _bCfgSaveInFlight=request;
+    request.finally(function(){
+      if(_bCfgSaveInFlight===request)_bCfgSaveInFlight=null;
+      if(_settingsDeferredSave&&!_settingsMutationPending&&!_settingsDeliveryUnknown){_settingsDeferredSave=false;_saveBCfg();}
+    });
+  },500);
+}
 function _bVal(key,def){return _bCfg&&_bCfg[key]!=null?_bCfg[key]:def;}
-function _bSet(key,val){if(!_bCfg)_bCfg={};_bCfg[key]=val;_saveBCfg();renderCenter();}
+function _bSet(key,val){if(_settingsDeliveryUnknown){_settingsResult(false,'Nastavení nelze měnit, dokud Studio znovu nenačte stav serveru');return;}if(!_bCfg)_bCfg={};_settingsGeneration++;_bCfg[key]=val;_saveBCfg();renderCenter();}
 /* v91: Feature flags loader */
 function _loadFeatureFlags(cb){if(_ffLoading)return;_ffLoading=true;fetch(_backendBase+'/api/features',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_featureFlags=d.features||{};_ffLoading=false;if(cb)cb();renderCenter();}).catch(function(){_ffLoading=false;if(cb)cb();});}
 function _toggleFeatureFlag(name,enabled){fetch(_backendBase+'/api/features/'+encodeURIComponent(name),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:enabled}),signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){if(d.features)_featureFlags=d.features;renderCenter();}).catch(function(){});}
@@ -2576,6 +2609,99 @@ function _cfgSelect(label,key,def,opts){var v=_bVal(key,def);return h('div',{sty
 function _cfgToggle(label,desc,key,def){return _settingsToggle(label,desc,!!_bVal(key,def),function(nv){_bSet(key,nv);});}
 function _cfgSlider(label,key,def,min,max,step,unit,hint,fmt){var v=_bVal(key,def);var disp=fmt?fmt(v):v+(unit||'');return h('div',{style:{marginBottom:12}},h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6,display:'flex',alignItems:'center'}},label),h('div',{style:{display:'flex',alignItems:'center',gap:8}},h('input',{type:'range',min:min,max:max,step:step,value:v,onChange:function(e){_bSet(key,parseFloat(e.target.value));},style:{flex:1,cursor:'pointer',accentColor:C.accent}}),h('span',{style:{fontSize:_fs(11),color:C.tx3,minWidth:52,textAlign:'right',fontFamily:C.mono}},disp)),hint?h('div',{style:{fontSize:_fs(9),color:C.tx4,marginTop:3}},hint):null);}
 var _backupMsg=null;var _notifChannels=null;
+var _SETTINGS_BACKUP_KIND='INTENTSMITH_SETTINGS_BACKUP';var _SETTINGS_BACKUP_SCHEMA_VERSION=1;
+var _SETTINGS_MUTATION_COMMITTED='COMMITTED';var _SETTINGS_MUTATION_REJECTED='REJECTED';var _SETTINGS_MUTATION_DELIVERY_UNKNOWN='DELIVERY_UNKNOWN';
+var _settingsResultToken=0;var _settingsMutationState='IDLE';var _settingsMutationPending=false;var _settingsDeferredSave=false;var _settingsDeliveryUnknown=false;
+var _settingsGeneration=0;var _bCfgLoadToken=0;var _bCfgSaveInFlight=null;
+function _settingsPlainObject(value){if(!value||typeof value!=='object'||Array.isArray(value))return false;var proto=Object.getPrototypeOf(value);return proto===Object.prototype||proto===null;}
+function _settingsResponseJson(response){
+  if(!response||typeof response.json!=='function')return Promise.reject(new Error('neplatná HTTP odpověď'));
+  return Promise.resolve().then(function(){return response.json();}).catch(function(){return null;}).then(function(body){
+    if(response.ok!==true){var code=body&&typeof body.code==='string'?body.code:'HTTP_'+(response.status||'ERROR');throw new Error(code);}
+    if(!_settingsPlainObject(body)||body.ok!==true)throw new Error('neplatná odpověď serveru');
+    return body;
+  });
+}
+function _settingsMutationError(outcome,message){var error=new Error(message);error.settingsMutationOutcome=outcome;return error;}
+function _settingsMutationResponse(response){
+  if(!response||typeof response.json!=='function')return Promise.reject(_settingsMutationError(_SETTINGS_MUTATION_DELIVERY_UNKNOWN,'neplatná HTTP odpověď'));
+  return Promise.resolve().then(function(){return response.json();}).catch(function(){
+    if(response.ok!==true)return null;
+    throw _settingsMutationError(_SETTINGS_MUTATION_DELIVERY_UNKNOWN,'nečitelná odpověď po odeslání');
+  }).then(function(body){
+    if(response.ok!==true){var code=body&&typeof body.code==='string'?body.code:'HTTP_'+(response.status||'ERROR');throw _settingsMutationError(_SETTINGS_MUTATION_REJECTED,code);}
+    if(!_settingsPlainObject(body)||body.ok!==true)throw _settingsMutationError(_SETTINGS_MUTATION_DELIVERY_UNKNOWN,'neplatná odpověď po odeslání');
+    return body;
+  });
+}
+function _settingsRequireBackup(value){
+  if(!_settingsPlainObject(value))throw new Error('Neplatný formát zálohy');
+  var keys=Object.keys(value).sort().join(',');
+  var policy=value.modelAutomationPolicy;var omitted=value.omittedSensitiveKeys;
+  var policyValid=policy===null||(_settingsPlainObject(policy)&&Object.keys(policy).sort().join(',')==='autoCleanupDays,autoCleanupEnabled,autoFailoverEnabled'&&typeof policy.autoFailoverEnabled==='boolean'&&typeof policy.autoCleanupEnabled==='boolean'&&Number.isSafeInteger(policy.autoCleanupDays)&&policy.autoCleanupDays>=1&&policy.autoCleanupDays<=3650);
+  var omittedValid=Array.isArray(omitted)&&omitted.every(function(key,index){return (key==='c3.notif.smtpPass'||key==='webhookSecret')&&(index===0||omitted[index-1]<key);});
+  var secretFree=!Object.prototype.hasOwnProperty.call(value.generalSettings||{},'webhookSecret')&&!Object.prototype.hasOwnProperty.call(value.generalSettings||{},'c3.notif.smtpPass');
+  if(keys!=='generalSettings,kind,modelAutomationPolicy,omittedSensitiveKeys,schemaVersion'||value.kind!==_SETTINGS_BACKUP_KIND||value.schemaVersion!==_SETTINGS_BACKUP_SCHEMA_VERSION||!_settingsPlainObject(value.generalSettings)||!policyValid||!omittedValid||!secretFree)throw new Error('Nepodporovaný formát zálohy');
+  return value;
+}
+function _settingsImportEnvelope(value){
+  if(!_settingsPlainObject(value))throw new Error('Neplatný JSON soubor');
+  if(value.kind===_SETTINGS_BACKUP_KIND||Object.prototype.hasOwnProperty.call(value,'schemaVersion'))return _settingsRequireBackup(value);
+  return {kind:_SETTINGS_BACKUP_KIND,schemaVersion:_SETTINGS_BACKUP_SCHEMA_VERSION,generalSettings:value,modelAutomationPolicy:null,omittedSensitiveKeys:[]};
+}
+function _settingsRequireCommit(body){
+  if(body.success!==true||!_settingsPlainObject(body.generalSettings)||typeof body.runtimeApplied!=='boolean')throw new Error('neplatný commit serveru');
+  if((body.runtimeApplied===true&&body.runtimeErrorCode!==null)||(body.runtimeApplied===false&&body.runtimeErrorCode!=='SETTINGS_RUNTIME_APPLY_FAILED'))throw new Error('nekonzistentní stav runtime');
+  return body;
+}
+function _settingsResult(ok,text){var token=++_settingsResultToken;_backupMsg={ok:ok,text:text};renderCenter();if(ok)setTimeout(function(){if(token!==_settingsResultToken)return;_backupMsg=null;renderCenter();},4000);}
+function _settingsBeginMutation(){
+  if(_settingsMutationPending){_settingsResult(false,'Jiná obnova nastavení právě probíhá');return null;}
+  if(_settingsDeliveryUnknown){_settingsResult(false,'Nejprve je nutné znovu načíst autoritativní stav serveru');return null;}
+  _settingsMutationState='PENDING';_settingsMutationPending=true;_settingsGeneration++;_bCfgLoadToken++;_bCfgLoading=false;
+  if(_bCfgSaveTimer!==null){clearTimeout(_bCfgSaveTimer);_bCfgSaveTimer=null;_settingsDeferredSave=true;}
+  return _bCfgSaveInFlight?Promise.resolve(_bCfgSaveInFlight):Promise.resolve();
+}
+function _settingsEndMutation(outcome){
+  _settingsMutationState=outcome;_settingsMutationPending=false;
+  if(outcome===_SETTINGS_MUTATION_COMMITTED){_settingsDeliveryUnknown=false;_settingsDeferredSave=false;return;}
+  if(outcome===_SETTINGS_MUTATION_DELIVERY_UNKNOWN){
+    _settingsDeliveryUnknown=true;_settingsDeferredSave=false;renderCenter();return;
+  }
+  if(outcome===_SETTINGS_MUTATION_REJECTED&&_settingsDeferredSave){_settingsDeferredSave=false;_saveBCfg();}
+}
+function _settingsExportBackup(){
+  return fetch(_backendBase+'/api/settings/backup',{signal:AbortSignal.timeout(3000)}).then(function(r){return _settingsResponseJson(r);}).then(function(body){
+    var backup=_settingsRequireBackup(body.backup);var blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
+    var a=document.createElement('a');var objectUrl=URL.createObjectURL(blob);a.href=objectUrl;a.download='intentsmith-settings-'+new Date().toISOString().slice(0,10)+'.json';try{a.click();}finally{URL.revokeObjectURL(objectUrl);}
+    _settingsResult(true,'Nastavení exportována; citlivé hodnoty byly vynechány');return body;
+  }).catch(function(error){_settingsResult(false,'Export selhal: '+error.message);return null;});
+}
+function _settingsImportDocument(value,fileName){
+  var envelope;try{envelope=_settingsImportEnvelope(value);}catch(error){_settingsResult(false,error.message);return Promise.resolve(null);}
+  var ready=_settingsBeginMutation();if(!ready)return Promise.resolve(null);var outcome=_SETTINGS_MUTATION_DELIVERY_UNKNOWN;
+  return ready.then(function(){return fetch(_backendBase+'/api/settings/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(envelope),signal:AbortSignal.timeout(3000)});}).then(function(r){return _settingsMutationResponse(r);}).then(function(body){
+    _settingsRequireCommit(body);outcome=_SETTINGS_MUTATION_COMMITTED;
+    _bCfg=body.generalSettings;
+    _settingsResult(true,body.runtimeApplied===false?'Nastavení uložena z '+fileName+'; runtime vyžaduje restart':'Nastavení importována z '+fileName);
+    return body;
+  }).catch(function(error){
+    outcome=error&&error.settingsMutationOutcome===_SETTINGS_MUTATION_REJECTED?_SETTINGS_MUTATION_REJECTED:_SETTINGS_MUTATION_DELIVERY_UNKNOWN;
+    _settingsResult(false,outcome===_SETTINGS_MUTATION_DELIVERY_UNKNOWN?'Výsledek importu nelze potvrdit; další ukládání je do obnovení Studia zablokováno':'Import byl odmítnut: '+error.message);return null;
+  }).finally(function(){_settingsEndMutation(outcome);});
+}
+function _settingsResetAll(){
+  var ready=_settingsBeginMutation();if(!ready)return Promise.resolve(null);var outcome=_SETTINGS_MUTATION_DELIVERY_UNKNOWN;
+  return ready.then(function(){return fetch(_backendBase+'/api/settings/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}',signal:AbortSignal.timeout(3000)});}).then(function(r){return _settingsMutationResponse(r);}).then(function(body){
+    _settingsRequireCommit(body);outcome=_SETTINGS_MUTATION_COMMITTED;
+    _bCfg=body.generalSettings;
+    _settingsResult(true,body.runtimeApplied===false?'Nastavení resetována; runtime vyžaduje restart':'Nastavení obnovena na výchozí');
+    return body;
+  }).catch(function(error){
+    outcome=error&&error.settingsMutationOutcome===_SETTINGS_MUTATION_REJECTED?_SETTINGS_MUTATION_REJECTED:_SETTINGS_MUTATION_DELIVERY_UNKNOWN;
+    _settingsResult(false,outcome===_SETTINGS_MUTATION_DELIVERY_UNKNOWN?'Výsledek resetu nelze potvrdit; další ukládání je do obnovení Studia zablokováno':'Reset byl odmítnut: '+error.message);return null;
+  }).finally(function(){_settingsEndMutation(outcome);});
+}
 /* I2: Custom CSS injection — scoped under .c3-root */
 var _customStyleEl=null;
 function _injectCustomCSS(css){
@@ -3917,27 +4043,19 @@ function settingsBackupPanel(){
     h('div',{style:{fontSize:_fs(11),color:C.tx3,marginBottom:14}},'Zálohujte svá nastavení nebo je obnovte ze souboru.'),
     _backupMsg?h('div',{style:{padding:'8px 12px',borderRadius:6,marginBottom:10,fontSize:_fs(11),fontWeight:600,background:_backupMsg.ok?'rgba(34,197,94,0.1)':'rgba(239,68,68,0.1)',color:_backupMsg.ok?C.accent:'#ef4444',border:'1px solid '+(_backupMsg.ok?'rgba(34,197,94,0.2)':'rgba(239,68,68,0.2)')}},_backupMsg.text):null,
     h('button',{style:{width:'100%',background:C.accent,color:'#fff',border:'none',borderRadius:6,padding:'10px 14px',fontSize:_fs(12),fontWeight:600,cursor:'pointer',marginBottom:10,fontFamily:C.font},
-      onClick:function(){fetch(_backendBase+'/api/settings',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){
-        var blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
-        var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='c3-settings-'+new Date().toISOString().slice(0,10)+'.json';a.click();
-        _backupMsg={ok:true,text:'Nastavení exportována do souboru'};renderCenter();setTimeout(function(){_backupMsg=null;renderCenter();},4000);
-      }).catch(function(e){_backupMsg={ok:false,text:'Export selhal: '+e.message};renderCenter();});}},'Exportovat nastavení'),
+      onClick:function(){_settingsExportBackup();}},'Exportovat nastavení'),
     h('button',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'10px 14px',fontSize:_fs(12),cursor:'pointer',color:C.tx1,marginBottom:10,fontFamily:C.font},
       onClick:function(){
         var inp=document.createElement('input');inp.type='file';inp.accept='.json';
         inp.onchange=function(e){var f=e.target.files[0];if(!f)return;
-          var reader=new FileReader();reader.onload=function(ev){try{var data=JSON.parse(ev.target.result);
-            fetch(_backendBase+'/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data),signal:AbortSignal.timeout(3000)})
-            .then(function(){_bCfg=data;_backupMsg={ok:true,text:'Nastavení importována z '+f.name};renderCenter();setTimeout(function(){_backupMsg=null;renderCenter();},4000);})
-            .catch(function(e){_backupMsg={ok:false,text:'Import selhal: '+e.message};renderCenter();});
-          }catch(ex){_backupMsg={ok:false,text:'Neplatný JSON soubor'};renderCenter();}};reader.readAsText(f);};inp.click();}},'Importovat nastavení'),
+          var reader=new FileReader();reader.onload=function(ev){try{var data=JSON.parse(ev.target.result);_settingsImportDocument(data,f.name);}catch(ex){_settingsResult(false,'Neplatný JSON soubor');}};
+          reader.onerror=function(){_settingsResult(false,'Soubor se nepodařilo přečíst');};reader.onabort=function(){_settingsResult(false,'Čtení souboru bylo zrušeno');};reader.readAsText(f);};inp.click();}},'Importovat nastavení'),
     h('div',{style:{borderTop:'1px solid '+C.border,paddingTop:14,marginTop:8}},
       h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:4}},'Reset'),
       h('div',{style:{fontSize:_fs(10),color:C.tx4,marginBottom:8}},'Smaže všechna uživatelská nastavení a obnoví výchozí hodnoty.'),
       h('button',{style:{width:'100%',background:'transparent',border:'1px solid #ef4444',borderRadius:6,padding:'8px 14px',fontSize:_fs(11),cursor:'pointer',color:'#ef4444',fontFamily:C.font},
         onClick:function(){if(!confirm('Opravdu obnovit výchozí nastavení? Všechny změny budou ztraceny.'))return;
-          fetch(_backendBase+'/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}',signal:AbortSignal.timeout(3000)})
-          .then(function(){_bCfg={};_backupMsg={ok:true,text:'Nastavení obnovena na výchozí'};renderCenter();setTimeout(function(){_backupMsg=null;renderCenter();},4000);}).catch(function(e){_backupMsg={ok:false,text:'Reset selhal: '+e.message};renderCenter();});}},'Obnovit výchozí')));
+          _settingsResetAll();}},'Obnovit výchozí')));
 }
 /* v91: Feature Flags panel */
 var _FF_META=[
