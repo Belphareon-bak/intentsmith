@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "authority": "branch-local",
-  "sourceRevision": "8116d09f96b9c92338e0791f74bb825a572603a6",
+  "authority": "integration",
+  "sourceRevision": "5332d30e0ae90f347838ec3c634c700e565b66cc",
   "scanner": "docs/review/2026-08-07-module-graph.mjs",
   "note": "computed import() targets are not resolved; template-literal content (including src/domains/scaffolds/**) is ignored; HTML <script src> edges are not modeled",
   "limits": {

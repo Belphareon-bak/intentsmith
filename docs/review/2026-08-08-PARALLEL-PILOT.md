@@ -5,6 +5,14 @@ commit, který tento dokument poprvé trackuje; jeho zdrojovým checkpointem je
 `515fb6f7`, evidence parentem `eb7e78b8` a bezprostředním integračním parentem
 `2ead4662`.
 
+**Výsledek prvního běhu:** technický boundary ratchet prošel a větev byla
+integrována merge commitem `5332d30e0ae90f347838ec3c634c700e565b66cc`.
+Autoritativní exact-edge baseline pinuje právě tento merge parent: 1 004 hran,
+3 cykly a 28 souborů v cyklech. Ekonomický/procesní pilot je **INVALIDOVANÝ**,
+protože v ratchet checkoutu pracovali dva writeři. Z běhu se proto neodvozuje
+kladné `T_net`; technický ratchet zůstává platný. Přesná incident evidence je
+v [`IMPORT-CENSUS`](2026-08-09-IMPORT-CENSUS.md#pilotní-čas-a-procesní-incident).
+
 Tento dokument nezavádí nový board ani evidence framework. Je to podklad
 ke dvěma odděleným rozhodnutím:
 

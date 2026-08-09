@@ -1089,6 +1089,11 @@ mohou pokračovat.
    registrovaná T5 sada nemusela pravdivě zůstávat `BLOCKED`.
 4. Operátorsky rozhodnout L0-8 nejpozději před `WP-M3-BOUNDARY`; M0 jej může
    uzavřít pouze jako explicitně pojmenovaný blocker s vlastníkem a termínem.
+   Směrově slepý exact-edge ratchet P6 je technicky integrován na merge
+   `5332d30e` s baseline 1 004 hran / 3 cykly / 28 souborů; směrové pravidlo
+   dál čeká na přijatou path mapu M3. První paralelní procesní pilot je
+   invalidovaný kvůli dvěma writerům v jednom checkoutu a nesmí být vydán za
+   kladný ekonomický výsledek.
 5. B1 contract a B2 chat jsou implementované; Gate 1 volby 001–014 jsou
    schválené a zapsané. Proof-policy otázka 015 má implementovaný vratný
    measurement-only default C; operátorské prahy A/B a proof TTL zůstávají

@@ -58,7 +58,7 @@ zápis do `docs/convergence/`, `src/` a `tests/` má vlastní pravidla podle
 | [MODULE-GRAPH](2026-08-07-MODULE-GRAPH.md) | 08-07 | Modulový graf `src/**`, mapa švů, dosažitelnost a cykly, nálezy `MG-1`..`MG-7` |
 | [ENFORCEMENT-AUDIT](2026-08-07-ENFORCEMENT-AUDIT.md) | 08-07 | Má deklarovaný kontrakt vynucovací mechanismus a kdy zafungoval; nálezy `EN-1`..`EN-6` |
 | [MODULE-INDEPENDENCE](2026-08-08-MODULE-INDEPENDENCE.md) | 08-08 | Konsolidovaný rozhodovací podklad pro asymetrické jádro, optional moduly a pořadí boundary práce |
-| [PARALLEL-PILOT](2026-08-08-PARALLEL-PILOT.md) | 08-08 | Přijatá pravidla dvou úrovní vlastnictví, boundary ratchet a falsifikovatelná ekonomika prvního pilotu |
+| [PARALLEL-PILOT](2026-08-08-PARALLEL-PILOT.md) | 08-08 | Přijatá pravidla vlastnictví; technický ratchet integrován, první procesní pilot invalidován |
 
 Zadání, ze kterých šest srpnových sond vzniklo, jsou v [`docs/wp/`](../wp/).
 
