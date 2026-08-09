@@ -20,6 +20,9 @@ binding-application checkpoint `d4b34ca4` s ratchetem; baseline commit
 `b05392e1` přesně přijal šest deklarovaných hran. Aktuální měření je
 `420 / 1 010 / 3 / 28` (source soubory / exact pair hrany / cykly / soubory v
 cyklech). Přijetí je strop grafu, nikoli přijetí budoucí mapy `core / optional`.
+Hardening byl do aktivní větve integrován merge commitem `ec98803a`; nový
+`--no-local` klon tohoto SHA reprodukoval 13/13 focused testů, exact stav
+1 010/1 010 bez přidané nebo odebrané hrany a ověřenou baseline provenance.
 
 ---
 

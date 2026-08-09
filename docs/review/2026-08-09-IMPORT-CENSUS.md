@@ -244,3 +244,16 @@ nový SCC ani nesáhla na cizí connector. Proto jsou přijatelné jako současn
 ratchet ceiling. Nejsou důkazem disabled bootu, vlastnictví `config.models` ani
 zákazu `core → optional`; tyto acceptance podmínky zůstávají v
 `WP-M3-BOUNDARY` a v odloženém model-binding řezu.
+
+### Finální hardening integrace — `ec98803a`
+
+Po uzavření aktivního model-binding writeru byl celý hardening integrován do
+aktivní větve bez konfliktu. Nový `git clone --no-local` přesného merge SHA a
+`npm ci --offline` skončily exit `0`; focused ratchet sada prošla 13/13.
+Samostatný checker reprodukoval 1 010 baseline i current hran, 0 added,
+0 removed, 3 cykly / 28 souborů a `BASELINE_PROVENANCE_VERIFIED`. Artifact
+validation prošla 151/151, hygiene 1 521 cest a registry zůstal validní s
+375 programy, 8 exclusions a fingerprintem
+`a2f1e67e4f01c6e834f52eb1b15e10a5eec0893638d167e77baf3a35690f77b8`.
+Pracovní strom fresh klonu byl po běhu čistý. GPU, Ollama, server ani externí
+síť nebyly spuštěny.

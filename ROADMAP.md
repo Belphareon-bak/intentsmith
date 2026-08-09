@@ -1173,8 +1173,8 @@ mohou pokračovat.
    registrovaná T5 sada nemusela pravdivě zůstávat `BLOCKED`.
 4. Operátorsky rozhodnout L0-8 nejpozději před `WP-M3-BOUNDARY`; M0 jej může
    uzavřít pouze jako explicitně pojmenovaný blocker s vlastníkem a termínem.
-   Směrově slepý exact-edge ratchet P6 je technicky integrován na merge
-   `5332d30e` s baseline 1 004 hran / 3 cykly / 28 souborů; směrové pravidlo
+   Směrově slepý exact-edge ratchet P6 je po hardeningu integrován na merge
+   `ec98803a` s baseline 1 010 hran / 3 cykly / 28 souborů; směrové pravidlo
    dál čeká na přijatou path mapu M3. První paralelní procesní pilot je
    invalidovaný kvůli dvěma writerům v jednom checkoutu a nesmí být vydán za
    kladný ekonomický výsledek.
