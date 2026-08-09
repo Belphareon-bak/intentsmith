@@ -882,6 +882,21 @@ function discoverAndScan(root) {
   };
   for (const packageRoot of packages) walk(packageRoot, packageRoot);
   files.sort((left, right) => left.file.localeCompare(right.file));
+  const trackedSpecialistFiles = new Set(
+    runGit(root, ['ls-files', '-z', '--', SPECIALISTS_RELATIVE]).stdout
+      .split('\0')
+      .filter(Boolean)
+      .map(normalizePath),
+  );
+  for (const entry of files) {
+    const path = normalizePath(relative(root, entry.file));
+    if (!trackedSpecialistFiles.has(path)) {
+      throw new BoundaryError(
+        'UNTRACKED_SPECIALIST_SOURCE',
+        `${path} is executable source outside the committed specialist tree`,
+      );
+    }
+  }
 
   const occurrences = [];
   for (const entry of files) {

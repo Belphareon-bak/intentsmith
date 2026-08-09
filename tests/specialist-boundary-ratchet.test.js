@@ -505,13 +505,13 @@ exec "$IS_REAL_GIT" "$@"
     const source = readFileSync(sourcePath, 'utf8');
     const baseline = readFileSync(baselinePath, 'utf8');
 
-    write(join(repo, '.gitignore'), 'specialists/alpha/ignored.js\n');
+    write(join(repo, '.gitignore'), 'specialists/alpha/ignored.txt\n');
     commitAll(repo, 'fixture ignored-source policy');
-    write(join(repo, 'specialists/alpha/ignored.js'), 'export const ignored = true;\n');
+    write(join(repo, 'specialists/alpha/ignored.txt'), 'ignored relevant asset\n');
     const ignored = run(repo);
     assertStatus(ignored, 2);
-    assertIncludes(ignored, 'relevant worktree path is dirty: !! specialists/alpha/ignored.js');
-    rmSync(join(repo, 'specialists/alpha/ignored.js'));
+    assertIncludes(ignored, 'relevant worktree path is dirty: !! specialists/alpha/ignored.txt');
+    rmSync(join(repo, 'specialists/alpha/ignored.txt'));
 
     write(sourcePath, `${source}/** @type {import('../../src/expertises/core.js').core} */\n`);
     const growth = run(repo);
@@ -587,6 +587,13 @@ exec "$IS_REAL_GIT" "$@"
     const before = readFileSync(baselinePath);
     assertStatus(run(repo, ['--require-clean']), 1);
     assert.deepEqual(readFileSync(baselinePath), before);
+    write(join(repo, '.gitignore'), 'specialists/alpha/ignored.js\n');
+    commitAll(repo, 'fixture ignored-source policy');
+    write(join(repo, 'specialists/alpha/ignored.js'), 'export const ignored = true;\n');
+    const ignored = run(repo, ['--require-clean']);
+    assertStatus(ignored, 2);
+    assertIncludes(ignored, 'UNTRACKED_SPECIALIST_SOURCE');
+    rmSync(join(repo, 'specialists/alpha/ignored.js'));
     write(join(repo, 'specialists/alpha/index.js'), 'export const alpha = true;\n');
     assertStatus(run(repo, ['--require-clean']), 0);
     assert.deepEqual(readFileSync(baselinePath), before);
