@@ -3,7 +3,7 @@
 
 import { broadcast } from '../ws-bridge/ws-server.js';
 import { logger } from '../core/logger.js';
-import { setNumCtx } from '../llm/model-ctx.js';
+import { getNumCtx, setNumCtx } from '../llm/model-ctx.js';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -32,7 +32,14 @@ function _kvMbPer1k(modelMeta, params) {
 // ── VRAMManager ────────────────────────────────────────────────────────────
 
 export class VRAMManager {
-  constructor({ ollamaUrl, chatModel, comfyuiUrl, gpuTotalVramMb, defaultNumCtx } = {}) {
+  constructor({
+    ollamaUrl,
+    chatModel,
+    comfyuiUrl,
+    gpuTotalVramMb,
+    defaultNumCtx,
+    artifactUsePort = null,
+  } = {}) {
     this._ollamaUrl = ollamaUrl || 'http://127.0.0.1:11434';
     this._chatModel = chatModel || '';
     this._comfyuiUrl = comfyuiUrl || null;
@@ -43,6 +50,12 @@ export class VRAMManager {
     this._targetNumCtx = defaultNumCtx || 4096;  // safe default (not 8192 — review fix #6)
     this._lastReloadTime = 0;  // cooldown tracking (review fix #4)
     this._modelMeta = null;    // optional: { params, kv_per_1k } for active model
+    this._artifactUsePort = artifactUsePort;
+    if (this._chatModel && typeof this._artifactUsePort?.acquire !== 'function') {
+      const error = new Error('VRAM artifact use authority is required for a configured chat model');
+      error.code = 'MODEL_USE_AUTHORITY_REQUIRED';
+      throw error;
+    }
   }
 
   /** Set model metadata for better KV cache estimation. */
@@ -67,17 +80,26 @@ export class VRAMManager {
     this._broadcastState();
 
     const { task, resolve, reject } = this._queue.shift();
-
+    let taskArtifactLease = null;
+    let result;
+    let taskError = null;
     try {
-      const result = await task();
-      resolve(result);
+      taskArtifactLease = this._acquireArtifactUse([this._chatModel].filter(Boolean));
+      result = await task();
     } catch (err) {
-      reject(err);
+      taskError = err;
     } finally {
+      try {
+        taskArtifactLease?.release();
+      } catch (err) {
+        taskError ||= err;
+      }
       this._busy = false;
       this._broadcastState();
       this._processQueue();
     }
+    if (taskError) reject(taskError);
+    else resolve(result);
   }
 
   // ── VRAM-aware num_ctx computation (v131) ─────────────────────────────────
@@ -103,9 +125,7 @@ export class VRAMManager {
     const vram = await getVramUsageAsync({ comfyuiUrl: this._comfyuiUrl });
     if (!vram) {
       logger.debug('VRAMManager', 'Cannot query VRAM — using fallback num_ctx 4096');
-      this._targetNumCtx = 4096;
-      if (this._chatModel) setNumCtx(this._chatModel, 4096);
-      return 4096;
+      return this._setTargetNumCtx(4096);
     }
 
     const gatewayLimit = opts.maxCtx ?? 8192;
@@ -118,19 +138,16 @@ export class VRAMManager {
 
     if (availableForKV < kvPer1k) {
       logger.warn('VRAMManager', `Tight VRAM: total=${vram.totalMb}, used=${vram.usedMb}, weights=${modelWeightsMb} → num_ctx=2048`);
-      this._targetNumCtx = 2048;
-      if (this._chatModel) setNumCtx(this._chatModel, 2048);
-      return 2048;
+      return this._setTargetNumCtx(2048);
     }
 
     let maxCtx = Math.floor(availableForKV / kvPer1k) * 1024;
     maxCtx = Math.floor(maxCtx / 1024) * 1024;
     maxCtx = Math.max(2048, Math.min(gatewayLimit, maxCtx));
 
-    logger.info('VRAMManager', `computeNumCtx=${maxCtx} (total=${vram.totalMb}, used=${vram.usedMb}, weights=${modelWeightsMb}, kvPer1k=${kvPer1k})`);
-    this._targetNumCtx = maxCtx;
-    if (this._chatModel) setNumCtx(this._chatModel, maxCtx);
-    return maxCtx;
+    const effectiveNumCtx = this._setTargetNumCtx(maxCtx);
+    logger.info('VRAMManager', `computeNumCtx=${effectiveNumCtx} (computed=${maxCtx}, total=${vram.totalMb}, used=${vram.usedMb}, weights=${modelWeightsMb}, kvPer1k=${kvPer1k})`);
+    return effectiveNumCtx;
   }
 
   /** @returns {number} Last computed target num_ctx. */
@@ -180,24 +197,25 @@ export class VRAMManager {
    * Review fix #5: skip if VRAMManager is in generating state (busy).
    */
   async unloadOllama() {
+    // Discover all loaded models via /api/ps. This read determines the complete
+    // artifact set; no unload effect may start until the whole set is reserved.
+    let modelsToUnload = [this._chatModel].filter(Boolean);
     try {
-      // Discover all loaded models via /api/ps
-      let modelsToUnload = [this._chatModel].filter(Boolean);
-      try {
-        const psResp = await fetch(`${this._ollamaUrl}/api/ps`, {
-          signal: AbortSignal.timeout(5000),
-        });
-        if (psResp.ok) {
-          const psData = await psResp.json();
-          const loaded = (psData.models || []).map(m => m.name).filter(Boolean);
-          if (loaded.length > 0) modelsToUnload = loaded;
-        }
-      } catch (_) {
-        // Fallback to chatModel only
+      const psResp = await fetch(`${this._ollamaUrl}/api/ps`, {
+        signal: AbortSignal.timeout(5000),
+      });
+      if (psResp.ok) {
+        const psData = await psResp.json();
+        const loaded = (psData.models || []).map(m => m.name).filter(Boolean);
+        if (loaded.length > 0) modelsToUnload = loaded;
       }
+    } catch (_) {
+      // Fallback to chatModel only
+    }
 
-      // Unload each model
-      for (const model of modelsToUnload) {
+    const artifactLease = this._acquireArtifactUse(modelsToUnload);
+    try {
+      for (const model of artifactLease?.modelNames || []) {
         try {
           const resp = await fetch(`${this._ollamaUrl}/api/generate`, {
             method: 'POST',
@@ -211,11 +229,9 @@ export class VRAMManager {
           logger.warn('VRAMManager', `Failed to unload ${model}: ${err.message}`);
         }
       }
-
       this._ollamaUnloaded = true;
-    } catch (err) {
-      logger.warn('VRAMManager', `Ollama unload failed: ${err.message}`);
-      this._ollamaUnloaded = true;
+    } finally {
+      artifactLease?.release();
     }
   }
 
@@ -237,6 +253,7 @@ export class VRAMManager {
       return;
     }
 
+    const artifactLease = this._acquireArtifactUse([this._chatModel]);
     try {
       // Compute safe num_ctx BEFORE reload (Ollama is unloaded → VRAM query sees what's free)
       const numCtx = await this.computeNumCtx();
@@ -263,6 +280,8 @@ export class VRAMManager {
     } catch (err) {
       logger.warn('VRAMManager', `Ollama reload failed: ${err.message}`);
       this._ollamaUnloaded = false;
+    } finally {
+      artifactLease?.release();
     }
   }
 
@@ -337,6 +356,7 @@ export class VRAMManager {
         details: `${reasons.join(', ')} → reloaded with num_ctx=${this._targetNumCtx}`,
       };
     } catch (err) {
+      if (this._isArtifactUseAuthorityError(err)) throw err;
       logger.warn('VRAMManager', `Startup audit failed (non-fatal): ${err.message}`);
       return { action: 'error', details: err.message };
     }
@@ -354,6 +374,30 @@ export class VRAMManager {
   }
 
   // ── Internal ──────────────────────────────────────────────────────────────
+
+  _acquireArtifactUse(modelNames) {
+    if (modelNames.length === 0) return null;
+    if (typeof this._artifactUsePort?.acquire !== 'function') {
+      const error = new Error('VRAM artifact use authority is unavailable');
+      error.code = 'MODEL_USE_AUTHORITY_REQUIRED';
+      throw error;
+    }
+    return this._artifactUsePort.acquire(modelNames);
+  }
+
+  _setTargetNumCtx(numCtx) {
+    if (!this._chatModel) {
+      this._targetNumCtx = numCtx;
+      return numCtx;
+    }
+    setNumCtx(this._chatModel, numCtx);
+    this._targetNumCtx = getNumCtx(this._chatModel, numCtx);
+    return this._targetNumCtx;
+  }
+
+  _isArtifactUseAuthorityError(error) {
+    return typeof error?.code === 'string' && error.code.startsWith('MODEL_USE_');
+  }
 
   _broadcastState() {
     try {

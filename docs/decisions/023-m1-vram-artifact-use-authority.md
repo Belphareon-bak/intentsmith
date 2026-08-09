@@ -111,3 +111,40 @@ multiprocess autority v M2, kde držitele lze nezávisle ověřit.
 
 Operátor tento blok přijal 2026-08-09. `src/media/**` i owner vocabulary se
 mění pouze v rozsahu varianty A; globální GPU residency zůstává v M2.
+
+## Implementační checkpoint 2026-08-09
+
+Varianta A je implementovaná jako source candidate. Composition root předává
+`VRAMManager` úzký frozen port nad společnou `ModelUseAuthority`; media vrstva
+nedostává delete ani jinou mutation autoritu. Port canonical-deduplikuje celý
+seznam, získává shared leases v deterministickém pořadí a při jediném konfliktu
+vrátí všechny dříve získané leases ještě před prvním unload POSTem.
+
+Media task drží chat identity od dequeue do task `finally`. Přímý unload nejprve
+načte úplný `/api/ps` seznam a až potom atomicky rezervuje všechny identity;
+lease drží přes všechny provider response bodies. Přímý reload drží chat
+identity přes výpočet efektivního `num_ctx`, provider request i body. Konflikt
+authority uniká ze širokých legacy catch bloků a generation callback při
+aktivním delete vůbec nezačne.
+
+Focused offline důkaz source candidate:
+
+- `tests/m1-model-use-authority.test.js`: 29/0;
+- `tests/vram-coordination.test.js`: 47/0;
+- `tests/multimedia.test.js`: 62/0, včetně živého route seamu;
+- GPU, Ollama, produktový server, Electron a externí síť: `NOT RUN`.
+
+Současně se na nedotčeném vstupním SHA reprodukoval starší rozpor profilu:
+VRAM výpočet vracel 8192, zatímco společný runtime profil skutečně ukládal
+4096. Candidate nyní vrací a při reloadu posílá efektivní hodnotu po aplikaci
+stejného profile ceiling; referenční model je připnutý na přesných 4096 a
+unprofiled fixture dál dokládá vyšší explicitně vypočtenou hodnotu.
+
+Tento commit ještě není baseline ani fresh-clone evidence. Přidává jednu přesně
+známou composition-root hranu
+`src/server.js -> src/upgrade/model-use-authority.js`; její explicitní ratchet
+acceptance a následná širší reprodukce patří do navazujícího checkpointu.
+Current ratchet tuto jedinou hranu správně odmítá s exit 1; nejde o skrytou
+zelenou baseline.
+Globální GPU residency, multiprocess safety, durable delete audit, vzdálený
+provider scope a bounded supervision dlouhého tasku zůstávají otevřené.

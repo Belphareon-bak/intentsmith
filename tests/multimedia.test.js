@@ -5,8 +5,13 @@ import { suite, test, testAsync, assert, assertEqual, assertThrows, assertInclud
 import { sanitizePrompt, validateParams, getTemplate, substituteParams, validateWorkflow, getDefaultParams } from '../src/media/workflow-templates.js';
 import { MediaModelDiscovery } from '../src/media/model-discovery.js';
 import { VRAMManager } from '../src/media/vram-manager.js';
+import {
+  createVramArtifactUsePort,
+  MODEL_ACTIVITY_OWNER,
+  ModelUseAuthority,
+} from '../src/upgrade/model-use-authority.js';
 import { MediaOutputStorage } from '../src/media/output-storage.js';
-import { recoverStuckGenerations } from '../src/routes/media.js';
+import { createMediaRoutes, recoverStuckGenerations } from '../src/routes/media.js';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -62,6 +67,14 @@ function insertGen(db, overrides = {}) {
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `).run(row.id, row.type, row.prompt, row.negative_prompt, row.params, row.status, row.favorite);
   return row;
+}
+
+function createTestVramManager(options = {}) {
+  const authority = new ModelUseAuthority();
+  return new VRAMManager({
+    ...options,
+    artifactUsePort: createVramArtifactUsePort({ authority }),
+  });
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -330,7 +343,7 @@ suite('VRAM Manager — GPU Job Lock');
 
 await testAsync('acquire serializes tasks', async () => {
   // Override broadcast to prevent WS errors
-  const mgr = new VRAMManager({ ollamaUrl: 'http://127.0.0.1:19999', chatModel: 'test' });
+  const mgr = createTestVramManager({ ollamaUrl: 'http://127.0.0.1:19999', chatModel: 'test' });
   mgr._broadcastState = () => {};  // no-op
 
   const order = [];
@@ -352,7 +365,7 @@ await testAsync('acquire serializes tasks', async () => {
 });
 
 await testAsync('acquire FIFO order with 5 tasks', async () => {
-  const mgr = new VRAMManager({ ollamaUrl: 'http://127.0.0.1:19999' });
+  const mgr = createTestVramManager({ ollamaUrl: 'http://127.0.0.1:19999' });
   mgr._broadcastState = () => {};
 
   const order = [];
@@ -370,7 +383,7 @@ await testAsync('acquire FIFO order with 5 tasks', async () => {
 });
 
 await testAsync('acquire releases lock on task error', async () => {
-  const mgr = new VRAMManager({ ollamaUrl: 'http://127.0.0.1:19999' });
+  const mgr = createTestVramManager({ ollamaUrl: 'http://127.0.0.1:19999' });
   mgr._broadcastState = () => {};
 
   // First task throws
@@ -384,7 +397,7 @@ await testAsync('acquire releases lock on task error', async () => {
 });
 
 await testAsync('getState reports busy and queueLength', async () => {
-  const mgr = new VRAMManager({ ollamaUrl: 'http://127.0.0.1:19999' });
+  const mgr = createTestVramManager({ ollamaUrl: 'http://127.0.0.1:19999' });
   mgr._broadcastState = () => {};
 
   assertEqual(mgr.getState().busy, false);
@@ -404,7 +417,7 @@ await testAsync('getState reports busy and queueLength', async () => {
 });
 
 await testAsync('concurrent acquire shows correct queue length', async () => {
-  const mgr = new VRAMManager({ ollamaUrl: 'http://127.0.0.1:19999' });
+  const mgr = createTestVramManager({ ollamaUrl: 'http://127.0.0.1:19999' });
   const states = [];
   mgr._broadcastState = () => { states.push({ ...mgr.getState() }); };
 
@@ -427,7 +440,7 @@ await testAsync('concurrent acquire shows correct queue length', async () => {
 });
 
 test('getState reports ollamaUnloaded correctly', () => {
-  const mgr = new VRAMManager({ ollamaUrl: 'http://127.0.0.1:19999' });
+  const mgr = createTestVramManager({ ollamaUrl: 'http://127.0.0.1:19999' });
   assertEqual(mgr.getState().ollamaUnloaded, false);
 });
 
@@ -665,6 +678,109 @@ test('recoverStuckGenerations handles empty table', () => {
   const db = createTestDb();
   const mockLogger = { warn: () => {}, error: () => {} };
   recoverStuckGenerations(db, mockLogger);  // should not throw
+});
+
+await testAsync('generate route enters task authority before the media callback', async () => {
+  const rawDb = createTestDb();
+  rawDb.exec(`
+    CREATE TABLE media_status_log (status TEXT NOT NULL);
+    CREATE TRIGGER media_status_log_after_update
+    AFTER UPDATE OF status ON media_generations
+    BEGIN
+      INSERT INTO media_status_log(status) VALUES (NEW.status);
+    END;
+  `);
+  const authority = new ModelUseAuthority();
+  const vramManager = new VRAMManager({
+    chatModel: 'route-authority-fixture:latest',
+    artifactUsePort: createVramArtifactUsePort({ authority }),
+  });
+  vramManager._broadcastState = () => {};
+  const deleteLease = authority.acquireExclusive({
+    modelName: 'route-authority-fixture',
+    owner: MODEL_ACTIVITY_OWNER.MODEL_DELETE,
+  });
+  let affectedProviderCalls = 0;
+  const replies = [];
+  const routes = createMediaRoutes({
+    db: { db: rawDb },
+    parseBody: async () => ({ type: 'txt2img', prompt: 'route authority fixture' }),
+    sendJSON: (_res, status, body) => replies.push({ status, body }),
+    safeError: error => error.message,
+    logger: { info: () => {}, warn: () => {}, error: () => {} },
+    comfyuiConnector: {
+      _baseUrl: 'http://mock:8188',
+      isAvailable: async () => ({ available: true }),
+      submitWorkflow: async () => { affectedProviderCalls += 1; },
+      disconnectWS: () => { affectedProviderCalls += 1; },
+      freeVram: async () => { affectedProviderCalls += 1; },
+    },
+    vramManager,
+    mediaStorage: {},
+  });
+  try {
+    await routes['POST /api/media/generate']({}, {});
+    await new Promise(resolve => setImmediate(resolve));
+    assertEqual(replies.length, 1);
+    assertEqual(replies[0].status, 200);
+    const row = rawDb.prepare('SELECT status, error FROM media_generations').get();
+    assertEqual(row.status, 'failed');
+    assertIncludes(row.error, 'provider mutation is already active');
+    const transitions = rawDb.prepare('SELECT status FROM media_status_log').all();
+    assertEqual(transitions.length, 1);
+    assertEqual(transitions[0].status, 'failed');
+    assertEqual(affectedProviderCalls, 0);
+  } finally {
+    deleteLease.release();
+    rawDb.close();
+  }
+});
+
+await testAsync('generate route does not swallow authority failure from reload cleanup', async () => {
+  const rawDb = createTestDb();
+  let taskPromise = null;
+  const reloadError = new Error('reload authority fixture');
+  reloadError.code = 'MODEL_USE_EXCLUSIVE_ACTIVE';
+  const vramManager = {
+    _gpuTotalVramMb: 24576,
+    acquire(task) {
+      taskPromise = task();
+      return taskPromise;
+    },
+    unloadOllama: async () => {},
+    waitForVramDrop: async () => true,
+    reloadOllama: async () => { throw reloadError; },
+  };
+  const routes = createMediaRoutes({
+    db: { db: rawDb },
+    parseBody: async () => ({ type: 'txt2img', prompt: 'reload authority fixture' }),
+    sendJSON: () => {},
+    safeError: error => error.message,
+    logger: { info: () => {}, warn: () => {}, error: () => {} },
+    comfyuiConnector: {
+      _baseUrl: 'http://mock:8188',
+      _timeout: 1000,
+      isAvailable: async () => ({ available: true }),
+      connectWS: () => {},
+      disconnectWS: () => {},
+      submitWorkflow: async () => ({ promptId: 'route-reload-fixture' }),
+      waitForResult: async () => ({ outputs: [] }),
+      withTimeout: async promise => promise,
+      freeVram: async () => {},
+    },
+    vramManager,
+    mediaStorage: { enforceQuota: async () => {} },
+  });
+  try {
+    await routes['POST /api/media/generate']({}, {});
+    await taskPromise.catch(() => {});
+    await new Promise(resolve => setImmediate(resolve));
+    const row = rawDb.prepare('SELECT status, error FROM media_generations').get();
+    assertEqual(row.status, 'failed');
+    assertEqual(row.error, 'reload authority fixture');
+  } finally {
+    rawDb.close();
+  }
 });
 
 // ═════════════════════════════════════════════════════════════════════════════

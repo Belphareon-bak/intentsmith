@@ -125,11 +125,14 @@ name-only `LEGACY_UNVERIFIED`. Tvrzení z tohoto checkpointu, že post-DB runtim
 finalize neměl durable recovery, už neplatí: navazující `7c4aa73c` přidal
 operation-scoped exact startup recovery bez druhého pullu.
 
-Call graph má nadále pět živých cest. Nepřipojený zůstává VRAM manager;
-durable/cross-process autorita není rozhodnutá a direct pull stream nemá idle
-timeout ani recovery. Schopnost #18a proto zůstává v tomto řezu `PARTIAL`;
-fresh-clone zelená gateway+binding evidence pokrývá pouze 4/5 živých cest a
-není release ani L0-11 PASS.
+Call graph má nadále pět živých cest. Přijaté 023/A nyní připojuje VRAM manager
+jako focused zelený source candidate: task, celý canonical-deduplikovaný unload
+batch a direct reload drží shared artifact leases přes své přesné effect/body
+hranice. Exact-edge ratchet a fresh-clone reprodukce ještě následují.
+Durable/cross-process autorita není rozhodnutá, direct pull stream nemá idle
+timeout ani recovery a shared artifact lease není globální GPU residency.
+Schopnost #18a proto zůstává `PARTIAL`; pět z pěti source cest není release ani
+L0-11 PASS.
 
 ## 10. Runtime follow-up B3 detection coordinator — 2026-08-09
 

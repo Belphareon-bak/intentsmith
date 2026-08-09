@@ -12,6 +12,7 @@ export const MODEL_ACTIVITY_OWNER = Object.freeze({
   MODEL_VALIDATION: 'MODEL_VALIDATION',
   BINDING_CUTOVER: 'BINDING_CUTOVER',
   BINDING_VERIFICATION: 'BINDING_VERIFICATION',
+  VRAM_ARTIFACT_USE: 'VRAM_ARTIFACT_USE',
   MODEL_PULL: 'MODEL_PULL',
   MODEL_DELETE: 'MODEL_DELETE',
 });
@@ -22,6 +23,7 @@ const SHARED_OWNERS = new Set([
   MODEL_ACTIVITY_OWNER.MODEL_VALIDATION,
   MODEL_ACTIVITY_OWNER.BINDING_CUTOVER,
   MODEL_ACTIVITY_OWNER.BINDING_VERIFICATION,
+  MODEL_ACTIVITY_OWNER.VRAM_ARTIFACT_USE,
 ]);
 const EXCLUSIVE_OWNERS = new Set([
   MODEL_ACTIVITY_OWNER.MODEL_PULL,
@@ -208,5 +210,79 @@ export class ModelUseAuthority {
 }
 
 export const modelUseAuthority = new ModelUseAuthority();
+
+/**
+ * Narrow composition port for media/VRAM code. It exposes only an atomic
+ * shared reservation over a complete model-name set; the media subsystem does
+ * not receive the underlying upgrade authority or its mutation operations.
+ */
+export function createVramArtifactUsePort({ authority = modelUseAuthority } = {}) {
+  if (!authority || typeof authority.acquireShared !== 'function') {
+    fail('MODEL_USE_AUTHORITY_REQUIRED', 'VRAM artifact use authority is unavailable');
+  }
+
+  return Object.freeze({
+    acquire(modelNames) {
+      if (!Array.isArray(modelNames) || modelNames.length === 0) {
+        fail('MODEL_USE_INPUT_INVALID', 'VRAM artifact use requires a non-empty model-name array');
+      }
+
+      const uniqueNames = new Map();
+      for (const value of modelNames) {
+        const canonicalName = canonicalModelName(value);
+        if (!canonicalName) {
+          fail('MODEL_USE_INPUT_INVALID', 'VRAM artifact use contains an invalid model name');
+        }
+        if (!uniqueNames.has(canonicalName)) {
+          uniqueNames.set(canonicalName, String(value).trim());
+        }
+      }
+
+      const ordered = [...uniqueNames.entries()].sort(([left], [right]) => (
+        left === right ? 0 : left < right ? -1 : 1
+      ));
+      const leases = [];
+      try {
+        for (const [, modelName] of ordered) {
+          leases.push(authority.acquireShared({
+            modelName,
+            owner: MODEL_ACTIVITY_OWNER.VRAM_ARTIFACT_USE,
+          }));
+        }
+      } catch (error) {
+        for (let index = leases.length - 1; index >= 0; index -= 1) {
+          try {
+            leases[index].release();
+          } catch {
+            // Preserve the acquisition conflict while still attempting every
+            // rollback release. A cleanup error must not strand earlier leases.
+          }
+        }
+        throw error;
+      }
+
+      let released = false;
+      return Object.freeze({
+        canonicalNames: Object.freeze(ordered.map(([canonicalName]) => canonicalName)),
+        modelNames: Object.freeze(ordered.map(([, modelName]) => modelName)),
+        release() {
+          if (released) {
+            fail('MODEL_USE_LEASE_RELEASED', 'VRAM artifact use lease was already released');
+          }
+          released = true;
+          let releaseError = null;
+          for (let index = leases.length - 1; index >= 0; index -= 1) {
+            try {
+              leases[index].release();
+            } catch (error) {
+              releaseError ||= error;
+            }
+          }
+          if (releaseError) throw releaseError;
+        },
+      });
+    },
+  });
+}
 
 export default modelUseAuthority;

@@ -3,7 +3,7 @@
 - **vlastník:** navazující checkpoint
   `WP-M1-MODEL-CLEANUP-AUTHORITY / C2–C3`
 - **nalezeno v:** read-only call-graph review cleanup authority
-- **stav:** `PARTIAL_REMEDIATION / C2B_GATEWAY_AND_BINDING_FRESH_CLONE_VERIFIED`
+- **stav:** `PARTIAL_REMEDIATION / C2_VRAM_SOURCE_CANDIDATE`
 - **dopad:** M1 cleanup checkpoint je bezpečnější, L0-11 zůstává `PARTIAL`
 
 ## Evidence
@@ -60,10 +60,19 @@ celou binding/gateway focused a compatibility baterií, ratchetem, artifact,
 hygiene i registry validací; všechny child exity byly 0 a finální clone strom
 zůstal čistý. Tento důkaz nemění zbývající 4/5 stav na dokončený C2.
 
-Pokryté jsou tím čtyři z pěti živých cest: registry validation, pull, gateway a
-binding cutover/exact verification. VRAM manager zůstává poslední živou
-nepřipojenou cestou; tento checkpoint se proto nevydává za dokončený C2 ani
-L0-11 PASS.
+Pokryté byly čtyři z pěti živých cest: registry validation, pull, gateway a
+binding cutover/exact verification. Přijaté 023/A nyní přidává focused zelený
+source candidate pro pátou cestu. `VRAM_ARTIFACT_USE` chrání chat identity od
+dequeue media tasku do `finally`, atomicky rezervuje celý canonical-deduplikovaný
+`/api/ps` seznam před prvním unload POSTem a drží direct reload přes provider
+body. Aktivní delete zastaví callback media tasku; konflikt jedné identity v
+multi-model batchi uvolní předchozí leases a provede nula unload efektů.
+
+Focused offline výsledky jsou 29/0 pro model-use authority, 47/0 pro VRAM
+coordination a 62/0 pro multimedia včetně živého route seamu. Exact-edge baseline a fresh-clone
+reprodukce ale ještě následují, proto nejde o dokončený checkpoint ani L0-11
+PASS. Tato úzká shared autorita také záměrně neřeší gateway/ComfyUI GPU
+admission.
 
 Současný mutation owner je in-memory a chrání jeden serverový proces. Delete
 událost má standardní log a best-effort WS broadcast, ale nemá append-only

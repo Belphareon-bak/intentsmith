@@ -14,10 +14,12 @@ import { callWithAuth, llmGateway } from '../src/llm/gateway.js';
 import { createAuthToken } from '../src/llm/auth-types.js';
 import { AbortSource, abortWithReason } from '../src/core/abort-error.js';
 import {
+  createVramArtifactUsePort,
   MODEL_ACTIVITY_OWNER,
   ModelUseAuthority,
   modelUseAuthority,
 } from '../src/upgrade/model-use-authority.js';
+import { VRAMManager } from '../src/media/vram-manager.js';
 
 const DIGEST = 'a'.repeat(64);
 const originalFetch = globalThis.fetch;
@@ -882,6 +884,140 @@ await testAsync('provider AbortError without owned signal abort remains malforme
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+suite('M1 model use authority — VRAM artifact boundary');
+
+test('VRAM aliases reserve one canonical reader and coexist with gateway use', () => {
+  const authority = new ModelUseAuthority();
+  const port = createVramArtifactUsePort({ authority });
+  const vramLease = port.acquire(['VRAM-Fixture', 'vram-fixture:latest']);
+  const gatewayLease = authority.acquireShared({
+    modelName: 'vram-fixture:latest',
+    owner: MODEL_ACTIVITY_OWNER.LLM_GATEWAY,
+  });
+  assertEqual(vramLease.canonicalNames.length, 1);
+  assertEqual(vramLease.canonicalNames[0], 'vram-fixture');
+  assertEqual(authority.snapshot('vram-fixture').activeUseCount, 2);
+  gatewayLease.release();
+  vramLease.release();
+  assertEqual(authority.snapshot('vram-fixture').activeUseCount, 0);
+  const released = captureError(() => vramLease.release());
+  assertEqual(released.code, 'MODEL_USE_LEASE_RELEASED');
+});
+
+await testAsync('dequeued media task blocks delete before inventory until task finally', async () => {
+  const authority = new ModelUseAuthority();
+  const taskStarted = deferred();
+  const taskGate = deferred();
+  let inventoryCalls = 0;
+  let providerCalls = 0;
+  const manager = new VRAMManager({
+    chatModel: 'media-task-fixture:latest',
+    artifactUsePort: createVramArtifactUsePort({ authority }),
+  });
+  manager._broadcastState = () => {};
+  const registry = createRegistry(authority);
+  registry.getInstalled = async () => {
+    inventoryCalls += 1;
+    return [installedModel('media-task-fixture:latest')];
+  };
+  globalThis.fetch = async () => {
+    providerCalls += 1;
+    return { ok: true };
+  };
+  const task = manager.acquire(async () => {
+    taskStarted.resolve();
+    await taskGate.promise;
+  });
+  try {
+    await taskStarted.promise;
+    const blocked = await captureAsync(registry.deleteModel('media-task-fixture', {
+      expectedDigestSha256: DIGEST,
+    }));
+    assertEqual(blocked.code, 'MODEL_DELETE_IN_USE');
+    assertEqual(inventoryCalls, 0);
+    assertEqual(providerCalls, 0);
+    taskGate.resolve();
+    await task;
+    assertEqual(authority.snapshot('media-task-fixture').activeUseCount, 0);
+  } finally {
+    taskGate.resolve();
+    await task.catch(() => {});
+    globalThis.fetch = originalFetch;
+  }
+});
+
+await testAsync('active delete prevents a dequeued media callback from starting', async () => {
+  const authority = new ModelUseAuthority();
+  const manager = new VRAMManager({
+    chatModel: 'media-delete-fixture:latest',
+    artifactUsePort: createVramArtifactUsePort({ authority }),
+  });
+  manager._broadcastState = () => {};
+  const deleteLease = authority.acquireExclusive({
+    modelName: 'media-delete-fixture',
+    owner: MODEL_ACTIVITY_OWNER.MODEL_DELETE,
+  });
+  let taskCalls = 0;
+  try {
+    const blocked = await captureAsync(manager.acquire(async () => {
+      taskCalls += 1;
+    }));
+    assertEqual(blocked.code, 'MODEL_USE_EXCLUSIVE_ACTIVE');
+    assertEqual(taskCalls, 0);
+  } finally {
+    deleteLease.release();
+  }
+});
+
+await testAsync('media task failure releases its chat artifact lease', async () => {
+  const authority = new ModelUseAuthority();
+  const manager = new VRAMManager({
+    chatModel: 'media-task-failure-fixture:latest',
+    artifactUsePort: createVramArtifactUsePort({ authority }),
+  });
+  manager._broadcastState = () => {};
+  const taskFailure = await captureAsync(manager.acquire(async () => {
+    throw new Error('media task fixture failed');
+  }));
+  assertEqual(taskFailure.message, 'media task fixture failed');
+  assertEqual(authority.snapshot('media-task-failure-fixture').activeUseCount, 0);
+  const deleteLease = authority.acquireExclusive({
+    modelName: 'media-task-failure-fixture',
+    owner: MODEL_ACTIVITY_OWNER.MODEL_DELETE,
+  });
+  deleteLease.release();
+});
+
+test('batch rollback attempts every release and preserves the acquisition conflict', () => {
+  const releases = [];
+  let acquireCalls = 0;
+  const conflict = new Error('fixture acquisition conflict');
+  conflict.code = 'MODEL_USE_EXCLUSIVE_ACTIVE';
+  const port = createVramArtifactUsePort({
+    authority: {
+      acquireShared({ modelName }) {
+        acquireCalls += 1;
+        if (acquireCalls === 3) throw conflict;
+        return {
+          release() {
+            releases.push(modelName);
+            if (modelName === 'b-fixture') throw new Error('fixture cleanup failure');
+          },
+        };
+      },
+    },
+  });
+  const blocked = captureError(() => port.acquire([
+    'a-fixture',
+    'b-fixture',
+    'c-fixture',
+  ]));
+  assertEqual(blocked, conflict);
+  assertEqual(releases.length, 2);
+  assertEqual(releases[0], 'b-fixture');
+  assertEqual(releases[1], 'a-fixture');
 });
 
 globalThis.fetch = originalFetch;

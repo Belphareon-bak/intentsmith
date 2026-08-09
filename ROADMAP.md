@@ -534,10 +534,11 @@ focused regression sady.
      případném pullu rezervuje previous+target přes exact re-resolve, runtime
      prepare, durable zápis, compensation a synchronní finalize; exact
      verification drží target přes provider probe i durable success zápis a
-     před retry delay lease uvolní. Pokryté jsou čtyři z pěti živých cest;
-     rozhodnutí o VRAM residency zůstává. [023](docs/decisions/023-m1-vram-artifact-use-authority.md)
-     odděluje doporučenou úzkou artifact/delete ochranu od globální
-     gateway/ComfyUI GPU residency. Tyto residualy vlastní
+     před retry delay lease uvolní. Přijaté 023/A má focused zelený source
+     candidate páté VRAM artifact-use cesty; exact-edge ratchet a fresh-clone
+     evidence ještě následují. [023](docs/decisions/023-m1-vram-artifact-use-authority.md)
+     odděluje tuto úzkou artifact/delete ochranu od globální gateway/ComfyUI
+     GPU residency. Tyto residualy vlastní
      [`finding 010`](docs/findings/010-model-delete-use-and-audit-boundary.md);
      `checkBindingIntegrity()` přejde na `DETECTED/PROPOSED` a vytvoří přesně
      nula assign/override/broadcast efektů;
@@ -1250,7 +1251,7 @@ mohou pokračovat.
 
    | # | Položka | Proč tady |
    |---|---|---|
-   | 1 | 023 VRAM delete race | aditivní, bez veřejného kontraktu a bez GPU |
+   | 1 | 023 VRAM delete race | source candidate focused zelený; zbývá exact-edge ratchet a fresh-clone evidence |
    | 2 | 022 operation-bound recovery | nejmenší code položka, offline ověřitelná |
    | 3 | ověřit dokončenou rezervaci migrací | union census před zápisem; `058` = 020, `059` = 015; povinná late-insertion parita 055–057 |
    | 4 | 020 oddělená policy storage | první migrační položka |
@@ -1278,9 +1279,11 @@ mohou pokračovat.
    provider lifecycle drží lease přes body/retry a všechny terminal paths
    vracejí lease i semaphore. Binding cutover znovu ověří exact identitu pod
    previous+target lease a verification drží target až přes durable success
-   zápis. Jsou tím pokryté čtyři z pěti živých cest. VRAM disposition,
-   multiprocess claim a durable audit dál drží finding 010 otevřený; 023
-   přesně odděluje artifact-use hranu od pozdější GPU effect authority. Sdílený
+   zápis. Přijaté 023/A nyní jako focused zelený source candidate připojuje
+   pátou VRAM artifact-use cestu; exact-edge ratchet a fresh-clone evidence
+   ještě následují. Multiprocess claim, durable audit a globální GPU residency
+   dál drží finding 010 otevřený; 023 přesně odděluje artifact-use hranu od
+   pozdější GPU effect authority. Sdílený
    runtime profil nyní
    omezuje oba gateway vstupy a conversation compaction; neprohlašuje GPU
    PASS. Závazná fronta výše nejprve uzavírá offline B3-FAILOVER a Studio

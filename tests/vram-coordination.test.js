@@ -3,6 +3,11 @@
 
 import { suite, test, testAsync, assert, assertEqual, summary } from './harness.js';
 import { VRAMManager, _estimateWeightsMb, _kvMbPer1k } from '../src/media/vram-manager.js';
+import {
+  createVramArtifactUsePort,
+  MODEL_ACTIVITY_OWNER,
+  ModelUseAuthority,
+} from '../src/upgrade/model-use-authority.js';
 import { getVramUsage, getVramUsageAsync, _clearVramCache } from '../src/system/gpu-detector.js';
 import { clearNumCtxCache, getNumCtx } from '../src/llm/model-ctx.js';
 
@@ -74,13 +79,38 @@ function comfyVramDevice({ totalMb = 24576, freeMb = totalMb } = {}) {
 }
 
 function createManager(overrides = {}) {
+  const {
+    modelUseAuthority = new ModelUseAuthority(),
+    artifactUsePort = createVramArtifactUsePort({ authority: modelUseAuthority }),
+    ...managerOverrides
+  } = overrides;
   return new VRAMManager({
     ollamaUrl: 'http://mock:11434',
     chatModel: 'qwen3.5:27b',
     comfyuiUrl: 'http://mock:8188',
     gpuTotalVramMb: 24576,
-    ...overrides,
+    artifactUsePort,
+    ...managerOverrides,
   });
+}
+
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+async function captureAsync(promise) {
+  try {
+    await promise;
+  } catch (error) {
+    return error;
+  }
+  throw new Error('expected promise to reject');
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -208,13 +238,14 @@ await testAsync('returns 4096 fallback when VRAM cannot be queried', async () =>
   assertEqual(mgr.getTargetNumCtx(), 4096);
 });
 
-await testAsync('computeNumCtx stores result in _targetNumCtx', async () => {
+await testAsync('computeNumCtx stores the committed reference-model ceiling', async () => {
   const mgr = createManager();
   clearNumCtxCache();
   const result = await withIsolatedVramSources(
     { device: comfyVramDevice() },
     () => mgr.computeNumCtx({ modelParams: 27 }),
   );
+  assertEqual(result, 4096);
   assertEqual(mgr.getTargetNumCtx(), result);
   assertEqual(getNumCtx('qwen3.5:27b'), result);
 });
@@ -247,7 +278,7 @@ await testAsync('computeNumCtx is always a multiple of 1024', async () => {
 });
 
 await testAsync('computeNumCtx uses model meta kv_per_1k when available', async () => {
-  const mgr = createManager();
+  const mgr = createManager({ chatModel: 'unprofiled-fixture:27b' });
   mgr.setModelMeta({ kv_per_1k: 1000 });
   const result = await withIsolatedVramSources(
     { device: comfyVramDevice() },
@@ -691,6 +722,191 @@ await testAsync('FIFO queue works with acquire', async () => {
   assertEqual(order[0], 1);
   assertEqual(order[1], 2);
 }, ASYNC_TEST_TIMEOUT_MS);
+
+suite('VRAM artifact-use authority');
+
+await testAsync('multi-model conflict rolls back earlier leases before any unload POST', async () => {
+  const authority = new ModelUseAuthority();
+  const manager = createManager({ modelUseAuthority: authority });
+  const mutation = authority.acquireExclusive({
+    modelName: 'z-conflict-fixture:latest',
+    owner: MODEL_ACTIVITY_OWNER.MODEL_DELETE,
+  });
+  let unloadPosts = 0;
+  globalThis.fetch = async (url) => {
+    if (String(url).endsWith('/api/ps')) {
+      return {
+        ok: true,
+        json: async () => ({
+          models: [
+            { name: 'a-reserved-fixture:latest' },
+            { name: 'z-conflict-fixture:latest' },
+          ],
+        }),
+      };
+    }
+    unloadPosts += 1;
+    return { ok: true, text: async () => '' };
+  };
+  try {
+    const blocked = await captureAsync(manager.unloadOllama());
+    assertEqual(blocked.code, 'MODEL_USE_EXCLUSIVE_ACTIVE');
+    assertEqual(unloadPosts, 0);
+    assertEqual(authority.snapshot('a-reserved-fixture').activeUseCount, 0);
+  } finally {
+    mutation.release();
+    restoreFetch();
+  }
+});
+
+await testAsync('canonical aliases produce one unload effect and one released lease', async () => {
+  const authority = new ModelUseAuthority();
+  const manager = createManager({ modelUseAuthority: authority });
+  const unloaded = [];
+  globalThis.fetch = async (url, options) => {
+    if (String(url).endsWith('/api/ps')) {
+      return {
+        ok: true,
+        json: async () => ({
+          models: [
+            { name: 'alias-fixture' },
+            { name: 'alias-fixture:latest' },
+          ],
+        }),
+      };
+    }
+    unloaded.push(JSON.parse(options.body).model);
+    return { ok: true, text: async () => '' };
+  };
+  try {
+    await manager.unloadOllama();
+    assertEqual(unloaded.length, 1);
+    assertEqual(unloaded[0], 'alias-fixture');
+    assertEqual(authority.snapshot('alias-fixture').activeUseCount, 0);
+  } finally {
+    restoreFetch();
+  }
+});
+
+await testAsync('unload lease remains active through response body and releases after failure', async () => {
+  const authority = new ModelUseAuthority();
+  const manager = createManager({ modelUseAuthority: authority });
+  const bodyStarted = deferred();
+  const bodyGate = deferred();
+  globalThis.fetch = async (url) => {
+    if (String(url).endsWith('/api/ps')) {
+      return {
+        ok: true,
+        json: async () => ({ models: [{ name: 'body-fixture:latest' }] }),
+      };
+    }
+    return {
+      ok: true,
+      text: async () => {
+        bodyStarted.resolve();
+        await bodyGate.promise;
+        throw new Error('fixture body failure');
+      },
+    };
+  };
+  const unload = manager.unloadOllama();
+  try {
+    await bodyStarted.promise;
+    let blocked;
+    try {
+      authority.acquireExclusive({
+        modelName: 'body-fixture',
+        owner: MODEL_ACTIVITY_OWNER.MODEL_DELETE,
+      });
+    } catch (error) {
+      blocked = error;
+    }
+    assertEqual(blocked.code, 'MODEL_MUTATION_ACTIVE_USE');
+    bodyGate.resolve();
+    await unload;
+    assertEqual(authority.snapshot('body-fixture').activeUseCount, 0);
+  } finally {
+    bodyGate.resolve();
+    await unload.catch(() => {});
+    restoreFetch();
+  }
+});
+
+await testAsync('reload lease remains active through provider body', async () => {
+  const authority = new ModelUseAuthority();
+  const manager = createManager({ modelUseAuthority: authority });
+  manager.computeNumCtx = async () => 4096;
+  const bodyStarted = deferred();
+  const bodyGate = deferred();
+  globalThis.fetch = async () => ({
+    ok: true,
+    text: async () => {
+      bodyStarted.resolve();
+      await bodyGate.promise;
+      return '';
+    },
+  });
+  const reload = manager.reloadOllama();
+  try {
+    await bodyStarted.promise;
+    let blocked;
+    try {
+      authority.acquireExclusive({
+        modelName: 'qwen3.5:27b',
+        owner: MODEL_ACTIVITY_OWNER.MODEL_DELETE,
+      });
+    } catch (error) {
+      blocked = error;
+    }
+    assertEqual(blocked.code, 'MODEL_MUTATION_ACTIVE_USE');
+    bodyGate.resolve();
+    await reload;
+    assertEqual(authority.snapshot('qwen3.5:27b').activeUseCount, 0);
+  } finally {
+    bodyGate.resolve();
+    await reload.catch(() => {});
+    restoreFetch();
+  }
+});
+
+await testAsync('reload fetch failure releases authority for a later delete', async () => {
+  const authority = new ModelUseAuthority();
+  const manager = createManager({ modelUseAuthority: authority });
+  manager.computeNumCtx = async () => 4096;
+  globalThis.fetch = async () => {
+    throw new Error('reload fetch fixture failed');
+  };
+  try {
+    await manager.reloadOllama();
+    assertEqual(authority.snapshot('qwen3.5:27b').activeUseCount, 0);
+    const deleteLease = authority.acquireExclusive({
+      modelName: 'qwen3.5:27b',
+      owner: MODEL_ACTIVITY_OWNER.MODEL_DELETE,
+    });
+    deleteLease.release();
+  } finally {
+    restoreFetch();
+  }
+});
+
+await testAsync('unload fetch failure releases authority for a later delete', async () => {
+  const authority = new ModelUseAuthority();
+  const manager = createManager({ modelUseAuthority: authority });
+  globalThis.fetch = async () => {
+    throw new Error('unload fetch fixture failed');
+  };
+  try {
+    await manager.unloadOllama();
+    assertEqual(authority.snapshot('qwen3.5:27b').activeUseCount, 0);
+    const deleteLease = authority.acquireExclusive({
+      modelName: 'qwen3.5:27b',
+      owner: MODEL_ACTIVITY_OWNER.MODEL_DELETE,
+    });
+    deleteLease.release();
+  } finally {
+    restoreFetch();
+  }
+});
 
 // ══════════════════════════════════════════════════════════════════════════════
 

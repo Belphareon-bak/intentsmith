@@ -2462,3 +2462,58 @@ jsou zaznamenané níže v témže checkpointu.
 Mutace byly provedené po jedné a před finálním zeleným během vždy vrácené.
 Neautorizovaný GPU/modelový běh ani Studio runtime se v tomto checkpointu
 nespouštěl.
+
+## Checkpoint 28 — 023/A VRAM artifact-use source candidate
+
+Přijaté rozhodnutí 023/A dostalo úzký composition port nad existující
+single-process `ModelUseAuthority`. Media subsystem neimportuje upgrade vrstvu
+přímo. Composition root předá pouze možnost získat canonical-deduplikovanou
+batch shared rezervaci s ownerem `VRAM_ARTIFACT_USE`.
+
+Media task drží chat identity od dequeue do task `finally`. `unloadOllama()`
+nejprve přečte úplný `/api/ps` seznam, získá všechny leases před prvním unload
+POSTem a drží je přes všechny response bodies; konflikt pozdější identity
+vrátí dříve získané leases a provede nula unload efektů. `reloadOllama()` drží
+chat identity přes výpočet kontextu, provider request a body. Authority chyba
+se nepřevádí na legacy non-fatal provider warning a aktivní delete zabrání
+spuštění callbacku media tasku.
+
+Při focused ověření se současně reprodukoval starší rozpor B3-PROFILE: na
+nedotčeném vstupním SHA měla VRAM coordination sada 40/1, protože manager
+vrátil vypočtených 8192, ale společný runtime profil ve skutečnosti uložil 4096.
+Candidate nyní po `setNumCtx()` spotřebuje efektivní profile ceiling a stejnou
+hodnotu vrací i posílá při reloadu. Referenční model je testovaný přesnou
+rovností 4096; samostatný unprofiled model zachovává explicitně vypočtených
+6144, takže aserce nebyla obecně oslabena.
+
+Lokální focused výsledky source candidate, všechny exit 0:
+
+| Příkaz | Výsledek |
+|---|---:|
+| `C3_LOG_LEVEL=error node tests/m1-model-use-authority.test.js` | 29/0 |
+| `C3_LOG_LEVEL=error node tests/vram-coordination.test.js` | 47/0 |
+| `C3_LOG_LEVEL=error node tests/multimedia.test.js` | 62/0, živý route seam |
+| `node scripts/module-boundary-ratchet.mjs` | očekávaný FAIL 1 020→1 021, jediná exact hrana; exit 1 |
+| `C3_LOG_LEVEL=error node tests/module-boundary-ratchet.test.js` | očekávaně 12/1 pouze na current-baseline shodě; exit 1 |
+
+Tři dočasné minimální mutace byly vždy před dalším během vrácené:
+
+- obejití živého `vramManager.acquire()` seamu změnilo multimedia na 60/2,
+  exit 1;
+- obnovení catch-all spolknutí reload authority chyby změnilo multimedia na
+  61/1, exit 1;
+- odebrání task-level chat lease změnilo model-use authority na 27/2, exit 1.
+
+Tím testy nepinuji jen přítomnost pomocného portu, ale skutečnou route vazbu,
+propagaci authority chyby a přesnou task lease hranici.
+
+Source přidává právě jednu dosud nepřijatou ratchet hranu
+`src/server.js -> src/upgrade/model-use-authority.js`; current census je
+1 021 proti baseline 1 020 a baseline acceptance bude samostatný navazující
+commit. Proto tento řez ještě není `FRESH_CLONE_VERIFIED`. GPU, Ollama,
+produktový server, Electron a externí síť byly `NOT RUN`.
+
+Pět z pěti živých source cest nyní používá stejnou per-canonical artifact-use
+autoritu, ale C2 a Gate 1 zůstávají `PARTIAL` / `BLOCKED`: cross-process claim,
+durable delete audit, vzdálený provider scope, stalled task/pull, retirement a
+globální GPU residency nejsou claim tohoto checkpointu.

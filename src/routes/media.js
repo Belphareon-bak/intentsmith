@@ -20,6 +20,10 @@ function setStatus(db, id, status, error = null) {
   `).run(status, error, status, status, id);
 }
 
+function isArtifactUseAuthorityError(error) {
+  return typeof error?.code === 'string' && error.code.startsWith('MODEL_USE_');
+}
+
 // ── Crash recovery ────────────────────────────────────────────────────────────
 
 export function recoverStuckGenerations(db, logger) {
@@ -174,6 +178,7 @@ export function createMediaRoutes({ db, parseBody, sendJSON, safeError, logger, 
 
         // Async: GPU-locked generation pipeline
         vramManager.acquire(async () => {
+          let artifactUseBlocked = false;
           try {
             setStatus(db.db, generationId, 'running');
             broadcast('control', { action: 'comfyui_progress', generationId, status: 'preparing', percent: 0, text: 'Uvolňuji GPU...' });
@@ -231,18 +236,28 @@ export function createMediaRoutes({ db, parseBody, sendJSON, safeError, logger, 
             broadcast('control', { action: 'comfyui_complete', generationId, outputs: savedPaths });
             logger.info('Media', `Generation ${generationId} completed (${savedPaths.length} outputs)`);
           } catch (err) {
+            if (isArtifactUseAuthorityError(err)) {
+              artifactUseBlocked = true;
+              throw err;
+            }
             setStatus(db.db, generationId, 'failed', err.message);
             broadcast('control', { action: 'comfyui_error', generationId, error: err.message });
             logger.error('Media', `Generation ${generationId} failed: ${err.message}`);
           } finally {
             comfyuiConnector.disconnectWS();
-            // v131: Free ComfyUI VRAM + wait for drop before Ollama reload
-            try { await comfyuiConnector.freeVram(); } catch (_) {}
-            await vramManager.waitForVramDrop(
-              Math.round((vramManager._gpuTotalVramMb || 24576) * 0.15),
-              { timeoutMs: 10_000 }
-            );
-            try { await vramManager.reloadOllama(); } catch (_) {}
+            if (!artifactUseBlocked) {
+              // v131: Free ComfyUI VRAM + wait for drop before Ollama reload
+              try { await comfyuiConnector.freeVram(); } catch (_) {}
+              await vramManager.waitForVramDrop(
+                Math.round((vramManager._gpuTotalVramMb || 24576) * 0.15),
+                { timeoutMs: 10_000 }
+              );
+              try {
+                await vramManager.reloadOllama();
+              } catch (error) {
+                if (isArtifactUseAuthorityError(error)) throw error;
+              }
+            }
           }
         }).catch(err => {
           // Queue-level error (shouldn't happen, but safety net)

@@ -6,12 +6,14 @@
 model identity
 
 **Aktuální stav:** C1 + C2a jsou fresh-clone ověřené. C2b gateway a binding
-cutover/exact verification jsou fresh-clone ověřené na `cfcb63dd` a pokrývají
-čtyři z pěti živých cest. VRAM, cross-process claim, durable delete audit, operationless
-legacy rehydrate a post-DB runtime-finalize reconciliation zůstávají otevřené.
-Poslední VRAM hrana čeká na
-[rozhodnutí 023](../decisions/023-m1-vram-artifact-use-authority.md), které
-odděluje úzkou artifact/delete ochranu od širší GPU residency autority.
+cutover/exact verification jsou fresh-clone ověřené na `cfcb63dd`. Přijaté
+[rozhodnutí 023](../decisions/023-m1-vram-artifact-use-authority.md) má nyní
+focused zelený source candidate pro pátou živou VRAM artifact/delete cestu;
+exact-edge ratchet a fresh-clone evidence ještě následují. Všech pět
+single-process artifact-use cest je tím zapojených ve source, ale C2 jako celek
+zůstává `PARTIAL`: cross-process claim, durable delete audit, operationless
+legacy rehydrate, vzdálený provider scope, stalled task/pull a globální GPU
+residency nejsou tímto checkpointem uzavřené.
 
 Toto zadání uzavírá findings
 [`006`](../findings/006-model-cleanup-bypasses-registry-guard.md) a
@@ -121,8 +123,9 @@ Zastavit pouze dotčenou část při potřebě změnit veřejný connector, povo
 remote delete, přidat cross-process destructive claim nebo zvolit cílový
 durable audit. Nezávislé C1 části pokračují.
 
-Změna VRAM owner vocabulary nebo `src/media/**` navíc čeká na 023. Samotný
-per-model lease nesmí být vydán za vyřešení gateway/ComfyUI GPU admission.
+Změna VRAM owner vocabulary a `src/media/**` je odemčená a omezená přijatým
+023/A. Samotný per-model lease nesmí být vydán za vyřešení gateway/ComfyUI GPU
+admission.
 
 C1 nesmí prohlásit active inference za chráněnou. C2 musí zapojit celý skutečný
 živý call graph, ne jen gateway, a dormant cesty musí pravdivě vyřadit. Dokud
@@ -134,8 +137,10 @@ identita už není rollback autoritou a smí být explicitně retireovaná.
 Focused binding checkpoint nesmí být vydán za atomický DB/runtime commit:
 durable `APPLIED` vzniká před `runtime.commit()` a jeho pozdní výjimka zatím
 nemá typovaný reconciliation incident. Operationless legacy override je stále
-name-only a pouze `LEGACY_UNVERIFIED`. Z pěti živých cest zbývá připojit VRAM;
-cross-process a durable audit jsou samostatné acceptance body.
+name-only a pouze `LEGACY_UNVERIFIED`. VRAM artifact-use source candidate
+připojuje pátou živou cestu; do exact-edge acceptance a fresh-clone reprodukce
+nejde o uzavřený checkpoint. Cross-process a durable audit jsou samostatné
+acceptance body i potom.
 
 ## 8. Přesné ověření
 

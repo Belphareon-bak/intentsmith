@@ -221,6 +221,7 @@ import { upgradeManager } from './upgrade/upgrade-manager.js';
 
 // v133: ModelRegistry — centralized model management
 import { modelRegistry } from './upgrade/model-registry.js';
+import { createVramArtifactUsePort } from './upgrade/model-use-authority.js';
 import { modelUniverseStore } from './upgrade/model-universe-store.js';
 import { createModelFailoverRepository } from './upgrade/model-failover.js';
 import {
@@ -438,6 +439,7 @@ if (config.features.comfyui !== false) {
       chatModel: config.models.CHAT,
       comfyuiUrl: config.comfyui?.baseUrl || null,
       gpuTotalVramMb: gpuVramMb,
+      artifactUsePort: createVramArtifactUsePort(),
     });
     mediaStorage = new MediaOutputStorage({ maxGB: config.comfyui.maxStorageGB });
     mediaStorage.setDb(db.db);
