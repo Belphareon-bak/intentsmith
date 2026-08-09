@@ -1007,12 +1007,6 @@ export class ModelBindingApplication {
       for (const override of exactOverrides) {
         if (currentOperationIds.has(override.bindingOperationId)) continue;
         try {
-          if (inventoryError) throw inventoryError;
-          this.provider.resolveFromInventory(
-            inventory,
-            override.modelName,
-            { expectedDigestSha256: override.digestSha256 },
-          );
           const snapshot = this.runtime.snapshot(override.role);
           let releaseUseLeases;
           try {
@@ -1059,12 +1053,6 @@ export class ModelBindingApplication {
               409,
             );
           }
-          if (inventoryError) throw inventoryError;
-          this.provider.resolveFromInventory(
-            inventory,
-            operation.targetModelName,
-            { expectedDigestSha256: operation.targetDigestSha256 },
-          );
           executionStarted = true;
           const restored = await this.#executeOperation(operation, { startup: true });
           summary.restored++;

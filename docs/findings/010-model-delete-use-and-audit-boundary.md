@@ -49,8 +49,11 @@ ověří exact digest a drží jej přes runtime prepare, durable zápis, compen
 i synchronní finalize. Verification drží target přes provider probe a durable
 success zápis; před retry delay jej vždy uvolní. Startup inventory je jen census
 hint a exact override se před rehydrate znovu resolveuje pod oběma leases.
-Focused application sada skončila 86/86; odstranění cutover, verification nebo
-exact-override lease ji postupně změnilo na 81/86, 85/86 a 85/86, vždy exit 1.
+Focused application sada skončila 87/87. Odstranění cutover, verification nebo
+exact-override lease ji postupně změnilo na 81/87, 86/87 a 86/87, vždy exit 1.
+Nezávislý review navíc našel unleased census fail-gate před oběma startup
+větvemi. Po opravě je inventory pouze hint; zpětné vložení current-operation i
+prior-override prechecku dalo pokaždé 86/87, exit 1.
 
 Pokryté jsou tím čtyři z pěti živých cest: registry validation, pull, gateway a
 binding cutover/exact verification. VRAM manager zůstává poslední živou

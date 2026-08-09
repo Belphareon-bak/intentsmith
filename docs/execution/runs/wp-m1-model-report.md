@@ -2023,7 +2023,7 @@ Focused evidence pracovního kandidáta:
 | `node --check src/upgrade/model-binding-application.js` | syntax valid | 0 |
 | `node --check src/upgrade/model-use-authority.js` | syntax valid | 0 |
 | `node --check tests/m1-model-binding-application.test.js` | syntax valid | 0 |
-| `C3_LOG_LEVEL=error node tests/m1-model-binding-application.test.js` | 86 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-binding-application.test.js` | 87 passed, 0 failed | 0 |
 | `C3_LOG_LEVEL=error node tests/m1-model-use-authority.test.js` | 24 passed, 0 failed | 0 |
 | `C3_LOG_LEVEL=error node tests/m1-model-binding-repository.test.js` | 39 passed, 0 failed | 0 |
 | `C3_LOG_LEVEL=error node tests/m1-model-binding-storage.test.js` | 16 passed, 0 failed | 0 |
@@ -2046,9 +2046,21 @@ zdroj byl po běhu obnoven opačným patchem:
 
 | Dočasná mutace | Výsledek | Exit |
 |---|---:|---:|
-| cutover previous+target acquire odstraněn | 81 passed, 5 failed | 1 |
-| verification target acquire odstraněn | 85 passed, 1 failed | 1 |
-| exact prior-override acquire odstraněn | 85 passed, 1 failed | 1 |
+| cutover previous+target acquire odstraněn | 81 passed, 6 failed | 1 |
+| verification target acquire odstraněn | 86 passed, 1 failed | 1 |
+| exact prior-override acquire odstraněn | 86 passed, 1 failed | 1 |
+| unleased census digest vrácen jako gate pro current operation | 86 passed, 1 failed | 1 |
+| unleased census digest vrácen jako gate pro prior exact override | 86 passed, 1 failed | 1 |
+
+Nezávislý review po prvním source commitu odkryl, že obě startup větve stále
+používaly unleased census jako fail-gate před autoritativním resolve. Reachable
+pull mohl snapshot změnit a current operation by se z nesprávné stale evidence
+označila non-retryable digest driftem. Follow-up odstranil oba prechecky:
+inventory zůstává jen census/reconciliation hint a o exact manual restore
+rozhoduje pouze `resolveExact()` pod previous+target lease. Pozitivní regrese
+pro current operation i prior override obnoví správný artifact mezi census a
+resolve, očekává restore bez FAILED attemptu; zpětné vložení každého prechecku
+samostatně zčervenalo 86/87.
 
 Checkpoint současně odkryl residual, který lease neopravuje: repository zapíše
 durable `APPLIED` před `runtime.commit()`. Pokud synchronní finalize poté selže,

@@ -140,7 +140,7 @@ class FakeExactProvider {
     this.verifyGate = null;
     this.afterEnsure = null;
     this.beforeResolve = null;
-    this.afterSnapshotResolve = null;
+    this.afterInventory = null;
     this.pullTargets = new Map();
     this.onPullStart = null;
     this.pullGate = null;
@@ -197,7 +197,9 @@ class FakeExactProvider {
   async listInstalled() {
     this.calls.inventory++;
     if (this.resolveError) throw this.resolveError;
-    return [...this.models.values()];
+    const inventory = [...this.models.values()];
+    this.afterInventory?.(inventory);
+    return inventory;
   }
 
   resolveFromInventory(inventory, modelName, options = {}) {
@@ -230,7 +232,6 @@ class FakeExactProvider {
         `Digest drift for fixture model: ${modelName}`,
       );
     }
-    this.afterSnapshotResolve?.(resolved);
     return resolved;
   }
 
@@ -3382,7 +3383,7 @@ await testAsync('restart restores prior manual override before failed newer inte
   }
 });
 
-await testAsync('prior exact override rejects stale census identity under cutover leases', async () => {
+await testAsync('prior exact override treats stale census identity as a hint under cutover leases', async () => {
   const authority = new ModelUseAuthority();
   await withFixture(async ({ db, repository, provider, application }) => {
     const prior = await application.applyManualBinding({
@@ -3405,15 +3406,19 @@ await testAsync('prior exact override rejects stale census identity under cutove
 
     provider.afterEnsure = null;
     config.models.CHAT = 'fixture-base';
-    let snapshotMutated = false;
+    provider.models.set('fixture-target', model('fixture-target', DIGEST_C));
+    let censusCorrected = false;
     let exactResolveUnderLease = false;
-    provider.afterSnapshotResolve = resolved => {
-      if (resolved.name !== 'fixture-target' || snapshotMutated) return;
-      snapshotMutated = true;
-      provider.models.set('fixture-target', model('fixture-target', DIGEST_C));
+    provider.afterInventory = inventory => {
+      if (censusCorrected
+        || !inventory.some(candidate => (
+          candidate.name === 'fixture-target' && candidate.digestSha256 === DIGEST_C
+        ))) return;
+      censusCorrected = true;
+      provider.models.set('fixture-target', model('fixture-target', DIGEST_B));
     };
     provider.beforeResolve = (modelName, options) => {
-      if (!snapshotMutated
+      if (!censusCorrected
         || canonicalModelName(modelName) !== 'fixture-target'
         || options.expectedDigestSha256 !== DIGEST_B) return;
       exactResolveUnderLease = (
@@ -3435,17 +3440,14 @@ await testAsync('prior exact override rejects stale census identity under cutove
     });
     const restored = await restartApplication.rehydrateBindings();
 
-    assertEqual(restored.restored, 0);
-    assert(restored.failed.some(failure => (
-      failure.operationId === prior.operationId
-      && failure.code === 'MODEL_BINDING_REHYDRATE_DIGEST_DRIFT'
-    )), `Missing prior override drift: ${JSON.stringify(restored.failed)}`);
+    assertEqual(restored.restored, 1);
+    assertEqual(restored.failed.length, 1);
     assert(restored.failed.some(failure => (
       failure.code === 'MODEL_BINDING_APPLICATION_NONRETRYABLE_TERMINAL'
     )), `Missing newer terminal failure: ${JSON.stringify(restored.failed)}`);
-    assertEqual(snapshotMutated, true, 'Expected prior override census mutation');
+    assertEqual(censusCorrected, true, 'Expected stale prior-override census identity');
     assertEqual(exactResolveUnderLease, true, 'Expected exact resolve under both cutover leases');
-    assertEqual(restartManager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-base');
+    assertEqual(restartManager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-target');
     assertMutationAvailable(authority, 'fixture-base');
     assertMutationAvailable(authority, 'fixture-target');
   }, {
@@ -3545,15 +3547,18 @@ await testAsync('startup census hint is re-resolved under cutover leases before 
     });
     config.models.CHAT = 'fixture-base';
 
-    let snapshotMutated = false;
+    let censusCaptured = false;
     let exactResolveUnderLease = false;
-    provider.afterSnapshotResolve = resolved => {
-      if (resolved.name !== 'fixture-target' || snapshotMutated) return;
-      snapshotMutated = true;
+    provider.afterInventory = inventory => {
+      if (censusCaptured
+        || !inventory.some(candidate => (
+          candidate.name === 'fixture-target' && candidate.digestSha256 === DIGEST_B
+        ))) return;
+      censusCaptured = true;
       provider.models.set('fixture-target', model('fixture-target', DIGEST_C));
     };
     provider.beforeResolve = (modelName, options) => {
-      if (!snapshotMutated
+      if (!censusCaptured
         || canonicalModelName(modelName) !== 'fixture-target'
         || options.expectedDigestSha256 !== DIGEST_B) return;
       exactResolveUnderLease = (
@@ -3583,8 +3588,72 @@ await testAsync('startup census hint is re-resolved under cutover leases before 
     assertEqual(state.failureCode, 'MODEL_BINDING_REHYDRATE_DIGEST_DRIFT');
     assertEqual(state.retryable, false);
     assertEqual(restartManager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-base');
-    assertEqual(snapshotMutated, true);
+    assertEqual(censusCaptured, true);
     assertEqual(exactResolveUnderLease, true);
+    assertMutationAvailable(authority, 'fixture-base');
+    assertMutationAvailable(authority, 'fixture-target');
+  }, {
+    modelUseAuthority: authority,
+    startVerification: false,
+  });
+});
+
+await testAsync('startup ignores a stale failing census when exact identity recovers under lease', async () => {
+  const authority = new ModelUseAuthority();
+  await withFixture(async ({ db, repository, provider, application }) => {
+    const applied = await application.applyManualBinding({
+      role: 'CHAT',
+      targetModel: 'fixture-target',
+    });
+    config.models.CHAT = 'fixture-base';
+    provider.models.set('fixture-target', model('fixture-target', DIGEST_C));
+
+    let censusCorrected = false;
+    let exactResolveUnderLease = false;
+    provider.afterInventory = inventory => {
+      if (censusCorrected
+        || !inventory.some(candidate => (
+          candidate.name === 'fixture-target' && candidate.digestSha256 === DIGEST_C
+        ))) return;
+      censusCorrected = true;
+      provider.models.set('fixture-target', model('fixture-target', DIGEST_B));
+    };
+    provider.beforeResolve = (modelName, options) => {
+      if (!censusCorrected
+        || canonicalModelName(modelName) !== 'fixture-target'
+        || options.expectedDigestSha256 !== DIGEST_B) return;
+      exactResolveUnderLease = (
+        authority.snapshot('fixture-base').activeUseCount === 1
+        && authority.snapshot('fixture-target').activeUseCount === 1
+      );
+    };
+
+    const restartManager = new UpgradeManager();
+    restartManager.setDb(db);
+    const restartApplication = createModelBindingApplication({
+      repository,
+      runtime: restartManager.createBindingRuntimePort(),
+      provider,
+      modelUseAuthority: authority,
+      publishControl: () => ({ accepted: true }),
+      verificationAttempts: 1,
+      delay: async () => {},
+    });
+    const restored = await restartApplication.rehydrateBindings();
+    const state = repository.getBindingApplicationState(applied.operationId);
+
+    assertEqual(restored.restored, 1);
+    assertEqual(restored.failed.length, 0);
+    assertEqual(censusCorrected, true);
+    assertEqual(exactResolveUnderLease, true);
+    assertEqual(restartManager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-target');
+    assertEqual(state.runtimeStatus, 'APPLIED');
+    assertEqual(
+      state.attempts.filter(attempt => (
+        attempt.kind === 'STARTUP_REHYDRATE' && attempt.outcome === 'FAILED'
+      )).length,
+      0,
+    );
     assertMutationAvailable(authority, 'fixture-base');
     assertMutationAvailable(authority, 'fixture-target');
   }, {
