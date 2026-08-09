@@ -1443,6 +1443,69 @@ nebyla rozvolněna: nový přesný kontrakt vyžaduje právě jeden `approved`
 `qwen3:14b`, právě dva `expired` konkurenty a nula pending. Rerun skončil 3/0,
 exit `0`.
 
+## Checkpoint 21 — append-only identita bez SQLite replacement mezery
+
+Migrace 053 doplňuje vlastní insert authority guards nad
+`model_failover_proofs`, `model_failover_events`, `model_binding_operations`,
+`model_binding_application_attempts`, `model_binding_provider_operations` a
+`model_binding_provider_attempts` i nad oběma no-op auditními tabulkami.
+Důvod je konkrétní: SQLite
+`INSERT OR REPLACE` může konfliktní řádek odstranit před vložením náhrady a při
+výchozím `recursive_triggers=0` tím obejít samotné UPDATE/DELETE append-only
+guardy. U tabulek s TEXT/composite primary key lze navíc nahradit řádek přes
+explicitní skrytý `rowid`, aniž se deklarované klíče překryjí. Nové guards
+odmítnou každou primary/unique identity i explicitní rowid kolizi a zachovají
+původní řádek. TEXT primary keys v těchto rowid tabulkách historicky přijaly i
+`NULL`; migrace proto před prvním DDL odmítne `NULL` proof/operation/receipt ID
+a u všech osmi journalů také každé preexistující nekladné pořadí/rowid.
+
+Event, application-attempt a provider-attempt pořadí je nově výhradně DB
+autorita. Callerem vložené `seq` se odmítne i tehdy, když by jinak celý řádek
+splnil business kontrakt. Explicitní sentinel `-1`, který je v `BEFORE INSERT`
+nerozeznatelný od vynechaného INTEGER PRIMARY KEY/rowid, zachytí `AFTER INSERT`
+guard a abort vrátí celý statement bez trvalé mutace. Provider `command_seq`
+má navíc starší `CHECK > 0`; explicitní `-1` tam fail-close skončí generickým
+constraint signálem, zatímco ostatní explicitní hodnoty mají vlastněný
+sequence signál. Preexistující business triggery jsou znovu vytvořené s
+mutually-exclusive authority podmínkou. Nesentinelový authority/identity
+konflikt tak má owned signál bez závislosti na pořadí SQLite triggerů. Jejich
+přesný pre-053 name+SQL digest se ověří ještě před první schema mutací.
+Explicitní `-1` je v `BEFORE INSERT` nerozeznatelné od vynechané hodnoty;
+owned AFTER signál je proto garantovaný pro jinak business-validní řádek, vždy
+však celý statement fail-close vrátí. Pozitivní protějšky dál dokládají, že
+běžné repository zápisy projdou a databáze pořadí přidělí. Původ
+preexistující kladné hodnoty už migrace zpětně dokázat neumí.
+
+Test-first kontrola před přidáním guardu skončila u failover schema sady
+`9 passed / 1 failed`, exit `1`: replacement eventu nebyl odmítnut. Při
+závěrečném zpřesnění skončil jeden meziběh `11 passed / 1 failed`, exit `1`,
+protože test nesprávně očekával receipt authority guard i na junction triggeru;
+produktové cesty v témže běhu nepadly. Aserce byla opravena na skutečnou
+tabulkovou autoritu, doplněna matice všech osmi ordering a tří NULL identity
+preflightů a finální rerun skončil:
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `C3_LOG_LEVEL=error node tests/m1-model-failover-schema.test.js` | 13 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/schema-migrations.test.js` | 38 passed, 0 failed; 55 migrací | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-binding-storage.test.js` | 16 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-binding-repository.test.js` | 39 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-binding-application.test.js` | 73 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/upgrade-apply.test.js` | 33 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/upgrade-ux-v125.test.js` | 78 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/proposal-stale-cleanup.test.js` | 3 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/routes-smoke.test.js` | 109 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/confirmation-ownership.test.js` | 5 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-identity.test.js` | 16 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/ws-bridge.test.js` | 68 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/repository-hygiene.test.js` | 1519 tracked paths checked | 0 |
+| `node scripts/validate-test-registry.js --json` | valid; 375 programů; 8 exclusions; fingerprint `a2f1e67e…f77b8` | 0 |
+
+GPU, Ollama, produktový server ani externí síť nebyly spuštěny. Tento
+checkpoint pouze uzavírá auditní identitu a pořadí; nevydává PASS proof,
+neaktivuje automatic failover a nemění Gate 1 z `BLOCKED`.
+
 ### Otevřená rozhodovací fronta — checkpoint neblokuje
 
 1. **Durable compensation failure.** Default je tvrdý typovaný

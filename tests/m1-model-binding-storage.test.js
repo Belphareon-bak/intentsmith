@@ -536,7 +536,11 @@ await testAsync('migration creates the exact manual operation journal contract',
       WHERE type = 'trigger' AND name LIKE 'trg_model_binding_operations_%'
       ORDER BY name
     `).all().map(row => row.name);
-    assertEqual(triggers.length, 9);
+    assertEqual(triggers.length, 13);
+    assert(triggers.includes('trg_model_binding_operations_append_only_insert_conflict'));
+    assert(triggers.includes('trg_model_binding_operations_identity_required'));
+    assert(triggers.includes('trg_model_binding_operations_rowid_authority'));
+    assert(triggers.includes('trg_model_binding_operations_rowid_positive'));
   });
 });
 
@@ -1178,7 +1182,7 @@ await testAsync('rollback must be one exact direct reversal and can happen only 
       requestKey: 'request-rollback-duplicate-0002',
       desiredEventId: 'event-rollback-duplicate-0002',
       createdAtMs: 3100,
-    }), /UNIQUE constraint failed/i);
+    }), /^MODEL_BINDING_OPERATION_IDENTITY_CONFLICT:/);
   });
 });
 
@@ -1227,6 +1231,83 @@ await testAsync('operation journal is append-only and transaction failures leave
     assertThrowsMatching(() => db.prepare(`
       DELETE FROM model_binding_operations WHERE operation_id = ?
     `).run(applyInput.operationId), /append-only/i);
+    assertThrowsMatching(() => db.prepare(`
+      INSERT OR REPLACE INTO model_binding_operations (
+        operation_id, request_key, role, operation_kind,
+        expected_binding_revision, committed_binding_revision,
+        previous_model_name, previous_canonical_name, previous_digest_sha256,
+        target_model_name, target_canonical_name, target_digest_sha256,
+        predecessor_operation_id, rollback_of_operation_id,
+        verification_status, runtime_status, desired_event_id, actor,
+        reason_code, policy_version, details_json, created_at_ms
+      )
+      SELECT operation_id, request_key, role, operation_kind,
+        expected_binding_revision, committed_binding_revision,
+        previous_model_name, previous_canonical_name, previous_digest_sha256,
+        target_model_name, target_canonical_name, target_digest_sha256,
+        predecessor_operation_id, rollback_of_operation_id,
+        verification_status, runtime_status, desired_event_id,
+        'user:replacement', reason_code, policy_version, details_json,
+        created_at_ms
+      FROM model_binding_operations WHERE operation_id = ?
+    `).run(applyInput.operationId), /MODEL_BINDING_OPERATION_IDENTITY_CONFLICT/);
+    assertEqual(
+      db.prepare(`
+        SELECT actor FROM model_binding_operations WHERE operation_id = ?
+      `).get(applyInput.operationId).actor,
+      'user:fixture',
+    );
+    assertThrowsMatching(() => db.prepare(`
+      INSERT INTO model_binding_operations (
+        operation_id, request_key, role, operation_kind,
+        expected_binding_revision, committed_binding_revision,
+        previous_model_name, previous_canonical_name, previous_digest_sha256,
+        target_model_name, target_canonical_name, target_digest_sha256,
+        predecessor_operation_id, rollback_of_operation_id,
+        verification_status, runtime_status, desired_event_id, actor,
+        reason_code, policy_version, details_json, created_at_ms
+      )
+      SELECT NULL, 'request-null-operation-id-0001', role, operation_kind,
+        expected_binding_revision, committed_binding_revision,
+        previous_model_name, previous_canonical_name, previous_digest_sha256,
+        target_model_name, target_canonical_name, target_digest_sha256,
+        predecessor_operation_id, rollback_of_operation_id,
+        verification_status, runtime_status, 'event-null-operation-id-0001',
+        actor, reason_code, policy_version, details_json, created_at_ms
+      FROM model_binding_operations WHERE operation_id = ?
+    `).run(applyInput.operationId), /MODEL_BINDING_OPERATION_IDENTITY_REQUIRED/);
+    assertEqual(
+      db.prepare('SELECT COUNT(*) AS count FROM model_binding_operations').get().count,
+      1,
+    );
+    assertThrowsMatching(() => db.prepare(`
+      INSERT OR REPLACE INTO model_binding_operations (
+        rowid, operation_id, request_key, role, operation_kind,
+        expected_binding_revision, committed_binding_revision,
+        previous_model_name, previous_canonical_name, previous_digest_sha256,
+        target_model_name, target_canonical_name, target_digest_sha256,
+        predecessor_operation_id, rollback_of_operation_id,
+        verification_status, runtime_status, desired_event_id, actor,
+        reason_code, policy_version, details_json, created_at_ms
+      )
+      SELECT rowid, 'operation-hidden-rowid-0001',
+        'request-hidden-rowid-0001', role, operation_kind,
+        expected_binding_revision, committed_binding_revision,
+        previous_model_name, previous_canonical_name, previous_digest_sha256,
+        target_model_name, target_canonical_name, target_digest_sha256,
+        predecessor_operation_id, rollback_of_operation_id,
+        verification_status, runtime_status, desired_event_id, actor,
+        reason_code, policy_version, details_json, created_at_ms
+      FROM model_binding_operations WHERE operation_id = ?
+    `).run(applyInput.operationId), /MODEL_BINDING_OPERATION_ROWID_AUTHORITY/);
+    assertEqual(
+      db.prepare(`
+        SELECT operation_id FROM model_binding_operations WHERE rowid = (
+          SELECT rowid FROM model_binding_operations WHERE operation_id = ?
+        )
+      `).get(applyInput.operationId).operation_id,
+      applyInput.operationId,
+    );
   });
 
   await withMigratedDb(async db => {

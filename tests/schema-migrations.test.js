@@ -158,6 +158,7 @@ const ALL_MIGRATIONS = [
   '2026_08_09_050_model_binding_application_attempts',
   '2026_08_09_051_model_binding_runtime_generation',
   '2026_08_09_052_model_binding_provider_effects',
+  '2026_08_09_053_model_binding_append_only_identity',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -564,6 +565,7 @@ describe('T-SM7: Baseline creates all expected tables', async () => {
       '2026_08_09_050_model_binding_application_attempts',
       '2026_08_09_051_model_binding_runtime_generation',
       '2026_08_09_052_model_binding_provider_effects',
+      '2026_08_09_053_model_binding_append_only_identity',
     ].includes(migration.version));
     migrationTestInternals.runMigrationPlan(db, pre050);
     db.prepare(`

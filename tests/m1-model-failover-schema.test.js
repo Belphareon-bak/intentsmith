@@ -11,7 +11,12 @@ import {
   summary,
   testAsync,
 } from './harness.js';
-import { getCurrentVersion, runMigrations } from '../src/db/migrate.js';
+import {
+  getCurrentVersion,
+  runMigrations,
+  _testInternals as migrationTestInternals,
+} from '../src/db/migrate.js';
+import { up as installAppendOnlyIdentity } from '../src/db/migrations/2026_08_09_053_model_binding_append_only_identity.js';
 
 const DIGEST_A = 'a'.repeat(64);
 const DIGEST_B = 'b'.repeat(64);
@@ -61,6 +66,14 @@ function schemaSnapshot(db) {
     WHERE name NOT LIKE 'sqlite_%'
     ORDER BY type, name
   `).all());
+}
+
+function normalizedTriggerSql(db, name) {
+  const row = db.prepare(`
+    SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = ?
+  `).get(name);
+  assert(row?.sql, `missing trigger SQL ${name}`);
+  return row.sql.replace(/\s+/g, ' ').trim();
 }
 
 function insertDesiredObservedEvent(db, {
@@ -284,7 +297,7 @@ suite('M1 model failover schema — exact migration contract');
 
 await testAsync('fresh file-backed DB creates all failover tables, indexes and triggers', async () => {
   await withMigratedDb(async (db) => {
-    assertEqual(getCurrentVersion(db), '2026_08_09_052_model_binding_provider_effects');
+    assertEqual(getCurrentVersion(db), '2026_08_09_053_model_binding_append_only_identity');
 
     for (const table of [
       'model_desired_bindings',
@@ -451,8 +464,83 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
       'trg_model_desired_binding_provider_pending_insert',
       'trg_model_desired_binding_provider_unresolved_delete',
       'trg_model_desired_binding_provider_pending_delete',
+      'trg_model_failover_proofs_append_only_insert_conflict',
+      'trg_model_failover_proofs_identity_required',
+      'trg_model_failover_proofs_rowid_authority',
+      'trg_model_failover_proofs_rowid_positive',
+      'trg_model_failover_events_sequence_authority',
+      'trg_model_failover_events_sequence_positive',
+      'trg_model_failover_events_append_only_insert_conflict',
+      'trg_model_binding_operations_append_only_insert_conflict',
+      'trg_model_binding_operations_identity_required',
+      'trg_model_binding_operations_rowid_authority',
+      'trg_model_binding_operations_rowid_positive',
+      'trg_model_binding_application_sequence_authority',
+      'trg_model_binding_application_sequence_positive',
+      'trg_model_binding_application_append_only_insert_conflict',
+      'trg_model_binding_provider_command_sequence_positive',
+      'trg_model_binding_provider_operations_append_only_insert_conflict',
+      'trg_model_binding_provider_attempts_sequence_authority',
+      'trg_model_binding_provider_attempts_sequence_positive',
+      'trg_model_binding_provider_attempts_append_only_insert_conflict',
+      'trg_model_binding_user_noop_rowid_authority',
+      'trg_model_binding_user_noop_identity_required',
+      'trg_model_binding_user_noop_rowid_positive',
+      'trg_model_binding_user_noop_provider_supersedes_rowid_authority',
+      'trg_model_binding_user_noop_provider_supersedes_rowid_positive',
     ]) {
       assert(triggerNames.includes(trigger), `missing trigger ${trigger}`);
+    }
+
+    const proofIdentity = normalizedTriggerSql(
+      db,
+      'trg_model_failover_proofs_append_only_insert_conflict',
+    );
+    assert(proofIdentity.includes('existing.proof_id = NEW.proof_id'));
+    assert(proofIdentity.includes(
+      'existing.validation_run_id = NEW.validation_run_id AND existing.role = NEW.role',
+    ));
+    const eventIdentity = normalizedTriggerSql(
+      db,
+      'trg_model_failover_events_append_only_insert_conflict',
+    );
+    assert(eventIdentity.includes('existing.event_id = NEW.event_id'));
+    assert(eventIdentity.includes(
+      'existing.operation_id = NEW.operation_id AND existing.event_type = NEW.event_type',
+    ));
+    const operationIdentity = normalizedTriggerSql(
+      db,
+      'trg_model_binding_operations_append_only_insert_conflict',
+    );
+    for (const fragment of [
+      'existing.operation_id = NEW.operation_id',
+      'existing.request_key = NEW.request_key',
+      'existing.desired_event_id = NEW.desired_event_id',
+      'existing.role = NEW.role AND existing.committed_binding_revision = NEW.committed_binding_revision',
+      'existing.rollback_of_operation_id = NEW.rollback_of_operation_id',
+    ]) assert(operationIdentity.includes(fragment), `missing operation identity clause ${fragment}`);
+    const providerIdentity = normalizedTriggerSql(
+      db,
+      'trg_model_binding_provider_operations_append_only_insert_conflict',
+    );
+    for (const fragment of [
+      'existing.operation_id = NEW.operation_id',
+      'existing.request_key = NEW.request_key',
+      'existing.initial_claim_token = NEW.initial_claim_token',
+    ]) assert(providerIdentity.includes(fragment), `missing provider identity clause ${fragment}`);
+
+    for (const [trigger, authorityPrefix] of [
+      ['trg_model_binding_operations_current_projection', 'WHEN NOT (NEW.rowid <> -1 OR NEW.operation_id IS NULL OR EXISTS ('],
+      ['trg_model_binding_application_revision', 'WHEN NOT (NEW.seq <> -1 OR EXISTS ('],
+      ['trg_model_binding_provider_desired_revision', 'WHEN NOT (NEW.command_seq <> -1 OR EXISTS ('],
+      ['trg_model_binding_provider_attempt_once', 'WHEN NOT (NEW.seq <> -1 OR EXISTS ('],
+      ['trg_model_binding_user_noop_projection', 'WHEN NOT (NEW.rowid <> -1 OR NEW.receipt_id IS NULL OR EXISTS ('],
+      ['trg_model_binding_user_noop_provider_lineage', 'WHEN NOT (NEW.rowid <> -1 OR EXISTS ('],
+    ]) {
+      assert(
+        normalizedTriggerSql(db, trigger).includes(authorityPrefix),
+        `${trigger} does not defer to the insert authority`,
+      );
     }
   });
 });
@@ -462,9 +550,224 @@ await testAsync('second migration run is a no-op with an identical schema snapsh
     const before = schemaSnapshot(db);
     const result = await runMigrations(db);
     assertEqual(result.applied.length, 0);
-    assertEqual(result.skipped.length, 54);
+    assertEqual(result.skipped.length, 55);
     assertEqual(schemaSnapshot(db), before);
   });
+});
+
+await testAsync('migration 053 preserves populated journals while adding guards', async () => {
+  const directory = mkdtempSync(
+    path.join(process.env.INTENTSMITH_TEST_ARTIFACT_DIR, 'failover-schema-upgrade-'),
+  );
+  const databasePath = path.join(directory, 'failover.sqlite');
+  const db = new Database(databasePath);
+  let driftDb = null;
+  db.pragma('journal_mode = WAL');
+  db.pragma('foreign_keys = ON');
+  try {
+    const migrations = await migrationTestInternals.discoverMigrations();
+    const pre053 = migrations.filter(
+      migration => migration.version !== '2026_08_09_053_model_binding_append_only_identity',
+    );
+    migrationTestInternals.runMigrationPlan(db, pre053);
+    insertDesiredObservedEvent(db);
+    insertPassingProof(db);
+    const before = JSON.stringify({
+      events: db.prepare('SELECT * FROM model_failover_events ORDER BY seq').all(),
+      proofs: db.prepare('SELECT * FROM model_failover_proofs ORDER BY proof_id').all(),
+    });
+
+    const result = migrationTestInternals.runMigrationPlan(db, migrations);
+    assertEqual(
+      JSON.stringify(result.applied),
+      JSON.stringify(['2026_08_09_053_model_binding_append_only_identity']),
+    );
+    assertEqual(result.skipped.length, 54);
+    assertEqual(getCurrentVersion(db), '2026_08_09_053_model_binding_append_only_identity');
+    assertEqual(JSON.stringify({
+      events: db.prepare('SELECT * FROM model_failover_events ORDER BY seq').all(),
+      proofs: db.prepare('SELECT * FROM model_failover_proofs ORDER BY proof_id').all(),
+    }), before);
+
+    driftDb = new Database(path.join(directory, 'trigger-drift.sqlite'));
+    driftDb.pragma('foreign_keys = ON');
+    migrationTestInternals.runMigrationPlan(driftDb, pre053);
+    const driftTrigger = driftDb.prepare(`
+      SELECT sql FROM sqlite_master
+      WHERE type = 'trigger' AND name = 'trg_model_binding_application_revision'
+    `).get().sql;
+    driftDb.exec('DROP TRIGGER trg_model_binding_application_revision');
+    driftDb.exec(driftTrigger.replace(/\bWHEN\b/i, 'WHEN 1 = 1 AND'));
+    const beforeRejectedMigration = schemaSnapshot(driftDb);
+    assertThrowsMatching(
+      () => migrationTestInternals.runMigrationPlan(driftDb, migrations),
+      /BEFORE INSERT trigger SQL drifted/,
+    );
+    assertEqual(getCurrentVersion(driftDb), '2026_08_09_052_model_binding_provider_effects');
+    assertEqual(schemaSnapshot(driftDb), beforeRejectedMigration);
+  } finally {
+    if (driftDb?.open) driftDb.close();
+    db.close();
+    rmSync(directory, { recursive: true, force: false });
+  }
+});
+
+await testAsync('migration 053 rejects pre-existing impossible journal identities before mutation', async () => {
+  const directory = mkdtempSync(
+    path.join(process.env.INTENTSMITH_TEST_ARTIFACT_DIR, 'failover-schema-preflight-'),
+  );
+  try {
+    const migrations = await migrationTestInternals.discoverMigrations();
+    const pre053 = migrations.filter(
+      migration => migration.version !== '2026_08_09_053_model_binding_append_only_identity',
+    );
+    const cases = [
+      {
+        name: 'null-proof-identity',
+        table: 'model_failover_proofs',
+        expected: /MODEL_BINDING_APPEND_ONLY_PREEXISTING_IDENTITY_VIOLATION: model_failover_proofs\.proof_id/,
+        seed(db) {
+          insertPassingProof(db, {
+            proofId: null,
+            validationRunId: 'preexisting-null-proof-run',
+          });
+        },
+      },
+      {
+        name: 'negative-event-sequence',
+        table: 'model_failover_events',
+        expected: /MODEL_BINDING_APPEND_ONLY_PREEXISTING_ORDER_VIOLATION: model_failover_events\.seq/,
+        seed(db) {
+          db.prepare(`
+            INSERT INTO model_failover_events (
+              seq, event_id, event_type, role, binding_revision, actor,
+              reason_code, policy_version, desired_model_name,
+              desired_digest_sha256, created_at_ms
+            ) VALUES (-1, 'preexisting-negative-event', 'DESIRED_OBSERVED',
+              'CHAT', 1, 'user:fixture', 'DESIRED_ARTIFACT_OBSERVED',
+              'd-plus-v1', 'qwen3.5:27b', ?, 1000)
+          `).run(DIGEST_A);
+        },
+      },
+    ];
+
+    for (const fixture of cases) {
+      const db = new Database(path.join(directory, `${fixture.name}.sqlite`));
+      db.pragma('foreign_keys = ON');
+      try {
+        migrationTestInternals.runMigrationPlan(db, pre053);
+        fixture.seed(db);
+        const beforeSchema = schemaSnapshot(db);
+        const beforeData = JSON.stringify(
+          db.prepare(`SELECT rowid, * FROM ${fixture.table} ORDER BY rowid`).all(),
+        );
+        assertThrowsMatching(
+          () => migrationTestInternals.runMigrationPlan(db, migrations),
+          fixture.expected,
+        );
+        assertEqual(
+          getCurrentVersion(db),
+          '2026_08_09_052_model_binding_provider_effects',
+        );
+        assertEqual(schemaSnapshot(db), beforeSchema);
+        assertEqual(
+          JSON.stringify(
+            db.prepare(`SELECT rowid, * FROM ${fixture.table} ORDER BY rowid`).all(),
+          ),
+          beforeData,
+        );
+      } finally {
+        db.close();
+      }
+    }
+  } finally {
+    rmSync(directory, { recursive: true, force: false });
+  }
+});
+
+await testAsync('migration 053 preflights ordering authority for every guarded journal', async () => {
+  const journalAuthorities = [
+    ['model_failover_proofs', 'rowid'],
+    ['model_failover_events', 'seq'],
+    ['model_binding_operations', 'rowid'],
+    ['model_binding_application_attempts', 'seq'],
+    ['model_binding_provider_operations', 'command_seq'],
+    ['model_binding_provider_attempts', 'seq'],
+    ['model_binding_user_noop_receipts', 'rowid'],
+    ['model_binding_user_noop_provider_supersedes', 'rowid'],
+  ];
+  const createMinimalAuthoritySchema = db => db.exec(`
+    CREATE TABLE model_failover_proofs (
+      proof_id TEXT, validation_run_id TEXT, role TEXT
+    );
+    CREATE TABLE model_failover_events (seq INTEGER);
+    CREATE TABLE model_binding_operations (operation_id TEXT);
+    CREATE TABLE model_binding_application_attempts (seq INTEGER);
+    CREATE TABLE model_binding_provider_operations (command_seq INTEGER);
+    CREATE TABLE model_binding_provider_attempts (seq INTEGER);
+    CREATE TABLE model_binding_user_noop_receipts (receipt_id TEXT);
+    CREATE TABLE model_binding_user_noop_provider_supersedes (
+      receipt_id TEXT, provider_operation_id TEXT
+    );
+  `);
+
+  for (const [table, column] of journalAuthorities) {
+    const db = new Database(':memory:');
+    try {
+      createMinimalAuthoritySchema(db);
+      if (column === 'rowid') {
+        db.prepare(`INSERT INTO ${table} (rowid) VALUES (-1)`).run();
+      } else {
+        db.prepare(`INSERT INTO ${table} (${column}) VALUES (-1)`).run();
+      }
+      const beforeSchema = schemaSnapshot(db);
+      const beforeData = JSON.stringify(
+        db.prepare(`SELECT rowid, * FROM ${table} ORDER BY rowid`).all(),
+      );
+      assertThrowsMatching(
+        () => installAppendOnlyIdentity(db),
+        new RegExp(
+          `MODEL_BINDING_APPEND_ONLY_PREEXISTING_ORDER_VIOLATION: ${table}\\.${column}`,
+        ),
+      );
+      assertEqual(schemaSnapshot(db), beforeSchema);
+      assertEqual(
+        JSON.stringify(db.prepare(`SELECT rowid, * FROM ${table} ORDER BY rowid`).all()),
+        beforeData,
+      );
+    } finally {
+      db.close();
+    }
+  }
+
+  for (const [table, identity] of [
+    ['model_failover_proofs', 'proof_id'],
+    ['model_binding_operations', 'operation_id'],
+    ['model_binding_user_noop_receipts', 'receipt_id'],
+  ]) {
+    const db = new Database(':memory:');
+    try {
+      createMinimalAuthoritySchema(db);
+      db.prepare(`INSERT INTO ${table} (${identity}) VALUES (NULL)`).run();
+      const beforeSchema = schemaSnapshot(db);
+      const beforeData = JSON.stringify(
+        db.prepare(`SELECT rowid, * FROM ${table} ORDER BY rowid`).all(),
+      );
+      assertThrowsMatching(
+        () => installAppendOnlyIdentity(db),
+        new RegExp(
+          `MODEL_BINDING_APPEND_ONLY_PREEXISTING_IDENTITY_VIOLATION: ${table}\\.${identity}`,
+        ),
+      );
+      assertEqual(schemaSnapshot(db), beforeSchema);
+      assertEqual(
+        JSON.stringify(db.prepare(`SELECT rowid, * FROM ${table} ORDER BY rowid`).all()),
+        beforeData,
+      );
+    } finally {
+      db.close();
+    }
+  }
 });
 
 suite('M1 model failover schema — fail-closed constraints');
@@ -988,8 +1291,173 @@ await testAsync('active failover accepts a matching reapply claim and fresh term
 await testAsync('proofs and events are append-only and audit references block deletion', async () => {
   await withMigratedDb(async (db) => {
     insertDesiredObservedEvent(db);
-    insertDesiredBinding(db);
     insertPassingProof(db);
+
+    assertThrowsMatching(() => db.prepare(`
+      INSERT OR REPLACE INTO model_failover_events (
+        event_id, event_type, role, binding_revision, row_version, episode_id,
+        operation_id, actor, reason_code, policy_version, state_before,
+        state_after, desired_model_name, desired_digest_sha256,
+        fallback_model_name, fallback_canonical_name, fallback_digest_sha256,
+        proof_id, verified, failure_phase, details_json, created_at_ms
+      )
+      SELECT event_id, event_type, role, binding_revision, row_version,
+        episode_id, operation_id, 'user:replacement', reason_code,
+        policy_version, state_before, state_after, desired_model_name,
+        desired_digest_sha256, fallback_model_name, fallback_canonical_name,
+        fallback_digest_sha256, proof_id, verified, failure_phase,
+        details_json, created_at_ms
+      FROM model_failover_events WHERE event_id = 'event-desired-observed'
+    `).run(), /MODEL_FAILOVER_EVENT_IDENTITY_CONFLICT/);
+    assertEqual(
+      db.prepare(`
+        SELECT actor FROM model_failover_events
+        WHERE event_id = 'event-desired-observed'
+      `).get().actor,
+      'user:fixture',
+    );
+    assertThrowsMatching(() => db.prepare(`
+      INSERT INTO model_failover_events (
+        seq, event_id, event_type, role, binding_revision, actor, reason_code,
+        policy_version, desired_model_name, desired_digest_sha256, created_at_ms
+      ) VALUES (999, 'event-forged-sequence', 'DESIRED_OBSERVED', 'D1', 1,
+        'user:fixture', 'DESIRED_ARTIFACT_OBSERVED', 'd-plus-v1',
+        'reasoner', ?, 1001)
+    `).run(DIGEST_A), /MODEL_FAILOVER_EVENT_SEQUENCE_AUTHORITY/);
+    assertThrowsMatching(() => db.prepare(`
+      INSERT INTO model_failover_events (
+        seq, event_id, event_type, role, binding_revision, actor, reason_code,
+        policy_version, desired_model_name, desired_digest_sha256, created_at_ms
+      ) VALUES (-1, 'event-forged-negative-sequence', 'DESIRED_OBSERVED',
+        'D1', 1, 'user:fixture', 'DESIRED_ARTIFACT_OBSERVED', 'd-plus-v1',
+        'reasoner', ?, 1001)
+    `).run(DIGEST_A), /MODEL_FAILOVER_EVENT_SEQUENCE_AUTHORITY/);
+
+    db.prepare(`
+      INSERT INTO model_failover_events (
+        event_id, event_type, role, binding_revision, operation_id, actor,
+        reason_code, policy_version, created_at_ms
+      ) VALUES ('event-operation-identity-source', 'ACTIVATION_CLAIMED',
+        'D1', 1, 'event-operation-identity-0001', 'system:binding-integrity',
+        'FAILOVER_OPERATION_CLAIMED', 'd-plus-v1', 1001)
+    `).run();
+    assertThrowsMatching(() => db.prepare(`
+      INSERT INTO model_failover_events (
+        event_id, event_type, role, binding_revision, operation_id, actor,
+        reason_code, policy_version, created_at_ms
+      ) VALUES ('event-operation-identity-replacement', 'ACTIVATION_CLAIMED',
+        'D1', 1, 'event-operation-identity-0001', 'system:binding-integrity',
+        'FAILOVER_OPERATION_CLAIMED', 'd-plus-v1', 1001)
+    `).run(), /MODEL_FAILOVER_EVENT_IDENTITY_CONFLICT/);
+
+    assertThrowsMatching(() => db.prepare(`
+      INSERT OR REPLACE INTO model_failover_proofs (
+        proof_id, validation_run_id, role, suite, role_contract_sha256,
+        model_name, model_canonical_name, model_digest_sha256,
+        validation_version, policy_version, score, required_score,
+        passed_count, required_passed_count, total_count, duration_ms, result,
+        inventory_before_name, inventory_before_digest, inventory_after_name,
+        inventory_after_digest, started_at_ms, completed_at_ms, expires_at_ms,
+        created_at_ms
+      )
+      SELECT proof_id, validation_run_id, role, suite, role_contract_sha256,
+        model_name, model_canonical_name, model_digest_sha256,
+        'v123.replaced', policy_version, score, required_score,
+        passed_count, required_passed_count, total_count, duration_ms, result,
+        inventory_before_name, inventory_before_digest, inventory_after_name,
+        inventory_after_digest, started_at_ms, completed_at_ms, expires_at_ms,
+        created_at_ms
+      FROM model_failover_proofs WHERE proof_id = 'proof-fixture-0001'
+    `).run(), /MODEL_FAILOVER_PROOF_IDENTITY_CONFLICT/);
+    assertEqual(
+      db.prepare(`
+        SELECT validation_version FROM model_failover_proofs
+        WHERE proof_id = 'proof-fixture-0001'
+      `).get().validation_version,
+      'v123.1',
+    );
+    assertThrowsMatching(() => db.prepare(`
+      INSERT OR REPLACE INTO model_failover_proofs (
+        proof_id, validation_run_id, role, suite, role_contract_sha256,
+        model_name, model_canonical_name, model_digest_sha256,
+        validation_version, policy_version, score, required_score,
+        passed_count, required_passed_count, total_count, duration_ms, result,
+        inventory_before_name, inventory_before_digest, inventory_after_name,
+        inventory_after_digest, started_at_ms, completed_at_ms, expires_at_ms,
+        created_at_ms
+      )
+      SELECT 'proof-validation-role-conflict', validation_run_id, role, suite,
+        role_contract_sha256, model_name, model_canonical_name,
+        model_digest_sha256, validation_version, policy_version, score,
+        required_score, passed_count, required_passed_count, total_count,
+        duration_ms, result, inventory_before_name, inventory_before_digest,
+        inventory_after_name, inventory_after_digest, started_at_ms,
+        completed_at_ms, expires_at_ms, created_at_ms
+      FROM model_failover_proofs WHERE proof_id = 'proof-fixture-0001'
+    `).run(), /MODEL_FAILOVER_PROOF_IDENTITY_CONFLICT/);
+    assertThrowsMatching(() => db.prepare(`
+      INSERT OR REPLACE INTO model_failover_proofs (
+        rowid, proof_id, validation_run_id, role, suite, role_contract_sha256,
+        model_name, model_canonical_name, model_digest_sha256,
+        validation_version, policy_version, score, required_score,
+        passed_count, required_passed_count, total_count, duration_ms, result,
+        inventory_before_name, inventory_before_digest, inventory_after_name,
+        inventory_after_digest, started_at_ms, completed_at_ms, expires_at_ms,
+        created_at_ms
+      )
+      SELECT rowid, 'proof-rowid-replacement', 'proof-rowid-replacement-run',
+        role, suite, role_contract_sha256, model_name, model_canonical_name,
+        model_digest_sha256, validation_version, policy_version, score,
+        required_score, passed_count, required_passed_count, total_count,
+        duration_ms, result, inventory_before_name, inventory_before_digest,
+        inventory_after_name, inventory_after_digest, started_at_ms,
+        completed_at_ms, expires_at_ms, created_at_ms
+      FROM model_failover_proofs WHERE proof_id = 'proof-fixture-0001'
+    `).run(), /MODEL_FAILOVER_PROOF_ROWID_AUTHORITY/);
+    assertThrowsMatching(() => db.prepare(`
+      INSERT INTO model_failover_proofs (
+        rowid, proof_id, validation_run_id, role, suite, role_contract_sha256,
+        model_name, model_canonical_name, model_digest_sha256,
+        validation_version, policy_version, score, required_score,
+        passed_count, required_passed_count, total_count, duration_ms, result,
+        inventory_before_name, inventory_before_digest, inventory_after_name,
+        inventory_after_digest, started_at_ms, completed_at_ms, expires_at_ms,
+        created_at_ms
+      )
+      SELECT -1, 'proof-negative-rowid', 'proof-negative-rowid-run', role,
+        suite, role_contract_sha256, model_name, model_canonical_name,
+        model_digest_sha256, validation_version, policy_version, score,
+        required_score, passed_count, required_passed_count, total_count,
+        duration_ms, result, inventory_before_name, inventory_before_digest,
+        inventory_after_name, inventory_after_digest, started_at_ms,
+        completed_at_ms, expires_at_ms, created_at_ms
+      FROM model_failover_proofs WHERE proof_id = 'proof-fixture-0001'
+    `).run(), /MODEL_FAILOVER_PROOF_ROWID_AUTHORITY/);
+    assertThrowsMatching(() => db.prepare(`
+      INSERT INTO model_failover_proofs (
+        proof_id, validation_run_id, role, suite, role_contract_sha256,
+        model_name, model_canonical_name, model_digest_sha256,
+        validation_version, policy_version, score, required_score,
+        passed_count, required_passed_count, total_count, duration_ms, result,
+        inventory_before_name, inventory_before_digest, inventory_after_name,
+        inventory_after_digest, started_at_ms, completed_at_ms, expires_at_ms,
+        created_at_ms
+      )
+      SELECT NULL, 'proof-null-identity-run', role, suite,
+        role_contract_sha256, model_name, model_canonical_name,
+        model_digest_sha256, validation_version, policy_version, score,
+        required_score, passed_count, required_passed_count, total_count,
+        duration_ms, result, inventory_before_name, inventory_before_digest,
+        inventory_after_name, inventory_after_digest, started_at_ms,
+        completed_at_ms, expires_at_ms, created_at_ms
+      FROM model_failover_proofs WHERE proof_id = 'proof-fixture-0001'
+    `).run(), /MODEL_FAILOVER_PROOF_IDENTITY_REQUIRED/);
+    assertEqual(
+      db.prepare('SELECT COUNT(*) AS count FROM model_failover_proofs').get().count,
+      1,
+    );
+
+    insertDesiredBinding(db);
 
     assertThrowsMatching(() => db.prepare(
       "UPDATE model_failover_events SET reason_code = 'CHANGED' WHERE event_id = 'event-desired-observed'",

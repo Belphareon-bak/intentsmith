@@ -600,6 +600,57 @@ await testAsync('same-target user apply is a durable audited no-op', async () =>
     assertEqual(replay.noOpReceipt.receiptId, noOp.noOpReceipt.receiptId);
     assertEqual(runtime.counters.operation, 1);
 
+    const negativeReceiptRowid = captureError(() => firstDb.prepare(`
+      INSERT INTO model_binding_user_noop_receipts (
+        rowid, receipt_id, request_key, role, binding_revision, model_name,
+        canonical_name, digest_sha256, actor,
+        desired_source, desired_actor, desired_observed_at_ms,
+        desired_updated_at_ms, desired_last_event_id,
+        provider_command_cutoff_seq, source_provider_operation_id,
+        created_at_ms
+      )
+      SELECT -1, 'receipt-negative-rowid-0001', 'request-negative-rowid-0001',
+        role, binding_revision, model_name, canonical_name, digest_sha256, actor,
+        desired_source, desired_actor, desired_observed_at_ms,
+        desired_updated_at_ms, desired_last_event_id,
+        provider_command_cutoff_seq, source_provider_operation_id,
+        created_at_ms + 1
+      FROM model_binding_user_noop_receipts
+      WHERE receipt_id = ?
+    `).run(noOp.noOpReceipt.receiptId));
+    assert(/MODEL_BINDING_USER_NOOP_ROWID_AUTHORITY/.test(negativeReceiptRowid.message));
+    assertEqual(
+      firstDb.prepare('SELECT COUNT(*) AS n FROM model_binding_user_noop_receipts').get().n,
+      1,
+    );
+
+    const nullReceiptIdentity = captureError(() => firstDb.prepare(`
+      INSERT INTO model_binding_user_noop_receipts (
+        receipt_id, request_key, role, binding_revision, model_name,
+        canonical_name, digest_sha256, actor,
+        desired_source, desired_actor, desired_observed_at_ms,
+        desired_updated_at_ms, desired_last_event_id,
+        provider_command_cutoff_seq, source_provider_operation_id,
+        created_at_ms
+      )
+      SELECT NULL, 'request-null-receipt-id-0001', role, binding_revision,
+        model_name, canonical_name, digest_sha256, actor,
+        desired_source, desired_actor, desired_observed_at_ms,
+        desired_updated_at_ms, desired_last_event_id,
+        provider_command_cutoff_seq, source_provider_operation_id,
+        created_at_ms + 1
+      FROM model_binding_user_noop_receipts
+      WHERE receipt_id = ?
+    `).run(noOp.noOpReceipt.receiptId));
+    assert(
+      /MODEL_BINDING_USER_NOOP_IDENTITY_REQUIRED/.test(nullReceiptIdentity.message),
+      `Expected NULL receipt identity rejection, got ${nullReceiptIdentity.message}`,
+    );
+    assertEqual(
+      firstDb.prepare('SELECT COUNT(*) AS n FROM model_binding_user_noop_receipts').get().n,
+      1,
+    );
+
     runtime.setNow(2200);
     const later = applyChat(repository, {
       requestKey: 'request-after-noop-0001',
@@ -633,7 +684,7 @@ await testAsync('same-target user apply is a durable audited no-op', async () =>
       assert(/append-only/.test(immutable.message));
     }
     const receiptBeforeReplace = firstDb.prepare(`
-      SELECT receipt_id, request_key, actor, created_at_ms
+      SELECT rowid AS storage_rowid, receipt_id, request_key, actor, created_at_ms
       FROM model_binding_user_noop_receipts
       WHERE receipt_id = ?
     `).get(noOp.noOpReceipt.receiptId);
@@ -658,7 +709,34 @@ await testAsync('same-target user apply is a durable audited no-op', async () =>
     assert(/MODEL_BINDING_USER_NOOP_APPEND_ONLY_CONFLICT/.test(replaceReceipt.message));
     assertEqual(
       JSON.stringify(firstDb.prepare(`
-        SELECT receipt_id, request_key, actor, created_at_ms
+        SELECT rowid AS storage_rowid, receipt_id, request_key, actor, created_at_ms
+        FROM model_binding_user_noop_receipts
+        WHERE receipt_id = ?
+      `).get(noOp.noOpReceipt.receiptId)),
+      JSON.stringify(receiptBeforeReplace),
+    );
+    const hiddenRowidReplacement = captureError(() => firstDb.prepare(`
+      INSERT OR REPLACE INTO model_binding_user_noop_receipts (
+        rowid, receipt_id, request_key, role, binding_revision, model_name,
+        canonical_name, digest_sha256, actor,
+        desired_source, desired_actor, desired_observed_at_ms,
+        desired_updated_at_ms, desired_last_event_id,
+        provider_command_cutoff_seq, source_provider_operation_id,
+        created_at_ms
+      )
+      SELECT rowid, 'receipt-hidden-rowid-0001', 'request-hidden-rowid-0001',
+        role, binding_revision, model_name, canonical_name, digest_sha256, actor,
+        desired_source, desired_actor, desired_observed_at_ms,
+        desired_updated_at_ms, desired_last_event_id,
+        provider_command_cutoff_seq, source_provider_operation_id,
+        created_at_ms
+      FROM model_binding_user_noop_receipts
+      WHERE receipt_id = ?
+    `).run(noOp.noOpReceipt.receiptId));
+    assert(/MODEL_BINDING_USER_NOOP_ROWID_AUTHORITY/.test(hiddenRowidReplacement.message));
+    assertEqual(
+      JSON.stringify(firstDb.prepare(`
+        SELECT rowid AS storage_rowid, receipt_id, request_key, actor, created_at_ms
         FROM model_binding_user_noop_receipts
         WHERE receipt_id = ?
       `).get(noOp.noOpReceipt.receiptId)),
@@ -767,7 +845,7 @@ await testAsync('no-op provider supersession uses committed terminal lineage, no
       targetModelName: 'reasoner',
       targetDigestSha256: DIGEST_A,
     });
-    for (const invalidSeq of [0, -2, 99]) {
+    for (const invalidSeq of [0, -1, -2, 99]) {
       let invalidSequence = null;
       try {
         firstDb.prepare(`
@@ -776,7 +854,7 @@ await testAsync('no-op provider supersession uses committed terminal lineage, no
           request_purpose, expected_binding_revision, provider_origin,
           requested_model_name, requested_canonical_name, actor,
           initial_claim_token, initial_claim_expires_at_ms, created_at_ms
-        ) VALUES (?, ?, ?, 'D1', 'PULL', 'USER_APPLY_TARGET', 1,
+        ) VALUES (?, ?, ?, 'CHAT', 'PULL', 'USER_APPLY_TARGET', 1,
           'http://127.0.0.1:11434', 'sequence-target', 'sequence-target',
           'user:fixture', ?, 300900, 900)
         `).run(
@@ -789,10 +867,11 @@ await testAsync('no-op provider supersession uses committed terminal lineage, no
         invalidSequence = error;
       }
       assert(invalidSequence, `Explicit provider command sequence ${invalidSeq} was accepted`);
-      assert(
-        /CHECK constraint failed|COMMAND_SEQUENCE_AUTHORITY/.test(invalidSequence.message),
-        `Expected invalid provider command sequence rejection, got ${invalidSequence.message}`,
-      );
+      const expectedSignal = invalidSeq === -1
+        ? /CHECK constraint failed/
+        : /COMMAND_SEQUENCE_AUTHORITY/;
+      assert(expectedSignal.test(invalidSequence.message),
+        `Expected invalid provider command sequence rejection, got ${invalidSequence.message}`);
     }
     const laterProvider = second.recordManualProviderPullIntent({
       requestKey: 'request-provider-after-noop-0001',
@@ -911,6 +990,22 @@ await testAsync('no-op provider supersession uses committed terminal lineage, no
       ) VALUES (?, ?)
     `).run(laterReceipt.noOpReceipt.receiptId, earlierProvider.operation.operationId));
     assert(/NOOP_PROVIDER_SUPERSEDES_CONFLICT/.test(replaceLineage.message));
+    const hiddenLineageRowid = captureError(() => secondDb.prepare(`
+      INSERT OR REPLACE INTO model_binding_user_noop_provider_supersedes (
+        rowid, receipt_id, provider_operation_id
+      )
+      SELECT rowid, ?, provider_operation_id
+      FROM model_binding_user_noop_provider_supersedes
+      WHERE provider_operation_id = ?
+    `).run(
+      laterReceipt.noOpReceipt.receiptId,
+      earlierProvider.operation.operationId,
+    ));
+    assert(
+      /MODEL_BINDING_USER_NOOP_PROVIDER_SUPERSEDES_ROWID_AUTHORITY/.test(
+        hiddenLineageRowid.message,
+      ),
+    );
     assertEqual(
       secondDb.prepare(`
         SELECT receipt_id
@@ -2145,6 +2240,29 @@ await testAsync('provider pull journal rejects SQL tamper, identity drift and ti
     }).operation;
 
     const terminalOperation = createIntent('provider-guard-request-0001');
+    for (const injectedSequence of [999, -1]) {
+      const beforeTerminalSequenceInjection = authoritySnapshot(firstDb);
+      const providerSequenceInjection = captureError(() => firstDb.prepare(`
+        INSERT INTO model_binding_provider_attempts (
+          seq, operation_id, attempt_revision, outcome, observed_model_name,
+          observed_canonical_name, observed_digest_sha256, failure_code,
+          retryable, claim_token, fencing_revision, created_at_ms
+        ) VALUES (?, ?, 1, 'FAILED', NULL, NULL, NULL,
+          'MODEL_BINDING_PROVIDER_PULL_FAILED', 1, ?, 1, 3050)
+      `).run(
+        injectedSequence,
+        terminalOperation.operationId,
+        terminalOperation.claim.claimToken,
+      ));
+      assert(
+        /MODEL_BINDING_PROVIDER_ATTEMPT_SEQUENCE_AUTHORITY/.test(
+          providerSequenceInjection.message,
+        ),
+        `Expected provider sequence authority rejection, got ${providerSequenceInjection.message}`,
+      );
+      assertEqual(authoritySnapshot(firstDb), beforeTerminalSequenceInjection);
+    }
+
     runtime.setNow(3100);
     repository.recordManualProviderPullSucceeded({
       operationId: terminalOperation.operationId,
@@ -2171,6 +2289,60 @@ await testAsync('provider pull journal rejects SQL tamper, identity drift and ti
       const error = captureError(() => firstDb.exec(sql));
       assert(/append-only/.test(error.message), `Expected append-only rejection for ${sql}`);
     }
+
+    const providerOperationReplacement = captureError(() => firstDb.prepare(`
+      INSERT OR REPLACE INTO model_binding_provider_operations (
+        operation_id, request_key, role, effect_kind, request_purpose,
+        expected_binding_revision, provider_origin, requested_model_name,
+        requested_canonical_name, actor, initial_claim_token,
+        initial_claim_expires_at_ms, created_at_ms
+      )
+      SELECT operation_id, request_key, role, effect_kind, request_purpose,
+        expected_binding_revision, provider_origin, requested_model_name,
+        requested_canonical_name, 'user:replacement', initial_claim_token,
+        initial_claim_expires_at_ms, created_at_ms
+      FROM model_binding_provider_operations
+      WHERE operation_id = ?
+    `).run(terminalOperation.operationId));
+    assert(
+      /MODEL_BINDING_PROVIDER_OPERATION_IDENTITY_CONFLICT/.test(
+        providerOperationReplacement.message,
+      ),
+      `Expected provider operation identity rejection, got ${providerOperationReplacement.message}`,
+    );
+    assertEqual(firstDb.prepare(`
+      SELECT actor FROM model_binding_provider_operations WHERE operation_id = ?
+    `).get(terminalOperation.operationId).actor, 'user:fixture');
+
+    const providerAttemptBusinessSql = firstDb.prepare(`
+      SELECT sql FROM sqlite_master
+      WHERE type = 'trigger' AND name = 'trg_model_binding_provider_attempt_once'
+    `).get().sql;
+    firstDb.exec('DROP TRIGGER trg_model_binding_provider_attempt_once');
+    firstDb.exec(providerAttemptBusinessSql);
+    const providerAttemptReplacement = captureError(() => firstDb.prepare(`
+      INSERT OR REPLACE INTO model_binding_provider_attempts (
+        operation_id, attempt_revision, outcome, observed_model_name,
+        observed_canonical_name, observed_digest_sha256, failure_code,
+        retryable, claim_token, fencing_revision, created_at_ms
+      )
+      SELECT operation_id, attempt_revision, outcome, observed_model_name,
+        observed_canonical_name, observed_digest_sha256, failure_code,
+        retryable, claim_token, fencing_revision, created_at_ms + 1
+      FROM model_binding_provider_attempts
+      WHERE operation_id = ? AND attempt_revision = 1
+    `).run(terminalOperation.operationId));
+    assert(
+      /MODEL_BINDING_PROVIDER_ATTEMPT_IDENTITY_CONFLICT/.test(
+        providerAttemptReplacement.message,
+      ),
+      `Expected provider attempt identity rejection, got ${providerAttemptReplacement.message}`,
+    );
+    assertEqual(firstDb.prepare(`
+      SELECT created_at_ms
+      FROM model_binding_provider_attempts
+      WHERE operation_id = ? AND attempt_revision = 1
+    `).get(terminalOperation.operationId).created_at_ms, 3100);
 
     const externalOrigin = captureError(() => firstDb.prepare(`
       INSERT INTO model_binding_provider_operations (
@@ -2230,8 +2402,8 @@ await testAsync('provider pull journal rejects SQL tamper, identity drift and ti
         'MODEL_BINDING_PROVIDER_PULL_FAILED', 1, ?, 1, 3200)
     `).run(terminalOperation.operationId, terminalOperation.claim.claimToken));
     assert(
-      /MODEL_BINDING_PROVIDER_(TERMINAL|CLAIM_STALE)/.test(duplicateTerminal.message),
-      `Expected terminal/claim rejection, got ${duplicateTerminal.message}`,
+      /MODEL_BINDING_PROVIDER_ATTEMPT_IDENTITY_CONFLICT/.test(duplicateTerminal.message),
+      `Expected provider attempt identity rejection, got ${duplicateTerminal.message}`,
     );
     runtime.setNow(4000);
     const identityOperation = createIntent('provider-guard-request-0002');
@@ -2936,6 +3108,48 @@ await testAsync('application APIs reject authority injection, stale revisions an
       runtimeChanged: true,
     });
     const afterRuntime = authoritySnapshot(firstDb);
+    const applicationRevisionBusinessSql = firstDb.prepare(`
+      SELECT sql FROM sqlite_master
+      WHERE type = 'trigger' AND name = 'trg_model_binding_application_revision'
+    `).get().sql;
+    firstDb.exec('DROP TRIGGER trg_model_binding_application_revision');
+    firstDb.exec(applicationRevisionBusinessSql);
+    const applicationReplacement = captureError(() => firstDb.prepare(`
+      INSERT OR REPLACE INTO model_binding_application_attempts (
+        operation_id, attempt_revision, attempt_kind, outcome,
+        observed_model_name, observed_canonical_name, observed_digest_sha256,
+        verification_method, failure_code, retryable, created_at_ms
+      )
+      SELECT operation_id, attempt_revision, attempt_kind, outcome,
+        observed_model_name, observed_canonical_name, observed_digest_sha256,
+        verification_method, failure_code, retryable, created_at_ms + 1
+      FROM model_binding_application_attempts
+      WHERE operation_id = ? AND attempt_revision = 1
+    `).run(operationId));
+    assert(
+      /MODEL_BINDING_APPLICATION_IDENTITY_CONFLICT/.test(applicationReplacement.message),
+      `Expected application identity rejection, got ${applicationReplacement.message}`,
+    );
+    assertEqual(authoritySnapshot(firstDb), afterRuntime);
+
+    for (const injectedSequence of [999, -1]) {
+      const applicationSequenceInjection = captureError(() => firstDb.prepare(`
+        INSERT INTO model_binding_application_attempts (
+          seq, operation_id, attempt_revision, attempt_kind, outcome,
+          observed_model_name, observed_canonical_name, observed_digest_sha256,
+          verification_method, failure_code, retryable, created_at_ms
+        ) VALUES (?, ?, 2, 'NOTIFICATION', 'FAILED', NULL, NULL, NULL,
+          NULL, 'MODEL_BINDING_NOTIFICATION_RECEIPT_NOT_ISSUED', 0, 2150)
+      `).run(injectedSequence, operationId));
+      assert(
+        /MODEL_BINDING_APPLICATION_SEQUENCE_AUTHORITY/.test(
+          applicationSequenceInjection.message,
+        ),
+        `Expected application sequence authority rejection, got ${applicationSequenceInjection.message}`,
+      );
+      assertEqual(authoritySnapshot(firstDb), afterRuntime);
+    }
+
     const fakeProbe = captureError(() => firstDb.prepare(`
       INSERT INTO model_binding_application_attempts (
         operation_id, attempt_revision, attempt_kind, outcome,

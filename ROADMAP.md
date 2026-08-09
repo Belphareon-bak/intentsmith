@@ -705,6 +705,23 @@ focused regression sady.
      přijetí. Dnešní produkční void broadcaster proto pravdivě zapisuje
      `RECEIPT_NOT_ISSUED` a stav je degraded; exactly-once doručení bez outboxu
      se netvrdí.
+     **Třináctý checkpoint uzavírá append-only identitu na každé SQLite insert
+     hranici:** migrace 053 odmítá `INSERT OR REPLACE` kolizi nad proof, event,
+     binding operation, application attempt, provider operation, provider
+     attempt i no-op receipt/junction journalem. Chrání deklarované klíče i
+     skrytý SQLite `rowid`; před první schema mutací odmítne starší journal s
+     nekladným pořadím nebo `NULL` TEXT identitou. Preexistující business
+     triggery při nesentinelovém authority/identity konfliktu mlčí nezávisle na
+     pořadí jejich vytvoření. Sekvence eventů, application attemptů a provider
+     attemptů smí přidělit jen databáze. Explicitní `-1` sentinel u jinak
+     business-validního řádku vrátí celý statement s vlastněným signálem a bez
+     trvalé mutace. Přesné negativní testy
+     současně ověřují, že původní řádek zůstane beze změny, a pozitivní
+     repository/application cesty zůstávají zelené. Checkpoint nepřidává
+     proof issuer, automatic failover, scheduler ani provider efekt. U
+     preexistujících kladných rowid/sekvencí nelze zpětně dokázat, zda je
+     historicky přidělila DB nebo caller; to je přiznané jednorázové omezení
+     upgradu, ne claim migrace.
 3. **Connector:** adaptér `ModelRequest/Result` v1; nemění schéma.
 4. **Závislost:** `WP-M1-CONTRACT`; offline fake běhy nečekají na GPU.
 5. **Demo:** skutečná Ollama odpověď; negativní unavailable cesta používá
