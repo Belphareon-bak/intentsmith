@@ -1324,8 +1324,12 @@ mohou pokračovat.
    Exact server ingress/egress adapter a Studio source producer/terminal ledger
    jsou focused implementované; clean clone `f2d9055c` navíc offline sestavil
    skutečný generated protocol i production bundle a načetl consumer bez
-   testového stubu. Produkční ACK a negotiated Electron journey tím ještě
-   nejsou prokázané. Cancel terminal ordering už závazně plyne z přijatého
+   testového stubu. Commit `7b887e88` tuto ruční kontrolu přenesl do
+   fail-closed root `postbuild`: exact clean clone provedl protocol codec,
+   terminal stream, izolované načtení consumeru, bundle inclusion a Fonts
+   egress guard a vydal byte-level hashe všech tří artefaktů. Jde o build
+   integrity, ne behavioral journey. Produkční ACK a negotiated Electron
+   journey tím ještě nejsou prokázané. Cancel terminal ordering už závazně plyne z přijatého
    004/C a není nová otázka. Disposable fresh clone na `9464dacf` dříve offline
    reprodukoval production build a 65s non-visual legacy Electron boundary
    journey s nulovým egresssem a čistým shutdownem; tím se ověřilo prostředí,

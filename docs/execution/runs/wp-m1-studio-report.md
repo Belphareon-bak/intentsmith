@@ -1002,7 +1002,7 @@ celý B4 proto zůstávají `BLOCKED`.
 ## Checkpoint 19 — fail-closed postbuild consumer guard
 
 - **automatický build guard:** `IMPLEMENTED / FOCUSED PASS`
-- **clean-clone build tohoto guardu:** `PASS` na `387ff5a3`
+- **clean-clone build tohoto guardu:** `PASS` na `7b887e88`
 - **produkční ACK / Electron journey / celý B4:** nadále `BLOCKED`
 
 Root Studio `build` nově pokračuje přes `postbuild`, který čte skutečný
@@ -1029,14 +1029,16 @@ evidence:
 | `node --check tests/m1-studio-client.test.js` | syntax valid | 0 |
 | `node tests/m1-studio-client.test.js` | 87 passed, 0 failed, 0 skipped | 0 |
 
-Disposable lokální clone `/tmp/intentsmith-m1-postbuild-k46gBRaq` byl detached
-na přesném SHA `387ff5a3c10c360ac836918f2aee38770a5fad90` a provedl:
+Disposable lokální clone `/tmp/intentsmith-m1-postbuild-final-BZefSROl` byl
+detached na přesném SHA `7b887e885b5df75bae112310954984c21b91bc7a`
+a provedl:
 
 | Příkaz | Výsledek | Exit |
 |---|---|---:|
 | `corepack yarn install --frozen-lockfile --offline --non-interactive` v `c3-ide/` | Yarn 1.22.22 frozen offline install; pouze peer/engine warnings | 0 |
 | `corepack yarn build` v `c3-ide/` | forced protocol compile, Theia production build a automatický `STUDIO_M1_BUILD_CONSUMER_PASS` | 0 |
 | `node tests/m1-studio-client.test.js` v clone | 87 passed, 0 failed, 0 skipped | 0 |
+| `node tests/repository-hygiene.test.js` v clone | 1 532 tracked paths | 0 |
 | `git status --porcelain=v1 --untracked-files=all` a `git diff --check` | prázdné; install/build output zůstal ignored | 0 |
 
 Automatický PASS na Node `v22.21.1` zaznamenal production bundle
@@ -1048,11 +1050,11 @@ a generated protocol 1 161 B / SHA-256
 `cdad67d9d818f845be3e6b6963b9befbecd4664b5ed1733af40df4883ad18f92`.
 Webpack vydal pouze známé performance/dynamic-require warnings.
 
-Následný repository-hygiene běh nad source commitem správně odmítl doslovné
-font hosty uvnitř samotného denylistu. Scanner se neoslabil: guard nyní skládá
-stejné dvě kanonické hodnoty z přesných segmentů, zatímco focused test drží
-jejich nezávislé plné řetězce. Aktuální opravný source SHA musí znovu projít
-clean-clone buildem, než se tento PASS propíše do roadmapy.
+První source commit odhalil integrační kolizi: repository-hygiene správně
+odmítl doslovné font hosty uvnitř samotného denylistu. Scanner se neoslabil.
+Guard nyní skládá stejné dvě kanonické hodnoty z přesných segmentů, focused
+test drží jejich nezávislé plné řetězce a finální clean clone prokázal současně
+postbuild i hygiene PASS.
 
 Marker guard je přítomnostní build integrita, nikoli behavioral journey ani
 důkaz produkčně negotiated spojení. Backend, Electron runtime, Ollama, GPU ani
