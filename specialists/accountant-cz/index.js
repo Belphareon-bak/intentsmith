@@ -10,13 +10,7 @@
 
 import { fileURLToPath } from 'url';
 import path from 'path';
-import {
-  TaxCalculatorAdapter,
-  VATCalculatorAdapter,
-  SalaryCalculatorAdapter,
-  DeadlineCheckerAdapter,
-  CompareAdapter,
-} from './adapters.js';
+import { createAdapters } from './adapters.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -152,8 +146,17 @@ Na konci KAŽDÉ odpovědi obsahující výpočet nebo daňovou radu:
 
 // ─── Tool definitions ────────────────────────────────────────────────────────
 
-function buildToolDefinitions(toolsDir) {
-  return [
+function createToolDefinitionBuilder(ToolAdapter) {
+  const {
+    TaxCalculatorAdapter,
+    VATCalculatorAdapter,
+    SalaryCalculatorAdapter,
+    DeadlineCheckerAdapter,
+    CompareAdapter,
+  } = createAdapters(ToolAdapter);
+
+  return function buildToolDefinitions(toolsDir) {
+    return [
     {
       id: 'accountant.compare_tax_entities',
       name: 'Porovnání OSVČ vs s.r.o.',
@@ -291,7 +294,8 @@ function buildToolDefinitions(toolsDir) {
         return params;
       },
     },
-  ];
+    ];
+  };
 }
 
 // ─── Boost Patterns ──────────────────────────────────────────────────────────
@@ -317,8 +321,12 @@ const ACCOUNTANT_BOOST_PATTERNS = [
  * @param {Object} ctx - Registration context from specialist-loader
  */
 export async function register(ctx) {
+  if (typeof ctx?.ToolAdapter !== 'function') {
+    throw new TypeError('ACCOUNTANT_TOOL_ADAPTER_REQUIRED');
+  }
   const { runtime, manifest, logger: log } = ctx;
   const toolsDir = path.join(__dirname, 'tools');
+  const buildToolDefinitions = createToolDefinitionBuilder(ctx.ToolAdapter);
 
   // 1. Tools — register into SpecialistRuntime
   runtime.registerSpecialist({

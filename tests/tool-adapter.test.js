@@ -9,13 +9,15 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { ToolAdapter } from '../src/expertises/tool-adapter.js';
-import {
+import { createAdapters } from '../specialists/accountant-cz/adapters.js';
+
+const {
   TaxCalculatorAdapter,
   VATCalculatorAdapter,
   SalaryCalculatorAdapter,
   DeadlineCheckerAdapter,
   CompareAdapter,
-} from '../specialists/accountant-cz/adapters.js';
+} = createAdapters(ToolAdapter);
 
 let passed = 0;
 let failed = 0;
@@ -44,6 +46,22 @@ function assertEq(actual, expected, name) {
 
 // ══════════════════════════════════════════════════════════════════════════════
 console.log('\n══════ ToolAdapter Unit Tests ══════');
+
+assert(
+  Object.getPrototypeOf(TaxCalculatorAdapter.prototype) === ToolAdapter.prototype,
+  'factory: adapters extend the injected ToolAdapter identity',
+);
+let missingInjection = null;
+try {
+  createAdapters(null);
+} catch (error) {
+  missingInjection = error;
+}
+assertEq(
+  missingInjection?.message,
+  'ACCOUNTANT_TOOL_ADAPTER_REQUIRED',
+  'factory: missing ToolAdapter fails explicitly',
+);
 
 // ── 1. Base class: validate ─────────────────────────────────────────────────
 console.log('\n── 1. ToolAdapter.validate() ──');

@@ -9,7 +9,6 @@
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
-import { ToolAdapter } from '../../src/expertises/tool-adapter.js';
 import { calculateTax, compareTaxEntities } from './tools/tax-calc.js';
 import { calculateVAT } from './tools/vat-calc.js';
 import { calculateSalary } from './tools/salary-calc.js';
@@ -18,9 +17,14 @@ import { supportedYears } from './tools/tax-rates.js';
 
 const SUPPORTED = supportedYears(); // [2024, 2025]
 
+export function createAdapters(ToolAdapter) {
+  if (typeof ToolAdapter !== 'function') {
+    throw new TypeError('ACCOUNTANT_TOOL_ADAPTER_REQUIRED');
+  }
+
 // ─── Tax Calculator ─────────────────────────────────────────────────────────
 
-export class TaxCalculatorAdapter extends ToolAdapter {
+class TaxCalculatorAdapter extends ToolAdapter {
   constructor() {
     super({
       required: ['gross_income'],
@@ -73,7 +77,7 @@ export class TaxCalculatorAdapter extends ToolAdapter {
 
 // ─── VAT Calculator ─────────────────────────────────────────────────────────
 
-export class VATCalculatorAdapter extends ToolAdapter {
+class VATCalculatorAdapter extends ToolAdapter {
   constructor() {
     super({
       required: ['amount'],
@@ -109,7 +113,7 @@ export class VATCalculatorAdapter extends ToolAdapter {
 
 // ─── Salary Calculator ──────────────────────────────────────────────────────
 
-export class SalaryCalculatorAdapter extends ToolAdapter {
+class SalaryCalculatorAdapter extends ToolAdapter {
   constructor() {
     super({
       required: ['gross_salary'],
@@ -144,7 +148,7 @@ export class SalaryCalculatorAdapter extends ToolAdapter {
 
 // ─── Deadline Checker ───────────────────────────────────────────────────────
 
-export class DeadlineCheckerAdapter extends ToolAdapter {
+class DeadlineCheckerAdapter extends ToolAdapter {
   constructor() {
     super({
       required: ['entity_type'],
@@ -171,7 +175,7 @@ export class DeadlineCheckerAdapter extends ToolAdapter {
 
 // ─── Compare Tax Entities ───────────────────────────────────────────────────
 
-export class CompareAdapter extends ToolAdapter {
+class CompareAdapter extends ToolAdapter {
   constructor() {
     super({
       required: ['gross_income'],
@@ -199,4 +203,13 @@ export class CompareAdapter extends ToolAdapter {
 
     return { valid: issues.length === 0, issues };
   }
+}
+
+  return Object.freeze({
+    TaxCalculatorAdapter,
+    VATCalculatorAdapter,
+    SalaryCalculatorAdapter,
+    DeadlineCheckerAdapter,
+    CompareAdapter,
+  });
 }

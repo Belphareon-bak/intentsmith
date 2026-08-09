@@ -6,6 +6,7 @@
 import { suite, test, testAsync, assert, assertEqual, summary } from './harness.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { ToolAdapter } from '../src/expertises/tool-adapter.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
@@ -114,8 +115,21 @@ function setup() {
     logger: { warn: () => {}, info: () => {}, debug: () => {}, error: () => {} },
     knowledgeBase,
     registries,
+    ToolAdapter,
   };
 }
+
+setup();
+await testAsync('missing ToolAdapter fails before registration', async () => {
+  let error = null;
+  try {
+    await accountant.register({ ...ctx, ToolAdapter: null });
+  } catch (caught) {
+    error = caught;
+  }
+  assertEqual(error?.message, 'ACCOUNTANT_TOOL_ADAPTER_REQUIRED');
+  assertEqual(runtime._data.size, 0, 'missing injection must not register tools');
+});
 
 setup();
 await testAsync('register() succeeds', async () => {
@@ -302,6 +316,7 @@ await testAsync('register works with only runtime', async () => {
     manifest,
     specialistDir: path.join(ROOT, 'specialists', 'accountant-cz'),
     registries: {},
+    ToolAdapter,
   };
   await accountant.register(minCtx);
   assert(minRuntime.isSpecialist('accountant'), 'should register tools even without registries');
@@ -314,6 +329,7 @@ await testAsync('register works with null registries', async () => {
     manifest,
     specialistDir: path.join(ROOT, 'specialists', 'accountant-cz'),
     registries: null,
+    ToolAdapter,
   };
   // Should not throw
   await accountant.register(minCtx);

@@ -1757,6 +1757,507 @@ console.log('\n── 41. Recovery: re-enable old code after failed update ─�
 
 // ═════════════════════════════════════════════════════════════════════════════
 
+function writePreflightFixture(baseDir, name, {
+  enabledByDefault = true,
+  entrySource = null,
+  extraFiles = {},
+} = {}) {
+  const dir = path.join(baseDir, name);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'specialist.json'), JSON.stringify({
+    id: name,
+    version: '1.0.0',
+    name: `Preflight ${name}`,
+    domain: 'test',
+    type: 'utility',
+    engine: '>=65.0.0',
+    entry: './index.js',
+    tools: [],
+    expertises: [name],
+    knowledge_packs: [],
+    migrations: [],
+    enabledByDefault,
+  }));
+  fs.writeFileSync(path.join(dir, 'index.js'), entrySource || `
+export function register(ctx) {
+  ctx.runtime.registerSpecialist({ id: '${name}', domain: 'test', tools: [] });
+}
+export function unregister(ctx) {
+  ctx.runtime.unregisterSpecialist('${name}');
+}
+`);
+  for (const [relativePath, contents] of Object.entries(extraFiles)) {
+    const target = path.join(dir, relativePath);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, contents);
+  }
+  return dir;
+}
+
+function discoverPreflightFixture(baseDir, options = {}) {
+  const db = createTestDb();
+  const runtime = createMockRuntime();
+  const loader = new SpecialistLoader(db, runtime, {
+    baseDir,
+    engineVersion: ENGINE_VERSION,
+    ...options,
+  });
+  let error = null;
+  let manifests = null;
+  try {
+    manifests = loader.discoverAll();
+  } catch (caught) {
+    error = caught;
+  }
+  return { db, error, loader, manifests, runtime };
+}
+
+function computedPreflightSource({
+  anchor = "path.join(__dirname, 'tools')",
+  target = 'tool.modulePath',
+} = {}) {
+  return `
+import path from 'path';
+import { fileURLToPath } from 'url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+function buildToolDefinitions(toolsDir) {
+  return [{ modulePath: path.join(toolsDir, 'tool.js') }];
+}
+export async function register(input) {
+  const toolsDir = ${anchor};
+  const tools = buildToolDefinitions(toolsDir);
+  for (const tool of tools) {
+    await import(${target});
+  }
+}
+`;
+}
+
+console.log('\n── 42. Strict package preflight ──');
+
+{
+  const db = createTestDb();
+  const loader = new SpecialistLoader(db, createMockRuntime(), {
+    baseDir: path.join(PROJECT_ROOT, 'specialists'),
+    engineVersion: ENGINE_VERSION,
+  });
+  const manifests = loader.discoverAll();
+  assert(
+    manifests.some(({ id }) => id === 'accountant-cz'),
+    'computed-package-local proof accepts current accountant',
+  );
+  assert(
+    manifests.some(({ id }) => id === 'code-reviewer'),
+    'computed-package-local proof accepts current code-reviewer',
+  );
+  db.close();
+}
+
+const referenceVariants = [
+  ['static-js', 'lib/deep.js', "import '../../src/core.js';\n"],
+  ['dynamic-mjs', 'lib/deep.mjs', "await import('../../src/core.js');\n"],
+  ['require-cjs', 'lib/deep.cjs', "require('../../src/core.cjs');\n"],
+  ['reexport-js', 'lib/reexport.js', "export * from '../../src/core.js';\n"],
+  [
+    'jsdoc-js',
+    'lib/types.js',
+    "/** @type {import('../../src/core.js').Core} */\nexport const value = null;\n",
+  ],
+];
+for (const [name, relativePath, source] of referenceVariants) {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-preflight-ref-'));
+  try {
+    fs.mkdirSync(path.join(tempDir, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'src', 'core.js'), 'export const core = true;\n');
+    fs.writeFileSync(path.join(tempDir, 'src', 'core.cjs'), 'module.exports = {};\n');
+    writePreflightFixture(tempDir, name, { extraFiles: { [relativePath]: source } });
+    const result = discoverPreflightFixture(tempDir);
+    assertEq(
+      result.error?.code,
+      'SPECIALIST_PATH_ESCAPE',
+      `${name} reference outside package fails closed`,
+    );
+    result.db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-preflight-effect-'));
+  const marker = path.join(tempDir, 'entry-executed');
+  try {
+    fs.mkdirSync(path.join(tempDir, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'src', 'core.js'), 'export const core = true;\n');
+    writePreflightFixture(tempDir, 'effect-blocked', {
+      entrySource: `
+import fs from 'node:fs';
+fs.writeFileSync(${JSON.stringify(marker)}, 'executed');
+export function register() {}
+`,
+      extraFiles: { 'nested/violation.js': "import '../../src/core.js';\n" },
+    });
+    const result = discoverPreflightFixture(tempDir);
+    assertEq(result.error?.code, 'SPECIALIST_PATH_ESCAPE', 'nested violation rejects package');
+    assert(!fs.existsSync(marker), 'nested violation blocks entry top-level side effect');
+    result.db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+const treeFailures = [
+  ['parse-failure', 'lib/bad.js', 'export const = ;\n', null, 'SPECIALIST_SOURCE_PARSE_FAILED'],
+  [
+    'decode-failure',
+    'lib/bad.mjs',
+    Buffer.from([0xff]),
+    null,
+    'SPECIALIST_SOURCE_DECODE_FAILED',
+  ],
+  [
+    'typescript',
+    'lib/bad.ts',
+    'export const bad = true;\n',
+    null,
+    'SPECIALIST_UNKNOWN_EXECUTABLE_EXTENSION',
+  ],
+  [
+    'executable-text',
+    'lib/run.txt',
+    '#!/bin/sh\nexit 0\n',
+    0o755,
+    'SPECIALIST_UNKNOWN_EXECUTABLE_EXTENSION',
+  ],
+  [
+    'unreadable',
+    'lib/private.cjs',
+    'module.exports = {};\n',
+    0o000,
+    'SPECIALIST_TREE_READ_FAILED',
+  ],
+];
+for (const [name, relativePath, source, mode, expectedCode] of treeFailures) {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-preflight-tree-'));
+  try {
+    const packageDir = writePreflightFixture(tempDir, name, {
+      extraFiles: { [relativePath]: source },
+    });
+    if (mode !== null) fs.chmodSync(path.join(packageDir, relativePath), mode);
+    const result = discoverPreflightFixture(tempDir);
+    assertEq(result.error?.code, expectedCode, `${name} fails closed`);
+    result.db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-preflight-link-'));
+  try {
+    const packageDir = writePreflightFixture(tempDir, 'link-escape');
+    const external = path.join(tempDir, 'external.js');
+    fs.writeFileSync(external, 'export const external = true;\n');
+    fs.mkdirSync(path.join(packageDir, 'nested'), { recursive: true });
+    fs.symlinkSync(external, path.join(packageDir, 'nested', 'escape.js'));
+    const result = discoverPreflightFixture(tempDir);
+    assertEq(
+      result.error?.code,
+      'SPECIALIST_UNSAFE_TREE_ENTRY',
+      'symlinked package source fails closed',
+    );
+    result.db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-preflight-computed-'));
+  try {
+    writePreflightFixture(tempDir, 'computed-safe', {
+      entrySource: computedPreflightSource(),
+      extraFiles: { 'tools/tool.js': 'export const safe = true;\n' },
+    });
+    const result = discoverPreflightFixture(tempDir);
+    assertEq(result.error, null, 'exact computed-package-local fixture passes');
+    assertEq(result.manifests?.length, 1, 'safe computed fixture is discovered');
+    result.db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+for (const [name, source] of [
+  ['computed-anchor', computedPreflightSource({ anchor: "path.resolve(__dirname, 'tools')" })],
+  ['computed-input', computedPreflightSource({ target: 'input.modulePath' })],
+]) {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-preflight-computed-bad-'));
+  try {
+    writePreflightFixture(tempDir, name, {
+      entrySource: source,
+      extraFiles: { 'tools/tool.js': 'export const unsafe = true;\n' },
+    });
+    const result = discoverPreflightFixture(tempDir);
+    assertEq(
+      result.error?.code,
+      'SPECIALIST_UNPROVEN_COMPUTED_IMPORT',
+      `${name} fails closed`,
+    );
+    result.db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-preflight-computed-link-'));
+  try {
+    const packageDir = writePreflightFixture(tempDir, 'computed-link', {
+      entrySource: computedPreflightSource(),
+    });
+    const external = path.join(tempDir, 'external-tool.js');
+    fs.writeFileSync(external, 'export const external = true;\n');
+    fs.mkdirSync(path.join(packageDir, 'tools'), { recursive: true });
+    fs.symlinkSync(external, path.join(packageDir, 'tools', 'tool.js'));
+    const result = discoverPreflightFixture(tempDir);
+    assertEq(
+      result.error?.code,
+      'SPECIALIST_UNSAFE_TREE_ENTRY',
+      'computed target symlink fails closed',
+    );
+    result.db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-preflight-injection-'));
+  const marker = path.join(tempDir, 'missing-adapter-executed');
+  try {
+    writePreflightFixture(tempDir, 'missing-adapter', {
+      entrySource: `
+import fs from 'node:fs';
+fs.writeFileSync(${JSON.stringify(marker)}, 'executed');
+export function register() {}
+`,
+    });
+    const result = discoverPreflightFixture(tempDir, { ToolAdapter: null });
+    let error = null;
+    try {
+      await result.loader._enableOne(
+        'missing-adapter',
+        result.loader._discovered.get('missing-adapter'),
+      );
+    } catch (caught) {
+      error = caught;
+    }
+    assertEq(error?.message, 'SPECIALIST_TOOL_ADAPTER_REQUIRED', 'missing injection is named');
+    assert(!fs.existsSync(marker), 'missing injection fails before entry import');
+    result.db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-preflight-mutation-'));
+  const marker = path.join(tempDir, 'mutated-entry-executed');
+  try {
+    const packageDir = writePreflightFixture(tempDir, 'mutated-after-discovery', {
+      entrySource: `
+import fs from 'node:fs';
+fs.writeFileSync(${JSON.stringify(marker)}, 'executed');
+export function register() {}
+`,
+    });
+    const result = discoverPreflightFixture(tempDir);
+    fs.mkdirSync(path.join(tempDir, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'src', 'core.js'), 'export const core = true;\n');
+    fs.mkdirSync(path.join(packageDir, 'nested'), { recursive: true });
+    fs.writeFileSync(
+      path.join(packageDir, 'nested', 'late.js'),
+      "import '../../src/core.js';\n",
+    );
+    let error = null;
+    try {
+      await result.loader._enableOne(
+        'mutated-after-discovery',
+        result.loader._discovered.get('mutated-after-discovery'),
+      );
+    } catch (caught) {
+      error = caught;
+    }
+    assertEq(error?.code, 'SPECIALIST_PATH_ESCAPE', 'changed tree is revalidated before import');
+    assert(!fs.existsSync(marker), 'late violation blocks entry top-level side effect');
+    result.db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-preflight-disabled-'));
+  const marker = path.join(tempDir, 'disabled-entry-executed');
+  try {
+    writePreflightFixture(tempDir, 'disabled-safe', {
+      enabledByDefault: false,
+      entrySource: `
+import fs from 'node:fs';
+fs.writeFileSync(${JSON.stringify(marker)}, 'executed');
+export function register() {}
+`,
+    });
+    const db = createTestDb();
+    const runtime = createMockRuntime();
+    const loader = new SpecialistLoader(db, runtime, {
+      baseDir: tempDir,
+      engineVersion: ENGINE_VERSION,
+    });
+    await loader.boot();
+    assert(!fs.existsSync(marker), 'disabled specialist has no entry side effect');
+    assert(!runtime.isSpecialist('disabled-safe'), 'disabled specialist is not registered');
+    assertEq(
+      loader.getInstalled()[0]?.status,
+      'installed',
+      'disabled package remains installed only',
+    );
+    db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+const dynamicLoaderVariants = [
+  "module['re' + 'quire']('../../src/core.cjs');\n",
+  "Reflect.get(module, 'require').call(module, '../../src/core.cjs');\n",
+  "globalThis['e' + 'val']('void 0');\n",
+  "globalThis['Fun' + 'ction']('return 0')();\n",
+  "globalThis['\\u0065val']('void 0');\n",
+  "module.constructor._load('/tmp/core.cjs');\n",
+  "require('node:module')._load('/tmp/core.cjs');\n",
+  "process.getBuiltinModule('module')._load('/tmp/core.cjs');\n",
+];
+for (const [index, source] of dynamicLoaderVariants.entries()) {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-preflight-loader-'));
+  try {
+    writePreflightFixture(tempDir, `dynamic-loader-${index}`, {
+      extraFiles: { 'nested/loader.cjs': source },
+    });
+    const result = discoverPreflightFixture(tempDir);
+    assertEq(
+      result.error?.code,
+      'SPECIALIST_UNPROVEN_DYNAMIC_CODE',
+      `indirect loader variant ${index + 1} fails closed`,
+    );
+    result.db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-preflight-object-'));
+  try {
+    writePreflightFixture(tempDir, 'ordinary-computed-property', {
+      extraFiles: {
+        'nested/ordinary.js': `
+const values = { safe: true };
+const key = process.env.SPECIALIST_TEST_KEY || 'safe';
+export const selected = values[key];
+`,
+        'nested/ordinary.cjs': 'module.exports = { safe: true };\n',
+      },
+    });
+    const result = discoverPreflightFixture(tempDir);
+    assertEq(result.error, null, 'ordinary obj[key], process.env, and module.exports pass');
+    result.db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-preflight-entry-'));
+  const marker = path.join(tempDir, 'outside-entry-executed');
+  try {
+    const packageDir = writePreflightFixture(tempDir, 'entry-escape');
+    fs.writeFileSync(path.join(tempDir, 'outside.js'), `
+import fs from 'node:fs';
+fs.writeFileSync(${JSON.stringify(marker)}, 'executed');
+export function register() {}
+`);
+    const manifestPath = path.join(packageDir, 'specialist.json');
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    manifest.entry = '../outside.js';
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest));
+    const result = discoverPreflightFixture(tempDir);
+    assertEq(result.error?.code, 'SPECIALIST_PATH_ESCAPE', 'manifest entry escape fails closed');
+    assert(!fs.existsSync(marker), 'manifest entry escape has no top-level side effect');
+    result.db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-preflight-encoded-'));
+  try {
+    writePreflightFixture(tempDir, 'encoded-traversal', {
+      extraFiles: {
+        'nested/encoded.js': "import '../%2e%2e/src/core.js';\n",
+        '%2e%2e/src/core.js': 'export const core = true;\n',
+      },
+    });
+    const result = discoverPreflightFixture(tempDir);
+    assertEq(
+      result.error?.code,
+      'SPECIALIST_UNSUPPORTED_ESCAPED_SPECIFIER',
+      'percent-encoded traversal fails closed',
+    );
+    result.db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-preflight-migration-'));
+  const marker = path.join(tempDir, 'outside-migration-executed');
+  try {
+    const packageDir = writePreflightFixture(tempDir, 'migration-escape');
+    fs.mkdirSync(path.join(packageDir, 'migrations'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'outside.js'), `
+import fs from 'node:fs';
+fs.writeFileSync(${JSON.stringify(marker)}, 'executed');
+export function up() {}
+`);
+    const db = createTestDb();
+    const loader = new SpecialistLoader(db, createMockRuntime(), {
+      baseDir: tempDir,
+      engineVersion: ENGINE_VERSION,
+    });
+    let error = null;
+    try {
+      loader._runMigrations('migration-escape', packageDir, {
+        migrations: ['../outside'],
+      });
+    } catch (caught) {
+      error = caught;
+    }
+    assertEq(
+      error?.code,
+      'SPECIALIST_MIGRATION_NAME_INVALID',
+      'migration name escape fails closed',
+    );
+    assert(!fs.existsSync(marker), 'migration name escape has no top-level side effect');
+    db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
 console.log(`\n══════════════════════════════════════════════════`);
 console.log(`Specialist Loader: ${passed} passed, ${failed} failed`);
 console.log(`══════════════════════════════════════════════════`);

@@ -11,10 +11,15 @@
 import { RATES, supportedYears } from '../tools/tax-rates.js';
 
 /**
+ * @typedef {Object} AccountantKnowledgeBase
+ * @property {(facts: Object[]) => void} bulkSetFacts
+ */
+
+/**
  * Seed accountant tax knowledge into the KnowledgeBase.
  * Idempotent — uses bulkSetFacts (upsert).
  *
- * @param {import('../../../src/expertises/knowledge-base.js').KnowledgeBase} kb
+ * @param {AccountantKnowledgeBase} kb
  * @returns {number} Number of facts seeded
  */
 export function seedAccountantKnowledge(kb) {
