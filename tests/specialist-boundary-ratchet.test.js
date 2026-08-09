@@ -146,6 +146,9 @@ try {
     const invalid = run(ROOT, ['--require-clean', '--write-baseline']);
     assertStatus(invalid, 2);
     assertIncludes(invalid, 'mutually exclusive');
+    const customBaseline = run(ROOT, ['--baseline', 'tests/fixtures/other.json']);
+    assertStatus(customBaseline, 2);
+    assertIncludes(customBaseline, 'unsupported argument: --baseline');
   });
 
   test('current repository census is recursive, exact, and computed imports are proven', () => {

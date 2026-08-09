@@ -53,13 +53,13 @@ const OBJECT_ID = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/u;
 const SAFE_FROM = /^specialists\/(?:[A-Za-z0-9._-]+\/)*[A-Za-z0-9._-]+\.(?:js|mjs|cjs)$/u;
 const SAFE_TO = /^src\/(?:[A-Za-z0-9._-]+\/)*[A-Za-z0-9._-]+\.(?:js|mjs|cjs)$/u;
 const USAGE = `Usage:
-  node ${SCRIPT_RELATIVE} [--root PATH] [--baseline PATH]
+  node ${SCRIPT_RELATIVE} [--root PATH]
   node ${SCRIPT_RELATIVE} --require-clean [--root PATH]
-  node ${SCRIPT_RELATIVE} --write-baseline [--root PATH] [--baseline PATH]
+  node ${SCRIPT_RELATIVE} --write-baseline [--root PATH]
     --accept-reference "runtime|specialists/from.js -> src/to.js|1"...
     --owner WP-ID --expires-on-integration WP-ID
   node ${SCRIPT_RELATIVE} --write-baseline --expire-owner WP-ID
-    [--root PATH] [--baseline PATH]
+    [--root PATH]
 
 Exit codes:
   0  boundary accepted or baseline written
@@ -118,7 +118,6 @@ function runGit(root, args, { allowFailure = false } = {}) {
 function parseArgs(argv) {
   const options = {
     root: resolve(dirname(fileURLToPath(import.meta.url)), '..'),
-    baselineInput: BASELINE_RELATIVE,
     accepted: [],
     owner: null,
     expiresOnIntegration: null,
@@ -151,11 +150,6 @@ function parseArgs(argv) {
       once.add(arg);
       options.root = resolve(take(index, arg));
       index += 1;
-    } else if (arg === '--baseline') {
-      if (once.has(arg)) throw new BoundaryError('INVALID_ARGUMENT', `${arg} may appear only once`);
-      once.add(arg);
-      options.baselineInput = take(index, arg);
-      index += 1;
     } else if (arg === '--accept-reference') {
       options.accepted.push(take(index, arg));
       index += 1;
@@ -180,7 +174,7 @@ function parseArgs(argv) {
   }
 
   options.root = realpathDirectory(options.root, 'repository root');
-  options.baseline = resolve(options.root, options.baselineInput);
+  options.baseline = resolve(options.root, BASELINE_RELATIVE);
   assertInside(options.root, options.baseline, 'INVALID_BASELINE_TARGET', 'baseline');
 
   if (options.requireClean && options.writeBaseline) {
