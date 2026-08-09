@@ -921,3 +921,54 @@ jen adapterovou edit cestu, ne všechny produkční approval call sites; residua
 Tento checkpoint není built Studio důkaz a neaktivuje M1 v produktu. Studio
 producer/ledger je samostatný navazující commit; clean-clone build a skutečný
 Electron journey proběhnou až nad oběma commitnutými částmi.
+
+## Checkpoint 18 — dormantní exact M1 Studio producer a terminal ledger
+
+- **vstupní HEAD:** `bed0a9e87857a3cc272073eb826cf7ac7f2684d3`
+- **017/Q2 Studio producer/consumer:** `IMPLEMENTED / FOCUSED PASS`
+- **produkční ACK / built journey / celý B4:** nadále `BLOCKED`
+
+Autoritativní commitnutý Studio runtime nyní při negotiated M1 vytváří exact
+`ConversationCommand` a context, vede bounded request ledger a přijímá pouze
+validní monotónní `CoreEvent` stream. Aktivní send je vlastněný stabilním
+`conversationId`, nikoli objektem nebo indexem panelu. Dva panely se stejnou
+identitou proto nemohou vytvořit dva provider effecty; cancel z druhého panelu
+se váže zpět na session skutečného cílového turnu.
+
+Agent `executing` stav má pro M1 conversation-scoped autoritu a explicitní
+false tombstone. Přesun panelu nemůže nechat STOP na starém indexu a pozdní
+legacy status za negotiated transportu jej znovu nezapne. Protože panel
+registruje terminal listener před agent klientem, agent po skutečném vyčištění
+emituje samostatný render-only `agent:state` signál.
+
+Přerušení spojení po lokálním sendu se nevydává za bezpečně opakovatelný
+`NOT_SENT`. Panel drží `DELIVERY_UNKNOWN`, `retryable:false`; tento sideband
+přežije i autoritativní nahrazení messages historií a další effect se
+automaticky nespustí. Limit streamu je 256 eventů a 1 MiB skutečných
+serializovaných UTF-8 bajtů. Terminál zahodí event payload, socket i panel
+reference a ponechá jen bounded identity/order tombstone.
+
+Gap volba se označí resolved až po conversation/preparation guardech. Busy
+nebo připravovaný send ponechá volbu dostupnou, ukáže typovaný lokální BUSY
+stav a nevytvoří user message, timer, wire frame ani jiný efekt.
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node --check` nad třemi Studio runtime soubory a testem | syntax valid | 0 |
+| `node tests/m1-studio-client.test.js` | 78 passed, 0 failed, 0 skipped | 0 |
+| `node tests/ws-bridge.test.js` | 85 passed, 0 failed | 0 |
+| `node tests/m1-contract.test.js` | 26 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-chat-contract.test.js` | 21 passed, 0 failed, 0 skipped | 0 |
+| `node tests/upgrade-ux-v125.test.js` | 78 passed, 0 failed, 0 skipped | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
+| `node tests/repository-hygiene.test.js` | 1 531 tracked paths | 0 |
+| `node scripts/validate-test-registry.js --json` | valid, 377 programů, fingerprint `1370be04573099588225b124a47cfdcb6e75c8fda2dcce6795d11ced767a75a6` | 0 |
+| `node scripts/module-boundary-ratchet.mjs` | 1 020/1 020, 0 added, 0 removed; baseline `7551b907`, current committed source před tímto checkpointem `bed0a9e8` | 0 |
+| `node tests/module-boundary-ratchet.test.js` | 13 passed, 0 failed, 0 skipped | 0 |
+
+Focused test stále injektuje source contract do VM. Neprokazuje existenci
+vygenerovaného `c3-protocol/lib`, production bundlu ani skutečný Electron wire.
+Build se podle WP nespouští v dirty checkoutu; následuje až z čistého klonu
+tohoto commitu. Produkční `src/server.js` dál M1 token neaktivuje. Attachment a
+effect-authority volby z [021](../../decisions/021-m1-wire-activation-residuals.md)
+zůstávají `DECISION_REQUIRED`, nikoli skrytý default.

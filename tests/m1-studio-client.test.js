@@ -7,6 +7,23 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
 import { suite, test, testAsync, summary } from './harness.js';
+import {
+  M1_CONTRACT_VERSION,
+  classifyTerminal,
+  validateCoreEventStream,
+  validateM1Contract,
+} from '../contracts/m1/index.js';
+
+function hostClone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+const TEST_M1_PROTOCOL = Object.freeze({
+  M1_CONTRACT_VERSION,
+  classifyTerminal: (value, options) => classifyTerminal(hostClone(value), hostClone(options)),
+  validateCoreEventStream: value => validateCoreEventStream(hostClone(value)),
+  validateM1Contract: (value, expected) => validateM1Contract(hostClone(value), expected),
+});
 
 const WS_CLIENT = new URL(
   '../c3-ide/extensions/c3-chat-panel/lib/browser/ws-client.js',
@@ -14,6 +31,10 @@ const WS_CLIENT = new URL(
 );
 const CHAT_PANEL = new URL(
   '../c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js',
+  import.meta.url,
+);
+const AGENT_CLIENT = new URL(
+  '../c3-ide/extensions/c3-chat-panel/lib/browser/agent-client.js',
   import.meta.url,
 );
 const REPOSITORY_ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -95,6 +116,17 @@ test('protocol package resolves generated index and source index re-exports M1',
   assert.match(source, /export \* from ['"]\.\/m1['"]/);
 });
 
+test('authoritative panel hard-requires the generated protocol consumer', () => {
+  const client = fs.readFileSync(WS_CLIENT, 'utf8');
+  const panel = fs.readFileSync(CHAT_PANEL, 'utf8');
+  assert.match(client, /require\(['"]@c3\/protocol['"]\)/);
+  assert.match(panel, /require\(["']\.\/ws-client["']\);/);
+  assert.doesNotMatch(
+    panel,
+    /try\s*\{\s*require\(["']\.\/ws-client["']\)/,
+  );
+});
+
 function loadClient(sessions, options = {}) {
   const busEvents = [];
   const sockets = [];
@@ -115,7 +147,9 @@ function loadClient(sessions, options = {}) {
       this.sent.push(JSON.parse(encoded));
     }
 
-    close() {
+    close(code, reason) {
+      this.closeCode = code;
+      this.closeReason = reason;
       if (options.deferClose === true) {
         this.readyState = 2;
         return;
@@ -134,6 +168,7 @@ function loadClient(sessions, options = {}) {
     C3Bus: {
       emit(name, payload) {
         busEvents.push({ name, payload });
+        if (typeof options.onBusEmit === 'function') options.onBusEmit(name, payload);
       },
     },
     Date,
@@ -156,6 +191,10 @@ function loadClient(sessions, options = {}) {
     })),
     fetchBackendData() {},
     module: { exports: {} },
+    require(specifier) {
+      assert.equal(specifier, '@c3/protocol');
+      return TEST_M1_PROTOCOL;
+    },
     setInterval: () => Symbol('interval'),
     setTimeout: options.setTimeout || (() => Symbol('timeout')),
     window: {
@@ -286,6 +325,41 @@ function sendServerMessage(socket, message) {
   socket.onmessage({ data: JSON.stringify(message) });
 }
 
+function m1CoreEvent(command, sequence, {
+  eventType = 'working',
+  payload = {},
+  status = null,
+} = {}) {
+  const event = {
+    contract: 'CoreEvent',
+    version: 1,
+    requestId: command.requestId,
+    conversationId: command.conversationId,
+    turnId: command.turnId,
+    sequence,
+    phase: status === null ? 'progress' : 'terminal',
+    eventType: status === null ? eventType : 'result',
+    payload,
+  };
+  if (status !== null) {
+    event.terminalStatus = status;
+    event.payload = {
+      result: {
+        contract: 'ConversationResult',
+        version: 1,
+        requestId: command.requestId,
+        conversationId: command.conversationId,
+        turnId: command.turnId,
+        status,
+        ...(status === 'ok'
+          ? { response: { content: 'M1 odpověď', metadata: { mode: 'conversation' } } }
+          : { error: { code: status === 'cancelled' ? 'CHAT_CANCELLED' : 'CHAT_FAILED', message: status } }),
+      },
+    };
+  }
+  return event;
+}
+
 function lastRehydrateRequest(socket) {
   const request = [...socket.sent].reverse().find(message => (
     message.channel === 'control'
@@ -344,6 +418,7 @@ function session(conversationId = null) {
     chat: {
       editMode: 'ask',
       msgs: [{ role: 'system', text: 'stale' }],
+      _delivery: null,
       _pendingAttachments: null,
       _thinking: { text: 'pending' },
     },
@@ -507,6 +582,712 @@ function assertNoFallbackEffects(harness, expectedAssistantCount = 0) {
   );
   assert.equal(harness.counters.timers.length, 0, 'NOT_SENT scheduled an automatic retry');
 }
+
+function terminalPanelHarness(pane = session('panel-terminal')) {
+  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
+  const start = source.indexOf('function _initBusSubscriptions()');
+  const end = source.indexOf('/* ── Health state ──', start);
+  assert.ok(start >= 0 && end > start, 'terminal subscription slice is missing');
+  const listeners = Object.create(null);
+  const counters = { agentRender: 0, persist: 0, render: 0, scroll: 0 };
+  if (!Array.isArray(pane.log)) pane.log = [];
+  const context = vm.createContext({
+    C3Bus: {
+      on(name, callback) { listeners[name] = callback; },
+    },
+    _sessions: [pane],
+    _maybeRefreshExpertises() {},
+    _persistSessionState() { counters.persist++; },
+    _chatScrollPane() { counters.scroll++; },
+    console,
+    module: { exports: {} },
+    renderAgent() { counters.agentRender++; },
+    renderCenter() {},
+    renderChat() { counters.render++; },
+    renderSidebar() {},
+    window: {},
+  });
+  vm.runInContext(
+    source.slice(start, end) + '\n_initBusSubscriptions();',
+    context,
+    { filename: `${CHAT_PANEL.pathname}#terminal-subscription` },
+  );
+  return { counters, listeners, pane };
+}
+
+function agentStateHarness(sessions = []) {
+  const listeners = Object.create(null);
+  const busEvents = [];
+  const context = vm.createContext({
+    AbortSignal,
+    C3Bus: {
+      emit(name, payload) { busEvents.push({ name, payload }); },
+      on(name, callback) { listeners[name] = callback; },
+    },
+    Date,
+    console,
+    fetch: async () => ({ json: async () => ({}) }),
+    module: { exports: {} },
+    _sessions: sessions,
+  });
+  vm.runInContext(fs.readFileSync(AGENT_CLIENT, 'utf8'), context, {
+    filename: AGENT_CLIENT.pathname,
+  });
+  context.module.exports.initAgentClient();
+  return { busEvents, client: context.module.exports, listeners };
+}
+
+suite('M1 Studio client — canonical producer and terminal ledger');
+
+test('negotiated send uses one exact frame through the required protocol seam', () => {
+  const pane = session();
+  pane._agentId = 7;
+  pane._projectId = 42;
+  const { busEvents, client, socket } = loadClient([pane], {
+    autoHandshake: false,
+  });
+  socket.readyState = 1;
+  socket.onopen();
+  socket.onmessage({
+    data: JSON.stringify({
+      type: 'hello_ack',
+      protocolVersion: 1,
+      serverVersion: 'test',
+      features: ['m1-wire-v1'],
+    }),
+  });
+
+  assert.equal(client.wsSendChat('M1 hello', pane, 0), true);
+  const wire = socket.sent.at(-1);
+  assert.deepEqual(Object.keys(wire).sort(), ['channel', 'data']);
+  assert.equal(wire.channel, 'chat');
+  assert.deepEqual(Object.keys(wire.data).sort(), ['command', 'context']);
+  assert.equal(validateM1Contract(wire.data.command, 'ConversationCommand').valid, true);
+  assert.deepEqual(wire.data.context, {
+    editMode: 'ask',
+    agentId: '7',
+    projectId: '42',
+    attachments: [],
+  });
+
+  sendServerMessage(socket, {
+    channel: 'chat',
+    data: m1CoreEvent(wire.data.command, 1, {
+      eventType: 'handler_selected',
+      payload: { mode: 'conversation' },
+    }),
+  });
+  sendServerMessage(socket, {
+    channel: 'chat',
+    data: m1CoreEvent(wire.data.command, 2, { status: 'ok' }),
+  });
+
+  assert.equal(
+    busEvents.some(event => event.name === 'agent:event'),
+    true,
+  );
+  const terminal = busEvents.find(event => event.name === 'chat:terminal');
+  assert.equal(terminal.payload.status, 'ok');
+  assert.equal(terminal.payload.renderAssistant, true);
+  assert.equal(terminal.payload.result.response.content, 'M1 odpověď');
+  assert.equal(
+    busEvents.some(event => event.name === 'chat:message'),
+    false,
+    'M1 must render only through the terminal seam',
+  );
+});
+
+test('negotiated attachment input is local NOT_SENT and never legacy fallback', () => {
+  const pane = session();
+  pane.chat._pendingAttachments = [{
+    name: 'secret.txt',
+    type: 'text',
+    content: null,
+    path: '/private/secret.txt',
+  }];
+  const { client, socket } = loadClient([pane], { autoHandshake: false });
+  socket.readyState = 1;
+  socket.onopen();
+  socket.onmessage({
+    data: JSON.stringify({
+      type: 'hello_ack',
+      protocolVersion: 1,
+      serverVersion: 'test',
+      features: ['m1-wire-v1'],
+    }),
+  });
+  const before = socket.sent.length;
+  assert.equal(client.wsSendChat('do not read path', pane, 0), false);
+  assert.equal(socket.sent.length, before);
+  assert.equal(pane._convId, null, 'failed M1 send published a phantom identity');
+
+  pane.chat._pendingAttachments = { path: '/malformed-private-path' };
+  assert.equal(client.wsSendChat('do not normalize malformed attachment state', pane, 0), false);
+  assert.equal(socket.sent.length, before);
+  assert.equal(pane._convId, null);
+});
+
+test('foreign, duplicate, post-terminal, and legacy frames fail before generic routing', () => {
+  const cases = [
+    {
+      name: 'foreign',
+      send(socket, command) {
+        const event = m1CoreEvent(command, 1);
+        event.requestId = 'foreign-request';
+        event.payload = {};
+        sendServerMessage(socket, { channel: 'chat', data: event });
+      },
+    },
+    {
+      name: 'foreign-conversation',
+      send(socket, command) {
+        const event = m1CoreEvent(command, 1);
+        event.conversationId = 'foreign-conversation';
+        sendServerMessage(socket, { channel: 'chat', data: event });
+      },
+    },
+    {
+      name: 'foreign-turn',
+      send(socket, command) {
+        const event = m1CoreEvent(command, 1);
+        event.turnId = 'foreign-turn';
+        sendServerMessage(socket, { channel: 'chat', data: event });
+      },
+    },
+    {
+      name: 'duplicate-sequence',
+      send(socket, command) {
+        sendServerMessage(socket, { channel: 'chat', data: m1CoreEvent(command, 1) });
+        sendServerMessage(socket, { channel: 'chat', data: m1CoreEvent(command, 1) });
+      },
+    },
+    {
+      name: 'post-terminal',
+      send(socket, command) {
+        sendServerMessage(socket, {
+          channel: 'chat',
+          data: m1CoreEvent(command, 1, { status: 'cancelled' }),
+        });
+        sendServerMessage(socket, { channel: 'chat', data: m1CoreEvent(command, 2) });
+      },
+    },
+    {
+      name: 'late-ok-after-cancel',
+      send(socket, command) {
+        sendServerMessage(socket, {
+          channel: 'chat',
+          data: m1CoreEvent(command, 1, { status: 'cancelled' }),
+        });
+        sendServerMessage(socket, {
+          channel: 'chat',
+          data: m1CoreEvent(command, 2, { status: 'ok' }),
+        });
+      },
+    },
+    {
+      name: 'legacy-assistant',
+      send(socket) {
+        sendServerMessage(socket, {
+          channel: 'chat',
+          data: { type: 'assistant', content: 'must not render' },
+        });
+      },
+    },
+  ];
+
+  for (const candidate of cases) {
+    const pane = session();
+    const { busEvents, client, socket } = loadClient([pane], {
+      autoHandshake: false,
+    });
+    socket.readyState = 1;
+    socket.onopen();
+    socket.onmessage({
+      data: JSON.stringify({
+        type: 'hello_ack',
+        protocolVersion: 1,
+        serverVersion: 'test',
+        features: ['m1-wire-v1'],
+      }),
+    });
+    assert.equal(client.wsSendChat(candidate.name, pane, 0), true);
+    const command = socket.sent.at(-1).data.command;
+    const ownedConversation = pane._convId;
+    candidate.send(socket, command);
+    assert.equal(socket.closeCode, 1008, candidate.name);
+    assert.equal(pane._convId, ownedConversation, candidate.name);
+    assert.equal(
+      busEvents.some(event => event.name === 'chat:message'),
+      false,
+      candidate.name,
+    );
+  }
+});
+
+test('M1 cancel has independent identity and terminal ordering stays target then cancel', () => {
+  const pane = session();
+  const { busEvents, client, socket } = loadClient([pane], {
+    autoHandshake: false,
+  });
+  socket.readyState = 1;
+  socket.onopen();
+  socket.onmessage({
+    data: JSON.stringify({
+      type: 'hello_ack',
+      protocolVersion: 1,
+      serverVersion: 'test',
+      features: ['m1-wire-v1'],
+    }),
+  });
+  assert.equal(client.wsSendChat('cancel me', pane, 0), true);
+  const target = socket.sent.at(-1).data.command;
+  assert.equal(client.wsSendCancel(pane), true);
+  const cancel = socket.sent.at(-1).data.command;
+  assert.equal(cancel.action, 'cancel');
+  assert.equal(cancel.conversationId, target.conversationId);
+  assert.notEqual(cancel.requestId, target.requestId);
+  assert.notEqual(cancel.turnId, target.turnId);
+
+  sendServerMessage(socket, {
+    channel: 'chat',
+    data: m1CoreEvent(target, 1, { status: 'cancelled' }),
+  });
+  sendServerMessage(socket, {
+    channel: 'chat',
+    data: m1CoreEvent(cancel, 1, { status: 'cancelled' }),
+  });
+  const terminals = busEvents.filter(event => event.name === 'chat:terminal');
+  assert.deepEqual(
+    terminals.map(event => event.payload.requestId),
+    [target.requestId, cancel.requestId],
+  );
+  assert.deepEqual(
+    terminals.map(event => event.payload.action),
+    ['send', 'cancel'],
+  );
+});
+
+test('cancel terminal before its target fails the whole negotiated connection', () => {
+  const pane = session();
+  const { busEvents, client, socket } = loadClient([pane], {
+    autoHandshake: false,
+  });
+  socket.readyState = 1;
+  socket.onopen();
+  socket.onmessage({
+    data: JSON.stringify({
+      type: 'hello_ack', protocolVersion: 1, serverVersion: 'test',
+      features: ['m1-wire-v1'],
+    }),
+  });
+  assert.equal(client.wsSendChat('cancel ordering', pane, 0), true);
+  const target = socket.sent.at(-1).data.command;
+  assert.equal(client.wsSendCancel(pane), true);
+  const cancel = socket.sent.at(-1).data.command;
+
+  sendServerMessage(socket, {
+    channel: 'chat',
+    data: m1CoreEvent(cancel, 1, { status: 'cancelled' }),
+  });
+  assert.equal(socket.closeCode, 1008);
+  assert.equal(
+    busEvents.some(event => (
+      event.name === 'chat:terminal'
+      && event.payload.requestId === cancel.requestId
+      && event.payload.status === 'cancelled'
+    )),
+    false,
+  );
+  assert.equal(
+    busEvents.some(event => (
+      event.name === 'chat:terminal'
+      && event.payload.result.error.code === 'M1_PROTOCOL_ERROR'
+    )),
+    true,
+  );
+  assert.notEqual(target.requestId, cancel.requestId);
+});
+
+test('a moved pane keeps object-owned terminal routing at its current index', () => {
+  const paneA = session('pane-A');
+  const paneB = session('pane-B');
+  const sessions = [paneA, paneB];
+  const { busEvents, client, socket } = loadClient(sessions, { autoHandshake: false });
+  socket.readyState = 1;
+  socket.onopen();
+  socket.onmessage({
+    data: JSON.stringify({
+      type: 'hello_ack', protocolVersion: 1, serverVersion: 'test',
+      features: ['m1-wire-v1'],
+    }),
+  });
+  assert.equal(client.wsSendChat('move me', paneB, 1), true);
+  const command = socket.sent.at(-1).data.command;
+  sessions[0] = paneB;
+  sessions[1] = paneA;
+  sendServerMessage(socket, {
+    channel: 'chat',
+    data: m1CoreEvent(command, 1, { status: 'ok' }),
+  });
+  const terminal = busEvents.find(event => (
+    event.name === 'chat:terminal' && event.payload.requestId === command.requestId
+  ));
+  assert.equal(terminal.payload.sessionIdx, 0);
+});
+
+test('one M1 send per conversation is enforced before another wire effect', () => {
+  const pane = session();
+  const { client, socket } = loadClient([pane], { autoHandshake: false });
+  socket.readyState = 1;
+  socket.onopen();
+  socket.onmessage({
+    data: JSON.stringify({
+      type: 'hello_ack', protocolVersion: 1, serverVersion: 'test',
+      features: ['m1-wire-v1'],
+    }),
+  });
+  assert.equal(client.wsSendChat('first', pane, 0), true);
+  const first = socket.sent.at(-1).data.command;
+  const before = socket.sent.length;
+  assert.equal(client.wsHasActiveM1Turn(pane), true);
+  assert.equal(client.wsSendChat('must stay local', pane, 0), false);
+  assert.equal(socket.sent.length, before);
+  sendServerMessage(socket, {
+    channel: 'chat',
+    data: m1CoreEvent(first, 1, { status: 'ok' }),
+  });
+  assert.equal(client.wsHasActiveM1Turn(pane), false);
+  assert.equal(client.wsSendChat('after terminal', pane, 0), true);
+});
+
+test('conversation authority rejects a second pane object with the same identity', () => {
+  const paneA = session('shared-conversation');
+  const paneB = session('shared-conversation');
+  const { busEvents, client, socket } = loadClient([paneA, paneB], { autoHandshake: false });
+  socket.readyState = 1;
+  socket.onopen();
+  socket.onmessage({
+    data: JSON.stringify({
+      type: 'hello_ack', protocolVersion: 1, serverVersion: 'test',
+      features: ['m1-wire-v1'],
+    }),
+  });
+
+  assert.equal(client.wsSendChat('first owner', paneA, 0), true);
+  const target = socket.sent.at(-1).data.command;
+  const chatFramesBefore = socket.sent.filter(message => message.channel === 'chat').length;
+  assert.equal(client.wsHasActiveM1Turn(paneB), true);
+  assert.equal(client.wsSendChat('duplicate owner', paneB, 1), false);
+  assert.equal(
+    socket.sent.filter(message => message.channel === 'chat').length,
+    chatFramesBefore,
+  );
+
+  assert.equal(client.wsSendCancel(paneB), true);
+  const cancel = socket.sent.at(-1).data.command;
+  assert.equal(cancel.action, 'cancel');
+  assert.equal(cancel.conversationId, 'shared-conversation');
+  sendServerMessage(socket, {
+    channel: 'chat',
+    data: m1CoreEvent(target, 1, { status: 'cancelled' }),
+  });
+  sendServerMessage(socket, {
+    channel: 'chat',
+    data: m1CoreEvent(cancel, 1, { status: 'cancelled' }),
+  });
+  const cancelTerminal = busEvents.find(event => (
+    event.name === 'chat:terminal'
+    && event.payload.requestId === cancel.requestId
+  ));
+  assert.equal(cancelTerminal.payload.sessionIdx, 0);
+});
+
+test('reconnect interrupts a pending M1 turn without resend or legacy downgrade', () => {
+  const pane = session();
+  const { busEvents, client, socket, sockets } = loadClient([pane], {
+    autoHandshake: false,
+  });
+  socket.readyState = 1;
+  socket.onopen();
+  socket.onmessage({
+    data: JSON.stringify({
+      type: 'hello_ack',
+      protocolVersion: 1,
+      serverVersion: 'test',
+      features: ['m1-wire-v1'],
+    }),
+  });
+  assert.equal(client.wsSendChat('pending', pane, 0), true);
+  const oldChatFrames = socket.sent.filter(message => message.channel === 'chat').length;
+  client.wsConnect();
+  assert.equal(sockets.length, 2);
+  assert.equal(
+    socket.sent.filter(message => message.channel === 'chat').length,
+    oldChatFrames,
+  );
+  const interrupted = busEvents.find(event => (
+    event.name === 'chat:terminal'
+    && event.payload.result.error.code === 'M1_CONNECTION_REPLACED'
+  ));
+  assert.ok(interrupted);
+  assert.equal(interrupted.payload.renderAssistant, false);
+});
+
+await testAsync('connection interruption remains visible after authoritative history replacement', async () => {
+  const pane = session();
+  pane.chat.msgs = [{ role: 'system', text: 'before send' }];
+  const panel = terminalPanelHarness(pane);
+  const { client, handshake, socket, sockets } = loadClient([pane], {
+    autoHandshake: false,
+    fetch: async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        messages: [{
+          role: 'assistant',
+          content: 'authoritative history',
+          metadata: JSON.stringify({ mode: 'conversation' }),
+        }],
+      }),
+    }),
+    onBusEmit(name, payload) {
+      if (name === 'chat:terminal') panel.listeners['chat:terminal'](payload);
+    },
+  });
+  handshake(socket, ['m1-wire-v1']);
+  assert.equal(client.wsSendChat('outcome may be unknown', pane, 0), true);
+  const oldChatFrames = socket.sent.filter(message => message.channel === 'chat').length;
+
+  client.wsConnect();
+  assert.equal(pane.chat._delivery.status, 'DELIVERY_UNKNOWN');
+  assert.equal(pane.chat._delivery.retryable, false);
+  assert.equal(pane.chat._delivery.reason, 'M1_CONNECTION_REPLACED');
+  assert.equal(
+    socket.sent.filter(message => message.channel === 'chat').length,
+    oldChatFrames,
+  );
+
+  const replacement = sockets[1];
+  handshake(replacement, ['m1-wire-v1']);
+  sendCompleteRehydrateAck(replacement, {
+    validIds: [pane._convId],
+    invalidIds: [],
+  });
+  await drainMicrotasks();
+
+  assert.deepEqual(hostClone(pane.chat.msgs), [{
+    role: 'assistant',
+    text: 'authoritative history',
+    tag: 'conversation',
+  }]);
+  assert.equal(pane.chat._delivery.status, 'DELIVERY_UNKNOWN');
+  assert.equal(pane.chat._delivery.retryable, false);
+  assert.equal(
+    pane.chat.msgs.some(message => message.text === 'outcome may be unknown'),
+    false,
+  );
+});
+
+test('bounded terminal tombstones do not permanently exhaust the M1 ledger', () => {
+  const pane = session();
+  const { client, context, socket } = loadClient([pane], { autoHandshake: false });
+  socket.readyState = 1;
+  socket.onopen();
+  socket.onmessage({
+    data: JSON.stringify({
+      type: 'hello_ack',
+      protocolVersion: 1,
+      serverVersion: 'test',
+      features: ['m1-wire-v1'],
+    }),
+  });
+
+  let lastRequestId = null;
+  for (let index = 0; index < 260; index++) {
+    assert.equal(client.wsSendChat(`bounded-${index}`, pane, 0), true, `send ${index}`);
+    const command = socket.sent.at(-1).data.command;
+    lastRequestId = command.requestId;
+    sendServerMessage(socket, {
+      channel: 'chat',
+      data: m1CoreEvent(command, 1, { status: 'ok' }),
+    });
+  }
+  assert.equal(socket.closeCode, undefined);
+  assert.equal(
+    socket.sent.filter(message => message.channel === 'chat').length,
+    260,
+  );
+  const tombstone = context._m1Ledger[lastRequestId];
+  assert.deepEqual(hostClone(tombstone.events), []);
+  assert.equal(tombstone.serializedBytes, 0);
+  assert.equal(tombstone.session, null);
+  assert.equal(tombstone.socket, null);
+});
+
+test('active M1 stream rejects per-turn count and aggregate payload exhaustion', () => {
+  for (const mode of ['count', 'size']) {
+    const pane = session();
+    const { client, socket } = loadClient([pane], { autoHandshake: false });
+    socket.readyState = 1;
+    socket.onopen();
+    socket.onmessage({
+      data: JSON.stringify({
+        type: 'hello_ack', protocolVersion: 1, serverVersion: 'test',
+        features: ['m1-wire-v1'],
+      }),
+    });
+    assert.equal(client.wsSendChat(`bounded-${mode}`, pane, 0), true);
+    const command = socket.sent.at(-1).data.command;
+    if (mode === 'count') {
+      for (let sequence = 1; sequence <= 257 && socket.closeCode === undefined; sequence++) {
+        sendServerMessage(socket, {
+          channel: 'chat',
+          data: m1CoreEvent(command, sequence, { payload: { sequence } }),
+        });
+      }
+    } else {
+      sendServerMessage(socket, {
+        channel: 'chat',
+        data: m1CoreEvent(command, 1, { payload: { chunk: 'x'.repeat(1048576) } }),
+      });
+    }
+    assert.equal(socket.closeCode, 1008, mode);
+  }
+});
+
+test('aggregate stream limit is enforced in UTF-8 bytes, not UTF-16 units', () => {
+  const pane = session();
+  const { client, socket } = loadClient([pane], { autoHandshake: false });
+  socket.readyState = 1;
+  socket.onopen();
+  socket.onmessage({
+    data: JSON.stringify({
+      type: 'hello_ack', protocolVersion: 1, serverVersion: 'test',
+      features: ['m1-wire-v1'],
+    }),
+  });
+  assert.equal(client.wsSendChat('unicode byte bound', pane, 0), true);
+  const command = socket.sent.at(-1).data.command;
+  const chunk = '😀'.repeat(270000);
+  assert.ok(chunk.length < 1048576);
+  assert.ok(Buffer.byteLength(chunk, 'utf8') > 1048576);
+  sendServerMessage(socket, {
+    channel: 'chat',
+    data: m1CoreEvent(command, 1, { payload: { chunk } }),
+  });
+  assert.equal(socket.closeCode, 1008);
+});
+
+test('one panel terminal seam renders only ok as assistant and ends every spinner', () => {
+  const ok = terminalPanelHarness();
+  ok.listeners['chat:terminal']({
+    sessionIdx: 0,
+    action: 'send',
+    status: 'ok',
+    renderAssistant: true,
+    result: {
+      status: 'ok',
+      response: { content: 'exact ok', metadata: { mode: 'conversation' } },
+    },
+  });
+  assert.equal(ok.pane.chat._thinking, null);
+  assert.equal(ok.pane.chat.msgs.at(-1).role, 'assistant');
+  assert.equal(ok.pane.chat.msgs.at(-1).text, 'exact ok');
+
+  const failed = terminalPanelHarness();
+  failed.listeners['chat:terminal']({
+    sessionIdx: 0,
+    action: 'send',
+    status: 'error',
+    renderAssistant: false,
+    result: { status: 'error', error: { code: 'CHAT_FAILED', message: 'exact failure' } },
+  });
+  assert.equal(failed.pane.chat._thinking, null);
+  assert.equal(failed.pane.chat.msgs.at(-1).role, 'system');
+  assert.equal(failed.pane.chat.msgs.at(-1).text, 'exact failure');
+  assert.equal(
+    failed.pane.chat.msgs.some(message => message.role === 'assistant'),
+    false,
+  );
+
+  const cancelAck = terminalPanelHarness();
+  const before = cancelAck.pane.chat.msgs.length;
+  const thinkingBeforeCancelAck = cancelAck.pane.chat._thinking;
+  cancelAck.listeners['chat:terminal']({
+    sessionIdx: 0,
+    action: 'cancel',
+    status: 'cancelled',
+    renderAssistant: false,
+    result: { status: 'cancelled', error: { code: 'CHAT_CANCELLED', message: 'cancelled' } },
+  });
+  assert.equal(cancelAck.pane.chat._thinking, thinkingBeforeCancelAck);
+  assert.equal(cancelAck.pane.chat.msgs.length, before);
+  assert.equal(cancelAck.pane.log.at(-1).text, 'Zrušení potvrzeno.');
+
+  const cancelFailed = terminalPanelHarness();
+  const thinkingBeforeCancelFailure = cancelFailed.pane.chat._thinking;
+  cancelFailed.listeners['chat:terminal']({
+    sessionIdx: 0,
+    action: 'cancel',
+    status: 'timeout',
+    renderAssistant: false,
+    result: { status: 'timeout', error: { code: 'CHAT_TIMEOUT', message: 'not confirmed' } },
+  });
+  assert.equal(cancelFailed.pane.chat._thinking, thinkingBeforeCancelFailure);
+  assert.equal(cancelFailed.pane.chat.msgs.at(-1).role, 'system');
+  assert.equal(cancelFailed.pane.chat.msgs.at(-1).text, 'not confirmed');
+});
+
+test('canonical send terminal follows conversation ownership after a pane swap', () => {
+  const paneA = session('agent-state-A');
+  const paneB = session('agent-state-B');
+  const sessions = [paneA, paneB];
+  const harness = agentStateHarness(sessions);
+  harness.listeners['agent:event']({
+    sessionIdx: 1,
+    event: {
+      conversationId: 'agent-state-B',
+      transport: 'm1',
+      type: 'turn_start',
+      payload: {},
+    },
+  });
+  assert.equal(harness.client.isAgentExecuting(1), true);
+  sessions[0] = paneB;
+  sessions[1] = paneA;
+  assert.equal(harness.client.isAgentExecuting(0), true);
+  assert.equal(harness.client.isAgentExecuting(1), false);
+  harness.listeners['chat:terminal']({
+    sessionIdx: 0,
+    action: 'send',
+    conversationId: 'agent-state-B',
+    status: 'ok',
+  });
+  harness.listeners['status:update']({
+    sessionIdx: 1,
+    transport: 'm1',
+    data: { agentStatus: 'executing', conversationId: 'agent-state-B' },
+  });
+  assert.equal(harness.client.isAgentExecuting(0), false);
+  assert.equal(harness.client.isAgentExecuting(1), false);
+  assert.deepEqual(
+    hostClone(harness.busEvents.at(-1)),
+    {
+      name: 'agent:state',
+      payload: {
+        sessionIdx: 0,
+        conversationId: 'agent-state-B',
+        executing: false,
+      },
+    },
+  );
+
+  const panel = terminalPanelHarness();
+  assert.equal(typeof panel.listeners['agent:state'], 'function');
+  const rendersBefore = panel.counters.agentRender;
+  panel.listeners['agent:state']({ executing: false });
+  assert.equal(panel.counters.agentRender, rendersBefore + 1);
+});
 
 suite('M1 Studio client — conversation-scoped transport');
 
@@ -728,7 +1509,7 @@ await testAsync('gap choice failures re-enable the exact choice and never create
       const harness = panelSendHarness({ mode });
       harness.pane.chat.msgs = [{
         _gapChoice: true,
-        _gapResolved: true,
+        _gapResolved: false,
         role: 'assistant',
         text: 'Vyberte další postup',
       }];
@@ -746,6 +1527,36 @@ await testAsync('gap choice failures re-enable the exact choice and never create
       assert.equal(harness.pane.chat._delivery.reason, reason);
       assertNoFallbackEffects(harness, 1);
     }
+  }
+});
+
+test('busy gap choices remain visible and create no user or wire effect', () => {
+  for (const mode of ['active-turn', 'prepared-send']) {
+    const harness = panelSendHarness({ mode: 'ready' });
+    harness.pane.chat.msgs = [{
+      _gapChoice: true,
+      _gapResolved: false,
+      role: 'assistant',
+      text: 'Vyberte další postup',
+    }];
+    if (mode === 'active-turn') {
+      harness.context.C3WS.hasActiveM1Turn = () => true;
+    } else {
+      harness.pane.chat._preparedSend = { owned: true };
+    }
+
+    assert.equal(harness.functions._chatGapChoice(0, 'create', 0), false);
+    assert.equal(harness.pane.chat.msgs[0]._gapResolved, false);
+    assert.equal(harness.pane.chat.msgs.length, 1);
+    assert.equal(harness.counters.wsSend.length, 0);
+    assert.equal(harness.counters.timers.length, 0);
+    assert.equal(harness.pane.chat._delivery.status, 'BUSY');
+    assert.equal(harness.pane.chat._delivery.retryable, true);
+    assert.equal(
+      harness.pane.chat._delivery.reason,
+      mode === 'active-turn' ? 'CONVERSATION_BUSY' : 'SEND_PREPARING',
+    );
+    assertNoFallbackEffects(harness, 1);
   }
 });
 
@@ -1228,7 +2039,7 @@ test('ready WebSocket queues each call site once without claiming server acknowl
   const gap = panelSendHarness({ mode: 'ready' });
   gap.pane.chat.msgs = [{
     _gapChoice: true,
-    _gapResolved: true,
+    _gapResolved: false,
     role: 'assistant',
     text: 'Vyberte další postup',
   }];

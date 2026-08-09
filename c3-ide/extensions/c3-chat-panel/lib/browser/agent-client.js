@@ -18,6 +18,7 @@
 /* Globals expected: C3Bus (from event-bus.js), _sessions */
 
 var _isExecuting = {};  // sessionIdx → boolean
+var _m1ExecutingByConversation = Object.create(null); // conversationId → boolean
 var _lastTurnTools = []; // H2: track tools used in current turn
 var _suggestionShownForTurn = false; // H2: dedup per turn
 
@@ -212,14 +213,20 @@ function initAgentClient() {
   C3Bus.on('agent:event', function(ev) {
     var sessionIdx = ev.sessionIdx;
     var event = ev.event || {};
+    var isM1Event = event.transport === 'm1'
+      && typeof event.conversationId === 'string'
+      && event.conversationId.length > 0;
 
     /* Track executing state */
     if (event.type === 'turn_start') {
-      _isExecuting[sessionIdx] = true;
+      if (isM1Event) _m1ExecutingByConversation[event.conversationId] = true;
+      else _isExecuting[sessionIdx] = true;
       _lastTurnTools = [];
       _suggestionShownForTurn = false;
     } else if (event.type === 'turn_end' || event.type === 'error') {
-      _isExecuting[sessionIdx] = false;
+      /* M1 completion is authoritative only at chat:terminal. A progress event
+         named error/turn_end must not hide STOP before that terminal arrives. */
+      if (!isM1Event) _isExecuting[sessionIdx] = false;
 
       /* H2: Smart suggestion — if file was edited and package.json has test script */
       if (event.type === 'turn_end' && !_suggestionShownForTurn) {
@@ -262,15 +269,36 @@ function initAgentClient() {
 
   /* Status updates can also affect executing state */
   C3Bus.on('status:update', function(ev) {
-    if (ev.data && ev.data.agentStatus) {
+    if (ev.transport !== 'm1' && ev.data && ev.data.agentStatus) {
       var si = ev.sessionIdx !== undefined ? ev.sessionIdx : 0;
       _isExecuting[si] = (ev.data.agentStatus === 'executing');
+    }
+  });
+
+  /* Canonical M1 chat terminals replace legacy agent turn_end/error events. */
+  C3Bus.on('chat:terminal', function(ev) {
+    if (ev && ev.action === 'send' && Number.isSafeInteger(ev.sessionIdx)) {
+      _isExecuting[ev.sessionIdx] = false;
+      if (typeof ev.conversationId === 'string' && ev.conversationId.length > 0) {
+        _m1ExecutingByConversation[ev.conversationId] = false;
+      }
+      C3Bus.emit('agent:state', {
+        sessionIdx: ev.sessionIdx,
+        conversationId: ev.conversationId || null,
+        executing: false
+      });
     }
   });
 
   /* Reset all executing state on WS disconnect — prevents dead state */
   C3Bus.on('ws:disconnected', function() {
     _isExecuting = {};
+    _m1ExecutingByConversation = Object.create(null);
+    C3Bus.emit('agent:state', {
+      sessionIdx: null,
+      conversationId: null,
+      executing: false
+    });
   });
 }
 
@@ -292,6 +320,12 @@ function _formatTime(isoStr) {
 }
 
 function isAgentExecuting(sessionIdx) {
+  var session = typeof _sessions !== 'undefined' ? _sessions[sessionIdx] : null;
+  var conversationId = session && session._convId;
+  if (
+    typeof conversationId === 'string'
+    && Object.prototype.hasOwnProperty.call(_m1ExecutingByConversation, conversationId)
+  ) return _m1ExecutingByConversation[conversationId] === true;
   return !!_isExecuting[sessionIdx];
 }
 

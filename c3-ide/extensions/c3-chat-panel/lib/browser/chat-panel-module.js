@@ -14,7 +14,8 @@ var h = React.createElement;
 
 /* ═══ TRANSPORT MODULES ═══ */
 try { require("./event-bus"); } catch(e) { console.warn('[C3] event-bus.js not loaded:', e.message); }
-try { require("./ws-client"); } catch(e) { console.warn('[C3] ws-client.js not loaded:', e.message); }
+/* M1 runtime validation is a hard product dependency after protocol prebuild. */
+require("./ws-client");
 try { require("./agent-client"); } catch(e) { console.warn('[C3] agent-client.js not loaded:', e.message); }
 try { require("./agent-log-renderer"); } catch(e) { console.warn('[C3] agent-log-renderer.js not loaded:', e.message); }
 try { require("./terminal-client"); } catch(e) { console.warn('[C3] terminal-client.js not loaded:', e.message); }
@@ -5537,6 +5538,67 @@ function _initBusSubscriptions() {
     renderChat(); _chatScrollPane(ev.sessionIdx);
   });
 
+  /* Negotiated M1 has one terminal seam for ok/cancel/timeout/error. */
+  C3Bus.on('chat:terminal', function(ev) {
+    var s = _sessions[ev.sessionIdx] || null;
+    if (!s || !s.chat) return;
+    var result = ev.result || {};
+    if (ev.action === 'cancel') {
+      var cancelError = result.error || {};
+      var cancelText = ev.status === 'cancelled'
+        ? 'Zrušení potvrzeno.'
+        : (cancelError.message || (ev.status === 'timeout'
+          ? 'Potvrzení zrušení vypršelo.'
+          : 'Zrušení nebylo potvrzeno.'));
+      if (Array.isArray(s.log)) {
+        s.log.push({
+          time:new Date().toLocaleTimeString('cs-CZ'),type:'CANCEL',
+          cls:ev.status==='cancelled'?'info':'error',text:cancelText,
+          active:false,ts:new Date().toISOString()
+        });
+      }
+      if (ev.status !== 'cancelled') {
+        s.chat.msgs.push({role:'system',text:cancelText,tag:String(ev.status||'error').toUpperCase()});
+      }
+      _persistSessionState();
+      renderAgent();renderChat();_chatScrollPane(ev.sessionIdx);
+      return;
+    }
+    s.chat._thinking = null;
+    var terminalError = result.error || {};
+    var deliveryUnknown = ev.status === 'error' && (
+      terminalError.code === 'M1_CONNECTION_REPLACED'
+      || terminalError.code === 'M1_CONNECTION_INTERRUPTED'
+      || terminalError.code === 'M1_CLIENT_DESTROYED'
+      || terminalError.code === 'M1_PROTOCOL_ERROR'
+    );
+    s.chat._delivery = deliveryUnknown ? {
+      status:'DELIVERY_UNKNOWN',retryable:false,reason:terminalError.code,
+      text:'Spojení skončilo po odeslání; výsledek požadavku nelze bezpečně určit.'
+    } : null;
+    if (ev.renderAssistant === true && ev.status === 'ok' && result.response) {
+      var metadata = result.response.metadata || {};
+      s.chat.msgs.push({
+        role:'assistant',
+        text:result.response.content,
+        tag:metadata.mode||'LLM'
+      });
+      if (metadata.contextPercent !== undefined) s.chat.ctx = metadata.contextPercent;
+      _maybeRefreshExpertises(metadata);
+    } else {
+      var text = terminalError.message || (
+        ev.status === 'cancelled'
+          ? 'Zpracování zrušeno.'
+          : ev.status === 'timeout'
+            ? 'Zpracování vypršelo.'
+            : 'Zpracování selhalo.'
+      );
+      s.chat.msgs.push({role:'system',text:text,tag:String(ev.status||'error').toUpperCase()});
+    }
+    _persistSessionState();
+    renderChat();_chatScrollPane(ev.sessionIdx);
+  });
+
   /* System messages → agent log */
   C3Bus.on('chat:system', function(ev) {
     if(window._c3)window._c3.agentLog('TOOL',ev.content);
@@ -5568,6 +5630,12 @@ function _initBusSubscriptions() {
       s.chat._thinking.text = ev.entry.text;
       renderChat();
     }
+    renderAgent();
+  });
+
+  /* Agent execution state is updated after chat:terminal in production
+     subscription order, so it owns a separate post-clear render signal. */
+  C3Bus.on('agent:state', function() {
     renderAgent();
   });
 
@@ -6256,6 +6324,7 @@ function _chatCancelPreparedSend(idx,s){
 function _chatSendPane(idx){
   var ta=document.getElementById('c3-chat-ta-'+idx);
   var s=_sessions[idx];if(!s)return;var st=s.chat;
+  if(typeof C3WS!=='undefined'&&C3WS.hasActiveM1Turn&&C3WS.hasActiveM1Turn(s))return;
   if(st._preparedSend)return;
   st.acSuggestion=null;/* clear autocomplete on send */
   var rawDraft=ta?ta.value:'';
@@ -6358,7 +6427,17 @@ function _chatSendPane(idx){
 /* D5: Gap choice button handler — sends user's gap choice as chat message */
 function _chatGapChoice(idx,choice,gapMsgIdx){
   var s=_sessions[idx];if(!s)return;var st=s.chat;
-  if(st._preparedSend)return;
+  var gapMessage=typeof gapMsgIdx==='number'?st.msgs[gapMsgIdx]:null;
+  if(!gapMessage||!gapMessage._gapChoice||gapMessage._gapResolved)return false;
+  if(typeof C3WS!=='undefined'&&C3WS.hasActiveM1Turn&&C3WS.hasActiveM1Turn(s)){
+    st._delivery={status:'BUSY',retryable:true,reason:'CONVERSATION_BUSY',text:'Nejprve dokončete nebo zrušte aktivní požadavek.'};
+    renderChat();return false;
+  }
+  if(st._preparedSend){
+    st._delivery={status:'BUSY',retryable:true,reason:'SEND_PREPARING',text:'Předchozí zpráva se ještě připravuje.'};
+    renderChat();return false;
+  }
+  gapMessage._gapResolved=true;
   var txt=choice==='create'?'Vytvoř expertízu':'Bez ní, odpověz rovnou';
   var gapUserMsg={role:'user',text:txt};st.msgs.push(gapUserMsg);
   st._thinking={text:'Zpracovávám...', ts:Date.now()};
@@ -6371,7 +6450,9 @@ function _chatGapChoice(idx,choice,gapMsgIdx){
       st.msgs[gapMsgIdx]._gapResolved=false;
     }
     _chatMarkNotSent(idx,st,txt,delivery);
+    return false;
   }
+  return true;
 }
 
 function _chatPaneUI(idx,opts){
@@ -6455,10 +6536,10 @@ function _chatPaneUI(idx,opts){
           /* D5: Gap choice inline buttons */
           m._gapChoice&&!m._gapResolved?h('div',{style:{display:'flex',gap:6,paddingLeft:22,paddingTop:6}},
             h('button',{style:{padding:'5px 12px',borderRadius:6,border:'1px solid #f59e0b',background:'rgba(245,158,11,0.1)',color:'#fbbf24',fontSize:_fs(11),fontWeight:600,cursor:'pointer'},
-              onClick:function(ev){ev.stopPropagation();m._gapResolved=true;_chatGapChoice(idx,'create',i);}},
+              onClick:function(ev){ev.stopPropagation();_chatGapChoice(idx,'create',i);}},
               '✨ Vytvořit expertízu'),
             h('button',{style:{padding:'5px 12px',borderRadius:6,border:'1px solid '+C.border2,background:C.bg3,color:C.tx2,fontSize:_fs(11),fontWeight:600,cursor:'pointer'},
-              onClick:function(ev){ev.stopPropagation();m._gapResolved=true;_chatGapChoice(idx,'fallback',i);}},
+              onClick:function(ev){ev.stopPropagation();_chatGapChoice(idx,'fallback',i);}},
               '💬 Odpovědět bez ní')):null));}),
       /* v90: Thinking indicator */
       st._thinking?h('div',{key:'thinking',style:{padding:'3px 6px',marginBottom:3,display:'flex',justifyContent:'flex-start'}},
@@ -6474,7 +6555,11 @@ function _chatPaneUI(idx,opts){
             h('span',{style:{fontSize:_fs(11),color:C.tx3,fontStyle:'italic',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:200}},st._thinking.text||'')))):null),
     /* M1/011: minimal functional status; final Studio UI is a later product surface. */
     st._delivery&&st._delivery.status==='NOT_SENT'?h('div',{style:{padding:'5px 10px',borderTop:'1px solid '+C.border,background:C.redBg,color:C.red,fontSize:_fs(10),lineHeight:'1.35',flexShrink:0}},
-      'NOT_SENT · Zpráva nebyla odeslána. Po obnovení WebSocketu akci opakujte; rozepsaná data zůstala zachovaná.'):null,
+      'NOT_SENT · Zpráva nebyla odeslána. Po obnovení WebSocketu akci opakujte; rozepsaná data zůstala zachovaná.'):
+    st._delivery&&st._delivery.status==='DELIVERY_UNKNOWN'?h('div',{style:{padding:'5px 10px',borderTop:'1px solid '+C.border,background:'rgba(245,158,11,0.12)',color:'#fbbf24',fontSize:_fs(10),lineHeight:'1.35',flexShrink:0}},
+      'DELIVERY_UNKNOWN · Spojení skončilo po odeslání. Výsledek ověřte v historii; automatické opakování je vypnuté.'):
+    st._delivery&&st._delivery.status==='BUSY'?h('div',{style:{padding:'5px 10px',borderTop:'1px solid '+C.border,background:'rgba(245,158,11,0.12)',color:'#fbbf24',fontSize:_fs(10),lineHeight:'1.35',flexShrink:0}},
+      'BUSY · '+st._delivery.text):null,
     /* INPUT */
     h('div',{style:{padding:6,borderTop:'1px solid '+C.border,flexShrink:0},onClick:function(ev){ev.stopPropagation();}},
       h('div',{style:{background:C.bg2,border:'1px solid '+(st._dragOver?C.accent:st.editingIdx!==null?C.accent:C.border2),borderRadius:10,overflow:'visible',position:'relative',transition:'border-color 0.15s'},
@@ -6890,9 +6975,10 @@ function _cancelExecution(idx) {
   var localPreparedCancelled = _chatCancelPreparedSend(idx, s);
   if (!localPreparedCancelled && typeof C3WS !== 'undefined') chatCancelSent = C3WS.sendCancel(s);
   if (typeof C3Terminal !== 'undefined') C3Terminal.cancel(idx);
-  if (s && (localPreparedCancelled || chatCancelSent)) {
-    s.log.forEach(function(l) { l.active = false; });
-    s.log.push({time:new Date().toLocaleTimeString('cs-CZ'),type:'CANCEL',cls:'error',text:'Zrušeno uživatelem',active:true,ts:new Date().toISOString()});
+  if (s && localPreparedCancelled) {
+    s.log.push({time:new Date().toLocaleTimeString('cs-CZ'),type:'CANCEL',cls:'info',text:'Rozpracované odeslání zrušeno.',active:false,ts:new Date().toISOString()});
+  } else if (s && chatCancelSent) {
+    s.log.push({time:new Date().toLocaleTimeString('cs-CZ'),type:'CANCEL',cls:'info',text:'Požadavek na zrušení odeslán.',active:true,ts:new Date().toISOString()});
   }
   renderAgent(); renderChat();
 }

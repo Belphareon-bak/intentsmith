@@ -77,8 +77,8 @@ odchylku uvést explicitně, dokud ji M2 neuzavře.
   kanonický decimal string; malformed hodnota skončí před wire efektem;
 - jedna conversation má nejvýše jeden aktivní M1 send; HTTP a WS mutex zůstávají
   oddělené podle Findingu 005 a globální autorita se netvrdí;
-- klient přijme nejvýše 256 CoreEventů a 1 048 576 serializovaných JavaScript
-  code units na turn. Jde o client safety ceiling, nikoli payload byte SLA;
+- klient přijme nejvýše 256 CoreEventů a 1 048 576 serializovaných UTF-8 bajtů
+  na turn. Jde o client safety ceiling, nikoli provider payload SLA;
 - terminal ledger drží nejvýše 256 položek a po terminálu zahodí payload,
   event history, socket i panel reference. Zůstane pouze bounded identity/order
   tombstone potřebný pro cancel ordering.
