@@ -831,11 +831,10 @@ export class UpgradeManager {
     const baseUrl = config.ollama?.baseUrl || 'http://127.0.0.1:11434';
     // 90s — model may need to load into VRAM (unload previous + load new)
     const timeout = 90000;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
-
       const response = await fetch(`${baseUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -848,7 +847,6 @@ export class UpgradeManager {
         signal: controller.signal,
       });
 
-      clearTimeout(timeoutId);
       if (!response.ok) return false;
 
       const data = await response.json();
@@ -856,6 +854,8 @@ export class UpgradeManager {
     } catch (err) {
       logger.warn('UpgradeManager', `Verify failed for ${modelName}: ${err.message}`);
       return false;
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 

@@ -487,15 +487,32 @@ await testAsync('returns false when mock verify fails', async () => {
   assertEqual(result, false);
 });
 
-await testAsync('original _verifyModel returns false on network error', async () => {
-  // Use a real UpgradeManager (not mocked) with an unreachable host
+await testAsync('original _verifyModel clears its timeout on network error', async () => {
   const mgr = new UpgradeManager();
-  // Override config temporarily to point to a non-existent host
-  const origUrl = config.ollama?.baseUrl;
-  if (config.ollama) config.ollama.baseUrl = 'http://127.0.0.1:1'; // port 1 = unreachable
-  const result = await mgr._verifyModel('nonexistent-model');
-  assertEqual(result, false, 'Should return false on connection error');
-  if (config.ollama) config.ollama.baseUrl = origUrl;
+  const originalFetch = globalThis.fetch;
+  const originalSetTimeout = globalThis.setTimeout;
+  const originalClearTimeout = globalThis.clearTimeout;
+  const timeoutHandle = Object.freeze({ fixture: 'verify-timeout' });
+  let clearedHandle = null;
+  globalThis.fetch = async () => {
+    throw new Error('fixture network failure');
+  };
+  globalThis.setTimeout = (_callback, delayMs) => {
+    assertEqual(delayMs, 90000);
+    return timeoutHandle;
+  };
+  globalThis.clearTimeout = handle => {
+    clearedHandle = handle;
+  };
+  try {
+    const result = await mgr._verifyModel('nonexistent-model');
+    assertEqual(result, false, 'Should return false on connection error');
+    assertEqual(clearedHandle, timeoutHandle, 'Network failure must clear the timeout');
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.setTimeout = originalSetTimeout;
+    globalThis.clearTimeout = originalClearTimeout;
+  }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════

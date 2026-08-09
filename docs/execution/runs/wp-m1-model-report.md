@@ -1520,6 +1520,26 @@ GPU, Ollama, produktový server ani externí síť nebyly spuštěny. Tento
 checkpoint pouze uzavírá auditní identitu a pořadí; nevydává PASS proof,
 neaktivuje automatic failover a nemění Gate 1 z `BLOCKED`.
 
+## Checkpoint 22 — verify timeout nezůstává živý po network failure
+
+Nezávislé review checkpointu 21 ukázalo, že legacy `_verifyModel()` při
+odmítnutém fetchi vrátí `false`, ale neuklidí 90s abort timer. Aserce 33/0 se
+proto vytiskly rychle, zatímco Node proces zůstal zbytečně živý. Nový
+deterministický test nahrazuje skutečný pokus na zavřený port test-owned
+odmítnutím fetch a vyžaduje úklid stejného timeout handle i na chybové cestě.
+
+Test-first běh skončil `32 passed / 1 failed`, exit `1`, přesně na chybějícím
+`clearTimeout`. `_verifyModel()` nyní vlastní timer před vstupem do `try` a
+uklízí jej ve `finally`, takže platí pro HTTP chybu, parse chybu i rejected
+fetch. Rerun:
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `/usr/bin/time -f 'elapsed=%e exit=%x' env C3_LOG_LEVEL=error node tests/upgrade-apply.test.js` | 33 passed, 0 failed; `elapsed=0.08` | 0 |
+
+Nejde o nový provider retry ani změnu 005/A: jeden verify request má dál jeden
+provider effect a 90s timeout zůstává pro skutečné načtení modelu do VRAM.
+
 ### Otevřená rozhodovací fronta — checkpoint neblokuje
 
 1. **Durable compensation failure.** Default je tvrdý typovaný
@@ -1564,11 +1584,6 @@ neaktivuje automatic failover a nemění Gate 1 z `BLOCKED`.
    pinuje jako binding-notification revision, nikoli jako modelový přechod.
    Potlačit event/verzi nebo přidat `changed:false` by změnilo veřejnou WS
    sémantiku a zůstává ve frontě pro společné rozhodnutí.
-9. **Legacy verify timer.** `upgrade-apply.test.js` vytiskne 33/0, ale
-   neúspěšná `_verifyModel()` cesta v `upgrade-manager.js` uklízí 90s timer jen
-   při úspěchu. Proces proto po dokončených asercích zbytečně čeká; jde o
-   `PENDING-OWNER` resource-lifecycle finding pro samostatný malý follow-up,
-   nikoli o selhání tohoto checkpointu.
 
 Backend produktový checkpoint má source SHA i fresh-clone reprodukci popsanou
 výše. GPU, skutečná Ollama ani externí síť nebyly spuštěny. Gate 1 proto
