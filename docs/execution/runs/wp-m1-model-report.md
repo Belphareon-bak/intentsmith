@@ -2316,16 +2316,17 @@ Lokální focused výsledky source kandidáta:
 | `node tests/repository-hygiene.test.js` | 1 527 tracked paths | 0 |
 | `node scripts/validate-test-registry.js --write-doc` | 377 programů; fingerprint `1370be04…75a6` | 0 |
 
-Před integračním baseline commitem ratchet správně hlásí právě čtyři nové exact
-hrany a exit `1`: `src/server.js → src/upgrade/model-failover-coordinator.js`,
+Source commit `be4f2175d472f24b98970d046697a0a2a6b21e5a` ponechal ratchet
+záměrně červený právě na čtyřech nových exact hranách:
+`src/server.js → src/upgrade/model-failover-coordinator.js`,
 `src/upgrade/model-failover-coordinator.js → src/upgrade/model-failover.js`,
 `src/upgrade/model-failover-coordinator.js → src/upgrade/model-identity.js` a
 `src/upgrade/model-failover.js → src/db/user-settings.js`; nepoužívá se glob
-ani adresářová výjimka. Po source commitu musí integrátor tyto čtyři dvojice
-přijmout standardním
-`--write-baseline --accept-edge` během z čistého klonu a poté znovu spustit
-focused i compatibility baterii. Jde o očekávanou dvoucommitovou provenance
-hranici, nikoli zelený stav tohoto mezikroku.
+ani adresářová výjimka. Standardní writer následně v čistém detached klonu
+source SHA přijal právě tyto čtyři `--accept-edge` dvojice: 1 016 → 1 020 hran,
+cykly zůstaly 3 a soubory v cyklech 28. Baseline nyní pinuje source revision
+`be4f2175…` a source tree `030f7d2a…`; lokální ratchet a čistý klon se ověří
+ještě před uzavřením evidence commitu.
 
 Checkpoint nevydává proof, claim, provider mutation, runtime binding ani
 broadcast a nemění L0-9. Gate 1 zůstává `BLOCKED` na rozhodnutí 015, proof
