@@ -1,7 +1,7 @@
 # 015 — D+ potřebuje schválenou role-suite proof policy
 
 - **typ:** BLOCK pouze pro vydání PASS proofu a terminal activation
-- **stav rozhodnutí:** C IMPLEMENTOVÁNO JAKO VRATNÝ DEFAULT; A/B A TTL ČEKAJÍ NA OPERÁTORA
+- **stav rozhodnutí:** C IMPLEMENTOVÁNO; A + PROVIZORNÍ 7D ČEKAJÍ NA POTVRZENÍ TRIGGERU
 - **WP:** WP-M1-MODEL / B3-FAILOVER
 - **rail:** R1, R3, R5, R6
 - **vzniklo při:** call-graph auditu authority pro rozhodnutí 006/D+
@@ -165,12 +165,44 @@ nebo minimální délku, takže aggregate-only práh není dostatečný důkaz k
    proof bez artefaktu nikoli.
 3. Budoucí B používá mandatory per-test kontrakt, ne jen aggregate score/count.
 
+### Co sedmidenní TTL skutečně spouští
+
+Aktuální kód nemá proof issuer ani revalidation trigger. Pětiminutový
+detection scheduler má frozen port bez proof/model-run autority. Schválení
+`A + 7d` tedy samo o sobě nezavádí týdenní GPU job.
+
+Dnešní parent measurement je ručně spouštěné CLI pro právě jednu roli. Vždy
+volá lokální Ollamu: dvakrát inventory a šest nebo osm chat requestů podle
+suite. Neověřuje GPU residency a nedrží společný model/VRAM lease. Automatická
+obnova by proto byla nový výpočetní a concurrency kontrakt, nikoli důsledek
+samotného TTL.
+
+Bezpečný provizorní význam je:
+
+- 7 dní je pouze doba způsobilosti jednoho proofu;
+- obnovu spouští explicitně operátor a role běží sériově;
+- `autoFailoverEnabled` samo neopravňuje background proof běh;
+- expiry aktivní fallback nepřepne: stav přejde na
+  `DEGRADED_PROOF_EXPIRED`, jednou upozorní a blokuje nový `ACTIVATE/REAPPLY`;
+- revalidation běží až na explicitní akci; návrat zůstává omezený na exact
+  desired digest nebo uživatelský zásah.
+
+Pokud má později vzniknout automatická obnova, vyžaduje samostatný opt-in,
+shared model/VRAM lease a durable one-attempt-per-expiry ledger. Současný DB
+kontrakt navíc používá inkluzivní `expires_at_ms >= event time`, zatímco přijatý
+význam je striktní `now < expiresAt`; před aktivací se tato hrana musí sjednotit
+a runtime musí expiry po aktivaci skutečně pozorovat.
+
 Přesný potvrzovací blok:
 
 ```text
-015-policy: A
-015-ttl: 7d
-015-expiry: DEGRADED_PROOF_EXPIRED
+015-policy: A-bootstrap
+015-ttl: 7d-provisional
+015-trigger: OPERATOR_REQUEST_ONLY
+015-auto-renewal: OFF
+015-revalidation: ONE_ROLE_ONE_DIGEST_SERIAL
+015-expiry: ACTIVE_STAYS_BOUND_DEGRADED_PROOF_EXPIRED
+015-restore: FRESH_DESIRED_PROOF_OR_EXPLICIT_USER_BINDING
 015-storage: content-addressed
 015-calibration: mandatory-per-test
 ```

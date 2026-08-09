@@ -1,7 +1,7 @@
 # 017 — Negotiated M1 wire potřebuje feature token a transportní obálku
 
 - **typ:** BLOCK pouze pro negotiated-wire část 010/A+
-- **stav rozhodnutí:** Q1 A Q2 ČEKAJÍ NA OPERÁTORA; CANCEL JE ZAMČENÝ 004/C
+- **stav rozhodnutí:** PŘIJATO 2026-08-09 — Q1 A, Q2 A; CANCEL JE ZAMČENÝ 004/C
 - **WP:** WP-M1-STUDIO / B4
 - **rail:** R1, R2, R5, R6
 - **base evidence:** `da24246ab72edfec9b426004b5eda2cc69ec7ebd`
@@ -144,22 +144,22 @@ Studio:
 Regresně zůstane zelený nezměněný M1 contract, HTTP cancel autorita, generated
 protocol build a následný built Studio journey.
 
-## Přesná otázka pro operátora
+## Přijatý operátorský záznam
 
-Potvrdit nebo změnit jediným blokem:
+Operátor potvrdil tento blok:
 
 ```text
 017-Q1: A
 017-Q2: A
 ```
 
-Do potvrzení je zastaven pouze negotiated M1 wire, terminal ledger a built
-journey, která jej potřebuje. Gate 1 zůstává `BLOCKED`; generated protocol
-delivery a ostatní nezávislá práce mohou pokračovat.
+Tento záznam otevírá ohraničenou negotiation, exact ingress, canonical
+egress/cancel a built-journey implementaci. Gate 1 zůstává `BLOCKED`, dokud
+tyto části nejsou skutečně dokončené a ověřené; podpis sám není runtime důkaz.
 
 ## Nezávislý read-only decision audit — 2026-08-09
 
-Audit na `a82015a5` potvrdil doporučení A/A a zpřesnil dvě implementační
+Audit na `a82015a5` potvrdil přijaté A/A a zpřesnil dvě implementační
 podmínky:
 
 1. `buildHelloAck([])` dnes vrací všech pět server features. Pouhé přidání
@@ -178,7 +178,6 @@ jen přeznačit na M1: negotiated turn potřebuje oddělený adapter a právě j
 kanonický egress. Klient musí latch po reconnectu resetovat a již odeslaný M1
 turn nesmí při chybě downgradeovat na legacy.
 
-Do schválení A/A se neimplementuje aktivní wire ani transportem napájený
-terminal ledger. Bezpečně lze připravit nanejvýš transportně inertní bundle
-consumer, ale ten sám není M1 journey ani důkaz wire; nevzniká proto jako
-náhradní checkpoint bez produktového výsledku.
+Implementace začne required-offer negotiation checkpointem. Transportem
+napájený ledger vznikne až spolu s exact ingress/egress; inertní test-only
+consumer se nevydává za M1 journey ani wire důkaz.

@@ -798,8 +798,9 @@ operátorským rozhodnutím; dnešní další povolený scope tvoří přesně f
 B4 jsou `50280fcd`, `d145e95e`,
 `446d197f`, `8e68a92e`, `a4067cd6` a `2ead4662`; výchozí dependency je
 `b7d0dbf6`.
-Rozhodovací fronta B4 010–014 je operátorsky uzavřená; nový wire balík 017
-čeká na operátora. B4 je přesto `BLOCKED`, dokud se 010/A+ negotiated consumer
+Rozhodovací fronta B4 010–014 je operátorsky uzavřená a operátor přijal také
+wire balík `017-Q1:A` + `017-Q2:A`. B4 je přesto `BLOCKED`, dokud se 010/A+
+negotiated consumer
 a built journey nedokončí. Server i klient 014/A i 012/B,
 společný DB-backed live wire a 011/A jsou focused PASS, nikoli celé B4. 013/A je potvrzený
 client-contract checkpoint. Souhrnný balík je v
@@ -819,5 +820,6 @@ jediný kanonický egress. Context wrapper musí kromě exact keys určit
 `editMode=auto|ask`, nullable identity pole a ohraničený attachment kontrakt;
 path podvětev bez existující FS autority zůstane PARK.
 
-Audit nespouštěl build ani UI a nic neměnil. Do potvrzení A/A zůstává aktivní
-wire, terminal ledger napojený na transport a built M1 journey `BLOCKED`.
+Audit nespouštěl build ani UI a nic neměnil. Přijetí A/A otevírá required-offer
+negotiation checkpoint; aktivní wire, terminal ledger napojený na transport a
+built M1 journey zůstávají `BLOCKED`, dokud nevznikne runtime evidence.

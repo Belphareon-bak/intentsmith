@@ -2375,12 +2375,14 @@ full-document tělo umí failover zapnout i s neznámým modelovým klíčem a
 navazující `{}` smaže celý dokument a vrátí policy na default off; oba requesty
 vrátily 200, probe exit `0`.
 
-Obecný POST je živá backup/import/reset autorita obou UI, takže jeho změna na
-merge nebo modelový allowlist není interní refaktor. Varianty a doporučení
-samostatné exact typed route jsou v
-[`020`](../../decisions/020-m1-model-failover-opt-in-surface.md). Do rozhodnutí
-zůstává zastaven pouze podporovaný opt-in surface; detection scheduler je
-bezpečně default off a ostatní decision evidence může pokračovat.
+Obecný POST je živá backup/import/reset autorita obou UI. Navazující audit
+navíc našel storage, notification, webhook a global-reset mutation cestu nad
+stejným blobem. Samostatná typed route by proto nezabránila stale přepsání a
+validace modelového tvaru by stále dovolila validní `true`. Rozhodnutí
+[`020`](../../decisions/020-m1-model-failover-opt-in-surface.md) je vrácené do
+`CHANGES_REQUIRED` s doporučením oddělené revisioned policy storage. Do
+rozhodnutí zůstává zastaven pouze podporovaný opt-in surface; detection
+scheduler je bezpečně default off.
 
 ## Read-only uzavření decision evidence 015
 
@@ -2392,7 +2394,23 @@ neváže measurement hash, parent acceptance hash ani source revision. Proto se
 
 Do [015](../../decisions/015-m1-model-failover-proof-policy.md) je doplněný
 jediný konzervativní bootstrap, který lze schválit bez vymyšlených dat:
-absolutní A, všech 8/8 nebo 6/6 testů, TTL 7 dní a strict expiry. Současně jsou
-pojmenované navazující volby pro expiry aktivního failoveru, content-addressed
-artifact store a mandatory per-test kontrakt budoucí kalibrace. Audit nic
-nespouštěl a nezměnil runtime; proof issuance zůstává vypnuté.
+absolutní A, všech 8/8 nebo 6/6 testů, provizorní TTL 7 dní a strict expiry.
+TTL samo nic neplánuje: současný scheduler je detection-only a measurement je
+ruční one-role CLI nad lokální Ollamou bez GPU-residency důkazu. Doporučená
+obnova je proto operator-triggered, sériová a background renewal zůstává OFF.
+Expiry aktivní binding nepřepne, ale odvodí `DEGRADED_PROOF_EXPIRED` a blokuje
+nový `ACTIVATE/REAPPLY`. Audit nic nespouštěl a nezměnil runtime; proof issuance
+zůstává vypnuté.
+
+## Checkout a ratchet provenance po review
+
+Hlavní checkout na `9bd312ab` nebyl čistý: staging area byla prázdná, ale
+porcelain obsahoval jeden cizí tracked dokument a sedm cizích untracked
+dokumentů. Checkpointová fresh-clone evidence se proto výslovně vztahuje na
+čistý disposable clone `1823e9a4`, nikoli na čistotu hlavního checkoutu.
+
+Ratchet výsledek 1 020/1 020 používá baseline source revision `be4f2175`.
+Na `9bd312ab` byla tato revision čtyři commity za HEAD, všechny čtyři byly
+documentation-only; nástroj stav pravdivě hlásil jako
+`BASELINE_PROVENANCE_VERIFIED` s replayem 1 020 hran. Nejde o byte pin
+současného HEAD a další source checkpoint musí baseline znovu připnout.

@@ -555,15 +555,16 @@ focused regression sady.
      `src/db/user-settings.js`, `src/upgrade/model-failover.js`, malé aditivní
      `src/db/migrations/*model_failover*.js`, `model-registry.js`, identity a
      verify části `upgrade-manager.js` a scheduler seam v `src/server.js`.
-     Autoritou opt-inu je JSON `user_settings.id=1`; missing/malformed/DB error
-     fail-close. Je to schválená výjimka do upgrade automatiky, nikoli změna
-     L0-9 před důkazem. **První checkpoint je implementovaný:** nový helper
-     typovaně čte JSON, defaultuje failover na `false` a zapisuje vlastněnou
-     `models` sekci transakčním merge. Detection scheduler jej už konzumuje,
-     ale typed writer nemá produkčního volajícího. Podporovaný opt-in povrch
-     proto čeká na [rozhodnutí 020](docs/decisions/020-m1-model-failover-opt-in-surface.md):
-     generický whole-document writer `/api/settings` nelze bez změny veřejné
-     backup/import/reset sémantiky vydávat za modelovou policy autoritu. Před
+     Dnešní provisional reader používá JSON `user_settings.id=1` a pro
+     missing/malformed/DB error fail-close. Není ale jedinou writer autoritou.
+     **První checkpoint je implementovaný:** helper typovaně čte JSON,
+     defaultuje failover na `false` a zapisuje vlastněnou `models` sekci
+     transakčním merge. Detection scheduler jej už konzumuje, ale typed writer
+     nemá produkčního volajícího a pět legacy mutation cest může stejný blob
+     přepsat. [Rozhodnutí 020](docs/decisions/020-m1-model-failover-opt-in-surface.md)
+     je proto `CHANGES_REQUIRED`; doporučuje oddělenou revisioned
+     `model_automation_policy` autoritu a explicitní backup/import/reset
+     adaptéry. Před
      aktivací je navíc nutný čerstvý role-suite proof svázaný s exaktním
      digestem; dnešní name-only score takovým důkazem není.
      **Druhý checkpoint je implementovaný:** migrace 046 vytváří oddělený
@@ -1298,12 +1299,14 @@ mohou pokračovat.
    čistým lokálním klonem, offline instalací a celou focused/compatibility
    baterií. Navazující detection-only koordinátor už po opt-inu ukládá exact
    desired baseline a `DETECTED`, ale nevybírá fallback a nemá claim, proof ani
-   runtime autoritu. Podporovaný typed opt-in povrch čeká na
-   [020](docs/decisions/020-m1-model-failover-opt-in-surface.md). Otevřené
+   runtime autoritu. Podporovaný opt-in povrch čeká na `CHANGES_REQUIRED`
+   [020](docs/decisions/020-m1-model-failover-opt-in-surface.md) a jeho
+   oddělenou policy storage. Otevřené
    zůstávají proof issuer a terminal failover activation/restore. Failover se
-   dosud neaktivuje. Proof issuance
-   čeká na prahy a TTL z rozhodnutí 015; nový skutečný GPU běh zůstává
-   samostatnou blokovanou evidencí, dokud není legitimně čistý checkout.
+   dosud neaktivuje. Proof issuance čeká na potvrzení bootstrapu 015;
+   provizorní 7d TTL je pouze eligibility a doporučená obnova je explicitně
+   operátorská, sériová a bez background GPU jobu. Nový skutečný GPU běh
+   zůstává samostatnou blokovanou evidencí, dokud není legitimně čistý checkout.
 7. B4 má focused implementované 011/A, obě poloviny 014/A a obě poloviny
    012/B: bounded request
    ID/set, úplný partition, typed reject, explicitní durable-store autoritu,
@@ -1311,10 +1314,11 @@ mohou pokračovat.
    restore, existence-aware atomický history snapshot a fail-closed klientskou
    interpretaci přesného HTTP 200, 404 a race výsledků. Společný DB-backed live
    wire přes produkční WS server, route a commitnutý klient je také hotový.
-   Generated prebuild část 010/A+ je implementovaná a clean-clone ověřená;
-   negotiated wire nyní čeká na jediný operátorský balík
-   [017](docs/decisions/017-m1-negotiated-wire-shape.md): feature token a
-   exact transportní context wrapper. Cancel terminal ordering už závazně
+   Generated prebuild část 010/A+ je implementovaná a clean-clone ověřená.
+   Operátor přijal [017/A+A](docs/decisions/017-m1-negotiated-wire-shape.md):
+   required-offer `m1-wire-v1` a exact transportní context wrapper. Tím je
+   otevřený negotiation checkpoint; runtime consumer ani built journey tím
+   ještě nejsou prokázané. Cancel terminal ordering už závazně
    plyne z přijatého 004/C a není nová otázka. Ostatní
    nezávislá příprava product-bundle consumeru může pokračovat před terminal
    ledgerem a built journey. Disposable fresh clone na `9464dacf` už offline
