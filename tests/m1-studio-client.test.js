@@ -1086,7 +1086,7 @@ test('ready WebSocket queues each call site once without claiming server acknowl
 
 suite('M1 Studio client — acknowledged race-safe rehydrate');
 
-await testAsync('history waits for ACK, ambiguous empty history preserves data, and invalid pane is reset', async () => {
+await testAsync('history waits for ACK, authoritative empty history replaces data, and invalid pane is reset', async () => {
   const paneA = session('studio-rehydrate-A');
   const paneB = session('studio-rehydrate-B');
   paneB._projectId = 'project-kept';
@@ -1115,8 +1115,8 @@ await testAsync('history waits for ACK, ambiguous empty history preserves data, 
 
   assert.equal(fetchUrls.length, 1);
   assert.match(fetchUrls[0], /studio-rehydrate-A\/messages$/);
-  assert.equal(paneA.chat.msgs[0].text, 'stale');
-  assert.equal(paneA.chat._thinking.text, 'pending');
+  assert.equal(paneA.chat.msgs.length, 0);
+  assert.equal(paneA.chat._thinking, null);
   assert.equal(paneB._convId, null);
   assert.equal(paneB._agentId, null);
   assert.equal(paneB._label, '');
@@ -1128,10 +1128,10 @@ await testAsync('history waits for ACK, ambiguous empty history preserves data, 
   assert.equal(
     JSON.stringify(completion.at(-1).payload),
     JSON.stringify({
-      status: 'degraded',
-      restoredCount: 0,
+      status: 'ok',
+      restoredCount: 1,
       invalidCount: 1,
-      failedCount: 1,
+      failedCount: 0,
     }),
   );
   assert.equal(
@@ -1407,6 +1407,40 @@ await testAsync('non-2xx history preserves snapshot and reports degraded complet
   );
 });
 
+await testAsync('typed conversation 404 preserves identity and snapshot for the next rehydrate', async () => {
+  const pane = session('studio-rehydrate-history-missing');
+  let responseBodyReads = 0;
+  const { busEvents, socket } = loadClient([pane], {
+    fetch: async () => ({
+      ok: false,
+      status: 404,
+      json: async () => {
+        responseBodyReads++;
+        return {
+          error: 'Conversation not found',
+          code: 'CONVERSATION_NOT_FOUND',
+        };
+      },
+    }),
+  });
+
+  sendCompleteRehydrateAck(socket, {
+    validIds: [pane._convId],
+    invalidIds: [],
+  });
+  await drainMicrotasks();
+
+  assert.equal(responseBodyReads, 0, 'non-success payload must not gain content authority');
+  assert.equal(pane._convId, 'studio-rehydrate-history-missing');
+  assert.equal(pane.chat.msgs[0].text, 'stale');
+  assert.equal(pane.chat._thinking.text, 'pending');
+  assert.equal(busEvents.some(event => event.name === 'session:invalidated'), false);
+  assert.equal(
+    JSON.stringify(busEvents.filter(event => event.name === 'ws:reconnected').at(-1).payload),
+    JSON.stringify({ status: 'degraded', restoredCount: 0, invalidCount: 0, failedCount: 1 }),
+  );
+});
+
 await testAsync('malformed success history preserves snapshot and reports degraded completion', async () => {
   const pane = session('studio-rehydrate-malformed-history');
   const { busEvents, socket } = loadClient([pane], {
@@ -1554,6 +1588,42 @@ await testAsync('history cannot overwrite activity added after ACK in the same e
 
   assert.equal(pane.chat.msgs.at(-1).text, 'newer local activity');
   assert.equal(pane.chat._thinking.text, 'new turn pending');
+  assert.equal(
+    JSON.stringify(busEvents.filter(event => event.name === 'ws:reconnected').at(-1).payload),
+    JSON.stringify({ status: 'degraded', restoredCount: 0, invalidCount: 0, failedCount: 1 }),
+  );
+});
+
+await testAsync('same-ID slot reuse after ACK revokes a pending history response', async () => {
+  const original = session('studio-rehydrate-post-ack-reuse');
+  const sessions = [original];
+  const pendingFetch = deferred();
+  const { busEvents, socket } = loadClient(sessions, {
+    fetch: () => pendingFetch.promise,
+  });
+
+  sendCompleteRehydrateAck(socket, {
+    validIds: [original._convId],
+    invalidIds: [],
+  });
+  await drainMicrotasks();
+
+  const replacement = session('studio-rehydrate-post-ack-reuse');
+  replacement.chat.msgs = [{ role: 'user', text: 'replacement owns this slot' }];
+  replacement.chat._thinking = null;
+  sessions[0] = replacement;
+  pendingFetch.resolve({
+    ok: true,
+    json: async () => ({
+      messages: [{ role: 'assistant', content: 'late history for old owner', metadata: null }],
+    }),
+  });
+  await drainMicrotasks();
+
+  assert.equal(sessions[0], replacement);
+  assert.equal(replacement._convId, 'studio-rehydrate-post-ack-reuse');
+  assert.equal(replacement.chat.msgs[0].text, 'replacement owns this slot');
+  assert.equal(original.chat.msgs[0].text, 'stale');
   assert.equal(
     JSON.stringify(busEvents.filter(event => event.name === 'ws:reconnected').at(-1).payload),
     JSON.stringify({ status: 'degraded', restoredCount: 0, invalidCount: 0, failedCount: 1 }),

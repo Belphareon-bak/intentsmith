@@ -447,16 +447,6 @@ function _handleRehydrateAck(data, connectionEpoch, socket) {
       ) {
         return false;
       }
-      if (
-        msgs.length === 0
-        && (
-          snapshot.session.chat.msgs.length > 0
-          || snapshot.session.chat._thinking !== null
-            && snapshot.session.chat._thinking !== undefined
-        )
-      ) {
-        return false;
-      }
       snapshot.session.chat.msgs = msgs;
       snapshot.session.chat._thinking = null;
       C3Bus.emit('session:changed', { idx: snapshot.idx });

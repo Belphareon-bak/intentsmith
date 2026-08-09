@@ -1,8 +1,8 @@
 # 012 — Prázdná Studio historie nemá autoritu smazat lokální snapshot
 
 - **typ:** BLOCK
-- **stav rozhodnutí:** B SCHVÁLENO; ROUTE IMPLEMENTOVÁNA; KLIENT A SPOLEČNÝ
-  LIVE WIRE DŮKAZ OTEVŘENÉ
+- **stav rozhodnutí:** B SCHVÁLENO; ROUTE I KLIENT IMPLEMENTOVÁNY; SPOLEČNÝ
+  DB-BACKED LIVE WIRE DŮKAZ OTEVŘENÝ
 - **WP:** WP-M1-STUDIO (jen atomická obnova prázdné historie)
 - **rail:** R1, R4, R5
 - **vzniklo při:** B4 client rehydrate race review
@@ -95,3 +95,22 @@ obnovení zdroj znovu prošel `21/21`.
 
 Klientská autorita `200 []`, typovaného `404` a same-ID slot reuse ani společný
 DB-backed wire důkaz tím hotové nejsou. Celé B4 a Gate 1 zůstávají `BLOCKED`.
+
+### Stav klientského checkpointu
+
+Po úplném request-bound ACK nyní `200 {messages: []}` autoritativně nahradí
+pouze nezměněný snapshot stále vlastněný stejnou socket epochou, pozicí,
+session, chat a messages objektem a conversation ID. Typované `404`, ostatní
+non-2xx, timeout a malformed payload pouze degradují: `_convId`, zprávy i
+thinking zachovají do dalšího rehydrate. Pozdní výsledek nesmí zasáhnout ani
+nový panel se stejným conversation ID.
+
+Focused `tests/m1-studio-client.test.js` prošel `48/48`. Opětovné zavedení
+starého empty-history guardu skončilo `47/1`; přidání identity cleanupu do
+failure větve `45/3`; odstranění přesného live-slot guardu `46/2`. Všechny
+mutace skončily exit `1`, byly přesně obnovené a finální zdroj znovu prošel
+`48/48`.
+
+Route i klient 012/B jsou tím focused implementované. Společný DB-backed
+server+client wire důkaz, built journey a 010/A+ zůstávají otevřené; celý B4 a
+Gate 1 proto zůstávají `BLOCKED`.
