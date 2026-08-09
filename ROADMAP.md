@@ -1317,7 +1317,8 @@ mohou pokračovat.
    Generated prebuild část 010/A+ je implementovaná a clean-clone ověřená.
    Operátor přijal [017/A+A](docs/decisions/017-m1-negotiated-wire-shape.md):
    required-offer `m1-wire-v1` a exact transportní context wrapper.
-   Required-offer checkpoint je focused implementovaný: Studio token nabízí,
+   Required-offer checkpoint je clean-clone focused implementovaný na
+   `7551b907`: Studio token nabízí,
    ACK-bound latch se při reconnectu resetuje a server zatím token pravdivě
    neACKuje; M1-shaped frame bez negotiation skončí před legacy controllerem.
    Exact ingress/egress adapter, terminal ledger, runtime consumer a built

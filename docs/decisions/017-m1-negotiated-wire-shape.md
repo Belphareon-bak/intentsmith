@@ -201,3 +201,8 @@ Focused důkaz: `tests/ws-bridge.test.js` 74/74 a
 `tests/m1-studio-client.test.js` 61/61, oba exit `0`. Nejde o aktivní M1 wire:
 exact context validator, kanonický ingress/egress, terminal ledger a built
 Electron journey zůstávají otevřené. Gate 1 proto zůstává `BLOCKED`.
+
+Stejné sady prošly z nového `--no-local` klonu přesného source commitu
+`7551b907d6600fe36d0624c6b9b897fc4cce7143` po `npm ci --offline`; oba exity
+byly `0`. Tento clean-clone focused důkaz stále není production Theia build ani
+built Electron journey.

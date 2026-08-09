@@ -857,3 +857,16 @@ list i reset při reconnectu.
 Checkpoint neimplementuje Q2 exact context validaci, M1 command adapter,
 kanonický event stream, cancel ordering, product-bundle consumer ani built
 Electron journey. Server proto M1 stále neinzeruje a B4/Gate 1 není PASS.
+
+### Clean-clone focused reprodukce a ratchet provenance
+
+Nový `git clone --no-local` přesného source SHA
+`7551b907d6600fe36d0624c6b9b897fc4cce7143` provedl `npm ci --offline`, WS
+74/74 a Studio 61/61; všechny tři příkazy skončily exit `0`. Ratchet před
+writerem pravdivě hlásil 1 020/1 020 hran a provenance šest commitů za HEAD.
+Autoritativní `--write-baseline` nepřijal žádnou novou hranu ani cyklus, pouze
+připnul stejných 1 020 hran k source tree `852dde2c…ac11`; následný checker
+hlásil `commitsBehind=0`, exit `0`.
+
+Jde o clean-clone focused reprodukci, ne production Theia build. Build a
+Electron journey zůstávají až u exact ingress/egress a product consumeru.
