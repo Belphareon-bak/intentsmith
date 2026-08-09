@@ -10,9 +10,9 @@
 //   node scripts/module-graph.mjs . --out /tmp/module-graph.json
 //
 // Nástroj je READ-ONLY vůči produktu: čte strom a zapisuje jediný soubor, který
-// mu předá `--out`. Není zapojený do `package.json` ani do L1 linky — je to
-// měřidlo sondy, ne aparát. Výstup je setříděný, takže `git diff` nad JSON
-// ukazuje drift grafu, ne pořadí.
+// mu předá `--out`. Povinný T1 ratchet jej spouští jako podproces; scanner sám
+// ale baseline ani produktový strom nemění. Výstup je setříděný, takže `git
+// diff` nad JSON ukazuje drift grafu, ne pořadí.
 //
 // Co nástroj NEVIDÍ (a report to musí říct nahlas):
 //   1. `import()` s vypočítanou cestou — 10 míst; jejich cíle uvnitř `src/**`

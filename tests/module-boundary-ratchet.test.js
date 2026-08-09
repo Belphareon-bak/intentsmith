@@ -19,6 +19,11 @@ const CHECKER = join(ROOT, 'scripts/module-boundary-ratchet.mjs');
 const SCANNER = join(ROOT, 'scripts/module-graph.mjs');
 const BASELINE_PATH = join(ROOT, 'tests/fixtures/module-boundary/baseline.json');
 const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
+const LEGACY_SCANNER_LIMITS = [
+  'computed import() targets are not resolved',
+  'template-literal content (including src/domains/scaffolds/**) is ignored',
+  'HTML <script src> edges are not modeled',
+].join('; ');
 const artifactParent = process.env.INTENTSMITH_TEST_ARTIFACT_DIR
   && existsSync(process.env.INTENTSMITH_TEST_ARTIFACT_DIR)
   ? process.env.INTENTSMITH_TEST_ARTIFACT_DIR
@@ -104,7 +109,18 @@ function makeBaselineWriterRepo() {
   mkdirSync(join(repo, 'tests/fixtures/module-boundary'), { recursive: true });
   copyFileSync(CHECKER, join(repo, 'scripts/module-boundary-ratchet.mjs'));
   copyFileSync(SCANNER, join(repo, 'scripts/module-graph.mjs'));
-  copyFileSync(BASELINE_PATH, join(repo, 'tests/fixtures/module-boundary/baseline.json'));
+  writeFileSync(
+    join(repo, 'tests/fixtures/module-boundary/baseline.json'),
+    `${JSON.stringify({
+      schemaVersion: 1,
+      authority: 'integration',
+      sourceRevision: '0'.repeat(40),
+      scanner: 'docs/review/2026-08-07-module-graph.mjs',
+      limits: baseline.limits,
+      note: LEGACY_SCANNER_LIMITS,
+      edges: baseline.edges,
+    }, null, 2)}\n`,
+  );
   writeFileSync(join(repo, 'src/server.js'), 'export const ready = true;\n');
   runGit(repo, ['init', '-q']);
   commitFixture(repo, [
@@ -318,6 +334,31 @@ try {
     assert(updated.edges.includes('src/server.js -> src/dependency.js'));
     assertEqual(updated.sourceRevision, runGit(repo, ['rev-parse', 'HEAD']));
 
+    commitFixture(repo, ['tests/fixtures/module-boundary/baseline.json'], 'accept dependency baseline');
+    writeFileSync(
+      join(repo, 'src/server.js'),
+      "import './dependency.js';\nexport async function lazy() { return import('./dependency'); }\n",
+    );
+    commitFixture(repo, ['src/server.js'], 'add dynamic spelling of existing dependency');
+    const normalized = run(['--root', repo]);
+    assertEqual(normalized.status, 0, normalized.stderr || normalized.stdout);
+    const normalizedHeadline = parseHeadline(normalized.stdout);
+    assertEqual(Number(normalizedHeadline.rawScannerEdges), 2, normalized.stdout);
+    assertEqual(Number(normalizedHeadline.currentEdges), 1, normalized.stdout);
+    assertEqual(Number(normalizedHeadline.normalizedDuplicates), 1, normalized.stdout);
+    assert(normalized.stdout.includes('NORMALIZED_EDGE_COLLISIONS collapsed=1'), normalized.stdout);
+
+    const beforeDirtyRefusal = readFileSync(fixtureBaseline, 'utf8');
+    writeFileSync(join(repo, 'untracked-writer-noise.txt'), 'must block baseline writes\n');
+    const dirtyRefusal = run(['--root', repo, '--write-baseline']);
+    assertEqual(dirtyRefusal.status, 2, dirtyRefusal.stderr || dirtyRefusal.stdout);
+    assert(dirtyRefusal.stderr.includes('BASELINE_WRITE_DIRTY_TREE'), dirtyRefusal.stderr);
+    assertEqual(
+      readFileSync(fixtureBaseline, 'utf8'),
+      beforeDirtyRefusal,
+      'dirty-tree refusal changed the baseline',
+    );
+
     const syntheticWrite = run([
       '--root', repo,
       '--write-baseline',
@@ -325,6 +366,28 @@ try {
     ]);
     assertEqual(syntheticWrite.status, 2, syntheticWrite.stderr || syntheticWrite.stdout);
     assert(syntheticWrite.stderr.includes('refuses synthetic --graph input'), syntheticWrite.stderr);
+  });
+
+  test('explicit writer refuses cycle growth even when new edges could be accepted', () => {
+    const repo = makeBaselineWriterRepo();
+    const fixtureBaseline = join(repo, 'tests/fixtures/module-boundary/baseline.json');
+    const migrate = run(['--root', repo, '--write-baseline']);
+    assertEqual(migrate.status, 0, migrate.stderr || migrate.stdout);
+    commitFixture(repo, ['tests/fixtures/module-boundary/baseline.json'], 'migrate cycle fixture baseline');
+
+    writeFileSync(join(repo, 'src/a.js'), "import './b.js';\n");
+    writeFileSync(join(repo, 'src/b.js'), "import './a.js';\n");
+    commitFixture(repo, ['src/a.js', 'src/b.js'], 'add forbidden cycle');
+    const beforeRefusal = readFileSync(fixtureBaseline, 'utf8');
+    const refused = run([
+      '--root', repo,
+      '--write-baseline',
+      '--accept-edge', 'src/a.js -> src/b.js',
+      '--accept-edge', 'src/b.js -> src/a.js',
+    ]);
+    assertEqual(refused.status, 1, refused.stderr || refused.stdout);
+    assert(refused.stderr.includes('CYCLE_GROWTH'), refused.stderr);
+    assertEqual(readFileSync(fixtureBaseline, 'utf8'), beforeRefusal, 'cycle refusal changed the baseline');
   });
 
   test('schema v2 provenance rejects a revision claim that is not a local ancestor', () => {
