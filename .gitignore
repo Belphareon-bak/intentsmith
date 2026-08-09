@@ -64,6 +64,7 @@ test-transcripts/
 
 # IDE build artifacts
 c3-ide/node_modules/
+c3-ide/extensions/c3-protocol/lib/
 c3-ide/applications/electron/lib/
 c3-ide/applications/electron/src-gen/
 c3-ide/applications/electron/gen-webpack*.js

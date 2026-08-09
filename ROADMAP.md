@@ -1129,8 +1129,9 @@ mohou pokračovat.
    restore, existence-aware atomický history snapshot a fail-closed klientskou
    interpretaci přesného HTTP 200, 404 a race výsledků. Společný DB-backed live
    wire přes produkční WS server, route a commitnutý klient je také hotový.
-   Pokračuje 010/A+ protocol delivery jako samostatná otevřená dependency
-   před terminal ledgerem a built journey. Read-only review může běžet
+   Generated prebuild část 010/A+ je implementovaná; pokračuje její
+   fresh-clone build důkaz a potom negotiated wire před terminal ledgerem a
+   built journey. Read-only review může běžet
    souběžně; GPU běhy nikdy.
 8. Teprve po built M1 multi-panel/cancel/provider/reconnect journey, soak a
    přijetí B3+B4 otevřít B5 QUALITY a následnou B6 exit demonstraci.

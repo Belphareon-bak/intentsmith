@@ -208,8 +208,9 @@ a `_convId` zachová.
   scheduler a vyčerpání 12 pokusů je tiché. To je následující D-7 checkpoint.
 - Autoritativní obnova skutečně prázdné durable konverzace v tomto checkpointu
   ještě čekala na později schválené a nyní focused implementované 012/B.
-- Přesný M1 `CoreEvent` consumer zůstává blokovaný stale protocol delivery
-  rozhodnutím 010 a HTTP send fallback effect authority rozhodnutím 011.
+- Přesný M1 `CoreEvent` consumer v tomto checkpointu zůstával blokovaný stale
+  protocol delivery rozhodnutím 010 a HTTP send fallback effect authority
+  rozhodnutím 011.
 - Plná Electron journey, bounded soak ani finální UI nebyly v tomto offline
   checkpointu spuštěny. Non-visual runner kontrakt byl ověřen, nikoli produktový
   běh se skutečným displejem.
@@ -275,7 +276,7 @@ přepnutí jsou v `docs/decisions/013-m1-studio-reconnect-backoff.md`.
   kontrola backendu a restart Studia. Varianta s ručním obnovením budgetu je
   oddělená v rozhodnutí 013.
 - Nejde o přesný M1 terminal consumer ani HTTP fallback opravu. Operátor později
-  schválil 010/A+ a 011/A; jejich implementace zůstává otevřená.
+  schválil 010/A+ a 011/A; jejich implementace v tomto bodě zůstávala otevřená.
 - Empty-history a ACK autorita byly v tomto checkpointu implementačně blokované
   v 012/B a 014/A. Reconnect je nezakrýval a degraded snapshot nebyl vydáván za
   restored; pozdější focused checkpointy obě rozhodnutí implementovaly.
@@ -629,12 +630,33 @@ guardu shodil T25h na `67/1`; změna produkční missing route z `404` na `200`
 také `67/1`. Obě mutace skončily exit `1`, byly přesně obnovené a finální sada
 znovu prošla `68/68`.
 
+## Checkpoint 13 — generated protocol prebuild candidate
+
+- **stav generated delivery vrstvy 010/A+:** `IMPLEMENTED / focused contract green`
+- **clean-clone build / negotiated wire / celý B4:** nadále `BLOCKED`
+
+Stale trackovaný `c3-protocol/lib/index.js` byl odstraněn. Celý protocol
+`lib/**` je nyní ignorovaný generated output a root Studio build jej vždy před
+Electron buildem odstraní, zkompiluje z přijatého TypeScript mirroru a
+fail-closed ověří verzi i povinné M1 runtime validátory. Root clean odstraňuje
+jen generated protocol output a Electron output; preserve kontrakt
+autoritativního `c3-chat-panel/lib/**` se nemění.
+
+Registrovaná Studio sada prošla `57/57`. Odstranění post-compile runtime verify
+kroku dalo `56/1`; odstranění Git ignore policy rovněž `56/1`. Obě mutace měly
+exit `1` a byly přesně obnovené.
+
+Tento checkpoint neběžel v dirty checkoutu jako produktový build a netvrdí
+fresh-clone parity. Následuje samostatný evidenční běh z commitnutého SHA:
+frozen Yarn install, `clean + build`, compiled negative matrix, kontrola bundle
+a čistého tracked stromu. Až potom smí začít negotiated M1 wire a terminal
+ledger.
+
 ## Otevřené nálezy pro další checkpointy
 
-1. Commitnutý `@c3/protocol/lib/index.js` je stale stub. Operátor schválil
-   010/A+: odstranit protocol `lib/**` z trackingu, vždy jej vytvořit root
-   prebuildem a po něm dodat feature-negotiated M1 wire a terminal ledger.
-   Implementace, clean build matrix a built journey ještě chybí.
+1. Generated protocol prebuild část 010/A+ je focused implementovaná. Zbývá ji
+   prokázat z clean clone a potom dodat feature-negotiated M1 wire a terminal
+   ledger.
 2. Async attachment callback je focused uzavřený Findingem 009: reset,
    close, replace a identity/timeline drift starý callback fail-closed zruší.
    Durable retry a globální conversation mutex tím nejsou vyřešené.
@@ -652,7 +674,7 @@ znovu prošla `68/68`.
 | stabilní panel identity a cancel A bez zásahu do B | PASS | client 46/46; WS bridge 67/67 včetně scoped cancel a phantom-ID negativu |
 | serverem ověřený rehydrate a invalid ID cleanup | PASS focused | server i klient 014/A i 012/B a společný DB-backed live wire T25h jsou hotové; built Theia journey zůstává samostatnou B4 podmínkou |
 | bounded reconnect a řízený shutdown | PASS na client contract vrstvě | přesný cap, handshake timeout, async-close race a destroy testy |
-| přesný M1 terminal consumer, late assistant a spinner terminal větve | BLOCKED | 010/A+ je schválené, ale protocol delivery, negotiated wire, ledger a built journey chybí |
+| přesný M1 terminal consumer, late assistant a spinner terminal větve | BLOCKED | generated prebuild část 010/A+ je focused hotová; clean-clone build, negotiated wire, ledger a built journey chybí |
 | HTTP fallback: non-2xx nikdy jako assistant a žádný effect bypass | PASS focused | 011/A na `2ead4662`: tři WS-only větve, `NOT_SENT`, nulový HTTP/simulovaný downstream efekt; built journey stále chybí |
 | built Theia multi-panel/cancel/restart journey | NOT RUN | závisí na terminal consumeru; dnešní UI není finální baseline |
 | fresh-clone build parity | NOT RUN pro tento B4 tip | M0-E disposition zůstává platná, ale nový B4 runtime nebyl z clean clone spuštěn |

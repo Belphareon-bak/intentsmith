@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
 import { suite, test, testAsync, summary } from './harness.js';
@@ -14,6 +16,80 @@ const CHAT_PANEL = new URL(
   '../c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js',
   import.meta.url,
 );
+const REPOSITORY_ROOT = fileURLToPath(new URL('..', import.meta.url));
+const STUDIO_PACKAGE = new URL('../c3-ide/package.json', import.meta.url);
+const PROTOCOL_PACKAGE = new URL(
+  '../c3-ide/extensions/c3-protocol/package.json',
+  import.meta.url,
+);
+const PROTOCOL_INDEX = new URL(
+  '../c3-ide/extensions/c3-protocol/src/index.ts',
+  import.meta.url,
+);
+
+suite('M1 Studio client — generated protocol delivery');
+
+test('protocol lib is ignored generated output with no tracked stale stub', () => {
+  const tracked = execFileSync(
+    'git',
+    ['ls-files', '--', 'c3-ide/extensions/c3-protocol/lib'],
+    { cwd: REPOSITORY_ROOT, encoding: 'utf8' },
+  ).trim();
+  assert.equal(tracked, '');
+
+  const ignoredBy = execFileSync(
+    'git',
+    ['check-ignore', '-v', 'c3-ide/extensions/c3-protocol/lib/runtime-probe.js'],
+    { cwd: REPOSITORY_ROOT, encoding: 'utf8' },
+  );
+  assert.match(
+    ignoredBy,
+    /\.gitignore:\d+:c3-ide\/extensions\/c3-protocol\/lib\//,
+  );
+});
+
+test('root Studio prebuild owns clean, compile, then runtime export validation', () => {
+  const studio = JSON.parse(fs.readFileSync(STUDIO_PACKAGE, 'utf8'));
+  assert.equal(
+    studio.scripts['clean:protocol'],
+    'yarn workspace @c3/protocol clean',
+  );
+  assert.equal(
+    studio.scripts.prebuild,
+    'yarn run clean:protocol && yarn workspace @c3/protocol build && yarn run verify:protocol-runtime',
+  );
+  assert.equal(studio.scripts.build, 'yarn --cwd applications/electron build');
+  assert.equal(
+    studio.scripts.clean,
+    'yarn run clean:protocol && yarn --cwd applications/electron clean',
+  );
+});
+
+test('prebuild fails closed unless compiled runtime exports the M1 validators', () => {
+  const studio = JSON.parse(fs.readFileSync(STUDIO_PACKAGE, 'utf8'));
+  const verification = studio.scripts['verify:protocol-runtime'];
+  for (const symbol of [
+    'validateM1Contract',
+    'validateConversationCommand',
+    'validateConversationResult',
+    'validateCoreEvent',
+    'validateCoreEventStream',
+    'classifyTerminal',
+    'M1_CONTRACT_VERSION',
+  ]) {
+    assert.match(verification, new RegExp(`\\b${symbol}\\b`));
+  }
+  assert.match(verification, /Missing generated M1 protocol export/);
+  assert.match(verification, /Unexpected generated M1 protocol version/);
+});
+
+test('protocol package resolves generated index and source index re-exports M1', () => {
+  const manifest = JSON.parse(fs.readFileSync(PROTOCOL_PACKAGE, 'utf8'));
+  const source = fs.readFileSync(PROTOCOL_INDEX, 'utf8');
+  assert.equal(manifest.main, 'lib/index.js');
+  assert.equal(manifest.typings, 'lib/index.d.ts');
+  assert.match(source, /export \* from ['"]\.\/m1['"]/);
+});
 
 function loadClient(sessions, options = {}) {
   const busEvents = [];

@@ -1,7 +1,8 @@
 # 010 — Jak doručit kanonický M1 kontrakt do autoritativního Studio runtime
 
 - **typ:** BLOCK
-- **stav rozhodnutí:** A+ SCHVÁLENO; IMPLEMENTACE A BUILT JOURNEY OTEVŘENÉ
+- **stav rozhodnutí:** A+ SCHVÁLENO; GENERATED PREBUILD CHECKPOINT
+  IMPLEMENTOVÁN; CLEAN-CLONE, NEGOTIATED WIRE A BUILT JOURNEY OTEVŘENÉ
 - **WP:** WP-M1-STUDIO (jen přesná `CoreEvent` consumer integrace)
 - **rail:** R1, R2, R5
 - **vzniklo při:** B4 call-graph inventura
@@ -88,3 +89,25 @@ zprávy; duplicate, out-of-order, foreign identity, event po terminálu a late
 `ok` po cancelu se odmítnou. Negotiated M1 nesmí současně renderovat legacy i
 M1 odpověď. Built multi-panel/cancel/provider-failure/reconnect journey je
 poslední důkaz tohoto rozhodnutí.
+
+## Generated prebuild checkpoint
+
+Kořenový Studio balíček nyní vlastní pořadí `clean protocol → compile protocol
+→ ověř runtime M1 exporty → Electron build`. Ověření po kompilaci fail-closed
+vyžaduje verzi 1 a všechny validátory, které potřebuje následný consumer; stale
+stub proto nemůže projít jen proto, že soubor `lib/index.js` existuje.
+
+Jediný dříve trackovaný `c3-protocol/lib/index.js` je odstraněný a celý
+`c3-protocol/lib/**` je explicitně ignorovaný generated output. Root `clean`
+jej odstraňuje, zatímco autoritativní `c3-chat-panel/lib/**` zůstává mimo tuto
+operaci a jeho vlastní preserve guard se nemění.
+
+Registrovaná `tests/m1-studio-client.test.js` připíná Git output policy, přesné
+pořadí prebuildu, povinné runtime exporty i source re-export. Sada prošla
+`57/57`; odstranění runtime verify kroku a odstranění ignore pravidla ji
+nezávisle shodily na `56/1`, exit `1`, a obě mutace byly přesně obnovené.
+
+Tento checkpoint ještě netvrdí fresh-clone build ani zabalení do Electron
+produktu. Následuje čistý klon, frozen install, `clean + build`, runtime
+negative matrix a kontrola čistého tracked stromu. Teprve potom pokračuje
+feature-negotiated M1 wire a terminal ledger.
