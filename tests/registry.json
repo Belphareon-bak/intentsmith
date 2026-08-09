@@ -5713,6 +5713,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-MODULE-BOUNDARY-RATCHET-TEST",
+      "path": "tests/module-boundary-ratchet.test.js",
+      "argv": [
+        "node",
+        "tests/module-boundary-ratchet.test.js"
+      ],
+      "capabilityId": "C3-027",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M1-BOUNDARY-RATCHET",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-MODULES-TEST",
       "path": "tests/modules.test.js",
       "argv": [
