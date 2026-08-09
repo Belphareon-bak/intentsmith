@@ -682,7 +682,12 @@ ledger.
 
 1. Generated protocol prebuild část 010/A+ je clean-clone ověřená. Zbývá dodat
    feature-negotiated M1 wire, skutečný product-bundle consumer a terminal
-   ledger.
+   ledger. Call-graph trasování po clean-clone běhu ukázalo tři dosud
+   neurčené veřejné významy: vlastnictví feature tokenu, exact transportní
+   wrapper pro legacy context a ordering cílového/cancel terminálu. Jsou
+   shromážděné v
+   [`rozhodnutí 017`](../../decisions/017-m1-negotiated-wire-shape.md); do jeho
+   přijetí se wire neimplementuje skrytým defaultem.
 2. Async attachment callback je focused uzavřený Findingem 009: reset,
    close, replace a identity/timeline drift starý callback fail-closed zruší.
    Durable retry a globální conversation mutex tím nejsou vyřešené.
@@ -712,8 +717,9 @@ operátorským rozhodnutím; dnešní další povolený scope tvoří přesně f
 B4 jsou `50280fcd`, `d145e95e`,
 `446d197f`, `8e68a92e`, `a4067cd6` a `2ead4662`; výchozí dependency je
 `b7d0dbf6`.
-Rozhodovací fronta B4 010–014 je operátorsky uzavřená. B4 je přesto `BLOCKED`,
-dokud se 010/A+ a built journey nedokončí. Server i klient 014/A i 012/B,
+Rozhodovací fronta B4 010–014 je operátorsky uzavřená; nový wire balík 017
+čeká na operátora. B4 je přesto `BLOCKED`, dokud se 010/A+ negotiated consumer
+a built journey nedokončí. Server i klient 014/A i 012/B,
 společný DB-backed live wire a 011/A jsou focused PASS, nikoli celé B4. 013/A je potvrzený
 client-contract checkpoint. Souhrnný balík je v
 `docs/execution/review-gate-1.md`.

@@ -1130,8 +1130,11 @@ mohou pokračovat.
    interpretaci přesného HTTP 200, 404 a race výsledků. Společný DB-backed live
    wire přes produkční WS server, route a commitnutý klient je také hotový.
    Generated prebuild část 010/A+ je implementovaná a clean-clone ověřená;
-   pokračuje negotiated wire a product-bundle consumer před terminal ledgerem
-   a built journey. Read-only review může běžet
+   negotiated wire nyní čeká na jediný operátorský balík
+   [017](docs/decisions/017-m1-negotiated-wire-shape.md): feature token,
+   exact transportní context wrapper a cancel terminal ordering. Ostatní
+   nezávislá příprava product-bundle consumeru může pokračovat před terminal
+   ledgerem a built journey. Read-only review může běžet
    souběžně; GPU běhy nikdy.
 8. Teprve po built M1 multi-panel/cancel/provider/reconnect journey, soak a
    přijetí B3+B4 otevřít B5 QUALITY a následnou B6 exit demonstraci.
