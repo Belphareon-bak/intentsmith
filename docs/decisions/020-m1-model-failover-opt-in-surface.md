@@ -147,28 +147,29 @@ Přijaté chování je **drop**, a to jen v rozsahu vlastněných klíčů:
 ### Rezervace čísla migrace
 
 Census se počítá jako **union přes všechny aktivní větve**, ne přes jeden
-checkout. `055`–`057` jsou obsazené mobilními migracemi z `d6fee86f`
-(`055_mobile_gateway`, `056_mobile_unknown_reason`,
-`057_mobile_gateway_instances`) a ordinály `046`–`051` už v historii kolidují
-napříč větvemi. Tento dokument si proto rezervuje **058** a 015 rezervuje
-**059**; obě čísla se přidělují v jednom census a v jednom checkoutu.
+checkout. Původní rezervace `058`/`059` v `b863190a` byla před vznikem M1
+migrací zneplatněna mobilními commity `e04be7f7` a `88b7b435`; mobilní větev
+pak v `7916098e` commitnula i `060_mobile_approval_authority`. Aktuální mobilní
+rozsah je proto `055`–`060` a ordinály `046`–`051` už navíc v historii kolidují
+napříč větvemi. Tento dokument nyní výslovně rezervuje **061** a rozhodnutí
+015 rezervuje **062**; obě čísla pocházejí z jednoho obnoveného census.
 
-Pokud mobilní migrace nebudou v integračním základu dřív, než se 058/059
-aplikují, musí test pokrýt i pozdější vložení `055`–`057` do databáze, která už
-058/059 aplikovala.
+Pokud mobilní migrace nebudou v integračním základu dřív, než se 061/062
+aplikují, musí test pokrýt i pozdější vložení `055`–`060` do databáze, která už
+061/062 aplikovala.
 
 ### Přijaté sekvenční pořadí integrace
 
 Mobilní balík se nebude integrovat předčasně pouze kvůli ordinalitě migrací.
-M1 pokračuje s rezervovanými `058`/`059`; pozdější integrace mobilních
-`055`–`057` je podporovaný scénář migračního runneru a stává se povinnou
+M1 pokračuje s rezervovanými `061`/`062`; pozdější integrace mobilních
+`055`–`060` je podporovaný scénář migračního runneru a stává se povinnou
 acceptance evidencí obou M1 migrací.
 
-Test musí porovnat fresh plán `001`–`059` s databází, která nejprve aplikuje
-plán bez `055`–`057`, ale včetně `058`/`059`, a následně doplní právě mobilní
-trojici. Musí prokázat, že druhý běh aplikuje přesně `055`–`057`, `058`/`059`
+Test musí porovnat fresh plán `001`–`062` s databází, která nejprve aplikuje
+plán bez `055`–`060`, ale včetně `061`/`062`, a následně doplní právě mobilní
+šestici. Musí prokázat, že druhý běh aplikuje přesně `055`–`060`, `061`/`062`
 neopakuje, třetí běh je no-op, výsledné verze a relevantní schéma jsou shodné,
-M1 policy/proof data zůstala zachovaná a striktní expiry hrana z 059 i mobilní
+M1 policy/proof data zůstala zachovaná a striktní expiry hrana z 062 i mobilní
 journal/instance ownership po pozdním vložení fungují.
 
 ## Přesná otázka pro operátora

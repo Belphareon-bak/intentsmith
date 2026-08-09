@@ -1279,7 +1279,7 @@ mohou pokračovat.
    |---|---|---|
    | 1 | 023 VRAM delete race | úzká artifact-use hrana fresh-clone ověřená; globální GPU residency zůstává M2 residual |
    | 2 | 022 operation-bound recovery | `FRESH_CLONE_VERIFIED` na `81dff196`; built B4 zůstává otevřený |
-   | 3 | ověřit dokončenou rezervaci migrací | union census před zápisem; `058` = 020, `059` = 015; povinná late-insertion parita 055–057 |
+   | 3 | ověřit dokončenou rezervaci migrací | obnovený union census po mobilních commitech; `061` = 020, `062` = 015; povinná late-insertion parita 055–060 |
    | 4 | 020 oddělená policy storage | první migrační položka |
    | 5 | 015 proof issuance | druhá migrační položka, těží ze stejného census |
    | 6 | 021 built journey | jediná položka vázaná na drahou Studio infrastrukturu |
@@ -1287,9 +1287,12 @@ mohou pokračovat.
 
    Levné a bezpečnostní změny se tím dokončí před drahou Studio
    infrastrukturou a obě migrační položky dostanou čísla z jednoho census.
-   `055`–`057` jsou obsazené mobilními migracemi z `d6fee86f`. Mobilní balík se
-   kvůli ordinalitě předčasně neintegruje; 058/059 musí prokázat pozdější vložení
-   055–057 do již migrované databáze bez opakování M1 migrací a bez ztráty dat.
+   `055`–`060` jsou obsazené mobilními migracemi z `d6fee86f`, `e04be7f7`,
+   `88b7b435` a `7916098e`. Mobilní balík se kvůli ordinalitě předčasně
+   neintegruje; 061/062 musí prokázat pozdější vložení 055–060 do již migrované
+   databáze bez opakování M1 migrací a bez ztráty dat. Původní rezervaci
+   058/059 z `b863190a` zneplatnila souběžná mobilní práce ještě před vznikem
+   kterékoli M1 migrace; nebyla proto zneužita ani přejmenována v historii.
 6. **B3-IDENTITY a B3-PROFILE jsou implementované a focused offline
    ověřené:** canonical presence
    identity chrání schválené binding/delete/cleanup cesty a integrity scan je
@@ -1368,7 +1371,7 @@ mohou pokračovat.
    oddělená policy storage je `IMPLEMENTATION_PENDING`. Otevřené zůstávají
    proof issuer a terminal failover activation/restore. Failover se dosud
    neaktivuje. Bootstrap `015/A + provisional 7d` je přijatý, ale proof issuer,
-   persistence, migrace 059 a activation evidence jsou `IMPLEMENTATION_PENDING`;
+   persistence, migrace 062 a activation evidence jsou `IMPLEMENTATION_PENDING`;
    TTL je pouze eligibility a doporučená obnova je explicitně operátorská,
    sériová a bez background GPU jobu. Nový skutečný GPU běh
    zůstává samostatnou blokovanou evidencí, dokud není legitimně čistý checkout.

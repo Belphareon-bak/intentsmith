@@ -65,7 +65,7 @@ V implementovaném measurement-only checkpointu je stále aktivní **C**:
 `issuanceEnabled=false` a prahy i TTL jsou `null`. Operátor ale 2026-08-09
 přijal cílovou policy **A + provizorní TTL 7 dní** podle potvrzovacího bloku
 níže. C proto už není otevřená produktová volba; je pouze dnešní bezpečný
-runtime stav do dokončení issueru, storage vazby a migrace 059.
+runtime stav do dokončení issueru, storage vazby a migrace 062.
 
 Šev zůstává v `src/upgrade/model-failover-proof-policy.js` a focused testu
 `tests/m1-model-failover-proof-policy.test.js`. Přechod nesmí zpětně povýšit
@@ -226,7 +226,10 @@ sjednotí nová aditivní migrace, která dotčené triggery bezpečně nahradí
 Rovnost `now === expiresAt` musí být povinný negativní test: proof v tom
 okamžiku už není způsobilý.
 
-Číslo migrace je **059**, rezervované společně s **058** pro rozhodnutí 020
-z jednoho union census přes všechny aktivní větve. `055`–`057` jsou obsazené
-mobilními migracemi z `d6fee86f`; ordinály `046`–`051` už v historii kolidují
-napříč větvemi, takže rezervace musí být zapsaná, ne dopočítaná při zápisu.
+Číslo migrace je **062**, rezervované společně s **061** pro rozhodnutí 020
+z obnoveného union census přes všechny aktivní větve. Původní rezervace
+`058`/`059` z `b863190a` byla před implementací zneplatněna mobilními commity
+`e04be7f7` a `88b7b435`; mobilní rozsah `055`–`060` je nyní commitnutý do
+`7916098e`. Ordinály `046`–`051` navíc už v historii kolidují napříč větvemi,
+takže tato nová rezervace je zapsaná před vytvořením M1 migrace a nesmí se
+znovu dopočítat pouze z jednoho checkoutu.
