@@ -16,7 +16,7 @@ import {
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const CHECKER = join(ROOT, 'scripts/specialist-boundary-ratchet.mjs');
@@ -322,6 +322,24 @@ export async function load() {
       assertStatus(result, 2);
       assertIncludes(result, code);
     }
+  });
+
+  test('file and data module URLs cannot bypass package-local resolution', () => {
+    const repo = makeRepo({
+      'specialists/alpha/index.js': 'export const alpha = true;\n',
+    }, 'module-url');
+    const sourcePath = join(repo, 'specialists/alpha/index.js');
+    const internalUrl = pathToFileURL(join(repo, 'src/expertises/core.js')).href;
+
+    write(sourcePath, `export const hidden = import(${JSON.stringify(internalUrl)});\n`);
+    const fileUrl = run(repo, ['--require-clean']);
+    assertStatus(fileUrl, 2);
+    assertIncludes(fileUrl, 'UNPROVEN_MODULE_URL');
+
+    write(sourcePath, "export const hidden = import('data:text/javascript,export default 1');\n");
+    const dataUrl = run(repo, ['--require-clean']);
+    assertStatus(dataUrl, 2);
+    assertIncludes(dataUrl, 'UNPROVEN_MODULE_URL');
   });
 
   test('parse failure, unreadable file, unknown executable extension, and path escape fail closed', () => {

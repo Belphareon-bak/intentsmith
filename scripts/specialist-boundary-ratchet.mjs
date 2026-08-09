@@ -451,6 +451,13 @@ function findClosingDelimiter(tokens, openIndex, open, close, label) {
 }
 
 function resolveInternalTarget(root, file, specifier) {
+  const scheme = /^[A-Za-z][A-Za-z0-9+.-]*:/u.exec(specifier)?.[0] || null;
+  if (scheme && scheme !== 'node:') {
+    throw new BoundaryError(
+      'UNPROVEN_MODULE_URL',
+      `${normalizePath(relative(root, file))}: module URL scheme ${scheme} is forbidden`,
+    );
+  }
   if (!specifier.startsWith('.') && !specifier.startsWith('/')) return null;
   const clean = specifier.split(/[?#]/u, 1)[0];
   const lexical = resolve(dirname(file), clean);
