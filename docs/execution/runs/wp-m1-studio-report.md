@@ -1211,3 +1211,26 @@ untracked porcelain prázdný. Následně proběhlo:
 
 Dočasný clone byl po úspěšném ověření přesného HEAD odstraněn. Instalace ani
 testy neotevřely externí síť, produktový server, Electron, Ollamu nebo GPU.
+
+## Checkpoint 23 — audit autority akčního verification rollbacku
+
+- **současné textové varování:** bezpečné, bez mutation effectu
+- **role-only rollback tlačítko:** `REJECTED AS UNSAFE CANDIDATE`
+- **přesný recovery kontrakt:** čeká na rozhodnutí
+  [022](../../decisions/022-m1-studio-operation-bound-rollback.md)
+
+Call graph potvrdil, že `upgrade_verify_failed` není stale při emitování, ale
+může zestárnout před kliknutím. Same-target reverify se při úspěchu nepropíše
+clear eventem; novější different-target apply se oznamuje jen best-effort WS
+zprávou bez replaye. Dnešní `{role}` rollback proto při kliknutí vybere
+aktuální operaci a může pravdivě rollbacknout jiný binding než ten, o kterém
+uživatel rozhodoval. Repository CAS chrání konzistenci DB, ne původní intent
+starého promptu.
+
+Rozpracovaný role-only UI kandidát byl po tomto zjištění celý odstraněn;
+`git diff --quiet` nad Studio runtime i jeho testem skončil exit `0`. Nebyl
+commitnutý ani vydaný za evidence. Doporučená varianta 022/A váže event,
+request i repository transakci na operation ID, committed binding revision a
+nejnovější failed verification attempt; stale akce musí skončit před efektem.
+Jde o změnu veřejného event/HTTP kontraktu, takže implementace správně čeká na
+operátorské potvrzení a B4/Gate 1 zůstávají `BLOCKED`.

@@ -842,7 +842,10 @@ focused regression sady.
    Clean-clone protocol output smí před prebuildem chybět; po něm musí být
    ignorovaný/untracked, exportovat M1 a tracked strom zůstane čistý.
 7. **Stop:** build přepisuje/odstraňuje dnešní UX, potřebuje novou browser test
-   závislost, mění connector nebo zatahuje effect/auto-exec scope.
+   závislost, mění connector nebo zatahuje effect/auto-exec scope. Akční
+   rollback po verification failure navíc čeká na
+   [022](docs/decisions/022-m1-studio-operation-bound-rollback.md): dnešní
+   role-only route neumí svázat kliknutí s operací, o které uživatel rozhoduje.
 8. **Ověření:** `node tests/ws-bridge.test.js`; **NOVÝ:**
    `node tests/m1-studio-client.test.js`; v čistém klonu frozen Yarn install,
    build a registrovaný Studio journey. Build neběží v dirty checkoutu.
