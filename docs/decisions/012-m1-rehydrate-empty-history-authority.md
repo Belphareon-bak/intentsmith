@@ -1,8 +1,8 @@
 # 012 — Prázdná Studio historie nemá autoritu smazat lokální snapshot
 
 - **typ:** BLOCK
-- **stav rozhodnutí:** B SCHVÁLENO; ROUTE I KLIENT IMPLEMENTOVÁNY; SPOLEČNÝ
-  DB-BACKED LIVE WIRE DŮKAZ OTEVŘENÝ
+- **stav rozhodnutí:** B SCHVÁLENO; ROUTE, KLIENT I SPOLEČNÝ DB-BACKED LIVE
+  WIRE DŮKAZ IMPLEMENTOVÁNY
 - **WP:** WP-M1-STUDIO (jen atomická obnova prázdné historie)
 - **rail:** R1, R4, R5
 - **vzniklo při:** B4 client rehydrate race review
@@ -111,9 +111,9 @@ failure větve `45/3`; odstranění přesného live-slot guardu `46/2`. Všechny
 mutace skončily exit `1`, byly přesně obnovené a finální zdroj znovu prošel
 `48/48`.
 
-Route i klient 012/B jsou tím focused implementované. Společný DB-backed
-server+client wire důkaz, built journey a 010/A+ zůstávají otevřené; celý B4 a
-Gate 1 proto zůstávají `BLOCKED`.
+Route i klient 012/B jsou tím focused implementované. V tomto bodě ještě
+zůstával otevřený společný DB-backed server+client wire důkaz, built journey a
+010/A+; celý B4 a Gate 1 proto zůstávaly `BLOCKED`.
 
 ### Post-review hardening klientského důkazu
 
@@ -129,3 +129,21 @@ Rozšířená focused sada prošla `53/53`. Odstranění přesného HTTP status 
 skončilo `52/1`; odstranění epoch guardu `52/1`; odstranění live-slot guardu
 `51/2`; přidání cleanup autority do failure větve `48/5`. Všechny mutace měly
 exit `1`, byly přesně obnovené a finální zdroj znovu prošel `53/53`.
+
+### Společný DB-backed live wire důkaz
+
+`tests/ws-bridge.test.js` nyní v jednom procesu skládá skutečný file-backed
+SQLite store, produkční `attachWebSocketServer`, produkční history route,
+commitnutý Studio `ws-client.js`, reálný `ws.WebSocket` a Node `fetch`. Jeden
+běh prokazuje tři panely: durable empty skončí přes ACK a živé `200 []`
+autoritativně prázdný; missing ID je explicitně v `invalidIds`; durable ID
+smazané až po ACK vrátí živý typed `404` po same-ID reuse a nezasáhne původní
+ani nový snapshot. Completion je pravdivě `degraded` s počty `1/1/1`.
+
+Celá WS sada prošla `68/68`. Opětovné zavedení starého empty-history guardu
+shodilo právě live wire na `67/1`; změna produkční missing route z `404` na
+`200` rovněž `67/1`. Obě mutace měly exit `1` a byly přesně obnovené.
+
+Rozhodnutí 012/B je tím implementované na route, klientské i společné live-wire
+vrstvě. Built Theia journey a 010/A+ jsou samostatné B4 podmínky, takže B4 ani
+Gate 1 stále nejsou `PASS`.

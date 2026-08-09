@@ -63,5 +63,5 @@ Po přesném obnovení všech tří mutací focused sada prošla `38 passed, 0 f
 exit `0`.
 
 Celý B4 ani Gate 1 tím nejsou `PASS`; obě focused poloviny 014/A i 012/B jsou
-nyní hotové, ale dál chybí 010/A+, společný DB-backed wire důkaz, built
-journey, fresh-clone parity a bounded renderer soak.
+nyní hotové a společný DB-backed live wire je doplněný. Dál chybí 010/A+,
+built journey, fresh-clone parity a bounded renderer soak.

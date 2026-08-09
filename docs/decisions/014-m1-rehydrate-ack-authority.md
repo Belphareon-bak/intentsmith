@@ -2,8 +2,7 @@
 
 - **typ:** BLOCK
 - **stav rozhodnutí:** A SCHVÁLENO; SERVEROVÝ I KLIENTSKÝ CHECKPOINT
-  IMPLEMENTOVÁNY; 012 ROUTE I KLIENT IMPLEMENTOVÁNY; SPOLEČNÝ LIVE WIRE DŮKAZ
-  OTEVŘENÝ
+  IMPLEMENTOVÁNY; 012 ROUTE I KLIENT A SPOLEČNÝ LIVE WIRE DŮKAZ IMPLEMENTOVÁNY
 - **WP:** WP-M1-STUDIO
 - **rail:** R1, R3, R5, R6
 - **vzniklo při:** read-only review serverového limitu a klientského cleanupu
@@ -114,7 +113,7 @@ implementací a skutečného wire důkazu `BLOCKED`.
 2. klient 014: přesný partition, reject, stale/foreign ochrany a bezpečný restore — **implementováno**;
 3. route 012: existence a messages v jednom SQLite snapshotu/transakci — **implementováno**;
 4. klient 012: autoritativní prázdná historie, zatímco `404` pouze degraduje — **implementováno**;
-5. společný DB-backed live wire test.
+5. společný DB-backed live wire test — **implementováno**.
 
 ### Stav serverového checkpointu
 
@@ -161,12 +160,19 @@ Persistovaný `sessionCount/sessionActive` prochází behaviorálně testovanou
 normalizací, počet panelů je `1..3` a restore neiteruje mimo tento bounded set.
 Focused klientská sada prošla `46/46`. Čtyři oddělené mutace pro foreign ACK,
 slot-owner guard, legacy pre-route warning a horní restore bound skončily vždy
-`45/1`, exit `1`, a po obnovení zdroj znovu prošel `46/46`. Autoritativní empty history a společný
-DB-backed/built wire důkaz zůstávají pod 012 a B4, takže celý Gate 1 je nadále
-`BLOCKED`. Route i klient 012 jsou focused implementované a testované; společný
-produkční wire checkpoint teprve smí tuto dvojici vydat za end-to-end autoritu.
+`45/1`, exit `1`, a po obnovení zdroj znovu prošel `46/46`. V tomto klientském
+checkpointu zůstávaly autoritativní empty history a společný DB-backed/built
+wire důkaz pod 012 a B4, takže celý Gate 1 zůstával `BLOCKED`. Route i klient
+012 byly následně focused implementované a společný produkční wire checkpoint
+níže tuto dvojici svázal do end-to-end důkazu.
 
 Post-review hardening navíc skládá povinné pořadí `ACK → same-ID slot reuse →
 typed history 404` do jednoho testu. Replacement i původní snapshot zůstávají
 nedotčené a completion je `degraded`; samotné oddělené testy 404 a reuse už
 nejsou vydávány za tento kompozitní důkaz.
+
+Společný T25h live wire tento invariant následně prokazuje přes produkční WS
+server, file-backed SQLite, produkční history route a commitnutý Studio klient.
+Rozhodnutí 014/A tím má serverový, klientský i společný DB-backed důkaz; built
+Theia journey zůstává širší B4 podmínkou, nikoli chybějící částí tohoto
+rozhodnutí.

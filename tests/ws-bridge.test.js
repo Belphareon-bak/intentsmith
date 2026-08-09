@@ -14,8 +14,10 @@ import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { strict as assert } from 'assert';
+import fs from 'node:fs';
 import { createServer } from 'node:http';
 import path from 'node:path';
+import vm from 'node:vm';
 import Database from 'better-sqlite3';
 
 // ─── Imports ─────────────────────────────────────────────────────────────────
@@ -35,6 +37,7 @@ import {
 import { createSessionAdapter } from '../src/ws-bridge/session-adapter.js';
 import { logger } from '../src/core/logger.js';
 import { finalizeChatResponse } from '../src/chat/response-finalizer.js';
+import { createChatRoutes } from '../src/routes/chat.js';
 import { improveResponse as runImprovementLoop } from '../src/chat/quality/improvement-loops.js';
 import { scoreResponse as scoreFinalResponse } from '../src/chat/quality/response-scorer.js';
 import {
@@ -1691,6 +1694,238 @@ await asyncTest('T25f: rehydrate ack is durable-only and store failure closes wi
     });
   } finally {
     if (client) await closeOwnedWebSocket(client);
+    if (wss && httpServer.listening) {
+      await closeOwnedWebSocketServer(wss, httpServer);
+    } else if (wss) {
+      wss.close();
+    }
+    resetConversationStore();
+    sqlite.close();
+    assert.equal(store.isDurableReady(), false);
+  }
+});
+
+await asyncTest('T25h: Studio rehydrate composes durable ACK with the production history route', async () => {
+  const { WebSocket } = await import('ws');
+  const sqlite = new Database(path.join(
+    isolatedTestRuntime.runtime,
+    'ws-studio-rehydrate-live-wire.sqlite',
+  ));
+  sqlite.exec(`
+    CREATE TABLE conversations (
+      id TEXT PRIMARY KEY,
+      title TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      conversation_id TEXT NOT NULL,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      metadata TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+  const insertConversation = sqlite.prepare(
+    'INSERT INTO conversations (id) VALUES (?)',
+  );
+  const deleteConversation = sqlite.prepare(
+    'DELETE FROM conversations WHERE id = ?',
+  );
+  const findConversation = sqlite.prepare(
+    'SELECT * FROM conversations WHERE id = ?',
+  );
+  const listMessages = sqlite.prepare(`
+    SELECT id, conversation_id, role, content, metadata, created_at
+    FROM messages
+    WHERE conversation_id = ?
+    ORDER BY id ASC
+  `);
+  const emptyId = 'rehydrate-live-empty';
+  const missingId = 'rehydrate-live-missing';
+  const raceId = 'rehydrate-live-race';
+  insertConversation.run(emptyId);
+  insertConversation.run(raceId);
+
+  const repository = {
+    db: sqlite,
+    conversations: { findById: findConversation },
+    messages: { listByConversation: listMessages },
+    transaction(fn) {
+      return sqlite.transaction(fn)();
+    },
+  };
+  resetConversationStore();
+  const store = getConversationStore(repository);
+  assert.equal(store.isDurableReady(), true);
+
+  const sendJSON = (response, statusCode, body) => {
+    response.writeHead(statusCode, { 'Content-Type': 'application/json' });
+    response.end(JSON.stringify(body));
+  };
+  const routes = createChatRoutes({
+    db: repository,
+    parseBody: async request => request.body,
+    sendJSON,
+    sendStaticFile() {},
+    safeError: () => ({ error: 'Internal server error' }),
+    safeParseInt: value => Number.parseInt(value, 10),
+    logger: mockLogger,
+    ChatController: { handle: async () => ({ response: 'unused' }) },
+    config: {},
+    expertiseLayer: null,
+  });
+  const historyRoute = routes['GET /api/conversations/:id/messages'];
+  const capability = createLegacyLocalCapability();
+  const httpServer = createServer((request, response) => {
+    const url = new URL(request.url, 'http://127.0.0.1');
+    const match = /^\/api\/conversations\/([^/]+)\/messages$/.exec(url.pathname);
+    if (request.method !== 'GET' || !match) {
+      response.writeHead(404);
+      response.end();
+      return;
+    }
+    void historyRoute(request, response, {
+      id: decodeURIComponent(match[1]),
+    });
+  });
+  let wss = null;
+  let client = null;
+
+  const createPane = conversationId => ({
+    _agentId: `agent-${conversationId}`,
+    _convId: conversationId,
+    _label: `Label ${conversationId}`,
+    _projectId: null,
+    chat: {
+      editMode: 'ask',
+      msgs: [{ role: 'system', text: `local ${conversationId}` }],
+      _pendingAttachments: null,
+      _thinking: { text: 'pending' },
+    },
+  });
+  const emptyPane = createPane(emptyId);
+  const missingPane = createPane(missingId);
+  const raceOriginal = createPane(raceId);
+  const sessions = [emptyPane, missingPane, raceOriginal];
+  const busEvents = [];
+  const httpStatuses = [];
+  let replacement = null;
+  let resolveCompletion;
+  let rejectCompletion;
+  const completion = new Promise((resolve, reject) => {
+    resolveCompletion = resolve;
+    rejectCompletion = reject;
+  });
+  const completionTimer = setTimeout(
+    () => rejectCompletion(new Error('Timed out waiting for live Studio rehydrate')),
+    4_000,
+  );
+
+  try {
+    wss = attachWebSocketServer(
+      httpServer,
+      { handle: async () => ({ response: 'unused' }) },
+      mockLogger,
+      { localCapability: capability },
+    );
+    const port = await listenOnOwnedLoopback(httpServer);
+    const backendBase = `http://127.0.0.1:${port}`;
+    const context = vm.createContext({
+      AbortSignal,
+      C3Bus: {
+        emit(name, payload) {
+          busEvents.push({ name, payload });
+          if (name === 'ws:reconnected') resolveCompletion(payload);
+        },
+      },
+      Date,
+      JSON,
+      Math,
+      WebSocket,
+      _backendBase: backendBase,
+      _sessionActive: 0,
+      _sessions: sessions,
+      clearInterval() {},
+      clearTimeout,
+      console: { error() {}, log() {}, warn() {} },
+      crypto: {
+        randomUUID: () => '99999999-8888-4777-8666-555555555555',
+      },
+      fetch: async (url, options) => {
+        if (url.endsWith(`/${raceId}/messages`)) {
+          deleteConversation.run(raceId);
+          replacement = createPane(raceId);
+          replacement.chat.msgs = [{ role: 'user', text: 'replacement survives live 404' }];
+          replacement.chat._thinking = null;
+          sessions[2] = replacement;
+        }
+        const response = await fetch(url, options);
+        httpStatuses.push({ status: response.status, url });
+        return response;
+      },
+      fetchBackendData() {},
+      module: { exports: {} },
+      setInterval: () => Symbol('interval'),
+      setTimeout,
+      window: {
+        electronC3: {
+          getBackendUrl: () => backendBase,
+          getLocalCapability: () => capability,
+        },
+      },
+    });
+    context.window.window = context.window;
+    vm.runInContext(
+      fs.readFileSync(
+        new URL('../c3-ide/extensions/c3-chat-panel/lib/browser/ws-client.js', import.meta.url),
+        'utf8',
+      ),
+      context,
+      { filename: 'c3-chat-panel/lib/browser/ws-client.js#live-wire' },
+    );
+    client = context.module.exports;
+    assert.equal(client.wsConnect(), true);
+
+    const result = await completion;
+    clearTimeout(completionTimer);
+    assert.deepEqual({
+      status: result.status,
+      restoredCount: result.restoredCount,
+      invalidCount: result.invalidCount,
+      failedCount: result.failedCount,
+    }, {
+      status: 'degraded',
+      restoredCount: 1,
+      invalidCount: 1,
+      failedCount: 1,
+    });
+    assert.deepEqual(
+      httpStatuses.map(entry => entry.status).sort((a, b) => a - b),
+      [200, 404],
+    );
+
+    assert.equal(emptyPane._convId, emptyId);
+    assert.equal(emptyPane.chat.msgs.length, 0);
+    assert.equal(emptyPane.chat._thinking, null);
+
+    assert.equal(missingPane._convId, null);
+    assert.equal(missingPane.chat.msgs.length, 0);
+    assert.equal(missingPane.chat._thinking, null);
+
+    assert.ok(replacement, 'race replacement was not installed before history GET');
+    assert.equal(sessions[2], replacement);
+    assert.equal(replacement._convId, raceId);
+    assert.equal(replacement.chat.msgs[0].text, 'replacement survives live 404');
+    assert.equal(raceOriginal._convId, raceId);
+    assert.equal(raceOriginal.chat.msgs[0].text, `local ${raceId}`);
+    assert.equal(
+      busEvents.filter(event => event.name === 'session:invalidated').length,
+      1,
+    );
+  } finally {
+    clearTimeout(completionTimer);
+    if (client) client.wsDestroy();
     if (wss && httpServer.listening) {
       await closeOwnedWebSocketServer(wss, httpServer);
     } else if (wss) {

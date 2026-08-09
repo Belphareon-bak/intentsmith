@@ -7,9 +7,9 @@ offline connector vrstvu, ale skutečný referenční GPU pilot je červený. B4
 reviewované stable-ID/scoped-cancel a reconnect guardy; z rehydrate checkpointu
 jsou focused implementované serverová i klientská autorita 014/A včetně
 úplného partition, rejectu, quarantine a bounded restore. Celá identity/history
-obnova je nadále BLOCKED na společném live wire důkazu; existence-aware route i
-post-review hardenovaná fail-closed klientská polovina 012/B jsou focused
-implementované. 011/A HTTP
+obnova má nyní existence-aware route, post-review hardenovaného klienta i
+společný DB-backed live wire přes produkční WS server a history route. B4 je
+nadále BLOCKED na 010/A+, built journey, fresh-clone parity a soaku. 011/A HTTP
 fallback authority je od
 `2ead4662` focused PASS; B4
 stále nemůže pravdivě splnit přesný terminal consumer ani atomickou
@@ -38,7 +38,7 @@ nepatří a netvoří celý M1 exit.
 | B1 `WP-M1-CONTRACT` | COMPLETE, rozhodnutí potvrzena | provisional v1 pro Conversation, Model a CoreEvent; fail-closed validátory JS/TS | produkční partial-tool persistence se netvrdí; `persistPartialToolResults` zatím nemá konzumenta |
 | B2 `WP-M1-CHAT` | PASS, operátorsky potvrzený směr | persist-before-response, conversation isolation, exact HTTP adapter, scoped cancel, process-restart persistence | globální HTTP/WS mutex je finding 005, ne skrytý claim |
 | B3 `WP-M1-MODEL` | BLOCKED | exact fake-provider connector, auth/purpose/model binding, VRAM preflight, sanitizované terminal outcomes | implementovat 006/D+ po oddělených milnících; zavést společný profil 009 a provést nový skutečný T3 běh od 4096 |
-| B4 `WP-M1-STUDIO` | PARTIAL / BLOCKED | stable ID, scoped cancel, bounded reconnect, 011/A WS-only `NOT_SENT`, serverová i klientská autorita 014/A a route+client 012/B | dokončit 010/A+ a společný DB-backed/built journey, potom fresh-clone parity a bounded soak |
+| B4 `WP-M1-STUDIO` | PARTIAL / BLOCKED | stable ID, scoped cancel, bounded reconnect, 011/A WS-only `NOT_SENT`, serverová i klientská autorita 014/A, route+client 012/B a společný DB-backed live wire | dokončit 010/A+ a built journey, potom fresh-clone parity a bounded soak |
 
 Autoritativní podrobnosti jsou v:
 
@@ -62,9 +62,9 @@ Autoritativní podrobnosti jsou v:
 | 009 | BLOCK → A-4096 calibration | zachovat 27B/digest/1 GiB/100% residency/no fallback | společný runtime profil a nový skutečný sériový T3 běh; 4096 zatím není PASS |
 | 010 | BLOCK → A+ | protocol `lib` untracked + generated prebuild + negotiated M1 wire/ledger | implementace, clean build matrix a built journey |
 | 011 | BLOCK → A nyní / C v M2 | HTTP send fallback vypnout fail-closed | **implementováno na `2ead4662`**: tři call sites, `NOT_SENT`, phantom-ID guard a nulový-effect test; WS/HTTP parity je vědomě změněna |
-| 012 | BLOCK → B | existence-aware history route | route i 53/53 klientský kontrakt focused implementovány; exact 200, 404+same-ID reuse, reject/timeout i reference/epoch race připnuty; chybí společný DB-backed wire důkaz |
+| 012 | BLOCK → B | existence-aware history route | route, 53/53 klientský kontrakt i společný T25h DB-backed live wire implementovány; exact 200, 404+same-ID reuse, reject/timeout i reference/epoch race připnuty |
 | 013 | DECIDE → A | 12 bounded retries + visible exhaustion | implementováno na client contract vrstvě; built journey chybí |
-| 014 | BLOCK → A | úplný ACK partition nebo request-bound reject, nikdy partial/in-memory autorita | server/client focused implementace a restore clamp hotové; chybí společný DB-backed/built wire důkaz |
+| 014 | BLOCK → A | úplný ACK partition nebo request-bound reject, nikdy partial/in-memory autorita | server/client focused implementace, restore clamp i společný DB-backed live wire hotové; built journey zůstává B4 podmínkou |
 
 Každý detail, varianta a konkrétní cena přepnutí je v odpovídajícím souboru
 `docs/decisions/NNN-*.md`. Tabulka zapisuje operátorskou volbu; stav WP se mění
@@ -129,8 +129,7 @@ Tento follow-up uzavírá pouze 011/A. Následné focused checkpointy odstranily
 async attachment race přes session/timeline/identity token; důkaz je ve
 `docs/findings/009-studio-stale-attachment-send.md`. Durable retry ani globální
 conversation mutex tím nevznikly. 014/A a 012/B jsou nyní focused hotové;
-010/A+, společný DB-backed/built journey, fresh-clone parity a renderer soak
-zůstávají otevřené.
+010/A+, built journey, fresh-clone parity a renderer soak zůstávají otevřené.
 
 ## Skutečný GPU výsledek, který se nesmí přepsat self-checkem
 
@@ -185,9 +184,8 @@ git log --reverse --stat \
    **B3-FAILOVER** teprve potom zavede opt-in desired/active stav s pravdivým
    auditem, verify, restartem a bezpečným restore. Opt-in autorita je JSON
    `user_settings.id=1` a každá chyba fail-close; L0-9 se změní až po důkazu.
-3. 011/A, obě poloviny 014/A a obě poloviny 012/B jsou focused PASS.
-   Zbývající B4 pořadí pokračuje společným DB-backed live wire testem;
-   010/A+ zůstává samostatnou dependency před terminal ledgerem a built
+3. 011/A, obě poloviny 014/A, obě poloviny 012/B i společný DB-backed live wire
+   jsou focused PASS. Zbývající B4 pořadí pokračuje 010/A+, terminal ledgerem a built
    journey. ACK vyžaduje durable store a matching reject končí okamžitě jako
    degraded. Pro M1 platí WS send + fail-closed `NOT_SENT`; HTTP send parity se
    vrací až nad M2 effect authority.

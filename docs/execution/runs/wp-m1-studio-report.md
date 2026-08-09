@@ -2,8 +2,9 @@
 
 - **stav WP:** `PARTIAL / BLOCKED` po REVIEW GATE 1; stable-ID/scoped-cancel,
   reconnect, rehydrate epoch/race/snapshot guardy, 011/A fail-closed send a
-  serverová i klientská polovina 014/A i 012/B jsou focused implementované;
-  společný live wire důkaz a 010/A+ zůstávají otevřené
+  serverová i klientská polovina 014/A i 012/B a společný DB-backed live wire
+  jsou implementované; 010/A+, built journey, fresh-clone parity a soak
+  zůstávají otevřené
 - **base SHA:** `b7d0dbf61370b52061e6a736517ecdcb53118209`
 - **scope:** B4 podle `docs/execution/m1-batch.md`
 - **UI baseline:** výslovně mimo scope; spuštěné Studio není finální UI
@@ -606,6 +607,28 @@ guardu a epoch guardu skončily každá `52/1`, live-slot guard `51/2` a přidá
 cleanup effectu do failure větve `48/5`; vše exit `1`, přesně obnoveno. Tím je
 klientský focused důkaz opraven, nikoli nahrazen společný live wire.
 
+## Checkpoint 12 — společný DB-backed rehydrate live wire
+
+- **stav společného 012/014 wire kontraktu:** `PASS focused`
+- **celý B4 / Gate 1:** nadále `BLOCKED`
+
+T25h používá file-backed SQLite ve vlastněném artifact rootu, skutečný
+`attachWebSocketServer`, produkční `GET /api/conversations/:id/messages`,
+commitnutý Studio `ws-client.js` vykonaný ve VM, reálný `ws.WebSocket` a Node
+`fetch`. Nejde tedy o spojení dvou fake harnessů ani in-memory autoritu.
+
+V jednom běhu durable empty panel projde úplným ACK a živým HTTP `200 []`,
+missing panel je vyčištěn jen přes explicitní `invalidIds` a třetí durable ID se
+smaže až po ACK. Fetch wrapper před jeho skutečným GET znovu použije slot se
+stejným ID; produkční route vrátí `404` a původní i replacement snapshot
+zůstanou nedotčené. Completion přesně hlásí `restored=1`, `invalid=1`,
+`failed=1`, tedy `degraded`.
+
+`node tests/ws-bridge.test.js` prošel `68/68`. Návrat starého empty-history
+guardu shodil T25h na `67/1`; změna produkční missing route z `404` na `200`
+také `67/1`. Obě mutace skončily exit `1`, byly přesně obnovené a finální sada
+znovu prošla `68/68`.
+
 ## Otevřené nálezy pro další checkpointy
 
 1. Commitnutý `@c3/protocol/lib/index.js` je stale stub. Operátor schválil
@@ -615,8 +638,8 @@ klientský focused důkaz opraven, nikoli nahrazen společný live wire.
 2. Async attachment callback je focused uzavřený Findingem 009: reset,
    close, replace a identity/timeline drift starý callback fail-closed zruší.
    Durable retry a globální conversation mutex tím nejsou vyřešené.
-3. Race-safe klient, bounded reconnect a obě poloviny 014/A i 012/B jsou
-   focused hotové. Společný DB-backed live wire důkaz zůstává otevřený.
+3. Race-safe klient, bounded reconnect, obě poloviny 014/A i 012/B a společný
+   DB-backed live wire jsou focused hotové.
 4. Existující Electron runner obchází veřejný `sendChat()` a připíná legacy
    pořadí assistant-before-turn-end; pro B4 acceptance se musí změnit.
 5. Terminal STOP neruší backendový proces. To je M2 finding mimo B4 chat scope,
@@ -627,7 +650,7 @@ klientský focused důkaz opraven, nikoli nahrazen společný live wire.
 | Povinné chování briefu | Stav | Evidence / důvod |
 |---|---|---|
 | stabilní panel identity a cancel A bez zásahu do B | PASS | client 46/46; WS bridge 67/67 včetně scoped cancel a phantom-ID negativu |
-| serverem ověřený rehydrate a invalid ID cleanup | PARTIAL / BLOCKED | server i klient 014/A i 012/B jsou focused opravené; společný DB-backed live wire journey není hotový |
+| serverem ověřený rehydrate a invalid ID cleanup | PASS focused | server i klient 014/A i 012/B a společný DB-backed live wire T25h jsou hotové; built Theia journey zůstává samostatnou B4 podmínkou |
 | bounded reconnect a řízený shutdown | PASS na client contract vrstvě | přesný cap, handshake timeout, async-close race a destroy testy |
 | přesný M1 terminal consumer, late assistant a spinner terminal větve | BLOCKED | 010/A+ je schválené, ale protocol delivery, negotiated wire, ledger a built journey chybí |
 | HTTP fallback: non-2xx nikdy jako assistant a žádný effect bypass | PASS focused | 011/A na `2ead4662`: tři WS-only větve, `NOT_SENT`, nulový HTTP/simulovaný downstream efekt; built journey stále chybí |
@@ -642,7 +665,7 @@ B4 jsou `50280fcd`, `d145e95e`,
 `446d197f`, `8e68a92e`, `a4067cd6` a `2ead4662`; výchozí dependency je
 `b7d0dbf6`.
 Rozhodovací fronta B4 010–014 je operátorsky uzavřená. B4 je přesto `BLOCKED`,
-dokud se 010/A+ a společná built/live journey nedokončí. Server i klient 014/A
-i 012/B a 011/A jsou focused PASS, nikoli celé B4. 013/A je potvrzený
+dokud se 010/A+ a built journey nedokončí. Server i klient 014/A i 012/B,
+společný DB-backed live wire a 011/A jsou focused PASS, nikoli celé B4. 013/A je potvrzený
 client-contract checkpoint. Souhrnný balík je v
 `docs/execution/review-gate-1.md`.
