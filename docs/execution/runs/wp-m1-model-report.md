@@ -2365,3 +2365,19 @@ Z tohoto klonu, bez Ollamy, GPU, produktového serveru a externí sítě, probě
 Tím je detection-only checkpoint uzavřený. Neznamená to Gate 1 PASS:
 fallback selection, proof issuance, claim/activation, restore, rozhodnutí 015,
 Studio wire a autorizovaný GPU pilot zůstávají samostatné otevřené bloky.
+
+## Post-checkpoint opt-in reachability — rozhodnutí 020
+
+Call graph po uzavření checkpointu ukázal, že typed
+`updateModelSettings()` nemá v produkčním `src/` žádného volajícího. Skutečný
+in-memory probe obecného `POST /api/settings` prokázal dva odlišné efekty:
+full-document tělo umí failover zapnout i s neznámým modelovým klíčem a
+navazující `{}` smaže celý dokument a vrátí policy na default off; oba requesty
+vrátily 200, probe exit `0`.
+
+Obecný POST je živá backup/import/reset autorita obou UI, takže jeho změna na
+merge nebo modelový allowlist není interní refaktor. Varianty a doporučení
+samostatné exact typed route jsou v
+[`020`](../../decisions/020-m1-model-failover-opt-in-surface.md). Do rozhodnutí
+zůstává zastaven pouze podporovaný opt-in surface; detection scheduler je
+bezpečně default off a ostatní decision evidence může pokračovat.

@@ -559,10 +559,13 @@ focused regression sady.
      fail-close. Je to schválená výjimka do upgrade automatiky, nikoli změna
      L0-9 před důkazem. **První checkpoint je implementovaný:** nový helper
      typovaně čte JSON, defaultuje failover na `false` a zapisuje vlastněnou
-     `models` sekci transakčním merge. Runtime jej zatím nekonzumuje. Před
-     aktivací zbývá vyřešit generický whole-document writer `/api/settings`
-     bez neautorizovaného rozšíření scope a vytvořit čerstvý role-suite proof
-     svázaný s exaktním digestem; dnešní name-only score takovým důkazem není.
+     `models` sekci transakčním merge. Detection scheduler jej už konzumuje,
+     ale typed writer nemá produkčního volajícího. Podporovaný opt-in povrch
+     proto čeká na [rozhodnutí 020](docs/decisions/020-m1-model-failover-opt-in-surface.md):
+     generický whole-document writer `/api/settings` nelze bez změny veřejné
+     backup/import/reset sémantiky vydávat za modelovou policy autoritu. Před
+     aktivací je navíc nutný čerstvý role-suite proof svázaný s exaktním
+     digestem; dnešní name-only score takovým důkazem není.
      **Druhý checkpoint je implementovaný:** migrace 046 vytváří oddělený
      versioned desired binding, incident projection s `row_version`,
      append-only audit a append-only digest-bound PASS proof. DB odmítá active
@@ -1295,8 +1298,10 @@ mohou pokračovat.
    čistým lokálním klonem, offline instalací a celou focused/compatibility
    baterií. Navazující detection-only koordinátor už po opt-inu ukládá exact
    desired baseline a `DETECTED`, ale nevybírá fallback a nemá claim, proof ani
-   runtime autoritu. Otevřené zůstávají proof issuer a terminal failover
-   activation/restore. Failover se dosud neaktivuje. Proof issuance
+   runtime autoritu. Podporovaný typed opt-in povrch čeká na
+   [020](docs/decisions/020-m1-model-failover-opt-in-surface.md). Otevřené
+   zůstávají proof issuer a terminal failover activation/restore. Failover se
+   dosud neaktivuje. Proof issuance
    čeká na prahy a TTL z rozhodnutí 015; nový skutečný GPU běh zůstává
    samostatnou blokovanou evidencí, dokud není legitimně čistý checkout.
 7. B4 má focused implementované 011/A, obě poloviny 014/A a obě poloviny
