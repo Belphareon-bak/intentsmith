@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 379
+- Runnable programs: 380
 - Explicit support-module exclusions: 8
-- Profiles: offline=187, database=36, server=37, model=85, soak=19, manual=15
-- States: ACTIVE=281, HISTORICAL=16, BLOCKED=82
+- Profiles: offline=188, database=36, server=37, model=85, soak=19, manual=15
+- States: ACTIVE=282, HISTORICAL=16, BLOCKED=82
 
 ## Execution profiles
 
@@ -105,6 +105,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T3-TESTS-CONV-CZECH-NODIACRITICS-TEST` | `tests/conv-czech-nodiacritics.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:external, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-CONV-CZECH-TEST` | `tests/conv-czech.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:external, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-CONV-ENGLISH-TEST` | `tests/conv-english.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:external, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-CORE-OPTIONAL-MAP-VALIDATOR-TEST` | `tests/core-optional-map-validator.test.js` | `C3-027` | T1 | `offline` | 15 s | 2 min | network:none | yes | `ACTIVE` | — | P10-CORE-OPTIONAL-MAP |
 | `IS-T3-TESTS-CRE-BUILD-ARBITRATION-TEST` | `tests/cre-build-arbitration.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-CRE-COMPREHENSIVE-TEST` | `tests/cre-comprehensive.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-CRE-DIALOG-SCENARIOS-TEST` | `tests/cre-dialog-scenarios.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |

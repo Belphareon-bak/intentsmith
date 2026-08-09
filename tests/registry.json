@@ -2080,6 +2080,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-CORE-OPTIONAL-MAP-VALIDATOR-TEST",
+      "path": "tests/core-optional-map-validator.test.js",
+      "argv": [
+        "node",
+        "tests/core-optional-map-validator.test.js"
+      ],
+      "capabilityId": "C3-027",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 15000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "P10-CORE-OPTIONAL-MAP",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T3-TESTS-CRE-BUILD-ARBITRATION-TEST",
       "path": "tests/cre-build-arbitration.test.js",
       "argv": [
