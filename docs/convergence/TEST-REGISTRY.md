@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 377
+- Runnable programs: 378
 - Explicit support-module exclusions: 8
-- Profiles: offline=186, database=35, server=37, model=85, soak=19, manual=15
-- States: ACTIVE=280, HISTORICAL=15, BLOCKED=82
+- Profiles: offline=187, database=35, server=37, model=85, soak=19, manual=15
+- States: ACTIVE=281, HISTORICAL=15, BLOCKED=82
 
 ## Execution profiles
 
@@ -378,6 +378,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T5-TESTS-SOAK-FOLLOWUP-LOAD-TEST` | `tests/soak/followup-load.test.js` | `C3-027` | T5 | `soak` | 30 min | 60 min | network:loopback, temp-db, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
 | `IS-T5-TESTS-SOAK-MIXED-SESSION-SIMULATION-TEST` | `tests/soak/mixed-session-simulation.test.js` | `C3-027` | T5 | `soak` | 30 min | 60 min | network:loopback, temp-db, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
 | `IS-T5-TESTS-SOAK-SHORT-INPUT-STRESS-TEST` | `tests/soak/short-input-stress.test.js` | `C3-027` | T5 | `soak` | 30 min | 60 min | network:loopback, temp-db, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-SPECIALIST-BOUNDARY-RATCHET-TEST` | `tests/specialist-boundary-ratchet.test.js` | `C3-027` | T1 | `offline` | 15 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M3-L0-8-ENFORCEMENT |
 | `IS-T1-TESTS-SPECIALIST-HANDLER-TEST` | `tests/specialist-handler.test.js` | `C3-013` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SPECIALIST-LOADER-TEST` | `tests/specialist-loader.test.js` | `C3-013` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SPECIALIST-REGISTRIES-TEST` | `tests/specialist-registries.test.js` | `C3-013` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
