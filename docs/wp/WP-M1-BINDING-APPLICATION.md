@@ -3,7 +3,8 @@
 **Typ:** zapisující WP · **Slot:** hlavní zapisující vlastník, hlavní checkout
 **Stav:** backend checkpoint dokončený na `e7d89b5ef038e1a32ad2fdff3990d6f9f20d9bec`;
 fresh-clone instalace a offline acceptance jsou zelené. Celé M1/Gate 1 zůstává
-blokované na výslovně uvedených GPU, proof/automatic-failover a UI residuálech.
+blokované na výslovně uvedených GPU, proof/automatic-failover, UI a
+post-DB runtime-finalize residuálech ve [Findingu 008](../findings/008-model-binding-commit-point-split.md).
 **Závislost:** dokončený `WP-M1-BINDING-REPOSITORY` (`515fb6f7`, evidence
 `eb7e78b8`, review closure `1478cb20`)
 
@@ -187,5 +188,7 @@ Navržené commity:
 
 Po WP zůstane Gate 1 `BLOCKED` na rozhodnutí 015, proof issueru, automatic
 failover coordinatoru/scheduleru, skutečném sériovém GPU běhu a UI rollback
-surface. Tento WP může uzavřít Finding 008 pro backend manual apply/rollback;
-nemůže sám uzavřít celý chat/Studio recovery journey.
+surface. Fresh-clone důkaz uzavřel primární backend manual apply/rollback
+cestu, ale následný C2b race test odhalil otevřený post-DB finalize
+reconciliation residual. WP proto nemůže sám uzavřít celý Finding 008 ani
+chat/Studio recovery journey.

@@ -13,6 +13,10 @@ import {
   normalizeModelDigestSha256,
   sameModelName,
 } from './model-identity.js';
+import {
+  MODEL_ACTIVITY_OWNER,
+  modelUseAuthority,
+} from './model-use-authority.js';
 
 const LOCAL_PROVIDER_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]']);
 const PROVIDER_CLAIM_HEARTBEAT_MS = 60 * 1000;
@@ -409,6 +413,7 @@ export class ModelBindingApplication {
     this.repository = options.repository;
     this.runtime = options.runtime;
     this.provider = options.provider;
+    this.modelUseAuthority = options.modelUseAuthority || modelUseAuthority;
     this.publishControl = options.publishControl || (() => {});
     this.requestKeyFactory = options.requestKeyFactory || (() => `request_${randomUUID()}`);
     this.actorFactory = options.actorFactory || (() => 'user:local-operator');
@@ -438,6 +443,7 @@ export class ModelBindingApplication {
       ['repository', this.repository],
       ['runtime', this.runtime],
       ['provider', this.provider],
+      ['modelUseAuthority', this.modelUseAuthority],
     ]) {
       if (!value || typeof value !== 'object') {
         fail('MODEL_BINDING_APPLICATION_OPTIONS_INVALID', `${name} dependency is required`);
@@ -501,6 +507,12 @@ export class ModelBindingApplication {
       if (typeof this.provider[method] !== 'function') {
         fail('MODEL_BINDING_APPLICATION_OPTIONS_INVALID', `Provider is missing ${method}`);
       }
+    }
+    if (typeof this.modelUseAuthority.acquireShared !== 'function') {
+      fail(
+        'MODEL_BINDING_APPLICATION_OPTIONS_INVALID',
+        'Model use authority is missing acquireShared',
+      );
     }
     if (typeof this.publishControl !== 'function'
       || typeof this.requestKeyFactory !== 'function'
@@ -996,21 +1008,41 @@ export class ModelBindingApplication {
         if (currentOperationIds.has(override.bindingOperationId)) continue;
         try {
           if (inventoryError) throw inventoryError;
-          const resolved = this.provider.resolveFromInventory(
+          this.provider.resolveFromInventory(
             inventory,
             override.modelName,
             { expectedDigestSha256: override.digestSha256 },
           );
-          this.runtime.rehydrateLegacy({
-            role: override.role,
-            targetModel: resolved.name,
-          });
+          const snapshot = this.runtime.snapshot(override.role);
+          let releaseUseLeases;
+          try {
+            releaseUseLeases = this.#acquireModelUseLeases(
+              [snapshot.modelName, override.modelName],
+              MODEL_ACTIVITY_OWNER.BINDING_CUTOVER,
+            );
+          } catch (error) {
+            throw this.#bindingUseConflict(error, {
+              operationId: override.bindingOperationId,
+              role: override.role,
+            }, 'STARTUP_CUTOVER');
+          }
+          try {
+            const resolved = await this.provider.resolveExact(override.modelName, {
+              expectedDigestSha256: override.digestSha256,
+            });
+            this.runtime.rehydrateLegacy({
+              role: override.role,
+              targetModel: resolved.name,
+            });
+          } finally {
+            releaseUseLeases();
+          }
           summary.restored++;
         } catch (error) {
           summary.failed.push({
             role: override.role,
             operationId: override.bindingOperationId,
-            code: error?.code || 'PRIOR_MANUAL_REHYDRATE_FAILED',
+            code: rehydrateFailureCode(error),
           });
         }
       }
@@ -1028,16 +1060,13 @@ export class ModelBindingApplication {
             );
           }
           if (inventoryError) throw inventoryError;
-          const resolved = this.provider.resolveFromInventory(
+          this.provider.resolveFromInventory(
             inventory,
             operation.targetModelName,
             { expectedDigestSha256: operation.targetDigestSha256 },
           );
           executionStarted = true;
-          const restored = await this.#executeOperation(
-            operation,
-            { startup: true, resolvedTarget: resolved },
-          );
+          const restored = await this.#executeOperation(operation, { startup: true });
           summary.restored++;
           if (restored.proposalResolutionStatus === 'REPAIR_PENDING') {
             summary.warnings.push({
@@ -1650,7 +1679,66 @@ export class ModelBindingApplication {
     }
   }
 
-  async #executeOperation(operation, { startup, resolvedTarget = null }) {
+  #acquireModelUseLeases(modelNames, owner) {
+    const modelsByCanonical = new Map();
+    for (const value of modelNames) {
+      const canonicalName = canonicalModelName(value);
+      if (!canonicalName) {
+        fail(
+          'MODEL_BINDING_APPLICATION_INPUT_INVALID',
+          'Model use lease requires an exact non-empty model identity',
+          { modelName: value ?? null, owner },
+        );
+      }
+      if (modelsByCanonical.has(canonicalName)) continue;
+      modelsByCanonical.set(canonicalName, String(value).trim());
+    }
+    const leases = [];
+    try {
+      for (const canonicalName of [...modelsByCanonical.keys()].sort()) {
+        leases.push(this.modelUseAuthority.acquireShared({
+          modelName: modelsByCanonical.get(canonicalName),
+          owner,
+        }));
+      }
+    } catch (error) {
+      for (const lease of [...leases].reverse()) lease.release();
+      throw error;
+    }
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      for (const lease of [...leases].reverse()) lease.release();
+    };
+  }
+
+  #bindingUseConflict(error, operation, phase) {
+    if (error?.code !== 'MODEL_USE_EXCLUSIVE_ACTIVE') return error;
+    const providerUnavailable = phase !== 'CUTOVER';
+    return new ModelBindingApplicationError(
+      providerUnavailable
+        ? 'MODEL_BINDING_PROVIDER_UNAVAILABLE'
+        : 'MODEL_BINDING_RUNTIME_GUARD_REJECTED',
+      phase === 'VERIFICATION'
+        ? 'Exact verification cannot start while the model artifact is being mutated'
+        : phase === 'STARTUP_CUTOVER'
+          ? 'Startup binding restore cannot run while a required model artifact is being mutated'
+          : 'Binding cutover cannot start while a required model artifact is being mutated',
+      {
+        cause: error,
+        details: {
+          operationId: operation.operationId,
+          role: operation.role,
+          phase,
+          modelUseCode: error.code,
+          exclusiveOwner: error.details?.owner || null,
+        },
+      },
+    );
+  }
+
+  async #executeOperation(operation, { startup }) {
     let state = this.repository.getBindingApplicationState(operation.operationId);
     if (!startup && state.runtimeStatus === 'APPLIED') {
       const runtime = this.runtime.snapshot(operation.role);
@@ -1693,79 +1781,97 @@ export class ModelBindingApplication {
       );
     }
 
-    let resolved = resolvedTarget;
-    if (!resolved) {
+    const snapshot = this.runtime.snapshot(operation.role);
+    let releaseUseLeases;
+    try {
+      releaseUseLeases = this.#acquireModelUseLeases(
+        [snapshot.modelName, operation.targetModelName],
+        MODEL_ACTIVITY_OWNER.BINDING_CUTOVER,
+      );
+    } catch (error) {
+      const conflict = this.#bindingUseConflict(
+        error,
+        operation,
+        startup ? 'STARTUP_CUTOVER' : 'CUTOVER',
+      );
+      await this.#recordRuntimeFailure(operation, state, conflict, startup);
+      throw conflict;
+    }
+
+    let resolved;
+    let token;
+    let runtimeResult;
+    try {
       try {
         resolved = await this.provider.resolveExact(operation.targetModelName, {
           expectedDigestSha256: operation.targetDigestSha256,
+        });
+        token = this.runtime.prepare({
+          role: operation.role,
+          expectedModel: startup ? snapshot.modelName : operation.previousModelName,
+          targetModel: resolved.name,
+          incrementVersion: !startup,
         });
       } catch (error) {
         await this.#recordRuntimeFailure(operation, state, error, startup);
         throw error;
       }
-    }
 
-    const snapshot = this.runtime.snapshot(operation.role);
-    let token;
-    try {
-      token = this.runtime.prepare({
-        role: operation.role,
-        expectedModel: startup ? snapshot.modelName : operation.previousModelName,
-        targetModel: resolved.name,
-        incrementVersion: !startup,
-      });
-    } catch (error) {
-      await this.#recordRuntimeFailure(operation, state, error, startup);
-      throw error;
-    }
-
-    try {
-      state = this.repository.getBindingApplicationState(operation.operationId);
-      const recorded = startup
-        ? this.repository.recordManualStartupRehydrated({
-          operationId: operation.operationId,
-          expectedAttemptRevision: state.attemptRevision,
-          observedModelName: resolved.name,
-          observedDigestSha256: resolved.digestSha256,
-          runtimeChanged: token.changed,
-        })
-        : this.repository.recordManualRuntimeApplied({
-          operationId: operation.operationId,
-          expectedAttemptRevision: state.attemptRevision,
-          observedModelName: resolved.name,
-          observedDigestSha256: resolved.digestSha256,
-          runtimeChanged: token.changed,
-        });
-      state = recorded.applicationState;
-    } catch (error) {
       try {
-        this.runtime.compensate(token);
-      } catch (compensationError) {
-        throw new ModelBindingApplicationError(
-          'MODEL_BINDING_RUNTIME_COMPENSATION_REQUIRED',
-          'Runtime changed but durable application failed and compensation could not complete',
-          { cause: compensationError, details: { operationId: operation.operationId } },
+        state = this.repository.getBindingApplicationState(operation.operationId);
+        const recorded = startup
+          ? this.repository.recordManualStartupRehydrated({
+            operationId: operation.operationId,
+            expectedAttemptRevision: state.attemptRevision,
+            observedModelName: resolved.name,
+            observedDigestSha256: resolved.digestSha256,
+            runtimeChanged: token.changed,
+          })
+          : this.repository.recordManualRuntimeApplied({
+            operationId: operation.operationId,
+            expectedAttemptRevision: state.attemptRevision,
+            observedModelName: resolved.name,
+            observedDigestSha256: resolved.digestSha256,
+            runtimeChanged: token.changed,
+          });
+        state = recorded.applicationState;
+      } catch (error) {
+        try {
+          this.runtime.compensate(token);
+        } catch (compensationError) {
+          throw new ModelBindingApplicationError(
+            'MODEL_BINDING_RUNTIME_COMPENSATION_REQUIRED',
+            'Runtime changed but durable application failed and compensation could not complete',
+            { cause: compensationError, details: { operationId: operation.operationId } },
+          );
+        }
+        const latest = this.repository.getBindingApplicationState(operation.operationId);
+        try {
+          await this.#recordRuntimeFailure(operation, latest, error, startup);
+        } catch (auditError) {
+          this.logger.warn('ModelBindingApplication', `Compensation audit failed: ${auditError.message}`);
+        }
+        throw asApplicationError(
+          error,
+          startup
+            ? 'MODEL_BINDING_REHYDRATE_RUNTIME_COMMIT_FAILED'
+            : 'MODEL_BINDING_RUNTIME_COMMIT_FAILED',
+          'Durable binding application failed after runtime preparation',
+          { operationId: operation.operationId },
         );
       }
-      const latest = this.repository.getBindingApplicationState(operation.operationId);
-      try {
-        await this.#recordRuntimeFailure(operation, latest, error, startup);
-      } catch (auditError) {
-        this.logger.warn('ModelBindingApplication', `Compensation audit failed: ${auditError.message}`);
-      }
-      throw asApplicationError(
-        error,
-        startup
-          ? 'MODEL_BINDING_REHYDRATE_RUNTIME_COMMIT_FAILED'
-          : 'MODEL_BINDING_RUNTIME_COMMIT_FAILED',
-        'Durable binding application failed after runtime preparation',
-        { operationId: operation.operationId },
-      );
-    }
 
-    // This is deliberately synchronous after the repository commit: no user
-    // callback or await may enter the DB-success -> runtime-finalize window.
-    const runtimeResult = this.runtime.commit(token);
+      // This is deliberately synchronous after the repository commit: no user
+      // callback or await may enter the DB-success -> runtime-finalize window.
+      // Both exact model identities remain reserved until finalization returns.
+      runtimeResult = this.runtime.commit(token);
+    } finally {
+      releaseUseLeases();
+    }
+    return this.#finishCommittedOperation(operation, state, runtimeResult, startup);
+  }
+
+  async #finishCommittedOperation(operation, state, runtimeResult, startup) {
     if (startup) {
       const proposalResolution = this.#tryResolvePendingProposals(operation);
       if (proposalResolution.status === 'REPAIR_PENDING') {
@@ -1988,31 +2094,44 @@ export class ModelBindingApplication {
     for (let index = 0; index < this.verificationAttempts; index++) {
       attempts++;
       let resolved;
+      let releaseUseLease = null;
+      let probeCompleted = false;
       try {
+        try {
+          releaseUseLease = this.#acquireModelUseLeases(
+            [operation.targetModelName],
+            MODEL_ACTIVITY_OWNER.BINDING_VERIFICATION,
+          );
+        } catch (error) {
+          throw this.#bindingUseConflict(error, operation, 'VERIFICATION');
+        }
         resolved = await this.provider.verifyExact({
           modelName: operation.targetModelName,
           canonicalName: operation.targetCanonicalName,
           digestSha256: operation.targetDigestSha256,
         });
+        probeCompleted = true;
+        // Provider truth and durable audit truth are separate. A repository
+        // failure after a successful probe must not be recast as model failure.
+        if (!this.#isCurrentOperation(operation)) return { ok: false, stale: true };
+        const state = this.repository.getBindingApplicationState(operation.operationId);
+        this.repository.recordManualVerificationSucceeded({
+          operationId: operation.operationId,
+          expectedAttemptRevision: state.attemptRevision,
+          observedModelName: resolved.name,
+          observedDigestSha256: resolved.digestSha256,
+        });
+        return { ok: true };
       } catch (error) {
+        if (probeCompleted) throw error;
         lastError = error;
         const code = verificationFailureCode(error);
         if (code === 'MODEL_BINDING_VERIFICATION_DIGEST_DRIFT'
           || index === this.verificationAttempts - 1) break;
-        await this.delay(this.verificationRetryDelayMs);
-        continue;
+      } finally {
+        releaseUseLease?.();
       }
-      // Provider truth and durable audit truth are separate. A repository
-      // failure after a successful probe must not be recast as model failure.
-      if (!this.#isCurrentOperation(operation)) return { ok: false, stale: true };
-      const state = this.repository.getBindingApplicationState(operation.operationId);
-      this.repository.recordManualVerificationSucceeded({
-        operationId: operation.operationId,
-        expectedAttemptRevision: state.attemptRevision,
-        observedModelName: resolved.name,
-        observedDigestSha256: resolved.digestSha256,
-      });
-      return { ok: true };
+      await this.delay(this.verificationRetryDelayMs);
     }
     if (!this.#isCurrentOperation(operation)) return { ok: false, stale: true };
     const state = this.repository.getBindingApplicationState(operation.operationId);

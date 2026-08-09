@@ -116,8 +116,14 @@ gateway checkpoint zapojil třetí živou cestu; request drží shared lease př
 celý provider lifecycle včetně response body a retry delay, ale až po přidělení
 semaphore slotu.
 
-Call graph má nadále pět živých cest. Binding cutover/exact verify a VRAM
-manager nejsou zatím připojené, durable/cross-process autorita není rozhodnutá
-a direct pull stream nemá idle timeout ani recovery. Schopnost #18a proto
-zůstává v tomto řezu `PARTIAL`; focused zelená gateway evidence není release
-ani L0-11 PASS.
+Binding cutover/exact verification checkpoint zapojil čtvrtou živou cestu.
+Previous+target lease vzniká až po případném pullu a drží přes nový exact
+resolve, durable zápis, compensation a synchronní finalize; verification drží
+target přes probe i durable success zápis a před retry delay jej uvolní.
+Startup snapshot není autorita. Operationless legacy override však zůstává
+name-only `LEGACY_UNVERIFIED` a post-DB runtime finalize nemá durable recovery.
+
+Call graph má nadále pět živých cest. Nepřipojený zůstává VRAM manager;
+durable/cross-process autorita není rozhodnutá a direct pull stream nemá idle
+timeout ani recovery. Schopnost #18a proto zůstává v tomto řezu `PARTIAL`;
+focused zelená gateway+binding evidence není release ani L0-11 PASS.

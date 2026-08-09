@@ -3,7 +3,7 @@
 - **vlastník:** navazující checkpoint
   `WP-M1-MODEL-CLEANUP-AUTHORITY / C2–C3`
 - **nalezeno v:** read-only call-graph review cleanup authority
-- **stav:** `PARTIAL_REMEDIATION / C2B_GATEWAY_FOCUSED_VERIFIED`
+- **stav:** `PARTIAL_REMEDIATION / C2B_GATEWAY_AND_BINDING_FOCUSED_VERIFIED`
 - **dopad:** M1 cleanup checkpoint je bezpečnější, L0-11 zůstává `PARTIAL`
 
 ## Evidence
@@ -43,9 +43,19 @@ explicitní ne-bound model, takže lease se váže na skutečný request model, 
 aktuální role binding. Focused sada skončila 24/24 a zčervenala při odstranění
 acquire, předčasném release i odstranění owned body-abort klasifikace.
 
-Pokryté jsou tím tři z pěti živých cest: registry validation, pull a gateway.
-Binding cutover/exact verify a VRAM manager zůstávají otevřené; tento checkpoint
-se proto nevydává za dokončený C2 ani L0-11 PASS.
+Binding cutover a exact verification jsou čtvrtou připojenou cestou. Cutover
+získá previous+target shared lease až po případném cold pullu, pod lease znovu
+ověří exact digest a drží jej přes runtime prepare, durable zápis, compensation
+i synchronní finalize. Verification drží target přes provider probe a durable
+success zápis; před retry delay jej vždy uvolní. Startup inventory je jen census
+hint a exact override se před rehydrate znovu resolveuje pod oběma leases.
+Focused application sada skončila 86/86; odstranění cutover, verification nebo
+exact-override lease ji postupně změnilo na 81/86, 85/86 a 85/86, vždy exit 1.
+
+Pokryté jsou tím čtyři z pěti živých cest: registry validation, pull, gateway a
+binding cutover/exact verification. VRAM manager zůstává poslední živou
+nepřipojenou cestou; tento checkpoint se proto nevydává za dokončený C2 ani
+L0-11 PASS.
 
 Současný mutation owner je in-memory a chrání jeden serverový proces. Delete
 událost má standardní log a best-effort WS broadcast, ale nemá append-only
@@ -79,6 +89,8 @@ rozhodnutá.
 - doba platnosti chatového preview před jednorázovým potvrzením.
 - VRAM unload/reload jako shared artifact-use versus nová exclusive residency
   autorita vůči gateway semaphore; C2a tuto sémantiku potichu nemění.
+- post-DB `runtime.commit()` failure nemá durable reconciliation incident;
+  binding lease tento samostatný Finding 008 residual neopravuje.
 - direct pull stream nemá cancellation signal ani idle timeout; stalled
   `reader.read()` proto drží single-process writer do restartu. Operátor musí
   zvolit timeout a provider-outcome reconciliation dřív, než se tato cesta

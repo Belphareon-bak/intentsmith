@@ -34,6 +34,11 @@ import {
   canonicalModelName,
   sameModelName,
 } from '../src/upgrade/model-identity.js';
+import {
+  MODEL_ACTIVITY_OWNER,
+  ModelUseAuthority,
+  modelUseAuthority as productionModelUseAuthority,
+} from '../src/upgrade/model-use-authority.js';
 import { ModelRegistry } from '../src/upgrade/model-registry.js';
 import { UpgradeManager } from '../src/upgrade/upgrade-manager.js';
 import { createSystemRoutes } from '../src/routes/system.js';
@@ -89,6 +94,32 @@ function model(name, digestSha256) {
   });
 }
 
+function assertMutationBlocked(authority, modelName, expectedOwner) {
+  let error = null;
+  let unexpectedLease = null;
+  try {
+    unexpectedLease = authority.acquireExclusive({
+      modelName,
+      owner: MODEL_ACTIVITY_OWNER.MODEL_DELETE,
+    });
+  } catch (caught) {
+    error = caught;
+  } finally {
+    unexpectedLease?.release();
+  }
+  assert(error, `Expected mutation to be blocked for ${modelName}`);
+  assertEqual(error.code, 'MODEL_MUTATION_ACTIVE_USE');
+  assert(error.details.activeOwners.includes(expectedOwner));
+}
+
+function assertMutationAvailable(authority, modelName) {
+  const lease = authority.acquireExclusive({
+    modelName,
+    owner: MODEL_ACTIVITY_OWNER.MODEL_DELETE,
+  });
+  lease.release();
+}
+
 class FakeExactProvider {
   constructor() {
     this.models = new Map([
@@ -108,6 +139,8 @@ class FakeExactProvider {
     this.verifyError = null;
     this.verifyGate = null;
     this.afterEnsure = null;
+    this.beforeResolve = null;
+    this.afterSnapshotResolve = null;
     this.pullTargets = new Map();
     this.onPullStart = null;
     this.pullGate = null;
@@ -155,6 +188,7 @@ class FakeExactProvider {
   async resolveExact(modelName, options = {}) {
     this.calls.resolve++;
     if (this.resolveError) throw this.resolveError;
+    this.beforeResolve?.(modelName, options);
     const resolved = this.#resolve(modelName, options.expectedDigestSha256 || null);
     this.afterEnsure?.(resolved);
     return resolved;
@@ -196,6 +230,7 @@ class FakeExactProvider {
         `Digest drift for fixture model: ${modelName}`,
       );
     }
+    this.afterSnapshotResolve?.(resolved);
     return resolved;
   }
 
@@ -337,7 +372,10 @@ async function withFixture(callback, options = {}) {
     ? options.repositoryFactory(repository)
     : repository;
   const runtimePort = manager.createBindingRuntimePort();
-  const application = createModelBindingApplication({
+  const useAuthority = options.useDefaultModelUseAuthority
+    ? productionModelUseAuthority
+    : options.modelUseAuthority || new ModelUseAuthority();
+  const applicationOptions = {
     repository: repositoryPort,
     runtime: options.runtimeFactory ? options.runtimeFactory(runtimePort) : runtimePort,
     provider,
@@ -352,18 +390,30 @@ async function withFixture(callback, options = {}) {
     )),
     actorFactory: () => 'user:fixture-operator',
     verificationAttempts: options.verificationAttempts ?? 1,
-    verificationRetryDelayMs: 1,
-    delay: async () => {},
+    verificationRetryDelayMs: options.verificationRetryDelayMs ?? 1,
+    delay: options.delay || (async () => {}),
     clock: options.applicationClock,
     scheduleRecovery: options.scheduleRecovery,
     cancelRecovery: options.cancelRecovery,
     logger: { warn() {}, info() {}, debug() {}, error() {} },
-  });
+  };
+  if (!options.useDefaultModelUseAuthority) {
+    applicationOptions.modelUseAuthority = useAuthority;
+  }
+  const application = createModelBindingApplication(applicationOptions);
   if (options.startVerification !== false) application.startBackgroundVerification();
 
   config.models.CHAT = 'fixture-base';
   try {
-    return await callback({ db, repository, manager, provider, events, application });
+    return await callback({
+      db,
+      repository,
+      manager,
+      provider,
+      events,
+      application,
+      modelUseAuthority: useAuthority,
+    });
   } finally {
     setModelBindingApplication(null);
     restoreBindings();
@@ -442,6 +492,335 @@ await testAsync('delete protection exposes current desired and one-step rollback
     const after = application.getProtectedModelNames();
     assert(after.some(model => sameModelName(model, 'fixture-target')));
     assert(after.some(model => sameModelName(model, 'fixture-base')));
+  });
+});
+
+await testAsync('binding cutover re-resolves and reserves previous plus target through commit', async () => {
+  const authority = new ModelUseAuthority();
+  let exactResolveObserved = 0;
+  let durableCommitObserved = 0;
+  let runtimeCommitObserved = 0;
+  await withFixture(async ({ db, repository, provider, application }) => {
+    provider.afterEnsure = resolved => {
+      if (resolved.name !== 'fixture-target') return;
+      const target = authority.snapshot('fixture-target');
+      const previous = authority.snapshot('fixture-base');
+      if (target.activeUseCount === 1 && previous.activeUseCount === 1) {
+        exactResolveObserved++;
+      }
+    };
+
+    const result = await application.applyManualBinding({
+      role: 'CHAT',
+      targetModel: 'fixture-target',
+    });
+    await application.awaitBackgroundWork();
+
+    assertEqual(result.outcome, 'APPLIED');
+    assertEqual(repository.getBindingApplicationState(result.operationId).state, 'VERIFIED');
+    assertEqual(exactResolveObserved, 1);
+    assertEqual(durableCommitObserved, 1);
+    assertEqual(runtimeCommitObserved, 1);
+    assertMutationAvailable(authority, 'fixture-base');
+    assertMutationAvailable(authority, 'fixture-target');
+  }, {
+    modelUseAuthority: authority,
+    repositoryFactory(repository) {
+      const original = repository.recordManualRuntimeApplied.bind(repository);
+      return repositoryProxy(repository, {
+        recordManualRuntimeApplied(input) {
+          assertMutationBlocked(
+            authority,
+            'fixture-base',
+            MODEL_ACTIVITY_OWNER.BINDING_CUTOVER,
+          );
+          assertMutationBlocked(
+            authority,
+            'fixture-target:latest',
+            MODEL_ACTIVITY_OWNER.BINDING_CUTOVER,
+          );
+          const unrelated = authority.acquireExclusive({
+            modelName: 'fixture-other',
+            owner: MODEL_ACTIVITY_OWNER.MODEL_DELETE,
+          });
+          unrelated.release();
+          durableCommitObserved++;
+          return original(input);
+        },
+      });
+    },
+    runtimeFactory(runtime) {
+      return Object.freeze({
+        ...runtime,
+        commit(token) {
+          assertMutationBlocked(
+            authority,
+            'fixture-base',
+            MODEL_ACTIVITY_OWNER.BINDING_CUTOVER,
+          );
+          assertMutationBlocked(
+            authority,
+            'fixture-target',
+            MODEL_ACTIVITY_OWNER.BINDING_CUTOVER,
+          );
+          runtimeCommitObserved++;
+          return runtime.commit(token);
+        },
+      });
+    },
+  });
+});
+
+await testAsync('cold pull finishes before binding cutover acquires shared use', async () => {
+  const authority = new ModelUseAuthority();
+  let pullObserved = 0;
+  await withFixture(async ({ provider, application }) => {
+    provider.models.delete('fixture-target');
+    provider.pullTargets.set('fixture-target', model('fixture-target', DIGEST_B));
+    provider.onPullStart = modelName => {
+      assertEqual(authority.snapshot(modelName).activeUseCount, 0);
+      const pullLease = authority.acquireExclusive({
+        modelName,
+        owner: MODEL_ACTIVITY_OWNER.MODEL_PULL,
+      });
+      pullObserved++;
+      pullLease.release();
+    };
+
+    const result = await application.applyManualBinding({
+      role: 'CHAT',
+      targetModel: 'fixture-target',
+    });
+    await application.awaitBackgroundWork();
+    assertEqual(result.outcome, 'APPLIED');
+    assertEqual(pullObserved, 1);
+    assertMutationAvailable(authority, 'fixture-target');
+  }, { modelUseAuthority: authority });
+});
+
+await testAsync('default binding wiring shares the production model-use authority', async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  let pullOutcomePromise = null;
+  try {
+    globalThis.fetch = async () => {
+      fetchCalls++;
+      return {
+        ok: true,
+        body: {
+          getReader: () => ({
+            read: async () => ({ done: true, value: undefined }),
+          }),
+        },
+      };
+    };
+    await withFixture(async ({ manager, provider, application }) => {
+      provider.beforeResolve = modelName => {
+        if (canonicalModelName(modelName) !== 'fixture-target') return;
+        if (productionModelUseAuthority.snapshot('fixture-target').activeUseCount !== 1
+          || productionModelUseAuthority.snapshot('fixture-base').activeUseCount !== 1) return;
+        assertEqual(pullOutcomePromise, null, 'Expected one leased authoritative target resolve');
+        pullOutcomePromise = manager.pullModel('fixture-target:latest').then(
+          value => ({ ok: true, value }),
+          error => ({ ok: false, error }),
+        );
+      };
+
+      const applied = await application.applyManualBinding({
+        role: 'CHAT',
+        targetModel: 'fixture-target',
+      });
+      assert(pullOutcomePromise, 'Expected pull attempt during leased cutover resolve');
+      const pullOutcome = await pullOutcomePromise;
+      await application.awaitBackgroundWork();
+
+      assertEqual(applied.outcome, 'APPLIED');
+      assertEqual(pullOutcome.ok, false);
+      assertEqual(pullOutcome.error.code, 'MODEL_MUTATION_ACTIVE_USE');
+      assert(pullOutcome.error.details.activeOwners.includes(
+        MODEL_ACTIVITY_OWNER.BINDING_CUTOVER,
+      ));
+      assertEqual(fetchCalls, 0, 'Conflicting pull must stop before provider I/O');
+      assertEqual(
+        productionModelUseAuthority.snapshot('fixture-base').activeUseCount,
+        0,
+      );
+      assertEqual(
+        productionModelUseAuthority.snapshot('fixture-target').activeUseCount,
+        0,
+      );
+      assertMutationAvailable(productionModelUseAuthority, 'fixture-base');
+      assertMutationAvailable(productionModelUseAuthority, 'fixture-target');
+    }, { useDefaultModelUseAuthority: true });
+  } finally {
+    if (pullOutcomePromise) await pullOutcomePromise;
+    globalThis.fetch = originalFetch;
+  }
+});
+
+await testAsync('cutover conflict is retryable and releases a partially acquired lease set', async () => {
+  const authority = new ModelUseAuthority();
+  await withFixture(async ({ db, repository, manager, events, application }) => {
+    const mutation = authority.acquireExclusive({
+      modelName: 'fixture-target',
+      owner: MODEL_ACTIVITY_OWNER.MODEL_PULL,
+    });
+    const error = await captureError(application.applyManualBinding({
+      role: 'CHAT',
+      targetModel: 'fixture-target',
+    }));
+
+    assertEqual(error.code, 'MODEL_BINDING_RUNTIME_GUARD_REJECTED');
+    assertEqual(error.details.exclusiveOwner, MODEL_ACTIVITY_OWNER.MODEL_PULL);
+    const operation = latestOperation(repository);
+    const state = repository.getBindingApplicationState(operation.operationId);
+    assertEqual(state.runtimeStatus, 'FAILED');
+    assertEqual(state.failureCode, 'MODEL_BINDING_RUNTIME_GUARD_REJECTED');
+    assertEqual(state.retryable, true);
+    assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-base');
+    assertEqual(count(db, 'upgrade_history'), 0);
+    assertEqual(events.filter(event => event.action === 'model_changed').length, 0);
+    assertMutationAvailable(authority, 'fixture-base');
+    assertEqual(
+      authority.snapshot('fixture-target').exclusiveOwner,
+      MODEL_ACTIVITY_OWNER.MODEL_PULL,
+    );
+
+    mutation.release();
+    const retry = await application.applyManualBinding({
+      role: 'CHAT',
+      targetModel: 'fixture-target',
+    });
+    await application.awaitBackgroundWork();
+    assertEqual(retry.operationId, operation.operationId);
+    assertEqual(retry.outcome, 'APPLIED');
+    assertMutationAvailable(authority, 'fixture-target');
+  }, { modelUseAuthority: authority });
+});
+
+await testAsync('repository compensation runs under both cutover leases and releases them', async () => {
+  const authority = new ModelUseAuthority();
+  let compensationObserved = 0;
+  await withFixture(async ({ application }) => {
+    const error = await captureError(application.applyManualBinding({
+      role: 'CHAT',
+      targetModel: 'fixture-target',
+    }));
+    assertEqual(error.code, 'MODEL_BINDING_RUNTIME_COMMIT_FAILED');
+    assertEqual(compensationObserved, 1);
+    assertMutationAvailable(authority, 'fixture-base');
+    assertMutationAvailable(authority, 'fixture-target');
+  }, {
+    modelUseAuthority: authority,
+    repositoryFactory(repository) {
+      return repositoryProxy(repository, {
+        recordManualRuntimeApplied() {
+          throw new Error('fixture cutover repository failure');
+        },
+      });
+    },
+    runtimeFactory(runtime) {
+      return Object.freeze({
+        ...runtime,
+        compensate(token) {
+          assertMutationBlocked(
+            authority,
+            'fixture-base',
+            MODEL_ACTIVITY_OWNER.BINDING_CUTOVER,
+          );
+          assertMutationBlocked(
+            authority,
+            'fixture-target',
+            MODEL_ACTIVITY_OWNER.BINDING_CUTOVER,
+          );
+          compensationObserved++;
+          return runtime.compensate(token);
+        },
+      });
+    },
+  });
+});
+
+await testAsync('runtime finalize failure releases leases but leaves the named reconciliation residual', async () => {
+  const authority = new ModelUseAuthority();
+  await withFixture(async ({ db, repository, manager, events, application }) => {
+    const error = await captureError(application.applyManualBinding({
+      role: 'CHAT',
+      targetModel: 'fixture-target',
+    }));
+    assertEqual(error.message, 'fixture runtime finalize failure');
+    const operation = latestOperation(repository);
+    const state = repository.getBindingApplicationState(operation.operationId);
+    assertEqual(state.runtimeStatus, 'APPLIED');
+    assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-target');
+    assertEqual(count(db, 'upgrade_history'), 1);
+    assertEqual(events.filter(event => event.action === 'model_changed').length, 0);
+    assertMutationAvailable(authority, 'fixture-base');
+    assertMutationAvailable(authority, 'fixture-target');
+  }, {
+    modelUseAuthority: authority,
+    runtimeFactory(runtime) {
+      return Object.freeze({
+        ...runtime,
+        commit() {
+          throw new Error('fixture runtime finalize failure');
+        },
+      });
+    },
+  });
+});
+
+await testAsync('verification conflict retries after releasing the lease before delay', async () => {
+  const authority = new ModelUseAuthority();
+  let mutation = null;
+  let delayCalls = 0;
+  let durableVerificationObserved = 0;
+  await withFixture(async ({ db, repository, provider, application }) => {
+    const result = await application.applyManualBinding({
+      role: 'CHAT',
+      targetModel: 'fixture-target',
+    });
+    mutation = authority.acquireExclusive({
+      modelName: 'fixture-target',
+      owner: MODEL_ACTIVITY_OWNER.MODEL_PULL,
+    });
+
+    application.startBackgroundVerification();
+    await application.awaitBackgroundWork();
+
+    assertEqual(delayCalls, 1);
+    assertEqual(provider.calls.verify, 1, 'Blocked attempt must stop before provider verify');
+    assertEqual(durableVerificationObserved, 1);
+    assertEqual(repository.getBindingApplicationState(result.operationId).state, 'VERIFIED');
+    assertMutationAvailable(authority, 'fixture-target');
+  }, {
+    modelUseAuthority: authority,
+    startVerification: false,
+    verificationAttempts: 2,
+    delay: async () => {
+      delayCalls++;
+      assertEqual(authority.snapshot('fixture-target').activeUseCount, 0);
+      assertEqual(
+        authority.snapshot('fixture-target').exclusiveOwner,
+        MODEL_ACTIVITY_OWNER.MODEL_PULL,
+      );
+      mutation.release();
+      mutation = null;
+    },
+    repositoryFactory(repository) {
+      const original = repository.recordManualVerificationSucceeded.bind(repository);
+      return repositoryProxy(repository, {
+        recordManualVerificationSucceeded(input) {
+          assertMutationBlocked(
+            authority,
+            'fixture-target:latest',
+            MODEL_ACTIVITY_OWNER.BINDING_VERIFICATION,
+          );
+          durableVerificationObserved++;
+          return original(input);
+        },
+      });
+    },
   });
 });
 
@@ -3003,6 +3382,78 @@ await testAsync('restart restores prior manual override before failed newer inte
   }
 });
 
+await testAsync('prior exact override rejects stale census identity under cutover leases', async () => {
+  const authority = new ModelUseAuthority();
+  await withFixture(async ({ db, repository, provider, application }) => {
+    const prior = await application.applyManualBinding({
+      role: 'CHAT',
+      targetModel: 'fixture-target',
+    });
+
+    provider.afterEnsure = resolved => {
+      if (resolved.name === 'fixture-other') {
+        provider.models.set('fixture-other', model('fixture-other', DIGEST_B));
+      }
+    };
+    const newerError = await captureError(application.applyManualBinding({
+      role: 'CHAT',
+      targetModel: 'fixture-other',
+    }));
+    assertEqual(newerError.code, 'MODEL_BINDING_TARGET_DIGEST_DRIFT');
+    const newer = latestOperation(repository);
+    assert(newer.operationId !== prior.operationId);
+
+    provider.afterEnsure = null;
+    config.models.CHAT = 'fixture-base';
+    let snapshotMutated = false;
+    let exactResolveUnderLease = false;
+    provider.afterSnapshotResolve = resolved => {
+      if (resolved.name !== 'fixture-target' || snapshotMutated) return;
+      snapshotMutated = true;
+      provider.models.set('fixture-target', model('fixture-target', DIGEST_C));
+    };
+    provider.beforeResolve = (modelName, options) => {
+      if (!snapshotMutated
+        || canonicalModelName(modelName) !== 'fixture-target'
+        || options.expectedDigestSha256 !== DIGEST_B) return;
+      exactResolveUnderLease = (
+        authority.snapshot('fixture-base').activeUseCount === 1
+        && authority.snapshot('fixture-target').activeUseCount === 1
+      );
+    };
+
+    const restartManager = new UpgradeManager();
+    restartManager.setDb(db);
+    const restartApplication = createModelBindingApplication({
+      repository,
+      runtime: restartManager.createBindingRuntimePort(),
+      provider,
+      modelUseAuthority: authority,
+      publishControl: () => ({ accepted: true }),
+      verificationAttempts: 1,
+      delay: async () => {},
+    });
+    const restored = await restartApplication.rehydrateBindings();
+
+    assertEqual(restored.restored, 0);
+    assert(restored.failed.some(failure => (
+      failure.operationId === prior.operationId
+      && failure.code === 'MODEL_BINDING_REHYDRATE_DIGEST_DRIFT'
+    )), `Missing prior override drift: ${JSON.stringify(restored.failed)}`);
+    assert(restored.failed.some(failure => (
+      failure.code === 'MODEL_BINDING_APPLICATION_NONRETRYABLE_TERMINAL'
+    )), `Missing newer terminal failure: ${JSON.stringify(restored.failed)}`);
+    assertEqual(snapshotMutated, true, 'Expected prior override census mutation');
+    assertEqual(exactResolveUnderLease, true, 'Expected exact resolve under both cutover leases');
+    assertEqual(restartManager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-base');
+    assertMutationAvailable(authority, 'fixture-base');
+    assertMutationAvailable(authority, 'fixture-target');
+  }, {
+    modelUseAuthority: authority,
+    startVerification: false,
+  });
+});
+
 await testAsync('terminal runtime failure performs no provider work on restart', async () => {
   await withFixture(async ({ db, repository, provider, application }) => {
     provider.afterEnsure = resolved => {
@@ -3082,6 +3533,63 @@ await testAsync('startup shares one inventory and serializes verification after 
     await restartApplication.awaitBackgroundWork();
     assertEqual(provider.calls.verify, 2);
     assertEqual(provider.maxConcurrentVerify, 1);
+  });
+});
+
+await testAsync('startup census hint is re-resolved under cutover leases before restore', async () => {
+  const authority = new ModelUseAuthority();
+  await withFixture(async ({ db, repository, provider, application }) => {
+    const applied = await application.applyManualBinding({
+      role: 'CHAT',
+      targetModel: 'fixture-target',
+    });
+    config.models.CHAT = 'fixture-base';
+
+    let snapshotMutated = false;
+    let exactResolveUnderLease = false;
+    provider.afterSnapshotResolve = resolved => {
+      if (resolved.name !== 'fixture-target' || snapshotMutated) return;
+      snapshotMutated = true;
+      provider.models.set('fixture-target', model('fixture-target', DIGEST_C));
+    };
+    provider.beforeResolve = (modelName, options) => {
+      if (!snapshotMutated
+        || canonicalModelName(modelName) !== 'fixture-target'
+        || options.expectedDigestSha256 !== DIGEST_B) return;
+      exactResolveUnderLease = (
+        authority.snapshot('fixture-base').activeUseCount === 1
+        && authority.snapshot('fixture-target').activeUseCount === 1
+      );
+    };
+
+    const restartManager = new UpgradeManager();
+    restartManager.setDb(db);
+    const restartApplication = createModelBindingApplication({
+      repository,
+      runtime: restartManager.createBindingRuntimePort(),
+      provider,
+      modelUseAuthority: authority,
+      publishControl: () => ({ accepted: true }),
+      verificationAttempts: 1,
+      delay: async () => {},
+    });
+    const restored = await restartApplication.rehydrateBindings();
+    const state = repository.getBindingApplicationState(applied.operationId);
+
+    assertEqual(restored.restored, 0);
+    assertEqual(restored.failed.length, 1);
+    assertEqual(restored.failed[0].code, 'MODEL_BINDING_TARGET_DIGEST_DRIFT');
+    assertEqual(state.runtimeStatus, 'FAILED');
+    assertEqual(state.failureCode, 'MODEL_BINDING_REHYDRATE_DIGEST_DRIFT');
+    assertEqual(state.retryable, false);
+    assertEqual(restartManager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-base');
+    assertEqual(snapshotMutated, true);
+    assertEqual(exactResolveUnderLease, true);
+    assertMutationAvailable(authority, 'fixture-base');
+    assertMutationAvailable(authority, 'fixture-target');
+  }, {
+    modelUseAuthority: authority,
+    startVerification: false,
   });
 });
 

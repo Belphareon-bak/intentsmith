@@ -2,8 +2,9 @@
 
 - **stav WP:** B3-IDENTITY + B3-PROFILE READY; B3-FAILOVER storage, manual
   repository, application-state schema a společný manual runtime cutover
-  FRESH-CLONE VERIFIED; nový referenční GPU běh 009, proof issuer a automatic
-  failover zůstávají BLOCKED; offline connector READY
+  FRESH-CLONE VERIFIED; C2b gateway + binding jsou FOCUSED VERIFIED, nikoli
+  fresh-clone; nový referenční GPU běh 009, proof issuer a automatic failover
+  zůstávají BLOCKED; offline connector READY
 - **poslední ověřený source SHA:**
   `bcc9eb8443bf872efb42cb35589906649cc6427a`
 - **base SHA:** `55c913d6f3cb2354b6447d10ff304e9d0323b1c3`
@@ -1996,3 +1997,69 @@ MODULE_BOUNDARY_BASELINE_WRITTEN sourceRevision=7ccd8a584a01f45a9ed566aeba7a41c6
 Baseline metadata tím pinuje source revision, exact source tree a scanner blob.
 Zelený post-write ratchet a fresh-clone evidence se zapisují až nad commitnutým
 baseline SHA; tento odstavec netvrdí dopředu jejich výsledek.
+
+## C2b — binding cutover a exact verification
+
+Binding checkpoint zapojil čtvrtou z pěti živých model-use cest. Cold pull
+skončí před shared lease. Následný cutover rezervuje canonical previous+target
+v deterministickém pořadí, pod lease provede autoritativní exact re-resolve a
+drží obě identity přes runtime prepare, durable repository zápis, compensation
+i synchronní `runtime.commit()`. Částečně získaná sada se při konfliktu uvolní
+v opačném pořadí a conflict zůstává typovaně retryable. Notification, proposal
+repair a background verification začínají až po uvolnění cutover lease.
+
+Exact verification drží target od provider probe přes kontrolu current
+operation až po durable success zápis. Před retry delay lease vždy uvolní.
+Startup inventory je pouze census hint: current operation i exact prior
+override se před změnou runtime znovu resolveují pod lease. Operationless
+legacy override zůstává výslovně name-only `LEGACY_UNVERIFIED`. Default wiring
+test navíc prokazuje, že application a reálný `UpgradeManager.pullModel()`
+sdílejí tentýž produkční singleton; konkurent skončí před provider fetch.
+
+Focused evidence pracovního kandidáta:
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node --check src/upgrade/model-binding-application.js` | syntax valid | 0 |
+| `node --check src/upgrade/model-use-authority.js` | syntax valid | 0 |
+| `node --check tests/m1-model-binding-application.test.js` | syntax valid | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-binding-application.test.js` | 86 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-use-authority.test.js` | 24 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-binding-repository.test.js` | 39 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-binding-storage.test.js` | 16 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-failover-schema.test.js` | 13 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/schema-migrations.test.js` | 38 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-contract.test.js` | 29 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/llm-gateway-runtime-signal.test.js` | 7 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/upgrade-flow.test.js` | 28 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/upgrade-ux-v125.test.js` | 78 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/model-upgrade.test.js` | 58 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/routes-smoke.test.js` | 109 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/ws-bridge.test.js` | 68 passed, 0 failed | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed | 0 |
+| `node tests/repository-hygiene.test.js` | 1 525 tracked paths checked | 0 |
+| `node scripts/validate-test-registry.js --json` | 376 programs, 8 exclusions, fingerprint `0472f18e…24fd0` | 0 |
+| `node scripts/module-boundary-ratchet.mjs` | expected exact-edge review: 1 015 → 1 016, one added edge | 1 |
+
+Mutační kontroly byly vždy spuštěné nad jediným dočasně odstraněným guardem a
+zdroj byl po běhu obnoven opačným patchem:
+
+| Dočasná mutace | Výsledek | Exit |
+|---|---:|---:|
+| cutover previous+target acquire odstraněn | 81 passed, 5 failed | 1 |
+| verification target acquire odstraněn | 85 passed, 1 failed | 1 |
+| exact prior-override acquire odstraněn | 85 passed, 1 failed | 1 |
+
+Checkpoint současně odkryl residual, který lease neopravuje: repository zapíše
+durable `APPLIED` před `runtime.commit()`. Pokud synchronní finalize poté selže,
+neexistuje typovaný durable `RUNTIME_UNKNOWN` ani restart recovery protokol;
+úspěšný terminal audit nelze pravdivě přepsat na failure. Test tuto mezeru
+reprodukuje a Finding 008 proto přechází z globálního `REMEDIATED` na
+`PARTIAL_REMEDIATION` s vlastníkem a termínem před M1 acceptance.
+
+P6 u tohoto source diffu očekává jedinou novou exact hranu
+`src/upgrade/model-binding-application.js ->
+src/upgrade/model-use-authority.js`. Baseline writer a fresh-clone evidence jsou
+navazující samostatné checkpointy; tento odstavec jejich budoucí výsledek
+netvrdí. GPU, Ollama, produktový server ani externí síť nebyly spuštěné. C2
+zůstává `PARTIAL` (VRAM je pátá živá cesta) a Gate 1 zůstává `BLOCKED`.

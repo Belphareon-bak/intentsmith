@@ -1,7 +1,8 @@
 # Finding 008 — model binding neměl jeden pravdivý commit point
 
-- **stav:** `REMEDIATED / FRESH-CLONE VERIFIED` na
-  `e7d89b5ef038e1a32ad2fdff3990d6f9f20d9bec`
+- **stav:** `PARTIAL_REMEDIATION` — primary application path je
+  `FRESH-CLONE VERIFIED` na `e7d89b5ef038e1a32ad2fdff3990d6f9f20d9bec`;
+  post-DB runtime-finalize reconciliation zůstává `OPEN`
 - **závažnost:** vysoká pro M1 acceptance; runtime failover je dál vypnutý
 - **vlastník:** zapisující vlastník `WP-M1-MODEL / B3-FAILOVER runtime integration`
 - **termín:** před tvrzením, že B3-FAILOVER je runtime-integrated, a nejpozději
@@ -172,10 +173,26 @@ nenašel žádného produkčního konzumenta
 `applyUpgrade()`, `rollbackUpgrade()`, `loadPersistedOverrides()` ani
 `_backgroundVerify()`.
 
-Finding 008 je na backendové hranici uzavřený fresh-clone ověřením přesného
-commitu. Tři navazující meze se nepřikrášlují: dnešní WS broadcaster
-nevydává delivery receipt, takže stav zůstane degraded; current Studio tento
-nový status dosud nekonzumuje ani nenabízí proveditelný rollback; neúspěšná CAS
-kompenzace je tvrdý in-process recovery blocker, nikoli durable
-`RUNTIME_UNKNOWN` stav. Vlastníkem Studio status/rollback surface je
-`WP-M1-STUDIO`; do té doby full M1 acceptance zůstává blokovaná.
+Primary backend path je fresh-clone ověřená, ale Finding 008 jako celek není
+uzavřený. C2b binding hardening nově drží previous+target shared lease přes
+autoritativní exact re-resolve, repository zápis, compensation a synchronní
+runtime finalize; exact verification drží target přes provider probe i durable
+success zápis. Tím se zavírá single-process delete/pull závod, nikoli atomický
+DB/runtime commit.
+
+Repository totiž zapisuje `APPLIED` před `runtime.commit()`. Pokud synchronní
+finalize poté vyhodí výjimku, target už může být připravený v `config.models`,
+zatímco runtime token, `configVersion`, in-memory upgrade history a notification
+zůstanou nedokončené. Neexistuje typovaný durable `RUNTIME_UNKNOWN` incident ani
+restart recovery protokol a úspěšný durable terminál nelze pravdivě přepsat na
+failure. Focused test tento residual reprodukuje; nevydává jej za opravený.
+Operationless legacy override se navíc dál rehydratuje pouze podle jména jako
+`LEGACY_UNVERIFIED`.
+
+Další pravdivé meze: dnešní WS broadcaster nevydává delivery receipt, takže
+stav zůstane degraded; current Studio tento nový status dosud nekonzumuje ani
+nenabízí proveditelný rollback; neúspěšná CAS kompenzace je tvrdý in-process
+recovery blocker. Vlastníkem finalize reconciliation zůstává
+`WP-M1-MODEL / B3-FAILOVER runtime integration` s termínem před M1 acceptance;
+Studio status/rollback surface vlastní `WP-M1-STUDIO`. Do té doby full M1/Gate
+1 acceptance zůstává blokovaná.

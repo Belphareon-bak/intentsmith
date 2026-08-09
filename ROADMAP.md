@@ -528,10 +528,14 @@ focused regression sady.
      assign/delete část findingu 006 jsou opravené. C1 ale netvrdí atomickou
      ochranu proti všemu aktivnímu model-use, více procesům ani durable delete
      audit. C2a je fresh-clone ověřený a single-process serializuje delete s
-     direct pull a registry validací. C2b gateway je focused ověřená: shared
-     lease vzniká až po semaphore slotu, drží přes všechny provider pokusy,
-     response body i retry delay a uvolní se při každém terminálu. Binding
-     cutover/verify a rozhodnutí o VRAM residency zůstávají. Tyto residualy vlastní
+     direct pull a registry validací. C2b gateway i binding jsou focused
+     ověřené. Gateway shared lease vzniká až po semaphore slotu a drží přes
+     všechny provider pokusy, response body i retry delay. Binding cutover po
+     případném pullu rezervuje previous+target přes exact re-resolve, runtime
+     prepare, durable zápis, compensation a synchronní finalize; exact
+     verification drží target přes provider probe i durable success zápis a
+     před retry delay lease uvolní. Pokryté jsou čtyři z pěti živých cest;
+     rozhodnutí o VRAM residency zůstává. Tyto residualy vlastní
      [`finding 010`](docs/findings/010-model-delete-use-and-audit-boundary.md);
      `checkBindingIntegrity()` přejde na `DETECTED/PROPOSED` a vytvoří přesně
      nula assign/override/broadcast efektů;
@@ -1212,11 +1216,14 @@ mohou pokračovat.
    dvakrát ověřuje exact artifact a numericky fail-close řeší retention.
    C1 je fresh-clone ověřený na source `da95ab15` a baseline `3ff178fd`.
    Finding 007 je remediovaný; finding 006 je `PARTIAL`. C2a má fresh-clone
-   ověřenou per-canonical autoritu pro delete, pull a validaci. C2b gateway je
-   `FOCUSED_VERIFIED`: queued request model nerezervuje, aktivní provider
-   lifecycle drží lease přes body/retry a všechny terminal paths vracejí lease
-   i semaphore. Binding cutover/verify, VRAM disposition, multiprocess claim a
-   durable audit dál drží finding 010 otevřený. Sdílený runtime profil nyní
+   ověřenou per-canonical autoritu pro delete, pull a validaci. C2b gateway a
+   binding jsou `FOCUSED_VERIFIED`: queued request model nerezervuje, aktivní
+   provider lifecycle drží lease přes body/retry a všechny terminal paths
+   vracejí lease i semaphore. Binding cutover znovu ověří exact identitu pod
+   previous+target lease a verification drží target až přes durable success
+   zápis. Jsou tím pokryté čtyři z pěti živých cest. VRAM disposition,
+   multiprocess claim a durable audit dál drží finding 010 otevřený. Sdílený
+   runtime profil nyní
    omezuje oba gateway vstupy a conversation compaction; neprohlašuje GPU
    PASS. V jediném worktree po malých commitech následuje nový sériový T3 běh
    od 4096, potom **B3-FAILOVER**. Settings authority a fail-closed storage
@@ -1238,14 +1245,21 @@ mohou pokračovat.
    typovaně blokuje před efektem. Migrační preflight je
    implementovaný a attestovaný podle
    [rozhodnutí 016](docs/decisions/016-migration-identity-guard.md). Legacy
-   binding apply/rollback zůstává explicitním blockerem s vlastníkem a termínem
-   ve finding 008. Jeho další vertikální checkpoint je připraven jako
+   apply/rollback writery už nemají produkčního volajícího. Explicitním
+   blockerem ve findingu 008 je nyní post-DB `runtime.commit()` reconciliation:
+   durable `APPLIED` zatím nemá při pozdním finalize failure typovaný recovery
+   stav. Primární application checkpoint je dokončený v
    [`WP-M1-BINDING-APPLICATION`](docs/wp/WP-M1-BINDING-APPLICATION.md);
    vratné provozní defaulty jsou shromážděné v
    [018](docs/decisions/018-m1-manual-binding-application-policy.md). Společná
    HTTP/chat application service, exact local provider, runtime CAS/kompenzace,
    startup rehydrate a commit-layer broadcast jsou implementované a
-   fresh-clone ověřené na `e7d89b5e`. Otevřené
+   fresh-clone ověřené na `e7d89b5e`. Startup inventory je pouze census hint;
+   exact manual binding se před runtime změnou znovu resolveuje pod lease.
+   Operationless `LEGACY_UNVERIFIED` override zůstává name-only kompatibilitní
+   residual. Selhání po durable `APPLIED`, ale během synchronního
+   `runtime.commit()`, zatím nemá typovaný durable reconciliation stav a brání
+   tvrzení o atomickém DB/runtime commit pointu. Otevřené
    zůstávají proof issuer, terminal failover activation/restore a scheduler.
    Failover se dosud neaktivuje. Proof issuance
    čeká na prahy a TTL z rozhodnutí 015; nový skutečný GPU běh zůstává

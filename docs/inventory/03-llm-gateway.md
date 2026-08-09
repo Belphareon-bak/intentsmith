@@ -70,5 +70,7 @@ Focused sada `m1-model-use-authority` má v tomto checkpointu 24 asercí a
 `llm-gateway-runtime-signal` 7; tři cílené mutace zčervenaly. Současně byla
 uzavřena starší timeoutová mezera mezi HTTP hlavičkami a dočtením těla. G-4 je
 proto historicky překonané zjištění, nikoli současný počet testů. Jde zatím o
-`FOCUSED_VERIFIED`, ne fresh-clone důkaz ani dokončený C2: binding cutover,
-exact verify a VRAM disposition zůstávají otevřené.
+`FOCUSED_VERIFIED`, ne fresh-clone důkaz ani dokončený C2. Novější inventura
+[`18a`](18a-sprava-modelu.md) dokládá focused zapojení binding cutover/exact
+verification jako čtvrté z pěti živých cest; VRAM disposition, multiprocess a
+durable audit zůstávají otevřené.

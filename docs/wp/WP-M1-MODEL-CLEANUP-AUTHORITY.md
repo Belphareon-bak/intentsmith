@@ -5,6 +5,11 @@
 **Závislosti:** dokončený manual binding application checkpoint a canonical
 model identity
 
+**Aktuální stav:** C1 + C2a jsou fresh-clone ověřené. C2b gateway a binding
+cutover/exact verification jsou focused ověřené a pokrývají čtyři z pěti
+živých cest. VRAM, cross-process claim, durable delete audit, operationless
+legacy rehydrate a post-DB runtime-finalize reconciliation zůstávají otevřené.
+
 Toto zadání uzavírá findings
 [`006`](../findings/006-model-cleanup-bypasses-registry-guard.md) a
 [`007`](../findings/007-model-cleanup-timestamp-ordering.md) bez tvrzení, že je
@@ -41,7 +46,10 @@ a není claim C1.
 živé produkční model-use consumery potvrzené source-to-effect call graphem,
 nový neutrální reservation port a focused testy. C2a vlastní port,
 delete/validation a pull serializaci; C2b vlastní gateway a binding
-cutover/verify. VRAM residency sémantika je samostatná shromážděná otázka.
+cutover/verify. Binding cutover rezervuje previous+target až po cold pullu,
+znovu ověří exact digest pod lease a drží jej přes durable zápis, compensation
+i synchronní finalize; verification drží target přes durable success a před
+retry delay jej uvolní. VRAM residency sémantika je samostatná shromážděná otázka.
 Dormant vision, semantic-index a legacy verify se nezapojují jen kvůli
 původnímu chybnému součtu sedmi.
 
@@ -117,6 +125,12 @@ zůstává `PARTIAL` a Gate 1 `BLOCKED` z dalších již pojmenovaných důvodů
 Funkční chat cleanup navíc čeká na operátorské rozhodnutí, která historická
 identita už není rollback autoritou a smí být explicitně retireovaná.
 
+Focused binding checkpoint nesmí být vydán za atomický DB/runtime commit:
+durable `APPLIED` vzniká před `runtime.commit()` a jeho pozdní výjimka zatím
+nemá typovaný reconciliation incident. Operationless legacy override je stále
+name-only a pouze `LEGACY_UNVERIFIED`. Z pěti živých cest zbývá připojit VRAM;
+cross-process a durable audit jsou samostatné acceptance body.
+
 ## 8. Přesné ověření
 
 ```bash
@@ -130,6 +144,7 @@ C3_LOG_LEVEL=error node tests/upgrade-ux-v125.test.js
 C3_LOG_LEVEL=error node tests/m1-model-contract.test.js
 C3_LOG_LEVEL=error node tests/model-upgrade.test.js
 C3_LOG_LEVEL=error node tests/m1-model-use-authority.test.js
+node --check src/upgrade/model-binding-application.js
 node scripts/module-boundary-ratchet.mjs
 node scripts/validate-test-registry.js --json
 node tests/artifact-validation.test.js
