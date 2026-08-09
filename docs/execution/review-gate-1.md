@@ -60,7 +60,7 @@ Autoritativní podrobnosti jsou v:
 | 007 | DECIDE → A | `NONFIT` jen z důvěryhodných fyzických dat | implementováno; produkční trusted metadata a GPU evidence zůstávají pod 009 |
 | 008 | DECIDE → A | role-purpose matrix a bounded parameters | implementováno |
 | 009 | BLOCK → A-4096 calibration | zachovat 27B/digest/1 GiB/100% residency/no fallback | společný runtime profil a nový skutečný sériový T3 běh; 4096 zatím není PASS |
-| 010 | BLOCK → A+ | protocol `lib` untracked + generated prebuild + negotiated M1 wire/ledger | generated prebuild checkpoint implementován a mutačně připnut; chybí clean-clone build matrix, negotiated wire/ledger a built journey |
+| 010 | BLOCK → A+ | protocol `lib` untracked + generated prebuild + negotiated M1 wire/ledger | generated prebuild clean-clone ověřen na `aee0f664`; chybí product-bundle consumer, negotiated wire/ledger a built journey |
 | 011 | BLOCK → A nyní / C v M2 | HTTP send fallback vypnout fail-closed | **implementováno na `2ead4662`**: tři call sites, `NOT_SENT`, phantom-ID guard a nulový-effect test; WS/HTTP parity je vědomě změněna |
 | 012 | BLOCK → B | existence-aware history route | route, 53/53 klientský kontrakt i společný T25h DB-backed live wire implementovány; exact 200, 404+same-ID reuse, reject/timeout i reference/epoch race připnuty |
 | 013 | DECIDE → A | 12 bounded retries + visible exhaustion | implementováno na client contract vrstvě; built journey chybí |
@@ -186,9 +186,9 @@ git log --reverse --stat \
    auditem, verify, restartem a bezpečným restore. Opt-in autorita je JSON
    `user_settings.id=1` a každá chyba fail-close; L0-9 se změní až po důkazu.
 3. 011/A, obě poloviny 014/A, obě poloviny 012/B i společný DB-backed live wire
-   jsou focused PASS. Generated prebuild část 010/A+ je implementovaná;
-   zbývající B4 pořadí pokračuje fresh-clone build důkazem, negotiated wire,
-   terminal ledgerem a built journey. ACK vyžaduje durable store a matching reject končí okamžitě jako
+   jsou focused PASS. Generated prebuild část 010/A+ je implementovaná a
+   clean-clone ověřená; zbývající B4 pořadí pokračuje product-bundle consumerem,
+   negotiated wire, terminal ledgerem a built journey. ACK vyžaduje durable store a matching reject končí okamžitě jako
    degraded. Pro M1 platí WS send + fail-closed `NOT_SENT`; HTTP send parity se
    vrací až nad M2 effect authority.
 4. Po odblokování B4 proběhne ještě před B5 skutečná Theia multi-panel/cancel/

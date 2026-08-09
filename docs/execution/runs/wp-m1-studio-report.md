@@ -659,6 +659,19 @@ způsobil no-op `tsc -b` a následný verifier odmítl chybějící package main
 Prebuild nyní vynucuje `tsc -b --force`, takže timestamp cache nemůže zabránit
 obnovení generated outputu.
 
+Třetí fresh-clone běh na
+`aee0f6646409b2a539df04c157e029808cdf6bf5` prošel: frozen Yarn install,
+root `clean`, forced protocol prebuild, runtime export verify i celý Electron
+production build skončily exit `0`. Compiled mirror prošel kanonickou pozitivní
+i negativní maticí `27/27`; samostatný export probe hlásil
+`PROTOCOL_RUNTIME_EXPORTS_PASS`. Tracked/untracked porcelain po buildu zůstal
+prázdný a protocol/Electron output byl pouze ignored.
+
+Webpack vydal jen známé performance/dependency warnings. Search ve výsledném
+Electron outputu nenašel M1 runtime symboly: Studio zatím nemá negotiated M1
+consumer import, takže tento běh nedokládá product-bundle consumption. Tato
+podmínka zůstává otevřená spolu s wire/ledger journey.
+
 Tento checkpoint neběžel v dirty checkoutu jako produktový build a netvrdí
 fresh-clone parity. Následuje samostatný evidenční běh z commitnutého SHA:
 frozen Yarn install, `clean + build`, compiled negative matrix, kontrola bundle
@@ -667,8 +680,8 @@ ledger.
 
 ## Otevřené nálezy pro další checkpointy
 
-1. Generated protocol prebuild část 010/A+ je focused implementovaná. Zbývá ji
-   prokázat z clean clone a potom dodat feature-negotiated M1 wire a terminal
+1. Generated protocol prebuild část 010/A+ je clean-clone ověřená. Zbývá dodat
+   feature-negotiated M1 wire, skutečný product-bundle consumer a terminal
    ledger.
 2. Async attachment callback je focused uzavřený Findingem 009: reset,
    close, replace a identity/timeline drift starý callback fail-closed zruší.
@@ -687,7 +700,7 @@ ledger.
 | stabilní panel identity a cancel A bez zásahu do B | PASS | client 46/46; WS bridge 67/67 včetně scoped cancel a phantom-ID negativu |
 | serverem ověřený rehydrate a invalid ID cleanup | PASS focused | server i klient 014/A i 012/B a společný DB-backed live wire T25h jsou hotové; built Theia journey zůstává samostatnou B4 podmínkou |
 | bounded reconnect a řízený shutdown | PASS na client contract vrstvě | přesný cap, handshake timeout, async-close race a destroy testy |
-| přesný M1 terminal consumer, late assistant a spinner terminal větve | BLOCKED | generated prebuild část 010/A+ je focused hotová; clean-clone build, negotiated wire, ledger a built journey chybí |
+| přesný M1 terminal consumer, late assistant a spinner terminal větve | BLOCKED | generated prebuild část 010/A+ je clean-clone ověřená; product-bundle consumer, negotiated wire, ledger a built journey chybí |
 | HTTP fallback: non-2xx nikdy jako assistant a žádný effect bypass | PASS focused | 011/A na `2ead4662`: tři WS-only větve, `NOT_SENT`, nulový HTTP/simulovaný downstream efekt; built journey stále chybí |
 | built Theia multi-panel/cancel/restart journey | NOT RUN | závisí na terminal consumeru; dnešní UI není finální baseline |
 | fresh-clone build parity | NOT RUN pro tento B4 tip | M0-E disposition zůstává platná, ale nový B4 runtime nebyl z clean clone spuštěn |

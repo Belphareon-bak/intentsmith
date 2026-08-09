@@ -1,8 +1,8 @@
 # 010 — Jak doručit kanonický M1 kontrakt do autoritativního Studio runtime
 
 - **typ:** BLOCK
-- **stav rozhodnutí:** A+ SCHVÁLENO; GENERATED PREBUILD CHECKPOINT
-  IMPLEMENTOVÁN; CLEAN-CLONE, NEGOTIATED WIRE A BUILT JOURNEY OTEVŘENÉ
+- **stav rozhodnutí:** A+ SCHVÁLENO; GENERATED PREBUILD CLEAN-CLONE OVĚŘEN;
+  NEGOTIATED WIRE, PRODUCT BUNDLE CONSUMER A BUILT JOURNEY OTEVŘENÉ
 - **WP:** WP-M1-STUDIO (jen přesná `CoreEvent` consumer integrace)
 - **rail:** R1, R2, R5
 - **vzniklo při:** B4 call-graph inventura
@@ -121,6 +121,27 @@ vyhodnotilo projekt jako aktuální a nevytvořilo `lib/index.js`; verifier znov
 fail-closed zastavil build s `MODULE_NOT_FOUND`. Root prebuild proto používá
 `tsc -b --force` přes workspace script. Chybějící output se vždy znovu vytvoří
 bez závislosti na timestamp cache.
+
+### Clean-clone výsledek
+
+Na commitnutém SHA `aee0f6646409b2a539df04c157e029808cdf6bf5` prošel nový
+lokální clone touto posloupností:
+
+| Příkaz | Výsledek | Exit |
+|---|---|---:|
+| `corepack yarn install --frozen-lockfile --non-interactive` v `c3-ide/` | frozen install; pouze peer/engine warnings | 0 |
+| `corepack yarn clean` | protocol `lib` chybí, chat-panel autoritativní `lib` zůstává | 0 |
+| `corepack yarn build` | forced protocol compile, runtime export verify a Electron production build; pouze webpack performance warnings | 0 |
+| `node tests/m1-contract.test.js --typescript-runtime=<clone>/c3-ide/extensions/c3-protocol/lib/m1.js` | 27 passed, 0 failed | 0 |
+| runtime export probe | `PROTOCOL_RUNTIME_EXPORTS_PASS` | 0 |
+| `git status --porcelain=v1 --untracked-files=all` | prázdný tracked/untracked status; build output pouze ignored | 0 |
+
+Generated-prebuild část A+ je tím reprodukovatelná z commitnutých dat. Search v
+Electron outputu zatím nenašel `M1_CONTRACT_VERSION`, `PROVISIONAL_V1` ani
+`validateM1Contract`: žádný autoritativní runtime consumer ještě protocol
+neimportuje, takže bundler jej správně nemá proč zahrnout. Product-bundle claim
+proto zůstává otevřený pro negotiated-wire checkpoint a není odvozován ze
+samotného zeleného buildu.
 
 Tento checkpoint ještě netvrdí fresh-clone build ani zabalení do Electron
 produktu. Následuje čistý klon, frozen install, `clean + build`, runtime
