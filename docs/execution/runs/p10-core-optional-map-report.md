@@ -61,3 +61,5 @@ integrátor před Review B mechanicky synchronizuje právě čtyři odvozené ho
 na `380/282` a ponechá `BLOCKED=82`, `KNOWN_DEFECTIVE=0`, `HISTORICAL=16` i
 veškerou ostatní prose byte-identickou. Candidate bez této reconciliation
 nesmí dostat Review B PASS.
+phaseA.candidateHead: f9fac5e3f4c731703e43ba8821a8cd6106fba862
+phaseA.reviewB.verdict: PASS
