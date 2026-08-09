@@ -3,6 +3,9 @@
 - **typ:** BLOCK pouze pro akční Studio recovery povrch po `upgrade_verify_failed`
 - **stav rozhodnutí:** A PŘIJATO operátorem 2026-08-09 včetně obousměrného
   version-skew požadavku; akční recovery povrch je odemčený
+- **stav implementace:** `FRESH_CLONE_VERIFIED` na source
+  `81dff196c223b4e207ddd4ec4644c98838b6c950`; built Electron B4 zůstává
+  `BLOCKED`
 - **WP:** WP-M1-STUDIO / B4 + WP-M1-MODEL / binding application
 - **rail:** R1, R2, R3, R5, R6
 - **vzniklo při:** návrhu explicitního rollback tlačítka podle 018/Q1+A/Q4+A
@@ -105,9 +108,10 @@ z rozhodnutí 018/Q4:
   attempt v jedné `IMMEDIATE` transakci a zapisuje append-only reversal před
   provider/runtime efektem;
 - verification writer ve své transakci znovu CASuje úplný current desired
-  tuple. Dvě nezávislá SQLite spojení dokazují oba výsledky závodu: vyhraje-li
-  rollback, pozdní verify končí `MODEL_BINDING_VERIFICATION_STALE`; vyhraje-li
-  verify, rollback končí `MODEL_BINDING_RECOVERY_STALE`;
+  tuple. Dvě nezávislá SQLite spojení reprodukují obě serializovaná pořadí
+  vítěze: vyhraje-li rollback, pozdní verify končí
+  `MODEL_BINDING_VERIFICATION_STALE`; vyhraje-li verify, rollback končí
+  `MODEL_BINDING_RECOVERY_STALE`. Nejde o wall-clock concurrency benchmark;
 - failure a bounded clear event nesou přesnou identitu. Commitnutý Studio
   runtime nabízí dvoukrokové potvrzení, per-role single-flight a token po
   `await`; neúplný/starý event je pouze varování a role-only `model_changed`

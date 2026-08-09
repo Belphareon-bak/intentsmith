@@ -1265,7 +1265,7 @@ mohou pokračovat.
    | # | Položka | Proč tady |
    |---|---|---|
    | 1 | 023 VRAM delete race | úzká artifact-use hrana fresh-clone ověřená; globální GPU residency zůstává M2 residual |
-   | 2 | 022 operation-bound recovery | focused implementováno; čeká na širší a clean-clone attestation |
+   | 2 | 022 operation-bound recovery | `FRESH_CLONE_VERIFIED` na `81dff196`; built B4 zůstává otevřený |
    | 3 | ověřit dokončenou rezervaci migrací | union census před zápisem; `058` = 020, `059` = 015; povinná late-insertion parita 055–057 |
    | 4 | 020 oddělená policy storage | první migrační položka |
    | 5 | 015 proof issuance | druhá migrační položka, těží ze stejného census |

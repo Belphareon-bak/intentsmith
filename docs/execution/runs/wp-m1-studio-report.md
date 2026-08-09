@@ -1285,7 +1285,7 @@ behavioral evidence a B4/Gate 1 proto zůstávají `BLOCKED`.
 
 ## Checkpoint 25 — operation-bound verification recovery
 
-- **022/A source kontrakt:** `FOCUSED IMPLEMENTED / LOCAL VERIFIED`
+- **022/A source kontrakt:** `FRESH_CLONE_VERIFIED` na `81dff196c223b4e207ddd4ec4644c98838b6c950`
 - **built Electron journey:** `NOT RUN`
 - **celý B4 / Gate 1:** nadále `BLOCKED`
 
@@ -1298,10 +1298,11 @@ neexistuje.
 Repository v jedné `IMMEDIATE` transakci ověří aktuální `USER_APPLY`, úplný
 desired tuple i nejnovější přesný `FAILED` verification attempt a teprve potom
 zapíše append-only rollback. Verification writer ve své transakci CASuje stejný
-desired tuple. Test se dvěma SQLite spojeními pokrývá oba vítěze: po rollback
-commitu pozdní verify skončí `MODEL_BINDING_VERIFICATION_STALE`; po verify
-commitu skončí starý rollback `MODEL_BINDING_RECOVERY_STALE`. Oba výsledky jsou
-bez druhého authority zápisu.
+desired tuple. Test se dvěma SQLite spojeními pokrývá obě serializovaná pořadí
+vítěze: po rollback commitu pozdní verify skončí
+`MODEL_BINDING_VERIFICATION_STALE`; po verify commitu skončí starý rollback
+`MODEL_BINDING_RECOVERY_STALE`. Oba výsledky jsou bez druhého authority zápisu;
+nejde o wall-clock concurrency benchmark.
 
 Failure event i bounded clear nesou stejnou přesnou identitu. Autoritativní
 commitnutý Studio `lib` drží per-role ledger a watermark, dvoukrokové potvrzení,
@@ -1337,6 +1338,30 @@ a Studio sada skončila exit `1`; odebrání modelu z exact clear klíče dalo
 Studio `94/1`. Finální focused běhy výše jsou až po vrácení všech mutací.
 
 Tento checkpoint nespustil GPU, Ollamu, externí síť ani Electron. Je to
-source/repository/VM důkaz. Clean-clone attestation a přesné source/evidence SHA
-přidá navazující evidence-only commit; teprve potom se bod 2 závazné Gate 1
-fronty označí jako fresh-clone ověřený.
+source/repository/VM důkaz; built B4 a Gate 1 proto zůstávají `BLOCKED`.
+
+### Clean-clone attestation 022/A
+
+Oddělený `git clone --no-local` v `/tmp/intentsmith-022-792yiE/repo` byl
+detached na přesný source SHA
+`81dff196c223b4e207ddd4ec4644c98838b6c950`. Porcelain byl prázdný před
+instalací i po testech. V klonu proběhlo `npm ci --offline` (233 balíčků,
+0 vulnerabilities) a následující baterie:
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-model-binding-repository.test.js` | 46/0 | 0 |
+| `node tests/m1-model-binding-application.test.js` | 104/0 | 0 |
+| `node tests/m1-studio-client.test.js` | 95/0 | 0 |
+| `node tests/routes-smoke.test.js` | 109/0 | 0 |
+| `node tests/ws-bridge.test.js` | 86/0 | 0 |
+| `node tests/upgrade-ux-v125.test.js` | 78/0 | 0 |
+| `node tests/artifact-validation.test.js` | 151/0 | 0 |
+| `node tests/repository-hygiene.test.js` | 1 534 tracked paths | 0 |
+| `node scripts/validate-test-registry.js --json` | 377 programů, 8 exclusions, fingerprint `2d5cf073…63ccd` | 0 |
+| `node scripts/module-boundary-ratchet.mjs` | 1 021/1 021, source replay přesně `81dff196` | 0 |
+| `node tests/module-boundary-ratchet.test.js` | 13/0 | 0 |
+| finální `git diff --check` + porcelain | čistý tracked/untracked strom | 0 |
+
+Toto povyšuje pouze 022/A source kontrakt. Produkční ACK, negotiated Electron
+journey, GPU a Ollama zůstaly nespouštěné.
