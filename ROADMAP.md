@@ -1291,7 +1291,10 @@ mohou pokračovat.
    exact transportní context wrapper. Cancel terminal ordering už závazně
    plyne z přijatého 004/C a není nová otázka. Ostatní
    nezávislá příprava product-bundle consumeru může pokračovat před terminal
-   ledgerem a built journey. Read-only review může běžet
+   ledgerem a built journey. Disposable fresh clone na `9464dacf` už offline
+   reprodukoval production build a 65s non-visual legacy Electron boundary
+   journey s nulovým egresssem a čistým shutdownem; tím se ověřilo prostředí,
+   nikoli negotiated M1 consumer ani finální UI. Read-only review může běžet
    souběžně; GPU běhy nikdy.
 8. Teprve po built M1 multi-panel/cancel/provider/reconnect journey, soak a
    přijetí B3+B4 otevřít B5 QUALITY a následnou B6 exit demonstraci.

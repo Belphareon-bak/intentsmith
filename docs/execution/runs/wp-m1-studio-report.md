@@ -716,6 +716,48 @@ Node při source-mirror testu vydal pouze známé upozornění na chybějící
 watcher ani live rebuild protocol zdroje; tyto silnější výsledky se z tohoto
 běhu neodvozují.
 
+## Checkpoint 15 — current-HEAD legacy Studio build a bounded runtime
+
+- **testovaný SHA:** `9464dacf9b14249965ae79f31518ff1512b7543b`
+- **current legacy Studio runtime:** `PASS`
+- **negotiated M1 wire / B4:** nadále `BLOCKED`
+
+Nový disposable clone v `/tmp` ověřil, že dnešní checkpoint lze bez sítě
+nainstalovat, produkčně sestavit a spustit přes commitnutý Electron boundary
+runner. Tento běh není vizuální akceptace současného UI a není náhradou za
+multi-panel/cancel/restart journey. Prokazuje ale, že build, X11, izolovaný
+loopback namespace a současná legacy deterministic-chat cesta jsou na stejném
+SHA funkční; prostředí už proto není skrytým blockerem navazující B4 práce.
+
+| Příkaz | Výsledek | Exit |
+|---|---|---:|
+| `git clone --no-local /home/belphareon/Projects/intentsmith <clone>` | exact HEAD `9464dacf…7543b` | 0 |
+| `npm ci --offline` | 233 balíčků; audit 234; 0 vulnerabilities | 0 |
+| `corepack yarn install --frozen-lockfile --non-interactive --offline` | Yarn 1.22.22 frozen install; jen známé peer/engine warnings | 0 |
+| `corepack yarn build` | forced protocol prebuild + production Theia/Electron build; jen webpack size/dynamic-import warnings | 0 |
+| `node tests/m1-studio-client.test.js` | 57 passed, 0 failed | 0 |
+| `node tests/studio-cdp-evidence.test.js` | 59 passed, 0 failed | 0 |
+| `node tests/studio-electron-runner-contract.test.js` | 16 passed, 0 failed | 0 |
+| registrovaný `tests/studio-electron-boundary.e2e.js` s exact SHA, privátním artifact rootem a scoped X11 | `STUDIO_ELECTRON_BOUNDARY_PASS` | 0 |
+| `git status --porcelain=v1 -uall` po build/testu | prázdný | 0 |
+| `git diff --check` po build/testu | bez chyb | 0 |
+
+Runner pozoroval 65 862 ms live-ready a 66 736 ms síťového provozu. Zachytil
+654 CDP událostí, 27 chráněných HTTP requestů, jeden backend WS, pět Theia
+control-plane HTTP requestů a jeden Theia WS; external, other-loopback,
+unsupported, malformed, ambiguous i orphaned počty byly nula. Bez capability
+byl opaque request odmítnut `403`, cross-site request bez Origin byl odmítnut
+`403` a exact opaque capability cesta vrátila `200`. Deterministický turn měl
+právě jeden start, routing decision, assistant a `ok` terminal, nula provider
+requestů i zakázaných efektů. Electron i backend skončily čistě, port file byl
+odstraněn a process groups nezůstaly živé.
+
+Sanitizovaný mode-0600 artifact zůstal lokálně mimo Git; jeho SHA-256 je
+`b331a4fc3a8b835116ce72abeab7bc662fd043dd46e089a2003e138a061b1c23`.
+`uiEvaluation` zůstává pravdivě `excluded-non-final-ui`. Runner stále posílá
+legacy frame přes nízkoúrovňové `C3WS.send('chat', ...)`; neprokazuje
+product-bundle M1 consumer ani rozhodnutí 017.
+
 ## Otevřené nálezy pro další checkpointy
 
 1. Generated protocol prebuild část 010/A+ je clean-clone ověřená. Zbývá dodat
@@ -747,8 +789,8 @@ běhu neodvozují.
 | přesný M1 terminal consumer, late assistant a spinner terminal větve | BLOCKED | generated prebuild část 010/A+ je clean-clone ověřená; product-bundle consumer, negotiated wire, ledger a built journey chybí |
 | HTTP fallback: non-2xx nikdy jako assistant a žádný effect bypass | PASS focused | 011/A na `2ead4662`: tři WS-only větve, `NOT_SENT`, nulový HTTP/simulovaný downstream efekt; built journey stále chybí |
 | built Theia multi-panel/cancel/restart journey | NOT RUN | závisí na terminal consumeru; dnešní UI není finální baseline |
-| fresh-clone build parity | NOT RUN pro tento B4 tip | M0-E disposition zůstává platná, ale nový B4 runtime nebyl z clean clone spuštěn |
-| bounded renderer soak na skutečném displeji | NOT RUN / INCONCLUSIVE | prostředí nebylo v B4 použito jako produktový displej; žádný formální PARK zatím nevznikl a M1 exit se netvrdí |
+| fresh-clone build parity | PASS pro current legacy runtime na `9464dacf`; B4 stále NOT RUN | offline install, production build a commitnutý boundary runner prošly z čistého klonu; negotiated consumer na tomto SHA neexistuje |
+| bounded renderer soak na skutečném displeji | PASS pro non-visual legacy boundary; B4 stále NOT RUN | 65 862 ms na scoped X11 s čistým shutdownem a nulovým egresssem; UI nebylo hodnocené a M1 multi-panel/cancel/restart scénář se nespustil |
 
 B4 tedy nekončí jako PASS. Věta o vyčerpaném nezávislém scope platila před
 operátorským rozhodnutím; dnešní další povolený scope tvoří přesně follow-upy

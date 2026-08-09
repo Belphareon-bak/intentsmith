@@ -5,7 +5,8 @@
 aktuálního registru proběhl na `a85c344f` a izolovaný HTTP/restart baseline na
 `ac320335`. Fresh-clone Studio probe proběhl na dokumentačním HEAD `df8f1039`
 se zdrojovým stromem shodným s `ac320335`; registrovaný Electron boundary
-runner byl znovu fresh-clone ověřen na `7236d221`.**
+runner byl znovu fresh-clone ověřen na `7236d221` a současný legacy runtime
+byl offline buildem a 65s non-visual journey znovu potvrzen na `9464dacf`.**
 Neutrální dokument, nezávislý na nástroji.
 Pravidla vývoje: [`CONTRACT.md`](CONTRACT.md) · Detail: [`docs/inventory/`](docs/inventory/)
 
@@ -322,6 +323,7 @@ Zaznamenané, rozhodnuté, ne zapomenuté.
 | C3 Studio Google Fonts | Oba runtime link loadery, ruční preview import i archivní v7 import jsou odstraněné; hygiene zakazuje obě Google Fonts domény ve spustitelných Studio assetech. Registrovaný runner prošel ve dvou fresh-clone Electron CDP bězích na `7236d221` s nulovým egresssem. Registry zůstává pravdivě `BLOCKED`, dokud standardní auditní orchestrátor nedodá build envelope. |
 | C3 Studio local HTTP | Root cause byl potvrzen jako capability na wire + nepřítomný `Origin` + `Sec-Fetch-Site: cross-site`. Electron-main nyní doplňuje `Origin: null` jen pro přesný top-level file Studio request s odpovídající privátní capability; backend guard zůstal beze změny. Dva fresh-clone negativní journey na `7236d221` prokázaly startup/POST `2xx` i přesný fail-closed security trojúhelník; registry čeká jen na standardní build envelope, nikoli na další ruční journey. |
 | C3 Studio source/build | Operátor přijal funkční ručně udržovaný `lib` jako současný autoritativní runtime. Stale TS je historický archiv; package build/clean/watch ani starý v7 fix payload nesmějí runtime přepsat nebo smazat. Současný vzhled není finální UI kontrakt. |
+| C3 Studio current-HEAD runtime | **LEGACY BOUNDARY PASS / M1 B4 BLOCKED:** disposable clone na `9464dacf` prošel `npm ci --offline`, frozen Yarn offline instalací, forced protocol prebuildem, production Theia/Electron buildem a commitnutým 65s boundary runnerem. Síťový census měl nula external/other-loopback/unsupported pokusů, deterministic turn nula provider efektů a oba procesy čistý shutdown. Runner výslovně nehodnotil současné nefinální UI a používá legacy `C3WS.send('chat', ...)`; product-bundle M1 consumer, negotiation 017 a multi-panel/cancel/restart journey tím prokázané nejsou. |
 | `multi-source-external.test.js` | Explicitní public-service smoke; není deterministická offline evidence |
 | L0-8 specialist boundary | Potvrzeně porušený; strict injection versus public extension SDK vyžaduje rozhodnutí operátora. **Evidence pro `§14` je od 2026-08-07 kompletní** — import graph, oba prototypy postavené a spuštěné, srovnávací tabulka. Vedle toho zjištěno, že 5 nástrojů existuje dvakrát bajtově identicky a core kopie `src/expertises/tools/**` nemá v `src/**` konzumenta |
 | `src/expertises/tools/**` bez konzumenta | Runtime cesta vede přes kopii v balíčku specialisty; core kopii drží naživu jen testy. Disposition `RETAIN`/`RETIRE` nerozhodnuta |
