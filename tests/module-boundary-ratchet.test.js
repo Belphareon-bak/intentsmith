@@ -67,6 +67,19 @@ function run(args = []) {
   });
 }
 
+function parseHeadline(stdout) {
+  const line = stdout.split('\n').find((entry) => (
+    entry.startsWith('MODULE_BOUNDARY_RATCHET_PASS ')
+    || entry.startsWith('MODULE_BOUNDARY_RATCHET_FAIL ')
+  ));
+  assert(line, `missing ratchet headline in: ${stdout}`);
+  return Object.fromEntries(line.split(' ').slice(1).map((entry) => {
+    const separator = entry.indexOf('=');
+    assert(separator > 0, `malformed ratchet headline field: ${entry}`);
+    return [entry.slice(0, separator), entry.slice(separator + 1)];
+  }));
+}
+
 function fixtureCycles(lengths) {
   return lengths.map((length, cycleIndex) => Array.from(
     { length },
@@ -94,7 +107,18 @@ try {
     const result = run();
     assertEqual(result.status, 0, result.stderr || result.stdout);
     assert(result.stdout.includes('MODULE_BOUNDARY_RATCHET_PASS'), result.stdout);
-    assert(result.stdout.includes('baselineEdges=1004 currentEdges=1004'), result.stdout);
+    const headline = parseHeadline(result.stdout);
+    const baselineEdges = Number(headline.baselineEdges);
+    const currentEdges = Number(headline.currentEdges);
+    const added = Number(headline.added);
+    const removed = Number(headline.removed);
+    assertEqual(baselineEdges, baseline.edges.length, result.stdout);
+    assertEqual(added, 0, result.stdout);
+    assert(currentEdges <= baselineEdges, result.stdout);
+    assertEqual(removed, baselineEdges - currentEdges, result.stdout);
+    if (removed > 0) {
+      assert(result.stdout.includes('BASELINE_TIGHTENING_AVAILABLE'), result.stdout);
+    }
     assert(result.stdout.includes('P6_SCANNER_LIMITS'), result.stdout);
   });
 

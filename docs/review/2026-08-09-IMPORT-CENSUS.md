@@ -179,3 +179,13 @@ kontrolovaných writerů vznikl třetí neohlášený writer uvnitř stejného W
 Integrátor to musí započítat jako tvrdý procesní neúspěch nebo invalidaci tohoto
 pilotního měření; nesmí z něj odvodit kladné `T_net`. Ratchet jako samostatný
 aparát tím zneplatněn není.
+
+### Integrační review — oprava current-tree acceptance
+
+Nezávislý review po merge správně zachytil, že checker odebranou hranu povolí,
+ale původní current-tree test natvrdo vyžadoval `1004 → 1004`. První legitimní
+utažení grafu by proto shodilo registrovanou sadu, přestože checker skončil
+PASS. Follow-up test nyní odvozuje baseline count z fixture, vyžaduje
+`added=0`, `currentEdges <= baselineEdges`, přesný rozdíl `removed` a při
+odebrání povinné `BASELINE_TIGHTENING_AVAILABLE`. Neoslabil se na pouhou
+přítomnost slova PASS.
