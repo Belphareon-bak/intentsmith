@@ -1259,7 +1259,11 @@ mohou pokračovat.
    Operationless `LEGACY_UNVERIFIED` override zůstává name-only kompatibilitní
    residual. Selhání po durable `APPLIED`, ale během synchronního
    `runtime.commit()`, zatím nemá typovaný durable reconciliation stav a brání
-   tvrzení o atomickém DB/runtime commit pointu. Otevřené
+   tvrzení o atomickém DB/runtime commit pointu. Navazující úzký
+   [`WP-M1-BINDING-FINALIZE-RECOVERY`](docs/wp/WP-M1-BINDING-FINALIZE-RECOVERY.md)
+   je aktivní od `20b1b933`: přidá append-only finalize receipt, odvozený
+   `RUNTIME_RECONCILIATION_REQUIRED` a exact startup recovery bez změny
+   veřejného connectoru, L0-9 nebo automatic failoveru. Otevřené
    zůstávají proof issuer, terminal failover activation/restore a scheduler.
    Failover se dosud neaktivuje. Proof issuance
    čeká na prahy a TTL z rozhodnutí 015; nový skutečný GPU běh zůstává
