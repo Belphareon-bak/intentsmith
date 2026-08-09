@@ -192,7 +192,7 @@ Returns standalone chat HTML page.
 | `GET` | `/api/conversations` | `?limit=10&status=active` | `{conversations: []}` | — |
 | `POST` | `/api/conversations` | `{project_id?, title?, welcomeMessage?}` | `{conversation}` | Creates DB record; persists welcome message |
 | `GET` | `/api/conversations/:id` | — | `{conversation}` or 404 | — |
-| `GET` | `/api/conversations/:id/messages` | — | `{messages: []}` | — |
+| `GET` | `/api/conversations/:id/messages` | — | `{messages: []}`; `404 {error, code: "CONVERSATION_NOT_FOUND"}` pro neexistující identitu | Atomický SQLite snapshot existence + zpráv |
 | `PUT` | `/api/conversations/:id` | `{project_id?, title?}` | `{conversation}` | Updates metadata |
 | `PATCH` | `/api/conversations/:id/archive` | — | `{success, status: 'archived'}` | Sets `state='archived'` |
 | `PATCH` | `/api/conversations/:id/restore` | — | `{success, status: 'active'}` | Restores from archive |

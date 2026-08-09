@@ -2,8 +2,9 @@
 
 - **stav WP:** `PARTIAL / BLOCKED` po REVIEW GATE 1; stable-ID/scoped-cancel,
   reconnect, rehydrate epoch/race/snapshot guardy, 011/A fail-closed send a
-  serverová i klientská polovina 014/A jsou focused implementované; 012,
-  společný live wire důkaz a 010/A+ zůstávají otevřené
+  serverová i klientská polovina 014/A a route polovina 012/B jsou focused
+  implementované; 012 klient, společný live wire důkaz a 010/A+ zůstávají
+  otevřené
 - **base SHA:** `b7d0dbf61370b52061e6a736517ecdcb53118209`
 - **scope:** B4 podle `docs/execution/m1-batch.md`
 - **UI baseline:** výslovně mimo scope; spuštěné Studio není finální UI
@@ -547,6 +548,25 @@ Status bar v tomto checkpointu nadále vyjadřuje transport/backend health, ne
 úspěšnost rehydrate; degraded restore je viditelný warning v agent logu, nikoli
 nový amber health stav.
 
+## Checkpoint 9 — existence-aware history route 012/B
+
+- **stav route kontraktu:** `PASS focused`
+- **celý B4 / Gate 1:** nadále `BLOCKED`
+
+`GET /api/conversations/:id/messages` nyní čte durable existenci konverzace a
+její zprávy v jedné synchronní SQLite transakci. Existující prázdná konverzace
+vrací `200 {messages: []}`, existující neprázdná přesnou historii a chybějící
+identita přesný `404 CONVERSATION_NOT_FOUND` bez čtení případných orphan
+messages. Chybějící transakční API, DB výjimka a malformed successful snapshot
+fail-closed vracejí sanitizovaný `500`.
+
+Focused `node tests/m1-chat-contract.test.js` prošel `21/21`. Obejít transakci
+přímým voláním callbacku skončilo `18/3`, falešně označit chybějící konverzaci
+za existující `20/1` a odstranit array-validaci snapshotu `20/1`; všechny tři
+mutace měly exit `1` a byly přesně obnovené. Klientská interpretace `200 []`,
+typed `404`, same-ID slot reuse a společný DB-backed wire journey jsou další
+checkpointy, nikoli implicitní součást tohoto route PASS.
+
 ## Otevřené nálezy pro další checkpointy
 
 1. Commitnutý `@c3/protocol/lib/index.js` je stale stub. Operátor schválil
@@ -556,9 +576,9 @@ nový amber health stav.
 2. Async attachment callback je focused uzavřený Findingem 009: reset,
    close, replace a identity/timeline drift starý callback fail-closed zruší.
    Durable retry a globální conversation mutex tím nejsou vyřešené.
-3. Race-safe klient, bounded reconnect a obě poloviny 014/A jsou focused
-   hotové. Společný DB-backed live wire důkaz zůstává otevřený. 012/B následně
-   rozliší existující prázdnou historii od 404.
+3. Race-safe klient, bounded reconnect, obě poloviny 014/A a route polovina
+   012/B jsou focused hotové. Klient 012/B a společný DB-backed live wire důkaz
+   zůstávají otevřené.
 4. Existující Electron runner obchází veřejný `sendChat()` a připíná legacy
    pořadí assistant-before-turn-end; pro B4 acceptance se musí změnit.
 5. Terminal STOP neruší backendový proces. To je M2 finding mimo B4 chat scope,
@@ -569,7 +589,7 @@ nový amber health stav.
 | Povinné chování briefu | Stav | Evidence / důvod |
 |---|---|---|
 | stabilní panel identity a cancel A bez zásahu do B | PASS | client 46/46; WS bridge 67/67 včetně scoped cancel a phantom-ID negativu |
-| serverem ověřený rehydrate a invalid ID cleanup | PARTIAL / BLOCKED | server i klient 014/A jsou focused opravené; 012/B ani společný DB-backed live wire journey nejsou hotové |
+| serverem ověřený rehydrate a invalid ID cleanup | PARTIAL / BLOCKED | server i klient 014/A a route 012/B jsou focused opravené; klient 012/B ani společný DB-backed live wire journey nejsou hotové |
 | bounded reconnect a řízený shutdown | PASS na client contract vrstvě | přesný cap, handshake timeout, async-close race a destroy testy |
 | přesný M1 terminal consumer, late assistant a spinner terminal větve | BLOCKED | 010/A+ je schválené, ale protocol delivery, negotiated wire, ledger a built journey chybí |
 | HTTP fallback: non-2xx nikdy jako assistant a žádný effect bypass | PASS focused | 011/A na `2ead4662`: tři WS-only větve, `NOT_SENT`, nulový HTTP/simulovaný downstream efekt; built journey stále chybí |
@@ -584,7 +604,7 @@ B4 jsou `50280fcd`, `d145e95e`,
 `446d197f`, `8e68a92e`, `a4067cd6` a `2ead4662`; výchozí dependency je
 `b7d0dbf6`.
 Rozhodovací fronta B4 010–014 je operátorsky uzavřená. B4 je přesto `BLOCKED`,
-dokud se 010/A+, 012/B a společná built/live journey nedokončí. Server i klient
-014/A a 011/A jsou focused PASS, nikoli celé B4. 013/A je potvrzený
+dokud se 010/A+, klient 012/B a společná built/live journey nedokončí. Server i
+klient 014/A, route 012/B a 011/A jsou focused PASS, nikoli celé B4. 013/A je potvrzený
 client-contract checkpoint. Souhrnný balík je v
 `docs/execution/review-gate-1.md`.

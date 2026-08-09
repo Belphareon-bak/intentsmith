@@ -62,6 +62,7 @@ Každá správně zčervenala přesně příslušný kontrakt:
 Po přesném obnovení všech tří mutací focused sada prošla `38 passed, 0 failed`,
 exit `0`.
 
-Celý B4 ani Gate 1 tím nejsou `PASS`; obě focused poloviny 014/A jsou nyní
-hotové, ale dál chybí 010/A+, 012/B, společný DB-backed wire důkaz, built
+Celý B4 ani Gate 1 tím nejsou `PASS`; obě focused poloviny 014/A a route
+polovina 012/B jsou nyní hotové, ale dál chybí 010/A+, klientská polovina
+012/B, společný DB-backed wire důkaz, built
 journey, fresh-clone parity a bounded renderer soak.

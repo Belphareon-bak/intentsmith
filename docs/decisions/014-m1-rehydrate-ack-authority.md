@@ -2,7 +2,8 @@
 
 - **typ:** BLOCK
 - **stav rozhodnutí:** A SCHVÁLENO; SERVEROVÝ I KLIENTSKÝ CHECKPOINT
-  IMPLEMENTOVÁNY; 012 A SPOLEČNÝ LIVE WIRE DŮKAZ OTEVŘENÉ
+  IMPLEMENTOVÁNY; 012 ROUTE IMPLEMENTOVÁNA; 012 KLIENT A SPOLEČNÝ LIVE WIRE
+  DŮKAZ OTEVŘENÉ
 - **WP:** WP-M1-STUDIO
 - **rail:** R1, R3, R5, R6
 - **vzniklo při:** read-only review serverového limitu a klientského cleanupu
@@ -111,7 +112,7 @@ implementací a skutečného wire důkazu `BLOCKED`.
 
 1. server 014: bounded request, request ID, reject/úplný partition a durable-store guard — **implementováno v serverovém checkpointu**;
 2. klient 014: přesný partition, reject, stale/foreign ochrany a bezpečný restore;
-3. route 012: existence a messages v jednom SQLite snapshotu/transakci;
+3. route 012: existence a messages v jednom SQLite snapshotu/transakci — **implementováno**;
 4. klient 012: autoritativní prázdná historie, zatímco `404` pouze degraduje;
 5. společný DB-backed live wire test.
 
@@ -162,4 +163,5 @@ Focused klientská sada prošla `46/46`. Čtyři oddělené mutace pro foreign A
 slot-owner guard, legacy pre-route warning a horní restore bound skončily vždy
 `45/1`, exit `1`, a po obnovení zdroj znovu prošel `46/46`. Autoritativní empty history a společný
 DB-backed/built wire důkaz zůstávají pod 012 a B4, takže celý Gate 1 je nadále
-`BLOCKED`.
+`BLOCKED`. Route polovina 012 je samostatně implementovaná a testovaná; klient
+ještě nesmí tento route checkpoint vydávat za end-to-end autoritu.

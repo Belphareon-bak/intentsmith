@@ -604,8 +604,27 @@ export function createChatRoutes(deps) {
 
     'GET /api/conversations/:id/messages': async (req, res, params) => {
       try {
-        const messages = db.messages.listByConversation.all(params.id);
-        sendJSON(res, 200, { messages });
+        const snapshot = db.transaction(() => {
+          const conversation = db.conversations.findById.get(params.id);
+          if (!conversation) return { found: false };
+          return {
+            found: true,
+            messages: db.messages.listByConversation.all(params.id),
+          };
+        });
+        if (!snapshot || snapshot.found !== true) {
+          if (snapshot?.found === false) {
+            return sendJSON(res, 404, {
+              error: 'Conversation not found',
+              code: 'CONVERSATION_NOT_FOUND',
+            });
+          }
+          throw new Error('Conversation history snapshot is unavailable');
+        }
+        if (!Array.isArray(snapshot.messages)) {
+          throw new Error('Conversation history snapshot is invalid');
+        }
+        sendJSON(res, 200, { messages: snapshot.messages });
       } catch (err) {
         sendJSON(res, 500, safeError(err));
       }

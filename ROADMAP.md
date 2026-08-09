@@ -1122,11 +1122,12 @@ mohou pokračovat.
    zůstávají otevřené a failover se dosud neaktivuje. Proof issuance
    čeká na prahy a TTL z rozhodnutí 015; nový skutečný GPU běh zůstává
    samostatnou blokovanou evidencí, dokud není legitimně čistý checkout.
-7. B4 má focused implementované 011/A a obě poloviny 014/A: bounded request
+7. B4 má focused implementované 011/A, obě poloviny 014/A a route polovinu
+   012/B: bounded request
    ID/set, úplný partition, typed reject, explicitní durable-store autoritu,
    přesné klientské slot/snapshot vlastnictví, quarantine a bounded persisted
-   restore. Pokračuje 012 route → 012 klient → společný DB-backed live wire
-   test. 010/A+ protocol delivery je samostatná otevřená dependency
+   restore a existence-aware atomický history snapshot. Pokračuje 012 klient →
+   společný DB-backed live wire test. 010/A+ protocol delivery je samostatná otevřená dependency
    před terminal ledgerem a built journey. Read-only review může běžet
    souběžně; GPU běhy nikdy.
 8. Teprve po built M1 multi-panel/cancel/provider/reconnect journey, soak a

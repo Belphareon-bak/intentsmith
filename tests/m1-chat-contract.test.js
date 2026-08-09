@@ -2,6 +2,7 @@
 
 import './helpers/isolated-test-db.js';
 import assert from 'node:assert/strict';
+import Database from 'better-sqlite3';
 
 import { finalizeChatResponse } from '../src/chat/response-finalizer.js';
 import {
@@ -132,6 +133,82 @@ function createRouteProbe(handle, { timeoutMs = 1000 } = {}) {
     m1ChatTimeoutMs: timeoutMs,
   });
   return { calls, responses, route: routes['POST /api/chat'] };
+}
+
+function createHistoryRouteProbe(db, {
+  safeError = () => ({ error: 'Internal server error' }),
+} = {}) {
+  const responses = [];
+  const routes = createChatRoutes({
+    db,
+    parseBody: async request => request.body,
+    sendJSON: (response, statusCode, body) => {
+      responses.push({ statusCode, body });
+      response.writableEnded = true;
+    },
+    sendStaticFile() {},
+    safeError,
+    safeParseInt: value => Number.parseInt(value, 10),
+    logger: silentLog,
+    ChatController: { handle: async () => { throw new Error('not used'); } },
+    config: {},
+    expertiseLayer: null,
+  });
+  return {
+    responses,
+    route: routes['GET /api/conversations/:id/messages'],
+  };
+}
+
+function createHistorySqliteFixture() {
+  const sqlite = new Database(':memory:');
+  sqlite.exec(`
+    CREATE TABLE conversations (
+      id TEXT PRIMARY KEY,
+      archived_at TEXT,
+      deleted_at TEXT
+    );
+    CREATE TABLE messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      conversation_id TEXT NOT NULL,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      metadata TEXT,
+      created_at TEXT NOT NULL
+    );
+  `);
+  const findConversation = sqlite.prepare(
+    'SELECT * FROM conversations WHERE id = ?',
+  );
+  const listMessages = sqlite.prepare(`
+    SELECT id, conversation_id, role, content, metadata, created_at
+    FROM messages
+    WHERE conversation_id = ?
+    ORDER BY id ASC
+  `);
+  const transactionObservations = [];
+  const adapter = {
+    conversations: {
+      findById: {
+        get(id) {
+          transactionObservations.push(['conversation', sqlite.inTransaction]);
+          return findConversation.get(id);
+        },
+      },
+    },
+    messages: {
+      listByConversation: {
+        all(id) {
+          transactionObservations.push(['messages', sqlite.inTransaction]);
+          return listMessages.all(id);
+        },
+      },
+    },
+    transaction(fn) {
+      return sqlite.transaction(fn)();
+    },
+  };
+  return { adapter, sqlite, transactionObservations };
 }
 
 function requestFor(body) {
@@ -400,6 +477,109 @@ test('serialized conversation fields survive a SessionState round-trip', () => {
   assert.equal(restored.lastIntent, 'SEARCH');
   assert.deepEqual(restored.lastDecision, decision);
   assert.equal(restored.lastUserInput, 'find the current source');
+});
+
+suite('M1 chat — atomic history snapshot authority');
+
+await testAsync('existing empty and non-empty conversations are read in one SQLite transaction', async () => {
+  const fixture = createHistorySqliteFixture();
+  try {
+    fixture.sqlite.prepare(
+      'INSERT INTO conversations (id, archived_at, deleted_at) VALUES (?, ?, ?)',
+    ).run('history-empty', null, null);
+    fixture.sqlite.prepare(
+      'INSERT INTO conversations (id, archived_at, deleted_at) VALUES (?, ?, ?)',
+    ).run('history-archived', '2026-08-08T00:00:00.000Z', null);
+    fixture.sqlite.prepare(`
+      INSERT INTO messages (conversation_id, role, content, metadata, created_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(
+      'history-archived',
+      'assistant',
+      'durable answer',
+      JSON.stringify({ mode: 'conversation' }),
+      '2026-08-08T00:00:01.000Z',
+    );
+    const probe = createHistoryRouteProbe(fixture.adapter);
+
+    await probe.route({}, openResponse(), { id: 'history-empty' });
+    assert.equal(probe.responses[0].statusCode, 200);
+    assert.deepEqual(probe.responses[0].body, { messages: [] });
+    assert.deepEqual(fixture.transactionObservations, [
+      ['conversation', true],
+      ['messages', true],
+    ]);
+
+    fixture.transactionObservations.length = 0;
+    await probe.route({}, openResponse(), { id: 'history-archived' });
+    assert.equal(probe.responses[1].statusCode, 200);
+    assert.equal(probe.responses[1].body.messages.length, 1);
+    assert.equal(probe.responses[1].body.messages[0].content, 'durable answer');
+    assert.deepEqual(fixture.transactionObservations, [
+      ['conversation', true],
+      ['messages', true],
+    ]);
+  } finally {
+    fixture.sqlite.close();
+  }
+});
+
+await testAsync('missing conversation is typed 404 without reading orphan messages', async () => {
+  const fixture = createHistorySqliteFixture();
+  try {
+    fixture.sqlite.prepare(`
+      INSERT INTO messages (conversation_id, role, content, metadata, created_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(
+      'history-missing',
+      'assistant',
+      'orphan row must not create existence',
+      null,
+      '2026-08-08T00:00:01.000Z',
+    );
+    const probe = createHistoryRouteProbe(fixture.adapter);
+    await probe.route({}, openResponse(), { id: 'history-missing' });
+
+    assert.deepEqual(probe.responses, [{
+      statusCode: 404,
+      body: {
+        error: 'Conversation not found',
+        code: 'CONVERSATION_NOT_FOUND',
+      },
+    }]);
+    assert.deepEqual(fixture.transactionObservations, [['conversation', true]]);
+  } finally {
+    fixture.sqlite.close();
+  }
+});
+
+await testAsync('missing transaction, DB failure, and malformed snapshot stay sanitized 500', async () => {
+  const fixtures = [
+    {
+      conversations: { findById: { get: () => ({ id: 'unsafe' }) } },
+      messages: { listByConversation: { all: () => [] } },
+    },
+    {
+      transaction() {
+        throw new Error('private database transaction failure');
+      },
+    },
+    {
+      transaction() {
+        return { found: true, messages: 'not-an-array' };
+      },
+    },
+  ];
+
+  for (const db of fixtures) {
+    const probe = createHistoryRouteProbe(db);
+    await probe.route({}, openResponse(), { id: 'history-failure' });
+    assert.deepEqual(probe.responses, [{
+      statusCode: 500,
+      body: { error: 'Internal server error' },
+    }]);
+    assert.equal(JSON.stringify(probe.responses).includes('private'), false);
+  }
 });
 
 suite('M1 chat — HTTP ConversationCommand adapter');

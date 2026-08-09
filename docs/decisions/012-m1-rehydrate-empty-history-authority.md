@@ -1,7 +1,8 @@
 # 012 — Prázdná Studio historie nemá autoritu smazat lokální snapshot
 
 - **typ:** BLOCK
-- **stav rozhodnutí:** B SCHVÁLENO; IMPLEMENTACE A DŮKAZ OTEVŘENÉ
+- **stav rozhodnutí:** B SCHVÁLENO; ROUTE IMPLEMENTOVÁNA; KLIENT A SPOLEČNÝ
+  LIVE WIRE DŮKAZ OTEVŘENÉ
 - **WP:** WP-M1-STUDIO (jen atomická obnova prázdné historie)
 - **rail:** R1, R4, R5
 - **vzniklo při:** B4 client rehydrate race review
@@ -9,9 +10,10 @@
 ## Evidence na stole
 
 Server nejprve ověří durable existenci identity a pošle `rehydrate_ack`.
-Studio potom samostatně volá `GET /api/conversations/:id/messages`. Dnešní route
-v `src/routes/chat.js` vrací `200 { messages: [] }` i pro neexistující
-konverzaci, protože čte pouze tabulku zpráv a existenci konverzace nekontroluje.
+Studio potom samostatně volá `GET /api/conversations/:id/messages`. Před route
+checkpointem vracel `src/routes/chat.js` `200 { messages: [] }` i pro
+neexistující konverzaci, protože četl pouze tabulku zpráv a existenci
+konverzace nekontroloval.
 
 Hard-delete mezi ACK a GET proto vypadá stejně jako platná prázdná konverzace.
 Kdyby klient považoval každé prázdné pole za autoritativní, mohl by vymazat
@@ -32,12 +34,12 @@ pokud se lokální snapshot od odeslání rehydrate požadavku nezměnil.
 | B — existence-aware history route | Neexistující konverzace vrátí 404, existující prázdná 200 | Umožní pravdivě rozlišit orphan a prázdnou historii; route je mimo B4 allowlist | `src/routes/chat.js`, DB transakční čtení a route/client negativní testy |
 | C — atomický rehydrate snapshot | Jeden bounded serverový výsledek nese identity a jejich historie nebo revize | Nejsilnější konzistence, ale mění wire kontrakt a velikost ACK | WS server, klient, bounded payload schema a integrační testy |
 
-## Vzatý default a proč
+## Původní bezpečný mezistav
 
-Pro aktivní B4 klientský checkpoint platí A, protože pouze odmítá destruktivní
-závěr, který dnešní evidence neumí dokázat. Není vydán za finální řešení.
-Autoritativní obnova skutečně prázdné historie zůstává `BLOCKED`, dokud operátor
-neschválí B nebo C a nepovolí odpovídající serverový scope.
+Před operátorským rozhodnutím platila na klientu varianta A, protože pouze
+odmítala destruktivní závěr, který tehdejší route neuměla dokázat. Nebyla vydána
+za finální řešení. Operátor následně schválil B a povolil přesně ohraničený
+serverový scope níže.
 
 ## Šev a cena přepnutí
 
@@ -78,3 +80,16 @@ malformed identita se neposílá na server ani nemaže: panel se označí jako
 
 Implementace B proto uzavírá autoritu obsahu historie, nikoli autoritu ACK.
 Úplnost a přesné identity-rušící pořadí ACK vlastní samostatné rozhodnutí 014.
+
+### Stav route checkpointu
+
+Route nyní čte existenci konverzace a její zprávy v jedné synchronní SQLite
+transakci. Neexistující identita vrací přesný typovaný `404`; DB chyba,
+chybějící transakční API nebo vadný snapshot skončí sanitizovaným `500`.
+Focused sada `tests/m1-chat-contract.test.js` prošla `21/21`. Tři oddělené
+mutace — obejití transakce, falešná existence chybějící konverzace a odstranění
+validace snapshotu — skončily vždy `20/1` nebo `18/3`, exit `1`, a po přesném
+obnovení zdroj znovu prošel `21/21`.
+
+Klientská autorita `200 []`, typovaného `404` a same-ID slot reuse ani společný
+DB-backed wire důkaz tím hotové nejsou. Celé B4 a Gate 1 zůstávají `BLOCKED`.
