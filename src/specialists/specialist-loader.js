@@ -15,9 +15,955 @@
 
 import fs from 'fs';
 import path from 'path';
+import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { logger } from '../core/logger.js';
 import { ToolAdapter } from '../expertises/tool-adapter.js';
+
+const SPECIALIST_EXECUTABLE_EXTENSIONS = new Set(['.js', '.mjs', '.cjs']);
+const SPECIALIST_CODE_LIKE_EXTENSIONS = new Set([
+  '.jsx', '.ts', '.tsx', '.mts', '.cts', '.coffee', '.wasm',
+]);
+const SPECIALIST_SENSITIVE_DYNAMIC_PROPERTIES = new Set([
+  'Function', '_load', 'constructor', 'createRequire', 'eval',
+  'getBuiltinModule', 'mainModule', 'require',
+]);
+const SPECIALIST_DYNAMIC_AUTHORITY_RECEIVERS = new Set([
+  'global', 'globalThis', 'module', 'process', 'window',
+]);
+const VERIFIED_SPECIALIST_PACKAGE_DIGESTS = new Set();
+
+class SpecialistPreflightError extends Error {
+  constructor(code, message) {
+    super(`${code}: ${message}`);
+    this.name = 'SpecialistPreflightError';
+    this.code = code;
+  }
+}
+
+function normalizeSpecialistPath(value) {
+  return value.split(path.sep).join('/');
+}
+
+function isInsideSpecialistRoot(parent, child) {
+  const delta = path.relative(parent, child);
+  return delta === '' || (delta !== '..' && !delta.startsWith(`..${path.sep}`));
+}
+
+function assertInsideSpecialistRoot(parent, child, code, label) {
+  if (!isInsideSpecialistRoot(parent, child)) {
+    throw new SpecialistPreflightError(code, `${label} escapes package root`);
+  }
+}
+
+function readSpecialistRegularFile(target, label) {
+  let stat;
+  try {
+    stat = fs.lstatSync(target);
+  } catch (error) {
+    throw new SpecialistPreflightError(
+      'SPECIALIST_TREE_READ_FAILED',
+      `${label} cannot be inspected: ${error.message}`,
+    );
+  }
+  if (stat.isSymbolicLink() || !stat.isFile()) {
+    throw new SpecialistPreflightError(
+      'SPECIALIST_UNSAFE_TREE_ENTRY',
+      `${label} must be a regular non-symlink file`,
+    );
+  }
+  if ((stat.mode & 0o444) === 0) {
+    throw new SpecialistPreflightError(
+      'SPECIALIST_TREE_READ_FAILED',
+      `${label} has no readable permission bit`,
+    );
+  }
+  try {
+    return { buffer: fs.readFileSync(target), stat };
+  } catch (error) {
+    throw new SpecialistPreflightError(
+      'SPECIALIST_TREE_READ_FAILED',
+      `${label} cannot be read: ${error.message}`,
+    );
+  }
+}
+
+function decodeSpecialistSource(buffer, label) {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+  } catch (error) {
+    throw new SpecialistPreflightError(
+      'SPECIALIST_SOURCE_DECODE_FAILED',
+      `${label} is not valid UTF-8: ${error.message}`,
+    );
+  }
+}
+
+function syntaxCheckSpecialistSource(file, packageRoot, label) {
+  const result = spawnSync(process.execPath, ['--check', file], {
+    cwd: packageRoot,
+    encoding: 'utf8',
+    timeout: 15_000,
+    maxBuffer: 4 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  if (result.error || result.status !== 0) {
+    throw new SpecialistPreflightError(
+      'SPECIALIST_SOURCE_PARSE_FAILED',
+      `${label}: ${result.error?.message || result.stderr.trim() || 'syntax check failed'}`,
+    );
+  }
+}
+
+function collectSpecialistPackage(packageDir) {
+  let packageStat;
+  try {
+    packageStat = fs.lstatSync(packageDir);
+  } catch (error) {
+    throw new SpecialistPreflightError(
+      'SPECIALIST_TREE_READ_FAILED',
+      `package cannot be inspected: ${error.message}`,
+    );
+  }
+  if (packageStat.isSymbolicLink() || !packageStat.isDirectory()) {
+    throw new SpecialistPreflightError(
+      'SPECIALIST_UNSAFE_TREE_ENTRY',
+      'package root must be a non-symlink directory',
+    );
+  }
+
+  let packageRoot;
+  try {
+    packageRoot = fs.realpathSync(packageDir);
+  } catch (error) {
+    throw new SpecialistPreflightError(
+      'SPECIALIST_TREE_READ_FAILED',
+      `package root cannot be canonicalized: ${error.message}`,
+    );
+  }
+
+  const hash = createHash('sha256');
+  const sources = [];
+  const walk = (directory) => {
+    let entries;
+    try {
+      entries = fs.readdirSync(directory, { withFileTypes: true })
+        .sort((left, right) => left.name.localeCompare(right.name));
+    } catch (error) {
+      const label = normalizeSpecialistPath(path.relative(packageRoot, directory)) || '.';
+      throw new SpecialistPreflightError(
+        'SPECIALIST_TREE_READ_FAILED',
+        `${label} cannot be enumerated: ${error.message}`,
+      );
+    }
+
+    for (const entry of entries) {
+      const target = path.join(directory, entry.name);
+      const label = normalizeSpecialistPath(path.relative(packageRoot, target));
+      let stat;
+      try {
+        stat = fs.lstatSync(target);
+      } catch (error) {
+        throw new SpecialistPreflightError(
+          'SPECIALIST_TREE_READ_FAILED',
+          `${label} cannot be inspected: ${error.message}`,
+        );
+      }
+      if (stat.isSymbolicLink()) {
+        throw new SpecialistPreflightError(
+          'SPECIALIST_UNSAFE_TREE_ENTRY',
+          `${label} is a symlink`,
+        );
+      }
+      if (stat.isDirectory()) {
+        let canonical;
+        try {
+          canonical = fs.realpathSync(target);
+        } catch (error) {
+          throw new SpecialistPreflightError(
+            'SPECIALIST_TREE_READ_FAILED',
+            `${label} cannot be canonicalized: ${error.message}`,
+          );
+        }
+        assertInsideSpecialistRoot(
+          packageRoot,
+          canonical,
+          'SPECIALIST_PATH_ESCAPE',
+          label,
+        );
+        hash.update(`D\0${label}\0${stat.mode & 0o7777}\0`);
+        walk(target);
+        continue;
+      }
+      if (!stat.isFile()) {
+        throw new SpecialistPreflightError(
+          'SPECIALIST_UNSAFE_TREE_ENTRY',
+          `${label} is not a regular file`,
+        );
+      }
+
+      const { buffer } = readSpecialistRegularFile(target, label);
+      hash.update(`F\0${label}\0${stat.mode & 0o7777}\0${buffer.length}\0`);
+      hash.update(buffer);
+      const extension = path.extname(entry.name).toLowerCase();
+      if (SPECIALIST_EXECUTABLE_EXTENSIONS.has(extension)) {
+        sources.push({
+          file: target,
+          label,
+          source: decodeSpecialistSource(buffer, label),
+        });
+      } else if (
+        SPECIALIST_CODE_LIKE_EXTENSIONS.has(extension)
+        || (stat.mode & 0o111) !== 0
+        || buffer.subarray(0, 2).toString() === '#!'
+      ) {
+        throw new SpecialistPreflightError(
+          'SPECIALIST_UNKNOWN_EXECUTABLE_EXTENSION',
+          `${label} is executable source outside .js/.mjs/.cjs`,
+        );
+      }
+    }
+  };
+
+  walk(packageRoot);
+  sources.sort((left, right) => left.file.localeCompare(right.file));
+  return { digest: hash.digest('hex'), packageRoot, sources };
+}
+
+function specialistIdentifierStart(char) {
+  return /[A-Za-z_$]/u.test(char || '');
+}
+
+function specialistIdentifierPart(char) {
+  return /[A-Za-z0-9_$]/u.test(char || '');
+}
+
+function specialistRegexCanStart(previous) {
+  if (!previous) return true;
+  if (previous.type === 'punct') return /[({[=,:;!?&|+\-*%^~<>]/u.test(previous.value);
+  return previous.type === 'identifier'
+    && new Set([
+      'return', 'throw', 'case', 'delete', 'void', 'typeof',
+      'yield', 'await', 'else', 'do',
+    ]).has(previous.value);
+}
+
+function tokenizeSpecialistSource(source, label) {
+  const tokens = [];
+  let index = 0;
+  let previous = null;
+  const push = (token) => {
+    tokens.push(token);
+    if (token.type !== 'comment') previous = token;
+  };
+
+  while (index < source.length) {
+    const char = source[index];
+    const next = source[index + 1];
+    if (/\s/u.test(char)) {
+      index += 1;
+      continue;
+    }
+    if (char === '\\') {
+      throw new SpecialistPreflightError(
+        'SPECIALIST_UNPROVEN_DYNAMIC_CODE',
+        `${label}: escaped executable identifiers are forbidden`,
+      );
+    }
+    if (char === '/' && next === '/') {
+      const start = index;
+      index += 2;
+      while (index < source.length && source[index] !== '\n') index += 1;
+      push({ type: 'comment', kind: 'line', value: source.slice(start, index), start });
+      continue;
+    }
+    if (char === '/' && next === '*') {
+      const start = index;
+      const jsdoc = source[index + 2] === '*';
+      const end = source.indexOf('*/', index + 2);
+      if (end === -1) {
+        throw new SpecialistPreflightError(
+          'SPECIALIST_SOURCE_PARSE_FAILED',
+          `${label}: unterminated block comment`,
+        );
+      }
+      index = end + 2;
+      push({
+        type: 'comment',
+        kind: jsdoc ? 'jsdoc' : 'block',
+        value: source.slice(start, index),
+        start,
+      });
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      const quote = char;
+      const start = index;
+      let escaped = false;
+      index += 1;
+      while (index < source.length) {
+        if (source[index] === '\\') {
+          escaped = true;
+          index += 2;
+          continue;
+        }
+        if (source[index] === quote) {
+          index += 1;
+          break;
+        }
+        index += 1;
+      }
+      if (source[index - 1] !== quote) {
+        throw new SpecialistPreflightError(
+          'SPECIALIST_SOURCE_PARSE_FAILED',
+          `${label}: unterminated string`,
+        );
+      }
+      push({
+        type: 'string',
+        value: source.slice(start + 1, index - 1),
+        escaped,
+        start,
+      });
+      continue;
+    }
+    if (char === '`') {
+      const start = index;
+      index += 1;
+      while (index < source.length) {
+        if (source[index] === '\\') {
+          index += 2;
+          continue;
+        }
+        if (source[index] === '`') {
+          index += 1;
+          break;
+        }
+        index += 1;
+      }
+      if (source[index - 1] !== '`') {
+        throw new SpecialistPreflightError(
+          'SPECIALIST_SOURCE_PARSE_FAILED',
+          `${label}: unterminated template`,
+        );
+      }
+      const value = source.slice(start, index);
+      if (value.includes('${') && /\b(?:import|require)\b/u.test(value)) {
+        throw new SpecialistPreflightError(
+          'SPECIALIST_UNPROVEN_TEMPLATE_IMPORT',
+          `${label}: template interpolation may not hide an import or require expression`,
+        );
+      }
+      push({ type: 'template', value, start });
+      continue;
+    }
+    if (char === '/' && specialistRegexCanStart(previous)) {
+      const start = index;
+      let inClass = false;
+      index += 1;
+      while (index < source.length) {
+        if (source[index] === '\\') {
+          index += 2;
+          continue;
+        }
+        if (source[index] === '[') inClass = true;
+        else if (source[index] === ']') inClass = false;
+        else if (source[index] === '/' && !inClass) {
+          index += 1;
+          while (/[A-Za-z]/u.test(source[index] || '')) index += 1;
+          break;
+        }
+        if (source[index] === '\n') break;
+        index += 1;
+      }
+      push({ type: 'regex', value: source.slice(start, index), start });
+      continue;
+    }
+    if (specialistIdentifierStart(char)) {
+      const start = index;
+      index += 1;
+      while (specialistIdentifierPart(source[index])) index += 1;
+      push({ type: 'identifier', value: source.slice(start, index), start });
+      continue;
+    }
+    if (/[0-9]/u.test(char)) {
+      const start = index;
+      index += 1;
+      while (/[A-Za-z0-9._]/u.test(source[index] || '')) index += 1;
+      push({ type: 'number', value: source.slice(start, index), start });
+      continue;
+    }
+    push({ type: 'punct', value: char, start: index });
+    index += 1;
+  }
+  return tokens;
+}
+
+function specialistStringValue(token, label) {
+  if (token.escaped) {
+    throw new SpecialistPreflightError(
+      'SPECIALIST_UNSUPPORTED_ESCAPED_SPECIFIER',
+      `${label}: escaped module specifiers are rejected instead of guessed`,
+    );
+  }
+  return token.value;
+}
+
+function findSpecialistClosingDelimiter(tokens, openIndex, open, close, label) {
+  let depth = 0;
+  for (let index = openIndex; index < tokens.length; index += 1) {
+    if (tokens[index].value === open) depth += 1;
+    else if (tokens[index].value === close) {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  throw new SpecialistPreflightError(
+    'SPECIALIST_SOURCE_PARSE_FAILED',
+    `${label}: unmatched ${open}${close} delimiter`,
+  );
+}
+
+function findSpecialistClosingParen(tokens, openIndex, label) {
+  return findSpecialistClosingDelimiter(tokens, openIndex, '(', ')', label);
+}
+
+function specialistMemberAccessOpen(tokens, index) {
+  const previous = tokens[index - 1];
+  return Boolean(previous) && (
+    ['identifier', 'number', 'string', 'template'].includes(previous.type)
+    || [')', ']', '}'].includes(previous.value)
+  );
+}
+
+function foldSpecialistStaticProperty(tokens, openIndex, closeIndex, label) {
+  const body = tokens.slice(openIndex + 1, closeIndex);
+  if (body.length === 0) return null;
+  let value = '';
+  let expectValue = true;
+  for (const token of body) {
+    if (expectValue) {
+      if (token.type === 'string') {
+        if (token.escaped) {
+          throw new SpecialistPreflightError(
+            'SPECIALIST_UNPROVEN_DYNAMIC_CODE',
+            `${label}: escaped computed property names are forbidden`,
+          );
+        }
+        value += token.value;
+      } else if (
+        token.type === 'template'
+        && !token.value.includes('${')
+        && !token.value.includes('\\')
+      ) {
+        value += token.value.slice(1, -1);
+      } else {
+        return null;
+      }
+    } else if (token.value !== '+') {
+      return null;
+    }
+    expectValue = !expectValue;
+  }
+  return expectValue ? null : value;
+}
+
+function resolveSpecialistImport(packageRoot, file, specifier, label) {
+  const scheme = /^[A-Za-z][A-Za-z0-9+.-]*:/u.exec(specifier)?.[0] || null;
+  if (scheme) {
+    if (scheme === 'node:') return;
+    throw new SpecialistPreflightError(
+      'SPECIALIST_UNPROVEN_MODULE_URL',
+      `${label}: module URL scheme ${scheme} is forbidden`,
+    );
+  }
+  if (!specifier.startsWith('.') && !specifier.startsWith('/')) return;
+  if (specifier.startsWith('/')) {
+    throw new SpecialistPreflightError(
+      'SPECIALIST_PATH_ESCAPE',
+      `${label}: absolute module specifier is forbidden`,
+    );
+  }
+
+  const clean = specifier.split(/[?#]/u, 1)[0];
+  const lexical = path.resolve(path.dirname(file), clean);
+  assertInsideSpecialistRoot(
+    packageRoot,
+    lexical,
+    'SPECIALIST_PATH_ESCAPE',
+    `${label} import ${specifier}`,
+  );
+  const candidates = [
+    lexical,
+    ...[...SPECIALIST_EXECUTABLE_EXTENSIONS].map((extension) => `${lexical}${extension}`),
+    ...[...SPECIALIST_EXECUTABLE_EXTENSIONS]
+      .map((extension) => path.join(lexical, `index${extension}`)),
+  ];
+  let selected = null;
+  for (const candidate of candidates) {
+    let stat;
+    try {
+      stat = fs.lstatSync(candidate);
+    } catch {
+      continue;
+    }
+    if (stat.isSymbolicLink()) {
+      throw new SpecialistPreflightError(
+        'SPECIALIST_UNSAFE_TREE_ENTRY',
+        `${label}: imported target ${specifier} is a symlink`,
+      );
+    }
+    if (stat.isFile()) {
+      selected = fs.realpathSync(candidate);
+      break;
+    }
+  }
+  if (!selected) {
+    throw new SpecialistPreflightError(
+      'SPECIALIST_UNRESOLVED_IMPORT',
+      `${label}: ${specifier} does not resolve to a regular package file`,
+    );
+  }
+  assertInsideSpecialistRoot(
+    packageRoot,
+    selected,
+    'SPECIALIST_PATH_ESCAPE',
+    `${label} import ${specifier}`,
+  );
+}
+
+function realSpecialistDirectory(target, label) {
+  let stat;
+  try {
+    stat = fs.lstatSync(target);
+  } catch (error) {
+    throw new SpecialistPreflightError(
+      'SPECIALIST_TREE_READ_FAILED',
+      `${label} is unreadable: ${error.message}`,
+    );
+  }
+  if (stat.isSymbolicLink() || !stat.isDirectory()) {
+    throw new SpecialistPreflightError(
+      'SPECIALIST_UNSAFE_TREE_ENTRY',
+      `${label} must be a non-symlink directory`,
+    );
+  }
+  try {
+    return fs.realpathSync(target);
+  } catch (error) {
+    throw new SpecialistPreflightError(
+      'SPECIALIST_TREE_READ_FAILED',
+      `${label} cannot be canonicalized: ${error.message}`,
+    );
+  }
+}
+
+function proveSpecialistComputedPackageLocal({ packageRoot, file, tokens, indexes, label }) {
+  const isIdentifier = (index, value) => (
+    tokens[index]?.type === 'identifier' && tokens[index].value === value
+  );
+  const isValue = (index, value) => tokens[index]?.value === value;
+  const fail = (message) => {
+    throw new SpecialistPreflightError(
+      'SPECIALIST_UNPROVEN_COMPUTED_IMPORT',
+      `${label}: ${message}`,
+    );
+  };
+  const enclosingBraces = (targetIndex) => {
+    const stack = [];
+    for (let index = 0; index < targetIndex; index += 1) {
+      if (isValue(index, '{')) stack.push(index);
+      else if (isValue(index, '}')) stack.pop();
+    }
+    return stack;
+  };
+
+  const anchors = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (!isIdentifier(index, 'toolsDir') || !isValue(index + 1, '=')) continue;
+    const exact = isIdentifier(index - 1, 'const')
+      && isIdentifier(index + 2, 'path')
+      && isValue(index + 3, '.')
+      && isIdentifier(index + 4, 'join')
+      && isValue(index + 5, '(')
+      && isIdentifier(index + 6, '__dirname')
+      && isValue(index + 7, ',')
+      && tokens[index + 8]?.type === 'string'
+      && specialistStringValue(tokens[index + 8], label) === 'tools'
+      && isValue(index + 9, ')');
+    if (!exact) fail('toolsDir has a non-canonical assignment');
+    anchors.push(index);
+  }
+  if (anchors.length !== 1) fail('computed import lacks the exact toolsDir anchor');
+
+  const definitions = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (
+      isIdentifier(index, 'function')
+      && isIdentifier(index + 1, 'buildToolDefinitions')
+      && isValue(index + 2, '(')
+      && isIdentifier(index + 3, 'toolsDir')
+      && isValue(index + 4, ')')
+    ) {
+      if (!isValue(index + 5, '{')) fail('buildToolDefinitions must have a block body');
+      definitions.push({
+        index,
+        bodyOpen: index + 5,
+        bodyClose: findSpecialistClosingDelimiter(tokens, index + 5, '{', '}', label),
+      });
+    }
+  }
+  if (definitions.length !== 1) fail('exact buildToolDefinitions(toolsDir) is required');
+
+  const calls = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (!isIdentifier(index, 'buildToolDefinitions') || !isValue(index + 1, '(')) continue;
+    const close = findSpecialistClosingParen(tokens, index + 1, label);
+    const args = tokens.slice(index + 2, close);
+    if (args.length !== 1 || args[0].type !== 'identifier' || args[0].value !== 'toolsDir') {
+      fail('every tool definition call must use only toolsDir');
+    }
+    calls.push(index);
+  }
+  if (calls.length < 2) fail('every tool definition call must use only toolsDir');
+
+  const filenames = [];
+  const modulePathDefinitions = new Set();
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (!isIdentifier(index, 'modulePath') || !isValue(index + 1, ':')) continue;
+    const exact = isIdentifier(index + 2, 'path')
+      && isValue(index + 3, '.')
+      && isIdentifier(index + 4, 'join')
+      && isValue(index + 5, '(')
+      && isIdentifier(index + 6, 'toolsDir')
+      && isValue(index + 7, ',')
+      && tokens[index + 8]?.type === 'string'
+      && isValue(index + 9, ')');
+    if (!exact) fail('every modulePath must use a literal package-local .js filename');
+    const filename = specialistStringValue(tokens[index + 8], label);
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*\.js$/u.test(filename)) {
+      fail('every modulePath must use a literal package-local .js filename');
+    }
+    if (index <= definitions[0].bodyOpen || index >= definitions[0].bodyClose) {
+      fail('modulePath must be defined inside buildToolDefinitions');
+    }
+    modulePathDefinitions.add(index);
+    filenames.push(filename);
+  }
+  if (filenames.length === 0) {
+    fail('every modulePath must use a literal package-local .js filename');
+  }
+
+  const toolsBindings = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (!isIdentifier(index, 'tools') || !isValue(index + 1, '=')) continue;
+    const exact = isIdentifier(index - 1, 'const')
+      && isIdentifier(index + 2, 'buildToolDefinitions')
+      && isValue(index + 3, '(')
+      && isIdentifier(index + 4, 'toolsDir')
+      && isValue(index + 5, ')');
+    if (!exact) fail('tools must come only from buildToolDefinitions(toolsDir)');
+    toolsBindings.push(index);
+  }
+  if (toolsBindings.length !== 1) fail('exactly one canonical tools binding is required');
+
+  const loops = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    const exact = isIdentifier(index, 'for')
+      && isValue(index + 1, '(')
+      && isIdentifier(index + 2, 'const')
+      && isIdentifier(index + 3, 'tool')
+      && isIdentifier(index + 4, 'of')
+      && isIdentifier(index + 5, 'tools')
+      && isValue(index + 6, ')')
+      && isValue(index + 7, '{');
+    if (!exact) continue;
+    loops.push({
+      index,
+      bodyOpen: index + 7,
+      bodyClose: findSpecialistClosingDelimiter(tokens, index + 7, '{', '}', label),
+    });
+  }
+  if (loops.length !== 1 || toolsBindings[0] >= loops[0].index) {
+    fail('exact for (const tool of tools) loader loop is required');
+  }
+  const bindingScope = enclosingBraces(toolsBindings[0]);
+  const loopScope = enclosingBraces(loops[0].index);
+  if (
+    bindingScope.length !== loopScope.length
+    || bindingScope.some((brace, index) => brace !== loopScope[index])
+  ) {
+    fail('tools binding and loader loop must share the exact lexical scope');
+  }
+  for (let index = toolsBindings[0] + 1; index < loops[0].index; index += 1) {
+    if (isIdentifier(index, 'tools')) fail('tools may not escape or mutate before the loader loop');
+  }
+  for (let index = loops[0].bodyOpen + 1; index < loops[0].bodyClose; index += 1) {
+    if (isIdentifier(index, 'tool') && !isValue(index + 1, '.')) {
+      fail('tool may not be rebound inside the loader loop');
+    }
+    if (isIdentifier(index, 'tools') && !isValue(index - 1, '.')) {
+      fail('tools may not be referenced inside the loader loop');
+    }
+  }
+  for (const index of indexes) {
+    if (index <= loops[0].bodyOpen || index >= loops[0].bodyClose) {
+      fail('computed import is outside the canonical loader loop');
+    }
+  }
+
+  const computedModulePaths = new Set(indexes.map((index) => index + 4));
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (!isIdentifier(index, 'modulePath')) continue;
+    if (!modulePathDefinitions.has(index) && !computedModulePaths.has(index)) {
+      fail('modulePath use is outside the proven definition/import shape');
+    }
+  }
+  for (let index = 0; index < tokens.length; index += 1) {
+    const directMutation = isIdentifier(index, 'modulePath') && isValue(index + 1, '=');
+    const dottedMutation = isValue(index, '.')
+      && isIdentifier(index + 1, 'modulePath')
+      && isValue(index + 2, '=');
+    const bracketMutation = tokens[index]?.type === 'string'
+      && tokens[index].value === 'modulePath'
+      && isValue(index - 1, '[')
+      && isValue(index + 1, ']')
+      && isValue(index + 2, '=');
+    const deleteMutation = isIdentifier(index, 'delete')
+      && tokens.slice(index + 1, index + 7).some((token) => token.value === 'modulePath');
+    if (directMutation || dottedMutation || bracketMutation || deleteMutation) {
+      fail('modulePath mutation is forbidden');
+    }
+  }
+
+  const toolsRoot = realSpecialistDirectory(
+    path.join(packageRoot, 'tools'),
+    `${label} tools directory`,
+  );
+  for (const filename of filenames) {
+    const target = path.join(toolsRoot, filename);
+    readSpecialistRegularFile(target, `${label} computed target ${filename}`);
+    const canonical = fs.realpathSync(target);
+    assertInsideSpecialistRoot(
+      toolsRoot,
+      canonical,
+      'SPECIALIST_UNPROVEN_COMPUTED_IMPORT',
+      `${label} computed target`,
+    );
+  }
+}
+
+function analyzeSpecialistSource({ packageRoot, file, label, source }) {
+  const allTokens = tokenizeSpecialistSource(source, label);
+  const comments = allTokens.filter((token) => token.type === 'comment');
+  const tokens = allTokens.filter((token) => token.type !== 'comment');
+  const computedImportIndexes = [];
+  const checkSpecifier = (specifier) => {
+    if (specifier === 'module' || specifier === 'node:module') {
+      throw new SpecialistPreflightError(
+        'SPECIALIST_UNPROVEN_DYNAMIC_CODE',
+        `${label}: Node module loader authority is forbidden`,
+      );
+    }
+    resolveSpecialistImport(packageRoot, file, specifier, label);
+  };
+
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    if (token.value === '[' && specialistMemberAccessOpen(tokens, index)) {
+      const close = findSpecialistClosingDelimiter(tokens, index, '[', ']', label);
+      const property = foldSpecialistStaticProperty(tokens, index, close, label);
+      const receiver = tokens[index - 1];
+      if (
+        property !== null
+        && SPECIALIST_SENSITIVE_DYNAMIC_PROPERTIES.has(property)
+      ) {
+        throw new SpecialistPreflightError(
+          'SPECIALIST_UNPROVEN_DYNAMIC_CODE',
+          `${label}: computed access to ${property} can hide an indirect module load`,
+        );
+      }
+      if (
+        property === null
+        && receiver.type === 'identifier'
+        && SPECIALIST_DYNAMIC_AUTHORITY_RECEIVERS.has(receiver.value)
+      ) {
+        throw new SpecialistPreflightError(
+          'SPECIALIST_UNPROVEN_DYNAMIC_CODE',
+          `${label}: dynamic access to ${receiver.value} cannot prove a safe authority`,
+        );
+      }
+    }
+    if (token.type !== 'identifier') continue;
+    if (token.value === 'Reflect') {
+      throw new SpecialistPreflightError(
+        'SPECIALIST_UNPROVEN_DYNAMIC_CODE',
+        `${label}: Reflect can hide an indirect module load and is forbidden`,
+      );
+    }
+    if (SPECIALIST_DYNAMIC_AUTHORITY_RECEIVERS.has(token.value)) {
+      const next = tokens[index + 1];
+      const property = tokens[index + 2];
+      const bracketAccess = next?.value === '[';
+      const dottedAccess = next?.value === '.' && property?.type === 'identifier';
+      const safeModuleExport = token.value === 'module'
+        && dottedAccess
+        && property.value === 'exports';
+      if (
+        !bracketAccess
+        && !safeModuleExport
+        && (!dottedAccess || SPECIALIST_SENSITIVE_DYNAMIC_PROPERTIES.has(property.value))
+      ) {
+        throw new SpecialistPreflightError(
+          'SPECIALIST_UNPROVEN_DYNAMIC_CODE',
+          `${label}: ${token.value} authority cannot be aliased or dynamically invoked`,
+        );
+      }
+    }
+
+    if (token.value === 'import') {
+      const next = tokens[index + 1];
+      if (!next) {
+        throw new SpecialistPreflightError(
+          'SPECIALIST_SOURCE_PARSE_FAILED',
+          `${label}: incomplete import`,
+        );
+      }
+      if (next.value === '.') continue;
+      if (next.value === '(') {
+        const close = findSpecialistClosingParen(tokens, index + 1, label);
+        const args = tokens.slice(index + 2, close);
+        if (args.length === 1 && args[0].type === 'string') {
+          checkSpecifier(specialistStringValue(args[0], label));
+        } else if (
+          args.length === 3
+          && args[0].type === 'identifier'
+          && args[0].value === 'tool'
+          && args[1].value === '.'
+          && args[2].type === 'identifier'
+          && args[2].value === 'modulePath'
+        ) {
+          computedImportIndexes.push(index);
+        } else {
+          throw new SpecialistPreflightError(
+            'SPECIALIST_UNPROVEN_COMPUTED_IMPORT',
+            `${label}: computed import target is not statically package-local`,
+          );
+        }
+        index = close;
+      } else if (next.type === 'string') {
+        checkSpecifier(specialistStringValue(next, label));
+      } else {
+        let found = null;
+        for (let cursor = index + 1; cursor < tokens.length; cursor += 1) {
+          if (tokens[cursor].value === ';') break;
+          if (tokens[cursor].type === 'identifier' && tokens[cursor].value === 'from') {
+            found = tokens[cursor + 1];
+            break;
+          }
+        }
+        if (!found || found.type !== 'string') {
+          throw new SpecialistPreflightError(
+            'SPECIALIST_SOURCE_PARSE_FAILED',
+            `${label}: static import has no literal source`,
+          );
+        }
+        checkSpecifier(specialistStringValue(found, label));
+      }
+    } else if (token.value === 'export') {
+      for (let cursor = index + 1; cursor < tokens.length; cursor += 1) {
+        if (tokens[cursor].value === ';') break;
+        if (tokens[cursor].type === 'identifier' && tokens[cursor].value === 'from') {
+          const specifier = tokens[cursor + 1];
+          if (!specifier || specifier.type !== 'string') {
+            throw new SpecialistPreflightError(
+              'SPECIALIST_SOURCE_PARSE_FAILED',
+              `${label}: re-export has no literal source`,
+            );
+          }
+          checkSpecifier(specialistStringValue(specifier, label));
+          break;
+        }
+      }
+    } else if (token.value === 'require') {
+      if (tokens[index + 1]?.value !== '(') {
+        throw new SpecialistPreflightError(
+          'SPECIALIST_UNPROVEN_COMPUTED_REQUIRE',
+          `${label}: aliased or indirect require is forbidden`,
+        );
+      }
+      const close = findSpecialistClosingParen(tokens, index + 1, label);
+      const args = tokens.slice(index + 2, close);
+      if (args.length !== 1 || args[0].type !== 'string') {
+        throw new SpecialistPreflightError(
+          'SPECIALIST_UNPROVEN_COMPUTED_REQUIRE',
+          `${label}: computed require target is forbidden`,
+        );
+      }
+      checkSpecifier(specialistStringValue(args[0], label));
+      index = close;
+    } else if (
+      ['_load', 'eval', 'Function', 'createRequire', 'getBuiltinModule']
+        .includes(token.value)
+    ) {
+      throw new SpecialistPreflightError(
+        'SPECIALIST_UNPROVEN_DYNAMIC_CODE',
+        `${label}: ${token.value} can hide an indirect module load and is forbidden`,
+      );
+    }
+  }
+
+  for (const comment of comments.filter((entry) => entry.kind === 'jsdoc')) {
+    const matchedRanges = [];
+    const regex = /\bimport\s*\(\s*(['"])([^'"\\]+)\1\s*\)/gu;
+    let match;
+    while ((match = regex.exec(comment.value))) {
+      matchedRanges.push([match.index, regex.lastIndex]);
+      checkSpecifier(match[2]);
+    }
+    const scrubbed = [...comment.value].map((char, charIndex) => (
+      matchedRanges.some(([start, end]) => charIndex >= start && charIndex < end)
+        ? ' '
+        : char
+    )).join('');
+    if (/\bimport\s*\(/u.test(scrubbed)) {
+      throw new SpecialistPreflightError(
+        'SPECIALIST_UNPROVEN_JSDOC_IMPORT',
+        `${label}: computed or escaped JSDoc import is forbidden`,
+      );
+    }
+  }
+
+  if (computedImportIndexes.length > 0) {
+    proveSpecialistComputedPackageLocal({
+      packageRoot,
+      file,
+      tokens,
+      indexes: computedImportIndexes,
+      label,
+    });
+  }
+}
+
+function preflightSpecialistPackage(packageDir, acceptedDigest = null) {
+  const collected = collectSpecialistPackage(packageDir);
+  if (
+    collected.digest === acceptedDigest
+    || VERIFIED_SPECIALIST_PACKAGE_DIGESTS.has(collected.digest)
+  ) {
+    return collected;
+  }
+  for (const source of collected.sources) {
+    syntaxCheckSpecialistSource(source.file, collected.packageRoot, source.label);
+    analyzeSpecialistSource({
+      packageRoot: collected.packageRoot,
+      ...source,
+    });
+  }
+  VERIFIED_SPECIALIST_PACKAGE_DIGESTS.add(collected.digest);
+  return collected;
+}
 
 // ── Engine version from package.json (fallback for default) ─────────────────
 let _packageVersion = null;
@@ -220,10 +1166,13 @@ export class SpecialistLoader {
     /** @type {Map<string, Object>} loaded module references */
     this._modules = new Map();
 
+    /** @type {Map<string, string>} canonical package root -> accepted tree digest */
+    this._preflightDigests = new Map();
+
     /** @type {Set<string>} specialists needing ESM cache bust on next enable */
     this._needsCacheBust = new Set();
 
-    /** @type {import('../telemetry/specialist-telemetry.js').SpecialistTelemetry|null} v82: passive telemetry */
+    /** @type {{ record: (event: string, payload: Object) => void }|null} v82: passive telemetry */
     this._telemetry = options.telemetry || null;
 
     this._prepareStatements();
@@ -270,6 +1219,7 @@ export class SpecialistLoader {
    */
   discoverAll() {
     this._discovered.clear();
+    this._preflightDigests.clear();
 
     if (!fs.existsSync(this.baseDir)) {
       logger.debug('SpecialistLoader', `No specialists directory at ${this.baseDir}`);
@@ -280,6 +1230,12 @@ export class SpecialistLoader {
     const results = [];
 
     for (const entry of entries) {
+      if (entry.isSymbolicLink()) {
+        throw new SpecialistPreflightError(
+          'SPECIALIST_UNSAFE_TREE_ENTRY',
+          `${entry.name} package is a symlink`,
+        );
+      }
       if (!entry.isDirectory()) continue;
 
       const dir = path.join(this.baseDir, entry.name);
@@ -318,10 +1274,13 @@ export class SpecialistLoader {
           continue;
         }
 
+        this._preflightPackage(dir);
+
         this._discovered.set(manifest.id, { manifest, dir });
         results.push(manifest);
         logger.debug('SpecialistLoader', `Discovered: ${manifest.id} v${manifest.version}`);
       } catch (err) {
+        if (err instanceof SpecialistPreflightError) throw err;
         logger.warn('SpecialistLoader', `Error reading ${entry.name}: ${err.message}`);
       }
     }
@@ -416,7 +1375,12 @@ export class SpecialistLoader {
     this._pendingMigrations = this._pendingMigrations || [];
     for (const migrationName of manifest.migrations) {
       if (applied.has(migrationName)) continue;
-      this._pendingMigrations.push({ specialistId, migrationsDir, migrationName });
+      this._pendingMigrations.push({
+        specialistId,
+        packageDir: dir,
+        migrationsDir,
+        migrationName,
+      });
     }
   }
 
@@ -426,10 +1390,13 @@ export class SpecialistLoader {
   async _executePendingMigrations() {
     if (!this._pendingMigrations?.length) return;
 
-    for (const { specialistId, migrationsDir, migrationName } of this._pendingMigrations) {
+    for (const {
+      specialistId, packageDir, migrationsDir, migrationName,
+    } of this._pendingMigrations) {
       const migrationFile = path.join(migrationsDir, `${migrationName}.js`);
 
       try {
+        this._preflightPackage(packageDir);
         const mod = await import(migrationFile);
         if (typeof mod.up !== 'function') {
           logger.warn('SpecialistLoader', `Migration ${migrationName} has no up() function`);
@@ -504,6 +1471,8 @@ export class SpecialistLoader {
       logger.debug('SpecialistLoader', `${id} already loaded, skipping`);
       return;
     }
+
+    this._preflightPackage(dir);
 
     // Clear old module reference if cache busting
     if (needsBust) {
@@ -888,6 +1857,8 @@ export class SpecialistLoader {
       this._stmts.getMigrations.all(specialistId).map(r => r.migration_name)
     );
 
+    this._preflightPackage(dir);
+
     for (const migrationName of manifest.migrations) {
       if (applied.has(migrationName)) continue;
 
@@ -913,6 +1884,7 @@ export class SpecialistLoader {
    */
   async _rollbackMigrations(specialistId, dir, manifest, migrationsApplied) {
     const migrationsDir = path.join(dir, 'migrations');
+    this._preflightPackage(dir);
 
     // Reverse order — last applied first
     for (let i = migrationsApplied.length - 1; i >= 0; i--) {
@@ -1017,6 +1989,22 @@ export class SpecialistLoader {
    */
   setExpertiseRegistry(registry) {
     this._expertiseRegistry = registry;
+  }
+
+  _preflightPackage(packageDir) {
+    let canonical;
+    try {
+      canonical = fs.realpathSync(packageDir);
+    } catch (error) {
+      throw new SpecialistPreflightError(
+        'SPECIALIST_TREE_READ_FAILED',
+        `package cannot be canonicalized: ${error.message}`,
+      );
+    }
+    const acceptedDigest = this._preflightDigests.get(canonical) || null;
+    const result = preflightSpecialistPackage(packageDir, acceptedDigest);
+    this._preflightDigests.set(result.packageRoot, result.digest);
+    return result.digest;
   }
 
   // ─── D7: Dependency System ──────────────────────────────────────────────
