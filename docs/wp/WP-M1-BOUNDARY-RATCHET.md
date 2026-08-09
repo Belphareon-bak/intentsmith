@@ -15,6 +15,12 @@ statickou/dynamickou kolizi po normalizaci, rozlišuje exit `1` (drift) a `2`
 integrátorský baseline writer se schema v2 provenance. Historický datovaný
 scanner zůstává kompatibilitním wrapperem.
 
+**Integrační checkpoint hardeningu:** zdrojový merge `da898277` spojuje
+binding-application checkpoint `d4b34ca4` s ratchetem; baseline commit
+`b05392e1` přesně přijal šest deklarovaných hran. Aktuální měření je
+`420 / 1 010 / 3 / 28` (source soubory / exact pair hrany / cykly / soubory v
+cyklech). Přijetí je strop grafu, nikoli přijetí budoucí mapy `core / optional`.
+
 ---
 
 ## 0. Vstupní brána — nezačínat dřív

@@ -190,7 +190,7 @@ PASS. Follow-up test nyní odvozuje baseline count z fixture, vyžaduje
 odebrání povinné `BASELINE_TIGHTENING_AVAILABLE`. Neoslabil se na pouhou
 přítomnost slova PASS.
 
-### Post-integration hardening — follow-up `e2dcecd3`
+### Post-integration hardening — série počínaje `e2dcecd3`
 
 Review po integraci našlo dvě provozní vady a několik omezení. Follow-up je
 opravuje bez změny pair-based architektonické politiky:
@@ -222,3 +222,25 @@ rozdíl jednoho source souboru je revision drift, nikoli oprava historického
 měření. Protocol 1 stále neratchetuje změnu static↔dynamic a neskenuje čtyři
 `.d.ts` soubory; obojí teď vypisuje jako explicitní limit, ne jako pokrytou
 garanci.
+
+### Binding-application integrační delta — `da898277` / `b05392e1`
+
+Čistý merge binding-application checkpointu `d4b34ca4` do hardening větve
+naměřil **420 source souborů, 1 010 exact-pair hran a beze změny 3 cykly / 28
+souborů v cyklech**. Writer nejprve všech šest hran odmítl bez byteové změny
+baseline a přijal je až po zopakování se šesti přesnými `--accept-edge`.
+
+| Přijatá hrana | Důvod přijetí a zbývající dluh |
+|---|---|
+| `server.js → chat/handlers/pre-handler.js` | Composition root injektuje binding service do existujícího core chatu; exact chat approval seam vlastnil binding WP. |
+| `server.js → upgrade/model-binding-application.js` | Skládá jediný manual binding commit point. Jako přímá znalost budoucí optional implementace zůstává dluhem pro `WP-M3-BOUNDARY`, ne novým povoleným směrovým pravidlem. |
+| `server.js → upgrade/model-failover.js` | Zakládá repository pro tentýž connector v explicitně vlastněném startup seamu; fyzické odpojení modulu tím ještě prokázané není. |
+| `upgrade/model-binding-application.js → config.js` | Jde jen o fallback čtení Ollama URL; `config.models` service mění přes runtime port. Server URL už předává, takže hrana je kandidát na pozdější utažení v řezu ModelBindingPort. |
+| `upgrade/model-binding-application.js → core/logger.js` | Injektovatelný default úzké sdílené služby; nevytváří state authority. |
+| `upgrade/model-binding-application.js → upgrade/model-identity.js` | Vnitřní závislost modelového modulu na jeho kanonizačním kontraktu. |
+
+Všech šest cest leží v allowlistu `WP-M1-BINDING-APPLICATION`; žádná nevytvořila
+nový SCC ani nesáhla na cizí connector. Proto jsou přijatelné jako současný
+ratchet ceiling. Nejsou důkazem disabled bootu, vlastnictví `config.models` ani
+zákazu `core → optional`; tyto acceptance podmínky zůstávají v
+`WP-M3-BOUNDARY` a v odloženém model-binding řezu.
