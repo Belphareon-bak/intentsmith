@@ -1,7 +1,8 @@
 # 018 — Manual binding potřebuje pravdivou failure, legacy a notification policy
 
 - **typ:** DECIDE-AND-CONTINUE
-- **stav rozhodnutí:** VRATNÉ DEFAULTY A; ČEKÁ NA OPERÁTORA
+- **stav rozhodnutí:** PŘIJATO OPERÁTOREM; Q1–Q5 = A, vratné pouze přes
+  pojmenované švy níže
 - **WP:** WP-M1-BINDING-APPLICATION
 - **rail:** R1, R3, R5, R6
 - **vzniklo při:** uzavření Findingu 008 pro běžný HTTP/chat provoz
@@ -82,7 +83,7 @@ DB-assigned `command_seq`. No-op receipt je DB-odvozená množina: při živém 
 terminálu atomicky naváže všechny dosud neuzavřené terminální commandy stejné
 role/revision. Caller seznam ani supersession ID nedodává.
 
-## Přesná otázka pro operátora
+## Přijatý operátorský zápis
 
 ```text
 018-Q1: A
@@ -92,6 +93,6 @@ role/revision. Caller seznam ani supersession ID nedodává.
 018-Q5: A
 ```
 
-Defaulty dovolují pokračovat uvnitř přesně pojmenovaných švů. Jakýkoli požadavek
+Operátor tento zápis potvrdil beze změny. Jakýkoli požadavek
 na automatický failover, změnu veřejného HTTP/WS/M1 connectoru, PASS proof nebo
 L0-9 zůstává tvrdý BLOCK a tímto záznamem se neobchází.

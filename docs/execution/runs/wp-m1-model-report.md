@@ -2,10 +2,10 @@
 
 - **stav WP:** B3-IDENTITY + B3-PROFILE READY; B3-FAILOVER storage, manual
   repository, application-state schema a společný manual runtime cutover
-  IMPLEMENTED; fresh-clone evidence, nový referenční GPU běh 009, proof issuer
-  a automatic failover zůstávají BLOCKED; offline connector READY
+  FRESH-CLONE VERIFIED; nový referenční GPU běh 009, proof issuer a automatic
+  failover zůstávají BLOCKED; offline connector READY
 - **poslední ověřený source SHA:**
-  `515fb6f7409ea9ca916f88c1785a4ec032c3121b`
+  `e7d89b5ef038e1a32ad2fdff3990d6f9f20d9bec`
 - **base SHA:** `55c913d6f3cb2354b6447d10ff304e9d0323b1c3`
 - **zapisující větev:** `claude/gate1-mobile-app-progress-5sywlt`
 - **GPU/Ollama v checkpointech 1–2:** NOT RUN
@@ -1389,6 +1389,39 @@ Po dohledání registrovaných cest byly skutečné sady
 spuštěny s výsledky uvedenými výše. Jde o chybu orchestrace, nikoli zelený či
 červený produktový výsledek.
 
+### Fresh-clone evidence produktového commitu
+
+Zdrojový checkout byl na čistém stromu commitnut jako
+`e7d89b5ef038e1a32ad2fdff3990d6f9f20d9bec`. Bez lokální hardlink optimalizace
+byl naklonován příkazem:
+
+```text
+git clone --no-local /home/belphareon/Projects/intentsmith \
+  /home/belphareon/Projects/intentsmith/.intentsmith-artifacts/fresh-clone-e7d89b5e-sxaMfLwe
+```
+
+`git rev-parse HEAD` v klonu vrátil přesný source SHA výše a
+`git status --porcelain=v1 -uall` byl před instalací prázdný. `npm ci --offline`
+přidal 233 balíčků, auditoval 234 balíčků, našel 0 vulnerabilities a skončil
+exit `0`; vypsal pouze deprecation warnings existujících závislostí.
+
+Z tohoto klonu byly beze změny zopakovány všechny přesné testovací příkazy z
+tabulky výše. Výsledky: schema migrations 38/0, binding storage 16/0,
+repository 39/0, application 73/0, failover schema 10/0, upgrade apply 33/0,
+upgrade UX 78/0, proposal cleanup 3/0, routes smoke 109/0, confirmation 5/0,
+identity 16/0, WS bridge 68/0 a artifact validation 151/0; každý příkaz skončil
+exit `0`. Hygiene v commitnutém stromu zkontrolovala 1519 tracked cest, exit
+`0`. Registry validátor vrátil 375 programů, 8 exclusions a fingerprint
+`a2f1e67e4f01c6e834f52eb1b15e10a5eec0893638d167e77baf3a35690f77b8`, exit
+`0`. Rozdíl proti pre-commit hygiene počtu 1515 jsou přesně čtyři tehdy
+untracked a nyní commitnuté nové soubory; jejich syntax byla před commitem
+ověřena samostatně.
+
+Po bězích byly `git status --porcelain=v1 -uall`, `git diff --check` a
+`git fsck --no-dangling --no-progress` prázdné, respektive bez chyby, všechny
+exit `0`. GPU, skutečná Ollama ani externí síť nebyly spuštěny; loopback
+provider v acceptance sadě je test-owned protokolová fixture.
+
 První compatibility běh `routes-smoke` skončil 75/1, exit `1`: fixture
 záměrně nastavuje `OLLAMA_URL=invalid://…`, ale provider validoval URL už při
 server composition a shodil jinak offline boot. Oprava kontrolu neoslabila:
@@ -1455,6 +1488,7 @@ exit `0`.
    Potlačit event/verzi nebo přidat `changed:false` by změnilo veřejnou WS
    sémantiku a zůstává ve frontě pro společné rozhodnutí.
 
-Produktový checkpoint ještě nemá source SHA ani fresh-clone reprodukci; ty se
-doplní až po commitu. GPU, Ollama ani externí síť nebyly spuštěny. Gate 1 proto
-zůstává `BLOCKED`, nikoli PASS.
+Backend produktový checkpoint má source SHA i fresh-clone reprodukci popsanou
+výše. GPU, skutečná Ollama ani externí síť nebyly spuštěny. Gate 1 proto
+zůstává `BLOCKED`, nikoli PASS: chybí 015 prahy/TTL, proof issuer a automatický
+failover, referenční GPU běh 009 a dokončený UI recovery/status journey.

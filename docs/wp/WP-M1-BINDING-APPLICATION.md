@@ -1,9 +1,9 @@
 # WP-M1-BINDING-APPLICATION — jeden pravdivý manual runtime commit point
 
 **Typ:** zapisující WP · **Slot:** hlavní zapisující vlastník, hlavní checkout
-**Stav:** probíhá; application-state schema i společný runtime cutover jsou
-implementované a focused zelené, produktový commit a fresh-clone evidence ještě
-nejsou uzavřené
+**Stav:** backend checkpoint dokončený na `e7d89b5ef038e1a32ad2fdff3990d6f9f20d9bec`;
+fresh-clone instalace a offline acceptance jsou zelené. Celé M1/Gate 1 zůstává
+blokované na výslovně uvedených GPU, proof/automatic-failover a UI residuálech.
 **Závislost:** dokončený `WP-M1-BINDING-REPOSITORY` (`515fb6f7`, evidence
 `eb7e78b8`, review closure `1478cb20`)
 

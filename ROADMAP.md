@@ -698,8 +698,8 @@ focused regression sady.
      revision, takže historický `RECONCILED_ABSENT` nepřebije novější binding.
      Non-retryable apply podle 018/Q4/A vyžaduje explicitní HTTP rollback před
      novým apply; chat/Studio rollback surface zůstává `PENDING-OWNER`, takže
-     nejde o dokončený UI recovery journey. Jde o produktový checkpoint před
-     commitem, širší a fresh-clone evidencí, ne o GPU PASS,
+     nejde o dokončený UI recovery journey. Backend checkpoint je commitnutý
+     a fresh-clone ověřený na `e7d89b5e`; nejde o GPU PASS,
      proof issuance nebo aktivaci automatického failoveru. WS publish zůstává
      podle 018/Q3 best-effort: pouze explicitní typed receipt smí potvrdit
      přijetí. Dnešní produkční void broadcaster proto pravdivě zapisuje
@@ -1188,8 +1188,8 @@ mohou pokračovat.
    vratné provozní defaulty jsou shromážděné v
    [018](docs/decisions/018-m1-manual-binding-application-policy.md). Společná
    HTTP/chat application service, exact local provider, runtime CAS/kompenzace,
-   startup rehydrate a commit-layer broadcast jsou implementované; širší a
-   fresh-clone evidence tohoto checkpointu ještě není uzavřená. Otevřené
+   startup rehydrate a commit-layer broadcast jsou implementované a
+   fresh-clone ověřené na `e7d89b5e`. Otevřené
    zůstávají proof issuer, terminal failover activation/restore a scheduler.
    Failover se dosud neaktivuje. Proof issuance
    čeká na prahy a TTL z rozhodnutí 015; nový skutečný GPU běh zůstává
