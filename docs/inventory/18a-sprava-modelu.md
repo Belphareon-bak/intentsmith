@@ -121,10 +121,39 @@ Previous+target lease vzniká až po případném pullu a drží přes nový exa
 resolve, durable zápis, compensation a synchronní finalize; verification drží
 target přes probe i durable success zápis a před retry delay jej uvolní.
 Startup snapshot není autorita. Operationless legacy override však zůstává
-name-only `LEGACY_UNVERIFIED` a post-DB runtime finalize nemá durable recovery.
+name-only `LEGACY_UNVERIFIED`. Tvrzení z tohoto checkpointu, že post-DB runtime
+finalize neměl durable recovery, už neplatí: navazující `7c4aa73c` přidal
+operation-scoped exact startup recovery bez druhého pullu.
 
 Call graph má nadále pět živých cest. Nepřipojený zůstává VRAM manager;
 durable/cross-process autorita není rozhodnutá a direct pull stream nemá idle
 timeout ani recovery. Schopnost #18a proto zůstává v tomto řezu `PARTIAL`;
 fresh-clone zelená gateway+binding evidence pokrývá pouze 4/5 živých cest a
 není release ani L0-11 PASS.
+
+## 10. Runtime follow-up B3 detection coordinator — 2026-08-09
+
+Původní pětiminutový scheduler volal name-only `checkBindingIntegrity()` přes
+`setInterval()` a celý výsledek zahodil. Nový
+`src/upgrade/model-failover-coordinator.js` tuto diagnostiku nepoužívá: po
+literal-true opt-inu vezme právě jeden strict snapshot přes stejný
+loopback-only provider jako manual binding application. Před prvním DB zápisem
+ověří celý inventory a stabilitu sedmi runtime bindingů. Poslední policy check
+je součástí stejné repository `BEGIN IMMEDIATE` transakce jako durable efekt.
+
+Koordinátor smí pouze založit první exact digest-bound baseline pro přítomný
+config nebo `LEGACY_OVERRIDE` desired baseline podložený jedním operationless
+`LEGACY_UNVERIFIED` compatibility override a nad později chybějícím stejným
+desired artifactem vytvořit `DETECTED`. Existující desired binding
+nikdy nepřepisuje. Digest drift pod stejným canonical jménem, chybějící
+baseline, manual desired, nevysvětlený override, terminal incident, prázdný či
+ambiguous inventory a souběžná změna authority končí bez failover effectu.
+Repository `expectedAbsent` a `detectionOnly` zavírají dva race švy: scheduler
+nesmí přepsat novější desired autoritu ani retireovat terminální incident.
+
+Composition root mu předává dva frozen porty: pět repository metod a jedinou
+inventory metodu; plný repository/provider a jejich další efekty
+koordinátor nevlastní. Produkční scheduler je recursive single-flight a první provider call zůstává
+až po dosavadním pětiminutovém delay. Checkpoint netvoří proof, claim, fallback
+candidate, provider mutation, runtime binding ani broadcast; L0-9 se proto
+nemění a automatic activation/restore zůstává otevřená.

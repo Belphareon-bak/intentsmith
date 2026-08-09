@@ -1,7 +1,7 @@
 # 006 — automatický model rebind zůstává blokovaný rozhodnutím L0-9
 
 - **typ:** BLOCK
-- **stav rozhodnutí:** D+ SCHVÁLENO; B3-IDENTITY, B3-PROFILE, FAILOVER SETTINGS, STORAGE, CLAIM RECOVERY A MANUAL BINDING LINEAGE IMPLEMENTOVÁNY, AKTIVACE OTEVŘENÁ
+- **stav rozhodnutí:** D+ SCHVÁLENO; B3-IDENTITY, B3-PROFILE, FAILOVER SETTINGS, STORAGE, CLAIM RECOVERY, MANUAL BINDING LINEAGE A DETECTION COORDINATOR IMPLEMENTOVÁNY, AKTIVACE OTEVŘENÁ
 - **WP:** WP-M1-MODEL
 - **rail:** R1 USER_AUTHORITY, R3 OBSERVABLE_BEHAVIOR, R6 REVERSIBILITY
 - **vzniklo při:** read-only call-graph kontrole `src/upgrade/model-registry.js:checkBindingIntegrity()`
@@ -431,3 +431,59 @@ provider delete a závod mezi seznamem a efektem. Viz
 [`finding 006`](../findings/006-model-cleanup-bypasses-registry-guard.md).
 Nezávislý review navíc oddělil retention-time chybu mimo identity scope jako
 [`finding 007`](../findings/007-model-cleanup-timestamp-ordering.md).
+
+## Implementační stav B3-FAILOVER detection coordinator — 2026-08-09
+
+Schválená D+ cesta nyní poprvé konzumuje `models.autoFailoverEnabled`, ale
+stále neaktivuje fallback. `src/upgrade/model-failover-coordinator.js` sdílí
+exact loopback provider s manual binding application a při jednom běhu provede
+právě jeden strict `GET /api/tags`. Nastavení čte před provider efektem, po
+inventory a bezprostředně před každým zápisem. Poslední autoritativní check je
+navíc uvnitř stejné repository `BEGIN IMMEDIATE` transakce jako durable efekt,
+takže souběžné vypnutí nemůže zanechat desired ani detection řádek. Missing,
+malformed nebo DB-error settings a cokoli jiného než literal boolean `true`
+skončí před inventory.
+
+Celý inventory se validuje před prvním durable zápisem: musí být neprázdný,
+každý řádek musí nést exact name, shodnou canonical identitu a lowercase
+64hex digest a jedna canonical identita smí mít právě jeden artefakt. Runtime
+mapa všech sedmi rolí se čte před i po snapshotu; drift znamená
+`INCONCLUSIVE`. Prázdná či nedostupná Ollama proto nikdy neznamená, že sedm
+modelů bylo odinstalováno.
+
+Koordinátor smí provést pouze dvě durable operace:
+
+1. pokud desired řádek neexistuje a runtime artefakt je přesně přítomný,
+   idempotentně založí digest-bound `CONFIG_DEFAULT` baseline nebo
+   `LEGACY_OVERRIDE` desired baseline podložený právě jedním operationless
+   `LEGACY_UNVERIFIED` compatibility override;
+2. pokud tentýž observable desired canonical+revision už existuje a canonical
+   artefakt v neprázdném validním inventory chybí, idempotentně zapíše
+   `DETECTED`.
+
+Existující desired binding se automaticky nikdy neposouvá. Jiný canonical je
+`AUTHORITY_DRIFT`; stejný canonical s jiným digestem je `DIGEST_DRIFT`, ne
+`BOUND_MODEL_NOT_INSTALLED`. `USER_APPLY/USER_ROLLBACK`, nevysvětlený override,
+chybějící digest-bound baseline a každý existující stav kromě přesného
+unclaimed `DETECTED` zůstávají bez zápisu. Repository vstupy
+`expectedAbsent:true` a `detectionOnly:true` zajišťují, že souběžný novější
+desired nemůže být přepsán a terminální `SUPERSEDED_BY_USER` nemůže být tímto
+callerem skrytě retireován.
+
+Původní překryvný `setInterval(checkBindingIntegrity)` se spolknutou chybou je
+nahrazen recursive single-flight schedulerem. První běh zůstává až po
+dosavadním pětiminutovém delay; checkpoint tedy nepřidává nový startup
+provider effect. Focused database sada
+`IS-T1-TESTS-M1-MODEL-FAILOVER-COORDINATOR-TEST` pokrývá literal opt-in,
+validaci celého snapshotu, config/legacy seed, restartovou idempotenci,
+unseeded missing, digest/runtime drift, manual a terminal authority,
+desired-revision race, dvě WAL connections, projection rollback a scheduler
+single-flight.
+
+Composition root předává dva frozen detection porty: pět repository metod a
+jedinou inventory metodu; coordinator neuchovává referenci na plný
+repository ani provider. Nemá proof, claim, candidate recommendation,
+pull/delete, provider chat, runtime binding ani broadcast autoritu. L0-9 se
+nemění; proof issuance a
+terminal automatic activation/restore zůstávají blokované na rozhodnutí 015 a
+navazující evidence.

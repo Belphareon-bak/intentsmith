@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 376
+- Runnable programs: 377
 - Explicit support-module exclusions: 8
-- Profiles: offline=186, database=34, server=37, model=85, soak=19, manual=15
-- States: ACTIVE=279, HISTORICAL=15, BLOCKED=82
+- Profiles: offline=186, database=35, server=37, model=85, soak=19, manual=15
+- States: ACTIVE=280, HISTORICAL=15, BLOCKED=82
 
 ## Execution profiles
 
@@ -283,6 +283,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M1-MODEL-BINDING-REPOSITORY-TEST` | `tests/m1-model-binding-repository.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-BINDING-STORAGE-TEST` | `tests/m1-model-binding-storage.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-CONTRACT-TEST` | `tests/m1-model-contract.test.js` | `C3-010` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-M1-MODEL-FAILOVER-COORDINATOR-TEST` | `tests/m1-model-failover-coordinator.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-FAILOVER-MEASUREMENT-TEST` | `tests/m1-model-failover-measurement.test.js` | `C3-010` | T1 | `offline` | 30 s | 2 min | network:loopback | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-FAILOVER-PARENT-ACCEPTANCE-TEST` | `tests/m1-model-failover-parent-acceptance.test.js` | `C3-010` | T1 | `offline` | 30 s | 2 min | network:loopback | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-FAILOVER-PROOF-POLICY-TEST` | `tests/m1-model-failover-proof-policy.test.js` | `C3-010` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

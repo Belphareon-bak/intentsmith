@@ -224,6 +224,12 @@ import { modelRegistry } from './upgrade/model-registry.js';
 import { modelUniverseStore } from './upgrade/model-universe-store.js';
 import { createModelFailoverRepository } from './upgrade/model-failover.js';
 import {
+  createModelFailoverDetectionCoordinator,
+  createModelFailoverDetectionInventoryPort,
+  createModelFailoverDetectionRepositoryPort,
+  startModelFailoverDetectionScheduler,
+} from './upgrade/model-failover-coordinator.js';
+import {
   createModelBindingApplication,
   createOllamaModelBindingProvider,
 } from './upgrade/model-binding-application.js';
@@ -235,15 +241,16 @@ setUpgradeManager(upgradeManager);
 modelUniverseStore.setDb(db.db);
 const bindingRepository = createModelFailoverRepository(db.db);
 const { broadcast: bindingBroadcast } = await import('./ws-bridge/ws-server.js');
+const modelBindingProvider = createOllamaModelBindingProvider({
+  baseUrl: config.ollama?.baseUrl,
+  pullImpl: (modelName, onProgress, authority) => (
+    upgradeManager.pullModel(modelName, onProgress, authority)
+  ),
+});
 const modelBindingApplication = createModelBindingApplication({
   repository: bindingRepository,
   runtime: upgradeManager.createBindingRuntimePort(),
-  provider: createOllamaModelBindingProvider({
-    baseUrl: config.ollama?.baseUrl,
-    pullImpl: (modelName, onProgress, authority) => (
-      upgradeManager.pullModel(modelName, onProgress, authority)
-    ),
-  }),
+  provider: modelBindingProvider,
   publishControl: payload => bindingBroadcast('control', payload),
   logger,
 });
@@ -306,6 +313,7 @@ try {
 }
 
 // v133: Wire ModelRegistry — centralized model management
+let modelFailoverDetectionCoordinator = null;
 try {
   const { validationRunner } = await import('./upgrade/validation-suites.js');
   validationRunner.setDb(db.db);
@@ -317,6 +325,12 @@ try {
     broadcast: bindingBroadcast,
   });
   setModelRegistry(modelRegistry);
+  modelFailoverDetectionCoordinator = createModelFailoverDetectionCoordinator({
+    repositoryPort: createModelFailoverDetectionRepositoryPort(bindingRepository),
+    inventoryPort: createModelFailoverDetectionInventoryPort(modelBindingProvider),
+    readSettings: () => modelRegistry.getModelSettings(),
+    readBindings: () => modelRegistry.getBound(),
+  });
   // v133: Wire usage tracking to gateway
   llmGateway.setUsageDb(db.db);
   logger.info('Server', 'ModelRegistry initialized (+ gateway usage tracking)');
@@ -1410,12 +1424,39 @@ listenOnLegacyLoopback(server, config.server, async () => {
   // v103: Start background model upgrade check (non-blocking, fire-and-forget)
   upgradeManager.startPeriodicCheck();
 
-  // v133: ModelRegistry — auto-cleanup scheduler (every 6h) + binding integrity check (every 5 min)
+  // v133: ModelRegistry — auto-cleanup scheduler (every 6h) + digest-bound
+  // failover detection (every 5 min, first run after the existing delay).
   {
-    const integrityInterval = setInterval(() => {
-      modelRegistry.checkBindingIntegrity().catch(() => {});
-    }, 5 * 60 * 1000);
-    integrityInterval.unref();
+    if (modelFailoverDetectionCoordinator) {
+      startModelFailoverDetectionScheduler({
+        coordinator: modelFailoverDetectionCoordinator,
+        intervalMs: 5 * 60 * 1000,
+        onResult: result => {
+          if (result.status === 'SKIPPED_DISABLED') return;
+          if (result.status === 'COMPLETED') {
+            if (result.counters.detectionsCreated > 0) {
+              logger.warn(
+                'Server',
+                `Model failover detection recorded ${result.counters.detectionsCreated} incident(s)`,
+              );
+            } else if (result.counters.desiredCreated > 0) {
+              logger.info(
+                'Server',
+                `Model failover detection observed ${result.counters.desiredCreated} desired binding(s)`,
+              );
+            }
+            return;
+          }
+          logger.warn(
+            'Server',
+            `Model failover detection ${result.status}: ${result.reason}`,
+          );
+        },
+        onError: error => {
+          logger.warn('Server', `Model failover detection failed: ${error.message}`);
+        },
+      });
+    }
 
     const cleanupInterval = setInterval(async () => {
       try {
@@ -1428,7 +1469,7 @@ listenOnLegacyLoopback(server, config.server, async () => {
       }
     }, 6 * 60 * 60 * 1000);
     cleanupInterval.unref();
-    logger.info('Server', 'ModelRegistry schedulers started (integrity 5min, cleanup 6h)');
+    logger.info('Server', 'ModelRegistry schedulers started (failover detection 5min, cleanup 6h)');
   }
 
   // v125: Dynamic port — resolve actual port after listen (port 0 → OS-assigned)

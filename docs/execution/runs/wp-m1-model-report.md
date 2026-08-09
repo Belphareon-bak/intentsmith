@@ -1,12 +1,13 @@
 # WP-M1-MODEL — průběžný report
 
 - **stav WP:** B3-IDENTITY + B3-PROFILE READY; B3-FAILOVER storage, manual
-  repository, application-state schema a společný manual runtime cutover
-  FRESH-CLONE VERIFIED; C2b gateway + binding jsou FRESH-CLONE VERIFIED na
-  `cfcb63dd`, celý C2 však zůstává PARTIAL; nový referenční GPU běh 009, proof issuer a automatic failover
-  zůstávají BLOCKED; offline connector READY
+  repository, application-state schema, společný manual runtime cutover a
+  finalize recovery FRESH-CLONE VERIFIED; detection-only coordinator je source
+  candidate; C2b gateway + binding jsou FRESH-CLONE VERIFIED na `cfcb63dd`,
+  celý C2 však zůstává PARTIAL; nový referenční GPU běh 009, proof issuer a
+  automatic failover activation zůstávají BLOCKED; offline connector READY
 - **poslední ověřený source SHA:**
-  `bcc9eb8443bf872efb42cb35589906649cc6427a`
+  `7c4aa73c18289eebced48511910e35dad21c3be5`
 - **base SHA:** `55c913d6f3cb2354b6447d10ff304e9d0323b1c3`
 - **zapisující větev:** `claude/gate1-mobile-app-progress-5sywlt`
 - **GPU/Ollama v checkpointech 1–2:** NOT RUN
@@ -2271,3 +2272,62 @@ exit `0`.
 GPU, Ollama, produktový server a externí síť nebyly spuštěny. Gate 1 zůstává
 `BLOCKED` nejméně na 015, proof/automatic failover, Studio recovery surface,
 globální VRAM residency authority a autorizovaný GPU pilot.
+
+## Checkpoint 27 — opt-in digest-bound failover detection candidate
+
+Nový `src/upgrade/model-failover-coordinator.js` nahrazuje jediný produkční
+pětiminutový call name-only `checkBindingIntegrity()`. Nesdílí jeho
+`PROPOSED`/score sémantiku a nevybírá fallback. Po literal-true opt-inu použije
+stejný strict loopback provider jako manual binding application a právě jeden
+inventory snapshot. Bindings se čtou před i po provider effectu, celý snapshot
+se validuje před zápisem a policy se znovu ověří po inventory i uvnitř stejné
+repository `BEGIN IMMEDIATE` transakce jako každý durable krok. Composition
+root koordinátoru předává dva frozen porty: pět repository metod a jedinou
+inventory metodu, nikoli plné objekty s mutation authority.
+
+Povolené durable výsledky jsou pouze první exact digest-bound desired baseline
+a `DETECTED` nad shodnou persisted revision. Repository `expectedAbsent`
+zabrání scheduleru přepsat mezitím vzniklou desired autoritu; `detectionOnly`
+zakáže tomuto callerovi skrytě retireovat terminal `SUPERSEDED_BY_USER` stav.
+Existující desired se neposouvá. Unseeded missing, digest drift, runtime/desired
+drift, manual authority, orphan override, terminal incident, prázdný,
+malformed nebo canonical-ambiguous inventory a změna policy končí bez
+aktivace. Recursive scheduler zachovává dosavadní první pětiminutový delay a
+další tick plánuje až po dokončení předchozího.
+
+Lokální focused výsledky source kandidáta:
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node --check src/upgrade/model-failover-coordinator.js` | syntax valid | 0 |
+| `node --check src/upgrade/model-failover.js` | syntax valid | 0 |
+| `node --check src/server.js` | syntax valid | 0 |
+| `node --check tests/m1-model-failover-coordinator.test.js` | syntax valid | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-failover-coordinator.test.js` | 16/0 | 0 |
+| `node tests/m1-model-failover-repository.test.js` | 14/0 | 0 |
+| `node tests/m1-model-binding-repository.test.js` | 42/0 | 0 |
+| `node tests/m1-model-binding-application.test.js` | 96/0 | 0 |
+| `node tests/m1-model-failover-schema.test.js` | 20/0 | 0 |
+| `node tests/m1-model-settings.test.js` | 14/0 | 0 |
+| `node tests/m1-model-identity.test.js` | 25/0 | 0 |
+| `node tests/schema-migrations.test.js` | 38/0, 56 migrations | 0 |
+| `node tests/routes-smoke.test.js` | 109/0 | 0 |
+| `node tests/artifact-validation.test.js` | 151/0 | 0 |
+| `node tests/repository-hygiene.test.js` | 1 527 tracked paths | 0 |
+| `node scripts/validate-test-registry.js --write-doc` | 377 programů; fingerprint `1370be04…75a6` | 0 |
+
+Před integračním baseline commitem ratchet správně hlásí právě čtyři nové exact
+hrany a exit `1`: `src/server.js → src/upgrade/model-failover-coordinator.js`,
+`src/upgrade/model-failover-coordinator.js → src/upgrade/model-failover.js`,
+`src/upgrade/model-failover-coordinator.js → src/upgrade/model-identity.js` a
+`src/upgrade/model-failover.js → src/db/user-settings.js`; nepoužívá se glob
+ani adresářová výjimka. Po source commitu musí integrátor tyto čtyři dvojice
+přijmout standardním
+`--write-baseline --accept-edge` během z čistého klonu a poté znovu spustit
+focused i compatibility baterii. Jde o očekávanou dvoucommitovou provenance
+hranici, nikoli zelený stav tohoto mezikroku.
+
+Checkpoint nevydává proof, claim, provider mutation, runtime binding ani
+broadcast a nemění L0-9. Gate 1 zůstává `BLOCKED` na rozhodnutí 015, proof
+issuance, terminal activation/restore, negotiated Studio wire, VRAM authority a
+autorizovanou GPU evidenci.

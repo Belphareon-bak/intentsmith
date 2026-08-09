@@ -7,6 +7,7 @@
 // verification, broadcast, automatic failover or scheduler work itself.
 
 import { randomUUID } from 'node:crypto';
+import { readModelSettings } from '../db/user-settings.js';
 import { canonicalModelName } from './model-identity.js';
 
 export const MODEL_FAILOVER_POLICY_VERSION = 'd-plus-v1';
@@ -15,7 +16,17 @@ export const MAX_MODEL_FAILOVER_CLAIM_MS = 5 * 60 * 1000;
 export const MAX_MODEL_BINDING_PROVIDER_CLAIM_MS = 5 * 60 * 1000;
 export const MODEL_BINDING_VERIFICATION_METHOD = 'OLLAMA_CHAT_EXACT_DIGEST_V1';
 
-const ROLES = new Set(['D1', 'D2', 'CODE', 'R1', 'R2', 'CHAT', 'VISION']);
+export const MODEL_FAILOVER_ROLES = Object.freeze([
+  'D1',
+  'D2',
+  'CODE',
+  'R1',
+  'R2',
+  'CHAT',
+  'VISION',
+]);
+
+const ROLES = new Set(MODEL_FAILOVER_ROLES);
 const OBSERVABLE_DESIRED_SOURCES = new Set([
   'CONFIG_DEFAULT',
   'LEGACY_OVERRIDE',
@@ -131,6 +142,18 @@ function requireInput(value) {
     fail('MODEL_FAILOVER_INPUT_INVALID', 'Model failover input must be a plain object');
   }
   return value;
+}
+
+function requireCoordinatorPolicy(db, required) {
+  if (!required) return;
+  const policy = readModelSettings(db);
+  if (policy.valid !== true || policy.settings?.autoFailoverEnabled !== true) {
+    fail(
+      'MODEL_FAILOVER_AUTO_FAILOVER_DISABLED',
+      'Automatic failover policy is not enabled inside the write transaction',
+      { reason: policy.reason || 'AUTO_FAILOVER_DISABLED' },
+    );
+  }
 }
 
 function rejectAuthorityOverrides(input, fields) {
@@ -2729,14 +2752,41 @@ export class ModelFailoverRepository {
       fail('MODEL_FAILOVER_SOURCE_INVALID', 'Unknown desired binding source', { source });
     }
     const actor = requireString(input.actor, 'actor');
+    if (input.expectedAbsent !== undefined && input.expectedAbsent !== true) {
+      fail(
+        'MODEL_FAILOVER_EXPECTED_ABSENT_INVALID',
+        'expectedAbsent may only be the literal true',
+      );
+    }
+    const expectedAbsent = input.expectedAbsent === true;
+    if (input.requireAutoFailoverEnabled !== undefined
+      && input.requireAutoFailoverEnabled !== true) {
+      fail(
+        'MODEL_FAILOVER_POLICY_REQUIREMENT_INVALID',
+        'requireAutoFailoverEnabled may only be the literal true',
+      );
+    }
+    const policyRequired = input.requireAutoFailoverEnabled === true;
 
     return this.#write('observeDesiredBinding', () => {
+      requireCoordinatorPolicy(this.db, policyRequired);
       const existing = this.#desiredRow(role);
       if (existing
         && existing.canonical_name === canonicalName
         && existing.digest_sha256 === digestSha256
         && existing.source === source) {
         return { outcome: 'UNCHANGED', binding: mapDesired(existing) };
+      }
+      if (expectedAbsent && existing) {
+        fail(
+          'MODEL_FAILOVER_STALE_DESIRED',
+          'Desired binding appeared before the initial observation committed',
+          {
+            role,
+            actualDesiredRevision: existing.binding_revision,
+            actualSource: existing.source,
+          },
+        );
       }
       if (existing) {
         const pendingProvider = this.#pendingProviderOperation(
@@ -3226,8 +3276,24 @@ export class ModelFailoverRepository {
       input.expectedDesiredRevision,
       'expectedDesiredRevision',
     );
+    if (input.detectionOnly !== undefined && input.detectionOnly !== true) {
+      fail(
+        'MODEL_FAILOVER_DETECTION_ONLY_INVALID',
+        'detectionOnly may only be the literal true',
+      );
+    }
+    const detectionOnly = input.detectionOnly === true;
+    if (input.requireAutoFailoverEnabled !== undefined
+      && input.requireAutoFailoverEnabled !== true) {
+      fail(
+        'MODEL_FAILOVER_POLICY_REQUIREMENT_INVALID',
+        'requireAutoFailoverEnabled may only be the literal true',
+      );
+    }
+    const policyRequired = input.requireAutoFailoverEnabled === true;
 
     return this.#write('recordDetection', () => {
+      requireCoordinatorPolicy(this.db, policyRequired);
       const desired = this.#desiredRow(role);
       if (!desired) {
         fail('MODEL_FAILOVER_DESIRED_MISSING', 'Cannot detect failover without a desired binding', { role });
@@ -3238,6 +3304,20 @@ export class ModelFailoverRepository {
           expectedDesiredRevision,
           actualDesiredRevision: desired.binding_revision,
         });
+      }
+      let existing = this.#stateRow(role);
+      if (detectionOnly && existing) {
+        const exactUnclaimedDetection = existing.desired_revision === expectedDesiredRevision
+          && existing.state === 'DETECTED'
+          && existing.active_failover === 0
+          && existing.claim_token === null;
+        if (!exactUnclaimedDetection) {
+          fail('MODEL_FAILOVER_INCIDENT_EXISTS', 'A failover incident already exists for this role', {
+            role,
+            episodeId: existing.episode_id,
+            state: existing.state,
+          });
+        }
       }
       if (MANUAL_DESIRED_SOURCES.has(desired.source)) {
         const operation = this.#currentManualOperation(desired);
@@ -3255,8 +3335,7 @@ export class ModelFailoverRepository {
           },
         );
       }
-      let existing = this.#stateRow(role);
-      if (existing?.state === 'SUPERSEDED_BY_USER') {
+      if (!detectionOnly && existing?.state === 'SUPERSEDED_BY_USER') {
         this.#retireSupersededIncident(existing);
         existing = null;
       }

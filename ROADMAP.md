@@ -755,6 +755,26 @@ focused regression sady.
      libovolný jiný `SQLITE_CONSTRAINT_TRIGGER`, včetně podobného prefixu,
      zůstává `MODEL_FAILOVER_STORAGE_CONTRACT`. Focused test tuto hranici
      mutačně připíná a žádný proof, provider effect ani runtime binding nemění.
+     **Čtrnáctý checkpoint zapojuje pouze digest-bound detection:** samostatný
+     koordinátor po explicitním literal-true opt-inu používá jeden strict
+     loopback inventory snapshot ze stejného provideru jako manual binding.
+     Celý snapshot a stabilita sedmi runtime bindingů projdou před prvním
+     zápisem; poslední policy check je součástí stejné `BEGIN IMMEDIATE`
+     transakce jako každý durable efekt. Koordinátor drží dva frozen detection
+     porty — pět repository metod a jedinou inventory metodu — ne plný
+     repository/provider.
+     Smí pouze poprvé uložit exact
+     `CONFIG_DEFAULT` nebo `LEGACY_OVERRIDE` desired baseline podložený jedním
+     operationless `LEGACY_UNVERIFIED` compatibility override a
+     nad shodnou persisted revision idempotentně vytvořit `DETECTED`.
+     Existující desired binding nikdy neposouvá. Empty, malformed nebo
+     canonical-ambiguous inventory, unseeded missing, digest/runtime drift,
+     manual authority, nevysvětlený override, terminální incident a race
+     končí bez aktivace. Produkční pětiminutový poll je recursive
+     single-flight, zachovává první dosavadní delay a už nezahazuje výsledek
+     přes `.catch(() => {})`. Checkpoint nemá proof, claim, recommendation,
+     pull/delete, runtime binding ani broadcast autoritu; automatic
+     activation/restore zůstává otevřená.
 3. **Connector:** adaptér `ModelRequest/Result` v1; nemění schéma.
 4. **Závislost:** `WP-M1-CONTRACT`; offline fake běhy nečekají na GPU.
 5. **Demo:** skutečná Ollama odpověď; negativní unavailable cesta používá
@@ -1273,9 +1293,10 @@ mohou pokračovat.
    produkční kompatibilitě jeden nedělitelný source candidate. Review jednotkou
    je `0a6bde54` spolu s opravným `7c4aa73c`; výsledné SHA `7c4aa73c` prošlo
    čistým lokálním klonem, offline instalací a celou focused/compatibility
-   baterií. Otevřené
-   zůstávají proof issuer, terminal failover activation/restore a scheduler.
-   Failover se dosud neaktivuje. Proof issuance
+   baterií. Navazující detection-only koordinátor už po opt-inu ukládá exact
+   desired baseline a `DETECTED`, ale nevybírá fallback a nemá claim, proof ani
+   runtime autoritu. Otevřené zůstávají proof issuer a terminal failover
+   activation/restore. Failover se dosud neaktivuje. Proof issuance
    čeká na prahy a TTL z rozhodnutí 015; nový skutečný GPU běh zůstává
    samostatnou blokovanou evidencí, dokud není legitimně čistý checkout.
 7. B4 má focused implementované 011/A, obě poloviny 014/A a obě poloviny
