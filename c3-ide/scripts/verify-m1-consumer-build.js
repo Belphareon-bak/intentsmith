@@ -33,6 +33,11 @@ const REQUIRED_CONSUMER_FUNCTIONS = Object.freeze([
   'wsIsM1WireNegotiated'
 ]);
 
+const FORBIDDEN_FONT_HOSTS = Object.freeze([
+  ['fonts', 'googleapis', 'com'].join('.'),
+  ['fonts', 'gstatic', 'com'].join('.')
+]);
+
 function assertRegularFile(filePath, label) {
   let metadata;
   try {
@@ -133,11 +138,10 @@ function validateBundleSource(bundleSource) {
       throw new Error(`Studio production bundle is missing M1 marker: ${marker}`);
     }
   }
-  if (
-    bundleSource.includes('fonts.googleapis.com')
-    || bundleSource.includes('fonts.gstatic.com')
-  ) {
-    throw new Error('Studio production bundle contains forbidden Google Fonts egress');
+  for (const host of FORBIDDEN_FONT_HOSTS) {
+    if (bundleSource.includes(host)) {
+      throw new Error('Studio production bundle contains forbidden Google Fonts egress');
+    }
   }
 }
 

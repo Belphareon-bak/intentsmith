@@ -999,10 +999,10 @@ Jde o důkaz skutečného compiled consumeru, nikoli o negotiated Electron
 journey: aplikace, backend, Ollama ani GPU nebyly spuštěny. Produkční ACK a
 celý B4 proto zůstávají `BLOCKED`.
 
-## Checkpoint 19 — fail-closed postbuild consumer guard candidate
+## Checkpoint 19 — fail-closed postbuild consumer guard
 
 - **automatický build guard:** `IMPLEMENTED / FOCUSED PASS`
-- **nový clean-clone build tohoto guardu:** čeká na commitnutý source SHA
+- **clean-clone build tohoto guardu:** `PASS` na `387ff5a3`
 - **produkční ACK / Electron journey / celý B4:** nadále `BLOCKED`
 
 Root Studio `build` nově pokračuje přes `postbuild`, který čte skutečný
@@ -1029,7 +1029,31 @@ evidence:
 | `node --check tests/m1-studio-client.test.js` | syntax valid | 0 |
 | `node tests/m1-studio-client.test.js` | 87 passed, 0 failed, 0 skipped | 0 |
 
+Disposable lokální clone `/tmp/intentsmith-m1-postbuild-k46gBRaq` byl detached
+na přesném SHA `387ff5a3c10c360ac836918f2aee38770a5fad90` a provedl:
+
+| Příkaz | Výsledek | Exit |
+|---|---|---:|
+| `corepack yarn install --frozen-lockfile --offline --non-interactive` v `c3-ide/` | Yarn 1.22.22 frozen offline install; pouze peer/engine warnings | 0 |
+| `corepack yarn build` v `c3-ide/` | forced protocol compile, Theia production build a automatický `STUDIO_M1_BUILD_CONSUMER_PASS` | 0 |
+| `node tests/m1-studio-client.test.js` v clone | 87 passed, 0 failed, 0 skipped | 0 |
+| `git status --porcelain=v1 --untracked-files=all` a `git diff --check` | prázdné; install/build output zůstal ignored | 0 |
+
+Automatický PASS na Node `v22.21.1` zaznamenal production bundle
+11 751 013 B / SHA-256
+`746f3671d9e7a5fed240791cb0dafb45f9369b750f64a1a5faaed9bb54b0a19a`,
+autoritativní consumer 44 722 B / SHA-256
+`feafc54a231981da5442e7ceb426d42796c3783b0e5001f9cff59e1a2061d999`
+a generated protocol 1 161 B / SHA-256
+`cdad67d9d818f845be3e6b6963b9befbecd4664b5ed1733af40df4883ad18f92`.
+Webpack vydal pouze známé performance/dynamic-require warnings.
+
+Následný repository-hygiene běh nad source commitem správně odmítl doslovné
+font hosty uvnitř samotného denylistu. Scanner se neoslabil: guard nyní skládá
+stejné dvě kanonické hodnoty z přesných segmentů, zatímco focused test drží
+jejich nezávislé plné řetězce. Aktuální opravný source SHA musí znovu projít
+clean-clone buildem, než se tento PASS propíše do roadmapy.
+
 Marker guard je přítomnostní build integrita, nikoli behavioral journey ani
-důkaz produkčně negotiated spojení. Skutečný `postbuild` se proto ještě musí
-spustit z čistého klonu přesného commitnutého SHA; do té doby se tento
-checkpoint nevydává za fresh-clone PASS.
+důkaz produkčně negotiated spojení. Backend, Electron runtime, Ollama, GPU ani
+externí síť nebyly spuštěny; B4 a Gate 1 proto zůstávají `BLOCKED`.
