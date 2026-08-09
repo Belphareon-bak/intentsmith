@@ -721,9 +721,10 @@ běhu neodvozují.
 1. Generated protocol prebuild část 010/A+ je clean-clone ověřená. Zbývá dodat
    feature-negotiated M1 wire, skutečný product-bundle consumer a terminal
    ledger. Call-graph trasování po clean-clone běhu ukázalo tři dosud
-   neurčené veřejné významy: vlastnictví feature tokenu, exact transportní
-   wrapper pro legacy context a ordering cílového/cancel terminálu. Jsou
-   shromážděné v
+   neurčené veřejné významy: vlastnictví feature tokenu a exact transportní
+   wrapper pro legacy context. Původně uvažovaná třetí otázka — ordering
+   cílového a cancel terminálu — už závazně plyne z 004/C a znovu se
+   neotevírá. Dva skutečné BLOCKy jsou shromážděné v
    [`rozhodnutí 017`](../../decisions/017-m1-negotiated-wire-shape.md); do jeho
    přijetí se wire neimplementuje skrytým defaultem.
 2. Async attachment callback je focused uzavřený Findingem 009: reset,

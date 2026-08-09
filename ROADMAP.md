@@ -1131,8 +1131,9 @@ mohou pokračovat.
    wire přes produkční WS server, route a commitnutý klient je také hotový.
    Generated prebuild část 010/A+ je implementovaná a clean-clone ověřená;
    negotiated wire nyní čeká na jediný operátorský balík
-   [017](docs/decisions/017-m1-negotiated-wire-shape.md): feature token,
-   exact transportní context wrapper a cancel terminal ordering. Ostatní
+   [017](docs/decisions/017-m1-negotiated-wire-shape.md): feature token a
+   exact transportní context wrapper. Cancel terminal ordering už závazně
+   plyne z přijatého 004/C a není nová otázka. Ostatní
    nezávislá příprava product-bundle consumeru může pokračovat před terminal
    ledgerem a built journey. Read-only review může běžet
    souběžně; GPU běhy nikdy.
