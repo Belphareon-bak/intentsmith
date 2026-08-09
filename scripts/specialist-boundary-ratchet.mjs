@@ -497,6 +497,14 @@ function proveComputedPackageLocal({ root, packageRoot, file, tokens, computedIm
     tokens[index]?.type === 'identifier' && tokens[index].value === value
   );
   const isValue = (index, value) => tokens[index]?.value === value;
+  const enclosingBraces = (targetIndex) => {
+    const stack = [];
+    for (let index = 0; index < targetIndex; index += 1) {
+      if (isValue(index, '{')) stack.push(index);
+      else if (isValue(index, '}')) stack.pop();
+    }
+    return stack;
+  };
   const anchors = [];
   for (let index = 0; index < tokens.length; index += 1) {
     if (!isIdentifier(index, 'toolsDir') || !isValue(index + 1, '=')) continue;
@@ -617,6 +625,15 @@ function proveComputedPackageLocal({ root, packageRoot, file, tokens, computedIm
   }
   if (canonicalLoops.length !== 1 || toolsBindings[0] >= canonicalLoops[0].index) {
     throw new BoundaryError('UNPROVEN_COMPUTED_IMPORT', `${from}: exact for (const tool of tools) loader loop is required`);
+  }
+  const bindingScope = enclosingBraces(toolsBindings[0]);
+  const loopScope = enclosingBraces(canonicalLoops[0].index);
+  if (bindingScope.length !== loopScope.length
+      || bindingScope.some((brace, index) => brace !== loopScope[index])) {
+    throw new BoundaryError(
+      'UNPROVEN_COMPUTED_IMPORT',
+      `${from}: tools binding and loader loop must share the exact lexical scope`,
+    );
   }
   for (let index = toolsBindings[0] + 1; index < canonicalLoops[0].index; index += 1) {
     if (isIdentifier(index, 'tools')) {

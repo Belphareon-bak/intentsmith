@@ -271,6 +271,19 @@ export async function load() {
 
     write(
       sourcePath,
+      original
+        .replace('export async function register(input)', 'export async function register(tools)')
+        .replace(
+          '  const tools = buildToolDefinitions(toolsDir);',
+          '  { const tools = buildToolDefinitions(toolsDir); }',
+        ),
+    );
+    const callerScopeShadow = run(repo, ['--require-clean']);
+    assertStatus(callerScopeShadow, 2);
+    assertIncludes(callerScopeShadow, 'tools binding and loader loop must share the exact lexical scope');
+
+    write(
+      sourcePath,
       `${computedSource({ anchor: 'input.toolsDir' })}\n/* const toolsDir = path.join(__dirname, 'tools'); */\n`,
     );
     const decoy = run(repo, ['--require-clean']);
