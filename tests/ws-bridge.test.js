@@ -37,7 +37,13 @@ import {
   negotiateFeatures,
 } from '../src/ws-bridge/protocol.js';
 
-import { createSessionAdapter } from '../src/ws-bridge/session-adapter.js';
+import {
+  createSessionAdapter,
+  validateM1StudioContext,
+  validateM1StudioFrame,
+} from '../src/ws-bridge/session-adapter.js';
+import * as m1ProtocolRuntime from '../contracts/m1/index.js';
+const { validateCoreEventStream } = m1ProtocolRuntime;
 import { logger } from '../src/core/logger.js';
 import { finalizeChatResponse } from '../src/chat/response-finalizer.js';
 import { createChatRoutes } from '../src/routes/chat.js';
@@ -1573,6 +1579,683 @@ test('T23a: every partial M1 wrapper is intercepted before legacy routing', () =
   );
 });
 
+function m1StudioFrame(suffix, {
+  action = 'send',
+  input = 'Ahoj z M1',
+  conversationId = `m1-conversation-${suffix}`,
+  requestId = `m1-request-${suffix}`,
+  turnId = `m1-turn-${suffix}`,
+  context = {},
+} = {}) {
+  const command = {
+    contract: 'ConversationCommand',
+    version: 1,
+    requestId,
+    conversationId,
+    turnId,
+    action,
+  };
+  if (action === 'send') command.input = input;
+  return {
+    command,
+    context: {
+      editMode: 'ask',
+      agentId: null,
+      projectId: null,
+      attachments: [],
+      ...context,
+    },
+  };
+}
+
+function m1EventStream(sent, requestId) {
+  return sent
+    .filter(message => (
+      message.channel === 'chat'
+      && message.data?.contract === 'CoreEvent'
+      && message.data.requestId === requestId
+    ))
+    .map(message => message.data);
+}
+
+test('T23b: M1 Studio frame and context are exact and attachment path stays parked', () => {
+  assert.equal(validateM1StudioFrame(m1StudioFrame('valid')).valid, true);
+
+  const unknownOuter = m1StudioFrame('outer');
+  unknownOuter.fallback = 'legacy';
+  assert.equal(validateM1StudioFrame(unknownOuter).valid, false);
+
+  const unknownContext = m1StudioFrame('context');
+  unknownContext.context.cwd = '/must/not/become/authority';
+  assert.equal(validateM1StudioFrame(unknownContext).valid, false);
+
+  const pathAttachment = m1StudioFrame('attachment');
+  pathAttachment.context.attachments = [{ path: '/private/file' }];
+  const attachmentResult = validateM1StudioFrame(pathAttachment);
+  assert.equal(attachmentResult.valid, false);
+  assert.equal(
+    attachmentResult.errors.includes(
+      'm1-studio-frame.context.m1-studio-context:attachments-parked',
+    ),
+    true,
+  );
+
+  assert.equal(validateM1StudioContext({
+    editMode: 'ask',
+    agentId: 'agent-1',
+    projectId: '42',
+    attachments: [],
+  }).valid, true);
+  assert.equal(validateM1StudioContext({
+    editMode: 'unsafe',
+    agentId: null,
+    projectId: null,
+    attachments: [],
+  }).valid, false);
+});
+
+await asyncTest('T23c: M1 adapter preserves identity and emits one canonical stream only', async () => {
+  const sent = [];
+  const frame = m1StudioFrame('canonical', {
+    context: { projectId: '42', agentId: 'agent-7' },
+  });
+  let effects = 0;
+  const adapter = createSessionAdapter({
+    send: encoded => sent.push(JSON.parse(encoded)),
+    handleRequest: async request => {
+      effects++;
+      assert.equal(request.requestId, frame.command.requestId);
+      assert.equal(request.conversationId, frame.command.conversationId);
+      assert.equal(request.turnId, frame.command.turnId);
+      assert.equal(request.projectId, '42');
+      assert.equal(request.context.agentId, 'agent-7');
+      return {
+        response: 'Kanonická odpověď',
+        mode: 'conversation',
+        confidence: 0.9,
+        state: {},
+      };
+    },
+    logger: mockLogger,
+  });
+
+  try {
+    await adapter.processM1Command(frame);
+  } finally {
+    adapter.cleanup();
+  }
+
+  const events = sent
+    .filter(message => message.channel === 'chat' && message.data?.contract === 'CoreEvent')
+    .map(message => message.data);
+  assert.equal(effects, 1);
+  assert.equal(events.length >= 2, true);
+  assert.equal(validateCoreEventStream(events).valid, true);
+  assert.deepEqual(
+    [...new Set(events.map(event => event.requestId))],
+    [frame.command.requestId],
+  );
+  assert.equal(events.at(-1).terminalStatus, 'ok');
+  assert.equal(events.at(-1).payload.result.response.content, 'Kanonická odpověď');
+  assert.equal(
+    sent.some(message => message.channel === 'agent'),
+    false,
+    'M1 must not emit legacy agent turn events',
+  );
+  assert.equal(
+    sent.some(message => message.channel === 'chat' && message.data?.type === 'assistant'),
+    false,
+    'M1 must not emit a legacy assistant envelope',
+  );
+});
+
+await asyncTest('T23d: malformed M1 frame fails before the controller effect', async () => {
+  let effects = 0;
+  const adapter = createSessionAdapter({
+    send: () => {},
+    handleRequest: async () => {
+      effects++;
+      return { response: 'must-not-run' };
+    },
+    logger: mockLogger,
+  });
+  const malformed = m1StudioFrame('malformed');
+  malformed.context.attachments = [{ name: 'secret.txt', path: '/secret' }];
+  try {
+    await assert.rejects(
+      adapter.processM1Command(malformed),
+      error => error?.code === 'M1_STUDIO_FRAME_INVALID',
+    );
+  } finally {
+    adapter.cleanup();
+  }
+  assert.equal(effects, 0);
+});
+
+await asyncTest('T23e: target cancellation terminal precedes the cancel command terminal', async () => {
+  const sent = [];
+  const target = m1StudioFrame('cancel-target');
+  const cancel = m1StudioFrame('cancel-command', {
+    action: 'cancel',
+    conversationId: target.command.conversationId,
+  });
+  const adapter = createSessionAdapter({
+    send: encoded => sent.push(JSON.parse(encoded)),
+    handleRequest: async request => new Promise((_resolve, reject) => {
+      request.signal.addEventListener('abort', () => reject(request.signal.reason), {
+        once: true,
+      });
+    }),
+    logger: mockLogger,
+  });
+
+  try {
+    const targetRun = adapter.processM1Command(target);
+    await new Promise(resolve => setImmediate(resolve));
+    const cancelRun = adapter.processM1Command(cancel);
+    await Promise.all([targetRun, cancelRun]);
+  } finally {
+    adapter.cleanup();
+  }
+
+  const terminalEvents = sent
+    .filter(message => (
+      message.channel === 'chat'
+      && message.data?.contract === 'CoreEvent'
+      && message.data.phase === 'terminal'
+    ))
+    .map(message => message.data);
+  assert.deepEqual(
+    terminalEvents.map(event => event.requestId),
+    [target.command.requestId, cancel.command.requestId],
+  );
+  assert.deepEqual(
+    terminalEvents.map(event => event.terminalStatus),
+    ['cancelled', 'cancelled'],
+  );
+  assert.equal(
+    validateCoreEventStream(
+      sent
+        .filter(message => message.data?.requestId === target.command.requestId)
+        .map(message => message.data),
+    ).valid,
+    true,
+  );
+  assert.equal(
+    validateCoreEventStream(
+      sent
+        .filter(message => message.data?.requestId === cancel.command.requestId)
+        .map(message => message.data),
+    ).valid,
+    true,
+  );
+});
+
+await asyncTest('T23ea: concurrent cancel commands idempotently share the target terminal', async () => {
+  const sent = [];
+  const target = m1StudioFrame('cancel-shared-target');
+  const cancelA = m1StudioFrame('cancel-shared-A', {
+    action: 'cancel',
+    conversationId: target.command.conversationId,
+  });
+  const cancelB = m1StudioFrame('cancel-shared-B', {
+    action: 'cancel',
+    conversationId: target.command.conversationId,
+  });
+  const adapter = createSessionAdapter({
+    send: encoded => sent.push(JSON.parse(encoded)),
+    handleRequest: async request => new Promise((_resolve, reject) => {
+      request.signal.addEventListener('abort', () => reject(request.signal.reason), {
+        once: true,
+      });
+    }),
+    logger: mockLogger,
+  });
+
+  try {
+    const targetRun = adapter.processM1Command(target);
+    await new Promise(resolve => setImmediate(resolve));
+    const cancelRunA = adapter.processM1Command(cancelA);
+    const cancelRunB = adapter.processM1Command(cancelB);
+    await Promise.all([targetRun, cancelRunA, cancelRunB]);
+  } finally {
+    adapter.cleanup();
+  }
+
+  const terminalEvents = sent
+    .filter(message => message.data?.phase === 'terminal')
+    .map(message => message.data);
+  assert.equal(terminalEvents[0].requestId, target.command.requestId);
+  assert.deepEqual(
+    new Set(terminalEvents.slice(1).map(event => event.requestId)),
+    new Set([cancelA.command.requestId, cancelB.command.requestId]),
+  );
+  assert.deepEqual(
+    terminalEvents.map(event => event.terminalStatus),
+    ['cancelled', 'cancelled', 'cancelled'],
+  );
+  for (const frame of [target, cancelA, cancelB]) {
+    assert.equal(validateCoreEventStream(
+      m1EventStream(sent, frame.command.requestId),
+    ).valid, true);
+  }
+});
+
+await asyncTest('T23eaa: M1 cancel and busy negative terminals are exact', async () => {
+  const sent = [];
+  let releaseBusyTarget;
+  const busyTarget = m1StudioFrame('busy-target');
+  const busySecond = m1StudioFrame('busy-second', {
+    conversationId: busyTarget.command.conversationId,
+  });
+  const adapter = createSessionAdapter({
+    send: encoded => sent.push(JSON.parse(encoded)),
+    handleRequest: request => new Promise((resolve, reject) => {
+      releaseBusyTarget = resolve;
+      request.signal.addEventListener('abort', () => reject(request.signal.reason), {
+        once: true,
+      });
+    }),
+    logger: mockLogger,
+  });
+
+  try {
+    const targetRun = adapter.processM1Command(busyTarget);
+    await new Promise(resolve => setImmediate(resolve));
+    await adapter.processM1Command(busySecond);
+    const identityConflict = m1StudioFrame('identity-conflict', {
+      action: 'cancel',
+      conversationId: busyTarget.command.conversationId,
+      requestId: busyTarget.command.requestId,
+    });
+    await assert.rejects(
+      adapter.processM1Command(identityConflict),
+      error => error?.code === 'M1_WS_CANCEL_IDENTITY_CONFLICT',
+    );
+    assert.equal(m1EventStream(sent, identityConflict.command.requestId).length > 0, true);
+    assert.equal(
+      m1EventStream(sent, identityConflict.command.requestId).every(event => (
+        event.turnId === busyTarget.command.turnId
+      )),
+      true,
+      'identity-conflicting cancel must not append to the target stream',
+    );
+    const realCancel = m1StudioFrame('busy-target-cancel', {
+      action: 'cancel',
+      conversationId: busyTarget.command.conversationId,
+    });
+    await Promise.all([targetRun, adapter.processM1Command(realCancel)]);
+
+    const inactiveCancel = m1StudioFrame('inactive-cancel', {
+      action: 'cancel',
+      conversationId: 'm1-conversation-without-active-turn',
+    });
+    await adapter.processM1Command(inactiveCancel);
+
+    const expected = [
+      [busySecond, 'error', 'M1_CONVERSATION_BUSY'],
+      [busyTarget, 'cancelled', 'CHAT_CANCELLED'],
+      [realCancel, 'cancelled', 'CHAT_CANCELLED'],
+      [inactiveCancel, 'error', 'M1_WS_CANCEL_NOT_ACTIVE'],
+    ];
+    for (const [frame, status, code] of expected) {
+      const stream = m1EventStream(sent, frame.command.requestId);
+      assert.equal(validateCoreEventStream(stream).valid, true, code);
+      assert.equal(stream.at(-1).terminalStatus, status, code);
+      assert.equal(stream.at(-1).payload.result.error.code, code);
+    }
+  } finally {
+    if (releaseBusyTarget) releaseBusyTarget({ response: 'unused' });
+    adapter.cleanup();
+  }
+});
+
+await asyncTest('T23eab: M1 cancel distinguishes target timeout from confirmation timeout', async () => {
+  {
+    const sent = [];
+    let staleNow = 1_000;
+    let sweepStaleTurns = null;
+    const target = m1StudioFrame('cancel-target-timeout');
+    const cancel = m1StudioFrame('cancel-target-timeout-command', {
+      action: 'cancel',
+      conversationId: target.command.conversationId,
+    });
+    const adapter = createSessionAdapter({
+      send: encoded => sent.push(JSON.parse(encoded)),
+      handleRequest: request => new Promise((_resolve, reject) => {
+        request.signal.addEventListener('abort', () => reject(request.signal.reason), {
+          once: true,
+        });
+      }),
+      logger: mockLogger,
+      staleTurnMs: 20,
+      staleClock: {
+        now: () => staleNow,
+        setInterval: callback => {
+          sweepStaleTurns = callback;
+          return Symbol('m1-stale-sweep');
+        },
+        clearInterval: () => {},
+      },
+    });
+    try {
+      const targetRun = adapter.processM1Command(target);
+      staleNow += 21;
+      sweepStaleTurns();
+      const cancelRun = adapter.processM1Command(cancel);
+      await Promise.all([targetRun, cancelRun]);
+    } finally {
+      adapter.cleanup();
+    }
+    const targetStream = m1EventStream(sent, target.command.requestId);
+    const cancelStream = m1EventStream(sent, cancel.command.requestId);
+    assert.equal(validateCoreEventStream(targetStream).valid, true);
+    assert.equal(targetStream.at(-1).terminalStatus, 'timeout');
+    assert.equal(validateCoreEventStream(cancelStream).valid, true);
+    assert.equal(cancelStream.at(-1).terminalStatus, 'error');
+    assert.equal(
+      cancelStream.at(-1).payload.result.error.code,
+      'M1_WS_CANCEL_NOT_CONFIRMED',
+    );
+  }
+
+  {
+    const sent = [];
+    let releaseTarget;
+    const target = m1StudioFrame('cancel-confirmation-timeout-target');
+    const cancel = m1StudioFrame('cancel-confirmation-timeout-command', {
+      action: 'cancel',
+      conversationId: target.command.conversationId,
+    });
+    const adapter = createSessionAdapter({
+      send: encoded => sent.push(JSON.parse(encoded)),
+      handleRequest: () => new Promise(resolve => { releaseTarget = resolve; }),
+      logger: mockLogger,
+      m1CancelConfirmationTimeoutMs: 5,
+    });
+    try {
+      const targetRun = adapter.processM1Command(target);
+      await new Promise(resolve => setImmediate(resolve));
+      await adapter.processM1Command(cancel);
+      releaseTarget({ response: 'late after abort', mode: 'conversation', confidence: 1 });
+      await targetRun;
+    } finally {
+      adapter.cleanup();
+    }
+    const cancelStream = m1EventStream(sent, cancel.command.requestId);
+    assert.equal(validateCoreEventStream(cancelStream).valid, true);
+    assert.equal(cancelStream.at(-1).terminalStatus, 'timeout');
+    assert.equal(cancelStream.at(-1).payload.result.error.code, 'CHAT_TIMEOUT');
+    assert.equal(
+      m1EventStream(sent, target.command.requestId).at(-1).terminalStatus,
+      'cancelled',
+    );
+  }
+});
+
+await asyncTest('T23eb: M1 edit conflict stays on the canonical stream', async () => {
+  const sent = [];
+  let resolveEditRequest;
+  const editRequestSeen = new Promise(resolve => { resolveEditRequest = resolve; });
+  const frame = m1StudioFrame('edit-conflict');
+  const ownedFile = path.join(isolatedTestRuntime.runtime, 'm1-edit-conflict.txt');
+  fs.writeFileSync(ownedFile, 'original', 'utf8');
+  const adapter = createSessionAdapter({
+    send: encoded => {
+      const message = JSON.parse(encoded);
+      sent.push(message);
+      if (message.data?.eventType === 'edit_request') resolveEditRequest(message);
+    },
+    handleRequest: async request => {
+      await request.context.onToolCall('fs.write', {
+        path: ownedFile,
+        content: 'replacement',
+      });
+      return { response: 'must-not-complete' };
+    },
+    logger: mockLogger,
+  });
+
+  try {
+    const run = adapter.processM1Command(frame);
+    let editRequestTimer;
+    const editRequest = await Promise.race([
+      editRequestSeen,
+      new Promise((_, reject) => {
+        editRequestTimer = setTimeout(
+          () => reject(new Error(`M1 edit request was not emitted: ${JSON.stringify(sent)}`)),
+          1000,
+        );
+      }),
+    ]).finally(() => clearTimeout(editRequestTimer));
+    fs.writeFileSync(ownedFile, 'changed-after-request', 'utf8');
+    adapter.handleControl({
+      action: 'edit_approve',
+      requestId: editRequest.data.payload.reqId,
+    });
+    await run;
+  } finally {
+    adapter.cleanup();
+  }
+
+  const events = sent
+    .filter(message => message.channel === 'chat' && message.data?.contract === 'CoreEvent')
+    .map(message => message.data);
+  assert.equal(validateCoreEventStream(events).valid, true);
+  assert.equal(events.some(event => event.eventType === 'edit_conflict'), true);
+  assert.equal(events.at(-1).terminalStatus, 'error');
+  assert.equal(sent.some(message => message.channel === 'agent'), false);
+  assert.equal(
+    sent.some(message => message.channel === 'chat' && message.data?.contract !== 'CoreEvent'),
+    false,
+  );
+});
+
+await asyncTest('T23f: provider and timeout failures have one canonical terminal only', async () => {
+  const cases = [
+    {
+      suffix: 'provider-error',
+      error: new LLMProviderUnavailableError('LLM_CALL_FAILED'),
+      expectedStatus: 'error',
+      expectedCode: 'LLM_PROVIDER_UNAVAILABLE',
+    },
+    {
+      suffix: 'provider-timeout',
+      error: createAbortError(AbortSource.TIMEOUT, 'bounded provider timeout'),
+      expectedStatus: 'timeout',
+      expectedCode: 'CHAT_TIMEOUT',
+    },
+  ];
+
+  for (const candidate of cases) {
+    const sent = [];
+    const frame = m1StudioFrame(candidate.suffix);
+    const adapter = createSessionAdapter({
+      send: encoded => sent.push(JSON.parse(encoded)),
+      handleRequest: async () => { throw candidate.error; },
+      logger: mockLogger,
+    });
+    try {
+      await adapter.processM1Command(frame);
+    } finally {
+      adapter.cleanup();
+    }
+    const events = sent
+      .filter(message => message.channel === 'chat' && message.data?.contract === 'CoreEvent')
+      .map(message => message.data);
+    assert.equal(validateCoreEventStream(events).valid, true, candidate.suffix);
+    assert.equal(events.filter(event => event.phase === 'terminal').length, 1);
+    assert.equal(events.at(-1).terminalStatus, candidate.expectedStatus);
+    assert.equal(events.at(-1).payload.result.error.code, candidate.expectedCode);
+    assert.equal(
+      sent.some(message => (
+        message.channel === 'chat'
+        && message.data?.contract !== 'CoreEvent'
+      )),
+      false,
+    );
+    assert.equal(sent.some(message => message.channel === 'agent'), false);
+  }
+});
+
+await asyncTest('T23g: parallel M1 conversations own independent identity and sequence', async () => {
+  const sent = [];
+  const releases = new Map();
+  const adapter = createSessionAdapter({
+    send: encoded => sent.push(JSON.parse(encoded)),
+    handleRequest: request => new Promise(resolve => {
+      releases.set(request.conversationId, () => resolve({
+        response: `response-${request.conversationId}`,
+        mode: 'conversation',
+        confidence: 1,
+        state: {},
+      }));
+    }),
+    logger: mockLogger,
+  });
+  const frameA = m1StudioFrame('parallel-A');
+  const frameB = m1StudioFrame('parallel-B');
+  try {
+    const runA = adapter.processM1Command(frameA);
+    const runB = adapter.processM1Command(frameB);
+    await new Promise(resolve => setImmediate(resolve));
+    releases.get(frameB.command.conversationId)();
+    releases.get(frameA.command.conversationId)();
+    await Promise.all([runA, runB]);
+  } finally {
+    adapter.cleanup();
+  }
+
+  for (const frame of [frameA, frameB]) {
+    const events = sent
+      .filter(message => message.data?.requestId === frame.command.requestId)
+      .map(message => message.data);
+    assert.equal(validateCoreEventStream(events).valid, true);
+    assert.equal(events[0].sequence, 1);
+    assert.equal(events.at(-1).terminalStatus, 'ok');
+    assert.deepEqual(
+      [...new Set(events.map(event => event.conversationId))],
+      [frame.command.conversationId],
+    );
+  }
+});
+
+await asyncTest(
+  'T25m1a: explicitly enabled M1 wire is exclusive and canonical end to end',
+  async () => {
+    const { WebSocket } = await import('ws');
+    const httpServer = createServer((_request, response) => {
+      response.writeHead(404);
+      response.end();
+    });
+    let controllerEffects = 0;
+    const wss = attachWebSocketServer(
+      httpServer,
+      {
+        handle: async request => {
+          controllerEffects++;
+          assert.equal(request.requestId, 'm1-request-live');
+          assert.equal(request.turnId, 'm1-turn-live');
+          return {
+            response: 'Live M1 response',
+            mode: 'conversation',
+            confidence: 1,
+            state: {},
+          };
+        },
+      },
+      mockLogger,
+      {
+        localCapability: createLegacyLocalCapability(),
+        m1WireSupported: true,
+      },
+    );
+    let client = null;
+
+    try {
+      const port = await listenOnOwnedLoopback(httpServer);
+      client = await connectAndHello(
+        WebSocket,
+        `ws://127.0.0.1:${port}/c3/ws`,
+        undefined,
+        undefined,
+        [M1_WIRE_FEATURE],
+      );
+      assert.deepEqual(client.receivedHelloAck.features, [M1_WIRE_FEATURE]);
+      const received = [];
+      const terminal = new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('M1 terminal timeout')), 2_000);
+        client.on('message', raw => {
+          const message = JSON.parse(raw.toString());
+          if (message.channel !== 'chat' || message.data?.contract !== 'CoreEvent') return;
+          received.push(message.data);
+          if (message.data.phase === 'terminal') {
+            clearTimeout(timer);
+            resolve(message.data);
+          }
+        });
+      });
+      client.send(JSON.stringify({
+        channel: 'chat',
+        data: m1StudioFrame('live', {
+          requestId: 'm1-request-live',
+          turnId: 'm1-turn-live',
+        }),
+      }));
+      const terminalEvent = await terminal;
+      assert.equal(terminalEvent.terminalStatus, 'ok');
+      assert.equal(validateCoreEventStream(received).valid, true);
+      assert.equal(controllerEffects, 1);
+
+      const closed = new Promise(resolve => {
+        client.once('close', (code, reason) => resolve({
+          code,
+          reason: reason.toString(),
+        }));
+      });
+      client.send(JSON.stringify({
+        channel: 'chat',
+        data: { content: 'legacy downgrade attempt' },
+      }));
+      assert.deepEqual(await closed, {
+        code: 1008,
+        reason: 'Invalid M1 chat frame',
+      });
+      assert.equal(controllerEffects, 1);
+
+      client = await connectAndHello(
+        WebSocket,
+        `ws://127.0.0.1:${port}/c3/ws`,
+        undefined,
+        undefined,
+        [M1_WIRE_FEATURE],
+      );
+      const legacyCancelClosed = new Promise(resolve => {
+        client.once('close', (code, reason) => resolve({
+          code,
+          reason: reason.toString(),
+        }));
+      });
+      client.send(JSON.stringify({
+        channel: 'control',
+        data: { action: 'cancel', conversationId: 'm1-conversation-live' },
+      }));
+      assert.deepEqual(await legacyCancelClosed, {
+        code: 1008,
+        reason: 'Legacy cancel forbidden on M1 wire',
+      });
+      assert.equal(controllerEffects, 1);
+    } finally {
+      if (client) await closeOwnedWebSocket(client);
+      if (httpServer.listening) {
+        await closeOwnedWebSocketServer(wss, httpServer);
+      } else {
+        wss.close();
+      }
+    }
+  },
+);
+
 await asyncTest(
   'T25m1: unnegotiated M1 frame closes before the legacy controller effect',
   async () => {
@@ -2001,6 +2684,10 @@ await asyncTest('T25h: Studio rehydrate composes durable ACK with the production
       },
       fetchBackendData() {},
       module: { exports: {} },
+      require(specifier) {
+        if (specifier === '@c3/protocol') return m1ProtocolRuntime;
+        throw new Error(`Unexpected VM dependency: ${specifier}`);
+      },
       setInterval: () => Symbol('interval'),
       setTimeout,
       window: {

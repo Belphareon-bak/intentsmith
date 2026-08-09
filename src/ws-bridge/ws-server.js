@@ -26,7 +26,10 @@ import {
   buildHelloReject,
   negotiateFeatures,
 } from './protocol.js';
-import { createSessionAdapter } from './session-adapter.js';
+import {
+  createSessionAdapter,
+  validateM1StudioFrame,
+} from './session-adapter.js';
 import { watchProject, unwatchProject } from './file-watcher.js';
 import { getConversationStore } from '../chat/conversation-store.js';
 import { isIdentifier } from '../../contracts/m1/shared.js';
@@ -195,10 +198,13 @@ export function getWebSocketBridgeHealth() {
  * @param {string} [options.path='/c3/ws'] — WebSocket endpoint path
  * @param {string[]} [options.allowedOrigins=[]] — Explicit local browser origins
  * @param {string} options.localCapability — Per-process opaque-origin capability
+ * @param {boolean} [options.m1WireSupported=false] — Explicit activation seam;
+ *   production remains false until B4 behavior blockers are accepted.
  * @returns {WebSocketServer}
  */
 export function attachWebSocketServer(httpServer, chatController, logger, options = {}) {
   const wsPath = options.path || '/c3/ws';
+  const m1WireSupported = options.m1WireSupported === true;
   _bridgeLogger = logger || console;
   if (!isValidLegacyLocalCapability(options.localCapability)) {
     throw new Error('WSBridge requires a valid local browser capability');
@@ -282,10 +288,9 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
           }
 
           const clientFeatures = Array.isArray(msg.features) ? msg.features : [];
-          // M1 is deliberately not advertised until its exact ingress adapter
-          // exists. The client may offer it now; required-offer negotiation is
-          // already pinned without claiming a capability the server cannot use.
-          negotiatedFeatures = Object.freeze(negotiateFeatures(clientFeatures));
+          negotiatedFeatures = Object.freeze(negotiateFeatures(clientFeatures, {
+            m1WireSupported,
+          }));
           safeSend(buildHelloAckFromNegotiatedFeatures(negotiatedFeatures));
           handshakeDone = true;
 
@@ -321,18 +326,47 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
       // ═══ Post-handshake routing ═════════════════════════════════
       if (!session) return;
 
+      const m1WireNegotiated = negotiatedFeatures.includes(M1_WIRE_FEATURE);
+      if (msg.channel === 'chat' && m1WireNegotiated) {
+        const validation = validateM1StudioFrame(msg.data);
+        if (!validation.valid) {
+          logger.warn('WSBridge', 'Rejected malformed negotiated M1 frame', {
+            errors: validation.errors,
+            ip: clientIP,
+          });
+          ws.close(1008, 'Invalid M1 chat frame');
+          return;
+        }
+        session.processM1Command(msg.data).catch(error => {
+          logger.error('WSBridge', 'M1 session adapter failed', {
+            error: error.message,
+            code: error.code || null,
+            ip: clientIP,
+          });
+          if (error.code === 'M1_WS_CANCEL_IDENTITY_CONFLICT') {
+            ws.close(1008, 'Invalid M1 command identity');
+          } else {
+            ws.close(1011, 'M1 wire adapter failure');
+          }
+        });
+        return;
+      }
+
       if (isM1ChatFrameCandidate(msg)) {
-        if (!negotiatedFeatures.includes(M1_WIRE_FEATURE)) {
+        if (!m1WireNegotiated) {
           logger.warn('WSBridge', 'Rejected M1 chat frame without negotiation', {
             ip: clientIP,
           });
           ws.close(1008, 'M1 wire not negotiated');
           return;
         }
-        // The negotiation checkpoint never lets a future frame fall through
-        // the legacy content adapter. The exact M1 adapter replaces this guard.
-        logger.error('WSBridge', 'Negotiated M1 adapter is unavailable', { ip: clientIP });
-        ws.close(1011, 'M1 wire adapter unavailable');
+      }
+
+      if (m1WireNegotiated && msg.channel === 'control' && msg.data?.action === 'cancel') {
+        logger.warn('WSBridge', 'Rejected legacy cancel on negotiated M1 session', {
+          ip: clientIP,
+        });
+        ws.close(1008, 'Legacy cancel forbidden on M1 wire');
         return;
       }
 

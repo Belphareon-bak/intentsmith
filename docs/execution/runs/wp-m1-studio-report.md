@@ -870,3 +870,54 @@ hlásil `commitsBehind=0`, exit `0`.
 
 Jde o clean-clone focused reprodukci, ne production Theia build. Build a
 Electron journey zůstávají až u exact ingress/egress a product consumeru.
+
+## Checkpoint 17 — dormantní exact M1 server adapter
+
+- **vstupní HEAD:** `fbb8a5872d97f3240a00e76800d9f237c614345a`
+- **017/Q2 server ingress/egress:** `IMPLEMENTED / FOCUSED PASS`
+- **produkční ACK / celý B4:** nadále `BLOCKED`
+
+`session-adapter.js` nyní přijímá exact `{command, context}`, zachovává tři
+command identity, validuje každý `ConversationResult` i `CoreEvent` a vede
+monotónní sequence zvlášť pro každý command. Negotiated turn nevydá legacy
+assistant, agent event ani legacy `turn_end`. Provider error, timeout, busy,
+missing cancel target a edit conflict končí jedním kanonickým terminálem.
+
+Cancel implementuje přijaté 004/C. Cílový send nejprve vydá vlastní
+`cancelled`; teprve potom každý samostatně identifikovaný cancel command vydá
+svůj `cancelled`. Více souběžných cancelů sdílí immutable completion cíle a
+každý dostane vlastní validní stream. Identity-kolidující cancel žádný event
+nevydá, protože by kontaminoval cílový stream; transport jej místo toho
+fail-closed zavře. Target timeout se odlišuje od confirmation timeoutu.
+
+Attachment context je do rozhodnutí 021 exact empty-only. Path se nedostane do
+controlleru a neprázdná kolekce skončí před efektem. Legacy shell auto-exec se
+na M1 větvi nespouští. Protože dnešní controller může přesto vrátit shell
+metadata jako chat success, produkční aktivace čeká na honest no-effect
+terminal policy z [021](../../decisions/021-m1-wire-activation-residuals.md).
+
+`attachWebSocketServer()` má explicitní `m1WireSupported=false`. Test jej smí
+zapnout injekcí, ale `src/server.js` jej nepředává; živý produkt token stále
+neACKuje. Po testově zapnutém ACK se každý chat frame validuje před controllerem
+a legacy chat i legacy control cancel zavřou socket kódem 1008.
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node --check src/ws-bridge/session-adapter.js` | syntax valid | 0 |
+| `node --check src/ws-bridge/ws-server.js` | syntax valid | 0 |
+| `node --check tests/ws-bridge.test.js` | syntax valid | 0 |
+| `node tests/ws-bridge.test.js` | 85 passed, 0 failed | 0 |
+| `node tests/m1-contract.test.js` | 26 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-chat-contract.test.js` | 21 passed, 0 failed, 0 skipped | 0 |
+| `node scripts/module-boundary-ratchet.mjs` | 1 020/1 020, 0 added, 0 removed; baseline source `7551b907`, one commit behind pre-commit HEAD | 0 |
+
+Read-only re-review původně našel tři mezery: jediného cancel waitera, legacy
+agent leak u edit conflictu a příliš úzkou failure aserci. Všechny tři byly
+opravené. Follow-up navíc požadoval negativní WS větve a validaci každého
+concurrent cancel streamu; focused sada je nyní obsahuje. T23eb stále dokládá
+jen adapterovou edit cestu, ne všechny produkční approval call sites; residual
+`P1-FX-018` tím není uzavřen.
+
+Tento checkpoint není built Studio důkaz a neaktivuje M1 v produktu. Studio
+producer/ledger je samostatný navazující commit; clean-clone build a skutečný
+Electron journey proběhnou až nad oběma commitnutými částmi.

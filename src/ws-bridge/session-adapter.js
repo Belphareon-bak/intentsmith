@@ -32,6 +32,111 @@ import {
   chatTurnErrorPayload,
   isChatTurnError,
 } from '../core/chat-turn-error.js';
+import {
+  M1_CONTRACT_KIND,
+  M1_CONTRACT_VERSION,
+  validateConversationCommand,
+  validateConversationResult,
+  validateCoreEvent,
+} from '../../contracts/m1/index.js';
+import {
+  isIdentifier,
+  isPlainRecord,
+  validateExactKeys,
+  validationResult,
+} from '../../contracts/m1/shared.js';
+
+const M1_CANCEL_CONFIRMATION_TIMEOUT_MS = 5_000;
+
+function createM1WsConversationResult(command, terminal) {
+  const result = {
+    contract: M1_CONTRACT_KIND.CONVERSATION_RESULT,
+    version: M1_CONTRACT_VERSION,
+    requestId: command.requestId,
+    conversationId: command.conversationId,
+    turnId: command.turnId,
+    ...terminal,
+  };
+  const validation = validateConversationResult(result);
+  if (!validation.valid) {
+    const error = new Error('M1 WS result violated the connector contract');
+    error.code = 'M1_CONVERSATION_RESULT_INVALID';
+    error.validationErrors = validation.errors;
+    throw error;
+  }
+  return result;
+}
+
+function mapM1WsConversationFailure(command, error, signal = null) {
+  if (isAbortError(error) || signal?.aborted) {
+    const source = abortSourceOf(error, signal);
+    return createM1WsConversationResult(command, {
+      status: source === AbortSource.TIMEOUT ? 'timeout' : 'cancelled',
+      error: source === AbortSource.TIMEOUT
+        ? { code: 'CHAT_TIMEOUT', message: 'Chat request timed out.' }
+        : { code: 'CHAT_CANCELLED', message: 'Chat request was cancelled.' },
+    });
+  }
+  if (isChatTurnError(error)) {
+    const payload = chatTurnErrorPayload(error);
+    return createM1WsConversationResult(command, {
+      status: 'error',
+      error: { code: payload.code, message: payload.message },
+    });
+  }
+  return createM1WsConversationResult(command, {
+    status: 'error',
+    error: {
+      code: 'CHAT_PROCESSING_FAILED',
+      message: 'Chat processing failed.',
+    },
+  });
+}
+
+// The filesystem-backed attachment branch is deliberately not part of B4:
+// ChatController currently treats an incoming path as read authority. Until an
+// effect owner defines that authority, negotiated M1 accepts only the exact
+// empty collection and the Studio producer must keep non-empty input local.
+export const M1_STUDIO_ATTACHMENT_POLICY = 'PARKED_EMPTY_ONLY';
+
+export function validateM1StudioContext(value) {
+  const errors = validateExactKeys(
+    value,
+    ['editMode', 'agentId', 'projectId', 'attachments'],
+    [],
+    'm1-studio-context',
+  );
+  if (!isPlainRecord(value)) return validationResult(errors, value);
+  if (!['auto', 'ask'].includes(value.editMode)) {
+    errors.push('m1-studio-context:invalid-editMode');
+  }
+  for (const key of ['agentId', 'projectId']) {
+    if (value[key] !== null && !isIdentifier(value[key])) {
+      errors.push(`m1-studio-context:invalid-${key}`);
+    }
+  }
+  if (!Array.isArray(value.attachments)) {
+    errors.push('m1-studio-context:invalid-attachments');
+  } else if (value.attachments.length !== 0) {
+    errors.push('m1-studio-context:attachments-parked');
+  }
+  return validationResult(errors, value);
+}
+
+export function validateM1StudioFrame(value) {
+  const errors = validateExactKeys(
+    value,
+    ['command', 'context'],
+    [],
+    'm1-studio-frame',
+  );
+  if (!isPlainRecord(value)) return validationResult(errors, value);
+  const command = validateConversationCommand(value.command);
+  const context = validateM1StudioContext(value.context);
+  errors.push(...command.errors.map(error => `m1-studio-frame.command.${error}`));
+  errors.push(...context.errors.map(error => `m1-studio-frame.context.${error}`));
+  return validationResult(errors, value);
+}
 
 // v93: Notification router reference (set by server.js via setNotificationDeps)
 let _notificationRouter = null;
@@ -77,6 +182,7 @@ export function createSessionAdapter({
   staleTurnMs = 5 * 60 * 1000,
   staleSweepMs = 60_000,
   staleClock = null,
+  m1CancelConfirmationTimeoutMs = M1_CANCEL_CONFIRMATION_TIMEOUT_MS,
 }) {
   let seq = 0;
   let turnCounter = 0;
@@ -96,6 +202,10 @@ export function createSessionAdapter({
   const staleNow = staleClock?.now || Date.now;
   const staleSetInterval = staleClock?.setInterval || setInterval;
   const staleClearInterval = staleClock?.clearInterval || clearInterval;
+  const m1CancelTimeoutMs = Number.isFinite(m1CancelConfirmationTimeoutMs)
+    && m1CancelConfirmationTimeoutMs > 0
+    ? m1CancelConfirmationTimeoutMs
+    : M1_CANCEL_CONFIRMATION_TIMEOUT_MS;
   const _staleCleanupInterval = staleSetInterval(() => {
     const now = staleNow();
     for (const [convId, entry] of activeTurns) {
@@ -108,7 +218,9 @@ export function createSessionAdapter({
             `Stale turn timeout after ${STALE_TURN_MS}ms`,
           );
         } catch (_) {}
-        activeTurns.delete(convId);
+        // M1 cancel confirmation owns the active entry until its terminal is
+        // emitted. Legacy retains its historical eager cleanup semantics.
+        if (entry.kind !== 'm1') activeTurns.delete(convId);
       }
     }
   }, STALE_SWEEP_MS);
@@ -146,6 +258,79 @@ export function createSessionAdapter({
     sendChannel(Channel.AGENT, event);
   }
 
+  function createM1Egress(command) {
+    let sequence = 0;
+    let terminalStatus = null;
+
+    function sendEvent(event) {
+      const validation = validateCoreEvent(event);
+      if (!validation.valid) {
+        const error = new Error('M1 CoreEvent violated the connector contract');
+        error.code = 'M1_CORE_EVENT_INVALID';
+        error.validationErrors = validation.errors;
+        throw error;
+      }
+      sendChannel(Channel.CHAT, event);
+      sequence = event.sequence;
+      return event;
+    }
+
+    function progress(eventType, payload) {
+      if (terminalStatus !== null) return false;
+      let jsonPayload;
+      try {
+        jsonPayload = JSON.parse(JSON.stringify(payload ?? {}));
+      } catch (error) {
+        logger.warn('WSSession', 'Dropped non-JSON M1 progress payload', {
+          eventType,
+          requestId: command.requestId,
+          error: error.message,
+        });
+        return false;
+      }
+      sendEvent({
+        contract: M1_CONTRACT_KIND.CORE_EVENT,
+        version: M1_CONTRACT_VERSION,
+        requestId: command.requestId,
+        conversationId: command.conversationId,
+        turnId: command.turnId,
+        sequence: sequence + 1,
+        phase: 'progress',
+        eventType,
+        payload: jsonPayload,
+      });
+      return true;
+    }
+
+    function terminal(result) {
+      if (terminalStatus !== null) {
+        const error = new Error('M1 command already has a terminal result');
+        error.code = 'M1_DUPLICATE_TERMINAL';
+        throw error;
+      }
+      sendEvent({
+        contract: M1_CONTRACT_KIND.CORE_EVENT,
+        version: M1_CONTRACT_VERSION,
+        requestId: command.requestId,
+        conversationId: command.conversationId,
+        turnId: command.turnId,
+        sequence: sequence + 1,
+        phase: 'terminal',
+        eventType: 'result',
+        terminalStatus: result.status,
+        payload: { result },
+      });
+      terminalStatus = result.status;
+      return result;
+    }
+
+    return Object.freeze({
+      get terminalStatus() { return terminalStatus; },
+      progress,
+      terminal,
+    });
+  }
+
   function sendStatus() {
     sendChannel(Channel.STATUS, {
       agentStatus: activeTurns.size > 0 ? 'executing' : 'idle',
@@ -161,13 +346,24 @@ export function createSessionAdapter({
    * @param {string} content — User message text
    * @param {Object} [options] — { editMode, conversationId, projectId, agentId }
    */
-  async function processChat(content, options = {}) {
+  async function processChat(content, options = {}, m1Command = null) {
     if (!content || typeof content !== 'string') return;
 
     const convId = options.conversationId || '__default__';
+    const m1Egress = m1Command === null ? null : createM1Egress(m1Command);
 
     // Per-conversation mutex: reject only if THIS conversation is busy
     if (activeTurns.has(convId)) {
+      if (m1Egress) {
+        m1Egress.terminal(createM1WsConversationResult(m1Command, {
+          status: 'error',
+          error: {
+            code: 'M1_CONVERSATION_BUSY',
+            message: 'The conversation already has an active turn.',
+          },
+        }));
+        return;
+      }
       sendChannel(Channel.CHAT, {
         id: messageId('sys'),
         type: 'system',
@@ -190,9 +386,21 @@ export function createSessionAdapter({
 
     // Start new turn — register in activeTurns
     turnCounter++;
-    const turnId = `t-${String(turnCounter).padStart(3, '0')}`;
+    const turnId = m1Command?.turnId
+      || `t-${String(turnCounter).padStart(3, '0')}`;
     const ac = new AbortController();
-    activeTurns.set(convId, { turnId, abortController: ac, startTime: staleNow() });
+    let resolveCompletion;
+    const completion = new Promise(resolve => { resolveCompletion = resolve; });
+    const activeEntry = {
+      kind: m1Egress ? 'm1' : 'legacy',
+      requestId: m1Command?.requestId || null,
+      turnId,
+      abortController: ac,
+      startTime: staleNow(),
+      completion,
+      resolveCompletion,
+    };
+    activeTurns.set(convId, activeEntry);
 
     const turnStartTime = Date.now();
 
@@ -202,7 +410,8 @@ export function createSessionAdapter({
       : null;
 
     const sendTurnEvent = (type, payload) => {
-      sendAgentEvent(type, turnId, payload, requestConversationId);
+      if (m1Egress) return m1Egress.progress(type, payload);
+      return sendAgentEvent(type, turnId, payload, requestConversationId);
     };
 
     sendTurnEvent(AgentEventType.TURN_START, { input: content });
@@ -220,6 +429,10 @@ export function createSessionAdapter({
         conversationId: options.conversationId || null,
         projectId: options.projectId || null,
         attachments: options.attachments || [],
+        ...(m1Command ? {
+          requestId: m1Command.requestId,
+          turnId: m1Command.turnId,
+        } : {}),
         // ChatController.handle() reads the cancellation signal from the
         // top-level request before projecting it into handler context.
         signal: ac.signal,
@@ -228,6 +441,11 @@ export function createSessionAdapter({
           signal: ac.signal,
           editMode: options.editMode || 'auto',
           projectId: options.projectId || null,
+          agentId: options.agentId || null,
+          ...(m1Command ? {
+            requestId: m1Command.requestId,
+            conversationId: m1Command.conversationId,
+          } : {}),
           telemetry: turnTelemetry,
 
           // Hook: CRE decision (called in ChatController.process after mode detection)
@@ -279,7 +497,15 @@ export function createSessionAdapter({
                 }, 30000);
                 const resolve = (v) => { clearTimeout(timer); rawResolve(v); };
                 const reject = (e) => { clearTimeout(timer); rawReject(e); };
-                editPending.set(reqId, { resolve, reject, timer, filePath, newContent: args.content, baseHash });
+                editPending.set(reqId, {
+                  resolve,
+                  reject,
+                  timer,
+                  filePath,
+                  newContent: args.content,
+                  baseHash,
+                  emitTurnEvent: sendTurnEvent,
+                });
               });
             }
           },
@@ -328,25 +554,28 @@ export function createSessionAdapter({
       const response = await handleRequest(request);
       throwIfAborted(ac.signal);
 
-      // Send final response via chat channel — include conversationId for session routing
       const responseConvId = response.conversationId || requestConversationId;
-      sendChannel(Channel.CHAT, {
-        id: messageId('msg'),
-        type: 'assistant',
-        content: response.response,
-        conversationId: responseConvId,
-        timestamp: new Date().toISOString(),
-        metadata: {
-          mode: response.mode,
-          confidence: response.confidence,
-          turnId,
-          state: response.state,
+      if (!m1Egress) {
+        // Legacy assistant envelope — negotiated M1 never enters this branch.
+        sendChannel(Channel.CHAT, {
+          id: messageId('msg'),
+          type: 'assistant',
+          content: response.response,
           conversationId: responseConvId,
-        },
-      });
+          timestamp: new Date().toISOString(),
+          metadata: {
+            mode: response.mode,
+            confidence: response.confidence,
+            turnId,
+            state: response.state,
+            conversationId: responseConvId,
+          },
+        });
+      }
 
-      // v65.0: Auto-execute shell command if CRE detected SHELL intent
-      if (response.metadata?.shellCommand) {
+      // Legacy shell auto-exec is an effect authority outside B4. M1 remains
+      // unadvertised in production while this behavior decision is open.
+      if (!m1Egress && response.metadata?.shellCommand) {
         const shellCmd = response.metadata.shellCommand;
         logger.info('WSSession', `Auto-executing shell command from SHELL intent: ${shellCmd}`, { turnId });
         // Fire-and-forget — handleTerminal sends results via terminal channel
@@ -356,11 +585,32 @@ export function createSessionAdapter({
 
       // Turn end — success
       const telemetrySnapshot = turnTelemetry?.finalize(turnStartTime) ?? null;
-      sendTurnEvent(AgentEventType.TURN_END, {
-        status: 'ok',
-        durationMs: Date.now() - turnStartTime,
-        ...(telemetrySnapshot ? { telemetry: telemetrySnapshot } : {}),
-      });
+      if (m1Egress) {
+        if (telemetrySnapshot) {
+          sendTurnEvent('turn_metrics', { telemetry: telemetrySnapshot });
+        }
+        const metadata = {
+          mode: response.mode,
+          confidence: response.confidence,
+          conversationId: m1Command.conversationId,
+        };
+        if (response.state !== undefined) {
+          try { metadata.state = JSON.parse(JSON.stringify(response.state)); } catch (_) {}
+        }
+        m1Egress.terminal(createM1WsConversationResult(m1Command, {
+          status: 'ok',
+          response: {
+            content: response.response,
+            metadata,
+          },
+        }));
+      } else {
+        sendTurnEvent(AgentEventType.TURN_END, {
+          status: 'ok',
+          durationMs: Date.now() - turnStartTime,
+          ...(telemetrySnapshot ? { telemetry: telemetrySnapshot } : {}),
+        });
+      }
       if (telemetrySnapshot) {
         logger.info('TurnTelemetry', JSON.stringify(telemetrySnapshot));
       }
@@ -371,6 +621,23 @@ export function createSessionAdapter({
       const abortSource = isAbortError(err)
         ? abortSourceOf(err, ac.signal, AbortSource.USER)
         : null;
+
+      if (m1Egress) {
+        const terminal = mapM1WsConversationFailure(m1Command, err, ac.signal);
+        if (terminal.status === 'timeout') turnTelemetry?.recordCancel('timeout');
+        if (terminal.status === 'cancelled') turnTelemetry?.recordCancel('user');
+        const snap = turnTelemetry?.finalize(turnStartTime) ?? null;
+        if (snap) m1Egress.progress('turn_metrics', { telemetry: snap });
+        m1Egress.terminal(terminal);
+        persistTelemetry(snap);
+        if (terminal.status === 'error') {
+          logger.error('WSSession', `M1 turn error: ${err.message}`, {
+            requestId: m1Command.requestId,
+            turnId,
+          });
+        }
+        return;
+      }
 
       if (
         abortSource === AbortSource.TIMEOUT
@@ -433,11 +700,14 @@ export function createSessionAdapter({
       });
 
     } finally {
-      // Safe delete — only remove if turnId matches (future-proof against queue scenarios)
+      // Safe delete — only the exact owner may release this conversation.
       const entry = activeTurns.get(convId);
-      if (entry && entry.turnId === turnId) {
+      if (entry === activeEntry) {
         activeTurns.delete(convId);
       }
+      activeEntry.resolveCompletion({
+        status: m1Egress?.terminalStatus || null,
+      });
 
       try {
         sendChannel(Channel.STATUS, {
@@ -448,6 +718,108 @@ export function createSessionAdapter({
         logger.error('WSSession', `Finally block error: ${finallyErr.message}`, { sessionId: sid });
       }
     }
+  }
+
+  async function processM1Command(frame) {
+    const validation = validateM1StudioFrame(frame);
+    if (!validation.valid) {
+      const error = new TypeError('Invalid M1 Studio frame');
+      error.code = 'M1_STUDIO_FRAME_INVALID';
+      error.validationErrors = validation.errors;
+      throw error;
+    }
+
+    const { command, context } = frame;
+    if (command.action === 'send') {
+      return processChat(command.input, {
+        editMode: context.editMode,
+        conversationId: command.conversationId,
+        agentId: context.agentId,
+        projectId: context.projectId,
+        attachments: context.attachments,
+      }, command);
+    }
+
+    const activeTurn = activeTurns.get(command.conversationId);
+    if (!activeTurn || activeTurn.kind !== 'm1') {
+      const egress = createM1Egress(command);
+      egress.terminal(createM1WsConversationResult(command, {
+        status: 'error',
+        error: {
+          code: 'M1_WS_CANCEL_NOT_ACTIVE',
+          message: 'The conversation has no active M1 turn to cancel.',
+        },
+      }));
+      return;
+    }
+    if (
+      command.requestId === activeTurn.requestId
+      || command.turnId === activeTurn.turnId
+    ) {
+      // A colliding command cannot receive a terminal without corrupting the
+      // target stream keyed by that same identity. Reject the frame and let
+      // the transport close fail-closed instead.
+      const error = new TypeError(
+        'The M1 cancel operation must have its own request and turn identity.',
+      );
+      error.code = 'M1_WS_CANCEL_IDENTITY_CONFLICT';
+      throw error;
+    }
+    const egress = createM1Egress(command);
+    egress.progress('cancel_requested', {
+      targetRequestId: activeTurn.requestId,
+      targetTurnId: activeTurn.turnId,
+    });
+    abortWithReason(
+      activeTurn.abortController,
+      AbortSource.USER,
+      'Active conversation turn cancelled by an M1 WebSocket command',
+    );
+
+    let timeout = null;
+    let targetTerminal;
+    try {
+      targetTerminal = await Promise.race([
+        activeTurn.completion,
+        new Promise(resolve => {
+          timeout = setTimeout(
+            () => resolve({ status: 'confirmation-timeout' }),
+            m1CancelTimeoutMs,
+          );
+        }),
+      ]);
+    } finally {
+      if (timeout !== null) clearTimeout(timeout);
+    }
+
+    if (targetTerminal.status === 'confirmation-timeout') {
+      egress.terminal(createM1WsConversationResult(command, {
+        status: 'timeout',
+        error: {
+          code: 'CHAT_TIMEOUT',
+          message: 'Timed out while waiting for cancellation confirmation.',
+        },
+      }));
+      return;
+    }
+    if (targetTerminal.status !== 'cancelled') {
+      egress.terminal(createM1WsConversationResult(command, {
+        status: 'error',
+        error: {
+          code: 'M1_WS_CANCEL_NOT_CONFIRMED',
+          message: 'The active turn did not confirm user cancellation.',
+        },
+      }));
+      return;
+    }
+
+    egress.terminal(createM1WsConversationResult(command, {
+      status: 'cancelled',
+      error: {
+        code: 'CHAT_CANCELLED',
+        message: 'The active conversation turn was cancelled.',
+      },
+    }));
   }
 
   // ─── Terminal execution ────────────────────────────────────────────
@@ -605,7 +977,7 @@ export function createSessionAdapter({
               } catch { /* file deleted? */ }
 
               if (currentHash !== pending.baseHash) {
-                sendAgentEvent('edit_conflict', null, {
+                pending.emitTurnEvent('edit_conflict', {
                   reqId: data.requestId,
                   file: pending.filePath,
                   message: 'Soubor byl změněn od doby vytvoření diffu.',
@@ -675,6 +1047,7 @@ export function createSessionAdapter({
     get isExecuting() { return activeTurns.size > 0; },
     get activeTurnCount() { return activeTurns.size; },
     processChat,
+    processM1Command,
     handleTerminal,
     handleControl,
     sendStatus,
