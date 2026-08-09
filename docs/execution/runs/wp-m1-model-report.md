@@ -1867,3 +1867,20 @@ explicitní testovací seam.
 C2a není celý C2. Gateway, binding cutover/exact verify a VRAM disposition
 zůstávají otevřené; stejně tak multiprocess claim, durable audit, remote delete
 a chat retirement. Gate 1 zůstává `BLOCKED`.
+
+### C2a exact-edge baseline acceptance
+
+Source commit `9b4d9f792ac26cb54dbeac0f915d96656824c99b` přidal přesně tři
+source-to-source hrany. Integrátorský writer je přijal jednotlivými
+`--accept-edge`; nepoužil glob ani adresářovou výjimku. Review výstup:
+
+```text
+MODULE_BOUNDARY_BASELINE_REVIEW baselineEdges=1011 currentEdges=1014
+added=3 removed=0 cycles=3->3 filesInCycles=28->28
+MODULE_BOUNDARY_BASELINE_WRITTEN sourceRevision=9b4d9f792ac26cb54dbeac0f915d96656824c99b edges=1014
+```
+
+Baseline metadata proto váže přesný source commit, scanner blob i source tree.
+Zelený post-commit ratchet a fresh-clone běh budou zaznamenány až nad
+commitnutým baseline SHA; tento zápis je pouze evidence integrátorského
+rozhodnutí o třech hranách.
