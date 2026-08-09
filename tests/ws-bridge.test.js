@@ -3648,6 +3648,31 @@ await asyncTest('T39: server.js has WS bridge import and attach', async () => {
     'Should log WS endpoint');
 });
 
+test('T40: production server keeps the M1 wire activation seam dormant', () => {
+  const serverCode = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
+  const attachStart = serverCode.indexOf(
+    'attachWebSocketServer(server, ChatController, logger, {',
+  );
+  assert.notEqual(attachStart, -1, 'production WS attachment call must exist');
+  const attachEnd = serverCode.indexOf('\n  });', attachStart);
+  assert.notEqual(attachEnd, -1, 'production WS attachment options must be bounded');
+  const productionOptions = serverCode.slice(attachStart, attachEnd + 5);
+
+  assert.match(
+    productionOptions,
+    /allowedOrigins:\s*config\.server\.allowedOrigins/,
+  );
+  assert.match(
+    productionOptions,
+    /localCapability:\s*legacyLocalCapability/,
+  );
+  assert.doesNotMatch(
+    productionOptions,
+    /\bm1WireSupported\b/,
+    'M1 must remain unacknowledged until the activation residuals are accepted',
+  );
+});
+
 // ═════════════════════════════════════════════════════════════════════════════
 // Results
 // ═════════════════════════════════════════════════════════════════════════════

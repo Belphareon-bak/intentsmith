@@ -1110,3 +1110,31 @@ jen test a jeho report, nikoli skenované runtime roots.
 Tento test zmenšuje mezeru mezi dvěma dosud oddělenými source harnessy. Stále
 neprokazuje produkčně ACKnutý socket, Electron render, reconnect přes skutečný
 listener ani rozhodnutí attachment/effect authority z 021.
+
+## Checkpoint 21 — explicitně připnutá produkční dormance
+
+- **source/build M1 consumer:** `PASS` podle checkpointů 19–20
+- **produkční M1 ACK:** záměrně `DISABLED / TEST-PINNED`
+- **celý B4 / Gate 1:** nadále `BLOCKED`
+
+Nový T40 čte skutečný produkční call site v `src/server.js`, ohraničí options
+objekt `attachWebSocketServer()` a vyžaduje dnešní legacy origin/capability
+autoritu. Zároveň odmítne přítomnost `m1WireSupported` v produkčním callu.
+Server proto nemůže začít ACKovat `m1-wire-v1` jako vedlejší efekt source/build
+checkpointů; aktivace musí být samostatná review jednotka až po přijetí 021 a
+negativních acceptance sadách.
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node --check tests/ws-bridge.test.js` | syntax valid | 0 |
+| `node tests/ws-bridge.test.js` | 86 passed, 0 failed | 0 |
+| mutace: produkční call doplnit o `m1WireSupported: true` | 85 passed, 1 failed (`T40`) | 1 |
+
+Po mutačním běhu byla jediná produktová řádka okamžitě vrácena, zachovaný
+izolovaný failure runtime přesunut do koše a finální sada znovu skončila exit
+`0`. `git diff --exit-code -- src/server.js` potvrdil nulovou runtime změnu.
+
+`SYSTEM-MAP.md` už netvrdí, že product-bundle consumer teprve chybí. Rozlišuje
+nyní tři samostatné skutečnosti: compiled consumer je clean-clone ověřený,
+source producer/adapter/ledger kompozice je focused ověřená a produkční
+negotiated Electron journey stále neproběhla.
