@@ -35,6 +35,12 @@ const EXECUTABLE_EXTENSIONS = new Set(['.js', '.mjs', '.cjs']);
 const CODE_LIKE_EXTENSIONS = new Set([
   '.jsx', '.ts', '.tsx', '.mts', '.cts', '.coffee', '.wasm',
 ]);
+const SENSITIVE_DYNAMIC_PROPERTIES = new Set([
+  'Function', 'createRequire', 'eval', 'require',
+]);
+const DYNAMIC_AUTHORITY_RECEIVERS = new Set([
+  'global', 'globalThis', 'module', 'window',
+]);
 const BASELINE_KEYS = Object.freeze([
   'exceptions',
   'scannerBlob',
@@ -314,6 +320,12 @@ function tokenize(source, label) {
       index += 1;
       continue;
     }
+    if (char === '\\') {
+      throw new BoundaryError(
+        'UNPROVEN_DYNAMIC_CODE',
+        `${label}: escaped executable identifiers are forbidden`,
+      );
+    }
     if (char === '/' && next === '/') {
       const start = index;
       index += 2;
@@ -448,6 +460,44 @@ function findClosingDelimiter(tokens, openIndex, open, close, label) {
     }
   }
   throw new BoundaryError('SOURCE_PARSE_FAILED', `${label}: unmatched ${open}${close} delimiter`);
+}
+
+function isMemberAccessOpen(tokens, index) {
+  const previous = tokens[index - 1];
+  return Boolean(previous) && (
+    ['identifier', 'number', 'string', 'template'].includes(previous.type)
+    || [')', ']', '}'].includes(previous.value)
+  );
+}
+
+function foldStaticProperty(tokens, openIndex, closeIndex, label) {
+  const body = tokens.slice(openIndex + 1, closeIndex);
+  if (body.length === 0) return null;
+  let value = '';
+  let expectValue = true;
+  for (const token of body) {
+    if (expectValue) {
+      if (token.type === 'string') {
+        if (token.escaped) {
+          throw new BoundaryError(
+            'UNPROVEN_DYNAMIC_CODE',
+            `${label}: escaped computed property names are forbidden`,
+          );
+        }
+        value += token.value;
+      } else if (token.type === 'template'
+          && !token.value.includes('${')
+          && !token.value.includes('\\')) {
+        value += token.value.slice(1, -1);
+      } else {
+        return null;
+      }
+    } else if (token.value !== '+') {
+      return null;
+    }
+    expectValue = !expectValue;
+  }
+  return expectValue ? null : value;
 }
 
 function resolveInternalTarget(root, file, specifier) {
@@ -705,16 +755,47 @@ function analyzeSource({ root, packageRoot, file, source }) {
 
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
-    if (token.type === 'string'
-        && ['require', 'eval', 'Function', 'createRequire'].includes(token.value)
-        && tokens[index - 1]?.value === '['
-        && tokens[index + 1]?.value === ']') {
-      throw new BoundaryError(
-        'UNPROVEN_DYNAMIC_CODE',
-        `${from}: computed access to ${token.value} can hide an indirect module load`,
-      );
+    if (token.value === '[' && isMemberAccessOpen(tokens, index)) {
+      const close = findClosingDelimiter(tokens, index, '[', ']', from);
+      const property = foldStaticProperty(tokens, index, close, from);
+      const receiver = tokens[index - 1];
+      if (property !== null && SENSITIVE_DYNAMIC_PROPERTIES.has(property)) {
+        throw new BoundaryError(
+          'UNPROVEN_DYNAMIC_CODE',
+          `${from}: computed access to ${property} can hide an indirect module load`,
+        );
+      }
+      if (property === null
+          && receiver.type === 'identifier'
+          && DYNAMIC_AUTHORITY_RECEIVERS.has(receiver.value)) {
+        throw new BoundaryError(
+          'UNPROVEN_DYNAMIC_CODE',
+          `${from}: dynamic access to ${receiver.value} cannot prove a safe authority`,
+        );
+      }
     }
     if (token.type !== 'identifier') continue;
+    if (token.value === 'Reflect') {
+      throw new BoundaryError(
+        'UNPROVEN_DYNAMIC_CODE',
+        `${from}: Reflect can hide an indirect module load and is forbidden`,
+      );
+    }
+    if (DYNAMIC_AUTHORITY_RECEIVERS.has(token.value)) {
+      const next = tokens[index + 1];
+      const property = tokens[index + 2];
+      const bracketAccess = next?.value === '[';
+      const dottedAccess = next?.value === '.' && property?.type === 'identifier';
+      const safeModuleExport = token.value === 'module'
+        && dottedAccess && property.value === 'exports';
+      if (!bracketAccess && !safeModuleExport
+          && (!dottedAccess || SENSITIVE_DYNAMIC_PROPERTIES.has(property.value))) {
+        throw new BoundaryError(
+          'UNPROVEN_DYNAMIC_CODE',
+          `${from}: ${token.value} authority cannot be aliased or dynamically invoked`,
+        );
+      }
+    }
     if (token.value === 'import') {
       const next = tokens[index + 1];
       if (!next) throw new BoundaryError('SOURCE_PARSE_FAILED', `${from}: incomplete import`);

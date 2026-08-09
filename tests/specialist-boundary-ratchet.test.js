@@ -345,6 +345,11 @@ export async function load() {
       ["import { createRequire } from 'node:module';\n", 'UNPROVEN_DYNAMIC_CODE'],
       ["module['require']('../../src/expertises/core.js');\n", 'UNPROVEN_DYNAMIC_CODE'],
       [`globalThis['eval']('require("../../src/expertises/core.js")');\n`, 'UNPROVEN_DYNAMIC_CODE'],
+      ["module['re' + 'quire']('../../src/expertises/core.js');\n", 'UNPROVEN_DYNAMIC_CODE'],
+      ["Reflect.get(module, 'require').call(module, '../../src/expertises/core.js');\n", 'UNPROVEN_DYNAMIC_CODE'],
+      [`globalThis['e' + 'val']('require("../../src/expertises/core.js")');\n`, 'UNPROVEN_DYNAMIC_CODE'],
+      [`globalThis['Fun' + 'ction']('return require("../../src/expertises/core.js")')();\n`, 'UNPROVEN_DYNAMIC_CODE'],
+      ['\\u0065val("require(\\"../../src/expertises/core.js\\")");\n', 'UNPROVEN_DYNAMIC_CODE'],
     ];
     for (const [source, code] of mutations) {
       write(sourcePath, source);
