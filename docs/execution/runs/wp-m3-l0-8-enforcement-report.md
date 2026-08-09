@@ -53,3 +53,5 @@ reviewA.verdict: PASS
 Všechny uvedené acceptance příkazy skončily exit `0`. Tento evidence commit
 nepovyšuje subject do integrační větve; merge candidate dostane samostatnou
 integrační validaci a nezávislé Review B.
+candidateHead: dff80c11ae24ae58ed7d2750de1556f8dc0248f0
+reviewB.verdict: PASS
