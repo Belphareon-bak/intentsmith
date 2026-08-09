@@ -1690,7 +1690,7 @@ failover, referenční GPU běh 009 a dokončený UI recovery/status journey.
 
 ## Checkpoint 24 — centralizovaná model delete cesta, C1 `PARTIAL`
 
-**Source:** produktový commit obsahující tuto sekci; přesný SHA a fresh-clone
+**Source:** `da95ab15d9fdded66904195d4d5062549fb934d2`; fresh-clone
 evidence doplní navazující evidence commit. **Vstup:**
 `a3a00baae2dffa6204afa327b97f102ee36c8c09`.
 
@@ -1764,3 +1764,18 @@ operátorské rozhodnutí, ne skrytá změna C1.
 
 Tyto body vlastní finding 010 a checkpoint C2/C3. GPU, skutečná Ollama,
 produktový server a externí síť nebyly spuštěné. Gate 1 zůstává `BLOCKED`.
+
+### Exact-edge module ratchet po source commitu
+
+První checker běh nad čistým source SHA správně skončil exit `1`: baseline
+1 010 hran versus 1 011 current, dva přesné přírůstky a jedna odebraná hrana.
+Integrátor přijal pouze tyto dvě exact dvojice, bez globu či adresářové výjimky:
+
+- `src/chat/handlers/pre-handler.js -> src/upgrade/model-identity.js`;
+- `src/upgrade/model-registry.js -> src/db/user-settings.js`.
+
+Odebraná `src/routes/system.js -> src/upgrade/model-identity.js` byla současně
+z baseline odstraněna jako explicitní utažení. Writer zachoval 3 cykly a 28
+souborů v cyklech, zapsal 1 011 hran a připnul source revision
+`da95ab15d9fdded66904195d4d5062549fb934d2`, exit `0`. Jde o samostatný
+baseline commit; produktový source commit se tím nemění.
