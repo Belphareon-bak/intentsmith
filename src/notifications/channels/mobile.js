@@ -64,14 +64,25 @@ export class MobileChannel extends NotificationChannel {
     const id = randomUUID();
     // A monotonic per-row sequence is what lets a reconnecting client ask for
     // "everything after N" without relying on timestamps, which collide.
-    const seqRow = this.db.prepare('SELECT COALESCE(MAX(seq), 0) AS max FROM mobile_notifications').get();
-    const seq = (seqRow?.max || 0) + 1;
-
+    //
+    // F-015: this used to be `SELECT MAX(seq)` followed by an `INSERT` with the
+    // number computed in JavaScript.  Two writers — two gateway instances
+    // against one database, or the backend and a gateway — could both read
+    // before either wrote, and nothing rejected the duplicate.  A client asking
+    // for "after N" then skipped one of the two rows for good.
+    //
+    // The read and the write are now a single statement, so SQLite's write lock
+    // serialises them: no other writer can observe the maximum between them.
+    // Migration 059's unique index is the second half of the fix — it is what
+    // turns any future path that mints a sequence itself into a loud failure
+    // rather than a lost row.
+    let seq;
     try {
       this.db.prepare(`
         INSERT INTO mobile_notifications
           (id, device_id, kind, priority, title, body, data_json, seq)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        SELECT ?, ?, ?, ?, ?, ?, ?, COALESCE(MAX(seq), 0) + 1
+          FROM mobile_notifications
       `).run(
         id,
         notification.deviceId || null,
@@ -80,8 +91,11 @@ export class MobileChannel extends NotificationChannel {
         notification.title || 'IntentSmith',
         notification.body || '',
         notification.data ? JSON.stringify(notification.data) : null,
-        seq,
       );
+      // Read back rather than assume: the number the row actually carries is
+      // the one a client will cursor against, and the statement above is the
+      // only thing that decided it.
+      seq = this.db.prepare('SELECT seq FROM mobile_notifications WHERE id = ?').get(id)?.seq ?? null;
     } catch (error) {
       return { delivered: false, error: `Inbox write failed: ${error.message}`, channel: this.name };
     }
