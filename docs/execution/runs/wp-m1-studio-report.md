@@ -998,3 +998,38 @@ generated protocol `lib/index.js` má SHA-256
 Jde o důkaz skutečného compiled consumeru, nikoli o negotiated Electron
 journey: aplikace, backend, Ollama ani GPU nebyly spuštěny. Produkční ACK a
 celý B4 proto zůstávají `BLOCKED`.
+
+## Checkpoint 19 — fail-closed postbuild consumer guard candidate
+
+- **automatický build guard:** `IMPLEMENTED / FOCUSED PASS`
+- **nový clean-clone build tohoto guardu:** čeká na commitnutý source SHA
+- **produkční ACK / Electron journey / celý B4:** nadále `BLOCKED`
+
+Root Studio `build` nově pokračuje přes `postbuild`, který čte skutečný
+generated protocol runtime, autoritativní commitnutý Studio consumer a
+production Electron bundle. Build skončí chybou, pokud protocol není verze 1,
+chybí kterýkoli veřejný runtime validator/codec, exact `CoreEvent` fixture,
+terminal stream nebo klasifikace je odmítnuta, consumer nemá send, cancel,
+active-turn či negotiation export, bundle neobsahuje přijaté M1
+větve nebo znovu obsahuje Google Fonts egress. Úspěch vydá byte-level SHA-256
+a velikost všech tří ověřených artefaktů.
+
+Consumer se načítá v samostatném child procesu. Top-level `fetch`, `WebSocket`
+nebo `setTimeout` proto končí fail-closed a nemůže během offline postbuildu
+provést skutečný efekt; známý top-level maintenance interval je inertní.
+Focused sada drží nezávislé kanonické seznamy a pokrývá pozitivní kontrakt i
+každý jednotlivě chybějící nebo nefunkční protocol export, consumer export a
+bundle marker, chybnou protocol verzi, odmítnutou fixture, oba zakázané Fonts
+hosty, missing/empty/symlink artefakt, izolaci effectu, CLI exit i byte-level
+evidence:
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node --check c3-ide/scripts/verify-m1-consumer-build.js` | syntax valid | 0 |
+| `node --check tests/m1-studio-client.test.js` | syntax valid | 0 |
+| `node tests/m1-studio-client.test.js` | 87 passed, 0 failed, 0 skipped | 0 |
+
+Marker guard je přítomnostní build integrita, nikoli behavioral journey ani
+důkaz produkčně negotiated spojení. Skutečný `postbuild` se proto ještě musí
+spustit z čistého klonu přesného commitnutého SHA; do té doby se tento
+checkpoint nevydává za fresh-clone PASS.

@@ -2,7 +2,10 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
@@ -13,6 +16,43 @@ import {
   validateCoreEventStream,
   validateM1Contract,
 } from '../contracts/m1/index.js';
+
+const require = createRequire(import.meta.url);
+const {
+  REQUIRED_BUNDLE_MARKERS,
+  REQUIRED_CONSUMER_FUNCTIONS,
+  REQUIRED_PROTOCOL_FUNCTIONS,
+  assertRegularFile,
+  probeConsumerRuntime,
+  runCli,
+  validateBundleSource,
+  validateConsumerRuntime,
+  validateProtocolRuntime,
+} = require('../c3-ide/scripts/verify-m1-consumer-build.js');
+
+const CANONICAL_PROTOCOL_FUNCTIONS = Object.freeze([
+  'validateM1Contract',
+  'validateCoreEventStream',
+  'classifyTerminal',
+  'encodeM1Contract',
+  'decodeM1Contract',
+  'roundTripM1Contract',
+  'isM1ContractEnvelope',
+]);
+const CANONICAL_CONSUMER_FUNCTIONS = Object.freeze([
+  'wsSendChat',
+  'wsSendCancel',
+  'wsHasActiveM1Turn',
+  'wsIsM1WireNegotiated',
+]);
+const CANONICAL_BUNDLE_MARKERS = Object.freeze([
+  'Generated @c3/protocol M1 runtime is unavailable',
+  'm1-wire-v1',
+  'core-event-stream-limit',
+  'DELIVERY_UNKNOWN',
+  'CONVERSATION_BUSY',
+  'M1_CONNECTION_REPLACED',
+]);
 
 function hostClone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -80,6 +120,10 @@ test('root Studio build and watch share one protocol preparation contract', () =
     'yarn run clean:protocol && yarn workspace @c3/protocol build --force && yarn run verify:protocol-runtime',
   );
   assert.equal(studio.scripts.prebuild, 'yarn run prepare:protocol');
+  assert.equal(
+    studio.scripts.postbuild,
+    'node scripts/verify-m1-consumer-build.js',
+  );
   assert.equal(studio.scripts.prewatch, 'yarn run prepare:protocol');
   assert.equal(studio.scripts.build, 'yarn --cwd applications/electron build');
   assert.equal(studio.scripts.watch, 'yarn --cwd applications/electron watch');
@@ -87,6 +131,266 @@ test('root Studio build and watch share one protocol preparation contract', () =
     studio.scripts.clean,
     'yarn run clean:protocol && yarn --cwd applications/electron clean',
   );
+});
+
+function validPostbuildProtocol() {
+  return {
+    M1_CONTRACT_VERSION: 1,
+    validateM1Contract: (value, expected) => validateM1Contract(value, expected),
+    validateCoreEventStream: value => validateCoreEventStream(value),
+    classifyTerminal: (value, options) => classifyTerminal(value, options),
+    encodeM1Contract(value) {
+      const validation = validateM1Contract(value);
+      if (!validation.valid) throw new TypeError(validation.errors.join(', '));
+      return JSON.stringify(value);
+    },
+    decodeM1Contract(encoded) {
+      const value = JSON.parse(encoded);
+      const validation = validateM1Contract(value);
+      if (!validation.valid) throw new TypeError(validation.errors.join(', '));
+      return value;
+    },
+    roundTripM1Contract(value) {
+      return this.decodeM1Contract(this.encodeM1Contract(value));
+    },
+    isM1ContractEnvelope(value) {
+      return validateM1Contract(value).valid;
+    },
+  };
+}
+
+test('postbuild requirements are pinned independently of guard implementation', () => {
+  assert.deepEqual([...REQUIRED_PROTOCOL_FUNCTIONS], [...CANONICAL_PROTOCOL_FUNCTIONS]);
+  assert.deepEqual([...REQUIRED_CONSUMER_FUNCTIONS], [...CANONICAL_CONSUMER_FUNCTIONS]);
+  assert.deepEqual([...REQUIRED_BUNDLE_MARKERS], [...CANONICAL_BUNDLE_MARKERS]);
+});
+
+test('postbuild guard rejects every incomplete or non-v1 protocol surface', () => {
+  assert.doesNotThrow(() => validateProtocolRuntime(validPostbuildProtocol()));
+
+  const wrongVersion = validPostbuildProtocol();
+  wrongVersion.M1_CONTRACT_VERSION = 2;
+  assert.throws(
+    () => validateProtocolRuntime(wrongVersion),
+    /protocol version is unavailable or unexpected/,
+  );
+
+  for (const name of CANONICAL_PROTOCOL_FUNCTIONS) {
+    const incomplete = validPostbuildProtocol();
+    delete incomplete[name];
+    assert.throws(
+      () => validateProtocolRuntime(incomplete),
+      new RegExp(`protocol export is missing: ${name}`),
+    );
+  }
+
+  const rejecting = validPostbuildProtocol();
+  rejecting.validateM1Contract = () => ({ valid: false });
+  assert.throws(
+    () => validateProtocolRuntime(rejecting),
+    /rejected the exact postbuild fixture/,
+  );
+});
+
+test('postbuild guard executes every required protocol operation', () => {
+  const brokenByName = {
+    validateM1Contract: () => ({ valid: false }),
+    validateCoreEventStream: () => ({ valid: false }),
+    classifyTerminal: () => ({ valid: false }),
+    encodeM1Contract: () => '',
+    decodeM1Contract: () => ({}),
+    roundTripM1Contract: () => ({}),
+    isM1ContractEnvelope: () => false,
+  };
+  for (const name of CANONICAL_PROTOCOL_FUNCTIONS) {
+    const broken = validPostbuildProtocol();
+    broken[name] = brokenByName[name];
+    assert.throws(() => validateProtocolRuntime(broken), Error, name);
+  }
+});
+
+test('postbuild guard rejects every missing Studio consumer export', () => {
+  const valid = Object.fromEntries(
+    CANONICAL_CONSUMER_FUNCTIONS.map(name => [name, () => undefined]),
+  );
+  assert.doesNotThrow(() => validateConsumerRuntime(valid));
+
+  for (const name of CANONICAL_CONSUMER_FUNCTIONS) {
+    const incomplete = { ...valid };
+    delete incomplete[name];
+    assert.throws(
+      () => validateConsumerRuntime(incomplete),
+      new RegExp(`consumer export is missing: ${name}`),
+    );
+  }
+});
+
+test('postbuild guard rejects every missing bundle marker and Fonts egress', () => {
+  const complete = CANONICAL_BUNDLE_MARKERS.join('\n');
+  assert.doesNotThrow(() => validateBundleSource(complete));
+  assert.throws(() => validateBundleSource(''), /bundle is empty/);
+  assert.throws(() => validateBundleSource(null), /bundle is empty/);
+
+  for (const marker of CANONICAL_BUNDLE_MARKERS) {
+    const incomplete = CANONICAL_BUNDLE_MARKERS
+      .filter(candidate => candidate !== marker)
+      .join('\n');
+    assert.throws(
+      () => validateBundleSource(incomplete),
+      new RegExp(`missing M1 marker: ${marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),
+    );
+  }
+
+  for (const host of ['fonts.googleapis.com', 'fonts.gstatic.com']) {
+    assert.throws(
+      () => validateBundleSource(`${complete}\nhttps://${host}/font.woff2`),
+      /forbidden Google Fonts egress/,
+    );
+  }
+});
+
+function withOwnedPostbuildRoot(callback) {
+  const artifactRoot = path.join(REPOSITORY_ROOT, '.intentsmith-artifacts');
+  fs.mkdirSync(artifactRoot, { mode: 0o700, recursive: true });
+  const owned = fs.mkdtempSync(path.join(artifactRoot, 'postbuild-guard-'));
+  try {
+    return callback(owned);
+  } finally {
+    fs.rmSync(owned, { recursive: true });
+  }
+}
+
+function writePostbuildFile(root, relativePath, content) {
+  const target = path.join(root, relativePath);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.writeFileSync(target, content);
+  return target;
+}
+
+function validPostbuildConsumer() {
+  return Object.fromEntries(
+    CANONICAL_CONSUMER_FUNCTIONS.map(name => [name, () => undefined]),
+  );
+}
+
+test('postbuild guard rejects missing, empty, and symlinked artifact files', () => {
+  withOwnedPostbuildRoot(owned => {
+    const empty = path.join(owned, 'empty.js');
+    const regular = path.join(owned, 'regular.js');
+    const link = path.join(owned, 'linked.js');
+    fs.writeFileSync(empty, '');
+    fs.writeFileSync(regular, 'module.exports = {};\n');
+    fs.symlinkSync(regular, link);
+
+    assert.throws(
+      () => assertRegularFile(path.join(owned, 'missing.js'), 'fixture'),
+      /fixture is missing/,
+    );
+    assert.throws(
+      () => assertRegularFile(empty, 'fixture'),
+      /fixture is not a non-empty regular file/,
+    );
+    assert.throws(
+      () => assertRegularFile(link, 'fixture'),
+      /fixture is not a non-empty regular file/,
+    );
+    assert.equal(assertRegularFile(regular, 'fixture').size > 0, true);
+  });
+});
+
+test('postbuild CLI returns nonzero with a stable failure prefix', () => {
+  let stdout = '';
+  let stderr = '';
+  const exitCode = runCli({
+    studioRoot: path.join(REPOSITORY_ROOT, 'does-not-exist-postbuild-fixture'),
+    stdout: { write(value) { stdout += value; } },
+    stderr: { write(value) { stderr += value; } },
+  });
+  assert.equal(exitCode, 1);
+  assert.equal(stdout, '');
+  assert.match(
+    stderr,
+    /^STUDIO_M1_BUILD_CONSUMER_FAIL generated protocol runtime is missing\n$/,
+  );
+});
+
+test('postbuild CLI composes exact paths and byte-level evidence', () => {
+  withOwnedPostbuildRoot(studioRoot => {
+    const protocolBytes = Buffer.from('module.exports = {};\n');
+    const consumerBytes = Buffer.from('module.exports = {};\n// consumer\n');
+    const bundleBytes = Buffer.from(`${CANONICAL_BUNDLE_MARKERS.join('\n')}\nžluťoučký\n`);
+    writePostbuildFile(
+      studioRoot,
+      'extensions/c3-protocol/lib/index.js',
+      protocolBytes,
+    );
+    writePostbuildFile(
+      studioRoot,
+      'extensions/c3-chat-panel/lib/browser/ws-client.js',
+      consumerBytes,
+    );
+    writePostbuildFile(
+      studioRoot,
+      'applications/electron/lib/frontend/bundle.js',
+      bundleBytes,
+    );
+
+    let stdout = '';
+    let stderr = '';
+    const exitCode = runCli({
+      studioRoot,
+      protocol: validPostbuildProtocol(),
+      consumer: validPostbuildConsumer(),
+      stdout: { write(value) { stdout += value; } },
+      stderr: { write(value) { stderr += value; } },
+    });
+    assert.equal(exitCode, 0);
+    assert.equal(stderr, '');
+    assert.match(stdout, /^STUDIO_M1_BUILD_CONSUMER_PASS /);
+    const evidence = JSON.parse(stdout.replace(/^STUDIO_M1_BUILD_CONSUMER_PASS /, ''));
+    assert.deepEqual(evidence, {
+      bundleBytes: bundleBytes.length,
+      bundleSha256: createHash('sha256').update(bundleBytes).digest('hex'),
+      consumerBytes: consumerBytes.length,
+      consumerSha256: createHash('sha256').update(consumerBytes).digest('hex'),
+      protocolBytes: protocolBytes.length,
+      protocolSha256: createHash('sha256').update(protocolBytes).digest('hex'),
+      protocolVersion: 1,
+    });
+  });
+});
+
+test('consumer probe is isolated and fails closed on top-level effects', () => {
+  withOwnedPostbuildRoot(root => {
+    const exportsSource = CANONICAL_CONSUMER_FUNCTIONS
+      .map(name => `${name}() {}`)
+      .join(',\n');
+    const safe = writePostbuildFile(
+      root,
+      'safe.cjs',
+      `module.exports = { ${exportsSource} };\n`,
+    );
+    assert.deepEqual(
+      probeConsumerRuntime(safe),
+      { exports: [...CANONICAL_CONSUMER_FUNCTIONS] },
+    );
+
+    for (const [name, statement] of [
+      ['fetch', "fetch('http://127.0.0.1:9')"],
+      ['setTimeout', 'setTimeout(() => {}, 1)'],
+      ['WebSocket', "new WebSocket('ws://127.0.0.1:9')"],
+    ]) {
+      const effectful = writePostbuildFile(
+        root,
+        `${name}.cjs`,
+        `${statement}; module.exports = { ${exportsSource} };\n`,
+      );
+      assert.throws(
+        () => probeConsumerRuntime(effectful),
+        new RegExp(`forbidden top-level effect: ${name}`),
+      );
+    }
+  });
 });
 
 test('prebuild fails closed unless compiled runtime exports the M1 validators', () => {
