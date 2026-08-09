@@ -3,7 +3,7 @@
 - **vlastník:** navazující checkpoint
   `WP-M1-MODEL-CLEANUP-AUTHORITY / C2–C3`
 - **nalezeno v:** read-only call-graph review cleanup authority
-- **stav:** `PARTIAL_REMEDIATION / C2_VRAM_SOURCE_CANDIDATE`
+- **stav:** `PARTIAL_REMEDIATION / C2_SINGLE_PROCESS_PATHS_FRESH_CLONE_VERIFIED`
 - **dopad:** M1 cleanup checkpoint je bezpečnější, L0-11 zůstává `PARTIAL`
 
 ## Evidence
@@ -70,10 +70,12 @@ multi-model batchi uvolní předchozí leases a provede nula unload efektů.
 
 Focused offline výsledky jsou 29/0 pro model-use authority, 47/0 pro VRAM
 coordination a 62/0 pro multimedia včetně živého route seamu. Source
-`7da6be4c` má explicitně přijatou jedinou novou hranu a ratchet je 1021/1021;
-fresh-clone reprodukce ale ještě následuje, proto nejde o dokončený checkpoint
-ani L0-11 PASS. Tato úzká shared autorita také záměrně neřeší
-gateway/ComfyUI GPU admission.
+`7da6be4c` má explicitně přijatou jedinou novou hranu a ratchet je 1021/1021.
+Nový `git clone --no-local` na baseline HEAD `3b95f2b1` zopakoval focused i
+compatibility baterii, ratchet, artifact, hygiene a registry validaci se všemi
+exity 0 a prázdným porcelain. Úzká pátá cesta je tedy
+`FRESH_CLONE_VERIFIED`, ale nejde o L0-11 PASS. Tato shared autorita záměrně
+neřeší gateway/ComfyUI GPU admission.
 
 Současný mutation owner je in-memory a chrání jeden serverový proces. Delete
 událost má standardní log a best-effort WS broadcast, ale nemá append-only

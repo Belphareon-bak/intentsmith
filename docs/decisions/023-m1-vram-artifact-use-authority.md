@@ -145,6 +145,15 @@ Source commit `7da6be4c` přidal jednu přesně známou composition-root hranu
 následně přijal jediným exact `--accept-edge`: baseline vzrostla 1020→1021,
 cykly zůstaly 3 a počet souborů v cyklech 28. Baseline pinuje přesný source
 `7da6be4c3a17a0bb58b2a3a029d87c4c67396ff6`; ratchet i jeho focused sada jsou
-zelené 1021/1021 a 13/0. Fresh-clone evidence ještě následuje.
+zelené 1021/1021 a 13/0.
+
+Nový `git clone --no-local` na baseline HEAD
+`3b95f2b19fc501ca622db12971c70100cd1f7468` prošel `npm ci --offline`, všemi
+třemi focused sadami, relevantní compatibility baterií, ratchetem, artifact,
+hygiene a registry validací. Všechny child exity byly 0 a finální porcelain
+klonu byl prázdný. Úzká 023/A artifact-use hranice je proto
+`FRESH_CLONE_VERIFIED`; neznamená to globální GPU residency ani celý C2 PASS.
+GPU modelový workload, Ollama, produktový server, Electron a externí síť nebyly
+spuštěné; offline VRAM sada pouze čte lokální detector a používá fake provider.
 Globální GPU residency, multiprocess safety, durable delete audit, vzdálený
 provider scope a bounded supervision dlouhého tasku zůstávají otevřené.

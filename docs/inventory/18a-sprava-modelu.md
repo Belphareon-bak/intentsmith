@@ -128,12 +128,12 @@ operation-scoped exact startup recovery bez druhého pullu.
 Call graph má nadále pět živých cest. Přijaté 023/A nyní připojuje VRAM manager
 jako focused zelený source candidate: task, celý canonical-deduplikovaný unload
 batch a direct reload drží shared artifact leases přes své přesné effect/body
-hranice. Source `7da6be4c` má exact-edge baseline 1021/1021; fresh-clone
-reprodukce ještě následuje.
+hranice. Source `7da6be4c` má exact-edge baseline 1021/1021 a baseline HEAD
+`3b95f2b1` prošel novým `git clone --no-local` se všemi relevantními exity 0.
 Durable/cross-process autorita není rozhodnutá, direct pull stream nemá idle
 timeout ani recovery a shared artifact lease není globální GPU residency.
-Schopnost #18a proto zůstává `PARTIAL`; pět z pěti source cest není release ani
-L0-11 PASS.
+Schopnost #18a proto zůstává `PARTIAL`; pět z pěti single-process artifact-use
+cest je fresh-clone ověřených, ale není to release ani L0-11 PASS.
 
 ## 10. Runtime follow-up B3 detection coordinator — 2026-08-09
 

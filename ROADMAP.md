@@ -535,8 +535,9 @@ focused regression sady.
      prepare, durable zápis, compensation a synchronní finalize; exact
      verification drží target přes provider probe i durable success zápis a
      před retry delay lease uvolní. Přijaté 023/A má focused zelený source
-     candidate páté VRAM artifact-use cesty. Exact-edge writer přijal jedinou
-     novou hranu na source `7da6be4c`; fresh-clone evidence ještě následuje.
+     checkpoint páté VRAM artifact-use cesty. Exact-edge writer přijal jedinou
+     novou hranu na source `7da6be4c` a nový clone ověřil baseline HEAD
+     `3b95f2b1`.
      [023](docs/decisions/023-m1-vram-artifact-use-authority.md)
      odděluje tuto úzkou artifact/delete ochranu od globální gateway/ComfyUI
      GPU residency. Tyto residualy vlastní
@@ -1252,7 +1253,7 @@ mohou pokračovat.
 
    | # | Položka | Proč tady |
    |---|---|---|
-   | 1 | 023 VRAM delete race | source + exact-edge baseline zelené; zbývá fresh-clone evidence |
+   | 1 | 023 VRAM delete race | úzká artifact-use hrana fresh-clone ověřená; globální GPU residency zůstává M2 residual |
    | 2 | 022 operation-bound recovery | nejmenší code položka, offline ověřitelná |
    | 3 | ověřit dokončenou rezervaci migrací | union census před zápisem; `058` = 020, `059` = 015; povinná late-insertion parita 055–057 |
    | 4 | 020 oddělená policy storage | první migrační položka |
@@ -1280,9 +1281,9 @@ mohou pokračovat.
    provider lifecycle drží lease přes body/retry a všechny terminal paths
    vracejí lease i semaphore. Binding cutover znovu ověří exact identitu pod
    previous+target lease a verification drží target až přes durable success
-   zápis. Přijaté 023/A nyní jako focused zelený source candidate připojuje
-   pátou VRAM artifact-use cestu; source `7da6be4c` má exact-edge baseline
-   1021/1021 a zbývá fresh-clone evidence. Multiprocess claim, durable audit a globální GPU residency
+   zápis. Přijaté 023/A nyní fresh-clone ověřeně připojuje pátou VRAM
+   artifact-use cestu; source `7da6be4c` má exact-edge baseline 1021/1021 a
+   baseline HEAD `3b95f2b1` prošel čistým klonem. Multiprocess claim, durable audit a globální GPU residency
    dál drží finding 010 otevřený; 023 přesně odděluje artifact-use hranu od
    pozdější GPU effect authority. Sdílený
    runtime profil nyní

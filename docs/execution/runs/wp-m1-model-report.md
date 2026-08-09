@@ -3,17 +3,18 @@
 - **stav WP:** B3-IDENTITY + B3-PROFILE READY; B3-FAILOVER storage, manual
   repository, application-state schema, společný manual runtime cutover a
   finalize recovery FRESH-CLONE VERIFIED; detection-only coordinator je
-  FRESH-CLONE VERIFIED na `1823e9a4`; C2b gateway + binding jsou FRESH-CLONE VERIFIED na `cfcb63dd`,
-  celý C2 však zůstává PARTIAL; nový referenční GPU běh 009, proof issuer a
+  FRESH-CLONE VERIFIED na `1823e9a4`; všech pět single-process C2
+  artifact-use cest je FRESH-CLONE VERIFIED nejpozději na `3b95f2b1`, celý C2
+  však zůstává PARTIAL; nový referenční GPU běh 009, proof issuer a
   automatic failover activation zůstávají BLOCKED; offline connector READY
 - **poslední ověřený source SHA:**
-  `be4f2175d472f24b98970d046697a0a2a6b21e5a`
+  `3b95f2b19fc501ca622db12971c70100cd1f7468`
 - **base SHA:** `55c913d6f3cb2354b6447d10ff304e9d0323b1c3`
-- **zapisující větev:** `claude/gate1-mobile-app-progress-5sywlt`
+- **zapisující větev:** `integration/gate1-prod-ready-20260809`
 - **GPU/Ollama v checkpointech 1–2:** NOT RUN
 - **neplánovaný modelový proces při checkpointu 3:** PARTIAL / NOT EVIDENCE
 - **registrovaný GPU pilot v checkpointu 5:** FAIL / stav bezpečně obnoven
-- **push:** neproveden podle dávkového kontraktu
+- **push:** source i exact-edge baseline pushnuté na integrační větev
 
 ## Checkpoint 1 — pravdivý fake-provider gateway
 
@@ -2512,10 +2513,41 @@ jednu ratchet hranu `src/server.js -> src/upgrade/model-use-authority.js`.
 Integrátorský writer ji přijal jediným exact `--accept-edge`; baseline je nyní
 1021/1021, cykly zůstaly 3 a soubory v cyklech 28. Post-write ratchet i
 `tests/module-boundary-ratchet.test.js` skončily exit 0, druhá sada 13/0.
-Fresh-clone evidence ještě následuje. GPU, Ollama, produktový server, Electron
-a externí síť byly `NOT RUN`.
+GPU modelový workload, Ollama, produktový server, Electron a externí síť byly
+`NOT RUN`; offline VRAM sada četla lokální detector a používala fake provider.
 
 Pět z pěti živých source cest nyní používá stejnou per-canonical artifact-use
 autoritu, ale C2 a Gate 1 zůstávají `PARTIAL` / `BLOCKED`: cross-process claim,
 durable delete audit, vzdálený provider scope, stalled task/pull, retirement a
 globální GPU residency nejsou claim tohoto checkpointu.
+
+### Checkpoint 28 — fresh-clone uzavření
+
+Baseline HEAD `3b95f2b19fc501ca622db12971c70100cd1f7468` byl checkoutnutý
+detached v novém `git clone --no-local`. `npm ci --offline` přidal 233 balíčků,
+auditoval 234, nalezl 0 vulnerabilities a skončil exit 0.
+
+Reprodukce z přesného klonu, všechny exity 0:
+
+| Příkaz | Výsledek |
+|---|---:|
+| `C3_LOG_LEVEL=error node tests/m1-model-use-authority.test.js` | 29/0 |
+| `C3_LOG_LEVEL=error node tests/vram-coordination.test.js` | 47/0 |
+| `C3_LOG_LEVEL=error node tests/multimedia.test.js` | 62/0 |
+| `C3_LOG_LEVEL=error node tests/routes-smoke.test.js` | 109/0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-binding-application.test.js` | 98/0 |
+| `C3_LOG_LEVEL=error node tests/model-upgrade.test.js` | 58/0 |
+| `C3_LOG_LEVEL=error node tests/upgrade-flow.test.js` | 28/0 |
+| `C3_LOG_LEVEL=error node tests/context-compact-model-ctx.test.js` | 2/0 |
+| `node scripts/module-boundary-ratchet.mjs` | 1021/1021, provenance replay 1021 |
+| `C3_LOG_LEVEL=error node tests/module-boundary-ratchet.test.js` | 13/0 |
+| `node tests/artifact-validation.test.js` | 151/0 |
+| `node tests/repository-hygiene.test.js` | 1534 tracked cest |
+| `node scripts/validate-test-registry.js --json` | 377 programů, 8 exclusions, fingerprint `2d5cf073…63ccd` |
+| `git diff --check` | bez výstupu |
+| `git status --porcelain=v1 --untracked-files=all` | prázdný výstup |
+
+Tím je 023/A úzká single-process artifact/delete hrana
+`FRESH_CLONE_VERIFIED`. Gate 1 zůstává `BLOCKED` a širší C2 `PARTIAL` přesně na
+pojmenovaných residualech výše; čistý klon neobsahoval GPU modelový workload,
+Ollamu, produktový server, Electron ani externí síť.

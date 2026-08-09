@@ -8,9 +8,9 @@ model identity
 **Aktuální stav:** C1 + C2a jsou fresh-clone ověřené. C2b gateway a binding
 cutover/exact verification jsou fresh-clone ověřené na `cfcb63dd`. Přijaté
 [rozhodnutí 023](../decisions/023-m1-vram-artifact-use-authority.md) má nyní
-focused zelený source candidate pro pátou živou VRAM artifact/delete cestu;
-exact-edge baseline už přijala jedinou novou hranu na source `7da6be4c`, ale
-fresh-clone evidence ještě následuje. Všech pět
+fresh-clone ověřenou pátou živou VRAM artifact/delete cestu na baseline HEAD
+`3b95f2b1`; exact-edge baseline přijala jedinou novou hranu na source
+`7da6be4c`. Všech pět
 single-process artifact-use cest je tím zapojených ve source, ale C2 jako celek
 zůstává `PARTIAL`: cross-process claim, durable delete audit, operationless
 legacy rehydrate, vzdálený provider scope, stalled task/pull a globální GPU
@@ -138,9 +138,9 @@ identita už není rollback autoritou a smí být explicitně retireovaná.
 Focused binding checkpoint nesmí být vydán za atomický DB/runtime commit:
 durable `APPLIED` vzniká před `runtime.commit()` a jeho pozdní výjimka zatím
 nemá typovaný reconciliation incident. Operationless legacy override je stále
-name-only a pouze `LEGACY_UNVERIFIED`. VRAM artifact-use source candidate
-připojuje pátou živou cestu a má exact-edge baseline 1021/1021; do fresh-clone
-reprodukce nejde o uzavřený checkpoint. Cross-process a durable audit jsou samostatné
+name-only a pouze `LEGACY_UNVERIFIED`. VRAM artifact-use checkpoint připojuje
+pátou živou cestu, má exact-edge baseline 1021/1021 a fresh-clone reprodukci na
+`3b95f2b1`. Cross-process a durable audit jsou samostatné
 acceptance body i potom.
 
 ## 8. Přesné ověření
