@@ -2617,3 +2617,17 @@ je součástí stejného atomického kandidáta. Typed GET/PUT, atomický
 export/import/reset, Studio `response.ok` a reálná mobile
 late-insertion parita nejsou claim tohoto checkpointu. GPU, Ollama, Electron,
 produktový server ani externí síť nebyly spuštěné; Gate 1 zůstává `BLOCKED`.
+
+### Checkpoint 29b — exact-edge baseline acceptance
+
+Source candidate je commit `905a3422fa0a01f3f1c4656f914ee26a696549a8`.
+Teprve nad jeho čistým stromem integrátorský writer přijal tři přesné nové
+hrany `misc.js → model-policy.js`, `model-failover.js → model-policy.js` a
+`model-registry.js → model-policy.js`. Dvě odstraněné hrany na retired
+`user-settings.js` baseline současně utáhly; neexistuje glob ani adresářová
+výjimka. Výsledná baseline má 1 022 hran, 3 cykly a 28 souborů v cyklech,
+`sourceRevision=905a3422…49a8`. `node scripts/module-boundary-ratchet.mjs`
+skončil `PASS`, 1 022/1 022 a exit 0; focused ratchet sada skončila 13/0,
+exit 0. Artifact validation 151/0, hygiene 1 546 cest a registry 378/8 s
+fingerprintem `cb1259ca…d06e15` skončily také exit 0. SHA baseline commitu a
+opakování z čistého klonu doplní navazující attestation.
