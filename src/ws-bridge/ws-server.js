@@ -20,9 +20,11 @@
 
 import { WebSocketServer } from 'ws';
 import {
+  M1_WIRE_FEATURE,
   PROTOCOL_VERSION,
-  buildHelloAck,
+  buildHelloAckFromNegotiatedFeatures,
   buildHelloReject,
+  negotiateFeatures,
 } from './protocol.js';
 import { createSessionAdapter } from './session-adapter.js';
 import { watchProject, unwatchProject } from './file-watcher.js';
@@ -51,6 +53,17 @@ const RehydrateRejectReason = Object.freeze({
 const _wsStats = {
   droppedMessages: 0,
 };
+
+function isM1ChatFrameCandidate(message) {
+  if (message?.channel !== 'chat'
+    || message.data === null
+    || typeof message.data !== 'object'
+    || Array.isArray(message.data)) {
+    return false;
+  }
+  return Object.hasOwn(message.data, 'command')
+    || Object.hasOwn(message.data, 'context');
+}
 
 let _wss = null;
 let _bridgeLogger = console;
@@ -207,6 +220,7 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
   wss.on('connection', (ws, req) => {
     const clientIP = req.socket.remoteAddress;
     let handshakeDone = false;
+    let negotiatedFeatures = Object.freeze([]);
     let session = null;
     let activeWatchPath = null; // F2: file watcher lifecycle
 
@@ -268,12 +282,17 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
           }
 
           const clientFeatures = Array.isArray(msg.features) ? msg.features : [];
-          safeSend(buildHelloAck(clientFeatures));
+          // M1 is deliberately not advertised until its exact ingress adapter
+          // exists. The client may offer it now; required-offer negotiation is
+          // already pinned without claiming a capability the server cannot use.
+          negotiatedFeatures = Object.freeze(negotiateFeatures(clientFeatures));
+          safeSend(buildHelloAckFromNegotiatedFeatures(negotiatedFeatures));
           handshakeDone = true;
 
           logger.info('WSBridge', 'Handshake OK', {
             ideVersion: msg.ideVersion,
-            features: clientFeatures,
+            requestedFeatures: clientFeatures,
+            negotiatedFeatures,
             ip: clientIP,
           });
 
@@ -288,7 +307,7 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
           session.sendStatus();
 
           // F2: Start file watcher if workspace feature negotiated
-          if (clientFeatures.includes('workspace') && options.projectPath) {
+          if (negotiatedFeatures.includes('workspace') && options.projectPath) {
             startWatching(options.projectPath);
           }
           return;
@@ -301,6 +320,21 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
 
       // ═══ Post-handshake routing ═════════════════════════════════
       if (!session) return;
+
+      if (isM1ChatFrameCandidate(msg)) {
+        if (!negotiatedFeatures.includes(M1_WIRE_FEATURE)) {
+          logger.warn('WSBridge', 'Rejected M1 chat frame without negotiation', {
+            ip: clientIP,
+          });
+          ws.close(1008, 'M1 wire not negotiated');
+          return;
+        }
+        // The negotiation checkpoint never lets a future frame fall through
+        // the legacy content adapter. The exact M1 adapter replaces this guard.
+        logger.error('WSBridge', 'Negotiated M1 adapter is unavailable', { ip: clientIP });
+        ws.close(1011, 'M1 wire adapter unavailable');
+        return;
+      }
 
       switch (msg.channel) {
         case 'chat':
@@ -446,6 +480,7 @@ export function broadcast(channel, data) {
 
 export const _testInternals = {
   createLegacyWebSocketVerifyClient,
+  isM1ChatFrameCandidate,
   recordDroppedMessage,
   RehydrateRejectReason,
   RehydrateValidationStatus,

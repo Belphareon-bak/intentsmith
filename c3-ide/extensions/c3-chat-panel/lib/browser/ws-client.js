@@ -19,6 +19,11 @@
 var _wsReady = false;
 var _serverVersion = null;
 var _serverFeatures = [];
+var _m1WireFeature = 'm1-wire-v1';
+var _m1WireNegotiated = false;
+var _clientFeatures = Object.freeze([
+  'workspace', 'terminal', 'merge-preview', 'edit-ask', 'audit', _m1WireFeature
+]);
 var _wsRetryCount = 0;
 var _wsMaxRetry = 12;
 var _wsRetryTimer = null;
@@ -576,6 +581,8 @@ function _wsConnect() {
   _clearHandshakeTimer();
   _cancelPendingRehydrate(_wsConnectionEpoch);
   _wsReady = false;
+  _serverFeatures = [];
+  _m1WireNegotiated = false;
 
   var _base = (typeof _backendBase !== 'undefined') ? _backendBase : (function(){try{if(typeof window!=='undefined'&&window.electronC3){var u=window.electronC3.getBackendUrl();if(u)return u;}}catch(e){}return 'http://127.0.0.1:3335';})();
   var wsUrl = _base.replace(/^http/, 'ws') + '/c3/ws';
@@ -607,6 +614,7 @@ function _wsConnect() {
   var connection = {
     epoch: connectionEpoch,
     handshakeState: 'PENDING',
+    offeredFeatures: _clientFeatures.slice(),
     socket: socket
   };
 
@@ -622,7 +630,7 @@ function _wsConnect() {
         type: 'hello',
         protocolVersion: 1,
         ideVersion: 'c3-studio-0.2.0',
-        features: ['workspace', 'terminal', 'merge-preview', 'edit-ask', 'audit']
+        features: connection.offeredFeatures
       }));
     } catch(e) {
       _closeFailedHandshake(connection, 'Handshake send failed');
@@ -636,6 +644,8 @@ function _wsConnect() {
     _clearHandshakeTimer();
     var wasReady = _wsReady;
     _wsReady = false;
+    _serverFeatures = [];
+    _m1WireNegotiated = false;
     _cancelPendingRehydrate(connectionEpoch);
 
     /* Clear stale pending edits — backend session is gone */
@@ -663,7 +673,12 @@ function _wsConnect() {
       _wsRetryCount = 0;
       _wsReconnectExhausted = false;
       _serverVersion = msg.serverVersion || msg.backendVersion || null;
-      _serverFeatures = msg.features || [];
+      _serverFeatures = Array.isArray(msg.features)
+        ? msg.features.filter(function(feature){return typeof feature === 'string';})
+        : [];
+      _m1WireNegotiated = msg.protocolVersion === 1
+        && connection.offeredFeatures.indexOf(_m1WireFeature) >= 0
+        && _serverFeatures.indexOf(_m1WireFeature) >= 0;
       console.log('[C3 WS] Handshake OK — server v' + _serverVersion + ' features=' + JSON.stringify(_serverFeatures));
       C3Bus.emit('ws:ready', { version: _serverVersion, features: _serverFeatures });
       _rehydrateSessions(connectionEpoch, socket);
@@ -845,12 +860,15 @@ function wsIsReady() { return _wsReady; }
 function wsServerVersion() { return _serverVersion; }
 function wsServerFeatures() { return _serverFeatures; }
 function wsHasFeature(f) { return _serverFeatures.indexOf(f) >= 0; }
+function wsIsM1WireNegotiated() { return _m1WireNegotiated; }
 function wsDestroy() {
   _wsDestroyed = true;
   if (_wsRetryTimer) clearTimeout(_wsRetryTimer);
   _wsRetryTimer = null;
   _clearHandshakeTimer();
   _wsReady = false;
+  _serverFeatures = [];
+  _m1WireNegotiated = false;
   _clearPendingEditsOnDisconnect();
   _cancelPendingRehydrate(_wsConnectionEpoch);
   _wsConnectionEpoch++;
@@ -917,6 +935,7 @@ if (typeof module !== 'undefined' && module.exports) {
     wsServerVersion: wsServerVersion,
     wsServerFeatures: wsServerFeatures,
     wsHasFeature: wsHasFeature,
+    wsIsM1WireNegotiated: wsIsM1WireNegotiated,
     wsDestroy: wsDestroy,
     trackEditRequest: trackEditRequest,
     approveEdit: approveEdit,
@@ -936,6 +955,7 @@ if (typeof window !== 'undefined') {
     serverVersion: wsServerVersion,
     serverFeatures: wsServerFeatures,
     hasFeature: wsHasFeature,
+    isM1WireNegotiated: wsIsM1WireNegotiated,
     destroy: wsDestroy,
     trackEditRequest: trackEditRequest,
     approveEdit: approveEdit,

@@ -171,14 +171,18 @@ function loadClient(sessions, options = {}) {
     filename: WS_CLIENT.pathname,
   });
   const client = context.module.exports;
-  function handshake(socket) {
-    socket.readyState = 1;
-    socket.onopen();
+  function handshake(socket, features = [], overrides = {}) {
+    if (socket.readyState !== 1) {
+      socket.readyState = 1;
+      socket.onopen();
+    }
     socket.onmessage({
       data: JSON.stringify({
         type: 'hello_ack',
+        protocolVersion: 1,
         serverVersion: 'test',
-        features: [],
+        features,
+        ...overrides,
       }),
     });
   }
@@ -188,6 +192,81 @@ function loadClient(sessions, options = {}) {
   if (options.autoHandshake !== false) handshake(socket);
   return { busEvents, client, context, handshake, socket, sockets };
 }
+
+suite('M1 Studio client — required-offer wire negotiation');
+
+test('hello offers M1 exactly once and a legacy ACK leaves it disabled', () => {
+  const { client, handshake, socket } = loadClient([session()], {
+    autoHandshake: false,
+  });
+  socket.readyState = 1;
+  socket.onopen();
+
+  const hello = socket.sent.find(message => message.type === 'hello');
+  assert.ok(hello);
+  assert.equal(
+    hello.features.filter(feature => feature === 'm1-wire-v1').length,
+    1,
+  );
+  assert.equal(client.wsIsM1WireNegotiated(), false);
+
+  handshake(socket, ['workspace', 'audit']);
+  assert.equal(client.wsIsReady(), true);
+  assert.equal(client.wsIsM1WireNegotiated(), false);
+});
+
+test('protocol v1 ACK enables M1 only when the server echoes the offer', () => {
+  const { client, handshake, socket } = loadClient([session()], {
+    autoHandshake: false,
+  });
+  handshake(socket, ['workspace', 'm1-wire-v1']);
+
+  assert.equal(client.wsIsReady(), true);
+  assert.equal(client.wsHasFeature('m1-wire-v1'), true);
+  assert.equal(client.wsIsM1WireNegotiated(), true);
+});
+
+test('missing or wrong protocol and malformed feature lists keep M1 disabled', () => {
+  const missing = loadClient([session()], { autoHandshake: false });
+  missing.handshake(
+    missing.socket,
+    ['m1-wire-v1'],
+    { protocolVersion: undefined },
+  );
+  assert.equal(missing.client.wsIsM1WireNegotiated(), false);
+
+  const wrong = loadClient([session()], { autoHandshake: false });
+  wrong.handshake(
+    wrong.socket,
+    ['m1-wire-v1'],
+    { protocolVersion: 2 },
+  );
+  assert.equal(wrong.client.wsIsM1WireNegotiated(), false);
+
+  const malformed = loadClient([session()], { autoHandshake: false });
+  malformed.handshake(
+    malformed.socket,
+    [],
+    { features: 'm1-wire-v1' },
+  );
+  assert.equal(malformed.client.wsIsM1WireNegotiated(), false);
+});
+
+test('a reconnect clears the M1 latch until the new socket negotiates it', () => {
+  const { client, handshake, socket, sockets } = loadClient([session()], {
+    autoHandshake: false,
+  });
+  handshake(socket, ['m1-wire-v1']);
+  assert.equal(client.wsIsM1WireNegotiated(), true);
+
+  client.wsConnect();
+  assert.equal(sockets.length, 2);
+  assert.equal(client.wsIsM1WireNegotiated(), false);
+  assert.equal(JSON.stringify(client.wsServerFeatures()), '[]');
+
+  handshake(sockets[1], ['m1-wire-v1']);
+  assert.equal(client.wsIsM1WireNegotiated(), true);
+});
 
 async function drainMicrotasks(rounds = 12) {
   for (let index = 0; index < rounds; index++) await Promise.resolve();

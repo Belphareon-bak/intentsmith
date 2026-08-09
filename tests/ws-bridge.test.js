@@ -25,13 +25,16 @@ import Database from 'better-sqlite3';
 import {
   PROTOCOL_VERSION,
   BACKEND_VERSION,
+  M1_WIRE_FEATURE,
   Channel,
   AgentEventType,
   buildChannelMessage,
   buildAgentEvent,
   buildHelloAck,
+  buildHelloAckFromNegotiatedFeatures,
   buildHelloReject,
   messageId,
+  negotiateFeatures,
 } from '../src/ws-bridge/protocol.js';
 
 import { createSessionAdapter } from '../src/ws-bridge/session-adapter.js';
@@ -158,7 +161,7 @@ async function closeOwnedWebSocketServer(wss, httpServer) {
   });
 }
 
-async function connectAndHello(WebSocket, url, protocols, options) {
+async function connectAndHello(WebSocket, url, protocols, options, features) {
   const connectionOptions = {
     handshakeTimeout: 3_000,
     ...options,
@@ -178,11 +181,13 @@ async function connectAndHello(WebSocket, url, protocols, options) {
     ws.once('error', onError);
     ws.once('open', onOpen);
   });
-  ws.send(JSON.stringify({
+  const hello = {
     type: 'hello',
     protocolVersion: PROTOCOL_VERSION,
     ideVersion: 'boundary-test',
-  }));
+  };
+  if (features !== undefined) hello.features = features;
+  ws.send(JSON.stringify(hello));
   await new Promise((resolve, reject) => {
     const onError = error => {
       ws.off('message', onMessage);
@@ -191,6 +196,7 @@ async function connectAndHello(WebSocket, url, protocols, options) {
     const onMessage = raw => {
       const message = JSON.parse(raw.toString());
       if (message.type !== 'hello_ack') return;
+      ws.receivedHelloAck = message;
       ws.off('error', onError);
       ws.off('message', onMessage);
       resolve();
@@ -257,6 +263,52 @@ test('T2: buildHelloAck returns valid JSON with version', () => {
   assert.equal(msg.type, 'hello_ack');
   assert.equal(msg.protocolVersion, PROTOCOL_VERSION);
   assert.equal(msg.backendVersion, BACKEND_VERSION);
+});
+
+test('T2a: omitted feature offer preserves legacy fallback without M1', () => {
+  const negotiated = negotiateFeatures([], { m1WireSupported: true });
+  assert.deepEqual(negotiated, [
+    'workspace',
+    'terminal',
+    'merge-preview',
+    'edit-ask',
+    'audit',
+  ]);
+  assert.equal(negotiated.includes(M1_WIRE_FEATURE), false);
+});
+
+test('T2b: an explicit M1 offer is not acknowledged before server support', () => {
+  assert.deepEqual(
+    negotiateFeatures(['workspace', M1_WIRE_FEATURE]),
+    ['workspace'],
+  );
+  const ack = JSON.parse(buildHelloAck(['workspace', M1_WIRE_FEATURE]));
+  assert.deepEqual(ack.features, ['workspace']);
+});
+
+test('T2c: supported M1 is acknowledged only after an explicit offer', () => {
+  assert.deepEqual(
+    negotiateFeatures(
+      ['audit', M1_WIRE_FEATURE],
+      { m1WireSupported: true },
+    ),
+    ['audit', M1_WIRE_FEATURE],
+  );
+  assert.equal(
+    negotiateFeatures(['audit'], { m1WireSupported: true })
+      .includes(M1_WIRE_FEATURE),
+    false,
+  );
+});
+
+test('T2d: duplicate client offers cannot duplicate negotiated capabilities', () => {
+  assert.deepEqual(
+    negotiateFeatures(
+      [M1_WIRE_FEATURE, M1_WIRE_FEATURE, 'workspace', 'workspace'],
+      { m1WireSupported: true },
+    ),
+    ['workspace', M1_WIRE_FEATURE],
+  );
 });
 
 test('T3: buildHelloReject includes reason and required protocol', () => {
@@ -1500,7 +1552,87 @@ test('T23: attachWebSocketServer and boundary internals are available', () => {
     typeof wsBridgeTestInternals?.validateRehydrateConversationIds,
     'function',
   );
+  assert.equal(
+    typeof wsBridgeTestInternals?.isM1ChatFrameCandidate,
+    'function',
+  );
 });
+
+test('T23a: every partial M1 wrapper is intercepted before legacy routing', () => {
+  const isCandidate = wsBridgeTestInternals.isM1ChatFrameCandidate;
+  assert.equal(isCandidate({ channel: 'chat', data: { content: 'legacy' } }), false);
+  assert.equal(isCandidate({ channel: 'chat', data: { command: {} } }), true);
+  assert.equal(isCandidate({ channel: 'chat', data: { context: {} } }), true);
+  assert.equal(
+    isCandidate({ channel: 'chat', data: { command: {}, context: {} } }),
+    true,
+  );
+  assert.equal(
+    isCandidate({ channel: 'control', data: { command: {}, context: {} } }),
+    false,
+  );
+});
+
+await asyncTest(
+  'T25m1: unnegotiated M1 frame closes before the legacy controller effect',
+  async () => {
+    const { WebSocket } = await import('ws');
+    const httpServer = createServer((_request, response) => {
+      response.writeHead(404);
+      response.end();
+    });
+    let controllerEffects = 0;
+    const wss = attachWebSocketServer(
+      httpServer,
+      {
+        handle: async () => {
+          controllerEffects++;
+          return { response: 'must-not-run' };
+        },
+      },
+      mockLogger,
+      { localCapability: createLegacyLocalCapability() },
+    );
+    let client = null;
+
+    try {
+      const port = await listenOnOwnedLoopback(httpServer);
+      client = await connectAndHello(
+        WebSocket,
+        `ws://127.0.0.1:${port}/c3/ws`,
+        undefined,
+        undefined,
+        [M1_WIRE_FEATURE],
+      );
+      assert.deepEqual(client.receivedHelloAck.features, []);
+      const closed = new Promise(resolve => {
+        client.once('close', (code, reason) => resolve({
+          code,
+          reason: reason.toString(),
+        }));
+      });
+      client.send(JSON.stringify({
+        channel: 'chat',
+        data: {
+          command: { kind: 'message', content: 'must not reach legacy' },
+          context: { conversationId: 'm1-unnegotiated-negative' },
+        },
+      }));
+      assert.deepEqual(await closed, {
+        code: 1008,
+        reason: 'M1 wire not negotiated',
+      });
+      assert.equal(controllerEffects, 0);
+    } finally {
+      if (client) await closeOwnedWebSocket(client);
+      if (httpServer.listening) {
+        await closeOwnedWebSocketServer(wss, httpServer);
+      } else {
+        wss.close();
+      }
+    }
+  },
+);
 
 test('T24: all protocol exports are accessible', () => {
   assert.equal(typeof PROTOCOL_VERSION, 'number');
@@ -1510,8 +1642,11 @@ test('T24: all protocol exports are accessible', () => {
   assert.equal(typeof buildChannelMessage, 'function');
   assert.equal(typeof buildAgentEvent, 'function');
   assert.equal(typeof buildHelloAck, 'function');
+  assert.equal(typeof buildHelloAckFromNegotiatedFeatures, 'function');
   assert.equal(typeof buildHelloReject, 'function');
   assert.equal(typeof messageId, 'function');
+  assert.equal(typeof negotiateFeatures, 'function');
+  assert.equal(M1_WIRE_FEATURE, 'm1-wire-v1');
 });
 
 test('T25: createSessionAdapter is exported and functional', () => {

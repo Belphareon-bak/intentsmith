@@ -1316,9 +1316,12 @@ mohou pokračovat.
    wire přes produkční WS server, route a commitnutý klient je také hotový.
    Generated prebuild část 010/A+ je implementovaná a clean-clone ověřená.
    Operátor přijal [017/A+A](docs/decisions/017-m1-negotiated-wire-shape.md):
-   required-offer `m1-wire-v1` a exact transportní context wrapper. Tím je
-   otevřený negotiation checkpoint; runtime consumer ani built journey tím
-   ještě nejsou prokázané. Cancel terminal ordering už závazně
+   required-offer `m1-wire-v1` a exact transportní context wrapper.
+   Required-offer checkpoint je focused implementovaný: Studio token nabízí,
+   ACK-bound latch se při reconnectu resetuje a server zatím token pravdivě
+   neACKuje; M1-shaped frame bez negotiation skončí před legacy controllerem.
+   Exact ingress/egress adapter, terminal ledger, runtime consumer a built
+   journey tím ještě nejsou prokázané. Cancel terminal ordering už závazně
    plyne z přijatého 004/C a není nová otázka. Ostatní
    nezávislá příprava product-bundle consumeru může pokračovat před terminal
    ledgerem a built journey. Disposable fresh clone na `9464dacf` už offline

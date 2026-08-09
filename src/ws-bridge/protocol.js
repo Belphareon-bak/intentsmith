@@ -20,6 +20,15 @@
 export const PROTOCOL_VERSION = 1;
 import { getCurrentVersion } from '../packaging/auto-updater.js';
 export const BACKEND_VERSION = getCurrentVersion();
+export const M1_WIRE_FEATURE = 'm1-wire-v1';
+
+const LEGACY_SERVER_FEATURES = Object.freeze([
+  'workspace',
+  'terminal',
+  'merge-preview',
+  'edit-ask',
+  'audit',
+]);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Channels
@@ -86,27 +95,43 @@ export function buildAgentEvent(seq, type, turnId, payload) {
 }
 
 /**
- * Build handshake ack message.
- * @returns {string} JSON string
- */
-/**
- * Build handshake ack message with feature negotiation.
+ * Derive the exact server feature subset for one client offer.
  * @param {string[]} [clientFeatures] — Features requested by client
- * @returns {string} JSON string
+ * @param {{m1WireSupported?: boolean}} [capabilities]
+ * @returns {string[]} negotiated features
  */
-export function buildHelloAck(clientFeatures = []) {
-  const serverFeatures = ['workspace', 'terminal', 'merge-preview', 'edit-ask', 'audit'];
-  const negotiated = clientFeatures.length > 0
-    ? serverFeatures.filter(f => clientFeatures.includes(f))
-    : serverFeatures;
+export function negotiateFeatures(clientFeatures = [], capabilities = {}) {
+  const offered = Array.isArray(clientFeatures) ? clientFeatures : [];
+  const serverFeatures = capabilities?.m1WireSupported === true
+    ? [...LEGACY_SERVER_FEATURES, M1_WIRE_FEATURE]
+    : LEGACY_SERVER_FEATURES;
 
+  // Legacy clients historically omitted the feature array and received the
+  // five legacy capabilities. Additive security-sensitive capabilities must
+  // never inherit that fallback: M1 is returned only after an explicit offer.
+  if (offered.length === 0) return [...LEGACY_SERVER_FEATURES];
+  return serverFeatures.filter(feature => offered.includes(feature));
+}
+
+/** Encode a handshake acknowledgement from the already-derived server subset. */
+export function buildHelloAckFromNegotiatedFeatures(negotiatedFeatures = []) {
+  const features = Array.isArray(negotiatedFeatures)
+    ? [...new Set(negotiatedFeatures.filter(feature => typeof feature === 'string'))]
+    : [];
   return JSON.stringify({
     type: 'hello_ack',
     protocolVersion: PROTOCOL_VERSION,
     backendVersion: BACKEND_VERSION,
     serverVersion: BACKEND_VERSION,
-    features: negotiated,
+    features,
   });
+}
+
+/** Build a handshake acknowledgement from one client offer. */
+export function buildHelloAck(clientFeatures = [], capabilities = {}) {
+  return buildHelloAckFromNegotiatedFeatures(
+    negotiateFeatures(clientFeatures, capabilities),
+  );
 }
 
 /**

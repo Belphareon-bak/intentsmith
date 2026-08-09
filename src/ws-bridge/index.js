@@ -17,11 +17,14 @@ export { createSessionAdapter } from './session-adapter.js';
 export {
   PROTOCOL_VERSION,
   BACKEND_VERSION,
+  M1_WIRE_FEATURE,
   Channel,
   AgentEventType,
   buildChannelMessage,
   buildAgentEvent,
   buildHelloAck,
+  buildHelloAckFromNegotiatedFeatures,
   buildHelloReject,
   messageId,
+  negotiateFeatures,
 } from './protocol.js';

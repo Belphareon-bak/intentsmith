@@ -181,3 +181,23 @@ turn nesmí při chybě downgradeovat na legacy.
 Implementace začne required-offer negotiation checkpointem. Transportem
 napájený ledger vznikne až spolu s exact ingress/egress; inertní test-only
 consumer se nevydává za M1 journey ani wire důkaz.
+
+## Implementační stav required-offer checkpointu — 2026-08-09
+
+Required-offer základ je implementovaný bez false capability claimu:
+
+- Studio nabízí `m1-wire-v1` právě jednou a drží samostatný negotiation latch;
+- latch vznikne jen při `protocolVersion: 1` a při tokenu, který tentýž klient
+  nabídl i server vrátil; connect, close a destroy jej vždy vynulují;
+- server odvozuje jeden uložený negotiated set a z něj sestavuje ACK i povolené
+  runtime větve;
+- současný server token záměrně neACKuje, protože exact M1 ingress/egress
+  adapter ještě neexistuje;
+- úplný i částečný `{command, context}` wrapper bez negotiated tokenu končí
+  close `1008` před legacy controller efektem. Po budoucím ACK nesmí wrapper
+  spadnout do legacy větve ani tehdy, když adapter chybí.
+
+Focused důkaz: `tests/ws-bridge.test.js` 74/74 a
+`tests/m1-studio-client.test.js` 61/61, oba exit `0`. Nejde o aktivní M1 wire:
+exact context validator, kanonický ingress/egress, terminal ledger a built
+Electron journey zůstávají otevřené. Gate 1 proto zůstává `BLOCKED`.

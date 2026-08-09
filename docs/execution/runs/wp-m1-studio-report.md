@@ -823,3 +823,37 @@ path podvětev bez existující FS autority zůstane PARK.
 Audit nespouštěl build ani UI a nic neměnil. Přijetí A/A otevírá required-offer
 negotiation checkpoint; aktivní wire, terminal ledger napojený na transport a
 built M1 journey zůstávají `BLOCKED`, dokud nevznikne runtime evidence.
+
+## Checkpoint 16 — fail-closed required-offer negotiation candidate
+
+- **vstupní HEAD:** `f43793bfd2e5fe618634dd0dbf3c22bc026e125f`
+- **017/Q1 required-offer:** `IMPLEMENTED / FOCUSED PASS`
+- **aktivní M1 ingress/egress a celý B4:** nadále `BLOCKED`
+
+Studio nyní nabízí `m1-wire-v1` spolu s pěti legacy features, ale používá pro
+něj samostatný ACK-bound latch. Nabídka sama nestačí: latch vyžaduje
+`protocolVersion: 1`, token v nabídce konkrétního connection epochu i token v
+server ACK. Connect, close a destroy smažou server features i latch; nový
+socket proto nemůže zdědit M1 autoritu ze starého.
+
+Server odvozuje jediný negotiated set a stejný set používá pro ACK i routing.
+Současný server token záměrně neACKuje, protože exact `{command, context}`
+adapter ještě není hotový. Úplný i částečný M1-shaped chat wrapper bez
+negotiated tokenu se zachytí před legacy `processChat()` a ukončí session
+close `1008`. Tím se nepovoluje implicitní downgrade jednoho turnu do legacy
+cesty ani false capability claim.
+
+| Příkaz | Výsledek | Exit |
+|---|---|---:|
+| `node --check src/ws-bridge/protocol.js && node --check src/ws-bridge/ws-server.js && node --check src/ws-bridge/index.js && node --check c3-ide/extensions/c3-chat-panel/lib/browser/ws-client.js` | syntax valid | 0 |
+| `node tests/ws-bridge.test.js` | 74 passed, 0 failed | 0 |
+| `node tests/m1-studio-client.test.js` | 61 passed, 0 failed | 0 |
+
+Negativní live test token výslovně nabídne, ověří jeho absenci v ACK, pošle
+exact M1 wrapper a prokáže nula controller efektů. Klientská sada připíná
+legacy ACK, pozitivní ACK, chybějící/chybnou protocol verzi, malformed feature
+list i reset při reconnectu.
+
+Checkpoint neimplementuje Q2 exact context validaci, M1 command adapter,
+kanonický event stream, cancel ordering, product-bundle consumer ani built
+Electron journey. Server proto M1 stále neinzeruje a B4/Gate 1 není PASS.
