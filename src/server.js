@@ -110,6 +110,7 @@ import { ChatController, ChatMode } from './chat/controller.js';
 import { attachWebSocketServer } from './ws-bridge/index.js';
 import { setNotificationDeps } from './ws-bridge/session-adapter.js';
 import { getDefaultHandlers } from './chat/handlers/index.js';
+import { setModelBindingApplication } from './chat/handlers/pre-handler.js';
 import { toolExecutor } from './executor/tool-executor.js';
 
 // H9: Route modules (extracted from server.js)
@@ -217,13 +218,43 @@ import { upgradeManager } from './upgrade/upgrade-manager.js';
 // v133: ModelRegistry — centralized model management
 import { modelRegistry } from './upgrade/model-registry.js';
 import { modelUniverseStore } from './upgrade/model-universe-store.js';
+import { createModelFailoverRepository } from './upgrade/model-failover.js';
+import {
+  createModelBindingApplication,
+  createOllamaModelBindingProvider,
+} from './upgrade/model-binding-application.js';
 
-// v103.1: Restore persisted model overrides BEFORE any LLM calls
+// Restore every manual binding through the single durable application boundary
+// before any LLM call can observe config.models.
 upgradeManager.setDb(db.db);
 modelUniverseStore.setDb(db.db);
-const overrideCount = upgradeManager.loadPersistedOverrides();
-if (overrideCount > 0) {
-  logger.info('Server', `Restored ${overrideCount} model override(s) from DB`);
+const bindingRepository = createModelFailoverRepository(db.db);
+const { broadcast: bindingBroadcast } = await import('./ws-bridge/ws-server.js');
+const modelBindingApplication = createModelBindingApplication({
+  repository: bindingRepository,
+  runtime: upgradeManager.createBindingRuntimePort(),
+  provider: createOllamaModelBindingProvider({
+    baseUrl: config.ollama?.baseUrl,
+    pullImpl: (modelName, onProgress, authority) => (
+      upgradeManager.pullModel(modelName, onProgress, authority)
+    ),
+  }),
+  publishControl: payload => bindingBroadcast('control', payload),
+  logger,
+});
+setModelBindingApplication(modelBindingApplication);
+const bindingRehydrate = await modelBindingApplication.rehydrateBindings();
+if (bindingRehydrate.legacyRestored > 0 || bindingRehydrate.restored > 0) {
+  logger.info(
+    'Server',
+    `Restored ${bindingRehydrate.restored} manual and ${bindingRehydrate.legacyRestored} legacy model binding(s)`,
+  );
+}
+for (const failure of bindingRehydrate.failed) {
+  logger.warn(
+    'Server',
+    `Model binding rehydrate failed for ${failure.role}: ${failure.code}`,
+  );
 }
 
 // v118: Phase 2 — proposal store + registry client
@@ -276,8 +307,9 @@ try {
   modelRegistry.init({
     db: db.db,
     upgradeManager,
+    modelBindingApplication,
     validationRunner,
-    broadcast: (await import('./ws-bridge/ws-server.js')).broadcast,
+    broadcast: bindingBroadcast,
   });
   // v133: Wire usage tracking to gateway
   llmGateway.setUsageDb(db.db);
@@ -766,7 +798,7 @@ const routeDeps = {
   specialistLoader, specialistRuntime, specialistTelemetry,
   notificationRouter, notificationEmitter,
   comfyuiConnector, vramManager, mediaStorage,
-  modelRegistry,
+  modelRegistry, modelBindingApplication,
 };
 
 // v93: notificationRouter + notificationPipeline initialized above (before agent platform)
@@ -1239,6 +1271,7 @@ listenOnLegacyLoopback(server, config.server, async () => {
     allowedOrigins: config.server.allowedOrigins,
     localCapability: legacyLocalCapability,
   });
+  modelBindingApplication.startBackgroundVerification();
 
   // Phase C1: Preload active workflow sessions into RAM cache
   try {

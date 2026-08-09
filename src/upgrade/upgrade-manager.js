@@ -399,6 +399,8 @@ export class UpgradeManager {
     this._db = null;
     this._upgrading = false;  // Mutex flag
     this._configVersion = 0;  // Monotonic counter for WS broadcast
+    this._bindingRuntimeToken = null;
+    this._bindingRuntimeTokenSequence = 0;
   }
 
   // ─── DB + Persistence (v103.1) ──────────────────────────────────────────
@@ -409,6 +411,187 @@ export class UpgradeManager {
    */
   setDb(db) {
     this._db = db;
+  }
+
+  createBindingRuntimePort() {
+    return Object.freeze({
+      snapshot: role => this._bindingRuntimeSnapshot(role),
+      prepare: input => this._prepareBindingRuntime(input),
+      commit: token => this._commitBindingRuntime(token),
+      compensate: token => this._compensateBindingRuntime(token),
+      rehydrateLegacy: input => this._rehydrateLegacyBinding(input),
+      resolvePendingProposals: (role, model, operationKind) => (
+        this._resolvePendingProposalsForRole(role, model, operationKind)
+      ),
+    });
+  }
+
+  _bindingRuntimeFailure(code, message, details = null) {
+    const error = new Error(message);
+    error.code = code;
+    error.details = details;
+    return error;
+  }
+
+  _bindingRuntimeSnapshot(role) {
+    if (!MODEL_PROFILES[role]) {
+      throw this._bindingRuntimeFailure(
+        'MODEL_BINDING_ROLE_INVALID',
+        `Invalid role: ${role}`,
+        { role },
+      );
+    }
+    return Object.freeze({
+      role,
+      modelName: config.models[role],
+      configVersion: this._configVersion,
+    });
+  }
+
+  _prepareBindingRuntime(input = {}) {
+    const allowed = new Set(['role', 'expectedModel', 'targetModel', 'incrementVersion']);
+    const unexpected = Object.keys(input).filter(key => !allowed.has(key));
+    if (unexpected.length > 0) {
+      throw this._bindingRuntimeFailure(
+        'MODEL_BINDING_RUNTIME_INPUT_INVALID',
+        'Runtime binding input contains unknown authority fields',
+        { fields: unexpected.sort() },
+      );
+    }
+    const { role, expectedModel, targetModel } = input;
+    if (!MODEL_PROFILES[role]) {
+      throw this._bindingRuntimeFailure('MODEL_BINDING_ROLE_INVALID', `Invalid role: ${role}`, { role });
+    }
+    if (typeof expectedModel !== 'string' || !expectedModel.trim()
+      || typeof targetModel !== 'string' || !targetModel.trim()) {
+      throw this._bindingRuntimeFailure(
+        'MODEL_BINDING_RUNTIME_INPUT_INVALID',
+        'Runtime binding requires non-empty expected and target models',
+        { role },
+      );
+    }
+    if (this._bindingRuntimeToken) {
+      throw this._bindingRuntimeFailure(
+        'MODEL_BINDING_APPLICATION_BUSY',
+        'Another model binding runtime transition is in progress',
+      );
+    }
+    const decision = this._getRuntimeGuardDecision(targetModel);
+    if (!decision.allowed) {
+      throw this._bindingRuntimeFailure(
+        'MODEL_BINDING_RUNTIME_GUARD_REJECTED',
+        `Model temporarily blocked by runtime guard: ${targetModel}`,
+        { role, targetModel, reason: decision.reason || null },
+      );
+    }
+    const currentModel = config.models[role];
+    if (!sameModelName(currentModel, expectedModel)
+      && !sameModelName(currentModel, targetModel)) {
+      throw this._bindingRuntimeFailure(
+        'MODEL_BINDING_RUNTIME_CAS_MISMATCH',
+        `Runtime binding changed before ${role} could be updated`,
+        { role, expectedModel, targetModel, currentModel },
+      );
+    }
+    const token = Object.freeze({
+      id: ++this._bindingRuntimeTokenSequence,
+      role,
+      previousModel: currentModel,
+      targetModel,
+      versionBefore: this._configVersion,
+      incrementVersion: input.incrementVersion !== false,
+      changed: currentModel !== targetModel,
+    });
+    this._bindingRuntimeToken = token;
+    if (token.changed) config.models[role] = targetModel;
+    return token;
+  }
+
+  _commitBindingRuntime(token) {
+    if (!token || token !== this._bindingRuntimeToken) {
+      throw this._bindingRuntimeFailure(
+        'MODEL_BINDING_RUNTIME_TOKEN_INVALID',
+        'Runtime binding commit token is not active',
+      );
+    }
+    if (config.models[token.role] !== token.targetModel
+      || this._configVersion !== token.versionBefore) {
+      throw this._bindingRuntimeFailure(
+        'MODEL_BINDING_RUNTIME_CAS_MISMATCH',
+        'Runtime binding changed before commit',
+        { role: token.role },
+      );
+    }
+    if (token.incrementVersion) {
+      this._configVersion++;
+      this.recordUpgrade(token.role, token.previousModel, token.targetModel, 0);
+    }
+    this._bindingRuntimeToken = null;
+    return Object.freeze({
+      role: token.role,
+      from: token.previousModel,
+      to: token.targetModel,
+      configVersion: this._configVersion,
+      changed: token.changed,
+    });
+  }
+
+  _compensateBindingRuntime(token) {
+    if (!token || token !== this._bindingRuntimeToken) {
+      throw this._bindingRuntimeFailure(
+        'MODEL_BINDING_RUNTIME_TOKEN_INVALID',
+        'Runtime binding compensation token is not active',
+      );
+    }
+    if (config.models[token.role] !== token.targetModel
+      || this._configVersion !== token.versionBefore) {
+      throw this._bindingRuntimeFailure(
+        'MODEL_BINDING_RUNTIME_COMPENSATION_FAILED',
+        'Runtime binding cannot be compensated after concurrent mutation',
+        { role: token.role },
+      );
+    }
+    if (token.changed) config.models[token.role] = token.previousModel;
+    this._bindingRuntimeToken = null;
+    return Object.freeze({
+      role: token.role,
+      restoredModel: token.previousModel,
+      configVersion: this._configVersion,
+    });
+  }
+
+  _rehydrateLegacyBinding(input = {}) {
+    const allowed = new Set(['role', 'targetModel']);
+    const unexpected = Object.keys(input).filter(key => !allowed.has(key));
+    if (unexpected.length > 0) {
+      throw this._bindingRuntimeFailure(
+        'MODEL_BINDING_RUNTIME_INPUT_INVALID',
+        'Legacy rehydrate input contains unknown fields',
+        { fields: unexpected.sort() },
+      );
+    }
+    if (!MODEL_PROFILES[input.role]
+      || typeof input.targetModel !== 'string'
+      || !input.targetModel.trim()) {
+      throw this._bindingRuntimeFailure(
+        'MODEL_BINDING_RUNTIME_INPUT_INVALID',
+        'Legacy rehydrate requires a valid role and model',
+      );
+    }
+    if (this._bindingRuntimeToken) {
+      throw this._bindingRuntimeFailure(
+        'MODEL_BINDING_APPLICATION_BUSY',
+        'Cannot rehydrate a legacy binding during a runtime transition',
+      );
+    }
+    const from = config.models[input.role];
+    config.models[input.role] = input.targetModel;
+    return Object.freeze({
+      role: input.role,
+      from,
+      to: input.targetModel,
+      configVersion: this._configVersion,
+    });
   }
 
   _getRuntimeGuardDecision(modelName) {
@@ -737,19 +920,54 @@ export class UpgradeManager {
    * @param {string} newModel - The newly applied model
    */
   _expirePendingProposalsForRole(role, newModel) {
+    return this._resolvePendingProposalsForRole(role, newModel, 'USER_APPLY');
+  }
+
+  _resolvePendingProposalsForRole(role, newModel, operationKind = 'USER_APPLY') {
     if (!this._db) {
-      logger.warn('UpgradeManager', `Cannot expire proposals: DB not set`);
-      return;
+      logger.warn('UpgradeManager', 'Cannot resolve proposals: DB not set');
+      throw new Error('Cannot resolve proposals: DB not set');
+    }
+    if (!['USER_APPLY', 'USER_ROLLBACK'].includes(operationKind)) {
+      throw new TypeError(`Unsupported proposal resolution operation: ${operationKind}`);
     }
     try {
-      const result = this._db.prepare(`
-        UPDATE upgrade_proposals
-        SET status = 'expired', resolved_at = datetime('now')
-        WHERE role = ? AND status = 'pending'
-      `).run(role);
-      logger.info('UpgradeManager', `Expired ${result.changes} stale proposals for ${role} after applying ${newModel}`);
+      const resolve = this._db.transaction(() => {
+        const pending = this._db.prepare(`
+          SELECT id, candidate_model
+          FROM upgrade_proposals
+          WHERE role = ? AND status = 'pending'
+          ORDER BY score DESC, detected_at DESC, id DESC
+        `).all(role);
+        let approved = null;
+        let expired = 0;
+        const update = this._db.prepare(`
+          UPDATE upgrade_proposals
+          SET status = ?, resolved_at = datetime('now')
+          WHERE id = ? AND status = 'pending'
+        `);
+        for (const proposal of pending) {
+          const matches = operationKind === 'USER_APPLY'
+            && approved === null
+            && sameModelName(proposal.candidate_model, newModel);
+          const status = matches ? 'approved' : 'expired';
+          const result = update.run(status, proposal.id);
+          if (result.changes === 1) {
+            if (matches) approved = proposal.id;
+            else expired++;
+          }
+        }
+        return { approved, expired };
+      });
+      const result = resolve.immediate();
+      logger.info(
+        'UpgradeManager',
+        `Resolved proposals for ${role}: approved=${result.approved || 'none'}, expired=${result.expired}`,
+      );
+      return result;
     } catch (err) {
-      logger.warn('UpgradeManager', `Failed to expire proposals: ${err.message}`);
+      logger.warn('UpgradeManager', `Failed to resolve proposals: ${err.message}`);
+      throw err;
     }
   }
 
@@ -758,15 +976,32 @@ export class UpgradeManager {
    *
    * @param {string} modelName - e.g. 'qwen3.5:27b'
    * @param {Function} [onProgress] - callback({text, percent, downloadedGB, totalGB, eta, status})
+   * @param {{baseUrl?: string}} [authority]
    * @returns {Promise<void>}
    */
-  async pullModel(modelName, onProgress) {
-    const baseUrl = config.ollama?.baseUrl || 'http://127.0.0.1:11434';
+  async pullModel(modelName, onProgress, authority = {}) {
+    const baseUrl = authority.baseUrl || config.ollama?.baseUrl || 'http://127.0.0.1:11434';
+    if (authority.baseUrl) {
+      let parsed;
+      try {
+        parsed = new URL(authority.baseUrl);
+      } catch {
+        throw new Error('Pinned Ollama pull URL is invalid');
+      }
+      if (parsed.protocol !== 'http:'
+        || !new Set(['127.0.0.1', 'localhost', '[::1]']).has(parsed.hostname)
+        || parsed.username
+        || parsed.password
+        || (parsed.pathname !== '/' && parsed.pathname !== '')) {
+        throw new Error('Pinned Ollama pull URL must be an uncredentialed loopback HTTP origin');
+      }
+    }
 
     const response = await fetch(`${baseUrl}/api/pull`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: modelName }),
+      redirect: 'error',
     });
 
     if (!response.ok) {

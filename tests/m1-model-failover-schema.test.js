@@ -284,12 +284,17 @@ suite('M1 model failover schema — exact migration contract');
 
 await testAsync('fresh file-backed DB creates all failover tables, indexes and triggers', async () => {
   await withMigratedDb(async (db) => {
-    assertEqual(getCurrentVersion(db), '2026_08_09_050_model_binding_application_attempts');
+    assertEqual(getCurrentVersion(db), '2026_08_09_052_model_binding_provider_effects');
 
     for (const table of [
       'model_desired_bindings',
       'model_binding_operations',
       'model_binding_application_attempts',
+      'model_binding_provider_operations',
+      'model_binding_provider_attempts',
+      'model_binding_provider_claims',
+      'model_binding_user_noop_receipts',
+      'model_binding_user_noop_provider_supersedes',
       'model_failover_events',
       'model_failover_proofs',
       'model_failover_state',
@@ -305,6 +310,35 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
       'seq', 'operation_id', 'attempt_revision', 'attempt_kind', 'outcome',
       'observed_model_name', 'observed_canonical_name', 'observed_digest_sha256',
       'verification_method', 'failure_code', 'retryable', 'created_at_ms',
+      'runtime_changed',
+    ]));
+    assertEqual(JSON.stringify(columns(db, 'model_binding_provider_operations')), JSON.stringify([
+      'command_seq', 'operation_id', 'request_key', 'role', 'effect_kind',
+      'request_purpose', 'expected_binding_revision', 'provider_origin',
+      'requested_model_name', 'requested_canonical_name', 'actor',
+      'initial_claim_token', 'initial_claim_expires_at_ms', 'created_at_ms',
+    ]));
+    assertEqual(JSON.stringify(columns(db, 'model_binding_provider_attempts')), JSON.stringify([
+      'seq', 'operation_id', 'attempt_revision', 'outcome', 'observed_model_name',
+      'observed_canonical_name', 'observed_digest_sha256', 'failure_code',
+      'retryable', 'claim_token', 'fencing_revision', 'created_at_ms',
+    ]));
+    assertEqual(JSON.stringify(columns(db, 'model_binding_provider_claims')), JSON.stringify([
+      'operation_id', 'role', 'provider_origin', 'requested_canonical_name',
+      'claim_token', 'fencing_revision', 'lease_expires_at_ms', 'updated_at_ms',
+    ]));
+    assertEqual(JSON.stringify(columns(db, 'model_binding_user_noop_receipts')), JSON.stringify([
+      'receipt_id', 'request_key', 'role', 'binding_revision', 'model_name',
+      'canonical_name', 'digest_sha256', 'actor', 'desired_source',
+      'desired_actor', 'desired_observed_at_ms', 'desired_updated_at_ms',
+      'desired_last_event_id', 'provider_command_cutoff_seq',
+      'source_provider_operation_id', 'created_at_ms',
+    ]));
+    assertEqual(JSON.stringify(columns(
+      db,
+      'model_binding_user_noop_provider_supersedes',
+    )), JSON.stringify([
+      'receipt_id', 'provider_operation_id',
     ]));
     for (const column of [
       'role', 'desired_revision', 'episode_id', 'state', 'active_failover',
@@ -357,6 +391,9 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
       'trg_model_binding_application_time_order',
       'trg_model_binding_application_runtime_prerequisite',
       'trg_model_binding_application_runtime_apply_once',
+      'trg_model_binding_application_runtime_changed_shape',
+      'trg_model_binding_application_runtime_apply_after_rehydrate',
+      'trg_model_binding_application_nonretryable_runtime_terminal',
       'trg_model_binding_application_verification_terminal',
       'trg_model_binding_application_notification_once',
       'trg_model_binding_application_append_only_update',
@@ -368,6 +405,52 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
       'trg_model_overrides_manual_lineage_delete',
       'trg_model_overrides_verified_authority_insert',
       'trg_model_overrides_verified_authority_update',
+      'trg_model_binding_provider_attempt_once',
+      'trg_model_binding_provider_operations_user_actor',
+      'trg_model_binding_provider_command_sequence_authority',
+      'trg_model_binding_provider_claim_conflict',
+      'trg_model_binding_provider_claim_create',
+      'trg_model_binding_provider_claim_update_guard',
+      'trg_model_binding_provider_claim_delete_guard',
+      'trg_model_binding_provider_terminal_claim',
+      'trg_model_binding_provider_success_identity',
+      'trg_model_binding_provider_time_order',
+      'trg_model_binding_provider_claim_release',
+      'trg_model_binding_operation_provider_lineage',
+      'trg_model_binding_operation_provider_not_superseded',
+      'trg_model_binding_operation_provider_unresolved_success',
+      'trg_model_binding_operation_provider_pending',
+      'trg_model_binding_provider_operations_append_only_update',
+      'trg_model_binding_provider_operations_append_only_delete',
+      'trg_model_binding_provider_attempts_append_only_update',
+      'trg_model_binding_provider_attempts_append_only_delete',
+      'trg_model_binding_provider_claims_insert_forbidden',
+      'trg_model_binding_user_noop_projection',
+      'trg_model_binding_user_noop_actor',
+      'trg_model_binding_user_noop_provider_cutoff',
+      'trg_model_binding_user_noop_provider_lineage',
+      'trg_model_binding_user_noop_provider_supersedes_insert_conflict',
+      'trg_model_binding_user_noop_provider_supersedes_update',
+      'trg_model_binding_user_noop_provider_supersedes_delete',
+      'trg_model_binding_user_noop_provider_frontier',
+      'trg_model_binding_user_noop_source_provider_lineage',
+      'trg_model_binding_user_noop_provider_pending',
+      'trg_model_binding_user_noop_provider_time_order',
+      'trg_model_binding_user_noop_provider_prefix',
+      'trg_model_binding_user_noop_request_key',
+      'trg_model_binding_user_noop_append_only_insert_conflict',
+      'trg_model_binding_user_noop_append_only_update',
+      'trg_model_binding_user_noop_append_only_delete',
+      'trg_model_binding_provider_noop_request_conflict',
+      'trg_model_binding_operation_noop_request_conflict',
+      'trg_model_binding_provider_unresolved_success',
+      'trg_model_binding_provider_desired_revision',
+      'trg_model_desired_binding_provider_unresolved_success',
+      'trg_model_desired_binding_provider_pending',
+      'trg_model_desired_binding_provider_unresolved_insert',
+      'trg_model_desired_binding_provider_pending_insert',
+      'trg_model_desired_binding_provider_unresolved_delete',
+      'trg_model_desired_binding_provider_pending_delete',
     ]) {
       assert(triggerNames.includes(trigger), `missing trigger ${trigger}`);
     }
@@ -379,7 +462,7 @@ await testAsync('second migration run is a no-op with an identical schema snapsh
     const before = schemaSnapshot(db);
     const result = await runMigrations(db);
     assertEqual(result.applied.length, 0);
-    assertEqual(result.skipped.length, 52);
+    assertEqual(result.skipped.length, 54);
     assertEqual(schemaSnapshot(db), before);
   });
 });

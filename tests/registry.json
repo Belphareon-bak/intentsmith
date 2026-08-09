@@ -5143,6 +5143,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-M1-MODEL-BINDING-APPLICATION-TEST",
+      "path": "tests/m1-model-binding-application.test.js",
+      "argv": [
+        "node",
+        "tests/m1-model-binding-application.test.js"
+      ],
+      "capabilityId": "C3-010",
+      "tier": "T1",
+      "fixture": "owned-isolated-local-server",
+      "profile": "database",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-PROOF-POLICY-TEST",
       "path": "tests/m1-model-failover-proof-policy.test.js",
       "argv": [

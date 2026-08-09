@@ -1,11 +1,11 @@
 # WP-M1-MODEL — průběžný report
 
 - **stav WP:** B3-IDENTITY + B3-PROFILE READY; B3-FAILOVER storage, manual
-  repository a application-state schema READY; společná runtime application
-  service a nový referenční GPU běh 009 zůstávají BLOCKED; offline connector
-  READY
+  repository, application-state schema a společný manual runtime cutover
+  FRESH-CLONE VERIFIED; nový referenční GPU běh 009, proof issuer a automatic
+  failover zůstávají BLOCKED; offline connector READY
 - **poslední ověřený source SHA:**
-  `515fb6f7409ea9ca916f88c1785a4ec032c3121b`
+  `e7d89b5ef038e1a32ad2fdff3990d6f9f20d9bec`
 - **base SHA:** `55c913d6f3cb2354b6447d10ff304e9d0323b1c3`
 - **zapisující větev:** `claude/gate1-mobile-app-progress-5sywlt`
 - **GPU/Ollama v checkpointech 1–2:** NOT RUN
@@ -1303,3 +1303,192 @@ na `MODULE_NOT_FOUND`, protože takový test v repozitáři neexistuje. Nešlo o
 registrovanou ani WP předepsanou sadu a výsledek není produktové selhání; je
 zapsaný jako chyba výběru příkazu. GPU, Ollama, produktový server ani externí
 síť nebyly spuštěny.
+
+## Checkpoint 20 — jeden manual binding runtime commit point
+
+Migrace 051 uzavírá runtime generaci: úspěšný startup rehydrate blokuje další
+apply stejné operation, non-retryable runtime failure vyžaduje novou manual
+operation a skutečný `runtime_changed` rozlišuje změnu od no-opu. Repository
+proto zapisuje `upgrade_history` pouze pro skutečný runtime přechod a při
+neúspěšném rehydrate zachová starší legacy či manual authority.
+
+Nová `ModelBindingApplication` vlastní strict exact-digest provider, durable
+intent, runtime CAS/kompenzaci, append-only apply/rollback, startup rehydrate,
+commit-layer `model_changed` a následnou verifikaci. Migrace 052 připíná exact
+immutable pull intent před prvním provider efektem a jeho typovaný terminální
+výsledek. Provider authority zahrnuje kanonický loopback origin, user actora,
+request key, účel, expected binding revision a exact target. Živý provider
+effect drží pětiminutový lease obnovovaný po minutě; druhá SQLite connection jej
+nepřevezme. Striktně expirovaný recovery claim zvýší fencing revision a stale
+worker už nemůže zapsat terminal outcome. Claim je unikátní pro roli a
+canonical target v rámci jednoho přesného provider originu; alias originy a
+direct pull zatím sdílenou autoritu nemají. DB-assigned command sequence
+připíná no-op frontier a append-only junction uzavírá celý terminální prefix.
+Pending nebo neuzavřený success blokuje jiný apply, rollback i observable
+desired transition; přesné provider dokončení a current-binding no-op jsou
+jediné closure cesty podle 018/Q5/A. DB trigger navíc vynutí úplnou
+provider→binding lineage. HTTP, chat a
+`ModelRegistry` předávají pouze uživatelský záměr; caller nemůže dodat actor,
+request key, digest ani verification truth. Server ji vytvoří před LLM
+provozem, starý `loadPersistedOverrides()` nevolá a všechny veřejné manual
+entrypointy používají stejnou instanci. Startup používá jeden immutable
+inventory snapshot, obnoví poslední platný manual override před vyhodnocením
+novějšího nedokončeného intentu a exact probe spouští sériově až po listen.
+Pomocný `LEGACY_BASELINE_RECOVERY` nikdy nevydá HTTP acceptance; `200 started`
+vznikne až po durable `USER_APPLY_TARGET` nebo binding operation. Provider
+status se koreluje s aktuální desired revision a nezobrazuje historický
+`RECONCILED_ABSENT` jako failure novějšího bindingu.
+
+Focused acceptance používá skutečné migrace, SQLite repository, skutečný
+`UpgradeManager` runtime port a test-owned loopback Ollama protokol. Loopback
+ověřuje exact `tags → chat → tags`, bounded timeout, malformed/empty odpověď a
+digest drift, ale nepředstírá GPU ani skutečný model PASS. Skutečný DB
+close/reopen ověřuje manual rehydrate i provider-terminal/pre-binding crash
+okno. Nezávislé WAL testy prokazují jeden pull při soutěži application instancí
+a serializují provider terminal/no-op i přesné provider completion/current-no-op:
+uspěje jen jedna desired autorita. Direct-SQL guard odmítá pending i neuzavřený
+success při revision změně i při same-revision změně kteréhokoli authority pole;
+stejné pravidlo platí pro `DELETE` a `INSERT OR REPLACE`. Konfliktový insert
+nesmí přepsat append-only no-op receipt ani přesunout jeho provider causal
+junction k jinému receiptu. Repository stejné pravidlo pinuje pro apply,
+rollback a observable baseline.
+Legacy override zůstává bez operation/digestu
+`LEGACY_UNVERIFIED`. Verification failure ponechá explicitně vybraný model
+aktivní jako `FAILED` podle 018/Q1/A. Notification failure je degraded podle
+018/Q3/A a replay neopakuje provider, runtime ani broadcast pokus. Pouze
+explicitní typed receipt smí označit notification success; současný produkční
+void broadcaster proto zůstává pravdivě degraded i po best-effort sendu.
+
+### Focused ověření před produktovým commitem
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `C3_LOG_LEVEL=error node tests/schema-migrations.test.js` | 38 passed, 0 failed; 54 migrací | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-binding-storage.test.js` | 16 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-binding-repository.test.js` | 39 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-failover-schema.test.js` | 10 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-binding-application.test.js` | 73 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/upgrade-apply.test.js` | 33 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/upgrade-ux-v125.test.js` | 78 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/proposal-stale-cleanup.test.js` | 3 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/routes-smoke.test.js` | 109 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/confirmation-ownership.test.js` | 5 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-identity.test.js` | 16 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/ws-bridge.test.js` | 68 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/repository-hygiene.test.js` | 1515 tracked paths checked | 0 |
+| `node scripts/validate-test-registry.js --json` | valid; 375 programů; 8 exclusions; fingerprint `a2f1e67e…f77b8` | 0 |
+| syntax změněných JS souborů | bez chyby | 0 |
+| `git diff --check` | bez whitespace chyb | 0 |
+
+Při širokém spuštění byly nejprve omylem použity neexistující cesty
+`tests/confirmation-routing.test.js` a `tests/model-identity-contract.test.js`;
+oba příkazy skončily `MODULE_NOT_FOUND`, exit `1`, a nespustily žádnou sadu.
+Po dohledání registrovaných cest byly skutečné sady
+`tests/confirmation-ownership.test.js` a `tests/m1-model-identity.test.js`
+spuštěny s výsledky uvedenými výše. Jde o chybu orchestrace, nikoli zelený či
+červený produktový výsledek.
+
+### Fresh-clone evidence produktového commitu
+
+Zdrojový checkout byl na čistém stromu commitnut jako
+`e7d89b5ef038e1a32ad2fdff3990d6f9f20d9bec`. Bez lokální hardlink optimalizace
+byl naklonován příkazem:
+
+```text
+git clone --no-local /home/belphareon/Projects/intentsmith \
+  /home/belphareon/Projects/intentsmith/.intentsmith-artifacts/fresh-clone-e7d89b5e-sxaMfLwe
+```
+
+`git rev-parse HEAD` v klonu vrátil přesný source SHA výše a
+`git status --porcelain=v1 -uall` byl před instalací prázdný. `npm ci --offline`
+přidal 233 balíčků, auditoval 234 balíčků, našel 0 vulnerabilities a skončil
+exit `0`; vypsal pouze deprecation warnings existujících závislostí.
+
+Z tohoto klonu byly beze změny zopakovány všechny přesné testovací příkazy z
+tabulky výše. Výsledky: schema migrations 38/0, binding storage 16/0,
+repository 39/0, application 73/0, failover schema 10/0, upgrade apply 33/0,
+upgrade UX 78/0, proposal cleanup 3/0, routes smoke 109/0, confirmation 5/0,
+identity 16/0, WS bridge 68/0 a artifact validation 151/0; každý příkaz skončil
+exit `0`. Hygiene v commitnutém stromu zkontrolovala 1519 tracked cest, exit
+`0`. Registry validátor vrátil 375 programů, 8 exclusions a fingerprint
+`a2f1e67e4f01c6e834f52eb1b15e10a5eec0893638d167e77baf3a35690f77b8`, exit
+`0`. Rozdíl proti pre-commit hygiene počtu 1515 jsou přesně čtyři tehdy
+untracked a nyní commitnuté nové soubory; jejich syntax byla před commitem
+ověřena samostatně.
+
+Po bězích byly `git status --porcelain=v1 -uall`, `git diff --check` a
+`git fsck --no-dangling --no-progress` prázdné, respektive bez chyby, všechny
+exit `0`. GPU, skutečná Ollama ani externí síť nebyly spuštěny; loopback
+provider v acceptance sadě je test-owned protokolová fixture.
+
+První compatibility běh `routes-smoke` skončil 75/1, exit `1`: fixture
+záměrně nastavuje `OLLAMA_URL=invalid://…`, ale provider validoval URL už při
+server composition a shodil jinak offline boot. Oprava kontrolu neoslabila:
+strict loopback URL se dál vyžaduje před prvním provider efektem, pouze se
+nevyhodnocuje při offline startupu bez binding práce. Reprodukce pak skončila
+109/0, exit `0`. Dřívější průběžná hypotéza o loopback path prefixu byla
+nesprávná; příčinou byl invalidní scheme fixture a žádná path výjimka nebyla
+přidána.
+
+Cílená mutace odstranila návrat z již aplikované replay větve, takže service
+znovu došla k provideru. Acceptance sada zčervenala přesně ve dvou
+effect-idempotency scénářích (`15 passed / 2 failed`, exit `1`). Po vrácení
+jediného guardu skončil tehdejší čistý rerun `17 passed / 0 failed`, exit `0`;
+zachovaný červený artifact je test-owned a není součástí Git evidence.
+
+Compatibility sada proposals nejprve skončila `2 passed / 1 failed`, exit `1`,
+protože stará aserce požadovala expiraci i právě zvoleného kandidáta. Aserce
+nebyla rozvolněna: nový přesný kontrakt vyžaduje právě jeden `approved`
+`qwen3:14b`, právě dva `expired` konkurenty a nula pending. Rerun skončil 3/0,
+exit `0`.
+
+### Otevřená rozhodovací fronta — checkpoint neblokuje
+
+1. **Durable compensation failure.** Default je tvrdý typovaný
+   `MODEL_BINDING_RUNTIME_COMPENSATION_REQUIRED` a držený in-process token.
+   Přepnutí na restart-safe `RUNTIME_UNKNOWN` vyžaduje další migraci, recovery
+   operaci a nejméně tři crash/restart testy.
+2. **Notification delivery receipt.** Dnešní broadcaster vrací `void`, takže
+   commit vrstva nemá důkaz ani o přijetí transportem. Proto zapisuje
+   `RECEIPT_NOT_ISSUED` a stav `APPLIED_NOTIFICATION_DEGRADED`, i když
+   best-effort send mohl proběhnout. Skutečný success vyžaduje typed enqueue
+   receipt; exactly-once navíc outbox, stabilní event ID a klientskou
+   deduplikaci. Tento checkpoint takový claim nedělá.
+3. **Vzdálená Ollama.** Manual M1 provider je záměrně omezený na
+   necredentialed HTTP loopback. Podpora explicitní vzdálené Ollamy je mimo
+   tento local-runtime WP a vyžádá vlastní outbound authority rozhodnutí.
+4. **Studio status consumption.** Backend má read-only interní
+   `getBindingStatus()` projekci desired/runtime/verification/failure/
+   notification truth, ale tento WP ji nepřidal do veřejného HTTP kontraktu.
+   Současný Studio runtime stav nekonzumuje a UI je podle operátora přechodné.
+   Live `upgrade_verify_failed` zobrazí jen text
+   „Zvažte rollback“; current Studio ani chat nemají proveditelný rollback
+   surface. Studio je zakázaná cesta tohoto WP, takže vlastníkem je
+   `WP-M1-STUDIO`; residual blokuje full M1 acceptance, ne backend checkpoint.
+5. **Verification retry.** Přijatá 005/A policy znamená právě jednu exact probe
+   na operation generation. Bounded retry se smí přidat jen jako nová
+   auditovaná operation/generation policy; nesmí skrytě násobit jeden provider
+   effect.
+6. **Veřejný HTTP receipt a typed error.** Interní start receipt už nese phase,
+   request key a provider/binding operation ID, ale existující HTTP shape je
+   zatím nevrací a immediate error body stále obsahuje jen lidský `error` text.
+   Přidání stabilního `code` a correlation ID je backward-compatible adice,
+   přesto je podle stop condition změnou veřejného connectoru a čeká na jedno
+   operátorské potvrzení. Backend truth je zatím dostupná jen internímu
+   application portu.
+7. **Provider-origin authority.** Claim a causal frontier platí pro přesný
+   origin používaný binding service. Alias loopback originy a přímý
+   `/api/system/models/pull` používají starší provider cestu; jejich sjednocení
+   vyžaduje samostatný provider connector scope.
+8. **Runtime no-op notification.** No-op rollback nevytvoří
+   `upgrade_history`, ale runtime port dnes zvýší `configVersion` a commit layer
+   vyšle `model_changed` se shodným `from/to`. Focused test tento současný stav
+   pinuje jako binding-notification revision, nikoli jako modelový přechod.
+   Potlačit event/verzi nebo přidat `changed:false` by změnilo veřejnou WS
+   sémantiku a zůstává ve frontě pro společné rozhodnutí.
+
+Backend produktový checkpoint má source SHA i fresh-clone reprodukci popsanou
+výše. GPU, skutečná Ollama ani externí síť nebyly spuštěny. Gate 1 proto
+zůstává `BLOCKED`, nikoli PASS: chybí 015 prahy/TTL, proof issuer a automatický
+failover, referenční GPU běh 009 a dokončený UI recovery/status journey.

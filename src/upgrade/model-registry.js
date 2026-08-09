@@ -65,6 +65,7 @@ export class ModelRegistry {
   constructor() {
     this._db = null;
     this._upgradeManager = null;
+    this._modelBindingApplication = null;
     this._validationRunner = null;
     this._broadcast = null;
     this._overviewCache = null;
@@ -76,9 +77,10 @@ export class ModelRegistry {
   }
 
   /** Wire dependencies (called once in server.js) */
-  init({ db, upgradeManager, validationRunner, broadcast }) {
+  init({ db, upgradeManager, modelBindingApplication, validationRunner, broadcast }) {
     this._db = db;
     this._upgradeManager = upgradeManager;
+    this._modelBindingApplication = modelBindingApplication || null;
     this._validationRunner = validationRunner;
     this._broadcast = broadcast || (() => {});
   }
@@ -435,12 +437,16 @@ export class ModelRegistry {
     }
   }
 
-  /** Assign model to role (delegates to upgrade manager) */
+  /** Assign model to role through the single manual binding application port. */
   async assignModel(role, model, opts = {}) {
-    const result = await this._upgradeManager.applyUpgrade(role, model, {
-      appliedBy: opts.appliedBy || 'user-registry',
-      skipVerify: true,
-      onPullProgress: opts.onPullProgress,
+    if (!this._modelBindingApplication) {
+      const error = new Error('Model binding application service is required');
+      error.code = 'MODEL_BINDING_APPLICATION_SERVICE_REQUIRED';
+      throw error;
+    }
+    const result = await this._modelBindingApplication.applyManualBinding({
+      role,
+      targetModel: model,
     });
     this.invalidateCache();
     return result;

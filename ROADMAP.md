@@ -661,6 +661,50 @@ focused regression sady.
      application service, provider inventory/pull, runtime CAS a kompenzace,
      HTTP/chat cutover, startup rehydrate a commit-layer broadcast jsou další
      krok [`WP-M1-BINDING-APPLICATION`](docs/wp/WP-M1-BINDING-APPLICATION.md).
+     **Dvanáctý checkpoint je implementovaný jako společný manual runtime
+     commit point:** aditivní migrace 051 uzavírá runtime generaci proti
+     opakovanému apply a non-retryable retry, repository rozlišuje skutečnou
+     změnu od no-opu a zachovává starší authority při neúspěšném rehydrate.
+     Migrace 052 připíná provider pull intent před prvním provider efektem,
+     jeho exact origin/actor/revision/target authority, pětiminutový obnovovaný
+     lease s fencing revision a immutable terminal outcome. Živý claim druhý
+     Worker isolate nepřevezme; striktně expirovaný claim lze CAS převzít a
+     starý worker už nesmí zapsat terminál. Unikátnost targetu platí pro
+     binding-service commandy nad jedním přesným provider originem; aliasy
+     loopback originu a direct `/api/system/models/pull` zatím tuto autoritu
+     nesdílejí. Provider a binding journal jsou navíc spojeny
+     DB triggerem přes shodný request key, roli, revision, actora a digest.
+     Same-target acceptance má append-only no-op receipt s historickým desired
+     snapshotem, DB-assigned command frontierem a set-valued causal vazbou na
+     celý dosud neuzavřený terminální provider prefix; živý command nesmí
+     receipt předběhnout a timestamp sám není authority. Neuzavřený úspěšný
+     provider command podle 018/Q5/A blokuje další desired transition, kromě
+     přesného provider→binding dokončení nebo explicitního current-binding
+     no-op closure. Guard pokrývá `UPDATE`, `DELETE` i SQLite
+     `INSERT OR REPLACE`; receipt ani jeho set-valued causal vazbu nelze touto
+     konfliktovou cestou přepsat. Scheduled restart recovery se po
+     transientním inventory, identity, repository i runtime failure znovu
+     ohraničeně naplánuje.
+     Jedna application service vlastní exact loopback provider, durable intent,
+     runtime CAS/kompenzaci, append-only apply/rollback, startup rehydrate,
+     jediný startup inventory snapshot, sériovou post-listen verifikaci,
+     HTTP/chat/registry cutover a commit-layer `model_changed`. Legacy public
+     writery nemají produkčního volajícího. Focused sada na skutečné SQLite,
+     skutečném runtime portu a test-owned loopback provideru prošla 73/73;
+     repository sada včetně dvou Worker isolates s nezávislými WAL connections
+     a direct-SQL tamperu prošla 39/39. HTTP `200 started` smí následovat až durable target intent nebo
+     binding operation, nikdy pomocný `LEGACY_BASELINE_RECOVERY`. Read-only
+     interní application status ukazuje pouze provider command relevantní k aktuální desired
+     revision, takže historický `RECONCILED_ABSENT` nepřebije novější binding.
+     Non-retryable apply podle 018/Q4/A vyžaduje explicitní HTTP rollback před
+     novým apply; chat/Studio rollback surface zůstává `PENDING-OWNER`, takže
+     nejde o dokončený UI recovery journey. Backend checkpoint je commitnutý
+     a fresh-clone ověřený na `e7d89b5e`; nejde o GPU PASS,
+     proof issuance nebo aktivaci automatického failoveru. WS publish zůstává
+     podle 018/Q3 best-effort: pouze explicitní typed receipt smí potvrdit
+     přijetí. Dnešní produkční void broadcaster proto pravdivě zapisuje
+     `RECEIPT_NOT_ISSUED` a stav je degraded; exactly-once doručení bez outboxu
+     se netvrdí.
 3. **Connector:** adaptér `ModelRequest/Result` v1; nemění schéma.
 4. **Závislost:** `WP-M1-CONTRACT`; offline fake běhy nečekají na GPU.
 5. **Demo:** skutečná Ollama odpověď; negativní unavailable cesta používá
@@ -1143,9 +1187,11 @@ mohou pokračovat.
    [`WP-M1-BINDING-APPLICATION`](docs/wp/WP-M1-BINDING-APPLICATION.md);
    vratné provozní defaulty jsou shromážděné v
    [018](docs/decisions/018-m1-manual-binding-application-policy.md). Společná
-   HTTP/chat application service, provider/runtime efekt, startup rehydrate a
-   broadcast zůstávají otevřené; stejně tak proof issuer, terminal
-   activation/restore a scheduler. Failover se dosud neaktivuje. Proof issuance
+   HTTP/chat application service, exact local provider, runtime CAS/kompenzace,
+   startup rehydrate a commit-layer broadcast jsou implementované a
+   fresh-clone ověřené na `e7d89b5e`. Otevřené
+   zůstávají proof issuer, terminal failover activation/restore a scheduler.
+   Failover se dosud neaktivuje. Proof issuance
    čeká na prahy a TTL z rozhodnutí 015; nový skutečný GPU běh zůstává
    samostatnou blokovanou evidencí, dokud není legitimně čistý checkout.
 7. B4 má focused implementované 011/A, obě poloviny 014/A a obě poloviny

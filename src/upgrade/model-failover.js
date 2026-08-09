@@ -12,6 +12,7 @@ import { canonicalModelName } from './model-identity.js';
 export const MODEL_FAILOVER_POLICY_VERSION = 'd-plus-v1';
 export const MODEL_FAILOVER_ACTOR = 'system:binding-integrity';
 export const MAX_MODEL_FAILOVER_CLAIM_MS = 5 * 60 * 1000;
+export const MAX_MODEL_BINDING_PROVIDER_CLAIM_MS = 5 * 60 * 1000;
 export const MODEL_BINDING_VERIFICATION_METHOD = 'OLLAMA_CHAT_EXACT_DIGEST_V1';
 
 const ROLES = new Set(['D1', 'D2', 'CODE', 'R1', 'R2', 'CHAT', 'VISION']);
@@ -20,6 +21,10 @@ const OBSERVABLE_DESIRED_SOURCES = new Set([
   'LEGACY_OVERRIDE',
 ]);
 const MANUAL_DESIRED_SOURCES = new Set(['USER_APPLY', 'USER_ROLLBACK']);
+const PROVIDER_REQUEST_PURPOSES = new Set([
+  'USER_APPLY_TARGET',
+  'LEGACY_BASELINE_RECOVERY',
+]);
 const APPLICATION_RUNTIME_KINDS = new Set(['RUNTIME_APPLY', 'STARTUP_REHYDRATE']);
 const APPLICATION_FAILURE_POLICY = Object.freeze({
   RUNTIME_APPLY: Object.freeze({
@@ -27,7 +32,7 @@ const APPLICATION_FAILURE_POLICY = Object.freeze({
     MODEL_BINDING_TARGET_NOT_INSTALLED: true,
     MODEL_BINDING_TARGET_DIGEST_MISSING: false,
     MODEL_BINDING_TARGET_DIGEST_DRIFT: false,
-    MODEL_BINDING_RUNTIME_GUARD_REJECTED: false,
+    MODEL_BINDING_RUNTIME_GUARD_REJECTED: true,
     MODEL_BINDING_RUNTIME_COMMIT_FAILED: true,
   }),
   STARTUP_REHYDRATE: Object.freeze({
@@ -42,7 +47,16 @@ const APPLICATION_FAILURE_POLICY = Object.freeze({
   }),
   NOTIFICATION: Object.freeze({
     MODEL_BINDING_NOTIFICATION_DELIVERY_FAILED: false,
+    MODEL_BINDING_NOTIFICATION_RECEIPT_NOT_ISSUED: false,
   }),
+});
+const PROVIDER_PULL_FAILURE_POLICY = Object.freeze({
+  MODEL_BINDING_PROVIDER_UNAVAILABLE: true,
+  MODEL_BINDING_PROVIDER_PULL_FAILED: true,
+  MODEL_BINDING_TARGET_NOT_INSTALLED: true,
+  MODEL_BINDING_TARGET_DIGEST_MISSING: false,
+  MODEL_BINDING_TARGET_AMBIGUOUS: false,
+  MODEL_BINDING_TARGET_DIGEST_DRIFT: false,
 });
 const CLAIMS = Object.freeze({
   ACTIVATE: Object.freeze({
@@ -147,6 +161,30 @@ function requireUserActor(value) {
   return actor;
 }
 
+function requireProviderOrigin(value) {
+  const origin = requireString(value, 'providerOrigin', { max: 256 });
+  let parsed;
+  try {
+    parsed = new URL(origin);
+  } catch {
+    fail('MODEL_BINDING_PROVIDER_ORIGIN_INVALID', 'providerOrigin must be a valid URL');
+  }
+  if (parsed.protocol !== 'http:'
+    || !new Set(['127.0.0.1', 'localhost', '[::1]']).has(parsed.hostname)
+    || parsed.username
+    || parsed.password
+    || parsed.port === '0'
+    || parsed.origin !== origin
+    || (parsed.pathname !== '/' && parsed.pathname !== '')) {
+    fail(
+      'MODEL_BINDING_PROVIDER_ORIGIN_INVALID',
+      'providerOrigin must be a canonical uncredentialed loopback HTTP origin',
+      { providerOrigin: origin },
+    );
+  }
+  return parsed.origin;
+}
+
 function requireDigest(value, field = 'digestSha256') {
   const digest = requireString(value, field, { min: 64, max: 64 });
   if (!/^[0-9a-f]{64}$/.test(digest)) {
@@ -185,6 +223,17 @@ function incrementNonNegativeSafeInteger(value, field) {
     fail('MODEL_FAILOVER_INPUT_INVALID', `${field} cannot be incremented safely`, { field });
   }
   return incremented;
+}
+
+function providerClaimExpiry(nowMs) {
+  const expiresAtMs = nowMs + MAX_MODEL_BINDING_PROVIDER_CLAIM_MS;
+  if (!Number.isSafeInteger(expiresAtMs)) {
+    fail(
+      'MODEL_BINDING_PROVIDER_CLAIM_WINDOW_INVALID',
+      'Provider effect claim expiry overflows safe time',
+    );
+  }
+  return expiresAtMs;
 }
 
 function requireDatabase(db) {
@@ -346,6 +395,7 @@ function mapBindingApplicationAttempt(row) {
     verificationMethod: row.verification_method,
     failureCode: row.failure_code,
     retryable: row.retryable === 1,
+    runtimeChanged: row.runtime_changed === 1,
     createdAtMs: row.created_at_ms,
   };
 }
@@ -467,6 +517,9 @@ export class ModelFailoverRepository {
       }
     }
     this.ids = ids;
+    this.providerOperationId = typeof ids.providerOperation === 'function'
+      ? ids.providerOperation
+      : ids.operation;
   }
 
   #now(operation) {
@@ -500,6 +553,20 @@ export class ModelFailoverRepository {
       );
     }
     return requireString(value, `${kind}Id`, { min });
+  }
+
+  #nextProviderOperationId() {
+    let value;
+    try {
+      value = this.providerOperationId();
+    } catch (error) {
+      throw new ModelFailoverRepositoryError(
+        'MODEL_FAILOVER_ID_FACTORY_FAILED',
+        'Model binding provider operation ID factory failed',
+        { cause: error, details: { kind: 'providerOperation' } },
+      );
+    }
+    return requireString(value, 'providerOperationId', { min: 16 });
   }
 
   #read(operation, callback) {
@@ -591,6 +658,58 @@ export class ModelFailoverRepository {
     ).get(requestKey);
   }
 
+  #bindingNoopByRequestKey(requestKey) {
+    return this.db.prepare(
+      'SELECT * FROM model_binding_user_noop_receipts WHERE request_key = ?'
+    ).get(requestKey);
+  }
+
+  #bindingNoopSupersededProviderOperationIds(receiptId) {
+    return this.db.prepare(`
+      SELECT superseded.provider_operation_id
+      FROM model_binding_user_noop_provider_supersedes superseded
+      JOIN model_binding_provider_operations provider
+        ON provider.operation_id = superseded.provider_operation_id
+      WHERE superseded.receipt_id = ?
+      ORDER BY provider.command_seq
+    `).all(receiptId).map(row => row.provider_operation_id);
+  }
+
+  #mapBindingNoop(row) {
+    if (!row) return null;
+    return {
+      receiptId: row.receipt_id,
+      requestKey: row.request_key,
+      role: row.role,
+      bindingRevision: row.binding_revision,
+      modelName: row.model_name,
+      canonicalName: row.canonical_name,
+      digestSha256: row.digest_sha256,
+      actor: row.actor,
+      providerCommandCutoffSeq: row.provider_command_cutoff_seq,
+      sourceProviderOperationId: row.source_provider_operation_id,
+      supersededProviderOperationIds:
+        this.#bindingNoopSupersededProviderOperationIds(row.receipt_id),
+      createdAtMs: row.created_at_ms,
+    };
+  }
+
+  #desiredFromBindingNoop(row) {
+    if (!row) return null;
+    return {
+      role: row.role,
+      modelName: row.model_name,
+      canonicalName: row.canonical_name,
+      digestSha256: row.digest_sha256,
+      bindingRevision: row.binding_revision,
+      source: row.desired_source,
+      actor: row.desired_actor,
+      observedAtMs: row.desired_observed_at_ms,
+      updatedAtMs: row.desired_updated_at_ms,
+      lastEventId: row.desired_last_event_id,
+    };
+  }
+
   #bindingApplicationAttemptRows(operationId) {
     return this.db.prepare(`
       SELECT *
@@ -605,6 +724,121 @@ export class ModelFailoverRepository {
       operationRow,
       operationRow ? this.#bindingApplicationAttemptRows(operationRow.operation_id) : [],
     );
+  }
+
+  #providerOperationRow(operationId) {
+    return this.db.prepare(
+      'SELECT * FROM model_binding_provider_operations WHERE operation_id = ?'
+    ).get(operationId);
+  }
+
+  #unresolvedProviderSuccesses(role, expectedBindingRevision) {
+    return this.db.prepare(`
+      SELECT provider.operation_id, provider.request_key, provider.requested_model_name,
+             provider.actor, terminal.observed_canonical_name,
+             terminal.observed_digest_sha256
+      FROM model_binding_provider_operations provider
+      JOIN model_binding_provider_attempts terminal
+        ON terminal.operation_id = provider.operation_id
+      LEFT JOIN model_binding_operations binding
+        ON binding.request_key = provider.request_key
+      WHERE provider.role = ?
+        AND provider.request_purpose = 'USER_APPLY_TARGET'
+        AND provider.expected_binding_revision = ?
+        AND terminal.outcome IN ('SUCCEEDED','RECONCILED_PRESENT')
+        AND binding.operation_id IS NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM model_binding_user_noop_provider_supersedes superseded
+          WHERE superseded.provider_operation_id = provider.operation_id
+        )
+      ORDER BY provider.command_seq
+    `).all(role, expectedBindingRevision);
+  }
+
+  #pendingProviderOperation(role, expectedBindingRevision) {
+    return this.db.prepare(`
+      SELECT provider.operation_id, provider.requested_model_name
+      FROM model_binding_provider_operations provider
+      LEFT JOIN model_binding_provider_attempts terminal
+        ON terminal.operation_id = provider.operation_id
+      WHERE provider.role = ?
+        AND provider.request_purpose = 'USER_APPLY_TARGET'
+        AND provider.expected_binding_revision = ?
+        AND terminal.operation_id IS NULL
+      ORDER BY provider.command_seq
+      LIMIT 1
+    `).get(role, expectedBindingRevision);
+  }
+
+  #failForPendingProviderOperation(pending, details = {}) {
+    if (!pending) return;
+    fail(
+      'MODEL_BINDING_PROVIDER_OPERATION_IN_PROGRESS',
+      'Binding authority cannot advance during a live provider command',
+      {
+        ...details,
+        providerOperationId: pending.operation_id,
+        requestedModelName: pending.requested_model_name,
+      },
+    );
+  }
+
+  #failForUnresolvedProviderSuccess(unresolved, details = {}) {
+    if (!unresolved) return;
+    fail(
+      'MODEL_BINDING_PROVIDER_UNRESOLVED_SUCCESS',
+      'Resolve or explicitly supersede the earlier provider success before changing the binding',
+      {
+        ...details,
+        providerOperationId: unresolved.operation_id,
+        requestedModelName: unresolved.requested_model_name,
+      },
+    );
+  }
+
+  #mapProviderOperation(row) {
+    if (!row) return null;
+    const attempt = this.db.prepare(`
+      SELECT * FROM model_binding_provider_attempts
+      WHERE operation_id = ?
+      ORDER BY attempt_revision DESC
+      LIMIT 1
+    `).get(row.operation_id);
+    const claim = this.db.prepare(`
+      SELECT * FROM model_binding_provider_claims
+      WHERE operation_id = ?
+    `).get(row.operation_id);
+    return {
+      operationId: row.operation_id,
+      commandSeq: row.command_seq,
+      requestKey: row.request_key,
+      role: row.role,
+      kind: row.effect_kind,
+      requestPurpose: row.request_purpose,
+      expectedBindingRevision: row.expected_binding_revision,
+      providerOrigin: row.provider_origin,
+      requestedModelName: row.requested_model_name,
+      requestedCanonicalName: row.requested_canonical_name,
+      actor: row.actor,
+      createdAtMs: row.created_at_ms,
+      claim: claim ? {
+        claimToken: claim.claim_token,
+        fencingRevision: claim.fencing_revision,
+        leaseExpiresAtMs: claim.lease_expires_at_ms,
+        updatedAtMs: claim.updated_at_ms,
+      } : null,
+      terminal: attempt ? {
+        outcome: attempt.outcome,
+        observedModelName: attempt.observed_model_name,
+        observedCanonicalName: attempt.observed_canonical_name,
+        observedDigestSha256: attempt.observed_digest_sha256,
+        failureCode: attempt.failure_code,
+        retryable: attempt.retryable === 1,
+        fencingRevision: attempt.fencing_revision,
+        createdAtMs: attempt.created_at_ms,
+      } : null,
+    };
   }
 
   #mappedBindingOperation(operationRow) {
@@ -1102,6 +1336,7 @@ export class ModelFailoverRepository {
     observedModelName = null,
     observedDigestSha256 = null,
     failureCode = null,
+    runtimeChanged = false,
   }) {
     return this.#write(operationName, () => {
       const operation = this.#bindingOperationRow(operationId);
@@ -1145,7 +1380,8 @@ export class ModelFailoverRepository {
           && replay.observed_digest_sha256 === digest
           && replay.verification_method === verificationMethod
           && replay.failure_code === failure.failureCode
-          && replay.retryable === (failure.retryable ? 1 : 0);
+          && replay.retryable === (failure.retryable ? 1 : 0)
+          && replay.runtime_changed === (runtimeChanged ? 1 : 0);
         if (matches) {
           return {
             outcome: 'REPLAYED',
@@ -1166,13 +1402,37 @@ export class ModelFailoverRepository {
         );
       }
       if (kind === 'RUNTIME_APPLY' && attempts.some(attempt => (
-        attempt.attempt_kind === 'RUNTIME_APPLY' && attempt.outcome === 'SUCCEEDED'
+        APPLICATION_RUNTIME_KINDS.has(attempt.attempt_kind)
+          && attempt.outcome === 'SUCCEEDED'
       ))) {
         fail(
           'MODEL_BINDING_APPLICATION_TRANSITION_INVALID',
           'Runtime apply cannot repeat after a successful runtime commit',
           { operationId, kind, currentAttemptRevision },
         );
+      }
+      if (APPLICATION_RUNTIME_KINDS.has(kind)) {
+        const lastRuntimeSuccessRevision = attempts
+          .filter(attempt => APPLICATION_RUNTIME_KINDS.has(attempt.attempt_kind)
+            && attempt.outcome === 'SUCCEEDED')
+          .at(-1)?.attempt_revision ?? 0;
+        const terminalFailure = attempts.find(attempt => (
+          APPLICATION_RUNTIME_KINDS.has(attempt.attempt_kind)
+          && attempt.outcome === 'FAILED'
+          && attempt.retryable === 0
+          && attempt.attempt_revision > lastRuntimeSuccessRevision
+        ));
+        if (terminalFailure) {
+          fail(
+            'MODEL_BINDING_APPLICATION_NONRETRYABLE_TERMINAL',
+            'No later runtime attempt is allowed after a non-retryable failure',
+            {
+              operationId,
+              failureCode: terminalFailure.failure_code,
+              currentAttemptRevision,
+            },
+          );
+        }
       }
 
       const attemptRevision = incrementNonNegativeSafeInteger(
@@ -1184,8 +1444,9 @@ export class ModelFailoverRepository {
         INSERT INTO model_binding_application_attempts (
           operation_id, attempt_revision, attempt_kind, outcome,
           observed_model_name, observed_canonical_name, observed_digest_sha256,
-          verification_method, failure_code, retryable, created_at_ms
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          verification_method, failure_code, retryable, created_at_ms,
+          runtime_changed
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         operationId,
         attemptRevision,
@@ -1198,6 +1459,7 @@ export class ModelFailoverRepository {
         failure.failureCode,
         failure.retryable ? 1 : 0,
         createdAtMs,
+        runtimeChanged ? 1 : 0,
       );
 
       if (APPLICATION_RUNTIME_KINDS.has(kind) && outcome === 'SUCCEEDED') {
@@ -1229,7 +1491,7 @@ export class ModelFailoverRepository {
           operation.target_canonical_name,
           operation.target_digest_sha256,
         );
-        if (kind === 'RUNTIME_APPLY') {
+        if (kind === 'RUNTIME_APPLY' && runtimeChanged) {
           this.db.prepare(`
             INSERT INTO upgrade_history (
               role, from_model, to_model, score, action, created_at
@@ -1257,11 +1519,13 @@ export class ModelFailoverRepository {
           operation.target_digest_sha256,
         );
         const existingOverride = this.db.prepare(`
-          SELECT binding_operation_id
+          SELECT binding_operation_id, verification_status
           FROM model_overrides
           WHERE role = ?
         `).get(operation.role);
-        if (updated.changes !== 1 && existingOverride) {
+        const preservedPriorAuthority = existingOverride
+          && existingOverride.binding_operation_id !== operation.operation_id;
+        if (updated.changes !== 1 && existingOverride && !preservedPriorAuthority) {
           fail(
             'MODEL_BINDING_APPLICATION_OVERRIDE_MISMATCH',
             'Rehydrate failure target is not the active compatibility override',
@@ -1352,6 +1616,586 @@ export class ModelFailoverRepository {
     `).all().map(operation => this.#mappedBindingOperation(operation)));
   }
 
+  listLegacyOverridesForRehydrate() {
+    return this.#read('listLegacyOverridesForRehydrate', () => this.db.prepare(`
+      SELECT role, model, previous_model, applied_at
+      FROM model_overrides
+      WHERE binding_operation_id IS NULL
+        AND verification_status = 'LEGACY_UNVERIFIED'
+      ORDER BY role
+    `).all().map(row => ({
+      role: row.role,
+      modelName: row.model,
+      previousModelName: row.previous_model,
+      appliedAt: row.applied_at,
+    })));
+  }
+
+  listCompatibilityOverridesForRehydrate() {
+    return this.#read('listCompatibilityOverridesForRehydrate', () => this.db.prepare(`
+      SELECT role, model, previous_model, applied_at, binding_operation_id,
+        model_canonical_name, model_digest_sha256, verification_status
+      FROM model_overrides
+      ORDER BY role
+    `).all().map(row => ({
+      role: row.role,
+      modelName: row.model,
+      previousModelName: row.previous_model,
+      appliedAt: row.applied_at,
+      bindingOperationId: row.binding_operation_id,
+      canonicalName: row.model_canonical_name,
+      digestSha256: row.model_digest_sha256,
+      verificationStatus: row.verification_status,
+    })));
+  }
+
+  getProviderOperation(operationIdValue) {
+    const operationId = requireString(operationIdValue, 'operationId', { min: 16 });
+    return this.#read(
+      'getProviderOperation',
+      () => this.#mapProviderOperation(this.#providerOperationRow(operationId)),
+    );
+  }
+
+  getLatestProviderOperation(roleValue) {
+    const role = requireRole(roleValue);
+    return this.#read('getLatestProviderOperation', () => this.#mapProviderOperation(
+      this.db.prepare(`
+        SELECT *
+        FROM model_binding_provider_operations
+        WHERE role = ?
+        ORDER BY command_seq DESC
+        LIMIT 1
+      `).get(role),
+    ));
+  }
+
+  getRelevantProviderOperation(roleValue) {
+    const role = requireRole(roleValue);
+    return this.#read('getRelevantProviderOperation', () => this.#mapProviderOperation(
+      this.db.prepare(`
+        SELECT provider.*
+        FROM model_binding_provider_operations provider
+        JOIN model_desired_bindings desired
+          ON desired.role = provider.role
+        LEFT JOIN model_binding_operations binding
+          ON binding.request_key = provider.request_key
+        WHERE provider.role = ?
+          AND provider.request_purpose = 'USER_APPLY_TARGET'
+          AND NOT EXISTS (
+            SELECT 1
+            FROM model_binding_user_noop_provider_supersedes superseded
+            WHERE superseded.provider_operation_id = provider.operation_id
+          )
+          AND (
+            provider.expected_binding_revision = desired.binding_revision
+            OR binding.committed_binding_revision = desired.binding_revision
+          )
+        ORDER BY provider.command_seq DESC
+        LIMIT 1
+      `).get(role),
+    ));
+  }
+
+  listPendingProviderOperations() {
+    return this.#read('listPendingProviderOperations', () => this.db.prepare(`
+      SELECT operation.*
+      FROM model_binding_provider_operations operation
+      LEFT JOIN model_binding_provider_attempts attempt
+        ON attempt.operation_id = operation.operation_id
+      WHERE attempt.operation_id IS NULL
+      ORDER BY operation.command_seq
+    `).all().map(row => this.#mapProviderOperation(row)));
+  }
+
+  listResumableProviderOperations() {
+    return this.#read('listResumableProviderOperations', () => this.db.prepare(`
+      SELECT operation.*
+      FROM model_binding_provider_operations operation
+      JOIN model_binding_provider_attempts attempt
+        ON attempt.operation_id = operation.operation_id
+      LEFT JOIN model_binding_operations binding
+        ON binding.request_key = operation.request_key
+      WHERE operation.request_purpose = 'USER_APPLY_TARGET'
+        AND attempt.outcome IN ('SUCCEEDED','RECONCILED_PRESENT')
+        AND binding.operation_id IS NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM model_binding_user_noop_provider_supersedes superseded
+          WHERE superseded.provider_operation_id = operation.operation_id
+        )
+      ORDER BY operation.command_seq
+    `).all().map(row => this.#mapProviderOperation(row)));
+  }
+
+  renewManualProviderPullClaim(inputValue) {
+    const input = requireInput(inputValue);
+    requireExactInputFields(input, [
+      'operationId',
+      'claimToken',
+      'expectedFencingRevision',
+    ]);
+    const operationId = requireString(input.operationId, 'operationId', { min: 16 });
+    const claimToken = requireString(input.claimToken, 'claimToken', { min: 16, max: 256 });
+    const expectedFencingRevision = requirePositiveInteger(
+      input.expectedFencingRevision,
+      'expectedFencingRevision',
+    );
+    return this.#write('renewManualProviderPullClaim', () => {
+      const nowMs = this.#now('renewManualProviderPullClaim');
+      const expiresAtMs = providerClaimExpiry(nowMs);
+      const current = this.db.prepare(`
+        SELECT claim_token, fencing_revision, lease_expires_at_ms, updated_at_ms
+        FROM model_binding_provider_claims
+        WHERE operation_id = ?
+      `).get(operationId);
+      if (!current
+        || current.claim_token !== claimToken
+        || current.fencing_revision !== expectedFencingRevision
+        || current.lease_expires_at_ms < nowMs) {
+        fail(
+          'MODEL_BINDING_PROVIDER_CLAIM_STALE',
+          'Provider effect claim is no longer live or owned by this worker',
+          { operationId, expectedFencingRevision },
+        );
+      }
+      // Two commands can legitimately fall in the same clock tick. The
+      // existing lease is already authoritative; do not manufacture an
+      // oversized heartbeat merely to force a write.
+      if (expiresAtMs <= current.lease_expires_at_ms) {
+        return this.#mapProviderOperation(this.#providerOperationRow(operationId));
+      }
+      const result = this.db.prepare(`
+        UPDATE model_binding_provider_claims
+        SET lease_expires_at_ms = ?, updated_at_ms = ?
+        WHERE operation_id = ?
+          AND claim_token = ?
+          AND fencing_revision = ?
+          AND lease_expires_at_ms >= ?
+      `).run(
+        expiresAtMs,
+        nowMs,
+        operationId,
+        claimToken,
+        expectedFencingRevision,
+        nowMs,
+      );
+      if (result.changes !== 1) {
+        fail(
+          'MODEL_BINDING_PROVIDER_CLAIM_STALE',
+          'Provider effect claim is no longer live or owned by this worker',
+          { operationId, expectedFencingRevision },
+        );
+      }
+      return this.#mapProviderOperation(this.#providerOperationRow(operationId));
+    });
+  }
+
+  claimManualProviderPullRecovery(inputValue) {
+    const input = requireInput(inputValue);
+    requireExactInputFields(input, ['operationId']);
+    const operationId = requireString(input.operationId, 'operationId', { min: 16 });
+    return this.#write('claimManualProviderPullRecovery', () => {
+      const operation = this.#providerOperationRow(operationId);
+      if (!operation) {
+        fail(
+          'MODEL_BINDING_PROVIDER_OPERATION_MISSING',
+          'Provider pull operation does not exist',
+          { operationId },
+        );
+      }
+      const terminal = this.db.prepare(`
+        SELECT 1 FROM model_binding_provider_attempts WHERE operation_id = ?
+      `).get(operationId);
+      if (terminal) {
+        fail(
+          'MODEL_BINDING_PROVIDER_TERMINAL_CONFLICT',
+          'Provider pull already has a terminal outcome',
+          { operationId },
+        );
+      }
+      const claim = this.db.prepare(`
+        SELECT * FROM model_binding_provider_claims WHERE operation_id = ?
+      `).get(operationId);
+      if (!claim) {
+        fail(
+          'MODEL_BINDING_PROVIDER_CLAIM_MISSING',
+          'Pending provider effect has no active claim projection',
+          { operationId },
+        );
+      }
+      const nowMs = this.#now('claimManualProviderPullRecovery');
+      if (claim.lease_expires_at_ms >= nowMs) {
+        fail(
+          'MODEL_BINDING_PROVIDER_OPERATION_IN_PROGRESS',
+          'Provider effect is still owned by a live worker lease',
+          {
+            operationId,
+            fencingRevision: claim.fencing_revision,
+            leaseExpiresAtMs: claim.lease_expires_at_ms,
+          },
+        );
+      }
+      const nextFencingRevision = incrementSafeInteger(
+        claim.fencing_revision,
+        'fencingRevision',
+      );
+      const claimToken = this.#id('claimToken', { min: 16 });
+      const expiresAtMs = providerClaimExpiry(nowMs);
+      const result = this.db.prepare(`
+        UPDATE model_binding_provider_claims
+        SET claim_token = ?, fencing_revision = ?,
+            lease_expires_at_ms = ?, updated_at_ms = ?
+        WHERE operation_id = ?
+          AND claim_token = ?
+          AND fencing_revision = ?
+          AND lease_expires_at_ms < ?
+      `).run(
+        claimToken,
+        nextFencingRevision,
+        expiresAtMs,
+        nowMs,
+        operationId,
+        claim.claim_token,
+        claim.fencing_revision,
+        nowMs,
+      );
+      if (result.changes !== 1) {
+        fail(
+          'MODEL_BINDING_PROVIDER_CLAIM_STALE',
+          'Provider recovery claim lost its compare-and-swap race',
+          { operationId, expectedFencingRevision: claim.fencing_revision },
+        );
+      }
+      return this.#mapProviderOperation(this.#providerOperationRow(operationId));
+    });
+  }
+
+  recordManualProviderPullIntent(inputValue) {
+    const input = requireInput(inputValue);
+    requireExactInputFields(input, [
+      'requestKey',
+      'role',
+      'requestPurpose',
+      'expectedBindingRevision',
+      'providerOrigin',
+      'targetModelName',
+      'actor',
+    ]);
+    const requestKey = requireString(input.requestKey, 'requestKey', { min: 16, max: 128 });
+    const role = requireRole(input.role);
+    const requestPurpose = requireString(input.requestPurpose, 'requestPurpose', { max: 64 });
+    if (!PROVIDER_REQUEST_PURPOSES.has(requestPurpose)) {
+      fail(
+        'MODEL_BINDING_PROVIDER_PURPOSE_INVALID',
+        'Provider request purpose is not allowed',
+        { requestPurpose },
+      );
+    }
+    const expectedBindingRevision = requestPurpose === 'USER_APPLY_TARGET'
+      ? requirePositiveInteger(input.expectedBindingRevision, 'expectedBindingRevision')
+      : null;
+    if (requestPurpose === 'LEGACY_BASELINE_RECOVERY'
+      && input.expectedBindingRevision !== null) {
+      fail(
+        'MODEL_BINDING_PROVIDER_PURPOSE_INVALID',
+        'Legacy baseline recovery cannot claim a binding revision',
+      );
+    }
+    const providerOrigin = requireProviderOrigin(input.providerOrigin);
+    const targetModelName = requireString(input.targetModelName, 'targetModelName', { max: 512 });
+    const targetCanonicalName = canonicalModelName(targetModelName);
+    if (!targetCanonicalName) {
+      fail('MODEL_FAILOVER_MODEL_NAME_INVALID', 'targetModelName has no canonical identity');
+    }
+    const actor = requireUserActor(input.actor);
+
+    return this.#write('recordManualProviderPullIntent', () => {
+      const replay = this.db.prepare(`
+        SELECT * FROM model_binding_provider_operations WHERE request_key = ?
+      `).get(requestKey);
+      if (replay) {
+        const matches = replay.role === role
+          && replay.effect_kind === 'PULL'
+          && replay.request_purpose === requestPurpose
+          && replay.expected_binding_revision === expectedBindingRevision
+          && replay.provider_origin === providerOrigin
+          && replay.requested_model_name === targetModelName
+          && replay.requested_canonical_name === targetCanonicalName
+          && replay.actor === actor;
+        if (!matches) {
+          fail(
+            'MODEL_BINDING_PROVIDER_REQUEST_CONFLICT',
+            'Provider request key was replayed with different authority',
+            { requestKey },
+          );
+        }
+        return { outcome: 'REPLAYED', operation: this.#mapProviderOperation(replay) };
+      }
+
+      const activeClaim = this.db.prepare(`
+        SELECT operation_id, role, provider_origin, requested_canonical_name,
+               fencing_revision, lease_expires_at_ms
+        FROM model_binding_provider_claims
+        WHERE role = ?
+           OR (provider_origin = ? AND requested_canonical_name = ?)
+        LIMIT 1
+      `).get(role, providerOrigin, targetCanonicalName);
+      if (activeClaim) {
+        fail(
+          'MODEL_BINDING_PROVIDER_OPERATION_IN_PROGRESS',
+          'Provider effect authority is already claimed',
+          {
+            operationId: activeClaim.operation_id,
+            role: activeClaim.role,
+            providerOrigin: activeClaim.provider_origin,
+            requestedCanonicalName: activeClaim.requested_canonical_name,
+            fencingRevision: activeClaim.fencing_revision,
+            leaseExpiresAtMs: activeClaim.lease_expires_at_ms,
+          },
+        );
+      }
+
+      if (requestPurpose === 'USER_APPLY_TARGET') {
+        const desired = this.#desiredRow(role);
+        if (!desired || desired.binding_revision !== expectedBindingRevision) {
+          fail(
+            'MODEL_FAILOVER_STALE_DESIRED',
+            'Provider intent requires the current desired binding revision',
+            {
+              role,
+              expectedBindingRevision,
+              actualBindingRevision: desired?.binding_revision ?? null,
+            },
+          );
+        }
+        const [unresolvedSuccess] = this.#unresolvedProviderSuccesses(
+          role,
+          expectedBindingRevision,
+        );
+        this.#failForUnresolvedProviderSuccess(unresolvedSuccess, {
+          role,
+          expectedBindingRevision,
+        });
+      }
+
+      const operationId = this.#nextProviderOperationId();
+      const createdAtMs = this.#now('recordManualProviderPullIntent');
+      const initialClaimToken = this.#id('claimToken', { min: 16 });
+      const initialClaimExpiresAtMs = providerClaimExpiry(createdAtMs);
+      this.db.prepare(`
+        INSERT INTO model_binding_provider_operations (
+          operation_id, request_key, role, effect_kind, request_purpose,
+          expected_binding_revision, provider_origin,
+          requested_model_name, requested_canonical_name, actor,
+          initial_claim_token, initial_claim_expires_at_ms, created_at_ms
+        ) VALUES (?, ?, ?, 'PULL', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        operationId,
+        requestKey,
+        role,
+        requestPurpose,
+        expectedBindingRevision,
+        providerOrigin,
+        targetModelName,
+        targetCanonicalName,
+        actor,
+        initialClaimToken,
+        initialClaimExpiresAtMs,
+        createdAtMs,
+      );
+      return {
+        outcome: 'RECORDED',
+        operation: this.#mapProviderOperation(this.#providerOperationRow(operationId)),
+      };
+    });
+  }
+
+  #recordProviderPullTerminal({ operationId, claimToken, expectedFencingRevision,
+    outcome, observedModelName = null, observedDigestSha256 = null, failureCode = null }) {
+    return this.#write('recordManualProviderPullTerminal', () => {
+      const operation = this.#providerOperationRow(operationId);
+      if (!operation) {
+        fail(
+          'MODEL_BINDING_PROVIDER_OPERATION_MISSING',
+          'Provider pull operation does not exist',
+          { operationId },
+        );
+      }
+      const replay = this.db.prepare(`
+        SELECT * FROM model_binding_provider_attempts WHERE operation_id = ?
+      `).get(operationId);
+      const observedCanonicalName = observedModelName === null
+        ? null
+        : canonicalModelName(observedModelName);
+      const digest = observedDigestSha256 === null
+        ? null
+        : requireDigest(observedDigestSha256, 'observedDigestSha256');
+      const retryable = outcome === 'FAILED'
+        ? PROVIDER_PULL_FAILURE_POLICY[failureCode]
+        : outcome === 'RECONCILED_ABSENT';
+      if (outcome === 'FAILED' && typeof retryable !== 'boolean') {
+        fail(
+          'MODEL_BINDING_PROVIDER_FAILURE_CODE_INVALID',
+          'Provider pull failure code is not allowed',
+          { failureCode },
+        );
+      }
+      if (replay) {
+        const matches = replay.outcome === outcome
+          && replay.observed_model_name === observedModelName
+          && replay.observed_canonical_name === observedCanonicalName
+          && replay.observed_digest_sha256 === digest
+          && replay.failure_code === failureCode
+          && replay.retryable === (retryable ? 1 : 0)
+          && replay.claim_token === claimToken
+          && replay.fencing_revision === expectedFencingRevision;
+        if (!matches) {
+          fail(
+            replay.claim_token !== claimToken
+              || replay.fencing_revision !== expectedFencingRevision
+              ? 'MODEL_BINDING_PROVIDER_CLAIM_STALE'
+              : 'MODEL_BINDING_PROVIDER_TERMINAL_CONFLICT',
+            replay.claim_token !== claimToken
+              || replay.fencing_revision !== expectedFencingRevision
+              ? 'Provider terminal replay does not own the recorded fencing claim'
+              : 'Provider pull already has a different terminal outcome',
+            {
+              operationId,
+              expectedFencingRevision,
+              recordedFencingRevision: replay.fencing_revision,
+            },
+          );
+        }
+        return { outcome: 'REPLAYED', operation: this.#mapProviderOperation(operation) };
+      }
+      const createdAtMs = this.#now('recordManualProviderPullTerminal');
+      const liveClaim = this.db.prepare(`
+        SELECT claim_token, fencing_revision, lease_expires_at_ms
+        FROM model_binding_provider_claims
+        WHERE operation_id = ?
+      `).get(operationId);
+      if (!liveClaim
+        || liveClaim.claim_token !== claimToken
+        || liveClaim.fencing_revision !== expectedFencingRevision
+        || liveClaim.lease_expires_at_ms < createdAtMs) {
+        fail(
+          'MODEL_BINDING_PROVIDER_CLAIM_STALE',
+          'Provider terminal audit requires the live fenced claim',
+          {
+            operationId,
+            expectedFencingRevision,
+            actualFencingRevision: liveClaim?.fencing_revision ?? null,
+            leaseExpiresAtMs: liveClaim?.lease_expires_at_ms ?? null,
+            createdAtMs,
+          },
+        );
+      }
+      this.db.prepare(`
+        INSERT INTO model_binding_provider_attempts (
+          operation_id, attempt_revision, outcome, observed_model_name,
+          observed_canonical_name, observed_digest_sha256, failure_code,
+          retryable, claim_token, fencing_revision, created_at_ms
+        ) VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        operationId,
+        outcome,
+        observedModelName,
+        observedCanonicalName,
+        digest,
+        failureCode,
+        retryable ? 1 : 0,
+        claimToken,
+        expectedFencingRevision,
+        createdAtMs,
+      );
+      return { outcome: 'RECORDED', operation: this.#mapProviderOperation(operation) };
+    });
+  }
+
+  recordManualProviderPullSucceeded(inputValue) {
+    const input = requireInput(inputValue);
+    requireExactInputFields(input, [
+      'operationId',
+      'claimToken',
+      'expectedFencingRevision',
+      'observedModelName',
+      'observedDigestSha256',
+    ]);
+    return this.#recordProviderPullTerminal({
+      operationId: requireString(input.operationId, 'operationId', { min: 16 }),
+      claimToken: requireString(input.claimToken, 'claimToken', { min: 16, max: 256 }),
+      expectedFencingRevision: requirePositiveInteger(
+        input.expectedFencingRevision,
+        'expectedFencingRevision',
+      ),
+      outcome: 'SUCCEEDED',
+      observedModelName: requireString(input.observedModelName, 'observedModelName', { max: 512 }),
+      observedDigestSha256: input.observedDigestSha256,
+    });
+  }
+
+  recordManualProviderPullFailed(inputValue) {
+    const input = requireInput(inputValue);
+    requireExactInputFields(input, [
+      'operationId',
+      'claimToken',
+      'expectedFencingRevision',
+      'failureCode',
+    ]);
+    return this.#recordProviderPullTerminal({
+      operationId: requireString(input.operationId, 'operationId', { min: 16 }),
+      claimToken: requireString(input.claimToken, 'claimToken', { min: 16, max: 256 }),
+      expectedFencingRevision: requirePositiveInteger(
+        input.expectedFencingRevision,
+        'expectedFencingRevision',
+      ),
+      outcome: 'FAILED',
+      failureCode: requireString(input.failureCode, 'failureCode', { min: 3, max: 96 }).toUpperCase(),
+    });
+  }
+
+  recordManualProviderPullReconciledPresent(inputValue) {
+    const input = requireInput(inputValue);
+    requireExactInputFields(input, [
+      'operationId',
+      'claimToken',
+      'expectedFencingRevision',
+      'observedModelName',
+      'observedDigestSha256',
+    ]);
+    return this.#recordProviderPullTerminal({
+      operationId: requireString(input.operationId, 'operationId', { min: 16 }),
+      claimToken: requireString(input.claimToken, 'claimToken', { min: 16, max: 256 }),
+      expectedFencingRevision: requirePositiveInteger(
+        input.expectedFencingRevision,
+        'expectedFencingRevision',
+      ),
+      outcome: 'RECONCILED_PRESENT',
+      observedModelName: requireString(input.observedModelName, 'observedModelName', { max: 512 }),
+      observedDigestSha256: input.observedDigestSha256,
+    });
+  }
+
+  recordManualProviderPullReconciledAbsent(inputValue) {
+    const input = requireInput(inputValue);
+    requireExactInputFields(input, [
+      'operationId',
+      'claimToken',
+      'expectedFencingRevision',
+    ]);
+    return this.#recordProviderPullTerminal({
+      operationId: requireString(input.operationId, 'operationId', { min: 16 }),
+      claimToken: requireString(input.claimToken, 'claimToken', { min: 16, max: 256 }),
+      expectedFencingRevision: requirePositiveInteger(
+        input.expectedFencingRevision,
+        'expectedFencingRevision',
+      ),
+      outcome: 'RECONCILED_ABSENT',
+      failureCode: 'MODEL_BINDING_PROVIDER_OUTCOME_UNRESOLVED',
+    });
+  }
+
   recordManualRuntimeApplied(inputValue) {
     const input = requireInput(inputValue);
     requireExactInputFields(input, [
@@ -1359,7 +2203,13 @@ export class ModelFailoverRepository {
       'expectedAttemptRevision',
       'observedModelName',
       'observedDigestSha256',
+      'runtimeChanged',
     ]);
+    if (typeof input.runtimeChanged !== 'boolean') {
+      fail('MODEL_FAILOVER_INPUT_INVALID', 'runtimeChanged must be a boolean', {
+        field: 'runtimeChanged',
+      });
+    }
     return this.#recordBindingApplicationAttempt({
       operationName: 'recordManualRuntimeApplied',
       operationId: requireString(input.operationId, 'operationId', { min: 16 }),
@@ -1375,6 +2225,7 @@ export class ModelFailoverRepository {
         { max: 512 },
       ),
       observedDigestSha256: input.observedDigestSha256,
+      runtimeChanged: input.runtimeChanged === true,
     });
   }
 
@@ -1405,7 +2256,13 @@ export class ModelFailoverRepository {
       'expectedAttemptRevision',
       'observedModelName',
       'observedDigestSha256',
+      'runtimeChanged',
     ]);
+    if (typeof input.runtimeChanged !== 'boolean') {
+      fail('MODEL_FAILOVER_INPUT_INVALID', 'runtimeChanged must be a boolean', {
+        field: 'runtimeChanged',
+      });
+    }
     return this.#recordBindingApplicationAttempt({
       operationName: 'recordManualStartupRehydrated',
       operationId: requireString(input.operationId, 'operationId', { min: 16 }),
@@ -1421,6 +2278,7 @@ export class ModelFailoverRepository {
         { max: 512 },
       ),
       observedDigestSha256: input.observedDigestSha256,
+      runtimeChanged: input.runtimeChanged === true,
     });
   }
 
@@ -1632,6 +2490,24 @@ export class ModelFailoverRepository {
         && existing.source === source) {
         return { outcome: 'UNCHANGED', binding: mapDesired(existing) };
       }
+      if (existing) {
+        const pendingProvider = this.#pendingProviderOperation(
+          role,
+          existing.binding_revision,
+        );
+        this.#failForPendingProviderOperation(pendingProvider, {
+          role,
+          expectedBindingRevision: existing.binding_revision,
+        });
+        const [unresolvedSuccess] = this.#unresolvedProviderSuccesses(
+          role,
+          existing.binding_revision,
+        );
+        this.#failForUnresolvedProviderSuccess(unresolvedSuccess, {
+          role,
+          expectedBindingRevision: existing.binding_revision,
+        });
+      }
       const incident = this.#stateRow(role);
       if (incident) {
         fail(
@@ -1736,7 +2612,7 @@ export class ModelFailoverRepository {
       'targetDigestSha256',
       'actor',
     ]);
-    const requestKey = requireString(input.requestKey, 'requestKey', { min: 16 });
+    const requestKey = requireString(input.requestKey, 'requestKey', { min: 16, max: 128 });
     const role = requireRole(input.role);
     const expectedBindingRevision = requirePositiveInteger(
       input.expectedBindingRevision,
@@ -1755,6 +2631,32 @@ export class ModelFailoverRepository {
     const actor = requireUserActor(input.actor);
 
     return this.#write('recordUserBindingApply', () => {
+      const noopReplay = this.#bindingNoopByRequestKey(requestKey);
+      if (noopReplay) {
+        const matches = noopReplay.role === role
+          && noopReplay.binding_revision === expectedBindingRevision
+          && noopReplay.canonical_name === targetCanonicalName
+          && noopReplay.digest_sha256 === targetDigestSha256
+          && noopReplay.actor === actor;
+        if (!matches) {
+          fail(
+            'MODEL_FAILOVER_REQUEST_KEY_CONFLICT',
+            'Manual binding no-op request key has different semantics',
+            { requestKey },
+          );
+        }
+        const committedDesired = this.#desiredFromBindingNoop(noopReplay);
+        const currentDesired = mapDesired(this.#desiredRow(role));
+        return {
+          outcome: 'REPLAYED',
+          kind: 'USER_APPLY',
+          operation: null,
+          noOpReceipt: this.#mapBindingNoop(noopReplay),
+          committedDesired,
+          currentDesired,
+          requestKeyConsumed: true,
+        };
+      }
       const replay = this.#bindingOperationByRequestKey(requestKey);
       if (replay) {
         return this.#replayManualOperation(replay, {
@@ -1781,19 +2683,137 @@ export class ModelFailoverRepository {
           actualBindingRevision: desired.binding_revision,
         });
       }
+      const pendingProvider = this.#pendingProviderOperation(role, expectedBindingRevision);
+      this.#failForPendingProviderOperation(pendingProvider, {
+        role,
+        expectedBindingRevision,
+      });
+      const supersededProvider = this.db.prepare(`
+        SELECT provider.operation_id, superseded.receipt_id
+        FROM model_binding_provider_operations provider
+        JOIN model_binding_user_noop_provider_supersedes superseded
+          ON superseded.provider_operation_id = provider.operation_id
+        WHERE provider.request_key = ?
+        LIMIT 1
+      `).get(requestKey);
+      if (supersededProvider) {
+        fail(
+          'MODEL_BINDING_PROVIDER_COMMAND_SUPERSEDED',
+          'Provider command was closed by a later no-op receipt',
+          {
+            requestKey,
+            providerOperationId: supersededProvider.operation_id,
+            noOpReceiptId: supersededProvider.receipt_id,
+          },
+        );
+      }
       if (desired.canonical_name === targetCanonicalName
         && desired.digest_sha256 === targetDigestSha256) {
+        const createdAtMs = this.#now('recordUserBindingApplyNoop');
+        if (createdAtMs < desired.updated_at_ms) {
+          fail('MODEL_FAILOVER_CLOCK_ROLLBACK', 'Repository clock moved before desired binding', {
+            role,
+            createdAtMs,
+            updatedAtMs: desired.updated_at_ms,
+          });
+        }
+        const futureTerminal = this.db.prepare(`
+          SELECT provider.operation_id, terminal.created_at_ms
+          FROM model_binding_provider_operations provider
+          JOIN model_binding_provider_attempts terminal
+            ON terminal.operation_id = provider.operation_id
+          WHERE provider.role = ?
+            AND provider.request_purpose = 'USER_APPLY_TARGET'
+            AND provider.expected_binding_revision = ?
+            AND terminal.created_at_ms > ?
+            AND NOT EXISTS (
+              SELECT 1
+              FROM model_binding_user_noop_provider_supersedes superseded
+              WHERE superseded.provider_operation_id = provider.operation_id
+            )
+          ORDER BY terminal.created_at_ms, provider.rowid
+          LIMIT 1
+        `).get(role, desired.binding_revision, createdAtMs);
+        if (futureTerminal) {
+          fail(
+            'MODEL_FAILOVER_CLOCK_ROLLBACK',
+            'Repository clock moved before a provider terminal outcome',
+            {
+              role,
+              providerOperationId: futureTerminal.operation_id,
+              createdAtMs,
+              providerTerminalAtMs: futureTerminal.created_at_ms,
+            },
+          );
+        }
+        const receiptId = this.#id('operation');
+        const providerFrontier = this.db.prepare(`
+          SELECT COALESCE(MAX(provider.command_seq), 0) AS command_seq
+          FROM model_binding_provider_operations provider
+          WHERE provider.role = ?
+            AND provider.request_purpose = 'USER_APPLY_TARGET'
+            AND provider.expected_binding_revision = ?
+        `).get(role, desired.binding_revision);
+        const sourceProvider = this.db.prepare(`
+          SELECT provider.operation_id, provider.command_seq
+          FROM model_binding_provider_operations provider
+          JOIN model_binding_provider_attempts terminal
+            ON terminal.operation_id = provider.operation_id
+          WHERE provider.request_key = ?
+            AND terminal.outcome IN ('SUCCEEDED','RECONCILED_PRESENT')
+          LIMIT 1
+        `).get(requestKey);
+        this.db.prepare(`
+          INSERT INTO model_binding_user_noop_receipts (
+            receipt_id, request_key, role, binding_revision, model_name,
+            canonical_name, digest_sha256, actor,
+            desired_source, desired_actor, desired_observed_at_ms,
+            desired_updated_at_ms, desired_last_event_id,
+            provider_command_cutoff_seq, source_provider_operation_id, created_at_ms
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          receiptId,
+          requestKey,
+          role,
+          desired.binding_revision,
+          desired.model_name,
+          desired.canonical_name,
+          desired.digest_sha256,
+          actor,
+          desired.source,
+          desired.actor,
+          desired.observed_at_ms,
+          desired.updated_at_ms,
+          desired.last_event_id,
+          providerFrontier.command_seq,
+          sourceProvider?.operation_id ?? null,
+          createdAtMs,
+        );
         const currentDesired = mapDesired(desired);
         return {
           outcome: 'UNCHANGED',
           kind: 'USER_APPLY',
           operation: null,
+          noOpReceipt: this.#mapBindingNoop(this.#bindingNoopByRequestKey(requestKey)),
           committedDesired: currentDesired,
           currentDesired,
-          requestKeyConsumed: false,
+          requestKeyConsumed: true,
         };
       }
-
+      const unresolvedSuccesses = this.#unresolvedProviderSuccesses(
+        role,
+        expectedBindingRevision,
+      );
+      const conflictingSuccess = unresolvedSuccesses.find(provider => !(
+        provider.request_key === requestKey
+        && provider.actor === actor
+        && provider.observed_canonical_name === targetCanonicalName
+        && provider.observed_digest_sha256 === targetDigestSha256
+      ));
+      this.#failForUnresolvedProviderSuccess(conflictingSuccess, {
+        role,
+        expectedBindingRevision,
+      });
       let incident = this.#stateRow(role);
       if (incident?.state === 'SUPERSEDED_BY_USER') {
         this.#retireSupersededIncident(incident);
@@ -1832,7 +2852,7 @@ export class ModelFailoverRepository {
       'rollbackOfOperationId',
       'actor',
     ]);
-    const requestKey = requireString(input.requestKey, 'requestKey', { min: 16 });
+    const requestKey = requireString(input.requestKey, 'requestKey', { min: 16, max: 128 });
     const role = requireRole(input.role);
     const expectedBindingRevision = requirePositiveInteger(
       input.expectedBindingRevision,
@@ -1896,6 +2916,11 @@ export class ModelFailoverRepository {
           actualBindingRevision: desired.binding_revision,
         });
       }
+      const pendingProvider = this.#pendingProviderOperation(role, expectedBindingRevision);
+      this.#failForPendingProviderOperation(pendingProvider, {
+        role,
+        expectedBindingRevision,
+      });
       const currentMatchesApply = applied.committed_binding_revision === expectedBindingRevision
         && desired.source === 'USER_APPLY'
         && desired.model_name === applied.target_model_name
@@ -1908,7 +2933,14 @@ export class ModelFailoverRepository {
           rollbackOfOperationId,
         });
       }
-
+      const [unresolvedSuccess] = this.#unresolvedProviderSuccesses(
+        role,
+        expectedBindingRevision,
+      );
+      this.#failForUnresolvedProviderSuccess(unresolvedSuccess, {
+        role,
+        expectedBindingRevision,
+      });
       let incident = this.#stateRow(role);
       if (incident?.state === 'SUPERSEDED_BY_USER') {
         this.#retireSupersededIncident(incident);

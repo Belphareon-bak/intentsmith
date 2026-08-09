@@ -1,6 +1,7 @@
-# Finding 008 — model binding nemá jeden pravdivý commit point
+# Finding 008 — model binding neměl jeden pravdivý commit point
 
-- **stav:** `OPEN / ASSIGNED`
+- **stav:** `REMEDIATED / FRESH-CLONE VERIFIED` na
+  `e7d89b5ef038e1a32ad2fdff3990d6f9f20d9bec`
 - **závažnost:** vysoká pro M1 acceptance; runtime failover je dál vypnutý
 - **vlastník:** zapisující vlastník `WP-M1-MODEL / B3-FAILOVER runtime integration`
 - **termín:** před tvrzením, že B3-FAILOVER je runtime-integrated, a nejpozději
@@ -120,3 +121,61 @@ společnou application service, provider inventory/pull, runtime CAS a
 kompenzaci, HTTP/chat handlery, startup composition ani commit-layer
 `model_changed`. Tyto části vlastní navazující
 [`WP-M1-BINDING-APPLICATION`](../wp/WP-M1-BINDING-APPLICATION.md).
+
+## Stav nápravy — společný manual runtime application checkpoint
+
+Aditivní migrace 051 a `ModelBindingApplication` nyní tvoří jedinou produkční
+cestu pro manual apply a rollback. HTTP, chat i `ModelRegistry` předávají pouze
+roli a cílový model; actor, request key, exact identitu, digest a auditní stav
+odvozuje service. Startup už nevolá `loadPersistedOverrides()`: legacy data
+obnoví kompatibilně jako `LEGACY_UNVERIFIED`, manual lineage rehydratuje přes
+stejný repository/runtime port před zpřístupněním routes.
+
+Runtime změna používá CAS token. Durable runtime outcome se zapisuje před
+synchronním finalizačním krokem bez `await` či callbacku v tomto okně; při DB
+selhání se runtime kompenzuje. Rollback je append-only reversal a no-op runtime
+nevytváří smyšlenou historii. `verified=1` vznikne jen z následné exact-digest
+Ollama probe. Pull intent je durable před provider efektem a migrace 052 drží
+exact loopback origin, user actora, request key/revision/target authority,
+obnovovaný pětiminutový claim s fencing revision a immutable provider outcome.
+Claim je unikátní pro roli a canonical target v rámci jednoho přesného
+provider originu. Alias originy ani direct pull tuto autoritu zatím nesdílejí.
+Druhý Worker isolate s vlastní WAL connection živý claim nepřevezme; až
+striktně po expiry může CAS získat novou fencing revision
+a původní worker potom nesmí zapsat terminál. DB trigger váže úspěšný provider
+výsledek na downstream binding přes shodný request key, roli, revision, actora,
+canonical jméno a digest. DB-assigned command sequence a no-op frontier uzavírá
+set předchozích terminálů; pending nebo neuzavřený success blokuje jiný desired
+transition. Desired guard pokrývá update, delete i replace a append-only
+identity guard chrání receipt i jeho causal junction před SQLite conflict
+replacement. Startup sdílí jeden inventory snapshot a teprve po
+listen spouští verifikace sériově. Jediným vlastníkem `model_changed` je commit
+vrstva; pouze explicitní typed receipt znamená úspěšné přijetí. Produkční void
+broadcaster proto pravdivě vytváří degraded stav a replay neopakuje
+provider/runtime efekt.
+
+Focused důkaz nad skutečnou SQLite, skutečným repository a skutečným
+`UpgradeManager` runtime portem prošel 73/73; repository sada prošla 39/39.
+Pokrývá provider journal před pullem, live/expired claim, stale fencing,
+dvouconnection WAL závod, direct-SQL tamper, failure po runtime prepare, digest
+drift po intentu, replay bez druhého effectu, restart i obnovu předchozího
+manual override, legacy rehydrate,
+rollback, sériovou verifikaci, notification receipt i shodný reálný HTTP/chat
+journey. HTTP nevrací `200 started` za pomocný legacy recovery intent; čeká na
+durable user-target intent nebo binding operation. Proposal post-commit failure
+opraví replay bez dalšího provider/runtime effectu. Read-only status váže
+provider výsledek na aktuální desired revision, takže starý
+`RECONCILED_ABSENT` nevypadá jako failure novějšího installed apply.
+Test-owned loopback Ollama prokazuje exact `tags → chat → tags`,
+timeout, malformed/empty odpověď a digest drift. Zdrojový call-site ratchet
+nenašel žádného produkčního konzumenta
+`applyUpgrade()`, `rollbackUpgrade()`, `loadPersistedOverrides()` ani
+`_backgroundVerify()`.
+
+Finding 008 je na backendové hranici uzavřený fresh-clone ověřením přesného
+commitu. Tři navazující meze se nepřikrášlují: dnešní WS broadcaster
+nevydává delivery receipt, takže stav zůstane degraded; current Studio tento
+nový status dosud nekonzumuje ani nenabízí proveditelný rollback; neúspěšná CAS
+kompenzace je tvrdý in-process recovery blocker, nikoli durable
+`RUNTIME_UNKNOWN` stav. Vlastníkem Studio status/rollback surface je
+`WP-M1-STUDIO`; do té doby full M1 acceptance zůstává blokovaná.

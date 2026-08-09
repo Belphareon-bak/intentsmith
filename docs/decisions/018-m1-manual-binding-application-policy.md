@@ -1,7 +1,8 @@
 # 018 — Manual binding potřebuje pravdivou failure, legacy a notification policy
 
 - **typ:** DECIDE-AND-CONTINUE
-- **stav rozhodnutí:** VRATNÉ DEFAULTY A; ČEKÁ NA OPERÁTORA
+- **stav rozhodnutí:** PŘIJATO OPERÁTOREM; Q1–Q5 = A, vratné pouze přes
+  pojmenované švy níže
 - **WP:** WP-M1-BINDING-APPLICATION
 - **rail:** R1, R3, R5, R6
 - **vzniklo při:** uzavření Findingu 008 pro běžný HTTP/chat provoz
@@ -53,14 +54,45 @@ autoritu automaticky měnit explicitní uživatelskou volbu. Šev:
 `publishBindingCommitted()`; případný durable outbox je pozdější samostatný WP,
 ne skrytý retry loop.
 
-## Přesná otázka pro operátora
+## Q4 — Jak obnovit non-retryable manual apply
+
+| Varianta | Chování | Dopad / cena přepnutí |
+|---|---|---|
+| A — nejdřív explicitní rollback | Neúspěšná operace zůstane autoritativní, nový apply skončí typovaným 409 bez provider/runtime effectu; operátor nejdřív vytvoří append-only rollback a potom nový apply | Backend je pravdivý a crash-safe. HTTP rollback existuje; chat/Studio rollback surface je `PENDING-OWNER`, takže celý UI recovery journey ještě není uzavřený. |
+| B — compound supersede command | Jediný durable příkaz přijme replacement, odvodí reversal a restartově dokončí oba runtime kroky | Nová migrace, nový interní connector, crash recovery a nejméně 4 pozitivní/negativní journey testy. |
+| C — automatický dvoukrok rollback + apply | Service nejdřív provede rollback a potom založí nový apply | Zakázaný default: crash mezi kroky mění runtime bez receipt pro požadovaný replacement a emituje dva konfliktní přechody. |
+
+**Vratný default: A.** Je jediný současný stav bez odmítnutého requestu s
+efektem. Šev pro případné B je nový `recordUserBindingSupersede()`; nesmí se
+napodobit dvěma voláními existujících repository metod. Do vytvoření UI
+rollbacku se manual backend checkpoint nesmí vydávat za kompletní chat/Studio
+recovery journey.
+
+## Q5 — Co s novým provider intentem po nedokončeném terminálním úspěchu
+
+| Varianta | Chování | Dopad / cena přepnutí |
+|---|---|---|
+| A — nejdřív uzavřít starší terminál | Pro stejnou roli a binding revision DB odmítne další provider intent i jiný desired transition, dokud předchozí terminální success nemá přesný binding nebo no-op receipt | Fail-closed stav neuhodne, který cíl uživatel považuje za autoritativní. Exact request smí dokončit provider→binding; current-binding no-op uzavře celý terminální prefix. |
+| B — explicitní pořadí a supersede | Novější intent může append-only supersedovat starší command přes explicitní vztah nad existující DB sequence | Nový supersede kontrakt a crash/race důkazy pro success→success, success→failed/pending a přímý SQL bypass. |
+| C — při restartu vzít nejnovější timestamp | Poslední časově označený command vyhraje | Zakázaný default: shodné nebo obrácené wall-clock hodnoty nejsou kauzální autorita. |
+
+**Vratný default: A.** Je konzervativní a zavírá dvojí pre-binding crash bez
+nové autority automaticky přepisovat starší přijatý command. Šev pro případné B
+je samostatný append-only provider-supersede recorder nad existujícím
+DB-assigned `command_seq`. No-op receipt je DB-odvozená množina: při živém commandu failne a po
+terminálu atomicky naváže všechny dosud neuzavřené terminální commandy stejné
+role/revision. Caller seznam ani supersession ID nedodává.
+
+## Přijatý operátorský zápis
 
 ```text
 018-Q1: A
 018-Q2: A
 018-Q3: A
+018-Q4: A
+018-Q5: A
 ```
 
-Defaulty dovolují pokračovat uvnitř přesně pojmenovaných švů. Jakýkoli požadavek
+Operátor tento zápis potvrdil beze změny. Jakýkoli požadavek
 na automatický failover, změnu veřejného HTTP/WS/M1 connectoru, PASS proof nebo
 L0-9 zůstává tvrdý BLOCK a tímto záznamem se neobchází.
