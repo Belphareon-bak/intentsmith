@@ -327,7 +327,7 @@ Přesné instalační/build příkazy, hashe, metodická omezení a screenshot/l
 | Backend/runtime | `PARTIAL` | Fresh-clone install provenance; backendový HTTP restart už je current-SHA ověřen. |
 | Offline boundary | `MEASURED` | Před M6 opravit release-policy sentinel a aktivovat pravdivý PDF toolchain set. |
 | Capability picture | `DRAFT_COMPLETE` | 22/22 je v `SYSTEM-MAP.md`; operátorské přijetí neznamená automaticky PASS jednotlivých schopností. |
-| Studio/Theia | `MEASURED` | Fresh clone na `7236d221` prošel instalací a buildem; po dvou zachovaných červených kalibračních bězích následovaly dva samostatné runtime `PASS` s nulovým egresssem, 65s live-ready soakem a čistým shutdownem. Runner zůstává registry `BLOCKED`, dokud auditní orchestrátor nedodá build envelope; M1 cancel/reconnect journey není hotový. |
+| Studio/Theia | `MEASURED` | Fresh clone na `7236d221` prošel instalací a buildem; po dvou zachovaných červených kalibračních bězích následovaly dva samostatné runtime `PASS` s nulovým egresssem, 65s live-ready soakem a čistým shutdownem. Source-level a owned-loopback M1 už pokrývá cancel i automatický reconnect, ale built negotiated Electron journey stále neproběhl; runner zůstává registry `BLOCKED`, dokud auditní orchestrátor nedodá build envelope. |
 | L0-8 specialist boundary | `CARRIED_BLOCKER` | Vlastník: integrační vlastník `WP-M3-BOUNDARY`. Termín: před jeho prvním zapisujícím commitem; do té doby platí zákaz nových interních importů specialistů. |
 
 **WP-M0-E je diagnosticky dokončený takto:**
@@ -1334,8 +1334,12 @@ mohou pokračovat.
    fail-closed root `postbuild`: exact clean clone provedl protocol codec,
    terminal stream, izolované načtení consumeru, bundle inclusion a Fonts
    egress guard a vydal byte-level hashe všech tří artefaktů. Jde o build
-   integrity, ne behavioral journey. Produkční ACK a negotiated Electron
-   journey tím ještě nejsou prokázané. Cancel terminal ordering už závazně plyne z přijatého
+   integrity, ne behavioral journey. Owned-loopback checkpoint `4cfcb8f2`
+   následně přes skutečné sockety ukončí první connection, znovu vyjedná M1,
+   autoritativně ověří a přes loopback HTTP obnoví 3/3 durable identity a po
+   reconnectu doručí další korelovaný success. Nejde o server restart ani
+   Electron evidence. Produkční ACK a negotiated Electron journey tím ještě
+   nejsou prokázané. Cancel terminal ordering už závazně plyne z přijatého
    004/C a není nová otázka. Disposable fresh clone na `9464dacf` dříve offline
    reprodukoval production build a 65s non-visual legacy Electron boundary
    journey s nulovým egresssem a čistým shutdownem; tím se ověřilo prostředí,
