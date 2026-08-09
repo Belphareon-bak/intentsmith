@@ -567,10 +567,17 @@ focused regression sady.
      transakčním merge. Detection scheduler jej už konzumuje, ale typed writer
      nemá produkčního volajícího a pět legacy mutation cest může stejný blob
      přepsat. [Rozhodnutí 020](docs/decisions/020-m1-model-failover-opt-in-surface.md)
-     je operátorsky přijaté jako 020/E (`ACCEPTED_E /
-     IMPLEMENTATION_PENDING`); implementace oddělené revisioned
-     `model_automation_policy` autority a explicitních backup/import/reset
-     adaptérů teprve následuje. Před
+     je operátorsky přijaté jako 020/E. **Storage/repository checkpoint je
+     implementovaný:** migrace 061 zavádí default-off revisioned
+     `model_automation_policy`, append-only event lineage, legacy quarantine a
+     downgrade guard; repository drží projection/event CAS v jednom
+     `BEGIN IMMEDIATE` a reálný dvou-workerový WAL race má jediného vítěze.
+     Detection repository i auto-cleanup/overview už čtou novou autoritu;
+     generic GET/POST dropuje přesně tři rezervované klíče, hlásí
+     `ignoredReservedKeys` a feature manager dostává sanitizovaný dokument.
+     Typed GET/PUT, atomický backup/import/reset a skutečná mobile
+     late-insertion parita jsou stále
+     `IMPLEMENTATION_PENDING`. Před
      aktivací je navíc nutný čerstvý role-suite proof svázaný s exaktním
      digestem; dnešní name-only score takovým důkazem není.
      **Druhý checkpoint je implementovaný:** migrace 046 vytváří oddělený
@@ -1279,8 +1286,8 @@ mohou pokračovat.
    |---|---|---|
    | 1 | 023 VRAM delete race | úzká artifact-use hrana fresh-clone ověřená; globální GPU residency zůstává M2 residual |
    | 2 | 022 operation-bound recovery | `FRESH_CLONE_VERIFIED` na `81dff196`; built B4 zůstává otevřený |
-   | 3 | ověřit dokončenou rezervaci migrací | obnovený union census po mobilních commitech; `061` = 020, `062` = 015; povinná late-insertion parita 055–060 |
-   | 4 | 020 oddělená policy storage | první migrační položka |
+   | 3 | ověřit dokončenou rezervaci migrací | `061` = 020 a `062` = 015 jsou rezervované; skutečná late-insertion parita čeká na první společný SHA s finálně přečíslovanými mobilními migracemi |
+   | 4 | 020 oddělená policy storage | migrace/repository, oba reader cutovers a generic GET/POST drop implementované; typed API a atomický import/reset zůstávají otevřené |
    | 5 | 015 proof issuance | druhá migrační položka, těží ze stejného census |
    | 6 | 021 built journey | jediná položka vázaná na drahou Studio infrastrukturu |
    | 7 | autorizovaný GPU pilot | sériově, jedna role/digest, jen na akci operátora |

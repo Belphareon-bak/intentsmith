@@ -2551,3 +2551,69 @@ Tím je 023/A úzká single-process artifact/delete hrana
 `FRESH_CLONE_VERIFIED`. Gate 1 zůstává `BLOCKED` a širší C2 `PARTIAL` přesně na
 pojmenovaných residualech výše; čistý klon neobsahoval GPU modelový workload,
 Ollamu, produktový server, Electron ani externí síť.
+
+## Checkpoint 29 — 020/E policy storage/repository + generic settings drop
+
+První implementační část přijatého 020/E přidává migraci 061 a jediný
+repository commit point pro model automation policy. Bootstrap je vždy
+`OFF/OFF/14`; legacy `true` ani jiné hodnoty se nepovýší. Platný obecný settings
+dokument ztratí pouze tři vlastněné klíče, jejich fragment zůstane v immutable
+migračním eventu a DB downgrade guard odmítne jejich opětovný zápis.
+
+Repository posouvá singleton projection přes revision CAS a teprve poté vloží
+odpovídající event v témže top-level `BEGIN IMMEDIATE`. Deferred FK a exact
+triggery odmítnou obě jednostranné varianty. Focused test používá dva skutečné
+Node workery, dvě WAL connections a společnou atomickou bariéru; oba před ní
+přečtou revision 1 a po ní vznikne právě jeden commit revision 2, jeden
+`MODEL_AUTOMATION_POLICY_STALE` a jediný nový event.
+
+Tři dočasné mutace byly po jednom vrácené: odstranění expected-revision guardu
+zbarvilo 3 testy, odstranění readerovy hodnotové vazby 1 test a vypnutí
+event→projection triggeru 1 test. Mutační běhy skončily exit 1; finální focused
+běh má 20/0 a schema migration sada 38/0, oba exit 0. Během prvního CAS
+mutačního běhu watchdog odhalil JavaScript `Array.map` argument leak do timeoutu
+a test byl opraven explicitní lambdou; nejde o produktovou vadu.
+
+Zmrazené independent review před commitem odmítlo původní dělení checkpointu:
+DB downgrade guard už byl aktivní, ale nesanitizovaný generic POST by vracel
+500. Generic GET/POST proto přistál ve stejném source candidate a focused route
+probe dokládá 200, přesný drop, `ignoredReservedKeys`, sanitizovaný vstup do
+feature manageru a nulovou změnu policy. Adversarial storage audit navíc
+reprodukoval dvě obcházky: projection-only revize mohla znovu použít starý event
+a duplicitní top-level JSON klíč `models` obešel původní `json_type` guard. Nový
+projection identity trigger a `json_each` census všech top-level objektů
+`models` obě cesty zavírají; INSERT, UPDATE i byte-identický rollback pinuje
+focused sada. Pre-061 JSON helper nemá produkčního konzumenta a jeho sada byla
+překlasifikovaná na nepovinnou `HISTORICAL` diagnostiku.
+
+Lokální source candidate reprodukoval následující deterministic sady:
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-model-policy.test.js` | 20/0 | 0 |
+| `node tests/schema-migrations.test.js` | 38/0 | 0 |
+| `node tests/m1-model-failover-coordinator.test.js` | 16/0 | 0 |
+| `node tests/m1-model-identity.test.js` | 25/0 | 0 |
+| `node tests/m1-model-failover-repository.test.js` | 14/0 | 0 |
+| `node tests/m1-model-failover-schema.test.js` | 20/0 | 0 |
+| `node tests/m1-model-settings.test.js` | 14/0, pre-061 `HISTORICAL` diagnostika | 0 |
+| `node tests/model-upgrade.test.js` | 58/0 | 0 |
+| `node tests/upgrade-flow.test.js` | 28/0 | 0 |
+| `node tests/routes-smoke.test.js` | 109/0 | 0 |
+| `node tests/artifact-validation.test.js` | 151/0 | 0 |
+| `node tests/repository-hygiene.test.js` | 1 546 staged/tracked cest | 0 |
+| `node scripts/validate-test-registry.js --json` | 378 programů, 8 exclusions, fingerprint `cb1259ca…d06e15` | 0 |
+| `node scripts/module-boundary-ratchet.mjs` | očekávaný source-candidate FAIL: 3 exact přidané policy hrany, 2 odebrané legacy hrany, +1 hrana bez růstu cyklů | 1 |
+
+Ratchet baseline se v source commitu nemění. Po jeho commitu musí integrátorský
+writer na čistém stromu přijmout pouze exact hrany
+`misc.js → model-policy.js`, `model-failover.js → model-policy.js` a
+`model-registry.js → model-policy.js`;
+odebrané legacy hrany se mají jen nahlásit a utáhnout baseline.
+
+Detection repository i auto-cleanup/overview v tomto checkpointu přešly na
+novou autoritu; jejich focused sady skončily 16/0 a 25/0. Generic GET/POST drop
+je součástí stejného atomického kandidáta. Typed GET/PUT, atomický
+export/import/reset, Studio `response.ok` a reálná mobile
+late-insertion parita nejsou claim tohoto checkpointu. GPU, Ollama, Electron,
+produktový server ani externí síť nebyly spuštěné; Gate 1 zůstává `BLOCKED`.

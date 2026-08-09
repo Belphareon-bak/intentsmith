@@ -172,6 +172,34 @@ neopakuje, třetí běh je no-op, výsledné verze a relevantní schéma jsou sh
 M1 policy/proof data zůstala zachovaná a striktní expiry hrana z 062 i mobilní
 journal/instance ownership po pozdním vložení fungují.
 
+## Implementační checkpoint storage/repository + generic drop — 2026-08-09
+
+Migrace `061` a nový `src/db/model-policy.js` implementují první část varianty
+E. Nová autorita startuje vždy `OFF/OFF/14`; tři legacy klíče se z validního
+obecného dokumentu odstraní a jejich původní fragment zůstane v append-only
+bootstrap eventu. Cizí klíče se zachovají a DB guard zabrání starému writeru
+rezervované klíče znovu zavést bez ohledu na jejich hodnotu.
+
+Repository vlastní čas, identity, actor/source i top-level `BEGIN IMMEDIATE`.
+Projekce se posouvá přes revision CAS a odpovídající event musí vzniknout ve
+stejné transakci; deferred FK a obousměrné triggery odmítnou event bez projekce
+i projekci bez eventu. Dva skutečné WAL workery, kteří oba přečetli revision 1
+před společnou bariérou, prokázali právě jeden commit revision 2 a jeden
+typovaný stale výsledek. Registrovaná focused sada má 20/0 a migrační oracle
+38/0.
+
+Ve stejném checkpointu přešly oba produkční readery — detection repository i
+auto-cleanup/overview — na tuto versioned autoritu. Generic GET/POST dropuje
+přesně tři rezervované klíče, odpověď uvádí `ignoredReservedKeys` a
+`featureManager` nikdy nevidí nesanitizovaný dokument. Starý JSON helper nemá
+produkčního konzumenta a jeho pre-061 sada je `HISTORICAL`.
+
+Tento checkpoint ještě **neimplementuje** typed GET/PUT, atomický
+export/import/reset adaptér ani Studio `response.ok`.
+Skutečná late-insertion parita s finálně
+přečíslovanými mobilními migracemi zůstává `PENDING_FIRST_COMMON_INTEGRATION_SHA`;
+syntetická náhrada nebyla použita. Aktivace, GPU a Electron nebyly spuštěné.
+
 ## Přesná otázka pro operátora
 
 ```text

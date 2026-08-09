@@ -10,6 +10,11 @@ import {
   testAsync,
 } from './harness.js';
 import { config } from '../src/config.js';
+import { up as migrateModelPolicy } from '../src/db/migrations/2026_08_09_061_model_automation_policy.js';
+import {
+  createModelAutomationPolicyRepository,
+  readModelAutomationPolicy,
+} from '../src/db/model-policy.js';
 import {
   canonicalModelName,
   canonicalModelNameSet,
@@ -75,6 +80,8 @@ function createTestDb() {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+  db.pragma('foreign_keys = ON');
+  db.transaction(() => migrateModelPolicy(db))();
   return db;
 }
 
@@ -419,12 +426,16 @@ await testAsync('overview joins binding, newest validation alias, and aggregate 
   }
 });
 
-await testAsync('overview and scheduler consume only authoritative JSON model settings', async () => {
+await testAsync('overview and scheduler consume only versioned model policy settings', async () => {
   const db = createTestDb();
   try {
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run(JSON.stringify({
-      models: { autoCleanupEnabled: true, autoCleanupDays: 30 },
-    }));
+    const initialPolicy = readModelAutomationPolicy(db);
+    createModelAutomationPolicyRepository(db).updateFromTypedApi({
+      expectedRevision: initialPolicy.revision,
+      autoFailoverEnabled: false,
+      autoCleanupEnabled: true,
+      autoCleanupDays: 30,
+    });
     const registry = createRegistry(db);
     registry.getInstalled = async () => [];
     const enabled = await registry.getOverview();
@@ -440,7 +451,14 @@ await testAsync('overview and scheduler consume only authoritative JSON model se
     assertEqual(configured.days, 30);
     assertEqual(JSON.stringify(cleanupCalls), JSON.stringify([30]));
 
-    db.prepare('UPDATE user_settings SET data = ? WHERE id = 1').run('{broken');
+    db.exec(`
+      DROP TRIGGER trg_model_automation_projection_revision;
+      DROP TRIGGER trg_model_automation_projection_new_event;
+      DROP TRIGGER trg_model_automation_projection_current_event;
+      UPDATE model_automation_policy
+      SET auto_cleanup_days = 31
+      WHERE id = 1;
+    `);
     registry.invalidateCache();
     const malformed = await registry.getOverview();
     assertEqual(JSON.stringify(malformed.autoCleanup), JSON.stringify({ enabled: false, days: 14 }));
