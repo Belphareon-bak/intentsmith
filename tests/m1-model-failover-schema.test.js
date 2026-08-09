@@ -362,7 +362,7 @@ suite('M1 model failover schema — exact migration contract');
 
 await testAsync('fresh file-backed DB creates all failover tables, indexes and triggers', async () => {
   await withMigratedDb(async (db) => {
-    assertEqual(getCurrentVersion(db), '2026_08_09_054_model_binding_runtime_finalization');
+    assertEqual(getCurrentVersion(db), '2026_08_09_061_model_automation_policy');
 
     for (const table of [
       'model_desired_bindings',
@@ -646,7 +646,7 @@ await testAsync('second migration run is a no-op with an identical schema snapsh
     const before = schemaSnapshot(db);
     const result = await runMigrations(db);
     assertEqual(result.applied.length, 0);
-    assertEqual(result.skipped.length, 56);
+    assertEqual(result.skipped.length, 57);
     assertEqual(schemaSnapshot(db), before);
   });
 });
@@ -664,6 +664,9 @@ await testAsync('migration 054 preserves pre-existing success as unconfirmed evi
     const through053 = migrations.filter(
       migration => migration.version <= '2026_08_09_053_model_binding_append_only_identity',
     );
+    const through054 = migrations.filter(
+      migration => migration.version <= '2026_08_09_054_model_binding_runtime_finalization',
+    );
     migrationTestInternals.runMigrationPlan(db, through053);
     insertDesiredObservedEvent(db);
     insertDesiredBinding(db);
@@ -675,7 +678,7 @@ await testAsync('migration 054 preserves pre-existing success as unconfirmed evi
       WHERE operation_id = ?
     `).get(operationId));
 
-    const result = migrationTestInternals.runMigrationPlan(db, migrations);
+    const result = migrationTestInternals.runMigrationPlan(db, through054);
     assertEqual(
       JSON.stringify(result.applied),
       JSON.stringify(['2026_08_09_054_model_binding_runtime_finalization']),

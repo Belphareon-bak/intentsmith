@@ -123,8 +123,9 @@ function validateModelSettings(models) {
 }
 
 /**
- * Read the model policy. Only a literal boolean true in a valid JSON object can
- * enable failover; every other storage state is explicitly default-off.
+ * Pre-migration-061 compatibility reader for the retired JSON model settings.
+ * Production policy consumers use model-policy.js; this helper is not a
+ * versioned policy authority and cannot write through the migration guard.
  */
 export function readModelSettings(db) {
   const document = readUserSettings(db);
@@ -239,8 +240,9 @@ export function updateUserSettings(db, updater) {
 }
 
 /**
- * Update only the owned models section. Unknown model keys and all unrelated
- * document sections are retained.
+ * Pre-migration-061 compatibility writer. Unknown model keys and all unrelated
+ * document sections are retained, but a migrated database rejects the retired
+ * automation keys at the storage boundary.
  */
 export function updateModelSettings(db, patch) {
   if (!isPlainObject(patch)) {

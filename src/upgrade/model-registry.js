@@ -20,7 +20,7 @@ import {
   MODEL_ACTIVITY_OWNER,
   modelUseAuthority,
 } from './model-use-authority.js';
-import { readModelSettings } from '../db/user-settings.js';
+import { readModelAutomationPolicy } from '../db/model-policy.js';
 import { execSync } from 'child_process';
 import fs from 'fs';
 
@@ -338,7 +338,7 @@ export class ModelRegistry {
   }
 
   getModelSettings() {
-    return readModelSettings(this._db);
+    return readModelAutomationPolicy(this._db);
   }
 
   /** Get validation scores for a model across all suites */
@@ -523,7 +523,7 @@ export class ModelRegistry {
       } catch (_) {}
     }
 
-    // Auto-cleanup is enabled only by the authoritative JSON settings row.
+    // Auto-cleanup is enabled only by the versioned model policy authority.
     const modelSettings = this.getModelSettings();
     const autoCleanup = {
       enabled: modelSettings.valid && modelSettings.settings.autoCleanupEnabled,
@@ -1063,7 +1063,7 @@ export class ModelRegistry {
     }
   }
 
-  /** Execute one scheduler decision from the authoritative JSON settings row. */
+  /** Execute one scheduler decision from the versioned model policy authority. */
   async runConfiguredAutoCleanup() {
     const settings = this.getModelSettings();
     if (!settings.valid) {

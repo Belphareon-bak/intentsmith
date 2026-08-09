@@ -2551,3 +2551,128 @@ Tím je 023/A úzká single-process artifact/delete hrana
 `FRESH_CLONE_VERIFIED`. Gate 1 zůstává `BLOCKED` a širší C2 `PARTIAL` přesně na
 pojmenovaných residualech výše; čistý klon neobsahoval GPU modelový workload,
 Ollamu, produktový server, Electron ani externí síť.
+
+## Checkpoint 29 — 020/E policy storage/repository + generic settings drop
+
+První implementační část přijatého 020/E přidává migraci 061 a jediný
+repository commit point pro model automation policy. Bootstrap je vždy
+`OFF/OFF/14`; legacy `true` ani jiné hodnoty se nepovýší. Platný obecný settings
+dokument ztratí pouze tři vlastněné klíče, jejich fragment zůstane v immutable
+migračním eventu a DB downgrade guard odmítne jejich opětovný zápis.
+
+Repository posouvá singleton projection přes revision CAS a teprve poté vloží
+odpovídající event v témže top-level `BEGIN IMMEDIATE`. Deferred FK a exact
+triggery odmítnou obě jednostranné varianty. Focused test používá dva skutečné
+Node workery, dvě WAL connections a společnou atomickou bariéru; oba před ní
+přečtou revision 1 a po ní vznikne právě jeden commit revision 2, jeden
+`MODEL_AUTOMATION_POLICY_STALE` a jediný nový event.
+
+Tři dočasné mutace byly po jednom vrácené: odstranění expected-revision guardu
+zbarvilo 3 testy, odstranění readerovy hodnotové vazby 1 test a vypnutí
+event→projection triggeru 1 test. Mutační běhy skončily exit 1; finální focused
+běh má 20/0 a schema migration sada 38/0, oba exit 0. Během prvního CAS
+mutačního běhu watchdog odhalil JavaScript `Array.map` argument leak do timeoutu
+a test byl opraven explicitní lambdou; nejde o produktovou vadu.
+
+Zmrazené independent review před commitem odmítlo původní dělení checkpointu:
+DB downgrade guard už byl aktivní, ale nesanitizovaný generic POST by vracel
+500. Generic GET/POST proto přistál ve stejném source candidate a focused route
+probe dokládá 200, přesný drop, `ignoredReservedKeys`, sanitizovaný vstup do
+feature manageru a nulovou změnu policy. Adversarial storage audit navíc
+reprodukoval dvě obcházky: projection-only revize mohla znovu použít starý event
+a duplicitní top-level JSON klíč `models` obešel původní `json_type` guard. Nový
+projection identity trigger a `json_each` census všech top-level objektů
+`models` obě cesty zavírají; INSERT, UPDATE i byte-identický rollback pinuje
+focused sada. Pre-061 JSON helper nemá produkčního konzumenta a jeho sada byla
+překlasifikovaná na nepovinnou `HISTORICAL` diagnostiku.
+
+Lokální source candidate reprodukoval následující deterministic sady:
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-model-policy.test.js` | 20/0 | 0 |
+| `node tests/schema-migrations.test.js` | 38/0 | 0 |
+| `node tests/m1-model-failover-coordinator.test.js` | 16/0 | 0 |
+| `node tests/m1-model-identity.test.js` | 25/0 | 0 |
+| `node tests/m1-model-failover-repository.test.js` | 14/0 | 0 |
+| `node tests/m1-model-failover-schema.test.js` | 20/0 | 0 |
+| `node tests/m1-model-settings.test.js` | 14/0, pre-061 `HISTORICAL` diagnostika | 0 |
+| `node tests/model-upgrade.test.js` | 58/0 | 0 |
+| `node tests/upgrade-flow.test.js` | 28/0 | 0 |
+| `node tests/routes-smoke.test.js` | 109/0 | 0 |
+| `node tests/artifact-validation.test.js` | 151/0 | 0 |
+| `node tests/repository-hygiene.test.js` | 1 546 staged/tracked cest | 0 |
+| `node scripts/validate-test-registry.js --json` | 378 programů, 8 exclusions, fingerprint `cb1259ca…d06e15` | 0 |
+| `node scripts/module-boundary-ratchet.mjs` | očekávaný source-candidate FAIL: 3 exact přidané policy hrany, 2 odebrané legacy hrany, +1 hrana bez růstu cyklů | 1 |
+
+Ratchet baseline se v source commitu nemění. Po jeho commitu musí integrátorský
+writer na čistém stromu přijmout pouze exact hrany
+`misc.js → model-policy.js`, `model-failover.js → model-policy.js` a
+`model-registry.js → model-policy.js`;
+odebrané legacy hrany se mají jen nahlásit a utáhnout baseline.
+
+Detection repository i auto-cleanup/overview v tomto checkpointu přešly na
+novou autoritu; jejich focused sady skončily 16/0 a 25/0. Generic GET/POST drop
+je součástí stejného atomického kandidáta. Typed GET/PUT, atomický
+export/import/reset, Studio `response.ok` a reálná mobile
+late-insertion parita nejsou claim tohoto checkpointu. GPU, Ollama, Electron,
+produktový server ani externí síť nebyly spuštěné; Gate 1 zůstává `BLOCKED`.
+
+### Checkpoint 29b — exact-edge baseline acceptance
+
+Source candidate je commit `905a3422fa0a01f3f1c4656f914ee26a696549a8`.
+Teprve nad jeho čistým stromem integrátorský writer přijal tři přesné nové
+hrany `misc.js → model-policy.js`, `model-failover.js → model-policy.js` a
+`model-registry.js → model-policy.js`. Dvě odstraněné hrany na retired
+`user-settings.js` baseline současně utáhly; neexistuje glob ani adresářová
+výjimka. Výsledná baseline má 1 022 hran, 3 cykly a 28 souborů v cyklech,
+`sourceRevision=905a3422…49a8`. `node scripts/module-boundary-ratchet.mjs`
+skončil `PASS`, 1 022/1 022 a exit 0; focused ratchet sada skončila 13/0,
+exit 0. Artifact validation 151/0, hygiene 1 546 cest a registry 378/8 s
+fingerprintem `cb1259ca…d06e15` skončily také exit 0. SHA baseline commitu a
+opakování z čistého klonu doplní navazující attestation.
+
+### Checkpoint 29c — fresh-clone attestation
+
+Attestovaný baseline commit je
+`34a047d45d41bc26d8df206582005a784dfc6638`. Samostatný checkout
+`/tmp/intentsmith-policy-attest-q7kuA2/repo` vznikl příkazem
+`git clone --no-local --branch integration/gate1-prod-ready-20260809
+/home/belphareon/worktrees/is-gate1-prod-ready <checkout>`; clone skončil exit 0
+a ještě před instalací měl přesný HEAD `34a047d4…6638` a prázdný porcelain.
+`npm ci --offline` přidal 233 balíčků, našel 0 vulnerabilities a skončil exit 0.
+
+V tomto checkoutu skončily exit 0: policy 20/0, schema migrations 38/0,
+coordinator 16/0, identity 25/0, failover repository 14/0, failover schema
+20/0, model upgrade 58/0, upgrade flow 28/0, routes smoke 109/0, artifact
+validation 151/0, hygiene 1 546 cest, registry 378/8 s fingerprintem
+`cb1259ca…d06e15`, ratchet 1 022/1 022 a jeho focused sada 13/0. Následný
+`git status --porcelain=v1 --untracked-files=all` i `git diff --check` skončily
+exit 0 a checkout zůstal čistý. Tento přesný checkpoint je proto
+`FRESH_CLONE_VERIFIED`; nejde o dokončené 020/E ani Gate 1 PASS, protože typed
+API, atomický import/reset, Studio error handling, migrace 062, mobile parita a
+autorizovaný GPU pilot zůstávají otevřené.
+
+## Checkpoint 30 — 020/E typed model-policy API candidate
+
+`src/routes/system.js` přidává `GET /api/system/models/settings` a
+`PUT /api/system/models/settings`. GET nikdy nečte retired JSON a nekonzistentní
+projection/event authority vrací jako typované 503. PUT předává repository
+exact čtyřpoložkové tělo (`expectedRevision` + tři hodnoty), takže unknown,
+missing, string boolean, neplatné cleanup days i neparsovatelný JSON končí 400
+bez mutace. Stale revision končí 409; storage busy/corruption 503. Úspěch vrací
+novou revizi a jediný repository-owned `USER_UPDATE/TYPED_API` event. Route
+nemá provider, binding ani activation port a nemůže vyvolat modelový efekt.
+
+Focused policy sada skončila 24/0 a routes smoke 109/0. Negativní route probe
+navíc připnul přesně nula provider, registry a binding efektů pro GET, úspěšný
+PUT i odmítnuté PUT. Schema migrations
+38/0, coordinator 16/0, identity 25/0, artifact validation 151/0, hygiene
+1 546 cest i registry 378/8 s fingerprintem `cb1259ca…d06e15` skončily exit 0.
+Source `3cbc260df0f69bc3f01afc8be45e6e871c0c3ab6` prošel read-only re-review
+`APPROVED`. Ratchet před přijetím skončil očekávaně exit 1 pouze na jedné nové
+exact hraně `src/routes/system.js → src/db/model-policy.js`; počet cyklů ani
+cyclic membership se nezměnil. Exact-edge writer přijal pouze tuto hranu a
+vygeneroval 1 023hranovou baseline nad uvedeným source. Tento checkpoint není
+fresh-clone evidence ani dokončené 020/E; import/reset, Studio a Gate 1
+zůstávají otevřené.

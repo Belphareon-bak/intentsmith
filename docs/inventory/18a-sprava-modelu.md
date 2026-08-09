@@ -161,3 +161,24 @@ koordinátor nevlastní. Produkční scheduler je recursive single-flight a prvn
 až po dosavadním pětiminutovém delay. Checkpoint netvoří proof, claim, fallback
 candidate, provider mutation, runtime binding ani broadcast; L0-9 se proto
 nemění a automatic activation/restore zůstává otevřená.
+
+## 11. Runtime follow-up 020/E policy storage — 2026-08-09
+
+Failover a cleanup opt-in už nemají být důvěryhodně odvozované z obecného
+`user_settings` blobu. Migrace 061 vytváří samostatnou default-off projekci a
+append-only event authority. Platné historické automation klíče se z obecného
+dokumentu odstraní, jejich přesný tříklíčový fragment zůstane v bootstrap
+eventu a cizí modelové klíče přežijí. Malformed legacy dokument se nepovýší a
+zůstává fail-closed.
+
+Nový repository seam zapisuje projection first a event second v jediném
+`BEGIN IMMEDIATE`; deferred FK a triggery zakazují jednostranný commit. Dva
+skutečné WAL workery nad stejnou revision mají jednoho vítěze a jednoho stale
+losera. Detection repository i auto-cleanup/overview už čtou pouze tuto novou
+autoritu. Generic GET/POST dropuje tři rezervované klíče a hlásí je přes
+`ignoredReservedKeys`; pre-061 JSON helper nemá produkčního konzumenta a jeho
+sada je `HISTORICAL`. Typed GET/PUT používá exact body a revision CAS; explicitní
+atomické import/reset adaptéry ještě neexistují a scheduler proto zůstává
+default off.
+Skutečná parita s
+mobilními migracemi bude doložená až na společném integračním SHA.

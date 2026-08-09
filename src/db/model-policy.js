@@ -1,0 +1,499 @@
+// IntentSmith model automation policy authority.
+//
+// This repository is deliberately separate from the legacy user_settings JSON
+// document.  One append-only event and the singleton projection move in the
+// same BEGIN IMMEDIATE transaction; every reader re-joins both records before
+// it can treat the policy as valid.
+
+import { randomUUID } from 'node:crypto';
+
+export const ModelAutomationPolicyStatus = Object.freeze({
+  VALID: 'VALID',
+  INVALID: 'INVALID',
+  DB_ERROR: 'DB_ERROR',
+});
+
+export const DEFAULT_MODEL_AUTOMATION_POLICY = Object.freeze({
+  autoFailoverEnabled: false,
+  autoCleanupEnabled: false,
+  autoCleanupDays: 14,
+});
+
+const INPUT_KEYS = Object.freeze([
+  'expectedRevision',
+  'autoFailoverEnabled',
+  'autoCleanupEnabled',
+  'autoCleanupDays',
+]);
+const INPUT_KEY_SET = new Set(INPUT_KEYS);
+export const MODEL_AUTOMATION_POLICY_GENERIC_KEYS = Object.freeze([
+  'autoFailoverEnabled',
+  'autoCleanupEnabled',
+  'autoCleanupDays',
+]);
+
+const DEFAULT_IDS = Object.freeze({
+  event: () => `policy-event-${randomUUID()}`,
+  request: () => `policy-request-${randomUUID()}`,
+});
+
+export class ModelAutomationPolicyError extends Error {
+  constructor(code, message, options = {}) {
+    super(message, options);
+    this.name = 'ModelAutomationPolicyError';
+    this.code = code;
+    this.details = options.details || null;
+  }
+}
+
+function fail(code, message, details = null) {
+  throw new ModelAutomationPolicyError(code, message, { details });
+}
+
+function isPlainObject(value) {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+/**
+ * Strip only model-automation keys from the legacy whole-document settings
+ * surface. The generic route retains every unrelated and future model key but
+ * can neither activate nor overwrite the versioned policy authority.
+ */
+export function sanitizeGenericModelAutomationSettings(document) {
+  if (!isPlainObject(document) || !isPlainObject(document.models)) {
+    return { document, ignoredReservedKeys: [] };
+  }
+
+  const ignoredReservedKeys = MODEL_AUTOMATION_POLICY_GENERIC_KEYS.filter(
+    key => Object.hasOwn(document.models, key),
+  );
+  if (ignoredReservedKeys.length === 0) {
+    return { document, ignoredReservedKeys };
+  }
+
+  const models = { ...document.models };
+  for (const key of ignoredReservedKeys) delete models[key];
+  return {
+    document: { ...document, models },
+    ignoredReservedKeys,
+  };
+}
+
+function requireDatabase(db) {
+  if (!db || typeof db.prepare !== 'function' || typeof db.transaction !== 'function') {
+    fail('MODEL_AUTOMATION_POLICY_DB_INVALID', 'A better-sqlite3 database is required');
+  }
+  return db;
+}
+
+function requireExactInput(value) {
+  if (!isPlainObject(value)) {
+    fail('MODEL_AUTOMATION_POLICY_INPUT_INVALID', 'Policy update must be a plain object');
+  }
+  const unknown = Object.keys(value).filter(key => !INPUT_KEY_SET.has(key));
+  const missing = INPUT_KEYS.filter(key => !Object.hasOwn(value, key));
+  if (unknown.length > 0 || missing.length > 0) {
+    fail(
+      'MODEL_AUTOMATION_POLICY_INPUT_SHAPE_INVALID',
+      'Policy update must contain the exact expected-revision and settings fields',
+      { unknown: unknown.sort(), missing },
+    );
+  }
+  if (!Number.isSafeInteger(value.expectedRevision) || value.expectedRevision < 1) {
+    fail(
+      'MODEL_AUTOMATION_POLICY_REVISION_INVALID',
+      'expectedRevision must be a positive safe integer',
+    );
+  }
+  if (typeof value.autoFailoverEnabled !== 'boolean') {
+    fail(
+      'MODEL_AUTOMATION_POLICY_AUTO_FAILOVER_INVALID',
+      'autoFailoverEnabled must be a boolean',
+    );
+  }
+  if (typeof value.autoCleanupEnabled !== 'boolean') {
+    fail(
+      'MODEL_AUTOMATION_POLICY_AUTO_CLEANUP_INVALID',
+      'autoCleanupEnabled must be a boolean',
+    );
+  }
+  if (!Number.isSafeInteger(value.autoCleanupDays)
+    || value.autoCleanupDays < 1
+    || value.autoCleanupDays > 3650) {
+    fail(
+      'MODEL_AUTOMATION_POLICY_CLEANUP_DAYS_INVALID',
+      'autoCleanupDays must be an integer between 1 and 3650',
+    );
+  }
+  return {
+    expectedRevision: value.expectedRevision,
+    settings: {
+      autoFailoverEnabled: value.autoFailoverEnabled,
+      autoCleanupEnabled: value.autoCleanupEnabled,
+      autoCleanupDays: value.autoCleanupDays,
+    },
+  };
+}
+
+function requireResetInput(value) {
+  if (!isPlainObject(value)
+    || Object.keys(value).length !== 1
+    || !Object.hasOwn(value, 'expectedRevision')) {
+    fail(
+      'MODEL_AUTOMATION_POLICY_INPUT_SHAPE_INVALID',
+      'Policy reset accepts only expectedRevision',
+    );
+  }
+  if (!Number.isSafeInteger(value.expectedRevision) || value.expectedRevision < 1) {
+    fail(
+      'MODEL_AUTOMATION_POLICY_REVISION_INVALID',
+      'expectedRevision must be a positive safe integer',
+    );
+  }
+  return value.expectedRevision;
+}
+
+function mapConsistentRow(row) {
+  if (!row) return null;
+  const integerFields = [
+    'schema_version',
+    'revision',
+    'auto_failover_enabled',
+    'auto_cleanup_enabled',
+    'auto_cleanup_days',
+    'event_schema_version',
+    'event_previous_revision',
+    'event_committed_revision',
+    'event_after_auto_failover_enabled',
+    'event_after_auto_cleanup_enabled',
+    'event_after_auto_cleanup_days',
+    'updated_at_ms',
+    'event_created_at_ms',
+  ];
+  if (integerFields.some(field => !Number.isSafeInteger(row[field]))) return null;
+  if (row.schema_version !== 1 || row.event_schema_version !== 1) return null;
+  if (row.id !== 1 || row.revision < 1) return null;
+  if (row.event_previous_revision !== row.revision - 1) return null;
+  if (row.event_committed_revision !== row.revision) return null;
+  if (row.auto_failover_enabled !== row.event_after_auto_failover_enabled) return null;
+  if (row.auto_cleanup_enabled !== row.event_after_auto_cleanup_enabled) return null;
+  if (row.auto_cleanup_days !== row.event_after_auto_cleanup_days) return null;
+  if (row.updated_at_ms !== row.event_created_at_ms) return null;
+  if (![0, 1].includes(row.auto_failover_enabled)) return null;
+  if (![0, 1].includes(row.auto_cleanup_enabled)) return null;
+  if (row.auto_cleanup_days < 1 || row.auto_cleanup_days > 3650) return null;
+  if (typeof row.last_event_id !== 'string' || row.last_event_id.length < 16) return null;
+  if (row.last_event_id !== row.event_id) return null;
+  return {
+    status: ModelAutomationPolicyStatus.VALID,
+    valid: true,
+    schemaVersion: 1,
+    revision: row.revision,
+    settings: {
+      autoFailoverEnabled: row.auto_failover_enabled === 1,
+      autoCleanupEnabled: row.auto_cleanup_enabled === 1,
+      autoCleanupDays: row.auto_cleanup_days,
+    },
+    lastEventId: row.last_event_id,
+    updatedAtMs: row.updated_at_ms,
+    reason: null,
+  };
+}
+
+function invalidPolicy(reason, status = ModelAutomationPolicyStatus.INVALID) {
+  return {
+    status,
+    valid: false,
+    schemaVersion: 1,
+    revision: 0,
+    settings: { ...DEFAULT_MODEL_AUTOMATION_POLICY },
+    lastEventId: null,
+    updatedAtMs: null,
+    reason,
+  };
+}
+
+function selectConsistentPolicy(db) {
+  return db.prepare(`
+    SELECT
+      policy.id,
+      policy.schema_version,
+      policy.revision,
+      policy.auto_failover_enabled,
+      policy.auto_cleanup_enabled,
+      policy.auto_cleanup_days,
+      policy.last_event_id,
+      policy.updated_at_ms,
+      event.event_id,
+      event.schema_version AS event_schema_version,
+      event.previous_revision AS event_previous_revision,
+      event.committed_revision AS event_committed_revision,
+      event.after_auto_failover_enabled AS event_after_auto_failover_enabled,
+      event.after_auto_cleanup_enabled AS event_after_auto_cleanup_enabled,
+      event.after_auto_cleanup_days AS event_after_auto_cleanup_days,
+      event.created_at_ms AS event_created_at_ms
+    FROM model_automation_policy policy
+    LEFT JOIN model_automation_policy_events event
+      ON event.event_id = policy.last_event_id
+    WHERE policy.id = 1
+  `).get();
+}
+
+/**
+ * Fail-closed read used by both runtime policy consumers.  Storage corruption
+ * and DB failures are data, not exceptions, so schedulers cannot accidentally
+ * turn an unreadable policy into an opt-in.
+ */
+export function readModelAutomationPolicy(db) {
+  try {
+    requireDatabase(db);
+    const policy = mapConsistentRow(selectConsistentPolicy(db));
+    return policy || invalidPolicy('MODEL_AUTOMATION_POLICY_PROJECTION_INVALID');
+  } catch (_) {
+    return invalidPolicy(
+      'MODEL_AUTOMATION_POLICY_DB_READ_FAILED',
+      ModelAutomationPolicyStatus.DB_ERROR,
+    );
+  }
+}
+
+export class ModelAutomationPolicyRepository {
+  constructor(db, options = {}) {
+    this.db = requireDatabase(db);
+    if (!isPlainObject(options)) {
+      fail('MODEL_AUTOMATION_POLICY_OPTIONS_INVALID', 'Repository options must be a plain object');
+    }
+    this.clock = options.clock ?? Date.now;
+    if (typeof this.clock !== 'function') {
+      fail('MODEL_AUTOMATION_POLICY_OPTIONS_INVALID', 'Repository clock must be a function');
+    }
+    this.ids = options.ids ?? DEFAULT_IDS;
+    if (!isPlainObject(this.ids)
+      || typeof this.ids.event !== 'function'
+      || typeof this.ids.request !== 'function') {
+      fail('MODEL_AUTOMATION_POLICY_OPTIONS_INVALID', 'Repository ID factories are invalid');
+    }
+  }
+
+  #now() {
+    let value;
+    try {
+      value = this.clock();
+    } catch (error) {
+      throw new ModelAutomationPolicyError(
+        'MODEL_AUTOMATION_POLICY_CLOCK_FAILED',
+        'Policy repository clock failed',
+        { cause: error },
+      );
+    }
+    if (!Number.isSafeInteger(value) || value < 1) {
+      fail('MODEL_AUTOMATION_POLICY_CLOCK_INVALID', 'Policy repository clock is invalid');
+    }
+    return value;
+  }
+
+  #id(kind) {
+    let value;
+    try {
+      value = this.ids[kind]();
+    } catch (error) {
+      throw new ModelAutomationPolicyError(
+        'MODEL_AUTOMATION_POLICY_ID_FACTORY_FAILED',
+        `Policy ${kind} ID factory failed`,
+        { cause: error, details: { kind } },
+      );
+    }
+    if (typeof value !== 'string' || value.length < 16 || value.length > 160) {
+      fail('MODEL_AUTOMATION_POLICY_ID_INVALID', `Policy ${kind} ID is invalid`, { kind });
+    }
+    return value;
+  }
+
+  #write(operation, callback) {
+    if (this.db.inTransaction) {
+      fail(
+        'MODEL_AUTOMATION_POLICY_TRANSACTION_OWNERSHIP_REQUIRED',
+        `Policy ${operation} must own the top-level transaction`,
+      );
+    }
+    const transaction = this.db.transaction(callback);
+    try {
+      return transaction.immediate();
+    } catch (error) {
+      if (error instanceof ModelAutomationPolicyError) throw error;
+      const sqliteCode = typeof error?.code === 'string' ? error.code : null;
+      if (sqliteCode?.startsWith('SQLITE_BUSY') || sqliteCode?.startsWith('SQLITE_LOCKED')) {
+        throw new ModelAutomationPolicyError(
+          'MODEL_AUTOMATION_POLICY_DB_BUSY',
+          `Policy ${operation} could not acquire the database`,
+          { cause: error, details: { sqliteCode } },
+        );
+      }
+      if (sqliteCode === 'SQLITE_CONSTRAINT_UNIQUE'
+        || sqliteCode === 'SQLITE_CONSTRAINT_PRIMARYKEY'
+        || (sqliteCode === 'SQLITE_CONSTRAINT_TRIGGER'
+          && error.message?.startsWith('MODEL_AUTOMATION_POLICY_EVENT_IDENTITY_CONFLICT:'))) {
+        throw new ModelAutomationPolicyError(
+          'MODEL_AUTOMATION_POLICY_ID_CONFLICT',
+          `Policy ${operation} generated a conflicting identity`,
+          { cause: error, details: { sqliteCode } },
+        );
+      }
+      if (sqliteCode?.startsWith('SQLITE_CONSTRAINT')) {
+        throw new ModelAutomationPolicyError(
+          'MODEL_AUTOMATION_POLICY_STORAGE_CONTRACT',
+          `Policy ${operation} violated the storage contract`,
+          { cause: error, details: { sqliteCode } },
+        );
+      }
+      throw new ModelAutomationPolicyError(
+        'MODEL_AUTOMATION_POLICY_DB_WRITE_FAILED',
+        `Policy ${operation} failed`,
+        { cause: error },
+      );
+    }
+  }
+
+  #commit(inputValue, authority) {
+    const input = requireExactInput(inputValue);
+
+    return this.#write(authority.eventKind, () => {
+      const current = mapConsistentRow(selectConsistentPolicy(this.db));
+      if (!current) {
+        fail(
+          'MODEL_AUTOMATION_POLICY_INVALID_STATE',
+          'Policy projection does not match its append-only event',
+        );
+      }
+      if (current.revision !== input.expectedRevision) {
+        fail(
+          'MODEL_AUTOMATION_POLICY_STALE',
+          'Policy expected revision is stale',
+          { expectedRevision: input.expectedRevision, currentRevision: current.revision },
+        );
+      }
+
+      const eventId = this.#id('event');
+      const requestId = this.#id('request');
+      const createdAtMs = this.#now();
+      const committedRevision = current.revision + 1;
+      const result = this.db.prepare(`
+        UPDATE model_automation_policy
+        SET revision = ?,
+            auto_failover_enabled = ?,
+            auto_cleanup_enabled = ?,
+            auto_cleanup_days = ?,
+            last_event_id = ?,
+            updated_at_ms = ?
+        WHERE id = 1 AND revision = ? AND last_event_id = ?
+      `).run(
+        committedRevision,
+        input.settings.autoFailoverEnabled ? 1 : 0,
+        input.settings.autoCleanupEnabled ? 1 : 0,
+        input.settings.autoCleanupDays,
+        eventId,
+        createdAtMs,
+        current.revision,
+        current.lastEventId,
+      );
+      if (result.changes !== 1) {
+        fail(
+          'MODEL_AUTOMATION_POLICY_STALE',
+          'Policy changed before the projection commit',
+          { expectedRevision: input.expectedRevision },
+        );
+      }
+
+      this.db.prepare(`
+        INSERT INTO model_automation_policy_events (
+          event_id,
+          request_id,
+          previous_revision,
+          committed_revision,
+          event_kind,
+          actor,
+          source,
+          before_auto_failover_enabled,
+          before_auto_cleanup_enabled,
+          before_auto_cleanup_days,
+          after_auto_failover_enabled,
+          after_auto_cleanup_enabled,
+          after_auto_cleanup_days,
+          legacy_quarantine_json,
+          created_at_ms
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)
+      `).run(
+        eventId,
+        requestId,
+        current.revision,
+        committedRevision,
+        authority.eventKind,
+        authority.actor,
+        authority.source,
+        current.settings.autoFailoverEnabled ? 1 : 0,
+        current.settings.autoCleanupEnabled ? 1 : 0,
+        current.settings.autoCleanupDays,
+        input.settings.autoFailoverEnabled ? 1 : 0,
+        input.settings.autoCleanupEnabled ? 1 : 0,
+        input.settings.autoCleanupDays,
+        createdAtMs,
+      );
+
+      const committed = mapConsistentRow(selectConsistentPolicy(this.db));
+      if (!committed || committed.revision !== committedRevision) {
+        fail(
+          'MODEL_AUTOMATION_POLICY_INVALID_STATE',
+          'Committed policy does not match its event',
+        );
+      }
+      return {
+        ...committed,
+        event: {
+          eventId,
+          requestId,
+          eventKind: authority.eventKind,
+          actor: authority.actor,
+          source: authority.source,
+        },
+      };
+    });
+  }
+
+  read() {
+    return readModelAutomationPolicy(this.db);
+  }
+
+  updateFromTypedApi(input) {
+    return this.#commit(input, {
+      eventKind: 'USER_UPDATE',
+      actor: 'user:model-settings-api',
+      source: 'TYPED_API',
+    });
+  }
+
+  replaceFromSettingsImport(input) {
+    return this.#commit(input, {
+      eventKind: 'BACKUP_IMPORT',
+      actor: 'user:settings-import',
+      source: 'SETTINGS_IMPORT',
+    });
+  }
+
+  resetFromGlobalSettings(input) {
+    const expectedRevision = requireResetInput(input);
+    return this.#commit({
+      expectedRevision,
+      ...DEFAULT_MODEL_AUTOMATION_POLICY,
+    }, {
+      eventKind: 'GLOBAL_RESET',
+      actor: 'user:global-reset',
+      source: 'GLOBAL_RESET',
+    });
+  }
+}
+
+export function createModelAutomationPolicyRepository(db, options = {}) {
+  return new ModelAutomationPolicyRepository(db, options);
+}

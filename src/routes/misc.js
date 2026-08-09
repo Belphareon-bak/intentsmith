@@ -4,11 +4,13 @@ import config from '../config.js';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { getWebSocketBridgeHealth } from '../ws-bridge/ws-server.js';
+import { sanitizeGenericModelAutomationSettings } from '../db/model-policy.js';
 
 // H9: Settings, Health, Autocomplete, Audit, Logs routes
 const _fbRateMap = new Map(); // IP → last feedback timestamp (rate limit)
 export function createMiscRoutes(deps) {
   const { db, parseBody, sendJSON, safeError, logger, callWithAuth, createAuthToken, LLMCallerRole } = deps;
+  const settingsFeatureManager = deps.featureManager || featureManager;
   return {
     // Storage info
     'GET /api/storage/info': async (req, res) => {
@@ -24,7 +26,8 @@ export function createMiscRoutes(deps) {
       try {
         const row = db.db.prepare('SELECT data FROM user_settings WHERE id = 1').get();
         if (row) {
-          sendJSON(res, 200, JSON.parse(row.data));
+          const result = sanitizeGenericModelAutomationSettings(JSON.parse(row.data));
+          sendJSON(res, 200, result.document);
         } else {
           sendJSON(res, 200, {});
         }
@@ -36,6 +39,7 @@ export function createMiscRoutes(deps) {
     'POST /api/settings': async (req, res) => {
       const body = await parseBody(req);
       try {
+        const sanitized = sanitizeGenericModelAutomationSettings(body);
         db.db.exec(`
           CREATE TABLE IF NOT EXISTS user_settings (
             id INTEGER PRIMARY KEY,
@@ -47,12 +51,16 @@ export function createMiscRoutes(deps) {
         db.db.prepare(`
           INSERT OR REPLACE INTO user_settings (id, data, updated_at)
           VALUES (1, ?, datetime('now'))
-        `).run(JSON.stringify(body));
+        `).run(JSON.stringify(sanitized.document));
 
         // v85: Apply feature flag changes at runtime
-        const changed = featureManager.applySettings(body);
+        const changed = settingsFeatureManager.applySettings(sanitized.document);
 
-        sendJSON(res, 200, { success: true, featuresChanged: changed || 0 });
+        sendJSON(res, 200, {
+          success: true,
+          featuresChanged: changed || 0,
+          ignoredReservedKeys: sanitized.ignoredReservedKeys,
+        });
       } catch (err) {
         sendJSON(res, 500, safeError(err));
       }

@@ -14,9 +14,9 @@ import {
 } from './harness.js';
 import { runMigrations } from '../src/db/migrate.js';
 import {
-  readModelSettings,
-  updateModelSettings,
-} from '../src/db/user-settings.js';
+  createModelAutomationPolicyRepository,
+  readModelAutomationPolicy,
+} from '../src/db/model-policy.js';
 import {
   MODEL_FAILOVER_ACTOR,
   MODEL_FAILOVER_ROLES,
@@ -127,7 +127,7 @@ function createCoordinator({
   repository,
   provider,
   bindings = ROLE_MODELS,
-  readSettings = () => readModelSettings(db),
+  readSettings = () => readModelAutomationPolicy(db),
   readBindings = () => ({ ...bindings }),
 } = {}) {
   return createModelFailoverDetectionCoordinator({
@@ -157,7 +157,18 @@ function assertRepositoryError(error, code) {
 }
 
 function enableFailover(db) {
-  updateModelSettings(db, { autoFailoverEnabled: true });
+  setFailover(db, true);
+}
+
+function setFailover(db, enabled) {
+  const current = readModelAutomationPolicy(db);
+  assertEqual(current.valid, true);
+  return createModelAutomationPolicyRepository(db).updateFromTypedApi({
+    expectedRevision: current.revision,
+    autoFailoverEnabled: enabled,
+    autoCleanupEnabled: current.settings.autoCleanupEnabled,
+    autoCleanupDays: current.settings.autoCleanupDays,
+  });
 }
 
 function countRows(db, table, where = '', params = []) {
@@ -204,22 +215,30 @@ await testAsync('literal opt-in is checked before inventory or repository effect
     const cases = [
       {
         name: 'missing',
-        prepare: () => firstDb.prepare('DELETE FROM user_settings').run(),
-        readSettings: () => readModelSettings(firstDb),
+        prepare: () => {},
+        readSettings: () => ({
+          status: 'INVALID',
+          valid: false,
+          settings: { autoFailoverEnabled: false },
+          reason: 'MODEL_AUTOMATION_POLICY_MISSING',
+        }),
         status: ModelFailoverDetectionStatus.SKIPPED_INVALID_SETTINGS,
       },
       {
         name: 'disabled',
-        prepare: () => updateModelSettings(firstDb, { autoFailoverEnabled: false }),
-        readSettings: () => readModelSettings(firstDb),
+        prepare: () => setFailover(firstDb, false),
+        readSettings: () => readModelAutomationPolicy(firstDb),
         status: ModelFailoverDetectionStatus.SKIPPED_DISABLED,
       },
       {
         name: 'malformed',
-        prepare: () => firstDb.prepare(`
-          INSERT OR REPLACE INTO user_settings (id, data) VALUES (1, '{bad json')
-        `).run(),
-        readSettings: () => readModelSettings(firstDb),
+        prepare: () => {},
+        readSettings: () => ({
+          status: 'INVALID',
+          valid: false,
+          settings: { autoFailoverEnabled: false },
+          reason: 'MODEL_AUTOMATION_POLICY_PROJECTION_INVALID',
+        }),
         status: ModelFailoverDetectionStatus.SKIPPED_INVALID_SETTINGS,
       },
       {
@@ -385,7 +404,7 @@ await testAsync('policy or binding drift during the one inventory snapshot stops
     enableFailover(firstDb);
     const repository = createRepository(firstDb, 'scan-drift');
     const policyProvider = createProvider(() => {
-      updateModelSettings(firstDb, { autoFailoverEnabled: false });
+      setFailover(firstDb, false);
       return installedInventory();
     });
     const policyDrift = await createCoordinator({
@@ -426,7 +445,7 @@ await testAsync('repository opt-in check is atomic with seed and detection write
       observeDesiredBinding: input => {
         if (!seedPolicyChanged) {
           seedPolicyChanged = true;
-          updateModelSettings(secondDb, { autoFailoverEnabled: false });
+          setFailover(secondDb, false);
         }
         return repository.observeDesiredBinding(input);
       },
@@ -460,7 +479,7 @@ await testAsync('repository opt-in check is atomic with seed and detection write
       recordDetection: input => {
         if (!detectionPolicyChanged) {
           detectionPolicyChanged = true;
-          updateModelSettings(secondDb, { autoFailoverEnabled: false });
+          setFailover(secondDb, false);
         }
         return repository.recordDetection(input);
       },
