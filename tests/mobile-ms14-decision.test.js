@@ -275,10 +275,43 @@ await test('SS-01 a list carried over from the queue is withdrawn and does not a
   assert.match(html(), /data-act="approval-approve"/, 'the control never came back after verifying');
 });
 
-await test('SS-01 the remaining 15-minute window is visible from the start', async () => {
+await test('SS-01 the remaining window is visible from the start, at the length the server set', async () => {
   reset();
-  await openDecidable({ expiresAt: new Date(Date.now() + 12 * MINUTE).toISOString() });
+  // §14 — the countdown needs a confirmed offset; F-100 — the *length* of the
+  // window is read from the server's own two timestamps rather than typed into
+  // the client.  DR-011 is 5 minutes local and 15 remote, and the design that
+  // showed 10 matched neither: a number a person can type is a number that
+  // drifts from the contract.
+  state.serverOffsetMs = 0;
+  await openDecidable({
+    createdAt: Date.now() - 3 * MINUTE,
+    expiresAt: new Date(Date.now() + 12 * MINUTE).toISOString(),
+  });
   assert.match(html(), /zbývá 12 min z 15minutového okna/);
+});
+
+await test('F-100 the client states the window the server set, never a constant', async () => {
+  reset();
+  state.serverOffsetMs = 0;
+  // The same approval under the local half of DR-011: five minutes, not fifteen.
+  await openDecidable({
+    createdAt: Date.now() - MINUTE,
+    expiresAt: new Date(Date.now() + 4 * MINUTE).toISOString(),
+  });
+  assert.match(html(), /zbývá 4 min z 5minutového okna/,
+    'the client reported a window length the server never declared');
+  assert.doesNotMatch(html(), /15minutového/, 'a hard-coded window survived');
+});
+
+await test('§14 without a confirmed server offset the countdown is words, not numbers', async () => {
+  reset();
+  state.serverOffsetMs = null;
+  await openDecidable({ expiresAt: new Date(Date.now() + 12 * MINUTE).toISOString() });
+  assert.match(html(), /vyprší brzy/);
+  assert.doesNotMatch(html(), /zbývá \d+ min/,
+    'a countdown was computed from a phone clock the client has not confirmed');
+  assert.match(html(), /data-act="approval-approve"/,
+    '§14 says an unknown offset must not deactivate the decision');
 });
 
 await test('SS-05 a failed reload withdraws the decision control until re-verified', async () => {

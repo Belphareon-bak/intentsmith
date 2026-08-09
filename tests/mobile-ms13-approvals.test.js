@@ -433,6 +433,11 @@ await test('SS-09 an id that comes back stops being reported as gone', async () 
 
 await test('R-3 a live approval shows the remaining window from the server expiry', async () => {
   reset();
+  // §14 — a countdown is rendered from the *server-corrected* clock, so the
+  // precondition is a confirmed offset.  Zero means a health read landed and
+  // the two clocks agree; without one the honest answer is words, not numbers,
+  // which the case below covers.
+  state.serverOffsetMs = 0;
   fetchQueue = [ok([approval({ expiresAt: new Date(Date.now() + 12 * MINUTE).toISOString() })])];
   await loadApprovals();
   assert.match(html(), /zbývá 12 min/);
@@ -461,6 +466,7 @@ await test('R-3 an expired approval says so and offers no way to extend it', asy
 
 await test('R-3 the client never invents an expiry the server did not declare', async () => {
   reset();
+  state.serverOffsetMs = 0;
   // Past `expiresAt`, but the server says it is still open — clock skew between
   // a phone and a server is normal and is not a verdict.
   fetchQueue = [ok([approval({ expired: false, expiresAt: new Date(Date.now() - 5 * MINUTE).toISOString() })])];

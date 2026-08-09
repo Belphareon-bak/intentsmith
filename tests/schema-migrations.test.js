@@ -165,6 +165,7 @@ const ALL_MIGRATIONS = [
   '2026_08_09_057_mobile_gateway_instances',
   '2026_08_09_058_mobile_notification_receipts',
   '2026_08_09_059_mobile_notification_seq_unique',
+  '2026_08_09_060_mobile_approval_authority',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;

@@ -191,9 +191,15 @@ try {
 
   db.prepare(`
     INSERT INTO mobile_approvals
-      (id, subject_type, subject_id, title, detail, payload_fingerprint, expires_at)
-    VALUES (?, 'task_run', 'run-cache-1', 'Cache boundary', 'Sensitive approval', ?, '2099-01-01 00:00:00')
+      (id, subject_type, subject_id, title, detail, payload_fingerprint, expires_at,
+       origin, run_id, operation_ref)
+    VALUES (?, 'task_run', 'run-cache-1', 'Cache boundary', 'Sensitive approval', ?, '2099-01-01 00:00:00',
+            'remote', 'run-cache-1', 'effect-cache-1')
   `).run(approvalId, fingerprint);
+// F-100: an approval carries the origin, run and operation it authorises, or it
+// is undecidable.  This fixture is about transport headers, so it is minted in
+// the bound shape and the refusal is exercised where it belongs, in
+// tests/mobile-approval-authority.test.js.
 
   await test('approval handlers declare no-store without changing their bodies', async () => {
     const principal = { deviceId: device.deviceId, name: 'cache boundary test', scopes: device.scopes };

@@ -159,6 +159,17 @@ function row(deviceId, operationId, handle = db) {
   `).get(deviceId, operationId);
 }
 
+/**
+ * A fixture approval, shaped as the authoritative mint would leave it (F-100):
+ * an origin from `DR-011`, a run and the operation it authorises.  A row
+ * without those is undecidable by design, so a fault-injection fixture that
+ * omitted them would be measuring the refusal rather than the fault.
+ *
+ * The raw insert is kept rather than calling `createMobileApproval`, because
+ * several of these cases need a state the mint will not produce — already
+ * decided, already expired — and forcing them through the mint would mean
+ * relaxing it for the benefit of a test.
+ */
 function insertApproval({
   id,
   payloadFingerprint = `fingerprint-${id}`,
@@ -167,15 +178,20 @@ function insertApproval({
   decision = null,
   decidedBy = null,
   decisionOperation = null,
+  origin = 'remote',
+  runId = `run-${id}`,
+  operationRef = `effect-${id}`,
 }) {
   db.prepare(`
     INSERT INTO mobile_approvals (
       id, subject_type, subject_id, title, detail, payload_fingerprint,
-      expires_at, decided_at, decision, decided_by, decision_operation
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      expires_at, decided_at, decision, decided_by, decision_operation,
+      origin, run_id, operation_ref
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id, 'task', `subject-${id}`, `Approval ${id}`, null, payloadFingerprint,
     expiresAt, decidedAt, decision, decidedBy, decisionOperation,
+    origin, runId, operationRef,
   );
   return { id, payloadFingerprint };
 }

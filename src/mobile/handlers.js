@@ -35,6 +35,7 @@ import {
 } from './protocol.js';
 import { claimPairingCode } from './pairing.js';
 import { listMobileNotifications, ackMobileNotifications } from '../notifications/channels/mobile.js';
+import { approvalIsBound } from './approval-authority.js';
 
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
@@ -585,12 +586,32 @@ async function decideApproval({ rawDb, journal, principal, params, body }) {
     return errorResponse(MOBILE_ERRORS.BAD_REQUEST, { field: 'decision', reason: 'must_be_approve_or_reject' });
   }
   if (!operationId) return errorResponse(MOBILE_ERRORS.BAD_REQUEST, { field: 'operationId', reason: 'required' });
+  // F-100: the fingerprint was optional, and omitting it skipped the check that
+  // binds the grant to the payload the user was shown — the one check §8.4
+  // exists for.  An optional guard is not a guard; a decision that names no
+  // content is refused before anything is claimed or written.
+  if (typeof payloadFingerprint !== 'string' || payloadFingerprint === '') {
+    return errorResponse(MOBILE_ERRORS.BAD_REQUEST, { field: 'payloadFingerprint', reason: 'required' });
+  }
 
   const row = rawDb.prepare(`
-    SELECT id, payload_fingerprint, expires_at, decided_at, decision
+    SELECT id, payload_fingerprint, expires_at, decided_at, decision,
+           origin, run_id, operation_ref
       FROM mobile_approvals WHERE id = ?
   `).get(params.id);
   if (!row) return errorResponse(MOBILE_ERRORS.NOT_FOUND, { resource: 'approval' });
+
+  // F-100 / DR-011: an approval that names no origin, no run and no operation
+  // cannot be granted, because the server cannot say what the grant would
+  // permit.  Refused before the operation key is claimed, so a refusal costs
+  // the device nothing and leaves no attempt to resolve.  The queue still lists
+  // the row — hiding a pending request would make "nic nečeká" a lie (SS-02).
+  if (!approvalIsBound(row)) {
+    return errorResponse(MOBILE_ERRORS.STATE_CONFLICT, {
+      reason: 'unbound_approval',
+      approvalId: params.id,
+    });
+  }
 
   // §8.5 — the operation key makes the *decision* idempotent, but it does not
   // make the grant reusable.  Both checks run, and the single-use check is the
@@ -618,8 +639,10 @@ async function decideApproval({ rawDb, journal, principal, params, body }) {
   }
 
   // §8.4 — the grant binds to the payload the user saw.  If the payload moved
-  // underneath them, the approval no longer means what they agreed to.
-  if (payloadFingerprint && payloadFingerprint !== row.payload_fingerprint) {
+  // underneath them, the approval no longer means what they agreed to.  The
+  // fingerprint is required above, so this comparison can no longer be skipped
+  // by simply not sending one.
+  if (payloadFingerprint !== row.payload_fingerprint) {
     const attempt = attemptApprovalResolution({
       journal, principal, operationId,
       resolve: () => journal.reject(principal.deviceId, operationId, 'approval_superseded'),

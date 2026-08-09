@@ -517,6 +517,22 @@ function md(text) {
   return out.replace(/ BLOCK(\d+) /g, (_, index) => blocks[Number(index)]);
 }
 
+/**
+ * One reading of a server timestamp, for every place that compares one.
+ *
+ * The gateway sends SQL `DATETIME` text for some fields and ISO-8601 for
+ * others, and a bare `Date.parse` reads "2026-08-09 20:00:00" as *local* time —
+ * so the same instant would land hours apart depending on the field it arrived
+ * in.  `NaN` when it cannot be read, so callers fall back to words rather than
+ * to a number they invented (§14).
+ */
+function serverTimeMs(value) {
+  if (typeof value === 'number') return value;
+  const text = String(value ?? '');
+  if (!text) return NaN;
+  return Date.parse(/[TZ]|[+-]\d\d:?\d\d$/.test(text) ? text : text.replace(' ', 'T') + 'Z');
+}
+
 function timeAgo(value) {
   const ms = typeof value === 'number' ? value : Date.parse(String(value).replace(' ', 'T') + 'Z');
   if (!ms || Number.isNaN(ms)) return '';
@@ -1799,11 +1815,45 @@ function approvalsGone() {
   return Object.values(state.approvalsGone || {});
 }
 
+/**
+ * §14 / F-100 — the countdown is information, the server is the authority.
+ *
+ * It is rendered from `expiresAt` corrected by the server offset, and it is
+ * *approximate on purpose*.  Without a confirmed offset there is no number at
+ * all: a countdown computed from a phone clock known to be wrong would either
+ * grey the buttons out early or leave them lit after the window closed, and
+ * §14 forbids silently correcting for that.
+ */
+function approvalCountdown(item) {
+  if (item.expired === true) return { expired: true, text: 'vypršelo — rozhodnout už nelze' };
+  const expiresAt = serverTimeMs(item.expiresAt);
+  if (Number.isNaN(expiresAt) || state.serverOffsetMs === null) {
+    return { expired: false, text: 'vyprší brzy' };
+  }
+  const minutes = Math.max(0, Math.round((expiresAt - serverNow()) / 60000));
+  return { expired: false, minutes, text: `zbývá ${minutes} min` };
+}
+
+/**
+ * The length of the window, as the server actually set it — never a constant.
+ *
+ * `DR-011` is local 5 minutes and remote 15; the operator's design showed 10,
+ * which matches neither, and that is what a number typed into a UI does.  The
+ * two server timestamps already in the payload say it exactly, so the client
+ * has no reason to hold an opinion (`UI-DESIGN.md` §14, F-100).
+ */
+function approvalWindowMinutes(item) {
+  const created = serverTimeMs(item?.createdAt);
+  const expires = serverTimeMs(item?.expiresAt);
+  if (Number.isNaN(created) || Number.isNaN(expires) || expires <= created) return null;
+  return Math.round((expires - created) / 60000);
+}
+
 function approvalRow(item) {
   const expired = item.expired === true;
-  // R-3: the remote window is 15 minutes and the server's expiry is the
-  // authority.  The queue shows it, but does not compute a decision from it.
-  const left = expired ? null : Math.max(0, Math.round((new Date(item.expiresAt).getTime() - Date.now()) / 60000));
+  // R-3: the server's expiry is the authority.  The queue shows the countdown
+  // but never computes a decision from it.
+  const countdown = approvalCountdown(item);
   return `
   <li class="appr-row">
     <button class="appr-open" data-act="open-approval" data-approval="${esc(item.id)}">
@@ -1813,9 +1863,7 @@ function approvalRow(item) {
       <div class="msg-meta">
         <span>${esc(item.subjectType || 'neuvedeno')}</span>
         <span>vzniklo ${timeAgo(item.createdAt)}</span>
-        ${expired
-          ? '<span class="pill" data-tone="warn">vypršelo — rozhodnout už nelze</span>'
-          : `<span class="pill" data-tone="muted">zbývá ${left} min</span>`}
+        <span class="pill" data-tone="${expired ? 'warn' : 'muted'}">${esc(countdown.text)}</span>
       </div>
     </div>
     </button>
@@ -2022,18 +2070,16 @@ function viewApproval() {
     body = statePanel('conflict', 'Požadavek už není otevřený',
       'Mezitím byl rozhodnut nebo vypršel. Rozhodnutí se zahazuje — otevři frontu a podívej se na aktuální stav.');
   } else {
-    const left = item.expired === true
-      ? null
-      : Math.max(0, Math.round((new Date(item.expiresAt).getTime() - Date.now()) / 60000));
+    const countdown = approvalCountdown(item);
+    const windowMinutes = approvalWindowMinutes(item);
     body = `<div class="container">
       <div class="card appr-detail-card">
         <h2 class="appr-title">${esc(item.title || item.subjectType || 'Požadavek na schválení')}</h2>
         <div class="msg-meta">
           <span>${esc(item.subjectType || 'neuvedeno')}</span>
           <span>${esc(item.subjectId || '')}</span>
-          ${item.expired === true
-            ? '<span class="pill" data-tone="warn">vypršelo — rozhodnout už nelze</span>'
-            : `<span class="pill" data-tone="muted">zbývá ${left} min z 15minutového okna</span>`}
+          <span class="pill" data-tone="${item.expired === true ? 'warn' : 'muted'}">${esc(countdown.text)}${
+            !countdown.expired && windowMinutes ? ` z ${windowMinutes}minutového okna` : ''}</span>
         </div>
         ${item.detail ? `<p class="appr-body">${esc(item.detail)}</p>` : ''}
         <p class="appr-fingerprint">Otisk obsahu: <code>${esc(String(item.payloadFingerprint || '').slice(0, 16))}…</code><br>
@@ -3516,6 +3562,7 @@ export const __ms20 = {
   viewOverview, navItems, currentSection, sectionRoute, unknownScopes, NAV_ITEMS, ROUTE_SECTION,
   renderNavBar, navCount, newChat,
   runSilence, runSilenceEntries, overviewRunSilence,
+  approvalCountdown, approvalWindowMinutes, approvalRow, serverTimeMs,
   viewApprovals, loadApprovals, approvalsGone,
   viewApproval, decideApproval, openApproval, approvalDecidable,
   unresolvedApprovalAttempt, unassociatedApprovalAttempt,

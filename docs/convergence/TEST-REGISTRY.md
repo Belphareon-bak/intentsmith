@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 394
+- Runnable programs: 395
 - Explicit support-module exclusions: 9
-- Profiles: offline=194, database=44, server=37, model=85, soak=19, manual=15
-- States: ACTIVE=297, HISTORICAL=15, BLOCKED=82
+- Profiles: offline=194, database=45, server=37, model=85, soak=19, manual=15
+- States: ACTIVE=298, HISTORICAL=15, BLOCKED=82
 
 ## Execution profiles
 
@@ -301,6 +301,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-MERGE-ENFORCEMENT-INTEGRATION-TEST` | `tests/merge-enforcement-integration.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MERGE-ENGINE-TEST` | `tests/merge-engine.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MILESTONE-SIZE-TEST` | `tests/milestone-size.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-MOBILE-APPROVAL-AUTHORITY-TEST` | `tests/mobile-approval-authority.test.js` | `C3-031` | T2 | `database` | 20 s | 3 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-MOBILE-APPROVAL-CACHE-BOUNDARY-TEST` | `tests/mobile-approval-cache-boundary.test.js` | `C3-032` | T2 | `database` | 30 s | 4 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MOBILE-APPROVAL-LIFECYCLE-REGRESSION-TEST` | `tests/mobile-approval-lifecycle-regression.test.js` | `C3-032` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-MOBILE-DATA-MODEL-TEST` | `tests/mobile-data-model.test.js` | `C3-031` | T2 | `database` | 20 s | 3 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
