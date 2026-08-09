@@ -1,8 +1,9 @@
 # WP-M1-BINDING-APPLICATION — jeden pravdivý manual runtime commit point
 
 **Typ:** zapisující WP · **Slot:** hlavní zapisující vlastník, hlavní checkout
-**Stav:** probíhá; checkpoint 1 application-state schema je implementovaný,
-runtime application cutover zůstává otevřený
+**Stav:** probíhá; application-state schema i společný runtime cutover jsou
+implementované a focused zelené, produktový commit a fresh-clone evidence ještě
+nejsou uzavřené
 **Závislost:** dokončený `WP-M1-BINDING-REPOSITORY` (`515fb6f7`, evidence
 `eb7e78b8`, review closure `1478cb20`)
 
@@ -12,10 +13,11 @@ Otevřené vratné provozní volby jsou shromážděné v
 
 ## 1. Uživatelský výsledek
 
-Uživatel při apply nebo rollbacku modelu přes HTTP i chat dostane jediný
-durable, restart-safe a pravdivý binding přechod. Oba vstupy používají tutéž
-application service. Žádná cesta netvrdí verifikaci před skutečnou probe a
-`model_changed` emituje commit vrstva, nikoli jednotlivý caller.
+Apply přes HTTP i chat a rollback přes HTTP používají jediný durable,
+restart-safe a pravdivý binding přechod. Chatový rollback v současném produktu
+neexistuje a tento WP ho nevymýšlí. Žádná cesta netvrdí verifikaci před
+skutečnou probe a `model_changed` emituje commit vrstva, nikoli jednotlivý
+caller.
 
 Automatický failover zůstává vypnutý.
 
@@ -27,7 +29,7 @@ Automatický failover zůstává vypnutý.
   adaptér vedle něj;
 - `src/upgrade/model-failover.js`, `upgrade-manager.js` a jen
   `assignModel()`/initialization seam v `model-registry.js`;
-- nová aditivní migrace `050` a migrační validace;
+- aditivní migrace `050`–`052` a migrační validace;
 - exact composition/startup seam v `src/server.js`;
 - exact apply/rollback handlery v `src/routes/system.js`;
 - exact approval větev v `src/chat/handlers/pre-handler.js`;
@@ -49,16 +51,33 @@ Automatický failover zůstává vypnutý.
 
 Interní `ModelBindingApplicationPort v1`:
 
+- `beginManualBinding()` — durable async start pro existující HTTP shape;
 - `applyManualBinding()`;
 - `rollbackManualBinding()`;
 - `rehydrateBindings()`;
-- interní zápis výsledku skutečné verifikace.
+- `startBackgroundVerification()`;
+- interní zápis výsledku skutečné verifikace a read-only binding status.
 
 HTTP/chat dodají pouze uživatelský záměr. Service odvodí actor, request key,
-revision, exact/canonical jméno, digest, event/operation identity a čas.
+revision, exact/canonical jméno, digest, provider origin, event/operation
+identity a čas.
 Callerem dodané `appliedBy`, digest, proof, verification status nebo auditní
 identita nemají autoritu. Veřejné HTTP shape a WS control action names se
 nemění.
+
+Provider effect je samostatný durable command s kanonickým loopback originem,
+user actorem, request key, účelem, expected binding revision a exact targetem.
+Jeho DB claim je unikátní pro roli a pro přesnou dvojici
+`(provider origin, canonical target)`, má obnovovaný pětiminutový lease a
+fencing revision. Live claim druhý Worker isolate nesmí
+reconcilovat; po striktní expiry jej lze převzít CAS a stale worker nesmí zapsat
+terminál. Provider terminál a následný binding musí mít DB-enforced shodnou
+lineage.
+
+Tato garance platí pouze mezi binding-service commandy nad jedním přesným
+provider originem. Alias originu (`localhost` versus `127.0.0.1`) a existující
+direct `POST /api/system/models/pull` jsou explicitní nekryté plochy; sjednocení
+jejich effect authority je navazující connector rozhodnutí, ne claim tohoto WP.
 
 ## 4. Vstupní revision a závislosti
 
@@ -78,24 +97,50 @@ Nad izolovanou SQLite a test-owned loopback providerem:
 
 1. HTTP apply i chat apply stejného cíle vytvoří stejný durable/runtime/audit
    stav;
-2. restart obnoví přesný commitnutý binding;
+2. restart obnoví přesný commitnutý binding i cold-pull příkaz přijatý před
+   vznikem binding operation; transientní inventory, identity nebo binding
+   commit failure naplánuje další ohraničený pokus, nikoli one-shot recovery;
 3. rollback přidá reversal a obnoví předchozí runtime binding bez smazání
    lineage;
 4. verification failure zůstane pravdivě viditelný a nevytvoří `verified=1`.
+
+Pomocný legacy baseline pull není přijetím user targetu. `beginManualBinding()`
+jej nesmí vrátit jako durable acceptance; existující HTTP `200 started` čeká na
+`USER_APPLY_TARGET` intent, binding operation nebo pravdivý no-op.
+
+Same-target no-op má vlastní append-only receipt s historickým desired
+snapshotem, DB-assigned provider frontierem a set-valued vazbou na všechny
+dosud neuzavřené terminální commandy stejné role/revision do tohoto frontieru.
+Živý provider command receipt nepředběhne; odebraná causal hrana se neodvozuje
+z timestampu. Neuzavřený provider success podle 018/Q5/A blokuje apply,
+rollback i observable desired transition, dokud jej přesný request nedokončí
+nebo current-binding no-op explicitně neuzavře. Non-retryable apply podle 018/Q4/A
+vyžaduje nejdřív explicitní rollback; automatický dvoukrok je zakázaný. HTTP
+rollback existuje, chat/Studio recovery surface je `PENDING-OWNER`, a proto se
+backend checkpoint nevydává za kompletní UI recovery journey.
 
 Skutečná Ollama/GPU demonstrace je samostatně `BLOCKED / NOT RUN`.
 
 ## 6. Focused pozitivní a negativní test
 
 **Pozitivní:** installed apply přes HTTP i chat, pull/progress parita,
-append-only rollback, shodný výsledek obou entrypointů, restart rehydrate,
-same-key replay bez druhého runtime/broadcast effectu a skutečná probe jako
-jediná cesta k verified.
+append-only rollback, shodný výsledek apply entrypointů, restart rehydrate,
+provider→binding request lineage, same-key replay bez druhého
+provider/runtime/broadcast effectu a skutečná probe jako jediná cesta k
+verified.
 
 **Negativní:** caller authority injection; unavailable provider, missing digest,
 ambiguous alias a digest drift před commitem; failure injection po každém DB
 statementu; transaction failure po dočasné runtime změně; intent/pre-commit/
-post-commit-pre-broadcast crash okna; verification failure bez false verified;
+provider-terminal/pre-binding a post-commit/pre-broadcast crash okna; provider
+reconciliation pro present/absent/ambiguous/missing-digest/inventory-failure;
+živý versus striktně expirovaný claim, fenced stale terminal, Worker isolates
+s nezávislými WAL connections pro terminal-vs-no-op i binding-vs-no-op
+serializaci, direct-SQL actor/origin/key/sequence/failure tamper, stale desired
+revision, pending/unresolved desired-transition bypass přes `UPDATE`, `DELETE`
+i `INSERT OR REPLACE`, přepsání identity no-op receiptu či jeho set-valued
+provider lineage a provider→binding lineage drift;
+verification failure bez false verified;
 broadcast failure bez opakování provider effectu; concurrent CAS loser bez
 runtime effectu; nulový proof/failover/scheduler/external-network efekt; static
 call graph odmítne produkční direct legacy commit point.
@@ -141,5 +186,6 @@ Navržené commity:
 3. `docs(models): attest manual binding application`.
 
 Po WP zůstane Gate 1 `BLOCKED` na rozhodnutí 015, proof issueru, automatic
-failover coordinatoru/scheduleru a skutečném sériovém GPU běhu. Tento WP má
-uzavřít Finding 008 pouze pro manual HTTP/chat provoz.
+failover coordinatoru/scheduleru, skutečném sériovém GPU běhu a UI rollback
+surface. Tento WP může uzavřít Finding 008 pro backend manual apply/rollback;
+nemůže sám uzavřít celý chat/Studio recovery journey.

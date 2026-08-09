@@ -135,6 +135,11 @@ function cancelMessage(what, mode) {
 // ─── v103: Upgrade notification (lazy-loaded) ──────────────────────────────
 let _upgradeManager = null;
 let _MIN_NOTIFY_SCORE = 6;
+let _modelBindingApplication = null;
+
+export function setModelBindingApplication(service) {
+  _modelBindingApplication = service || null;
+}
 
 // ─── Intercept definitions ───────────────────────────────────────────────────
 // Each intercept: { name, modes, fn(input, context, mode) → { handled, response? } }
@@ -301,31 +306,30 @@ intercepts.push({
           try { context.onSystemStep('model_loading', `Nacitam ${candidateName} do VRAM...`); } catch (_) {}
         }
 
-        const result = await _upgradeManager.applyUpgrade(roleName, candidateName, {
-          score: p.score,
-          appliedBy: 'user',
+        if (!_modelBindingApplication) {
+          throw Object.assign(
+            new Error('Model binding application service neni dostupna.'),
+            { code: 'MODEL_BINDING_APPLICATION_SERVICE_REQUIRED' },
+          );
+        }
+        const result = await _modelBindingApplication.applyManualBinding({
+          role: roleName,
+          targetModel: candidateName,
         });
         results.push({ ...result, role: roleName });
-
-        // Mark this proposal approved + expire all other pending proposals for this role
-        try {
-          const { proposalStore } = await import('../../upgrade/proposal-store.js');
-          const remaining = proposalStore.getPendingForRole(roleName);
-          for (const rp of remaining) {
-            if (rp.candidate_model === candidateName) {
-              proposalStore.approve(rp.id);
-            } else {
-              // Expire other proposals for this role — current model changed, they're stale
-              proposalStore.reject(rp.id, 0); // 0-day cooldown = immediately re-eligible next cycle
-            }
-          }
-        } catch (_) {}
 
         if (typeof context.onSystemStep === 'function') {
           const verificationText = result.verified
             ? 'nacten a overen'
             : 'nacten, overeni ceka';
-          try { context.onSystemStep('model_applied', `${roleName}: ${result.from} → ${result.to} — ${verificationText}`); } catch (_) {}
+          const proposalText = result.proposalResolutionStatus === 'REPAIR_PENDING'
+            ? '; uklid navrhu ceka'
+            : '';
+          const action = result.changed === false ? 'model_unchanged' : 'model_applied';
+          const transition = result.changed === false
+            ? `${roleName}: ${result.to} — beze zmeny`
+            : `${roleName}: ${result.from} → ${result.to}`;
+          try { context.onSystemStep(action, `${transition} — ${verificationText}${proposalText}`); } catch (_) {}
         }
       } catch (err) {
         results.push({ ok: false, role: roleName, error: err.message });
@@ -341,9 +345,19 @@ intercepts.push({
     // Build confirmation summary
     let summary = '';
     if (ok.length > 0) {
-      summary += 'Modely zmeneny:\n' + ok.map(r =>
-        `**${r.role}**: ${r.from} → ${r.to} (${r.verified ? 'nacten, overen' : 'nacten, overeni ceka'})`
-      ).join('\n');
+      const changed = ok.filter(result => result.changed !== false);
+      const unchanged = ok.filter(result => result.changed === false);
+      if (changed.length > 0) {
+        summary += 'Modely zmeneny:\n' + changed.map(r =>
+          `**${r.role}**: ${r.from} → ${r.to} (${r.verified ? 'nacten, overen' : 'nacten, overeni ceka'}${r.proposalResolutionStatus === 'REPAIR_PENDING' ? '; uklid navrhu ceka' : ''})`
+        ).join('\n');
+      }
+      if (unchanged.length > 0) {
+        if (summary) summary += '\n\n';
+        summary += 'Modely potvrzeny beze zmeny:\n' + unchanged.map(r =>
+          `**${r.role}**: ${r.to} (${r.verified ? 'overen' : 'overeni ceka'}${r.proposalResolutionStatus === 'REPAIR_PENDING' ? '; uklid navrhu ceka' : ''})`
+        ).join('\n');
+      }
     }
     if (fail.length > 0) {
       if (summary) summary += '\n\n';

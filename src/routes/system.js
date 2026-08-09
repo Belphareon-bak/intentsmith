@@ -29,6 +29,39 @@ const PARTIAL_MAX_AGE_MS = parseInt(process.env.C3_MODEL_PARTIAL_MAX_AGE_MS || S
 const RECOMPUTE_DELAY_MS = parseInt(process.env.C3_MODEL_RECOMPUTE_DELAY_MS || '15000', 10);
 const RECOMPUTE_RETRY_MS = parseInt(process.env.C3_MODEL_RECOMPUTE_RETRY_MS || String(5 * 60 * 1000), 10);
 const CRITICAL_FIELDS = ['model', 'parameters', 'context_length', 'quantization', 'modality'];
+const MODEL_BINDING_HTTP_STATUS = Object.freeze({
+  MODEL_BINDING_APPLICATION_INPUT_INVALID: 400,
+  MODEL_BINDING_APPLICATION_AUTHORITY_OVERRIDE_REJECTED: 400,
+  MODEL_BINDING_PROVIDER_UNAVAILABLE: 503,
+  MODEL_BINDING_PROVIDER_RECONCILIATION_REQUIRED: 503,
+  MODEL_BINDING_PROVIDER_OUTCOME_UNRESOLVED: 503,
+  MODEL_BINDING_PROVIDER_PULL_FAILED: 502,
+  MODEL_BINDING_PROVIDER_RESUME_CAS_MISMATCH: 409,
+  MODEL_BINDING_PROVIDER_RESUME_AMBIGUOUS: 409,
+  MODEL_BINDING_PROVIDER_ORIGIN_MISMATCH: 409,
+  MODEL_BINDING_PROVIDER_OPERATION_IN_PROGRESS: 409,
+  MODEL_BINDING_PROVIDER_UNRESOLVED_SUCCESS: 409,
+  MODEL_BINDING_PROVIDER_COMMAND_SUPERSEDED: 409,
+  MODEL_BINDING_PROVIDER_CLAIM_STALE: 409,
+  MODEL_BINDING_PROVIDER_CLAIM_MISSING: 409,
+  MODEL_BINDING_APPLICATION_BUSY: 409,
+  MODEL_BINDING_APPLICATION_PENDING_OPERATION: 409,
+  MODEL_BINDING_APPLICATION_NONRETRYABLE_TERMINAL: 409,
+  MODEL_BINDING_TARGET_AMBIGUOUS: 409,
+  MODEL_BINDING_TARGET_DIGEST_MISSING: 409,
+  MODEL_BINDING_TARGET_DIGEST_DRIFT: 409,
+  MODEL_BINDING_TARGET_NOT_INSTALLED: 404,
+  MODEL_BINDING_OVERRIDE_NOT_FOUND: 404,
+  MODEL_BINDING_LEGACY_ROLLBACK_REQUIRES_REBIND: 409,
+  MODEL_FAILOVER_STALE_DESIRED: 409,
+});
+
+function modelBindingHttpStatus(error) {
+  if (Number.isInteger(error?.httpStatus) && error.httpStatus >= 400 && error.httpStatus <= 599) {
+    return error.httpStatus;
+  }
+  return MODEL_BINDING_HTTP_STATUS[error?.code] || 500;
+}
 
 function _parseBoolFlag(v, fallback = false) {
   if (v == null || v === '') return fallback;
@@ -229,7 +262,13 @@ function _buildEstimatedEntry(modelName, snapshot, metadataState, prior = null) 
 /**
  * @param {{ db: import('better-sqlite3').Database, sendJSON: Function, parseBody: Function }} deps
  */
-export function createSystemRoutes({ db, sendJSON, parseBody, modelRegistry }) {
+export function createSystemRoutes({
+  db,
+  sendJSON,
+  parseBody,
+  modelRegistry,
+  modelBindingApplication = null,
+}) {
   const rawDb = db.db || db; // unwrap: db wrapper → raw better-sqlite3 instance
   const dataDir = config.db?.path ? path.dirname(path.resolve(config.db.path)) : path.resolve('./data');
   const recomputeQueue = new Map(); // model_name -> { queuedAt, attempts, timer }
@@ -842,7 +881,7 @@ export function createSystemRoutes({ db, sendJSON, parseBody, modelRegistry }) {
       }
     },
 
-    // ── Model Upgrade Apply/Rollback (v125: fire-and-forget with auto-pull + BG verify) ──
+    // ── Model Upgrade Apply/Rollback (durable start before HTTP success; BG verify) ──
     'POST /api/system/upgrades/apply': async (req, res) => {
       try {
         const body = await parseBody(req);
@@ -858,53 +897,50 @@ export function createSystemRoutes({ db, sendJSON, parseBody, modelRegistry }) {
           return sendJSON(res, 400, { error: `Invalid role: ${role}` });
         }
 
-        // Respond immediately — progress via WS
+        if (!modelBindingApplication) {
+          throw Object.assign(
+            new Error('Model binding application service is required'),
+            { code: 'MODEL_BINDING_APPLICATION_SERVICE_REQUIRED' },
+          );
+        }
+
+        if (typeof modelBindingApplication.beginManualBinding !== 'function') {
+          throw Object.assign(
+            new Error('Model binding application start port is required'),
+            { code: 'MODEL_BINDING_APPLICATION_START_PORT_REQUIRED' },
+          );
+        }
+
+        // The existing Studio contract remains asynchronous, but 200 is now
+        // emitted only after a durable binding operation or provider-pull
+        // intent exists. The completion promise stays server-owned.
+        const started = await modelBindingApplication.beginManualBinding({ role, targetModel });
+
         sendJSON(res, 200, { ok: true, status: 'started', role, targetModel });
 
-        // Fire-and-forget: pull (if needed) → apply → BG verify → validation prompt
-        (async () => {
-          try {
-            broadcast('control', { action: 'upgrade_progress', role, model: targetModel,
-              status: 'starting', text: `${role}: Aplikuji ${targetModel}...` });
-
-            const result = await upgradeManager.applyUpgrade(role, targetModel, {
-              score: body.score,
-              skipVerify: true,
-              appliedBy: body.appliedBy || 'user',
-              onPullProgress: (progress) => {
-                broadcast('control', { action: 'model_pull_progress', model: targetModel, ...progress });
-              },
-            });
-
-            broadcast('control', {
-              action: 'model_changed', role,
-              fromModel: result.from, toModel: result.to,
-              configVersion: result.configVersion,
-            });
-
-            // Background verify (v125) — don't await
-            upgradeManager._backgroundVerify(role, targetModel, result.from, (r, m) => {
-              broadcast('control', { action: 'upgrade_verify_failed', role: r, model: m,
-                text: `Varování: ${m} neodpovídá na ping po 3 pokusech. Zvažte rollback.` });
-            }).catch(err => logger.warn('UpgradeManager', `BG verify error: ${err.message}`));
-
-            // Auto-validation prompt (v125)
-            try {
-              const { getSuiteForRole } = await import('../upgrade/validation-suites.js');
-              const suite = getSuiteForRole(role);
-              if (suite) {
-                broadcast('control', { action: 'model_validation_prompt', role, model: targetModel,
-                  suite, estimatedMinutes: 5,
-                  text: `Model ${targetModel} nastaven pro ${role}. Spustit validaci? (~5 min)` });
-              }
-            } catch (_) {}
-
-          } catch (err) {
-            broadcast('control', { action: 'upgrade_error', role, model: targetModel, error: err.message });
+        void started.completion.then(async completed => {
+          if (completed.proposalResolutionStatus === 'REPAIR_PENDING') {
+            logger.warn(
+              'ModelBindingApplication',
+              `Binding ${completed.operationId} applied; proposal cleanup remains pending`,
+            );
           }
-        })();
+          // Auto-validation prompt (v125)
+          try {
+            const { getSuiteForRole } = await import('../upgrade/validation-suites.js');
+            const suite = getSuiteForRole(role);
+            if (suite) {
+              broadcast('control', { action: 'model_validation_prompt', role, model: targetModel,
+                suite, estimatedMinutes: 5,
+                text: `Model ${targetModel} nastaven pro ${role}. Spustit validaci? (~5 min)` });
+            }
+          } catch (_) {}
+        }).catch(err => {
+          logger.warn('ModelBindingApplication', `HTTP apply completion failed: ${err.message}`);
+        });
       } catch (err) {
-        sendJSON(res, 500, { error: err.message });
+        logger.warn('ModelBindingApplication', `HTTP apply failed: ${err.message}`);
+        sendJSON(res, modelBindingHttpStatus(err), { error: err.message });
       }
     },
 
@@ -922,27 +958,22 @@ export function createSystemRoutes({ db, sendJSON, parseBody, modelRegistry }) {
           return sendJSON(res, 400, { error: `Invalid role: ${role}` });
         }
 
-        const result = await upgradeManager.rollbackUpgrade(role, {
-          skipVerify: body.skipVerify === true,
-          force: body.force === true,
-        });
-
-        broadcast('control', {
-          action: 'model_changed',
-          role,
-          fromModel: result.from,
-          toModel: result.to,
+        if (!modelBindingApplication) {
+          throw Object.assign(
+            new Error('Model binding application service is required'),
+            { code: 'MODEL_BINDING_APPLICATION_SERVICE_REQUIRED' },
+          );
+        }
+        const result = await modelBindingApplication.rollbackManualBinding({ role });
+        sendJSON(res, 200, {
+          ok: result.ok,
+          role: result.role,
+          from: result.from,
+          to: result.to,
           configVersion: result.configVersion,
         });
-
-        sendJSON(res, 200, result);
       } catch (err) {
-        const status = err.message.includes('No override found') ? 404
-          : err.message.includes('no longer installed') ? 404
-          : err.message.includes('Rollback verification') ? 502
-          : err.message.includes('DB not initialized') ? 500
-          : 500;
-        sendJSON(res, status, { error: err.message });
+        sendJSON(res, modelBindingHttpStatus(err), { error: err.message });
       }
     },
 

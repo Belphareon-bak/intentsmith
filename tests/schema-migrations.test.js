@@ -156,6 +156,8 @@ const ALL_MIGRATIONS = [
   '2026_08_08_048_model_binding_operations',
   '2026_08_08_049_model_binding_manual_supersede',
   '2026_08_09_050_model_binding_application_attempts',
+  '2026_08_09_051_model_binding_runtime_generation',
+  '2026_08_09_052_model_binding_provider_effects',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -550,6 +552,7 @@ describe('T-SM7: Baseline creates all expected tables', async () => {
       'failure_code',
       'retryable',
       'created_at_ms',
+      'runtime_changed',
     ]);
     db.close();
   });
@@ -557,9 +560,11 @@ describe('T-SM7: Baseline creates all expected tables', async () => {
   await it('migration 050 demotes every legacy override instead of inventing verification', async () => {
     const db = freshDb();
     const migrations = await migrationTestInternals.discoverMigrations();
-    const pre050 = migrations.filter(migration => (
-      migration.version !== '2026_08_09_050_model_binding_application_attempts'
-    ));
+    const pre050 = migrations.filter(migration => ![
+      '2026_08_09_050_model_binding_application_attempts',
+      '2026_08_09_051_model_binding_runtime_generation',
+      '2026_08_09_052_model_binding_provider_effects',
+    ].includes(migration.version));
     migrationTestInternals.runMigrationPlan(db, pre050);
     db.prepare(`
       INSERT INTO model_overrides (

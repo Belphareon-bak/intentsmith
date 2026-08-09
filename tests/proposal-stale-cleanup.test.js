@@ -4,11 +4,11 @@
 // Scenario:
 //   1. Create pending proposals for D2 → qwen3:14b
 //   2. Apply upgrade D2 → qwen3:14b
-//   3. Verify all pending proposals for D2 are expired
+//   3. Verify the selected proposal is approved and competing proposals expire
 //   4. Verify GET /api/system/proposals doesn't return expired proposals
 //
 // Bug fix:
-//   - applyUpgrade() now expires pending proposals for the role
+//   - applyUpgrade() resolves the selected proposal and expires stale competitors
 //   - getActiveProposals() filters out candidates == active model
 //   - startPeriodicCheck() cleans stale proposals on startup
 //
@@ -24,7 +24,7 @@ const __dirname = dirname(__filename);
 
 suite('Proposal Stale Cleanup v126');
 
-await testAsync('UpgradeManager expires pending proposals when applying upgrade', async () => {
+await testAsync('UpgradeManager approves the selected proposal and expires competitors', async () => {
   const db = new Database(':memory:');
 
   // Setup schema (simplified)
@@ -112,12 +112,21 @@ await testAsync('UpgradeManager expires pending proposals when applying upgrade'
     config.models.D2 = originalD2Model;
   }
 
-  // Verify all pending proposals for D2 are now expired
+  // The selected proposal is the durable decision; only competitors expire.
   const afterCount = db.prepare(`SELECT COUNT(*) as cnt FROM upgrade_proposals WHERE status = 'pending'`).get();
-  assertEqual(afterCount.cnt, 0, 'All pending proposals should be expired');
+  assertEqual(afterCount.cnt, 0, 'All pending proposals should be resolved');
+
+  const approved = db.prepare(`
+    SELECT role, candidate_model, status
+    FROM upgrade_proposals
+    WHERE status = 'approved'
+  `).all();
+  assertEqual(approved.length, 1, 'Exactly one proposal should be approved');
+  assertEqual(approved[0].role, 'D2', 'Approved proposal should belong to D2');
+  assertEqual(approved[0].candidate_model, 'qwen3:14b', 'Applied candidate should be approved');
 
   const expiredCount = db.prepare(`SELECT COUNT(*) as cnt FROM upgrade_proposals WHERE status = 'expired'`).get();
-  assertEqual(expiredCount.cnt, 3, 'Should have 3 expired proposals');
+  assertEqual(expiredCount.cnt, 2, 'Only competing proposals should expire');
 
   db.close();
 });
