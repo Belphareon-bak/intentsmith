@@ -435,7 +435,9 @@ function _handleRehydrateAck(data, connectionEpoch, socket) {
         { signal: AbortSignal.timeout(5000) }
       );
     }).then(function(response) {
-      if (!response || response.ok !== true) throw new Error('rehydrate-http-failed');
+      if (!response || response.ok !== true || response.status !== 200) {
+        throw new Error('rehydrate-http-failed');
+      }
       return response.json();
     }).then(function(payload) {
       var msgs = _parseHistoryPayload(payload);

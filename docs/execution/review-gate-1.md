@@ -8,7 +8,8 @@ reviewované stable-ID/scoped-cancel a reconnect guardy; z rehydrate checkpointu
 jsou focused implementované serverová i klientská autorita 014/A včetně
 úplného partition, rejectu, quarantine a bounded restore. Celá identity/history
 obnova je nadále BLOCKED na společném live wire důkazu; existence-aware route i
-fail-closed klientská polovina 012/B jsou focused implementované. 011/A HTTP
+post-review hardenovaná fail-closed klientská polovina 012/B jsou focused
+implementované. 011/A HTTP
 fallback authority je od
 `2ead4662` focused PASS; B4
 stále nemůže pravdivě splnit přesný terminal consumer ani atomickou
@@ -61,7 +62,7 @@ Autoritativní podrobnosti jsou v:
 | 009 | BLOCK → A-4096 calibration | zachovat 27B/digest/1 GiB/100% residency/no fallback | společný runtime profil a nový skutečný sériový T3 běh; 4096 zatím není PASS |
 | 010 | BLOCK → A+ | protocol `lib` untracked + generated prebuild + negotiated M1 wire/ledger | implementace, clean build matrix a built journey |
 | 011 | BLOCK → A nyní / C v M2 | HTTP send fallback vypnout fail-closed | **implementováno na `2ead4662`**: tři call sites, `NOT_SENT`, phantom-ID guard a nulový-effect test; WS/HTTP parity je vědomě změněna |
-| 012 | BLOCK → B | existence-aware history route | route i klientské negativy focused implementovány; chybí společný DB-backed wire důkaz; GET 404 zachovává `_convId` |
+| 012 | BLOCK → B | existence-aware history route | route i 53/53 klientský kontrakt focused implementovány; exact 200, 404+same-ID reuse, reject/timeout i reference/epoch race připnuty; chybí společný DB-backed wire důkaz |
 | 013 | DECIDE → A | 12 bounded retries + visible exhaustion | implementováno na client contract vrstvě; built journey chybí |
 | 014 | BLOCK → A | úplný ACK partition nebo request-bound reject, nikdy partial/in-memory autorita | server/client focused implementace a restore clamp hotové; chybí společný DB-backed/built wire důkaz |
 

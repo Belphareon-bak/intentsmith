@@ -1127,7 +1127,7 @@ mohou pokračovat.
    ID/set, úplný partition, typed reject, explicitní durable-store autoritu,
    přesné klientské slot/snapshot vlastnictví, quarantine a bounded persisted
    restore, existence-aware atomický history snapshot a fail-closed klientskou
-   interpretaci empty/404/race výsledků. Pokračuje společný DB-backed live wire
+   interpretaci přesného HTTP 200, 404 a race výsledků. Pokračuje společný DB-backed live wire
    test. 010/A+ protocol delivery je samostatná otevřená dependency
    před terminal ledgerem a built journey. Read-only review může běžet
    souběžně; GPU běhy nikdy.

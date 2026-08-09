@@ -589,6 +589,23 @@ byla přesně obnovena a finální zdroj znovu prošel `48/48`.
 Tento PASS je stále VM klientský kontrakt, ne společný DB-backed wire ani built
 Theia journey. B4 a Gate 1 proto zůstávají `BLOCKED`.
 
+## Checkpoint 11 — post-review hardening klienta 012/B
+
+- **stav opraveného klientského důkazu:** `PASS focused`
+- **celý B4 / Gate 1:** nadále `BLOCKED`
+
+Nezávislý review správně odmítl původní `48/48` jako neúplný důkaz. Klient nyní
+vyžaduje přesný HTTP `200`, takže `201/206` nemohou získat content authority.
+Kompozitní test provede ACK, reuse stejného slotu se stejným ID a teprve potom
+typed `404`; nový i původní snapshot zůstanou beze změny. Další negativy přímo
+pokrývají rejected/timeout fetch, post-ACK výměnu chat/messages referencí a
+změnu connection epochy bez pomocné změny signature.
+
+Finální `node tests/m1-studio-client.test.js` prošel `53/53`. Mutace status
+guardu a epoch guardu skončily každá `52/1`, live-slot guard `51/2` a přidání
+cleanup effectu do failure větve `48/5`; vše exit `1`, přesně obnoveno. Tím je
+klientský focused důkaz opraven, nikoli nahrazen společný live wire.
+
 ## Otevřené nálezy pro další checkpointy
 
 1. Commitnutý `@c3/protocol/lib/index.js` je stale stub. Operátor schválil

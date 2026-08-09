@@ -165,3 +165,8 @@ slot-owner guard, legacy pre-route warning a horní restore bound skončily vžd
 DB-backed/built wire důkaz zůstávají pod 012 a B4, takže celý Gate 1 je nadále
 `BLOCKED`. Route i klient 012 jsou focused implementované a testované; společný
 produkční wire checkpoint teprve smí tuto dvojici vydat za end-to-end autoritu.
+
+Post-review hardening navíc skládá povinné pořadí `ACK → same-ID slot reuse →
+typed history 404` do jednoho testu. Replacement i původní snapshot zůstávají
+nedotčené a completion je `degraded`; samotné oddělené testy 404 a reuse už
+nejsou vydávány za tento kompozitní důkaz.

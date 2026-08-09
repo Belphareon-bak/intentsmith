@@ -114,3 +114,18 @@ mutace skončily exit `1`, byly přesně obnovené a finální zdroj znovu proš
 Route i klient 012/B jsou tím focused implementované. Společný DB-backed
 server+client wire důkaz, built journey a 010/A+ zůstávají otevřené; celý B4 a
 Gate 1 proto zůstávají `BLOCKED`.
+
+### Post-review hardening klientského důkazu
+
+Následný read-only review odmítl původních `48/48` jako úplný důkaz: klient
+přijímal libovolné `response.ok`, povinné 404+same-ID-reuse pořadí bylo rozdělené
+do dvou testů a epochový test mohl projít přes změněnou signature. Klient nyní
+přijímá obsahovou autoritu pouze z přesného HTTP `200`; `201` ani `206` ji
+nemají. Jedna kompozitní větev pinuje `ACK → same-ID slot reuse → typed 404` a
+samostatné negativy izolují fetch reject/timeout, změnu chat/messages reference
+po ACK a samotnou změnu connection epochy.
+
+Rozšířená focused sada prošla `53/53`. Odstranění přesného HTTP status guardu
+skončilo `52/1`; odstranění epoch guardu `52/1`; odstranění live-slot guardu
+`51/2`; přidání cleanup autority do failure větve `48/5`. Všechny mutace měly
+exit `1`, byly přesně obnovené a finální zdroj znovu prošel `53/53`.

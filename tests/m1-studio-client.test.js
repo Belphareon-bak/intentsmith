@@ -71,6 +71,7 @@ function loadClient(sessions, options = {}) {
     },
     fetch: options.fetch || (async () => ({
       ok: true,
+      status: 200,
       json: async () => ({ messages: [] }),
     })),
     fetchBackendData() {},
@@ -1094,7 +1095,7 @@ await testAsync('history waits for ACK, authoritative empty history replaces dat
   const { busEvents, socket } = loadClient([paneA, paneB], {
     fetch: async url => {
       fetchUrls.push(url);
-      return { ok: true, json: async () => ({ messages: [] }) };
+      return { ok: true, status: 200, json: async () => ({ messages: [] }) };
     },
   });
 
@@ -1148,6 +1149,7 @@ await testAsync('prototype-named conversation identity is restored without map-k
       fetchCount++;
       return {
         ok: true,
+        status: 200,
         json: async () => ({
           messages: [{ role: 'assistant', content: 'restored', metadata: null }],
         }),
@@ -1180,6 +1182,7 @@ await testAsync('request IDs are unique and a foreign ACK cannot end the current
       fetchCount++;
       return {
         ok: true,
+        status: 200,
         json: async () => ({
           messages: [{ role: 'assistant', content: 'current run', metadata: null }],
         }),
@@ -1244,7 +1247,7 @@ await testAsync('every matching incomplete or inconsistent ACK degrades without 
     const { busEvents, socket } = loadClient([pane], {
       fetch: async () => {
         fetchCount++;
-        return { ok: true, json: async () => ({ messages: [] }) };
+        return { ok: true, status: 200, json: async () => ({ messages: [] }) };
       },
     });
     const request = lastRehydrateRequest(socket);
@@ -1278,7 +1281,7 @@ await testAsync('only a matching exact typed reject ends the run immediately', a
     clearTimeout: clock.clearTimeout,
     fetch: async () => {
       fetchCount++;
-      return { ok: true, json: async () => ({ messages: [] }) };
+      return { ok: true, status: 200, json: async () => ({ messages: [] }) };
     },
     setTimeout: clock.setTimeout,
   });
@@ -1364,7 +1367,7 @@ await testAsync('malformed or unsolicited ACK preserves every local snapshot', a
   const { busEvents, socket } = loadClient([pane], {
     fetch: async () => {
       fetchCount++;
-      return { ok: true, json: async () => ({ messages: [] }) };
+      return { ok: true, status: 200, json: async () => ({ messages: [] }) };
     },
   });
 
@@ -1407,6 +1410,33 @@ await testAsync('non-2xx history preserves snapshot and reports degraded complet
   );
 });
 
+await testAsync('only exact HTTP 200 can carry authoritative history content', async () => {
+  for (const status of [201, 206]) {
+    const pane = session(`studio-rehydrate-http-${status}`);
+    const { busEvents, socket } = loadClient([pane], {
+      fetch: async () => ({
+        ok: true,
+        status,
+        json: async () => ({ messages: [] }),
+      }),
+    });
+
+    sendCompleteRehydrateAck(socket, {
+      validIds: [pane._convId],
+      invalidIds: [],
+    });
+    await drainMicrotasks();
+
+    assert.equal(pane._convId, `studio-rehydrate-http-${status}`);
+    assert.equal(pane.chat.msgs[0].text, 'stale');
+    assert.equal(pane.chat._thinking.text, 'pending');
+    assert.equal(
+      JSON.stringify(busEvents.filter(event => event.name === 'ws:reconnected').at(-1).payload),
+      JSON.stringify({ status: 'degraded', restoredCount: 0, invalidCount: 0, failedCount: 1 }),
+    );
+  }
+});
+
 await testAsync('typed conversation 404 preserves identity and snapshot for the next rehydrate', async () => {
   const pane = session('studio-rehydrate-history-missing');
   let responseBodyReads = 0;
@@ -1441,11 +1471,40 @@ await testAsync('typed conversation 404 preserves identity and snapshot for the 
   );
 });
 
+await testAsync('rejected and timed-out history effects preserve identity and snapshot', async () => {
+  const failures = [
+    Object.assign(new Error('synthetic fetch rejection'), { name: 'TypeError' }),
+    Object.assign(new Error('synthetic history timeout'), { name: 'TimeoutError' }),
+  ];
+  for (const failure of failures) {
+    const pane = session(`studio-rehydrate-${failure.name.toLowerCase()}`);
+    const { busEvents, socket } = loadClient([pane], {
+      fetch: async () => { throw failure; },
+    });
+
+    sendCompleteRehydrateAck(socket, {
+      validIds: [pane._convId],
+      invalidIds: [],
+    });
+    await drainMicrotasks();
+
+    assert.equal(pane._convId, `studio-rehydrate-${failure.name.toLowerCase()}`);
+    assert.equal(pane.chat.msgs[0].text, 'stale');
+    assert.equal(pane.chat._thinking.text, 'pending');
+    assert.equal(busEvents.some(event => event.name === 'session:invalidated'), false);
+    assert.equal(
+      JSON.stringify(busEvents.filter(event => event.name === 'ws:reconnected').at(-1).payload),
+      JSON.stringify({ status: 'degraded', restoredCount: 0, invalidCount: 0, failedCount: 1 }),
+    );
+  }
+});
+
 await testAsync('malformed success history preserves snapshot and reports degraded completion', async () => {
   const pane = session('studio-rehydrate-malformed-history');
   const { busEvents, socket } = loadClient([pane], {
     fetch: async () => ({
       ok: true,
+      status: 200,
       json: async () => ({ notMessages: [] }),
     }),
   });
@@ -1499,6 +1558,7 @@ await testAsync('new reconnect epoch wins and stale history cannot overwrite it'
 
   pendingFetches[1].resolve({
     ok: true,
+    status: 200,
     json: async () => ({
       messages: [{ role: 'assistant', content: 'new epoch', metadata: null }],
     }),
@@ -1508,6 +1568,7 @@ await testAsync('new reconnect epoch wins and stale history cannot overwrite it'
 
   pendingFetches[0].resolve({
     ok: true,
+    status: 200,
     json: async () => ({
       messages: [{ role: 'assistant', content: 'stale epoch', metadata: null }],
     }),
@@ -1518,6 +1579,36 @@ await testAsync('new reconnect epoch wins and stale history cannot overwrite it'
     busEvents.filter(event => event.name === 'ws:reconnected').length,
     1,
   );
+});
+
+await testAsync('connection epoch alone revokes pending history before the newer ACK', async () => {
+  const pane = session('studio-rehydrate-epoch-only');
+  const pendingFetch = deferred();
+  const { busEvents, client, handshake, socket, sockets } = loadClient([pane], {
+    fetch: () => pendingFetch.promise,
+  });
+
+  sendCompleteRehydrateAck(socket, {
+    validIds: [pane._convId],
+    invalidIds: [],
+  });
+  await drainMicrotasks();
+
+  client.wsConnect();
+  handshake(sockets[1]);
+  assert.equal(lastRehydrateRequest(sockets[1]).conversationIds[0], pane._convId);
+  pendingFetch.resolve({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      messages: [{ role: 'assistant', content: 'must lose to newer epoch', metadata: null }],
+    }),
+  });
+  await drainMicrotasks();
+
+  assert.equal(pane.chat.msgs[0].text, 'stale');
+  assert.equal(pane.chat._thinking.text, 'pending');
+  assert.equal(busEvents.some(event => event.name === 'ws:reconnected'), false);
 });
 
 test('stale socket cannot route events, disconnect the active client, or schedule reconnect', () => {
@@ -1580,6 +1671,7 @@ await testAsync('history cannot overwrite activity added after ACK in the same e
   pane.chat._thinking = { text: 'new turn pending' };
   pendingFetch.resolve({
     ok: true,
+    status: 200,
     json: async () => ({
       messages: [{ role: 'assistant', content: 'older durable history', metadata: null }],
     }),
@@ -1614,6 +1706,7 @@ await testAsync('same-ID slot reuse after ACK revokes a pending history response
   sessions[0] = replacement;
   pendingFetch.resolve({
     ok: true,
+    status: 200,
     json: async () => ({
       messages: [{ role: 'assistant', content: 'late history for old owner', metadata: null }],
     }),
@@ -1630,12 +1723,98 @@ await testAsync('same-ID slot reuse after ACK revokes a pending history response
   );
 });
 
+await testAsync('typed 404 after ACK cannot affect a same-ID replacement slot', async () => {
+  const original = session('studio-rehydrate-404-reuse');
+  const sessions = [original];
+  const pendingFetch = deferred();
+  const { busEvents, socket } = loadClient(sessions, {
+    fetch: () => pendingFetch.promise,
+  });
+
+  sendCompleteRehydrateAck(socket, {
+    validIds: [original._convId],
+    invalidIds: [],
+  });
+  await drainMicrotasks();
+
+  const replacement = session('studio-rehydrate-404-reuse');
+  replacement.chat.msgs = [{ role: 'user', text: 'replacement survives 404' }];
+  replacement.chat._thinking = null;
+  sessions[0] = replacement;
+  pendingFetch.resolve({
+    ok: false,
+    status: 404,
+    json: async () => ({
+      error: 'Conversation not found',
+      code: 'CONVERSATION_NOT_FOUND',
+    }),
+  });
+  await drainMicrotasks();
+
+  assert.equal(sessions[0], replacement);
+  assert.equal(replacement._convId, 'studio-rehydrate-404-reuse');
+  assert.equal(replacement.chat.msgs[0].text, 'replacement survives 404');
+  assert.equal(original._convId, 'studio-rehydrate-404-reuse');
+  assert.equal(original.chat.msgs[0].text, 'stale');
+  assert.equal(busEvents.some(event => event.name === 'session:invalidated'), false);
+  assert.equal(
+    JSON.stringify(busEvents.filter(event => event.name === 'ws:reconnected').at(-1).payload),
+    JSON.stringify({ status: 'degraded', restoredCount: 0, invalidCount: 0, failedCount: 1 }),
+  );
+});
+
+await testAsync('post-ACK chat and messages reference replacement revoke history authority', async () => {
+  for (const replacementKind of ['chat', 'messages']) {
+    const pane = session(`studio-rehydrate-${replacementKind}-ref`);
+    const pendingFetch = deferred();
+    const { busEvents, socket } = loadClient([pane], {
+      fetch: () => pendingFetch.promise,
+    });
+
+    sendCompleteRehydrateAck(socket, {
+      validIds: [pane._convId],
+      invalidIds: [],
+    });
+    await drainMicrotasks();
+
+    if (replacementKind === 'chat') {
+      pane.chat = {
+        ...pane.chat,
+        msgs: [{ role: 'user', text: 'replacement chat object' }],
+        _thinking: null,
+      };
+    } else {
+      pane.chat.msgs = [{ role: 'user', text: 'replacement messages object' }];
+      pane.chat._thinking = null;
+    }
+    const currentChat = pane.chat;
+    const currentMessages = pane.chat.msgs;
+    pendingFetch.resolve({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        messages: [{ role: 'assistant', content: 'late stale history', metadata: null }],
+      }),
+    });
+    await drainMicrotasks();
+
+    assert.equal(pane.chat, currentChat);
+    assert.equal(pane.chat.msgs, currentMessages);
+    assert.match(pane.chat.msgs[0].text, /^replacement /);
+    assert.equal(
+      JSON.stringify(busEvents.filter(event => event.name === 'ws:reconnected').at(-1).payload),
+      JSON.stringify({ status: 'degraded', restoredCount: 0, invalidCount: 0, failedCount: 1 }),
+    );
+  }
+});
+
 await testAsync('activity before ACK is neither overwritten nor cleared by the ACK result', async () => {
   const validPane = session('studio-rehydrate-pre-ack-valid');
   const invalidPane = session('studio-rehydrate-pre-ack-invalid');
   const { busEvents, socket } = loadClient([validPane, invalidPane], {
     fetch: async () => ({
       ok: true,
+      status: 200,
       json: async () => ({
         messages: [{ role: 'assistant', content: 'older durable history', metadata: null }],
       }),
@@ -1671,7 +1850,7 @@ await testAsync('slot reuse and message-array replacement revoke ACK authority',
     const { busEvents, socket } = loadClient(sessions, {
       fetch: async () => {
         fetchCount++;
-        return { ok: true, json: async () => ({ messages: [] }) };
+        return { ok: true, status: 200, json: async () => ({ messages: [] }) };
       },
     });
     const replacement = session('studio-rehydrate-reused-slot');
@@ -1699,7 +1878,7 @@ await testAsync('slot reuse and message-array replacement revoke ACK authority',
     const { busEvents, socket } = loadClient([pane], {
       fetch: async () => {
         fetchCount++;
-        return { ok: true, json: async () => ({ messages: [] }) };
+        return { ok: true, status: 200, json: async () => ({ messages: [] }) };
       },
     });
     pane.chat.msgs = pane.chat.msgs.map(message => ({ ...message }));
@@ -1785,7 +1964,7 @@ await testAsync('missing ACK times out without clearing the local snapshot and i
     },
     fetch: async () => {
       fetchCount++;
-      return { ok: true, json: async () => ({ messages: [] }) };
+      return { ok: true, status: 200, json: async () => ({ messages: [] }) };
     },
     setTimeout(callback, delay) {
       const timer = { callback, cleared: false, delay };
