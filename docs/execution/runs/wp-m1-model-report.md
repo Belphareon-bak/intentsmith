@@ -1597,6 +1597,47 @@ Oprava nemění schema, retry policy, provider effect, runtime binding ani proof
 authority. Gate 1 zůstává `BLOCKED`; GPU, Ollama, produktový server ani externí
 síť nebyly spuštěny.
 
+### Fresh-clone reprodukce a celý lokálně bezpečný M1 profil
+
+Produktový commit `419090cd2a543b6cef0ffcddfd300b52547a97c3` byl
+naklonován přes `git clone --no-local` do
+`.intentsmith-artifacts/fresh-clone-419090cd-PPNrY04F`. Před instalací byl
+porcelain prázdný a `git rev-parse HEAD` odpovídal přesnému source SHA.
+`npm ci --offline` přidalo 233 balíčků, auditovalo 234, našlo 0 vulnerabilities
+a skončilo exit `0`.
+
+V klonu proběhlo všech patnáct registrovaných M1 sad, které nevyžadují GPU,
+skutečnou Ollamu ani externí síť:
+
+| Sada | Výsledek | Exit |
+|---|---:|---:|
+| `m1-contract` | 26 passed, 0 failed | 0 |
+| `m1-chat-contract` | 21 passed, 0 failed | 0 |
+| `m1-model-contract` | 29 passed, 0 failed | 0 |
+| `m1-model-identity` | 16 passed, 0 failed | 0 |
+| `m1-model-failover-schema` | 13 passed, 0 failed | 0 |
+| `m1-model-failover-repository` | 14 passed, 0 failed | 0 |
+| `m1-model-binding-storage` | 16 passed, 0 failed | 0 |
+| `m1-model-binding-repository` | 39 passed, 0 failed | 0 |
+| `m1-model-binding-application` | 73 passed, 0 failed | 0 |
+| `m1-model-failover-proof-policy` | 9 passed, 0 failed | 0 |
+| `m1-model-failover-measurement` | 9 passed, 0 failed | 0 |
+| `m1-model-failover-parent-acceptance` | 15 passed, 0 failed | 0 |
+| `m1-model-settings` | 14 passed, 0 failed | 0 |
+| `m1-studio-client` | 57 passed, 0 failed | 0 |
+| `module-boundary-ratchet` | 13 passed, 0 failed | 0 |
+
+Ratchet checker navíc přehrál 1 010/1 010 přesných hran, našel 0 přidaných a
+0 odebraných hran a ověřil baseline provenance, exit `0`. Artifact validation
+skončila 151/0, hygiene zkontrolovala 1 521 tracked cest a registry validátor
+vrátil 375 programů, 8 exclusions a fingerprint
+`a2f1e67e4f01c6e834f52eb1b15e10a5eec0893638d167e77baf3a35690f77b8`;
+vše exit `0`. Finální porcelain v klonu zůstal prázdný.
+
+Jediná přímo pojmenovaná M1 sada, která v tomto běhu nebyla spuštěna, je
+`m1-model-gpu-pilot`: vyžaduje explicitně vyhrazené GPU/Ollama okno a není
+nahrazena mockem ani označena zeleně.
+
 ### Otevřená rozhodovací fronta — checkpoint neblokuje
 
 1. **Durable compensation failure.** Default je tvrdý typovaný
