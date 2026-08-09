@@ -62,6 +62,11 @@ function modelBindingHttpStatus(error) {
   return MODEL_BINDING_HTTP_STATUS[error?.code] || 500;
 }
 
+function isExactModelRole(profiles, role) {
+  return typeof role === 'string'
+    && Object.prototype.hasOwnProperty.call(profiles, role);
+}
+
 function _parseBoolFlag(v, fallback = false) {
   if (v == null || v === '') return fallback;
   const s = String(v).trim().toLowerCase();
@@ -893,7 +898,7 @@ export function createSystemRoutes({
 
         // Quick validation before going async
         const { MODEL_PROFILES: profiles } = await import('../upgrade/model-profiles.js');
-        if (!profiles[role]) {
+        if (!isExactModelRole(profiles, role)) {
           return sendJSON(res, 400, { error: `Invalid role: ${role}` });
         }
 
@@ -954,7 +959,7 @@ export function createSystemRoutes({
         }
 
         const { MODEL_PROFILES: profiles } = await import('../upgrade/model-profiles.js');
-        if (!profiles[role]) {
+        if (!isExactModelRole(profiles, role)) {
           return sendJSON(res, 400, { error: `Invalid role: ${role}` });
         }
 

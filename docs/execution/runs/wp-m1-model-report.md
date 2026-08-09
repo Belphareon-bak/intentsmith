@@ -2414,3 +2414,44 @@ Na `9bd312ab` byla tato revision čtyři commity za HEAD, všechny čtyři byly
 documentation-only; nástroj stav pravdivě hlásil jako
 `BASELINE_PROVENANCE_VERIFIED` s replayem 1 020 hran. Nejde o byte pin
 současného HEAD a další source checkpoint musí baseline znovu připnout.
+
+## Post-handoff hardening přesné role na HTTP hranici
+
+Modelové `apply` a `rollback` routy dříve ověřovaly roli přes
+`profiles[role]`. Proto zděděné klíče běžného objektu, zejména `constructor` a
+`__proto__`, prošly předběžnou kontrolou a došly až k aplikační autoritě. Hlubší
+repository je nakonec odmítlo, ale routa místo přesného `400` předala neplatný
+vstup efektově schopné aplikační autoritě a mohla skončit serverovou chybou.
+
+Obě routy nyní přijímají pouze nezměněný řetězcový vlastní klíč
+`MODEL_PROFILES`; nic netrimují ani nekanonizují. Focused test prochází
+prototype klíče, odlišnou velikost písmen, whitespace a neřetězcové hodnoty
+pro apply i rollback a současně dokládá nulové volání aplikačního portu.
+Existující pozitivní HTTP journey nad rolí `CHAT` zůstává protějškem, že
+allowlist neblokuje platnou operaci. Tato lokální oprava nemění veřejný payload
+ani neřeší samostatný blocker přesné identity Studio recovery akce.
+
+Focused běh `node tests/m1-model-binding-application.test.js` před rozdělením
+obou negativních pinů skončil `97 passed / 0 failed`, exit `0`. Dočasná
+minimální mutace, která v obou routách vrátila původní `profiles[role]`,
+skončila `96 passed / 1 failed`, exit `1`; selhal nový test na očekávaném
+rozdílu `400` proti `500`. Finální focused běh a oddělené mutace apply/rollback
+jsou zaznamenané níže v témže checkpointu.
+
+| Validace finálního kandidáta | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-model-binding-application.test.js` | 98/0 | 0 |
+| apply-only návrat na `profiles[role]` | 97/1, selhal apply role pin | 1 |
+| rollback-only návrat na `profiles[role]` | 97/1, selhal rollback role pin | 1 |
+| odebrání primitivního string guardu | 96/2, selhaly oba role piny | 1 |
+| `node tests/routes-smoke.test.js` | 109/0 | 0 |
+| `node tests/artifact-validation.test.js` | 151/0 | 0 |
+| `node tests/repository-hygiene.test.js` | 1 532 tracked paths | 0 |
+| `node scripts/validate-test-registry.js --json` | 377 programů, 8 exclusions, fingerprint `2d5cf073…63ccd` | 0 |
+| `node scripts/module-boundary-ratchet.mjs` | 1 020/1 020, provenance replay 1 020 | 0 |
+| `node --check` nad oběma změněnými JS soubory | bez chyby | 0 |
+| `git diff --check` | bez výstupu | 0 |
+
+Mutace byly provedené po jedné a před finálním zeleným během vždy vrácené.
+Neautorizovaný GPU/modelový běh ani Studio runtime se v tomto checkpointu
+nespouštěl.

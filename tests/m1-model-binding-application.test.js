@@ -4466,6 +4466,57 @@ await testAsync('HTTP and chat strip caller authority and use the same applicati
   });
 });
 
+async function assertHttpModelRouteRejectsInvalidRoles(endpoint) {
+  await withFixture(async ({ db }) => {
+    const calls = [];
+    const fakeApplication = {
+      async beginManualBinding(input) {
+        calls.push({ kind: 'apply', input });
+        throw new Error('invalid role reached apply authority');
+      },
+      async rollbackManualBinding(input) {
+        calls.push({ kind: 'rollback', input });
+        throw new Error('invalid role reached rollback authority');
+      },
+    };
+    const invalidRoles = [
+      'constructor',
+      '__proto__',
+      'chat',
+      'CHAT ',
+      1,
+      {},
+      [],
+      Object('CHAT'),
+    ];
+
+    for (const role of invalidRoles) {
+      const responses = [];
+      const routes = createSystemRoutes({
+        db: { db },
+        modelRegistry: null,
+        modelBindingApplication: fakeApplication,
+        parseBody: async () => ({ role, targetModel: 'fixture-target' }),
+        sendJSON: (_res, status, body) => responses.push({ status, body }),
+      });
+
+      await routes[endpoint]({}, {});
+
+      assertEqual(responses.length, 1);
+      assertEqual(responses[0].status, 400);
+      assertEqual(calls.length, 0, `${endpoint} leaked invalid role to application authority`);
+    }
+  });
+}
+
+await testAsync('HTTP apply rejects inherited or non-exact model roles before application authority', async () => {
+  await assertHttpModelRouteRejectsInvalidRoles('POST /api/system/upgrades/apply');
+});
+
+await testAsync('HTTP rollback rejects inherited or non-exact model roles before application authority', async () => {
+  await assertHttpModelRouteRejectsInvalidRoles('POST /api/system/upgrades/rollback');
+});
+
 await testAsync('HTTP and chat present same-target acceptance without a false change', async () => {
   await withFixture(async ({ db, events, application }) => {
     const responses = [];
