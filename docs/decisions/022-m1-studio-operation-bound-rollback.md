@@ -1,7 +1,8 @@
 # 022 — Studio rollback musí být svázaný s přesnou neúspěšnou operací
 
 - **typ:** BLOCK pouze pro akční Studio recovery povrch po `upgrade_verify_failed`
-- **stav rozhodnutí:** DECISION_REQUIRED; současné textové varování zůstává bezpečné
+- **stav rozhodnutí:** A PŘIJATO operátorem 2026-08-09 včetně obousměrného
+  version-skew požadavku; akční recovery povrch je odemčený
 - **WP:** WP-M1-STUDIO / B4 + WP-M1-MODEL / binding application
 - **rail:** R1, R2, R3, R5, R6
 - **vzniklo při:** návrhu explicitního rollback tlačítka podle 018/Q1+A/Q4+A
@@ -61,6 +62,22 @@ novější different-target apply, ztracený `model_changed`, replay starého
 failure eventu, změněnou revision/attempt identitu, double click a non-2xx
 odpověď. Odstranění kteréhokoli CAS členu musí odpovídající test zčervenat.
 
+### Obousměrný version skew — operátorská korekce 2026-08-09
+
+Rozšíření failure eventu o `operationId`, `committedBindingRevision` a
+`failedAttemptRevision` je aditivní změna veřejného WS payloadu. Nestačí ověřit
+jen jeden směr:
+
+- **starý klient + nový event:** neznámá pole se ignorují, klient nespadne a
+  dnešní textové varování se zobrazí beze změny;
+- **nový klient + starý nebo neúplný event:** klient zobrazí pouze varování a
+  akční rollback tlačítko **nikdy** nenabídne bez kompletní přesné identity.
+  Chybějící člen identity není důvod k fallbacku na `{role}`.
+
+Druhý směr je ten nebezpečný: cachovaný nový bundle proti staršímu serveru nebo
+replayovanému eventu nesmí uživateli nabídnout akci, kterou repository nedokáže
+svázat s konkrétní operací.
+
 ## Přesná otázka pro operátora
 
 ```text
@@ -69,7 +86,9 @@ odpověď. Odstranění kteréhokoli CAS členu musí odpovídající test zčer
 022-stale-action: HTTP-409-before-effect
 022-success-clear: best-effort-UX-only
 022-role-only: REJECT
+022-version-skew: BIDIRECTIONAL-REQUIRED
+022-incomplete-identity: WARN-ONLY-NEVER-ACTIONABLE
 ```
 
-Do odpovědi se nepřidává rollback tlačítko ani nový veřejný payload. Nezávislé
-M1 práce mohou pokračovat; blokuje se pouze akční Studio recovery povrch.
+Operátor tento blok přijal 2026-08-09. Rollback tlačítko a rozšířený event se
+implementují v rozsahu varianty A.

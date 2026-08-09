@@ -1,7 +1,9 @@
 # 021 — Produkční ACK M1 wire čeká na attachment a effect-authority policy
 
 - **typ:** BLOCK pouze pro produkční zapnutí `m1-wire-v1`
-- **stav rozhodnutí:** DECISION_REQUIRED; exact adapter je bezpečně dormantní
+- **stav rozhodnutí:** B / REJECT / A / B PŘIJATO operátorem 2026-08-09 včetně
+  korekce autority limitů; produkční ACK zůstává BLOCKED do obou negativních
+  sad a built journey
 - **WP:** WP-M1-STUDIO / B4
 - **rail:** R1, R2, R3, R5, R6
 - **vzniklo při:** implementaci accepted 017/A+A ingress/egress a terminal ledgeru
@@ -47,9 +49,38 @@ uživateli znefunkčnil dnes živé přílohy.
 | D — přijmout legacy path | Backend dál čte callerem zadanou cestu. | Nepřijatelné: nová nebrokerovaná filesystem authority. |
 
 **Doporučení:** B. Je to nejmenší behavior-preserving šev: obsah už Studio
-lokálně vlastní, zatímco path se explicitně zahodí. Přesné limity se nejprve
-odvodí z dnešních 1 MiB text / 5 MiB image limitů a z maximálního počtu
-souborů v UI; nesmějí se odhadnout ani převzít pouze z klienta.
+lokálně vlastní, zatímco path se explicitně zahodí. Odkud se berou přesné
+limity, řeší korekce níže — nesmějí se odhadnout ani převzít z klienta.
+
+#### Autorita limitů — operátorská korekce 2026-08-09
+
+Review původně odvozovalo limit ze slideru `c3.system.maxFileSize`. To je
+špatná autorita. Skutečné hodnoty jsou `config.limits.maxTextAttachment`
+(1 MB) a `config.limits.maxImageAttachment` (5 MB), obojí přepsatelné přes
+`C3_MAX_TEXT_ATTACHMENT` / `C3_MAX_IMAGE_ATTACHMENT`; Studio je přebírá
+z health response do `_MAX_TEXT_SIZE` / `_MAX_IMG_SIZE`. Slider do 10 MiB je od
+této cesty dnes odpojený a nesmí se stát vstupem wire policy.
+
+Další čtyři fakta, která policy nesmí domyslet:
+
+1. strop 256 CoreEventů a 1 048 576 bajtů na turn níže je limit **serverových
+   CoreEventů směrem ke klientovi**, ne limit uploadu; nesmí se recyklovat jako
+   attachment cap;
+2. dnešní UI nemá žádný počet příloh; count limit je proto **nová** explicitní
+   runtime policy, ne převzatá hodnota;
+3. WS server nemá projektový `maxPayload`, takže dnes platí jen default
+   knihovny — vlastní strop musí vzniknout s policy;
+4. Electron picker vrací primárně cestu, nikoli bajty. Inline-only proto
+   potřebuje byte bridge navázaný na uživatelské gesto; bez něj by uživatel
+   viděl nereagující `NOT_SENT` u souboru, který si právě vybral.
+
+Velikost se měří jednoznačně: text jako UTF-8 bajty, obrázek jako dekódované
+bajty, aggregate rovněž dekódovaně a navíc strop na celý serializovaný frame.
+Klientské odmítnutí je typované, viditelné a neretryovatelné `NOT_SENT`; server
+tutéž policy znovu ověří **před** controller efektem. `path` se v DTO
+nevyskytuje vůbec, ani jako `null`. Prázdný text zůstává legitimní obsah `""`,
+nikoli chybějící content. Binární přílohy mimo schválené obrázkové typy jsou
+odmítnuté.
 
 ### R2 — Legacy WS po chat success automaticky vykoná shell effect
 
@@ -104,8 +135,17 @@ potom lze candidate změnit z focused PASS na built evidence.
 021-shell-now: A-honest-no-effect-terminal
 021-shell-target: B-M2-effect-authority
 021-production-ack: AFTER-BOTH-NEGATIVE-SUITES-AND-BUILT-JOURNEY
+021-attachment-policy-authority: NORMALIZED-SERVER-RUNTIME-CONFIG
+021-attachment-policy-delivery: VERSIONED-M1-NEGOTIATION-METADATA
+021-attachment-count-source: NEW-EXPLICIT-RUNTIME-POLICY
+021-attachment-size-semantics: TEXT-UTF8+IMAGE-DECODED+AGGREGATE-DECODED+WHOLE-FRAME-UTF8
+021-attachment-client-rejection: TYPED-VISIBLE-NONRETRYABLE-NOT_SENT
+021-attachment-server-revalidation: REQUIRED-BEFORE-CONTROLLER
+021-electron-file-source: USER-GESTURE-BYTES-OR-TYPED-NOT_SENT
+021-binary-policy: REJECT
 ```
 
-Do odpovědi lze commitnout dormantní server adapter a Studio ledger, protože
-produkční ACK zůstává vypnutý. Nesmí se aktivovat `m1WireSupported` v
-`src/server.js`, rozšířit attachment policy ani zdědit legacy shell effect.
+Operátor tento blok přijal 2026-08-09. Produkční ACK tím **není** povolený:
+`m1WireSupported` v `src/server.js` zůstává vypnutý, dokud neproběhnou obě
+negativní sady a built journey. Attachment policy se nesmí rozšířit nad tento
+blok a legacy shell effect se nedědí.

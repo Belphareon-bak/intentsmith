@@ -1,7 +1,8 @@
 # 015 — D+ potřebuje schválenou role-suite proof policy
 
 - **typ:** BLOCK pouze pro vydání PASS proofu a terminal activation
-- **stav rozhodnutí:** C IMPLEMENTOVÁNO; A + PROVIZORNÍ 7D ČEKAJÍ NA POTVRZENÍ TRIGGERU
+- **stav rozhodnutí:** C IMPLEMENTOVÁNO; A + PROVIZORNÍ 7D PŘIJATO operátorem
+  2026-08-09 včetně striktní expiry hrany
 - **WP:** WP-M1-MODEL / B3-FAILOVER
 - **rail:** R1, R3, R5, R6
 - **vzniklo při:** call-graph auditu authority pro rozhodnutí 006/D+
@@ -205,8 +206,26 @@ Přesný potvrzovací blok:
 015-restore: FRESH_DESIRED_PROOF_OR_EXPLICIT_USER_BINDING
 015-storage: content-addressed
 015-calibration: mandatory-per-test
+015-expiry-edge: NEW-ADDITIVE-MIGRATION-STRICT-LESS-THAN
 ```
 
-Do potvrzení se nepřidává další proof aparát ani terminal writer. Nejmenší
-navazující hodnotný blok je až proof issuer s aditivní storage vazbou na oba
-artefaktové hashe, source revision a živý measurement contract.
+Operátor tento blok přijal 2026-08-09. Nejmenší navazující hodnotný blok je
+proof issuer s aditivní storage vazbou na oba artefaktové hashe, source revision
+a živý measurement contract.
+
+## Striktní expiry hrana — operátorská korekce 2026-08-09
+
+Migrace 046 skutečně používá inkluzivní `proof.expires_at_ms >= NEW.…` na
+čtyřech místech (`244`, `267`, `618`, `635`), zatímco přijatý význam je striktní
+`now < expiresAt`. Rozdíl je jedna milisekunda, ale je to milisekunda, ve které
+by expirovaný proof ještě aktivoval failover.
+
+046 je aplikovaná a chráněná identity guardem, takže se **needituje**. Hranu
+sjednotí nová aditivní migrace, která dotčené triggery bezpečně nahradí.
+Rovnost `now === expiresAt` musí být povinný negativní test: proof v tom
+okamžiku už není způsobilý.
+
+Číslo migrace je **059**, rezervované společně s **058** pro rozhodnutí 020
+z jednoho union census přes všechny aktivní větve. `055`–`057` jsou obsazené
+mobilními migracemi z `d6fee86f`; ordinály `046`–`051` už v historii kolidují
+napříč větvemi, takže rezervace musí být zapsaná, ne dopočítaná při zápisu.

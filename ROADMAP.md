@@ -1232,9 +1232,29 @@ mohou pokračovat.
    invalidovaný kvůli dvěma writerům v jednom checkoutu a nesmí být vydán za
    kladný ekonomický výsledek.
 5. B1 contract a B2 chat jsou implementované; Gate 1 volby 001–014 jsou
-   schválené a zapsané. Proof-policy otázka 015 má implementovaný vratný
-   measurement-only default C; operátorské prahy A/B a proof TTL zůstávají
-   otevřené. B3 a B4 proto zůstávají pravdivě `BLOCKED`.
+   schválené a zapsané. **Operátor 2026-08-09 přijal i zbývající pětici
+   015/020/021/022/023** — 015 `A + 7d provisional`, 020 `E`, 021
+   `B/REJECT/A/B`, 022 `A`, 023 `A` — vždy s korekcemi zapsanými v příslušném
+   dokumentu. Přijetí odemyká implementaci; neodemyká aktivaci. Terminal
+   activation proofu (015), produkční ACK `m1-wire-v1` (021) i globální GPU
+   residency (023, M2) zůstávají mimo tuto dávku, takže B3 a B4 jsou dál
+   pravdivě `BLOCKED` až do svých vlastních důkazů.
+
+   **Závazná Gate 1 fronta** v tomto pořadí:
+
+   | # | Položka | Proč tady |
+   |---|---|---|
+   | 1 | 023 VRAM delete race | aditivní, bez veřejného kontraktu a bez GPU |
+   | 2 | 022 operation-bound recovery | nejmenší code položka, offline ověřitelná |
+   | 3 | společná rezervace migrací | union census přes všechny větve; `058` = 020, `059` = 015 |
+   | 4 | 020 oddělená policy storage | první migrační položka |
+   | 5 | 015 proof issuance | druhá migrační položka, těží ze stejného census |
+   | 6 | 021 built journey | jediná položka vázaná na drahou Studio infrastrukturu |
+   | 7 | autorizovaný GPU pilot | sériově, jedna role/digest, jen na akci operátora |
+
+   Levné a bezpečnostní změny se tím dokončí před drahou Studio
+   infrastrukturou a obě migrační položky dostanou čísla z jednoho census.
+   `055`–`057` jsou obsazené mobilními migracemi z `d6fee86f`.
 6. **B3-IDENTITY a B3-PROFILE jsou implementované a focused offline
    ověřené:** canonical presence
    identity chrání schválené binding/delete/cleanup cesty a integrity scan je

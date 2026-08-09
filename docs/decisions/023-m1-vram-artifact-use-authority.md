@@ -1,7 +1,8 @@
 # 023 — VRAM cesta musí oddělit ochranu artefaktu od GPU residency
 
 - **typ:** BLOCK pouze pro poslední VRAM hranu model-delete C2
-- **stav rozhodnutí:** DECISION_REQUIRED; současný VRAM manager autoritu nekonzultuje
+- **stav rozhodnutí:** A PŘIJATO operátorem 2026-08-09 včetně korekce lease expiry;
+  implementace poslední VRAM hrany je odemčená
 - **WP:** WP-M1-MODEL-CLEANUP-AUTHORITY / C2
 - **rail:** R1, R3, R5, R6
 - **vzniklo při:** source-to-effect kontrole páté živé model-use cesty
@@ -58,7 +59,25 @@ Povinné negativní důkazy:
 - fetch/body/task failure uvolní všechny leases;
 - `name` a `name:latest` vytvoří jednu canonical rezervaci;
 - `VRAM_ARTIFACT_USE` a `LLM_GATEWAY` mohou současně držet shared lease — tím
-  test pinuje, že checkpoint potichu netvrdí globální GPU autoritu.
+  test pinuje, že checkpoint potichu netvrdí globální GPU autoritu;
+- delete během běžícího media tasku selže typovaně a okamžitě, bez čekání a bez
+  uvolnění lease časem.
+
+## Operátorská korekce 2026-08-09 — delete busy a expirace lease
+
+Review upozornilo, že shared lease držený od dequeue přes celý ComfyUI job
+odmítne `MODEL_DELETE` po celou dobu generování, a navrhlo lease TTL nebo
+heartbeat. Operátor TTL **zamítl**: bezpečnostní lease s expirací je horší než
+žádný. Pokud dlouhý task model stále používá a lease vyprší, `MODEL_DELETE`
+smaže artefakt uprostřed práce — přesně ta hrana, kterou toto rozhodnutí
+uzavírá. Držení až do `finally` výše zůstává závazné.
+
+Delete se proto při konfliktu chová fail-fast a pravdivě: typovaný
+`MODEL_DELETE_IN_USE` bez čekání, bez tiché retry a bez slibu, kdy model bude
+volný. Zaseklý nebo neukončený media task tím může blokovat delete neomezeně
+dlouho; to je pojmenovaný residual pro M2 task supervision, nikoli důvod
+oslabit lease. Heartbeat nebo fenced TTL dává smysl teprve u durable či
+multiprocess autority v M2, kde držitele lze nezávisle ověřit.
 
 ## Residualy po variantě A
 
@@ -69,6 +88,8 @@ Povinné negativní důkazy:
 - authority zůstává single-process;
 - remote provider scope, stalled-pull recovery a append-only delete audit
   zůstávají otevřené;
+- zaseklý media task drží shared lease bez horního limitu a blokuje delete;
+  supervizi vlastní M2, ne tato hrana;
 - provider outcome v dnešním unload/reload kódu není vždy pravdivý.
 
 ## Přesná otázka pro operátora
@@ -82,7 +103,11 @@ Povinné negativní důkazy:
 023-conflict: FAIL-BEFORE-AFFECTED-PROVIDER-EFFECT
 023-global-gpu-residency: DEFERRED(M2-GPU-EFFECT-AUTHORITY)
 023-public-connector: UNCHANGED
+023-delete-busy: TYPED-FAIL-FAST
+023-lease-expiry: NONE-IN-SINGLE-PROCESS
+023-release: TASK-FINALLY-ONLY
+023-stalled-task: NAMED-RESIDUAL-FOR-M2-SUPERVISION
 ```
 
-Do potvrzení se `src/media/**` ani owner vocabulary nemění. Nezávislá M1
-práce pokračuje; blokovaná je pouze poslední VRAM hrana cleanup C2.
+Operátor tento blok přijal 2026-08-09. `src/media/**` i owner vocabulary se
+mění pouze v rozsahu varianty A; globální GPU residency zůstává v M2.
