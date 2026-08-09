@@ -1181,9 +1181,10 @@ restartu; rollback je nový přímý reversal, nikdy `DELETE` lineage.
 
 Výstup zůstává pravdivě `PENDING_MANUAL / NOT_VERIFIED / NOT_APPLIED`.
 Repository nevytváří proof, `model_overrides`, runtime config ani broadcast.
-Aktivní, `FAILED` a `RESTORED` incidenty vracejí typovaný runtime-coordinator
-blocker včetně `activeFailover` a `failurePhase`. Failure injection po
-retirementu u apply i rollback obnoví celý authority snapshot.
+Aktivní incident vrací typovaný runtime-coordinator blocker s rolí, epizodou a
+stavem. `FAILED` a `RESTORED` blocker navíc nesou `activeFailover` a
+`failurePhase`. Failure injection po retirementu u apply i rollback obnoví
+celý authority snapshot.
 
 Při implementaci čtyři repository mutace prokázaly samostatný červený signál: odstranění exact
 input allowlistu skončilo `13/1`, odstranění `FAILED` guardu `13/1`, odstranění
@@ -1234,6 +1235,13 @@ použila skutečný `git commit --allow-empty`; nemění source piny a rerun sko
   zmrazilo. Historie se nepřepisuje; odchylka je zde explicitní. Nebyl změněn
   `CONTRACT.md` §6, `ROADMAP.md` §12, žádný `docs/wp/**` ani zmrazený
   `docs/review/2026-08-08-*` soubor.
+- **Integrační dispozice 2026-08-09:** obsah změn `SYSTEM-MAP.md`, rozhodnutí,
+  findingu a `README.md` byl po skončení překryvu znovu porovnán se skutečným
+  repository kontraktem a je přijat `ACCEPTED_WITH_PROCESS_DEVIATION`. Historie
+  se nepřepisuje: odchylka nemění produktový connector ani měřený checkpoint,
+  ale není precedentem pro obcházení hard allowlistu. Vlastníkem uzavření je
+  hlavní integrační vlastník; termín byl tento evidence follow-up před dalším
+  B3 runtime checkpointem.
 - Šest cizích pilotních/governance souborů v pracovním stromu zůstalo
   nedotčených a nevstupuje do tohoto reportu ani commitu. Push nebyl proveden.
 

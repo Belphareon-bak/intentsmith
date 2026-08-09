@@ -322,6 +322,16 @@ Po tomto commitu je `git status` skutečně čistý: B3-owned cesty jsou commitn
 do `eb7e78b8`, následný Studio checkpoint do `2ead4662` a governance artefakty
 v tomto commitu.
 
+### Post-integration disposition B3 scope odchylky
+
+Integrační review 2026-08-09 potvrdilo, že B3 commity `63e86293` a `515fb6f7`
+vedle vlastněného `ROADMAP.md §5` změnily také tehdy zmrazené `SYSTEM-MAP.md` a
+ve druhém commitu `README.md`. Obsah odpovídá implementovanému repository
+kontraktu, a proto je přijat jako `ACCEPTED_WITH_PROCESS_DEVIATION` bez přepisu
+historie. Toto přijetí je jednorázová dispozice dokončeného překryvu, nikoli
+uvolnění hard allowlistu pro další WP. Pravdivá technická evidence a přesný
+rozsah odchylky jsou v `docs/execution/runs/wp-m1-model-report.md`.
+
 ### Ratchet je zároveň odpovědí na otevřený bod P6
 
 `2026-08-07-MODULE-GRAPH.md` §7 říká, že průběžné hlídání driftu je nový aparát
