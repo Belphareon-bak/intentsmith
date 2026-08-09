@@ -978,7 +978,12 @@ function assertTrackedBlob(root, revision, path, expectedMode = '100644') {
   return fields[2];
 }
 
-function verifyBaselineProvenance(root, baselinePath, baseline) {
+function verifyBaselineProvenance(
+  root,
+  baselinePath,
+  baseline,
+  { allowSpecialistsTreeDrift = false } = {},
+) {
   const path = baselineRelative(root, baselinePath);
   runGit(root, ['cat-file', '-e', `${baseline.sourceRevision}^{commit}`]);
   const ancestor = runGit(root, ['merge-base', '--is-ancestor', baseline.sourceRevision, 'HEAD'], { allowFailure: true });
@@ -992,7 +997,8 @@ function verifyBaselineProvenance(root, baselinePath, baseline) {
   }
   const currentTree = runGit(root, ['rev-parse', `HEAD:${SPECIALISTS_RELATIVE}`]).stdout.trim();
   const currentScanner = runGit(root, ['rev-parse', `HEAD:${SCRIPT_RELATIVE}`]).stdout.trim();
-  if (currentTree !== baseline.specialistsTree || currentScanner !== baseline.scannerBlob) {
+  if (currentScanner !== baseline.scannerBlob
+      || (!allowSpecialistsTreeDrift && currentTree !== baseline.specialistsTree)) {
     throw new BoundaryError('STALE_PROVENANCE', 'current specialist tree or scanner differs from the baseline provenance');
   }
   const currentBlob = assertTrackedBlob(root, 'HEAD', path);
@@ -1121,6 +1127,12 @@ function writeBaseline(options) {
   let exceptions;
   if (options.expireOwner) {
     const current = validateBaseline(readJson(options.baseline, 'INVALID_BASELINE'));
+    verifyBaselineProvenance(
+      options.root,
+      options.baseline,
+      current,
+      { allowSpecialistsTreeDrift: true },
+    );
     if (current.exceptions.length === 0 || current.exceptions.some((entry) => entry.owner !== options.expireOwner)) {
       throw new BoundaryError('OWNER_EXPIRY_MISMATCH', `all existing exceptions must belong to ${options.expireOwner}`, 1);
     }

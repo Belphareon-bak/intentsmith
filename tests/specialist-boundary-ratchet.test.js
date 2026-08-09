@@ -575,6 +575,27 @@ exec "$IS_REAL_GIT" "$@"
     assertIncludes(normal, 'references=0 exceptions=0');
   });
 
+  test('owner expiry rejects a manually rewritten input baseline', () => {
+    const repo = makeRepo({
+      'specialists/alpha/index.js': "import '../../src/expertises/core.js';\n",
+    }, 'expiry-provenance');
+    const owner = 'WP-M3-L0-8-INJECTION';
+    const acceptance = 'runtime|specialists/alpha/index.js -> src/expertises/core.js|1';
+    assertStatus(bootstrap(repo, [acceptance], owner), 0);
+    commitBaseline(repo);
+
+    const baselinePath = join(repo, 'tests/fixtures/specialist-boundary/baseline.json');
+    const baseline = JSON.parse(readFileSync(baselinePath, 'utf8'));
+    write(baselinePath, `${JSON.stringify(baseline)}\n`);
+    commitAll(repo, 'manual valid baseline rewrite');
+    write(join(repo, 'specialists/alpha/index.js'), 'export const alpha = true;\n');
+    commitAll(repo, 'remove specialist reference after rewrite');
+
+    const result = run(repo, ['--write-baseline', '--expire-owner', owner]);
+    assertStatus(result, 2);
+    assertIncludes(result, 'INVALID_BASELINE_ISSUANCE');
+  });
+
   test('temporary mutation fails and exact byte restoration returns to the prior result', () => {
     const repo = makeRepo({ 'specialists/alpha/index.js': 'export const alpha = true;\n' }, 'mutation');
     const sourcePath = join(repo, 'specialists/alpha/index.js');
