@@ -30,13 +30,18 @@ import {
   OllamaModelBindingProvider,
   createModelBindingApplication,
 } from '../src/upgrade/model-binding-application.js';
-import { canonicalModelName } from '../src/upgrade/model-identity.js';
+import {
+  canonicalModelName,
+  sameModelName,
+} from '../src/upgrade/model-identity.js';
 import { ModelRegistry } from '../src/upgrade/model-registry.js';
 import { UpgradeManager } from '../src/upgrade/upgrade-manager.js';
 import { createSystemRoutes } from '../src/routes/system.js';
 import {
   preHandle,
   setModelBindingApplication,
+  setModelRegistry,
+  setUpgradeManager,
 } from '../src/chat/handlers/pre-handler.js';
 import {
   _testInternals as wsServerTestInternals,
@@ -424,6 +429,52 @@ function latestOperation(repository, role = 'CHAT') {
 }
 
 suite('M1 model binding application — one truthful commit point');
+
+await testAsync('delete protection exposes current desired and one-step rollback identities', async () => {
+  await withFixture(async ({ application }) => {
+    const before = application.getProtectedModelNames();
+    assert(before.some(model => sameModelName(model, 'fixture-base')));
+
+    await application.applyManualBinding({
+      role: 'CHAT',
+      targetModel: 'fixture-target',
+    });
+    const after = application.getProtectedModelNames();
+    assert(after.some(model => sameModelName(model, 'fixture-target')));
+    assert(after.some(model => sameModelName(model, 'fixture-base')));
+  });
+});
+
+await testAsync('model delete reservation excludes binding apply before any runtime or provider effect', async () => {
+  await withFixture(async ({ db, manager, provider, application }) => {
+    const entered = deferred();
+    const release = deferred();
+    const deletion = application.runExclusiveModelMutation(
+      { kind: 'MODEL_DELETE' },
+      async () => {
+        entered.resolve();
+        await release.promise;
+        return { ok: true };
+      },
+    );
+    await entered.promise;
+
+    const error = await captureError(application.applyManualBinding({
+      role: 'CHAT',
+      targetModel: 'fixture-target',
+    }));
+    assertEqual(error.code, 'MODEL_BINDING_APPLICATION_BUSY');
+    assertEqual(error.httpStatus, 409);
+    assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-base');
+    assertEqual(provider.calls.resolve, 0);
+    assertEqual(provider.calls.ensure, 0);
+    assertEqual(provider.calls.pull, 0);
+    assertEqual(count(db, 'model_binding_operations'), 0);
+
+    release.resolve();
+    assertEqual((await deletion).ok, true);
+  });
+});
 
 await testAsync('apply commits runtime and audit before exact verification can claim verified', async () => {
   await withFixture(async ({ db, repository, manager, provider, events, application }) => {
@@ -3471,6 +3522,16 @@ await testAsync('strict provider rejects non-loopback, ambiguity, missing digest
   ]).resolveExact('fixture'));
   assertEqual(missingDigest.code, 'MODEL_BINDING_TARGET_DIGEST_MISSING');
 
+  const prefixed = await providerFor([
+    { name: 'fixture', digest: `sha256:${DIGEST_A}` },
+  ]).resolveExact('fixture');
+  assertEqual(prefixed.digestSha256, DIGEST_A);
+
+  const wrongPrefix = await captureError(providerFor([
+    { name: 'fixture', digest: `sha512:${DIGEST_A}` },
+  ]).resolveExact('fixture'));
+  assertEqual(wrongPrefix.code, 'MODEL_BINDING_TARGET_DIGEST_MISSING');
+
   const drift = await captureError(providerFor([
     { name: 'fixture', digest: DIGEST_A },
   ]).resolveExact('fixture', { expectedDigestSha256: DIGEST_B }));
@@ -3701,6 +3762,142 @@ await testAsync('production pull composition performs tags-pull-tags on one pinn
   assert(progress.some(entry => entry.status === 'success'));
 });
 
+await testAsync('chat cleanup adapter consumes one exact registry plan and one single-use approval', async () => {
+  const prepared = [];
+  const deleted = [];
+  const candidates = [{
+    model: 'cleanup-fixture',
+    replacedBy: 'fixture-target',
+    appliedAt: '2026-07-01 00:00:00',
+  }];
+  const sessionState = {
+    _cleanupCandidates: [{
+      model: 'stale-session-fixture',
+      replacedBy: 'fixture-target',
+      appliedAt: '2026-07-01 00:00:00',
+    }],
+  };
+  setUpgradeManager({
+    _db: {},
+    getUnusedOldModels() {
+      return candidates;
+    },
+  });
+  setModelRegistry({
+    isDeletable() {
+      return { deletable: true };
+    },
+    async prepareDeletePlans(names) {
+      prepared.push([...names]);
+      return Object.freeze([Object.freeze({
+        exactName: 'cleanup-fixture:latest',
+        canonicalName: 'cleanup-fixture',
+        digestSha256: DIGEST_A,
+      })]);
+    },
+    async deleteModel(name, options) {
+      deleted.push({ name, options });
+      return { ok: true, deleted: name, digestSha256: DIGEST_A, freedGB: '1.0' };
+    },
+  });
+  try {
+    const withoutSession = await preHandle('smaz stare modely', {
+      sessionId: 'cleanup-session',
+      conversationId: 'cleanup-conversation',
+    }, 'CONVERSATION');
+    assertEqual(withoutSession.handled, true);
+    assertEqual(withoutSession.response.tag.metadata.errorCode, 'MODEL_DELETE_SESSION_REQUIRED');
+    assertEqual(prepared.length, 0);
+
+    const preview = await preHandle('smaz stare modely', {
+      sessionState,
+      sessionId: 'cleanup-session',
+      conversationId: 'cleanup-conversation',
+    }, 'CONVERSATION');
+    assertEqual(preview.handled, true);
+    assertEqual(preview.response.tag.metadata.modelCleanupPrepared, true);
+    assertEqual(JSON.stringify(prepared), JSON.stringify([['cleanup-fixture']]));
+    assertEqual(deleted.length, 0);
+    assertEqual(sessionState._pendingModelCleanup.length, 1);
+
+    const confirmation = await preHandle('potvrdit smazani modelu', {
+      sessionState,
+      sessionId: 'cleanup-session',
+      conversationId: 'cleanup-conversation',
+    }, 'CONVERSATION');
+    assertEqual(confirmation.handled, true);
+    assertEqual(confirmation.response.tag.metadata.modelCleanup, true);
+    assertEqual(JSON.stringify(deleted), JSON.stringify([{
+      name: 'cleanup-fixture:latest',
+      options: { source: 'USER_CHAT', expectedDigestSha256: DIGEST_A },
+    }]));
+    assertEqual(sessionState._pendingModelCleanup, null);
+    assertEqual(sessionState._cleanupCandidates, null);
+
+    const replay = await preHandle('potvrdit smazani modelu', {
+      sessionState,
+      sessionId: 'cleanup-session',
+      conversationId: 'cleanup-conversation',
+    }, 'CONVERSATION');
+    assertEqual(replay.handled, true);
+    assertEqual(deleted.length, 1);
+  } finally {
+    setModelRegistry(null);
+    setUpgradeManager(null);
+  }
+});
+
+await testAsync('real post-apply chat cleanup parks the protected one-step rollback model', async () => {
+  await withFixture(async ({ db, manager, application }) => {
+    await application.applyManualBinding({
+      role: 'CHAT',
+      targetModel: 'fixture-target',
+    });
+    db.prepare(`
+      UPDATE model_overrides
+      SET applied_at = '2026-07-01 00:00:00'
+      WHERE role = 'CHAT'
+    `).run();
+
+    let inventoryCalls = 0;
+    const registry = new ModelRegistry();
+    registry.init({
+      db,
+      upgradeManager: manager,
+      modelBindingApplication: application,
+      validationRunner: null,
+      broadcast: () => {},
+    });
+    registry.getInstalled = async () => {
+      inventoryCalls += 1;
+      return [{
+        name: 'fixture-base:latest',
+        digest: DIGEST_A,
+        digestSha256: DIGEST_A,
+        sizeGB: '1.0',
+      }];
+    };
+    setUpgradeManager(manager);
+    setModelRegistry(registry);
+    try {
+      const sessionState = {};
+      const result = await preHandle('smaz stare modely', {
+        sessionState,
+        sessionId: 'protected-cleanup-session',
+        conversationId: 'protected-cleanup-conversation',
+      }, 'CONVERSATION');
+      assertEqual(result.handled, true);
+      assertEqual(result.response.content, 'Zadne nepouzivane modely k odstraneni.');
+      assertEqual(sessionState._pendingModelCleanup, undefined);
+      assertEqual(inventoryCalls, 0);
+      assert(application.getProtectedModelNames().some(model => sameModelName(model, 'fixture-base')));
+    } finally {
+      setModelRegistry(null);
+      setUpgradeManager(null);
+    }
+  });
+});
+
 await testAsync('source call graph has no production reference to legacy binding writers', async () => {
   const root = path.resolve('src');
   const files = [];
@@ -3745,6 +3942,13 @@ await testAsync('source call graph has no production reference to legacy binding
   assertEqual(
     JSON.stringify(modelChangedOwners),
     JSON.stringify(['upgrade/model-binding-application.js']),
+  );
+  const modelDeleteOwners = files.filter(file => (
+    readFileSync(file, 'utf8').includes('/api/delete')
+  )).map(file => path.relative(root, file));
+  assertEqual(
+    JSON.stringify(modelDeleteOwners),
+    JSON.stringify(['upgrade/model-registry.js']),
   );
 
   const server = readFileSync(path.join(root, 'server.js'), 'utf8');

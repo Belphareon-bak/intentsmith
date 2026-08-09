@@ -515,11 +515,20 @@ focused regression sady.
      comparisons v `model-registry.js` a `upgrade-manager.js`, plus přímý
      fallback `src/routes/system.js`. Pokryje registry, overview,
      usage/validation, `getUnusedOldModels()`, registry auto-clean a přímý
-     system-route fallback. Chatový cleanup je kanonicky chráněn při vytvoření
-     seznamu, ale jeho direct provider delete zůstává samostatný atomický
-     authority residual v `docs/findings/006-model-cleanup-bypasses-registry-guard.md`;
-     age-based cleanup navíc čeká na sjednocení SQLite/ISO timestampů ve
-     `docs/findings/007-model-cleanup-timestamp-ordering.md`;
+     system-route fallback. Navazující
+     [`WP-M1-MODEL-CLEANUP-AUTHORITY`](docs/wp/WP-M1-MODEL-CLEANUP-AUTHORITY.md)
+     centralizuje HTTP a scheduler delete do registry a odstraňuje direct chat
+     effect. Chatový candidate source dnes vrací právě one-step rollback model,
+     takže se před inventory pravdivě zaparkuje; funkční chatové odstranění
+     čeká na explicitní retirement pravidlo. Registry sdílí mutation owner s
+     binding application, chrání durable desired/rollback identitu,
+     dvakrát ověřuje exact name+digest a fail-close převádí všechny retention
+     timestampy na epoch; nulovou usage nepovažuje za důkaz nepoužití. Finding
+     007 je focused remediovaný; direct bypass a
+     assign/delete část findingu 006 jsou opravené. C1 ale netvrdí atomickou
+     ochranu proti concurrent pull po posledním snapshotu, aktivnímu model-use,
+     více procesům ani durable delete audit; tyto residualy vlastní
+     [`finding 010`](docs/findings/010-model-delete-use-and-audit-boundary.md);
      `checkBindingIntegrity()` přejde na `DETECTED/PROPOSED` a vytvoří přesně
      nula assign/override/broadcast efektů;
    - **B3-PROFILE (009/A):** jediný artefakt
@@ -1192,8 +1201,13 @@ mohou pokračovat.
 6. **B3-IDENTITY a B3-PROFILE jsou implementované a focused offline
    ověřené:** canonical presence
    identity chrání schválené binding/delete/cleanup cesty a integrity scan je
-   detection-only; atomický chat cleanup a retention-time residualy jsou
-   pravdivě oddělené jako findings 006 a 007. Sdílený runtime profil nyní
+   detection-only. Cleanup C1 nyní centralizuje HTTP/scheduler delete a
+   odstraňuje direct chat effect; dnešní chatový candidate source je celý
+   one-step rollback-protected a proto zůstává bezpečně zaparkovaný do
+   retirement rozhodnutí. Registry sdílí binding mutation owner, chrání durable desired/rollback identitu,
+   dvakrát ověřuje exact artifact a numericky fail-close řeší retention.
+   Finding 007 je focused remediovaný; finding 006 je `PARTIAL`, protože
+   durable audit a širší use/pull race čekají na finding 010. Sdílený runtime profil nyní
    omezuje oba gateway vstupy a conversation compaction; neprohlašuje GPU
    PASS. V jediném worktree po malých commitech následuje nový sériový T3 běh
    od 4096, potom **B3-FAILOVER**. Settings authority a fail-closed storage
@@ -1256,6 +1270,7 @@ mohou pokračovat.
 | Streaming v 1.0 | Po přijetí non-streaming M1 baseline | Cold/warm whole-response latency, cílový TTFT a cena změny tří connectorů. |
 | Strict injection versus veřejná extension boundary pro L0-8 | Před M3-BOUNDARY | Skutečný import graph, specialista E2E a nejmenší prototyp obou variant. |
 | Zachovat/odložit/ukončit upgrade automatiku 18b | Před M5 conditional freeze | Úmyslný check/approve/reject/rollback journey, outbound a údržbová cena. |
+| Topologie model delete/use authority | Před uzavřením cleanup C2 a L0-11 | Úplný call graph provider consumerů, race aktivní use→rebind→delete a dopad single-process versus durable cross-process claimu. |
 | Které notifications/marketplace/media plochy jsou podporované | Před M5-CONDITIONAL-SURFACES | Funkční Studio journey, prerekvizity a bezpečnostní/rollback náklady každé plochy. |
 | Open-source náhrada incumbent komponenty | Teprve při změřeném bottlenecku | Baseline, malý pilot, přínos funkcí/kvality, integrace, migrace a rollback. |
 | Remediace kompromitované Git historie | Před M6 freeze | Seznam typů tajemství k rotaci, dopad variant a výslovný operátorský souhlas. |

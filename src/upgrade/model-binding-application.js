@@ -8,7 +8,11 @@
 import { randomUUID } from 'node:crypto';
 import { config } from '../config.js';
 import { logger as defaultLogger } from '../core/logger.js';
-import { canonicalModelName, sameModelName } from './model-identity.js';
+import {
+  canonicalModelName,
+  normalizeModelDigestSha256,
+  sameModelName,
+} from './model-identity.js';
 
 const LOCAL_PROVIDER_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]']);
 const PROVIDER_CLAIM_HEARTBEAT_MS = 60 * 1000;
@@ -243,7 +247,7 @@ export class OllamaModelBindingProvider {
     return body.models.map(model => ({
       name: typeof model?.name === 'string' ? model.name.trim() : '',
       canonicalName: canonicalModelName(model?.name),
-      digestSha256: typeof model?.digest === 'string' ? model.digest.trim().toLowerCase() : '',
+      digestSha256: normalizeModelDigestSha256(model?.digest) || '',
     }));
   }
 
@@ -509,6 +513,53 @@ export class ModelBindingApplication {
       || this.verificationAttempts < 1) {
       fail('MODEL_BINDING_APPLICATION_OPTIONS_INVALID', 'Application callbacks are invalid');
     }
+  }
+
+  /**
+   * Share the binding application's fail-fast mutation owner with the one
+   * destructive model-maintenance operation that can invalidate a binding.
+   * The callback is an internal port, not caller data; public adapters never
+   * receive it or choose the mutation kind.
+   */
+  async runExclusiveModelMutation(inputValue, callback) {
+    const input = requireExactInput(inputValue, ['kind']);
+    if (input.kind !== 'MODEL_DELETE' || typeof callback !== 'function') {
+      fail(
+        'MODEL_BINDING_APPLICATION_INPUT_INVALID',
+        'Exclusive model mutation requires the MODEL_DELETE kind and a callback',
+      );
+    }
+    return this.#runExclusive('model-delete', callback);
+  }
+
+  /**
+   * Return the bounded set of model identities that the durable/runtime
+   * binding state still needs. The registry consumes this under the shared
+   * mutation owner before any destructive provider effect.
+   */
+  getProtectedModelNames() {
+    const protectedByCanonical = new Map();
+    const protect = value => {
+      const canonical = canonicalModelName(value);
+      if (!canonical || protectedByCanonical.has(canonical)) return;
+      protectedByCanonical.set(canonical, String(value).trim());
+    };
+
+    for (const role of Object.keys(config.models).sort()) {
+      protect(this.runtime.snapshot(role).modelName);
+      const desired = this.repository.getDesired(role);
+      protect(desired?.modelName);
+
+      const effective = this.repository.getEffectiveBinding(role);
+      const operation = effective?.operation || effective?.pendingOperation || null;
+      protect(operation?.previousModelName);
+      protect(operation?.targetModelName);
+
+      const providerOperation = this.repository.getRelevantProviderOperation(role);
+      protect(providerOperation?.requestedModelName);
+    }
+
+    return Object.freeze([...protectedByCanonical.values()]);
   }
 
   async applyManualBinding(inputValue) {

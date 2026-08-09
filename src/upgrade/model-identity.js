@@ -70,3 +70,20 @@ export function canonicalModelNameSet(values) {
   }
   return result;
 }
+
+/**
+ * Normalize the exact artifact digest returned by Ollama.
+ *
+ * Ollama inventories in the wild and in the repository's real-endpoint
+ * fixtures use both a bare 64-hex value and the conventional `sha256:`
+ * prefix.  Presence identity must never absorb this value: callers authorize
+ * an artifact only with the separately validated digest returned here.
+ *
+ * @param {unknown} value
+ * @returns {string|null}
+ */
+export function normalizeModelDigestSha256(value) {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim().toLowerCase().replace(/^sha256:/, '');
+  return /^[0-9a-f]{64}$/.test(normalized) ? normalized : null;
+}

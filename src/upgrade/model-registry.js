@@ -13,14 +13,17 @@ import {
   canonicalModelName,
   canonicalModelNameSet,
   modelNameAliases,
+  normalizeModelDigestSha256,
   sameModelName,
 } from './model-identity.js';
+import { readModelSettings } from '../db/user-settings.js';
 import { execSync } from 'child_process';
 import fs from 'fs';
 
 const VALIDATION_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 const OVERVIEW_CACHE_TTL = 30_000; // 30s
 const SUITES = ['reasoning', 'code', 'chat', 'vision', 'review'];
+const DELETE_SOURCES = new Set(['USER_REQUEST', 'USER_HTTP', 'USER_CHAT', 'AUTO_CLEANUP']);
 
 const ROLE_PROFILES = {
   D1:     { name: 'Hluboká analýza',   desc: 'Analýza, plánování, redesign. Vyžaduje reasoning + JSON.', suite: 'reasoning', color: '#8b5cf6' },
@@ -61,6 +64,97 @@ function shouldReplaceValidationScore(current, candidate) {
   return candidate.score > current.score;
 }
 
+function parseCleanupUtcTimestamp(value) {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim();
+  let match = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(normalized);
+  let milliseconds = 0;
+  if (!match) {
+    match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?Z$/.exec(normalized);
+    if (!match) return null;
+    milliseconds = Number((match[7] || '').padEnd(3, '0').slice(0, 3));
+  }
+  const [year, month, day, hour, minute, second] = match.slice(1, 7).map(Number);
+  if (year < 1970 || month < 1 || month > 12 || day < 1 || day > 31
+    || hour > 23 || minute > 59 || second > 59) return null;
+  const epochMs = Date.UTC(year, month - 1, day, hour, minute, second, milliseconds);
+  const roundTrip = new Date(epochMs);
+  if (roundTrip.getUTCFullYear() !== year
+    || roundTrip.getUTCMonth() !== month - 1
+    || roundTrip.getUTCDate() !== day
+    || roundTrip.getUTCHours() !== hour
+    || roundTrip.getUTCMinutes() !== minute
+    || roundTrip.getUTCSeconds() !== second
+    || roundTrip.getUTCMilliseconds() !== milliseconds) return null;
+  return epochMs;
+}
+
+export class ModelRegistryError extends Error {
+  constructor(code, message, options = {}) {
+    super(message, options);
+    this.name = 'ModelRegistryError';
+    this.code = code;
+    this.httpStatus = options.httpStatus || null;
+    this.details = options.details || null;
+  }
+}
+
+function registryFail(code, message, httpStatus, details = null) {
+  throw new ModelRegistryError(code, message, { httpStatus, details });
+}
+
+function resolveInstalledArtifact(inventory, requestedName, expectations = {}) {
+  const canonicalName = canonicalModelName(requestedName);
+  if (!canonicalName) {
+    registryFail('MODEL_DELETE_INPUT_INVALID', 'Model name is invalid', 400);
+  }
+  const matches = inventory.filter(model => canonicalModelName(model?.name) === canonicalName);
+  if (matches.length === 0) {
+    registryFail('MODEL_DELETE_NOT_INSTALLED', `Model není nainstalovaný: ${requestedName}`, 404);
+  }
+  if (matches.length !== 1) {
+    registryFail(
+      'MODEL_DELETE_IDENTITY_AMBIGUOUS',
+      `Více modelů sdílí identitu: ${requestedName}`,
+      409,
+      { matches: matches.map(model => model?.name).filter(Boolean).sort() },
+    );
+  }
+
+  const observed = matches[0];
+  const exactName = typeof observed?.name === 'string' ? observed.name.trim() : '';
+  const digestSha256 = observed?.digestSha256
+    || normalizeModelDigestSha256(observed?.digest);
+  if (!exactName || !digestSha256) {
+    registryFail(
+      'MODEL_DELETE_IDENTITY_INCOMPLETE',
+      `Model nemá úplnou provider identitu: ${requestedName}`,
+      409,
+    );
+  }
+  if (expectations.exactName !== undefined && exactName !== expectations.exactName) {
+    registryFail(
+      'MODEL_DELETE_ARTIFACT_DRIFT',
+      `Provider identity se změnila před odstraněním: ${requestedName}`,
+      409,
+      { expectedName: expectations.exactName, observedName: exactName },
+    );
+  }
+  if (expectations.digestSha256 !== undefined
+    && digestSha256 !== expectations.digestSha256) {
+    registryFail(
+      'MODEL_DELETE_ARTIFACT_DRIFT',
+      `Provider digest se změnil před odstraněním: ${requestedName}`,
+      409,
+      {
+        expectedDigestSha256: expectations.digestSha256,
+        observedDigestSha256: digestSha256,
+      },
+    );
+  }
+  return Object.freeze({ exactName, canonicalName, digestSha256 });
+}
+
 export class ModelRegistry {
   constructor() {
     this._db = null;
@@ -73,27 +167,49 @@ export class ModelRegistry {
     this._batchRunning = false;
     this._batchCancelled = false;
     this._validatingModel = null;
-    this._deleting = false;
+    this._cleanupRunning = false;
+    this._clock = Date.now;
   }
 
   /** Wire dependencies (called once in server.js) */
-  init({ db, upgradeManager, modelBindingApplication, validationRunner, broadcast }) {
+  init({ db, upgradeManager, modelBindingApplication, validationRunner, broadcast, clock }) {
     this._db = db;
     this._upgradeManager = upgradeManager;
     this._modelBindingApplication = modelBindingApplication || null;
     this._validationRunner = validationRunner;
     this._broadcast = broadcast || (() => {});
+    this._clock = typeof clock === 'function' ? clock : Date.now;
   }
 
   // ─── Core Queries ──────────────────────────────────────────────────────────
 
   /** Get installed Ollama models with parsed metadata */
-  async getInstalled() {
+  async getInstalled(options = {}) {
+    const strict = options?.strict === true;
     const baseUrl = config.ollama?.baseUrl || 'http://127.0.0.1:11434';
     try {
       const resp = await fetch(`${baseUrl}/api/tags`, { signal: AbortSignal.timeout(8000) });
-      if (!resp.ok) return [];
+      if (!resp.ok) {
+        if (strict) {
+          registryFail(
+            'MODEL_DELETE_INVENTORY_UNAVAILABLE',
+            `Ollama inventory returned ${resp.status}`,
+            503,
+          );
+        }
+        return [];
+      }
       const data = await resp.json();
+      if (!data || typeof data !== 'object' || !Array.isArray(data.models)) {
+        if (strict) {
+          registryFail(
+            'MODEL_DELETE_INVENTORY_UNAVAILABLE',
+            'Ollama inventory has an invalid shape',
+            503,
+          );
+        }
+        return [];
+      }
       return (data.models || []).map(m => {
         const parsed = parseModelName(m.name);
         return {
@@ -102,6 +218,7 @@ export class ModelRegistry {
           sizeGB: (m.size / 1_073_741_824).toFixed(1),
           modified_at: m.modified_at,
           digest: m.digest,
+          digestSha256: normalizeModelDigestSha256(m.digest),
           params: parsed.params ? parsed.params + 'B' : '?',
           family: parsed.family,
           category: parsed.category,
@@ -109,7 +226,15 @@ export class ModelRegistry {
         };
       });
     } catch (err) {
+      if (err instanceof ModelRegistryError) throw err;
       logger.warn('ModelRegistry', `Ollama unavailable: ${err.message}`);
+      if (strict) {
+        throw new ModelRegistryError(
+          'MODEL_DELETE_INVENTORY_UNAVAILABLE',
+          'Ollama inventory is unavailable',
+          { cause: err, httpStatus: 503 },
+        );
+      }
       return [];
     }
   }
@@ -139,14 +264,14 @@ export class ModelRegistry {
 
   /** Check if model can be deleted */
   isDeletable(modelName) {
-    if (this.isBound(modelName)) {
-      const roles = this.getBoundRoles(modelName).join(', ');
-      return { deletable: false, reason: `Model je přiřazený k rolím: ${roles}` };
-    }
-    if (sameModelName(this._validatingModel, modelName)) {
-      return { deletable: false, reason: 'Model je právě validován' };
-    }
-    return { deletable: true };
+    const blocked = this.#getDeleteBlock(modelName);
+    return blocked
+      ? { deletable: false, reason: blocked.message, code: blocked.code }
+      : { deletable: true, reason: null, code: null };
+  }
+
+  getModelSettings() {
+    return readModelSettings(this._db);
   }
 
   /** Get validation scores for a model across all suites */
@@ -232,21 +357,63 @@ export class ModelRegistry {
 
   /** Get last usage info for a model */
   getUsage(modelName) {
-    if (!this._db) return { lastUsedAt: null, requestCount: 0 };
+    if (!this._db) {
+      return {
+        lastUsedAt: null,
+        lastUsedAtMs: null,
+        requestCount: 0,
+        retentionValid: false,
+        reason: 'MODEL_USAGE_DB_UNAVAILABLE',
+      };
+    }
     const aliases = modelNameAliases(modelName);
-    if (aliases.length === 0) return { lastUsedAt: null, requestCount: 0 };
+    if (aliases.length === 0) {
+      return {
+        lastUsedAt: null,
+        lastUsedAtMs: null,
+        requestCount: 0,
+        retentionValid: false,
+        reason: 'MODEL_USAGE_IDENTITY_INVALID',
+      };
+    }
     try {
       const placeholders = aliases.map(() => '?').join(', ');
-      const row = this._db.prepare(
-        `SELECT MAX(used_at) as last_used, COUNT(*) as cnt
-         FROM model_usage WHERE lower(trim(model)) IN (${placeholders})`
-      ).get(...aliases);
+      const rows = this._db.prepare(
+        `SELECT used_at
+         FROM model_usage
+         WHERE lower(trim(model)) IN (${placeholders})`
+      ).all(...aliases);
+      let newest = null;
+      for (const row of rows) {
+        const epochMs = parseCleanupUtcTimestamp(row?.used_at);
+        if (epochMs === null) {
+          return {
+            lastUsedAt: null,
+            lastUsedAtMs: null,
+            requestCount: rows.length,
+            retentionValid: false,
+            reason: 'MODEL_USAGE_TIMESTAMP_INVALID',
+          };
+        }
+        if (!newest || epochMs > newest.epochMs) {
+          newest = { value: row.used_at, epochMs };
+        }
+      }
       return {
-        lastUsedAt: row?.last_used || null,
-        requestCount: row?.cnt || 0,
+        lastUsedAt: newest?.value || null,
+        lastUsedAtMs: newest?.epochMs ?? null,
+        requestCount: rows.length,
+        retentionValid: true,
+        reason: null,
       };
     } catch (_) {
-      return { lastUsedAt: null, requestCount: 0 };
+      return {
+        lastUsedAt: null,
+        lastUsedAtMs: null,
+        requestCount: 0,
+        retentionValid: false,
+        reason: 'MODEL_USAGE_DB_READ_FAILED',
+      };
     }
   }
 
@@ -289,16 +456,12 @@ export class ModelRegistry {
       } catch (_) {}
     }
 
-    // Auto-cleanup settings
-    let autoCleanup = { enabled: false, days: 14 };
-    if (this._db) {
-      try {
-        const row = this._db.prepare("SELECT value FROM user_settings WHERE key = 'c3.models.autoCleanupEnabled'").get();
-        const rowD = this._db.prepare("SELECT value FROM user_settings WHERE key = 'c3.models.autoCleanupDays'").get();
-        if (row) autoCleanup.enabled = row.value === 'true' || row.value === true;
-        if (rowD) autoCleanup.days = parseInt(rowD.value, 10) || 14;
-      } catch (_) {}
-    }
+    // Auto-cleanup is enabled only by the authoritative JSON settings row.
+    const modelSettings = this.getModelSettings();
+    const autoCleanup = {
+      enabled: modelSettings.valid && modelSettings.settings.autoCleanupEnabled,
+      days: modelSettings.settings.autoCleanupDays,
+    };
 
     let unvalidatedCount = 0;
     const models = installed.map(m => {
@@ -394,47 +557,196 @@ export class ModelRegistry {
 
   // ─── Mutations ─────────────────────────────────────────────────────────────
 
-  /** Delete a model with all safety guards */
-  async deleteModel(name) {
-    if (this._deleting) throw new Error('Jiný model se právě maže');
-
-    // Double-check bindings (race condition guard)
+  #getDeleteBlock(name) {
+    if (!canonicalModelName(name)) {
+      return {
+        code: 'MODEL_DELETE_INPUT_INVALID',
+        message: 'Model name is invalid',
+        httpStatus: 400,
+      };
+    }
     if (this.isBound(name)) {
       const roles = this.getBoundRoles(name).join(', ');
-      throw new Error(`Model je přiřazený k rolím: ${roles}`);
+      return {
+        code: 'MODEL_DELETE_BOUND',
+        message: `Model je přiřazený k rolím: ${roles}`,
+        httpStatus: 409,
+      };
     }
     if (sameModelName(this._validatingModel, name)) {
-      throw new Error('Model je právě validován');
+      return {
+        code: 'MODEL_DELETE_VALIDATING',
+        message: 'Model je právě validován',
+        httpStatus: 409,
+      };
     }
-
-    this._deleting = true;
+    if (typeof this._modelBindingApplication?.getProtectedModelNames !== 'function') {
+      return {
+        code: 'MODEL_DELETE_AUTHORITY_REQUIRED',
+        message: 'Model binding protection authority is unavailable',
+        httpStatus: 503,
+      };
+    }
+    let protectedNames;
     try {
-      const baseUrl = config.ollama?.baseUrl || 'http://127.0.0.1:11434';
-      const resp = await fetch(`${baseUrl}/api/delete`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
-      });
-      if (!resp.ok) {
-        throw new Error(`Ollama vrátil ${resp.status}`);
-      }
-
-      this.invalidateCache();
-
-      // Find size from cache for the WS event
-      let freedGB = '?';
-      if (this._overviewCache) {
-        const m = this._overviewCache.models.find(m => sameModelName(m.name, name));
-        if (m) freedGB = m.sizeGB;
-      }
-
-      this._broadcast('control', { action: 'model_deleted', model: name, freedGB });
-      logger.info('ModelRegistry', `Deleted model: ${name} (freed ~${freedGB} GB)`);
-
-      return { ok: true, deleted: name, freedGB };
-    } finally {
-      this._deleting = false;
+      protectedNames = this._modelBindingApplication.getProtectedModelNames();
+    } catch {
+      return {
+        code: 'MODEL_DELETE_AUTHORITY_REQUIRED',
+        message: 'Model binding protection authority is unavailable',
+        httpStatus: 503,
+      };
     }
+    if (!Array.isArray(protectedNames)) {
+      return {
+        code: 'MODEL_DELETE_AUTHORITY_REQUIRED',
+        message: 'Model binding protection authority returned an invalid result',
+        httpStatus: 503,
+      };
+    }
+    if (protectedNames.some(protectedName => sameModelName(protectedName, name))) {
+      return {
+        code: 'MODEL_DELETE_BINDING_PROTECTED',
+        message: 'Model je chráněn aktivním, požadovaným nebo rollback bindingem',
+        httpStatus: 409,
+      };
+    }
+    return null;
+  }
+
+  #assertDeleteAllowed(name) {
+    const blocked = this.#getDeleteBlock(name);
+    if (blocked) {
+      registryFail(blocked.code, blocked.message, blocked.httpStatus);
+    }
+  }
+
+  /** Build a bounded, exact artifact preview without performing deletion. */
+  async prepareDeletePlans(names) {
+    if (!Array.isArray(names) || names.length < 1 || names.length > 50) {
+      registryFail('MODEL_DELETE_INPUT_INVALID', 'Model delete preview is invalid', 400);
+    }
+    const requested = [];
+    const seen = new Set();
+    for (const name of names) {
+      const canonical = canonicalModelName(name);
+      if (!canonical) {
+        registryFail('MODEL_DELETE_INPUT_INVALID', 'Model delete preview contains an invalid name', 400);
+      }
+      if (seen.has(canonical)) continue;
+      seen.add(canonical);
+      requested.push(String(name).trim());
+    }
+    // Protection is cheaper and more authoritative than provider discovery.
+    // A rollback-bound candidate must fail before even a read effect.
+    for (const name of requested) this.#assertDeleteAllowed(name);
+    const inventory = await this.getInstalled({ strict: true });
+    const plans = requested.map(name => {
+      const artifact = resolveInstalledArtifact(inventory, name);
+      return Object.freeze({
+        exactName: artifact.exactName,
+        canonicalName: artifact.canonicalName,
+        digestSha256: artifact.digestSha256,
+      });
+    });
+    return Object.freeze(plans);
+  }
+
+  /** Delete one exact artifact through the binding application's mutation owner. */
+  async deleteModel(name, options = {}) {
+    if (typeof name !== 'string' || !canonicalModelName(name)) {
+      registryFail('MODEL_DELETE_INPUT_INVALID', 'Model name is invalid', 400);
+    }
+    const optionKeys = Object.keys(options || {});
+    if (options === null || typeof options !== 'object' || Array.isArray(options)
+      || optionKeys.some(key => !['source', 'expectedDigestSha256'].includes(key))) {
+      registryFail('MODEL_DELETE_INPUT_INVALID', 'Model delete options are invalid', 400);
+    }
+    const source = options.source || 'USER_REQUEST';
+    if (!DELETE_SOURCES.has(source)) {
+      registryFail('MODEL_DELETE_INPUT_INVALID', 'Model delete source is invalid', 400);
+    }
+    const expectedDigestSha256 = options.expectedDigestSha256 === undefined
+      ? undefined
+      : normalizeModelDigestSha256(options.expectedDigestSha256);
+    if (options.expectedDigestSha256 !== undefined && !expectedDigestSha256) {
+      registryFail('MODEL_DELETE_INPUT_INVALID', 'Expected model digest is invalid', 400);
+    }
+    if (typeof this._modelBindingApplication?.runExclusiveModelMutation !== 'function') {
+      registryFail(
+        'MODEL_DELETE_AUTHORITY_REQUIRED',
+        'Model mutation authority is unavailable',
+        503,
+      );
+    }
+
+    return this._modelBindingApplication.runExclusiveModelMutation(
+      { kind: 'MODEL_DELETE' },
+      async () => {
+        this.#assertDeleteAllowed(name);
+        const firstInventory = await this.getInstalled({ strict: true });
+        const planned = resolveInstalledArtifact(firstInventory, name, {
+          digestSha256: expectedDigestSha256,
+        });
+        this.#assertDeleteAllowed(name);
+        const secondInventory = await this.getInstalled({ strict: true });
+        const observed = resolveInstalledArtifact(secondInventory, planned.exactName, {
+          exactName: planned.exactName,
+          digestSha256: planned.digestSha256,
+        });
+        this.#assertDeleteAllowed(observed.exactName);
+
+        const observedModel = secondInventory.find(model => (
+          model.name === observed.exactName
+          && (model.digestSha256 || normalizeModelDigestSha256(model.digest))
+            === observed.digestSha256
+        ));
+        const freedGB = observedModel?.sizeGB || '?';
+
+        const baseUrl = config.ollama?.baseUrl || 'http://127.0.0.1:11434';
+        let resp;
+        try {
+          resp = await fetch(`${baseUrl}/api/delete`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: observed.exactName }),
+            redirect: 'error',
+            signal: AbortSignal.timeout(30_000),
+          });
+        } catch (error) {
+          throw new ModelRegistryError(
+            'MODEL_DELETE_PROVIDER_UNAVAILABLE',
+            `Ollama delete není dostupný pro ${observed.exactName}`,
+            { cause: error, httpStatus: 503 },
+          );
+        }
+        if (!resp?.ok) {
+          registryFail('MODEL_DELETE_PROVIDER_FAILED', `Ollama vrátil ${resp?.status ?? 'unknown'}`, 502);
+        }
+
+        this.invalidateCache();
+
+        const result = Object.freeze({
+          ok: true,
+          deleted: observed.exactName,
+          canonicalName: observed.canonicalName,
+          digestSha256: observed.digestSha256,
+          source,
+          freedGB,
+        });
+        this._broadcast('control', {
+          action: 'model_deleted',
+          model: observed.exactName,
+          freedGB,
+        });
+        logger.info(
+          'ModelRegistry',
+          `Deleted model: ${observed.exactName} digest=${observed.digestSha256} source=${source} (freed ~${freedGB} GB)`,
+        );
+
+        return result;
+      },
+    );
   }
 
   /** Assign model to role through the single manual binding application port. */
@@ -456,7 +768,9 @@ export class ModelRegistry {
 
   /** Validate all installed models that need it (sequential, mutex-guarded) */
   async validateAll(onProgress) {
-    if (this._batchRunning) return { ok: true, alreadyRunning: true };
+    if (this._batchRunning || this._validatingModel) {
+      return { ok: true, alreadyRunning: true, model: this._validatingModel };
+    }
     if (!this._validationRunner) return { ok: false, error: 'Validation runner not available' };
 
     const installed = await this.getInstalled();
@@ -557,39 +871,134 @@ export class ModelRegistry {
     }
   }
 
+  /** Reserve the live single-model validation path before its async work starts. */
+  startValidation(modelName, suiteNames, onProgress) {
+    const model = typeof modelName === 'string' ? modelName.trim() : '';
+    if (!canonicalModelName(model)
+      || !Array.isArray(suiteNames)
+      || suiteNames.length < 1
+      || suiteNames.some(suite => typeof suite !== 'string' || !suite.trim())) {
+      registryFail('MODEL_VALIDATION_INPUT_INVALID', 'Model validation input is invalid', 400);
+    }
+    if (!this._validationRunner?.runAll) {
+      registryFail('MODEL_VALIDATION_AUTHORITY_REQUIRED', 'Model validation authority is unavailable', 503);
+    }
+    if (this._batchRunning || this._validatingModel) {
+      registryFail(
+        'MODEL_VALIDATION_BUSY',
+        `Model validation is already running${this._validatingModel ? ` for ${this._validatingModel}` : ''}`,
+        409,
+      );
+    }
+    this._validatingModel = model;
+    // Defer the runner by one microtask. The route can publish the accepted
+    // reservation before a synchronous progress callback is able to fire.
+    const completion = Promise.resolve()
+      .then(() => this._validationRunner.runAll(model, [...suiteNames], onProgress))
+      .finally(() => {
+        if (sameModelName(this._validatingModel, model)) this._validatingModel = null;
+        this.invalidateCache();
+      });
+    return Object.freeze({ model, suites: Object.freeze([...suiteNames]), completion });
+  }
+
   // ─── Auto-Cleanup ──────────────────────────────────────────────────────────
 
   /** Run auto-cleanup of unused models older than `days` */
   async runAutoCleanup(days = 14) {
-    const installed = await this.getInstalled();
-    const boundModels = canonicalModelNameSet(Object.values(config.models));
-    const cutoff = new Date(Date.now() - days * 86400000).toISOString();
-    const deleted = [];
-
-    for (const m of installed) {
-      // Skip bound models
-      if (boundModels.has(canonicalModelName(m.name))) continue;
-      // Skip if currently validating
-      if (sameModelName(this._validatingModel, m.name)) continue;
-      // Check last usage
-      const usage = this.getUsage(m.name);
-      if (usage.lastUsedAt && usage.lastUsedAt > cutoff) continue;
-      // Check last modified (fallback if no usage data)
-      if (!usage.lastUsedAt && m.modified_at && m.modified_at > cutoff) continue;
-
-      try {
-        const result = await this.deleteModel(m.name);
-        deleted.push({ model: m.name, freedGB: result.freedGB });
-        this._broadcast('control', { action: 'model_auto_cleaned', model: m.name, freedGB: result.freedGB });
-      } catch (err) {
-        logger.warn('ModelRegistry', `Auto-cleanup failed for ${m.name}: ${err.message}`);
+    if (!Number.isInteger(days) || days < 1 || days > 3650) {
+      registryFail('MODEL_CLEANUP_RETENTION_INVALID', 'Cleanup retention days are invalid', 400);
+    }
+    if (this._cleanupRunning) {
+      registryFail('MODEL_CLEANUP_BUSY', 'Model cleanup is already running', 409);
+    }
+    this._cleanupRunning = true;
+    try {
+      const now = this._clock();
+      if (!Number.isSafeInteger(now) || now < 1) {
+        registryFail('MODEL_CLEANUP_CLOCK_INVALID', 'Cleanup clock is invalid', 500);
       }
-    }
+      const installed = await this.getInstalled({ strict: true });
+      const boundModels = canonicalModelNameSet(Object.values(config.models));
+      const cutoffMs = now - days * 86400000;
+      const deleted = [];
+      const seenCanonical = new Set();
 
-    if (deleted.length > 0) {
-      logger.info('ModelRegistry', `Auto-cleanup: deleted ${deleted.length} models`, { deleted });
+      for (const m of installed) {
+        const canonicalName = canonicalModelName(m.name);
+        if (!canonicalName || seenCanonical.has(canonicalName)) continue;
+        seenCanonical.add(canonicalName);
+        // Skip bound models
+        if (boundModels.has(canonicalName)) continue;
+        // Skip if currently validating
+        if (sameModelName(this._validatingModel, m.name)) continue;
+        // Retention is fail-closed. Every stored usage timestamp must parse as
+        // explicit UTC and provider modification time remains a second
+        // protection even when historical usage exists.
+        const usage = this.getUsage(m.name);
+        if (!usage.retentionValid) continue;
+        // Absence of gateway usage is not proof that the artifact was unused:
+        // validation, vision, embeddings and other provider consumers do not
+        // all write model_usage yet. Keep zero-evidence artifacts until the
+        // shared model-use port can account for every consumer.
+        if (usage.requestCount < 1) continue;
+        if (usage.lastUsedAtMs !== null && usage.lastUsedAtMs >= cutoffMs) continue;
+        const modifiedAtMs = parseCleanupUtcTimestamp(m.modified_at);
+        if (modifiedAtMs === null || modifiedAtMs >= cutoffMs) continue;
+        const digestSha256 = m.digestSha256 || normalizeModelDigestSha256(m.digest);
+        if (!digestSha256) continue;
+
+        try {
+          const result = await this.deleteModel(m.name, {
+            source: 'AUTO_CLEANUP',
+            expectedDigestSha256: digestSha256,
+          });
+          deleted.push({
+            model: result.deleted,
+            freedGB: result.freedGB,
+          });
+          this._broadcast('control', {
+            action: 'model_auto_cleaned',
+            model: result.deleted,
+            freedGB: result.freedGB,
+          });
+        } catch (err) {
+          logger.warn('ModelRegistry', `Auto-cleanup failed for ${m.name}: ${err.message}`);
+        }
+      }
+
+      if (deleted.length > 0) {
+        logger.info('ModelRegistry', `Auto-cleanup: deleted ${deleted.length} models`, { deleted });
+      }
+      return deleted;
+    } finally {
+      this._cleanupRunning = false;
     }
-    return deleted;
+  }
+
+  /** Execute one scheduler decision from the authoritative JSON settings row. */
+  async runConfiguredAutoCleanup() {
+    const settings = this.getModelSettings();
+    if (!settings.valid) {
+      return Object.freeze({
+        status: 'SKIPPED_INVALID_SETTINGS',
+        reason: settings.reason,
+        deleted: Object.freeze([]),
+      });
+    }
+    if (settings.settings.autoCleanupEnabled !== true) {
+      return Object.freeze({
+        status: 'SKIPPED_DISABLED',
+        reason: 'AUTO_CLEANUP_DISABLED',
+        deleted: Object.freeze([]),
+      });
+    }
+    const deleted = await this.runAutoCleanup(settings.settings.autoCleanupDays);
+    return Object.freeze({
+      status: 'COMPLETED',
+      days: settings.settings.autoCleanupDays,
+      deleted: Object.freeze([...deleted]),
+    });
   }
 
   // ─── Binding Integrity Check ───────────────────────────────────────────────

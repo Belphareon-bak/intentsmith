@@ -1,21 +1,24 @@
 # 007 — model cleanup porovnává dva různé timestamp formáty lexikograficky
 
-- **vlastník:** budoucí `WP-M1-MODEL` cleanup-authority checkpoint
+- **vlastník:** [`WP-M1-MODEL-CLEANUP-AUTHORITY`](../wp/WP-M1-MODEL-CLEANUP-AUTHORITY.md), checkpoint C1
 - **nalezeno v:** nezávislé read-only review `B3-IDENTITY`
-- **stav:** `PENDING-OWNER`
+- **stav:** `REMEDIATED / FOCUSED_VERIFIED`; exact source SHA doplní navazující
+  evidence commit
 - **závislost:** sjednocená časová reprezentace nebo numerické porovnání
 
 ## Evidence
 
-`src/upgrade/model-registry.js:runAutoCleanup()` vytváří cutoff přes
-`Date.prototype.toISOString()`, tedy jako `YYYY-MM-DDTHH:mm:ss.sssZ`.
-`model_usage.used_at` však běžně vzniká přes SQLite `datetime('now')` jako
-`YYYY-MM-DD HH:mm:ss`. Kód oba řetězce porovnává operátorem `>`.
+Původní `runAutoCleanup()` porovnával ISO cutoff se SQLite `used_at` jako text.
+Aktuální checkpoint načte všechny aliasové usage řádky, každý přijme jen jako
+striktní UTC SQLite nebo ISO `Z` timestamp, převede je na epoch milliseconds a
+teprve potom zvolí numerické maximum.
 
-Na stejném kalendářním dni se mezera (`0x20`) řadí před `T` (`0x54`). Usage o
-jednu hodinu novější než cutoff proto může být vyhodnocené jako starší a model
-může dojít až k delete cestě. Reviewer tuto větev reprodukoval s izolovanou DB
-a stubovaným provider deletem; nejde o síťový ani GPU nález.
+Neplatný čas, nulová usage evidence, chybějící provider `modified_at` i chyba
+čtení DB fail-close zastaví kandidáta. Rovnost s cutoffem je chráněná; delete
+smí pokračovat pouze pro čas striktně starší. Provider modification time
+zůstává druhou ochranou i tehdy, když existuje usage historie. Nulová usage se
+nepovažuje za „nikdy nepoužito“, protože ne všechny model-use cesty dnes do
+`model_usage` zapisují.
 
 Aliasový regression test nyní zapisuje recent usage produkčním SQLite tvarem
 `datetime('now')`, ale záměrně neleží na 14denní hraně. Pinuje tím canonical
@@ -23,23 +26,23 @@ alias join, nikoli dosud neopravenou cutoff chybu.
 
 ## Dopad
 
-Nález nemění správnost `name` versus `name:latest` identity a scheduler je dnes
-podle evidence dormantní. Brání ale širšímu tvrzení, že age-based auto-cleanup
-je bezpečný. Po aktivaci cleanup scheduleru by mohl být čerstvě použitý,
-nepřiřazený model smazán dříve než po deklarované ochranné době.
+Scheduler nyní čte výhradně autoritativní JSON `user_settings.id=1`; malformed,
+missing, DB error a jiná hodnota než literal `true` nevytvoří inventory ani
+delete efekt. Dva překrývající se tick běhy nejsou povoleny: druhý končí
+`MODEL_CLEANUP_BUSY` před druhým inventory efektem.
 
-## Acceptance směr
+## Splněná acceptance
 
-- cutoff i `lastUsedAt` se převedou na validované epoch milliseconds před
-  porovnáním; nevalidní čas fail-close zabrání delete effectu;
-- boundary test použije skutečný SQLite `datetime('now')` formát na obou
-  stranách cutoffu ve stejném kalendářním dni;
-- negativní mutace vrátí string comparison a test zčervená;
-- řešení se spojí s findingem 006 pod jediným cleanup mutation ownerem, aby se
-  zvlášť neopravovala časová a zvlášť atomická autorita.
+- SQLite i ISO časy před/na/po cutoffu a mixed-format alias řádky jsou
+  explicitně testované;
+- numerické maximum vzniká až po parsování všech řádků, nikoli nad SQL
+  `MAX(TEXT)`;
+- nulová usage, neplatná či chybějící age evidence a DB read failure mají
+  nulový delete;
+- finding 006 i 007 používají stejnou cleanup mutation cestu.
 
-## Co se v tomto checkpointu neopravuje
+## Mutační důkaz
 
-`B3-IDENTITY` mění identitu modelu, nikoli retention policy. Oprava cutoffu by
-byla samostatná produktová změna mimo schválený identity seam; nález proto
-zůstává explicitně `PENDING-OWNER`.
+Dočasná jediná změna `>= cutoff` na `> cutoff` způsobila, že přesně model na
+hraně prošel do delete kandidátů; focused sada skončila 24/1, exit 1. Mutace
+byla vrácena a čistý focused běh je součástí checkpoint evidence.

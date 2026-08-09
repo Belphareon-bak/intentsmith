@@ -17,6 +17,7 @@ import { logger } from '../../core/logger.js';
 import { parseTodoCommand, handleTodo, handleDone } from './todo.js';
 import { handleFileDecision } from './file.js';
 import { config } from '../../config.js';
+import { canonicalModelName } from '../../upgrade/model-identity.js';
 
 // ─── Lazy-loaded Phase modules (null if feature disabled) ────────────────────
 let handleBuildConfirmed, handleClarificationAnswer, handlePlanVerdict,
@@ -136,9 +137,37 @@ function cancelMessage(what, mode) {
 let _upgradeManager = null;
 let _MIN_NOTIFY_SCORE = 6;
 let _modelBindingApplication = null;
+let _modelRegistry = null;
 
 export function setModelBindingApplication(service) {
   _modelBindingApplication = service || null;
+}
+
+export function setUpgradeManager(service) {
+  _upgradeManager = service || null;
+}
+
+export function setModelRegistry(service) {
+  _modelRegistry = service || null;
+}
+
+function filterOldCleanupCandidates(candidates, now = Date.now()) {
+  const seen = new Set();
+  const result = [];
+  for (const candidate of candidates || []) {
+    const model = typeof candidate?.model === 'string' ? candidate.model.trim() : '';
+    const canonical = canonicalModelName(model);
+    const appliedAtMs = Date.parse(candidate?.appliedAt);
+    if (!model || !canonical || !Number.isFinite(appliedAtMs)) continue;
+    if (now - appliedAtMs <= 7 * 24 * 60 * 60 * 1000 || seen.has(canonical)) continue;
+    seen.add(canonical);
+    result.push({
+      model,
+      replacedBy: candidate.replacedBy,
+      appliedAt: candidate.appliedAt,
+    });
+  }
+  return result;
 }
 
 // ─── Intercept definitions ───────────────────────────────────────────────────
@@ -205,15 +234,17 @@ intercepts.push({
     if (_upgradeManager?._db) {
       try {
         const unused = _upgradeManager.getUnusedOldModels();
-        const old = unused.filter(u => {
-          const age = Date.now() - Date.parse(u.appliedAt);
-          return age > 7 * 24 * 60 * 60 * 1000;
-        });
+        const old = filterOldCleanupCandidates(unused).filter(candidate => (
+          _modelRegistry?.isDeletable(candidate.model).deletable === true
+        ));
         if (old.length > 0 && !context.sessionState?._cleanupSuggested) {
-          if (context.sessionState) context.sessionState._cleanupSuggested = true;
+          if (context.sessionState) {
+            context.sessionState._cleanupSuggested = true;
+            context.sessionState._cleanupCandidates = JSON.parse(JSON.stringify(old));
+          }
           if (typeof context.onSystemStep === 'function') {
             const models = old.map(o => `${o.model} (nahrazen ${o.replacedBy})`).join(', ');
-            try { context.onSystemStep('model_cleanup', `Nepouzivane modely: ${models}. Napis "smaz stare modely" pro odstraneni.`); } catch (_) {}
+            try { context.onSystemStep('model_cleanup', `Nepouzivane modely: ${models}. Napis "smaz stare modely" pro pripravu presneho seznamu.`); } catch (_) {}
           }
         }
       } catch (_) {}
@@ -379,7 +410,54 @@ intercepts.push({
   modes: ['*'],
   async fn(input, context, mode) {
     const CLEANUP_RE = /^(sma[zž]\s+star[eé]\s+model|remove\s+old\s+model|cleanup\s+model)/i;
-    if (!CLEANUP_RE.test(input.trim())) return { handled: false };
+    const CONFIRM_RE = /^(potvrd(?:it|zuji)?\s+smaz[aá]n[ií]\s+model[uů]?|confirm\s+model\s+deletion)\s*[!.]?$/i;
+    const trimmed = input.trim();
+    if (!CLEANUP_RE.test(trimmed) && !CONFIRM_RE.test(trimmed)) return { handled: false };
+
+    if (!_modelRegistry) {
+      return {
+        handled: true,
+        response: systemResponse('Odstraneni modelu neni dostupne: chybi autoritativni model registry.', mode, {
+          modelCleanup: false,
+          errorCode: 'MODEL_DELETE_AUTHORITY_REQUIRED',
+        }),
+      };
+    }
+    if (!context.sessionState) {
+      return {
+        handled: true,
+        response: systemResponse('Odstraneni modelu vyzaduje aktivni session.', mode, {
+          modelCleanup: false,
+          errorCode: 'MODEL_DELETE_SESSION_REQUIRED',
+        }),
+      };
+    }
+
+    if (CONFIRM_RE.test(trimmed)) {
+      const plans = context.sessionState?._pendingModelCleanup;
+      if (!Array.isArray(plans) || plans.length === 0) {
+        return { handled: true, response: systemResponse('Neni pripraven zadny presny seznam modelu k odstraneni.', mode) };
+      }
+      // One approval is single-use even when one of several effects fails.
+      context.sessionState._pendingModelCleanup = null;
+      context.sessionState._cleanupCandidates = null;
+      const results = [];
+      for (const plan of plans) {
+        try {
+          const deleted = await _modelRegistry.deleteModel(plan.exactName, {
+            source: 'USER_CHAT',
+            expectedDigestSha256: plan.digestSha256,
+          });
+          results.push(`${deleted.deleted} smazan (${deleted.digestSha256.slice(0, 12)})`);
+          if (typeof context.onSystemStep === 'function') {
+            try { context.onSystemStep('model_deleted', `${deleted.deleted} smazan`); } catch (_) {}
+          }
+        } catch (error) {
+          results.push(`${plan.exactName}: ${error.code || 'MODEL_DELETE_FAILED'}`);
+        }
+      }
+      return { handled: true, response: systemResponse(results.join('\n'), mode, { modelCleanup: true }) };
+    }
 
     if (!_upgradeManager) {
       try {
@@ -390,33 +468,41 @@ intercepts.push({
       }
     }
 
-    const unused = _upgradeManager.getUnusedOldModels();
+    // A notification is only a hint. Re-read and re-filter the authoritative
+    // history before every exact preview so stale session state cannot become
+    // deletion authority.
+    const unused = filterOldCleanupCandidates(_upgradeManager.getUnusedOldModels())
+      .filter(candidate => _modelRegistry.isDeletable(candidate.model).deletable === true);
+    if (context.sessionState) {
+      context.sessionState._cleanupCandidates = JSON.parse(JSON.stringify(unused));
+    }
     if (unused.length === 0) {
       return { handled: true, response: systemResponse('Zadne nepouzivane modely k odstraneni.', mode) };
     }
 
-    const baseUrl = config.ollama?.baseUrl || 'http://127.0.0.1:11434';
-    const results = [];
-    for (const u of unused) {
-      try {
-        const resp = await fetch(`${baseUrl}/api/delete`, {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: u.model }),
-        });
-        if (resp.ok) {
-          results.push(`${u.model} smazan`);
-          if (typeof context.onSystemStep === 'function') {
-            try { context.onSystemStep('model_deleted', `${u.model} smazan`); } catch (_) {}
-          }
-        } else {
-          results.push(`${u.model}: HTTP ${resp.status}`);
-        }
-      } catch (err) {
-        results.push(`${u.model}: ${err.message}`);
-      }
+    try {
+      const plans = await _modelRegistry.prepareDeletePlans(unused.map(candidate => candidate.model));
+      context.sessionState._pendingModelCleanup = plans.map(plan => ({ ...plan }));
+      const preview = plans.map(plan => (
+        `${plan.exactName} (${plan.digestSha256.slice(0, 12)})`
+      )).join(', ');
+      return {
+        handled: true,
+        response: systemResponse(
+          `Pripraveno k odstraneni: ${preview}. Napis "potvrdit smazani modelu" pro provedeni.`,
+          mode,
+          { modelCleanupPrepared: true },
+        ),
+      };
+    } catch (error) {
+      return {
+        handled: true,
+        response: systemResponse(`Seznam k odstraneni nelze pripravit: ${error.code || error.message}`, mode, {
+          modelCleanupPrepared: false,
+          errorCode: error.code || 'MODEL_DELETE_PREVIEW_FAILED',
+        }),
+      };
     }
-    return { handled: true, response: systemResponse(results.join('\n'), mode, { modelCleanup: true }) };
   },
 });
 

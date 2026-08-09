@@ -110,7 +110,11 @@ import { ChatController, ChatMode } from './chat/controller.js';
 import { attachWebSocketServer } from './ws-bridge/index.js';
 import { setNotificationDeps } from './ws-bridge/session-adapter.js';
 import { getDefaultHandlers } from './chat/handlers/index.js';
-import { setModelBindingApplication } from './chat/handlers/pre-handler.js';
+import {
+  setModelBindingApplication,
+  setModelRegistry,
+  setUpgradeManager,
+} from './chat/handlers/pre-handler.js';
 import { toolExecutor } from './executor/tool-executor.js';
 
 // H9: Route modules (extracted from server.js)
@@ -227,6 +231,7 @@ import {
 // Restore every manual binding through the single durable application boundary
 // before any LLM call can observe config.models.
 upgradeManager.setDb(db.db);
+setUpgradeManager(upgradeManager);
 modelUniverseStore.setDb(db.db);
 const bindingRepository = createModelFailoverRepository(db.db);
 const { broadcast: bindingBroadcast } = await import('./ws-bridge/ws-server.js');
@@ -311,6 +316,7 @@ try {
     validationRunner,
     broadcast: bindingBroadcast,
   });
+  setModelRegistry(modelRegistry);
   // v133: Wire usage tracking to gateway
   llmGateway.setUsageDb(db.db);
   logger.info('Server', 'ModelRegistry initialized (+ gateway usage tracking)');
@@ -1413,13 +1419,13 @@ listenOnLegacyLoopback(server, config.server, async () => {
 
     const cleanupInterval = setInterval(async () => {
       try {
-        const row = db.db.prepare("SELECT value FROM user_settings WHERE key = 'c3.models.autoCleanupEnabled'").get();
-        if (row && (row.value === 'true' || row.value === true)) {
-          const daysRow = db.db.prepare("SELECT value FROM user_settings WHERE key = 'c3.models.autoCleanupDays'").get();
-          const days = daysRow ? parseInt(daysRow.value, 10) || 14 : 14;
-          await modelRegistry.runAutoCleanup(days);
+        const result = await modelRegistry.runConfiguredAutoCleanup();
+        if (result.status === 'SKIPPED_INVALID_SETTINGS') {
+          logger.warn('Server', `Model auto-cleanup skipped: ${result.reason}`);
         }
-      } catch (_) {}
+      } catch (error) {
+        logger.warn('Server', `Model auto-cleanup failed: ${error.message}`);
+      }
     }, 6 * 60 * 60 * 1000);
     cleanupInterval.unref();
     logger.info('Server', 'ModelRegistry schedulers started (integrity 5min, cleanup 6h)');

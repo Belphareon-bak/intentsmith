@@ -15,7 +15,6 @@ import { upgradeManager, UpgradeManager } from '../upgrade/upgrade-manager.js';
 import { broadcast } from '../ws-bridge/ws-server.js';
 import { modelUniverseStore } from '../upgrade/model-universe-store.js';
 import { parseModelName } from '../upgrade/model-profiles.js';
-import { sameModelName } from '../upgrade/model-identity.js';
 import { estimateModelPrior } from '../upgrade/model-similarity.js';
 
 const FEATURE_UNIVERSE_ENABLED = (process.env.C3_MODEL_UNIVERSE_ENABLED || 'true') !== 'false';
@@ -268,6 +267,7 @@ export function createSystemRoutes({
   parseBody,
   modelRegistry,
   modelBindingApplication = null,
+  broadcastValidation = broadcast,
 }) {
   const rawDb = db.db || db; // unwrap: db wrapper → raw better-sqlite3 instance
   const dataDir = config.db?.path ? path.dirname(path.resolve(config.db.path)) : path.resolve('./data');
@@ -984,32 +984,19 @@ export function createSystemRoutes({
         const modelName = url.searchParams.get('name');
         if (!modelName) return sendJSON(res, 400, { error: 'Missing ?name= parameter' });
 
-        if (modelRegistry) {
-          const { deletable, reason } = modelRegistry.isDeletable(modelName);
-          if (!deletable) return sendJSON(res, 409, { error: reason });
-          const result = await modelRegistry.deleteModel(modelName);
-          return sendJSON(res, 200, result);
+        if (!modelRegistry) {
+          return sendJSON(res, 503, {
+            error: 'Model deletion authority is unavailable',
+          });
         }
-
-        // Fallback: direct delete without registry
-        const bound = Object.entries(config.models).filter(([_, m]) => sameModelName(m, modelName));
-        if (bound.length > 0) {
-          const roles = bound.map(([r]) => r).join(', ');
-          return sendJSON(res, 409, { error: `Model still bound to role(s): ${roles}` });
-        }
-
-        const baseUrl = config.ollama?.baseUrl || 'http://127.0.0.1:11434';
-        const resp = await fetch(`${baseUrl}/api/delete`, {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: modelName }),
+        const result = await modelRegistry.deleteModel(modelName, { source: 'USER_HTTP' });
+        return sendJSON(res, 200, {
+          ok: result.ok,
+          deleted: result.deleted,
+          freedGB: result.freedGB,
         });
-        if (!resp.ok) {
-          return sendJSON(res, 502, { error: `Ollama returned ${resp.status}` });
-        }
-        sendJSON(res, 200, { ok: true, deleted: modelName });
       } catch (err) {
-        const status = err.message.includes('přiřazený') || err.message.includes('validován') || err.message.includes('maže') ? 409 : 500;
+        const status = Number.isInteger(err?.httpStatus) ? err.httpStatus : 500;
         sendJSON(res, status, { error: err.message });
       }
     },
@@ -1520,8 +1507,12 @@ export function createSystemRoutes({
         const { model, suite } = body;
         if (!model) return sendJSON(res, 400, { error: 'Missing model name' });
 
-        const { validationRunner, SUITES, getSuiteForRole } = await import('../upgrade/validation-suites.js');
-        validationRunner.setDb(rawDb);
+        const { SUITES } = await import('../upgrade/validation-suites.js');
+        if (!modelRegistry) {
+          return sendJSON(res, 503, {
+            error: 'Model validation authority is unavailable',
+          });
+        }
 
         // Determine which suites to run
         let suiteNames;
@@ -1532,41 +1523,37 @@ export function createSystemRoutes({
           suiteNames = Object.keys(SUITES);
         }
 
-        // Quick response — actual work runs async with WS progress
+        const started = modelRegistry.startValidation(model, suiteNames, (progress) => {
+          broadcastValidation('control', {
+            action: 'model_validation_progress', model,
+            suite: progress.suite, testName: progress.testName,
+            status: progress.status,
+            currentTest: progress.currentTest, totalTests: progress.totalTests,
+            percent: progress.percent, score: progress.score,
+            text: progress.status === 'complete'
+              ? `${model} — ${progress.suite}: ${Math.round((progress.score || 0) * 100)}%`
+              : `${model} — ${progress.suite}: ${progress.testName} (${progress.currentTest}/${progress.totalTests})`,
+          });
+        });
+        broadcastValidation('control', { action: 'model_validation_progress', model, status: 'starting', percent: 0,
+          text: `${model} — Spouštím validaci...` });
+
+        // Quick response — actual work runs async under the registry reservation.
         sendJSON(res, 200, { ok: true, model, suites: suiteNames, status: 'started' });
-
-        // Run validation in background
-        (async () => {
-          try {
-            broadcast('control', { action: 'model_validation_progress', model, status: 'starting', percent: 0,
-              text: `${model} — Spouštím validaci...` });
-
-            const result = await validationRunner.runAll(model, suiteNames, (progress) => {
-              broadcast('control', {
-                action: 'model_validation_progress', model,
-                suite: progress.suite, testName: progress.testName,
-                status: progress.status,
-                currentTest: progress.currentTest, totalTests: progress.totalTests,
-                percent: progress.percent, score: progress.score,
-                text: progress.status === 'complete'
-                  ? `${model} — ${progress.suite}: ${Math.round((progress.score || 0) * 100)}%`
-                  : `${model} — ${progress.suite}: ${progress.testName} (${progress.currentTest}/${progress.totalTests})`,
-              });
-            });
-
-            broadcast('control', {
-              action: 'model_validation_progress', model, status: 'done', percent: 100,
-              text: `${model} — Validace dokončena: ${Math.round(result.overallScore * 100)}%`,
-              overallScore: result.overallScore,
-              results: result.results.map(r => ({ suite: r.suite, score: r.score, passed: r.passed, total: r.total })),
-            });
-          } catch (err) {
-            broadcast('control', { action: 'model_validation_progress', model, status: 'error', percent: -1,
-              text: `${model} — Chyba validace: ${err.message}` });
-          }
-        })();
+        started.completion.then(result => {
+          broadcastValidation('control', {
+            action: 'model_validation_progress', model, status: 'done', percent: 100,
+            text: `${model} — Validace dokončena: ${Math.round(result.overallScore * 100)}%`,
+            overallScore: result.overallScore,
+            results: result.results.map(r => ({ suite: r.suite, score: r.score, passed: r.passed, total: r.total })),
+          });
+        }).catch(err => {
+          broadcastValidation('control', { action: 'model_validation_progress', model, status: 'error', percent: -1,
+            text: `${model} — Chyba validace: ${err.message}` });
+        });
       } catch (err) {
-        sendJSON(res, 500, { error: err.message });
+        const status = Number.isInteger(err?.httpStatus) ? err.httpStatus : 500;
+        sendJSON(res, status, { error: err.message });
       }
     },
 

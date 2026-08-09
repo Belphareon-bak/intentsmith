@@ -1084,18 +1084,27 @@ export class UpgradeManager {
     if (!this._db) return [];
     try {
       const rows = this._db.prepare(
-        'SELECT role, model, previous_model, applied_at FROM model_overrides ORDER BY applied_at DESC LIMIT 50'
+        `SELECT role, model, previous_model, applied_at
+         FROM model_overrides
+         ORDER BY applied_at DESC, role ASC
+         LIMIT 50`
       ).all();
 
       const boundModels = canonicalModelNameSet(Object.values(config.models));
-      return rows
-        .filter(r => !boundModels.has(canonicalModelName(r.previous_model)))
-        .map(r => ({
-          model: r.previous_model,
-          replacedBy: r.model,
-          role: r.role,
-          appliedAt: r.applied_at,
-        }));
+      const seen = new Set();
+      const result = [];
+      for (const row of rows) {
+        const canonical = canonicalModelName(row.previous_model);
+        if (!canonical || boundModels.has(canonical) || seen.has(canonical)) continue;
+        seen.add(canonical);
+        result.push({
+          model: row.previous_model.trim(),
+          replacedBy: typeof row.model === 'string' ? row.model.trim() : '',
+          role: row.role,
+          appliedAt: row.applied_at,
+        });
+      }
+      return result;
     } catch (_) {
       return [];
     }

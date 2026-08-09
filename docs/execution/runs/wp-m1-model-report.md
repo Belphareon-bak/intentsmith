@@ -1687,3 +1687,80 @@ Backend produktový checkpoint má source SHA i fresh-clone reprodukci popsanou
 výše. GPU, skutečná Ollama ani externí síť nebyly spuštěny. Gate 1 proto
 zůstává `BLOCKED`, nikoli PASS: chybí 015 prahy/TTL, proof issuer a automatický
 failover, referenční GPU běh 009 a dokončený UI recovery/status journey.
+
+## Checkpoint 24 — centralizovaná model delete cesta, C1 `PARTIAL`
+
+**Source:** produktový commit obsahující tuto sekci; přesný SHA a fresh-clone
+evidence doplní navazující evidence commit. **Vstup:**
+`a3a00baae2dffa6204afa327b97f102ee36c8c09`.
+
+Checkpoint odstraňuje přímé Ollama delete efekty z HTTP route a chatového
+interceptu. HTTP a opt-in scheduler volají jediný
+`ModelRegistry.deleteModel()`. Chatový adapter přijme jen exact registry plan,
+ale skutečný post-apply candidate source vrací one-step rollback identitu;
+sdílený guard ji odmítne před inventory. Funkční chat retirement proto tento
+checkpoint netvrdí. Registry cesta sdílí fail-fast mutation
+owner s binding apply/rollback/rehydrate, kontroluje runtime i durable
+desired/pending/rollback identitu a před name-only provider efektem dvakrát
+ověří exact provider name a normalizovaný SHA-256 digest. Overview používá
+stejnou non-throwing delete klasifikaci, takže při stejném binding state
+nenabízí model, který skutečný delete správně odmítne.
+
+Retention cesta čte pouze autoritativní JSON nastavení, nepovažuje nulovou
+gateway usage za důkaz nepoužití, nepovolí souběžný cleanup tick a všechny
+SQLite/ISO `Z` timestampy validuje a porovnává numericky. Nevalidní čas,
+chybějící usage, DB chyba, rovnost s cutoffem a chybějící digest fail-close
+vedou k nula delete efektům. Chat před každým adapter preview znovu načte
+kandidáty; session hint není autorita a po potvrzení se spolu s jednorázovým
+preview zruší. Veřejné kompatibilní tvary zůstávají HTTP
+`{ok, deleted, freedGB}` a WS `{action:'model_deleted', model, freedGB}`.
+
+Focused běhy v hlavním checkoutu:
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `C3_LOG_LEVEL=error node tests/m1-model-identity.test.js` | 25 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-binding-application.test.js` | 77 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-settings.test.js` | 14 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/routes-smoke.test.js` | 109 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/confirmation-ownership.test.js` | 5 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/upgrade-flow.test.js` | 28 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/upgrade-ux-v125.test.js` | 78 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-contract.test.js` | 29 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/model-upgrade.test.js` | 58 passed, 0 failed | 0 |
+
+Jeden chybný operátorský příkaz mířil na neexistující
+`tests/confirmation-arbitration.test.js` a skončil `MODULE_NOT_FOUND`, exit
+`1`; nešlo o registrovanou sadu ani produktové selhání. Správná focused sada
+`tests/confirmation-ownership.test.js` následně skončila 5/0, exit `0`.
+
+Tři jednotlivé dočasné mutace zčervenaly stejnou focused sadu a byly před
+čistým rerunem vrácené:
+
+| Mutace | Výsledek | Exit |
+|---|---:|---:|
+| druhý inventory snapshot nahrazen prvním | 24 passed, 1 failed; očekávána 2 čtení, naměřeno 1 | 1 |
+| durable binding guard vyřazen | 24 passed, 1 failed; očekáván `MODEL_DELETE_BINDING_PROTECTED` | 1 |
+| cutoff ochrana změněna z `>=` na `>` | 24 passed, 1 failed; model na hraně prošel | 1 |
+
+### Pravdivá hranice C1
+
+Toto je `PARTIAL_REMEDIATION / FOCUSED_VERIFIED`, nikoli dokončená model-delete
+autorita. Po posledním snapshotu může interní direct pull změnit name-only
+artefakt; validace či jiný consumer může začít mezi posledním guardem a DELETE.
+Inference, vision, embeddings, VRAM a verification zatím nedrží sdílený
+per-model use lease. Mutation owner je pouze in-process, delete nemá durable
+intent/terminal audit a vzdálený Ollama destructive scope není schválený.
+Provider `modified_at` s RFC3339 offsetem je bezpečně odmítnut, ale bez
+skutečného Ollama běhu není potvrzené, zda tím konkrétní runtime cleanup
+nezůstane inertní.
+
+Review navíc odhalil false-green v původním stubovém chat testu: manager vracel
+kandidáta a registry jej nezávisle povolila, přestože reálné vrstvy stejnou
+identitu klasifikují jako one-step rollback. Adapter test je nyní pojmenovaný
+jen jako adapter a nový skutečný post-apply test vyžaduje zaparkování s nulovým
+inventory efektem. Zvolit zdroj starší historie nebo explicitní retirement je
+operátorské rozhodnutí, ne skrytá změna C1.
+
+Tyto body vlastní finding 010 a checkpoint C2/C3. GPU, skutečná Ollama,
+produktový server a externí síť nebyly spuštěné. Gate 1 zůstává `BLOCKED`.

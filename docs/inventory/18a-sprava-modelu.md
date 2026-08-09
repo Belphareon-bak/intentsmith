@@ -55,8 +55,10 @@ Nic. 844 řádků, obojí zapojené a pokryté.
 ## 6. Co inventura nenašla
 
 - Žádné automatické stahování ani upgrade modelu v této části — to je celé v 18b.
-- Žádné síťové volání: síťoví klienti (`whatllm-client`, `registry-client`,
-  `online-discovery`) jsou v 18b, ne zde. **18a je offline.**
+- Žádný externí discovery klient: `whatllm-client`, `registry-client` a
+  `online-discovery` jsou v 18b, ne zde. 18a ale komunikuje přes HTTP s
+  konfigurovanou Ollamou; `offline` zde znamená bez externí služby, nikoli bez
+  lokálního síťového effectu.
 
 ## 7. Runtime follow-up B3-IDENTITY — 2026-08-08
 
@@ -79,3 +81,29 @@ vytvoření unused seznamu používá vlastní provider delete; jeho atomický z
 novým bindingem je samostatný `finding 006`, nikoli skrytě rozšířený scope této
 opravy. Age-based cleanup současně porovnává SQLite a ISO timestampy jako text;
 oddělený retention residual je `finding 007`.
+
+## 8. Runtime follow-up cleanup authority — 2026-08-09
+
+Navazující source checkpoint centralizuje všechny tři produkční delete vstupy
+(HTTP, chat a opt-in scheduler) do `ModelRegistry.deleteModel()`. Přímý provider
+DELETE z route a chatu zmizel. Destruktivní cesta sdílí fail-fast mutation owner
+s apply/rollback/rehydrate, chrání runtime, durable desired, pending i one-step
+rollback identitu a těsně před efektem podruhé ověřuje exact provider name a
+normalizovaný digest.
+
+Chat už nemá přímý provider effect. Jeho současný candidate source ale vrací
+právě one-step rollback model, který binding application správně chrání; reálný
+post-apply test jej proto zaparkuje před inventory. Funkční chatové odstranění
+čeká na explicitní retirement pravidlo a není vydávané za hotový journey.
+Auto-cleanup čte pouze autoritativní JSON settings,
+neumožní překryv ticků a porovnává striktně validované UTC epochy. Parsuje
+všechny usage alias řádky před numerickým maximem; nulová usage, invalidní nebo
+chybějící age evidence a DB chyba fail-close chrání model. Nulová usage není
+důkaz nepoužití, protože validation, vision a embeddings zatím nesdílejí jeden
+usage writer.
+
+Finding 007 je tím v C1 remediovaný. U findingu 006 je odstraněný direct bypass
+a assign/delete race, ale durable audit zůstává otevřený. Není vyřešené ani
+mazání proti concurrent pull po posledním snapshotu, již běžící
+inference/vision/embedding práci nebo cross-process claim. Tyto hranice jsou
+pravdivě oddělené ve findingu 010 a brání povýšit L0-11 nad `PARTIAL`.
