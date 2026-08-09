@@ -13,15 +13,12 @@
   <link rel="stylesheet" href="/app.css">
 </head>
 <body>
-  <!-- The banner and the app are siblings in one flex column, so the banner
-       takes real space instead of floating over the header.  #app is fully
-       re-rendered on every state change; the banner must survive that, which
-       is why it lives outside. -->
+  <!-- The former connection banner lived here, above the header.  UI-DESIGN §4
+       puts that information in zone 1 of the trust bar, which sits *under* the
+       header and is emitted by render() for every screen, so the two can never
+       disagree.  SS-03 offline vs SS-08 server-unavailable still get separate
+       wording there — they lead to different user actions. -->
   <div class="shell">
-    <!-- SS-03 offline vs SS-08 server unavailable.  Never the same element
-         with different text — they lead to different user actions. -->
-    <div id="conn-banner" class="conn-banner" hidden role="status" aria-live="polite"></div>
-
     <div id="app" class="app">
       <div class="boot" id="boot">
         <div class="boot-mark" aria-hidden="true"></div>

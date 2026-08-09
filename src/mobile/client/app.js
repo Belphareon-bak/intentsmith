@@ -364,6 +364,15 @@ const state = {
   loading: {},
   error: {},
   cacheAge: {},
+  // When each cached dataset was last confirmed, so trust-bar zone 2 can say
+  // *from when* rather than only *not fresh* (§4).  Kept beside `cacheAge`
+  // rather than inside it because every existing reader compares the status as
+  // a bare string.
+  cacheAt: {},
+  // §14 — `health.time` minus the phone's clock.  `null` until a health read
+  // lands, and null is meaningful: it downgrades every countdown and every age
+  // to words instead of numbers rather than trusting the device clock.
+  serverOffsetMs: null,
   unread: 0,
   sending: false,
   sendingSince: null,
@@ -465,7 +474,6 @@ const OPEN_OPERATION_WARN_AT = 24;
 // ── DOM helpers ─────────────────────────────────────────────────────────────
 const $app = document.getElementById('app');
 const $scrim = document.getElementById('scrim');
-const $banner = document.getElementById('conn-banner');
 const $toasts = document.getElementById('toasts');
 
 function esc(text) {
@@ -545,11 +553,14 @@ const ICONS = {
   warn: '<path d="M12 9v4m0 4h.01M10.3 3.9L2.4 17.5A2 2 0 004.1 20.5h15.8a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
   inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2M5.5 5.5h13L22 12v6a2 2 0 01-2 2H4a2 2 0 01-2-2v-6z" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linejoin="round"/>',
   lock: '<rect x="4" y="10" width="16" height="11" rx="2" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M8 10V7a4 4 0 018 0v3" stroke="currentColor" stroke-width="1.8" fill="none"/>',
+  clock: '<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M12 7.5V12l3 2" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+  home: '<path d="M4 10.5L12 4l8 6.5V19a1.5 1.5 0 01-1.5 1.5h-13A1.5 1.5 0 014 19v-8.5z" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linejoin="round"/>',
+  folder: '<path d="M3 7.5A1.5 1.5 0 014.5 6h4l2 2.5h9A1.5 1.5 0 0121 10v8a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 18V7.5z" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linejoin="round"/>',
 };
 
 const icon = (name, cls = '') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ''}</svg>`;
 
-// ── Connection banner (SS-03 / SS-08) ───────────────────────────────────────
+// ── Connection state (SS-03 / SS-08) ────────────────────────────────────────
 function setConn(kind) {
   if (state.conn === kind) return;
   state.conn = kind;
@@ -563,21 +574,186 @@ function setConn(kind) {
   // the epoch at that moment would make every grant impossible.  The reconnect
   // itself is invalidated by `handleCameOnline()`, which runs before any read.
   if (kind !== 'ok') invalidateApprovalAuthority();
-  paintBanner();
+  // Zone 1 of the trust bar lives inside the re-rendered screen now, so a
+  // connection change repaints the screen rather than a separate element.
+  // Every caller already renders afterwards; doing it here as well is what
+  // makes "the bar is stale" unreachable rather than a matter of discipline.
+  render();
 }
 
-function paintBanner() {
-  if (state.conn === 'ok') {
-    $banner.hidden = true;
-    document.body.classList.remove('has-banner');
-    return;
+// ── Trust bar (UI-DESIGN §4, D-UI-2) ────────────────────────────────────────
+//
+// §4 calls this "the component the whole design rests on", and the reason is
+// not decorative: connection, data age and permission scope are the three
+// things SCREENS.md §2.1 says must never be guessed, and the way they get lost
+// is a screen that forgets to mention them.  So no `viewX()` renders it —
+// `render()` does, once, for whatever the view returned (see `withTrustBar`).
+// "I forgot to show that this is from cache" is therefore not a reachable
+// state of this code, which is a stronger property than every view remembering
+// to call it.
+//
+// An empty bar is a statement: fresh data, online, full access.  That is the
+// only state in which it says nothing at all (§4.1, level "nenápadná" — zero
+// height, not an empty strip).
+//
+// Three zones, never two truths (§4 rule 3).  Revocation and an EXPIRED cache
+// are the blocking plane, and that plane is `viewSession()` — a revoked device
+// renders no content at all, so the bar never has to argue with a screen that
+// should not exist.
+
+/**
+ * Which cached dataset the screen in front of the user is actually showing.
+ * A route missing from this map has no cached surface, so zone 2 stays silent
+ * rather than reporting the age of something else — MS-13 in particular is
+ * never served from cache (MD-07) and must never look as though it were.
+ */
+const TRUST_DATASET = {
+  overview: 'conversations',
+  conversations: 'conversations',
+  chat: 'thread',
+  notifications: 'notifications',
+  operations: 'operations',
+};
+
+/**
+ * Zone 3 — what is locked by scope on *this* screen.  §4 asks for a lock when
+ * "something on the screen is locked by scope", so the answer is per route:
+ * a device without `write:chat` is not locked out of the approval queue.
+ */
+function screenLocks(route = state.route) {
+  const locked = [];
+  const need = (scope, label) => { if (!auth.has(scope)) locked.push(label); };
+  switch (route) {
+    case 'overview':
+      need('read:chat', 'konverzace');
+      need('read:approvals', 'schválení');
+      break;
+    case 'conversations':
+      need('read:chat', 'konverzace');
+      break;
+    case 'chat':
+      need('write:chat', 'psaní zpráv');
+      break;
+    case 'notifications':
+      need('read:notifications', 'zprávy');
+      break;
+    case 'approvals':
+    case 'approval':
+      if (!auth.has('read:approvals')) locked.push('frontu schválení');
+      else need('write:approvals', 'rozhodování');
+      break;
+    default:
+      break;
   }
-  $banner.hidden = false;
-  document.body.classList.add('has-banner');
-  $banner.dataset.kind = state.conn;
-  $banner.innerHTML = state.conn === 'offline'
-    ? `${icon('wifi')} <span>Offline — zobrazuji uložená data</span>`
-    : `${icon('warn')} <span>Server neodpovídá</span> <button data-act="diagnostics">Diagnostika</button>`;
+  return locked;
+}
+
+/**
+ * §14 — the age of anything is measured against the server's clock, not the
+ * phone's.  The offset is refreshed by every successful `health` read; until
+ * one lands it is unknown, and an unknown offset means qualitative wording
+ * instead of a number, never a silently corrected one.
+ */
+function serverNow() {
+  return Date.now() + (state.serverOffsetMs || 0);
+}
+
+/**
+ * The three zones as data, so the screen-reader summary and the markup are
+ * built from one source and cannot drift apart (§10).
+ */
+function trustZones() {
+  const zones = { conn: null, age: null, lock: null };
+
+  if (state.conn === 'offline') {
+    zones.conn = { icon: 'wifi', text: 'Bez sítě', detail: 'Zobrazují se jen uložená data. Odeslat teď nelze.' };
+  } else if (state.conn === 'server') {
+    zones.conn = { icon: 'warn', text: 'Server neodpovídá', detail: 'Gateway odpověděla chybou. Mutace jsou zablokované.', act: 'diagnostics' };
+  }
+
+  // Before pairing there is no cached surface and no scope to lock, so zone 1
+  // is the only one with anything true to say — and it has to say it, because
+  // otherwise a failing pairing looks the same as a phone with no network.
+  if (state.session !== 'active') return zones;
+
+  const dataset = TRUST_DATASET[state.route];
+  const status = dataset ? state.cacheAge[dataset] : null;
+  if (status === 'STALE' || status === 'EXPIRED') {
+    const at = dataset ? state.cacheAt[dataset] : null;
+    // §14: no fresh offset means no number.  A time rendered from a phone
+    // clock that is known to be wrong is worse than "starší data".
+    const stamp = at && state.serverOffsetMs !== null ? clock(at) : null;
+    zones.age = {
+      icon: 'clock',
+      text: stamp ? `Data z ${stamp}` : 'Starší data',
+      detail: status === 'EXPIRED'
+        ? 'Uložená kopie překročila platnost. Než se obnoví, nerozhoduj podle ní.'
+        : 'Zobrazená kopie není čerstvá.',
+    };
+  }
+
+  const locks = screenLocks();
+  if (locks.length) {
+    zones.lock = {
+      icon: 'lock',
+      text: 'Část obrazovky uzamčena',
+      detail: `Zařízení nemá oprávnění pro: ${locks.join(', ')}. Rozsah se mění jen novým párováním.`,
+    };
+  }
+
+  return zones;
+}
+
+/**
+ * §4.1 — three intensities.  The ordinary state is invisible; a stale copy or
+ * a narrowed scope is one quiet line; a broken connection is the only thing
+ * allowed to take two.  Anything that would want the whole screen belongs in a
+ * `StateBlock` inside the content, not here.
+ */
+function trustBar() {
+  // §4.1 — the blocking plane has exactly two triggers, and `viewSession()` is
+  // that plane: a revoked device and an expired credential take the whole
+  // screen.  The bar stays out of their way rather than arguing beside them
+  // (§4 rule 3: never two truths).
+  if (state.session === 'revoked' || state.session === 'expired') return '';
+  const zones = trustZones();
+  const present = [zones.conn, zones.age, zones.lock].filter(Boolean);
+  if (!present.length) return '';
+
+  const level = zones.conn ? 'expanded' : 'quiet';
+  // §10 — the summary is one sentence in the order the zones are read, so a
+  // screen reader announces "bez sítě, data z 14:02, část obrazovky uzamčena".
+  const summary = present.map(zone => zone.text).join(', ');
+
+  const zoneHtml = (zone, name) => zone
+    ? `<span class="trust-zone" data-zone="${name}">${icon(zone.icon)}<span>${esc(zone.text)}</span></span>`
+    : '';
+
+  const detail = level === 'expanded'
+    ? `<p class="trust-detail">${present.map(zone => esc(zone.detail)).join(' ')}
+        ${zones.conn?.act ? `<button data-act="${esc(zones.conn.act)}">Diagnostika</button>` : ''}</p>`
+    : '';
+
+  return `<div class="trust-bar" data-level="${level}" role="status" aria-live="polite" aria-label="${esc(summary)}">
+    <div class="trust-zones">${zoneHtml(zones.conn, 'conn')}${zoneHtml(zones.age, 'age')}${zoneHtml(zones.lock, 'lock')}</div>
+    ${detail}
+  </div>`;
+}
+
+/**
+ * The single seam that makes §4 structural instead of a convention.  The bar
+ * goes directly under the header — it pushes content, never covers it — and a
+ * screen without a header (pairing, the revocation plane) gets it at the top.
+ * There is exactly one call site, in `render()`, so no view can opt out and
+ * none has to opt in.
+ */
+function withTrustBar(html) {
+  const bar = trustBar();
+  if (!bar) return html;
+  const end = html.indexOf('</header>');
+  if (end === -1) return bar + html;
+  const cut = end + '</header>'.length;
+  return html.slice(0, cut) + bar + html.slice(cut);
 }
 
 // ── Views ───────────────────────────────────────────────────────────────────
@@ -1636,10 +1812,10 @@ function renderDrawer() {
 // ── Render ──────────────────────────────────────────────────────────────────
 function render() {
   const sessionView = viewSession();
-  if (sessionView) { $app.innerHTML = sessionView; renderDrawer(); return; }
+  if (sessionView) { $app.innerHTML = withTrustBar(sessionView); renderDrawer(); return; }
 
   if (state.session === 'unpaired') {
-    $app.innerHTML = viewPairing({ error: state.error.pairing, busy: state.loading.pairing });
+    $app.innerHTML = withTrustBar(viewPairing({ error: state.error.pairing, busy: state.loading.pairing }));
     renderDrawer();
     return;
   }
@@ -1653,9 +1829,8 @@ function render() {
     operations: viewOperations,
     diagnostics: viewDiagnostics,
   };
-  $app.innerHTML = (views[state.route] || viewConversations)();
+  $app.innerHTML = withTrustBar((views[state.route] || viewConversations)());
   renderDrawer();
-  paintBanner();
 
   if (state.route === 'chat') {
     const scroll = document.getElementById('thread-scroll');
@@ -1677,6 +1852,7 @@ async function loadConversations() {
   if (cached.data) {
     state.data.conversations = cached.data;
     state.cacheAge.conversations = cached.status;
+    state.cacheAt.conversations = cached.at;
   }
   state.loading.conversations = true;
   state.error.conversations = null;
@@ -1686,6 +1862,7 @@ async function loadConversations() {
     const response = await api('/conversations?limit=50');
     state.data.conversations = response.data;
     state.cacheAge.conversations = 'FRESH';
+    state.cacheAt.conversations = Date.now();
     cache.write('conversations', response.data);
     if (response.scopes) replaceScopes(response.scopes);
     setConn('ok');
@@ -1705,9 +1882,11 @@ async function loadThread(conversationId) {
   if (cached.data) {
     state.data.thread = cached.data;
     state.cacheAge.thread = cached.status;
+    state.cacheAt.thread = cached.at;
   } else {
     state.data.thread = null;
     state.cacheAge.thread = null;
+    state.cacheAt.thread = null;
   }
   state.loading.thread = true;
   state.error.thread = null;
@@ -1717,6 +1896,7 @@ async function loadThread(conversationId) {
     const response = await api(`/conversations/${encodeURIComponent(conversationId)}?limit=100`);
     state.data.thread = response.data;
     state.cacheAge.thread = 'FRESH';
+    state.cacheAt.thread = Date.now();
     cache.write(key, response.data);
     setConn('ok');
   } catch (error) {
@@ -1726,6 +1906,7 @@ async function loadThread(conversationId) {
       // "new chat" — an empty thread, not an error.
       state.data.thread = { conversation: { id: conversationId, title: 'Nová konverzace' }, messages: [] };
       state.cacheAge.thread = 'FRESH';
+      state.cacheAt.thread = Date.now();
     } else {
       state.error.thread = error;
       setConn(error.kind === 'offline' ? 'offline' : error.kind === 'server' ? 'server' : state.conn);
@@ -1739,7 +1920,14 @@ async function loadThread(conversationId) {
 async function loadNotifications() {
   if (!auth.has('read:notifications')) return;
   const cached = cache.read('notifications');
-  if (cached.data) state.data.notifications = cached.data;
+  if (cached.data) {
+    state.data.notifications = cached.data;
+    // Previously the cached copy was published without recording its age, so
+    // the screen showed a remembered inbox with nothing saying so.  Trust-bar
+    // zone 2 reads this; leaving it unset is the exact silence §4 forbids.
+    state.cacheAge.notifications = cached.status;
+    state.cacheAt.notifications = cached.at;
+  }
   state.loading.notifications = true;
   state.error.notifications = null;
 
@@ -1747,6 +1935,8 @@ async function loadNotifications() {
     const response = await api('/notifications?limit=50');
     state.data.notifications = response.data;
     state.unread = response.data.filter(item => !item.read).length;
+    state.cacheAge.notifications = 'FRESH';
+    state.cacheAt.notifications = Date.now();
     cache.write('notifications', response.data);
     setConn('ok');
   } catch (error) {
@@ -2155,6 +2345,12 @@ async function loadDiagnostics() {
   try {
     const health = await api('/health');
     state.data.health = health.data;
+    // §14 — the offset is refreshed on every successful health read and is the
+    // only clock this client trusts for ages and countdowns.  A malformed or
+    // missing `time` leaves it unknown rather than zero: "no offset" produces
+    // qualitative wording, while a wrong zero produces confident wrong numbers.
+    const serverTime = Date.parse(health.data?.time ?? '');
+    state.serverOffsetMs = Number.isNaN(serverTime) ? null : serverTime - Date.now();
     setConn('ok');
   } catch (error) {
     state.data.health = null;
@@ -2384,6 +2580,7 @@ async function loadOperations() {
     state.data.operationsMeta = cached.data.meta;
     state.data.operationsAt = cached.at;
     state.cacheAge.operations = cached.status;
+    state.cacheAt.operations = cached.at;
   }
   state.loading.operations = true;
   state.error.operations = null;
@@ -2397,6 +2594,7 @@ async function loadOperations() {
     };
     state.data.operationsAt = Date.now();
     state.cacheAge.operations = 'FRESH';
+    state.cacheAt.operations = Date.now();
     cache.write('operations', { list: response.data, meta: state.data.operationsMeta });
     // The server is the authority on state; reconcile the local journal to it,
     // reason included — the index has to survive the app being killed with the
@@ -2901,6 +3099,7 @@ async function boot() {
 export const __ms20 = {
   state, journal, drafts, store, cache, K, api,
   render, navigate, viewOperations, ms20Entries,
+  trustBar, trustZones, withTrustBar, screenLocks, serverNow,
   viewApprovals, loadApprovals, approvalsGone,
   viewApproval, decideApproval, openApproval, approvalDecidable,
   unresolvedApprovalAttempt, unassociatedApprovalAttempt,
