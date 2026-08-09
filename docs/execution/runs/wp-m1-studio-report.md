@@ -553,7 +553,7 @@ nový amber health stav.
 - **stav route kontraktu:** `PASS focused`
 - **celý B4 / Gate 1:** nadále `BLOCKED`
 
-`GET /api/conversations/:id/messages` nyní čte durable existenci konverzace a
+`GET /api/conversations/:id/messages` nyní čte existenci konverzace a
 její zprávy v jedné synchronní SQLite transakci. Existující prázdná konverzace
 vrací `200 {messages: []}`, existující neprázdná přesnou historii a chybějící
 identita přesný `404 CONVERSATION_NOT_FOUND` bez čtení případných orphan

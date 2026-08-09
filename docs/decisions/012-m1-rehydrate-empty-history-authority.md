@@ -15,7 +15,8 @@ checkpointem vracel `src/routes/chat.js` `200 { messages: [] }` i pro
 neexistující konverzaci, protože četl pouze tabulku zpráv a existenci
 konverzace nekontroloval.
 
-Hard-delete mezi ACK a GET proto vypadá stejně jako platná prázdná konverzace.
+Před route checkpointem proto hard-delete mezi ACK a GET vypadal stejně jako
+platná prázdná konverzace.
 Kdyby klient považoval každé prázdné pole za autoritativní, mohl by vymazat
 lokální zprávy, ponechat již neplatné `_convId` a výsledek označit jako úspěšně
 obnovený. To je nejednoznačnost vlastnictví dat, kterou dávkový protokol řadí
@@ -45,13 +46,14 @@ serverový scope níže.
 
 Klientský šev je
 `c3-ide/extensions/c3-chat-panel/lib/browser/ws-client.js:_handleRehydrateAck()`.
-Přechod na B vyžaduje změnit `src/routes/chat.js`, přidat route test pro
+Přechod na B byl definován jako změna `src/routes/chat.js`, route test pro
 existující prázdnou a neexistující konverzaci a změnit dvě Studio aserce
 (`empty -> restored`, `404 -> invalid/degraded`). C navíc mění WS rehydrate
 payload a server/client wire testy.
 
-Do té doby se nesmí `200 []` popsat jako důkaz existence ani použít k mazání
-uživatelského snapshotu.
+Před route checkpointem se `200 []` nesmělo popsat jako důkaz existence ani
+použít k mazání uživatelského snapshotu. Route nyní existenci dokládá v rámci
+jednoho snapshotu; klient tuto autoritu přijme až ve vlastním checkpointu.
 
 ## Rozhodnutí operátora — 2026-08-08: B
 

@@ -111,7 +111,7 @@ implementací a skutečného wire důkazu `BLOCKED`.
 ### Implementační pořadí
 
 1. server 014: bounded request, request ID, reject/úplný partition a durable-store guard — **implementováno v serverovém checkpointu**;
-2. klient 014: přesný partition, reject, stale/foreign ochrany a bezpečný restore;
+2. klient 014: přesný partition, reject, stale/foreign ochrany a bezpečný restore — **implementováno**;
 3. route 012: existence a messages v jednom SQLite snapshotu/transakci — **implementováno**;
 4. klient 012: autoritativní prázdná historie, zatímco `404` pouze degraduje;
 5. společný DB-backed live wire test.

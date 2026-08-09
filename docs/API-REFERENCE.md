@@ -192,11 +192,15 @@ Returns standalone chat HTML page.
 | `GET` | `/api/conversations` | `?limit=10&status=active` | `{conversations: []}` | — |
 | `POST` | `/api/conversations` | `{project_id?, title?, welcomeMessage?}` | `{conversation}` | Creates DB record; persists welcome message |
 | `GET` | `/api/conversations/:id` | — | `{conversation}` or 404 | — |
-| `GET` | `/api/conversations/:id/messages` | — | `{messages: []}`; `404 {error, code: "CONVERSATION_NOT_FOUND"}` pro neexistující identitu | Atomický SQLite snapshot existence + zpráv |
+| `GET` | `/api/conversations/:id/messages` | — | `{messages: []}`; `404 {error, code: "CONVERSATION_NOT_FOUND"}` pro neexistující identitu | — |
 | `PUT` | `/api/conversations/:id` | `{project_id?, title?}` | `{conversation}` | Updates metadata |
 | `PATCH` | `/api/conversations/:id/archive` | — | `{success, status: 'archived'}` | Sets `state='archived'` |
 | `PATCH` | `/api/conversations/:id/restore` | — | `{success, status: 'active'}` | Restores from archive |
 | `DELETE` | `/api/conversations/:id` | `?hard=true` | `{success, mode}` | Soft delete (default) or hard delete |
+
+History route čte existenci konverzace a její zprávy v jednom synchronním
+SQLite snapshotu. `200 {messages: []}` proto znamená existující prázdnou
+konverzaci v okamžiku snapshotu; neexistující identita vrací typovaný `404`.
 
 ### Export
 
