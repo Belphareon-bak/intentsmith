@@ -646,6 +646,13 @@ Registrovaná Studio sada prošla `57/57`. Odstranění post-compile runtime ver
 kroku dalo `56/1`; odstranění Git ignore policy rovněž `56/1`. Obě mutace měly
 exit `1` a byly přesně obnovené.
 
+První fresh-clone build na `1478cb20` skončil exit `1` před Electron bundlingem,
+protože verifier požadoval pojmenované command/result exporty, které přijatý
+TypeScript mirror nemá. Oprava verifier svázala s reálným veřejným mirror API:
+generický validator, stream/terminal validaci, codec/round-trip a type guard.
+Nezměnila M1 schéma ani mirror a nesnížila command/result validaci — tu provádí
+`validateM1Contract()`.
+
 Tento checkpoint neběžel v dirty checkoutu jako produktový build a netvrdí
 fresh-clone parity. Následuje samostatný evidenční běh z commitnutého SHA:
 frozen Yarn install, `clean + build`, compiled negative matrix, kontrola bundle

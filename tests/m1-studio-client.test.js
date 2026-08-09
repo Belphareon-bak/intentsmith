@@ -70,11 +70,12 @@ test('prebuild fails closed unless compiled runtime exports the M1 validators', 
   const verification = studio.scripts['verify:protocol-runtime'];
   for (const symbol of [
     'validateM1Contract',
-    'validateConversationCommand',
-    'validateConversationResult',
-    'validateCoreEvent',
     'validateCoreEventStream',
     'classifyTerminal',
+    'encodeM1Contract',
+    'decodeM1Contract',
+    'roundTripM1Contract',
+    'isM1ContractEnvelope',
     'M1_CONTRACT_VERSION',
   ]) {
     assert.match(verification, new RegExp(`\\b${symbol}\\b`));

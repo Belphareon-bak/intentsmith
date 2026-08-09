@@ -19,7 +19,7 @@
     "clean:protocol": "yarn workspace @c3/protocol clean",
     "prebuild": "yarn run clean:protocol && yarn workspace @c3/protocol build && yarn run verify:protocol-runtime",
     "build": "yarn --cwd applications/electron build",
-    "verify:protocol-runtime": "node -e \"const p=require('./extensions/c3-protocol'); const required=['validateM1Contract','validateConversationCommand','validateConversationResult','validateCoreEvent','validateCoreEventStream','classifyTerminal']; for (const key of required) { if (typeof p[key] !== 'function') throw new Error('Missing generated M1 protocol export: '+key); } if (p.M1_CONTRACT_VERSION !== 1) throw new Error('Unexpected generated M1 protocol version');\"",
+    "verify:protocol-runtime": "node -e \"const p=require('./extensions/c3-protocol'); const required=['validateM1Contract','validateCoreEventStream','classifyTerminal','encodeM1Contract','decodeM1Contract','roundTripM1Contract','isM1ContractEnvelope']; for (const key of required) { if (typeof p[key] !== 'function') throw new Error('Missing generated M1 protocol export: '+key); } if (p.M1_CONTRACT_VERSION !== 1) throw new Error('Unexpected generated M1 protocol version');\"",
     "start": "yarn --cwd applications/electron start",
     "watch": "yarn --cwd applications/electron watch",
     "clean": "yarn run clean:protocol && yarn --cwd applications/electron clean"

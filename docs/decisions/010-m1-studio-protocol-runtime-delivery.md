@@ -107,6 +107,14 @@ pořadí prebuildu, povinné runtime exporty i source re-export. Sada prošla
 `57/57`; odstranění runtime verify kroku a odstranění ignore pravidla ji
 nezávisle shodily na `56/1`, exit `1`, a obě mutace byly přesně obnovené.
 
+První fresh-clone pokus z `1478cb20` skončil správně fail-closed ještě před
+Electron bundlingem: verifier původně vyžadoval tři pojmenované command/result
+validátory, které přijatý TypeScript mirror nikdy neexportoval. Verifier byl
+opraven na skutečný veřejný mirror povrch — generický dispatcher, stream a
+terminal validaci, codec/round-trip a type guard. Schéma ani mirror se kvůli
+testu nerozšířily a validace command/result zůstává uvnitř generického
+`validateM1Contract()`.
+
 Tento checkpoint ještě netvrdí fresh-clone build ani zabalení do Electron
 produktu. Následuje čistý klon, frozen install, `clean + build`, runtime
 negative matrix a kontrola čistého tracked stromu. Teprve potom pokračuje
