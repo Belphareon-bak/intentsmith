@@ -564,7 +564,7 @@ focused regression sady.
      transakčním merge. Detection scheduler jej už konzumuje, ale typed writer
      nemá produkčního volajícího a pět legacy mutation cest může stejný blob
      přepsat. [Rozhodnutí 020](docs/decisions/020-m1-model-failover-opt-in-surface.md)
-     je proto `CHANGES_REQUIRED`; doporučuje oddělenou revisioned
+     je operátorsky přijaté jako 020/E; implementace oddělené revisioned
      `model_automation_policy` autoritu a explicitní backup/import/reset
      adaptéry. Před
      aktivací je navíc nutný čerstvý role-suite proof svázaný s exaktním
@@ -812,7 +812,13 @@ focused regression sady.
    větev v `src/routes/chat.js`; 014/A smí změnit pouze legacy rehydrate control
    payload/handler v `src/ws-bridge/ws-server.js`, autoritativní Studio klient,
    localStorage clamp a úzký durable-readiness šev v `conversation-store.js`.
-   Nejde o obecné rozmrazení protocolu, routes ani store a schéma M1 v1 zůstává
+   021/B smí v rozsahu přijaté inline-only policy změnit versioned negotiation
+   metadata, `protocol.js`, WS ingress validaci, server composition/configured
+   count a frame limit, health delivery a Electron byte bridge; nesmí předat
+   `path`, oslabit serverovou revalidaci ani měnit controller. 022/A smí rozšířit
+   pouze `upgrade_verify_failed`, exact rollback HTTP body, repository/application
+   CAS a autoritativní Studio action o přijatou operation identity. Nejde o
+   obecné rozmrazení protocolu, routes ani store a jiné schéma M1 v1 zůstává
    zakázané.
 3. **Connector:** konzument `ConversationCommand/Result` a `CoreEvent` v1.
 4. **Závislost:** `WP-M1-CONTRACT` a výsledek `WP-M0-E`. Operátor přijal ručně
@@ -1246,7 +1252,7 @@ mohou pokračovat.
    |---|---|---|
    | 1 | 023 VRAM delete race | aditivní, bez veřejného kontraktu a bez GPU |
    | 2 | 022 operation-bound recovery | nejmenší code položka, offline ověřitelná |
-   | 3 | společná rezervace migrací | union census přes všechny větve; `058` = 020, `059` = 015 |
+   | 3 | ověřit dokončenou rezervaci migrací | union census před zápisem; `058` = 020, `059` = 015; povinná late-insertion parita 055–057 |
    | 4 | 020 oddělená policy storage | první migrační položka |
    | 5 | 015 proof issuance | druhá migrační položka, těží ze stejného census |
    | 6 | 021 built journey | jediná položka vázaná na drahou Studio infrastrukturu |
@@ -1254,7 +1260,9 @@ mohou pokračovat.
 
    Levné a bezpečnostní změny se tím dokončí před drahou Studio
    infrastrukturou a obě migrační položky dostanou čísla z jednoho census.
-   `055`–`057` jsou obsazené mobilními migracemi z `d6fee86f`.
+   `055`–`057` jsou obsazené mobilními migracemi z `d6fee86f`. Mobilní balík se
+   kvůli ordinalitě předčasně neintegruje; 058/059 musí prokázat pozdější vložení
+   055–057 do již migrované databáze bez opakování M1 migrací a bez ztráty dat.
 6. **B3-IDENTITY a B3-PROFILE jsou implementované a focused offline
    ověřené:** canonical presence
    identity chrání schválené binding/delete/cleanup cesty a integrity scan je
@@ -1275,8 +1283,9 @@ mohou pokračovat.
    přesně odděluje artifact-use hranu od pozdější GPU effect authority. Sdílený
    runtime profil nyní
    omezuje oba gateway vstupy a conversation compaction; neprohlašuje GPU
-   PASS. V jediném worktree po malých commitech následuje nový sériový T3 běh
-   od 4096, potom **B3-FAILOVER**. Settings authority a fail-closed storage
+   PASS. Závazná fronta výše nejprve uzavírá offline B3-FAILOVER a Studio
+   checkpointy; nový sériový T3 běh od 4096 přijde až jako její autorizovaná
+   položka 7. Settings authority a fail-closed storage
    schema, repository/CAS claim základ a striktní expired-claim recovery jsou
    implementované bez modelového effectu. Recovery je záměrně expire→nový CAS,
    takže jiný worker může legitimně vyhrát; není to atomický same-worker reclaim.
@@ -1325,12 +1334,12 @@ mohou pokračovat.
    čistým lokálním klonem, offline instalací a celou focused/compatibility
    baterií. Navazující detection-only koordinátor už po opt-inu ukládá exact
    desired baseline a `DETECTED`, ale nevybírá fallback a nemá claim, proof ani
-   runtime autoritu. Podporovaný opt-in povrch čeká na `CHANGES_REQUIRED`
-   [020](docs/decisions/020-m1-model-failover-opt-in-surface.md) a jeho
-   oddělenou policy storage. Otevřené
+   runtime autoritu. Podporovaný opt-in povrch je přijatý jako
+   [020/E](docs/decisions/020-m1-model-failover-opt-in-surface.md), ale jeho
+   oddělená policy storage ještě není implementovaná. Otevřené
    zůstávají proof issuer a terminal failover activation/restore. Failover se
-   dosud neaktivuje. Proof issuance čeká na potvrzení bootstrapu 015;
-   provizorní 7d TTL je pouze eligibility a doporučená obnova je explicitně
+   dosud neaktivuje. Bootstrap 015/A + provizorní 7d TTL je přijatý, ale proof
+   issuer a migrace 059 ještě nejsou implementované; TTL je pouze eligibility a doporučená obnova je explicitně
    operátorská, sériová a bez background GPU jobu. Nový skutečný GPU běh
    zůstává samostatnou blokovanou evidencí, dokud není legitimně čistý checkout.
 7. B4 má focused implementované 011/A, obě poloviny 014/A a obě poloviny

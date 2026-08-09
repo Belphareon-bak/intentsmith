@@ -90,8 +90,9 @@ terminal activation zůstávají samostatně blokované rozhodnutím 015.
 
 ## Povinné negativní důkazy varianty E
 
-- generic POST s validním `models.autoFailoverEnabled=true` je odmítnut a
-  nevytvoří policy ani provider efekt;
+- generic POST s validním `models.autoFailoverEnabled=true` vrátí `200`, ale
+  vlastněný klíč sanitizuje, uvede jej v `ignoredReservedKeys` a nevytvoří
+  policy ani provider efekt;
 - stale Studio snapshot ani generic `{}` policy nezmění;
 - unknown key, string `"true"` a neplatné cleanup days selžou bez mutace;
 - missing/stale revision skončí konfliktem a dva WAL writery mají jednoho
@@ -155,6 +156,20 @@ napříč větvemi. Tento dokument si proto rezervuje **058** a 015 rezervuje
 Pokud mobilní migrace nebudou v integračním základu dřív, než se 058/059
 aplikují, musí test pokrýt i pozdější vložení `055`–`057` do databáze, která už
 058/059 aplikovala.
+
+### Přijaté sekvenční pořadí integrace
+
+Mobilní balík se nebude integrovat předčasně pouze kvůli ordinalitě migrací.
+M1 pokračuje s rezervovanými `058`/`059`; pozdější integrace mobilních
+`055`–`057` je podporovaný scénář migračního runneru a stává se povinnou
+acceptance evidencí obou M1 migrací.
+
+Test musí porovnat fresh plán `001`–`059` s databází, která nejprve aplikuje
+plán bez `055`–`057`, ale včetně `058`/`059`, a následně doplní právě mobilní
+trojici. Musí prokázat, že druhý běh aplikuje přesně `055`–`057`, `058`/`059`
+neopakuje, třetí běh je no-op, výsledné verze a relevantní schéma jsou shodné,
+M1 policy/proof data zůstala zachovaná a striktní expiry hrana z 059 i mobilní
+journal/instance ownership po pozdním vložení fungují.
 
 ## Přesná otázka pro operátora
 

@@ -59,17 +59,18 @@ bude před issuance vyžadovat aditivní storage checkpoint; dnešní volný
 | B — role-specific kalibrace | Každá role dostane schválený score/count práh z opakovaných běhů reference a kandidátů | Praktická kvalifikační hranice založená na datech | Nejdřív je nutný kalibrační artifact; bez něj by čísla byla odhad |
 | C — measurement-only | Policy obsahuje mapu, source pins a runner parametry, ale `issuanceEnabled=false` a prahy `null` | Lze implementovat a testovat celý inertní řetězec bez falešného PASS | Terminal activation zůstane BLOCKED do volby A nebo B |
 
-## Dočasný vratný default
+## Historický vratný default a přijatý cíl
 
-Do společného review je zvolen **C — measurement-only**. Šev je jediný budoucí
-modul `src/upgrade/model-failover-proof-policy.js`; přepnutí na A nebo B změní
-jeho acceptance sekci a focused test `tests/m1-model-failover-proof-policy.test.js`.
-Runner a repository se kvůli přepnutí nepřepisují. Všechny dříve naměřené
-artefakty zůstávají diagnostikou, ale nevydávají PASS proof zpětně.
+V implementovaném measurement-only checkpointu je stále aktivní **C**:
+`issuanceEnabled=false` a prahy i TTL jsou `null`. Operátor ale 2026-08-09
+přijal cílovou policy **A + provizorní TTL 7 dní** podle potvrzovacího bloku
+níže. C proto už není otevřená produktová volba; je pouze dnešní bezpečný
+runtime stav do dokončení issueru, storage vazby a migrace 059.
 
-Spolu s prahem musí operátor schválit proof TTL. Existující 14denní hodnota je
-legacy cache age, nikoli schválená D+ autorita. Dokud TTL není rozhodnuté,
-measurement artifact může nést časy běhu, ale proof issuance zůstává vypnuté.
+Šev zůstává v `src/upgrade/model-failover-proof-policy.js` a focused testu
+`tests/m1-model-failover-proof-policy.test.js`. Přechod nesmí zpětně povýšit
+dříve naměřené diagnostické artefakty na PASS proof. Existující 14denní cache
+age není součástí přijaté autority.
 
 Toto rozhodnutí nezastavuje claim recovery, policy serializaci, strict
 inventory adaptér ani negativní testy runneru. Zastavuje pouze vytvoření
@@ -92,7 +93,7 @@ odmítá sparse arrays, `-0`, non-finite čísla, accessors, skryté/symbolické
 vlastnosti, neprosté objekty i cykly. Každý role measurement contract tak nese
 deterministický hash, ale žádný `proofId`, proof hash ani PASS výsledek.
 
-Acceptance shape je připravený pro obě otevřené varianty: globální proof TTL a
+Acceptance shape je připravený pro původně posuzované varianty: globální proof TTL a
 samostatný `requiredScore`/`requiredPassedCount` pro každou roli. Pod defaultem
 C jsou všechny tyto hodnoty `null` a `issuanceEnabled=false`. Guard by ani po
 chybné změně jediného booleovského flagu nepovolil issuance bez konečného
@@ -110,7 +111,7 @@ context jsou zachycené a znovu svázané. I synteticky perfektní výsledek zů
 Samotný child runner považuje `sourceRevisionClaim`, callerem zvolený loopback
 provider a očekávaný digest pouze za parent piny. Navazující parent acceptance
 níže už tuto autoritu odvozuje z čistého Git kandidáta, configu a strict
-inventory. Před proof issuance proto zbývají schválené prahy a TTL, aditivní
+inventory. Před proof issuance proto zbývá implementovat schválené prahy a TTL, aditivní
 vazba immutable artefaktu na proof a terminální recheck živé policy,
 validation verze a role contract hashe.
 
@@ -143,7 +144,7 @@ SHA-256, parent acceptance SHA-256 ani source revision a SQLite nemůže ověři
 živý contract hash, validation version a schválené prahy. Syntetické proofy v
 testech proto nejsou důkazem produkční issuance cesty.
 
-### Doporučený konzervativní bootstrap
+### Přijatý konzervativní bootstrap
 
 - **A + TTL 7 dní** (`604800000` ms);
 - pro každou roli `requiredScore=1` a
