@@ -3401,7 +3401,44 @@ await testAsync('verification failure stays active and never claims verified', a
     assertEqual(override.verified, 0);
     assertEqual(override.status, 'FAILED');
     assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-target');
-    assertEqual(events.filter(event => event.action === 'upgrade_verify_failed').length, 1);
+    const [failureEvent] = events.filter(event => event.action === 'upgrade_verify_failed');
+    assert(failureEvent);
+    assertEqual(failureEvent.role, 'CHAT');
+    assertEqual(failureEvent.model, 'fixture-target');
+    assertEqual(failureEvent.operationId, result.operationId);
+    assertEqual(failureEvent.committedBindingRevision, 2);
+    assertEqual(
+      failureEvent.failedAttemptRevision,
+      state.lastVerificationAttempt.attemptRevision,
+    );
+  });
+});
+
+await testAsync('failed verification of a rollback remains warning-only', async () => {
+  await withFixture(async ({ provider, events, application }) => {
+    await application.applyManualBinding({
+      role: 'CHAT',
+      targetModel: 'fixture-target',
+    });
+    await application.awaitBackgroundWork();
+    provider.verifyError = new ModelBindingApplicationError(
+      'MODEL_BINDING_VERIFICATION_REJECTED',
+      'fixture rollback probe rejected',
+    );
+
+    await application.rollbackManualBinding({ role: 'CHAT' });
+    await application.awaitBackgroundWork();
+
+    const failureEvent = events.filter(
+      event => event.action === 'upgrade_verify_failed',
+    ).at(-1);
+    assert(failureEvent);
+    assertEqual(failureEvent.role, 'CHAT');
+    assertEqual(failureEvent.model, 'fixture-base');
+    assertEqual(Object.hasOwn(failureEvent, 'operationId'), false);
+    assertEqual(Object.hasOwn(failureEvent, 'committedBindingRevision'), false);
+    assertEqual(Object.hasOwn(failureEvent, 'failedAttemptRevision'), false);
+    assert(/Akční rollback pro tuto operaci není dostupný/.test(failureEvent.text));
   });
 });
 
@@ -3438,6 +3475,123 @@ await testAsync('explicit same-target apply retries failed verification without 
       events.filter(event => event.action === 'model_changed').length,
       before.changed,
     );
+    const [cleared] = events.filter(event => event.action === 'upgrade_verify_cleared');
+    assert(cleared);
+    assertEqual(cleared.role, 'CHAT');
+    assertEqual(cleared.operationId, first.operationId);
+    assertEqual(cleared.committedBindingRevision, 2);
+    assertEqual(cleared.failedAttemptRevision, 3);
+    assertEqual(cleared.succeededAttemptRevision, 4);
+  });
+});
+
+await testAsync('operation-bound recovery rolls back only the failure named by its event', async () => {
+  await withFixture(async ({ db, repository, manager, provider, events, application }) => {
+    provider.verifyError = new ModelBindingApplicationError(
+      'MODEL_BINDING_VERIFICATION_REJECTED',
+      'fixture probe rejected',
+    );
+    const applied = await application.applyManualBinding({
+      role: 'CHAT',
+      targetModel: 'fixture-target',
+    });
+    await application.awaitBackgroundWork();
+    const failureEvent = events.find(event => event.action === 'upgrade_verify_failed');
+    assert(failureEvent);
+    const resolvesBeforeRollback = provider.calls.resolve;
+    const rolledBack = await application.rollbackFailedManualBinding({
+      role: failureEvent.role,
+      operationId: failureEvent.operationId,
+      committedBindingRevision: failureEvent.committedBindingRevision,
+      failedAttemptRevision: failureEvent.failedAttemptRevision,
+    });
+    assertEqual(rolledBack.from, 'fixture-target');
+    assertEqual(rolledBack.to, 'fixture-base');
+    assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-base');
+    assertEqual(repository.getBindingOperation(rolledBack.operationId).kind, 'USER_ROLLBACK');
+    assertEqual(
+      repository.getBindingOperation(rolledBack.operationId).rollbackOfOperationId,
+      applied.operationId,
+    );
+    assertEqual(
+      provider.calls.resolve,
+      resolvesBeforeRollback + 1,
+      'valid recovery resolves exactly one rollback target after the durable CAS',
+    );
+    assertEqual(count(db, 'model_binding_operations'), 2);
+  });
+});
+
+await testAsync('stale operation-bound recovery has zero provider, runtime, durable or broadcast effect', async () => {
+  await withFixture(async ({ db, repository, manager, provider, events, application }) => {
+    provider.verifyError = new ModelBindingApplicationError(
+      'MODEL_BINDING_VERIFICATION_REJECTED',
+      'fixture transient rejection',
+    );
+    const first = await application.applyManualBinding({
+      role: 'CHAT',
+      targetModel: 'fixture-target',
+    });
+    await application.awaitBackgroundWork();
+    const failureEvent = events.find(event => event.action === 'upgrade_verify_failed');
+    provider.verifyError = null;
+    await application.applyManualBinding({ role: 'CHAT', targetModel: 'fixture-target' });
+    await application.awaitBackgroundWork();
+    assertEqual(repository.getBindingApplicationState(first.operationId).state, 'VERIFIED');
+
+    const before = {
+      desired: JSON.stringify(repository.getDesired('CHAT')),
+      events: events.length,
+      history: count(db, 'upgrade_history'),
+      operations: count(db, 'model_binding_operations'),
+      resolve: provider.calls.resolve,
+      version: manager.createBindingRuntimePort().snapshot('CHAT').configVersion,
+    };
+    const error = await captureError(application.rollbackFailedManualBinding({
+      role: failureEvent.role,
+      operationId: failureEvent.operationId,
+      committedBindingRevision: failureEvent.committedBindingRevision,
+      failedAttemptRevision: failureEvent.failedAttemptRevision,
+    }));
+    assertEqual(error.code, 'MODEL_BINDING_RECOVERY_STALE');
+    assertEqual(JSON.stringify(repository.getDesired('CHAT')), before.desired);
+    assertEqual(events.length, before.events);
+    assertEqual(count(db, 'upgrade_history'), before.history);
+    assertEqual(count(db, 'model_binding_operations'), before.operations);
+    assertEqual(provider.calls.resolve, before.resolve);
+    assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').configVersion, before.version);
+  });
+});
+
+await testAsync('operation-bound recovery rejects imprecise identity before repository access', async () => {
+  await withFixture(async ({ provider, events, application }) => {
+    const before = { events: events.length, resolve: provider.calls.resolve };
+    for (const input of [
+      {
+        role: ' CHAT', operationId: 'operation-exact-0001',
+        committedBindingRevision: 2, failedAttemptRevision: 3,
+      },
+      {
+        role: 'CHAT', operationId: ' operation-exact-0001',
+        committedBindingRevision: 2, failedAttemptRevision: 3,
+      },
+      {
+        role: 'CHAT', operationId: 'operation-exact-0001',
+        committedBindingRevision: 2, failedAttemptRevision: 0,
+      },
+      {
+        role: 'CHAT', operationId: 'operation-exact-0001',
+        committedBindingRevision: 2, failedAttemptRevision: 3, extra: true,
+      },
+    ]) {
+      const error = await captureError(application.rollbackFailedManualBinding(input));
+      assert([
+        'MODEL_BINDING_APPLICATION_INPUT_INVALID',
+        'MODEL_BINDING_APPLICATION_AUTHORITY_OVERRIDE_REJECTED',
+      ].includes(error.code));
+    }
+    assertEqual(events.length, before.events);
+    assertEqual(provider.calls.resolve, before.resolve);
   });
 });
 
@@ -4515,6 +4669,90 @@ await testAsync('HTTP apply rejects inherited or non-exact model roles before ap
 
 await testAsync('HTTP rollback rejects inherited or non-exact model roles before application authority', async () => {
   await assertHttpModelRouteRejectsInvalidRoles('POST /api/system/upgrades/rollback');
+});
+
+await testAsync('HTTP recovery rollback carries exact failed-operation identity and typed outcomes', async () => {
+  await withFixture(async ({ db, provider, events, application }) => {
+    provider.verifyError = new ModelBindingApplicationError(
+      'MODEL_BINDING_VERIFICATION_REJECTED',
+      'fixture probe rejected',
+    );
+    await application.applyManualBinding({
+      role: 'CHAT',
+      targetModel: 'fixture-target',
+    });
+    await application.awaitBackgroundWork();
+    const failure = events.find(event => event.action === 'upgrade_verify_failed');
+    assert(failure);
+    let requestBody = {
+      role: failure.role,
+      operationId: failure.operationId,
+      committedBindingRevision: failure.committedBindingRevision,
+      failedAttemptRevision: failure.failedAttemptRevision,
+    };
+    const responses = [];
+    const routes = createSystemRoutes({
+      db: { db },
+      modelRegistry: null,
+      modelBindingApplication: application,
+      parseBody: async () => requestBody,
+      sendJSON: (_res, status, body) => responses.push({ status, body }),
+    });
+
+    await routes['POST /api/system/upgrades/recovery/rollback']({}, {});
+    assertEqual(responses[0].status, 200);
+    assertEqual(responses[0].body.ok, true);
+    assertEqual(responses[0].body.role, requestBody.role);
+    assertEqual(responses[0].body.operationId, requestBody.operationId);
+    assertEqual(
+      responses[0].body.committedBindingRevision,
+      requestBody.committedBindingRevision,
+    );
+    assertEqual(responses[0].body.failedAttemptRevision, requestBody.failedAttemptRevision);
+    assert(typeof responses[0].body.rollbackOperationId === 'string');
+
+    await routes['POST /api/system/upgrades/recovery/rollback']({}, {});
+    assertEqual(responses[1].status, 409);
+    assertEqual(responses[1].body.code, 'MODEL_BINDING_RECOVERY_STALE');
+  });
+});
+
+await testAsync('HTTP recovery rollback rejects every imprecise identity with typed 400', async () => {
+  await withFixture(async ({ db, application }) => {
+    let requestBody = null;
+    const responses = [];
+    const routes = createSystemRoutes({
+      db: { db },
+      modelRegistry: null,
+      modelBindingApplication: application,
+      parseBody: async () => requestBody,
+      sendJSON: (_res, status, body) => responses.push({ status, body }),
+    });
+    const valid = {
+      role: 'CHAT',
+      operationId: 'operation-exact-0001',
+      committedBindingRevision: 2,
+      failedAttemptRevision: 3,
+    };
+    const invalid = [
+      { ...valid, operationId: ' operation-exact-0001' },
+      { ...valid, role: 'chat' },
+      { ...valid, failedAttemptRevision: 0 },
+      { ...valid, extra: true },
+      {
+        role: valid.role,
+        operationId: valid.operationId,
+        committedBindingRevision: valid.committedBindingRevision,
+      },
+    ];
+    for (const body of invalid) {
+      requestBody = body;
+      await routes['POST /api/system/upgrades/recovery/rollback']({}, {});
+      const response = responses.at(-1);
+      assertEqual(response.status, 400);
+      assertEqual(response.body.code, 'MODEL_BINDING_APPLICATION_INPUT_INVALID');
+    }
+  });
 });
 
 await testAsync('HTTP and chat present same-target acceptance without a false change', async () => {

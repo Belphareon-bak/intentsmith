@@ -199,6 +199,24 @@ function requireRole(value) {
   return role;
 }
 
+function requireExactString(value, field, { min = 1, max = 128 } = {}) {
+  if (typeof value !== 'string'
+    || value.length < min
+    || value.length > max
+    || value !== value.trim()) {
+    fail('MODEL_FAILOVER_INPUT_INVALID', `${field} must be an exact string`, { field });
+  }
+  return value;
+}
+
+function requireExactRole(value) {
+  const role = requireExactString(value, 'role', { max: 16 });
+  if (!ROLES.has(role)) {
+    fail('MODEL_FAILOVER_ROLE_INVALID', 'Unknown exact model role', { role });
+  }
+  return role;
+}
+
 function requireUserActor(value) {
   const actor = requireString(value, 'actor');
   if (!/^user:[^\s]+$/u.test(actor)) {
@@ -1449,6 +1467,32 @@ export class ModelFailoverRepository {
           'Binding application operation does not exist',
           { operationId },
         );
+      }
+
+      if (kind === 'VERIFICATION') {
+        const desired = this.#desiredRow(operation.role);
+        const operationIsCurrent = desired
+          && MANUAL_DESIRED_SOURCES.has(operation.operation_kind)
+          && desired.binding_revision === operation.committed_binding_revision
+          && desired.source === operation.operation_kind
+          && desired.model_name === operation.target_model_name
+          && desired.canonical_name === operation.target_canonical_name
+          && desired.digest_sha256 === operation.target_digest_sha256
+          && desired.actor === operation.actor
+          && desired.last_event_id === operation.desired_event_id;
+        if (!operationIsCurrent) {
+          fail(
+            'MODEL_BINDING_VERIFICATION_STALE',
+            'Verification operation is no longer the current desired binding',
+            {
+              operationId,
+              role: operation.role,
+              committedBindingRevision: operation.committed_binding_revision,
+              actualBindingRevision: desired?.binding_revision ?? null,
+              actualSource: desired?.source ?? null,
+            },
+          );
+        }
       }
 
       const attempts = this.#bindingApplicationAttemptRows(operationId);
@@ -3163,9 +3207,76 @@ export class ModelFailoverRepository {
     );
     const actor = requireUserActor(input.actor);
 
-    return this.#write('recordUserBindingRollback', () => {
+    return this.#recordUserBindingRollback({
+      requestKey,
+      role,
+      expectedBindingRevision,
+      rollbackOfOperationId,
+      actor,
+    });
+  }
+
+  recordOperationBoundUserBindingRollback(inputValue) {
+    const input = requireInput(inputValue);
+    requireExactInputFields(input, [
+      'requestKey',
+      'role',
+      'operationId',
+      'committedBindingRevision',
+      'failedAttemptRevision',
+      'actor',
+    ]);
+    const requestKey = requireString(input.requestKey, 'requestKey', { min: 16, max: 128 });
+    const role = requireExactRole(input.role);
+    const operationId = requireExactString(input.operationId, 'operationId', {
+      min: 16,
+      max: 128,
+    });
+    const committedBindingRevision = requirePositiveInteger(
+      input.committedBindingRevision,
+      'committedBindingRevision',
+    );
+    const failedAttemptRevision = requirePositiveInteger(
+      input.failedAttemptRevision,
+      'failedAttemptRevision',
+    );
+    const actor = requireUserActor(input.actor);
+
+    return this.#recordUserBindingRollback({
+      requestKey,
+      role,
+      expectedBindingRevision: committedBindingRevision,
+      rollbackOfOperationId: operationId,
+      actor,
+      recoveryIdentity: {
+        operationId,
+        committedBindingRevision,
+        failedAttemptRevision,
+      },
+    });
+  }
+
+  #recordUserBindingRollback({
+    requestKey,
+    role,
+    expectedBindingRevision,
+    rollbackOfOperationId,
+    actor,
+    recoveryIdentity = null,
+  }) {
+    const operationName = recoveryIdentity
+      ? 'recordOperationBoundUserBindingRollback'
+      : 'recordUserBindingRollback';
+    return this.#write(operationName, () => {
       const replay = this.#bindingOperationByRequestKey(requestKey);
       if (replay) {
+        if (recoveryIdentity) {
+          fail(
+            'MODEL_BINDING_RECOVERY_STALE',
+            'Operation-bound recovery request was already consumed',
+            recoveryIdentity,
+          );
+        }
         return this.#replayManualOperation(replay, {
           requestKey,
           role,
@@ -3178,22 +3289,71 @@ export class ModelFailoverRepository {
 
       const desired = this.#desiredRow(role);
       if (!desired) {
+        if (recoveryIdentity) {
+          fail(
+            'MODEL_BINDING_RECOVERY_STALE',
+            'Operation-bound recovery has no current desired binding',
+            recoveryIdentity,
+          );
+        }
         fail('MODEL_FAILOVER_DESIRED_MISSING', 'Cannot rollback a manual binding without desired state', {
           role,
         });
       }
       const applied = this.#bindingOperationRow(rollbackOfOperationId);
       if (!applied) {
+        if (recoveryIdentity) {
+          fail(
+            'MODEL_BINDING_RECOVERY_STALE',
+            'Operation-bound recovery operation no longer exists',
+            recoveryIdentity,
+          );
+        }
         fail('MODEL_FAILOVER_BINDING_OPERATION_MISSING', 'Rollback apply operation does not exist', {
           role,
           rollbackOfOperationId,
         });
       }
       if (applied.operation_kind !== 'USER_APPLY' || applied.role !== role) {
+        if (recoveryIdentity) {
+          fail(
+            'MODEL_BINDING_RECOVERY_STALE',
+            'Operation-bound recovery target is not the exact failed apply',
+            recoveryIdentity,
+          );
+        }
         fail('MODEL_FAILOVER_ROLLBACK_TARGET_INVALID', 'Rollback target is not an apply for this role', {
           role,
           rollbackOfOperationId,
         });
+      }
+      if (recoveryIdentity) {
+        const applicationState = this.#bindingApplicationState(applied);
+        const failedAttempt = applicationState.lastVerificationAttempt;
+        const exactFailureIsCurrent = (
+          applied.operation_id === recoveryIdentity.operationId
+          && applied.committed_binding_revision
+            === recoveryIdentity.committedBindingRevision
+          && desired.binding_revision === recoveryIdentity.committedBindingRevision
+          && failedAttempt?.kind === 'VERIFICATION'
+          && failedAttempt.outcome === 'FAILED'
+          && failedAttempt.attemptRevision === recoveryIdentity.failedAttemptRevision
+        );
+        if (!exactFailureIsCurrent) {
+          fail(
+            'MODEL_BINDING_RECOVERY_STALE',
+            'Operation-bound recovery no longer matches the current failed verification',
+            {
+              role,
+              operationId: recoveryIdentity.operationId,
+              committedBindingRevision: recoveryIdentity.committedBindingRevision,
+              failedAttemptRevision: recoveryIdentity.failedAttemptRevision,
+              actualBindingRevision: desired.binding_revision,
+              actualVerificationOutcome: failedAttempt?.outcome ?? null,
+              actualFailedAttemptRevision: failedAttempt?.attemptRevision ?? null,
+            },
+          );
+        }
       }
       const priorRollback = this.db.prepare(`
         SELECT operation_id, request_key
@@ -3226,6 +3386,13 @@ export class ModelFailoverRepository {
         && desired.digest_sha256 === applied.target_digest_sha256
         && desired.last_event_id === applied.desired_event_id;
       if (!currentMatchesApply) {
+        if (recoveryIdentity) {
+          fail(
+            'MODEL_BINDING_RECOVERY_STALE',
+            'Operation-bound recovery apply is no longer current',
+            recoveryIdentity,
+          );
+        }
         fail('MODEL_FAILOVER_ROLLBACK_NOT_CURRENT', 'Rollback apply is not the current desired binding', {
           role,
           rollbackOfOperationId,

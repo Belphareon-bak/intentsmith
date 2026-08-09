@@ -478,6 +478,7 @@ Lifecycle endpoints are spread across projects and expertises routes:
 |--------|------|------|----------|-------------|
 | `POST` | `/api/system/upgrades/apply` | `{role, targetModel, score?, appliedBy?}` | `{ok, status: 'started'}` | Applies upgrade (fire-and-forget). Auto-pulls if not installed. WS: `upgrade_progress`, `model_changed`, `model_pull_progress`, `upgrade_error` |
 | `POST` | `/api/system/upgrades/rollback` | `{role}` | `{ok, from, to}` | Rolls back to previous model |
+| `POST` | `/api/system/upgrades/recovery/rollback` | `{role, operationId, committedBindingRevision, failedAttemptRevision}` (exact keys and values) | `{ok, role, from, to, configVersion, operationId, committedBindingRevision, failedAttemptRevision, rollbackOperationId}` | Operation-bound Studio recovery. Malformed identity returns typed `400`; stale, consumed or superseded identity returns typed `409` before provider/runtime effects. |
 | `GET` | `/api/system/upgrades/proposals` | — | `{proposals[]}` | Current pending proposals |
 
 > **WS events after apply:**
@@ -485,7 +486,8 @@ Lifecycle endpoints are spread across projects and expertises routes:
 > - `model_pull_progress` — download progress (percent, status label)
 > - `model_changed` — success (role, fromModel, toModel)
 > - `upgrade_error` — failure (role, model, error message)
-> - `upgrade_verify_failed` — background verify failed after 3 attempts (warning, not auto-rollback)
+> - `upgrade_verify_failed` — background verify failed after 3 attempts. Actionable `USER_APPLY` form adds exact `role`, `model`, `operationId`, `committedBindingRevision` and `failedAttemptRevision`; legacy/incomplete and `USER_ROLLBACK` forms remain warning-only.
+> - `upgrade_verify_cleared` — bounded UX invalidation for the exact failed attempt after a later successful verification; adds `succeededAttemptRevision` and is not a substitute for repository CAS.
 > - `model_validation_prompt` — suggests running validation suite after model change
 
 ### Model Validation (v123)

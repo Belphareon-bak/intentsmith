@@ -2419,6 +2419,125 @@ var _settingsVals={theme:'dark',accentIdx:0,activeInt:100,passiveInt:50,fontSize
 /* v87.3: Backend config state — loaded from /api/settings */
 var _bCfg=null;var _bCfgLoading=false;var _gpuInfo=null;var _ollamaModels=null;var _sysInfo=null;var _storageInfo=null;var _bCfgSaveTimer=null;
 var _upgradeData=null;var _upgradeLoading=false;var _upgradeMsg=null;var _upgradeAutoChecked=false;
+/* M1: operation-bound upgrade recovery.  This ledger is deliberately
+   independent from transient toasts and role-only model_changed events. */
+var _upgradeRecoveryByRole=Object.create(null);var _upgradeRecoveryWatermarks=Object.create(null);var _upgradeRecoveryToken=0;
+var _upgradeRecoveryRoles={D1:true,D2:true,CODE:true,R1:true,R2:true,CHAT:true,VISION:true};
+function _upgradeRecoveryKnownRole(v){return typeof v==='string'&&Object.hasOwn(_upgradeRecoveryRoles,v);}
+function _upgradeRecoveryExactString(v){return typeof v==='string'&&v.length>0&&v===v.trim();}
+function _upgradeRecoveryIdentity(ev){
+  if(!ev||typeof ev!=='object'||Array.isArray(ev)||!_upgradeRecoveryKnownRole(ev.role)
+    ||!_upgradeRecoveryExactString(ev.model)||!_upgradeRecoveryExactString(ev.operationId)
+    ||!Number.isSafeInteger(ev.committedBindingRevision)||ev.committedBindingRevision<1
+    ||!Number.isSafeInteger(ev.failedAttemptRevision)||ev.failedAttemptRevision<1)return null;
+  return{role:ev.role,model:ev.model,operationId:ev.operationId,
+    committedBindingRevision:ev.committedBindingRevision,failedAttemptRevision:ev.failedAttemptRevision};
+}
+function _upgradeRecoveryKey(v){return v.operationId+'\u0000'+v.committedBindingRevision+'\u0000'+v.failedAttemptRevision;}
+function _upgradeRecoveryCompare(a,b){
+  if(a.committedBindingRevision!==b.committedBindingRevision)return a.committedBindingRevision-b.committedBindingRevision;
+  if(a.failedAttemptRevision!==b.failedAttemptRevision)return a.failedAttemptRevision-b.failedAttemptRevision;
+  return a.operationId===b.operationId?0:-1;
+}
+function _upgradeRecoveryClose(role,record){
+  if(record&&record.identity){
+    var watermark=_upgradeRecoveryWatermarks[role];
+    if(!watermark||_upgradeRecoveryCompare(record.identity,watermark)>0)_upgradeRecoveryWatermarks[role]=record.identity;
+  }
+  if(_upgradeRecoveryByRole[role]===record)delete _upgradeRecoveryByRole[role];
+}
+function _upgradeRecoveryReceiveFailure(ev){
+  var identity=_upgradeRecoveryIdentity(ev);var role=ev&&ev.role;
+  if(!identity){
+    if(_upgradeRecoveryKnownRole(role)&&_upgradeRecoveryByRole[role])_upgradeRecoveryClose(role,_upgradeRecoveryByRole[role]);
+    return false;
+  }
+  var watermark=_upgradeRecoveryWatermarks[identity.role];
+  if(watermark&&(_upgradeRecoveryKey(watermark)===_upgradeRecoveryKey(identity)||_upgradeRecoveryCompare(identity,watermark)<=0))return false;
+  var current=_upgradeRecoveryByRole[identity.role];
+  if(current){
+    if(_upgradeRecoveryKey(current.identity)===_upgradeRecoveryKey(identity)||_upgradeRecoveryCompare(identity,current.identity)<=0)return false;
+    _upgradeRecoveryClose(identity.role,current);
+  }
+  _upgradeRecoveryByRole[identity.role]={identity:identity,token:++_upgradeRecoveryToken,phase:'READY',message:ev.text||'Model neprošel ověřením.'};
+  return true;
+}
+function _upgradeRecoveryReceiveClear(ev){
+  var identity=_upgradeRecoveryIdentity(ev);
+  if(!identity||!Number.isSafeInteger(ev.succeededAttemptRevision)||ev.succeededAttemptRevision<1)return false;
+  var current=_upgradeRecoveryByRole[identity.role];
+  if(!current||_upgradeRecoveryKey(current.identity)!==_upgradeRecoveryKey(identity))return false;
+  _upgradeRecoveryClose(identity.role,current);return true;
+}
+function _upgradeRecoverySnapshot(){
+  return Object.keys(_upgradeRecoveryByRole).sort().map(function(role){
+    var record=_upgradeRecoveryByRole[role];return{role:role,model:record.identity.model,
+      operationId:record.identity.operationId,committedBindingRevision:record.identity.committedBindingRevision,
+      failedAttemptRevision:record.identity.failedAttemptRevision,token:record.token,phase:record.phase,message:record.message};
+  });
+}
+function _upgradeRecoveryBegin(role,token){
+  var record=_upgradeRecoveryByRole[role];
+  if(!record||record.token!==token||(record.phase!=='READY'&&record.phase!=='RETRYABLE'))return false;
+  record.phase='CONFIRMING';renderCenter();return true;
+}
+function _upgradeRecoveryCancel(role,token){
+  var record=_upgradeRecoveryByRole[role];
+  if(!record||record.token!==token||record.phase!=='CONFIRMING')return false;
+  record.phase='READY';renderCenter();return true;
+}
+async function _upgradeRecoveryConfirm(role,token){
+  var record=_upgradeRecoveryByRole[role];
+  if(!record||record.token!==token||record.phase!=='CONFIRMING')return false;
+  var identity=record.identity;record.phase='IN_FLIGHT';record.message='Provádím přesně svázaný rollback...';renderCenter();
+  var response;var body=null;var parsed=false;
+  try{
+    response=await fetch(_backendBase+'/api/system/upgrades/recovery/rollback',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({role:identity.role,operationId:identity.operationId,
+        committedBindingRevision:identity.committedBindingRevision,failedAttemptRevision:identity.failedAttemptRevision}),
+      signal:AbortSignal.timeout(30000)});
+    try{body=await response.json();parsed=true;}catch(_jsonError){parsed=false;}
+  }catch(error){
+    record=_upgradeRecoveryByRole[role];if(!record||record.token!==token)return false;
+    record.phase='RETRYABLE';record.message='Rollback nebyl doručen: '+(error&&error.message?error.message:'chyba sítě');renderCenter();return false;
+  }
+  record=_upgradeRecoveryByRole[role];if(!record||record.token!==token)return false;
+  if(!response.ok){
+    record.phase=response.status>=500?'RETRYABLE':'DISABLED';
+    record.message=(response.status===409?'Akce už není aktuální. ':'Rollback byl odmítnut. ')+(parsed&&body&&body.error?body.error:'HTTP '+response.status);
+    renderCenter();return false;
+  }
+  var exact=parsed&&body&&body.ok===true&&body.role===identity.role
+    &&body.operationId===identity.operationId
+    &&body.committedBindingRevision===identity.committedBindingRevision
+    &&body.failedAttemptRevision===identity.failedAttemptRevision
+    &&_upgradeRecoveryExactString(body.rollbackOperationId);
+  if(!exact){record.phase='UNKNOWN';record.message='Výsledek rollbacku nelze bezpečně potvrdit. Akci neopakujte.';renderCenter();return false;}
+  _upgradeRecoveryClose(role,record);_roleBindings=null;_modelOverview=null;_upgradeData=null;
+  _upgradeMsg={ok:true,text:'Model role '+role+' byl vrácen na předchozí binding.'};
+  _loadUpgradeData();renderCenter();return true;
+}
+function _renderUpgradeRecoveries(){
+  var rows=_upgradeRecoverySnapshot();if(rows.length===0)return null;
+  return h('div',{style:{margin:'10px 18px 0',display:'flex',flexDirection:'column',gap:8}},rows.map(function(row){
+    var busy=row.phase==='IN_FLIGHT';var closed=row.phase==='DISABLED'||row.phase==='UNKNOWN';
+    return h('div',{key:row.role,style:{padding:'10px 12px',borderRadius:7,background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.25)'}},
+      h('div',{style:{display:'flex',alignItems:'center',gap:8}},
+        h('span',{style:{fontSize:_fs(11),fontWeight:700,color:'#ef4444'}},'Ověření selhalo: '+row.role),
+        h('span',{style:{fontSize:_fs(10),color:C.tx3,fontFamily:C.mono,flex:1}},row.model),
+        row.phase==='CONFIRMING'?h(React.Fragment,null,
+          h('button',{style:{padding:'4px 10px',borderRadius:5,border:'1px solid '+C.border2,background:'transparent',color:C.tx3,cursor:'pointer'},
+            onClick:function(){_upgradeRecoveryCancel(row.role,row.token);}},'Zrušit'),
+          h('button',{style:{padding:'4px 10px',borderRadius:5,border:'none',background:'#ef4444',color:'#fff',fontWeight:600,cursor:'pointer'},
+            onClick:function(){_upgradeRecoveryConfirm(row.role,row.token);}},'Potvrdit rollback')):
+        (!busy&&!closed?h('button',{style:{padding:'4px 10px',borderRadius:5,border:'1px solid #ef4444',background:'transparent',color:'#ef4444',fontWeight:600,cursor:'pointer'},
+          onClick:function(){_upgradeRecoveryBegin(row.role,row.token);}},row.phase==='RETRYABLE'?'Zkusit znovu':'Vrátit předchozí model'):
+          h('span',{style:{fontSize:_fs(10),fontWeight:600,color:closed?'#eab308':C.tx3}},
+            row.phase==='UNKNOWN'?'Neznámý výsledek':row.phase==='DISABLED'?'Akce neaktuální':'Čekám...'))),
+      h('div',{style:{fontSize:_fs(10),color:C.tx3,marginTop:6,lineHeight:1.4}},row.message));
+  }));
+}
+/* End M1 operation-bound upgrade recovery. */
 var _scoringData=null;var _scoringLoading=false;var _upgradeTab='overview';
 var _discoveredData=null;var _discoveredLoading=false;
 /* v133: Model overview + management state */
@@ -3516,6 +3635,7 @@ function centerUpgrades(){
       background:_upgradeMsg.ok?'rgba(34,197,94,0.1)':'rgba(239,68,68,0.1)',
       color:_upgradeMsg.ok?C.accent:'#ef4444',
       border:'1px solid '+(_upgradeMsg.ok?'rgba(34,197,94,0.2)':'rgba(239,68,68,0.2)')}},_upgradeMsg.text):null,
+    _renderUpgradeRecoveries(),
     /* v125: validation prompt */
     _validationPrompt?h('div',{style:{margin:'0 18px',marginTop:8,padding:'10px 14px',borderRadius:6,fontSize:_fs(11),
       background:'rgba(59,130,246,0.1)',color:'#3b82f6',border:'1px solid rgba(59,130,246,0.2)',display:'flex',alignItems:'center',gap:10}},
@@ -5834,10 +5954,16 @@ function _initBusSubscriptions() {
 
   /* v125: Background verify failed warning */
   C3Bus.on('upgrade:verify_failed', function(ev) {
-    _upgradeMsg={ok:false,text:ev.text||'Varování: model neodpovídá na ping'};
+    _upgradeRecoveryReceiveFailure(ev);
+    var warning={ok:false,text:ev.text||'Varování: model neodpovídá na ping'};_upgradeMsg=warning;
     if(window._c3)window._c3.agentLog('TOOL','\u26A0\uFE0F '+(ev.text||'Model neodpov\u00EDd\u00E1 na ping'));
     renderCenter();
-    setTimeout(function(){_upgradeMsg=null;renderCenter();},15000);
+    setTimeout(function(){if(_upgradeMsg===warning){_upgradeMsg=null;renderCenter();}},15000);
+  });
+
+  /* M1: bounded UX invalidation; repository CAS remains authoritative. */
+  C3Bus.on('upgrade:verify_cleared', function(ev) {
+    if(_upgradeRecoveryReceiveClear(ev))renderCenter();
   });
 
   /* v125: Validation prompt after model change */

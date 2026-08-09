@@ -323,6 +323,38 @@ function rollbackChat(repository, applyOperationId, overrides = {}) {
   });
 }
 
+function operationBoundRollbackChat(repository, applyOperation, failedAttemptRevision, overrides = {}) {
+  return repository.recordOperationBoundUserBindingRollback({
+    requestKey: 'request-operation-bound-rollback-0001',
+    role: 'CHAT',
+    operationId: applyOperation.operationId,
+    committedBindingRevision: applyOperation.committedBindingRevision,
+    failedAttemptRevision,
+    actor: 'user:fixture',
+    ...overrides,
+  });
+}
+
+function failApplyVerification(repository, operation) {
+  const runtime = repository.recordManualRuntimeApplied({
+    operationId: operation.operationId,
+    expectedAttemptRevision: 0,
+    observedModelName: operation.targetModelName,
+    observedDigestSha256: operation.targetDigestSha256,
+    runtimeChanged: true,
+  });
+  finalizeRuntime(
+    repository,
+    operation.operationId,
+    runtime.attempt.attemptRevision,
+  );
+  return repository.recordManualVerificationFailed({
+    operationId: operation.operationId,
+    expectedAttemptRevision: runtime.attempt.attemptRevision,
+    failureCode: 'MODEL_BINDING_VERIFICATION_PROVIDER_UNAVAILABLE',
+  });
+}
+
 function detectChat(repository, expectedDesiredRevision = 1) {
   return repository.recordDetection({ role: 'CHAT', expectedDesiredRevision });
 }
@@ -1872,6 +1904,223 @@ await testAsync('rollback derives one exact append-only reversal and remains rep
     }));
     assertRepositoryError(stale, 'MODEL_FAILOVER_ROLLBACK_NOT_CURRENT');
   });
+});
+
+await testAsync('operation-bound rollback consumes only the exact current failed verification', async () => {
+  await withRepository(async ({ firstDb }) => {
+    const runtime = createRuntime('operation-bound-rollback');
+    const repository = createModelFailoverRepository(firstDb, runtime.options);
+    observeChat(repository);
+    runtime.setNow(2000);
+    const applied = applyChat(repository).operation;
+    runtime.setNow(2100);
+    const failed = failApplyVerification(repository, applied);
+    runtime.setNow(2200);
+
+    const rolledBack = operationBoundRollbackChat(
+      repository,
+      applied,
+      failed.attempt.attemptRevision,
+    );
+    assertEqual(rolledBack.outcome, 'RECORDED');
+    assertEqual(rolledBack.operation.kind, 'USER_ROLLBACK');
+    assertEqual(rolledBack.operation.rollbackOfOperationId, applied.operationId);
+    assertEqual(rolledBack.currentDesired.bindingRevision, 3);
+    assertEqual(rolledBack.currentDesired.modelName, 'reasoner');
+
+    const beforeReplay = {
+      desired: firstDb.prepare('SELECT COUNT(*) AS count FROM model_desired_bindings').get().count,
+      events: firstDb.prepare('SELECT COUNT(*) AS count FROM model_failover_events').get().count,
+      operations: firstDb.prepare('SELECT COUNT(*) AS count FROM model_binding_operations').get().count,
+    };
+    const replay = captureError(() => operationBoundRollbackChat(
+      repository,
+      applied,
+      failed.attempt.attemptRevision,
+      { requestKey: 'request-operation-bound-rollback-replay' },
+    ));
+    assertRepositoryError(replay, 'MODEL_BINDING_RECOVERY_STALE');
+    assertEqual(
+      JSON.stringify({
+        desired: firstDb.prepare('SELECT COUNT(*) AS count FROM model_desired_bindings').get().count,
+        events: firstDb.prepare('SELECT COUNT(*) AS count FROM model_failover_events').get().count,
+        operations: firstDb.prepare('SELECT COUNT(*) AS count FROM model_binding_operations').get().count,
+      }),
+      JSON.stringify(beforeReplay),
+    );
+  });
+});
+
+await testAsync('operation-bound rollback rejects stale identity before every durable write', async () => {
+  const cases = [
+    ['operation', { operationId: 'operation-stale-0001' }],
+    ['binding revision', { committedBindingRevision: 999 }],
+    ['attempt revision', { failedAttemptRevision: 999 }],
+  ];
+  for (const [label, overrides] of cases) {
+    await withRepository(async ({ firstDb }) => {
+      const runtime = createRuntime(`operation-bound-stale-${label.replaceAll(' ', '-')}`);
+      const repository = createModelFailoverRepository(firstDb, runtime.options);
+      observeChat(repository);
+      runtime.setNow(2000);
+      const applied = applyChat(repository).operation;
+      runtime.setNow(2100);
+      const failed = failApplyVerification(repository, applied);
+      const before = {
+        desired: JSON.stringify(repository.getDesired('CHAT')),
+        events: firstDb.prepare('SELECT COUNT(*) AS count FROM model_failover_events').get().count,
+        operations: firstDb.prepare('SELECT COUNT(*) AS count FROM model_binding_operations').get().count,
+      };
+      const error = captureError(() => operationBoundRollbackChat(
+        repository,
+        applied,
+        failed.attempt.attemptRevision,
+        overrides,
+      ));
+      assertRepositoryError(error, 'MODEL_BINDING_RECOVERY_STALE');
+      assertEqual(JSON.stringify(repository.getDesired('CHAT')), before.desired, label);
+      assertEqual(
+        firstDb.prepare('SELECT COUNT(*) AS count FROM model_failover_events').get().count,
+        before.events,
+        label,
+      );
+      assertEqual(
+        firstDb.prepare('SELECT COUNT(*) AS count FROM model_binding_operations').get().count,
+        before.operations,
+        label,
+      );
+    });
+  }
+});
+
+await testAsync('operation-bound rollback rejects a recovered or superseded failure', async () => {
+  await withRepository(async ({ firstDb }) => {
+    const runtime = createRuntime('operation-bound-reverified');
+    const repository = createModelFailoverRepository(firstDb, runtime.options);
+    observeChat(repository);
+    runtime.setNow(2000);
+    const applied = applyChat(repository).operation;
+    runtime.setNow(2100);
+    const failed = failApplyVerification(repository, applied);
+    runtime.setNow(2200);
+    repository.recordManualVerificationSucceeded({
+      operationId: applied.operationId,
+      expectedAttemptRevision: failed.attempt.attemptRevision,
+      observedModelName: applied.targetModelName,
+      observedDigestSha256: applied.targetDigestSha256,
+    });
+    const error = captureError(() => operationBoundRollbackChat(
+      repository,
+      applied,
+      failed.attempt.attemptRevision,
+    ));
+    assertRepositoryError(error, 'MODEL_BINDING_RECOVERY_STALE');
+    assertEqual(firstDb.prepare('SELECT COUNT(*) AS count FROM model_binding_operations').get().count, 1);
+  });
+
+  await withRepository(async ({ firstDb }) => {
+    const runtime = createRuntime('operation-bound-superseded');
+    const repository = createModelFailoverRepository(firstDb, runtime.options);
+    observeChat(repository);
+    runtime.setNow(2000);
+    const applied = applyChat(repository).operation;
+    runtime.setNow(2100);
+    const failed = failApplyVerification(repository, applied);
+    runtime.setNow(2200);
+    applyChat(repository, {
+      requestKey: 'request-user-apply-after-failure',
+      expectedBindingRevision: applied.committedBindingRevision,
+      targetModelName: 'newer-target',
+      targetDigestSha256: DIGEST_A,
+    });
+    const error = captureError(() => operationBoundRollbackChat(
+      repository,
+      applied,
+      failed.attempt.attemptRevision,
+    ));
+    assertRepositoryError(error, 'MODEL_BINDING_RECOVERY_STALE');
+    assertEqual(firstDb.prepare('SELECT COUNT(*) AS count FROM model_binding_operations').get().count, 2);
+  });
+});
+
+await testAsync('two connections serialize verification and operation-bound rollback to one winner', async () => {
+  await withRepository(async ({ firstDb, secondDb }) => {
+    const writer = createModelFailoverRepository(
+      firstDb,
+      createRuntime('rollback-wins-race', 1000).options,
+    );
+    const verifier = createModelFailoverRepository(
+      secondDb,
+      createRuntime('late-verifier-race', 5000).options,
+    );
+    observeChat(writer);
+    const applied = applyChat(writer).operation;
+    const failed = failApplyVerification(writer, applied);
+
+    // This is the application-layer observation which used to be the only
+    // current-operation check.  The competing transaction commits after it.
+    const preflight = verifier.getDesired('CHAT');
+    const preflightState = verifier.getBindingApplicationState(applied.operationId);
+    assertEqual(preflight.bindingRevision, applied.committedBindingRevision);
+    assertEqual(preflightState.lastVerificationAttempt.outcome, 'FAILED');
+
+    operationBoundRollbackChat(writer, applied, failed.attempt.attemptRevision);
+    const attemptsBeforeLateWrite = firstDb.prepare(`
+      SELECT COUNT(*) AS count FROM model_binding_application_attempts
+      WHERE operation_id = ?
+    `).get(applied.operationId).count;
+    const lateVerification = captureError(() => verifier.recordManualVerificationSucceeded({
+      operationId: applied.operationId,
+      expectedAttemptRevision: preflightState.attemptRevision,
+      observedModelName: applied.targetModelName,
+      observedDigestSha256: applied.targetDigestSha256,
+    }));
+    assertRepositoryError(lateVerification, 'MODEL_BINDING_VERIFICATION_STALE');
+    assertEqual(
+      firstDb.prepare(`
+        SELECT COUNT(*) AS count FROM model_binding_application_attempts
+        WHERE operation_id = ?
+      `).get(applied.operationId).count,
+      attemptsBeforeLateWrite,
+    );
+    assertEqual(writer.getDesired('CHAT').source, 'USER_ROLLBACK');
+  }, { second: true });
+
+  await withRepository(async ({ firstDb, secondDb }) => {
+    const verifier = createModelFailoverRepository(
+      firstDb,
+      createRuntime('verification-wins-race', 1000).options,
+    );
+    const rollback = createModelFailoverRepository(
+      secondDb,
+      createRuntime('late-rollback-race', 5000).options,
+    );
+    observeChat(verifier);
+    const applied = applyChat(verifier).operation;
+    const failed = failApplyVerification(verifier, applied);
+    const state = verifier.getBindingApplicationState(applied.operationId);
+    verifier.recordManualVerificationSucceeded({
+      operationId: applied.operationId,
+      expectedAttemptRevision: state.attemptRevision,
+      observedModelName: applied.targetModelName,
+      observedDigestSha256: applied.targetDigestSha256,
+    });
+
+    const operationsBeforeLateRollback = firstDb.prepare(`
+      SELECT COUNT(*) AS count FROM model_binding_operations
+    `).get().count;
+    const lateRollback = captureError(() => operationBoundRollbackChat(
+      rollback,
+      applied,
+      failed.attempt.attemptRevision,
+    ));
+    assertRepositoryError(lateRollback, 'MODEL_BINDING_RECOVERY_STALE');
+    assertEqual(
+      firstDb.prepare('SELECT COUNT(*) AS count FROM model_binding_operations').get().count,
+      operationsBeforeLateRollback,
+    );
+    assertEqual(verifier.getDesired('CHAT').source, 'USER_APPLY');
+  }, { second: true });
 });
 
 await testAsync('provider pull journal is exact, replay-safe and terminal', async () => {

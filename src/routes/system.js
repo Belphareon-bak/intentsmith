@@ -52,6 +52,7 @@ const MODEL_BINDING_HTTP_STATUS = Object.freeze({
   MODEL_BINDING_TARGET_NOT_INSTALLED: 404,
   MODEL_BINDING_OVERRIDE_NOT_FOUND: 404,
   MODEL_BINDING_LEGACY_ROLLBACK_REQUIRES_REBIND: 409,
+  MODEL_BINDING_RECOVERY_STALE: 409,
   MODEL_FAILOVER_STALE_DESIRED: 409,
 });
 
@@ -979,6 +980,51 @@ export function createSystemRoutes({
         });
       } catch (err) {
         sendJSON(res, modelBindingHttpStatus(err), { error: err.message });
+      }
+    },
+
+    'POST /api/system/upgrades/recovery/rollback': async (req, res) => {
+      try {
+        const body = await parseBody(req);
+        const expectedFields = [
+          'committedBindingRevision',
+          'failedAttemptRevision',
+          'operationId',
+          'role',
+        ];
+        if (!body
+          || typeof body !== 'object'
+          || Array.isArray(body)
+          || JSON.stringify(Object.keys(body).sort()) !== JSON.stringify(expectedFields)) {
+          return sendJSON(res, 400, {
+            code: 'MODEL_BINDING_APPLICATION_INPUT_INVALID',
+            error: 'Recovery rollback requires exact operation-bound identity',
+          });
+        }
+        if (!modelBindingApplication
+          || typeof modelBindingApplication.rollbackFailedManualBinding !== 'function') {
+          throw Object.assign(
+            new Error('Model binding application service is unavailable'),
+            { code: 'MODEL_BINDING_APPLICATION_SERVICE_REQUIRED' },
+          );
+        }
+        const result = await modelBindingApplication.rollbackFailedManualBinding(body);
+        sendJSON(res, 200, {
+          ok: result.ok,
+          role: result.role,
+          from: result.from,
+          to: result.to,
+          configVersion: result.configVersion,
+          operationId: body.operationId,
+          committedBindingRevision: body.committedBindingRevision,
+          failedAttemptRevision: body.failedAttemptRevision,
+          rollbackOperationId: result.operationId,
+        });
+      } catch (err) {
+        sendJSON(res, modelBindingHttpStatus(err), {
+          code: err?.code || 'MODEL_BINDING_APPLICATION_FAILED',
+          error: err.message,
+        });
       }
     },
 

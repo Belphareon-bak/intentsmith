@@ -1067,6 +1067,8 @@ function _wsConnect() {
           C3Bus.emit('upgrade:error', d);
         } else if (d.action === 'upgrade_verify_failed') {
           C3Bus.emit('upgrade:verify_failed', d);
+        } else if (d.action === 'upgrade_verify_cleared') {
+          C3Bus.emit('upgrade:verify_cleared', d);
         } else if (d.action === 'model_validation_prompt') {
           C3Bus.emit('model:validation_prompt', d);
         } else if (d.action === 'comfyui_progress') {

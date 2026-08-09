@@ -958,6 +958,305 @@ function terminalPanelHarness(pane = session('panel-terminal')) {
   return { counters, listeners, pane };
 }
 
+function upgradeRecoveryPanelHarness(options = {}) {
+  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
+  const recoveryStart = source.indexOf('/* M1: operation-bound upgrade recovery.');
+  const recoveryEndMarker = '/* End M1 operation-bound upgrade recovery. */';
+  const recoveryEnd = source.indexOf(recoveryEndMarker, recoveryStart);
+  const subscriptionsStart = source.indexOf('function _initBusSubscriptions()');
+  const subscriptionsEnd = source.indexOf('/* ── Health state ──', subscriptionsStart);
+  assert.ok(recoveryStart >= 0 && recoveryEnd > recoveryStart, 'upgrade recovery slice is missing');
+  assert.ok(
+    subscriptionsStart >= 0 && subscriptionsEnd > subscriptionsStart,
+    'upgrade subscription slice is missing',
+  );
+  const listeners = Object.create(null);
+  const requests = [];
+  const timers = [];
+  const counters = { load: 0, logs: [], render: 0 };
+  const fetchImpl = options.fetch || (async (url, init) => {
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+        return {
+          ok: true,
+          ...JSON.parse(init.body),
+          rollbackOperationId: 'rollback-operation-0001',
+        };
+      },
+    };
+  });
+  const context = vm.createContext({
+    AbortSignal,
+    C3Bus: { on(name, callback) { listeners[name] = callback; } },
+    Date,
+    JSON,
+    Math,
+    Number,
+    Object,
+    React: { Fragment: Symbol('fragment') },
+    _assigningRole: null,
+    _backendBase: 'http://127.0.0.1:3335',
+    _loadUpgradeData() { counters.load++; },
+    _modelOverview: null,
+    _roleBindings: null,
+    _sessions: [session('upgrade-recovery-panel')],
+    _upgradeData: null,
+    _upgradeLoading: false,
+    _upgradeMsg: null,
+    clearTimeout() {},
+    console,
+    fetch(url, init) {
+      requests.push({ url, init });
+      return fetchImpl(url, init);
+    },
+    h() { return {}; },
+    module: { exports: {} },
+    renderAgent() {},
+    renderCenter() { counters.render++; },
+    renderChat() {},
+    renderSidebar() {},
+    setTimeout(callback, delay) {
+      const timer = { callback, delay };
+      timers.push(timer);
+      return timer;
+    },
+    window: {
+      _c3: {
+        agentLog(kind, text) { counters.logs.push({ kind, text }); },
+      },
+    },
+  });
+  vm.runInContext(
+    source.slice(recoveryStart, recoveryEnd + recoveryEndMarker.length)
+      + '\n'
+      + source.slice(subscriptionsStart, subscriptionsEnd)
+      + '\n_initBusSubscriptions();',
+    context,
+    { filename: `${CHAT_PANEL.pathname}#upgrade-recovery` },
+  );
+  return {
+    context,
+    counters,
+    listeners,
+    requests,
+    snapshot: () => hostClone(context._upgradeRecoverySnapshot()),
+    timers,
+  };
+}
+
+function upgradeVerificationFailure(overrides = {}) {
+  return {
+    action: 'upgrade_verify_failed',
+    role: 'CHAT',
+    model: 'fixture-model:latest',
+    operationId: 'operation-verification-0001',
+    committedBindingRevision: 7,
+    failedAttemptRevision: 11,
+    text: 'Fixture verification failed',
+    ...overrides,
+  };
+}
+
+test('Studio WS forwards operation-bound verification failure and clear payloads unchanged', () => {
+  const { busEvents, socket } = loadClient([session('upgrade-control')]);
+  const failure = upgradeVerificationFailure();
+  const cleared = {
+    ...failure,
+    action: 'upgrade_verify_cleared',
+    succeededAttemptRevision: 12,
+  };
+  sendServerMessage(socket, { channel: 'control', data: failure });
+  sendServerMessage(socket, { channel: 'control', data: cleared });
+  assert.deepEqual(
+    hostClone(busEvents.find(event => event.name === 'upgrade:verify_failed').payload),
+    failure,
+  );
+  assert.deepEqual(
+    hostClone(busEvents.find(event => event.name === 'upgrade:verify_cleared').payload),
+    cleared,
+  );
+});
+
+test('Studio recovery is actionable only with complete exact identity', () => {
+  const harness = upgradeRecoveryPanelHarness();
+  const failure = upgradeVerificationFailure();
+  for (const role of ['constructor', '__proto__', 'toString', 'chat', 'CHAT ']) {
+    harness.listeners['upgrade:verify_failed']({ ...failure, role });
+    assert.deepEqual(
+      harness.snapshot(),
+      [],
+      `prototype or non-exact role ${role} must remain warning-only`,
+    );
+  }
+  harness.listeners['upgrade:verify_failed'](failure);
+  assert.deepEqual(harness.snapshot(), [{
+    role: 'CHAT',
+    model: failure.model,
+    operationId: failure.operationId,
+    committedBindingRevision: failure.committedBindingRevision,
+    failedAttemptRevision: failure.failedAttemptRevision,
+    token: 1,
+    phase: 'READY',
+    message: failure.text,
+  }]);
+  assert.equal(harness.requests.length, 0, 'failure event must never trigger rollback');
+
+  harness.listeners['upgrade:verify_failed']({
+    action: 'upgrade_verify_failed',
+    role: 'CHAT',
+    model: failure.model,
+    text: 'Legacy warning without operation identity',
+  });
+  assert.deepEqual(harness.snapshot(), [], 'incomplete skew event must be warn-only');
+  harness.listeners['upgrade:verify_failed'](failure);
+  assert.deepEqual(harness.snapshot(), [], 'replayed closed failure must not resurrect recovery');
+  assert.equal(harness.requests.length, 0);
+});
+
+testAsync('Studio recovery uses two-step confirmation, exact body and per-role single flight', async () => {
+  const harness = upgradeRecoveryPanelHarness();
+  const failure = upgradeVerificationFailure();
+  harness.listeners['upgrade:verify_failed'](failure);
+  const [ready] = harness.snapshot();
+  assert.equal(harness.context._upgradeRecoveryBegin(ready.role, ready.token), true);
+  assert.equal(harness.snapshot()[0].phase, 'CONFIRMING');
+  assert.equal(harness.requests.length, 0, 'first click only confirms user intent');
+
+  const first = harness.context._upgradeRecoveryConfirm(ready.role, ready.token);
+  const second = harness.context._upgradeRecoveryConfirm(ready.role, ready.token);
+  assert.equal(harness.requests.length, 1, 'double click must produce one request');
+  assert.equal(await second, false);
+  assert.equal(await first, true);
+  assert.equal(
+    harness.requests[0].url,
+    'http://127.0.0.1:3335/api/system/upgrades/recovery/rollback',
+  );
+  assert.deepEqual(JSON.parse(harness.requests[0].init.body), {
+    role: failure.role,
+    operationId: failure.operationId,
+    committedBindingRevision: failure.committedBindingRevision,
+    failedAttemptRevision: failure.failedAttemptRevision,
+  });
+  assert.deepEqual(harness.snapshot(), []);
+  assert.equal(harness.counters.load, 1);
+});
+
+testAsync('Studio recovery classifies stale, retryable and unknown HTTP outcomes without fallback', async () => {
+  const cases = [
+    {
+      status: 409,
+      body: { code: 'MODEL_BINDING_RECOVERY_STALE', error: 'stale' },
+      phase: 'DISABLED',
+    },
+    { status: 500, body: { error: 'server failed' }, phase: 'RETRYABLE' },
+    {
+      status: 200,
+      body: {
+        ok: true,
+        ...upgradeVerificationFailure(),
+        operationId: 'wrong-operation-0001',
+        rollbackOperationId: 'rollback-operation-0001',
+      },
+      phase: 'UNKNOWN',
+    },
+  ];
+  for (const fixture of cases) {
+    const harness = upgradeRecoveryPanelHarness({
+      fetch: async () => ({
+        ok: fixture.status >= 200 && fixture.status < 300,
+        status: fixture.status,
+        async json() { return fixture.body; },
+      }),
+    });
+    harness.listeners['upgrade:verify_failed'](upgradeVerificationFailure());
+    const [record] = harness.snapshot();
+    harness.context._upgradeRecoveryBegin(record.role, record.token);
+    assert.equal(
+      await harness.context._upgradeRecoveryConfirm(record.role, record.token),
+      false,
+    );
+    assert.equal(harness.snapshot()[0].phase, fixture.phase);
+    assert.equal(harness.requests.length, 1, 'outcome must not trigger a role-only fallback');
+  }
+
+  const network = upgradeRecoveryPanelHarness({
+    fetch: async () => { throw new Error('fixture disconnected'); },
+  });
+  network.listeners['upgrade:verify_failed'](upgradeVerificationFailure());
+  const [record] = network.snapshot();
+  network.context._upgradeRecoveryBegin(record.role, record.token);
+  assert.equal(await network.context._upgradeRecoveryConfirm(record.role, record.token), false);
+  assert.equal(network.snapshot()[0].phase, 'RETRYABLE');
+  assert.equal(network.requests.length, 1);
+});
+
+testAsync('newer failure survives a deferred response from the replaced recovery token', async () => {
+  const response = deferred();
+  const harness = upgradeRecoveryPanelHarness({ fetch: async () => response.promise });
+  const firstFailure = upgradeVerificationFailure();
+  harness.listeners['upgrade:verify_failed'](firstFailure);
+  const [first] = harness.snapshot();
+  harness.context._upgradeRecoveryBegin(first.role, first.token);
+  const pending = harness.context._upgradeRecoveryConfirm(first.role, first.token);
+
+  const newerFailure = upgradeVerificationFailure({
+    operationId: 'operation-verification-0002',
+    committedBindingRevision: 8,
+    failedAttemptRevision: 15,
+  });
+  harness.listeners['upgrade:verify_failed'](newerFailure);
+  const [newer] = harness.snapshot();
+  assert.equal(newer.operationId, newerFailure.operationId);
+  assert.notEqual(newer.token, first.token);
+
+  response.resolve({
+    ok: true,
+    status: 200,
+    async json() {
+      return {
+        ok: true,
+        role: firstFailure.role,
+        operationId: firstFailure.operationId,
+        committedBindingRevision: firstFailure.committedBindingRevision,
+        failedAttemptRevision: firstFailure.failedAttemptRevision,
+        rollbackOperationId: 'rollback-operation-old-0001',
+      };
+    },
+  });
+  assert.equal(await pending, false);
+  assert.equal(harness.snapshot()[0].operationId, newerFailure.operationId);
+  assert.equal(harness.snapshot()[0].phase, 'READY');
+});
+
+test('only exact clear invalidates recovery and role-only model_changed is non-authoritative', () => {
+  const harness = upgradeRecoveryPanelHarness();
+  const failure = upgradeVerificationFailure();
+  harness.listeners['upgrade:verify_failed'](failure);
+  harness.listeners['model:changed']({
+    role: failure.role,
+    fromModel: 'fixture-base',
+    toModel: failure.model,
+  });
+  assert.equal(harness.snapshot().length, 1);
+  harness.listeners['upgrade:verify_cleared']({
+    ...failure,
+    action: 'upgrade_verify_cleared',
+    failedAttemptRevision: failure.failedAttemptRevision + 1,
+    succeededAttemptRevision: failure.failedAttemptRevision + 2,
+  });
+  assert.equal(harness.snapshot().length, 1);
+  harness.listeners['upgrade:verify_cleared']({
+    ...failure,
+    action: 'upgrade_verify_cleared',
+    succeededAttemptRevision: failure.failedAttemptRevision + 1,
+  });
+  assert.deepEqual(harness.snapshot(), []);
+  harness.listeners['upgrade:verify_failed'](failure);
+  assert.deepEqual(harness.snapshot(), [], 'cleared failure replay must stay closed');
+});
+
 function agentStateHarness(sessions = []) {
   const listeners = Object.create(null);
   const busEvents = [];

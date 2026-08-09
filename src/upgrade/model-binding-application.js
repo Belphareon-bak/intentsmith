@@ -75,6 +75,46 @@ function requireString(value, field, max = 512) {
   return normalized;
 }
 
+function requireExactString(value, field, min = 1, max = 512) {
+  if (typeof value !== 'string'
+    || value.length < min
+    || value.length > max
+    || value !== value.trim()) {
+    fail(
+      'MODEL_BINDING_APPLICATION_INPUT_INVALID',
+      `${field} must be an exact string`,
+      { field },
+      400,
+    );
+  }
+  return value;
+}
+
+function requireExactPositiveInteger(value, field) {
+  if (!Number.isSafeInteger(value) || value < 1) {
+    fail(
+      'MODEL_BINDING_APPLICATION_INPUT_INVALID',
+      `${field} must be a positive safe integer`,
+      { field },
+      400,
+    );
+  }
+  return value;
+}
+
+function requireExactRole(value) {
+  const role = requireExactString(value, 'role', 1, 16);
+  if (!Object.hasOwn(config.models, role)) {
+    fail(
+      'MODEL_BINDING_APPLICATION_INPUT_INVALID',
+      'role must be an exact configured model role',
+      { field: 'role' },
+      400,
+    );
+  }
+  return role;
+}
+
 function requireDigest(value, field = 'digestSha256') {
   const digest = requireString(value, field, 64);
   if (!/^[0-9a-f]{64}$/.test(digest)) {
@@ -471,6 +511,7 @@ export class ModelBindingApplication {
       'getBindingApplicationState',
       'recordUserBindingApply',
       'recordUserBindingRollback',
+      'recordOperationBoundUserBindingRollback',
       'recordManualRuntimeApplied',
       'recordManualRuntimeFinalized',
       'recordManualRuntimeApplyFailed',
@@ -888,6 +929,52 @@ export class ModelBindingApplication {
           error: error?.message || String(error),
           code: error?.code || null,
         });
+        throw error;
+      }
+    });
+  }
+
+  async rollbackFailedManualBinding(inputValue) {
+    const input = requireExactInput(inputValue, [
+      'role',
+      'operationId',
+      'committedBindingRevision',
+      'failedAttemptRevision',
+    ]);
+    const role = requireExactRole(input.role);
+    const operationId = requireExactString(input.operationId, 'operationId', 16, 128);
+    const committedBindingRevision = requireExactPositiveInteger(
+      input.committedBindingRevision,
+      'committedBindingRevision',
+    );
+    const failedAttemptRevision = requireExactPositiveInteger(
+      input.failedAttemptRevision,
+      'failedAttemptRevision',
+    );
+    return this.#runExclusive('operation-bound-rollback', async () => {
+      let rollbackRecorded = false;
+      try {
+        this.#requireNoPendingRuntimeFinalize(role);
+        const result = this.repository.recordOperationBoundUserBindingRollback({
+          requestKey: this.#requestKey('rollback', role),
+          role,
+          operationId,
+          committedBindingRevision,
+          failedAttemptRevision,
+          actor: this.#actor('rollback', role),
+        });
+        rollbackRecorded = true;
+        return this.#executeOperation(result.operation, { startup: false });
+      } catch (error) {
+        if (rollbackRecorded) {
+          this.#publishBestEffort({
+            action: 'upgrade_error',
+            role,
+            model: null,
+            error: error?.message || String(error),
+            code: error?.code || null,
+          });
+        }
         throw error;
       }
     });
@@ -2304,12 +2391,23 @@ export class ModelBindingApplication {
         // failure after a successful probe must not be recast as model failure.
         if (!this.#isCurrentOperation(operation)) return { ok: false, stale: true };
         const state = this.repository.getBindingApplicationState(operation.operationId);
-        this.repository.recordManualVerificationSucceeded({
+        const recorded = this.repository.recordManualVerificationSucceeded({
           operationId: operation.operationId,
           expectedAttemptRevision: state.attemptRevision,
           observedModelName: resolved.name,
           observedDigestSha256: resolved.digestSha256,
         });
+        if (state.lastVerificationAttempt?.outcome === 'FAILED') {
+          this.#publishBestEffort({
+            action: 'upgrade_verify_cleared',
+            role: operation.role,
+            model: operation.targetModelName,
+            operationId: operation.operationId,
+            committedBindingRevision: operation.committedBindingRevision,
+            failedAttemptRevision: state.lastVerificationAttempt.attemptRevision,
+            succeededAttemptRevision: recorded.attempt.attemptRevision,
+          });
+        }
         return { ok: true };
       } catch (error) {
         if (probeCompleted) throw error;
@@ -2324,16 +2422,26 @@ export class ModelBindingApplication {
     }
     if (!this.#isCurrentOperation(operation)) return { ok: false, stale: true };
     const state = this.repository.getBindingApplicationState(operation.operationId);
-    this.repository.recordManualVerificationFailed({
+    const recorded = this.repository.recordManualVerificationFailed({
       operationId: operation.operationId,
       expectedAttemptRevision: state.attemptRevision,
       failureCode: verificationFailureCode(lastError),
     });
+    const recoveryIdentity = operation.kind === 'USER_APPLY'
+      ? {
+          operationId: operation.operationId,
+          committedBindingRevision: operation.committedBindingRevision,
+          failedAttemptRevision: recorded.attempt.attemptRevision,
+        }
+      : {};
     this.#publishBestEffort({
       action: 'upgrade_verify_failed',
       role: operation.role,
       model: operation.targetModelName,
-      text: `Varování: ${operation.targetModelName} neprošel exact probe po ${attempts} pokusech. Zvažte rollback.`,
+      ...recoveryIdentity,
+      text: operation.kind === 'USER_APPLY'
+        ? `Varování: ${operation.targetModelName} neprošel exact probe po ${attempts} pokusech. Zvažte rollback.`
+        : `Varování: ${operation.targetModelName} neprošel exact probe po ${attempts} pokusech. Akční rollback pro tuto operaci není dostupný.`,
     });
     return { ok: false, error: lastError };
   }

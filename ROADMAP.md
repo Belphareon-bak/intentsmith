@@ -818,9 +818,11 @@ focused regression sady.
    021/B smí v rozsahu přijaté inline-only policy změnit versioned negotiation
    metadata, `protocol.js`, WS ingress validaci, server composition/configured
    count a frame limit, health delivery a Electron byte bridge; nesmí předat
-   `path`, oslabit serverovou revalidaci ani měnit controller. 022/A smí rozšířit
-   pouze `upgrade_verify_failed`, exact rollback HTTP body, repository/application
-   CAS a autoritativní Studio action o přijatou operation identity. Nejde o
+   `path`, oslabit serverovou revalidaci ani měnit controller. 022/A smí přidat
+   operation-bound recovery endpoint, rozšířit `upgrade_verify_failed`,
+   repository/application CAS a autoritativní Studio action o přijatou
+   operation identity. Obecná `{role}` rollback route z 018/Q4 se zachovává a
+   Studio na ni nesmí fallbacknout. Nejde o
    obecné rozmrazení protocolu, routes ani store a jiné schéma M1 v1 zůstává
    zakázané.
 3. **Connector:** konzument `ConversationCommand/Result` a `CoreEvent` v1.
@@ -850,13 +852,22 @@ focused regression sady.
    durable storem; partial ACK, history `404` ani absence ve `validIds` nesmí
    zrušit identitu. Typovaný matching reject ukončí rehydrate okamžitě jako
    degraded; cizí/replayed reject se nesmí vydat za terminál aktuálního běhu.
+   Akční verification recovery vznikne jen z úplné přesné identity; starý nebo
+   neúplný event zůstane warn-only v obou směrech version skew. První klik
+   otevře potvrzení, teprve druhý odešle exact operation-bound request;
+   per-role single-flight a post-await token chrání double-click i stale
+   odpověď. Úspěch vyžaduje `response.ok`, `body.ok` a přesný echo tuple;
+   `400`/`409`, `5xx`, síťová chyba a malformed/mismatched `2xx` mají odlišný
+   fail-closed stav. Dvě SQLite spojení dokazují, že verification a rollback
+   nemohou oba commitnout nad stejným failed attemptem.
    Clean-clone protocol output smí před prebuildem chybět; po něm musí být
    ignorovaný/untracked, exportovat M1 a tracked strom zůstane čistý.
 7. **Stop:** build přepisuje/odstraňuje dnešní UX, potřebuje novou browser test
-   závislost, mění connector nebo zatahuje effect/auto-exec scope. Akční
-   rollback po verification failure navíc čeká na
-   [022](docs/decisions/022-m1-studio-operation-bound-rollback.md): dnešní
-   role-only route neumí svázat kliknutí s operací, o které uživatel rozhoduje.
+   závislost, mění connector nebo zatahuje effect/auto-exec scope. Focused
+   akční rollback podle
+   [022](docs/decisions/022-m1-studio-operation-bound-rollback.md) je
+   implementovaný operation-bound; built journey a produkční aktivace zůstávají
+   samostatnými podmínkami.
 8. **Ověření:** `node tests/ws-bridge.test.js`; **NOVÝ:**
    `node tests/m1-studio-client.test.js`; v čistém klonu frozen Yarn install,
    build a registrovaný Studio journey. Build neběží v dirty checkoutu.
@@ -1254,7 +1265,7 @@ mohou pokračovat.
    | # | Položka | Proč tady |
    |---|---|---|
    | 1 | 023 VRAM delete race | úzká artifact-use hrana fresh-clone ověřená; globální GPU residency zůstává M2 residual |
-   | 2 | 022 operation-bound recovery | nejmenší code položka, offline ověřitelná |
+   | 2 | 022 operation-bound recovery | focused implementováno; čeká na širší a clean-clone attestation |
    | 3 | ověřit dokončenou rezervaci migrací | union census před zápisem; `058` = 020, `059` = 015; povinná late-insertion parita 055–057 |
    | 4 | 020 oddělená policy storage | první migrační položka |
    | 5 | 015 proof issuance | druhá migrační položka, těží ze stejného census |
@@ -1377,8 +1388,11 @@ mohou pokračovat.
    004/C a není nová otázka. Disposable fresh clone na `9464dacf` dříve offline
    reprodukoval production build a 65s non-visual legacy Electron boundary
    journey s nulovým egresssem a čistým shutdownem; tím se ověřilo prostředí,
-   nikoli negotiated M1 consumer ani finální UI. Read-only review může běžet
-   souběžně; GPU běhy nikdy.
+   nikoli negotiated M1 consumer ani finální UI. Focused 022/A nyní navíc drží
+   přesný failure event, operation-bound HTTP/repository CAS,
+   verification-versus-rollback serializaci a dvoukrokovou Studio recovery
+   akci. Obecná rollback route z 018/Q4 zůstala zachována; celý built B4 journey
+   tím není nahrazen. Read-only review může běžet souběžně; GPU běhy nikdy.
 8. Teprve po built M1 multi-panel/cancel/provider/reconnect journey, soak a
    přijetí B3+B4 otevřít B5 QUALITY a následnou B6 exit demonstraci.
 9. M2 effect authority a project-change journey se otevírají až po M1.

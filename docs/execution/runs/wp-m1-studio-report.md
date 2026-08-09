@@ -3,13 +3,15 @@
 - **stav WP:** `PARTIAL / BLOCKED` po REVIEW GATE 1; stable-ID/scoped-cancel,
   reconnect, rehydrate epoch/race/snapshot guardy, 011/A fail-closed send a
   serverová i klientská polovina 014/A i 012/B a společný DB-backed live wire
-  jsou implementované; 010/A+, built journey, fresh-clone parity a soak
-  zůstávají otevřené
+  jsou implementované; 010/A+ je clean-clone ověřené a 022/A má focused
+  operation-bound implementaci. Produkční ACK, built negotiated journey a
+  celý B4 zůstávají otevřené
 - **base SHA:** `b7d0dbf61370b52061e6a736517ecdcb53118209`
 - **scope:** B4 podle `docs/execution/m1-batch.md`
 - **UI baseline:** výslovně mimo scope; spuštěné Studio není finální UI
 - **GPU/Ollama/externí síť:** NOT RUN
-- **push:** neproveden podle dávkového kontraktu
+- **publikace:** průběžné checkpointy mají vlastní commit/push evidenci; stav
+  právě rozpracovaného checkpointu se odvozuje z jeho závěrečného záznamu
 
 ## Vstup z M0-E
 
@@ -1280,3 +1282,59 @@ provedené po jedné, po každé vrácené a následovalo pět zelených běhů.
 mutace durable lookupu pak samostatně zčervenala 88/1; po jejím vrácení prošel
 finální focused běh 89/0. Nejde ještě o server restart ani production Electron
 behavioral evidence a B4/Gate 1 proto zůstávají `BLOCKED`.
+
+## Checkpoint 25 — operation-bound verification recovery
+
+- **022/A source kontrakt:** `FOCUSED IMPLEMENTED / LOCAL VERIFIED`
+- **built Electron journey:** `NOT RUN`
+- **celý B4 / Gate 1:** nadále `BLOCKED`
+
+Původní `POST /api/system/upgrades/rollback {role}` zůstává zachovaný pro
+obecný non-retryable incident podle 018/Q4. Studio používá pouze nový aditivní
+`POST /api/system/upgrades/recovery/rollback` s exact role, operation ID,
+committed binding revision a failed attempt revision; žádný role-only fallback
+neexistuje.
+
+Repository v jedné `IMMEDIATE` transakci ověří aktuální `USER_APPLY`, úplný
+desired tuple i nejnovější přesný `FAILED` verification attempt a teprve potom
+zapíše append-only rollback. Verification writer ve své transakci CASuje stejný
+desired tuple. Test se dvěma SQLite spojeními pokrývá oba vítěze: po rollback
+commitu pozdní verify skončí `MODEL_BINDING_VERIFICATION_STALE`; po verify
+commitu skončí starý rollback `MODEL_BINDING_RECOVERY_STALE`. Oba výsledky jsou
+bez druhého authority zápisu.
+
+Failure event i bounded clear nesou stejnou přesnou identitu. Autoritativní
+commitnutý Studio `lib` drží per-role ledger a watermark, dvoukrokové potvrzení,
+single-flight i post-`await` token. Exact own-key kontrola rolí odmítá i
+prototypová jména. Starý či neúplný event zůstává warn-only,
+stejně jako failure nad `USER_ROLLBACK`, pro který neexistuje schválený další
+reversal. Role-only `model_changed` recovery nečistí. HTTP úspěch vyžaduje `response.ok`,
+`body.ok` a přesný echo tuple; neshodná `2xx` odpověď je `UNKNOWN` bez retry.
+
+| Příkaz / kontrola | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-model-binding-repository.test.js` | 46 passed, 0 failed | 0 |
+| `node tests/m1-model-binding-application.test.js` | 104 passed, 0 failed | 0 |
+| `node tests/m1-studio-client.test.js` | 95 passed, 0 failed | 0 |
+| syntax check obou změněných Studio souborů | valid | 0 |
+| `node tests/routes-smoke.test.js` | 109 passed, 0 failed | 0 |
+| `node tests/ws-bridge.test.js` | 86 passed, 0 failed | 0 |
+| `node tests/upgrade-ux-v125.test.js` | 78 passed, 0 failed | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed | 0 |
+| `node tests/repository-hygiene.test.js` | 1 534 tracked paths | 0 |
+| `node scripts/validate-test-registry.js --json` | 377 programů, fingerprint `2d5cf073…63ccd` | 0 |
+| `node scripts/module-boundary-ratchet.mjs` | 1 021/1 021, žádná změna hrany | 0 |
+| `node tests/module-boundary-ratchet.test.js` | 13 passed, 0 failed | 0 |
+
+Pět izolovaných negativních mutací zčervenalo přesně chráněnou větev a po každé
+bylo vráceno: odstranění failed-attempt CAS dalo repository `45/1`; ignorování
+`response.ok` dalo Studio `94/1`; odstranění post-`await` tokenu dalo Studio
+`94/1`; zpřístupnění identity i pro `USER_ROLLBACK` dalo application `103/1`;
+návrat k prototypově děděnému role lookupu vytvořil akční `constructor` záznam
+a Studio sada skončila exit `1`. Finální focused běhy výše jsou až po vrácení
+všech mutací.
+
+Tento checkpoint nespustil GPU, Ollamu, externí síť ani Electron. Je to
+source/repository/VM důkaz. Clean-clone attestation a přesné source/evidence SHA
+přidá navazující evidence-only commit; teprve potom se bod 2 závazné Gate 1
+fronty označí jako fresh-clone ověřený.

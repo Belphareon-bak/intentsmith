@@ -92,3 +92,34 @@ svázat s konkrétní operací.
 
 Operátor tento blok přijal 2026-08-09. Rollback tlačítko a rozšířený event se
 implementují v rozsahu varianty A.
+
+## Implementační stav
+
+Focused checkpoint implementuje variantu A bez nahrazení obecné rollback cesty
+z rozhodnutí 018/Q4:
+
+- nový `POST /api/system/upgrades/recovery/rollback` přijímá pouze přesnou
+  čtyřprvkovou identitu; původní `POST /api/system/upgrades/rollback` s `{role}`
+  zůstává interním/administrativním povrchem pro obecný non-retryable incident;
+- repository ověřuje operaci, desired binding a poslední `FAILED` verification
+  attempt v jedné `IMMEDIATE` transakci a zapisuje append-only reversal před
+  provider/runtime efektem;
+- verification writer ve své transakci znovu CASuje úplný current desired
+  tuple. Dvě nezávislá SQLite spojení dokazují oba výsledky závodu: vyhraje-li
+  rollback, pozdní verify končí `MODEL_BINDING_VERIFICATION_STALE`; vyhraje-li
+  verify, rollback končí `MODEL_BINDING_RECOVERY_STALE`;
+- failure a bounded clear event nesou přesnou identitu. Commitnutý Studio
+  runtime nabízí dvoukrokové potvrzení, per-role single-flight a token po
+  `await`; neúplný/starý event je pouze varování a role-only `model_changed`
+  není autorita pro clear;
+- role membership používá vlastní exact klíče, takže prototypová jména jako
+  `constructor` nikdy nevytvoří akční záznam;
+- verification failure nad `USER_ROLLBACK` nemá další schválený reversal, a
+  proto zůstává záměrně neúplným warn-only eventem bez akční identity;
+- `400`/`409` akci vypnou, síť/`5xx` dovolí pouze nové explicitní potvrzení a
+  neúplná nebo identity-mismatched `2xx` odpověď končí `UNKNOWN` bez retry.
+
+Focused testy a cílené mutace pinují repository CAS, `response.ok` i post-await
+token. Tento stav ještě není built Electron journey ani celý B4/Gate 1 PASS;
+produkční ACK, rozhodnutí 021 a čistý Electron běh zůstávají samostatnými
+podmínkami.
