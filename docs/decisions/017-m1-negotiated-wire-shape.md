@@ -156,3 +156,29 @@ Potvrdit nebo změnit jediným blokem:
 Do potvrzení je zastaven pouze negotiated M1 wire, terminal ledger a built
 journey, která jej potřebuje. Gate 1 zůstává `BLOCKED`; generated protocol
 delivery a ostatní nezávislá práce mohou pokračovat.
+
+## Nezávislý read-only decision audit — 2026-08-09
+
+Audit na `a82015a5` potvrdil doporučení A/A a zpřesnil dvě implementační
+podmínky:
+
+1. `buildHelloAck([])` dnes vrací všech pět server features. Pouhé přidání
+   `m1-wire-v1` do stejného seznamu by proto falešně ACKovalo M1 i klientovi,
+   který jej nenabídl. Token musí mít required-offer sémantiku; server musí
+   uložit skutečně negotiated set a předat jej M1 adapteru.
+2. Exact wrapper nestačí ověřit jen podle názvů klíčů. `editMode` zachovává
+   dnešní `auto|ask`; `agentId` a `projectId` potřebují explicitní nullable
+   identifier kontrakt. Attachment element musí mít exact tvar, počet a byte
+   limity a jasnou content/path policy. Pokud by path podvětev vyžádala novou
+   filesystem autoritu, zůstane PARK místo rozšíření scope.
+
+Dnešní session adapter přiděluje vlastní `turnId`, používá socket-global
+sequence a současně emituje legacy assistant i legacy terminal. Nelze jej tedy
+jen přeznačit na M1: negotiated turn potřebuje oddělený adapter a právě jeden
+kanonický egress. Klient musí latch po reconnectu resetovat a již odeslaný M1
+turn nesmí při chybě downgradeovat na legacy.
+
+Do schválení A/A se neimplementuje aktivní wire ani transportem napájený
+terminal ledger. Bezpečně lze připravit nanejvýš transportně inertní bundle
+consumer, ale ten sám není M1 journey ani důkaz wire; nevzniká proto jako
+náhradní checkpoint bez produktového výsledku.

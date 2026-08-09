@@ -804,3 +804,20 @@ a built journey nedokončí. Server i klient 014/A i 012/B,
 společný DB-backed live wire a 011/A jsou focused PASS, nikoli celé B4. 013/A je potvrzený
 client-contract checkpoint. Souhrnný balík je v
 `docs/execution/review-gate-1.md`.
+
+## Read-only uzavření decision evidence 017
+
+Audit na `a82015a5` potvrdil `017-Q1:A` a `017-Q2:A`, ale zároveň prokázal, že
+aktivní wire nelze bezpečně implementovat implicitním defaultem. Dnešní
+`buildHelloAck([])` vrací všechny server features, takže nový token musí mít
+required-offer sémantiku; requested a negotiated set nejsou totéž. Server dnes
+negotiated set neuchovává a Studio ACK nekontroluje proti přesné nabídce.
+
+Legacy session adapter navíc vlastní `turnId`, socket-global sequence a dvojí
+legacy assistant/terminal egress. M1 proto potřebuje oddělený exact ingress a
+jediný kanonický egress. Context wrapper musí kromě exact keys určit
+`editMode=auto|ask`, nullable identity pole a ohraničený attachment kontrakt;
+path podvětev bez existující FS autority zůstane PARK.
+
+Audit nespouštěl build ani UI a nic neměnil. Do potvrzení A/A zůstává aktivní
+wire, terminal ledger napojený na transport a built M1 journey `BLOCKED`.

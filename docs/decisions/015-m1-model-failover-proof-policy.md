@@ -128,3 +128,53 @@ Focused sady `IS-T1-TESTS-M1-MODEL-FAILOVER-PROOF-POLICY-TEST` a
 produktového serveru, Ollamy a GPU; poslední dvě používají pouze test-owned
 loopback fake provider. Registrace measurement contractu nemění historický
 Gate 0 fingerprint; ten je release evidence, nikoli vývojová autorita.
+
+## Nezávislý read-only decision audit — 2026-08-09
+
+Audit na `a82015a5` potvrdil, že 015 blokuje právě PASS proof a terminální
+aktivaci/restore, nikoli hotový measurement řetězec. V produkčním `src/**`
+není writer `model_failover_proofs` a v Gitu není skutečný kalibrační
+measurement/acceptance artefakt. Starý GPU FAIL na 8192 ani CRE modelové běhy
+nejsou role-suite evidencí pro tento kontrakt.
+
+Současná proof tabulka sama nestačí jako autorita: neváže measurement artifact
+SHA-256, parent acceptance SHA-256 ani source revision a SQLite nemůže ověřit
+živý contract hash, validation version a schválené prahy. Syntetické proofy v
+testech proto nejsou důkazem produkční issuance cesty.
+
+### Doporučený konzervativní bootstrap
+
+- **A + TTL 7 dní** (`604800000` ms);
+- pro každou roli `requiredScore=1` a
+  `requiredPassedCount=totalCount` (8/8 nebo 6/6);
+- platnost je striktně `now < expiresAt`;
+- po skutečné kalibraci lze jednotlivé role převést na B, ostatní zůstanou A.
+
+Je to jediná okamžitá hranice bez odhadnutých čísel. Může failover odmítnout
+častěji, ale nesmí jej aktivovat pod neprokázaným prahem. Finální B musí navíc
+pinovat povinné test IDs: několik dnešních graderů kontroluje jen klíčová slova
+nebo minimální délku, takže aggregate-only práh není dostatečný důkaz kvality.
+
+### Navazující rozhodnutí, která issuance nesmí domyslet
+
+1. Expiry během aktivního failoveru nezpůsobí náhlý cutover; doporučený stav je
+   `DEGRADED_PROOF_EXPIRED`, jedna sériová revalidace a zákaz nového `REAPPLY`.
+   Návrat smí nastat jen po návratu exact desired digestu nebo akci uživatele.
+2. Doporučené úložiště je content-addressed artifact store s hashem v DB.
+   Proof row se commitne až po durable artefaktu; orphan artefakt je přijatelný,
+   proof bez artefaktu nikoli.
+3. Budoucí B používá mandatory per-test kontrakt, ne jen aggregate score/count.
+
+Přesný potvrzovací blok:
+
+```text
+015-policy: A
+015-ttl: 7d
+015-expiry: DEGRADED_PROOF_EXPIRED
+015-storage: content-addressed
+015-calibration: mandatory-per-test
+```
+
+Do potvrzení se nepřidává další proof aparát ani terminal writer. Nejmenší
+navazující hodnotný blok je až proof issuer s aditivní storage vazbou na oba
+artefaktové hashe, source revision a živý measurement contract.

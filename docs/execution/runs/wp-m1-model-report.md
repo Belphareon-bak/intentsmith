@@ -2381,3 +2381,18 @@ samostatné exact typed route jsou v
 [`020`](../../decisions/020-m1-model-failover-opt-in-surface.md). Do rozhodnutí
 zůstává zastaven pouze podporovaný opt-in surface; detection scheduler je
 bezpečně default off a ostatní decision evidence může pokračovat.
+
+## Read-only uzavření decision evidence 015
+
+Audit na `a82015a5` znovu odvodil, že measurement policy/child/parent cesta je
+hotová pouze do immutable `NOT_ISSUED` receipt. Produkční proof writer ani
+commitnutý skutečný kalibrační artefakt neexistuje a současná DB proof tabulka
+neváže measurement hash, parent acceptance hash ani source revision. Proto se
+žádný historický GPU nebo CRE běh nepovýšil na PASS proof.
+
+Do [015](../../decisions/015-m1-model-failover-proof-policy.md) je doplněný
+jediný konzervativní bootstrap, který lze schválit bez vymyšlených dat:
+absolutní A, všech 8/8 nebo 6/6 testů, TTL 7 dní a strict expiry. Současně jsou
+pojmenované navazující volby pro expiry aktivního failoveru, content-addressed
+artifact store a mandatory per-test kontrakt budoucí kalibrace. Audit nic
+nespouštěl a nezměnil runtime; proof issuance zůstává vypnuté.
