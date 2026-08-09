@@ -2507,11 +2507,13 @@ Tři dočasné minimální mutace byly vždy před dalším během vrácené:
 Tím testy nepinuji jen přítomnost pomocného portu, ale skutečnou route vazbu,
 propagaci authority chyby a přesnou task lease hranici.
 
-Source přidává právě jednu dosud nepřijatou ratchet hranu
-`src/server.js -> src/upgrade/model-use-authority.js`; current census je
-1 021 proti baseline 1 020 a baseline acceptance bude samostatný navazující
-commit. Proto tento řez ještě není `FRESH_CLONE_VERIFIED`. GPU, Ollama,
-produktový server, Electron a externí síť byly `NOT RUN`.
+Source commit `7da6be4c3a17a0bb58b2a3a029d87c4c67396ff6` přidal právě
+jednu ratchet hranu `src/server.js -> src/upgrade/model-use-authority.js`.
+Integrátorský writer ji přijal jediným exact `--accept-edge`; baseline je nyní
+1021/1021, cykly zůstaly 3 a soubory v cyklech 28. Post-write ratchet i
+`tests/module-boundary-ratchet.test.js` skončily exit 0, druhá sada 13/0.
+Fresh-clone evidence ještě následuje. GPU, Ollama, produktový server, Electron
+a externí síť byly `NOT RUN`.
 
 Pět z pěti živých source cest nyní používá stejnou per-canonical artifact-use
 autoritu, ale C2 a Gate 1 zůstávají `PARTIAL` / `BLOCKED`: cross-process claim,

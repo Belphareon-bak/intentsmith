@@ -140,11 +140,11 @@ VRAM výpočet vracel 8192, zatímco společný runtime profil skutečně uklád
 stejného profile ceiling; referenční model je připnutý na přesných 4096 a
 unprofiled fixture dál dokládá vyšší explicitně vypočtenou hodnotu.
 
-Tento commit ještě není baseline ani fresh-clone evidence. Přidává jednu přesně
-známou composition-root hranu
-`src/server.js -> src/upgrade/model-use-authority.js`; její explicitní ratchet
-acceptance a následná širší reprodukce patří do navazujícího checkpointu.
-Current ratchet tuto jedinou hranu správně odmítá s exit 1; nejde o skrytou
-zelenou baseline.
+Source commit `7da6be4c` přidal jednu přesně známou composition-root hranu
+`src/server.js -> src/upgrade/model-use-authority.js`. Integrátorský writer ji
+následně přijal jediným exact `--accept-edge`: baseline vzrostla 1020→1021,
+cykly zůstaly 3 a počet souborů v cyklech 28. Baseline pinuje přesný source
+`7da6be4c3a17a0bb58b2a3a029d87c4c67396ff6`; ratchet i jeho focused sada jsou
+zelené 1021/1021 a 13/0. Fresh-clone evidence ještě následuje.
 Globální GPU residency, multiprocess safety, durable delete audit, vzdálený
 provider scope a bounded supervision dlouhého tasku zůstávají otevřené.

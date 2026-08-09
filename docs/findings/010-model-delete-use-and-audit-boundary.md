@@ -69,10 +69,11 @@ body. Aktivní delete zastaví callback media tasku; konflikt jedné identity v
 multi-model batchi uvolní předchozí leases a provede nula unload efektů.
 
 Focused offline výsledky jsou 29/0 pro model-use authority, 47/0 pro VRAM
-coordination a 62/0 pro multimedia včetně živého route seamu. Exact-edge baseline a fresh-clone
-reprodukce ale ještě následují, proto nejde o dokončený checkpoint ani L0-11
-PASS. Tato úzká shared autorita také záměrně neřeší gateway/ComfyUI GPU
-admission.
+coordination a 62/0 pro multimedia včetně živého route seamu. Source
+`7da6be4c` má explicitně přijatou jedinou novou hranu a ratchet je 1021/1021;
+fresh-clone reprodukce ale ještě následuje, proto nejde o dokončený checkpoint
+ani L0-11 PASS. Tato úzká shared autorita také záměrně neřeší
+gateway/ComfyUI GPU admission.
 
 Současný mutation owner je in-memory a chrání jeden serverový proces. Delete
 událost má standardní log a best-effort WS broadcast, ale nemá append-only

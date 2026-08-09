@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "7551b907d6600fe36d0624c6b9b897fc4cce7143",
-  "sourceTree": "852dde2c20b448f86bd374c1c1a4503419faac11",
+  "sourceRevision": "7da6be4c3a17a0bb58b2a3a029d87c4c67396ff6",
+  "sourceTree": "4020780d48dee88b818ed8f15ca746da169d6c7f",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -905,6 +905,7 @@
     "src/server.js -> src/upgrade/model-failover.js",
     "src/server.js -> src/upgrade/model-registry.js",
     "src/server.js -> src/upgrade/model-universe-store.js",
+    "src/server.js -> src/upgrade/model-use-authority.js",
     "src/server.js -> src/upgrade/online-discovery.js",
     "src/server.js -> src/upgrade/proposal-store.js",
     "src/server.js -> src/upgrade/registry-client.js",
