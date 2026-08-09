@@ -6,6 +6,9 @@
 
 **Závislost:** dokončený [`WP-M1-BINDING-APPLICATION`](WP-M1-BINDING-APPLICATION.md)
 
+**Stav:** atomický schema/repository/application candidate je lokálně zelený;
+fresh-clone evidence a nezávislé přijetí následují po zdrojovém commitu.
+
 Toto je zadání, ne PASS evidence. Stav milníku zůstává v `ROADMAP.md §5`.
 WP uzavírá pouze post-DB runtime-finalize residual z
 [`Findingu 008`](../findings/008-model-binding-commit-point-split.md). Nemění
@@ -53,8 +56,9 @@ Repository přidá interní append-only finalize receipt navázaný na přesný
 Odvozený stav nejnovější runtime generace je:
 
 - bez úspěšného runtime attemptu: dnešní `NOT_APPLIED` nebo `FAILED`;
-- úspěšný attempt bez `DIRECT_CONFIRMED`: `RUNTIME_RECONCILIATION_REQUIRED` /
-  runtime `UNKNOWN`;
+- úspěšný attempt bez `DIRECT_CONFIRMED`: interní stav
+  `RUNTIME_RECONCILIATION_REQUIRED`, runtime `APPLIED` a nový
+  `runtimeFinalizeStatus: UNKNOWN`;
 - úspěšný attempt s `DIRECT_CONFIRMED`: dnešní `APPLIED` a teprve potom smí
   vzniknout verification nebo notification attempt.
 
@@ -66,7 +70,8 @@ generace potvrdí sebe i recovery lineage starších nepotvrzených attemptů.
 
 1. exact target a previous model zůstávají rezervované;
 2. runtime `prepare()` vytvoří kompenzovatelný token;
-3. repository zapíše dnešní úspěšný runtime attempt — stav je zatím `UNKNOWN`;
+3. repository zapíše dnešní úspěšný runtime attempt — finalize stav je zatím
+   `UNKNOWN`;
 4. synchronní `runtime.commit()` doběhne bez callbacku nebo `await`;
 5. repository atomicky zapíše `DIRECT_CONFIRMED` a případné
    `RECOVERED_BY` receipts;
@@ -133,11 +138,24 @@ Skutečná Ollama/GPU demonstrace zůstává samostatně `BLOCKED / NOT RUN`.
 
 ## 8. Výstup a pravdivé omezení
 
-Preferované malé checkpointy:
+Schema/repository a application/runtime cutover tvoří jeden atomický zdrojový
+checkpoint. Samostatný schema commit by záměrně shodil produkční application
+sadu a dočasně by umožnil vydat nepotvrzený runtime attempt jako manual
+binding. Nezávislé review proto před commitem správně vyžádalo společnou zelenou
+hranici. Fresh-clone evidence zůstává následujícím samostatným dokumentačním
+checkpointem, protože musí být vázaná na neměnný zdrojový SHA.
 
-1. migrace `054` + repository receipt/state;
-2. application/runtime recovery cutover;
-3. fresh-clone evidence a dokumentace.
+Implementovaný candidate zachovává veřejný kontrakt: interní
+`RUNTIME_RECONCILIATION_REQUIRED` se mapuje na dosavadní veřejné `PENDING` /
+`NOT_APPLIED`; HTTP a WS schéma se nerozšiřuje. `upgrade_history` vzniká až ve
+stejné transakci jako direct receipt. Pokud runtime commit nebo receipt skončí
+v nejasném okně, user replay neopakuje provider ani runtime efekt a one-shot
+operation-scoped recovery vytvoří novou exact `STARTUP_REHYDRATE` generaci.
+
+Otevřené produktové rozhodnutí zůstává chování serveru při neúspěšném exact
+startup recovery jedné role. Candidate zachovává dnešní dostupnost serveru,
+chybu loguje a dotčený binding neprohlásí za potvrzený; per-role blokace, abort
+celého serveru nebo explicitní degraded surface vyžadují rozhodnutí operátora.
 
 Ani dokončení tohoto WP neuzavírá celé M1/Gate 1. Zůstávají nejméně rozhodnutí
 015, proof/automatic failover, Studio recovery surface, skutečný GPU běh a

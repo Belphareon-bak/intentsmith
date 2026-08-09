@@ -2,7 +2,8 @@
 
 - **stav:** `PARTIAL_REMEDIATION` — primary application path je
   `FRESH-CLONE VERIFIED` na `e7d89b5ef038e1a32ad2fdff3990d6f9f20d9bec`;
-  post-DB runtime-finalize reconciliation zůstává `OPEN`
+  post-DB runtime-finalize reconciliation je implementovaný candidate a čeká
+  na vlastní fresh-clone evidenci
 - **závažnost:** vysoká pro M1 acceptance; runtime failover je dál vypnutý
 - **vlastník:** zapisující vlastník `WP-M1-MODEL / B3-FAILOVER runtime integration`
 - **termín:** před tvrzením, že B3-FAILOVER je runtime-integrated, a nejpozději
@@ -200,3 +201,43 @@ recovery blocker. Vlastníkem finalize reconciliation zůstává
 `WP-M1-MODEL / B3-FAILOVER runtime integration` s termínem před M1 acceptance;
 Studio status/rollback surface vlastní `WP-M1-STUDIO`. Do té doby full M1/Gate
 1 acceptance zůstává blokovaná.
+
+## Stav nápravy — atomický runtime finalize recovery candidate
+
+Aditivní migrace 054 zavádí append-only receipt pro přesný úspěšný runtime
+attempt. `DIRECT_CONFIRMED` smí potvrdit pouze nejnovější runtime generaci;
+`RECOVERED_BY` smí ukázat pouze na pozdější direct-confirmed
+`STARTUP_REHYDRATE` stejné operace. Caller nedodává sequence, čas, druh ani
+recovery seznam. Receipt nelze změnit, smazat, nahradit přes
+`INSERT OR REPLACE` ani připojit k cizímu nebo neaktuálnímu desired operation.
+
+Repository bez direct receipt odvozuje interní stav
+`RUNTIME_RECONCILIATION_REQUIRED` a `runtimeFinalizeStatus: UNKNOWN`, i když
+durable/runtime attempt zůstává pravdivě `APPLIED`. Verification a notification
+DB fail-close odmítne, dokud nejnovější runtime generace nemá vlastní direct
+receipt. Pre-054 success se mechanicky nepotvrzuje: sealed cutoff vynutí novou
+exact `STARTUP_REHYDRATE` generaci. Migrace před první mutací ověří úplný
+pre-054 trigger set i jeho SQL digest.
+
+Application po durable runtime attemptu synchronně commitne přesný CAS token a
+teprve potom atomicky zapíše direct receipt i veřejnou `upgrade_history`.
+Proposal repair, `model_changed` a verifikace následují až za receiptem.
+Výjimka před skutečným runtime přechodem se pokusí o kompenzaci; výjimka po
+přechodu nebo během receipt zápisu ponechá append-only success pravdivě
+`UNKNOWN`. User replay v tomto stavu neopakuje pull, runtime ani broadcast.
+Operation-scoped one-shot recovery vytvoří novou startup generaci a jedním
+commitem potvrdí ji i `RECOVERED_BY` lineage všech starších unknown generací.
+
+Nový interní stav se nepropaguje jako nový veřejný enum. HTTP/chat/WS nadále
+vidí kompatibilní `PENDING` / `NOT_APPLIED`; typovaný reconciliation detail je
+interní diagnostika. Neautoritativní in-memory `recordUpgrade()` už nemůže po
+skutečném runtime přechodu způsobit falešný commit failure.
+
+Lokální focused důkaz je zelený a cílené mutace shazují effective-binding
+predicate, historical cutoff, finalize prerequisite, application receipt,
+post-commit history ochranu i veřejný compatibility mapping. Finding přesto
+zůstává `PARTIAL_REMEDIATION`, dokud tento candidate neprojde fresh-clone
+ověřením na commitnutém SHA. Samostatné produktové rozhodnutí navíc určí, zda
+při neúspěšném exact startup recovery blokovat jen roli, ukončit server, nebo
+publikovat nový degraded stav; candidate dnešní serverovou dostupnost nemění a
+nepotvrzený binding za aplikovaný nevydává.

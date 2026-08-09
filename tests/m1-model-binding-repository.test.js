@@ -175,6 +175,14 @@ function providerClaim(operation) {
   };
 }
 
+function finalizeRuntime(repository, operationId, expectedAttemptRevision, configVersion = 1) {
+  return repository.recordManualRuntimeFinalized({
+    operationId,
+    expectedAttemptRevision,
+    configVersion,
+  });
+}
+
 function runManualBindingRace({ databasePath, contenders, releaseOrder = null }) {
   const workers = contenders.map(contender => {
     const signalBuffer = new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT);
@@ -548,6 +556,8 @@ function authoritySnapshot(db) {
     'model_failover_events',
     'model_binding_operations',
     'model_binding_application_attempts',
+    'model_binding_runtime_finalize_cutoffs',
+    'model_binding_runtime_finalize_receipts',
     'model_binding_provider_operations',
     'model_binding_provider_attempts',
     'model_binding_provider_claims',
@@ -2477,10 +2487,24 @@ await testAsync('runtime, verification and notification attempts derive one trut
       runtimeChanged: true,
     });
     assertEqual(runtimeResult.outcome, 'RECORDED');
-    assertEqual(runtimeResult.applicationState.state, 'APPLIED_PENDING_VERIFICATION');
+    assertEqual(runtimeResult.applicationState.state, 'RUNTIME_RECONCILIATION_REQUIRED');
     assertEqual(runtimeResult.applicationState.runtimeStatus, 'APPLIED');
+    assertEqual(runtimeResult.applicationState.runtimeFinalizeStatus, 'UNKNOWN');
     assertEqual(runtimeResult.applicationState.verificationStatus, 'NOT_VERIFIED');
+    assertEqual(repository.getEffectiveBinding('CHAT').source, 'PENDING_MANUAL');
+    assertEqual(firstDb.prepare('SELECT COUNT(*) AS count FROM upgrade_history').get().count, 0);
+
+    runtime.setNow(2150);
+    const finalized = finalizeRuntime(repository, operationId, 1);
+    assertEqual(finalized.outcome, 'RECORDED');
+    assertEqual(finalized.receipt.kind, 'DIRECT_CONFIRMED');
+    assertEqual(finalized.receipt.configVersion, 1);
+    assertEqual(finalized.applicationState.state, 'APPLIED_PENDING_VERIFICATION');
+    assertEqual(finalized.applicationState.runtimeFinalizeStatus, 'DIRECT_CONFIRMED');
     assertEqual(repository.getEffectiveBinding('CHAT').source, 'MANUAL');
+    assertEqual(firstDb.prepare('SELECT COUNT(*) AS count FROM upgrade_history').get().count, 1);
+    const finalizeReplay = finalizeRuntime(repository, operationId, 1);
+    assertEqual(finalizeReplay.outcome, 'REPLAYED');
 
     const pendingOverride = firstDb.prepare(`
       SELECT * FROM model_overrides WHERE role = 'CHAT'
@@ -2578,7 +2602,11 @@ await testAsync('runtime, verification and notification attempts derive one trut
       observedDigestSha256: DIGEST_B,
       runtimeChanged: false,
     });
-    assertEqual(rehydrated.applicationState.notificationStatus, 'FAILED');
+    assertEqual(rehydrated.applicationState.state, 'RUNTIME_RECONCILIATION_REQUIRED');
+    runtime.setNow(2450);
+    const rehydrateFinalized = finalizeRuntime(repository, operationId, 4, 1);
+    assertEqual(rehydrateFinalized.recoveredReceipts.length, 0);
+    assertEqual(rehydrateFinalized.applicationState.notificationStatus, 'FAILED');
     const duplicateNotification = captureError(() => repository.recordManualNotificationFailed({
       operationId,
       expectedAttemptRevision: 4,
@@ -2589,6 +2617,124 @@ await testAsync('runtime, verification and notification attempts derive one trut
       SELECT COUNT(*) AS count FROM model_binding_application_attempts
       WHERE operation_id = ?
     `).get(operationId).count, 4);
+  });
+});
+
+await testAsync('runtime finalize receipts are append-only, exact and recovery-linked', async () => {
+  await withRepository(async ({ firstDb }) => {
+    const runtime = createRuntime('runtime-finalize-receipt');
+    const repository = createModelFailoverRepository(firstDb, runtime.options);
+    observeChat(repository);
+    runtime.setNow(2000);
+    const applied = applyChat(repository);
+    const operationId = applied.operation.operationId;
+
+    runtime.setNow(2100);
+    repository.recordManualRuntimeApplied({
+      operationId,
+      expectedAttemptRevision: 0,
+      observedModelName: 'candidate',
+      observedDigestSha256: DIGEST_B,
+      runtimeChanged: true,
+    });
+    const unknown = repository.getBindingApplicationState(operationId);
+    assertEqual(unknown.state, 'RUNTIME_RECONCILIATION_REQUIRED');
+    assertEqual(unknown.runtimeFinalizeStatus, 'UNKNOWN');
+    assertEqual(unknown.runtimeFinalizeReceipts.length, 0);
+
+    const prematureVerification = captureError(() => (
+      repository.recordManualVerificationSucceeded({
+        operationId,
+        expectedAttemptRevision: 1,
+        observedModelName: 'candidate',
+        observedDigestSha256: DIGEST_B,
+      })
+    ));
+    assertRepositoryError(prematureVerification, 'MODEL_FAILOVER_STORAGE_CONTRACT');
+
+    for (const injectedSequence of [999, -1]) {
+      const sequenceError = captureError(() => firstDb.prepare(`
+        INSERT INTO model_binding_runtime_finalize_receipts (
+          seq, operation_id, runtime_attempt_revision, finalization_kind,
+          config_version, recovered_by_attempt_revision, created_at_ms
+        ) VALUES (?, ?, 1, 'DIRECT_CONFIRMED', 1, NULL, 2150)
+      `).run(injectedSequence, operationId));
+      assert(
+        /MODEL_BINDING_RUNTIME_FINALIZE_SEQUENCE_AUTHORITY/.test(sequenceError.message),
+        `Expected finalize sequence authority rejection, got ${sequenceError.message}`,
+      );
+      assertEqual(
+        firstDb.prepare(`
+          SELECT COUNT(*) AS count
+          FROM model_binding_runtime_finalize_receipts
+          WHERE operation_id = ?
+        `).get(operationId).count,
+        0,
+      );
+    }
+
+    runtime.setNow(2200);
+    repository.recordManualStartupRehydrated({
+      operationId,
+      expectedAttemptRevision: 1,
+      observedModelName: 'candidate:latest',
+      observedDigestSha256: DIGEST_B,
+      runtimeChanged: false,
+    });
+    const unconfirmedRecovery = captureError(() => firstDb.prepare(`
+      INSERT INTO model_binding_runtime_finalize_receipts (
+        operation_id, runtime_attempt_revision, finalization_kind,
+        config_version, recovered_by_attempt_revision, created_at_ms
+      ) VALUES (?, 1, 'RECOVERED_BY', NULL, 2, 2250)
+    `).run(operationId));
+    assert(
+      /MODEL_BINDING_RUNTIME_FINALIZE_RECOVERY_INVALID/.test(unconfirmedRecovery.message),
+      `Expected recovery lineage rejection, got ${unconfirmedRecovery.message}`,
+    );
+
+    runtime.setNow(2300);
+    const finalized = finalizeRuntime(repository, operationId, 2, 0);
+    assertEqual(finalized.receipt.kind, 'DIRECT_CONFIRMED');
+    assertEqual(finalized.recoveredReceipts.length, 1);
+    assertEqual(finalized.recoveredReceipts[0].runtimeAttemptRevision, 1);
+    assertEqual(finalized.recoveredReceipts[0].kind, 'RECOVERED_BY');
+    assertEqual(finalized.recoveredReceipts[0].recoveredByAttemptRevision, 2);
+    assertEqual(finalized.applicationState.state, 'APPLIED_PENDING_VERIFICATION');
+
+    const conflictingReplay = captureError(() => finalizeRuntime(
+      repository,
+      operationId,
+      2,
+      1,
+    ));
+    assertRepositoryError(
+      conflictingReplay,
+      'MODEL_BINDING_RUNTIME_FINALIZE_CONFLICT',
+    );
+
+    const beforeTamper = authoritySnapshot(firstDb);
+    const update = captureError(() => firstDb.prepare(`
+      UPDATE model_binding_runtime_finalize_receipts
+      SET config_version = 9
+      WHERE operation_id = ? AND runtime_attempt_revision = 2
+    `).run(operationId));
+    assert(/append-only/i.test(update.message));
+    const remove = captureError(() => firstDb.prepare(`
+      DELETE FROM model_binding_runtime_finalize_receipts
+      WHERE operation_id = ? AND runtime_attempt_revision = 2
+    `).run(operationId));
+    assert(/append-only/i.test(remove.message));
+    const replacement = captureError(() => firstDb.prepare(`
+      INSERT OR REPLACE INTO model_binding_runtime_finalize_receipts (
+        operation_id, runtime_attempt_revision, finalization_kind,
+        config_version, recovered_by_attempt_revision, created_at_ms
+      ) VALUES (?, 2, 'DIRECT_CONFIRMED', 0, NULL, 2350)
+    `).run(operationId));
+    assert(
+      /MODEL_BINDING_RUNTIME_FINALIZE_IDENTITY_CONFLICT/.test(replacement.message),
+      `Expected finalize identity rejection, got ${replacement.message}`,
+    );
+    assertEqual(authoritySnapshot(firstDb), beforeTamper);
   });
 });
 
@@ -2625,6 +2771,8 @@ await testAsync('retry and restart rehydrate invalidate only the prior runtime v
       observedDigestSha256: DIGEST_B,
       runtimeChanged: true,
     });
+    runtime.setNow(2250);
+    finalizeRuntime(repository, operationId, 2);
     runtime.setNow(2300);
     const failedVerification = repository.recordManualVerificationFailed({
       operationId,
@@ -2673,7 +2821,10 @@ await testAsync('retry and restart rehydrate invalidate only the prior runtime v
       observedDigestSha256: DIGEST_B,
       runtimeChanged: false,
     });
-    assertEqual(rehydrated.applicationState.state, 'APPLIED_PENDING_VERIFICATION');
+    assertEqual(rehydrated.applicationState.state, 'RUNTIME_RECONCILIATION_REQUIRED');
+    runtime.setNow(2550);
+    const rehydrateFinalized = finalizeRuntime(repository, operationId, 5, 1);
+    assertEqual(rehydrateFinalized.applicationState.state, 'APPLIED_PENDING_VERIFICATION');
     assertEqual(firstDb.prepare(`
       SELECT verified FROM model_overrides WHERE role = 'CHAT'
     `).get().verified, 0);
@@ -2730,6 +2881,8 @@ await testAsync('startup rehydrate closes runtime apply for the same operation g
       observedDigestSha256: DIGEST_B,
       runtimeChanged: true,
     });
+    runtime.setNow(2150);
+    finalizeRuntime(repository, operationId, 1, 0);
     runtime.setNow(2200);
     const repeatedSuccess = captureError(() => repository.recordManualRuntimeApplied({
       operationId,
@@ -2830,6 +2983,8 @@ await testAsync('runtime_changed is owned only by successful runtime effects', a
       runtimeChanged: false,
     });
     assertEqual(noOp.attempt.runtimeChanged, false);
+    runtime.setNow(2150);
+    finalizeRuntime(repository, operationId, 1, 0);
 
     const invalidVerification = captureError(() => firstDb.prepare(`
       INSERT INTO model_binding_application_attempts (
@@ -2876,7 +3031,16 @@ await testAsync('runtime no-op completes rollback without inventing history', as
       runtimeChanged: false,
     });
     assertEqual(reconciled.applicationState.runtimeStatus, 'APPLIED');
+    assertEqual(reconciled.applicationState.runtimeFinalizeStatus, 'UNKNOWN');
     assertEqual(reconciled.attempt.runtimeChanged, false);
+    runtime.setNow(2250);
+    const finalized = finalizeRuntime(
+      repository,
+      rolledBack.operation.operationId,
+      1,
+      0,
+    );
+    assertEqual(finalized.applicationState.runtimeFinalizeStatus, 'DIRECT_CONFIRMED');
     assertEqual(firstDb.prepare('SELECT COUNT(*) AS count FROM upgrade_history').get().count, 0);
     const override = firstDb.prepare(`
       SELECT model, binding_operation_id FROM model_overrides WHERE role = 'CHAT'
@@ -2928,6 +3092,8 @@ await testAsync('failed startup rehydrate preserves legacy and prior manual runt
       observedDigestSha256: DIGEST_B,
       runtimeChanged: true,
     });
+    runtime.setNow(2150);
+    finalizeRuntime(repository, first.operation.operationId, 1);
     runtime.setNow(2200);
     const second = repository.recordUserBindingApply({
       requestKey: 'request-third-model-0001',
@@ -2970,6 +3136,8 @@ await testAsync('failed startup rehydrate demotes persisted truth until a later 
       observedDigestSha256: DIGEST_B,
       runtimeChanged: true,
     });
+    runtime.setNow(2150);
+    finalizeRuntime(repository, operationId, 1);
     runtime.setNow(2200);
     repository.recordManualVerificationSucceeded({
       operationId,
@@ -3010,6 +3178,8 @@ await testAsync('rollback has its own append-only runtime and verification linea
       observedDigestSha256: DIGEST_B,
       runtimeChanged: true,
     });
+    runtime.setNow(2150);
+    finalizeRuntime(repository, applied.operation.operationId, 1);
     runtime.setNow(2200);
     repository.recordManualVerificationSucceeded({
       operationId: applied.operation.operationId,
@@ -3028,6 +3198,8 @@ await testAsync('rollback has its own append-only runtime and verification linea
       observedDigestSha256: DIGEST_A,
       runtimeChanged: true,
     });
+    runtime.setNow(3150);
+    finalizeRuntime(repository, rolledBack.operation.operationId, 1, 2);
     runtime.setNow(3200);
     repository.recordManualVerificationSucceeded({
       operationId: rolledBack.operation.operationId,
@@ -3107,6 +3279,8 @@ await testAsync('application APIs reject authority injection, stale revisions an
       observedDigestSha256: DIGEST_B,
       runtimeChanged: true,
     });
+    runtime.setNow(2125);
+    finalizeRuntime(repository, operationId, 1);
     const afterRuntime = authoritySnapshot(firstDb);
     const applicationRevisionBusinessSql = firstDb.prepare(`
       SELECT sql FROM sqlite_master
@@ -3210,6 +3384,11 @@ await testAsync('all application recorders reject caller authority fields', asyn
         operationId,
         expectedAttemptRevision: 0,
         failureCode: 'MODEL_BINDING_PROVIDER_UNAVAILABLE',
+      }],
+      ['recordManualRuntimeFinalized', {
+        operationId,
+        expectedAttemptRevision: 1,
+        configVersion: 1,
       }],
       ['recordManualStartupRehydrated', {
         operationId,
@@ -3320,14 +3499,6 @@ await testAsync('application transaction failures roll back attempt, override an
         BEGIN SELECT RAISE(ABORT, 'fixture application override'); END;
       `,
     },
-    {
-      name: 'history',
-      sql: `
-        CREATE TRIGGER fixture_reject_application_history
-        BEFORE INSERT ON upgrade_history
-        BEGIN SELECT RAISE(ABORT, 'fixture application history'); END;
-      `,
-    },
   ]) {
     await withRepository(async ({ firstDb }) => {
       const runtime = createRuntime(`application-failure-${fixture.name}`);
@@ -3351,6 +3522,36 @@ await testAsync('application transaction failures roll back attempt, override an
   }
 
   await withRepository(async ({ firstDb }) => {
+    const runtime = createRuntime('application-failure-history');
+    const repository = createModelFailoverRepository(firstDb, runtime.options);
+    observeChat(repository);
+    runtime.setNow(2000);
+    const applied = applyChat(repository);
+    runtime.setNow(2100);
+    repository.recordManualRuntimeApplied({
+      operationId: applied.operation.operationId,
+      expectedAttemptRevision: 0,
+      observedModelName: 'candidate',
+      observedDigestSha256: DIGEST_B,
+      runtimeChanged: true,
+    });
+    const before = authoritySnapshot(firstDb);
+    firstDb.exec(`
+      CREATE TRIGGER fixture_reject_application_history
+      BEFORE INSERT ON upgrade_history
+      BEGIN SELECT RAISE(ABORT, 'fixture application history'); END;
+    `);
+    runtime.setNow(2150);
+    const error = captureError(() => finalizeRuntime(
+      repository,
+      applied.operation.operationId,
+      1,
+    ));
+    assertRepositoryError(error, 'MODEL_FAILOVER_STORAGE_CONTRACT');
+    assertEqual(authoritySnapshot(firstDb), before);
+  });
+
+  await withRepository(async ({ firstDb }) => {
     const runtime = createRuntime('application-failure-verification');
     const repository = createModelFailoverRepository(firstDb, runtime.options);
     observeChat(repository);
@@ -3364,6 +3565,8 @@ await testAsync('application transaction failures roll back attempt, override an
       observedDigestSha256: DIGEST_B,
       runtimeChanged: true,
     });
+    runtime.setNow(2150);
+    finalizeRuntime(repository, applied.operation.operationId, 1);
     const before = authoritySnapshot(firstDb);
     firstDb.exec(`
       CREATE TRIGGER fixture_reject_application_verification

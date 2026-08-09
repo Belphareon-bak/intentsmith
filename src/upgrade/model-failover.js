@@ -425,24 +425,48 @@ function mapBindingApplicationAttempt(row) {
   };
 }
 
-function deriveBindingApplicationState(operationRow, attemptRows) {
+function mapBindingRuntimeFinalizeReceipt(row) {
+  if (!row) return null;
+  return {
+    seq: row.seq,
+    operationId: row.operation_id,
+    runtimeAttemptRevision: row.runtime_attempt_revision,
+    kind: row.finalization_kind,
+    configVersion: row.config_version,
+    recoveredByAttemptRevision: row.recovered_by_attempt_revision,
+    createdAtMs: row.created_at_ms,
+  };
+}
+
+function deriveBindingApplicationState(operationRow, attemptRows, finalizeRows = []) {
   if (!operationRow) return null;
   const attempts = attemptRows.map(mapBindingApplicationAttempt);
+  const runtimeFinalizeReceipts = finalizeRows.map(mapBindingRuntimeFinalizeReceipt);
   const runtimeAttempt = [...attempts]
     .reverse()
     .find(attempt => APPLICATION_RUNTIME_KINDS.has(attempt.kind)) || null;
-  const verificationAttempt = runtimeAttempt?.outcome === 'SUCCEEDED'
+  const runtimeFinalizeReceipt = runtimeAttempt?.outcome === 'SUCCEEDED'
+    ? runtimeFinalizeReceipts.find(receipt => (
+      receipt.runtimeAttemptRevision === runtimeAttempt.attemptRevision
+        && receipt.kind === 'DIRECT_CONFIRMED'
+    )) || null
+    : null;
+  const runtimeFinalized = runtimeFinalizeReceipt !== null;
+  const verificationAttempt = runtimeAttempt?.outcome === 'SUCCEEDED' && runtimeFinalized
     ? [...attempts]
       .reverse()
       .find(attempt => attempt.kind === 'VERIFICATION'
         && attempt.attemptRevision > runtimeAttempt.attemptRevision) || null
     : null;
-  const notificationAttempt = [...attempts]
-    .reverse()
-    .find(attempt => attempt.kind === 'NOTIFICATION') || null;
+  const notificationAttempt = runtimeFinalized
+    ? [...attempts]
+      .reverse()
+      .find(attempt => attempt.kind === 'NOTIFICATION') || null
+    : null;
 
   let state = 'PENDING';
   let runtimeStatus = 'NOT_APPLIED';
+  let runtimeFinalizeStatus = 'NOT_REQUIRED';
   let verificationStatus = 'NOT_VERIFIED';
   let failurePhase = null;
   let failureCode = null;
@@ -456,16 +480,25 @@ function deriveBindingApplicationState(operationRow, attemptRows) {
     retryable = runtimeAttempt.retryable;
   } else if (runtimeAttempt?.outcome === 'SUCCEEDED') {
     runtimeStatus = 'APPLIED';
-    state = 'APPLIED_PENDING_VERIFICATION';
-    if (verificationAttempt?.outcome === 'SUCCEEDED') {
-      state = 'VERIFIED';
-      verificationStatus = 'VERIFIED';
-    } else if (verificationAttempt?.outcome === 'FAILED') {
-      state = 'FAILED';
-      verificationStatus = 'FAILED';
-      failurePhase = 'VERIFICATION';
-      failureCode = verificationAttempt.failureCode;
-      retryable = verificationAttempt.retryable;
+    if (!runtimeFinalized) {
+      state = 'RUNTIME_RECONCILIATION_REQUIRED';
+      runtimeFinalizeStatus = 'UNKNOWN';
+      failurePhase = 'RUNTIME_FINALIZE';
+      failureCode = 'MODEL_BINDING_RUNTIME_RECONCILIATION_REQUIRED';
+      retryable = true;
+    } else {
+      runtimeFinalizeStatus = 'DIRECT_CONFIRMED';
+      state = 'APPLIED_PENDING_VERIFICATION';
+      if (verificationAttempt?.outcome === 'SUCCEEDED') {
+        state = 'VERIFIED';
+        verificationStatus = 'VERIFIED';
+      } else if (verificationAttempt?.outcome === 'FAILED') {
+        state = 'FAILED';
+        verificationStatus = 'FAILED';
+        failurePhase = 'VERIFICATION';
+        failureCode = verificationAttempt.failureCode;
+        retryable = verificationAttempt.retryable;
+      }
     }
   }
 
@@ -476,18 +509,21 @@ function deriveBindingApplicationState(operationRow, attemptRows) {
     committedBindingRevision: operationRow.committed_binding_revision,
     state,
     runtimeStatus,
+    runtimeFinalizeStatus,
     verificationStatus,
     failurePhase,
     failureCode,
     retryable,
     attemptRevision: attempts.at(-1)?.attemptRevision ?? 0,
     lastRuntimeAttempt: runtimeAttempt,
+    lastRuntimeFinalizeReceipt: runtimeFinalizeReceipt,
     lastVerificationAttempt: verificationAttempt,
     notificationStatus: notificationAttempt
       ? notificationAttempt.outcome
       : 'NOT_RECORDED',
     notificationFailureCode: notificationAttempt?.failureCode ?? null,
     attempts,
+    runtimeFinalizeReceipts,
   };
 }
 
@@ -746,10 +782,20 @@ export class ModelFailoverRepository {
     `).all(operationId);
   }
 
+  #bindingRuntimeFinalizeRows(operationId) {
+    return this.db.prepare(`
+      SELECT *
+      FROM model_binding_runtime_finalize_receipts
+      WHERE operation_id = ?
+      ORDER BY runtime_attempt_revision, seq
+    `).all(operationId);
+  }
+
   #bindingApplicationState(operationRow) {
     return deriveBindingApplicationState(
       operationRow,
       operationRow ? this.#bindingApplicationAttemptRows(operationRow.operation_id) : [],
+      operationRow ? this.#bindingRuntimeFinalizeRows(operationRow.operation_id) : [],
     );
   }
 
@@ -1518,19 +1564,6 @@ export class ModelFailoverRepository {
           operation.target_canonical_name,
           operation.target_digest_sha256,
         );
-        if (kind === 'RUNTIME_APPLY' && runtimeChanged) {
-          this.db.prepare(`
-            INSERT INTO upgrade_history (
-              role, from_model, to_model, score, action, created_at
-            ) VALUES (?, ?, ?, NULL, ?, datetime(? / 1000, 'unixepoch'))
-          `).run(
-            operation.role,
-            operation.previous_model_name,
-            operation.target_model_name,
-            operation.operation_kind === 'USER_ROLLBACK' ? 'rollback' : 'apply',
-            createdAtMs,
-          );
-        }
       } else if (kind === 'STARTUP_REHYDRATE' && outcome === 'FAILED') {
         const updated = this.db.prepare(`
           UPDATE model_overrides
@@ -2256,6 +2289,169 @@ export class ModelFailoverRepository {
     });
   }
 
+  recordManualRuntimeFinalized(inputValue) {
+    const input = requireInput(inputValue);
+    requireExactInputFields(input, [
+      'operationId',
+      'expectedAttemptRevision',
+      'configVersion',
+    ]);
+    const operationId = requireString(input.operationId, 'operationId', { min: 16 });
+    const expectedAttemptRevision = requirePositiveInteger(
+      input.expectedAttemptRevision,
+      'expectedAttemptRevision',
+    );
+    const configVersion = requireNonNegativeInteger(input.configVersion, 'configVersion');
+
+    return this.#write('recordManualRuntimeFinalized', () => {
+      const operation = this.#bindingOperationRow(operationId);
+      if (!operation) {
+        fail(
+          'MODEL_FAILOVER_BINDING_OPERATION_MISSING',
+          'Binding runtime finalize operation does not exist',
+          { operationId },
+        );
+      }
+
+      const runtimeAttempts = this.#bindingApplicationAttemptRows(operationId).filter(
+        attempt => APPLICATION_RUNTIME_KINDS.has(attempt.attempt_kind),
+      );
+      const runtimeAttempt = runtimeAttempts.find(
+        attempt => attempt.attempt_revision === expectedAttemptRevision,
+      );
+      const latestRuntimeAttempt = runtimeAttempts.at(-1) || null;
+      if (!runtimeAttempt
+        || runtimeAttempt.outcome !== 'SUCCEEDED'
+        || latestRuntimeAttempt?.attempt_revision !== expectedAttemptRevision) {
+        fail(
+          'MODEL_BINDING_RUNTIME_FINALIZE_ATTEMPT_INVALID',
+          'Runtime finalize requires the latest successful runtime generation',
+          {
+            operationId,
+            expectedAttemptRevision,
+            actualLatestAttemptRevision: latestRuntimeAttempt?.attempt_revision ?? null,
+            actualOutcome: runtimeAttempt?.outcome ?? null,
+          },
+        );
+      }
+
+      const cutoff = this.db.prepare(`
+        SELECT max_preexisting_runtime_attempt_revision
+        FROM model_binding_runtime_finalize_cutoffs
+        WHERE operation_id = ?
+      `).get(operationId);
+      if (cutoff
+        && expectedAttemptRevision <= cutoff.max_preexisting_runtime_attempt_revision) {
+        fail(
+          'MODEL_BINDING_RUNTIME_FINALIZE_REHYDRATE_REQUIRED',
+          'Pre-054 runtime success requires a new startup generation before confirmation',
+          {
+            operationId,
+            expectedAttemptRevision,
+            maxPreexistingRuntimeAttemptRevision:
+              cutoff.max_preexisting_runtime_attempt_revision,
+          },
+        );
+      }
+
+      const existing = this.db.prepare(`
+        SELECT *
+        FROM model_binding_runtime_finalize_receipts
+        WHERE operation_id = ? AND runtime_attempt_revision = ?
+      `).get(operationId, expectedAttemptRevision);
+      if (existing) {
+        if (existing.finalization_kind === 'DIRECT_CONFIRMED'
+          && existing.config_version === configVersion
+          && existing.recovered_by_attempt_revision === null) {
+          return {
+            outcome: 'REPLAYED',
+            receipt: mapBindingRuntimeFinalizeReceipt(existing),
+            recoveredReceipts: this.#bindingRuntimeFinalizeRows(operationId)
+              .filter(row => row.recovered_by_attempt_revision === expectedAttemptRevision)
+              .map(mapBindingRuntimeFinalizeReceipt),
+            applicationState: this.#bindingApplicationState(operation),
+          };
+        }
+        fail(
+          'MODEL_BINDING_RUNTIME_FINALIZE_CONFLICT',
+          'Runtime generation already has a different finalize receipt',
+          { operationId, expectedAttemptRevision },
+        );
+      }
+
+      const createdAtMs = this.#now('recordManualRuntimeFinalized');
+      this.db.prepare(`
+        INSERT INTO model_binding_runtime_finalize_receipts (
+          operation_id, runtime_attempt_revision, finalization_kind,
+          config_version, recovered_by_attempt_revision, created_at_ms
+        ) VALUES (?, ?, 'DIRECT_CONFIRMED', ?, NULL, ?)
+      `).run(operationId, expectedAttemptRevision, configVersion, createdAtMs);
+
+      if (runtimeAttempt.attempt_kind === 'RUNTIME_APPLY'
+        && runtimeAttempt.runtime_changed === 1) {
+        this.db.prepare(`
+          INSERT INTO upgrade_history (
+            role, from_model, to_model, score, action, created_at
+          ) VALUES (?, ?, ?, NULL, ?, datetime(? / 1000, 'unixepoch'))
+        `).run(
+          operation.role,
+          operation.previous_model_name,
+          operation.target_model_name,
+          operation.operation_kind === 'USER_ROLLBACK' ? 'rollback' : 'apply',
+          createdAtMs,
+        );
+      }
+
+      const recovered = [];
+      if (runtimeAttempt.attempt_kind === 'STARTUP_REHYDRATE') {
+        const unresolved = this.db.prepare(`
+          SELECT attempt.attempt_revision
+          FROM model_binding_application_attempts attempt
+          LEFT JOIN model_binding_runtime_finalize_receipts receipt
+            ON receipt.operation_id = attempt.operation_id
+           AND receipt.runtime_attempt_revision = attempt.attempt_revision
+          WHERE attempt.operation_id = ?
+            AND attempt.attempt_revision < ?
+            AND attempt.attempt_kind IN ('RUNTIME_APPLY','STARTUP_REHYDRATE')
+            AND attempt.outcome = 'SUCCEEDED'
+            AND receipt.seq IS NULL
+          ORDER BY attempt.attempt_revision
+        `).all(operationId, expectedAttemptRevision);
+        const insertRecovered = this.db.prepare(`
+          INSERT INTO model_binding_runtime_finalize_receipts (
+            operation_id, runtime_attempt_revision, finalization_kind,
+            config_version, recovered_by_attempt_revision, created_at_ms
+          ) VALUES (?, ?, 'RECOVERED_BY', NULL, ?, ?)
+        `);
+        for (const unresolvedAttempt of unresolved) {
+          insertRecovered.run(
+            operationId,
+            unresolvedAttempt.attempt_revision,
+            expectedAttemptRevision,
+            createdAtMs,
+          );
+          recovered.push(this.db.prepare(`
+            SELECT *
+            FROM model_binding_runtime_finalize_receipts
+            WHERE operation_id = ? AND runtime_attempt_revision = ?
+          `).get(operationId, unresolvedAttempt.attempt_revision));
+        }
+      }
+
+      const receipt = this.db.prepare(`
+        SELECT *
+        FROM model_binding_runtime_finalize_receipts
+        WHERE operation_id = ? AND runtime_attempt_revision = ?
+      `).get(operationId, expectedAttemptRevision);
+      return {
+        outcome: 'RECORDED',
+        receipt: mapBindingRuntimeFinalizeReceipt(receipt),
+        recoveredReceipts: recovered.map(mapBindingRuntimeFinalizeReceipt),
+        applicationState: this.#bindingApplicationState(operation),
+      };
+    });
+  }
+
   recordManualRuntimeApplyFailed(inputValue) {
     const input = requireInput(inputValue);
     requireExactInputFields(input, [
@@ -2444,7 +2640,8 @@ export class ModelFailoverRepository {
       if (MANUAL_DESIRED_SOURCES.has(desired.source)) {
         const operation = this.#currentManualOperation(this.#desiredRow(role));
         const applicationState = this.#bindingApplicationState(operation);
-        if (applicationState.runtimeStatus === 'APPLIED') {
+        if (applicationState.runtimeStatus === 'APPLIED'
+          && applicationState.runtimeFinalizeStatus === 'DIRECT_CONFIRMED') {
           return {
             source: 'MANUAL',
             role,

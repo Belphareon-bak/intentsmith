@@ -17,6 +17,7 @@ import {
   _testInternals as migrationTestInternals,
 } from '../src/db/migrate.js';
 import { up as installAppendOnlyIdentity } from '../src/db/migrations/2026_08_09_053_model_binding_append_only_identity.js';
+import { up as installRuntimeFinalization } from '../src/db/migrations/2026_08_09_054_model_binding_runtime_finalization.js';
 
 const DIGEST_A = 'a'.repeat(64);
 const DIGEST_B = 'b'.repeat(64);
@@ -106,6 +107,56 @@ function insertDesiredBinding(db, {
       source, actor, observed_at_ms, updated_at_ms, last_event_id
     ) VALUES (?, ?, ?, ?, ?, 'LEGACY_OVERRIDE', 'user:fixture', 1000, 1000, ?)
   `).run(role, model, canonical, digest, revision, eventId);
+}
+
+function insertPreFinalizeManualRuntimeSuccess(db) {
+  const operationId = 'operation-pre-054-runtime-success';
+  const eventId = 'event-pre-054-user-apply';
+  const apply = db.transaction(() => {
+    db.prepare('PRAGMA defer_foreign_keys = ON').run();
+    db.prepare(`
+      INSERT INTO model_failover_events (
+        event_id, event_type, role, binding_revision, operation_id, actor,
+        reason_code, policy_version, desired_model_name, desired_digest_sha256,
+        verified, details_json, created_at_ms
+      ) VALUES (?, 'DESIRED_CHANGED', 'CHAT', 2, ?, 'user:fixture',
+        'USER_MODEL_BINDING_APPLIED', 'd-plus-v1', 'candidate', ?, 0, '{}', 2000)
+    `).run(eventId, operationId, DIGEST_B);
+    db.prepare(`
+      INSERT INTO model_binding_operations (
+        operation_id, request_key, role, operation_kind,
+        expected_binding_revision, committed_binding_revision,
+        previous_model_name, previous_canonical_name, previous_digest_sha256,
+        target_model_name, target_canonical_name, target_digest_sha256,
+        predecessor_operation_id, rollback_of_operation_id,
+        verification_status, runtime_status, desired_event_id, actor,
+        reason_code, policy_version, details_json, created_at_ms
+      ) VALUES (?, 'request-pre-054-user-apply', 'CHAT', 'USER_APPLY', 1, 2,
+        'qwen3.5:27b', 'qwen3.5:27b', ?, 'candidate', 'candidate', ?, NULL, NULL,
+        'NOT_VERIFIED', 'NOT_APPLIED', ?, 'user:fixture',
+        'USER_MODEL_BINDING_APPLIED', 'd-plus-v1', '{}', 2000)
+    `).run(operationId, DIGEST_A, DIGEST_B, eventId);
+    const updated = db.prepare(`
+      UPDATE model_desired_bindings
+      SET model_name = 'candidate', canonical_name = 'candidate',
+          digest_sha256 = ?, binding_revision = 2, source = 'USER_APPLY',
+          actor = 'user:fixture', observed_at_ms = 2000, updated_at_ms = 2000,
+          last_event_id = ?
+      WHERE role = 'CHAT' AND binding_revision = 1
+    `).run(DIGEST_B, eventId);
+    assertEqual(updated.changes, 1);
+    db.prepare(`
+      INSERT INTO model_binding_application_attempts (
+        operation_id, attempt_revision, attempt_kind, outcome,
+        observed_model_name, observed_canonical_name, observed_digest_sha256,
+        verification_method, failure_code, retryable, created_at_ms,
+        runtime_changed
+      ) VALUES (?, 1, 'RUNTIME_APPLY', 'SUCCEEDED', 'candidate', 'candidate', ?,
+        NULL, NULL, 0, 2100, 1)
+    `).run(operationId, DIGEST_B);
+  });
+  apply.immediate();
+  return operationId;
 }
 
 function insertPassingProof(db, {
@@ -297,12 +348,14 @@ suite('M1 model failover schema — exact migration contract');
 
 await testAsync('fresh file-backed DB creates all failover tables, indexes and triggers', async () => {
   await withMigratedDb(async (db) => {
-    assertEqual(getCurrentVersion(db), '2026_08_09_053_model_binding_append_only_identity');
+    assertEqual(getCurrentVersion(db), '2026_08_09_054_model_binding_runtime_finalization');
 
     for (const table of [
       'model_desired_bindings',
       'model_binding_operations',
       'model_binding_application_attempts',
+      'model_binding_runtime_finalize_cutoffs',
+      'model_binding_runtime_finalize_receipts',
       'model_binding_provider_operations',
       'model_binding_provider_attempts',
       'model_binding_provider_claims',
@@ -325,6 +378,19 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
       'verification_method', 'failure_code', 'retryable', 'created_at_ms',
       'runtime_changed',
     ]));
+    assertEqual(
+      JSON.stringify(columns(db, 'model_binding_runtime_finalize_cutoffs')),
+      JSON.stringify([
+        'operation_id', 'max_preexisting_runtime_attempt_revision',
+      ]),
+    );
+    assertEqual(
+      JSON.stringify(columns(db, 'model_binding_runtime_finalize_receipts')),
+      JSON.stringify([
+        'seq', 'operation_id', 'runtime_attempt_revision', 'finalization_kind',
+        'config_version', 'recovered_by_attempt_revision', 'created_at_ms',
+      ]),
+    );
     assertEqual(JSON.stringify(columns(db, 'model_binding_provider_operations')), JSON.stringify([
       'command_seq', 'operation_id', 'request_key', 'role', 'effect_kind',
       'request_purpose', 'expected_binding_revision', 'provider_origin',
@@ -374,6 +440,7 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
       'idx_model_failover_state_active',
       'idx_model_failover_state_claim_expiry',
       'idx_model_binding_application_operation',
+      'idx_model_binding_runtime_finalize_operation',
     ]) {
       assert(indexNames.includes(index), `missing index ${index}`);
     }
@@ -411,6 +478,21 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
       'trg_model_binding_application_notification_once',
       'trg_model_binding_application_append_only_update',
       'trg_model_binding_application_append_only_delete',
+      'trg_model_binding_application_finalize_prerequisite',
+      'trg_model_binding_runtime_finalize_cutoff_sealed_insert',
+      'trg_model_binding_runtime_finalize_cutoff_sealed_update',
+      'trg_model_binding_runtime_finalize_cutoff_sealed_delete',
+      'trg_model_binding_runtime_finalize_sequence_authority',
+      'trg_model_binding_runtime_finalize_sequence_positive',
+      'trg_model_binding_runtime_finalize_identity_conflict',
+      'trg_model_binding_runtime_finalize_attempt_shape',
+      'trg_model_binding_runtime_finalize_current_desired',
+      'trg_model_binding_runtime_finalize_direct_latest',
+      'trg_model_binding_runtime_finalize_direct_after_cutoff',
+      'trg_model_binding_runtime_finalize_recovery_lineage',
+      'trg_model_binding_runtime_finalize_time_order',
+      'trg_model_binding_runtime_finalize_append_only_update',
+      'trg_model_binding_runtime_finalize_append_only_delete',
       'trg_model_overrides_manual_identity_insert',
       'trg_model_overrides_legacy_cannot_replace_manual',
       'trg_model_overrides_manual_identity_update',
@@ -550,9 +632,99 @@ await testAsync('second migration run is a no-op with an identical schema snapsh
     const before = schemaSnapshot(db);
     const result = await runMigrations(db);
     assertEqual(result.applied.length, 0);
-    assertEqual(result.skipped.length, 55);
+    assertEqual(result.skipped.length, 56);
     assertEqual(schemaSnapshot(db), before);
   });
+});
+
+await testAsync('migration 054 preserves pre-existing success as unconfirmed evidence', async () => {
+  const directory = mkdtempSync(
+    path.join(process.env.INTENTSMITH_TEST_ARTIFACT_DIR, 'finalize-schema-upgrade-'),
+  );
+  const databasePath = path.join(directory, 'finalize.sqlite');
+  const db = new Database(databasePath);
+  db.pragma('journal_mode = WAL');
+  db.pragma('foreign_keys = ON');
+  try {
+    const migrations = await migrationTestInternals.discoverMigrations();
+    const through053 = migrations.filter(
+      migration => migration.version <= '2026_08_09_053_model_binding_append_only_identity',
+    );
+    migrationTestInternals.runMigrationPlan(db, through053);
+    insertDesiredObservedEvent(db);
+    insertDesiredBinding(db);
+    const operationId = insertPreFinalizeManualRuntimeSuccess(db);
+    const beforeAttempt = JSON.stringify(db.prepare(`
+      SELECT *
+      FROM model_binding_application_attempts
+      WHERE operation_id = ?
+    `).get(operationId));
+
+    const result = migrationTestInternals.runMigrationPlan(db, migrations);
+    assertEqual(
+      JSON.stringify(result.applied),
+      JSON.stringify(['2026_08_09_054_model_binding_runtime_finalization']),
+    );
+    assertEqual(result.skipped.length, 55);
+    assertEqual(getCurrentVersion(db), '2026_08_09_054_model_binding_runtime_finalization');
+    assertEqual(
+      db.prepare(`
+        SELECT COUNT(*) AS count
+        FROM model_binding_runtime_finalize_receipts
+      `).get().count,
+      0,
+    );
+    assertEqual(
+      db.prepare(`
+        SELECT max_preexisting_runtime_attempt_revision AS cutoff
+        FROM model_binding_runtime_finalize_cutoffs
+        WHERE operation_id = ?
+      `).get(operationId).cutoff,
+      1,
+    );
+    assertThrowsMatching(() => db.prepare(`
+      INSERT INTO model_binding_runtime_finalize_receipts (
+        operation_id, runtime_attempt_revision, finalization_kind,
+        config_version, recovered_by_attempt_revision, created_at_ms
+      ) VALUES (?, 1, 'DIRECT_CONFIRMED', 1, NULL, 3000)
+    `).run(operationId), /MODEL_BINDING_RUNTIME_FINALIZE_REHYDRATE_REQUIRED/);
+    assertThrowsMatching(() => db.prepare(`
+      UPDATE model_binding_runtime_finalize_cutoffs
+      SET max_preexisting_runtime_attempt_revision = 0
+      WHERE operation_id = ?
+    `).run(operationId), /migration-sealed/);
+    assertEqual(JSON.stringify(db.prepare(`
+      SELECT *
+      FROM model_binding_application_attempts
+      WHERE operation_id = ?
+    `).get(operationId)), beforeAttempt);
+  } finally {
+    db.close();
+    rmSync(directory, { recursive: true, force: false });
+  }
+});
+
+await testAsync('migration 054 rejects incomplete application authority before mutation', async () => {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  try {
+    const migrations = await migrationTestInternals.discoverMigrations();
+    const through053 = migrations.filter(
+      migration => migration.version <= '2026_08_09_053_model_binding_append_only_identity',
+    );
+    migrationTestInternals.runMigrationPlan(db, through053);
+    db.exec('DROP TRIGGER trg_model_binding_application_current_desired');
+    const before = schemaSnapshot(db);
+    assertThrowsMatching(
+      () => installRuntimeFinalization(db),
+      /BEFORE INSERT trigger set drifted before 054/,
+    );
+    assertEqual(schemaSnapshot(db), before);
+    assert(!names(db, 'table').includes('model_binding_runtime_finalize_cutoffs'));
+    assert(!names(db, 'table').includes('model_binding_runtime_finalize_receipts'));
+  } finally {
+    db.close();
+  }
 });
 
 await testAsync('migration 053 preserves populated journals while adding guards', async () => {
@@ -566,7 +738,10 @@ await testAsync('migration 053 preserves populated journals while adding guards'
   db.pragma('foreign_keys = ON');
   try {
     const migrations = await migrationTestInternals.discoverMigrations();
-    const pre053 = migrations.filter(
+    const through053 = migrations.filter(
+      migration => migration.version <= '2026_08_09_053_model_binding_append_only_identity',
+    );
+    const pre053 = through053.filter(
       migration => migration.version !== '2026_08_09_053_model_binding_append_only_identity',
     );
     migrationTestInternals.runMigrationPlan(db, pre053);
@@ -577,7 +752,7 @@ await testAsync('migration 053 preserves populated journals while adding guards'
       proofs: db.prepare('SELECT * FROM model_failover_proofs ORDER BY proof_id').all(),
     });
 
-    const result = migrationTestInternals.runMigrationPlan(db, migrations);
+    const result = migrationTestInternals.runMigrationPlan(db, through053);
     assertEqual(
       JSON.stringify(result.applied),
       JSON.stringify(['2026_08_09_053_model_binding_append_only_identity']),
@@ -600,7 +775,7 @@ await testAsync('migration 053 preserves populated journals while adding guards'
     driftDb.exec(driftTrigger.replace(/\bWHEN\b/i, 'WHEN 1 = 1 AND'));
     const beforeRejectedMigration = schemaSnapshot(driftDb);
     assertThrowsMatching(
-      () => migrationTestInternals.runMigrationPlan(driftDb, migrations),
+      () => migrationTestInternals.runMigrationPlan(driftDb, through053),
       /BEFORE INSERT trigger SQL drifted/,
     );
     assertEqual(getCurrentVersion(driftDb), '2026_08_09_052_model_binding_provider_effects');
@@ -618,7 +793,10 @@ await testAsync('migration 053 rejects pre-existing impossible journal identitie
   );
   try {
     const migrations = await migrationTestInternals.discoverMigrations();
-    const pre053 = migrations.filter(
+    const through053 = migrations.filter(
+      migration => migration.version <= '2026_08_09_053_model_binding_append_only_identity',
+    );
+    const pre053 = through053.filter(
       migration => migration.version !== '2026_08_09_053_model_binding_append_only_identity',
     );
     const cases = [
@@ -662,7 +840,7 @@ await testAsync('migration 053 rejects pre-existing impossible journal identitie
           db.prepare(`SELECT rowid, * FROM ${fixture.table} ORDER BY rowid`).all(),
         );
         assertThrowsMatching(
-          () => migrationTestInternals.runMigrationPlan(db, migrations),
+          () => migrationTestInternals.runMigrationPlan(db, through053),
           fixture.expected,
         );
         assertEqual(

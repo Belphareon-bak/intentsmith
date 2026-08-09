@@ -526,18 +526,27 @@ export class UpgradeManager {
         { role: token.role },
       );
     }
-    if (token.incrementVersion) {
-      this._configVersion++;
-      this.recordUpgrade(token.role, token.previousModel, token.targetModel, 0);
-    }
-    this._bindingRuntimeToken = null;
-    return Object.freeze({
+    const nextConfigVersion = token.versionBefore + (token.incrementVersion ? 1 : 0);
+    const result = Object.freeze({
       role: token.role,
       from: token.previousModel,
       to: token.targetModel,
-      configVersion: this._configVersion,
+      configVersion: nextConfigVersion,
       changed: token.changed,
     });
+    this._configVersion = nextConfigVersion;
+    this._bindingRuntimeToken = null;
+    if (token.incrementVersion) {
+      try {
+        this.recordUpgrade(token.role, token.previousModel, token.targetModel, 0);
+      } catch (error) {
+        logger.warn(
+          'UpgradeManager',
+          `Non-authoritative runtime history write failed after binding commit: ${error.message}`,
+        );
+      }
+    }
+    return result;
   }
 
   _compensateBindingRuntime(token) {

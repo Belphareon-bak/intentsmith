@@ -2145,3 +2145,84 @@ C2b gateway + binding je tím `FRESH_CLONE_VERIFIED`, ale pouze pro čtyři z p�
 stalled-pull recovery, retirement a post-DB runtime-finalize reconciliation
 zůstávají otevřené. GPU, Ollama, produktový server a externí síť byly `NOT RUN`;
 Gate 1 zůstává `BLOCKED`.
+
+## Checkpoint 25 — atomický runtime finalize recovery candidate
+
+Post-DB residual z Findingu 008 dostal vlastní úzký
+[`WP-M1-BINDING-FINALIZE-RECOVERY`](../../wp/WP-M1-BINDING-FINALIZE-RECOVERY.md).
+Nezávislé review odmítlo původně plánovaný mezilehlý schema/repository commit:
+produkční application sada v něm byla červená 58/29 a nepotvrzený runtime
+attempt mohl uniknout jako effective manual binding. Schema, repository,
+application a runtime port proto tvoří jednu atomickou zelenou commit hranici.
+
+Migrace 054 odděluje durable runtime attempt od potvrzeného synchronního
+finalize. Sealed cutoff zachytí všechny pre-054 runtime generace a zabrání
+jejich dodatečnému přímému potvrzení; úplný pre-054 trigger set i SQL digest se
+ověří před první schema mutací. `DIRECT_CONFIRMED` smí patřit jen nejnovější
+úspěšné runtime generaci. `RECOVERED_BY` smí ukázat pouze na pozdější
+direct-confirmed `STARTUP_REHYDRATE` stejné operace. Sekvenci, čas a recovery
+množinu vlastní repository; oba journaly jsou append-only.
+
+Application pořadí je nyní:
+
+`prepare → durable runtime success → synchronous runtime commit → direct/recovery receipt → proposal/broadcast/verification`.
+
+`upgrade_history` se zapisuje ve stejné transakci jako direct receipt, nikoli
+před skutečným runtime finalize. Neautoritativní in-memory historie nemůže
+zpětně shodit dokončený runtime commit. Commit/receipt crash okno zůstává
+pravdivě `UNKNOWN`; user replay neopakuje provider ani runtime efekt a
+operation-scoped one-shot recovery vytvoří přesnou startup generaci. Dva po
+sobě jdoucí restarty před receiptem jsou pokryté skutečným SQLite close/open:
+třetí generace dostane direct receipt a obě starší generace `RECOVERED_BY`.
+
+Interní `RUNTIME_RECONCILIATION_REQUIRED` se přes compatibility mapping
+nepropaguje jako nový veřejný enum: dnešní veřejná hranice zůstává `PENDING` /
+`NOT_APPLIED`. HTTP, chat a WS schéma se nezměnilo.
+
+Lokální focused a compatibility výsledky v checkoutu
+`/home/belphareon/Projects/intentsmith`, na bázi `658bd1a0`, před zdrojovým
+commitem:
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node --check src/db/migrations/2026_08_09_054_model_binding_runtime_finalization.js` | syntax valid | 0 |
+| `node --check src/upgrade/model-failover.js` | syntax valid | 0 |
+| `node --check src/upgrade/model-binding-application.js` | syntax valid | 0 |
+| `node --check src/upgrade/upgrade-manager.js` | syntax valid | 0 |
+| `node tests/schema-migrations.test.js` | 38/0; 56 migrací | 0 |
+| `node tests/m1-model-failover-schema.test.js` | 15/0 | 0 |
+| `node tests/m1-model-binding-repository.test.js` | 40/0 | 0 |
+| `node tests/m1-model-binding-application.test.js` | 92/0 | 0 |
+| `node tests/m1-model-binding-storage.test.js` | 16/0 | 0 |
+| `node tests/routes-smoke.test.js` | 109/0 | 0 |
+| `node tests/ws-bridge.test.js` | 68/0 | 0 |
+| `node tests/upgrade-flow.test.js` | 28/0 | 0 |
+| `node tests/upgrade-ux-v125.test.js` | 78/0 | 0 |
+| `node tests/model-upgrade.test.js` | 58/0 | 0 |
+| `node tests/artifact-validation.test.js` | 151/0 | 0 |
+| `node tests/repository-hygiene.test.js` | 1 527 trackovaných cest | 0 |
+| `node scripts/validate-test-registry.js --json` | 376 programů / 8 exclusions; fingerprint `0472f18e…24fd0` | 0 |
+| `node scripts/module-boundary-ratchet.mjs` | 1 016/1 016 hran; 3 existující cykly | 0 |
+| `git diff --cached --check` | bez whitespace chyb | 0 |
+
+Sedm cílených mutací prokázalo účinné negativní pokrytí:
+
+| Odstraněná záruka | Výsledek | Exit |
+|---|---:|---:|
+| effective binding ignoruje direct receipt | repository 39/1 | 1 |
+| pre-054 cutoff trigger je vypnutý | failover schema 14/1 | 1 |
+| úplný trigger-set i SQL-digest preflight jsou vypnuté | failover schema 14/1 | 1 |
+| verification/notification prerequisite je vypnutý | repository 39/1 | 1 |
+| application nezapíše finalize receipt | application 50/42 | 1 |
+| post-commit in-memory history smí vyhodit | application 91/1 | 1 |
+| compatibility mapping interního unknown stavu je odstraněný | application 91/1 | 1 |
+
+Po každé mutaci byl zdroj vrácen přesným opačným patchem; finální pozitivní
+focused běh znovu skončil 38/38 + 15/15 + 40/40 + 92/92, vše exit 0.
+
+Tento záznam je zatím `LOCAL_CANDIDATE`, ne fresh-clone důkaz. Po commitnutí
+zdrojové hranice následuje čistý export/clone, offline instalace a opakování
+baterie na konkrétním SHA. GPU, Ollama, produktový server a externí síť nebyly
+spuštěny. Gate 1 zůstává `BLOCKED` nejméně na 015, proof/automatic failover,
+Studio recovery surface, globální VRAM residency authority a autorizovaný GPU
+pilot.

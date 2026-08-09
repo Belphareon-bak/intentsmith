@@ -159,6 +159,7 @@ const ALL_MIGRATIONS = [
   '2026_08_09_051_model_binding_runtime_generation',
   '2026_08_09_052_model_binding_provider_effects',
   '2026_08_09_053_model_binding_append_only_identity',
+  '2026_08_09_054_model_binding_runtime_finalization',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -183,7 +184,7 @@ const EXPECTED_TABLES = [
   'learned_patterns', 'lifecycle_handoff_state', 'llm_execution_log', 'logs',
   'marketplace_catalog_cache', 'marketplace_packages', 'media_generations',
   'memory', 'merge_audit_log', 'messages', 'messages_fts', 'milestones',
-  'model_binding_application_attempts', 'model_binding_operations', 'model_catalog_cache', 'model_desired_bindings', 'model_failover_events', 'model_failover_proofs',
+  'model_binding_application_attempts', 'model_binding_operations', 'model_binding_runtime_finalize_cutoffs', 'model_binding_runtime_finalize_receipts', 'model_catalog_cache', 'model_desired_bindings', 'model_failover_events', 'model_failover_proofs',
   'model_failover_state', 'model_overrides', 'model_performance', 'model_reconciliation_log',
   'model_runtime_guard',
   'model_signal_events', 'model_universe_derived', 'model_universe_raw',
@@ -555,6 +556,19 @@ describe('T-SM7: Baseline creates all expected tables', async () => {
       'created_at_ms',
       'runtime_changed',
     ]);
+    assert.deepStrictEqual(getColumnNames(db, 'model_binding_runtime_finalize_receipts'), [
+      'seq',
+      'operation_id',
+      'runtime_attempt_revision',
+      'finalization_kind',
+      'config_version',
+      'recovered_by_attempt_revision',
+      'created_at_ms',
+    ]);
+    assert.deepStrictEqual(getColumnNames(db, 'model_binding_runtime_finalize_cutoffs'), [
+      'operation_id',
+      'max_preexisting_runtime_attempt_revision',
+    ]);
     db.close();
   });
 
@@ -566,6 +580,7 @@ describe('T-SM7: Baseline creates all expected tables', async () => {
       '2026_08_09_051_model_binding_runtime_generation',
       '2026_08_09_052_model_binding_provider_effects',
       '2026_08_09_053_model_binding_append_only_identity',
+      '2026_08_09_054_model_binding_runtime_finalization',
     ].includes(migration.version));
     migrationTestInternals.runMigrationPlan(db, pre050);
     db.prepare(`

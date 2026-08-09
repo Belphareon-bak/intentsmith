@@ -181,6 +181,20 @@ function providerPullFailureCode(error) {
     : 'MODEL_BINDING_PROVIDER_PULL_FAILED';
 }
 
+function publicApplicationState(state) {
+  if (!state || state.runtimeFinalizeStatus !== 'UNKNOWN') return state;
+  return {
+    ...state,
+    state: 'PENDING',
+    runtimeStatus: 'NOT_APPLIED',
+    verificationStatus: 'NOT_VERIFIED',
+    failurePhase: null,
+    failureCode: null,
+    notificationStatus: 'NOT_RECORDED',
+    notificationFailureCode: null,
+  };
+}
+
 function defaultDelay(ms) {
   return new Promise(resolve => {
     const timer = setTimeout(resolve, ms);
@@ -435,6 +449,7 @@ export class ModelBindingApplication {
     this._pendingProposalRepairs = new Map();
     this._ownedProviderClaims = new Map();
     this._providerRecoveryTimers = new Map();
+    this._runtimeFinalizeRecoveryTimers = new Map();
     this._verificationTail = Promise.resolve();
     this._verificationStarted = false;
     this._rehydratePromise = null;
@@ -457,6 +472,7 @@ export class ModelBindingApplication {
       'recordUserBindingApply',
       'recordUserBindingRollback',
       'recordManualRuntimeApplied',
+      'recordManualRuntimeFinalized',
       'recordManualRuntimeApplyFailed',
       'recordManualStartupRehydrated',
       'recordManualStartupRehydrateFailed',
@@ -614,6 +630,7 @@ export class ModelBindingApplication {
     return this.#runExclusive('apply', async () => {
       try {
         const actor = this.#actor('apply', role);
+        this.#requireNoPendingRuntimeFinalize(role);
         await this.#reconcilePendingProviderOperations();
         const resumable = this.#findResumableProviderOperation(role, targetModel);
         if (resumable) this.#assertProviderOperationOrigin(resumable);
@@ -818,6 +835,7 @@ export class ModelBindingApplication {
     const role = requireString(input.role, 'role', 16).toUpperCase();
     return this.#runExclusive('rollback', async () => {
       try {
+        this.#requireNoPendingRuntimeFinalize(role);
         const effective = this.repository.getEffectiveBinding(role);
         const currentOperation = effective?.operation || effective?.pendingOperation || null;
         if (!currentOperation?.operationId) {
@@ -1105,9 +1123,10 @@ export class ModelBindingApplication {
     const effective = this.repository.getEffectiveBinding(role);
     const operation = effective?.operation || effective?.pendingOperation || null;
     const providerOperation = this.repository.getRelevantProviderOperation(role);
-    const applicationState = operation?.operationId
+    const internalApplicationState = operation?.operationId
       ? this.repository.getBindingApplicationState(operation.operationId)
       : null;
+    const applicationState = publicApplicationState(internalApplicationState);
     return {
       role,
       runtimeModel: this.runtime.snapshot(role).modelName,
@@ -1529,6 +1548,86 @@ export class ModelBindingApplication {
     this.cancelRecovery(timer);
   }
 
+  #requireNoPendingRuntimeFinalize(role) {
+    const desired = this.repository.getDesired(role);
+    if (!desired?.source?.startsWith('USER_')) return;
+    const effective = this.repository.getEffectiveBinding(role);
+    const reference = effective?.operation || effective?.pendingOperation || null;
+    if (!reference?.operationId) return;
+    const operation = this.repository.getBindingOperation(reference.operationId);
+    const state = this.repository.getBindingApplicationState(reference.operationId);
+    if (!operation || state?.runtimeFinalizeStatus !== 'UNKNOWN') return;
+    this.#scheduleRuntimeFinalizeRecovery(operation);
+    throw this.#runtimeFinalizeError(
+      operation,
+      null,
+      'REPLAY_BLOCKED',
+      'NOT_ATTEMPTED',
+    );
+  }
+
+  #scheduleRuntimeFinalizeRecovery(operation) {
+    if (this._runtimeFinalizeRecoveryTimers.has(operation.operationId)) return;
+    const delayMs = Math.max(1, this.verificationRetryDelayMs);
+    const timer = this.scheduleRecovery(() => {
+      this._runtimeFinalizeRecoveryTimers.delete(operation.operationId);
+      const key = `runtime-finalize:${operation.operationId}`;
+      if (this._background.has(key)) return;
+      const task = this.#runExclusive(
+        'runtime-finalize-recovery',
+        () => this.#executeOperation(operation, { startup: true }),
+      ).catch(error => {
+        this.logger.warn(
+          'ModelBindingApplication',
+          `Runtime finalize recovery failed for ${operation.operationId}: ${error.message}`,
+        );
+        return null;
+      }).finally(() => this._background.delete(key));
+      this._background.set(key, task);
+    }, delayMs);
+    this._runtimeFinalizeRecoveryTimers.set(operation.operationId, timer);
+  }
+
+  #cancelRuntimeFinalizeRecovery(operationId) {
+    const timer = this._runtimeFinalizeRecoveryTimers.get(operationId);
+    if (timer === undefined) return;
+    this._runtimeFinalizeRecoveryTimers.delete(operationId);
+    this.cancelRecovery(timer);
+  }
+
+  #runtimeFinalizeError(operation, cause, phase, compensationOutcome) {
+    return new ModelBindingApplicationError(
+      'MODEL_BINDING_RUNTIME_COMMIT_FAILED',
+      'Model binding runtime finalization requires exact recovery',
+      {
+        cause: cause || undefined,
+        details: {
+          operationId: operation.operationId,
+          internalState: 'RUNTIME_RECONCILIATION_REQUIRED',
+          phase,
+          compensationOutcome,
+        },
+      },
+    );
+  }
+
+  #validateRuntimeCommitResult(operation, token, result) {
+    const expectedVersion = token.versionBefore + (token.incrementVersion ? 1 : 0);
+    if (!isPlainObject(result)
+      || result.role !== operation.role
+      || result.from !== token.previousModel
+      || result.to !== token.targetModel
+      || result.changed !== token.changed
+      || result.configVersion !== expectedVersion) {
+      fail(
+        'MODEL_BINDING_RUNTIME_COMMIT_FAILED',
+        'Runtime binding commit returned an invalid finalization result',
+        { operationId: operation.operationId },
+      );
+    }
+    return result;
+  }
+
   #providerCommandNeedsRecovery(providerOperation) {
     if (providerOperation.terminal === null) return true;
     if (providerOperation.requestPurpose !== 'USER_APPLY_TARGET') return false;
@@ -1728,7 +1827,18 @@ export class ModelBindingApplication {
 
   async #executeOperation(operation, { startup }) {
     let state = this.repository.getBindingApplicationState(operation.operationId);
-    if (!startup && state.runtimeStatus === 'APPLIED') {
+    if (!startup && state.runtimeFinalizeStatus === 'UNKNOWN') {
+      this.#scheduleRuntimeFinalizeRecovery(operation);
+      throw this.#runtimeFinalizeError(
+        operation,
+        null,
+        'REPLAY_BLOCKED',
+        'NOT_ATTEMPTED',
+      );
+    }
+    if (!startup
+      && state.runtimeStatus === 'APPLIED'
+      && state.runtimeFinalizeStatus === 'DIRECT_CONFIRMED') {
       const runtime = this.runtime.snapshot(operation.role);
       const proposalResolution = this.#tryResolvePendingProposals(operation);
       let outcome = 'REPLAYED';
@@ -1824,16 +1934,29 @@ export class ModelBindingApplication {
           });
         state = recorded.applicationState;
       } catch (error) {
+        let compensationOutcome = 'COMPENSATED';
         try {
           this.runtime.compensate(token);
         } catch (compensationError) {
+          compensationOutcome = 'COMPENSATION_FAILED';
+        }
+        const latest = this.repository.getBindingApplicationState(operation.operationId);
+        if (latest?.runtimeFinalizeStatus === 'UNKNOWN') {
+          this.#scheduleRuntimeFinalizeRecovery(operation);
+          throw this.#runtimeFinalizeError(
+            operation,
+            error,
+            'RUNTIME_ATTEMPT_AUDIT',
+            compensationOutcome,
+          );
+        }
+        if (compensationOutcome === 'COMPENSATION_FAILED') {
           throw new ModelBindingApplicationError(
             'MODEL_BINDING_RUNTIME_COMPENSATION_REQUIRED',
             'Runtime changed but durable application failed and compensation could not complete',
-            { cause: compensationError, details: { operationId: operation.operationId } },
+            { cause: error, details: { operationId: operation.operationId } },
           );
         }
-        const latest = this.repository.getBindingApplicationState(operation.operationId);
         try {
           await this.#recordRuntimeFailure(operation, latest, error, startup);
         } catch (auditError) {
@@ -1852,7 +1975,53 @@ export class ModelBindingApplication {
       // This is deliberately synchronous after the repository commit: no user
       // callback or await may enter the DB-success -> runtime-finalize window.
       // Both exact model identities remain reserved until finalization returns.
-      runtimeResult = this.runtime.commit(token);
+      let commitReturned = false;
+      try {
+        runtimeResult = this.runtime.commit(token);
+        commitReturned = true;
+        this.#validateRuntimeCommitResult(operation, token, runtimeResult);
+      } catch (error) {
+        let compensationOutcome = 'NOT_ATTEMPTED';
+        if (!commitReturned) {
+          try {
+            this.runtime.compensate(token);
+            compensationOutcome = 'COMPENSATED';
+          } catch {
+            compensationOutcome = 'COMPENSATION_FAILED';
+          }
+        }
+        this.#scheduleRuntimeFinalizeRecovery(operation);
+        throw this.#runtimeFinalizeError(
+          operation,
+          error,
+          'RUNTIME_COMMIT',
+          compensationOutcome,
+        );
+      }
+
+      try {
+        const finalized = this.repository.recordManualRuntimeFinalized({
+          operationId: operation.operationId,
+          expectedAttemptRevision: state.attemptRevision,
+          configVersion: runtimeResult.configVersion,
+        });
+        state = finalized.applicationState;
+        this.#cancelRuntimeFinalizeRecovery(operation.operationId);
+      } catch (error) {
+        const latest = this.repository.getBindingApplicationState(operation.operationId);
+        if (latest?.runtimeFinalizeStatus === 'DIRECT_CONFIRMED') {
+          state = latest;
+          this.#cancelRuntimeFinalizeRecovery(operation.operationId);
+        } else {
+          this.#scheduleRuntimeFinalizeRecovery(operation);
+          throw this.#runtimeFinalizeError(
+            operation,
+            error,
+            'RUNTIME_FINALIZE_RECEIPT',
+            'NOT_ATTEMPTED',
+          );
+        }
+      }
     } finally {
       releaseUseLeases();
     }
@@ -2159,17 +2328,18 @@ export class ModelBindingApplication {
   }
 
   #result(operation, configVersion, state, outcome, proposalResolution = null) {
+    const publicState = publicApplicationState(state);
     return {
       ok: true,
       role: operation.role,
       from: operation.previousModelName,
       to: operation.targetModelName,
       changed: !sameModelName(operation.previousModelName, operation.targetModelName),
-      verified: state.verificationStatus === 'VERIFIED',
+      verified: publicState.verificationStatus === 'VERIFIED',
       configVersion,
       operationId: operation.operationId,
-      applicationState: state.state,
-      notificationStatus: state.notificationStatus,
+      applicationState: publicState.state,
+      notificationStatus: publicState.notificationStatus,
       proposalResolutionStatus: proposalResolution?.status || 'NOT_APPLICABLE',
       warningCode: proposalResolution?.warningCode || null,
       outcome,

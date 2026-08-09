@@ -1261,9 +1261,14 @@ mohou pokračovat.
    `runtime.commit()`, zatím nemá typovaný durable reconciliation stav a brání
    tvrzení o atomickém DB/runtime commit pointu. Navazující úzký
    [`WP-M1-BINDING-FINALIZE-RECOVERY`](docs/wp/WP-M1-BINDING-FINALIZE-RECOVERY.md)
-   je aktivní od `20b1b933`: přidá append-only finalize receipt, odvozený
-   `RUNTIME_RECONCILIATION_REQUIRED` a exact startup recovery bez změny
-   veřejného connectoru, L0-9 nebo automatic failoveru. Otevřené
+   je aktivní od `20b1b933`. Atomický candidate přidává migraci 054,
+   append-only direct/recovery receipt, odvozený interní
+   `RUNTIME_RECONCILIATION_REQUIRED` a operation-scoped exact startup recovery;
+   verification a notification bez receipt odmítá DB. Historický success se
+   nepotvrzuje backfillem a interní stav se do veřejného connectoru nemapuje
+   jako nový enum. Schema/repository i application/runtime cutover jsou kvůli
+   produkční kompatibilitě jedna zelená commit hranice; fresh-clone evidence
+   se připne až na její SHA. Otevřené
    zůstávají proof issuer, terminal failover activation/restore a scheduler.
    Failover se dosud neaktivuje. Proof issuance
    čeká na prahy a TTL z rozhodnutí 015; nový skutečný GPU běh zůstává
