@@ -2,12 +2,12 @@
 
 - **stav WP:** B3-IDENTITY + B3-PROFILE READY; B3-FAILOVER storage, manual
   repository, application-state schema, společný manual runtime cutover a
-  finalize recovery FRESH-CLONE VERIFIED; detection-only coordinator je source
-  candidate; C2b gateway + binding jsou FRESH-CLONE VERIFIED na `cfcb63dd`,
+  finalize recovery FRESH-CLONE VERIFIED; detection-only coordinator je
+  FRESH-CLONE VERIFIED na `1823e9a4`; C2b gateway + binding jsou FRESH-CLONE VERIFIED na `cfcb63dd`,
   celý C2 však zůstává PARTIAL; nový referenční GPU běh 009, proof issuer a
   automatic failover activation zůstávají BLOCKED; offline connector READY
 - **poslední ověřený source SHA:**
-  `7c4aa73c18289eebced48511910e35dad21c3be5`
+  `be4f2175d472f24b98970d046697a0a2a6b21e5a`
 - **base SHA:** `55c913d6f3cb2354b6447d10ff304e9d0323b1c3`
 - **zapisující větev:** `claude/gate1-mobile-app-progress-5sywlt`
 - **GPU/Ollama v checkpointech 1–2:** NOT RUN
@@ -2332,3 +2332,36 @@ Checkpoint nevydává proof, claim, provider mutation, runtime binding ani
 broadcast a nemění L0-9. Gate 1 zůstává `BLOCKED` na rozhodnutí 015, proof
 issuance, terminal activation/restore, negotiated Studio wire, VRAM authority a
 autorizovanou GPU evidenci.
+
+### Fresh-clone uzavření checkpointu 27
+
+Výsledný baseline commit `1823e9a4d0458ae4b42c49e791b64160ed3b66d6`
+byl checkoutnutý detached přes `git clone --no-local --no-checkout` do nového
+adresáře v `/tmp`. První `npm ci --offline` byl omylem spuštěn z nadřazeného
+`/tmp` a správně skončil exit `1` na chybějícím lockfile; nejde o produktový
+běh ani evidenci instalace. Stejný příkaz spuštěný z kořene přesného klonu
+instaloval 233 balíčků, nalezl 0 vulnerabilities a skončil exit `0`.
+
+Z tohoto klonu, bez Ollamy, GPU, produktového serveru a externí sítě, proběhlo:
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-model-failover-coordinator.test.js` | 16/0 | 0 |
+| `node tests/m1-model-failover-repository.test.js` | 14/0 | 0 |
+| `node tests/m1-model-binding-repository.test.js` | 42/0 | 0 |
+| `node tests/m1-model-binding-application.test.js` | 96/0 | 0 |
+| `node tests/m1-model-failover-schema.test.js` | 20/0 | 0 |
+| `node tests/m1-model-settings.test.js` | 14/0 | 0 |
+| `node tests/m1-model-identity.test.js` | 25/0 | 0 |
+| `node tests/schema-migrations.test.js` | 38/0, 56 migrations | 0 |
+| `node tests/routes-smoke.test.js` | 109/0 | 0 |
+| `node tests/module-boundary-ratchet.test.js` | 13/0 | 0 |
+| `node scripts/module-boundary-ratchet.mjs` | 1 020/1 020, provenance replay 1 020 | 0 |
+| `node tests/artifact-validation.test.js` | 151/0 | 0 |
+| `node tests/repository-hygiene.test.js` | 1 529 tracked paths | 0 |
+| `node scripts/validate-test-registry.js --json` | 377 programů, 8 exclusions, fingerprint `1370be04…75a6` | 0 |
+| `git status --porcelain=v1 --untracked-files=all` | prázdný výstup | 0 |
+
+Tím je detection-only checkpoint uzavřený. Neznamená to Gate 1 PASS:
+fallback selection, proof issuance, claim/activation, restore, rozhodnutí 015,
+Studio wire a autorizovaný GPU pilot zůstávají samostatné otevřené bloky.
