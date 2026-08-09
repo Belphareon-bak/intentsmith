@@ -29,6 +29,7 @@ import { fileURLToPath } from 'node:url';
 const SCRIPT_RELATIVE = 'scripts/specialist-boundary-ratchet.mjs';
 const BASELINE_RELATIVE = 'tests/fixtures/specialist-boundary/baseline.json';
 const SPECIALISTS_RELATIVE = 'specialists';
+const TEMPORARY_EXCEPTION_OWNER = 'WP-M3-L0-8-INJECTION';
 const SCHEMA_VERSION = 1;
 const EXECUTABLE_EXTENSIONS = new Set(['.js', '.mjs', '.cjs']);
 const CODE_LIKE_EXTENSIONS = new Set([
@@ -195,6 +196,12 @@ function parseArgs(argv) {
         '--expire-owner cannot be combined with acceptance or bootstrap owner arguments',
       );
     }
+    if (options.expireOwner !== TEMPORARY_EXCEPTION_OWNER) {
+      throw new BoundaryError(
+        'INVALID_ARGUMENT',
+        `--expire-owner must equal ${TEMPORARY_EXCEPTION_OWNER}`,
+      );
+    }
   } else if (options.writeBaseline && (
     options.accepted.length === 0
     || !options.owner
@@ -203,6 +210,14 @@ function parseArgs(argv) {
     throw new BoundaryError(
       'INVALID_ARGUMENT',
       'bootstrap writer requires acceptance references, --owner, and --expires-on-integration',
+    );
+  } else if (options.writeBaseline && (
+    options.owner !== TEMPORARY_EXCEPTION_OWNER
+    || options.expiresOnIntegration !== TEMPORARY_EXCEPTION_OWNER
+  )) {
+    throw new BoundaryError(
+      'INVALID_ARGUMENT',
+      `bootstrap owner and expiry must both equal ${TEMPORARY_EXCEPTION_OWNER}`,
     );
   }
   return options;
@@ -880,10 +895,12 @@ function validateReferenceShape(reference, label, { baseline = false } = {}) {
     throw new BoundaryError('INVALID_REFERENCE', `${label}.count must be a positive integer`);
   }
   if (baseline) {
-    for (const key of ['owner', 'expiresOnIntegration']) {
-      if (typeof reference[key] !== 'string' || !/^WP-[A-Z0-9-]+$/u.test(reference[key])) {
-        throw new BoundaryError('INVALID_REFERENCE', `${label}.${key} must be a concrete WP id`);
-      }
+    if (reference.owner !== TEMPORARY_EXCEPTION_OWNER
+        || reference.expiresOnIntegration !== TEMPORARY_EXCEPTION_OWNER) {
+      throw new BoundaryError(
+        'INVALID_REFERENCE',
+        `${label} owner and expiry must both equal ${TEMPORARY_EXCEPTION_OWNER}`,
+      );
     }
   }
 }

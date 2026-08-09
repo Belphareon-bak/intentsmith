@@ -149,6 +149,22 @@ try {
     const customBaseline = run(ROOT, ['--baseline', 'tests/fixtures/other.json']);
     assertStatus(customBaseline, 2);
     assertIncludes(customBaseline, 'unsupported argument: --baseline');
+    const acceptance = 'runtime|specialists/alpha/index.js -> src/expertises/core.js|1';
+    const wrongBootstrapOwner = run(ROOT, [
+      '--write-baseline', '--accept-reference', acceptance,
+      '--owner', 'WP-WRONG', '--expires-on-integration', 'WP-WRONG',
+    ]);
+    assertStatus(wrongBootstrapOwner, 2);
+    assertIncludes(wrongBootstrapOwner, 'bootstrap owner and expiry must both equal');
+    const mismatchedBootstrapOwner = run(ROOT, [
+      '--write-baseline', '--accept-reference', acceptance,
+      '--owner', 'WP-M3-L0-8-INJECTION', '--expires-on-integration', 'WP-WRONG',
+    ]);
+    assertStatus(mismatchedBootstrapOwner, 2);
+    assertIncludes(mismatchedBootstrapOwner, 'bootstrap owner and expiry must both equal');
+    const wrongExpiryOwner = run(ROOT, ['--write-baseline', '--expire-owner', 'WP-WRONG']);
+    assertStatus(wrongExpiryOwner, 2);
+    assertIncludes(wrongExpiryOwner, '--expire-owner must equal WP-M3-L0-8-INJECTION');
   });
 
   test('current repository census is recursive, exact, and computed imports are proven', () => {
@@ -458,6 +474,19 @@ exec "$IS_REAL_GIT" "$@"
     const broad = run(repo);
     assertStatus(broad, 2);
     assertIncludes(broad, 'exact specialist/src code-file paths');
+
+    parsed.exceptions = [{
+      from: 'specialists/alpha/index.js',
+      to: 'src/expertises/core.js',
+      kind: 'runtime',
+      count: 1,
+      owner: 'WP-WRONG',
+      expiresOnIntegration: 'WP-WRONG',
+    }];
+    write(baselinePath, `${JSON.stringify(parsed, null, 2)}\n`);
+    const wrongOwner = run(repo);
+    assertStatus(wrongOwner, 2);
+    assertIncludes(wrongOwner, 'owner and expiry must both equal WP-M3-L0-8-INJECTION');
     write(baselinePath, baseline);
 
     write(sourcePath, `${source}// benign tree drift\n`);
@@ -509,8 +538,8 @@ exec "$IS_REAL_GIT" "$@"
     commitBaseline(repo);
 
     const wrong = run(repo, ['--write-baseline', '--expire-owner', 'WP-WRONG']);
-    assertStatus(wrong, 1);
-    assertIncludes(wrong, 'OWNER_EXPIRY_MISMATCH');
+    assertStatus(wrong, 2);
+    assertIncludes(wrong, '--expire-owner must equal WP-M3-L0-8-INJECTION');
     const remaining = run(repo, ['--write-baseline', '--expire-owner', owner]);
     assertStatus(remaining, 1);
     assertIncludes(remaining, 'OWNER_EXPIRY_VIOLATIONS_REMAIN');
