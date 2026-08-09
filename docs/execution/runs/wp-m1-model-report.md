@@ -1543,6 +1543,23 @@ vyžaduje `clearTimeout` bezprostředně po přijetí HTTP odpovědi; záložný
 Nejde o nový provider retry ani změnu 005/A: jeden verify request má dál jeden
 provider effect a 90s timeout zůstává pro skutečné načtení modelu do VRAM.
 
+Fresh-clone reprodukce použila `git clone --no-local` a ověřila přesný source
+SHA `da03e8bd2e50f0079628d2728fa9da96e9feb580`. `npm ci --offline`
+nainstalovalo 233 balíčků, auditovalo 234 a hlásilo 0 vulnerabilities, exit `0`.
+V novém klonu skončily následující příkazy:
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `env C3_LOG_LEVEL=error node tests/upgrade-apply.test.js` | 34 passed, 0 failed; 0,08 s | 0 |
+| `env C3_LOG_LEVEL=error node tests/upgrade-ux-v125.test.js` | 78 passed, 0 failed | 0 |
+| `env C3_LOG_LEVEL=error node tests/m1-model-binding-application.test.js` | 73 passed, 0 failed | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed | 0 |
+| `node tests/repository-hygiene.test.js` | 1 520 tracked paths | 0 |
+| `node scripts/validate-test-registry.js --json` | 375 programů, 8 exclusions; fingerprint `a2f1e67e4f01c6e834f52eb1b15e10a5eec0893638d167e77baf3a35690f77b8` | 0 |
+| `git status --porcelain` | prázdný | 0 |
+
+GPU, Ollama, produktový server ani externí síť nebyly spuštěny.
+
 ### Otevřená rozhodovací fronta — checkpoint neblokuje
 
 1. **Durable compensation failure.** Default je tvrdý typovaný

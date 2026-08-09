@@ -728,7 +728,9 @@ focused regression sady.
      verify timeru do `finally`; původní success hranice zůstává explicitně po
      přijetí HTTP odpovědi, před parsováním těla. Deterministické regrese nyní
      končí 34/34 místo držení hotového procesu přibližně 90 s. Retry
-     policy ani počet provider effectů se tím nemění.
+     policy ani počet provider effectů se tím nemění. Zdrojový commit
+     `da03e8bd` prošel offline instalací a focused/compatibility baterií z
+     nového `--no-local` klonu; GPU, Ollama ani server nebyly spuštěny.
 3. **Connector:** adaptér `ModelRequest/Result` v1; nemění schéma.
 4. **Závislost:** `WP-M1-CONTRACT`; offline fake běhy nečekají na GPU.
 5. **Demo:** skutečná Ollama odpověď; negativní unavailable cesta používá
