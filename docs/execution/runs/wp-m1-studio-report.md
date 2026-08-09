@@ -678,6 +678,27 @@ frozen Yarn install, `clean + build`, compiled negative matrix, kontrola bundle
 a čistého tracked stromu. Až potom smí začít negotiated M1 wire a terminal
 ledger.
 
+## Checkpoint 14 — společný build/watch protocol bootstrap candidate
+
+- **stav bootstrap kontraktu:** `IMPLEMENTED / focused contract green`
+- **fresh-clone prewatch důkaz:** čeká na commitnutý SHA
+- **negotiated wire / celý B4:** nadále `BLOCKED`
+
+Root build a watch nyní delegují na jediný `prepare:protocol`, který v přesném
+pořadí odstraní generated output, vynutí TypeScript compile a ověří veřejný M1
+runtime export. Kanonický root `watch` proto po prvním budoucím importu
+`@c3/protocol` nezačne nad stale nebo chybějícím package main.
+
+Checkpoint záměrně nepřidává souběžný protocol watcher ani process-manager
+závislost. Neprokazuje live rebuild po změně protocol source a nechrání přímé
+spuštění `applications/electron` skriptů mimo kořenový kontrakt. Fresh-clone
+`clean → prewatch → export/contract matrix → clean porcelain` se zaznamená až
+nad commitnutým kandidátem.
+
+Focused Studio sada prošla `57/57`. Nahrazení `prewatch` přímým Electron watch
+i odstranění `--force` z jediného preparation seamu ji nezávisle shodily na
+`56/1`, exit `1`. Obě přesné mutace byly obnovené.
+
 ## Otevřené nálezy pro další checkpointy
 
 1. Generated protocol prebuild část 010/A+ je clean-clone ověřená. Zbývá dodat

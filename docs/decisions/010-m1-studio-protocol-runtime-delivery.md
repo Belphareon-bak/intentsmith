@@ -143,6 +143,20 @@ neimportuje, takže bundler jej správně nemá proč zahrnout. Product-bundle c
 proto zůstává otevřený pro negotiated-wire checkpoint a není odvozován ze
 samotného zeleného buildu.
 
+### Kanonický watch bootstrap
+
+Root `watch` původně obcházel prebuild a z čistého stromu by po prvním importu
+`@c3/protocol` neměl generated runtime k dispozici. Build i watch proto nyní
+delegují na jediný `prepare:protocol`: odstranění outputu, forced compile a
+stejný fail-closed export verifier. Jde o jednorázový bootstrap před spuštěním
+watcheru, nikoli o druhý background watcher protocol zdroje.
+
+Přímé spuštění `applications/electron` build/watch zůstává nepodporovaným
+bypassem kořenového kontraktu. Kanonické příkazy jsou root `yarn build` a
+`yarn watch`. Tento checkpoint ještě netvrdí, že už existuje M1 product
+consumer nebo že následná změna `c3-protocol/src` za běhu automaticky
+rekonstruuje jeho output.
+
 Tento checkpoint ještě netvrdí fresh-clone build ani zabalení do Electron
 produktu. Následuje čistý klon, frozen install, `clean + build`, runtime
 negative matrix a kontrola čistého tracked stromu. Teprve potom pokračuje

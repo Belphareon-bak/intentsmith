@@ -146,14 +146,16 @@ node tests/upgrade-ux-v125.test.js
 node tests/repository-hygiene.test.js
 node scripts/validate-test-registry.js
 node scripts/validate-final-disposition.js
-(cd c3-ide/applications/electron && ../../node_modules/.bin/theia build --mode production)
+(cd c3-ide && corepack yarn build)
 ```
 
 The T1 suites pin the tracked preload, exact-target fetch wrapper, no-leak
 behavior, idempotence, request preservation, and client source wiring. The
-separate production Theia build verifies that the generated, ignored Electron
-bundle contains that wiring; generated build output is never committed as
-evidence.
+canonical root production build first prepares and verifies the generated M1
+protocol runtime, then verifies that the generated, ignored Electron bundle
+contains the listener wiring; generated build output is never committed as
+evidence. Direct `applications/electron` build commands are not an equivalent
+clean-clone protocol bootstrap.
 
 Because this is a source and test change, it invalidates the prior Gate 0
 candidate. A new clean candidate run and generated evidence are required before

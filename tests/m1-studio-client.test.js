@@ -48,17 +48,20 @@ test('protocol lib is ignored generated output with no tracked stale stub', () =
   );
 });
 
-test('root Studio prebuild owns clean, compile, then runtime export validation', () => {
+test('root Studio build and watch share one protocol preparation contract', () => {
   const studio = JSON.parse(fs.readFileSync(STUDIO_PACKAGE, 'utf8'));
   assert.equal(
     studio.scripts['clean:protocol'],
     'yarn workspace @c3/protocol clean',
   );
   assert.equal(
-    studio.scripts.prebuild,
+    studio.scripts['prepare:protocol'],
     'yarn run clean:protocol && yarn workspace @c3/protocol build --force && yarn run verify:protocol-runtime',
   );
+  assert.equal(studio.scripts.prebuild, 'yarn run prepare:protocol');
+  assert.equal(studio.scripts.prewatch, 'yarn run prepare:protocol');
   assert.equal(studio.scripts.build, 'yarn --cwd applications/electron build');
+  assert.equal(studio.scripts.watch, 'yarn --cwd applications/electron watch');
   assert.equal(
     studio.scripts.clean,
     'yarn run clean:protocol && yarn --cwd applications/electron clean',

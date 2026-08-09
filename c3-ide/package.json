@@ -17,10 +17,12 @@
   },
   "scripts": {
     "clean:protocol": "yarn workspace @c3/protocol clean",
-    "prebuild": "yarn run clean:protocol && yarn workspace @c3/protocol build --force && yarn run verify:protocol-runtime",
+    "prepare:protocol": "yarn run clean:protocol && yarn workspace @c3/protocol build --force && yarn run verify:protocol-runtime",
+    "prebuild": "yarn run prepare:protocol",
     "build": "yarn --cwd applications/electron build",
     "verify:protocol-runtime": "node -e \"const p=require('./extensions/c3-protocol'); const required=['validateM1Contract','validateCoreEventStream','classifyTerminal','encodeM1Contract','decodeM1Contract','roundTripM1Contract','isM1ContractEnvelope']; for (const key of required) { if (typeof p[key] !== 'function') throw new Error('Missing generated M1 protocol export: '+key); } if (p.M1_CONTRACT_VERSION !== 1) throw new Error('Unexpected generated M1 protocol version');\"",
     "start": "yarn --cwd applications/electron start",
+    "prewatch": "yarn run prepare:protocol",
     "watch": "yarn --cwd applications/electron watch",
     "clean": "yarn run clean:protocol && yarn --cwd applications/electron clean"
   },
