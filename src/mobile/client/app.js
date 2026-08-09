@@ -355,7 +355,9 @@ function handleAuthFailure(error) {
 
 // ── App state ───────────────────────────────────────────────────────────────
 const state = {
-  route: 'conversations',
+  // §3.2 — from phase 3 the root of the app is Přehled.  Phases 0–1 have no
+  // home screen at all, and that case is handled by `session`, not by this.
+  route: 'overview',
   session: 'unknown',      // unknown | unpaired | active | expired | revoked
   conn: 'ok',              // ok | offline | server
   drawer: false,
@@ -756,6 +758,80 @@ function withTrustBar(html) {
   return html.slice(0, cut) + bar + html.slice(cut);
 }
 
+// ── Navigation model (UI-DESIGN §3.1, §3.4 · D-UI-3) ────────────────────────
+//
+// §3.4 refuses the rule "capability X → tab X", because it welds navigation to
+// scope names and breaks on the first capability that has no screen.  Four
+// steps sit between the server and the bar, and this is the third and fourth:
+// the client's *supported* set, and the policy that turns it into items.
+//
+// One consequence is load-bearing for §3.2.  The homescreen is the only map of
+// the app while the bar is retracted, so "every bar item has a tile on the
+// root" cannot be a rule someone remembers — it has to be the same list twice.
+// `navItems()` is that list; `viewOverview()` and the bar both iterate it, so a
+// new item cannot appear in one and be missing from the other.
+//
+// Navigation follows the *scope* (the item exists) and activity follows the
+// *feature flag* (it can be used now).  §3.4 is explicit about why they must not
+// be merged: a tab that vanishes because a model is down looks like lost
+// permission.
+
+const NAV_ITEMS = [
+  { id: 'overview', route: 'overview', label: 'Přehled', icon: 'home', scope: null },
+  { id: 'conversations', route: 'conversations', label: 'Konverzace', icon: 'chat', scope: 'read:chat' },
+  // D-UI-1 decided projects belong in the product; `MR-14` stays
+  // BLOCKED_BY_CONTRACT_AND_GATE1 and `MS-12` is not built.  So the item is
+  // locked rather than absent or tappable: §3.1 says a scope without upstream
+  // shows locked, and the WP says Projects stay "an item without a screen".
+  // It cannot appear at all until a server actually grants `read:projects`.
+  { id: 'projects', route: null, label: 'Projekty', icon: 'folder', scope: 'read:projects', locked: true },
+  { id: 'approvals', route: 'approvals', label: 'Approvaly', icon: 'shield', scope: 'read:approvals' },
+  // §3.3 — MS-03, MS-04 and MS-20 live under Nastavení, which replaces the
+  // former standalone "Stav" item (D-UI-3).
+  { id: 'settings', route: 'diagnostics', label: 'Nastavení', icon: 'gear', scope: null },
+];
+
+/** Routes that belong to a section, for "exactly one highlighted" (§3.1). */
+const ROUTE_SECTION = {
+  overview: 'overview',
+  // MS-05 hangs directly off the root in §3.3 and is not a bar item: the bell
+  // has no production producer (F-111) and no per-device ACK (F-112), so
+  // UI-REVIEW §3.5 keeps it off the bar.  It is reached by a row on the root
+  // and therefore belongs to the root's section — a deep destination, like a
+  // single conversation inside Konverzace.
+  notifications: 'overview',
+  conversations: 'conversations',
+  chat: 'conversations',
+  approvals: 'approvals',
+  approval: 'approvals',
+  diagnostics: 'settings',
+  operations: 'settings',
+};
+
+/** The scopes this client version knows how to act on (§3.4, step 2). */
+const SUPPORTED_SCOPES = new Set([
+  'read:chat', 'write:chat', 'read:notifications',
+  'read:approvals', 'write:approvals', 'read:projects',
+]);
+
+/**
+ * §3.4 — a capability this client version does not know is ignored, written to
+ * diagnostics and never rendered.  Rendering an item the client cannot service
+ * is the failure mode that rule exists to prevent.
+ */
+function unknownScopes() {
+  return (auth.scopes || []).filter(scope => !SUPPORTED_SCOPES.has(scope));
+}
+
+function navItems() {
+  return NAV_ITEMS.filter(item => item.scope === null || auth.has(item.scope));
+}
+
+/** Which bar item owns the route on screen.  Never two, never none. */
+function currentSection() {
+  return ROUTE_SECTION[state.route] || 'overview';
+}
+
 // ── Views ───────────────────────────────────────────────────────────────────
 
 function viewPairing({ error = null, busy = false } = {}) {
@@ -803,9 +879,12 @@ function guessDeviceName() {
 }
 
 function header({ title, left = 'menu', right = '' }) {
-  const leftBtn = left === 'back'
-    ? `<button class="icon-btn" data-act="back" aria-label="Zpět">${icon('back')}</button>`
-    : `<button class="icon-btn" data-act="drawer" aria-label="Menu">${icon('menu')}</button>`;
+  const leftBtn = {
+    back: `<button class="icon-btn" data-act="back" aria-label="Zpět">${icon('back')}</button>`,
+    // The root has nothing to go back to and nothing to open: §3.2 makes the
+    // homescreen itself the map, so a control here would be a second one.
+    none: '<div style="width:40px"></div>',
+  }[left] ?? `<button class="icon-btn" data-act="drawer" aria-label="Menu">${icon('menu')}</button>`;
   return `<header class="header">${leftBtn}<div class="header-title">${esc(title)}</div>${right || '<div style="width:40px"></div>'}</header>`;
 }
 
@@ -896,6 +975,156 @@ function skeletonList(rows = 6) {
       <div class="skel" style="height:15px;width:${45 + Math.random() * 40}%"></div>
       <div class="skel" style="height:12px;width:${25 + Math.random() * 25}%"></div>
     </div>`).join('')}</div>`;
+}
+
+// ── Přehled — the root (UI-DESIGN §3.2 · D-UI-3) ────────────────────────────
+//
+// From phase 3 the root is `Přehled`, because that is the first point at which
+// it has something to aggregate.  The bar is retracted here (A3), which makes
+// this screen the **only map of the app** — hence §3.2's completeness
+// condition: every bar item has a row or a tile here, or its section becomes
+// unreachable from the root and the user never learns it exists.
+//
+// The condition is not enforced by review.  The section map below iterates
+// `navItems()`, the same list the bar is built from, so a new item arrives in
+// both places or in neither.
+//
+// Tiles and the bar do not duplicate each other because their granularity
+// differs: tiles lead *deep* (this approval, this conversation), the bar
+// switches section.
+//
+// What is deliberately absent: the `Aktivní běhy` section with percentages
+// from the operator's design.  `D-UI-4` replaced it with `RunSilence` — a
+// percentage needs a known whole, and no agent-log stream exists (`MR-07` is
+// BLOCKED_BY_CONTRACT).
+
+/** MS-13 on the root: live, never from cache, and never a remembered count. */
+function overviewApprovals() {
+  const list = state.data.approvals;
+  const error = state.error.approvals;
+
+  if (error) {
+    // SS-03 / SS-08 — the one branch this section must never fall through to is
+    // "Nic nečeká", which is permission to put the phone down.
+    return `<p class="ov-note" data-tone="danger">${esc(error.kind === 'offline'
+      ? 'Bez připojení nelze zobrazit, co čeká.'
+      : 'Server frontu nevydal. Kolik jich čeká, teď nevíme.')}</p>
+      <button class="btn btn-secondary btn-sm" data-act="load-approvals">Zkusit načíst</button>`;
+  }
+  if (!Array.isArray(list)) return skeletonList(2);
+  if (list.length === 0) {
+    return '<p class="ov-note">Nic nečeká. Potvrzená odpověď serveru, ne odhad z paměti.</p>';
+  }
+  // Deep links: a tile leads to *this* approval, not to the queue (§3.2).
+  return `<ul class="ov-approvals">${list.slice(0, 3).map(item => `
+    <li><button class="ov-appr" data-act="open-approval" data-approval="${esc(item.id)}">
+      <span class="ov-appr-title">${esc(item.title || item.subjectType || 'Požadavek na schválení')}</span>
+      <span class="ov-appr-meta">${esc(item.subjectType || 'neuvedeno')} · vzniklo ${timeAgo(item.createdAt)}</span>
+    </button></li>`).join('')}</ul>
+    ${list.length > 3 ? `<button class="btn btn-secondary btn-sm" data-act="go" data-route="approvals">Zobrazit celou frontu (${list.length})</button>` : ''}`;
+}
+
+/** Recent conversations, as deep links.  Empty only after a confirmed answer. */
+function overviewConversations() {
+  const list = state.data.conversations;
+  if (!list && state.error.conversations) {
+    return '<p class="ov-note" data-tone="danger">Seznam konverzací se nepodařilo načíst.</p>';
+  }
+  if (!list) return skeletonList(2);
+  if (list.length === 0) return '<p class="ov-note">Zatím žádné konverzace.</p>';
+  return `<ul class="ov-list">${list.slice(0, 3).map(item => `
+    <li><button class="ov-row" data-act="open-chat" data-id="${esc(item.id)}">
+      <span class="ov-row-title">${esc(item.title)}</span>
+      <span class="ov-row-time">${timeAgo(item.updatedAt)}</span>
+    </button></li>`).join('')}</ul>`;
+}
+
+/**
+ * The completeness condition, as code.  One row per bar item — including the
+ * locked ones, which is the honest rendering of "an item without a screen".
+ */
+function overviewSectionMap() {
+  const rows = navItems()
+    .filter(item => item.id !== 'overview')
+    .map(item => {
+      const count = overviewSectionCount(item.id);
+      if (item.locked) {
+        return `<li class="ov-tile" data-locked="true" data-section="${esc(item.id)}">
+          ${icon(item.icon)}
+          <span class="ov-tile-label">${esc(item.label)}</span>
+          <span class="ov-tile-note">${icon('lock')}Připravujeme</span>
+        </li>`;
+      }
+      return `<li><button class="ov-tile" data-act="go" data-route="${esc(item.route)}" data-section="${esc(item.id)}">
+        ${icon(item.icon)}
+        <span class="ov-tile-label">${esc(item.label)}</span>
+        ${count ? `<span class="ov-tile-note">${esc(count)}</span>` : ''}
+      </button></li>`;
+    });
+  return `<ul class="ov-tiles">${rows.join('')}</ul>`;
+}
+
+function overviewSectionCount(id) {
+  if (id === 'conversations') {
+    const list = state.data.conversations;
+    return Array.isArray(list) ? `${list.length} ${plural(list.length, 'konverzace', 'konverzace', 'konverzací')}` : '';
+  }
+  // D-S2 — the approval figure is only honest if it is live.  Offline or after
+  // a failed read there is no confirmed queue, so no number at all.
+  if (id === 'approvals') {
+    const list = state.data.approvals;
+    return Array.isArray(list) && !state.error.approvals ? `${list.length} čeká` : '';
+  }
+  if (id === 'settings') {
+    const open = ms20Entries().length;
+    return open ? `${open} nerozřešených` : '';
+  }
+  return '';
+}
+
+function viewOverview() {
+  // MS-05 is not a bar item (UI-REVIEW §3.5), so the root is the only place it
+  // is reachable from — a deep destination of this section, like one chat.
+  const messages = auth.has('read:notifications')
+    ? `<li><button class="ov-tile" data-act="go" data-route="notifications" data-section="messages">
+        ${icon('bell')}
+        <span class="ov-tile-label">Zprávy</span>
+        ${state.unread ? `<span class="ov-tile-note">${state.unread} nepřečtených</span>` : ''}
+      </button></li>`
+    : '';
+
+  // §3.1 — an optional module is not in the bar until its capability arrives; a
+  // "Připravujeme" tile here is enough until then, and is the honest rendering
+  // of a capability the backend does not have.
+  const upcoming = ['Autonomní agenti', 'Specialisté', 'Paměť'].map(label => `
+    <li class="ov-tile" data-locked="true">
+      ${icon('lock')}
+      <span class="ov-tile-label">${esc(label)}</span>
+      <span class="ov-tile-note">Připravujeme</span>
+    </li>`).join('');
+
+  return header({ title: 'Přehled', left: 'none' }) + `<div class="scroll"><div class="container">
+    <section class="ov-section" aria-labelledby="ov-appr-h">
+      <h2 class="ov-h" id="ov-appr-h">Čeká na tebe</h2>
+      ${overviewApprovals()}
+    </section>
+
+    <section class="ov-section" aria-labelledby="ov-conv-h">
+      <h2 class="ov-h" id="ov-conv-h">Nedávné konverzace</h2>
+      ${overviewConversations()}
+    </section>
+
+    <section class="ov-section" aria-labelledby="ov-map-h">
+      <h2 class="ov-h" id="ov-map-h">Kam dál</h2>
+      ${overviewSectionMap()}
+      ${messages ? `<ul class="ov-tiles">${messages}</ul>` : ''}
+    </section>
+
+    <section class="ov-section" aria-labelledby="ov-soon-h">
+      <h2 class="ov-h" id="ov-soon-h">Připravujeme</h2>
+      <ul class="ov-tiles">${upcoming}</ul>
+    </section>
+  </div></div>`;
 }
 
 function viewConversations() {
@@ -1106,6 +1335,14 @@ function viewDiagnostics() {
       <div class="scope-list">
         ${(auth.scopes || []).map(scope => `<span class="pill" data-tone="info">${esc(scope)}</span>`).join('') || '<span class="pill" data-tone="muted">žádné</span>'}
       </div>
+      <!-- §3.4: a capability this client version does not know is ignored by
+           the navigation and written down here instead.  Rendering an item the
+           client cannot service is the failure that rule prevents; saying
+           nothing at all would hide a protocol that has moved on. -->
+      ${unknownScopes().length ? `
+      <div class="kv"><span class="kv-key">Neznámé capability</span>
+        <span class="kv-val mono">${esc(unknownScopes().join(', '))}</span></div>
+      <div class="kv-note">Server hlásí oprávnění, která tahle verze klienta neumí obsloužit. Navigace je ignoruje — nevykreslí položku, pod kterou by nic nebylo.</div>` : ''}
     </div>
 
     <!-- Until MS-20 existed this card *was* the recovery surface: it could look
@@ -1774,6 +2011,7 @@ function renderDrawer() {
   // attempts: a recovery route that appears only once you are stuck is a route
   // you learn about while stuck.
   const nav = [
+    ['overview', 'home', 'Přehled', null],
     ['conversations', 'chat', 'Konverzace', null],
     ['notifications', 'bell', 'Notifikace', state.unread || null],
     // D-S2: the count is a live figure. Offline or after a failed load there is
@@ -1821,6 +2059,7 @@ function render() {
   }
 
   const views = {
+    overview: viewOverview,
     conversations: viewConversations,
     chat: viewChat,
     notifications: viewNotifications,
@@ -1829,7 +2068,7 @@ function render() {
     operations: viewOperations,
     diagnostics: viewDiagnostics,
   };
-  $app.innerHTML = withTrustBar((views[state.route] || viewConversations)());
+  $app.innerHTML = withTrustBar((views[state.route] || viewOverview)());
   renderDrawer();
 
   if (state.route === 'chat') {
@@ -2887,6 +3126,10 @@ function navigate(route) {
   // second step must be a decision about what is on screen now.
   transitionRoute(route);
   render();
+  // §3.2 — the root aggregates two live surfaces.  The queue is read here for
+  // the same reason MS-13 reads it on entry: a remembered count is not an
+  // answer about what is waiting now (D-S2, MD-07).
+  if (route === 'overview') { loadConversations(); loadApprovals(); }
   if (route === 'conversations') loadConversations();
   if (route === 'notifications') loadNotifications();
   // SS-01/SS-05/SS-10: entering the screen always re-reads the queue from the
@@ -3100,6 +3343,7 @@ export const __ms20 = {
   state, journal, drafts, store, cache, K, api,
   render, navigate, viewOperations, ms20Entries,
   trustBar, trustZones, withTrustBar, screenLocks, serverNow,
+  viewOverview, navItems, currentSection, unknownScopes, NAV_ITEMS, ROUTE_SECTION,
   viewApprovals, loadApprovals, approvalsGone,
   viewApproval, decideApproval, openApproval, approvalDecidable,
   unresolvedApprovalAttempt, unassociatedApprovalAttempt,

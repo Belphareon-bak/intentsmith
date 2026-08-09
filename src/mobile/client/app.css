@@ -393,6 +393,68 @@ button { cursor: pointer; border: none; background: none; }
 .btn-block { width: 100%; }
 .btn-sm { padding: 7px 13px; font-size: 13px; }
 
+/* ── Přehled — the root (UI-DESIGN §3.2) ───────────────────────────────── */
+.ov-section { margin-bottom: 26px; }
+.ov-section:last-child { margin-bottom: 8px; }
+.ov-h {
+  margin: 0 0 10px;
+  font-size: 13px; font-weight: 650; letter-spacing: .02em;
+  text-transform: uppercase; color: var(--text-muted);
+}
+.ov-note { margin: 0 0 10px; font-size: 14px; color: var(--text-muted); line-height: 1.5; }
+.ov-note[data-tone="danger"] { color: var(--danger); }
+
+.ov-approvals, .ov-list, .ov-tiles { list-style: none; margin: 0; padding: 0; }
+.ov-approvals { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.ov-appr {
+  width: 100%; min-height: 56px;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  padding: 12px 14px; text-align: left;
+  background: var(--bg-raised); border: 1px solid var(--border-strong);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+}
+.ov-appr:active { background: var(--bg-hover); }
+.ov-appr-title { font-size: 15px; font-weight: 600; line-height: 1.35; }
+.ov-appr-meta { font-size: 12px; color: var(--text-muted); }
+
+.ov-list { display: flex; flex-direction: column; }
+.ov-row {
+  width: 100%; min-height: 48px;
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 2px; text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.ov-row:active { background: var(--bg-hover); }
+.ov-row-title { flex: 1; min-width: 0; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov-row-time { font-size: 12px; color: var(--text-faint); flex-shrink: 0; }
+
+/* Tiles are the completeness condition made visible: one per bar item. */
+.ov-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.ov-tile {
+  /* §8 — 48 × 48 dp is the floor for any touch target. */
+  width: 100%; min-height: 84px;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  padding: 14px; text-align: left;
+  background: var(--bg-raised); border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+}
+.ov-tile:active { background: var(--bg-hover); }
+.ov-tile svg { width: 20px; height: 20px; color: var(--text-muted); }
+.ov-tile-label { font-size: 15px; font-weight: 600; }
+.ov-tile-note {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; color: var(--text-muted);
+}
+.ov-tile-note svg { width: 13px; height: 13px; }
+/* `locked` is grey *and* carries a lock plus the word "Připravujeme" (§8, §10):
+   a tile that is only paler reads as a rendering glitch, not as a boundary. */
+.ov-tile[data-locked="true"] {
+  background: var(--bg-sunken); border-style: dashed;
+  color: var(--text-muted); cursor: default;
+}
+
 /* ── Drawer ────────────────────────────────────────────────────────────── */
 .scrim {
   position: fixed; inset: 0; z-index: 40;
