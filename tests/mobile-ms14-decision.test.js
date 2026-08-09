@@ -148,6 +148,7 @@ const {
   state, store, journal, K, render, navigate,
   loadApprovals, openApproval, decideApproval, approvalDecidable,
   lookupOperation, handleWentOffline, handleCameOnline, invalidateApprovalAuthority,
+  newChat,
 } = __ms20;
 
 const clickHandler = (listeners.click || [])[0];
@@ -157,14 +158,19 @@ assert.ok(visibilityHandler, 'the client registered no visibilitychange handler'
 
 const html = () => nodes.app.innerHTML;
 
-function drawerHtml() {
-  const drawer = globalThis.document.querySelector('.drawer');
-  return drawer ? drawer.innerHTML : '';
+/**
+ * D-UI-3 replaced the drawer with the bottom bar.  The properties these tests
+ * lock down — a live-only badge, a permanently reachable route — belong to
+ * navigation, not to the drawer, so they follow it to its replacement.
+ */
+function navHtml() {
+  const bar = globalThis.document.querySelector('.navbar');
+  return bar ? bar.innerHTML : '';
 }
 
 function click(act, approvalId = null) {
   const pattern = new RegExp(`data-act="${act}"([^>]*)>`);
-  const match = (html() + drawerHtml()).match(pattern);
+  const match = (html() + navHtml()).match(pattern);
   assert.ok(match, `no control with data-act="${act}"`);
   assert.ok(!/\bdisabled\b/.test(match[1]), `control ${act} is disabled`);
   const target = { dataset: { act, approval: approvalId ?? undefined } };
@@ -202,7 +208,6 @@ function reset({ scopes = FULL_SCOPES } = {}) {
   state.session = 'active';
   state.route = 'approvals';
   state.conn = 'ok';
-  state.drawer = false;
   state.conversationId = null;
   state.sending = false;
   state.data = {};
@@ -1046,9 +1051,13 @@ await test('F-089 new-chat exit revokes authority and direct submission stays fa
   await openDecidable();
   assert.ok(state.approvalVerifiedAt, 'precondition: the approval is verified');
 
-  state.drawer = true;
-  render();
-  click('new-chat');
+  // D-UI-3 removed the drawer, so "Nová konverzace" is no longer offered from
+  // the approval screen itself.  The exit under test is unchanged and is
+  // invoked where it happens — *while the approval route is still open* —
+  // because pre-leaving the route first would let the route gate pass this
+  // test without the authority ever being revoked.
+  assert.equal(state.route, 'approval', 'precondition: the exit is taken from the approval route');
+  newChat();
   assert.equal(state.route, 'chat');
   assert.equal(state.approvalVerifiedAt, null, 'new chat retained the verification grant');
   fetchLog = [];

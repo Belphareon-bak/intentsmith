@@ -27,8 +27,9 @@
     </div>
   </div>
 
-  <!-- Drawer scrim; click closes -->
-  <div id="scrim" class="scrim" hidden></div>
+  <!-- The drawer and its scrim lived here.  D-UI-3 replaced them with the
+       bottom bar, which the client creates once and keeps, so the retraction on
+       the root is a transition rather than a removal. -->
 
   <!-- Toast host for transient confirmations -->
   <div id="toasts" class="toasts" aria-live="polite"></div>

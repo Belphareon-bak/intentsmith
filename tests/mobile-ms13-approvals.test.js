@@ -158,9 +158,14 @@ function click(act) {
 
 const html = () => nodes.app.innerHTML;
 
-function drawerHtml() {
-  const drawer = globalThis.document.querySelector('.drawer');
-  return drawer ? drawer.innerHTML : '';
+/**
+ * D-UI-3 replaced the drawer with the bottom bar.  The properties these tests
+ * lock down — a live-only badge, a permanently reachable route — belong to
+ * navigation, not to the drawer, so they follow it to its replacement.
+ */
+function navHtml() {
+  const bar = globalThis.document.querySelector('.navbar');
+  return bar ? bar.innerHTML : '';
 }
 
 const MINUTE = 60_000;
@@ -193,7 +198,6 @@ function reset({ scopes = APPROVAL_SCOPES, route = 'approvals' } = {}) {
   state.session = 'active';
   state.route = route;
   state.conn = 'ok';
-  state.drawer = false;
   state.conversationId = null;
   state.sending = false;
   state.data = {};
@@ -522,10 +526,9 @@ await test('D-S2 the menu shows a count only from a confirmed queue', async () =
   reset({ route: 'conversations' });
   fetchQueue = [ok([approval({ id: 'ap-1' }), approval({ id: 'ap-2' })])];
   await loadApprovals();
-  state.drawer = true;
   render();
-  assert.match(drawerHtml(), /data-route="approvals"/);
-  assert.match(drawerHtml(), /nav-count">2</);
+  assert.match(navHtml(), /data-route="approvals"/);
+  assert.match(navHtml(), /nav-count">2</);
 });
 
 await test('D-S2 the count disappears when the queue could not be confirmed', async () => {
@@ -534,19 +537,17 @@ await test('D-S2 the count disappears when the queue could not be confirmed', as
   await loadApprovals();
   fetchQueue = [offline()];
   await loadApprovals();
-  state.drawer = true;
   render();
-  assert.match(drawerHtml(), /data-route="approvals"/, 'the route itself must stay reachable');
-  assert.doesNotMatch(drawerHtml(), /nav-count/, 'a remembered count outlived the queue');
+  assert.match(navHtml(), /data-route="approvals"/, 'the route itself must stay reachable');
+  assert.doesNotMatch(navHtml(), /nav-count/, 'a remembered count outlived the queue');
 });
 
 await test('D-S2 a confirmed empty queue shows no count rather than a zero', async () => {
   reset({ route: 'conversations' });
   fetchQueue = [ok([])];
   await loadApprovals();
-  state.drawer = true;
   render();
-  assert.doesNotMatch(drawerHtml(), /nav-count/);
+  assert.doesNotMatch(navHtml(), /nav-count/);
 });
 
 // ── 9. SS-06 — logout and revocation ────────────────────────────────────────
@@ -695,14 +696,13 @@ await test('F-058 going offline takes the menu count with it', async () => {
   reset({ route: 'conversations' });
   fetchQueue = [ok([approval({ id: 'ap-1' }), approval({ id: 'ap-2' })])];
   await loadApprovals();
-  state.drawer = true;
   render();
-  assert.match(drawerHtml(), /nav-count">2</, 'precondition: the count is shown');
+  assert.match(navHtml(), /nav-count">2</, 'precondition: the count is shown');
 
   handleWentOffline();
   render();
-  assert.doesNotMatch(drawerHtml(), /nav-count/, 'a remembered count outlived the connection');
-  assert.match(drawerHtml(), /data-route="approvals"/, 'the route itself must stay reachable');
+  assert.doesNotMatch(navHtml(), /nav-count/, 'a remembered count outlived the connection');
+  assert.match(navHtml(), /data-route="approvals"/, 'the route itself must stay reachable');
 });
 
 await test('F-058 a reconnect re-reads the queue instead of restoring the old one', async () => {
@@ -884,9 +884,8 @@ await test('F-077 revalidation withdraws prior rows and the drawer badge before 
 
   assert.equal(state.data.approvals, undefined, 'the published queue survived revalidation');
   assert.doesNotMatch(html(), /STARÝ CITLIVÝ ŘÁDEK/, 'a prior row stayed visible while the read was pending');
-  state.drawer = true;
   render();
-  assert.doesNotMatch(drawerHtml(), /nav-count/, 'a prior approval count stayed visible while the read was pending');
+  assert.doesNotMatch(navHtml(), /nav-count/, 'a prior approval count stayed visible while the read was pending');
 
   release();
   await pending;
@@ -934,7 +933,6 @@ await test('F-079 local read-scope loss clears the queue, notes and badge withou
   state.approvalsGone = { old: approval({ id: 'old', title: 'STARÁ POZNÁMKA' }) };
   state.approvalNote = { tone: 'ok', text: 'STARÝ VÝSLEDEK' };
   store.set(K.scopes, ['read:chat']);
-  state.drawer = true;
   render();
   fetchLog = [];
 
@@ -943,23 +941,22 @@ await test('F-079 local read-scope loss clears the queue, notes and badge withou
   assert.equal(state.data.approvals, undefined, 'scope loss retained the unauthorized queue');
   assert.deepEqual(state.approvalsGone, {}, 'scope loss retained approval-derived notes');
   assert.equal(state.approvalNote, null, 'scope loss retained the approval outcome');
-  assert.doesNotMatch(html() + drawerHtml(), /SCOPE-CITLIVÝ ŘÁDEK|STARÁ POZNÁMKA|STARÝ VÝSLEDEK/);
-  assert.doesNotMatch(drawerHtml(), /nav-count/, 'scope loss retained the unauthorized badge');
+  assert.doesNotMatch(html() + navHtml(), /SCOPE-CITLIVÝ ŘÁDEK|STARÁ POZNÁMKA|STARÝ VÝSLEDEK/);
+  assert.doesNotMatch(navHtml(), /nav-count/, 'scope loss retained the unauthorized badge');
 });
 
 await test('F-079 a server scope replacement withdraws the approval surface immediately', async () => {
   reset();
   fetchQueue = [ok([approval({ title: 'SERVER-SCOPE-CITLIVÝ ŘÁDEK' })])];
   await loadApprovals();
-  state.drawer = true;
   render();
-  assert.match(drawerHtml(), /nav-count/);
+  assert.match(navHtml(), /nav-count/);
 
   replaceScopes(['read:chat']);
   render();
   assert.equal(state.data.approvals, undefined);
-  assert.doesNotMatch(html() + drawerHtml(), /SERVER-SCOPE-CITLIVÝ ŘÁDEK/);
-  assert.doesNotMatch(drawerHtml(), /nav-count/);
+  assert.doesNotMatch(html() + navHtml(), /SERVER-SCOPE-CITLIVÝ ŘÁDEK/);
+  assert.doesNotMatch(navHtml(), /nav-count/);
 });
 
 await test('F-080 approval reads explicitly bypass the browser HTTP cache', async () => {

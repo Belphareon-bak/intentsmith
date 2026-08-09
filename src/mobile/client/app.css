@@ -455,46 +455,59 @@ button { cursor: pointer; border: none; background: none; }
   color: var(--text-muted); cursor: default;
 }
 
-/* ── Drawer ────────────────────────────────────────────────────────────── */
-.scrim {
-  position: fixed; inset: 0; z-index: 40;
-  background: rgba(20, 18, 16, .42);
-  animation: fade .18s ease;
+/* ── Bottom bar (UI-DESIGN §3.1, D-UI-3) ───────────────────────────────── */
+/* The former drawer lived here.  D-UI-3 replaced it with a horizontally
+   scrolling bar that carries every item and centres on the chosen one. */
+.navbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+  background: color-mix(in srgb, var(--bg-raised) 92%, transparent);
+  backdrop-filter: saturate(180%) blur(14px);
+  border-top: 1px solid var(--border);
+  padding-bottom: var(--safe-bottom);
+  /* §8 — ≤ 200 ms, no decorative motion.  The retraction is the "you are home"
+     signal (§3.2), so it has to read as a movement, not a disappearance. */
+  transition: transform .18s cubic-bezier(.32, .72, 0, 1);
 }
-@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
-.drawer {
-  position: fixed; top: 0; bottom: 0; left: 0; z-index: 50;
-  width: min(310px, 84vw);
-  background: var(--bg-raised);
-  border-right: 1px solid var(--border);
-  display: flex; flex-direction: column;
-  animation: slide-in .22s cubic-bezier(.32, .72, 0, 1);
-  box-shadow: var(--shadow-lg);
+.navbar[data-retracted="true"] { transform: translateY(100%); }
+.navbar-track {
+  display: flex; align-items: stretch; gap: 2px;
+  overflow-x: auto; overflow-y: hidden;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  /* Half a viewport of padding on each side is what lets the *first* and
+     *last* item reach the middle — without it the ring cannot turn far
+     enough and the edge items are never centred. */
+  padding: 0 calc(50% - 44px);
 }
-@keyframes slide-in { from { transform: translateX(-100%); } to { transform: translateX(0); } }
-.drawer-head {
-  padding: calc(var(--safe-top) + 14px) 16px 12px;
-  border-bottom: 1px solid var(--border);
+.navbar-track::-webkit-scrollbar { display: none; }
+.nav-tab {
+  flex: 0 0 auto;
+  /* §8 — 48 × 48 dp floor for a touch target. */
+  min-width: 88px; min-height: 56px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  padding: 8px 12px;
+  font-size: 12px; font-weight: 500; color: var(--text-muted);
+  border-top: 2px solid transparent;
+  transition: color .12s;
 }
-.drawer-brand { display: flex; align-items: center; gap: 10px; }
-.brand-mark {
-  width: 28px; height: 28px; border-radius: 8px; background: var(--accent);
-  display: grid; place-items: center; color: var(--on-accent);
-  font-weight: 700; font-size: 14px; flex-shrink: 0;
+.nav-tab svg { width: 20px; height: 20px; }
+.nav-tab-label { white-space: nowrap; }
+/* §10 — the highlight is text *and* shape: the label turns bold and a rule
+   appears above it, so it survives greyscale and a colour-blind reader. */
+.nav-tab[aria-current="page"] {
+  color: var(--accent);
+  border-top-color: var(--accent);
+  font-weight: 700;
 }
-.drawer-body { flex: 1; overflow-y: auto; padding: 6px 0; }
-.drawer-foot { border-top: 1px solid var(--border); padding: 6px 0 calc(6px + var(--safe-bottom)); }
-.nav-item {
-  display: flex; align-items: center; gap: 12px;
-  width: 100%; text-align: left;
-  padding: 11px 16px; font-size: 14.5px; font-weight: 500;
-  color: var(--text-muted);
-  transition: background .12s, color .12s;
+.nav-tab[aria-disabled="true"] { color: var(--text-faint); cursor: default; }
+.nav-count {
+  min-width: 16px; padding: 0 4px;
+  background: var(--accent); color: var(--on-accent);
+  border-radius: 8px; font-size: 10px; font-weight: 700; line-height: 16px;
 }
-.nav-item svg { width: 18px; height: 18px; flex-shrink: 0; }
-.nav-item:active { background: var(--bg-hover); }
-.nav-item[aria-current="page"] { color: var(--accent); background: var(--accent-soft); font-weight: 600; }
-.nav-count { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--accent); }
+/* The bar overlays nothing: the scroll region gives back exactly its height. */
+body.has-navbar .scroll { padding-bottom: calc(58px + var(--safe-bottom)); }
+body.has-navbar .composer { margin-bottom: calc(58px + var(--safe-bottom)); }
 
 /* ── Cards / settings ──────────────────────────────────────────────────── */
 .card {

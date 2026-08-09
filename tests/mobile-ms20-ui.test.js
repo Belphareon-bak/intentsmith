@@ -159,9 +159,14 @@ assert.ok(clickHandler, 'the client registered no click handler');
 
 const html = () => nodes.app.innerHTML;
 
-function drawerHtml() {
-  const drawer = globalThis.document.querySelector('.drawer');
-  return drawer ? drawer.innerHTML : '';
+/**
+ * D-UI-3 replaced the drawer with the bottom bar.  The properties these tests
+ * lock down — a live-only badge, a permanently reachable route — belong to
+ * navigation, not to the drawer, so they follow it to its replacement.
+ */
+function navHtml() {
+  const bar = globalThis.document.querySelector('.navbar');
+  return bar ? bar.innerHTML : '';
 }
 
 /**
@@ -170,7 +175,7 @@ function drawerHtml() {
  * "click" a button the screen refuses to offer.
  */
 function click(act, operationId = null) {
-  const markup = html() + drawerHtml();
+  const markup = html() + navHtml();
   const pattern = operationId
     ? new RegExp(`data-act="${act}" data-op="${operationId}"([^>]*)>`)
     : new RegExp(`data-act="${act}"([^>]*)>`);
@@ -226,7 +231,6 @@ function reset({ journalEntries = [], route = 'operations' } = {}) {
   state.session = 'active';
   state.route = route;
   state.conn = 'ok';
-  state.drawer = false;
   state.conversationId = null;
   state.sending = false;
   state.data = {};
@@ -326,18 +330,21 @@ await test('§6.9 MS-20 is its own route with its own screen, not a section of M
   assert.match(html(), /data-act="ms20-lookup"/);
 });
 
-await test('§3.3 the recovery screen is permanently reachable from Stav, even at zero open attempts', () => {
+await test('§3.3 the recovery screen is permanently reachable from Nastavení, even at zero open attempts', () => {
+  // D-UI-3 moved MS-03, MS-04 and MS-20 under Nastavení and removed the drawer
+  // they used to hang from.  "Permanently reachable" therefore now means two
+  // steps that must both hold at zero open attempts: the bar always carries
+  // Nastavení, and Nastavení always carries the way into MS-20.  A recovery
+  // route you only find while stuck is a route you learn about while stuck.
   reset({ journalEntries: [], route: 'conversations' });
   state.data.conversations = [];
-  state.drawer = true;
   render();
-  assert.match(drawerHtml(), /data-route="operations"/, 'no permanent navigation target');
-  assert.match(drawerHtml(), /Nerozřešené pokusy/);
+  assert.match(navHtml(), /data-route="diagnostics"/, 'the bar lost its permanent way into Nastavení');
+  assert.match(navHtml(), /Nastavení/);
 
-  state.drawer = false;
   state.route = 'diagnostics';
   render();
-  assert.match(html(), /data-act="operations"/, 'Stav does not link to MS-20');
+  assert.match(html(), /data-act="operations"/, 'Nastavení does not link to MS-20');
 });
 
 await test('§6.9 the temporary MS-03 journal substitute is gone once MS-20 is reachable', () => {

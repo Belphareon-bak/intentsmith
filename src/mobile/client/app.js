@@ -360,7 +360,6 @@ const state = {
   route: 'overview',
   session: 'unknown',      // unknown | unpaired | active | expired | revoked
   conn: 'ok',              // ok | offline | server
-  drawer: false,
   conversationId: null,
   data: {},
   loading: {},
@@ -475,7 +474,6 @@ const OPEN_OPERATION_WARN_AT = 24;
 
 // ── DOM helpers ─────────────────────────────────────────────────────────────
 const $app = document.getElementById('app');
-const $scrim = document.getElementById('scrim');
 const $toasts = document.getElementById('toasts');
 
 function esc(text) {
@@ -827,9 +825,20 @@ function navItems() {
   return NAV_ITEMS.filter(item => item.scope === null || auth.has(item.scope));
 }
 
-/** Which bar item owns the route on screen.  Never two, never none. */
+/**
+ * Which bar item owns the route on screen.  Never two, never none — including
+ * the case that would break it by accident: a scope withdrawn while its section
+ * is open takes that item out of the bar, and the highlight would then be on
+ * nothing at all.  The root always exists, so it is where that falls back to.
+ */
 function currentSection() {
-  return ROUTE_SECTION[state.route] || 'overview';
+  const section = ROUTE_SECTION[state.route] || 'overview';
+  return navItems().some(item => item.id === section) ? section : 'overview';
+}
+
+/** The route a section lands on — where "back" out of a deep screen goes. */
+function sectionRoute(section) {
+  return (NAV_ITEMS.find(item => item.id === section) || {}).route || 'overview';
 }
 
 // ── Views ───────────────────────────────────────────────────────────────────
@@ -878,13 +887,16 @@ function guessDeviceName() {
   return 'Telefon';
 }
 
-function header({ title, left = 'menu', right = '' }) {
-  const leftBtn = {
-    back: `<button class="icon-btn" data-act="back" aria-label="Zpět">${icon('back')}</button>`,
-    // The root has nothing to go back to and nothing to open: §3.2 makes the
-    // homescreen itself the map, so a control here would be a second one.
-    none: '<div style="width:40px"></div>',
-  }[left] ?? `<button class="icon-btn" data-act="drawer" aria-label="Menu">${icon('menu')}</button>`;
+/**
+ * D-UI-3 removed the drawer, and with it the hamburger.  A section screen has
+ * nothing to open — the bar is already on screen — so `none` is the default and
+ * `back` is for deep destinations inside a section (a chat, one approval,
+ * MS-20).  There is deliberately no way to spell "menu" any more.
+ */
+function header({ title, left = 'none', right = '' }) {
+  const leftBtn = left === 'back'
+    ? `<button class="icon-btn" data-act="back" aria-label="Zpět">${icon('back')}</button>`
+    : '<div style="width:40px"></div>';
   return `<header class="header">${leftBtn}<div class="header-title">${esc(title)}</div>${right || '<div style="width:40px"></div>'}</header>`;
 }
 
@@ -1304,7 +1316,7 @@ function viewNotifications() {
 
   const right = state.unread > 0
     ? `<button class="icon-btn" data-act="ack-all" aria-label="Označit přečtené">${icon('inbox')}</button>` : '';
-  return header({ title: 'Notifikace', right }) + `<div class="scroll">${body}</div>`;
+  return header({ title: 'Zprávy', right, left: 'back' }) + `<div class="scroll">${body}</div>`;
 }
 
 function viewDiagnostics() {
@@ -1317,7 +1329,7 @@ function viewDiagnostics() {
 
   const upstreamTone = health?.upstream === 'ok' ? 'ok' : 'danger';
 
-  return header({ title: 'Diagnostika' }) + `<div class="scroll"><div class="container">
+  return header({ title: 'Nastavení' }) + `<div class="scroll"><div class="container">
     <div class="card">
       <div class="card-head"><h3 class="card-title">Spojení</h3></div>
       <div class="kv"><span class="kv-key">Gateway</span>
@@ -1695,7 +1707,7 @@ function viewOperations() {
     </div>`;
   }
 
-  return header({ title: 'Nerozřešené pokusy' }) + `<div class="scroll">${body}</div>`;
+  return header({ title: 'Nerozřešené pokusy', left: 'back' }) + `<div class="scroll">${body}</div>`;
 }
 
 // ── MS-13 — approval queue (SCREENS §4 MS-13, MD-07) ────────────────────────
@@ -1999,62 +2011,124 @@ function viewSession() {
   return null;
 }
 
-// ── Drawer ──────────────────────────────────────────────────────────────────
-function renderDrawer() {
-  const existing = document.querySelector('.drawer');
-  if (existing) existing.remove();
-  if (!state.drawer) { $scrim.hidden = true; return; }
-  $scrim.hidden = false;
+// ── Bottom bar (UI-DESIGN §3.1 · D-UI-3) ────────────────────────────────────
+//
+// Replaces the drawer.  The mental model §3.1 gives it is a Stargate ring: the
+// bar scrolls horizontally, carries **every** available item, and always turns
+// so the chosen one sits in the middle and is the only one lit.  The user does
+// not hunt for an item at a fixed coordinate — they read the centre.
+//
+// What that costs, knowingly (§3.1): the bar stops being a map you see at once.
+// What it buys: no "Více" to tip the overflow into, and a bar that carries the
+// variable set derived from `capabilities`, for which a fixed map could never
+// be complete anyway.
+//
+// Three invariants, each of which would otherwise be a bug the user cannot name:
+//
+//   * exactly one item is highlighted — never zero, never two
+//   * on the root the bar is retracted, and that is the signal "you are home",
+//     not a lost control (§3.2).  No default centred item exists before the
+//     first choice, because on the root there is nothing to centre
+//   * every item stays in the accessibility tree while off-screen, and moving
+//     focus to one scrolls it into view (D-UI-3, §10)
+//
+// §3.3: MS-03, MS-04 and MS-20 live under **Nastavení**, which replaces the
+// former standalone "Stav" item.  MS-20 stays permanently reachable there even
+// at zero open attempts — a recovery route you only find while stuck is a route
+// you learn about while stuck.
 
-  // §3.3: MS-20 is reachable from anywhere a mutation is refused by the cap —
-  // and permanently from Stav.  Permanently means it is here even at zero open
-  // attempts: a recovery route that appears only once you are stuck is a route
-  // you learn about while stuck.
-  const nav = [
-    ['overview', 'home', 'Přehled', null],
-    ['conversations', 'chat', 'Konverzace', null],
-    ['notifications', 'bell', 'Notifikace', state.unread || null],
-    // D-S2: the count is a live figure. Offline or after a failed load there is
-    // no confirmed queue, so no number is shown rather than a remembered one.
-    ['approvals', 'shield', 'Schválení', auth.has('read:approvals')
-      ? (state.data.approvals || []).length || null
-      : null],
-    ['operations', 'warn', 'Nerozřešené pokusy', ms20Entries().length || null],
-    ['diagnostics', 'gear', 'Diagnostika', null],
-  ];
+/**
+ * Looked up rather than cached.  A cached reference survives the element being
+ * detached — by a test harness, by anything that clears the body — and then the
+ * bar is silently absent while the code believes it is showing.  Querying keeps
+ * the element's *identity* when it is there, which is what makes the retraction
+ * a transition instead of a re-creation.
+ */
+function navElement() {
+  return document.querySelector('.navbar');
+}
 
-  const drawer = document.createElement('nav');
-  drawer.className = 'drawer';
-  drawer.innerHTML = `
-    <div class="drawer-head">
-      <div class="drawer-brand">
-        <div class="brand-mark">IS</div>
-        <div>
-          <div style="font-weight:650;font-size:15px">IntentSmith</div>
-          <div style="font-size:12px;color:var(--text-muted)">${esc(state.data.capabilities?.device?.name || 'zařízení')}</div>
-        </div>
-      </div>
-    </div>
-    <div class="drawer-body">
-      ${nav.map(([route, ico, label, count]) => `
-        <button class="nav-item" data-act="go" data-route="${route}" ${state.route === route ? 'aria-current="page"' : ''}>
-          ${icon(ico)}<span>${label}</span>${count ? `<span class="nav-count">${count}</span>` : ''}
-        </button>`).join('')}
-    </div>
-    <div class="drawer-foot">
-      <button class="nav-item" data-act="new-chat">${icon('plus')}<span>Nová konverzace</span></button>
-    </div>`;
-  document.body.appendChild(drawer);
+/**
+ * D-S2 — a badge is only honest while it is live.  A failed read or a withdrawn
+ * surface leaves no number at all rather than a remembered one, which is the
+ * rule the queue itself follows (MD-07).
+ */
+function navCount(item) {
+  if (item.id !== 'approvals') return null;
+  const list = state.data.approvals;
+  if (!Array.isArray(list) || state.error.approvals) return null;
+  return list.length || null;
+}
+
+function renderNavBar() {
+  const items = state.session === 'active' ? navItems() : [];
+  // §3.1 — with a single available item there is nothing to switch between, and
+  // a bar whose only two entries are the root and Nastavení is worse than none.
+  const switchable = items.filter(item => item.id !== 'overview' && item.id !== 'settings');
+  if (!switchable.length) {
+    navElement()?.remove();
+    document.body.classList.remove('has-navbar');
+    return;
+  }
+
+  const section = currentSection();
+  // §3.2 — retracted on the root; entering a section slides it out, choosing
+  // Přehled slides it back.  The element stays in the DOM so the transition is
+  // a movement rather than a jump.
+  const retracted = section === 'overview';
+
+  const tabs = items.map(item => {
+    const current = item.id === section;
+    const count = navCount(item);
+    // §3.1 — a scope whose screen does not exist shows locked rather than
+    // absent, and locked means not tappable, not merely paler (§10).
+    if (item.locked) {
+      return `<span class="nav-tab" data-nav="${esc(item.id)}" role="tab" aria-disabled="true" aria-selected="false">
+        ${icon('lock')}<span class="nav-tab-label">${esc(item.label)}</span>
+      </span>`;
+    }
+    return `<button class="nav-tab" data-act="go" data-route="${esc(item.route)}" data-nav="${esc(item.id)}"`
+      + ` role="tab" aria-selected="${current}"${current ? ' aria-current="page"' : ''}>`
+      + `${icon(item.icon)}<span class="nav-tab-label">${esc(item.label)}</span>`
+      + `${count ? `<span class="nav-count">${count}</span>` : ''}</button>`;
+  }).join('');
+
+  let bar = navElement();
+  if (!bar) {
+    bar = document.createElement('nav');
+    bar.className = 'navbar';
+    document.body.appendChild(bar);
+  }
+  bar.dataset.retracted = retracted ? 'true' : 'false';
+  bar.innerHTML = `<div class="navbar-track" role="tablist" aria-label="Sekce aplikace">${tabs}</div>`;
+  if (retracted) document.body.classList.remove('has-navbar');
+  else document.body.classList.add('has-navbar');
+
+  if (!retracted) centreNavOnSelection();
+}
+
+/**
+ * The ring turning.  The same arithmetic serves the accessibility half of
+ * D-UI-3: every item is in the tree even off-screen, and reaching one by
+ * keyboard or screen reader has to bring it into view.
+ */
+function centreNavOnSelection(target = null) {
+  const track = navElement()?.querySelector?.('.navbar-track');
+  const selected = target || track?.querySelector?.('[aria-current="page"]');
+  if (!track || !selected || typeof selected.offsetLeft !== 'number') return;
+  const left = Math.max(0, selected.offsetLeft - (track.clientWidth - selected.offsetWidth) / 2);
+  if (typeof track.scrollTo === 'function') track.scrollTo({ left, behavior: 'smooth' });
+  else track.scrollLeft = left;
 }
 
 // ── Render ──────────────────────────────────────────────────────────────────
 function render() {
   const sessionView = viewSession();
-  if (sessionView) { $app.innerHTML = withTrustBar(sessionView); renderDrawer(); return; }
+  if (sessionView) { $app.innerHTML = withTrustBar(sessionView); renderNavBar(); return; }
 
   if (state.session === 'unpaired') {
     $app.innerHTML = withTrustBar(viewPairing({ error: state.error.pairing, busy: state.loading.pairing }));
-    renderDrawer();
+    renderNavBar();
     return;
   }
 
@@ -2069,7 +2143,7 @@ function render() {
     diagnostics: viewDiagnostics,
   };
   $app.innerHTML = withTrustBar((views[state.route] || viewOverview)());
-  renderDrawer();
+  renderNavBar();
 
   if (state.route === 'chat') {
     const scroll = document.getElementById('thread-scroll');
@@ -3117,7 +3191,6 @@ function transitionRoute(route) {
   if (route !== state.route) state.opsConfirm = null;
   invalidateApprovalAuthority();
   state.route = route;
-  state.drawer = false;
   if (route !== 'approval') state.approvalId = null;
 }
 
@@ -3171,8 +3244,11 @@ document.addEventListener('click', event => {
   const act = target.dataset.act;
 
   const actions = {
-    drawer: () => { state.drawer = true; renderDrawer(); },
-    back: () => navigate('conversations'),
+    // §3.3 — "back" leaves a deep destination for the root of the section it
+    // belongs to, so a chat returns to Konverzace and MS-20 returns to
+    // Nastavení.  Sending every screen to the conversation list was a drawer-era
+    // shortcut; with a bar, leaving a section by accident is a navigation bug.
+    back: () => navigate(sectionRoute(currentSection())),
     go: () => navigate(target.dataset.route),
     'open-approval': () => openApproval(target.dataset.approval),
     'approval-approve': () => { decideApproval('approve'); },
@@ -3215,7 +3291,14 @@ document.addEventListener('click', event => {
   (actions[act] || (() => {}))();
 });
 
-$scrim.addEventListener('click', () => { state.drawer = false; renderDrawer(); });
+// D-UI-3 accessibility: every bar item is in the tree even while scrolled out
+// of sight, so reaching one by keyboard or screen reader has to bring it into
+// view.  Centring is what the ring does anyway — this just makes focus the
+// second thing that turns it.
+document.addEventListener('focusin', event => {
+  const tab = event.target?.closest?.('.nav-tab');
+  if (tab) centreNavOnSelection(tab);
+});
 
 document.addEventListener('input', event => {
   if (event.target.id === 'composer-input') autoGrow(event.target);
@@ -3343,7 +3426,8 @@ export const __ms20 = {
   state, journal, drafts, store, cache, K, api,
   render, navigate, viewOperations, ms20Entries,
   trustBar, trustZones, withTrustBar, screenLocks, serverNow,
-  viewOverview, navItems, currentSection, unknownScopes, NAV_ITEMS, ROUTE_SECTION,
+  viewOverview, navItems, currentSection, sectionRoute, unknownScopes, NAV_ITEMS, ROUTE_SECTION,
+  renderNavBar, navCount, newChat,
   viewApprovals, loadApprovals, approvalsGone,
   viewApproval, decideApproval, openApproval, approvalDecidable,
   unresolvedApprovalAttempt, unassociatedApprovalAttempt,
