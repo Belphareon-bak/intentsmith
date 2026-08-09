@@ -2178,6 +2178,65 @@ export const selected = values[key];
   }
 }
 
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-preflight-entry-'));
+  const marker = path.join(tempDir, 'outside-entry-executed');
+  try {
+    const packageDir = writePreflightFixture(tempDir, 'entry-escape');
+    fs.writeFileSync(path.join(tempDir, 'outside.js'), `
+import fs from 'node:fs';
+fs.writeFileSync(${JSON.stringify(marker)}, 'executed');
+export function register() {}
+`);
+    const manifestPath = path.join(packageDir, 'specialist.json');
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    manifest.entry = '../outside.js';
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest));
+    const result = discoverPreflightFixture(tempDir);
+    assertEq(result.error?.code, 'SPECIALIST_PATH_ESCAPE', 'manifest entry escape fails closed');
+    assert(!fs.existsSync(marker), 'manifest entry escape has no top-level side effect');
+    result.db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-preflight-migration-'));
+  const marker = path.join(tempDir, 'outside-migration-executed');
+  try {
+    const packageDir = writePreflightFixture(tempDir, 'migration-escape');
+    fs.mkdirSync(path.join(packageDir, 'migrations'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'outside.js'), `
+import fs from 'node:fs';
+fs.writeFileSync(${JSON.stringify(marker)}, 'executed');
+export function up() {}
+`);
+    const db = createTestDb();
+    const loader = new SpecialistLoader(db, createMockRuntime(), {
+      baseDir: tempDir,
+      engineVersion: ENGINE_VERSION,
+    });
+    let error = null;
+    try {
+      loader._runMigrations('migration-escape', packageDir, {
+        migrations: ['../outside'],
+      });
+    } catch (caught) {
+      error = caught;
+    }
+    assertEq(
+      error?.code,
+      'SPECIALIST_MIGRATION_NAME_INVALID',
+      'migration name escape fails closed',
+    );
+    assert(!fs.existsSync(marker), 'migration name escape has no top-level side effect');
+    db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
 console.log(`\n══════════════════════════════════════════════════`);
 console.log(`Specialist Loader: ${passed} passed, ${failed} failed`);
 console.log(`══════════════════════════════════════════════════`);

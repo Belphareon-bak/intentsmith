@@ -559,6 +559,72 @@ function realSpecialistDirectory(target, label) {
   }
 }
 
+function resolveSpecialistExecutable(packageDir, relativePath, label) {
+  if (
+    typeof relativePath !== 'string'
+    || relativePath.length === 0
+    || path.isAbsolute(relativePath)
+    || /^[A-Za-z][A-Za-z0-9+.-]*:/u.test(relativePath)
+    || /[?#]/u.test(relativePath)
+  ) {
+    throw new SpecialistPreflightError(
+      'SPECIALIST_EXECUTABLE_PATH_INVALID',
+      `${label} must be a plain package-relative path`,
+    );
+  }
+  const packageRoot = realSpecialistDirectory(packageDir, 'specialist package root');
+  const lexical = path.resolve(packageRoot, relativePath);
+  assertInsideSpecialistRoot(
+    packageRoot,
+    lexical,
+    'SPECIALIST_PATH_ESCAPE',
+    label,
+  );
+  const { stat } = readSpecialistRegularFile(lexical, label);
+  const extension = path.extname(lexical).toLowerCase();
+  if (!SPECIALIST_EXECUTABLE_EXTENSIONS.has(extension)) {
+    throw new SpecialistPreflightError(
+      'SPECIALIST_EXECUTABLE_PATH_INVALID',
+      `${label} must use .js, .mjs, or .cjs`,
+    );
+  }
+  const canonical = fs.realpathSync(lexical);
+  assertInsideSpecialistRoot(
+    packageRoot,
+    canonical,
+    'SPECIALIST_PATH_ESCAPE',
+    label,
+  );
+  if (!stat.isFile()) {
+    throw new SpecialistPreflightError(
+      'SPECIALIST_UNSAFE_TREE_ENTRY',
+      `${label} must be a regular file`,
+    );
+  }
+  return canonical;
+}
+
+function specialistMigrationRelativePath(migrationName) {
+  if (
+    typeof migrationName !== 'string'
+    || !/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(migrationName)
+  ) {
+    throw new SpecialistPreflightError(
+      'SPECIALIST_MIGRATION_NAME_INVALID',
+      'migration name must be a package-local identifier',
+    );
+  }
+  return path.join('migrations', `${migrationName}.js`);
+}
+
+function resolveSpecialistMigration(packageDir, migrationName) {
+  return resolveSpecialistExecutable(
+    packageDir,
+    specialistMigrationRelativePath(migrationName),
+    `migration ${migrationName}`,
+  );
+}
+
 function proveSpecialistComputedPackageLocal({ packageRoot, file, tokens, indexes, label }) {
   const isIdentifier = (index, value) => (
     tokens[index]?.type === 'identifier' && tokens[index].value === value
@@ -1068,6 +1134,21 @@ function validateManifest(manifest) {
     errors.push('entry point is required');
   }
 
+  if (manifest.migrations !== undefined) {
+    if (!Array.isArray(manifest.migrations)) {
+      errors.push('migrations must be an array');
+    } else {
+      for (const migrationName of manifest.migrations) {
+        if (
+          typeof migrationName !== 'string'
+          || !/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(migrationName)
+        ) {
+          errors.push(`migration "${migrationName}" must be a package-local identifier`);
+        }
+      }
+    }
+  }
+
   // D7: Validate dependencies format
   if (manifest.dependencies) {
     if (typeof manifest.dependencies !== 'object' || Array.isArray(manifest.dependencies)) {
@@ -1274,6 +1355,7 @@ export class SpecialistLoader {
           continue;
         }
 
+        resolveSpecialistExecutable(dir, manifest.entry, `${manifest.id} entry point`);
         this._preflightPackage(dir);
 
         this._discovered.set(manifest.id, { manifest, dir });
@@ -1356,29 +1438,31 @@ export class SpecialistLoader {
       this._stmts.getMigrations.all(specialistId).map(r => r.migration_name)
     );
 
+    const pendingNames = [];
     for (const migrationName of manifest.migrations) {
       if (applied.has(migrationName)) continue;
 
+      specialistMigrationRelativePath(migrationName);
       const migrationFile = path.join(migrationsDir, `${migrationName}.js`);
       if (!fs.existsSync(migrationFile)) {
         logger.warn('SpecialistLoader', `Migration file not found: ${migrationFile}`);
         continue;
       }
+      resolveSpecialistMigration(dir, migrationName);
 
       // Note: we can't use dynamic import synchronously inside a transaction.
       // So we collect pending migrations and run them sequentially.
       logger.info('SpecialistLoader', `Pending migration: ${specialistId}/${migrationName}`);
+      pendingNames.push(migrationName);
     }
 
     // Actually run pending migrations (cannot be done inside the install transaction
     // because ESM import is async, but SQLite is sync — run one by one)
     this._pendingMigrations = this._pendingMigrations || [];
-    for (const migrationName of manifest.migrations) {
-      if (applied.has(migrationName)) continue;
+    for (const migrationName of pendingNames) {
       this._pendingMigrations.push({
         specialistId,
         packageDir: dir,
-        migrationsDir,
         migrationName,
       });
     }
@@ -1390,13 +1474,10 @@ export class SpecialistLoader {
   async _executePendingMigrations() {
     if (!this._pendingMigrations?.length) return;
 
-    for (const {
-      specialistId, packageDir, migrationsDir, migrationName,
-    } of this._pendingMigrations) {
-      const migrationFile = path.join(migrationsDir, `${migrationName}.js`);
-
+    for (const { specialistId, packageDir, migrationName } of this._pendingMigrations) {
       try {
         this._preflightPackage(packageDir);
+        const migrationFile = resolveSpecialistMigration(packageDir, migrationName);
         const mod = await import(migrationFile);
         if (typeof mod.up !== 'function') {
           logger.warn('SpecialistLoader', `Migration ${migrationName} has no up() function`);
@@ -1479,7 +1560,11 @@ export class SpecialistLoader {
       this._modules.delete(id);
     }
 
-    const entryPath = path.join(dir, manifest.entry);
+    const entryPath = resolveSpecialistExecutable(
+      dir,
+      manifest.entry,
+      `${id} entry point`,
+    );
     let mod;
     if (needsBust) {
       // Cache bust: file URL with query param bypasses Node's ESM cache
@@ -1494,18 +1579,6 @@ export class SpecialistLoader {
     if (typeof mod.register !== 'function') {
       throw new Error(`${id}/index.js must export register(ctx)`);
     }
-
-    // v121 2d: Plugin stability contract — warn on core imports (static analysis)
-    try {
-      const entryContent = fs.readFileSync(entryPath, 'utf-8');
-      const coreImportPattern = /from\s+['"]\.\.\/\.\.\/src\//g;
-      const matches = entryContent.match(coreImportPattern);
-      if (matches) {
-        logger.warn('SpecialistLoader',
-          `${id}/index.js imports from core (../../src/) — ${matches.length} occurrence(s). ` +
-          'Specialists should use ctx.registries instead. This will become an error in a future version.');
-      }
-    } catch { /* non-fatal — file read may fail */ }
 
     // v121: Build expanded registration context with registries
     const [autoSelect, cre, toolExecutor] = await Promise.all([
@@ -1866,7 +1939,8 @@ export class SpecialistLoader {
       if (!fs.existsSync(migrationFile)) continue;
 
       try {
-        const mod = await import(migrationFile);
+        const safeMigrationFile = resolveSpecialistMigration(dir, migrationName);
+        const mod = await import(safeMigrationFile);
         if (typeof mod.down !== 'function') {
           logger.debug('SpecialistLoader', `Migration ${migrationName} has no down() — irreversible`);
           return false;
@@ -1883,15 +1957,14 @@ export class SpecialistLoader {
    * Rollback applied migrations in reverse order via their down() functions.
    */
   async _rollbackMigrations(specialistId, dir, manifest, migrationsApplied) {
-    const migrationsDir = path.join(dir, 'migrations');
     this._preflightPackage(dir);
 
     // Reverse order — last applied first
     for (let i = migrationsApplied.length - 1; i >= 0; i--) {
       const migrationName = migrationsApplied[i];
-      const migrationFile = path.join(migrationsDir, `${migrationName}.js`);
 
       try {
+        const migrationFile = resolveSpecialistMigration(dir, migrationName);
         const mod = await import(migrationFile);
         if (typeof mod.down !== 'function') {
           logger.warn('SpecialistLoader', `Cannot rollback ${migrationName}: no down()`);
