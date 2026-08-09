@@ -363,7 +363,14 @@ function tokenize(source, label) {
         index += 1;
       }
       if (source[index - 1] !== '`') throw new BoundaryError('SOURCE_PARSE_FAILED', `${label}: unterminated template`);
-      push({ type: 'template', value: source.slice(start, index), start });
+      const value = source.slice(start, index);
+      if (value.includes('${') && /\b(?:import|require)\b/u.test(value)) {
+        throw new BoundaryError(
+          'UNPROVEN_TEMPLATE_IMPORT',
+          `${label}: template interpolation may not hide an import or require expression`,
+        );
+      }
+      push({ type: 'template', value, start });
       continue;
     }
     if (char === '/' && regexCanStart(previous)) {
@@ -419,15 +426,19 @@ function stringValue(token, label) {
 }
 
 function findClosingParen(tokens, openIndex, label) {
+  return findClosingDelimiter(tokens, openIndex, '(', ')', label);
+}
+
+function findClosingDelimiter(tokens, openIndex, open, close, label) {
   let depth = 0;
   for (let index = openIndex; index < tokens.length; index += 1) {
-    if (tokens[index].value === '(') depth += 1;
-    else if (tokens[index].value === ')') {
+    if (tokens[index].value === open) depth += 1;
+    else if (tokens[index].value === close) {
       depth -= 1;
       if (depth === 0) return index;
     }
   }
-  throw new BoundaryError('SOURCE_PARSE_FAILED', `${label}: unmatched import/require parenthesis`);
+  throw new BoundaryError('SOURCE_PARSE_FAILED', `${label}: unmatched ${open}${close} delimiter`);
 }
 
 function resolveInternalTarget(root, file, specifier) {
@@ -464,7 +475,7 @@ function resolveInternalTarget(root, file, specifier) {
   return relativeTarget;
 }
 
-function proveComputedPackageLocal({ root, packageRoot, file, tokens }) {
+function proveComputedPackageLocal({ root, packageRoot, file, tokens, computedImportIndexes }) {
   const from = normalizePath(relative(root, file));
   const isIdentifier = (index, value) => (
     tokens[index]?.type === 'identifier' && tokens[index].value === value
@@ -499,7 +510,16 @@ function proveComputedPackageLocal({ root, packageRoot, file, tokens }) {
       && isValue(index + 2, '(')
       && isIdentifier(index + 3, 'toolsDir')
       && isValue(index + 4, ')')
-    ) definitions.push(index);
+    ) {
+      if (!isValue(index + 5, '{')) {
+        throw new BoundaryError('UNPROVEN_COMPUTED_IMPORT', `${from}: buildToolDefinitions must have a block body`);
+      }
+      definitions.push({
+        index,
+        bodyOpen: index + 5,
+        bodyClose: findClosingDelimiter(tokens, index + 5, '{', '}', from),
+      });
+    }
   }
   if (definitions.length !== 1) {
     throw new BoundaryError('UNPROVEN_COMPUTED_IMPORT', `${from}: exact buildToolDefinitions(toolsDir) is required`);
@@ -518,6 +538,7 @@ function proveComputedPackageLocal({ root, packageRoot, file, tokens }) {
     throw new BoundaryError('UNPROVEN_COMPUTED_IMPORT', `${from}: every tool definition call must use only toolsDir`);
   }
   const filenames = [];
+  const modulePathDefinitions = new Set();
   for (let index = 0; index < tokens.length; index += 1) {
     if (!isIdentifier(index, 'modulePath') || !isValue(index + 1, ':')) continue;
     const exact = isIdentifier(index + 2, 'path')
@@ -535,11 +556,79 @@ function proveComputedPackageLocal({ root, packageRoot, file, tokens }) {
     if (!/^[A-Za-z0-9][A-Za-z0-9._-]*\.js$/u.test(filename)) {
       throw new BoundaryError('UNPROVEN_COMPUTED_IMPORT', `${from}: every modulePath must use a literal package-local .js filename`);
     }
+    if (index <= definitions[0].bodyOpen || index >= definitions[0].bodyClose) {
+      throw new BoundaryError('UNPROVEN_COMPUTED_IMPORT', `${from}: modulePath must be defined inside buildToolDefinitions`);
+    }
+    modulePathDefinitions.add(index);
     filenames.push(filename);
   }
   if (filenames.length === 0) {
     throw new BoundaryError('UNPROVEN_COMPUTED_IMPORT', `${from}: every modulePath must use a literal package-local .js filename`);
   }
+  const toolsBindings = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (!isIdentifier(index, 'tools') || !isValue(index + 1, '=')) continue;
+    const exact = isIdentifier(index - 1, 'const')
+      && isIdentifier(index + 2, 'buildToolDefinitions')
+      && isValue(index + 3, '(')
+      && isIdentifier(index + 4, 'toolsDir')
+      && isValue(index + 5, ')');
+    if (!exact) {
+      throw new BoundaryError('UNPROVEN_COMPUTED_IMPORT', `${from}: tools must come only from buildToolDefinitions(toolsDir)`);
+    }
+    toolsBindings.push(index);
+  }
+  if (toolsBindings.length !== 1) {
+    throw new BoundaryError('UNPROVEN_COMPUTED_IMPORT', `${from}: exactly one canonical tools binding is required`);
+  }
+
+  const canonicalLoops = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    const exact = isIdentifier(index, 'for')
+      && isValue(index + 1, '(')
+      && isIdentifier(index + 2, 'const')
+      && isIdentifier(index + 3, 'tool')
+      && isIdentifier(index + 4, 'of')
+      && isIdentifier(index + 5, 'tools')
+      && isValue(index + 6, ')')
+      && isValue(index + 7, '{');
+    if (!exact) continue;
+    canonicalLoops.push({
+      index,
+      bodyOpen: index + 7,
+      bodyClose: findClosingDelimiter(tokens, index + 7, '{', '}', from),
+    });
+  }
+  if (canonicalLoops.length !== 1 || toolsBindings[0] >= canonicalLoops[0].index) {
+    throw new BoundaryError('UNPROVEN_COMPUTED_IMPORT', `${from}: exact for (const tool of tools) loader loop is required`);
+  }
+  for (let index = toolsBindings[0] + 1; index < canonicalLoops[0].index; index += 1) {
+    if (isIdentifier(index, 'tools')) {
+      throw new BoundaryError('UNPROVEN_COMPUTED_IMPORT', `${from}: tools may not escape or mutate before the loader loop`);
+    }
+  }
+  for (let index = canonicalLoops[0].bodyOpen + 1; index < canonicalLoops[0].bodyClose; index += 1) {
+    if (isIdentifier(index, 'tool') && !isValue(index + 1, '.')) {
+      throw new BoundaryError('UNPROVEN_COMPUTED_IMPORT', `${from}: tool may not be rebound inside the loader loop`);
+    }
+    if (isIdentifier(index, 'tools') && !isValue(index - 1, '.')) {
+      throw new BoundaryError('UNPROVEN_COMPUTED_IMPORT', `${from}: tools may not be referenced inside the loader loop`);
+    }
+  }
+  for (const index of computedImportIndexes) {
+    if (index <= canonicalLoops[0].bodyOpen || index >= canonicalLoops[0].bodyClose) {
+      throw new BoundaryError('UNPROVEN_COMPUTED_IMPORT', `${from}: computed import is outside the canonical loader loop`);
+    }
+  }
+
+  const computedModulePaths = new Set(computedImportIndexes.map((index) => index + 4));
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (!isIdentifier(index, 'modulePath')) continue;
+    if (!modulePathDefinitions.has(index) && !computedModulePaths.has(index)) {
+      throw new BoundaryError('UNPROVEN_COMPUTED_IMPORT', `${from}: modulePath use is outside the proven definition/import shape`);
+    }
+  }
+
   for (let index = 0; index < tokens.length; index += 1) {
     const directMutation = isIdentifier(index, 'modulePath') && isValue(index + 1, '=');
     const dottedMutation = isValue(index, '.') && isIdentifier(index + 1, 'modulePath') && isValue(index + 2, '=');
@@ -575,7 +664,7 @@ function analyzeSource({ root, packageRoot, file, source }) {
   const comments = allTokens.filter((token) => token.type === 'comment');
   const tokens = allTokens.filter((token) => token.type !== 'comment');
   const occurrences = [];
-  let computedImports = 0;
+  const computedImportIndexes = [];
   const add = (kind, specifier) => {
     const to = resolveInternalTarget(root, file, specifier);
     if (to) occurrences.push({ kind, from, to });
@@ -599,7 +688,7 @@ function analyzeSource({ root, packageRoot, file, source }) {
           && args[1].value === '.'
           && args[2].type === 'identifier' && args[2].value === 'modulePath'
         ) {
-          computedImports += 1;
+          computedImportIndexes.push(index);
         } else {
           throw new BoundaryError('UNPROVEN_COMPUTED_IMPORT', `${from}: computed import target is not statically package-local`);
         }
@@ -659,8 +748,8 @@ function analyzeSource({ root, packageRoot, file, source }) {
     }
   }
 
-  if (computedImports > 0) {
-    proveComputedPackageLocal({ root, packageRoot, file, tokens });
+  if (computedImportIndexes.length > 0) {
+    proveComputedPackageLocal({ root, packageRoot, file, tokens, computedImportIndexes });
   }
   return occurrences;
 }

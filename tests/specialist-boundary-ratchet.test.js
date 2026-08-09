@@ -200,7 +200,7 @@ export async function load() {
     assertIncludes(result, 'specialists/zeta/lib/worker.cjs');
   });
 
-  test('computed-package-local proof accepts the exact shape and rejects three authority drifts', () => {
+  test('computed-package-local proof binds imports to the local builder and rejects authority drift', () => {
     const repo = makeRepo({
       'specialists/computed/index.js': computedSource(),
       'specialists/computed/tools/tool.js': 'export function run() { return true; }\n',
@@ -226,6 +226,17 @@ export async function load() {
 
     write(
       sourcePath,
+      original.replace(
+        '  const tools = buildToolDefinitions(toolsDir);',
+        '  const tool = input;\n  await import(tool.modulePath);\n  const tools = buildToolDefinitions(toolsDir);',
+      ),
+    );
+    const callerShadow = run(repo, ['--require-clean']);
+    assertStatus(callerShadow, 2);
+    assertIncludes(callerShadow, 'computed import is outside the canonical loader loop');
+
+    write(
+      sourcePath,
       `${computedSource({ anchor: 'input.toolsDir' })}\n/* const toolsDir = path.join(__dirname, 'tools'); */\n`,
     );
     const decoy = run(repo, ['--require-clean']);
@@ -247,6 +258,30 @@ export async function load() {
     const result = run(repo, ['--require-clean']);
     assertStatus(result, 2);
     assertIncludes(result, 'is a symlink');
+  });
+
+  test('template interpolation stays usable but cannot hide import or require expressions', () => {
+    const repo = makeRepo({
+      'specialists/alpha/index.js': 'export const label = `safe ${String(1)}`;\n',
+    }, 'template-expression');
+    const sourcePath = join(repo, 'specialists/alpha/index.js');
+    assertStatus(run(repo, ['--require-clean']), 0);
+
+    write(
+      sourcePath,
+      'export async function hidden() { return `${await import("../../src/expertises/core.js")}`; }\n',
+    );
+    const hiddenImport = run(repo, ['--require-clean']);
+    assertStatus(hiddenImport, 2);
+    assertIncludes(hiddenImport, 'UNPROVEN_TEMPLATE_IMPORT');
+
+    write(
+      sourcePath,
+      'export function hidden() { return `${require("../../src/expertises/core.js")}`; }\n',
+    );
+    const hiddenRequire = run(repo, ['--require-clean']);
+    assertStatus(hiddenRequire, 2);
+    assertIncludes(hiddenRequire, 'UNPROVEN_TEMPLATE_IMPORT');
   });
 
   test('parse failure, unreadable file, unknown executable extension, and path escape fail closed', () => {
