@@ -184,8 +184,10 @@ Portable export vynechává `webhookSecret` a `c3.notif.smtpPass`; import je
 nepřijímá a zachová lokální hodnoty. Runtime chyba po durable commitu je
 přiznaný degraded výsledek, ne falešné 500. Autoritativní Studio `lib` consumer
 už fail-closed kontroluje HTTP i exact envelope, přijímá pouze serverem
-commitnutý snapshot a serializuje import/reset proti generic save. Jeho VM sada má 106/0;
-read-only review a fresh-clone důkaz ještě chybí. Scheduler proto zůstává
-default off.
+commitnutý snapshot a serializuje import/reset proti generic save. Nejasné
+doručení uzamkne další zápisy, definitivní reject jediný obnoví deferred save a
+generation token odmítne settings GET zahájený před recovery. Jeho VM sada má
+110/0; první Review A vrátilo `CHANGES_REQUIRED`, opravný subject ještě čeká na
+opakované review a fresh-clone důkaz. Scheduler proto zůstává default off.
 Skutečná parita s
 mobilními migracemi bude doložená až na společném integračním SHA.

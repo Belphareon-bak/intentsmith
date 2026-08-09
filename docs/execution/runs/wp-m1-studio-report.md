@@ -1404,3 +1404,42 @@ canaries, 4xx/5xx, rejected fetch, malformed 2xx, exact runtime metadata,
 generic-save/recovery ordering, single-flight a timer race. Tento source checkpoint ještě nemá samostatný
 read-only review ani fresh-clone attestation. Electron, GPU, Ollama, externí
 síť a finální UI nebyly spuštěné; built B4 i Gate 1 zůstávají `BLOCKED`.
+
+## Checkpoint 27 — Review A settings race remediation candidate
+
+Read-only Review A nad `21ffa72b` skončilo `CHANGES_REQUIRED`. Nejasný výsledek
+importu/resetu mohl po možném durable commitu znovu spustit zrušený generic save
+a opožděný `GET /api/settings` zahájený před recovery mohl přepsat novější
+serverový snapshot. Review také doložilo, že původní helper-only VM harness
+nevykonával `_loadBCfg` ani skutečný `settingsBackupPanel()` a že FileReader
+neměl error/abort výsledek.
+
+Follow-up zavádí přesné `COMMITTED`, `REJECTED` a `DELIVERY_UNKNOWN`. Jen
+doručený non-2xx smí obnovit deferred save. Timeout, transportní ztráta,
+nečitelná nebo nekonzistentní 2xx odpověď vytvoří write fence: žádný starý ani
+nový whole-document save a žádná další recovery operace se automaticky
+neprovede do nového načtení Studia. Mutation admission současně zvýší generation
+a load token, takže starší GET nemůže měnit `_bCfg` ani loading stav. Lokální
+ovládací prvky za write fence nemění ani pouze zdánlivě uloženou hodnotu.
+
+VM harness nyní vykonává `_loadBCfg`, renderovaný Backup panel i FileReader
+load/error/abort. Negativní testy připínají malformed 2xx i transportní
+`DELIVERY_UNKNOWN` bez replaye, definitivní 503 s právě jedním replayem a
+pozdní GET bez přepsání commitnutého snapshotu.
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-studio-client.test.js` | 110/0 | 0 |
+| `node tests/m1-model-policy.test.js` | 35/0 | 0 |
+| `node tests/routes-smoke.test.js` | 109/0 | 0 |
+| `node tests/schema-migrations.test.js` | 38/0 | 0 |
+| `node tests/artifact-validation.test.js` | 151/0 | 0 |
+| `node tests/repository-hygiene.test.js` | 1 546 trackovaných cest | 0 |
+| `node scripts/validate-test-registry.js --json` | 378 programů, 8 exclusions, fingerprint `cb1259ca…d06e15` | 0 |
+| `node scripts/module-boundary-ratchet.mjs` | 1 023/1 023 hran, baseline provenance verified | 0 |
+| `node tests/module-boundary-ratchet.test.js` | 13/0 | 0 |
+| syntax obou změněných JS souborů + `git diff --check` | validní / čisté | 0 |
+
+Opakované Review A a fresh-clone attestation nového subjectu jsou v okamžiku
+zápisu stále otevřené. Electron, GPU, Ollama ani externí síť nebyly spuštěné a
+Gate 1 zůstává `BLOCKED`.

@@ -928,25 +928,35 @@ function assertNoFallbackEffects(harness, expectedAssistantCount = 0) {
 
 function settingsBackupHarness(options = {}) {
   const source = fs.readFileSync(CHAT_PANEL, 'utf8');
+  const loadStart = source.indexOf('function _loadBCfg(');
   const saveStart = source.indexOf('function _saveBCfg()');
   const saveEnd = source.indexOf('function _bVal', saveStart);
+  const bSetStart = source.indexOf('function _bSet', saveEnd);
+  const bSetEnd = source.indexOf('/* v91: Feature flags loader', bSetStart);
   const start = source.indexOf("var _SETTINGS_BACKUP_KIND=");
   const end = source.indexOf('/* I2: Custom CSS injection', start);
+  const panelStart = source.indexOf('function settingsBackupPanel()');
+  const panelEnd = source.indexOf('/* v91: Feature Flags panel */', panelStart);
   assert.ok(
-    saveStart >= 0 && saveEnd > saveStart && start >= 0 && end > start,
+    loadStart >= 0 && saveStart > loadStart && saveEnd > saveStart
+      && bSetStart >= saveEnd && bSetEnd > bSetStart
+      && start >= 0 && end > start && panelStart >= 0 && panelEnd > panelStart,
     'settings backup slice is missing',
   );
 
   const downloads = [];
+  const fileInputs = [];
   const requests = [];
   const revokedObjectUrls = [];
   const timers = [];
   let renders = 0;
-  const initialSettings = options.initialSettings || {
-    theme: 'dark',
-    webhookSecret: 'destination-webhook-secret',
-    'c3.notif.smtpPass': 'destination-smtp-secret',
-  };
+  const initialSettings = Object.prototype.hasOwnProperty.call(options, 'initialSettings')
+    ? options.initialSettings
+    : {
+        theme: 'dark',
+        webhookSecret: 'destination-webhook-secret',
+        'c3.notif.smtpPass': 'destination-smtp-secret',
+      };
   const responses = [...(options.responses || [])];
   let context;
 
@@ -973,6 +983,10 @@ function settingsBackupHarness(options = {}) {
   context = vm.createContext({
     AbortSignal: { timeout(milliseconds) { return { milliseconds }; } },
     Blob: CapturedBlob,
+    C: { accent: '#22c55e', bg3: '#222', border: '#333', border2: '#444', tx1: '#fff', tx2: '#ddd', tx3: '#aaa', tx4: '#888' },
+    FileReader: options.FileReaderClass || class UnexpectedSettingsFileReader {
+      constructor() { throw new Error('settings FileReader was not expected'); }
+    },
     URL: {
       createObjectURL(blob) {
         anchor.blob = blob;
@@ -983,16 +997,21 @@ function settingsBackupHarness(options = {}) {
       },
     },
     _bCfg: initialSettings,
+    _bCfgLoading: false,
     _backendBase: 'http://127.0.0.1:3335',
     _backupMsg: null,
     _bCfgSaveTimer: null,
     clearTimeout(timer) {
       if (timer) timer.cancelled = true;
     },
+    confirm: () => options.confirmResponse !== false,
     document: {
       createElement(tagName) {
-        assert.equal(tagName, 'a');
-        return anchor;
+        if (tagName === 'a') return anchor;
+        assert.equal(tagName, 'input');
+        const input = { click() { input.clicked = true; } };
+        fileInputs.push(input);
+        return input;
       },
     },
     fetch(url, init = {}) {
@@ -1010,6 +1029,8 @@ function settingsBackupHarness(options = {}) {
       });
     },
     module: { exports: {} },
+    h(type, props, ...children) { return { type, props: props || {}, children }; },
+    _fs(value) { return value; },
     renderCenter() { renders++; },
     setTimeout(callback, delay) {
       const timer = { callback, delay };
@@ -1019,21 +1040,30 @@ function settingsBackupHarness(options = {}) {
   });
 
   vm.runInContext(
-    source.slice(saveStart, saveEnd)
+    source.slice(loadStart, saveEnd)
+      + '\n'
+      + source.slice(bSetStart, bSetEnd)
       + '\n'
       + source.slice(start, end)
+      + '\n'
+      + source.slice(panelStart, panelEnd)
       + '\nmodule.exports={'
       + 'exportBackup:_settingsExportBackup,'
       + 'importJson:function(encoded,fileName){return _settingsImportDocument(JSON.parse(encoded),fileName);},'
       + 'resetAll:_settingsResetAll,'
-      + 'replaceAndSave:function(encoded){_bCfg=JSON.parse(encoded);_saveBCfg();},'
-      + 'saveConfig:_saveBCfg};',
+      + 'loadConfig:_loadBCfg,'
+      + 'renderBackup:settingsBackupPanel,'
+      + 'setConfig:_bSet,'
+      + 'replaceAndSave:function(encoded){_settingsGeneration++;_bCfg=JSON.parse(encoded);_saveBCfg();},'
+      + 'saveConfig:_saveBCfg,'
+      + 'state:function(){return {mutationState:_settingsMutationState,pending:_settingsMutationPending,deliveryUnknown:_settingsDeliveryUnknown,generation:_settingsGeneration,loading:_bCfgLoading};}};',
     context,
     { filename: `${CHAT_PANEL.pathname}#settings-backup` },
   );
 
   return {
     downloads,
+    fileInputs,
     functions: context.module.exports,
     get renders() { return renders; },
     requests,
@@ -1057,6 +1087,28 @@ function settingsBackupFixture(overrides = {}) {
     omittedSensitiveKeys: ['c3.notif.smtpPass', 'webhookSecret'],
     ...overrides,
   };
+}
+
+function renderedText(node) {
+  if (node == null || node === false) return '';
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(renderedText).join('');
+  return renderedText(node.children);
+}
+
+function findRenderedElement(root, type, text) {
+  const pending = [root];
+  while (pending.length > 0) {
+    const node = pending.shift();
+    if (Array.isArray(node)) {
+      pending.unshift(...node);
+      continue;
+    }
+    if (!node || typeof node !== 'object') continue;
+    if (node.type === type && renderedText(node) === text) return node;
+    pending.unshift(...(node.children || []));
+  }
+  return null;
 }
 
 function terminalPanelHarness(pane = session('panel-terminal')) {
@@ -5160,6 +5212,188 @@ await testAsync('settings recovery cancels queued saves, waits for in-flight sav
   assert.equal(failed.requests.length, 2);
   assert.equal(failed.requests[1].url, 'http://127.0.0.1:3335/api/settings');
   assert.deepEqual(JSON.parse(failed.requests[1].init.body), { theme: 'unsaved' });
+});
+
+await testAsync('ambiguous settings delivery fences stale saves and every later mutation effect', async () => {
+  for (const ambiguousResponse of [
+    { ok: true, status: 200, jsonError: new Error('truncated commit response') },
+    new Error('connection ended after request delivery'),
+  ]) {
+    const harness = settingsBackupHarness({
+      initialSettings: { theme: 'stale-before-reset' },
+      responses: [ambiguousResponse],
+    });
+    harness.functions.saveConfig();
+    const staleTimer = harness.timers.find(timer => timer.delay === 500);
+    assert.ok(staleTimer);
+
+    assert.equal(await harness.functions.resetAll(), null);
+    assert.equal(staleTimer.cancelled, true);
+    assert.deepEqual(hostClone(harness.functions.state()), {
+      mutationState: 'DELIVERY_UNKNOWN',
+      pending: false,
+      deliveryUnknown: true,
+      generation: 1,
+      loading: false,
+    });
+    assert.equal(harness.requests.length, 1);
+    assert.match(harness.status().text, /nelze potvrdit/);
+    assert.equal(
+      harness.timers.some(timer => timer.delay === 500 && !timer.cancelled),
+      false,
+      'DELIVERY_UNKNOWN replayed the stale queued save',
+    );
+
+    harness.functions.setConfig('theme', 'must-not-write');
+    assert.deepEqual(harness.settings(), { theme: 'stale-before-reset' });
+    assert.equal(await harness.functions.resetAll(), null);
+    await drainMicrotasks();
+    assert.equal(harness.requests.length, 1, 'the delivery-unknown fence admitted another write');
+    assert.equal(
+      harness.timers.some(timer => timer.delay === 500 && !timer.cancelled),
+      false,
+      'the delivery-unknown fence scheduled a later generic save',
+    );
+  }
+});
+
+await testAsync('definitive settings rejection resumes exactly one deferred generic save', async () => {
+  const harness = settingsBackupHarness({
+    initialSettings: { theme: 'locally-edited' },
+    responses: [
+      { ok: false, status: 503, jsonError: new Error('unreadable rejection body') },
+      { ok: true, status: 200, body: { success: true } },
+    ],
+  });
+  harness.functions.saveConfig();
+  const staleTimer = harness.timers.find(timer => timer.delay === 500);
+  assert.ok(staleTimer);
+
+  assert.equal(await harness.functions.resetAll(), null);
+  assert.equal(staleTimer.cancelled, true);
+  assert.equal(harness.functions.state().mutationState, 'REJECTED');
+  const resumed = harness.timers.filter(timer => timer.delay === 500 && !timer.cancelled);
+  assert.equal(resumed.length, 1);
+  resumed[0].callback();
+  await drainMicrotasks();
+  assert.equal(harness.requests.length, 2);
+  assert.equal(harness.requests[1].url, 'http://127.0.0.1:3335/api/settings');
+  assert.deepEqual(JSON.parse(harness.requests[1].init.body), { theme: 'locally-edited' });
+});
+
+await testAsync('a settings load admitted before recovery cannot overwrite its committed snapshot', async () => {
+  const staleLoad = deferred();
+  const committedSettings = { theme: 'committed-reset', locale: 'cs-CZ' };
+  const harness = settingsBackupHarness({
+    initialSettings: null,
+    responses: [
+      ({ context }) => staleLoad.promise.then(body => ({
+        ok: true,
+        status: 200,
+        async json() {
+          return vm.runInContext(`JSON.parse(${JSON.stringify(JSON.stringify(body))})`, context);
+        },
+      })),
+      {
+        ok: true,
+        status: 200,
+        body: {
+          ok: true,
+          success: true,
+          generalSettings: committedSettings,
+          runtimeApplied: true,
+          runtimeErrorCode: null,
+        },
+      },
+      { ok: true, status: 200, body: { success: true } },
+    ],
+  });
+
+  const load = harness.functions.loadConfig(null, true);
+  await drainMicrotasks();
+  assert.equal(harness.requests.length, 1);
+  const reset = harness.functions.resetAll();
+  await drainMicrotasks();
+  assert.equal(harness.requests.length, 2);
+  assert.equal((await reset).success, true);
+  assert.deepEqual(harness.settings(), committedSettings);
+
+  staleLoad.resolve({ theme: 'stale-load' });
+  assert.equal(await load, false);
+  assert.deepEqual(harness.settings(), committedSettings);
+  assert.equal(harness.functions.state().mutationState, 'COMMITTED');
+
+  harness.functions.saveConfig();
+  const saveTimer = harness.timers.find(timer => timer.delay === 500 && !timer.cancelled);
+  assert.ok(saveTimer);
+  saveTimer.callback();
+  await drainMicrotasks();
+  assert.equal(harness.requests.length, 3);
+  assert.deepEqual(JSON.parse(harness.requests[2].init.body), committedSettings);
+});
+
+await testAsync('the rendered Backup panel wires exact endpoints and reports FileReader failures', async () => {
+  const exportHarness = settingsBackupHarness({
+    responses: [{ ok: true, status: 200, body: { ok: true, backup: settingsBackupFixture() } }],
+  });
+  const exportButton = findRenderedElement(exportHarness.functions.renderBackup(), 'button', 'Exportovat nastavení');
+  assert.ok(exportButton);
+  exportButton.props.onClick();
+  await drainMicrotasks();
+  assert.equal(exportHarness.requests[0].url, 'http://127.0.0.1:3335/api/settings/backup');
+  assert.equal(exportHarness.downloads.length, 1);
+
+  const resetHarness = settingsBackupHarness({
+    responses: [{
+      ok: true,
+      status: 200,
+      body: { ok: true, success: true, generalSettings: {}, runtimeApplied: true, runtimeErrorCode: null },
+    }],
+  });
+  const resetButton = findRenderedElement(resetHarness.functions.renderBackup(), 'button', 'Obnovit výchozí');
+  assert.ok(resetButton);
+  resetButton.props.onClick();
+  await drainMicrotasks();
+  assert.equal(resetHarness.requests[0].url, 'http://127.0.0.1:3335/api/settings/reset');
+
+  const validReader = controlledFileReaderClass();
+  const importHarness = settingsBackupHarness({
+    FileReaderClass: validReader.ControlledFileReader,
+    responses: [{
+      ok: true,
+      status: 200,
+      body: {
+        ok: true,
+        success: true,
+        generalSettings: { theme: 'imported' },
+        runtimeApplied: true,
+        runtimeErrorCode: null,
+      },
+    }],
+  });
+  const importButton = findRenderedElement(importHarness.functions.renderBackup(), 'button', 'Importovat nastavení');
+  assert.ok(importButton);
+  importButton.props.onClick();
+  assert.equal(importHarness.fileInputs.length, 1);
+  importHarness.fileInputs[0].onchange({ target: { files: [{ name: 'portable.json' }] } });
+  assert.equal(validReader.readers.length, 1);
+  validReader.readers[0].onload({ target: { result: JSON.stringify(settingsBackupFixture()) } });
+  await drainMicrotasks();
+  assert.equal(importHarness.requests[0].url, 'http://127.0.0.1:3335/api/settings/import');
+  assert.deepEqual(importHarness.settings(), { theme: 'imported' });
+
+  for (const outcome of ['onerror', 'onabort']) {
+    const controlled = controlledFileReaderClass();
+    const failureHarness = settingsBackupHarness({ FileReaderClass: controlled.ControlledFileReader });
+    const button = findRenderedElement(failureHarness.functions.renderBackup(), 'button', 'Importovat nastavení');
+    button.props.onClick();
+    failureHarness.fileInputs[0].onchange({ target: { files: [{ name: 'unreadable.json' }] } });
+    assert.equal(typeof controlled.readers[0][outcome], 'function');
+    controlled.readers[0][outcome]();
+    assert.equal(failureHarness.requests.length, 0);
+    assert.equal(failureHarness.status().ok, false);
+    assert.match(failureHarness.status().text, outcome === 'onerror' ? /nepodařilo přečíst/ : /bylo zrušeno/);
+  }
 });
 
 summary();

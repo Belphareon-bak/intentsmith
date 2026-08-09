@@ -236,17 +236,23 @@ Autoritativní commitnutý
 portable settings recovery nepoužívá generic whole-document endpoint. Export
 volá `GET /api/settings/backup`, import `POST /api/settings/import` a reset
 `POST /api/settings/reset`. Každá cesta vyžaduje pravdivý HTTP success a exact
-JSON commit; non-2xx, rejected fetch, malformed JSON i neúplný 2xx výsledek
-zachovají původní `_bCfg`.
+JSON commit. Doručený non-2xx je definitivní `REJECTED`; rejected fetch,
+timeout, malformed JSON a neúplný 2xx výsledek jsou `DELIVERY_UNKNOWN` a kromě
+zachování `_bCfg` uzamknou další whole-document zápis do nového načtení Studia.
 
 Klient před downloadem sám validuje schema v1 a odmítne envelope obsahující
 `webhookSecret` nebo `c3.notif.smtpPass`. Object URL po clicku revokuje. Import
-a reset jsou single-flight a recovery čeká na případný generic save, takže
-opožděný starší zápis nemůže přepsat novější recovery operaci. Lokální stav se po úspěchu přebírá výhradně ze
+a reset jsou single-flight a recovery čeká na případný generic save. Jen
+definitivní reject obnoví deferred save; nejasné doručení jej nikdy nereplayuje.
+Společná generation/token hranice navíc odmítne opožděný settings GET zahájený
+před recovery. Lokální stav se po úspěchu přebírá výhradně ze
 serverem vráceného `generalSettings`; tím následující generic debounced save
 zachová i destination secrets, které portable soubor nenese. Tokenovaný status
 timer nemůže odstranit novější failure zprávu.
 
-VM behavior sada má 106/0 a používá přímo runtime slice ze sledovaného `lib`.
+VM behavior sada má 110/0 a používá přímo runtime slice ze sledovaného `lib`;
+nově vykonává i skutečné Backup tlačítko a FileReader load/error/abort wiring.
+První Review A nad `21ffa72b` skončilo `CHANGES_REQUIRED`; opravný subject čeká
+na nové review a fresh clone.
 Electron ani finální UI nebyly spuštěné; tento checkpoint neuzavírá built B4,
 vizuální baseline ani capability #21 jako celek.
