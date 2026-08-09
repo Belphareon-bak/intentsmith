@@ -4,10 +4,12 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
+import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
+import { WebSocket as NodeWebSocket } from 'ws';
 
 import { suite, test, testAsync, summary } from './harness.js';
 import {
@@ -18,7 +20,9 @@ import {
 } from '../contracts/m1/index.js';
 import { config } from '../src/config.js';
 import { LLMProviderUnavailableError } from '../src/core/chat-turn-error.js';
+import { createLegacyLocalCapability } from '../src/security/legacy-local-access-policy.js';
 import { createSessionAdapter } from '../src/ws-bridge/session-adapter.js';
+import { attachWebSocketServer } from '../src/ws-bridge/ws-server.js';
 
 const require = createRequire(import.meta.url);
 const {
@@ -437,6 +441,7 @@ test('authoritative panel hard-requires the generated protocol consumer', () => 
 function loadClient(sessions, options = {}) {
   const busEvents = [];
   const sockets = [];
+  const backendBase = options.backendBase || 'http://127.0.0.1:3335';
 
   class FakeWebSocket {
     constructor(url, protocols) {
@@ -470,6 +475,15 @@ function loadClient(sessions, options = {}) {
     }
   }
 
+  const HarnessWebSocket = options.WebSocketClass
+    ? class extends options.WebSocketClass {
+      constructor(url, protocols) {
+        super(url, protocols);
+        sockets.push(this);
+      }
+    }
+    : FakeWebSocket;
+
   const context = vm.createContext({
     AbortSignal,
     C3Bus: {
@@ -481,8 +495,8 @@ function loadClient(sessions, options = {}) {
     Date,
     JSON,
     Math,
-    WebSocket: FakeWebSocket,
-    _backendBase: 'http://127.0.0.1:3335',
+    WebSocket: HarnessWebSocket,
+    _backendBase: backendBase,
     _sessionActive: 0,
     _sessions: sessions,
     clearInterval() {},
@@ -506,8 +520,8 @@ function loadClient(sessions, options = {}) {
     setTimeout: options.setTimeout || (() => Symbol('timeout')),
     window: {
       electronC3: {
-        getBackendUrl: () => 'http://127.0.0.1:3335',
-        getLocalCapability: () => 'A'.repeat(43),
+        getBackendUrl: () => backendBase,
+        getLocalCapability: () => options.localCapability || 'A'.repeat(43),
       },
     },
   });
@@ -626,6 +640,23 @@ function deferred() {
     reject = rej;
   });
   return { promise, reject, resolve };
+}
+
+async function within(promise, label, timeoutMs = 3_000) {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`Timed out waiting for ${label}`)),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function sendServerMessage(socket, message) {
@@ -1849,6 +1880,321 @@ await testAsync('actual Studio and server seams agree on success, error, and can
     config.features.telemetry = telemetryBefore;
   }
 });
+
+await testAsync('owned loopback carries three Studio panels over the negotiated M1 wire', async () => {
+  const telemetryBefore = config.features.telemetry;
+  const capability = createLegacyLocalCapability();
+  const httpServer = createServer((_request, response) => {
+    response.writeHead(404);
+    response.end();
+  });
+  const targetStarted = deferred();
+  let controllerEffects = 0;
+  const ready = deferred();
+  const observedTerminals = [];
+  const terminalWaiters = [];
+  let harness = null;
+  let wss = null;
+  let bodyError = null;
+  const cleanupErrors = [];
+
+  function observeBus(name, payload) {
+    if (name === 'ws:ready') ready.resolve(payload);
+    if (name !== 'chat:terminal') return;
+    observedTerminals.push(payload);
+    for (let index = terminalWaiters.length - 1; index >= 0; index--) {
+      const waiter = terminalWaiters[index];
+      if (!waiter.predicate(payload)) continue;
+      terminalWaiters.splice(index, 1);
+      waiter.resolve(payload);
+    }
+  }
+
+  function waitForTerminal(predicate, label) {
+    const existing = observedTerminals.find(predicate);
+    if (existing) return Promise.resolve(existing);
+    const pending = deferred();
+    terminalWaiters.push({ predicate, resolve: pending.resolve });
+    return within(pending.promise, label);
+  }
+
+  try {
+    config.features.telemetry = false;
+    wss = attachWebSocketServer(
+      httpServer,
+      {
+        handle: async request => {
+          controllerEffects++;
+          if (request.conversationId === 'loopback-cancel-A') {
+            targetStarted.resolve(request);
+            return new Promise((_resolve, reject) => {
+              request.signal.addEventListener(
+                'abort',
+                () => reject(request.signal.reason),
+                { once: true },
+              );
+            });
+          }
+          if (request.conversationId === 'loopback-success-B') {
+            request.context.onSystemStep('live-loopback', 'actual WebSocket progress', 1);
+            return {
+              response: 'Live negotiated Studio response',
+              mode: 'conversation',
+              confidence: 1,
+              state: { source: 'owned-loopback' },
+            };
+          }
+          if (request.conversationId === 'loopback-provider-C') {
+            throw new LLMProviderUnavailableError('LLM_CALL_FAILED');
+          }
+          throw new Error(`Unexpected live conversation: ${request.conversationId}`);
+        },
+      },
+      CROSS_BOUNDARY_LOGGER,
+      {
+        allowedOrigins: [],
+        localCapability: capability,
+        m1WireSupported: true,
+      },
+    );
+    await new Promise((resolve, reject) => {
+      httpServer.once('error', reject);
+      httpServer.listen(0, '127.0.0.1', resolve);
+    });
+    const address = httpServer.address();
+    assert.equal(typeof address, 'object');
+    assert.ok(address && Number.isSafeInteger(address.port));
+
+    const panes = [session(), session(), session()];
+    harness = loadClient(panes, {
+      autoHandshake: false,
+      backendBase: `http://127.0.0.1:${address.port}`,
+      clearTimeout,
+      localCapability: capability,
+      onBusEmit: observeBus,
+      setTimeout,
+      WebSocketClass: NodeWebSocket,
+    });
+    assert.equal(harness.socket instanceof NodeWebSocket, true);
+    await within(ready.promise, 'negotiated Studio hello');
+    assert.equal(harness.client.wsIsM1WireNegotiated(), true);
+
+    panes[0]._convId = 'loopback-cancel-A';
+    panes[0]._agentId = 'agent-loopback-A';
+    panes[1]._convId = 'loopback-success-B';
+    panes[1]._agentId = 'agent-loopback-B';
+    panes[1]._projectId = 'project-loopback-B';
+    panes[2]._convId = 'loopback-provider-C';
+    panes[2]._agentId = 'agent-loopback-C';
+
+    assert.equal(harness.client.wsSendChat('Hold A', panes[0], 0), true);
+    await within(targetStarted.promise, 'cancel target controller entry');
+
+    const successPromise = waitForTerminal(
+      payload => payload.action === 'send'
+        && payload.conversationId === panes[1]._convId,
+      'success terminal',
+    );
+    assert.equal(harness.client.wsSendChat('Complete B', panes[1], 1), true);
+    const success = await successPromise;
+    assert.equal(success.status, 'ok');
+    assert.equal(success.renderAssistant, true);
+    assert.equal(success.result.response.content, 'Live negotiated Studio response');
+
+    const providerPromise = waitForTerminal(
+      payload => payload.action === 'send'
+        && payload.conversationId === panes[2]._convId,
+      'provider terminal',
+    );
+    assert.equal(harness.client.wsSendChat('Fail C', panes[2], 2), true);
+    const provider = await providerPromise;
+    assert.equal(provider.status, 'error');
+    assert.equal(provider.renderAssistant, false);
+    assert.equal(provider.result.error.code, 'LLM_PROVIDER_UNAVAILABLE');
+    assert.equal(provider.sessionIdx, 2);
+
+    const targetTerminalPromise = waitForTerminal(
+      payload => payload.action === 'send'
+        && payload.conversationId === panes[0]._convId,
+      'cancel target terminal',
+    );
+    const cancelTerminalPromise = waitForTerminal(
+      payload => payload.action === 'cancel'
+        && payload.conversationId === panes[0]._convId,
+      'cancel command terminal',
+    );
+    assert.equal(harness.client.wsSendCancel(panes[0]), true);
+    const [targetTerminal, cancelTerminal] = await Promise.all([
+      targetTerminalPromise,
+      cancelTerminalPromise,
+    ]);
+    assert.equal(targetTerminal.status, 'cancelled');
+    assert.equal(cancelTerminal.status, 'cancelled');
+    assert.equal(success.sessionIdx, 1);
+    assert.equal(targetTerminal.sessionIdx, 0);
+    assert.equal(cancelTerminal.sessionIdx, 0);
+    assert.ok(
+      observedTerminals.indexOf(targetTerminal) < observedTerminals.indexOf(cancelTerminal),
+      'the target terminal must reach Studio before the cancel command terminal',
+    );
+
+    assert.equal(controllerEffects, 3);
+    assert.equal(observedTerminals.length, 4);
+    assert.deepEqual(
+      observedTerminals.map(terminal => ({
+        action: terminal.action,
+        conversationId: terminal.conversationId,
+        sessionIdx: terminal.sessionIdx,
+        status: terminal.status,
+      })),
+      [
+        {
+          action: 'send',
+          conversationId: 'loopback-success-B',
+          sessionIdx: 1,
+          status: 'ok',
+        },
+        {
+          action: 'send',
+          conversationId: 'loopback-provider-C',
+          sessionIdx: 2,
+          status: 'error',
+        },
+        {
+          action: 'send',
+          conversationId: 'loopback-cancel-A',
+          sessionIdx: 0,
+          status: 'cancelled',
+        },
+        {
+          action: 'cancel',
+          conversationId: 'loopback-cancel-A',
+          sessionIdx: 0,
+          status: 'cancelled',
+        },
+      ],
+    );
+    assert.equal(
+      new Set(observedTerminals.map(terminal => terminal.requestId)).size,
+      4,
+    );
+    assert.equal(
+      new Set(observedTerminals.map(terminal => terminal.turnId)).size,
+      4,
+    );
+    assert.equal(
+      harness.busEvents.some(event => event.name === 'chat:message'),
+      false,
+    );
+    assert.equal(
+      harness.busEvents.some(event => event.name === 'chat:system'),
+      false,
+    );
+    assert.equal(
+      harness.busEvents
+        .filter(event => event.name === 'agent:event')
+        .every(event => event.payload.event.transport === 'm1'),
+      true,
+    );
+    assert.equal(
+      harness.busEvents.some(event => (
+        event.name === 'agent:event'
+        && event.payload.event.type === 'system_step'
+        && event.payload.event.transport === 'm1'
+        && event.payload.event.conversationId === panes[1]._convId
+      )),
+      true,
+    );
+  } catch (error) {
+    bodyError = error;
+  } finally {
+    config.features.telemetry = telemetryBefore;
+    const cleanupSteps = [
+      ['Studio WebSocket client', async () => {
+        if (!harness) return;
+        const socketClosed = harness.socket.readyState === NodeWebSocket.CLOSED
+          ? Promise.resolve()
+          : new Promise(resolve => harness.socket.once('close', resolve));
+        let gracefulError = null;
+        try {
+          harness.client.wsDestroy();
+          await within(socketClosed, 'owned loopback client close', 1_000);
+        } catch (error) {
+          gracefulError = error;
+          try { harness.socket.terminate(); } catch (terminateError) {
+            cleanupErrors.push(new Error('Studio WebSocket terminate failed', {
+              cause: terminateError,
+            }));
+          }
+          try {
+            await within(socketClosed, 'forced owned loopback client close', 1_000);
+          } catch (forcedError) {
+            cleanupErrors.push(forcedError);
+          }
+        }
+        if (gracefulError) throw gracefulError;
+      }],
+      ['WebSocket server', async () => {
+        if (!wss) return;
+        const closed = new Promise((resolve, reject) => {
+          try {
+            wss.close(error => (error ? reject(error) : resolve()));
+          } catch (error) {
+            reject(error);
+          }
+        });
+        try {
+          await within(closed, 'owned loopback WebSocket server close', 1_000);
+        } catch (error) {
+          for (const client of wss.clients) {
+            try { client.terminate(); } catch {}
+          }
+          try {
+            await within(closed, 'forced owned loopback WebSocket server close', 1_000);
+          } catch (forcedError) {
+            cleanupErrors.push(forcedError);
+          }
+          throw error;
+        }
+      }],
+      ['HTTP server', async () => {
+        if (!httpServer.listening) return;
+        const closed = new Promise((resolve, reject) => {
+          httpServer.close(error => (error ? reject(error) : resolve()));
+        });
+        try {
+          await within(closed, 'owned loopback HTTP server close', 1_000);
+        } catch (error) {
+          httpServer.closeAllConnections?.();
+          try {
+            await within(closed, 'forced owned loopback HTTP server close', 1_000);
+          } catch (forcedError) {
+            cleanupErrors.push(forcedError);
+          }
+          throw error;
+        }
+      }],
+    ];
+    for (const [label, cleanup] of cleanupSteps) {
+      try {
+        await cleanup();
+      } catch (error) {
+        cleanupErrors.push(new Error(`${label} cleanup failed`, { cause: error }));
+      }
+    }
+  }
+
+  if (bodyError && cleanupErrors.length > 0) {
+    throw new AggregateError(
+      [bodyError, ...cleanupErrors],
+      'Owned loopback body and cleanup both failed',
+    );
+  }
+  if (bodyError) throw bodyError;
+  if (cleanupErrors.length > 0) {
+    throw new AggregateError(cleanupErrors, 'Owned loopback cleanup failed');
+  }
+}, 15_000);
 
 suite('M1 Studio client — conversation-scoped transport');
 

@@ -783,27 +783,24 @@ product-bundle M1 consumer ani rozhodnutí 017.
 
 | Povinné chování briefu | Stav | Evidence / důvod |
 |---|---|---|
-| stabilní panel identity a cancel A bez zásahu do B | PASS | client 46/46; WS bridge 67/67 včetně scoped cancel a phantom-ID negativu |
+| stabilní panel identity a cancel A bez zásahu do B | PASS focused + owned-loopback | source VM i actual Node WebSocket vedou tři panely odděleně; target cancel terminal předchází cancel command terminalu a success/provider panel zůstává nezávislý |
 | serverem ověřený rehydrate a invalid ID cleanup | PASS focused | server i klient 014/A i 012/B a společný DB-backed live wire T25h jsou hotové; built Theia journey zůstává samostatnou B4 podmínkou |
 | bounded reconnect a řízený shutdown | PASS na client contract vrstvě | přesný cap, handshake timeout, async-close race a destroy testy |
-| přesný M1 terminal consumer, late assistant a spinner terminal větve | BLOCKED | generated prebuild část 010/A+ je clean-clone ověřená; product-bundle consumer, negotiated wire, ledger a built journey chybí |
+| přesný M1 terminal consumer, late assistant a spinner terminal větve | PASS source/build integrity + owned-loopback | generated prebuild, autoritativní consumer, production bundle, exact ledger a skutečný test-owned negotiated WS jsou ověřené; produkční ACK a Electron journey zůstávají blokované |
 | HTTP fallback: non-2xx nikdy jako assistant a žádný effect bypass | PASS focused | 011/A na `2ead4662`: tři WS-only větve, `NOT_SENT`, nulový HTTP/simulovaný downstream efekt; built journey stále chybí |
-| built Theia multi-panel/cancel/restart journey | NOT RUN | závisí na terminal consumeru; dnešní UI není finální baseline |
-| fresh-clone build parity | PASS pro current legacy runtime na `9464dacf`; B4 stále NOT RUN | offline install, production build a commitnutý boundary runner prošly z čistého klonu; negotiated consumer na tomto SHA neexistuje |
+| built Theia multi-panel/cancel/restart journey | NOT RUN | source-level a owned-loopback Node journey už existují; Electron runtime čeká na 021 a samostatný čistý build envelope; dnešní UI není finální baseline |
+| fresh-clone build parity | PASS pro compiled M1 consumer na `7b887e88`; B4 stále NOT RUN | offline install, production build a automatický postbuild ověřily generated protocol, consumer i bundle; behavioral Electron wire se nespustil |
 | bounded renderer soak na skutečném displeji | PASS pro non-visual legacy boundary; B4 stále NOT RUN | 65 862 ms na scoped X11 s čistým shutdownem a nulovým egresssem; UI nebylo hodnocené a M1 multi-panel/cancel/restart scénář se nespustil |
 
-B4 tedy nekončí jako PASS. Věta o vyčerpaném nezávislém scope platila před
-operátorským rozhodnutím; dnešní další povolený scope tvoří přesně follow-upy
-010/A+, 011/A, 014/A a 012/B v pořadí z rozhodnutí 014. Implementační commity
-B4 jsou `50280fcd`, `d145e95e`,
-`446d197f`, `8e68a92e`, `a4067cd6` a `2ead4662`; výchozí dependency je
-`b7d0dbf6`.
+B4 tedy nekončí jako PASS. Dřívější follow-upy 010/A+, 011/A, 014/A a 012/B
+jsou implementované; required-offer, exact adapter/ledger, compiled consumer,
+postbuild guard a test-owned live wire přidaly navazující checkpointy 16–22.
 Rozhodovací fronta B4 010–014 je operátorsky uzavřená a operátor přijal také
-wire balík `017-Q1:A` + `017-Q2:A`. B4 je přesto `BLOCKED`, dokud se 010/A+
-negotiated consumer
-a built journey nedokončí. Server i klient 014/A i 012/B,
-společný DB-backed live wire a 011/A jsou focused PASS, nikoli celé B4. 013/A je potvrzený
-client-contract checkpoint. Souhrnný balík je v
+wire balík `017-Q1:A` + `017-Q2:A`. B4 je přesto `BLOCKED`: produkční ACK
+zůstává záměrně vypnutý do rozhodnutí 021 a následné built Electron journey.
+Server i klient 014/A i 012/B, společný DB-backed live wire, 011/A a
+nový negotiated owned-loopback wire jsou focused PASS, nikoli celé B4. 013/A
+je potvrzený client-contract checkpoint. Souhrnný balík je v
 `docs/execution/review-gate-1.md`.
 
 ## Read-only uzavření decision evidence 017
@@ -1138,3 +1135,59 @@ izolovaný failure runtime přesunut do koše a finální sada znovu skončila e
 nyní tři samostatné skutečnosti: compiled consumer je clean-clone ověřený,
 source producer/adapter/ledger kompozice je focused ověřená a produkční
 negotiated Electron journey stále neproběhla.
+
+## Checkpoint 22 — skutečný owned-loopback M1 wire bez produkční aktivace
+
+- **test-owned negotiated WebSocket:** `PASS`
+- **produkční `src/server.js` ACK:** nadále `DISABLED / TEST-PINNED`
+- **Electron runtime / celý B4 / Gate 1:** nadále `BLOCKED`
+
+Stejná registrovaná Studio sada nyní kromě VM fake transportu otevře privátní
+HTTP server na `127.0.0.1:0`, připojí skutečný klient z balíčku `ws` se
+správnou per-process capability a explicitně povolí M1 pouze na tomto
+test-owned `attachWebSocketServer()`. Autoritativní commitnutý `ws-client.js`
+projde reálným hello/ACK a JSON wire. V jednom spojení drží A pending turn,
+zatímco B a C jej postupně překryjí vlastními terminály; tři panely tak doloží:
+
+- A drží rozpracovaný turn a scoped cancel doručí target `cancelled` před
+  vlastním cancel terminalem;
+- B dostane `system_step` jako M1 `agent:event` a jediný renderovatelný `ok`;
+- C dostane typovaný `LLM_PROVIDER_UNAVAILABLE`, nikdy assistant;
+- controller dostane přesně tři požadavky a klient nevydá žádný legacy
+  `chat:message`.
+
+Každý ze čtyř terminálů navíc pinuje přesný `sessionIdx`, action,
+conversation/status a unikátní request/turn identitu. Všechny klientské
+`agent:event` musí nést transport `m1`; legacy `chat:system` je zakázaný.
+Cleanup je all-attempted: client, WSS i HTTP close mají vlastní limit, po
+graceful failure následuje pouze test-owned forced close a první body/cleanup
+chyba se neztratí.
+
+Test nepoužívá produktový server, Ollamu, GPU, externí síť ani Electron. Jeho
+registry záznam byl proto pravdivě změněn z `network:none` na
+`network:loopback` a fixture na
+`isolated-home-and-owned-loopback-server`; profil zůstává deterministický
+`offline`. Vypnutí M1 pouze v test-owned serveru je cílená negativní mutace:
+sada skončila 88/1 a přesně live-wire scénář odmítl falešnou negotiation.
+Po vrácení jedné řádky prošla 89/89.
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node --check tests/m1-studio-client.test.js` | syntax valid | 0 |
+| `node tests/m1-studio-client.test.js` | 89 passed, 0 failed, 0 skipped | 0 |
+| pět souběžných opakování stejné sady | 5 × 89 passed, bez flake/hangu | 5 × 0 |
+| mutace: test-owned `m1WireSupported: false` | 88 passed, 1 failed | 1 |
+| mutace: všechny remote terminaly směrovat do panelu 0 | 88 passed, 1 failed (`0 !== 2`) | 1 |
+| `node scripts/validate-test-registry.js --write-doc` | 377 programů, fingerprint `2d5cf073…63ccd` | 0 |
+| `node tests/ws-bridge.test.js` | 86 passed, 0 failed | 0 |
+| `node tests/m1-contract.test.js` | 26 passed, 0 failed, 0 skipped | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
+| `node tests/repository-hygiene.test.js` | 1 532 tracked paths checked | 0 |
+| `node scripts/module-boundary-ratchet.mjs` | 1 020/1 020, baseline `7551b907`, current `11ae1feb` | 0 |
+| `node tests/module-boundary-ratchet.test.js` | 13 passed, 0 failed, 0 skipped | 0 |
+
+Tento krok uzavírá source klient → skutečný loopback WS server → skutečný
+adapter → source klientský ledger. Stále neinjektuje generated protocol ani
+production Electron bundle do běžícího rendereru, netestuje reconnect/restart
+na živém socketu a vědomě neposílá přílohu ani SHELL; tyto dvě policy patří
+výhradně rozhodnutí 021.
