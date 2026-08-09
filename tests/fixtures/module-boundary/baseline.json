@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "905a3422fa0a01f3f1c4656f914ee26a696549a8",
-  "sourceTree": "e9ecad75ea24c5c11bff645ffb65e2ec89ddc644",
+  "sourceRevision": "3cbc260df0f69bc3f01afc8be45e6e871c0c3ab6",
+  "sourceTree": "68c00e6da61787097c988f1621e4af647c3fcd71",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -806,6 +806,7 @@
     "src/routes/system.js -> src/core/history-drain.js",
     "src/routes/system.js -> src/core/logger.js",
     "src/routes/system.js -> src/db/data-retention.js",
+    "src/routes/system.js -> src/db/model-policy.js",
     "src/routes/system.js -> src/packaging/auto-updater.js",
     "src/routes/system.js -> src/system/gpu-detector.js",
     "src/routes/system.js -> src/system/model-compatibility.js",

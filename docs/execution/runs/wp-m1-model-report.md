@@ -2669,8 +2669,10 @@ navíc připnul přesně nula provider, registry a binding efektů pro GET, úsp
 PUT i odmítnuté PUT. Schema migrations
 38/0, coordinator 16/0, identity 25/0, artifact validation 151/0, hygiene
 1 546 cest i registry 378/8 s fingerprintem `cb1259ca…d06e15` skončily exit 0.
-Source candidate ratchet skončil očekávaně exit 1 pouze na jedné nové exact
-hraně `src/routes/system.js → src/db/model-policy.js`; počet cyklů ani cyclic
-membership se nezměnil. Baseline se přijme až po source commitu na čistém
-stromu. Tento checkpoint není fresh-clone evidence ani dokončené 020/E;
-import/reset, Studio a Gate 1 zůstávají otevřené.
+Source `3cbc260df0f69bc3f01afc8be45e6e871c0c3ab6` prošel read-only re-review
+`APPROVED`. Ratchet před přijetím skončil očekávaně exit 1 pouze na jedné nové
+exact hraně `src/routes/system.js → src/db/model-policy.js`; počet cyklů ani
+cyclic membership se nezměnil. Exact-edge writer přijal pouze tuto hranu a
+vygeneroval 1 023hranovou baseline nad uvedeným source. Tento checkpoint není
+fresh-clone evidence ani dokončené 020/E; import/reset, Studio a Gate 1
+zůstávají otevřené.

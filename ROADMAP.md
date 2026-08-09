@@ -577,8 +577,9 @@ focused regression sady.
      `ignoredReservedKeys` a feature manager dostává sanitizovaný dokument.
      Source `905a3422` a exact-edge baseline `34a047d4` jsou pro tento dílčí
      checkpoint `FRESH_CLONE_VERIFIED`.
-     Typed GET/PUT je implementovaný nad exact body, revision CAS a typovanými
-     400/409/503 výsledky. Atomický backup/import/reset a skutečná mobile
+     Typed GET/PUT má source `3cbc260d` nad exact body, revision CAS a typovanými
+     400/409/503 výsledky; jeho jediná nová exact boundary hrana je přijatá bez
+     změny cyklů. Atomický backup/import/reset a skutečná mobile
      late-insertion parita jsou stále
      `IMPLEMENTATION_PENDING`. Před
      aktivací je navíc nutný čerstvý role-suite proof svázaný s exaktním
