@@ -721,7 +721,10 @@ function analyzeSource({ root, packageRoot, file, source }) {
           break;
         }
       }
-    } else if (token.value === 'require' && tokens[index + 1]?.value === '(') {
+    } else if (token.value === 'require') {
+      if (tokens[index + 1]?.value !== '(') {
+        throw new BoundaryError('UNPROVEN_COMPUTED_REQUIRE', `${from}: aliased or indirect require is forbidden`);
+      }
       const close = findClosingParen(tokens, index + 1, from);
       const args = tokens.slice(index + 2, close);
       if (args.length !== 1 || args[0].type !== 'string') {
@@ -729,6 +732,11 @@ function analyzeSource({ root, packageRoot, file, source }) {
       }
       add('runtime', stringValue(args[0], from));
       index = close;
+    } else if (['eval', 'Function', 'createRequire'].includes(token.value)) {
+      throw new BoundaryError(
+        'UNPROVEN_DYNAMIC_CODE',
+        `${from}: ${token.value} can hide an indirect module load and is forbidden`,
+      );
     }
   }
 

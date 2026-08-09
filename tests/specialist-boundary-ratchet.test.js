@@ -284,6 +284,27 @@ export async function load() {
     assertIncludes(hiddenRequire, 'UNPROVEN_TEMPLATE_IMPORT');
   });
 
+  test('loader aliases and dynamic code compilation fail closed', () => {
+    const repo = makeRepo({
+      'specialists/alpha/index.js': 'export const alpha = true;\n',
+    }, 'indirect-loader');
+    const sourcePath = join(repo, 'specialists/alpha/index.js');
+
+    const mutations = [
+      ['const load = require; load("../../src/expertises/core.js");\n', 'UNPROVEN_COMPUTED_REQUIRE'],
+      ['require.resolve("../../src/expertises/core.js");\n', 'UNPROVEN_COMPUTED_REQUIRE'],
+      ['eval("require(\\"../../src/expertises/core.js\\")");\n', 'UNPROVEN_DYNAMIC_CODE'],
+      ['new Function("return import(\\"../../src/expertises/core.js\\")");\n', 'UNPROVEN_DYNAMIC_CODE'],
+      ["import { createRequire } from 'node:module';\n", 'UNPROVEN_DYNAMIC_CODE'],
+    ];
+    for (const [source, code] of mutations) {
+      write(sourcePath, source);
+      const result = run(repo, ['--require-clean']);
+      assertStatus(result, 2);
+      assertIncludes(result, code);
+    }
+  });
+
   test('parse failure, unreadable file, unknown executable extension, and path escape fail closed', () => {
     const parseRepo = makeRepo({ 'specialists/alpha/index.js': 'export const = ;\n' }, 'parse');
     const parse = run(parseRepo, ['--require-clean']);
