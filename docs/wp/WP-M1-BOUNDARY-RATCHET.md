@@ -229,7 +229,9 @@ provenance případy izolovaný dočasný Git repozitář, nikdy skutečné `src
    ověří a připnutý tree musí reprodukovat přesný graf; chybějící/cizí commit
    nebo ručně přidaná hrana se starým source tree skončí exit `2`;
 8. writer → migrace v1→v2, odmítnutí neodsouhlasené hrany bez zápisu a zápis
-   až po přesné `--accept-edge`.
+   až po přesné `--accept-edge`;
+9. změna worktree nebo HEAD během scan okna → exit `2`, baseline byteově beze
+   změny.
 
 Směrový test v seznamu **není** a nemá se doplňovat — důvod je v §6, fáze A.
 

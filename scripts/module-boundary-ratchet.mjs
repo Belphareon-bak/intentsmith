@@ -610,6 +610,17 @@ function inspectWritableSource(root) {
   return { sourceRevision, sourceTree, scannerBlob };
 }
 
+function assertStableWritableSource(before, after) {
+  for (const field of ['sourceRevision', 'sourceTree', 'scannerBlob']) {
+    if (before[field] !== after[field]) {
+      throw new RatchetInputError(
+        'BASELINE_WRITE_SOURCE_CHANGED',
+        `${field} changed while the baseline graph was being measured: ${before[field]} -> ${after[field]}`,
+      );
+    }
+  }
+}
+
 function atomicWriteJson(target, value) {
   const parent = dirname(target);
   const temporary = join(parent, `.${basename(target)}.${process.pid}.${Date.now()}.tmp`);
@@ -648,6 +659,7 @@ function writeBaseline(options) {
   const source = inspectWritableSource(options.root);
   const oldBaseline = validateBaseline(readJson(options.baseline, 'INVALID_BASELINE'));
   const graph = validateGraph(scanGraph(options.root));
+  assertStableWritableSource(source, inspectWritableSource(options.root));
   const result = compare(oldBaseline, graph);
   printWriteDelta(oldBaseline, graph, result);
 

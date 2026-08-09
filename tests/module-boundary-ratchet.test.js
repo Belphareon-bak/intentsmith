@@ -390,6 +390,30 @@ try {
     assertEqual(readFileSync(fixtureBaseline, 'utf8'), beforeRefusal, 'cycle refusal changed the baseline');
   });
 
+  test('explicit writer refuses a worktree change made while the scanner runs', () => {
+    const repo = makeBaselineWriterRepo();
+    const fixtureBaseline = join(repo, 'tests/fixtures/module-boundary/baseline.json');
+    const fixtureScanner = join(repo, 'scripts/module-graph.mjs');
+    const scannerSource = readFileSync(fixtureScanner, 'utf8');
+    const rootDeclaration = "const ROOT = resolve(process.argv[2] || '.');";
+    assert(scannerSource.includes(rootDeclaration), 'fixture scanner root declaration changed');
+    writeFileSync(
+      fixtureScanner,
+      scannerSource.replace(
+        rootDeclaration,
+        `${rootDeclaration}\nwriteFileSync(join(ROOT, 'src', 'scanner-race-noise.js'), 'export const noise = true;\\n');`,
+      ),
+    );
+    commitFixture(repo, ['scripts/module-graph.mjs'], 'install race-producing fixture scanner');
+
+    const beforeRefusal = readFileSync(fixtureBaseline, 'utf8');
+    const refused = run(['--root', repo, '--write-baseline']);
+    assertEqual(refused.status, 2, refused.stderr || refused.stdout);
+    assert(refused.stderr.includes('BASELINE_WRITE_DIRTY_TREE'), refused.stderr);
+    assertEqual(readFileSync(fixtureBaseline, 'utf8'), beforeRefusal, 'racing scanner changed the baseline');
+    assert(existsSync(join(repo, 'src/scanner-race-noise.js')), 'race fixture did not change the source tree');
+  });
+
   test('schema v2 provenance rejects a revision claim that is not a local ancestor', () => {
     const repo = makeBaselineWriterRepo();
     const fixtureBaseline = join(repo, 'tests/fixtures/module-boundary/baseline.json');

@@ -166,8 +166,9 @@ Integrátor zkontroluje přesný delta seznam a spustí
 hrany, první průchod nic nezapíše a vypíše `ACCEPTANCE_REQUIRED`; druhý průchod
 musí uvést jednu přesnou `--accept-edge "from -> to"` pro každou a pouze
 schválenou dvojici. Writer odmítá syntetický `--graph`, dirty strom i růst
-cyklů a zapisuje atomicky. Je to očekávaná integrační práce a **započítává se
-do `T_recurring`**, nikoli do selhání.
+cyklů, před zápisem znovu ověří čistotu a stabilní revision/tree/scanner a
+zapisuje atomicky. Je to očekávaná integrační práce a **započítává se do
+`T_recurring`**, nikoli do selhání.
 
 Schema baseline v2 navíc pinuje `sourceRevision`, Git tree `src/**` a blob
 scanneru. `sourceRevision` je reprodukovatelný zdroj baseline, ne

@@ -199,8 +199,9 @@ opravuje bez změny pair-based architektonické politiky:
   checker je nyní deduplikuje **až po** odstranění markeru. Kolize tedy nezmění
   drift na nesouvisející `INVALID_GRAPH` a nová dvojice se reportuje jednou;
 - `--write-baseline` nahradil ruční editaci JSONu. Vyžaduje čistý Git strom,
-  odmítá syntetický graf a růst cyklu, první průchod s novými hranami nic
-  nezapíše a druhý vyžaduje přesnou `--accept-edge` pro každou přijatou hranu;
+  odmítá syntetický graf a růst cyklu, před zápisem znovu hlídá stabilní
+  revision/tree/scanner, první průchod s novými hranami nic nezapíše a druhý
+  vyžaduje přesnou `--accept-edge` pro každou přijatou hranu;
 - schema v2 váže baseline na zdrojový commit, jeho `src/**` tree a blob
   scanneru. V Git checkoutu se připnutý tree znovu proskenuje a musí přesně
   reprodukovat hrany i cyklické limity; ruční allowlist s historickou revizí
