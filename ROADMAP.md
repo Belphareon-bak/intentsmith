@@ -584,7 +584,9 @@ focused regression sady.
      policy projekce a právě jeden event sdílejí repository-owned
      `BEGIN IMMEDIATE`; portable export vynechává přesné secret keys, import je
      nepřijímá a zachovává lokální hodnoty. Post-commit runtime chyba vrací
-     pravdivý degraded úspěch místo falešného 500. Autoritativní commitnutý
+     pravdivý degraded úspěch místo falešného 500; repository error catch končí
+     před runtime/presentation fází a ani selhání diagnostického loggeru už
+     durable commit nesníží na non-2xx. Autoritativní commitnutý
      Studio runtime nyní kontroluje non-2xx i malformed 2xx, přijme pouze
      serverem commitnutý snapshot, serializuje import/reset a sám odmítne
      secret-bearing portable envelope. Mutace mají explicitní

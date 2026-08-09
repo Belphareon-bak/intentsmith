@@ -178,6 +178,7 @@ function createSettingsRouteHarness(db) {
   let featureDocument = null;
   let parseFailure = null;
   let featureFailure = null;
+  let loggerFailure = null;
   let featureResetCount = 0;
   const routes = createMiscRoutes({
     db: { db },
@@ -187,7 +188,12 @@ function createSettingsRouteHarness(db) {
     },
     sendJSON: (_res, status, body) => { response = { status, body }; },
     safeError: error => ({ error: error.message }),
-    logger: { info() {}, warn() {}, error() {}, debug() {} },
+    logger: {
+      info() {},
+      warn() { if (loggerFailure) throw loggerFailure; },
+      error() {},
+      debug() {},
+    },
     callWithAuth: async () => ({}),
     createAuthToken: () => '',
     LLMCallerRole: {},
@@ -206,6 +212,7 @@ function createSettingsRouteHarness(db) {
   return {
     get featureResetCount() { return featureResetCount; },
     setFeatureFailure(error) { featureFailure = error; },
+    setLoggerFailure(error) { loggerFailure = error; },
     async post(body) {
       requestBody = body;
       response = null;
@@ -884,12 +891,13 @@ await testAsync('versioned settings routes expose unavailable storage as 503 wit
   assertEqual(harness.featureResetCount, 0);
 });
 
-await testAsync('post-commit runtime failure is reported without a false durable failure', async () => {
+await testAsync('post-commit runtime and diagnostic failures remain a truthful degraded success', async () => {
   const db = openDb();
   try {
     createPolicySchema(db);
     const harness = createSettingsRouteHarness(db);
     harness.setFeatureFailure(new Error('fixture runtime apply failure'));
+    harness.setLoggerFailure(new Error('fixture post-commit logger failure'));
 
     const imported = await harness.importBackup(backupEnvelope({
       generalSettings: { committed: 'import' },

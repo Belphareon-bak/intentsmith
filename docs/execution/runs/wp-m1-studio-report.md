@@ -1440,6 +1440,9 @@ pozdní GET bez přepsání commitnutého snapshotu.
 | `node tests/module-boundary-ratchet.test.js` | 13/0 | 0 |
 | syntax obou změněných JS souborů + `git diff --check` | validní / čisté | 0 |
 
-Opakované Review A a fresh-clone attestation nového subjectu jsou v okamžiku
-zápisu stále otevřené. Electron, GPU, Ollama ani externí síť nebyly spuštěné a
-Gate 1 zůstává `BLOCKED`.
+Review nad `94d2a473` přijalo klientskou race opravu bez dalšího Studio P0–P2,
+ale reálným route probem odhalilo backendové post-commit 500 při současném
+selhání runtime apply a loggeru. Navazující backend follow-up odděluje repository
+error boundary a připíná import i reset regresí; nový immutable Review A a fresh
+clone jsou v okamžiku zápisu znovu otevřené. Electron, GPU, Ollama ani externí
+síť nebyly spuštěné a Gate 1 zůstává `BLOCKED`.

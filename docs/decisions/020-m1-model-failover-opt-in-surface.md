@@ -218,6 +218,14 @@ backup zůstává oddělený recovery artefakt. Po durable commitu se runtime
 aplikuje zvlášť; jeho chyba vrací `200`, `runtimeApplied:false` a stabilní code,
 nikoli retry-inducing `500` nad již provedenou změnou.
 
+Review nad `94d2a473` prokázalo další post-commit hranu: výjimka z runtime apply
+následovaná výjimkou diagnostického `logger.warn` dříve propadla do společného
+repository catch a změnila již commitnutý import/reset na HTTP 500. Follow-up
+oddělil repository error boundary před runtime/presentation fází a logger je
+výhradně best-effort. Durable commit proto i při současném selhání runtime a
+diagnostiky vrací pravdivé `200` s `runtimeApplied:false`; regresní test provádí
+import i reset a ověřuje uložený stav i append-only event lineage.
+
 Focused backend sada má 35/0. Pokrývá secret canaries, malformed/unknown schema,
 foreign transaction ownership, unavailable storage, settings i event rollback,
 právě jeden import/reset event a pravdivý post-commit degraded výsledek.

@@ -182,7 +182,9 @@ explicitního versioned backup/import/reset adaptéru už sdílí jeden
 repository-owned commit point pro general settings, policy a audit event.
 Portable export vynechává `webhookSecret` a `c3.notif.smtpPass`; import je
 nepřijímá a zachová lokální hodnoty. Runtime chyba po durable commitu je
-přiznaný degraded výsledek, ne falešné 500. Autoritativní Studio `lib` consumer
+přiznaný degraded výsledek, ne falešné 500. Repository catch končí před
+post-commit runtime/presentation fází a logger failure je best-effort, takže ani
+dvojité selhání nesníží commitnutý import/reset na non-2xx. Autoritativní Studio `lib` consumer
 už fail-closed kontroluje HTTP i exact envelope, přijímá pouze serverem
 commitnutý snapshot a serializuje import/reset proti generic save. Nejasné
 doručení uzamkne další zápisy, definitivní reject jediný obnoví deferred save a

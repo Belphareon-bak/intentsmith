@@ -53,7 +53,17 @@ export function createMiscRoutes(deps) {
     try {
       return { runtimeApplied: true, runtimeErrorCode: null, value: callback() };
     } catch (error) {
-      logger.warn('Settings', `${operation} committed but runtime apply failed: ${error?.message || error}`);
+      let detail = 'unknown runtime error';
+      try {
+        detail = error?.message || String(error);
+      } catch (_) {
+        // Post-commit diagnostics must never change the durable HTTP outcome.
+      }
+      try {
+        logger.warn('Settings', `${operation} committed but runtime apply failed: ${detail}`);
+      } catch (_) {
+        // Logging is observational; a logger failure cannot turn a commit into 500.
+      }
       return {
         runtimeApplied: false,
         runtimeErrorCode: 'SETTINGS_RUNTIME_APPLY_FAILED',
@@ -63,27 +73,28 @@ export function createMiscRoutes(deps) {
   };
 
   const resetAllSettings = async (_req, res) => {
+    let committed;
     try {
-      const committed = policyRepository().resetFromGlobalSettings();
-      const runtime = applyCommittedSettingsRuntime(
-        'reset',
-        () => settingsFeatureManager.resetToDefaults(config.features),
-      );
-      return sendJSON(res, 200, {
-        ok: true,
-        success: true,
-        generalSettings: committed.generalSettings,
-        policy: publicPolicyCommit(committed.policy),
-        event: committed.policy.event,
-        runtimeApplied: runtime.runtimeApplied,
-        runtimeErrorCode: runtime.runtimeErrorCode,
-      });
+      committed = policyRepository().resetFromGlobalSettings();
     } catch (error) {
       const code = typeof error?.code === 'string'
         ? error.code
         : 'MODEL_AUTOMATION_POLICY_RESET_FAILED';
       return sendJSON(res, modelPolicySettingsHttpStatus(code), { ok: false, code });
     }
+    const runtime = applyCommittedSettingsRuntime(
+      'reset',
+      () => settingsFeatureManager.resetToDefaults(config.features),
+    );
+    return sendJSON(res, 200, {
+      ok: true,
+      success: true,
+      generalSettings: committed.generalSettings,
+      policy: publicPolicyCommit(committed.policy),
+      event: committed.policy.event,
+      runtimeApplied: runtime.runtimeApplied,
+      runtimeErrorCode: runtime.runtimeErrorCode,
+    });
   };
 
   return {
@@ -163,32 +174,33 @@ export function createMiscRoutes(deps) {
           code: 'MODEL_AUTOMATION_POLICY_BACKUP_INPUT_INVALID',
         });
       }
+      let committed;
       try {
-        const committed = policyRepository().replaceFromSettingsImport(body);
-        const runtime = applyCommittedSettingsRuntime(
-          'import',
-          () => settingsFeatureManager.applySettings(committed.generalSettings),
-        );
-        return sendJSON(res, 200, {
-          ok: true,
-          success: true,
-          generalSettings: committed.generalSettings,
-          policy: publicPolicyCommit(committed.policy),
-          event: committed.policy.event,
-          featuresChanged: runtime.value || 0,
-          ignoredReservedKeys: committed.ignoredReservedKeys,
-          ignoredSensitiveKeys: committed.ignoredSensitiveKeys,
-          preservedSensitiveKeys: committed.preservedSensitiveKeys,
-          sourceOmittedSensitiveKeys: committed.sourceOmittedSensitiveKeys,
-          runtimeApplied: runtime.runtimeApplied,
-          runtimeErrorCode: runtime.runtimeErrorCode,
-        });
+        committed = policyRepository().replaceFromSettingsImport(body);
       } catch (error) {
         const code = typeof error?.code === 'string'
           ? error.code
           : 'MODEL_AUTOMATION_POLICY_IMPORT_FAILED';
         return sendJSON(res, modelPolicySettingsHttpStatus(code), { ok: false, code });
       }
+      const runtime = applyCommittedSettingsRuntime(
+        'import',
+        () => settingsFeatureManager.applySettings(committed.generalSettings),
+      );
+      return sendJSON(res, 200, {
+        ok: true,
+        success: true,
+        generalSettings: committed.generalSettings,
+        policy: publicPolicyCommit(committed.policy),
+        event: committed.policy.event,
+        featuresChanged: runtime.value || 0,
+        ignoredReservedKeys: committed.ignoredReservedKeys,
+        ignoredSensitiveKeys: committed.ignoredSensitiveKeys,
+        preservedSensitiveKeys: committed.preservedSensitiveKeys,
+        sourceOmittedSensitiveKeys: committed.sourceOmittedSensitiveKeys,
+        runtimeApplied: runtime.runtimeApplied,
+        runtimeErrorCode: runtime.runtimeErrorCode,
+      });
     },
 
     // ── Feature Flags ───────────────────────────────────────────────────
