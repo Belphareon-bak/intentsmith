@@ -1,0 +1,36 @@
+{
+  "sourceRevision": "0000000000000000000000000000000000000000",
+  "graphSha256": "548dd7baa4c146827713a7e001fc783d7280358eb76a5abb9d14dae9224a856b",
+  "rows": [
+    {
+      "file": "src/chat/core.js",
+      "classification": "CORE",
+      "reason": ""
+    },
+    {
+      "file": "src/core/kernel.js",
+      "classification": "CORE",
+      "reason": "R1 core infrastructure"
+    },
+    {
+      "file": "src/expertises/optional.js",
+      "classification": "OPTIONAL",
+      "reason": "R1 detachable expertise module"
+    },
+    {
+      "file": "src/shared/unresolved.js",
+      "classification": "UNRESOLVED",
+      "reason": "R1 does not decide this fixture"
+    }
+  ],
+  "coreToOptional": [
+    {
+      "edge": "src/chat/core.js -> src/expertises/optional.js",
+      "inSameCycle": true
+    },
+    {
+      "edge": "src/core/kernel.js -> src/expertises/optional.js (dynamic)",
+      "inSameCycle": false
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "meta": {
+    "tool": "scripts/module-graph.mjs",
+    "protocol": 1
+  },
+  "counts": {
+    "srcFiles": 4,
+    "internalEdges": 4,
+    "cycles": 1,
+    "filesInCycles": 2
+  },
+  "fanIn": [
+    {
+      "file": "src/chat/core.js"
+    },
+    {
+      "file": "src/core/kernel.js"
+    },
+    {
+      "file": "src/expertises/optional.js"
+    },
+    {
+      "file": "src/shared/unresolved.js"
+    }
+  ],
+  "cycles": [
+    [
+      "src/chat/core.js",
+      "src/expertises/optional.js"
+    ]
+  ],
+  "edges": [
+    "src/chat/core.js -> src/core/kernel.js",
+    "src/chat/core.js -> src/expertises/optional.js",
+    "src/core/kernel.js -> src/expertises/optional.js (dynamic)",
+    "src/shared/unresolved.js -> src/chat/core.js"
+  ]
+}
