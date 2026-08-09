@@ -48,6 +48,7 @@ Jde o nezbytný L0 rail, ne o dokončenou capability #8.
 | test a fixture | `tests/specialist-boundary-ratchet.test.js`, `tests/fixtures/specialist-boundary/**` |
 | sdílená registry výjimka | pouze nový `suites/<rezervované-id>` v `tests/registry.json` |
 | generovaný | branch-local regenerace `docs/convergence/TEST-REGISTRY.md`; integrátor ji na merge SHA regeneruje znovu |
+| odvozený registry collateral | `README.md`, ale pouze mechanická synchronizace čtyř čísel odvozených z branch-local registry: celkový počet programů v hlavičce, počet `ACTIVE` v hlavičce a dva komentáře stromu s celkovým počtem; verze ani jiný text se nemění |
 | run report | `docs/execution/runs/wp-m3-l0-8-enforcement-report.md`; subject `S` jej nemění, report-only `E_A` připne `S`/Review A a `E_B` připne candidate `C`/Review B |
 | zakázané | `src/**`, `specialists/**`, `scripts/module-graph.mjs`, `scripts/module-boundary-ratchet.mjs`, existující registry entries, `schemaVersion`, `exclusions`, globální authority docs a ostatní `docs/**` kromě přesného run reportu |
 
@@ -78,7 +79,9 @@ quarantineExpiry: null
 ```
 
 Program count se ověřuje jako **branch-local +1**, nikdy hardcoded globálním
-číslem po merge jiných větví.
+číslem po merge jiných větví. Stejný branch-local registr je jedinou autoritou
+pro čtyři povolené číselné náhrady v root `README.md`; WP nesmí měnit jeho
+verzi, prose ani strukturu.
 
 ## 3. Connector
 
@@ -186,7 +189,7 @@ spočtenou reference, dirty tree a nenulové porušení při `--expire-owner`.
 set -euo pipefail
 
 IS_L08_ENFORCEMENT_BASE=<full-accepted-contract-checkpoint-sha>
-IS_L08_ENFORCEMENT_ALLOWED='^(scripts/specialist-boundary-ratchet\.mjs|tests/specialist-boundary-ratchet\.test\.js|tests/fixtures/specialist-boundary/.*|tests/registry\.json|docs/convergence/TEST-REGISTRY\.md)$'
+IS_L08_ENFORCEMENT_ALLOWED='^(scripts/specialist-boundary-ratchet\.mjs|tests/specialist-boundary-ratchet\.test\.js|tests/fixtures/specialist-boundary/.*|tests/registry\.json|docs/convergence/TEST-REGISTRY\.md|README\.md)$'
 test "$(git merge-base "$IS_L08_ENFORCEMENT_BASE" HEAD)" = "$IS_L08_ENFORCEMENT_BASE"
 IS_L08_ENFORCEMENT_SUBJECT=$(git rev-parse --verify HEAD)
 node -e "if (Number(process.versions.node.split('.')[0]) !== 22) process.exit(1)"
@@ -197,6 +200,81 @@ test -z "$(git status --porcelain=v1 --untracked-files=all)"
 C3_LOG_LEVEL=error node tests/specialist-boundary-ratchet.test.js
 node scripts/specialist-boundary-ratchet.mjs
 node scripts/validate-test-registry.js
+node - "$IS_L08_ENFORCEMENT_BASE" <<'NODE'
+const fs = require('node:fs');
+const { execFileSync } = require('node:child_process');
+
+const baseRevision = process.argv[2];
+const baseRegistry = JSON.parse(execFileSync(
+  'git',
+  ['show', `${baseRevision}:tests/registry.json`],
+  { encoding: 'utf8' },
+));
+const currentRegistry = JSON.parse(fs.readFileSync('tests/registry.json', 'utf8'));
+const countState = (registry, state) => registry.suites
+  .filter(suite => suite.state === state).length;
+const assertRegularReadme = revision => {
+  const entries = execFileSync(
+    'git',
+    ['ls-tree', revision, '--', 'README.md'],
+    { encoding: 'utf8' },
+  ).trimEnd().split('\n').filter(Boolean);
+  if (entries.length !== 1
+      || !/^100644 blob [0-9a-f]+\tREADME\.md$/.test(entries[0])) {
+    throw new Error(`README.md is not exactly one 100644 blob at ${revision}`);
+  }
+};
+const baseTotal = baseRegistry.suites.length;
+const currentTotal = currentRegistry.suites.length;
+const baseActive = countState(baseRegistry, 'ACTIVE');
+const currentActive = countState(currentRegistry, 'ACTIVE');
+
+assertRegularReadme(baseRevision);
+assertRegularReadme('HEAD');
+
+if (currentTotal !== baseTotal + 1 || currentActive !== baseActive + 1) {
+  throw new Error('specialist registry delta is not exactly one ACTIVE program');
+}
+
+const replaceOnce = (source, before, after) => {
+  const first = source.indexOf(before);
+  if (first === -1 || source.indexOf(before, first + before.length) !== -1) {
+    throw new Error(`README marker is missing or duplicated: ${before}`);
+  }
+  return `${source.slice(0, first)}${after}${source.slice(first + before.length)}`;
+};
+
+let expectedReadme = execFileSync(
+  'git',
+  ['show', `${baseRevision}:README.md`],
+  { encoding: 'utf8' },
+);
+expectedReadme = replaceOnce(
+  expectedReadme,
+  `**${baseTotal} registrovaných testovacích programů**`,
+  `**${currentTotal} registrovaných testovacích programů**`,
+);
+expectedReadme = replaceOnce(
+  expectedReadme,
+  `\`${baseActive} ACTIVE\``,
+  `\`${currentActive} ACTIVE\``,
+);
+expectedReadme = replaceOnce(
+  expectedReadme,
+  `# Testy a kanonický registr ${baseTotal} programů`,
+  `# Testy a kanonický registr ${currentTotal} programů`,
+);
+expectedReadme = replaceOnce(
+  expectedReadme,
+  `#   Kanonický registr ${baseTotal} programů`,
+  `#   Kanonický registr ${currentTotal} programů`,
+);
+
+if (fs.readFileSync('README.md', 'utf8') !== expectedReadme) {
+  throw new Error('README delta is not the exact four derived registry counts');
+}
+NODE
+node tests/artifact-validation.test.js
 C3_LOG_LEVEL=error node tests/repository-hygiene.test.js
 node scripts/module-boundary-ratchet.mjs
 git diff --no-renames --name-only "$IS_L08_ENFORCEMENT_BASE"...HEAD |
@@ -294,8 +372,9 @@ git diff --check "$IS_L08_ENFORCEMENT_SUBJECT" "$IS_L08_ENFORCEMENT_EA"
 git diff --check "$IS_L08_ENFORCEMENT_C" "$IS_L08_ENFORCEMENT_EB"
 ```
 
-Očekávání: všechny exity `0`; registry má branch-local +1; interní module
-ratchet nemá nový edge; změněné cesty jsou přesně z §2. `git diff --check`
+Očekávání: všechny exity `0`; registry má branch-local +1 a čtyři odvozená
+čísla v root `README.md` s ní přesně souhlasí; interní module ratchet nemá nový
+edge; změněné cesty jsou přesně z §2. `git diff --check`
 ověřuje whitespace, nikoli scope ani graf — ty dokazují samostatné dva řádky.
 
 `E_A` i `E_B` mění právě tento report; jejich metadata gate se nevpisuje zpět
