@@ -328,7 +328,7 @@ Přesné instalační/build příkazy, hashe, metodická omezení a screenshot/l
 | Offline boundary | `MEASURED` | Před M6 opravit release-policy sentinel a aktivovat pravdivý PDF toolchain set. |
 | Capability picture | `DRAFT_COMPLETE` | 22/22 je v `SYSTEM-MAP.md`; operátorské přijetí neznamená automaticky PASS jednotlivých schopností. |
 | Studio/Theia | `MEASURED` | Fresh clone na `7236d221` prošel instalací a buildem; po dvou zachovaných červených kalibračních bězích následovaly dva samostatné runtime `PASS` s nulovým egresssem, 65s live-ready soakem a čistým shutdownem. Source-level a owned-loopback M1 už pokrývá cancel i automatický reconnect, ale built negotiated Electron journey stále neproběhl; runner zůstává registry `BLOCKED`, dokud auditní orchestrátor nedodá build envelope. |
-| L0-8 specialist boundary | `DECIDED / IMPLEMENTATION_PENDING` | Decision 019 přijalo strict injection a samostatný checker. Pořadí: enforcement → injection → integrátorské utažení baseline; plný manifest/E2E zůstává `WP-M3-BOUNDARY`. Do integrace platí zákaz nových interních importů specialistů. |
+| L0-8 specialist boundary | `ENFORCED / INJECTION_COMPLETE / E2E_PENDING` | Samostatný rekurzivní checker, strict injection a integrátorské utažení baseline jsou integrované; aktuální census je 5 balíčků, 32 souborů, 0 referencí do `src/**` a 0 výjimek. Plný verzovaný manifest a enable→route→output→disable E2E zůstávají `WP-M3-BOUNDARY`. |
 
 **WP-M0-E je diagnosticky dokončený takto:**
 
@@ -1006,9 +1006,10 @@ dalším použití nevymýšlí znovu.
 
 ### Závislostní sekvence Work Packages
 
-1. **Předsunuté L0-8 rails:** podle decision 019 nejprve samostatný
-   `WP-M3-L0-8-ENFORCEMENT`, potom `WP-M3-L0-8-INJECTION` a integrační utažení
-   obou baseline. Tyto prerequisite WP nejsou M3 exit ani capability #8.
+1. **Předsunuté L0-8 rails — dokončeno:** podle decision 019 byl nejprve
+   integrován samostatný `WP-M3-L0-8-ENFORCEMENT`, potom
+   `WP-M3-L0-8-INJECTION` a integrační utažení obou baseline. Tyto dokončené
+   prerequisite WP samy nejsou M3 exit ani capability #8.
 2. **WP-M3-BOUNDARY:** připne verzovaný `ExtensionManifest/Context`,
    lifecycle a fail-closed import/registration boundary. Název ani kontrakt
    nepředjímá, že výsledkem musí být veřejné SDK.
@@ -1281,13 +1282,15 @@ mohou pokračovat.
    dva po sobě jdoucí `PASS` na `7236d221`. Současné UI bylo pouze funkčním
    nosičem, ne vizuální baseline. Zbývá standardizovat build envelope, aby
    registrovaná T5 sada nemusela pravdivě zůstávat `BLOCKED`.
-4. L0-8 je rozhodnuté decision 019 jako strict injection, ale porušení ještě
-   trvá. Nejdřív se integruje samostatný enforcement, potom injection a
-   utažení baseline; plné M3 boundary/E2E zůstává později. Source evidence
-   `0a6bde54` naměřila směrově slepému exact-edge ratchetu P6 1 016 hran,
-   3 cykly a 28 souborů. Aktuální počet se vždy odvodí na přijatém integračním
-   SHA a zapíše do unikátního run reportu; statický kontrakt jej nepřebírá.
-   Směrové pravidlo dál čeká na přijatou path mapu M3. Canonical ref této
+4. L0-8 je rozhodnuté decision 019 jako strict injection. Samostatný recursive
+   enforcement, registrační `ctx.ToolAdapter`, odstranění interního importu a
+   integrační utažení baseline jsou dokončené; aktuální specialistický census
+   má 5 balíčků, 32 souborů, 0 referencí do `src/**` a 0 výjimek. Obecný P6
+   ratchet má na tomto integračním tipu 1 024/1 024 hran, 3 cykly a 28 souborů
+   v cyklech. Plný verzovaný manifest, lifecycle a
+   enable→route→output→disable E2E zůstávají v `WP-M3-BOUNDARY`; dokončené
+   rail reporty jsou `wp-m3-l0-8-enforcement-report.md` a
+   `wp-m3-l0-8-injection-report.md`. Canonical ref této
    contract/L0-8 dávky je `integration/gate1-prod-ready-20260809`; první
    evidence obálka používá
    `docs/execution/runs/wp-contract-batch-report.md`. První paralelní procesní
@@ -1469,7 +1472,7 @@ L0-8 bylo následně rozhodnuto; Git-history remediace zůstává otevřená.
 
 | Řádek fronty | Stav evidence |
 |---|---|
-| Strict injection versus veřejná extension boundary pro L0-8 | **rozhodnuto decision 019** — import graph a oba prototypy jsou v [`L0-8-BOUNDARY`](docs/review/2026-08-07-L0-8-BOUNDARY.md). Enforcement, injection a plný specialist E2E zůstávají oddělené neprovedené kroky. |
+| Strict injection versus veřejná extension boundary pro L0-8 | **rozhodnuto decision 019; enforcement + injection integrovány** — původní import graph a prototypy jsou v [`L0-8-BOUNDARY`](docs/review/2026-08-07-L0-8-BOUNDARY.md), provedení v run reportech enforcementu a injection. Neprovedený zůstává plný verzovaný manifest/lifecycle a specialist E2E. |
 | Remediace kompromitované Git historie | **kompletní** — seznam typů k rotaci ověřený proti kódu a dopad tří variant: [`docs/review/2026-08-07-SECRET-TYPES.md`](docs/review/2026-08-07-SECRET-TYPES.md). Zbývá výslovný operátorský souhlas |
 
 Mimo frontu vznikly dva podklady pro `WP-M5-AUTH`:

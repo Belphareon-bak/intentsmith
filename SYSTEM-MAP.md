@@ -131,15 +131,15 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 | | |
 |---|---:|
-| `src/**/*.js` | **162 301 ř.**, 424 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **180 461 ř.**, 373 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **378** (`280 ACTIVE`, `82 BLOCKED`, `16 HISTORICAL`) |
+| `src/**/*.js` | **163 378 ř.**, 424 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **182 015 ř.**, 375 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **380** (`282 ACTIVE`, `82 BLOCKED`, `16 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **110 / 57** |
 | HTTP rout | ~230 |
 | **Schopností v `ACCEPTED/PASS`** | **1 z 22** (#2 CRE); #1 server/routing/DB je zatím `RUNTIME_VERIFIED` — jeho suite má 13 interních checků, zatímco behavior dokument obsahuje 16 řádků, takže tvrzení „13/13 chování“ není platný akceptační součet |
 
 Aktuální registry fingerprint je
-`cb1259ca55a95ecb32bc1831fca37249c449f880c36c9f1506072fdce8d06e15`.
+`50d4b6d9314301214318f738ebe7b4ed810837981a22f280da8b79eb94a81b95`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 
@@ -163,7 +163,7 @@ sám nikdy neposouvá schopnost na `USER_JOURNEY_VERIFIED`.
 | 5 | Výsledek je deterministicky ohodnocen bez přidání nového obsahu. | `RUNTIME_VERIFIED` | Změřit score delta, přínos a latenci refinementu na korpusu. |
 | 6 | Chat request projde routingem, syntézou a finalizací do jednoho pravdivého výsledku. | `RUNTIME_VERIFIED` | Celý success/error/cancel/timeout journey přes veřejnou hranici. |
 | 7 | Expertiza se vybere a měřitelně ovlivní odpověď. | `RUNTIME_VERIFIED` + `BROKEN` | Explicitní `code_reviewer` se stále neroutuje; chybí route→chat E2E. |
-| 8 | Zapnutý specialista využije expertizu a nástroje; vypnutý nezasáhne. | `RUNTIME_VERIFIED` + `BROKEN` | L0-8 interní import a chybějící enable→route→output→disable E2E. |
+| 8 | Zapnutý specialista využije expertizu a nástroje; vypnutý nezasáhne. | `RUNTIME_VERIFIED` + `BROKEN` | L0-8 interní import je odstraněný a recursive boundary je fail-closed; chybí plný verzovaný manifest/lifecycle a enable→route→output→disable E2E. |
 | 9 | Skill z triggeru získá vstupy a approval a provede známý postup. | `RUNTIME_VERIFIED` | Celý skill až po ověřený výstup a negativní effect boundary. |
 | 10 | Lifecycle vede projekt od záměru přes plán a provedení ke kontrole. | `RUNTIME_VERIFIED` | Celý SPEC→roadmap→build→review a recovery journey. |
 | 11 | Po approvalu provede scoped patch, test a při selhání rollback. | `EXISTS` | Skutečný uživatelský patch/test/diff/rollback journey. |
@@ -265,14 +265,13 @@ znění v [`CONTRACT.md`](CONTRACT.md) §2.
 5. QGv2 je deterministický a idempotentní, bez LLM
 6. Patch engine: 3-tier anchor, atomický zápis, plný rollback
 7. Execution loop: max 8 iterací
-8. Specialista neimportuje interní `src/**` — **aktuálně porušeno** jediným
-   vykonávaným importem `specialists/accountant-cz/adapters.js:12` →
-   `src/expertises/tool-adapter.js`; chybí fail-closed rekurzivní guard.
-   Změřeno 2026-08-07: existující guard (`specialist-loader.js:521-531`) čte
-   pouze `manifest.entry`, takže na všech 5 balíčcích vypíše **0 varování**,
-   zatímco porušení trvá. `ToolAdapter` má 0 importů a v `ctx` chybí. Oba
-   prototypy řešení postavené a spuštěné, výstup shodný s baseline —
-   `docs/review/2026-08-07-L0-8-BOUNDARY.md`
+8. Specialista neimportuje interní `src/**` — **ENFORCED:** samostatný
+   rekurzivní ratchet i runtime preflight používají stejný fail-closed scanner;
+   aktuální census má 5 balíčků, 32 souborů, 0 referencí a 0 výjimek.
+   `ToolAdapter` přichází přes vlastněný registrační `ctx`, nikoli interním
+   importem. Původní porušení a prototypy zůstávají historicky doložené v
+   `docs/review/2026-08-07-L0-8-BOUNDARY.md`; integrační evidence je v obou
+   `docs/execution/runs/wp-m3-l0-8-*-report.md`.
 9. Model upgrade nikdy neupgraduje sám
 10. **Legacy listener nikdy neopustí loopback**
 11. Významný efekt zůstává pod přesnou uživatelskou authority — **UNVERIFIED
@@ -332,7 +331,7 @@ aktuální stav je samostatný řádek `Model failover opt-in surface`.
 | C3 Studio operation-bound recovery | **022/A FRESH-CLONE VERIFIED na `81dff196` / BUILT B4 BLOCKED:** exact failure/clear event, aditivní operation-bound HTTP endpoint, repository CAS a dvoukroková per-role Studio akce drží stejnou operaci až přes odpověď. Incomplete/starý event je pouze varování, role-only `model_changed` není clear autorita a stale identity končí před provider/runtime efektem. Obecná `{role}` rollback route z 018/Q4 zůstává zachovaná. Jde o source/VM a repository evidence z odděleného `--no-local` klonu, nikoli built Electron journey nebo Gate 1 PASS. |
 | C3 Studio current-HEAD runtime | **LEGACY BOUNDARY PASS / M1 SOURCE+BUILD+OWNED-LOOPBACK PASS / M1 B4 BLOCKED:** disposable clone na `9464dacf` prošel `npm ci --offline`, frozen Yarn offline instalací, production Theia/Electron buildem a 65s boundary runnerem. Síťový census měl nula external/other-loopback/unsupported pokusů, deterministic turn nula provider efektů a oba procesy čistý shutdown. Required-offer checkpoint nechá Studio nabídnout `m1-wire-v1`, ale samostatný latch zapne jen po exact ACK na stejné protocol verzi a při reconnectu jej resetuje. Server drží jeden negotiated set, token zatím pravdivě neACKuje a M1-shaped frame odmítne před legacy controller efektem. Clean-clone build na `7b887e88` automatickým postbuild guardem ověřil skutečný generated protocol, autoritativní consumer a production bundle včetně byte-level hashů. Source-level kompoziční test na `e2b3d85c` vede actual Studio command přes skutečný server adapter zpět do actual Studio ledgeru pro success, typovaný provider error a cancel; odpojení této hrany test zčervená. Navazující registered T1 na `1f1a1489` přidává skutečný test-owned Node WebSocket: tři Studio panely přes reálný hello/ACK, server adapter a JSON wire skončí nezávisle success, provider error a ordered cancel; čistý `--no-local` klon zopakoval 89/89 a celý relevantní offline validační set. `4cfcb8f2` nad stejným owned wire ukončí první server connection, přes bounded scheduler založí druhý socket, znovu vyjedná M1, konzultuje test-owned durable SQLite přes přesné tři lookupy, obnoví 3/3 historie skutečným loopback HTTP a doručí nový success turn. Test je pravdivě klasifikovaný jako self-contained owned loopback; nejde o server restart ani Electron runtime. Produkční `src/server.js` však activation option nepředává a T40 tuto dormanci pinuje. Built negotiated Electron multi-panel/cancel/provider/reconnect journey a implementace přijatého rozhodnutí 021/B/REJECT/A/B teprve následují; současné UI není finální vizuální baseline. |
 | `multi-source-external.test.js` | Explicitní public-service smoke; není deterministická offline evidence |
-| L0-8 specialist boundary | **DECIDED / OPEN_VIOLATION:** decision 019 přijalo strict injection, přísný zákaz včetně JSDoc type importů a samostatný specialistický ratchet. Enforcement a injection ještě nejsou implementované, takže capability #8 zůstává `BROKEN`; plný verzovaný manifest a E2E patří do M3. Duplicita 5 nástrojů a core kopie bez runtime konzumenta zůstávají samostatně otevřené. |
+| L0-8 specialist boundary | **ENFORCED / INJECTION_COMPLETE / E2E_PENDING:** decision 019 přijalo strict injection a zákaz včetně JSDoc type importů. Samostatný recursive ratchet, runtime preflight, registrační `ctx.ToolAdapter`, odstranění interního importu a utažené baseline jsou integrované; exact census je 5 balíčků, 32 souborů, 0 referencí a 0 výjimek. Capability #8 zůstává `BROKEN` pouze proto, že plný verzovaný manifest/lifecycle a enable→route→output→disable E2E patří do M3. Duplicita 5 nástrojů a core kopie bez runtime konzumenta zůstávají samostatně otevřené. |
 | `src/expertises/tools/**` bez konzumenta | Runtime cesta vede přes kopii v balíčku specialisty; core kopii drží naživu jen testy. Disposition `RETAIN`/`RETIRE` nerozhodnuta |
 | Self-learning | PatternTracker má produkční zápisy, ale `getRelevantPatterns()` nemá produkčního volajícího; `pattern-miner.js` nemá produkční import a cross-project learner nemá prokázanou smyčku. M4 vyžaduje jeden uzavřený same-project E2E. |
 | Lineární matching rout, regex per request | Naměřeno 0,87 ms — vědomě ponecháno |
