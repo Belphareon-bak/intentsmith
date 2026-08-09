@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 377
-- Explicit support-module exclusions: 8
-- Profiles: offline=186, database=35, server=37, model=85, soak=19, manual=15
-- States: ACTIVE=280, HISTORICAL=15, BLOCKED=82
+- Runnable programs: 388
+- Explicit support-module exclusions: 9
+- Profiles: offline=190, database=42, server=37, model=85, soak=19, manual=15
+- States: ACTIVE=291, HISTORICAL=15, BLOCKED=82
 
 ## Execution profiles
 
@@ -301,6 +301,17 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-MERGE-ENFORCEMENT-INTEGRATION-TEST` | `tests/merge-enforcement-integration.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MERGE-ENGINE-TEST` | `tests/merge-engine.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MILESTONE-SIZE-TEST` | `tests/milestone-size.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T2-TESTS-MOBILE-APPROVAL-CACHE-BOUNDARY-TEST` | `tests/mobile-approval-cache-boundary.test.js` | `C3-032` | T2 | `database` | 30 s | 4 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-MOBILE-APPROVAL-LIFECYCLE-REGRESSION-TEST` | `tests/mobile-approval-lifecycle-regression.test.js` | `C3-032` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T2-TESTS-MOBILE-DATA-MODEL-TEST` | `tests/mobile-data-model.test.js` | `C3-031` | T2 | `database` | 20 s | 3 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
+| `IS-T2-TESTS-MOBILE-FAULT-INJECTION-TEST` | `tests/mobile-fault-injection.test.js` | `C3-031` | T2 | `database` | 30 s | 4 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |
+| `IS-T2-TESTS-MOBILE-GATEWAY-BOUNDARY-TEST` | `tests/mobile-gateway-boundary.test.js` | `C3-031` | T2 | `database` | 30 s | 4 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |
+| `IS-T2-TESTS-MOBILE-GATEWAY-SUPERVISOR-TEST` | `tests/mobile-gateway-supervisor.test.js` | `C3-031` | T2 | `database` | 1 min | 5 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |
+| `IS-T2-TESTS-MOBILE-MIGRATION-PARITY-TEST` | `tests/mobile-migration-parity.test.js` | `C3-031` | T2 | `database` | 20 s | 3 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-MOBILE-MS13-APPROVALS-TEST` | `tests/mobile-ms13-approvals.test.js` | `C3-032` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-MOBILE-MS14-DECISION-TEST` | `tests/mobile-ms14-decision.test.js` | `C3-032` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-MOBILE-MS20-UI-TEST` | `tests/mobile-ms20-ui.test.js` | `C3-032` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T2-TESTS-MOBILE-OPERATION-ISOLATION-TEST` | `tests/mobile-operation-isolation.test.js` | `C3-031` | T2 | `database` | 1 min | 5 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODEL-CTX-TEST` | `tests/model-ctx.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODEL-SIMILARITY-TEST` | `tests/model-similarity.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODEL-UNIVERSE-STORE-TEST` | `tests/model-universe-store.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
@@ -427,6 +438,7 @@ ledger.
 | `tests/e2e/_test-fixtures.js` | Imported synthetic fixture data module with no top-level test entry point. |
 | `tests/harness.js` | Imported unit-test harness library with no top-level test entry point. |
 | `tests/helpers/isolated-test-db.js` | Imported direct-run database isolation bootstrap, not a standalone test. |
+| `tests/helpers/server-supervisor.js` | Imported owned-listener supervisor used by the mobile gateway suites; it starts and stops processes for them and has no test entry point of its own. |
 | `tests/run-all.js` | Aggregate compatibility entry point; registering it as a child suite would recurse into the registry runner. |
 
 Required fields per run: exact command and commit, clean-tree status, start/end

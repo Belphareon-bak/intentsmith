@@ -164,6 +164,12 @@
       "riskId": "G0-R031",
       "gateImpact": "G0_FAIL",
       "rationale": "A promotion writer that rejects every valid four-output result makes the locked review-to-PASS evidence chain unreproducible."
+    },
+    {
+      "riskId": "G0-R032",
+      "gateImpact": "LATER_GATE",
+      "rationale": "Unauthenticated remote code execution is reachable only if the legacy listener leaves loopback; the separate authenticated boundary is an explicitly post-Gate-0 track.",
+      "condition": "The legacy listener must remain loopback-only. Off-loopback binding, any remote listener and any pairing surface are prohibited until S-2..S-4 exist and their bypass-negative tests pass."
     }
   ]
 }

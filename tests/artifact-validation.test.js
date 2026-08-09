@@ -847,13 +847,14 @@ test('committed policy classifies every risk and derives current blockers', () =
     riskPolicyCopy(),
   );
   assertEqual(result.valid, true);
-  assertEqual(result.riskCount, 31);
-  assertEqual(result.policyCount, 31);
+  assertEqual(result.riskCount, 32);
+  assertEqual(result.policyCount, 32);
   assertEqual(result.repositoryBlockers.join(','), '');
   assertEqual(result.reviewRequiredRisks.join(','), 'G0-R015: OPEN');
   assertEqual(
     result.laterGateRisks.join(','),
-    'G0-R009: OPEN,G0-R018: OPEN,G0-R030: OPEN',
+    'G0-R009: OPEN,G0-R018: OPEN,G0-R030: OPEN,'
+      + 'G0-R032: HARDENING_POLICY / OPEN_GATEWAY',
   );
   assertEqual(
     result.separateIncidents.join(','),

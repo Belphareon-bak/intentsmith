@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="cs" data-theme="auto">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#faf9f5" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1f1e1d" media="(prefers-color-scheme: dark)">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>IntentSmith</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <!-- The banner and the app are siblings in one flex column, so the banner
+       takes real space instead of floating over the header.  #app is fully
+       re-rendered on every state change; the banner must survive that, which
+       is why it lives outside. -->
+  <div class="shell">
+    <!-- SS-03 offline vs SS-08 server unavailable.  Never the same element
+         with different text — they lead to different user actions. -->
+    <div id="conn-banner" class="conn-banner" hidden role="status" aria-live="polite"></div>
+
+    <div id="app" class="app">
+      <div class="boot" id="boot">
+        <div class="boot-mark" aria-hidden="true"></div>
+        <p class="boot-text">Načítám…</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Drawer scrim; click closes -->
+  <div id="scrim" class="scrim" hidden></div>
+
+  <!-- Toast host for transient confirmations -->
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+
+  <script src="/app.js" type="module"></script>
+</body>
+</html>

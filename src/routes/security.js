@@ -265,7 +265,9 @@ export function createSecurityRoutes({ db, parseBody, sendJSON, logger }) {
 // 4. Update last_used_at ONLY on successful validation
 // 5. Return { valid, id, name, scopes } or { valid: false }
 //
-// TODO (Phase 3b): Wire into route-level middleware for scope enforcement
+// The mobile gateway policy imports this helper for deterministic scope
+// decisions. Listener wiring remains disabled until the separate gateway and
+// its server-level negative tests are complete (G0-R032).
 
 export function validateApiToken(rawDb, token) {
   if (!token || typeof token !== 'string') return { valid: false };
