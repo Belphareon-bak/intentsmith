@@ -200,6 +200,12 @@ Skutečná late-insertion parita s finálně
 přečíslovanými mobilními migracemi zůstává `PENDING_FIRST_COMMON_INTEGRATION_SHA`;
 syntetická náhrada nebyla použita. Aktivace, GPU a Electron nebyly spuštěné.
 
+Source `905a3422…49a8` a exact-edge baseline `34a047d4…6638` prošly samostatným
+`git clone --no-local`, offline instalací a celou relevantní deterministic
+maticí; tento dílčí storage/readers/generic-drop checkpoint je
+`FRESH_CLONE_VERIFIED`. Stav se nevztahuje na dosud neimplementované části
+varianty E ani na Gate 1 jako celek.
+
 ## Přesná otázka pro operátora
 
 ```text

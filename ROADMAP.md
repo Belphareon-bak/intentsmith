@@ -575,6 +575,8 @@ focused regression sady.
      Detection repository i auto-cleanup/overview už čtou novou autoritu;
      generic GET/POST dropuje přesně tři rezervované klíče, hlásí
      `ignoredReservedKeys` a feature manager dostává sanitizovaný dokument.
+     Source `905a3422` a exact-edge baseline `34a047d4` jsou pro tento dílčí
+     checkpoint `FRESH_CLONE_VERIFIED`.
      Typed GET/PUT, atomický backup/import/reset a skutečná mobile
      late-insertion parita jsou stále
      `IMPLEMENTATION_PENDING`. Před

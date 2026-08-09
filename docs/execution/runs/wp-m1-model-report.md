@@ -2631,3 +2631,24 @@ skončil `PASS`, 1 022/1 022 a exit 0; focused ratchet sada skončila 13/0,
 exit 0. Artifact validation 151/0, hygiene 1 546 cest a registry 378/8 s
 fingerprintem `cb1259ca…d06e15` skončily také exit 0. SHA baseline commitu a
 opakování z čistého klonu doplní navazující attestation.
+
+### Checkpoint 29c — fresh-clone attestation
+
+Attestovaný baseline commit je
+`34a047d45d41bc26d8df206582005a784dfc6638`. Samostatný checkout
+`/tmp/intentsmith-policy-attest-q7kuA2/repo` vznikl příkazem
+`git clone --no-local --branch integration/gate1-prod-ready-20260809
+/home/belphareon/worktrees/is-gate1-prod-ready <checkout>`; clone skončil exit 0
+a ještě před instalací měl přesný HEAD `34a047d4…6638` a prázdný porcelain.
+`npm ci --offline` přidal 233 balíčků, našel 0 vulnerabilities a skončil exit 0.
+
+V tomto checkoutu skončily exit 0: policy 20/0, schema migrations 38/0,
+coordinator 16/0, identity 25/0, failover repository 14/0, failover schema
+20/0, model upgrade 58/0, upgrade flow 28/0, routes smoke 109/0, artifact
+validation 151/0, hygiene 1 546 cest, registry 378/8 s fingerprintem
+`cb1259ca…d06e15`, ratchet 1 022/1 022 a jeho focused sada 13/0. Následný
+`git status --porcelain=v1 --untracked-files=all` i `git diff --check` skončily
+exit 0 a checkout zůstal čistý. Tento přesný checkpoint je proto
+`FRESH_CLONE_VERIFIED`; nejde o dokončené 020/E ani Gate 1 PASS, protože typed
+API, atomický import/reset, Studio error handling, migrace 062, mobile parita a
+autorizovaný GPU pilot zůstávají otevřené.
