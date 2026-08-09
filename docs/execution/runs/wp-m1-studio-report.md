@@ -972,3 +972,29 @@ Build se podle WP nespouští v dirty checkoutu; následuje až z čistého klon
 tohoto commitu. Produkční `src/server.js` dál M1 token neaktivuje. Attachment a
 effect-authority volby z [021](../../decisions/021-m1-wire-activation-residuals.md)
 zůstávají `DECISION_REQUIRED`, nikoli skrytý default.
+
+### Clean-clone build evidence checkpointu 18
+
+Disposable clone `/tmp/intentsmith-m1-build-x9mx4n` byl vytvořen přes
+`git clone --no-local`, detached na přesném source SHA
+`f2d9055c62e33a41b60025e467cca06ef28820d0` a před instalací měl prázdný
+`git status --porcelain=v1 --untracked-files=all`.
+
+| Příkaz | Výsledek | Exit |
+|---|---|---:|
+| `corepack yarn install --frozen-lockfile --offline --non-interactive` v `c3-ide/` | Yarn 1.22.22, offline install dokončen | 0 |
+| `corepack yarn build` v `c3-ide/` | forced protocol prebuild, runtime export validation a Theia production build dokončeny; pouze webpack performance/dynamic-require warnings | 0 |
+| skutečný `require('./extensions/c3-protocol')` + validace exact CoreEvent fixture | protocol v1, `validateM1Contract`, `validateCoreEventStream` a `classifyTerminal` jsou funkce; fixture valid | 0 |
+| skutečný `require('./extensions/c3-chat-panel/lib/browser/ws-client.js')` bez testového protocol stubu | consumer loaded, `wsSendChat` a negotiation export jsou funkce | 0 |
+| marker probe production `applications/electron/lib/frontend/bundle.js` | obsahuje hard protocol error, `m1-wire-v1`, UTF-8 stream limit, `DELIVERY_UNKNOWN`, `CONVERSATION_BUSY` a connection-replaced větev | 0 |
+| `node tests/m1-studio-client.test.js` v klonu | 78 passed, 0 failed, 0 skipped | 0 |
+| Google Fonts scan production bundlu | `NO_GOOGLE_FONTS_EGRESS` | 0 |
+| finální `git status --porcelain=v1 --untracked-files=all` a `git diff --check` | tracked strom čistý; generated/install/build výstupy zůstaly ignored | 0 |
+
+Build běžel na Node `v22.21.1`. Bundle má 11 751 013 B a SHA-256
+`746f3671d9e7a5fed240791cb0dafb45f9369b750f64a1a5faaed9bb54b0a19a`;
+generated protocol `lib/index.js` má SHA-256
+`cdad67d9d818f845be3e6b6963b9befbecd4664b5ed1733af40df4883ad18f92`.
+Jde o důkaz skutečného compiled consumeru, nikoli o negotiated Electron
+journey: aplikace, backend, Ollama ani GPU nebyly spuštěny. Produkční ACK a
+celý B4 proto zůstávají `BLOCKED`.

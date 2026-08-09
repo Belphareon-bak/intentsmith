@@ -1321,11 +1321,12 @@ mohou pokračovat.
    `7551b907`: Studio token nabízí,
    ACK-bound latch se při reconnectu resetuje a server zatím token pravdivě
    neACKuje; M1-shaped frame bez negotiation skončí před legacy controllerem.
-   Exact ingress/egress adapter, terminal ledger, runtime consumer a built
-   journey tím ještě nejsou prokázané. Cancel terminal ordering už závazně
-   plyne z přijatého 004/C a není nová otázka. Ostatní
-   nezávislá příprava product-bundle consumeru může pokračovat před terminal
-   ledgerem a built journey. Disposable fresh clone na `9464dacf` už offline
+   Exact server ingress/egress adapter a Studio source producer/terminal ledger
+   jsou focused implementované; clean clone `f2d9055c` navíc offline sestavil
+   skutečný generated protocol i production bundle a načetl consumer bez
+   testového stubu. Produkční ACK a negotiated Electron journey tím ještě
+   nejsou prokázané. Cancel terminal ordering už závazně plyne z přijatého
+   004/C a není nová otázka. Disposable fresh clone na `9464dacf` dříve offline
    reprodukoval production build a 65s non-visual legacy Electron boundary
    journey s nulovým egresssem a čistým shutdownem; tím se ověřilo prostředí,
    nikoli negotiated M1 consumer ani finální UI. Read-only review může běžet
