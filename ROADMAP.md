@@ -584,8 +584,11 @@ focused regression sady.
      policy projekce a právě jeden event sdílejí repository-owned
      `BEGIN IMMEDIATE`; portable export vynechává přesné secret keys, import je
      nepřijímá a zachovává lokální hodnoty. Post-commit runtime chyba vrací
-     pravdivý degraded úspěch místo falešného 500. Studio consumer a fresh-clone
-     attestation tohoto checkpointu jsou ještě otevřené. Skutečná mobile
+     pravdivý degraded úspěch místo falešného 500. Autoritativní commitnutý
+     Studio runtime nyní kontroluje non-2xx i malformed 2xx, přijme pouze
+     serverem commitnutý snapshot, serializuje import/reset a sám odmítne
+     secret-bearing portable envelope; VM sada má 106/0. Read-only review a
+     fresh-clone attestation tohoto checkpointu jsou ještě otevřené. Skutečná mobile
      late-insertion parita zůstává `IMPLEMENTATION_PENDING`. Před
      aktivací je navíc nutný čerstvý role-suite proof svázaný s exaktním
      digestem; dnešní name-only score takovým důkazem není.
@@ -1296,7 +1299,7 @@ mohou pokračovat.
    | 1 | 023 VRAM delete race | úzká artifact-use hrana fresh-clone ověřená; globální GPU residency zůstává M2 residual |
    | 2 | 022 operation-bound recovery | `FRESH_CLONE_VERIFIED` na `81dff196`; built B4 zůstává otevřený |
    | 3 | ověřit dokončenou rezervaci migrací | `061` = 020 a `062` = 015 jsou rezervované; skutečná late-insertion parita čeká na první společný SHA s finálně přečíslovanými mobilními migracemi |
-   | 4 | 020 oddělená policy storage | migrace/repository, oba reader cutovers, generic drop, typed GET/PUT a backend atomického import/reset adaptéru implementované; Studio consumer a fresh-clone attestation zůstávají otevřené |
+   | 4 | 020 oddělená policy storage | backend atomického adaptéru i autoritativní Studio source consumer implementované; read-only review a fresh-clone attestation zůstávají otevřené |
    | 5 | 015 proof issuance | druhá migrační položka, těží ze stejného census |
    | 6 | 021 built journey | jediná položka vázaná na drahou Studio infrastrukturu |
    | 7 | autorizovaný GPU pilot | sériově, jedna role/digest, jen na akci operátora |

@@ -1365,3 +1365,42 @@ instalací i po testech. V klonu proběhlo `npm ci --offline` (233 balíčků,
 
 Toto povyšuje pouze 022/A source kontrakt. Produkční ACK, negotiated Electron
 journey, GPU a Ollama zůstaly nespouštěné.
+
+## Checkpoint 26 — 020/E versioned settings recovery source consumer
+
+Autoritativní commitnutý `c3-chat-panel/lib/browser/chat-panel-module.js`
+přešel z generic whole-document backup/import/reset na explicitní backend
+adaptér. Export vyžaduje exact schema v1, sám odmítne oba známé secret keys,
+vytvoří jediný JSON download a vždy revokuje object URL. Import a reset přijmou
+pouze non-malformed HTTP success s `ok:true`, `success:true` a plain
+`generalSettings`; lokální `_bCfg` se nikdy neodvozuje z importního souboru.
+
+Mutation cesty jsou single-flight a před efektem čekají na případný rozběhnutý
+generic save. Druhý import/reset ani stale debounced save proto nemohou přepsat
+novější recovery stav. `runtimeApplied:false` zůstává pravdivý durable success s požadavkem na
+restart. Tokenovaný success timer nemůže odstranit novější failure status.
+Legacy holý JSON se převede na schema v1 s `modelAutomationPolicy:null`; backend
+jeho secret values ignoruje a vrátí destination snapshot, který následující
+generic Studio save zachová.
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node --check c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js` | syntax valid | 0 |
+| `node --check tests/m1-studio-client.test.js` | syntax valid | 0 |
+| `node tests/m1-studio-client.test.js` | 106/0 | 0 |
+| `node tests/m1-model-policy.test.js` | 35/0 | 0 |
+| `node tests/routes-smoke.test.js` | 109/0 | 0 |
+| `node tests/schema-migrations.test.js` | 38/0 | 0 |
+| `node tests/artifact-validation.test.js` | 151/0 | 0 |
+| `node tests/repository-hygiene.test.js` | 1 546 trackovaných cest | 0 |
+| `node scripts/validate-test-registry.js --json` | 378 programů, 8 exclusions, fingerprint `cb1259ca…d06e15` | 0 |
+| `node scripts/module-boundary-ratchet.mjs` | 1 023/1 023 hran, 3 cykly, 28 souborů | 0 |
+| `node tests/module-boundary-ratchet.test.js` | 13/0 | 0 |
+| `git diff --check` | bez whitespace chyb | 0 |
+
+Test používá přímo runtime slice ze sledovaného `lib` a VM intrinsics; připíná
+exact URL, method, JSON header, timeout, versioned/legacy dokumenty, secret
+canaries, 4xx/5xx, rejected fetch, malformed 2xx, exact runtime metadata,
+generic-save/recovery ordering, single-flight a timer race. Tento source checkpoint ještě nemá samostatný
+read-only review ani fresh-clone attestation. Electron, GPU, Ollama, externí
+síť a finální UI nebyly spuštěné; built B4 i Gate 1 zůstávají `BLOCKED`.

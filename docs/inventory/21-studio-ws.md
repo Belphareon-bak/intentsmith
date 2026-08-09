@@ -228,3 +228,25 @@ Raw profil, testovací DB, capability a logy nejsou commitnuté. Registrovaná T
 sada zůstává `BLOCKED`, dokud nightly/audit orchestrátor neumí dodat frozen
 install a production-build envelope. Capability #21 tím není `PASS`: M1 stále
 musí ověřit multi-panel korelaci, scoped cancel, reconnect a provider failure.
+
+### Versioned settings recovery consumer (2026-08-09)
+
+Autoritativní commitnutý
+`c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js` už pro
+portable settings recovery nepoužívá generic whole-document endpoint. Export
+volá `GET /api/settings/backup`, import `POST /api/settings/import` a reset
+`POST /api/settings/reset`. Každá cesta vyžaduje pravdivý HTTP success a exact
+JSON commit; non-2xx, rejected fetch, malformed JSON i neúplný 2xx výsledek
+zachovají původní `_bCfg`.
+
+Klient před downloadem sám validuje schema v1 a odmítne envelope obsahující
+`webhookSecret` nebo `c3.notif.smtpPass`. Object URL po clicku revokuje. Import
+a reset jsou single-flight a recovery čeká na případný generic save, takže
+opožděný starší zápis nemůže přepsat novější recovery operaci. Lokální stav se po úspěchu přebírá výhradně ze
+serverem vráceného `generalSettings`; tím následující generic debounced save
+zachová i destination secrets, které portable soubor nenese. Tokenovaný status
+timer nemůže odstranit novější failure zprávu.
+
+VM behavior sada má 106/0 a používá přímo runtime slice ze sledovaného `lib`.
+Electron ani finální UI nebyly spuštěné; tento checkpoint neuzavírá built B4,
+vizuální baseline ani capability #21 jako celek.

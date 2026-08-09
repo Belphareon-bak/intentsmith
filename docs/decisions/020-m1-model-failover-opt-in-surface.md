@@ -220,9 +220,22 @@ nikoli retry-inducing `500` nad již provedenou změnou.
 
 Focused backend sada má 35/0. Pokrývá secret canaries, malformed/unknown schema,
 foreign transaction ownership, unavailable storage, settings i event rollback,
-právě jeden import/reset event a pravdivý post-commit degraded výsledek. Studio
-`response.ok` consumer a fresh-clone attestation tohoto checkpointu jsou stále
-otevřené; nejde proto ještě o úplné uzavření 020/E.
+právě jeden import/reset event a pravdivý post-commit degraded výsledek.
+
+Autoritativní commitnutý Studio `lib` používá pouze nové explicitní endpointy.
+Export kontroluje HTTP i exact envelope a před downloadem znovu odmítne oba
+secret keys. Import/reset změní `_bCfg` pouze z pravdivého serverového
+`ok/success/generalSettings` commitu; 4xx/5xx, malformed 2xx a lokálně neplatný
+soubor původní snapshot zachovají. Obě mutace jsou single-flight, object URL se
+revokuje a starý success timer nemůže smazat novější chybu. Legacy holý JSON se
+zabalí do schema v1 s `modelAutomationPolicy:null`; policy tedy zachová a jeho
+případné secret keys backend ignoruje. Navazující generic Studio save používá
+serverem vrácený dokument včetně zachovaných lokálních secret hodnot.
+
+VM behavior sada má 106/0 a připíná exact URL/metodu/header/timeout, obě runtime
+větve, rejected fetch, malformed odpovědi, secret-bearing export, koordinaci
+generic save proti recovery, single-flight i timer race. Read-only review a fresh-clone attestation tohoto checkpointu jsou
+stále otevřené; nejde proto ještě o úplné uzavření 020/E.
 
 Skutečná late-insertion parita s finálně
 přečíslovanými mobilními migracemi zůstává `PENDING_FIRST_COMMON_INTEGRATION_SHA`;

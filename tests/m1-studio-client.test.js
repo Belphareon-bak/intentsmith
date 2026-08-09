@@ -926,6 +926,139 @@ function assertNoFallbackEffects(harness, expectedAssistantCount = 0) {
   assert.equal(harness.counters.timers.length, 0, 'NOT_SENT scheduled an automatic retry');
 }
 
+function settingsBackupHarness(options = {}) {
+  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
+  const saveStart = source.indexOf('function _saveBCfg()');
+  const saveEnd = source.indexOf('function _bVal', saveStart);
+  const start = source.indexOf("var _SETTINGS_BACKUP_KIND=");
+  const end = source.indexOf('/* I2: Custom CSS injection', start);
+  assert.ok(
+    saveStart >= 0 && saveEnd > saveStart && start >= 0 && end > start,
+    'settings backup slice is missing',
+  );
+
+  const downloads = [];
+  const requests = [];
+  const revokedObjectUrls = [];
+  const timers = [];
+  let renders = 0;
+  const initialSettings = options.initialSettings || {
+    theme: 'dark',
+    webhookSecret: 'destination-webhook-secret',
+    'c3.notif.smtpPass': 'destination-smtp-secret',
+  };
+  const responses = [...(options.responses || [])];
+  let context;
+
+  class CapturedBlob {
+    constructor(parts, blobOptions = {}) {
+      this.parts = [...parts];
+      this.type = blobOptions.type;
+    }
+    text() {
+      return Promise.resolve(this.parts.join(''));
+    }
+  }
+
+  const anchor = {
+    click() {
+      downloads.push({
+        blob: anchor.blob,
+        download: anchor.download,
+        href: anchor.href,
+      });
+    },
+  };
+
+  context = vm.createContext({
+    AbortSignal: { timeout(milliseconds) { return { milliseconds }; } },
+    Blob: CapturedBlob,
+    URL: {
+      createObjectURL(blob) {
+        anchor.blob = blob;
+        return 'blob:intentsmith-settings-fixture';
+      },
+      revokeObjectURL(value) {
+        revokedObjectUrls.push(value);
+      },
+    },
+    _bCfg: initialSettings,
+    _backendBase: 'http://127.0.0.1:3335',
+    _backupMsg: null,
+    _bCfgSaveTimer: null,
+    clearTimeout(timer) {
+      if (timer) timer.cancelled = true;
+    },
+    document: {
+      createElement(tagName) {
+        assert.equal(tagName, 'a');
+        return anchor;
+      },
+    },
+    fetch(url, init = {}) {
+      requests.push({ url, init });
+      const fixture = responses.shift();
+      if (fixture instanceof Error) return Promise.reject(fixture);
+      if (!fixture) throw new Error(`unexpected settings request: ${url}`);
+      if (typeof fixture === 'function') return fixture({ context, init, url });
+      return Promise.resolve({
+        ok: fixture.ok,
+        status: fixture.status,
+        json: fixture.jsonError
+          ? async () => { throw fixture.jsonError; }
+          : async () => vm.runInContext(`JSON.parse(${JSON.stringify(JSON.stringify(fixture.body))})`, context),
+      });
+    },
+    module: { exports: {} },
+    renderCenter() { renders++; },
+    setTimeout(callback, delay) {
+      const timer = { callback, delay };
+      timers.push(timer);
+      return timer;
+    },
+  });
+
+  vm.runInContext(
+    source.slice(saveStart, saveEnd)
+      + '\n'
+      + source.slice(start, end)
+      + '\nmodule.exports={'
+      + 'exportBackup:_settingsExportBackup,'
+      + 'importJson:function(encoded,fileName){return _settingsImportDocument(JSON.parse(encoded),fileName);},'
+      + 'resetAll:_settingsResetAll,'
+      + 'replaceAndSave:function(encoded){_bCfg=JSON.parse(encoded);_saveBCfg();},'
+      + 'saveConfig:_saveBCfg};',
+    context,
+    { filename: `${CHAT_PANEL.pathname}#settings-backup` },
+  );
+
+  return {
+    downloads,
+    functions: context.module.exports,
+    get renders() { return renders; },
+    requests,
+    revokedObjectUrls,
+    settings: () => hostClone(context._bCfg),
+    status: () => hostClone(context._backupMsg),
+    timers,
+  };
+}
+
+function settingsBackupFixture(overrides = {}) {
+  return {
+    kind: 'INTENTSMITH_SETTINGS_BACKUP',
+    schemaVersion: 1,
+    generalSettings: { theme: 'light', locale: 'cs-CZ' },
+    modelAutomationPolicy: {
+      autoFailoverEnabled: false,
+      autoCleanupEnabled: false,
+      autoCleanupDays: 14,
+    },
+    omittedSensitiveKeys: ['c3.notif.smtpPass', 'webhookSecret'],
+    ...overrides,
+  };
+}
+
 function terminalPanelHarness(pane = session('panel-terminal')) {
   const source = fs.readFileSync(CHAT_PANEL, 'utf8');
   const start = source.indexOf('function _initBusSubscriptions()');
@@ -1018,7 +1151,7 @@ function upgradeRecoveryPanelHarness(options = {}) {
     renderChat() {},
     renderSidebar() {},
     setTimeout(callback, delay) {
-      const timer = { callback, delay };
+      const timer = { callback, delay, cancelled: false };
       timers.push(timer);
       return timer;
     },
@@ -4643,6 +4776,390 @@ test('panel makes reconnect exhaustion visible and keeps health offline', () => 
   assert.match(handler, /_serverHealth\.status = 'offline'/);
   assert.match(handler, /agentLog/);
   assert.match(handler, /renderSidebar\(\);_updateStatusIndicator\(\)/);
+});
+
+suite('M1 Studio client — versioned settings recovery');
+
+await testAsync('export rejects non-2xx and malformed success without creating a download', async () => {
+  for (const fixture of [
+    { ok: false, status: 503, body: { code: 'MODEL_POLICY_STORAGE_UNAVAILABLE' } },
+    { ok: true, status: 200, body: { ok: false, backup: settingsBackupFixture() } },
+    { ok: true, status: 200, body: { ok: true, backup: {} } },
+    {
+      ok: true,
+      status: 200,
+      body: {
+        ok: true,
+        backup: settingsBackupFixture({
+          generalSettings: { webhookSecret: 'server-leaked-secret' },
+        }),
+      },
+    },
+    { ok: true, status: 200, jsonError: new Error('invalid JSON') },
+    new Error('fixture disconnected'),
+  ]) {
+    const initial = { theme: 'dark', webhookSecret: 'keep-local-secret' };
+    const harness = settingsBackupHarness({ initialSettings: initial, responses: [fixture] });
+    assert.equal(await harness.functions.exportBackup(), null);
+    assert.equal(harness.requests.length, 1);
+    assert.equal(harness.downloads.length, 0);
+    assert.deepEqual(harness.settings(), initial);
+    assert.equal(harness.status().ok, false);
+  }
+});
+
+await testAsync('export downloads the exact validated versioned envelope returned by the server', async () => {
+  const backup = settingsBackupFixture();
+  const harness = settingsBackupHarness({
+    responses: [{ ok: true, status: 200, body: { ok: true, backup } }],
+  });
+
+  const result = await harness.functions.exportBackup();
+  assert.equal(result.ok, true);
+  assert.equal(harness.requests.length, 1);
+  assert.equal(harness.requests[0].url, 'http://127.0.0.1:3335/api/settings/backup');
+  assert.equal(harness.requests[0].init.method, undefined);
+  assert.equal(harness.requests[0].init.signal.milliseconds, 3000);
+  assert.equal(harness.downloads.length, 1);
+  assert.match(harness.downloads[0].download, /^intentsmith-settings-\d{4}-\d{2}-\d{2}\.json$/);
+  assert.equal(harness.downloads[0].blob.type, 'application/json');
+  assert.equal(harness.downloads[0].href, 'blob:intentsmith-settings-fixture');
+  assert.deepEqual(harness.revokedObjectUrls, ['blob:intentsmith-settings-fixture']);
+  const encoded = await harness.downloads[0].blob.text();
+  assert.deepEqual(JSON.parse(encoded), backup);
+  assert.equal(encoded.includes('destination-webhook-secret'), false);
+  assert.equal(encoded.includes('destination-smtp-secret'), false);
+  assert.equal(harness.status().ok, true);
+});
+
+await testAsync('import failures retain the exact local settings snapshot', async () => {
+  const backup = settingsBackupFixture();
+  for (const fixture of [
+    { ok: false, status: 400, body: { code: 'MODEL_POLICY_SETTINGS_BACKUP_INVALID' } },
+    { ok: false, status: 503, body: { code: 'MODEL_POLICY_STORAGE_UNAVAILABLE' } },
+    { ok: true, status: 200, body: { ok: true, success: true, generalSettings: null } },
+    { ok: true, status: 200, body: { ok: false, success: true, generalSettings: {} } },
+    { ok: true, status: 200, jsonError: new Error('invalid JSON') },
+    new Error('fixture disconnected'),
+  ]) {
+    const initial = {
+      theme: 'dark',
+      webhookSecret: 'keep-webhook',
+      'c3.notif.smtpPass': 'keep-smtp',
+    };
+    const harness = settingsBackupHarness({ initialSettings: initial, responses: [fixture] });
+    assert.equal(
+      await harness.functions.importJson(JSON.stringify(backup), 'fixture.json'),
+      null,
+    );
+    assert.equal(harness.requests.length, 1);
+    assert.deepEqual(harness.settings(), initial);
+    assert.equal(harness.status().ok, false);
+  }
+});
+
+await testAsync('invalid local documents fail before any import effect', async () => {
+  for (const encoded of [
+    '[]',
+    JSON.stringify(settingsBackupFixture({ schemaVersion: 2 })),
+    JSON.stringify({ ...settingsBackupFixture(), unknown: true }),
+    JSON.stringify(settingsBackupFixture({
+      modelAutomationPolicy: {
+        autoFailoverEnabled: 'true',
+        autoCleanupEnabled: false,
+        autoCleanupDays: 14,
+      },
+    })),
+    JSON.stringify(settingsBackupFixture({
+      generalSettings: { webhookSecret: 'must-not-enter-versioned-import' },
+    })),
+    JSON.stringify({ kind: 'UNKNOWN_BACKUP', schemaVersion: 1 }),
+  ]) {
+    const initial = { theme: 'dark', webhookSecret: 'keep-webhook' };
+    const harness = settingsBackupHarness({ initialSettings: initial });
+    assert.equal(await harness.functions.importJson(encoded, 'invalid.json'), null);
+    assert.equal(harness.requests.length, 0);
+    assert.deepEqual(harness.settings(), initial);
+    assert.equal(harness.status().ok, false);
+  }
+});
+
+await testAsync('legacy import is wrapped, server state wins, and the next save preserves local secrets', async () => {
+  const committedSettings = {
+    theme: 'solarized',
+    webhookSecret: 'preserved-webhook',
+    'c3.notif.smtpPass': 'preserved-smtp',
+  };
+  const harness = settingsBackupHarness({
+    initialSettings: { theme: 'dark', webhookSecret: 'old-webhook' },
+    responses: [
+      {
+        ok: true,
+        status: 200,
+        body: {
+          ok: true,
+          success: true,
+          generalSettings: committedSettings,
+          runtimeApplied: false,
+          runtimeErrorCode: 'SETTINGS_RUNTIME_APPLY_FAILED',
+        },
+      },
+      { ok: true, status: 200, body: { success: true } },
+    ],
+  });
+
+  const result = await harness.functions.importJson(
+    JSON.stringify({ theme: 'solarized' }),
+    'legacy-settings.json',
+  );
+  assert.equal(result.success, true);
+  assert.equal(harness.requests[0].url, 'http://127.0.0.1:3335/api/settings/import');
+  assert.equal(harness.requests[0].init.method, 'POST');
+  assert.deepEqual(hostClone(harness.requests[0].init.headers), { 'Content-Type': 'application/json' });
+  assert.equal(harness.requests[0].init.signal.milliseconds, 3000);
+  assert.deepEqual(JSON.parse(harness.requests[0].init.body), {
+    kind: 'INTENTSMITH_SETTINGS_BACKUP',
+    schemaVersion: 1,
+    generalSettings: { theme: 'solarized' },
+    modelAutomationPolicy: null,
+    omittedSensitiveKeys: [],
+  });
+  assert.deepEqual(harness.settings(), committedSettings);
+  assert.match(harness.status().text, /runtime vyžaduje restart/);
+
+  harness.functions.saveConfig();
+  const saveTimer = harness.timers.find(timer => timer.delay === 500);
+  assert.ok(saveTimer, 'generic save was not scheduled');
+  saveTimer.callback();
+  await Promise.resolve();
+  assert.equal(harness.requests[1].url, 'http://127.0.0.1:3335/api/settings');
+  assert.deepEqual(JSON.parse(harness.requests[1].init.body), committedSettings);
+});
+
+await testAsync('reset is fail-closed and only adopts a committed server snapshot', async () => {
+  const initial = { theme: 'dark', webhookSecret: 'keep-webhook' };
+  const failed = settingsBackupHarness({
+    initialSettings: initial,
+    responses: [{ ok: false, status: 500, body: { code: 'SETTINGS_RESET_FAILED' } }],
+  });
+  assert.equal(await failed.functions.resetAll(), null);
+  assert.deepEqual(failed.settings(), initial);
+  assert.equal(failed.status().ok, false);
+
+  const committedSettings = {};
+  const succeeded = settingsBackupHarness({
+    initialSettings: initial,
+    responses: [{
+      ok: true,
+      status: 200,
+      body: {
+        ok: true,
+        success: true,
+        generalSettings: committedSettings,
+        runtimeApplied: false,
+        runtimeErrorCode: 'SETTINGS_RUNTIME_APPLY_FAILED',
+      },
+    }],
+  });
+  assert.equal((await succeeded.functions.resetAll()).success, true);
+  assert.equal(succeeded.requests[0].url, 'http://127.0.0.1:3335/api/settings/reset');
+  assert.equal(succeeded.requests[0].init.method, 'POST');
+  assert.deepEqual(hostClone(succeeded.requests[0].init.headers), { 'Content-Type': 'application/json' });
+  assert.equal(succeeded.requests[0].init.signal.milliseconds, 3000);
+  assert.deepEqual(JSON.parse(succeeded.requests[0].init.body), {});
+  assert.deepEqual(succeeded.settings(), committedSettings);
+  assert.match(succeeded.status().text, /runtime vyžaduje restart/);
+});
+
+await testAsync('successful runtime apply does not claim restart for import or reset', async () => {
+  const imported = settingsBackupHarness({
+    responses: [{
+      ok: true,
+      status: 200,
+      body: { ok: true, success: true, generalSettings: { theme: 'light' }, runtimeApplied: true, runtimeErrorCode: null },
+    }],
+  });
+  assert.equal(
+    (await imported.functions.importJson(JSON.stringify(settingsBackupFixture()), 'exact.json')).success,
+    true,
+  );
+  assert.equal(imported.status().text.includes('restart'), false);
+
+  const reset = settingsBackupHarness({
+    responses: [{
+      ok: true,
+      status: 200,
+      body: { ok: true, success: true, generalSettings: {}, runtimeApplied: true, runtimeErrorCode: null },
+    }],
+  });
+  assert.equal((await reset.functions.resetAll()).success, true);
+  assert.equal(reset.status().text.includes('restart'), false);
+});
+
+await testAsync('import and reset reject incomplete or inconsistent runtime commit metadata', async () => {
+  const invalidBodies = [
+    { ok: true, success: true, generalSettings: { theme: 'partial' } },
+    { ok: true, success: true, generalSettings: { theme: 'partial' }, runtimeApplied: null, runtimeErrorCode: null },
+    { ok: true, success: true, generalSettings: { theme: 'partial' }, runtimeApplied: 'false', runtimeErrorCode: 'SETTINGS_RUNTIME_APPLY_FAILED' },
+    { ok: true, success: true, generalSettings: { theme: 'partial' }, runtimeApplied: 0, runtimeErrorCode: 'SETTINGS_RUNTIME_APPLY_FAILED' },
+    { ok: true, success: true, generalSettings: { theme: 'partial' }, runtimeApplied: true, runtimeErrorCode: 'SETTINGS_RUNTIME_APPLY_FAILED' },
+    { ok: true, success: true, generalSettings: { theme: 'partial' }, runtimeApplied: false, runtimeErrorCode: null },
+  ];
+
+  for (const body of invalidBodies) {
+    for (const operation of ['import', 'reset']) {
+      const initial = { theme: 'dark', webhookSecret: 'keep-webhook' };
+      const harness = settingsBackupHarness({
+        initialSettings: initial,
+        responses: [{ ok: true, status: 200, body }],
+      });
+      const result = operation === 'import'
+        ? await harness.functions.importJson(JSON.stringify(settingsBackupFixture()), 'invalid-runtime.json')
+        : await harness.functions.resetAll();
+      assert.equal(result, null);
+      assert.deepEqual(harness.settings(), initial);
+      assert.equal(harness.status().ok, false);
+    }
+  }
+});
+
+await testAsync('reset rejects a malformed 2xx commit without changing local settings', async () => {
+  for (const body of [
+    { ok: true, success: false, generalSettings: {} },
+    { ok: true, success: true, generalSettings: [] },
+  ]) {
+    const initial = { theme: 'dark', webhookSecret: 'keep-webhook' };
+    const harness = settingsBackupHarness({
+      initialSettings: initial,
+      responses: [{ ok: true, status: 200, body }],
+    });
+    assert.equal(await harness.functions.resetAll(), null);
+    assert.deepEqual(harness.settings(), initial);
+    assert.equal(harness.status().ok, false);
+  }
+});
+
+await testAsync('settings mutations are single-flight and an old success timer cannot erase a newer failure', async () => {
+  const pending = deferred();
+  const harness = settingsBackupHarness({
+    responses: [
+      ({ context }) => pending.promise.then(body => ({
+        ok: true,
+        status: 200,
+        async json() {
+          return vm.runInContext(`JSON.parse(${JSON.stringify(JSON.stringify(body))})`, context);
+        },
+      })),
+      { ok: false, status: 500, body: { code: 'MODEL_AUTOMATION_POLICY_RESET_FAILED' } },
+    ],
+  });
+  const first = harness.functions.importJson(
+    JSON.stringify(settingsBackupFixture()),
+    'pending.json',
+  );
+  assert.equal(await harness.functions.resetAll(), null);
+  assert.equal(harness.requests.length, 1, 'a pending mutation admitted another HTTP effect');
+  assert.match(harness.status().text, /právě probíhá/);
+
+  pending.resolve({
+    ok: true,
+    success: true,
+    generalSettings: { theme: 'committed' },
+    runtimeApplied: true,
+    runtimeErrorCode: null,
+  });
+  assert.equal((await first).success, true);
+  assert.deepEqual(harness.settings(), { theme: 'committed' });
+  const oldSuccessTimer = harness.timers.find(timer => timer.delay === 4000);
+  assert.ok(oldSuccessTimer);
+
+  assert.equal(await harness.functions.resetAll(), null);
+  assert.equal(harness.requests.length, 2);
+  assert.equal(harness.status().ok, false);
+  const failureText = harness.status().text;
+  oldSuccessTimer.callback();
+  assert.equal(harness.status().text, failureText);
+});
+
+await testAsync('settings recovery cancels queued saves, waits for in-flight saves, and cannot be overwritten', async () => {
+  const saveDone = deferred();
+  const committedSettings = {
+    theme: 'reset-committed',
+    webhookSecret: 'preserved-webhook',
+  };
+  const harness = settingsBackupHarness({
+    initialSettings: { theme: 'stale', webhookSecret: 'preserved-webhook' },
+    responses: [
+      () => saveDone.promise.then(() => ({
+        ok: true,
+        status: 200,
+        async json() { return { success: true }; },
+      })),
+      {
+        ok: true,
+        status: 200,
+        body: {
+          ok: true,
+          success: true,
+          generalSettings: committedSettings,
+          runtimeApplied: true,
+          runtimeErrorCode: null,
+        },
+      },
+    ],
+  });
+
+  harness.functions.saveConfig();
+  const firstSaveTimer = harness.timers.find(timer => timer.delay === 500);
+  assert.ok(firstSaveTimer);
+  firstSaveTimer.callback();
+  await drainMicrotasks();
+  assert.equal(harness.requests.length, 1);
+  assert.equal(harness.requests[0].url, 'http://127.0.0.1:3335/api/settings');
+  assert.deepEqual(JSON.parse(harness.requests[0].init.body), {
+    theme: 'stale',
+    webhookSecret: 'preserved-webhook',
+  });
+
+  const reset = harness.functions.resetAll();
+  harness.functions.replaceAndSave(JSON.stringify({
+    theme: 'concurrent-stale',
+    webhookSecret: 'preserved-webhook',
+  }));
+  await drainMicrotasks();
+  assert.equal(harness.requests.length, 1, 'recovery did not wait for the in-flight generic save');
+
+  saveDone.resolve();
+  await drainMicrotasks();
+  assert.equal(harness.requests.length, 2);
+  assert.equal(harness.requests[1].url, 'http://127.0.0.1:3335/api/settings/reset');
+  assert.equal((await reset).success, true);
+  assert.deepEqual(harness.settings(), committedSettings);
+  assert.equal(
+    harness.timers.filter(timer => timer.delay === 500 && !timer.cancelled).length,
+    1,
+    'recovery scheduled a stale generic save after its committed snapshot',
+  );
+
+  const failed = settingsBackupHarness({
+    initialSettings: { theme: 'unsaved' },
+    responses: [
+      { ok: false, status: 500, body: { code: 'MODEL_AUTOMATION_POLICY_RESET_FAILED' } },
+      { ok: true, status: 200, body: { success: true } },
+    ],
+  });
+  failed.functions.saveConfig();
+  const cancelledTimer = failed.timers.find(timer => timer.delay === 500);
+  assert.ok(cancelledTimer);
+  assert.equal(await failed.functions.resetAll(), null);
+  assert.equal(cancelledTimer.cancelled, true);
+  const resumedTimer = failed.timers.find(timer => timer.delay === 500 && !timer.cancelled);
+  assert.ok(resumedTimer, 'failed recovery did not resume the cancelled local save');
+  resumedTimer.callback();
+  await drainMicrotasks();
+  assert.equal(failed.requests.length, 2);
+  assert.equal(failed.requests[1].url, 'http://127.0.0.1:3335/api/settings');
+  assert.deepEqual(JSON.parse(failed.requests[1].init.body), { theme: 'unsaved' });
 });
 
 summary();
