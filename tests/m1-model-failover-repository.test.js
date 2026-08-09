@@ -741,8 +741,39 @@ await testAsync('busy, identity conflict and corrupt storage remain typed', asyn
       actor: 'user:fixture',
     }));
     assertRepositoryError(conflictError, 'MODEL_FAILOVER_ID_CONFLICT');
-    assert(/^SQLITE_CONSTRAINT_(UNIQUE|PRIMARYKEY)$/.test(conflictError.cause?.code || ''));
+    assertEqual(conflictError.cause?.code, 'SQLITE_CONSTRAINT_TRIGGER');
+    assert(
+      conflictError.cause?.message.startsWith('MODEL_FAILOVER_EVENT_IDENTITY_CONFLICT:'),
+      `Expected owned identity signal, got ${conflictError.cause?.message}`,
+    );
     assertEqual(first.getDesired('CODE'), null);
+    assertEqual(first.listEvents({ role: 'CODE' }).length, 0);
+
+    for (const rejectedSignal of [
+      'MODEL_FAILOVER_EVENT_IDENTITY_CONFLICTING: fixture near miss',
+      'MODEL_FAILOVER_EVENT_IDENTITY_CONFLICT',
+    ]) {
+      firstDb.exec(`
+        CREATE TRIGGER fixture_identity_signal_near_miss
+        BEFORE INSERT ON model_desired_bindings
+        BEGIN
+          SELECT RAISE(ABORT, '${rejectedSignal}');
+        END;
+      `);
+      const nearMissError = captureError(() => first.observeDesiredBinding({
+        role: 'D1',
+        modelName: 'reasoner',
+        digestSha256: DIGEST_A,
+        source: 'CONFIG_DEFAULT',
+        actor: 'system:config',
+      }));
+      assertRepositoryError(nearMissError, 'MODEL_FAILOVER_STORAGE_CONTRACT');
+      assertEqual(nearMissError.cause?.code, 'SQLITE_CONSTRAINT_TRIGGER');
+      assertEqual(nearMissError.cause?.message, rejectedSignal);
+      assertEqual(first.getDesired('D1'), null);
+      assertEqual(first.listEvents({ role: 'D1' }).length, 0);
+      firstDb.exec('DROP TRIGGER fixture_identity_signal_near_miss');
+    }
 
     firstDb.pragma('ignore_check_constraints = ON');
     try {

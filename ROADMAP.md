@@ -731,6 +731,13 @@ focused regression sady.
      policy ani počet provider effectů se tím nemění. Zdrojový commit
      `da03e8bd` prošel offline instalací a focused/compatibility baterií z
      nového `--no-local` klonu; GPU, Ollama ani server nebyly spuštěny.
+     Navazující typed-error oprava zachovává veřejný
+     `MODEL_FAILOVER_ID_CONFLICT` i poté, co append-only migrace 053 přesunula
+     kolizi z SQLite unique constraintu do vlastněného trigger signálu.
+     Repository uznává jen osm přesných signal tokenů zakončených `:`;
+     libovolný jiný `SQLITE_CONSTRAINT_TRIGGER`, včetně podobného prefixu,
+     zůstává `MODEL_FAILOVER_STORAGE_CONTRACT`. Focused test tuto hranici
+     mutačně připíná a žádný proof, provider effect ani runtime binding nemění.
 3. **Connector:** adaptér `ModelRequest/Result` v1; nemění schéma.
 4. **Závislost:** `WP-M1-CONTRACT`; offline fake běhy nečekají na GPU.
 5. **Demo:** skutečná Ollama odpověď; negativní unavailable cesta používá

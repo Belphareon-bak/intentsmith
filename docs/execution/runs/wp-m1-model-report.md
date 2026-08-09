@@ -1560,6 +1560,43 @@ V novém klonu skončily následující příkazy:
 
 GPU, Ollama, produktový server ani externí síť nebyly spuštěny.
 
+## Checkpoint 23 — typed identity konflikt po append-only guardu
+
+Širší M1 běh nad čistým `c400b184` odkryl regresi mezi checkpointem 21 a
+repository error mapperem. Migrace 053 správně odmítá opakovanou event identitu
+vlastněným `RAISE(ABORT, ...)`, ale SQLite tento signál hlásí jako
+`SQLITE_CONSTRAINT_TRIGGER`. Repository proto veřejnou chybu nesprávně
+degradoval z `MODEL_FAILOVER_ID_CONFLICT` na obecný
+`MODEL_FAILOVER_STORAGE_CONTRACT`; focused sada skončila 13/1, exit `1`.
+
+Mapper nyní rozpoznává pouze osm stabilních signal tokenů, které vlastní
+append-only migrace, a vyžaduje za tokenem přesný oddělovač `:`. Neuznává celý
+lidský text ani obecný trigger code. Pozitivní konflikt připíná přesný SQLite
+code a vlastněný signal token. Nový near-miss trigger
+`MODEL_FAILOVER_EVENT_IDENTITY_CONFLICTING:` zůstává obecnou storage-contract
+chybou a celá transakce zachová nulový desired projection. Dřívější fixture
+triggery dál dokazují stejnou klasifikaci pro nepříbuzné business guards.
+
+Mutační kontrola odstranila pouze větev pro owned trigger signal; sada pak
+skončila přesně `13 passed / 1 failed`, exit `1`, na očekávaném rozdílu
+`MODEL_FAILOVER_ID_CONFLICT` versus `MODEL_FAILOVER_STORAGE_CONTRACT`. Po
+obnovení větve skončil rerun `14 passed / 0 failed`, exit `0`.
+
+Navazující focused validace v hlavním checkoutu:
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `C3_LOG_LEVEL=error node tests/m1-model-failover-repository.test.js` | 14 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/schema-migrations.test.js` | 38 passed, 0 failed; 55 migrací | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-failover-schema.test.js` | 13 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-binding-storage.test.js` | 16 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-binding-repository.test.js` | 39 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-binding-application.test.js` | 73 passed, 0 failed, 0 skipped | 0 |
+
+Oprava nemění schema, retry policy, provider effect, runtime binding ani proof
+authority. Gate 1 zůstává `BLOCKED`; GPU, Ollama, produktový server ani externí
+síť nebyly spuštěny.
+
 ### Otevřená rozhodovací fronta — checkpoint neblokuje
 
 1. **Durable compensation failure.** Default je tvrdý typovaný

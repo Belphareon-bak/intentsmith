@@ -81,6 +81,31 @@ const DEFAULT_IDS = Object.freeze({
   operation: () => `op_${randomUUID()}`,
   claimToken: () => `claim_${randomUUID()}`,
 });
+// Migration 053 owns these exact fail-closed signals.  SQLite reports a
+// RAISE(ABORT, ...) trigger as SQLITE_CONSTRAINT_TRIGGER, so the extended
+// result code alone cannot distinguish an identity collision from any other
+// storage-contract trigger.  Keep this allowlist exact: a broad trigger match
+// would misclassify business-constraint failures as generated-ID conflicts.
+const APPEND_ONLY_IDENTITY_CONFLICT_SIGNALS = new Set([
+  'MODEL_FAILOVER_PROOF_IDENTITY_CONFLICT',
+  'MODEL_FAILOVER_EVENT_IDENTITY_CONFLICT',
+  'MODEL_BINDING_OPERATION_IDENTITY_CONFLICT',
+  'MODEL_BINDING_APPLICATION_IDENTITY_CONFLICT',
+  'MODEL_BINDING_PROVIDER_OPERATION_IDENTITY_CONFLICT',
+  'MODEL_BINDING_PROVIDER_ATTEMPT_IDENTITY_CONFLICT',
+  'MODEL_BINDING_USER_NOOP_APPEND_ONLY_CONFLICT',
+  'MODEL_BINDING_USER_NOOP_PROVIDER_SUPERSEDES_CONFLICT',
+]);
+
+function hasOwnedAppendOnlyIdentityConflictSignal(error) {
+  if (error?.code !== 'SQLITE_CONSTRAINT_TRIGGER' || typeof error.message !== 'string') {
+    return false;
+  }
+  for (const signal of APPEND_ONLY_IDENTITY_CONFLICT_SIGNALS) {
+    if (error.message.startsWith(`${signal}:`)) return true;
+  }
+  return false;
+}
 
 export class ModelFailoverRepositoryError extends Error {
   constructor(code, message, options = {}) {
@@ -611,8 +636,10 @@ export class ModelFailoverRepository {
           { cause: error, details: { operation, sqliteCode } },
         );
       }
+      const ownedAppendOnlyIdentityConflict = hasOwnedAppendOnlyIdentityConflictSignal(error);
       if (sqliteCode === 'SQLITE_CONSTRAINT_UNIQUE'
-        || sqliteCode === 'SQLITE_CONSTRAINT_PRIMARYKEY') {
+        || sqliteCode === 'SQLITE_CONSTRAINT_PRIMARYKEY'
+        || ownedAppendOnlyIdentityConflict) {
         throw new ModelFailoverRepositoryError(
           'MODEL_FAILOVER_ID_CONFLICT',
           `Model failover ${operation} generated a conflicting identity`,
