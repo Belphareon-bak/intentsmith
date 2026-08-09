@@ -56,3 +56,5 @@ Autorská reprodukce navíc proběhla po `npm ci --offline` na Node `v22.21.1`
 s 233 balíčky a nulovým audit nálezem. Tento evidence commit nepřijímá novou
 module hranu ani neposouvá integration ref; oba baseline writer kroky patří až
 čistému queue candidate a Review B.
+candidateHead: 6284f2b89a8bb41bdb360a3181c81de06b3d90eb
+reviewB.verdict: PASS
