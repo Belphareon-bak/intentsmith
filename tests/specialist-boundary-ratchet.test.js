@@ -169,18 +169,33 @@ try {
 
   test('current repository census is recursive, exact, and computed imports are proven', () => {
     const clean = run(ROOT, ['--require-clean']);
-    assertStatus(clean, 1);
-    assertIncludes(clean, 'packages=5 files=32 references=4');
-    assertIncludes(clean, 'kind=runtime from=specialists/accountant-cz/adapters.js to=src/expertises/tool-adapter.js count=1');
-    assertIncludes(clean, 'kind=jsdoc from=specialists/accountant-cz/knowledge/seed.js to=src/expertises/knowledge-base.js count=1');
-    assertIncludes(clean, 'kind=jsdoc from=specialists/dummy-logger/index.js to=src/expertises/specialist-runtime.js count=2');
     assert.doesNotMatch(combined(clean), /UNPROVEN_COMPUTED_IMPORT/u);
 
     const normal = run(ROOT);
     if (existsSync(BASELINE)) {
+      const baseline = JSON.parse(readFileSync(BASELINE, 'utf8'));
+      const expectedReferences = baseline.exceptions
+        .reduce((total, entry) => total + entry.count, 0);
       assertStatus(normal, 0);
       assertIncludes(normal, 'SPECIALIST_BOUNDARY_RATCHET_PASS');
+      if (expectedReferences === 0) {
+        assertStatus(clean, 0);
+        assertIncludes(clean, 'packages=5 files=32 references=0');
+        assert.doesNotMatch(combined(clean), /^REFERENCE /mu);
+      } else {
+        assert.equal(expectedReferences, 4, 'temporary baseline must pin exactly four references');
+        assertStatus(clean, 1);
+        assertIncludes(clean, 'packages=5 files=32 references=4');
+        assertIncludes(clean, 'kind=runtime from=specialists/accountant-cz/adapters.js to=src/expertises/tool-adapter.js count=1');
+        assertIncludes(clean, 'kind=jsdoc from=specialists/accountant-cz/knowledge/seed.js to=src/expertises/knowledge-base.js count=1');
+        assertIncludes(clean, 'kind=jsdoc from=specialists/dummy-logger/index.js to=src/expertises/specialist-runtime.js count=2');
+      }
     } else {
+      assertStatus(clean, 1);
+      assertIncludes(clean, 'packages=5 files=32 references=4');
+      assertIncludes(clean, 'kind=runtime from=specialists/accountant-cz/adapters.js to=src/expertises/tool-adapter.js count=1');
+      assertIncludes(clean, 'kind=jsdoc from=specialists/accountant-cz/knowledge/seed.js to=src/expertises/knowledge-base.js count=1');
+      assertIncludes(clean, 'kind=jsdoc from=specialists/dummy-logger/index.js to=src/expertises/specialist-runtime.js count=2');
       assertStatus(normal, 2);
       assertIncludes(normal, 'TREE_READ_FAILED');
     }
