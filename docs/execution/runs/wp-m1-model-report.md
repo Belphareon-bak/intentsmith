@@ -1973,3 +1973,26 @@ Tento zápis je pouze `FOCUSED_VERIFIED`. Exact-edge baseline, fresh-clone a
 cutover/exact verify, VRAM disposition, durable audit, multiprocess autorita,
 remote provider, retirement a stalled-pull recovery zůstávají otevřené. GPU,
 Ollama ani externí síť nebyly spuštěny. Gate 1 zůstává `BLOCKED`.
+
+### C2b gateway exact-edge baseline acceptance
+
+Source commit `7ccd8a584a01f45a9ed566aeba7a41c63a064907` přidal přesně jednu
+P6-viditelnou hranu:
+
+```text
+src/llm/gateway.js -> src/upgrade/model-use-authority.js
+```
+
+Integrátorský writer ji přijal jediným exact `--accept-edge`; nepoužil glob ani
+adresářovou výjimku. Review a write výstup:
+
+```text
+MODULE_BOUNDARY_BASELINE_REVIEW baselineEdges=1014 currentEdges=1015
+added=1 removed=0 cycles=3->3 filesInCycles=28->28
+ADDED src/llm/gateway.js -> src/upgrade/model-use-authority.js
+MODULE_BOUNDARY_BASELINE_WRITTEN sourceRevision=7ccd8a584a01f45a9ed566aeba7a41c63a064907 edges=1015
+```
+
+Baseline metadata tím pinuje source revision, exact source tree a scanner blob.
+Zelený post-write ratchet a fresh-clone evidence se zapisují až nad commitnutým
+baseline SHA; tento odstavec netvrdí dopředu jejich výsledek.

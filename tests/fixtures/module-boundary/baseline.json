@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "9b4d9f792ac26cb54dbeac0f915d96656824c99b",
-  "sourceTree": "4efe347c844e9f67030c9d0cc2b635de0f8a05e4",
+  "sourceRevision": "7ccd8a584a01f45a9ed566aeba7a41c63a064907",
+  "sourceTree": "3154a2e2c58a980e220909a17a08305e478dbf02",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -559,6 +559,7 @@
     "src/llm/gateway.js -> src/llm/auth-types.js",
     "src/llm/gateway.js -> src/llm/model-ctx.js",
     "src/llm/gateway.js -> src/upgrade/model-universe-store.js",
+    "src/llm/gateway.js -> src/upgrade/model-use-authority.js",
     "src/llm/model-ctx.js -> src/core/logger.js",
     "src/llm/model-ctx.js -> src/llm/model-runtime-profile.js",
     "src/llm/model-ctx.js -> src/system/gpu-detector.js",
