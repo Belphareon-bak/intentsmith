@@ -413,6 +413,66 @@ function discoverGitRoot(root) {
   return gitRoot;
 }
 
+function scanPinnedRevision(root, baseline) {
+  const ownedTempDir = mkdtempSync(join(tmpdir(), 'intentsmith-module-boundary-source-'));
+  const checkout = join(ownedTempDir, 'source');
+  try {
+    const cloned = spawnSync('git', [
+      'clone',
+      '--quiet',
+      '--no-checkout',
+      '--shared',
+      '--',
+      root,
+      checkout,
+    ], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 30_000,
+      env: { ...process.env, LC_ALL: 'C' },
+    });
+    if (cloned.error || cloned.status !== 0) {
+      const detail = cloned.error?.message || cloned.stderr?.trim() || `exit ${cloned.status}`;
+      throw new RatchetInputError('BASELINE_SOURCE_REPLAY_FAILED', detail);
+    }
+    try {
+      runGit(checkout, [
+        'checkout',
+        '--quiet',
+        baseline.sourceRevision,
+        '--',
+        'src',
+        SCANNER,
+      ]);
+    } catch (error) {
+      if (error instanceof RatchetInputError) {
+        throw new RatchetInputError('BASELINE_SOURCE_REPLAY_FAILED', error.message);
+      }
+      throw error;
+    }
+    return validateGraph(scanGraph(checkout));
+  } finally {
+    rmSync(ownedTempDir, { recursive: true, force: true });
+  }
+}
+
+function verifyBaselineSourceGraph(baseline, sourceGraph) {
+  const comparison = compare(baseline, sourceGraph);
+  const exactCycles = sourceGraph.cycles === baseline.limits.cycles
+    && sourceGraph.filesInCycles === baseline.limits.filesInCycles;
+  if (comparison.added.length === 0 && comparison.removed.length === 0 && exactCycles) return;
+  const firstDelta = comparison.added[0]
+    ? `source-only edge ${comparison.added[0]}`
+    : comparison.removed[0]
+      ? `baseline-only edge ${comparison.removed[0]}`
+      : `cycle limits ${baseline.limits.cycles}/${baseline.limits.filesInCycles} `
+        + `do not match source ${sourceGraph.cycles}/${sourceGraph.filesInCycles}`;
+  throw new RatchetInputError(
+    'BASELINE_SOURCE_GRAPH_MISMATCH',
+    `baseline does not reproduce from sourceRevision ${baseline.sourceRevision}: ${firstDelta}`,
+  );
+}
+
 function verifyBaselineProvenance(root, baseline) {
   if (baseline.schemaVersion === 1) {
     return { status: 'legacy-unverified', currentRevision: null, distance: null };
@@ -461,9 +521,11 @@ function verifyBaselineProvenance(root, baseline) {
       `current ${SCANNER} blob ${currentScanner} differs from baseline ${baseline.scannerBlob}; regenerate explicitly`,
     );
   }
+  const sourceGraph = scanPinnedRevision(root, baseline);
+  verifyBaselineSourceGraph(baseline, sourceGraph);
   const currentRevision = runGit(root, ['rev-parse', 'HEAD']).stdout.trim();
   const distance = Number(runGit(root, ['rev-list', '--count', `${baseline.sourceRevision}..HEAD`]).stdout.trim());
-  return { status: 'verified', currentRevision, distance };
+  return { status: 'verified', currentRevision, distance, replayedEdges: sourceGraph.edges.length };
 }
 
 function printResult(baseline, graph, result, provenance) {
@@ -491,7 +553,8 @@ function printResult(baseline, graph, result, provenance) {
   if (provenance.status === 'verified') {
     console.log(
       `BASELINE_PROVENANCE_VERIFIED sourceRevision=${baseline.sourceRevision} `
-      + `currentRevision=${provenance.currentRevision} commitsBehind=${provenance.distance}`,
+      + `currentRevision=${provenance.currentRevision} commitsBehind=${provenance.distance} `
+      + `replayedEdges=${provenance.replayedEdges}`,
     );
   } else {
     console.log(`BASELINE_PROVENANCE_UNVERIFIED reason=${provenance.status}`);

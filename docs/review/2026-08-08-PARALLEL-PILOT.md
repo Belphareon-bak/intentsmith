@@ -172,7 +172,9 @@ do `T_recurring`**, nikoli do selhání.
 Schema baseline v2 navíc pinuje `sourceRevision`, Git tree `src/**` a blob
 scanneru. `sourceRevision` je reprodukovatelný zdroj baseline, ne
 self-referenční SHA následného baseline-only commitu: v Git checkoutu musí být
-lokální předek `HEAD` a oba piny se z něj znovu odvodí. Běh bez `.git` zůstane
+lokální předek `HEAD`, oba piny se z něj znovu odvodí a scanner nad připnutým
+tree musí reprodukovat přesně uložené hrany i limity cyklů. Ruční edit JSONu
+proto nemůže předstírat přijatou hranu se starou revizí. Běh bez `.git` zůstane
 funkční pro čistý export, ale provenance pravdivě označí `UNVERIFIED`.
 
 ### 3.2 Legitimní, ale neschválená architektonická změna

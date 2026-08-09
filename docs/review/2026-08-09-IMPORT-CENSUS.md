@@ -202,8 +202,10 @@ opravuje bez změny pair-based architektonické politiky:
   odmítá syntetický graf a růst cyklu, první průchod s novými hranami nic
   nezapíše a druhý vyžaduje přesnou `--accept-edge` pro každou přijatou hranu;
 - schema v2 váže baseline na zdrojový commit, jeho `src/**` tree a blob
-  scanneru. V Git checkoutu se provenance znovu ověří; čistý export bez `.git`
-  zůstane spustitelný, ale hlásí `UNVERIFIED` místo falešného ověření;
+  scanneru. V Git checkoutu se připnutý tree znovu proskenuje a musí přesně
+  reprodukovat hrany i cyklické limity; ruční allowlist s historickou revizí
+  tedy selže. Čistý export bez `.git` zůstane spustitelný, ale hlásí
+  `UNVERIFIED` místo falešného ověření;
 - autoritativní scanner je `scripts/module-graph.mjs`; datovaná P6 cesta je
   kompatibilitní wrapper. Limity jsou strukturovaná metadata scanneru, ne
   byteově připnutá věta baseline;

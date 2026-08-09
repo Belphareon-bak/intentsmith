@@ -215,7 +215,8 @@ kód používá checker nad skutečným P6 výstupem i test nad fixture.
 
 **Pozitivní:** aktuální strom projde; delta je prázdná.
 
-**Negativní** — každý nad syntetickou fixture, ne nad skutečným `src/**`:
+**Negativní** — grafové delta případy používají syntetickou fixture; writer a
+provenance případy izolovaný dočasný Git repozitář, nikdy skutečné `src/**`:
 
 1. přidaná hrana → nenulový exit, přesná dvojice ve výpisu;
 2. nový cyklus → nenulový exit;
@@ -225,7 +226,8 @@ kód používá checker nad skutečným P6 výstupem i test nad fixture.
 6. statická+dynamická forma stejné rozřešené dvojice → jedna normalizovaná
    hrana; nová dvojice se vypíše právě jednou;
 7. schema v2 → revision/tree/scanner provenance se v Git checkoutu znovu
-   ověří; chybějící nebo cizí commit skončí exit `2`;
+   ověří a připnutý tree musí reprodukovat přesný graf; chybějící/cizí commit
+   nebo ručně přidaná hrana se starým source tree skončí exit `2`;
 8. writer → migrace v1→v2, odmítnutí neodsouhlasené hrany bez zápisu a zápis
    až po přesné `--accept-edge`.
 

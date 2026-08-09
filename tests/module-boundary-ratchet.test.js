@@ -402,6 +402,28 @@ try {
     assertEqual(result.status, 2, result.stderr || result.stdout);
     assert(result.stderr.includes('INVALID_BASELINE_PROVENANCE'), result.stderr);
   });
+
+  test('schema v2 provenance rejects edges not reproduced by its pinned source tree', () => {
+    const repo = makeBaselineWriterRepo();
+    const fixtureBaseline = join(repo, 'tests/fixtures/module-boundary/baseline.json');
+    const migrate = run(['--root', repo, '--write-baseline']);
+    assertEqual(migrate.status, 0, migrate.stderr || migrate.stdout);
+    commitFixture(repo, ['tests/fixtures/module-boundary/baseline.json'], 'migrate provenance fixture');
+
+    writeFileSync(join(repo, 'src/dependency.js'), 'export const dependency = true;\n');
+    writeFileSync(join(repo, 'src/server.js'), "import './dependency.js';\n");
+    commitFixture(repo, ['src/dependency.js', 'src/server.js'], 'add dependency without baseline writer');
+
+    const forged = JSON.parse(readFileSync(fixtureBaseline, 'utf8'));
+    forged.edges = ['src/server.js -> src/dependency.js'];
+    writeFileSync(fixtureBaseline, `${JSON.stringify(forged, null, 2)}\n`);
+    commitFixture(repo, ['tests/fixtures/module-boundary/baseline.json'], 'forge baseline edge');
+
+    const result = run(['--root', repo]);
+    assertEqual(result.status, 2, result.stderr || result.stdout);
+    assert(result.stderr.includes('BASELINE_SOURCE_GRAPH_MISMATCH'), result.stderr);
+    assert(result.stderr.includes('baseline-only edge src/server.js -> src/dependency.js'), result.stderr);
+  });
 } finally {
   rmSync(scratch, { recursive: true, force: true });
 }
