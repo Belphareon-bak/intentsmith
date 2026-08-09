@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 391
+- Runnable programs: 392
 - Explicit support-module exclusions: 9
-- Profiles: offline=193, database=42, server=37, model=85, soak=19, manual=15
-- States: ACTIVE=294, HISTORICAL=15, BLOCKED=82
+- Profiles: offline=194, database=42, server=37, model=85, soak=19, manual=15
+- States: ACTIVE=295, HISTORICAL=15, BLOCKED=82
 
 ## Execution profiles
 
@@ -314,6 +314,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-MOBILE-NAVBAR-TEST` | `tests/mobile-navbar.test.js` | `C3-032` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-MOBILE-OPERATION-ISOLATION-TEST` | `tests/mobile-operation-isolation.test.js` | `C3-031` | T2 | `database` | 1 min | 5 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MOBILE-OVERVIEW-TEST` | `tests/mobile-overview.test.js` | `C3-032` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-MOBILE-RUN-SILENCE-TEST` | `tests/mobile-run-silence.test.js` | `C3-032` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MOBILE-TRUST-BAR-TEST` | `tests/mobile-trust-bar.test.js` | `C3-032` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODEL-CTX-TEST` | `tests/model-ctx.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODEL-SIMILARITY-TEST` | `tests/model-similarity.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

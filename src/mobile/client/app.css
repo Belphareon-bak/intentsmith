@@ -278,6 +278,9 @@ button { cursor: pointer; border: none; background: none; }
   font-variant-numeric: tabular-nums;
 }
 .run-silence p { margin: 5px 0 0; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+.run-silence .btn { margin-top: 10px; }
+/* On the root the strips stack; in a thread there is only ever one. */
+.ov-section .run-silence:last-child { margin-bottom: 0; }
 /* A steady mark, not a pulse: it says "active", never "this far along". */
 .run-mark {
   width: 8px; height: 8px; border-radius: 50%;

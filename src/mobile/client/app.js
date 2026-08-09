@@ -377,6 +377,9 @@ const state = {
   unread: 0,
   sending: false,
   sendingSince: null,
+  // Which attempt the in-flight send belongs to, so the RunSilence strip on the
+  // chat can offer the same read as the one on the root (§6.5).
+  sendingOperationId: null,
   // MS-20 (§6.9).  Deliberately four separate fields rather than one per-row
   // object: each of them enforces a rule.  `opsConfirm` is single-valued
   // because only one attempt may be armed for abandoning at a time, and
@@ -1094,6 +1097,22 @@ function overviewSectionCount(id) {
   return '';
 }
 
+/**
+ * D-UI-4 — this is where `Aktivní běhy` with its percentages would have been.
+ * Nothing is rendered when nothing is running: a permanent empty "runs" panel
+ * would imply the phone is watching, which it is not (`/m1` is pull-only).
+ */
+function overviewRunSilence() {
+  const running = runSilenceEntries();
+  if (!running.length) return '';
+  return `<section class="ov-section" aria-labelledby="ov-run-h">
+      <h2 class="ov-h" id="ov-run-h">Právě běží</h2>
+      ${running.map(entry => runSilence({
+        operationId: entry.operationId, createdAt: entry.createdAt, source: entry.source,
+      })).join('')}
+    </section>`;
+}
+
 function viewOverview() {
   // MS-05 is not a bar item (UI-REVIEW §3.5), so the root is the only place it
   // is reachable from — a deep destination of this section, like one chat.
@@ -1120,6 +1139,8 @@ function viewOverview() {
       <h2 class="ov-h" id="ov-appr-h">Čeká na tebe</h2>
       ${overviewApprovals()}
     </section>
+
+    ${overviewRunSilence()}
 
     <section class="ov-section" aria-labelledby="ov-conv-h">
       <h2 class="ov-h" id="ov-conv-h">Nedávné konverzace</h2>
@@ -1202,7 +1223,7 @@ function viewChat() {
     // (PLAN.md §3).  RunSilence (§6.5) says the honest thing instead: it is
     // running, we do not know where, and silence is not a freeze.
     body = `<div class="thread">${thread.messages.map(renderMessage).join('')}
-      ${state.sending ? runSilence() : ''}
+      ${state.sending ? runSilence({ operationId: state.sendingOperationId, createdAt: state.sendingSince }) : ''}
     </div>`;
   } else {
     body = '';
@@ -1213,14 +1234,61 @@ function viewChat() {
     + composer();
 }
 
+// ── RunSilence (UI-DESIGN §6.5 · D-UI-4) ────────────────────────────────────
+//
+// Until `/m1` has a surface for the agent log, `MS-15` is not a screen but a
+// strip, and the honest sentence is: we know it is running; we do not know
+// where.  That is the whole component.
+//
+// D-UI-4 put it where the operator's design had `Aktivní běhy` with `72 %` and
+// `41 %`.  A percentage is a stronger claim than "something is running" — it
+// needs a known whole — and no agent-log stream exists (`MR-07` is
+// BLOCKED_BY_CONTRACT, PLAN.md §4 P6 is NESPLNĚNO).  So the elapsed time is
+// reported, because it is a fact the phone owns, and nothing else is.  **No
+// false progress is filled in, not even temporarily.**
+//
+// "Zjistit stav" performs exactly one thing: `GET /m1/operations/:id`.  It may
+// answer `UNKNOWN` again, and the UI promises nothing about the result turning
+// up in the conversation, in notes, or in a run state.  It is the same read
+// MS-20 offers, under the same name, for the same reason (§9: `UNKNOWN` is
+// read, never repeated).
+
+/**
+ * §14 — a duration is measured against the clock that stamped its start.  A
+ * server row is corrected by the offset; a journal entry the phone wrote is
+ * not, because both ends of that subtraction are the phone's own clock.
+ */
+function runSilenceSeconds(entry) {
+  const raw = entry.createdAt;
+  const started = typeof raw === 'number'
+    ? raw
+    : Date.parse(String(raw ?? '').replace(' ', 'T') + 'Z');
+  if (!started || Number.isNaN(started)) return null;
+  const now = entry.source === 'server' ? serverNow() : Date.now();
+  return Math.max(0, Math.floor((now - started) / 1000));
+}
+
 /** UI-DESIGN §6.5 — RunSilence. Elapsed time is a fact; progress would not be. */
-function runSilence() {
-  const seconds = state.sendingSince ? Math.floor((Date.now() - state.sendingSince) / 1000) : 0;
-  const elapsed = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+function runSilence({ operationId = null, createdAt = null, source = 'local' } = {}) {
+  const seconds = runSilenceSeconds({ createdAt, source });
+  const elapsed = seconds === null
+    ? null
+    : `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
   return `<div class="run-silence" role="status">
-    <div class="run-silence-head"><span class="run-mark" aria-hidden="true"></span>Běží · ${elapsed}</div>
+    <div class="run-silence-head"><span class="run-mark" aria-hidden="true"></span>Běží${elapsed ? ` · ${elapsed}` : ''}</div>
     <p>Průběh běhu není z telefonu dostupný. Ticho neznamená zamrznutí.</p>
+    ${operationId ? `<button class="btn btn-secondary btn-sm" data-act="resolve-op" data-op="${esc(operationId)}">Zjistit stav</button>` : ''}
   </div>`;
+}
+
+/**
+ * What is actually running, as far as anyone knows: attempts the *server* still
+ * reports as `PENDING`, or that the journal has not heard back about.  An
+ * `UNKNOWN` attempt is deliberately not here — it is not running, it ended in a
+ * way nobody can name, and MS-20 is the screen for that.
+ */
+function runSilenceEntries() {
+  return ms20Entries().filter(entry => entry.lastKnownState === 'PENDING');
 }
 
 function renderMessage(message) {
@@ -2142,14 +2210,34 @@ function render() {
     operations: viewOperations,
     diagnostics: viewDiagnostics,
   };
-  $app.innerHTML = withTrustBar((views[state.route] || viewOverview)());
+  const screen = withTrustBar((views[state.route] || viewOverview)());
+  $app.innerHTML = screen;
   renderNavBar();
+  // §6.5 — the elapsed clock is the only thing that moves, and it moves only
+  // while a strip is actually on screen.  Driving this from the painted markup
+  // rather than from a caller means no screen can leave a timer running behind
+  // it, and none has to remember to start one.
+  syncRunSilenceTicker(screen.includes('class="run-silence"'));
 
   if (state.route === 'chat') {
     const scroll = document.getElementById('thread-scroll');
     if (scroll) scroll.scrollTop = scroll.scrollHeight;
     const input = document.getElementById('composer-input');
     if (input) autoGrow(input);
+  }
+}
+
+let runSilenceTimer = null;
+
+function syncRunSilenceTicker(active) {
+  if (active && !runSilenceTimer) {
+    runSilenceTimer = setInterval(render, 1000);
+    // Node keeps the process alive for a pending interval; a clock nobody is
+    // looking at must not be the reason a test run never ends.
+    runSilenceTimer?.unref?.();
+  } else if (!active && runSilenceTimer) {
+    clearInterval(runSilenceTimer);
+    runSilenceTimer = null;
   }
 }
 
@@ -2754,6 +2842,7 @@ async function doSend() {
   autoGrow(input);
   state.sending = true;
   state.sendingSince = Date.now();
+  state.sendingOperationId = operationId;
 
   state.data.thread = state.data.thread || { conversation: { id: conversationId }, messages: [] };
   state.data.thread.messages.push({
@@ -2762,14 +2851,10 @@ async function doSend() {
   });
   render();
 
-  // Re-render once a second only to advance the elapsed clock in RunSilence.
-  // It reports how long, never how far — there is no progress to report.
-  const tick = setInterval(() => { if (state.sending) render(); }, 1000);
-  try {
-    await sendOperation(operationId);
-  } finally {
-    clearInterval(tick);
-  }
+  // The elapsed clock is advanced by the one ticker in `render()`, which starts
+  // and stops from what is on screen — including the strips that outlive this
+  // send, such as an attempt still open after the app was killed.
+  await sendOperation(operationId);
 }
 
 /**
@@ -2797,11 +2882,13 @@ async function sendOperation(operationId) {
     setConn('ok');
     state.sending = false;
     state.sendingSince = null;
+    state.sendingOperationId = null;
     await loadThread(payload.conversationId);
     loadConversations();
   } catch (error) {
     state.sending = false;
     state.sendingSince = null;
+    state.sendingOperationId = null;
     if (error.kind === 'auth') return handleAuthFailure(error);
 
     if (error.kind === 'offline') {
@@ -3428,6 +3515,7 @@ export const __ms20 = {
   trustBar, trustZones, withTrustBar, screenLocks, serverNow,
   viewOverview, navItems, currentSection, sectionRoute, unknownScopes, NAV_ITEMS, ROUTE_SECTION,
   renderNavBar, navCount, newChat,
+  runSilence, runSilenceEntries, overviewRunSilence,
   viewApprovals, loadApprovals, approvalsGone,
   viewApproval, decideApproval, openApproval, approvalDecidable,
   unresolvedApprovalAttempt, unassociatedApprovalAttempt,
