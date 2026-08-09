@@ -5,9 +5,10 @@
 **CHANGES_REQUIRED / BLOCKED.** B1 je kompletní a B2 je PASS. B3 má zelenou
 offline connector vrstvu, ale skutečný referenční GPU pilot je červený. B4 má
 reviewované stable-ID/scoped-cancel a reconnect guardy; z rehydrate checkpointu
-jsou použitelné pouze epoch/race/snapshot ochrany, zatímco identity authority
-je nadále BLOCKED: serverová polovina 014/A je focused opravená, klient a
-společný live wire důkaz ještě ne. 011/A HTTP fallback authority je od
+jsou focused implementované serverová i klientská autorita 014/A včetně
+úplného partition, rejectu, quarantine a bounded restore. Celá identity/history
+obnova je nadále BLOCKED na 012/B a společném live wire důkazu. 011/A HTTP
+fallback authority je od
 `2ead4662` focused PASS; B4
 stále nemůže pravdivě splnit přesný terminal consumer ani atomickou
 empty-history obnovu bez implementace ostatních potvrzených rozhodnutí. Operátor
@@ -35,7 +36,7 @@ nepatří a netvoří celý M1 exit.
 | B1 `WP-M1-CONTRACT` | COMPLETE, rozhodnutí potvrzena | provisional v1 pro Conversation, Model a CoreEvent; fail-closed validátory JS/TS | produkční partial-tool persistence se netvrdí; `persistPartialToolResults` zatím nemá konzumenta |
 | B2 `WP-M1-CHAT` | PASS, operátorsky potvrzený směr | persist-before-response, conversation isolation, exact HTTP adapter, scoped cancel, process-restart persistence | globální HTTP/WS mutex je finding 005, ne skrytý claim |
 | B3 `WP-M1-MODEL` | BLOCKED | exact fake-provider connector, auth/purpose/model binding, VRAM preflight, sanitizované terminal outcomes | implementovat 006/D+ po oddělených milnících; zavést společný profil 009 a provést nový skutečný T3 běh od 4096 |
-| B4 `WP-M1-STUDIO` | PARTIAL / BLOCKED | stable ID, scoped cancel, rehydrate epoch/race/snapshot guardy, bounded reconnect, 011/A WS-only `NOT_SENT` a serverová autorita 014/A | dokončit 014 klienta, 012/B, 010/A+ a společný DB-backed/built journey, potom fresh-clone parity a bounded soak |
+| B4 `WP-M1-STUDIO` | PARTIAL / BLOCKED | stable ID, scoped cancel, bounded reconnect, 011/A WS-only `NOT_SENT` a serverová i klientská autorita 014/A | dokončit 012/B, 010/A+ a společný DB-backed/built journey, potom fresh-clone parity a bounded soak |
 
 Autoritativní podrobnosti jsou v:
 
@@ -61,7 +62,7 @@ Autoritativní podrobnosti jsou v:
 | 011 | BLOCK → A nyní / C v M2 | HTTP send fallback vypnout fail-closed | **implementováno na `2ead4662`**: tři call sites, `NOT_SENT`, phantom-ID guard a nulový-effect test; WS/HTTP parity je vědomě změněna |
 | 012 | BLOCK → B | existence-aware history route | transakční route a client negativy; GET 404 zachovává `_convId` |
 | 013 | DECIDE → A | 12 bounded retries + visible exhaustion | implementováno na client contract vrstvě; built journey chybí |
-| 014 | BLOCK → A | úplný ACK partition nebo request-bound reject, nikdy partial/in-memory autorita | durable-store guard, server/client reject kontrakt, DB-backed wire test a správný `sessionCount`/`sessionActive` clamp |
+| 014 | BLOCK → A | úplný ACK partition nebo request-bound reject, nikdy partial/in-memory autorita | server/client focused implementace a restore clamp hotové; chybí společný DB-backed/built wire důkaz |
 
 Každý detail, varianta a konkrétní cena přepnutí je v odpovídajícím souboru
 `docs/decisions/NNN-*.md`. Tabulka zapisuje operátorskou volbu; stav WP se mění
@@ -181,10 +182,10 @@ git log --reverse --stat \
    **B3-FAILOVER** teprve potom zavede opt-in desired/active stav s pravdivým
    auditem, verify, restartem a bezpečným restore. Opt-in autorita je JSON
    `user_settings.id=1` a každá chyba fail-close; L0-9 se změní až po důkazu.
-3. 011/A je focused PASS. Zbývající B4 pořadí je explicitní: 010/A+;
-   potom rehydrate postupuje 014 server → 014 klient → 012 route →
-   012 klient → společný DB-backed live
-   wire test. ACK vyžaduje durable store a matching reject končí okamžitě jako
+3. 011/A a obě poloviny 014/A jsou focused PASS. Zbývající B4 pořadí je
+   explicitní: 012 route → 012 klient → společný DB-backed live wire test;
+   010/A+ zůstává samostatnou dependency před terminal ledgerem a built
+   journey. ACK vyžaduje durable store a matching reject končí okamžitě jako
    degraded. Pro M1 platí WS send + fail-closed `NOT_SENT`; HTTP send parity se
    vrací až nad M2 effect authority.
 4. Po odblokování B4 proběhne ještě před B5 skutečná Theia multi-panel/cancel/

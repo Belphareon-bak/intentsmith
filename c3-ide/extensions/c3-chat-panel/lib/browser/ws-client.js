@@ -31,6 +31,7 @@ var _wsConnectionEpoch = 0;
 var _rehydrateEpoch = 0;
 var _pendingRehydrate = null;
 var _rehydrateAckTimeoutMs = 5000;
+var _rehydrateRequestCounter = 0;
 /* Track which session made the last WS request — reliable fallback for routing */
 var _lastSendSessionIdx = 0;
 var _studioConversationCounter = 0;
@@ -70,6 +71,7 @@ function _selectConversationId(session) {
 function _publishConversationId(session, sessionIdx, selected) {
   if (!selected || !selected.isNew) return;
   session._convId = selected.conversationId;
+  session._rehydrateState = null;
   C3Bus.emit('session:identity', {
     idx: typeof sessionIdx === 'number' ? sessionIdx : null,
     conversationId: selected.conversationId
@@ -114,6 +116,42 @@ function _isCurrentRehydrate(run) {
     && run.socket === _chatWs;
 }
 
+function _createRehydrateRequestId(connectionEpoch, rehydrateEpoch) {
+  _rehydrateRequestCounter++;
+  var randomPart = null;
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      randomPart = crypto.randomUUID();
+    }
+  } catch (e) {}
+  if (!randomPart) randomPart = Date.now().toString(36);
+  return (
+    'rehydrate-' + connectionEpoch + '-' + rehydrateEpoch + '-'
+    + _rehydrateRequestCounter + '-' + randomPart
+  ).slice(0, 128);
+}
+
+function _hasExactKeys(value, expectedKeys) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  var actualKeys = Object.keys(value).sort();
+  var sortedExpected = expectedKeys.slice().sort();
+  if (actualKeys.length !== sortedExpected.length) return false;
+  for (var i = 0; i < actualKeys.length; i++) {
+    if (actualKeys[i] !== sortedExpected[i]) return false;
+  }
+  return true;
+}
+
+function _snapshotSessionIsCurrent(snapshot) {
+  return !!snapshot
+    && typeof _sessions !== 'undefined'
+    && snapshot.idx >= 0
+    && snapshot.idx < _sessions.length
+    && _sessions[snapshot.idx] === snapshot.session
+    && snapshot.session
+    && snapshot.session._convId === snapshot.conversationId;
+}
+
 function _emitRehydrateComplete(run, restoredCount, invalidCount, failedCount) {
   if (!_isCurrentRehydrate(run)) return;
   if (typeof fetchBackendData === 'function') {
@@ -127,19 +165,25 @@ function _emitRehydrateComplete(run, restoredCount, invalidCount, failedCount) {
   });
 }
 
-function _clearInvalidSession(snapshot) {
+function _clearInvalidSession(run, snapshot) {
   var s = snapshot.session;
-  if (!s || s._convId !== snapshot.conversationId) return false;
+  if (
+    !_isCurrentRehydrate(run)
+    || !_snapshotSessionIsCurrent(snapshot)
+    || !_chatStateIsUnchanged(snapshot, snapshot.capturedChatState)
+  ) return false;
   s._convId = null;
   s._agentId = null;
   s._label = '';
+  s._rehydrateState = null;
   if (s.chat) {
     s.chat.msgs = [];
     s.chat._thinking = null;
   }
-  C3Bus.emit('session:invalid', {
+  C3Bus.emit('session:invalidated', {
     idx: snapshot.idx,
-    sessionId: snapshot.conversationId
+    sessionRef: s,
+    previousConversationId: snapshot.conversationId
   });
   return true;
 }
@@ -172,6 +216,7 @@ function _captureChatState(snapshot) {
   try {
     return {
       chat: snapshot.session.chat,
+      messages: snapshot.session.chat.msgs,
       signature: JSON.stringify({
         messages: snapshot.session.chat.msgs,
         thinking: snapshot.session.chat._thinking
@@ -183,7 +228,12 @@ function _captureChatState(snapshot) {
 }
 
 function _chatStateIsUnchanged(snapshot, captured) {
-  if (!captured || !snapshot.session || snapshot.session.chat !== captured.chat) return false;
+  if (
+    !captured
+    || !_snapshotSessionIsCurrent(snapshot)
+    || snapshot.session.chat !== captured.chat
+    || snapshot.session.chat.msgs !== captured.messages
+  ) return false;
   try {
     return JSON.stringify({
       messages: snapshot.session.chat.msgs,
@@ -206,30 +256,41 @@ function _failPendingRehydrate(run) {
   if (!_isCurrentRehydrate(run)) return;
   clearTimeout(run.timer);
   if (_pendingRehydrate === run) _pendingRehydrate = null;
-  _emitRehydrateComplete(run, 0, run.localInvalidCount, run.snapshots.length);
+  _emitRehydrateComplete(
+    run,
+    0,
+    0,
+    run.snapshots.length + run.localQuarantinedCount
+  );
 }
 
 function _rehydrateSessions(connectionEpoch, socket) {
   if (typeof _sessions === 'undefined') return;
   if (_pendingRehydrate) clearTimeout(_pendingRehydrate.timer);
 
+  var rehydrateEpoch = ++_rehydrateEpoch;
   var run = {
-    epoch: ++_rehydrateEpoch,
+    epoch: rehydrateEpoch,
     connectionEpoch: connectionEpoch,
     socket: socket,
+    requestId: _createRehydrateRequestId(connectionEpoch, rehydrateEpoch),
     requestedIds: [],
     requestedSet: Object.create(null),
     snapshots: [],
-    localInvalidCount: 0,
+    localQuarantinedCount: 0,
     timer: null
   };
 
   _sessions.forEach(function(s, idx) {
     if (!s || !s._convId) return;
     if (!_isConversationId(s._convId)) {
-      if (_clearInvalidSession({ session: s, idx: idx, conversationId: s._convId })) {
-        run.localInvalidCount++;
-      }
+      s._rehydrateState = 'quarantined';
+      run.localQuarantinedCount++;
+      C3Bus.emit('session:quarantined', {
+        idx: idx,
+        sessionRef: s,
+        sessionId: s._convId
+      });
       return;
     }
     var snapshot = { session: s, idx: idx, conversationId: s._convId };
@@ -243,11 +304,26 @@ function _rehydrateSessions(connectionEpoch, socket) {
 
   if (run.requestedIds.length === 0) {
     _pendingRehydrate = null;
-    _emitRehydrateComplete(run, 0, run.localInvalidCount, 0);
+    _emitRehydrateComplete(run, 0, 0, run.localQuarantinedCount);
+    return;
+  }
+  if (run.requestedIds.length > 32) {
+    _pendingRehydrate = null;
+    _emitRehydrateComplete(
+      run,
+      0,
+      0,
+      run.snapshots.length + run.localQuarantinedCount
+    );
     return;
   }
   if (!_isCurrentRehydrate(run) || !socket || socket.readyState !== 1) {
-    _emitRehydrateComplete(run, 0, run.localInvalidCount, run.snapshots.length);
+    _emitRehydrateComplete(
+      run,
+      0,
+      0,
+      run.snapshots.length + run.localQuarantinedCount
+    );
     return;
   }
 
@@ -258,7 +334,11 @@ function _rehydrateSessions(connectionEpoch, socket) {
   try {
     socket.send(JSON.stringify({
       channel: 'control',
-      data: { action: 'rehydrate', conversationIds: run.requestedIds }
+      data: {
+        action: 'rehydrate',
+        rehydrateRequestId: run.requestId,
+        conversationIds: run.requestedIds
+      }
     }));
   } catch(e) {
     _failPendingRehydrate(run);
@@ -275,33 +355,75 @@ function _handleRehydrateAck(data, connectionEpoch, socket) {
   ) {
     return false;
   }
+  if (data.rehydrateRequestId !== run.requestId) return false;
+
+  function rejectMatchingMalformedAck() {
+    clearTimeout(run.timer);
+    if (_pendingRehydrate === run) _pendingRehydrate = null;
+    _emitRehydrateComplete(
+      run,
+      0,
+      0,
+      run.snapshots.length + run.localQuarantinedCount
+    );
+    return true;
+  }
+
+  if (
+    !_hasExactKeys(data, [
+      'action',
+      'rehydrateRequestId',
+      'complete',
+      'validIds',
+      'invalidIds'
+    ])
+    || data.action !== 'rehydrate_ack'
+    || data.complete !== true
+    || !Array.isArray(data.validIds)
+    || !Array.isArray(data.invalidIds)
+  ) return rejectMatchingMalformedAck();
+
+  var partitionSet = Object.create(null);
+  var validSet = Object.create(null);
+  var invalidSet = Object.create(null);
+  var partitions = [
+    { ids: data.validIds, target: validSet },
+    { ids: data.invalidIds, target: invalidSet }
+  ];
+  for (var partitionIndex = 0; partitionIndex < partitions.length; partitionIndex++) {
+    var partition = partitions[partitionIndex];
+    for (var idIndex = 0; idIndex < partition.ids.length; idIndex++) {
+      var id = partition.ids[idIndex];
+      if (
+        !_isConversationId(id)
+        || !run.requestedSet[id]
+        || partitionSet[id]
+      ) return rejectMatchingMalformedAck();
+      partitionSet[id] = true;
+      partition.target[id] = true;
+    }
+  }
+  if (Object.keys(partitionSet).length !== run.requestedIds.length) {
+    return rejectMatchingMalformedAck();
+  }
+
   clearTimeout(run.timer);
   _pendingRehydrate = null;
 
-  if (!Array.isArray(data.validIds)) {
-    _emitRehydrateComplete(run, 0, run.localInvalidCount, run.snapshots.length);
-    return true;
-  }
-  var validSet = Object.create(null);
-  for (var i = 0; i < data.validIds.length; i++) {
-    var id = data.validIds[i];
-    if (!_isConversationId(id) || !run.requestedSet[id] || validSet[id]) {
-      _emitRehydrateComplete(run, 0, run.localInvalidCount, run.snapshots.length);
-      return true;
-    }
-    validSet[id] = true;
-  }
-
-  var invalidCount = run.localInvalidCount;
+  var invalidCount = 0;
   var conflictedCount = 0;
   var validSnapshots = [];
   run.snapshots.forEach(function(snapshot) {
     if (validSet[snapshot.conversationId]) {
-      validSnapshots.push(snapshot);
-    } else if (!_chatStateIsUnchanged(snapshot, snapshot.capturedChatState)) {
-      conflictedCount++;
-    } else if (_clearInvalidSession(snapshot)) {
+      if (_chatStateIsUnchanged(snapshot, snapshot.capturedChatState)) {
+        validSnapshots.push(snapshot);
+      } else {
+        conflictedCount++;
+      }
+    } else if (invalidSet[snapshot.conversationId] && _clearInvalidSession(run, snapshot)) {
       invalidCount++;
+    } else {
+      conflictedCount++;
     }
   });
 
@@ -351,9 +473,45 @@ function _handleRehydrateAck(data, connectionEpoch, socket) {
       run,
       restoredCount,
       invalidCount,
-      conflictedCount + validSnapshots.length - restoredCount
+      run.localQuarantinedCount
+        + conflictedCount
+        + validSnapshots.length
+        - restoredCount
     );
   });
+  return true;
+}
+
+function _handleRehydrateReject(data, connectionEpoch, socket) {
+  var run = _pendingRehydrate;
+  if (
+    !run
+    || !_isCurrentRehydrate(run)
+    || run.connectionEpoch !== connectionEpoch
+    || run.socket !== socket
+    || data.rehydrateRequestId !== run.requestId
+  ) return false;
+
+  var allowedReasons = {
+    INVALID_CONVERSATION_SET: true,
+    TOO_MANY_CONVERSATIONS: true,
+    INVALID_CONVERSATION_ID: true,
+    DUPLICATE_CONVERSATION_ID: true
+  };
+  if (
+    !_hasExactKeys(data, ['action', 'rehydrateRequestId', 'reason'])
+    || data.action !== 'rehydrate_reject'
+    || allowedReasons[data.reason] !== true
+  ) return false;
+
+  clearTimeout(run.timer);
+  _pendingRehydrate = null;
+  _emitRehydrateComplete(
+    run,
+    0,
+    0,
+    run.snapshots.length + run.localQuarantinedCount
+  );
   return true;
 }
 
@@ -529,6 +687,22 @@ function _wsConnect() {
 
     /* ═══ Post-handshake: channel routing ═══ */
     var d = msg.data || {};
+    /* Identity-authority frames must never pass through generic routing first. */
+    if (msg.channel === 'control' && d.action === 'rehydrate_ack') {
+      _handleRehydrateAck(d, connectionEpoch, socket);
+      return;
+    }
+    if (msg.channel === 'control' && d.action === 'rehydrate_reject') {
+      _handleRehydrateReject(d, connectionEpoch, socket);
+      return;
+    }
+    if (msg.channel === 'control' && d.action === 'session_invalid') {
+      /* Legacy notification has no complete request-bound authority. */
+      C3Bus.emit('session:identity_warning', {
+        sessionId: d.sessionId || d.conversationId || null
+      });
+      return;
+    }
     var si = _routeToSession(d);
 
     switch (msg.channel) {
@@ -565,11 +739,7 @@ function _wsConnect() {
         break;
 
       case 'control':
-        if (d.action === 'rehydrate_ack') {
-          _handleRehydrateAck(d, connectionEpoch, socket);
-        } else if (d.action === 'session_invalid') {
-          C3Bus.emit('session:invalid', { sessionId: d.sessionId || d.conversationId });
-        } else if (d.action === 'model_pull_progress') {
+        if (d.action === 'model_pull_progress') {
           C3Bus.emit('model:pull_progress', d);
         } else if (d.action === 'model_validation_progress') {
           C3Bus.emit('model:validation_progress', d);

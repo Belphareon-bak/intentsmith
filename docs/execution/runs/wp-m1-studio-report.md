@@ -1,9 +1,9 @@
 # WP-M1-STUDIO — průběžný report
 
 - **stav WP:** `PARTIAL / BLOCKED` po REVIEW GATE 1; stable-ID/scoped-cancel,
-  reconnect, rehydrate epoch/race/snapshot guardy a 011/A fail-closed send jsou
-  použitelné; serverová polovina 014/A je implementovaná, ale klientská
-  identity-cleanup autorita, 012 a společný live wire důkaz zůstávají otevřené
+  reconnect, rehydrate epoch/race/snapshot guardy, 011/A fail-closed send a
+  serverová i klientská polovina 014/A jsou focused implementované; 012,
+  společný live wire důkaz a 010/A+ zůstávají otevřené
 - **base SHA:** `b7d0dbf61370b52061e6a736517ecdcb53118209`
 - **scope:** B4 podle `docs/execution/m1-batch.md`
 - **UI baseline:** výslovně mimo scope; spuštěné Studio není finální UI
@@ -504,6 +504,49 @@ truthy místo přesného boolean lookupu `66/1`, exit `1`; změna limitu z `>32`
 na `>=32` rovněž `66/1`, exit `1`. Finální obnovený zdroj je výše uvedených
 `67/0`; aserce nebyly kvůli zelené měněné.
 
+## Checkpoint 8 — klientská autorita rehydrate 014/A
+
+- **stav klientského dílčího kontraktu:** `PASS focused`
+- **celý B4 / Gate 1:** nadále `BLOCKED`
+
+Každý rehydrate běh nese unikátní request ID a klient přijme jen matching
+exact ACK s úplným `validIds/invalidIds` partition. Foreign nebo missing ID
+neukončí timer. Matching malformed ACK degraduje bez history/cleanup effectu;
+exact matching typed reject degraduje okamžitě, zatímco foreign či malformed
+reject aktuální běh neukončí. ACK/reject jsou dispatchované před generic
+conversation routingem, takže cizí control payload nemůže přiřadit identitu
+prázdnému panelu.
+
+Explicitní invalidita se uplatní jen na původní živý slot se stejným session,
+chat a messages objektem, conversation ID a nezměněnou timeline signaturou.
+Transport mutaci provede jednou a UI pouze persistuje přesně korelovaný
+`session:invalidated`; legacy `session_invalid` je neautoritativní warning.
+Malformed lokální identita zůstává se všemi daty quarantined/read-only a chat
+effect fail-closes. Restore normalizuje celočíselný count na `1..3`, active na
+platný index, invalidní typy na defaulty a iteraci ořízne na bounded počet.
+Degraded reconnect už není v UI hlášen zeleným success logem.
+
+### Focused evidence a mutace
+
+| Příkaz / mutace | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-studio-client.test.js` | 46 passed, 0 failed, 0 skipped | 0 |
+| `node tests/ws-bridge.test.js` | 67 passed, 0 failed | 0 |
+| `node tests/m1-contract.test.js` | 26 passed, 0 failed, 0 skipped | 0 |
+| foreign ACK correlation guard odstraněn | 45 passed, 1 failed | 1 |
+| exact live-slot owner guard odstraněn | 45 passed, 1 failed | 1 |
+| legacy warning propuštěn do generic routeru | 45 passed, 1 failed | 1 |
+| horní `sessionCount` bound odstraněn | 45 passed, 1 failed | 1 |
+
+Po každé mutaci byla aplikována přesná opačná záplata; obnovený zdroj znovu
+prošel `46/46` a `git diff --check`. Tento checkpoint ještě nemění history
+route. Do 012/B se proto `200 []` záměrně nepovažuje za autoritativní prázdnou
+historii. DB-backed server+client live wire, production build a Electron
+journey nebyly spuštěny a nejsou tímto focused výsledkem nahrazeny.
+Status bar v tomto checkpointu nadále vyjadřuje transport/backend health, ne
+úspěšnost rehydrate; degraded restore je viditelný warning v agent logu, nikoli
+nový amber health stav.
+
 ## Otevřené nálezy pro další checkpointy
 
 1. Commitnutý `@c3/protocol/lib/index.js` je stale stub. Operátor schválil
@@ -513,10 +556,9 @@ na `>=32` rovněž `66/1`, exit `1`. Finální obnovený zdroj je výše uveden�
 2. Async attachment callback je focused uzavřený Findingem 009: reset,
    close, replace a identity/timeline drift starý callback fail-closed zruší.
    Durable retry a globální conversation mutex tím nejsou vyřešené.
-3. Race-safe klient a bounded reconnect checkpointy jsou hotové. Serverová
-   polovina 014/A už zakazuje partial/in-memory ACK autoritu; klientská polovina
-   a společný live wire důkaz zůstávají otevřené. 012/B následně rozliší
-   existující prázdnou historii od 404.
+3. Race-safe klient, bounded reconnect a obě poloviny 014/A jsou focused
+   hotové. Společný DB-backed live wire důkaz zůstává otevřený. 012/B následně
+   rozliší existující prázdnou historii od 404.
 4. Existující Electron runner obchází veřejný `sendChat()` a připíná legacy
    pořadí assistant-before-turn-end; pro B4 acceptance se musí změnit.
 5. Terminal STOP neruší backendový proces. To je M2 finding mimo B4 chat scope,
@@ -526,8 +568,8 @@ na `>=32` rovněž `66/1`, exit `1`. Finální obnovený zdroj je výše uveden�
 
 | Povinné chování briefu | Stav | Evidence / důvod |
 |---|---|---|
-| stabilní panel identity a cancel A bez zásahu do B | PASS | client 33/33; WS bridge 67/67 včetně scoped cancel a phantom-ID negativu |
-| serverem ověřený rehydrate a invalid ID cleanup | PARTIAL / BLOCKED | server 014/A je focused opravený; klient stále používá implicitní komplement, 012/B ani společný DB-backed live wire journey nejsou hotové |
+| stabilní panel identity a cancel A bez zásahu do B | PASS | client 46/46; WS bridge 67/67 včetně scoped cancel a phantom-ID negativu |
+| serverem ověřený rehydrate a invalid ID cleanup | PARTIAL / BLOCKED | server i klient 014/A jsou focused opravené; 012/B ani společný DB-backed live wire journey nejsou hotové |
 | bounded reconnect a řízený shutdown | PASS na client contract vrstvě | přesný cap, handshake timeout, async-close race a destroy testy |
 | přesný M1 terminal consumer, late assistant a spinner terminal větve | BLOCKED | 010/A+ je schválené, ale protocol delivery, negotiated wire, ledger a built journey chybí |
 | HTTP fallback: non-2xx nikdy jako assistant a žádný effect bypass | PASS focused | 011/A na `2ead4662`: tři WS-only větve, `NOT_SENT`, nulový HTTP/simulovaný downstream efekt; built journey stále chybí |
@@ -542,7 +584,7 @@ B4 jsou `50280fcd`, `d145e95e`,
 `446d197f`, `8e68a92e`, `a4067cd6` a `2ead4662`; výchozí dependency je
 `b7d0dbf6`.
 Rozhodovací fronta B4 010–014 je operátorsky uzavřená. B4 je přesto `BLOCKED`,
-dokud se 010/A+, klientská část 014/A, 012/B a společná built/live journey
-nedokončí. Server 014/A i 011/A jsou focused PASS, nikoli celé B4. 013/A je potvrzený
+dokud se 010/A+, 012/B a společná built/live journey nedokončí. Server i klient
+014/A a 011/A jsou focused PASS, nikoli celé B4. 013/A je potvrzený
 client-contract checkpoint. Souhrnný balík je v
 `docs/execution/review-gate-1.md`.

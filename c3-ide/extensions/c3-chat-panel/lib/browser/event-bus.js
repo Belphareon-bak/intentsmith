@@ -16,7 +16,9 @@
 //   workspace:change   — file watcher batch {data}
 //   status:update      — context%, health {sessionIdx?, data?, health?}
 //   session:changed    — session state changed {idx}
-//   session:invalid    — orphan session cleared {idx, sessionId}
+//   session:invalidated — complete ACK cleared exact session {idx, sessionRef, previousConversationId}
+//   session:quarantined — malformed local identity preserved read-only {idx, sessionRef, sessionId}
+//   session:identity_warning — uncorrelated legacy identity warning {sessionId}
 //   edit:request       — ask-mode edit request {sessionIdx, event}
 //   edit:resolved      — approve/reject done {reqId, action}
 //

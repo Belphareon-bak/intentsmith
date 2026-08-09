@@ -5667,8 +5667,14 @@ function _initBusSubscriptions() {
   });
 
   /* WS reconnected */
-  C3Bus.on('ws:reconnected', function() {
-    if(window._c3)window._c3.agentLog('TOOL','✅ Spojení obnoveno.');
+  C3Bus.on('ws:reconnected', function(ev) {
+    if(window._c3){
+      if(ev&&ev.status==='degraded'){
+        window._c3.agentLog('TOOL','⚠️ Spojení obnoveno, ale některé relace se nepodařilo bezpečně obnovit.');
+      }else{
+        window._c3.agentLog('TOOL','✅ Spojení obnoveno.');
+      }
+    }
     renderSidebar();
   });
 
@@ -5798,17 +5804,33 @@ function _initBusSubscriptions() {
     _persistSessionState();
   });
 
-  /* Session invalid (orphan) */
-  C3Bus.on('session:invalid', function(ev) {
-    var s=(typeof ev.idx==='number'&&_sessions[ev.idx])?_sessions[ev.idx]:null;
-    if(!s){_sessions.forEach(function(candidate){if(!s&&candidate._convId===ev.sessionId)s=candidate;});}
-    if(!s)return;
+  /* Transport already cleared this exact unchanged session after a complete ACK. */
+  C3Bus.on('session:invalidated', function(ev) {
+    if(
+      !ev
+      || typeof ev.idx!=='number'
+      || _sessions[ev.idx]!==ev.sessionRef
+      || ev.sessionRef._convId!==null
+    )return;
+    var s=ev.sessionRef;
     _chatInvalidatePreparedSends(s.chat);
-    s._convId=null;s._agentId=null;s._label='';
-    if(s.chat){s.chat.msgs=[];s.chat._thinking=null;}
     _persistSessionState();
     if(window._c3)window._c3.agentLog('TOOL','⚠️ Konverzace již neexistuje na serveru.');
     renderChat();renderAgent();
+  });
+
+  /* Malformed persisted identity is preserved but cannot perform chat effects. */
+  C3Bus.on('session:quarantined', function(ev) {
+    if(!ev||typeof ev.idx!=='number'||_sessions[ev.idx]!==ev.sessionRef)return;
+    _chatInvalidatePreparedSends(ev.sessionRef.chat);
+    _persistSessionState();
+    if(window._c3)window._c3.agentLog('TOOL','⚠️ Relace má neplatnou lokální identitu a zůstává pouze pro čtení.');
+    renderChat();renderAgent();
+  });
+
+  /* A legacy uncorrelated warning has no authority to mutate a panel. */
+  C3Bus.on('session:identity_warning', function() {
+    if(window._c3)window._c3.agentLog('TOOL','⚠️ Server ohlásil neověřený stav identity; relace byla zachována.');
   });
 }
 
@@ -5899,6 +5921,16 @@ window.addEventListener('beforeunload', function() {
   } catch(e) {}
 });
 
+function _normalizePersistedSessionState(saved) {
+  var count=(saved&&Number.isInteger(saved.sessionCount))
+    ?Math.max(1,Math.min(3,saved.sessionCount)):2;
+  var active=(saved&&Number.isInteger(saved.sessionActive))
+    ?Math.max(0,Math.min(count-1,saved.sessionActive)):0;
+  var sessions=(saved&&Array.isArray(saved.sessions))
+    ?saved.sessions.slice(0,count):[];
+  return {sessionCount:count,sessionActive:active,sessions:sessions};
+}
+
 /* ── Restore session state from localStorage ── */
 function _restoreSessionState() {
   try {
@@ -5916,10 +5948,12 @@ function _restoreSessionState() {
     }
     var saved = JSON.parse(localStorage.getItem('c3-session-state') || 'null');
     if (saved) {
-      _sessionCount = saved.sessionCount || 2;
-      _sessionActive = saved.sessionActive || 0;
+      var normalizedSaved=_normalizePersistedSessionState(saved);
+      _sessionCount=normalizedSaved.sessionCount;
+      _sessionActive=normalizedSaved.sessionActive;
       _ensureSessions();
-      (saved.sessions || []).forEach(function(ss, i) {
+      normalizedSaved.sessions.forEach(function(ss, i) {
+        if(!ss||typeof ss!=='object'||Array.isArray(ss))return;
         if (_sessions[i]) {
           if (_settingsVals.restoreSession) {
             _sessions[i]._convId = ss.convId || null;

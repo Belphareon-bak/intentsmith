@@ -126,6 +126,31 @@ function sendServerMessage(socket, message) {
   socket.onmessage({ data: JSON.stringify(message) });
 }
 
+function lastRehydrateRequest(socket) {
+  const request = [...socket.sent].reverse().find(message => (
+    message.channel === 'control'
+    && message.data?.action === 'rehydrate'
+  ));
+  assert.ok(request, 'rehydrate request was not sent');
+  return request.data;
+}
+
+function sendCompleteRehydrateAck(socket, { validIds, invalidIds, ...overrides }) {
+  const request = lastRehydrateRequest(socket);
+  sendServerMessage(socket, {
+    channel: 'control',
+    data: {
+      action: 'rehydrate_ack',
+      rehydrateRequestId: request.rehydrateRequestId,
+      complete: true,
+      validIds,
+      invalidIds,
+      ...overrides,
+    },
+  });
+  return request;
+}
+
 function controlledTimers() {
   const timers = [];
   return {
@@ -389,7 +414,7 @@ test('failed first send cannot publish a phantom identity or lose NOT_SENT state
   assert.equal(pane._convId, null);
   assert.equal(pane.chat.msgs[0].text, 'draft');
   assert.equal(pane.chat.msgs[0].tag, 'NOT_SENT');
-  assert.equal(busEvents.some(event => event.name === 'session:invalid'), false);
+  assert.equal(busEvents.some(event => event.name === 'session:invalidated'), false);
 });
 
 test('synchronous WebSocket send failure leaves a fresh identity unpublished', () => {
@@ -898,7 +923,7 @@ test('all destructive session transitions invalidate prepared sends before reuse
   const showEnd = source.indexOf('function _openTargetDialogAction', showStart);
   const closeStart = source.indexOf('function _closeDialogAction');
   const closeEnd = source.indexOf('var _chatContainer', closeStart);
-  const invalidStart = source.indexOf("C3Bus.on('session:invalid'");
+  const invalidStart = source.indexOf("C3Bus.on('session:invalidated'");
   const invalidEnd = source.indexOf('/* ── Health state', invalidStart);
   const escapeStart = source.indexOf("case 'Escape':");
   const escapeEnd = source.indexOf('/* Excluded:', escapeStart);
@@ -1074,17 +1099,17 @@ await testAsync('history waits for ACK, ambiguous empty history preserves data, 
   });
 
   assert.equal(fetchUrls.length, 0, 'history fetch started before durable ACK');
-  assert.deepEqual(socket.sent.at(-1), {
-    channel: 'control',
-    data: {
-      action: 'rehydrate',
-      conversationIds: ['studio-rehydrate-A', 'studio-rehydrate-B'],
-    },
-  });
+  const request = lastRehydrateRequest(socket);
+  assert.equal(request.action, 'rehydrate');
+  assert.match(request.rehydrateRequestId, /^rehydrate-[A-Za-z0-9._:-]+$/);
+  assert.deepEqual(
+    Array.from(request.conversationIds),
+    ['studio-rehydrate-A', 'studio-rehydrate-B'],
+  );
 
-  sendServerMessage(socket, {
-    channel: 'control',
-    data: { action: 'rehydrate_ack', validIds: ['studio-rehydrate-A'] },
+  sendCompleteRehydrateAck(socket, {
+    validIds: ['studio-rehydrate-A'],
+    invalidIds: ['studio-rehydrate-B'],
   });
   await drainMicrotasks();
 
@@ -1110,7 +1135,7 @@ await testAsync('history waits for ACK, ambiguous empty history preserves data, 
     }),
   );
   assert.equal(
-    busEvents.filter(event => event.name === 'session:invalid').length,
+    busEvents.filter(event => event.name === 'session:invalidated').length,
     1,
   );
 });
@@ -1130,9 +1155,9 @@ await testAsync('prototype-named conversation identity is restored without map-k
     },
   });
 
-  sendServerMessage(socket, {
-    channel: 'control',
-    data: { action: 'rehydrate_ack', validIds: ['constructor'] },
+  sendCompleteRehydrateAck(socket, {
+    validIds: ['constructor'],
+    invalidIds: [],
   });
   await drainMicrotasks();
 
@@ -1145,6 +1170,194 @@ await testAsync('prototype-named conversation identity is restored without map-k
   );
 });
 
+await testAsync('request IDs are unique and a foreign ACK cannot end the current timer', async () => {
+  const pane = session('studio-rehydrate-request-id');
+  const clock = controlledTimers();
+  let fetchCount = 0;
+  const { busEvents, client, handshake, socket, sockets } = loadClient([pane], {
+    clearTimeout: clock.clearTimeout,
+    fetch: async () => {
+      fetchCount++;
+      return {
+        ok: true,
+        json: async () => ({
+          messages: [{ role: 'assistant', content: 'current run', metadata: null }],
+        }),
+      };
+    },
+    setTimeout: clock.setTimeout,
+  });
+  const firstRequest = lastRehydrateRequest(socket);
+  const firstTimer = clock.active().find(timer => timer.delay === 5000);
+  assert.ok(firstTimer);
+
+  sendServerMessage(socket, {
+    channel: 'control',
+    data: {
+      action: 'rehydrate_ack',
+      complete: true,
+      validIds: [pane._convId],
+      invalidIds: [],
+    },
+  });
+  sendServerMessage(socket, {
+    channel: 'control',
+    data: {
+      action: 'rehydrate_ack',
+      rehydrateRequestId: `${firstRequest.rehydrateRequestId}-foreign`,
+      complete: true,
+      validIds: [pane._convId],
+      invalidIds: [],
+    },
+  });
+  await drainMicrotasks();
+  assert.equal(firstTimer.cleared, false);
+  assert.equal(fetchCount, 0);
+  assert.equal(busEvents.some(event => event.name === 'ws:reconnected'), false);
+
+  sendCompleteRehydrateAck(socket, { validIds: [pane._convId], invalidIds: [] });
+  await drainMicrotasks();
+  assert.equal(firstTimer.cleared, true);
+  assert.equal(fetchCount, 1);
+
+  client.wsConnect();
+  const secondSocket = sockets[1];
+  handshake(secondSocket);
+  const secondRequest = lastRehydrateRequest(secondSocket);
+  assert.notEqual(secondRequest.rehydrateRequestId, firstRequest.rehydrateRequestId);
+});
+
+await testAsync('every matching incomplete or inconsistent ACK degrades without authority', async () => {
+  const cases = [
+    ['missing complete', data => { delete data.complete; }],
+    ['missing invalid partition', data => { delete data.invalidIds; }],
+    ['incomplete union', data => { data.validIds = []; }],
+    ['overlapping partitions', data => { data.invalidIds = [...data.validIds]; }],
+    ['duplicate identity', data => { data.validIds.push(data.validIds[0]); }],
+    ['foreign identity', data => { data.validIds = ['studio-foreign']; }],
+    ['unknown envelope key', data => { data.conversationId = 'studio-route-poison'; }],
+  ];
+
+  for (const [label, mutate] of cases) {
+    const pane = session(`studio-malformed-${label.replaceAll(' ', '-')}`);
+    let fetchCount = 0;
+    const { busEvents, socket } = loadClient([pane], {
+      fetch: async () => {
+        fetchCount++;
+        return { ok: true, json: async () => ({ messages: [] }) };
+      },
+    });
+    const request = lastRehydrateRequest(socket);
+    const data = {
+      action: 'rehydrate_ack',
+      rehydrateRequestId: request.rehydrateRequestId,
+      complete: true,
+      validIds: [pane._convId],
+      invalidIds: [],
+    };
+    mutate(data);
+    sendServerMessage(socket, { channel: 'control', data });
+    await drainMicrotasks();
+
+    assert.equal(fetchCount, 0, `${label}: history effect`);
+    assert.notEqual(pane._convId, null, `${label}: identity cleared`);
+    assert.equal(pane.chat.msgs[0].text, 'stale', `${label}: timeline cleared`);
+    assert.equal(
+      busEvents.filter(event => event.name === 'ws:reconnected').at(-1)?.payload.status,
+      'degraded',
+      `${label}: missing degraded completion`,
+    );
+  }
+});
+
+await testAsync('only a matching exact typed reject ends the run immediately', async () => {
+  const pane = session('studio-rehydrate-reject');
+  const clock = controlledTimers();
+  let fetchCount = 0;
+  const { busEvents, socket } = loadClient([pane], {
+    clearTimeout: clock.clearTimeout,
+    fetch: async () => {
+      fetchCount++;
+      return { ok: true, json: async () => ({ messages: [] }) };
+    },
+    setTimeout: clock.setTimeout,
+  });
+  const request = lastRehydrateRequest(socket);
+  const ackTimer = clock.active().find(timer => timer.delay === 5000);
+
+  sendServerMessage(socket, {
+    channel: 'control',
+    data: {
+      action: 'rehydrate_reject',
+      rehydrateRequestId: `${request.rehydrateRequestId}-foreign`,
+      reason: 'TOO_MANY_CONVERSATIONS',
+    },
+  });
+  sendServerMessage(socket, {
+    channel: 'control',
+    data: {
+      action: 'rehydrate_reject',
+      rehydrateRequestId: request.rehydrateRequestId,
+      reason: 'UNKNOWN_REASON',
+    },
+  });
+  assert.equal(ackTimer.cleared, false);
+  assert.equal(busEvents.some(event => event.name === 'ws:reconnected'), false);
+
+  sendServerMessage(socket, {
+    channel: 'control',
+    data: {
+      action: 'rehydrate_reject',
+      rehydrateRequestId: request.rehydrateRequestId,
+      reason: 'TOO_MANY_CONVERSATIONS',
+    },
+  });
+  await drainMicrotasks();
+
+  assert.equal(ackTimer.cleared, true);
+  assert.equal(fetchCount, 0);
+  assert.equal(pane._convId, 'studio-rehydrate-reject');
+  assert.equal(pane.chat.msgs[0].text, 'stale');
+  assert.equal(
+    JSON.stringify(busEvents.filter(event => event.name === 'ws:reconnected').at(-1).payload),
+    JSON.stringify({ status: 'degraded', restoredCount: 0, invalidCount: 0, failedCount: 1 }),
+  );
+});
+
+test('malformed local identity is preserved and quarantined without a wire effect', () => {
+  const pane = session('malformed identity with spaces');
+  const { busEvents, client, socket } = loadClient([pane]);
+
+  assert.equal(
+    socket.sent.some(message => message.data?.action === 'rehydrate'),
+    false,
+  );
+  assert.equal(pane._convId, 'malformed identity with spaces');
+  assert.equal(pane.chat.msgs[0].text, 'stale');
+  assert.equal(pane._rehydrateState, 'quarantined');
+  assert.equal(client.wsSendChat('must not leave quarantine', pane, 0), false);
+  assert.equal(busEvents.filter(event => event.name === 'session:quarantined').length, 1);
+  assert.equal(
+    JSON.stringify(busEvents.filter(event => event.name === 'ws:reconnected').at(-1).payload),
+    JSON.stringify({ status: 'degraded', restoredCount: 0, invalidCount: 0, failedCount: 1 }),
+  );
+});
+
+test('client refuses an over-limit rehydrate set before sending it', () => {
+  const panes = Array.from({ length: 33 }, (_, index) => session(`studio-limit-${index}`));
+  const { busEvents, socket } = loadClient(panes);
+
+  assert.equal(
+    socket.sent.some(message => message.data?.action === 'rehydrate'),
+    false,
+  );
+  assert.equal(
+    JSON.stringify(busEvents.filter(event => event.name === 'ws:reconnected').at(-1).payload),
+    JSON.stringify({ status: 'degraded', restoredCount: 0, invalidCount: 0, failedCount: 33 }),
+  );
+  assert.equal(panes.every(pane => pane._convId !== null), true);
+});
+
 await testAsync('malformed or unsolicited ACK preserves every local snapshot', async () => {
   const pane = session('studio-rehydrate-safe');
   let fetchCount = 0;
@@ -1155,9 +1368,9 @@ await testAsync('malformed or unsolicited ACK preserves every local snapshot', a
     },
   });
 
-  sendServerMessage(socket, {
-    channel: 'control',
-    data: { action: 'rehydrate_ack', validIds: ['studio-unsolicited'] },
+  sendCompleteRehydrateAck(socket, {
+    validIds: ['studio-unsolicited'],
+    invalidIds: [],
   });
   await drainMicrotasks();
 
@@ -1180,9 +1393,9 @@ await testAsync('non-2xx history preserves snapshot and reports degraded complet
     }),
   });
 
-  sendServerMessage(socket, {
-    channel: 'control',
-    data: { action: 'rehydrate_ack', validIds: [pane._convId] },
+  sendCompleteRehydrateAck(socket, {
+    validIds: [pane._convId],
+    invalidIds: [],
   });
   await drainMicrotasks();
 
@@ -1203,9 +1416,9 @@ await testAsync('malformed success history preserves snapshot and reports degrad
     }),
   });
 
-  sendServerMessage(socket, {
-    channel: 'control',
-    data: { action: 'rehydrate_ack', validIds: [pane._convId] },
+  sendCompleteRehydrateAck(socket, {
+    validIds: [pane._convId],
+    invalidIds: [],
   });
   await drainMicrotasks();
 
@@ -1228,9 +1441,9 @@ await testAsync('new reconnect epoch wins and stale history cannot overwrite it'
     },
   });
 
-  sendServerMessage(socket, {
-    channel: 'control',
-    data: { action: 'rehydrate_ack', validIds: [pane._convId] },
+  sendCompleteRehydrateAck(socket, {
+    validIds: [pane._convId],
+    invalidIds: [],
   });
   await drainMicrotasks();
   assert.equal(pendingFetches.length, 1);
@@ -1238,9 +1451,9 @@ await testAsync('new reconnect epoch wins and stale history cannot overwrite it'
   client.wsConnect();
   const newerSocket = sockets[1];
   handshake(newerSocket);
-  sendServerMessage(newerSocket, {
-    channel: 'control',
-    data: { action: 'rehydrate_ack', validIds: [pane._convId] },
+  sendCompleteRehydrateAck(newerSocket, {
+    validIds: [pane._convId],
+    invalidIds: [],
   });
   await drainMicrotasks();
   assert.equal(pendingFetches.length, 2);
@@ -1323,9 +1536,9 @@ await testAsync('history cannot overwrite activity added after ACK in the same e
     fetch: () => pendingFetch.promise,
   });
 
-  sendServerMessage(socket, {
-    channel: 'control',
-    data: { action: 'rehydrate_ack', validIds: [pane._convId] },
+  sendCompleteRehydrateAck(socket, {
+    validIds: [pane._convId],
+    invalidIds: [],
   });
   await drainMicrotasks();
 
@@ -1361,9 +1574,9 @@ await testAsync('activity before ACK is neither overwritten nor cleared by the A
 
   validPane.chat.msgs.push({ role: 'user', text: 'valid pane activity before ACK' });
   invalidPane.chat.msgs.push({ role: 'user', text: 'invalid pane activity before ACK' });
-  sendServerMessage(socket, {
-    channel: 'control',
-    data: { action: 'rehydrate_ack', validIds: [validPane._convId] },
+  sendCompleteRehydrateAck(socket, {
+    validIds: [validPane._convId],
+    invalidIds: [invalidPane._convId],
   });
   await drainMicrotasks();
 
@@ -1371,13 +1584,125 @@ await testAsync('activity before ACK is neither overwritten nor cleared by the A
   assert.equal(invalidPane._convId, 'studio-rehydrate-pre-ack-invalid');
   assert.equal(invalidPane.chat.msgs.at(-1).text, 'invalid pane activity before ACK');
   assert.equal(
-    busEvents.filter(event => event.name === 'session:invalid').length,
+    busEvents.filter(event => event.name === 'session:invalidated').length,
     0,
   );
   assert.equal(
     JSON.stringify(busEvents.filter(event => event.name === 'ws:reconnected').at(-1).payload),
     JSON.stringify({ status: 'degraded', restoredCount: 0, invalidCount: 0, failedCount: 2 }),
   );
+});
+
+await testAsync('slot reuse and message-array replacement revoke ACK authority', async () => {
+  {
+    const original = session('studio-rehydrate-reused-slot');
+    const sessions = [original];
+    let fetchCount = 0;
+    const { busEvents, socket } = loadClient(sessions, {
+      fetch: async () => {
+        fetchCount++;
+        return { ok: true, json: async () => ({ messages: [] }) };
+      },
+    });
+    const replacement = session('studio-rehydrate-reused-slot');
+    replacement.chat.msgs = [{ role: 'user', text: 'replacement timeline' }];
+    sessions[0] = replacement;
+
+    sendCompleteRehydrateAck(socket, {
+      validIds: ['studio-rehydrate-reused-slot'],
+      invalidIds: [],
+    });
+    await drainMicrotasks();
+    assert.equal(fetchCount, 0);
+    assert.equal(replacement._convId, 'studio-rehydrate-reused-slot');
+    assert.equal(replacement.chat.msgs[0].text, 'replacement timeline');
+    assert.equal(original._convId, 'studio-rehydrate-reused-slot');
+    assert.equal(
+      busEvents.filter(event => event.name === 'ws:reconnected').at(-1).payload.status,
+      'degraded',
+    );
+  }
+
+  {
+    const pane = session('studio-rehydrate-array-ref');
+    let fetchCount = 0;
+    const { busEvents, socket } = loadClient([pane], {
+      fetch: async () => {
+        fetchCount++;
+        return { ok: true, json: async () => ({ messages: [] }) };
+      },
+    });
+    pane.chat.msgs = pane.chat.msgs.map(message => ({ ...message }));
+    sendCompleteRehydrateAck(socket, {
+      validIds: [pane._convId],
+      invalidIds: [],
+    });
+    await drainMicrotasks();
+    assert.equal(fetchCount, 0);
+    assert.equal(pane.chat.msgs[0].text, 'stale');
+    assert.equal(
+      busEvents.filter(event => event.name === 'ws:reconnected').at(-1).payload.status,
+      'degraded',
+    );
+  }
+
+  {
+    const original = session('studio-rehydrate-invalid-reuse');
+    const sessions = [original];
+    const { busEvents, socket } = loadClient(sessions);
+    const replacement = session('studio-rehydrate-invalid-reuse');
+    replacement.chat.msgs = [{ role: 'user', text: 'must survive invalid ACK' }];
+    sessions[0] = replacement;
+    sendCompleteRehydrateAck(socket, {
+      validIds: [],
+      invalidIds: ['studio-rehydrate-invalid-reuse'],
+    });
+    await drainMicrotasks();
+    assert.equal(replacement._convId, 'studio-rehydrate-invalid-reuse');
+    assert.equal(replacement.chat.msgs[0].text, 'must survive invalid ACK');
+    assert.equal(original._convId, 'studio-rehydrate-invalid-reuse');
+    assert.equal(busEvents.filter(event => event.name === 'session:invalidated').length, 0);
+  }
+});
+
+await testAsync('identity control frames cannot route first or revive legacy cleanup authority', async () => {
+  const emptyPane = session();
+  emptyPane.chat.msgs = [];
+  const durablePane = session('studio-rehydrate-authority');
+  const { busEvents, socket } = loadClient([emptyPane, durablePane]);
+  const request = lastRehydrateRequest(socket);
+
+  sendServerMessage(socket, {
+    channel: 'control',
+    data: {
+      action: 'rehydrate_ack',
+      rehydrateRequestId: request.rehydrateRequestId,
+      complete: true,
+      validIds: [durablePane._convId],
+      invalidIds: [],
+      conversationId: 'studio-route-poison',
+    },
+  });
+  await drainMicrotasks();
+  assert.equal(emptyPane._convId, null);
+  assert.equal(durablePane._convId, 'studio-rehydrate-authority');
+  assert.equal(
+    busEvents.filter(event => event.name === 'ws:reconnected').at(-1).payload.status,
+    'degraded',
+  );
+
+  sendServerMessage(socket, {
+    channel: 'control',
+    data: {
+      action: 'session_invalid',
+      conversationId: 'studio-unknown-legacy-identity',
+    },
+  });
+  assert.equal(emptyPane._convId, null);
+  assert.equal(durablePane._convId, 'studio-rehydrate-authority');
+  assert.equal(durablePane.chat.msgs[0].text, 'stale');
+  assert.equal(busEvents.filter(event => event.name === 'session:invalidated').length, 0);
+  assert.equal(busEvents.filter(event => event.name === 'session:identity_warning').length, 1);
 });
 
 await testAsync('missing ACK times out without clearing the local snapshot and ignores a late ACK', async () => {
@@ -1412,9 +1737,9 @@ await testAsync('missing ACK times out without clearing the local snapshot and i
     JSON.stringify({ status: 'degraded', restoredCount: 0, invalidCount: 0, failedCount: 1 }),
   );
 
-  sendServerMessage(socket, {
-    channel: 'control',
-    data: { action: 'rehydrate_ack', validIds: [pane._convId] },
+  sendCompleteRehydrateAck(socket, {
+    validIds: [pane._convId],
+    invalidIds: [],
   });
   await drainMicrotasks();
   assert.equal(fetchCount, 0);
@@ -1424,15 +1749,64 @@ await testAsync('missing ACK times out without clearing the local snapshot and i
   );
 });
 
-test('panel persists the invalid-session reset applied by transport', () => {
+test('panel persists only an exact transport-owned invalidation', () => {
   const source = fs.readFileSync(CHAT_PANEL, 'utf8');
-  const start = source.indexOf("C3Bus.on('session:invalid'");
+  const start = source.indexOf("C3Bus.on('session:invalidated'");
   const end = source.indexOf('\n  });', start);
   assert.ok(start >= 0 && end > start);
   const handler = source.slice(start, end);
-  assert.match(handler, /s\._convId=null;s\._agentId=null;s\._label=''/);
-  assert.match(handler, /s\.chat\.msgs=\[\];s\.chat\._thinking=null/);
+  assert.match(handler, /_sessions\[ev\.idx\]!==ev\.sessionRef/);
+  assert.match(handler, /ev\.sessionRef\._convId!==null/);
+  assert.doesNotMatch(handler, /_convId=null/);
+  assert.match(handler, /_chatInvalidatePreparedSends\(s\.chat\)/);
   assert.match(handler, /_persistSessionState\(\)/);
+});
+
+test('persisted Studio bounds are normalized by the function used during restore', () => {
+  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
+  const start = source.indexOf('function _normalizePersistedSessionState');
+  const end = source.indexOf('/* ── Restore session state', start);
+  assert.ok(start >= 0 && end > start);
+  const context = vm.createContext({ module: { exports: {} }, Number, Math, Array });
+  vm.runInContext(
+    `${source.slice(start, end)}\nmodule.exports = _normalizePersistedSessionState;`,
+    context,
+  );
+  const normalize = context.module.exports;
+  const plain = value => JSON.parse(JSON.stringify(value));
+
+  assert.deepEqual(
+    plain(normalize({
+      sessionCount: 40,
+      sessionActive: 39,
+      sessions: [{ id: 0 }, { id: 1 }, { id: 2 }, { id: 3 }],
+    })),
+    {
+      sessionCount: 3,
+      sessionActive: 2,
+      sessions: [{ id: 0 }, { id: 1 }, { id: 2 }],
+    },
+  );
+  assert.deepEqual(
+    plain(normalize({ sessionCount: -4, sessionActive: -9, sessions: [] })),
+    { sessionCount: 1, sessionActive: 0, sessions: [] },
+  );
+  for (const invalidCount of ['3', null, 2.5]) {
+    assert.deepEqual(
+      plain(normalize({
+        sessionCount: invalidCount,
+        sessionActive: '1',
+        sessions: 'not-an-array',
+      })),
+      { sessionCount: 2, sessionActive: 0, sessions: [] },
+    );
+  }
+
+  const restore = source.slice(end, source.indexOf('/* ── Initialize transport', end));
+  assert.match(restore, /var normalizedSaved=_normalizePersistedSessionState\(saved\)/);
+  assert.match(restore, /normalizedSaved\.sessions\.forEach/);
+  assert.match(restore, /if\(!ss\|\|typeof ss!==['"]object['"]\|\|Array\.isArray\(ss\)\)return/);
+  assert.doesNotMatch(restore, /\(saved\.sessions \|\| \[\]\)\.forEach/);
 });
 
 suite('M1 Studio client — bounded visible reconnect');

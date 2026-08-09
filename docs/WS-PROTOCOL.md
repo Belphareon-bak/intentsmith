@@ -153,7 +153,7 @@ Bidirectional control messages.
 |--------|------|-------------|
 | `cancel` | `{conversationId?}` | Abort active turn(s) |
 | `ping` | — | Keep-alive |
-| `rehydrate` | `{conversationIds: [...]}` | Validate IDs after reconnect |
+| `rehydrate` | `{rehydrateRequestId, conversationIds: [...]}` | Validate a complete bounded ID set after reconnect |
 | `edit_approve` | `{requestId}` | Approve pending file edit |
 | `edit_reject` | `{requestId}` | Reject pending file edit |
 | `sync_settings` | `{settings: {...}}` | Push feature flags + notification config |
@@ -163,9 +163,19 @@ Bidirectional control messages.
 | Action | Data | Description |
 |--------|------|-------------|
 | `pong` | — | Keep-alive response |
-| `rehydrate_ack` | `{validIds: [...]}` | Confirmed conversation IDs |
+| `rehydrate_ack` | `{rehydrateRequestId, complete: true, validIds: [...], invalidIds: [...]}` | Complete request-bound durable partition |
+| `rehydrate_reject` | `{rehydrateRequestId, reason}` | Request-bound malformed/over-limit set rejection |
 | `sync_settings` | `{changed: number}` | Settings applied count |
-| `session_invalid` | — | Session no longer valid |
+| `session_invalid` | `{sessionId?}` | Legacy non-authoritative warning; never clears or assigns client identity |
+
+`rehydrate_ack` is authoritative only when the request ID matches and the two
+unique disjoint arrays cover the complete requested set. Only explicit
+`invalidIds` may clear an unchanged exact Studio session. Missing, partial,
+foreign, duplicate or overlapping ACK data preserves local state and degrades
+the restore. A matching typed reject ends the current restore without history
+fetch or cleanup; a foreign/malformed reject cannot end it. The server emits an
+ACK only from an explicitly ready file-backed SQLite store; unavailable store
+state closes that socket without identity authority.
 
 ### terminal
 
@@ -279,7 +289,9 @@ wsHasFeature(name)                         // Feature check
 | `status:update` | ws-client | Status change |
 | `workspace:change` | ws-client | File change detected |
 | `session:changed` | internal | Session switch |
-| `session:invalid` | ws-client | Session no longer valid |
+| `session:invalidated` | ws-client | Complete ACK cleared one exact unchanged session |
+| `session:quarantined` | ws-client | Malformed local identity preserved read-only |
+| `session:identity_warning` | ws-client | Legacy uncorrelated warning; no mutation authority |
 | `edit:request` | agent-client | Edit approval needed |
 | `edit:resolved` | ws-client | Edit approved/rejected |
 

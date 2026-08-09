@@ -27,8 +27,8 @@ Callback smí pokračovat jen pokud všechny hodnoty stále patří stejnému
 kontextu a slot je viditelný. Na jednu session smí současně existovat jediný
 prepared send; druhý send i gap choice nechají nový vstup beze změny.
 
-Reset, close, explicitní nahrazení session, serverové `session:invalid`, shrink
-panelů a potvrzení relay targetu vlastnictví zruší před první změnou cílového
+Reset, close, explicitní nahrazení session, request-bound `session:invalidated`
+po úplném ACK, shrink panelů a potvrzení relay targetu vlastnictví zruší před první změnou cílového
 stavu. Přesouvaný poslední panel se před swapem ukončí jako `NOT_SENT`.
 Pre-wire Escape/STOP spotřebuje cancel lokálně, obnoví původní draft a
 attachments bez přepsání novějšího vstupu a neposílá remote cancel, který by
@@ -47,7 +47,8 @@ Behaviorální test vykonává skutečný commitnutý send/reset/count slice ve 
 single-flight, gap choice, pre-wire cancel pro `onload` i `onerror`, skrytí a
 znovurozšíření panelu, změnu identity/edit mode/timeline a přepnutí aktivního
 focus panelu. Statické piny drží cancel, close-swap, relay a
-`session:invalid` wiring. Ve fail-closed větvích je počet WS i fallback efektů
+`session:invalidated` wiring. Legacy `session_invalid` je po 014/A pouze
+neautoritativní warning a do této destructive cesty nevstupuje. Ve fail-closed větvích je počet WS i fallback efektů
 nula a nový stav zůstane nedotčený.
 
 Tři samostatné mutační kontroly odstranily aktivní-slot podmínku a single-flight
@@ -58,8 +59,9 @@ Každá správně zčervenala přesně příslušný kontrakt:
 - bez single-flight `37 passed, 1 failed`, exit `1`.
 - s exact-length recovery po appendu `37 passed, 1 failed`, exit `1`.
 
-Po přesném obnovení obou guardů focused sada prošla `38 passed, 0 failed`,
+Po přesném obnovení všech tří mutací focused sada prošla `38 passed, 0 failed`,
 exit `0`.
 
-Celý B4 ani Gate 1 tím nejsou `PASS`; dál chybí 010/A+, 014/A, 012/B, built
+Celý B4 ani Gate 1 tím nejsou `PASS`; obě focused poloviny 014/A jsou nyní
+hotové, ale dál chybí 010/A+, 012/B, společný DB-backed wire důkaz, built
 journey, fresh-clone parity a bounded renderer soak.

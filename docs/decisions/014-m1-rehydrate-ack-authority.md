@@ -1,8 +1,8 @@
 # 014 — Rehydrate ACK musí autoritativně pokrýt celý požadovaný set
 
 - **typ:** BLOCK
-- **stav rozhodnutí:** A SCHVÁLENO; SERVEROVÝ CHECKPOINT IMPLEMENTOVÁN;
-  KLIENT, 012 A SPOLEČNÝ LIVE WIRE DŮKAZ OTEVŘENÉ
+- **stav rozhodnutí:** A SCHVÁLENO; SERVEROVÝ I KLIENTSKÝ CHECKPOINT
+  IMPLEMENTOVÁNY; 012 A SPOLEČNÝ LIVE WIRE DŮKAZ OTEVŘENÉ
 - **WP:** WP-M1-STUDIO
 - **rail:** R1, R3, R5, R6
 - **vzniklo při:** read-only review serverového limitu a klientského cleanupu
@@ -139,3 +139,27 @@ Mezi serverovým a klientským commitem je starý klient záměrně fail-closed:
 neposílá request ID a server jeho rehydrate socket zavře `1008`. Tento
 mezistav není přijatelný produktový checkpoint a musí bez prodlevy následovat
 klientská polovina před jakoukoli built journey nebo integračním přijetím.
+
+### Stav klientského checkpointu
+
+Klient nyní generuje unikátní `rehydrateRequestId` pro každý běh a přijme jen
+matching exact ACK s `complete:true` a úplným disjunktním partition. Missing,
+foreign a replayed ID nechají aktuální timer běžet; matching malformed ACK
+skončí degraded bez fetch nebo cleanup autority. Exact matching reject se
+známým reason skončí degraded okamžitě, zatímco foreign nebo malformed reject
+je ignorován.
+
+Identitu ruší jen explicitní `invalidIds` a pouze při shodě socket epochy,
+živého slotu, přesného session/chat/messages objektu, conversation ID a
+nezměněné timeline signatury. Control ACK/reject se zpracují před generic
+routingem. Starý nekorelovaný `session_invalid` je pouze warning a UI už nemá
+druhou destructive cleanup autoritu. Malformed lokální identita se zachová v
+quarantine a `wsSendChat()` z ní fail-closed neodešle efekt.
+
+Persistovaný `sessionCount/sessionActive` prochází behaviorálně testovanou
+normalizací, počet panelů je `1..3` a restore neiteruje mimo tento bounded set.
+Focused klientská sada prošla `46/46`. Čtyři oddělené mutace pro foreign ACK,
+slot-owner guard, legacy pre-route warning a horní restore bound skončily vždy
+`45/1`, exit `1`, a po obnovení zdroj znovu prošel `46/46`. Autoritativní empty history a společný
+DB-backed/built wire důkaz zůstávají pod 012 a B4, takže celý Gate 1 je nadále
+`BLOCKED`.
