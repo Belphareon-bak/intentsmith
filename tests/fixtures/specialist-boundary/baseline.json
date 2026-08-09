@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "sourceRevision": "a42ec07d9f4ec856d172f8c95e71aae8558859d9",
+  "specialistsTree": "d01b8894d88eaf4c688b55c0b2a2d0cc9424906c",
+  "scannerBlob": "c3f1fdadf60305f09536f1704d55f26adefc1aba",
+  "exceptions": [
+    {
+      "from": "specialists/accountant-cz/knowledge/seed.js",
+      "to": "src/expertises/knowledge-base.js",
+      "kind": "jsdoc",
+      "count": 1,
+      "owner": "WP-M3-L0-8-INJECTION",
+      "expiresOnIntegration": "WP-M3-L0-8-INJECTION"
+    },
+    {
+      "from": "specialists/dummy-logger/index.js",
+      "to": "src/expertises/specialist-runtime.js",
+      "kind": "jsdoc",
+      "count": 2,
+      "owner": "WP-M3-L0-8-INJECTION",
+      "expiresOnIntegration": "WP-M3-L0-8-INJECTION"
+    },
+    {
+      "from": "specialists/accountant-cz/adapters.js",
+      "to": "src/expertises/tool-adapter.js",
+      "kind": "runtime",
+      "count": 1,
+      "owner": "WP-M3-L0-8-INJECTION",
+      "expiresOnIntegration": "WP-M3-L0-8-INJECTION"
+    }
+  ]
+}
