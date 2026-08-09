@@ -14,6 +14,12 @@ import path from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+/**
+ * @typedef {Object} SpecialistRuntimeLike
+ * @property {(config: Object) => void} registerSpecialist
+ * @property {(id: string) => void} [unregisterSpecialist]
+ */
+
 // ─── Inline Extractors ──────────────────────────────────────────────────────
 
 function extractLogParams(input) {
@@ -41,7 +47,7 @@ function extractLogParams(input) {
  * Called by specialist-loader on enable().
  *
  * @param {Object} ctx
- * @param {import('../../src/expertises/specialist-runtime.js').SpecialistRuntime} ctx.runtime
+ * @param {SpecialistRuntimeLike} ctx.runtime
  */
 export function register(ctx) {
   const { runtime } = ctx;
@@ -77,7 +83,7 @@ export function register(ctx) {
  * Called by specialist-loader on disable().
  *
  * @param {Object} ctx
- * @param {import('../../src/expertises/specialist-runtime.js').SpecialistRuntime} ctx.runtime
+ * @param {SpecialistRuntimeLike} ctx.runtime
  */
 export function unregister(ctx) {
   const { runtime } = ctx;

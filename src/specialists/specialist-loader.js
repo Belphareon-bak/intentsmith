@@ -17,6 +17,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { logger } from '../core/logger.js';
+import { ToolAdapter } from '../expertises/tool-adapter.js';
 
 // ── Engine version from package.json (fallback for default) ─────────────────
 let _packageVersion = null;
@@ -209,6 +210,9 @@ export class SpecialistLoader {
     const projectRoot = path.resolve(__dirname, '..', '..');
     this.baseDir = options.baseDir || path.join(projectRoot, 'specialists');
     this.engineVersion = options.engineVersion || _readPackageVersion();
+    this.ToolAdapter = Object.hasOwn(options, 'ToolAdapter')
+      ? options.ToolAdapter
+      : ToolAdapter;
 
     /** @type {Map<string, { manifest: Object, dir: string }>} */
     this._discovered = new Map();
@@ -490,6 +494,10 @@ export class SpecialistLoader {
    * v121: Expanded ctx with registries for self-contained specialists.
    */
   async _enableOne(id, { manifest, dir }) {
+    if (typeof this.ToolAdapter !== 'function') {
+      throw new TypeError('SPECIALIST_TOOL_ADAPTER_REQUIRED');
+    }
+
     const needsBust = this._needsCacheBust.has(id);
 
     if (this._modules.has(id) && !needsBust) {
@@ -543,6 +551,7 @@ export class SpecialistLoader {
       manifest,
       specialistDir: dir,
       logger: logger,
+      ToolAdapter: this.ToolAdapter,
 
       // v121: Knowledge base (set via setKnowledgeBase)
       knowledgeBase: this._knowledgeBase || null,
@@ -674,6 +683,7 @@ export class SpecialistLoader {
         mod.unregister({
           runtime: this.runtime,
           manifest,
+          ToolAdapter: this.ToolAdapter,
           registries: {
             autoSelect,
             scenario: this._scenarioRegistry || null,
