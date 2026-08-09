@@ -24,6 +24,7 @@ posílá jeho sekce „Výstup" — ne sem.
 | [WP-M5-PACKAGE](WP-M5-PACKAGE.md) | zapisující WP | **záložní slot**, nezahájeno | — |
 | [WP-M5-DATA](WP-M5-DATA.md) | zapisující WP | **záložní slot**, nezahájeno | — |
 | [WP-M1-BINDING-REPOSITORY](WP-M1-BINDING-REPOSITORY.md) | zapisující WP | **dokončeno** na `515fb6f7`, evidence `eb7e78b8` | [WP-M1-MODEL report](../execution/runs/wp-m1-model-report.md) |
+| [WP-M1-BINDING-APPLICATION](WP-M1-BINDING-APPLICATION.md) | zapisující WP | **připraveno**, sériový nástupce repository checkpointu | — |
 | [WP-M1-BOUNDARY-RATCHET](WP-M1-BOUNDARY-RATCHET.md) | zapisující WP | připraveno, **čeká na governance commit** | — |
 
 Zadání sondy zůstává i po doběhnutí — je v něm postup a ověřovací příkaz, kterým
@@ -39,5 +40,7 @@ Dvojice **M1** WP původně otevřela bránu prvního paralelního pilotu podle
 `WP-M1-BINDING-REPOSITORY` už skončil před vznikem ratchet větve, proto se jako
 souběžný writer neměří. `WP-M1-BOUNDARY-RATCHET` poběží v efemérním worktree na
 disku a jeho skutečným protějškem bude až další explicitně rezervovaný
-main-checkout WP s disjunktními cestami a connectorem. Ratchet **nesmí začít
+main-checkout WP s disjunktními cestami a connectorem.
+`WP-M1-BINDING-APPLICATION` je tímto sériovým nástupcem, ne znovuotevřením
+dokončeného repository WP. Ratchet **nesmí začít
 před governance commitem** — viz jeho `§0`. Integrace je sériová.

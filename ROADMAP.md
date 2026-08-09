@@ -1117,7 +1117,10 @@ mohou pokračovat.
    implementovaný a attestovaný podle
    [rozhodnutí 016](docs/decisions/016-migration-identity-guard.md). Legacy
    binding apply/rollback zůstává explicitním blockerem s vlastníkem a termínem
-   ve finding 008. Proof issuer,
+   ve finding 008. Jeho další vertikální checkpoint je připraven jako
+   [`WP-M1-BINDING-APPLICATION`](docs/wp/WP-M1-BINDING-APPLICATION.md);
+   vratné provozní defaulty jsou shromážděné v
+   [018](docs/decisions/018-m1-manual-binding-application-policy.md). Proof issuer,
    terminal activation/restore, runtime apply, startup rehydrate a scheduler
    zůstávají otevřené a failover se dosud neaktivuje. Proof issuance
    čeká na prahy a TTL z rozhodnutí 015; nový skutečný GPU běh zůstává
