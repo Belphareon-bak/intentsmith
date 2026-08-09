@@ -1191,3 +1191,23 @@ adapter → source klientský ledger. Stále neinjektuje generated protocol ani
 production Electron bundle do běžícího rendereru, netestuje reconnect/restart
 na živém socketu a vědomě neposílá přílohu ani SHELL; tyto dvě policy patří
 výhradně rozhodnutí 021.
+
+### Clean-clone reprodukce checkpointu 22
+
+Disposable `git clone --no-local` byl detached na přesném source SHA
+`1f1a148976153d978b781cbe93049b7e24a58b0f`. Před instalací byl tracked i
+untracked porcelain prázdný. Následně proběhlo:
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `npm ci --offline` | 233 balíčků, 0 vulnerabilities | 0 |
+| `node tests/m1-studio-client.test.js` | 89 passed, 0 failed, 0 skipped | 0 |
+| `node tests/ws-bridge.test.js` | 86 passed, 0 failed | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
+| `node tests/repository-hygiene.test.js` | 1 532 tracked paths checked | 0 |
+| `node scripts/validate-test-registry.js` | 377 programů, fingerprint `2d5cf073…63ccd` | 0 |
+| `node scripts/module-boundary-ratchet.mjs` | 1 020/1 020, baseline reprodukovaná, current přesně `1f1a1489` | 0 |
+| finální porcelain + `git diff --check` | tracked/untracked strom prázdný | 0 |
+
+Dočasný clone byl po úspěšném ověření přesného HEAD odstraněn. Instalace ani
+testy neotevřely externí síť, produktový server, Electron, Ollamu nebo GPU.
