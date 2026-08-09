@@ -16,6 +16,9 @@ import {
   validateCoreEventStream,
   validateM1Contract,
 } from '../contracts/m1/index.js';
+import { config } from '../src/config.js';
+import { LLMProviderUnavailableError } from '../src/core/chat-turn-error.js';
+import { createSessionAdapter } from '../src/ws-bridge/session-adapter.js';
 
 const require = createRequire(import.meta.url);
 const {
@@ -1591,6 +1594,260 @@ test('canonical send terminal follows conversation ownership after a pane swap',
   const rendersBefore = panel.counters.agentRender;
   panel.listeners['agent:state']({ executing: false });
   assert.equal(panel.counters.agentRender, rendersBefore + 1);
+});
+
+suite('M1 Studio client — actual producer/adapter/ledger composition');
+
+const CROSS_BOUNDARY_LOGGER = Object.freeze({
+  error() {},
+  info() {},
+  warn() {},
+});
+
+function crossBoundaryHarness(handleRequest, conversationId) {
+  const pane = session(conversationId);
+  const studio = loadClient([pane], { autoHandshake: false });
+  studio.handshake(studio.socket, ['m1-wire-v1']);
+  const serverMessages = [];
+  const adapter = createSessionAdapter({
+    send(encoded) {
+      const message = JSON.parse(encoded);
+      serverMessages.push(message);
+      sendServerMessage(studio.socket, message);
+    },
+    handleRequest,
+    logger: CROSS_BOUNDARY_LOGGER,
+    sessionId: `cross-boundary-${conversationId}`,
+    staleClock: {
+      now: () => 0,
+      setInterval: () => Symbol('cross-boundary-sweep'),
+      clearInterval() {},
+    },
+  });
+  return {
+    ...studio,
+    adapter,
+    pane,
+    serverMessages,
+    cleanup() {
+      adapter.cleanup();
+      studio.client.wsDestroy();
+    },
+    frames() {
+      return studio.socket.sent.filter(message => (
+        message.channel === 'chat'
+        && message.data?.command?.contract === 'ConversationCommand'
+      ));
+    },
+  };
+}
+
+function assertCanonicalCrossBoundaryMessages(messages, busEvents) {
+  assert.equal(
+    messages.some(message => message.channel === 'agent'),
+    false,
+    'negotiated adapter must not emit legacy agent envelopes',
+  );
+  assert.equal(
+    messages.some(message => (
+      message.channel === 'chat'
+      && ['assistant', 'turn_end'].includes(message.data?.type)
+    )),
+    false,
+    'negotiated adapter must not emit legacy assistant or turn_end envelopes',
+  );
+  assert.equal(
+    messages.some(message => (
+      message.channel === 'chat'
+      && message.data?.contract !== 'CoreEvent'
+    )),
+    false,
+    'every negotiated chat envelope must contain a CoreEvent',
+  );
+  assert.equal(
+    messages.some(message => message.data?.eventType === 'turn_end'),
+    false,
+    'negotiated adapter must not disguise legacy turn_end as a CoreEvent',
+  );
+  assert.equal(
+    busEvents.some(event => event.name === 'chat:message'),
+    false,
+    'M1 must render only through the canonical terminal seam',
+  );
+}
+
+await testAsync('actual Studio and server seams agree on success, error, and cancel', async () => {
+  const telemetryBefore = config.features.telemetry;
+  config.features.telemetry = false;
+  try {
+    {
+      let controllerEffects = 0;
+      let expectedFrame = null;
+      const harness = crossBoundaryHarness(async request => {
+        controllerEffects++;
+        assert.ok(expectedFrame, 'the actual Studio frame must exist before controller entry');
+        assert.equal(request.message, expectedFrame.command.input);
+        assert.equal(request.requestId, expectedFrame.command.requestId);
+        assert.equal(request.turnId, expectedFrame.command.turnId);
+        assert.equal(request.conversationId, expectedFrame.command.conversationId);
+        assert.equal(request.projectId, expectedFrame.context.projectId);
+        assert.deepEqual(request.attachments, expectedFrame.context.attachments);
+        assert.equal(request.context.requestId, expectedFrame.command.requestId);
+        assert.equal(request.context.turnId, expectedFrame.command.turnId);
+        assert.equal(request.context.conversationId, expectedFrame.command.conversationId);
+        assert.equal(request.context.editMode, expectedFrame.context.editMode);
+        assert.equal(request.context.agentId, expectedFrame.context.agentId);
+        assert.equal(request.context.projectId, expectedFrame.context.projectId);
+        request.context.onSystemStep('cross-boundary', 'actual adapter progress', 1);
+        return {
+          response: 'Skutečná odpověď přes oba seam-y',
+          mode: 'conversation',
+          confidence: 1,
+          state: { source: 'cross-boundary' },
+        };
+      }, 'cross-boundary-success');
+      try {
+        harness.pane._projectId = 'project-cross-boundary-success';
+        assert.equal(harness.client.wsSendChat('M1 success', harness.pane, 0), true);
+        const frame = harness.frames().at(-1);
+        assert.ok(frame);
+        expectedFrame = frame.data;
+        await harness.adapter.processM1Command(frame.data);
+
+        const events = harness.serverMessages
+          .filter(message => message.data?.requestId === frame.data.command.requestId)
+          .map(message => message.data);
+        assert.equal(controllerEffects, 1);
+        assert.equal(validateCoreEventStream(events).valid, true);
+        assert.equal(events.at(-1).terminalStatus, 'ok');
+        const terminal = harness.busEvents.find(event => (
+          event.name === 'chat:terminal'
+          && event.payload.requestId === frame.data.command.requestId
+        ));
+        assert.equal(terminal.payload.status, 'ok');
+        assert.equal(terminal.payload.renderAssistant, true);
+        assert.equal(
+          terminal.payload.result.response.content,
+          'Skutečná odpověď přes oba seam-y',
+        );
+        const progress = harness.busEvents.filter(event => (
+          event.name === 'agent:event'
+          && event.payload.event.type === 'system_step'
+          && event.payload.event.transport === 'm1'
+        ));
+        assert.equal(progress.length, 1);
+        assert.equal(progress[0].payload.event.payload.step, 'cross-boundary');
+        assert.equal(
+          progress[0].payload.event.payload.detail,
+          'actual adapter progress',
+        );
+        assertCanonicalCrossBoundaryMessages(harness.serverMessages, harness.busEvents);
+      } finally {
+        harness.cleanup();
+      }
+    }
+
+    {
+      const harness = crossBoundaryHarness(async () => {
+        throw new LLMProviderUnavailableError('LLM_CALL_FAILED');
+      }, 'cross-boundary-provider-error');
+      try {
+        assert.equal(harness.client.wsSendChat('M1 failure', harness.pane, 0), true);
+        const frame = harness.frames().at(-1);
+        await harness.adapter.processM1Command(frame.data);
+
+        const events = harness.serverMessages
+          .filter(message => message.data?.requestId === frame.data.command.requestId)
+          .map(message => message.data);
+        assert.equal(validateCoreEventStream(events).valid, true);
+        assert.equal(events.at(-1).terminalStatus, 'error');
+        assert.equal(
+          events.at(-1).payload.result.error.code,
+          'LLM_PROVIDER_UNAVAILABLE',
+        );
+        const terminals = harness.busEvents.filter(event => (
+          event.name === 'chat:terminal'
+          && event.payload.requestId === frame.data.command.requestId
+        ));
+        assert.equal(terminals.length, 1);
+        assert.equal(terminals[0].payload.status, 'error');
+        assert.equal(terminals[0].payload.renderAssistant, false);
+        assertCanonicalCrossBoundaryMessages(harness.serverMessages, harness.busEvents);
+      } finally {
+        harness.cleanup();
+      }
+    }
+
+    {
+      const targetStarted = deferred();
+      const harness = crossBoundaryHarness(request => {
+        targetStarted.resolve(request);
+        return new Promise((_resolve, reject) => {
+          request.signal.addEventListener('abort', () => reject(request.signal.reason), {
+            once: true,
+          });
+        });
+      }, 'cross-boundary-cancel');
+      try {
+        assert.equal(harness.client.wsSendChat('M1 pending', harness.pane, 0), true);
+        const targetFrame = harness.frames().at(-1);
+        const targetRun = harness.adapter.processM1Command(targetFrame.data);
+        await targetStarted.promise;
+
+        assert.equal(harness.client.wsSendCancel(harness.pane), true);
+        const cancelFrame = harness.frames().at(-1);
+        assert.notEqual(cancelFrame.data.command.requestId, targetFrame.data.command.requestId);
+        const cancelRun = harness.adapter.processM1Command(cancelFrame.data);
+        await Promise.all([targetRun, cancelRun]);
+
+        const terminalEvents = harness.serverMessages
+          .filter(message => (
+            message.channel === 'chat'
+            && message.data?.contract === 'CoreEvent'
+            && message.data.phase === 'terminal'
+          ))
+          .map(message => message.data);
+        assert.deepEqual(
+          terminalEvents.map(event => event.requestId),
+          [targetFrame.data.command.requestId, cancelFrame.data.command.requestId],
+        );
+        assert.deepEqual(
+          terminalEvents.map(event => event.terminalStatus),
+          ['cancelled', 'cancelled'],
+        );
+        for (const frame of [targetFrame, cancelFrame]) {
+          const stream = harness.serverMessages
+            .filter(message => message.data?.requestId === frame.data.command.requestId)
+            .map(message => message.data);
+          assert.equal(validateCoreEventStream(stream).valid, true);
+        }
+        const clientTerminals = harness.busEvents
+          .filter(event => event.name === 'chat:terminal')
+          .map(event => ({
+            action: event.payload.action,
+            requestId: event.payload.requestId,
+            status: event.payload.status,
+          }));
+        assert.deepEqual(clientTerminals, [
+          {
+            action: 'send',
+            requestId: targetFrame.data.command.requestId,
+            status: 'cancelled',
+          },
+          {
+            action: 'cancel',
+            requestId: cancelFrame.data.command.requestId,
+            status: 'cancelled',
+          },
+        ]);
+        assertCanonicalCrossBoundaryMessages(harness.serverMessages, harness.busEvents);
+      } finally {
+        harness.cleanup();
+      }
+    }
+  } finally {
+    config.features.telemetry = telemetryBefore;
+  }
 });
 
 suite('M1 Studio client — conversation-scoped transport');

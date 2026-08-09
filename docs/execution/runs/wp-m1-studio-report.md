@@ -1059,3 +1059,54 @@ postbuild i hygiene PASS.
 Marker guard je přítomnostní build integrita, nikoli behavioral journey ani
 důkaz produkčně negotiated spojení. Backend, Electron runtime, Ollama, GPU ani
 externí síť nebyly spuštěny; B4 a Gate 1 proto zůstávají `BLOCKED`.
+
+## Checkpoint 20 — actual server adapter → Studio ledger offline seam
+
+- **společný source-level seam:** `PASS focused`
+- **produkční ACK / Electron journey / celý B4:** nadále `BLOCKED`
+
+Studio VM už nepřijímá ručně sestavené serverové fixture jako jediný důkaz.
+Test nyní nechá autoritativní `ws-client.js` vytvořit exact command/context,
+předá jej skutečnému `createSessionAdapter()` se stubovaným controllerem a
+každý skutečně vydaný `CoreEvent` vrátí do téhož Studio ledgeru. Success
+zároveň pinuje projekci message, request/turn/conversation identity,
+edit mode, agent/project identity a prázdných attachments až na controller
+boundary. Sériově projde success se skutečným `system_step`, typovaná
+`LLMProviderUnavailableError` a cancel. Cancel
+ověří oddělené identity i pořadí target terminal → cancel terminal; všechny
+streamy znovu validuje sdílený M1 kontrakt. Žádný scénář nesmí vydat legacy
+agent, assistant, `turn_end` ani klientský `chat:message` envelope.
+
+Jde o offline fake transport, nikoli fake protocol nebo fake obě strany.
+Telemetry je pro tuto jednu sériovou zkoušku explicitně vypnuta a v `finally`
+obnovena, aby registrovaná offline Studio sada nemohla tiše inicializovat DB.
+Stale sweep používá inertní injektovaný clock. První paralelní prototyp sice
+prošel 90/90, ale odhalil právě tuto nežádoucí SQLite inicializaci; nebyl
+použit jako evidence. Finální běh byl bez DB migrací:
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node --check tests/m1-studio-client.test.js` | syntax valid | 0 |
+| `node tests/m1-studio-client.test.js` | 88 passed, 0 failed, 0 skipped | 0 |
+| mutace: odpojit adapter output od skutečného Studio ledgeru | 87 passed, 1 failed | 1 |
+| `node tests/ws-bridge.test.js` | 85 passed, 0 failed | 0 |
+| `node tests/m1-contract.test.js` | 26 passed, 0 failed, 0 skipped | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
+| `node tests/repository-hygiene.test.js` | 1 532 tracked paths checked | 0 |
+| `node scripts/module-boundary-ratchet.mjs` | 1 020/1 020, no added/removed edge | 0 |
+| `node tests/module-boundary-ratchet.test.js` | 13 passed, 0 failed, 0 skipped | 0 |
+| `node scripts/validate-test-registry.js` | 377 programs, fingerprint `1370be04…75a6` | 0 |
+
+Mutační běh zachoval wire zprávy na serverové straně, ale odstranil jedinou
+kompoziční hranu do klienta. Nový test zčervenal v pojmenované cross-boundary
+sadě; po okamžitém vrácení jedné řádky opět prošel 88/88. Důkaz proto není
+splnitelný pouhou existencí obou oddělených harnessů.
+
+Ratchet baseline zůstává autoritativně připnutá na `7551b907`; validátor
+explicitně reprodukoval 1 020 hran z tohoto SHA a před commitem hlásil aktuální
+reviewed revision `b6cb50d4` sedm commitů za baseline. Tento checkpoint mění
+jen test a jeho report, nikoli skenované runtime roots.
+
+Tento test zmenšuje mezeru mezi dvěma dosud oddělenými source harnessy. Stále
+neprokazuje produkčně ACKnutý socket, Electron render, reconnect přes skutečný
+listener ani rozhodnutí attachment/effect authority z 021.
