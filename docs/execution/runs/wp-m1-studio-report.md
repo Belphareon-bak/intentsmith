@@ -1234,3 +1234,49 @@ request i repository transakci na operation ID, committed binding revision a
 nejnovější failed verification attempt; stale akce musí skončit před efektem.
 Jde o změnu veřejného event/HTTP kontraktu, takže implementace správně čeká na
 operátorské potvrzení a B4/Gate 1 zůstávají `BLOCKED`.
+
+## Checkpoint 24 — kandidát skutečného reconnectu nad owned loopback wire
+
+Owned-loopback journey nyní po prvních čtyřech terminálech ukončí první
+serverovou WebSocket connection. Klient musí zrušit starý M1 negotiation
+latch a přes bounded reconnect scheduler založit druhý socket, který znovu
+nabídne a vyjedná `m1-wire-v1`; server autoritativně
+ověří všechny tři identity proti test-owned durable SQLite a klient přes
+skutečné loopback HTTP obnoví přesně jejich tři historie. Teprve potom stejný
+panel odešle další M1 turn a dostane jediný korelovaný success terminál.
+Test pinuje i přesně tři `findById` lookupy se stejnými identitami, takže
+mutace, která by bez konzultace durable store autoritativně ACKovala vše,
+nemůže projít jen díky pozitivním fixture datům.
+
+Tento checkpoint nemění produkční ACK, veřejný kontrakt ani Electron runtime.
+Ověřuje transportní reconnect, durable identity partition a post-reconnect
+směrování na skutečných socketech; server restart a finální built Electron
+journey zůstávají samostatně `NOT RUN`.
+
+Registry zůstává pravdivě `offline`, `network:loopback`, `database:false`:
+SQLite soubor je vytvořený, vlastněný a uzavřený samotnou sadou v izolovaném
+runtime rootu, takže nejde o databázovou prerekvizitu. Je to stejná
+self-contained konvence, kterou používají durable WS testy T25f/T25h; změna
+profilu ani fingerprintu registry proto není součástí tohoto checkpointu.
+
+| Příkaz / kontrola | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-studio-client.test.js` | 89 passed, 0 failed, 0 skipped | 0 |
+| pět dalších po sobě jdoucích běhů stejné sady | 5 × 89/0, bez flake/hangu | 5 × 0 |
+| mutace: nevyčistit M1 latch při skutečném disconnectu | 88/1, přesný reconnect scénář | 1 |
+| mutace: nahradit skutečný loopback history fetch VM stubem | 88/1, nulové HTTP requesty | 1 |
+| mutace: jedna ze tří identit chybí v durable SQLite | 88/1, přesně 2 restored / 1 invalid | 1 |
+| mutace: durable `findById` bez zaznamenaného lookupu | 88/1, přesná autoritativní aserce | 1 |
+| `node tests/ws-bridge.test.js` | 86/0 | 0 |
+| `node tests/artifact-validation.test.js` | 151/0 | 0 |
+| `node tests/repository-hygiene.test.js` | 1 533 tracked paths | 0 |
+| `node scripts/validate-test-registry.js --json` | 377 programů, fingerprint `2d5cf073…63ccd` | 0 |
+| `node scripts/module-boundary-ratchet.mjs` | 1 020/1 020, provenance replay 1 020 | 0 |
+
+První kandidátní běh skončil 88/1 pouze kvůli testové aserci, která porovnávala
+VM objekt referenční sémantikou; převod přes existující `hostClone()` opravil
+harness bez změny produktu nebo očekávaného payloadu. První tři mutace byly
+provedené po jedné, po každé vrácené a následovalo pět zelených běhů. Čtvrtá
+mutace durable lookupu pak samostatně zčervenala 88/1; po jejím vrácení prošel
+finální focused běh 89/0. Nejde ještě o server restart ani production Electron
+behavioral evidence a B4/Gate 1 proto zůstávají `BLOCKED`.

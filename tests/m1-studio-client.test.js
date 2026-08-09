@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import Database from 'better-sqlite3';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -19,6 +20,10 @@ import {
   validateM1Contract,
 } from '../contracts/m1/index.js';
 import { config } from '../src/config.js';
+import {
+  getConversationStore,
+  resetConversationStore,
+} from '../src/chat/conversation-store.js';
 import { LLMProviderUnavailableError } from '../src/core/chat-turn-error.js';
 import { createLegacyLocalCapability } from '../src/security/legacy-local-access-policy.js';
 import { createSessionAdapter } from '../src/ws-bridge/session-adapter.js';
@@ -1884,13 +1889,34 @@ await testAsync('actual Studio and server seams agree on success, error, and can
 await testAsync('owned loopback carries three Studio panels over the negotiated M1 wire', async () => {
   const telemetryBefore = config.features.telemetry;
   const capability = createLegacyLocalCapability();
-  const httpServer = createServer((_request, response) => {
+  const historyRequests = [];
+  const durableLookups = [];
+  const httpServer = createServer((request, response) => {
+    const match = /^\/api\/conversations\/([^/]+)\/messages$/.exec(request.url || '');
+    if (match) {
+      const conversationId = decodeURIComponent(match[1]);
+      historyRequests.push(conversationId);
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(JSON.stringify({
+        messages: [{
+          role: 'assistant',
+          content: `restored:${conversationId}`,
+          metadata: null,
+        }],
+      }));
+      return;
+    }
     response.writeHead(404);
     response.end();
   });
   const targetStarted = deferred();
   let controllerEffects = 0;
   const ready = deferred();
+  const disconnected = deferred();
+  const reconnectReady = deferred();
+  const reconnectRestored = deferred();
+  let readyCount = 0;
+  let durableDb = null;
   const observedTerminals = [];
   const terminalWaiters = [];
   let harness = null;
@@ -1899,7 +1925,15 @@ await testAsync('owned loopback carries three Studio panels over the negotiated 
   const cleanupErrors = [];
 
   function observeBus(name, payload) {
-    if (name === 'ws:ready') ready.resolve(payload);
+    if (name === 'ws:ready') {
+      readyCount++;
+      if (readyCount === 1) ready.resolve(payload);
+      if (readyCount === 2) reconnectReady.resolve(payload);
+    }
+    if (name === 'ws:disconnected' && readyCount === 1) disconnected.resolve(payload);
+    if (name === 'ws:reconnected' && readyCount === 2) {
+      reconnectRestored.resolve(payload);
+    }
     if (name !== 'chat:terminal') return;
     observedTerminals.push(payload);
     for (let index = terminalWaiters.length - 1; index >= 0; index--) {
@@ -1970,6 +2004,7 @@ await testAsync('owned loopback carries three Studio panels over the negotiated 
       autoHandshake: false,
       backendBase: `http://127.0.0.1:${address.port}`,
       clearTimeout,
+      fetch: globalThis.fetch,
       localCapability: capability,
       onBusEmit: observeBus,
       setTimeout,
@@ -2105,6 +2140,77 @@ await testAsync('owned loopback carries three Studio panels over the negotiated 
       )),
       true,
     );
+
+    durableDb = new Database(process.env.C3_DB_PATH);
+    durableDb.exec('CREATE TABLE conversations (id TEXT PRIMARY KEY)');
+    const insertConversation = durableDb.prepare('INSERT INTO conversations (id) VALUES (?)');
+    for (const pane of panes) insertConversation.run(pane._convId);
+    const findConversation = durableDb.prepare('SELECT id FROM conversations WHERE id = ?');
+    resetConversationStore();
+    getConversationStore({
+      db: durableDb,
+      conversations: {
+        findById: {
+          get(conversationId) {
+            durableLookups.push(conversationId);
+            return findConversation.get(conversationId);
+          },
+        },
+      },
+    });
+
+    const firstSocket = harness.socket;
+    const firstServerSocket = [...wss.clients][0];
+    assert.ok(firstServerSocket, 'owned loopback server has no connected Studio client');
+    firstServerSocket.terminate();
+    await within(disconnected.promise, 'first owned-loopback disconnect');
+    assert.equal(
+      harness.client.wsIsM1WireNegotiated(),
+      false,
+      'a replacement connection inherited the prior M1 negotiation latch',
+    );
+    await within(reconnectReady.promise, 'bounded automatic Studio reconnect', 5_000);
+    assert.equal(harness.sockets.length, 2);
+    assert.notEqual(harness.sockets[1], firstSocket);
+    assert.equal(harness.client.wsIsM1WireNegotiated(), true);
+
+    const restored = await within(
+      reconnectRestored.promise,
+      'durable reconnect history restore',
+    );
+    assert.deepEqual(hostClone(restored), {
+      status: 'ok',
+      restoredCount: 3,
+      invalidCount: 0,
+      failedCount: 0,
+    });
+    assert.deepEqual(
+      [...durableLookups].sort(),
+      panes.map(pane => pane._convId).sort(),
+      'rehydrate ACK did not consult durable authority exactly once per pane',
+    );
+    assert.deepEqual(
+      [...historyRequests].sort(),
+      panes.map(pane => pane._convId).sort(),
+    );
+    for (const pane of panes) {
+      assert.equal(pane.chat.msgs.length, 1);
+      assert.equal(pane.chat.msgs[0].text, `restored:${pane._convId}`);
+    }
+
+    const postReconnectTerminal = waitForTerminal(
+      payload => payload.action === 'send'
+        && payload.conversationId === panes[1]._convId
+        && payload.requestId !== success.requestId,
+      'post-reconnect success terminal',
+    );
+    assert.equal(harness.client.wsSendChat('Complete B after reconnect', panes[1], 1), true);
+    const postReconnect = await postReconnectTerminal;
+    assert.equal(postReconnect.status, 'ok');
+    assert.equal(postReconnect.sessionIdx, 1);
+    assert.equal(postReconnect.renderAssistant, true);
+    assert.equal(controllerEffects, 4);
+    assert.equal(observedTerminals.length, 5);
   } catch (error) {
     bodyError = error;
   } finally {
@@ -2112,19 +2218,24 @@ await testAsync('owned loopback carries three Studio panels over the negotiated 
     const cleanupSteps = [
       ['Studio WebSocket client', async () => {
         if (!harness) return;
-        const socketClosed = harness.socket.readyState === NodeWebSocket.CLOSED
-          ? Promise.resolve()
-          : new Promise(resolve => harness.socket.once('close', resolve));
+        const liveSockets = harness.sockets.filter(socket => (
+          socket.readyState !== NodeWebSocket.CLOSED
+        ));
+        const socketClosed = Promise.all(liveSockets.map(socket => (
+          new Promise(resolve => socket.once('close', resolve))
+        )));
         let gracefulError = null;
         try {
           harness.client.wsDestroy();
           await within(socketClosed, 'owned loopback client close', 1_000);
         } catch (error) {
           gracefulError = error;
-          try { harness.socket.terminate(); } catch (terminateError) {
-            cleanupErrors.push(new Error('Studio WebSocket terminate failed', {
-              cause: terminateError,
-            }));
+          for (const socket of liveSockets) {
+            try { socket.terminate(); } catch (terminateError) {
+              cleanupErrors.push(new Error('Studio WebSocket terminate failed', {
+                cause: terminateError,
+              }));
+            }
           }
           try {
             await within(socketClosed, 'forced owned loopback client close', 1_000);
@@ -2156,6 +2267,10 @@ await testAsync('owned loopback carries three Studio panels over the negotiated 
           }
           throw error;
         }
+      }],
+      ['durable reconnect store', async () => {
+        resetConversationStore();
+        if (durableDb?.open) durableDb.close();
       }],
       ['HTTP server', async () => {
         if (!httpServer.listening) return;
