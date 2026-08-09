@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "7ccd8a584a01f45a9ed566aeba7a41c63a064907",
-  "sourceTree": "3154a2e2c58a980e220909a17a08305e478dbf02",
+  "sourceRevision": "0bf2e11db5618b2dcdcbd4cdcc25e5f572c7a014",
+  "sourceTree": "5983902b200077340e4de01fbb98defdf1bb7ddb",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -965,6 +965,7 @@
     "src/upgrade/model-binding-application.js -> src/config.js",
     "src/upgrade/model-binding-application.js -> src/core/logger.js",
     "src/upgrade/model-binding-application.js -> src/upgrade/model-identity.js",
+    "src/upgrade/model-binding-application.js -> src/upgrade/model-use-authority.js",
     "src/upgrade/model-discovery.js -> src/config.js",
     "src/upgrade/model-discovery.js -> src/core/logger.js",
     "src/upgrade/model-discovery.js -> src/upgrade/model-catalog.js",

@@ -2057,9 +2057,25 @@ neexistuje typovaný durable `RUNTIME_UNKNOWN` ani restart recovery protokol;
 reprodukuje a Finding 008 proto přechází z globálního `REMEDIATED` na
 `PARTIAL_REMEDIATION` s vlastníkem a termínem před M1 acceptance.
 
-P6 u tohoto source diffu očekává jedinou novou exact hranu
-`src/upgrade/model-binding-application.js ->
-src/upgrade/model-use-authority.js`. Baseline writer a fresh-clone evidence jsou
-navazující samostatné checkpointy; tento odstavec jejich budoucí výsledek
-netvrdí. GPU, Ollama, produktový server ani externí síť nebyly spuštěné. C2
-zůstává `PARTIAL` (VRAM je pátá živá cesta) a Gate 1 zůstává `BLOCKED`.
+Source commit `0bf2e11db5618b2dcdcbd4cdcc25e5f572c7a014` přidal jedinou
+P6-viditelnou hranu:
+
+```text
+src/upgrade/model-binding-application.js -> src/upgrade/model-use-authority.js
+```
+
+Integrátorský writer ji přijal jediným exact `--accept-edge`; glob ani
+adresářová výjimka nebyly použité. Review a write výstup:
+
+```text
+MODULE_BOUNDARY_BASELINE_REVIEW baselineEdges=1015 currentEdges=1016
+added=1 removed=0 cycles=3->3 filesInCycles=28->28
+ADDED src/upgrade/model-binding-application.js -> src/upgrade/model-use-authority.js
+MODULE_BOUNDARY_BASELINE_WRITTEN sourceRevision=0bf2e11db5618b2dcdcbd4cdcc25e5f572c7a014 edges=1016
+```
+
+Zelený post-write ratchet a jeho focused sada jsou součástí tohoto baseline
+checkpointu. Fresh-clone evidence zůstává navazující samostatný commit; tento
+odstavec její budoucí výsledek netvrdí. GPU, Ollama, produktový server ani
+externí síť nebyly spuštěné. C2 zůstává `PARTIAL` (VRAM je pátá živá cesta) a
+Gate 1 zůstává `BLOCKED`.
