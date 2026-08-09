@@ -4,13 +4,88 @@ import config from '../config.js';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { getWebSocketBridgeHealth } from '../ws-bridge/ws-server.js';
-import { sanitizeGenericModelAutomationSettings } from '../db/model-policy.js';
+import {
+  createModelAutomationPolicyRepository,
+  sanitizeGenericModelAutomationSettings,
+} from '../db/model-policy.js';
 
 // H9: Settings, Health, Autocomplete, Audit, Logs routes
 const _fbRateMap = new Map(); // IP → last feedback timestamp (rate limit)
+const MODEL_POLICY_SETTINGS_HTTP_STATUS = Object.freeze({
+  MODEL_AUTOMATION_POLICY_BACKUP_INPUT_INVALID: 400,
+  MODEL_AUTOMATION_POLICY_BACKUP_VERSION_UNSUPPORTED: 400,
+  MODEL_AUTOMATION_POLICY_BACKUP_GENERAL_SETTINGS_INVALID: 400,
+  MODEL_AUTOMATION_POLICY_BACKUP_POLICY_INVALID: 400,
+  MODEL_AUTOMATION_POLICY_BACKUP_SENSITIVE_KEYS_INVALID: 400,
+  MODEL_AUTOMATION_POLICY_AUTO_FAILOVER_INVALID: 400,
+  MODEL_AUTOMATION_POLICY_AUTO_CLEANUP_INVALID: 400,
+  MODEL_AUTOMATION_POLICY_CLEANUP_DAYS_INVALID: 400,
+  MODEL_AUTOMATION_POLICY_DB_BUSY: 503,
+  MODEL_AUTOMATION_POLICY_ID_CONFLICT: 503,
+  MODEL_AUTOMATION_POLICY_INVALID_STATE: 503,
+  MODEL_AUTOMATION_POLICY_STORAGE_CONTRACT: 503,
+  MODEL_AUTOMATION_POLICY_DB_WRITE_FAILED: 503,
+  MODEL_AUTOMATION_POLICY_BACKUP_READ_FAILED: 503,
+  MODEL_AUTOMATION_POLICY_STORED_GENERAL_SETTINGS_INVALID: 503,
+});
+
+function modelPolicySettingsHttpStatus(code) {
+  return MODEL_POLICY_SETTINGS_HTTP_STATUS[code] || 500;
+}
+
+function publicPolicyCommit(policy) {
+  return {
+    revision: policy.revision,
+    autoFailoverEnabled: policy.settings.autoFailoverEnabled,
+    autoCleanupEnabled: policy.settings.autoCleanupEnabled,
+    autoCleanupDays: policy.settings.autoCleanupDays,
+    lastEventId: policy.lastEventId,
+    updatedAtMs: policy.updatedAtMs,
+  };
+}
+
 export function createMiscRoutes(deps) {
   const { db, parseBody, sendJSON, safeError, logger, callWithAuth, createAuthToken, LLMCallerRole } = deps;
   const settingsFeatureManager = deps.featureManager || featureManager;
+  const policyRepository = () => createModelAutomationPolicyRepository(db.db);
+
+  const applyCommittedSettingsRuntime = (operation, callback) => {
+    try {
+      return { runtimeApplied: true, runtimeErrorCode: null, value: callback() };
+    } catch (error) {
+      logger.warn('Settings', `${operation} committed but runtime apply failed: ${error?.message || error}`);
+      return {
+        runtimeApplied: false,
+        runtimeErrorCode: 'SETTINGS_RUNTIME_APPLY_FAILED',
+        value: 0,
+      };
+    }
+  };
+
+  const resetAllSettings = async (_req, res) => {
+    try {
+      const committed = policyRepository().resetFromGlobalSettings();
+      const runtime = applyCommittedSettingsRuntime(
+        'reset',
+        () => settingsFeatureManager.resetToDefaults(config.features),
+      );
+      return sendJSON(res, 200, {
+        ok: true,
+        success: true,
+        generalSettings: committed.generalSettings,
+        policy: publicPolicyCommit(committed.policy),
+        event: committed.policy.event,
+        runtimeApplied: runtime.runtimeApplied,
+        runtimeErrorCode: runtime.runtimeErrorCode,
+      });
+    } catch (error) {
+      const code = typeof error?.code === 'string'
+        ? error.code
+        : 'MODEL_AUTOMATION_POLICY_RESET_FAILED';
+      return sendJSON(res, modelPolicySettingsHttpStatus(code), { ok: false, code });
+    }
+  };
+
   return {
     // Storage info
     'GET /api/storage/info': async (req, res) => {
@@ -63,6 +138,56 @@ export function createMiscRoutes(deps) {
         });
       } catch (err) {
         sendJSON(res, 500, safeError(err));
+      }
+    },
+
+    'GET /api/settings/backup': (_req, res) => {
+      try {
+        const backup = policyRepository().exportSettingsBackup();
+        return sendJSON(res, 200, { ok: true, backup });
+      } catch (error) {
+        const code = typeof error?.code === 'string'
+          ? error.code
+          : 'MODEL_AUTOMATION_POLICY_BACKUP_READ_FAILED';
+        return sendJSON(res, modelPolicySettingsHttpStatus(code), { ok: false, code });
+      }
+    },
+
+    'POST /api/settings/import': async (req, res) => {
+      let body;
+      try {
+        body = await parseBody(req);
+      } catch (_) {
+        return sendJSON(res, 400, {
+          ok: false,
+          code: 'MODEL_AUTOMATION_POLICY_BACKUP_INPUT_INVALID',
+        });
+      }
+      try {
+        const committed = policyRepository().replaceFromSettingsImport(body);
+        const runtime = applyCommittedSettingsRuntime(
+          'import',
+          () => settingsFeatureManager.applySettings(committed.generalSettings),
+        );
+        return sendJSON(res, 200, {
+          ok: true,
+          success: true,
+          generalSettings: committed.generalSettings,
+          policy: publicPolicyCommit(committed.policy),
+          event: committed.policy.event,
+          featuresChanged: runtime.value || 0,
+          ignoredReservedKeys: committed.ignoredReservedKeys,
+          ignoredSensitiveKeys: committed.ignoredSensitiveKeys,
+          preservedSensitiveKeys: committed.preservedSensitiveKeys,
+          sourceOmittedSensitiveKeys: committed.sourceOmittedSensitiveKeys,
+          runtimeApplied: runtime.runtimeApplied,
+          runtimeErrorCode: runtime.runtimeErrorCode,
+        });
+      } catch (error) {
+        const code = typeof error?.code === 'string'
+          ? error.code
+          : 'MODEL_AUTOMATION_POLICY_IMPORT_FAILED';
+        return sendJSON(res, modelPolicySettingsHttpStatus(code), { ok: false, code });
       }
     },
 
@@ -208,14 +333,11 @@ export function createMiscRoutes(deps) {
       }
     },
 
-    'POST /api/reset': async (req, res) => {
-      try {
-        db.db.exec('DELETE FROM user_settings');
-        sendJSON(res, 200, { success: true, message: 'Settings cleared' });
-      } catch (err) {
-        sendJSON(res, 500, safeError(err));
-      }
-    },
+    'POST /api/settings/reset': resetAllSettings,
+
+    // Legacy alias retained for the old /architect surface. Both paths now
+    // share the same audited, atomic general-settings + policy commit point.
+    'POST /api/reset': resetAllSettings,
 
     // ── Feedback ──────────────────────────────────────────────────────────
     'POST /api/feedback': async (req, res) => {

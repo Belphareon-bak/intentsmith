@@ -177,8 +177,12 @@ skutečné WAL workery nad stejnou revision mají jednoho vítěze a jednoho sta
 losera. Detection repository i auto-cleanup/overview už čtou pouze tuto novou
 autoritu. Generic GET/POST dropuje tři rezervované klíče a hlásí je přes
 `ignoredReservedKeys`; pre-061 JSON helper nemá produkčního konzumenta a jeho
-sada je `HISTORICAL`. Typed GET/PUT používá exact body a revision CAS; explicitní
-atomické import/reset adaptéry ještě neexistují a scheduler proto zůstává
-default off.
+sada je `HISTORICAL`. Typed GET/PUT používá exact body a revision CAS. Backend
+explicitního versioned backup/import/reset adaptéru už sdílí jeden
+repository-owned commit point pro general settings, policy a audit event.
+Portable export vynechává `webhookSecret` a `c3.notif.smtpPass`; import je
+nepřijímá a zachová lokální hodnoty. Runtime chyba po durable commitu je
+přiznaný degraded výsledek, ne falešné 500. Autoritativní Studio consumer a
+fresh-clone důkaz ještě chybí; scheduler proto zůstává default off.
 Skutečná parita s
 mobilními migracemi bude doložená až na společném integračním SHA.

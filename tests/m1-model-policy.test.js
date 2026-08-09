@@ -132,6 +132,24 @@ function updateInput(expectedRevision, overrides = {}) {
   };
 }
 
+function backupEnvelope(overrides = {}) {
+  return {
+    kind: 'INTENTSMITH_SETTINGS_BACKUP',
+    schemaVersion: 1,
+    generalSettings: {
+      'c3.features.skills': true,
+      ui: { theme: 'light' },
+    },
+    modelAutomationPolicy: {
+      autoFailoverEnabled: true,
+      autoCleanupEnabled: true,
+      autoCleanupDays: 30,
+    },
+    omittedSensitiveKeys: [],
+    ...overrides,
+  };
+}
+
 function captureError(fn) {
   try {
     fn();
@@ -158,9 +176,15 @@ function createSettingsRouteHarness(db) {
   let requestBody = {};
   let response = null;
   let featureDocument = null;
+  let parseFailure = null;
+  let featureFailure = null;
+  let featureResetCount = 0;
   const routes = createMiscRoutes({
     db: { db },
-    parseBody: async () => requestBody,
+    parseBody: async () => {
+      if (parseFailure) throw parseFailure;
+      return requestBody;
+    },
     sendJSON: (_res, status, body) => { response = { status, body }; },
     safeError: error => ({ error: error.message }),
     logger: { info() {}, warn() {}, error() {}, debug() {} },
@@ -169,12 +193,19 @@ function createSettingsRouteHarness(db) {
     LLMCallerRole: {},
     featureManager: {
       applySettings(document) {
+        if (featureFailure) throw featureFailure;
         featureDocument = document;
         return 0;
+      },
+      resetToDefaults() {
+        if (featureFailure) throw featureFailure;
+        featureResetCount++;
       },
     },
   });
   return {
+    get featureResetCount() { return featureResetCount; },
+    setFeatureFailure(error) { featureFailure = error; },
     async post(body) {
       requestBody = body;
       response = null;
@@ -185,6 +216,28 @@ function createSettingsRouteHarness(db) {
     async get() {
       response = null;
       await routes['GET /api/settings']({}, {});
+      return response;
+    },
+    backup() {
+      response = null;
+      routes['GET /api/settings/backup']({}, {});
+      return response;
+    },
+    async importBackup(body, options = {}) {
+      requestBody = body;
+      parseFailure = options.parseFailure || null;
+      response = null;
+      featureDocument = null;
+      await routes['POST /api/settings/import']({}, {});
+      parseFailure = null;
+      return { response, featureDocument };
+    },
+    async reset(options = {}) {
+      response = null;
+      const route = options.legacy
+        ? routes['POST /api/reset']
+        : routes['POST /api/settings/reset'];
+      await route({}, {});
       return response;
     },
   };
@@ -542,6 +595,378 @@ await testAsync('generic settings GET omits owned keys from a legacy raw row', a
     assertEqual(Object.hasOwn(response.body.models, 'autoFailoverEnabled'), false);
     assertEqual(Object.hasOwn(response.body.models, 'autoCleanupDays'), false);
     assertEqual(readModelAutomationPolicy(db).settings.autoFailoverEnabled, false);
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('versioned backup exports one consistent general and policy snapshot', async () => {
+  const db = openDb();
+  try {
+    createPolicySchema(db);
+    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run(JSON.stringify({
+      ui: { theme: 'dark' },
+      models: { futureSetting: 'keep-me' },
+      'c3.notif.smtpPass': 'fixture-smtp-secret',
+      webhookSecret: 'fixture-webhook-secret',
+    }));
+    createModelAutomationPolicyRepository(db).updateFromTypedApi(updateInput(1));
+    const response = createSettingsRouteHarness(db).backup();
+    assertEqual(response.status, 200);
+    assertEqual(Object.keys(response.body).sort().join(','), 'backup,ok');
+    assertEqual(response.body.ok, true);
+    assertEqual(JSON.stringify(response.body.backup), JSON.stringify({
+      kind: 'INTENTSMITH_SETTINGS_BACKUP',
+      schemaVersion: 1,
+      generalSettings: {
+        ui: { theme: 'dark' },
+        models: { futureSetting: 'keep-me' },
+      },
+      modelAutomationPolicy: {
+        autoFailoverEnabled: true,
+        autoCleanupEnabled: false,
+        autoCleanupDays: 30,
+      },
+      omittedSensitiveKeys: ['c3.notif.smtpPass', 'webhookSecret'],
+    }));
+    assertEqual(JSON.stringify(response.body.backup).includes('fixture-smtp-secret'), false);
+    assertEqual(JSON.stringify(response.body.backup).includes('fixture-webhook-secret'), false);
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('versioned import atomically replaces general settings and policy', async () => {
+  const db = openDb();
+  try {
+    createPolicySchema(db);
+    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run(JSON.stringify({
+      old: true,
+      'c3.notif.smtpPass': 'destination-smtp-secret',
+      webhookSecret: 'destination-webhook-secret',
+    }));
+    const harness = createSettingsRouteHarness(db);
+    const imported = backupEnvelope({
+      generalSettings: {
+        ui: { theme: 'light' },
+        models: {
+          autoFailoverEnabled: false,
+          futureSetting: 'keep-me',
+        },
+        'c3.notif.smtpPass': 'untrusted-import-smtp-secret',
+        webhookSecret: 'untrusted-import-webhook-secret',
+      },
+    });
+    const { response, featureDocument } = await harness.importBackup(imported);
+    assertEqual(response.status, 200);
+    assertEqual(response.body.ok, true);
+    assertEqual(response.body.success, true);
+    assertEqual(response.body.policy.revision, 2);
+    assertEqual(response.body.policy.autoFailoverEnabled, true);
+    assertEqual(response.body.event.eventKind, 'BACKUP_IMPORT');
+    assertEqual(response.body.event.source, 'SETTINGS_IMPORT');
+    assertEqual(response.body.ignoredReservedKeys.join(','), 'autoFailoverEnabled');
+    assertEqual(
+      response.body.ignoredSensitiveKeys.join(','),
+      'c3.notif.smtpPass,webhookSecret',
+    );
+    assertEqual(
+      response.body.preservedSensitiveKeys.join(','),
+      'c3.notif.smtpPass,webhookSecret',
+    );
+    assertEqual(JSON.stringify(response.body.generalSettings), JSON.stringify({
+      ui: { theme: 'light' },
+      models: { futureSetting: 'keep-me' },
+      'c3.notif.smtpPass': 'destination-smtp-secret',
+      webhookSecret: 'destination-webhook-secret',
+    }));
+    assertEqual(JSON.stringify(featureDocument), JSON.stringify(response.body.generalSettings));
+    assertEqual(
+      db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data,
+      JSON.stringify(response.body.generalSettings),
+    );
+    assertEqual(readModelAutomationPolicy(db).settings.autoFailoverEnabled, true);
+    assertEqual(db.prepare(`
+      SELECT COUNT(*) AS count
+      FROM model_automation_policy_events
+      WHERE event_kind = 'BACKUP_IMPORT'
+    `).get().count, 1);
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('legacy backup wrapper preserves policy through the same audited seam', async () => {
+  const db = openDb();
+  try {
+    createPolicySchema(db);
+    const repository = createModelAutomationPolicyRepository(db);
+    const enabled = repository.updateFromTypedApi(updateInput(1));
+    const harness = createSettingsRouteHarness(db);
+    const { response } = await harness.importBackup(backupEnvelope({
+      generalSettings: { legacy: true },
+      modelAutomationPolicy: null,
+    }));
+    assertEqual(response.status, 200);
+    assertEqual(response.body.policy.revision, enabled.revision + 1);
+    assertEqual(response.body.policy.autoFailoverEnabled, true);
+    assertEqual(readModelAutomationPolicy(db).settings.autoFailoverEnabled, true);
+    assertEqual(db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data, '{"legacy":true}');
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('invalid backup envelopes fail before general or policy mutation', async () => {
+  const db = openDb();
+  try {
+    createPolicySchema(db);
+    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{"stable":true}');
+    const harness = createSettingsRouteHarness(db);
+    const before = snapshot(db);
+    for (const body of [
+      { ...backupEnvelope(), unknown: true },
+      backupEnvelope({ schemaVersion: 2 }),
+      backupEnvelope({ generalSettings: [] }),
+      backupEnvelope({ omittedSensitiveKeys: ['unknownSecret'] }),
+      backupEnvelope({ omittedSensitiveKeys: ['webhookSecret', 'webhookSecret'] }),
+      backupEnvelope({ omittedSensitiveKeys: ['webhookSecret', 'c3.notif.smtpPass'] }),
+      backupEnvelope({ modelAutomationPolicy: { ...backupEnvelope().modelAutomationPolicy, extra: true } }),
+      backupEnvelope({
+        modelAutomationPolicy: {
+          ...backupEnvelope().modelAutomationPolicy,
+          autoFailoverEnabled: 'true',
+        },
+      }),
+    ]) {
+      const { response, featureDocument } = await harness.importBackup(body);
+      assertEqual(response.status, 400);
+      assertEqual(response.body.ok, false);
+      assertEqual(featureDocument, null);
+      assertEqual(snapshot(db), before);
+    }
+    const malformed = await harness.importBackup(null, {
+      parseFailure: new Error('invalid JSON'),
+    });
+    assertEqual(malformed.response.status, 400);
+    assertEqual(malformed.response.body.code, 'MODEL_AUTOMATION_POLICY_BACKUP_INPUT_INVALID');
+    assertEqual(snapshot(db), before);
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('import and reset failures roll back both settings and policy', async () => {
+  const db = openDb();
+  try {
+    createPolicySchema(db);
+    createModelAutomationPolicyRepository(db).updateFromTypedApi(updateInput(1));
+    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{"stable":true}');
+    const harness = createSettingsRouteHarness(db);
+
+    db.exec(`
+      CREATE TRIGGER fixture_fail_backup_event
+      BEFORE INSERT ON model_automation_policy_events
+      WHEN NEW.event_kind = 'BACKUP_IMPORT'
+      BEGIN
+        SELECT RAISE(ABORT, 'fixture backup failure');
+      END;
+    `);
+    const beforeImport = snapshot(db);
+    const failedImport = await harness.importBackup(backupEnvelope({
+      generalSettings: { replacement: true },
+    }));
+    assertEqual(failedImport.response.status, 503);
+    assertEqual(failedImport.featureDocument, null);
+    assertEqual(snapshot(db), beforeImport);
+    db.exec('DROP TRIGGER fixture_fail_backup_event');
+
+    db.exec(`
+      CREATE TRIGGER fixture_fail_reset_event
+      BEFORE INSERT ON model_automation_policy_events
+      WHEN NEW.event_kind = 'GLOBAL_RESET'
+      BEGIN
+        SELECT RAISE(ABORT, 'fixture reset failure');
+      END;
+    `);
+    const beforeReset = snapshot(db);
+    const failedReset = await harness.reset();
+    assertEqual(failedReset.status, 503);
+    assertEqual(harness.featureResetCount, 0);
+    assertEqual(snapshot(db), beforeReset);
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('general settings write failures leave policy and audit lineage unchanged', async () => {
+  const db = openDb();
+  try {
+    createPolicySchema(db);
+    createModelAutomationPolicyRepository(db).updateFromTypedApi(updateInput(1));
+    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{"stable":true}');
+    const harness = createSettingsRouteHarness(db);
+
+    db.exec(`
+      CREATE TRIGGER fixture_fail_settings_write
+      BEFORE INSERT ON user_settings
+      WHEN NEW.id = 1
+      BEGIN
+        SELECT RAISE(ABORT, 'fixture settings write failure');
+      END;
+    `);
+    const beforeImport = snapshot(db);
+    const failedImport = await harness.importBackup(backupEnvelope({
+      generalSettings: { replacement: true },
+    }));
+    assertEqual(failedImport.response.status, 503);
+    assertEqual(failedImport.featureDocument, null);
+    assertEqual(snapshot(db), beforeImport);
+    db.exec('DROP TRIGGER fixture_fail_settings_write');
+
+    db.exec(`
+      CREATE TRIGGER fixture_fail_settings_delete
+      BEFORE DELETE ON user_settings
+      WHEN OLD.id = 1
+      BEGIN
+        SELECT RAISE(ABORT, 'fixture settings delete failure');
+      END;
+    `);
+    const beforeReset = snapshot(db);
+    const failedReset = await harness.reset();
+    assertEqual(failedReset.status, 503);
+    assertEqual(harness.featureResetCount, 0);
+    assertEqual(snapshot(db), beforeReset);
+  } finally {
+    db.close();
+  }
+});
+
+test('versioned settings operations reject foreign transaction ownership before mutation', () => {
+  const db = openDb();
+  try {
+    createPolicySchema(db);
+    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{"stable":true}');
+    const repository = createModelAutomationPolicyRepository(db);
+    const before = snapshot(db);
+    for (const operation of [
+      () => repository.exportSettingsBackup(),
+      () => repository.replaceFromSettingsImport(backupEnvelope()),
+      () => repository.resetFromGlobalSettings(),
+    ]) {
+      const error = captureError(() => db.transaction(operation).immediate());
+      assertPolicyError(error, 'MODEL_AUTOMATION_POLICY_TRANSACTION_OWNERSHIP_REQUIRED');
+      assertEqual(snapshot(db), before);
+    }
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('versioned settings routes expose unavailable storage as 503 without runtime effects', async () => {
+  const db = openDb();
+  createPolicySchema(db);
+  const harness = createSettingsRouteHarness(db);
+  db.close();
+
+  const backup = harness.backup();
+  assertEqual(backup.status, 503);
+  assertEqual(backup.body.ok, false);
+
+  const imported = await harness.importBackup(backupEnvelope());
+  assertEqual(imported.response.status, 503);
+  assertEqual(imported.response.body.ok, false);
+  assertEqual(imported.featureDocument, null);
+
+  const reset = await harness.reset();
+  assertEqual(reset.status, 503);
+  assertEqual(reset.body.ok, false);
+  assertEqual(harness.featureResetCount, 0);
+});
+
+await testAsync('post-commit runtime failure is reported without a false durable failure', async () => {
+  const db = openDb();
+  try {
+    createPolicySchema(db);
+    const harness = createSettingsRouteHarness(db);
+    harness.setFeatureFailure(new Error('fixture runtime apply failure'));
+
+    const imported = await harness.importBackup(backupEnvelope({
+      generalSettings: { committed: 'import' },
+    }));
+    assertEqual(imported.response.status, 200);
+    assertEqual(imported.response.body.ok, true);
+    assertEqual(imported.response.body.runtimeApplied, false);
+    assertEqual(imported.response.body.runtimeErrorCode, 'SETTINGS_RUNTIME_APPLY_FAILED');
+    assertEqual(
+      db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data,
+      '{"committed":"import"}',
+    );
+    assertEqual(readModelAutomationPolicy(db).revision, 2);
+
+    const reset = await harness.reset();
+    assertEqual(reset.status, 200);
+    assertEqual(reset.body.ok, true);
+    assertEqual(reset.body.runtimeApplied, false);
+    assertEqual(reset.body.runtimeErrorCode, 'SETTINGS_RUNTIME_APPLY_FAILED');
+    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM user_settings').get().count, 0);
+    assertEqual(readModelAutomationPolicy(db).revision, 3);
+    assertEqual(db.prepare(`
+      SELECT COUNT(*) AS count
+      FROM model_automation_policy_events
+      WHERE event_kind IN ('BACKUP_IMPORT', 'GLOBAL_RESET')
+    `).get().count, 2);
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('global settings reset is one audited OFF transition on both aliases', async () => {
+  const db = openDb();
+  try {
+    createPolicySchema(db);
+    const repository = createModelAutomationPolicyRepository(db);
+    repository.updateFromTypedApi(updateInput(1));
+    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{"custom":true}');
+    const harness = createSettingsRouteHarness(db);
+    const reset = await harness.reset();
+    assertEqual(reset.status, 200);
+    assertEqual(reset.body.ok, true);
+    assertEqual(reset.body.policy.autoFailoverEnabled, false);
+    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM user_settings').get().count, 0);
+    assertEqual(db.prepare(`
+      SELECT COUNT(*) AS count
+      FROM model_automation_policy_events
+      WHERE event_kind = 'GLOBAL_RESET'
+    `).get().count, 1);
+
+    repository.updateFromTypedApi(updateInput(reset.body.policy.revision));
+    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{"again":true}');
+    const legacyReset = await harness.reset({ legacy: true });
+    assertEqual(legacyReset.status, 200);
+    assertEqual(legacyReset.body.policy.autoFailoverEnabled, false);
+    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM user_settings').get().count, 0);
+    assertEqual(db.prepare(`
+      SELECT COUNT(*) AS count
+      FROM model_automation_policy_events
+      WHERE event_kind = 'GLOBAL_RESET'
+    `).get().count, 2);
+    assertEqual(harness.featureResetCount, 2);
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('backup export fails closed on malformed stored settings', async () => {
+  const db = openDb();
+  try {
+    createPolicySchema(db);
+    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{invalid');
+    const before = snapshot(db);
+    const response = createSettingsRouteHarness(db).backup();
+    assertEqual(response.status, 503);
+    assertEqual(response.body.code, 'MODEL_AUTOMATION_POLICY_STORED_GENERAL_SETTINGS_INVALID');
+    assertEqual(snapshot(db), before);
   } finally {
     db.close();
   }
@@ -962,21 +1387,26 @@ test('explicit reset appends exactly one audited OFF transition', () => {
       autoCleanupEnabled: true,
     }));
     runtime.setNow(3000);
-    const reset = repository.resetFromGlobalSettings({ expectedRevision: enabled.revision });
-    assertEqual(reset.revision, 3);
-    assertEqual(JSON.stringify(reset.settings), JSON.stringify(DEFAULT_MODEL_AUTOMATION_POLICY));
-    assertEqual(reset.event.eventKind, 'GLOBAL_RESET');
+    const reset = repository.resetFromGlobalSettings();
+    assertEqual(reset.policy.revision, 3);
+    assertEqual(
+      JSON.stringify(reset.policy.settings),
+      JSON.stringify(DEFAULT_MODEL_AUTOMATION_POLICY),
+    );
+    assertEqual(reset.policy.event.eventKind, 'GLOBAL_RESET');
+    assertEqual(JSON.stringify(reset.generalSettings), '{}');
     assertEqual(db.prepare(`
       SELECT COUNT(*) AS count FROM model_automation_policy_events
       WHERE event_kind = 'GLOBAL_RESET'
     `).get().count, 1);
 
-    const beforeStale = snapshot(db);
-    assertPolicyError(
-      captureError(() => repository.resetFromGlobalSettings({ expectedRevision: 2 })),
-      'MODEL_AUTOMATION_POLICY_STALE',
-    );
-    assertEqual(snapshot(db), beforeStale);
+    const second = repository.resetFromGlobalSettings();
+    assertEqual(second.policy.revision, 4);
+    assertEqual(second.policy.event.eventKind, 'GLOBAL_RESET');
+    assertEqual(db.prepare(`
+      SELECT COUNT(*) AS count FROM model_automation_policy_events
+      WHERE event_kind = 'GLOBAL_RESET'
+    `).get().count, 2);
   } finally {
     db.close();
   }

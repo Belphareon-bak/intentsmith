@@ -2676,3 +2676,36 @@ cyclic membership se nezměnil. Exact-edge writer přijal pouze tuto hranu a
 vygeneroval 1 023hranovou baseline nad uvedeným source. Tento checkpoint není
 fresh-clone evidence ani dokončené 020/E; import/reset, Studio a Gate 1
 zůstávají otevřené.
+
+## Checkpoint 31 — 020/E atomic settings recovery backend candidate
+
+`src/db/model-policy.js` nyní vlastní versioned backup/import/reset commit
+point. Export čte general settings a policy ve společném read snapshotu. Import
+i reset provedou změnu `user_settings`, policy projekce a právě jednoho
+append-only eventu uvnitř jediného `BEGIN IMMEDIATE`; cizí top-level transakce,
+settings write failure i event failure skončí před částečným commitem.
+
+Portable schema v1 je exact pětipoložkový envelope. Export neobsahuje hodnoty
+`webhookSecret` ani `c3.notif.smtpPass`; import jejich případné hodnoty ignoruje
+a zachová destination secrets. Oddělený plný SQLite backup není tímto
+kontraktem změněn. Route `GET /api/settings/backup`,
+`POST /api/settings/import`, `POST /api/settings/reset` a legacy alias
+`POST /api/reset` používají tutéž repository autoritu. Runtime apply běží až
+po durable commitu a jeho selhání vrací pravdivé `runtimeApplied:false`, nikoli
+falešný 500, který by vybízel k opakování již provedené operace.
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-model-policy.test.js` | 35/0 | 0 |
+| `node tests/routes-smoke.test.js` | 109/0 | 0 |
+| `node tests/schema-migrations.test.js` | 38/0 | 0 |
+| `node tests/artifact-validation.test.js` | 151/0 | 0 |
+| `node tests/repository-hygiene.test.js` | 1 546 tracked paths | 0 |
+| `node scripts/validate-test-registry.js --json` | 378 programů, 8 exclusions, fingerprint `cb1259ca…d06e15` | 0 |
+| `node scripts/module-boundary-ratchet.mjs` | 1 023/1 023, 3 cykly, 28 souborů | 0 |
+
+Jde o lokální feature candidate nad zmrazeným integračním SHA `1d351f67`, ne o
+fresh-clone attestation. Autoritativní Studio consumer je rozpracovaný v dalším
+odděleném commitu. Generic `GET /api/settings` a plný SQLite backup zůstávají
+secret-bearing lokální povrchy a nejsou vydávány za portable export. GPU,
+Ollama, Electron ani externí síť nebyly spuštěné; Gate 1 zůstává `BLOCKED`.
