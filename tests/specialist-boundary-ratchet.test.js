@@ -436,6 +436,14 @@ export const alpha = true;
     assertIncludes(dirty, 'BASELINE_WRITE_DIRTY_TREE');
     rmSync(join(repo, 'dirty.txt'));
 
+    write(join(repo, '.gitignore'), 'specialists/alpha/ignored.js\n');
+    commitAll(repo, 'fixture ignored-source policy');
+    write(join(repo, 'specialists/alpha/ignored.js'), 'export const ignored = true;\n');
+    const ignored = bootstrap(repo, [runtime, jsdoc]);
+    assertStatus(ignored, 2);
+    assertIncludes(ignored, 'writer rejects ignored relevant paths');
+    rmSync(join(repo, 'specialists/alpha/ignored.js'));
+
     const written = bootstrap(repo, [runtime, jsdoc]);
     assertStatus(written, 0);
     assertIncludes(written, 'SPECIALIST_BOUNDARY_BASELINE_WRITTEN');
@@ -496,6 +504,14 @@ exec "$IS_REAL_GIT" "$@"
     const baselinePath = join(repo, 'tests/fixtures/specialist-boundary/baseline.json');
     const source = readFileSync(sourcePath, 'utf8');
     const baseline = readFileSync(baselinePath, 'utf8');
+
+    write(join(repo, '.gitignore'), 'specialists/alpha/ignored.js\n');
+    commitAll(repo, 'fixture ignored-source policy');
+    write(join(repo, 'specialists/alpha/ignored.js'), 'export const ignored = true;\n');
+    const ignored = run(repo);
+    assertStatus(ignored, 2);
+    assertIncludes(ignored, 'relevant worktree path is dirty: !! specialists/alpha/ignored.js');
+    rmSync(join(repo, 'specialists/alpha/ignored.js'));
 
     write(sourcePath, `${source}/** @type {import('../../src/expertises/core.js').core} */\n`);
     const growth = run(repo);

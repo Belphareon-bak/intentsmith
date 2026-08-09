@@ -1024,7 +1024,7 @@ function verifyBaselineProvenance(
     throw new BoundaryError('STALE_PROVENANCE', 'baseline worktree bytes differ from HEAD');
   }
   const dirty = runGit(root, [
-    'status', '--porcelain=v1', '--untracked-files=all', '--',
+    'status', '--ignored=matching', '--porcelain=v1', '--untracked-files=all', '--',
     SPECIALISTS_RELATIVE, SCRIPT_RELATIVE, path,
   ]).stdout.trim();
   if (dirty) {
@@ -1075,6 +1075,16 @@ function assertWriteEnvironment(root, baseline) {
   const status = runGit(root, ['status', '--porcelain=v1', '--untracked-files=all']).stdout.trim();
   if (status) {
     throw new BoundaryError('BASELINE_WRITE_DIRTY_TREE', `writer requires a clean tree: ${status.split('\n')[0]}`);
+  }
+  const relevantIgnored = runGit(root, [
+    'status', '--ignored=matching', '--porcelain=v1', '--untracked-files=all', '--',
+    SPECIALISTS_RELATIVE, SCRIPT_RELATIVE, baselineRelative(root, baseline),
+  ]).stdout.trim();
+  if (relevantIgnored) {
+    throw new BoundaryError(
+      'BASELINE_WRITE_DIRTY_TREE',
+      `writer rejects ignored relevant paths: ${relevantIgnored.split('\n')[0]}`,
+    );
   }
   const parent = dirname(baseline);
   realpathDirectory(parent, 'baseline parent');
