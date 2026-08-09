@@ -9,6 +9,9 @@ model identity
 cutover/exact verification jsou fresh-clone ověřené na `cfcb63dd` a pokrývají
 čtyři z pěti živých cest. VRAM, cross-process claim, durable delete audit, operationless
 legacy rehydrate a post-DB runtime-finalize reconciliation zůstávají otevřené.
+Poslední VRAM hrana čeká na
+[rozhodnutí 023](../decisions/023-m1-vram-artifact-use-authority.md), které
+odděluje úzkou artifact/delete ochranu od širší GPU residency autority.
 
 Toto zadání uzavírá findings
 [`006`](../findings/006-model-cleanup-bypasses-registry-guard.md) a
@@ -117,6 +120,9 @@ rovnosti cutoffu musí focused sadu zčervenat.
 Zastavit pouze dotčenou část při potřebě změnit veřejný connector, povolit
 remote delete, přidat cross-process destructive claim nebo zvolit cílový
 durable audit. Nezávislé C1 části pokračují.
+
+Změna VRAM owner vocabulary nebo `src/media/**` navíc čeká na 023. Samotný
+per-model lease nesmí být vydán za vyřešení gateway/ComfyUI GPU admission.
 
 C1 nesmí prohlásit active inference za chráněnou. C2 musí zapojit celý skutečný
 živý call graph, ne jen gateway, a dormant cesty musí pravdivě vyřadit. Dokud

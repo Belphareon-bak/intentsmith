@@ -2147,6 +2147,13 @@ stalled-pull recovery, retirement a post-DB runtime-finalize reconciliation
 zůstávají otevřené. GPU, Ollama, produktový server a externí síť byly `NOT RUN`;
 Gate 1 zůstává `BLOCKED`.
 
+Navazující read-only call graph rozdělil VRAM residual do
+[rozhodnutí 023](../../decisions/023-m1-vram-artifact-use-authority.md).
+Per-canonical shared lease stačí k tomu, aby se model nesmazal mezi unload a
+reload; nestačí však k ochraně gateway inference nebo celkové GPU residency.
+Bez operátorského potvrzení proto `src/media/**` zůstává nezměněné a C2 dál
+pravdivě pokrývá pouze čtyři z pěti živých cest.
+
 ## Checkpoint 25 — nedělitelný runtime finalize recovery candidate
 
 Post-DB residual z Findingu 008 dostal vlastní úzký

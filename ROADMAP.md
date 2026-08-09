@@ -535,7 +535,9 @@ focused regression sady.
      prepare, durable zápis, compensation a synchronní finalize; exact
      verification drží target přes provider probe i durable success zápis a
      před retry delay lease uvolní. Pokryté jsou čtyři z pěti živých cest;
-     rozhodnutí o VRAM residency zůstává. Tyto residualy vlastní
+     rozhodnutí o VRAM residency zůstává. [023](docs/decisions/023-m1-vram-artifact-use-authority.md)
+     odděluje doporučenou úzkou artifact/delete ochranu od globální
+     gateway/ComfyUI GPU residency. Tyto residualy vlastní
      [`finding 010`](docs/findings/010-model-delete-use-and-audit-boundary.md);
      `checkBindingIntegrity()` přejde na `DETECTED/PROPOSED` a vytvoří přesně
      nula assign/override/broadcast efektů;
@@ -1249,7 +1251,8 @@ mohou pokračovat.
    vracejí lease i semaphore. Binding cutover znovu ověří exact identitu pod
    previous+target lease a verification drží target až přes durable success
    zápis. Jsou tím pokryté čtyři z pěti živých cest. VRAM disposition,
-   multiprocess claim a durable audit dál drží finding 010 otevřený. Sdílený
+   multiprocess claim a durable audit dál drží finding 010 otevřený; 023
+   přesně odděluje artifact-use hranu od pozdější GPU effect authority. Sdílený
    runtime profil nyní
    omezuje oba gateway vstupy a conversation compaction; neprohlašuje GPU
    PASS. V jediném worktree po malých commitech následuje nový sériový T3 běh

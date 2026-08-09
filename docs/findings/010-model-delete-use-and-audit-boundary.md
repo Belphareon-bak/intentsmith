@@ -96,7 +96,9 @@ rozhodnutá.
 - zdroj a explicitní retirement identity starší než one-step rollback;
 - doba platnosti chatového preview před jednorázovým potvrzením.
 - VRAM unload/reload jako shared artifact-use versus nová exclusive residency
-  autorita vůči gateway semaphore; C2a tuto sémantiku potichu nemění.
+  autorita vůči gateway semaphore; C2a tuto sémantiku potichu nemění. Přesné
+  oddělení obou problémů a doporučený potvrzovací blok jsou v
+  [rozhodnutí 023](../decisions/023-m1-vram-artifact-use-authority.md).
 - post-DB `runtime.commit()` failure nemá durable reconciliation incident;
   binding lease tento samostatný Finding 008 residual neopravuje.
 - direct pull stream nemá cancellation signal ani idle timeout; stalled
