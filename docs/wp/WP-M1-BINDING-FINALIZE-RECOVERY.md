@@ -6,8 +6,9 @@
 
 **Závislost:** dokončený [`WP-M1-BINDING-APPLICATION`](WP-M1-BINDING-APPLICATION.md)
 
-**Stav:** atomický schema/repository/application candidate je lokálně zelený;
-fresh-clone evidence a nezávislé přijetí následují po zdrojovém commitu.
+**Stav:** nedělitelný schema/repository/application source candidate je lokálně
+zelený; review jednotkou je `0a6bde54` spolu s bezprostředním opravným commitem;
+fresh-clone evidence následuje na výsledném SHA.
 
 Toto je zadání, ne PASS evidence. Stav milníku zůstává v `ROADMAP.md §5`.
 WP uzavírá pouze post-DB runtime-finalize residual z
@@ -81,13 +82,14 @@ Při výjimce v kroku 4 se service pokusí o bezpečnou kompenzaci tokenu. Při
 výjimce v kroku 4 nebo 5 vrací typovaný reconciliation error a ponechá durable
 stav pravdivě `UNKNOWN`; nesmí appendnout falešný runtime failure za již
 zapsaný success. Recovery smí zopakovat pouze exact rehydrate/finalize, nikoli
-provider efekt nebo nový user apply.
+provider pull, provider mutation, nový provider intent ani nový user apply.
+Exact provider identitu při recovery znovu čte.
 
 ## 5. Pozitivní a negativní důkaz
 
 **Pozitivní:** běžný apply, rollback a startup rehydrate mají direct receipt;
 stav `APPLIED` vznikne až po něm; notification i exact verification dál
-proběhnou a replay neopakuje runtime/provider efekt.
+proběhnou a user replay neopakuje runtime, pull ani provider intent.
 
 **Negativní minimálně:**
 
@@ -102,7 +104,12 @@ proběhnou a replay neopakuje runtime/provider efekt.
    jsou odmítnuté vlastněným signálem;
 8. recovery neprovede druhý pull, nový user operation, broadcast ani
    verification před potvrzením;
-9. jinak shodný potvrzený attempt projde jako pozitivní protějšek.
+9. pre-054 změněný `RUNTIME_APPLY` bez právě jedné přesné legacy history stopy
+   zastaví migraci před první schema mutací;
+10. po každém typed busy existuje nejvýše jeden operation-scoped timer bez
+    provider/runtime práce; počet po sobě jdoucích busy rearmů není omezen,
+    zatímco jiná recovery chyba ponechá roli v `UNKNOWN` bez auto-retry;
+11. jinak shodný potvrzený attempt projde jako pozitivní protějšek.
 
 ## 6. Stop condition / eskalace
 
@@ -125,8 +132,12 @@ C3_LOG_LEVEL=error node tests/m1-model-failover-schema.test.js
 C3_LOG_LEVEL=error node tests/m1-model-binding-repository.test.js
 C3_LOG_LEVEL=error node tests/m1-model-binding-application.test.js
 C3_LOG_LEVEL=error node tests/m1-model-binding-storage.test.js
+C3_LOG_LEVEL=error node tests/m1-model-failover-repository.test.js
 C3_LOG_LEVEL=error node tests/routes-smoke.test.js
 C3_LOG_LEVEL=error node tests/ws-bridge.test.js
+C3_LOG_LEVEL=error node tests/upgrade-flow.test.js
+C3_LOG_LEVEL=error node tests/upgrade-ux-v125.test.js
+C3_LOG_LEVEL=error node tests/model-upgrade.test.js
 node scripts/validate-test-registry.js
 node tests/artifact-validation.test.js
 node tests/repository-hygiene.test.js
@@ -138,19 +149,25 @@ Skutečná Ollama/GPU demonstrace zůstává samostatně `BLOCKED / NOT RUN`.
 
 ## 8. Výstup a pravdivé omezení
 
-Schema/repository a application/runtime cutover tvoří jeden atomický zdrojový
-checkpoint. Samostatný schema commit by záměrně shodil produkční application
+Schema/repository a application/runtime cutover tvoří jeden nedělitelný source
+candidate. Samostatný schema commit by záměrně shodil produkční application
 sadu a dočasně by umožnil vydat nepotvrzený runtime attempt jako manual
-binding. Nezávislé review proto před commitem správně vyžádalo společnou zelenou
-hranici. Fresh-clone evidence zůstává následujícím samostatným dokumentačním
-checkpointem, protože musí být vázaná na neměnný zdrojový SHA.
+binding. Historii nepřepisujeme: review jednotkou je `0a6bde54` spolu s jeho
+bezprostředním opravným commitem a pouze koncové SHA smí být označené zelenou
+fresh-clone evidencí.
 
 Implementovaný candidate zachovává veřejný kontrakt: interní
 `RUNTIME_RECONCILIATION_REQUIRED` se mapuje na dosavadní veřejné `PENDING` /
-`NOT_APPLIED`; HTTP a WS schéma se nerozšiřuje. `upgrade_history` vzniká až ve
-stejné transakci jako direct receipt. Pokud runtime commit nebo receipt skončí
-v nejasném okně, user replay neopakuje provider ani runtime efekt a one-shot
-operation-scoped recovery vytvoří novou exact `STARTUP_REHYDRATE` generaci.
+`NOT_APPLIED`; HTTP a WS schéma se nerozšiřuje. Nová post-054
+`upgrade_history` vzniká až ve stejné transakci jako direct receipt; původní
+pre-054 runtime writer musí mít přesnou atomickou history stopu. Pokud runtime
+commit nebo receipt skončí v nejasném okně, user replay neopakuje runtime, pull
+ani provider intent.
+Operation-scoped recovery znovu čte exact provider identitu a vytvoří novou
+`STARTUP_REHYDRATE` generaci. Po každém
+`MODEL_BINDING_APPLICATION_BUSY` existuje nejvýše jeden operation-scoped timer,
+ale počet po sobě jdoucích busy rearmů není omezen; libovolná jiná provider/DB
+chyba auto-retry nezaloží.
 
 Otevřené produktové rozhodnutí zůstává chování serveru při neúspěšném exact
 startup recovery jedné role. Candidate zachovává dnešní dostupnost serveru,

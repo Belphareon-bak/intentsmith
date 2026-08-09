@@ -202,7 +202,7 @@ recovery blocker. Vlastníkem finalize reconciliation zůstává
 Studio status/rollback surface vlastní `WP-M1-STUDIO`. Do té doby full M1/Gate
 1 acceptance zůstává blokovaná.
 
-## Stav nápravy — atomický runtime finalize recovery candidate
+## Stav nápravy — nedělitelný runtime finalize recovery candidate
 
 Aditivní migrace 054 zavádí append-only receipt pro přesný úspěšný runtime
 attempt. `DIRECT_CONFIRMED` smí potvrdit pouze nejnovější runtime generaci;
@@ -217,16 +217,22 @@ durable/runtime attempt zůstává pravdivě `APPLIED`. Verification a notificat
 DB fail-close odmítne, dokud nejnovější runtime generace nemá vlastní direct
 receipt. Pre-054 success se mechanicky nepotvrzuje: sealed cutoff vynutí novou
 exact `STARTUP_REHYDRATE` generaci. Migrace před první mutací ověří úplný
-pre-054 trigger set i jeho SQL digest.
+pre-054 trigger set i jeho SQL digest. Každý pre-054 změněný `RUNTIME_APPLY`
+navíc musí mít právě jeden přesný history řádek vytvořený původním atomickým
+writerem; chybějící i duplicitní stopa zastaví upgrade před DDL.
 
 Application po durable runtime attemptu synchronně commitne přesný CAS token a
 teprve potom atomicky zapíše direct receipt i veřejnou `upgrade_history`.
 Proposal repair, `model_changed` a verifikace následují až za receiptem.
 Výjimka před skutečným runtime přechodem se pokusí o kompenzaci; výjimka po
 přechodu nebo během receipt zápisu ponechá append-only success pravdivě
-`UNKNOWN`. User replay v tomto stavu neopakuje pull, runtime ani broadcast.
-Operation-scoped one-shot recovery vytvoří novou startup generaci a jedním
-commitem potvrdí ji i `RECOVERED_BY` lineage všech starších unknown generací.
+`UNKNOWN`. User replay v tomto stavu neopakuje pull, provider intent, runtime
+ani broadcast. Operation-scoped recovery znovu přečte exact provider identitu,
+vytvoří novou startup generaci a jedním commitem potvrdí ji i `RECOVERED_BY`
+lineage všech starších unknown generací. Po typovaném busy se založí nejvýše
+jeden operation-scoped timer; počet po sobě jdoucích busy
+rearmů není omezen. Jiná provider/DB chyba ponechá `UNKNOWN` oplocení pro
+restart nebo pozdější user replay.
 
 Nový interní stav se nepropaguje jako nový veřejný enum. HTTP/chat/WS nadále
 vidí kompatibilní `PENDING` / `NOT_APPLIED`; typovaný reconciliation detail je
@@ -234,8 +240,9 @@ interní diagnostika. Neautoritativní in-memory `recordUpgrade()` už nemůže 
 skutečném runtime přechodu způsobit falešný commit failure.
 
 Lokální focused důkaz je zelený a cílené mutace shazují effective-binding
-predicate, historical cutoff, finalize prerequisite, application receipt,
-post-commit history ochranu i veřejný compatibility mapping. Finding přesto
+predicate, historical cutoff a unikátnost history, trigger preflight, finalize
+prerequisite, application receipt, readback/busy recovery, post-commit history
+ochranu i veřejný compatibility mapping. Finding přesto
 zůstává `PARTIAL_REMEDIATION`, dokud tento candidate neprojde fresh-clone
 ověřením na commitnutém SHA. Samostatné produktové rozhodnutí navíc určí, zda
 při neúspěšném exact startup recovery blokovat jen roli, ukončit server, nebo

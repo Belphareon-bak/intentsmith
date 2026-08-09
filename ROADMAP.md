@@ -1246,9 +1246,10 @@ mohou pokračovat.
    implementovaný a attestovaný podle
    [rozhodnutí 016](docs/decisions/016-migration-identity-guard.md). Legacy
    apply/rollback writery už nemají produkčního volajícího. Explicitním
-   blockerem ve findingu 008 je nyní post-DB `runtime.commit()` reconciliation:
-   durable `APPLIED` zatím nemá při pozdním finalize failure typovaný recovery
-   stav. Primární application checkpoint je dokončený v
+   blockerem ve findingu 008 byl před aktuálním candidate post-DB
+   `runtime.commit()` reconciliation: durable `APPLIED` neměl při pozdním
+   finalize failure typovaný recovery stav. Primární application checkpoint je
+   dokončený v
    [`WP-M1-BINDING-APPLICATION`](docs/wp/WP-M1-BINDING-APPLICATION.md);
    vratné provozní defaulty jsou shromážděné v
    [018](docs/decisions/018-m1-manual-binding-application-policy.md). Společná
@@ -1257,18 +1258,21 @@ mohou pokračovat.
    fresh-clone ověřené na `e7d89b5e`. Startup inventory je pouze census hint;
    exact manual binding se před runtime změnou znovu resolveuje pod lease.
    Operationless `LEGACY_UNVERIFIED` override zůstává name-only kompatibilitní
-   residual. Selhání po durable `APPLIED`, ale během synchronního
-   `runtime.commit()`, zatím nemá typovaný durable reconciliation stav a brání
-   tvrzení o atomickém DB/runtime commit pointu. Navazující úzký
+   residual. Navazující úzký
    [`WP-M1-BINDING-FINALIZE-RECOVERY`](docs/wp/WP-M1-BINDING-FINALIZE-RECOVERY.md)
-   je aktivní od `20b1b933`. Atomický candidate přidává migraci 054,
+   je aktivní od `20b1b933` a tento historický post-DB residual řeší. Atomický
+   candidate přidává migraci 054,
    append-only direct/recovery receipt, odvozený interní
-   `RUNTIME_RECONCILIATION_REQUIRED` a operation-scoped exact startup recovery;
-   verification a notification bez receipt odmítá DB. Historický success se
+   `RUNTIME_RECONCILIATION_REQUIRED` a fail-closed preflight úplné trigger
+   autority i přesné pre-054 history stopy. Recovery smí znovu přečíst exact
+   provider identitu, ale nesmí vytvořit druhý pull, nový user-provider intent
+   ani zopakovat runtime efekt. Verification a notification bez receipt odmítá
+   DB. Historický success se
    nepotvrzuje backfillem a interní stav se do veřejného connectoru nemapuje
-   jako nový enum. Schema/repository i application/runtime cutover jsou kvůli
-   produkční kompatibilitě jedna zelená commit hranice; fresh-clone evidence
-   se připne až na její SHA. Otevřené
+   jako nový enum. Schema/repository i application/runtime cutover tvoří kvůli
+   produkční kompatibilitě jeden nedělitelný source candidate. Review jednotkou
+   je `0a6bde54` spolu s bezprostředním opravným commitem; pouze výsledné SHA smí
+   nést fresh-clone evidence. Otevřené
    zůstávají proof issuer, terminal failover activation/restore a scheduler.
    Failover se dosud neaktivuje. Proof issuance
    čeká na prahy a TTL z rozhodnutí 015; nový skutečný GPU běh zůstává

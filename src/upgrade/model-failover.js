@@ -442,9 +442,14 @@ function deriveBindingApplicationState(operationRow, attemptRows, finalizeRows =
   if (!operationRow) return null;
   const attempts = attemptRows.map(mapBindingApplicationAttempt);
   const runtimeFinalizeReceipts = finalizeRows.map(mapBindingRuntimeFinalizeReceipt);
-  const runtimeAttempt = [...attempts]
-    .reverse()
-    .find(attempt => APPLICATION_RUNTIME_KINDS.has(attempt.kind)) || null;
+  const runtimeAttempts = attempts.filter(attempt => APPLICATION_RUNTIME_KINDS.has(attempt.kind));
+  const runtimeAttempt = runtimeAttempts.at(-1) || null;
+  const unresolvedRuntimeAttempt = [...runtimeAttempts].reverse().find(attempt => (
+    attempt.outcome === 'SUCCEEDED'
+      && !runtimeFinalizeReceipts.some(receipt => (
+        receipt.runtimeAttemptRevision === attempt.attemptRevision
+      ))
+  )) || null;
   const runtimeFinalizeReceipt = runtimeAttempt?.outcome === 'SUCCEEDED'
     ? runtimeFinalizeReceipts.find(receipt => (
       receipt.runtimeAttemptRevision === runtimeAttempt.attemptRevision
@@ -472,7 +477,14 @@ function deriveBindingApplicationState(operationRow, attemptRows, finalizeRows =
   let failureCode = null;
   let retryable = false;
 
-  if (runtimeAttempt?.outcome === 'FAILED') {
+  if (unresolvedRuntimeAttempt) {
+    state = 'RUNTIME_RECONCILIATION_REQUIRED';
+    runtimeStatus = 'APPLIED';
+    runtimeFinalizeStatus = 'UNKNOWN';
+    failurePhase = 'RUNTIME_FINALIZE';
+    failureCode = 'MODEL_BINDING_RUNTIME_RECONCILIATION_REQUIRED';
+    retryable = true;
+  } else if (runtimeAttempt?.outcome === 'FAILED') {
     state = 'FAILED';
     runtimeStatus = 'FAILED';
     failurePhase = runtimeAttempt.kind;
@@ -480,13 +492,7 @@ function deriveBindingApplicationState(operationRow, attemptRows, finalizeRows =
     retryable = runtimeAttempt.retryable;
   } else if (runtimeAttempt?.outcome === 'SUCCEEDED') {
     runtimeStatus = 'APPLIED';
-    if (!runtimeFinalized) {
-      state = 'RUNTIME_RECONCILIATION_REQUIRED';
-      runtimeFinalizeStatus = 'UNKNOWN';
-      failurePhase = 'RUNTIME_FINALIZE';
-      failureCode = 'MODEL_BINDING_RUNTIME_RECONCILIATION_REQUIRED';
-      retryable = true;
-    } else {
+    if (runtimeFinalized) {
       runtimeFinalizeStatus = 'DIRECT_CONFIRMED';
       state = 'APPLIED_PENDING_VERIFICATION';
       if (verificationAttempt?.outcome === 'SUCCEEDED') {
@@ -516,6 +522,7 @@ function deriveBindingApplicationState(operationRow, attemptRows, finalizeRows =
     retryable,
     attemptRevision: attempts.at(-1)?.attemptRevision ?? 0,
     lastRuntimeAttempt: runtimeAttempt,
+    lastUnresolvedRuntimeAttempt: unresolvedRuntimeAttempt,
     lastRuntimeFinalizeReceipt: runtimeFinalizeReceipt,
     lastVerificationAttempt: verificationAttempt,
     notificationStatus: notificationAttempt
@@ -2379,6 +2386,24 @@ export class ModelFailoverRepository {
         );
       }
 
+      const existingFinalizeRows = this.#bindingRuntimeFinalizeRows(operationId);
+      const hadDirectReceipt = existingFinalizeRows.some(
+        receipt => receipt.finalization_kind === 'DIRECT_CONFIRMED',
+      );
+      const cutoffRevision = cutoff?.max_preexisting_runtime_attempt_revision ?? 0;
+      const legacyHistoryAlreadyOwned = runtimeAttempts.some(attempt => (
+        attempt.attempt_kind === 'RUNTIME_APPLY'
+          && attempt.outcome === 'SUCCEEDED'
+          && attempt.runtime_changed === 1
+          && attempt.attempt_revision <= cutoffRevision
+      ));
+      const historyRuntimeAttempt = !hadDirectReceipt && !legacyHistoryAlreadyOwned
+        ? runtimeAttempts.find(attempt => (
+          attempt.outcome === 'SUCCEEDED'
+            && attempt.runtime_changed === 1
+        )) || null
+        : null;
+
       const createdAtMs = this.#now('recordManualRuntimeFinalized');
       this.db.prepare(`
         INSERT INTO model_binding_runtime_finalize_receipts (
@@ -2387,8 +2412,7 @@ export class ModelFailoverRepository {
         ) VALUES (?, ?, 'DIRECT_CONFIRMED', ?, NULL, ?)
       `).run(operationId, expectedAttemptRevision, configVersion, createdAtMs);
 
-      if (runtimeAttempt.attempt_kind === 'RUNTIME_APPLY'
-        && runtimeAttempt.runtime_changed === 1) {
+      if (historyRuntimeAttempt) {
         this.db.prepare(`
           INSERT INTO upgrade_history (
             role, from_model, to_model, score, action, created_at

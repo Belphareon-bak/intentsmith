@@ -2146,19 +2146,24 @@ stalled-pull recovery, retirement a post-DB runtime-finalize reconciliation
 zůstávají otevřené. GPU, Ollama, produktový server a externí síť byly `NOT RUN`;
 Gate 1 zůstává `BLOCKED`.
 
-## Checkpoint 25 — atomický runtime finalize recovery candidate
+## Checkpoint 25 — nedělitelný runtime finalize recovery candidate
 
 Post-DB residual z Findingu 008 dostal vlastní úzký
 [`WP-M1-BINDING-FINALIZE-RECOVERY`](../../wp/WP-M1-BINDING-FINALIZE-RECOVERY.md).
 Nezávislé review odmítlo původně plánovaný mezilehlý schema/repository commit:
 produkční application sada v něm byla červená 58/29 a nepotvrzený runtime
 attempt mohl uniknout jako effective manual binding. Schema, repository,
-application a runtime port proto tvoří jednu atomickou zelenou commit hranici.
+application a runtime port proto tvoří jeden nedělitelný source candidate.
+Historie se nepřepisuje: review jednotkou je `0a6bde54` spolu s bezprostředním
+opravným commitem a pouze výsledné SHA smí nést fresh-clone důkaz.
 
 Migrace 054 odděluje durable runtime attempt od potvrzeného synchronního
 finalize. Sealed cutoff zachytí všechny pre-054 runtime generace a zabrání
 jejich dodatečnému přímému potvrzení; úplný pre-054 trigger set i SQL digest se
-ověří před první schema mutací. `DIRECT_CONFIRMED` smí patřit jen nejnovější
+ověří před první schema mutací. Každý pre-054 změněný `RUNTIME_APPLY` musí mít
+právě jeden exact history řádek, který původní repository writer zapisoval ve
+stejné transakci; chybějící i duplicitní stopa fail-close zastaví upgrade před
+DDL. `DIRECT_CONFIRMED` smí patřit jen nejnovější
 úspěšné runtime generaci. `RECOVERED_BY` smí ukázat pouze na pozdější
 direct-confirmed `STARTUP_REHYDRATE` stejné operace. Sekvenci, čas a recovery
 množinu vlastní repository; oba journaly jsou append-only.
@@ -2170,8 +2175,12 @@ Application pořadí je nyní:
 `upgrade_history` se zapisuje ve stejné transakci jako direct receipt, nikoli
 před skutečným runtime finalize. Neautoritativní in-memory historie nemůže
 zpětně shodit dokončený runtime commit. Commit/receipt crash okno zůstává
-pravdivě `UNKNOWN`; user replay neopakuje provider ani runtime efekt a
-operation-scoped one-shot recovery vytvoří přesnou startup generaci. Dva po
+pravdivě `UNKNOWN`; ani pozdější selhaný startup attempt nezakryje starší
+nepotvrzený success. User replay neopakuje runtime, pull ani provider intent.
+Operation-scoped recovery znovu čte exact provider identitu a vytvoří přesnou
+startup generaci. Po každém typed busy existuje nejvýše jeden operation-scoped
+timer, ale počet po sobě jdoucích busy rearmů není omezen; jiné provider/DB
+selhání ponechá `UNKNOWN` pro restart nebo pozdější replay. Dva po
 sobě jdoucí restarty před receiptem jsou pokryté skutečným SQLite close/open:
 třetí generace dostane direct receipt a obě starší generace `RECOVERED_BY`.
 
@@ -2180,8 +2189,8 @@ nepropaguje jako nový veřejný enum: dnešní veřejná hranice zůstává `PE
 `NOT_APPLIED`. HTTP, chat a WS schéma se nezměnilo.
 
 Lokální focused a compatibility výsledky v checkoutu
-`/home/belphareon/Projects/intentsmith`, na bázi `658bd1a0`, před zdrojovým
-commitem:
+`/home/belphareon/Projects/intentsmith`, na bázi `0a6bde54`, před opravným
+zdrojovým commitem:
 
 | Příkaz | Výsledek | Exit |
 |---|---:|---:|
@@ -2189,36 +2198,52 @@ commitem:
 | `node --check src/upgrade/model-failover.js` | syntax valid | 0 |
 | `node --check src/upgrade/model-binding-application.js` | syntax valid | 0 |
 | `node --check src/upgrade/upgrade-manager.js` | syntax valid | 0 |
-| `node tests/schema-migrations.test.js` | 38/0; 56 migrací | 0 |
-| `node tests/m1-model-failover-schema.test.js` | 15/0 | 0 |
-| `node tests/m1-model-binding-repository.test.js` | 40/0 | 0 |
-| `node tests/m1-model-binding-application.test.js` | 92/0 | 0 |
-| `node tests/m1-model-binding-storage.test.js` | 16/0 | 0 |
-| `node tests/routes-smoke.test.js` | 109/0 | 0 |
-| `node tests/ws-bridge.test.js` | 68/0 | 0 |
-| `node tests/upgrade-flow.test.js` | 28/0 | 0 |
-| `node tests/upgrade-ux-v125.test.js` | 78/0 | 0 |
-| `node tests/model-upgrade.test.js` | 58/0 | 0 |
+| `C3_LOG_LEVEL=error node tests/schema-migrations.test.js` | 38/0; 56 migrací | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-failover-schema.test.js` | 20/0 | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-failover-repository.test.js` | 14/0 | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-binding-repository.test.js` | 42/0 | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-binding-application.test.js` | 96/0 | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-binding-storage.test.js` | 16/0 | 0 |
+| `C3_LOG_LEVEL=error node tests/routes-smoke.test.js` | 109/0 | 0 |
+| `C3_LOG_LEVEL=error node tests/ws-bridge.test.js` | 68/0 | 0 |
+| `C3_LOG_LEVEL=error node tests/upgrade-flow.test.js` | 28/0 | 0 |
+| `C3_LOG_LEVEL=error node tests/upgrade-ux-v125.test.js` | 78/0 | 0 |
+| `C3_LOG_LEVEL=error node tests/model-upgrade.test.js` | 58/0 | 0 |
 | `node tests/artifact-validation.test.js` | 151/0 | 0 |
 | `node tests/repository-hygiene.test.js` | 1 527 trackovaných cest | 0 |
 | `node scripts/validate-test-registry.js --json` | 376 programů / 8 exclusions; fingerprint `0472f18e…24fd0` | 0 |
 | `node scripts/module-boundary-ratchet.mjs` | 1 016/1 016 hran; 3 existující cykly | 0 |
 | `git diff --cached --check` | bez whitespace chyb | 0 |
 
-Sedm cílených mutací prokázalo účinné negativní pokrytí:
+Třináct cílených mutací prokázalo účinné negativní pokrytí. Každá vznikla
+jedním přesným dočasným patchem v uvedeném souboru a po běhu byla vrácena
+opačným patchem:
 
-| Odstraněná záruka | Výsledek | Exit |
+| Soubor a dočasná mutace | Příkaz a výsledek | Exit |
 |---|---:|---:|
-| effective binding ignoruje direct receipt | repository 39/1 | 1 |
-| pre-054 cutoff trigger je vypnutý | failover schema 14/1 | 1 |
-| úplný trigger-set i SQL-digest preflight jsou vypnuté | failover schema 14/1 | 1 |
-| verification/notification prerequisite je vypnutý | repository 39/1 | 1 |
-| application nezapíše finalize receipt | application 50/42 | 1 |
-| post-commit in-memory history smí vyhodit | application 91/1 | 1 |
-| compatibility mapping interního unknown stavu je odstraněný | application 91/1 | 1 |
+| `model-failover.js`, `getEffectiveBinding()`: odstraněn predicate `runtimeFinalizeStatus === 'DIRECT_CONFIRMED'` | repository 40/2 | 1 |
+| migrace 054, `trg_model_binding_runtime_finalize_direct_after_cutoff`: do `WHEN` přidáno `AND 0` | failover schema 19/1 | 1 |
+| migrace 054, `up()`: oba name-set/SQL-digest `if` preflighty prefixovány `false &&` | failover schema 17/3 | 1 |
+| migrace 054, `trg_model_binding_application_finalize_prerequisite`: `WHEN` vypnuto | repository 41/1 | 1 |
+| `model-binding-application.js`, `#executeOperation()`: odstraněn call `recordManualRuntimeFinalized()` | application 49/47 | 1 |
+| `upgrade-manager.js`, binding `commit()`: před receipt vrácen call `recordUpgrade()` | application 95/1 | 1 |
+| `model-binding-application.js`, public-state mapper: odstraněna compatibility větev pro interní unknown | application 95/1 | 1 |
+| `model-failover.js`, `deriveBindingApplicationState()`: odstraněna priorita `unresolvedRuntimeAttempt` | repository 37/5 | 1 |
+| `model-failover.js`, `recordManualRuntimeFinalized()`: vypnut predicate `legacyHistoryAlreadyOwned` | repository 34/8 | 1 |
+| `model-binding-application.js`, `#scheduleRuntimeFinalizeRecovery()`: busy rearm změněn na `false && rescheduleAfterBusy` | application 95/1 | 1 |
+| `model-binding-application.js`, receipt-readback catch: odstraněn recovery schedule | application 95/1 | 1 |
+| `model-binding-application.js`, runtime-attempt catch/readback: oba recovery schedules změněny na `if (false)` | application 95/1 | 1 |
+| migrace 054, legacy-history preflight: unikátnost `COUNT(*) <> 1` oslabena na `= 0` | failover schema 19/1 | 1 |
+
+Repository mutace běžely příkazem
+`C3_LOG_LEVEL=error node tests/m1-model-binding-repository.test.js`, schema
+mutace přes `C3_LOG_LEVEL=error node tests/m1-model-failover-schema.test.js` a
+application mutace přes
+`C3_LOG_LEVEL=error node tests/m1-model-binding-application.test.js`; každý subprocess skončil
+uvedeným nenulovým exit code.
 
 Po každé mutaci byl zdroj vrácen přesným opačným patchem; finální pozitivní
-focused běh znovu skončil 38/38 + 15/15 + 40/40 + 92/92, vše exit 0.
+focused běh znovu skončil 38/38 + 20/20 + 14/14 + 42/42 + 96/96, vše exit 0.
 
 Tento záznam je zatím `LOCAL_CANDIDATE`, ne fresh-clone důkaz. Po commitnutí
 zdrojové hranice následuje čistý export/clone, offline instalace a opakování

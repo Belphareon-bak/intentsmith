@@ -2700,6 +2700,7 @@ await testAsync('runtime finalize receipts are append-only, exact and recovery-l
     assertEqual(finalized.recoveredReceipts[0].kind, 'RECOVERED_BY');
     assertEqual(finalized.recoveredReceipts[0].recoveredByAttemptRevision, 2);
     assertEqual(finalized.applicationState.state, 'APPLIED_PENDING_VERIFICATION');
+    assertEqual(firstDb.prepare('SELECT COUNT(*) AS count FROM upgrade_history').get().count, 1);
 
     const conflictingReplay = captureError(() => finalizeRuntime(
       repository,
@@ -2735,6 +2736,109 @@ await testAsync('runtime finalize receipts are append-only, exact and recovery-l
       `Expected finalize identity rejection, got ${replacement.message}`,
     );
     assertEqual(authoritySnapshot(firstDb), beforeTamper);
+  });
+});
+
+await testAsync('failed exact recovery cannot erase an older unresolved runtime generation', async () => {
+  await withRepository(async ({ firstDb }) => {
+    const runtime = createRuntime('runtime-finalize-failed-recovery');
+    const repository = createModelFailoverRepository(firstDb, runtime.options);
+    observeChat(repository);
+    runtime.setNow(2000);
+    const applied = applyChat(repository);
+    const operationId = applied.operation.operationId;
+
+    runtime.setNow(2100);
+    repository.recordManualRuntimeApplied({
+      operationId,
+      expectedAttemptRevision: 0,
+      observedModelName: 'candidate',
+      observedDigestSha256: DIGEST_B,
+      runtimeChanged: true,
+    });
+    runtime.setNow(2200);
+    const failedRecovery = repository.recordManualStartupRehydrateFailed({
+      operationId,
+      expectedAttemptRevision: 1,
+      failureCode: 'MODEL_BINDING_REHYDRATE_TARGET_UNAVAILABLE',
+    });
+    assertEqual(failedRecovery.applicationState.state, 'RUNTIME_RECONCILIATION_REQUIRED');
+    assertEqual(failedRecovery.applicationState.runtimeStatus, 'APPLIED');
+    assertEqual(failedRecovery.applicationState.runtimeFinalizeStatus, 'UNKNOWN');
+    assertEqual(failedRecovery.applicationState.lastRuntimeAttempt.attemptRevision, 2);
+    assertEqual(failedRecovery.applicationState.lastRuntimeAttempt.outcome, 'FAILED');
+    assertEqual(
+      failedRecovery.applicationState.lastUnresolvedRuntimeAttempt.attemptRevision,
+      1,
+    );
+    assertEqual(repository.getEffectiveBinding('CHAT').source, 'PENDING_MANUAL');
+    assertEqual(firstDb.prepare(`
+      SELECT COUNT(*) AS count FROM model_binding_runtime_finalize_receipts
+      WHERE operation_id = ?
+    `).get(operationId).count, 0);
+
+    runtime.setNow(2300);
+    repository.recordManualStartupRehydrated({
+      operationId,
+      expectedAttemptRevision: 2,
+      observedModelName: 'candidate',
+      observedDigestSha256: DIGEST_B,
+      runtimeChanged: false,
+    });
+    runtime.setNow(2350);
+    const finalized = finalizeRuntime(repository, operationId, 3, 1);
+    assertEqual(finalized.applicationState.runtimeFinalizeStatus, 'DIRECT_CONFIRMED');
+    assertEqual(finalized.recoveredReceipts.length, 1);
+    assertEqual(finalized.recoveredReceipts[0].runtimeAttemptRevision, 1);
+    assertEqual(finalized.recoveredReceipts[0].recoveredByAttemptRevision, 3);
+    assertEqual(firstDb.prepare('SELECT COUNT(*) AS count FROM upgrade_history').get().count, 1);
+  });
+});
+
+await testAsync('first startup finalize after a pre-attempt crash records user history once', async () => {
+  await withRepository(async ({ firstDb, databasePath }) => {
+    const runtime = createRuntime('runtime-finalize-pre-attempt-crash');
+    let repository = createModelFailoverRepository(firstDb, runtime.options);
+    observeChat(repository);
+    runtime.setNow(2000);
+    const applied = applyChat(repository);
+    const operationId = applied.operation.operationId;
+    assertEqual(firstDb.prepare(`
+      SELECT COUNT(*) AS count FROM model_binding_application_attempts
+      WHERE operation_id = ?
+    `).get(operationId).count, 0);
+    firstDb.close();
+
+    const restartedDb = openDb(databasePath);
+    try {
+      repository = createModelFailoverRepository(restartedDb, runtime.options);
+      runtime.setNow(2100);
+      repository.recordManualStartupRehydrated({
+        operationId,
+        expectedAttemptRevision: 0,
+        observedModelName: 'candidate',
+        observedDigestSha256: DIGEST_B,
+        runtimeChanged: true,
+      });
+      runtime.setNow(2150);
+      const finalized = finalizeRuntime(repository, operationId, 1, 0);
+      assertEqual(finalized.applicationState.runtimeFinalizeStatus, 'DIRECT_CONFIRMED');
+      const history = restartedDb.prepare(`
+        SELECT role, from_model, to_model, action
+        FROM upgrade_history
+      `).all();
+      assertEqual(JSON.stringify(history), JSON.stringify([{
+        role: 'CHAT',
+        from_model: 'reasoner',
+        to_model: 'candidate',
+        action: 'apply',
+      }]));
+      const replay = finalizeRuntime(repository, operationId, 1, 0);
+      assertEqual(replay.outcome, 'REPLAYED');
+      assertEqual(restartedDb.prepare('SELECT COUNT(*) AS count FROM upgrade_history').get().count, 1);
+    } finally {
+      restartedDb.close();
+    }
   });
 });
 
@@ -2906,7 +3010,15 @@ await testAsync('startup rehydrate closes runtime apply for the same operation g
         'MODEL_BINDING_RUNTIME_COMMIT_FAILED', 1, 2200, 0)
     `).run(operationId));
     assert(/runtime apply cannot follow startup rehydrate/i.test(directRepeat.message));
-    assertEqual(firstDb.prepare('SELECT COUNT(*) AS count FROM upgrade_history').get().count, 0);
+    assertEqual(JSON.stringify(firstDb.prepare(`
+      SELECT role, from_model, to_model, action
+      FROM upgrade_history
+    `).all()), JSON.stringify([{
+      role: 'CHAT',
+      from_model: 'reasoner',
+      to_model: 'candidate',
+      action: 'apply',
+    }]));
   });
 });
 

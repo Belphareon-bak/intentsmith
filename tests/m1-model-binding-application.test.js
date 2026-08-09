@@ -596,7 +596,9 @@ await testAsync('binding cutover re-resolves and reserves previous plus target t
 
 await testAsync('non-authoritative in-memory history cannot tear a committed runtime finalize', async () => {
   await withFixture(async ({ db, repository, manager, application }) => {
+    let historyCalls = 0;
     manager.recordUpgrade = () => {
+      historyCalls++;
       throw new Error('fixture in-memory history failure');
     };
     const result = await application.applyManualBinding({
@@ -611,6 +613,7 @@ await testAsync('non-authoritative in-memory history cannot tear a committed run
     );
     assertEqual(count(db, 'model_binding_runtime_finalize_receipts'), 1);
     assertEqual(count(db, 'upgrade_history'), 1);
+    assertEqual(historyCalls, 0);
   });
 });
 
@@ -828,6 +831,70 @@ await testAsync('runtime finalize failure releases leases but leaves the named r
   });
 });
 
+await testAsync('runtime-attempt readback outage preserves the recovery fence before commit', async () => {
+  const scheduled = [];
+  let failReadback = false;
+  let throwAfterAttempt = true;
+  await withFixture(async ({ db, repository, manager, provider, application }) => {
+    const error = await captureError(application.applyManualBinding({
+      role: 'CHAT',
+      targetModel: 'fixture-target',
+    }));
+    assertEqual(error.code, 'MODEL_BINDING_RUNTIME_COMMIT_FAILED');
+    assertEqual(error.details.phase, 'RUNTIME_ATTEMPT_READBACK');
+    assertEqual(error.details.compensationOutcome, 'COMPENSATED');
+    const operation = latestOperation(repository);
+    assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-base');
+    assertEqual(
+      repository.getBindingApplicationState(operation.operationId).runtimeFinalizeStatus,
+      'UNKNOWN',
+    );
+    assertEqual(count(db, 'model_binding_runtime_finalize_receipts'), 0);
+    assertEqual(count(db, 'upgrade_history'), 0);
+    assertEqual(scheduled.length, 1);
+
+    scheduled[0].callback();
+    await application.awaitBackgroundWork();
+    assertEqual(
+      repository.getBindingApplicationState(operation.operationId).runtimeFinalizeStatus,
+      'DIRECT_CONFIRMED',
+    );
+    assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-target');
+    assertEqual(count(db, 'model_binding_runtime_finalize_receipts'), 2);
+    assertEqual(count(db, 'upgrade_history'), 1);
+    assertEqual(provider.calls.pull, 0);
+  }, {
+    scheduleRecovery(callback, delayMs) {
+      const item = { callback, delayMs };
+      scheduled.push(item);
+      return item;
+    },
+    cancelRecovery() {},
+    repositoryFactory(repository) {
+      const recordApplied = repository.recordManualRuntimeApplied.bind(repository);
+      const getState = repository.getBindingApplicationState.bind(repository);
+      return repositoryProxy(repository, {
+        recordManualRuntimeApplied(input) {
+          const result = recordApplied(input);
+          if (throwAfterAttempt) {
+            throwAfterAttempt = false;
+            failReadback = true;
+            throw new Error('fixture runtime attempt return-path failure');
+          }
+          return result;
+        },
+        getBindingApplicationState(operationId) {
+          if (failReadback) {
+            failReadback = false;
+            throw new Error('fixture runtime attempt readback unavailable');
+          }
+          return getState(operationId);
+        },
+      });
+    },
+  });
+});
+
 await testAsync('post-commit throw blocks replay and one exact recovery confirms both generations', async () => {
   const scheduled = [];
   let commitCalls = 0;
@@ -866,7 +933,7 @@ await testAsync('post-commit throw blocks replay and one exact recovery confirms
     assertEqual(recovered.runtimeFinalizeStatus, 'DIRECT_CONFIRMED');
     assertEqual(commitCalls, 2);
     assertEqual(provider.calls.pull, 0);
-    assertEqual(count(db, 'upgrade_history'), 0);
+    assertEqual(count(db, 'upgrade_history'), 1);
     assertEqual(
       JSON.stringify(db.prepare(`
         SELECT runtime_attempt_revision, finalization_kind,
@@ -941,7 +1008,7 @@ await testAsync('receipt outage leaves committed runtime unknown until exact rec
       'DIRECT_CONFIRMED',
     );
     assertEqual(count(db, 'model_binding_runtime_finalize_receipts'), 2);
-    assertEqual(count(db, 'upgrade_history'), 0);
+    assertEqual(count(db, 'upgrade_history'), 1);
     assertEqual(events.filter(event => event.action === 'model_changed').length, 1);
   }, {
     scheduleRecovery(callback, delayMs) {
@@ -957,6 +1024,167 @@ await testAsync('receipt outage leaves committed runtime unknown until exact rec
           if (rejectFirstReceipt) {
             rejectFirstReceipt = false;
             throw new Error('fixture receipt unavailable');
+          }
+          return recordFinalized(input);
+        },
+      });
+    },
+  });
+});
+
+await testAsync('busy exact recovery rearms once without provider or runtime work', async () => {
+  const scheduled = [];
+  let rejectFirstReceipt = true;
+  await withFixture(async ({ db, repository, provider, application }) => {
+    const first = await captureError(application.applyManualBinding({
+      role: 'CHAT',
+      targetModel: 'fixture-target',
+    }));
+    assertEqual(first.code, 'MODEL_BINDING_RUNTIME_COMMIT_FAILED');
+    const operation = latestOperation(repository);
+    assertEqual(scheduled.length, 1);
+    const resolveCalls = provider.calls.resolve;
+    const runtimeAttempts = count(db, 'model_binding_application_attempts');
+
+    const entered = deferred();
+    const release = deferred();
+    const mutation = application.runExclusiveModelMutation(
+      { kind: 'MODEL_DELETE' },
+      async () => {
+        entered.resolve();
+        await release.promise;
+        return { ok: true };
+      },
+    );
+    await entered.promise;
+    scheduled[0].callback();
+    await application.awaitBackgroundWork();
+    assertEqual(provider.calls.resolve, resolveCalls);
+    assertEqual(provider.calls.pull, 0);
+    assertEqual(count(db, 'model_binding_application_attempts'), runtimeAttempts);
+    assertEqual(count(db, 'model_binding_runtime_finalize_receipts'), 0);
+    assertEqual(scheduled.length, 2);
+
+    release.resolve();
+    assertEqual((await mutation).ok, true);
+    scheduled[1].callback();
+    await application.awaitBackgroundWork();
+    assertEqual(
+      repository.getBindingApplicationState(operation.operationId).runtimeFinalizeStatus,
+      'DIRECT_CONFIRMED',
+    );
+    assertEqual(count(db, 'model_binding_runtime_finalize_receipts'), 2);
+    assertEqual(count(db, 'upgrade_history'), 1);
+    assertEqual(provider.calls.pull, 0);
+  }, {
+    scheduleRecovery(callback, delayMs) {
+      const item = { callback, delayMs };
+      scheduled.push(item);
+      return item;
+    },
+    cancelRecovery() {},
+    repositoryFactory(repository) {
+      const recordFinalized = repository.recordManualRuntimeFinalized.bind(repository);
+      return repositoryProxy(repository, {
+        recordManualRuntimeFinalized(input) {
+          if (rejectFirstReceipt) {
+            rejectFirstReceipt = false;
+            throw new Error('fixture initial receipt unavailable');
+          }
+          return recordFinalized(input);
+        },
+      });
+    },
+  });
+});
+
+await testAsync('failed exact recovery preserves the unknown fence and replay has no provider effect', async () => {
+  const scheduled = [];
+  let rejectFirstReceipt = true;
+  await withFixture(async ({ db, repository, provider, events, application }) => {
+    const first = await captureError(application.applyManualBinding({
+      role: 'CHAT',
+      targetModel: 'fixture-target',
+    }));
+    assertEqual(first.code, 'MODEL_BINDING_RUNTIME_COMMIT_FAILED');
+    const operation = latestOperation(repository);
+    assertEqual(
+      repository.getBindingApplicationState(operation.operationId).runtimeFinalizeStatus,
+      'UNKNOWN',
+    );
+    assertEqual(scheduled.length, 1);
+
+    provider.resolveError = new ModelBindingApplicationError(
+      'MODEL_BINDING_PROVIDER_UNAVAILABLE',
+      'fixture exact recovery unavailable',
+    );
+    scheduled[0].callback();
+    await application.awaitBackgroundWork();
+    const afterFailedRecovery = repository.getBindingApplicationState(operation.operationId);
+    assertEqual(afterFailedRecovery.state, 'RUNTIME_RECONCILIATION_REQUIRED');
+    assertEqual(afterFailedRecovery.runtimeStatus, 'APPLIED');
+    assertEqual(afterFailedRecovery.runtimeFinalizeStatus, 'UNKNOWN');
+    assertEqual(afterFailedRecovery.lastRuntimeAttempt.outcome, 'FAILED');
+    assertEqual(afterFailedRecovery.lastUnresolvedRuntimeAttempt.attemptRevision, 1);
+    assertEqual(repository.getEffectiveBinding('CHAT').source, 'PENDING_MANUAL');
+
+    provider.resolveError = null;
+    const resolveCalls = provider.calls.resolve;
+    const replay = await captureError(application.applyManualBinding({
+      role: 'CHAT',
+      targetModel: 'fixture-target',
+    }));
+    assertEqual(replay.code, 'MODEL_BINDING_RUNTIME_COMMIT_FAILED');
+    assertEqual(replay.details.phase, 'REPLAY_BLOCKED');
+    assertEqual(provider.calls.resolve, resolveCalls);
+    assertEqual(provider.calls.pull, 0);
+    assertEqual(events.filter(event => event.action === 'model_changed').length, 0);
+    assertEqual(scheduled.length, 2);
+
+    scheduled[1].callback();
+    await application.awaitBackgroundWork();
+    const recovered = repository.getBindingApplicationState(operation.operationId);
+    assertEqual(recovered.runtimeFinalizeStatus, 'DIRECT_CONFIRMED');
+    assertEqual(recovered.lastRuntimeAttempt.attemptRevision, 3);
+    assertEqual(recovered.attemptRevision, 5);
+    assertEqual(count(db, 'upgrade_history'), 1);
+    assertEqual(provider.calls.pull, 0);
+    assertEqual(events.filter(event => event.action === 'model_changed').length, 1);
+    assertEqual(
+      JSON.stringify(db.prepare(`
+        SELECT runtime_attempt_revision, finalization_kind,
+               recovered_by_attempt_revision
+        FROM model_binding_runtime_finalize_receipts
+        WHERE operation_id = ?
+        ORDER BY runtime_attempt_revision
+      `).all(operation.operationId)),
+      JSON.stringify([
+        {
+          runtime_attempt_revision: 1,
+          finalization_kind: 'RECOVERED_BY',
+          recovered_by_attempt_revision: 3,
+        },
+        {
+          runtime_attempt_revision: 3,
+          finalization_kind: 'DIRECT_CONFIRMED',
+          recovered_by_attempt_revision: null,
+        },
+      ]),
+    );
+  }, {
+    scheduleRecovery(callback, delayMs) {
+      const item = { callback, delayMs };
+      scheduled.push(item);
+      return item;
+    },
+    cancelRecovery() {},
+    repositoryFactory(repository) {
+      const recordFinalized = repository.recordManualRuntimeFinalized.bind(repository);
+      return repositoryProxy(repository, {
+        recordManualRuntimeFinalized(input) {
+          if (rejectFirstReceipt) {
+            rejectFirstReceipt = false;
+            throw new Error('fixture initial receipt unavailable');
           }
           return recordFinalized(input);
         },
@@ -999,6 +1227,65 @@ await testAsync('receipt return-path failure re-reads committed authority withou
             throw new Error('fixture receipt return-path failure');
           }
           return result;
+        },
+      });
+    },
+  });
+});
+
+await testAsync('receipt readback outage cannot lose the exact recovery timer', async () => {
+  const scheduled = [];
+  let failReadback = false;
+  let rejectReceipt = true;
+  await withFixture(async ({ db, repository, application }) => {
+    const error = await captureError(application.applyManualBinding({
+      role: 'CHAT',
+      targetModel: 'fixture-target',
+    }));
+    assertEqual(error.code, 'MODEL_BINDING_RUNTIME_COMMIT_FAILED');
+    assertEqual(error.details.phase, 'RUNTIME_FINALIZE_RECEIPT_READBACK');
+    const operation = latestOperation(repository);
+    assertEqual(
+      repository.getBindingApplicationState(operation.operationId).runtimeFinalizeStatus,
+      'UNKNOWN',
+    );
+    assertEqual(scheduled.length, 1);
+    assertEqual(count(db, 'model_binding_runtime_finalize_receipts'), 0);
+    assertEqual(count(db, 'upgrade_history'), 0);
+
+    scheduled[0].callback();
+    await application.awaitBackgroundWork();
+    assertEqual(
+      repository.getBindingApplicationState(operation.operationId).runtimeFinalizeStatus,
+      'DIRECT_CONFIRMED',
+    );
+    assertEqual(count(db, 'model_binding_runtime_finalize_receipts'), 2);
+    assertEqual(count(db, 'upgrade_history'), 1);
+  }, {
+    scheduleRecovery(callback, delayMs) {
+      const item = { callback, delayMs };
+      scheduled.push(item);
+      return item;
+    },
+    cancelRecovery() {},
+    repositoryFactory(repository) {
+      const getState = repository.getBindingApplicationState.bind(repository);
+      const recordFinalized = repository.recordManualRuntimeFinalized.bind(repository);
+      return repositoryProxy(repository, {
+        recordManualRuntimeFinalized(input) {
+          if (rejectReceipt) {
+            rejectReceipt = false;
+            failReadback = true;
+            throw new Error('fixture receipt unavailable');
+          }
+          return recordFinalized(input);
+        },
+        getBindingApplicationState(operationId) {
+          if (failReadback) {
+            failReadback = false;
+            throw new Error('fixture receipt readback unavailable');
+          }
+          return getState(operationId);
         },
       });
     },
@@ -3369,7 +3656,19 @@ await testAsync('second restart recovers both pre-receipt runtime generations wi
         },
       ]),
     );
-    assertEqual(count(thirdDb, 'upgrade_history'), 0);
+    assertEqual(count(thirdDb, 'upgrade_history'), 1);
+    assertEqual(
+      JSON.stringify(thirdDb.prepare(`
+        SELECT role, from_model, to_model, action
+        FROM upgrade_history
+      `).get()),
+      JSON.stringify({
+        role: 'CHAT',
+        from_model: 'fixture-base',
+        to_model: 'fixture-target',
+        action: 'apply',
+      }),
+    );
     assertEqual(provider.calls.pull, 0);
     assertEqual(events.filter(event => event.action === 'model_changed').length, 0);
     thirdApplication.startBackgroundVerification();

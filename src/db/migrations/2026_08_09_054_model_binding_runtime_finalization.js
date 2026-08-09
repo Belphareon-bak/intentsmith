@@ -29,8 +29,10 @@ const EXPECTED_APPLICATION_COLUMNS = Object.freeze([
   'verification_method',
 ]);
 
-const EXPECTED_APPLICATION_INSERT_TRIGGERS = Object.freeze([
+const EXPECTED_APPLICATION_TRIGGERS = Object.freeze([
+  'trg_model_binding_application_append_only_delete',
   'trg_model_binding_application_append_only_insert_conflict',
+  'trg_model_binding_application_append_only_update',
   'trg_model_binding_application_current_desired',
   'trg_model_binding_application_nonretryable_runtime_terminal',
   'trg_model_binding_application_notification_once',
@@ -40,13 +42,14 @@ const EXPECTED_APPLICATION_INSERT_TRIGGERS = Object.freeze([
   'trg_model_binding_application_runtime_changed_shape',
   'trg_model_binding_application_runtime_prerequisite',
   'trg_model_binding_application_sequence_authority',
+  'trg_model_binding_application_sequence_positive',
   'trg_model_binding_application_success_identity',
   'trg_model_binding_application_time_order',
   'trg_model_binding_application_verification_terminal',
 ]);
 
-const EXPECTED_APPLICATION_INSERT_DIGEST =
-  '46671626e30522645255f7ee403030155c163a111e7ce6e3d9ea9bad2105463b';
+const EXPECTED_APPLICATION_TRIGGER_DIGEST =
+  '886816c5064b5d5ea896c47a21dd879f113e75b228ff744204699ec5334dadcd';
 
 export function up(db) {
   const preexistingTables = db.prepare(`
@@ -72,30 +75,89 @@ export function up(db) {
     throw new Error('model_binding_application_attempts is not the expected pre-054 shape');
   }
 
-  const applicationInsertTriggers = db.prepare(`
+  const applicationTriggers = db.prepare(`
     SELECT name, sql
     FROM sqlite_master
     WHERE type = 'trigger'
       AND tbl_name = 'model_binding_application_attempts'
-      AND upper(sql) LIKE '%BEFORE INSERT%'
     ORDER BY name
   `).all();
-  const applicationInsertNames = applicationInsertTriggers.map(row => row.name);
-  if (JSON.stringify(applicationInsertNames)
-    !== JSON.stringify(EXPECTED_APPLICATION_INSERT_TRIGGERS)) {
+  const applicationTriggerNames = applicationTriggers.map(row => row.name);
+  if (JSON.stringify(applicationTriggerNames)
+    !== JSON.stringify(EXPECTED_APPLICATION_TRIGGERS)) {
     throw new Error(
-      'model binding application BEFORE INSERT trigger set drifted before 054: '
-      + `expected ${EXPECTED_APPLICATION_INSERT_TRIGGERS.join(',')}; `
-      + `got ${applicationInsertNames.join(',')}`,
+      'model binding application trigger set drifted before 054: '
+      + `expected ${EXPECTED_APPLICATION_TRIGGERS.join(',')}; `
+      + `got ${applicationTriggerNames.join(',')}`,
     );
   }
-  const applicationInsertDigest = createHash('sha256')
-    .update(applicationInsertTriggers.map(row => `${row.name}\0${row.sql}`).join('\0'))
+  const applicationTriggerDigest = createHash('sha256')
+    .update(applicationTriggers.map(row => `${row.name}\0${row.sql}`).join('\0'))
     .digest('hex');
-  if (applicationInsertDigest !== EXPECTED_APPLICATION_INSERT_DIGEST) {
+  if (applicationTriggerDigest !== EXPECTED_APPLICATION_TRIGGER_DIGEST) {
     throw new Error(
-      'model binding application BEFORE INSERT trigger SQL drifted before 054: '
-      + `expected ${EXPECTED_APPLICATION_INSERT_DIGEST}; got ${applicationInsertDigest}`,
+      'model binding application trigger SQL drifted before 054: '
+      + `expected ${EXPECTED_APPLICATION_TRIGGER_DIGEST}; got ${applicationTriggerDigest}`,
+    );
+  }
+
+  // Before 054 the repository wrote upgrade_history in the same transaction
+  // as every changed RUNTIME_APPLY success.  The legacy table has no operation
+  // id, so the exact tuple written by that repository is the strongest
+  // available ownership proof.  Refuse missing or ambiguous evidence before
+  // creating any 054 object instead of silently manufacturing audit lineage.
+  const inconsistentLegacyHistory = db.prepare(`
+    SELECT attempt.operation_id,
+           attempt.attempt_revision,
+           (
+             SELECT COUNT(*)
+             FROM upgrade_history history
+             WHERE history.role = operation.role
+               AND history.from_model = operation.previous_model_name
+               AND history.to_model = operation.target_model_name
+               AND history.score IS NULL
+               AND history.action = CASE
+                 WHEN operation.operation_kind = 'USER_ROLLBACK'
+                   THEN 'rollback'
+                 ELSE 'apply'
+               END
+               AND history.created_at = datetime(
+                 attempt.created_at_ms / 1000,
+                 'unixepoch'
+               )
+           ) AS matching_history_count
+    FROM model_binding_application_attempts attempt
+    JOIN model_binding_operations operation
+      ON operation.operation_id = attempt.operation_id
+    WHERE attempt.attempt_kind = 'RUNTIME_APPLY'
+      AND attempt.outcome = 'SUCCEEDED'
+      AND attempt.runtime_changed = 1
+      AND (
+        SELECT COUNT(*)
+        FROM upgrade_history history
+        WHERE history.role = operation.role
+          AND history.from_model = operation.previous_model_name
+          AND history.to_model = operation.target_model_name
+          AND history.score IS NULL
+          AND history.action = CASE
+            WHEN operation.operation_kind = 'USER_ROLLBACK'
+              THEN 'rollback'
+            ELSE 'apply'
+          END
+          AND history.created_at = datetime(
+            attempt.created_at_ms / 1000,
+            'unixepoch'
+          )
+      ) <> 1
+    ORDER BY attempt.operation_id, attempt.attempt_revision
+  `).all();
+  if (inconsistentLegacyHistory.length > 0) {
+    throw new Error(
+      'pre-054 changed runtime success lacks unique durable upgrade history: '
+      + inconsistentLegacyHistory.map(row => (
+        `${row.operation_id}@${row.attempt_revision}`
+        + `(${row.matching_history_count})`
+      )).join(','),
     );
   }
 

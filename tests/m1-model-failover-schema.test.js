@@ -18,6 +18,7 @@ import {
 } from '../src/db/migrate.js';
 import { up as installAppendOnlyIdentity } from '../src/db/migrations/2026_08_09_053_model_binding_append_only_identity.js';
 import { up as installRuntimeFinalization } from '../src/db/migrations/2026_08_09_054_model_binding_runtime_finalization.js';
+import { createModelFailoverRepository } from '../src/upgrade/model-failover.js';
 
 const DIGEST_A = 'a'.repeat(64);
 const DIGEST_B = 'b'.repeat(64);
@@ -109,7 +110,10 @@ function insertDesiredBinding(db, {
   `).run(role, model, canonical, digest, revision, eventId);
 }
 
-function insertPreFinalizeManualRuntimeSuccess(db) {
+function insertPreFinalizeManualRuntimeSuccess(db, {
+  attemptKind = 'RUNTIME_APPLY',
+  includeHistory = attemptKind === 'RUNTIME_APPLY',
+} = {}) {
   const operationId = 'operation-pre-054-runtime-success';
   const eventId = 'event-pre-054-user-apply';
   const apply = db.transaction(() => {
@@ -151,9 +155,19 @@ function insertPreFinalizeManualRuntimeSuccess(db) {
         observed_model_name, observed_canonical_name, observed_digest_sha256,
         verification_method, failure_code, retryable, created_at_ms,
         runtime_changed
-      ) VALUES (?, 1, 'RUNTIME_APPLY', 'SUCCEEDED', 'candidate', 'candidate', ?,
+      ) VALUES (?, 1, ?, 'SUCCEEDED', 'candidate', 'candidate', ?,
         NULL, NULL, 0, 2100, 1)
-    `).run(operationId, DIGEST_B);
+    `).run(operationId, attemptKind, DIGEST_B);
+    if (includeHistory) {
+      db.prepare(`
+        INSERT INTO upgrade_history (
+          role, from_model, to_model, score, action, created_at
+        ) VALUES (
+          'CHAT', 'qwen3.5:27b', 'candidate', NULL, 'apply',
+          datetime(2100 / 1000, 'unixepoch')
+        )
+      `).run();
+    }
   });
   apply.immediate();
   return operationId;
@@ -654,6 +668,7 @@ await testAsync('migration 054 preserves pre-existing success as unconfirmed evi
     insertDesiredObservedEvent(db);
     insertDesiredBinding(db);
     const operationId = insertPreFinalizeManualRuntimeSuccess(db);
+    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM upgrade_history').get().count, 1);
     const beforeAttempt = JSON.stringify(db.prepare(`
       SELECT *
       FROM model_binding_application_attempts
@@ -698,9 +713,124 @@ await testAsync('migration 054 preserves pre-existing success as unconfirmed evi
       FROM model_binding_application_attempts
       WHERE operation_id = ?
     `).get(operationId)), beforeAttempt);
+    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM upgrade_history').get().count, 1);
   } finally {
     db.close();
     rmSync(directory, { recursive: true, force: false });
+  }
+});
+
+await testAsync('migration 054 rejects pre-existing changed runtime success without unique history', async () => {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  try {
+    const migrations = await migrationTestInternals.discoverMigrations();
+    const through053 = migrations.filter(
+      migration => migration.version <= '2026_08_09_053_model_binding_append_only_identity',
+    );
+    migrationTestInternals.runMigrationPlan(db, through053);
+    insertDesiredObservedEvent(db);
+    insertDesiredBinding(db);
+    insertPreFinalizeManualRuntimeSuccess(db, { includeHistory: false });
+    const before = schemaSnapshot(db);
+
+    assertThrowsMatching(
+      () => installRuntimeFinalization(db),
+      /pre-054 changed runtime success lacks unique durable upgrade history/,
+    );
+    assertEqual(schemaSnapshot(db), before);
+    assert(!names(db, 'table').includes('model_binding_runtime_finalize_cutoffs'));
+    assert(!names(db, 'table').includes('model_binding_runtime_finalize_receipts'));
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('migration 054 rejects ambiguous duplicate history before schema mutation', async () => {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  try {
+    const migrations = await migrationTestInternals.discoverMigrations();
+    const through053 = migrations.filter(
+      migration => migration.version <= '2026_08_09_053_model_binding_append_only_identity',
+    );
+    migrationTestInternals.runMigrationPlan(db, through053);
+    insertDesiredObservedEvent(db);
+    insertDesiredBinding(db);
+    insertPreFinalizeManualRuntimeSuccess(db);
+    db.prepare(`
+      INSERT INTO upgrade_history (
+        role, from_model, to_model, score, action, created_at
+      ) VALUES (
+        'CHAT', 'qwen3.5:27b', 'candidate', NULL, 'apply',
+        datetime(2100 / 1000, 'unixepoch')
+      )
+    `).run();
+    const before = schemaSnapshot(db);
+
+    assertThrowsMatching(
+      () => installRuntimeFinalization(db),
+      /pre-054 changed runtime success lacks unique durable upgrade history/,
+    );
+    assertEqual(schemaSnapshot(db), before);
+    assert(!names(db, 'table').includes('model_binding_runtime_finalize_cutoffs'));
+    assert(!names(db, 'table').includes('model_binding_runtime_finalize_receipts'));
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('post-054 recovery records history missing from a pre-054 startup success', async () => {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  try {
+    const migrations = await migrationTestInternals.discoverMigrations();
+    const through053 = migrations.filter(
+      migration => migration.version <= '2026_08_09_053_model_binding_append_only_identity',
+    );
+    migrationTestInternals.runMigrationPlan(db, through053);
+    insertDesiredObservedEvent(db);
+    insertDesiredBinding(db);
+    const operationId = insertPreFinalizeManualRuntimeSuccess(db, {
+      attemptKind: 'STARTUP_REHYDRATE',
+    });
+    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM upgrade_history').get().count, 0);
+    migrationTestInternals.runMigrationPlan(db, migrations);
+
+    let nowMs = 3000;
+    const repository = createModelFailoverRepository(db, {
+      clock: () => nowMs,
+      ids: {
+        event: () => 'unused-finalize-event-id',
+        episode: () => 'unused-finalize-episode-id',
+        operation: () => 'unused-finalize-operation-id',
+        claimToken: () => 'unused-finalize-claim-token',
+      },
+    });
+    repository.recordManualStartupRehydrated({
+      operationId,
+      expectedAttemptRevision: 1,
+      observedModelName: 'candidate',
+      observedDigestSha256: DIGEST_B,
+      runtimeChanged: false,
+    });
+    nowMs = 3100;
+    repository.recordManualRuntimeFinalized({
+      operationId,
+      expectedAttemptRevision: 2,
+      configVersion: 0,
+    });
+    assertEqual(JSON.stringify(db.prepare(`
+      SELECT role, from_model, to_model, action
+      FROM upgrade_history
+    `).all()), JSON.stringify([{
+      role: 'CHAT',
+      from_model: 'qwen3.5:27b',
+      to_model: 'candidate',
+      action: 'apply',
+    }]));
+  } finally {
+    db.close();
   }
 });
 
@@ -717,7 +847,69 @@ await testAsync('migration 054 rejects incomplete application authority before m
     const before = schemaSnapshot(db);
     assertThrowsMatching(
       () => installRuntimeFinalization(db),
-      /BEFORE INSERT trigger set drifted before 054/,
+      /application trigger set drifted before 054/,
+    );
+    assertEqual(schemaSnapshot(db), before);
+    assert(!names(db, 'table').includes('model_binding_runtime_finalize_cutoffs'));
+    assert(!names(db, 'table').includes('model_binding_runtime_finalize_receipts'));
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('migration 054 rejects a multiline rogue trigger before mutation', async () => {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  try {
+    const migrations = await migrationTestInternals.discoverMigrations();
+    const through053 = migrations.filter(
+      migration => migration.version <= '2026_08_09_053_model_binding_append_only_identity',
+    );
+    migrationTestInternals.runMigrationPlan(db, through053);
+    db.exec(`
+      CREATE TRIGGER trg_model_binding_application_rogue_multiline
+      BEFORE
+      INSERT
+      ON model_binding_application_attempts
+      BEGIN
+        SELECT 1;
+      END
+    `);
+    const before = schemaSnapshot(db);
+    assertThrowsMatching(
+      () => installRuntimeFinalization(db),
+      /application trigger set drifted before 054/,
+    );
+    assertEqual(schemaSnapshot(db), before);
+    assert(!names(db, 'table').includes('model_binding_runtime_finalize_cutoffs'));
+    assert(!names(db, 'table').includes('model_binding_runtime_finalize_receipts'));
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('migration 054 rejects same-name trigger SQL drift before mutation', async () => {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  try {
+    const migrations = await migrationTestInternals.discoverMigrations();
+    const through053 = migrations.filter(
+      migration => migration.version <= '2026_08_09_053_model_binding_append_only_identity',
+    );
+    migrationTestInternals.runMigrationPlan(db, through053);
+    db.exec(`
+      DROP TRIGGER trg_model_binding_application_append_only_delete;
+      CREATE TRIGGER trg_model_binding_application_append_only_delete
+      BEFORE DELETE ON model_binding_application_attempts
+      WHEN OLD.operation_id = '__drifted_guard__'
+      BEGIN
+        SELECT RAISE(ABORT, 'drifted append-only guard');
+      END
+    `);
+    const before = schemaSnapshot(db);
+    assertThrowsMatching(
+      () => installRuntimeFinalization(db),
+      /application trigger SQL drifted before 054/,
     );
     assertEqual(schemaSnapshot(db), before);
     assert(!names(db, 'table').includes('model_binding_runtime_finalize_cutoffs'));

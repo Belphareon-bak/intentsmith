@@ -536,16 +536,6 @@ export class UpgradeManager {
     });
     this._configVersion = nextConfigVersion;
     this._bindingRuntimeToken = null;
-    if (token.incrementVersion) {
-      try {
-        this.recordUpgrade(token.role, token.previousModel, token.targetModel, 0);
-      } catch (error) {
-        logger.warn(
-          'UpgradeManager',
-          `Non-authoritative runtime history write failed after binding commit: ${error.message}`,
-        );
-      }
-    }
     return result;
   }
 

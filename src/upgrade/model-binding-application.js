@@ -1573,16 +1573,25 @@ export class ModelBindingApplication {
       this._runtimeFinalizeRecoveryTimers.delete(operation.operationId);
       const key = `runtime-finalize:${operation.operationId}`;
       if (this._background.has(key)) return;
+      let rescheduleAfterBusy = false;
       const task = this.#runExclusive(
         'runtime-finalize-recovery',
-        () => this.#executeOperation(operation, { startup: true }),
+        () => {
+          const latest = this.repository.getBindingApplicationState(operation.operationId);
+          if (latest?.runtimeFinalizeStatus !== 'UNKNOWN') return null;
+          return this.#executeOperation(operation, { startup: true });
+        },
       ).catch(error => {
+        rescheduleAfterBusy = error?.code === 'MODEL_BINDING_APPLICATION_BUSY';
         this.logger.warn(
           'ModelBindingApplication',
           `Runtime finalize recovery failed for ${operation.operationId}: ${error.message}`,
         );
         return null;
-      }).finally(() => this._background.delete(key));
+      }).finally(() => {
+        this._background.delete(key);
+        if (rescheduleAfterBusy) this.#scheduleRuntimeFinalizeRecovery(operation);
+      });
       this._background.set(key, task);
     }, delayMs);
     this._runtimeFinalizeRecoveryTimers.set(operation.operationId, timer);
@@ -1934,15 +1943,26 @@ export class ModelBindingApplication {
           });
         state = recorded.applicationState;
       } catch (error) {
+        this.#scheduleRuntimeFinalizeRecovery(operation);
         let compensationOutcome = 'COMPENSATED';
         try {
           this.runtime.compensate(token);
         } catch (compensationError) {
           compensationOutcome = 'COMPENSATION_FAILED';
         }
-        const latest = this.repository.getBindingApplicationState(operation.operationId);
-        if (latest?.runtimeFinalizeStatus === 'UNKNOWN') {
+        let latest = null;
+        try {
+          latest = this.repository.getBindingApplicationState(operation.operationId);
+        } catch (readError) {
           this.#scheduleRuntimeFinalizeRecovery(operation);
+          throw this.#runtimeFinalizeError(
+            operation,
+            readError,
+            'RUNTIME_ATTEMPT_READBACK',
+            compensationOutcome,
+          );
+        }
+        if (latest?.runtimeFinalizeStatus === 'UNKNOWN') {
           throw this.#runtimeFinalizeError(
             operation,
             error,
@@ -1950,6 +1970,7 @@ export class ModelBindingApplication {
             compensationOutcome,
           );
         }
+        this.#cancelRuntimeFinalizeRecovery(operation.operationId);
         if (compensationOutcome === 'COMPENSATION_FAILED') {
           throw new ModelBindingApplicationError(
             'MODEL_BINDING_RUNTIME_COMPENSATION_REQUIRED',
@@ -2008,7 +2029,18 @@ export class ModelBindingApplication {
         state = finalized.applicationState;
         this.#cancelRuntimeFinalizeRecovery(operation.operationId);
       } catch (error) {
-        const latest = this.repository.getBindingApplicationState(operation.operationId);
+        let latest = null;
+        try {
+          latest = this.repository.getBindingApplicationState(operation.operationId);
+        } catch (readError) {
+          this.#scheduleRuntimeFinalizeRecovery(operation);
+          throw this.#runtimeFinalizeError(
+            operation,
+            readError,
+            'RUNTIME_FINALIZE_RECEIPT_READBACK',
+            'NOT_ATTEMPTED',
+          );
+        }
         if (latest?.runtimeFinalizeStatus === 'DIRECT_CONFIRMED') {
           state = latest;
           this.#cancelRuntimeFinalizeRecovery(operation.operationId);
