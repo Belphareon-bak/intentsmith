@@ -1779,3 +1779,48 @@ z baseline odstraněna jako explicitní utažení. Writer zachoval 3 cykly a 28
 souborů v cyklech, zapsal 1 011 hran a připnul source revision
 `da95ab15d9fdded66904195d4d5062549fb934d2`, exit `0`. Jde o samostatný
 baseline commit; produktový source commit se tím nemění.
+
+### Fresh-clone evidence
+
+Baseline commit `3ff178fdf32fbab6a28a70b5e43fa228ec35e778` byl naklonován
+přes `git clone --no-local` do ignorovaného artifact rootu:
+
+```text
+/home/belphareon/Projects/intentsmith/.intentsmith-artifacts/
+  fresh-clone-3ff178fd-LQ81zjkc
+```
+
+Počáteční porcelain byl prázdný a HEAD se přesně shodoval. `npm ci --offline`
+přidalo 233 balíčků, auditovalo 234, našlo 0 vulnerabilities a skončilo exit
+`0`. Všechny registrované M1 sady bez GPU/Ollamy/external network potom
+proběhly nad commitnutými daty:
+
+| Sada | Výsledek | Exit |
+|---|---:|---:|
+| `m1-contract` | 26 passed, 0 failed | 0 |
+| `m1-chat-contract` | 21 passed, 0 failed | 0 |
+| `m1-model-contract` | 29 passed, 0 failed | 0 |
+| `m1-model-identity` | 25 passed, 0 failed | 0 |
+| `m1-model-failover-schema` | 13 passed, 0 failed | 0 |
+| `m1-model-failover-repository` | 14 passed, 0 failed | 0 |
+| `m1-model-binding-storage` | 16 passed, 0 failed | 0 |
+| `m1-model-binding-repository` | 39 passed, 0 failed | 0 |
+| `m1-model-binding-application` | 77 passed, 0 failed | 0 |
+| `m1-model-failover-proof-policy` | 9 passed, 0 failed | 0 |
+| `m1-model-failover-measurement` | 9 passed, 0 failed | 0 |
+| `m1-model-failover-parent-acceptance` | 15 passed, 0 failed | 0 |
+| `m1-model-settings` | 14 passed, 0 failed | 0 |
+| `m1-studio-client` | 57 passed, 0 failed | 0 |
+| `module-boundary-ratchet` | 13 passed, 0 failed | 0 |
+
+Kompatibilitní běhy: routes smoke 109/0, confirmation ownership 5/0,
+upgrade-flow 28/0, upgrade UX 78/0, model-upgrade 58/0 a schema migrations
+38/0; vše exit `0`. Artifact validation skončila 151/0, hygiene zkontrolovala
+1 523 tracked cest, registry validátor vrátil 375 programů, 8 exclusions a
+fingerprint `a2f1e67e4f01c6e834f52eb1b15e10a5eec0893638d167e77baf3a35690f77b8`.
+Ratchet reprodukoval 1 011/1 011 hran, 3 cykly a 28 souborů v cyklech. Vše
+exit `0`; finální porcelain zůstal prázdný.
+
+Tato evidence povyšuje pouze C1 na `FRESH_CLONE_VERIFIED / PARTIAL`. GPU pilot,
+skutečná Ollama a rozhodnutí/implementace retirementu, active-use lease,
+durable auditu, remote provideru a cross-process autority zůstávají otevřené.

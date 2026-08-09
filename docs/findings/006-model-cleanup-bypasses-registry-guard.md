@@ -2,7 +2,7 @@
 
 - **vlastník:** [`WP-M1-MODEL-CLEANUP-AUTHORITY`](../wp/WP-M1-MODEL-CLEANUP-AUTHORITY.md), checkpoint C1
 - **nalezeno v:** `B3-IDENTITY`, read-only trace destruktivních modelových cest
-- **stav:** `PARTIAL_REMEDIATION / FOCUSED_VERIFIED`; direct bypass a
+- **stav:** `PARTIAL_REMEDIATION / FRESH_CLONE_VERIFIED`; direct bypass a
   assign/delete race jsou opravené, durable audit zůstává otevřený
 - **závislost:** dokončená kanonická presence identita z `B3-IDENTITY`
 

@@ -2,8 +2,8 @@
 
 - **vlastník:** [`WP-M1-MODEL-CLEANUP-AUTHORITY`](../wp/WP-M1-MODEL-CLEANUP-AUTHORITY.md), checkpoint C1
 - **nalezeno v:** nezávislé read-only review `B3-IDENTITY`
-- **stav:** `REMEDIATED / FOCUSED_VERIFIED`; exact source SHA doplní navazující
-  evidence commit
+- **stav:** `REMEDIATED / FRESH_CLONE_VERIFIED`; source `da95ab15`, baseline
+  `3ff178fd`
 - **závislost:** sjednocená časová reprezentace nebo numerické porovnání
 
 ## Evidence
