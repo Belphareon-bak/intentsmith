@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "e04be7f79196b8cba41f60446abf950cc3052e36",
-  "sourceTree": "b369cfd0e7ed487876a1b99230bb3300400ef03d",
+  "sourceRevision": "88b7b435f7864d02f38134c73fd221aed29d217b",
+  "sourceTree": "c47dbef162e2d9adc17f6289dc709e9744ab04fc",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -488,6 +488,7 @@
     "src/db/migrations/2026_08_09_056_mobile_unknown_reason.js -> src/db/migrate.js",
     "src/db/migrations/2026_08_09_057_mobile_gateway_instances.js -> src/db/migrate.js",
     "src/db/migrations/2026_08_09_058_mobile_notification_receipts.js -> src/db/migrate.js",
+    "src/db/migrations/2026_08_09_059_mobile_notification_seq_unique.js -> src/db/migrate.js",
     "src/domains/index.js -> src/core/logger.js",
     "src/domains/index.js -> src/domains/recipes/cicd.js",
     "src/domains/index.js -> src/domains/recipes/infra.js",
