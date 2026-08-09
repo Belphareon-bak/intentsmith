@@ -1,9 +1,10 @@
 // Audited local model failover repository.
 //
 // This checkpoint owns desired-binding observation, manual binding intent,
-// incident detection and bounded operation claims. Manual intent remains
-// NOT_VERIFIED/NOT_APPLIED: it deliberately does not apply a runtime model,
-// execute validation, activate a proof, restore a binding or schedule work.
+// incident detection, bounded operation claims and append-only outcomes from
+// the separate binding application service. The repository records effects;
+// it deliberately does not execute a provider call, runtime mutation,
+// verification, broadcast, automatic failover or scheduler work itself.
 
 import { randomUUID } from 'node:crypto';
 import { canonicalModelName } from './model-identity.js';
@@ -11,6 +12,7 @@ import { canonicalModelName } from './model-identity.js';
 export const MODEL_FAILOVER_POLICY_VERSION = 'd-plus-v1';
 export const MODEL_FAILOVER_ACTOR = 'system:binding-integrity';
 export const MAX_MODEL_FAILOVER_CLAIM_MS = 5 * 60 * 1000;
+export const MODEL_BINDING_VERIFICATION_METHOD = 'OLLAMA_CHAT_EXACT_DIGEST_V1';
 
 const ROLES = new Set(['D1', 'D2', 'CODE', 'R1', 'R2', 'CHAT', 'VISION']);
 const OBSERVABLE_DESIRED_SOURCES = new Set([
@@ -18,6 +20,30 @@ const OBSERVABLE_DESIRED_SOURCES = new Set([
   'LEGACY_OVERRIDE',
 ]);
 const MANUAL_DESIRED_SOURCES = new Set(['USER_APPLY', 'USER_ROLLBACK']);
+const APPLICATION_RUNTIME_KINDS = new Set(['RUNTIME_APPLY', 'STARTUP_REHYDRATE']);
+const APPLICATION_FAILURE_POLICY = Object.freeze({
+  RUNTIME_APPLY: Object.freeze({
+    MODEL_BINDING_PROVIDER_UNAVAILABLE: true,
+    MODEL_BINDING_TARGET_NOT_INSTALLED: true,
+    MODEL_BINDING_TARGET_DIGEST_MISSING: false,
+    MODEL_BINDING_TARGET_DIGEST_DRIFT: false,
+    MODEL_BINDING_RUNTIME_GUARD_REJECTED: false,
+    MODEL_BINDING_RUNTIME_COMMIT_FAILED: true,
+  }),
+  STARTUP_REHYDRATE: Object.freeze({
+    MODEL_BINDING_REHYDRATE_TARGET_UNAVAILABLE: true,
+    MODEL_BINDING_REHYDRATE_DIGEST_DRIFT: false,
+    MODEL_BINDING_REHYDRATE_RUNTIME_COMMIT_FAILED: true,
+  }),
+  VERIFICATION: Object.freeze({
+    MODEL_BINDING_VERIFICATION_PROVIDER_UNAVAILABLE: true,
+    MODEL_BINDING_VERIFICATION_REJECTED: true,
+    MODEL_BINDING_VERIFICATION_DIGEST_DRIFT: false,
+  }),
+  NOTIFICATION: Object.freeze({
+    MODEL_BINDING_NOTIFICATION_DELIVERY_FAILED: false,
+  }),
+});
 const CLAIMS = Object.freeze({
   ACTIVATE: Object.freeze({
     eventType: 'ACTIVATION_CLAIMED',
@@ -136,8 +162,24 @@ function requirePositiveInteger(value, field) {
   return value;
 }
 
+function requireNonNegativeInteger(value, field) {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    fail('MODEL_FAILOVER_INPUT_INVALID', `${field} must be a non-negative safe integer`, { field });
+  }
+  return value;
+}
+
 function incrementSafeInteger(value, field) {
   requirePositiveInteger(value, field);
+  const incremented = value + 1;
+  if (!Number.isSafeInteger(incremented)) {
+    fail('MODEL_FAILOVER_INPUT_INVALID', `${field} cannot be incremented safely`, { field });
+  }
+  return incremented;
+}
+
+function incrementNonNegativeSafeInteger(value, field) {
+  requireNonNegativeInteger(value, field);
   const incremented = value + 1;
   if (!Number.isSafeInteger(incremented)) {
     fail('MODEL_FAILOVER_INPUT_INVALID', `${field} cannot be incremented safely`, { field });
@@ -287,6 +329,106 @@ function mapBindingOperation(row) {
     policyVersion: row.policy_version,
     details,
     createdAtMs: row.created_at_ms,
+  };
+}
+
+function mapBindingApplicationAttempt(row) {
+  if (!row) return null;
+  return {
+    seq: row.seq,
+    operationId: row.operation_id,
+    attemptRevision: row.attempt_revision,
+    kind: row.attempt_kind,
+    outcome: row.outcome,
+    observedModelName: row.observed_model_name,
+    observedCanonicalName: row.observed_canonical_name,
+    observedDigestSha256: row.observed_digest_sha256,
+    verificationMethod: row.verification_method,
+    failureCode: row.failure_code,
+    retryable: row.retryable === 1,
+    createdAtMs: row.created_at_ms,
+  };
+}
+
+function deriveBindingApplicationState(operationRow, attemptRows) {
+  if (!operationRow) return null;
+  const attempts = attemptRows.map(mapBindingApplicationAttempt);
+  const runtimeAttempt = [...attempts]
+    .reverse()
+    .find(attempt => APPLICATION_RUNTIME_KINDS.has(attempt.kind)) || null;
+  const verificationAttempt = runtimeAttempt?.outcome === 'SUCCEEDED'
+    ? [...attempts]
+      .reverse()
+      .find(attempt => attempt.kind === 'VERIFICATION'
+        && attempt.attemptRevision > runtimeAttempt.attemptRevision) || null
+    : null;
+  const notificationAttempt = [...attempts]
+    .reverse()
+    .find(attempt => attempt.kind === 'NOTIFICATION') || null;
+
+  let state = 'PENDING';
+  let runtimeStatus = 'NOT_APPLIED';
+  let verificationStatus = 'NOT_VERIFIED';
+  let failurePhase = null;
+  let failureCode = null;
+  let retryable = false;
+
+  if (runtimeAttempt?.outcome === 'FAILED') {
+    state = 'FAILED';
+    runtimeStatus = 'FAILED';
+    failurePhase = runtimeAttempt.kind;
+    failureCode = runtimeAttempt.failureCode;
+    retryable = runtimeAttempt.retryable;
+  } else if (runtimeAttempt?.outcome === 'SUCCEEDED') {
+    runtimeStatus = 'APPLIED';
+    state = 'APPLIED_PENDING_VERIFICATION';
+    if (verificationAttempt?.outcome === 'SUCCEEDED') {
+      state = 'VERIFIED';
+      verificationStatus = 'VERIFIED';
+    } else if (verificationAttempt?.outcome === 'FAILED') {
+      state = 'FAILED';
+      verificationStatus = 'FAILED';
+      failurePhase = 'VERIFICATION';
+      failureCode = verificationAttempt.failureCode;
+      retryable = verificationAttempt.retryable;
+    }
+  }
+
+  return {
+    operationId: operationRow.operation_id,
+    role: operationRow.role,
+    kind: operationRow.operation_kind,
+    committedBindingRevision: operationRow.committed_binding_revision,
+    state,
+    runtimeStatus,
+    verificationStatus,
+    failurePhase,
+    failureCode,
+    retryable,
+    attemptRevision: attempts.at(-1)?.attemptRevision ?? 0,
+    lastRuntimeAttempt: runtimeAttempt,
+    lastVerificationAttempt: verificationAttempt,
+    notificationStatus: notificationAttempt
+      ? notificationAttempt.outcome
+      : 'NOT_RECORDED',
+    notificationFailureCode: notificationAttempt?.failureCode ?? null,
+    attempts,
+  };
+}
+
+function requireBindingApplicationFailure(kind, value) {
+  const failureCode = requireString(value, 'failureCode', { min: 3, max: 96 }).toUpperCase();
+  const policy = APPLICATION_FAILURE_POLICY[kind];
+  if (!policy || !Object.hasOwn(policy, failureCode)) {
+    fail(
+      'MODEL_BINDING_APPLICATION_FAILURE_CODE_INVALID',
+      'Application failure code is not allowed for this attempt kind',
+      { kind, failureCode },
+    );
+  }
+  return {
+    failureCode,
+    retryable: policy[failureCode],
   };
 }
 
@@ -447,6 +589,30 @@ export class ModelFailoverRepository {
     return this.db.prepare(
       'SELECT * FROM model_binding_operations WHERE request_key = ?'
     ).get(requestKey);
+  }
+
+  #bindingApplicationAttemptRows(operationId) {
+    return this.db.prepare(`
+      SELECT *
+      FROM model_binding_application_attempts
+      WHERE operation_id = ?
+      ORDER BY attempt_revision
+    `).all(operationId);
+  }
+
+  #bindingApplicationState(operationRow) {
+    return deriveBindingApplicationState(
+      operationRow,
+      operationRow ? this.#bindingApplicationAttemptRows(operationRow.operation_id) : [],
+    );
+  }
+
+  #mappedBindingOperation(operationRow) {
+    if (!operationRow) return null;
+    return {
+      ...mapBindingOperation(operationRow),
+      applicationState: this.#bindingApplicationState(operationRow),
+    };
   }
 
   #currentManualOperation(desired) {
@@ -685,7 +851,7 @@ export class ModelFailoverRepository {
     return {
       outcome,
       kind: operationRow.operation_kind,
-      operation: mapBindingOperation(operationRow),
+      operation: this.#mappedBindingOperation(operationRow),
       committedDesired: committedDesiredFromOperation(operationRow),
       currentDesired: mapDesired(this.#desiredRow(operationRow.role)),
       requestKeyConsumed: true,
@@ -927,6 +1093,221 @@ export class ModelFailoverRepository {
     return this.#manualResult('RECORDED', this.#bindingOperationRow(operationId));
   }
 
+  #recordBindingApplicationAttempt({
+    operationName,
+    operationId,
+    expectedAttemptRevision,
+    kind,
+    outcome,
+    observedModelName = null,
+    observedDigestSha256 = null,
+    failureCode = null,
+  }) {
+    return this.#write(operationName, () => {
+      const operation = this.#bindingOperationRow(operationId);
+      if (!operation) {
+        fail(
+          'MODEL_FAILOVER_BINDING_OPERATION_MISSING',
+          'Binding application operation does not exist',
+          { operationId },
+        );
+      }
+
+      const attempts = this.#bindingApplicationAttemptRows(operationId);
+      const currentAttemptRevision = attempts.at(-1)?.attempt_revision ?? 0;
+      const observedCanonicalName = observedModelName === null
+        ? null
+        : canonicalModelName(observedModelName);
+      if (observedModelName !== null && !observedCanonicalName) {
+        fail(
+          'MODEL_FAILOVER_MODEL_NAME_INVALID',
+          'observedModelName has no canonical identity',
+        );
+      }
+      const digest = observedDigestSha256 === null
+        ? null
+        : requireDigest(observedDigestSha256, 'observedDigestSha256');
+      const verificationMethod = kind === 'VERIFICATION'
+        ? MODEL_BINDING_VERIFICATION_METHOD
+        : null;
+      const failure = outcome === 'FAILED'
+        ? requireBindingApplicationFailure(kind, failureCode)
+        : { failureCode: null, retryable: false };
+
+      const replay = attempts.find(
+        attempt => attempt.attempt_revision === expectedAttemptRevision + 1,
+      );
+      if (replay) {
+        const matches = replay.attempt_kind === kind
+          && replay.outcome === outcome
+          && replay.observed_model_name === observedModelName
+          && replay.observed_canonical_name === observedCanonicalName
+          && replay.observed_digest_sha256 === digest
+          && replay.verification_method === verificationMethod
+          && replay.failure_code === failure.failureCode
+          && replay.retryable === (failure.retryable ? 1 : 0);
+        if (matches) {
+          return {
+            outcome: 'REPLAYED',
+            attempt: mapBindingApplicationAttempt(replay),
+            applicationState: this.#bindingApplicationState(operation),
+          };
+        }
+      }
+      if (currentAttemptRevision !== expectedAttemptRevision) {
+        fail(
+          'MODEL_BINDING_APPLICATION_STALE_ATTEMPT',
+          'Binding application attempt revision no longer matches',
+          {
+            operationId,
+            expectedAttemptRevision,
+            actualAttemptRevision: currentAttemptRevision,
+          },
+        );
+      }
+      if (kind === 'RUNTIME_APPLY' && attempts.some(attempt => (
+        attempt.attempt_kind === 'RUNTIME_APPLY' && attempt.outcome === 'SUCCEEDED'
+      ))) {
+        fail(
+          'MODEL_BINDING_APPLICATION_TRANSITION_INVALID',
+          'Runtime apply cannot repeat after a successful runtime commit',
+          { operationId, kind, currentAttemptRevision },
+        );
+      }
+
+      const attemptRevision = incrementNonNegativeSafeInteger(
+        expectedAttemptRevision,
+        'expectedAttemptRevision',
+      );
+      const createdAtMs = this.#now(operationName);
+      this.db.prepare(`
+        INSERT INTO model_binding_application_attempts (
+          operation_id, attempt_revision, attempt_kind, outcome,
+          observed_model_name, observed_canonical_name, observed_digest_sha256,
+          verification_method, failure_code, retryable, created_at_ms
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        operationId,
+        attemptRevision,
+        kind,
+        outcome,
+        observedModelName,
+        observedCanonicalName,
+        digest,
+        verificationMethod,
+        failure.failureCode,
+        failure.retryable ? 1 : 0,
+        createdAtMs,
+      );
+
+      if (APPLICATION_RUNTIME_KINDS.has(kind) && outcome === 'SUCCEEDED') {
+        this.db.prepare(`
+          INSERT INTO model_overrides (
+            role, model, previous_model, score, applied_by, applied_at,
+            verified, binding_operation_id, model_canonical_name,
+            model_digest_sha256, verification_status
+          ) VALUES (?, ?, ?, NULL, ?, datetime(? / 1000, 'unixepoch'),
+            0, ?, ?, ?, 'PENDING')
+          ON CONFLICT(role) DO UPDATE SET
+            model = excluded.model,
+            previous_model = excluded.previous_model,
+            score = excluded.score,
+            applied_by = excluded.applied_by,
+            applied_at = excluded.applied_at,
+            verified = 0,
+            binding_operation_id = excluded.binding_operation_id,
+            model_canonical_name = excluded.model_canonical_name,
+            model_digest_sha256 = excluded.model_digest_sha256,
+            verification_status = 'PENDING'
+        `).run(
+          operation.role,
+          operation.target_model_name,
+          operation.previous_model_name,
+          operation.actor,
+          createdAtMs,
+          operation.operation_id,
+          operation.target_canonical_name,
+          operation.target_digest_sha256,
+        );
+        if (kind === 'RUNTIME_APPLY') {
+          this.db.prepare(`
+            INSERT INTO upgrade_history (
+              role, from_model, to_model, score, action, created_at
+            ) VALUES (?, ?, ?, NULL, ?, datetime(? / 1000, 'unixepoch'))
+          `).run(
+            operation.role,
+            operation.previous_model_name,
+            operation.target_model_name,
+            operation.operation_kind === 'USER_ROLLBACK' ? 'rollback' : 'apply',
+            createdAtMs,
+          );
+        }
+      } else if (kind === 'STARTUP_REHYDRATE' && outcome === 'FAILED') {
+        const updated = this.db.prepare(`
+          UPDATE model_overrides
+          SET verified = 0, verification_status = 'FAILED'
+          WHERE role = ? AND binding_operation_id = ?
+            AND model = ? AND model_canonical_name = ?
+            AND model_digest_sha256 = ?
+        `).run(
+          operation.role,
+          operation.operation_id,
+          operation.target_model_name,
+          operation.target_canonical_name,
+          operation.target_digest_sha256,
+        );
+        const existingOverride = this.db.prepare(`
+          SELECT binding_operation_id
+          FROM model_overrides
+          WHERE role = ?
+        `).get(operation.role);
+        if (updated.changes !== 1 && existingOverride) {
+          fail(
+            'MODEL_BINDING_APPLICATION_OVERRIDE_MISMATCH',
+            'Rehydrate failure target is not the active compatibility override',
+            { operationId, role: operation.role },
+          );
+        }
+      } else if (kind === 'VERIFICATION') {
+        const verificationStatus = outcome === 'SUCCEEDED' ? 'VERIFIED' : 'FAILED';
+        const verified = outcome === 'SUCCEEDED' ? 1 : 0;
+        const updated = this.db.prepare(`
+          UPDATE model_overrides
+          SET verified = ?, verification_status = ?
+          WHERE role = ? AND binding_operation_id = ?
+            AND model = ? AND model_canonical_name = ?
+            AND model_digest_sha256 = ?
+        `).run(
+          verified,
+          verificationStatus,
+          operation.role,
+          operation.operation_id,
+          operation.target_model_name,
+          operation.target_canonical_name,
+          operation.target_digest_sha256,
+        );
+        if (updated.changes !== 1) {
+          fail(
+            'MODEL_BINDING_APPLICATION_OVERRIDE_MISMATCH',
+            'Verification target is not the active compatibility override',
+            { operationId, role: operation.role },
+          );
+        }
+      }
+
+      const attempt = this.db.prepare(`
+        SELECT *
+        FROM model_binding_application_attempts
+        WHERE operation_id = ? AND attempt_revision = ?
+      `).get(operationId, attemptRevision);
+      return {
+        outcome: 'RECORDED',
+        attempt: mapBindingApplicationAttempt(attempt),
+        applicationState: this.#bindingApplicationState(operation),
+      };
+    });
+  }
+
   getDesired(roleValue) {
     const role = requireRole(roleValue);
     return this.#read('getDesired', () => mapDesired(this.#desiredRow(role)));
@@ -941,8 +1322,221 @@ export class ModelFailoverRepository {
     const operationId = requireString(operationIdValue, 'operationId', { min: 16 });
     return this.#read(
       'getBindingOperation',
-      () => mapBindingOperation(this.#bindingOperationRow(operationId)),
+      () => this.#mappedBindingOperation(this.#bindingOperationRow(operationId)),
     );
+  }
+
+  getBindingApplicationState(operationIdValue) {
+    const operationId = requireString(operationIdValue, 'operationId', { min: 16 });
+    return this.#read('getBindingApplicationState', () => {
+      const operation = this.#bindingOperationRow(operationId);
+      if (!operation) return null;
+      return this.#bindingApplicationState(operation);
+    });
+  }
+
+  listCurrentManualBindingsForRehydrate() {
+    return this.#read('listCurrentManualBindingsForRehydrate', () => this.db.prepare(`
+      SELECT operation.*
+      FROM model_binding_operations operation
+      JOIN model_desired_bindings desired
+        ON desired.role = operation.role
+       AND desired.binding_revision = operation.committed_binding_revision
+       AND desired.model_name = operation.target_model_name
+       AND desired.canonical_name = operation.target_canonical_name
+       AND desired.digest_sha256 = operation.target_digest_sha256
+       AND desired.source = operation.operation_kind
+       AND desired.actor = operation.actor
+       AND desired.last_event_id = operation.desired_event_id
+      ORDER BY operation.role
+    `).all().map(operation => this.#mappedBindingOperation(operation)));
+  }
+
+  recordManualRuntimeApplied(inputValue) {
+    const input = requireInput(inputValue);
+    requireExactInputFields(input, [
+      'operationId',
+      'expectedAttemptRevision',
+      'observedModelName',
+      'observedDigestSha256',
+    ]);
+    return this.#recordBindingApplicationAttempt({
+      operationName: 'recordManualRuntimeApplied',
+      operationId: requireString(input.operationId, 'operationId', { min: 16 }),
+      expectedAttemptRevision: requireNonNegativeInteger(
+        input.expectedAttemptRevision,
+        'expectedAttemptRevision',
+      ),
+      kind: 'RUNTIME_APPLY',
+      outcome: 'SUCCEEDED',
+      observedModelName: requireString(
+        input.observedModelName,
+        'observedModelName',
+        { max: 512 },
+      ),
+      observedDigestSha256: input.observedDigestSha256,
+    });
+  }
+
+  recordManualRuntimeApplyFailed(inputValue) {
+    const input = requireInput(inputValue);
+    requireExactInputFields(input, [
+      'operationId',
+      'expectedAttemptRevision',
+      'failureCode',
+    ]);
+    return this.#recordBindingApplicationAttempt({
+      operationName: 'recordManualRuntimeApplyFailed',
+      operationId: requireString(input.operationId, 'operationId', { min: 16 }),
+      expectedAttemptRevision: requireNonNegativeInteger(
+        input.expectedAttemptRevision,
+        'expectedAttemptRevision',
+      ),
+      kind: 'RUNTIME_APPLY',
+      outcome: 'FAILED',
+      failureCode: input.failureCode,
+    });
+  }
+
+  recordManualStartupRehydrated(inputValue) {
+    const input = requireInput(inputValue);
+    requireExactInputFields(input, [
+      'operationId',
+      'expectedAttemptRevision',
+      'observedModelName',
+      'observedDigestSha256',
+    ]);
+    return this.#recordBindingApplicationAttempt({
+      operationName: 'recordManualStartupRehydrated',
+      operationId: requireString(input.operationId, 'operationId', { min: 16 }),
+      expectedAttemptRevision: requireNonNegativeInteger(
+        input.expectedAttemptRevision,
+        'expectedAttemptRevision',
+      ),
+      kind: 'STARTUP_REHYDRATE',
+      outcome: 'SUCCEEDED',
+      observedModelName: requireString(
+        input.observedModelName,
+        'observedModelName',
+        { max: 512 },
+      ),
+      observedDigestSha256: input.observedDigestSha256,
+    });
+  }
+
+  recordManualStartupRehydrateFailed(inputValue) {
+    const input = requireInput(inputValue);
+    requireExactInputFields(input, [
+      'operationId',
+      'expectedAttemptRevision',
+      'failureCode',
+    ]);
+    return this.#recordBindingApplicationAttempt({
+      operationName: 'recordManualStartupRehydrateFailed',
+      operationId: requireString(input.operationId, 'operationId', { min: 16 }),
+      expectedAttemptRevision: requireNonNegativeInteger(
+        input.expectedAttemptRevision,
+        'expectedAttemptRevision',
+      ),
+      kind: 'STARTUP_REHYDRATE',
+      outcome: 'FAILED',
+      failureCode: input.failureCode,
+    });
+  }
+
+  recordManualVerificationSucceeded(inputValue) {
+    const input = requireInput(inputValue);
+    requireExactInputFields(input, [
+      'operationId',
+      'expectedAttemptRevision',
+      'observedModelName',
+      'observedDigestSha256',
+    ]);
+    return this.#recordBindingApplicationAttempt({
+      operationName: 'recordManualVerificationSucceeded',
+      operationId: requireString(input.operationId, 'operationId', { min: 16 }),
+      expectedAttemptRevision: requireNonNegativeInteger(
+        input.expectedAttemptRevision,
+        'expectedAttemptRevision',
+      ),
+      kind: 'VERIFICATION',
+      outcome: 'SUCCEEDED',
+      observedModelName: requireString(
+        input.observedModelName,
+        'observedModelName',
+        { max: 512 },
+      ),
+      observedDigestSha256: input.observedDigestSha256,
+    });
+  }
+
+  recordManualVerificationFailed(inputValue) {
+    const input = requireInput(inputValue);
+    requireExactInputFields(input, [
+      'operationId',
+      'expectedAttemptRevision',
+      'failureCode',
+    ]);
+    return this.#recordBindingApplicationAttempt({
+      operationName: 'recordManualVerificationFailed',
+      operationId: requireString(input.operationId, 'operationId', { min: 16 }),
+      expectedAttemptRevision: requireNonNegativeInteger(
+        input.expectedAttemptRevision,
+        'expectedAttemptRevision',
+      ),
+      kind: 'VERIFICATION',
+      outcome: 'FAILED',
+      failureCode: input.failureCode,
+    });
+  }
+
+  recordManualNotificationSucceeded(inputValue) {
+    const input = requireInput(inputValue);
+    requireExactInputFields(input, ['operationId', 'expectedAttemptRevision']);
+    const operationId = requireString(input.operationId, 'operationId', { min: 16 });
+    const operation = this.#read(
+      'recordManualNotificationSucceededTarget',
+      () => this.#bindingOperationRow(operationId),
+    );
+    if (!operation) {
+      fail(
+        'MODEL_FAILOVER_BINDING_OPERATION_MISSING',
+        'Binding notification operation does not exist',
+        { operationId },
+      );
+    }
+    return this.#recordBindingApplicationAttempt({
+      operationName: 'recordManualNotificationSucceeded',
+      operationId,
+      expectedAttemptRevision: requireNonNegativeInteger(
+        input.expectedAttemptRevision,
+        'expectedAttemptRevision',
+      ),
+      kind: 'NOTIFICATION',
+      outcome: 'SUCCEEDED',
+      observedModelName: operation.target_model_name,
+      observedDigestSha256: operation.target_digest_sha256,
+    });
+  }
+
+  recordManualNotificationFailed(inputValue) {
+    const input = requireInput(inputValue);
+    requireExactInputFields(input, [
+      'operationId',
+      'expectedAttemptRevision',
+      'failureCode',
+    ]);
+    return this.#recordBindingApplicationAttempt({
+      operationName: 'recordManualNotificationFailed',
+      operationId: requireString(input.operationId, 'operationId', { min: 16 }),
+      expectedAttemptRevision: requireNonNegativeInteger(
+        input.expectedAttemptRevision,
+        'expectedAttemptRevision',
+      ),
+      kind: 'NOTIFICATION',
+      outcome: 'FAILED',
+      failureCode: input.failureCode,
+    });
   }
 
   getEffectiveBinding(roleValue) {
@@ -964,6 +1558,20 @@ export class ModelFailoverRepository {
       }
       if (MANUAL_DESIRED_SOURCES.has(desired.source)) {
         const operation = this.#currentManualOperation(this.#desiredRow(role));
+        const applicationState = this.#bindingApplicationState(operation);
+        if (applicationState.runtimeStatus === 'APPLIED') {
+          return {
+            source: 'MANUAL',
+            role,
+            modelName: desired.modelName,
+            canonicalName: desired.canonicalName,
+            digestSha256: desired.digestSha256,
+            desired,
+            state,
+            operation: this.#mappedBindingOperation(operation),
+            applicationState,
+          };
+        }
         return {
           source: 'PENDING_MANUAL',
           role,
@@ -977,6 +1585,7 @@ export class ModelFailoverRepository {
             kind: operation.operation_kind,
             verificationStatus: operation.verification_status,
             runtimeStatus: operation.runtime_status,
+            applicationState,
           },
         };
       }
@@ -1352,14 +1961,17 @@ export class ModelFailoverRepository {
       }
       if (MANUAL_DESIRED_SOURCES.has(desired.source)) {
         const operation = this.#currentManualOperation(desired);
+        const applicationState = this.#bindingApplicationState(operation);
         fail(
           'MODEL_FAILOVER_RUNTIME_BINDING_UNCONFIRMED',
-          'A pending manual binding cannot become failover detection authority before runtime apply',
+          'Automatic failover detection is disabled for manual binding authority',
           {
             role,
             bindingRevision: desired.binding_revision,
             operationId: operation.operation_id,
-            runtimeStatus: operation.runtime_status,
+            runtimeStatus: applicationState.runtimeStatus,
+            applicationState: applicationState.state,
+            retryPrerequisite: 'AUTOMATIC_FAILOVER_COORDINATOR',
           },
         );
       }

@@ -322,7 +322,10 @@ intercepts.push({
         } catch (_) {}
 
         if (typeof context.onSystemStep === 'function') {
-          try { context.onSystemStep('model_applied', `${roleName}: ${result.from} → ${result.to} — nacten a overen`); } catch (_) {}
+          const verificationText = result.verified
+            ? 'nacten a overen'
+            : 'nacten, overeni ceka';
+          try { context.onSystemStep('model_applied', `${roleName}: ${result.from} → ${result.to} — ${verificationText}`); } catch (_) {}
         }
       } catch (err) {
         results.push({ ok: false, role: roleName, error: err.message });
@@ -339,7 +342,7 @@ intercepts.push({
     let summary = '';
     if (ok.length > 0) {
       summary += 'Modely zmeneny:\n' + ok.map(r =>
-        `**${r.role}**: ${r.from} → ${r.to} (nacten, overen)`
+        `**${r.role}**: ${r.from} → ${r.to} (${r.verified ? 'nacten, overen' : 'nacten, overeni ceka'})`
       ).join('\n');
     }
     if (fail.length > 0) {

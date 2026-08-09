@@ -284,11 +284,12 @@ suite('M1 model failover schema — exact migration contract');
 
 await testAsync('fresh file-backed DB creates all failover tables, indexes and triggers', async () => {
   await withMigratedDb(async (db) => {
-    assertEqual(getCurrentVersion(db), '2026_08_08_049_model_binding_manual_supersede');
+    assertEqual(getCurrentVersion(db), '2026_08_09_050_model_binding_application_attempts');
 
     for (const table of [
       'model_desired_bindings',
       'model_binding_operations',
+      'model_binding_application_attempts',
       'model_failover_events',
       'model_failover_proofs',
       'model_failover_state',
@@ -299,6 +300,11 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
     assertEqual(JSON.stringify(columns(db, 'model_desired_bindings')), JSON.stringify([
       'role', 'model_name', 'canonical_name', 'digest_sha256', 'binding_revision',
       'source', 'actor', 'observed_at_ms', 'updated_at_ms', 'last_event_id',
+    ]));
+    assertEqual(JSON.stringify(columns(db, 'model_binding_application_attempts')), JSON.stringify([
+      'seq', 'operation_id', 'attempt_revision', 'attempt_kind', 'outcome',
+      'observed_model_name', 'observed_canonical_name', 'observed_digest_sha256',
+      'verification_method', 'failure_code', 'retryable', 'created_at_ms',
     ]));
     for (const column of [
       'role', 'desired_revision', 'episode_id', 'state', 'active_failover',
@@ -320,6 +326,7 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
       'idx_model_failover_proof_eligibility',
       'idx_model_failover_state_active',
       'idx_model_failover_state_claim_expiry',
+      'idx_model_binding_application_operation',
     ]) {
       assert(indexNames.includes(index), `missing index ${index}`);
     }
@@ -344,6 +351,23 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
       'trg_model_failover_state_claim_event_update',
       'trg_model_failover_state_last_event_insert',
       'trg_model_failover_state_last_event_update',
+      'trg_model_binding_application_revision',
+      'trg_model_binding_application_current_desired',
+      'trg_model_binding_application_success_identity',
+      'trg_model_binding_application_time_order',
+      'trg_model_binding_application_runtime_prerequisite',
+      'trg_model_binding_application_runtime_apply_once',
+      'trg_model_binding_application_verification_terminal',
+      'trg_model_binding_application_notification_once',
+      'trg_model_binding_application_append_only_update',
+      'trg_model_binding_application_append_only_delete',
+      'trg_model_overrides_manual_identity_insert',
+      'trg_model_overrides_legacy_cannot_replace_manual',
+      'trg_model_overrides_manual_identity_update',
+      'trg_model_overrides_manual_lineage_update',
+      'trg_model_overrides_manual_lineage_delete',
+      'trg_model_overrides_verified_authority_insert',
+      'trg_model_overrides_verified_authority_update',
     ]) {
       assert(triggerNames.includes(trigger), `missing trigger ${trigger}`);
     }
@@ -355,7 +379,7 @@ await testAsync('second migration run is a no-op with an identical schema snapsh
     const before = schemaSnapshot(db);
     const result = await runMigrations(db);
     assertEqual(result.applied.length, 0);
-    assertEqual(result.skipped.length, 51);
+    assertEqual(result.skipped.length, 52);
     assertEqual(schemaSnapshot(db), before);
   });
 });

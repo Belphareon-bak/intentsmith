@@ -95,3 +95,28 @@ společný commit point, zapisuje `verified=1` před ověřením, chat stále m�
 tvrdit neprovedené ověření a `model_changed` emituje pouze HTTP caller. Nový
 repository navíc zatím nemá runtime consumera. Finding tedy zůstává
 `OPEN / ASSIGNED` se stejným vlastníkem a termínem.
+
+## Stav nápravy — application-state schema checkpoint
+
+Migrace 050 přidává append-only journal skutečných runtime apply, startup
+rehydrate, exact-digest verification a notification výsledků. Úspěšný runtime
+výsledek atomicky založí neověřený override; `verified=1` je možné zapsat až po
+úspěšné probe s vlastněnou metodou a přesnou canonical name + digest identitou
+aktuální runtime generace. Legacy override hodnoty migrace zachová, ale
+pravdivě je demotuje na `LEGACY_UNVERIFIED`. Fixed operation journal z migrace
+048 zůstává beze změny `NOT_VERIFIED/NOT_APPLIED`; aplikační stav je odvozený
+z nového journalu, ne zpětně vepsaný do historického intentu.
+
+Repository nyní atomicky zapisuje terminal outcomes a odvozuje
+`PENDING`, `APPLIED_PENDING_VERIFICATION`, `VERIFIED` a `FAILED`. Opakované
+runtime apply, verifikace nebo notification mimo povolený přechod končí
+typovaně; startup rehydrate otevírá novou verifikační generaci a neúspěch
+demotuje matching override. Legacy `applyUpgrade()` a `rollbackUpgrade()` jsou
+po přítomnosti nové tabulky zablokované před provider, runtime i persistence
+efektem, takže nemohou obejít novou autoritu ani vydat falešné `verified=1`.
+
+Finding zůstává `OPEN / ASSIGNED`. Tento checkpoint záměrně ještě nepřipojuje
+společnou application service, provider inventory/pull, runtime CAS a
+kompenzaci, HTTP/chat handlery, startup composition ani commit-layer
+`model_changed`. Tyto části vlastní navazující
+[`WP-M1-BINDING-APPLICATION`](../wp/WP-M1-BINDING-APPLICATION.md).

@@ -8,6 +8,7 @@ import { suite, test, testAsync, assert, assertEqual, summary } from './harness.
 import Database from 'better-sqlite3';
 import { UpgradeManager } from '../src/upgrade/upgrade-manager.js';
 import { config } from '../src/config.js';
+import { runMigrations } from '../src/db/migrate.js';
 
 // ─── Test DB Setup ──────────────────────────────────────────────────────────
 
@@ -572,6 +573,47 @@ test('applied_by can be system or auto', () => {
   assertEqual(d1.applied_by, 'system');
   assertEqual(d2.applied_by, 'auto');
   db.close();
+});
+
+await testAsync('post-050 legacy apply fails closed before runtime or durable effects', async () => {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  await runMigrations(db);
+  const previousChatModel = config.models.CHAT;
+  try {
+    const manager = new UpgradeManager();
+    manager.setDb(db);
+    let error;
+    try {
+      await manager.applyUpgrade('CHAT', 'legacy-target:latest', { appliedBy: 'user' });
+    } catch (caught) {
+      error = caught;
+    }
+    assertEqual(error?.code, 'MODEL_BINDING_APPLICATION_SERVICE_REQUIRED');
+    assertEqual(config.models.CHAT, previousChatModel);
+    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM model_overrides').get().count, 0);
+    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM upgrade_history').get().count, 0);
+
+    db.prepare(`
+      INSERT INTO model_overrides (
+        role, model, previous_model, applied_by, verified,
+        verification_status
+      ) VALUES ('CHAT', 'legacy-target', ?, 'user', 0, 'LEGACY_UNVERIFIED')
+    `).run(previousChatModel);
+    let rollbackError;
+    try {
+      await manager.rollbackUpgrade('CHAT');
+    } catch (caught) {
+      rollbackError = caught;
+    }
+    assertEqual(rollbackError?.code, 'MODEL_BINDING_APPLICATION_SERVICE_REQUIRED');
+    assertEqual(config.models.CHAT, previousChatModel);
+    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM model_overrides').get().count, 1);
+    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM upgrade_history').get().count, 0);
+  } finally {
+    config.models.CHAT = previousChatModel;
+    db.close();
+  }
 });
 
 // ─── Summary ─────────────────────────────────────────────────────────────────

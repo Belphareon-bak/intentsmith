@@ -155,6 +155,7 @@ const ALL_MIGRATIONS = [
   '2026_08_08_047_model_failover_claim_expiry',
   '2026_08_08_048_model_binding_operations',
   '2026_08_08_049_model_binding_manual_supersede',
+  '2026_08_09_050_model_binding_application_attempts',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -179,7 +180,7 @@ const EXPECTED_TABLES = [
   'learned_patterns', 'lifecycle_handoff_state', 'llm_execution_log', 'logs',
   'marketplace_catalog_cache', 'marketplace_packages', 'media_generations',
   'memory', 'merge_audit_log', 'messages', 'messages_fts', 'milestones',
-  'model_binding_operations', 'model_catalog_cache', 'model_desired_bindings', 'model_failover_events', 'model_failover_proofs',
+  'model_binding_application_attempts', 'model_binding_operations', 'model_catalog_cache', 'model_desired_bindings', 'model_failover_events', 'model_failover_proofs',
   'model_failover_state', 'model_overrides', 'model_performance', 'model_reconciliation_log',
   'model_runtime_guard',
   'model_signal_events', 'model_universe_derived', 'model_universe_raw',
@@ -516,6 +517,67 @@ describe('T-SM7: Baseline creates all expected tables', async () => {
     for (const c of ['execution_trace_id', 'model', 'temperature', 'prompt_hash', 'latency_ms', 'token_source']) {
       assert.ok(cols.includes(c), `Missing column: llm_execution_log.${c}`);
     }
+    db.close();
+  });
+
+  await it('manual binding application schema starts unverified and keeps exact provenance', async () => {
+    const db = freshDb();
+    await runMigrations(db);
+    const columns = db.prepare("PRAGMA table_info('model_overrides')").all();
+    const byName = Object.fromEntries(columns.map(column => [column.name, column]));
+    assert.strictEqual(byName.verified.notnull, 1);
+    assert.strictEqual(String(byName.verified.dflt_value), '0');
+    assert.strictEqual(String(byName.verification_status.dflt_value), "'LEGACY_UNVERIFIED'");
+    for (const name of [
+      'binding_operation_id',
+      'model_canonical_name',
+      'model_digest_sha256',
+      'verification_status',
+    ]) {
+      assert.ok(byName[name], `Missing model_overrides.${name}`);
+    }
+    const attemptColumns = getColumnNames(db, 'model_binding_application_attempts');
+    assert.deepStrictEqual(attemptColumns, [
+      'seq',
+      'operation_id',
+      'attempt_revision',
+      'attempt_kind',
+      'outcome',
+      'observed_model_name',
+      'observed_canonical_name',
+      'observed_digest_sha256',
+      'verification_method',
+      'failure_code',
+      'retryable',
+      'created_at_ms',
+    ]);
+    db.close();
+  });
+
+  await it('migration 050 demotes every legacy override instead of inventing verification', async () => {
+    const db = freshDb();
+    const migrations = await migrationTestInternals.discoverMigrations();
+    const pre050 = migrations.filter(migration => (
+      migration.version !== '2026_08_09_050_model_binding_application_attempts'
+    ));
+    migrationTestInternals.runMigrationPlan(db, pre050);
+    db.prepare(`
+      INSERT INTO model_overrides (
+        role, model, previous_model, score, applied_by, verified
+      ) VALUES ('CHAT', 'legacy-model', 'legacy-previous', 0.9, 'user', 1)
+    `).run();
+
+    migrationTestInternals.runMigrationPlan(db, migrations);
+    const migrated = db.prepare(`
+      SELECT * FROM model_overrides WHERE role = 'CHAT'
+    `).get();
+    assert.strictEqual(migrated.model, 'legacy-model');
+    assert.strictEqual(migrated.previous_model, 'legacy-previous');
+    assert.strictEqual(migrated.verified, 0);
+    assert.strictEqual(migrated.verification_status, 'LEGACY_UNVERIFIED');
+    assert.strictEqual(migrated.binding_operation_id, null);
+    assert.strictEqual(migrated.model_canonical_name, null);
+    assert.strictEqual(migrated.model_digest_sha256, null);
     db.close();
   });
 

@@ -1,7 +1,8 @@
 # WP-M1-BINDING-APPLICATION — jeden pravdivý manual runtime commit point
 
 **Typ:** zapisující WP · **Slot:** hlavní zapisující vlastník, hlavní checkout
-**Stav:** připraven k sériovému zahájení po commitnutí tohoto zadání
+**Stav:** probíhá; checkpoint 1 application-state schema je implementovaný,
+runtime application cutover zůstává otevřený
 **Závislost:** dokončený `WP-M1-BINDING-REPOSITORY` (`515fb6f7`, evidence
 `eb7e78b8`, review closure `1478cb20`)
 

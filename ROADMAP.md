@@ -647,6 +647,20 @@ focused regression sady.
      commit pointem; jeho sjednocení pro HTTP i chat vlastní B3-FAILOVER runtime
      integrátor s termínem před M1 acceptance, viz
      `docs/findings/008-model-binding-commit-point-split.md`.
+     **Jedenáctý checkpoint je implementovaný na hranici aplikačního stavu:**
+     migrace 050 převádí legacy override na pravdivý
+     `LEGACY_UNVERIFIED`, zavádí append-only výsledky runtime apply, startup
+     rehydrate, exact-digest verification a notification a dovolí
+     `verified=1` pouze po přesné úspěšné verifikaci aktuální runtime generace.
+     Repository výsledky zapisuje transakčně a odvozuje
+     `PENDING/APPLIED_PENDING_VERIFICATION/VERIFIED/FAILED`; fixed manual
+     operation z migrace 048 zůstává neměnná `NOT_VERIFIED/NOT_APPLIED`.
+     Legacy `applyUpgrade()` a `rollbackUpgrade()` se po migraci 050 zastaví
+     typovaně ještě před providerem, runtime změnou i DB zápisem. To je
+     bezpečný review checkpoint, nikoli dokončený user journey: společná
+     application service, provider inventory/pull, runtime CAS a kompenzace,
+     HTTP/chat cutover, startup rehydrate a commit-layer broadcast jsou další
+     krok [`WP-M1-BINDING-APPLICATION`](docs/wp/WP-M1-BINDING-APPLICATION.md).
 3. **Connector:** adaptér `ModelRequest/Result` v1; nemění schéma.
 4. **Závislost:** `WP-M1-CONTRACT`; offline fake běhy nečekají na GPU.
 5. **Demo:** skutečná Ollama odpověď; negativní unavailable cesta používá
@@ -1118,16 +1132,20 @@ mohou pokračovat.
    binding storage nyní drží neověřenou append-only apply/rollback lineage,
    migrace 049 fail-closed vynucuje přesný atomický incident supersede a
    veřejné repository operace jej provádějí v jednom commit pointu bez runtime
-   effectu. Migrační preflight je
+   effectu. Migrace 050 navíc zavádí append-only application outcomes a
+   exact-digest verification authority; legacy override demotuje na
+   `LEGACY_UNVERIFIED` a staré apply/rollback writery po jejím nasazení
+   typovaně blokuje před efektem. Migrační preflight je
    implementovaný a attestovaný podle
    [rozhodnutí 016](docs/decisions/016-migration-identity-guard.md). Legacy
    binding apply/rollback zůstává explicitním blockerem s vlastníkem a termínem
    ve finding 008. Jeho další vertikální checkpoint je připraven jako
    [`WP-M1-BINDING-APPLICATION`](docs/wp/WP-M1-BINDING-APPLICATION.md);
    vratné provozní defaulty jsou shromážděné v
-   [018](docs/decisions/018-m1-manual-binding-application-policy.md). Proof issuer,
-   terminal activation/restore, runtime apply, startup rehydrate a scheduler
-   zůstávají otevřené a failover se dosud neaktivuje. Proof issuance
+   [018](docs/decisions/018-m1-manual-binding-application-policy.md). Společná
+   HTTP/chat application service, provider/runtime efekt, startup rehydrate a
+   broadcast zůstávají otevřené; stejně tak proof issuer, terminal
+   activation/restore a scheduler. Failover se dosud neaktivuje. Proof issuance
    čeká na prahy a TTL z rozhodnutí 015; nový skutečný GPU běh zůstává
    samostatnou blokovanou evidencí, dokud není legitimně čistý checkout.
 7. B4 má focused implementované 011/A, obě poloviny 014/A a obě poloviny

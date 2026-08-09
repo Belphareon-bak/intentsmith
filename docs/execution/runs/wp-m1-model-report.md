@@ -1,8 +1,9 @@
 # WP-M1-MODEL — průběžný report
 
-- **stav WP:** B3-IDENTITY + B3-PROFILE READY; B3-FAILOVER storage a manual
-  repository READY; runtime aktivace a nový referenční GPU běh 009 zůstávají
-  BLOCKED; offline connector READY
+- **stav WP:** B3-IDENTITY + B3-PROFILE READY; B3-FAILOVER storage, manual
+  repository a application-state schema READY; společná runtime application
+  service a nový referenční GPU běh 009 zůstávají BLOCKED; offline connector
+  READY
 - **poslední ověřený source SHA:**
   `515fb6f7409ea9ca916f88c1785a4ec032c3121b`
 - **base SHA:** `55c913d6f3cb2354b6447d10ff304e9d0323b1c3`
@@ -1253,3 +1254,52 @@ zůstávají **BLOCKED**: chybí proof issuer/persistence, terminal
 activation/restore, runtime apply, startup rehydrate, scheduler, nový skutečný
 GPU běh a rozhodnutí 015 o prazích a proof TTL. Legacy finding 008 zůstává
 `OPEN / ASSIGNED`; tento inertní repository checkpoint jej nevydává za opravu.
+
+## Checkpoint 19 — pravdivý manual application-state journal
+
+Migrace 050 zavádí append-only journal skutečných `RUNTIME_APPLY`,
+`STARTUP_REHYDRATE`, `VERIFICATION` a `NOTIFICATION` výsledků. Úspěšný runtime
+výsledek zapisuje override jako neověřený; `verified=1` vznikne teprve po
+úspěšné exact-digest probe aktuální runtime generace. Legacy override hodnoty
+se při migraci zachovají, ale stav se pravdivě demotuje na
+`LEGACY_UNVERIFIED`. Migrace odmítne falešnou verification method, nesoulad
+raw/canonical identity, opakovaný terminál, starou runtime generaci, přepis či
+smazání journalu a legacy writer nad manual lineage.
+
+Repository přidává vlastněné recordery a odvozené stavy
+`PENDING/APPLIED_PENDING_VERIFICATION/VERIFIED/FAILED`. Fixed operation journal
+z checkpointu 16 se záměrně nemění a zůstává `NOT_VERIFIED/NOT_APPLIED`;
+aplikační skutečnost je samostatná append-only vrstva. Startup rehydrate otevírá
+novou verifikační generaci, úspěšná notification je globálně nejvýše jednou na
+durable operation a failure lze auditovaně opakovat. Transaction failure vrací
+attempt, override i history společně.
+
+Legacy `upgrade-manager.js` po detekci migrace 050 typovaně odmítne apply i
+rollback ještě před providerem, runtime configem a DB efektem. Před 050 zůstává
+kompatibilní, ale už netvrdí `verified=true` bez provedené probe a chatová
+formulace rozlišuje ověřený a čekající stav. Tento checkpoint proto bezpečně
+uzavírá starý writer; společná application service a user journey přijdou v
+dalším commitu a Finding 008 zůstává `OPEN / ASSIGNED`.
+
+### Focused ověření před commitem
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `C3_LOG_LEVEL=error node tests/schema-migrations.test.js` | 38 passed, 0 failed | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-binding-storage.test.js` | 16 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-binding-repository.test.js` | 22 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-failover-schema.test.js` | 10 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/upgrade-apply.test.js` | 33 passed, 0 failed; proces doběhl po uvolnění existujícího timeru | 0 |
+| syntax všech změněných JS souborů | bez chyby | 0 |
+| `git diff --check` | bez whitespace chyb | 0 |
+
+Negativní mutace dočasně změnila vlastněnou verification method z
+`OLLAMA_CHAT_EXACT_DIGEST_V1` na `FAKE_PROBE`. Repository sada zčervenala
+`18 passed / 4 failed`, exit `1`; po přesném vrácení změny skončila `22/0`,
+exit `0`. Mutace nezůstala v pracovním stromu.
+
+Jeden ručně zadaný příkaz `node tests/model-failover.test.js` skončil exit `1`
+na `MODULE_NOT_FOUND`, protože takový test v repozitáři neexistuje. Nešlo o
+registrovanou ani WP předepsanou sadu a výsledek není produktové selhání; je
+zapsaný jako chyba výběru příkazu. GPU, Ollama, produktový server ani externí
+síť nebyly spuštěny.

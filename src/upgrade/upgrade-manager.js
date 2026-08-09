@@ -457,7 +457,19 @@ export class UpgradeManager {
   loadPersistedOverrides() {
     if (!this._db) return 0;
     try {
-      const rows = this._db.prepare('SELECT role, model FROM model_overrides').all();
+      const applicationSchema = this._db.prepare(`
+        SELECT 1 AS present
+        FROM sqlite_master
+        WHERE type = 'table' AND name = 'model_binding_application_attempts'
+      `).get();
+      const rows = applicationSchema
+        ? this._db.prepare(`
+            SELECT role, model
+            FROM model_overrides
+            WHERE binding_operation_id IS NULL
+              AND verification_status = 'LEGACY_UNVERIFIED'
+          `).all()
+        : this._db.prepare('SELECT role, model FROM model_overrides').all();
       let applied = 0;
       for (const row of rows) {
         if (MODEL_PROFILES[row.role] && row.model) {
@@ -472,6 +484,21 @@ export class UpgradeManager {
       logger.warn('UpgradeManager', `Failed to load overrides: ${err.message}`);
       return 0;
     }
+  }
+
+  _requireLegacyBindingWriterAllowed(operation) {
+    if (!this._db) return;
+    const applicationSchema = this._db.prepare(`
+      SELECT 1 AS present
+      FROM sqlite_master
+      WHERE type = 'table' AND name = 'model_binding_application_attempts'
+    `).get();
+    if (!applicationSchema) return;
+    const error = new Error(
+      `${operation} requires the ModelBindingApplication service after migration 050`,
+    );
+    error.code = 'MODEL_BINDING_APPLICATION_SERVICE_REQUIRED';
+    throw error;
   }
 
   /**
@@ -491,6 +518,7 @@ export class UpgradeManager {
     this._upgrading = true;
 
     try {
+      this._requireLegacyBindingWriterAllowed('applyUpgrade');
       // Validate role
       if (!MODEL_PROFILES[role]) throw new Error(`Invalid role: ${role}`);
 
@@ -529,8 +557,10 @@ export class UpgradeManager {
       // Hot-swap
       config.models[role] = targetModel;
 
-      // v125: Verify is always deferred to background (caller invokes _backgroundVerify)
-      const verified = true;
+      // Verification is deferred. A successful apply is not proof that the
+      // model responded, and migration 050 deliberately defaults every
+      // compatibility override to unverified.
+      const verified = false;
 
       // Persist
       const appliedBy = opts.appliedBy || 'user';
@@ -568,6 +598,7 @@ export class UpgradeManager {
    */
   async rollbackUpgrade(role, opts = {}) {
     if (!this._db) throw new Error('DB not initialized');
+    this._requireLegacyBindingWriterAllowed('rollbackUpgrade');
 
     const row = this._db.prepare(
       'SELECT model, previous_model FROM model_overrides WHERE role = ?'
@@ -660,7 +691,14 @@ export class UpgradeManager {
     for (let attempt = 1; attempt <= 3; attempt++) {
       const ok = await this._verifyModel(targetModel);
       if (ok) {
-        this._markVerified(role, true);
+        const recorded = this._markVerified(role, true);
+        if (recorded === false) {
+          logger.warn(
+            'UpgradeManager',
+            `BG verify probe passed for ${targetModel}, but no durable verification authority accepted it`,
+          );
+          return false;
+        }
         logger.info('UpgradeManager', `BG verify OK: ${targetModel} (attempt ${attempt})`);
         return true;
       }
@@ -680,11 +718,15 @@ export class UpgradeManager {
    * v125: Update verified flag in DB.
    */
   _markVerified(role, verified) {
-    if (!this._db) return;
+    if (!this._db) return null;
     try {
-      this._db.prepare('UPDATE model_overrides SET verified = ? WHERE role = ?').run(verified ? 1 : 0, role);
+      const updated = this._db.prepare(
+        'UPDATE model_overrides SET verified = ? WHERE role = ?'
+      ).run(verified ? 1 : 0, role);
+      return updated.changes === 1;
     } catch (err) {
       logger.warn('UpgradeManager', `markVerified failed: ${err.message}`);
+      return false;
     }
   }
 

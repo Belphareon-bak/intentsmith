@@ -130,8 +130,8 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 | | |
 |---|---:|
-| `src/**/*.js` | **151 127 ř.**, 414 `.js` souborů v checkpointu |
-| `tests/**/*.js` | **160 357 ř.**, 368 `.js` souborů v checkpointu |
+| `src/**/*.js` | **152 320 ř.**, 415 `.js` souborů v checkpointu |
+| `tests/**/*.js` | **163 001 ř.**, 369 `.js` souborů v checkpointu |
 | Registrovaných testových programů | **373** (`276 ACTIVE`, `82 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v DB / migrací | 100 / 51 |
 | HTTP rout | ~230 |
@@ -326,6 +326,7 @@ Zaznamenané, rozhodnuté, ne zapomenuté.
 | `src/expertises/tools/**` bez konzumenta | Runtime cesta vede přes kopii v balíčku specialisty; core kopii drží naživu jen testy. Disposition `RETAIN`/`RETIRE` nerozhodnuta |
 | Self-learning | PatternTracker má produkční zápisy, ale `getRelevantPatterns()` nemá produkčního volajícího; `pattern-miner.js` nemá produkční import a cross-project learner nemá prokázanou smyčku. M4 vyžaduje jeden uzavřený same-project E2E. |
 | Lineární matching rout, regex per request | Naměřeno 0,87 ms — vědomě ponecháno |
+| Manual model binding application state | **Schema/repository READY, user journey BLOCKED:** migrace 050 drží append-only runtime apply, startup rehydrate, exact-digest verification a notification outcomes. Legacy override zachová, ale demotuje na `LEGACY_UNVERIFIED`; `verified=1` dovolí jen po úspěšné přesné probe aktuální runtime generace. Staré `applyUpgrade()`/`rollbackUpgrade()` se po migraci typovaně zastaví před efektem. Společná application service, provider inventory/pull, runtime CAS/kompenzace, HTTP/chat cutover, startup composition a commit-layer broadcast ještě nejsou implementované; vlastní je `WP-M1-BINDING-APPLICATION`, Finding 008 zůstává otevřený. |
 | Rate limiter je na loopbacku mrtvý kód | Vědomě ponecháno |
 
 ---

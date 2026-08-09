@@ -525,6 +525,7 @@ function authoritySnapshot(db) {
     'model_failover_state',
     'model_failover_events',
     'model_binding_operations',
+    'model_binding_application_attempts',
     'model_overrides',
     'upgrade_history',
   ];
@@ -842,6 +843,637 @@ await testAsync('rollback derives one exact append-only reversal and remains rep
       expectedBindingRevision: 3,
     }));
     assertRepositoryError(stale, 'MODEL_FAILOVER_ROLLBACK_NOT_CURRENT');
+  });
+});
+
+suite('M1 manual binding repository — application state and truth');
+
+await testAsync('runtime, verification and notification attempts derive one truthful state', async () => {
+  await withRepository(async ({ firstDb }) => {
+    const runtime = createRuntime('application-state');
+    const repository = createModelFailoverRepository(firstDb, runtime.options);
+    observeChat(repository);
+    runtime.setNow(2000);
+    const applied = applyChat(repository);
+    const operationId = applied.operation.operationId;
+
+    assertEqual(repository.getBindingApplicationState(operationId).state, 'PENDING');
+    assertEqual(repository.getBindingApplicationState(operationId).attemptRevision, 0);
+
+    runtime.setNow(2100);
+    const runtimeResult = repository.recordManualRuntimeApplied({
+      operationId,
+      expectedAttemptRevision: 0,
+      observedModelName: 'candidate:latest',
+      observedDigestSha256: DIGEST_B,
+    });
+    assertEqual(runtimeResult.outcome, 'RECORDED');
+    assertEqual(runtimeResult.applicationState.state, 'APPLIED_PENDING_VERIFICATION');
+    assertEqual(runtimeResult.applicationState.runtimeStatus, 'APPLIED');
+    assertEqual(runtimeResult.applicationState.verificationStatus, 'NOT_VERIFIED');
+    assertEqual(repository.getEffectiveBinding('CHAT').source, 'MANUAL');
+
+    const pendingOverride = firstDb.prepare(`
+      SELECT * FROM model_overrides WHERE role = 'CHAT'
+    `).get();
+    assertEqual(pendingOverride.model, 'candidate');
+    assertEqual(pendingOverride.previous_model, 'reasoner');
+    assertEqual(pendingOverride.binding_operation_id, operationId);
+    assertEqual(pendingOverride.model_canonical_name, 'candidate');
+    assertEqual(pendingOverride.model_digest_sha256, DIGEST_B);
+    assertEqual(pendingOverride.verified, 0);
+    assertEqual(pendingOverride.verification_status, 'PENDING');
+    assertEqual(firstDb.prepare('SELECT COUNT(*) AS count FROM upgrade_history').get().count, 1);
+
+    const forgedVerification = captureError(() => firstDb.prepare(`
+      UPDATE model_overrides
+      SET verified = 1, verification_status = 'VERIFIED'
+      WHERE role = 'CHAT'
+    `).run());
+    assert(/verified override requires exact successful probe/i.test(forgedVerification.message));
+
+    runtime.setNow(2200);
+    const verified = repository.recordManualVerificationSucceeded({
+      operationId,
+      expectedAttemptRevision: 1,
+      observedModelName: 'candidate',
+      observedDigestSha256: DIGEST_B,
+    });
+    assertEqual(verified.applicationState.state, 'VERIFIED');
+    assertEqual(verified.applicationState.verificationStatus, 'VERIFIED');
+    assertEqual(verified.attempt.verificationMethod, 'OLLAMA_CHAT_EXACT_DIGEST_V1');
+    const verifiedOverride = firstDb.prepare(`
+      SELECT verified, verification_status FROM model_overrides WHERE role = 'CHAT'
+    `).get();
+    assertEqual(verifiedOverride.verified, 1);
+    assertEqual(verifiedOverride.verification_status, 'VERIFIED');
+
+    const immutableIntent = repository.getBindingOperation(operationId);
+    assertEqual(immutableIntent.verificationStatus, 'NOT_VERIFIED');
+    assertEqual(immutableIntent.runtimeStatus, 'NOT_APPLIED');
+    assertEqual(immutableIntent.applicationState.state, 'VERIFIED');
+
+    const deleteAttempt = captureError(() => firstDb.prepare(`
+      DELETE FROM model_binding_application_attempts
+      WHERE operation_id = ? AND attempt_revision = 2
+    `).run(operationId));
+    assert(/append-only/i.test(deleteAttempt.message));
+    const updateAttempt = captureError(() => firstDb.prepare(`
+      UPDATE model_binding_application_attempts
+      SET failure_code = 'FORGED'
+      WHERE operation_id = ? AND attempt_revision = 2
+    `).run(operationId));
+    assert(/append-only/i.test(updateAttempt.message));
+
+    runtime.setNow(2250);
+    const secondVerification = captureError(() => repository.recordManualVerificationSucceeded({
+      operationId,
+      expectedAttemptRevision: 2,
+      observedModelName: 'candidate',
+      observedDigestSha256: DIGEST_B,
+    }));
+    assertRepositoryError(secondVerification, 'MODEL_FAILOVER_STORAGE_CONTRACT');
+
+    runtime.setNow(2300);
+    const notification = repository.recordManualNotificationFailed({
+      operationId,
+      expectedAttemptRevision: 2,
+      failureCode: 'MODEL_BINDING_NOTIFICATION_DELIVERY_FAILED',
+    });
+    assertEqual(notification.applicationState.state, 'VERIFIED');
+    assertEqual(notification.applicationState.notificationStatus, 'FAILED');
+    assertEqual(
+      notification.applicationState.notificationFailureCode,
+      'MODEL_BINDING_NOTIFICATION_DELIVERY_FAILED',
+    );
+    const replay = repository.recordManualNotificationFailed({
+      operationId,
+      expectedAttemptRevision: 2,
+      failureCode: 'MODEL_BINDING_NOTIFICATION_DELIVERY_FAILED',
+    });
+    assertEqual(replay.outcome, 'REPLAYED');
+    const delayedRuntimeReplay = repository.recordManualRuntimeApplied({
+      operationId,
+      expectedAttemptRevision: 0,
+      observedModelName: 'candidate:latest',
+      observedDigestSha256: DIGEST_B,
+    });
+    assertEqual(delayedRuntimeReplay.outcome, 'REPLAYED');
+
+    runtime.setNow(2400);
+    const rehydrated = repository.recordManualStartupRehydrated({
+      operationId,
+      expectedAttemptRevision: 3,
+      observedModelName: 'candidate',
+      observedDigestSha256: DIGEST_B,
+    });
+    assertEqual(rehydrated.applicationState.notificationStatus, 'FAILED');
+    const duplicateNotification = captureError(() => repository.recordManualNotificationFailed({
+      operationId,
+      expectedAttemptRevision: 4,
+      failureCode: 'MODEL_BINDING_NOTIFICATION_DELIVERY_FAILED',
+    }));
+    assertRepositoryError(duplicateNotification, 'MODEL_FAILOVER_STORAGE_CONTRACT');
+    assertEqual(firstDb.prepare(`
+      SELECT COUNT(*) AS count FROM model_binding_application_attempts
+      WHERE operation_id = ?
+    `).get(operationId).count, 4);
+  });
+});
+
+await testAsync('retry and restart rehydrate invalidate only the prior runtime verification', async () => {
+  await withRepository(async ({ firstDb, databasePath }) => {
+    const runtime = createRuntime('application-retry');
+    const repository = createModelFailoverRepository(firstDb, runtime.options);
+    observeChat(repository);
+    runtime.setNow(2000);
+    const applied = applyChat(repository);
+    const operationId = applied.operation.operationId;
+
+    runtime.setNow(2100);
+    const failedRuntime = repository.recordManualRuntimeApplyFailed({
+      operationId,
+      expectedAttemptRevision: 0,
+      failureCode: 'MODEL_BINDING_PROVIDER_UNAVAILABLE',
+    });
+    assertEqual(failedRuntime.applicationState.state, 'FAILED');
+    assertEqual(failedRuntime.applicationState.runtimeStatus, 'FAILED');
+    assertEqual(failedRuntime.applicationState.retryable, true);
+    const failureReplay = repository.recordManualRuntimeApplyFailed({
+      operationId,
+      expectedAttemptRevision: 0,
+      failureCode: 'MODEL_BINDING_PROVIDER_UNAVAILABLE',
+    });
+    assertEqual(failureReplay.outcome, 'REPLAYED');
+
+    runtime.setNow(2200);
+    repository.recordManualRuntimeApplied({
+      operationId,
+      expectedAttemptRevision: 1,
+      observedModelName: 'candidate',
+      observedDigestSha256: DIGEST_B,
+    });
+    runtime.setNow(2300);
+    const failedVerification = repository.recordManualVerificationFailed({
+      operationId,
+      expectedAttemptRevision: 2,
+      failureCode: 'MODEL_BINDING_VERIFICATION_PROVIDER_UNAVAILABLE',
+    });
+    assertEqual(failedVerification.applicationState.state, 'FAILED');
+    assertEqual(failedVerification.applicationState.runtimeStatus, 'APPLIED');
+    assertEqual(failedVerification.applicationState.verificationStatus, 'FAILED');
+    assertEqual(failedVerification.applicationState.retryable, true);
+
+    runtime.setNow(2400);
+    const recoveredVerification = repository.recordManualVerificationSucceeded({
+      operationId,
+      expectedAttemptRevision: 3,
+      observedModelName: 'candidate:latest',
+      observedDigestSha256: DIGEST_B,
+    });
+    assertEqual(recoveredVerification.applicationState.state, 'VERIFIED');
+
+    runtime.setNow(2450);
+    const repeatedRuntime = captureError(() => repository.recordManualRuntimeApplied({
+      operationId,
+      expectedAttemptRevision: 4,
+      observedModelName: 'candidate',
+      observedDigestSha256: DIGEST_B,
+    }));
+    assertRepositoryError(repeatedRuntime, 'MODEL_BINDING_APPLICATION_TRANSITION_INVALID');
+    assertEqual(firstDb.prepare('SELECT COUNT(*) AS count FROM upgrade_history').get().count, 1);
+    const directRepeatedRuntime = captureError(() => firstDb.prepare(`
+      INSERT INTO model_binding_application_attempts (
+        operation_id, attempt_revision, attempt_kind, outcome,
+        observed_model_name, observed_canonical_name, observed_digest_sha256,
+        verification_method, failure_code, retryable, created_at_ms
+      ) VALUES (?, 5, 'RUNTIME_APPLY', 'SUCCEEDED', 'candidate', 'candidate', ?,
+        NULL, NULL, 0, 2450)
+    `).run(operationId, DIGEST_B));
+    assert(/runtime apply is terminal after success/i.test(directRepeatedRuntime.message));
+
+    runtime.setNow(2500);
+    const rehydrated = repository.recordManualStartupRehydrated({
+      operationId,
+      expectedAttemptRevision: 4,
+      observedModelName: 'candidate',
+      observedDigestSha256: DIGEST_B,
+    });
+    assertEqual(rehydrated.applicationState.state, 'APPLIED_PENDING_VERIFICATION');
+    assertEqual(firstDb.prepare(`
+      SELECT verified FROM model_overrides WHERE role = 'CHAT'
+    `).get().verified, 0);
+    const staleVerificationReuse = captureError(() => firstDb.prepare(`
+      UPDATE model_overrides
+      SET verified = 1, verification_status = 'VERIFIED'
+      WHERE role = 'CHAT'
+    `).run());
+    assert(/verified override requires exact successful probe/i.test(staleVerificationReuse.message));
+
+    runtime.setNow(2600);
+    const reverified = repository.recordManualVerificationSucceeded({
+      operationId,
+      expectedAttemptRevision: 5,
+      observedModelName: 'candidate',
+      observedDigestSha256: DIGEST_B,
+    });
+    assertEqual(reverified.applicationState.state, 'VERIFIED');
+    const expectedState = JSON.stringify(reverified.applicationState);
+    firstDb.close();
+
+    const restartedDb = openDb(databasePath);
+    try {
+      const restarted = createModelFailoverRepository(
+        restartedDb,
+        createRuntime('application-restart', 3000).options,
+      );
+      assertEqual(
+        JSON.stringify(restarted.getBindingApplicationState(operationId)),
+        expectedState,
+      );
+      assertEqual(restarted.getEffectiveBinding('CHAT').source, 'MANUAL');
+      assertEqual(restarted.listCurrentManualBindingsForRehydrate().length, 1);
+    } finally {
+      restartedDb.close();
+    }
+  });
+});
+
+await testAsync('failed startup rehydrate demotes persisted truth until a later success', async () => {
+  await withRepository(async ({ firstDb }) => {
+    const runtime = createRuntime('application-rehydrate-failure');
+    const repository = createModelFailoverRepository(firstDb, runtime.options);
+    observeChat(repository);
+    runtime.setNow(2000);
+    const applied = applyChat(repository);
+    const operationId = applied.operation.operationId;
+    runtime.setNow(2100);
+    repository.recordManualRuntimeApplied({
+      operationId,
+      expectedAttemptRevision: 0,
+      observedModelName: 'candidate',
+      observedDigestSha256: DIGEST_B,
+    });
+    runtime.setNow(2200);
+    repository.recordManualVerificationSucceeded({
+      operationId,
+      expectedAttemptRevision: 1,
+      observedModelName: 'candidate',
+      observedDigestSha256: DIGEST_B,
+    });
+    runtime.setNow(2300);
+    const failed = repository.recordManualStartupRehydrateFailed({
+      operationId,
+      expectedAttemptRevision: 2,
+      failureCode: 'MODEL_BINDING_REHYDRATE_TARGET_UNAVAILABLE',
+    });
+    assertEqual(failed.applicationState.state, 'FAILED');
+    assertEqual(failed.applicationState.runtimeStatus, 'FAILED');
+    assertEqual(failed.applicationState.verificationStatus, 'NOT_VERIFIED');
+    const override = firstDb.prepare(`
+      SELECT verified, verification_status FROM model_overrides WHERE role = 'CHAT'
+    `).get();
+    assertEqual(override.verified, 0);
+    assertEqual(override.verification_status, 'FAILED');
+    assertEqual(repository.getEffectiveBinding('CHAT').source, 'PENDING_MANUAL');
+  });
+});
+
+await testAsync('rollback has its own append-only runtime and verification lineage', async () => {
+  await withRepository(async ({ firstDb }) => {
+    const runtime = createRuntime('application-rollback');
+    const repository = createModelFailoverRepository(firstDb, runtime.options);
+    observeChat(repository);
+    runtime.setNow(2000);
+    const applied = applyChat(repository);
+    runtime.setNow(2100);
+    repository.recordManualRuntimeApplied({
+      operationId: applied.operation.operationId,
+      expectedAttemptRevision: 0,
+      observedModelName: 'candidate',
+      observedDigestSha256: DIGEST_B,
+    });
+    runtime.setNow(2200);
+    repository.recordManualVerificationSucceeded({
+      operationId: applied.operation.operationId,
+      expectedAttemptRevision: 1,
+      observedModelName: 'candidate',
+      observedDigestSha256: DIGEST_B,
+    });
+
+    runtime.setNow(3000);
+    const rolledBack = rollbackChat(repository, applied.operation.operationId);
+    runtime.setNow(3100);
+    repository.recordManualRuntimeApplied({
+      operationId: rolledBack.operation.operationId,
+      expectedAttemptRevision: 0,
+      observedModelName: 'reasoner:latest',
+      observedDigestSha256: DIGEST_A,
+    });
+    runtime.setNow(3200);
+    repository.recordManualVerificationSucceeded({
+      operationId: rolledBack.operation.operationId,
+      expectedAttemptRevision: 1,
+      observedModelName: 'reasoner',
+      observedDigestSha256: DIGEST_A,
+    });
+
+    assertEqual(repository.getBindingApplicationState(applied.operation.operationId).state, 'VERIFIED');
+    assertEqual(repository.getBindingApplicationState(rolledBack.operation.operationId).state, 'VERIFIED');
+    assertEqual(repository.getEffectiveBinding('CHAT').modelName, 'reasoner');
+    assertEqual(firstDb.prepare('SELECT COUNT(*) AS count FROM model_binding_operations').get().count, 2);
+    assertEqual(firstDb.prepare('SELECT COUNT(*) AS count FROM model_binding_application_attempts').get().count, 4);
+    assertEqual(firstDb.prepare('SELECT COUNT(*) AS count FROM upgrade_history').get().count, 2);
+  });
+});
+
+await testAsync('application APIs reject authority injection, stale revisions and invalid ordering', async () => {
+  await withRepository(async ({ firstDb }) => {
+    const runtime = createRuntime('application-negative');
+    const repository = createModelFailoverRepository(firstDb, runtime.options);
+    observeChat(repository);
+    runtime.setNow(2000);
+    const applied = applyChat(repository);
+    const operationId = applied.operation.operationId;
+    const before = authoritySnapshot(firstDb);
+
+    for (const field of ['nowMs', 'retryable', 'verificationMethod', 'observedCanonicalName']) {
+      const error = captureError(() => repository.recordManualRuntimeApplied({
+        operationId,
+        expectedAttemptRevision: 0,
+        observedModelName: 'candidate',
+        observedDigestSha256: DIGEST_B,
+        [field]: 'caller-owned',
+      }));
+      assertRepositoryError(error, 'MODEL_FAILOVER_AUTHORITY_OVERRIDE_REJECTED');
+      assertEqual(JSON.stringify(error.details?.fields), JSON.stringify([field]));
+      assertEqual(authoritySnapshot(firstDb), before);
+    }
+
+    const prematureVerification = captureError(() => repository.recordManualVerificationSucceeded({
+      operationId,
+      expectedAttemptRevision: 0,
+      observedModelName: 'candidate',
+      observedDigestSha256: DIGEST_B,
+    }));
+    assertRepositoryError(prematureVerification, 'MODEL_FAILOVER_STORAGE_CONTRACT');
+    assertEqual(authoritySnapshot(firstDb), before);
+
+    const digestDrift = captureError(() => repository.recordManualRuntimeApplied({
+      operationId,
+      expectedAttemptRevision: 0,
+      observedModelName: 'candidate',
+      observedDigestSha256: DIGEST_A,
+    }));
+    assertRepositoryError(digestDrift, 'MODEL_FAILOVER_STORAGE_CONTRACT');
+    assertEqual(authoritySnapshot(firstDb), before);
+
+    const forgedCanonical = captureError(() => firstDb.prepare(`
+      INSERT INTO model_binding_application_attempts (
+        operation_id, attempt_revision, attempt_kind, outcome,
+        observed_model_name, observed_canonical_name, observed_digest_sha256,
+        verification_method, failure_code, retryable, created_at_ms
+      ) VALUES (?, 1, 'RUNTIME_APPLY', 'SUCCEEDED', 'unrelated:latest',
+        'candidate', ?, NULL, NULL, 0, 2050)
+    `).run(operationId, DIGEST_B));
+    assert(/check constraint/i.test(forgedCanonical.message));
+    assertEqual(authoritySnapshot(firstDb), before);
+
+    runtime.setNow(2100);
+    repository.recordManualRuntimeApplied({
+      operationId,
+      expectedAttemptRevision: 0,
+      observedModelName: 'candidate',
+      observedDigestSha256: DIGEST_B,
+    });
+    const afterRuntime = authoritySnapshot(firstDb);
+    const fakeProbe = captureError(() => firstDb.prepare(`
+      INSERT INTO model_binding_application_attempts (
+        operation_id, attempt_revision, attempt_kind, outcome,
+        observed_model_name, observed_canonical_name, observed_digest_sha256,
+        verification_method, failure_code, retryable, created_at_ms
+      ) VALUES (?, 2, 'VERIFICATION', 'SUCCEEDED', 'candidate', 'candidate', ?,
+        'FAKE_PROBE', NULL, 0, 2150)
+    `).run(operationId, DIGEST_B));
+    assert(/check constraint/i.test(fakeProbe.message));
+    assertEqual(authoritySnapshot(firstDb), afterRuntime);
+
+    const legacyOverwrite = captureError(() => firstDb.prepare(`
+      INSERT OR REPLACE INTO model_overrides (
+        role, model, previous_model, score, applied_by, applied_at
+      ) VALUES ('CHAT', 'legacy-replacement', 'candidate', NULL, 'user', CURRENT_TIMESTAMP)
+    `).run());
+    assert(/legacy writer cannot replace manual lineage/i.test(legacyOverwrite.message));
+    const manualDelete = captureError(() => firstDb.prepare(`
+      DELETE FROM model_overrides WHERE role = 'CHAT'
+    `).run());
+    assert(/manual override is append-only/i.test(manualDelete.message));
+    assertEqual(authoritySnapshot(firstDb), afterRuntime);
+    const stale = captureError(() => repository.recordManualRuntimeApplyFailed({
+      operationId,
+      expectedAttemptRevision: 0,
+      failureCode: 'MODEL_BINDING_PROVIDER_UNAVAILABLE',
+    }));
+    assertRepositoryError(stale, 'MODEL_BINDING_APPLICATION_STALE_ATTEMPT');
+    assertEqual(authoritySnapshot(firstDb), afterRuntime);
+
+    const overrideIdentityUpdate = captureError(() => firstDb.prepare(`
+      UPDATE model_overrides SET model = 'forged-model' WHERE role = 'CHAT'
+    `).run());
+    assert(/override requires exact operation target/i.test(overrideIdentityUpdate.message));
+    const overrideIdentityInsert = captureError(() => firstDb.prepare(`
+      INSERT INTO model_overrides (
+        role, model, previous_model, applied_by, verified,
+        binding_operation_id, model_canonical_name, model_digest_sha256,
+        verification_status
+      ) VALUES ('D1', 'candidate', 'previous', 'user:fixture', 0, ?,
+        'candidate', ?, 'PENDING')
+    `).run(operationId, DIGEST_B));
+    assert(/override requires exact operation target/i.test(overrideIdentityInsert.message));
+    assertEqual(authoritySnapshot(firstDb), afterRuntime);
+  });
+});
+
+await testAsync('all application recorders reject caller authority fields', async () => {
+  await withRepository(async ({ firstDb }) => {
+    const runtime = createRuntime('application-recorder-authority');
+    const repository = createModelFailoverRepository(firstDb, runtime.options);
+    observeChat(repository);
+    runtime.setNow(2000);
+    const applied = applyChat(repository);
+    const operationId = applied.operation.operationId;
+    const cases = [
+      ['recordManualRuntimeApplyFailed', {
+        operationId,
+        expectedAttemptRevision: 0,
+        failureCode: 'MODEL_BINDING_PROVIDER_UNAVAILABLE',
+      }],
+      ['recordManualStartupRehydrated', {
+        operationId,
+        expectedAttemptRevision: 0,
+        observedModelName: 'candidate',
+        observedDigestSha256: DIGEST_B,
+      }],
+      ['recordManualStartupRehydrateFailed', {
+        operationId,
+        expectedAttemptRevision: 0,
+        failureCode: 'MODEL_BINDING_REHYDRATE_TARGET_UNAVAILABLE',
+      }],
+      ['recordManualVerificationSucceeded', {
+        operationId,
+        expectedAttemptRevision: 0,
+        observedModelName: 'candidate',
+        observedDigestSha256: DIGEST_B,
+      }],
+      ['recordManualVerificationFailed', {
+        operationId,
+        expectedAttemptRevision: 0,
+        failureCode: 'MODEL_BINDING_VERIFICATION_REJECTED',
+      }],
+      ['recordManualNotificationSucceeded', { operationId, expectedAttemptRevision: 0 }],
+      ['recordManualNotificationFailed', {
+        operationId,
+        expectedAttemptRevision: 0,
+        failureCode: 'MODEL_BINDING_NOTIFICATION_DELIVERY_FAILED',
+      }],
+    ];
+    const before = authoritySnapshot(firstDb);
+    for (const [method, input] of cases) {
+      const error = captureError(() => repository[method]({
+        ...input,
+        actor: 'caller-owned',
+      }));
+      assertRepositoryError(error, 'MODEL_FAILOVER_AUTHORITY_OVERRIDE_REJECTED');
+      assertEqual(JSON.stringify(error.details?.fields), JSON.stringify(['actor']));
+      assertEqual(authoritySnapshot(firstDb), before);
+    }
+  });
+});
+
+await testAsync('schema rejects superseded authority, clock rollback and non-retryable drift', async () => {
+  await withRepository(async ({ firstDb }) => {
+    const runtime = createRuntime('application-schema-boundaries');
+    const repository = createModelFailoverRepository(firstDb, runtime.options);
+    observeChat(repository);
+    runtime.setNow(2000);
+    const first = applyChat(repository);
+    runtime.setNow(3000);
+    applyChat(repository, {
+      requestKey: 'request-application-newer-0001',
+      expectedBindingRevision: 2,
+      targetModelName: 'newer',
+      targetDigestSha256: DIGEST_A,
+    });
+    const before = authoritySnapshot(firstDb);
+    const superseded = captureError(() => firstDb.prepare(`
+      INSERT INTO model_binding_application_attempts (
+        operation_id, attempt_revision, attempt_kind, outcome,
+        observed_model_name, observed_canonical_name, observed_digest_sha256,
+        verification_method, failure_code, retryable, created_at_ms
+      ) VALUES (?, 1, 'RUNTIME_APPLY', 'SUCCEEDED', 'candidate', 'candidate', ?,
+        NULL, NULL, 0, 3100)
+    `).run(first.operation.operationId, DIGEST_B));
+    assert(/operation is not current desired authority/i.test(superseded.message));
+    assertEqual(authoritySnapshot(firstDb), before);
+
+    const current = repository.listCurrentManualBindingsForRehydrate()[0];
+    const clockRollback = captureError(() => firstDb.prepare(`
+      INSERT INTO model_binding_application_attempts (
+        operation_id, attempt_revision, attempt_kind, outcome,
+        observed_model_name, observed_canonical_name, observed_digest_sha256,
+        verification_method, failure_code, retryable, created_at_ms
+      ) VALUES (?, 1, 'RUNTIME_APPLY', 'SUCCEEDED', 'newer', 'newer', ?,
+        NULL, NULL, 0, 2999)
+    `).run(current.operationId, DIGEST_A));
+    assert(/attempt time precedes its authority/i.test(clockRollback.message));
+    assertEqual(authoritySnapshot(firstDb), before);
+  });
+
+  await withRepository(async ({ firstDb }) => {
+    const runtime = createRuntime('application-nonretryable');
+    const repository = createModelFailoverRepository(firstDb, runtime.options);
+    observeChat(repository);
+    runtime.setNow(2000);
+    const applied = applyChat(repository);
+    runtime.setNow(2100);
+    const drift = repository.recordManualRuntimeApplyFailed({
+      operationId: applied.operation.operationId,
+      expectedAttemptRevision: 0,
+      failureCode: 'MODEL_BINDING_TARGET_DIGEST_DRIFT',
+    });
+    assertEqual(drift.applicationState.state, 'FAILED');
+    assertEqual(drift.applicationState.retryable, false);
+  });
+});
+
+await testAsync('application transaction failures roll back attempt, override and history together', async () => {
+  for (const fixture of [
+    {
+      name: 'override',
+      sql: `
+        CREATE TRIGGER fixture_reject_application_override
+        BEFORE INSERT ON model_overrides
+        BEGIN SELECT RAISE(ABORT, 'fixture application override'); END;
+      `,
+    },
+    {
+      name: 'history',
+      sql: `
+        CREATE TRIGGER fixture_reject_application_history
+        BEFORE INSERT ON upgrade_history
+        BEGIN SELECT RAISE(ABORT, 'fixture application history'); END;
+      `,
+    },
+  ]) {
+    await withRepository(async ({ firstDb }) => {
+      const runtime = createRuntime(`application-failure-${fixture.name}`);
+      const repository = createModelFailoverRepository(firstDb, runtime.options);
+      observeChat(repository);
+      runtime.setNow(2000);
+      const applied = applyChat(repository);
+      const before = authoritySnapshot(firstDb);
+      firstDb.exec(fixture.sql);
+      runtime.setNow(2100);
+      const error = captureError(() => repository.recordManualRuntimeApplied({
+        operationId: applied.operation.operationId,
+        expectedAttemptRevision: 0,
+        observedModelName: 'candidate',
+        observedDigestSha256: DIGEST_B,
+      }));
+      assertRepositoryError(error, 'MODEL_FAILOVER_STORAGE_CONTRACT');
+      assertEqual(authoritySnapshot(firstDb), before);
+    });
+  }
+
+  await withRepository(async ({ firstDb }) => {
+    const runtime = createRuntime('application-failure-verification');
+    const repository = createModelFailoverRepository(firstDb, runtime.options);
+    observeChat(repository);
+    runtime.setNow(2000);
+    const applied = applyChat(repository);
+    runtime.setNow(2100);
+    repository.recordManualRuntimeApplied({
+      operationId: applied.operation.operationId,
+      expectedAttemptRevision: 0,
+      observedModelName: 'candidate',
+      observedDigestSha256: DIGEST_B,
+    });
+    const before = authoritySnapshot(firstDb);
+    firstDb.exec(`
+      CREATE TRIGGER fixture_reject_application_verification
+      BEFORE UPDATE ON model_overrides
+      WHEN NEW.verification_status = 'VERIFIED'
+      BEGIN SELECT RAISE(ABORT, 'fixture application verification'); END;
+    `);
+    runtime.setNow(2200);
+    const error = captureError(() => repository.recordManualVerificationSucceeded({
+      operationId: applied.operation.operationId,
+      expectedAttemptRevision: 1,
+      observedModelName: 'candidate',
+      observedDigestSha256: DIGEST_B,
+    }));
+    assertRepositoryError(error, 'MODEL_FAILOVER_STORAGE_CONTRACT');
+    assertEqual(authoritySnapshot(firstDb), before);
   });
 });
 
