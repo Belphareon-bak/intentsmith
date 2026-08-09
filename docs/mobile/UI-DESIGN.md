@@ -124,57 +124,123 @@ Každý je odvozený z invariantu, ne z vkusu.
 
 ### 3.1 Navigace se odvozuje z `capabilities`
 
+> **Přepsáno 2026-08-09** rozhodnutím `D-UI-3`
+> ([UI-REVIEW-2026-08-09.md](UI-REVIEW-2026-08-09.md) §7). Původní znění mělo
+> strop čtyř položek a pátou odsouvalo pod **Víc**. Strop i „Víc" jsou zrušené;
+> odvození lišty z `capabilities` platí beze změny.
+
 **[R]** Dolní lišta se **staví z odpovědi `/m1/capabilities`** (B-7), ne z konstanty
 v kódu. Záložka bez scopu se nezobrazí; scope bez upstreamu se zobrazí uzamčený.
 
 | `features` / scope | Záložka | Fáze |
 |---|---|---|
+| vždy, když je odemčeno | **Přehled** — kořen, §3.2 | 3 |
 | `conversations` (`read:chat`) | **Konverzace** | 1 |
+| `projects` (`read:projects`) | **Projekty** — `D-UI-1`, čeká na kontrakt `DR-008` domény 2 | — |
 | `approvals` (`read:approvals`) | **Approvaly** ★ | 3 |
-| `notifications` (`read:notifications`) | **Zprávy** | 0+ |
-| vždy (i bez tokenu) | **Stav** — diagnostika, zařízení, o aplikaci | 0 |
+| vždy (i bez tokenu) | **Nastavení** — diagnostika, zařízení, o aplikaci | 0 |
+| volitelné moduly | **až vzniknou**, viz níže | — |
 
-Čtyři je strop. Pátá a další položka (projekty, paměť, agenti — až vzniknou
-podle B-1) jde pod **Víc**, ne do lišty.
+Návrhy střídají popisek „Chaty" a „Konverzace"; kanonický je **Konverzace**,
+shodně se `SCREENS.md` a `MS-06`.
+
+**Volitelné moduly patří do lišty, ne pod „Víc".** Autonomní agenti,
+specialisté, paměť a další moduly se při integraci zobrazí jako plnohodnotné
+položky, jakmile jejich capability dorazí. Do té doby v liště nejsou vůbec —
+`Připravujeme` dlaždice na `Přehledu` jim stačí.
+
+#### Posouvací lišta centrovaná na výběr
+
+**[R]** Lišta je vodorovně posouvatelná a nese **všechny** dostupné položky.
+Položky za okrajem vidět nejsou; lišta se vždy **vycentruje na právě zvolenou
+položku a jen ta je zvýrazněná**. Přesně jeden zvýrazněný prvek, nikdy nula
+a nikdy dva.
 
 ```
-   Fáze 0            Fáze 1                   Fáze 3
- ┌──────────┐   ┌───────────┬────────┐   ┌───────┬─────────┬───────┬──────┐
- │   Stav   │   │Konverzace │  Stav  │   │Konverz│Approvaly│ Zprávy│ Stav │
- └──────────┘   └───────────┴────────┘   └───────┴────●────┴───────┴──────┘
-  jedna položka  lišta se objeví            ● = živý počet, jen online (D-S2)
-  = bez lišty    až se má co přepínat
+        ◀ posun                    posun ▶
+ ┌──────────┬──────────┬═══════════┬──────────┬──────────┐
+ │ Přehled  │Konverzace║ PROJEKTY  ║Approvaly │Nastavení │
+ └──────────┴──────────┴═══════════┴──────────┴──────────┘
+                        ▲ vycentrovaná a zvýrazněná
 ```
 
-**[R]** Při jediné dostupné záložce se lišta nezobrazuje vůbec. Lišta se dvěma
-položkami, z nichž jedna je „Stav", je horší než žádná.
+Mentální model je **brána ze Stargate**: prstenec se otáčí tak, aby zvolený
+symbol dojel doprostřed, a svítí právě jeden. Uživatel nehledá položku na pevné
+souřadnici — čte střed.
+
+**Co se tím vědomě ztrácí:** lišta přestává být úplná mapa vidět naráz. Za to
+odpadá „Víc" jako skládka a lišta unese proměnnou sadu z `capabilities`, u níž
+pevná mapa stejně nikdy plně nevznikne — sada se liší podle scopů a verze
+klienta (§3.4).
+
+**[R]** Při jediné dostupné položce se lišta nezobrazuje vůbec. Lišta se dvěma
+položkami, z nichž jedna je „Nastavení", je horší než žádná.
 
 ### 3.2 Kde je domovská obrazovka
 
-**[R] Fáze 0–1 domovskou obrazovku nemá.** Aplikace startuje na seznamu
-konverzací. Agregační přehled bez approvalů a bez projektů by agregoval jednu věc.
+> **Přepsáno 2026-08-09** rozhodnutím `D-UI-3`. Původní znění vedlo jako
+> výchozí obrazovku seznam konverzací a `Přehled` odkládalo.
 
-**Přehled vzniká s fází 3**, protože teprve tam má co říct: čekající approvaly
-(živě, necachovaně — `MS-13`), stav běhu, poslední konverzace.
+**[R] Fáze 0–1 domovskou obrazovku nemá.** Bez tokenu aplikace startuje na
+`MS-01`/`MS-02`; agregační přehled bez approvalů a bez projektů by agregoval
+jednu věc.
+
+**Od fáze 3 je `Přehled` kořen aplikace**, protože teprve tam má co říct:
+čekající approvaly (živě, necachovaně — `MS-13`), `RunSilence` podle §6.5
+(`D-UI-4`) a poslední konverzace.
+
+#### Lišta je na kořeni zatažená
+
+**[R]** Na `Přehledu` **lišta není vidět**. Vstup do kterékoli sekce ji plynule
+vysune zdola; volba `Přehled` ji zase zasune.
+
+Zasunutí je proto **signál „jsi doma"**, ne ztráta navigace. Na `Přehledu` by
+lišta duplikovala dlaždice, které vedou na totéž.
+
+Dlaždice a lišta se nedublují, protože mají **jinou zrnitost**: dlaždice vedou
+hluboko (konkrétní projekt, konkrétní approval), lišta přepíná sekci.
+
+**Vycentrovaná položka po vysunutí je ta, kterou uživatel zvolil na
+`Přehledu`.** Žádná „výchozí vycentrovaná položka" před první volbou neexistuje
+— na kořeni je lišta zatažená, takže není co centrovat.
+
+#### Podmínka úplnosti kořene
+
+> **Kořen musí pokrýt každou položku lišty.** Když je lišta na `Přehledu`
+> zatažená, je homescreen **jedinou mapou aplikace**. Každá položka lišty proto
+> musí mít na `Přehledu` dlaždici nebo řádek.
+
+Nová položka v liště a nová dlaždice na `Přehledu` vznikají **zároveň, jedním
+krokem**. Sekce, kterou dlaždice nepokrývá, je z kořene nedosažitelná — a
+protože lišta je tam schovaná, uživatel se o její existenci nedozví vůbec.
+
+Platí to i pro volitelné moduly: zapnutí modulu přidává obojí, ne jen položku.
 
 ### 3.3 Navigační kostra po doplnění
 
 ```
   start ──▶ MS-01 odemčení ──┬─(bez tokenu)──▶ MS-02 párování
                              │
-                             └─(s tokenem)───▶ MS-06 konverzace  [výchozí]
-                                                  │
+                             └─(s tokenem)───▶ PŘEHLED  [kořen, §3.2]
+                                                  │        lišta zatažená
    ┌──────────────┬─────────────────┬─────────────┴──────┬─────────────────┐
    ▼              ▼                 ▼                    ▼                 ▼
- MS-07 detail   MS-13 fronta ★   MS-05 zprávy      MS-03 stav        MS-20 pokusy
-   │              │                                    │              (nové, §6.9)
-   ▼              ▼                                    ▼
- MS-08 odeslání MS-14 rozhodnutí ★                MS-04 zařízení
- MS-09 hledání
+ MS-06         MS-13 fronta ★   MS-05 zprávy      MS-03 stav        MS-20 pokusy
+ konverzace      │              (F-111/F-112)     pod Nastavením     (nové, §6.9)
+   │             ▼                                     │
+   ▼           MS-14 rozhodnutí ★                MS-04 zařízení
+ MS-07 detail                                          projekty ▶ D-UI-1
+   │                                                   (čeká na DR-008)
+   ▼
+ MS-08 odeslání          po vstupu do sekce lišta vyjede a vycentruje ji
+ MS-09 hledání           (BLOCKED_BY_CONTRACT, nestaví se)
 ```
 
 `MS-20` je dosažitelné **odkudkoli, kde se mutace odmítne** kvůli stropu (B-4),
-a trvale ze `Stav`.
+a trvale z `Nastavení`.
+
+**[R]** `MS-03` stav, `MS-04` zařízení a `MS-20` pokusy žijí pod položkou
+**Nastavení**; ta nahrazuje dřívější samostatnou položku „Stav" (`D-UI-3`).
 
 ### 3.4 Mapovací vrstva — capability není obrazovka
 
