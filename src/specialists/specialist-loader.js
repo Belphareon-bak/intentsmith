@@ -470,6 +470,12 @@ function foldSpecialistStaticProperty(tokens, openIndex, closeIndex, label) {
 }
 
 function resolveSpecialistImport(packageRoot, file, specifier, label) {
+  if (specifier.includes('%')) {
+    throw new SpecialistPreflightError(
+      'SPECIALIST_UNSUPPORTED_ESCAPED_SPECIFIER',
+      `${label}: percent-encoded module specifiers are rejected instead of guessed`,
+    );
+  }
   const scheme = /^[A-Za-z][A-Za-z0-9+.-]*:/u.exec(specifier)?.[0] || null;
   if (scheme) {
     if (scheme === 'node:') return;

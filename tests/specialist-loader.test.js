@@ -2202,6 +2202,27 @@ export function register() {}
 }
 
 {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-preflight-encoded-'));
+  try {
+    writePreflightFixture(tempDir, 'encoded-traversal', {
+      extraFiles: {
+        'nested/encoded.js': "import '../%2e%2e/src/core.js';\n",
+        '%2e%2e/src/core.js': 'export const core = true;\n',
+      },
+    });
+    const result = discoverPreflightFixture(tempDir);
+    assertEq(
+      result.error?.code,
+      'SPECIALIST_UNSUPPORTED_ESCAPED_SPECIFIER',
+      'percent-encoded traversal fails closed',
+    );
+    result.db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+{
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-preflight-migration-'));
   const marker = path.join(tempDir, 'outside-migration-executed');
   try {
