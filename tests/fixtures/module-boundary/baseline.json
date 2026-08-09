@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "3cbc260df0f69bc3f01afc8be45e6e871c0c3ab6",
-  "sourceTree": "68c00e6da61787097c988f1621e4af647c3fcd71",
+  "sourceRevision": "9be32f1747162d947d28283aafac77603a5da4ea",
+  "sourceTree": "7076a5b0174a8f16f14529ef966dcaf22c78fa20",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -954,6 +954,7 @@
     "src/specialists/specialist-loader.js -> src/core/logger.js",
     "src/specialists/specialist-loader.js -> src/executor/tool-executor.js",
     "src/specialists/specialist-loader.js -> src/expertises/auto-select.js",
+    "src/specialists/specialist-loader.js -> src/expertises/tool-adapter.js",
     "src/system/governor/health-analyzer.js -> src/core/logger.js",
     "src/system/governor/system-governor.js -> src/core/logger.js",
     "src/system/governor/system-governor.js -> src/system/governor/health-analyzer.js",
