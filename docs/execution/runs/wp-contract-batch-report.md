@@ -35,3 +35,5 @@ Všechny uvedené příkazy skončily exit `0`. Named integration ref během Rev
 postoupil na novější M1 checkpoint; tento report proto dokládá pouze immutable
 subject/base review. Skutečný merge candidate dostane samostatnou integrační
 validaci a nezávislé Review B.
+candidateHead: d4b4330a1cd675731de4a6d719b5a9fad633856a
+reviewB.verdict: PASS
