@@ -653,6 +653,12 @@ generický validator, stream/terminal validaci, codec/round-trip a type guard.
 Nezměnila M1 schéma ani mirror a nesnížila command/result validaci — tu provádí
 `validateM1Contract()`.
 
+Druhý fresh-clone build na `48267f5e` rovněž skončil exit `1` před Electron
+bundlingem: `clean` odstranil `lib`, ale zachovaný `tsconfig.tsbuildinfo`
+způsobil no-op `tsc -b` a následný verifier odmítl chybějící package main.
+Prebuild nyní vynucuje `tsc -b --force`, takže timestamp cache nemůže zabránit
+obnovení generated outputu.
+
 Tento checkpoint neběžel v dirty checkoutu jako produktový build a netvrdí
 fresh-clone parity. Následuje samostatný evidenční běh z commitnutého SHA:
 frozen Yarn install, `clean + build`, compiled negative matrix, kontrola bundle

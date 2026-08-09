@@ -56,7 +56,7 @@ test('root Studio prebuild owns clean, compile, then runtime export validation',
   );
   assert.equal(
     studio.scripts.prebuild,
-    'yarn run clean:protocol && yarn workspace @c3/protocol build && yarn run verify:protocol-runtime',
+    'yarn run clean:protocol && yarn workspace @c3/protocol build --force && yarn run verify:protocol-runtime',
   );
   assert.equal(studio.scripts.build, 'yarn --cwd applications/electron build');
   assert.equal(

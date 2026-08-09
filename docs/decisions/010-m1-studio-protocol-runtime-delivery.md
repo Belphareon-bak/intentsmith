@@ -115,6 +115,13 @@ terminal validaci, codec/round-trip a type guard. Schéma ani mirror se kvůli
 testu nerozšířily a validace command/result zůstává uvnitř generického
 `validateM1Contract()`.
 
+Druhý fresh-clone pokus z `48267f5e` odhalil, že `rimraf lib` ponechal
+`tsconfig.tsbuildinfo`. Obyčejné `tsc -b` pak po smazání výstupu nesprávně
+vyhodnotilo projekt jako aktuální a nevytvořilo `lib/index.js`; verifier znovu
+fail-closed zastavil build s `MODULE_NOT_FOUND`. Root prebuild proto používá
+`tsc -b --force` přes workspace script. Chybějící output se vždy znovu vytvoří
+bez závislosti na timestamp cache.
+
 Tento checkpoint ještě netvrdí fresh-clone build ani zabalení do Electron
 produktu. Následuje čistý klon, frozen install, `clean + build`, runtime
 negative matrix a kontrola čistého tracked stromu. Teprve potom pokračuje
