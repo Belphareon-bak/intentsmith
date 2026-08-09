@@ -315,6 +315,8 @@ export async function load() {
       ['eval("require(\\"../../src/expertises/core.js\\")");\n', 'UNPROVEN_DYNAMIC_CODE'],
       ['new Function("return import(\\"../../src/expertises/core.js\\")");\n', 'UNPROVEN_DYNAMIC_CODE'],
       ["import { createRequire } from 'node:module';\n", 'UNPROVEN_DYNAMIC_CODE'],
+      ["module['require']('../../src/expertises/core.js');\n", 'UNPROVEN_DYNAMIC_CODE'],
+      [`globalThis['eval']('require("../../src/expertises/core.js")');\n`, 'UNPROVEN_DYNAMIC_CODE'],
     ];
     for (const [source, code] of mutations) {
       write(sourcePath, source);

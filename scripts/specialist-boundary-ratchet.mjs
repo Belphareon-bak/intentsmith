@@ -688,6 +688,15 @@ function analyzeSource({ root, packageRoot, file, source }) {
 
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
+    if (token.type === 'string'
+        && ['require', 'eval', 'Function', 'createRequire'].includes(token.value)
+        && tokens[index - 1]?.value === '['
+        && tokens[index + 1]?.value === ']') {
+      throw new BoundaryError(
+        'UNPROVEN_DYNAMIC_CODE',
+        `${from}: computed access to ${token.value} can hide an indirect module load`,
+      );
+    }
     if (token.type !== 'identifier') continue;
     if (token.value === 'import') {
       const next = tokens[index + 1];
