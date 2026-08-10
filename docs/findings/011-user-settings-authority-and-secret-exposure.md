@@ -73,7 +73,7 @@ WP, implementaci, negativní race důkazy a nezávislé review.
 
 Operátor 2026-08-10 schválil úzkou opravu potvrzené ztráty dat: generic
 `POST /api/settings` whole-row replacementem uměl odstranit devět
-`c3.notif.*` hodnot zapsaných notification routou. Aktivní
+`c3.notif.*` hodnot zapsaných notification routou. Promovaný
 [`WP-M1-SETTINGS-NOTIFICATION-CLOBBER`](../wp/WP-M1-SETTINGS-NOTIFICATION-CLOBBER.md)
 na base `fc86b718` má source implementaci, která centralizuje přesnou mapu
 devíti klíčů, generic payload filtruje jen podle exact key a obě mutation cesty
@@ -87,6 +87,23 @@ prošly; promotion evidence tip `8c7ff414` je zapsaný v
 [`wp-m1-settings-notification-clobber-20260810-report.md`](../execution/runs/wp-m1-settings-notification-clobber-20260810-report.md).
 F-A neřeší generic read, ostatní writery, CAS, secrets ani reset, takže Finding
 011 zůstává `OPEN` a Gate 1 `BLOCKED`.
+
+## Rozhodovací fronta S1–S5
+
+Operátor přijal bezpečný směr, nikoli jeden předvyplněný kontrakt. Pět změn
+proto zůstává oddělených a každá po přijetí vyžaduje vlastní subject, Review A
+i Review B:
+
+| Pořadí | Rozhodnutí | Doporučená varianta | Co odemyká |
+|---:|---|---|---|
+| 1 | [025 — versioned settings a CAS](../decisions/025-m1-settings-versioned-authority.md) | A | revision, jeden repository commit point, redigovaný connector |
+| 2 | [027 — podporované notification credentials](../decisions/027-m1-notification-credential-scope.md) | A | pravdivý core 1.0 support surface |
+| 3 | [028 — webhook secret semantics](../decisions/028-m1-webhook-secret-semantics.md) | A | jedna env runtime/status autorita, retirement falešného setteru |
+| 4 | [026 — secret storage authority](../decisions/026-m1-secret-storage-authority.md) | A | ověřený env transfer a odstranění credentials z aplikačních dat |
+| 5 | [029 — settings reset scope](../decisions/029-m1-settings-reset-scope.md) | A | settings-only reset a ukončení legacy aliasu |
+
+Všech pět je `DECISION_REQUIRED`; tabulka je doporučení, ne přijetí. Implementace
+nezačne před operátorským potvrzením celé fronty nebo konkrétního řádku.
 
 Ohraničené navazující položky: Architect a Center Views zatím nemají bounded
 fetch timeout; raw compatibility objekt s vlastním `kind`/`schemaVersion` je

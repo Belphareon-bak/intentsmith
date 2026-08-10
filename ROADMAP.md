@@ -1332,6 +1332,17 @@ mohou pokračovat.
    [`wp-m1-settings-notification-clobber-20260810-report.md`](docs/execution/runs/wp-m1-settings-notification-clobber-20260810-report.md).
    F-A nemění generic read, reset ani budoucí revision/CAS a neodemyká Gate 1.
 
+   Navazující veřejné a bezpečnostní volby jsou připravené jako jedna
+   rozhodovací fronta, ale každá zůstává samostatně `DECISION_REQUIRED`:
+   [025 versioned settings/CAS](docs/decisions/025-m1-settings-versioned-authority.md),
+   [026 secret storage](docs/decisions/026-m1-secret-storage-authority.md),
+   [027 podporované credentials](docs/decisions/027-m1-notification-credential-scope.md),
+   [028 webhook autorita](docs/decisions/028-m1-webhook-secret-semantics.md) a
+   [029 reset scope](docs/decisions/029-m1-settings-reset-scope.md).
+   Doporučená implementační sekvence po společném operátorském rozhodnutí je
+   `025 → 027 → 028 → 026 → 029`; každý krok má vlastní subject a Review A/B.
+   Žádný z těchto dokumentů sám neuděluje writer autoritu.
+
    Konsolidovaný M1 base je formálně přijatý na
    `integration/m1-consolidated-20260810`; wire Review B evidence obálka
    `58741fb9` je dosažitelná z aktuálního remote tipu. Původní konsolidační
