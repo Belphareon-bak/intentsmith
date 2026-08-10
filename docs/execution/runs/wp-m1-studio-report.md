@@ -1528,3 +1528,46 @@ Další bezpečný krok je immutable Review A obou source commitů; potom výbě
 nových operátorských hodnot, explicitní runtime wiring, nový clean-clone offline
 production build a registered built journey. Bez těchto kroků nelze
 `m1WireSupported` pravdivě zapnout.
+
+## Checkpoint 30 — Review A remediation: shell persistence a binary text
+
+- **původní Review A subject:** `074fb107d77af48eb084031922e97a30d53b4305`
+- **původní Review A verdict:** `CHANGES_REQUIRED`
+- **remediation source:** `adfdec324d8366013af81ad038d3710b30f89e13`
+- **remediation re-review:** `NOT RUN`
+- **produkční M1 ACK / B4 / Gate 1:** nadále `BLOCKED`
+
+První nezávislý read-only Review A reprodukoval dvě vady. Soubor s binárními
+bajty přejmenovaný na `.txt` prošel lossy `FileReader.readAsText()` a negotiated
+větev jej přijala jako text. SHELL výsledek sice skončil wire errorem, ale až po
+tom, co `ChatController.handle()` zapsal falešný assistant turn do durable
+historie.
+
+Remediation čte M1 text byte-first přes `ArrayBuffer` a fatal UTF-8 decoder.
+Klient i server samostatně odmítnou zakázané C0/DEL znaky a neplatné surrogate
+páry; žádný path fallback nevznikne. Druhá oprava přidává in-process connector
+veto na poslední vratný seam před assistant finalizací a persistence. M1 SHELL
+tak končí `M1_EFFECT_AUTHORITY_REQUIRED`, v historii zůstane jen přijatý user
+turn a nevznikne assistant success ani legacy terminal channel efekt. Veřejné
+HTTP routy dál skládají controller request explicitně a tento interní hook z
+request body nepřebírají.
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| syntax check šesti změněných JS souborů | valid | 0 |
+| `node tests/ws-bridge.test.js` | 91/0 | 0 |
+| `node tests/m1-studio-client.test.js` | 114/0 | 0 |
+| `node tests/m1-chat-contract.test.js` | 21/0 | 0 |
+| `node tests/m1-contract.test.js` | 26/0 | 0 |
+| `node tests/artifact-validation.test.js` | 151/0 | 0 |
+| `node tests/repository-hygiene.test.js` | 1 566 trackovaných cest | 0 |
+| `node scripts/validate-test-registry.js --json` | 381 programů, 8 exclusions, fingerprint `beb54065…a4f8` | 0 |
+| `node scripts/module-boundary-ratchet.mjs` | 1 024/1 024, provenance replay 1 024 | 0 |
+| `node tests/module-boundary-ratchet.test.js` | 13/0 | 0 |
+| `git diff --check` | bez whitespace chyb | 0 |
+
+Tento checkpoint uzavírá pouze dvě přesně reprodukované Review A vady.
+Remediation ještě nemá nový immutable re-review ani clean-clone production
+build. Číselný `maxCount`, decoded aggregate a celý frame limit nejsou zvolené;
+`src/server.js` zůstává dormantní. GPU, Ollama, Electron, produktový server ani
+externí síť spuštěné nebyly.
