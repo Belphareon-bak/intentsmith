@@ -1803,6 +1803,16 @@ test('T23bb: every inline attachment bound fails before controller authority', (
       error: 'm1-studio-frame.context.m1-studio-context.attachment-0:invalid-content',
     },
     {
+      attachments: [{
+        name: 'renamed.txt', type: 'text', content: '\u0000\u0001\u0002\ufffd',
+      }],
+      error: 'm1-studio-frame.context.m1-studio-context.attachment-0:invalid-text-content',
+    },
+    {
+      attachments: [{ name: 'surrogate.txt', type: 'text', content: '\ud800' }],
+      error: 'm1-studio-frame.context.m1-studio-context.attachment-0:invalid-text-content',
+    },
+    {
       attachments: [{ name: 'utf8.txt', type: 'text', content: 'žluťžluťžluť' }],
       error: 'm1-studio-frame.context.m1-studio-context.attachment-0:text-too-large',
     },
@@ -1973,6 +1983,66 @@ await asyncTest('T23ca: M1 shell intent returns an honest no-effect terminal', a
     false,
     'M1 shell intent must not enter the legacy terminal executor',
   );
+});
+
+await asyncTest('T23caa: M1 shell refusal happens before assistant persistence', async () => {
+  resetConversationStore();
+  const store = getConversationStore(null);
+  const sent = [];
+  const frame = m1StudioFrame('shell-persist-boundary', {
+    input: 'spusť git status',
+  });
+  const handlerResponse = new TaggedResponse({
+    content: '⚡ Spouštím: git status',
+    tag: new ResponseTag({
+      speaker: ResponseSpeaker.SYSTEM,
+      mode: ChatMode.CONVERSATION,
+      confidence: 1,
+      metadata: {
+        decision: { intent: 'SHELL' },
+        shellCommand: 'git status',
+      },
+    }),
+  });
+  ChatController.configure({
+    handlers: {
+      [ChatMode.CONVERSATION]: async () => handlerResponse,
+    },
+    config: { autoModeDetection: false },
+  });
+  const adapter = createSessionAdapter({
+    send: encoded => sent.push(JSON.parse(encoded)),
+    handleRequest: request => ChatController.handle(request),
+    logger: mockLogger,
+    sessionId: 'm1-shell-persist-session',
+  });
+
+  try {
+    await adapter.processM1Command(frame);
+    const events = m1EventStream(sent, frame.command.requestId);
+    assert.equal(validateCoreEventStream(events).valid, true);
+    assert.equal(events.at(-1).terminalStatus, 'error');
+    assert.equal(
+      events.at(-1).payload.result.error.code,
+      'M1_EFFECT_AUTHORITY_REQUIRED',
+    );
+    assert.deepEqual(
+      store.getAllTurns(frame.command.conversationId).map(turn => turn.role),
+      ['user'],
+      'an unowned shell effect persisted an assistant false-success',
+    );
+    assert.equal(
+      store.getAllTurns(frame.command.conversationId)
+        .some(turn => turn.content.includes('Spouštím')),
+      false,
+    );
+    assert.equal(sent.some(message => message.channel === 'terminal'), false);
+  } finally {
+    adapter.cleanup();
+    ChatController.removeSession(frame.command.conversationId);
+    ChatController.removeSession('m1-shell-persist-session');
+    resetConversationStore();
+  }
 });
 
 await asyncTest('T23d: malformed M1 frame fails before the controller effect', async () => {

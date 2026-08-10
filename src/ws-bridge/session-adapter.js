@@ -85,6 +85,15 @@ function mapM1WsConversationFailure(command, error, signal = null) {
       error: { code: payload.code, message: payload.message },
     });
   }
+  if (error?.code === 'M1_EFFECT_AUTHORITY_REQUIRED') {
+    return createM1WsConversationResult(command, {
+      status: 'error',
+      error: {
+        code: 'M1_EFFECT_AUTHORITY_REQUIRED',
+        message: 'Shell execution requires the M2 effect authority.',
+      },
+    });
+  }
   return createM1WsConversationResult(command, {
     status: 'error',
     error: {
@@ -118,6 +127,21 @@ function canonicalBase64ByteLength(value) {
     || (padding === 1 && (base64Value(value.at(-2)) & 3) !== 0)
   ) return null;
   return (value.length / 4) * 3 - padding;
+}
+
+function isSafeM1TextContent(value) {
+  if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value)) return false;
+  for (let index = 0; index < value.length; index++) {
+    const codeUnit = value.charCodeAt(index);
+    if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+      const low = value.charCodeAt(index + 1);
+      if (!(low >= 0xdc00 && low <= 0xdfff)) return false;
+      index++;
+    } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function inspectM1StudioAttachments(attachments, policy, errors) {
@@ -164,6 +188,10 @@ function inspectM1StudioAttachments(attachments, policy, errors) {
     let decodedBytes;
     let content = attachment.content;
     if (attachment.type === 'text') {
+      if (!isSafeM1TextContent(content)) {
+        errors.push(`${prefix}:invalid-text-content`);
+        return;
+      }
       decodedBytes = Buffer.byteLength(content, 'utf8');
       if (decodedBytes > policy.maxTextBytes) {
         errors.push(`${prefix}:text-too-large`);
@@ -531,6 +559,16 @@ export function createSessionAdapter({
         ...(m1Command ? {
           requestId: m1Command.requestId,
           turnId: m1Command.turnId,
+          beforeAssistantPersist: (result) => {
+            if (result?.metadata?.shellCommand) {
+              const error = new Error(
+                'M1 refused assistant persistence for an unowned shell effect.',
+              );
+              error.code = 'M1_EFFECT_AUTHORITY_REQUIRED';
+              throw error;
+            }
+            return true;
+          },
         } : {}),
         // ChatController.handle() reads the cancellation signal from the
         // top-level request before projecting it into handler context.

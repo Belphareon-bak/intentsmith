@@ -165,6 +165,21 @@ function _m1CanonicalBase64ByteLength(value) {
   return (value.length / 4) * 3 - padding;
 }
 
+function _isSafeM1TextContent(value) {
+  if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value)) return false;
+  for (var index = 0; index < value.length; index++) {
+    var codeUnit = value.charCodeAt(index);
+    if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+      var low = value.charCodeAt(index + 1);
+      if (!(low >= 0xdc00 && low <= 0xdfff)) return false;
+      index++;
+    } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function _normalizeM1Attachments(attachments) {
   var policy = _m1AttachmentPolicy;
   if (!policy) return { valid: false, reason: 'M1_ATTACHMENT_POLICY_UNAVAILABLE' };
@@ -201,6 +216,9 @@ function _normalizeM1Attachments(attachments) {
 
     var decodedBytes;
     if (attachment.type === 'text') {
+      if (!_isSafeM1TextContent(attachment.content)) {
+        return { valid: false, reason: 'M1_ATTACHMENT_TEXT_INVALID' };
+      }
       decodedBytes = _m1Utf8ByteLength(attachment.content);
       if (decodedBytes > policy.maxTextBytes) {
         return { valid: false, reason: 'M1_ATTACHMENT_TEXT_TOO_LARGE' };

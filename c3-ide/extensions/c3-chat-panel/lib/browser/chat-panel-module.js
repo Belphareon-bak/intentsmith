@@ -6496,6 +6496,24 @@ function _readAttachments(attachments,callback){
     if(_TEXT_EXTS.test(a.name)&&a.file&&a.file.size<=_MAX_TEXT_SIZE){
       /* Strategy A: FileReader (works in ALL contexts — standard Web API) */
       var reader=new FileReader();
+      if(m1InlineOnly){
+        reader.onload=function(){
+          var content=null;
+          try{
+            if(typeof TextDecoder!=='function'||reader.result===null)throw new Error('UTF-8 decoder unavailable');
+            content=new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(reader.result);
+          }catch(e){
+            if(typeof console!=='undefined')console.warn('[C3:readAttachments] M1 rejected non-UTF-8 text bytes for',a.name);
+          }
+          _done({name:a.name,size:a.size,type:'text',content:content,path:null});
+        };
+        reader.onerror=function(){
+          if(typeof console!=='undefined')console.warn('[C3:readAttachments] FileReader failed for',a.name,reader.error);
+          _done({name:a.name,size:a.size,type:'text',content:null,path:null});
+        };
+        try{reader.readAsArrayBuffer(a.file);}catch(e){reader.onerror();}
+        return;
+      }
       reader.onload=function(){
         /* Empty text is legitimate inline content. Legacy still retains its
            existing path fallback because its controller checks truthiness. */

@@ -84,7 +84,12 @@ Klientské odmítnutí je typované, viditelné a neretryovatelné `NOT_SENT`; s
 tutéž policy znovu ověří **před** controller efektem. `path` se v DTO
 nevyskytuje vůbec, ani jako `null`. Prázdný text zůstává legitimní obsah `""`,
 nikoli chybějící content. Binární přílohy mimo schválené obrázkové typy jsou
-odmítnuté.
+odmítnuté. Textová větev proto čte původní bytes přes `ArrayBuffer` a používá
+fatal UTF-8 decode; nesmí použít lossy `FileReader.readAsText()`. Klient i
+server navíc odmítnou zakázané C0/DEL řídicí znaky a neplatné surrogate páry.
+Platný UTF-8 soubor bez těchto znaků je pro tuto policy text bez ohledu na
+příponu; soubor, který tuto definici nesplní, je typované nereplayovatelné
+`NOT_SENT` ještě před wire/controller efektem.
 
 ### R2 — Legacy WS po chat success automaticky vykoná shell effect
 
@@ -105,6 +110,13 @@ chat `ok`, a tím nepravdivě tvrdit parity u SHELL intentu.
 connector neumí bezpečně potvrdit, a drží jediný vratný šev v mapování controller
 výsledku na `ConversationResult`. Nejde o finální parity; B4/Gate 1 musí tuto
 odchylku uvést explicitně, dokud ji M2 neuzavře.
+
+Odmítnutí musí nastat před finalizací a zápisem assistant turnu. Nestačí
+odfiltrovat shell metadata až po návratu `ChatController.handle()`: taková
+varianta by sice neposlala wire success, ale durable historie by dál obsahovala
+falešné „spouštím“. Při `M1_EFFECT_AUTHORITY_REQUIRED` smí zůstat jen již
+přijatý user turn a jediný kanonický error terminal; assistant odpověď ani
+legacy terminal channel efekt nevzniknou.
 
 ## Reversible implementační defaulty, které neblokují ACK samy o sobě
 
@@ -163,4 +175,6 @@ serverové měření a typovaný nereplayovatelný `NOT_SENT`. Server nemá žá
 `m1WireSupported:true`. Otevřená rozhodovací položka je jen konkrétní nový
 `maxCount`, decoded aggregate a celý frame limit; stávající 1 MiB text / 5 MiB
 image zůstávají jedinými zděděnými item capy. Source kandidát ještě potřebuje
-immutable Review A a nový built journey.
+immutable Review A a nový built journey. Follow-up po prvním neúspěšném Review
+A čte text byte-first s fatal UTF-8 decode a odmítá shell metadata na posledním
+vratném pre-persistence seamu; oba případy mají samostatné negativní testy.

@@ -533,6 +533,7 @@ function loadClient(sessions, options = {}) {
     Date,
     JSON,
     Math,
+    TextDecoder,
     WebSocket: HarnessWebSocket,
     _backendBase: backendBase,
     _sessionActive: 0,
@@ -923,6 +924,7 @@ function panelSendHarness({
       }
     },
     Math,
+    TextDecoder,
     _focusFileExists: () => false,
     _persistSessionState() {},
     _pollContext: () => { counters.provider++; },
@@ -980,13 +982,22 @@ function controlledFileReaderClass() {
     }
     readAsText(file) {
       this.file = file;
+      this.mode = 'text';
+    }
+    readAsArrayBuffer(file) {
+      this.file = file;
+      this.mode = 'bytes';
     }
   }
   return { ControlledFileReader, readers };
 }
 
 async function finishControlledReader(reader, outcome = 'load') {
-  reader.result = outcome === 'load' ? 'attachment contents' : null;
+  reader.result = outcome === 'load'
+    ? reader.mode === 'bytes'
+      ? new TextEncoder().encode('attachment contents').buffer
+      : 'attachment contents'
+    : null;
   if (outcome === 'load') reader.onload();
   else reader.onerror();
   await drainMicrotasks();
@@ -2109,6 +2120,16 @@ test('negotiated attachment and frame limits fail locally with one typed reason'
       name: 'contentless',
       attachments: [{ name: 'x.txt', type: 'text', content: null }],
       reason: 'M1_ATTACHMENT_CONTENT_UNAVAILABLE',
+    },
+    {
+      name: 'binary decoded as text',
+      attachments: [{ name: 'renamed.txt', type: 'text', content: '\u0000\u0001\u0002\ufffd' }],
+      reason: 'M1_ATTACHMENT_TEXT_INVALID',
+    },
+    {
+      name: 'unpaired surrogate',
+      attachments: [{ name: 'surrogate.txt', type: 'text', content: '\ud800' }],
+      reason: 'M1_ATTACHMENT_TEXT_INVALID',
     },
     {
       name: 'UTF-8 bytes',
@@ -3860,6 +3881,43 @@ await testAsync('M1 attachment preparation uses gesture bytes and surfaces nonre
     assert.equal(harness.pane.chat.msgs[0].retryable, false);
     assert.equal(harness.pane.chat.msgs[0].deliveryReason, 'M1_ATTACHMENT_CONTENT_UNAVAILABLE');
     assert.equal(harness.textarea.value, 'keep exact draft');
+    assert.equal(harness.pane.chat.attachments[0], attachment);
+    assertNoFallbackEffects(harness);
+  }
+
+  {
+    const { ControlledFileReader, readers } = controlledFileReaderClass();
+    const attachment = {
+      file: { path: '/renamed-binary.txt', size: 4 },
+      name: 'renamed-binary.txt',
+      size: '4 B',
+    };
+    const harness = panelSendHarness({
+      FileReaderClass: ControlledFileReader,
+      input: 'reject binary bytes',
+      localRejection: {
+        status: 'NOT_SENT',
+        retryable: false,
+        reason: 'M1_ATTACHMENT_CONTENT_UNAVAILABLE',
+        serverAcknowledged: false,
+      },
+      m1Negotiated: true,
+      mode: 'local-reject',
+    });
+    harness.pane.chat.attachments.push(attachment);
+    harness.functions._chatSendPane(0);
+    readers[0].result = new Uint8Array([0, 1, 2, 255]).buffer;
+    readers[0].onload();
+    await drainMicrotasks();
+
+    assert.equal(harness.counters.wsSend.length, 1);
+    assert.equal(harness.counters.wsSend[0].pendingAttachments[0].content, null);
+    assert.equal(harness.counters.wsSend[0].pendingAttachments[0].path, null);
+    assert.equal(harness.pane.chat._delivery.retryable, false);
+    assert.equal(
+      harness.pane.chat._delivery.reason,
+      'M1_ATTACHMENT_CONTENT_UNAVAILABLE',
+    );
     assert.equal(harness.pane.chat.attachments[0], attachment);
     assertNoFallbackEffects(harness);
   }
