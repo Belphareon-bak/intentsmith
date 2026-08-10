@@ -536,18 +536,39 @@ button { cursor: pointer; border: none; background: none; }
   scroll-behavior: smooth;
   scrollbar-width: none;
 }
-/* §3.1 — the ring only exists when the items do not fit.  A bar that fits is
-   centred and still: sliding it to centre a selection would push its own
-   neighbours off screen for no reason, which is what made the movement look
-   arbitrary. */
-.navbar-track[data-ring="off"] {
-  overflow-x: hidden;
-  justify-content: center;
+/* §3.1 — the ring.  Snapping is native: momentum, dosednutí on the nearest
+   item and reduced-motion behaviour all come from the browser, so there is no
+   animation code behind this at all.  The copies on either side close the loop;
+   `normaliseNavRing` re-bases once a turn settles. */
+.navbar-track[data-ring="on"] {
+  justify-content: flex-start;
   padding: 0;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
 }
-/* Crowded: the clones on either side supply the material the ring turns
-   through, so the first and last item can reach the middle like any other. */
-.navbar-track[data-ring="on"] { justify-content: flex-start; padding: 0; }
+.navbar-track[data-ring="on"] .nav-tab { scroll-snap-align: center; }
+
+/* The gate: the middle is a fixed frame the items travel through, so "active"
+   is read from the centre of the bar rather than from a colour somewhere in a
+   row.  It is decoration over the track, so it never intercepts a tap. */
+.navbar-gate {
+  position: absolute; top: 0; bottom: 0; left: 50%;
+  width: 96px; transform: translateX(-50%);
+  pointer-events: none;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.navbar-gate::before,
+.navbar-gate::after {
+  content: "";
+  width: 3px; height: 34px;
+  border-radius: 3px;
+  background: linear-gradient(to bottom,
+    transparent, var(--accent) 22%, var(--accent) 78%, transparent);
+  box-shadow: 0 0 10px var(--accent-soft);
+}
+@media (prefers-reduced-motion: reduce) {
+  .navbar-track { scroll-behavior: auto; }
+}
 .navbar-track::-webkit-scrollbar { display: none; }
 .nav-tab {
   flex: 0 0 auto;

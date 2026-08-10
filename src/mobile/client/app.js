@@ -2297,7 +2297,10 @@ function renderNavBar() {
   // suite exercises, and it is the only place it can be exercised.
   let track = bar.querySelector?.('.navbar-track');
   if (!track || bar.dataset.signature !== signature) {
-    bar.innerHTML = `<div class="navbar-track" role="tablist" aria-label="Sekce aplikace">${tabs}</div>`;
+    bar.innerHTML = `<div class="navbar-track" role="tablist" aria-label="Sekce aplikace">${tabs}</div>`
+      // The gate is drawn over the track, outside the tablist, so it is neither
+      // a tab stop nor something a screen reader has to explain.
+      + '<div class="navbar-gate" aria-hidden="true"></div>';
     bar.dataset.signature = signature;
     track = bar.querySelector?.('.navbar-track');
   } else {
@@ -2317,49 +2320,46 @@ function renderNavBar() {
 }
 
 /**
- * §3.1 — the ring only turns when there is something to turn.
+ * §3.1 — the bar is a loop, and the middle of it is where "you are here" lives.
  *
- * The bar used to scroll unconditionally: half a viewport of padding on each
- * side made every set scrollable, so choosing a tab slid the whole bar sideways
- * and pushed its neighbours off the edge even when all four items fitted on
- * screen with room to spare.  Movement with no purpose is the "why did it jump"
- * this fixes.
+ * Operator, 2026-08-10 (docs/mobile/design/spodni-lista.png, gold variant): the
+ * set of items never changes, the bar only turns, and the active item is always
+ * in the centre — read the middle, not a position.  So this is not a scroller
+ * that happens to centre things; it is a ring that is always turnable, even
+ * when every item would fit on screen.  An earlier version skipped the turning
+ * whenever the set fitted, which is the opposite of the rule.
  *
- * So the bar has two states, decided by measurement rather than by item count:
- *
- *   fits    — no padding, no scrolling, nothing moves when the selection does.
- *   crowded — the ring: the chosen item travels to the middle, and what leaves
- *             one edge comes back at the other.
+ * Turning is native: `scroll-snap-type: x mandatory` gives momentum, snapping
+ * and reduced-motion behaviour for free, and there is no animation code here at
+ * all.  The loop is closed by flanking the real items with two hidden copies
+ * and silently re-basing once a turn settles (`normaliseNavRing`).
  */
 function layoutNavRing(track) {
   if (!track || typeof track.clientWidth !== 'number' || typeof track.querySelector !== 'function') return;
   const tabs = [...track.children].filter(child => !child.dataset?.clone);
   if (!tabs.length) return;
 
-  const measure = element => (typeof element.getBoundingClientRect === 'function'
-    ? element.getBoundingClientRect().width
-    : element.offsetWidth || 0);
-  const setWidth = tabs.reduce((total, tab) => total + measure(tab), 0) + (tabs.length - 1) * NAV_GAP_PX;
-  const fits = setWidth <= track.clientWidth;
-
-  track.dataset.ring = fits ? 'off' : 'on';
-  if (fits) {
-    removeNavClones(track);
-    track.scrollLeft = 0;
-    return;
-  }
-
+  track.dataset.ring = 'on';
   const fresh = ensureNavClones(track, tabs);
   if (fresh) {
-    // Start the ring standing on the real set.  Left at zero it would be at the
-    // far edge of the leading clones, and the shortest way to the middle would
-    // be computed from a position the ring never actually occupies.
-    const behaviour = track.style.scrollBehavior;
-    track.style.scrollBehavior = 'auto';
-    track.scrollLeft = navSetWidth(track);
-    track.style.scrollBehavior = behaviour;
+    // Reading a layout property forces the browser to place the copies that
+    // were just inserted.  Without it every offset below is still the one from
+    // before they existed, and the ring centres on a position that has moved.
+    void track.scrollWidth;
+    // Start standing on the real set.  Left at zero the ring would be at the far
+    // edge of the leading copies, and the shortest way round would be measured
+    // from a position it never actually occupies.
+    withoutSmoothScroll(track, () => { track.scrollLeft = navSetWidth(track); });
   }
   centreNavOnSelection();
+}
+
+/** Move the ring without animating it — used for re-basing, which must not be seen. */
+function withoutSmoothScroll(track, change) {
+  const behaviour = track.style.scrollBehavior;
+  track.style.scrollBehavior = 'auto';
+  change();
+  track.style.scrollBehavior = behaviour;
 }
 
 const NAV_GAP_PX = 2;
@@ -2385,9 +2385,6 @@ function ensureNavClones(track, tabs) {
   return true;
 }
 
-function removeNavClones(track) {
-  for (const copy of track.querySelectorAll('[data-clone]')) copy.remove();
-}
 
 /** The width of one full set of items, used to re-base the ring. */
 function navSetWidth(track) {
@@ -2422,9 +2419,22 @@ function centreNavOnSelection(target = null) {
     left = Math.max(0, centre);
   }
 
+  navRingTurningItself = true;
+  clearTimeout(navSelfTurnTimer);
+  navSelfTurnTimer = setTimeout(() => {
+    navRingTurningItself = false;
+    // Re-base now the turn has landed, so the loop keeps its material without
+    // ever moving under an animation.
+    normaliseNavRing(track);
+  }, 400);
   if (typeof track.scrollTo === 'function') track.scrollTo({ left, behavior: 'smooth' });
   else track.scrollLeft = left;
 }
+
+// True while the ring is turning because the app asked it to, so the settle
+// handler does not read that as the user choosing a section.
+let navRingTurningItself = false;
+let navSelfTurnTimer = null;
 
 /**
  * Re-base the ring once a turn has settled, so it never runs out of material.
@@ -2432,6 +2442,10 @@ function centreNavOnSelection(target = null) {
  */
 function normaliseNavRing(track) {
   if (!track || track.dataset.ring !== 'on') return;
+  // Never while the ring is turning itself.  Re-basing shifts the whole track
+  // by one set, and doing that under a smooth scroll leaves the animation
+  // heading for a target that has moved — the item lands one place off.
+  if (navRingTurningItself) return;
   const setWidth = navSetWidth(track);
   if (setWidth <= 0) return;
   const behaviour = track.style.scrollBehavior;
@@ -3796,12 +3810,50 @@ document.addEventListener('scroll', event => {
   loadOlderMessages();
 }, true);
 
-// §3.1 — keep the ring supplied with material as it turns, including when the
-// turn came from the user's finger rather than from a tap.
+// §3.1 — the ring under a finger.
+//
+// Two things have to happen when the bar is turned by hand rather than tapped:
+// it must never run out of material (`normaliseNavRing`), and whatever comes to
+// rest in the middle becomes the current section, because the middle *is* the
+// selection.  The section is switched only once the turn has settled — doing it
+// per scroll event would fire a navigation for every item that swept past.
+let navSettleTimer = null;
 document.addEventListener('scroll', event => {
   const track = event.target;
-  if (track?.classList?.contains?.('navbar-track')) normaliseNavRing(track);
+  if (!track?.classList?.contains?.('navbar-track')) return;
+  normaliseNavRing(track);
+  if (navRingTurningItself) return;
+  clearTimeout(navSettleTimer);
+  navSettleTimer = setTimeout(() => followNavRingToCentre(track), 140);
 }, true);
+
+/** Which item is standing in the gate, clones included. */
+function navItemAtCentre(track) {
+  const middle = track.getBoundingClientRect().left + track.clientWidth / 2;
+  let best = null;
+  let bestGap = Infinity;
+  for (const tab of track.querySelectorAll('[data-nav]')) {
+    const rect = tab.getBoundingClientRect();
+    const gap = Math.abs(rect.left + rect.width / 2 - middle);
+    if (gap < bestGap) { bestGap = gap; best = tab; }
+  }
+  return best;
+}
+
+/**
+ * The middle decides.  A locked item is a legitimate place for the ring to
+ * rest — it is in the loop precisely so its absence is visible — but it has no
+ * screen, so resting on it changes nothing but the highlight.
+ */
+function followNavRingToCentre(track) {
+  const centred = navItemAtCentre(track);
+  if (!centred) return;
+  const id = centred.dataset.nav;
+  if (!id || id === currentSection()) return;
+  const item = navItems().find(entry => entry.id === id);
+  if (!item || item.locked || !item.route) return;
+  navigate(item.route);
+}
 
 document.addEventListener('keydown', event => {
   if (event.target.id === 'composer-input' && event.key === 'Enter' && !event.shiftKey) {

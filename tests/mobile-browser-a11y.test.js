@@ -555,40 +555,87 @@ try {
 
   // ── §3.1 the ring turns only when there is something to turn ──────────────
 
-  await test('§3.1 lišta, která se vejde, se při přepnutí nehne', async () => {
+  await test('§3.1 aktivní polo\u017eka je v\u017edy uprost\u0159ed, i kdy\u017e se cel\xe1 li\u0161ta vejde', async () => {
+    // The rule the operator gave: read the middle, not a position.  An earlier
+    // version skipped the turning whenever the set fitted on screen, which is
+    // the opposite of it.
     await page.evaluate(ACTIVATE);
     const outcome = await page.evaluate(async () => {
       const S = window.__is;
-      // No pending approval: the queue badge widens a tab, and this test is
-      // about whether the bar moves, not about how wide a badge is.
-      S.state.data.approvals = [];
-      S.navigate('conversations');
-      await new Promise(r => setTimeout(r, 400));
+      const offCentre = () => {
+        const track = document.querySelector('.navbar-track');
+        const sel = track.querySelector('[aria-current="page"]:not([data-clone])');
+        const tr = track.getBoundingClientRect();
+        const sr = sel.getBoundingClientRect();
+        return Math.round((sr.left + sr.width / 2) - (tr.left + tr.width / 2));
+      };
+      const seen = [];
+      for (const route of ['conversations', 'approvals', 'diagnostics', 'conversations']) {
+        S.navigate(route);
+        await new Promise(r => setTimeout(r, 700));
+        seen.push({ route, off: offCentre() });
+      }
       const track = document.querySelector('.navbar-track');
       const tabs = [...track.children].filter(c => !c.dataset.clone);
-      const itemsWidth = tabs.reduce((sum, t) => sum + t.getBoundingClientRect().width, 0)
+      const setWidth = tabs.reduce((sum, t) => sum + t.getBoundingClientRect().width, 0)
         + (tabs.length - 1) * 2;
-      const before = tabs.map(t => Math.round(t.getBoundingClientRect().left));
+      return { seen, ring: track.dataset.ring, fits: setWidth <= track.clientWidth };
+    });
 
-      S.navigate('approvals');
-      await new Promise(r => setTimeout(r, 700));
-      const after = [...document.querySelectorAll('.navbar-track > *')]
-        .filter(c => !c.dataset.clone).map(t => Math.round(t.getBoundingClientRect().left));
+    assert.equal(outcome.fits, true, 'precondition: this set does fit, and must turn anyway');
+    assert.equal(outcome.ring, 'on', 'the bar is always a ring');
+    for (const step of outcome.seen) {
+      assert.ok(Math.abs(step.off) <= 2,
+        `${step.route}: the active item sat ${step.off} dp off the middle`);
+    }
+  });
 
+  await test('§3.1 smy\u010dka je uzav\u0159en\xe1 — za posledn\xed polo\u017ekou p\u0159ich\xe1z\xed prvn\xed', async () => {
+    await page.evaluate(ACTIVATE);
+    const outcome = await page.evaluate(async () => {
+      const S = window.__is;
+      S.navigate('conversations');
+      await new Promise(r => setTimeout(r, 600));
+      const track = document.querySelector('.navbar-track');
+      const nodes = [...track.querySelectorAll('[data-nav]')];
+      const real = nodes.filter(t => !t.dataset.clone).map(t => t.dataset.nav);
+      // Clones carry the same `data-nav` as the item they copy, so the boundary
+      // is found by the clone flag, never by searching for the id.
+      const firstReal = nodes.findIndex(t => !t.dataset.clone);
+      const before = nodes.slice(0, firstReal).map(t => t.dataset.nav);
       return {
-        fits: itemsWidth <= track.clientWidth,
-        itemsWidth: Math.round(itemsWidth), clientWidth: track.clientWidth,
-        ring: track.dataset.ring,
-        moved: before.some((left, i) => Math.abs(left - after[i]) > 1),
-        allVisible: after.every(left => left >= -1 && left <= track.clientWidth + 1),
+        real, clones: track.querySelectorAll('[data-clone]').length,
+        before: before.join(','),
+        wraps: before.join(',') === real.join(','),
+        snap: getComputedStyle(track).scrollSnapType,
+        gate: !!document.querySelector('.navbar-gate'),
       };
     });
 
-    assert.equal(outcome.fits, true,
-      `precondition: every item fits a 390 dp phone (${outcome.itemsWidth} of ${outcome.clientWidth})`);
-    assert.equal(outcome.ring, 'off', 'a bar that fits must not be in ring mode');
-    assert.equal(outcome.moved, false, 'nothing may slide when there is nothing to reveal');
-    assert.equal(outcome.allVisible, true, 'no item may be pushed off the edge');
+    assert.ok(outcome.clones >= outcome.real.length * 2,
+      'a closed loop needs a full copy on each side');
+    assert.equal(outcome.wraps, true,
+      `the run before the real set must be the whole set, was "${outcome.before}"`);
+    assert.equal(outcome.snap, 'x mandatory', 'turning is native snapping, not scripted animation');
+    assert.equal(outcome.gate, true, 'the middle is a fixed frame the items travel through');
+  });
+
+  await test('§3.1 oto\u010den\xed li\u0161ty prstem p\u0159epne sekci podle st\u0159edu', async () => {
+    // "Active is always in the middle, and the rest of the app follows it."
+    await page.evaluate(ACTIVATE);
+    const outcome = await page.evaluate(async () => {
+      const S = window.__is;
+      S.navigate('conversations');
+      await new Promise(r => setTimeout(r, 700));
+      const track = document.querySelector('.navbar-track');
+      const before = S.state.route;
+      track.scrollLeft = track.scrollLeft + 90;
+      track.dispatchEvent(new Event('scroll'));
+      await new Promise(r => setTimeout(r, 800));
+      return { before, after: S.state.route };
+    });
+    assert.notEqual(outcome.after, outcome.before,
+      'what comes to rest in the middle must become the current section');
   });
 
   await test('§3.1 přebývající položky lištu promění v prstenec', async () => {

@@ -175,9 +175,22 @@ Zamýšlená sada podle předlohy: `Konverzace`, `Projekty`, `Domů`, `Aktivita`
 > smysl. Podmínka úplnosti kořene tím ale nepadá: dokud lišta neumí smyčku,
 > zůstává homescreen jedinou mapou.
 
-**Stav implementace: NENÍ HOTOVO.** Dnešní lišta se centruje na výběr, ale
-smyčku neumí a obsah se nepřesouvá, jen překreslí. Rozdíl je zapsaný, aby se
-nepletl s hotovým stavem.
+**Stav implementace k 2026-08-10:**
+
+| Část | Stav |
+|---|---|
+| Smyčka, uzavřená klony na obou stranách | ✅ hotovo |
+| Aktivní vždy uprostřed, i když se sada vejde | ✅ hotovo |
+| Pevný rám (`brána`) ve středu | ✅ hotovo |
+| Otočení prstem přepne sekci podle středu | ✅ hotovo |
+| Nativní setrvačnost a dosednutí (`scroll-snap`) | ✅ hotovo |
+| Volba „Skrýt lištu na domovské obrazovce" ve Vzhledu | ⬜ nestaví se |
+| Vodorovný přesun obsahu mezi sekcemi | ⬜ nestaví se |
+| Přeskládání pořadí dlouhým stiskem | ⬜ nestaví se |
+| Sada sedmi položek (`Aktivita`, `Agenti`, `Specialisté`) | ⬜ čeká na `capabilities` |
+
+Vizuál brány je zatím funkční, ne dotažený: dvě svislé závory v barvě akcentu,
+ne oblouky ze zlaté varianty předlohy.
 
 #### Sada položek, pořadí a zatahování — operátor 2026-08-10
 
