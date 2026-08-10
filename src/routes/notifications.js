@@ -2,6 +2,19 @@
 // ==============================================================================
 
 import { logger } from '../core/logger.js';
+import {
+  NOTIFICATION_SETTING_FIELD_MAP,
+  UserSettingsError,
+  updateNotificationUserSettings,
+} from '../db/user-settings.js';
+
+const SMTP_RUNTIME_FIELDS = Object.freeze([
+  'smtpHost',
+  'smtpPort',
+  'smtpUser',
+  'smtpPass',
+  'smtpFrom',
+]);
 
 /**
  * @param {{ notificationRouter: import('../notifications/service.js').NotificationRouter, db: import('better-sqlite3').Database, sendJSON: Function, parseBody: Function }} deps
@@ -33,58 +46,98 @@ export function createNotificationRoutes({ notificationRouter, notificationEmitt
 
     // ── v93: Save notification config ─────────────────────────────────
     'POST /api/notifications/config': async (req, res) => {
+      let body;
       try {
-        const body = await parseBody(req);
+        body = await parseBody(req);
+      } catch (_) {
+        return sendJSON(res, 400, {
+          success: false,
+          code: 'NOTIFICATION_SETTINGS_INPUT_INVALID',
+        });
+      }
 
-        // Validate email format
-        if (body.emailRecipient && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.emailRecipient)) {
-          return sendJSON(res, 400, { error: 'Invalid email recipient format' });
-        }
-        if (body.smtpPort && (body.smtpPort < 1 || body.smtpPort > 65535)) {
-          return sendJSON(res, 400, { error: 'SMTP port must be 1-65535' });
-        }
+      if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+        return sendJSON(res, 400, {
+          success: false,
+          code: 'NOTIFICATION_SETTINGS_INPUT_INVALID',
+        });
+      }
 
-        // Merge into user_settings atomically
-        rawDb.exec(`CREATE TABLE IF NOT EXISTS user_settings (id INTEGER PRIMARY KEY, data TEXT NOT NULL, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
-        const existing = rawDb.prepare('SELECT data FROM user_settings WHERE id = 1').get();
-        const current = existing ? JSON.parse(existing.data) : {};
+      // Preserve the existing field contract while giving invalid input a
+      // stable public code rather than exposing implementation error text.
+      if (body.emailRecipient && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.emailRecipient)) {
+        return sendJSON(res, 400, {
+          success: false,
+          code: 'NOTIFICATION_EMAIL_RECIPIENT_INVALID',
+        });
+      }
+      if (body.smtpPort && (body.smtpPort < 1 || body.smtpPort > 65535)) {
+        return sendJSON(res, 400, {
+          success: false,
+          code: 'NOTIFICATION_SMTP_PORT_INVALID',
+        });
+      }
 
-        const settingsMap = {
-          emailEnabled: 'c3.notif.emailEnabled',
-          smtpHost: 'c3.notif.smtpHost',
-          smtpPort: 'c3.notif.smtpPort',
-          smtpUser: 'c3.notif.smtpUser',
-          smtpPass: 'c3.notif.smtpPass',
-          smtpFrom: 'c3.notif.smtpFrom',
-          emailRecipient: 'c3.notif.emailRecipient',
-          emailOnLifecycle: 'c3.notif.emailOnLifecycle',
-          emailOnWorker: 'c3.notif.emailOnWorker',
-        };
+      let committed;
+      try {
+        committed = updateNotificationUserSettings(rawDb, body);
+      } catch (error) {
+        const invalidInput = error instanceof UserSettingsError
+          && error.code === 'NOTIFICATION_SETTINGS_INPUT_INVALID';
+        return sendJSON(res, invalidInput ? 400 : 503, {
+          success: false,
+          code: invalidInput
+            ? 'NOTIFICATION_SETTINGS_INPUT_INVALID'
+            : 'NOTIFICATION_SETTINGS_STORAGE_FAILED',
+        });
+      }
 
-        for (const [key, settingKey] of Object.entries(settingsMap)) {
-          if (key in body && body[key] !== '*****') {
-            current[settingKey] = body[key];
+      let runtimeApplied = true;
+      const smtpRuntimeUpdateRequested = SMTP_RUNTIME_FIELDS.some(
+        field => Object.hasOwn(body, field)
+          && !(field === 'smtpPass' && body.smtpPass === '*****'),
+      );
+      try {
+        // Runtime changes happen only after the durable transaction commits.
+        if (smtpRuntimeUpdateRequested) {
+          const runtimeConfig = {
+            host: committed[NOTIFICATION_SETTING_FIELD_MAP.smtpHost],
+            port: committed[NOTIFICATION_SETTING_FIELD_MAP.smtpPort],
+            user: committed[NOTIFICATION_SETTING_FIELD_MAP.smtpUser],
+            pass: committed[NOTIFICATION_SETTING_FIELD_MAP.smtpPass],
+            from: committed[NOTIFICATION_SETTING_FIELD_MAP.smtpFrom],
+          };
+          if (runtimeConfig.host) {
+            notificationRouter.updateChannelConfig('email', runtimeConfig);
+          } else {
+            // EmailChannel cannot apply an empty host today. Persistence is
+            // still durable, so report the runtime divergence truthfully.
+            runtimeApplied = false;
           }
         }
-
-        rawDb.prepare('INSERT OR REPLACE INTO user_settings (id, data, updated_at) VALUES (1, ?, datetime(\'now\'))').run(JSON.stringify(current));
-
-        // Update channel config at runtime
-        if (body.smtpHost) {
-          notificationRouter.updateChannelConfig('email', {
-            host: body.smtpHost,
-            port: body.smtpPort,
-            user: body.smtpUser,
-            pass: body.smtpPass !== '*****' ? body.smtpPass : undefined,
-            from: body.smtpFrom,
-          });
-        }
         if (notificationEmitter) notificationEmitter.invalidateCache();
-
-        sendJSON(res, 200, { success: true });
-      } catch (err) {
-        sendJSON(res, 500, { error: `Config save failed: ${err.message}` });
+      } catch (_) {
+        runtimeApplied = false;
       }
+
+      if (!runtimeApplied) {
+        try {
+          logger.warn('Notifications', 'Config committed but runtime apply failed');
+        } catch (_) {
+          // Diagnostics cannot change the durable outcome.
+        }
+        return sendJSON(res, 200, {
+          success: true,
+          runtimeApplied: false,
+          runtimeErrorCode: 'NOTIFICATION_RUNTIME_APPLY_FAILED',
+        });
+      }
+
+      return sendJSON(res, 200, {
+        success: true,
+        runtimeApplied: true,
+        runtimeErrorCode: null,
+      });
     },
 
     // ── List channels ────────────────────────────────────────────────────

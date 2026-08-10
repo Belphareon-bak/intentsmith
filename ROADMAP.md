@@ -1323,9 +1323,17 @@ mohou pokračovat.
    Levné a bezpečnostní změny se tím dokončí před drahou Studio
    infrastrukturou a obě migrační položky dostanou čísla z jednoho census.
 
+   Před rozšířením Findingu 011 má úzký P1 repair F-A source implementaci:
+   [`WP-M1-SETTINGS-NOTIFICATION-CLOBBER`](docs/wp/WP-M1-SETTINGS-NOTIFICATION-CLOBBER.md)
+   chrání devět exact notification klíčů před generic save přes společný
+   `BEGIN IMMEDIATE` merge seam; focused route/WAL důkaz má 4/4. Review A/B a
+   merge candidate zůstávají otevřené. F-A nemění generic read, reset ani
+   budoucí revision/CAS a po přijetí neodemyká Gate 1.
+
    Konsolidovaný M1 base je formálně přijatý na
-   `integration/m1-consolidated-20260810`; po proof-issuer Review A/B je
-   aktuální remote tip `58741fb9`. Původní konsolidační base byl `eb93d59b` a
+   `integration/m1-consolidated-20260810`; wire Review B evidence obálka
+   `58741fb9` je dosažitelná z aktuálního remote tipu. Původní konsolidační
+   base byl `eb93d59b` a
    přesná promotion topologie je v
    [`wp-m1-consolidation-promotion-20260810-report.md`](docs/execution/runs/wp-m1-consolidation-promotion-20260810-report.md).
    Původní focused `--no-local` profil runtime kandidáta `c0fcc444` zůstává

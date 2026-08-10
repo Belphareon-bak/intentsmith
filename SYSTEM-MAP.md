@@ -131,15 +131,15 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 | | |
 |---|---:|
-| `src/**/*.js` | **164 096 ř.**, 426 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **183 943 ř.**, 374 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **379** (`281 ACTIVE`, `82 BLOCKED`, `16 HISTORICAL`) |
+| `src/**/*.js` | **164 360 ř.**, 426 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **184 661 ř.**, 376 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **381** (`283 ACTIVE`, `82 BLOCKED`, `16 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **110 / 57** |
 | HTTP rout | ~230 |
 | **Schopností v `ACCEPTED/PASS`** | **1 z 22** (#2 CRE); #1 server/routing/DB je zatím `RUNTIME_VERIFIED` — jeho suite má 13 interních checků, zatímco behavior dokument obsahuje 16 řádků, takže tvrzení „13/13 chování“ není platný akceptační součet |
 
 Aktuální registry fingerprint je
-`df64f6050391a1ea720d660e97fe85c0dc705c31cbc95e248a2a3fa36c5c2ec9`.
+`665461cccea8f691e6d609c381b21c7bd8b7b2b1ff9932fd4aad42b9552216e0`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 
@@ -323,6 +323,7 @@ nový explicitní běh a nový proof pro nově pozorované bytes.
 | WS terminal channel přijímá `exec` po handshaku bez tokenu | Neškodné na loopbacku (invariant 10). Totéž platí pro `control/edit_approve`, který po handshaku **zapisuje soubor**, a pro `chat`. Terminal má capability guard (`shell-security.js` whitelist), ne auth guard |
 | Dvě neslučitelné auth sémantiky | `security.js:20-38` je fail-closed, `agents/api.js:18` fail-open. Dnes latentní — tři handlery, které fail-open guard hlídá, nejsou připojené (`GET /api/secrets` → 404) a `mountAgentRoutes()` je mrtvý kód |
 | `webhookSecret` uložený v plaintextu v `user_settings` | Šifrování at-rest neexistuje. Schema-v2 portable backup je default-deny a přenáší jen skutečně uložený subset jedenácti ohraničených UI cest; secrets, destinations a unknown pole nevydává a import zachová destination local-only hodnoty. Generic `GET /api/settings`, úspěšná lokální odpověď `POST /api/settings/import` a plný SQLite state backup však zůstávají secret-bearing povrchy; importní odpověď vrací destination hodnoty záměrně, aby navazující Studio full-replacement save tajemství nesmazal. `api_tokens` naopak drží jen hash. `docs/review/2026-08-07-SECRET-TYPES.md` |
+| Notification settings mutation authority | **F-A SOURCE IMPLEMENTED / FOCUSED 4/4 / REVIEW OPEN:** přesných devět `c3.notif.*` klíčů vlastní jediná mapa v `user-settings.js`. Generic POST je top-level merge, exact protected klíče ignoruje a tři model-automation rezervované klíče dál sanitizuje; notification POST mění jen svou mapu a `*****` zachová SMTP heslo. Obě cesty používají `updateUserSettings()` s `BEGIN IMMEDIATE`; runtime efekt nastává až po commitu a jeho chyba vrací degraded `200`. Reálný dvou-workerový WAL test zachoval obě disjunktní změny. Generic GET, storage/webhook/import writers, revision/CAS, secret authority a F-B reset zůstávají ve Findingu 011; Review A/B a merge candidate nejsou hotové a Gate 1 zůstává `BLOCKED`. |
 | Git historie obsahuje `data/c3.db` (+ `-wal`) a jednu přílohu navíc | Mimo `trackedObjectManifest` v `PRIVACY-INCIDENT.json`, který pokrývá containment současného stromu, ne historický rozsah. Vše dosažitelné, obsah neotevřen |
 | Skills mají krok `shell`, jinde je shell denied | Zaznamenáno k prověření |
 | Rehydrate ACK autorita je neúplná | Server prvních 32 ID ověří, ale delší set tiše usekne a přesto vrátí autoritativní ACK; klient komplement `validIds` maže. Missing i funkční in-memory store mohou stejným způsobem označit vše za neplatné. Běžné UI drží 1–3 panely, reachability je dnes hlavně corrupt/manual persisted state. Schváleno 014/A: durable-store guard, úplný partition nebo typovaný reject a bezpečný local restore; implementace otevřená. |

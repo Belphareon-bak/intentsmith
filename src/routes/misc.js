@@ -8,6 +8,10 @@ import {
   createModelAutomationPolicyRepository,
   sanitizeGenericModelAutomationSettings,
 } from '../db/model-policy.js';
+import {
+  UserSettingsError,
+  mergeGenericUserSettings,
+} from '../db/user-settings.js';
 
 // H9: Settings, Health, Autocomplete, Audit, Logs routes
 const _fbRateMap = new Map(); // IP → last feedback timestamp (rate limit)
@@ -46,7 +50,7 @@ function publicPolicyCommit(policy) {
 }
 
 export function createMiscRoutes(deps) {
-  const { db, parseBody, sendJSON, safeError, logger, callWithAuth, createAuthToken, LLMCallerRole } = deps;
+  const { db, parseBody, sendJSON, logger, callWithAuth, createAuthToken, LLMCallerRole } = deps;
   const settingsFeatureManager = deps.featureManager || featureManager;
   const policyRepository = () => createModelAutomationPolicyRepository(db.db);
 
@@ -124,33 +128,54 @@ export function createMiscRoutes(deps) {
     },
 
     'POST /api/settings': async (req, res) => {
-      const body = await parseBody(req);
+      let body;
       try {
-        const sanitized = sanitizeGenericModelAutomationSettings(body);
-        db.db.exec(`
-          CREATE TABLE IF NOT EXISTS user_settings (
-            id INTEGER PRIMARY KEY,
-            data TEXT NOT NULL,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-          )
-        `);
-
-        db.db.prepare(`
-          INSERT OR REPLACE INTO user_settings (id, data, updated_at)
-          VALUES (1, ?, datetime('now'))
-        `).run(JSON.stringify(sanitized.document));
-
-        // v85: Apply feature flag changes at runtime
-        const changed = settingsFeatureManager.applySettings(sanitized.document);
-
-        sendJSON(res, 200, {
-          success: true,
-          featuresChanged: changed || 0,
-          ignoredReservedKeys: sanitized.ignoredReservedKeys,
+        body = await parseBody(req);
+      } catch (_) {
+        return sendJSON(res, 400, {
+          success: false,
+          code: 'USER_SETTINGS_INPUT_INVALID',
         });
-      } catch (err) {
-        sendJSON(res, 500, safeError(err));
       }
+
+      let sanitized;
+      let committed;
+      try {
+        sanitized = sanitizeGenericModelAutomationSettings(body);
+        committed = mergeGenericUserSettings(db.db, sanitized.document);
+      } catch (error) {
+        const invalidInput = error instanceof UserSettingsError
+          && error.code === 'USER_SETTINGS_INPUT_INVALID';
+        return sendJSON(res, invalidInput ? 400 : 503, {
+          success: false,
+          code: invalidInput
+            ? 'USER_SETTINGS_INPUT_INVALID'
+            : 'USER_SETTINGS_STORAGE_FAILED',
+        });
+      }
+
+      const runtime = applyCommittedSettingsRuntime(
+        'generic update',
+        // Never pass the committed document here: it may contain protected
+        // notification values. Runtime feature flags consume only the filtered
+        // incoming generic patch after the durable commit.
+        () => settingsFeatureManager.applySettings(
+          Object.fromEntries(
+            Object.entries(sanitized.document).filter(
+              ([key]) => !committed.ignoredNotificationKeys.includes(key),
+            ),
+          ),
+        ),
+      );
+
+      return sendJSON(res, 200, {
+        success: true,
+        featuresChanged: runtime.value || 0,
+        ignoredReservedKeys: sanitized.ignoredReservedKeys,
+        ignoredNotificationKeys: committed.ignoredNotificationKeys,
+        runtimeApplied: runtime.runtimeApplied,
+        runtimeErrorCode: runtime.runtimeErrorCode,
+      });
     },
 
     'GET /api/settings/backup': (_req, res) => {

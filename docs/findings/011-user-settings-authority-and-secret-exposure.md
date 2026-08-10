@@ -14,14 +14,16 @@ commit. Neřeší ale celý živý `user_settings` povrch:
    je proto přes generic GET dostupný jako plaintext povolenému lokálnímu
    klientovi. Stejná route navíc převádí DB/read/JSON parse chybu na
    autoritativní HTTP `200 {}`; reload po `DELIVERY_UNKNOWN` tak může odemknout
-   klienta nad falešnými defaulty a pozdější whole-row save.
+   klienta nad falešnými defaulty a pozdější generic save nad ostatními
+   nechráněnými secret cestami.
 2. Úspěšný `POST /api/settings/import` vrací celý commitnutý destination
    dokument, protože dnešní Studio generic save jinak neumí zachovat lokální
    hodnoty, které portable soubor nenese.
-3. Generic POST dělá whole-row replacement. Storage, webhook a notification
-   writery používají samostatné read-modify-write sekvence bez společného
-   revision/CAS seamu. Writer může načíst starý blob před portable importem a
-   po jeho commitu novější stav přepsat.
+3. Před F-A dělal generic POST whole-row replacement a notification writer
+   samostatný read-modify-write. F-A převádí právě tuto dvojici na společný
+   `BEGIN IMMEDIATE` merge seam. Storage, webhook a import ale stále nemají
+   společný revision/CAS kontrakt; jejich starší snapshot může novější stav
+   nadále přepsat.
 4. `/architect` legacy offline fallback stále umí držet celý dokument v
    `localStorage`. Opravný WP zabránil tomu, aby stale snapshot přebil úspěšný
    server read nebo recovery commit, ale local-only secret storage nemá vlastní
@@ -35,10 +37,10 @@ authority: `NATIVE_LOOPBACK_CLIENT` bez Origin je podporovaný klientský typ.
 
 ## Proč se generic GET neopravuje izolovanou redakcí
 
-Redakce readu bez změny writeru by byla datově nebezpečná. Klient načte
-redigovaný dokument a dnešní whole-document POST by při příštím save skryté
-credentials odstranil. Stejně tak oprava jednoho RMW writeru nezavírá závod s
-ostatními.
+Redakce readu bez dokončení writer authority by byla datově nebezpečná. F-A
+chrání jen přesných devět notification klíčů; generic POST stále může zapsat či
+smazat jiné secret-bearing cesty podle přijatého top-level payloadu. Stejně tak
+oprava jednoho RMW writeru nezavírá závod s ostatními.
 
 Bezpečný cutover musí spojit:
 
@@ -66,6 +68,22 @@ Bezpečný cutover musí spojit:
 Netvrdí globální lost-update odolnost ani bezpečný obecný settings read.
 Gate 1 proto zůstává `BLOCKED`, dokud tento finding nedostane vlastní bounded
 WP, implementaci, negativní race důkazy a nezávislé review.
+
+## První repair F-A — source implementovaný, review otevřené
+
+Operátor 2026-08-10 schválil úzkou opravu potvrzené ztráty dat: generic
+`POST /api/settings` whole-row replacementem uměl odstranit devět
+`c3.notif.*` hodnot zapsaných notification routou. Aktivní
+[`WP-M1-SETTINGS-NOTIFICATION-CLOBBER`](../wp/WP-M1-SETTINGS-NOTIFICATION-CLOBBER.md)
+na base `fc86b718` má source implementaci, která centralizuje přesnou mapu
+devíti klíčů, generic payload filtruje jen podle exact key a obě mutation cesty
+vede přes `updateUserSettings()` s `BEGIN IMMEDIATE`. Generic runtime dostane
+jen filtrovaný incoming patch, nikdy commitnutý dokument s notification
+tajemstvím. Post-commit runtime chyba je pravdivý degraded `200`; malformed
+input a pre-commit storage chyba mají stabilní `400`/`503` bez raw hodnot.
+Focused route-level sada má 4/4 včetně skutečných dvou WAL writerů. Immutable
+subject, Review A/B a merge-candidate evidence jsou ještě otevřené, takže F-A
+není přijatý. Neřeší generic read, ostatní writery, CAS, secrets ani reset.
 
 Ohraničené navazující položky: Architect a Center Views zatím nemají bounded
 fetch timeout; raw compatibility objekt s vlastním `kind`/`schemaVersion` je
