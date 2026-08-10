@@ -2,7 +2,9 @@
 
 baseRevision: `06e760bb04933a97857ea0ab25a397914b47e60e`
 
-sourceRevision: `4ba38dd9c295558dc0b241cfdf5bda21a9fd2526`
+sourceRevision: `2c06b1590f83af0cf6f5e5920f61f08c4b4095c2`
+
+supersededSourceRevision: `4ba38dd9c295558dc0b241cfdf5bda21a9fd2526`
 
 reviewState: `AWAITING_REVIEW_A`
 
@@ -19,7 +21,36 @@ Jde o lokálně ověřený source candidate, nikoli Review A, fresh-clone eviden
 ani uzavření Gate 1. Historický PASS nad schema v1 je v tomto tvrzení
 superseded, historie se nepřepisuje.
 
-## Lokální pre-commit evidence
+## Oprava po `CHANGES_REQUIRED` review
+
+Review nad ratchet tipem `37d9b4e346265736eb91842a99f97ed7ef76f38a`
+odmítlo původní source candidate ve čtyřech přesných bodech. Source commit
+`2c06b1590f83af0cf6f5e5920f61f08c4b4095c2` je uzavírá takto:
+
+- v2 export už nefabrikuje defaulty pro absentující source preference; artifact
+  i receipt nesou pouze skutečně přítomný portable subset;
+- scalar nebo `null` v profilově vlastněném destination kontejneru se nahradí
+  pouze na této hraně, zatímco ostatní portable i local-only destination hodnoty
+  zůstanou zachované;
+- neplatná uložená portable hodnota vrací typovaný HTTP `409` a bezpečný
+  canonical pointer viníka místo obecného `503`;
+- Architect označí validní server read jako autoritativní před renderem, takže
+  render chyba nemůže spustit stale localStorage fallback.
+
+Focused validace byla úmyslně omezena na dvě přímo dotčené sady. Širší
+regresní baterie patří až konsolidačnímu checkpointu.
+
+| Příkaz nad `2c06b159` | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-model-policy.test.js` | 36 passed, 0 failed | 0 |
+| `node tests/m1-studio-client.test.js` | 123 passed, 0 failed | 0 |
+| `node --check` nad šesti změněnými runtime JS soubory | valid | 0 |
+| `git diff --check` | bez whitespace chyb | 0 |
+
+Tato oprava čeká na nové nezávislé Review A a fresh-clone checkpoint. Původní
+review ani evidence nad `4ba38dd9`/`37d9b4e3` se za její schválení nevydávají.
+
+## Původní lokální evidence source `4ba38dd9`
 
 | Příkaz | Výsledek | Exit |
 |---|---:|---:|

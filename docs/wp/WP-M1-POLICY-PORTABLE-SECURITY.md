@@ -8,9 +8,10 @@ worktree
 **Závislost:** přijaté rozhodnutí [020/E](../decisions/020-m1-model-failover-opt-in-surface.md)
 a dokončený backend/Studio subject `1d351f67..06e760bb`
 
-**Stav:** source subject `4ba38dd9c295558dc0b241cfdf5bda21a9fd2526`
-commitnutý; exact ratchet baseline je součástí navazujícího evidence commitu.
-Nezávislé Review A a fresh-clone evidence zůstávají otevřené.
+**Stav:** review-remediation source
+`2c06b1590f83af0cf6f5e5920f61f08c4b4095c2` commitnutý; exact-edge baseline
+zůstává v commitu `37d9b4e346265736eb91842a99f97ed7ef76f38a` a graf se opravou
+nezměnil. Nové nezávislé Review A a fresh-clone evidence zůstávají otevřené.
 
 ## 1. Uživatelský výsledek
 

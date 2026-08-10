@@ -1313,7 +1313,7 @@ mohou pokračovat.
    | 1 | 023 VRAM delete race | úzká artifact-use hrana fresh-clone ověřená; globální GPU residency zůstává M2 residual |
    | 2 | 022 operation-bound recovery | `FRESH_CLONE_VERIFIED` na `81dff196`; built B4 zůstává otevřený |
    | 3 | ověřit dokončenou rezervaci migrací | `061` = 020 a `062` = 015 jsou rezervované; skutečná late-insertion parita čeká na první společný SHA s finálně přečíslovanými mobilními migracemi |
-   | 4 | 020 oddělená policy storage | backend atomického adaptéru i autoritativní Studio source consumer implementované; první Review A vrátilo dvě race jako `CHANGES_REQUIRED`, follow-up má 110/0 a čeká na opakované review + fresh clone |
+   | 4 | 020 oddělená policy storage | default-deny backend a tři first-party UI consumery jsou implementované; poslední `CHANGES_REQUIRED` review má opravu v `2c06b159` s focused výsledky 36/0 a 123/0, nové Review A a fresh clone zůstávají otevřené |
    | 5 | 015 proof issuance | druhá migrační položka, těží ze stejného census |
    | 6 | 021 built journey | jediná položka vázaná na drahou Studio infrastrukturu |
    | 7 | autorizovaný GPU pilot | sériově, jedna role/digest, jen na akci operátora |
