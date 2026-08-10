@@ -115,8 +115,8 @@ Přesný potvrzovací blok:
 024-digest-change: NEW-PROOF-REQUIRED-FOR-AUTOMATION-ELIGIBILITY
 ```
 
-Operátor tento blok přijal 2026-08-10. Tím se odemyká budoucí implementace
-issueru, nikoli PASS výsledek, automatický failover ani Gate 1. Dokud neexistuje
-přijatý integrační base, reviewnutý issuer a skutečný modelový běh, proof
-zůstává `NOT_ISSUED` a Gate 1 `BLOCKED`. Paralelní prototyp s callerovým
-`acceptancePath` se nesmí vydat za splnění této decision.
+Operátor tento blok přijal 2026-08-10. Implementace issueru zůstává
+`IMPLEMENTATION_PENDING`, PASS proof `NOT_ISSUED` a Gate 1 `BLOCKED`, dokud
+nevznikne přijatý integrační base, focused důkaz, reviewnutý issuer a skutečný
+operátorský modelový běh. Odmítnutý prototyp s callerovým `acceptancePath`
+zůstává neplatný.

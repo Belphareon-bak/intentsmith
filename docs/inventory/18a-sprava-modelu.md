@@ -237,9 +237,10 @@ Izolovaný measurement tím nezískal DB writer. Jeho kanonický artefakt dál n
 odděleném operator-only issueru po durable artifact storage a terminálním
 rechecku. Migrace 062 už implementuje immutable companion ledger, transakční
 proof vazbu, historical-proof quarantine a striktní expiry všech čtyř
-eligibility triggerů. Issuer zůstává `CHANGES_REQUIRED`: nesmí přijmout
-callerem lokalizovaný strukturální receipt, ale musí sám vlastnit parent run a
-jeho odvozené expected piny. Skutečný GPU/Ollama běh neproběhl a automatic
+eligibility triggerů. 024/A je přijaté, ale issuer zůstává
+`IMPLEMENTATION_PENDING`: nesmí přijmout callerem lokalizovaný strukturální
+receipt, musí sám vlastnit parent run a jeho odvozené expected piny a čeká na
+přijatý integrační base. Skutečný GPU/Ollama běh neproběhl a automatic
 activation/restore zůstává vypnutá.
 
 Operátor 2026-08-10 přijal provenance variantu 024/A. Implementace se tím

@@ -1,8 +1,9 @@
 # WP-M1-PROOF-ISSUER-PROVENANCE — orchestration-owned issuance
 
-**Typ:** připravený zapisující WP · **Rail:** R1, R3, R5, R6
-**Stav zadání:** 024/A přijato operátorem 2026-08-10; implementace čeká už jen
-na formální přijetí konsolidačního rodiče a přidělení exact integračního base
+**Typ:** budoucí zapisující WP · **Rail:** R1, R3, R5, R6
+**Stav zadání:** `DECISION_ACCEPTED / BASE_PENDING`; 024/A je přijaté, ale WP
+není aktivní, dokud konsolidační queue neprojde formálním review a nevznikne
+přesný promoted integration base
 **Rozhodnutí:** [`024`](../decisions/024-m1-proof-issuer-provenance.md)
 
 ## 1. Uživatelský výsledek
@@ -10,7 +11,8 @@ na formální přijetí konsolidačního rodiče a přidělení exact integračn
 Operátor jedním explicitním příkazem zvolí roli a instalovaný model. Tentýž
 proces provede důvěryhodný parent measurement, durable uloží oba artefakty a
 vydá právě jeden digest-bound PASS proof pro tento parent result. Caller nikdy
-nepředává artefaktovou cestu ani proof autoritu.
+nepředává artefaktovou cestu ani proof autoritu. Issuer desired ani active
+binding nemění; nový model nebo digest je samostatný explicitní run a proof.
 
 WP neaktivuje failover, scheduler, revalidation, Studio ani veřejný HTTP/WS
 connector. Reálný modelový běh je součást jednoho explicitního issuance
@@ -80,19 +82,20 @@ export; nepoužívá alternativní issuer implementaci.
 ## 4. Source revision, závislosti a pořadí
 
 - `sourceEvidenceRevision`:
-  `133040261280150df7a03bf70b8416d79188e879`;
-- `integrationRef`:
-  `refs/remotes/origin/integration/gate1-prod-ready-20260809`;
-- při vzniku návrhu tento remote ref ukazuje na
-  `1d351f67428eb1c4ae1adc99ce4dd99baef608e9`; stejnojmenná lokální branch na
-  `159c193fb68401ba6d1547633187bfa3cb200d12` není autorita;
-- konsolidační review queue je aktuálně připnutá na
-  `a24815895d984aeb2c36f114770567082f37c339`; je to source evidence pro
-  přípravu, nikoli přijatý `baseRevision` ani důvod posunout stabilní ref;
-- `baseRevision`: **nepřiděleno** — vznikne až po přijetí jednoho schema 062
-  candidate na stabilní integrační ref;
-- závislosti: operátorem přijaté 024/A, přijatý schema/ledger checkpoint 062,
-  ukončené nebo explicitně převedené vlastnictví paralelního issuer writeru;
+  `a24815895d984aeb2c36f114770567082f37c339`;
+- review queue:
+  `refs/remotes/origin/queue/m1-consolidation-20260810`;
+- runtime candidate uvnitř její evidence:
+  `c0fcc444f9f0d5a3519a02c6ab3b4d0bedd1fdab`;
+- `integrationRef`: **nepřiděleno** — čeká na promotion po formálním review;
+- `baseRevision`: **nepřiděleno** — musí být full SHA promoted integračního
+  refu obsahujícího schema 062 i přijaté 024;
+- stabilní remote ref zůstává
+  `refs/remotes/origin/integration/gate1-prod-ready-20260809` na
+  `1d351f67428eb1c4ae1adc99ce4dd99baef608e9`;
+- závislosti: operátorem přijaté 024/A, formálně přijatý konsolidační
+  schema/ledger checkpoint 062 a ukončené nebo explicitně převedené
+  vlastnictví paralelního issuer writeru;
 - pořadí: decision → statický contract/activation review → jediný writer →
   immutable subject `S` → Review A → merge queue → fresh-clone Review B.
 
@@ -132,6 +135,9 @@ bytes, stdout, stderr, logu ani veřejném resultu; focused leak test pinuje vš
 pět hran.
 Samostatný retry po simulovaném crashi musí pravdivě spustit nové měření; test
 nesmí očekávat `ALREADY_ISSUED` bez durable attempt journalu.
+Proof pro digest A nesmí autorizovat digest B; nový explicitní operátorský run
+pro digest B smí vydat vlastní proof. Desired i active binding musí zůstat před
+i po issuance byteově a revision-shodné.
 
 ## 7. Stop condition a eskalace
 

@@ -2,8 +2,8 @@
 
 - **typ:** BLOCK pouze pro vydání PASS proofu a terminal activation
 - **stav rozhodnutí:** A + PROVIZORNÍ 7D IMPLEMENTOVÁNO V POLICY; migrace 062
-  a immutable companion ledger jsou implementované; proof issuer zůstává
-  `CHANGES_REQUIRED` na provenance hranici
+  a immutable companion ledger jsou implementované; 024/A je přijaté a proof
+  issuer zůstává `IMPLEMENTATION_PENDING` do přijatého integračního base
 - **WP:** WP-M1-MODEL / B3-FAILOVER
 - **rail:** R1, R3, R5, R6
 - **vzniklo při:** call-graph auditu authority pro rozhodnutí 006/D+
