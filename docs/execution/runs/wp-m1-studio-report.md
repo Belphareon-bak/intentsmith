@@ -1571,3 +1571,43 @@ Remediation ještě nemá nový immutable re-review ani clean-clone production
 build. Číselný `maxCount`, decoded aggregate a celý frame limit nejsou zvolené;
 `src/server.js` zůstává dormantní. GPU, Ollama, Electron, produktový server ani
 externí síť spuštěné nebyly.
+
+## Checkpoint 31 — bounded re-review a dormantní clean-clone build
+
+- **remediation evidence subject:** `90203fc9ab61aeb2b1a23f1b1e2a0f3515d14db2`
+- **první bounded re-review:** `CHANGES_REQUIRED`
+- **korekční source:** `72b112b840d3608ea0b320142fc52f8f342d47c0`
+- **druhý bounded re-review:** `PASS`
+- **produkční M1 ACK / B4 / Gate 1:** nadále `BLOCKED`
+
+První bounded re-review přijal pre-persistence SHELL guard i invalidní UTF-8
+reprodukci, ale našel rozpor v nově zapsaném rozhodnutí: text tvrdil, že validní
+UTF-8 je text bez ohledu na příponu, zatímco bezpečnější implementace otevírá
+textovou větev jen pro existující allowlist. Korekce normativně připnula
+`allowlisted extension + fatal UTF-8`; neznámá přípona je binary a typované
+`NOT_SENT`. Nový test vykonává skutečný source slice, používá FileReader, který
+při neočekávaném čtení selže, a pro `renamed-valid.data` ověřuje
+`binary/content:null/path:null`, `M1_ATTACHMENT_TYPE_UNSUPPORTED` a nulové
+filesystem/provider/shell/tool/fetch fallback efekty.
+
+Druhý read-only re-review ověřil exact topologii `90203fc9 → 72b112b8`, čistý
+HEAD, právě dvě změněné cesty a oba Git objekty jako `100644 blob`. Studio
+114/0, artifact 151/0, syntax i diff-check skončily exit 0; verdict je `PASS`.
+
+Samostatný nový lokální klon přesného `90203fc9` provedl root `npm ci --offline`,
+Studio `yarn install --frozen-lockfile --offline` a production `yarn build`.
+Postbuild vydal `STUDIO_M1_BUILD_CONSUMER_PASS`; bundle měl 11 767 138 bajtů a
+SHA-256 `08837cd47eafa68062ab2c5c735e403ce7c33e532e5145922a99d50e6143403c`.
+Samostatná exact kontrola v bundle našla `M1_ATTACHMENT_TEXT_INVALID`,
+`readAsArrayBuffer`, warning pro non-UTF-8 bytes i
+`M1_ATTACHMENT_PATH_FORBIDDEN`. V klonu znovu prošly WS 91/0 a Studio 114/0 a
+Git status byl čistý. `72b112b8` proti tomuto build subjectu mění pouze
+rozhodnutí a test; žádný production build input se nezměnil. Přesto tento
+důkaz není finální activated built journey a po produkčním wiring se musí
+zopakovat nad jeho exact candidate SHA.
+
+Otevřená rozhodovací hranice zůstává přesně trojice nových runtime hodnot:
+`maxCount`, decoded `maxAggregateBytes` a celý UTF-8 `maxFrameBytes`. Bez jejich
+explicitního přijetí se `src/server.js` nemění a token `m1-wire-v1` se v
+produkci neACKuje. GPU, Ollama, Electron runtime, produktový server ani externí
+síť spuštěné nebyly.
