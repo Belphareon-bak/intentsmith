@@ -265,7 +265,8 @@ default-deny profil a před lokální adopcí import/reset výsledku vyžaduje i
 exact policy, audit event, source-derived portable path/value list, source
 version a ignored-count metadata. V2 artifact nese jen skutečně uložený
 portable subset; nevyrábí defaulty, které by na cíli přepsaly existující
-preference. VM sada má 123/0; tři dříve detached async
+preference. Portable source VM sada má 123/0; po selektivním wire replayi má
+konsolidační queue 127/0. Tři dříve detached async
 testy jsou nyní skutečně awaitované a konstantu profilu sada porovnává přímo s
 backendovou autoritou.
 

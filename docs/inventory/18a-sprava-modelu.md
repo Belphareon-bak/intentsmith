@@ -213,7 +213,8 @@ invalid v2 profile/value a datové klíče `constructor`, `prototype` a
 `__proto__`. V1/raw import je sparse: chybějící portable cesta už destination
 hodnotu nedefaultuje ani nepřepisuje. Tři UI consumery navíc přijmou commit jen
 při shodě source schema, path/value/policy provenance, propojeného eventu a
-pravdivého ignored countu; aktuální VM sada má 123/0. Gate 1 zůstává `BLOCKED`:
+pravdivého ignored countu; portable source má 123/0 a po selektivním wire
+replayi má konsolidační queue 127/0. Gate 1 zůstává `BLOCKED`:
 generic GET/whole-row writer a další
 RMW cesty nemají společný secret/CAS kontrakt, viz
 [`Finding 011`](../findings/011-user-settings-authority-and-secret-exposure.md).
