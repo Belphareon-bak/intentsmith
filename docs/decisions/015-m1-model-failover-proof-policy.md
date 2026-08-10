@@ -1,8 +1,9 @@
 # 015 — D+ potřebuje schválenou role-suite proof policy
 
 - **typ:** BLOCK pouze pro vydání PASS proofu a terminal activation
-- **stav rozhodnutí:** A + PROVIZORNÍ 7D IMPLEMENTOVÁNO V POLICY; proof issuer,
-  storage vazba a migrace 062 zůstávají navazující checkpointy
+- **stav rozhodnutí:** A + PROVIZORNÍ 7D IMPLEMENTOVÁNO V POLICY; migrace 062
+  a immutable companion ledger jsou implementované; proof issuer zůstává
+  `CHANGES_REQUIRED` na provenance hranici
 - **WP:** WP-M1-MODEL / B3-FAILOVER
 - **rail:** R1, R3, R5, R6
 - **vzniklo při:** call-graph auditu authority pro rozhodnutí 006/D+
@@ -234,3 +235,27 @@ z obnoveného union census přes všechny aktivní větve. Původní rezervace
 `7916098e`. Ordinály `046`–`051` navíc už v historii kolidují napříč větvemi,
 takže tato nová rezervace je zapsaná před vytvořením M1 migrace a nesmí se
 znovu dopočítat pouze z jednoho checkoutu.
+
+## Schema a ledger checkpoint — 2026-08-10
+
+Migrace 062 je implementovaná aditivně. Nový append-only
+`model_failover_proof_artifacts` váže každý nový proof na source revision,
+parent run, SHA-256 a byte length obou artefaktů a na přesnou kopii všech polí
+proofu. Deferred foreign key dovolí pouze companion-first/proof-second zápis v
+jedné transakci; proof bez exact companionu, companion bez proofu při commitu,
+historické doplnění, replacement, update a delete fail-close skončí.
+
+Čtyři eligibility triggery nyní vyžadují companion join a používají striktní
+`expires_at_ms > event/proof_verified time`. Historické proofy zůstávají auditní
+data, ale bez vyrobené provenance nejsou způsobilé. Upgrade s již aktivním
+legacy failoverem se odmítne před prvním DDL, protože jeho původní evidence
+nejde zpětně vyrobit. Automatic activation ani revalidation tím nevznikly.
+
+Samotný issuer zatím není implementovaný. Read-only call-graph audit prokázal,
+že standalone acceptance validator poskytuje jen `STRUCTURAL_ONLY`; statický
+connector s callerovým `acceptancePath` by proto mohl přijmout vzájemně
+konzistentní, ale nepravdivý pár artefaktů. Bezpečný navazující connector musí
+sám spustit parent measurement pro `(role, proposedModelName)`, držet jeho
+odvozenou autoritu v paměti, znovu vyžadovat connection-local
+`PRAGMA foreign_keys=ON` těsně před `BEGIN IMMEDIATE` a až potom vydat proof.
+Tato korekce statického WP vyžaduje nový Review A; není důvodem oslabit ledger.

@@ -655,6 +655,15 @@ focused regression sady.
      těsně před publikací. Zděděné Node hooks se odmítnou před efekty
      vlastněnými parentem; nejde o OS sandbox ani tvrzení, že cizí preload před
      startem Node nikdy neběžel.
+     **Navazující proof-schema checkpoint je implementovaný:** migrace 062
+     přidává append-only companion ledger obou immutable artefaktů, exact
+     tuple vazbu na proof a striktní expiry ve všech čtyřech eligibility
+     triggerech. Historický proof se zachová pouze jako auditní data a aktivní
+     legacy failover upgrade zastaví před DDL. Issuer zůstává
+     `CHANGES_REQUIRED`, protože standalone acceptance je pouze
+     `STRUCTURAL_ONLY`; bezpečný connector musí sám vlastnit parent run a jeho
+     in-memory expected autoritu. Automatic activation, GPU běh ani proof
+     issuance tím nevznikly.
      **Osmý checkpoint je implementovaný:** migrace 048 přidává append-only
      `USER_APPLY/USER_ROLLBACK` operation journal. Každý řádek nese exact
      předchozí a cílovou artifact identitu, očekávanou i commitnutou revision,
@@ -696,11 +705,12 @@ focused regression sady.
      blocker. Pozdější apply i rollback mohou auditovaný terminal projection
      retireovat, ale chyba po retirementu rollbackne celý authority snapshot.
      Repository stále nevytváří override, runtime config, proof ani broadcast.
-     Repository zatím neobsahuje proof issuer/persistence, terminal
+     Repository zatím neobsahuje proof issuer, terminal
      activation/restore, runtime apply, startup rehydrate ani scheduler a žádný
-     runtime modul jej nekonzumuje. Chybějící proof
-     acceptance prahy a TTL jsou shromážděné v rozhodnutí 015; measurement-only
-     runner může pokračovat, PASS issuance zůstává fail-closed. Implementovaný
+     runtime modul jej nekonzumuje. Proof companion persistence a striktní
+     expiry jsou v migraci 062; přijaté prahy a TTL jsou v rozhodnutí 015.
+     Measurement-only runner může pokračovat, PASS issuance zůstává
+     fail-closed. Implementovaný
      `USER_APPLY/USER_ROLLBACK` repository seam zachovává storage garanci
      `verified=0` bez skutečné verifikace a append-only rollback lineage.
      Legacy `upgrade-manager.js` přesto zůstává druhým netransakčním binding
@@ -1410,8 +1420,10 @@ mohou pokračovat.
    `PASS` a evidence `ce2bb783` je přijatá. Mobile late-insertion parita
    zůstává otevřená. Otevřené zůstávají také proof
    issuer a terminal failover activation/restore. Failover se dosud
-   neaktivuje. Bootstrap `015/A + provisional 7d` je přijatý, ale proof issuer,
-   persistence, migrace 062 a activation evidence jsou `IMPLEMENTATION_PENDING`;
+   neaktivuje. Bootstrap `015/A + provisional 7d` je přijatý a migrace 062 s
+   companion persistence a strict expiry je implementovaná, ale proof issuer
+   je `CHANGES_REQUIRED` na orchestration-owned provenance a activation
+   evidence zůstává `IMPLEMENTATION_PENDING`;
    TTL je pouze eligibility a doporučená obnova je explicitně operátorská,
    sériová a bez background GPU jobu. Nový skutečný GPU běh
    zůstává samostatnou blokovanou evidencí, dokud není legitimně čistý checkout.

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import Database from 'better-sqlite3';
+import { createHash } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import path from 'node:path';
 
@@ -297,20 +298,51 @@ function claimDetectedIncident(db) {
 }
 
 function activateClaimedIncident(db) {
-  db.prepare(`
-    INSERT INTO model_failover_proofs (
-      proof_id, validation_run_id, role, suite, role_contract_sha256,
-      model_name, model_canonical_name, model_digest_sha256,
-      validation_version, policy_version, score, required_score, passed_count,
-      required_passed_count, total_count, duration_ms, result,
-      inventory_before_name, inventory_before_digest, inventory_after_name,
-      inventory_after_digest, started_at_ms, completed_at_ms, expires_at_ms,
-      created_at_ms
-    ) VALUES ('proof-incident-0001', 'validation-incident-0001', 'CHAT', 'chat', ?,
-      'fallback:latest', 'fallback', ?, 'v123.1', ?, 1, 0.8, 6, 5, 6, 500,
-      'PASS', 'fallback:latest', ?, 'fallback:latest', ?, 4200, 4700, 900000,
-      4700)
-  `).run(CONTRACT_DIGEST, DIGEST_B, POLICY_VERSION, DIGEST_B, DIGEST_B);
+  const insertProof = db.transaction(() => {
+    db.prepare(`
+      INSERT INTO model_failover_proof_artifacts (
+        proof_id, validation_run_id, parent_run_id, source_revision,
+        measurement_artifact_sha256, measurement_artifact_byte_length,
+        acceptance_artifact_sha256, acceptance_artifact_byte_length,
+        role, suite, role_contract_sha256, model_name,
+        model_canonical_name, model_digest_sha256, validation_version,
+        policy_version, score, required_score, passed_count,
+        required_passed_count, total_count, duration_ms, result,
+        inventory_before_name, inventory_before_digest,
+        inventory_after_name, inventory_after_digest,
+        measurement_started_at_ms, measurement_completed_at_ms,
+        acceptance_completed_at_ms, proof_ttl_ms, expires_at_ms, issued_at_ms
+      ) VALUES ('proof-incident-0001', 'validation-incident-0001',
+        'parent-proof-incident-0001', ?, ?, 4096, ?, 2048,
+        'CHAT', 'chat', ?, 'fallback:latest', 'fallback', ?, 'v123.1', ?,
+        1, 1, 6, 6, 6, 500, 'PASS', 'fallback:latest', ?,
+        'fallback:latest', ?, 4200, 4700, 4700, 895300, 900000, 4700)
+    `).run(
+      'a'.repeat(40),
+      createHash('sha256').update('measurement:proof-incident-0001').digest('hex'),
+      createHash('sha256').update('acceptance:proof-incident-0001').digest('hex'),
+      CONTRACT_DIGEST,
+      DIGEST_B,
+      POLICY_VERSION,
+      DIGEST_B,
+      DIGEST_B,
+    );
+    db.prepare(`
+      INSERT INTO model_failover_proofs (
+        proof_id, validation_run_id, role, suite, role_contract_sha256,
+        model_name, model_canonical_name, model_digest_sha256,
+        validation_version, policy_version, score, required_score, passed_count,
+        required_passed_count, total_count, duration_ms, result,
+        inventory_before_name, inventory_before_digest, inventory_after_name,
+        inventory_after_digest, started_at_ms, completed_at_ms, expires_at_ms,
+        created_at_ms
+      ) VALUES ('proof-incident-0001', 'validation-incident-0001', 'CHAT', 'chat', ?,
+        'fallback:latest', 'fallback', ?, 'v123.1', ?, 1, 1, 6, 6, 6, 500,
+        'PASS', 'fallback:latest', ?, 'fallback:latest', ?, 4200, 4700, 900000,
+        4700)
+    `).run(CONTRACT_DIGEST, DIGEST_B, POLICY_VERSION, DIGEST_B, DIGEST_B);
+  });
+  insertProof.immediate();
   db.prepare(`
     INSERT INTO model_failover_events (
       event_id, event_type, role, binding_revision, row_version, episode_id,

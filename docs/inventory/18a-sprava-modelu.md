@@ -205,5 +205,9 @@ Izolovaný measurement tím nezískal DB writer. Jeho kanonický artefakt dál n
 `NOT_ISSUED`, `proofIssued=false` a přesný handoff
 `SEPARATE_OPERATOR_PROOF_COMMIT_REQUIRED`. PASS proof smí vzniknout pouze v
 odděleném operator-only issueru po durable artifact storage a terminálním
-rechecku. Migrace 062, issuer a skutečný GPU/Ollama běh v tomto checkpointu
-nejsou hotové; automatic activation/restore zůstává vypnutá.
+rechecku. Migrace 062 už implementuje immutable companion ledger, transakční
+proof vazbu, historical-proof quarantine a striktní expiry všech čtyř
+eligibility triggerů. Issuer zůstává `CHANGES_REQUIRED`: nesmí přijmout
+callerem lokalizovaný strukturální receipt, ale musí sám vlastnit parent run a
+jeho odvozené expected piny. Skutečný GPU/Ollama běh neproběhl a automatic
+activation/restore zůstává vypnutá.
