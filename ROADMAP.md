@@ -1315,9 +1315,9 @@ mohou pokračovat.
    | 2 | 022 operation-bound recovery | `FRESH_CLONE_VERIFIED` na `81dff196`; built B4 zůstává otevřený |
    | 3 | ověřit dokončenou rezervaci migrací | `061` = 020 a `062` = 015 jsou rezervované; skutečná late-insertion parita čeká na první společný SHA s finálně přečíslovanými mobilními migracemi |
    | 4 | 020 oddělená policy storage | default-deny backend a tři first-party UI consumery jsou implementované; review-remediation source `2c06b159` má 36/0 a 123/0, konsolidační queue 127/0 a focused `--no-local` clone je zelený; formální Review A zůstává otevřené |
-   | 5 | 015 proof issuance | policy a immutable ledger 062 jsou v konsolidační queue; provenance decision 024, issuer a skutečný PASS proof zůstávají otevřené |
+   | 5 | 015 proof issuance | policy a immutable ledger 062 jsou v konsolidační queue; 024/A je přijato, issuer čeká na přijatý base a skutečný PASS proof zůstává otevřený |
    | 6 | 021 built journey | bounded wire attachment/shell změny jsou selektivně v queue; produkční ACK a drahá Electron journey zůstávají otevřené |
-   | 7 | autorizovaný GPU pilot | sériově, jedna role/digest, jen na akci operátora |
+   | 7 | autorizovaný GPU pilot | sériově, jedna role a jeden právě pozorovaný artefakt na běh; modely se smějí mezi běhy měnit, jen na akci operátora |
 
    Levné a bezpečnostní změny se tím dokončí před drahou Studio
    infrastrukturou a obě migrační položky dostanou čísla z jednoho census.

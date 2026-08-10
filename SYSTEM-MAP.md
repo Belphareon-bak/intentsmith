@@ -309,6 +309,13 @@ znamená lokálně validující helper, nikoli prokázanou jedinou writer autori
 Pět živých mutation cest nad `user_settings` tuto hranici vyvrátilo; závazný
 aktuální stav je samostatný řádek `Model failover opt-in surface`.
 
+Aktualizace 2026-08-10 pro dlouhý řádek modelové identity níže: operátor přijal
+024/A. Formulace „decision 024 je stále otevřená“ je tím superseded. Bezpečný
+issuer stále není implementovaný a proof zůstává `NOT_ISSUED`; implementace
+čeká na přijatý konsolidační base. Exact digest je scope jednoho proofu, ne
+globální pin role nebo produktu, takže rotace modelu znamená nový explicitní
+běh a nový proof pro nově pozorované bytes.
+
 | Co | Stav |
 |---|---|
 | Bezpečnost, credentials, privacy incident `P-001`..`P-003` | Odloženo do odladění základu (rozhodnutí operátora) |

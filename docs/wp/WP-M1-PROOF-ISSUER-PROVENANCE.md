@@ -1,8 +1,8 @@
 # WP-M1-PROOF-ISSUER-PROVENANCE — orchestration-owned issuance
 
-**Typ:** budoucí zapisující WP · **Rail:** R1, R3, R5, R6
-**Stav zadání:** návrh; blokován na přijetí rozhodnutí 024, přijetí schema
-candidate a přidělení exact integračního base; není připraven k Review A
+**Typ:** připravený zapisující WP · **Rail:** R1, R3, R5, R6
+**Stav zadání:** 024/A přijato operátorem 2026-08-10; implementace čeká už jen
+na formální přijetí konsolidačního rodiče a přidělení exact integračního base
 **Rozhodnutí:** [`024`](../decisions/024-m1-proof-issuer-provenance.md)
 
 ## 1. Uživatelský výsledek
@@ -68,6 +68,11 @@ transakce se odmítne. Issuer znovu ověří source/policy/contract autoritu po
 durable publikaci a connection-local `foreign_keys=ON` bezprostředně před
 vlastním `BEGIN IMMEDIATE`.
 
+Exact digest je vlastnost vydaného proofu a pozorovaného artefaktu, nikoli
+trvalý binding role. Connector přijme při každé operátorské akci jiné platné
+`proposedModelName`; strict inventory odvodí právě pozorovaný digest a nový
+artefakt dostane samostatný proof. Žádný proof nesmí autorizovat jiné bytes.
+
 Connector žije v operator-only scriptu, který importuje existující parent
 script. Produkční `src/**` proto neimportuje `scripts/**`. Test importuje tentýž
 export; nepoužívá alternativní issuer implementaci.
@@ -81,6 +86,9 @@ export; nepoužívá alternativní issuer implementaci.
 - při vzniku návrhu tento remote ref ukazuje na
   `1d351f67428eb1c4ae1adc99ce4dd99baef608e9`; stejnojmenná lokální branch na
   `159c193fb68401ba6d1547633187bfa3cb200d12` není autorita;
+- konsolidační review queue je aktuálně připnutá na
+  `a24815895d984aeb2c36f114770567082f37c339`; je to source evidence pro
+  přípravu, nikoli přijatý `baseRevision` ani důvod posunout stabilní ref;
 - `baseRevision`: **nepřiděleno** — vznikne až po přijetí jednoho schema 062
   candidate na stabilní integrační ref;
 - závislosti: operátorem přijaté 024/A, přijatý schema/ledger checkpoint 062,

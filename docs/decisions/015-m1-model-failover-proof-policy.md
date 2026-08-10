@@ -196,6 +196,12 @@ Bezpečný provizorní význam je:
 - revalidation běží až na explicitní akci; návrat zůstává omezený na exact
   desired digest nebo uživatelský zásah.
 
+`ONE_ROLE_ONE_DIGEST_SERIAL` popisuje rozsah jednoho měření, nikoli globální
+konfiguraci produktu. Role ani IntentSmith nejsou připnuté k jednomu modelu:
+po výměně modelu nebo změně digestu pod stejným tagem se pouze nesmí starý
+proof vztáhnout na nové bytes. Pro způsobilost automatizace vznikne nový proof;
+ruční změně modelu tato evidence nebrání.
+
 Pokud má později vzniknout automatická obnova, vyžaduje samostatný opt-in,
 shared model/VRAM lease a durable one-attempt-per-expiry ledger. Současný DB
 kontrakt navíc používá inkluzivní `expires_at_ms >= event time`, zatímco přijatý

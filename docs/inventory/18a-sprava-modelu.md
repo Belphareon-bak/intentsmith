@@ -241,3 +241,9 @@ eligibility triggerů. Issuer zůstává `CHANGES_REQUIRED`: nesmí přijmout
 callerem lokalizovaný strukturální receipt, ale musí sám vlastnit parent run a
 jeho odvozené expected piny. Skutečný GPU/Ollama běh neproběhl a automatic
 activation/restore zůstává vypnutá.
+
+Operátor 2026-08-10 přijal provenance variantu 024/A. Implementace se tím
+odemyká po přijetí konsolidačního base, ale proof ještě vydaný není. Digest
+váže pouze evidence jednoho běhu ke skutečně pozorovaným modelovým bytes; role
+ani produkt nejsou připnuté k jednomu modelu a po rotaci se pro nový artefakt
+vydá nový proof.

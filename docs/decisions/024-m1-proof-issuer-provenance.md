@@ -1,7 +1,8 @@
 # 024 — proof issuer musí vlastnit původ měření a retry hranici
 
-- **typ:** BLOCK pouze pro implementaci a vydání PASS proofu
-- **stav:** `DECISION_REQUIRED`; schema/ledger checkpoint 062 tím není zpochybněn
+- **typ:** přijatá implementační autorita pro vydání PASS proofu
+- **stav:** `ACCEPTED` 2026-08-10 jako varianta A; schema/ledger checkpoint 062
+  tím není zpochybněn a automatická aktivace zůstává vypnutá
 - **WP:** navazující `WP-M1-PROOF-ISSUER-PROVENANCE`
 - **rail:** R1, R3, R5, R6
 - **vzniklo při:** implementaci rozhodnutí 015 a call-graph auditu parent acceptance
@@ -87,6 +88,16 @@ Přijmout **A**. Je to nejmenší bezpečný connector pro současný explicitn�
 operátorský, sériový proof. Neuděluje background GPU autoritu, nemění L0-9 a
 nevytváří nový recovery subsystém dřív, než je pro něj doložená potřeba.
 
+## Přijatý význam modelové identity
+
+Digest je provenance **jednoho proofu**, ne trvalý pin role ani produktu na
+jeden model. Operátor může modely a role měnit. Proof pouze dokládá, které
+konkrétní bytes byly v daném běhu skutečně změřené; po změně digestu pod
+stejným tagem nebo po výměně modelu se pro nový artefakt vydá nový proof.
+Starý proof nesmí být použit pro jiné bytes, ale nijak nebrání jejich instalaci,
+ručnímu bindingu ani budoucí kalibraci jiné role. Tím se zachová rotace modelů
+bez přenesení výsledku starého modelu na nový obsah.
+
 Přesný potvrzovací blok:
 
 ```text
@@ -99,8 +110,13 @@ Přesný potvrzovací blok:
 024-ambiguous-outcome: MAY-CREATE-NEW-PROOF-ON-OPERATOR-RETRY
 024-foreign-keys: RECHECK-IMMEDIATELY-BEFORE-BEGIN-IMMEDIATE
 024-automatic-activation: OFF
+024-model-rotation: ALLOWED
+024-digest-scope: ONE-PROOF-ONE-OBSERVED-ARTIFACT
+024-digest-change: NEW-PROOF-REQUIRED-FOR-AUTOMATION-ELIGIBILITY
 ```
 
-Do přijetí zůstává issuer `CHANGES_REQUIRED`, PASS proof `NOT_ISSUED` a Gate 1
-`BLOCKED`. Paralelní prototyp s callerovým `acceptancePath` se nesmí vydat za
-splnění této decision.
+Operátor tento blok přijal 2026-08-10. Tím se odemyká budoucí implementace
+issueru, nikoli PASS výsledek, automatický failover ani Gate 1. Dokud neexistuje
+přijatý integrační base, reviewnutý issuer a skutečný modelový běh, proof
+zůstává `NOT_ISSUED` a Gate 1 `BLOCKED`. Paralelní prototyp s callerovým
+`acceptancePath` se nesmí vydat za splnění této decision.
