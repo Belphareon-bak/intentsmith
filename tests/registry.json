@@ -5323,6 +5323,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-PROOF-ISSUER-TEST",
+      "path": "tests/m1-model-failover-proof-issuer.test.js",
+      "argv": [
+        "node",
+        "tests/m1-model-failover-proof-issuer.test.js"
+      ],
+      "capabilityId": "C3-010",
+      "tier": "T1",
+      "fixture": "isolated-home-and-owned-loopback-server",
+      "profile": "database",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 10000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-M1-MODEL-POLICY-TEST",
       "path": "tests/m1-model-policy.test.js",
       "argv": [

@@ -1,8 +1,10 @@
 # 024 — proof issuer musí vlastnit původ měření a retry hranici
 
 - **typ:** přijatá implementační autorita pro vydání PASS proofu
-- **stav:** `ACCEPTED` 2026-08-10 jako varianta A; schema/ledger checkpoint 062
-  tím není zpochybněn a automatická aktivace zůstává vypnutá
+- **stav:** `ACCEPTED` 2026-08-10 jako varianta A;
+  `PARENT_HANDOFF_IMPLEMENTED`, vlastní issuer je `IMPLEMENTED / REVIEW_PENDING`;
+  schema/ledger checkpoint 062 tím není zpochybněn a automatická aktivace
+  zůstává vypnutá
 - **WP:** navazující `WP-M1-PROOF-ISSUER-PROVENANCE`
 - **rail:** R1, R3, R5, R6
 - **vzniklo při:** implementaci rozhodnutí 015 a call-graph auditu parent acceptance
@@ -27,6 +29,7 @@ Další dvě hrany jsou také potvrzené:
 - `PRAGMA foreign_keys` je connection-local a issuer jej musí ověřit těsně
   před vlastní top-level `BEGIN IMMEDIATE`, nikoli pouze při migraci;
 - content-addressed blobs musí žít v interně odvozeném runtime data rootu.
+  Exact layout určí až issuer subject; caller ani environment jeho root nemění.
   Worktree-local artefakt není durable důkaz pro SQLite, která worktree přežije.
 
 ## Varianty
@@ -115,8 +118,29 @@ Přesný potvrzovací blok:
 024-digest-change: NEW-PROOF-REQUIRED-FOR-AUTOMATION-ELIGIBILITY
 ```
 
-Operátor tento blok přijal 2026-08-10. Implementace issueru zůstává
-`IMPLEMENTATION_PENDING`, PASS proof `NOT_ISSUED` a Gate 1 `BLOCKED`, dokud
-nevznikne přijatý integrační base, focused důkaz, reviewnutý issuer a skutečný
-operátorský modelový běh. Odmítnutý prototyp s callerovým `acceptancePath`
-zůstává neplatný.
+Operátor tento blok přijal 2026-08-10. Issuer subject je implementovaný a jeho
+focused fake-provider důkaz je zelený, ale zůstává `REVIEW_PENDING`. PASS proof
+je dál `NOT_ISSUED` a Gate 1 `BLOCKED`, dokud issuer neprojde Review A/B a
+nevznikne skutečný operátorský modelový běh. Odmítnutý prototyp s callerovým
+`acceptancePath` zůstává neplatný.
+
+## Implementovaný parent handoff
+
+Statický WP je aktivovaný proti
+`refs/remotes/origin/integration/m1-consolidated-20260810` na přesném base
+`eb93d59bf8e143ee92149f61a8491fb3e26f9835`; původní
+`sourceEvidenceRevision=a24815895d984aeb2c36f114770567082f37c339`
+zůstává historickou autoritou konsolidační evidence.
+
+Parent runner drží očekávanou autoritu pouze v module-private `WeakMap`, jehož
+klíčem je přesná zmrazená identita vráceného výsledku. Exportovaný `take`
+přijme tuto identitu právě jednou a okamžitě ji z mapy odebere. Vrácená
+privátní capability smí provést opakovaný preflight i terminální recheck: při
+každém volání znovu čte measurement i acceptance mode-0400 artefakt, ověří
+source/export boundary a porovná je s privátními piny. Vrací vždy nové kopie
+validovaných bytes a path-free bezpečnou projekci. Druhý `take`, clone,
+forgery i callerový path/authority override skončí fail-closed.
+
+Handoff sám nevydává proof, nepíše do DB a nemění binding ani runtime.
+Navazující issuer subject jej už zahrnuje do exact source closure; parent-only
+checkpoint zůstává historicky pravdivý a jeho blob se nepřepisuje.

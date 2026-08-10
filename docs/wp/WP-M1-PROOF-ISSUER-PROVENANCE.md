@@ -1,9 +1,8 @@
 # WP-M1-PROOF-ISSUER-PROVENANCE — orchestration-owned issuance
 
-**Typ:** budoucí zapisující WP · **Rail:** R1, R3, R5, R6
-**Stav zadání:** `DECISION_ACCEPTED / BASE_PENDING`; 024/A je přijaté, ale WP
-není aktivní, dokud konsolidační queue neprojde formálním review a nevznikne
-přesný promoted integration base
+**Typ:** aktivní zapisující WP · **Rail:** R1, R3, R5, R6
+**Stav zadání:** `ACTIVE / PARENT_HANDOFF_IMPLEMENTED / ISSUER_IMPLEMENTED / REVIEW_PENDING`;
+024/A je přijaté a exact promoted integration base je zmrazený
 **Rozhodnutí:** [`024`](../decisions/024-m1-proof-issuer-provenance.md)
 
 ## 1. Uživatelský výsledek
@@ -21,7 +20,7 @@ loopback provider.
 
 ## 2. Povolené a zakázané cesty
 
-**Předběžně povolené po aktivaci:**
+**Povolené:**
 
 - nový `scripts/issue-model-failover-proof.js`, který současně exportuje
   interní connector a obsahuje tenkou CLI composition;
@@ -79,6 +78,13 @@ Connector žije v operator-only scriptu, který importuje existující parent
 script. Produkční `src/**` proto neimportuje `scripts/**`. Test importuje tentýž
 export; nepoužívá alternativní issuer implementaci.
 
+Kanonickou file-backed cestu hlavní DB odvozuje issuer z connection authority;
+caller ani environment nesmí store root změnit. Issuer subject zvolil první
+verzovaný layout
+`<canonical-main-db>.artifacts/model-failover-proofs/v1/sha256/<sha256>.json`.
+Jde o implementační kontrakt, nikoli rozšíření operátorského potvrzovacího
+bloku 024. Parent checkpoint durable store nevytváří.
+
 ## 4. Source revision, závislosti a pořadí
 
 - `sourceEvidenceRevision`:
@@ -87,9 +93,10 @@ export; nepoužívá alternativní issuer implementaci.
   `refs/remotes/origin/queue/m1-consolidation-20260810`;
 - runtime candidate uvnitř její evidence:
   `c0fcc444f9f0d5a3519a02c6ab3b4d0bedd1fdab`;
-- `integrationRef`: **nepřiděleno** — čeká na promotion po formálním review;
-- `baseRevision`: **nepřiděleno** — musí být full SHA promoted integračního
-  refu obsahujícího schema 062 i přijaté 024;
+- `integrationRef`:
+  `refs/remotes/origin/integration/m1-consolidated-20260810`;
+- `baseRevision`:
+  `eb93d59bf8e143ee92149f61a8491fb3e26f9835`;
 - stabilní remote ref zůstává
   `refs/remotes/origin/integration/gate1-prod-ready-20260809` na
   `1d351f67428eb1c4ae1adc99ce4dd99baef608e9`;
@@ -99,8 +106,11 @@ export; nepoužívá alternativní issuer implementaci.
 - pořadí: decision → statický contract/activation review → jediný writer →
   immutable subject `S` → Review A → merge queue → fresh-clone Review B.
 
-Dokud `baseRevision` není full SHA dosažitelný z pojmenovaného integration
-refu, tento dokument není aktivní Work Package.
+Exact base je dosažitelný z pojmenovaného integration refu a tento dokument je
+aktivní Work Package. První subject implementoval pouze parent in-memory
+handoff. Navazující subject implementuje issuer, durable store a DB commit a
+přidává issuer script do exact source closure. Skutečný modelový proof vznikne
+až po Review A/B tohoto immutable subjectu.
 
 ## 5. Malá demonstrace
 
@@ -109,7 +119,7 @@ jen roli a model. Issuer spustí parent, přijme pouze jeho in-memory autoritu,
 publikuje mode-0400 single-link blobs pod jejich SHA-256 a v jednom
 `BEGIN IMMEDIATE` vloží companion+proof. Výsledek je `ISSUED`; žádný binding,
 event/state, scheduler, broadcast ani externí request nevznikne. Povolené
-modelové efekty jsou přesně dva loopback `GET /api/tags` a jedna úplná role
+modelové efekty jsou přesně čtyři loopback `GET /api/tags` a jedna úplná role
 suite 8 nebo 6 loopback `POST /api/chat`; pull, delete, rebind, provider
 mutation a jiná route jsou zakázané.
 Proof ID je přesně `mfp-${acceptanceArtifactSha256}`. Publikace používá private
@@ -139,6 +149,15 @@ Proof pro digest A nesmí autorizovat digest B; nový explicitní operátorský 
 pro digest B smí vydat vlastní proof. Desired i active binding musí zůstat před
 i po issuance byteově a revision-shodné.
 
+První parent-only subject má užší focused acceptance: přesnou zmrazenou result
+identitu lze z module-private `WeakMap` převzít jen jednou. Clone, forgery,
+druhý `take` a jakýkoli callerový override jsou odmítnuté. Převzatá privátní
+capability dovoluje více preflight i terminálních rechecků; každý znovu načte
+oba immutable mode-0400 artefakty, ověří source/export boundary a privátní
+expected autoritu a vrátí pouze nové kopie validovaných bytes a path-free
+bezpečnou projekci. Expected authority se neobjeví ve veřejném resultu, JSON,
+stdout ani stderr.
+
 ## 7. Stop condition a eskalace
 
 Zastavit dotčenou část při jiné variantě než přijaté 024, potřebě nové
@@ -150,36 +169,27 @@ review a dokumentační evidence mohou pokračovat.
 
 ## 8. Přesné ověření a evidence DAG
 
-Po doplnění full `baseRevision` a přijetí 024 běží v čistém feature checkoutu
-a znovu v `git clone --no-local` tento blok:
+Po dokončení issuer subjectu běží v čistém feature checkoutu a při Review B
+znovu v `git clone --no-local` zúžený blok, který neduplikuje už existující
+repository/coordinator/binding matice:
 
 ```bash
 set -euo pipefail
 npm ci --offline
+node --check scripts/issue-model-failover-proof.js
 node tests/m1-model-failover-proof-issuer.test.js
 node tests/m1-model-failover-parent-acceptance.test.js
 node tests/m1-model-failover-proof-policy.test.js
-node tests/m1-model-failover-measurement.test.js
 node tests/m1-model-failover-schema.test.js
 node tests/schema-migrations.test.js
-node tests/m1-model-failover-repository.test.js
-node tests/m1-model-failover-coordinator.test.js
-node tests/m1-model-binding-storage.test.js
-node tests/m1-model-binding-repository.test.js
-node tests/m1-model-policy.test.js
 node tests/artifact-validation.test.js
 node scripts/validate-test-registry.js --json
-node tests/repository-hygiene.test.js
-node scripts/specialist-boundary-ratchet.mjs --require-clean
-node tests/specialist-boundary-ratchet.test.js
-node scripts/module-boundary-ratchet.mjs
-node tests/module-boundary-ratchet.test.js
 git diff --check
 test -z "$(git status --porcelain=v1 --untracked-files=all)"
 ```
 
-Očekávaný výsledek je exit 0 každého příkazu, validní registr, žádná nová
-ratchet hrana bez integrátorského přijetí a prázdný porcelain. GPU/Ollama běh
+Očekávaný výsledek je exit 0 každého příkazu, validní registr a prázdný
+porcelain. GPU/Ollama běh
 do implementační acceptance nepatří; skutečná parent cesta používá
 test-owned loopback provider.
 
@@ -192,5 +202,6 @@ subject S
   -> report-only E_B po --no-local fresh-clone Review B
 ```
 
-Statický WP se po aktivaci nepřepisuje skutečnými SHA. Dokud chybí přijaté
-rozhodnutí a exact base, očekávaný výsledek je `BLOCKED`, nikoli PASS.
+Statický WP se po aktivaci nepřepisuje skutečnými subject SHA. Dokud chybí
+issuer Review A/B a skutečný operátorský proof, Gate 1 je `BLOCKED`, nikoli
+PASS.

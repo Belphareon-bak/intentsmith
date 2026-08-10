@@ -18,6 +18,7 @@ import {
 } from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import {
   assert,
@@ -42,6 +43,8 @@ const PARENT_RELATIVE_PATH = 'scripts/run-model-failover-candidate-measurement.j
 const PARENT_PATH = path.join(REPOSITORY_ROOT, PARENT_RELATIVE_PATH);
 const CHILD_RELATIVE_PATH = 'scripts/run-model-failover-measurement.js';
 const CHILD_PATH = path.join(REPOSITORY_ROOT, CHILD_RELATIVE_PATH);
+const ISSUER_RELATIVE_PATH = 'scripts/issue-model-failover-proof.js';
+const ISSUER_PATH = path.join(REPOSITORY_ROOT, ISSUER_RELATIVE_PATH);
 const MODEL_NAME = 'fixture-model:latest';
 const MODEL_DIGEST = '7'.repeat(64);
 const CHILD_TIMEOUT_MS = 25_000;
@@ -218,9 +221,16 @@ async function createCommittedCandidateClone(prefix) {
     REPOSITORY_ROOT,
     cloneRoot,
   ], { stdio: ['ignore', 'pipe', 'pipe'] });
-  await copyFile(PARENT_PATH, path.join(cloneRoot, PARENT_RELATIVE_PATH));
-  await copyFile(CHILD_PATH, path.join(cloneRoot, CHILD_RELATIVE_PATH));
-  execFileSync('git', ['add', '--', PARENT_RELATIVE_PATH, CHILD_RELATIVE_PATH], {
+  for (const [source, relativePath] of [
+    [PARENT_PATH, PARENT_RELATIVE_PATH],
+    [CHILD_PATH, CHILD_RELATIVE_PATH],
+    [ISSUER_PATH, ISSUER_RELATIVE_PATH],
+  ]) {
+    await copyFile(source, path.join(cloneRoot, relativePath));
+  }
+  execFileSync('git', [
+    'add', '--', PARENT_RELATIVE_PATH, CHILD_RELATIVE_PATH, ISSUER_RELATIVE_PATH,
+  ], {
     cwd: cloneRoot,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -363,8 +373,12 @@ test('parent CLI accepts only role and proposed model while config owns provider
   assertIncludes(source, "'package.json',");
   assertIncludes(source, "'--ignored=matching'");
   assertIncludes(source, 'scripts/run-model-failover-candidate-measurement.js');
+  assertIncludes(source, 'scripts/issue-model-failover-proof.js');
   assertIncludes(source, 'expectedAcceptanceAuthority');
   assertIncludes(source, 'await validateModelFailoverCandidateAcceptance(');
+  assertIncludes(source, 'const PARENT_HANDOFF_AUTHORITIES = new WeakMap();');
+  assertIncludes(source, 'PARENT_HANDOFF_AUTHORITIES.delete(result);');
+  assertIncludes(source, 'export function takeModelFailoverCandidateMeasurementHandoff(');
   const childSpawn = source.slice(
     source.indexOf('const childResult = await spawnMeasurementChild'),
     source.indexOf('const expectedPins = Object.freeze'),
@@ -372,7 +386,7 @@ test('parent CLI accepts only role and proposed model while config owns provider
   assertIncludes(childSpawn, 'sourceRoot: run.sourceExportRoot');
   const publication = source.slice(
     source.indexOf('const published = await writeImmutableAcceptance'),
-    source.indexOf('return Object.freeze({', source.indexOf('const published =')),
+    source.indexOf('const result = Object.freeze({', source.indexOf('const published =')),
   );
   assertIncludes(publication, 'requireCleanCandidateState(sourceState(sourceRoot)');
   assertIncludes(publication, 'await validateParentRunBoundary(sourceRoot, run)');
@@ -392,6 +406,13 @@ test('parent CLI accepts only role and proposed model while config owns provider
       < source.indexOf('await loadParentAuthorities(run.sourceExportRoot)'),
     'Product authorities must load only after candidate cleanliness is accepted',
   );
+  const errorRenderer = source.slice(
+    source.indexOf('function renderError(error)'),
+    source.indexOf('export async function main('),
+  );
+  assert(!errorRenderer.includes('expectedAuthority'));
+  assert(!errorRenderer.includes('error.details'));
+  assert(!errorRenderer.includes('error.cause'));
 });
 
 test('child summary parser rejects every non-authoritative process outcome', () => {
@@ -490,6 +511,9 @@ await testAsync('clean committed parent derives all five pins and emits immutabl
     assertEqual(result.code, 0);
     assertEqual(result.signal, null);
     assertEqual(result.stderr, '');
+    assert(!result.stdout.includes('expectedAuthority'));
+    assert(!result.stdout.includes('acceptancePathOverride'));
+    assert(!result.stdout.includes('measurementArtifactPathOverride'));
     const processSummary = parseOneLine(result.stdout);
     assertEqual(processSummary.acceptanceStatus, 'PARENT_PINS_VERIFIED');
     assertEqual(processSummary.measurementStatus, 'COMPLETE');
@@ -590,6 +614,149 @@ await testAsync('clean committed parent derives all five pins and emits immutabl
     );
     assertEqual(parentValidation.validationScope, 'PARENT_PINS_VERIFIED');
   } finally {
+    await provider.close();
+  }
+});
+
+await testAsync('one-shot identity handoff supports repeatable private-authority rechecks', async () => {
+  const sourceRoot = await createCommittedCandidateClone('candidate-parent-handoff');
+  const provider = await startFixtureProvider();
+  const previousProviderOrigin = process.env.OLLAMA_URL;
+  process.env.OLLAMA_URL = provider.origin;
+  try {
+    const parentModule = await import(pathToFileURL(
+      path.join(sourceRoot, PARENT_RELATIVE_PATH),
+    ).href);
+    const result = await parentModule.runModelFailoverCandidateMeasurement({
+      role: 'CHAT',
+      proposedModelName: MODEL_NAME,
+    });
+    assert(Object.isFrozen(result), 'Measurement result identity must be frozen');
+    assert(
+      !JSON.stringify(result).includes('expectedAuthority'),
+      'Public measurement result must not serialize private authority',
+    );
+
+    let error = captureError(() => parentModule.takeModelFailoverCandidateMeasurementHandoff(
+      Object.freeze({ ...result }),
+    ));
+    assertEqual(error.code, 'MODEL_CANDIDATE_MEASUREMENT_HANDOFF_INVALID');
+    error = captureError(() => parentModule.takeModelFailoverCandidateMeasurementHandoff(
+      Object.freeze({}),
+    ));
+    assertEqual(error.code, 'MODEL_CANDIDATE_MEASUREMENT_HANDOFF_INVALID');
+    error = captureError(() => parentModule.takeModelFailoverCandidateMeasurementHandoff(
+      result,
+      { acceptancePath: '/tmp/caller-owned' },
+    ));
+    assertEqual(error.code, 'MODEL_CANDIDATE_MEASUREMENT_HANDOFF_OVERRIDE_REJECTED');
+
+    const handoff = parentModule.takeModelFailoverCandidateMeasurementHandoff(result);
+    assert(Object.isFrozen(handoff), 'Taken handoff must be frozen');
+    assertEqual(
+      JSON.stringify(Object.keys(handoff).sort()),
+      JSON.stringify(['recheck', 'schemaVersion', 'validationScope']),
+    );
+    assertEqual(JSON.stringify(handoff), JSON.stringify({
+      schemaVersion: 1,
+      validationScope: 'PRIVATE_PARENT_HANDOFF',
+    }));
+    error = captureError(() => (
+      parentModule.takeModelFailoverCandidateMeasurementHandoff(result)
+    ));
+    assertEqual(error.code, 'MODEL_CANDIDATE_MEASUREMENT_HANDOFF_INVALID');
+
+    const first = await handoff.recheck();
+    const second = await handoff.recheck();
+    assert(Object.isFrozen(first), 'Validated handoff result must be frozen');
+    assert(Object.isFrozen(first.projection), 'Safe projection must be deeply frozen');
+    assertEqual(first.validationScope, 'PARENT_PINS_VERIFIED');
+    assertEqual(
+      JSON.stringify(Object.keys(first).sort()),
+      JSON.stringify([
+        'acceptanceArtifactBytes',
+        'measurementArtifactBytes',
+        'projection',
+        'schemaVersion',
+        'validationScope',
+      ]),
+    );
+    assert(
+      !/(?:path|authority)/i.test(JSON.stringify(first.projection)),
+      'Issuer-safe projection must not contain path or authority fields',
+    );
+    assert(first.measurementArtifactBytes !== second.measurementArtifactBytes);
+    assert(first.acceptanceArtifactBytes !== second.acceptanceArtifactBytes);
+    assertEqual(Buffer.compare(first.measurementArtifactBytes, second.measurementArtifactBytes), 0);
+    assertEqual(Buffer.compare(first.acceptanceArtifactBytes, second.acceptanceArtifactBytes), 0);
+
+    first.measurementArtifactBytes[0] ^= 0xff;
+    first.acceptanceArtifactBytes[0] ^= 0xff;
+    const afterCallerMutation = await handoff.recheck();
+    assertEqual(
+      Buffer.compare(afterCallerMutation.measurementArtifactBytes, second.measurementArtifactBytes),
+      0,
+    );
+    assertEqual(
+      Buffer.compare(afterCallerMutation.acceptanceArtifactBytes, second.acceptanceArtifactBytes),
+      0,
+    );
+
+    error = await captureRejection(() => handoff.recheck({
+      expectedAuthority: {},
+      measurementArtifactPath: '/tmp/caller-owned',
+    }));
+    assertEqual(error.code, 'MODEL_CANDIDATE_MEASUREMENT_HANDOFF_OVERRIDE_REJECTED');
+
+    await chmod(result.acceptancePath, 0o600);
+    try {
+      error = await captureRejection(() => handoff.recheck());
+      assertEqual(error.code, 'MODEL_CANDIDATE_MEASUREMENT_ACCEPTANCE_BOUNDARY_INVALID');
+    } finally {
+      await chmod(result.acceptancePath, 0o400);
+    }
+
+    const measurementPath = path.join(
+      sourceRoot,
+      ...result.acceptance.measurement.artifactPath.split('/'),
+    );
+    await chmod(measurementPath, 0o600);
+    try {
+      error = await captureRejection(() => handoff.recheck());
+      assertEqual(error.code, 'MODEL_CANDIDATE_MEASUREMENT_ARTIFACT_METADATA_INVALID');
+    } finally {
+      await chmod(measurementPath, 0o400);
+    }
+
+    const exportedConfigPath = path.join(
+      path.dirname(result.acceptancePath),
+      'source/src/config.js',
+    );
+    await chmod(exportedConfigPath, 0o600);
+    try {
+      error = await captureRejection(() => handoff.recheck());
+      assertEqual(error.code, 'MODEL_CANDIDATE_MEASUREMENT_SOURCE_EXPORT_INVALID');
+    } finally {
+      await chmod(exportedConfigPath, 0o400);
+    }
+
+    const trackedConfigPath = path.join(sourceRoot, 'src/config.js');
+    const trackedConfigBytes = await readFile(trackedConfigPath);
+    await appendFile(trackedConfigPath, '\n// handoff source drift fixture\n');
+    try {
+      error = await captureRejection(() => handoff.recheck());
+      assertEqual(error.code, 'MODEL_CANDIDATE_MEASUREMENT_SOURCE_DIRTY');
+    } finally {
+      await writeFile(trackedConfigPath, trackedConfigBytes);
+    }
+
+    const terminal = await handoff.recheck();
+    assertEqual(terminal.projection.candidate.digestSha256, MODEL_DIGEST);
+    assertEqual(provider.requests.filter(entry => entry.route === 'GET /api/tags').length, 4);
+    assertEqual(provider.requests.filter(entry => entry.route === 'POST /api/chat').length, 8);
+  } finally {
+    if (previousProviderOrigin === undefined) delete process.env.OLLAMA_URL;
+    else process.env.OLLAMA_URL = previousProviderOrigin;
     await provider.close();
   }
 });

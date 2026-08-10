@@ -2738,3 +2738,94 @@ settings/policy a přesnou append-only event lineage.
 
 Nový immutable subject a fresh clone v okamžiku zápisu ještě neexistují. Gate 1
 zůstává `BLOCKED` a integrační ref se neposunula.
+
+## Checkpoint 33 — 024/A parent in-memory handoff
+
+Statický `WP-M1-PROOF-ISSUER-PROVENANCE` byl aktivovaný proti exact promoted
+refu `refs/remotes/origin/integration/m1-consolidated-20260810` a base
+`eb93d59bf8e143ee92149f61a8491fb3e26f9835`. Historický
+`sourceEvidenceRevision=a24815895d984aeb2c36f114770567082f37c339`
+zůstává beze změny.
+
+Parent runner nyní uchovává odvozenou expected autoritu v module-private
+`WeakMap`, klíčovaném přesnou zmrazenou result identitou. Exportovaný `take`
+smí tuto identitu převzít pouze jednou; druhý `take`, clone, forgery a callerem
+dodaný path/authority override selžou. Převzatá privátní capability dovoluje
+opakovaný preflight i terminální recheck. Každý recheck znovu načte measurement
+i acceptance mode-0400 artefakt, ověří jejich metadata a bytes, exact
+source-export boundary, čistý source revision a privátní parent piny. Ven vrací
+jen nové kopie validovaných bytes a path-free bezpečnou projekci; callerova
+mutace jedné kopie další recheck neovlivní.
+
+Focused fixture provedla jeden skutečný parent flow proti test-owned loopback
+provideru a připnula přesně 4 `GET /api/tags` a 8 `POST /api/chat`; opakované
+rechecky nevytvořily žádný další provider efekt. Do checkpointu nevstoupil
+issuer script, migrace, policy, child runner, runtime, DB writer ani registry.
+Budoucí issuer musí odvodit durable store z kanonické file-backed DB bez
+caller/env root override. Exact verzovaný layout patří až do jeho vlastního
+implementačního subjectu. Issuer se do exact source closure přidá až ve
+vlastním navazujícím commitu.
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-model-failover-parent-acceptance.test.js` | 16 passed, 0 failed, 0 skipped | 0 |
+| `node --check scripts/run-model-failover-candidate-measurement.js` | bez syntax chyby | 0 |
+| `node --check tests/m1-model-failover-parent-acceptance.test.js` | bez syntax chyby | 0 |
+| `git diff --check` | bez whitespace chyb | 0 |
+
+Jde o parent-only implementační checkpoint, nikoli proof issuance. PASS proof
+zůstává `NOT_ISSUED`; GPU/Ollama, DB, binding, runtime, Electron ani externí
+síť nebyly spuštěné a Gate 1 zůstává `BLOCKED`.
+
+## Checkpoint 34 — 024/A operator-only proof issuer subject
+
+Navazující subject přidal `OperatorModelFailoverProofIssuer v2`. Caller předává
+pouze existující file-backed DB connection, roli a explicitně tagovaný model.
+Issuer sám spustí parent, převezme jeho jednorázovou in-memory capability,
+publikuje oba přesné artefakty do DB-derived verzovaného store a teprve potom
+vloží companion+proof v jednom companion-first `BEGIN IMMEDIATE`. Výsledek
+zůstává path-free `{status, proofId, expiresAtMs}`; desired/active binding,
+runtime, scheduler, broadcast ani provider mutation nevznikají.
+
+První implementační layout je
+`<canonical-main-db>.artifacts/model-failover-proofs/v1/sha256/<sha256>.json`.
+Všechny vytvořené adresáře jsou owned mode 0700 a jejich nové directory entries
+se fsyncují; bloby jsou content-addressed owned regular mode 0400, single-link,
+s byte readbackem a fsyncem souboru i adresáře. DB ukládá oba SHA-256 a délky,
+ne cestu. DB chyba po publikaci smí ponechat pravdivé orphan bloby, nikdy proof
+bez companionu.
+
+Read-only audit před commitem našel a subject opravil dvě P1 vady: prázdný
+SQLite TEMP/attached namespace mohl přes nequalifikované SQL zastínit durable
+`main`, a první vytvoření store hierarchy nebylo crash-durable. Issuer nyní
+povolí jen prázdný TEMP namespace, odmítne všechny attached/TEMP objekty,
+všechny ledger dotazy kvalifikuje `main.*` a namespace i inode znovu ověří před
+transakcí. Asynchronní inode kontrola končí před finální synchronní sekvencí
+namespace → FK → `BEGIN IMMEDIATE`; queue-microtask pin dokládá, že pozdní
+`ATTACH` se dostane ke connection až po commitu. Nový adresář se fsyncuje spolu
+s rodičem.
+
+Focused suite má pět top-level testů, ne novou širokou matici. Jeden test
+tabulkově kryje caller/DB autoritu před providerem, další dva skutečný happy
+path s rotací digestu a pozdní `foreign_keys=OFF`, čtvrtý symlink store a pátý
+rollback druhého insertu včetně nového plného retry. Parent, policy a schema
+sady dál vlastní forged receipt, source drift, threshold a trigger matice.
+Read-only test audit následně zesílil stejných pět testů bez přidání nové sady:
+terminální namespace pin nyní dokládá přechod `0 rows při checku → 1 row v
+nejbližším microtasku`, veřejné `proofId/expiresAtMs` se vážou k přesným DB
+řádkům a neprázdný desired-binding/event snapshot zůstává byteově beze změny.
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node --check scripts/issue-model-failover-proof.js` | bez syntax chyby | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-failover-proof-issuer.test.js` | 5 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-model-failover-parent-acceptance.test.js` | 16 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-model-failover-proof-policy.test.js` | 9 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-failover-schema.test.js` | 25 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/schema-migrations.test.js` | 38 passed, 0 failed | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
+| `node scripts/validate-test-registry.js --json` | 379 programů, 8 exclusions, fingerprint `df64f605…c2ec9` | 0 |
+
+Jde o implementovaný source subject, ne vydaný modelový proof. Review A/B,
+skutečný GPU/Ollama běh, automatic activation/restore a Electron nebyly
+provedené. Gate 1 proto zůstává `BLOCKED`.

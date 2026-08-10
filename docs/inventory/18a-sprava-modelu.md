@@ -237,14 +237,25 @@ Izolovaný measurement tím nezískal DB writer. Jeho kanonický artefakt dál n
 odděleném operator-only issueru po durable artifact storage a terminálním
 rechecku. Migrace 062 už implementuje immutable companion ledger, transakční
 proof vazbu, historical-proof quarantine a striktní expiry všech čtyř
-eligibility triggerů. 024/A je přijaté, ale issuer zůstává
-`IMPLEMENTATION_PENDING`: nesmí přijmout callerem lokalizovaný strukturální
-receipt, musí sám vlastnit parent run a jeho odvozené expected piny a čeká na
-přijatý integrační base. Skutečný GPU/Ollama běh neproběhl a automatic
-activation/restore zůstává vypnutá.
+eligibility triggerů. 024/A je přijaté a statický WP je aktivní na promoted
+base `eb93d59bf8e143ee92149f61a8491fb3e26f9835`. Parent in-memory handoff je
+implementovaný: module-private `WeakMap` přijme přesnou zmrazenou result
+identitu jen jedním `take`; vrácená capability smí opakovaně znovu načíst oba
+mode-0400 artefakty, ověřit source/export boundary a privátní expected piny a
+vrátit pouze nové kopie bytes s bezpečnou path-free projekcí. Clone, forgery,
+druhý `take` a callerový path/authority override jsou fail-closed.
 
-Operátor 2026-08-10 přijal provenance variantu 024/A. Implementace se tím
-odemyká po přijetí konsolidačního base, ale proof ještě vydaný není. Digest
-váže pouze evidence jednoho běhu ke skutečně pozorovaným modelovým bytes; role
-ani produkt nejsou připnuté k jednomu modelu a po rotaci se pro nový artefakt
-vydá nový proof.
+Issuer je `IMPLEMENTED / REVIEW_PENDING`. Durable content-addressed store se
+odvozuje z kanonické file-backed DB bez caller/env root override a první
+implementační layout je
+`<canonical-main-db>.artifacts/model-failover-proofs/v1/sha256/<sha256>.json`.
+Companion a proof vznikají v jednom companion-first `BEGIN IMMEDIATE`; pozdní
+FK/DB drift, TEMP/attached schema a nepravdivý store metadata stav jsou
+fail-closed. Skutečný GPU/Ollama běh neproběhl a automatic activation/restore
+zůstává vypnutá.
+
+Operátor 2026-08-10 přijal provenance variantu 024/A. Parent handoff a vlastní
+issuer jsou dva malé implementační checkpointy; druhý čeká na Review A/B a
+proof ještě vydaný není. Digest váže pouze evidence
+jednoho běhu ke skutečně pozorovaným modelovým bytes; role ani produkt nejsou
+připnuté k jednomu modelu a po rotaci se pro nový artefakt vydá nový proof.
