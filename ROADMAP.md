@@ -1331,8 +1331,9 @@ mohou pokračovat.
    budoucí revision/CAS a po přijetí neodemyká Gate 1.
 
    Konsolidovaný M1 base je formálně přijatý na
-   `integration/m1-consolidated-20260810`; po proof-issuer Review A/B je
-   aktuální remote tip `58741fb9`. Původní konsolidační base byl `eb93d59b` a
+   `integration/m1-consolidated-20260810`; wire Review B evidence obálka
+   `58741fb9` je dosažitelná z aktuálního remote tipu. Původní konsolidační
+   base byl `eb93d59b` a
    přesná promotion topologie je v
    [`wp-m1-consolidation-promotion-20260810-report.md`](docs/execution/runs/wp-m1-consolidation-promotion-20260810-report.md).
    Původní focused `--no-local` profil runtime kandidáta `c0fcc444` zůstává
