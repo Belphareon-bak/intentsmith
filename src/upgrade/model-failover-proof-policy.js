@@ -1,8 +1,8 @@
-// Fail-closed D+ role-suite measurement policy.
+// Fail-closed D+ role-suite proof policy.
 //
-// This module deliberately cannot authorize a PASS proof. It establishes the
-// reviewed role/suite/source contract needed by a later isolated runner while
-// the operator-owned acceptance thresholds and proof TTL remain undecided.
+// The operator-approved bootstrap authority lives here. Measurement remains a
+// separate, non-persisting operation; only the dedicated operator issuer may
+// turn an accepted measurement into a durable PASS proof.
 
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -13,8 +13,9 @@ import { SUITES, VALIDATION_VERSION } from './validation-suites.js';
 export const MODEL_FAILOVER_PROOF_POLICY_SCHEMA_VERSION = 1;
 export const MODEL_FAILOVER_PROOF_CANONICALIZATION_VERSION =
   'sorted-key-json-utf8-v1';
-export const MODEL_FAILOVER_PROOF_ISSUANCE_BLOCK_REASON =
-  'MISSING_APPROVED_TERMINAL_THRESHOLDS_AND_TTL';
+export const MODEL_FAILOVER_PROOF_HANDOFF_REASON =
+  'SEPARATE_OPERATOR_PROOF_COMMIT_REQUIRED';
+export const MODEL_FAILOVER_PROOF_TTL_MS = 604800000;
 
 const EXPECTED_SOURCE_PINS = Object.freeze({
   modelProfiles: Object.freeze({
@@ -296,13 +297,13 @@ function buildPolicy() {
       randomizedPromptPolicy: 'CAPTURE_ACTUAL_PROMPT_AND_VERIFY_GRADE_CONTEXT',
     },
     acceptance: {
-      issuanceEnabled: false,
-      proofTtlMs: null,
+      issuanceEnabled: true,
+      proofTtlMs: MODEL_FAILOVER_PROOF_TTL_MS,
       byRole: Object.fromEntries(EXPECTED_ROLES.map(role => [role, {
-        requiredScore: null,
-        requiredPassedCount: null,
+        requiredScore: 1,
+        requiredPassedCount: roles[role].totalCount,
       }])),
-      reason: MODEL_FAILOVER_PROOF_ISSUANCE_BLOCK_REASON,
+      reason: null,
     },
     roles,
   });

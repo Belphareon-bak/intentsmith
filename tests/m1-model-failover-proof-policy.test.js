@@ -12,8 +12,8 @@ import {
 import { MODEL_PROFILES } from '../src/upgrade/model-profiles.js';
 import {
   MODEL_FAILOVER_PROOF_CANONICALIZATION_VERSION,
-  MODEL_FAILOVER_PROOF_ISSUANCE_BLOCK_REASON,
   MODEL_FAILOVER_PROOF_POLICY_SCHEMA_VERSION,
+  MODEL_FAILOVER_PROOF_TTL_MS,
   ModelFailoverProofPolicyError,
   assertModelFailoverProofIssuanceEnabled,
   canonicalizeModelFailoverContract,
@@ -110,22 +110,24 @@ test('runner contract requires actual capture of randomized prompt and grade con
   assertEqual(runner.numCtx, 4096);
 });
 
-test('no policy or role can issue a PASS proof without thresholds and TTL', () => {
+test('approved bootstrap policy requires a perfect role suite and exact seven-day TTL', () => {
   const acceptance = getModelFailoverProofPolicy().acceptance;
-  assertEqual(acceptance.issuanceEnabled, false);
-  assertEqual(acceptance.proofTtlMs, null);
-  assertEqual(acceptance.reason, MODEL_FAILOVER_PROOF_ISSUANCE_BLOCK_REASON);
+  assertEqual(acceptance.issuanceEnabled, true);
+  assertEqual(acceptance.proofTtlMs, MODEL_FAILOVER_PROOF_TTL_MS);
+  assertEqual(acceptance.proofTtlMs, 604800000);
+  assertEqual(acceptance.reason, null);
 
   for (const role of EXPECTED_ROLES) {
-    assertEqual(acceptance.byRole[role].requiredScore, null);
-    assertEqual(acceptance.byRole[role].requiredPassedCount, null);
+    const expectedTotal = EXPECTED_SUITES[role][1].length;
+    assertEqual(acceptance.byRole[role].requiredScore, 1);
+    assertEqual(acceptance.byRole[role].requiredPassedCount, expectedTotal);
     const measurement = getModelFailoverMeasurementContract(role).contract.acceptance;
-    assertEqual(measurement.requiredScore, null);
-    assertEqual(measurement.requiredPassedCount, null);
-    const error = captureError(() => assertModelFailoverProofIssuanceEnabled(role));
-    assertPolicyError(error, 'MODEL_FAILOVER_PROOF_ISSUANCE_DISABLED');
-    assertEqual(error.details.role, role);
-    assertEqual(error.details.reason, MODEL_FAILOVER_PROOF_ISSUANCE_BLOCK_REASON);
+    assertEqual(measurement.issuanceEnabled, true);
+    assertEqual(measurement.requiredScore, 1);
+    assertEqual(measurement.requiredPassedCount, expectedTotal);
+    assertEqual(measurement.proofTtlMs, MODEL_FAILOVER_PROOF_TTL_MS);
+    assertEqual(measurement.reason, null);
+    assertEqual(assertModelFailoverProofIssuanceEnabled(role).role, role);
   }
 });
 
@@ -140,7 +142,11 @@ test('measurement contracts are deterministic, role-bound and never proof hashes
   assertEqual(first.contract.contractKind, 'MODEL_FAILOVER_ROLE_MEASUREMENT');
   assertEqual(first.contract.canonicalizationVersion, 'sorted-key-json-utf8-v1');
   assertEqual(first.contract.role.role, 'CHAT');
-  assertEqual(first.contract.acceptance.issuanceEnabled, false);
+  assertEqual(first.contract.acceptance.issuanceEnabled, true);
+  assertEqual(first.contract.acceptance.requiredScore, 1);
+  assertEqual(first.contract.acceptance.requiredPassedCount, 8);
+  assertEqual(first.contract.acceptance.proofTtlMs, 604800000);
+  assertEqual(first.contract.acceptance.reason, null);
   assertEqual(Object.hasOwn(first, 'roleContractSha256'), false);
   assertEqual(Object.hasOwn(first.contract, 'proofId'), false);
 });
@@ -188,7 +194,7 @@ test('caller authority overrides and unknown roles fail closed', () => {
     );
   }
   for (const callback of [
-    () => assertModelFailoverProofIssuanceEnabled('CHAT', { issuanceEnabled: true }),
+    () => assertModelFailoverProofIssuanceEnabled('CHAT', { requiredScore: 0.8 }),
   ]) {
     assertPolicyError(
       captureError(callback),

@@ -1,8 +1,8 @@
 # 015 — D+ potřebuje schválenou role-suite proof policy
 
 - **typ:** BLOCK pouze pro vydání PASS proofu a terminal activation
-- **stav rozhodnutí:** C IMPLEMENTOVÁNO; A + PROVIZORNÍ 7D PŘIJATO operátorem
-  2026-08-09 včetně striktní expiry hrany
+- **stav rozhodnutí:** A + PROVIZORNÍ 7D IMPLEMENTOVÁNO V POLICY; proof issuer,
+  storage vazba a migrace 062 zůstávají navazující checkpointy
 - **WP:** WP-M1-MODEL / B3-FAILOVER
 - **rail:** R1, R3, R5, R6
 - **vzniklo při:** call-graph auditu authority pro rozhodnutí 006/D+
@@ -59,13 +59,14 @@ bude před issuance vyžadovat aditivní storage checkpoint; dnešní volný
 | B — role-specific kalibrace | Každá role dostane schválený score/count práh z opakovaných běhů reference a kandidátů | Praktická kvalifikační hranice založená na datech | Nejdřív je nutný kalibrační artifact; bez něj by čísla byla odhad |
 | C — measurement-only | Policy obsahuje mapu, source pins a runner parametry, ale `issuanceEnabled=false` a prahy `null` | Lze implementovat a testovat celý inertní řetězec bez falešného PASS | Terminal activation zůstane BLOCKED do volby A nebo B |
 
-## Historický vratný default a přijatý cíl
+## Historický vratný default a implementovaný cíl
 
-V implementovaném measurement-only checkpointu je stále aktivní **C**:
-`issuanceEnabled=false` a prahy i TTL jsou `null`. Operátor ale 2026-08-09
-přijal cílovou policy **A + provizorní TTL 7 dní** podle potvrzovacího bloku
-níže. C proto už není otevřená produktová volba; je pouze dnešní bezpečný
-runtime stav do dokončení issueru, storage vazby a migrace 062.
+Measurement-only checkpoint původně používal **C**: `issuanceEnabled=false`
+a prahy i TTL `null`. Po operátorském přijetí 2026-08-09 je v policy aktivní
+**A + provizorní TTL 7 dní**. Všech sedm rolí vyžaduje skóre `1`, úplnou
+seřazenou sadu 8/8 nebo 6/6 a `reason=null`. Tato změna pouze odemyká
+samostatný issuer; measurement sám dál nic nepersistuje a zůstává
+`NOT_ISSUED`.
 
 Šev zůstává v `src/upgrade/model-failover-proof-policy.js` a focused testu
 `tests/m1-model-failover-proof-policy.test.js`. Přechod nesmí zpětně povýšit
@@ -93,12 +94,12 @@ odmítá sparse arrays, `-0`, non-finite čísla, accessors, skryté/symbolické
 vlastnosti, neprosté objekty i cykly. Každý role measurement contract tak nese
 deterministický hash, ale žádný `proofId`, proof hash ani PASS výsledek.
 
-Acceptance shape je připravený pro původně posuzované varianty: globální proof TTL a
-samostatný `requiredScore`/`requiredPassedCount` pro každou roli. Pod defaultem
-C jsou všechny tyto hodnoty `null` a `issuanceEnabled=false`. Guard by ani po
-chybné změně jediného booleovského flagu nepovolil issuance bez konečného
-skóre v `(0,1]`, kladného počtu nepřesahujícího velikost role suite a kladného
-integer TTL; blocking reason musí být současně explicitně vyčištěný na `null`.
+Acceptance shape nese globální proof TTL a samostatný
+`requiredScore`/`requiredPassedCount` pro každou roli. Implementovaná varianta
+A používá `issuanceEnabled=true`, TTL `604800000`, skóre `1`, počet rovný celé
+role suite a `reason=null`. Guard ani po chybné změně jediného booleovského
+flagu nepovolí issuance bez konečného skóre v `(0,1]`, kladného počtu
+nepřesahujícího velikost role suite a kladného integer TTL.
 
 Policy není proof runner. Implementovaný
 `scripts/run-model-failover-measurement.js` proto vytváří čerstvý izolovaný

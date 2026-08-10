@@ -2408,7 +2408,23 @@ ruční one-role CLI nad lokální Ollamou bez GPU-residency důkazu. Doporučen
 obnova je proto operator-triggered, sériová a background renewal zůstává OFF.
 Expiry aktivní binding nepřepne, ale odvodí `DEGRADED_PROOF_EXPIRED` a blokuje
 nový `ACTIVATE/REAPPLY`. Audit nic nespouštěl a nezměnil runtime; proof issuance
-zůstává vypnuté.
+zůstalo v tomto historickém checkpointu vypnuté.
+
+## Checkpoint 33 — 015/A proof policy a explicitní non-proof handoff
+
+Policy checkpoint aktivuje operátorem schválený absolutní bootstrap bez
+spuštění modelu: `issuanceEnabled=true`, TTL `604800000` ms, skóre `1` a
+`requiredPassedCount=totalCount` pro všech sedm rolí. Measurement runner dál
+nemá DB, binding, config ani broadcast autoritu a perfektní loopback fixture
+publikuje pouze `NOT_ISSUED` artefakt s handoffem
+`SEPARATE_OPERATOR_PROOF_COMMIT_REQUIRED`.
+
+Focused policy i measurement sada skončily 9/0, exit 0. Parent acceptance sada
+se před commitem záměrně nedá vydávat za výsledek: její source-clean guard
+správně odmítl rozpracované změny pod `src/`, `scripts/` a `tests/`. Bude
+zopakována nad commitnutým checkpointem. GPU, Ollama, Electron ani externí síť
+nebyly spuštěné. Migrace 062, durable issuer a automatic activation zůstávají
+otevřené; Gate 1 je `BLOCKED`.
 
 ## Checkout a ratchet provenance po review
 

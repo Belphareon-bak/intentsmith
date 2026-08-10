@@ -626,8 +626,10 @@ focused regression sady.
      workera. **Pátý checkpoint je implementovaný:** immutable measurement
      policy pinuje raw bytes role/suite zdrojů, verzovaný canonical JSON,
      přesnou mapu 7 rolí na 36 seřazených testů a role-specific acceptance
-     shape. Default C má issuance vypnuté a všechny prahy i TTL `null`; role
-     measurement hash proto není PASS proof autorita. **Šestý checkpoint je
+     shape. Přijatý bootstrap 015/A je v policy aktivní: všech sedm rolí
+     vyžaduje skóre `1`, úplnou sadu 8/8 nebo 6/6 a provizorní TTL 7 dní.
+     Measurement přesto zůstává `NOT_ISSUED` a výslovně předává autoritu
+     oddělenému operátorskému commitu. **Šestý checkpoint je
      implementovaný:** samostatný measurement-only child odmítne zděděné
      Node flagy i neznámé environment klíče, povolí pouze exaktní vlastní
      IPv4 loopback provider, zachytí plný skutečný request/response včetně
