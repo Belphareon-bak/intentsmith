@@ -299,11 +299,11 @@ pro jeden proces a neplatí pro dva nad jednou databází. Port to nezachrání:
 sweep běží **před** `listen()`, takže druhý proces škodu napáchá a teprve pak
 zjistí, že port je obsazený. S `C3_MOBILE_PORT=0` kolize nenastane vůbec.
 
-Vlastnictví je proto explicitní (migrace 048):
+Vlastnictví je proto explicitní (migrace 057):
 
 | Sloupec / tabulka | Role |
 |---|---|
-| `mobile_operations.owner_instance` | která instance gateway záznam otevřela; `NULL` = zápis před migrací 048 nebo z nenavázaného žurnálu |
+| `mobile_operations.owner_instance` | která instance gateway záznam otevřela; `NULL` = zápis před migrací 057 nebo z nenavázaného žurnálu |
 | `mobile_gateway_instances` | registr instancí: `pid`, `host_identity` (hostname + boot id), `heartbeat_at`, `released_at` |
 
 Instance je **živá**, jen když má čerstvý heartbeat (TTL 5 min) **a** — na tomto
@@ -315,7 +315,7 @@ bezpečnou stranu. Sweep pak překlopí jen řádky, které **nemá kdo živý v
 | živá jiná instance | **nesahá** — to je ta záruka |
 | tato instance | nesahá |
 | mrtvá instance | překlopí na `process_terminated` |
-| `NULL` (pre-048) | překlopí — živého vlastníka nelze doložit |
+| `NULL` (pre-057) | překlopí — živého vlastníka nelze doložit |
 
 Jediný případ, kdy to rozhodne špatně: proces žije, ale déle než 5 minut
 nespustil heartbeat timer. Gateway se zablokovanou smyčkou stejně neobsluhuje
@@ -339,8 +339,8 @@ node tests/mobile-gateway-boundary.test.js    # 38 — hranice proti běžícím
 node tests/mobile-gateway-supervisor.test.js  #  9 — vlastněný proces
 node tests/mobile-operation-isolation.test.js # 14 — izolace sweepu mezi procesy
 node tests/mobile-fault-injection.test.js     # 15 — result_persistence_failed
-node tests/mobile-migration-parity.test.js    # 11 — parita migrací 046/047/048
-node tests/schema-migrations.test.js           # 28 — migrace schématu
+node tests/mobile-migration-parity.test.js    # 12 — parita migrací 055/056/057
+node tests/schema-migrations.test.js           # 38 — migrace schématu
 node tests/legacy-listener-boundary.test.js   # 11 — offline policy
 ```
 

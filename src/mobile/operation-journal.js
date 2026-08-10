@@ -86,7 +86,8 @@ export class OperationJournal {
    * applied at wiring time rather than at construction.  Rows opened by a
    * journal that was never bound carry `owner_instance = NULL`, and unowned
    * rows are sweepable by definition — which is right for rows written before
-   * migration 048, and is why the gateway always binds.
+   * migration 057 (`mobile_gateway_instances`), and is why the gateway always
+   * binds.
    */
   bindInstance(instanceId) {
     this.instanceId = instanceId || null;
@@ -335,7 +336,7 @@ export class OperationJournal {
    *   * owned by this instance    → left alone.  At start-up there are none; the
    *     clause matters if the sweep is ever called again.
    *   * owned by a dead instance  → swept.  Crash recovery, unchanged.
-   *   * `owner_instance IS NULL`  → swept.  Written before migration 048, or by
+   *   * `owner_instance IS NULL`  → swept.  Written before migration 057, or by
    *     a journal never bound to an instance; no live owner can be shown for it.
    *
    * Liveness comes from `gateway-instance.js`, which requires both a fresh

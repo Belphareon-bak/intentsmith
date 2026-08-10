@@ -139,7 +139,7 @@ hotovost.
 > stav, ne opomenutí: úkol není zahájen. Až vznikne, vznikne s testy na
 > `ownership state` a na to, že administrativní uzavření **nemaže** záznam.
 >
-> Migrace 048 zavádí `owner_instance` a registr `mobile_gateway_instances`.
+> Migrace 057 zavádí `owner_instance` a registr `mobile_gateway_instances`.
 > **Není to `MR-25`.** Je to vlastnictví *procesem gateway*, aby sweep nesáhl
 > na cizí živou operaci — ne `ownership state` osiřelé operace, ne dotaz na
 > osiřelost, ne desktopový pohled operátora. Až se `MR-25` začne dělat, tabulka
@@ -260,7 +260,7 @@ serverovou hranici, která má cenu i kdyby žádný telefon nikdy nevznikl
 | **`M-R5`** notifikace na zamčené obrazovce | ukazatel, ne obsah | MV-notification-content | zmírněno |
 | **`M-R6`** log pojme S2/S3 | `P-7` | MV-log-redaction | zmírněno testem |
 | **`M-R7`** nerozřešené pokusy blokují mutace | `MD-19` §4.3: strop, rate limit, metrika, ruční rozřešení | MO-operation-key-limit, MN-operation-key-rate-limit | **přijatý kompromis** |
-| **`M-R8`** osiřelé operace rostou neomezeně | `MR-25`: `ownership state`, dotaz na osiřelost, desktopový pohled | *zatím žádný* | **OPEN** — úkol není zahájen; migrace 048 dodala jen vlastnictví procesem, ne `ownership state` operace |
+| **`M-R8`** osiřelé operace rostou neomezeně | `MR-25`: `ownership state`, dotaz na osiřelost, desktopový pohled | *zatím žádný* | **OPEN** — úkol není zahájen; migrace 057 dodala jen vlastnictví procesem, ne `ownership state` operace |
 | **`M-R9`** `UNKNOWN` se nedohledá zpětně | do vyřešení `MR-25`: UI ukazuje `last_checked_at` a netvrdí živý stav | MN-operation-unknown-reason | **OPEN**, zmírněno formulací |
 | `G0-R011` testy píšou do sledovaného stromu | artefaktový root | podmínka §5 TEST-STRATEGY | platí i pro mobil |
 | `G0-R012` import DB bez `C3_DB_PATH` | `isolated-sqlite` | podmínka §6.3 TEST-STRATEGY | platí i pro mobil |

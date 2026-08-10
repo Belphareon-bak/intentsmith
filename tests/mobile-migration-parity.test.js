@@ -1,17 +1,17 @@
 // Migration parity — a database's schema must not depend on when it was created.
 // ==============================================================================
 //
-// Migration 047 exists because 046 shipped without `unknown_reason`,
+// Migration 056 exists because 055 shipped without `unknown_reason`,
 // `unknown_at` and `last_checked_at`, and an applied migration never runs again.
-// 048 then adds `owner_instance` and the instance registry.  That leaves three
+// 057 then adds `owner_instance` and the instance registry.  That leaves three
 // populations in the wild, and the review's question is whether they converge:
 //
-//   A  clean install      — the whole chain, 046 (current) + 047 + 048
-//   B  early adopter      — 046 in its **original** shape already applied and
-//                           stamped; 047 and 048 arrive later
-//   C  v136.1 install     — 046 (current) + 047 already applied; only 048 is new
+//   A  clean install      — the whole chain, 055 (current) + 056 + 057
+//   B  early adopter      — 055 in its **original** shape already applied and
+//                           stamped; 056 and 057 arrive later
+//   C  v136.1 install     — 055 (current) + 056 already applied; only 057 is new
 //
-// B is the case that matters.  It is the one where "just fix 046" would have
+// B is the case that matters.  It is the one where "just fix 055" would have
 // silently done nothing — the migration is stamped, so it never runs again, and
 // the database would keep a `mobile_operations` with no `unknown_reason` while
 // `markUnknown()` writes to it on every ambiguous timeout.
@@ -58,23 +58,23 @@ async function test(name, fn) {
   }
 }
 
-console.log('\n=== Mobile migration parity (046 / 047 / 048) ===');
+console.log('\n=== Mobile migration parity (055 / 056 / 057) ===');
 
 const runtimeDir = mkdtempSync(path.join(tmpdir(), 'is-mobile-parity-'));
 const handles = [];
 
-const V046 = '2026_08_09_055_mobile_gateway';
-const V047 = '2026_08_09_056_mobile_unknown_reason';
-const V048 = '2026_08_09_057_mobile_gateway_instances';
+const V055 = '2026_08_09_055_mobile_gateway';
+const V056 = '2026_08_09_056_mobile_unknown_reason';
+const V057 = '2026_08_09_057_mobile_gateway_instances';
 
 /**
- * `mobile_operations` exactly as migration 046 created it before 047 existed.
+ * `mobile_operations` exactly as migration 055 created it before 056 existed.
  *
  * Copied from `git show 1735e39:src/db/migrations/2026_08_09_055_mobile_gateway.js`.
  * The three UNKNOWN columns and `owner_instance` are absent — that absence is
  * the whole point, and it is asserted below rather than trusted.
  */
-const HISTORICAL_046_OPERATIONS = `
+const HISTORICAL_055_OPERATIONS = `
   CREATE TABLE mobile_operations (
     device_id           TEXT NOT NULL,
     operation_id        TEXT NOT NULL,
@@ -89,7 +89,7 @@ const HISTORICAL_046_OPERATIONS = `
   )
 `;
 
-/** `mobile_operations` as of v136.1: 046 (current) + 047, but before 048. */
+/** `mobile_operations` as of v136.1: 055 (current) + 056, but before 057. */
 const V136_1_OPERATIONS = `
   CREATE TABLE mobile_operations (
     device_id           TEXT NOT NULL,
@@ -125,7 +125,7 @@ function rewindTo(db, ddl, versionsToUndo) {
   db.exec('DROP TABLE IF EXISTS mobile_operations');
   db.exec(ddl);
   for (const sql of BASE_INDEXES) db.exec(sql);
-  if (versionsToUndo.includes(V048)) {
+  if (versionsToUndo.includes(V057)) {
     db.exec('DROP TABLE IF EXISTS mobile_gateway_instances');
     db.exec('DROP INDEX IF EXISTS idx_mobile_instances_live');
   }
@@ -243,49 +243,49 @@ try {
 
   B = open('early-adopter');
   await runMigrations(B);
-  rewindTo(B, HISTORICAL_046_OPERATIONS, [V047, V048]);
+  rewindTo(B, HISTORICAL_055_OPERATIONS, [V056, V057]);
 
   C = open('v136-1');
   await runMigrations(C);
-  rewindTo(C, V136_1_OPERATIONS, [V048]);
+  rewindTo(C, V136_1_OPERATIONS, [V057]);
 
-  await test('the B fixture really is the pre-047 schema', () => {
+  await test('the B fixture really is the pre-056 schema', () => {
     const names = columnsOf(B, 'mobile_operations').map(c => c.name);
     for (const column of ['unknown_reason', 'unknown_at', 'last_checked_at', 'owner_instance']) {
       assert.ok(!names.includes(column), `${column} must be absent, or B tests nothing`);
     }
-    assert.ok(appliedVersions(B).includes(V046), '046 must still be stamped as applied');
-    assert.ok(!appliedVersions(B).includes(V047));
-    assert.ok(!appliedVersions(B).includes(V048));
+    assert.ok(appliedVersions(B).includes(V055), '055 must still be stamped as applied');
+    assert.ok(!appliedVersions(B).includes(V056));
+    assert.ok(!appliedVersions(B).includes(V057));
   });
 
-  await test('a pre-047 database is broken until 047 runs — the reason 047 exists', () => {
+  await test('a pre-056 database is broken until 056 runs — the reason 056 exists', () => {
     assert.throws(
       () => new OperationJournal(B).markUnknown('dev-x', 'a'.repeat(20), 'upstream_timeout'),
       /unknown_reason/,
-      'this is what editing 046 in place would have left in production',
+      'this is what editing 055 in place would have left in production',
     );
   });
 
-  await test('the C fixture is a v136.1 database: 047 applied, 048 not', () => {
+  await test('the C fixture is a v136.1 database: 056 applied, 057 not', () => {
     const names = columnsOf(C, 'mobile_operations').map(c => c.name);
     assert.ok(names.includes('unknown_reason'));
     assert.ok(!names.includes('owner_instance'));
-    assert.ok(appliedVersions(C).includes(V047));
-    assert.ok(!appliedVersions(C).includes(V048));
+    assert.ok(appliedVersions(C).includes(V056));
+    assert.ok(!appliedVersions(C).includes(V057));
   });
 
   // ── Upgrade B and C ──────────────────────────────────────────────────────
 
-  await test('047 and 048 apply cleanly to an early-adopter database', async () => {
+  await test('056 and 057 apply cleanly to an early-adopter database', async () => {
     const result = await runMigrations(B);
-    assert.ok(result.applied.includes(V047), `047 must run: ${JSON.stringify(result.applied)}`);
-    assert.ok(result.applied.includes(V048), '048 must run');
+    assert.ok(result.applied.includes(V056), `056 must run: ${JSON.stringify(result.applied)}`);
+    assert.ok(result.applied.includes(V057), '057 must run');
   });
 
-  await test('only 048 applies to a v136.1 database', async () => {
+  await test('only 057 applies to a v136.1 database', async () => {
     const result = await runMigrations(C);
-    assert.deepEqual(result.applied, [V048], 'nothing already applied may run twice');
+    assert.deepEqual(result.applied, [V057], 'nothing already applied may run twice');
   });
 
   await test('re-running the chain is a no-op everywhere (idempotence)', async () => {
@@ -344,6 +344,52 @@ try {
       if (/INSERT\s+INTO\s+mobile_\w+\s+VALUES/i.test(source)) offenders.push(`${file}: column-less INSERT`);
     }
     assert.deepEqual(offenders, [], 'ordinal-dependent SQL makes the column order a contract');
+  });
+
+  await test('every migration number named on the mobile surface is a mobile migration', () => {
+    // These three files were 046/047/048 until `d6fee86f`, when the main line
+    // turned out to have taken those numbers first.  Renaming the files was not
+    // enough: every comment, constant and doc line kept saying 046/047/048, and
+    // those numbers now name real migrations that exist in the same directory
+    // and have nothing to do with mobile — `048` is `model_binding_operations`.
+    // A reader following the reference lands on the wrong migration.
+    //
+    // So the rule is not "remember to update the comments".  A number written
+    // on the mobile surface has to resolve to a mobile migration; a migration
+    // owned by another part of development is referenced by its full version,
+    // which no renumbering of ours can invalidate.
+    const root = fileURLToPath(new URL('../', import.meta.url));
+    const migrations = readdirSync(path.join(root, 'src/db/migrations'));
+
+    const surface = [];
+    const collect = (dir, accept) => {
+      for (const entry of readdirSync(path.join(root, dir), { withFileTypes: true })) {
+        const rel = path.join(dir, entry.name);
+        if (entry.isDirectory()) collect(rel, accept);
+        else if (accept(entry.name)) surface.push(rel);
+      }
+    };
+    collect('src/mobile', name => name.endsWith('.js'));
+    collect('src/db/migrations', name => name.includes('mobile') && name.endsWith('.js'));
+    collect('tests', name => /^mobile-.*\.test\.js$/.test(name));
+    collect('docs/mobile', name => name.endsWith('.md'));
+    assert.ok(surface.length > 20, `the scan found only ${surface.length} files — it is not scanning`);
+
+    const reference = /\b(?:migrations?|migrace|migraci|migrací|pre)[\s-](\d{3})\b/gi;
+    const dangling = [];
+    for (const file of surface) {
+      const source = readFileSync(path.join(root, file), 'utf8');
+      for (const match of source.matchAll(reference)) {
+        const number = match[1];
+        const named = migrations.filter(m => m.includes(`_${number}_`));
+        if (named.length === 0) {
+          dangling.push(`${file}: migration ${number} does not exist`);
+        } else if (!named.some(m => m.includes('mobile'))) {
+          dangling.push(`${file}: ${number} is ${named.join('/')}, not a mobile migration`);
+        }
+      }
+    }
+    assert.deepEqual(dangling, [], 'a renumbering left a reference pointing at someone else\'s migration');
   });
 } finally {
   for (const handle of handles) {

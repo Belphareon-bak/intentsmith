@@ -12,10 +12,10 @@
 //   last_checked_at  when the state was last verified, so the screen can say
 //                    "checked 2 minutes ago" instead of implying it is live.
 //
-// This is a separate migration rather than an edit to 046 because 046 has
-// already been applied in databases created before the column existed.  A
-// migration that has run never runs again, so amending it in place would leave
-// exactly those databases without the column — and `markUnknown()` would throw
+// This is a separate migration rather than an edit to 055 (`mobile_gateway`)
+// because 055 has already been applied in databases created before the column
+// existed.  A migration that has run never runs again, so amending it in place
+// would leave those databases without the column — and `markUnknown()` would throw
 // on every ambiguous timeout, which is the one moment it must work.
 //
 // ==============================================================================

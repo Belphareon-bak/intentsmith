@@ -304,11 +304,11 @@ try {
     foreign.release();
   });
 
-  await test('rows written before migration 048 are unowned, and unowned rows are swept', () => {
+  await test('rows written before migration 057 are unowned, and unowned rows are swept', () => {
     const legacy = seedPending('dev-legacy', null);
     new OperationJournal(db).sweepInterrupted();
     const row = stateOf('dev-legacy', legacy);
-    assert.equal(row.state, 'UNKNOWN', 'the pre-048 behaviour must survive for pre-048 rows');
+    assert.equal(row.state, 'UNKNOWN', 'the pre-057 behaviour must survive for pre-057 rows');
     assert.equal(row.unknown_reason, 'process_terminated');
   });
 

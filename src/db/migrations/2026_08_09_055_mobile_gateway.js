@@ -25,8 +25,10 @@ export const description = 'Mobile gateway: revocation, pairing, operation journ
 export function up(db) {
   // ── §8.3 revocation is a state, not an absence ────────────────────────────
   //
-  // Migration 024 creates api_tokens, so in a normal chain it exists by now.
-  // The guard covers the abnormal chains — a rolled-back 024, or a
+  // `2026_03_01_024_v91_security` creates api_tokens, so in a normal chain it
+  // exists by now.  Named in full because it is not a mobile migration and its
+  // number is not this branch's to keep.
+  // The guard covers the abnormal chains — a rolled-back api_tokens, or a
   // schema_migrations table that claims more than the schema actually has —
   // where an unguarded ALTER would abort the whole migration run and leave the
   // database half-upgraded.
@@ -95,8 +97,9 @@ export function up(db) {
     )
   `);
   // Databases that already applied this migration in its earlier form are
-  // upgraded by migration 047, not here — an applied migration never runs
-  // again, so patching it in place would leave those databases broken.
+  // upgraded by migration 056 (`mobile_unknown_reason`), not here — an applied
+  // migration never runs again, so patching it in place would leave those
+  // databases broken.
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_mobile_ops_open
       ON mobile_operations(device_id, state)

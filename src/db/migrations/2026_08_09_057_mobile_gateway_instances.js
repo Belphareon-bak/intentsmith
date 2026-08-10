@@ -20,15 +20,16 @@
 //                                      existed, or by a journal not bound to a
 //                                      registered instance" — unowned, and
 //                                      therefore sweepable, which is exactly the
-//                                      pre-048 behaviour for pre-048 rows.
+//                                      pre-057 behaviour for pre-057 rows.
 //
 //   mobile_gateway_instances           the liveness record a sweep consults, so
 //                                      "that process is gone" is a fact read
 //                                      from the database and a live PID, not an
 //                                      assumption made by whoever booted last.
 //
-// Kept separate from 046 on purpose, and for the same reason 047 was: 046 has
-// already been applied in existing databases.  An applied migration never runs
+// Kept separate from 055 (`mobile_gateway`) on purpose, and for the same reason
+// 056 was: 055 has already been applied in existing databases.  An applied
+// migration never runs
 // again, so amending it in place would upgrade only freshly created databases
 // and silently leave every existing one without the column.
 //
@@ -46,7 +47,7 @@ export function up(db) {
   // `host_identity` is hostname + boot id rather than hostname alone, so a PID
   // recorded before a reboot is never mistaken for a live process after one.
   // `released_at` is a state, not a deletion — the same reason api_tokens keeps
-  // `revoked_at` (046): a row that is gone cannot answer "was it a clean stop
+  // `revoked_at` (055): a row that is gone cannot answer "was it a clean stop
   // or a crash?", and that answer is what decides whether a sweep is honest.
   db.exec(`
     CREATE TABLE IF NOT EXISTS mobile_gateway_instances (
@@ -76,7 +77,7 @@ export function up(db) {
   }
 
   // The sweep's WHERE clause is (state, owner_instance); the open-operation cap
-  // reads (device_id, state) and is already indexed by 046.
+  // reads (device_id, state) and is already indexed by 055.
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_mobile_ops_owner
       ON mobile_operations(state, owner_instance)
