@@ -468,6 +468,30 @@ button { cursor: pointer; border: none; background: none; }
 
 /* Tiles are the completeness condition made visible: one per bar item. */
 .ov-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+/* The template puts the tiles at the top of the root, in one compact row —
+   docs/mobile/design/homescreen-1_schvaleni-3.png.  `auto-fit` keeps the row
+   honest when a scope is missing and a tile with it: three across on a phone,
+   fewer without ragged gaps. */
+/* A card for a capability that does not exist yet: dashed like the
+   "Připravujeme" tiles, so it reads as a placeholder and not as a setting that
+   failed to load. */
+.card[data-locked="true"] { border-style: dashed; }
+.card-note { margin: 4px 0 0; color: var(--text-muted); font-size: 13px; line-height: 1.5; }
+
+.ov-tiles-top {
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  margin-bottom: 4px;
+}
+.ov-tiles-top .ov-tile { gap: 6px; padding: 12px 10px; text-align: center; align-items: center; }
+.ov-tiles-top .ov-tile-note { font-variant-numeric: tabular-nums; }
+
+/* "Zobrazit všechny" — the template's way out of a shortened section. */
+.ov-more {
+  display: block; width: 100%; margin-top: 8px; padding: 10px;
+  min-height: 48px;
+  color: var(--accent-text); font-size: 14px; font-weight: 600;
+}
+
 .ov-tile {
   /* §8 — 48 × 48 dp is the floor for any touch target. */
   width: 100%; min-height: 84px;

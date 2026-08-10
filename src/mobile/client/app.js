@@ -1086,44 +1086,6 @@ function overviewConversations() {
  * The completeness condition, as code.  One row per bar item — including the
  * locked ones, which is the honest rendering of "an item without a screen".
  */
-function overviewSectionMap() {
-  const rows = navItems()
-    .filter(item => item.id !== 'overview')
-    .map(item => {
-      const count = overviewSectionCount(item.id);
-      if (item.locked) {
-        return `<li class="ov-tile" data-locked="true" data-section="${esc(item.id)}">
-          ${icon(item.icon)}
-          <span class="ov-tile-label">${esc(item.label)}</span>
-          <span class="ov-tile-note">${icon('lock')}Připravujeme</span>
-        </li>`;
-      }
-      return `<li><button class="ov-tile" data-act="go" data-route="${esc(item.route)}" data-section="${esc(item.id)}">
-        ${icon(item.icon)}
-        <span class="ov-tile-label">${esc(item.label)}</span>
-        ${count ? `<span class="ov-tile-note">${esc(count)}</span>` : ''}
-      </button></li>`;
-    });
-  return `<ul class="ov-tiles">${rows.join('')}</ul>`;
-}
-
-function overviewSectionCount(id) {
-  if (id === 'conversations') {
-    const list = state.data.conversations;
-    return Array.isArray(list) ? `${list.length} ${plural(list.length, 'konverzace', 'konverzace', 'konverzací')}` : '';
-  }
-  // D-S2 — the approval figure is only honest if it is live.  Offline or after
-  // a failed read there is no confirmed queue, so no number at all.
-  if (id === 'approvals') {
-    const list = state.data.approvals;
-    return Array.isArray(list) && !state.error.approvals ? `${list.length} čeká` : '';
-  }
-  if (id === 'settings') {
-    const open = ms20Entries().length;
-    return open ? `${open} nerozřešených` : '';
-  }
-  return '';
-}
 
 /**
  * D-UI-4 — this is where `Aktivní běhy` with its percentages would have been.
@@ -1142,27 +1104,86 @@ function overviewRunSilence() {
 }
 
 function viewOverview() {
-  // MS-05 is not a bar item (UI-REVIEW §3.5), so the root is the only place it
-  // is reachable from — a deep destination of this section, like one chat.
-  const messages = auth.has('read:notifications')
-    ? `<li><button class="ov-tile" data-act="go" data-route="notifications" data-section="messages">
-        ${icon('bell')}
-        <span class="ov-tile-label">Zprávy</span>
-        ${state.unread ? `<span class="ov-tile-note">${state.unread} nepřečtených</span>` : ''}
-      </button></li>`
-    : '';
+  // Layout follows the operator's template
+  // (docs/mobile/design/homescreen-1_schvaleni-3.png): the tiles sit at the top,
+  // under them what is waiting, then the recent conversations.
+  //
+  // Two deliberate departures from that image, both because the backend cannot
+  // support it: no greeting by name, and no counts for things nothing counts.
+  // "3 agenti běží" and "8 aktivních projektů" have no data source at all
+  // (`MR-07`, `MR-14` are BLOCKED_BY_CONTRACT), and a made-up number on the
+  // root is the exact failure this whole design system exists to prevent.
+  //
+  // The tiles are also what keeps §3.2 true: with the bar retracted on the root
+  // the homescreen is the only map of the app, so every section has to be
+  // reachable from here.  Nastavení is the gear in the header, as in the
+  // template.
+  // Every bar item, because with the bar retracted the root is the only map
+  // (§3.2) — not only the three the template happens to show, whose bar is
+  // always on screen and needs no coverage.  Counts appear where a count is a
+  // fact; Projekty and Nastavení simply lead somewhere.
+  const stats = navItems()
+    // Nastavení is the gear in the header, as in the template — a second tile
+    // for it would be the same destination twice on one screen.  §3.2 coverage
+    // is kept by the gear itself, which is a real control on the root.
+    .filter(item => item.id !== 'overview' && item.id !== 'settings')
+    // MS-05 is deliberately not a bar item (UI-REVIEW §3.5), which makes the
+    // root the *only* place it can be reached from — so it is a tile here even
+    // though `navItems()` never returns it.
+    .concat(auth.has('read:notifications')
+      ? [{ id: 'notifications', route: 'notifications', label: 'Zprávy', icon: 'bell' }]
+      : [])
+    .map(item => {
+      if (item.id === 'conversations') {
+        const list = state.data.conversations;
+        return { ...item, value: Array.isArray(list) ? `${list.length}` : null };
+      }
+      if (item.id === 'approvals') {
+        // D-S2 / MD-07 — the queue figure is only honest when it is live.  After
+        // a failed read there is no confirmed queue, so the tile carries no
+        // number rather than the last one it happened to remember.
+        const list = state.data.approvals;
+        const confirmed = !state.error.approvals && Array.isArray(list);
+        return { ...item, value: confirmed ? `${list.length} čeká` : null };
+      }
+      if (item.id === 'notifications') {
+        return { ...item, value: Array.isArray(state.data.notifications) ? `${state.unread}` : null };
+      }
+      return { ...item, value: null };
+    });
+
+  const statTiles = stats.map(tile => {
+    const body = `${icon(tile.locked ? 'lock' : tile.icon)}
+      <span class="ov-tile-label">${esc(tile.label)}</span>
+      ${tile.locked
+        ? `<span class="ov-tile-note">${icon('lock')}Připravujeme</span>`
+        : (tile.value === null ? '' : `<span class="ov-tile-note">${esc(tile.value)}</span>`)}`;
+    if (tile.locked) {
+      return `<li class="ov-tile" data-locked="true" data-section="${esc(tile.id)}">${body}</li>`;
+    }
+    return `<li><button class="ov-tile" data-act="go" data-route="${esc(tile.route)}" data-section="${esc(tile.id)}">${body}</button></li>`;
+  }).join('');
 
   // §3.1 — an optional module is not in the bar until its capability arrives; a
   // "Připravujeme" tile here is enough until then, and is the honest rendering
-  // of a capability the backend does not have.
-  const upcoming = ['Autonomní agenti', 'Specialisté', 'Paměť'].map(label => `
+  // of a capability the backend does not have.  Paměť is no longer among them:
+  // the operator placed it under Nastavení instead of giving it a section.
+  const upcoming = ['Autonomní agenti', 'Specialisté'].map(label => `
     <li class="ov-tile" data-locked="true">
       ${icon('lock')}
       <span class="ov-tile-label">${esc(label)}</span>
       <span class="ov-tile-note">Připravujeme</span>
     </li>`).join('');
 
-  return header({ title: 'Přehled', left: 'none' }) + `<div class="scroll"><div class="container">
+  const gear = '<button class="icon-btn" data-act="go" data-route="diagnostics"'
+    + ` data-section="settings" aria-label="Nastavení">${icon('gear')}</button>`;
+
+  return header({ title: 'Přehled', left: 'none', right: gear }) + `<div class="scroll"><div class="container">
+    ${statTiles ? `<section class="ov-section" aria-labelledby="ov-now-h">
+      <h2 class="ov-h" id="ov-now-h">Co se právě děje</h2>
+      <ul class="ov-tiles ov-tiles-top">${statTiles}</ul>
+    </section>` : ''}
+
     <section class="ov-section" aria-labelledby="ov-appr-h">
       <h2 class="ov-h" id="ov-appr-h">Čeká na tebe</h2>
       ${overviewApprovals()}
@@ -1173,12 +1194,8 @@ function viewOverview() {
     <section class="ov-section" aria-labelledby="ov-conv-h">
       <h2 class="ov-h" id="ov-conv-h">Nedávné konverzace</h2>
       ${overviewConversations()}
-    </section>
-
-    <section class="ov-section" aria-labelledby="ov-map-h">
-      <h2 class="ov-h" id="ov-map-h">Kam dál</h2>
-      ${overviewSectionMap()}
-      ${messages ? `<ul class="ov-tiles">${messages}</ul>` : ''}
+      ${Array.isArray(state.data.conversations) && state.data.conversations.length
+        ? '<button class="ov-more" data-act="go" data-route="conversations">Zobrazit všechny</button>' : ''}
     </section>
 
     <section class="ov-section" aria-labelledby="ov-soon-h">
@@ -1458,6 +1475,15 @@ function viewDiagnostics() {
   const upstreamTone = health?.upstream === 'ok' ? 'ok' : 'danger';
 
   return header({ title: 'Nastavení' }) + `<div class="scroll"><div class="container">
+    <div class="card" data-locked="true">
+      <div class="card-head"><h3 class="card-title">Paměť</h3>
+        <span class="pill" data-tone="muted">${icon('lock')}Připravujeme</span></div>
+      <p class="card-note">Náhled na to, co si o tobě IntentSmith pamatuje, a ruční
+      poznámka. Zatím se nestaví: obsah i rozsah určuje kontraktní kolo
+      <span class="mono">DR-008</span>, doména 3 (Fáze 4, <span class="mono">MR-17</span>,
+      <span class="mono">MR-18</span>).</p>
+    </div>
+
     <div class="card">
       <div class="card-head"><h3 class="card-title">Spojení</h3></div>
       <div class="kv"><span class="kv-key">Gateway</span>

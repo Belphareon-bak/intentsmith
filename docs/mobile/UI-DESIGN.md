@@ -204,6 +204,27 @@ hluboko (konkrétní projekt, konkrétní approval), lišta přepíná sekci.
 `Přehledu`.** Žádná „výchozí vycentrovaná položka" před první volbou neexistuje
 — na kořeni je lišta zatažená, takže není co centrovat.
 
+#### Rozložení kořene — podle předlohy operátora
+
+**[F] Rozhodnuto 2026-08-10.** Rozložení `Přehledu` se řídí předlohou
+[`design/homescreen-1_schvaleni-3.png`](design/homescreen-1_schvaleni-3.png):
+dlaždice **nahoře pod hlavičkou**, pod nimi co čeká, pak nedávné konverzace
+s odkazem `Zobrazit všechny`. `Nastavení` je **ozubené kolo v hlavičce**, ne
+dlaždice — druhá cesta na totéž místo na jedné obrazovce je duplicita, ne mapa.
+
+Tři vědomé odchylky od předlohy, každá proto, že pod ní není datový zdroj nebo
+ji operátor zamítl:
+
+| Předloha | Zde | Proč |
+|---|---|---|
+| Pozdrav „Ahoj, Jano 👋" | není | Rozhodnutí operátora 2026-08-10 |
+| `3 agenti běží`, `8 aktivních projektů` | není | `MR-07` a `MR-14` jsou `BLOCKED_BY_CONTRACT`; číslo bez zdroje je přesně to, co §2 zakazuje |
+| Lišta stále viditelná, pevná, s `Více` | posouvací, na kořeni zatažená | `D-UI-3`; **předloha a `D-UI-3` popisují dvě různé lišty a rozpor je otevřený** — viz §3.1 |
+
+Dřívější sekce `Kam dál` s navigační mřížkou dole je **zrušená**: byla to kopie
+lišty, kterou §3.2 zakazuje, a vykreslovala se do dvou mřížek, takže rozpadala
+řádky. Pokrytí sekcí podle podmínky níže obstarávají horní dlaždice.
+
 #### Podmínka úplnosti kořene
 
 > **Kořen musí pokrýt každou položku lišty.** Když je lišta na `Přehledu`
