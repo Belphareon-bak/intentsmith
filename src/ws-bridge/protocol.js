@@ -21,6 +21,107 @@ export const PROTOCOL_VERSION = 1;
 import { getCurrentVersion } from '../packaging/auto-updater.js';
 export const BACKEND_VERSION = getCurrentVersion();
 export const M1_WIRE_FEATURE = 'm1-wire-v1';
+export const M1_WIRE_METADATA_VERSION = 1;
+
+export const M1_INLINE_IMAGE_MIME_TYPES = Object.freeze([
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  'image/svg+xml',
+  'image/bmp',
+  'image/x-icon',
+  'image/vnd.microsoft.icon',
+  'image/tiff',
+  'image/avif',
+]);
+
+const M1_ATTACHMENT_POLICY_KEYS = Object.freeze([
+  'version',
+  'mode',
+  'maxCount',
+  'maxTextBytes',
+  'maxImageBytes',
+  'maxAggregateBytes',
+  'maxFrameBytes',
+  'imageMimeTypes',
+]);
+
+function isPlainRecord(value) {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function hasExactKeys(value, keys) {
+  if (!isPlainRecord(value)) return false;
+  const actual = Object.keys(value);
+  return actual.length === keys.length && keys.every(key => Object.hasOwn(value, key));
+}
+
+function isPositiveSafeInteger(value) {
+  return Number.isSafeInteger(value) && value > 0;
+}
+
+/**
+ * Build the exact versioned inline-only attachment policy transported in the
+ * M1 negotiation metadata. There is intentionally no production default here:
+ * the operator-owned count/aggregate/frame values must be supplied explicitly.
+ */
+export function createM1AttachmentPolicy({
+  maxCount,
+  maxTextBytes,
+  maxImageBytes,
+  maxAggregateBytes,
+  maxFrameBytes,
+} = {}) {
+  const numericValues = [
+    maxCount,
+    maxTextBytes,
+    maxImageBytes,
+    maxAggregateBytes,
+    maxFrameBytes,
+  ];
+  if (!numericValues.every(isPositiveSafeInteger)) {
+    throw new TypeError('M1 attachment policy requires positive safe integer limits');
+  }
+  if (maxAggregateBytes < Math.max(maxTextBytes, maxImageBytes)) {
+    throw new TypeError('M1 aggregate attachment limit cannot undercut an item limit');
+  }
+  if (maxFrameBytes <= maxAggregateBytes) {
+    throw new TypeError('M1 frame limit must exceed the decoded aggregate limit');
+  }
+  return Object.freeze({
+    version: M1_WIRE_METADATA_VERSION,
+    mode: 'inline-only',
+    maxCount,
+    maxTextBytes,
+    maxImageBytes,
+    maxAggregateBytes,
+    maxFrameBytes,
+    imageMimeTypes: M1_INLINE_IMAGE_MIME_TYPES,
+  });
+}
+
+export function isM1AttachmentPolicy(value) {
+  return hasExactKeys(value, M1_ATTACHMENT_POLICY_KEYS)
+    && value.version === M1_WIRE_METADATA_VERSION
+    && value.mode === 'inline-only'
+    && [
+      value.maxCount,
+      value.maxTextBytes,
+      value.maxImageBytes,
+      value.maxAggregateBytes,
+      value.maxFrameBytes,
+    ].every(isPositiveSafeInteger)
+    && value.maxAggregateBytes >= Math.max(value.maxTextBytes, value.maxImageBytes)
+    && value.maxFrameBytes > value.maxAggregateBytes
+    && Array.isArray(value.imageMimeTypes)
+    && value.imageMimeTypes.length === M1_INLINE_IMAGE_MIME_TYPES.length
+    && value.imageMimeTypes.every(
+      (mimeType, index) => mimeType === M1_INLINE_IMAGE_MIME_TYPES[index],
+    );
+}
 
 const LEGACY_SERVER_FEATURES = Object.freeze([
   'workspace',
@@ -103,6 +204,7 @@ export function buildAgentEvent(seq, type, turnId, payload) {
 export function negotiateFeatures(clientFeatures = [], capabilities = {}) {
   const offered = Array.isArray(clientFeatures) ? clientFeatures : [];
   const serverFeatures = capabilities?.m1WireSupported === true
+    && isM1AttachmentPolicy(capabilities?.m1AttachmentPolicy)
     ? [...LEGACY_SERVER_FEATURES, M1_WIRE_FEATURE]
     : LEGACY_SERVER_FEATURES;
 
@@ -114,23 +216,39 @@ export function negotiateFeatures(clientFeatures = [], capabilities = {}) {
 }
 
 /** Encode a handshake acknowledgement from the already-derived server subset. */
-export function buildHelloAckFromNegotiatedFeatures(negotiatedFeatures = []) {
+export function buildHelloAckFromNegotiatedFeatures(
+  negotiatedFeatures = [],
+  capabilities = {},
+) {
   const features = Array.isArray(negotiatedFeatures)
     ? [...new Set(negotiatedFeatures.filter(feature => typeof feature === 'string'))]
     : [];
-  return JSON.stringify({
+  const payload = {
     type: 'hello_ack',
     protocolVersion: PROTOCOL_VERSION,
     backendVersion: BACKEND_VERSION,
     serverVersion: BACKEND_VERSION,
     features,
-  });
+  };
+  if (features.includes(M1_WIRE_FEATURE)) {
+    if (!isM1AttachmentPolicy(capabilities?.m1AttachmentPolicy)) {
+      throw new TypeError('M1 negotiation requires exact attachment policy metadata');
+    }
+    payload.featureMetadata = {
+      [M1_WIRE_FEATURE]: {
+        version: M1_WIRE_METADATA_VERSION,
+        attachmentPolicy: capabilities.m1AttachmentPolicy,
+      },
+    };
+  }
+  return JSON.stringify(payload);
 }
 
 /** Build a handshake acknowledgement from one client offer. */
 export function buildHelloAck(clientFeatures = [], capabilities = {}) {
   return buildHelloAckFromNegotiatedFeatures(
     negotiateFeatures(clientFeatures, capabilities),
+    capabilities,
   );
 }
 

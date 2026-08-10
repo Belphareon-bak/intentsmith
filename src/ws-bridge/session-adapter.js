@@ -16,6 +16,7 @@ import {
   AgentEventType,
   buildAgentEvent,
   buildChannelMessage,
+  isM1AttachmentPolicy,
   messageId,
 } from './protocol.js';
 import { TurnTelemetry } from '../telemetry/turn-telemetry.js';
@@ -94,12 +95,109 @@ function mapM1WsConversationFailure(command, error, signal = null) {
 }
 
 // The filesystem-backed attachment branch is deliberately not part of B4:
-// ChatController currently treats an incoming path as read authority. Until an
-// effect owner defines that authority, negotiated M1 accepts only the exact
-// empty collection and the Studio producer must keep non-empty input local.
-export const M1_STUDIO_ATTACHMENT_POLICY = 'PARKED_EMPTY_ONLY';
+// ChatController currently treats an incoming path as read authority. M1 never
+// transports that authority: only an exact, explicitly bounded inline DTO is
+// accepted and every decoded size is measured again at this server boundary.
+export const M1_STUDIO_ATTACHMENT_POLICY = 'BOUNDED_INLINE_ONLY';
 
-export function validateM1StudioContext(value) {
+function base64Value(character) {
+  return 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+    .indexOf(character);
+}
+
+function canonicalBase64ByteLength(value) {
+  if (
+    typeof value !== 'string'
+    || value.length === 0
+    || value.length % 4 !== 0
+    || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)
+  ) return null;
+  const padding = value.endsWith('==') ? 2 : (value.endsWith('=') ? 1 : 0);
+  if (
+    (padding === 2 && (base64Value(value.at(-3)) & 15) !== 0)
+    || (padding === 1 && (base64Value(value.at(-2)) & 3) !== 0)
+  ) return null;
+  return (value.length / 4) * 3 - padding;
+}
+
+function inspectM1StudioAttachments(attachments, policy, errors) {
+  if (!Array.isArray(attachments)) return null;
+  if (attachments.length === 0) return [];
+  if (!isM1AttachmentPolicy(policy)) {
+    errors.push('m1-studio-context:attachments-policy-unavailable');
+    return null;
+  }
+  if (attachments.length > policy.maxCount) {
+    errors.push('m1-studio-context:too-many-attachments');
+  }
+
+  let aggregateBytes = 0;
+  const normalized = [];
+  attachments.forEach((attachment, index) => {
+    const prefix = `m1-studio-context.attachment-${index}`;
+    const attachmentErrors = validateExactKeys(
+      attachment,
+      ['name', 'type', 'content'],
+      [],
+      prefix,
+    );
+    errors.push(...attachmentErrors);
+    if (!isPlainRecord(attachment)) return;
+    if (
+      typeof attachment.name !== 'string'
+      || attachment.name.length < 1
+      || attachment.name.length > 255
+      || attachment.name !== attachment.name.trim()
+      || /[\\/\u0000-\u001f\u007f]/.test(attachment.name)
+    ) {
+      errors.push(`${prefix}:invalid-name`);
+    }
+    if (attachment.type !== 'text' && attachment.type !== 'image') {
+      errors.push(`${prefix}:invalid-type`);
+      return;
+    }
+    if (typeof attachment.content !== 'string') {
+      errors.push(`${prefix}:invalid-content`);
+      return;
+    }
+
+    let decodedBytes;
+    let content = attachment.content;
+    if (attachment.type === 'text') {
+      decodedBytes = Buffer.byteLength(content, 'utf8');
+      if (decodedBytes > policy.maxTextBytes) {
+        errors.push(`${prefix}:text-too-large`);
+      }
+    } else {
+      const match = /^data:([^;,]+);base64,([A-Za-z0-9+/]*={0,2})$/.exec(content);
+      if (!match || !policy.imageMimeTypes.includes(match[1])) {
+        errors.push(`${prefix}:invalid-image-data-url`);
+        return;
+      }
+      decodedBytes = canonicalBase64ByteLength(match[2]);
+      if (decodedBytes === null || decodedBytes === 0) {
+        errors.push(`${prefix}:invalid-image-base64`);
+        return;
+      }
+      if (decodedBytes > policy.maxImageBytes) {
+        errors.push(`${prefix}:image-too-large`);
+      }
+    }
+    aggregateBytes += decodedBytes;
+    normalized.push({
+      name: attachment.name,
+      type: attachment.type,
+      content,
+      size: decodedBytes,
+    });
+  });
+  if (aggregateBytes > policy.maxAggregateBytes) {
+    errors.push('m1-studio-context:attachments-aggregate-too-large');
+  }
+  return normalized;
+}
+
+export function validateM1StudioContext(value, attachmentPolicy = null) {
   const errors = validateExactKeys(
     value,
     ['editMode', 'agentId', 'projectId', 'attachments'],
@@ -117,13 +215,13 @@ export function validateM1StudioContext(value) {
   }
   if (!Array.isArray(value.attachments)) {
     errors.push('m1-studio-context:invalid-attachments');
-  } else if (value.attachments.length !== 0) {
-    errors.push('m1-studio-context:attachments-parked');
+  } else {
+    inspectM1StudioAttachments(value.attachments, attachmentPolicy, errors);
   }
   return validationResult(errors, value);
 }
 
-export function validateM1StudioFrame(value) {
+export function validateM1StudioFrame(value, attachmentPolicy = null) {
   const errors = validateExactKeys(
     value,
     ['command', 'context'],
@@ -132,7 +230,7 @@ export function validateM1StudioFrame(value) {
   );
   if (!isPlainRecord(value)) return validationResult(errors, value);
   const command = validateConversationCommand(value.command);
-  const context = validateM1StudioContext(value.context);
+  const context = validateM1StudioContext(value.context, attachmentPolicy);
   errors.push(...command.errors.map(error => `m1-studio-frame.command.${error}`));
   errors.push(...context.errors.map(error => `m1-studio-frame.context.${error}`));
   return validationResult(errors, value);
@@ -183,6 +281,7 @@ export function createSessionAdapter({
   staleSweepMs = 60_000,
   staleClock = null,
   m1CancelConfirmationTimeoutMs = M1_CANCEL_CONFIRMATION_TIMEOUT_MS,
+  m1AttachmentPolicy = null,
 }) {
   let seq = 0;
   let turnCounter = 0;
@@ -737,7 +836,7 @@ export function createSessionAdapter({
   }
 
   async function processM1Command(frame) {
-    const validation = validateM1StudioFrame(frame);
+    const validation = validateM1StudioFrame(frame, m1AttachmentPolicy);
     if (!validation.valid) {
       const error = new TypeError('Invalid M1 Studio frame');
       error.code = 'M1_STUDIO_FRAME_INVALID';
@@ -747,12 +846,17 @@ export function createSessionAdapter({
 
     const { command, context } = frame;
     if (command.action === 'send') {
+      const normalizedAttachments = inspectM1StudioAttachments(
+        context.attachments,
+        m1AttachmentPolicy,
+        [],
+      );
       return processChat(command.input, {
         editMode: context.editMode,
         conversationId: command.conversationId,
         agentId: context.agentId,
         projectId: context.projectId,
-        attachments: context.attachments,
+        attachments: normalizedAttachments,
       }, command);
     }
 
