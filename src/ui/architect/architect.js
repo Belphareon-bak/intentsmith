@@ -1845,8 +1845,11 @@ function architectSettingsRequireBackup(value) {
       || value.schemaVersion !== ARCHITECT_SETTINGS_BACKUP_SCHEMA_VERSION
       || !architectSettingsExactKeys(projection, ['profile', 'values'])
       || projection.profile !== ARCHITECT_SETTINGS_PORTABLE_PROFILE
-      || !architectSettingsExactKeys(values, ARCHITECT_SETTINGS_PORTABLE_PATHS)
-      || !ARCHITECT_SETTINGS_PORTABLE_PATHS.every(path => architectSettingsPortableValueValid(path, values[path]))
+      || !architectSettingsPlainObject(values)
+      || !Object.keys(values).every(path => (
+        ARCHITECT_SETTINGS_PORTABLE_PATHS.includes(path)
+        && architectSettingsPortableValueValid(path, values[path])
+      ))
       || !architectSettingsPolicyValid(value.modelAutomationPolicy)
       || !architectSettingsExactKeys(omissions, [
         'excluded',
@@ -1919,7 +1922,7 @@ function architectSettingsPortableEntry(document, path) {
 
 function architectSettingsExpectedPortableEntries(envelope) {
   if (envelope.schemaVersion === ARCHITECT_SETTINGS_BACKUP_SCHEMA_VERSION) {
-    return ARCHITECT_SETTINGS_PORTABLE_PATHS.map(path => ({
+    return Object.keys(envelope.settingsProjection.values).sort().map(path => ({
       path,
       value: envelope.settingsProjection.values[path]
     }));
@@ -1961,7 +1964,9 @@ async function architectSettingsResponse(response, mutation = false) {
     throw error;
   }
   if (!response.ok) {
-    const error = new Error(body && typeof body.code === 'string' ? body.code : `HTTP_${response.status}`);
+    const code = body && typeof body.code === 'string' ? body.code : `HTTP_${response.status}`;
+    const path = body && typeof body.path === 'string' ? ` (${body.path})` : '';
+    const error = new Error(`${code}${path}`);
     error.deliveryUnknown = false;
     throw error;
   }
@@ -2184,8 +2189,8 @@ async function loadSettings() {
       if (generation !== architectSettingsGeneration || architectSettingsMutationState !== 'IDLE') {
         return false;
       }
-      applyArchitectSettingsDocument(data);
       serverLoaded = true;
+      applyArchitectSettingsDocument(data);
     }
   } catch (e) {
     console.warn('Failed to load settings from server, using defaults');

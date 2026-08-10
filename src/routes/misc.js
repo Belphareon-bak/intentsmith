@@ -27,6 +27,7 @@ const MODEL_POLICY_SETTINGS_HTTP_STATUS = Object.freeze({
   MODEL_AUTOMATION_POLICY_DB_WRITE_FAILED: 503,
   MODEL_AUTOMATION_POLICY_BACKUP_READ_FAILED: 503,
   MODEL_AUTOMATION_POLICY_STORED_GENERAL_SETTINGS_INVALID: 503,
+  MODEL_AUTOMATION_POLICY_STORED_PORTABLE_VALUE_INVALID: 409,
 });
 
 function modelPolicySettingsHttpStatus(code) {
@@ -160,7 +161,15 @@ export function createMiscRoutes(deps) {
         const code = typeof error?.code === 'string'
           ? error.code
           : 'MODEL_AUTOMATION_POLICY_BACKUP_READ_FAILED';
-        return sendJSON(res, modelPolicySettingsHttpStatus(code), { ok: false, code });
+        const path = code === 'MODEL_AUTOMATION_POLICY_STORED_PORTABLE_VALUE_INVALID'
+          && typeof error?.details?.path === 'string'
+          ? error.details.path
+          : null;
+        return sendJSON(res, modelPolicySettingsHttpStatus(code), {
+          ok: false,
+          code,
+          ...(path === null ? {} : { path }),
+        });
       }
     },
 

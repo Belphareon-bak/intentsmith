@@ -48,9 +48,10 @@ state backup zůstává samostatným `WP-M5-DATA` kontraktem.
 ## 3. Interní connector a stav
 
 `src/db/settings-portability.js` je jediná repository autorita profilu
-`UX_PREFERENCES_V1`. V2 obálka má exact top-level tvar, fully materialized
-pointer mapu a default-deny omission claim. V2 unknown/missing pole nebo
-neplatná hodnota končí před `BEGIN IMMEDIATE`.
+`UX_PREFERENCES_V1`. V2 obálka má exact top-level tvar, source-derived sparse
+pointer mapu a default-deny omission claim. V2 unknown
+nebo missing envelope pole, unsupported pointer či neplatná hodnota končí před
+`BEGIN IMMEDIATE`; nepřítomný podporovaný pointer se nesmí fabrikovat defaultem.
 
 V1 a raw legacy dokumenty zůstávají importovatelné, ale pouze projekcí přes
 stejný allowlist. Jejich omission metadata nemá authority. Destination
@@ -66,9 +67,9 @@ ani runtime účinnost každé historické UI předvolby.
 1. klient validuje exact v2 nebo vytvoří v1 compatibility envelope;
 2. backend znovu validuje a projektuje zdroj bez důvěry v klienta;
 3. repository uvnitř vlastního `BEGIN IMMEDIATE` načte destination dokument;
-4. overlayne přesně source-derived portable cesty (u v2 všech jedenáct, u
-   v1/raw pouze přítomný validní subset) a ve stejné transakci commitne policy
-   i jediný audit event;
+4. overlayne přesně přítomný validní source-derived portable subset u všech
+   podporovaných verzí a ve stejné transakci commitne policy i jediný audit
+   event;
 5. teprve pravdivý exact commit response smí změnit UI snapshot;
 6. non-2xx je `REJECTED`; ztracená nebo malformed 2xx odpověď je
    `DELIVERY_UNKNOWN` a blokuje další whole-document save do reloadu.
@@ -81,8 +82,8 @@ first-party UI cesty. Profilové konstanty musí být byte-for-byte shodné.
 Negativní minimum:
 
 1. nested i flat credentials/destinations a unknown future pole se nestáhnou;
-2. extra/missing v2 pointer, envelope field, neplatný enum nebo rozsah selže
-   před DB mutací i HTTP efektem klienta;
+2. extra v2 pointer, missing/extra envelope field, neplatný enum nebo rozsah
+   selže před DB mutací i HTTP efektem klienta;
 3. v1/raw attacker hodnoty se nepřenesou a destination canaries přežijí;
 4. JSON data keys `constructor`, `prototype` a `__proto__` se bezpečně zachovají
    jako data nebo ignorují, nikdy nezmění prototype;
@@ -99,6 +100,8 @@ Negativní minimum:
 Legacy v1/raw compatibility nesmí defaultovat chybějící portable cesty ani
 tiše skrýt zahozené source cesty. Všechny tři UI plochy zobrazí jejich přesný
 počet; názvy ani hodnoty local-only cest se na veřejnou hranici nevydávají.
+Stejný no-fabricated-default invariant platí i pro v2 export: přenos proběhne
+jen pro skutečně uložené source hodnoty a ostatní destination předvolby přežijí.
 
 ## 6. Stop condition / eskalace
 

@@ -1280,6 +1280,7 @@ function architectSettingsHarness(options = {}) {
   const fileInputs = [];
   const toasts = [];
   const storage = new Map(Object.entries(options.localStorage || {}));
+  let applySettingsCalls = 0;
   let context;
 
   class CapturedBlob {
@@ -1311,7 +1312,12 @@ function architectSettingsHarness(options = {}) {
       notifications: { telegramToken: 'local-token' },
       output: { defaultFormat: 'markdown', codeStyle: 'default', namingConvention: 'camelCase' },
     }),
-    applySettings() {},
+    applySettings() {
+      applySettingsCalls++;
+      if (applySettingsCalls === options.applySettingsThrowOnCall) {
+        throw new Error('fixture Architect render failure');
+      }
+    },
     confirm: () => options.confirmResponse !== false,
     console: { warn() {} },
     document: {
@@ -5928,10 +5934,19 @@ test('backend, authoritative Studio panel, Center Views, and Architect pin one e
 await testAsync('one real backend commit is accepted by every first-party portable settings consumer', async () => {
   const backend = portableSettingsBackendHarness();
   try {
-    const backup = settingsBackupFixture();
+    const backup = settingsBackupFixture({
+      settingsProjection: {
+        profile: 'UX_PREFERENCES_V1',
+        values: {
+          '/appearance/theme': 'light',
+          '/c3.language': 'en',
+        },
+      },
+    });
     const committed = await backend.importBackup(backup);
     assert.equal(committed.status, 200);
     assert.equal(committed.body.sourceSchemaVersion, 2);
+    assert.deepEqual(committed.body.appliedPortablePaths, ['/appearance/theme', '/c3.language']);
     assert.equal(committed.body.policy.lastEventId, committed.body.event.eventId);
 
     const chatPanel = settingsBackupHarness({
@@ -6174,6 +6189,32 @@ await testAsync('Architect recovery revokes an older settings read before it can
   assert.equal(harness.functions.snapshot().appearance.theme, 'dark');
   assert.equal(harness.functions.snapshot().staleTopLevelCanary, undefined);
   assert.equal(harness.functions.state(), 'IDLE');
+});
+
+await testAsync('Architect keeps an authoritative server read when rendering throws', async () => {
+  const harness = architectSettingsHarness({
+    applySettingsThrowOnCall: 2,
+    initialSettings: { appearance: { theme: 'dark' } },
+    localStorage: {
+      paiass_settings: JSON.stringify({
+        appearance: { theme: 'system' },
+        staleTopLevelCanary: 'STALE_LOCAL_FALLBACK',
+      }),
+    },
+    responses: [{
+      ok: true,
+      status: 200,
+      body: {
+        appearance: { theme: 'light' },
+        serverTopLevelCanary: 'AUTHORITATIVE_SERVER',
+      },
+    }],
+  });
+
+  assert.equal(await harness.functions.loadSettings(), true);
+  assert.equal(harness.functions.snapshot().appearance.theme, 'light');
+  assert.equal(harness.functions.snapshot().serverTopLevelCanary, 'AUTHORITATIVE_SERVER');
+  assert.equal(harness.functions.snapshot().staleTopLevelCanary, undefined);
 });
 
 await testAsync('Center Views uses canonical backup/import endpoints and never WS key replay', async () => {

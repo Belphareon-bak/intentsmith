@@ -263,7 +263,9 @@ Schema v1 už není exportní formát: kontrola dvou secret názvů byla false
 boundary. Autoritativní chat panel nyní přijímá ke stažení jen exact schema v2
 default-deny profil a před lokální adopcí import/reset výsledku vyžaduje i
 exact policy, audit event, source-derived portable path/value list, source
-version a ignored-count metadata. VM sada má 122/0; tři dříve detached async
+version a ignored-count metadata. V2 artifact nese jen skutečně uložený
+portable subset; nevyrábí defaulty, které by na cíli přepsaly existující
+preference. VM sada má 123/0; tři dříve detached async
 testy jsou nyní skutečně awaitované a konstantu profilu sada porovnává přímo s
 backendovou autoritou.
 

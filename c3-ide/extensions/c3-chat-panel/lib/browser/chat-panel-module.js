@@ -2619,7 +2619,7 @@ function _settingsPlainObject(value){if(!value||typeof value!=='object'||Array.i
 function _settingsResponseJson(response){
   if(!response||typeof response.json!=='function')return Promise.reject(new Error('neplatná HTTP odpověď'));
   return Promise.resolve().then(function(){return response.json();}).catch(function(){return null;}).then(function(body){
-    if(response.ok!==true){var code=body&&typeof body.code==='string'?body.code:'HTTP_'+(response.status||'ERROR');throw new Error(code);}
+    if(response.ok!==true){var code=body&&typeof body.code==='string'?body.code:'HTTP_'+(response.status||'ERROR');var path=body&&typeof body.path==='string'?' ('+body.path+')':'';throw new Error(code+path);}
     if(!_settingsPlainObject(body)||body.ok!==true)throw new Error('neplatná odpověď serveru');
     return body;
   });
@@ -2654,7 +2654,7 @@ function _settingsRequireBackup(value){
   var projection=value.settingsProjection;var omissions=value.omissions;var policy=value.modelAutomationPolicy;
   var values=projection&&projection.values;
   var valueKeys=_settingsPlainObject(values)?Object.keys(values).sort():[];
-  var valuesValid=valueKeys.join(',')===_SETTINGS_PORTABLE_PATHS.join(',')&&valueKeys.every(function(path){return _settingsPortableValueValid(path,values[path]);});
+  var valuesValid=_settingsPlainObject(values)&&valueKeys.every(function(path){return _SETTINGS_PORTABLE_PATHS.indexOf(path)>=0&&_settingsPortableValueValid(path,values[path]);});
   var projectionValid=_settingsPlainObject(projection)&&Object.keys(projection).sort().join(',')==='profile,values'&&projection.profile===_SETTINGS_PORTABLE_PROFILE&&valuesValid;
   var omissionsValid=_settingsPlainObject(omissions)&&Object.keys(omissions).sort().join(',')==='excluded,scope,sourceHadExcludedPaths,strategy'&&omissions.strategy==='DEFAULT_DENY'&&omissions.scope==='GENERAL_SETTINGS'&&omissions.excluded==='ALL_PATHS_NOT_IN_PROFILE'&&typeof omissions.sourceHadExcludedPaths==='boolean';
   if(Object.keys(value).sort().join(',')!=='kind,modelAutomationPolicy,omissions,schemaVersion,settingsProjection'||value.kind!==_SETTINGS_BACKUP_KIND||value.schemaVersion!==_SETTINGS_BACKUP_SCHEMA_VERSION||!projectionValid||!_settingsPolicyValid(policy)||!omissionsValid)throw new Error('Nepodporovaný formát zálohy');
@@ -2676,7 +2676,7 @@ function _settingsPortableEntry(documentValue,path){
   var flatKey=path.slice(1);return Object.prototype.hasOwnProperty.call(documentValue,flatKey)?{found:true,value:documentValue[flatKey]}:{found:false,value:undefined};
 }
 function _settingsExpectedPortableEntries(envelope){
-  if(envelope.schemaVersion===_SETTINGS_BACKUP_SCHEMA_VERSION)return _SETTINGS_PORTABLE_PATHS.map(function(path){return{path:path,value:envelope.settingsProjection.values[path]};});
+  if(envelope.schemaVersion===_SETTINGS_BACKUP_SCHEMA_VERSION)return Object.keys(envelope.settingsProjection.values).sort().map(function(path){return{path:path,value:envelope.settingsProjection.values[path]};});
   var entries=[];_SETTINGS_PORTABLE_PATHS.forEach(function(path){var entry=_settingsPortableEntry(envelope.generalSettings,path);if(!entry.found)return;if(!_settingsPortableValueValid(path,entry.value))throw new Error('legacy záloha obsahuje neplatnou přenosnou předvolbu');entries.push({path:path,value:entry.value});});return entries;
 }
 function _settingsExpectedIgnoredSourcePathCount(envelope){

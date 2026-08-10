@@ -168,8 +168,11 @@ function requirePortableSettingsBackup(value) {
       || value.schemaVersion !== PORTABLE_SETTINGS_SCHEMA_VERSION
       || !portableSettingsExactKeys(projection, ['profile', 'values'])
       || projection.profile !== PORTABLE_SETTINGS_PROFILE
-      || !portableSettingsExactKeys(values, PORTABLE_SETTINGS_PATHS)
-      || !PORTABLE_SETTINGS_PATHS.every(path => portableSettingsValueValid(path, values[path]))
+      || !portableSettingsPlainObject(values)
+      || !Object.keys(values).every(path => (
+        PORTABLE_SETTINGS_PATHS.includes(path)
+        && portableSettingsValueValid(path, values[path])
+      ))
       || !portableSettingsPolicyValid(value.modelAutomationPolicy)
       || !portableSettingsExactKeys(omissions, [
         'excluded',
@@ -242,7 +245,7 @@ function portableSettingsEntry(document, path) {
 
 function expectedPortableSettingsEntries(envelope) {
   if (envelope.schemaVersion === PORTABLE_SETTINGS_SCHEMA_VERSION) {
-    return PORTABLE_SETTINGS_PATHS.map(path => ({
+    return Object.keys(envelope.settingsProjection.values).sort().map(path => ({
       path,
       value: envelope.settingsProjection.values[path]
     }));
@@ -284,7 +287,9 @@ async function portableSettingsResponse(response, mutation = false) {
     throw error;
   }
   if (!response.ok) {
-    const error = new Error(body && typeof body.code === 'string' ? body.code : `HTTP_${response.status}`);
+    const code = body && typeof body.code === 'string' ? body.code : `HTTP_${response.status}`;
+    const path = body && typeof body.path === 'string' ? ` (${body.path})` : '';
+    const error = new Error(`${code}${path}`);
     error.deliveryUnknown = false;
     throw error;
   }

@@ -582,21 +582,27 @@ focused regression sady.
      změny cyklů. Backend atomického versioned backup/import/reset adaptéru je
      implementovaný jako samostatný feature checkpoint: general settings,
      policy projekce a právě jeden event sdílejí repository-owned
-     `BEGIN IMMEDIATE`; portable export vynechává přesné secret keys, import je
-     nepřijímá a zachovává lokální hodnoty. Post-commit runtime chyba vrací
+     `BEGIN IMMEDIATE`; schema-v2 portable export je default-deny a přenáší jen
+     skutečně uložený source subset jedenácti ohraničených UI cest. Import
+     neznámé ani local-only hodnoty nepřijímá a zachovává je na cíli.
+     Post-commit runtime chyba vrací
      pravdivý degraded úspěch místo falešného 500; repository error catch končí
      před runtime/presentation fází a ani selhání diagnostického loggeru už
      durable commit nesníží na non-2xx. Autoritativní commitnutý
-     Studio runtime nyní kontroluje non-2xx i malformed 2xx, přijme pouze
-     serverem commitnutý snapshot, serializuje import/reset a sám odmítne
-     secret-bearing portable envelope. Mutace mají explicitní
+     Studio runtime i další dvě nalezené first-party UI plochy nyní kontrolují
+     non-2xx i malformed 2xx, přijmou pouze serverem commitnutý snapshot,
+     serializují import/reset a odmítnou neznámou portable cestu. Mutace mají
+     explicitní
      `COMMITTED/REJECTED/DELIVERY_UNKNOWN`; pouze definitivní reject obnoví
      odložený generic save, zatímco nejasné doručení uzamkne další zápisy do
      nového načtení Studia. Společná generace současně zneplatní GET zahájený
-     před recovery. VM sada má 110/0 a vykonává i skutečný Backup panel a
+     před recovery. VM sada má 123/0 a vykonává i skutečný Backup panel a
      FileReader chyby. Review A nad `21ffa72b` našlo dvě P1 race a stale
-     rozsah; tento follow-up je lokálně opravil, ale opakované read-only review
-     a fresh-clone attestation nového subjectu jsou ještě otevřené. Skutečná mobile
+     rozsah; tento follow-up je lokálně opravil. Následné review default-deny
+     profilu našlo fabrikované v2 defaulty, malformed destination container,
+     neakční export error a stale fallback při render chybě; aktuální repair je
+     lokálně uzavírá, ale nové Review A a fresh-clone attestation jsou ještě
+     otevřené. Skutečná mobile
      late-insertion parita zůstává `IMPLEMENTATION_PENDING`. Před
      aktivací je navíc nutný čerstvý role-suite proof svázaný s exaktním
      digestem; dnešní name-only score takovým důkazem není.

@@ -760,6 +760,50 @@ await testAsync('schema v2 export is one deterministic default-deny settings pro
   }
 });
 
+await testAsync('schema v2 carries only source values and repairs a malformed owned container', async () => {
+  const db = openDb();
+  try {
+    createPolicySchema(db);
+    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run(JSON.stringify({
+      appearance: { theme: 'light' },
+      'c3.language': 'en',
+      webhookSecret: 'SOURCE_SECRET_CANARY',
+    }));
+    const harness = createSettingsRouteHarness(db);
+    const exported = harness.backup();
+    assertEqual(exported.status, 200);
+    assertEqual(JSON.stringify(exported.body.backup.settingsProjection.values), JSON.stringify({
+      '/appearance/theme': 'light',
+      '/c3.language': 'en',
+    }));
+    assertEqual(JSON.stringify(exported.body.backup).includes('SOURCE_SECRET_CANARY'), false);
+
+    db.prepare('UPDATE user_settings SET data = ? WHERE id = 1').run(JSON.stringify({
+      appearance: null,
+      output: {
+        codeStyle: 'google',
+        defaultFormat: 'yaml',
+        namingConvention: 'PascalCase',
+      },
+      'c3.language': 'cs',
+      'c3.output.codeBlocks': false,
+      webhookSecret: 'DESTINATION_SECRET_CANARY',
+    }));
+    const { response } = await harness.importBackup(exported.body.backup);
+    assertEqual(response.status, 200);
+    assertEqual(response.body.appliedPortablePaths.join(','), '/appearance/theme,/c3.language');
+    assertEqual(response.body.generalSettings.appearance.theme, 'light');
+    assertEqual(response.body.generalSettings.output.codeStyle, 'google');
+    assertEqual(response.body.generalSettings.output.defaultFormat, 'yaml');
+    assertEqual(response.body.generalSettings.output.namingConvention, 'PascalCase');
+    assertEqual(response.body.generalSettings['c3.language'], 'en');
+    assertEqual(response.body.generalSettings['c3.output.codeBlocks'], false);
+    assertEqual(response.body.generalSettings.webhookSecret, 'DESTINATION_SECRET_CANARY');
+  } finally {
+    db.close();
+  }
+});
+
 await testAsync('schema v2 import overlays only portable preferences and preserves local authority', async () => {
   const db = openDb();
   try {
@@ -942,15 +986,12 @@ await testAsync('invalid and nonportable v2 envelopes fail before settings or po
     db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{"stable":true}');
     const harness = createSettingsRouteHarness(db);
     const before = snapshot(db);
-    const missingPath = portableValues();
-    delete missingPath['/appearance/theme'];
     const extraPath = portableValues({ '/notifications/telegramToken': 'ATTACKER' });
     for (const body of [
       { ...backupEnvelope(), unknown: true },
       { ...backupEnvelope(), schemaVersion: 3 },
       { ...backupEnvelope(), settingsProjection: null },
       backupEnvelope({ settingsProjection: { profile: 'UNKNOWN', values: portableValues() } }),
-      backupEnvelope({ settingsProjection: { profile: 'UX_PREFERENCES_V1', values: missingPath } }),
       backupEnvelope({ settingsProjection: { profile: 'UX_PREFERENCES_V1', values: extraPath } }),
       backupEnvelope({
         settingsProjection: {
@@ -1210,8 +1251,12 @@ await testAsync('backup export fails closed on malformed or invalid stored setti
     }));
     const invalidValue = snapshot(db);
     const invalidResponse = createSettingsRouteHarness(db).backup();
-    assertEqual(invalidResponse.status, 503);
-    assertEqual(invalidResponse.body.code, 'MODEL_AUTOMATION_POLICY_BACKUP_READ_FAILED');
+    assertEqual(invalidResponse.status, 409);
+    assertEqual(
+      invalidResponse.body.code,
+      'MODEL_AUTOMATION_POLICY_STORED_PORTABLE_VALUE_INVALID',
+    );
+    assertEqual(invalidResponse.body.path, '/appearance/theme');
     assertEqual(snapshot(db), invalidValue);
   } finally {
     db.close();

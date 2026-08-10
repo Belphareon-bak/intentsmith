@@ -607,6 +607,18 @@ export class ModelAutomationPolicyRepository {
       return transaction.deferred();
     } catch (error) {
       if (error instanceof ModelAutomationPolicyError) throw error;
+      if (error instanceof SettingsPortabilityError) {
+        const invalidStoredValue = error.code === 'SETTINGS_PORTABILITY_VALUE_INVALID';
+        throw new ModelAutomationPolicyError(
+          invalidStoredValue
+            ? 'MODEL_AUTOMATION_POLICY_STORED_PORTABLE_VALUE_INVALID'
+            : 'MODEL_AUTOMATION_POLICY_STORED_GENERAL_SETTINGS_INVALID',
+          invalidStoredValue
+            ? 'A stored portable setting has an unsupported value'
+            : 'Stored general settings cannot be exported safely',
+          { cause: error, details: error.details },
+        );
+      }
       throw new ModelAutomationPolicyError(
         'MODEL_AUTOMATION_POLICY_BACKUP_READ_FAILED',
         'Settings backup export failed',

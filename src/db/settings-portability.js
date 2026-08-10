@@ -21,67 +21,56 @@ const PORTABLE_FIELDS = Object.freeze([
   Object.freeze({
     pointer: '/appearance/accentColor',
     segments: Object.freeze(['appearance', 'accentColor']),
-    defaultValue: '#6366f1',
     valid: value => typeof value === 'string' && /^#[0-9A-Fa-f]{6}$/u.test(value),
   }),
   Object.freeze({
     pointer: '/appearance/fontFamily',
     segments: Object.freeze(['appearance', 'fontFamily']),
-    defaultValue: 'system',
     valid: enumValue(['system', 'inter', 'roboto', 'source-code']),
   }),
   Object.freeze({
     pointer: '/appearance/fontSize',
     segments: Object.freeze(['appearance', 'fontSize']),
-    defaultValue: 14,
     valid: integerValue(12, 20),
   }),
   Object.freeze({
     pointer: '/appearance/theme',
     segments: Object.freeze(['appearance', 'theme']),
-    defaultValue: 'dark',
     valid: enumValue(['dark', 'light', 'system']),
   }),
   Object.freeze({
     pointer: '/c3.language',
     segments: Object.freeze(['c3.language']),
-    defaultValue: 'cs',
     valid: enumValue(['cs', 'en']),
   }),
   Object.freeze({
     pointer: '/c3.output.codeBlocks',
     segments: Object.freeze(['c3.output.codeBlocks']),
-    defaultValue: true,
     valid: booleanValue,
   }),
   Object.freeze({
     pointer: '/c3.output.markdownRendering',
     segments: Object.freeze(['c3.output.markdownRendering']),
-    defaultValue: true,
     valid: booleanValue,
   }),
   Object.freeze({
     pointer: '/c3.output.syntaxHighlight',
     segments: Object.freeze(['c3.output.syntaxHighlight']),
-    defaultValue: true,
     valid: booleanValue,
   }),
   Object.freeze({
     pointer: '/output/codeStyle',
     segments: Object.freeze(['output', 'codeStyle']),
-    defaultValue: 'default',
     valid: enumValue(['default', 'airbnb', 'google', 'standard']),
   }),
   Object.freeze({
     pointer: '/output/defaultFormat',
     segments: Object.freeze(['output', 'defaultFormat']),
-    defaultValue: 'markdown',
     valid: enumValue(['markdown', 'json', 'csv', 'yaml']),
   }),
   Object.freeze({
     pointer: '/output/namingConvention',
     segments: Object.freeze(['output', 'namingConvention']),
-    defaultValue: 'camelCase',
     valid: enumValue(['camelCase', 'snake_case', 'kebab-case', 'PascalCase']),
   }),
 ]);
@@ -231,13 +220,17 @@ function setPath(document, segments, value) {
   let current = document;
   for (let index = 0; index < segments.length - 1; index++) {
     const segment = segments[index];
-    if (!Object.hasOwn(current, segment)) current[segment] = {};
-    if (!isPlainObject(current[segment])) {
-      fail(
-        'SETTINGS_PORTABILITY_DESTINATION_CONFLICT',
-        'Stored settings cannot preserve local data while applying the portable profile',
-        { path: encodeJsonPointer(segments.slice(0, index + 1)) },
-      );
+    if (!Object.hasOwn(current, segment) || !isPlainObject(current[segment])) {
+      // A scalar/null at a profile-owned container is malformed legacy state,
+      // not local authority that can coexist with the portable leaves below
+      // it. Replace only that exact container; valid sibling data remains
+      // untouched.
+      Object.defineProperty(current, segment, {
+        configurable: true,
+        enumerable: true,
+        value: {},
+        writable: true,
+      });
     }
     current = current[segment];
   }
@@ -253,17 +246,6 @@ function validatePortableValue(field, value) {
     );
   }
   return value;
-}
-
-function projectValues(document) {
-  const values = {};
-  for (const field of PORTABLE_FIELDS) {
-    const candidate = readPath(document, field.segments);
-    values[field.pointer] = candidate.found
-      ? validatePortableValue(field, candidate.value)
-      : field.defaultValue;
-  }
-  return values;
 }
 
 function projectPresentValues(document) {
@@ -309,15 +291,25 @@ function validateProjection(value) {
   if (value.profile !== SETTINGS_PORTABLE_PROFILE) {
     fail('SETTINGS_PORTABILITY_PROFILE_UNSUPPORTED', 'Portable settings profile is unsupported');
   }
-  assertExactKeys(
-    value.values,
-    SETTINGS_PORTABLE_PATHS,
-    'SETTINGS_PORTABILITY_PROJECTION_INVALID',
-    'Portable settings values',
-  );
+  if (!isPlainObject(value.values)) {
+    fail(
+      'SETTINGS_PORTABILITY_PROJECTION_INVALID',
+      'Portable settings values must be a plain object',
+    );
+  }
+  const pointers = Object.keys(value.values).sort();
+  if (pointers.some(pointer => !PORTABLE_BY_POINTER.has(pointer))) {
+    fail(
+      'SETTINGS_PORTABILITY_PROJECTION_INVALID',
+      'Portable settings values contain an unsupported path',
+      { actual: pointers },
+    );
+  }
   const values = {};
   for (const field of PORTABLE_FIELDS) {
-    values[field.pointer] = validatePortableValue(field, value.values[field.pointer]);
+    if (Object.hasOwn(value.values, field.pointer)) {
+      values[field.pointer] = validatePortableValue(field, value.values[field.pointer]);
+    }
   }
   return values;
 }
@@ -361,7 +353,10 @@ export function createSettingsBackup(document, modelAutomationPolicy) {
       schemaVersion: SETTINGS_BACKUP_SCHEMA_VERSION,
       settingsProjection: {
         profile: SETTINGS_PORTABLE_PROFILE,
-        values: projectValues(source),
+        // A portable backup represents values actually chosen on the source
+        // installation. Fabricating defaults for absent paths would silently
+        // overwrite unrelated destination preferences on import.
+        values: projectPresentValues(source),
       },
       modelAutomationPolicy,
       omissions: {

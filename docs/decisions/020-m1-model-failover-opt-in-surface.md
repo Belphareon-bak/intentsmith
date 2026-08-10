@@ -291,8 +291,8 @@ nesmí exportovat**. Historický Review A report nad `06e760bb` je v tomto bodě
 superseded; nepřepisuje se.
 
 Opravný WP zavádí schema v2 s jedinou backendovou default-deny autoritou
-`UX_PREFERENCES_V1`. Artifact nese fully materialized exact mapu jedenácti
-JSON Pointer cest:
+`UX_PREFERENCES_V1`. Artifact nese exact source-derived sparse mapu tvořenou
+pouze skutečně přítomným subsetem jedenácti podporovaných JSON Pointer cest:
 
 - appearance: accent color, font family, font size a theme;
 - Architect output: code style, default format a naming convention;
@@ -301,11 +301,12 @@ JSON Pointer cest:
 Location/account, identity, notifications, secrets, destinations,
 memory/retention, provider/model, device/storage, feature/effect policy a
 všechna neznámá pole zůstávají local-only. `omissions` je fixní serverový popis
-default-deny strategie, nikoli autorita dodaná artifactem. V2 odmítne
-missing/extra pole nebo neplatnou hodnotu před DB mutací. V1/raw import se
-projektuje stejným allowlistem a jeho omission metadata se ignoruje. Chybějící
-legacy portable cesta zachová destination hodnotu; defaulty se materializují
-jen při v2 exportu. UI viditelně přizná počet source cest, které compatibility
+default-deny strategie, nikoli autorita dodaná artifactem. V2 odmítne chybějící
+nebo extra envelope pole, neznámou portable cestu a neplatnou hodnotu před DB
+mutací. Absence podporované cesty je naopak významná: export nesmí vyrobit
+default, který na zdrojové instalaci nebyl uložen, a import takovou destination
+hodnotu zachová. V1/raw import se projektuje stejným allowlistem a jeho omission
+metadata se ignoruje. UI viditelně přizná počet source cest, které compatibility
 projekce ignorovala.
 
 Backend import načte destination uvnitř vlastního `BEGIN IMMEDIATE`, overlayne
