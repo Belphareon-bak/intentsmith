@@ -1,7 +1,7 @@
 # WP-MOBILE-027 — co bylo uděláno
 
 **Typ:** záznam výsledku · **Zadání:** [`WP-MOBILE-027-COMPLETION.md`](WP-MOBILE-027-COMPLETION.md)
-**Vstupní revision:** `5c61add4` · **Výstupní revision:** `d11255ea`
+**Vstupní revision:** `5c61add4` · **Výstupní revision:** `786d4c74`
 **Větev:** `wp/mobile-refresh-20260809` · worktree `/home/belphareon/worktrees/is-mobile-refresh`
 
 > **Co tenhle dokument je.** Záznam implementace s pojmenovaným důkazem na
@@ -116,6 +116,20 @@ Commit `7916098e` uvádí v hlášce `420 PASS`; správné číslo je **418**
 (41+10+6+12+11+38+9+14+15+10+4+61+76+43+18+18+20+12). Historie se kvůli tomu
 nepřepisuje, autoritativní je tenhle řádek.
 
+**Na `786d4c74`** (po dodatcích §6 a §7):
+
+```
+npm run test:mobile                    18 sad, 419 PASS   (parita 11 → 12)
+npm run test:mobile:browser            12 PASS            (nová sada, BLOCKED řádek)
+node tests/schema-migrations.test.js   38 PASS
+node scripts/check-migration-numbers.mjs  bez kolize
+node scripts/validate-test-registry.js valid, 396 programů
+node tests/artifact-validation.test.js 151 PASS
+node tests/repository-hygiene.test.js  1 587 cest
+node scripts/module-boundary-ratchet.mjs        1048/1048 PASS, added=0
+node tests/module-boundary-ratchet.test.js      13 PASS
+```
+
 Ratchet přijal pět nových hran, každou zvlášť a na čistém stromu: čtyři jsou
 `migrace -> src/db/migrate.js` (táž hrana jako `055`–`057`), dvě uvnitř
 `src/mobile/`. **Z jádra do `src/mobile/` nevede žádná** — závislost zůstává
@@ -135,7 +149,86 @@ Fáze C (projekty) nezačala — čeká na kontraktní kolo `DR-008` domény 2.
 `Projekty` jsou v liště položkou bez obrazovky: dokud server nedá
 `read:projects`, nejsou vůbec; s ním jsou zamčené a nekliknutelné.
 
-## 6. Co potřebuje operátora
+## 6. Dodatek `2026-08-10` — koordinace čísel migrací
+
+Tohle nebyla implementační nejasnost, ale skutečný konflikt mezi větvemi.
+
+**Co bylo špatně.** `d6fee86f` musel při refreshi přesunout mobilní gateway
+migrace z `046`/`047`/`048` na `055`/`056`/`057`, protože hlavní linie tatáž
+čísla obsadila dřív. Přejmenovaly se **jen soubory a exportované `version`** —
+komentáře, konstanty a dokumentace dál říkaly `046`/`047`/`048`. Ta čísla dnes
+patří reálným cizím migracím ve stejném adresáři (`046 model_failover`,
+`047 model_failover_claim_expiry`, `048 model_binding_operations`), takže odkaz
+z `operation-journal.js` končil u model-binding lineage. Opraveno 24 odkazů
+v 9 souborech (`8a92ab0c`).
+
+**Pravidlo z §6.3 zadání je překonané.** „Prefix vyšší než `2026_08_09_057`"
+dnes vyrobí kolizi: fáze B obsadila `058`–`060` a modelová linie `061`
+(`905a3422`). Autoritativní znění je nově [`TEST-STRATEGY.md`
+§6.5](TEST-STRATEGY.md); u §6.3 je erratum.
+
+**Číslo se nečte z dokumentu.** Mezi napsáním §6.5 a jeho zacommitováním vznikl
+worktree `is-m1-proof-issuance-impl` a obsadil `062`. Proto
+`scripts/check-migration-numbers.mjs`: prochází všechny registrované worktree
+včetně pracovních stromů, `main` a HEAD větev, hlásí kolize i další volné číslo
+a vrací `1`, když si číslo z tohohle stromu nárokuje jinde jiná migrace
+(`92a7dda1`, `c0cf596c`). Ověřeno mutací — podstrčená
+`2026_08_09_058_other_branch_thing` do cizího worktree → exit 1.
+
+`tests/mobile-migration-parity.test.js` k tomu drží in-tree invariant: každé
+číslo migrace napsané na mobilním povrchu musí patřit mobilní migraci, cizí se
+odkazuje plnou verzí. Sada je proto 12 PASS místo 11.
+
+## 7. Dodatek `2026-08-10` — prohlížečové ověření UI
+
+Limit `F-043`, který si drží každá mobilní UI sada („there is no browser here"),
+je pro fázi A uzavřený: `tests/mobile-browser-a11y.test.js` renderuje skutečného
+klienta v Chrome a měří to, co markup říct nemůže (`786d4c74`, 12 PASS).
+
+**Devět vad, které žádné tvrzení o markupu nemohlo vidět:**
+
+| Co | Naměřeno | Oprava |
+|---|---|---|
+| `--text-faint` | 3.07:1 světlý · 2.88:1 tmavý | `#6d6b66` / `#9c988f` |
+| `--text-muted` | 4.78:1 — pod ním nezbyl krok | `#5c5a54` |
+| `--accent` jako **text** | 3.90:1 na bílé (vybraná položka lišty, počty) | nový `--accent-text` `#a75337`; výplně zůstávají |
+| `--warn` | 4.33:1 na `--danger-soft` | `#8b611c` |
+| `--danger` (tmavý) | 4.42:1 na `--info-soft` | `#e57d6e` |
+| `.icon-btn` | 40 × 40 dp | 48 × 48 |
+| `.btn-sm` („Zjistit stav", A4) | 92 × 37 dp | `min-height: 48px` |
+| `.appr-actions` (MS-14) | 48 dp a 10 px mezera | 56 dp a 12 px podle §8 |
+| pin v `mobile-ms14-decision` | vynucoval `min-height: 48px` | posunut na 56 — pin kódoval vadu, ne pravidlo |
+
+Šest mutací ověřeno zvlášť: vrácení `--text-faint`, `.icon-btn`, MS-14
+geometrie, `position: fixed` na trust baru, `aria-label` jen s první zónou
+a zvýraznění jen barvou — každá shodí právě svůj test.
+
+**Co je nově doloženo, ne jen tvrzeno:** trust bar má `position: static`, začíná
+přesně na spodní hraně hlavičky a posune obsah o svou vlastní výšku (§4);
+prázdný má 0 px (§4.1); čtečce se ohlásí jako `role="status"` jednou větou
+o všech třech zónách (§10); všechny položky lišty jsou ve stromu přístupnosti
+i mimo viewport, vybraná je právě jedna a fokus ji odscrolluje do viditelna
+(§3.1, §3.3).
+
+**Co zůstává neověřené.** Headless Chrome není telefon: VoiceOver ani TalkBack,
+iOS Safari a chování pod skutečným systémovým písmem doložené nejsou.
+
+**Nový otevřený nález — §10 dynamická velikost písma.** Klient je celý v `px`.
+Při nastavení prohlížeče na 200 % se `documentElement` zvětší na 32 px, ale
+`body` zůstane na 16 px a komponentní velikosti se nezmění vůbec — požadavek
+„layouty testované na 200 %" tedy dnes nejde ani vyzkoušet. Převod na `rem` je
+změna napříč celým stylesheetem a patří do vlastního WP, ne sem. Poslední test
+v sadě to drží zapsané jako charakterizaci: spadne ve chvíli, kdy se klient
+stane škálovatelným, a vynutí překlasifikaci místo tichého zapomenutí.
+
+**Registrace.** Řádek je `BLOCKED` s `requirements.toolchain
+["chromium-runtime"]` — `TEST-STRATEGY.md` §5 podmínka 5 říká, že sada
+vyžadující toolchain, který běžný běh nemá, není `offline`. Sada je
+fail-closed: bez prohlížeče končí nenulově s pojmenovanou prerekvizitou
+(podmínka 1, `G0-R016`). Do `test:mobile` zařazená není, aby baterie nepadala
+na strojích bez prohlížeče; běží jako `npm run test:mobile:browser`.
+
+## 8. Co potřebuje operátora
 
 Beze změny proti zadání §7: otevření `DR-008` domény 2, popisek
 `Chaty` × `Konverzace` (implementace používá kanonické **Konverzace**), přílohy
@@ -146,3 +239,6 @@ v chatu, merge větve. Nově k tomu:
 | Zapojení produkčního producenta approvalů | Poslední část `F-100`; rozšíření produkčního povrchu před M6 |
 | Review verdikt nad `F-112` a `F-015` | Implementace a důkaz existují; překlasifikace nálezu je akt review autority |
 | Umístění `Zpráv` (`MS-05`) v navigaci | Implementováno jako hluboký cíl kořene podle `UI-REVIEW` §3.5; zvoneček zůstává otevřenou otázkou |
+| Založení nálezu pro §10 dynamickou velikost písma | Klient je v `px` a na 200 % nereaguje (§7). Doložené, ale **nezaložit nález je akt review autority**, stejně jako ho překlasifikovat |
+| WP na převod stylesheetu na `rem` | Jediná cesta, jak §10 „layouty testované na 200 %" splnit; mění každou obrazovku, takže nepatří do dotahovacího WP |
+| Ověření na skutečném telefonu | Headless Chrome uzavřel kontrast, cíle, geometrii a strom přístupnosti. VoiceOver/TalkBack, iOS Safari a systémové písmo zůstávají mimo dosah CI |

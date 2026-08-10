@@ -349,6 +349,16 @@ Klient i pět přímých successor programů existují, přímo testují PWA a j
 správně registrované pod `C3-032`; kanonický registr se uzavřel bez prázdného
 souhrnného wrapperu (`eee04db9`, `RV-042`).
 
+**Prohlížečová sada podle podmínky 5 (`786d4c74`).**
+`tests/mobile-browser-a11y.test.js` je první sada, na kterou podmínka 5 doopravdy
+dopadá: renderuje klienta v Chrome, aby změřila to, co markup říct nemůže —
+kontrast (§10), dotykové cíle (§8), geometrii trust baru (§4) a strom
+přístupnosti. Řádek je proto `BLOCKED` s `requirements.toolchain
+["chromium-runtime"]`, ne `offline`. Fail-closed podle podmínky 1: chybějící
+`puppeteer` nebo prázdná cache prohlížeče končí nenulově s pojmenovanou
+prerekvizitou. Do `npm run test:mobile` zařazená není — baterie by pak padala
+na stroji bez prohlížeče; spouští se `npm run test:mobile:browser`.
+
 ---
 
 ## 6. Přesně aplikovatelný návrh zápisu do registru
