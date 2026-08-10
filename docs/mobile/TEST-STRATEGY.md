@@ -686,9 +686,9 @@ na run/operaci/normalizovaný obsah. Tyto end-to-end vlastnosti blokuje `F-100`.
 | Plánované ID | Cesta | Tvrzení | Profil |
 |---|---|---|---|
 | `IS-T1-TESTS-MOBILE-CONTRACT-ERROR-STATES-TEST` | `contract-error-states` | Šest chybových stavů z DATA-MODEL §8.3 je rozlišitelných | `offline` |
-| `IS-T1-TESTS-MOBILE-CONTRACT-CURSOR-REJECTION-TEST` | `contract-cursor-rejection` | Odmítnutý kurzor → plný refresh, nikdy dopočet | `offline` |
+| `IS-T2-TESTS-MOBILE-CONTRACT-CURSOR-REJECTION-TEST` | `contract-cursor-rejection` | Odmítnutý kurzor → plný refresh, nikdy dopočet | `database` |
 | `IS-T3-TESTS-MOBILE-CONTRACT-APPROVAL-IDEMPOTENCY-TEST` | `contract-approval-idempotency` | Tři rozlišené případy podle `MD-07` §`R-3.1`: týž klíč + týž otisk → **odpověď ze záznamu bez druhého efektu**; týž klíč + jiný otisk → **fail-closed konflikt**; **druhé uplatnění oprávnění nikdy**, ani s platným klíčem | `server` |
-| `IS-T1-TESTS-MOBILE-CONTRACT-PAGINATION-END-TEST` | `contract-pagination-end` | Konec okna je explicitní; neúplný seznam se nezobrazí jako úplný | `offline` |
+| `IS-T2-TESTS-MOBILE-CONTRACT-PAGINATION-END-TEST` | `contract-pagination-end` | Konec okna je explicitní; neúplný seznam se nezobrazí jako úplný | `database` |
 | `IS-T1-TESTS-MOBILE-CONTRACT-OPERATION-KEY-REUSE-TEST` | `contract-operation-key-reuse` | Síťový retry drží tentýž klíč; nové vědomé provedení dostane nový | `offline` |
 | `IS-T3-TESTS-MOBILE-CONTRACT-OPERATION-KEY-CONFLICT-TEST` | `contract-operation-key-conflict` | Tentýž klíč s jiným payloadem → fail-closed konflikt, ne druhý efekt | `server` |
 | `IS-T2-TESTS-MOBILE-CONTRACT-OPERATION-KEY-PERSISTENCE-TEST` | `contract-operation-key-persistence` | Deduplikační záznam přežije retry interval i restart serveru | `database` |

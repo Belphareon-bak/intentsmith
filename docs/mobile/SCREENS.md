@@ -323,7 +323,7 @@ ochrana, producer/projektor a Gate 1 důkazy chybějí.
 
 #### MS-06 — Seznam konverzací
 
-**Požadavky:** `MR-04`, `MR-09` · **Data:** `MD-03`, `MD-13` · **Testy:** `IS-T1-TESTS-MOBILE-CACHE-ONLY-EXPLICIT-TEST`, `IS-T1-TESTS-MOBILE-CACHE-FRESHNESS-STATES-TEST`, `IS-T1-TESTS-MOBILE-CONTRACT-PAGINATION-END-TEST`
+**Požadavky:** `MR-04`, `MR-09` · **Data:** `MD-03`, `MD-13` · **Testy:** `IS-T1-TESTS-MOBILE-CACHE-ONLY-EXPLICIT-TEST`, `IS-T1-TESTS-MOBILE-CACHE-FRESHNESS-STATES-TEST`, `IS-T2-TESTS-MOBILE-CONTRACT-PAGINATION-END-TEST`
 
 | Stav | Chování |
 |---|---|
@@ -342,7 +342,7 @@ ochrana, producer/projektor a Gate 1 důkazy chybějí.
 
 #### MS-07 — Detail konverzace
 
-**Požadavky:** `MR-05`, `MR-09` · **Data:** `MD-04`, `MD-05`, `MD-13` · **Testy:** `IS-T1-TESTS-MOBILE-CACHE-ONLY-EXPLICIT-TEST`, `IS-T1-TESTS-MOBILE-CONTRACT-CURSOR-REJECTION-TEST`, `IS-T1-TESTS-MOBILE-CONTRACT-PAGINATION-END-TEST`
+**Požadavky:** `MR-05`, `MR-09` · **Data:** `MD-04`, `MD-05`, `MD-13` · **Testy:** `IS-T1-TESTS-MOBILE-CACHE-ONLY-EXPLICIT-TEST`, `IS-T2-TESTS-MOBILE-CONTRACT-CURSOR-REJECTION-TEST`, `IS-T2-TESTS-MOBILE-CONTRACT-PAGINATION-END-TEST`
 
 | Stav | Chování |
 |---|---|

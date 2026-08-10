@@ -8674,6 +8674,66 @@
       }
     },
     {
+      "capabilityId": "C3-031",
+      "tier": "T2",
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null,
+      "id": "IS-T2-TESTS-MOBILE-CONTRACT-CURSOR-REJECTION-TEST",
+      "path": "tests/mobile-contract-cursor-rejection.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-contract-cursor-rejection.test.js"
+      ],
+      "fixture": "owned-loopback-gateway",
+      "profile": "database",
+      "timeoutMs": 300000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      }
+    },
+    {
+      "capabilityId": "C3-031",
+      "tier": "T2",
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null,
+      "id": "IS-T2-TESTS-MOBILE-CONTRACT-PAGINATION-END-TEST",
+      "path": "tests/mobile-contract-pagination-end.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-contract-pagination-end.test.js"
+      ],
+      "fixture": "owned-loopback-gateway",
+      "profile": "database",
+      "timeoutMs": 300000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      }
+    },
+    {
       "id": "IS-T1-TESTS-MODEL-CTX-TEST",
       "path": "tests/model-ctx.test.js",
       "argv": [
