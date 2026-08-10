@@ -2776,3 +2776,52 @@ vlastním navazujícím commitu.
 Jde o parent-only implementační checkpoint, nikoli proof issuance. PASS proof
 zůstává `NOT_ISSUED`; GPU/Ollama, DB, binding, runtime, Electron ani externí
 síť nebyly spuštěné a Gate 1 zůstává `BLOCKED`.
+
+## Checkpoint 34 — 024/A operator-only proof issuer subject
+
+Navazující subject přidal `OperatorModelFailoverProofIssuer v2`. Caller předává
+pouze existující file-backed DB connection, roli a explicitně tagovaný model.
+Issuer sám spustí parent, převezme jeho jednorázovou in-memory capability,
+publikuje oba přesné artefakty do DB-derived verzovaného store a teprve potom
+vloží companion+proof v jednom companion-first `BEGIN IMMEDIATE`. Výsledek
+zůstává path-free `{status, proofId, expiresAtMs}`; desired/active binding,
+runtime, scheduler, broadcast ani provider mutation nevznikají.
+
+První implementační layout je
+`<canonical-main-db>.artifacts/model-failover-proofs/v1/sha256/<sha256>.json`.
+Všechny vytvořené adresáře jsou owned mode 0700 a jejich nové directory entries
+se fsyncují; bloby jsou content-addressed owned regular mode 0400, single-link,
+s byte readbackem a fsyncem souboru i adresáře. DB ukládá oba SHA-256 a délky,
+ne cestu. DB chyba po publikaci smí ponechat pravdivé orphan bloby, nikdy proof
+bez companionu.
+
+Read-only audit před commitem našel a subject opravil dvě P1 vady: prázdný
+SQLite TEMP/attached namespace mohl přes nequalifikované SQL zastínit durable
+`main`, a první vytvoření store hierarchy nebylo crash-durable. Issuer nyní
+povolí jen prázdný TEMP namespace, odmítne všechny attached/TEMP objekty,
+všechny ledger dotazy kvalifikuje `main.*` a namespace i inode znovu ověří před
+transakcí. Asynchronní inode kontrola končí před finální synchronní sekvencí
+namespace → FK → `BEGIN IMMEDIATE`; queue-microtask pin dokládá, že pozdní
+`ATTACH` se dostane ke connection až po commitu. Nový adresář se fsyncuje spolu
+s rodičem.
+
+Focused suite má pět top-level testů, ne novou širokou matici. Jeden test
+tabulkově kryje caller/DB autoritu před providerem, další dva skutečný happy
+path s rotací digestu a pozdní `foreign_keys=OFF`, čtvrtý symlink store a pátý
+rollback druhého insertu včetně nového plného retry. Parent, policy a schema
+sady dál vlastní forged receipt, source drift, threshold a trigger matice.
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node --check scripts/issue-model-failover-proof.js` | bez syntax chyby | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-failover-proof-issuer.test.js` | 5 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-model-failover-parent-acceptance.test.js` | 16 passed, 0 failed, 0 skipped | 0 |
+| `node tests/m1-model-failover-proof-policy.test.js` | 9 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-model-failover-schema.test.js` | 25 passed, 0 failed, 0 skipped | 0 |
+| `C3_LOG_LEVEL=error node tests/schema-migrations.test.js` | 38 passed, 0 failed | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed, 0 skipped | 0 |
+| `node scripts/validate-test-registry.js --json` | 379 programů, 8 exclusions, fingerprint `df64f605…c2ec9` | 0 |
+
+Jde o implementovaný source subject, ne vydaný modelový proof. Review A/B,
+skutečný GPU/Ollama běh, automatic activation/restore a Electron nebyly
+provedené. Gate 1 proto zůstává `BLOCKED`.

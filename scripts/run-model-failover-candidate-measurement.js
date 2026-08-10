@@ -48,6 +48,7 @@ const CLI_FIELDS = Object.freeze({
 });
 const CANDIDATE_SOURCE_PATHS = Object.freeze([
   'package.json',
+  'scripts/issue-model-failover-proof.js',
   'scripts/run-model-failover-candidate-measurement.js',
   'scripts/run-model-failover-measurement.js',
   'src/config.js',

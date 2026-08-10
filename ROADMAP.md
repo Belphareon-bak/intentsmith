@@ -1315,18 +1315,19 @@ mohou pokračovat.
    | 2 | 022 operation-bound recovery | `FRESH_CLONE_VERIFIED` na `81dff196`; built B4 zůstává otevřený |
    | 3 | ověřit dokončenou rezervaci migrací | `061` = 020 a `062` = 015 jsou rezervované; skutečná late-insertion parita čeká na první společný SHA s finálně přečíslovanými mobilními migracemi |
    | 4 | 020 oddělená policy storage | default-deny backend a tři first-party UI consumery jsou implementované; review-remediation source `2c06b159` má 36/0 a 123/0, konsolidační queue 127/0 a focused `--no-local` clone je zelený; formální Review A zůstává otevřené |
-   | 5 | 015 proof issuance | policy a immutable ledger 062 jsou v konsolidační queue; 024/A je přijato, issuer čeká na přijatý base a skutečný PASS proof zůstává otevřený |
+   | 5 | 015 proof issuance | policy a immutable ledger 062 jsou na promoted integration base; 024/A je přijato, issuer je implementovaný a čeká na Review A/B, skutečný PASS proof zůstává otevřený |
    | 6 | 021 built journey | bounded wire attachment/shell změny jsou selektivně v queue; produkční ACK a drahá Electron journey zůstávají otevřené |
    | 7 | autorizovaný GPU pilot | sériově, jedna role a jeden právě pozorovaný artefakt na běh; modely se smějí mezi běhy měnit, jen na akci operátora |
 
    Levné a bezpečnostní změny se tím dokončí před drahou Studio
    infrastrukturou a obě migrační položky dostanou čísla z jednoho census.
 
-   Serializovaný mezivýsledek je na `queue/m1-consolidation-20260810`; jeho
-   přesná topologie, replay mapování a blokátory jsou v
-   [`m1-consolidation-20260810-report.md`](docs/execution/runs/m1-consolidation-20260810-report.md).
-   Focused `--no-local` profil kandidáta `c0fcc444` je zelený. Jde však dál o
-   review queue, nikoli nový stable base nebo Gate 1 PASS.
+   Konsolidovaný M1 base je formálně přijatý na
+   `integration/m1-consolidated-20260810` (`eb93d59b`); přesná promotion
+   topologie je v
+   [`wp-m1-consolidation-promotion-20260810-report.md`](docs/execution/runs/wp-m1-consolidation-promotion-20260810-report.md).
+   Původní focused `--no-local` profil runtime kandidáta `c0fcc444` zůstává
+   historickou evidencí; nový integration ref není Gate 1 PASS.
    `055`–`060` jsou obsazené mobilními migracemi z `d6fee86f`, `e04be7f7`,
    `88b7b435` a `7916098e`. Mobilní balík se kvůli ordinalitě předčasně
    neintegruje; 061/062 musí prokázat pozdější vložení 055–060 do již migrované
@@ -1407,11 +1408,13 @@ mohou pokračovat.
    baterií. Navazující detection-only koordinátor už po opt-inu ukládá exact
    desired baseline a `DETECTED`, ale nevybírá fallback a nemá claim, proof ani
    runtime autoritu. Podporovaný opt-in povrch je přijatý jako
-   [020/E](docs/decisions/020-m1-model-failover-opt-in-surface.md), ale jeho
-   oddělená policy storage je `IMPLEMENTATION_PENDING`. Otevřené zůstávají
-   proof issuer a terminal failover activation/restore. Failover se dosud
-   neaktivuje. Bootstrap `015/A + provisional 7d` je přijatý, ale proof issuer,
-   persistence, migrace 062 a activation evidence jsou `IMPLEMENTATION_PENDING`;
+   [020/E](docs/decisions/020-m1-model-failover-opt-in-surface.md); oddělená
+   policy storage i portable recovery boundary jsou implementované. Otevřený
+   zůstává Finding 011 nad generic settings/CAS/secret authority, skutečný proof
+   a terminal failover activation/restore. Failover se dosud
+   neaktivuje. Bootstrap `015/A + provisional 7d`, persistence i migrace 062
+   jsou implementované; issuer je `IMPLEMENTED / REVIEW_PENDING` a proof i
+   activation evidence zůstávají `NOT_ISSUED`;
    TTL je pouze eligibility a doporučená obnova je explicitně operátorská,
    sériová a bez background GPU jobu. Nový skutečný GPU běh
    zůstává samostatnou blokovanou evidencí, dokud není legitimně čistý checkout.

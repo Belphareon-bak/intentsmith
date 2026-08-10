@@ -2,7 +2,7 @@
 
 - **typ:** přijatá implementační autorita pro vydání PASS proofu
 - **stav:** `ACCEPTED` 2026-08-10 jako varianta A;
-  `PARENT_HANDOFF_IMPLEMENTED`, vlastní issuer zůstává `IMPLEMENTATION_PENDING`;
+  `PARENT_HANDOFF_IMPLEMENTED`, vlastní issuer je `IMPLEMENTED / REVIEW_PENDING`;
   schema/ledger checkpoint 062 tím není zpochybněn a automatická aktivace
   zůstává vypnutá
 - **WP:** navazující `WP-M1-PROOF-ISSUER-PROVENANCE`
@@ -118,10 +118,11 @@ Přesný potvrzovací blok:
 024-digest-change: NEW-PROOF-REQUIRED-FOR-AUTOMATION-ELIGIBILITY
 ```
 
-Operátor tento blok přijal 2026-08-10. Implementace issueru zůstává
-`IMPLEMENTATION_PENDING`, PASS proof `NOT_ISSUED` a Gate 1 `BLOCKED`, dokud
-nevznikne focused důkaz, reviewnutý issuer a skutečný operátorský modelový
-běh. Odmítnutý prototyp s callerovým `acceptancePath` zůstává neplatný.
+Operátor tento blok přijal 2026-08-10. Issuer subject je implementovaný a jeho
+focused fake-provider důkaz je zelený, ale zůstává `REVIEW_PENDING`. PASS proof
+je dál `NOT_ISSUED` a Gate 1 `BLOCKED`, dokud issuer neprojde Review A/B a
+nevznikne skutečný operátorský modelový běh. Odmítnutý prototyp s callerovým
+`acceptancePath` zůstává neplatný.
 
 ## Implementovaný parent handoff
 
@@ -140,6 +141,6 @@ source/export boundary a porovná je s privátními piny. Vrací vždy nové kop
 validovaných bytes a path-free bezpečnou projekci. Druhý `take`, clone,
 forgery i callerový path/authority override skončí fail-closed.
 
-Handoff nevydává proof, nepíše do DB a nemění binding ani runtime. Budoucí
-issuer script se do exact source closure přidá až ve vlastním navazujícím
-commitu; tento checkpoint neodkazuje na neexistující issuer blob.
+Handoff sám nevydává proof, nepíše do DB a nemění binding ani runtime.
+Navazující issuer subject jej už zahrnuje do exact source closure; parent-only
+checkpoint zůstává historicky pravdivý a jeho blob se nepřepisuje.

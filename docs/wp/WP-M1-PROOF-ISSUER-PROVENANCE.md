@@ -1,7 +1,7 @@
 # WP-M1-PROOF-ISSUER-PROVENANCE — orchestration-owned issuance
 
 **Typ:** aktivní zapisující WP · **Rail:** R1, R3, R5, R6
-**Stav zadání:** `ACTIVE / PARENT_HANDOFF_IMPLEMENTED / ISSUER_PENDING`;
+**Stav zadání:** `ACTIVE / PARENT_HANDOFF_IMPLEMENTED / ISSUER_IMPLEMENTED / REVIEW_PENDING`;
 024/A je přijaté a exact promoted integration base je zmrazený
 **Rozhodnutí:** [`024`](../decisions/024-m1-proof-issuer-provenance.md)
 
@@ -79,9 +79,11 @@ script. Produkční `src/**` proto neimportuje `scripts/**`. Test importuje tent
 export; nepoužívá alternativní issuer implementaci.
 
 Kanonickou file-backed cestu hlavní DB odvozuje issuer z connection authority;
-caller ani environment nesmí store root změnit. Exact verzovaný layout je
-implementační kontrakt budoucího issuer subjectu, nikoli parent handoffu.
-Parent checkpoint durable store zatím nevytváří.
+caller ani environment nesmí store root změnit. Issuer subject zvolil první
+verzovaný layout
+`<canonical-main-db>.artifacts/model-failover-proofs/v1/sha256/<sha256>.json`.
+Jde o implementační kontrakt, nikoli rozšíření operátorského potvrzovacího
+bloku 024. Parent checkpoint durable store nevytváří.
 
 ## 4. Source revision, závislosti a pořadí
 
@@ -105,10 +107,10 @@ Parent checkpoint durable store zatím nevytváří.
   immutable subject `S` → Review A → merge queue → fresh-clone Review B.
 
 Exact base je dosažitelný z pojmenovaného integration refu a tento dokument je
-aktivní Work Package. První subject implementuje pouze parent in-memory
-handoff; issuer, durable store, DB commit a proof vzniknou až v samostatném
-navazujícím subjectu. Neexistující issuer proto zatím není součástí exact
-source closure a dokument mu nepřisuzuje blob hash.
+aktivní Work Package. První subject implementoval pouze parent in-memory
+handoff. Navazující subject implementuje issuer, durable store a DB commit a
+přidává issuer script do exact source closure. Skutečný modelový proof vznikne
+až po Review A/B tohoto immutable subjectu.
 
 ## 5. Malá demonstrace
 
@@ -117,7 +119,7 @@ jen roli a model. Issuer spustí parent, přijme pouze jeho in-memory autoritu,
 publikuje mode-0400 single-link blobs pod jejich SHA-256 a v jednom
 `BEGIN IMMEDIATE` vloží companion+proof. Výsledek je `ISSUED`; žádný binding,
 event/state, scheduler, broadcast ani externí request nevznikne. Povolené
-modelové efekty jsou přesně dva loopback `GET /api/tags` a jedna úplná role
+modelové efekty jsou přesně čtyři loopback `GET /api/tags` a jedna úplná role
 suite 8 nebo 6 loopback `POST /api/chat`; pull, delete, rebind, provider
 mutation a jiná route jsou zakázané.
 Proof ID je přesně `mfp-${acceptanceArtifactSha256}`. Publikace používá private
@@ -167,36 +169,27 @@ review a dokumentační evidence mohou pokračovat.
 
 ## 8. Přesné ověření a evidence DAG
 
-Po dokončení issuer subjectu běží v čistém feature checkoutu a znovu v
-`git clone --no-local` tento plný blok:
+Po dokončení issuer subjectu běží v čistém feature checkoutu a při Review B
+znovu v `git clone --no-local` zúžený blok, který neduplikuje už existující
+repository/coordinator/binding matice:
 
 ```bash
 set -euo pipefail
 npm ci --offline
+node --check scripts/issue-model-failover-proof.js
 node tests/m1-model-failover-proof-issuer.test.js
 node tests/m1-model-failover-parent-acceptance.test.js
 node tests/m1-model-failover-proof-policy.test.js
-node tests/m1-model-failover-measurement.test.js
 node tests/m1-model-failover-schema.test.js
 node tests/schema-migrations.test.js
-node tests/m1-model-failover-repository.test.js
-node tests/m1-model-failover-coordinator.test.js
-node tests/m1-model-binding-storage.test.js
-node tests/m1-model-binding-repository.test.js
-node tests/m1-model-policy.test.js
 node tests/artifact-validation.test.js
 node scripts/validate-test-registry.js --json
-node tests/repository-hygiene.test.js
-node scripts/specialist-boundary-ratchet.mjs --require-clean
-node tests/specialist-boundary-ratchet.test.js
-node scripts/module-boundary-ratchet.mjs
-node tests/module-boundary-ratchet.test.js
 git diff --check
 test -z "$(git status --porcelain=v1 --untracked-files=all)"
 ```
 
-Očekávaný výsledek je exit 0 každého příkazu, validní registr, žádná nová
-ratchet hrana bez integrátorského přijetí a prázdný porcelain. GPU/Ollama běh
+Očekávaný výsledek je exit 0 každého příkazu, validní registr a prázdný
+porcelain. GPU/Ollama běh
 do implementační acceptance nepatří; skutečná parent cesta používá
 test-owned loopback provider.
 
@@ -210,5 +203,5 @@ subject S
 ```
 
 Statický WP se po aktivaci nepřepisuje skutečnými subject SHA. Dokud chybí
-issuer review, durable publikace a operátorský proof, očekávaný výsledek je
-`BLOCKED`, nikoli PASS.
+issuer Review A/B a skutečný operátorský proof, Gate 1 je `BLOCKED`, nikoli
+PASS.

@@ -43,6 +43,8 @@ const PARENT_RELATIVE_PATH = 'scripts/run-model-failover-candidate-measurement.j
 const PARENT_PATH = path.join(REPOSITORY_ROOT, PARENT_RELATIVE_PATH);
 const CHILD_RELATIVE_PATH = 'scripts/run-model-failover-measurement.js';
 const CHILD_PATH = path.join(REPOSITORY_ROOT, CHILD_RELATIVE_PATH);
+const ISSUER_RELATIVE_PATH = 'scripts/issue-model-failover-proof.js';
+const ISSUER_PATH = path.join(REPOSITORY_ROOT, ISSUER_RELATIVE_PATH);
 const MODEL_NAME = 'fixture-model:latest';
 const MODEL_DIGEST = '7'.repeat(64);
 const CHILD_TIMEOUT_MS = 25_000;
@@ -219,9 +221,16 @@ async function createCommittedCandidateClone(prefix) {
     REPOSITORY_ROOT,
     cloneRoot,
   ], { stdio: ['ignore', 'pipe', 'pipe'] });
-  await copyFile(PARENT_PATH, path.join(cloneRoot, PARENT_RELATIVE_PATH));
-  await copyFile(CHILD_PATH, path.join(cloneRoot, CHILD_RELATIVE_PATH));
-  execFileSync('git', ['add', '--', PARENT_RELATIVE_PATH, CHILD_RELATIVE_PATH], {
+  for (const [source, relativePath] of [
+    [PARENT_PATH, PARENT_RELATIVE_PATH],
+    [CHILD_PATH, CHILD_RELATIVE_PATH],
+    [ISSUER_PATH, ISSUER_RELATIVE_PATH],
+  ]) {
+    await copyFile(source, path.join(cloneRoot, relativePath));
+  }
+  execFileSync('git', [
+    'add', '--', PARENT_RELATIVE_PATH, CHILD_RELATIVE_PATH, ISSUER_RELATIVE_PATH,
+  ], {
     cwd: cloneRoot,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -364,6 +373,7 @@ test('parent CLI accepts only role and proposed model while config owns provider
   assertIncludes(source, "'package.json',");
   assertIncludes(source, "'--ignored=matching'");
   assertIncludes(source, 'scripts/run-model-failover-candidate-measurement.js');
+  assertIncludes(source, 'scripts/issue-model-failover-proof.js');
   assertIncludes(source, 'expectedAcceptanceAuthority');
   assertIncludes(source, 'await validateModelFailoverCandidateAcceptance(');
   assertIncludes(source, 'const PARENT_HANDOFF_AUTHORITIES = new WeakMap();');
