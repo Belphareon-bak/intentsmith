@@ -1477,3 +1477,54 @@ nulový response success a nulový `terminal` channel efekt.
 Attachment policy, numerický count/frame limit, production ACK a built Electron
 journey tímto checkpointem uzavřené nejsou. GPU, Ollama, produktový server ani
 externí síť nebyly spuštěné; celý B4 i Gate 1 zůstávají `BLOCKED`.
+
+## Checkpoint 29 — dormantní bounded-inline attachment policy
+
+- **server source:** `7b83faaddc6b0a6189c49a091a87e69961d81114`
+- **Studio source:** `c502470ed03ee8d6dd4bb88ec5848006145a800c`
+- **Review A:** `NOT RUN`
+- **clean-clone production build:** `NOT RUN`
+- **produkční M1 ACK / B4 / Gate 1:** nadále `BLOCKED`
+
+Server nyní vyžaduje pro ACK `m1-wire-v1` explicitní exact versioned policy;
+bez ní token nevyjedná. Schéma nese count, text/image item, decoded aggregate a
+celý UTF-8 frame limit; produkční item hodnoty mají převzít existujících 1 MiB
+text / 5 MiB image, zatímco zbývající tři hodnoty operátor dosud neurčil. Žádný
+číselný produkční default ani wiring v `src/server.js` tento checkpoint
+nezavedl. Aktivovaný testovací server použije stejný `maxFrameBytes` jako WS
+`maxPayload`, context znovu validuje před controllerem a předá jen
+serverem přeměřené `{name,type,content,size}` bez `path`.
+
+Studio přijme pouze exact metadata a frozen policy. User-gesture `File` objekt
+na M1 větvi přečte přes `FileReader`, případné Electron `File.path` ignoruje a
+na wire vytvoří jen exact `{name,type,content}`. Empty text `""` je validní;
+contentless, path, binary, nekanonické base64, cizí MIME a překročení
+count/item/aggregate/frame limitu skončí před `WebSocket.send` jednorázovým
+viditelným nereplayovatelným `NOT_SENT`. Draft i původní attachment objekty se
+obnoví. Změna connection epochy, ready stavu nebo policy během asynchronního
+čtení zruší připravený send, takže reconnect nemůže nevědomky změnit jeho wire
+autoritu. Legacy Electron path picker a legacy wire zůstaly beze změny.
+
+Focused testy obsahují pozitivní empty-text/image cestu, skutečné
+Studio→adapter→controller přeměření, transport-race případ a negativní matice
+pro metadata, count, jméno, path, typ/content, UTF-8, MIME, canonical base64,
+item, decoded aggregate a celý frame. Live loopback ověřuje close `1009` před
+controller efektem při překročení `maxPayload`.
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| syntax check změněných server/Studio/test/build-guard JS | valid | 0 |
+| `node tests/ws-bridge.test.js` | 90/0 | 0 |
+| `node tests/m1-studio-client.test.js` | 114/0 | 0 |
+| `node tests/artifact-validation.test.js` | 151/0 | 0 |
+| `node tests/repository-hygiene.test.js` | 1 566 trackovaných cest | 0 |
+| `node scripts/validate-test-registry.js --json` | 381 programů, 8 exclusions, fingerprint `beb54065…a4f8` | 0 |
+| `node scripts/module-boundary-ratchet.mjs` | 1 024/1 024, provenance replay 1 024 | 0 |
+| `node tests/module-boundary-ratchet.test.js` | 13/0 | 0 |
+| `git diff --check` | bez whitespace chyb | 0 |
+
+GPU, Ollama, Electron, produktový server ani externí síť spuštěné nebyly.
+Další bezpečný krok je immutable Review A obou source commitů; potom výběr tří
+nových operátorských hodnot, explicitní runtime wiring, nový clean-clone offline
+production build a registered built journey. Bez těchto kroků nelze
+`m1WireSupported` pravdivě zapnout.
