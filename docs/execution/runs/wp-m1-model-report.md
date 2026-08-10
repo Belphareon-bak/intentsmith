@@ -2738,3 +2738,41 @@ settings/policy a přesnou append-only event lineage.
 
 Nový immutable subject a fresh clone v okamžiku zápisu ještě neexistují. Gate 1
 zůstává `BLOCKED` a integrační ref se neposunula.
+
+## Checkpoint 33 — 024/A parent in-memory handoff
+
+Statický `WP-M1-PROOF-ISSUER-PROVENANCE` byl aktivovaný proti exact promoted
+refu `refs/remotes/origin/integration/m1-consolidated-20260810` a base
+`eb93d59bf8e143ee92149f61a8491fb3e26f9835`. Historický
+`sourceEvidenceRevision=a24815895d984aeb2c36f114770567082f37c339`
+zůstává beze změny.
+
+Parent runner nyní uchovává odvozenou expected autoritu v module-private
+`WeakMap`, klíčovaném přesnou zmrazenou result identitou. Exportovaný `take`
+smí tuto identitu převzít pouze jednou; druhý `take`, clone, forgery a callerem
+dodaný path/authority override selžou. Převzatá privátní capability dovoluje
+opakovaný preflight i terminální recheck. Každý recheck znovu načte measurement
+i acceptance mode-0400 artefakt, ověří jejich metadata a bytes, exact
+source-export boundary, čistý source revision a privátní parent piny. Ven vrací
+jen nové kopie validovaných bytes a path-free bezpečnou projekci; callerova
+mutace jedné kopie další recheck neovlivní.
+
+Focused fixture provedla jeden skutečný parent flow proti test-owned loopback
+provideru a připnula přesně 4 `GET /api/tags` a 8 `POST /api/chat`; opakované
+rechecky nevytvořily žádný další provider efekt. Do checkpointu nevstoupil
+issuer script, migrace, policy, child runner, runtime, DB writer ani registry.
+Budoucí issuer musí publikovat do jediného per-DB verzovaného namespace
+`<canonical-main-db-path>.artifacts/model-failover-proofs/v1/sha256/<64hex>.json`;
+caller ani environment jej nesmí změnit. Issuer se do exact source closure
+přidá až ve vlastním navazujícím commitu.
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-model-failover-parent-acceptance.test.js` | 16 passed, 0 failed, 0 skipped | 0 |
+| `node --check scripts/run-model-failover-candidate-measurement.js` | bez syntax chyby | 0 |
+| `node --check tests/m1-model-failover-parent-acceptance.test.js` | bez syntax chyby | 0 |
+| `git diff --check` | bez whitespace chyb | 0 |
+
+Jde o parent-only implementační checkpoint, nikoli proof issuance. PASS proof
+zůstává `NOT_ISSUED`; GPU/Ollama, DB, binding, runtime, Electron ani externí
+síť nebyly spuštěné a Gate 1 zůstává `BLOCKED`.

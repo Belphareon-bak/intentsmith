@@ -1,8 +1,10 @@
 # 024 — proof issuer musí vlastnit původ měření a retry hranici
 
 - **typ:** přijatá implementační autorita pro vydání PASS proofu
-- **stav:** `ACCEPTED` 2026-08-10 jako varianta A; schema/ledger checkpoint 062
-  tím není zpochybněn a automatická aktivace zůstává vypnutá
+- **stav:** `ACCEPTED` 2026-08-10 jako varianta A;
+  `PARENT_HANDOFF_IMPLEMENTED`, vlastní issuer zůstává `IMPLEMENTATION_PENDING`;
+  schema/ledger checkpoint 062 tím není zpochybněn a automatická aktivace
+  zůstává vypnutá
 - **WP:** navazující `WP-M1-PROOF-ISSUER-PROVENANCE`
 - **rail:** R1, R3, R5, R6
 - **vzniklo při:** implementaci rozhodnutí 015 a call-graph auditu parent acceptance
@@ -26,7 +28,10 @@ Další dvě hrany jsou také potvrzené:
 
 - `PRAGMA foreign_keys` je connection-local a issuer jej musí ověřit těsně
   před vlastní top-level `BEGIN IMMEDIATE`, nikoli pouze při migraci;
-- content-addressed blobs musí žít v interně odvozeném runtime data rootu.
+- content-addressed blobs musí žít v interně odvozeném runtime data rootu,
+  přesně
+  `<canonical-main-db-path>.artifacts/model-failover-proofs/v1/sha256/<64hex>.json`.
+  Namespace je per-DB, verzovaný a caller ani environment jej nemění.
   Worktree-local artefakt není durable důkaz pro SQLite, která worktree přežije.
 
 ## Varianty
@@ -103,7 +108,7 @@ Přesný potvrzovací blok:
 ```text
 024-provenance: A-ORCHESTRATION-OWNED-PARENT
 024-input: DB-ROLE-PROPOSED-MODEL-ONLY
-024-artifact-root: DERIVED-FROM-CANONICAL-FILE-DB
+024-artifact-root: <canonical-main-db-path>.artifacts/model-failover-proofs/v1/sha256/<64hex>.json
 024-proof-id: MFP-PREFIX-PLUS-ACCEPTANCE-SHA256
 024-retry: NEW-OPERATOR-ACTION-RERUNS-MEASUREMENT
 024-resume: OFF
@@ -117,6 +122,26 @@ Přesný potvrzovací blok:
 
 Operátor tento blok přijal 2026-08-10. Implementace issueru zůstává
 `IMPLEMENTATION_PENDING`, PASS proof `NOT_ISSUED` a Gate 1 `BLOCKED`, dokud
-nevznikne přijatý integrační base, focused důkaz, reviewnutý issuer a skutečný
-operátorský modelový běh. Odmítnutý prototyp s callerovým `acceptancePath`
-zůstává neplatný.
+nevznikne focused důkaz, reviewnutý issuer a skutečný operátorský modelový
+běh. Odmítnutý prototyp s callerovým `acceptancePath` zůstává neplatný.
+
+## Implementovaný parent handoff
+
+Statický WP je aktivovaný proti
+`refs/remotes/origin/integration/m1-consolidated-20260810` na přesném base
+`eb93d59bf8e143ee92149f61a8491fb3e26f9835`; původní
+`sourceEvidenceRevision=a24815895d984aeb2c36f114770567082f37c339`
+zůstává historickou autoritou konsolidační evidence.
+
+Parent runner drží očekávanou autoritu pouze v module-private `WeakMap`, jehož
+klíčem je přesná zmrazená identita vráceného výsledku. Exportovaný `take`
+přijme tuto identitu právě jednou a okamžitě ji z mapy odebere. Vrácená
+privátní capability smí provést opakovaný preflight i terminální recheck: při
+každém volání znovu čte measurement i acceptance mode-0400 artefakt, ověří
+source/export boundary a porovná je s privátními piny. Vrací vždy nové kopie
+validovaných bytes a path-free bezpečnou projekci. Druhý `take`, clone,
+forgery i callerový path/authority override skončí fail-closed.
+
+Handoff nevydává proof, nepíše do DB a nemění binding ani runtime. Budoucí
+issuer script se do exact source closure přidá až ve vlastním navazujícím
+commitu; tento checkpoint neodkazuje na neexistující issuer blob.

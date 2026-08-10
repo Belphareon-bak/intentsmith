@@ -1,9 +1,8 @@
 # WP-M1-PROOF-ISSUER-PROVENANCE — orchestration-owned issuance
 
-**Typ:** budoucí zapisující WP · **Rail:** R1, R3, R5, R6
-**Stav zadání:** `DECISION_ACCEPTED / BASE_PENDING`; 024/A je přijaté, ale WP
-není aktivní, dokud konsolidační queue neprojde formálním review a nevznikne
-přesný promoted integration base
+**Typ:** aktivní zapisující WP · **Rail:** R1, R3, R5, R6
+**Stav zadání:** `ACTIVE / PARENT_HANDOFF_IMPLEMENTED / ISSUER_PENDING`;
+024/A je přijaté a exact promoted integration base je zmrazený
 **Rozhodnutí:** [`024`](../decisions/024-m1-proof-issuer-provenance.md)
 
 ## 1. Uživatelský výsledek
@@ -21,7 +20,7 @@ loopback provider.
 
 ## 2. Povolené a zakázané cesty
 
-**Předběžně povolené po aktivaci:**
+**Povolené:**
 
 - nový `scripts/issue-model-failover-proof.js`, který současně exportuje
   interní connector a obsahuje tenkou CLI composition;
@@ -79,6 +78,16 @@ Connector žije v operator-only scriptu, který importuje existující parent
 script. Produkční `src/**` proto neimportuje `scripts/**`. Test importuje tentýž
 export; nepoužívá alternativní issuer implementaci.
 
+Durable store je jediný per-DB a verzovaný namespace:
+
+```text
+<canonical-main-db-path>.artifacts/model-failover-proofs/v1/sha256/<64hex>.json
+```
+
+Kanonickou file-backed cestu hlavní DB odvozuje issuer z connection authority;
+caller ani environment nesmí root, verzi, digestovou cestu nebo filename
+změnit. Parent checkpoint durable store zatím nevytváří.
+
 ## 4. Source revision, závislosti a pořadí
 
 - `sourceEvidenceRevision`:
@@ -87,9 +96,10 @@ export; nepoužívá alternativní issuer implementaci.
   `refs/remotes/origin/queue/m1-consolidation-20260810`;
 - runtime candidate uvnitř její evidence:
   `c0fcc444f9f0d5a3519a02c6ab3b4d0bedd1fdab`;
-- `integrationRef`: **nepřiděleno** — čeká na promotion po formálním review;
-- `baseRevision`: **nepřiděleno** — musí být full SHA promoted integračního
-  refu obsahujícího schema 062 i přijaté 024;
+- `integrationRef`:
+  `refs/remotes/origin/integration/m1-consolidated-20260810`;
+- `baseRevision`:
+  `eb93d59bf8e143ee92149f61a8491fb3e26f9835`;
 - stabilní remote ref zůstává
   `refs/remotes/origin/integration/gate1-prod-ready-20260809` na
   `1d351f67428eb1c4ae1adc99ce4dd99baef608e9`;
@@ -99,8 +109,11 @@ export; nepoužívá alternativní issuer implementaci.
 - pořadí: decision → statický contract/activation review → jediný writer →
   immutable subject `S` → Review A → merge queue → fresh-clone Review B.
 
-Dokud `baseRevision` není full SHA dosažitelný z pojmenovaného integration
-refu, tento dokument není aktivní Work Package.
+Exact base je dosažitelný z pojmenovaného integration refu a tento dokument je
+aktivní Work Package. První subject implementuje pouze parent in-memory
+handoff; issuer, durable store, DB commit a proof vzniknou až v samostatném
+navazujícím subjectu. Neexistující issuer proto zatím není součástí exact
+source closure a dokument mu nepřisuzuje blob hash.
 
 ## 5. Malá demonstrace
 
@@ -139,6 +152,15 @@ Proof pro digest A nesmí autorizovat digest B; nový explicitní operátorský 
 pro digest B smí vydat vlastní proof. Desired i active binding musí zůstat před
 i po issuance byteově a revision-shodné.
 
+První parent-only subject má užší focused acceptance: přesnou zmrazenou result
+identitu lze z module-private `WeakMap` převzít jen jednou. Clone, forgery,
+druhý `take` a jakýkoli callerový override jsou odmítnuté. Převzatá privátní
+capability dovoluje více preflight i terminálních rechecků; každý znovu načte
+oba immutable mode-0400 artefakty, ověří source/export boundary a privátní
+expected autoritu a vrátí pouze nové kopie validovaných bytes a path-free
+bezpečnou projekci. Expected authority se neobjeví ve veřejném resultu, JSON,
+stdout ani stderr.
+
 ## 7. Stop condition a eskalace
 
 Zastavit dotčenou část při jiné variantě než přijaté 024, potřebě nové
@@ -150,8 +172,8 @@ review a dokumentační evidence mohou pokračovat.
 
 ## 8. Přesné ověření a evidence DAG
 
-Po doplnění full `baseRevision` a přijetí 024 běží v čistém feature checkoutu
-a znovu v `git clone --no-local` tento blok:
+Po dokončení issuer subjectu běží v čistém feature checkoutu a znovu v
+`git clone --no-local` tento plný blok:
 
 ```bash
 set -euo pipefail
@@ -192,5 +214,6 @@ subject S
   -> report-only E_B po --no-local fresh-clone Review B
 ```
 
-Statický WP se po aktivaci nepřepisuje skutečnými SHA. Dokud chybí přijaté
-rozhodnutí a exact base, očekávaný výsledek je `BLOCKED`, nikoli PASS.
+Statický WP se po aktivaci nepřepisuje skutečnými subject SHA. Dokud chybí
+issuer review, durable publikace a operátorský proof, očekávaný výsledek je
+`BLOCKED`, nikoli PASS.

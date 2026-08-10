@@ -68,6 +68,7 @@ const CHILD_SUMMARY_KEYS = Object.freeze([
   'artifactSha256',
   'artifactByteLength',
 ]);
+const PARENT_HANDOFF_AUTHORITIES = new WeakMap();
 
 export class ModelFailoverCandidateMeasurementError extends Error {
   constructor(code, message, options = {}) {
@@ -84,6 +85,18 @@ function fail(code, message, details = null) {
 
 function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
+}
+
+function deepFreezeJson(value) {
+  if (value === null || typeof value !== 'object') return value;
+  for (const nested of Array.isArray(value) ? value : Object.values(value)) {
+    deepFreezeJson(nested);
+  }
+  return Object.freeze(value);
+}
+
+function privateJsonCopy(value, canonicalize) {
+  return deepFreezeJson(JSON.parse(canonicalize(value)));
 }
 
 function isPlainRecord(value) {
@@ -1138,6 +1151,217 @@ export async function validateModelFailoverCandidateAcceptance(
   });
 }
 
+async function readImmutableParentAcceptance({
+  sourceRoot,
+  run,
+  publication,
+  authorities,
+  expectedAuthority,
+}) {
+  const acceptancePath = path.join(run.runDirectory, ACCEPTANCE_FILE);
+  if (publication.path !== acceptancePath) {
+    fail(
+      'MODEL_CANDIDATE_MEASUREMENT_HANDOFF_INVALID',
+      'Private acceptance publication identity drifted',
+    );
+  }
+  const [sourceCanonical, runCanonical, fileCanonical, metadata, bytes] = await Promise.all([
+    realpath(sourceRoot),
+    realpath(run.runDirectory),
+    realpath(acceptancePath),
+    lstat(acceptancePath),
+    readFile(acceptancePath),
+  ]);
+  if (runCanonical !== path.resolve(run.runDirectory)
+    || fileCanonical !== path.resolve(acceptancePath)
+    || !isPathInside(sourceCanonical, runCanonical)
+    || !isPathInside(runCanonical, fileCanonical)
+    || !metadata.isFile()
+    || metadata.isSymbolicLink()
+    || (metadata.mode & 0o777) !== 0o400
+    || metadata.nlink !== 1
+    || (typeof process.getuid === 'function' && metadata.uid !== process.getuid())) {
+    fail(
+      'MODEL_CANDIDATE_MEASUREMENT_ACCEPTANCE_BOUNDARY_INVALID',
+      'Parent acceptance must remain an owned regular mode-0400 single-link artifact',
+    );
+  }
+  if (bytes.length !== metadata.size
+    || bytes.length !== publication.byteLength
+    || sha256(bytes) !== publication.sha256) {
+    fail(
+      'MODEL_CANDIDATE_MEASUREMENT_ACCEPTANCE_DIGEST_INVALID',
+      'Parent acceptance bytes differ from the private publication authority',
+    );
+  }
+  const text = decodeUtf8(bytes, 'acceptance artifact');
+  let acceptance;
+  try {
+    acceptance = JSON.parse(text);
+  } catch {
+    fail(
+      'MODEL_CANDIDATE_MEASUREMENT_ACCEPTANCE_INVALID',
+      'Parent acceptance artifact is not JSON',
+    );
+  }
+  const validation = await validateModelFailoverCandidateAcceptance(
+    acceptance,
+    authorities,
+    expectedAuthority,
+  );
+  if (validation.validationScope !== 'PARENT_PINS_VERIFIED'
+    || authorities.canonicalize(acceptance) !== text) {
+    fail(
+      'MODEL_CANDIDATE_MEASUREMENT_ACCEPTANCE_INVALID',
+      'Parent acceptance bytes are not the canonical private-authority result',
+    );
+  }
+  return Object.freeze({ acceptance, validation, bytes });
+}
+
+function createIssuerSafeProjection({ acceptance, measurement, acceptancePublication }) {
+  const contract = measurement.measurementContract;
+  const candidate = acceptance.candidate;
+  const roleAcceptance = contract.acceptance;
+  return deepFreezeJson({
+    schemaVersion: 1,
+    validationScope: 'PARENT_PINS_VERIFIED',
+    parentRunId: acceptance.parentRunId,
+    sourceRevision: acceptance.source.revision,
+    candidate: {
+      role: candidate.role,
+      requestedModelName: candidate.requestedModelName,
+      observedModelName: candidate.observedModelName,
+      canonicalName: candidate.canonicalName,
+      digestSha256: candidate.digestSha256,
+    },
+    measurement: {
+      runId: measurement.runId,
+      suite: contract.role.suite,
+      roleContractSha256: measurement.measurementContractSha256,
+      policyVersion: contract.policyVersion,
+      validationVersion: contract.validationVersion,
+      score: measurement.aggregate.score,
+      requiredScore: roleAcceptance.requiredScore,
+      passedCount: measurement.aggregate.passedCount,
+      requiredPassedCount: roleAcceptance.requiredPassedCount,
+      totalCount: measurement.aggregate.totalCount,
+      startedAtMs: measurement.startedAtMs,
+      completedAtMs: measurement.completedAtMs,
+      durationMs: measurement.durationMs,
+      proofTtlMs: roleAcceptance.proofTtlMs,
+    },
+    acceptance: {
+      completedAtMs: acceptance.completedAtMs,
+    },
+    artifacts: {
+      measurement: {
+        sha256: acceptance.measurement.artifactSha256,
+        byteLength: acceptance.measurement.artifactByteLength,
+      },
+      acceptance: {
+        sha256: acceptancePublication.sha256,
+        byteLength: acceptancePublication.byteLength,
+      },
+    },
+  });
+}
+
+async function recheckPrivateModelFailoverCandidateMeasurementHandoff(privateAuthority) {
+  requireCleanCandidateState(
+    sourceState(privateAuthority.sourceRoot),
+    privateAuthority.sourceRevision,
+  );
+  await validateParentRunBoundary(privateAuthority.sourceRoot, privateAuthority.run);
+  await validateCandidateSourceExport(
+    privateAuthority.run.sourceExportRoot,
+    privateAuthority.sourceManifest,
+  );
+  const measurement = await validateModelFailoverMeasurementChildResult({
+    sourceRoot: privateAuthority.run.sourceExportRoot,
+    childArtifactRoot: privateAuthority.run.childArtifactRoot,
+    result: privateAuthority.childResult,
+    expectedPins: privateAuthority.expectedPins,
+    expectedInventory: privateAuthority.expectedInventory,
+    authorities: privateAuthority.authorities,
+  });
+  const acceptance = await readImmutableParentAcceptance({
+    sourceRoot: privateAuthority.sourceRoot,
+    run: privateAuthority.run,
+    publication: privateAuthority.acceptancePublication,
+    authorities: privateAuthority.authorities,
+    expectedAuthority: privateAuthority.expectedAcceptanceAuthority,
+  });
+  if (acceptance.acceptance.measurement.artifactSha256 !== measurement.summary.artifactSha256
+    || acceptance.acceptance.measurement.artifactByteLength
+      !== measurement.summary.artifactByteLength
+    || acceptance.acceptance.measurement.runId !== measurement.summary.runId) {
+    fail(
+      'MODEL_CANDIDATE_MEASUREMENT_HANDOFF_INVALID',
+      'Parent acceptance and measurement artifact identities diverged',
+    );
+  }
+
+  requireCleanCandidateState(
+    sourceState(privateAuthority.sourceRoot),
+    privateAuthority.sourceRevision,
+  );
+  await validateParentRunBoundary(privateAuthority.sourceRoot, privateAuthority.run);
+  await validateCandidateSourceExport(
+    privateAuthority.run.sourceExportRoot,
+    privateAuthority.sourceManifest,
+  );
+
+  return Object.freeze({
+    schemaVersion: 1,
+    validationScope: 'PARENT_PINS_VERIFIED',
+    measurementArtifactBytes: Buffer.from(measurement.bytes),
+    acceptanceArtifactBytes: Buffer.from(acceptance.bytes),
+    projection: createIssuerSafeProjection({
+      acceptance: acceptance.acceptance,
+      measurement: measurement.artifact,
+      acceptancePublication: privateAuthority.acceptancePublication,
+    }),
+  });
+}
+
+export function takeModelFailoverCandidateMeasurementHandoff(
+  result,
+  ...authorityOverrides
+) {
+  if (authorityOverrides.length !== 0) {
+    fail(
+      'MODEL_CANDIDATE_MEASUREMENT_HANDOFF_OVERRIDE_REJECTED',
+      'Parent handoff does not accept caller-owned authority or path overrides',
+    );
+  }
+  const privateAuthority = result !== null && typeof result === 'object'
+    ? PARENT_HANDOFF_AUTHORITIES.get(result)
+    : null;
+  if (!privateAuthority || !Object.isFrozen(result)) {
+    fail(
+      'MODEL_CANDIDATE_MEASUREMENT_HANDOFF_INVALID',
+      'Parent handoff requires one untaken exact frozen in-process measurement result',
+    );
+  }
+  PARENT_HANDOFF_AUTHORITIES.delete(result);
+
+  const recheck = async (...recheckOverrides) => {
+    if (recheckOverrides.length !== 0) {
+      fail(
+        'MODEL_CANDIDATE_MEASUREMENT_HANDOFF_OVERRIDE_REJECTED',
+        'Parent handoff recheck does not accept caller-owned authority or path overrides',
+      );
+    }
+    return recheckPrivateModelFailoverCandidateMeasurementHandoff(privateAuthority);
+  };
+  return Object.freeze({
+    schemaVersion: 1,
+    validationScope: 'PRIVATE_PARENT_HANDOFF',
+    recheck,
+  });
+}
+
 async function writeImmutableAcceptance(runDirectory, canonicalJson, beforePublish) {
   const finalPath = path.join(runDirectory, ACCEPTANCE_FILE);
   const temporaryPath = path.join(runDirectory, `.acceptance-${randomUUID()}.tmp`);
@@ -1354,24 +1578,24 @@ export async function runModelFailoverCandidateMeasurement(inputValue) {
       externalNetwork: false,
     },
   };
-  const expectedAcceptanceAuthority = Object.freeze({
+  const expectedAcceptanceAuthority = privateJsonCopy({
     parentRunId: run.parentRunId,
     sourceRevision: beforeSource.revision,
     providerOrigin,
     inventory: inventoryBefore,
-    candidate: Object.freeze({
+    candidate: {
       role: input.role,
       requestedModelName: input.proposedModelName,
       observedModelName: candidate.name,
       digestSha256: candidate.digestSha256,
-    }),
-    measurement: Object.freeze({
+    },
+    measurement: {
       runId: child.summary.runId,
       artifactPath: artifactRelativePath.split(path.sep).join('/'),
       artifactSha256: child.summary.artifactSha256,
       artifactByteLength: child.summary.artifactByteLength,
-    }),
-  });
+    },
+  }, authorities.canonicalize);
   await validateModelFailoverCandidateAcceptance(
     acceptance,
     authorities,
@@ -1387,13 +1611,31 @@ export async function runModelFailoverCandidateMeasurement(inputValue) {
       await validateCandidateSourceExport(run.sourceExportRoot, sourceManifest);
     },
   );
-  return Object.freeze({
+  const result = Object.freeze({
     acceptance: Object.freeze(acceptance),
     acceptancePath: published.path,
     acceptanceSha256: published.sha256,
     acceptanceByteLength: published.byteLength,
     child: Object.freeze({ ...child, result: childResult }),
   });
+  PARENT_HANDOFF_AUTHORITIES.set(result, Object.freeze({
+    sourceRoot,
+    sourceRevision: beforeSource.revision,
+    run,
+    sourceManifest,
+    authorities,
+    expectedAcceptanceAuthority,
+    expectedPins: privateJsonCopy(expectedPins, authorities.canonicalize),
+    expectedInventory: privateJsonCopy(inventoryBefore, authorities.canonicalize),
+    childResult: Object.freeze({
+      code: childResult.code,
+      signal: childResult.signal,
+      stdoutBytes: Buffer.from(childResult.stdoutBytes),
+      stderrBytes: Buffer.from(childResult.stderrBytes),
+    }),
+    acceptancePublication: published,
+  }));
+  return result;
 }
 
 function renderSuccess(result) {
