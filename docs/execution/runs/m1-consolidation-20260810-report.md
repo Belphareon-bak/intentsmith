@@ -2,13 +2,15 @@
 
 stableBase: `1d351f67428eb1c4ae1adc99ce4dd99baef608e9`
 
-candidateSourceRevision: `6c2a95c9ce7bebf394ec1ea3423296ee5d6b4cb7`
+candidateRevision: `c0fcc444f9f0d5a3519a02c6ab3b4d0bedd1fdab`
+
+boundaryBaselineRevision: `6c2a95c9ce7bebf394ec1ea3423296ee5d6b4cb7`
 
 branch: `queue/m1-consolidation-20260810`
 
 reviewState: `PARTIAL_REVIEW_QUEUE`
 
-freshCloneState: `NOT_RUN`
+freshCloneState: `FOCUSED_PROFILE_VERIFIED`
 
 ## Výsledek
 
@@ -75,6 +77,30 @@ migračních čísel, nejvyšší `062`, další volné `063` a žádnou diverge
 kolizi. Skript není součástí tohoto queue source, proto tento běh není vydáván
 za jeho portable test evidence.
 
+## Oddělený `--no-local` clone checkpoint
+
+Kandidát `c0fcc444f9f0d5a3519a02c6ab3b4d0bedd1fdab` byl checkoutnutý detached v
+novém `git clone --no-local --no-checkout`. Před instalací i po testech byl
+`git status --porcelain=v1 --untracked-files=all` prázdný. `npm ci --offline`
+znovu přidalo 233 balíčků, audit našel 0 vulnerabilities a skončil exit `0`.
+
+Fresh-clone profil úmyslně neopakoval každou lokální sadu. Spustil přímo
+integrované hranice a skončil takto:
+
+| Příkaz nad `c0fcc444` | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-model-policy.test.js` | 36 passed, 0 failed | 0 |
+| `node tests/m1-model-failover-proof-policy.test.js` | 9 passed, 0 failed | 0 |
+| `node tests/m1-model-failover-schema.test.js` | 25 passed, 0 failed | 0 |
+| `node tests/schema-migrations.test.js` | 38 passed, 0 failed | 0 |
+| `node tests/ws-bridge.test.js` | 91 passed, 0 failed | 0 |
+| `node tests/m1-studio-client.test.js` | 127 passed, 0 failed | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed | 0 |
+| `node scripts/validate-test-registry.js --json` | 378 programs, 8 exclusions, fingerprint `cb1259ca55a95ecb32bc1831fca37249c449f880c36c9f1506072fdce8d06e15` | 0 |
+| `node scripts/module-boundary-ratchet.mjs` | 1 023/1 023, added 0, removed 0 | 0 |
+| `node tests/repository-hygiene.test.js` | 1 556 tracked paths | 0 |
+| `git diff --check` + prázdný porcelain | bez rozdílu | 0 |
+
 ## Zbývající blokátory M1
 
 1. rozhodnutí 024 je stále `DECISION_REQUIRED`; bezpečný issuer proto není
@@ -84,9 +110,9 @@ za jeho portable test evidence.
    nebyla provedena;
 4. Finding 011 — generic secret-bearing `/api/settings` a whole-row/RMW writery
    nemají společnou CAS/secret authority;
-5. formalizované review obou nových merge lineages a oddělený `--no-local`
-   fresh-clone checkpoint tohoto exact konsolidačního SHA chybí.
+5. formalizované review nových merge lineages chybí; focused `--no-local`
+   checkpoint je hotový, ale není náhradou za Review A ani built journey.
 
 Do uzavření těchto bodů je výsledek `BLOCKED` pro Gate 1 a nesmí posunout
-stabilní remote ref. Po clean-clone evidenci a review vznikne samostatný
-promotion commit/ref; historie této queue se nebude přepisovat.
+stabilní remote ref. Po potřebném review vznikne samostatný promotion
+commit/ref; historie této queue se nebude přepisovat.

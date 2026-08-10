@@ -1314,7 +1314,7 @@ mohou pokračovat.
    | 1 | 023 VRAM delete race | úzká artifact-use hrana fresh-clone ověřená; globální GPU residency zůstává M2 residual |
    | 2 | 022 operation-bound recovery | `FRESH_CLONE_VERIFIED` na `81dff196`; built B4 zůstává otevřený |
    | 3 | ověřit dokončenou rezervaci migrací | `061` = 020 a `062` = 015 jsou rezervované; skutečná late-insertion parita čeká na první společný SHA s finálně přečíslovanými mobilními migracemi |
-   | 4 | 020 oddělená policy storage | default-deny backend a tři first-party UI consumery jsou implementované; review-remediation source `2c06b159` má 36/0 a 123/0, konsolidační queue 127/0; formální Review A a fresh clone zůstávají otevřené |
+   | 4 | 020 oddělená policy storage | default-deny backend a tři first-party UI consumery jsou implementované; review-remediation source `2c06b159` má 36/0 a 123/0, konsolidační queue 127/0 a focused `--no-local` clone je zelený; formální Review A zůstává otevřené |
    | 5 | 015 proof issuance | policy a immutable ledger 062 jsou v konsolidační queue; provenance decision 024, issuer a skutečný PASS proof zůstávají otevřené |
    | 6 | 021 built journey | bounded wire attachment/shell změny jsou selektivně v queue; produkční ACK a drahá Electron journey zůstávají otevřené |
    | 7 | autorizovaný GPU pilot | sériově, jedna role/digest, jen na akci operátora |
@@ -1325,7 +1325,8 @@ mohou pokračovat.
    Serializovaný mezivýsledek je na `queue/m1-consolidation-20260810`; jeho
    přesná topologie, replay mapování a blokátory jsou v
    [`m1-consolidation-20260810-report.md`](docs/execution/runs/m1-consolidation-20260810-report.md).
-   Jde o review queue, nikoli nový stable base nebo Gate 1 PASS.
+   Focused `--no-local` profil kandidáta `c0fcc444` je zelený. Jde však dál o
+   review queue, nikoli nový stable base nebo Gate 1 PASS.
    `055`–`060` jsou obsazené mobilními migracemi z `d6fee86f`, `e04be7f7`,
    `88b7b435` a `7916098e`. Mobilní balík se kvůli ordinalitě předčasně
    neintegruje; 061/062 musí prokázat pozdější vložení 055–060 do již migrované
