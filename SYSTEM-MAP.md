@@ -139,7 +139,7 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 | **Schopností v `ACCEPTED/PASS`** | **1 z 22** (#2 CRE); #1 server/routing/DB je zatím `RUNTIME_VERIFIED` — jeho suite má 13 interních checků, zatímco behavior dokument obsahuje 16 řádků, takže tvrzení „13/13 chování“ není platný akceptační součet |
 
 Aktuální registry fingerprint je
-`df64f6050391a1ea720d660e97fe85c0dc705c31cbc95e248a2a3fa36c5c2ec9`.
+`665461cccea8f691e6d609c381b21c7bd8b7b2b1ff9932fd4aad42b9552216e0`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 
