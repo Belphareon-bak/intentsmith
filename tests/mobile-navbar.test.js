@@ -403,7 +403,15 @@ await test('§8 the bar declares a 48 dp touch target and pushes content instead
   assert.match(css, /body\.has-navbar \.scroll \{[^}]*padding-bottom/,
     'the scroll region does not give back the height the fixed bar takes');
   const bar = css.slice(css.indexOf('.navbar {'), css.indexOf('.navbar[data-retracted'));
-  assert.match(bar, /transition:\s*transform \.1\ds/, 'the retraction is not a ≤200 ms transition (§8)');
+  // §8's ceiling is 200 ms; the bar's retraction is its one named exception
+  // (operator, 2026-08-10), so what is checked here is that the exception stays
+  // *narrow*: it is driven by a variable, only the transform uses it, and
+  // someone who asked for less motion is put back under the ceiling.
+  assert.match(bar, /transition:\s*transform var\(--navbar-slide\)/,
+    'the retraction must be driven by the named variable, not a loose duration');
+  assert.match(css, /--navbar-slide:\s*\d+ms/, 'the duration must be tunable in one place');
+  assert.match(css, /prefers-reduced-motion: reduce\)\s*\{\s*:root \{ --navbar-slide: 1\d\dms/,
+    'reduced motion must bring the slide back under the §8 ceiling');
 });
 
 console.log(`\nBottom bar: ${passed} passed, ${failed} failed`);

@@ -525,9 +525,18 @@ button { cursor: pointer; border: none; background: none; }
   backdrop-filter: saturate(180%) blur(14px);
   border-top: 1px solid var(--border);
   padding-bottom: var(--safe-bottom);
-  /* §8 — ≤ 200 ms, no decorative motion.  The retraction is the "you are home"
-     signal (§3.2), so it has to read as a movement, not a disappearance. */
-  transition: transform .18s cubic-bezier(.32, .72, 0, 1);
+  /* §8 asks for ≤ 200 ms and no decorative motion.  The retraction is the one
+     named exception (operator, 2026-08-10): it is not decoration but the
+     "you are home" signal of §3.2, and at 180 ms it read as a flicker rather
+     than as the bar making room for the dashboard.  Kept as a variable because
+     it is a feel, and a feel gets tuned. */
+  transition: transform var(--navbar-slide) cubic-bezier(.32, .72, 0, 1);
+}
+:root { --navbar-slide: 720ms; }
+/* A 720 ms slide is exactly what someone who asked for less motion does not
+   want, so for them it goes back under the §8 ceiling. */
+@media (prefers-reduced-motion: reduce) {
+  :root { --navbar-slide: 120ms; }
 }
 .navbar[data-retracted="true"] { transform: translateY(100%); }
 .navbar-track {

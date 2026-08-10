@@ -954,6 +954,15 @@ minimálně 56 dp na výšku a **12 dp od sebe**, aby palec netrefil vedle.
 „typing" indikátor (B-2), neurčitý spinner přes celou obrazovku, animace, která
 zakryje změnu stáří dat.
 
+> **Jediná pojmenovaná výjimka — zatahování spodní lišty (operátor 2026-08-10).**
+> Trvá `720 ms`, tedy nad stropem. Není to dekorace: je to prostorový signál
+> „jsi doma" z §3.2 a při 180 ms nečetl jako uhnutí lišty, ale jako bliknutí.
+> Výjimka je **úzká a vynucená testem**: řídí ji proměnná
+> `--navbar-slide`, používá ji **jen** `transform` na `.navbar`, a komu vadí
+> pohyb (`prefers-reduced-motion`), ten dostane `120 ms`, tedy zpátky pod strop.
+> Nic jiného se o tuhle výjimku opřít nesmí; strop `200 ms` platí všude jinde
+> beze změny.
+
 ---
 
 ## 9. Mikrocopy
