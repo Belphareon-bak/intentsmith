@@ -84,11 +84,12 @@ Klientské odmítnutí je typované, viditelné a neretryovatelné `NOT_SENT`; s
 tutéž policy znovu ověří **před** controller efektem. `path` se v DTO
 nevyskytuje vůbec, ani jako `null`. Prázdný text zůstává legitimní obsah `""`,
 nikoli chybějící content. Binární přílohy mimo schválené obrázkové typy jsou
-odmítnuté. Textová větev proto čte původní bytes přes `ArrayBuffer` a používá
-fatal UTF-8 decode; nesmí použít lossy `FileReader.readAsText()`. Klient i
-server navíc odmítnou zakázané C0/DEL řídicí znaky a neplatné surrogate páry.
-Platný UTF-8 soubor bez těchto znaků je pro tuto policy text bez ohledu na
-příponu; soubor, který tuto definici nesplní, je typované nereplayovatelné
+odmítnuté. Textovou větev smí otevřít pouze současný allowlist textových přípon;
+neznámá přípona zůstává binary a končí `NOT_SENT`, i kdyby její bytes tvořily
+platný UTF-8. Povolená textová větev čte původní bytes přes `ArrayBuffer` a
+používá fatal UTF-8 decode; nesmí použít lossy `FileReader.readAsText()`.
+Klient i server navíc odmítnou zakázané C0/DEL řídicí znaky a neplatné surrogate
+páry. Soubor, který tuto definici nesplní, je typované nereplayovatelné
 `NOT_SENT` ještě před wire/controller efektem.
 
 ### R2 — Legacy WS po chat success automaticky vykoná shell effect

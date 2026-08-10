@@ -3886,6 +3886,43 @@ await testAsync('M1 attachment preparation uses gesture bytes and surfaces nonre
   }
 
   {
+    const attachment = {
+      file: { path: '/renamed-valid.data', size: 16 },
+      name: 'renamed-valid.data',
+      size: '16 B',
+    };
+    const harness = panelSendHarness({
+      input: 'reject unknown extension',
+      localRejection: {
+        status: 'NOT_SENT',
+        retryable: false,
+        reason: 'M1_ATTACHMENT_TYPE_UNSUPPORTED',
+        serverAcknowledged: false,
+      },
+      m1Negotiated: true,
+      mode: 'local-reject',
+    });
+    harness.pane.chat.attachments.push(attachment);
+    harness.functions._chatSendPane(0);
+
+    assert.equal(harness.counters.wsSend.length, 1);
+    assert.deepEqual(harness.counters.wsSend[0].pendingAttachments, [{
+      content: null,
+      name: 'renamed-valid.data',
+      path: null,
+      size: '16 B',
+      type: 'binary',
+    }]);
+    assert.equal(harness.pane.chat._delivery.retryable, false);
+    assert.equal(
+      harness.pane.chat._delivery.reason,
+      'M1_ATTACHMENT_TYPE_UNSUPPORTED',
+    );
+    assert.equal(harness.pane.chat.attachments[0], attachment);
+    assertNoFallbackEffects(harness);
+  }
+
+  {
     const { ControlledFileReader, readers } = controlledFileReaderClass();
     const attachment = {
       file: { path: '/renamed-binary.txt', size: 4 },
