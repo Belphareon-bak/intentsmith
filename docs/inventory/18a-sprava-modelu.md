@@ -182,3 +182,26 @@ atomické import/reset adaptéry ještě neexistují a scheduler proto zůstáv�
 default off.
 Skutečná parita s
 mobilními migracemi bude doložená až na společném integračním SHA.
+
+## 12. Proof policy 015/A — implementační checkpoint 2026-08-10
+
+Role-suite autorita nyní používá schválený konzervativní bootstrap: všech sedm
+rolí vyžaduje skóre `1`, úplnou seřazenou sadu 8/8 nebo 6/6 a TTL
+`604800000` ms. `reason` je `null`; caller nemůže dodat práh, TTL, proof ID ani
+jinou autoritu.
+
+Authority hash pokrývá celý policy envelope včetně acceptance prahů, TTL,
+runneru a tří raw-byte source pinů. `model-failover.js`, z něhož se čte
+`policyVersion`, je pinnutý stejně jako profily a validační sady; pouhá změna
+prahu nebo TTL bez přepočtu očekávané autority proto skončí fail-closed.
+
+Izolovaný measurement tím nezískal DB writer. Jeho kanonický artefakt dál nese
+`NOT_ISSUED`, `proofIssued=false` a přesný handoff
+`SEPARATE_OPERATOR_PROOF_COMMIT_REQUIRED`. PASS proof smí vzniknout pouze v
+odděleném operator-only issueru po durable artifact storage a terminálním
+rechecku. Migrace 062 už implementuje immutable companion ledger, transakční
+proof vazbu, historical-proof quarantine a striktní expiry všech čtyř
+eligibility triggerů. Issuer zůstává `CHANGES_REQUIRED`: nesmí přijmout
+callerem lokalizovaný strukturální receipt, ale musí sám vlastnit parent run a
+jeho odvozené expected piny. Skutečný GPU/Ollama běh neproběhl a automatic
+activation/restore zůstává vypnutá.

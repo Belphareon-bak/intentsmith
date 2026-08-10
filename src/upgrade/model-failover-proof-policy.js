@@ -1,22 +1,28 @@
-// Fail-closed D+ role-suite measurement policy.
+// Fail-closed D+ role-suite proof policy.
 //
-// This module deliberately cannot authorize a PASS proof. It establishes the
-// reviewed role/suite/source contract needed by a later isolated runner while
-// the operator-owned acceptance thresholds and proof TTL remain undecided.
+// The operator-approved bootstrap authority lives here. Measurement remains a
+// separate, non-persisting operation; only the dedicated operator issuer may
+// turn an accepted measurement into a durable PASS proof.
 
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { MODEL_FAILOVER_POLICY_VERSION } from './model-failover.js';
 import { MODEL_PROFILES } from './model-profiles.js';
 import { SUITES, VALIDATION_VERSION } from './validation-suites.js';
 
 export const MODEL_FAILOVER_PROOF_POLICY_SCHEMA_VERSION = 1;
 export const MODEL_FAILOVER_PROOF_CANONICALIZATION_VERSION =
   'sorted-key-json-utf8-v1';
-export const MODEL_FAILOVER_PROOF_ISSUANCE_BLOCK_REASON =
-  'MISSING_APPROVED_TERMINAL_THRESHOLDS_AND_TTL';
+export const MODEL_FAILOVER_PROOF_HANDOFF_REASON =
+  'SEPARATE_OPERATOR_PROOF_COMMIT_REQUIRED';
+export const MODEL_FAILOVER_PROOF_TTL_MS = 604800000;
 
 const EXPECTED_SOURCE_PINS = Object.freeze({
+  modelFailover: Object.freeze({
+    path: 'src/upgrade/model-failover.js',
+    algorithm: 'sha256-raw-bytes-v1',
+    byteLength: 145428,
+    sha256: '88a3c8e053813ae8c4e707d5c2859560b9140cf142c3e27f30c70d7b29bac0aa',
+  }),
   modelProfiles: Object.freeze({
     path: 'src/upgrade/model-profiles.js',
     algorithm: 'sha256-raw-bytes-v1',
@@ -31,8 +37,9 @@ const EXPECTED_SOURCE_PINS = Object.freeze({
   }),
 });
 const EXPECTED_AUTHORITY_SHA256 =
-  '49378598e8644331138174743b816b4b34ca66103dac91128b16ae661679f9bd';
+  '9bf5ebe2da7ca4a2d4ac68bbe5976bde3935900841b253f341931b5fbdac5f93';
 const SOURCE_URLS = Object.freeze({
+  modelFailover: new URL('./model-failover.js', import.meta.url),
   modelProfiles: new URL('./model-profiles.js', import.meta.url),
   validationSuites: new URL('./validation-suites.js', import.meta.url),
 });
@@ -136,7 +143,21 @@ function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
 }
 
-function readSourcePin(key) {
+function readModelFailoverPolicyVersion(sourceBytes) {
+  const source = sourceBytes.toString('utf8');
+  const matches = [...source.matchAll(
+    /^export const MODEL_FAILOVER_POLICY_VERSION = '([a-z0-9][a-z0-9.-]{0,63})';$/gm,
+  )];
+  if (matches.length !== 1) {
+    fail(
+      'MODEL_FAILOVER_PROOF_POLICY_AUTHORITY_INVALID',
+      'Model failover policy version authority is missing or ambiguous',
+    );
+  }
+  return matches[0][1];
+}
+
+function readPinnedSource(key) {
   const expected = EXPECTED_SOURCE_PINS[key];
   let bytes;
   try {
@@ -163,10 +184,13 @@ function readSourcePin(key) {
     );
   }
   return {
-    path: expected.path,
-    algorithm: expected.algorithm,
-    byteLength: bytes.length,
-    sha256: actualSha256,
+    bytes,
+    pin: {
+      path: expected.path,
+      algorithm: expected.algorithm,
+      byteLength: bytes.length,
+      sha256: actualSha256,
+    },
   };
 }
 
@@ -259,12 +283,52 @@ function deriveRoleContracts() {
 }
 
 function buildPolicy() {
-  const sourcePins = {
-    modelProfiles: readSourcePin('modelProfiles'),
-    validationSuites: readSourcePin('validationSuites'),
+  const pinnedSources = {
+    modelFailover: readPinnedSource('modelFailover'),
+    modelProfiles: readPinnedSource('modelProfiles'),
+    validationSuites: readPinnedSource('validationSuites'),
   };
+  const sourcePins = Object.fromEntries(Object.entries(pinnedSources).map(
+    ([key, source]) => [key, source.pin],
+  ));
   const roles = deriveRoleContracts();
-  const authoritySha256 = sha256(canonicalizeModelFailoverContract(roles));
+  const runner = {
+    perTestTimeoutMs: 30000,
+    stream: false,
+    think: false,
+    temperature: 0.1,
+    topP: 0.9,
+    numPredict: 512,
+    numCtx: 4096,
+    requireLoopback: true,
+    externalNetworkAllowed: false,
+    legacyPersistenceAllowed: false,
+    requireCompleteOrderedSuite: true,
+    requireSameBeforeAfterDigest: true,
+    promptCaptureRequired: true,
+    randomizedPromptPolicy: 'CAPTURE_ACTUAL_PROMPT_AND_VERIFY_GRADE_CONTEXT',
+  };
+  const acceptance = {
+    issuanceEnabled: true,
+    proofTtlMs: MODEL_FAILOVER_PROOF_TTL_MS,
+    byRole: Object.fromEntries(EXPECTED_ROLES.map(role => [role, {
+      requiredScore: 1,
+      requiredPassedCount: roles[role].totalCount,
+    }])),
+    reason: null,
+  };
+  const policyVersion = readModelFailoverPolicyVersion(pinnedSources.modelFailover.bytes);
+  const authorityContract = {
+    schemaVersion: MODEL_FAILOVER_PROOF_POLICY_SCHEMA_VERSION,
+    canonicalizationVersion: MODEL_FAILOVER_PROOF_CANONICALIZATION_VERSION,
+    policyVersion,
+    validationVersion: VALIDATION_VERSION,
+    sourcePins,
+    runner,
+    acceptance,
+    roles,
+  };
+  const authoritySha256 = sha256(canonicalizeModelFailoverContract(authorityContract));
   if (authoritySha256 !== EXPECTED_AUTHORITY_SHA256) {
     fail(
       'MODEL_FAILOVER_PROOF_POLICY_AUTHORITY_DRIFT',
@@ -275,35 +339,12 @@ function buildPolicy() {
   return deepFreeze({
     schemaVersion: MODEL_FAILOVER_PROOF_POLICY_SCHEMA_VERSION,
     canonicalizationVersion: MODEL_FAILOVER_PROOF_CANONICALIZATION_VERSION,
-    policyVersion: MODEL_FAILOVER_POLICY_VERSION,
+    policyVersion,
     validationVersion: VALIDATION_VERSION,
     authoritySha256,
     sourcePins,
-    runner: {
-      perTestTimeoutMs: 30000,
-      stream: false,
-      think: false,
-      temperature: 0.1,
-      topP: 0.9,
-      numPredict: 512,
-      numCtx: 4096,
-      requireLoopback: true,
-      externalNetworkAllowed: false,
-      legacyPersistenceAllowed: false,
-      requireCompleteOrderedSuite: true,
-      requireSameBeforeAfterDigest: true,
-      promptCaptureRequired: true,
-      randomizedPromptPolicy: 'CAPTURE_ACTUAL_PROMPT_AND_VERIFY_GRADE_CONTEXT',
-    },
-    acceptance: {
-      issuanceEnabled: false,
-      proofTtlMs: null,
-      byRole: Object.fromEntries(EXPECTED_ROLES.map(role => [role, {
-        requiredScore: null,
-        requiredPassedCount: null,
-      }])),
-      reason: MODEL_FAILOVER_PROOF_ISSUANCE_BLOCK_REASON,
-    },
+    runner,
+    acceptance,
     roles,
   });
 }

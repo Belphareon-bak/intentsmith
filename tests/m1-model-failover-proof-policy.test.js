@@ -12,8 +12,8 @@ import {
 import { MODEL_PROFILES } from '../src/upgrade/model-profiles.js';
 import {
   MODEL_FAILOVER_PROOF_CANONICALIZATION_VERSION,
-  MODEL_FAILOVER_PROOF_ISSUANCE_BLOCK_REASON,
   MODEL_FAILOVER_PROOF_POLICY_SCHEMA_VERSION,
+  MODEL_FAILOVER_PROOF_TTL_MS,
   ModelFailoverProofPolicyError,
   assertModelFailoverProofIssuanceEnabled,
   canonicalizeModelFailoverContract,
@@ -60,7 +60,28 @@ test('source pins are raw-byte hashes of the exact reviewed modules', () => {
   assertEqual(policy.canonicalizationVersion, 'sorted-key-json-utf8-v1');
   assertEqual(policy.policyVersion, 'd-plus-v1');
   assertEqual(policy.validationVersion, 'v123.1');
-  for (const [key, relativePath, logicalPath] of [
+  const failoverSource = readFileSync(
+    new URL('../src/upgrade/model-failover.js', import.meta.url),
+  );
+  const failoverSourceText = failoverSource.toString('utf8');
+  const policyVersionDeclarations = [...failoverSourceText.matchAll(
+    /^export const MODEL_FAILOVER_POLICY_VERSION = '([a-z0-9][a-z0-9.-]{0,63})';$/gm,
+  )];
+  assertEqual(policyVersionDeclarations.length, 1);
+  assertEqual(policy.policyVersion, policyVersionDeclarations[0][1]);
+  const proofPolicySource = readFileSync(
+    new URL('../src/upgrade/model-failover-proof-policy.js', import.meta.url),
+    'utf8',
+  );
+  assertEqual(proofPolicySource.includes("from './model-failover.js'"), false);
+  for (const [key, relativePath, logicalPath, expectedLength, expectedSha256] of [
+    [
+      'modelFailover',
+      '../src/upgrade/model-failover.js',
+      'src/upgrade/model-failover.js',
+      145428,
+      '88a3c8e053813ae8c4e707d5c2859560b9140cf142c3e27f30c70d7b29bac0aa',
+    ],
     ['modelProfiles', '../src/upgrade/model-profiles.js', 'src/upgrade/model-profiles.js'],
     ['validationSuites', '../src/upgrade/validation-suites.js', 'src/upgrade/validation-suites.js'],
   ]) {
@@ -68,14 +89,38 @@ test('source pins are raw-byte hashes of the exact reviewed modules', () => {
     const bytes = readFileSync(new URL(relativePath, import.meta.url));
     assertEqual(pin.path, logicalPath);
     assertEqual(pin.algorithm, 'sha256-raw-bytes-v1');
-    assertEqual(pin.byteLength, key === 'modelProfiles' ? 9967 : 39108);
+    assertEqual(pin.byteLength, expectedLength ?? (key === 'modelProfiles' ? 9967 : 39108));
     assertEqual(pin.byteLength, bytes.length);
-    assertEqual(pin.sha256, key === 'modelProfiles'
+    assertEqual(pin.sha256, expectedSha256 ?? (key === 'modelProfiles'
       ? '16941d6aa9cb99fe6b00b1ee5a95fbd5bef079a35beb23cce63edf78aa04264a'
-      : '49520a4176c60f6fd27b713d4fa042dc6c164d3bbda0b983dfd10fe18a24b0ef');
+      : '49520a4176c60f6fd27b713d4fa042dc6c164d3bbda0b983dfd10fe18a24b0ef'));
     assertEqual(pin.sha256, sha256(bytes));
   }
-  assertEqual(policy.authoritySha256, '49378598e8644331138174743b816b4b34ca66103dac91128b16ae661679f9bd');
+  const authorityContract = {
+    schemaVersion: policy.schemaVersion,
+    canonicalizationVersion: policy.canonicalizationVersion,
+    policyVersion: policy.policyVersion,
+    validationVersion: policy.validationVersion,
+    sourcePins: policy.sourcePins,
+    runner: policy.runner,
+    acceptance: policy.acceptance,
+    roles: policy.roles,
+  };
+  assertEqual(
+    policy.authoritySha256,
+    sha256(Buffer.from(canonicalizeModelFailoverContract(authorityContract))),
+  );
+  assertEqual(
+    policy.authoritySha256,
+    '9bf5ebe2da7ca4a2d4ac68bbe5976bde3935900841b253f341931b5fbdac5f93',
+  );
+  const weakenedAuthority = structuredClone(authorityContract);
+  weakenedAuthority.acceptance.byRole.CHAT.requiredScore = 0.5;
+  assert(
+    policy.authoritySha256
+      !== sha256(Buffer.from(canonicalizeModelFailoverContract(weakenedAuthority))),
+    'Acceptance thresholds must be part of the pinned authority digest',
+  );
 });
 
 test('all seven roles map to the exact ordered 36-test authority', () => {
@@ -110,22 +155,24 @@ test('runner contract requires actual capture of randomized prompt and grade con
   assertEqual(runner.numCtx, 4096);
 });
 
-test('no policy or role can issue a PASS proof without thresholds and TTL', () => {
+test('approved bootstrap policy requires a perfect role suite and exact seven-day TTL', () => {
   const acceptance = getModelFailoverProofPolicy().acceptance;
-  assertEqual(acceptance.issuanceEnabled, false);
-  assertEqual(acceptance.proofTtlMs, null);
-  assertEqual(acceptance.reason, MODEL_FAILOVER_PROOF_ISSUANCE_BLOCK_REASON);
+  assertEqual(acceptance.issuanceEnabled, true);
+  assertEqual(acceptance.proofTtlMs, MODEL_FAILOVER_PROOF_TTL_MS);
+  assertEqual(acceptance.proofTtlMs, 604800000);
+  assertEqual(acceptance.reason, null);
 
   for (const role of EXPECTED_ROLES) {
-    assertEqual(acceptance.byRole[role].requiredScore, null);
-    assertEqual(acceptance.byRole[role].requiredPassedCount, null);
+    const expectedTotal = EXPECTED_SUITES[role][1].length;
+    assertEqual(acceptance.byRole[role].requiredScore, 1);
+    assertEqual(acceptance.byRole[role].requiredPassedCount, expectedTotal);
     const measurement = getModelFailoverMeasurementContract(role).contract.acceptance;
-    assertEqual(measurement.requiredScore, null);
-    assertEqual(measurement.requiredPassedCount, null);
-    const error = captureError(() => assertModelFailoverProofIssuanceEnabled(role));
-    assertPolicyError(error, 'MODEL_FAILOVER_PROOF_ISSUANCE_DISABLED');
-    assertEqual(error.details.role, role);
-    assertEqual(error.details.reason, MODEL_FAILOVER_PROOF_ISSUANCE_BLOCK_REASON);
+    assertEqual(measurement.issuanceEnabled, true);
+    assertEqual(measurement.requiredScore, 1);
+    assertEqual(measurement.requiredPassedCount, expectedTotal);
+    assertEqual(measurement.proofTtlMs, MODEL_FAILOVER_PROOF_TTL_MS);
+    assertEqual(measurement.reason, null);
+    assertEqual(assertModelFailoverProofIssuanceEnabled(role).role, role);
   }
 });
 
@@ -140,7 +187,11 @@ test('measurement contracts are deterministic, role-bound and never proof hashes
   assertEqual(first.contract.contractKind, 'MODEL_FAILOVER_ROLE_MEASUREMENT');
   assertEqual(first.contract.canonicalizationVersion, 'sorted-key-json-utf8-v1');
   assertEqual(first.contract.role.role, 'CHAT');
-  assertEqual(first.contract.acceptance.issuanceEnabled, false);
+  assertEqual(first.contract.acceptance.issuanceEnabled, true);
+  assertEqual(first.contract.acceptance.requiredScore, 1);
+  assertEqual(first.contract.acceptance.requiredPassedCount, 8);
+  assertEqual(first.contract.acceptance.proofTtlMs, 604800000);
+  assertEqual(first.contract.acceptance.reason, null);
   assertEqual(Object.hasOwn(first, 'roleContractSha256'), false);
   assertEqual(Object.hasOwn(first.contract, 'proofId'), false);
 });
@@ -188,7 +239,7 @@ test('caller authority overrides and unknown roles fail closed', () => {
     );
   }
   for (const callback of [
-    () => assertModelFailoverProofIssuanceEnabled('CHAT', { issuanceEnabled: true }),
+    () => assertModelFailoverProofIssuanceEnabled('CHAT', { requiredScore: 0.8 }),
   ]) {
     assertPolicyError(
       captureError(callback),

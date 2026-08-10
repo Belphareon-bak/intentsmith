@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import Database from 'better-sqlite3';
+import { createHash } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { Worker } from 'node:worker_threads';
@@ -378,33 +379,74 @@ function insertPassingChatProof(db, {
   canonicalName = 'fallback',
   digestSha256 = DIGEST_B,
 } = {}) {
-  db.prepare(`
-    INSERT INTO model_failover_proofs (
-      proof_id, validation_run_id, role, suite, role_contract_sha256,
-      model_name, model_canonical_name, model_digest_sha256,
-      validation_version, policy_version, score, required_score, passed_count,
-      required_passed_count, total_count, duration_ms, result,
-      inventory_before_name, inventory_before_digest, inventory_after_name,
-      inventory_after_digest, started_at_ms, completed_at_ms, expires_at_ms,
-      created_at_ms
-    ) VALUES (?, ?, 'CHAT', 'chat', ?, ?, ?, ?,
-      'v123.1', 'd-plus-v1', 1, 0.8, 6, 5, 6, 500, 'PASS',
-      ?, ?, ?, ?, ?, ?, 900000, ?)
-  `).run(
-    proofId,
-    `${proofId}-run`,
-    CONTRACT_DIGEST,
-    modelName,
-    canonicalName,
-    digestSha256,
-    modelName,
-    digestSha256,
-    modelName,
-    digestSha256,
-    completedAtMs - 500,
-    completedAtMs,
-    completedAtMs,
-  );
+  const insert = () => {
+    db.prepare(`
+      INSERT INTO model_failover_proof_artifacts (
+        proof_id, validation_run_id, parent_run_id, source_revision,
+        measurement_artifact_sha256, measurement_artifact_byte_length,
+        acceptance_artifact_sha256, acceptance_artifact_byte_length,
+        role, suite, role_contract_sha256, model_name,
+        model_canonical_name, model_digest_sha256, validation_version,
+        policy_version, score, required_score, passed_count,
+        required_passed_count, total_count, duration_ms, result,
+        inventory_before_name, inventory_before_digest,
+        inventory_after_name, inventory_after_digest,
+        measurement_started_at_ms, measurement_completed_at_ms,
+        acceptance_completed_at_ms, proof_ttl_ms, expires_at_ms, issued_at_ms
+      ) VALUES (?, ?, ?, ?, ?, 4096, ?, 2048, 'CHAT', 'chat', ?, ?, ?, ?,
+        'v123.1', 'd-plus-v1', 1, 1, 6, 6, 6, 500, 'PASS', ?, ?, ?, ?,
+        ?, ?, ?, ?, 900000, ?)
+    `).run(
+      proofId,
+      `${proofId}-run`,
+      `parent-${proofId}`,
+      'a'.repeat(40),
+      createHash('sha256').update(`measurement:${proofId}`).digest('hex'),
+      createHash('sha256').update(`acceptance:${proofId}`).digest('hex'),
+      CONTRACT_DIGEST,
+      modelName,
+      canonicalName,
+      digestSha256,
+      modelName,
+      digestSha256,
+      modelName,
+      digestSha256,
+      completedAtMs - 500,
+      completedAtMs,
+      completedAtMs,
+      900000 - completedAtMs,
+      completedAtMs,
+    );
+    db.prepare(`
+      INSERT INTO model_failover_proofs (
+        proof_id, validation_run_id, role, suite, role_contract_sha256,
+        model_name, model_canonical_name, model_digest_sha256,
+        validation_version, policy_version, score, required_score, passed_count,
+        required_passed_count, total_count, duration_ms, result,
+        inventory_before_name, inventory_before_digest, inventory_after_name,
+        inventory_after_digest, started_at_ms, completed_at_ms, expires_at_ms,
+        created_at_ms
+      ) VALUES (?, ?, 'CHAT', 'chat', ?, ?, ?, ?,
+        'v123.1', 'd-plus-v1', 1, 1, 6, 6, 6, 500, 'PASS',
+        ?, ?, ?, ?, ?, ?, 900000, ?)
+    `).run(
+      proofId,
+      `${proofId}-run`,
+      CONTRACT_DIGEST,
+      modelName,
+      canonicalName,
+      digestSha256,
+      modelName,
+      digestSha256,
+      modelName,
+      digestSha256,
+      completedAtMs - 500,
+      completedAtMs,
+      completedAtMs,
+    );
+  };
+  if (db.inTransaction) insert();
+  else db.transaction(insert).immediate();
 }
 
 function insertActivationEvent(db, {
