@@ -67,6 +67,15 @@ Netvrdí globální lost-update odolnost ani bezpečný obecný settings read.
 Gate 1 proto zůstává `BLOCKED`, dokud tento finding nedostane vlastní bounded
 WP, implementaci, negativní race důkazy a nezávislé review.
 
+## Aktivovaný první repair F-A
+
+Operátor 2026-08-10 schválil úzkou opravu potvrzené ztráty dat: generic
+`POST /api/settings` dnes whole-row replacementem umí odstranit devět
+`c3.notif.*` hodnot zapsaných notification routou. Aktivní
+[`WP-M1-SETTINGS-NOTIFICATION-CLOBBER`](../wp/WP-M1-SETTINGS-NOTIFICATION-CLOBBER.md)
+na base `fc86b718` převádí pouze tyto dvě mutation cesty na společný atomický
+merge seam. Neřeší generic read, ostatní writery, CAS, secrets ani reset.
+
 Ohraničené navazující položky: Architect a Center Views zatím nemají bounded
 fetch timeout; raw compatibility objekt s vlastním `kind`/`schemaVersion` je
 záměrně rezervovaný marker; recursive JSON validace potřebuje samostatný

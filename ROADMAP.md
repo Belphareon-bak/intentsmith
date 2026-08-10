@@ -1323,6 +1323,11 @@ mohou pokračovat.
    Levné a bezpečnostní změny se tím dokončí před drahou Studio
    infrastrukturou a obě migrační položky dostanou čísla z jednoho census.
 
+   Před rozšířením Findingu 011 je aktivní úzký P1 repair F-A:
+   [`WP-M1-SETTINGS-NOTIFICATION-CLOBBER`](docs/wp/WP-M1-SETTINGS-NOTIFICATION-CLOBBER.md)
+   chrání devět notification klíčů před whole-row generic save. F-A nemění
+   generic read, reset ani budoucí revision/CAS a po dokončení neodemyká Gate 1.
+
    Konsolidovaný M1 base je formálně přijatý na
    `integration/m1-consolidated-20260810`; po proof-issuer Review A/B je
    aktuální remote tip `58741fb9`. Původní konsolidační base byl `eb93d59b` a
