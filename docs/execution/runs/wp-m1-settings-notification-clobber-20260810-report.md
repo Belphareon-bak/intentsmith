@@ -40,3 +40,6 @@ opakované.
 Generic secret-bearing read, import response, storage/webhook writery,
 revision/CAS, F-B reset a oddělená secret authority zůstávají Finding 011.
 Electron, GPU, Ollama a externí síť neběžely. Gate 1 zůstává `BLOCKED`.
+
+candidateHead: 1a75188f008944be8eabd6974b54d6ca87c4598d
+reviewB.verdict: PASS
