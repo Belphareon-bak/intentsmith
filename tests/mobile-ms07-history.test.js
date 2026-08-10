@@ -233,7 +233,8 @@ try {
     // truncation this whole suite exists to prevent.
     reset();
     const legacy = threadWindowOf({ conversation: { id: 'c1' }, messages: range(1, 40) });
-    assert.deepEqual(legacy, { cursor: null, end: false, loadingOlder: false });
+    assert.equal(legacy.cursor, null, 'no cursor was recorded');
+    assert.equal(legacy.end, false, 'and completeness must not be assumed');
 
     state.data.thread = { conversation: { id: 'c1' }, messages: range(1, 40) };
     state.thread = legacy;
@@ -249,8 +250,9 @@ try {
     const cached = cache.read('thread.c1');
     assert.equal(cached.data.window.cursor, 'cur-200');
     assert.equal(cached.data.window.end, false);
-    assert.deepEqual(threadWindowOf(cached.data),
-      { cursor: 'cur-200', end: false, loadingOlder: false });
+    const restored = threadWindowOf(cached.data);
+    assert.equal(restored.cursor, 'cur-200');
+    assert.equal(restored.end, false);
   });
 
   await test('loading older prepends the page and follows the server cursor', async () => {

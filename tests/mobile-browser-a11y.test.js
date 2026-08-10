@@ -405,6 +405,78 @@ try {
     assert.equal(height, 0, '§4.1 "nenápadná" is zero height, not an empty strip');
   });
 
+  // ── MR-05 · SS-03 — reading into the past must not move the reader ────────
+  //
+  // Only measurable here.  `render()` replaces the whole screen, so prepending
+  // a page of older messages and then restoring the scroll position is a real
+  // layout operation; from markup it is invisible either way.
+
+  await test('MR-05 dotažení starších zpráv nechá čtenáře na místě', async () => {
+    await page.evaluate(ACTIVATE);
+    const measured = await page.evaluate(() => {
+      const S = window.__is;
+      const message = n => ({ id: String(n), role: n % 2 ? 'user' : 'assistant', content: `zpráva ${n}` });
+      const range = (from, to) =>
+        Array.from({ length: to - from + 1 }, (_, i) => message(from + i));
+
+      S.state.route = 'chat';
+      S.state.conn = 'ok';
+      S.state.conversationId = 'c1';
+      S.state.data.thread = { conversation: { id: 'c1', title: 'Dlouhá' }, messages: range(201, 250) };
+      S.state.thread = { cursor: 'c1.a.b', end: false, loadingOlder: false, stickToBottom: true };
+      S.render();
+
+      // The reader scrolls back to the older edge and starts reading there.
+      const scroll = document.getElementById('thread-scroll');
+      scroll.scrollTop = 0;
+      const anchoredOn = scroll.scrollHeight - scroll.scrollTop;
+
+      // A page of older messages arrives, exactly as loadOlderMessages lands it.
+      S.state.data.thread = {
+        conversation: S.state.data.thread.conversation,
+        messages: [...range(151, 200), ...S.state.data.thread.messages],
+      };
+      S.state.thread = { cursor: 'c1.c.d', end: false, loadingOlder: false, stickToBottom: false };
+      S.render();
+
+      const after = document.getElementById('thread-scroll');
+      return {
+        fromBottomBefore: anchoredOn,
+        fromBottomAfter: after.scrollHeight - after.scrollTop,
+        scrollTop: after.scrollTop,
+        grew: after.scrollHeight,
+      };
+    });
+
+    assert.ok(measured.grew > measured.fromBottomBefore,
+      'the prepended page must actually make the thread taller');
+    assert.ok(Math.abs(measured.fromBottomAfter - measured.fromBottomBefore) < 2,
+      `the reading position moved: ${Math.round(measured.fromBottomBefore)} dp from the bottom `
+      + `became ${Math.round(measured.fromBottomAfter)}`);
+    assert.ok(measured.scrollTop > 0,
+      'the view must sit below the newly prepended messages, not back at the top');
+  });
+
+  await test('MR-05 otevření konverzace naopak ukáže nejnovější zprávu', async () => {
+    await page.evaluate(ACTIVATE);
+    const atBottom = await page.evaluate(() => {
+      const S = window.__is;
+      S.state.route = 'chat';
+      S.state.conversationId = 'c1';
+      S.state.data.thread = {
+        conversation: { id: 'c1', title: 'Dlouhá' },
+        messages: Array.from({ length: 50 }, (_, i) => ({
+          id: String(i + 201), role: i % 2 ? 'user' : 'assistant', content: `zpráva ${i + 201}`,
+        })),
+      };
+      S.state.thread = { cursor: 'c1.a.b', end: false, loadingOlder: false, stickToBottom: true };
+      S.render();
+      const scroll = document.getElementById('thread-scroll');
+      return scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight;
+    });
+    assert.ok(atBottom < 2, `opening a thread must land on the newest message, was ${atBottom} dp short`);
+  });
+
   // ── §10 what a screen reader is handed ────────────────────────────────────
 
   await test('§10 trust bar se čtečce ohlásí jednou větou o všech třech zónách', async () => {

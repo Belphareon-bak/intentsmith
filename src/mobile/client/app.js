@@ -386,7 +386,7 @@ const state = {
   // is already on screen, and `loadingOlder` keeps the boundary control from
   // being tapped twice.  Kept beside `data.thread` because the cache stores the
   // window itself and these describe where that window sits.
-  thread: { cursor: null, end: false, loadingOlder: false },
+  thread: { cursor: null, end: false, loadingOlder: false, stickToBottom: true },
   sending: false,
   sendingSince: null,
   // Which attempt the in-flight send belongs to, so the RunSilence strip on the
@@ -2300,6 +2300,16 @@ function render() {
     operations: viewOperations,
     diagnostics: viewDiagnostics,
   };
+  // How far the thread was scrolled from its *bottom*, measured before the
+  // markup is replaced.  Distance from the bottom is the stable reference when
+  // older messages are prepended: everything the reader is looking at keeps the
+  // same offset from the end, so the view does not move under them.
+  let threadFromBottom = null;
+  if (state.route === 'chat') {
+    const previous = document.getElementById('thread-scroll');
+    if (previous) threadFromBottom = previous.scrollHeight - previous.scrollTop;
+  }
+
   const screen = withTrustBar((views[state.route] || viewOverview)());
   $app.innerHTML = screen;
   renderNavBar();
@@ -2311,7 +2321,14 @@ function render() {
 
   if (state.route === 'chat') {
     const scroll = document.getElementById('thread-scroll');
-    if (scroll) scroll.scrollTop = scroll.scrollHeight;
+    if (scroll) {
+      // Opening a conversation and sending a message both mean "show me the
+      // newest".  Reading into the past does not: after MR-05 prepends a page,
+      // jumping to the bottom would throw away exactly what the user asked for.
+      scroll.scrollTop = (state.thread.stickToBottom || threadFromBottom === null)
+        ? scroll.scrollHeight
+        : Math.max(0, scroll.scrollHeight - threadFromBottom);
+    }
     const input = document.getElementById('composer-input');
     if (input) autoGrow(input);
   }
@@ -2374,6 +2391,7 @@ function threadWindowOf(cachedThread) {
     cursor: window?.cursor ?? null,
     end: window?.end === true,
     loadingOlder: false,
+    stickToBottom: true,
   };
 }
 
@@ -2418,6 +2436,7 @@ async function loadThread(conversationId) {
       cursor: response.nextCursor || null,
       end: response.end !== false && !response.nextCursor,
       loadingOlder: false,
+      stickToBottom: true,
     };
     state.cacheAge.thread = 'FRESH';
     state.cacheAt.thread = Date.now();
@@ -2430,7 +2449,7 @@ async function loadThread(conversationId) {
       // "new chat" — an empty thread, not an error.
       state.data.thread = { conversation: { id: conversationId, title: 'Nová konverzace' }, messages: [] };
       // Nothing to page into: an empty thread is the whole history.
-      state.thread = { cursor: null, end: true, loadingOlder: false };
+      state.thread = { cursor: null, end: true, loadingOlder: false, stickToBottom: true };
       state.cacheAge.thread = 'FRESH';
       state.cacheAt.thread = Date.now();
     } else {
@@ -2456,6 +2475,9 @@ async function loadOlderMessages() {
   if (!conversationId || !cursor || state.thread.loadingOlder) return;
 
   state.thread.loadingOlder = true;
+  // From here on the reader is in the past, so no render may drag them back to
+  // the newest message — not this one, and not a reply arriving later.
+  state.thread.stickToBottom = false;
   render();
 
   try {
@@ -2475,6 +2497,7 @@ async function loadOlderMessages() {
       cursor: response.nextCursor || null,
       end: response.end !== false && !response.nextCursor,
       loadingOlder: false,
+      stickToBottom: false,
     };
     state.cacheAt.thread = Date.now();
     writeThreadCache(conversationId);
@@ -2486,7 +2509,7 @@ async function loadOlderMessages() {
       // the thread again from the newest end.  Splicing a fresh page onto a
       // stale window would join two different versions of the history and look
       // seamless while doing it.
-      state.thread = { cursor: null, end: false, loadingOlder: false };
+      state.thread = { cursor: null, end: false, loadingOlder: false, stickToBottom: true };
       return loadThread(conversationId);
     }
     // The window that is already on screen stays: it was true when it loaded,
@@ -3027,12 +3050,15 @@ async function doSend() {
 
   if (!state.data.thread) {
     state.data.thread = { conversation: { id: conversationId }, messages: [] };
-    state.thread = { cursor: null, end: true, loadingOlder: false };
+    state.thread = { cursor: null, end: true, loadingOlder: false, stickToBottom: true };
   }
   state.data.thread.messages.push({
     id: `local-${operationId}`, role: 'user', content: text,
     createdAt: Date.now(), operationId,
   });
+  // Writing is an act at the newest end of the conversation: whatever the
+  // reader had scrolled back to, they want to see what they just sent.
+  state.thread.stickToBottom = true;
   render();
 
   // The elapsed clock is advanced by the one ticker in `render()`, which starts
@@ -3507,7 +3533,7 @@ function newChat() {
   // A conversation that starts here has no past, so the window is complete from
   // the first message on — otherwise its first reply would sit under a boundary
   // offering to load history that never existed.
-  state.thread = { cursor: null, end: true, loadingOlder: false };
+  state.thread = { cursor: null, end: true, loadingOlder: false, stickToBottom: true };
   state.cacheAge.thread = 'FRESH';
   render();
 }

@@ -66,6 +66,12 @@ by klient mohl otočit cizí kurzor a dostat stránku z opačného konce.
   klientem) se považuje za neúplný — fail-safe směrem k přiznání, ne k mlčení.
 - Selhané dotažení starší stránky nechá okno na obrazovce: bylo pravdivé, když
   se načetlo.
+- **Kotvení scrollu.** `render()` překresluje celou obrazovku a chat pak
+  bezpodmínečně sjížděl dolů. Předřazení stránky by tím čtenáře strhlo zpátky
+  na nejnovější zprávu — tedy pryč od toho, co si právě vyžádal. Pozice se teď
+  měří jako vzdálenost **od spodku** (jediná reference, která při vkládání
+  nahoru drží) a obnovuje se. Skok dolů zůstal tam, kam patří: otevření
+  konverzace a odeslání zprávy.
 
 ---
 
@@ -95,6 +101,7 @@ kotva musela zavést.
 | odmítnutý kurzor splétá místo refreshe | 1 z 15 |
 | server ignoruje neznámý `anchor` | 1 z 20 |
 | zpětná stránka ztratí poslední řádek | 4 z 20 |
+| render sjede dolů i po předřazení stránky | 1 z 14 (prohlížeč) |
 
 ---
 
@@ -119,7 +126,7 @@ i composer se měří jako každý jiný cíl.
 
 ```
 test:mobile              464 PASS / 0 FAIL (21 sad)
-test:mobile:browser       12 PASS (8 povrchů)
+test:mobile:browser       14 PASS (8 povrchů)
 test:registry            399 programů
 artifact-validation      151 PASS
 repository-hygiene      1588 cest
@@ -139,7 +146,6 @@ allow-list má pořád třináct položek.
 | Nezměnil stavové řádky `MR-05` v `COVERAGE.md` / `SCREENS.md` / `PLAN.md` | Klasifikace je akt review autority (§0 zadání). Kód existuje a je ověřený; `PARTIAL` → cokoli dalšího patří review |
 | Nezaložil nález na tiché useknutí ani na dva `§8` cíle | Totéž — zakládání nálezů je review autorita, ne implementace |
 | Nepushnul větev | Operátor zamítl; mění registry fingerprint pod běžící Gate 1 evidencí |
-| Neřešil scroll anchoring při předřazení starší stránky | Reálný požadavek, z markupu neověřitelný. Patří do prohlížečové sady a je to samostatná práce |
 | Nesáhl na `MR-07`, `MR-10`, `MR-14` | Dál `BLOCKED_BY_CONTRACT` |
 
 ---
@@ -152,5 +158,6 @@ allow-list má pořád třináct položek.
    refreeze kontraktu v2 to není — pokud kontraktní autorita usoudí, že tvar
    requestu pod zmrazený povrch spadá, `MR-05` projde kolem `DR-008`.
 3. **Nálezy** na tiché useknutí (§1) a na dva `§8` cíle (§4).
-4. **Scroll anchoring** jako samostatný WP, spolu s převodem stylesheetu na `rem`
-   (`WP-MOBILE-027-RESULT.md` §7) — obojí je prohlížečová práce.
+4. **Převod stylesheetu na `rem`** jako samostatný WP
+   (`WP-MOBILE-027-RESULT.md` §7) — dokud klient zůstane v px, `§10` na 200 %
+   písma nejde ani vyzkoušet.
