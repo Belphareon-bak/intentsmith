@@ -2,8 +2,7 @@
 
 baseRevision: `06e760bb04933a97857ea0ab25a397914b47e60e`
 
-sourceRevision: součást tohoto source commitu; přesný SHA doplní oddělený
-ratchet-baseline commit
+sourceRevision: `4ba38dd9c295558dc0b241cfdf5bda21a9fd2526`
 
 reviewState: `AWAITING_REVIEW_A`
 
@@ -39,6 +38,28 @@ aktuální graf 1 024, exit `1`, jediná přidaná hrana
 `src/db/model-policy.js -> src/db/settings-portability.js`. Baseline se nesmí
 přijmout proti dirty stromu; exact edge přijme až samostatný follow-up commit
 nad čistým source SHA.
+
+## Post-source ratchet checkpoint
+
+Po commitu source subjectu byl strom čistý. Explicitní writer přijal pouze
+hranu `src/db/model-policy.js -> src/db/settings-portability.js` a zapsal
+`sourceRevision = 4ba38dd9c295558dc0b241cfdf5bda21a9fd2526`.
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node scripts/module-boundary-ratchet.mjs` | 1 024/1 024; added 0, removed 0; provenance 0 commitů za source | 0 |
+| `node tests/module-boundary-ratchet.test.js` | 13 passed, 0 failed | 0 |
+| `node tests/m1-model-policy.test.js` | 35 passed, 0 failed | 0 |
+| `node tests/m1-studio-client.test.js` | 122 passed, 0 failed | 0 |
+| `node tests/artifact-validation.test.js` | 151 passed, 0 failed | 0 |
+| `node tests/repository-hygiene.test.js` | 1 551 tracked paths | 0 |
+| `node scripts/validate-test-registry.js --json` | 378 programs, 8 exclusions; fingerprint beze změny | 0 |
+| `git diff --check` | bez whitespace chyb | 0 |
+
+Tato druhá tabulka není fresh-clone evidence: běžela ve stejném izolovaném
+worktree nad commitnutým source SHA a jedinou nezapsanou změnou ratchet
+baseline. Jejím účelem je doložit přesné přijetí nové importní hrany, ne
+opakovat celoproduktovou validaci.
 
 ## Negativní a mutační signál
 

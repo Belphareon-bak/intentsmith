@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "3cbc260df0f69bc3f01afc8be45e6e871c0c3ab6",
-  "sourceTree": "68c00e6da61787097c988f1621e4af647c3fcd71",
+  "sourceRevision": "4ba38dd9c295558dc0b241cfdf5bda21a9fd2526",
+  "sourceTree": "9681a9f64033b9a2b84221d95a9f76f7278f6b01",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -484,6 +484,7 @@
     "src/db/migrations/2026_02_27_021_v86_memory_retention.js -> src/db/migrate.js",
     "src/db/migrations/2026_03_02_026_v92_checkpoint_mode.js -> src/db/migrate.js",
     "src/db/migrations/2026_07_30_045_telemetry_aggregation_version.js -> src/db/migrate.js",
+    "src/db/model-policy.js -> src/db/settings-portability.js",
     "src/domains/index.js -> src/core/logger.js",
     "src/domains/index.js -> src/domains/recipes/cicd.js",
     "src/domains/index.js -> src/domains/recipes/infra.js",
