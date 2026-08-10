@@ -2576,8 +2576,12 @@ function normaliseNavRing(track) {
 let screenTurnActive = false;
 let screenTurnFailsafe = null;
 
-function paintScreen(markup, slideFrom) {
-  const paint = () => { $app.innerHTML = markup; };
+function paintScreen(markup, slideFrom, alsoPaint = () => {}) {
+  // The bar changes inside the same callback as the content.  Painted before
+  // it, the bar starts its own slide, the transition captures it half way and
+  // freezes it behind a snapshot, and it finishes late and on its own clock —
+  // which is the bar arriving after the screen and flickering on the way.
+  const paint = () => { $app.innerHTML = markup; alsoPaint(); };
 
   if (!slideFrom || screenTurnActive || prefersReducedMotion()
       || typeof document.startViewTransition !== 'function') {
@@ -2667,10 +2671,10 @@ function render() {
   // load must not move the screen sideways: that would animate the app's own
   // background noise.
   const section = currentSection();
-  paintScreen(screen, paintedSection && section !== paintedSection
-    ? slideDirection(paintedSection, section) : null);
+  const turning = paintedSection && section !== paintedSection
+    ? slideDirection(paintedSection, section) : null;
   paintedSection = section;
-  renderNavBar();
+  paintScreen(screen, turning, renderNavBar);
   // §6.5 — the elapsed clock is the only thing that moves, and it moves only
   // while a strip is actually on screen.  Driving this from the painted markup
   // rather than from a caller means no screen can leave a timer running behind

@@ -164,10 +164,7 @@ html[data-screen-slide="left"]::view-transition-new(root)  { animation-name: scr
 @keyframes screen-out-right { to   { transform: translateX(100%); } }
 @keyframes screen-in-left   { from { transform: translateX(-100%); } }
 
-:root { --screen-slide: 260ms; }
-@media (prefers-reduced-motion: reduce) {
-  :root { --screen-slide: 0ms; }
-}
+
 
 /* ── Boot ──────────────────────────────────────────────────────────────── */
 .boot {
@@ -585,7 +582,9 @@ html[data-screen-slide="left"]::view-transition-new(root)  { animation-name: scr
      it is a feel, and a feel gets tuned. */
   transition: transform var(--navbar-slide) cubic-bezier(.32, .72, 0, 1);
 }
-:root { --navbar-slide: 720ms; }
+/* One clock for the whole navigation gesture: the bar and the screen must
+   never run at different speeds — that is what looked wrong. */
+:root { --navbar-slide: 720ms; --screen-slide: var(--navbar-slide); }
 /* A 720 ms slide is exactly what someone who asked for less motion does not
    want, so for them it goes back under the §8 ceiling. */
 @media (prefers-reduced-motion: reduce) {

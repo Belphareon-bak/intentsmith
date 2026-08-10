@@ -754,11 +754,11 @@ try {
   await test('§3.1 po dojet\xed nen\xed po p\u0159echodu ani stopa', async () => {
     await page.evaluate(ACTIVATE);
     await page.evaluate(`window.__is.navigate('conversations')`);
-    await new Promise(r => setTimeout(r, 700));
+    await new Promise(r => setTimeout(r, 1000));
     const before = await page.evaluate(AT_REST);
 
     await page.evaluate(`window.__is.navigate('approvals')`);
-    await new Promise(r => setTimeout(r, 900));
+    await new Promise(r => setTimeout(r, 1100));
     const after = await page.evaluate(AT_REST);
 
     // Same screen, reached by turning instead of repainting: the document must
@@ -781,7 +781,7 @@ try {
     // animates at all.
     await page.evaluate(ACTIVATE);
     await page.evaluate(`window.__is.navigate('conversations')`);
-    await new Promise(r => setTimeout(r, 700));
+    await new Promise(r => setTimeout(r, 1000));
 
     const seen = await page.evaluate(async () => {
       const S = window.__is;
@@ -792,7 +792,7 @@ try {
         S.navigate('approvals');
         await new Promise(r => setTimeout(r, 40));
         const during = document.documentElement.dataset.screenSlide ?? null;
-        await new Promise(r => setTimeout(r, 900));
+        await new Promise(r => setTimeout(r, 1100));
         return { started, during };
       } finally { document.startViewTransition = real; }
     });
@@ -804,7 +804,7 @@ try {
   await test('§3.1 rychl\xe9 p\u0159ep\xedn\xe1n\xed nenaskl\xe1d\xe1 p\u0159echody na sebe', async () => {
     await page.evaluate(ACTIVATE);
     await page.evaluate(`window.__is.navigate('conversations')`);
-    await new Promise(r => setTimeout(r, 700));
+    await new Promise(r => setTimeout(r, 1000));
 
     const outcome = await page.evaluate(async () => {
       const S = window.__is;
@@ -818,7 +818,7 @@ try {
         S.navigate('diagnostics');
         await new Promise(r => setTimeout(r, 30));
         S.navigate('conversations');
-        await new Promise(r => setTimeout(r, 1100));
+        await new Promise(r => setTimeout(r, 1800));
         return { started, route: S.state.route };
       } finally { document.startViewTransition = real; }
     });
@@ -838,7 +838,7 @@ try {
     ]);
     await page.evaluate(ACTIVATE);
     await page.evaluate(`window.__is.navigate('conversations')`);
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 1000));
 
     const started = await page.evaluate(async () => {
       const S = window.__is;
@@ -850,7 +850,7 @@ try {
       document.startViewTransition = cb => { count++; return real(cb); };
       try {
         S.navigate('approvals');
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 1000));
         return count;
       } finally { document.startViewTransition = real; }
     });
@@ -877,10 +877,10 @@ try {
     const outcome = await page.evaluate(async () => {
       const S = window.__is;
       S.navigate('overview');
-      await new Promise(r => setTimeout(r, 1200));
+      await new Promise(r => setTimeout(r, 1400));
       const retracted = document.querySelector('.navbar')?.dataset.retracted;
       document.querySelector('[data-section="conversations"]').click();
-      await new Promise(r => setTimeout(r, 1500));
+      await new Promise(r => setTimeout(r, 1800));
       return { retracted, route: S.state.route };
     });
     assert.equal(outcome.retracted, 'true', 'precondition: the bar had retracted on the root');
