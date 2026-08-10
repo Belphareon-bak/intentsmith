@@ -245,17 +245,20 @@ mode-0400 artefakty, ověřit source/export boundary a privátní expected piny 
 vrátit pouze nové kopie bytes s bezpečnou path-free projekcí. Clone, forgery,
 druhý `take` a callerový path/authority override jsou fail-closed.
 
-Issuer je `IMPLEMENTED / REVIEW_PENDING`. Durable content-addressed store se
+Issuer je `PROMOTED / REVIEW A+B PASS`. Durable content-addressed store se
 odvozuje z kanonické file-backed DB bez caller/env root override a první
 implementační layout je
 `<canonical-main-db>.artifacts/model-failover-proofs/v1/sha256/<sha256>.json`.
 Companion a proof vznikají v jednom companion-first `BEGIN IMMEDIATE`; pozdní
 FK/DB drift, TEMP/attached schema a nepravdivý store metadata stav jsou
-fail-closed. Skutečný GPU/Ollama běh neproběhl a automatic activation/restore
-zůstává vypnutá.
+fail-closed. Skutečný operátorský CHAT/Ollama běh na source `e9c7d5f5` vydal
+proof pro právě pozorovaný `qwen3.5:27b` digest, score 1 a 8/8. Companion i
+proof jsou durable a oba artifact bloby prošly exact hash/length a mode-0400
+single-link kontrolou. Automatic activation/restore zůstává vypnutá;
+samostatný GPU-residency pilot 009 nebyl tímto během nahrazen.
 
 Operátor 2026-08-10 přijal provenance variantu 024/A. Parent handoff a vlastní
-issuer jsou dva malé implementační checkpointy; druhý čeká na Review A/B a
-proof ještě vydaný není. Digest váže pouze evidence
+issuer jsou dva malé implementační checkpointy; oba jsou promoted a první
+skutečný CHAT proof byl vydán. Digest váže pouze evidence
 jednoho běhu ke skutečně pozorovaným modelovým bytes; role ani produkt nejsou
 připnuté k jednomu modelu a po rotaci se pro nový artefakt vydá nový proof.

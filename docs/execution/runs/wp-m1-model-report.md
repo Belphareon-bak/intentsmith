@@ -2829,3 +2829,52 @@ nejbližším microtasku`, veřejné `proofId/expiresAtMs` se vážou k přesný
 Jde o implementovaný source subject, ne vydaný modelový proof. Review A/B,
 skutečný GPU/Ollama běh, automatic activation/restore a Electron nebyly
 provedené. Gate 1 proto zůstává `BLOCKED`.
+
+## Checkpoint 35 — skutečný CHAT/Ollama proof
+
+Issuer subject prošel jednorázově schválenou scope výjimkou, nezávislým Review
+A a Review B v novém disk-backed `git clone --no-local`. Canonical integration
+ref byl následně fast-forwardnut na
+`e9c7d5f53a54a6ad87bbd03db49c6f734d413a54`. Před modelovým efektem vznikla
+konzistentní soukromá SQLite backup mimo Git, mode 0600, s `quick_check=ok`.
+
+Na čistém promoted checkoutu proběhl jediný explicitní operátorský příkaz:
+
+```text
+C3_DB_PATH=/home/belphareon/Projects/intentsmith/data/c3.db \
+C3_LOG_LEVEL=error node scripts/issue-model-failover-proof.js \
+  --role CHAT --proposed-model-name qwen3.5:27b
+```
+
+Příkaz skončil exit `0` a vrátil path-free výsledek:
+
+```text
+status=ISSUED
+proofId=mfp-ce4e89ee2921cf68bf225cb5f1c888846623a21cde3093a46828db9e7d66b217
+expiresAtMs=1786991825563
+```
+
+Terminální read-only kontrola nad DB a durable store potvrdila:
+
+- source revision `e9c7d5f53a54a6ad87bbd03db49c6f734d413a54`;
+- role/suite `CHAT/chat`, observed i canonical model `qwen3.5:27b`;
+- model digest
+  `7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e`;
+- score `1`, passed `8/8`, required score `1`, required passed `8`;
+- TTL `604800000` ms;
+- measurement artifact SHA-256
+  `7b6b831357a822e7e8c09875e3cf1c7c6b0eb588899615c487151fb171270703`;
+- acceptance artifact SHA-256
+  `ce4e89ee2921cf68bf225cb5f1c888846623a21cde3093a46828db9e7d66b217`;
+- právě jeden companion a jeden proof, exact shared-field shodu a strict expiry;
+- oba artifact soubory jsou owned regular mode 0400, single-link a jejich bytes,
+  délky i hashe odpovídají DB;
+- SQLite `quick_check` a `foreign_key_check` prošly;
+- desired/failover/application state zůstal prázdný a společné legacy
+  `model_overrides` / `upgrade_history` hodnoty se proti backupu nezměnily.
+
+Tento běh prokazuje skutečnou Ollama CHAT suite a durable digest-bound proof.
+Neprokazuje automatic activation/restore ani samostatný 009 GPU-residency
+profil: preflight viděl RTX 3090 a lokální model, ale během suite se
+nesamplovala 100% residency ani kalibrační context. Gate 1 proto zůstává
+`BLOCKED` na zbývajících M1 položkách.
