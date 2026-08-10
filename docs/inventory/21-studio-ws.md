@@ -306,3 +306,5 @@ pokus skončil před testy na chybějícím `better-sqlite3`; po přesném
 `npm ci --offline` byl celý běh zopakován. Electron build/journey, skutečný
 display, GPU, Ollama a externí síť nebyly spuštěné. Stav je proto
 `SOURCE_ENABLED / FOCUSED_VERIFIED`, nikoli built B4 nebo Gate 1 PASS.
+Source checkpoint následně prošel Review A/B a byl promoted na integrační ref;
+to nemění stav Electron journey z `NOT RUN`.

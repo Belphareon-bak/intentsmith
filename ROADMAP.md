@@ -1317,7 +1317,7 @@ mohou pokračovat.
    | 3 | ověřit dokončenou rezervaci migrací | `061` = 020 a `062` = 015 jsou rezervované; skutečná late-insertion parita čeká na první společný SHA s finálně přečíslovanými mobilními migracemi |
    | 4 | 020 oddělená policy storage | default-deny backend a tři first-party UI consumery jsou implementované; review-remediation source `2c06b159` má 36/0 a 123/0, konsolidační queue 127/0 a focused `--no-local` clone je zelený; formální Review A zůstává otevřené |
    | 5 | 015 proof issuance | **UZAVŘENO pro CHAT artefakt:** issuer prošel Review A/B a je promoted; skutečný operátorský Ollama běh na source `e9c7d5f5` vydal digest-bound proof pro `qwen3.5:27b`, score 1 a 8/8; automatic activation/restore tím nevznikla |
-   | 6 | 021 built journey | source ACK používá config-owned 8 položek / 6 MiB aggregate / 12 MiB frame, synchronous fail-fast a má Review A PASS; merge candidate čeká na Review B a drahá Electron journey zůstává otevřená |
+   | 6 | 021 built journey | source ACK používá config-owned 8 položek / 6 MiB aggregate / 12 MiB frame, synchronous fail-fast prošel Review A/B a checkpoint je promoted; drahá Electron journey zůstává otevřená |
    | 7 | autorizovaný GPU pilot | sériově, jedna role a jeden právě pozorovaný artefakt na běh; modely se smějí mezi běhy měnit, jen na akci operátora |
 
    Levné a bezpečnostní změny se tím dokončí před drahou Studio
@@ -1325,7 +1325,7 @@ mohou pokračovat.
 
    Konsolidovaný M1 base je formálně přijatý na
    `integration/m1-consolidated-20260810`; po proof-issuer Review A/B je
-   aktuální remote tip `e9c7d5f5`. Původní konsolidační base byl `eb93d59b` a
+   aktuální remote tip `58741fb9`. Původní konsolidační base byl `eb93d59b` a
    přesná promotion topologie je v
    [`wp-m1-consolidation-promotion-20260810-report.md`](docs/execution/runs/wp-m1-consolidation-promotion-20260810-report.md).
    Původní focused `--no-local` profil runtime kandidáta `c0fcc444` zůstává

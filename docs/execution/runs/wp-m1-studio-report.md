@@ -1653,3 +1653,13 @@ invalidních tříd. Každý child skončil nenulově s owned signálem
 port-file, projects a runtime artefakty. Protocol, WS server, session adapter a
 celý `c3-ide/**` zůstaly byteově nedotčené. Built Electron journey ani jiná
 drahá nebo síťová sada nebyla spuštěna; B4 a Gate 1 zůstávají `BLOCKED`.
+
+## Checkpoint 34 — promotion source aktivace
+
+Source checkpoint prošel nezávislým Review A i Review B. Review B běželo nad
+merge candidate `3161cf8e` v disk-backed klonu a zopakovalo pouze focused
+startup, WS, registry, artifact a proof-issuer kontroly; všechny skončily exit
+`0`. Report-only evidence commit `58741fb9` je promoted na
+`integration/m1-consolidated-20260810`. Electron, production build a display
+journey stále neběžely, takže stav zůstává `SOURCE_ENABLED /
+FOCUSED_VERIFIED`, nikoli B4 nebo Gate 1 PASS.
