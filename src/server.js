@@ -107,7 +107,10 @@ import { getTrustTracker } from './notifications/trust.js';
 import { ChatController, ChatMode } from './chat/controller.js';
 
 // v59.0: WebSocket bridge for IDE integration
-import { attachWebSocketServer } from './ws-bridge/index.js';
+import {
+  attachWebSocketServer,
+  createM1AttachmentPolicy,
+} from './ws-bridge/index.js';
 import { setNotificationDeps } from './ws-bridge/session-adapter.js';
 import { getDefaultHandlers } from './chat/handlers/index.js';
 import {
@@ -1292,6 +1295,16 @@ listenOnLegacyLoopback(server, config.server, async () => {
   attachWebSocketServer(server, ChatController, logger, {
     allowedOrigins: config.server.allowedOrigins,
     localCapability: legacyLocalCapability,
+    m1WireSupported: config.server.m1Wire.enabled,
+    m1AttachmentPolicy: config.server.m1Wire.enabled
+      ? createM1AttachmentPolicy({
+          maxCount: config.server.m1Wire.maxAttachmentCount,
+          maxTextBytes: config.limits.maxTextAttachment,
+          maxImageBytes: config.limits.maxImageAttachment,
+          maxAggregateBytes: config.server.m1Wire.maxAggregateBytes,
+          maxFrameBytes: config.server.m1Wire.maxFrameBytes,
+        })
+      : null,
   });
   modelBindingApplication.startBackgroundVerification();
 
