@@ -532,12 +532,16 @@ plné verze se liší a přečíslovat je už nelze — skript je hlásí, ale n
 
 **Stav k `2026-08-10`:** mobilní větev drží `055`–`060`, modelová linie
 (`905a3422`, `integration/gate1-prod-ready-20260809` a deset dalších větví)
-drží `061`. **Další volné číslo je `062`**, ne `058` a ne `061`. Pravidlo
-z `WP-MOBILE-027-COMPLETION.md` §6.3 — „prefix vyšší než `2026_08_09_057`" —
-je tím překonané; doslovné splnění by dnes vyrobilo kolizi.
+drží `061`. Pravidlo z `WP-MOBILE-027-COMPLETION.md` §6.3 — „prefix vyšší než
+`2026_08_09_057`" — je tím překonané; doslovné splnění by vyrobilo kolizi.
 
-Co skript neumí: neuvidí větev, která ještě nevznikla. Proto se pouští znovu
-před commitem, ne jen na začátku práce.
+**Číslo se ale nečte odsud.** Mezi napsáním předchozího odstavce a jeho
+zacommitováním vznikl worktree `is-m1-proof-issuance-impl` a obsadil `062`
+(`2026_08_10_062_model_failover_proof_issuance`). Dokument, který drží konkrétní
+číslo, zastarává během jedné relace — proto ho drží skript a proto se pouští
+**znovu těsně před commitem**, ne jen na začátku práce. Skript navíc neuvidí
+větev, která ještě nevznikla; to je limit, který se nedá odstranit, jen zúžit
+tím, že se kontrola opakuje co nejpozději.
 
 **Tvar odkazu.** Mobilní povrch (`src/mobile/`, mobilní migrace, `tests/mobile-*`,
 `docs/mobile/`) smí psát holé číslo **jen pro mobilní migraci**. Cizí migrace se

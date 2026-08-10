@@ -237,8 +237,9 @@ v `tests/schema-migrations.test.js`.
 > `061`, takže doslovné splnění téhle věty vyrobí kolizi. Číslo se nepřiděluje
 > proti tomuhle stromu, ale proti celému vývoji:
 > `node scripts/check-migration-numbers.mjs`. Autoritativní znění pravidla je
-> [`TEST-STRATEGY.md` §6.5](TEST-STRATEGY.md); k `2026-08-10` je další volné
-> číslo `062`.
+> [`TEST-STRATEGY.md` §6.5](TEST-STRATEGY.md). Konkrétní číslo si tam
+> nepřepisuj — přečti ho ze skriptu těsně před commitem; `062` padlo cizí
+> větvi během jediné relace.
 
 **6.4 `artifact-validation` hlídá odvozená čísla.** Změna registru rozbije
 počty v kořenovém `README.md` (řádek 10 a 11: celkem a `ACTIVE`/`BLOCKED`/
