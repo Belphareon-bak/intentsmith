@@ -179,6 +179,52 @@ Zamýšlená sada podle předlohy: `Konverzace`, `Projekty`, `Domů`, `Aktivita`
 smyčku neumí a obsah se nepřesouvá, jen překreslí. Rozdíl je zapsaný, aby se
 nepletl s hotovým stavem.
 
+#### Sada položek, pořadí a zatahování — operátor 2026-08-10
+
+**Sada smyčky:** `Domů`, `Konverzace`, `Projekty`, `Aktivita`, `Agenti`,
+`Specialisté`, `Nastavení` — a další moduly, až vzniknou. `Projekty`
+(`MR-14`), `Aktivita` (`MR-07`), `Agenti` a `Specialisté` (Fáze 5) nemají
+kontrakt, takže se ve smyčce zobrazí **uzamčené, ne skryté**: §3.1 to žádá už
+dnes a je to poctivější než lišta, která se po schválení kontraktu přeskupí.
+
+**Pořadí si mění uživatel.** Dlouhý stisk lišty ji přepne do režimu úprav a
+položky se přetahují, jako ikony na liště ve Windows nebo Ubuntu. Pořadí je
+`MD-15` — lokální preference, `S0`, přežije i revokační výmaz, protože
+`R5-2` vede vzhled a chování vázané na zařízení jako lokální.
+
+**Zatahování na kořeni je volba, ne pravidlo.** Operátor chce, aby lišta při
+přechodu na `Domů` plynule sjela a uvolnila místo dashboardu — je to hezčí a
+homescreen tím dostane celou plochu. Zároveň to někomu vadit může, takže:
+
+| | |
+|---|---|
+| Kde | `Nastavení` → `Vzhled` |
+| Volba | „Skrýt lištu na domovské obrazovce" |
+| Výchozí | zapnuto — efekt, kvůli kterému to vzniklo |
+| Uloženo | `MD-15`, lokálně |
+
+Podmínka úplnosti kořene (níže) tím platí **dvojnásob**: při zapnuté volbě je
+homescreen opravdu jedinou mapou aplikace.
+
+#### Čím se to postaví — a proč ne knihovnou
+
+**[F] Posun mezi obrazovkami ani smyčku není potřeba vyvíjet ani stahovat.**
+Dělá obojí `CSS scroll-snap` (`scroll-snap-type: x mandatory`), který je
+v prohlížeči nativně: setrvačnost prstu, dosednutí na nejbližší položku
+i plynulý posun bez jediného řádku animační logiky.
+
+Knihovna typu Swiper by tu byla horší volba, ne lepší:
+
+| | |
+|---|---|
+| Klient nemá build step | Knihovnu by bylo nutné vendorovat do `src/mobile/client/` jako další soubor k údržbě |
+| CDN nepřipadá v úvahu | Gateway servíruje jen vlastní soubory a aplikace musí fungovat offline |
+| Dodavatelský řetězec | Nová závislost v procesu obráceném do sítě je přesně to, čemu se `src/mobile-gateway.js` vyhýbá |
+| Velikost | Celý dnešní klient je jeden soubor; typický slider je srovnatelně velký sám o sobě |
+
+Nativní řešení navíc dá zadarmo to, co §8 žádá: respektuje
+`prefers-reduced-motion` a nepotřebuje vlastní ošetření dotyku.
+
 #### Posouvací lišta centrovaná na výběr
 
 **[R]** Lišta je vodorovně posouvatelná a nese **všechny** dostupné položky.
