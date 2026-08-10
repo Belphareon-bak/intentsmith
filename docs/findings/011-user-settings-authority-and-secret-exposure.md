@@ -69,7 +69,7 @@ Netvrdí globální lost-update odolnost ani bezpečný obecný settings read.
 Gate 1 proto zůstává `BLOCKED`, dokud tento finding nedostane vlastní bounded
 WP, implementaci, negativní race důkazy a nezávislé review.
 
-## První repair F-A — source implementovaný, review otevřené
+## První repair F-A — promován, Review A+B PASS
 
 Operátor 2026-08-10 schválil úzkou opravu potvrzené ztráty dat: generic
 `POST /api/settings` whole-row replacementem uměl odstranit devět
@@ -82,8 +82,11 @@ jen filtrovaný incoming patch, nikdy commitnutý dokument s notification
 tajemstvím. Post-commit runtime chyba je pravdivý degraded `200`; malformed
 input a pre-commit storage chyba mají stabilní `400`/`503` bez raw hodnot.
 Focused route-level sada má 4/4 včetně skutečných dvou WAL writerů. Immutable
-subject, Review A/B a merge-candidate evidence jsou ještě otevřené, takže F-A
-není přijatý. Neřeší generic read, ostatní writery, CAS, secrets ani reset.
+subject `ebe7ee20`, merge candidate `1a75188f` a oddělené Review A/B evidence
+prošly; promotion evidence tip `8c7ff414` je zapsaný v
+[`wp-m1-settings-notification-clobber-20260810-report.md`](../execution/runs/wp-m1-settings-notification-clobber-20260810-report.md).
+F-A neřeší generic read, ostatní writery, CAS, secrets ani reset, takže Finding
+011 zůstává `OPEN` a Gate 1 `BLOCKED`.
 
 Ohraničené navazující položky: Architect a Center Views zatím nemají bounded
 fetch timeout; raw compatibility objekt s vlastním `kind`/`schemaVersion` je

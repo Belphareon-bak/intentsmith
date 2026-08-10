@@ -9,8 +9,9 @@ izolovaném worktree
 
 **integrationRef:** `integration/m1-consolidated-20260810`
 
-**Stav:** `ACTIVE` — operátor F-A výslovně schválil 2026-08-10; tento
-aktivační commit musí být před prvním writer commitem.
+**Stav:** `PROMOTED / REVIEW A+B PASS` — operátor F-A výslovně schválil
+2026-08-10; promotion evidence tip je `8c7ff414` a přesná topologie je v
+[`wp-m1-settings-notification-clobber-20260810-report.md`](../execution/runs/wp-m1-settings-notification-clobber-20260810-report.md).
 
 ## 1. Uživatelský výsledek
 

@@ -1323,12 +1323,14 @@ mohou pokračovat.
    Levné a bezpečnostní změny se tím dokončí před drahou Studio
    infrastrukturou a obě migrační položky dostanou čísla z jednoho census.
 
-   Před rozšířením Findingu 011 má úzký P1 repair F-A source implementaci:
+   Před rozšířením Findingu 011 je úzký P1 repair F-A promován:
    [`WP-M1-SETTINGS-NOTIFICATION-CLOBBER`](docs/wp/WP-M1-SETTINGS-NOTIFICATION-CLOBBER.md)
    chrání devět exact notification klíčů před generic save přes společný
-   `BEGIN IMMEDIATE` merge seam; focused route/WAL důkaz má 4/4. Review A/B a
-   merge candidate zůstávají otevřené. F-A nemění generic read, reset ani
-   budoucí revision/CAS a po přijetí neodemyká Gate 1.
+   `BEGIN IMMEDIATE` merge seam; focused route/WAL důkaz má 4/4 a nezávislé
+   Review A i Review B skončily `PASS`. Kandidát `1a75188f` a promotion
+   evidence tip `8c7ff414` jsou zaznamenané v
+   [`wp-m1-settings-notification-clobber-20260810-report.md`](docs/execution/runs/wp-m1-settings-notification-clobber-20260810-report.md).
+   F-A nemění generic read, reset ani budoucí revision/CAS a neodemyká Gate 1.
 
    Konsolidovaný M1 base je formálně přijatý na
    `integration/m1-consolidated-20260810`; wire Review B evidence obálka
