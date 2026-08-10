@@ -2428,6 +2428,13 @@ function layoutNavRing(track) {
     // Start standing on the real set.  Left at zero the ring would be at the far
     // edge of the leading copies, and the shortest way round would be measured
     // from a position it never actually occupies.
+    //
+    // Flagged as the app's own turn: this jump fires scroll events like any
+    // other, and until the ring is actually placed the middle still holds the
+    // section we are leaving.
+    navRingTurningItself = true;
+    clearTimeout(navSelfTurnTimer);
+    navSelfTurnTimer = setTimeout(() => { navRingTurningItself = false; }, NAV_TURN_MS);
     withoutSmoothScroll(track, () => { track.scrollLeft = navSetWidth(track); });
   }
   centreNavOnSelection();
@@ -2505,8 +2512,15 @@ function centreNavOnSelection(target = null) {
     // Re-base now the turn has landed, so the loop keeps its material without
     // ever moving under an animation.
     normaliseNavRing(track);
-  }, 400);
-  if (typeof track.scrollTo === 'function') track.scrollTo({ left, behavior: 'smooth' });
+  }, NAV_TURN_MS);
+
+  // Native smooth scrolling has a duration the page cannot set, so during a
+  // screen transition it would run at its own pace beside an animation of a
+  // known length — one overtaking the other, which is exactly what looks
+  // wrong.  While the screen is travelling the ring is therefore placed at
+  // once and carried by the same transition as everything else.
+  const behavior = screenTurnActive ? 'auto' : 'smooth';
+  if (typeof track.scrollTo === 'function') track.scrollTo({ left, behavior });
   else track.scrollLeft = left;
 }
 
@@ -4017,6 +4031,12 @@ function navItemAtCentre(track) {
  * screen, so resting on it changes nothing but the highlight.
  */
 function followNavRingToCentre(track) {
+  // The settle timer may have been armed by a scroll the *app* caused — the
+  // ring being placed when the bar slides out, before it has reached the item
+  // it is being placed on.  Acting on that reads the old centre and navigates
+  // straight back where the user just came from, which is what tapping
+  // Konverzace on the root looked like.
+  if (navRingTurningItself || screenTurnActive) return;
   const centred = navItemAtCentre(track);
   if (!centred) return;
   const id = centred.dataset.nav;

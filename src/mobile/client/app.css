@@ -137,6 +137,16 @@ button { cursor: pointer; border: none; background: none; }
    separately by name so it stays put while the content travels under it. */
 .navbar { view-transition-name: navbar; }
 
+/* The bar is snapshotted under its own name so the content travels *under* it
+   rather than taking it along.  Its pair runs on the same clock as the content:
+   two animations of different lengths side by side is one overtaking the other,
+   which is what looks wrong. */
+::view-transition-old(navbar),
+::view-transition-new(navbar) {
+  animation-duration: var(--screen-slide);
+  animation-timing-function: cubic-bezier(.32, .72, 0, 1);
+}
+
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation-duration: var(--screen-slide);

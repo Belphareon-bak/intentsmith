@@ -862,6 +862,32 @@ try {
     assert.equal(rest.direction, null);
   });
 
+  await test('§3.2 odchod z ko\u0159ene se nevr\xe1t\xed zp\u011bt na ko\u0159en', async () => {
+    // Reported from the running app: tapping Konverzace on the homescreen put
+    // the homescreen straight back.
+    //
+    // **This test does not reproduce that report.**  It passes with and without
+    // the guards added for it, which was checked by mutation — so it is an
+    // assertion that leaving the root works, not evidence that the reported bug
+    // is fixed.  Whatever produced it needs conditions this fixture does not
+    // have: a real finger, a slower device, or a timing this one does not hit.
+    // Kept because the behaviour is worth pinning; labelled so nobody reads it
+    // as proof.
+    await page.evaluate(ACTIVATE);
+    const outcome = await page.evaluate(async () => {
+      const S = window.__is;
+      S.navigate('overview');
+      await new Promise(r => setTimeout(r, 1200));
+      const retracted = document.querySelector('.navbar')?.dataset.retracted;
+      document.querySelector('[data-section="conversations"]').click();
+      await new Promise(r => setTimeout(r, 1500));
+      return { retracted, route: S.state.route };
+    });
+    assert.equal(outcome.retracted, 'true', 'precondition: the bar had retracted on the root');
+    assert.equal(outcome.route, 'conversations',
+      'leaving the root bounced straight back to it');
+  });
+
   // ── §10 what a screen reader is handed ────────────────────────────────────
 
   await test('§10 trust bar se čtečce ohlásí jednou větou o všech třech zónách', async () => {
