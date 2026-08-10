@@ -1,9 +1,11 @@
-# WP-M1 policy import/reset — Review A evidence
+# WP-M1 policy import/reset — Review A/B evidence
 
 integrationRef: integration/gate1-prod-ready-20260809
 baseRevision: 1d351f67428eb1c4ae1adc99ce4dd99baef608e9
 subjectHead: da7abd75b52b65c909b12169c4929db4114f139b
 reviewA.verdict: PASS
+candidateHead: 928dd06c1b418bc093632ea8ac3964cdf95114c8
+reviewB.verdict: PASS
 
 ## Rozsah subjectu
 
@@ -83,9 +85,52 @@ worktree. Nešlo o produktové ani testovací failure a finální clone
 
 ## Hranice tvrzení a zbývající blockery
 
-Tento report potvrzuje pouze Review A a reprodukovatelnost uvedeného M1
-checkpointu. Gate 1 jako celek zůstává `BLOCKED`. Neběžel GPU/Ollama pilot,
-Electron journey ani externí síť. Není doložena pozdní parita mobilních migrací,
-proof issuance a migrace 062 z rozhodnutí 015 ani built-Electron cesta z
-rozhodnutí 021. Integrační ref se tímto reportem neposouvá; přijetí do ní patří
-až na společnou merge boundary s vlastní integrační validací.
+Původní report commit `06e760bb` potvrzoval pouze Review A a
+reprodukovatelnost subjectu. Následující část připíná samostatnou integraci a
+Review B. Gate 1 jako celek zůstává `BLOCKED`. Neběžel GPU/Ollama pilot,
+Electron journey ani externí síť. Není doložena pozdní parita mobilních
+migrací, proof issuance a migrace 062 z rozhodnutí 015 ani built-Electron cesta
+z rozhodnutí 021.
+
+## Current-integration candidate a Review B
+
+Merge commit `55bf8e0a2d27a2f5dd6c37143651c8a10b990f48` má první parent
+`c6a02e697b73231e8da5b993b26ab859700d4b9b` a druhý parent Review-A evidence
+`06e760bb04933a97857ea0ab25a397914b47e60e`. Následné dva dokumentační
+commity opravily pouze stale stav M1 a L0-8; výsledný immutable candidate je
+`928dd06c1b418bc093632ea8ac3964cdf95114c8`.
+
+Nezávislé bounded Review B nad exact candidate skončilo `PASS` bez P0–P2.
+First-parent diff má přesně 13 schválených cest, všechny jako `100644 blob`.
+Call graph vede import/reset přes jediný atomický repository commit point a
+Studio rozlišuje `COMMITTED`, `REJECTED` a nereplayovatelný
+`DELIVERY_UNKNOWN`. Injection i P10 artefakty jsou proti přijatému parentu
+zachované.
+
+Nový `git clone --no-local` exact candidate, následný `npm ci --offline` a
+všechny příkazy níže skončily exit `0`; před instalací i po testech byl tracked
+strom čistý:
+
+| Příkaz | Výsledek |
+|---|---:|
+| `node tests/m1-model-policy.test.js` | 35/0 |
+| `node tests/m1-studio-client.test.js` | 110/0 |
+| `node tests/routes-smoke.test.js` | 109/0 |
+| `node tests/schema-migrations.test.js` | 38/0 |
+| `node tests/m1-model-failover-coordinator.test.js` | 16/0 |
+| `node tests/m1-model-identity.test.js` | 25/0 |
+| `node tests/accountant-self-contained.test.js` | 25/0 |
+| `node tests/tool-adapter.test.js` | 96/0 |
+| `node tests/specialist-loader.test.js` | 309/0 |
+| `node tests/core-optional-map-validator.test.js` | 16/0 |
+| specialist boundary ratchet + focused test | 5 balíčků / 32 souborů / 0 referencí; 19/0 |
+| module boundary ratchet + focused test | 1 024/1 024; 13/0 |
+| artifact validation | 151/0 |
+| registry validation | 380 programů / 8 exclusions; `50d4b6d9…1b95` |
+| repository hygiene | 1 558 tracked cest |
+| `git diff --check` | bez výstupu |
+
+Tato evidence přijímá pouze policy import/reset checkpoint do lokálního
+integračního řetězce. Automatic failover, proof issuer/persistence, migrace 062,
+mobile late-insertion parita, built negotiated Electron journey a autorizovaný
+GPU pilot zůstávají otevřené; Gate 1 proto není `PASS`.
