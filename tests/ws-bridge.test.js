@@ -1709,6 +1709,48 @@ await asyncTest('T23c: M1 adapter preserves identity and emits one canonical str
   );
 });
 
+await asyncTest('T23ca: M1 shell intent returns an honest no-effect terminal', async () => {
+  const sent = [];
+  const frame = m1StudioFrame('shell-no-authority', {
+    input: 'spusť git status',
+  });
+  const adapter = createSessionAdapter({
+    send: encoded => sent.push(JSON.parse(encoded)),
+    handleRequest: async () => ({
+      response: 'Legacy shell response must not become M1 success.',
+      mode: 'conversation',
+      confidence: 1,
+      metadata: { shellCommand: 'git status' },
+    }),
+    logger: mockLogger,
+  });
+
+  try {
+    await adapter.processM1Command(frame);
+  } finally {
+    adapter.cleanup();
+  }
+
+  const events = m1EventStream(sent, frame.command.requestId);
+  assert.equal(validateCoreEventStream(events).valid, true);
+  assert.equal(events.filter(event => event.phase === 'terminal').length, 1);
+  assert.equal(events.at(-1).terminalStatus, 'error');
+  assert.equal(
+    events.at(-1).payload.result.error.code,
+    'M1_EFFECT_AUTHORITY_REQUIRED',
+  );
+  assert.equal(
+    events.some(event => event.payload?.result?.response),
+    false,
+    'M1 shell intent must not claim an assistant success',
+  );
+  assert.equal(
+    sent.some(message => message.channel === 'terminal'),
+    false,
+    'M1 shell intent must not enter the legacy terminal executor',
+  );
+});
+
 await asyncTest('T23d: malformed M1 frame fails before the controller effect', async () => {
   let effects = 0;
   const adapter = createSessionAdapter({

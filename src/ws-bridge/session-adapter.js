@@ -573,14 +573,30 @@ export function createSessionAdapter({
         });
       }
 
-      // Legacy shell auto-exec is an effect authority outside B4. M1 remains
-      // unadvertised in production while this behavior decision is open.
+      // Legacy shell auto-exec is an effect authority outside B4. A negotiated
+      // M1 turn must never report success for an effect it did not own or run.
       if (!m1Egress && response.metadata?.shellCommand) {
         const shellCmd = response.metadata.shellCommand;
         logger.info('WSSession', `Auto-executing shell command from SHELL intent: ${shellCmd}`, { turnId });
         // Fire-and-forget — handleTerminal sends results via terminal channel
         handleTerminal({ type: 'exec', command: shellCmd, reqId: `shell-${turnId}`, conversationId: requestConversationId })
           .catch(err => logger.error('WSSession', `Shell auto-exec failed: ${err.message}`));
+      }
+
+      if (m1Egress && response.metadata?.shellCommand) {
+        const telemetrySnapshot = turnTelemetry?.finalize(turnStartTime) ?? null;
+        if (telemetrySnapshot) {
+          sendTurnEvent('turn_metrics', { telemetry: telemetrySnapshot });
+        }
+        m1Egress.terminal(createM1WsConversationResult(m1Command, {
+          status: 'error',
+          error: {
+            code: 'M1_EFFECT_AUTHORITY_REQUIRED',
+            message: 'Shell execution requires the M2 effect authority.',
+          },
+        }));
+        persistTelemetry(telemetrySnapshot);
+        return;
       }
 
       // Turn end — success

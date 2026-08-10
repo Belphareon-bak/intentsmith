@@ -1446,3 +1446,34 @@ selhání runtime apply a loggeru. Navazující backend follow-up odděluje repo
 error boundary a připíná import i reset regresí; nový immutable Review A a fresh
 clone jsou v okamžiku zápisu znovu otevřené. Electron, GPU, Ollama ani externí
 síť nebyly spuštěné a Gate 1 zůstává `BLOCKED`.
+
+## Checkpoint 28 — 021 honest no-effect SHELL seam
+
+Přijaté `021-shell-now: A-honest-no-effect-terminal` je implementované na
+dormantní negotiated M1 větvi. Pokud controller vrátí legacy
+`metadata.shellCommand`, M1 nevstoupí do `handleTerminal()`, nevydá assistant
+success a skončí jediným validním terminálem `error` s kódem
+`M1_EFFECT_AUTHORITY_REQUIRED`. Legacy wire si zachovává dnešní auto-exec;
+produkční `m1-wire-v1` ACK je dál vypnutý.
+
+Nový negativní test vykoná skutečný session adapter, vrátí shell metadata z
+fake controlleru a ověří validní CoreEvent stream, právě jeden error terminal,
+nulový response success a nulový `terminal` channel efekt.
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| baseline `node tests/ws-bridge.test.js` | 86/0 | 0 |
+| baseline `node tests/m1-studio-client.test.js` | 110/0 | 0 |
+| `node --check src/ws-bridge/session-adapter.js` | syntax valid | 0 |
+| `node --check tests/ws-bridge.test.js` | syntax valid | 0 |
+| `node tests/ws-bridge.test.js` | 87/0 | 0 |
+| `node tests/artifact-validation.test.js` | 151/0 | 0 |
+| `node tests/repository-hygiene.test.js` | 1 566 trackovaných cest | 0 |
+| `node scripts/validate-test-registry.js --json` | 381 programů, 8 exclusions, fingerprint `beb54065…a4f8` | 0 |
+| `node scripts/module-boundary-ratchet.mjs` | 1 024/1 024, baseline provenance verified | 0 |
+| `node tests/module-boundary-ratchet.test.js` | 13/0 | 0 |
+| `git diff --check` | bez whitespace chyb | 0 |
+
+Attachment policy, numerický count/frame limit, production ACK a built Electron
+journey tímto checkpointem uzavřené nejsou. GPU, Ollama, produktový server ani
+externí síť nebyly spuštěné; celý B4 i Gate 1 zůstávají `BLOCKED`.
