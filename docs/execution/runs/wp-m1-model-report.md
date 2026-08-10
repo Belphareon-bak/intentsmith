@@ -5,7 +5,8 @@
   finalize recovery FRESH-CLONE VERIFIED; detection-only coordinator je
   FRESH-CLONE VERIFIED na `1823e9a4`; všech pět single-process C2
   artifact-use cest je FRESH-CLONE VERIFIED nejpozději na `3b95f2b1`, celý C2
-  však zůstává PARTIAL; nový referenční GPU běh 009, proof issuer a
+  však zůstává PARTIAL; 015/A policy a proof schema/ledger jsou lokálně
+  ověřené na `13304026`, ale bezpečný issuer, nový referenční GPU běh 009 a
   automatic failover activation zůstávají BLOCKED; offline connector READY
 - **poslední ověřený source SHA:**
   `3b95f2b19fc501ca622db12971c70100cd1f7468`
@@ -2763,3 +2764,32 @@ settings/policy a přesnou append-only event lineage.
 
 Nový immutable subject a fresh clone v okamžiku zápisu ještě neexistují. Gate 1
 zůstává `BLOCKED` a integrační ref se neposunula.
+
+## Checkpoint 34 — proof companion ledger a striktní expiry
+
+Source candidate `133040261280150df7a03bf70b8416d79188e879` přidává
+migraci 062. Nový append-only companion ledger váže každý nový failover proof
+na source revision, parent run, SHA-256 a byte length measurement i acceptance
+artefaktu a na exact proof tuple. Deferred FK dovoluje companion-first a
+proof-second pouze v jedné transakci. Historical attach, orphan companion,
+proof bez exact companionu, replacement, update a delete jsou odmítnuty.
+
+Všechny čtyři eligibility triggery vyžadují ledger join a striktní
+`expires_at_ms > time`. Upgrade s aktivním legacy failoverem nebo se schema,
+trigger či FK driftem skončí před první mutací. Focused/schema/compatibility
+sady skončily postupně 9/0, 9/0, 15/0, 25/0, 38/0, 14/0, 16/0, 16/0, 46/0 a
+35/0; všechny exit 0. Artifact validation má 151/0, registry je validní s 380
+programy a fingerprintem `50d4b6d9…81b95`, hygiene zkontrolovala 1 561 cest,
+oba boundary ratchety i jejich testy prošly. Přesná tabulka příkazů a exitů je
+v
+[`wp-m1-proof-issuance-20260810-report.md`](wp-m1-proof-issuance-20260810-report.md).
+
+Mutace `>` na `>=` zbarvila přesně expiry-equality scénář: 24/1, exit 1.
+Po vrácení byl běh 25/0. GPU, Ollama, Electron ani externí síť nebyly spuštěny.
+Jde o local clean-checkout evidence, ne fresh-clone attestation.
+
+Issuer zůstává `CHANGES_REQUIRED`: caller-located `acceptancePath` neposkytuje
+důvěryhodnou provenance, protože standalone validace je pouze strukturální.
+Bezpečný connector musí vlastnit parent run a držet jeho očekávanou autoritu v
+paměti. Žádný PASS proof ani automatic activation nevznikly a Gate 1 zůstává
+`BLOCKED`.
