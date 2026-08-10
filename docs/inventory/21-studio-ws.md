@@ -256,3 +256,29 @@ První Review A nad `21ffa72b` skončilo `CHANGES_REQUIRED`; opravný subject č
 na nové review a fresh clone.
 Electron ani finální UI nebyly spuštěné; tento checkpoint neuzavírá built B4,
 vizuální baseline ani capability #21 jako celek.
+
+#### Security repair schema v2 — 2026-08-10
+
+Schema v1 už není exportní formát: kontrola dvou secret názvů byla false
+boundary. Autoritativní chat panel nyní přijímá ke stažení jen exact schema v2
+default-deny profil a před lokální adopcí import/reset výsledku vyžaduje i
+exact policy, audit event, source-derived portable path/value list, source
+version a ignored-count metadata. VM sada má 122/0; tři dříve detached async
+testy jsou nyní skutečně awaitované a konstantu profilu sada porovnává přímo s
+backendovou autoritou.
+
+Stejná sada nově vykonává i dvě dříve nekryté živé UI cesty. Center Views
+exportuje/importuje pouze přes canonical endpoints, už nestahuje
+`/api/system/info` config a nereplayuje JSON přes WS `syncSettings`; falešný
+„Export All“ nevytváří efekt. `/architect` už neserializuje credential-bearing
+`settingsState`, nemutuje stav před serverovým commitem a po nejasném doručení
+blokuje generic save. Autoritativní server read nepřebíjí stale localStorage.
+Committed dokument se přebírá bez prototype mutation, reset znovu materializuje
+UI defaulty a generation fence odmítne GET zahájený před recovery. V1/raw mění
+jen skutečně přítomný portable subset a všechny tři plochy přiznají počet
+ignorovaných nonportable source cest.
+Úplné data recovery a factory delete zůstávají oddělené nepodporované
+kontrakty, ne přejmenované settings operace.
+
+Tento source candidate ještě nemá Review A, fresh clone ani Electron běh a
+neuzavírá obecný secret-bearing settings read/write surface z Findingu 011.

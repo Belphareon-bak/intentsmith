@@ -27,6 +27,9 @@ import {
   createModelAutomationPolicyRepository,
   readModelAutomationPolicy,
 } from '../src/db/model-policy.js';
+import {
+  SETTINGS_PORTABLE_PATHS,
+} from '../src/db/settings-portability.js';
 
 const MODEL_POLICY_WAL_WORKER_SOURCE = String.raw`
 const Database = require('better-sqlite3');
@@ -132,19 +135,69 @@ function updateInput(expectedRevision, overrides = {}) {
   };
 }
 
-function backupEnvelope(overrides = {}) {
+function portableValues(overrides = {}) {
   return {
+    '/appearance/accentColor': '#6366f1',
+    '/appearance/fontFamily': 'system',
+    '/appearance/fontSize': 14,
+    '/appearance/theme': 'light',
+    '/c3.language': 'cs',
+    '/c3.output.codeBlocks': true,
+    '/c3.output.markdownRendering': true,
+    '/c3.output.syntaxHighlight': true,
+    '/output/codeStyle': 'default',
+    '/output/defaultFormat': 'markdown',
+    '/output/namingConvention': 'camelCase',
+    ...overrides,
+  };
+}
+
+function backupEnvelope(overrides = {}) {
+  const base = {
     kind: 'INTENTSMITH_SETTINGS_BACKUP',
-    schemaVersion: 1,
-    generalSettings: {
-      'c3.features.skills': true,
-      ui: { theme: 'light' },
+    schemaVersion: 2,
+    settingsProjection: {
+      profile: 'UX_PREFERENCES_V1',
+      values: portableValues(),
     },
     modelAutomationPolicy: {
       autoFailoverEnabled: true,
       autoCleanupEnabled: true,
       autoCleanupDays: 30,
     },
+    omissions: {
+      strategy: 'DEFAULT_DENY',
+      scope: 'GENERAL_SETTINGS',
+      excluded: 'ALL_PATHS_NOT_IN_PROFILE',
+      sourceHadExcludedPaths: false,
+    },
+  };
+  return {
+    ...base,
+    ...overrides,
+    settingsProjection: overrides.settingsProjection === undefined
+      ? base.settingsProjection
+      : (overrides.settingsProjection && typeof overrides.settingsProjection === 'object'
+        ? {
+          ...base.settingsProjection,
+          ...overrides.settingsProjection,
+          values: overrides.settingsProjection.values === undefined
+            ? base.settingsProjection.values
+            : overrides.settingsProjection.values,
+        }
+        : overrides.settingsProjection),
+  };
+}
+
+function legacyBackupEnvelope(overrides = {}) {
+  return {
+    kind: 'INTENTSMITH_SETTINGS_BACKUP',
+    schemaVersion: 1,
+    generalSettings: {
+      appearance: { theme: 'light' },
+      'c3.language': 'cs',
+    },
+    modelAutomationPolicy: null,
     omittedSensitiveKeys: [],
     ...overrides,
   };
@@ -607,61 +660,139 @@ await testAsync('generic settings GET omits owned keys from a legacy raw row', a
   }
 });
 
-await testAsync('versioned backup exports one consistent general and policy snapshot', async () => {
+await testAsync('schema v2 export is one deterministic default-deny settings projection', async () => {
   const db = openDb();
   try {
     createPolicySchema(db);
     db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run(JSON.stringify({
-      ui: { theme: 'dark' },
-      models: { futureSetting: 'keep-me' },
-      'c3.notif.smtpPass': 'fixture-smtp-secret',
-      webhookSecret: 'fixture-webhook-secret',
+      appearance: {
+        theme: 'light',
+        accentColor: '#12abEF',
+        fontFamily: 'inter',
+        fontSize: 16,
+        density: 'compact',
+      },
+      output: {
+        enabledTypes: ['code'],
+        defaultFormat: 'json',
+        codeStyle: 'airbnb',
+        namingConvention: 'snake_case',
+      },
+      'c3.language': 'en',
+      'c3.output.codeBlocks': false,
+      'c3.output.markdownRendering': false,
+      'c3.output.syntaxHighlight': false,
+      'c3.notif.smtpPass': 'CANARY_FLAT_SMTP',
+      'c3.notif.webhookSecret': 'CANARY_FLAT_HMAC',
+      webhookSecret: 'CANARY_TOPLEVEL_HMAC',
+      notifications: {
+        telegramToken: 'CANARY_TELEGRAM',
+        telegramChatId: 'CANARY_TELEGRAM_DESTINATION',
+        slackWebhook: 'CANARY_SLACK',
+        discordWebhook: 'CANARY_DISCORD',
+        webhookUrl: 'CANARY_WEBHOOK_DESTINATION',
+        smsApiKey: 'CANARY_SMS_KEY',
+        smsSecret: 'CANARY_SMS_SECRET',
+        smsPhone: 'CANARY_SMS_DESTINATION',
+      },
+      user: { avatar: 'CANARY_AVATAR', connectedAccounts: ['CANARY_ACCOUNT'] },
+      memory: { customPrompt: 'CANARY_PROMPT', saveHistory: false },
+      location: { city: 'CANARY_CITY', country: 'CANARY_COUNTRY' },
+      system: { ollamaUrl: 'CANARY_OLLAMA_URL' },
+      future: { credential: 'CANARY_FUTURE_SECRET' },
     }));
     createModelAutomationPolicyRepository(db).updateFromTypedApi(updateInput(1));
-    const response = createSettingsRouteHarness(db).backup();
+    const harness = createSettingsRouteHarness(db);
+    const response = harness.backup();
+    const repeated = harness.backup();
     assertEqual(response.status, 200);
     assertEqual(Object.keys(response.body).sort().join(','), 'backup,ok');
     assertEqual(response.body.ok, true);
+    assertEqual(JSON.stringify(response.body), JSON.stringify(repeated.body));
     assertEqual(JSON.stringify(response.body.backup), JSON.stringify({
       kind: 'INTENTSMITH_SETTINGS_BACKUP',
-      schemaVersion: 1,
-      generalSettings: {
-        ui: { theme: 'dark' },
-        models: { futureSetting: 'keep-me' },
+      schemaVersion: 2,
+      settingsProjection: {
+        profile: 'UX_PREFERENCES_V1',
+        values: portableValues({
+          '/appearance/accentColor': '#12abEF',
+          '/appearance/fontFamily': 'inter',
+          '/appearance/fontSize': 16,
+          '/appearance/theme': 'light',
+          '/c3.language': 'en',
+          '/c3.output.codeBlocks': false,
+          '/c3.output.markdownRendering': false,
+          '/c3.output.syntaxHighlight': false,
+          '/output/codeStyle': 'airbnb',
+          '/output/defaultFormat': 'json',
+          '/output/namingConvention': 'snake_case',
+        }),
       },
       modelAutomationPolicy: {
         autoFailoverEnabled: true,
         autoCleanupEnabled: false,
         autoCleanupDays: 30,
       },
-      omittedSensitiveKeys: ['c3.notif.smtpPass', 'webhookSecret'],
+      omissions: {
+        strategy: 'DEFAULT_DENY',
+        scope: 'GENERAL_SETTINGS',
+        excluded: 'ALL_PATHS_NOT_IN_PROFILE',
+        sourceHadExcludedPaths: true,
+      },
     }));
-    assertEqual(JSON.stringify(response.body.backup).includes('fixture-smtp-secret'), false);
-    assertEqual(JSON.stringify(response.body.backup).includes('fixture-webhook-secret'), false);
+    assertEqual(
+      Object.keys(response.body.backup.settingsProjection.values).join(','),
+      SETTINGS_PORTABLE_PATHS.join(','),
+    );
+    const serialized = JSON.stringify(response.body.backup);
+    for (const canary of [
+      'CANARY_FLAT_SMTP', 'CANARY_FLAT_HMAC', 'CANARY_TOPLEVEL_HMAC',
+      'CANARY_TELEGRAM', 'CANARY_TELEGRAM_DESTINATION', 'CANARY_SLACK',
+      'CANARY_DISCORD', 'CANARY_WEBHOOK_DESTINATION', 'CANARY_SMS_KEY',
+      'CANARY_SMS_SECRET', 'CANARY_SMS_DESTINATION', 'CANARY_AVATAR',
+      'CANARY_ACCOUNT', 'CANARY_PROMPT', 'CANARY_CITY', 'CANARY_COUNTRY',
+      'CANARY_OLLAMA_URL', 'CANARY_FUTURE_SECRET',
+    ]) {
+      assertEqual(serialized.includes(canary), false);
+    }
   } finally {
     db.close();
   }
 });
 
-await testAsync('versioned import atomically replaces general settings and policy', async () => {
+await testAsync('schema v2 import overlays only portable preferences and preserves local authority', async () => {
   const db = openDb();
   try {
     createPolicySchema(db);
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run(JSON.stringify({
+    const destination = JSON.parse('{"constructor":{"local":"DESTINATION_CONSTRUCTOR"},"prototype":{"local":"DESTINATION_PROTOTYPE"},"__proto__":{"local":"DESTINATION_PROTO"}}');
+    Object.assign(destination, {
       old: true,
-      'c3.notif.smtpPass': 'destination-smtp-secret',
-      webhookSecret: 'destination-webhook-secret',
-    }));
+      appearance: { theme: 'dark', privateSibling: 'DESTINATION_APPEARANCE_PRIVATE' },
+      notifications: {
+        telegramToken: 'DESTINATION_TELEGRAM',
+        slackWebhook: 'DESTINATION_SLACK',
+        discordWebhook: 'DESTINATION_DISCORD',
+        webhookUrl: 'DESTINATION_WEBHOOK_URL',
+        smsApiKey: 'DESTINATION_SMS_KEY',
+        smsSecret: 'DESTINATION_SMS_SECRET',
+      },
+      'c3.notif.smtpPass': 'DESTINATION_SMTP',
+      'c3.notif.webhookSecret': 'DESTINATION_HMAC',
+      webhookSecret: 'DESTINATION_TOPLEVEL_HMAC',
+      system: { ollamaUrl: 'DESTINATION_OLLAMA' },
+      future: { setting: 'DESTINATION_FUTURE' },
+    });
+    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run(JSON.stringify(destination));
     const harness = createSettingsRouteHarness(db);
     const imported = backupEnvelope({
-      generalSettings: {
-        ui: { theme: 'light' },
-        models: {
-          autoFailoverEnabled: false,
-          futureSetting: 'keep-me',
-        },
-        'c3.notif.smtpPass': 'untrusted-import-smtp-secret',
-        webhookSecret: 'untrusted-import-webhook-secret',
+      settingsProjection: {
+        profile: 'UX_PREFERENCES_V1',
+        values: portableValues({
+          '/appearance/theme': 'light',
+          '/appearance/fontSize': 18,
+          '/c3.language': 'en',
+          '/output/defaultFormat': 'yaml',
+        }),
       },
     });
     const { response, featureDocument } = await harness.importBackup(imported);
@@ -672,21 +803,30 @@ await testAsync('versioned import atomically replaces general settings and polic
     assertEqual(response.body.policy.autoFailoverEnabled, true);
     assertEqual(response.body.event.eventKind, 'BACKUP_IMPORT');
     assertEqual(response.body.event.source, 'SETTINGS_IMPORT');
-    assertEqual(response.body.ignoredReservedKeys.join(','), 'autoFailoverEnabled');
-    assertEqual(
-      response.body.ignoredSensitiveKeys.join(','),
-      'c3.notif.smtpPass,webhookSecret',
-    );
-    assertEqual(
-      response.body.preservedSensitiveKeys.join(','),
-      'c3.notif.smtpPass,webhookSecret',
-    );
-    assertEqual(JSON.stringify(response.body.generalSettings), JSON.stringify({
-      ui: { theme: 'light' },
-      models: { futureSetting: 'keep-me' },
-      'c3.notif.smtpPass': 'destination-smtp-secret',
-      webhookSecret: 'destination-webhook-secret',
-    }));
+    assertEqual(response.body.sourceSchemaVersion, 2);
+    assertEqual(response.body.appliedPortablePaths.join(','), SETTINGS_PORTABLE_PATHS.join(','));
+    assertEqual(response.body.ignoredSourcePathCount, 0);
+    assert(response.body.preservedLocalPathCount >= 3);
+    const committed = response.body.generalSettings;
+    assertEqual(committed.appearance.theme, 'light');
+    assertEqual(committed.appearance.fontSize, 18);
+    assertEqual(committed.appearance.privateSibling, 'DESTINATION_APPEARANCE_PRIVATE');
+    assertEqual(committed['c3.language'], 'en');
+    assertEqual(committed.output.defaultFormat, 'yaml');
+    assertEqual(committed.notifications.telegramToken, 'DESTINATION_TELEGRAM');
+    assertEqual(committed.notifications.slackWebhook, 'DESTINATION_SLACK');
+    assertEqual(committed.notifications.discordWebhook, 'DESTINATION_DISCORD');
+    assertEqual(committed.notifications.webhookUrl, 'DESTINATION_WEBHOOK_URL');
+    assertEqual(committed.notifications.smsApiKey, 'DESTINATION_SMS_KEY');
+    assertEqual(committed.notifications.smsSecret, 'DESTINATION_SMS_SECRET');
+    assertEqual(committed['c3.notif.smtpPass'], 'DESTINATION_SMTP');
+    assertEqual(committed['c3.notif.webhookSecret'], 'DESTINATION_HMAC');
+    assertEqual(committed.webhookSecret, 'DESTINATION_TOPLEVEL_HMAC');
+    assertEqual(committed.system.ollamaUrl, 'DESTINATION_OLLAMA');
+    assertEqual(committed.future.setting, 'DESTINATION_FUTURE');
+    assertEqual(committed.constructor.local, 'DESTINATION_CONSTRUCTOR');
+    assertEqual(committed.prototype.local, 'DESTINATION_PROTOTYPE');
+    assertEqual(committed.__proto__.local, 'DESTINATION_PROTO');
     assertEqual(JSON.stringify(featureDocument), JSON.stringify(response.body.generalSettings));
     assertEqual(
       db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data,
@@ -703,41 +843,130 @@ await testAsync('versioned import atomically replaces general settings and polic
   }
 });
 
-await testAsync('legacy backup wrapper preserves policy through the same audited seam', async () => {
+await testAsync('schema v1 and raw legacy imports are projected without trusting omission metadata', async () => {
   const db = openDb();
   try {
     createPolicySchema(db);
+    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run(JSON.stringify({
+      appearance: {
+        accentColor: '#abcdef',
+        fontFamily: 'roboto',
+        fontSize: 20,
+        theme: 'dark',
+      },
+      output: {
+        codeStyle: 'google',
+        defaultFormat: 'json',
+        namingConvention: 'snake_case',
+      },
+      'c3.language': 'en',
+      'c3.output.codeBlocks': false,
+      'c3.output.markdownRendering': false,
+      'c3.output.syntaxHighlight': false,
+      notifications: { telegramToken: 'DESTINATION_LEGACY_TOKEN' },
+      webhookSecret: 'DESTINATION_LEGACY_HMAC',
+    }));
     const repository = createModelAutomationPolicyRepository(db);
     const enabled = repository.updateFromTypedApi(updateInput(1));
     const harness = createSettingsRouteHarness(db);
-    const { response } = await harness.importBackup(backupEnvelope({
-      generalSettings: { legacy: true },
-      modelAutomationPolicy: null,
+    const { response } = await harness.importBackup(legacyBackupEnvelope({
+      generalSettings: {
+        appearance: { theme: 'system' },
+        notifications: { telegramToken: 'ATTACKER_LEGACY_TOKEN' },
+        webhookSecret: 'ATTACKER_LEGACY_HMAC',
+        'c3.notif.webhookSecret': 'ATTACKER_FLAT_HMAC',
+        system: { ollamaUrl: 'ATTACKER_OLLAMA' },
+        future: { credential: 'ATTACKER_FUTURE' },
+      },
+      omittedSensitiveKeys: ['totally-false-metadata'],
     }));
     assertEqual(response.status, 200);
+    assertEqual(response.body.sourceSchemaVersion, 1);
+    assertEqual(response.body.appliedPortablePaths.join(','), '/appearance/theme');
+    assertEqual(response.body.ignoredSourcePathCount, 5);
+    assert(response.body.preservedLocalPathCount >= 2);
+    assertEqual(response.body.generalSettings.appearance.theme, 'system');
+    assertEqual(response.body.generalSettings.appearance.accentColor, '#abcdef');
+    assertEqual(response.body.generalSettings.appearance.fontFamily, 'roboto');
+    assertEqual(response.body.generalSettings.appearance.fontSize, 20);
+    assertEqual(response.body.generalSettings.output.codeStyle, 'google');
+    assertEqual(response.body.generalSettings.output.defaultFormat, 'json');
+    assertEqual(response.body.generalSettings.output.namingConvention, 'snake_case');
+    assertEqual(response.body.generalSettings['c3.language'], 'en');
+    assertEqual(response.body.generalSettings['c3.output.codeBlocks'], false);
+    assertEqual(response.body.generalSettings['c3.output.markdownRendering'], false);
+    assertEqual(response.body.generalSettings['c3.output.syntaxHighlight'], false);
+    assertEqual(
+      response.body.generalSettings.notifications.telegramToken,
+      'DESTINATION_LEGACY_TOKEN',
+    );
+    assertEqual(response.body.generalSettings.webhookSecret, 'DESTINATION_LEGACY_HMAC');
+    assertEqual(JSON.stringify(response.body.generalSettings).includes('ATTACKER_'), false);
     assertEqual(response.body.policy.revision, enabled.revision + 1);
     assertEqual(response.body.policy.autoFailoverEnabled, true);
+
+    const raw = await harness.importBackup({
+      appearance: { theme: 'light' },
+      notifications: { telegramToken: 'ATTACKER_RAW_TOKEN' },
+      webhookSecret: 'ATTACKER_RAW_HMAC',
+    });
+    assertEqual(raw.response.status, 200);
+    assertEqual(raw.response.body.sourceSchemaVersion, 0);
+    assertEqual(raw.response.body.appliedPortablePaths.join(','), '/appearance/theme');
+    assertEqual(raw.response.body.generalSettings.appearance.theme, 'light');
+    assertEqual(raw.response.body.generalSettings.output.defaultFormat, 'json');
+    assertEqual(raw.response.body.generalSettings['c3.language'], 'en');
+    assertEqual(
+      raw.response.body.generalSettings.notifications.telegramToken,
+      'DESTINATION_LEGACY_TOKEN',
+    );
+    assertEqual(JSON.stringify(raw.response.body.generalSettings).includes('ATTACKER_'), false);
     assertEqual(readModelAutomationPolicy(db).settings.autoFailoverEnabled, true);
-    assertEqual(db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data, '{"legacy":true}');
+
+    const dangerousSource = JSON.parse('{"kind":"INTENTSMITH_SETTINGS_BACKUP","schemaVersion":1,"generalSettings":{"appearance":{"theme":"dark"},"__proto__":{"polluted":true},"constructor":{"polluted":true}},"modelAutomationPolicy":null,"omittedSensitiveKeys":[]}');
+    const dangerous = await harness.importBackup(dangerousSource);
+    assertEqual(dangerous.response.status, 200);
+    assertEqual(dangerous.response.body.generalSettings.appearance.theme, 'dark');
+    assertEqual(Object.prototype.polluted, undefined);
+    assertEqual(Object.hasOwn(dangerous.response.body.generalSettings, '__proto__'), false);
+    assertEqual(Object.hasOwn(dangerous.response.body.generalSettings, 'constructor'), false);
   } finally {
     db.close();
   }
 });
 
-await testAsync('invalid backup envelopes fail before general or policy mutation', async () => {
+await testAsync('invalid and nonportable v2 envelopes fail before settings or policy mutation', async () => {
   const db = openDb();
   try {
     createPolicySchema(db);
     db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{"stable":true}');
     const harness = createSettingsRouteHarness(db);
     const before = snapshot(db);
+    const missingPath = portableValues();
+    delete missingPath['/appearance/theme'];
+    const extraPath = portableValues({ '/notifications/telegramToken': 'ATTACKER' });
     for (const body of [
       { ...backupEnvelope(), unknown: true },
-      backupEnvelope({ schemaVersion: 2 }),
-      backupEnvelope({ generalSettings: [] }),
-      backupEnvelope({ omittedSensitiveKeys: ['unknownSecret'] }),
-      backupEnvelope({ omittedSensitiveKeys: ['webhookSecret', 'webhookSecret'] }),
-      backupEnvelope({ omittedSensitiveKeys: ['webhookSecret', 'c3.notif.smtpPass'] }),
+      { ...backupEnvelope(), schemaVersion: 3 },
+      { ...backupEnvelope(), settingsProjection: null },
+      backupEnvelope({ settingsProjection: { profile: 'UNKNOWN', values: portableValues() } }),
+      backupEnvelope({ settingsProjection: { profile: 'UX_PREFERENCES_V1', values: missingPath } }),
+      backupEnvelope({ settingsProjection: { profile: 'UX_PREFERENCES_V1', values: extraPath } }),
+      backupEnvelope({
+        settingsProjection: {
+          profile: 'UX_PREFERENCES_V1',
+          values: portableValues({ '/appearance/theme': 'ATTACKER' }),
+        },
+      }),
+      backupEnvelope({
+        settingsProjection: {
+          profile: 'UX_PREFERENCES_V1',
+          values: portableValues({ '/appearance/fontSize': 200 }),
+        },
+      }),
+      backupEnvelope({ omissions: { ...backupEnvelope().omissions, extra: true } }),
+      legacyBackupEnvelope({ omittedSensitiveKeys: ['z', 'a'] }),
+      legacyBackupEnvelope({ omittedSensitiveKeys: ['duplicate', 'duplicate'] }),
       backupEnvelope({ modelAutomationPolicy: { ...backupEnvelope().modelAutomationPolicy, extra: true } }),
       backupEnvelope({
         modelAutomationPolicy: {
@@ -780,9 +1009,7 @@ await testAsync('import and reset failures roll back both settings and policy', 
       END;
     `);
     const beforeImport = snapshot(db);
-    const failedImport = await harness.importBackup(backupEnvelope({
-      generalSettings: { replacement: true },
-    }));
+    const failedImport = await harness.importBackup(backupEnvelope());
     assertEqual(failedImport.response.status, 503);
     assertEqual(failedImport.featureDocument, null);
     assertEqual(snapshot(db), beforeImport);
@@ -823,9 +1050,7 @@ await testAsync('general settings write failures leave policy and audit lineage 
       END;
     `);
     const beforeImport = snapshot(db);
-    const failedImport = await harness.importBackup(backupEnvelope({
-      generalSettings: { replacement: true },
-    }));
+    const failedImport = await harness.importBackup(backupEnvelope());
     assertEqual(failedImport.response.status, 503);
     assertEqual(failedImport.featureDocument, null);
     assertEqual(snapshot(db), beforeImport);
@@ -900,15 +1125,19 @@ await testAsync('post-commit runtime and diagnostic failures remain a truthful d
     harness.setLoggerFailure(new Error('fixture post-commit logger failure'));
 
     const imported = await harness.importBackup(backupEnvelope({
-      generalSettings: { committed: 'import' },
+      settingsProjection: {
+        profile: 'UX_PREFERENCES_V1',
+        values: portableValues({ '/appearance/theme': 'system' }),
+      },
     }));
     assertEqual(imported.response.status, 200);
     assertEqual(imported.response.body.ok, true);
     assertEqual(imported.response.body.runtimeApplied, false);
     assertEqual(imported.response.body.runtimeErrorCode, 'SETTINGS_RUNTIME_APPLY_FAILED');
     assertEqual(
-      db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data,
-      '{"committed":"import"}',
+      JSON.parse(db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data)
+        .appearance.theme,
+      'system',
     );
     assertEqual(readModelAutomationPolicy(db).revision, 2);
 
@@ -965,7 +1194,7 @@ await testAsync('global settings reset is one audited OFF transition on both ali
   }
 });
 
-await testAsync('backup export fails closed on malformed stored settings', async () => {
+await testAsync('backup export fails closed on malformed or invalid stored settings', async () => {
   const db = openDb();
   try {
     createPolicySchema(db);
@@ -975,6 +1204,15 @@ await testAsync('backup export fails closed on malformed stored settings', async
     assertEqual(response.status, 503);
     assertEqual(response.body.code, 'MODEL_AUTOMATION_POLICY_STORED_GENERAL_SETTINGS_INVALID');
     assertEqual(snapshot(db), before);
+
+    db.prepare('UPDATE user_settings SET data = ? WHERE id = 1').run(JSON.stringify({
+      appearance: { theme: 'future-unreviewed-theme' },
+    }));
+    const invalidValue = snapshot(db);
+    const invalidResponse = createSettingsRouteHarness(db).backup();
+    assertEqual(invalidResponse.status, 503);
+    assertEqual(invalidResponse.body.code, 'MODEL_AUTOMATION_POLICY_BACKUP_READ_FAILED');
+    assertEqual(snapshot(db), invalidValue);
   } finally {
     db.close();
   }

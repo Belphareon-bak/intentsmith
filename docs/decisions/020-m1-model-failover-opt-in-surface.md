@@ -279,3 +279,60 @@ varianty E ani na Gate 1 jako celek.
 
 Operátor tento blok přijal 2026-08-09. Implementace 020 je odemčená v rozsahu
 varianty E a výše uvedených korekcí.
+
+## Bezpečnostní korekce 2026-08-10 — schema v1 není bezpečný portable formát
+
+Navazující adversarial review vyvrátilo tvrzení předchozího checkpointu, že
+odebrání dvou top-level klíčů stačí pro přenosnou zálohu. Živý Architect
+dokument obsahuje nested Telegram, Slack, Discord, webhook a SMS credentials i
+destinations; Studio a budoucí writery navíc mohou přidat flat nebo neznámé
+varianty. Schema v1 proto zůstává pouze vstupní compatibility formát a **už se
+nesmí exportovat**. Historický Review A report nad `06e760bb` je v tomto bodě
+superseded; nepřepisuje se.
+
+Opravný WP zavádí schema v2 s jedinou backendovou default-deny autoritou
+`UX_PREFERENCES_V1`. Artifact nese fully materialized exact mapu jedenácti
+JSON Pointer cest:
+
+- appearance: accent color, font family, font size a theme;
+- Architect output: code style, default format a naming convention;
+- Studio: language a tři rendering booleany.
+
+Location/account, identity, notifications, secrets, destinations,
+memory/retention, provider/model, device/storage, feature/effect policy a
+všechna neznámá pole zůstávají local-only. `omissions` je fixní serverový popis
+default-deny strategie, nikoli autorita dodaná artifactem. V2 odmítne
+missing/extra pole nebo neplatnou hodnotu před DB mutací. V1/raw import se
+projektuje stejným allowlistem a jeho omission metadata se ignoruje. Chybějící
+legacy portable cesta zachová destination hodnotu; defaulty se materializují
+jen při v2 exportu. UI viditelně přizná počet source cest, které compatibility
+projekce ignorovala.
+
+Backend import načte destination uvnitř vlastního `BEGIN IMMEDIATE`, overlayne
+jen portable profil a ve stejné transakci commitne policy i event. HTTP response
+už nepublikuje názvy default-denied cest, pouze jejich počty. Klienti vyžadují
+exact policy/event/path provenance, než změní lokální snapshot.
+
+Stejný explicitní backup/import kontrakt teď konzumují všechny tři nalezené
+first-party UI plochy: autoritativní Studio chat panel, Studio Center Views a
+`/architect`. Center Views už neexportuje `/api/system/info` config ani
+nereplayuje import po jednotlivých klíčích přes WS. `/architect` už
+neserializuje celý credential-bearing `settingsState`, po serverovém readu
+neoverlayuje stale localStorage a během nejasného recovery výsledku blokuje
+generic save. Nepravdivý full-backup/factory-delete ovládací prvek nevytváří
+efekt.
+
+Receipt se nepřijímá jen podle tvaru. Každý klient porovná schema verzi,
+source-derived seznam i hodnoty portable cest, případnou vstupní policy,
+exaktní actor/source, shodu `policy.lastEventId === event.eventId` a počet
+ignorovaných source cest. Reset vyžaduje prázdný committed dokument a přesnou
+default-off policy. Architect committed snapshot přebírá data-property-safe,
+znovu materializuje své UI defaulty a generation fence odmítne settings GET,
+který začal před importem nebo resetem.
+
+Tato korekce nezavírá obecný settings authority problém. Generic GET stále
+vrací celý secret-bearing řádek, import response kvůli dnešnímu whole-document
+klientovi vrací destination dokument a několik RMW writerů nemá společný CAS.
+Je to samostatný P1 [Finding 011](../findings/011-user-settings-authority-and-secret-exposure.md),
+který blokuje Gate 1 exit. Opravný source candidate proto čeká na Review A a
+fresh-clone důkaz a nesmí být prezentován jako úplné uzavření 020/E.

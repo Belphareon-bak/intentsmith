@@ -6,6 +6,15 @@
 // it can treat the policy as valid.
 
 import { randomUUID } from 'node:crypto';
+import {
+  SETTINGS_BACKUP_KIND,
+  SETTINGS_BACKUP_SCHEMA_VERSION,
+  SETTINGS_PORTABLE_PATHS,
+  SettingsPortabilityError,
+  createSettingsBackup,
+  mergeSettingsProjection,
+  parseSettingsBackup,
+} from './settings-portability.js';
 
 export const ModelAutomationPolicyStatus = Object.freeze({
   VALID: 'VALID',
@@ -31,24 +40,9 @@ export const MODEL_AUTOMATION_POLICY_GENERIC_KEYS = Object.freeze([
   'autoCleanupEnabled',
   'autoCleanupDays',
 ]);
-export const MODEL_SETTINGS_BACKUP_KIND = 'INTENTSMITH_SETTINGS_BACKUP';
-export const MODEL_SETTINGS_BACKUP_SCHEMA_VERSION = 1;
-export const MODEL_SETTINGS_PORTABLE_SECRET_KEYS = Object.freeze([
-  'c3.notif.smtpPass',
-  'webhookSecret',
-]);
-
-const BACKUP_INPUT_KEYS = Object.freeze([
-  'kind',
-  'schemaVersion',
-  'generalSettings',
-  'modelAutomationPolicy',
-  'omittedSensitiveKeys',
-]);
-const BACKUP_INPUT_KEY_SET = new Set(BACKUP_INPUT_KEYS);
-const MODEL_SETTINGS_PORTABLE_SECRET_KEY_SET = new Set(
-  MODEL_SETTINGS_PORTABLE_SECRET_KEYS,
-);
+export const MODEL_SETTINGS_BACKUP_KIND = SETTINGS_BACKUP_KIND;
+export const MODEL_SETTINGS_BACKUP_SCHEMA_VERSION = SETTINGS_BACKUP_SCHEMA_VERSION;
+export const MODEL_SETTINGS_PORTABLE_PATHS = SETTINGS_PORTABLE_PATHS;
 const POLICY_SETTINGS_KEYS = Object.freeze([
   'autoFailoverEnabled',
   'autoCleanupEnabled',
@@ -142,32 +136,6 @@ function readStoredGeneralSettings(db) {
   ).document;
 }
 
-function stripPortableSecrets(document) {
-  const omittedSensitiveKeys = MODEL_SETTINGS_PORTABLE_SECRET_KEYS.filter(
-    key => Object.hasOwn(document, key),
-  );
-  if (omittedSensitiveKeys.length === 0) {
-    return { document, omittedSensitiveKeys };
-  }
-  const sanitized = { ...document };
-  for (const key of omittedSensitiveKeys) delete sanitized[key];
-  return { document: sanitized, omittedSensitiveKeys };
-}
-
-function requireOmittedSensitiveKeys(value) {
-  if (!Array.isArray(value)
-    || value.some(key => typeof key !== 'string')
-    || new Set(value).size !== value.length
-    || value.some(key => !MODEL_SETTINGS_PORTABLE_SECRET_KEY_SET.has(key))
-    || value.join('\0') !== [...value].sort().join('\0')) {
-    fail(
-      'MODEL_AUTOMATION_POLICY_BACKUP_SENSITIVE_KEYS_INVALID',
-      'Backup omittedSensitiveKeys must be a sorted unique list of supported keys',
-    );
-  }
-  return [...value];
-}
-
 function requirePolicySettings(value) {
   if (value === null) return null;
   if (!isPlainObject(value)) {
@@ -189,37 +157,28 @@ function requirePolicySettings(value) {
 }
 
 function requireBackupEnvelope(value) {
-  if (!isPlainObject(value)) {
-    fail(
-      'MODEL_AUTOMATION_POLICY_BACKUP_INPUT_INVALID',
-      'Settings backup must be a plain object',
-    );
+  let parsed;
+  try {
+    parsed = parseSettingsBackup(value);
+  } catch (error) {
+    if (error instanceof SettingsPortabilityError) {
+      const versionError = error.code === 'SETTINGS_PORTABILITY_BACKUP_VERSION_UNSUPPORTED'
+        || error.code === 'SETTINGS_PORTABILITY_PROFILE_UNSUPPORTED';
+      throw new ModelAutomationPolicyError(
+        versionError
+          ? 'MODEL_AUTOMATION_POLICY_BACKUP_VERSION_UNSUPPORTED'
+          : 'MODEL_AUTOMATION_POLICY_BACKUP_INPUT_INVALID',
+        error.message,
+        { cause: error, details: error.details },
+      );
+    }
+    throw error;
   }
-  const unknown = Object.keys(value).filter(key => !BACKUP_INPUT_KEY_SET.has(key));
-  const missing = BACKUP_INPUT_KEYS.filter(key => !Object.hasOwn(value, key));
-  if (unknown.length > 0 || missing.length > 0) {
-    fail(
-      'MODEL_AUTOMATION_POLICY_BACKUP_INPUT_INVALID',
-      'Settings backup must contain the exact versioned fields',
-      { unknown: unknown.sort(), missing },
-    );
-  }
-  if (value.kind !== MODEL_SETTINGS_BACKUP_KIND
-    || value.schemaVersion !== MODEL_SETTINGS_BACKUP_SCHEMA_VERSION) {
-    fail(
-      'MODEL_AUTOMATION_POLICY_BACKUP_VERSION_UNSUPPORTED',
-      'Settings backup kind or schema version is unsupported',
-    );
-  }
-  const cloned = cloneJsonDocument(value.generalSettings);
-  const sanitized = sanitizeGenericModelAutomationSettings(cloned.document);
-  const portable = stripPortableSecrets(sanitized.document);
   return {
-    generalSettings: portable.document,
-    ignoredReservedKeys: sanitized.ignoredReservedKeys,
-    ignoredSensitiveKeys: portable.omittedSensitiveKeys,
-    omittedSensitiveKeys: requireOmittedSensitiveKeys(value.omittedSensitiveKeys),
-    policySettings: requirePolicySettings(value.modelAutomationPolicy),
+    sourceSchemaVersion: parsed.sourceSchemaVersion,
+    portableValues: parsed.values,
+    ignoredSourcePaths: parsed.ignoredSourcePaths,
+    policySettings: requirePolicySettings(parsed.modelAutomationPolicy),
   };
 }
 
@@ -642,14 +601,7 @@ export class ModelAutomationPolicyRepository {
       }
       const stored = readStoredGeneralSettings(this.db);
       const general = sanitizeGenericModelAutomationSettings(stored).document;
-      const portable = stripPortableSecrets(general);
-      return {
-        kind: MODEL_SETTINGS_BACKUP_KIND,
-        schemaVersion: MODEL_SETTINGS_BACKUP_SCHEMA_VERSION,
-        generalSettings: portable.document,
-        modelAutomationPolicy: { ...policy.settings },
-        omittedSensitiveKeys: portable.omittedSensitiveKeys,
-      };
+      return createSettingsBackup(general, { ...policy.settings }).backup;
     });
     try {
       return transaction.deferred();
@@ -674,14 +626,20 @@ export class ModelAutomationPolicyRepository {
         );
       }
       const stored = readStoredGeneralSettings(this.db);
-      const generalSettings = { ...backup.generalSettings };
-      const preservedSensitiveKeys = [];
-      for (const key of MODEL_SETTINGS_PORTABLE_SECRET_KEYS) {
-        if (Object.hasOwn(stored, key)) {
-          generalSettings[key] = stored[key];
-          preservedSensitiveKeys.push(key);
+      let merged;
+      try {
+        merged = mergeSettingsProjection(stored, backup.portableValues);
+      } catch (error) {
+        if (error instanceof SettingsPortabilityError) {
+          throw new ModelAutomationPolicyError(
+            'MODEL_AUTOMATION_POLICY_STORED_GENERAL_SETTINGS_INVALID',
+            error.message,
+            { cause: error, details: error.details },
+          );
         }
+        throw error;
       }
+      const generalSettings = sanitizeGenericModelAutomationSettings(merged.document).document;
       this.db.prepare(`
         INSERT INTO user_settings (id, data, updated_at)
         VALUES (1, ?, datetime('now'))
@@ -699,10 +657,10 @@ export class ModelAutomationPolicyRepository {
       });
       return {
         generalSettings,
-        ignoredReservedKeys: backup.ignoredReservedKeys,
-        ignoredSensitiveKeys: backup.ignoredSensitiveKeys,
-        preservedSensitiveKeys,
-        sourceOmittedSensitiveKeys: backup.omittedSensitiveKeys,
+        sourceSchemaVersion: backup.sourceSchemaVersion,
+        appliedPortablePaths: merged.appliedPortablePaths,
+        ignoredSourcePaths: backup.ignoredSourcePaths,
+        preservedLocalPaths: merged.preservedLocalPaths,
         policy: committed,
       };
     });

@@ -193,3 +193,24 @@ generation token odmítne settings GET zahájený před recovery. Jeho VM sada m
 opakované review a fresh-clone důkaz. Scheduler proto zůstává default off.
 Skutečná parita s
 mobilními migracemi bude doložená až na společném integračním SHA.
+
+### Korekce portable boundary 2026-08-10
+
+Předchozí dvouklíčový schema-v1 blacklist nechránil nested credentials,
+destinations ani future unknown fields a jeho Review A claim je superseded.
+Nová repository autorita exportuje pouze schema v2 s fully materialized
+default-deny profilem jedenácti předvoleb. V1/raw zůstává importní kompatibilita
+projektovaná týmž allowlistem; source secret/private hodnoty nemohou založit ani
+přepsat destination authority. Importní HTTP metadata už nepublikují názvy
+local-only cest, pouze jejich počty.
+
+Focused backend sada zůstává 35/0, ale její security coverage je zpřísněná:
+canaries zahrnují nested i flat credential/destination varianty, future pole,
+invalid v2 profile/value a datové klíče `constructor`, `prototype` a
+`__proto__`. V1/raw import je sparse: chybějící portable cesta už destination
+hodnotu nedefaultuje ani nepřepisuje. Tři UI consumery navíc přijmou commit jen
+při shodě source schema, path/value/policy provenance, propojeného eventu a
+pravdivého ignored countu; aktuální VM sada má 122/0. Gate 1 zůstává `BLOCKED`:
+generic GET/whole-row writer a další
+RMW cesty nemají společný secret/CAS kontrakt, viz
+[`Finding 011`](../findings/011-user-settings-authority-and-secret-exposure.md).
