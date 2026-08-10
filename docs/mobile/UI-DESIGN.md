@@ -149,6 +149,36 @@ specialisté, paměť a další moduly se při integraci zobrazí jako plnohodno
 položky, jakmile jejich capability dorazí. Do té doby v liště nejsou vůbec —
 `Připravujeme` dlaždice na `Přehledu` jim stačí.
 
+#### Lišta je smyčka — upřesnění operátora 2026-08-10
+
+**[F] Rozhodnuto operátorem.** Předloha
+[`design/spodni-lista.png`](design/spodni-lista.png), varianta **dole (zlatá)**.
+Tohle upřesňuje `D-UI-3` a **ruší dvě věci, které se do dokumentace dostaly
+špatně**: strop čtyř položek i položku `Více`. Ani jedno neplatí.
+
+| Pravidlo | Co to znamená |
+|---|---|
+| **Smyčka, ne řada** | 5–7 položek dokola. Za poslední jde první; lišta nikdy nenarazí na konec |
+| **Lišta se nemění, jen posouvá** | Sada položek je pořád stejná. Nic nepřibývá, neubývá, nepřeskupuje se |
+| **Aktivní je vždy uprostřed** | Střed je pevný rám (`brána`); položky jím projíždějí. Aktivní se nepozná barvou na místě, ale tím, že *dojela do středu* |
+| **Obsah jde za lištou** | Posun lišty přepne sekci. Přechod je **vodorovné posunutí obsahu**, jako mezi plochami na telefonu |
+| **Plynule, bez bliknutí** | Žádné probliknutí, žádný skeleton při přepnutí sekce, žádné načítání od nuly |
+| **Bez `Více`** | Skládka se nedělá. Nastavení, Specialisté a další jsou plnohodnotné položky smyčky |
+
+Zamýšlená sada podle předlohy: `Konverzace`, `Projekty`, `Domů`, `Aktivita`,
+`Agenti` — plus `Nastavení`. Které z nich smějí vzniknout, dál řídí
+`capabilities` a kontrakt: `Projekty` (`MR-14`), `Aktivita` (`MR-07`) a
+`Agenti` (Fáze 5) jsou blokované, takže se zobrazí uzamčené, ne skryté.
+
+> **Důsledek pro §3.2.** Když je `Domů` položkou smyčky, lišta se na kořeni
+> **nezatahuje** — zatažení bylo součástí `D-UI-3` a s touhle předlohou nedává
+> smysl. Podmínka úplnosti kořene tím ale nepadá: dokud lišta neumí smyčku,
+> zůstává homescreen jedinou mapou.
+
+**Stav implementace: NENÍ HOTOVO.** Dnešní lišta se centruje na výběr, ale
+smyčku neumí a obsah se nepřesouvá, jen překreslí. Rozdíl je zapsaný, aby se
+nepletl s hotovým stavem.
+
 #### Posouvací lišta centrovaná na výběr
 
 **[R]** Lišta je vodorovně posouvatelná a nese **všechny** dostupné položky.
