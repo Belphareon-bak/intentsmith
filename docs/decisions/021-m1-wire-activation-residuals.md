@@ -1,9 +1,10 @@
 # 021 — Produkční ACK M1 wire čeká na attachment a effect-authority policy
 
-- **typ:** BLOCK pouze pro produkční zapnutí `m1-wire-v1`
+- **typ:** přijatá source aktivace; BLOCK zůstává pro built B4 acceptance
 - **stav rozhodnutí:** B / REJECT / A / B PŘIJATO operátorem 2026-08-09 včetně
-  korekce autority limitů; produkční ACK zůstává BLOCKED do obou negativních
-  sad a built journey
+  korekce autority limitů; operátor 2026-08-10 povolil source ACK po obou
+  focused negativních sadách. Built Electron journey dál blokuje B4/PASS,
+  nikoli commit source aktivace.
 - **WP:** WP-M1-STUDIO / B4
 - **rail:** R1, R2, R3, R5, R6
 - **vzniklo při:** implementaci accepted 017/A+A ingress/egress a terminal ledgeru
@@ -20,11 +21,14 @@ Rozhodnutí 017 závazně určilo required-offer token `m1-wire-v1` a exact
 - implementuje 004/C: target `cancelled` vždy předchází vlastnímu cancel
   `cancelled`, včetně více souběžných idempotentních cancel požadavků;
 - fail-closed odmítá legacy chat/cancel po negotiated ACK;
-- nechává `m1WireSupported=false` jako explicitní server activation seam.
+- nechával `m1WireSupported=false` jako explicitní server activation seam před
+  operátorem schválenou source aktivací.
 
-`src/server.js` tento seam nepředává. Produkční server proto token stále
-pravdivě neACKuje a stávající Studio zůstává na legacy wire. Tento dokument
-není žádost o skrytý default ani důvod oslabit listener guard.
+Produkční composition nyní tento seam předává pouze jako required-offer:
+legacy klient token nedostane. Bootstrap navíc synchronně validuje všechny
+config-owned M1 limity před importem databáze a port-file/runtime efektem.
+Tento dokument není důvod oslabit listener guard ani povolit implicitní
+filesystem autoritu.
 
 ## Proč nelze jen přepnout boolean
 
@@ -151,7 +155,8 @@ candidate změnit z focused PASS na built evidence.
 021-path-authority: REJECT
 021-shell-now: A-honest-no-effect-terminal
 021-shell-target: B-M2-effect-authority
-021-production-ack: AFTER-BOTH-NEGATIVE-SUITES-AND-BUILT-JOURNEY
+021-production-ack: AFTER-BOTH-NEGATIVE-SUITES
+021-b4-acceptance: AFTER-BUILT-ELECTRON-JOURNEY
 021-attachment-policy-authority: NORMALIZED-SERVER-RUNTIME-CONFIG
 021-attachment-policy-delivery: VERSIONED-M1-NEGOTIATION-METADATA
 021-attachment-count-source: NEW-EXPLICIT-RUNTIME-POLICY
@@ -162,20 +167,37 @@ candidate změnit z focused PASS na built evidence.
 021-binary-policy: REJECT
 ```
 
-Operátor tento blok přijal 2026-08-09. Produkční ACK tím **není** povolený:
-`m1WireSupported` v `src/server.js` zůstává vypnutý, dokud neproběhnou obě
-negativní sady a built journey. Attachment policy se nesmí rozšířit nad tento
-blok a legacy shell effect se nedědí.
+Operátor původní blok přijal 2026-08-09 a 2026-08-10 výslovně rozdělil source
+aktivaci od drahé Electron evidence. `m1WireSupported` lze zapnout v produkční
+composition vrstvě až po obou focused negativních sadách. Attachment policy se
+nesmí rozšířit nad tento blok a legacy shell effect se nedědí. Built Electron
+journey je nadále povinná pro B4/PASS a skutečné runtime tvrzení; source ACK ji
+nenahrazuje.
 
 ### Implementační stav 2026-08-10
 
-Dormantní server i Studio seam nyní umějí exact versioned metadata, user-gesture
+Dormantní server i Studio seam umějí exact versioned metadata, user-gesture
 inline DTO, klientský i serverový count/item/aggregate/frame guard, druhé
-serverové měření a typovaný nereplayovatelný `NOT_SENT`. Server nemá žádný
-číselný produkční default a `src/server.js` dál nepředává ani policy, ani
-`m1WireSupported:true`. Otevřená rozhodovací položka je jen konkrétní nový
-`maxCount`, decoded aggregate a celý frame limit; stávající 1 MiB text / 5 MiB
-image zůstávají jedinými zděděnými item capy. Source kandidát ještě potřebuje
-immutable Review A a nový built journey. Follow-up po prvním neúspěšném Review
-A čte text byte-first s fatal UTF-8 decode a odmítá shell metadata na posledním
-vratném pre-persistence seamu; oba případy mají samostatné negativní testy.
+serverové měření a typovaný nereplayovatelný `NOT_SENT`. Source activation
+candidate nyní skládá policy výhradně z runtime configu: `maxCount=8`, decoded
+aggregate `6 MiB`, celý UTF-8 frame `12 MiB` a stávající item capy `1 MiB` text
+/ `5 MiB` image. Produkční composition používá default-on
+`C3_ENABLE_M1_WIRE`, ale required-offer sémantika zachovává legacy klienta.
+
+Bootstrap přijímá u tohoto booleanu jen exact `true`/`false`, všechny číselné
+limity vyžaduje jako kladná bezpečná celá čísla, aggregate nesmí být menší než
+největší item limit a frame musí být přísně větší než aggregate. Invalidní
+konfigurace končí signálem `M1_WIRE_CONFIG_INVALID` ještě před DB, port-file,
+projects nebo jiným runtime artefaktem.
+
+`tests/m1-wire-startup-config.test.js` pokrývá šest negativních tříd a
+`tests/ws-bridge.test.js` prošel 91/0; obě sady exit `0`. Dřívější první pokus
+o WS sadu skončil před testy na chybějícím
+`better-sqlite3`; po `npm ci --offline` se zopakoval celý a prošel. Follow-up
+po prvním neúspěšném Review A dál čte text byte-first s fatal UTF-8 decode a
+odmítá shell metadata na posledním vratném pre-persistence seamu.
+
+Tento stav je pouze `SOURCE_ENABLED / FOCUSED_VERIFIED`. Electron, produkční
+build, X11/Wayland journey, GPU, Ollama ani externí síť nebyly spuštěné.
+Immutable Review A a built attachment/multi-panel/cancel/provider/reconnect
+journey proto zůstávají otevřené; B4 a Gate 1 nejsou PASS.

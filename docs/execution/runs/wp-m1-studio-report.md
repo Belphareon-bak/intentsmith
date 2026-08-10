@@ -1611,3 +1611,45 @@ Otevřená rozhodovací hranice zůstává přesně trojice nových runtime hodn
 explicitního přijetí se `src/server.js` nemění a token `m1-wire-v1` se v
 produkci neACKuje. GPU, Ollama, Electron runtime, produktový server ani externí
 síť spuštěné nebyly.
+
+## Checkpoint 32 — production source ACK, built journey odložena
+
+Operátor schválil oddělit malou source aktivaci od drahé Electron evidence.
+Jediný produkční composition seam v `src/server.js` nyní předává default-on
+`m1WireSupported` a exact policy sestavenou z `config.server.m1Wire` a
+existujících item limitů. Nové hodnoty jsou `maxCount=8`, decoded aggregate
+`6 MiB` a UTF-8 frame `12 MiB`; text/image zůstávají `1 MiB` / `5 MiB`.
+Required-offer sémantika zůstává beze změny, takže klient bez explicitní nabídky
+M1 token nedostane. `protocol.js`, `ws-server.js`, `session-adapter.js` a celý
+`c3-ide/**` zůstaly byteově nedotčené.
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `npm ci --offline` | 233 balíčků; obnova chybějícího worktree `node_modules` | 0 |
+| `C3_LOG_LEVEL=error node tests/ws-bridge.test.js` | 91/0 | 0 |
+| `C3_LOG_LEVEL=error node tests/m1-studio-client.test.js` | 127/0 | 0 |
+| syntax tří změněných JS souborů + `git diff --check` | validní / čisté | 0 |
+
+První WS pokus skončil exit `1` před testy na `ERR_MODULE_NOT_FOUND` pro
+`better-sqlite3`; po offline instalaci byl celý běh zopakován a prošel. Žádný
+výsledek se nepřeznačil. Electron, production build, X11/Wayland journey, GPU,
+Ollama, produktový server ani externí síť nebyly spuštěné. Stav checkpointu je
+`SOURCE_ENABLED / FOCUSED_VERIFIED`; immutable Review A a built
+attachment/multi-panel/cancel/provider/reconnect journey zůstávají otevřené,
+takže B4 i Gate 1 jsou dál `BLOCKED`.
+
+## Checkpoint 33 — fail-fast M1 config před runtime efekty
+
+Review předchozího source checkpointu správně našlo, že numerickou policy
+znovu validoval až constructor v asynchronním listen callbacku. Bootstrap v
+`src/runtime-environment.js` proto nyní synchronně kanonizuje a validuje exact
+boolean, všechny tři nové M1 limity i dva existující item capy dřív, než ESM
+graf může vyhodnotit databázi, logger nebo port-file writer. Aggregate musí být
+alespoň největší item limit a celý frame musí být přísně větší než aggregate.
+
+Nová table-driven negativní sada spustila skutečný `src/server.js` pro šest
+invalidních tříd. Každý child skončil nenulově s owned signálem
+`M1_WIRE_CONFIG_INVALID` a zanechal přesně prázdný adresář určený pro DB,
+port-file, projects a runtime artefakty. Protocol, WS server, session adapter a
+celý `c3-ide/**` zůstaly byteově nedotčené. Built Electron journey ani jiná
+drahá nebo síťová sada nebyla spuštěna; B4 a Gate 1 zůstávají `BLOCKED`.

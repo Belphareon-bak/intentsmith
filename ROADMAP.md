@@ -1302,10 +1302,11 @@ mohou pokračovat.
    schválené a zapsané. **Operátor 2026-08-09 přijal i zbývající pětici
    015/020/021/022/023** — 015 `A + 7d provisional`, 020 `E`, 021
    `B/REJECT/A/B`, 022 `A`, 023 `A` — vždy s korekcemi zapsanými v příslušném
-   dokumentu. Přijetí odemyká implementaci; neodemyká aktivaci. Terminal
-   activation proofu (015), produkční ACK `m1-wire-v1` (021) i globální GPU
-   residency (023, M2) zůstávají mimo tuto dávku, takže B3 a B4 jsou dál
-   pravdivě `BLOCKED` až do svých vlastních důkazů.
+   dokumentu. Přijetí odemyká implementaci; neodemyká automatický failover ani
+   milníkový PASS. Terminal activation proofu (015) i globální GPU residency
+   (023, M2) zůstávají mimo tuto dávku. Source ACK `m1-wire-v1` (021) má
+   bounded activation candidate a focused negativní sady, ale built Electron
+   journey ještě neproběhl; B3 i B4 proto zůstávají pravdivě `BLOCKED`.
 
    **Závazná Gate 1 fronta** v tomto pořadí:
 
@@ -1316,7 +1317,7 @@ mohou pokračovat.
    | 3 | ověřit dokončenou rezervaci migrací | `061` = 020 a `062` = 015 jsou rezervované; skutečná late-insertion parita čeká na první společný SHA s finálně přečíslovanými mobilními migracemi |
    | 4 | 020 oddělená policy storage | default-deny backend a tři first-party UI consumery jsou implementované; review-remediation source `2c06b159` má 36/0 a 123/0, konsolidační queue 127/0 a focused `--no-local` clone je zelený; formální Review A zůstává otevřené |
    | 5 | 015 proof issuance | **UZAVŘENO pro CHAT artefakt:** issuer prošel Review A/B a je promoted; skutečný operátorský Ollama běh na source `e9c7d5f5` vydal digest-bound proof pro `qwen3.5:27b`, score 1 a 8/8; automatic activation/restore tím nevznikla |
-   | 6 | 021 built journey | bounded wire attachment/shell změny jsou selektivně v queue; produkční ACK a drahá Electron journey zůstávají otevřené |
+   | 6 | 021 built journey | source ACK používá config-owned 8 položek / 6 MiB aggregate / 12 MiB frame, synchronous fail-fast a má Review A PASS; merge candidate čeká na Review B a drahá Electron journey zůstává otevřená |
    | 7 | autorizovaný GPU pilot | sériově, jedna role a jeden právě pozorovaný artefakt na běh; modely se smějí mezi běhy měnit, jen na akci operátora |
 
    Levné a bezpečnostní změny se tím dokončí před drahou Studio
@@ -1433,8 +1434,8 @@ mohou pokračovat.
    required-offer `m1-wire-v1` a exact transportní context wrapper.
    Required-offer checkpoint je clean-clone focused implementovaný na
    `7551b907`: Studio token nabízí,
-   ACK-bound latch se při reconnectu resetuje a server zatím token pravdivě
-   neACKuje; M1-shaped frame bez negotiation skončí před legacy controllerem.
+   ACK-bound latch se při reconnectu resetuje; M1-shaped frame bez negotiation
+   skončí před legacy controllerem.
    Exact server ingress/egress adapter a Studio source producer/terminal ledger
    jsou focused implementované; clean clone `f2d9055c` navíc offline sestavil
    skutečný generated protocol i production bundle a načetl consumer bez
@@ -1446,9 +1447,15 @@ mohou pokračovat.
    následně přes skutečné sockety ukončí první connection, znovu vyjedná M1,
    autoritativně ověří a přes loopback HTTP obnoví 3/3 durable identity a po
    reconnectu doručí další korelovaný success. Nejde o server restart ani
-   Electron evidence. Produkční ACK a negotiated Electron journey tím ještě
-   nejsou prokázané. Cancel terminal ordering už závazně plyne z přijatého
-   004/C a není nová otázka. Disposable fresh clone na `9464dacf` dříve offline
+   Electron evidence. Source activation candidate nyní předává config-owned
+   `m1WireSupported` a exact inline policy s 8 položkami, 6 MiB decoded
+   aggregate a 12 MiB UTF-8 frame. T40 připíná required-offer legacy fallback
+   i explicitní M1 ACK. Bootstrap fail-fast odmítá invalidní boolean/limity a
+   jejich nekonzistentní vztahy před DB, port-file nebo runtime efektem;
+   startup config 6/0, WS 91/0 a Studio VM 127/0 prošly exit `0`. Negotiated
+   Electron journey tím ale není prokázaná. Cancel terminal ordering už
+   závazně plyne z přijatého 004/C a není nová otázka. Disposable fresh clone
+   na `9464dacf` dříve offline
    reprodukoval production build a 65s non-visual legacy Electron boundary
    journey s nulovým egresssem a čistým shutdownem; tím se ověřilo prostředí,
    nikoli negotiated M1 consumer ani finální UI. Focused 022/A nyní navíc drží

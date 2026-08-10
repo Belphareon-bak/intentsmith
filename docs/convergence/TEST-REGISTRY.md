@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 379
+- Runnable programs: 380
 - Explicit support-module exclusions: 8
-- Profiles: offline=186, database=37, server=37, model=85, soak=19, manual=15
-- States: ACTIVE=281, HISTORICAL=16, BLOCKED=82
+- Profiles: offline=187, database=37, server=37, model=85, soak=19, manual=15
+- States: ACTIVE=282, HISTORICAL=16, BLOCKED=82
 
 ## Execution profiles
 
@@ -296,6 +296,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M1-MODEL-SETTINGS-TEST` | `tests/m1-model-settings.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | no | `HISTORICAL` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-USE-AUTHORITY-TEST` | `tests/m1-model-use-authority.test.js` | `C3-010` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-STUDIO-CLIENT-TEST` | `tests/m1-studio-client.test.js` | `C3-001` | T1 | `offline` | 30 s | 2 min | network:loopback | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-M1-WIRE-STARTUP-CONFIG-TEST` | `tests/m1-wire-startup-config.test.js` | `C3-001` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MANIFEST-V2-TEST` | `tests/manifest-v2.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MARKETPLACE-CATALOG-V125-TEST` | `tests/marketplace-catalog-v125.test.js` | `C3-022` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MARKETPLACE-TEST` | `tests/marketplace.test.js` | `C3-022` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

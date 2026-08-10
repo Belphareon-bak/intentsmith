@@ -285,3 +285,24 @@ kontrakty, ne přejmenované settings operace.
 
 Tento source candidate ještě nemá Review A, fresh clone ani Electron běh a
 neuzavírá obecný secret-bearing settings read/write surface z Findingu 011.
+
+### Source aktivace negotiated M1 wire (2026-08-10)
+
+Produkční composition seam v `src/server.js` nyní zapíná již existující
+required-offer `m1-wire-v1` a sestavuje attachment policy z runtime configu.
+Nové config-owned stropy jsou 8 příloh, 6 MiB decoded aggregate a 12 MiB UTF-8
+frame; item limity zůstávají 1 MiB text a 5 MiB image. Klient bez explicitní
+nabídky tokenu zůstává na legacy wire. `protocol.js`, `ws-server.js`,
+`session-adapter.js` ani `c3-ide/**` se pro aktivaci neměnily.
+
+Fail-fast bootstrap odmítá unknown boolean, nekladné, neceločíselné nebo
+unsafe limity, aggregate pod největším item capem a frame menší nebo rovný
+aggregate. Odmítnutí používá `M1_WIRE_CONFIG_INVALID` a nastane před DB,
+port-file, projects i runtime efektem.
+
+Focused source evidence: startup config 6/0, WS 91/0 a Studio VM 127/0,
+všechny exit `0`. První WS
+pokus skončil před testy na chybějícím `better-sqlite3`; po přesném
+`npm ci --offline` byl celý běh zopakován. Electron build/journey, skutečný
+display, GPU, Ollama a externí síť nebyly spuštěné. Stav je proto
+`SOURCE_ENABLED / FOCUSED_VERIFIED`, nikoli built B4 nebo Gate 1 PASS.

@@ -3989,7 +3989,7 @@ await asyncTest('T39: server.js has WS bridge import and attach', async () => {
   // We can't run server.js without all dependencies, but verify the changes exist
   const fs = await import('fs');
   const serverCode = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
-  assert.ok(serverCode.includes("import { attachWebSocketServer } from './ws-bridge/index.js'"),
+  assert.match(serverCode, /import\s*\{[^}]*\battachWebSocketServer\b[^}]*\}\s*from '\.\/ws-bridge\/index\.js'/s,
     'Should import attachWebSocketServer');
   assert.ok(
     serverCode.includes(
@@ -4004,8 +4004,10 @@ await asyncTest('T39: server.js has WS bridge import and attach', async () => {
     'Should log WS endpoint');
 });
 
-test('T40: production server keeps the M1 wire activation seam dormant', () => {
+test('T40: production server enables bounded required-offer M1 wire policy', () => {
   const serverCode = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
+  const configCode = fs.readFileSync(new URL('../src/config.js', import.meta.url), 'utf8');
+  const envExample = fs.readFileSync(new URL('../.env.example', import.meta.url), 'utf8');
   const attachStart = serverCode.indexOf(
     'attachWebSocketServer(server, ChatController, logger, {',
   );
@@ -4022,10 +4024,67 @@ test('T40: production server keeps the M1 wire activation seam dormant', () => {
     productionOptions,
     /localCapability:\s*legacyLocalCapability/,
   );
-  assert.doesNotMatch(
+  assert.match(
     productionOptions,
-    /\bm1WireSupported\b/,
-    'M1 must remain unacknowledged until the activation residuals are accepted',
+    /m1WireSupported:\s*config\.server\.m1Wire\.enabled/,
+    'production composition must use the config-owned M1 activation switch',
+  );
+  assert.match(
+    productionOptions,
+    /m1AttachmentPolicy:\s*config\.server\.m1Wire\.enabled\s*\?\s*createM1AttachmentPolicy\(/,
+    'production composition must construct the exact negotiated policy',
+  );
+  for (const expectedMapping of [
+    /maxCount:\s*config\.server\.m1Wire\.maxAttachmentCount/,
+    /maxTextBytes:\s*config\.limits\.maxTextAttachment/,
+    /maxImageBytes:\s*config\.limits\.maxImageAttachment/,
+    /maxAggregateBytes:\s*config\.server\.m1Wire\.maxAggregateBytes/,
+    /maxFrameBytes:\s*config\.server\.m1Wire\.maxFrameBytes/,
+  ]) {
+    assert.match(productionOptions, expectedMapping);
+  }
+
+  assert.match(
+    configCode,
+    /enabled:\s*process\.env\.C3_ENABLE_M1_WIRE\s*===\s*'true'/,
+    'config must consume only the bootstrap-canonicalized exact true value',
+  );
+  assert.match(configCode, /C3_M1_ATTACHMENT_MAX_COUNT\s*\?\?\s*8/);
+  assert.match(
+    configCode,
+    /C3_M1_ATTACHMENT_MAX_AGGREGATE_BYTES\s*\?\?\s*\(6\s*\*\s*1024\s*\*\s*1024\)/,
+  );
+  assert.match(
+    configCode,
+    /C3_M1_WIRE_MAX_FRAME_BYTES\s*\?\?\s*\(12\s*\*\s*1024\s*\*\s*1024\)/,
+  );
+  assert.match(envExample, /^C3_ENABLE_M1_WIRE=true$/m);
+  assert.match(envExample, /^C3_M1_ATTACHMENT_MAX_COUNT=8$/m);
+  assert.match(envExample, /^C3_M1_ATTACHMENT_MAX_AGGREGATE_BYTES=6291456$/m);
+  assert.match(envExample, /^C3_M1_WIRE_MAX_FRAME_BYTES=12582912$/m);
+
+  const productionPolicy = createM1AttachmentPolicy({
+    maxCount: 8,
+    maxTextBytes: 1024 * 1024,
+    maxImageBytes: 5 * 1024 * 1024,
+    maxAggregateBytes: 6 * 1024 * 1024,
+    maxFrameBytes: 12 * 1024 * 1024,
+  });
+  assert.deepEqual(
+    negotiateFeatures([], {
+      m1WireSupported: true,
+      m1AttachmentPolicy: productionPolicy,
+    }),
+    ['workspace', 'terminal', 'merge-preview', 'edit-ask', 'audit'],
+    'legacy clients without an offer must not receive m1-wire-v1',
+  );
+  assert.deepEqual(
+    negotiateFeatures([M1_WIRE_FEATURE], {
+      m1WireSupported: true,
+      m1AttachmentPolicy: productionPolicy,
+    }),
+    [M1_WIRE_FEATURE],
+    'only an explicit M1 offer may receive the production ACK token',
   );
 });
 
