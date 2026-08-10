@@ -44,3 +44,5 @@ zůstalo beze změny.
 Neběžel Electron journey, GPU, Ollama ani externí síť. Tento report potvrzuje
 pouze source activation a synchronní fail-fast startup boundary. Gate 1 jako
 celek zůstává `BLOCKED` do dokončení zbývající evidence.
+candidateHead: 3161cf8ed18ca467d657aa316f02680ece2e71ee
+reviewB.verdict: PASS
