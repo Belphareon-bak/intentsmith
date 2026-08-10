@@ -341,6 +341,7 @@ node tests/mobile-operation-isolation.test.js # 14 — izolace sweepu mezi proce
 node tests/mobile-fault-injection.test.js     # 15 — result_persistence_failed
 node tests/mobile-migration-parity.test.js    # 12 — parita migrací 055/056/057
 node tests/schema-migrations.test.js           # 38 — migrace schématu
+node scripts/check-migration-numbers.mjs      #      kolize čísel migrací (§6.5)
 node tests/legacy-listener-boundary.test.js   # 11 — offline policy
 ```
 

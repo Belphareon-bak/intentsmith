@@ -232,6 +232,14 @@ migrace musí mít prefix vyšší než `2026_08_09_057`. Exportovaný `version`
 musí odpovídat názvu souboru a přidej ji do `ALL_MIGRATIONS` a `EXPECTED_TABLES`
 v `tests/schema-migrations.test.js`.
 
+> **Erratum (2026-08-10).** „Vyšší než `2026_08_09_057`" je **nedostatečné
+> a dnes už nesprávné**. Fáze B obsadila `058`–`060` a modelová linie mezitím
+> `061`, takže doslovné splnění téhle věty vyrobí kolizi. Číslo se nepřiděluje
+> proti tomuhle stromu, ale proti celému vývoji:
+> `node scripts/check-migration-numbers.mjs`. Autoritativní znění pravidla je
+> [`TEST-STRATEGY.md` §6.5](TEST-STRATEGY.md); k `2026-08-10` je další volné
+> číslo `062`.
+
 **6.4 `artifact-validation` hlídá odvozená čísla.** Změna registru rozbije
 počty v kořenovém `README.md` (řádek 10 a 11: celkem a `ACTIVE`/`BLOCKED`/
 `KNOWN_DEFECTIVE`/`HISTORICAL`). Změna `RISK-REGISTER.md` rozbije `riskCount`

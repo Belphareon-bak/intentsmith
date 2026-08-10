@@ -501,6 +501,52 @@ ani „jen pro mobil".
 překlasifikovalo `MS-20` při zachování ID; stav je `C3-031=7`, `C3-032=5`.
 `4553b3ee`/`RV-043` srovnalo chráněné hodnoty. Náhradní registr nevznikl.
 
+### 6.5 Číslo migrace se přiděluje proti celému vývoji, ne proti tomuhle stromu
+
+Registrová ID nejsou jediný identifikátor, který si tahle větev nesmí přidělit
+sama. **Totéž platí pro čísla migrací** a stálo to jednou celý refresh:
+`d6fee86f` musel přesunout mobilní gateway migrace z `046`/`047`/`048` na
+`055`/`056`/`057`, protože hlavní linie mezitím tatáž čísla obsadila, zatímco
+mobilní větev byla 294 commitů pozadu.
+
+Přejmenovat soubory nestačilo. `discoverMigrations()` řadí **lexikograficky přes
+celý název včetně data**, takže se musel posunout i datový prefix — jinak by
+mobilní migrace běžely před `046`. A `schema_migrations.version` **je** ten
+název: v databázi, která migraci už aplikovala, přejmenování osiří razítko
+a migrace se spustí podruhé. Proto se čísluje správně předem, ne až u merge.
+
+**Pravidlo.** Před přidělením čísla — a znovu těsně před commitem, který
+migraci přidává — spusť:
+
+```bash
+node scripts/check-migration-numbers.mjs        # kolize + další volné číslo
+node scripts/check-migration-numbers.mjs --next # jen číslo
+```
+
+Skript prochází **všechny registrované worktree včetně jejich pracovních
+stromů** (nezacommitovaná migrace v cizím worktree se počítá), `main` a HEAD
+větev; `--all-branches` rozšíří záběr na všechny lokální větve mimo `archive/`.
+Vrací `1`, když si číslo z tohohle stromu nárokuje jinde jiná migrace.
+Sdílená čísla `008` a `030` jsou historie: existují v každém stromu, jejich
+plné verze se liší a přečíslovat je už nelze — skript je hlásí, ale neblokuje.
+
+**Stav k `2026-08-10`:** mobilní větev drží `055`–`060`, modelová linie
+(`905a3422`, `integration/gate1-prod-ready-20260809` a deset dalších větví)
+drží `061`. **Další volné číslo je `062`**, ne `058` a ne `061`. Pravidlo
+z `WP-MOBILE-027-COMPLETION.md` §6.3 — „prefix vyšší než `2026_08_09_057`" —
+je tím překonané; doslovné splnění by dnes vyrobilo kolizi.
+
+Co skript neumí: neuvidí větev, která ještě nevznikla. Proto se pouští znovu
+před commitem, ne jen na začátku práce.
+
+**Tvar odkazu.** Mobilní povrch (`src/mobile/`, mobilní migrace, `tests/mobile-*`,
+`docs/mobile/`) smí psát holé číslo **jen pro mobilní migraci**. Cizí migrace se
+odkazuje plnou verzí (`2026_03_01_024_v91_security`), kterou žádné naše
+přečíslování neznehodnotí. Vynucuje to poslední test
+v `tests/mobile-migration-parity.test.js` — po `d6fee86f` zůstalo v komentářích
+a v dokumentaci `046`/`047`/`048`, což jsou dnes reálné cizí migrace
+(`048` = `model_binding_operations`), takže čtenář odkazu skončil u cizí tabulky.
+
 ---
 
 ## 7. Katalog testovacích ID pro budoucí odkazování
