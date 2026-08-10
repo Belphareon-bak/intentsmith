@@ -18,6 +18,7 @@ import {
   runMigrations,
 } from '../src/db/migrate.js';
 import { up as migrateModelPolicy } from '../src/db/migrations/2026_08_09_061_model_automation_policy.js';
+import { up as migrateUserSettingsRevision } from '../src/db/migrations/2026_08_10_064_user_settings_revision.js';
 import { createMiscRoutes } from '../src/routes/misc.js';
 import { createSystemRoutes } from '../src/routes/system.js';
 import {
@@ -96,7 +97,7 @@ function openDb(databasePath = ':memory:') {
   return db;
 }
 
-function createPolicySchema(db) {
+function createPolicySchema(db, { revisioned = true } = {}) {
   db.exec(`
     CREATE TABLE user_settings (
       id INTEGER PRIMARY KEY,
@@ -104,7 +105,41 @@ function createPolicySchema(db) {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
-  db.transaction(() => migrateModelPolicy(db))();
+  db.transaction(() => {
+    migrateModelPolicy(db);
+    if (revisioned) migrateUserSettingsRevision(db);
+  })();
+}
+
+function hasSettingsRevision(db) {
+  return db.prepare('PRAGMA table_info(user_settings)').all()
+    .some(column => column.name === 'revision');
+}
+
+function writeSettingsRaw(db, raw) {
+  if (!hasSettingsRevision(db)) {
+    const result = db.prepare(`
+      INSERT INTO user_settings (id, data)
+      VALUES (1, ?)
+      ON CONFLICT(id) DO UPDATE SET data = excluded.data
+    `).run(raw);
+    assertEqual(result.changes, 1);
+    return result;
+  }
+  const result = db.prepare(`
+    UPDATE user_settings
+    SET data = ?, revision = revision + 1
+    WHERE id = 1
+  `).run(raw);
+  assertEqual(result.changes, 1);
+  return result;
+}
+
+function writeCorruptSettingsRaw(db, raw) {
+  if (hasSettingsRevision(db)) {
+    db.exec('DROP TRIGGER IF EXISTS trg_user_settings_revision_update_guard');
+  }
+  return writeSettingsRaw(db, raw);
 }
 
 function createRuntime(prefix, initialNow = 2000) {
@@ -410,7 +445,7 @@ await testAsync('migration 061 creates exact default-off projection and audit au
   try {
     const result = await runMigrations(db);
     assert(result.applied.includes('2026_08_09_061_model_automation_policy'));
-    assertEqual(result.applied.at(-1), '2026_08_10_062_model_failover_proof_issuance');
+    assertEqual(result.applied.at(-1), '2026_08_10_064_user_settings_revision');
     const policy = readModelAutomationPolicy(db);
     assertEqual(policy.status, ModelAutomationPolicyStatus.VALID);
     assertEqual(policy.valid, true);
@@ -444,6 +479,7 @@ await testAsync('legacy values are quarantined and removed without becoming opt-
     const before061 = plan.filter(migration => ![
       '2026_08_09_061_model_automation_policy',
       '2026_08_10_062_model_failover_proof_issuance',
+      '2026_08_10_064_user_settings_revision',
     ].includes(migration.version));
     migrationInternals.runMigrationPlan(db, before061);
     db.prepare(`
@@ -464,6 +500,7 @@ await testAsync('legacy values are quarantined and removed without becoming opt-
     assertEqual(JSON.stringify(result.applied), JSON.stringify([
       '2026_08_09_061_model_automation_policy',
       '2026_08_10_062_model_failover_proof_issuance',
+      '2026_08_10_064_user_settings_revision',
     ]));
     const policy = readModelAutomationPolicy(db);
     assertEqual(policy.valid, true);
@@ -477,6 +514,10 @@ await testAsync('legacy values are quarantined and removed without becoming opt-
     assertEqual(Object.hasOwn(document.models, 'autoFailoverEnabled'), false);
     assertEqual(Object.hasOwn(document.models, 'autoCleanupEnabled'), false);
     assertEqual(Object.hasOwn(document.models, 'autoCleanupDays'), false);
+    assertEqual(
+      db.prepare('SELECT revision FROM user_settings WHERE id = 1').get().revision,
+      1,
+    );
 
     const quarantine = JSON.parse(db.prepare(`
       SELECT legacy_quarantine_json
@@ -531,7 +572,7 @@ test('pre-existing authority object fails atomically without a migration stamp',
 test('legacy INSERT and UPDATE writers cannot reintroduce owned keys', () => {
   const db = openDb();
   try {
-    createPolicySchema(db);
+    createPolicySchema(db, { revisioned: false });
     for (const [key, value] of [
       ['autoFailoverEnabled', false],
       ['autoCleanupEnabled', null],
@@ -546,7 +587,7 @@ test('legacy INSERT and UPDATE writers cannot reintroduce owned keys', () => {
       assertEqual(db.prepare('SELECT COUNT(*) AS count FROM user_settings').get().count, 0);
     }
 
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run(JSON.stringify({
+    writeSettingsRaw(db, JSON.stringify({
       models: { futureSetting: 'keep-me' },
     }));
     const safeRaw = db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data;
@@ -573,7 +614,7 @@ test('legacy INSERT and UPDATE writers cannot reintroduce owned keys', () => {
 test('duplicate models objects cannot bypass INSERT or UPDATE downgrade guards', () => {
   const db = openDb();
   try {
-    createPolicySchema(db);
+    createPolicySchema(db, { revisioned: false });
     const duplicate = '{"models":{},"models":{"autoFailoverEnabled":true}}';
     const insertError = captureError(() => db.prepare(`
       INSERT INTO user_settings (id, data) VALUES (1, ?)
@@ -607,6 +648,7 @@ await testAsync('generic settings POST drops owned keys and cannot mutate policy
         autoCleanupDays: 30,
         futureSetting: 'keep-me',
       },
+      'c3.features.skills': false,
     });
     assertEqual(first.response.status, 200);
     assertEqual(first.response.body.success, true);
@@ -614,13 +656,15 @@ await testAsync('generic settings POST drops owned keys and cannot mutate policy
       JSON.stringify(first.response.body.ignoredReservedKeys),
       JSON.stringify(['autoFailoverEnabled', 'autoCleanupEnabled', 'autoCleanupDays']),
     );
-    assertEqual(first.featureDocument.ui.theme, 'dark');
-    assertEqual(first.featureDocument.models.futureSetting, 'keep-me');
-    assertEqual(Object.hasOwn(first.featureDocument.models, 'autoFailoverEnabled'), false);
+    assertEqual(
+      JSON.stringify(first.featureDocument),
+      JSON.stringify({ 'c3.features.skills': false }),
+    );
 
     const stored = JSON.parse(db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data);
     assertEqual(stored.ui.theme, 'dark');
     assertEqual(stored.models.futureSetting, 'keep-me');
+    assertEqual(stored['c3.features.skills'], false);
     assertEqual(Object.hasOwn(stored.models, 'autoFailoverEnabled'), false);
     assertEqual(Object.hasOwn(stored.models, 'autoCleanupEnabled'), false);
     assertEqual(Object.hasOwn(stored.models, 'autoCleanupDays'), false);
@@ -643,7 +687,7 @@ await testAsync('generic settings GET omits owned keys from a legacy raw row', a
       DROP TRIGGER trg_user_settings_model_automation_insert_guard;
       DROP TRIGGER trg_user_settings_model_automation_update_guard;
     `);
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run(JSON.stringify({
+    writeSettingsRaw(db, JSON.stringify({
       ui: { theme: 'light' },
       models: {
         autoFailoverEnabled: true,
@@ -667,7 +711,7 @@ await testAsync('schema v2 export is one deterministic default-deny settings pro
   const db = openDb();
   try {
     createPolicySchema(db);
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run(JSON.stringify({
+    writeSettingsRaw(db, JSON.stringify({
       appearance: {
         theme: 'light',
         accentColor: '#12abEF',
@@ -767,7 +811,7 @@ await testAsync('schema v2 carries only source values and repairs a malformed ow
   const db = openDb();
   try {
     createPolicySchema(db);
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run(JSON.stringify({
+    writeSettingsRaw(db, JSON.stringify({
       appearance: { theme: 'light' },
       'c3.language': 'en',
       webhookSecret: 'SOURCE_SECRET_CANARY',
@@ -781,7 +825,7 @@ await testAsync('schema v2 carries only source values and repairs a malformed ow
     }));
     assertEqual(JSON.stringify(exported.body.backup).includes('SOURCE_SECRET_CANARY'), false);
 
-    db.prepare('UPDATE user_settings SET data = ? WHERE id = 1').run(JSON.stringify({
+    writeSettingsRaw(db, JSON.stringify({
       appearance: null,
       output: {
         codeStyle: 'google',
@@ -829,7 +873,7 @@ await testAsync('schema v2 import overlays only portable preferences and preserv
       system: { ollamaUrl: 'DESTINATION_OLLAMA' },
       future: { setting: 'DESTINATION_FUTURE' },
     });
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run(JSON.stringify(destination));
+    writeSettingsRaw(db, JSON.stringify(destination));
     const harness = createSettingsRouteHarness(db);
     const imported = backupEnvelope({
       settingsProjection: {
@@ -894,7 +938,7 @@ await testAsync('schema v1 and raw legacy imports are projected without trusting
   const db = openDb();
   try {
     createPolicySchema(db);
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run(JSON.stringify({
+    writeSettingsRaw(db, JSON.stringify({
       appearance: {
         accentColor: '#abcdef',
         fontFamily: 'roboto',
@@ -986,7 +1030,7 @@ await testAsync('invalid and nonportable v2 envelopes fail before settings or po
   const db = openDb();
   try {
     createPolicySchema(db);
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{"stable":true}');
+    writeSettingsRaw(db, '{"stable":true}');
     const harness = createSettingsRouteHarness(db);
     const before = snapshot(db);
     const extraPath = portableValues({ '/notifications/telegramToken': 'ATTACKER' });
@@ -1041,7 +1085,7 @@ await testAsync('import and reset failures roll back both settings and policy', 
   try {
     createPolicySchema(db);
     createModelAutomationPolicyRepository(db).updateFromTypedApi(updateInput(1));
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{"stable":true}');
+    writeSettingsRaw(db, '{"stable":true}');
     const harness = createSettingsRouteHarness(db);
 
     db.exec(`
@@ -1082,12 +1126,12 @@ await testAsync('general settings write failures leave policy and audit lineage 
   try {
     createPolicySchema(db);
     createModelAutomationPolicyRepository(db).updateFromTypedApi(updateInput(1));
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{"stable":true}');
+    writeSettingsRaw(db, '{"stable":true}');
     const harness = createSettingsRouteHarness(db);
 
     db.exec(`
       CREATE TRIGGER fixture_fail_settings_write
-      BEFORE INSERT ON user_settings
+      BEFORE UPDATE ON user_settings
       WHEN NEW.id = 1
       BEGIN
         SELECT RAISE(ABORT, 'fixture settings write failure');
@@ -1101,11 +1145,11 @@ await testAsync('general settings write failures leave policy and audit lineage 
     db.exec('DROP TRIGGER fixture_fail_settings_write');
 
     db.exec(`
-      CREATE TRIGGER fixture_fail_settings_delete
-      BEFORE DELETE ON user_settings
-      WHEN OLD.id = 1
+      CREATE TRIGGER fixture_fail_settings_reset
+      BEFORE UPDATE ON user_settings
+      WHEN NEW.id = 1 AND NEW.data = '{}'
       BEGIN
-        SELECT RAISE(ABORT, 'fixture settings delete failure');
+        SELECT RAISE(ABORT, 'fixture settings reset failure');
       END;
     `);
     const beforeReset = snapshot(db);
@@ -1122,7 +1166,7 @@ test('versioned settings operations reject foreign transaction ownership before 
   const db = openDb();
   try {
     createPolicySchema(db);
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{"stable":true}');
+    writeSettingsRaw(db, '{"stable":true}');
     const repository = createModelAutomationPolicyRepository(db);
     const before = snapshot(db);
     for (const operation of [
@@ -1190,7 +1234,8 @@ await testAsync('post-commit runtime and diagnostic failures remain a truthful d
     assertEqual(reset.body.ok, true);
     assertEqual(reset.body.runtimeApplied, false);
     assertEqual(reset.body.runtimeErrorCode, 'SETTINGS_RUNTIME_APPLY_FAILED');
-    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM user_settings').get().count, 0);
+    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM user_settings').get().count, 1);
+    assertEqual(db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data, '{}');
     assertEqual(readModelAutomationPolicy(db).revision, 3);
     assertEqual(db.prepare(`
       SELECT COUNT(*) AS count
@@ -1208,13 +1253,14 @@ await testAsync('global settings reset is one audited OFF transition on both ali
     createPolicySchema(db);
     const repository = createModelAutomationPolicyRepository(db);
     repository.updateFromTypedApi(updateInput(1));
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{"custom":true}');
+    writeSettingsRaw(db, '{"custom":true}');
     const harness = createSettingsRouteHarness(db);
     const reset = await harness.reset();
     assertEqual(reset.status, 200);
     assertEqual(reset.body.ok, true);
     assertEqual(reset.body.policy.autoFailoverEnabled, false);
-    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM user_settings').get().count, 0);
+    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM user_settings').get().count, 1);
+    assertEqual(db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data, '{}');
     assertEqual(db.prepare(`
       SELECT COUNT(*) AS count
       FROM model_automation_policy_events
@@ -1222,11 +1268,12 @@ await testAsync('global settings reset is one audited OFF transition on both ali
     `).get().count, 1);
 
     repository.updateFromTypedApi(updateInput(reset.body.policy.revision));
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{"again":true}');
+    writeSettingsRaw(db, '{"again":true}');
     const legacyReset = await harness.reset({ legacy: true });
     assertEqual(legacyReset.status, 200);
     assertEqual(legacyReset.body.policy.autoFailoverEnabled, false);
-    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM user_settings').get().count, 0);
+    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM user_settings').get().count, 1);
+    assertEqual(db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data, '{}');
     assertEqual(db.prepare(`
       SELECT COUNT(*) AS count
       FROM model_automation_policy_events
@@ -1242,14 +1289,14 @@ await testAsync('backup export fails closed on malformed or invalid stored setti
   const db = openDb();
   try {
     createPolicySchema(db);
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{invalid');
+    writeCorruptSettingsRaw(db, '{invalid');
     const before = snapshot(db);
     const response = createSettingsRouteHarness(db).backup();
     assertEqual(response.status, 503);
     assertEqual(response.body.code, 'MODEL_AUTOMATION_POLICY_STORED_GENERAL_SETTINGS_INVALID');
     assertEqual(snapshot(db), before);
 
-    db.prepare('UPDATE user_settings SET data = ? WHERE id = 1').run(JSON.stringify({
+    writeSettingsRaw(db, JSON.stringify({
       appearance: { theme: 'future-unreviewed-theme' },
     }));
     const invalidValue = snapshot(db);

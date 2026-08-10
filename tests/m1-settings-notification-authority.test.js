@@ -3,6 +3,7 @@
 import './helpers/isolated-test-db.js';
 
 import Database from 'better-sqlite3';
+import { Buffer } from 'node:buffer';
 import { mkdtempSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { Worker } from 'node:worker_threads';
@@ -17,6 +18,8 @@ import {
 import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 import { createMiscRoutes } from '../src/routes/misc.js';
 import { createNotificationRoutes } from '../src/routes/notifications.js';
+import { up as migrateModelPolicy } from '../src/db/migrations/2026_08_09_061_model_automation_policy.js';
+import { up as migrateUserSettingsRevision } from '../src/db/migrations/2026_08_10_064_user_settings_revision.js';
 import {
   NOTIFICATION_SETTING_FIELD_MAP,
   NOTIFICATION_SETTING_KEYS,
@@ -122,12 +125,18 @@ const { parentPort, workerData } = require('node:worker_threads');
 });
 `;
 
-function openDb(databasePath = ':memory:') {
+function openLegacyDb(databasePath = ':memory:') {
   const db = new Database(databasePath);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.pragma('busy_timeout = 5000');
   db.exec(USER_SETTINGS_SCHEMA);
+  return db;
+}
+
+function openDb(databasePath = ':memory:') {
+  const db = openLegacyDb(databasePath);
+  db.transaction(() => migrateUserSettingsRevision(db)).immediate();
   return db;
 }
 
@@ -138,6 +147,31 @@ function readRaw(db) {
 function readDocument(db) {
   const raw = readRaw(db);
   return raw === null ? {} : JSON.parse(raw);
+}
+
+function readSettingsRow(db) {
+  return db.prepare(`
+    SELECT id, data, updated_at, revision
+    FROM user_settings
+    WHERE id = 1
+  `).get();
+}
+
+function replaceFixtureDocument(db, value) {
+  return db.prepare(`
+    UPDATE user_settings
+    SET data = ?, revision = revision + 1
+    WHERE id = 1
+  `).run(value);
+}
+
+function captureError(callback) {
+  try {
+    callback();
+  } catch (error) {
+    return error;
+  }
+  throw new Error('expected operation to fail');
 }
 
 function notificationProjection(document) {
@@ -231,6 +265,20 @@ function createRouteHarness(db) {
       await miscRoutes['GET /api/settings']({}, {});
       return genericResponse;
     },
+    async getV2() {
+      genericResponse = null;
+      await miscRoutes['GET /api/settings/v2']({}, {});
+      return genericResponse;
+    },
+    async putV2(body, options = {}) {
+      requestBody = body;
+      parseFailure = options.parseFailure || null;
+      genericResponse = null;
+      featureDocument = null;
+      await miscRoutes['PUT /api/settings/v2']({}, {});
+      parseFailure = null;
+      return { response: genericResponse, featureDocument };
+    },
   };
 }
 
@@ -257,12 +305,160 @@ function startRouteWorker(workerData) {
 
 suite('M1 settings notification authority — route-level data integrity');
 
-await testAsync('notification save followed by partial generic save preserves all nine exact values', async () => {
+await testAsync('migration guard and notification owner preserve the versioned singleton', async () => {
+  const preservedDb = openLegacyDb();
+  try {
+    const original = ' {"duplicate":1,"duplicate":2,"sentinel":"raw-bytes"} ';
+    preservedDb.prepare(`
+      INSERT INTO user_settings (id, data, updated_at)
+      VALUES (1, ?, '2026-08-11 00:00:00')
+    `).run(original);
+    const before = preservedDb.prepare(`
+      SELECT hex(CAST(data AS BLOB)) AS data_hex, updated_at
+      FROM user_settings WHERE id = 1
+    `).get();
+    preservedDb.transaction(() => migrateUserSettingsRevision(preservedDb)).immediate();
+    const migrated = readSettingsRow(preservedDb);
+    assertEqual(migrated.revision, 1);
+    assertEqual(
+      preservedDb.prepare('SELECT hex(CAST(data AS BLOB)) AS value FROM user_settings WHERE id=1').get().value,
+      before.data_hex,
+    );
+    assertEqual(migrated.updated_at, before.updated_at);
+
+    for (const [operation, expectedPrefix] of [
+      [() => preservedDb.prepare("INSERT INTO user_settings (id,data,revision) VALUES (2,'{}',1)").run(), 'USER_SETTINGS_INSERT_FORBIDDEN:'],
+      [() => preservedDb.prepare("INSERT OR REPLACE INTO user_settings (id,data,revision) VALUES (1,'{}',1)").run(), 'USER_SETTINGS_INSERT_FORBIDDEN:'],
+      [() => preservedDb.prepare('DELETE FROM user_settings WHERE id=1').run(), 'USER_SETTINGS_DELETE_FORBIDDEN:'],
+      [() => preservedDb.prepare("UPDATE user_settings SET data='{}' WHERE id=1").run(), 'USER_SETTINGS_REVISION_MISMATCH:'],
+      [() => preservedDb.prepare("UPDATE user_settings SET data='{}', revision=revision+2 WHERE id=1").run(), 'USER_SETTINGS_REVISION_MISMATCH:'],
+      [() => preservedDb.prepare("UPDATE user_settings SET id=2, data='{}', revision=revision+1 WHERE id=1").run(), 'USER_SETTINGS_REVISION_MISMATCH:'],
+    ]) {
+      const error = captureError(operation);
+      assert(error.message.startsWith(expectedPrefix));
+      assertEqual(readSettingsRow(preservedDb).revision, 1);
+      assertEqual(readSettingsRow(preservedDb).data, original);
+    }
+    const committed = preservedDb.prepare(`
+      UPDATE user_settings
+      SET data='{"committed":true}', revision=revision+1
+      WHERE id=1 AND revision=1
+    `).run();
+    assertEqual(committed.changes, 1);
+    assertEqual(readSettingsRow(preservedDb).revision, 2);
+  } finally {
+    preservedDb.close();
+  }
+
+  const seededDb = openLegacyDb();
+  try {
+    seededDb.transaction(() => migrateUserSettingsRevision(seededDb)).immediate();
+    const seeded = readSettingsRow(seededDb);
+    assertEqual(seeded.data, '{}');
+    assertEqual(seeded.revision, 1);
+  } finally {
+    seededDb.close();
+  }
+
+  const invalidDb = openLegacyDb();
+  try {
+    invalidDb.prepare("INSERT INTO user_settings (id,data) VALUES (2,'{}')").run();
+    const error = captureError(
+      () => invalidDb.transaction(() => migrateUserSettingsRevision(invalidDb)).immediate(),
+    );
+    assert(error.message.startsWith('USER_SETTINGS_REVISION_MIGRATION_INVALID:'));
+    assertEqual(
+      invalidDb.prepare('PRAGMA table_info(user_settings)').all().some(row => row.name === 'revision'),
+      false,
+    );
+  } finally {
+    invalidDb.close();
+  }
+
+  const foreignTriggerDb = openLegacyDb();
+  try {
+    foreignTriggerDb.exec(`
+      CREATE TRIGGER fixture_unknown_settings_trigger
+      AFTER UPDATE ON user_settings
+      BEGIN
+        SELECT 1;
+      END
+    `);
+    const error = captureError(
+      () => foreignTriggerDb.transaction(() => migrateUserSettingsRevision(foreignTriggerDb)).immediate(),
+    );
+    assert(error.message.includes('unsupported pre-existing user_settings triggers'));
+    assertEqual(
+      foreignTriggerDb.prepare('PRAGMA table_info(user_settings)').all()
+        .some(row => row.name === 'revision'),
+      false,
+    );
+  } finally {
+    foreignTriggerDb.close();
+  }
+
+  const lateNoopPolicyDb = openLegacyDb();
+  const noLegacyPolicyBytes = '{"number":1.0,"models":{"futureSetting":"keep-me"}}';
+  try {
+    lateNoopPolicyDb.prepare('INSERT INTO user_settings (id,data) VALUES (1,?)')
+      .run(noLegacyPolicyBytes);
+    lateNoopPolicyDb.transaction(() => migrateUserSettingsRevision(lateNoopPolicyDb)).immediate();
+    lateNoopPolicyDb.transaction(() => migrateModelPolicy(lateNoopPolicyDb)).immediate();
+    const lateRow = readSettingsRow(lateNoopPolicyDb);
+    assertEqual(lateRow.revision, 1);
+    assertEqual(lateRow.data, noLegacyPolicyBytes);
+  } finally {
+    lateNoopPolicyDb.close();
+  }
+
+  const legacyPolicyBytes = '{"number":1e2,"duplicate":1,"duplicate":2,"models":{"autoFailoverEnabled":true,"futureSetting":"keep-me"}}';
+  const expectedLegacyHex = Buffer.from(legacyPolicyBytes, 'utf8').toString('hex').toUpperCase();
+  for (const legacyValue of [legacyPolicyBytes, Buffer.from(legacyPolicyBytes, 'utf8')]) {
+    const legacyPolicyDb = openLegacyDb();
+    try {
+      legacyPolicyDb.prepare('INSERT INTO user_settings (id,data) VALUES (1,?)')
+        .run(legacyValue);
+      const migrationError = captureError(
+        () => legacyPolicyDb.transaction(() => migrateUserSettingsRevision(legacyPolicyDb)).immediate(),
+      );
+      assert(migrationError.message.includes('legacy model automation keys require migration 061'));
+      assertEqual(
+        legacyPolicyDb.prepare('PRAGMA table_info(user_settings)').all()
+          .some(row => row.name === 'revision'),
+        false,
+      );
+      assertEqual(
+        legacyPolicyDb.prepare(`
+          SELECT hex(CAST(data AS BLOB)) AS data_hex
+          FROM user_settings WHERE id=1
+        `).get().data_hex,
+        expectedLegacyHex,
+      );
+
+      const expectedDocument = JSON.parse(legacyPolicyBytes);
+      delete expectedDocument.models.autoFailoverEnabled;
+      legacyPolicyDb.transaction(() => migrateModelPolicy(legacyPolicyDb)).immediate();
+      legacyPolicyDb.transaction(() => migrateUserSettingsRevision(legacyPolicyDb)).immediate();
+      assertEqual(readSettingsRow(legacyPolicyDb).revision, 1);
+      assertEqual(readSettingsRow(legacyPolicyDb).data, JSON.stringify(expectedDocument));
+    } finally {
+      legacyPolicyDb.close();
+    }
+  }
+
   const db = openDb();
   try {
     const harness = createRouteHarness(db);
     const notification = await harness.postNotification(INITIAL_NOTIFICATION_BODY);
     assertEqual(notification.status, 200);
+    const beforeUnownedNotification = readSettingsRow(db);
+    const unownedNotification = await harness.postNotification({ futureCredential: 'blocked' });
+    assertEqual(unownedNotification.status, 400);
+    assertEqual(unownedNotification.body.code, 'NOTIFICATION_SETTINGS_INPUT_INVALID');
+    assertEqual(
+      JSON.stringify(readSettingsRow(db)),
+      JSON.stringify(beforeUnownedNotification),
+    );
     const runtimeConfigCount = harness.notificationRuntimeConfigs.length;
     const maskedOnly = await harness.postNotification({ smtpPass: '*****' });
     assertEqual(maskedOnly.status, 200);
@@ -320,11 +516,76 @@ await testAsync('notification save followed by partial generic save preserves al
   }
 });
 
-await testAsync('stale generic snapshot cannot overwrite a newer notification commit', async () => {
+await testAsync('v2 CAS is redacted and stale generic snapshots preserve newer notification commits', async () => {
   const db = openDb();
   try {
     const harness = createRouteHarness(db);
     await harness.postNotification(INITIAL_NOTIFICATION_BODY);
+
+    const protectedDocument = readDocument(db);
+    protectedDocument.storage = { root: '/private/device/path' };
+    protectedDocument.webhookSecret = 'WEBHOOK_SECRET_CANARY';
+    protectedDocument.futurePrivate = 'PRIVATE_DESTINATION_CANARY';
+    replaceFixtureDocument(db, JSON.stringify(protectedDocument));
+
+    const initialV2 = await harness.getV2();
+    assertEqual(initialV2.status, 200);
+    assertEqual(initialV2.body.revision, readSettingsRow(db).revision);
+    assertEqual(Object.hasOwn(initialV2.body.settings, 'storage'), false);
+    assertEqual(Object.hasOwn(initialV2.body.settings, 'webhookSecret'), false);
+    assertEqual(Object.hasOwn(initialV2.body.settings, 'futurePrivate'), false);
+    for (const key of NOTIFICATION_SETTING_KEYS) {
+      assertEqual(Object.hasOwn(initialV2.body.settings, key), false);
+    }
+    assertEqual(JSON.stringify(initialV2.body).includes('SECRET_CANARY'), false);
+
+    const v2Commit = await harness.putV2({
+      expectedRevision: initialV2.body.revision,
+      patch: {
+        'c3.language': 'en',
+        'c3.features.skills': false,
+        appearance: { theme: 'dark' },
+      },
+    });
+    assertEqual(v2Commit.response.status, 200);
+    assertEqual(v2Commit.response.body.revision, initialV2.body.revision + 1);
+    assertEqual(v2Commit.response.body.settings['c3.language'], 'en');
+    assertEqual(v2Commit.response.body.settings.appearance.theme, 'dark');
+    assertEqual(Object.hasOwn(v2Commit.response.body.settings, 'storage'), false);
+    assertEqual(Object.hasOwn(v2Commit.response.body.settings, 'webhookSecret'), false);
+    assertEqual(Object.hasOwn(v2Commit.response.body.settings, 'futurePrivate'), false);
+    assertEqual(
+      JSON.stringify(v2Commit.featureDocument),
+      JSON.stringify({ 'c3.features.skills': false }),
+    );
+    assertEqual(JSON.stringify(v2Commit.response.body).includes('SECRET_CANARY'), false);
+    const postCasDocument = readDocument(db);
+    assertEqual(postCasDocument.storage.root, '/private/device/path');
+    assertEqual(postCasDocument.webhookSecret, 'WEBHOOK_SECRET_CANARY');
+    assertEqual(postCasDocument.futurePrivate, 'PRIVATE_DESTINATION_CANARY');
+
+    const beforeUnowned = readSettingsRow(db);
+    const unowned = await harness.putV2({
+      expectedRevision: beforeUnowned.revision,
+      patch: { storage: { root: '/attacker/path' } },
+    });
+    assertEqual(unowned.response.status, 400);
+    assertEqual(unowned.response.body.code, 'USER_SETTINGS_PATH_UNOWNED');
+    assertEqual(JSON.stringify(readSettingsRow(db)), JSON.stringify(beforeUnowned));
+
+    const staleRevision = readSettingsRow(db).revision;
+    await harness.postNotification(UPDATED_NOTIFICATION_BODY);
+    const afterNotification = readSettingsRow(db);
+    const staleV2 = await harness.putV2({
+      expectedRevision: staleRevision,
+      patch: { 'c3.language': 'cs' },
+    });
+    assertEqual(staleV2.response.status, 409);
+    assertEqual(staleV2.response.body.code, 'USER_SETTINGS_REVISION_CONFLICT');
+    assertEqual(staleV2.response.body.expectedRevision, staleRevision);
+    assertEqual(staleV2.response.body.currentRevision, afterNotification.revision);
+    assertEqual(JSON.stringify(readSettingsRow(db)), JSON.stringify(afterNotification));
+
     const stale = (await harness.getGeneric()).body;
     await harness.postNotification(UPDATED_NOTIFICATION_BODY);
 
@@ -424,7 +685,8 @@ await testAsync('two real WAL route writers preserve disjoint notification and g
 await testAsync('input, storage and post-commit runtime failures have stable truthful boundaries', async () => {
   const db = openDb();
   try {
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run(
+    replaceFixtureDocument(
+      db,
       JSON.stringify({ sentinel: 'original', 'c3.notif.smtpPass': 'SECRET_BOUNDARY_CANARY' }),
     );
     const harness = createRouteHarness(db);
@@ -438,15 +700,19 @@ await testAsync('input, storage and post-commit runtime failures have stable tru
     assertEqual(notificationInvalid.body.code, 'NOTIFICATION_SETTINGS_INPUT_INVALID');
     assertEqual(readRaw(db), original);
 
-    db.prepare('UPDATE user_settings SET data = ? WHERE id = 1').run('{broken');
+    db.exec('DROP TRIGGER trg_user_settings_revision_update_guard');
+    db.prepare('UPDATE user_settings SET data = ?, revision = revision + 1 WHERE id = 1').run('{broken');
     const malformedRaw = readRaw(db);
+    const malformedRead = await harness.getV2();
+    assertEqual(malformedRead.status, 503);
+    assertEqual(malformedRead.body.code, 'USER_SETTINGS_JSON_INVALID');
     const malformed = await harness.postGeneric({ sentinel: 'replacement' });
     assertEqual(malformed.response.status, 503);
     assertEqual(malformed.response.body.code, 'USER_SETTINGS_STORAGE_FAILED');
     assertEqual(JSON.stringify(malformed.response.body).includes('broken'), false);
     assertEqual(readRaw(db), malformedRaw);
 
-    db.prepare('UPDATE user_settings SET data = ? WHERE id = 1').run(original);
+    db.prepare('UPDATE user_settings SET data = ?, revision = revision + 1 WHERE id = 1').run(original);
     db.exec(`
       CREATE TRIGGER reject_notification_update
       BEFORE UPDATE ON user_settings
@@ -461,6 +727,27 @@ await testAsync('input, storage and post-commit runtime failures have stable tru
     assertEqual(JSON.stringify(rejected.body).includes('RAW_DB_ERROR_CANARY'), false);
     assertEqual(readRaw(db), rejectedRaw);
     db.exec('DROP TRIGGER reject_notification_update');
+
+    const beforeAfterTrigger = readSettingsRow(db);
+    db.exec(`
+      CREATE TRIGGER fixture_mutate_settings_after_update
+      AFTER UPDATE ON user_settings
+      WHEN json_extract(NEW.data, '$.fixtureAfterTrigger') IS NULL
+      BEGIN
+        UPDATE user_settings
+        SET data = json_set(NEW.data, '$.fixtureAfterTrigger', 'injected'),
+            revision = NEW.revision + 1
+        WHERE id = 1;
+      END
+    `);
+    const postWriteDivergence = await harness.postGeneric({ sentinel: 'must-roll-back' });
+    assertEqual(postWriteDivergence.response.status, 503);
+    assertEqual(postWriteDivergence.response.body.code, 'USER_SETTINGS_STORAGE_FAILED');
+    assertEqual(
+      JSON.stringify(readSettingsRow(db)),
+      JSON.stringify(beforeAfterTrigger),
+    );
+    db.exec('DROP TRIGGER fixture_mutate_settings_after_update');
 
     harness.setGenericRuntimeFailure(new Error('GENERIC_RUNTIME_SECRET_CANARY'));
     const genericDegraded = await harness.postGeneric({ appearance: { theme: 'system' } });

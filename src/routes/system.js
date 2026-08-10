@@ -20,6 +20,10 @@ import {
   createModelAutomationPolicyRepository,
   readModelAutomationPolicy,
 } from '../db/model-policy.js';
+import {
+  UserSettingsError,
+  createUserSettingsRepository,
+} from '../db/user-settings.js';
 
 const FEATURE_UNIVERSE_ENABLED = (process.env.C3_MODEL_UNIVERSE_ENABLED || 'true') !== 'false';
 const FEATURE_UNIVERSE_MIRROR = (process.env.C3_DISCOVERY_MIRROR_DISCOVERED_MODELS || 'true') !== 'false';
@@ -784,27 +788,37 @@ export function createSystemRoutes({
     },
 
     'PUT /api/system/storage/settings': async (req, res) => {
+      let body;
       try {
-        const body = await parseBody(req);
-        const validated = validateStorageConfig(body);
-
-        // Read current user_settings, merge storage section
-        let currentSettings = {};
-        try {
-          const row = rawDb.prepare('SELECT data FROM user_settings WHERE id = 1').get();
-          if (row) currentSettings = JSON.parse(row.data);
-        } catch (_) {}
-
-        currentSettings.storage = validated;
-
-        rawDb.prepare(
-          'INSERT OR REPLACE INTO user_settings (id, data, updated_at) VALUES (1, ?, datetime(\'now\'))'
-        ).run(JSON.stringify(currentSettings));
-
-        sendJSON(res, 200, validated);
-      } catch (err) {
-        sendJSON(res, 500, { error: `Failed to update storage settings: ${err.message}` });
+        body = await parseBody(req);
+      } catch (_) {
+        return sendJSON(res, 400, {
+          ok: false,
+          code: 'STORAGE_SETTINGS_INPUT_INVALID',
+        });
       }
+      if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+        return sendJSON(res, 400, {
+          ok: false,
+          code: 'STORAGE_SETTINGS_INPUT_INVALID',
+        });
+      }
+
+      let validated;
+      try {
+        validated = validateStorageConfig(body);
+        createUserSettingsRepository(rawDb).commitStorage(validated);
+      } catch (err) {
+        const code = err instanceof UserSettingsError
+          ? err.code
+          : 'STORAGE_SETTINGS_UPDATE_FAILED';
+        const invalidInput = code === 'USER_SETTINGS_INPUT_INVALID';
+        return sendJSON(res, invalidInput ? 400 : 503, {
+          ok: false,
+          code: invalidInput ? 'STORAGE_SETTINGS_INPUT_INVALID' : 'STORAGE_SETTINGS_STORAGE_FAILED',
+        });
+      }
+      return sendJSON(res, 200, validated);
     },
 
     // ── Manual Drain ─────────────────────────────────────────────────────

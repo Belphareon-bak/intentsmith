@@ -11,6 +11,10 @@
 
 import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 import { randomUUID } from 'crypto';
+import {
+  UserSettingsError,
+  createUserSettingsRepository,
+} from '../db/user-settings.js';
 
 const MAX_AUDIT_LIMIT = 1000;
 const DEFAULT_AUDIT_LIMIT = 100;
@@ -219,29 +223,25 @@ export function createSecurityRoutes({ db, parseBody, sendJSON, logger }) {
       if (!requireAuth(req, sendJSON, res)) return;
 
       const newSecret = 'c3_' + randomBytes(24).toString('hex');
-      // Store in user_settings (persisted to DB)
+      let masked;
       try {
-        rawDb.exec(`
-          CREATE TABLE IF NOT EXISTS user_settings (
-            id INTEGER PRIMARY KEY,
-            data TEXT NOT NULL,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-          )
-        `);
-        const row = rawDb.prepare('SELECT data FROM user_settings WHERE id = 1').get();
-        const settings = row ? JSON.parse(row.data) : {};
-        settings.webhookSecret = newSecret;
-        rawDb.prepare(
-          "INSERT OR REPLACE INTO user_settings (id, data, updated_at) VALUES (1, ?, datetime('now'))"
-        ).run(JSON.stringify(settings));
-
-        sendJSON(res, 200, {
-          ok: true,
-          masked: _maskSecret(newSecret),
-        });
+        createUserSettingsRepository(rawDb).commitWebhookSecret(newSecret);
+        masked = _maskSecret(newSecret);
       } catch (err) {
-        sendJSON(res, 500, { error: 'Failed to generate webhook secret' });
+        const code = err instanceof UserSettingsError
+          ? err.code
+          : 'WEBHOOK_SECRET_STORAGE_FAILED';
+        return sendJSON(res, 503, {
+          ok: false,
+          code: code === 'USER_SETTINGS_INPUT_INVALID'
+            ? 'WEBHOOK_SECRET_INPUT_INVALID'
+            : 'WEBHOOK_SECRET_STORAGE_FAILED',
+        });
       }
+      return sendJSON(res, 200, {
+        ok: true,
+        masked,
+      });
     },
 
     // ── Sessions ───────────────────────────────────────────────────────────

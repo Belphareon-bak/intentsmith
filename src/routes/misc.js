@@ -9,7 +9,9 @@ import {
   sanitizeGenericModelAutomationSettings,
 } from '../db/model-policy.js';
 import {
+  GENERIC_FEATURE_SETTING_KEYS,
   UserSettingsError,
+  createUserSettingsRepository,
   mergeGenericUserSettings,
 } from '../db/user-settings.js';
 
@@ -38,6 +40,28 @@ function modelPolicySettingsHttpStatus(code) {
   return MODEL_POLICY_SETTINGS_HTTP_STATUS[code] || 500;
 }
 
+const USER_SETTINGS_HTTP_STATUS = Object.freeze({
+  USER_SETTINGS_INPUT_INVALID: 400,
+  USER_SETTINGS_EXPECTED_REVISION_INVALID: 400,
+  USER_SETTINGS_PATH_UNOWNED: 400,
+  USER_SETTINGS_VALUE_INVALID: 400,
+  USER_SETTINGS_REVISION_CONFLICT: 409,
+  USER_SETTINGS_ROW_MISSING: 503,
+  USER_SETTINGS_JSON_INVALID: 503,
+  USER_SETTINGS_DOCUMENT_NOT_OBJECT: 503,
+  USER_SETTINGS_REVISION_INVALID: 503,
+  USER_SETTINGS_REVISION_EXHAUSTED: 503,
+  USER_SETTINGS_DB_READ_FAILED: 503,
+  USER_SETTINGS_DB_WRITE_FAILED: 503,
+  USER_SETTINGS_DB_BUSY: 503,
+  USER_SETTINGS_STORAGE_CONTRACT: 503,
+  USER_SETTINGS_TRANSACTION_FAILED: 503,
+});
+
+function userSettingsHttpStatus(code) {
+  return USER_SETTINGS_HTTP_STATUS[code] || 500;
+}
+
 function publicPolicyCommit(policy) {
   return {
     revision: policy.revision,
@@ -53,6 +77,7 @@ export function createMiscRoutes(deps) {
   const { db, parseBody, sendJSON, logger, callWithAuth, createAuthToken, LLMCallerRole } = deps;
   const settingsFeatureManager = deps.featureManager || featureManager;
   const policyRepository = () => createModelAutomationPolicyRepository(db.db);
+  const settingsRepository = () => createUserSettingsRepository(db.db);
 
   const applyCommittedSettingsRuntime = (operation, callback) => {
     try {
@@ -127,6 +152,63 @@ export function createMiscRoutes(deps) {
       }
     },
 
+    'GET /api/settings/v2': (_req, res) => {
+      let current;
+      try {
+        current = settingsRepository().readPublic();
+      } catch (error) {
+        const code = typeof error?.code === 'string'
+          ? error.code
+          : 'USER_SETTINGS_DB_READ_FAILED';
+        return sendJSON(res, userSettingsHttpStatus(code), { ok: false, code });
+      }
+      return sendJSON(res, 200, current);
+    },
+
+    'PUT /api/settings/v2': async (req, res) => {
+      let body;
+      try {
+        body = await parseBody(req);
+      } catch (_) {
+        return sendJSON(res, 400, {
+          ok: false,
+          code: 'USER_SETTINGS_INPUT_INVALID',
+        });
+      }
+
+      let committed;
+      try {
+        committed = settingsRepository().commitGeneric(body);
+      } catch (error) {
+        const code = typeof error?.code === 'string'
+          ? error.code
+          : 'USER_SETTINGS_DB_WRITE_FAILED';
+        const details = code === 'USER_SETTINGS_REVISION_CONFLICT'
+          ? {
+              expectedRevision: error?.details?.expectedRevision,
+              currentRevision: error?.details?.currentRevision,
+            }
+          : {};
+        return sendJSON(res, userSettingsHttpStatus(code), {
+          ok: false,
+          code,
+          ...details,
+        });
+      }
+
+      // Runtime feature flags consume only the seven exact boolean paths.
+      // They are post-commit effects; a runtime failure cannot undo or lie
+      // about the durable CAS result represented by this exact response.
+      applyCommittedSettingsRuntime(
+        'versioned generic update',
+        () => settingsFeatureManager.applySettings(committed.featurePatch),
+      );
+      return sendJSON(res, 200, {
+        revision: committed.revision,
+        settings: committed.settings,
+      });
+    },
+
     'POST /api/settings': async (req, res) => {
       let body;
       try {
@@ -156,14 +238,13 @@ export function createMiscRoutes(deps) {
 
       const runtime = applyCommittedSettingsRuntime(
         'generic update',
-        // Never pass the committed document here: it may contain protected
-        // notification values. Runtime feature flags consume only the filtered
-        // incoming generic patch after the durable commit.
+        // Never pass the committed or incoming document here: both may contain
+        // protected values while this compatibility route remains live.
         () => settingsFeatureManager.applySettings(
           Object.fromEntries(
-            Object.entries(sanitized.document).filter(
-              ([key]) => !committed.ignoredNotificationKeys.includes(key),
-            ),
+            GENERIC_FEATURE_SETTING_KEYS
+              .filter(key => Object.hasOwn(sanitized.document, key))
+              .map(key => [key, sanitized.document[key]]),
           ),
         ),
       );
@@ -173,6 +254,7 @@ export function createMiscRoutes(deps) {
         featuresChanged: runtime.value || 0,
         ignoredReservedKeys: sanitized.ignoredReservedKeys,
         ignoredNotificationKeys: committed.ignoredNotificationKeys,
+        ignoredProtectedKeys: committed.ignoredProtectedKeys,
         runtimeApplied: runtime.runtimeApplied,
         runtimeErrorCode: runtime.runtimeErrorCode,
       });
