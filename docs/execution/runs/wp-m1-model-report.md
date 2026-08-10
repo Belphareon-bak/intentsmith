@@ -2810,6 +2810,10 @@ tabulkově kryje caller/DB autoritu před providerem, další dva skutečný hap
 path s rotací digestu a pozdní `foreign_keys=OFF`, čtvrtý symlink store a pátý
 rollback druhého insertu včetně nového plného retry. Parent, policy a schema
 sady dál vlastní forged receipt, source drift, threshold a trigger matice.
+Read-only test audit následně zesílil stejných pět testů bez přidání nové sady:
+terminální namespace pin nyní dokládá přechod `0 rows při checku → 1 row v
+nejbližším microtasku`, veřejné `proofId/expiresAtMs` se vážou k přesným DB
+řádkům a neprázdný desired-binding/event snapshot zůstává byteově beze změny.
 
 | Příkaz | Výsledek | Exit |
 |---|---:|---:|

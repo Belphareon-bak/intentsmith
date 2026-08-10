@@ -192,6 +192,7 @@ function count(db, table) {
 
 function createTerminalNamespaceInterleave(database) {
   let databaseListChecks = 0;
+  let rowsAtNamespaceCheck = null;
   let resolveMutation;
   let rejectMutation;
   const mutation = new Promise((resolve, reject) => {
@@ -207,6 +208,7 @@ function createTerminalNamespaceInterleave(database) {
     pragma: (...args) => {
       const result = database.pragma(...args);
       if (args[0] === 'database_list' && ++databaseListChecks === 2) {
+        rowsAtNamespaceCheck = count(database, 'main.model_failover_proofs');
         queueMicrotask(() => {
           try {
             const rowsAtMutation = count(database, 'main.model_failover_proofs');
@@ -220,7 +222,43 @@ function createTerminalNamespaceInterleave(database) {
       return result;
     },
   };
-  return { facade, mutation };
+  return {
+    facade,
+    mutation,
+    get rowsAtNamespaceCheck() { return rowsAtNamespaceCheck; },
+  };
+}
+
+function seedDesiredBinding(database) {
+  database.prepare(`
+    INSERT INTO model_failover_events (
+      event_id, event_type, role, binding_revision, actor, reason_code,
+      policy_version, desired_model_name, desired_digest_sha256, created_at_ms
+    ) VALUES ('proof-issuer-desired-event', 'DESIRED_OBSERVED', 'CHAT', 1,
+      'user:proof-issuer-fixture', 'DESIRED_ARTIFACT_OBSERVED', 'd-plus-v1',
+      ?, ?, 1000)
+  `).run(MODEL_NAME, DIGEST_A);
+  database.prepare(`
+    INSERT INTO model_desired_bindings (
+      role, model_name, canonical_name, digest_sha256, binding_revision,
+      source, actor, observed_at_ms, updated_at_ms, last_event_id
+    ) VALUES ('CHAT', ?, ?, ?, 1, 'LEGACY_OVERRIDE',
+      'user:proof-issuer-fixture', 1000, 1000, 'proof-issuer-desired-event')
+  `).run(MODEL_NAME, MODEL_NAME, DIGEST_A);
+}
+
+function bindingAuthoritySnapshot(database) {
+  return JSON.stringify({
+    desired: database.prepare(`
+      SELECT * FROM model_desired_bindings ORDER BY role
+    `).all(),
+    events: database.prepare(`
+      SELECT * FROM model_failover_events ORDER BY seq
+    `).all(),
+    state: database.prepare(`
+      SELECT * FROM model_failover_state ORDER BY role
+    `).all(),
+  });
 }
 
 function assertOnlyExpectedProviderEffects(requests, runs = 1) {
@@ -353,6 +391,8 @@ await testAsync('one explicit action issues exact proof and a new digest gets a 
   const provider = await startFixtureProvider(DIGEST_A);
   const migrated = await createMigratedDatabase('proof-issuer-happy');
   try {
+    seedDesiredBinding(migrated.db);
+    const bindingBefore = bindingAuthoritySnapshot(migrated.db);
     await withProviderOrigin(provider, async () => {
       const terminalInterleave = createTerminalNamespaceInterleave(migrated.db);
       const first = await issuer.issueModelFailoverProof({
@@ -360,6 +400,11 @@ await testAsync('one explicit action issues exact proof and a new digest gets a 
         role: 'CHAT',
         proposedModelName: MODEL_NAME,
       });
+      assertEqual(
+        terminalInterleave.rowsAtNamespaceCheck,
+        0,
+        'The terminal namespace check must happen before COMMIT',
+      );
       assertEqual(
         await terminalInterleave.mutation,
         1,
@@ -407,6 +452,13 @@ await testAsync('one explicit action issues exact proof and a new digest gets a 
           && row.issued_at_ms < row.expires_at_ms
           && /^[a-f0-9]{40}$/.test(row.source_revision)
       )));
+      const firstProof = proofRows.find(row => row.proof_id === first.proofId);
+      const secondProof = proofRows.find(row => row.proof_id === second.proofId);
+      assert(firstProof && secondProof, 'Both public proof IDs must resolve to durable rows');
+      assertEqual(firstProof.model_digest_sha256, DIGEST_A);
+      assertEqual(secondProof.model_digest_sha256, DIGEST_B);
+      assertEqual(first.expiresAtMs, firstProof.expires_at_ms);
+      assertEqual(second.expiresAtMs, secondProof.expires_at_ms);
       for (const proof of proofRows) {
         const companion = companionRows.find(row => row.proof_id === proof.proof_id);
         assert(companion, 'Every proof must have its exact evidence companion');
@@ -442,9 +494,7 @@ await testAsync('one explicit action issues exact proof and a new digest gets a 
         assertEqual(measurementBytes.length, companion.measurement_artifact_byte_length);
         assertEqual(acceptanceBytes.length, companion.acceptance_artifact_byte_length);
       }
-      assertEqual(count(migrated.db, 'model_failover_state'), 0);
-      assertEqual(count(migrated.db, 'model_failover_events'), 0);
-      assertEqual(count(migrated.db, 'model_desired_bindings'), 0);
+      assertEqual(bindingAuthoritySnapshot(migrated.db), bindingBefore);
     });
     assertOnlyExpectedProviderEffects(provider.requests, 2);
   } finally {
