@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "4ba38dd9c295558dc0b241cfdf5bda21a9fd2526",
-  "sourceTree": "9681a9f64033b9a2b84221d95a9f76f7278f6b01",
+  "sourceRevision": "9dae950819c338e915911086dd05f6aa9848a0db",
+  "sourceTree": "409e6e72f1fbcf99c493ba216e56c07e55ee496b",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -977,7 +977,6 @@
     "src/upgrade/model-discovery.js -> src/upgrade/model-profiles.js",
     "src/upgrade/model-failover-coordinator.js -> src/upgrade/model-failover.js",
     "src/upgrade/model-failover-coordinator.js -> src/upgrade/model-identity.js",
-    "src/upgrade/model-failover-proof-policy.js -> src/upgrade/model-failover.js",
     "src/upgrade/model-failover-proof-policy.js -> src/upgrade/model-profiles.js",
     "src/upgrade/model-failover-proof-policy.js -> src/upgrade/validation-suites.js",
     "src/upgrade/model-failover.js -> src/db/model-policy.js",

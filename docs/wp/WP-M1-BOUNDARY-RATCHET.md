@@ -301,3 +301,12 @@ potom ho odstraní integrátor a ověří `git worktree list`.
 Zaznamenej průběžně: čas startu, čas dokončení každé fáze, každou minutu, kterou
 sis vyžádal od operátora. Slouží to k `T_recurring` a k oddělenému měření
 operátorské pozornosti podle pilotního dokumentu §6.
+
+## 13. Konsolidační utažení 2026-08-10
+
+Integrátor na čistém queue source
+`9dae950819c338e915911086dd05f6aa9848a0db` přijal pouze utažení baseline z
+1 024 na 1 023 hran. Odebraná exact dvojice je
+`src/upgrade/model-failover-proof-policy.js -> src/upgrade/model-failover.js`;
+žádná hrana nepřibyla a limity cyklů zůstaly `3` cykly / `28` souborů.
+Writer skončil exit `0` a připnul baseline přímo na uvedený source SHA.
