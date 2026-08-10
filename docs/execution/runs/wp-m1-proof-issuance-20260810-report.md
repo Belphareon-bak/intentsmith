@@ -108,6 +108,10 @@ paměti, interně odvodit private store root a těsně před `BEGIN IMMEDIATE`
 znovu ověřit connection-local `PRAGMA foreign_keys=ON`. Tato změna connectoru
 a případný nový reusable issuer modul vyžadují nový statický Review A. Do té
 doby zůstává issuer `CHANGES_REQUIRED` a žádný proof nebyl vydán.
+Varianty, přepínací cena a doporučený vratný směr jsou shromážděné v
+[`rozhodnutí 024`](../../decisions/024-m1-proof-issuer-provenance.md). Jeho
+navazující WP je pouze návrh a bez operátorského přijetí ani exact integračního
+base není aktivní.
 
 ## Integrace a paralelní vlastnictví
 
