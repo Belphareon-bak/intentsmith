@@ -608,7 +608,7 @@ function sameCanonical(left, right, canonicalize) {
 function exactEffectBoundary() {
   return {
     persistence: 'NONE',
-    proofIssuance: 'DISABLED',
+    proofIssuance: 'SEPARATE_OPERATOR_COMMIT_REQUIRED',
     bindingMutation: 'NONE',
     externalNetwork: 'FORBIDDEN',
     artifactWrite: 'EXCLUSIVE_PRIVATE_CANONICAL_FILE',
@@ -620,7 +620,7 @@ async function executeMeasurement(input, run, environmentKeys, startupEnvironmen
   const {
     canonicalizeModelFailoverContract: canonicalize,
     getModelFailoverMeasurementContract,
-    MODEL_FAILOVER_PROOF_ISSUANCE_BLOCK_REASON,
+    MODEL_FAILOVER_PROOF_HANDOFF_REASON,
   } = await import('../src/upgrade/model-failover-proof-policy.js');
   const { SUITES } = await import('../src/upgrade/validation-suites.js');
   const { canonicalModelName } = await import('../src/upgrade/model-identity.js');
@@ -705,7 +705,7 @@ async function executeMeasurement(input, run, environmentKeys, startupEnvironmen
     artifactKind: 'MODEL_FAILOVER_ROLE_MEASUREMENT',
     measurementStatus: 'COMPLETE',
     proofStatus: 'NOT_ISSUED',
-    proofBlockReason: MODEL_FAILOVER_PROOF_ISSUANCE_BLOCK_REASON,
+    proofBlockReason: MODEL_FAILOVER_PROOF_HANDOFF_REASON,
     proofIssued: false,
     runId: run.runId,
     producer: {
@@ -1019,7 +1019,7 @@ export async function validateModelFailoverMeasurementArtifact(artifact, expecte
   const {
     canonicalizeModelFailoverContract: canonicalize,
     getModelFailoverMeasurementContract,
-    MODEL_FAILOVER_PROOF_ISSUANCE_BLOCK_REASON,
+    MODEL_FAILOVER_PROOF_HANDOFF_REASON,
   } = await import('../src/upgrade/model-failover-proof-policy.js');
   const { SUITES } = await import('../src/upgrade/validation-suites.js');
   const { canonicalModelName } = await import('../src/upgrade/model-identity.js');
@@ -1029,7 +1029,7 @@ export async function validateModelFailoverMeasurementArtifact(artifact, expecte
   }
   if (canonicalize(artifact.measurementContract) !== derived.canonicalJson
     || artifact.measurementContractSha256 !== derived.measurementContractSha256
-    || artifact.proofBlockReason !== MODEL_FAILOVER_PROOF_ISSUANCE_BLOCK_REASON) {
+    || artifact.proofBlockReason !== MODEL_FAILOVER_PROOF_HANDOFF_REASON) {
     fail('MODEL_MEASUREMENT_ARTIFACT_INVALID', 'Artifact measurement authority drifted');
   }
   for (const [label, checkpoint] of [

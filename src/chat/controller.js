@@ -1705,10 +1705,20 @@ const sessionManager = new ChatSessionManager();
  * @param {Object} [request.project] - Project to set/use { id, name, ... }
  * @param {Object} [request.expertise] - Expertise to set/use { id, name, ... }
  * @param {Object} [request.context] - Additional context
+ * @param {Function|null} [request.beforeAssistantPersist] - In-process connector veto; must resolve to true
  * @returns {Promise<{response: string, mode: string, confidence: number, metadata: Object}>}
  */
 ChatController.handle = async function(request) {
-  let { message, sessionId, userId, project, expertise, signal, context = {} } = request;
+  let {
+    message,
+    sessionId,
+    userId,
+    project,
+    expertise,
+    signal,
+    context = {},
+    beforeAssistantPersist = null,
+  } = request;
 
   // v82: Enrich message with file attachment content from IDE
   // Supports both inline content (FileReader) and path-based reading (Electron contextIsolation)
@@ -2011,6 +2021,20 @@ ChatController.handle = async function(request) {
   // Process the message with full context
   const result = await controller.process(message, fullContext);
   throwIfAborted(signal);
+
+  // Connector-owned fail-closed veto before quality work and the irreversible
+  // assistant persistence boundary. External routes never project request-body
+  // fields into this hook; only an in-process adapter may provide it.
+  if (beforeAssistantPersist !== null) {
+    if (typeof beforeAssistantPersist !== 'function') {
+      throw new TypeError('beforeAssistantPersist must be a function');
+    }
+    const authorized = await beforeAssistantPersist(result);
+    if (authorized !== true) {
+      throw new TypeError('beforeAssistantPersist must explicitly authorize persistence');
+    }
+    throwIfAborted(signal);
+  }
 
   // TaggedResponse is immutable. The finalizer carries accepted refinement in a
   // local value and uses that same value for scoring, persistence, and return.

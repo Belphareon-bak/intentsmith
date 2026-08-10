@@ -20,6 +20,8 @@ const REQUIRED_PROTOCOL_FUNCTIONS = Object.freeze([
 const REQUIRED_BUNDLE_MARKERS = Object.freeze([
   'Generated @c3/protocol M1 runtime is unavailable',
   'm1-wire-v1',
+  'M1_ATTACHMENT_PATH_FORBIDDEN',
+  'M1_FRAME_TOO_LARGE',
   'core-event-stream-limit',
   'DELIVERY_UNKNOWN',
   'CONVERSATION_BUSY',
@@ -30,7 +32,10 @@ const REQUIRED_CONSUMER_FUNCTIONS = Object.freeze([
   'wsSendChat',
   'wsSendCancel',
   'wsHasActiveM1Turn',
-  'wsIsM1WireNegotiated'
+  'wsIsM1WireNegotiated',
+  'wsM1AttachmentPolicy',
+  'wsConnectionEpoch',
+  'wsTakeM1SendRejection'
 ]);
 
 const FORBIDDEN_FONT_HOSTS = Object.freeze([

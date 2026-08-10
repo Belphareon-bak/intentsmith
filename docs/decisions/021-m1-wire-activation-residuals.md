@@ -36,10 +36,11 @@ attachment bez contentu volá synchronní `fs.readFileSync(a.path)`. Přijetí
 libovolného path z negotiated contextu by tedy nebylo pouhé doručení dat;
 udělilo by remote commandu read authority nad backend filesystemem.
 
-Současný B4 kandidát proto přijímá pouze exact `attachments: []`. Studio
-neprázdnou nebo malformed kolekci ponechá lokálně jako `NOT_SENT` a nikdy ji
-nedowngradeuje do legacy. Je to bezpečný mezistav, ale při produkčním ACK by
-uživateli znefunkčnil dnes živé přílohy.
+Původní B4 mezistav proto přijímal pouze exact `attachments: []`. Dormantní
+implementační kandidát už podporuje variantu B: bez explicitní validní policy
+token vůbec neACKuje, po vyjednání přijme jen exact inline DTO a každé porušení
+ponechá lokálně jako typované `NOT_SENT` bez downgrade do legacy. Produkční
+číselná policy ani ACK tím ještě zavedené nejsou.
 
 | Varianta | Chování | Dopad |
 |---|---|---|
@@ -70,9 +71,12 @@ Další čtyři fakta, která policy nesmí domyslet:
    runtime policy, ne převzatá hodnota;
 3. WS server nemá projektový `maxPayload`, takže dnes platí jen default
    knihovny — vlastní strop musí vzniknout s policy;
-4. Electron picker vrací primárně cestu, nikoli bajty. Inline-only proto
-   potřebuje byte bridge navázaný na uživatelské gesto; bez něj by uživatel
-   viděl nereagující `NOT_SENT` u souboru, který si právě vybral.
+4. Legacy Electron picker vrací primárně cestu, nikoli bajty. Negotiated M1
+   proto používá standardní user-gesture `File` picker a `FileReader`; hodnotu
+   `File.path`, pokud ji Electron objekt zpřístupní, ignoruje. Chyba čtení končí
+   typovaným `NOT_SENT`, nikdy backendovým path fallbackem. Built Electron
+   journey musí ještě prokázat, že tato byte cesta funguje v distribuovaném
+   rendereru.
 
 Velikost se měří jednoznačně: text jako UTF-8 bajty, obrázek jako dekódované
 bajty, aggregate rovněž dekódovaně a navíc strop na celý serializovaný frame.
@@ -80,7 +84,13 @@ Klientské odmítnutí je typované, viditelné a neretryovatelné `NOT_SENT`; s
 tutéž policy znovu ověří **před** controller efektem. `path` se v DTO
 nevyskytuje vůbec, ani jako `null`. Prázdný text zůstává legitimní obsah `""`,
 nikoli chybějící content. Binární přílohy mimo schválené obrázkové typy jsou
-odmítnuté.
+odmítnuté. Textovou větev smí otevřít pouze současný allowlist textových přípon;
+neznámá přípona zůstává binary a končí `NOT_SENT`, i kdyby její bytes tvořily
+platný UTF-8. Povolená textová větev čte původní bytes přes `ArrayBuffer` a
+používá fatal UTF-8 decode; nesmí použít lossy `FileReader.readAsText()`.
+Klient i server navíc odmítnou zakázané C0/DEL řídicí znaky a neplatné surrogate
+páry. Soubor, který tuto definici nesplní, je typované nereplayovatelné
+`NOT_SENT` ještě před wire/controller efektem.
 
 ### R2 — Legacy WS po chat success automaticky vykoná shell effect
 
@@ -102,6 +112,13 @@ connector neumí bezpečně potvrdit, a drží jediný vratný šev v mapování
 výsledku na `ConversationResult`. Nejde o finální parity; B4/Gate 1 musí tuto
 odchylku uvést explicitně, dokud ji M2 neuzavře.
 
+Odmítnutí musí nastat před finalizací a zápisem assistant turnu. Nestačí
+odfiltrovat shell metadata až po návratu `ChatController.handle()`: taková
+varianta by sice neposlala wire success, ale durable historie by dál obsahovala
+falešné „spouštím“. Při `M1_EFFECT_AUTHORITY_REQUIRED` smí zůstat jen již
+přijatý user turn a jediný kanonický error terminal; assistant odpověď ani
+legacy terminal channel efekt nevzniknou.
+
 ## Reversible implementační defaulty, které neblokují ACK samy o sobě
 
 - číselná Studio `agentId`/`projectId` se na jediném producer seamu převádí na
@@ -120,12 +137,12 @@ udělá z měření, ne skrytým odstraněním limitu.
 
 ## Důkaz, který ještě chybí bez ohledu na volbu
 
-Současná Studio unit sada injektuje source M1 contract jako VM dependency.
-Dokládá consumer logiku, nikoli to, že production bundle skutečně obsahuje
-compiled `@c3/protocol`. Po commitech musí nový čistý klon provést frozen
-offline install, forced protocol prebuild, production build, bundle/runtime
-probe a negotiated multi-panel/cancel/provider/reconnect journey. Teprve
-potom lze candidate změnit z focused PASS na built evidence.
+Dřívější clean-clone build doložil obecný compiled `@c3/protocol` consumer,
+nikoli tento nový attachment-policy delta. Po jeho immutable commitech musí
+nový čistý klon znovu provést frozen offline install, forced protocol prebuild,
+production build, bundle/runtime probe a negotiated
+attachment/multi-panel/cancel/provider/reconnect journey. Teprve potom lze
+candidate změnit z focused PASS na built evidence.
 
 ## Přesná otázka pro operátora
 
@@ -149,3 +166,16 @@ Operátor tento blok přijal 2026-08-09. Produkční ACK tím **není** povolen�
 `m1WireSupported` v `src/server.js` zůstává vypnutý, dokud neproběhnou obě
 negativní sady a built journey. Attachment policy se nesmí rozšířit nad tento
 blok a legacy shell effect se nedědí.
+
+### Implementační stav 2026-08-10
+
+Dormantní server i Studio seam nyní umějí exact versioned metadata, user-gesture
+inline DTO, klientský i serverový count/item/aggregate/frame guard, druhé
+serverové měření a typovaný nereplayovatelný `NOT_SENT`. Server nemá žádný
+číselný produkční default a `src/server.js` dál nepředává ani policy, ani
+`m1WireSupported:true`. Otevřená rozhodovací položka je jen konkrétní nový
+`maxCount`, decoded aggregate a celý frame limit; stávající 1 MiB text / 5 MiB
+image zůstávají jedinými zděděnými item capy. Source kandidát ještě potřebuje
+immutable Review A a nový built journey. Follow-up po prvním neúspěšném Review
+A čte text byte-first s fatal UTF-8 decode a odmítá shell metadata na posledním
+vratném pre-persistence seamu; oba případy mají samostatné negativní testy.

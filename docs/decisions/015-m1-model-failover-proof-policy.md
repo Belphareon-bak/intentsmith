@@ -1,8 +1,9 @@
 # 015 — D+ potřebuje schválenou role-suite proof policy
 
 - **typ:** BLOCK pouze pro vydání PASS proofu a terminal activation
-- **stav rozhodnutí:** C IMPLEMENTOVÁNO; A + PROVIZORNÍ 7D PŘIJATO operátorem
-  2026-08-09 včetně striktní expiry hrany
+- **stav rozhodnutí:** A + PROVIZORNÍ 7D IMPLEMENTOVÁNO V POLICY; migrace 062
+  a immutable companion ledger jsou implementované; 024/A je přijaté a proof
+  issuer zůstává `IMPLEMENTATION_PENDING` do přijatého integračního base
 - **WP:** WP-M1-MODEL / B3-FAILOVER
 - **rail:** R1, R3, R5, R6
 - **vzniklo při:** call-graph auditu authority pro rozhodnutí 006/D+
@@ -43,13 +44,16 @@ Bez ohledu na zvolený práh musí nový proof runner:
 8. před terminálním zápisem znovu ověřit aktuální policy, validation version a
    role contract hash; samotný SQL trigger tuto živou autoritu nezná.
 
-Contract hash bude používat versioned, sorted-key canonical JSON bez nové
-závislosti a byte SHA-256 autoritativních `model-profiles.js` a
-`validation-suites.js`. Změna serializace nebo některého source pinu vytvoří
-novou verzi kontraktu a staré proofy přestanou být způsobilé. Samotná změna
-contract version nevyžaduje novou tabulku, ale vazba na immutable run artifact
-bude před issuance vyžadovat aditivní storage checkpoint; dnešní volný
-`validation_run_id` není dostačující důkaz.
+Contract hash používá versioned, sorted-key canonical JSON bez nové závislosti.
+Pokrývá celé schválené authority pole: schema a canonicalization verzi,
+`policyVersion`, validation verzi, všechny raw-byte source piny, runner,
+acceptance včetně TTL a role-specific prahů a úplnou mapu rolí a suit. Raw-byte
+piny patří `model-failover.js`, `model-profiles.js` a `validation-suites.js`.
+Změna kteréhokoli authority pole nebo source pinu vytvoří nový contract hash a
+staré proofy přestanou být způsobilé. Samotná změna contract version nevyžaduje
+novou tabulku, ale vazba na immutable run artifact bude před issuance vyžadovat
+aditivní storage checkpoint; dnešní volný `validation_run_id` není dostačující
+důkaz.
 
 ## Varianty acceptance policy
 
@@ -59,13 +63,14 @@ bude před issuance vyžadovat aditivní storage checkpoint; dnešní volný
 | B — role-specific kalibrace | Každá role dostane schválený score/count práh z opakovaných běhů reference a kandidátů | Praktická kvalifikační hranice založená na datech | Nejdřív je nutný kalibrační artifact; bez něj by čísla byla odhad |
 | C — measurement-only | Policy obsahuje mapu, source pins a runner parametry, ale `issuanceEnabled=false` a prahy `null` | Lze implementovat a testovat celý inertní řetězec bez falešného PASS | Terminal activation zůstane BLOCKED do volby A nebo B |
 
-## Historický vratný default a přijatý cíl
+## Historický vratný default a implementovaný cíl
 
-V implementovaném measurement-only checkpointu je stále aktivní **C**:
-`issuanceEnabled=false` a prahy i TTL jsou `null`. Operátor ale 2026-08-09
-přijal cílovou policy **A + provizorní TTL 7 dní** podle potvrzovacího bloku
-níže. C proto už není otevřená produktová volba; je pouze dnešní bezpečný
-runtime stav do dokončení issueru, storage vazby a migrace 062.
+Measurement-only checkpoint původně používal **C**: `issuanceEnabled=false`
+a prahy i TTL `null`. Po operátorském přijetí 2026-08-09 je v policy aktivní
+**A + provizorní TTL 7 dní**. Všech sedm rolí vyžaduje skóre `1`, úplnou
+seřazenou sadu 8/8 nebo 6/6 a `reason=null`. Tato změna pouze odemyká
+samostatný issuer; measurement sám dál nic nepersistuje a zůstává
+`NOT_ISSUED`.
 
 Šev zůstává v `src/upgrade/model-failover-proof-policy.js` a focused testu
 `tests/m1-model-failover-proof-policy.test.js`. Přechod nesmí zpětně povýšit
@@ -80,8 +85,9 @@ způsobilého PASS proofu a runtime activation. Gate 1 proto zůstává `BLOCKED
 
 `src/upgrade/model-failover-proof-policy.js` je jediný fail-closed snapshot
 role-suite autority pro izolovaný measurement runner. Pinuje raw bytes i délku
-obou zdrojů:
+všech tří čtených zdrojů:
 
+- `model-failover.js`: 145 428 B, `88a3c8e0…c0aa`;
 - `model-profiles.js`: 9 967 B, `16941d6a…264a`;
 - `validation-suites.js`: 39 108 B, `49520a41…b0ef`.
 
@@ -93,12 +99,13 @@ odmítá sparse arrays, `-0`, non-finite čísla, accessors, skryté/symbolické
 vlastnosti, neprosté objekty i cykly. Každý role measurement contract tak nese
 deterministický hash, ale žádný `proofId`, proof hash ani PASS výsledek.
 
-Acceptance shape je připravený pro původně posuzované varianty: globální proof TTL a
-samostatný `requiredScore`/`requiredPassedCount` pro každou roli. Pod defaultem
-C jsou všechny tyto hodnoty `null` a `issuanceEnabled=false`. Guard by ani po
-chybné změně jediného booleovského flagu nepovolil issuance bez konečného
-skóre v `(0,1]`, kladného počtu nepřesahujícího velikost role suite a kladného
-integer TTL; blocking reason musí být současně explicitně vyčištěný na `null`.
+Authority hash `9bf5ebe2…5f93` se znovu odvozuje z celého policy envelope, ne
+pouze z role mapy. Acceptance shape nese globální proof TTL a samostatný
+`requiredScore`/`requiredPassedCount` pro každou roli. Implementovaná varianta
+A používá `issuanceEnabled=true`, TTL `604800000`, skóre `1`, počet rovný celé
+role suite a `reason=null`. Guard ani po chybné změně jediného booleovského
+flagu nepovolí issuance bez konečného skóre v `(0,1]`, kladného počtu
+nepřesahujícího velikost role suite a kladného integer TTL.
 
 Policy není proof runner. Implementovaný
 `scripts/run-model-failover-measurement.js` proto vytváří čerstvý izolovaný
@@ -189,6 +196,12 @@ Bezpečný provizorní význam je:
 - revalidation běží až na explicitní akci; návrat zůstává omezený na exact
   desired digest nebo uživatelský zásah.
 
+`ONE_ROLE_ONE_DIGEST_SERIAL` popisuje rozsah jednoho měření, nikoli globální
+konfiguraci produktu. Role ani IntentSmith nejsou připnuté k jednomu modelu:
+po výměně modelu nebo změně digestu pod stejným tagem se pouze nesmí starý
+proof vztáhnout na nové bytes. Pro způsobilost automatizace vznikne nový proof;
+ruční změně modelu tato evidence nebrání.
+
 Pokud má později vzniknout automatická obnova, vyžaduje samostatný opt-in,
 shared model/VRAM lease a durable one-attempt-per-expiry ledger. Současný DB
 kontrakt navíc používá inkluzivní `expires_at_ms >= event time`, zatímco přijatý
@@ -233,3 +246,27 @@ z obnoveného union census přes všechny aktivní větve. Původní rezervace
 `7916098e`. Ordinály `046`–`051` navíc už v historii kolidují napříč větvemi,
 takže tato nová rezervace je zapsaná před vytvořením M1 migrace a nesmí se
 znovu dopočítat pouze z jednoho checkoutu.
+
+## Schema a ledger checkpoint — 2026-08-10
+
+Migrace 062 je implementovaná aditivně. Nový append-only
+`model_failover_proof_artifacts` váže každý nový proof na source revision,
+parent run, SHA-256 a byte length obou artefaktů a na přesnou kopii všech polí
+proofu. Deferred foreign key dovolí pouze companion-first/proof-second zápis v
+jedné transakci; proof bez exact companionu, companion bez proofu při commitu,
+historické doplnění, replacement, update a delete fail-close skončí.
+
+Čtyři eligibility triggery nyní vyžadují companion join a používají striktní
+`expires_at_ms > event/proof_verified time`. Historické proofy zůstávají auditní
+data, ale bez vyrobené provenance nejsou způsobilé. Upgrade s již aktivním
+legacy failoverem se odmítne před prvním DDL, protože jeho původní evidence
+nejde zpětně vyrobit. Automatic activation ani revalidation tím nevznikly.
+
+Samotný issuer zatím není implementovaný. Read-only call-graph audit prokázal,
+že standalone acceptance validator poskytuje jen `STRUCTURAL_ONLY`; statický
+connector s callerovým `acceptancePath` by proto mohl přijmout vzájemně
+konzistentní, ale nepravdivý pár artefaktů. Bezpečný navazující connector musí
+sám spustit parent measurement pro `(role, proposedModelName)`, držet jeho
+odvozenou autoritu v paměti, znovu vyžadovat connection-local
+`PRAGMA foreign_keys=ON` těsně před `BEGIN IMMEDIATE` a až potom vydat proof.
+Tato korekce statického WP vyžaduje nový Review A; není důvodem oslabit ledger.

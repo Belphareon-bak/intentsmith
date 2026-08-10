@@ -2676,3 +2676,65 @@ cyclic membership se nezměnil. Exact-edge writer přijal pouze tuto hranu a
 vygeneroval 1 023hranovou baseline nad uvedeným source. Tento checkpoint není
 fresh-clone evidence ani dokončené 020/E; import/reset, Studio a Gate 1
 zůstávají otevřené.
+
+## Checkpoint 31 — 020/E atomic settings recovery backend candidate
+
+`src/db/model-policy.js` nyní vlastní versioned backup/import/reset commit
+point. Export čte general settings a policy ve společném read snapshotu. Import
+i reset provedou změnu `user_settings`, policy projekce a právě jednoho
+append-only eventu uvnitř jediného `BEGIN IMMEDIATE`; cizí top-level transakce,
+settings write failure i event failure skončí před částečným commitem.
+
+Portable schema v1 je exact pětipoložkový envelope. Export neobsahuje hodnoty
+`webhookSecret` ani `c3.notif.smtpPass`; import jejich případné hodnoty ignoruje
+a zachová destination secrets. Oddělený plný SQLite backup není tímto
+kontraktem změněn. Route `GET /api/settings/backup`,
+`POST /api/settings/import`, `POST /api/settings/reset` a legacy alias
+`POST /api/reset` používají tutéž repository autoritu. Runtime apply běží až
+po durable commitu a jeho selhání vrací pravdivé `runtimeApplied:false`, nikoli
+falešný 500, který by vybízel k opakování již provedené operace.
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-model-policy.test.js` | 35/0 | 0 |
+| `node tests/routes-smoke.test.js` | 109/0 | 0 |
+| `node tests/schema-migrations.test.js` | 38/0 | 0 |
+| `node tests/artifact-validation.test.js` | 151/0 | 0 |
+| `node tests/repository-hygiene.test.js` | 1 546 tracked paths | 0 |
+| `node scripts/validate-test-registry.js --json` | 378 programů, 8 exclusions, fingerprint `cb1259ca…d06e15` | 0 |
+| `node scripts/module-boundary-ratchet.mjs` | 1 023/1 023, 3 cykly, 28 souborů | 0 |
+
+Jde o lokální feature candidate nad zmrazeným integračním SHA `1d351f67`, ne o
+fresh-clone attestation. Autoritativní Studio consumer je rozpracovaný v dalším
+odděleném commitu. Generic `GET /api/settings` a plný SQLite backup zůstávají
+secret-bearing lokální povrchy a nejsou vydávány za portable export. GPU,
+Ollama, Electron ani externí síť nebyly spuštěné; Gate 1 zůstává `BLOCKED`.
+
+## Checkpoint 32 — post-commit HTTP outcome boundary candidate
+
+Review nad Studio race follow-upem `94d2a473` potvrdilo samotnou klientskou
+opravu, ale reálným route probem našlo backendovou P1: po durable import/reset
+commitu mohla selhat runtime aplikace a následně i `logger.warn`. Společný catch
+pak vydal HTTP 500, které klient oprávněně klasifikoval jako definitivní reject
+a mohl obnovit stale deferred save.
+
+Repository error boundary nyní končí bezprostředně po repository operaci.
+Runtime apply i response sestavení probíhají až za ní a diagnostický logger je
+best-effort uvnitř vlastního catch. Současné selhání runtime a loggeru proto u
+importu i resetu zachová HTTP 200, `runtimeApplied:false`, commitnuté general
+settings/policy a přesnou append-only event lineage.
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-model-policy.test.js` | 35/0 | 0 |
+| `node tests/m1-studio-client.test.js` | 110/0 | 0 |
+| `node tests/routes-smoke.test.js` | 109/0 | 0 |
+| `node tests/schema-migrations.test.js` | 38/0 | 0 |
+| `node tests/artifact-validation.test.js` | 151/0 | 0 |
+| `node tests/repository-hygiene.test.js` | 1 546 trackovaných cest | 0 |
+| `node scripts/validate-test-registry.js --json` | 378 programů, 8 exclusions, fingerprint `cb1259ca…d06e15` | 0 |
+| `node scripts/module-boundary-ratchet.mjs` | 1 023/1 023 hran | 0 |
+| `node tests/module-boundary-ratchet.test.js` | 13/0 | 0 |
+
+Nový immutable subject a fresh clone v okamžiku zápisu ještě neexistují. Gate 1
+zůstává `BLOCKED` a integrační ref se neposunula.

@@ -18,6 +18,8 @@ export {
   PROTOCOL_VERSION,
   BACKEND_VERSION,
   M1_WIRE_FEATURE,
+  M1_WIRE_METADATA_VERSION,
+  M1_INLINE_IMAGE_MIME_TYPES,
   Channel,
   AgentEventType,
   buildChannelMessage,
@@ -25,6 +27,8 @@ export {
   buildHelloAck,
   buildHelloAckFromNegotiatedFeatures,
   buildHelloReject,
+  createM1AttachmentPolicy,
+  isM1AttachmentPolicy,
   messageId,
   negotiateFeatures,
 } from './protocol.js';

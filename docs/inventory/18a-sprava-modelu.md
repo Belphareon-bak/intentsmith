@@ -177,8 +177,74 @@ skutečné WAL workery nad stejnou revision mají jednoho vítěze a jednoho sta
 losera. Detection repository i auto-cleanup/overview už čtou pouze tuto novou
 autoritu. Generic GET/POST dropuje tři rezervované klíče a hlásí je přes
 `ignoredReservedKeys`; pre-061 JSON helper nemá produkčního konzumenta a jeho
-sada je `HISTORICAL`. Typed GET/PUT používá exact body a revision CAS; explicitní
-atomické import/reset adaptéry ještě neexistují a scheduler proto zůstává
+sada je `HISTORICAL`. Typed GET/PUT používá exact body a revision CAS. Backend
+explicitního versioned backup/import/reset adaptéru už sdílí jeden
+repository-owned commit point pro general settings, policy a audit event.
+Původní schema-v1 portable export vynechával `webhookSecret` a
+`c3.notif.smtpPass`; jeho nedostatečnou boundary superseduje korekce níže.
+Runtime chyba po durable commitu je
+přiznaný degraded výsledek, ne falešné 500. Repository catch končí před
+post-commit runtime/presentation fází a logger failure je best-effort, takže ani
+dvojité selhání nesníží commitnutý import/reset na non-2xx. Autoritativní Studio `lib` consumer
+už fail-closed kontroluje HTTP i exact envelope, přijímá pouze serverem
+commitnutý snapshot a serializuje import/reset proti generic save. Nejasné
+doručení uzamkne další zápisy, definitivní reject jediný obnoví deferred save a
+generation token odmítne settings GET zahájený před recovery. Tehdejší VM sada
+měla 110/0; první Review A vrátilo `CHANGES_REQUIRED`. Scheduler proto zůstává
 default off.
 Skutečná parita s
 mobilními migracemi bude doložená až na společném integračním SHA.
+
+### Korekce portable boundary 2026-08-10
+
+Předchozí dvouklíčový schema-v1 blacklist nechránil nested credentials,
+destinations ani future unknown fields a jeho Review A claim je superseded.
+Nová repository autorita exportuje pouze schema v2 se source-derived sparse
+mapou nad default-deny profilem jedenácti předvoleb. Nepřítomná source hodnota
+se nefabrikuje defaultem a nepřepisuje existující destination preference.
+V1/raw zůstává importní kompatibilita
+projektovaná týmž allowlistem; source secret/private hodnoty nemohou založit ani
+přepsat destination authority. Importní HTTP metadata už nepublikují názvy
+local-only cest, pouze jejich počty.
+
+Focused backend sada má 36/0 a její security coverage je zpřísněná:
+canaries zahrnují nested i flat credential/destination varianty, future pole,
+invalid v2 profile/value a datové klíče `constructor`, `prototype` a
+`__proto__`. V1/raw import je sparse: chybějící portable cesta už destination
+hodnotu nedefaultuje ani nepřepisuje. Tři UI consumery navíc přijmou commit jen
+při shodě source schema, path/value/policy provenance, propojeného eventu a
+pravdivého ignored countu; portable source má 123/0 a po selektivním wire
+replayi má konsolidační queue 127/0. Gate 1 zůstává `BLOCKED`:
+generic GET/whole-row writer a další
+RMW cesty nemají společný secret/CAS kontrakt, viz
+[`Finding 011`](../findings/011-user-settings-authority-and-secret-exposure.md).
+
+## 12. Proof policy 015/A — implementační checkpoint 2026-08-10
+
+Role-suite autorita nyní používá schválený konzervativní bootstrap: všech sedm
+rolí vyžaduje skóre `1`, úplnou seřazenou sadu 8/8 nebo 6/6 a TTL
+`604800000` ms. `reason` je `null`; caller nemůže dodat práh, TTL, proof ID ani
+jinou autoritu.
+
+Authority hash pokrývá celý policy envelope včetně acceptance prahů, TTL,
+runneru a tří raw-byte source pinů. `model-failover.js`, z něhož se čte
+`policyVersion`, je pinnutý stejně jako profily a validační sady; pouhá změna
+prahu nebo TTL bez přepočtu očekávané autority proto skončí fail-closed.
+
+Izolovaný measurement tím nezískal DB writer. Jeho kanonický artefakt dál nese
+`NOT_ISSUED`, `proofIssued=false` a přesný handoff
+`SEPARATE_OPERATOR_PROOF_COMMIT_REQUIRED`. PASS proof smí vzniknout pouze v
+odděleném operator-only issueru po durable artifact storage a terminálním
+rechecku. Migrace 062 už implementuje immutable companion ledger, transakční
+proof vazbu, historical-proof quarantine a striktní expiry všech čtyř
+eligibility triggerů. 024/A je přijaté, ale issuer zůstává
+`IMPLEMENTATION_PENDING`: nesmí přijmout callerem lokalizovaný strukturální
+receipt, musí sám vlastnit parent run a jeho odvozené expected piny a čeká na
+přijatý integrační base. Skutečný GPU/Ollama běh neproběhl a automatic
+activation/restore zůstává vypnutá.
+
+Operátor 2026-08-10 přijal provenance variantu 024/A. Implementace se tím
+odemyká po přijetí konsolidačního base, ale proof ještě vydaný není. Digest
+váže pouze evidence jednoho běhu ke skutečně pozorovaným modelovým bytes; role
+ani produkt nejsou připnuté k jednomu modelu a po rotaci se pro nový artefakt
+vydá nový proof.

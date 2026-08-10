@@ -1365,3 +1365,249 @@ instalací i po testech. V klonu proběhlo `npm ci --offline` (233 balíčků,
 
 Toto povyšuje pouze 022/A source kontrakt. Produkční ACK, negotiated Electron
 journey, GPU a Ollama zůstaly nespouštěné.
+
+## Checkpoint 26 — 020/E versioned settings recovery source consumer
+
+Autoritativní commitnutý `c3-chat-panel/lib/browser/chat-panel-module.js`
+přešel z generic whole-document backup/import/reset na explicitní backend
+adaptér. Export vyžaduje exact schema v1, sám odmítne oba známé secret keys,
+vytvoří jediný JSON download a vždy revokuje object URL. Import a reset přijmou
+pouze non-malformed HTTP success s `ok:true`, `success:true` a plain
+`generalSettings`; lokální `_bCfg` se nikdy neodvozuje z importního souboru.
+
+Mutation cesty jsou single-flight a před efektem čekají na případný rozběhnutý
+generic save. Druhý import/reset ani stale debounced save proto nemohou přepsat
+novější recovery stav. `runtimeApplied:false` zůstává pravdivý durable success s požadavkem na
+restart. Tokenovaný success timer nemůže odstranit novější failure status.
+Legacy holý JSON se převede na schema v1 s `modelAutomationPolicy:null`; backend
+jeho secret values ignoruje a vrátí destination snapshot, který následující
+generic Studio save zachová.
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node --check c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js` | syntax valid | 0 |
+| `node --check tests/m1-studio-client.test.js` | syntax valid | 0 |
+| `node tests/m1-studio-client.test.js` | 106/0 | 0 |
+| `node tests/m1-model-policy.test.js` | 35/0 | 0 |
+| `node tests/routes-smoke.test.js` | 109/0 | 0 |
+| `node tests/schema-migrations.test.js` | 38/0 | 0 |
+| `node tests/artifact-validation.test.js` | 151/0 | 0 |
+| `node tests/repository-hygiene.test.js` | 1 546 trackovaných cest | 0 |
+| `node scripts/validate-test-registry.js --json` | 378 programů, 8 exclusions, fingerprint `cb1259ca…d06e15` | 0 |
+| `node scripts/module-boundary-ratchet.mjs` | 1 023/1 023 hran, 3 cykly, 28 souborů | 0 |
+| `node tests/module-boundary-ratchet.test.js` | 13/0 | 0 |
+| `git diff --check` | bez whitespace chyb | 0 |
+
+Test používá přímo runtime slice ze sledovaného `lib` a VM intrinsics; připíná
+exact URL, method, JSON header, timeout, versioned/legacy dokumenty, secret
+canaries, 4xx/5xx, rejected fetch, malformed 2xx, exact runtime metadata,
+generic-save/recovery ordering, single-flight a timer race. Tento source checkpoint ještě nemá samostatný
+read-only review ani fresh-clone attestation. Electron, GPU, Ollama, externí
+síť a finální UI nebyly spuštěné; built B4 i Gate 1 zůstávají `BLOCKED`.
+
+## Checkpoint 27 — Review A settings race remediation candidate
+
+Read-only Review A nad `21ffa72b` skončilo `CHANGES_REQUIRED`. Nejasný výsledek
+importu/resetu mohl po možném durable commitu znovu spustit zrušený generic save
+a opožděný `GET /api/settings` zahájený před recovery mohl přepsat novější
+serverový snapshot. Review také doložilo, že původní helper-only VM harness
+nevykonával `_loadBCfg` ani skutečný `settingsBackupPanel()` a že FileReader
+neměl error/abort výsledek.
+
+Follow-up zavádí přesné `COMMITTED`, `REJECTED` a `DELIVERY_UNKNOWN`. Jen
+doručený non-2xx smí obnovit deferred save. Timeout, transportní ztráta,
+nečitelná nebo nekonzistentní 2xx odpověď vytvoří write fence: žádný starý ani
+nový whole-document save a žádná další recovery operace se automaticky
+neprovede do nového načtení Studia. Mutation admission současně zvýší generation
+a load token, takže starší GET nemůže měnit `_bCfg` ani loading stav. Lokální
+ovládací prvky za write fence nemění ani pouze zdánlivě uloženou hodnotu.
+
+VM harness nyní vykonává `_loadBCfg`, renderovaný Backup panel i FileReader
+load/error/abort. Negativní testy připínají malformed 2xx i transportní
+`DELIVERY_UNKNOWN` bez replaye, definitivní 503 s právě jedním replayem a
+pozdní GET bez přepsání commitnutého snapshotu.
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| `node tests/m1-studio-client.test.js` | 110/0 | 0 |
+| `node tests/m1-model-policy.test.js` | 35/0 | 0 |
+| `node tests/routes-smoke.test.js` | 109/0 | 0 |
+| `node tests/schema-migrations.test.js` | 38/0 | 0 |
+| `node tests/artifact-validation.test.js` | 151/0 | 0 |
+| `node tests/repository-hygiene.test.js` | 1 546 trackovaných cest | 0 |
+| `node scripts/validate-test-registry.js --json` | 378 programů, 8 exclusions, fingerprint `cb1259ca…d06e15` | 0 |
+| `node scripts/module-boundary-ratchet.mjs` | 1 023/1 023 hran, baseline provenance verified | 0 |
+| `node tests/module-boundary-ratchet.test.js` | 13/0 | 0 |
+| syntax obou změněných JS souborů + `git diff --check` | validní / čisté | 0 |
+
+Review nad `94d2a473` přijalo klientskou race opravu bez dalšího Studio P0–P2,
+ale reálným route probem odhalilo backendové post-commit 500 při současném
+selhání runtime apply a loggeru. Navazující backend follow-up odděluje repository
+error boundary a připíná import i reset regresí; nový immutable Review A a fresh
+clone jsou v okamžiku zápisu znovu otevřené. Electron, GPU, Ollama ani externí
+síť nebyly spuštěné a Gate 1 zůstává `BLOCKED`.
+
+## Checkpoint 28 — 021 honest no-effect SHELL seam
+
+Přijaté `021-shell-now: A-honest-no-effect-terminal` je implementované na
+dormantní negotiated M1 větvi. Pokud controller vrátí legacy
+`metadata.shellCommand`, M1 nevstoupí do `handleTerminal()`, nevydá assistant
+success a skončí jediným validním terminálem `error` s kódem
+`M1_EFFECT_AUTHORITY_REQUIRED`. Legacy wire si zachovává dnešní auto-exec;
+produkční `m1-wire-v1` ACK je dál vypnutý.
+
+Nový negativní test vykoná skutečný session adapter, vrátí shell metadata z
+fake controlleru a ověří validní CoreEvent stream, právě jeden error terminal,
+nulový response success a nulový `terminal` channel efekt.
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| baseline `node tests/ws-bridge.test.js` | 86/0 | 0 |
+| baseline `node tests/m1-studio-client.test.js` | 110/0 | 0 |
+| `node --check src/ws-bridge/session-adapter.js` | syntax valid | 0 |
+| `node --check tests/ws-bridge.test.js` | syntax valid | 0 |
+| `node tests/ws-bridge.test.js` | 87/0 | 0 |
+| `node tests/artifact-validation.test.js` | 151/0 | 0 |
+| `node tests/repository-hygiene.test.js` | 1 566 trackovaných cest | 0 |
+| `node scripts/validate-test-registry.js --json` | 381 programů, 8 exclusions, fingerprint `beb54065…a4f8` | 0 |
+| `node scripts/module-boundary-ratchet.mjs` | 1 024/1 024, baseline provenance verified | 0 |
+| `node tests/module-boundary-ratchet.test.js` | 13/0 | 0 |
+| `git diff --check` | bez whitespace chyb | 0 |
+
+Attachment policy, numerický count/frame limit, production ACK a built Electron
+journey tímto checkpointem uzavřené nejsou. GPU, Ollama, produktový server ani
+externí síť nebyly spuštěné; celý B4 i Gate 1 zůstávají `BLOCKED`.
+
+## Checkpoint 29 — dormantní bounded-inline attachment policy
+
+- **server source:** `7b83faaddc6b0a6189c49a091a87e69961d81114`
+- **Studio source:** `c502470ed03ee8d6dd4bb88ec5848006145a800c`
+- **Review A:** `NOT RUN`
+- **clean-clone production build:** `NOT RUN`
+- **produkční M1 ACK / B4 / Gate 1:** nadále `BLOCKED`
+
+Server nyní vyžaduje pro ACK `m1-wire-v1` explicitní exact versioned policy;
+bez ní token nevyjedná. Schéma nese count, text/image item, decoded aggregate a
+celý UTF-8 frame limit; produkční item hodnoty mají převzít existujících 1 MiB
+text / 5 MiB image, zatímco zbývající tři hodnoty operátor dosud neurčil. Žádný
+číselný produkční default ani wiring v `src/server.js` tento checkpoint
+nezavedl. Aktivovaný testovací server použije stejný `maxFrameBytes` jako WS
+`maxPayload`, context znovu validuje před controllerem a předá jen
+serverem přeměřené `{name,type,content,size}` bez `path`.
+
+Studio přijme pouze exact metadata a frozen policy. User-gesture `File` objekt
+na M1 větvi přečte přes `FileReader`, případné Electron `File.path` ignoruje a
+na wire vytvoří jen exact `{name,type,content}`. Empty text `""` je validní;
+contentless, path, binary, nekanonické base64, cizí MIME a překročení
+count/item/aggregate/frame limitu skončí před `WebSocket.send` jednorázovým
+viditelným nereplayovatelným `NOT_SENT`. Draft i původní attachment objekty se
+obnoví. Změna connection epochy, ready stavu nebo policy během asynchronního
+čtení zruší připravený send, takže reconnect nemůže nevědomky změnit jeho wire
+autoritu. Legacy Electron path picker a legacy wire zůstaly beze změny.
+
+Focused testy obsahují pozitivní empty-text/image cestu, skutečné
+Studio→adapter→controller přeměření, transport-race případ a negativní matice
+pro metadata, count, jméno, path, typ/content, UTF-8, MIME, canonical base64,
+item, decoded aggregate a celý frame. Live loopback ověřuje close `1009` před
+controller efektem při překročení `maxPayload`.
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| syntax check změněných server/Studio/test/build-guard JS | valid | 0 |
+| `node tests/ws-bridge.test.js` | 90/0 | 0 |
+| `node tests/m1-studio-client.test.js` | 114/0 | 0 |
+| `node tests/artifact-validation.test.js` | 151/0 | 0 |
+| `node tests/repository-hygiene.test.js` | 1 566 trackovaných cest | 0 |
+| `node scripts/validate-test-registry.js --json` | 381 programů, 8 exclusions, fingerprint `beb54065…a4f8` | 0 |
+| `node scripts/module-boundary-ratchet.mjs` | 1 024/1 024, provenance replay 1 024 | 0 |
+| `node tests/module-boundary-ratchet.test.js` | 13/0 | 0 |
+| `git diff --check` | bez whitespace chyb | 0 |
+
+GPU, Ollama, Electron, produktový server ani externí síť spuštěné nebyly.
+Další bezpečný krok je immutable Review A obou source commitů; potom výběr tří
+nových operátorských hodnot, explicitní runtime wiring, nový clean-clone offline
+production build a registered built journey. Bez těchto kroků nelze
+`m1WireSupported` pravdivě zapnout.
+
+## Checkpoint 30 — Review A remediation: shell persistence a binary text
+
+- **původní Review A subject:** `074fb107d77af48eb084031922e97a30d53b4305`
+- **původní Review A verdict:** `CHANGES_REQUIRED`
+- **remediation source:** `adfdec324d8366013af81ad038d3710b30f89e13`
+- **remediation re-review:** `NOT RUN`
+- **produkční M1 ACK / B4 / Gate 1:** nadále `BLOCKED`
+
+První nezávislý read-only Review A reprodukoval dvě vady. Soubor s binárními
+bajty přejmenovaný na `.txt` prošel lossy `FileReader.readAsText()` a negotiated
+větev jej přijala jako text. SHELL výsledek sice skončil wire errorem, ale až po
+tom, co `ChatController.handle()` zapsal falešný assistant turn do durable
+historie.
+
+Remediation čte M1 text byte-first přes `ArrayBuffer` a fatal UTF-8 decoder.
+Klient i server samostatně odmítnou zakázané C0/DEL znaky a neplatné surrogate
+páry; žádný path fallback nevznikne. Druhá oprava přidává in-process connector
+veto na poslední vratný seam před assistant finalizací a persistence. M1 SHELL
+tak končí `M1_EFFECT_AUTHORITY_REQUIRED`, v historii zůstane jen přijatý user
+turn a nevznikne assistant success ani legacy terminal channel efekt. Veřejné
+HTTP routy dál skládají controller request explicitně a tento interní hook z
+request body nepřebírají.
+
+| Příkaz | Výsledek | Exit |
+|---|---:|---:|
+| syntax check šesti změněných JS souborů | valid | 0 |
+| `node tests/ws-bridge.test.js` | 91/0 | 0 |
+| `node tests/m1-studio-client.test.js` | 114/0 | 0 |
+| `node tests/m1-chat-contract.test.js` | 21/0 | 0 |
+| `node tests/m1-contract.test.js` | 26/0 | 0 |
+| `node tests/artifact-validation.test.js` | 151/0 | 0 |
+| `node tests/repository-hygiene.test.js` | 1 566 trackovaných cest | 0 |
+| `node scripts/validate-test-registry.js --json` | 381 programů, 8 exclusions, fingerprint `beb54065…a4f8` | 0 |
+| `node scripts/module-boundary-ratchet.mjs` | 1 024/1 024, provenance replay 1 024 | 0 |
+| `node tests/module-boundary-ratchet.test.js` | 13/0 | 0 |
+| `git diff --check` | bez whitespace chyb | 0 |
+
+Tento checkpoint uzavírá pouze dvě přesně reprodukované Review A vady.
+Remediation ještě nemá nový immutable re-review ani clean-clone production
+build. Číselný `maxCount`, decoded aggregate a celý frame limit nejsou zvolené;
+`src/server.js` zůstává dormantní. GPU, Ollama, Electron, produktový server ani
+externí síť spuštěné nebyly.
+
+## Checkpoint 31 — bounded re-review a dormantní clean-clone build
+
+- **remediation evidence subject:** `90203fc9ab61aeb2b1a23f1b1e2a0f3515d14db2`
+- **první bounded re-review:** `CHANGES_REQUIRED`
+- **korekční source:** `72b112b840d3608ea0b320142fc52f8f342d47c0`
+- **druhý bounded re-review:** `PASS`
+- **produkční M1 ACK / B4 / Gate 1:** nadále `BLOCKED`
+
+První bounded re-review přijal pre-persistence SHELL guard i invalidní UTF-8
+reprodukci, ale našel rozpor v nově zapsaném rozhodnutí: text tvrdil, že validní
+UTF-8 je text bez ohledu na příponu, zatímco bezpečnější implementace otevírá
+textovou větev jen pro existující allowlist. Korekce normativně připnula
+`allowlisted extension + fatal UTF-8`; neznámá přípona je binary a typované
+`NOT_SENT`. Nový test vykonává skutečný source slice, používá FileReader, který
+při neočekávaném čtení selže, a pro `renamed-valid.data` ověřuje
+`binary/content:null/path:null`, `M1_ATTACHMENT_TYPE_UNSUPPORTED` a nulové
+filesystem/provider/shell/tool/fetch fallback efekty.
+
+Druhý read-only re-review ověřil exact topologii `90203fc9 → 72b112b8`, čistý
+HEAD, právě dvě změněné cesty a oba Git objekty jako `100644 blob`. Studio
+114/0, artifact 151/0, syntax i diff-check skončily exit 0; verdict je `PASS`.
+
+Samostatný nový lokální klon přesného `90203fc9` provedl root `npm ci --offline`,
+Studio `yarn install --frozen-lockfile --offline` a production `yarn build`.
+Postbuild vydal `STUDIO_M1_BUILD_CONSUMER_PASS`; bundle měl 11 767 138 bajtů a
+SHA-256 `08837cd47eafa68062ab2c5c735e403ce7c33e532e5145922a99d50e6143403c`.
+Samostatná exact kontrola v bundle našla `M1_ATTACHMENT_TEXT_INVALID`,
+`readAsArrayBuffer`, warning pro non-UTF-8 bytes i
+`M1_ATTACHMENT_PATH_FORBIDDEN`. V klonu znovu prošly WS 91/0 a Studio 114/0 a
+Git status byl čistý. `72b112b8` proti tomuto build subjectu mění pouze
+rozhodnutí a test; žádný production build input se nezměnil. Přesto tento
+důkaz není finální activated built journey a po produkčním wiring se musí
+zopakovat nad jeho exact candidate SHA.
+
+Otevřená rozhodovací hranice zůstává přesně trojice nových runtime hodnot:
+`maxCount`, decoded `maxAggregateBytes` a celý UTF-8 `maxFrameBytes`. Bez jejich
+explicitního přijetí se `src/server.js` nemění a token `m1-wire-v1` se v
+produkci neACKuje. GPU, Ollama, Electron runtime, produktový server ani externí
+síť spuštěné nebyly.

@@ -24,6 +24,7 @@ import {
   PROTOCOL_VERSION,
   buildHelloAckFromNegotiatedFeatures,
   buildHelloReject,
+  isM1AttachmentPolicy,
   negotiateFeatures,
 } from './protocol.js';
 import {
@@ -200,11 +201,19 @@ export function getWebSocketBridgeHealth() {
  * @param {string} options.localCapability — Per-process opaque-origin capability
  * @param {boolean} [options.m1WireSupported=false] — Explicit activation seam;
  *   production remains false until B4 behavior blockers are accepted.
+ * @param {Object} [options.m1AttachmentPolicy] — Exact versioned inline policy;
+ *   required before M1 can be negotiated.
  * @returns {WebSocketServer}
  */
 export function attachWebSocketServer(httpServer, chatController, logger, options = {}) {
   const wsPath = options.path || '/c3/ws';
   const m1WireSupported = options.m1WireSupported === true;
+  const m1AttachmentPolicy = options.m1AttachmentPolicy || null;
+  const m1Capabilities = Object.freeze({
+    m1WireSupported,
+    m1AttachmentPolicy,
+  });
+  const boundedM1Wire = m1WireSupported && isM1AttachmentPolicy(m1AttachmentPolicy);
   _bridgeLogger = logger || console;
   if (!isValidLegacyLocalCapability(options.localCapability)) {
     throw new Error('WSBridge requires a valid local browser capability');
@@ -213,6 +222,7 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
   const wss = new WebSocketServer({
     server: httpServer,
     path: wsPath,
+    ...(boundedM1Wire ? { maxPayload: m1AttachmentPolicy.maxFrameBytes } : {}),
     verifyClient: createLegacyWebSocketVerifyClient({
       httpServer,
       allowedOrigins: options.allowedOrigins || [],
@@ -288,10 +298,14 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
           }
 
           const clientFeatures = Array.isArray(msg.features) ? msg.features : [];
-          negotiatedFeatures = Object.freeze(negotiateFeatures(clientFeatures, {
-            m1WireSupported,
-          }));
-          safeSend(buildHelloAckFromNegotiatedFeatures(negotiatedFeatures));
+          negotiatedFeatures = Object.freeze(negotiateFeatures(
+            clientFeatures,
+            m1Capabilities,
+          ));
+          safeSend(buildHelloAckFromNegotiatedFeatures(
+            negotiatedFeatures,
+            m1Capabilities,
+          ));
           handshakeDone = true;
 
           logger.info('WSBridge', 'Handshake OK', {
@@ -306,6 +320,9 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
             send: safeSend,
             handleRequest: (request) => chatController.handle(request),
             logger,
+            m1AttachmentPolicy: negotiatedFeatures.includes(M1_WIRE_FEATURE)
+              ? m1AttachmentPolicy
+              : null,
           });
 
           // Send initial status
@@ -328,7 +345,7 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
 
       const m1WireNegotiated = negotiatedFeatures.includes(M1_WIRE_FEATURE);
       if (msg.channel === 'chat' && m1WireNegotiated) {
-        const validation = validateM1StudioFrame(msg.data);
+        const validation = validateM1StudioFrame(msg.data, m1AttachmentPolicy);
         if (!validation.valid) {
           logger.warn('WSBridge', 'Rejected malformed negotiated M1 frame', {
             errors: validation.errors,

@@ -26,6 +26,7 @@ import {
   PROTOCOL_VERSION,
   BACKEND_VERSION,
   M1_WIRE_FEATURE,
+  M1_WIRE_METADATA_VERSION,
   Channel,
   AgentEventType,
   buildChannelMessage,
@@ -33,6 +34,8 @@ import {
   buildHelloAck,
   buildHelloAckFromNegotiatedFeatures,
   buildHelloReject,
+  createM1AttachmentPolicy,
+  isM1AttachmentPolicy,
   messageId,
   negotiateFeatures,
 } from '../src/ws-bridge/protocol.js';
@@ -67,6 +70,18 @@ import {
   legacyLocalCapabilitiesEqual,
   normalizeLegacyLocalOrigins,
 } from '../src/security/legacy-local-access-policy.js';
+
+const TEST_M1_ATTACHMENT_POLICY = createM1AttachmentPolicy({
+  maxCount: 2,
+  maxTextBytes: 16,
+  maxImageBytes: 16,
+  maxAggregateBytes: 24,
+  maxFrameBytes: 2048,
+});
+const TEST_M1_CAPABILITIES = Object.freeze({
+  m1WireSupported: true,
+  m1AttachmentPolicy: TEST_M1_ATTACHMENT_POLICY,
+});
 
 let passed = 0;
 let failed = 0;
@@ -272,7 +287,7 @@ test('T2: buildHelloAck returns valid JSON with version', () => {
 });
 
 test('T2a: omitted feature offer preserves legacy fallback without M1', () => {
-  const negotiated = negotiateFeatures([], { m1WireSupported: true });
+  const negotiated = negotiateFeatures([], TEST_M1_CAPABILITIES);
   assert.deepEqual(negotiated, [
     'workspace',
     'terminal',
@@ -296,22 +311,84 @@ test('T2c: supported M1 is acknowledged only after an explicit offer', () => {
   assert.deepEqual(
     negotiateFeatures(
       ['audit', M1_WIRE_FEATURE],
-      { m1WireSupported: true },
+      TEST_M1_CAPABILITIES,
     ),
     ['audit', M1_WIRE_FEATURE],
   );
   assert.equal(
-    negotiateFeatures(['audit'], { m1WireSupported: true })
+    negotiateFeatures(['audit'], TEST_M1_CAPABILITIES)
       .includes(M1_WIRE_FEATURE),
     false,
   );
+});
+
+test('T2ca: M1 support fails closed without exact versioned policy metadata', () => {
+  assert.equal(
+    negotiateFeatures([M1_WIRE_FEATURE], { m1WireSupported: true })
+      .includes(M1_WIRE_FEATURE),
+    false,
+  );
+  assert.equal(isM1AttachmentPolicy(TEST_M1_ATTACHMENT_POLICY), true);
+  const ack = JSON.parse(buildHelloAck(
+    [M1_WIRE_FEATURE],
+    TEST_M1_CAPABILITIES,
+  ));
+  assert.deepEqual(ack.features, [M1_WIRE_FEATURE]);
+  assert.deepEqual(ack.featureMetadata, {
+    [M1_WIRE_FEATURE]: {
+      version: M1_WIRE_METADATA_VERSION,
+      attachmentPolicy: TEST_M1_ATTACHMENT_POLICY,
+    },
+  });
+  assert.throws(
+    () => buildHelloAckFromNegotiatedFeatures([M1_WIRE_FEATURE]),
+    /requires exact attachment policy metadata/,
+  );
+  assert.throws(
+    () => createM1AttachmentPolicy({
+      maxCount: 0,
+      maxTextBytes: 1,
+      maxImageBytes: 1,
+      maxAggregateBytes: 1,
+      maxFrameBytes: 2,
+    }),
+    /positive safe integer limits/,
+  );
+  assert.throws(
+    () => createM1AttachmentPolicy({
+      maxCount: 1,
+      maxTextBytes: 2,
+      maxImageBytes: 2,
+      maxAggregateBytes: 1,
+      maxFrameBytes: 3,
+    }),
+    /cannot undercut an item limit/,
+  );
+  assert.throws(
+    () => createM1AttachmentPolicy({
+      maxCount: 1,
+      maxTextBytes: 1,
+      maxImageBytes: 1,
+      maxAggregateBytes: 2,
+      maxFrameBytes: 2,
+    }),
+    /must exceed the decoded aggregate limit/,
+  );
+  assert.equal(isM1AttachmentPolicy({
+    ...TEST_M1_ATTACHMENT_POLICY,
+    unexpected: true,
+  }), false);
+  assert.equal(isM1AttachmentPolicy({
+    ...TEST_M1_ATTACHMENT_POLICY,
+    imageMimeTypes: [...TEST_M1_ATTACHMENT_POLICY.imageMimeTypes].reverse(),
+  }), false);
 });
 
 test('T2d: duplicate client offers cannot duplicate negotiated capabilities', () => {
   assert.deepEqual(
     negotiateFeatures(
       [M1_WIRE_FEATURE, M1_WIRE_FEATURE, 'workspace', 'workspace'],
-      { m1WireSupported: true },
+      TEST_M1_CAPABILITIES,
     ),
     ['workspace', M1_WIRE_FEATURE],
   );
@@ -1618,7 +1695,7 @@ function m1EventStream(sent, requestId) {
     .map(message => message.data);
 }
 
-test('T23b: M1 Studio frame and context are exact and attachment path stays parked', () => {
+test('T23b: M1 Studio frame and bounded inline context are exact', () => {
   assert.equal(validateM1StudioFrame(m1StudioFrame('valid')).valid, true);
 
   const unknownOuter = m1StudioFrame('outer');
@@ -1629,13 +1706,64 @@ test('T23b: M1 Studio frame and context are exact and attachment path stays park
   unknownContext.context.cwd = '/must/not/become/authority';
   assert.equal(validateM1StudioFrame(unknownContext).valid, false);
 
-  const pathAttachment = m1StudioFrame('attachment');
-  pathAttachment.context.attachments = [{ path: '/private/file' }];
-  const attachmentResult = validateM1StudioFrame(pathAttachment);
+  const pathAttachment = m1StudioFrame('attachment-path');
+  pathAttachment.context.attachments = [{
+    name: 'secret.txt',
+    type: 'text',
+    content: 'inline',
+    path: '/private/file',
+  }];
+  const attachmentResult = validateM1StudioFrame(
+    pathAttachment,
+    TEST_M1_ATTACHMENT_POLICY,
+  );
   assert.equal(attachmentResult.valid, false);
   assert.equal(
     attachmentResult.errors.includes(
-      'm1-studio-frame.context.m1-studio-context:attachments-parked',
+      'm1-studio-frame.context.m1-studio-context.attachment-0:unknown-path',
+    ),
+    true,
+  );
+
+  const inlineText = m1StudioFrame('attachment-text');
+  inlineText.context.attachments = [{
+    name: 'note.txt',
+    type: 'text',
+    content: 'žluť',
+  }];
+  assert.equal(
+    validateM1StudioFrame(inlineText, TEST_M1_ATTACHMENT_POLICY).valid,
+    true,
+  );
+  const inlineImage = m1StudioFrame('attachment-image');
+  inlineImage.context.attachments = [{
+    name: 'pixel.png',
+    type: 'image',
+    content: 'data:image/png;base64,AQIDBA==',
+  }];
+  assert.equal(
+    validateM1StudioFrame(inlineImage, TEST_M1_ATTACHMENT_POLICY).valid,
+    true,
+  );
+
+  const noPolicy = validateM1StudioFrame(inlineText);
+  assert.equal(noPolicy.valid, false);
+  assert.equal(
+    noPolicy.errors.includes(
+      'm1-studio-frame.context.m1-studio-context:attachments-policy-unavailable',
+    ),
+    true,
+  );
+
+  const oversized = m1StudioFrame('attachment-oversized');
+  oversized.context.attachments = [{
+    name: 'large.txt',
+    type: 'text',
+    content: '0123456789abcdefg',
+  }];
+  assert.equal(
+    validateM1StudioFrame(oversized, TEST_M1_ATTACHMENT_POLICY).errors.includes(
+      'm1-studio-frame.context.m1-studio-context.attachment-0:text-too-large',
     ),
     true,
   );
@@ -1652,6 +1780,112 @@ test('T23b: M1 Studio frame and context are exact and attachment path stays park
     projectId: null,
     attachments: [],
   }).valid, false);
+});
+
+test('T23bb: every inline attachment bound fails before controller authority', () => {
+  const cases = [
+    {
+      attachments: [0, 1, 2].map(index => ({
+        name: `count-${index}.txt`, type: 'text', content: 'x',
+      })),
+      error: 'm1-studio-frame.context.m1-studio-context:too-many-attachments',
+    },
+    {
+      attachments: [{ name: '../secret.txt', type: 'text', content: 'x' }],
+      error: 'm1-studio-frame.context.m1-studio-context.attachment-0:invalid-name',
+    },
+    {
+      attachments: [{ name: 'binary.bin', type: 'binary', content: 'x' }],
+      error: 'm1-studio-frame.context.m1-studio-context.attachment-0:invalid-type',
+    },
+    {
+      attachments: [{ name: 'missing.txt', type: 'text', content: null }],
+      error: 'm1-studio-frame.context.m1-studio-context.attachment-0:invalid-content',
+    },
+    {
+      attachments: [{
+        name: 'renamed.txt', type: 'text', content: '\u0000\u0001\u0002\ufffd',
+      }],
+      error: 'm1-studio-frame.context.m1-studio-context.attachment-0:invalid-text-content',
+    },
+    {
+      attachments: [{ name: 'surrogate.txt', type: 'text', content: '\ud800' }],
+      error: 'm1-studio-frame.context.m1-studio-context.attachment-0:invalid-text-content',
+    },
+    {
+      attachments: [{ name: 'utf8.txt', type: 'text', content: 'žluťžluťžluť' }],
+      error: 'm1-studio-frame.context.m1-studio-context.attachment-0:text-too-large',
+    },
+    {
+      attachments: [{
+        name: 'mime.png', type: 'image', content: 'data:image/png;charset=utf-8;base64,AQ==',
+      }],
+      error: 'm1-studio-frame.context.m1-studio-context.attachment-0:invalid-image-data-url',
+    },
+    {
+      attachments: [{ name: 'base64.png', type: 'image', content: 'data:image/png;base64,AB==' }],
+      error: 'm1-studio-frame.context.m1-studio-context.attachment-0:invalid-image-base64',
+    },
+    {
+      attachments: [{ name: 'empty.png', type: 'image', content: 'data:image/png;base64,' }],
+      error: 'm1-studio-frame.context.m1-studio-context.attachment-0:invalid-image-base64',
+    },
+    {
+      attachments: [{
+        name: 'large.png',
+        type: 'image',
+        content: `data:image/png;base64,${Buffer.alloc(17, 1).toString('base64')}`,
+      }],
+      error: 'm1-studio-frame.context.m1-studio-context.attachment-0:image-too-large',
+    },
+    {
+      attachments: [
+        { name: 'a.txt', type: 'text', content: 'a'.repeat(13) },
+        { name: 'b.txt', type: 'text', content: 'b'.repeat(13) },
+      ],
+      error: 'm1-studio-frame.context.m1-studio-context:attachments-aggregate-too-large',
+    },
+  ];
+  for (const candidate of cases) {
+    const frame = m1StudioFrame('attachment-negative');
+    frame.context.attachments = candidate.attachments;
+    const result = validateM1StudioFrame(frame, TEST_M1_ATTACHMENT_POLICY);
+    assert.equal(result.valid, false, candidate.error);
+    assert.equal(result.errors.includes(candidate.error), true, candidate.error);
+  }
+});
+
+await asyncTest('T23ba: adapter passes only server-measured inline DTOs to controller', async () => {
+  const frame = m1StudioFrame('attachment-normalized');
+  frame.context.attachments = [
+    { name: 'utf8.txt', type: 'text', content: 'žluť' },
+    { name: 'pixel.png', type: 'image', content: 'data:image/png;base64,AQIDBA==' },
+  ];
+  let controllerAttachments = null;
+  const adapter = createSessionAdapter({
+    send: () => {},
+    handleRequest: async request => {
+      controllerAttachments = request.attachments;
+      return { response: 'ok', mode: 'conversation', confidence: 1 };
+    },
+    logger: mockLogger,
+    m1AttachmentPolicy: TEST_M1_ATTACHMENT_POLICY,
+  });
+  try {
+    await adapter.processM1Command(frame);
+  } finally {
+    adapter.cleanup();
+  }
+  assert.deepEqual(controllerAttachments, [
+    { name: 'utf8.txt', type: 'text', content: 'žluť', size: 6 },
+    {
+      name: 'pixel.png',
+      type: 'image',
+      content: 'data:image/png;base64,AQIDBA==',
+      size: 4,
+    },
+  ]);
+  assert.equal(controllerAttachments.some(attachment => 'path' in attachment), false);
 });
 
 await asyncTest('T23c: M1 adapter preserves identity and emits one canonical stream only', async () => {
@@ -1707,6 +1941,108 @@ await asyncTest('T23c: M1 adapter preserves identity and emits one canonical str
     false,
     'M1 must not emit a legacy assistant envelope',
   );
+});
+
+await asyncTest('T23ca: M1 shell intent returns an honest no-effect terminal', async () => {
+  const sent = [];
+  const frame = m1StudioFrame('shell-no-authority', {
+    input: 'spusť git status',
+  });
+  const adapter = createSessionAdapter({
+    send: encoded => sent.push(JSON.parse(encoded)),
+    handleRequest: async () => ({
+      response: 'Legacy shell response must not become M1 success.',
+      mode: 'conversation',
+      confidence: 1,
+      metadata: { shellCommand: 'git status' },
+    }),
+    logger: mockLogger,
+  });
+
+  try {
+    await adapter.processM1Command(frame);
+  } finally {
+    adapter.cleanup();
+  }
+
+  const events = m1EventStream(sent, frame.command.requestId);
+  assert.equal(validateCoreEventStream(events).valid, true);
+  assert.equal(events.filter(event => event.phase === 'terminal').length, 1);
+  assert.equal(events.at(-1).terminalStatus, 'error');
+  assert.equal(
+    events.at(-1).payload.result.error.code,
+    'M1_EFFECT_AUTHORITY_REQUIRED',
+  );
+  assert.equal(
+    events.some(event => event.payload?.result?.response),
+    false,
+    'M1 shell intent must not claim an assistant success',
+  );
+  assert.equal(
+    sent.some(message => message.channel === 'terminal'),
+    false,
+    'M1 shell intent must not enter the legacy terminal executor',
+  );
+});
+
+await asyncTest('T23caa: M1 shell refusal happens before assistant persistence', async () => {
+  resetConversationStore();
+  const store = getConversationStore(null);
+  const sent = [];
+  const frame = m1StudioFrame('shell-persist-boundary', {
+    input: 'spusť git status',
+  });
+  const handlerResponse = new TaggedResponse({
+    content: '⚡ Spouštím: git status',
+    tag: new ResponseTag({
+      speaker: ResponseSpeaker.SYSTEM,
+      mode: ChatMode.CONVERSATION,
+      confidence: 1,
+      metadata: {
+        decision: { intent: 'SHELL' },
+        shellCommand: 'git status',
+      },
+    }),
+  });
+  ChatController.configure({
+    handlers: {
+      [ChatMode.CONVERSATION]: async () => handlerResponse,
+    },
+    config: { autoModeDetection: false },
+  });
+  const adapter = createSessionAdapter({
+    send: encoded => sent.push(JSON.parse(encoded)),
+    handleRequest: request => ChatController.handle(request),
+    logger: mockLogger,
+    sessionId: 'm1-shell-persist-session',
+  });
+
+  try {
+    await adapter.processM1Command(frame);
+    const events = m1EventStream(sent, frame.command.requestId);
+    assert.equal(validateCoreEventStream(events).valid, true);
+    assert.equal(events.at(-1).terminalStatus, 'error');
+    assert.equal(
+      events.at(-1).payload.result.error.code,
+      'M1_EFFECT_AUTHORITY_REQUIRED',
+    );
+    assert.deepEqual(
+      store.getAllTurns(frame.command.conversationId).map(turn => turn.role),
+      ['user'],
+      'an unowned shell effect persisted an assistant false-success',
+    );
+    assert.equal(
+      store.getAllTurns(frame.command.conversationId)
+        .some(turn => turn.content.includes('Spouštím')),
+      false,
+    );
+    assert.equal(sent.some(message => message.channel === 'terminal'), false);
+  } finally {
+    adapter.cleanup();
+    ChatController.removeSession(frame.command.conversationId);
+    ChatController.removeSession('m1-shell-persist-session');
+    resetConversationStore();
+  }
 });
 
 await asyncTest('T23d: malformed M1 frame fails before the controller effect', async () => {
@@ -2168,6 +2504,7 @@ await asyncTest(
       {
         localCapability: createLegacyLocalCapability(),
         m1WireSupported: true,
+        m1AttachmentPolicy: TEST_M1_ATTACHMENT_POLICY,
       },
     );
     let client = null;
@@ -2245,6 +2582,25 @@ await asyncTest(
         reason: 'Legacy cancel forbidden on M1 wire',
       });
       assert.equal(controllerEffects, 1);
+
+      client = await connectAndHello(
+        WebSocket,
+        `ws://127.0.0.1:${port}/c3/ws`,
+        undefined,
+        undefined,
+        [M1_WIRE_FEATURE],
+      );
+      const oversizedClosed = new Promise(resolve => {
+        client.once('close', code => resolve(code));
+      });
+      client.send(JSON.stringify({
+        channel: 'chat',
+        data: m1StudioFrame('oversized-frame', {
+          input: 'x'.repeat(TEST_M1_ATTACHMENT_POLICY.maxFrameBytes),
+        }),
+      }));
+      assert.equal(await oversizedClosed, 1009);
+      assert.equal(controllerEffects, 1, 'oversized frame must stop before controller');
     } finally {
       if (client) await closeOwnedWebSocket(client);
       if (httpServer.listening) {
