@@ -52,3 +52,5 @@ změřeným bytes; roli ani produkt nepřipíná k jednomu modelu.
 Tento report přijímá source subject do merge queue. Neprokazuje skutečný
 GPU/Ollama proof, automatic activation/restore ani Gate 1. Ty zůstávají
 samostatnými navazujícími kroky.
+candidateHead: 6e04117b9cfff79c52c58ba8b2b3d514be5da8e5
+reviewB.verdict: PASS
