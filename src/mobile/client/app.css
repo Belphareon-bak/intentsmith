@@ -476,6 +476,20 @@ button { cursor: pointer; border: none; background: none; }
    "Připravujeme" tiles, so it reads as a placeholder and not as a setting that
    failed to load. */
 .card[data-locked="true"] { border-style: dashed; }
+/* A preference is a row you can hit, not a checkbox with a caption: §8 wants a
+   48 dp target and the explanation belongs next to the switch, not in a manual. */
+.pref {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 14px;
+  min-height: 48px; padding: 6px 0; cursor: pointer;
+}
+.pref-text { display: flex; flex-direction: column; gap: 3px; }
+.pref-label { font-size: 14px; font-weight: 500; }
+.pref-note { color: var(--text-muted); font-size: 13px; line-height: 1.45; }
+.pref input[type="checkbox"] {
+  flex: 0 0 auto; width: 44px; height: 26px; margin-top: 2px;
+  accent-color: var(--accent);
+}
+
 .card-note { margin: 4px 0 0; color: var(--text-muted); font-size: 13px; line-height: 1.5; }
 
 .ov-tiles-top {

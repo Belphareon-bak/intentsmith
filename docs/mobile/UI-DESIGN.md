@@ -184,7 +184,8 @@ Zamýšlená sada podle předlohy: `Konverzace`, `Projekty`, `Domů`, `Aktivita`
 | Pevný rám (`brána`) ve středu | ✅ hotovo |
 | Otočení prstem přepne sekci podle středu | ✅ hotovo |
 | Nativní setrvačnost a dosednutí (`scroll-snap`) | ✅ hotovo |
-| Volba „Skrýt lištu na domovské obrazovce" ve Vzhledu | ⬜ nestaví se |
+| Volba „Skrýt lištu na domovské obrazovce" ve Vzhledu | ✅ hotovo |
+| Zatažení **až po dojetí** na Domů (dva doby) | ✅ hotovo |
 | Vodorovný přesun obsahu mezi sekcemi | ⬜ nestaví se |
 | Přeskládání pořadí dlouhým stiskem | ⬜ nestaví se |
 | Sada sedmi položek (`Aktivita`, `Agenti`, `Specialisté`) | ⬜ čeká na `capabilities` |
@@ -215,6 +216,13 @@ homescreen tím dostane celou plochu. Zároveň to někomu vadit může, takže:
 | Volba | „Skrýt lištu na domovské obrazovce" |
 | Výchozí | zapnuto — efekt, kvůli kterému to vzniklo |
 | Uloženo | `MD-15`, lokálně |
+
+**Zatažení má dvě doby (operátor 2026-08-10).** Prstenec nejdřív dojede na
+`Domů`, teprve pak lišta sjede. Naráz to čte jako jeden zmatený pohyb — něco
+jede do strany a zároveň dolů. Vysunutí je naopak okamžité: lišta musí být na
+místě dřív než obrazovka, které patří. Naplánované zatažení se při probuzení
+ptá, jestli je kořen pořád tam, kde jsme — rychlé proklepnutí přes `Domů` jinam
+nesmí skončit lištou, která se schová nad cizí obrazovkou.
 
 Podmínka úplnosti kořene (níže) tím platí **dvojnásob**: při zapnuté volbě je
 homescreen opravdu jedinou mapou aplikace.

@@ -104,6 +104,30 @@ const cache = {
   write(name, data) { store.set(K.cache + name, { at: Date.now(), data }); },
 };
 
+// ── MD-15 local preferences — the second exception to I-10 ──────────────────
+//
+// Appearance is device-shaped, not account-shaped (`R5-2`), so it lives here and
+// nowhere else.  These survive `wipeDomain()` on purpose: a revoked device that
+// forgets the token must not also forget how its owner likes the bar to behave.
+const PREF_DEFAULTS = Object.freeze({
+  // The operator's default: on the root the bar slides away and gives the
+  // dashboard the whole screen (§3.2).  It is a choice because the effect that
+  // makes it worth having is exactly the effect that annoys some people.
+  hideBarOnHome: true,
+});
+
+const prefs = {
+  all() {
+    const stored = store.get(K.prefs, {});
+    return { ...PREF_DEFAULTS, ...(stored && typeof stored === 'object' ? stored : {}) };
+  },
+  get(name) { return prefs.all()[name]; },
+  set(name, value) {
+    if (!(name in PREF_DEFAULTS)) return;
+    store.set(K.prefs, { ...prefs.all(), [name]: value });
+  },
+};
+
 // ── MD-19 client journal — the operation recovery index (U-9) ────────────────
 //
 // Decided in UI-DESIGN §17 (U-9): this is the **third exception to I-10**,
@@ -1475,6 +1499,19 @@ function viewDiagnostics() {
   const upstreamTone = health?.upstream === 'ok' ? 'ok' : 'danger';
 
   return header({ title: 'Nastavení' }) + `<div class="scroll"><div class="container">
+    <div class="card">
+      <div class="card-head"><h3 class="card-title">Vzhled</h3></div>
+      <label class="pref">
+        <span class="pref-text">
+          <span class="pref-label">Skrýt lištu na domovské obrazovce</span>
+          <span class="pref-note">Lišta sjede dolů, jakmile dojede na Domů, a uvolní
+          celou plochu přehledu. Vypni, pokud ji chceš mít pořád po ruce.</span>
+        </span>
+        <input type="checkbox" data-act="pref-toggle" data-pref="hideBarOnHome"
+          ${prefs.get('hideBarOnHome') ? 'checked' : ''}>
+      </label>
+    </div>
+
     <div class="card" data-locked="true">
       <div class="card-head"><h3 class="card-title">Paměť</h3>
         <span class="pill" data-tone="muted">${icon('lock')}Připravujeme</span></div>
@@ -2259,7 +2296,12 @@ function renderNavBar() {
   // §3.2 — retracted on the root; entering a section slides it out, choosing
   // Přehled slides it back.  The element stays in the DOM so the transition is
   // a movement rather than a jump.
-  const retracted = section === 'overview';
+  //
+  // Operator, 2026-08-10: the bar retracts **after** the ring has arrived at
+  // Domů, not at the same time.  Both at once read as one confused motion —
+  // something sliding sideways while it also slides down.  So the turn happens
+  // first, in full, and the bar leaves only once it has landed.
+  const wantsRetracted = section === 'overview' && prefs.get('hideBarOnHome');
 
   const tabs = items.map(item => {
     const current = item.id === section;
@@ -2283,7 +2325,6 @@ function renderNavBar() {
     bar.className = 'navbar';
     document.body.appendChild(bar);
   }
-  bar.dataset.retracted = retracted ? 'true' : 'false';
 
   // Rebuilding the track on every render threw away its scroll position, so the
   // ring slid back from the left edge each time anything at all re-rendered —
@@ -2313,11 +2354,49 @@ function renderNavBar() {
     }
   }
 
-  if (retracted) document.body.classList.remove('has-navbar');
-  else document.body.classList.add('has-navbar');
-
-  if (!retracted) layoutNavRing(track);
+  // The ring turns in every case, including on the way home: Domů is an item of
+  // the loop like any other and has to come to the middle before it is hidden.
+  layoutNavRing(track);
+  scheduleNavRetraction(bar, wantsRetracted);
 }
+
+/**
+ * Retract after the turn, extend at once.
+ *
+ * Leaving is a two-beat movement — the ring arrives, then the bar goes — while
+ * arriving must be immediate, because the bar has to be there before the screen
+ * it belongs to is.
+ */
+let navRetractTimer = null;
+function scheduleNavRetraction(bar, wantsRetracted) {
+  clearTimeout(navRetractTimer);
+  const already = bar.dataset.retracted === 'true';
+
+  if (!wantsRetracted) {
+    bar.dataset.retracted = 'false';
+    document.body.classList.add('has-navbar');
+    return;
+  }
+  if (already) {
+    document.body.classList.remove('has-navbar');
+    return;
+  }
+  // Still on screen, and staying there until the ring has finished turning.
+  // Stated rather than left unset: "not retracted" is a position the bar is
+  // holding, not an attribute nobody got round to writing.
+  bar.dataset.retracted = 'false';
+  document.body.classList.add('has-navbar');
+  navRetractTimer = setTimeout(() => {
+    // Only if the root is still where we are: a fast tap through Domů to
+    // somewhere else must not be followed by a bar that hides itself anyway.
+    if (currentSection() !== 'overview' || !prefs.get('hideBarOnHome')) return;
+    bar.dataset.retracted = 'true';
+    document.body.classList.remove('has-navbar');
+  }, NAV_TURN_MS);
+}
+
+/** How long a turn of the ring takes to land, in step with `--navbar-slide`. */
+const NAV_TURN_MS = 420;
 
 /**
  * §3.1 — the bar is a loop, and the middle of it is where "you are here" lives.
@@ -3768,6 +3847,14 @@ document.addEventListener('click', event => {
     'load-conversations': loadConversations,
     'load-thread': () => loadThread(state.conversationId),
     'load-older': () => loadOlderMessages(),
+    // MD-15 — a local preference, written the moment it is changed.  There is
+    // no "save": the switch *is* the setting.
+    'pref-toggle': () => {
+      const name = target.dataset.pref;
+      if (!name) return;
+      prefs.set(name, !prefs.get(name));
+      render();
+    },
     'load-notifications': loadNotifications,
     reload: () => navigate(state.route),
   };
@@ -3974,7 +4061,7 @@ async function boot() {
 // test surface costs nothing at runtime and keeps tests/mobile-ms20-ui.test.js
 // from re-implementing the screen it is supposed to be checking.
 export const __ms20 = {
-  state, journal, drafts, store, cache, K, api,
+  state, journal, drafts, store, cache, prefs, K, api,
   render, navigate, viewOperations, ms20Entries,
   trustBar, trustZones, withTrustBar, screenLocks, serverNow,
   viewOverview, navItems, currentSection, sectionRoute, unknownScopes, NAV_ITEMS, ROUTE_SECTION,

@@ -228,21 +228,65 @@ await test('§3.3 a deep destination is highlighted under its section, not on it
 
 // ── Retraction on the root ──────────────────────────────────────────────────
 
-await test('§3.2 the bar is retracted on the root and out in a section', () => {
+await test('§3.2 the bar retracts on the root only once the ring has arrived', async () => {
+  // Operator, 2026-08-10: two beats, not one.  The ring turns to Domů first and
+  // the bar leaves after it lands; sliding sideways and downwards at the same
+  // time reads as one confused motion.
   reset({ route: 'overview' });
   state.data.approvals = [];
   state.data.conversations = [];
   render();
-  assert.equal(navBar()?.dataset.retracted, 'true', 'the bar is out on the root');
-  assert.ok(!body.classList.contains('has-navbar'), 'retracted, yet the content still reserves its height');
+  assert.equal(navBar()?.dataset.retracted, 'false',
+    'the bar left before the ring had arrived');
+  assert.ok(body.classList.contains('has-navbar'),
+    'the content must keep its room while the bar is still there');
+
+  await settle();
+  assert.equal(navBar()?.dataset.retracted, 'true', 'the bar never left the root');
+  assert.ok(!body.classList.contains('has-navbar'), 'the content did not take the room back');
 
   navigateTo('conversations');
   assert.equal(navBar()?.dataset.retracted, 'false', 'entering a section did not slide the bar out');
   assert.ok(body.classList.contains('has-navbar'), 'the bar covers content instead of pushing it');
 
   navigateTo('overview');
+  await settle();
   assert.equal(navBar()?.dataset.retracted, 'true', 'choosing Přehled did not slide the bar back');
 });
+
+await test('§3.2 a tap straight through the root leaves the bar where it belongs', async () => {
+  // The retraction is scheduled, so it has to check on waking whether the root
+  // is still where we are — otherwise a fast tap through Domů is followed by a
+  // bar that hides itself over the wrong screen.
+  reset({ route: 'overview' });
+  state.data.approvals = [];
+  state.data.conversations = [];
+  render();
+  navigateTo('conversations');
+  await settle();
+  assert.equal(navBar()?.dataset.retracted, 'false',
+    'a retraction armed on the root fired over a section');
+});
+
+await test('§3.2 hiding the bar on the root is a choice, kept in MD-15', async () => {
+  reset({ route: 'overview' });
+  state.data.approvals = [];
+  state.data.conversations = [];
+  __ms20.prefs.set('hideBarOnHome', false);
+  render();
+  await settle();
+  assert.equal(navBar()?.dataset.retracted, 'false',
+    'the bar hid itself although the preference says not to');
+  assert.ok(body.classList.contains('has-navbar'));
+
+  __ms20.prefs.set('hideBarOnHome', true);
+  render();
+  await settle();
+  assert.equal(navBar()?.dataset.retracted, 'true', 'the preference back on did not restore the effect');
+});
+
+/** Wait past the scheduled retraction. */
+function settle() { return new Promise(resolve => setTimeout(resolve, 520)); }
 
 function navigateTo(route) {
   state.data.approvals = [];
