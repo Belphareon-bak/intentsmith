@@ -20,6 +20,24 @@ export const DEFAULT_MODEL_SETTINGS = Object.freeze({
 
 const MODEL_SETTING_KEYS = new Set(Object.keys(DEFAULT_MODEL_SETTINGS));
 
+export const NOTIFICATION_SETTING_FIELD_MAP = Object.freeze({
+  emailEnabled: 'c3.notif.emailEnabled',
+  smtpHost: 'c3.notif.smtpHost',
+  smtpPort: 'c3.notif.smtpPort',
+  smtpUser: 'c3.notif.smtpUser',
+  smtpPass: 'c3.notif.smtpPass',
+  smtpFrom: 'c3.notif.smtpFrom',
+  emailRecipient: 'c3.notif.emailRecipient',
+  emailOnLifecycle: 'c3.notif.emailOnLifecycle',
+  emailOnWorker: 'c3.notif.emailOnWorker',
+});
+
+export const NOTIFICATION_SETTING_KEYS = Object.freeze(
+  Object.values(NOTIFICATION_SETTING_FIELD_MAP),
+);
+
+const NOTIFICATION_SETTING_KEY_SET = new Set(NOTIFICATION_SETTING_KEYS);
+
 export class UserSettingsError extends Error {
   constructor(code, message, options = {}) {
     super(message, options);
@@ -36,6 +54,22 @@ function isPlainObject(value) {
 
 function clone(value) {
   return structuredClone(value);
+}
+
+function requirePlainSettingsPatch(value, code) {
+  if (!isPlainObject(value)) {
+    throw new UserSettingsError(code, 'Settings patch must be a plain object');
+  }
+  return value;
+}
+
+function setOwn(document, key, value) {
+  Object.defineProperty(document, key, {
+    configurable: true,
+    enumerable: true,
+    writable: true,
+    value,
+  });
 }
 
 function parseSettingsRow(row) {
@@ -237,6 +271,50 @@ export function updateUserSettings(db, updater) {
       { cause: error },
     );
   }
+}
+
+/**
+ * Atomically merge the generic top-level settings surface while preserving
+ * every field absent from the request. The nine notification fields are owned
+ * exclusively by the typed notification route and are ignored here by exact
+ * key, never by prefix.
+ */
+export function mergeGenericUserSettings(db, patch) {
+  requirePlainSettingsPatch(patch, 'USER_SETTINGS_INPUT_INVALID');
+
+  const ignoredNotificationKeys = NOTIFICATION_SETTING_KEYS.filter(
+    key => Object.hasOwn(patch, key),
+  );
+  const genericEntries = Object.entries(patch).filter(
+    ([key]) => !NOTIFICATION_SETTING_KEY_SET.has(key),
+  );
+
+  const document = updateUserSettings(db, (draft) => {
+    for (const [key, value] of genericEntries) {
+      setOwn(draft, key, clone(value));
+    }
+  });
+
+  return {
+    document,
+    ignoredNotificationKeys,
+  };
+}
+
+/**
+ * Atomically apply only the notification route's exact nine-field map. The
+ * masked SMTP password is a preserve instruction, not a persisted value.
+ */
+export function updateNotificationUserSettings(db, patch) {
+  requirePlainSettingsPatch(patch, 'NOTIFICATION_SETTINGS_INPUT_INVALID');
+
+  return updateUserSettings(db, (document) => {
+    for (const [field, settingKey] of Object.entries(NOTIFICATION_SETTING_FIELD_MAP)) {
+      if (Object.hasOwn(patch, field) && patch[field] !== '*****') {
+        setOwn(document, settingKey, clone(patch[field]));
+      }
+    }
+  });
 }
 
 /**
