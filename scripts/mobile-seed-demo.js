@@ -16,9 +16,9 @@
 //   C3_DB_PATH=/tmp/is-demo.db node scripts/mobile-pair.js
 //
 // What it deliberately makes: one conversation long enough that MS-07 has to
-// page (MR-05), one short enough that it does not, and one empty.  A demo where
-// every conversation fits in a page proves nothing about the part most likely
-// to be broken.
+// fetch several batches of 50 (MR-05), one short enough to arrive in a single
+// batch, and one empty.  A demo where every conversation fits in one batch
+// proves nothing about the part most likely to be broken.
 //
 // ==============================================================================
 

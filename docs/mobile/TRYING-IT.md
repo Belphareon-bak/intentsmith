@@ -44,9 +44,16 @@ C3_DB_PATH=/tmp/is-demo.db node scripts/mobile-pair.js
 Pak otevři `http://127.0.0.1:3336` a naskenuj/vlož kód. Kód je **jednorázový** —
 po použití je spotřebovaný a další běh `mobile-pair.js` vydá nový.
 
-Seed vytvoří tři konverzace záměrně: **240 zpráv** (musí stránkovat), 8 zpráv
-(nestránkuje) a prázdnou. Demo, kde se všechno vejde na stránku, o stránkování
-nedokazuje nic.
+Seed vytvoří tři konverzace záměrně: **240 zpráv**, 8 zpráv a prázdnou.
+
+> **Pozor na slovo „stránka".** Neznamená obrazovku. Aplikace si od serveru
+> nebere celou historii najednou, ale **po dávkách po 50 zprávách**; téhle dávce
+> se v dokumentaci říká stránka. Na obrazovku se vejdou tak tři až pět zpráv
+> a scrolluje se úplně normálně.
+>
+> Konverzace o 240 zprávách = 5 dávek, takže si vynutí donačítání. Ta o 8
+> zprávách se vejde do jedné dávky a je hned celá. Demo, kde by každá konverzace
+> byla na jednu dávku, by o donačítání nedokázalo nic.
 
 ---
 
