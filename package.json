@@ -13,6 +13,7 @@
     "dev": "node --watch src/server.js",
     "mobile:gateway": "node src/mobile-gateway.js",
     "mobile:pair": "node scripts/mobile-pair.js",
+    "mobile:seed": "node scripts/mobile-seed-demo.js",
     "test": "npm run test:deterministic",
     "test:all": "node tests/run-all.js",
     "test:gate0": "npm run test:deterministic",

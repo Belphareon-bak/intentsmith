@@ -477,6 +477,74 @@ try {
     assert.ok(atBottom < 2, `opening a thread must land on the newest message, was ${atBottom} dp short`);
   });
 
+  await test('MR-05 doscrollování k hornímu okraji dotáhne starší zprávy samo', async () => {
+    // The behaviour every chat has.  Only provable here: it depends on a real
+    // scroller emitting a real scroll event to a capture-phase listener.
+    await page.evaluate(ACTIVATE);
+    const outcome = await page.evaluate(async () => {
+      const S = window.__is;
+      const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => ({
+        id: String(from + i),
+        role: (from + i) % 2 ? 'user' : 'assistant',
+        content: `zpráva ${from + i}`,
+      }));
+
+      const requests = [];
+      const realFetch = window.fetch;
+      window.fetch = async (url, options) => {
+        requests.push(String(url));
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: () => null },
+          json: async () => ({
+            ok: true, protocolVersion: 'm1.2026-07-30', scopes: ['read:chat'],
+            hasMore: true, nextCursor: 'c1.next.page', end: false, direction: 'backward',
+            data: {
+              conversation: { id: 'c1', title: 'Dlouhá' },
+              messages: range(101, 150),
+            },
+          }),
+        };
+      };
+
+      try {
+        S.state.route = 'chat';
+        S.state.conn = 'ok';
+        S.state.conversationId = 'c1';
+        S.state.data.thread = {
+          conversation: { id: 'c1', title: 'Dlouhá' },
+          messages: range(151, 200),
+        };
+        S.state.thread = { cursor: 'c1.a.b', end: false, loadingOlder: false, stickToBottom: true };
+        S.render();
+
+        const scroll = document.getElementById('thread-scroll');
+        const before = S.state.data.thread.messages.length;
+
+        // The reader scrolls up to the older edge.  Nothing is tapped.
+        scroll.scrollTop = 0;
+        scroll.dispatchEvent(new Event('scroll', { bubbles: false }));
+        await new Promise(resolve => setTimeout(resolve, 120));
+
+        return {
+          before,
+          after: S.state.data.thread.messages.length,
+          requests: requests.length,
+          carriedCursor: requests.some(url => url.includes('cursor=c1.a.b')),
+          oldestNow: S.state.data.thread.messages[0].content,
+        };
+      } finally {
+        window.fetch = realFetch;
+      }
+    });
+
+    assert.equal(outcome.requests, 1, 'scrolling to the top asks once, not per event');
+    assert.ok(outcome.carriedCursor, 'the request must follow the cursor the server issued');
+    assert.equal(outcome.after, outcome.before + 50, 'the older page must be added');
+    assert.equal(outcome.oldestNow, 'zpráva 101', 'and prepended, not appended');
+  });
+
   // ── §10 what a screen reader is handed ────────────────────────────────────
 
   await test('§10 trust bar se čtečce ohlásí jednou větou o všech třech zónách', async () => {

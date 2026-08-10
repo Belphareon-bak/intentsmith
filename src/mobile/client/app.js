@@ -3606,6 +3606,29 @@ document.addEventListener('input', event => {
   if (event.target.id === 'composer-input') autoGrow(event.target);
 });
 
+// MR-05 — reading into the past is a scroll, not an errand.
+//
+// Every chat works this way: you scroll up and older messages arrive.  The
+// boundary control stays, because a thread shorter than the viewport has
+// nothing to scroll and because a button is reachable by keyboard, but nobody
+// should have to find it.
+//
+// Capture phase: `scroll` does not bubble, so a delegated listener only sees it
+// on the way down.  That keeps this working across `render()`, which replaces
+// the scroller element on every state change.
+const OLDER_TRIGGER_PX = 240;
+document.addEventListener('scroll', event => {
+  const scroller = event.target;
+  if (!scroller || scroller.id !== 'thread-scroll') return;
+  if (scroller.scrollTop > OLDER_TRIGGER_PX) return;
+  // Known-offline: the boundary already says so, and scrolling into a wall
+  // should not fire a request per scroll event to be told the same thing.
+  if (state.conn === 'offline') return;
+  // `loadOlderMessages` is itself guarded against re-entry, so a burst of
+  // scroll events near the top costs one request, not one per event.
+  loadOlderMessages();
+}, true);
+
 document.addEventListener('keydown', event => {
   if (event.target.id === 'composer-input' && event.key === 'Enter' && !event.shiftKey) {
     // Desktop-style send; on a soft keyboard Enter usually inserts a newline
