@@ -21,11 +21,14 @@ Rozhodnutí 017 závazně určilo required-offer token `m1-wire-v1` a exact
 - implementuje 004/C: target `cancelled` vždy předchází vlastnímu cancel
   `cancelled`, včetně více souběžných idempotentních cancel požadavků;
 - fail-closed odmítá legacy chat/cancel po negotiated ACK;
-- nechává `m1WireSupported=false` jako explicitní server activation seam.
+- nechával `m1WireSupported=false` jako explicitní server activation seam před
+  operátorem schválenou source aktivací.
 
-`src/server.js` tento seam nepředává. Produkční server proto token stále
-pravdivě neACKuje a stávající Studio zůstává na legacy wire. Tento dokument
-není žádost o skrytý default ani důvod oslabit listener guard.
+Produkční composition nyní tento seam předává pouze jako required-offer:
+legacy klient token nedostane. Bootstrap navíc synchronně validuje všechny
+config-owned M1 limity před importem databáze a port-file/runtime efektem.
+Tento dokument není důvod oslabit listener guard ani povolit implicitní
+filesystem autoritu.
 
 ## Proč nelze jen přepnout boolean
 
@@ -181,8 +184,15 @@ aggregate `6 MiB`, celý UTF-8 frame `12 MiB` a stávající item capy `1 MiB` t
 / `5 MiB` image. Produkční composition používá default-on
 `C3_ENABLE_M1_WIRE`, ale required-offer sémantika zachovává legacy klienta.
 
-`tests/ws-bridge.test.js` prošel 91/0 a `tests/m1-studio-client.test.js` 127/0;
-obě sady exit `0`. První pokus o WS sadu skončil před testy na chybějícím
+Bootstrap přijímá u tohoto booleanu jen exact `true`/`false`, všechny číselné
+limity vyžaduje jako kladná bezpečná celá čísla, aggregate nesmí být menší než
+největší item limit a frame musí být přísně větší než aggregate. Invalidní
+konfigurace končí signálem `M1_WIRE_CONFIG_INVALID` ještě před DB, port-file,
+projects nebo jiným runtime artefaktem.
+
+`tests/m1-wire-startup-config.test.js` pokrývá šest negativních tříd a
+`tests/ws-bridge.test.js` prošel 91/0; obě sady exit `0`. Dřívější první pokus
+o WS sadu skončil před testy na chybějícím
 `better-sqlite3`; po `npm ci --offline` se zopakoval celý a prošel. Follow-up
 po prvním neúspěšném Review A dál čte text byte-first s fatal UTF-8 decode a
 odmítá shell metadata na posledním vratném pre-persistence seamu.

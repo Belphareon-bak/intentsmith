@@ -1444,7 +1444,9 @@ mohou pokračovat.
    Electron evidence. Source activation candidate nyní předává config-owned
    `m1WireSupported` a exact inline policy s 8 položkami, 6 MiB decoded
    aggregate a 12 MiB UTF-8 frame. T40 připíná required-offer legacy fallback
-   i explicitní M1 ACK; WS 91/0 a Studio VM 127/0 prošly exit `0`. Negotiated
+   i explicitní M1 ACK. Bootstrap fail-fast odmítá invalidní boolean/limity a
+   jejich nekonzistentní vztahy před DB, port-file nebo runtime efektem;
+   startup config 6/0, WS 91/0 a Studio VM 127/0 prošly exit `0`. Negotiated
    Electron journey tím ale není prokázaná. Cancel terminal ordering už
    závazně plyne z přijatého 004/C a není nová otázka. Disposable fresh clone
    na `9464dacf` dříve offline

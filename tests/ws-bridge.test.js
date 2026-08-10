@@ -4044,7 +4044,11 @@ test('T40: production server enables bounded required-offer M1 wire policy', () 
     assert.match(productionOptions, expectedMapping);
   }
 
-  assert.match(configCode, /enabled:\s*process\.env\.C3_ENABLE_M1_WIRE\s*!==\s*'false'/);
+  assert.match(
+    configCode,
+    /enabled:\s*process\.env\.C3_ENABLE_M1_WIRE\s*===\s*'true'/,
+    'config must consume only the bootstrap-canonicalized exact true value',
+  );
   assert.match(configCode, /C3_M1_ATTACHMENT_MAX_COUNT\s*\?\?\s*8/);
   assert.match(
     configCode,

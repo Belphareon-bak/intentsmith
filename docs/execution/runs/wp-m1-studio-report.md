@@ -1637,3 +1637,19 @@ Ollama, produktový server ani externí síť nebyly spuštěné. Stav checkpoin
 `SOURCE_ENABLED / FOCUSED_VERIFIED`; immutable Review A a built
 attachment/multi-panel/cancel/provider/reconnect journey zůstávají otevřené,
 takže B4 i Gate 1 jsou dál `BLOCKED`.
+
+## Checkpoint 33 — fail-fast M1 config před runtime efekty
+
+Review předchozího source checkpointu správně našlo, že numerickou policy
+znovu validoval až constructor v asynchronním listen callbacku. Bootstrap v
+`src/runtime-environment.js` proto nyní synchronně kanonizuje a validuje exact
+boolean, všechny tři nové M1 limity i dva existující item capy dřív, než ESM
+graf může vyhodnotit databázi, logger nebo port-file writer. Aggregate musí být
+alespoň největší item limit a celý frame musí být přísně větší než aggregate.
+
+Nová table-driven negativní sada spustila skutečný `src/server.js` pro šest
+invalidních tříd. Každý child skončil nenulově s owned signálem
+`M1_WIRE_CONFIG_INVALID` a zanechal přesně prázdný adresář určený pro DB,
+port-file, projects a runtime artefakty. Protocol, WS server, session adapter a
+celý `c3-ide/**` zůstaly byteově nedotčené. Built Electron journey ani jiná
+drahá nebo síťová sada nebyla spuštěna; B4 a Gate 1 zůstávají `BLOCKED`.

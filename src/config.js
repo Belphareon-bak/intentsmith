@@ -55,9 +55,11 @@ export const config = {
     httpTimeouts: resolveHttpTimeoutPolicy(),
     // M1 Studio wire is enabled by default after decision 021. The feature is
     // still required-offer: legacy peers that do not advertise m1-wire-v1
-    // continue to receive only the legacy capability set.
+    // continue to receive only the legacy capability set. The production
+    // runtime bootstrap validates and canonicalizes every value before any
+    // database or port-file dependency can initialize.
     m1Wire: {
-      enabled: process.env.C3_ENABLE_M1_WIRE !== 'false',
+      enabled: process.env.C3_ENABLE_M1_WIRE === 'true',
       maxAttachmentCount: Number(process.env.C3_M1_ATTACHMENT_MAX_COUNT ?? 8),
       maxAggregateBytes: Number(
         process.env.C3_M1_ATTACHMENT_MAX_AGGREGATE_BYTES ?? (6 * 1024 * 1024),

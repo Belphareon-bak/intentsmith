@@ -295,7 +295,13 @@ frame; item limity zůstávají 1 MiB text a 5 MiB image. Klient bez explicitní
 nabídky tokenu zůstává na legacy wire. `protocol.js`, `ws-server.js`,
 `session-adapter.js` ani `c3-ide/**` se pro aktivaci neměnily.
 
-Focused source evidence: WS 91/0 a Studio VM 127/0, oba exit `0`. První WS
+Fail-fast bootstrap odmítá unknown boolean, nekladné, neceločíselné nebo
+unsafe limity, aggregate pod největším item capem a frame menší nebo rovný
+aggregate. Odmítnutí používá `M1_WIRE_CONFIG_INVALID` a nastane před DB,
+port-file, projects i runtime efektem.
+
+Focused source evidence: startup config 6/0, WS 91/0 a Studio VM 127/0,
+všechny exit `0`. První WS
 pokus skončil před testy na chybějícím `better-sqlite3`; po přesném
 `npm ci --offline` byl celý běh zopakován. Electron build/journey, skutečný
 display, GPU, Ollama a externí síť nebyly spuštěné. Stav je proto

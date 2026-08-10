@@ -5443,6 +5443,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-M1-WIRE-STARTUP-CONFIG-TEST",
+      "path": "tests/m1-wire-startup-config.test.js",
+      "argv": [
+        "node",
+        "tests/m1-wire-startup-config.test.js"
+      ],
+      "capabilityId": "C3-001",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-MANIFEST-V2-TEST",
       "path": "tests/manifest-v2.test.js",
       "argv": [
