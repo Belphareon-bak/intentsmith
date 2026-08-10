@@ -6,7 +6,6 @@
 
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { MODEL_FAILOVER_POLICY_VERSION } from './model-failover.js';
 import { MODEL_PROFILES } from './model-profiles.js';
 import { SUITES, VALIDATION_VERSION } from './validation-suites.js';
 
@@ -34,6 +33,7 @@ const EXPECTED_SOURCE_PINS = Object.freeze({
 const EXPECTED_AUTHORITY_SHA256 =
   '49378598e8644331138174743b816b4b34ca66103dac91128b16ae661679f9bd';
 const SOURCE_URLS = Object.freeze({
+  modelFailover: new URL('./model-failover.js', import.meta.url),
   modelProfiles: new URL('./model-profiles.js', import.meta.url),
   validationSuites: new URL('./validation-suites.js', import.meta.url),
 });
@@ -135,6 +135,29 @@ export function canonicalizeModelFailoverContract(value) {
 
 function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
+}
+
+function readModelFailoverPolicyVersion() {
+  let source;
+  try {
+    source = readFileSync(SOURCE_URLS.modelFailover, 'utf8');
+  } catch (error) {
+    throw new ModelFailoverProofPolicyError(
+      'MODEL_FAILOVER_PROOF_POLICY_SOURCE_UNAVAILABLE',
+      'Cannot read model failover policy version authority',
+      { cause: error, details: { path: 'src/upgrade/model-failover.js' } },
+    );
+  }
+  const matches = [...source.matchAll(
+    /^export const MODEL_FAILOVER_POLICY_VERSION = '([a-z0-9][a-z0-9.-]{0,63})';$/gm,
+  )];
+  if (matches.length !== 1) {
+    fail(
+      'MODEL_FAILOVER_PROOF_POLICY_AUTHORITY_INVALID',
+      'Model failover policy version authority is missing or ambiguous',
+    );
+  }
+  return matches[0][1];
 }
 
 function readSourcePin(key) {
@@ -276,7 +299,7 @@ function buildPolicy() {
   return deepFreeze({
     schemaVersion: MODEL_FAILOVER_PROOF_POLICY_SCHEMA_VERSION,
     canonicalizationVersion: MODEL_FAILOVER_PROOF_CANONICALIZATION_VERSION,
-    policyVersion: MODEL_FAILOVER_POLICY_VERSION,
+    policyVersion: readModelFailoverPolicyVersion(),
     validationVersion: VALIDATION_VERSION,
     authoritySha256,
     sourcePins,

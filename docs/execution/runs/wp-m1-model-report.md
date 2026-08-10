@@ -2426,6 +2426,15 @@ zopakována nad commitnutým checkpointem. GPU, Ollama, Electron ani externí s�
 nebyly spuštěné. Migrace 062, durable issuer a automatic activation zůstávají
 otevřené; Gate 1 je `BLOCKED`.
 
+Parent clean-source replay odhalil integration drift staršího exportního
+seamu: `model-failover.js` nově importuje `src/db/model-policy.js`, který
+privátní measurement export neobsahuje. Proof policy přitom z velkého
+repository modulu potřebovala pouze deklaraci `MODEL_FAILOVER_POLICY_VERSION`.
+Follow-up proto verzi fail-closed čte z přesně jednoho vlastněného exportu v
+HEAD blobu a runtime modul neexecutuje. Focused test pinuje jedinou deklaraci i
+zákaz přímého importu; parent sada se znovu spustí až nad commitnutým source
+checkpointem, protože právě commitnuté bloby jsou její autorita.
+
 ## Checkout a ratchet provenance po review
 
 Hlavní checkout na `9bd312ab` nebyl čistý: staging area byla prázdná, ale

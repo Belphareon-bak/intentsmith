@@ -60,6 +60,20 @@ test('source pins are raw-byte hashes of the exact reviewed modules', () => {
   assertEqual(policy.canonicalizationVersion, 'sorted-key-json-utf8-v1');
   assertEqual(policy.policyVersion, 'd-plus-v1');
   assertEqual(policy.validationVersion, 'v123.1');
+  const failoverSource = readFileSync(
+    new URL('../src/upgrade/model-failover.js', import.meta.url),
+    'utf8',
+  );
+  const policyVersionDeclarations = [...failoverSource.matchAll(
+    /^export const MODEL_FAILOVER_POLICY_VERSION = '([a-z0-9][a-z0-9.-]{0,63})';$/gm,
+  )];
+  assertEqual(policyVersionDeclarations.length, 1);
+  assertEqual(policy.policyVersion, policyVersionDeclarations[0][1]);
+  const proofPolicySource = readFileSync(
+    new URL('../src/upgrade/model-failover-proof-policy.js', import.meta.url),
+    'utf8',
+  );
+  assertEqual(proofPolicySource.includes("from './model-failover.js'"), false);
   for (const [key, relativePath, logicalPath] of [
     ['modelProfiles', '../src/upgrade/model-profiles.js', 'src/upgrade/model-profiles.js'],
     ['validationSuites', '../src/upgrade/validation-suites.js', 'src/upgrade/validation-suites.js'],
