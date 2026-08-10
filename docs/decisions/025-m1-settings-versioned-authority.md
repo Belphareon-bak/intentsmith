@@ -1,8 +1,10 @@
 # 025 — obecná settings cesta potřebuje verzovaný read/write a stale-write autoritu
 
 - **typ:** veřejný connector a datová autorita
-- **stav:** `ACCEPTED 2026-08-11: A / IMPLEMENTATION_PENDING`; implementaci
-  aktivuje až ohraničený WP založený z přijatého docs checkpointu
+- **stav:** `ACCEPTED 2026-08-11: A / WP_ACTIVE / IMPLEMENTATION_NOT_STARTED`;
+  ohraničený
+  [`WP-M1-SETTINGS-VERSIONED-AUTHORITY`](../wp/WP-M1-SETTINGS-VERSIONED-AUTHORITY.md)
+  je aktivovaný z přijatého docs checkpointu
 - **finding:** [011 — user_settings authority](../findings/011-user-settings-authority-and-secret-exposure.md)
 - **předpoklad:** F-A je `PROMOTED / REVIEW A+B PASS`
 

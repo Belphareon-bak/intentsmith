@@ -104,10 +104,17 @@ zůstávají oddělené a každá vyžaduje vlastní subject, Review A i Review 
 | 4 | [026 — secret storage authority](../decisions/026-m1-secret-storage-authority.md) | A | ověřený env transfer a odstranění credentials z aplikačních dat |
 | 5 | [029 — settings reset scope](../decisions/029-m1-settings-reset-scope.md) | A | settings-only reset a ukončení legacy aliasu |
 
-Všech pět je `ACCEPTED / IMPLEMENTATION_PENDING`. Závazná sekvence je
-`025 → 027 → 028 → 026 → 029`; 025 začne až z čistého docs checkpointu, ostatní
-kroky až po přijetí předchozího candidate. Finding 011 zůstává `OPEN` a Gate 1
-`BLOCKED`, dokud neprojdou implementace a nezávislá review.
+025 je `WP_ACTIVE / IMPLEMENTATION_NOT_STARTED`; 026–029 zůstávají
+`ACCEPTED / IMPLEMENTATION_PENDING`. Závazná sekvence je
+`025 → 027 → 028 → 026 → 029`; ostatní kroky začnou až po přijetí předchozího
+candidate. Finding 011 zůstává `OPEN` a Gate 1 `BLOCKED`, dokud neprojdou
+implementace a nezávislá review.
+
+025 má nyní aktivovaný ohraničený
+[`WP-M1-SETTINGS-VERSIONED-AUTHORITY`](../wp/WP-M1-SETTINGS-VERSIONED-AUTHORITY.md)
+se source evidence `68cd6a0d`. Exact base je aktivační commit obsahující tento
+WP a vznikne před prvním source zápisem v samostatném worktree. Jde pouze o
+aktivaci práce: revision/CAS ani legacy `410` ještě nejsou implementované.
 
 Ohraničené navazující položky: Architect a Center Views zatím nemají bounded
 fetch timeout; raw compatibility objekt s vlastním `kind`/`schemaVersion` je

@@ -1347,6 +1347,13 @@ mohou pokračovat.
    vznik ohraničeného WP, samo není implementací, Finding 011 zůstává `OPEN` a
    Gate 1 `BLOCKED`.
 
+   První krok je nyní aktivovaný jako
+   [`WP-M1-SETTINGS-VERSIONED-AUTHORITY`](docs/wp/WP-M1-SETTINGS-VERSIONED-AUTHORITY.md).
+   Jeho source evidence je přijatý docs checkpoint `68cd6a0d`; exact integrační
+   base bude aktivační commit s tímto WP a připne jej unikátní run report.
+   Implementace začíná až v samostatném worktree. Aktivace nemění status
+   Findingu ani Gate 1 a nespouští Electron build.
+
    Konsolidovaný M1 base je formálně přijatý na
    `integration/m1-consolidated-20260810`; wire Review B evidence obálka
    `58741fb9` je dosažitelná z aktuálního remote tipu. Původní konsolidační
