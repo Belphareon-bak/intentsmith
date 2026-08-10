@@ -2242,12 +2242,12 @@ function renderNavBar() {
     // absent, and locked means not tappable, not merely paler (§10).
     if (item.locked) {
       return `<span class="nav-tab" data-nav="${esc(item.id)}" role="tab" aria-disabled="true" aria-selected="false">
-        ${icon('lock')}<span class="nav-tab-label">${esc(item.label)}</span>
+        ${icon('lock')}<span class="nav-tab-label" data-label="${esc(item.label)}">${esc(item.label)}</span>
       </span>`;
     }
     return `<button class="nav-tab" data-act="go" data-route="${esc(item.route)}" data-nav="${esc(item.id)}"`
       + ` role="tab" aria-selected="${current}"${current ? ' aria-current="page"' : ''}>`
-      + `${icon(item.icon)}<span class="nav-tab-label">${esc(item.label)}</span>`
+      + `${icon(item.icon)}<span class="nav-tab-label" data-label="${esc(item.label)}">${esc(item.label)}</span>`
       + `${count ? `<span class="nav-count">${count}</span>` : ''}</button>`;
   }).join('');
 
@@ -2258,25 +2258,166 @@ function renderNavBar() {
     document.body.appendChild(bar);
   }
   bar.dataset.retracted = retracted ? 'true' : 'false';
-  bar.innerHTML = `<div class="navbar-track" role="tablist" aria-label="Sekce aplikace">${tabs}</div>`;
+
+  // Rebuilding the track on every render threw away its scroll position, so the
+  // ring slid back from the left edge each time anything at all re-rendered —
+  // including the RunSilence ticker, once per second.  It also undid any scroll
+  // the user had made by hand.  The markup is therefore only replaced when the
+  // *items* change; a change of selection is applied in place.
+  const signature = items.map(item => `${item.id}:${item.label}:${navCount(item) || 0}:${item.locked ? 'L' : ''}`).join('|');
+  // `querySelector` is absent in the markup-level test harness, where the bar's
+  // contents live only as an innerHTML string.  Falling back to a rebuild there
+  // keeps this readable in both worlds; the in-place path is what the browser
+  // suite exercises, and it is the only place it can be exercised.
+  let track = bar.querySelector?.('.navbar-track');
+  if (!track || bar.dataset.signature !== signature) {
+    bar.innerHTML = `<div class="navbar-track" role="tablist" aria-label="Sekce aplikace">${tabs}</div>`;
+    bar.dataset.signature = signature;
+    track = bar.querySelector?.('.navbar-track');
+  } else {
+    for (const tab of track.querySelectorAll('[data-nav]')) {
+      const current = tab.dataset.nav === section;
+      if (tab.getAttribute('aria-disabled') === 'true') continue;
+      tab.setAttribute('aria-selected', String(current));
+      if (current) tab.setAttribute('aria-current', 'page');
+      else tab.removeAttribute('aria-current');
+    }
+  }
+
   if (retracted) document.body.classList.remove('has-navbar');
   else document.body.classList.add('has-navbar');
 
-  if (!retracted) centreNavOnSelection();
+  if (!retracted) layoutNavRing(track);
 }
 
 /**
- * The ring turning.  The same arithmetic serves the accessibility half of
- * D-UI-3: every item is in the tree even off-screen, and reaching one by
- * keyboard or screen reader has to bring it into view.
+ * §3.1 — the ring only turns when there is something to turn.
+ *
+ * The bar used to scroll unconditionally: half a viewport of padding on each
+ * side made every set scrollable, so choosing a tab slid the whole bar sideways
+ * and pushed its neighbours off the edge even when all four items fitted on
+ * screen with room to spare.  Movement with no purpose is the "why did it jump"
+ * this fixes.
+ *
+ * So the bar has two states, decided by measurement rather than by item count:
+ *
+ *   fits    — no padding, no scrolling, nothing moves when the selection does.
+ *   crowded — the ring: the chosen item travels to the middle, and what leaves
+ *             one edge comes back at the other.
+ */
+function layoutNavRing(track) {
+  if (!track || typeof track.clientWidth !== 'number' || typeof track.querySelector !== 'function') return;
+  const tabs = [...track.children].filter(child => !child.dataset?.clone);
+  if (!tabs.length) return;
+
+  const measure = element => (typeof element.getBoundingClientRect === 'function'
+    ? element.getBoundingClientRect().width
+    : element.offsetWidth || 0);
+  const setWidth = tabs.reduce((total, tab) => total + measure(tab), 0) + (tabs.length - 1) * NAV_GAP_PX;
+  const fits = setWidth <= track.clientWidth;
+
+  track.dataset.ring = fits ? 'off' : 'on';
+  if (fits) {
+    removeNavClones(track);
+    track.scrollLeft = 0;
+    return;
+  }
+
+  const fresh = ensureNavClones(track, tabs);
+  if (fresh) {
+    // Start the ring standing on the real set.  Left at zero it would be at the
+    // far edge of the leading clones, and the shortest way to the middle would
+    // be computed from a position the ring never actually occupies.
+    const behaviour = track.style.scrollBehavior;
+    track.style.scrollBehavior = 'auto';
+    track.scrollLeft = navSetWidth(track);
+    track.style.scrollBehavior = behaviour;
+  }
+  centreNavOnSelection();
+}
+
+const NAV_GAP_PX = 2;
+
+/**
+ * The ring is made continuous by flanking the real items with two hidden
+ * copies, so scrolling past either end lands on identical material and can be
+ * silently re-based.  The copies are `aria-hidden` and unfocusable: a screen
+ * reader must hear each section once, not three times.
+ */
+function ensureNavClones(track, tabs) {
+  if (track.querySelector('[data-clone]')) return false;
+  const clone = side => tabs.map(tab => {
+    const copy = tab.cloneNode(true);
+    copy.dataset.clone = side;
+    copy.setAttribute('aria-hidden', 'true');
+    copy.setAttribute('tabindex', '-1');
+    copy.removeAttribute('aria-current');
+    return copy;
+  });
+  for (const copy of clone('before').reverse()) track.insertBefore(copy, track.firstChild);
+  for (const copy of clone('after')) track.appendChild(copy);
+  return true;
+}
+
+function removeNavClones(track) {
+  for (const copy of track.querySelectorAll('[data-clone]')) copy.remove();
+}
+
+/** The width of one full set of items, used to re-base the ring. */
+function navSetWidth(track) {
+  const tabs = [...track.children].filter(child => !child.dataset?.clone);
+  if (!tabs.length) return 0;
+  const width = tabs.reduce((total, tab) => total + (tab.getBoundingClientRect?.().width ?? tab.offsetWidth ?? 0), 0);
+  return width + tabs.length * NAV_GAP_PX;
+}
+
+/**
+ * Bring the selected item to the middle by the shortest way round.
+ *
+ * Going the short way is what makes the ring read as a ring: stepping from the
+ * last item to the first should turn one place forwards, not four places back.
  */
 function centreNavOnSelection(target = null) {
   const track = navElement()?.querySelector?.('.navbar-track');
-  const selected = target || track?.querySelector?.('[aria-current="page"]');
+  const selected = target || track?.querySelector?.('[aria-current="page"]:not([data-clone])');
   if (!track || !selected || typeof selected.offsetLeft !== 'number') return;
-  const left = Math.max(0, selected.offsetLeft - (track.clientWidth - selected.offsetWidth) / 2);
+
+  const centre = selected.offsetLeft - (track.clientWidth - selected.offsetWidth) / 2;
+  let left = centre;
+  if (track.dataset.ring === 'on') {
+    const setWidth = navSetWidth(track);
+    // Three candidates: this turn, one turn back, one turn on.  The nearest to
+    // where the ring already stands is the short way round.
+    left = [centre - setWidth, centre, centre + setWidth]
+      .reduce((best, candidate) => (
+        Math.abs(candidate - track.scrollLeft) < Math.abs(best - track.scrollLeft) ? candidate : best
+      ));
+  } else {
+    left = Math.max(0, centre);
+  }
+
   if (typeof track.scrollTo === 'function') track.scrollTo({ left, behavior: 'smooth' });
   else track.scrollLeft = left;
+}
+
+/**
+ * Re-base the ring once a turn has settled, so it never runs out of material.
+ * The jump is invisible because the content one set away is identical.
+ */
+function normaliseNavRing(track) {
+  if (!track || track.dataset.ring !== 'on') return;
+  const setWidth = navSetWidth(track);
+  if (setWidth <= 0) return;
+  const behaviour = track.style.scrollBehavior;
+  if (track.scrollLeft < setWidth * 0.5) {
+    track.style.scrollBehavior = 'auto';
+    track.scrollLeft += setWidth;
+    track.style.scrollBehavior = behaviour;
+  } else if (track.scrollLeft > setWidth * 1.5) {
+    track.style.scrollBehavior = 'auto';
+    track.scrollLeft -= setWidth;
+    track.style.scrollBehavior = behaviour;
+  }
 }
 
 // ── Render ──────────────────────────────────────────────────────────────────
@@ -3629,6 +3770,13 @@ document.addEventListener('scroll', event => {
   loadOlderMessages();
 }, true);
 
+// §3.1 — keep the ring supplied with material as it turns, including when the
+// turn came from the user's finger rather than from a tap.
+document.addEventListener('scroll', event => {
+  const track = event.target;
+  if (track?.classList?.contains?.('navbar-track')) normaliseNavRing(track);
+}, true);
+
 document.addEventListener('keydown', event => {
   if (event.target.id === 'composer-input' && event.key === 'Enter' && !event.shiftKey) {
     // Desktop-style send; on a soft keyboard Enter usually inserts a newline
@@ -3752,7 +3900,7 @@ export const __ms20 = {
   render, navigate, viewOperations, ms20Entries,
   trustBar, trustZones, withTrustBar, screenLocks, serverNow,
   viewOverview, navItems, currentSection, sectionRoute, unknownScopes, NAV_ITEMS, ROUTE_SECTION,
-  renderNavBar, navCount, newChat,
+  renderNavBar, navCount, newChat, layoutNavRing, normaliseNavRing, centreNavOnSelection,
   viewChat, threadBoundary, loadThread, loadOlderMessages, threadWindowOf, THREAD_PAGE_SIZE,
   runSilence, runSilenceEntries, overviewRunSilence,
   approvalCountdown, approvalWindowMinutes, approvalRow, serverTimeMs,

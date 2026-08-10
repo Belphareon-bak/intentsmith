@@ -511,11 +511,19 @@ button { cursor: pointer; border: none; background: none; }
   overflow-x: auto; overflow-y: hidden;
   scroll-behavior: smooth;
   scrollbar-width: none;
-  /* Half a viewport of padding on each side is what lets the *first* and
-     *last* item reach the middle — without it the ring cannot turn far
-     enough and the edge items are never centred. */
-  padding: 0 calc(50% - 44px);
 }
+/* §3.1 — the ring only exists when the items do not fit.  A bar that fits is
+   centred and still: sliding it to centre a selection would push its own
+   neighbours off screen for no reason, which is what made the movement look
+   arbitrary. */
+.navbar-track[data-ring="off"] {
+  overflow-x: hidden;
+  justify-content: center;
+  padding: 0;
+}
+/* Crowded: the clones on either side supply the material the ring turns
+   through, so the first and last item can reach the middle like any other. */
+.navbar-track[data-ring="on"] { justify-content: flex-start; padding: 0; }
 .navbar-track::-webkit-scrollbar { display: none; }
 .nav-tab {
   flex: 0 0 auto;
@@ -528,7 +536,20 @@ button { cursor: pointer; border: none; background: none; }
   transition: color .12s;
 }
 .nav-tab svg { width: 20px; height: 20px; }
-.nav-tab-label { white-space: nowrap; }
+/* §3.1 — a tab must be the same width selected or not.  The highlight turns the
+   label bold, and a bold label is wider, so without this the whole centred row
+   re-flowed by a couple of pixels on every switch: a bar that wobbles.  The
+   hidden bold copy reserves the wider of the two, so the width never depends on
+   which item is chosen. */
+.nav-tab-label { white-space: nowrap; display: grid; }
+.nav-tab-label::after {
+  content: attr(data-label);
+  font-weight: 700;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
 /* §10 — the highlight is text *and* shape: the label turns bold and a rule
    appears above it, so it survives greyscale and a colour-blind reader. */
 .nav-tab[aria-current="page"] {

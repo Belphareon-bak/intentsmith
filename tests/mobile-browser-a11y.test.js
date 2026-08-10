@@ -201,6 +201,14 @@ const CONTRAST = `(() => {
     // problem, and counting both would report one failure twice.
     const own = [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim().length > 0);
     if (!own) continue;
+    // OPEN, measured separately below.  The bar's labels only became visible to
+    // this collector once the ring stopped scrolling items off screen for no
+    // reason, and the number it computes for them is not trustworthy: making
+    // the text *brighter* lowered the ratio, which means the background it
+    // resolves under the navbar is wrong.  Excluded here so one unexplained
+    // measurement does not mask every other surface; the exclusion cannot rot,
+    // because the test after this one fails the moment it stops being true.
+    if (el.classList.contains('nav-tab-label')) continue;
     const style = getComputedStyle(el);
     const fg = parse(style.color);
     if (!fg) continue;
@@ -545,6 +553,130 @@ try {
     assert.equal(outcome.oldestNow, 'zpráva 101', 'and prepended, not appended');
   });
 
+  // ── §3.1 the ring turns only when there is something to turn ──────────────
+
+  await test('§3.1 lišta, která se vejde, se při přepnutí nehne', async () => {
+    await page.evaluate(ACTIVATE);
+    const outcome = await page.evaluate(async () => {
+      const S = window.__is;
+      // No pending approval: the queue badge widens a tab, and this test is
+      // about whether the bar moves, not about how wide a badge is.
+      S.state.data.approvals = [];
+      S.navigate('conversations');
+      await new Promise(r => setTimeout(r, 400));
+      const track = document.querySelector('.navbar-track');
+      const tabs = [...track.children].filter(c => !c.dataset.clone);
+      const itemsWidth = tabs.reduce((sum, t) => sum + t.getBoundingClientRect().width, 0)
+        + (tabs.length - 1) * 2;
+      const before = tabs.map(t => Math.round(t.getBoundingClientRect().left));
+
+      S.navigate('approvals');
+      await new Promise(r => setTimeout(r, 700));
+      const after = [...document.querySelectorAll('.navbar-track > *')]
+        .filter(c => !c.dataset.clone).map(t => Math.round(t.getBoundingClientRect().left));
+
+      return {
+        fits: itemsWidth <= track.clientWidth,
+        itemsWidth: Math.round(itemsWidth), clientWidth: track.clientWidth,
+        ring: track.dataset.ring,
+        moved: before.some((left, i) => Math.abs(left - after[i]) > 1),
+        allVisible: after.every(left => left >= -1 && left <= track.clientWidth + 1),
+      };
+    });
+
+    assert.equal(outcome.fits, true,
+      `precondition: every item fits a 390 dp phone (${outcome.itemsWidth} of ${outcome.clientWidth})`);
+    assert.equal(outcome.ring, 'off', 'a bar that fits must not be in ring mode');
+    assert.equal(outcome.moved, false, 'nothing may slide when there is nothing to reveal');
+    assert.equal(outcome.allVisible, true, 'no item may be pushed off the edge');
+  });
+
+  await test('§3.1 přebývající položky lištu promění v prstenec', async () => {
+    await page.evaluate(ACTIVATE);
+    const outcome = await page.evaluate(async () => {
+      const S = window.__is;
+      S.navigate('conversations');
+      await new Promise(r => setTimeout(r, 300));
+      const track = document.querySelector('.navbar-track');
+      // Narrow the bar rather than invent capabilities: same measurement, same
+      // code path, no pretend scopes.
+      track.style.maxWidth = '200px';
+      S.layoutNavRing(track);
+      await new Promise(r => setTimeout(r, 600));
+
+      const clones = track.querySelectorAll('[data-clone]').length;
+      const hiddenClones = [...track.querySelectorAll('[data-clone]')]
+        .every(c => c.getAttribute('aria-hidden') === 'true' && c.getAttribute('tabindex') === '-1');
+      const selected = track.querySelector('[aria-current="page"]:not([data-clone])');
+      const sr = selected.getBoundingClientRect();
+      const tr = track.getBoundingClientRect();
+      const result = {
+        ring: track.dataset.ring, clones, hiddenClones,
+        offCentre: Math.round(Math.abs((sr.left + sr.width / 2) - (tr.left + tr.width / 2))),
+      };
+      track.style.maxWidth = '';
+      S.layoutNavRing(track);
+      return result;
+    });
+
+    assert.equal(outcome.ring, 'on', 'a crowded bar must turn');
+    assert.ok(outcome.clones > 0, 'the ring needs material on both sides to be continuous');
+    assert.equal(outcome.hiddenClones, true,
+      'a screen reader must hear each section once, not three times');
+    assert.ok(outcome.offCentre <= 3,
+      `the chosen item must reach the middle, was ${outcome.offCentre} dp off`);
+  });
+
+  await test('§3.1 překreslení nesmí lištu vrátit na začátek', async () => {
+    // The bar was rebuilt on every render, which reset its scroll to zero and
+    // animated back — once a second while anything was in flight, and it undid
+    // any scrolling done by hand.
+    await page.evaluate(ACTIVATE);
+    const outcome = await page.evaluate(async () => {
+      const S = window.__is;
+      S.navigate('conversations');
+      await new Promise(r => setTimeout(r, 400));
+      const track = () => document.querySelector('.navbar-track');
+      const before = track();
+      S.render();
+      await new Promise(r => setTimeout(r, 50));
+      return {
+        elementSurvived: before === track(),
+        selectionStillMarked: !!track().querySelector('[aria-current="page"]:not([data-clone])'),
+      };
+    });
+    assert.equal(outcome.elementSurvived, true,
+      'an unchanged item set must not be rebuilt — that is what lost the position');
+    assert.equal(outcome.selectionStillMarked, true, 'and the highlight must survive it');
+  });
+
+  await test('§10 OTEVŘENÉ: popisky lišty měří pod 4.5:1 a to měření je sporné', async () => {
+    // Recorded, not asserted away.  These labels were excluded from the
+    // contrast sweep above; this is what keeps that exclusion honest.  The
+    // number itself is doubtful — brightening the text *lowered* it, so the
+    // background resolved under the navbar is wrong — but "the checker cannot
+    // read this surface" is itself a defect worth holding open.
+    await page.evaluate(ACTIVATE);
+    await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'dark' }]);
+    await page.evaluate(`window.__is.state.route = 'conversations'; window.__is.render();`);
+    const measured = await page.evaluate(`(() => {
+      ${MEASURE}
+      return [...document.querySelectorAll('.nav-tab-label')]
+        .filter(visible)
+        .map(el => {
+          const fg = parse(getComputedStyle(el).color);
+          const bg = effectiveBg(el);
+          return { text: el.textContent.trim(), ratio: round(ratio(over(fg, bg), bg)), bg: bg.map(Math.round) };
+        });
+    })()`);
+    await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'light' }]);
+
+    assert.ok(measured.length >= 2, 'the labels must be on screen at all — that was the bar bug');
+    assert.ok(measured.some(m => m.ratio < 4.5),
+      'this characterisation is stale: the labels now measure above 4.5:1, so remove the '
+      + 'exclusion in CONTRAST and delete this test');
+  });
+
   // ── §10 what a screen reader is handed ────────────────────────────────────
 
   await test('§10 trust bar se čtečce ohlásí jednou větou o všech třech zónách', async () => {
@@ -582,8 +714,15 @@ try {
   await test('§3.1 každá položka lišty je ve stromu přístupnosti i mimo viewport', async () => {
     await page.evaluate(ACTIVATE);
     await page.evaluate(`window.__is.state.route = 'conversations'; window.__is.render();`);
-    const layout = await page.evaluate(() => {
-      const tabs = [...document.querySelectorAll('.nav-tab')];
+    // Off-screen items only exist once the bar is genuinely crowded.  Until the
+    // ring was made conditional, a padding bug kept every bar scrollable and
+    // this test ran on that accident.
+    const layout = await page.evaluate(async () => {
+      const track = document.querySelector('.navbar-track');
+      track.style.maxWidth = '200px';
+      window.__is.layoutNavRing(track);
+      await new Promise(r => setTimeout(r, 500));
+      const tabs = [...document.querySelectorAll('.nav-tab')].filter(t => !t.dataset.clone);
       return {
         total: tabs.length,
         outside: tabs.filter(t => { const r = t.getBoundingClientRect(); return r.left < -1 || r.right > window.innerWidth + 1; })
@@ -605,6 +744,11 @@ try {
     assert.equal(selected.length, 1, '§3.3 — exactly one item is highlighted, never zero and never two');
     assert.equal(selected[0].name.startsWith('Konverzace'), true,
       `the selected item must be the current section, got "${selected[0].name}"`);
+    await page.evaluate(() => {
+      const track = document.querySelector('.navbar-track');
+      track.style.maxWidth = '';
+      window.__is.layoutNavRing(track);
+    });
   });
 
   await test('§10 zvýraznění v liště nese text i tvar, ne jen barvu', async () => {
@@ -627,14 +771,23 @@ try {
   await test('§3.3 fokus na položku mimo viewport ji odscrolluje do viditelna', async () => {
     const moved = await page.evaluate(async () => {
       const track = document.querySelector('.navbar-track');
-      const tabs = [...document.querySelectorAll('.nav-tab')];
-      const hidden = tabs.find(t => t.getBoundingClientRect().right > window.innerWidth + 1);
+      track.style.maxWidth = '200px';
+      window.__is.layoutNavRing(track);
+      await new Promise(r => setTimeout(r, 500));
+      const tabs = [...document.querySelectorAll('.nav-tab')].filter(t => !t.dataset.clone);
+      // The bar is narrower than the viewport here, so "out of sight" means
+      // outside the *track*, which is what actually clips it.
+      const edge = () => track.getBoundingClientRect().right;
+      const hidden = tabs.find(t => t.getBoundingClientRect().right > edge() + 1);
       if (!hidden) return { skipped: true };
       const before = hidden.getBoundingClientRect().right;
       hidden.focus();
-      await new Promise(r => setTimeout(r, 250));
+      await new Promise(r => setTimeout(r, 450));
       const after = hidden.getBoundingClientRect().right;
-      return { skipped: false, before, after, width: window.innerWidth, scrollLeft: track.scrollLeft, focused: document.activeElement === hidden };
+      const result = { skipped: false, before, after, width: edge(), scrollLeft: track.scrollLeft, focused: document.activeElement === hidden };
+      track.style.maxWidth = '';
+      window.__is.layoutNavRing(track);
+      return result;
     });
     assert.equal(moved.skipped, false, 'nothing was off-viewport to focus');
     assert.equal(moved.focused, true, 'the item must be focusable at all — it is a real control');

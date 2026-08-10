@@ -130,7 +130,9 @@ function tabs() {
   return navHtml().match(/<(?:button|span) class="nav-tab"[\s\S]*?<\/(?:button|span)>/g) || [];
 }
 function labels() {
-  return tabs().map(tab => (tab.match(/nav-tab-label">([^<]+)</) || [])[1]);
+  // The label span carries `data-label` so the bold width can be reserved
+  // (§3.1), so match past any attributes rather than assuming the tag ends here.
+  return tabs().map(tab => (tab.match(/nav-tab-label"[^>]*>([^<]+)</) || [])[1]);
 }
 function highlighted() {
   return tabs().filter(tab => tab.includes('aria-current="page"'));
@@ -378,7 +380,7 @@ await test('§10 every item stays in the accessibility tree, including off-scree
     assert.ok(!/aria-hidden/.test(withoutIcons),
       `an item was hidden from assistive technology to fit the viewport: ${tab}`);
     assert.match(tab, /<svg[^>]*aria-hidden="true"/, `a decorative icon is announced as content: ${tab}`);
-    assert.match(tab, /nav-tab-label">[^<]+</, `an item carries no readable label: ${tab}`);
+    assert.match(tab, /nav-tab-label"[^>]*>[^<]+</, `an item carries no readable label: ${tab}`);
     assert.match(tab, /role="tab"/);
   }
   assert.match(navHtml(), /role="tablist"/);
