@@ -724,6 +724,144 @@ try {
       + 'exclusion in CONTRAST and delete this test');
   });
 
+  // ── §3.1 sections arrive from the side ────────────────────────────────────
+  //
+  // What is worth testing here is not the pixels of the animation but the state
+  // it leaves behind.  An earlier attempt animated correctly and still had to be
+  // reverted, because the structure it needed while running was also there when
+  // it was not, and everything that measures geometry read it.  So the load-
+  // bearing assertion is the invariant: once a turn is over, the document is
+  // indistinguishable from one where no animation exists.
+
+  /** The whole resting contract, in one place.
+   *
+   * Note what is *not* asserted: a fixed number of children.  `#app` holds the
+   * screen's own elements — header, scroll region, composer — so the count is a
+   * property of the screen, not of the animation.  What must hold is that the
+   * count is the same as after a plain repaint of the same screen, and that
+   * nothing the animation owns is left anywhere. */
+  const AT_REST = `(() => {
+    const app = document.getElementById('app');
+    return {
+      children: app.children.length,
+      direction: document.documentElement.dataset.screenSlide ?? null,
+      inlineTransforms: [...app.querySelectorAll('[style*="transform"]')].length,
+      strayLayers: document.querySelectorAll('.screen, .transition-overlay, [data-clone-screen]').length,
+      sliding: app.className,
+    };
+  })()`;
+
+  await test('§3.1 po dojet\xed nen\xed po p\u0159echodu ani stopa', async () => {
+    await page.evaluate(ACTIVATE);
+    await page.evaluate(`window.__is.navigate('conversations')`);
+    await new Promise(r => setTimeout(r, 700));
+    const before = await page.evaluate(AT_REST);
+
+    await page.evaluate(`window.__is.navigate('approvals')`);
+    await new Promise(r => setTimeout(r, 900));
+    const after = await page.evaluate(AT_REST);
+
+    // Same screen, reached by turning instead of repainting: the document must
+    // not be able to tell the difference.
+    const plain = await page.evaluate(async () => {
+      window.__is.render();
+      await new Promise(r => setTimeout(r, 120));
+      return document.getElementById('app').children.length;
+    });
+    assert.equal(after.children, plain,
+      `turning left ${after.children} children where a plain repaint leaves ${plain}`);
+    assert.equal(after.direction, null, 'the direction attribute outlived the turn');
+    assert.equal(after.inlineTransforms, 0, 'an inline transform was left on the screen');
+    assert.equal(after.strayLayers, 0, 'a layer from the animation is still in the tree');
+    assert.equal(after.sliding, before.sliding, '#app kept a class the animation added');
+  });
+
+  await test('§3.1 zm\u011bna sekce opravdu proch\xe1z\xed p\u0159echodem', async () => {
+    // Without this the invariant above would also pass on an app that never
+    // animates at all.
+    await page.evaluate(ACTIVATE);
+    await page.evaluate(`window.__is.navigate('conversations')`);
+    await new Promise(r => setTimeout(r, 700));
+
+    const seen = await page.evaluate(async () => {
+      const S = window.__is;
+      let started = 0;
+      const real = document.startViewTransition.bind(document);
+      document.startViewTransition = cb => { started++; return real(cb); };
+      try {
+        S.navigate('approvals');
+        await new Promise(r => setTimeout(r, 40));
+        const during = document.documentElement.dataset.screenSlide ?? null;
+        await new Promise(r => setTimeout(r, 900));
+        return { started, during };
+      } finally { document.startViewTransition = real; }
+    });
+
+    assert.equal(seen.started, 1, 'the section changed without going through a transition');
+    assert.equal(seen.during, 'right', 'moving on in the loop must arrive from the right');
+  });
+
+  await test('§3.1 rychl\xe9 p\u0159ep\xedn\xe1n\xed nenaskl\xe1d\xe1 p\u0159echody na sebe', async () => {
+    await page.evaluate(ACTIVATE);
+    await page.evaluate(`window.__is.navigate('conversations')`);
+    await new Promise(r => setTimeout(r, 700));
+
+    const outcome = await page.evaluate(async () => {
+      const S = window.__is;
+      let started = 0;
+      const real = document.startViewTransition.bind(document);
+      document.startViewTransition = cb => { started++; return real(cb); };
+      try {
+        // Three swipes inside the length of one turn.
+        S.navigate('approvals');
+        await new Promise(r => setTimeout(r, 30));
+        S.navigate('diagnostics');
+        await new Promise(r => setTimeout(r, 30));
+        S.navigate('conversations');
+        await new Promise(r => setTimeout(r, 1100));
+        return { started, route: S.state.route };
+      } finally { document.startViewTransition = real; }
+    });
+
+    assert.equal(outcome.started, 1, 'a second turn began while the first was still running');
+    assert.equal(outcome.route, 'conversations', 'the last section asked for must be the one shown');
+    const rest = await page.evaluate(AT_REST);
+    assert.equal(rest.strayLayers, 0, 'rapid switching left a layer behind');
+    assert.equal(rest.inlineTransforms, 0, 'rapid switching left an inline transform behind');
+    assert.equal(rest.direction, null, 'rapid switching left the direction attribute set');
+  });
+
+  await test('§3.1 kdo si \u017e\xe1d\xe1 m\xe9n\u011b pohybu, dostane prost\xe9 p\u0159ekreslen\xed', async () => {
+    await page.emulateMediaFeatures([
+      { name: 'prefers-color-scheme', value: 'light' },
+      { name: 'prefers-reduced-motion', value: 'reduce' },
+    ]);
+    await page.evaluate(ACTIVATE);
+    await page.evaluate(`window.__is.navigate('conversations')`);
+    await new Promise(r => setTimeout(r, 500));
+
+    const started = await page.evaluate(async () => {
+      const S = window.__is;
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        throw new Error('the fixture did not take the reduced-motion emulation');
+      }
+      let count = 0;
+      const real = document.startViewTransition.bind(document);
+      document.startViewTransition = cb => { count++; return real(cb); };
+      try {
+        S.navigate('approvals');
+        await new Promise(r => setTimeout(r, 500));
+        return count;
+      } finally { document.startViewTransition = real; }
+    });
+    await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'light' }]);
+
+    assert.equal(started, 0, 'a reader who asked for less motion was animated at anyway');
+    const rest = await page.evaluate(AT_REST);
+    assert.equal(rest.strayLayers, 0);
+    assert.equal(rest.direction, null);
+  });
+
   // ── §10 what a screen reader is handed ────────────────────────────────────
 
   await test('§10 trust bar se čtečce ohlásí jednou větou o všech třech zónách', async () => {

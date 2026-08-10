@@ -2539,12 +2539,90 @@ function normaliseNavRing(track) {
   }
 }
 
+// ── §3.1 sections arrive from the side ──────────────────────────────────────
+//
+// Operator, 2026-08-10: "no flicker, no loading from zero" — and, decisively,
+// the animation must not become part of the app's permanent structure.  An
+// earlier attempt wrapped every screen in a layer so two could travel side by
+// side; it worked, and it also moved the ground under every test that measures
+// contrast, touch targets and heights, because those measure through whatever
+// sits between `.app` and the screen.
+//
+// So nothing sits between them.  The browser's own View Transitions take a
+// snapshot of the old screen and animate it against the new one as
+// pseudo-elements, outside the document: `#app` keeps exactly one child, there
+// is no overlay in the tree, and at rest the DOM is byte-for-byte what it was
+// before this existed.  `render()` therefore knows almost nothing about the
+// animation — it hands over a repaint and the browser does the rest.
+//
+// Where the API is missing or the reader asked for less motion, the repaint
+// happens plainly.  That is a fallback, not a degraded mode.
+
+/** One turn at a time; a second request during a turn simply lands. */
+let screenTurnActive = false;
+let screenTurnFailsafe = null;
+
+function paintScreen(markup, slideFrom) {
+  const paint = () => { $app.innerHTML = markup; };
+
+  if (!slideFrom || screenTurnActive || prefersReducedMotion()
+      || typeof document.startViewTransition !== 'function') {
+    paint();
+    return;
+  }
+
+  document.documentElement.dataset.screenSlide = slideFrom;
+  screenTurnActive = true;
+
+  const release = () => {
+    if (!screenTurnActive) return;
+    screenTurnActive = false;
+    clearTimeout(screenTurnFailsafe);
+    delete document.documentElement.dataset.screenSlide;
+  };
+
+  let transition;
+  try {
+    transition = document.startViewTransition(paint);
+  } catch {
+    release();
+    paint();
+    return;
+  }
+  // Both branches, always: a transition that is skipped or interrupted still
+  // has to give the attribute back, or the next repaint inherits a direction.
+  transition.finished.then(release, release);
+  screenTurnFailsafe = setTimeout(release, 1200);
+}
+
+function prefersReducedMotion() {
+  return typeof window?.matchMedia === 'function'
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/**
+ * Which way the ring turned, so the screen arrives from the side its section
+ * came from — the short way round, because the bar is a loop.
+ */
+function slideDirection(from, to) {
+  const order = navItems().map(item => item.id);
+  const a = order.indexOf(from);
+  const b = order.indexOf(to);
+  if (a < 0 || b < 0 || a === b) return null;
+  const forward = (b - a + order.length) % order.length;
+  const backward = (a - b + order.length) % order.length;
+  return forward <= backward ? 'right' : 'left';
+}
+
+let paintedSection = null;
+
 // ── Render ──────────────────────────────────────────────────────────────────
 function render() {
   const sessionView = viewSession();
-  if (sessionView) { $app.innerHTML = withTrustBar(sessionView); renderNavBar(); return; }
+  if (sessionView) { paintedSection = null; $app.innerHTML = withTrustBar(sessionView); renderNavBar(); return; }
 
   if (state.session === 'unpaired') {
+    paintedSection = null;
     $app.innerHTML = withTrustBar(viewPairing({ error: state.error.pairing, busy: state.loading.pairing }));
     renderNavBar();
     return;
@@ -2571,7 +2649,13 @@ function render() {
   }
 
   const screen = withTrustBar((views[state.route] || viewOverview)());
-  $app.innerHTML = screen;
+  // Only a change of *section* travels.  A repaint for a ticker or a finished
+  // load must not move the screen sideways: that would animate the app's own
+  // background noise.
+  const section = currentSection();
+  paintScreen(screen, paintedSection && section !== paintedSection
+    ? slideDirection(paintedSection, section) : null);
+  paintedSection = section;
   renderNavBar();
   // §6.5 — the elapsed clock is the only thing that moves, and it moves only
   // while a strip is actually on screen.  Driving this from the painted markup

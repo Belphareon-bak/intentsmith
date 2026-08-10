@@ -130,6 +130,35 @@ button { cursor: pointer; border: none; background: none; }
    column taller than the viewport. */
 .app { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 
+/* §3.1 — a section arrives from the side.
+   These are the browser's own snapshots of the old and new page, drawn outside
+   the document: nothing here is an element the app owns, so at rest the DOM is
+   exactly what it was before the animation existed.  The bar is snapshotted
+   separately by name so it stays put while the content travels under it. */
+.navbar { view-transition-name: navbar; }
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--screen-slide);
+  animation-timing-function: cubic-bezier(.32, .72, 0, 1);
+  animation-fill-mode: both;
+  mix-blend-mode: normal;
+}
+html[data-screen-slide="right"]::view-transition-old(root) { animation-name: screen-out-left; }
+html[data-screen-slide="right"]::view-transition-new(root) { animation-name: screen-in-right; }
+html[data-screen-slide="left"]::view-transition-old(root)  { animation-name: screen-out-right; }
+html[data-screen-slide="left"]::view-transition-new(root)  { animation-name: screen-in-left; }
+
+@keyframes screen-out-left  { to   { transform: translateX(-100%); } }
+@keyframes screen-in-right  { from { transform: translateX(100%); } }
+@keyframes screen-out-right { to   { transform: translateX(100%); } }
+@keyframes screen-in-left   { from { transform: translateX(-100%); } }
+
+:root { --screen-slide: 260ms; }
+@media (prefers-reduced-motion: reduce) {
+  :root { --screen-slide: 0ms; }
+}
+
 /* ── Boot ──────────────────────────────────────────────────────────────── */
 .boot {
   flex: 1; display: flex; flex-direction: column;

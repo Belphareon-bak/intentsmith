@@ -186,11 +186,32 @@ Zamýšlená sada podle předlohy: `Konverzace`, `Projekty`, `Domů`, `Aktivita`
 | Nativní setrvačnost a dosednutí (`scroll-snap`) | ✅ hotovo |
 | Volba „Skrýt lištu na domovské obrazovce" ve Vzhledu | ✅ hotovo |
 | Zatažení **až po dojetí** na Domů (dva doby) | ✅ hotovo |
-| Vodorovný přesun obsahu mezi sekcemi | ⬜ **pokus vrácen 2026-08-10** — viz níže |
+| Vodorovný přesun obsahu mezi sekcemi | ✅ hotovo — View Transitions, viz níže |
 | Přeskládání pořadí dlouhým stiskem | ⬜ nestaví se |
 | Sada sedmi položek (`Aktivita`, `Agenti`, `Specialisté`) | ⬜ čeká na `capabilities` |
 
-**Přesun obsahu — první pokus byl vrácen, ale nebyl zbytečný.** Zkoušelo se
+**Přesun obsahu stojí na `View Transitions API` (operátor 2026-08-10).**
+Zadané pořadí bylo: A) prověřit nativní View Transitions, B) teprve když
+nevyhoví, dočasný overlay se snapshotem, C) **nevracet se k trvalému obalu se
+dvěma živými obrazovkami**. A vyhovělo.
+
+Prohlížeč si sám sejme starou a novou stránku a animuje je jako pseudo-elementy
+mimo dokument. Důsledek, kvůli kterému to bylo zvolené: **v klidovém stavu je
+DOM totožný s tím, jaký byl, než animace existovala.** `#app` drží přesně to co
+dřív, žádná vrstva navíc, a `render()` o animaci neví skoro nic — předá
+překreslení a zbytek obstará prohlížeč. Lišta má vlastní `view-transition-name`,
+takže stojí, zatímco obsah pod ní jede.
+
+Podmínky, které si to vyžádalo a které hlídají testy: jeden přechod v jednu
+chvíli (další žádost během něj prostě dosedne, nevrství se), úklid ve všech
+větvích včetně timeoutu, a `prefers-reduced-motion` dostane prosté překreslení.
+
+**Testuje se invariant, ne pixely.** Po dojetí musí být dokument nerozeznatelný
+od takového, kde animace neexistuje: stejný počet dětí `#app` jako po prostém
+překreslení, žádný atribut směru, žádný inline `transform`, žádná cizí vrstva.
+To je důležitější než měřit, kudy co letělo.
+
+**První pokus byl vrácen, ale nebyl zbytečný.** Zkoušelo se
 obalit každou obrazovku vrstvou `.screen` a při změně sekce nechat starou
 odjíždět vedle nové (dvě absolutně polohované vrstvy, `transform`, žádná
 knihovna). Proti běžící gateway to **fungovalo a bylo změřené**: uprostřed
@@ -203,7 +224,7 @@ a výška vlákna u `MR-05`. Padaly i před nově přidanými testy, takže to n
 pořadím, ale tou obalovou vrstvou: mění layout tam, kde se měří. Příčina se
 v rámci relace nenašla.
 
-Co si z toho odnést, než to někdo zkusí znovu:
+Co z toho platí dál:
 
 | |
 |---|
