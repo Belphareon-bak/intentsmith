@@ -78,15 +78,10 @@ Connector žije v operator-only scriptu, který importuje existující parent
 script. Produkční `src/**` proto neimportuje `scripts/**`. Test importuje tentýž
 export; nepoužívá alternativní issuer implementaci.
 
-Durable store je jediný per-DB a verzovaný namespace:
-
-```text
-<canonical-main-db-path>.artifacts/model-failover-proofs/v1/sha256/<64hex>.json
-```
-
 Kanonickou file-backed cestu hlavní DB odvozuje issuer z connection authority;
-caller ani environment nesmí root, verzi, digestovou cestu nebo filename
-změnit. Parent checkpoint durable store zatím nevytváří.
+caller ani environment nesmí store root změnit. Exact verzovaný layout je
+implementační kontrakt budoucího issuer subjectu, nikoli parent handoffu.
+Parent checkpoint durable store zatím nevytváří.
 
 ## 4. Source revision, závislosti a pořadí
 

@@ -246,10 +246,9 @@ vrátit pouze nové kopie bytes s bezpečnou path-free projekcí. Clone, forgery
 druhý `take` a callerový path/authority override jsou fail-closed.
 
 Issuer zůstává `IMPLEMENTATION_PENDING`. Durable content-addressed store musí
-být přesně
-`<canonical-main-db-path>.artifacts/model-failover-proofs/v1/sha256/<64hex>.json`;
-namespace je per-DB, verzovaný a caller ani environment jej nemění. Skutečný
-GPU/Ollama běh neproběhl a automatic activation/restore zůstává vypnutá.
+být odvozený z kanonické file-backed DB bez caller/env root override; exact
+verzovaný layout určí až issuer subject. Skutečný GPU/Ollama běh neproběhl a
+automatic activation/restore zůstává vypnutá.
 
 Operátor 2026-08-10 přijal provenance variantu 024/A. Parent handoff je první
 malý implementační checkpoint; vlastní issuer, durable publikace a DB commit

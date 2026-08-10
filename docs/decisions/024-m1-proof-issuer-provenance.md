@@ -28,10 +28,8 @@ Další dvě hrany jsou také potvrzené:
 
 - `PRAGMA foreign_keys` je connection-local a issuer jej musí ověřit těsně
   před vlastní top-level `BEGIN IMMEDIATE`, nikoli pouze při migraci;
-- content-addressed blobs musí žít v interně odvozeném runtime data rootu,
-  přesně
-  `<canonical-main-db-path>.artifacts/model-failover-proofs/v1/sha256/<64hex>.json`.
-  Namespace je per-DB, verzovaný a caller ani environment jej nemění.
+- content-addressed blobs musí žít v interně odvozeném runtime data rootu.
+  Exact layout určí až issuer subject; caller ani environment jeho root nemění.
   Worktree-local artefakt není durable důkaz pro SQLite, která worktree přežije.
 
 ## Varianty
@@ -108,7 +106,7 @@ Přesný potvrzovací blok:
 ```text
 024-provenance: A-ORCHESTRATION-OWNED-PARENT
 024-input: DB-ROLE-PROPOSED-MODEL-ONLY
-024-artifact-root: <canonical-main-db-path>.artifacts/model-failover-proofs/v1/sha256/<64hex>.json
+024-artifact-root: DERIVED-FROM-CANONICAL-FILE-DB
 024-proof-id: MFP-PREFIX-PLUS-ACCEPTANCE-SHA256
 024-retry: NEW-OPERATOR-ACTION-RERUNS-MEASUREMENT
 024-resume: OFF

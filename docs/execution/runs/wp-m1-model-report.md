@@ -2761,10 +2761,10 @@ Focused fixture provedla jeden skutečný parent flow proti test-owned loopback
 provideru a připnula přesně 4 `GET /api/tags` a 8 `POST /api/chat`; opakované
 rechecky nevytvořily žádný další provider efekt. Do checkpointu nevstoupil
 issuer script, migrace, policy, child runner, runtime, DB writer ani registry.
-Budoucí issuer musí publikovat do jediného per-DB verzovaného namespace
-`<canonical-main-db-path>.artifacts/model-failover-proofs/v1/sha256/<64hex>.json`;
-caller ani environment jej nesmí změnit. Issuer se do exact source closure
-přidá až ve vlastním navazujícím commitu.
+Budoucí issuer musí odvodit durable store z kanonické file-backed DB bez
+caller/env root override. Exact verzovaný layout patří až do jeho vlastního
+implementačního subjectu. Issuer se do exact source closure přidá až ve
+vlastním navazujícím commitu.
 
 | Příkaz | Výsledek | Exit |
 |---|---:|---:|
