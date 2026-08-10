@@ -186,9 +186,30 @@ Zamýšlená sada podle předlohy: `Konverzace`, `Projekty`, `Domů`, `Aktivita`
 | Nativní setrvačnost a dosednutí (`scroll-snap`) | ✅ hotovo |
 | Volba „Skrýt lištu na domovské obrazovce" ve Vzhledu | ✅ hotovo |
 | Zatažení **až po dojetí** na Domů (dva doby) | ✅ hotovo |
-| Vodorovný přesun obsahu mezi sekcemi | ⬜ nestaví se |
+| Vodorovný přesun obsahu mezi sekcemi | ⬜ **pokus vrácen 2026-08-10** — viz níže |
 | Přeskládání pořadí dlouhým stiskem | ⬜ nestaví se |
 | Sada sedmi položek (`Aktivita`, `Agenti`, `Specialisté`) | ⬜ čeká na `capabilities` |
+
+**Přesun obsahu — první pokus byl vrácen, ale nebyl zbytečný.** Zkoušelo se
+obalit každou obrazovku vrstvou `.screen` a při změně sekce nechat starou
+odjíždět vedle nové (dvě absolutně polohované vrstvy, `transform`, žádná
+knihovna). Proti běžící gateway to **fungovalo a bylo změřené**: uprostřed
+přesunu dvě vrstvy na −295 px a +95 px, po dojetí jedna na nule, směr se při
+návratu obracel.
+
+Vrátilo se to proto, že v prohlížeční sadě spadlo **sedm testů, z toho čtyři
+s přesunem vůbec nesouvisejí** — kontrast v tmavém režimu, geometrie trust baru
+a výška vlákna u `MR-05`. Padaly i před nově přidanými testy, takže to nebylo
+pořadím, ale tou obalovou vrstvou: mění layout tam, kde se měří. Příčina se
+v rámci relace nenašla.
+
+Co si z toho odnést, než to někdo zkusí znovu:
+
+| |
+|---|
+| Přidat vrstvu mezi `.app` a obrazovku **není** kosmetická změna — měří se přes ni kontrast, dp cíle i výšky |
+| Překreslení, které dorazí **doprostřed** přesunu (doběhlé načtení), nesmí přepsat `#app` celý; jinak zahodí odjíždějící obrazovku a pohyb umře v půlce. Tohle byla skutečná chyba a její oprava platí i pro příští pokus |
+| Ověřovat proti prohlížeční sadě průběžně, ne až na konci: sdílí jednu stránku a stav se dědí mezi testy |
 
 Vizuál brány je zatím funkční, ne dotažený: dvě svislé závory v barvě akcentu,
 ne oblouky ze zlaté varianty předlohy.
