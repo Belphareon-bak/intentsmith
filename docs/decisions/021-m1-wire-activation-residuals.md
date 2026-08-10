@@ -165,6 +165,8 @@ candidate změnit z focused PASS na built evidence.
 021-attachment-server-revalidation: REQUIRED-BEFORE-CONTROLLER
 021-electron-file-source: USER-GESTURE-BYTES-OR-TYPED-NOT_SENT
 021-binary-policy: REJECT
+W1-m1-wire: DEFAULT-ON-SERVER-ENTRYPOINT-ONLY
+W1-electron: NOT-RUN-DEFERRED
 ```
 
 Operátor původní blok přijal 2026-08-09 a 2026-08-10 výslovně rozdělil source
@@ -181,8 +183,14 @@ inline DTO, klientský i serverový count/item/aggregate/frame guard, druhé
 serverové měření a typovaný nereplayovatelný `NOT_SENT`. Source activation
 candidate nyní skládá policy výhradně z runtime configu: `maxCount=8`, decoded
 aggregate `6 MiB`, celý UTF-8 frame `12 MiB` a stávající item capy `1 MiB` text
-/ `5 MiB` image. Produkční composition používá default-on
-`C3_ENABLE_M1_WIRE`, ale required-offer sémantika zachovává legacy klienta.
+/ `5 MiB` image. `DEFAULT-ON` platí výhradně pro produkční entrypoint:
+`src/server.js` importuje `runtime-environment.js` před `config.js`, bootstrap
+při chybějící hodnotě kanonizuje `C3_ENABLE_M1_WIRE` na přesný string `true` a
+teprve potom jej `config.js` vyhodnotí přes `=== 'true'`. Samostatný import
+`config.js` ani přímé sestavení WS seamu default-on autoritu nemají;
+`ws-server.js` navíc vyžaduje explicitní boolean `true`, validní policy a
+client offer. Required-offer sémantika zachovává legacy klienta. Electron
+build/journey nad tímto source checkpointem zůstává `NOT RUN` a odložený.
 
 Bootstrap přijímá u tohoto booleanu jen exact `true`/`false`, všechny číselné
 limity vyžaduje jako kladná bezpečná celá čísla, aggregate nesmí být menší než

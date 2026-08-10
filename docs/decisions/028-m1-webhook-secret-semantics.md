@@ -1,7 +1,8 @@
 # 028 — webhook HMAC musí mít jednu pravdivou autoritu
 
 - **typ:** credential lifecycle a runtime connector
-- **stav:** `DECISION_REQUIRED`; tento dokument neaktivuje implementaci
+- **stav:** `ACCEPTED 2026-08-11: A / IMPLEMENTATION_PENDING`; implementaci
+  aktivuje až vlastní ohraničený WP v přijatém pořadí
 - **finding:** [011 — user_settings authority](../findings/011-user-settings-authority-and-secret-exposure.md)
 - **závislost:** rozhodnutí 026/A musí být přijaté pro cílovou env autoritu,
   ale implementace 028/A předchází 026 transferu/scrub kroku; support claim by
@@ -16,7 +17,7 @@ rotaci, která nemá vliv na podpisy; generic GET přitom DB hodnotu odkryje.
 
 ## Varianty
 
-### A — environment-only, bez aplikačního setteru (doporučeno s 026/A)
+### A — environment-only, bez aplikačního setteru (přijato s 026/A)
 
 `WebhookChannel` i status čtou jedině operator-owned environment. Dnešní
 nefunkční generator skončí stabilním `410 CREDENTIAL_SOURCE_READ_ONLY`; read
@@ -49,7 +50,7 @@ sadě — stabilní `410` bez DB/runtime efektu, configured/source-only read,
 startup/restart env parity a ignorování potom exact scrub legacy DB hodnoty.
 Skutečný externí webhook patří až do operátorského journey pro případný 027/B.
 
-## Doporučený potvrzovací blok
+## Přijatý potvrzovací blok
 
 ```text
 028: A

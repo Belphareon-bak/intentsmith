@@ -23,7 +23,10 @@ commit. Neřeší ale celý živý `user_settings` povrch:
    samostatný read-modify-write. F-A převádí právě tuto dvojici na společný
    `BEGIN IMMEDIATE` merge seam. Storage, webhook a import ale stále nemají
    společný revision/CAS kontrakt; jejich starší snapshot může novější stav
-   nadále přepsat.
+   nadále přepsat. Konkrétně `src/routes/security.js` u
+   `POST /api/security/webhook-secret` stále provádí raw read-modify-write a
+   `INSERT OR REPLACE`; toto lost-update okno je known-open do 025, nikoli nový
+   nález budoucího review.
 4. `/architect` legacy offline fallback stále umí držet celý dokument v
    `localStorage`. Opravný WP zabránil tomu, aby stale snapshot přebil úspěšný
    server read nebo recovery commit, ale local-only secret storage nemá vlastní
@@ -90,11 +93,10 @@ F-A neřeší generic read, ostatní writery, CAS, secrets ani reset, takže Fin
 
 ## Rozhodovací fronta S1–S5
 
-Operátor přijal bezpečný směr, nikoli jeden předvyplněný kontrakt. Pět změn
-proto zůstává oddělených a každá po přijetí vyžaduje vlastní subject, Review A
-i Review B:
+Operátor 2026-08-11 přijal všech pět přesných variant A i jejich pořadí. Změny
+zůstávají oddělené a každá vyžaduje vlastní subject, Review A i Review B:
 
-| Pořadí | Rozhodnutí | Doporučená varianta | Co odemyká |
+| Pořadí | Rozhodnutí | Přijatá varianta | Co odemyká |
 |---:|---|---|---|
 | 1 | [025 — versioned settings a CAS](../decisions/025-m1-settings-versioned-authority.md) | A | revision, jeden repository commit point, redigovaný connector |
 | 2 | [027 — podporované notification credentials](../decisions/027-m1-notification-credential-scope.md) | A | pravdivý core 1.0 support surface |
@@ -102,8 +104,10 @@ i Review B:
 | 4 | [026 — secret storage authority](../decisions/026-m1-secret-storage-authority.md) | A | ověřený env transfer a odstranění credentials z aplikačních dat |
 | 5 | [029 — settings reset scope](../decisions/029-m1-settings-reset-scope.md) | A | settings-only reset a ukončení legacy aliasu |
 
-Všech pět je `DECISION_REQUIRED`; tabulka je doporučení, ne přijetí. Implementace
-nezačne před operátorským potvrzením celé fronty nebo konkrétního řádku.
+Všech pět je `ACCEPTED / IMPLEMENTATION_PENDING`. Závazná sekvence je
+`025 → 027 → 028 → 026 → 029`; 025 začne až z čistého docs checkpointu, ostatní
+kroky až po přijetí předchozího candidate. Finding 011 zůstává `OPEN` a Gate 1
+`BLOCKED`, dokud neprojdou implementace a nezávislá review.
 
 Ohraničené navazující položky: Architect a Center Views zatím nemají bounded
 fetch timeout; raw compatibility objekt s vlastním `kind`/`schemaVersion` je

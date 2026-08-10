@@ -1,7 +1,8 @@
 # 029 — reset musí pravdivě pojmenovat rozsah a obě route
 
 - **typ:** destruktivní settings connector a recovery autorita
-- **stav:** `DECISION_REQUIRED`; tento dokument neaktivuje implementaci
+- **stav:** `ACCEPTED 2026-08-11: A / IMPLEMENTATION_PENDING`; implementaci
+  aktivuje až vlastní ohraničený WP v přijatém pořadí
 - **finding:** [011 — user_settings authority](../findings/011-user-settings-authority-and-secret-exposure.md)
 - **historický nález:** F-B
 
@@ -17,9 +18,15 @@ Studio současně říká „všechna uživatelská nastavení“, ale zachová 
 theme/layout/session data. Skutečný factory delete konverzací, paměti, agentů,
 projektů a souborů neexistuje.
 
+Tvrzení, že `/api/reset` nemá first-party konzumenta, platí pouze pro aktuální
+kanonický strom. Pending ref `wp/mobile-refresh-20260809` obsahuje zděděný
+snapshot `src/ui/architect/architect.js`, jehož `resetAll()` nejdřív volá
+`localStorage.clear()` a potom `POST /api/reset`. Nejde o mobilní klientský
+call ani o změnu v `src/mobile/**`, ale merge jej nesmí znovu oživit.
+
 ## Varianty
 
-### A — settings-only exact scope, legacy alias 410 (doporučeno)
+### A — settings-only exact scope, legacy alias 410 (přijato)
 
 - jediný aktivní endpoint je `/api/settings/reset` s exact body
   `{scope:"SERVER_SETTINGS_V1",expectedRevision:N}`; stale revision vrátí
@@ -42,7 +49,9 @@ local data.
 ### B — přechodně ponechat oba aliasy
 
 Stejná data semantics jako A, ale `/api/reset` zůstane po dobu deprecation.
-Nemá first-party klienta a dál udržuje nejasnou capability; nedoporučeno.
+Aktuální integration HEAD nemá first-party klienta, pending mobile ref však
+obsahuje výše uvedený zděděný Architect caller; alias dál udržuje nejasnou
+capability. Nedoporučeno.
 
 ### C — resetovat i všechna lokální UI data
 
@@ -61,12 +70,15 @@ Obě route jsou v jednom subjectu. Žádná migrace. Review musí pinovat přesn
 scope, zachování sentinel řádku mimo id=1, policy/event atomicitu, pravdivou
 runtime degradaci a nulový efekt legacy aliasu. Architectovo jiné tlačítko
 „Vymazat vše“ se jen eviduje jako samostatný UI finding; F-B je nerozšiřuje.
+Merge preflight musí před `410` prokázat, že žádný first-party strom nevolá
+`/api/reset` a že mobilní merge neobnovil ani starý caller, ani jeho
+`localStorage.clear()` efekt.
 
 Testovací objem: použít existující model-policy a Studio harness, nejvýše čtyři
 logické scénáře — exact scope/sentinel, alias+rollback/runtime, Studio a
 Architect. Bez nové registry suite, pokud současný harness stačí.
 
-## Doporučený potvrzovací blok
+## Přijatý potvrzovací blok
 
 ```text
 029: A
@@ -79,5 +91,6 @@ Architect. Bez nové registry suite, pokud současný harness stačí.
 029-local-ui: PRESERVE
 029-notification-runtime: ENV-PRESERVED-CACHE-INVALIDATED-DEGRADE-ONLY-ON-ERROR
 029-factory-delete: PARK-SEPARATE-WP
+029-merge-preflight: MOBILE-BRANCH-RESET-CALLER-MUST-BE-CUT-OVER
 029-review: OWN-SUBJECT-REVIEW-A-AND-B
 ```
