@@ -597,8 +597,10 @@ focused regression sady.
      FileReader chyby. Review A nad `21ffa72b` našlo dvě P1 race a review nad
      `94d2a473` další post-commit logger P1. Čtyřcommitový opravný subject
      `da7abd75` obě rodiny uzavřel, prošel nezávislým Review A i přesným
-     fresh-clone ověřením; evidence je v `06e760bb`. Přijetí do aktuálního
-     integračního tipu ještě vyžaduje integrační testy a Review B. Skutečná
+     fresh-clone ověřením; evidence je v `06e760bb`. Current-integration
+     candidate `928dd06c` následně prošel integračními testy, fresh-clone
+     replayem a Review B; report-only evidence `ce2bb783` je přijatá v lokálním
+     integračním řetězci. Skutečná
      mobile late-insertion parita zůstává `IMPLEMENTATION_PENDING`. Před
      aktivací je navíc nutný čerstvý role-suite proof svázaný s exaktním
      digestem; dnešní name-only score takovým důkazem není.
@@ -1312,7 +1314,7 @@ mohou pokračovat.
    | 1 | 023 VRAM delete race | úzká artifact-use hrana fresh-clone ověřená; globální GPU residency zůstává M2 residual |
    | 2 | 022 operation-bound recovery | `FRESH_CLONE_VERIFIED` na `81dff196`; built B4 zůstává otevřený |
    | 3 | ověřit dokončenou rezervaci migrací | `061` = 020 a `062` = 015 jsou rezervované; skutečná late-insertion parita čeká na první společný SHA s finálně přečíslovanými mobilními migracemi |
-   | 4 | 020 oddělená policy storage | backend atomického adaptéru i autoritativní Studio source consumer implementované; opravný subject `da7abd75` má Review A `PASS`, fresh-clone 110/0 a čeká už jen na integrační testy + Review B aktuálního candidate |
+   | 4 | 020 oddělená policy storage | **integrováno:** subject `da7abd75` má Review A + fresh clone, candidate `928dd06c` integrační fresh clone + Review B a evidence `ce2bb783`; otevřená zůstává mobile late-insertion parita |
    | 5 | 015 proof issuance | druhá migrační položka, těží ze stejného census |
    | 6 | 021 built journey | jediná položka vázaná na drahou Studio infrastrukturu |
    | 7 | autorizovaný GPU pilot | sériově, jedna role/digest, jen na akci operátora |
@@ -1402,8 +1404,9 @@ mohou pokračovat.
    [020/E](docs/decisions/020-m1-model-failover-opt-in-surface.md). Oddělená
    policy storage, typed API, versioned import/reset a autoritativní Studio
    source consumer jsou implementované; subject `da7abd75` má Review A `PASS`
-   a fresh-clone evidence, zatímco current-integration Review B a mobile
-   late-insertion parita zůstávají otevřené. Otevřené zůstávají také proof
+   a fresh-clone evidence, current-integration candidate `928dd06c` má Review B
+   `PASS` a evidence `ce2bb783` je přijatá. Mobile late-insertion parita
+   zůstává otevřená. Otevřené zůstávají také proof
    issuer a terminal failover activation/restore. Failover se dosud
    neaktivuje. Bootstrap `015/A + provisional 7d` je přijatý, ale proof issuer,
    persistence, migrace 062 a activation evidence jsou `IMPLEMENTATION_PENDING`;
