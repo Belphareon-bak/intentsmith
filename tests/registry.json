@@ -8581,6 +8581,39 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-MOBILE-BROWSER-A11Y-TEST",
+      "path": "tests/mobile-browser-a11y.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-browser-a11y.test.js"
+      ],
+      "capabilityId": "C3-032",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 300000,
+      "expectedDurationMs": 60000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false,
+        "toolchain": [
+          "chromium-runtime"
+        ]
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-MOBILE-RUN-SILENCE-TEST",
       "path": "tests/mobile-run-silence.test.js",
       "argv": [

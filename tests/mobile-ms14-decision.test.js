@@ -662,7 +662,12 @@ await test('§10 approve and reject are the same size — the layout holds no op
   reset();
   await openDecidable();
   const css = (await import('node:fs')).readFileSync('src/mobile/client/app.css', 'utf8');
-  assert.match(css, /\.appr-actions \.btn \{ flex: 1; min-height: 48px; \}/);
+  // The floor here is §8's MS-14 rule (56 dp, 12 dp apart), not the general
+  // 48 dp one this pin used to carry — `tests/mobile-browser-a11y.test.js`
+  // measured the rendered buttons at 48 dp and 10 px and the stylesheet moved.
+  // The claim of *this* assertion is unchanged: one rule, both buttons.
+  assert.match(css, /\.appr-actions \{ display: flex; gap: 12px;/);
+  assert.match(css, /\.appr-actions \.btn \{ flex: 1; min-height: 56px; \}/);
 });
 
 await test('§10 the outcome of a decision is announced, not only coloured', async () => {

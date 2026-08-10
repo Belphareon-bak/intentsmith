@@ -16,8 +16,13 @@
   --bg-sunken:     #f0eee6;
   --bg-hover:      #f0eee6;
   --text:          #1f1e1d;
-  --text-muted:    #6b6862;
-  --text-faint:    #96938c;
+  /* §10 — 4.5:1 for text, in both modes, measured against the lightest surface
+     these land on (--bg-raised).  The previous --text-faint was 3.07:1 on white
+     and --text-muted only 4.78:1, which left no room for a step below it; both
+     moved down so the hierarchy survives the floor.  tests/mobile-browser-a11y
+     measures this in Chrome — the numbers here are not a judgement call. */
+  --text-muted:    #5c5a54;
+  --text-faint:    #6d6b66;
   --border:        #e5e2d9;
   --border-strong: #d6d2c6;
 
@@ -25,10 +30,17 @@
   --accent-hover:  #b5573a;
   --accent-soft:   #f5e5de;
   --on-accent:     #ffffff;
+  /* --accent is a fill colour: 3.90:1 on white, which is fine behind a shape
+     (§10 wants 3:1 for icons and borders) and not fine for words.  The selected
+     nav label and the count badges are words, so they use this instead. */
+  --accent-text:   #a75337;
 
   --danger:        #b3392b;
   --danger-soft:   #fbe9e6;
-  --warn:          #9a6b1f;
+  /* A state colour has to clear 4.5:1 on every "soft" surface it can land on,
+     not just its own: the age zone is --warn on --danger-soft when the
+     connection zone is also up. */
+  --warn:          #8b611c;
   --warn-soft:     #fbf1dd;
   --ok:            #3f7250;
   --ok-soft:       #e6f0e8;
@@ -60,7 +72,7 @@
     --bg-hover:      #3a3a37;
     --text:          #f5f4ef;
     --text-muted:    #a8a49c;
-    --text-faint:    #78756e;
+    --text-faint:    #9c988f;
     --border:        #3d3d3a;
     --border-strong: #4d4d49;
 
@@ -68,8 +80,10 @@
     --accent-hover:  #e08a6e;
     --accent-soft:   #3d2b23;
     --on-accent:     #1f1e1d;
+    /* Dark mode never needed the split — --accent is 4.86:1 on --bg here. */
+    --accent-text:   #d97757;
 
-    --danger:        #e07a6c;  --danger-soft: #3d2523;
+    --danger:        #e57d6e;  --danger-soft: #3d2523;
     --warn:          #d9a94f;  --warn-soft:   #3a3020;
     --ok:            #7fb08d;  --ok-soft:     #23301f;
     --info:          #7fa3d9;  --info-soft:   #232c3d;
@@ -184,7 +198,8 @@ button { cursor: pointer; border: none; background: none; }
   padding: 0 4px;
 }
 .icon-btn {
-  width: 40px; height: 40px; flex-shrink: 0;
+  /* §8 — 48 × 48 dp floor.  The glyph stays 20 px; what grew is the target. */
+  width: 48px; height: 48px; flex-shrink: 0;
   display: grid; place-items: center;
   border-radius: var(--radius-sm);
   color: var(--text-muted);
@@ -196,7 +211,7 @@ button { cursor: pointer; border: none; background: none; }
   content: attr(data-badge);
   position: absolute; transform: translate(12px, -12px);
   min-width: 16px; height: 16px; padding: 0 4px;
-  background: var(--accent); color: var(--on-accent);
+  background: var(--accent-text); color: var(--on-accent);
   border-radius: 8px; font-size: 10px; font-weight: 700;
   display: grid; place-items: center;
 }
@@ -394,7 +409,9 @@ button { cursor: pointer; border: none; background: none; }
 .btn-danger { background: var(--danger); color: #fff; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .btn-block { width: 100%; }
-.btn-sm { padding: 7px 13px; font-size: 13px; }
+/* §8 — "small" is about the type and the padding, never about the target: the
+   48 dp floor holds for `Zjistit stav` (A4) exactly as for a primary button. */
+.btn-sm { padding: 7px 13px; font-size: 13px; min-height: 48px; }
 
 /* ── Přehled — the root (UI-DESIGN §3.2) ───────────────────────────────── */
 .ov-section { margin-bottom: 26px; }
@@ -498,14 +515,14 @@ button { cursor: pointer; border: none; background: none; }
 /* §10 — the highlight is text *and* shape: the label turns bold and a rule
    appears above it, so it survives greyscale and a colour-blind reader. */
 .nav-tab[aria-current="page"] {
-  color: var(--accent);
+  color: var(--accent-text);
   border-top-color: var(--accent);
   font-weight: 700;
 }
 .nav-tab[aria-disabled="true"] { color: var(--text-faint); cursor: default; }
 .nav-count {
   min-width: 16px; padding: 0 4px;
-  background: var(--accent); color: var(--on-accent);
+  background: var(--accent-text); color: var(--on-accent);
   border-radius: 8px; font-size: 10px; font-weight: 700; line-height: 16px;
 }
 /* The bar overlays nothing: the scroll region gives back exactly its height. */
@@ -747,10 +764,14 @@ body.has-navbar .composer { margin-bottom: calc(58px + var(--safe-bottom)); }
   font-size: 12.5px; line-height: 1.6; color: var(--text-muted);
 }
 
-.appr-actions { display: flex; gap: 10px; margin-top: 16px; }
+/* §8 — MS-14 is the one place with a higher floor than the ordinary 48 dp:
+   56 dp tall and 12 dp apart, "aby palec netrefil vedle".  Measured in Chrome
+   by tests/mobile-browser-a11y.test.js; the previous 10 px gap and 48 dp height
+   met the general rule and missed this one. */
+.appr-actions { display: flex; gap: 12px; margin-top: 16px; }
 /* Approve and reject are the same size: making one easier to hit than the
    other is a thumb-shaped opinion about someone else's decision. */
-.appr-actions .btn { flex: 1; min-height: 48px; }
+.appr-actions .btn { flex: 1; min-height: 56px; }
 /* The way out of a blocked decision — a read, or the recovery screen.  It keeps
    the 48 dp target of the decision buttons but deliberately not their width:
    nothing here should be reachable with the same thumb movement as a grant. */
