@@ -5,8 +5,9 @@
   finalize recovery FRESH-CLONE VERIFIED; detection-only coordinator je
   FRESH-CLONE VERIFIED na `1823e9a4`; všech pět single-process C2
   artifact-use cest je FRESH-CLONE VERIFIED nejpozději na `3b95f2b1`, celý C2
-  však zůstává PARTIAL; 015/A policy a proof schema/ledger jsou lokálně
-  ověřené na `13304026`, ale bezpečný issuer, nový referenční GPU běh 009 a
+  však zůstává PARTIAL; 015/A policy a proof schema/ledger jsou
+  `FRESH_CLONE_VERIFIED` na evidence commitu `99c93ec8`, ale bezpečný issuer,
+  nový referenční GPU běh 009 a
   automatic failover activation zůstávají BLOCKED; offline connector READY
 - **poslední ověřený source SHA:**
   `3b95f2b19fc501ca622db12971c70100cd1f7468`
@@ -2785,8 +2786,10 @@ v
 [`wp-m1-proof-issuance-20260810-report.md`](wp-m1-proof-issuance-20260810-report.md).
 
 Mutace `>` na `>=` zbarvila přesně expiry-equality scénář: 24/1, exit 1.
-Po vrácení byl běh 25/0. GPU, Ollama, Electron ani externí síť nebyly spuštěny.
-Jde o local clean-checkout evidence, ne fresh-clone attestation.
+Po vrácení byl běh 25/0. Následný `git clone --no-local` evidence commitu
+`99c93ec87ec2ddc672a311f5a276c59e7fac91c1`, `npm ci --offline` a celý stejný
+focused/evidence blok prošly s prázdným koncovým porcelain. GPU, Ollama,
+Electron ani externí síť nebyly spuštěny.
 
 Issuer zůstává `CHANGES_REQUIRED`: caller-located `acceptancePath` neposkytuje
 důvěryhodnou provenance, protože standalone validace je pouze strukturální.

@@ -1,8 +1,10 @@
 # WP-M1-PROOF-ISSUANCE — schema/ledger checkpoint evidence
 
-- **stav:** `PARTIAL / LOCAL CLEAN-CHECKOUT VERIFIED`
+- **stav:** `PARTIAL / FRESH_CLONE_VERIFIED`
 - **source candidate:**
   `133040261280150df7a03bf70b8416d79188e879`
+- **evidence commit ověřený v klonu:**
+  `99c93ec87ec2ddc672a311f5a276c59e7fac91c1`
 - **base:** `2cbed0a06c7b86d115f4da21af67751a086b8ab9`
 - **větev:** `wp/m1-proof-issuance-20260810`
 - **integrační remote ref při ověření:**
@@ -62,6 +64,29 @@ Všechny příkazy níže běžely v
 Červené logové řádky uvnitř schema sad jsou očekávané negativní fixtures;
 terminální souhrny a procesní exity výše jsou zelené.
 
+## Fresh-clone reprodukce
+
+Tento příkaz skončil exit 0:
+
+```bash
+git clone --no-local --branch wp/m1-proof-issuance-20260810 \
+  /home/belphareon/worktrees/is-m1-proof-issuance \
+  /tmp/intentsmith-proof-attest-46cZjW/repo
+```
+
+Nový checkout měl před instalací přesný HEAD
+`99c93ec87ec2ddc672a311f5a276c59e7fac91c1` a prázdný porcelain.
+`npm ci --offline` přidal 233 balíčků, auditoval 234, našel 0 vulnerabilities a
+skončil exit 0.
+
+V klonu byly znovu spuštěny všechny příkazy z tabulky výše. Focused výsledky
+zůstaly 9/0, 9/0, 15/0, 25/0, 38/0, 14/0, 16/0, 16/0, 46/0 a 35/0; artifact
+validation 151/0, registry 380/8 se stejným fingerprintem, hygiene 1 562 cest,
+specialist ratchet 0 referencí a module ratchet 1 023/1 024 s jedinou
+odstraněnou hranou. Všechny procesy skončily exit 0. Závěrečný
+`git status --porcelain=v1 --untracked-files=all` i `git diff --check` byly
+prázdné, exit 0.
+
 ## Negativní mutační důkaz
 
 Dočasná jediná mutace změnila ve všech čtyřech eligibility triggerech striktní
@@ -92,6 +117,6 @@ soubory nebyly čtením převzaty, editovány ani mergovány. Před integrací j
 nutný explicitní výběr jednoho source candidate a review rozdílů, nikoli
 mechanické spojení obou implementací.
 
-Toto je local clean-checkout evidence, nikoli `FRESH_CLONE_VERIFIED`. Gate 1
-zůstává `BLOCKED` na bezpečném issuer kontraktu, skutečném operátorském proof
-běhu a dalších již evidovaných M1 podmínkách.
+Schema/ledger checkpoint je tím `FRESH_CLONE_VERIFIED` na přesném evidence
+commitu výše. Gate 1 zůstává `BLOCKED` na bezpečném issuer kontraktu,
+skutečném operátorském proof běhu a dalších již evidovaných M1 podmínkách.
