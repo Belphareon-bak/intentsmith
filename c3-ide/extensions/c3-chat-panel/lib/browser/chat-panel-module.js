@@ -6489,17 +6489,18 @@ function _readAttachments(attachments,callback){
   if(!attachments||attachments.length===0){callback([]);return;}
   var results=[];var pending=attachments.length;
   attachments.forEach(function(a,i){
-    var filePath=(a.file&&a.file.path)?a.file.path:null;
+    var m1InlineOnly=typeof C3WS!=='undefined'&&C3WS&&typeof C3WS.isM1WireNegotiated==='function'&&C3WS.isM1WireNegotiated()===true;
+    var filePath=!m1InlineOnly&&a.file&&a.file.path?a.file.path:null;
     function _done(res){results[i]=res;if(--pending===0)callback(results);}
     /* ── TEXT FILES ── */
     if(_TEXT_EXTS.test(a.name)&&a.file&&a.file.size<=_MAX_TEXT_SIZE){
       /* Strategy A: FileReader (works in ALL contexts — standard Web API) */
       var reader=new FileReader();
       reader.onload=function(){
-        if(reader.result){_done({name:a.name,size:a.size,type:'text',content:reader.result,path:filePath});return;}
-        /* FileReader returned empty — fallback to path */
-        if(filePath){_done({name:a.name,size:a.size,type:'text',content:null,path:filePath});}
-        else{_done({name:a.name,size:a.size,type:'text',content:null,path:null});}
+        /* Empty text is legitimate inline content. Legacy still retains its
+           existing path fallback because its controller checks truthiness. */
+        var content=typeof reader.result==='string'?reader.result:null;
+        _done({name:a.name,size:a.size,type:'text',content:content,path:filePath});
       };
       reader.onerror=function(){
         if(typeof console!=='undefined')console.warn('[C3:readAttachments] FileReader failed for',a.name,reader.error);
@@ -6512,7 +6513,7 @@ function _readAttachments(attachments,callback){
     /* ── IMAGE FILES ── */
     if(_IMG_EXTS.test(a.name)&&a.file&&a.file.size<=_MAX_IMG_SIZE){
       var reader2=new FileReader();
-      reader2.onload=function(){_done({name:a.name,size:a.size,type:'image',content:reader2.result,path:filePath});};
+      reader2.onload=function(){_done({name:a.name,size:a.size,type:'image',content:typeof reader2.result==='string'?reader2.result:null,path:filePath});};
       reader2.onerror=function(){_done({name:a.name,size:a.size,type:'image',content:null,path:filePath});};
       reader2.readAsDataURL(a.file);return;
     }
@@ -6529,6 +6530,12 @@ function _chatTryWsSend(content,session,sessionIdx){
       return{status:'NOT_SENT',retryable:true,reason:'WS_UNAVAILABLE',serverAcknowledged:false};
     }
     if(typeof C3WS.sendChat!=='function'||C3WS.sendChat(content,session,sessionIdx)!==true){
+      if(typeof C3WS.takeM1SendRejection==='function'){
+        var local=C3WS.takeM1SendRejection();
+        if(local&&local.status==='NOT_SENT'&&typeof local.reason==='string'&&local.serverAcknowledged===false){
+          return{status:'NOT_SENT',retryable:local.retryable===true,reason:local.reason,serverAcknowledged:false};
+        }
+      }
       return{status:'NOT_SENT',retryable:true,reason:'WS_SEND_REJECTED',serverAcknowledged:false};
     }
     return{status:'QUEUED_WS',retryable:false,reason:null,serverAcknowledged:false};
@@ -6550,7 +6557,7 @@ function _chatRestoreAttachments(st,attachments){
 }
 function _chatMarkNotSent(idx,st,text,delivery,draft){
   st._thinking=null;st._pendingAttachments=null;
-  st._delivery={status:'NOT_SENT',retryable:true,reason:delivery.reason,text:text,draft:typeof draft==='string'?draft:text};
+  st._delivery={status:'NOT_SENT',retryable:delivery.retryable===true,reason:delivery.reason,text:text,draft:typeof draft==='string'?draft:text};
   renderChat();_chatScrollPane(idx);
 }
 function _chatClearDelivery(st){st._delivery=null;}
@@ -6558,13 +6565,28 @@ function _chatInvalidatePreparedSends(st){
   if(!st)return;
   st._sendContextToken={};st._sendTurnToken={};st._preparedSend=null;st._pendingAttachments=null;
 }
+function _chatTransportSnapshot(){
+  var ws=typeof C3WS!=='undefined'&&C3WS?C3WS:null;
+  return{
+    epoch:ws&&typeof ws.connectionEpoch==='function'?ws.connectionEpoch():null,
+    m1:!!(ws&&typeof ws.isM1WireNegotiated==='function'&&ws.isM1WireNegotiated()===true),
+    policy:ws&&typeof ws.m1AttachmentPolicy==='function'?ws.m1AttachmentPolicy():null,
+    ready:!!(ws&&typeof ws.isReady==='function'&&ws.isReady()===true)
+  };
+}
+function _chatTransportIsCurrent(snapshot){
+  var current=_chatTransportSnapshot();
+  return!!snapshot&&current.epoch===snapshot.epoch&&current.m1===snapshot.m1
+    &&current.policy===snapshot.policy&&current.ready===snapshot.ready;
+}
 function _chatCaptureSendContext(idx,s,st,userMsg,rawDraft,filesToRead,ta,text){
   if(!st._sendContextToken)st._sendContextToken={};st._sendTurnToken={};
   var prepared={idx:idx,session:s,chat:st,msgs:st.msgs,sessionEpoch:st._sendContextToken,turnEpoch:st._sendTurnToken,
     convId:s._convId,agentId:s._agentId,projectId:s._projectId,editMode:st.editMode,
     conversationFocus:!!s._conversationFocus,focusActive:!!(st.specialist||s._conversationFocus),
     userMsg:userMsg,userMsgIdx:st.msgs.length-1,messageCount:st.msgs.length,
-    rawDraft:rawDraft,attachments:filesToRead,textarea:ta,text:text,thinking:st._thinking};
+    rawDraft:rawDraft,attachments:filesToRead,textarea:ta,text:text,thinking:st._thinking,
+    transport:_chatTransportSnapshot()};
   st._preparedSend=prepared;return prepared;
 }
 function _chatSendContextIsCurrent(captured){
@@ -6582,12 +6604,13 @@ function _chatSendContextIsCurrent(captured){
     &&captured.session._agentId===captured.agentId
     &&captured.session._projectId===captured.projectId
     &&captured.chat.editMode===captured.editMode
-    &&!!captured.session._conversationFocus===captured.conversationFocus;
+    &&!!captured.session._conversationFocus===captured.conversationFocus
+    &&_chatTransportIsCurrent(captured.transport);
 }
 function _chatReleasePreparedSend(captured){
   if(captured&&captured.chat&&captured.chat._preparedSend===captured)captured.chat._preparedSend=null;
 }
-function _chatRejectPreparedSend(captured,reason){
+function _chatRejectPreparedSend(captured,reason,retryable){
   if(!captured||!captured.chat||captured.chat._preparedSend!==captured)return false;
   _chatReleasePreparedSend(captured);captured.chat._sendContextToken={};captured.chat._sendTurnToken={};captured.chat._pendingAttachments=null;
   var ownsTimeline=captured.idx>=0&&captured.idx<_sessionCount
@@ -6596,10 +6619,11 @@ function _chatRejectPreparedSend(captured,reason){
     &&captured.chat.msgs===captured.msgs
     &&captured.chat.msgs[captured.userMsgIdx]===captured.userMsg;
   if(!ownsTimeline)return true;
-  captured.userMsg.tag='NOT_SENT';captured.userMsg.deliveryStatus='NOT_SENT';captured.userMsg.deliveryReason=reason;captured.userMsg.retryable=true;
+  var canRetry=retryable!==false;
+  captured.userMsg.tag='NOT_SENT';captured.userMsg.deliveryStatus='NOT_SENT';captured.userMsg.deliveryReason=reason;captured.userMsg.retryable=canRetry;
   _chatRestoreInput(captured.textarea,captured.rawDraft);_chatRestoreAttachments(captured.chat,captured.attachments);
   if(captured.chat._thinking===captured.thinking)captured.chat._thinking=null;
-  captured.chat._delivery={status:'NOT_SENT',retryable:true,reason:reason,text:captured.text,draft:captured.rawDraft};
+  captured.chat._delivery={status:'NOT_SENT',retryable:canRetry,reason:reason,text:captured.text,draft:captured.rawDraft};
   renderChat();_chatScrollPane(captured.idx);
   return true;
 }
@@ -6702,7 +6726,7 @@ function _chatSendPane(idx){
     /* M1 is WebSocket-only. HTTP parity returns with M2 effect authority. */
     var delivery=_chatTryWsSend(txt,s,idx);
     if(delivery.status==='NOT_SENT'){
-      userMsg.tag='NOT_SENT';userMsg.deliveryStatus='NOT_SENT';userMsg.retryable=true;
+      userMsg.tag='NOT_SENT';userMsg.deliveryStatus='NOT_SENT';userMsg.deliveryReason=delivery.reason;userMsg.retryable=delivery.retryable===true;
       _chatRestoreInput(ta,rawDraft);_chatRestoreAttachments(st,filesToRead);
       _chatMarkNotSent(idx,st,txt,delivery,rawDraft);return;
     }
@@ -6733,7 +6757,7 @@ function _chatGapChoice(idx,choice,gapMsgIdx){
   renderChat();_chatScrollPane(idx);
   var delivery=_chatTryWsSend(txt,s,idx);
   if(delivery.status==='NOT_SENT'){
-    gapUserMsg.tag='NOT_SENT';gapUserMsg.deliveryStatus='NOT_SENT';gapUserMsg.retryable=true;
+    gapUserMsg.tag='NOT_SENT';gapUserMsg.deliveryStatus='NOT_SENT';gapUserMsg.deliveryReason=delivery.reason;gapUserMsg.retryable=delivery.retryable===true;
     if(typeof gapMsgIdx==='number'&&st.msgs[gapMsgIdx]&&st.msgs[gapMsgIdx]._gapChoice){
       st.msgs[gapMsgIdx]._gapResolved=false;
     }
@@ -6843,7 +6867,9 @@ function _chatPaneUI(idx,opts){
             h('span',{style:{fontSize:_fs(11),color:C.tx3,fontStyle:'italic',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:200}},st._thinking.text||'')))):null),
     /* M1/011: minimal functional status; final Studio UI is a later product surface. */
     st._delivery&&st._delivery.status==='NOT_SENT'?h('div',{style:{padding:'5px 10px',borderTop:'1px solid '+C.border,background:C.redBg,color:C.red,fontSize:_fs(10),lineHeight:'1.35',flexShrink:0}},
-      'NOT_SENT · Zpráva nebyla odeslána. Po obnovení WebSocketu akci opakujte; rozepsaná data zůstala zachovaná.'):
+      st._delivery.retryable===false
+        ?'NOT_SENT · Vstup nesplňuje vyjednanou bezpečnostní politiku ('+st._delivery.reason+'). Upravte přílohy nebo zprávu; automatické opakování je vypnuté.'
+        :'NOT_SENT · Zpráva nebyla odeslána. Po obnovení WebSocketu akci opakujte; rozepsaná data zůstala zachovaná.'):
     st._delivery&&st._delivery.status==='DELIVERY_UNKNOWN'?h('div',{style:{padding:'5px 10px',borderTop:'1px solid '+C.border,background:'rgba(245,158,11,0.12)',color:'#fbbf24',fontSize:_fs(10),lineHeight:'1.35',flexShrink:0}},
       'DELIVERY_UNKNOWN · Spojení skončilo po odeslání. Výsledek ověřte v historii; automatické opakování je vypnuté.'):
     st._delivery&&st._delivery.status==='BUSY'?h('div',{style:{padding:'5px 10px',borderTop:'1px solid '+C.border,background:'rgba(245,158,11,0.12)',color:'#fbbf24',fontSize:_fs(10),lineHeight:'1.35',flexShrink:0}},
@@ -6887,7 +6913,8 @@ function _chatPaneUI(idx,opts){
               /* v95: Smart file picker — project folder default + remember last dir */
               var defDir=st._lastAttachDir||'';
               if(!defDir){var curSess=_sessions[_sessionActive];if(curSess&&curSess._projectId){var prj=PROJECTS.find(function(p){return p.id===curSess._projectId;});if(prj&&prj.path)defDir=prj.path;}}
-              if(window.electronTheiaFilesystem&&window.electronTheiaFilesystem.showOpenDialog){
+              var m1InlineOnly=typeof C3WS!=='undefined'&&C3WS&&typeof C3WS.isM1WireNegotiated==='function'&&C3WS.isM1WireNegotiated()===true;
+              if(!m1InlineOnly&&window.electronTheiaFilesystem&&window.electronTheiaFilesystem.showOpenDialog){
                 window.electronTheiaFilesystem.showOpenDialog({title:'Připojit soubory',openFiles:true,openFolders:false,selectMany:true,defaultPath:defDir}).then(function(filePaths){
                   if(filePaths&&filePaths.length>0){
                     /* Remember last directory */
@@ -6899,6 +6926,8 @@ function _chatPaneUI(idx,opts){
                     renderChat();}
                 }).catch(function(e){if(typeof console!=='undefined')console.warn('[C3:attach] showOpenDialog error:',e);});
               }else{
+                /* M1 obtains bytes directly from the user-gesture File object.
+                   Never turn an Electron filesystem path into wire authority. */
                 var inp=document.createElement('input');inp.type='file';inp.multiple=true;inp.style.display='none';document.body.appendChild(inp);inp.onchange=function(){if(inp.files){for(var j=0;j<inp.files.length;j++){st.attachments.push({name:inp.files[j].name,size:Math.round(inp.files[j].size/1024)+' KB',file:inp.files[j]});}renderChat();}document.body.removeChild(inp);};inp.click();
               }}},svgEl(I.attach,12)),
           /* Edit mode toggle */

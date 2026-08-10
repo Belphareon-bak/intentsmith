@@ -34,6 +34,13 @@ var _serverVersion = null;
 var _serverFeatures = [];
 var _m1WireFeature = 'm1-wire-v1';
 var _m1WireNegotiated = false;
+var _m1AttachmentPolicy = null;
+var _m1LastSendRejection = null;
+var _m1WireMetadataVersion = 1;
+var _m1InlineImageMimeTypes = Object.freeze([
+  'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml',
+  'image/bmp', 'image/x-icon', 'image/vnd.microsoft.icon', 'image/tiff', 'image/avif'
+]);
 var _clientFeatures = Object.freeze([
   'workspace', 'terminal', 'merge-preview', 'edit-ask', 'audit', _m1WireFeature
 ]);
@@ -128,26 +135,128 @@ function _normalizeM1ContextIdentifier(value) {
   return _isConversationId(normalized) ? normalized : undefined;
 }
 
-function _createM1Context(session) {
-  if (!session || !session.chat) return null;
-  var attachments = session.chat._pendingAttachments;
-  /* B4 deliberately parks filesystem-backed and inline attachments until one
-     bounded byte/count policy exists. Never downgrade this turn to legacy. */
+function _rejectM1Send(reason, retryable) {
+  _m1LastSendRejection = Object.freeze({
+    status: 'NOT_SENT',
+    retryable: retryable === true,
+    reason: reason,
+    serverAcknowledged: false
+  });
+  return false;
+}
+
+function _m1Base64Value(character) {
+  var alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  return alphabet.indexOf(character);
+}
+
+function _m1CanonicalBase64ByteLength(value) {
   if (
-    attachments !== null
-    && attachments !== undefined
-    && (!Array.isArray(attachments) || attachments.length > 0)
+    typeof value !== 'string'
+    || value.length === 0
+    || value.length % 4 !== 0
+    || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)
   ) return null;
+  var padding = value.endsWith('==') ? 2 : (value.endsWith('=') ? 1 : 0);
+  if (
+    (padding === 2 && (_m1Base64Value(value.charAt(value.length - 3)) & 15) !== 0)
+    || (padding === 1 && (_m1Base64Value(value.charAt(value.length - 2)) & 3) !== 0)
+  ) return null;
+  return (value.length / 4) * 3 - padding;
+}
+
+function _normalizeM1Attachments(attachments) {
+  var policy = _m1AttachmentPolicy;
+  if (!policy) return { valid: false, reason: 'M1_ATTACHMENT_POLICY_UNAVAILABLE' };
+  if (attachments === null || attachments === undefined) attachments = [];
+  if (!Array.isArray(attachments)) {
+    return { valid: false, reason: 'M1_ATTACHMENT_STATE_INVALID' };
+  }
+  if (attachments.length > policy.maxCount) {
+    return { valid: false, reason: 'M1_ATTACHMENT_COUNT_EXCEEDED' };
+  }
+  var aggregateBytes = 0;
+  var normalized = [];
+  for (var index = 0; index < attachments.length; index++) {
+    var attachment = attachments[index];
+    if (!attachment || typeof attachment !== 'object' || Array.isArray(attachment)) {
+      return { valid: false, reason: 'M1_ATTACHMENT_INPUT_INVALID' };
+    }
+    if (attachment.path !== null && attachment.path !== undefined) {
+      return { valid: false, reason: 'M1_ATTACHMENT_PATH_FORBIDDEN' };
+    }
+    if (
+      typeof attachment.name !== 'string'
+      || attachment.name.length < 1
+      || attachment.name.length > 255
+      || attachment.name !== attachment.name.trim()
+      || /[\\/\u0000-\u001f\u007f]/.test(attachment.name)
+    ) return { valid: false, reason: 'M1_ATTACHMENT_NAME_INVALID' };
+    if (attachment.type !== 'text' && attachment.type !== 'image') {
+      return { valid: false, reason: 'M1_ATTACHMENT_TYPE_UNSUPPORTED' };
+    }
+    if (typeof attachment.content !== 'string') {
+      return { valid: false, reason: 'M1_ATTACHMENT_CONTENT_UNAVAILABLE' };
+    }
+
+    var decodedBytes;
+    if (attachment.type === 'text') {
+      decodedBytes = _m1Utf8ByteLength(attachment.content);
+      if (decodedBytes > policy.maxTextBytes) {
+        return { valid: false, reason: 'M1_ATTACHMENT_TEXT_TOO_LARGE' };
+      }
+    } else {
+      var match = /^data:([^;,]+);base64,([A-Za-z0-9+/]*={0,2})$/.exec(attachment.content);
+      if (!match || policy.imageMimeTypes.indexOf(match[1]) < 0) {
+        return { valid: false, reason: 'M1_ATTACHMENT_IMAGE_INVALID' };
+      }
+      decodedBytes = _m1CanonicalBase64ByteLength(match[2]);
+      if (decodedBytes === null || decodedBytes === 0) {
+        return { valid: false, reason: 'M1_ATTACHMENT_IMAGE_INVALID' };
+      }
+      if (decodedBytes > policy.maxImageBytes) {
+        return { valid: false, reason: 'M1_ATTACHMENT_IMAGE_TOO_LARGE' };
+      }
+    }
+    aggregateBytes += decodedBytes;
+    if (aggregateBytes > policy.maxAggregateBytes) {
+      return { valid: false, reason: 'M1_ATTACHMENT_AGGREGATE_TOO_LARGE' };
+    }
+    normalized.push({
+      name: attachment.name,
+      type: attachment.type,
+      content: attachment.content
+    });
+  }
+  return { valid: true, attachments: normalized };
+}
+
+function _createM1Context(session) {
+  if (!session || !session.chat) {
+    _rejectM1Send('M1_CONTEXT_INVALID', false);
+    return null;
+  }
+  var attachments = _normalizeM1Attachments(session.chat._pendingAttachments);
+  if (!attachments.valid) {
+    _rejectM1Send(attachments.reason, false);
+    return null;
+  }
   var agentId = _normalizeM1ContextIdentifier(session._agentId);
   var projectId = _normalizeM1ContextIdentifier(session._projectId);
-  if (agentId === undefined || projectId === undefined) return null;
+  if (agentId === undefined || projectId === undefined) {
+    _rejectM1Send('M1_CONTEXT_INVALID', false);
+    return null;
+  }
   var editMode = session.chat.editMode || 'auto';
-  if (editMode !== 'auto' && editMode !== 'ask') return null;
+  if (editMode !== 'auto' && editMode !== 'ask') {
+    _rejectM1Send('M1_CONTEXT_INVALID', false);
+    return null;
+  }
   return {
     editMode: editMode,
     agentId: agentId,
     projectId: projectId,
-    attachments: []
+    attachments: attachments.attachments
   };
 }
 
@@ -425,6 +534,54 @@ function _hasExactKeys(value, expectedKeys) {
     if (actualKeys[i] !== sortedExpected[i]) return false;
   }
   return true;
+}
+
+function _isPositiveSafeInteger(value) {
+  return typeof value === 'number'
+    && isFinite(value)
+    && Math.floor(value) === value
+    && value > 0
+    && value <= Number.MAX_SAFE_INTEGER;
+}
+
+function _readM1AttachmentPolicy(helloAck) {
+  if (!helloAck || !_hasExactKeys(helloAck.featureMetadata, [_m1WireFeature])) return null;
+  var metadata = helloAck.featureMetadata[_m1WireFeature];
+  if (!_hasExactKeys(metadata, ['version', 'attachmentPolicy'])) return null;
+  if (metadata.version !== _m1WireMetadataVersion) return null;
+  var policy = metadata.attachmentPolicy;
+  if (!_hasExactKeys(policy, [
+    'version', 'mode', 'maxCount', 'maxTextBytes', 'maxImageBytes',
+    'maxAggregateBytes', 'maxFrameBytes', 'imageMimeTypes'
+  ])) return null;
+  if (policy.version !== _m1WireMetadataVersion || policy.mode !== 'inline-only') return null;
+  if (![
+    policy.maxCount,
+    policy.maxTextBytes,
+    policy.maxImageBytes,
+    policy.maxAggregateBytes,
+    policy.maxFrameBytes
+  ].every(_isPositiveSafeInteger)) return null;
+  if (
+    policy.maxAggregateBytes < Math.max(policy.maxTextBytes, policy.maxImageBytes)
+    || policy.maxFrameBytes <= policy.maxAggregateBytes
+    || !Array.isArray(policy.imageMimeTypes)
+    || policy.imageMimeTypes.length !== _m1InlineImageMimeTypes.length
+  ) return null;
+  for (var index = 0; index < _m1InlineImageMimeTypes.length; index++) {
+    if (policy.imageMimeTypes[index] !== _m1InlineImageMimeTypes[index]) return null;
+  }
+  var mimeTypes = Object.freeze(policy.imageMimeTypes.slice());
+  return Object.freeze({
+    version: policy.version,
+    mode: policy.mode,
+    maxCount: policy.maxCount,
+    maxTextBytes: policy.maxTextBytes,
+    maxImageBytes: policy.maxImageBytes,
+    maxAggregateBytes: policy.maxAggregateBytes,
+    maxFrameBytes: policy.maxFrameBytes,
+    imageMimeTypes: mimeTypes
+  });
 }
 
 function _snapshotSessionIsCurrent(snapshot) {
@@ -868,6 +1025,7 @@ function _wsConnect() {
   _wsReady = false;
   _serverFeatures = [];
   _m1WireNegotiated = false;
+  _m1AttachmentPolicy = null;
 
   var _base = (typeof _backendBase !== 'undefined') ? _backendBase : (function(){try{if(typeof window!=='undefined'&&window.electronC3){var u=window.electronC3.getBackendUrl();if(u)return u;}}catch(e){}return 'http://127.0.0.1:3335';})();
   var wsUrl = _base.replace(/^http/, 'ws') + '/c3/ws';
@@ -931,6 +1089,7 @@ function _wsConnect() {
     _wsReady = false;
     _serverFeatures = [];
     _m1WireNegotiated = false;
+    _m1AttachmentPolicy = null;
     _cancelPendingRehydrate(connectionEpoch);
     _interruptM1Turns(
       connectionEpoch,
@@ -957,18 +1116,28 @@ function _wsConnect() {
     /* ═══ Handshake phase ═══ */
     if (msg.type === 'hello_ack') {
       if (connection.handshakeState !== 'PENDING') return;
+      var acknowledgedFeatures = Array.isArray(msg.features)
+        ? msg.features.filter(function(feature){return typeof feature === 'string';})
+        : [];
+      var m1FeatureAcknowledged = msg.protocolVersion === 1
+        && connection.offeredFeatures.indexOf(_m1WireFeature) >= 0
+        && acknowledgedFeatures.indexOf(_m1WireFeature) >= 0;
+      var attachmentPolicy = m1FeatureAcknowledged
+        ? _readM1AttachmentPolicy(msg)
+        : null;
+      if (m1FeatureAcknowledged && !attachmentPolicy) {
+        _closeFailedHandshake(connection, 'Invalid M1 negotiation metadata');
+        return;
+      }
       connection.handshakeState = 'ACCEPTED';
       _clearHandshakeTimer();
       _wsReady = true;
       _wsRetryCount = 0;
       _wsReconnectExhausted = false;
       _serverVersion = msg.serverVersion || msg.backendVersion || null;
-      _serverFeatures = Array.isArray(msg.features)
-        ? msg.features.filter(function(feature){return typeof feature === 'string';})
-        : [];
-      _m1WireNegotiated = msg.protocolVersion === 1
-        && connection.offeredFeatures.indexOf(_m1WireFeature) >= 0
-        && _serverFeatures.indexOf(_m1WireFeature) >= 0;
+      _serverFeatures = acknowledgedFeatures;
+      _m1WireNegotiated = m1FeatureAcknowledged;
+      _m1AttachmentPolicy = attachmentPolicy;
       _m1ProtocolFailedEpoch = null;
       console.log('[C3 WS] Handshake OK — server v' + _serverVersion + ' features=' + JSON.stringify(_serverFeatures));
       C3Bus.emit('ws:ready', { version: _serverVersion, features: _serverFeatures });
@@ -1110,11 +1279,23 @@ function wsSend(channel, data) {
 
 function _sendM1Command(command, context, session, sessionIdx, targetEntry) {
   var validation = _m1Protocol.validateM1Contract(command, 'ConversationCommand');
-  if (!validation || validation.valid !== true) return false;
+  if (!validation || validation.valid !== true) {
+    return _rejectM1Send('M1_COMMAND_INVALID', false);
+  }
   var resolvedSessionIdx = typeof sessionIdx === 'number'
     ? sessionIdx
     : (typeof _sessions !== 'undefined' ? _sessions.indexOf(session) : -1);
-  if (resolvedSessionIdx < 0) return false;
+  if (resolvedSessionIdx < 0) return _rejectM1Send('M1_SESSION_UNOWNED', false);
+  if (!_m1AttachmentPolicy) {
+    return _rejectM1Send('M1_ATTACHMENT_POLICY_UNAVAILABLE', false);
+  }
+  var encodedFrame = JSON.stringify({
+    channel: 'chat',
+    data: { command: command, context: context }
+  });
+  if (_m1Utf8ByteLength(encodedFrame) > _m1AttachmentPolicy.maxFrameBytes) {
+    return _rejectM1Send('M1_FRAME_TOO_LARGE', false);
+  }
   var entry = {
     action: command.action,
     connectionEpoch: _wsConnectionEpoch,
@@ -1131,12 +1312,15 @@ function _sendM1Command(command, context, session, sessionIdx, targetEntry) {
     terminalStatus: null,
     turnId: command.turnId
   };
-  if (!_registerM1Turn(entry)) return false;
+  if (!_registerM1Turn(entry)) {
+    return _rejectM1Send('M1_LEDGER_CAPACITY_EXCEEDED', true);
+  }
   try {
-    if (!wsSend('chat', { command: command, context: context })) {
+    if (!_chatWs || _chatWs.readyState !== 1 || !_wsReady) {
       _removeM1Turn(command.requestId);
       return false;
     }
+    _chatWs.send(encodedFrame);
   } catch (error) {
     _removeM1Turn(command.requestId);
     throw error;
@@ -1159,10 +1343,13 @@ function _findActiveM1Send(conversationId) {
 }
 
 function wsSendChat(content, session, sessionIdx) {
+  _m1LastSendRejection = null;
   var selected = _selectConversationId(session);
   if (!selected) return false;
   if (_m1WireNegotiated) {
-    if (_findActiveM1Send(selected.conversationId)) return false;
+    if (_findActiveM1Send(selected.conversationId)) {
+      return _rejectM1Send('M1_CONVERSATION_BUSY', true);
+    }
     var context = _createM1Context(session);
     if (!context) return false;
     var command = {
@@ -1215,6 +1402,7 @@ function wsSendTerminal(command, session, sessionIdx) {
 }
 
 function wsSendCancel(session) {
+  _m1LastSendRejection = null;
   var conversationId = session && _isConversationId(session._convId)
     ? session._convId
     : null;
@@ -1259,6 +1447,13 @@ function wsServerVersion() { return _serverVersion; }
 function wsServerFeatures() { return _serverFeatures; }
 function wsHasFeature(f) { return _serverFeatures.indexOf(f) >= 0; }
 function wsIsM1WireNegotiated() { return _m1WireNegotiated; }
+function wsM1AttachmentPolicy() { return _m1AttachmentPolicy; }
+function wsConnectionEpoch() { return _wsConnectionEpoch; }
+function wsTakeM1SendRejection() {
+  var rejection = _m1LastSendRejection;
+  _m1LastSendRejection = null;
+  return rejection;
+}
 function wsDestroy() {
   _wsDestroyed = true;
   if (_wsRetryTimer) clearTimeout(_wsRetryTimer);
@@ -1267,6 +1462,8 @@ function wsDestroy() {
   _wsReady = false;
   _serverFeatures = [];
   _m1WireNegotiated = false;
+  _m1AttachmentPolicy = null;
+  _m1LastSendRejection = null;
   _clearPendingEditsOnDisconnect();
   _cancelPendingRehydrate(_wsConnectionEpoch);
   _interruptM1Turns(
@@ -1340,6 +1537,9 @@ if (typeof module !== 'undefined' && module.exports) {
     wsHasFeature: wsHasFeature,
     wsHasActiveM1Turn: wsHasActiveM1Turn,
     wsIsM1WireNegotiated: wsIsM1WireNegotiated,
+    wsM1AttachmentPolicy: wsM1AttachmentPolicy,
+    wsConnectionEpoch: wsConnectionEpoch,
+    wsTakeM1SendRejection: wsTakeM1SendRejection,
     wsDestroy: wsDestroy,
     trackEditRequest: trackEditRequest,
     approveEdit: approveEdit,
@@ -1361,6 +1561,9 @@ if (typeof window !== 'undefined') {
     hasFeature: wsHasFeature,
     hasActiveM1Turn: wsHasActiveM1Turn,
     isM1WireNegotiated: wsIsM1WireNegotiated,
+    m1AttachmentPolicy: wsM1AttachmentPolicy,
+    connectionEpoch: wsConnectionEpoch,
+    takeM1SendRejection: wsTakeM1SendRejection,
     destroy: wsDestroy,
     trackEditRequest: trackEditRequest,
     approveEdit: approveEdit,

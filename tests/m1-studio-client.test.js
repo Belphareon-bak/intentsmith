@@ -31,6 +31,26 @@ import { createMiscRoutes } from '../src/routes/misc.js';
 import { createLegacyLocalCapability } from '../src/security/legacy-local-access-policy.js';
 import { createSessionAdapter } from '../src/ws-bridge/session-adapter.js';
 import { attachWebSocketServer } from '../src/ws-bridge/ws-server.js';
+import { createM1AttachmentPolicy } from '../src/ws-bridge/protocol.js';
+
+const TEST_M1_ATTACHMENT_POLICY = createM1AttachmentPolicy({
+  maxCount: 2,
+  maxTextBytes: 1024,
+  maxImageBytes: 1024,
+  maxAggregateBytes: 2048,
+  maxFrameBytes: 16384,
+});
+
+function m1FeatureMetadata(policy = TEST_M1_ATTACHMENT_POLICY) {
+  return {
+    featureMetadata: {
+      'm1-wire-v1': {
+        version: 1,
+        attachmentPolicy: hostClone(policy),
+      },
+    },
+  };
+}
 
 const require = createRequire(import.meta.url);
 const {
@@ -59,10 +79,15 @@ const CANONICAL_CONSUMER_FUNCTIONS = Object.freeze([
   'wsSendCancel',
   'wsHasActiveM1Turn',
   'wsIsM1WireNegotiated',
+  'wsM1AttachmentPolicy',
+  'wsConnectionEpoch',
+  'wsTakeM1SendRejection',
 ]);
 const CANONICAL_BUNDLE_MARKERS = Object.freeze([
   'Generated @c3/protocol M1 runtime is unavailable',
   'm1-wire-v1',
+  'M1_ATTACHMENT_PATH_FORBIDDEN',
+  'M1_FRAME_TOO_LARGE',
   'core-event-stream-limit',
   'DELIVERY_UNKNOWN',
   'CONVERSATION_BUSY',
@@ -549,12 +574,16 @@ function loadClient(sessions, options = {}) {
       socket.readyState = 1;
       socket.onopen();
     }
+    const defaultMetadata = features.includes('m1-wire-v1')
+      ? m1FeatureMetadata()
+      : {};
     socket.onmessage({
       data: JSON.stringify({
         type: 'hello_ack',
         protocolVersion: 1,
         serverVersion: 'test',
         features,
+        ...defaultMetadata,
         ...overrides,
       }),
     });
@@ -597,6 +626,7 @@ test('protocol v1 ACK enables M1 only when the server echoes the offer', () => {
   assert.equal(client.wsIsReady(), true);
   assert.equal(client.wsHasFeature('m1-wire-v1'), true);
   assert.equal(client.wsIsM1WireNegotiated(), true);
+  assert.deepEqual(hostClone(client.wsM1AttachmentPolicy()), hostClone(TEST_M1_ATTACHMENT_POLICY));
 });
 
 test('missing or wrong protocol and malformed feature lists keep M1 disabled', () => {
@@ -623,6 +653,38 @@ test('missing or wrong protocol and malformed feature lists keep M1 disabled', (
     { features: 'm1-wire-v1' },
   );
   assert.equal(malformed.client.wsIsM1WireNegotiated(), false);
+
+  const missingPolicy = loadClient([session()], { autoHandshake: false });
+  missingPolicy.handshake(
+    missingPolicy.socket,
+    ['m1-wire-v1'],
+    { featureMetadata: undefined },
+  );
+  assert.equal(missingPolicy.client.wsIsReady(), false);
+  assert.equal(missingPolicy.client.wsIsM1WireNegotiated(), false);
+  assert.equal(missingPolicy.socket.closeCode, 4000);
+  assert.equal(missingPolicy.socket.closeReason, 'Invalid M1 negotiation metadata');
+
+  const invalidMetadata = [
+    value => { value.featureMetadata.extra = {}; },
+    value => { value.featureMetadata['m1-wire-v1'].extra = true; },
+    value => { value.featureMetadata['m1-wire-v1'].version = 2; },
+    value => { value.featureMetadata['m1-wire-v1'].attachmentPolicy.extra = true; },
+    value => { value.featureMetadata['m1-wire-v1'].attachmentPolicy.maxCount = 0; },
+    value => { value.featureMetadata['m1-wire-v1'].attachmentPolicy.maxAggregateBytes = 1; },
+    value => { value.featureMetadata['m1-wire-v1'].attachmentPolicy.maxFrameBytes = 2048; },
+    value => { value.featureMetadata['m1-wire-v1'].attachmentPolicy.imageMimeTypes.reverse(); },
+  ];
+  for (const mutate of invalidMetadata) {
+    const metadata = m1FeatureMetadata();
+    mutate(metadata);
+    const candidate = loadClient([session()], { autoHandshake: false });
+    candidate.handshake(candidate.socket, ['m1-wire-v1'], metadata);
+    assert.equal(candidate.client.wsIsReady(), false);
+    assert.equal(candidate.client.wsIsM1WireNegotiated(), false);
+    assert.equal(candidate.socket.closeCode, 4000);
+    assert.equal(candidate.socket.closeReason, 'Invalid M1 negotiation metadata');
+  }
 });
 
 test('a reconnect clears the M1 latch until the new socket negotiates it', () => {
@@ -776,7 +838,14 @@ function session(conversationId = null) {
   };
 }
 
-function panelSendHarness({ FileReaderClass = null, mode = 'unavailable', input = '', sessionIndex = 0 } = {}) {
+function panelSendHarness({
+  FileReaderClass = null,
+  input = '',
+  localRejection = null,
+  m1Negotiated = false,
+  mode = 'unavailable',
+  sessionIndex = 0,
+} = {}) {
   const source = fs.readFileSync(CHAT_PANEL, 'utf8');
   const start = source.indexOf('var _TEXT_EXTS=');
   const end = source.indexOf('function _chatPaneUI', start);
@@ -819,10 +888,12 @@ function panelSendHarness({ FileReaderClass = null, mode = 'unavailable', input 
   };
   const sessions = Array.from({ length: sessionIndex + 1 }, () => session());
   sessions[sessionIndex] = pane;
+  let pendingLocalRejection = localRejection;
 
   const context = vm.createContext({
     C3WS: {
       isReady: () => mode !== 'unavailable',
+      isM1WireNegotiated: () => m1Negotiated,
       sendCancel() {
         counters.remoteCancel = (counters.remoteCancel || 0) + 1;
         return true;
@@ -837,7 +908,12 @@ function panelSendHarness({ FileReaderClass = null, mode = 'unavailable', input 
           selectedPane,
         });
         if (mode === 'throw') throw new Error('synthetic transport failure');
-        return mode !== 'false';
+        return mode !== 'false' && mode !== 'local-reject';
+      },
+      takeM1SendRejection() {
+        const rejection = pendingLocalRejection;
+        pendingLocalRejection = null;
+        return rejection;
       },
     },
     Date,
@@ -1875,6 +1951,7 @@ test('negotiated send uses one exact frame through the required protocol seam', 
       protocolVersion: 1,
       serverVersion: 'test',
       features: ['m1-wire-v1'],
+      ...m1FeatureMetadata(),
     }),
   });
 
@@ -1935,6 +2012,7 @@ test('negotiated attachment input is local NOT_SENT and never legacy fallback', 
       protocolVersion: 1,
       serverVersion: 'test',
       features: ['m1-wire-v1'],
+      ...m1FeatureMetadata(),
     }),
   });
   const before = socket.sent.length;
@@ -1946,6 +2024,159 @@ test('negotiated attachment input is local NOT_SENT and never legacy fallback', 
   assert.equal(client.wsSendChat('do not normalize malformed attachment state', pane, 0), false);
   assert.equal(socket.sent.length, before);
   assert.equal(pane._convId, null);
+});
+
+test('negotiated inline attachments send only exact user-selected bytes', () => {
+  const pane = session();
+  pane.chat._pendingAttachments = [
+    {
+      name: 'empty.txt',
+      size: '0 KB',
+      type: 'text',
+      content: '',
+      path: null,
+    },
+    {
+      name: 'pixel.png',
+      size: '1 KB',
+      type: 'image',
+      content: 'data:image/png;base64,AQIDBA==',
+      path: null,
+    },
+  ];
+  const { client, handshake, socket } = loadClient([pane], { autoHandshake: false });
+  handshake(socket, ['m1-wire-v1']);
+
+  assert.equal(client.wsSendChat('bounded bytes', pane, 0), true);
+  assert.deepEqual(socket.sent.at(-1).data.context.attachments, [
+    { name: 'empty.txt', type: 'text', content: '' },
+    { name: 'pixel.png', type: 'image', content: 'data:image/png;base64,AQIDBA==' },
+  ]);
+  assert.equal(client.wsTakeM1SendRejection(), null);
+});
+
+test('negotiated attachment and frame limits fail locally with one typed reason', () => {
+  const utf8Policy = createM1AttachmentPolicy({
+    maxCount: 2,
+    maxTextBytes: 5,
+    maxImageBytes: 16,
+    maxAggregateBytes: 20,
+    maxFrameBytes: 2048,
+  });
+  const aggregatePolicy = createM1AttachmentPolicy({
+    maxCount: 2,
+    maxTextBytes: 1024,
+    maxImageBytes: 1024,
+    maxAggregateBytes: 1500,
+    maxFrameBytes: 4096,
+  });
+  const framePolicy = createM1AttachmentPolicy({
+    maxCount: 2,
+    maxTextBytes: 1024,
+    maxImageBytes: 1024,
+    maxAggregateBytes: 2048,
+    maxFrameBytes: 2049,
+  });
+  const cases = [
+    {
+      name: 'path',
+      attachments: [{ name: 'x.txt', type: 'text', content: 'x', path: '/private/x' }],
+      reason: 'M1_ATTACHMENT_PATH_FORBIDDEN',
+    },
+    {
+      name: 'malformed state',
+      attachments: { name: 'x.txt' },
+      reason: 'M1_ATTACHMENT_STATE_INVALID',
+    },
+    {
+      name: 'count',
+      attachments: [0, 1, 2].map(index => ({
+        name: `x-${index}.txt`, type: 'text', content: 'x',
+      })),
+      reason: 'M1_ATTACHMENT_COUNT_EXCEEDED',
+    },
+    {
+      name: 'filename',
+      attachments: [{ name: '../x.txt', type: 'text', content: 'x' }],
+      reason: 'M1_ATTACHMENT_NAME_INVALID',
+    },
+    {
+      name: 'binary',
+      attachments: [{ name: 'x.bin', type: 'binary', content: 'x' }],
+      reason: 'M1_ATTACHMENT_TYPE_UNSUPPORTED',
+    },
+    {
+      name: 'contentless',
+      attachments: [{ name: 'x.txt', type: 'text', content: null }],
+      reason: 'M1_ATTACHMENT_CONTENT_UNAVAILABLE',
+    },
+    {
+      name: 'UTF-8 bytes',
+      attachments: [{ name: 'x.txt', type: 'text', content: 'žluť' }],
+      policy: utf8Policy,
+      reason: 'M1_ATTACHMENT_TEXT_TOO_LARGE',
+    },
+    {
+      name: 'text item',
+      attachments: [{ name: 'x.txt', type: 'text', content: 'x'.repeat(1025) }],
+      reason: 'M1_ATTACHMENT_TEXT_TOO_LARGE',
+    },
+    {
+      name: 'image MIME',
+      attachments: [{ name: 'x.png', type: 'image', content: 'data:image/png;charset=utf-8;base64,AQ==' }],
+      reason: 'M1_ATTACHMENT_IMAGE_INVALID',
+    },
+    {
+      name: 'non-canonical base64',
+      attachments: [{ name: 'x.png', type: 'image', content: 'data:image/png;base64,AB==' }],
+      reason: 'M1_ATTACHMENT_IMAGE_INVALID',
+    },
+    {
+      name: 'image item',
+      attachments: [{
+        name: 'x.png',
+        type: 'image',
+        content: `data:image/png;base64,${Buffer.alloc(1025, 1).toString('base64')}`,
+      }],
+      reason: 'M1_ATTACHMENT_IMAGE_TOO_LARGE',
+    },
+    {
+      name: 'aggregate',
+      attachments: [
+        { name: 'a.txt', type: 'text', content: 'a'.repeat(800) },
+        { name: 'b.txt', type: 'text', content: 'b'.repeat(800) },
+      ],
+      policy: aggregatePolicy,
+      reason: 'M1_ATTACHMENT_AGGREGATE_TOO_LARGE',
+    },
+    {
+      name: 'whole frame',
+      attachments: [],
+      input: 'x'.repeat(3000),
+      policy: framePolicy,
+      reason: 'M1_FRAME_TOO_LARGE',
+    },
+  ];
+
+  for (const candidate of cases) {
+    const pane = session();
+    pane.chat._pendingAttachments = candidate.attachments;
+    const { client, handshake, socket } = loadClient([pane], { autoHandshake: false });
+    handshake(socket, ['m1-wire-v1'], m1FeatureMetadata(
+      candidate.policy || TEST_M1_ATTACHMENT_POLICY,
+    ));
+    const before = socket.sent.length;
+    assert.equal(client.wsSendChat(candidate.input || candidate.name, pane, 0), false, candidate.name);
+    assert.equal(socket.sent.length, before, `${candidate.name} reached WebSocket.send`);
+    assert.deepEqual(hostClone(client.wsTakeM1SendRejection()), {
+      status: 'NOT_SENT',
+      retryable: false,
+      reason: candidate.reason,
+      serverAcknowledged: false,
+    });
+    assert.equal(client.wsTakeM1SendRejection(), null, `${candidate.name} reason replayed`);
+    assert.equal(pane._convId, null, `${candidate.name} published identity`);
+  }
 });
 
 test('foreign, duplicate, post-terminal, and legacy frames fail before generic routing', () => {
@@ -2029,6 +2260,7 @@ test('foreign, duplicate, post-terminal, and legacy frames fail before generic r
         protocolVersion: 1,
         serverVersion: 'test',
         features: ['m1-wire-v1'],
+        ...m1FeatureMetadata(),
       }),
     });
     assert.equal(client.wsSendChat(candidate.name, pane, 0), true);
@@ -2058,6 +2290,7 @@ test('M1 cancel has independent identity and terminal ordering stays target then
       protocolVersion: 1,
       serverVersion: 'test',
       features: ['m1-wire-v1'],
+      ...m1FeatureMetadata(),
     }),
   });
   assert.equal(client.wsSendChat('cancel me', pane, 0), true);
@@ -2099,6 +2332,7 @@ test('cancel terminal before its target fails the whole negotiated connection', 
     data: JSON.stringify({
       type: 'hello_ack', protocolVersion: 1, serverVersion: 'test',
       features: ['m1-wire-v1'],
+      ...m1FeatureMetadata(),
     }),
   });
   assert.equal(client.wsSendChat('cancel ordering', pane, 0), true);
@@ -2140,6 +2374,7 @@ test('a moved pane keeps object-owned terminal routing at its current index', ()
     data: JSON.stringify({
       type: 'hello_ack', protocolVersion: 1, serverVersion: 'test',
       features: ['m1-wire-v1'],
+      ...m1FeatureMetadata(),
     }),
   });
   assert.equal(client.wsSendChat('move me', paneB, 1), true);
@@ -2165,6 +2400,7 @@ test('one M1 send per conversation is enforced before another wire effect', () =
     data: JSON.stringify({
       type: 'hello_ack', protocolVersion: 1, serverVersion: 'test',
       features: ['m1-wire-v1'],
+      ...m1FeatureMetadata(),
     }),
   });
   assert.equal(client.wsSendChat('first', pane, 0), true);
@@ -2191,6 +2427,7 @@ test('conversation authority rejects a second pane object with the same identity
     data: JSON.stringify({
       type: 'hello_ack', protocolVersion: 1, serverVersion: 'test',
       features: ['m1-wire-v1'],
+      ...m1FeatureMetadata(),
     }),
   });
 
@@ -2236,6 +2473,7 @@ test('reconnect interrupts a pending M1 turn without resend or legacy downgrade'
       protocolVersion: 1,
       serverVersion: 'test',
       features: ['m1-wire-v1'],
+      ...m1FeatureMetadata(),
     }),
   });
   assert.equal(client.wsSendChat('pending', pane, 0), true);
@@ -2320,6 +2558,7 @@ test('bounded terminal tombstones do not permanently exhaust the M1 ledger', () 
       protocolVersion: 1,
       serverVersion: 'test',
       features: ['m1-wire-v1'],
+      ...m1FeatureMetadata(),
     }),
   });
 
@@ -2355,6 +2594,7 @@ test('active M1 stream rejects per-turn count and aggregate payload exhaustion',
       data: JSON.stringify({
         type: 'hello_ack', protocolVersion: 1, serverVersion: 'test',
         features: ['m1-wire-v1'],
+        ...m1FeatureMetadata(),
       }),
     });
     assert.equal(client.wsSendChat(`bounded-${mode}`, pane, 0), true);
@@ -2385,6 +2625,7 @@ test('aggregate stream limit is enforced in UTF-8 bytes, not UTF-16 units', () =
     data: JSON.stringify({
       type: 'hello_ack', protocolVersion: 1, serverVersion: 'test',
       features: ['m1-wire-v1'],
+      ...m1FeatureMetadata(),
     }),
   });
   assert.equal(client.wsSendChat('unicode byte bound', pane, 0), true);
@@ -2531,6 +2772,7 @@ function crossBoundaryHarness(handleRequest, conversationId) {
     },
     handleRequest,
     logger: CROSS_BOUNDARY_LOGGER,
+    m1AttachmentPolicy: TEST_M1_ATTACHMENT_POLICY,
     sessionId: `cross-boundary-${conversationId}`,
     staleClock: {
       now: () => 0,
@@ -2764,6 +3006,55 @@ await testAsync('actual Studio and server seams agree on success, error, and can
   }
 });
 
+await testAsync('actual M1 seams preserve inline bytes and discard path authority', async () => {
+  const telemetryBefore = config.features.telemetry;
+  config.features.telemetry = false;
+  let controllerAttachments = null;
+  const harness = crossBoundaryHarness(async request => {
+    controllerAttachments = request.attachments;
+    return { response: 'inline accepted', mode: 'conversation', confidence: 1 };
+  }, 'cross-boundary-attachments');
+  try {
+    harness.pane.chat._pendingAttachments = [
+      {
+        name: 'utf8.txt',
+        type: 'text',
+        content: 'žluť',
+        path: null,
+        size: '1 KB',
+      },
+      {
+        name: 'pixel.png',
+        type: 'image',
+        content: 'data:image/png;base64,AQIDBA==',
+        path: null,
+        size: '1 KB',
+      },
+    ];
+    assert.equal(harness.client.wsSendChat('M1 inline', harness.pane, 0), true);
+    const frame = harness.frames().at(-1);
+    assert.deepEqual(frame.data.context.attachments, [
+      { name: 'utf8.txt', type: 'text', content: 'žluť' },
+      { name: 'pixel.png', type: 'image', content: 'data:image/png;base64,AQIDBA==' },
+    ]);
+    await harness.adapter.processM1Command(frame.data);
+    assert.deepEqual(controllerAttachments, [
+      { name: 'utf8.txt', type: 'text', content: 'žluť', size: 6 },
+      {
+        name: 'pixel.png',
+        type: 'image',
+        content: 'data:image/png;base64,AQIDBA==',
+        size: 4,
+      },
+    ]);
+    assert.equal(controllerAttachments.some(attachment => 'path' in attachment), false);
+    assertCanonicalCrossBoundaryMessages(harness.serverMessages, harness.busEvents);
+  } finally {
+    harness.cleanup();
+    config.features.telemetry = telemetryBefore;
+  }
+});
+
 await testAsync('owned loopback carries three Studio panels over the negotiated M1 wire', async () => {
   const telemetryBefore = config.features.telemetry;
   const capability = createLegacyLocalCapability();
@@ -2867,6 +3158,7 @@ await testAsync('owned loopback carries three Studio panels over the negotiated 
         allowedOrigins: [],
         localCapability: capability,
         m1WireSupported: true,
+        m1AttachmentPolicy: TEST_M1_ATTACHMENT_POLICY,
       },
     );
     await new Promise((resolve, reject) => {
@@ -3499,6 +3791,85 @@ await testAsync('failed async attachment send preserves exact original and newer
   assertNoFallbackEffects(harness);
 });
 
+await testAsync('M1 attachment preparation uses gesture bytes and surfaces nonretryable NOT_SENT', async () => {
+  {
+    const { ControlledFileReader, readers } = controlledFileReaderClass();
+    const harness = panelSendHarness({
+      FileReaderClass: ControlledFileReader,
+      input: 'inline bytes',
+      m1Negotiated: true,
+      mode: 'ready',
+    });
+    harness.pane.chat.attachments.push({
+      file: { path: '/must/not-cross.txt', size: 128 },
+      name: 'inline.txt',
+      size: '1 KB',
+    });
+    harness.functions._chatSendPane(0);
+    await finishControlledReader(readers[0]);
+
+    assert.equal(harness.counters.wsSend.length, 1);
+    assert.deepEqual(harness.counters.wsSend[0].pendingAttachments, [{
+      content: 'attachment contents',
+      name: 'inline.txt',
+      path: null,
+      size: '1 KB',
+      type: 'text',
+    }]);
+    assert.equal(harness.pane.chat._delivery, null);
+    assert.equal(harness.textarea.value, '');
+    assert.equal(harness.counters.fetch, 0);
+    assert.equal(harness.counters.filesystem, 0);
+    assert.equal(harness.counters.provider, 0);
+    assert.equal(harness.counters.shell, 0);
+    assert.equal(harness.counters.tool, 0);
+    assert.deepEqual(harness.counters.timers.map(timer => timer.delay), [2000]);
+  }
+
+  {
+    const { ControlledFileReader, readers } = controlledFileReaderClass();
+    const attachment = {
+      file: { path: '/must/not-fallback.txt', size: 128 },
+      name: 'unreadable.txt',
+      size: '1 KB',
+    };
+    const harness = panelSendHarness({
+      FileReaderClass: ControlledFileReader,
+      input: 'keep exact draft',
+      localRejection: {
+        status: 'NOT_SENT',
+        retryable: false,
+        reason: 'M1_ATTACHMENT_CONTENT_UNAVAILABLE',
+        serverAcknowledged: false,
+      },
+      m1Negotiated: true,
+      mode: 'local-reject',
+    });
+    harness.pane.chat.attachments.push(attachment);
+    harness.functions._chatSendPane(0);
+    await finishControlledReader(readers[0], 'error');
+
+    assert.equal(harness.counters.wsSend.length, 1);
+    assert.equal(harness.counters.wsSend[0].pendingAttachments[0].path, null);
+    assert.equal(harness.pane.chat._delivery.status, 'NOT_SENT');
+    assert.equal(harness.pane.chat._delivery.retryable, false);
+    assert.equal(
+      harness.pane.chat._delivery.reason,
+      'M1_ATTACHMENT_CONTENT_UNAVAILABLE',
+    );
+    assert.equal(harness.pane.chat.msgs[0].retryable, false);
+    assert.equal(harness.pane.chat.msgs[0].deliveryReason, 'M1_ATTACHMENT_CONTENT_UNAVAILABLE');
+    assert.equal(harness.textarea.value, 'keep exact draft');
+    assert.equal(harness.pane.chat.attachments[0], attachment);
+    assertNoFallbackEffects(harness);
+  }
+
+  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
+  assert.match(source, /st\._delivery\.retryable===false/);
+  assert.match(source, /C3WS\.isM1WireNegotiated\(\)===true/);
+  assert.match(source, /Never turn an Electron filesystem path into wire authority/);
+});
+
 await testAsync('stale attachment callbacks cannot cross reset, replacement, or identity boundaries', async () => {
   const beginPendingSend = () => {
     const { ControlledFileReader, readers } = controlledFileReaderClass();
@@ -3558,6 +3929,18 @@ await testAsync('stale attachment callbacks cannot cross reset, replacement, or 
   assert.equal(identityCase.harness.pane.chat.msgs.length, 1);
   assert.equal(identityCase.harness.pane.chat.msgs[0].text, 'new project');
   assertNoFallbackEffects(identityCase.harness);
+
+  const transportCase = beginPendingSend();
+  transportCase.harness.context.C3WS.connectionEpoch = () => 2;
+  await finishRead(transportCase.reader);
+  assert.equal(transportCase.harness.counters.wsSend.length, 0);
+  assert.equal(transportCase.harness.pane.chat._delivery.status, 'NOT_SENT');
+  assert.equal(
+    transportCase.harness.pane.chat._delivery.reason,
+    'CONTEXT_CHANGED_BEFORE_SEND',
+  );
+  assert.equal(transportCase.harness.pane.chat.attachments.length, 1);
+  assertNoFallbackEffects(transportCase.harness);
 
   const multiReader = controlledFileReaderClass();
   const multi = panelSendHarness({
