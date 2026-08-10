@@ -579,9 +579,31 @@ focused regression sady.
      checkpoint `FRESH_CLONE_VERIFIED`.
      Typed GET/PUT má source `3cbc260d` nad exact body, revision CAS a typovanými
      400/409/503 výsledky; jeho jediná nová exact boundary hrana je přijatá bez
-     změny cyklů. Atomický backup/import/reset a skutečná mobile
-     late-insertion parita jsou stále
-     `IMPLEMENTATION_PENDING`. Před
+     změny cyklů. Backend atomického versioned backup/import/reset adaptéru je
+     implementovaný jako samostatný feature checkpoint: general settings,
+     policy projekce a právě jeden event sdílejí repository-owned
+     `BEGIN IMMEDIATE`; schema-v2 portable export je default-deny a přenáší jen
+     skutečně uložený source subset jedenácti ohraničených UI cest. Import
+     neznámé ani local-only hodnoty nepřijímá a zachovává je na cíli.
+     Post-commit runtime chyba vrací
+     pravdivý degraded úspěch místo falešného 500; repository error catch končí
+     před runtime/presentation fází a ani selhání diagnostického loggeru už
+     durable commit nesníží na non-2xx. Autoritativní commitnutý
+     Studio runtime i další dvě nalezené first-party UI plochy nyní kontrolují
+     non-2xx i malformed 2xx, přijmou pouze serverem commitnutý snapshot,
+     serializují import/reset a odmítnou neznámou portable cestu. Mutace mají
+     explicitní
+     `COMMITTED/REJECTED/DELIVERY_UNKNOWN`; pouze definitivní reject obnoví
+     odložený generic save, zatímco nejasné doručení uzamkne další zápisy do
+     nového načtení Studia. Společná generace současně zneplatní GET zahájený
+     před recovery. VM sada má 123/0 a vykonává i skutečný Backup panel a
+     FileReader chyby. Review A nad `21ffa72b` našlo dvě P1 race a stale
+     rozsah; tento follow-up je lokálně opravil. Následné review default-deny
+     profilu našlo fabrikované v2 defaulty, malformed destination container,
+     neakční export error a stale fallback při render chybě; aktuální repair je
+     lokálně uzavírá, ale nové Review A a fresh-clone attestation jsou ještě
+     otevřené. Skutečná mobile
+     late-insertion parita zůstává `IMPLEMENTATION_PENDING`. Před
      aktivací je navíc nutný čerstvý role-suite proof svázaný s exaktním
      digestem; dnešní name-only score takovým důkazem není.
      **Druhý checkpoint je implementovaný:** migrace 046 vytváří oddělený
@@ -1291,7 +1313,7 @@ mohou pokračovat.
    | 1 | 023 VRAM delete race | úzká artifact-use hrana fresh-clone ověřená; globální GPU residency zůstává M2 residual |
    | 2 | 022 operation-bound recovery | `FRESH_CLONE_VERIFIED` na `81dff196`; built B4 zůstává otevřený |
    | 3 | ověřit dokončenou rezervaci migrací | `061` = 020 a `062` = 015 jsou rezervované; skutečná late-insertion parita čeká na první společný SHA s finálně přečíslovanými mobilními migracemi |
-   | 4 | 020 oddělená policy storage | migrace/repository, oba reader cutovers, generic drop a typed GET/PUT implementované; atomický import/reset zůstává otevřený |
+   | 4 | 020 oddělená policy storage | default-deny backend a tři first-party UI consumery jsou implementované; poslední `CHANGES_REQUIRED` review má opravu v `2c06b159` s focused výsledky 36/0 a 123/0, nové Review A a fresh clone zůstávají otevřené |
    | 5 | 015 proof issuance | druhá migrační položka, těží ze stejného census |
    | 6 | 021 built journey | jediná položka vázaná na drahou Studio infrastrukturu |
    | 7 | autorizovaný GPU pilot | sériově, jedna role/digest, jen na akci operátora |

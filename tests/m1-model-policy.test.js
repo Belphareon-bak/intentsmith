@@ -27,6 +27,9 @@ import {
   createModelAutomationPolicyRepository,
   readModelAutomationPolicy,
 } from '../src/db/model-policy.js';
+import {
+  SETTINGS_PORTABLE_PATHS,
+} from '../src/db/settings-portability.js';
 
 const MODEL_POLICY_WAL_WORKER_SOURCE = String.raw`
 const Database = require('better-sqlite3');
@@ -132,6 +135,74 @@ function updateInput(expectedRevision, overrides = {}) {
   };
 }
 
+function portableValues(overrides = {}) {
+  return {
+    '/appearance/accentColor': '#6366f1',
+    '/appearance/fontFamily': 'system',
+    '/appearance/fontSize': 14,
+    '/appearance/theme': 'light',
+    '/c3.language': 'cs',
+    '/c3.output.codeBlocks': true,
+    '/c3.output.markdownRendering': true,
+    '/c3.output.syntaxHighlight': true,
+    '/output/codeStyle': 'default',
+    '/output/defaultFormat': 'markdown',
+    '/output/namingConvention': 'camelCase',
+    ...overrides,
+  };
+}
+
+function backupEnvelope(overrides = {}) {
+  const base = {
+    kind: 'INTENTSMITH_SETTINGS_BACKUP',
+    schemaVersion: 2,
+    settingsProjection: {
+      profile: 'UX_PREFERENCES_V1',
+      values: portableValues(),
+    },
+    modelAutomationPolicy: {
+      autoFailoverEnabled: true,
+      autoCleanupEnabled: true,
+      autoCleanupDays: 30,
+    },
+    omissions: {
+      strategy: 'DEFAULT_DENY',
+      scope: 'GENERAL_SETTINGS',
+      excluded: 'ALL_PATHS_NOT_IN_PROFILE',
+      sourceHadExcludedPaths: false,
+    },
+  };
+  return {
+    ...base,
+    ...overrides,
+    settingsProjection: overrides.settingsProjection === undefined
+      ? base.settingsProjection
+      : (overrides.settingsProjection && typeof overrides.settingsProjection === 'object'
+        ? {
+          ...base.settingsProjection,
+          ...overrides.settingsProjection,
+          values: overrides.settingsProjection.values === undefined
+            ? base.settingsProjection.values
+            : overrides.settingsProjection.values,
+        }
+        : overrides.settingsProjection),
+  };
+}
+
+function legacyBackupEnvelope(overrides = {}) {
+  return {
+    kind: 'INTENTSMITH_SETTINGS_BACKUP',
+    schemaVersion: 1,
+    generalSettings: {
+      appearance: { theme: 'light' },
+      'c3.language': 'cs',
+    },
+    modelAutomationPolicy: null,
+    omittedSensitiveKeys: [],
+    ...overrides,
+  };
+}
+
 function captureError(fn) {
   try {
     fn();
@@ -158,23 +229,43 @@ function createSettingsRouteHarness(db) {
   let requestBody = {};
   let response = null;
   let featureDocument = null;
+  let parseFailure = null;
+  let featureFailure = null;
+  let loggerFailure = null;
+  let featureResetCount = 0;
   const routes = createMiscRoutes({
     db: { db },
-    parseBody: async () => requestBody,
+    parseBody: async () => {
+      if (parseFailure) throw parseFailure;
+      return requestBody;
+    },
     sendJSON: (_res, status, body) => { response = { status, body }; },
     safeError: error => ({ error: error.message }),
-    logger: { info() {}, warn() {}, error() {}, debug() {} },
+    logger: {
+      info() {},
+      warn() { if (loggerFailure) throw loggerFailure; },
+      error() {},
+      debug() {},
+    },
     callWithAuth: async () => ({}),
     createAuthToken: () => '',
     LLMCallerRole: {},
     featureManager: {
       applySettings(document) {
+        if (featureFailure) throw featureFailure;
         featureDocument = document;
         return 0;
+      },
+      resetToDefaults() {
+        if (featureFailure) throw featureFailure;
+        featureResetCount++;
       },
     },
   });
   return {
+    get featureResetCount() { return featureResetCount; },
+    setFeatureFailure(error) { featureFailure = error; },
+    setLoggerFailure(error) { loggerFailure = error; },
     async post(body) {
       requestBody = body;
       response = null;
@@ -185,6 +276,28 @@ function createSettingsRouteHarness(db) {
     async get() {
       response = null;
       await routes['GET /api/settings']({}, {});
+      return response;
+    },
+    backup() {
+      response = null;
+      routes['GET /api/settings/backup']({}, {});
+      return response;
+    },
+    async importBackup(body, options = {}) {
+      requestBody = body;
+      parseFailure = options.parseFailure || null;
+      response = null;
+      featureDocument = null;
+      await routes['POST /api/settings/import']({}, {});
+      parseFailure = null;
+      return { response, featureDocument };
+    },
+    async reset(options = {}) {
+      response = null;
+      const route = options.legacy
+        ? routes['POST /api/reset']
+        : routes['POST /api/settings/reset'];
+      await route({}, {});
       return response;
     },
   };
@@ -542,6 +655,609 @@ await testAsync('generic settings GET omits owned keys from a legacy raw row', a
     assertEqual(Object.hasOwn(response.body.models, 'autoFailoverEnabled'), false);
     assertEqual(Object.hasOwn(response.body.models, 'autoCleanupDays'), false);
     assertEqual(readModelAutomationPolicy(db).settings.autoFailoverEnabled, false);
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('schema v2 export is one deterministic default-deny settings projection', async () => {
+  const db = openDb();
+  try {
+    createPolicySchema(db);
+    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run(JSON.stringify({
+      appearance: {
+        theme: 'light',
+        accentColor: '#12abEF',
+        fontFamily: 'inter',
+        fontSize: 16,
+        density: 'compact',
+      },
+      output: {
+        enabledTypes: ['code'],
+        defaultFormat: 'json',
+        codeStyle: 'airbnb',
+        namingConvention: 'snake_case',
+      },
+      'c3.language': 'en',
+      'c3.output.codeBlocks': false,
+      'c3.output.markdownRendering': false,
+      'c3.output.syntaxHighlight': false,
+      'c3.notif.smtpPass': 'CANARY_FLAT_SMTP',
+      'c3.notif.webhookSecret': 'CANARY_FLAT_HMAC',
+      webhookSecret: 'CANARY_TOPLEVEL_HMAC',
+      notifications: {
+        telegramToken: 'CANARY_TELEGRAM',
+        telegramChatId: 'CANARY_TELEGRAM_DESTINATION',
+        slackWebhook: 'CANARY_SLACK',
+        discordWebhook: 'CANARY_DISCORD',
+        webhookUrl: 'CANARY_WEBHOOK_DESTINATION',
+        smsApiKey: 'CANARY_SMS_KEY',
+        smsSecret: 'CANARY_SMS_SECRET',
+        smsPhone: 'CANARY_SMS_DESTINATION',
+      },
+      user: { avatar: 'CANARY_AVATAR', connectedAccounts: ['CANARY_ACCOUNT'] },
+      memory: { customPrompt: 'CANARY_PROMPT', saveHistory: false },
+      location: { city: 'CANARY_CITY', country: 'CANARY_COUNTRY' },
+      system: { ollamaUrl: 'CANARY_OLLAMA_URL' },
+      future: { credential: 'CANARY_FUTURE_SECRET' },
+    }));
+    createModelAutomationPolicyRepository(db).updateFromTypedApi(updateInput(1));
+    const harness = createSettingsRouteHarness(db);
+    const response = harness.backup();
+    const repeated = harness.backup();
+    assertEqual(response.status, 200);
+    assertEqual(Object.keys(response.body).sort().join(','), 'backup,ok');
+    assertEqual(response.body.ok, true);
+    assertEqual(JSON.stringify(response.body), JSON.stringify(repeated.body));
+    assertEqual(JSON.stringify(response.body.backup), JSON.stringify({
+      kind: 'INTENTSMITH_SETTINGS_BACKUP',
+      schemaVersion: 2,
+      settingsProjection: {
+        profile: 'UX_PREFERENCES_V1',
+        values: portableValues({
+          '/appearance/accentColor': '#12abEF',
+          '/appearance/fontFamily': 'inter',
+          '/appearance/fontSize': 16,
+          '/appearance/theme': 'light',
+          '/c3.language': 'en',
+          '/c3.output.codeBlocks': false,
+          '/c3.output.markdownRendering': false,
+          '/c3.output.syntaxHighlight': false,
+          '/output/codeStyle': 'airbnb',
+          '/output/defaultFormat': 'json',
+          '/output/namingConvention': 'snake_case',
+        }),
+      },
+      modelAutomationPolicy: {
+        autoFailoverEnabled: true,
+        autoCleanupEnabled: false,
+        autoCleanupDays: 30,
+      },
+      omissions: {
+        strategy: 'DEFAULT_DENY',
+        scope: 'GENERAL_SETTINGS',
+        excluded: 'ALL_PATHS_NOT_IN_PROFILE',
+        sourceHadExcludedPaths: true,
+      },
+    }));
+    assertEqual(
+      Object.keys(response.body.backup.settingsProjection.values).join(','),
+      SETTINGS_PORTABLE_PATHS.join(','),
+    );
+    const serialized = JSON.stringify(response.body.backup);
+    for (const canary of [
+      'CANARY_FLAT_SMTP', 'CANARY_FLAT_HMAC', 'CANARY_TOPLEVEL_HMAC',
+      'CANARY_TELEGRAM', 'CANARY_TELEGRAM_DESTINATION', 'CANARY_SLACK',
+      'CANARY_DISCORD', 'CANARY_WEBHOOK_DESTINATION', 'CANARY_SMS_KEY',
+      'CANARY_SMS_SECRET', 'CANARY_SMS_DESTINATION', 'CANARY_AVATAR',
+      'CANARY_ACCOUNT', 'CANARY_PROMPT', 'CANARY_CITY', 'CANARY_COUNTRY',
+      'CANARY_OLLAMA_URL', 'CANARY_FUTURE_SECRET',
+    ]) {
+      assertEqual(serialized.includes(canary), false);
+    }
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('schema v2 carries only source values and repairs a malformed owned container', async () => {
+  const db = openDb();
+  try {
+    createPolicySchema(db);
+    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run(JSON.stringify({
+      appearance: { theme: 'light' },
+      'c3.language': 'en',
+      webhookSecret: 'SOURCE_SECRET_CANARY',
+    }));
+    const harness = createSettingsRouteHarness(db);
+    const exported = harness.backup();
+    assertEqual(exported.status, 200);
+    assertEqual(JSON.stringify(exported.body.backup.settingsProjection.values), JSON.stringify({
+      '/appearance/theme': 'light',
+      '/c3.language': 'en',
+    }));
+    assertEqual(JSON.stringify(exported.body.backup).includes('SOURCE_SECRET_CANARY'), false);
+
+    db.prepare('UPDATE user_settings SET data = ? WHERE id = 1').run(JSON.stringify({
+      appearance: null,
+      output: {
+        codeStyle: 'google',
+        defaultFormat: 'yaml',
+        namingConvention: 'PascalCase',
+      },
+      'c3.language': 'cs',
+      'c3.output.codeBlocks': false,
+      webhookSecret: 'DESTINATION_SECRET_CANARY',
+    }));
+    const { response } = await harness.importBackup(exported.body.backup);
+    assertEqual(response.status, 200);
+    assertEqual(response.body.appliedPortablePaths.join(','), '/appearance/theme,/c3.language');
+    assertEqual(response.body.generalSettings.appearance.theme, 'light');
+    assertEqual(response.body.generalSettings.output.codeStyle, 'google');
+    assertEqual(response.body.generalSettings.output.defaultFormat, 'yaml');
+    assertEqual(response.body.generalSettings.output.namingConvention, 'PascalCase');
+    assertEqual(response.body.generalSettings['c3.language'], 'en');
+    assertEqual(response.body.generalSettings['c3.output.codeBlocks'], false);
+    assertEqual(response.body.generalSettings.webhookSecret, 'DESTINATION_SECRET_CANARY');
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('schema v2 import overlays only portable preferences and preserves local authority', async () => {
+  const db = openDb();
+  try {
+    createPolicySchema(db);
+    const destination = JSON.parse('{"constructor":{"local":"DESTINATION_CONSTRUCTOR"},"prototype":{"local":"DESTINATION_PROTOTYPE"},"__proto__":{"local":"DESTINATION_PROTO"}}');
+    Object.assign(destination, {
+      old: true,
+      appearance: { theme: 'dark', privateSibling: 'DESTINATION_APPEARANCE_PRIVATE' },
+      notifications: {
+        telegramToken: 'DESTINATION_TELEGRAM',
+        slackWebhook: 'DESTINATION_SLACK',
+        discordWebhook: 'DESTINATION_DISCORD',
+        webhookUrl: 'DESTINATION_WEBHOOK_URL',
+        smsApiKey: 'DESTINATION_SMS_KEY',
+        smsSecret: 'DESTINATION_SMS_SECRET',
+      },
+      'c3.notif.smtpPass': 'DESTINATION_SMTP',
+      'c3.notif.webhookSecret': 'DESTINATION_HMAC',
+      webhookSecret: 'DESTINATION_TOPLEVEL_HMAC',
+      system: { ollamaUrl: 'DESTINATION_OLLAMA' },
+      future: { setting: 'DESTINATION_FUTURE' },
+    });
+    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run(JSON.stringify(destination));
+    const harness = createSettingsRouteHarness(db);
+    const imported = backupEnvelope({
+      settingsProjection: {
+        profile: 'UX_PREFERENCES_V1',
+        values: portableValues({
+          '/appearance/theme': 'light',
+          '/appearance/fontSize': 18,
+          '/c3.language': 'en',
+          '/output/defaultFormat': 'yaml',
+        }),
+      },
+    });
+    const { response, featureDocument } = await harness.importBackup(imported);
+    assertEqual(response.status, 200);
+    assertEqual(response.body.ok, true);
+    assertEqual(response.body.success, true);
+    assertEqual(response.body.policy.revision, 2);
+    assertEqual(response.body.policy.autoFailoverEnabled, true);
+    assertEqual(response.body.event.eventKind, 'BACKUP_IMPORT');
+    assertEqual(response.body.event.source, 'SETTINGS_IMPORT');
+    assertEqual(response.body.sourceSchemaVersion, 2);
+    assertEqual(response.body.appliedPortablePaths.join(','), SETTINGS_PORTABLE_PATHS.join(','));
+    assertEqual(response.body.ignoredSourcePathCount, 0);
+    assert(response.body.preservedLocalPathCount >= 3);
+    const committed = response.body.generalSettings;
+    assertEqual(committed.appearance.theme, 'light');
+    assertEqual(committed.appearance.fontSize, 18);
+    assertEqual(committed.appearance.privateSibling, 'DESTINATION_APPEARANCE_PRIVATE');
+    assertEqual(committed['c3.language'], 'en');
+    assertEqual(committed.output.defaultFormat, 'yaml');
+    assertEqual(committed.notifications.telegramToken, 'DESTINATION_TELEGRAM');
+    assertEqual(committed.notifications.slackWebhook, 'DESTINATION_SLACK');
+    assertEqual(committed.notifications.discordWebhook, 'DESTINATION_DISCORD');
+    assertEqual(committed.notifications.webhookUrl, 'DESTINATION_WEBHOOK_URL');
+    assertEqual(committed.notifications.smsApiKey, 'DESTINATION_SMS_KEY');
+    assertEqual(committed.notifications.smsSecret, 'DESTINATION_SMS_SECRET');
+    assertEqual(committed['c3.notif.smtpPass'], 'DESTINATION_SMTP');
+    assertEqual(committed['c3.notif.webhookSecret'], 'DESTINATION_HMAC');
+    assertEqual(committed.webhookSecret, 'DESTINATION_TOPLEVEL_HMAC');
+    assertEqual(committed.system.ollamaUrl, 'DESTINATION_OLLAMA');
+    assertEqual(committed.future.setting, 'DESTINATION_FUTURE');
+    assertEqual(committed.constructor.local, 'DESTINATION_CONSTRUCTOR');
+    assertEqual(committed.prototype.local, 'DESTINATION_PROTOTYPE');
+    assertEqual(committed.__proto__.local, 'DESTINATION_PROTO');
+    assertEqual(JSON.stringify(featureDocument), JSON.stringify(response.body.generalSettings));
+    assertEqual(
+      db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data,
+      JSON.stringify(response.body.generalSettings),
+    );
+    assertEqual(readModelAutomationPolicy(db).settings.autoFailoverEnabled, true);
+    assertEqual(db.prepare(`
+      SELECT COUNT(*) AS count
+      FROM model_automation_policy_events
+      WHERE event_kind = 'BACKUP_IMPORT'
+    `).get().count, 1);
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('schema v1 and raw legacy imports are projected without trusting omission metadata', async () => {
+  const db = openDb();
+  try {
+    createPolicySchema(db);
+    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run(JSON.stringify({
+      appearance: {
+        accentColor: '#abcdef',
+        fontFamily: 'roboto',
+        fontSize: 20,
+        theme: 'dark',
+      },
+      output: {
+        codeStyle: 'google',
+        defaultFormat: 'json',
+        namingConvention: 'snake_case',
+      },
+      'c3.language': 'en',
+      'c3.output.codeBlocks': false,
+      'c3.output.markdownRendering': false,
+      'c3.output.syntaxHighlight': false,
+      notifications: { telegramToken: 'DESTINATION_LEGACY_TOKEN' },
+      webhookSecret: 'DESTINATION_LEGACY_HMAC',
+    }));
+    const repository = createModelAutomationPolicyRepository(db);
+    const enabled = repository.updateFromTypedApi(updateInput(1));
+    const harness = createSettingsRouteHarness(db);
+    const { response } = await harness.importBackup(legacyBackupEnvelope({
+      generalSettings: {
+        appearance: { theme: 'system' },
+        notifications: { telegramToken: 'ATTACKER_LEGACY_TOKEN' },
+        webhookSecret: 'ATTACKER_LEGACY_HMAC',
+        'c3.notif.webhookSecret': 'ATTACKER_FLAT_HMAC',
+        system: { ollamaUrl: 'ATTACKER_OLLAMA' },
+        future: { credential: 'ATTACKER_FUTURE' },
+      },
+      omittedSensitiveKeys: ['totally-false-metadata'],
+    }));
+    assertEqual(response.status, 200);
+    assertEqual(response.body.sourceSchemaVersion, 1);
+    assertEqual(response.body.appliedPortablePaths.join(','), '/appearance/theme');
+    assertEqual(response.body.ignoredSourcePathCount, 5);
+    assert(response.body.preservedLocalPathCount >= 2);
+    assertEqual(response.body.generalSettings.appearance.theme, 'system');
+    assertEqual(response.body.generalSettings.appearance.accentColor, '#abcdef');
+    assertEqual(response.body.generalSettings.appearance.fontFamily, 'roboto');
+    assertEqual(response.body.generalSettings.appearance.fontSize, 20);
+    assertEqual(response.body.generalSettings.output.codeStyle, 'google');
+    assertEqual(response.body.generalSettings.output.defaultFormat, 'json');
+    assertEqual(response.body.generalSettings.output.namingConvention, 'snake_case');
+    assertEqual(response.body.generalSettings['c3.language'], 'en');
+    assertEqual(response.body.generalSettings['c3.output.codeBlocks'], false);
+    assertEqual(response.body.generalSettings['c3.output.markdownRendering'], false);
+    assertEqual(response.body.generalSettings['c3.output.syntaxHighlight'], false);
+    assertEqual(
+      response.body.generalSettings.notifications.telegramToken,
+      'DESTINATION_LEGACY_TOKEN',
+    );
+    assertEqual(response.body.generalSettings.webhookSecret, 'DESTINATION_LEGACY_HMAC');
+    assertEqual(JSON.stringify(response.body.generalSettings).includes('ATTACKER_'), false);
+    assertEqual(response.body.policy.revision, enabled.revision + 1);
+    assertEqual(response.body.policy.autoFailoverEnabled, true);
+
+    const raw = await harness.importBackup({
+      appearance: { theme: 'light' },
+      notifications: { telegramToken: 'ATTACKER_RAW_TOKEN' },
+      webhookSecret: 'ATTACKER_RAW_HMAC',
+    });
+    assertEqual(raw.response.status, 200);
+    assertEqual(raw.response.body.sourceSchemaVersion, 0);
+    assertEqual(raw.response.body.appliedPortablePaths.join(','), '/appearance/theme');
+    assertEqual(raw.response.body.generalSettings.appearance.theme, 'light');
+    assertEqual(raw.response.body.generalSettings.output.defaultFormat, 'json');
+    assertEqual(raw.response.body.generalSettings['c3.language'], 'en');
+    assertEqual(
+      raw.response.body.generalSettings.notifications.telegramToken,
+      'DESTINATION_LEGACY_TOKEN',
+    );
+    assertEqual(JSON.stringify(raw.response.body.generalSettings).includes('ATTACKER_'), false);
+    assertEqual(readModelAutomationPolicy(db).settings.autoFailoverEnabled, true);
+
+    const dangerousSource = JSON.parse('{"kind":"INTENTSMITH_SETTINGS_BACKUP","schemaVersion":1,"generalSettings":{"appearance":{"theme":"dark"},"__proto__":{"polluted":true},"constructor":{"polluted":true}},"modelAutomationPolicy":null,"omittedSensitiveKeys":[]}');
+    const dangerous = await harness.importBackup(dangerousSource);
+    assertEqual(dangerous.response.status, 200);
+    assertEqual(dangerous.response.body.generalSettings.appearance.theme, 'dark');
+    assertEqual(Object.prototype.polluted, undefined);
+    assertEqual(Object.hasOwn(dangerous.response.body.generalSettings, '__proto__'), false);
+    assertEqual(Object.hasOwn(dangerous.response.body.generalSettings, 'constructor'), false);
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('invalid and nonportable v2 envelopes fail before settings or policy mutation', async () => {
+  const db = openDb();
+  try {
+    createPolicySchema(db);
+    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{"stable":true}');
+    const harness = createSettingsRouteHarness(db);
+    const before = snapshot(db);
+    const extraPath = portableValues({ '/notifications/telegramToken': 'ATTACKER' });
+    for (const body of [
+      { ...backupEnvelope(), unknown: true },
+      { ...backupEnvelope(), schemaVersion: 3 },
+      { ...backupEnvelope(), settingsProjection: null },
+      backupEnvelope({ settingsProjection: { profile: 'UNKNOWN', values: portableValues() } }),
+      backupEnvelope({ settingsProjection: { profile: 'UX_PREFERENCES_V1', values: extraPath } }),
+      backupEnvelope({
+        settingsProjection: {
+          profile: 'UX_PREFERENCES_V1',
+          values: portableValues({ '/appearance/theme': 'ATTACKER' }),
+        },
+      }),
+      backupEnvelope({
+        settingsProjection: {
+          profile: 'UX_PREFERENCES_V1',
+          values: portableValues({ '/appearance/fontSize': 200 }),
+        },
+      }),
+      backupEnvelope({ omissions: { ...backupEnvelope().omissions, extra: true } }),
+      legacyBackupEnvelope({ omittedSensitiveKeys: ['z', 'a'] }),
+      legacyBackupEnvelope({ omittedSensitiveKeys: ['duplicate', 'duplicate'] }),
+      backupEnvelope({ modelAutomationPolicy: { ...backupEnvelope().modelAutomationPolicy, extra: true } }),
+      backupEnvelope({
+        modelAutomationPolicy: {
+          ...backupEnvelope().modelAutomationPolicy,
+          autoFailoverEnabled: 'true',
+        },
+      }),
+    ]) {
+      const { response, featureDocument } = await harness.importBackup(body);
+      assertEqual(response.status, 400);
+      assertEqual(response.body.ok, false);
+      assertEqual(featureDocument, null);
+      assertEqual(snapshot(db), before);
+    }
+    const malformed = await harness.importBackup(null, {
+      parseFailure: new Error('invalid JSON'),
+    });
+    assertEqual(malformed.response.status, 400);
+    assertEqual(malformed.response.body.code, 'MODEL_AUTOMATION_POLICY_BACKUP_INPUT_INVALID');
+    assertEqual(snapshot(db), before);
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('import and reset failures roll back both settings and policy', async () => {
+  const db = openDb();
+  try {
+    createPolicySchema(db);
+    createModelAutomationPolicyRepository(db).updateFromTypedApi(updateInput(1));
+    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{"stable":true}');
+    const harness = createSettingsRouteHarness(db);
+
+    db.exec(`
+      CREATE TRIGGER fixture_fail_backup_event
+      BEFORE INSERT ON model_automation_policy_events
+      WHEN NEW.event_kind = 'BACKUP_IMPORT'
+      BEGIN
+        SELECT RAISE(ABORT, 'fixture backup failure');
+      END;
+    `);
+    const beforeImport = snapshot(db);
+    const failedImport = await harness.importBackup(backupEnvelope());
+    assertEqual(failedImport.response.status, 503);
+    assertEqual(failedImport.featureDocument, null);
+    assertEqual(snapshot(db), beforeImport);
+    db.exec('DROP TRIGGER fixture_fail_backup_event');
+
+    db.exec(`
+      CREATE TRIGGER fixture_fail_reset_event
+      BEFORE INSERT ON model_automation_policy_events
+      WHEN NEW.event_kind = 'GLOBAL_RESET'
+      BEGIN
+        SELECT RAISE(ABORT, 'fixture reset failure');
+      END;
+    `);
+    const beforeReset = snapshot(db);
+    const failedReset = await harness.reset();
+    assertEqual(failedReset.status, 503);
+    assertEqual(harness.featureResetCount, 0);
+    assertEqual(snapshot(db), beforeReset);
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('general settings write failures leave policy and audit lineage unchanged', async () => {
+  const db = openDb();
+  try {
+    createPolicySchema(db);
+    createModelAutomationPolicyRepository(db).updateFromTypedApi(updateInput(1));
+    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{"stable":true}');
+    const harness = createSettingsRouteHarness(db);
+
+    db.exec(`
+      CREATE TRIGGER fixture_fail_settings_write
+      BEFORE INSERT ON user_settings
+      WHEN NEW.id = 1
+      BEGIN
+        SELECT RAISE(ABORT, 'fixture settings write failure');
+      END;
+    `);
+    const beforeImport = snapshot(db);
+    const failedImport = await harness.importBackup(backupEnvelope());
+    assertEqual(failedImport.response.status, 503);
+    assertEqual(failedImport.featureDocument, null);
+    assertEqual(snapshot(db), beforeImport);
+    db.exec('DROP TRIGGER fixture_fail_settings_write');
+
+    db.exec(`
+      CREATE TRIGGER fixture_fail_settings_delete
+      BEFORE DELETE ON user_settings
+      WHEN OLD.id = 1
+      BEGIN
+        SELECT RAISE(ABORT, 'fixture settings delete failure');
+      END;
+    `);
+    const beforeReset = snapshot(db);
+    const failedReset = await harness.reset();
+    assertEqual(failedReset.status, 503);
+    assertEqual(harness.featureResetCount, 0);
+    assertEqual(snapshot(db), beforeReset);
+  } finally {
+    db.close();
+  }
+});
+
+test('versioned settings operations reject foreign transaction ownership before mutation', () => {
+  const db = openDb();
+  try {
+    createPolicySchema(db);
+    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{"stable":true}');
+    const repository = createModelAutomationPolicyRepository(db);
+    const before = snapshot(db);
+    for (const operation of [
+      () => repository.exportSettingsBackup(),
+      () => repository.replaceFromSettingsImport(backupEnvelope()),
+      () => repository.resetFromGlobalSettings(),
+    ]) {
+      const error = captureError(() => db.transaction(operation).immediate());
+      assertPolicyError(error, 'MODEL_AUTOMATION_POLICY_TRANSACTION_OWNERSHIP_REQUIRED');
+      assertEqual(snapshot(db), before);
+    }
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('versioned settings routes expose unavailable storage as 503 without runtime effects', async () => {
+  const db = openDb();
+  createPolicySchema(db);
+  const harness = createSettingsRouteHarness(db);
+  db.close();
+
+  const backup = harness.backup();
+  assertEqual(backup.status, 503);
+  assertEqual(backup.body.ok, false);
+
+  const imported = await harness.importBackup(backupEnvelope());
+  assertEqual(imported.response.status, 503);
+  assertEqual(imported.response.body.ok, false);
+  assertEqual(imported.featureDocument, null);
+
+  const reset = await harness.reset();
+  assertEqual(reset.status, 503);
+  assertEqual(reset.body.ok, false);
+  assertEqual(harness.featureResetCount, 0);
+});
+
+await testAsync('post-commit runtime and diagnostic failures remain a truthful degraded success', async () => {
+  const db = openDb();
+  try {
+    createPolicySchema(db);
+    const harness = createSettingsRouteHarness(db);
+    harness.setFeatureFailure(new Error('fixture runtime apply failure'));
+    harness.setLoggerFailure(new Error('fixture post-commit logger failure'));
+
+    const imported = await harness.importBackup(backupEnvelope({
+      settingsProjection: {
+        profile: 'UX_PREFERENCES_V1',
+        values: portableValues({ '/appearance/theme': 'system' }),
+      },
+    }));
+    assertEqual(imported.response.status, 200);
+    assertEqual(imported.response.body.ok, true);
+    assertEqual(imported.response.body.runtimeApplied, false);
+    assertEqual(imported.response.body.runtimeErrorCode, 'SETTINGS_RUNTIME_APPLY_FAILED');
+    assertEqual(
+      JSON.parse(db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data)
+        .appearance.theme,
+      'system',
+    );
+    assertEqual(readModelAutomationPolicy(db).revision, 2);
+
+    const reset = await harness.reset();
+    assertEqual(reset.status, 200);
+    assertEqual(reset.body.ok, true);
+    assertEqual(reset.body.runtimeApplied, false);
+    assertEqual(reset.body.runtimeErrorCode, 'SETTINGS_RUNTIME_APPLY_FAILED');
+    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM user_settings').get().count, 0);
+    assertEqual(readModelAutomationPolicy(db).revision, 3);
+    assertEqual(db.prepare(`
+      SELECT COUNT(*) AS count
+      FROM model_automation_policy_events
+      WHERE event_kind IN ('BACKUP_IMPORT', 'GLOBAL_RESET')
+    `).get().count, 2);
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('global settings reset is one audited OFF transition on both aliases', async () => {
+  const db = openDb();
+  try {
+    createPolicySchema(db);
+    const repository = createModelAutomationPolicyRepository(db);
+    repository.updateFromTypedApi(updateInput(1));
+    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{"custom":true}');
+    const harness = createSettingsRouteHarness(db);
+    const reset = await harness.reset();
+    assertEqual(reset.status, 200);
+    assertEqual(reset.body.ok, true);
+    assertEqual(reset.body.policy.autoFailoverEnabled, false);
+    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM user_settings').get().count, 0);
+    assertEqual(db.prepare(`
+      SELECT COUNT(*) AS count
+      FROM model_automation_policy_events
+      WHERE event_kind = 'GLOBAL_RESET'
+    `).get().count, 1);
+
+    repository.updateFromTypedApi(updateInput(reset.body.policy.revision));
+    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{"again":true}');
+    const legacyReset = await harness.reset({ legacy: true });
+    assertEqual(legacyReset.status, 200);
+    assertEqual(legacyReset.body.policy.autoFailoverEnabled, false);
+    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM user_settings').get().count, 0);
+    assertEqual(db.prepare(`
+      SELECT COUNT(*) AS count
+      FROM model_automation_policy_events
+      WHERE event_kind = 'GLOBAL_RESET'
+    `).get().count, 2);
+    assertEqual(harness.featureResetCount, 2);
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('backup export fails closed on malformed or invalid stored settings', async () => {
+  const db = openDb();
+  try {
+    createPolicySchema(db);
+    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{invalid');
+    const before = snapshot(db);
+    const response = createSettingsRouteHarness(db).backup();
+    assertEqual(response.status, 503);
+    assertEqual(response.body.code, 'MODEL_AUTOMATION_POLICY_STORED_GENERAL_SETTINGS_INVALID');
+    assertEqual(snapshot(db), before);
+
+    db.prepare('UPDATE user_settings SET data = ? WHERE id = 1').run(JSON.stringify({
+      appearance: { theme: 'future-unreviewed-theme' },
+    }));
+    const invalidValue = snapshot(db);
+    const invalidResponse = createSettingsRouteHarness(db).backup();
+    assertEqual(invalidResponse.status, 409);
+    assertEqual(
+      invalidResponse.body.code,
+      'MODEL_AUTOMATION_POLICY_STORED_PORTABLE_VALUE_INVALID',
+    );
+    assertEqual(invalidResponse.body.path, '/appearance/theme');
+    assertEqual(snapshot(db), invalidValue);
   } finally {
     db.close();
   }
@@ -962,21 +1678,26 @@ test('explicit reset appends exactly one audited OFF transition', () => {
       autoCleanupEnabled: true,
     }));
     runtime.setNow(3000);
-    const reset = repository.resetFromGlobalSettings({ expectedRevision: enabled.revision });
-    assertEqual(reset.revision, 3);
-    assertEqual(JSON.stringify(reset.settings), JSON.stringify(DEFAULT_MODEL_AUTOMATION_POLICY));
-    assertEqual(reset.event.eventKind, 'GLOBAL_RESET');
+    const reset = repository.resetFromGlobalSettings();
+    assertEqual(reset.policy.revision, 3);
+    assertEqual(
+      JSON.stringify(reset.policy.settings),
+      JSON.stringify(DEFAULT_MODEL_AUTOMATION_POLICY),
+    );
+    assertEqual(reset.policy.event.eventKind, 'GLOBAL_RESET');
+    assertEqual(JSON.stringify(reset.generalSettings), '{}');
     assertEqual(db.prepare(`
       SELECT COUNT(*) AS count FROM model_automation_policy_events
       WHERE event_kind = 'GLOBAL_RESET'
     `).get().count, 1);
 
-    const beforeStale = snapshot(db);
-    assertPolicyError(
-      captureError(() => repository.resetFromGlobalSettings({ expectedRevision: 2 })),
-      'MODEL_AUTOMATION_POLICY_STALE',
-    );
-    assertEqual(snapshot(db), beforeStale);
+    const second = repository.resetFromGlobalSettings();
+    assertEqual(second.policy.revision, 4);
+    assertEqual(second.policy.event.eventKind, 'GLOBAL_RESET');
+    assertEqual(db.prepare(`
+      SELECT COUNT(*) AS count FROM model_automation_policy_events
+      WHERE event_kind = 'GLOBAL_RESET'
+    `).get().count, 2);
   } finally {
     db.close();
   }

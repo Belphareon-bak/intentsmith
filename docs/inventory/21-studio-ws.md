@@ -228,3 +228,59 @@ Raw profil, testovací DB, capability a logy nejsou commitnuté. Registrovaná T
 sada zůstává `BLOCKED`, dokud nightly/audit orchestrátor neumí dodat frozen
 install a production-build envelope. Capability #21 tím není `PASS`: M1 stále
 musí ověřit multi-panel korelaci, scoped cancel, reconnect a provider failure.
+
+### Versioned settings recovery consumer (2026-08-09)
+
+Autoritativní commitnutý
+`c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js` už pro
+portable settings recovery nepoužívá generic whole-document endpoint. Export
+volá `GET /api/settings/backup`, import `POST /api/settings/import` a reset
+`POST /api/settings/reset`. Každá cesta vyžaduje pravdivý HTTP success a exact
+JSON commit. Doručený non-2xx je definitivní `REJECTED`; rejected fetch,
+timeout, malformed JSON a neúplný 2xx výsledek jsou `DELIVERY_UNKNOWN` a kromě
+zachování `_bCfg` uzamknou další whole-document zápis do nového načtení Studia.
+
+Klient před downloadem sám validuje schema v1 a odmítne envelope obsahující
+`webhookSecret` nebo `c3.notif.smtpPass`. Object URL po clicku revokuje. Import
+a reset jsou single-flight a recovery čeká na případný generic save. Jen
+definitivní reject obnoví deferred save; nejasné doručení jej nikdy nereplayuje.
+Společná generation/token hranice navíc odmítne opožděný settings GET zahájený
+před recovery. Lokální stav se po úspěchu přebírá výhradně ze
+serverem vráceného `generalSettings`; tím následující generic debounced save
+zachová i destination secrets, které portable soubor nenese. Tokenovaný status
+timer nemůže odstranit novější failure zprávu.
+
+VM behavior sada má 110/0 a používá přímo runtime slice ze sledovaného `lib`;
+nově vykonává i skutečné Backup tlačítko a FileReader load/error/abort wiring.
+První Review A nad `21ffa72b` skončilo `CHANGES_REQUIRED`; opravný subject čeká
+na nové review a fresh clone.
+Electron ani finální UI nebyly spuštěné; tento checkpoint neuzavírá built B4,
+vizuální baseline ani capability #21 jako celek.
+
+#### Security repair schema v2 — 2026-08-10
+
+Schema v1 už není exportní formát: kontrola dvou secret názvů byla false
+boundary. Autoritativní chat panel nyní přijímá ke stažení jen exact schema v2
+default-deny profil a před lokální adopcí import/reset výsledku vyžaduje i
+exact policy, audit event, source-derived portable path/value list, source
+version a ignored-count metadata. V2 artifact nese jen skutečně uložený
+portable subset; nevyrábí defaulty, které by na cíli přepsaly existující
+preference. VM sada má 123/0; tři dříve detached async
+testy jsou nyní skutečně awaitované a konstantu profilu sada porovnává přímo s
+backendovou autoritou.
+
+Stejná sada nově vykonává i dvě dříve nekryté živé UI cesty. Center Views
+exportuje/importuje pouze přes canonical endpoints, už nestahuje
+`/api/system/info` config a nereplayuje JSON přes WS `syncSettings`; falešný
+„Export All“ nevytváří efekt. `/architect` už neserializuje credential-bearing
+`settingsState`, nemutuje stav před serverovým commitem a po nejasném doručení
+blokuje generic save. Autoritativní server read nepřebíjí stale localStorage.
+Committed dokument se přebírá bez prototype mutation, reset znovu materializuje
+UI defaulty a generation fence odmítne GET zahájený před recovery. V1/raw mění
+jen skutečně přítomný portable subset a všechny tři plochy přiznají počet
+ignorovaných nonportable source cest.
+Úplné data recovery a factory delete zůstávají oddělené nepodporované
+kontrakty, ne přejmenované settings operace.
+
+Tento source candidate ještě nemá Review A, fresh clone ani Electron běh a
+neuzavírá obecný secret-bearing settings read/write surface z Findingu 011.

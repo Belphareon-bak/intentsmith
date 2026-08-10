@@ -86,6 +86,305 @@ const SETTINGS = [
   { id: 'about', icon: 'ℹ️', title: 'About' }
 ];
 
+// The committed lib is the authoritative Studio runtime. Keep this exact
+// default-deny profile in parity with src/db/settings-portability.js; focused
+// M1 tests reject drift before either UI can download a backup.
+const PORTABLE_SETTINGS_KIND = 'INTENTSMITH_SETTINGS_BACKUP';
+const PORTABLE_SETTINGS_SCHEMA_VERSION = 2;
+const PORTABLE_SETTINGS_PROFILE = 'UX_PREFERENCES_V1';
+const PORTABLE_SETTINGS_PATHS = Object.freeze([
+  '/appearance/accentColor',
+  '/appearance/fontFamily',
+  '/appearance/fontSize',
+  '/appearance/theme',
+  '/c3.language',
+  '/c3.output.codeBlocks',
+  '/c3.output.markdownRendering',
+  '/c3.output.syntaxHighlight',
+  '/output/codeStyle',
+  '/output/defaultFormat',
+  '/output/namingConvention'
+]);
+
+function portableSettingsPlainObject(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function portableSettingsExactKeys(value, expected) {
+  return portableSettingsPlainObject(value)
+    && Object.keys(value).sort().join('\0') === expected.join('\0');
+}
+
+function portableSettingsExactStringList(actual, expected) {
+  return Array.isArray(actual)
+    && actual.length === expected.length
+    && actual.every((value, index) => typeof value === 'string' && value === expected[index]);
+}
+
+function portableSettingsPolicyValid(value) {
+  return value === null || (
+    portableSettingsExactKeys(value, [
+      'autoCleanupDays',
+      'autoCleanupEnabled',
+      'autoFailoverEnabled'
+    ])
+    && typeof value.autoFailoverEnabled === 'boolean'
+    && typeof value.autoCleanupEnabled === 'boolean'
+    && Number.isSafeInteger(value.autoCleanupDays)
+    && value.autoCleanupDays >= 1
+    && value.autoCleanupDays <= 3650
+  );
+}
+
+function portableSettingsValueValid(path, value) {
+  if (path === '/appearance/accentColor') return typeof value === 'string' && /^#[0-9A-Fa-f]{6}$/.test(value);
+  if (path === '/appearance/fontFamily') return ['system', 'inter', 'roboto', 'source-code'].includes(value);
+  if (path === '/appearance/fontSize') return Number.isSafeInteger(value) && value >= 12 && value <= 20;
+  if (path === '/appearance/theme') return ['dark', 'light', 'system'].includes(value);
+  if (path === '/c3.language') return ['cs', 'en'].includes(value);
+  if (path === '/c3.output.codeBlocks'
+      || path === '/c3.output.markdownRendering'
+      || path === '/c3.output.syntaxHighlight') return typeof value === 'boolean';
+  if (path === '/output/codeStyle') return ['default', 'airbnb', 'google', 'standard'].includes(value);
+  if (path === '/output/defaultFormat') return ['markdown', 'json', 'csv', 'yaml'].includes(value);
+  if (path === '/output/namingConvention') return ['camelCase', 'snake_case', 'kebab-case', 'PascalCase'].includes(value);
+  return false;
+}
+
+function requirePortableSettingsBackup(value) {
+  if (!portableSettingsExactKeys(value, [
+    'kind',
+    'modelAutomationPolicy',
+    'omissions',
+    'schemaVersion',
+    'settingsProjection'
+  ])) throw new Error('Unsupported portable settings backup');
+  const projection = value.settingsProjection;
+  const values = projection && projection.values;
+  const omissions = value.omissions;
+  if (value.kind !== PORTABLE_SETTINGS_KIND
+      || value.schemaVersion !== PORTABLE_SETTINGS_SCHEMA_VERSION
+      || !portableSettingsExactKeys(projection, ['profile', 'values'])
+      || projection.profile !== PORTABLE_SETTINGS_PROFILE
+      || !portableSettingsPlainObject(values)
+      || !Object.keys(values).every(path => (
+        PORTABLE_SETTINGS_PATHS.includes(path)
+        && portableSettingsValueValid(path, values[path])
+      ))
+      || !portableSettingsPolicyValid(value.modelAutomationPolicy)
+      || !portableSettingsExactKeys(omissions, [
+        'excluded',
+        'scope',
+        'sourceHadExcludedPaths',
+        'strategy'
+      ])
+      || omissions.strategy !== 'DEFAULT_DENY'
+      || omissions.scope !== 'GENERAL_SETTINGS'
+      || omissions.excluded !== 'ALL_PATHS_NOT_IN_PROFILE'
+      || typeof omissions.sourceHadExcludedPaths !== 'boolean') {
+    throw new Error('Unsupported portable settings backup');
+  }
+  return value;
+}
+
+function requireLegacySettingsBackup(value) {
+  const omitted = value && value.omittedSensitiveKeys;
+  const omittedValid = Array.isArray(omitted)
+    && omitted.every((key, index) => typeof key === 'string' && (index === 0 || omitted[index - 1] < key));
+  if (!portableSettingsExactKeys(value, [
+    'generalSettings',
+    'kind',
+    'modelAutomationPolicy',
+    'omittedSensitiveKeys',
+    'schemaVersion'
+  ])
+      || value.kind !== PORTABLE_SETTINGS_KIND
+      || value.schemaVersion !== 1
+      || !portableSettingsPlainObject(value.generalSettings)
+      || !portableSettingsPolicyValid(value.modelAutomationPolicy)
+      || !omittedValid) {
+    throw new Error('Unsupported legacy settings backup');
+  }
+  return value;
+}
+
+function portableSettingsImportEnvelope(value) {
+  if (!portableSettingsPlainObject(value)) throw new Error('Settings file must contain a JSON object');
+  if (value.kind === PORTABLE_SETTINGS_KIND
+      || Object.prototype.hasOwnProperty.call(value, 'schemaVersion')) {
+    return value.schemaVersion === 1
+      ? requireLegacySettingsBackup(value)
+      : requirePortableSettingsBackup(value);
+  }
+  return {
+    kind: PORTABLE_SETTINGS_KIND,
+    schemaVersion: 1,
+    generalSettings: value,
+    modelAutomationPolicy: null,
+    omittedSensitiveKeys: []
+  };
+}
+
+function portableSettingsEntry(document, path) {
+  if (path.startsWith('/appearance/') || path.startsWith('/output/')) {
+    const [, section, key] = path.split('/');
+    if (!Object.prototype.hasOwnProperty.call(document, section)
+        || !portableSettingsPlainObject(document[section])
+        || !Object.prototype.hasOwnProperty.call(document[section], key)) {
+      return { found: false, value: undefined };
+    }
+    return { found: true, value: document[section][key] };
+  }
+  const key = path.slice(1);
+  return Object.prototype.hasOwnProperty.call(document, key)
+    ? { found: true, value: document[key] }
+    : { found: false, value: undefined };
+}
+
+function expectedPortableSettingsEntries(envelope) {
+  if (envelope.schemaVersion === PORTABLE_SETTINGS_SCHEMA_VERSION) {
+    return Object.keys(envelope.settingsProjection.values).sort().map(path => ({
+      path,
+      value: envelope.settingsProjection.values[path]
+    }));
+  }
+  const entries = [];
+  for (const path of PORTABLE_SETTINGS_PATHS) {
+    const entry = portableSettingsEntry(envelope.generalSettings, path);
+    if (!entry.found) continue;
+    if (!portableSettingsValueValid(path, entry.value)) {
+      throw new Error('Legacy backup contains an invalid portable preference');
+    }
+    entries.push({ path, value: entry.value });
+  }
+  return entries;
+}
+
+function expectedIgnoredPortableSettingsPathCount(envelope) {
+  if (envelope.schemaVersion === PORTABLE_SETTINGS_SCHEMA_VERSION) return 0;
+  let count = 0;
+  for (const [key, value] of Object.entries(envelope.generalSettings)) {
+    if ((key === 'appearance' || key === 'output') && portableSettingsPlainObject(value)) {
+      for (const child of Object.keys(value)) {
+        if (!PORTABLE_SETTINGS_PATHS.includes(`/${key}/${child}`)) count += 1;
+      }
+    } else if (!PORTABLE_SETTINGS_PATHS.includes(`/${key}`)) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+async function portableSettingsResponse(response, mutation = false) {
+  let body;
+  try {
+    body = await response.json();
+  } catch (_) {
+    const error = new Error('Unreadable server response');
+    error.deliveryUnknown = mutation && response.ok === true;
+    throw error;
+  }
+  if (!response.ok) {
+    const code = body && typeof body.code === 'string' ? body.code : `HTTP_${response.status}`;
+    const path = body && typeof body.path === 'string' ? ` (${body.path})` : '';
+    const error = new Error(`${code}${path}`);
+    error.deliveryUnknown = false;
+    throw error;
+  }
+  if (!portableSettingsPlainObject(body) || body.ok !== true) {
+    const error = new Error('Invalid server response');
+    error.deliveryUnknown = mutation;
+    throw error;
+  }
+  return body;
+}
+
+function portableSettingsPolicyCommitValid(policy) {
+  return portableSettingsExactKeys(policy, [
+    'autoCleanupDays',
+    'autoCleanupEnabled',
+    'autoFailoverEnabled',
+    'lastEventId',
+    'revision',
+    'updatedAtMs'
+  ])
+    && Number.isSafeInteger(policy.revision)
+    && policy.revision >= 1
+    && typeof policy.autoFailoverEnabled === 'boolean'
+    && typeof policy.autoCleanupEnabled === 'boolean'
+    && Number.isSafeInteger(policy.autoCleanupDays)
+    && policy.autoCleanupDays >= 1
+    && policy.autoCleanupDays <= 3650
+    && typeof policy.lastEventId === 'string'
+    && policy.lastEventId.length >= 16
+    && Number.isSafeInteger(policy.updatedAtMs)
+    && policy.updatedAtMs >= 0;
+}
+
+function portableSettingsEventValid(event) {
+  return portableSettingsExactKeys(event, ['actor', 'eventId', 'eventKind', 'requestId', 'source'])
+    && typeof event.eventId === 'string'
+    && event.eventId.length >= 16
+    && typeof event.requestId === 'string'
+    && event.requestId.length >= 16
+    && event.eventKind === 'BACKUP_IMPORT'
+    && event.actor === 'user:settings-import'
+    && event.source === 'SETTINGS_IMPORT';
+}
+
+function requirePortableSettingsCommit(body, expectedEnvelope) {
+  const expectedSchemaVersion = expectedEnvelope.schemaVersion;
+  const expectedEntries = expectedPortableSettingsEntries(expectedEnvelope);
+  const expectedPaths = expectedEntries.map(entry => entry.path);
+  const expectedIgnoredSourcePathCount = expectedIgnoredPortableSettingsPathCount(expectedEnvelope);
+  if (!portableSettingsExactKeys(body, [
+    'appliedPortablePaths',
+    'event',
+    'featuresChanged',
+    'generalSettings',
+    'ignoredSourcePathCount',
+    'ok',
+    'policy',
+    'preservedLocalPathCount',
+    'runtimeApplied',
+    'runtimeErrorCode',
+    'sourceSchemaVersion',
+    'success'
+  ])
+      || body.ok !== true
+      || body.success !== true
+      || !portableSettingsPlainObject(body.generalSettings)
+      || !portableSettingsPolicyCommitValid(body.policy)
+      || !portableSettingsEventValid(body.event)
+      || body.policy.lastEventId !== body.event.eventId
+      || body.sourceSchemaVersion !== expectedSchemaVersion
+      || !Number.isSafeInteger(body.featuresChanged)
+      || body.featuresChanged < 0
+      || !Number.isSafeInteger(body.ignoredSourcePathCount)
+      || body.ignoredSourcePathCount !== expectedIgnoredSourcePathCount
+      || !Number.isSafeInteger(body.preservedLocalPathCount)
+      || body.preservedLocalPathCount < 0
+      || !portableSettingsExactStringList(body.appliedPortablePaths, expectedPaths)
+      || !expectedEntries.every(entry => {
+        const committed = portableSettingsEntry(body.generalSettings, entry.path);
+        return committed.found && Object.is(committed.value, entry.value);
+      })
+      || (expectedEnvelope.modelAutomationPolicy !== null
+        && (body.policy.autoFailoverEnabled !== expectedEnvelope.modelAutomationPolicy.autoFailoverEnabled
+          || body.policy.autoCleanupEnabled !== expectedEnvelope.modelAutomationPolicy.autoCleanupEnabled
+          || body.policy.autoCleanupDays !== expectedEnvelope.modelAutomationPolicy.autoCleanupDays))
+      || typeof body.runtimeApplied !== 'boolean'
+      || (body.runtimeApplied && body.runtimeErrorCode !== null)
+      || (!body.runtimeApplied && body.runtimeErrorCode !== 'SETTINGS_RUNTIME_APPLY_FAILED')) {
+    const error = new Error('Server did not confirm a complete settings commit');
+    error.deliveryUnknown = true;
+    throw error;
+  }
+  return body;
+}
+
 /* ═══ CenterViewsWidget ═══ */
 class C3CenterViewsWidget extends react_widget_1.ReactWidget {
   constructor() {
@@ -101,6 +400,7 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
     this._zoom = 1;
     this._openSections = { user: true };
     this._selectedItem = null;
+    this._portableSettingsMutationState = 'IDLE';
 
     // v63.0: Wizard state
     this._wizardMode = null;      // null | 'create' | 'edit'
@@ -329,6 +629,12 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
 
   _renderSettingsContent(h, secId) {
     const _sync = (key, val) => {
+      if (this._portableSettingsMutationState !== 'IDLE') {
+        alert(this._portableSettingsMutationState === 'PENDING'
+          ? 'Settings recovery is currently in progress.'
+          : 'The previous recovery result is unknown. Reload Studio before changing settings.');
+        return;
+      }
       try {
         const ws = window.C3WS;
         if (ws && typeof ws.syncSettings === 'function' && ws.isReady()) {
@@ -592,17 +898,17 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
 
       // ═══ Backup & Sync ═══
       case 'backup': return [
-        h('p', { key: 'bk-desc', className: 'c3-hint' }, 'Export a import nastavení, konverzací a LTM dat.'),
+        h('p', { key: 'bk-desc', className: 'c3-hint' }, 'Přenosná záloha podporovaných UI předvoleb a modelové automatizační policy. Tajemství, soukromá data, lokální cíle ani konverzace neobsahuje.'),
         h('h4', { key: 'bk-export', className: 'c3-settings-h4' }, 'Export'),
         h('div', { key: 'bk-exp-btns', className: 'c3-sys-actions' },
-          h('button', { className: 'c3-btn-sm', onClick: () => this._exportSettings() }, 'Export Settings (JSON)'),
-          h('button', { className: 'c3-btn-sm', onClick: () => this._exportAll() }, 'Export All (ZIP)'),
+          h('button', { className: 'c3-btn-sm', onClick: () => this._exportSettings() }, 'Export Portable Preferences (JSON)'),
+          h('button', { className: 'c3-btn-sm', disabled: true, title: 'Full-state recovery has a separate data-backup contract.' }, 'Full Backup (unavailable)'),
         ),
         h('h4', { key: 'bk-import', className: 'c3-settings-h4' }, 'Import'),
         h('div', { key: 'bk-imp-btns', className: 'c3-sys-actions' },
-          h('button', { className: 'c3-btn-sm', onClick: () => this._importSettings() }, 'Import Settings'),
+          h('button', { className: 'c3-btn-sm', onClick: () => this._importSettings() }, 'Import Portable Preferences'),
         ),
-        h('p', { key: 'bk-warn', className: 'c3-hint' }, 'Import přepíše aktuální nastavení. Doporučujeme nejdříve exportovat zálohu.'),
+        h('p', { key: 'bk-warn', className: 'c3-hint' }, 'Import mění pouze podporovaný portable profil. Ostatní lokální hodnoty nejsou převzaty ze souboru.'),
       ];
 
       // ═══ About ═══
@@ -838,22 +1144,26 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
 
   async _exportSettings() {
     try {
-      const resp = await fetch('/api/system/info');
-      if (!resp.ok) throw new Error('API error');
-      const data = await resp.json();
-      const blob = new Blob([JSON.stringify(data.config, null, 2)], { type: 'application/json' });
+      const resp = await fetch('/api/settings/backup');
+      const data = await portableSettingsResponse(resp, false);
+      const backup = requirePortableSettingsBackup(data.backup);
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `c3-settings-${new Date().toISOString().split('T')[0]}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (_) {}
+      a.download = `intentsmith-preferences-${new Date().toISOString().split('T')[0]}.json`;
+      try {
+        a.click();
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      alert(`Export failed: ${error.message}`);
+    }
   }
 
   async _exportAll() {
-    // Full export requires backend support — for now export what we can
-    await this._exportSettings();
+    alert('Full-state backup is not available from this panel. Use the dedicated data-backup workflow.');
   }
 
   async _importSettings() {
@@ -865,17 +1175,37 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
       if (!file) return;
       try {
         const text = await file.text();
-        const settings = JSON.parse(text);
-        const ws = window.C3WS;
-        if (ws && typeof ws.syncSettings === 'function' && ws.isReady()) {
-          // Sync each key individually
-          for (const [key, value] of Object.entries(settings)) {
-            ws.syncSettings({ [key]: value });
-          }
-          alert('Settings imported successfully');
+        const settings = portableSettingsImportEnvelope(JSON.parse(text));
+        if (this._portableSettingsMutationState !== 'IDLE') {
+          throw new Error('Another recovery is pending or requires a reload');
+        }
+        this._portableSettingsMutationState = 'PENDING';
+        try {
+          const response = await fetch('/api/settings/import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settings)
+          });
+          const body = requirePortableSettingsCommit(
+            await portableSettingsResponse(response, true),
+            settings
+          );
+          this._portableSettingsMutationState = 'IDLE';
+          const ignoredNotice = body.ignoredSourcePathCount > 0
+            ? `; ${body.ignoredSourcePathCount} non-portable source paths were ignored`
+            : '';
+          alert((body.runtimeApplied
+            ? 'Portable preferences imported successfully'
+            : 'Portable preferences imported; some changes require a restart') + ignoredNotice);
+        } catch (error) {
+          error.deliveryUnknown = error.deliveryUnknown !== false;
+          this._portableSettingsMutationState = error.deliveryUnknown ? 'DELIVERY_UNKNOWN' : 'IDLE';
+          throw error;
         }
       } catch (err) {
-        alert(`Import failed: ${err.message}`);
+        alert(err.deliveryUnknown
+          ? 'Import outcome is unknown. Reload Studio before changing settings.'
+          : `Import failed: ${err.message}`);
       }
     };
     input.click();

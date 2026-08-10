@@ -25,6 +25,9 @@ import {
   resetConversationStore,
 } from '../src/chat/conversation-store.js';
 import { LLMProviderUnavailableError } from '../src/core/chat-turn-error.js';
+import { up as migrateModelPolicy } from '../src/db/migrations/2026_08_09_061_model_automation_policy.js';
+import { SETTINGS_PORTABLE_PATHS } from '../src/db/settings-portability.js';
+import { createMiscRoutes } from '../src/routes/misc.js';
 import { createLegacyLocalCapability } from '../src/security/legacy-local-access-policy.js';
 import { createSessionAdapter } from '../src/ws-bridge/session-adapter.js';
 import { attachWebSocketServer } from '../src/ws-bridge/ws-server.js';
@@ -85,6 +88,11 @@ const CHAT_PANEL = new URL(
   '../c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js',
   import.meta.url,
 );
+const CENTER_VIEWS = new URL(
+  '../c3-ide/extensions/c3-center-views/lib/browser/center-views-module.js',
+  import.meta.url,
+);
+const ARCHITECT_UI = new URL('../src/ui/architect/architect.js', import.meta.url);
 const AGENT_CLIENT = new URL(
   '../c3-ide/extensions/c3-chat-panel/lib/browser/agent-client.js',
   import.meta.url,
@@ -926,6 +934,570 @@ function assertNoFallbackEffects(harness, expectedAssistantCount = 0) {
   assert.equal(harness.counters.timers.length, 0, 'NOT_SENT scheduled an automatic retry');
 }
 
+function settingsBackupHarness(options = {}) {
+  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
+  const loadStart = source.indexOf('function _loadBCfg(');
+  const saveStart = source.indexOf('function _saveBCfg()');
+  const saveEnd = source.indexOf('function _bVal', saveStart);
+  const bSetStart = source.indexOf('function _bSet', saveEnd);
+  const bSetEnd = source.indexOf('/* v91: Feature flags loader', bSetStart);
+  const start = source.indexOf("var _SETTINGS_BACKUP_KIND=");
+  const end = source.indexOf('/* I2: Custom CSS injection', start);
+  const panelStart = source.indexOf('function settingsBackupPanel()');
+  const panelEnd = source.indexOf('/* v91: Feature Flags panel */', panelStart);
+  assert.ok(
+    loadStart >= 0 && saveStart > loadStart && saveEnd > saveStart
+      && bSetStart >= saveEnd && bSetEnd > bSetStart
+      && start >= 0 && end > start && panelStart >= 0 && panelEnd > panelStart,
+    'settings backup slice is missing',
+  );
+
+  const downloads = [];
+  const fileInputs = [];
+  const requests = [];
+  const revokedObjectUrls = [];
+  const timers = [];
+  let renders = 0;
+  const initialSettings = Object.prototype.hasOwnProperty.call(options, 'initialSettings')
+    ? options.initialSettings
+    : {
+        theme: 'dark',
+        webhookSecret: 'destination-webhook-secret',
+        'c3.notif.smtpPass': 'destination-smtp-secret',
+      };
+  const responses = [...(options.responses || [])];
+  let context;
+
+  class CapturedBlob {
+    constructor(parts, blobOptions = {}) {
+      this.parts = [...parts];
+      this.type = blobOptions.type;
+    }
+    text() {
+      return Promise.resolve(this.parts.join(''));
+    }
+  }
+
+  const anchor = {
+    click() {
+      downloads.push({
+        blob: anchor.blob,
+        download: anchor.download,
+        href: anchor.href,
+      });
+    },
+  };
+
+  context = vm.createContext({
+    AbortSignal: { timeout(milliseconds) { return { milliseconds }; } },
+    Blob: CapturedBlob,
+    C: { accent: '#22c55e', bg3: '#222', border: '#333', border2: '#444', tx1: '#fff', tx2: '#ddd', tx3: '#aaa', tx4: '#888' },
+    FileReader: options.FileReaderClass || class UnexpectedSettingsFileReader {
+      constructor() { throw new Error('settings FileReader was not expected'); }
+    },
+    URL: {
+      createObjectURL(blob) {
+        anchor.blob = blob;
+        return 'blob:intentsmith-settings-fixture';
+      },
+      revokeObjectURL(value) {
+        revokedObjectUrls.push(value);
+      },
+    },
+    _bCfg: initialSettings,
+    _bCfgLoading: false,
+    _backendBase: 'http://127.0.0.1:3335',
+    _backupMsg: null,
+    _bCfgSaveTimer: null,
+    clearTimeout(timer) {
+      if (timer) timer.cancelled = true;
+    },
+    confirm: () => options.confirmResponse !== false,
+    document: {
+      createElement(tagName) {
+        if (tagName === 'a') return anchor;
+        assert.equal(tagName, 'input');
+        const input = { click() { input.clicked = true; } };
+        fileInputs.push(input);
+        return input;
+      },
+    },
+    fetch(url, init = {}) {
+      requests.push({ url, init });
+      const fixture = responses.shift();
+      if (fixture instanceof Error) return Promise.reject(fixture);
+      if (!fixture) throw new Error(`unexpected settings request: ${url}`);
+      if (typeof fixture === 'function') return fixture({ context, init, url });
+      return Promise.resolve({
+        ok: fixture.ok,
+        status: fixture.status,
+        json: fixture.jsonError
+          ? async () => { throw fixture.jsonError; }
+          : async () => vm.runInContext(`JSON.parse(${JSON.stringify(JSON.stringify(fixture.body))})`, context),
+      });
+    },
+    module: { exports: {} },
+    h(type, props, ...children) { return { type, props: props || {}, children }; },
+    _fs(value) { return value; },
+    renderCenter() { renders++; },
+    setTimeout(callback, delay) {
+      const timer = { callback, delay };
+      timers.push(timer);
+      return timer;
+    },
+  });
+
+  vm.runInContext(
+    source.slice(loadStart, saveEnd)
+      + '\n'
+      + source.slice(bSetStart, bSetEnd)
+      + '\n'
+      + source.slice(start, end)
+      + '\n'
+      + source.slice(panelStart, panelEnd)
+      + '\nmodule.exports={'
+      + 'exportBackup:_settingsExportBackup,'
+      + 'importJson:function(encoded,fileName){return _settingsImportDocument(JSON.parse(encoded),fileName);},'
+      + 'resetAll:_settingsResetAll,'
+      + 'loadConfig:_loadBCfg,'
+      + 'renderBackup:settingsBackupPanel,'
+      + 'setConfig:_bSet,'
+      + 'portablePaths:_SETTINGS_PORTABLE_PATHS,'
+      + 'replaceAndSave:function(encoded){_settingsGeneration++;_bCfg=JSON.parse(encoded);_saveBCfg();},'
+      + 'saveConfig:_saveBCfg,'
+      + 'state:function(){return {mutationState:_settingsMutationState,pending:_settingsMutationPending,deliveryUnknown:_settingsDeliveryUnknown,generation:_settingsGeneration,loading:_bCfgLoading};}};',
+    context,
+    { filename: `${CHAT_PANEL.pathname}#settings-backup` },
+  );
+
+  return {
+    downloads,
+    fileInputs,
+    functions: context.module.exports,
+    get renders() { return renders; },
+    requests,
+    revokedObjectUrls,
+    settings: () => hostClone(context._bCfg),
+    status: () => hostClone(context._backupMsg),
+    timers,
+  };
+}
+
+function settingsBackupFixture(overrides = {}) {
+  const base = {
+    kind: 'INTENTSMITH_SETTINGS_BACKUP',
+    schemaVersion: 2,
+    settingsProjection: {
+      profile: 'UX_PREFERENCES_V1',
+      values: {
+        '/appearance/accentColor': '#6366f1',
+        '/appearance/fontFamily': 'system',
+        '/appearance/fontSize': 14,
+        '/appearance/theme': 'light',
+        '/c3.language': 'cs',
+        '/c3.output.codeBlocks': true,
+        '/c3.output.markdownRendering': true,
+        '/c3.output.syntaxHighlight': true,
+        '/output/codeStyle': 'default',
+        '/output/defaultFormat': 'markdown',
+        '/output/namingConvention': 'camelCase',
+      },
+    },
+    modelAutomationPolicy: {
+      autoFailoverEnabled: false,
+      autoCleanupEnabled: false,
+      autoCleanupDays: 14,
+    },
+    omissions: {
+      strategy: 'DEFAULT_DENY',
+      scope: 'GENERAL_SETTINGS',
+      excluded: 'ALL_PATHS_NOT_IN_PROFILE',
+      sourceHadExcludedPaths: true,
+    },
+  };
+  return {
+    ...base,
+    ...overrides,
+    settingsProjection: overrides.settingsProjection === undefined
+      ? base.settingsProjection
+      : overrides.settingsProjection,
+  };
+}
+
+function settingsBackupV1Fixture(overrides = {}) {
+  return {
+    kind: 'INTENTSMITH_SETTINGS_BACKUP',
+    schemaVersion: 1,
+    generalSettings: { appearance: { theme: 'light' } },
+    modelAutomationPolicy: null,
+    omittedSensitiveKeys: [],
+    ...overrides,
+  };
+}
+
+function settingsPortableGeneralSettings(overrides = {}) {
+  const base = {
+    appearance: {
+      accentColor: '#6366f1',
+      fontFamily: 'system',
+      fontSize: 14,
+      theme: 'light',
+    },
+    output: {
+      codeStyle: 'default',
+      defaultFormat: 'markdown',
+      namingConvention: 'camelCase',
+    },
+    'c3.language': 'cs',
+    'c3.output.codeBlocks': true,
+    'c3.output.markdownRendering': true,
+    'c3.output.syntaxHighlight': true,
+  };
+  return {
+    ...base,
+    ...overrides,
+    appearance: { ...base.appearance, ...(overrides.appearance || {}) },
+    output: { ...base.output, ...(overrides.output || {}) },
+  };
+}
+
+function settingsImportCommitFixture(overrides = {}) {
+  return {
+    ok: true,
+    success: true,
+    generalSettings: settingsPortableGeneralSettings(),
+    policy: {
+      revision: 2,
+      autoFailoverEnabled: false,
+      autoCleanupEnabled: false,
+      autoCleanupDays: 14,
+      lastEventId: 'policy-event-fixture-0002',
+      updatedAtMs: 1_786_313_600_000,
+    },
+    event: {
+      eventId: 'policy-event-fixture-0002',
+      requestId: 'policy-request-fixture-0002',
+      eventKind: 'BACKUP_IMPORT',
+      actor: 'user:settings-import',
+      source: 'SETTINGS_IMPORT',
+    },
+    featuresChanged: 0,
+    sourceSchemaVersion: 2,
+    appliedPortablePaths: [...SETTINGS_PORTABLE_PATHS],
+    ignoredSourcePathCount: 0,
+    preservedLocalPathCount: 0,
+    runtimeApplied: true,
+    runtimeErrorCode: null,
+    ...overrides,
+  };
+}
+
+function settingsResetCommitFixture(overrides = {}) {
+  return {
+    ok: true,
+    success: true,
+    generalSettings: {},
+    policy: {
+      revision: 2,
+      autoFailoverEnabled: false,
+      autoCleanupEnabled: false,
+      autoCleanupDays: 14,
+      lastEventId: 'policy-event-fixture-0003',
+      updatedAtMs: 1_786_313_600_001,
+    },
+    event: {
+      eventId: 'policy-event-fixture-0003',
+      requestId: 'policy-request-fixture-0003',
+      eventKind: 'GLOBAL_RESET',
+      actor: 'user:global-reset',
+      source: 'GLOBAL_RESET',
+    },
+    runtimeApplied: true,
+    runtimeErrorCode: null,
+    ...overrides,
+  };
+}
+
+function portableSettingsBackendHarness() {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  db.exec(`
+    CREATE TABLE user_settings (
+      id INTEGER PRIMARY KEY,
+      data TEXT NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  db.transaction(() => migrateModelPolicy(db))();
+  let requestBody = null;
+  let response = null;
+  const routes = createMiscRoutes({
+    db: { db },
+    parseBody: async () => requestBody,
+    sendJSON: (_res, status, body) => { response = { status, body }; },
+    safeError: error => ({ error: error.message }),
+    logger: { debug() {}, error() {}, info() {}, warn() {} },
+    callWithAuth: async () => ({}),
+    createAuthToken: () => '',
+    LLMCallerRole: {},
+    featureManager: {
+      applySettings() { return 0; },
+      resetToDefaults() {},
+    },
+  });
+  return {
+    close() { db.close(); },
+    async importBackup(body) {
+      requestBody = body;
+      response = null;
+      await routes['POST /api/settings/import']({}, {});
+      return response;
+    },
+  };
+}
+
+function architectSettingsHarness(options = {}) {
+  const source = fs.readFileSync(ARCHITECT_UI, 'utf8');
+  const helperStart = source.indexOf('const ARCHITECT_SETTINGS_DEFAULT_DOCUMENT');
+  const helperEnd = source.indexOf('// ═══════════════════════════════════════════════════════════════════════════\n// ACCORDION', helperStart);
+  const persistenceStart = source.indexOf('async function loadSettings()');
+  const persistenceEnd = source.indexOf('function applySettings()', persistenceStart);
+  const resetStart = source.indexOf('async function resetSettings()');
+  const resetEnd = source.indexOf('// ═══════════════════════════════════════════════════════════════════════════\n// ABOUT', resetStart);
+  const exportStart = source.indexOf('async function exportSettings()');
+  const exportEnd = source.indexOf('// ═══════════════════════════════════════════════════════════════════════════\n// TOAST', exportStart);
+  assert.ok(
+    helperStart >= 0 && helperEnd > helperStart
+      && persistenceStart >= 0 && persistenceEnd > persistenceStart
+      && resetStart >= 0 && resetEnd > resetStart
+      && exportStart >= 0 && exportEnd > exportStart,
+    'Architect portable settings slices are missing',
+  );
+
+  const requests = [];
+  const responses = [...(options.responses || [])];
+  const downloads = [];
+  const fileInputs = [];
+  const toasts = [];
+  const storage = new Map(Object.entries(options.localStorage || {}));
+  let applySettingsCalls = 0;
+  let context;
+
+  class CapturedBlob {
+    constructor(parts, blobOptions = {}) {
+      this.parts = [...parts];
+      this.type = blobOptions.type;
+    }
+    text() { return Promise.resolve(this.parts.join('')); }
+  }
+
+  const anchor = {
+    click() {
+      downloads.push({ blob: anchor.blob, download: anchor.download, href: anchor.href });
+    },
+  };
+
+  context = vm.createContext({
+    Blob: CapturedBlob,
+    Date,
+    URL: {
+      createObjectURL(blob) {
+        anchor.blob = blob;
+        return 'blob:architect-settings-fixture';
+      },
+      revokeObjectURL() {},
+    },
+    _settingsSeed: JSON.stringify(options.initialSettings || {
+      appearance: { theme: 'dark', accentColor: '#6366f1', fontFamily: 'system', fontSize: 14 },
+      notifications: { telegramToken: 'local-token' },
+      output: { defaultFormat: 'markdown', codeStyle: 'default', namingConvention: 'camelCase' },
+    }),
+    applySettings() {
+      applySettingsCalls++;
+      if (applySettingsCalls === options.applySettingsThrowOnCall) {
+        throw new Error('fixture Architect render failure');
+      }
+    },
+    confirm: () => options.confirmResponse !== false,
+    console: { warn() {} },
+    document: {
+      createElement(tagName) {
+        if (tagName === 'a') return anchor;
+        assert.equal(tagName, 'input');
+        const input = { click() { input.clicked = true; } };
+        fileInputs.push(input);
+        return input;
+      },
+    },
+    fetch(url, init = {}) {
+      requests.push({ url, init });
+      const fixture = responses.shift();
+      if (fixture instanceof Error) return Promise.reject(fixture);
+      if (!fixture) throw new Error(`unexpected Architect settings request: ${url}`);
+      if (typeof fixture === 'function') return fixture({ context, init, url });
+      return Promise.resolve({
+        ok: fixture.ok,
+        status: fixture.status,
+        json: fixture.jsonError
+          ? async () => { throw fixture.jsonError; }
+          : async () => vm.runInContext(`JSON.parse(${JSON.stringify(JSON.stringify(fixture.body))})`, context),
+      });
+    },
+    localStorage: {
+      getItem(key) { return storage.has(key) ? storage.get(key) : null; },
+      removeItem(key) { storage.delete(key); },
+      setItem(key, value) { storage.set(key, String(value)); },
+    },
+    module: { exports: {} },
+    populateSettingsUI() {},
+    showToast(type, title, message) { toasts.push({ type, title, message }); },
+    updateSettingsSummary() {},
+  });
+
+  vm.runInContext(
+    source.slice(helperStart, helperEnd)
+      + '\n'
+      + source.slice(persistenceStart, persistenceEnd)
+      + '\n'
+      + source.slice(resetStart, resetEnd)
+      + '\n'
+      + source.slice(exportStart, exportEnd)
+      + '\napplyArchitectSettingsDocument(JSON.parse(_settingsSeed));'
+      + '\nmodule.exports={'
+      + 'exportSettings,importSettings,loadSettings,resetAll,resetSettings,saveSettings,'
+      + 'defaults:ARCHITECT_SETTINGS_DEFAULT_DOCUMENT,'
+      + 'portablePaths:ARCHITECT_SETTINGS_PORTABLE_PATHS,'
+      + 'prototypeState:function(){return {'
+      + 'globalPolluted:({}).architectPolluted===true,'
+      + 'rootOwn:Object.prototype.hasOwnProperty.call(settingsState,"__proto__"),'
+      + 'rootPrototypeSafe:Object.getPrototypeOf(settingsState)===Object.prototype,'
+      + 'appearanceOwn:Object.prototype.hasOwnProperty.call(settingsState.appearance,"__proto__"),'
+      + 'appearancePrototypeSafe:Object.getPrototypeOf(settingsState.appearance)===Object.prototype};},'
+      + 'snapshot:function(){return settingsState;},'
+      + 'state:function(){return architectSettingsMutationState;}};',
+    context,
+    { filename: `${ARCHITECT_UI.pathname}#portable-settings` },
+  );
+
+  return {
+    downloads,
+    fileInputs,
+    functions: context.module.exports,
+    requests,
+    storage,
+    toasts,
+  };
+}
+
+function centerViewsSettingsHarness(options = {}) {
+  const source = fs.readFileSync(CENTER_VIEWS, 'utf8');
+  const helperStart = source.indexOf("const PORTABLE_SETTINGS_KIND =");
+  const helperEnd = source.indexOf('/* ═══ CenterViewsWidget ═══ */', helperStart);
+  const methodsStart = source.indexOf('  async _exportSettings()');
+  const methodsEnd = source.indexOf('  // ─── v63.0: Wizard Methods', methodsStart);
+  assert.ok(
+    helperStart >= 0 && helperEnd > helperStart && methodsStart >= 0 && methodsEnd > methodsStart,
+    'Center Views portable settings slices are missing',
+  );
+
+  const alerts = [];
+  const downloads = [];
+  const fileInputs = [];
+  const requests = [];
+  const responses = [...(options.responses || [])];
+  let context;
+
+  class CapturedBlob {
+    constructor(parts, blobOptions = {}) {
+      this.parts = [...parts];
+      this.type = blobOptions.type;
+    }
+    text() { return Promise.resolve(this.parts.join('')); }
+  }
+  const anchor = {
+    click() { downloads.push({ blob: anchor.blob, download: anchor.download, href: anchor.href }); },
+  };
+  context = vm.createContext({
+    Blob: CapturedBlob,
+    Date,
+    URL: {
+      createObjectURL(blob) {
+        anchor.blob = blob;
+        return 'blob:center-settings-fixture';
+      },
+      revokeObjectURL() {},
+    },
+    alert(message) { alerts.push(message); },
+    document: {
+      createElement(tagName) {
+        if (tagName === 'a') return anchor;
+        assert.equal(tagName, 'input');
+        const input = { click() { input.clicked = true; } };
+        fileInputs.push(input);
+        return input;
+      },
+    },
+    fetch(url, init = {}) {
+      requests.push({ url, init });
+      const fixture = responses.shift();
+      if (fixture instanceof Error) return Promise.reject(fixture);
+      if (!fixture) throw new Error(`unexpected Center Views settings request: ${url}`);
+      return Promise.resolve({
+        ok: fixture.ok,
+        status: fixture.status,
+        json: fixture.jsonError
+          ? async () => { throw fixture.jsonError; }
+          : async () => vm.runInContext(`JSON.parse(${JSON.stringify(JSON.stringify(fixture.body))})`, context),
+      });
+    },
+    module: { exports: {} },
+  });
+
+  const methodSource = source.slice(methodsStart, methodsEnd).trim();
+  vm.runInContext(
+    source.slice(helperStart, helperEnd)
+      + `\nclass PortableMethods {${methodSource}}`
+      + '\nmodule.exports={'
+      + 'exportSettings:PortableMethods.prototype._exportSettings,'
+      + 'exportAll:PortableMethods.prototype._exportAll,'
+      + 'importSettings:PortableMethods.prototype._importSettings,'
+      + 'portablePaths:PORTABLE_SETTINGS_PATHS};',
+    context,
+    { filename: `${CENTER_VIEWS.pathname}#portable-settings` },
+  );
+  const widget = { _portableSettingsMutationState: 'IDLE' };
+  return {
+    alerts,
+    downloads,
+    fileInputs,
+    functions: context.module.exports,
+    requests,
+    widget,
+  };
+}
+
+function renderedText(node) {
+  if (node == null || node === false) return '';
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(renderedText).join('');
+  return renderedText(node.children);
+}
+
+function findRenderedElement(root, type, text) {
+  const pending = [root];
+  while (pending.length > 0) {
+    const node = pending.shift();
+    if (Array.isArray(node)) {
+      pending.unshift(...node);
+      continue;
+    }
+    if (!node || typeof node !== 'object') continue;
+    if (node.type === type && renderedText(node) === text) return node;
+    pending.unshift(...(node.children || []));
+  }
+  return null;
+}
+
 function terminalPanelHarness(pane = session('panel-terminal')) {
   const source = fs.readFileSync(CHAT_PANEL, 'utf8');
   const start = source.indexOf('function _initBusSubscriptions()');
@@ -1018,7 +1590,7 @@ function upgradeRecoveryPanelHarness(options = {}) {
     renderChat() {},
     renderSidebar() {},
     setTimeout(callback, delay) {
-      const timer = { callback, delay };
+      const timer = { callback, delay, cancelled: false };
       timers.push(timer);
       return timer;
     },
@@ -1115,7 +1687,7 @@ test('Studio recovery is actionable only with complete exact identity', () => {
   assert.equal(harness.requests.length, 0);
 });
 
-testAsync('Studio recovery uses two-step confirmation, exact body and per-role single flight', async () => {
+await testAsync('Studio recovery uses two-step confirmation, exact body and per-role single flight', async () => {
   const harness = upgradeRecoveryPanelHarness();
   const failure = upgradeVerificationFailure();
   harness.listeners['upgrade:verify_failed'](failure);
@@ -1143,7 +1715,7 @@ testAsync('Studio recovery uses two-step confirmation, exact body and per-role s
   assert.equal(harness.counters.load, 1);
 });
 
-testAsync('Studio recovery classifies stale, retryable and unknown HTTP outcomes without fallback', async () => {
+await testAsync('Studio recovery classifies stale, retryable and unknown HTTP outcomes without fallback', async () => {
   const cases = [
     {
       status: 409,
@@ -1192,7 +1764,7 @@ testAsync('Studio recovery classifies stale, retryable and unknown HTTP outcomes
   assert.equal(network.requests.length, 1);
 });
 
-testAsync('newer failure survives a deferred response from the replaced recovery token', async () => {
+await testAsync('newer failure survives a deferred response from the replaced recovery token', async () => {
   const response = deferred();
   const harness = upgradeRecoveryPanelHarness({ fetch: async () => response.promise });
   const firstFailure = upgradeVerificationFailure();
@@ -4643,6 +5215,1091 @@ test('panel makes reconnect exhaustion visible and keeps health offline', () => 
   assert.match(handler, /_serverHealth\.status = 'offline'/);
   assert.match(handler, /agentLog/);
   assert.match(handler, /renderSidebar\(\);_updateStatusIndicator\(\)/);
+});
+
+suite('M1 Studio client — versioned settings recovery');
+
+await testAsync('export rejects non-2xx and malformed success without creating a download', async () => {
+  for (const fixture of [
+    { ok: false, status: 503, body: { code: 'MODEL_POLICY_STORAGE_UNAVAILABLE' } },
+    { ok: true, status: 200, body: { ok: false, backup: settingsBackupFixture() } },
+    { ok: true, status: 200, body: { ok: true, backup: {} } },
+    {
+      ok: true,
+      status: 200,
+      body: {
+        ok: true,
+        backup: settingsBackupFixture({
+          generalSettings: { webhookSecret: 'server-leaked-secret' },
+        }),
+      },
+    },
+    { ok: true, status: 200, jsonError: new Error('invalid JSON') },
+    new Error('fixture disconnected'),
+  ]) {
+    const initial = { theme: 'dark', webhookSecret: 'keep-local-secret' };
+    const harness = settingsBackupHarness({ initialSettings: initial, responses: [fixture] });
+    assert.equal(await harness.functions.exportBackup(), null);
+    assert.equal(harness.requests.length, 1);
+    assert.equal(harness.downloads.length, 0);
+    assert.deepEqual(harness.settings(), initial);
+    assert.equal(harness.status().ok, false);
+  }
+});
+
+await testAsync('export downloads the exact validated versioned envelope returned by the server', async () => {
+  const backup = settingsBackupFixture();
+  const harness = settingsBackupHarness({
+    responses: [{ ok: true, status: 200, body: { ok: true, backup } }],
+  });
+
+  const result = await harness.functions.exportBackup();
+  assert.equal(result.ok, true);
+  assert.equal(harness.requests.length, 1);
+  assert.equal(harness.requests[0].url, 'http://127.0.0.1:3335/api/settings/backup');
+  assert.equal(harness.requests[0].init.method, undefined);
+  assert.equal(harness.requests[0].init.signal.milliseconds, 3000);
+  assert.equal(harness.downloads.length, 1);
+  assert.match(harness.downloads[0].download, /^intentsmith-settings-\d{4}-\d{2}-\d{2}\.json$/);
+  assert.equal(harness.downloads[0].blob.type, 'application/json');
+  assert.equal(harness.downloads[0].href, 'blob:intentsmith-settings-fixture');
+  assert.deepEqual(harness.revokedObjectUrls, ['blob:intentsmith-settings-fixture']);
+  const encoded = await harness.downloads[0].blob.text();
+  assert.deepEqual(JSON.parse(encoded), backup);
+  assert.equal(encoded.includes('destination-webhook-secret'), false);
+  assert.equal(encoded.includes('destination-smtp-secret'), false);
+  assert.equal(harness.status().ok, true);
+});
+
+await testAsync('import failures retain the exact local settings snapshot', async () => {
+  const backup = settingsBackupFixture();
+  for (const fixture of [
+    { ok: false, status: 400, body: { code: 'MODEL_POLICY_SETTINGS_BACKUP_INVALID' } },
+    { ok: false, status: 503, body: { code: 'MODEL_POLICY_STORAGE_UNAVAILABLE' } },
+    { ok: true, status: 200, body: { ok: true, success: true, generalSettings: null } },
+    { ok: true, status: 200, body: { ok: false, success: true, generalSettings: {} } },
+    { ok: true, status: 200, jsonError: new Error('invalid JSON') },
+    new Error('fixture disconnected'),
+  ]) {
+    const initial = {
+      theme: 'dark',
+      webhookSecret: 'keep-webhook',
+      'c3.notif.smtpPass': 'keep-smtp',
+    };
+    const harness = settingsBackupHarness({ initialSettings: initial, responses: [fixture] });
+    assert.equal(
+      await harness.functions.importJson(JSON.stringify(backup), 'fixture.json'),
+      null,
+    );
+    assert.equal(harness.requests.length, 1);
+    assert.deepEqual(harness.settings(), initial);
+    assert.equal(harness.status().ok, false);
+  }
+});
+
+await testAsync('invalid local documents fail before any import effect', async () => {
+  for (const encoded of [
+    '[]',
+    JSON.stringify(settingsBackupFixture({ schemaVersion: 3 })),
+    JSON.stringify({ ...settingsBackupFixture(), unknown: true }),
+    JSON.stringify(settingsBackupFixture({
+      modelAutomationPolicy: {
+        autoFailoverEnabled: 'true',
+        autoCleanupEnabled: false,
+        autoCleanupDays: 14,
+      },
+    })),
+    JSON.stringify(settingsBackupFixture({ settingsProjection: {
+      profile: 'UX_PREFERENCES_V1',
+      values: {
+        ...settingsBackupFixture().settingsProjection.values,
+        '/notifications/telegramToken': 'must-not-enter-versioned-import',
+      },
+    } })),
+    JSON.stringify({ kind: 'UNKNOWN_BACKUP', schemaVersion: 1 }),
+  ]) {
+    const initial = { theme: 'dark', webhookSecret: 'keep-webhook' };
+    const harness = settingsBackupHarness({ initialSettings: initial });
+    assert.equal(await harness.functions.importJson(encoded, 'invalid.json'), null);
+    assert.equal(harness.requests.length, 0);
+    assert.deepEqual(harness.settings(), initial);
+    assert.equal(harness.status().ok, false);
+  }
+});
+
+await testAsync('legacy import is wrapped, server state wins, and the next save preserves local secrets', async () => {
+  const committedSettings = {
+    appearance: { theme: 'light' },
+    webhookSecret: 'preserved-webhook',
+    'c3.notif.smtpPass': 'preserved-smtp',
+  };
+  const harness = settingsBackupHarness({
+    initialSettings: { theme: 'dark', webhookSecret: 'old-webhook' },
+    responses: [
+      {
+        ok: true,
+        status: 200,
+        body: settingsImportCommitFixture({
+          generalSettings: committedSettings,
+          runtimeApplied: false,
+          runtimeErrorCode: 'SETTINGS_RUNTIME_APPLY_FAILED',
+          sourceSchemaVersion: 1,
+          appliedPortablePaths: ['/appearance/theme'],
+          preservedLocalPathCount: 2,
+        }),
+      },
+      { ok: true, status: 200, body: { success: true } },
+    ],
+  });
+
+  const result = await harness.functions.importJson(
+    JSON.stringify({ appearance: { theme: 'light' } }),
+    'legacy-settings.json',
+  );
+  assert.equal(result.success, true);
+  assert.equal(harness.requests[0].url, 'http://127.0.0.1:3335/api/settings/import');
+  assert.equal(harness.requests[0].init.method, 'POST');
+  assert.deepEqual(hostClone(harness.requests[0].init.headers), { 'Content-Type': 'application/json' });
+  assert.equal(harness.requests[0].init.signal.milliseconds, 3000);
+  assert.deepEqual(JSON.parse(harness.requests[0].init.body), {
+    kind: 'INTENTSMITH_SETTINGS_BACKUP',
+    schemaVersion: 1,
+    generalSettings: { appearance: { theme: 'light' } },
+    modelAutomationPolicy: null,
+    omittedSensitiveKeys: [],
+  });
+  assert.deepEqual(harness.settings(), committedSettings);
+  assert.match(harness.status().text, /runtime vyžaduje restart/);
+
+  harness.functions.saveConfig();
+  const saveTimer = harness.timers.find(timer => timer.delay === 500);
+  assert.ok(saveTimer, 'generic save was not scheduled');
+  saveTimer.callback();
+  await Promise.resolve();
+  assert.equal(harness.requests[1].url, 'http://127.0.0.1:3335/api/settings');
+  assert.deepEqual(JSON.parse(harness.requests[1].init.body), committedSettings);
+});
+
+await testAsync('reset is fail-closed and only adopts a committed server snapshot', async () => {
+  const initial = { theme: 'dark', webhookSecret: 'keep-webhook' };
+  const failed = settingsBackupHarness({
+    initialSettings: initial,
+    responses: [{ ok: false, status: 500, body: { code: 'SETTINGS_RESET_FAILED' } }],
+  });
+  assert.equal(await failed.functions.resetAll(), null);
+  assert.deepEqual(failed.settings(), initial);
+  assert.equal(failed.status().ok, false);
+
+  const committedSettings = {};
+  const succeeded = settingsBackupHarness({
+    initialSettings: initial,
+    responses: [{
+      ok: true,
+      status: 200,
+      body: settingsResetCommitFixture({
+        generalSettings: committedSettings,
+        runtimeApplied: false,
+        runtimeErrorCode: 'SETTINGS_RUNTIME_APPLY_FAILED',
+      }),
+    }],
+  });
+  assert.equal((await succeeded.functions.resetAll()).success, true);
+  assert.equal(succeeded.requests[0].url, 'http://127.0.0.1:3335/api/settings/reset');
+  assert.equal(succeeded.requests[0].init.method, 'POST');
+  assert.deepEqual(hostClone(succeeded.requests[0].init.headers), { 'Content-Type': 'application/json' });
+  assert.equal(succeeded.requests[0].init.signal.milliseconds, 3000);
+  assert.deepEqual(JSON.parse(succeeded.requests[0].init.body), {});
+  assert.deepEqual(succeeded.settings(), committedSettings);
+  assert.match(succeeded.status().text, /runtime vyžaduje restart/);
+});
+
+await testAsync('successful runtime apply does not claim restart for import or reset', async () => {
+  const imported = settingsBackupHarness({
+    responses: [{
+      ok: true,
+      status: 200,
+      body: settingsImportCommitFixture(),
+    }],
+  });
+  assert.equal(
+    (await imported.functions.importJson(JSON.stringify(settingsBackupFixture()), 'exact.json')).success,
+    true,
+  );
+  assert.equal(imported.status().text.includes('restart'), false);
+
+  const reset = settingsBackupHarness({
+    responses: [{
+      ok: true,
+      status: 200,
+      body: settingsResetCommitFixture(),
+    }],
+  });
+  assert.equal((await reset.functions.resetAll()).success, true);
+  assert.equal(reset.status().text.includes('restart'), false);
+});
+
+await testAsync('import and reset reject incomplete or inconsistent runtime commit metadata', async () => {
+  const invalidBodies = [
+    { ok: true, success: true, generalSettings: { theme: 'partial' } },
+    { ok: true, success: true, generalSettings: { theme: 'partial' }, runtimeApplied: null, runtimeErrorCode: null },
+    { ok: true, success: true, generalSettings: { theme: 'partial' }, runtimeApplied: 'false', runtimeErrorCode: 'SETTINGS_RUNTIME_APPLY_FAILED' },
+    { ok: true, success: true, generalSettings: { theme: 'partial' }, runtimeApplied: 0, runtimeErrorCode: 'SETTINGS_RUNTIME_APPLY_FAILED' },
+    { ok: true, success: true, generalSettings: { theme: 'partial' }, runtimeApplied: true, runtimeErrorCode: 'SETTINGS_RUNTIME_APPLY_FAILED' },
+    { ok: true, success: true, generalSettings: { theme: 'partial' }, runtimeApplied: false, runtimeErrorCode: null },
+  ];
+
+  for (const body of invalidBodies) {
+    for (const operation of ['import', 'reset']) {
+      const initial = { theme: 'dark', webhookSecret: 'keep-webhook' };
+      const harness = settingsBackupHarness({
+        initialSettings: initial,
+        responses: [{ ok: true, status: 200, body }],
+      });
+      const result = operation === 'import'
+        ? await harness.functions.importJson(JSON.stringify(settingsBackupFixture()), 'invalid-runtime.json')
+        : await harness.functions.resetAll();
+      assert.equal(result, null);
+      assert.deepEqual(harness.settings(), initial);
+      assert.equal(harness.status().ok, false);
+    }
+  }
+});
+
+await testAsync('all first-party import consumers reject schema and audit provenance mismatches', async () => {
+  const base = settingsImportCommitFixture();
+  const mismatches = [
+    { ...base, sourceSchemaVersion: 1 },
+    { ...base, event: { ...base.event, actor: 'user:unexpected-importer' } },
+    { ...base, policy: { ...base.policy, lastEventId: 'policy-event-mismatch-0002' } },
+    {
+      ...base,
+      generalSettings: settingsPortableGeneralSettings({ appearance: { theme: 'dark' } }),
+    },
+    { ...base, policy: { ...base.policy, autoCleanupDays: 30 } },
+    { ...base, ignoredSourcePathCount: 999 },
+  ];
+
+  for (const body of mismatches) {
+    const chatPanel = settingsBackupHarness({
+      initialSettings: { appearance: { theme: 'dark' } },
+      responses: [{ ok: true, status: 200, body }],
+    });
+    assert.equal(
+      await chatPanel.functions.importJson(JSON.stringify(settingsBackupFixture()), 'mismatch.json'),
+      null,
+    );
+    assert.equal(chatPanel.functions.state().mutationState, 'DELIVERY_UNKNOWN');
+    assert.deepEqual(chatPanel.settings(), { appearance: { theme: 'dark' } });
+
+    const architect = architectSettingsHarness({
+      initialSettings: { appearance: { theme: 'dark' } },
+      responses: [{ ok: true, status: 200, body }],
+    });
+    architect.functions.importSettings();
+    await architect.fileInputs[0].onchange({
+      target: { files: [{ text: async () => JSON.stringify(settingsBackupFixture()) }] },
+    });
+    assert.equal(architect.functions.state(), 'DELIVERY_UNKNOWN');
+    assert.equal(architect.functions.snapshot().appearance.theme, 'dark');
+
+    const center = centerViewsSettingsHarness({
+      responses: [{ ok: true, status: 200, body }],
+    });
+    center.functions.importSettings.call(center.widget);
+    await center.fileInputs[0].onchange({
+      target: { files: [{ text: async () => JSON.stringify(settingsBackupFixture()) }] },
+    });
+    assert.equal(center.widget._portableSettingsMutationState, 'DELIVERY_UNKNOWN');
+    assert.match(center.alerts.at(-1), /outcome is unknown/);
+  }
+});
+
+await testAsync('legacy import provenance is the exact source-derived portable path subset', async () => {
+  const legacy = settingsBackupV1Fixture({
+    generalSettings: {
+      appearance: { theme: 'light' },
+      'c3.language': 'en',
+    },
+  });
+  const committed = settingsImportCommitFixture({
+    generalSettings: {
+      appearance: { theme: 'light' },
+      'c3.language': 'en',
+    },
+    sourceSchemaVersion: 1,
+    appliedPortablePaths: ['/appearance/theme', '/c3.language'],
+  });
+  const invalidPathLists = [
+    [],
+    ['/c3.language'],
+    ['/appearance/theme', '/c3.language', '/c3.output.codeBlocks'],
+    ['/appearance/theme', '/appearance/theme', '/c3.language'],
+    ['/c3.language', '/appearance/theme'],
+    ['/appearance/theme,/c3.language'],
+    ['/appearance/theme\0/c3.language'],
+  ];
+
+  for (const appliedPortablePaths of invalidPathLists) {
+    const body = { ...committed, appliedPortablePaths };
+    const chatPanel = settingsBackupHarness({
+      responses: [{ ok: true, status: 200, body }],
+    });
+    assert.equal(await chatPanel.functions.importJson(JSON.stringify(legacy), 'legacy.json'), null);
+    assert.equal(chatPanel.functions.state().mutationState, 'DELIVERY_UNKNOWN');
+
+    const architect = architectSettingsHarness({
+      responses: [{ ok: true, status: 200, body }],
+    });
+    architect.functions.importSettings();
+    await architect.fileInputs[0].onchange({
+      target: { files: [{ text: async () => JSON.stringify(legacy) }] },
+    });
+    assert.equal(architect.functions.state(), 'DELIVERY_UNKNOWN');
+
+    const center = centerViewsSettingsHarness({
+      responses: [{ ok: true, status: 200, body }],
+    });
+    center.functions.importSettings.call(center.widget);
+    await center.fileInputs[0].onchange({
+      target: { files: [{ text: async () => JSON.stringify(legacy) }] },
+    });
+    assert.equal(center.widget._portableSettingsMutationState, 'DELIVERY_UNKNOWN');
+  }
+});
+
+await testAsync('legacy compatibility reports ignored non-portable source paths in every UI', async () => {
+  const legacy = settingsBackupV1Fixture({
+    generalSettings: {
+      appearance: { theme: 'light' },
+      notifications: { telegramToken: 'ATTACKER_SOURCE_TOKEN' },
+    },
+  });
+  const body = settingsImportCommitFixture({
+    generalSettings: {
+      appearance: { theme: 'light' },
+      notifications: { telegramToken: 'DESTINATION_TOKEN' },
+    },
+    sourceSchemaVersion: 1,
+    appliedPortablePaths: ['/appearance/theme'],
+    ignoredSourcePathCount: 1,
+    preservedLocalPathCount: 1,
+  });
+
+  const chatPanel = settingsBackupHarness({
+    responses: [{ ok: true, status: 200, body }],
+  });
+  assert.equal(
+    (await chatPanel.functions.importJson(JSON.stringify(legacy), 'legacy.json')).success,
+    true,
+  );
+  assert.match(chatPanel.status().text, /1 nepřenosných zdrojových cest/);
+
+  const architect = architectSettingsHarness({
+    responses: [{ ok: true, status: 200, body }],
+  });
+  architect.functions.importSettings();
+  await architect.fileInputs[0].onchange({
+    target: { files: [{ text: async () => JSON.stringify(legacy) }] },
+  });
+  assert.equal(architect.functions.state(), 'IDLE');
+  assert.match(architect.toasts.at(-1).message, /1 nepřenosných zdrojových cest/);
+
+  const center = centerViewsSettingsHarness({
+    responses: [{ ok: true, status: 200, body }],
+  });
+  center.functions.importSettings.call(center.widget);
+  await center.fileInputs[0].onchange({
+    target: { files: [{ text: async () => JSON.stringify(legacy) }] },
+  });
+  assert.equal(center.widget._portableSettingsMutationState, 'IDLE');
+  assert.match(center.alerts.at(-1), /1 non-portable source paths/);
+});
+
+await testAsync('reset rejects a malformed 2xx commit without changing local settings', async () => {
+  const exactReset = settingsResetCommitFixture();
+  for (const body of [
+    { ok: true, success: false, generalSettings: {} },
+    { ok: true, success: true, generalSettings: [] },
+    settingsResetCommitFixture({ generalSettings: { appearance: { theme: 'light' } } }),
+    settingsResetCommitFixture({
+      policy: { ...exactReset.policy, autoFailoverEnabled: true },
+    }),
+  ]) {
+    const initial = { theme: 'dark', webhookSecret: 'keep-webhook' };
+    const harness = settingsBackupHarness({
+      initialSettings: initial,
+      responses: [{ ok: true, status: 200, body }],
+    });
+    assert.equal(await harness.functions.resetAll(), null);
+    assert.deepEqual(harness.settings(), initial);
+    assert.equal(harness.status().ok, false);
+  }
+});
+
+await testAsync('settings mutations are single-flight and an old success timer cannot erase a newer failure', async () => {
+  const pending = deferred();
+  const harness = settingsBackupHarness({
+    responses: [
+      ({ context }) => pending.promise.then(body => ({
+        ok: true,
+        status: 200,
+        async json() {
+          return vm.runInContext(`JSON.parse(${JSON.stringify(JSON.stringify(body))})`, context);
+        },
+      })),
+      { ok: false, status: 500, body: { code: 'MODEL_AUTOMATION_POLICY_RESET_FAILED' } },
+    ],
+  });
+  const first = harness.functions.importJson(
+    JSON.stringify(settingsBackupFixture()),
+    'pending.json',
+  );
+  assert.equal(await harness.functions.resetAll(), null);
+  assert.equal(harness.requests.length, 1, 'a pending mutation admitted another HTTP effect');
+  assert.match(harness.status().text, /právě probíhá/);
+
+  pending.resolve(settingsImportCommitFixture({
+    generalSettings: settingsPortableGeneralSettings(),
+  }));
+  assert.equal((await first).success, true);
+  assert.deepEqual(harness.settings(), settingsPortableGeneralSettings());
+  const oldSuccessTimer = harness.timers.find(timer => timer.delay === 4000);
+  assert.ok(oldSuccessTimer);
+
+  assert.equal(await harness.functions.resetAll(), null);
+  assert.equal(harness.requests.length, 2);
+  assert.equal(harness.status().ok, false);
+  const failureText = harness.status().text;
+  oldSuccessTimer.callback();
+  assert.equal(harness.status().text, failureText);
+});
+
+await testAsync('settings recovery cancels queued saves, waits for in-flight saves, and cannot be overwritten', async () => {
+  const saveDone = deferred();
+  const committedSettings = {};
+  const harness = settingsBackupHarness({
+    initialSettings: { theme: 'stale', webhookSecret: 'preserved-webhook' },
+    responses: [
+      () => saveDone.promise.then(() => ({
+        ok: true,
+        status: 200,
+        async json() { return { success: true }; },
+      })),
+      {
+        ok: true,
+        status: 200,
+        body: settingsResetCommitFixture({
+          generalSettings: committedSettings,
+        }),
+      },
+    ],
+  });
+
+  harness.functions.saveConfig();
+  const firstSaveTimer = harness.timers.find(timer => timer.delay === 500);
+  assert.ok(firstSaveTimer);
+  firstSaveTimer.callback();
+  await drainMicrotasks();
+  assert.equal(harness.requests.length, 1);
+  assert.equal(harness.requests[0].url, 'http://127.0.0.1:3335/api/settings');
+  assert.deepEqual(JSON.parse(harness.requests[0].init.body), {
+    theme: 'stale',
+    webhookSecret: 'preserved-webhook',
+  });
+
+  const reset = harness.functions.resetAll();
+  harness.functions.replaceAndSave(JSON.stringify({
+    theme: 'concurrent-stale',
+    webhookSecret: 'preserved-webhook',
+  }));
+  await drainMicrotasks();
+  assert.equal(harness.requests.length, 1, 'recovery did not wait for the in-flight generic save');
+
+  saveDone.resolve();
+  await drainMicrotasks();
+  assert.equal(harness.requests.length, 2);
+  assert.equal(harness.requests[1].url, 'http://127.0.0.1:3335/api/settings/reset');
+  assert.equal((await reset).success, true);
+  assert.deepEqual(harness.settings(), committedSettings);
+  assert.equal(
+    harness.timers.filter(timer => timer.delay === 500 && !timer.cancelled).length,
+    1,
+    'recovery scheduled a stale generic save after its committed snapshot',
+  );
+
+  const failed = settingsBackupHarness({
+    initialSettings: { theme: 'unsaved' },
+    responses: [
+      { ok: false, status: 500, body: { code: 'MODEL_AUTOMATION_POLICY_RESET_FAILED' } },
+      { ok: true, status: 200, body: { success: true } },
+    ],
+  });
+  failed.functions.saveConfig();
+  const cancelledTimer = failed.timers.find(timer => timer.delay === 500);
+  assert.ok(cancelledTimer);
+  assert.equal(await failed.functions.resetAll(), null);
+  assert.equal(cancelledTimer.cancelled, true);
+  const resumedTimer = failed.timers.find(timer => timer.delay === 500 && !timer.cancelled);
+  assert.ok(resumedTimer, 'failed recovery did not resume the cancelled local save');
+  resumedTimer.callback();
+  await drainMicrotasks();
+  assert.equal(failed.requests.length, 2);
+  assert.equal(failed.requests[1].url, 'http://127.0.0.1:3335/api/settings');
+  assert.deepEqual(JSON.parse(failed.requests[1].init.body), { theme: 'unsaved' });
+});
+
+await testAsync('ambiguous settings delivery fences stale saves and every later mutation effect', async () => {
+  for (const ambiguousResponse of [
+    { ok: true, status: 200, jsonError: new Error('truncated commit response') },
+    new Error('connection ended after request delivery'),
+  ]) {
+    const harness = settingsBackupHarness({
+      initialSettings: { theme: 'stale-before-reset' },
+      responses: [ambiguousResponse],
+    });
+    harness.functions.saveConfig();
+    const staleTimer = harness.timers.find(timer => timer.delay === 500);
+    assert.ok(staleTimer);
+
+    assert.equal(await harness.functions.resetAll(), null);
+    assert.equal(staleTimer.cancelled, true);
+    assert.deepEqual(hostClone(harness.functions.state()), {
+      mutationState: 'DELIVERY_UNKNOWN',
+      pending: false,
+      deliveryUnknown: true,
+      generation: 1,
+      loading: false,
+    });
+    assert.equal(harness.requests.length, 1);
+    assert.match(harness.status().text, /nelze potvrdit/);
+    assert.equal(
+      harness.timers.some(timer => timer.delay === 500 && !timer.cancelled),
+      false,
+      'DELIVERY_UNKNOWN replayed the stale queued save',
+    );
+
+    harness.functions.setConfig('theme', 'must-not-write');
+    assert.deepEqual(harness.settings(), { theme: 'stale-before-reset' });
+    assert.equal(await harness.functions.resetAll(), null);
+    await drainMicrotasks();
+    assert.equal(harness.requests.length, 1, 'the delivery-unknown fence admitted another write');
+    assert.equal(
+      harness.timers.some(timer => timer.delay === 500 && !timer.cancelled),
+      false,
+      'the delivery-unknown fence scheduled a later generic save',
+    );
+  }
+});
+
+await testAsync('definitive settings rejection resumes exactly one deferred generic save', async () => {
+  const harness = settingsBackupHarness({
+    initialSettings: { theme: 'locally-edited' },
+    responses: [
+      { ok: false, status: 503, jsonError: new Error('unreadable rejection body') },
+      { ok: true, status: 200, body: { success: true } },
+    ],
+  });
+  harness.functions.saveConfig();
+  const staleTimer = harness.timers.find(timer => timer.delay === 500);
+  assert.ok(staleTimer);
+
+  assert.equal(await harness.functions.resetAll(), null);
+  assert.equal(staleTimer.cancelled, true);
+  assert.equal(harness.functions.state().mutationState, 'REJECTED');
+  const resumed = harness.timers.filter(timer => timer.delay === 500 && !timer.cancelled);
+  assert.equal(resumed.length, 1);
+  resumed[0].callback();
+  await drainMicrotasks();
+  assert.equal(harness.requests.length, 2);
+  assert.equal(harness.requests[1].url, 'http://127.0.0.1:3335/api/settings');
+  assert.deepEqual(JSON.parse(harness.requests[1].init.body), { theme: 'locally-edited' });
+});
+
+await testAsync('a settings load admitted before recovery cannot overwrite its committed snapshot', async () => {
+  const staleLoad = deferred();
+  const committedSettings = {};
+  const harness = settingsBackupHarness({
+    initialSettings: null,
+    responses: [
+      ({ context }) => staleLoad.promise.then(body => ({
+        ok: true,
+        status: 200,
+        async json() {
+          return vm.runInContext(`JSON.parse(${JSON.stringify(JSON.stringify(body))})`, context);
+        },
+      })),
+      {
+        ok: true,
+        status: 200,
+        body: settingsResetCommitFixture({
+          generalSettings: committedSettings,
+        }),
+      },
+      { ok: true, status: 200, body: { success: true } },
+    ],
+  });
+
+  const load = harness.functions.loadConfig(null, true);
+  await drainMicrotasks();
+  assert.equal(harness.requests.length, 1);
+  const reset = harness.functions.resetAll();
+  await drainMicrotasks();
+  assert.equal(harness.requests.length, 2);
+  assert.equal((await reset).success, true);
+  assert.deepEqual(harness.settings(), committedSettings);
+
+  staleLoad.resolve({ theme: 'stale-load' });
+  assert.equal(await load, false);
+  assert.deepEqual(harness.settings(), committedSettings);
+  assert.equal(harness.functions.state().mutationState, 'COMMITTED');
+
+  harness.functions.saveConfig();
+  const saveTimer = harness.timers.find(timer => timer.delay === 500 && !timer.cancelled);
+  assert.ok(saveTimer);
+  saveTimer.callback();
+  await drainMicrotasks();
+  assert.equal(harness.requests.length, 3);
+  assert.deepEqual(JSON.parse(harness.requests[2].init.body), committedSettings);
+});
+
+await testAsync('the rendered Backup panel wires exact endpoints and reports FileReader failures', async () => {
+  const exportHarness = settingsBackupHarness({
+    responses: [{ ok: true, status: 200, body: { ok: true, backup: settingsBackupFixture() } }],
+  });
+  const exportButton = findRenderedElement(exportHarness.functions.renderBackup(), 'button', 'Exportovat přenosné předvolby');
+  assert.ok(exportButton);
+  exportButton.props.onClick();
+  await drainMicrotasks();
+  assert.equal(exportHarness.requests[0].url, 'http://127.0.0.1:3335/api/settings/backup');
+  assert.equal(exportHarness.downloads.length, 1);
+
+  const resetHarness = settingsBackupHarness({
+    responses: [{
+      ok: true,
+      status: 200,
+      body: settingsResetCommitFixture(),
+    }],
+  });
+  const resetButton = findRenderedElement(resetHarness.functions.renderBackup(), 'button', 'Obnovit výchozí');
+  assert.ok(resetButton);
+  resetButton.props.onClick();
+  await drainMicrotasks();
+  assert.equal(resetHarness.requests[0].url, 'http://127.0.0.1:3335/api/settings/reset');
+
+  const validReader = controlledFileReaderClass();
+  const importHarness = settingsBackupHarness({
+    FileReaderClass: validReader.ControlledFileReader,
+    responses: [{
+      ok: true,
+      status: 200,
+      body: settingsImportCommitFixture({
+        generalSettings: settingsPortableGeneralSettings(),
+      }),
+    }],
+  });
+  const importButton = findRenderedElement(importHarness.functions.renderBackup(), 'button', 'Importovat přenosné předvolby');
+  assert.ok(importButton);
+  importButton.props.onClick();
+  assert.equal(importHarness.fileInputs.length, 1);
+  importHarness.fileInputs[0].onchange({ target: { files: [{ name: 'portable.json' }] } });
+  assert.equal(validReader.readers.length, 1);
+  validReader.readers[0].onload({ target: { result: JSON.stringify(settingsBackupFixture()) } });
+  await drainMicrotasks();
+  assert.equal(importHarness.requests[0].url, 'http://127.0.0.1:3335/api/settings/import');
+  assert.deepEqual(importHarness.settings(), settingsPortableGeneralSettings());
+
+  for (const outcome of ['onerror', 'onabort']) {
+    const controlled = controlledFileReaderClass();
+    const failureHarness = settingsBackupHarness({ FileReaderClass: controlled.ControlledFileReader });
+    const button = findRenderedElement(failureHarness.functions.renderBackup(), 'button', 'Importovat přenosné předvolby');
+    button.props.onClick();
+    failureHarness.fileInputs[0].onchange({ target: { files: [{ name: 'unreadable.json' }] } });
+    assert.equal(typeof controlled.readers[0][outcome], 'function');
+    controlled.readers[0][outcome]();
+    assert.equal(failureHarness.requests.length, 0);
+    assert.equal(failureHarness.status().ok, false);
+    assert.match(failureHarness.status().text, outcome === 'onerror' ? /nepodařilo přečíst/ : /bylo zrušeno/);
+  }
+});
+
+suite('M1 first-party portable settings consumers');
+
+test('backend, authoritative Studio panel, Center Views, and Architect pin one exact profile', () => {
+  const expected = [...SETTINGS_PORTABLE_PATHS];
+  assert.deepEqual(hostClone(settingsBackupHarness().functions.portablePaths), expected);
+  assert.deepEqual(hostClone(architectSettingsHarness().functions.portablePaths), expected);
+  assert.deepEqual(hostClone(centerViewsSettingsHarness().functions.portablePaths), expected);
+});
+
+await testAsync('one real backend commit is accepted by every first-party portable settings consumer', async () => {
+  const backend = portableSettingsBackendHarness();
+  try {
+    const backup = settingsBackupFixture({
+      settingsProjection: {
+        profile: 'UX_PREFERENCES_V1',
+        values: {
+          '/appearance/theme': 'light',
+          '/c3.language': 'en',
+        },
+      },
+    });
+    const committed = await backend.importBackup(backup);
+    assert.equal(committed.status, 200);
+    assert.equal(committed.body.sourceSchemaVersion, 2);
+    assert.deepEqual(committed.body.appliedPortablePaths, ['/appearance/theme', '/c3.language']);
+    assert.equal(committed.body.policy.lastEventId, committed.body.event.eventId);
+
+    const chatPanel = settingsBackupHarness({
+      responses: [{ ok: true, status: 200, body: committed.body }],
+    });
+    assert.equal(
+      (await chatPanel.functions.importJson(JSON.stringify(backup), 'real-backend.json')).success,
+      true,
+    );
+
+    const architect = architectSettingsHarness({
+      responses: [{ ok: true, status: 200, body: committed.body }],
+    });
+    architect.functions.importSettings();
+    await architect.fileInputs[0].onchange({
+      target: { files: [{ text: async () => JSON.stringify(backup) }] },
+    });
+    assert.equal(architect.functions.state(), 'IDLE');
+    assert.equal(architect.functions.snapshot().appearance.theme, 'light');
+
+    const center = centerViewsSettingsHarness({
+      responses: [{ ok: true, status: 200, body: committed.body }],
+    });
+    center.functions.importSettings.call(center.widget);
+    await center.fileInputs[0].onchange({
+      target: { files: [{ text: async () => JSON.stringify(backup) }] },
+    });
+    assert.equal(center.widget._portableSettingsMutationState, 'IDLE');
+    assert.match(center.alerts.at(-1), /imported successfully/);
+  } finally {
+    backend.close();
+  }
+});
+
+await testAsync('Architect exports only the validated v2 artifact and rejects injected paths', async () => {
+  const backup = settingsBackupFixture();
+  const successful = architectSettingsHarness({
+    initialSettings: {
+      appearance: { theme: 'dark' },
+      notifications: { telegramToken: 'ARCHITECT_LOCAL_SECRET_CANARY' },
+    },
+    responses: [{ ok: true, status: 200, body: { ok: true, backup } }],
+  });
+  await successful.functions.exportSettings();
+  assert.equal(successful.requests.length, 1);
+  assert.equal(successful.requests[0].url, '/api/settings/backup');
+  assert.equal(successful.downloads.length, 1);
+  const encoded = await successful.downloads[0].blob.text();
+  assert.deepEqual(JSON.parse(encoded), backup);
+  assert.equal(encoded.includes('ARCHITECT_LOCAL_SECRET_CANARY'), false);
+  assert.match(successful.downloads[0].download, /^intentsmith-preferences-\d{4}-\d{2}-\d{2}\.json$/);
+
+  const injected = settingsBackupFixture({
+    settingsProjection: {
+      profile: 'UX_PREFERENCES_V1',
+      values: {
+        ...settingsBackupFixture().settingsProjection.values,
+        '/notifications/telegramToken': 'SERVER_LEAK_CANARY',
+      },
+    },
+  });
+  const rejected = architectSettingsHarness({
+    responses: [{ ok: true, status: 200, body: { ok: true, backup: injected } }],
+  });
+  await rejected.functions.exportSettings();
+  assert.equal(rejected.downloads.length, 0);
+  assert.equal(rejected.toasts.at(-1).type, 'error');
+});
+
+await testAsync('Architect import is server-authoritative and ambiguous delivery fences legacy saves', async () => {
+  const committed = JSON.parse(`{
+    "appearance":{"theme":"light","accentColor":"#6366f1","fontFamily":"system","fontSize":14,"__proto__":{"architectPolluted":true}},
+    "notifications":{"telegramToken":"DESTINATION_TOKEN"},
+    "output":{"defaultFormat":"markdown","codeStyle":"default","namingConvention":"camelCase"},
+    "c3.language":"en",
+    "c3.output.codeBlocks":false,
+    "c3.output.markdownRendering":false,
+    "c3.output.syntaxHighlight":false,
+    "futureTopLevelCanary":"DESTINATION_FUTURE",
+    "__proto__":{"architectPolluted":true}
+  }`);
+  const successful = architectSettingsHarness({
+    initialSettings: {
+      appearance: { theme: 'dark', staleCanary: 'STALE_APPEARANCE' },
+      notifications: { telegramToken: 'STALE_TOKEN' },
+      futureTopLevelCanary: 'STALE_FUTURE',
+    },
+    localStorage: { paiass_settings: JSON.stringify({ notifications: { telegramToken: 'STALE_TOKEN' } }) },
+    responses: [
+      {
+        ok: true,
+        status: 200,
+        body: settingsImportCommitFixture({
+          generalSettings: committed,
+        sourceSchemaVersion: 1,
+        appliedPortablePaths: ['/appearance/theme'],
+        preservedLocalPathCount: 1,
+        }),
+      },
+      { ok: true, status: 200, body: { success: true } },
+    ],
+  });
+  successful.functions.importSettings();
+  assert.equal(successful.fileInputs.length, 1);
+  await successful.fileInputs[0].onchange({
+    target: { files: [{ text: async () => JSON.stringify({ appearance: { theme: 'light' } }) }] },
+  });
+  assert.equal(successful.requests[0].url, '/api/settings/import');
+  assert.equal(successful.requests[0].init.method, 'POST');
+  assert.deepEqual(JSON.parse(successful.requests[0].init.body), {
+    kind: 'INTENTSMITH_SETTINGS_BACKUP',
+    schemaVersion: 1,
+    generalSettings: { appearance: { theme: 'light' } },
+    modelAutomationPolicy: null,
+    omittedSensitiveKeys: [],
+  });
+  const committedSnapshot = hostClone(successful.functions.snapshot());
+  assert.equal(committedSnapshot.appearance.theme, 'light');
+  assert.equal(committedSnapshot.appearance.staleCanary, undefined);
+  assert.equal(committedSnapshot.notifications.telegramToken, 'DESTINATION_TOKEN');
+  assert.equal(committedSnapshot['c3.language'], 'en');
+  assert.equal(committedSnapshot['c3.output.codeBlocks'], false);
+  assert.equal(committedSnapshot['c3.output.markdownRendering'], false);
+  assert.equal(committedSnapshot['c3.output.syntaxHighlight'], false);
+  assert.equal(committedSnapshot.futureTopLevelCanary, 'DESTINATION_FUTURE');
+  assert.deepEqual(hostClone(successful.functions.prototypeState()), {
+    globalPolluted: false,
+    rootOwn: true,
+    rootPrototypeSafe: true,
+    appearanceOwn: true,
+    appearancePrototypeSafe: true,
+  });
+  assert.equal(successful.storage.has('paiass_settings'), false);
+  assert.equal(successful.functions.state(), 'IDLE');
+
+  assert.equal(await successful.functions.saveSettings(), true);
+  const savedAfterImport = JSON.parse(successful.requests[1].init.body);
+  assert.equal(savedAfterImport.appearance.staleCanary, undefined);
+  assert.equal(savedAfterImport['c3.language'], 'en');
+  assert.equal(savedAfterImport.futureTopLevelCanary, 'DESTINATION_FUTURE');
+  assert.equal(({}).architectPolluted, undefined);
+
+  const ambiguous = architectSettingsHarness({ responses: [new Error('connection ended')] });
+  ambiguous.functions.importSettings();
+  await ambiguous.fileInputs[0].onchange({
+    target: { files: [{ text: async () => JSON.stringify(settingsBackupFixture()) }] },
+  });
+  assert.equal(ambiguous.functions.state(), 'DELIVERY_UNKNOWN');
+  assert.equal(await ambiguous.functions.saveSettings(), false);
+  assert.equal(ambiguous.requests.length, 1, 'delivery-unknown state admitted a generic save');
+});
+
+await testAsync('Architect settings reset requires an exact commit and false factory reset has no effect', async () => {
+  const harness = architectSettingsHarness({
+    initialSettings: {
+      appearance: { theme: 'light', staleCanary: 'RESET_STALE_APPEARANCE' },
+      notifications: { telegramToken: 'RESET_STALE_TOKEN' },
+      futureTopLevelCanary: 'RESET_STALE_FUTURE',
+    },
+    localStorage: {
+      paiass_settings: '{"appearance":{"theme":"stale"}}',
+      paiass_accordion_state: '["system"]',
+    },
+    responses: [
+      { ok: true, status: 200, body: settingsResetCommitFixture() },
+      { ok: true, status: 200, body: { success: true } },
+    ],
+  });
+  await harness.functions.resetSettings();
+  assert.equal(harness.requests.length, 1);
+  assert.equal(harness.requests[0].url, '/api/settings/reset');
+  assert.equal(harness.requests[0].init.method, 'POST');
+  assert.deepEqual(JSON.parse(harness.requests[0].init.body), {});
+  assert.equal(harness.storage.has('paiass_settings'), false);
+  assert.equal(harness.storage.has('paiass_accordion_state'), false);
+  assert.equal(harness.functions.state(), 'IDLE');
+  assert.deepEqual(
+    hostClone(harness.functions.snapshot()),
+    hostClone(harness.functions.defaults),
+    'authoritative empty reset did not rebuild the in-memory defaults',
+  );
+
+  harness.functions.resetAll();
+  assert.equal(harness.requests.length, 1, 'false factory reset performed an HTTP effect');
+  assert.match(harness.toasts.at(-1).title, /Úplné smazání není dostupné/);
+
+  assert.equal(await harness.functions.saveSettings(), true);
+  assert.deepEqual(
+    JSON.parse(harness.requests[1].init.body),
+    hostClone(harness.functions.defaults),
+    'a later generic save resurrected pre-reset values',
+  );
+});
+
+await testAsync('Architect rejects a nonempty or nondefault reset commit', async () => {
+  const exactReset = settingsResetCommitFixture();
+  for (const body of [
+    settingsResetCommitFixture({ generalSettings: { appearance: { theme: 'light' } } }),
+    settingsResetCommitFixture({
+      policy: { ...exactReset.policy, autoCleanupEnabled: true },
+    }),
+  ]) {
+    const harness = architectSettingsHarness({
+      initialSettings: { appearance: { theme: 'system' } },
+      responses: [{ ok: true, status: 200, body }],
+    });
+    await harness.functions.resetSettings();
+    assert.equal(harness.functions.state(), 'DELIVERY_UNKNOWN');
+    assert.equal(harness.functions.snapshot().appearance.theme, 'system');
+  }
+});
+
+await testAsync('Architect recovery revokes an older settings read before it can resurrect state', async () => {
+  const staleLoad = deferred();
+  const harness = architectSettingsHarness({
+    initialSettings: { appearance: { theme: 'system' } },
+    responses: [
+      ({ context }) => staleLoad.promise.then(body => ({
+        ok: true,
+        status: 200,
+        async json() {
+          return vm.runInContext(`JSON.parse(${JSON.stringify(JSON.stringify(body))})`, context);
+        },
+      })),
+      { ok: true, status: 200, body: settingsResetCommitFixture() },
+    ],
+  });
+
+  const load = harness.functions.loadSettings();
+  await drainMicrotasks();
+  assert.equal(harness.requests[0].url, '/api/settings');
+  await harness.functions.resetSettings();
+  assert.equal(harness.functions.snapshot().appearance.theme, 'dark');
+
+  staleLoad.resolve({
+    appearance: { theme: 'light' },
+    staleTopLevelCanary: 'STALE_LOAD',
+  });
+  assert.equal(await load, false);
+  assert.equal(harness.functions.snapshot().appearance.theme, 'dark');
+  assert.equal(harness.functions.snapshot().staleTopLevelCanary, undefined);
+  assert.equal(harness.functions.state(), 'IDLE');
+});
+
+await testAsync('Architect keeps an authoritative server read when rendering throws', async () => {
+  const harness = architectSettingsHarness({
+    applySettingsThrowOnCall: 2,
+    initialSettings: { appearance: { theme: 'dark' } },
+    localStorage: {
+      paiass_settings: JSON.stringify({
+        appearance: { theme: 'system' },
+        staleTopLevelCanary: 'STALE_LOCAL_FALLBACK',
+      }),
+    },
+    responses: [{
+      ok: true,
+      status: 200,
+      body: {
+        appearance: { theme: 'light' },
+        serverTopLevelCanary: 'AUTHORITATIVE_SERVER',
+      },
+    }],
+  });
+
+  assert.equal(await harness.functions.loadSettings(), true);
+  assert.equal(harness.functions.snapshot().appearance.theme, 'light');
+  assert.equal(harness.functions.snapshot().serverTopLevelCanary, 'AUTHORITATIVE_SERVER');
+  assert.equal(harness.functions.snapshot().staleTopLevelCanary, undefined);
+});
+
+await testAsync('Center Views uses canonical backup/import endpoints and never WS key replay', async () => {
+  const backup = settingsBackupFixture();
+  const committed = settingsImportCommitFixture({
+    generalSettings: { appearance: { theme: 'light' } },
+    sourceSchemaVersion: 1,
+    appliedPortablePaths: ['/appearance/theme'],
+  });
+  const harness = centerViewsSettingsHarness({
+    responses: [
+      { ok: true, status: 200, body: { ok: true, backup } },
+      { ok: true, status: 200, body: committed },
+    ],
+  });
+  await harness.functions.exportSettings.call(harness.widget);
+  assert.equal(harness.requests[0].url, '/api/settings/backup');
+  assert.equal(harness.downloads.length, 1);
+  assert.deepEqual(JSON.parse(await harness.downloads[0].blob.text()), backup);
+
+  harness.functions.importSettings.call(harness.widget);
+  assert.equal(harness.fileInputs.length, 1);
+  await harness.fileInputs[0].onchange({
+    target: { files: [{ text: async () => JSON.stringify(settingsBackupV1Fixture()) }] },
+  });
+  assert.equal(harness.requests[1].url, '/api/settings/import');
+  assert.equal(harness.requests[1].init.method, 'POST');
+  assert.deepEqual(JSON.parse(harness.requests[1].init.body), settingsBackupV1Fixture());
+  assert.equal(harness.widget._portableSettingsMutationState, 'IDLE');
+  assert.match(harness.alerts.at(-1), /imported successfully/);
+
+  await harness.functions.exportAll.call(harness.widget);
+  assert.equal(harness.requests.length, 2, 'disabled full backup caused an HTTP effect');
+  assert.match(harness.alerts.at(-1), /Full-state backup is not available/);
+
+  const invalid = centerViewsSettingsHarness();
+  invalid.functions.importSettings.call(invalid.widget);
+  await invalid.fileInputs[0].onchange({
+    target: {
+      files: [{
+        text: async () => JSON.stringify(settingsBackupFixture({
+          settingsProjection: {
+            profile: 'UX_PREFERENCES_V1',
+            values: {
+              ...settingsBackupFixture().settingsProjection.values,
+              '/system/ollamaUrl': 'http://attacker.invalid',
+            },
+          },
+        })),
+      }],
+    },
+  });
+  assert.equal(invalid.requests.length, 0);
+  assert.equal(invalid.widget._portableSettingsMutationState, 'IDLE');
+
+  const ambiguous = centerViewsSettingsHarness({ responses: [new Error('connection ended')] });
+  ambiguous.functions.importSettings.call(ambiguous.widget);
+  await ambiguous.fileInputs[0].onchange({
+    target: { files: [{ text: async () => JSON.stringify(backup) }] },
+  });
+  assert.equal(ambiguous.requests.length, 1);
+  assert.equal(ambiguous.widget._portableSettingsMutationState, 'DELIVERY_UNKNOWN');
+  assert.match(ambiguous.alerts.at(-1), /outcome is unknown/);
+});
+
+test('active first-party UI source no longer contains the raw export/import bypasses', () => {
+  const architect = fs.readFileSync(ARCHITECT_UI, 'utf8');
+  const architectExport = architect.slice(
+    architect.indexOf('async function exportSettings()'),
+    architect.indexOf('function downloadJSON', architect.indexOf('async function exportSettings()')),
+  );
+  assert.match(architectExport, /\/api\/settings\/backup/);
+  assert.match(architectExport, /\/api\/settings\/import/);
+  assert.doesNotMatch(architectExport, /JSON\.stringify\(settingsState/);
+  assert.doesNotMatch(architectExport, /Object\.assign\(settingsState/);
+
+  const center = fs.readFileSync(CENTER_VIEWS, 'utf8');
+  const centerBackup = center.slice(
+    center.indexOf('  async _exportSettings()'),
+    center.indexOf('  // ─── v63.0: Wizard Methods', center.indexOf('  async _exportSettings()')),
+  );
+  assert.match(centerBackup, /\/api\/settings\/backup/);
+  assert.match(centerBackup, /\/api\/settings\/import/);
+  assert.doesNotMatch(centerBackup, /\/api\/system\/info/);
+  assert.doesNotMatch(centerBackup, /syncSettings/);
 });
 
 summary();

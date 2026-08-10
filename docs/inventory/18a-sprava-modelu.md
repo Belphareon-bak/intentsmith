@@ -177,8 +177,43 @@ skutečné WAL workery nad stejnou revision mají jednoho vítěze a jednoho sta
 losera. Detection repository i auto-cleanup/overview už čtou pouze tuto novou
 autoritu. Generic GET/POST dropuje tři rezervované klíče a hlásí je přes
 `ignoredReservedKeys`; pre-061 JSON helper nemá produkčního konzumenta a jeho
-sada je `HISTORICAL`. Typed GET/PUT používá exact body a revision CAS; explicitní
-atomické import/reset adaptéry ještě neexistují a scheduler proto zůstává
+sada je `HISTORICAL`. Typed GET/PUT používá exact body a revision CAS. Backend
+explicitního versioned backup/import/reset adaptéru už sdílí jeden
+repository-owned commit point pro general settings, policy a audit event.
+Původní schema-v1 portable export vynechával `webhookSecret` a
+`c3.notif.smtpPass`; jeho nedostatečnou boundary superseduje korekce níže.
+Runtime chyba po durable commitu je
+přiznaný degraded výsledek, ne falešné 500. Repository catch končí před
+post-commit runtime/presentation fází a logger failure je best-effort, takže ani
+dvojité selhání nesníží commitnutý import/reset na non-2xx. Autoritativní Studio `lib` consumer
+už fail-closed kontroluje HTTP i exact envelope, přijímá pouze serverem
+commitnutý snapshot a serializuje import/reset proti generic save. Nejasné
+doručení uzamkne další zápisy, definitivní reject jediný obnoví deferred save a
+generation token odmítne settings GET zahájený před recovery. Tehdejší VM sada
+měla 110/0; první Review A vrátilo `CHANGES_REQUIRED`. Scheduler proto zůstává
 default off.
 Skutečná parita s
 mobilními migracemi bude doložená až na společném integračním SHA.
+
+### Korekce portable boundary 2026-08-10
+
+Předchozí dvouklíčový schema-v1 blacklist nechránil nested credentials,
+destinations ani future unknown fields a jeho Review A claim je superseded.
+Nová repository autorita exportuje pouze schema v2 se source-derived sparse
+mapou nad default-deny profilem jedenácti předvoleb. Nepřítomná source hodnota
+se nefabrikuje defaultem a nepřepisuje existující destination preference.
+V1/raw zůstává importní kompatibilita
+projektovaná týmž allowlistem; source secret/private hodnoty nemohou založit ani
+přepsat destination authority. Importní HTTP metadata už nepublikují názvy
+local-only cest, pouze jejich počty.
+
+Focused backend sada má 36/0 a její security coverage je zpřísněná:
+canaries zahrnují nested i flat credential/destination varianty, future pole,
+invalid v2 profile/value a datové klíče `constructor`, `prototype` a
+`__proto__`. V1/raw import je sparse: chybějící portable cesta už destination
+hodnotu nedefaultuje ani nepřepisuje. Tři UI consumery navíc přijmou commit jen
+při shodě source schema, path/value/policy provenance, propojeného eventu a
+pravdivého ignored countu; aktuální VM sada má 123/0. Gate 1 zůstává `BLOCKED`:
+generic GET/whole-row writer a další
+RMW cesty nemají společný secret/CAS kontrakt, viz
+[`Finding 011`](../findings/011-user-settings-authority-and-secret-exposure.md).
