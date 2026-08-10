@@ -409,7 +409,8 @@ await testAsync('migration 061 creates exact default-off projection and audit au
   const db = openDb();
   try {
     const result = await runMigrations(db);
-    assertEqual(result.applied.at(-1), '2026_08_09_061_model_automation_policy');
+    assert(result.applied.includes('2026_08_09_061_model_automation_policy'));
+    assertEqual(result.applied.at(-1), '2026_08_10_062_model_failover_proof_issuance');
     const policy = readModelAutomationPolicy(db);
     assertEqual(policy.status, ModelAutomationPolicyStatus.VALID);
     assertEqual(policy.valid, true);
@@ -440,9 +441,10 @@ await testAsync('legacy values are quarantined and removed without becoming opt-
   const db = openDb();
   try {
     const plan = await migrationInternals.discoverMigrations();
-    const before061 = plan.filter(migration => (
-      migration.version !== '2026_08_09_061_model_automation_policy'
-    ));
+    const before061 = plan.filter(migration => ![
+      '2026_08_09_061_model_automation_policy',
+      '2026_08_10_062_model_failover_proof_issuance',
+    ].includes(migration.version));
     migrationInternals.runMigrationPlan(db, before061);
     db.prepare(`
       INSERT INTO user_settings (id, data)
@@ -461,6 +463,7 @@ await testAsync('legacy values are quarantined and removed without becoming opt-
     const result = await runMigrations(db);
     assertEqual(JSON.stringify(result.applied), JSON.stringify([
       '2026_08_09_061_model_automation_policy',
+      '2026_08_10_062_model_failover_proof_issuance',
     ]));
     const policy = readModelAutomationPolicy(db);
     assertEqual(policy.valid, true);

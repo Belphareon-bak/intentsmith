@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import Database from 'better-sqlite3';
+import { createHash } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import {
@@ -18,10 +19,12 @@ import {
 } from '../src/db/migrate.js';
 import { up as installAppendOnlyIdentity } from '../src/db/migrations/2026_08_09_053_model_binding_append_only_identity.js';
 import { up as installRuntimeFinalization } from '../src/db/migrations/2026_08_09_054_model_binding_runtime_finalization.js';
+import { up as installProofIssuance } from '../src/db/migrations/2026_08_10_062_model_failover_proof_issuance.js';
 import { createModelFailoverRepository } from '../src/upgrade/model-failover.js';
 
 const DIGEST_A = 'a'.repeat(64);
 const DIGEST_B = 'b'.repeat(64);
+const DIGEST_C = 'c'.repeat(64);
 const CONTRACT_DIGEST = 'c'.repeat(64);
 
 function assertThrowsMatching(fn, pattern) {
@@ -182,29 +185,26 @@ function insertPassingProof(db, {
   canonical = 'fallback',
   digest = DIGEST_B,
   contractDigest = CONTRACT_DIGEST,
+  validationVersion = 'v123.1',
   policyVersion = 'd-plus-v1',
   score = 1,
-  requiredScore = 0.8,
+  requiredScore = 1,
   passedCount = 6,
-  requiredPassedCount = 5,
+  requiredPassedCount = 6,
   totalCount = 6,
   startedAt = 1100,
   completedAt = 1600,
   expiresAt = 900000,
   createdAt = completedAt,
+  acceptanceCompletedAt = completedAt,
+  inventoryBeforeName = model,
+  inventoryBeforeDigest = digest,
+  inventoryAfterName = model,
+  inventoryAfterDigest = digest,
+  withCompanion = true,
+  companionOverrides = {},
 } = {}) {
-  db.prepare(`
-    INSERT INTO model_failover_proofs (
-      proof_id, validation_run_id, role, suite, role_contract_sha256,
-      model_name, model_canonical_name, model_digest_sha256,
-      validation_version, policy_version, score, required_score, passed_count,
-      required_passed_count, total_count, duration_ms, result,
-      inventory_before_name, inventory_before_digest, inventory_after_name,
-      inventory_after_digest, started_at_ms, completed_at_ms, expires_at_ms,
-      created_at_ms
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'v123.1', ?, ?, ?, ?, ?, ?, 500,
-      'PASS', ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
+  const fixture = {
     proofId,
     validationRunId,
     role,
@@ -213,21 +213,128 @@ function insertPassingProof(db, {
     model,
     canonical,
     digest,
+    validationVersion,
     policyVersion,
     score,
     requiredScore,
     passedCount,
     requiredPassedCount,
     totalCount,
-    model,
-    digest,
-    model,
-    digest,
+    durationMs: completedAt - startedAt,
     startedAt,
     completedAt,
     expiresAt,
     createdAt,
-  );
+    acceptanceCompletedAt,
+    inventoryBeforeName,
+    inventoryBeforeDigest,
+    inventoryAfterName,
+    inventoryAfterDigest,
+  };
+  const insert = () => {
+    const hasArtifactTable = Boolean(db.prepare(`
+      SELECT 1
+      FROM sqlite_master
+      WHERE type = 'table' AND name = 'model_failover_proof_artifacts'
+    `).get());
+    if (withCompanion && hasArtifactTable) {
+      const companion = {
+        ...fixture,
+        parentRunId: `parent-${createHash('sha256').update(proofId).digest('hex').slice(0, 32)}`,
+        sourceRevision: createHash('sha256').update(`source:${proofId}`).digest('hex').slice(0, 40),
+        measurementSha256: createHash('sha256').update(`measurement:${proofId}`).digest('hex'),
+        acceptanceSha256: createHash('sha256').update(`acceptance:${proofId}`).digest('hex'),
+        proofTtlMs: expiresAt - acceptanceCompletedAt,
+        ...companionOverrides,
+      };
+      db.prepare(`
+        INSERT INTO model_failover_proof_artifacts (
+          proof_id, validation_run_id, parent_run_id, source_revision,
+          measurement_artifact_sha256, measurement_artifact_byte_length,
+          acceptance_artifact_sha256, acceptance_artifact_byte_length,
+          role, suite, role_contract_sha256, model_name,
+          model_canonical_name, model_digest_sha256, validation_version,
+          policy_version, score, required_score, passed_count,
+          required_passed_count, total_count, duration_ms, result,
+          inventory_before_name, inventory_before_digest,
+          inventory_after_name, inventory_after_digest,
+          measurement_started_at_ms, measurement_completed_at_ms,
+          acceptance_completed_at_ms, proof_ttl_ms, expires_at_ms, issued_at_ms
+        ) VALUES (?, ?, ?, ?, ?, 4096, ?, 2048, ?, ?, ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?, ?, ?, 'PASS', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        companion.proofId,
+        companion.validationRunId,
+        companion.parentRunId,
+        companion.sourceRevision,
+        companion.measurementSha256,
+        companion.acceptanceSha256,
+        companion.role,
+        companion.suiteName,
+        companion.contractDigest,
+        companion.model,
+        companion.canonical,
+        companion.digest,
+        companion.validationVersion,
+        companion.policyVersion,
+        companion.score,
+        companion.requiredScore,
+        companion.passedCount,
+        companion.requiredPassedCount,
+        companion.totalCount,
+        companion.durationMs,
+        companion.inventoryBeforeName,
+        companion.inventoryBeforeDigest,
+        companion.inventoryAfterName,
+        companion.inventoryAfterDigest,
+        companion.startedAt,
+        companion.completedAt,
+        companion.acceptanceCompletedAt,
+        companion.proofTtlMs,
+        companion.expiresAt,
+        companion.createdAt,
+      );
+    }
+    db.prepare(`
+      INSERT INTO model_failover_proofs (
+        proof_id, validation_run_id, role, suite, role_contract_sha256,
+        model_name, model_canonical_name, model_digest_sha256,
+        validation_version, policy_version, score, required_score, passed_count,
+        required_passed_count, total_count, duration_ms, result,
+        inventory_before_name, inventory_before_digest, inventory_after_name,
+        inventory_after_digest, started_at_ms, completed_at_ms, expires_at_ms,
+        created_at_ms
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+        'PASS', ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      fixture.proofId,
+      fixture.validationRunId,
+      fixture.role,
+      fixture.suiteName,
+      fixture.contractDigest,
+      fixture.model,
+      fixture.canonical,
+      fixture.digest,
+      fixture.validationVersion,
+      fixture.policyVersion,
+      fixture.score,
+      fixture.requiredScore,
+      fixture.passedCount,
+      fixture.requiredPassedCount,
+      fixture.totalCount,
+      fixture.durationMs,
+      fixture.inventoryBeforeName,
+      fixture.inventoryBeforeDigest,
+      fixture.inventoryAfterName,
+      fixture.inventoryAfterDigest,
+      fixture.startedAt,
+      fixture.completedAt,
+      fixture.expiresAt,
+      fixture.createdAt,
+    );
+  };
+  if (db.inTransaction) insert();
+  else db.transaction(insert)();
 }
 
 function insertActivationEvent(db, {
@@ -362,7 +469,7 @@ suite('M1 model failover schema — exact migration contract');
 
 await testAsync('fresh file-backed DB creates all failover tables, indexes and triggers', async () => {
   await withMigratedDb(async (db) => {
-    assertEqual(getCurrentVersion(db), '2026_08_09_061_model_automation_policy');
+    assertEqual(getCurrentVersion(db), '2026_08_10_062_model_failover_proof_issuance');
 
     for (const table of [
       'model_desired_bindings',
@@ -376,6 +483,7 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
       'model_binding_user_noop_receipts',
       'model_binding_user_noop_provider_supersedes',
       'model_failover_events',
+      'model_failover_proof_artifacts',
       'model_failover_proofs',
       'model_failover_state',
     ]) {
@@ -433,6 +541,19 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
     )), JSON.stringify([
       'receipt_id', 'provider_operation_id',
     ]));
+    assertEqual(JSON.stringify(columns(db, 'model_failover_proof_artifacts')), JSON.stringify([
+      'proof_id', 'validation_run_id', 'parent_run_id', 'source_revision',
+      'measurement_artifact_sha256', 'measurement_artifact_byte_length',
+      'acceptance_artifact_sha256', 'acceptance_artifact_byte_length', 'role',
+      'suite', 'role_contract_sha256', 'model_name', 'model_canonical_name',
+      'model_digest_sha256', 'validation_version', 'policy_version', 'score',
+      'required_score', 'passed_count', 'required_passed_count', 'total_count',
+      'duration_ms', 'result', 'inventory_before_name',
+      'inventory_before_digest', 'inventory_after_name',
+      'inventory_after_digest', 'measurement_started_at_ms',
+      'measurement_completed_at_ms', 'acceptance_completed_at_ms',
+      'proof_ttl_ms', 'expires_at_ms', 'issued_at_ms',
+    ]));
     for (const column of [
       'role', 'desired_revision', 'episode_id', 'state', 'active_failover',
       'fallback_model_name', 'fallback_canonical_name', 'fallback_digest_sha256',
@@ -469,6 +590,11 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
       'trg_model_failover_events_terminal_claim',
       'trg_model_failover_proofs_append_only_delete',
       'trg_model_failover_proofs_append_only_update',
+      'trg_model_failover_proof_artifacts_append_only_delete',
+      'trg_model_failover_proof_artifacts_append_only_update',
+      'trg_model_failover_proof_artifacts_historical_attach',
+      'trg_model_failover_proof_artifacts_identity_conflict',
+      'trg_model_failover_proofs_artifact_companion',
       'trg_model_desired_bindings_last_event_insert',
       'trg_model_desired_bindings_last_event_update',
       'trg_model_failover_state_active_proof_insert',
@@ -646,9 +772,201 @@ await testAsync('second migration run is a no-op with an identical schema snapsh
     const before = schemaSnapshot(db);
     const result = await runMigrations(db);
     assertEqual(result.applied.length, 0);
-    assertEqual(result.skipped.length, 57);
+    assertEqual(result.skipped.length, 58);
     assertEqual(schemaSnapshot(db), before);
   });
+});
+
+await testAsync('migration 062 preserves historical proofs but never makes them eligible', async () => {
+  const directory = mkdtempSync(
+    path.join(process.env.INTENTSMITH_TEST_ARTIFACT_DIR, 'proof-issuance-upgrade-'),
+  );
+  const db = new Database(path.join(directory, 'proof-upgrade.sqlite'));
+  db.pragma('journal_mode = WAL');
+  db.pragma('foreign_keys = ON');
+  try {
+    const migrations = await migrationTestInternals.discoverMigrations();
+    const through061 = migrations.filter(
+      migration => migration.version <= '2026_08_09_061_model_automation_policy',
+    );
+    const through062 = migrations.filter(
+      migration => migration.version <= '2026_08_10_062_model_failover_proof_issuance',
+    );
+    migrationTestInternals.runMigrationPlan(db, through061);
+    insertPassingProof(db);
+    const historical = JSON.stringify(db.prepare(`
+      SELECT * FROM model_failover_proofs WHERE proof_id = 'proof-fixture-0001'
+    `).get());
+
+    const result = migrationTestInternals.runMigrationPlan(db, through062);
+    assertEqual(
+      JSON.stringify(result.applied),
+      JSON.stringify(['2026_08_10_062_model_failover_proof_issuance']),
+    );
+    assertEqual(
+      JSON.stringify(db.prepare(`
+        SELECT * FROM model_failover_proofs WHERE proof_id = 'proof-fixture-0001'
+      `).get()),
+      historical,
+    );
+    assertEqual(
+      db.prepare('SELECT COUNT(*) AS count FROM model_failover_proof_artifacts').get().count,
+      0,
+    );
+    assertThrowsMatching(
+      () => insertPassingProof(db),
+      /MODEL_FAILOVER_PROOF_HISTORICAL_ATTACH_FORBIDDEN/,
+    );
+
+    insertDesiredObservedEvent(db);
+    insertDesiredBinding(db);
+    insertDetectedState(db);
+    claimOperation(db);
+    assertThrowsMatching(() => db.prepare(`
+      UPDATE model_failover_state
+      SET state = 'ACTIVATED', active_failover = 1,
+          fallback_model_name = 'fallback:latest',
+          fallback_canonical_name = 'fallback', fallback_digest_sha256 = ?,
+          proof_id = 'proof-fixture-0001',
+          active_event_id = 'missing-historical-terminal-event',
+          proof_verified_at_ms = 3000, activated_at_ms = 3000,
+          updated_at_ms = 3000, row_version = 3
+      WHERE role = 'CHAT'
+    `).run(DIGEST_B), /active failover requires matching digest-bound proof/);
+    assertThrowsMatching(
+      () => insertActivationEvent(db),
+      /verified fallback event requires matching fresh proof/,
+    );
+  } finally {
+    db.close();
+    rmSync(directory, { recursive: true, force: false });
+  }
+});
+
+await testAsync('migration 062 rejects an active legacy failover before any schema mutation', async () => {
+  const directory = mkdtempSync(
+    path.join(process.env.INTENTSMITH_TEST_ARTIFACT_DIR, 'proof-active-upgrade-'),
+  );
+  const db = new Database(path.join(directory, 'active-upgrade.sqlite'));
+  db.pragma('journal_mode = WAL');
+  db.pragma('foreign_keys = ON');
+  try {
+    const migrations = await migrationTestInternals.discoverMigrations();
+    const through061 = migrations.filter(
+      migration => migration.version <= '2026_08_09_061_model_automation_policy',
+    );
+    migrationTestInternals.runMigrationPlan(db, through061);
+    insertDesiredObservedEvent(db);
+    insertDesiredBinding(db);
+    insertPassingProof(db);
+    insertDetectedState(db);
+    claimOperation(db);
+    insertActivationEvent(db);
+    db.prepare(`
+      UPDATE model_failover_state
+      SET state = 'ACTIVATED', active_failover = 1,
+          fallback_model_name = 'fallback:latest',
+          fallback_canonical_name = 'fallback', fallback_digest_sha256 = ?,
+          proof_id = 'proof-fixture-0001', active_event_id = 'event-activated',
+          proof_verified_at_ms = 3000, activated_at_ms = 3000,
+          row_version = 3, claim_operation_id = NULL, claim_token = NULL,
+          claim_kind = NULL, claim_started_at_ms = NULL,
+          claim_expires_at_ms = NULL, updated_at_ms = 3000,
+          last_event_id = 'event-activated'
+      WHERE role = 'CHAT'
+    `).run(DIGEST_B);
+    const before = schemaSnapshot(db);
+    const oldProofTrigger = normalizedTriggerSql(
+      db,
+      'trg_model_failover_state_active_proof_update',
+    );
+    assert(oldProofTrigger.includes('proof.expires_at_ms >= NEW.proof_verified_at_ms'));
+
+    assertThrowsMatching(
+      () => installProofIssuance(db),
+      /MODEL_FAILOVER_PROOF_PREEXISTING_ACTIVE_STATE/,
+    );
+    assertEqual(schemaSnapshot(db), before);
+    assert(!names(db, 'table').includes('model_failover_proof_artifacts'));
+    assertEqual(getCurrentVersion(db), '2026_08_09_061_model_automation_policy');
+    assertEqual(
+      db.prepare('SELECT active_failover FROM model_failover_state WHERE role = ?')
+        .get('CHAT').active_failover,
+      1,
+    );
+  } finally {
+    db.close();
+    rmSync(directory, { recursive: true, force: false });
+  }
+});
+
+await testAsync('migration 062 preflight rejects environmental, schema and data drift', async () => {
+  const migrations = await migrationTestInternals.discoverMigrations();
+  const through061 = migrations.filter(
+    migration => migration.version <= '2026_08_09_061_model_automation_policy',
+  );
+  for (const variant of [
+    'foreign-keys-off',
+    'foreign-key-violation',
+    'preexisting-object',
+    'table-drift',
+    'missing-trigger',
+    'trigger-drift',
+  ]) {
+    const directory = mkdtempSync(
+      path.join(process.env.INTENTSMITH_TEST_ARTIFACT_DIR, `proof-preflight-${variant}-`),
+    );
+    const db = new Database(path.join(directory, 'preflight.sqlite'));
+    db.pragma('journal_mode = WAL');
+    db.pragma('foreign_keys = ON');
+    try {
+      migrationTestInternals.runMigrationPlan(db, through061);
+      let expected;
+      if (variant === 'foreign-keys-off') {
+        db.pragma('foreign_keys = OFF');
+        expected = /MODEL_FAILOVER_PROOF_FOREIGN_KEYS_REQUIRED/;
+      } else if (variant === 'foreign-key-violation') {
+        db.pragma('foreign_keys = OFF');
+        db.prepare(`
+          INSERT INTO feedback_attachments (
+            feedback_id, filename, mime_type, size, path
+          ) VALUES (999999, 'orphan.txt', 'text/plain', 1, 'orphan.txt')
+        `).run();
+        db.pragma('foreign_keys = ON');
+        assert(db.pragma('foreign_key_check').length > 0);
+        expected = /MODEL_FAILOVER_PROOF_PREEXISTING_FOREIGN_KEY_VIOLATION/;
+      } else if (variant === 'preexisting-object') {
+        db.exec('CREATE TABLE model_failover_proof_artifacts (rogue INTEGER)');
+        expected = /objects pre-exist migration authority/;
+      } else if (variant === 'table-drift') {
+        db.exec('ALTER TABLE model_failover_proofs ADD COLUMN rogue TEXT');
+        expected = /model_failover_proofs table SQL drifted/;
+      } else if (variant === 'missing-trigger') {
+        db.exec('DROP TRIGGER trg_model_failover_state_active_proof_update');
+        expected = /model_failover_state trigger authority drifted/;
+      } else {
+        const sql = db.prepare(`
+          SELECT sql FROM sqlite_master
+          WHERE type = 'trigger'
+            AND name = 'trg_model_failover_state_active_proof_update'
+        `).get().sql;
+        db.exec('DROP TRIGGER trg_model_failover_state_active_proof_update');
+        db.exec(sql.replace('proof.result = \'PASS\'', "proof.result IN ('PASS')"));
+        expected = /model_failover_state trigger SQL drifted/;
+      }
+      const before = schemaSnapshot(db);
+      const beforeChanges = db.totalChanges;
+      assertThrowsMatching(() => installProofIssuance(db), expected);
+      assertEqual(schemaSnapshot(db), before);
+      assertEqual(db.totalChanges, beforeChanges);
+      if (variant !== 'preexisting-object') {
+        assert(!names(db, 'table').includes('model_failover_proof_artifacts'));
+      }
+    } finally {
+      db.close();
+      rmSync(directory, { recursive: true, force: false });
+    }
+  }
 });
 
 await testAsync('migration 054 preserves pre-existing success as unconfirmed evidence', async () => {
@@ -1280,9 +1598,193 @@ await testAsync('PASS proof requires the role suite, exact digests and declared 
     `).get();
     assertEqual(proof.suite, 'chat');
     assertEqual(proof.score, 1);
-    assertEqual(proof.required_score, 0.8);
+    assertEqual(proof.required_score, 1);
     assertEqual(proof.passed_count, 6);
-    assertEqual(proof.required_passed_count, 5);
+    assertEqual(proof.required_passed_count, 6);
+  });
+});
+
+await testAsync('proof artifact companion is exact, append-only and transactionally inseparable', async () => {
+  await withMigratedDb(async (db) => {
+    assertThrowsMatching(() => insertPassingProof(db, {
+      proofId: 'proof-without-companion-0001',
+      withCompanion: false,
+    }), /MODEL_FAILOVER_PROOF_ARTIFACT_MISMATCH/);
+    assertEqual(
+      db.prepare("SELECT COUNT(*) AS count FROM model_failover_proofs WHERE proof_id = 'proof-without-companion-0001'").get().count,
+      0,
+    );
+
+    const mismatchCases = [
+      ['validation-run', { validationRunId: 'different-validation-run' }],
+      ['role', { role: 'VISION' }],
+      ['suite', { suiteName: 'vision' }],
+      ['contract', { contractDigest: 'd'.repeat(64) }],
+      ['model-name', { model: 'different-model:latest' }],
+      ['canonical-name', { canonical: 'different-model' }],
+      ['model-digest', {
+        digest: 'e'.repeat(64),
+        inventoryBeforeDigest: 'e'.repeat(64),
+        inventoryAfterDigest: 'e'.repeat(64),
+      }],
+      ['validation-version', { validationVersion: 'v999.1' }],
+      ['policy-version', { policyVersion: 'different-policy' }],
+      ['score', { score: 0.9, requiredScore: 0.9 }],
+      ['required-score', { requiredScore: 0.9 }],
+      ['passed-count', { passedCount: 5, requiredPassedCount: 5 }],
+      ['required-passed-count', { requiredPassedCount: 5 }],
+      ['total-count', { totalCount: 7 }],
+      ['duration', { startedAt: 1000, durationMs: 600 }],
+      ['inventory-before-name', { inventoryBeforeName: 'different-before' }],
+      ['inventory-after-name', { inventoryAfterName: 'different-after' }],
+      ['measurement-completed', {
+        completedAt: 1700,
+        durationMs: 600,
+        acceptanceCompletedAt: 1700,
+        proofTtlMs: 898300,
+        createdAt: 1700,
+      }],
+      ['expires-at', { expiresAt: 900001, proofTtlMs: 898401 }],
+      ['issued-at', { createdAt: 1700 }],
+    ];
+    for (const [label, companionOverrides] of mismatchCases) {
+      const proofId = `proof-mismatched-${label}-0001`;
+      assertThrowsMatching(() => insertPassingProof(db, {
+        proofId,
+        companionOverrides,
+      }), /MODEL_FAILOVER_PROOF_ARTIFACT_MISMATCH/);
+      assertEqual(
+        db.prepare('SELECT COUNT(*) AS count FROM model_failover_proof_artifacts WHERE proof_id = ?')
+          .get(proofId).count,
+        0,
+      );
+    }
+
+    const companionTrigger = normalizedTriggerSql(
+      db,
+      'trg_model_failover_proofs_artifact_companion',
+    );
+    assert(companionTrigger.includes('AFTER INSERT ON model_failover_proofs'));
+    assert(companionTrigger.includes('WHEN NEW.rowid > 0 AND NOT EXISTS'));
+    for (const comparator of [
+      'artifact.validation_run_id = NEW.validation_run_id',
+      'artifact.role = NEW.role',
+      'artifact.suite = NEW.suite',
+      'artifact.role_contract_sha256 = NEW.role_contract_sha256',
+      'artifact.model_name = NEW.model_name',
+      'artifact.model_canonical_name = NEW.model_canonical_name',
+      'artifact.model_digest_sha256 = NEW.model_digest_sha256',
+      'artifact.validation_version = NEW.validation_version',
+      'artifact.policy_version = NEW.policy_version',
+      'artifact.score = NEW.score',
+      'artifact.required_score = NEW.required_score',
+      'artifact.passed_count = NEW.passed_count',
+      'artifact.required_passed_count = NEW.required_passed_count',
+      'artifact.total_count = NEW.total_count',
+      'artifact.duration_ms = NEW.duration_ms',
+      'artifact.result = NEW.result',
+      'artifact.inventory_before_name = NEW.inventory_before_name',
+      'artifact.inventory_before_digest = NEW.inventory_before_digest',
+      'artifact.inventory_after_name = NEW.inventory_after_name',
+      'artifact.inventory_after_digest = NEW.inventory_after_digest',
+      'artifact.measurement_started_at_ms = NEW.started_at_ms',
+      'artifact.measurement_completed_at_ms = NEW.completed_at_ms',
+      'artifact.expires_at_ms = NEW.expires_at_ms',
+      'artifact.issued_at_ms = NEW.created_at_ms',
+    ]) assert(companionTrigger.includes(comparator), `missing exact companion comparator ${comparator}`);
+
+    insertPassingProof(db);
+    const artifact = db.prepare(`
+      SELECT * FROM model_failover_proof_artifacts
+      WHERE proof_id = 'proof-fixture-0001'
+    `).get();
+    assertEqual(artifact.validation_run_id, 'proof-fixture-0001-run');
+    assertEqual(artifact.role, 'CHAT');
+    assertEqual(artifact.measurement_completed_at_ms, 1600);
+    assertEqual(artifact.expires_at_ms, 900000);
+
+    assertThrowsMatching(() => db.prepare(`
+      UPDATE model_failover_proof_artifacts
+      SET source_revision = ?
+      WHERE proof_id = 'proof-fixture-0001'
+    `).run('d'.repeat(40)), /append-only/i);
+    assertThrowsMatching(() => db.prepare(`
+      DELETE FROM model_failover_proof_artifacts
+      WHERE proof_id = 'proof-fixture-0001'
+    `).run(), /append-only/i);
+    assertThrowsMatching(() => db.prepare(`
+      INSERT OR REPLACE INTO model_failover_proof_artifacts
+      SELECT * FROM model_failover_proof_artifacts
+      WHERE proof_id = 'proof-fixture-0001'
+    `).run(), /IDENTITY_CONFLICT|append-only|HISTORICAL_ATTACH_FORBIDDEN/);
+
+    for (const [label, companionOverrides] of [
+      ['validation-run', { validationRunId: artifact.validation_run_id }],
+      ['parent', { parentRunId: artifact.parent_run_id }],
+      ['measurement', { measurementSha256: artifact.measurement_artifact_sha256 }],
+      ['acceptance', { acceptanceSha256: artifact.acceptance_artifact_sha256 }],
+    ]) {
+      assertThrowsMatching(() => insertPassingProof(db, {
+        proofId: `proof-duplicate-${label}-0001`,
+        companionOverrides,
+      }), /UNIQUE|IDENTITY_CONFLICT/);
+      assertEqual(
+        db.prepare('SELECT COUNT(*) AS count FROM model_failover_proofs WHERE proof_id = ?')
+          .get(`proof-duplicate-${label}-0001`).count,
+        0,
+      );
+    }
+
+    insertPassingProof(db, {
+      proofId: 'proof-shared-run-other-role-0001',
+      validationRunId: artifact.validation_run_id,
+      role: 'D1',
+      suiteName: 'reasoning',
+      model: 'reasoner:latest',
+      canonical: 'reasoner',
+      digest: DIGEST_C,
+      contractDigest: 'd'.repeat(64),
+      passedCount: 8,
+      requiredPassedCount: 8,
+      totalCount: 8,
+    });
+    assertEqual(
+      db.prepare(`
+        SELECT COUNT(*) AS count
+        FROM model_failover_proof_artifacts
+        WHERE validation_run_id = ?
+      `).get(artifact.validation_run_id).count,
+      2,
+      'validation run identity is role-scoped, matching the proof authority',
+    );
+
+    db.exec('BEGIN');
+    try {
+      db.prepare(`
+        INSERT INTO model_failover_proof_artifacts
+        SELECT 'proof-orphan-companion-0001', 'proof-orphan-companion-run',
+          'parent-orphan-companion-0001', source_revision,
+          ?, measurement_artifact_byte_length,
+          ?, acceptance_artifact_byte_length,
+          role, suite, role_contract_sha256, model_name,
+          model_canonical_name, model_digest_sha256, validation_version,
+          policy_version, score, required_score, passed_count,
+          required_passed_count, total_count, duration_ms, result,
+          inventory_before_name, inventory_before_digest,
+          inventory_after_name, inventory_after_digest,
+          measurement_started_at_ms, measurement_completed_at_ms,
+          acceptance_completed_at_ms, proof_ttl_ms, expires_at_ms, issued_at_ms
+        FROM model_failover_proof_artifacts
+        WHERE proof_id = 'proof-fixture-0001'
+      `).run('d'.repeat(64), 'e'.repeat(64));
+      assertThrowsMatching(() => db.exec('COMMIT'), /FOREIGN KEY/i);
+    } finally {
+      if (db.inTransaction) db.exec('ROLLBACK');
+    }
+    assertEqual(
+      db.prepare("SELECT COUNT(*) AS count FROM model_failover_proof_artifacts WHERE proof_id = 'proof-orphan-companion-0001'").get().count,
+      0,
+    );
   });
 });
 
@@ -1428,6 +1930,138 @@ await testAsync('verified audit events require a fresh matching artifact proof',
       /audited terminal retirement/i,
     );
   });
+});
+
+await testAsync('all four proof eligibility triggers use ledger authority and strict expiry', async () => {
+  await withMigratedDb(async (db) => {
+    for (const [trigger, timeField] of [
+      ['trg_model_failover_events_fallback_proof', 'NEW.created_at_ms'],
+      ['trg_model_failover_events_restore_proof', 'NEW.created_at_ms'],
+      ['trg_model_failover_state_active_proof_insert', 'NEW.proof_verified_at_ms'],
+      ['trg_model_failover_state_active_proof_update', 'NEW.proof_verified_at_ms'],
+    ]) {
+      const sql = normalizedTriggerSql(db, trigger);
+      assert(sql.includes('JOIN model_failover_proof_artifacts artifact ON artifact.proof_id = proof.proof_id'));
+      assert(sql.includes(`proof.expires_at_ms > ${timeField}`));
+      assert(!sql.includes(`proof.expires_at_ms >= ${timeField}`));
+    }
+  });
+
+  for (const [createdAt, shouldPass] of [[2999, true], [3000, false]]) {
+    await withMigratedDb(async (db) => {
+      insertDesiredObservedEvent(db);
+      insertDesiredBinding(db);
+      insertPassingProof(db, { expiresAt: 3000 });
+      insertDetectedState(db);
+      claimOperation(db);
+      if (shouldPass) {
+        insertActivationEvent(db, { createdAt });
+        assertEqual(
+          db.prepare("SELECT COUNT(*) AS count FROM model_failover_events WHERE event_id = 'event-activated'").get().count,
+          1,
+        );
+      } else {
+        assertThrowsMatching(
+          () => insertActivationEvent(db, { createdAt }),
+          /verified fallback event requires matching fresh proof/,
+        );
+      }
+    });
+  }
+
+  const prepareRestore = db => {
+    insertDesiredObservedEvent(db);
+    insertDesiredBinding(db);
+    insertPassingProof(db);
+    insertDetectedState(db);
+    claimOperation(db);
+    insertActivationEvent(db);
+    db.prepare(`
+      UPDATE model_failover_state
+      SET state = 'ACTIVATED', active_failover = 1,
+          fallback_model_name = 'fallback:latest',
+          fallback_canonical_name = 'fallback', fallback_digest_sha256 = ?,
+          proof_id = 'proof-fixture-0001', active_event_id = 'event-activated',
+          proof_verified_at_ms = 3000, activated_at_ms = 3000,
+          row_version = 3, claim_operation_id = NULL, claim_token = NULL,
+          claim_kind = NULL, claim_started_at_ms = NULL,
+          claim_expires_at_ms = NULL, updated_at_ms = 3000,
+          last_event_id = 'event-activated'
+      WHERE role = 'CHAT'
+    `).run(DIGEST_B);
+    insertPassingProof(db, {
+      proofId: 'proof-desired-expiry-edge-0001',
+      model: 'qwen3.5:27b',
+      canonical: 'qwen3.5:27b',
+      digest: DIGEST_A,
+      startedAt: 3200,
+      completedAt: 3500,
+      createdAt: 3500,
+      expiresAt: 5000,
+    });
+    claimOperation(db, {
+      eventId: 'event-restore-edge-claimed',
+      eventType: 'RESTORE_CLAIMED',
+      claimKind: 'RESTORE',
+      operationId: 'operation-restore-edge',
+      claimToken: 'claim-token-restore-edge-0001',
+      rowVersion: 4,
+      state: 'ACTIVATED',
+      startedAt: 4000,
+      expiresAt: 6000,
+    });
+  };
+  const insertRestoreAt = (db, createdAt) => db.prepare(`
+    INSERT INTO model_failover_events (
+      event_id, event_type, role, binding_revision, row_version, episode_id,
+      operation_id, actor, reason_code, policy_version, state_before,
+      state_after, desired_model_name, desired_digest_sha256, proof_id,
+      verified, created_at_ms
+    ) VALUES ('event-restored-expiry-edge', 'RESTORED', 'CHAT', 1, 5,
+      'episode-1', 'operation-restore-edge', 'system:binding-integrity',
+      'DESIRED_MODEL_RESTORED', 'd-plus-v1', 'ACTIVATED', 'RESTORED',
+      'qwen3.5:27b', ?, 'proof-desired-expiry-edge-0001', 1, ?)
+  `).run(DIGEST_A, createdAt);
+  for (const [createdAt, shouldPass] of [[4999, true], [5000, false]]) {
+    await withMigratedDb(async (db) => {
+      prepareRestore(db);
+      if (shouldPass) {
+        insertRestoreAt(db, createdAt);
+        assertEqual(
+          db.prepare("SELECT COUNT(*) AS count FROM model_failover_events WHERE event_id = 'event-restored-expiry-edge'").get().count,
+          1,
+        );
+      } else {
+        assertThrowsMatching(
+          () => insertRestoreAt(db, createdAt),
+          /verified restore event requires matching fresh desired proof/,
+        );
+      }
+    });
+  }
+
+  for (const [verifiedAt, expected] of [
+    [2999, /terminal activation event|audit event/i],
+    [3000, /active failover requires matching digest-bound proof/i],
+  ]) {
+    await withMigratedDb(async (db) => {
+      insertDesiredObservedEvent(db);
+      insertDesiredBinding(db);
+      insertPassingProof(db, { expiresAt: 3000 });
+      insertDetectedState(db);
+      assertThrowsMatching(() => db.prepare(`
+        UPDATE model_failover_state
+        SET state = 'ACTIVATED', active_failover = 1,
+            fallback_model_name = 'fallback:latest',
+            fallback_canonical_name = 'fallback', fallback_digest_sha256 = ?,
+            proof_id = 'proof-fixture-0001',
+            active_event_id = 'missing-terminal-event',
+            proof_verified_at_ms = ?, activated_at_ms = ?, updated_at_ms = ?,
+            row_version = 2
+        WHERE role = 'CHAT'
+      `).run(DIGEST_B, verifiedAt, verifiedAt, verifiedAt), expected);
+    });
+  }
 });
 
 await testAsync('active failover requires a matching role/name/digest proof', async () => {
