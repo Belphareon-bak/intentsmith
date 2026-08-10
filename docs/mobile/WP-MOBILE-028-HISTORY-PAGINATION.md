@@ -6,6 +6,12 @@
 **Nadřazená pravidla:** [`CONTRACT.md`](../../CONTRACT.md) · [`ROADMAP.md`](../../ROADMAP.md)
 **Předchůdce:** [`WP-MOBILE-027-COMPLETION.md`](WP-MOBILE-027-COMPLETION.md) · [`WP-MOBILE-027-RESULT.md`](WP-MOBILE-027-RESULT.md)
 
+> **Stav: uzavřeno.** Operátor rozhodl §4 ve prospěch **varianty A**; §5 je
+> hotové a doložené. Výsledek je v
+> [`WP-MOBILE-028-RESULT.md`](WP-MOBILE-028-RESULT.md). Tenhle dokument zůstává
+> jako zadání a jako záznam ověření, kterým §2 odpovědělo na `PLAN.md` §5.1.
+> Strop v §0 přestal platit jen v jediném bodě — v tom, který operátor schválil.
+
 ---
 
 ## 0. Strop — co tenhle WP dělat NESMÍ

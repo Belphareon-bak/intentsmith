@@ -23,6 +23,7 @@
 // ==============================================================================
 
 import {
+  CURSOR_BACKWARD,
   MOBILE_ERRORS,
   PROTOCOL_VERSION,
   UNKNOWN_REASONS,
@@ -30,6 +31,7 @@ import {
   mobileError,
   normalizeUnknownReason,
   paginate,
+  paginateBackward,
   versioned,
   withEnvelope,
 } from './protocol.js';
@@ -153,31 +155,72 @@ export async function handleConversationDetail({ rawDb, principal, params, query
   if (!conversation) return errorResponse(MOBILE_ERRORS.NOT_FOUND, { resource: 'conversation' });
 
   const limit = clampLimit(query.get('limit'), 50);
-  const cursor = decodeCursor(query.get('cursor'), { stream: `messages:${params.id}` });
+  const stream = `messages:${params.id}`;
+
+  // §8.2 — `anchor` opens a walk at a named end of the stream; after that the
+  // cursor carries the direction.  Sending both would be two different claims
+  // about where the page starts, so it is refused rather than silently resolved
+  // in favour of one of them.
+  const anchor = query.get('anchor');
+  const rawCursor = query.get('cursor');
+  if (anchor !== null && rawCursor) {
+    return errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+      reason: 'anchor_with_cursor',
+      detail: 'anchor opens a walk; a cursor continues one',
+    });
+  }
+  if (anchor !== null && anchor !== 'latest') {
+    // An unknown anchor must not fall through to the oldest page: that is how a
+    // client ends up believing it is holding the newest messages when it is not.
+    return errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+      reason: 'anchor_unknown', anchor, allowed: ['latest'],
+    });
+  }
+
+  const cursor = decodeCursor(rawCursor, { stream });
   if (!cursor.valid) {
     return errorResponse(MOBILE_ERRORS.CURSOR_UNKNOWN, { reason: cursor.reason, restart: true });
   }
 
-  const rows = rawDb.prepare(`
+  const toMessage = row => versioned({
+    id: String(row.id),
+    role: row.role,
+    content: row.content,
+    createdAt: row.created_at,
+    metadata: safeParse(row.metadata),
+  });
+  const selectMessages = rawDb.prepare(`
     SELECT id, role, content, created_at, metadata
       FROM messages
      WHERE conversation_id = ?
      ORDER BY id ASC
      LIMIT ? OFFSET ?
-  `).all(params.id, limit + 1, cursor.position);
+  `);
 
-  const page = paginate({
-    rows: rows.map(row => versioned({
-      id: String(row.id),
-      role: row.role,
-      content: row.content,
-      createdAt: row.created_at,
-      metadata: safeParse(row.metadata),
-    })),
-    limit,
-    stream: `messages:${params.id}`,
-    position: cursor.position,
-  });
+  const backward = anchor === 'latest' || cursor.direction === CURSOR_BACKWARD;
+  let page;
+  if (backward) {
+    // `until` is the exclusive upper offset of the page being built: the end of
+    // the stream when the walk opens, and the start of the previously served
+    // page on every step after that.
+    const total = rawDb.prepare(`
+      SELECT COUNT(*) AS total FROM messages WHERE conversation_id = ?
+    `).get(params.id).total;
+    const until = anchor === 'latest' ? total : Math.min(cursor.position, total);
+    const start = Math.max(0, until - limit);
+    const rows = until > start ? selectMessages.all(params.id, until - start, start) : [];
+    page = paginateBackward({ rows: rows.map(toMessage), stream, start });
+  } else {
+    // One row beyond the page so `hasMore` is observed rather than inferred
+    // from a full page (§8.6).
+    const rows = selectMessages.all(params.id, limit + 1, cursor.position);
+    page = paginate({
+      rows: rows.map(toMessage),
+      limit,
+      stream,
+      position: cursor.position,
+    });
+  }
 
   return {
     status: 200,
@@ -193,7 +236,14 @@ export async function handleConversationDetail({ rawDb, principal, params, query
       messages: page.items,
     }, {
       principal,
-      extra: { hasMore: page.hasMore, nextCursor: page.nextCursor, end: page.end },
+      extra: {
+        hasMore: page.hasMore,
+        nextCursor: page.nextCursor,
+        end: page.end,
+        // §8.7 — the response states which way this walk runs, so "end" is never
+        // ambiguous between "oldest message reached" and "newest message reached".
+        direction: backward ? CURSOR_BACKWARD : 'forward',
+      },
     }),
   };
 }

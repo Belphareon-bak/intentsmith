@@ -226,6 +226,18 @@ button { cursor: pointer; border: none; background: none; }
 /* ── Chat ──────────────────────────────────────────────────────────────── */
 .thread { max-width: 720px; margin: 0 auto; padding: 12px 16px 8px; }
 
+/* SS-03 — the older edge of the downloaded window, always labelled so a cut-off
+   history can never read as a complete one (I-2). */
+.thread-edge {
+  display: flex;
+  justify-content: center;
+  margin: 0 0 20px;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+.thread-edge-start { color: var(--text-muted); }
+
 .msg { margin-bottom: 22px; }
 .msg-user { display: flex; justify-content: flex-end; }
 .msg-user .bubble {
@@ -322,20 +334,25 @@ button { cursor: pointer; border: none; background: none; }
 .composer-inner:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .composer textarea {
   flex: 1; border: none; background: none; resize: none;
-  max-height: 168px; padding: 8px 0; line-height: 1.5;
+  /* §8 — the input is a touch target too, and it was 40 dp tall.  The height
+     comes from padding rather than `min-height` so `autoGrow` can still size
+     it to its content. */
+  max-height: 168px; padding: 12px 0; line-height: 1.5; min-height: 48px;
   font-size: 16px; /* 16px keeps iOS from zooming on focus */
 }
 .composer textarea:focus { outline: none; }
 .composer textarea::placeholder { color: var(--text-faint); }
 .send-btn {
-  width: 34px; height: 34px; flex-shrink: 0;
+  /* §8 asks for 48 dp on every active target; this was 34 × 34, the smallest
+     control in the app and the one tapped most often. */
+  width: 48px; height: 48px; flex-shrink: 0;
   border-radius: 50%; background: var(--accent); color: var(--on-accent);
   display: grid; place-items: center;
   transition: background .12s, opacity .12s, transform .12s;
 }
 .send-btn:disabled { opacity: .3; cursor: not-allowed; }
 .send-btn:not(:disabled):active { transform: scale(.92); }
-.send-btn svg { width: 17px; height: 17px; }
+.send-btn svg { width: 20px; height: 20px; }
 
 /* A blocked composer is visible and explained, never hidden (SS-03/SS-04/SS-07). */
 .composer-blocked {

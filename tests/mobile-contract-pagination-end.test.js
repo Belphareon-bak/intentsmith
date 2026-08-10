@@ -2,9 +2,8 @@
 // ==============================================================================
 //
 // TEST-STRATEGY.md §7 (`MR-05` row) authorises this suite: it pins *server*
-// behaviour that exists today.  It deliberately asserts nothing about how the
-// client pages, because that is still `MISSING_IMPLEMENTATION` and its shape is
-// the subject of WP-MOBILE-028.
+// behaviour.  It asserts nothing about how the client renders a window — that
+// is `mobile-ms07-history.test.js` — only about what the wire promises it.
 //
 // What is actually at stake.  `SS-03` forbids a silently truncated window: at
 // the edge of what was downloaded the user must be told that older messages
@@ -14,8 +13,11 @@
 // distinction by over-fetching one row, and the exact-multiple case below is
 // the one where a naive `items.length === limit` check gets it wrong.
 //
-// The last two tests record why the client cannot keep `SS-03` today.  They
-// assert server behaviour only, so they stay true after WP-MOBILE-028 lands.
+// Both directions are covered.  Forward paging is the original contract and
+// still the default; backward paging (`anchor=latest`) is what WP-MOBILE-028
+// added so `MS-07` can open on the newest message and read into the past.  The
+// forward tests are not legacy — an unchanged request must still get an
+// unchanged answer, and one of them records why anchoring was necessary at all.
 //
 // The listener is owned by this suite, so `requirements.server` is false.
 //
@@ -33,8 +35,7 @@ import { OfflineUpstream } from '../src/mobile/upstream.js';
 import { OperationJournal } from '../src/mobile/operation-journal.js';
 import { createPairingCode } from '../src/mobile/pairing.js';
 
-const MAX_PAGE_SIZE = 100;      // handlers.js — the ceiling a client may ask for
-const CLIENT_THREAD_LIMIT = 100; // app.js `loadThread` — what the client asks for today
+const MAX_PAGE_SIZE = 100;  // handlers.js — the ceiling a client may ask for
 
 let passed = 0;
 let failed = 0;
@@ -116,10 +117,11 @@ async function get(pathname) {
 }
 
 /** One page of a thread, with the envelope fields SS-03 depends on. */
-async function threadPage(id, { limit, cursor = null } = {}) {
+async function threadPage(id, { limit, cursor = null, anchor = null } = {}) {
   const query = new URLSearchParams();
   if (limit !== undefined) query.set('limit', String(limit));
   if (cursor) query.set('cursor', cursor);
+  if (anchor) query.set('anchor', anchor);
   const suffix = query.toString() ? `?${query}` : '';
   const response = await get(`/m1/conversations/${encodeURIComponent(id)}${suffix}`);
   assert.equal(response.status, 200, `page request failed: ${JSON.stringify(response.body)}`);
@@ -127,6 +129,7 @@ async function threadPage(id, { limit, cursor = null } = {}) {
     messages: response.body.data.messages,
     hasMore: response.body.hasMore,
     end: response.body.end,
+    direction: response.body.direction,
     nextCursor: response.body.nextCursor,
     conversation: response.body.data.conversation,
   };
@@ -148,6 +151,25 @@ async function walkThread(id, limit) {
     cursor = page.nextCursor;
   }
   throw new Error('pagination did not terminate within 64 pages');
+}
+
+/**
+ * Walk a thread from its newest end into the past, the way MS-07 does.
+ * `seen` is reassembled in chronological order, so it can be compared against
+ * the real history directly.
+ */
+async function walkThreadBackward(id, limit) {
+  const pages = [];
+  let seen = [];
+  let page = await threadPage(id, { limit, anchor: 'latest' });
+  for (let guard = 0; guard <= 64; guard++) {
+    pages.push(page);
+    seen = [...page.messages.map(message => message.content), ...seen];
+    if (!page.nextCursor) return { seen, pages };
+    assert.equal(page.hasMore, true, 'a page that issues a cursor must admit there is more');
+    page = await threadPage(id, { limit, cursor: page.nextCursor });
+  }
+  throw new Error('backward pagination did not terminate within 64 pages');
 }
 
 try {
@@ -260,9 +282,12 @@ try {
   // client learns to page.  They exist so the gap is recorded as a measured
   // fact rather than an assertion in a document.
 
-  await test('one maximum-size request does not reach the newest message', async () => {
-    // This is exactly the request `loadThread` issues today.
-    const page = await threadPage('conv-long', { limit: CLIENT_THREAD_LIMIT });
+  await test('one maximum-size forward request does not reach the newest message', async () => {
+    // The reason MS-07 must anchor.  Before WP-MOBILE-028 the client asked
+    // exactly this — `limit=100`, no anchor — and rendered the answer as the
+    // whole conversation.  Keeping it measured stops that from looking like a
+    // reasonable shortcut again.
+    const page = await threadPage('conv-long', { limit: MAX_PAGE_SIZE });
     assert.equal(page.messages.length, MAX_PAGE_SIZE);
     assert.equal(page.messages.at(0).content, 'zpráva 1',
       'the first page is the oldest end of the stream');
@@ -277,17 +302,111 @@ try {
       'and states the true length, so the shortfall is detectable');
   });
 
-  await test('the newest page cannot be requested directly on this contract', async () => {
-    // No anchor, offset or direction parameter reaches the tail of the stream:
-    // unknown query parameters are ignored, so each of these silently returns
-    // page one.  Reaching the newest message therefore costs a full forward
-    // walk.  WP-MOBILE-028 §4 turns this into the decision it implies.
-    for (const query of ['offset=150', 'order=desc', 'before=250', 'anchor=latest', 'direction=backward']) {
-      const response = await get(`/m1/conversations/conv-long?limit=${CLIENT_THREAD_LIMIT}&${query}`);
-      assert.equal(response.status, 200, `${query} is ignored, not refused`);
-      assert.equal(response.body.data.messages.at(0).content, 'zpráva 1',
-        `${query} must not be mistaken for a way to reach the newest page`);
+  await test('the newest page is reached in one request, not by walking', async () => {
+    // Replaces the characterisation this suite carried before WP-MOBILE-028:
+    // until `anchor=latest` existed, the only route to the tail of a long
+    // stream was a full forward walk, which is why MS-07 could not be built.
+    const page = await threadPage('conv-long', { limit: 50, anchor: 'latest' });
+    assert.equal(page.messages.length, 50);
+    assert.equal(page.messages.at(0).content, 'zpráva 201');
+    assert.equal(page.messages.at(-1).content, 'zpráva 250',
+      'the newest message must be the last one in the opening page');
+    assert.equal(page.direction, 'backward', 'the response states which way the walk runs');
+    assert.equal(page.hasMore, true, 'there is older material behind it');
+    assert.ok(page.nextCursor);
+  });
+
+  await test('messages inside a backward page stay in chronological order', async () => {
+    // The walk runs backwards; the page does not.  A chat screen reads
+    // oldest-at-top with the newest message at the bottom.
+    const page = await threadPage('conv-long', { limit: 10, anchor: 'latest' });
+    const numbers = page.messages.map(message => Number(message.content.split(' ')[1]));
+    assert.deepEqual(numbers, [...numbers].sort((a, b) => a - b));
+    assert.equal(numbers.at(0), 241);
+    assert.equal(numbers.at(-1), 250);
+  });
+
+  await test('walking backwards reaches every message exactly once, in order', async () => {
+    const { seen, pages } = await walkThreadBackward('conv-long', 50);
+    const expected = Array.from({ length: 250 }, (_, i) => `zpráva ${i + 1}`);
+    assert.equal(pages.length, 5);
+    assert.equal(seen.length, 250, 'no message may be skipped');
+    assert.equal(new Set(seen).size, 250, 'no message may be served twice');
+    assert.deepEqual(seen, expected, 'the reassembled history must be the real one');
+  });
+
+  await test('a backward walk ends at the oldest message, with no further cursor', async () => {
+    // `end: true` on a backward walk is what SS-03 renders as "the beginning of
+    // the conversation" — the opposite claim to a forward walk's end.
+    const { pages } = await walkThreadBackward('conv-long', 50);
+    const last = pages.at(-1);
+    assert.equal(last.messages.at(0).content, 'zpráva 1');
+    assert.equal(last.end, true);
+    assert.equal(last.hasMore, false);
+    assert.equal(last.nextCursor, null);
+  });
+
+  await test('a conversation shorter than one page is complete on the anchor page', async () => {
+    // The case where the boundary must say "beginning of the conversation"
+    // immediately, rather than offering to load a page that does not exist.
+    const page = await threadPage('conv-single', { limit: 50, anchor: 'latest' });
+    assert.equal(page.messages.length, 1);
+    assert.equal(page.end, true);
+    assert.equal(page.nextCursor, null);
+  });
+
+  await test('an empty conversation anchors to an immediate end', async () => {
+    const page = await threadPage('conv-empty', { limit: 50, anchor: 'latest' });
+    assert.deepEqual(page.messages, []);
+    assert.equal(page.end, true);
+    assert.equal(page.nextCursor, null);
+  });
+
+  await test('a message appended mid-walk does not disturb a backward walk', async () => {
+    // Backward offsets are absolute from the start of the stream, so an append
+    // lands past every offset already issued.
+    const first = await threadPage('conv-long', { limit: 10, anchor: 'latest' });
+    insertMessage.run('conv-long', 'user', 'zpráva 251', '2026-01-01T01:00:00.000Z');
+    try {
+      const second = await threadPage('conv-long', { limit: 10, cursor: first.nextCursor });
+      assert.equal(second.messages.at(-1).content, 'zpráva 240',
+        'the older page must continue where the anchor page began');
+      assert.equal(new Set([...first.messages, ...second.messages].map(m => m.id)).size, 20,
+        'no row may appear on both pages');
+    } finally {
+      db.prepare(`DELETE FROM messages WHERE conversation_id = ? AND content = ?`)
+        .run('conv-long', 'zpráva 251');
     }
+  });
+
+  await test('an unknown anchor is refused, never served as the oldest page', async () => {
+    // The whole failure this replaced: a parameter the server does not
+    // understand must not quietly return the far end of the stream, because the
+    // client would then believe it holds the newest messages.
+    for (const value of ['banana', 'oldest', '', 'LATEST']) {
+      const response = await get(
+        `/m1/conversations/conv-long?limit=50&anchor=${encodeURIComponent(value)}`);
+      assert.equal(response.status, 400, `anchor=${value} must be refused`);
+      assert.equal(response.body?.error?.code, 'bad_request');
+      assert.equal(response.body?.error?.reason, 'anchor_unknown');
+      assert.equal(response.body?.data, undefined, 'a refusal must not carry a page');
+    }
+  });
+
+  await test('an anchor and a cursor together are refused, not silently resolved', async () => {
+    const opening = await threadPage('conv-long', { limit: 50, anchor: 'latest' });
+    const response = await get(`/m1/conversations/conv-long?limit=50&anchor=latest`
+      + `&cursor=${encodeURIComponent(opening.nextCursor)}`);
+    assert.equal(response.status, 400);
+    assert.equal(response.body?.error?.reason, 'anchor_with_cursor');
+  });
+
+  await test('a request with no anchor still pages forward from the oldest message', async () => {
+    // Backward compatibility is the reason `anchor` is opt-in: an unchanged
+    // request must still get an unchanged answer.
+    const page = await threadPage('conv-long', { limit: 50 });
+    assert.equal(page.messages.at(0).content, 'zpráva 1');
+    assert.equal(page.direction, 'forward');
   });
 } finally {
   await gateway.stop();

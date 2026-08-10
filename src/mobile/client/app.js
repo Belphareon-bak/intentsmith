@@ -26,6 +26,11 @@
 
 const API = '/m1';
 
+// MR-05.  One screenful with room to scroll, not the whole history: the old
+// `limit=100` was the server's ceiling, so a longer conversation was truncated
+// to its *oldest* hundred messages with nothing saying so.
+const THREAD_PAGE_SIZE = 50;
+
 // ── Storage ─────────────────────────────────────────────────────────────────
 // Keys are namespaced so the revocation wipe can clear domain data without
 // touching UI preferences the user set on their own device.
@@ -375,6 +380,13 @@ const state = {
   // to words instead of numbers rather than trusting the device clock.
   serverOffsetMs: null,
   unread: 0,
+  // MR-05 / SS-03.  The thread is a *window* onto the history, not the history:
+  // `cursor` is the last cursor the server issued for reading further into the
+  // past (never one this client computed, §8.2), `end` says the oldest message
+  // is already on screen, and `loadingOlder` keeps the boundary control from
+  // being tapped twice.  Kept beside `data.thread` because the cache stores the
+  // window itself and these describe where that window sits.
+  thread: { cursor: null, end: false, loadingOlder: false },
   sending: false,
   sendingSince: null,
   // Which attempt the in-flight send belongs to, so the RunSilence strip on the
@@ -1219,6 +1231,38 @@ function plural(n, one, few, many) {
   return many;
 }
 
+/**
+ * `SS-03` — the top of the window says what it is.
+ *
+ * The rule the whole thing exists for is I-2: a history that was cut off must
+ * never look complete.  So the older edge of the window is always labelled, and
+ * the label depends on whether more can be fetched *right now*:
+ *
+ *   more, online   → a control that fetches exactly one older page
+ *   more, offline  → "older messages need a connection" — the SS-03 sentence
+ *   nothing more   → the beginning of the conversation, stated plainly
+ *
+ * The third case matters as much as the first: without it "the top of the list"
+ * and "the start of the conversation" look identical.
+ */
+function threadBoundary() {
+  // Only a server-confirmed end may claim the history is whole.  Everything
+  // else — including a cached window written before this client knew how to
+  // page — falls through to the sentence that admits the window is partial.
+  if (state.thread.end) {
+    return '<p class="thread-edge thread-edge-start">Začátek konverzace</p>';
+  }
+  if (state.thread.cursor && state.conn !== 'offline') {
+    return `<div class="thread-edge">
+      <button class="btn btn-secondary btn-sm" data-act="load-older"
+        ${state.thread.loadingOlder ? 'disabled' : ''}>
+        ${state.thread.loadingOlder ? 'Načítám…' : 'Načíst starší zprávy'}
+      </button>
+    </div>`;
+  }
+  return '<p class="thread-edge">Starší zprávy vyžadují připojení</p>';
+}
+
 function viewChat() {
   const thread = state.data.thread;
   const error = state.error.thread;
@@ -1238,7 +1282,7 @@ function viewChat() {
     // progress the backend cannot report — there is no token streaming
     // (PLAN.md §3).  RunSilence (§6.5) says the honest thing instead: it is
     // running, we do not know where, and silence is not a freeze.
-    body = `<div class="thread">${thread.messages.map(renderMessage).join('')}
+    body = `<div class="thread">${threadBoundary()}${thread.messages.map(renderMessage).join('')}
       ${state.sending ? runSilence({ operationId: state.sendingOperationId, createdAt: state.sendingSince }) : ''}
     </div>`;
   } else {
@@ -2323,6 +2367,24 @@ async function loadConversations() {
   }
 }
 
+/** The paging window recorded alongside a cached thread, if there is one. */
+function threadWindowOf(cachedThread) {
+  const window = cachedThread?.window;
+  return {
+    cursor: window?.cursor ?? null,
+    end: window?.end === true,
+    loadingOlder: false,
+  };
+}
+
+/** Cache the window together with the messages it describes — never apart. */
+function writeThreadCache(conversationId) {
+  cache.write(`thread.${conversationId}`, {
+    ...state.data.thread,
+    window: { cursor: state.thread.cursor, end: state.thread.end },
+  });
+}
+
 async function loadThread(conversationId) {
   const key = `thread.${conversationId}`;
   const cached = cache.read(key);
@@ -2337,14 +2399,29 @@ async function loadThread(conversationId) {
   }
   state.loading.thread = true;
   state.error.thread = null;
+  // The cached window remembers how far it reached, so a thread read offline
+  // can still tell "this is the whole conversation" from "this is as much as
+  // was downloaded".  An entry written before the window was recorded has
+  // neither, and `threadBoundary` treats that as partial.
+  state.thread = threadWindowOf(cached.data);
   render();
 
   try {
-    const response = await api(`/conversations/${encodeURIComponent(conversationId)}?limit=100`);
+    // MR-05.  `anchor=latest` opens the walk at the newest message, which is
+    // what a conversation screen must show first; the window is then extended
+    // *into the past* on demand.  Asking without an anchor would return the
+    // oldest page and hide the exchange the user came back for.
+    const response = await api(
+      `/conversations/${encodeURIComponent(conversationId)}?anchor=latest&limit=${THREAD_PAGE_SIZE}`);
     state.data.thread = response.data;
+    state.thread = {
+      cursor: response.nextCursor || null,
+      end: response.end !== false && !response.nextCursor,
+      loadingOlder: false,
+    };
     state.cacheAge.thread = 'FRESH';
     state.cacheAt.thread = Date.now();
-    cache.write(key, response.data);
+    writeThreadCache(conversationId);
     setConn('ok');
   } catch (error) {
     if (error.kind === 'auth') return handleAuthFailure(error);
@@ -2352,6 +2429,8 @@ async function loadThread(conversationId) {
       // A conversation that exists only locally is normal right after
       // "new chat" — an empty thread, not an error.
       state.data.thread = { conversation: { id: conversationId, title: 'Nová konverzace' }, messages: [] };
+      // Nothing to page into: an empty thread is the whole history.
+      state.thread = { cursor: null, end: true, loadingOlder: false };
       state.cacheAge.thread = 'FRESH';
       state.cacheAt.thread = Date.now();
     } else {
@@ -2360,6 +2439,62 @@ async function loadThread(conversationId) {
     }
   } finally {
     state.loading.thread = false;
+    render();
+  }
+}
+
+/**
+ * MR-05 — extend the window into the past by exactly one server-issued page.
+ *
+ * Only ever follows `state.thread.cursor`.  Nothing here computes a position:
+ * §8.2 makes that impossible anyway (the cursor is opaque and checksummed), and
+ * the point of the rule is that a client which guesses invents history.
+ */
+async function loadOlderMessages() {
+  const conversationId = state.conversationId;
+  const cursor = state.thread.cursor;
+  if (!conversationId || !cursor || state.thread.loadingOlder) return;
+
+  state.thread.loadingOlder = true;
+  render();
+
+  try {
+    const response = await api(
+      `/conversations/${encodeURIComponent(conversationId)}`
+      + `?limit=${THREAD_PAGE_SIZE}&cursor=${encodeURIComponent(cursor)}`);
+    const older = response.data.messages || [];
+    const thread = state.data.thread;
+    // The page is older than everything held, so it goes on the front.  The
+    // conversation head is refreshed from the same response rather than kept,
+    // so a rename that happened elsewhere lands here too (SS-09).
+    state.data.thread = {
+      conversation: response.data.conversation || thread?.conversation,
+      messages: [...older, ...(thread?.messages || [])],
+    };
+    state.thread = {
+      cursor: response.nextCursor || null,
+      end: response.end !== false && !response.nextCursor,
+      loadingOlder: false,
+    };
+    state.cacheAt.thread = Date.now();
+    writeThreadCache(conversationId);
+    setConn('ok');
+  } catch (error) {
+    if (error.kind === 'auth') return handleAuthFailure(error);
+    if (error.code === 'cursor_unknown') {
+      // SS-10 — the stream moved under us.  The only honest repair is to read
+      // the thread again from the newest end.  Splicing a fresh page onto a
+      // stale window would join two different versions of the history and look
+      // seamless while doing it.
+      state.thread = { cursor: null, end: false, loadingOlder: false };
+      return loadThread(conversationId);
+    }
+    // The window that is already on screen stays: it was true when it loaded,
+    // and failing to extend it is not a reason to throw it away.
+    state.error.thread = error;
+    setConn(error.kind === 'offline' ? 'offline' : error.kind === 'server' ? 'server' : state.conn);
+  } finally {
+    state.thread.loadingOlder = false;
     render();
   }
 }
@@ -2890,7 +3025,10 @@ async function doSend() {
   state.sendingSince = Date.now();
   state.sendingOperationId = operationId;
 
-  state.data.thread = state.data.thread || { conversation: { id: conversationId }, messages: [] };
+  if (!state.data.thread) {
+    state.data.thread = { conversation: { id: conversationId }, messages: [] };
+    state.thread = { cursor: null, end: true, loadingOlder: false };
+  }
   state.data.thread.messages.push({
     id: `local-${operationId}`, role: 'user', content: text,
     createdAt: Date.now(), operationId,
@@ -3366,6 +3504,10 @@ function newChat() {
   transitionRoute('chat');
   state.conversationId = id;
   state.data.thread = { conversation: { id, title: 'Nová konverzace' }, messages: [] };
+  // A conversation that starts here has no past, so the window is complete from
+  // the first message on — otherwise its first reply would sit under a boundary
+  // offering to load history that never existed.
+  state.thread = { cursor: null, end: true, loadingOlder: false };
   state.cacheAge.thread = 'FRESH';
   render();
 }
@@ -3418,6 +3560,7 @@ document.addEventListener('click', event => {
     'load-operations': loadOperations,
     'load-conversations': loadConversations,
     'load-thread': () => loadThread(state.conversationId),
+    'load-older': () => loadOlderMessages(),
     'load-notifications': loadNotifications,
     reload: () => navigate(state.route),
   };
@@ -3561,6 +3704,7 @@ export const __ms20 = {
   trustBar, trustZones, withTrustBar, screenLocks, serverNow,
   viewOverview, navItems, currentSection, sectionRoute, unknownScopes, NAV_ITEMS, ROUTE_SECTION,
   renderNavBar, navCount, newChat,
+  viewChat, threadBoundary, loadThread, loadOlderMessages, threadWindowOf, THREAD_PAGE_SIZE,
   runSilence, runSilenceEntries, overviewRunSilence,
   approvalCountdown, approvalWindowMinutes, approvalRow, serverTimeMs,
   viewApprovals, loadApprovals, approvalsGone,

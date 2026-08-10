@@ -8734,6 +8734,36 @@
       }
     },
     {
+      "id": "IS-T1-TESTS-MOBILE-MS07-HISTORY-TEST",
+      "path": "tests/mobile-ms07-history.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-ms07-history.test.js"
+      ],
+      "capabilityId": "C3-032",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-MODEL-CTX-TEST",
       "path": "tests/model-ctx.test.js",
       "argv": [

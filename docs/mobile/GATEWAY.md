@@ -163,6 +163,31 @@ allow-list**, ne formálně refrozený kontrakt v2 ani autorita k jeho rozšíř
 `DR-008` autorizovalo jen společné kontraktní kolo pro šest dalších domén;
 ani budoucí schválení kontraktu samo neautorizuje implementaci nové routy.
 
+### 4.1 Stránkování historie konverzace (`MR-05`)
+
+`GET /m1/conversations/:id` čte stránku zpráv. Směr chůze určuje **kurzor**,
+ne klient — a otevřít chůzi na konkrétním konci streamu umí `anchor`:
+
+| Parametr | Hodnoty | Význam |
+|---|---|---|
+| `limit` | 1–100, výchozí 50 | Ořezáno na `MAX_PAGE_SIZE`, nikdy odmítnuto |
+| `anchor` | `latest` | Otevře chůzi na **nejnovější** zprávě a vydá kurzor směřující do minulosti. Jiná hodnota → `400 bad_request`, `reason: anchor_unknown` |
+| `cursor` | opaque | Pokračuje v už otevřené chůzi. S `anchor` současně → `400`, `reason: anchor_with_cursor` |
+
+Odpověď nese `hasMore`, `end`, `nextCursor` a **`direction`** (`forward` |
+`backward`), aby `end` nebyl dvojznačný: u zpětné chůze znamená „držíš
+nejstarší zprávu" — to je hranice, kterou `SS-03` vykresluje.
+
+Bez `anchor` se chová jako dřív: dopředu od nejstarší zprávy. Ta výchozí
+sémantika se **nezměnila**, protože nezměněný dotaz musí dostat nezměněnou
+odpověď.
+
+**[?] Kontraktní poznámka.** `anchor` je *aditivní parametr na existující
+routě* — allow-list zůstává třináctiroutový a nová routa nevznikla. Operátor
+tenhle krok schválil (`WP-MOBILE-028` §4, varianta A). Není to formální refreeze
+kontraktu v2; jestli kontraktní autorita usoudí, že tvar requestu pod zmrazený
+povrch spadá, projde `MR-05` kolem `DR-008` jako ostatní domény.
+
 Notifikační dvojice rout zatím **není produkčně bezpečný end-to-end kanál**.
 `GET /m1/notifications` filtruje cílené řádky na `principal.deviceId` a přidává
 broadcast řádky. `POST /m1/notifications/ack` ale předá databázi jen seznam ID;

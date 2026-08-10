@@ -271,6 +271,25 @@ const SURFACES = [
     window.__is.state.cacheAge.conversations = 'STALE';
     window.__is.state.cacheAt.conversations = Date.now() - 900000;
     window.__is.render();`],
+  // MS-07 with a partial window: the SS-03 boundary control is a real touch
+  // target and a real piece of muted text, so it is measured like any other.
+  ['MS-07 okno historie — lze načíst starší', `
+    window.__is.state.route = 'chat';
+    window.__is.state.conn = 'ok';
+    window.__is.state.conversationId = 'c1';
+    window.__is.state.data.thread = {
+      conversation: { id: 'c1', title: 'Dlouhá konverzace' },
+      messages: [
+        { id: '201', role: 'user', content: 'starší zpráva' },
+        { id: '202', role: 'assistant', content: 'odpověď' },
+      ],
+    };
+    window.__is.state.thread = { cursor: 'c1.abc.def', end: false, loadingOlder: false };
+    window.__is.render();`],
+  ['MS-07 okno historie — začátek konverzace', `
+    window.__is.state.route = 'chat';
+    window.__is.state.thread = { cursor: null, end: true, loadingOlder: false };
+    window.__is.render();`],
 ];
 
 async function onEachSurface(collect) {

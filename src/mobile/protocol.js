@@ -194,10 +194,24 @@ export function versioned(record) {
 
 const CURSOR_PREFIX = 'c1';
 
-export function encodeCursor({ stream, position, issuedAt = Date.now() }) {
+// A thread is read newest-first and walked into the past, so the direction of
+// travel belongs *inside* the cursor.  Keeping it out of the query string is
+// what stops a client from pointing a forward cursor backwards and being served
+// a page from the wrong end of the stream.
+export const CURSOR_FORWARD = 'forward';
+export const CURSOR_BACKWARD = 'backward';
+
+export function encodeCursor({ stream, position, direction = CURSOR_FORWARD, issuedAt = Date.now() }) {
   if (typeof stream !== 'string' || !stream) throw new Error('cursor requires a stream');
   if (!Number.isInteger(position) || position < 0) throw new Error('cursor position must be a non-negative integer');
-  const body = canonicalJson({ stream, position, issuedAt });
+  if (direction !== CURSOR_FORWARD && direction !== CURSOR_BACKWARD) {
+    throw new Error(`cursor direction must be ${CURSOR_FORWARD} or ${CURSOR_BACKWARD}`);
+  }
+  // Forward cursors keep their original three-field payload so that every
+  // cursor already in a client's hands still verifies against its checksum.
+  const body = direction === CURSOR_FORWARD
+    ? canonicalJson({ stream, position, issuedAt })
+    : canonicalJson({ direction, stream, position, issuedAt });
   const checksum = createHash('sha256').update(body).digest('hex').slice(0, 16);
   return `${CURSOR_PREFIX}.${Buffer.from(body, 'utf8').toString('base64url')}.${checksum}`;
 }
@@ -208,7 +222,14 @@ export function encodeCursor({ stream, position, issuedAt = Date.now() }) {
  */
 export function decodeCursor(cursor, { stream } = {}) {
   if (cursor === null || cursor === undefined || cursor === '') {
-    return { valid: true, stream: stream ?? null, position: 0, issuedAt: null, initial: true };
+    return {
+      valid: true,
+      stream: stream ?? null,
+      position: 0,
+      direction: CURSOR_FORWARD,
+      issuedAt: null,
+      initial: true,
+    };
   }
   if (typeof cursor !== 'string') return { valid: false, reason: 'cursor_not_a_string' };
 
@@ -240,13 +261,27 @@ export function decodeCursor(cursor, { stream } = {}) {
   if (typeof parsed.stream !== 'string' || !Number.isInteger(parsed.position) || parsed.position < 0) {
     return { valid: false, reason: 'cursor_malformed' };
   }
+  // Absent means forward: that is what every cursor issued before backward
+  // paging existed meant, and those are still valid.  Any other value is a
+  // direction this server does not implement, so it is refused rather than
+  // coerced into one of the two it does.
+  const direction = parsed.direction ?? CURSOR_FORWARD;
+  if (direction !== CURSOR_FORWARD && direction !== CURSOR_BACKWARD) {
+    return { valid: false, reason: 'cursor_malformed' };
+  }
   // A cursor from a different stream is meaningless here; interpreting its
   // position against this stream would silently skip or repeat records.
   if (stream && parsed.stream !== stream) {
     return { valid: false, reason: 'cursor_stream_mismatch' };
   }
 
-  return { valid: true, stream: parsed.stream, position: parsed.position, issuedAt: parsed.issuedAt };
+  return {
+    valid: true,
+    stream: parsed.stream,
+    position: parsed.position,
+    direction,
+    issuedAt: parsed.issuedAt,
+  };
 }
 
 // ── §8.6 Server-driven pagination with an explicit end ───────────────────────
@@ -264,6 +299,36 @@ export function paginate({ rows, limit, stream, position = 0 }) {
     // Only issue a next cursor when there is genuinely a next page, so the
     // client cannot page forever against an empty tail.
     nextCursor: hasMore ? encodeCursor({ stream, position: position + items.length }) : null,
+    end: !hasMore,
+  };
+}
+
+/**
+ * Page a stream from its newest end towards its oldest — what a conversation
+ * screen actually needs (`MS-07`, `SS-03`).
+ *
+ * Unlike `paginate` this needs no over-fetch: `start` is the absolute offset
+ * where the delivered page begins, so `start > 0` already answers "is there
+ * older material" exactly.  `end: true` therefore means "you are holding the
+ * oldest message", which is the boundary `SS-03` renders.
+ *
+ * `rows` stay in ascending order so a thread reads oldest-at-top within the
+ * window, with the newest message at the bottom where a chat screen expects it.
+ *
+ * The offsets are absolute from the start of the stream, which is what makes a
+ * backward walk survive messages arriving mid-walk: an append lands past every
+ * offset already issued.  Deletion would break that, exactly as it would for
+ * `paginate`.
+ */
+export function paginateBackward({ rows, stream, start }) {
+  if (!Number.isInteger(start) || start < 0) throw new Error('start must be a non-negative integer');
+  const hasMore = start > 0;
+  return {
+    items: rows,
+    hasMore,
+    nextCursor: hasMore
+      ? encodeCursor({ stream, position: start, direction: CURSOR_BACKWARD })
+      : null,
     end: !hasMore,
   };
 }
@@ -296,5 +361,6 @@ export default {
   encodeCursor,
   decodeCursor,
   paginate,
+  paginateBackward,
   withEnvelope,
 };
