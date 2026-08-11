@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { createHmac } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import {
   chmodSync,
   existsSync,
@@ -88,6 +88,14 @@ import {
   FEATURE_SETTINGS_INPUT_INVALID,
   featureManager,
 } from '../src/core/feature-manager.js';
+import {
+  LEGACY_CREDENTIAL_RECEIPT_SCHEMA,
+  MIGRATION_ACTION,
+  PAIASS_NOTIFICATION_PATHS,
+  SETUP_NOTIFICATION_PATHS,
+  createPaiassReceipt,
+  parseMigrationCliArguments,
+} from '../scripts/migrate-notification-authority.js';
 import { suite, summary, testAsync } from './harness.js';
 
 const REPOSITORY_ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -249,6 +257,164 @@ function sliceBetween(source, start, end) {
 suite('M1 notification credential scope');
 
 await testAsync('channel, startup and setup authority is exact, default-off and no-effect', async () => {
+  assert.deepEqual(SETUP_NOTIFICATION_PATHS, [
+    'notifications.email.from',
+    'notifications.email.smtp',
+    'notifications.email.to',
+    'notifications.ntfy.server',
+    'notifications.ntfy.topic',
+    'notifications.telegram.chatId',
+    'notifications.telegram.token',
+  ]);
+  assert.deepEqual(PAIASS_NOTIFICATION_PATHS, [
+    'notifications.discordWebhook',
+    'notifications.emailAddresses',
+    'notifications.slackChannel',
+    'notifications.slackWebhook',
+    'notifications.smsApiKey',
+    'notifications.smsPhone',
+    'notifications.smsSecret',
+    'notifications.telegramChatId',
+    'notifications.telegramToken',
+    'notifications.webhookUrl',
+  ]);
+  assert.equal(Object.isFrozen(SETUP_NOTIFICATION_PATHS), true);
+  assert.equal(Object.isFrozen(PAIASS_NOTIFICATION_PATHS), true);
+
+  const cliDatabasePath = resolve(tmpdir(), 'm1-c3-cli.sqlite');
+  const cliDataDir = resolve(tmpdir(), 'm1-c3-data');
+  const cliManifestPath = resolve(tmpdir(), 'm1-c3-manifest.json');
+  const censusOptions = parseMigrationCliArguments([
+    '--census',
+    '--db', cliDatabasePath,
+    '--data-dir', cliDataDir,
+  ]);
+  assert.equal(Object.isFrozen(censusOptions), true);
+  assert.equal(censusOptions.mode, 'CENSUS');
+  assert.deepEqual(censusOptions.historicalEnvironmentPaths, []);
+  assertErrorCode(() => parseMigrationCliArguments([
+    '--census', '--db', 'relative.sqlite', '--data-dir', cliDataDir,
+  ]), 'MIGRATION_DATABASE_PATH_INVALID');
+  assertErrorCode(() => parseMigrationCliArguments([
+    '--apply', '--db', cliDatabasePath, '--data-dir', cliDataDir,
+    '--manifest', cliManifestPath, '--manifest-sha256', 'a'.repeat(64),
+  ]), 'MIGRATION_QUIESCENCE_ATTESTATION_REQUIRED');
+  assertErrorCode(() => parseMigrationCliArguments([
+    '--census', '--db', cliDatabasePath, '--data-dir', cliDataDir,
+    '--project-root', resolve(tmpdir(), 'forbidden-root'),
+  ]), 'MIGRATION_CLI_INVALID');
+  const applyOptions = parseMigrationCliArguments([
+    '--apply', '--db', cliDatabasePath, '--data-dir', cliDataDir,
+    '--manifest', cliManifestPath, '--manifest-sha256', 'a'.repeat(64),
+    '--attest-server-stopped', '--attest-workers-stopped',
+  ]);
+  assert.equal(applyOptions.mode, 'APPLY');
+  assert.equal(applyOptions.attestServerStopped, true);
+  assert.equal(applyOptions.attestWorkersStopped, true);
+  const decisionsPath = resolve(tmpdir(), 'm1-c3-decisions.json');
+  const planOptions = parseMigrationCliArguments([
+    '--plan', '--db', cliDatabasePath, '--data-dir', cliDataDir,
+    '--decisions', decisionsPath, '--decisions-sha256', 'b'.repeat(64),
+    '--manifest', cliManifestPath,
+  ]);
+  assert.equal(planOptions.mode, 'PLAN');
+  assert.equal(planOptions.decisionsPath, decisionsPath);
+  assert.equal(planOptions.manifestPath, cliManifestPath);
+  assertErrorCode(() => parseMigrationCliArguments([
+    '--census', '--db', cliDatabasePath, '--data-dir', cliDataDir,
+    '--decisions', decisionsPath, '--decisions-sha256', 'b'.repeat(64),
+  ]), 'MIGRATION_CLI_INVALID');
+
+  const paiassPreimage = Buffer.from(
+    ' {\n  "notifications":{"emailAddresses":["one@example.invalid",{"kind":"nested"}],"unknown":"keep"},\n  "foreign":true\n}\n',
+    'utf8',
+  );
+  const paiassDocument = JSON.parse(paiassPreimage.toString('utf8'));
+  const paiassValue = paiassDocument.notifications.emailAddresses;
+  const paiassValueSha256 = createHash('sha256')
+    .update(Buffer.from(JSON.stringify(paiassValue), 'utf8'))
+    .digest('hex');
+  delete paiassDocument.notifications.emailAddresses;
+  const paiassPostimage = Buffer.from(JSON.stringify(paiassDocument), 'utf8');
+  const purgeReceipt = createPaiassReceipt({
+    action: MIGRATION_ACTION.PURGE,
+    preimageBytes: paiassPreimage,
+    postimageBytes: paiassPostimage,
+    pathDigests: [{
+      path: 'notifications.emailAddresses',
+      valueSha256: paiassValueSha256,
+    }],
+  });
+  assert.equal(Object.isFrozen(purgeReceipt), true);
+  assert.equal(Object.isFrozen(purgeReceipt.pathDigests), true);
+  assert.deepEqual(Object.keys(purgeReceipt), [
+    'schema',
+    'source',
+    'action',
+    'preimageSha256',
+    'postimageSha256',
+    'pathDigests',
+  ]);
+  assert.equal(purgeReceipt.schema, LEGACY_CREDENTIAL_RECEIPT_SCHEMA);
+  assert.equal(purgeReceipt.source, 'PAIASS_SETTINGS');
+  assert.equal(purgeReceipt.action, 'PURGE');
+  assert.equal(
+    purgeReceipt.preimageSha256,
+    createHash('sha256').update(paiassPreimage).digest('hex'),
+  );
+  assert.equal(
+    purgeReceipt.postimageSha256,
+    createHash('sha256').update(paiassPostimage).digest('hex'),
+  );
+  assert.equal(purgeReceipt.pathDigests[0].valueSha256, paiassValueSha256);
+  assert.equal(JSON.stringify(purgeReceipt).includes('one@example.invalid'), false);
+  assert.deepEqual(createPaiassReceipt({
+    action: MIGRATION_ACTION.PURGE,
+    preimageBytes: paiassPreimage,
+    postimageBytes: paiassPostimage,
+    pathDigests: [{
+      path: 'notifications.emailAddresses',
+      valueSha256: paiassValueSha256,
+    }],
+  }), purgeReceipt);
+  const exportReceipt = createPaiassReceipt({
+    action: MIGRATION_ACTION.EXPORT,
+    preimageBytes: paiassPreimage,
+    postimageBytes: paiassPostimage,
+    pathDigests: [{
+      path: 'notifications.emailAddresses',
+      valueSha256: paiassValueSha256,
+    }],
+    exportSha256: paiassValueSha256,
+  });
+  assert.deepEqual(Object.keys(exportReceipt), [
+    'schema',
+    'source',
+    'action',
+    'preimageSha256',
+    'postimageSha256',
+    'pathDigests',
+    'exportSha256',
+  ]);
+  assertErrorCode(() => createPaiassReceipt({
+    action: MIGRATION_ACTION.PURGE,
+    preimageBytes: paiassPreimage,
+    postimageBytes: paiassPostimage,
+    pathDigests: [{
+      path: 'notifications.emailAddresses',
+      valueSha256: paiassValueSha256.toUpperCase(),
+    }],
+  }), 'MIGRATION_RECEIPT_INVALID');
+  assertErrorCode(() => createPaiassReceipt({
+    action: MIGRATION_ACTION.PURGE,
+    preimageBytes: paiassPreimage,
+    postimageBytes: paiassPostimage,
+    pathDigests: [{
+      path: 'notifications.futureSecret',
+      valueSha256: paiassValueSha256,
+    }],
+  }), 'MIGRATION_RECEIPT_INVALID');
+
   assert.deepEqual(SETUP_ENV_OWNED_KEYS, EXPECTED_SETUP_ENV_KEYS);
   assert.deepEqual(NOTIFICATION_ENV_OWNED_KEYS, EXPECTED_NOTIFICATION_ENV_KEYS);
   assert.deepEqual(

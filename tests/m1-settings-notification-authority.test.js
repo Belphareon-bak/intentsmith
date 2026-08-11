@@ -5,7 +5,14 @@ import './helpers/isolated-test-db.js';
 import Database from 'better-sqlite3';
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import fs, {
+  chmodSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import path from 'node:path';
 import { Worker } from 'node:worker_threads';
 
@@ -35,6 +42,13 @@ import {
   requireLegacyNotificationUserSettingsCensus,
   scrubLegacyNotificationUserSettingsInTransaction,
 } from '../src/db/user-settings.js';
+import {
+  MIGRATION_ACTION,
+  NOTIFICATION_AUTHORITY_DECISIONS_SCHEMA,
+  applyNotificationAuthorityManifest,
+  censusNotificationAuthority,
+  finalizeNotificationAuthorityPlan,
+} from '../scripts/migrate-notification-authority.js';
 
 const TEST_WEBHOOK_SECRET_AUTHORITY = readWebhookSecretAuthority({
   projectRoot: isolatedTestRuntime.runtime,
@@ -362,6 +376,391 @@ function runLegacyNotificationScrub(db, request) {
 
 function oracleSha256(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
+}
+
+function write0600(filePath, bytes) {
+  writeFileSync(filePath, bytes, { mode: 0o600 });
+  chmodSync(filePath, 0o600);
+}
+
+function createMigrationFixture(name, {
+  document = {},
+  setup = null,
+  paiass = null,
+  historicalEnvironment = null,
+} = {}) {
+  const root = mkdtempSync(path.join(isolatedTestRuntime.artifacts, `${name}-`));
+  const databasePath = path.join(root, 'c3.sqlite');
+  const db = openDb(databasePath);
+  replaceFixtureDocument(db, JSON.stringify(document));
+  db.close();
+  if (setup !== null) write0600(path.join(root, 'c3-setup.json'), JSON.stringify(setup));
+  let paiassInputPath = null;
+  if (paiass !== null) {
+    paiassInputPath = path.join(root, 'paiass-settings.json');
+    write0600(paiassInputPath, JSON.stringify(paiass));
+  }
+  const historicalEnvironmentPaths = [];
+  if (historicalEnvironment !== null) {
+    const historicalRoot = mkdtempSync(path.join(root, 'historical-'));
+    const historicalPath = path.join(historicalRoot, '.env');
+    write0600(historicalPath, historicalEnvironment);
+    historicalEnvironmentPaths.push(historicalPath);
+  }
+  return {
+    root,
+    databasePath,
+    dataDir: root,
+    paiassInputPath,
+    historicalEnvironmentPaths,
+    decisionsPath: path.join(root, 'decisions.json'),
+    manifestPath: path.join(root, 'manifest.json'),
+  };
+}
+
+function assertIsolatedMigrationCensus(census, { processPaths = [] } = {}) {
+  const rootSourceIds = new Set(
+    census.sources
+      .filter(source => source.kind === 'ENV' && source.role === 'ROOT')
+      .map(source => source.sourceId),
+  );
+  assertEqual(census.findings.filter(finding => rootSourceIds.has(finding.sourceId)).length, 0);
+  assertEqual(
+    JSON.stringify(census.findings
+      .filter(finding => finding.sourceId === 'PROCESS_ENV')
+      .map(finding => finding.path)),
+    JSON.stringify(processPaths),
+  );
+}
+
+function finalizeMigrationFixture(fixture, chooseAction, { processPaths = [] } = {}) {
+  const census = censusNotificationAuthority({
+    databasePath: fixture.databasePath,
+    dataDir: fixture.dataDir,
+    historicalEnvironmentPaths: fixture.historicalEnvironmentPaths,
+    paiassInputPath: fixture.paiassInputPath,
+  });
+  assertIsolatedMigrationCensus(census, { processPaths });
+  const actions = census.findings.map(finding => ({
+    sourceId: finding.sourceId,
+    path: finding.path,
+    valueSha256: finding.valueSha256,
+    ...chooseAction(finding, census),
+  }));
+  const decisions = {
+    schema: NOTIFICATION_AUTHORITY_DECISIONS_SCHEMA,
+    censusSha256: census.censusSha256,
+    actions,
+  };
+  const decisionsBytes = Buffer.from(`${JSON.stringify(decisions, null, 2)}\n`, 'utf8');
+  write0600(fixture.decisionsPath, decisionsBytes);
+  const plan = finalizeNotificationAuthorityPlan({
+    decisionsPath: fixture.decisionsPath,
+    decisionsSha256: oracleSha256(decisionsBytes),
+    manifestPath: fixture.manifestPath,
+    databasePath: fixture.databasePath,
+    dataDir: fixture.dataDir,
+    historicalEnvironmentPaths: fixture.historicalEnvironmentPaths,
+    paiassInputPath: fixture.paiassInputPath,
+  });
+  return { census, decisions, plan };
+}
+
+function applyMigrationFixture(fixture, plan, manifestPath = fixture.manifestPath) {
+  const manifestBytes = readFileSync(manifestPath);
+  if (manifestPath === fixture.manifestPath) {
+    assertEqual(oracleSha256(manifestBytes), plan.manifestSha256);
+  }
+  return applyNotificationAuthorityManifest({
+    manifestPath,
+    manifestSha256: oracleSha256(manifestBytes),
+    attestServerStopped: true,
+    attestWorkersStopped: true,
+    expectedDatabasePath: fixture.databasePath,
+    expectedDataDir: fixture.dataDir,
+    expectedHistoricalEnvironmentPaths: fixture.historicalEnvironmentPaths,
+    expectedPaiassInputPath: fixture.paiassInputPath,
+  });
+}
+
+function errorFromMigrationApply(callback) {
+  const error = captureError(callback);
+  assert(error && typeof error.code === 'string');
+  return error;
+}
+
+function exerciseNotificationMigrationCli() {
+  const fixtures = [];
+  const previousEmailFrom = process.env.EMAIL_FROM;
+  const hadEmailFrom = Object.hasOwn(process.env, 'EMAIL_FROM');
+  const previousSmtpPort = process.env.C3_SMTP_PORT;
+  const hadSmtpPort = Object.hasOwn(process.env, 'C3_SMTP_PORT');
+  const restoreProcessEnvironment = () => {
+    if (hadEmailFrom) process.env.EMAIL_FROM = previousEmailFrom;
+    else delete process.env.EMAIL_FROM;
+    if (hadSmtpPort) process.env.C3_SMTP_PORT = previousSmtpPort;
+    else delete process.env.C3_SMTP_PORT;
+  };
+
+  try {
+    process.env.EMAIL_FROM = 'PROCESS_ALIAS_RESTART_CANARY';
+    process.env.C3_SMTP_PORT = '2525';
+    const full = createMigrationFixture('notification-migration-full', {
+      document: {
+        'c3.notif.smtpHost': 'DB_EXPORT_SECRET_CANARY',
+        'c3.notif.smtpPort': 2525,
+        'c3.notif.desktopEnabled': true,
+        futurePrivate: { preserve: true },
+      },
+      setup: {
+        notifications: { email: { to: 'setup@example.invalid' } },
+        foreign: { preserve: true },
+      },
+      historicalEnvironment: 'C3_SMTP_USER=HISTORICAL_EXPORT_SECRET_CANARY\nFOREIGN=value\n',
+      paiass: {
+        notifications: {
+          emailAddresses: ['paiass@example.invalid'],
+          unknown: 'preserve',
+        },
+        foreign: true,
+      },
+    });
+    fixtures.push(full);
+    const dbExportPath = path.join(full.root, 'db-export.json');
+    const envExportPath = path.join(full.root, 'env-export.json');
+    const fullPlan = finalizeMigrationFixture(full, finding => {
+      if (finding.path === 'c3.notif.smtpPort') {
+        const canonicalValue = '2525';
+        return {
+          action: MIGRATION_ACTION.TRANSFER,
+          canonicalValue,
+          canonicalValueSha256: oracleSha256(Buffer.from(JSON.stringify(canonicalValue))),
+        };
+      }
+      if (finding.path === 'c3.notif.smtpHost') {
+        return { action: MIGRATION_ACTION.EXPORT, exportPath: dbExportPath };
+      }
+      if (finding.path === 'C3_SMTP_USER') {
+        return { action: MIGRATION_ACTION.EXPORT, exportPath: envExportPath };
+      }
+      return { action: MIGRATION_ACTION.PURGE };
+    }, { processPaths: ['EMAIL_FROM'] });
+    const smtpTarget = fullPlan.census.targets.find(target => target.key === 'C3_SMTP_PORT');
+    assertEqual(smtpTarget.processPresent, true);
+    assertEqual(
+      smtpTarget.processValueSha256,
+      oracleSha256(Buffer.from(JSON.stringify('2525'))),
+    );
+    assertEqual(fullPlan.plan.status, 'MANIFEST_READY');
+    assertEqual(fullPlan.plan.actionCounts.TRANSFER, 1);
+
+    const blocked = applyMigrationFixture(full, fullPlan.plan);
+    assertEqual(blocked.status, 'BLOCKED_RESTART_REQUIRED');
+    assertEqual(blocked.stages.find(stage => stage.kind === 'PROCESS_ENV').status,
+      'BLOCKED_RESTART_REQUIRED');
+    assertEqual(blocked.remainingStages[0].kind, 'PROCESS_ENV');
+    assertEqual(blocked.exports.length, 2);
+    assertEqual(JSON.stringify(blocked).includes('SECRET_CANARY'), false);
+
+    delete process.env.EMAIL_FROM;
+    const applied = applyMigrationFixture(full, fullPlan.plan);
+    assertEqual(applied.status, 'RECEIPTS_READY');
+    assertEqual(applied.remainingStages.length, 0);
+    assertEqual(applied.stages.find(stage => stage.kind === 'PROCESS_ENV').status,
+      'ABSENCE_CONFIRMED');
+    assertEqual(applied.paiassStatus, 'RECEIPTS_READY');
+    const firstReceipts = JSON.stringify(applied.receipts);
+
+    const samePlanRetry = applyMigrationFixture(full, fullPlan.plan);
+    assertEqual(samePlanRetry.status, 'RECEIPTS_READY');
+    assertEqual(JSON.stringify(samePlanRetry.receipts), firstReceipts);
+    assertEqual(
+      samePlanRetry.stages.find(stage => stage.kind === 'CANONICAL_TRANSFER').status,
+      'ALREADY_APPLIED',
+    );
+    assertEqual(samePlanRetry.exports.every(entry => entry.changed === false), true);
+
+    const paiassPostimage = JSON.parse(readFileSync(full.paiassInputPath, 'utf8'));
+    delete paiassPostimage.notifications.emailAddresses;
+    write0600(full.paiassInputPath, JSON.stringify(paiassPostimage));
+    const completed = applyMigrationFixture(full, fullPlan.plan);
+    assertEqual(completed.status, 'APPLIED');
+    assertEqual(completed.paiassStatus, 'ALREADY_APPLIED');
+    assertEqual(JSON.stringify(completed.receipts), firstReceipts);
+    const committed = new Database(full.databasePath, { readonly: true });
+    try {
+      const committedDocument = JSON.parse(
+        committed.prepare('SELECT data FROM user_settings WHERE id = 1').get().data,
+      );
+      assertEqual(committedDocument['c3.notif.smtpPort'], undefined);
+      assertEqual(committedDocument['c3.notif.desktopEnabled'], true);
+      assertEqual(committedDocument.futurePrivate.preserve, true);
+    } finally {
+      committed.close();
+    }
+
+    for (const [kind, expectedCode] of [
+      ['DB', 'MIGRATION_DATABASE_POSTIMAGE_STALE'],
+      ['SETUP', 'MIGRATION_SETUP_POSTIMAGE_STALE'],
+      ['PAIASS_SETTINGS', 'MIGRATION_PAIASS_POSTIMAGE_STALE'],
+    ]) {
+      const stale = createMigrationFixture(`notification-migration-stale-${kind.toLowerCase()}`, {
+        document: kind === 'DB' ? { 'c3.notif.smtpHost': 'DB_STALE_CANARY' } : {},
+        setup: kind === 'SETUP'
+          ? { notifications: { email: { to: 'setup-stale@example.invalid' } } }
+          : null,
+        paiass: kind === 'PAIASS_SETTINGS'
+          ? { notifications: { emailAddresses: ['paiass-stale@example.invalid'] } }
+          : null,
+      });
+      fixtures.push(stale);
+      const stalePlan = finalizeMigrationFixture(
+        stale,
+        () => ({ action: MIGRATION_ACTION.PURGE }),
+      );
+      const tampered = JSON.parse(readFileSync(stale.manifestPath, 'utf8'));
+      const source = tampered.sources.find(candidate => candidate.kind === kind);
+      source.postimageSha256 = source.preimageSha256;
+      if (kind === 'PAIASS_SETTINGS') {
+        tampered.paiassReceipts.at(-1).postimageSha256 = source.preimageSha256;
+      }
+      const tamperedPath = path.join(stale.root, 'false-postimage-manifest.json');
+      write0600(tamperedPath, `${JSON.stringify(tampered, null, 2)}\n`);
+      const staleError = errorFromMigrationApply(
+        () => applyMigrationFixture(stale, stalePlan.plan, tamperedPath),
+      );
+      assertEqual(staleError.code, expectedCode);
+      assertEqual(JSON.stringify(staleError.report).includes('CANARY'), false);
+    }
+
+    const partial = createMigrationFixture('notification-migration-partial-export', {
+      document: {
+        'c3.notif.smtpHost': 'FIRST_EXPORT_SECRET_CANARY',
+        'c3.notif.smtpUser': 'SECOND_EXPORT_SECRET_CANARY',
+      },
+    });
+    fixtures.push(partial);
+    const firstExportPath = path.join(partial.root, 'first-export.json');
+    const secondExportPath = path.join(partial.root, 'second-export.json');
+    const partialPlan = finalizeMigrationFixture(partial, finding => ({
+      action: MIGRATION_ACTION.EXPORT,
+      exportPath: finding.path === 'c3.notif.smtpHost' ? firstExportPath : secondExportPath,
+    }));
+    write0600(secondExportPath, '"conflicting-export"');
+    const partialError = errorFromMigrationApply(
+      () => applyMigrationFixture(partial, partialPlan.plan),
+    );
+    assertEqual(partialError.code, 'MIGRATION_EXPORT_CONFLICT');
+    assertEqual(partialError.report.stages.some(stage => (
+      stage.kind === 'EXPORT' && stage.path === 'c3.notif.smtpHost' && stage.status === 'APPLIED'
+    )), true);
+    assertEqual(partialError.report.stages.at(-1).status, 'FAILED');
+    assertEqual(partialError.report.remainingStages[0].path, 'c3.notif.smtpUser');
+    assertEqual(JSON.stringify(partialError.report).includes('SECRET_CANARY'), false);
+
+    const earlyWrite = createMigrationFixture('notification-migration-write-failure', {
+      document: { 'c3.notif.smtpHost': 'EARLY_WRITE_SECRET_CANARY' },
+    });
+    fixtures.push(earlyWrite);
+    const earlyExportPath = path.join(earlyWrite.root, 'early-export.json');
+    const earlyPlan = finalizeMigrationFixture(earlyWrite, () => ({
+      action: MIGRATION_ACTION.EXPORT,
+      exportPath: earlyExportPath,
+    }));
+    const originalWriteFileSync = fs.writeFileSync;
+    fs.writeFileSync = (...args) => {
+      if (typeof args[0] === 'number') {
+        const error = new Error('TEST_EARLY_DESCRIPTOR_WRITE_FAILURE');
+        error.code = 'EIO';
+        throw error;
+      }
+      return originalWriteFileSync(...args);
+    };
+    let earlyError;
+    try {
+      earlyError = errorFromMigrationApply(
+        () => applyMigrationFixture(earlyWrite, earlyPlan.plan),
+      );
+    } finally {
+      fs.writeFileSync = originalWriteFileSync;
+    }
+    assertEqual(earlyError.code, 'MIGRATION_EXPORT_WRITE_FAILED');
+    assertEqual(
+      readdirSync(earlyWrite.root).some(name => name.includes('.notification-export-')),
+      false,
+    );
+
+    const replacement = createMigrationFixture('notification-migration-replacement', {
+      document: { 'c3.notif.smtpHost': 'REPLACEMENT_SECRET_CANARY' },
+    });
+    fixtures.push(replacement);
+    const replacementExportPath = path.join(replacement.root, 'replacement-export.json');
+    const replacementPlan = finalizeMigrationFixture(replacement, () => ({
+      action: MIGRATION_ACTION.EXPORT,
+      exportPath: replacementExportPath,
+    }));
+    const originalLinkSync = fs.linkSync;
+    fs.linkSync = (sourcePath, targetPath) => {
+      if (targetPath === replacementExportPath) {
+        fs.unlinkSync(sourcePath);
+        originalWriteFileSync(sourcePath, '"replacement"', { mode: 0o600 });
+        chmodSync(sourcePath, 0o600);
+      }
+      return originalLinkSync(sourcePath, targetPath);
+    };
+    let replacementError;
+    try {
+      replacementError = errorFromMigrationApply(
+        () => applyMigrationFixture(replacement, replacementPlan.plan),
+      );
+    } finally {
+      fs.linkSync = originalLinkSync;
+    }
+    assertEqual(replacementError.code, 'MIGRATION_EXPORT_PUBLICATION_UNKNOWN');
+    assertEqual(replacementError.report.stages.at(-1).status, 'PUBLICATION_UNKNOWN');
+
+    const resumed = createMigrationFixture('notification-migration-resumed-ledger', {
+      document: { 'c3.notif.smtpHost': 'DB_PROGRESS_SECRET_CANARY' },
+      setup: { notifications: { email: { to: 'setup-progress@example.invalid' } } },
+    });
+    fixtures.push(resumed);
+    const resumedPlan = finalizeMigrationFixture(
+      resumed,
+      () => ({ action: MIGRATION_ACTION.PURGE }),
+    );
+    const originalRenameSync = fs.renameSync;
+    fs.renameSync = (sourcePath, targetPath) => {
+      if (targetPath === path.join(resumed.root, 'c3-setup.json')) {
+        const error = new Error('TEST_SETUP_RENAME_FAILURE');
+        error.code = 'EIO';
+        throw error;
+      }
+      return originalRenameSync(sourcePath, targetPath);
+    };
+    let resumedError;
+    try {
+      resumedError = errorFromMigrationApply(
+        () => applyMigrationFixture(resumed, resumedPlan.plan),
+      );
+    } finally {
+      fs.renameSync = originalRenameSync;
+    }
+    assertEqual(resumedError.report.stages.some(stage => (
+      stage.kind === 'DB' && stage.status === 'APPLIED'
+    )), true);
+    assertEqual(resumedError.report.stages.at(-1).kind, 'SETUP');
+    assertEqual(resumedError.report.stages.at(-1).status, 'FAILED');
+    assertEqual(resumedError.report.remainingStages[0].kind, 'SETUP');
+    const resumedRetry = applyMigrationFixture(resumed, resumedPlan.plan);
+    assertEqual(resumedRetry.stages.find(stage => stage.kind === 'DB').status,
+      'ALREADY_APPLIED');
+    assertEqual(resumedRetry.remainingStages.length, 0);
+  } finally {
+    restoreProcessEnvironment();
+    for (const fixture of fixtures.reverse()) {
+      rmSync(fixture.root, { recursive: true, force: true });
+    }
+  }
 }
 
 function legacyPathValueForOracle(document, pathId) {
@@ -1002,6 +1401,51 @@ await testAsync('migration guard and exact legacy notification scrub preserve th
     ]) {
       assertEqual(userSettingsSource.includes(retiredWriterSeam), false);
     }
+    exerciseNotificationMigrationCli();
+    const migrationCliSource = readFileSync(
+      new URL('../scripts/migrate-notification-authority.js', import.meta.url),
+      'utf8',
+    );
+    for (const requiredBoundedSeam of [
+      'readLegacyNotificationUserSettingsCensus',
+      'scrubLegacyNotificationUserSettingsInTransaction',
+      'db.transaction(() => scrubLegacyNotificationUserSettingsInTransaction',
+      ')).immediate()',
+      'LEGACY_NOTIFICATION_USER_SETTING_PATHS',
+      'ROOT_ENVIRONMENT_OWNER.LEGACY_NOTIFICATION_SCRUB',
+      'MIGRATION_QUIESCENCE_ATTESTATION_REQUIRED',
+      'MIGRATION_MANIFEST_DIGEST_MISMATCH',
+      'MIGRATION_TRANSFER_RECOVERY_REQUIRED',
+      'MIGRATION_CANONICAL_AMBIENT_SHADOW',
+      'NOTIFICATION_AUTHORITY_DECISIONS_SCHEMA',
+      'finalizeNotificationAuthorityPlan',
+      'NUMERIC_SMTP_PORT',
+      'canonicalValueSha256',
+      'MIGRATION_DATABASE_POSTIMAGE_STALE',
+      'MIGRATION_SETUP_POSTIMAGE_STALE',
+      'MIGRATION_PAIASS_POSTIMAGE_STALE',
+      'createApplyStagePlan',
+      'remainingStages',
+      'ABSENCE_CONFIRMED',
+      'readExactFileIdentity(tempPath, tempWrittenStat',
+      'fs.linkSync(tempPath, exportPath)',
+      'privateSource.snapshot.sha256 === source.postimageSha256',
+      'receipts: manifest.paiassReceipts',
+      'paiassStatus: paiass.status',
+    ]) {
+      assertEqual(migrationCliSource.includes(requiredBoundedSeam), true);
+    }
+    assertEqual(migrationCliSource.includes('DELETE FROM user_settings'), false);
+    assertEqual(migrationCliSource.includes("startsWith('c3.notif.')"), false);
+    assertEqual(migrationCliSource.includes("'--project-root'"), false);
+    assert(
+      migrationCliSource.indexOf('MIGRATION_QUIESCENCE_ATTESTATION_REQUIRED')
+      < migrationCliSource.indexOf('readSafeFileSnapshot(manifestPath'),
+    );
+    assert(
+      migrationCliSource.indexOf('readExactFileIdentity(tempPath, tempWrittenStat')
+      < migrationCliSource.indexOf('fs.linkSync(tempPath, exportPath)'),
+    );
   } finally {
     db.close();
   }
