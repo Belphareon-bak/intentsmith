@@ -1,142 +1,39 @@
 // Notification Routes — channel management, config, test, log
 // ==============================================================================
 
-import { logger } from '../core/logger.js';
-import {
-  NOTIFICATION_SETTING_FIELD_MAP,
-  UserSettingsError,
-  updateNotificationUserSettings,
-} from '../db/user-settings.js';
-
-const SMTP_RUNTIME_FIELDS = Object.freeze([
-  'smtpHost',
-  'smtpPort',
-  'smtpUser',
-  'smtpPass',
-  'smtpFrom',
-]);
-
 /**
  * @param {{ notificationRouter: import('../notifications/service.js').NotificationRouter, db: import('better-sqlite3').Database, sendJSON: Function, parseBody: Function }} deps
  */
-export function createNotificationRoutes({ notificationRouter, notificationEmitter, db, sendJSON, parseBody }) {
+export function createNotificationRoutes({
+  notificationRouter,
+  notificationEnvironmentAuthority,
+  requireNotificationEnvironmentAuthority,
+  db,
+  sendJSON,
+  parseBody,
+}) {
   const rawDb = db?.db || db;
+  if (typeof requireNotificationEnvironmentAuthority !== 'function') {
+    const error = new TypeError('NOTIFICATION_ENVIRONMENT_AUTHORITY_INVALID');
+    error.code = 'NOTIFICATION_ENVIRONMENT_AUTHORITY_INVALID';
+    throw error;
+  }
+  const notificationSources = requireNotificationEnvironmentAuthority(
+    notificationEnvironmentAuthority,
+  ).status();
 
   return {
-    // ── v93: Get notification config (masks password) ─────────────────
+    // Canonical credentials are startup-only. This route exposes source
+    // metadata, never raw or masked values and never channel readiness.
     'GET /api/notifications/config': (req, res) => {
-      try {
-        const row = rawDb.prepare('SELECT data FROM user_settings WHERE id = 1').get();
-        const s = row ? JSON.parse(row.data) : {};
-        sendJSON(res, 200, {
-          emailEnabled: s['c3.notif.emailEnabled'] || false,
-          smtpHost: s['c3.notif.smtpHost'] || '',
-          smtpPort: s['c3.notif.smtpPort'] || 587,
-          smtpUser: s['c3.notif.smtpUser'] || '',
-          smtpPass: s['c3.notif.smtpPass'] ? '*****' : '',
-          smtpFrom: s['c3.notif.smtpFrom'] || '',
-          emailRecipient: s['c3.notif.emailRecipient'] || '',
-          emailOnLifecycle: s['c3.notif.emailOnLifecycle'] !== false,
-          emailOnWorker: s['c3.notif.emailOnWorker'] !== false,
-        });
-      } catch (err) {
-        sendJSON(res, 500, { error: 'Failed to read notification config' });
-      }
+      return sendJSON(res, 200, { sources: notificationSources });
     },
 
-    // ── v93: Save notification config ─────────────────────────────────
-    'POST /api/notifications/config': async (req, res) => {
-      let body;
-      try {
-        body = await parseBody(req);
-      } catch (_) {
-        return sendJSON(res, 400, {
-          success: false,
-          code: 'NOTIFICATION_SETTINGS_INPUT_INVALID',
-        });
-      }
-
-      if (body === null || typeof body !== 'object' || Array.isArray(body)) {
-        return sendJSON(res, 400, {
-          success: false,
-          code: 'NOTIFICATION_SETTINGS_INPUT_INVALID',
-        });
-      }
-
-      // Preserve the existing field contract while giving invalid input a
-      // stable public code rather than exposing implementation error text.
-      if (body.emailRecipient && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.emailRecipient)) {
-        return sendJSON(res, 400, {
-          success: false,
-          code: 'NOTIFICATION_EMAIL_RECIPIENT_INVALID',
-        });
-      }
-      if (body.smtpPort && (body.smtpPort < 1 || body.smtpPort > 65535)) {
-        return sendJSON(res, 400, {
-          success: false,
-          code: 'NOTIFICATION_SMTP_PORT_INVALID',
-        });
-      }
-
-      let committed;
-      try {
-        committed = updateNotificationUserSettings(rawDb, body);
-      } catch (error) {
-        const invalidInput = error instanceof UserSettingsError
-          && error.code === 'NOTIFICATION_SETTINGS_INPUT_INVALID';
-        return sendJSON(res, invalidInput ? 400 : 503, {
-          success: false,
-          code: invalidInput
-            ? 'NOTIFICATION_SETTINGS_INPUT_INVALID'
-            : 'NOTIFICATION_SETTINGS_STORAGE_FAILED',
-        });
-      }
-
-      let runtimeApplied = true;
-      const smtpRuntimeUpdateRequested = SMTP_RUNTIME_FIELDS.some(
-        field => Object.hasOwn(body, field)
-          && !(field === 'smtpPass' && body.smtpPass === '*****'),
-      );
-      try {
-        // Runtime changes happen only after the durable transaction commits.
-        if (smtpRuntimeUpdateRequested) {
-          const runtimeConfig = {
-            host: committed[NOTIFICATION_SETTING_FIELD_MAP.smtpHost],
-            port: committed[NOTIFICATION_SETTING_FIELD_MAP.smtpPort],
-            user: committed[NOTIFICATION_SETTING_FIELD_MAP.smtpUser],
-            pass: committed[NOTIFICATION_SETTING_FIELD_MAP.smtpPass],
-            from: committed[NOTIFICATION_SETTING_FIELD_MAP.smtpFrom],
-          };
-          if (runtimeConfig.host) {
-            notificationRouter.updateChannelConfig('email', runtimeConfig);
-          } else {
-            // EmailChannel cannot apply an empty host today. Persistence is
-            // still durable, so report the runtime divergence truthfully.
-            runtimeApplied = false;
-          }
-        }
-        if (notificationEmitter) notificationEmitter.invalidateCache();
-      } catch (_) {
-        runtimeApplied = false;
-      }
-
-      if (!runtimeApplied) {
-        try {
-          logger.warn('Notifications', 'Config committed but runtime apply failed');
-        } catch (_) {
-          // Diagnostics cannot change the durable outcome.
-        }
-        return sendJSON(res, 200, {
-          success: true,
-          runtimeApplied: false,
-          runtimeErrorCode: 'NOTIFICATION_RUNTIME_APPLY_FAILED',
-        });
-      }
-
-      return sendJSON(res, 200, {
-        success: true,
-        runtimeApplied: true,
-        runtimeErrorCode: null,
+    // Deliberately pre-parse: no DB, cache or runtime effect is reachable.
+    'POST /api/notifications/config': (req, res) => {
+      return sendJSON(res, 410, {
+        ok: false,
+        code: 'CREDENTIAL_SOURCE_READ_ONLY',
       });
     },
 
@@ -173,7 +70,10 @@ export function createNotificationRoutes({ notificationRouter, notificationEmitt
           return sendJSON(res, 400, { error: 'Missing channel parameter' });
         }
 
-        const result = await notificationRouter.testChannel(channel, recipient || 'test');
+        const result = await notificationRouter.testChannel(
+          channel,
+          Object.hasOwn(body, 'recipient') ? recipient : undefined,
+        );
         sendJSON(res, result.ok ? 200 : 400, result);
       } catch (err) {
         sendJSON(res, 500, { error: `Test failed: ${err.message}` });

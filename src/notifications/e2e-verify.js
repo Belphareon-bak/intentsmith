@@ -6,6 +6,10 @@ import {
   notificationVerifierChannelEnabled,
   readNotificationChannelPolicy,
 } from './channel-policy.js';
+import {
+  notificationEnvironmentAuthority as runtimeNotificationEnvironmentAuthority,
+  requireNotificationEnvironmentAuthority as requireRuntimeNotificationEnvironmentAuthority,
+} from '../runtime-environment.js';
 
 function disabledVerificationResult(channel) {
   return {
@@ -26,6 +30,19 @@ function requireVerificationOptIn(channel, env) {
   return notificationVerifierChannelEnabled(policy, channel)
     ? null
     : disabledVerificationResult(channel);
+}
+
+function requireVerifierEnvironmentAuthority(deps) {
+  const requireAuthority = deps.requireNotificationEnvironmentAuthority
+    ?? requireRuntimeNotificationEnvironmentAuthority;
+  const authority = deps.notificationEnvironmentAuthority
+    ?? runtimeNotificationEnvironmentAuthority;
+  if (typeof requireAuthority !== 'function') {
+    const error = new TypeError('NOTIFICATION_ENVIRONMENT_AUTHORITY_INVALID');
+    error.code = 'NOTIFICATION_ENVIRONMENT_AUTHORITY_INVALID';
+    throw error;
+  }
+  return requireAuthority(authority);
 }
 // C3-Agent — B0: E2E Notification Verification
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -67,23 +84,28 @@ export async function verifyEmail(config = {}, deps = {}) {
   const env = deps.env ?? process.env;
   const disabled = requireVerificationOptIn('email', env);
   if (disabled) return disabled;
-  const {
-    smtpHost = env.C3_SMTP_HOST,
-    smtpPort = env.C3_SMTP_PORT || 587,
-    smtpUser = env.C3_SMTP_USER,
-    smtpPass = env.C3_SMTP_PASS,
-    recipient = env.C3_TEST_EMAIL,
-  } = config;
+  const authority = requireVerifierEnvironmentAuthority(deps);
+  const value = key => authority.value(key);
+  const smtpHost = value('C3_SMTP_HOST');
+  const smtpPort = value('C3_SMTP_PORT') || 587;
+  const smtpUser = value('C3_SMTP_USER');
+  const smtpPass = value('C3_SMTP_PASS');
+  const smtpFrom = value('C3_SMTP_FROM') || smtpUser;
+  const recipient = config.recipient;
 
   const result = {
     channel: 'email',
     configured: !!(smtpHost && smtpUser && smtpPass && recipient),
     sent: false, delivered: false, latencyMs: 0, error: null, messageId: null,
-    details: { smtpHost, smtpPort, recipient: recipient ? `${recipient.substring(0, 3)}...` : null },
+    details: {
+      smtpHostSet: smtpHost.length > 0,
+      smtpPortSet: authority.status().C3_SMTP_PORT.configured,
+      recipientSet: typeof recipient === 'string' && recipient.length > 0,
+    },
   };
 
   if (!result.configured) {
-    result.error = 'Missing SMTP config: C3_SMTP_HOST, C3_SMTP_USER, C3_SMTP_PASS, C3_TEST_EMAIL';
+    result.error = 'Missing SMTP config or explicit recipient';
     return result;
   }
 
@@ -104,7 +126,7 @@ export async function verifyEmail(config = {}, deps = {}) {
 
     // Send test message
     const info = await transport.sendMail({
-      from: smtpUser,
+      from: smtpFrom,
       to: recipient,
       subject: `[C3-Agent E2E Test] ${new Date().toISOString()}`,
       text: `This is an automated E2E verification from C3-Agent.\nTimestamp: ${new Date().toISOString()}\nIf you received this, email delivery works.`,
@@ -130,20 +152,23 @@ export async function verifyTelegram(config = {}, deps = {}) {
   const env = deps.env ?? process.env;
   const disabled = requireVerificationOptIn('telegram', env);
   if (disabled) return disabled;
-  const {
-    botToken = env.C3_TELEGRAM_BOT_TOKEN,
-    chatId = env.C3_TELEGRAM_CHAT_ID,
-  } = config;
+  const authority = requireVerifierEnvironmentAuthority(deps);
+  const botToken = authority.value('C3_TELEGRAM_BOT_TOKEN');
+  const chatId = Object.hasOwn(config, 'recipient')
+    ? config.recipient
+    : authority.value('C3_TELEGRAM_CHAT_ID');
 
   const result = {
     channel: 'telegram',
-    configured: !!(botToken && chatId),
+    configured: botToken.length > 0
+      && typeof chatId === 'string'
+      && chatId.length > 0,
     sent: false, delivered: false, latencyMs: 0, error: null, messageId: null,
-    details: { chatId, botTokenSet: !!botToken },
+    details: { recipientSet: !!chatId, botTokenSet: !!botToken },
   };
 
   if (!result.configured) {
-    result.error = 'Missing Telegram config: C3_TELEGRAM_BOT_TOKEN, C3_TELEGRAM_CHAT_ID';
+    result.error = 'Missing Telegram credential or explicit recipient';
     return result;
   }
 
@@ -189,21 +214,26 @@ export async function verifyNtfy(config = {}, deps = {}) {
   const env = deps.env ?? process.env;
   const disabled = requireVerificationOptIn('ntfy', env);
   if (disabled) return disabled;
-  const {
-    serverUrl = env.C3_NTFY_URL || 'https://ntfy.sh',
-    topic = env.C3_NTFY_TOPIC,
-    token = env.C3_NTFY_TOKEN,
-  } = config;
+  const authority = requireVerifierEnvironmentAuthority(deps);
+  const serverUrl = authority.value('C3_NTFY_SERVER') || 'https://ntfy.sh';
+  const topic = Object.hasOwn(config, 'recipient')
+    ? config.recipient
+    : authority.value('C3_NTFY_TOPIC');
+  const token = authority.value('C3_NTFY_TOKEN');
 
   const result = {
     channel: 'ntfy',
-    configured: !!(topic),
+    configured: typeof topic === 'string' && topic.length > 0,
     sent: false, delivered: false, latencyMs: 0, error: null, messageId: null,
-    details: { serverUrl, topic, hasToken: !!token },
+    details: {
+      serverConfigured: authority.status().C3_NTFY_SERVER.configured,
+      recipientSet: !!topic,
+      hasToken: !!token,
+    },
   };
 
   if (!result.configured) {
-    result.error = 'Missing ntfy config: C3_NTFY_TOPIC';
+    result.error = 'Missing explicit ntfy recipient';
     return result;
   }
 

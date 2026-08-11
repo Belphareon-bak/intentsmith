@@ -4,7 +4,7 @@
 // Simple push notifications via ntfy.sh (or compatible server).
 // No external dependencies — uses native fetch.
 //
-// Config from environment:
+// Config from the injected startup environment authority:
 //   C3_NTFY_SERVER  — Server URL (default: https://ntfy.sh)
 //   C3_NTFY_TOPIC   — Default topic name
 //   C3_NTFY_TOKEN   — Optional auth token for private servers
@@ -27,12 +27,23 @@ const PRIORITY_TAGS = {
 };
 
 export class PushChannel extends NotificationChannel {
-  constructor({ logger }) {
+  #notificationEnvironmentAuthority;
+
+  constructor({
+    logger,
+    notificationEnvironmentAuthority,
+    requireNotificationEnvironmentAuthority,
+  }) {
     super();
+    if (typeof requireNotificationEnvironmentAuthority !== 'function') {
+      const error = new TypeError('NOTIFICATION_ENVIRONMENT_AUTHORITY_INVALID');
+      error.code = 'NOTIFICATION_ENVIRONMENT_AUTHORITY_INVALID';
+      throw error;
+    }
+    this.#notificationEnvironmentAuthority = requireNotificationEnvironmentAuthority(
+      notificationEnvironmentAuthority,
+    );
     this.logger = logger;
-    this.serverUrl = (process.env.C3_NTFY_SERVER || 'https://ntfy.sh').replace(/\/+$/, '');
-    this.defaultTopic = process.env.C3_NTFY_TOPIC || '';
-    this.token = process.env.C3_NTFY_TOKEN || '';
   }
 
   get name() {
@@ -40,12 +51,14 @@ export class PushChannel extends NotificationChannel {
   }
 
   async send(notification) {
-    const topic = notification.recipient || this.defaultTopic;
-    if (!topic) {
+    const value = key => this.#notificationEnvironmentAuthority.value(key);
+    const topic = notification.recipient || value('C3_NTFY_TOPIC');
+    if (typeof topic !== 'string' || topic.length === 0) {
       return { delivered: false, error: 'No topic configured (set C3_NTFY_TOPIC or provide recipient)' };
     }
 
-    const url = `${this.serverUrl}`;
+    const serverUrl = (value('C3_NTFY_SERVER') || 'https://ntfy.sh').replace(/\/+$/, '');
+    const url = `${serverUrl}`;
     const priority = Number(PRIORITY_MAP[notification.priority] || '3');
     const tags = [PRIORITY_TAGS[notification.priority] || 'robot'];
 
@@ -59,8 +72,9 @@ export class PushChannel extends NotificationChannel {
     };
 
     const headers = { 'Content-Type': 'application/json' };
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
+    const token = value('C3_NTFY_TOKEN');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
 
     try {
@@ -86,15 +100,18 @@ export class PushChannel extends NotificationChannel {
     }
   }
 
-  async verify() {
-    if (!this.defaultTopic) {
+  async verify(recipient) {
+    const value = key => this.#notificationEnvironmentAuthority.value(key);
+    const topic = recipient || value('C3_NTFY_TOPIC');
+    if (typeof topic !== 'string' || topic.length === 0) {
       return { ok: false, error: 'No topic configured (set C3_NTFY_TOPIC)' };
     }
 
     try {
-      const res = await fetch(`${this.serverUrl}/v1/health`, { signal: AbortSignal.timeout(5000) });
+      const serverUrl = (value('C3_NTFY_SERVER') || 'https://ntfy.sh').replace(/\/+$/, '');
+      const res = await fetch(`${serverUrl}/v1/health`, { signal: AbortSignal.timeout(5000) });
       if (res.ok) {
-        this.logger.info('PushChannel', `Server healthy: ${this.serverUrl}`);
+        this.logger.info('PushChannel', `Server healthy: ${serverUrl}`);
         return { ok: true };
       }
       return { ok: false, error: `Server returned ${res.status}` };

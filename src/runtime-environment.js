@@ -8,20 +8,16 @@
 // this bootstrap explicitly before initializing runtime state.
 
 import { createHmac } from 'node:crypto';
-import {
-  closeSync,
-  constants as fsConstants,
-  fstatSync,
-  lstatSync,
-  openSync,
-  readSync,
-  realpathSync,
-} from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import { normalizeLegacyLocalOrigins } from './security/legacy-local-access-policy.js';
 import { requireLegacyLoopbackHost } from './security/legacy-listener-policy.js';
+import {
+  NOTIFICATION_ENV_OWNED_KEYS,
+  readRootEnvironmentBootstrap,
+  requireRootEnvironmentBootstrap,
+} from './security/root-environment-file.js';
 
 const sourceDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(sourceDirectory, '..');
@@ -29,11 +25,12 @@ const projectRoot = path.resolve(sourceDirectory, '..');
 export const WEBHOOK_SECRET_SOURCE_UNSAFE = 'WEBHOOK_SECRET_SOURCE_UNSAFE';
 export const WEBHOOK_SECRET_AUTHORITY_INVALID = 'WEBHOOK_SECRET_AUTHORITY_INVALID';
 export const WEBHOOK_SECRET_NOT_CONFIGURED = 'WEBHOOK_SECRET_NOT_CONFIGURED';
+export const NOTIFICATION_ENVIRONMENT_AUTHORITY_INVALID =
+  'NOTIFICATION_ENVIRONMENT_AUTHORITY_INVALID';
 
 const WEBHOOK_SECRET_KEY = 'C3_WEBHOOK_SECRET';
-const MAX_ROOT_ENV_BYTES = 1024 * 1024;
-const READ_CHUNK_BYTES = 64 * 1024;
 const brandedWebhookSecretAuthorities = new WeakSet();
+const brandedNotificationEnvironmentAuthorities = new WeakSet();
 
 function webhookSecretAuthorityError(code) {
   const error = new Error(code);
@@ -46,157 +43,77 @@ function rejectUnsafeWebhookSecretSource() {
   throw webhookSecretAuthorityError(WEBHOOK_SECRET_SOURCE_UNSAFE);
 }
 
-function currentEffectiveUid() {
-  if (typeof process.geteuid !== 'function') rejectUnsafeWebhookSecretSource();
-  return BigInt(process.geteuid());
+function notificationEnvironmentAuthorityError() {
+  const error = new TypeError(NOTIFICATION_ENVIRONMENT_AUTHORITY_INVALID);
+  error.code = NOTIFICATION_ENVIRONMENT_AUTHORITY_INVALID;
+  return error;
 }
 
-function requireCanonicalProjectRoot(root) {
-  if (
-    typeof root !== 'string'
-    || !path.isAbsolute(root)
-    || path.resolve(root) !== root
-  ) {
+function requireProcessEnvironment(processEnvironment) {
+  if (!processEnvironment || typeof processEnvironment !== 'object'
+    || Array.isArray(processEnvironment)) {
     rejectUnsafeWebhookSecretSource();
   }
-  try {
-    const rootStat = lstatSync(root, { bigint: true });
-    if (
-      !rootStat.isDirectory()
-      || rootStat.isSymbolicLink()
-      || realpathSync(root) !== root
-    ) {
-      rejectUnsafeWebhookSecretSource();
-    }
-  } catch (error) {
-    if (error?.code === WEBHOOK_SECRET_SOURCE_UNSAFE) throw error;
-    rejectUnsafeWebhookSecretSource();
-  }
-  return root;
+  return processEnvironment;
 }
 
-function requireSafeRootEnvStat(stat, expectedUid) {
-  if (
-    !stat
-    || !stat.isFile()
-    || stat.isSymbolicLink()
-    || stat.uid !== expectedUid
-    || stat.nlink !== 1n
-    || (stat.mode & 0o7777n) !== 0o600n
-    || stat.size < 0n
-    || stat.size > BigInt(MAX_ROOT_ENV_BYTES)
-  ) {
-    rejectUnsafeWebhookSecretSource();
+function captureProcessNotificationValues(processEnvironment) {
+  const captured = new Map();
+  for (const key of NOTIFICATION_ENV_OWNED_KEYS) {
+    if (!Object.hasOwn(processEnvironment, key)) continue;
+    const value = processEnvironment[key];
+    if (typeof value !== 'string') rejectUnsafeWebhookSecretSource();
+    captured.set(key, value);
   }
-  return stat;
+  return captured;
 }
 
-function sameFileIdentity(left, right) {
-  return left.dev === right.dev && left.ino === right.ino;
-}
-
-function sameStableFile(left, right) {
-  return sameFileIdentity(left, right)
-    && left.size === right.size
-    && left.mtimeNs === right.mtimeNs
-    && left.ctimeNs === right.ctimeNs;
-}
-
-function readBoundedRootEnv(descriptor) {
-  const chunks = [];
-  let total = 0;
-  while (total <= MAX_ROOT_ENV_BYTES) {
-    const remaining = (MAX_ROOT_ENV_BYTES + 1) - total;
-    if (remaining === 0) break;
-    const buffer = Buffer.allocUnsafe(Math.min(READ_CHUNK_BYTES, remaining));
-    const bytesRead = readSync(descriptor, buffer, 0, buffer.length, null);
-    if (bytesRead === 0) break;
-    chunks.push(buffer.subarray(0, bytesRead));
-    total += bytesRead;
+function createNotificationEnvironmentAuthority(processValues, bootstrap) {
+  requireRootEnvironmentBootstrap(bootstrap);
+  const values = new Map();
+  const sources = {};
+  for (const key of NOTIFICATION_ENV_OWNED_KEYS) {
+    const processOwnsValue = processValues.has(key);
+    const value = processOwnsValue
+      ? processValues.get(key)
+      : (bootstrap.notificationValue(key) ?? '');
+    if (typeof value !== 'string') rejectUnsafeWebhookSecretSource();
+    values.set(key, value);
+    sources[key] = Object.freeze({
+      configured: value.length > 0,
+      source: processOwnsValue ? 'PROCESS_ENV' : 'ROOT_ENV_FILE',
+    });
   }
-  if (total > MAX_ROOT_ENV_BYTES) rejectUnsafeWebhookSecretSource();
-  return Buffer.concat(chunks, total);
-}
+  Object.freeze(sources);
 
-function readSafeRootEnvironment(root) {
-  const canonicalRoot = requireCanonicalProjectRoot(root);
-  const target = path.join(canonicalRoot, '.env');
-  const expectedUid = currentEffectiveUid();
-  let pathStat;
-  try {
-    pathStat = lstatSync(target, { bigint: true });
-  } catch (error) {
-    if (error?.code === 'ENOENT') return Object.freeze(Object.create(null));
-    rejectUnsafeWebhookSecretSource();
-  }
-  requireSafeRootEnvStat(pathStat, expectedUid);
-
-  if (
-    !Number.isInteger(fsConstants.O_NOFOLLOW)
-    || fsConstants.O_NOFOLLOW === 0
-    || !Number.isInteger(fsConstants.O_NONBLOCK)
-    || fsConstants.O_NONBLOCK === 0
-  ) {
-    rejectUnsafeWebhookSecretSource();
-  }
-
-  let descriptor;
-  try {
-    descriptor = openSync(
-      target,
-      fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW | fsConstants.O_NONBLOCK,
-    );
-    const openedStat = requireSafeRootEnvStat(
-      fstatSync(descriptor, { bigint: true }),
-      expectedUid,
-    );
-    if (!sameFileIdentity(pathStat, openedStat)) rejectUnsafeWebhookSecretSource();
-
-    const bytes = readBoundedRootEnv(descriptor);
-    const afterReadStat = requireSafeRootEnvStat(
-      fstatSync(descriptor, { bigint: true }),
-      expectedUid,
-    );
-    if (!sameStableFile(openedStat, afterReadStat) || afterReadStat.size !== BigInt(bytes.length)) {
-      rejectUnsafeWebhookSecretSource();
-    }
-
-    const finalPathStat = requireSafeRootEnvStat(
-      lstatSync(target, { bigint: true }),
-      expectedUid,
-    );
-    if (!sameStableFile(afterReadStat, finalPathStat)) rejectUnsafeWebhookSecretSource();
-    if (realpathSync(canonicalRoot) !== canonicalRoot) rejectUnsafeWebhookSecretSource();
-
-    let parsed;
-    try {
-      parsed = dotenv.parse(bytes);
-    } catch {
-      rejectUnsafeWebhookSecretSource();
-    }
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      rejectUnsafeWebhookSecretSource();
-    }
-    return parsed;
-  } catch (error) {
-    if (error?.code === WEBHOOK_SECRET_SOURCE_UNSAFE) throw error;
-    rejectUnsafeWebhookSecretSource();
-  } finally {
-    if (descriptor !== undefined) {
-      try {
-        closeSync(descriptor);
-      } catch {
-        rejectUnsafeWebhookSecretSource();
-      }
-    }
-  }
-}
-
-function createWebhookSecretAuthority(selectedSecret, source) {
-  const status = Object.freeze({
-    configured: selectedSecret.length > 0,
-    source,
+  const ownedKeys = new Set(NOTIFICATION_ENV_OWNED_KEYS);
+  const authority = Object.create(null);
+  Object.defineProperties(authority, {
+    status: {
+      enumerable: false,
+      value: () => sources,
+    },
+    value: {
+      enumerable: false,
+      value: key => {
+        if (typeof key !== 'string' || !ownedKeys.has(key)) {
+          throw notificationEnvironmentAuthorityError();
+        }
+        return values.get(key);
+      },
+    },
   });
+  Object.freeze(authority);
+  brandedNotificationEnvironmentAuthorities.add(authority);
+  return authority;
+}
+
+function createWebhookSecretAuthority(notificationAuthority) {
+  const validatedNotificationAuthority = requireNotificationEnvironmentAuthority(
+    notificationAuthority,
+  );
+  const selectedSecret = validatedNotificationAuthority.value(WEBHOOK_SECRET_KEY);
+  const status = validatedNotificationAuthority.status()[WEBHOOK_SECRET_KEY];
   const authority = Object.create(null);
   Object.defineProperties(authority, {
     status: {
@@ -229,41 +146,22 @@ function createWebhookSecretAuthority(selectedSecret, source) {
 }
 
 /**
- * Read the exact install-root dotenv file once and create an opaque startup
- * authority. The supplied environment is populated only from the verified
- * bytes and never receives the root-file webhook secret.
+ * Read the exact install-root dotenv file once and derive both notification
+ * capabilities from that immutable snapshot. Ordinary dotenv values retain
+ * dotenv's established no-override behavior; canonical and legacy
+ * notification values never enter the ambient environment.
  */
-export function readWebhookSecretAuthority({ projectRoot: root, processEnvironment }) {
-  if (
-    !processEnvironment
-    || typeof processEnvironment !== 'object'
-    || Array.isArray(processEnvironment)
-  ) {
-    rejectUnsafeWebhookSecretSource();
-  }
-
-  const processOwnsSecret = Object.hasOwn(processEnvironment, WEBHOOK_SECRET_KEY);
-  const processSecret = processOwnsSecret
-    ? processEnvironment[WEBHOOK_SECRET_KEY]
-    : null;
-  if (processOwnsSecret && typeof processSecret !== 'string') {
-    rejectUnsafeWebhookSecretSource();
-  }
-
-  // Validate the root even when the process value wins: its other dotenv keys
-  // are still runtime inputs, and no unsafe source may reach a later effect.
-  const rootEnvironment = readSafeRootEnvironment(root);
-  const rootSecret = Object.hasOwn(rootEnvironment, WEBHOOK_SECRET_KEY)
-    ? rootEnvironment[WEBHOOK_SECRET_KEY]
-    : '';
-  if (typeof rootSecret !== 'string') rejectUnsafeWebhookSecretSource();
-
-  const nonSecretRootEnvironment = Object.create(null);
-  for (const [key, value] of Object.entries(rootEnvironment)) {
-    if (key !== WEBHOOK_SECRET_KEY) nonSecretRootEnvironment[key] = value;
-  }
+export function readRuntimeEnvironmentAuthorities({ projectRoot: root, processEnvironment }) {
+  requireProcessEnvironment(processEnvironment);
+  const processValues = captureProcessNotificationValues(processEnvironment);
+  let bootstrap;
   try {
-    dotenv.populate(processEnvironment, nonSecretRootEnvironment, {
+    bootstrap = readRootEnvironmentBootstrap({ projectRoot: root });
+    const ambientEnvironment = Object.create(null);
+    bootstrap.forEachAmbient((key, value) => {
+      ambientEnvironment[key] = value;
+    });
+    dotenv.populate(processEnvironment, ambientEnvironment, {
       debug: false,
       override: false,
     });
@@ -271,10 +169,35 @@ export function readWebhookSecretAuthority({ projectRoot: root, processEnvironme
     rejectUnsafeWebhookSecretSource();
   }
 
-  return createWebhookSecretAuthority(
-    processOwnsSecret ? processSecret : rootSecret,
-    processOwnsSecret ? 'PROCESS_ENV' : 'ROOT_ENV_FILE',
+  const notificationEnvironmentAuthority = createNotificationEnvironmentAuthority(
+    processValues,
+    bootstrap,
   );
+  const webhookSecretAuthority = createWebhookSecretAuthority(
+    notificationEnvironmentAuthority,
+  );
+  return Object.freeze({
+    notificationEnvironmentAuthority,
+    webhookSecretAuthority,
+  });
+}
+
+export function readNotificationEnvironmentAuthority(options) {
+  return readRuntimeEnvironmentAuthorities(options).notificationEnvironmentAuthority;
+}
+
+export function readWebhookSecretAuthority(options) {
+  return readRuntimeEnvironmentAuthorities(options).webhookSecretAuthority;
+}
+
+export function requireNotificationEnvironmentAuthority(value) {
+  if ((typeof value !== 'object' && typeof value !== 'function')
+    || value === null
+    || !brandedNotificationEnvironmentAuthorities.has(value)
+    || !Object.isFrozen(value)) {
+    throw notificationEnvironmentAuthorityError();
+  }
+  return value;
 }
 
 export function requireWebhookSecretAuthority(value) {
@@ -289,13 +212,17 @@ export function requireWebhookSecretAuthority(value) {
   return value;
 }
 
-// This synchronous read is deliberately the first runtime operation. It loads
-// all non-secret dotenv values from already verified root-file bytes and keeps
-// the webhook HMAC in one immutable, process-lifetime capability.
-export const webhookSecretAuthority = readWebhookSecretAuthority({
+// This synchronous read is deliberately the first runtime operation. A single
+// safe snapshot feeds ordinary dotenv parity, all twelve notification values
+// and the existing webhook HMAC signer without ambient credential population.
+const runtimeEnvironmentAuthorities = readRuntimeEnvironmentAuthorities({
   projectRoot,
   processEnvironment: process.env,
 });
+export const notificationEnvironmentAuthority =
+  runtimeEnvironmentAuthorities.notificationEnvironmentAuthority;
+export const webhookSecretAuthority =
+  runtimeEnvironmentAuthorities.webhookSecretAuthority;
 
 const M1_WIRE_CONFIG_INVALID = 'M1_WIRE_CONFIG_INVALID';
 const DEFAULT_M1_ATTACHMENT_COUNT = 8;

@@ -422,6 +422,24 @@ výstupem; explicitní canonical getter přijme jen key z hard owner setu a
 ordinary hodnoty předá pouze injected callbacku. Samotný seam nic nekopíruje
 do `process.env`.
 
+Navazující C2a pracovní checkpoint používá právě jeden tento bootstrap read pro
+frozen WeakSet-branded dvanáctiklíčovou notification environment authority i
+existující 028 webhook signer. Own process string vyhrává včetně prázdného;
+root canonical a legacy notification values se do ambientního `process.env`
+nekopírují, zatímco ordinary dotenv hodnoty zachovávají no-override chování.
+Stejná opaque notification authority je injected do serveru, workers,
+pipeline, factory, Email/Telegram/Push kanálů, config status routy a E2E
+verifieru. `WebhookChannel` dostává pouze odvozený injected URL string a stejný
+028 signer, nikoli celou notification authority ani její snapshot.
+Config GET vrací jen exact `{sources:{...12 leaves...}}`, config POST končí
+pre-parse exact 410 a runtime config settery ani `NotificationEmitter`
+lifecycle/worker bridge už nemají produkční call graph. Manual test/send a
+AgentRunner caller-supplied destinations zůstávají. Toto je pouze C2a source
+progress: C2b repository writer/scrub ještě není zapojený, legacy data nejsou
+migrovaná ani scrubnutá a celý 026 proto není hotový ani promovaný. Writer nad
+C2a záměrně nespustil behavior suite; syntax, diff hygiene a nezávislý focused
+run/review se evidují až na immutable checkpointu.
+
 `SetupWizard.writeEnvFile()` deleguje jen owner `SETUP`; strict auth, route
 responses a completion flow zůstávají beze změny. Nový/default Setup vytváří
 u `telegram`, `email` a `ntfy` pouze `enabled:false`, zatímco validator a

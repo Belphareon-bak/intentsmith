@@ -20,15 +20,24 @@ import { parse as parseDotenv } from 'dotenv';
 
 import {
   createNotificationRouter,
+  EmailChannel,
+  PushChannel,
+  TelegramChannel,
   WebhookChannel,
 } from '../src/notifications/index.js';
 import {
+  NOTIFICATION_ENVIRONMENT_AUTHORITY_INVALID,
   WEBHOOK_SECRET_AUTHORITY_INVALID,
   WEBHOOK_SECRET_NOT_CONFIGURED,
   WEBHOOK_SECRET_SOURCE_UNSAFE,
+  notificationEnvironmentAuthority,
+  readRuntimeEnvironmentAuthorities,
   readWebhookSecretAuthority,
+  requireNotificationEnvironmentAuthority,
   requireWebhookSecretAuthority,
+  webhookSecretAuthority,
 } from '../src/runtime-environment.js';
+import { createNotificationRoutes } from '../src/routes/notifications.js';
 import {
   EXTERNAL_NOTIFICATION_CHANNEL_FLAGS,
   EXTERNAL_NOTIFICATION_CHANNELS,
@@ -89,6 +98,12 @@ const SILENT_LOGGER = Object.freeze({
   warn() {},
 });
 const SETUP_ADMIN_TOKEN = 'fixture-admin-token';
+const RUNTIME_NOTIFICATION_DEPENDENCIES = Object.freeze({
+  notificationEnvironmentAuthority,
+  requireNotificationEnvironmentAuthority,
+  requireWebhookSecretAuthority,
+  webhookSecretAuthority,
+});
 
 const EXPECTED_CHANNEL_FLAGS = Object.freeze({
   email: 'C3_ENABLE_NOTIFICATION_EMAIL',
@@ -165,9 +180,6 @@ function fakeChannelFactories(counters) {
           counters.verify += 1;
           return { ok: true };
         },
-        updateConfig() {
-          counters.update += 1;
-        },
       };
     },
   ]));
@@ -178,7 +190,6 @@ function makeCounters() {
     construct: Object.fromEntries(EXTERNAL_NOTIFICATION_CHANNELS.map(name => [name, 0])),
     send: 0,
     verify: 0,
-    update: 0,
   };
 }
 
@@ -271,6 +282,7 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
 
   const defaultCounters = makeCounters();
   const defaultRouter = createNotificationRouter({
+    ...RUNTIME_NOTIFICATION_DEPENDENCIES,
     env: {},
     channelFactories: fakeChannelFactories(defaultCounters),
     logger: SILENT_LOGGER,
@@ -285,6 +297,7 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
   for (const [channelName, envName] of Object.entries(EXPECTED_CHANNEL_FLAGS)) {
     const counters = makeCounters();
     const router = createNotificationRouter({
+      ...RUNTIME_NOTIFICATION_DEPENDENCIES,
       env: { [envName]: 'true' },
       channelFactories: fakeChannelFactories(counters),
       logger: SILENT_LOGGER,
@@ -295,6 +308,7 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
 
     const offCounters = makeCounters();
     const offRouter = createNotificationRouter({
+      ...RUNTIME_NOTIFICATION_DEPENDENCIES,
       env: { [envName]: 'false' },
       channelFactories: fakeChannelFactories(offCounters),
       logger: SILENT_LOGGER,
@@ -304,6 +318,7 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
 
     const invalidCounters = makeCounters();
     const invalid = captureError(() => createNotificationRouter({
+      ...RUNTIME_NOTIFICATION_DEPENDENCIES,
       env: { [envName]: 'TRUE' },
       channelFactories: fakeChannelFactories(invalidCounters),
       logger: SILENT_LOGGER,
@@ -314,6 +329,7 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
 
   const partialCounters = makeCounters();
   assertErrorCode(() => createNotificationRouter({
+    ...RUNTIME_NOTIFICATION_DEPENDENCIES,
     env: {
       C3_ENABLE_NOTIFICATION_EMAIL: 'true',
       C3_ENABLE_NOTIFICATION_DESKTOP: '1',
@@ -329,20 +345,14 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
   const disabledSend = await defaultRouter.send({ channel: 'email', title: 'no effect' });
   assert.equal(disabledSend.code, NOTIFICATION_CHANNEL_DISABLED);
   assert.equal((await defaultRouter.testChannel('email', 'nobody')).code, NOTIFICATION_CHANNEL_DISABLED);
-  assert.equal(
-    defaultRouter.updateChannelConfig('email', { pass: 'must-not-apply' }).code,
-    NOTIFICATION_CHANNEL_DISABLED,
-  );
   assert.equal((await defaultRouter.send({ channel: 'slack' })).code, NOTIFICATION_CHANNEL_UNSUPPORTED);
   assert.equal((await defaultRouter.testChannel('slack', 'nobody')).code, NOTIFICATION_CHANNEL_UNSUPPORTED);
-  assert.equal(
-    defaultRouter.updateChannelConfig('slack', { token: 'must-not-apply' }).code,
-    NOTIFICATION_CHANNEL_UNSUPPORTED,
-  );
+  assert.equal(Object.hasOwn(defaultRouter, 'updateChannelConfig'), false);
+  assert.equal(typeof defaultRouter.updateChannelConfig, 'undefined');
   assert.equal(defaultRouter.registerChannel({ name: 'ntfy', async send() {} }), false);
   assert.deepEqual(
-    { send: defaultCounters.send, verify: defaultCounters.verify, update: defaultCounters.update },
-    { send: 0, verify: 0, update: 0 },
+    { send: defaultCounters.send, verify: defaultCounters.verify },
+    { send: 0, verify: 0 },
   );
 
   // WP028 CORE evidence lives in this existing program: the install-root
@@ -495,6 +505,12 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
       }
     }
 
+    installAuthorityEnv(rootWithSecret, 0o600);
+    assertTypedAuthorityError(() => readRuntimeEnvironmentAuthorities({
+      projectRoot: authorityProjectRoot,
+      processEnvironment: { C3_SMTP_HOST: 2525 },
+    }), WEBHOOK_SECRET_SOURCE_UNSAFE);
+
     installAuthorityEnv('C3_WEBHOOK_SECRET=root-must-not-bypass-mode\n', 0o644);
     assertTypedAuthorityError(() => readWebhookSecretAuthority({
       projectRoot: authorityProjectRoot,
@@ -548,22 +564,326 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
       expectedHmac('root-snapshot-b', deterministicPayload, deterministicTimestamp),
     );
 
-    const mutableProcessEnvironment = { C3_WEBHOOK_SECRET: 'process-snapshot-a' };
-    const processSnapshotAuthority = readWebhookSecretAuthority({
+    installAuthorityEnv([
+      'C3_WEBHOOK_SECRET=root-snapshot-b',
+      'C3_WEBHOOK_URL=https://root-webhook.invalid/hook',
+      'C3_SMTP_HOST=root-smtp.invalid',
+      'C3_SMTP_USER=root-user',
+      'ROOT_NON_SECRET=single-read-ambient',
+      '',
+    ].join('\n'), 0o600);
+    const mutableProcessEnvironment = {
+      C3_WEBHOOK_SECRET: 'process-snapshot-a',
+      C3_WEBHOOK_URL: 'https://injected-webhook.invalid/hook',
+      C3_SMTP_HOST: '',
+    };
+    const processSnapshotAuthorities = readRuntimeEnvironmentAuthorities({
       projectRoot: authorityProjectRoot,
       processEnvironment: mutableProcessEnvironment,
     });
+    const processSnapshotAuthority = processSnapshotAuthorities.webhookSecretAuthority;
+    const processNotificationAuthority =
+      processSnapshotAuthorities.notificationEnvironmentAuthority;
+    assert.equal(Object.isFrozen(processNotificationAuthority), true);
+    assert.equal(Object.getPrototypeOf(processNotificationAuthority), null);
+    assert.deepEqual(Object.keys(processNotificationAuthority), []);
+    assert.deepEqual(Reflect.ownKeys(processNotificationAuthority).sort(), ['status', 'value']);
+    assert.equal(JSON.stringify(processNotificationAuthority), '{}');
+    assert.equal(
+      requireNotificationEnvironmentAuthority(processNotificationAuthority),
+      processNotificationAuthority,
+    );
+    const notificationStatus = processNotificationAuthority.status();
+    assert.equal(Object.isFrozen(notificationStatus), true);
+    assert.deepEqual(Object.keys(notificationStatus), EXPECTED_NOTIFICATION_ENV_KEYS);
+    for (const leaf of Object.values(notificationStatus)) {
+      assert.equal(Object.isFrozen(leaf), true);
+      assert.deepEqual(Object.keys(leaf), ['configured', 'source']);
+    }
+    assert.deepEqual(notificationStatus.C3_SMTP_HOST, {
+      configured: false,
+      source: 'PROCESS_ENV',
+    });
+    assert.deepEqual(notificationStatus.C3_SMTP_USER, {
+      configured: true,
+      source: 'ROOT_ENV_FILE',
+    });
+    assert.equal(
+      processSnapshotAuthority.status(),
+      notificationStatus.C3_WEBHOOK_SECRET,
+    );
+    assert.equal(mutableProcessEnvironment.ROOT_NON_SECRET, 'single-read-ambient');
+    assert.equal(mutableProcessEnvironment.C3_SMTP_HOST, '');
+    assert.equal(Object.hasOwn(mutableProcessEnvironment, 'C3_SMTP_USER'), false);
+    assert.equal(Object.hasOwn(mutableProcessEnvironment, 'C3_NTFY_URL'), false);
+    assertErrorCode(
+      () => processNotificationAuthority.value('C3_NTFY_URL'),
+      NOTIFICATION_ENVIRONMENT_AUTHORITY_INVALID,
+    );
+    assertErrorCode(
+      () => requireNotificationEnvironmentAuthority(Object.freeze(Object.create(null))),
+      NOTIFICATION_ENVIRONMENT_AUTHORITY_INVALID,
+    );
+
+    let notificationRouteResponse = null;
+    let notificationRouteParseCalls = 0;
+    let notificationRouteDbCalls = 0;
+    const notificationRoutes = createNotificationRoutes({
+      notificationRouter: { channels: new Map(), getAvailableChannels: () => ['in_app'] },
+      notificationEnvironmentAuthority: processNotificationAuthority,
+      requireNotificationEnvironmentAuthority,
+      db: {
+        prepare() {
+          notificationRouteDbCalls += 1;
+          throw new Error('DB must stay unreachable');
+        },
+      },
+      async parseBody() {
+        notificationRouteParseCalls += 1;
+        throw new Error('body must stay unread');
+      },
+      sendJSON(_res, status, body) {
+        notificationRouteResponse = { status, body };
+        return notificationRouteResponse;
+      },
+    });
+    notificationRoutes['GET /api/notifications/config']({}, {});
+    assert.deepEqual(notificationRouteResponse, {
+      status: 200,
+      body: { sources: notificationStatus },
+    });
+    notificationRoutes['POST /api/notifications/config']({}, {});
+    assert.deepEqual(notificationRouteResponse, {
+      status: 410,
+      body: { ok: false, code: 'CREDENTIAL_SOURCE_READ_ONLY' },
+    });
+    assert.equal(notificationRouteParseCalls, 0);
+    assert.equal(notificationRouteDbCalls, 0);
+
+    let observedTestRecipient = 'NOT_CALLED';
+    const notificationTestRoutes = createNotificationRoutes({
+      notificationRouter: {
+        channels: new Map(),
+        getAvailableChannels: () => ['in_app'],
+        async testChannel(_channel, recipient) {
+          observedTestRecipient = recipient;
+          return { ok: false, error: 'fixture' };
+        },
+      },
+      notificationEnvironmentAuthority: processNotificationAuthority,
+      requireNotificationEnvironmentAuthority,
+      db: { prepare() { throw new Error('DB must stay unreachable'); } },
+      async parseBody() { return { channel: 'telegram' }; },
+      sendJSON() {},
+    });
+    await notificationTestRoutes['POST /api/notifications/test']({}, {});
+    assert.equal(observedTestRecipient, undefined);
+
+    let realFactoryFetchCalls = 0;
+    globalThis.fetch = () => {
+      realFactoryFetchCalls += 1;
+      throw new Error('disabled/missing notification config reached fetch');
+    };
+    const realFactoryRouter = createNotificationRouter({
+      env: {
+        C3_ENABLE_NOTIFICATION_EMAIL: 'true',
+        C3_ENABLE_NOTIFICATION_TELEGRAM: 'true',
+        C3_ENABLE_NOTIFICATION_PUSH: 'true',
+      },
+      logger: SILENT_LOGGER,
+      notificationEnvironmentAuthority: processNotificationAuthority,
+      requireNotificationEnvironmentAuthority,
+      requireWebhookSecretAuthority,
+      webhookSecretAuthority: processSnapshotAuthority,
+    });
+    assert.equal(realFactoryRouter.channels.get('email') instanceof EmailChannel, true);
+    assert.equal(realFactoryRouter.channels.get('telegram') instanceof TelegramChannel, true);
+    assert.equal(realFactoryRouter.channels.get('push') instanceof PushChannel, true);
+    assert.equal((await realFactoryRouter.channels.get('email').send({ recipient: '' })).delivered, false);
+    assert.equal((await realFactoryRouter.channels.get('email').send({ recipient: 'nobody@example.invalid' })).delivered, false);
+    assert.equal((await realFactoryRouter.testChannel('email', undefined)).ok, false);
+    assert.equal((await realFactoryRouter.channels.get('telegram').send({})).delivered, false);
+    assert.equal((await realFactoryRouter.channels.get('telegram').send({ recipient: 'explicit' })).delivered, false);
+    assert.equal((await realFactoryRouter.channels.get('push').send({})).delivered, false);
+    assert.equal(realFactoryFetchCalls, 0);
+
+    installAuthorityEnv([
+      'C3_TELEGRAM_BOT_TOKEN=root-token-must-not-win',
+      'C3_TELEGRAM_CHAT_ID=root-chat-must-not-win',
+      'C3_NTFY_TOPIC=root-topic-must-not-win',
+      '',
+    ].join('\n'), 0o600);
+    const ownEmptyAuthorities = readRuntimeEnvironmentAuthorities({
+      projectRoot: authorityProjectRoot,
+      processEnvironment: {
+        C3_TELEGRAM_BOT_TOKEN: '',
+        C3_TELEGRAM_CHAT_ID: '',
+        C3_NTFY_TOPIC: '',
+      },
+    });
+    for (const key of [
+      'C3_TELEGRAM_BOT_TOKEN',
+      'C3_TELEGRAM_CHAT_ID',
+      'C3_NTFY_TOPIC',
+    ]) {
+      assert.deepEqual(ownEmptyAuthorities.notificationEnvironmentAuthority.status()[key], {
+        configured: false,
+        source: 'PROCESS_ENV',
+      });
+    }
+    const ownEmptyRouter = createNotificationRouter({
+      env: {
+        C3_ENABLE_NOTIFICATION_TELEGRAM: 'true',
+        C3_ENABLE_NOTIFICATION_PUSH: 'true',
+      },
+      logger: SILENT_LOGGER,
+      notificationEnvironmentAuthority:
+        ownEmptyAuthorities.notificationEnvironmentAuthority,
+      requireNotificationEnvironmentAuthority,
+      requireWebhookSecretAuthority,
+      webhookSecretAuthority: ownEmptyAuthorities.webhookSecretAuthority,
+    });
+    assert.equal((await ownEmptyRouter.channels.get('telegram').send({})).delivered, false);
+    assert.equal((await ownEmptyRouter.channels.get('push').send({})).delivered, false);
+    assert.equal(realFactoryFetchCalls, 0);
+
+    installAuthorityEnv('ROOT_NON_SECRET=test-channel-authority\n', 0o600);
+    const testChannelAuthorities = readRuntimeEnvironmentAuthorities({
+      projectRoot: authorityProjectRoot,
+      processEnvironment: {
+        C3_TELEGRAM_BOT_TOKEN: 'test-channel-token',
+        C3_TELEGRAM_CHAT_ID: '',
+        C3_NTFY_SERVER: 'https://test-channel-ntfy.invalid',
+        C3_NTFY_TOPIC: '',
+        C3_NTFY_TOKEN: '',
+        C3_WEBHOOK_URL: '',
+        C3_WEBHOOK_SECRET: 'test-channel-secret',
+      },
+    });
+    const testChannelFetches = [];
+    globalThis.fetch = async (url, options = {}) => {
+      const request = { url: String(url), options };
+      testChannelFetches.push(request);
+      if (request.url.endsWith('/getMe')) {
+        return {
+          ok: true,
+          async json() { return { ok: true, result: { username: 'fixture_bot' } }; },
+        };
+      }
+      if (request.url.endsWith('/sendMessage')) {
+        return {
+          ok: true,
+          async json() { return { ok: true, result: { message_id: 17 } }; },
+        };
+      }
+      if (request.url === 'https://test-channel-ntfy.invalid/v1/health') {
+        return { ok: true, status: 200 };
+      }
+      if (request.url === 'https://test-channel-ntfy.invalid') {
+        return {
+          ok: true,
+          status: 200,
+          async json() { return { id: 'test-channel-push' }; },
+        };
+      }
+      if (request.url === 'https://test-channel-webhook.invalid/hook') {
+        return { ok: true, status: 204 };
+      }
+      throw new Error(`unexpected testChannel request: ${request.url}`);
+    };
+    const testChannelRouter = createNotificationRouter({
+      env: {
+        C3_ENABLE_NOTIFICATION_TELEGRAM: 'true',
+        C3_ENABLE_NOTIFICATION_PUSH: 'true',
+        C3_ENABLE_NOTIFICATION_WEBHOOK: 'true',
+      },
+      logger: SILENT_LOGGER,
+      notificationEnvironmentAuthority:
+        testChannelAuthorities.notificationEnvironmentAuthority,
+      requireNotificationEnvironmentAuthority,
+      requireWebhookSecretAuthority,
+      webhookSecretAuthority: testChannelAuthorities.webhookSecretAuthority,
+    });
+    assert.equal((await testChannelRouter.testChannel('telegram', 'caller-chat')).ok, true);
+    assert.equal((await testChannelRouter.testChannel('push', 'caller-topic')).ok, true);
+    assert.equal(
+      (await testChannelRouter.testChannel(
+        'webhook',
+        'https://test-channel-webhook.invalid/hook',
+      )).ok,
+      true,
+    );
+    assert.equal(
+      JSON.parse(testChannelFetches.find(call => call.url.endsWith('/sendMessage')).options.body)
+        .chat_id,
+      'caller-chat',
+    );
+    assert.equal(
+      JSON.parse(testChannelFetches.find(
+        call => call.url === 'https://test-channel-ntfy.invalid',
+      ).options.body).topic,
+      'caller-topic',
+    );
+    const fetchesBeforeRejectedTestChannels = testChannelFetches.length;
+    for (const [channel, recipient] of [
+      ['telegram', undefined],
+      ['telegram', { invalid: true }],
+      ['push', undefined],
+      ['push', ['invalid']],
+      ['webhook', undefined],
+      ['webhook', 'not a valid URL'],
+    ]) {
+      assert.equal((await testChannelRouter.testChannel(channel, recipient)).ok, false);
+    }
+    assert.equal(testChannelFetches.length, fetchesBeforeRejectedTestChannels);
+
+    const canonicalChannelAuthorities = readRuntimeEnvironmentAuthorities({
+      projectRoot: authorityProjectRoot,
+      processEnvironment: {
+        C3_TELEGRAM_BOT_TOKEN: 'canonical-channel-token',
+        C3_TELEGRAM_CHAT_ID: 'canonical-chat',
+        C3_NTFY_SERVER: 'https://test-channel-ntfy.invalid',
+        C3_NTFY_TOPIC: 'canonical-topic',
+        C3_WEBHOOK_URL: 'https://canonical-webhook.invalid/hook',
+        C3_WEBHOOK_SECRET: 'canonical-channel-secret',
+      },
+    });
+    const canonicalChannelRouter = createNotificationRouter({
+      env: {
+        C3_ENABLE_NOTIFICATION_TELEGRAM: 'true',
+        C3_ENABLE_NOTIFICATION_PUSH: 'true',
+        C3_ENABLE_NOTIFICATION_WEBHOOK: 'true',
+      },
+      logger: SILENT_LOGGER,
+      notificationEnvironmentAuthority:
+        canonicalChannelAuthorities.notificationEnvironmentAuthority,
+      requireNotificationEnvironmentAuthority,
+      requireWebhookSecretAuthority,
+      webhookSecretAuthority: canonicalChannelAuthorities.webhookSecretAuthority,
+    });
+    assert.equal((await canonicalChannelRouter.channels.get('telegram').verify()).ok, true);
+    assert.equal((await canonicalChannelRouter.channels.get('push').verify()).ok, true);
+    assert.equal((await canonicalChannelRouter.channels.get('webhook').verify()).ok, true);
+
     mutableProcessEnvironment.C3_WEBHOOK_SECRET = 'process-snapshot-b';
+    mutableProcessEnvironment.C3_WEBHOOK_URL = 'https://mutated-ambient.invalid/hook';
     assert.equal(
       processSnapshotAuthority.sign(deterministicPayload, deterministicTimestamp),
       expectedHmac('process-snapshot-a', deterministicPayload, deterministicTimestamp),
     );
-    const restartedProcessAuthority = readWebhookSecretAuthority({
+    assert.equal(
+      processNotificationAuthority.value('C3_WEBHOOK_URL'),
+      'https://injected-webhook.invalid/hook',
+    );
+    const restartedProcessAuthorities = readRuntimeEnvironmentAuthorities({
       projectRoot: authorityProjectRoot,
       processEnvironment: mutableProcessEnvironment,
     });
     assert.equal(
-      restartedProcessAuthority.sign(deterministicPayload, deterministicTimestamp),
+      restartedProcessAuthorities.webhookSecretAuthority.sign(
+        deterministicPayload,
+        deterministicTimestamp,
+      ),
       expectedHmac('process-snapshot-b', deterministicPayload, deterministicTimestamp),
     );
 
@@ -604,6 +924,15 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
       requireWebhookSecretAuthority,
       webhookSecretAuthority: forgedAuthority,
     }), WEBHOOK_SECRET_AUTHORITY_INVALID);
+    assertErrorCode(() => new WebhookChannel({
+      requireWebhookSecretAuthority,
+      webhookSecretAuthority: processSnapshotAuthority,
+    }), NOTIFICATION_ENVIRONMENT_AUTHORITY_INVALID);
+    assertErrorCode(() => new WebhookChannel({
+      url: null,
+      requireWebhookSecretAuthority,
+      webhookSecretAuthority: processSnapshotAuthority,
+    }), NOTIFICATION_ENVIRONMENT_AUTHORITY_INVALID);
     const rawInjectionError = captureError(() => new WebhookChannel({
       url: 'https://fake-webhook.invalid/raw',
       secret: 'RAW_SECRET_CANARY',
@@ -613,7 +942,7 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
     assert.equal(rawInjectionError.code, 'WEBHOOK_SECRET_RAW_INJECTION_RETIRED');
     assert.equal(rawInjectionError.message, 'WEBHOOK_SECRET_RAW_INJECTION_RETIRED');
 
-    process.env.C3_WEBHOOK_URL = 'https://fake-webhook.invalid/default-factory';
+    process.env.C3_WEBHOOK_URL = 'https://ambient-webhook-must-not-win.invalid/hook';
     Date.now = () => deterministicTimestamp;
     const fakeFetchCalls = [];
     globalThis.fetch = async (url, options) => {
@@ -623,11 +952,15 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
     const actualRouter = createNotificationRouter({
       env: { C3_ENABLE_NOTIFICATION_WEBHOOK: 'true' },
       logger: SILENT_LOGGER,
+      notificationEnvironmentAuthority: processNotificationAuthority,
+      requireNotificationEnvironmentAuthority,
       requireWebhookSecretAuthority,
       webhookSecretAuthority: processSnapshotAuthority,
     });
     const actualWebhookChannel = actualRouter.channels.get('webhook');
     assert.equal(actualWebhookChannel instanceof WebhookChannel, true);
+    assert.equal(JSON.stringify(actualWebhookChannel).includes('injected-webhook'), false);
+    assert.equal(Object.hasOwn(actualWebhookChannel, 'url'), false);
     assert.deepEqual(await actualWebhookChannel.verify(), { ok: true });
     const actualDelivery = await actualRouter.send({
       channel: 'webhook',
@@ -639,7 +972,7 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
     assert.equal(actualDelivery.delivered, true);
     assert.equal(fakeFetchCalls.length, 1);
     const [{ url: fetchedUrl, options: fetchedOptions }] = fakeFetchCalls;
-    assert.equal(fetchedUrl, 'https://fake-webhook.invalid/default-factory');
+    assert.equal(fetchedUrl, 'https://injected-webhook.invalid/hook');
     assert.equal(fetchedOptions.method, 'POST');
     const sentTimestamp = Number(fetchedOptions.headers['X-C3-Timestamp']);
     const sentPayload = JSON.parse(fetchedOptions.body);
@@ -650,16 +983,23 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
       expectedHmac('process-snapshot-a', fetchedOptions.body, sentTimestamp),
     );
 
-    installAuthorityEnv('C3_WEBHOOK_SECRET=\n', 0o600);
-    const unconfiguredAuthority = readWebhookSecretAuthority({
+    installAuthorityEnv([
+      'C3_WEBHOOK_SECRET=',
+      'C3_WEBHOOK_URL=https://unconfigured-webhook.invalid/hook',
+      '',
+    ].join('\n'), 0o600);
+    const unconfiguredAuthorities = readRuntimeEnvironmentAuthorities({
       projectRoot: authorityProjectRoot,
       processEnvironment: {},
     });
     const unconfiguredRouter = createNotificationRouter({
       env: { C3_ENABLE_NOTIFICATION_WEBHOOK: 'true' },
       logger: SILENT_LOGGER,
+      notificationEnvironmentAuthority:
+        unconfiguredAuthorities.notificationEnvironmentAuthority,
+      requireNotificationEnvironmentAuthority,
       requireWebhookSecretAuthority,
-      webhookSecretAuthority: unconfiguredAuthority,
+      webhookSecretAuthority: unconfiguredAuthorities.webhookSecretAuthority,
     });
     const unconfiguredChannel = unconfiguredRouter.channels.get('webhook');
     assert.equal(unconfiguredChannel instanceof WebhookChannel, true);
@@ -683,26 +1023,35 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
   }
 
   const runtimeEnvironmentSource = readSource('src/runtime-environment.js');
-  const rootEnvOpenSlice = sliceBetween(
-    runtimeEnvironmentSource,
-    'descriptor = openSync(',
-    ');',
-  );
-  assert.match(rootEnvOpenSlice, /fsConstants\.O_NOFOLLOW/);
-  assert.match(rootEnvOpenSlice, /fsConstants\.O_NONBLOCK/);
+  const rootEnvironmentFileSource = readSource('src/security/root-environment-file.js');
+  assert.match(rootEnvironmentFileSource, /fs\.constants\.O_NOFOLLOW/);
+  assert.match(rootEnvironmentFileSource, /fs\.constants\.O_NONBLOCK/);
+  assert.match(runtimeEnvironmentSource, /readRootEnvironmentBootstrap/);
+  assert.doesNotMatch(runtimeEnvironmentSource, /from 'node:fs'/);
   assert.doesNotMatch(
     runtimeEnvironmentSource,
     /dotenv\/config|process\.cwd\(|DOTENV_CONFIG_PATH/,
   );
 
   const webhookChannelSource = readSource('src/notifications/channels/webhook.js');
-  assert.doesNotMatch(webhookChannelSource, /process\.env\.C3_WEBHOOK_SECRET|this\.secret/);
+  assert.doesNotMatch(
+    webhookChannelSource,
+    /process\.env\.C3_WEBHOOK_(?:SECRET|URL)|this\.secret/,
+  );
+  for (const channelPath of [
+    'src/notifications/channels/email.js',
+    'src/notifications/channels/telegram.js',
+    'src/notifications/channels/push.js',
+  ]) {
+    assert.doesNotMatch(readSource(channelPath), /process\.env/);
+  }
+  assert.doesNotMatch(readSource('src/notifications/index.js'), /channels\/ntfy\.js/);
 
   const serverSource = readSource('src/server.js');
   const serverNotificationInit = sliceBetween(
     serverSource,
     'const { pipeline: notificationPipeline, router: notificationRouter } = createNotificationPipeline({',
-    'const notificationEmitter =',
+    "logger.info('Server', `Notification system initialized",
   );
   const serverRouteDependencies = sliceBetween(
     serverSource,
@@ -714,10 +1063,23 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
       < serverSource.indexOf("import db from './db/database.js';"),
     true,
   );
-  for (const dependency of ['requireWebhookSecretAuthority', 'webhookSecretAuthority']) {
+  for (const dependency of [
+    'notificationEnvironmentAuthority',
+    'requireNotificationEnvironmentAuthority',
+    'requireWebhookSecretAuthority',
+    'webhookSecretAuthority',
+  ]) {
     assert.match(serverNotificationInit, new RegExp(`\\b${dependency}\\b`));
     assert.match(serverRouteDependencies, new RegExp(`\\b${dependency}\\b`));
   }
+  assert.doesNotMatch(serverSource, /NotificationEmitter|setNotificationEmitter/);
+  assert.equal(existsSync(join(REPOSITORY_ROOT, 'src/notifications/emitter.js')), false);
+  assert.doesNotMatch(
+    readSource('src/planner/lifecycle-build.js'),
+    /NotificationEmitter|notificationEmitter|emitLifecycleEvent/,
+  );
+  assert.match(serverSource, /key === 'GET \/api\/notifications\/config'/);
+  assert.match(serverSource, /key === 'POST \/api\/notifications\/config'/);
   assert.match(
     serverSource,
     /createStrictAdminTokenGuard\(\{\s*expectedToken: process\.env\.C3_ADMIN_TOKEN,?\s*\}\)/,
@@ -740,7 +1102,12 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
       < workerSource.indexOf("import Database from 'better-sqlite3';"),
     true,
   );
-  for (const dependency of ['requireWebhookSecretAuthority', 'webhookSecretAuthority']) {
+  for (const dependency of [
+    'notificationEnvironmentAuthority',
+    'requireNotificationEnvironmentAuthority',
+    'requireWebhookSecretAuthority',
+    'webhookSecretAuthority',
+  ]) {
     assert.match(workerNotificationInit, new RegExp(`\\b${dependency}\\b`));
   }
 
@@ -806,43 +1173,120 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
   );
   assert.deepEqual(verifierEffects, { fetch: 0, transport: 0 });
 
-  let capturedTransport = null;
-  const enabledEmail = await verifyEmail({}, {
-    env: {
-      C3_ENABLE_NOTIFICATION_EMAIL: 'true',
-      C3_SMTP_HOST: 'fake-smtp.invalid',
-      C3_SMTP_PORT: '2525',
-      C3_SMTP_USER: 'fake-user',
-      C3_SMTP_PASS: 'fake-pass',
-      C3_TEST_EMAIL: 'fake@example.invalid',
-    },
-    createTransport(options) {
-      verifierEffects.transport += 1;
-      capturedTransport = options;
-      return {
-        async verify() {},
-        async sendMail() { return { messageId: 'fake-mail' }; },
-      };
-    },
-  });
-  assert.equal(enabledEmail.delivered, true);
-  assert.equal(verifierEffects.transport, 1);
-  assert.deepEqual(capturedTransport.auth, { user: 'fake-user', pass: 'fake-pass' });
+  const verifierAuthorityRoot = resolve(mkdtempSync(join(tmpdir(), 'm1-verifier-authority-')));
+  try {
+    writeFileSync(join(verifierAuthorityRoot, '.env'), 'VERIFIER_AMBIENT=kept\n');
+    chmodSync(join(verifierAuthorityRoot, '.env'), 0o600);
+    const verifierAuthorities = readRuntimeEnvironmentAuthorities({
+      projectRoot: verifierAuthorityRoot,
+      processEnvironment: {
+        C3_SMTP_HOST: 'fake-smtp.invalid',
+        C3_SMTP_PORT: '2525',
+        C3_SMTP_USER: 'fake-user',
+        C3_SMTP_PASS: 'fake-pass',
+        C3_SMTP_FROM: 'fake-from@example.invalid',
+        C3_TELEGRAM_BOT_TOKEN: 'fake-token',
+        C3_TELEGRAM_CHAT_ID: 'authority-chat',
+        C3_NTFY_SERVER: 'https://fake-ntfy.invalid',
+        C3_NTFY_TOPIC: 'authority-topic',
+        C3_NTFY_TOKEN: '',
+      },
+    });
+    const verifierAuthorityDeps = {
+      notificationEnvironmentAuthority:
+        verifierAuthorities.notificationEnvironmentAuthority,
+      requireNotificationEnvironmentAuthority,
+    };
+    let capturedTransport = null;
+    const missingEmailRecipient = await verifyEmail({}, {
+      ...verifierAuthorityDeps,
+      env: { C3_ENABLE_NOTIFICATION_EMAIL: 'true' },
+      createTransport() {
+        verifierEffects.transport += 1;
+        throw new Error('missing recipient reached transport');
+      },
+    });
+    assert.equal(missingEmailRecipient.configured, false);
+    assert.equal(verifierEffects.transport, 0);
 
-  const enabledNtfy = await verifyNtfy({}, {
-    env: {
-      C3_ENABLE_NOTIFICATION_PUSH: 'true',
-      C3_NTFY_URL: 'https://fake-ntfy.invalid',
-      C3_NTFY_TOPIC: 'fake-topic',
-    },
-    async fetchImpl(url) {
-      verifierEffects.fetch += 1;
-      assert.equal(url, 'https://fake-ntfy.invalid/fake-topic');
-      return { ok: true, async json() { return { id: 'fake-push' }; } };
-    },
-  });
-  assert.equal(enabledNtfy.delivered, true);
-  assert.equal(verifierEffects.fetch, 1);
+    const enabledEmail = await verifyEmail({ recipient: 'fake@example.invalid' }, {
+      ...verifierAuthorityDeps,
+      env: { C3_ENABLE_NOTIFICATION_EMAIL: 'true' },
+      createTransport(options) {
+        verifierEffects.transport += 1;
+        capturedTransport = options;
+        return {
+          async verify() {},
+          async sendMail() { return { messageId: 'fake-mail' }; },
+        };
+      },
+    });
+    assert.equal(enabledEmail.delivered, true);
+    assert.equal(verifierEffects.transport, 1);
+    assert.deepEqual(capturedTransport.auth, { user: 'fake-user', pass: 'fake-pass' });
+
+    let telegramBody = null;
+    const enabledTelegram = await verifyTelegram({}, {
+      ...verifierAuthorityDeps,
+      env: { C3_ENABLE_NOTIFICATION_TELEGRAM: 'true' },
+      async fetchImpl(_url, options) {
+        verifierEffects.fetch += 1;
+        telegramBody = JSON.parse(options.body);
+        return {
+          async json() { return { ok: true, result: { message_id: 7 } }; },
+        };
+      },
+    });
+    assert.equal(enabledTelegram.delivered, true);
+    assert.equal(telegramBody.chat_id, 'authority-chat');
+    const fetchesBeforeEmptyTelegram = verifierEffects.fetch;
+    assert.equal((await verifyTelegram({ recipient: '' }, {
+      ...verifierAuthorityDeps,
+      env: { C3_ENABLE_NOTIFICATION_TELEGRAM: 'true' },
+      fetchImpl() {
+        verifierEffects.fetch += 1;
+        throw new Error('explicit empty Telegram recipient reached fetch');
+      },
+    })).configured, false);
+    assert.equal(verifierEffects.fetch, fetchesBeforeEmptyTelegram);
+
+    const enabledDefaultNtfy = await verifyNtfy({}, {
+      ...verifierAuthorityDeps,
+      env: { C3_ENABLE_NOTIFICATION_PUSH: 'true' },
+      async fetchImpl(url) {
+        verifierEffects.fetch += 1;
+        assert.equal(url, 'https://fake-ntfy.invalid/authority-topic');
+        return { ok: true, async json() { return { id: 'fake-default-push' }; } };
+      },
+    });
+    assert.equal(enabledDefaultNtfy.delivered, true);
+    const enabledExplicitNtfy = await verifyNtfy({ recipient: 'fake-topic' }, {
+      ...verifierAuthorityDeps,
+      env: { C3_ENABLE_NOTIFICATION_PUSH: 'true' },
+      async fetchImpl(url) {
+        verifierEffects.fetch += 1;
+        assert.equal(url, 'https://fake-ntfy.invalid/fake-topic');
+        return { ok: true, async json() { return { id: 'fake-push' }; } };
+      },
+    });
+    assert.equal(enabledExplicitNtfy.delivered, true);
+    const fetchesBeforeEmptyNtfy = verifierEffects.fetch;
+    assert.equal((await verifyNtfy({ recipient: '' }, {
+      ...verifierAuthorityDeps,
+      env: { C3_ENABLE_NOTIFICATION_PUSH: 'true' },
+      fetchImpl() {
+        verifierEffects.fetch += 1;
+        throw new Error('explicit empty ntfy recipient reached fetch');
+      },
+    })).configured, false);
+    assert.equal(verifierEffects.fetch, fetchesBeforeEmptyNtfy);
+  } finally {
+    rmSync(verifierAuthorityRoot, { recursive: true, force: true });
+  }
+
+  const verifierSource = readSource('src/notifications/e2e-verify.js');
+  assert.doesNotMatch(verifierSource, /C3_NTFY_URL|C3_TEST_EMAIL/);
+  assert.match(verifierSource, /C3_NTFY_SERVER/);
 
   const unsupportedVerification = await verifyAll({ channels: ['slack'] }, { env: {} });
   assert.equal(unsupportedVerification.allPassed, false);

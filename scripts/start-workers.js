@@ -14,6 +14,8 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import {
+  notificationEnvironmentAuthority,
+  requireNotificationEnvironmentAuthority,
   requireWebhookSecretAuthority,
   webhookSecretAuthority,
 } from '../src/runtime-environment.js';
@@ -54,6 +56,8 @@ const repo = new AgentRepository(db);
 const { pipeline, router } = createNotificationPipeline({
   db,
   channelPolicy: notificationChannelPolicy,
+  notificationEnvironmentAuthority,
+  requireNotificationEnvironmentAuthority,
   requireWebhookSecretAuthority,
   webhookSecretAuthority,
 });
@@ -64,12 +68,15 @@ for (const name of router.getAvailableChannels()) {
   console.log(`  - ${name}`);
 }
 
+const notificationSources = notificationEnvironmentAuthority.status();
 const hasTelegram = notificationChannelEnabled(notificationChannelPolicy, 'telegram')
-  && !!(process.env.C3_TELEGRAM_BOT_TOKEN && process.env.C3_TELEGRAM_CHAT_ID);
+  && notificationSources.C3_TELEGRAM_BOT_TOKEN.configured
+  && notificationSources.C3_TELEGRAM_CHAT_ID.configured;
 const hasEmail = notificationChannelEnabled(notificationChannelPolicy, 'email')
-  && !!(process.env.C3_SMTP_HOST && process.env.C3_SMTP_USER);
+  && notificationSources.C3_SMTP_HOST.configured
+  && notificationSources.C3_SMTP_USER.configured;
 const hasPush = notificationChannelEnabled(notificationChannelPolicy, 'push')
-  && !!process.env.C3_NTFY_TOPIC;
+  && notificationSources.C3_NTFY_TOPIC.configured;
 
 console.log(`\n  Telegram: ${hasTelegram ? '✅ opted in + credentials present' : '❌ unavailable'}`);
 console.log(`  Email: ${hasEmail ? '✅ opted in + credentials present' : '❌ unavailable'}`);

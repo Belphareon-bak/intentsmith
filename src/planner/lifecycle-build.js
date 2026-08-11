@@ -20,9 +20,6 @@ import { execFileSync } from 'child_process';
 import { logger } from '../core/logger.js';
 import { config } from '../config.js';
 
-// v93: Notification emitter reference (set by server.js via setNotificationEmitter)
-let _notificationEmitter = null;
-export function setNotificationEmitter(emitter) { _notificationEmitter = emitter; }
 import { callLLM, parseJSON } from './workflow.js';
 import {
   lifecycles as lifecycleRepo,
@@ -259,15 +256,6 @@ async function _startNextMilestoneImpl(lifecycle) {
   if (allPending.length === 0) {
     logger.info('LifecycleBuild', 'No more pending milestones', { lifecycleId: lifecycle.id });
 
-    // v93: Email notification on lifecycle complete
-    if (_notificationEmitter) {
-      _notificationEmitter.emitLifecycleEvent({
-        type: 'lifecycle_complete',
-        projectName: lifecycle.id,
-        details: `Všechny milníky dokončeny.`,
-      }).catch(() => {});
-    }
-
     return null;
   }
 
@@ -295,16 +283,6 @@ async function _startNextMilestoneImpl(lifecycle) {
       lifecycleId: lifecycle.id,
       blocked: blockedMilestones,
     });
-
-    // v93: Email notification on ALL_BLOCKED
-    if (_notificationEmitter) {
-      _notificationEmitter.emitLifecycleEvent({
-        type: 'milestone_blocked',
-        projectName: lifecycle.id,
-        milestoneTitle: blockedMilestones.map(b => b.title).join(', '),
-        details: `Všechny pending milníky jsou dependency-blocked.`,
-      }).catch(() => {});
-    }
 
     return {
       milestoneId: null,
@@ -958,16 +936,6 @@ async function postExecution(lifecycle, milestone, wfResult) {
     }
   } catch (_) { /* fire-and-forget */ }
 
-  // v93: Email notification on milestone PASS
-  if (_notificationEmitter) {
-    _notificationEmitter.emitLifecycleEvent({
-      type: 'milestone_pass',
-      projectName: spec?.name || lifecycle.id,
-      milestoneTitle: milestone.title,
-      details: `Commit: ${commitHash || 'N/A'}, Health: ${JSON.stringify(health)}`,
-    }).catch(() => {});
-  }
-
   // v124: Lifecycle health telemetry
   logger.info('LifecycleMetrics', 'milestone_complete', {
     lifecycleId: lifecycle.id,
@@ -1543,17 +1511,6 @@ function handleMilestoneFailure(lifecycle, milestone, reason) {
     blockedAttempts,
     reason,
   });
-
-  // v93: Email notification on milestone BLOCKED (retries exhausted)
-  if (_notificationEmitter) {
-    _notificationEmitter.emitLifecycleEvent({
-      type: 'milestone_fail',
-      projectName: lifecycle.id,
-      milestoneTitle: milestone.title,
-      details: `Důvod: ${reason}`,
-      retryCount: currentRetry,
-    }).catch(() => {});
-  }
 
   return {
     milestoneId: milestone.id,
