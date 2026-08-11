@@ -405,6 +405,33 @@ provenance se z tohoto source-progress odstavce neodvozuje a musí být doložen
 samostatným immutable checkpoint/evidence záznamem. Finální subject `S` bude
 pro celý WP jeden.
 
+První post-P0 C1 pracovní checkpoint převádí čtyřklíčový Setup writer do
+jediného shared `src/security/root-environment-file.js` seamu. Tři hard-coded,
+navzájem disjunktní owner sady obsahují exact Setup 4, canonical notification
+12 a scrub-only legacy alias 8; poslední sada neumí hodnotu vytvořit ani změnit.
+Safe reader/writer používá maximálně 1 MiB, fatal UTF-8, pinned dotenv fyzické
+řádky, owner-specific duplicate a expanded-control kontrolu, exact mode 0600,
+current owner, single link, `O_NOFOLLOW|O_NONBLOCK`, open/fstat/path stability,
+same-directory exclusive temp, původní write-FD identity a exact temp
+readback, atomic publish, directory fsync a finální readback. Byteově shodná
+operace ani delete-only scrub nad chybějícím souborem nic nepublikují.
+Jeden frozen branded bootstrap read s non-enumerable closure accessors odděluje
+exact canonical notification projekci od ordinary ambient hodnot a z té druhé
+vylučuje canonical 12 i legacy 8. Raw mapa není vlastností ani serializovatelným
+výstupem; explicitní canonical getter přijme jen key z hard owner setu a
+ordinary hodnoty předá pouze injected callbacku. Samotný seam nic nekopíruje
+do `process.env`.
+
+`SetupWizard.writeEnvFile()` deleguje jen owner `SETUP`; strict auth, route
+responses a completion flow zůstávají beze změny. Nový/default Setup vytváří
+u `telegram`, `email` a `ntfy` pouze `enabled:false`, zatímco validator a
+load/save nad existujícím well-formed legacy dokumentem zachovávají původní
+credential/destination leaves do explicitní migrační akce. `.env.example`
+uvádí všech dvanáct canonical notification keys právě jednou a s prázdnou
+hodnotou. Rozšířený existující notification-scope program zůstává na dvou
+top-level případech a author-side běh skončil `2/2`; nejde ještě o commit,
+nezávislé review, transfer/scrub candidate ani 026 promotion.
+
 Operátor následně přijal `M1-CLOSEOUT-X1` a dva autonomy dodatky. Samostatný
 docs-only amendment `G` vznikl jako sibling P0 z
 `ea21bf3e2f8a54e1cbf93430cdb52037957a63c8`, prošel nezávislým review a

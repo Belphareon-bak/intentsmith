@@ -63,6 +63,18 @@ import {
   createStrictAdminTokenGuard,
 } from '../src/security/strict-admin-auth.js';
 import {
+  LEGACY_NOTIFICATION_ENV_DELETE_ONLY_KEYS,
+  NOTIFICATION_ENV_OWNED_KEYS,
+  ROOT_ENVIRONMENT_MAX_BYTES,
+  ROOT_ENVIRONMENT_OWNER,
+  SETUP_ENV_OWNED_KEYS,
+  patchRootEnvironmentFile,
+  readRootEnvironmentBootstrap,
+  readRootEnvironmentFile,
+  requireRootEnvironmentBootstrap,
+  requireRootEnvironmentFileRead,
+} from '../src/security/root-environment-file.js';
+import {
   FEATURE_SETTING_KEYS,
   FEATURE_SETTINGS_INPUT_INVALID,
   featureManager,
@@ -94,6 +106,39 @@ const EXPECTED_FEATURE_SETTING_KEYS = Object.freeze([
   'c3.features.specialistTelemetry',
   'c3.features.autonomy',
   'c3.features.skills',
+]);
+
+const EXPECTED_SETUP_ENV_KEYS = Object.freeze([
+  'OLLAMA_URL',
+  'C3_LANG',
+  'C3_DB_PATH',
+  'C3_LICENSE_KEY',
+]);
+
+const EXPECTED_NOTIFICATION_ENV_KEYS = Object.freeze([
+  'C3_SMTP_HOST',
+  'C3_SMTP_PORT',
+  'C3_SMTP_USER',
+  'C3_SMTP_PASS',
+  'C3_SMTP_FROM',
+  'C3_TELEGRAM_BOT_TOKEN',
+  'C3_TELEGRAM_CHAT_ID',
+  'C3_NTFY_SERVER',
+  'C3_NTFY_TOPIC',
+  'C3_NTFY_TOKEN',
+  'C3_WEBHOOK_URL',
+  'C3_WEBHOOK_SECRET',
+]);
+
+const EXPECTED_LEGACY_NOTIFICATION_ENV_KEYS = Object.freeze([
+  'TELEGRAM_BOT_TOKEN',
+  'TELEGRAM_CHAT_ID',
+  'NTFY_SERVER',
+  'NTFY_TOPIC',
+  'EMAIL_FROM',
+  'SMTP_URL',
+  'EMAIL_TO',
+  'C3_NTFY_URL',
 ]);
 
 function captureError(callback) {
@@ -193,6 +238,32 @@ function sliceBetween(source, start, end) {
 suite('M1 notification credential scope');
 
 await testAsync('channel, startup and setup authority is exact, default-off and no-effect', async () => {
+  assert.deepEqual(SETUP_ENV_OWNED_KEYS, EXPECTED_SETUP_ENV_KEYS);
+  assert.deepEqual(NOTIFICATION_ENV_OWNED_KEYS, EXPECTED_NOTIFICATION_ENV_KEYS);
+  assert.deepEqual(
+    LEGACY_NOTIFICATION_ENV_DELETE_ONLY_KEYS,
+    EXPECTED_LEGACY_NOTIFICATION_ENV_KEYS,
+  );
+  for (const ownerSet of [
+    SETUP_ENV_OWNED_KEYS,
+    NOTIFICATION_ENV_OWNED_KEYS,
+    LEGACY_NOTIFICATION_ENV_DELETE_ONLY_KEYS,
+  ]) {
+    assert.equal(Object.isFrozen(ownerSet), true);
+    assert.equal(new Set(ownerSet).size, ownerSet.length);
+  }
+  assert.equal(new Set([
+    ...SETUP_ENV_OWNED_KEYS,
+    ...NOTIFICATION_ENV_OWNED_KEYS,
+    ...LEGACY_NOTIFICATION_ENV_DELETE_ONLY_KEYS,
+  ]).size, 24);
+  assert.deepEqual(ROOT_ENVIRONMENT_OWNER, {
+    SETUP: 'SETUP',
+    NOTIFICATION: 'NOTIFICATION',
+    LEGACY_NOTIFICATION_SCRUB: 'LEGACY_NOTIFICATION_SCRUB',
+  });
+  assert.equal(Object.isFrozen(ROOT_ENVIRONMENT_OWNER), true);
+
   assert.deepEqual(EXTERNAL_NOTIFICATION_CHANNEL_FLAGS, EXPECTED_CHANNEL_FLAGS);
   assert.deepEqual([...EXTERNAL_NOTIFICATION_CHANNELS], Object.keys(EXPECTED_CHANNEL_FLAGS));
   assert.equal(Object.isFrozen(EXTERNAL_NOTIFICATION_CHANNEL_FLAGS), true);
@@ -674,9 +745,22 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
   }
 
   const exampleEnvironment = readSource('.env.example');
-  assert.equal((exampleEnvironment.match(/^C3_WEBHOOK_SECRET=$/gm) || []).length, 1);
+  for (const key of EXPECTED_NOTIFICATION_ENV_KEYS) {
+    assert.equal(
+      (exampleEnvironment.match(new RegExp(`^${key}=$`, 'gm')) || []).length,
+      1,
+      `${key} must occur exactly once with no example value`,
+    );
+  }
+  for (const key of EXPECTED_LEGACY_NOTIFICATION_ENV_KEYS) {
+    assert.equal(
+      (exampleEnvironment.match(new RegExp(`^${key}=`, 'gm')) || []).length,
+      0,
+      `${key} is scrub-only and must not be advertised`,
+    );
+  }
   assert.match(exampleEnvironment, /install-root \.env regular, owner-owned, mode 0600/);
-  assert.match(exampleEnvironment, /restart IntentSmith after changing this value/);
+  assert.match(exampleEnvironment, /Restart IntentSmith after changing any value in this block/);
 
   const verifierEffects = { fetch: 0, transport: 0 };
   const disabledEmail = await verifyEmail({}, {
@@ -777,6 +861,17 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
     process.chdir(cwdDecoy);
     const envPath = join(canonicalRoot, '.env');
     const setupPath = join(dataDir, 'c3-setup.json');
+    const defaultWizard = new SetupWizard(join(root, 'new-default-data'), {
+      projectRoot: canonicalRoot,
+    });
+    assert.deepEqual(defaultWizard.config.notifications, {
+      telegram: { enabled: false },
+      email: { enabled: false },
+      ntfy: { enabled: false },
+    });
+    for (const channel of Object.values(defaultWizard.config.notifications)) {
+      assert.deepEqual(Object.keys(channel), ['enabled']);
+    }
     const legacyNotifications = {
       telegram: { enabled: true, token: 'legacy-token', chatId: 'legacy-chat' },
       email: { enabled: true, smtp: 'legacy-smtp', from: 'a', to: 'b' },
@@ -1162,6 +1257,240 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
       chmodSync(envPath, mode);
     };
 
+    const ownerSeparatedBytes = Buffer.from([
+      '# owner separation\r\n',
+      'FOREIGN_CANARY=keep-byte-for-byte\r\n',
+      'OLLAMA_URL=setup-canary\n',
+      'C3_SMTP_PASS=old-canonical\n',
+      'SMTP_URL=smtp://legacy.invalid\n',
+      'EMAIL_TO=legacy@example.invalid\n',
+      'C3_NTFY_URL=https://legacy-ntfy.invalid\n',
+      'TAIL_CANARY=omega',
+    ].join(''));
+    resetTarget(ownerSeparatedBytes);
+    const bootstrapRead = readRootEnvironmentBootstrap({ projectRoot: canonicalRoot });
+    assert.equal(Object.isFrozen(bootstrapRead), true);
+    assert.deepEqual(Object.keys(bootstrapRead), []);
+    assert.equal(JSON.stringify(bootstrapRead), '{}');
+    assert.equal(requireRootEnvironmentBootstrap(bootstrapRead), bootstrapRead);
+    assert.equal(bootstrapRead.exists(), true);
+    assert.equal(Object.isFrozen(bootstrapRead.notificationKeys()), true);
+    assert.equal(Object.isFrozen(bootstrapRead.ambientKeys()), true);
+    assert.deepEqual(bootstrapRead.notificationKeys(), ['C3_SMTP_PASS']);
+    assert.equal(bootstrapRead.notificationValue('C3_SMTP_PASS'), 'old-canonical');
+    const observedAmbient = Object.create(null);
+    assert.equal(bootstrapRead.forEachAmbient((key, value) => {
+      observedAmbient[key] = value;
+    }), 3);
+    assert.equal(observedAmbient.OLLAMA_URL, 'setup-canary');
+    assert.equal(observedAmbient.FOREIGN_CANARY, 'keep-byte-for-byte');
+    for (const nonAmbientKey of [
+      ...EXPECTED_NOTIFICATION_ENV_KEYS,
+      ...EXPECTED_LEGACY_NOTIFICATION_ENV_KEYS,
+    ]) {
+      assert.equal(Object.hasOwn(observedAmbient, nonAmbientKey), false);
+    }
+    assertErrorCode(
+      () => bootstrapRead.notificationValue('SMTP_URL'),
+      SETUP_ENV_VALUE_INVALID,
+    );
+    assertErrorCode(
+      () => requireRootEnvironmentBootstrap(Object.freeze(Object.create(null))),
+      SETUP_ENV_VALUE_INVALID,
+    );
+    const notificationPatch = patchRootEnvironmentFile({
+      projectRoot: canonicalRoot,
+      owner: ROOT_ENVIRONMENT_OWNER.NOTIFICATION,
+      values: {
+        C3_SMTP_PASS: 'new-canonical',
+        C3_WEBHOOK_URL: 'https://webhook.invalid/hook',
+      },
+    });
+    assert.equal(notificationPatch.changed, true);
+    const notificationPatchedBytes = readFileSync(envPath);
+    for (const untouchedRow of [
+      '# owner separation\r\n',
+      'FOREIGN_CANARY=keep-byte-for-byte\r\n',
+      'OLLAMA_URL=setup-canary\n',
+      'SMTP_URL=smtp://legacy.invalid\n',
+      'EMAIL_TO=legacy@example.invalid\n',
+      'C3_NTFY_URL=https://legacy-ntfy.invalid\n',
+      'TAIL_CANARY=omega',
+    ]) {
+      assert.equal(notificationPatchedBytes.includes(Buffer.from(untouchedRow)), true);
+    }
+    const notificationRead = readRootEnvironmentFile({
+      projectRoot: canonicalRoot,
+      owner: ROOT_ENVIRONMENT_OWNER.NOTIFICATION,
+    });
+    assert.equal(Object.isFrozen(notificationRead), true);
+    assert.deepEqual(Object.keys(notificationRead), []);
+    assert.equal(JSON.stringify(notificationRead), '{}');
+    assert.equal(requireRootEnvironmentFileRead(notificationRead), notificationRead);
+    assert.equal(notificationRead.exists(), true);
+    assert.equal(Object.isFrozen(notificationRead.keys()), true);
+    assert.deepEqual([...notificationRead.keys()].sort(), [
+      'C3_SMTP_PASS',
+      'C3_WEBHOOK_URL',
+    ]);
+    assert.equal(notificationRead.has('C3_SMTP_PASS'), true);
+    assert.equal(notificationRead.value('C3_SMTP_PASS'), 'new-canonical');
+    assertErrorCode(() => notificationRead.value('OLLAMA_URL'), SETUP_ENV_VALUE_INVALID);
+    assertErrorCode(() => notificationRead.has('SMTP_URL'), SETUP_ENV_VALUE_INVALID);
+    assertErrorCode(
+      () => requireRootEnvironmentFileRead(Object.freeze(Object.create(null))),
+      SETUP_ENV_VALUE_INVALID,
+    );
+
+    const beforeNoOpStat = lstatSync(envPath, { bigint: true });
+    const noOpPatch = patchRootEnvironmentFile({
+      projectRoot: canonicalRoot,
+      owner: ROOT_ENVIRONMENT_OWNER.NOTIFICATION,
+      values: { C3_SMTP_PASS: 'new-canonical' },
+    });
+    const afterNoOpStat = lstatSync(envPath, { bigint: true });
+    assert.deepEqual(noOpPatch, { path: envPath, changed: false });
+    assert.equal(afterNoOpStat.ino, beforeNoOpStat.ino);
+    assert.equal(afterNoOpStat.mtimeNs, beforeNoOpStat.mtimeNs);
+    assert.equal(readFileSync(envPath).equals(notificationPatchedBytes), true);
+
+    const beforeInvalidOwner = readFileSync(envPath);
+    assertErrorCode(() => patchRootEnvironmentFile({
+      projectRoot: canonicalRoot,
+      owner: ROOT_ENVIRONMENT_OWNER.NOTIFICATION,
+      values: { OLLAMA_URL: 'must-not-cross-owner' },
+    }), SETUP_ENV_VALUE_INVALID);
+    assertErrorCode(() => patchRootEnvironmentFile({
+      projectRoot: canonicalRoot,
+      owner: ROOT_ENVIRONMENT_OWNER.LEGACY_NOTIFICATION_SCRUB,
+      values: { SMTP_URL: 'must-never-be-created' },
+      deleteKeys: [],
+    }), SETUP_ENV_VALUE_INVALID);
+    assert.equal(readFileSync(envPath).equals(beforeInvalidOwner), true);
+
+    const scrubResult = patchRootEnvironmentFile({
+      projectRoot: canonicalRoot,
+      owner: ROOT_ENVIRONMENT_OWNER.LEGACY_NOTIFICATION_SCRUB,
+      deleteKeys: ['SMTP_URL', 'EMAIL_TO', 'C3_NTFY_URL'],
+    });
+    assert.equal(scrubResult.changed, true);
+    const scrubbedBytes = readFileSync(envPath);
+    const scrubbedEnvironment = parseDotenv(scrubbedBytes);
+    assert.equal(Object.hasOwn(scrubbedEnvironment, 'SMTP_URL'), false);
+    assert.equal(Object.hasOwn(scrubbedEnvironment, 'EMAIL_TO'), false);
+    assert.equal(Object.hasOwn(scrubbedEnvironment, 'C3_NTFY_URL'), false);
+    assert.equal(scrubbedEnvironment.C3_SMTP_PASS, 'new-canonical');
+    assert.equal(scrubbedEnvironment.OLLAMA_URL, 'setup-canary');
+    for (const untouchedRow of [
+      '# owner separation\r\n',
+      'FOREIGN_CANARY=keep-byte-for-byte\r\n',
+      'OLLAMA_URL=setup-canary\n',
+      'C3_SMTP_PASS=new-canonical\n',
+      'TAIL_CANARY=omega',
+    ]) {
+      assert.equal(scrubbedBytes.includes(Buffer.from(untouchedRow)), true);
+    }
+    const beforeScrubNoOpStat = lstatSync(envPath, { bigint: true });
+    const scrubNoOp = patchRootEnvironmentFile({
+      projectRoot: canonicalRoot,
+      owner: ROOT_ENVIRONMENT_OWNER.LEGACY_NOTIFICATION_SCRUB,
+      deleteKeys: ['SMTP_URL', 'EMAIL_TO', 'C3_NTFY_URL'],
+    });
+    const afterScrubNoOpStat = lstatSync(envPath, { bigint: true });
+    assert.equal(scrubNoOp.changed, false);
+    assert.equal(afterScrubNoOpStat.ino, beforeScrubNoOpStat.ino);
+    assert.equal(afterScrubNoOpStat.mtimeNs, beforeScrubNoOpStat.mtimeNs);
+
+    const utf8Bom = Buffer.from([0xef, 0xbb, 0xbf]);
+    resetTarget(Buffer.concat([
+      utf8Bom,
+      Buffer.from('SMTP_URL=smtp://delete-first.invalid\nFOREIGN=keep-exact\n'),
+    ]));
+    const bomScrub = patchRootEnvironmentFile({
+      projectRoot: canonicalRoot,
+      owner: ROOT_ENVIRONMENT_OWNER.LEGACY_NOTIFICATION_SCRUB,
+      deleteKeys: ['SMTP_URL'],
+    });
+    assert.equal(bomScrub.changed, true);
+    assert.equal(readFileSync(envPath).equals(Buffer.concat([
+      utf8Bom,
+      Buffer.from('FOREIGN=keep-exact\n'),
+    ])), true);
+
+    resetTarget(Buffer.concat([
+      utf8Bom,
+      Buffer.from('C3_SMTP_PASS=before\nFOREIGN=keep-exact\n'),
+    ]));
+    const bomModify = patchRootEnvironmentFile({
+      projectRoot: canonicalRoot,
+      owner: ROOT_ENVIRONMENT_OWNER.NOTIFICATION,
+      values: { C3_SMTP_PASS: 'after' },
+    });
+    assert.equal(bomModify.changed, true);
+    const expectedBomModify = Buffer.concat([
+      utf8Bom,
+      Buffer.from('C3_SMTP_PASS=after\nFOREIGN=keep-exact\n'),
+    ]);
+    assert.equal(readFileSync(envPath).equals(expectedBomModify), true);
+    const bomNoOp = patchRootEnvironmentFile({
+      projectRoot: canonicalRoot,
+      owner: ROOT_ENVIRONMENT_OWNER.NOTIFICATION,
+      values: { C3_SMTP_PASS: 'after' },
+    });
+    assert.equal(bomNoOp.changed, false);
+    assert.equal(readFileSync(envPath).equals(expectedBomModify), true);
+
+    const duplicatedForeignOwner = Buffer.from(
+      'C3_SMTP_PASS=one\nC3_SMTP_PASS=two\nFOREIGN=keep\n',
+    );
+    resetTarget(duplicatedForeignOwner);
+    wizard.writeEnvFile();
+    const afterSetupWithNotificationDuplicate = readFileSync(envPath);
+    assert.equal(
+      afterSetupWithNotificationDuplicate.includes(Buffer.from('C3_SMTP_PASS=one\n')),
+      true,
+    );
+    assert.equal(
+      afterSetupWithNotificationDuplicate.includes(Buffer.from('C3_SMTP_PASS=two\n')),
+      true,
+    );
+    assertErrorCode(() => readRootEnvironmentFile({
+      projectRoot: canonicalRoot,
+      owner: ROOT_ENVIRONMENT_OWNER.NOTIFICATION,
+    }), SETUP_ENV_DUPLICATE_OWNED_KEY);
+
+    resetTarget(Buffer.from('C3_SMTP_PASS="expanded\\ncontrol"\nFOREIGN=keep\n'));
+    assertErrorCode(() => readRootEnvironmentFile({
+      projectRoot: canonicalRoot,
+      owner: ROOT_ENVIRONMENT_OWNER.NOTIFICATION,
+    }), SETUP_ENV_TARGET_UNSAFE);
+    assertErrorCode(() => patchRootEnvironmentFile({
+      projectRoot: canonicalRoot,
+      owner: ROOT_ENVIRONMENT_OWNER.NOTIFICATION,
+      values: { C3_SMTP_PASS: 'replacement' },
+    }), SETUP_ENV_TARGET_UNSAFE);
+
+    resetTarget(Buffer.from([0xc3, 0x28]));
+    assertErrorCode(() => readRootEnvironmentFile({
+      projectRoot: canonicalRoot,
+      owner: ROOT_ENVIRONMENT_OWNER.NOTIFICATION,
+    }), SETUP_ENV_TARGET_UNSAFE);
+
+    resetTarget(Buffer.alloc(ROOT_ENVIRONMENT_MAX_BYTES + 1, 0x41));
+    assertErrorCode(() => readRootEnvironmentFile({
+      projectRoot: canonicalRoot,
+      owner: ROOT_ENVIRONMENT_OWNER.NOTIFICATION,
+    }), SETUP_ENV_TARGET_UNSAFE);
+
+    rmSync(envPath, { force: true });
+    const absentScrub = patchRootEnvironmentFile({
+      projectRoot: canonicalRoot,
+      owner: ROOT_ENVIRONMENT_OWNER.LEGACY_NOTIFICATION_SCRUB,
+      deleteKeys: ['SMTP_URL'],
+    });
+    assert.deepEqual(absentScrub, { path: envPath, changed: false });
+    assert.equal(existsSync(envPath), false);
+
     const duplicate = Buffer.from('\uFEFF\u00a0OLLAMA_URL: one\nOLLAMA_URL=two\nFOREIGN=keep\n');
     resetTarget(duplicate);
     assertErrorCode(() => wizard.writeEnvFile(), SETUP_ENV_DUPLICATE_OWNED_KEY);
@@ -1278,15 +1607,21 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
       mode: 0o010600,
     }, localUid), SETUP_ENV_TARGET_UNSAFE);
 
+    const rootEnvironmentSource = readSource('src/security/root-environment-file.js');
     const wizardSource = readSource('src/setup/wizard.js');
     const existingTargetOpen = sliceBetween(
-      wizardSource,
-      'fd = fs.openSync(targetPath,',
+      rootEnvironmentSource,
+      'descriptor = fs.openSync(\n      targetPath,',
       ');',
     );
     assert.match(existingTargetOpen, /requireSafeOpenFlags\(\)/);
-    assert.match(wizardSource, /O_NOFOLLOW === 0/);
-    assert.match(wizardSource, /O_NONBLOCK === 0/);
+    assert.match(rootEnvironmentSource, /O_NOFOLLOW === 0/);
+    assert.match(rootEnvironmentSource, /O_NONBLOCK === 0/);
+    assert.match(rootEnvironmentSource, /fs\.fstatSync\(tempDescriptor/);
+    assert.match(rootEnvironmentSource, /tempReadback\.equals\(nextBytes\)/);
+    assert.doesNotMatch(rootEnvironmentSource, /process\.env|dotenv\.populate/);
+    assert.doesNotMatch(wizardSource, /fs\.renameSync|fs\.linkSync|fs\.openSync/);
+    assert.match(wizardSource, /owner: ROOT_ENVIRONMENT_OWNER\.SETUP/);
     const interactiveSlice = sliceBetween(
       wizardSource,
       'export async function runInteractiveWizard',

@@ -12,8 +12,8 @@
 //
 // Retains any legacy notification subdocument for the later authority transfer,
 // but no longer accepts notification credentials or destinations. Persists the
-// setup state in c3-setup.json and patches only four owned keys in the
-// canonical project-root .env.
+// setup state in c3-setup.json and delegates its exact four-key patch to the
+// canonical project-root .env authority.
 //
 // Usage:
 //   node src/setup/wizard.js          # Interactive terminal
@@ -23,20 +23,38 @@
 
 import fs from 'fs';
 import path from 'path';
-import { randomBytes } from 'crypto';
 import { createInterface } from 'readline';
 import { fileURLToPath } from 'node:url';
-import { parse as parseDotenv } from 'dotenv';
 import { logger } from '../core/logger.js';
 import { SETUP_ADMIN_AUTH_REQUIRED } from '../security/strict-admin-auth.js';
+import {
+  ROOT_ENVIRONMENT_OWNER,
+  SETUP_ENV_DUPLICATE_OWNED_KEY,
+  SETUP_ENV_OWNED_KEYS,
+  SETUP_ENV_PUBLICATION_UNKNOWN,
+  SETUP_ENV_TARGET_OUT_OF_SCOPE,
+  SETUP_ENV_TARGET_UNSAFE,
+  SETUP_ENV_VALUE_INVALID,
+  SETUP_ENV_WRITE_FAILED,
+  SetupEnvironmentError,
+  patchRootEnvironmentFile,
+  renderRootEnvironment,
+  requireCanonicalRootEnvironmentProjectRoot,
+  requireSafeRootEnvironmentTarget,
+} from '../security/root-environment-file.js';
+
+export {
+  SETUP_ENV_DUPLICATE_OWNED_KEY,
+  SETUP_ENV_OWNED_KEYS,
+  SETUP_ENV_PUBLICATION_UNKNOWN,
+  SETUP_ENV_TARGET_OUT_OF_SCOPE,
+  SETUP_ENV_TARGET_UNSAFE,
+  SETUP_ENV_VALUE_INVALID,
+  SETUP_ENV_WRITE_FAILED,
+  SetupEnvironmentError,
+};
 
 export const SETUP_NOTIFICATION_INPUT_RETIRED = 'SETUP_NOTIFICATION_INPUT_RETIRED';
-export const SETUP_ENV_TARGET_OUT_OF_SCOPE = 'SETUP_ENV_TARGET_OUT_OF_SCOPE';
-export const SETUP_ENV_TARGET_UNSAFE = 'SETUP_ENV_TARGET_UNSAFE';
-export const SETUP_ENV_DUPLICATE_OWNED_KEY = 'SETUP_ENV_DUPLICATE_OWNED_KEY';
-export const SETUP_ENV_VALUE_INVALID = 'SETUP_ENV_VALUE_INVALID';
-export const SETUP_ENV_WRITE_FAILED = 'SETUP_ENV_WRITE_FAILED';
-export const SETUP_ENV_PUBLICATION_UNKNOWN = 'SETUP_ENV_PUBLICATION_UNKNOWN';
 export const SETUP_STATE_WRITE_FAILED = 'SETUP_STATE_WRITE_FAILED';
 export const SETUP_STATE_INVALID = 'SETUP_STATE_INVALID';
 export const SETUP_ALREADY_COMPLETE = 'SETUP_ALREADY_COMPLETE';
@@ -46,368 +64,22 @@ const DEFAULT_PROJECT_ROOT = path.resolve(
   '../..',
 );
 
-export const SETUP_ENV_OWNED_KEYS = Object.freeze([
-  'OLLAMA_URL',
-  'C3_LANG',
-  'C3_DB_PATH',
-  'C3_LICENSE_KEY',
-]);
-
-const SETUP_ENV_OWNED_KEY_SET = new Set(SETUP_ENV_OWNED_KEYS);
-const ENV_ASSIGNMENT_PATTERN = /^(\uFEFF?[^\S\r\n]*(?:export[^\S\r\n]+)?)([\w.-]+)(?:[^\S\r\n]*=[^\S\r\n]*|:[^\S\r\n]+)/u;
-// Structurally mirrors dotenv@17.3.1's assignment matcher, with captures
-// around the spans that must never cross a physical line in this bounded
-// writer. Leading blank-line whitespace is intentionally not rejected.
-const DOTENV_ASSIGNMENT_SPAN_PATTERN = /^(\s*)(?:export(\s+))?([\w.-]+)(\s*=\s*?|:\s+?)(\s*'(?:\\'|[^'])*'|\s*"(?:\\"|[^"])*"|\s*`(?:\\`|[^`])*`|[^#\r\n]+)?\s*(?:#.*)?$/gm;
-
-export class SetupEnvironmentError extends Error {
-  constructor(code) {
-    super(code);
-    this.name = 'SetupEnvironmentError';
-    this.code = code;
-  }
-}
-
 function setupEnvironmentError(code) {
   return new SetupEnvironmentError(code);
 }
 
-function currentUid() {
-  return typeof process.geteuid === 'function' ? process.geteuid() : null;
-}
-
-export function requireSafeSetupEnvTarget(stat, expectedUid = currentUid()) {
-  const isRegular = stat && typeof stat.isFile === 'function' && stat.isFile();
-  const ownerMatches = expectedUid === null || stat?.uid === expectedUid;
-  const mode = stat?.mode & 0o7777;
-  if (!isRegular || !ownerMatches || stat?.nlink !== 1 || mode !== 0o600) {
-    throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-  }
-  return stat;
-}
-
-function requireSafeOpenFlags() {
-  const { O_NOFOLLOW, O_NONBLOCK } = fs.constants;
-  if (!Number.isInteger(O_NOFOLLOW) || O_NOFOLLOW === 0
-    || !Number.isInteger(O_NONBLOCK) || O_NONBLOCK === 0) {
-    throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-  }
-  return O_NOFOLLOW | O_NONBLOCK;
-}
-
-function validateSetupEnvValues(values) {
-  const normalized = Object.create(null);
-  for (const key of SETUP_ENV_OWNED_KEYS) {
-    if (!Object.hasOwn(values, key) || typeof values[key] !== 'string'
-      || /[\r\n\0\u2028\u2029]/u.test(values[key])) {
-      throw setupEnvironmentError(SETUP_ENV_VALUE_INVALID);
-    }
-    normalized[key] = values[key];
-  }
-  return Object.freeze(normalized);
-}
-
-function splitLinesWithEndings(text) {
-  const lines = [];
-  let start = 0;
-  for (let index = 0; index < text.length; index++) {
-    if (text[index] !== '\r' && text[index] !== '\n') continue;
-    const end = text[index] === '\r' && text[index + 1] === '\n'
-      ? index + 2
-      : index + 1;
-    lines.push(text.slice(start, end));
-    start = end;
-    if (end === index + 2) index += 1;
-  }
-  if (start < text.length) lines.push(text.slice(start));
-  return lines;
-}
-
-function envLineEnding(line) {
-  if (line.endsWith('\r\n')) return '\r\n';
-  if (line.endsWith('\n')) return '\n';
-  return line.endsWith('\r') ? '\r' : '';
-}
-
-function stripEnvLineEnding(line) {
-  if (line.endsWith('\r\n')) return line.slice(0, -2);
-  if (line.endsWith('\r') || line.endsWith('\n')) return line.slice(0, -1);
-  return line;
-}
-
-function assertNoMultilineDotenvAssignments(lines) {
-  for (const line of lines) {
-    const content = stripEnvLineEnding(line);
-    const match = ENV_ASSIGNMENT_PATTERN.exec(content);
-    if (!match) continue;
-    const quote = content[match[0].length];
-    if (quote !== "'" && quote !== '"' && quote !== '`') continue;
-    let closed = false;
-    for (let index = match[0].length + 1; index < content.length; index++) {
-      if (content[index] === quote && content[index - 1] !== '\\') {
-        closed = true;
-        break;
-      }
-    }
-    if (!closed) throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-  }
-}
-
-function assertNoCrossLineDotenvAssignments(text) {
-  // JavaScript's multiline anchors (and therefore dotenv's pinned parser)
-  // also treat U+2028/U+2029 as line terminators. This bounded writer only
-  // preserves CR/LF physical records, so fail closed instead of allowing a
-  // second parser-visible authority that the physical scanner cannot count.
-  if (/[\u2028\u2029]/u.test(text)) {
-    throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-  }
-  const normalized = text.replace(/\r\n?/g, '\n');
-  DOTENV_ASSIGNMENT_SPAN_PATTERN.lastIndex = 0;
-  let match;
-  while ((match = DOTENV_ASSIGNMENT_SPAN_PATTERN.exec(normalized)) !== null) {
-    const crossLineSpan = [match[2], match[4], match[5]]
-      .some(value => typeof value === 'string' && value.includes('\n'));
-    if (crossLineSpan) throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-  }
-}
-
-function parseSetupEnvironment(bytes) {
-  try {
-    return parseDotenv(bytes);
-  } catch {
-    throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-  }
-}
-
-function assertRenderedSetupEnvironment(existingBytes, nextBytes, normalized) {
-  const before = parseSetupEnvironment(existingBytes);
-  const after = parseSetupEnvironment(nextBytes);
-  const parsedKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
-  for (const key of parsedKeys) {
-    if (SETUP_ENV_OWNED_KEY_SET.has(key)) continue;
-    if (Object.hasOwn(before, key) !== Object.hasOwn(after, key)
-      || before[key] !== after[key]) {
-      throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-    }
-  }
-  for (const key of SETUP_ENV_OWNED_KEYS) {
-    const expectedPresent = key !== 'C3_LICENSE_KEY' || normalized[key] !== '';
-    if (Object.hasOwn(after, key) !== expectedPresent
-      || (expectedPresent && after[key] !== normalized[key])) {
-      throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-    }
-  }
-}
-
-function encodeEnvValue(value) {
-  const candidates = [];
-  if (value.trim() === value && !value.includes('#')) candidates.push(value);
-  if (!value.includes("'")) candidates.push(`'${value}'`);
-  if (!value.includes('`')) candidates.push(`\`${value}\``);
-  if (!value.includes('"')) candidates.push(`"${value}"`);
-
-  for (const candidate of candidates) {
-    const parsed = parseDotenv(Buffer.from(`C3_SETUP_VALUE=${candidate}\n`, 'utf8'));
-    if (parsed.C3_SETUP_VALUE === value) return candidate;
-  }
-  throw setupEnvironmentError(SETUP_ENV_VALUE_INVALID);
+// Backwards-compatible P0 test/API names delegate to the shared seam.
+export function requireSafeSetupEnvTarget(stat, expectedUid) {
+  return expectedUid === undefined
+    ? requireSafeRootEnvironmentTarget(stat)
+    : requireSafeRootEnvironmentTarget(stat, expectedUid);
 }
 
 export function renderSetupEnvironment(existingBytes, values) {
-  const normalized = validateSetupEnvValues(values);
-  let text;
-  try {
-    text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(existingBytes);
-  } catch {
-    throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-  }
-
-  const lines = splitLinesWithEndings(text);
-  assertNoCrossLineDotenvAssignments(text);
-  assertNoMultilineDotenvAssignments(lines);
-  const ownedIndexes = new Map();
-  for (let index = 0; index < lines.length; index++) {
-    const content = stripEnvLineEnding(lines[index]);
-    const match = ENV_ASSIGNMENT_PATTERN.exec(content);
-    if (!match || !SETUP_ENV_OWNED_KEY_SET.has(match[2])) continue;
-    if (ownedIndexes.has(match[2])) {
-      throw setupEnvironmentError(SETUP_ENV_DUPLICATE_OWNED_KEY);
-    }
-    ownedIndexes.set(match[2], index);
-  }
-
-  const removed = new Set();
-  for (const key of SETUP_ENV_OWNED_KEYS) {
-    const index = ownedIndexes.get(key);
-    const value = normalized[key];
-    if (index === undefined) continue;
-    if (key === 'C3_LICENSE_KEY' && value === '') {
-      removed.add(index);
-      continue;
-    }
-    const content = stripEnvLineEnding(lines[index]);
-    const match = ENV_ASSIGNMENT_PATTERN.exec(content);
-    lines[index] = `${match[1]}${key}=${encodeEnvValue(value)}${envLineEnding(lines[index])}`;
-  }
-
-  const retainedLines = lines
-    .map((line, index) => ({ index, line }))
-    .filter(({ index }) => !removed.has(index));
-  let rendered = retainedLines.map(({ line }) => line).join('');
-  const appended = [];
-  for (const key of SETUP_ENV_OWNED_KEYS) {
-    if (ownedIndexes.has(key)) continue;
-    const value = normalized[key];
-    if (key === 'C3_LICENSE_KEY' && value === '') continue;
-    appended.push(`${key}=${encodeEnvValue(value)}\n`);
-  }
-  if (appended.length > 0) {
-    const appendedText = appended.join('');
-    const finalLine = retainedLines.at(-1);
-    const finalLineIsUnterminated = finalLine
-      && !finalLine.line.endsWith('\n')
-      && !finalLine.line.endsWith('\r');
-    const finalLineIsOwned = finalLine
-      && [...ownedIndexes.values()].includes(finalLine.index);
-    if (finalLineIsUnterminated && !finalLineIsOwned) {
-      const prefix = retainedLines.slice(0, -1).map(({ line }) => line).join('');
-      const bom = prefix.length === 0 && finalLine.line.startsWith('\uFEFF') ? '\uFEFF' : '';
-      rendered = `${prefix}${bom}${appendedText}${finalLine.line.slice(bom.length)}`;
-    } else {
-      if (rendered.length > 0 && !rendered.endsWith('\n') && !rendered.endsWith('\r')) {
-        rendered += '\n';
-      }
-      rendered += appendedText;
-    }
-  }
-  const nextBytes = Buffer.from(rendered, 'utf8');
-  assertRenderedSetupEnvironment(existingBytes, nextBytes, normalized);
-  return nextBytes;
-}
-
-function fsyncDirectory(directoryPath) {
-  const directoryFd = fs.openSync(
-    directoryPath,
-    fs.constants.O_RDONLY | (fs.constants.O_DIRECTORY || 0),
-  );
-  try {
-    fs.fsyncSync(directoryFd);
-  } finally {
-    fs.closeSync(directoryFd);
-  }
-}
-
-function requireOwnedDirectory(directoryPath) {
-  const stat = fs.lstatSync(directoryPath);
-  const expectedUid = currentUid();
-  if (!stat.isDirectory() || stat.isSymbolicLink()
-    || (expectedUid !== null && stat.uid !== expectedUid)
-    || fs.realpathSync(directoryPath) !== directoryPath) {
-    throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-  }
-}
-
-function readSafeExistingTarget(targetPath) {
-  let lstat;
-  try {
-    lstat = fs.lstatSync(targetPath);
-  } catch (error) {
-    if (error?.code === 'ENOENT') return null;
-    throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-  }
-  requireSafeSetupEnvTarget(lstat);
-
-  let fd;
-  try {
-    fd = fs.openSync(targetPath, fs.constants.O_RDONLY | requireSafeOpenFlags());
-    const fstat = fs.fstatSync(fd);
-    requireSafeSetupEnvTarget(fstat);
-    if (fstat.dev !== lstat.dev || fstat.ino !== lstat.ino) {
-      throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-    }
-    return Object.freeze({
-      bytes: fs.readFileSync(fd),
-      dev: fstat.dev,
-      ino: fstat.ino,
-    });
-  } catch (error) {
-    if (error instanceof SetupEnvironmentError) throw error;
-    throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-  } finally {
-    if (fd !== undefined) fs.closeSync(fd);
-  }
-}
-
-function recheckExistingTarget(targetPath, snapshot) {
-  const stat = fs.lstatSync(targetPath);
-  requireSafeSetupEnvTarget(stat);
-  if (stat.dev !== snapshot.dev || stat.ino !== snapshot.ino) {
-    throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-  }
-}
-
-function patchSetupEnvironmentFile(values, projectRoot) {
-  const targetPath = path.join(projectRoot, '.env');
-  const directoryPath = path.dirname(targetPath);
-  requireOwnedDirectory(directoryPath);
-  const snapshot = readSafeExistingTarget(targetPath);
-  const nextBytes = renderSetupEnvironment(snapshot?.bytes || Buffer.alloc(0), values);
-  const tempPath = path.join(
-    directoryPath,
-    `.env.c3-setup-${process.pid}-${randomBytes(12).toString('hex')}.tmp`,
-  );
-  let tempCreated = false;
-  let published = false;
-  try {
-    const tempFd = fs.openSync(
-      tempPath,
-      fs.constants.O_WRONLY
-        | fs.constants.O_CREAT
-        | fs.constants.O_EXCL
-        | requireSafeOpenFlags(),
-      0o600,
-    );
-    tempCreated = true;
-    try {
-      fs.writeFileSync(tempFd, nextBytes);
-      fs.fchmodSync(tempFd, 0o600);
-      fs.fsyncSync(tempFd);
-    } finally {
-      fs.closeSync(tempFd);
-    }
-
-    const tempStat = fs.lstatSync(tempPath);
-    requireSafeSetupEnvTarget(tempStat);
-
-    if (snapshot) {
-      recheckExistingTarget(targetPath, snapshot);
-      fs.renameSync(tempPath, targetPath);
-      tempCreated = false;
-      published = true;
-    } else {
-      fs.linkSync(tempPath, targetPath);
-      published = true;
-      fs.unlinkSync(tempPath);
-      tempCreated = false;
-    }
-    const publishedSnapshot = readSafeExistingTarget(targetPath);
-    if (!publishedSnapshot || !publishedSnapshot.bytes.equals(nextBytes)) {
-      throw setupEnvironmentError(SETUP_ENV_PUBLICATION_UNKNOWN);
-    }
-    fsyncDirectory(directoryPath);
-  } catch (error) {
-    if (tempCreated) {
-      try { fs.unlinkSync(tempPath); } catch { /* best-effort temp cleanup */ }
-    }
-    if (published) {
-      throw setupEnvironmentError(SETUP_ENV_PUBLICATION_UNKNOWN);
-    }
-    if (error instanceof SetupEnvironmentError) throw error;
-    if (error?.code === 'EEXIST' || error?.code === 'ELOOP') {
-      throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-    }
-    throw setupEnvironmentError(SETUP_ENV_WRITE_FAILED);
-  }
+  return renderRootEnvironment(existingBytes, {
+    owner: ROOT_ENVIRONMENT_OWNER.SETUP,
+    values,
+  });
 }
 
 // ─── Setup State ────────────────────────────────────────────────────────────
@@ -431,9 +103,9 @@ const DEFAULT_SETUP = {
   },
   language: 'cs',
   notifications: {
-    telegram: { enabled: false, token: '', chatId: '' },
-    email: { enabled: false, smtp: '', from: '', to: '' },
-    ntfy: { enabled: false, topic: '', server: 'https://ntfy.sh' },
+    telegram: { enabled: false },
+    email: { enabled: false },
+    ntfy: { enabled: false },
   },
   dataDir: './data',
   license: { key: '', activated: false },
@@ -456,11 +128,7 @@ function createDefaultSetup() {
 }
 
 function normalizeProjectRoot(projectRoot) {
-  if (typeof projectRoot !== 'string' || !path.isAbsolute(projectRoot)
-    || path.resolve(projectRoot) !== projectRoot) {
-    throw setupEnvironmentError(SETUP_ENV_TARGET_OUT_OF_SCOPE);
-  }
-  return projectRoot;
+  return requireCanonicalRootEnvironmentProjectRoot(projectRoot);
 }
 
 function isPlainObject(value) {
@@ -674,7 +342,11 @@ export class SetupWizard {
     if (requestedTargets.length !== 0) {
       throw setupEnvironmentError(SETUP_ENV_TARGET_OUT_OF_SCOPE);
     }
-    patchSetupEnvironmentFile(this.toEnvVars(), this.projectRoot);
+    patchRootEnvironmentFile({
+      projectRoot: this.projectRoot,
+      owner: ROOT_ENVIRONMENT_OWNER.SETUP,
+      values: this.toEnvVars(),
+    });
   }
 
   /**
