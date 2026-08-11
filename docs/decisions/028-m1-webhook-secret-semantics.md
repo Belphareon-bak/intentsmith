@@ -1,15 +1,16 @@
 # 028 — webhook HMAC musí mít jednu pravdivou autoritu
 
 - **typ:** credential lifecycle a runtime connector
-- **stav:** `ACCEPTED 2026-08-11: A / WP_ACTIVE /
-  IMPLEMENTATION_NOT_STARTED`; aktivní ohraničený
+- **stav:** `ACCEPTED 2026-08-11: A / PROMOTED / REVIEW A+B PASS`;
+  statický ohraničený
   [`WP-M1-WEBHOOK-SECRET-SEMANTICS`](../wp/WP-M1-WEBHOOK-SECRET-SEMANTICS.md)
   vychází ze source evidence
-  `f19135871f148f69fcc9451307e87c34c1abfcbb`
+  `f19135871f148f69fcc9451307e87c34c1abfcbb`; promotion evidence je v
+  [`wp-m1-webhook-secret-semantics-20260811-report.md`](../execution/runs/wp-m1-webhook-secret-semantics-20260811-report.md)
 - **finding:** [011 — user_settings authority](../findings/011-user-settings-authority-and-secret-exposure.md)
-- **závislost:** 027/A je `PROMOTED / REVIEW A+B PASS`; rozhodnutí 026/A je
-  přijaté pro cílovou env autoritu, ale implementace 028/A předchází 026
-  transferu/scrub kroku; support claim by navíc vyžadoval 027/B
+- **závislost:** 027/A i 028/A jsou `PROMOTED / REVIEW A+B PASS`; 026/A + X1 je
+  nyní aktivní pro navazující env write/transfer/scrub krok; support claim by
+  nadále vyžadoval 027/B
 
 ## Ověřený problém
 
@@ -103,3 +104,22 @@ Přijaté `028-secret-value` je prospective invariant nové autority a veřejný
 cest. Historická legacy hodnota může do 026 fyzicky zůstat v DB i plném SQLite
 disaster-recovery backupu; 028 ji zachová, ignoruje a ukončí nové writery, ale
 nepřenáší ji ani nescrubuje.
+
+## Promotion evidence
+
+Aktivační base byl
+`ce7bc7f1c1e465cf2b7916655bdb0fa04ebf47ea`, immutable subject
+`6733cccb9048695401b582ab2fea2ff50756b501`, report-only Review A evidence
+`b88c042d20d669f5f33e79f5f90928d61bb368a3` a prověřený merge candidate
+`fc01a5e9c157f125f4e7638e2656c84ea8477228`. Review A i Review B skončily
+`PASS`; report-only promotion tip na canonical integration je
+`0037d56a2fb63ae0c3a3863ce00b9083d838ba8b`.
+
+Focused evidence zůstává settings authority `4/4`, notification credential
+scope `2/2`, Studio VM `128/128` a registry 382 programů / 8 exclusions s
+fingerprintem
+`571ae1a90a4246c7037d56fe5fb786beb4b5c4aae3e61f163d5b6ffe14341d71`.
+`tests/e2e/13-security.e2e.js` byl pouze source-contract update a zůstal
+`NOT RUN / BLOCKED`; Electron/build, GPU, Ollama, outbound webhook, externí síť
+ani celý produktový test nebyly spuštěné. Promotion nic nepřenášela,
+nescrubovala ani nezapisovala do env; přesně tyto zbývající kroky vlastní 026.

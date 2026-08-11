@@ -1365,17 +1365,36 @@ mohou pokračovat.
    Setup/UI už nepřijímají nové notification credentials. Transfer ani scrub
    027 neprováděl.
 
-   Třetí krok je nyní aktivovaný jako
+   Třetí krok
    [`WP-M1-WEBHOOK-SECRET-SEMANTICS`](docs/wp/WP-M1-WEBHOOK-SECRET-SEMANTICS.md)
+   je `PROMOTED / REVIEW A+B PASS`: aktivační base `ce7bc7f1`, immutable subject
+   `6733cccb`, candidate `fc01a5e9` a report-only promotion tip `0037d56a` jsou
+   připnuté v
+   [`wp-m1-webhook-secret-semantics-20260811-report.md`](docs/execution/runs/wp-m1-webhook-secret-semantics-20260811-report.md).
+   Jeden immutable startup snapshot sdílí exact
+   `PROCESS_ENV|ROOT_ENV_FILE` status a HMAC signer, authenticated POST je
+   pre-parse `410` a Studio Security povrch je read-only. 028 neprovedlo env
+   write, legacy transfer ani scrub.
+
+   Čtvrtý krok je nyní aktivní jako
+   [`WP-M1-SECRET-STORAGE-AUTHORITY`](docs/wp/WP-M1-SECRET-STORAGE-AUTHORITY.md)
    ve stavu `ACTIVE / IMPLEMENTATION_NOT_STARTED` se source evidence
-   `f19135871f148f69fcc9451307e87c34c1abfcbb`. Pinuje environment-only HMAC,
-   jeden immutable startup snapshot sdílený statusem a signerem, exact
-   `PROCESS_ENV|ROOT_ENV_FILE` provenance, stabilní authenticated pre-parse
-   `410` místo setteru a read-only Studio surface. Jde pouze o read-side subset
-   přijatého 026/A; env write, legacy transfer a scrub zůstávají zakázané.
-   026 a 029 čekají na přijatý 028 candidate. Finding 011 zůstává `OPEN`, Gate 1
-   `BLOCKED`; Electron, GPU, Ollama, externí network journey ani celý produktový
-   test nejsou součástí 028.
+   `0037d56a2fb63ae0c3a3863ce00b9083d838ba8b`. Operátor přijal 026-X1 jako
+   explicitní transfer/export/purge s offline localStorage file/receipt flow;
+   raw credentials nesmějí přes HTTP, WS ani nový loopback connector. Exact
+   credential status má dvanáct vyjmenovaných canonical env keys;
+   `C3_NTFY_URL`, `SMTP_URL` a `EMAIL_TO` vyžadují export nebo purge, ne silent
+   mapování. První source commit musí před zbytkem 026 uzavřít Setup P0: současný
+   writer už je bounded a state se loaduje, ale cwd target se přesune na
+   canonical root, čtyři efektové Setup POSTy dostanou startup-captured strict
+   admin-token auth bez dev bypassu a repeated complete exact pre-effect 409.
+   Jeden final `S` pokryje P0 i zbytek 026. Retirement emitteru bez recipient
+   env key znamená, že automatické lifecycle/worker e-maily nebudou v core 1.0
+   konfigurovatelné vůbec; release note to musí uvést výslovně.
+
+   029 čeká na přijatý 026 candidate. Finding 011 zůstává `OPEN`, Gate 1
+   `BLOCKED`; E2E12, Electron/build, GPU, Ollama, externí network journey ani
+   celý produktový test nejsou součástí redukovaného 026 důkazu.
 
    Konsolidovaný M1 base je formálně přijatý na
    `integration/m1-consolidated-20260810`; wire Review B evidence obálka

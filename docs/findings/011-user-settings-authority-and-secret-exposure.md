@@ -14,7 +14,7 @@ Neřeší ale celou secret/support/reset frontu ani standalone `chats/` povrch:
    ukončil legacy GET/POST inertním `410`; `GET /api/settings/v2` nyní vrací
    exact redigovanou public projekci s revision a read failure je typované
    non-2xx. Promovaný 027 už ukončil nové WS/Setup notification credential
-   vstupy a WP028 source retiruje falešný webhook setter. Plaintext legacy
+   vstupy a promovaný 028 odstranil falešný webhook setter. Plaintext legacy
    hodnoty ale dosud mohou zůstat v DB, setup zdrojích nebo localStorage a
    čekají na 026 verified transfer/exact scrub.
 2. Před 025 vracel úspěšný `POST /api/settings/import` celý commitnutý
@@ -75,9 +75,9 @@ Bezpečný cutover musí spojit:
 
 Tehdejší portable repair netvrdil globální lost-update odolnost ani bezpečný
 obecný settings read. Tyto canonical-root části nyní pokrývá promovaný 025;
-Gate 1 zůstává `BLOCKED` na formálním review a přijetí 028 candidate,
-následných 026/029, standalone `chats/` ownerovi a dalších výslovně uvedených
-residualech.
+028 je také `PROMOTED / REVIEW A+B PASS` a 026 je aktivní. Gate 1 zůstává
+`BLOCKED` na dokončení a přijetí 026/029, standalone `chats/` ownerovi a dalších
+výslovně uvedených residualech.
 
 ## První repair F-A — promován, Review A+B PASS
 
@@ -112,11 +112,10 @@ zůstávají oddělené a každá vyžaduje vlastní subject, Review A i Review 
 | 4 | [026 — secret storage authority](../decisions/026-m1-secret-storage-authority.md) | A | ověřený env transfer a odstranění credentials z aplikačních dat |
 | 5 | [029 — settings reset scope](../decisions/029-m1-settings-reset-scope.md) | A | settings-only reset a ukončení legacy aliasu |
 
-025 i 027 jsou `PROMOTED / REVIEW A+B PASS`; 028 je
-`SOURCE_IMPLEMENTED / FOCUSED_VERIFIED / REVIEW_PENDING` a 026/029 zůstávají
-`ACCEPTED / WAITING`. Závazná sekvence je
-`025 → 027 → 028 → 026 → 029`; 026 nezačne před přijetím 028 candidate a 029
-nezačne před přijetím 026. Finding 011 zůstává `OPEN` a Gate 1 `BLOCKED`.
+025, 027 i 028 jsou `PROMOTED / REVIEW A+B PASS`; 026/A + X1 je
+`WP_ACTIVE / IMPLEMENTATION_NOT_STARTED` a 029 zůstává `ACCEPTED / WAITING`.
+Závazná sekvence je `025 → 027 → 028 → 026 → 029`; 029 nezačne před přijetím
+026 candidate. Finding 011 zůstává `OPEN` a Gate 1 `BLOCKED`.
 
 025 dokončil ohraničený
 [`WP-M1-SETTINGS-VERSIONED-AUTHORITY`](../wp/WP-M1-SETTINGS-VERSIONED-AUTHORITY.md)
@@ -300,14 +299,16 @@ Jsou mimo přijatý 027 důkaz a musí se srovnat před full-product během.
 `updateChannelConfig('email', ...)`, takže může po durable commitu chybně vrátit
 `runtimeApplied:true`; tato route semantics patří do 026.
 
-### 028 source checkpoint — jediná environment webhook autorita
+### 028 promotion — jediná environment webhook autorita
 
-Na promotion tipu 027 je aktivní
 [`WP-M1-WEBHOOK-SECRET-SEMANTICS`](../wp/WP-M1-WEBHOOK-SECRET-SEMANTICS.md)
-se source evidence `f19135871f148f69fcc9451307e87c34c1abfcbb`. Source je nyní
-`SOURCE_IMPLEMENTED / FOCUSED_VERIFIED / REVIEW_PENDING`; immutable subject,
-Review A/B ani promotion zatím nejsou vydané. Statický WP zůstává záměrně
-aktivačním snapshotem a stav se vede zde a později v unikátním run reportu.
+je `PROMOTED / REVIEW A+B PASS`. Aktivační base byl
+`ce7bc7f1c1e465cf2b7916655bdb0fa04ebf47ea`, immutable subject
+`6733cccb9048695401b582ab2fea2ff50756b501`, Review A evidence
+`b88c042d20d669f5f33e79f5f90928d61bb368a3`, merge candidate
+`fc01a5e9c157f125f4e7638e2656c84ea8477228` a report-only promotion tip
+`0037d56a2fb63ae0c3a3863ce00b9083d838ba8b`. Exact topologii drží
+[`wp-m1-webhook-secret-semantics-20260811-report.md`](../execution/runs/wp-m1-webhook-secret-semantics-20260811-report.md).
 
 Explicitní startup bootstrap bezpečně čte pouze exact `<projectRoot>/.env`
 nezávisle na `cwd` a `DOTENV_CONFIG_PATH`, před načtením zachytí own
@@ -354,7 +355,73 @@ webhook, externí síť ani celý produktový test nebyly spuštěné.
 028 odstranil nový webhook DB writer, ale žádný env/DB/localStorage writer,
 transfer, scrub ani purge nevytvořil. Historický secret může proto do 026
 fyzicky zůstat v legacy DB blobu i plném SQLite disaster-recovery backupu; 028
-jej ignoruje a zachovává. 026 a 029 čekají na přijatý 028 candidate. Finding 011
-zůstává `OPEN`, Gate 1 `BLOCKED`; standalone `chats/`, legacy secret
-transfer/scrub, reset a uvedené compatibility residualy nejsou tímto
-checkpointem uzavřené.
+jej ignoruje a zachovává. Finding 011 zůstává `OPEN`, Gate 1 `BLOCKED`;
+standalone `chats/`, legacy secret transfer/scrub, reset a uvedené compatibility
+residualy nejsou promotion uzavřené.
+
+### 026 activation — verified environment transfer a exact scrub
+
+Operátor 2026-08-11 přijal 026-X1 v offline localStorage variantě a následné
+X1-a až X1-e. Aktivní
+[`WP-M1-SECRET-STORAGE-AUTHORITY`](../wp/WP-M1-SECRET-STORAGE-AUTHORITY.md)
+vychází z clean promotion tipu 028
+`0037d56a2fb63ae0c3a3863ce00b9083d838ba8b`. Implementace ještě nezačala;
+žádný transfer, export, purge ani scrub není tímto docs checkpointem provedený.
+
+Aktuální Setup census koriguje historický popis: 027 už nahradilo původní
+whole-file/truthy `.env` writer bounded atomickým patchem čtyř exact
+non-notification keys a `server.js` před route registration volá
+`setupWizard.load()`. Zbývající P0 je cwd-derived target a mutační autorita:
+čtyři efektové POSTy `/api/setup/{ollama,language,license,complete}` nemají strict
+admin-token guard a always-registered `/complete` po dokončení znovu zapisuje
+env i setup state. První source commit 026 proto přesune writer na exact
+canonical project root, zachová mode-0600/no-follow/foreign-byte ratchet, zavede
+startup-captured strict `C3_ADMIN_TOKEN` bez dev-localhost bypassu před všemi
+čtyřmi efekty a exact pre-effect
+`409 SETUP_ALREADY_COMPLETE`. Chybějící či nesprávný token skončí exact
+`403 SETUP_ADMIN_AUTH_REQUIRED`. Inertní Setup notifications 410 a GET status se
+nemění. Teprve po commitu, pushi a focused ověření P0 smí začít zbytek 026;
+finální subject `S` bude pro celý WP jeden.
+
+Canonical status je explicitní dvanáctiklíčová mapa:
+`C3_SMTP_HOST`, `C3_SMTP_PORT`, `C3_SMTP_USER`, `C3_SMTP_PASS`,
+`C3_SMTP_FROM`, `C3_TELEGRAM_BOT_TOKEN`, `C3_TELEGRAM_CHAT_ID`,
+`C3_NTFY_SERVER`, `C3_NTFY_TOPIC`, `C3_NTFY_TOKEN`, `C3_WEBHOOK_URL` a
+`C3_WEBHOOK_SECRET`. Každý leaf vrací jen exact `{configured,source}` s
+`PROCESS_ENV|ROOT_ENV_FILE`; HMAC leaf musí být shodný s 028. Desktop policy key
+a test-only `C3_TEST_EMAIL` do mapy nepatří. `C3_NTFY_URL` se nesmí tiše
+přepnout na `C3_NTFY_SERVER`; stejně jako `SMTP_URL` a `EMAIL_TO` vyžaduje
+verified mode-0600 export nebo explicitní purge před exact scrubem.
+
+LocalStorage část nepřidává loopback connector. Raw
+`localStorage['paiass_settings']` jde pouze explicitním absolutním owner-owned
+mode-0600/no-follow offline inputem do CLI. Non-secret receipt je vázaný na
+preimage a exact path digesty; Architect jej aplikuje jen na deset známých
+`notifications.*` cest a při stale/malformed/failure zachová původní bytes.
+`c3-settings` není credential blob tohoto WP a raw hodnoty nikdy nejdou přes
+HTTP, WS ani log.
+
+DB census je záměrně neprefixový. Vedle `webhookSecret` a legacy
+`c3.notif.webhookSecret` zahrne všech devět retired typed notification cest a
+stejných deset nested `notifications.*` sensitive cest jako Architect
+`paiass_settings`; zachová čtyři safe generic `c3.notif.{desktopEnabled,
+quietEnabled,quietFrom,quietTo}` i unknown data. Setup census používá exact
+`<configured-dataDir>/c3-setup.json` cesty pro Telegram, email a ntfy;
+historické cwd `.env` je pouze explicitní absolutní operator-supplied input,
+nikoli odhad podle dnešního CLI cwd.
+
+Retirement DB/runtime config setterů a `NotificationEmitter` bez nového
+recipient env key má tvrdý produktový důsledek: automatické lifecycle/worker
+e-maily po 026 nebudou v core 1.0 konfigurovatelné vůbec. Retained/default-off
+`EmailChannel` zůstane pouze pro explicitní caller-supplied recipient. Stejná
+věta je povinná v `docs/CHANGELOG.md` release note i v pravdivém notification
+popisu; nesmí se objevit až při 1.0 release discovery.
+
+Focused program zůstává přesně čtyřprogramový: settings authority `4/4`,
+notification credential scope `2/2`, Studio VM `128/128` a registry 382/8 s
+fingerprintem
+`571ae1a90a4246c7037d56fe5fb786beb4b5c4aae3e61f163d5b6ffe14341d71`.
+E2E12 smí být pouze source-contract update a zůstává `NOT RUN / BLOCKED`;
+Electron/build, GPU, Ollama, externí síť ani celý produktový test se nespouštějí.
+029 čeká na přijatý 026 candidate. Finding 011 i Gate 1 zůstávají
+`OPEN`/`BLOCKED`.
