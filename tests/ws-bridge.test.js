@@ -48,6 +48,7 @@ import {
 import * as m1ProtocolRuntime from '../contracts/m1/index.js';
 const { validateCoreEventStream } = m1ProtocolRuntime;
 import { logger } from '../src/core/logger.js';
+import { featureManager } from '../src/core/feature-manager.js';
 import { finalizeChatResponse } from '../src/chat/response-finalizer.js';
 import { createChatRoutes } from '../src/routes/chat.js';
 import { improveResponse as runImprovementLoop } from '../src/chat/quality/improvement-loops.js';
@@ -762,6 +763,73 @@ test('T11: ping returns pong', () => {
 
   const pong = sent.find(m => m.channel === 'control' && m.data.action === 'pong');
   assert.ok(pong, 'Should respond with pong');
+});
+
+test('T11b: sync_settings is exact feature-only and rejects mixed credentials atomically', () => {
+  const featureNames = [
+    'agents',
+    'lifecycle',
+    'expertises',
+    'telemetry',
+    'specialistTelemetry',
+    'autonomy',
+    'skills',
+  ];
+  const originalFeatures = featureManager.getAll();
+  const sent = [];
+  const logs = [];
+  const adapter = createSessionAdapter({
+    send: json => sent.push(JSON.parse(json)),
+    handleRequest: async () => ({ response: 'ok', mode: 'conversation', confidence: 1 }),
+    logger: {
+      debug: (...args) => logs.push(args),
+      error: (...args) => logs.push(args),
+      info: (...args) => logs.push(args),
+      warn: (...args) => logs.push(args),
+    },
+  });
+
+  try {
+    featureManager.init(Object.fromEntries(featureNames.map(name => [name, false])));
+    adapter.handleControl({
+      action: 'sync_settings',
+      settings: Object.fromEntries(
+        featureNames.map(name => [`c3.features.${name}`, true]),
+      ),
+    });
+    assert.deepEqual(sent.at(-1), {
+      channel: 'control',
+      data: { action: 'sync_settings', success: true, changed: 7 },
+    });
+
+    const beforeReject = featureManager.getAll();
+    adapter.handleControl({
+      action: 'sync_settings',
+      settings: {
+        'c3.features.skills': false,
+        'c3.notif.smtpPass': 'ws-secret-canary',
+      },
+    });
+    assert.deepEqual(sent.at(-1), {
+      channel: 'control',
+      data: {
+        action: 'sync_settings',
+        success: false,
+        changed: 0,
+        code: 'FEATURE_SETTINGS_INPUT_INVALID',
+      },
+    });
+    assert.deepEqual(featureManager.getAll(), beforeReject);
+    assert.equal(JSON.stringify(sent).includes('ws-secret-canary'), false);
+    assert.equal(JSON.stringify(logs).includes('ws-secret-canary'), false);
+    assert.equal(JSON.stringify(logs).includes('c3.notif.smtpPass'), false);
+  } finally {
+    featureManager.init(Object.fromEntries(featureNames.map(name => [
+      name,
+      Object.hasOwn(originalFeatures, name) ? originalFeatures[name] : true,
+    ])));
+    adapter.cleanup();
+  }
 });
 
 await asyncTest('T12: error during turn sends error events', async () => {

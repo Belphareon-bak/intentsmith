@@ -86,6 +86,16 @@ const SETTINGS = [
   { id: 'about', icon: 'ℹ️', title: 'About' }
 ];
 
+const FEATURE_SYNC_KEYS = Object.freeze([
+  'c3.features.agents',
+  'c3.features.lifecycle',
+  'c3.features.expertises',
+  'c3.features.telemetry',
+  'c3.features.specialistTelemetry',
+  'c3.features.autonomy',
+  'c3.features.skills',
+]);
+
 // The committed lib is the authoritative Studio runtime. Keep this exact
 // default-deny profile in parity with src/db/settings-portability.js; focused
 // M1 tests reject drift before either UI can download a backup.
@@ -659,6 +669,7 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
 
   _renderSettingsContent(h, secId) {
     const _sync = (key, val) => {
+      if (!FEATURE_SYNC_KEYS.includes(key) || typeof val !== 'boolean') return;
       if (this._portableSettingsMutationState !== 'IDLE') {
         alert(this._portableSettingsMutationState === 'PENDING'
           ? 'Settings recovery is currently in progress.'
@@ -872,43 +883,15 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
 
       // ═══ Notifications ═══
       case 'notif':
-        setTimeout(() => this._fetchNotifChannels(), 100);
         return [
-          h('p', { key: 'nd', className: 'c3-hint' }, 'Kanály pro doručování notifikací z workerů a agentů.'),
-          h('div', { key: 'notif-channels', className: 'c3-notif-channels', id: 'c3-notif-channels' },
-            h('p', { className: 'c3-gpu-loading' }, 'Loading channels...')
+          h('div', { key: 'notif-in-app', className: 'c3-sys-info' },
+            h('h4', null, 'In-App — core 1.0'),
+            h('p', { className: 'c3-hint' }, 'Jediný podporovaný kanál. Oznámení zůstávají uvnitř aplikace.')
           ),
-
-          h('h4', { key: 'notif-email', className: 'c3-settings-h4' }, 'Email'),
-          ..._inp('c3.notif.emailSmtp', 'SMTP server', '', 'text', { placeholder: 'smtp.gmail.com' }),
-          ..._inp('c3.notif.emailFrom', 'From address', '', 'text', { placeholder: 'c3@example.com' }),
-          ..._inp('c3.notif.emailTo', 'Recipient', '', 'text', { placeholder: 'user@example.com' }),
-          h('button', { key: 'test-email', className: 'c3-btn-sm c3-mt-8', onClick: () => this._testNotifChannel('email') }, 'Test Email'),
-
-          h('h4', { key: 'notif-tg', className: 'c3-settings-h4' }, 'Telegram'),
-          ..._inp('c3.notif.telegramToken', 'Bot token', '', 'text', { placeholder: 'bot123:ABC...' }),
-          ..._inp('c3.notif.telegramChatId', 'Chat ID', '', 'text', { placeholder: '-100123456789' }),
-          h('button', { key: 'test-tg', className: 'c3-btn-sm c3-mt-8', onClick: () => this._testNotifChannel('telegram') }, 'Test Telegram'),
-
-          h('h4', { key: 'notif-wh', className: 'c3-settings-h4' }, 'Webhook (HMAC)'),
-          ..._inp('c3.notif.webhookUrl', 'URL', '', 'text', { placeholder: 'https://hooks.example.com/c3' }),
-          ..._inp('c3.notif.webhookSecret', 'HMAC secret', '', 'password', { placeholder: 'your-secret-key' }),
-          h('p', { key: 'wh-hint', className: 'c3-hint' }, 'Header: X-C3-Signature: sha256=<hmac>'),
-          h('button', { key: 'test-wh', className: 'c3-btn-sm c3-mt-8', onClick: () => this._testNotifChannel('webhook') }, 'Test Webhook'),
-
-          h('h4', { key: 'notif-ntfy', className: 'c3-settings-h4' }, 'ntfy.sh'),
-          ..._inp('c3.notif.ntfyUrl', 'Server URL', 'https://ntfy.sh'),
-          ..._inp('c3.notif.ntfyTopic', 'Topic', '', 'text', { placeholder: 'c3-notifications' }),
-          h('button', { key: 'test-ntfy', className: 'c3-btn-sm c3-mt-8', onClick: () => this._testNotifChannel('ntfy') }, 'Test ntfy'),
-
-          h('h4', { key: 'notif-desktop', className: 'c3-settings-h4' }, 'Desktop'),
-          _tog('c3.notif.desktopEnabled', 'Systémové notifikace (Electron)', true),
-
-          h('h4', { key: 'notif-quiet', className: 'c3-settings-h4' }, 'Tichý režim'),
-          _tog('c3.notif.quietEnabled', 'Povolit tichý režim', false),
-          ..._inp('c3.notif.quietFrom', 'Od', '22:00', 'time'),
-          ..._inp('c3.notif.quietTo', 'Do', '07:00', 'time'),
-          h('p', { key: 'quiet-hint', className: 'c3-hint' }, 'ERROR notifikace projdou i v tichém režimu.'),
+          h('p', { key: 'notif-retained', className: 'c3-hint' },
+            'Desktop, email, Telegram, webhook a push/ntfy jsou retained operátorské kandidáty bez UI ovládání a bez delivery claimu.'),
+          h('p', { key: 'notif-unsupported', className: 'c3-hint' },
+            'Slack, Discord a SMS nejsou podporované.'),
         ];
 
       // ═══ Storage ═══
@@ -1073,42 +1056,6 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
       if (!resp.ok) throw new Error('Vacuum failed');
       this._fetchSystemInfo();
     } catch (_) {}
-  }
-
-  // ── v87 Phase 2: Notification helpers ─────────────────────────────────
-
-  async _fetchNotifChannels() {
-    const el = document.getElementById('c3-notif-channels');
-    if (!el) return;
-    try {
-      const resp = await fetch('/api/notifications/channels');
-      if (!resp.ok) throw new Error('API error');
-      const data = await resp.json();
-      const channels = data.channels || [];
-      el.innerHTML = channels.map(ch =>
-        `<div class="c3-gpu-row"><span>${ch.name}</span><strong class="${ch.configured ? 'c3-notif-on' : 'c3-notif-off'}">${ch.configured ? 'Active' : 'Not configured'}</strong></div>`
-      ).join('');
-    } catch (_) {
-      el.innerHTML = '<p class="c3-gpu-err">Notification service unavailable</p>';
-    }
-  }
-
-  async _testNotifChannel(channel) {
-    try {
-      const resp = await fetch('/api/notifications/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channel }),
-      });
-      const data = await resp.json();
-      if (data.ok) {
-        alert(`${channel}: Test sent successfully`);
-      } else {
-        alert(`${channel}: ${data.error || 'Test failed'}`);
-      }
-    } catch (err) {
-      alert(`${channel}: Error — ${err.message}`);
-    }
   }
 
   // ── v87 Phase 2: Storage helpers ──────────────────────────────────────

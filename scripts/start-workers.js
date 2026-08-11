@@ -8,10 +8,8 @@
 // Usage:
 //   node scripts/start-workers.js
 //
-// Required env vars for notifications:
-//   C3_TELEGRAM_BOT_TOKEN, C3_TELEGRAM_CHAT_ID     (for Telegram)
-//   C3_SMTP_HOST, C3_SMTP_USER, C3_SMTP_PASS       (for Email)
-//   C3_NTFY_TOPIC                                   (for Push)
+// Retained external notifications additionally require their exact
+// C3_ENABLE_NOTIFICATION_* opt-in. Core in-app delivery needs no opt-in.
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -20,6 +18,10 @@ import { AgentRepository, initAgentTables } from '../src/agents/repository.js';
 import { AgentRunner } from '../src/agents/runner.js';
 import { AgentScheduler } from '../src/agents/scheduler.js';
 import { createNotificationPipeline } from '../src/notifications/index.js';
+import {
+  notificationChannelEnabled,
+  readNotificationChannelPolicy,
+} from '../src/notifications/channel-policy.js';
 import { initNotificationTables } from '../src/notifications/db.js';
 import { logger } from '../src/core/logger.js';
 import { readFileSync } from 'fs';
@@ -28,6 +30,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DB_PATH = resolve(__dirname, '../data/c3.db');
+const notificationChannelPolicy = readNotificationChannelPolicy();
 
 console.log('═══════════════════════════════════════════════════════════');
 console.log(' C3 Worker Manager — Phase B');
@@ -44,7 +47,10 @@ initAgentTables(db);
 initNotificationTables(db);
 
 const repo = new AgentRepository(db);
-const { pipeline, router } = createNotificationPipeline({ db });
+const { pipeline, router } = createNotificationPipeline({
+  db,
+  channelPolicy: notificationChannelPolicy,
+});
 
 // ── Check notification channels ──────────────────────────────────────────────
 console.log('\nNotification channels:');
@@ -52,17 +58,20 @@ for (const name of router.getAvailableChannels()) {
   console.log(`  - ${name}`);
 }
 
-const hasTelegram = !!(process.env.C3_TELEGRAM_BOT_TOKEN && process.env.C3_TELEGRAM_CHAT_ID);
-const hasEmail = !!(process.env.C3_SMTP_HOST && process.env.C3_SMTP_USER);
-const hasPush = !!process.env.C3_NTFY_TOPIC;
+const hasTelegram = notificationChannelEnabled(notificationChannelPolicy, 'telegram')
+  && !!(process.env.C3_TELEGRAM_BOT_TOKEN && process.env.C3_TELEGRAM_CHAT_ID);
+const hasEmail = notificationChannelEnabled(notificationChannelPolicy, 'email')
+  && !!(process.env.C3_SMTP_HOST && process.env.C3_SMTP_USER);
+const hasPush = notificationChannelEnabled(notificationChannelPolicy, 'push')
+  && !!process.env.C3_NTFY_TOPIC;
 
-console.log(`\n  Telegram: ${hasTelegram ? '✅ configured' : '❌ not configured'}`);
-console.log(`  Email: ${hasEmail ? '✅ configured' : '❌ not configured'}`);
-console.log(`  Push: ${hasPush ? '✅ configured' : '❌ not configured'}`);
+console.log(`\n  Telegram: ${hasTelegram ? '✅ opted in + credentials present' : '❌ unavailable'}`);
+console.log(`  Email: ${hasEmail ? '✅ opted in + credentials present' : '❌ unavailable'}`);
+console.log(`  Push: ${hasPush ? '✅ opted in + credentials present' : '❌ unavailable'}`);
 
 if (!hasTelegram && !hasEmail && !hasPush) {
-  console.log('\n⚠️  No notification channels configured. Agents will run but cannot deliver notifications.');
-  console.log('   Set C3_TELEGRAM_BOT_TOKEN + C3_TELEGRAM_CHAT_ID for Telegram notifications.');
+  console.log('\n⚠️  No retained external channel is both opted in and credential-present.');
+  console.log('   Core in-app notifications remain available; retained external channels require explicit opt-in.');
 }
 
 // ── Register worker agents ───────────────────────────────────────────────────
@@ -135,7 +144,7 @@ for (const a of agents) {
     if (result.run_state === 'ERROR_SOURCE') {
       console.log(`    ⚠️ Source error: ${result.error}`);
     } else if (result.run_state === 'SUCCESS_TRIGGERED') {
-      console.log(`    🔔 Triggers fired! Notifications sent.`);
+      console.log('    🔔 Triggers fired; notification delivery path executed.');
     } else if (result.run_state === 'INIT_BASELINE') {
       console.log(`    📊 Baseline established (first run).`);
     }

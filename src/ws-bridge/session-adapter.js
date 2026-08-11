@@ -264,15 +264,6 @@ export function validateM1StudioFrame(value, attachmentPolicy = null) {
   return validationResult(errors, value);
 }
 
-// v93: Notification router reference (set by server.js via setNotificationDeps)
-let _notificationRouter = null;
-let _notificationEmitter = null;
-
-export function setNotificationDeps({ notificationRouter, notificationEmitter }) {
-  _notificationRouter = notificationRouter;
-  _notificationEmitter = notificationEmitter;
-}
-
 // Telemetry persistence — lazy-loaded once per process
 let telemetryRepo = null;
 
@@ -1087,28 +1078,23 @@ export function createSessionAdapter({
       // v85: Sync feature settings from IDE
       case 'sync_settings': {
         try {
-          const changed = featureManager.applySettings(data.settings || {});
-
-          // v93: Sync SMTP notification settings to EmailChannel
-          if (_notificationRouter && 'c3.notif.smtpHost' in (data.settings || {})) {
-            _notificationRouter.updateChannelConfig('email', {
-              host: data.settings['c3.notif.smtpHost'],
-              port: data.settings['c3.notif.smtpPort'],
-              user: data.settings['c3.notif.smtpUser'],
-              pass: data.settings['c3.notif.smtpPass'],
-              from: data.settings['c3.notif.smtpFrom'],
-            });
-            if (_notificationEmitter) _notificationEmitter.invalidateCache();
-            logger.info('WSSession', 'SMTP notification config synced', { sessionId: sid });
-          }
+          const changed = featureManager.applySettings(data.settings);
 
           sendChannel(Channel.CONTROL, { action: 'sync_settings', success: true, changed });
           if (changed > 0) {
             logger.info('WSSession', `Feature settings synced (${changed} changed)`, { sessionId: sid });
           }
         } catch (err) {
-          logger.error('WSSession', `sync_settings failed: ${err.message}`);
-          sendChannel(Channel.CONTROL, { action: 'sync_settings', success: false, error: err.message });
+          const code = err?.code === 'FEATURE_SETTINGS_INPUT_INVALID'
+            ? err.code
+            : 'FEATURE_SETTINGS_APPLY_FAILED';
+          logger.warn('WSSession', 'sync_settings rejected', { sessionId: sid, code });
+          sendChannel(Channel.CONTROL, {
+            action: 'sync_settings',
+            success: false,
+            changed: 0,
+            code,
+          });
         }
         break;
       }

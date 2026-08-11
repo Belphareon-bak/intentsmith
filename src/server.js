@@ -34,13 +34,13 @@ let metricsCollector = null;
 installGlobalHandlers({ logger, exitOnUncaught: false });
 
 // ─── v93: Notification system init (before agent platform) ───────────────────
+const notificationChannelPolicy = readNotificationChannelPolicy();
 initNotificationTables(db.db);
-const { pipeline: notificationPipeline, router: notificationRouter } = createNotificationPipeline({ db });
-// Register additional channels (Email, Telegram, Push already registered by factory)
-if (!notificationRouter.channels.has('webhook')) notificationRouter.registerChannel(new WebhookChannel({ logger }));
-if (!notificationRouter.channels.has('desktop')) notificationRouter.registerChannel(new DesktopChannel({ logger }));
+const { pipeline: notificationPipeline, router: notificationRouter } = createNotificationPipeline({
+  db,
+  channelPolicy: notificationChannelPolicy,
+});
 const notificationEmitter = new NotificationEmitter({ pipeline: notificationPipeline, db: db.db });
-setNotificationDeps({ notificationRouter, notificationEmitter });
 // Wire lifecycle hooks (lazy import — lifecycle-build may not be loaded yet)
 import('./planner/lifecycle-build.js').then(m => m.setNotificationEmitter(notificationEmitter)).catch(() => {});
 logger.info('Server', `Notification system initialized (channels: ${notificationRouter.getAvailableChannels().join(', ')})`);
@@ -111,7 +111,6 @@ import {
   attachWebSocketServer,
   createM1AttachmentPolicy,
 } from './ws-bridge/index.js';
-import { setNotificationDeps } from './ws-bridge/session-adapter.js';
 import { getDefaultHandlers } from './chat/handlers/index.js';
 import {
   setModelBindingApplication,
@@ -138,9 +137,11 @@ import { createNotificationRoutes } from './routes/notifications.js';
 import { createMarketplaceRoutes } from './routes/marketplace.js';
 import { createMediaRoutes, recoverStuckGenerations } from './routes/media.js';
 import { createGovernorRoutes } from './routes/governor.js';
-import { createNotificationPipeline, initNotificationTables } from './notifications/index.js';
-import { WebhookChannel } from './notifications/channels/webhook.js';
-import { DesktopChannel } from './notifications/channels/desktop.js';
+import {
+  createNotificationPipeline,
+  initNotificationTables,
+  readNotificationChannelPolicy,
+} from './notifications/index.js';
 import { NotificationEmitter } from './notifications/emitter.js';
 import { skillRegistry } from './skills/registry.js';
 import { creDecisionEngine } from './chat/cre-decision.js';

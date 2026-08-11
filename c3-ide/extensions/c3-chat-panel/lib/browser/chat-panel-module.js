@@ -2621,7 +2621,7 @@ function _cfgInput(label,key,def,type,hint){var v=_bVal(key,def);return h('div',
 function _cfgSelect(label,key,def,opts){var v=_bVal(key,def);return h('div',{style:{marginBottom:12}},h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6,display:'flex',alignItems:'center'}},label),h('select',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'6px 9px',color:C.tx1,fontFamily:C.font,fontSize:_fs(12),outline:'none',boxSizing:'border-box'},value:v,onChange:function(e){_bSet(key,e.target.value);}},opts.map(function(o){return h('option',{key:o,value:o},o);})));}
 function _cfgToggle(label,desc,key,def){return _settingsToggle(label,desc,!!_bVal(key,def),function(nv){_bSet(key,nv);});}
 function _cfgSlider(label,key,def,min,max,step,unit,hint,fmt){var v=_bVal(key,def);var disp=fmt?fmt(v):v+(unit||'');return h('div',{style:{marginBottom:12}},h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6,display:'flex',alignItems:'center'}},label),h('div',{style:{display:'flex',alignItems:'center',gap:8}},h('input',{type:'range',min:min,max:max,step:step,value:v,onChange:function(e){_bSet(key,parseFloat(e.target.value));},style:{flex:1,cursor:'pointer',accentColor:C.accent}}),h('span',{style:{fontSize:_fs(11),color:C.tx3,minWidth:52,textAlign:'right',fontFamily:C.mono}},disp)),hint?h('div',{style:{fontSize:_fs(9),color:C.tx4,marginTop:3}},hint):null);}
-var _backupMsg=null;var _notifChannels=null;
+var _backupMsg=null;
 var _SETTINGS_BACKUP_KIND='INTENTSMITH_SETTINGS_BACKUP';var _SETTINGS_BACKUP_SCHEMA_VERSION=2;
 var _SETTINGS_PORTABLE_PROFILE='UX_PREFERENCES_V1';
 var _SETTINGS_PORTABLE_PATHS=['/appearance/accentColor','/appearance/fontFamily','/appearance/fontSize','/appearance/theme','/c3.language','/c3.output.codeBlocks','/c3.output.markdownRendering','/c3.output.syntaxHighlight','/output/codeStyle','/output/defaultFormat','/output/namingConvention'];
@@ -4057,33 +4057,14 @@ function settingsMemory(){
     _cfgSlider(_lI('Hard cap','Absolutní limit kontextu v tokenech — ochrana proti přetečení bez ohledu na procentuální budget'),'c3.memory.contextBudgetMaxTokens',24576,2048,65536,1024,'',null,function(v){return v>=1024?Math.round(v/1024)+'K':'v';}));
 }
 function settingsNotif(){
-  if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
-  if(!_notifChannels){fetch(_backendBase+'/api/notifications/channels',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_notifChannels=d;renderCenter();}).catch(function(){_notifChannels={error:true};});}
-  var chs=_notifChannels&&!_notifChannels.error?(_notifChannels.channels||_notifChannels):null;
   return h('div',null,
-    _cfgToggle('Desktop notifikace','Systémové notifikace přes Electron (dokončení úloh, chyby agentů)','c3.notif.desktopEnabled',true),
-    _cfgToggle('Tichý režim','Potlačí všechny notifikace v nastaveném časovém rozmezí','c3.notif.quietEnabled',false),
-    _bVal('c3.notif.quietEnabled',false)?h(React.Fragment,null,
-      _cfgInput('Ticho od','c3.notif.quietFrom','22:00','input','Formát HH:MM'),
-      _cfgInput('Ticho do','c3.notif.quietTo','07:00','input','Formát HH:MM')):null,
-    h('div',{style:{borderTop:'1px solid '+C.border,margin:'14px 0'}}),
-    h('div',{style:{fontSize:_fs(11),fontWeight:700,color:C.tx1,marginBottom:10}},'Kanály'),
-    h('div',{style:{display:'flex',flexDirection:'column',gap:6}},
-      [{id:'email',icon:'\u2709\ufe0f',label:'E-mail',desc:'Notifikace na e-mailovou adresu'},
-       {id:'telegram',icon:'\ud83d\udcac',label:'Telegram',desc:'Notifikace přes Telegram bota'},
-       {id:'webhook',icon:'\ud83d\udd17',label:'Webhook',desc:'HTTP POST na vlastní URL'},
-       {id:'push',icon:'\ud83d\udce4',label:'Push (ntfy)',desc:'Push notifikace přes ntfy.sh'}
-      ].map(function(ch){
-        var status=chs?chs.find(function(c){return c.name===ch.id||c.channel===ch.id;}):null;
-        var ok=status&&status.ok;
-        return h('div',{key:ch.id,style:{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',background:C.bg3,border:'1px solid '+C.border2,borderRadius:8}},
-          h('span',{style:{fontSize:_fs(16)}},ch.icon),
-          h('div',{style:{flex:1}},
-            h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx1}},ch.label),
-            h('div',{style:{fontSize:_fs(9),color:C.tx4}},ch.desc)),
-          h('span',{style:{fontSize:_fs(9),color:ok?C.accent:'#6b7280',fontWeight:600}},ok?'Aktivní':'Neaktivní'));
-      })),
-    h('div',{style:{fontSize:_fs(9),color:C.tx4,marginTop:8}},'Konfigurace kanálů se nastavuje v backend konfiguraci (env proměnné).'));
+    h('div',{style:{padding:12,background:C.bg3,border:'1px solid '+C.border2,borderRadius:8,marginBottom:10}},
+      h('div',{style:{fontSize:_fs(12),fontWeight:700,color:C.tx1}},'In-App'),
+      h('div',{style:{fontSize:_fs(10),color:C.tx3,marginTop:4}},'Jediný podporovaný kanál core 1.0. Oznámení zůstávají uvnitř aplikace.')),
+    h('div',{style:{padding:12,background:C.bg3,border:'1px solid '+C.border2,borderRadius:8,marginBottom:10}},
+      h('div',{style:{fontSize:_fs(11),fontWeight:700,color:C.tx2}},'Retained externí kandidáti'),
+      h('div',{style:{fontSize:_fs(10),color:C.tx4,marginTop:4,lineHeight:'1.5'}},'Desktop, e-mail, Telegram, webhook a push/ntfy jsou pouze operátorsky konfigurované kandidáty. Studio je neovládá a nepotvrzuje jejich doručení.')),
+    h('div',{style:{fontSize:_fs(10),color:C.tx4}},'Slack, Discord a SMS nejsou podporované.'));
 }
 function settingsOutput(){
   if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
