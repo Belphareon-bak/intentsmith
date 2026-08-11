@@ -146,6 +146,21 @@ function isPlainObject(value) {
   return prototype === Object.prototype || prototype === null;
 }
 
+function requireProcessEnvironmentRecord(value) {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    fail('MIGRATION_PROCESS_ENV_INVALID');
+  }
+  for (const key of [
+    ...NOTIFICATION_ENV_OWNED_KEYS,
+    ...LEGACY_NOTIFICATION_ENV_DELETE_ONLY_KEYS,
+  ]) {
+    if (Object.hasOwn(value, key) && typeof value[key] !== 'string') {
+      fail('MIGRATION_PROCESS_ENV_INVALID');
+    }
+  }
+  return value;
+}
+
 function deepFreeze(value) {
   if (Buffer.isBuffer(value) || ArrayBuffer.isView(value)) return value;
   if (value && typeof value === 'object' && !Object.isFrozen(value)) {
@@ -668,7 +683,7 @@ function makeEnvironmentFindingSource(environment, role) {
 }
 
 function readProcessSource(processEnvironment) {
-  if (!isPlainObject(processEnvironment)) fail('MIGRATION_PROCESS_ENV_INVALID');
+  requireProcessEnvironmentRecord(processEnvironment);
   const id = 'PROCESS_ENV';
   const privateValues = new Map();
   for (const key of LEGACY_NOTIFICATION_ENV_DELETE_ONLY_KEYS) {
@@ -697,6 +712,7 @@ function readProcessSource(processEnvironment) {
 }
 
 function targetProjection(rootEnvironment, processEnvironment) {
+  requireProcessEnvironmentRecord(processEnvironment);
   return NOTIFICATION_ENV_OWNED_KEYS.map(key => {
     const processPresent = Object.hasOwn(processEnvironment, key);
     const rootPresent = rootEnvironment.canonicalValues.has(key);

@@ -541,6 +541,18 @@ export, manifest a ostatní explicitní migrační adresáře dál používají 
 private-directory policy. Candidate `bbc2a70f` je proto rejected, nikoli PASS;
 replacement `S` a celý writer gate jsou pending.
 
+První narrow replacement `05c1d328cc11d184638db855d4fff82678174e70`
+uzavřel directory policy, ale jeho writer gate se znovu fail-fast zastavil v
+tomtéž prvním programu na `3/4`, tentokrát s
+`MIGRATION_PROCESS_ENV_INVALID`; ostatní tři programy zůstaly `NOT RUN`.
+Default CLI vstup je skutečný Node `process.env`, jehož host objekt nemá plain
+`Object.prototype`, zatímco C3 jej omylem odmítalo ještě před exact-key census.
+Narrow correction přijímá record-like host objekt, dál čte pouze vlastní hard
+owner keys, vyžaduje pro každý přítomný relevantní klíč string a ignoruje
+inherited hodnoty; array, null a non-string relevantní value zůstávají typed
+invalid. Ani `05c1d328` proto není PASS a další replacement `S` musí zopakovat
+celý writer gate.
+
 DB census je záměrně neprefixový. Vedle `webhookSecret` a legacy
 `c3.notif.webhookSecret` zahrne všech devět retired typed notification cest a
 stejných deset nested `notifications.*` sensitive cest jako Architect
