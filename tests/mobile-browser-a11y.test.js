@@ -606,7 +606,8 @@ try {
       return {
         real, clones: track.querySelectorAll('[data-clone]').length,
         before: before.join(','),
-        wraps: before.join(',') === real.join(','),
+        wraps: before.length > 0 && before.length % real.length === 0
+          && before.every((id, i) => id === real[i % real.length]),
         snap: getComputedStyle(track).scrollSnapType,
         gate: !!document.querySelector('.navbar-gate'),
       };
@@ -615,7 +616,7 @@ try {
     assert.ok(outcome.clones >= outcome.real.length * 2,
       'a closed loop needs a full copy on each side');
     assert.equal(outcome.wraps, true,
-      `the run before the real set must be the whole set, was "${outcome.before}"`);
+      `the run before the real set must be whole copies of it, was "${outcome.before}"`);
     assert.equal(outcome.snap, 'x mandatory', 'turning is native snapping, not scripted animation');
     assert.equal(outcome.gate, true, 'the middle is a fixed frame the items travel through');
   });
@@ -722,6 +723,51 @@ try {
     assert.ok(measured.some(m => m.ratio < 4.5),
       'this characterisation is stale: the labels now measure above 4.5:1, so remove the '
       + 'exclusion in CONTRAST and delete this test');
+  });
+
+  await test('§3.1 prstenec se ot\xe1\u010d\xed i v \u0161irok\xe9m okn\u011b, ne jen na telefonu', async () => {
+    // The defect this pins, from the operator's recording: in a wide window the
+    // bar would not switch at all and Nastavení stayed put.  Three sets of items
+    // are 1088 dp; against an 854 dp viewport that leaves 234 dp of travel —
+    // less than one set — so the ring could not bring an arbitrary item to the
+    // middle.  It ran out of scroll, the last item stayed pinned 20 dp off
+    // centre, and since the middle decides the section, whatever was stuck
+    // there pulled every navigation back to itself.
+    //
+    // The number of copies is therefore measured against the viewport, and this
+    // walks the ring at the width where it used to fail.
+    await page.setViewport({ width: 854, height: 480, deviceScaleFactor: 1 });
+    await page.evaluate(async (base) => {
+      window.__is = (await import(`${base}/app.js`)).__ms20;
+    }, origin);
+    await page.evaluate(ACTIVATE);
+
+    const wrong = await page.evaluate(async () => {
+      const S = window.__is;
+      const expected = { conversations: 'conversations', approvals: 'approvals', diagnostics: 'settings', overview: 'overview' };
+      const bad = [];
+      for (const route of ['conversations', 'approvals', 'diagnostics', 'overview', 'conversations', 'diagnostics']) {
+        S.navigate(route);
+        await new Promise(r => setTimeout(r, 1300));
+        const track = document.querySelector('.navbar-track');
+        const box = track.getBoundingClientRect();
+        const nearest = [...track.querySelectorAll('[data-nav]')]
+          .map(node => { const r = node.getBoundingClientRect();
+            return { id: node.dataset.nav, gap: Math.abs(r.left + r.width / 2 - (box.left + box.width / 2)) }; })
+          .sort((a, b) => a.gap - b.gap)[0];
+        if (S.state.route !== route) bad.push(`${route}: landed on ${S.state.route}`);
+        else if (nearest.id !== expected[route]) bad.push(`${route}: ${nearest.id} in the gate`);
+        else if (nearest.gap > 3) bad.push(`${route}: ${Math.round(nearest.gap)} dp off centre`);
+      }
+      return bad;
+    });
+
+    await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+    await page.evaluate(async (base) => {
+      window.__is = (await import(`${base}/app.js`)).__ms20;
+    }, origin);
+    await page.evaluate(ACTIVATE);
+    assert.deepEqual(wrong, [], 'the ring failed to turn in a wide window');
   });
 
   // ── §10 what a screen reader is handed ────────────────────────────────────

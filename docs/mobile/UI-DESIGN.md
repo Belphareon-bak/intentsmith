@@ -182,73 +182,32 @@ položka, ne obrazovka. Lišta se tím nepřeskupí uživateli pod rukama v den,
 kontrakt projde. Zařízení spárovaná dřív scope nemají — je vydávaný při párování,
 takže se projeví až u nového spárování.
 
-**[F] OTEVŘENÁ VADA — skok o dvě pozice (nahlášeno 2026-08-11).** Klepnutí na
-sousední položku funguje; klepnutí **ob jednu** se zasekne a je vidět, že lišta
-neví, co dělat.
+**[F] OPRAVENO 2026-08-11 — prstenec se v širokém okně neotáčel.**
 
-Reprodukováno a změřeno: `navigate('conversations')` ze vzdálenosti dvou pozic
-skončí na `diagnostics` a aktivní položka stojí 20 px vedle středu.
+Nahlášeno jako „klepnutí ob jednu pozici se zasekne" a „hlavní obrazovka se
+nepřepne, pořád je v Nastavení". Obojí byl týž kořen a s klony ani se
+vzdáleností nesouvisel.
 
-Podezřelá příčina, ověřená časově: prstenec se posouvá nativním plynulým
-scrollem, jehož délka roste se vzdáleností. Příznak „tohle je pohyb aplikace"
-(`navRingTurningItself`) se ale ruší po pevných `NAV_TURN_MS = 420 ms`. U souseda
-scroll doběhne dřív, u skoku ob jednu ne — příznak spadne uprostřed cesty,
-doběhový handler přečte střed, kterým právě projíždí *jiná* položka, a přepne
-na ni. Tím se rozjede další posun a lišta se viditelně pere sama se sebou.
+Počet kopií byl napevno jedna na každou stranu. Na telefonu to stačí, protože
+lišta je mnohem širší než displej. **V širokém okně ne:** čtyři položky ve třech
+sadách mají `1088 px`, proti viewportu `854 px` zbude `234 px` posuvu — méně než
+jedna sada. Prstenec tedy nemohl dovézt libovolnou položku doprostřed, došel mu
+posuv a poslední položka uvízla `20 px` vedle středu. A protože platí „co je ve
+středu, to je aktivní sekce", zaseknuté `Nastavení` **přetahovalo každou
+navigaci zpátky na sebe**. Odtud „nepřepne se obrazovka".
 
-Je to táž třída jako dřívější návrat na kořen: **pevný časový odhad délky
-pohybu tam, kde je délka proměnná.** Oprava proto nemá být delší konstanta, ale
-navázání na skutečný konec posunu (`scrollend`, nebo detekce klidu) — jinak se
-to vrátí u delší lišty, až přibudou položky.
+Počet kopií se proto **měří proti viewportu**: tolik, aby se prstenec vždy mohl
+otočit o celou sadu na obě strany — `(2n + 1) · sada − viewport ≥ 2 · sada`. Na
+úzkém displeji vyjde jedna kopie jako dřív, na širokém víc, a ne víc než je
+třeba, protože každá kopie je skutečný DOM.
 
-**Z nahrávky `mobile-app-01-2026-08-11_18.46.10` (60 fps) a měření 2026-08-11 —
-pravděpodobný kořen je jinde, než zněly obě dřívější domněnky.**
+Ověřeno na `1280×720`, `854×480`, `390×844` a `320×568`: každá sekce dojede
+doprostřed (odchylka ≤ 3 px) a route se drží. Návrat na jednu sadu test shodí.
 
-Co je na záznamu: kurzor dojede na **„Konverzace" u pravého kraje** a klepne.
-Lišta se pak **deset snímků, tedy dvě třetiny vteřiny, vůbec nehne** a teprve
-pak skočí. Ta pravá „Konverzace" je **klon**, ne kanonická položka.
-
-Co ukázalo měření a je to podstatnější:
-
-| Měřeno | Hodnota |
-|---|---|
-| Odchylka aktivní položky od středu **v klidu** | `20 px`, ne 0 |
-| Odchylka po klepnutí na kteroukoli položku | `20 px`, **nezmění se** |
-| Položka ve středu | `settings`, **nezmění se** |
-| `route` po klepnutí na `Konverzace` | vrátí se na `diagnostics` |
-
-Tedy: **prstenec se ve skutečnosti nikam neposouvá.** `centreNavOnSelection`
-doběhne, ale stopa zůstane stát. A protože platí pravidlo „co je ve středu, to je
-aktivní sekce", drží ve středu zaseknutý `settings` a **přetahuje každou
-navigaci zpátky na Nastavení**. Odtud i to, že se route po ~200 ms sama přehodí.
-
-Klepnutí na klon je tím pádem nejspíš jen **projev, ne příčina** — vypadá jako
-zaseknutí, protože se nehne nic, ať klepnete kamkoli.
-
-**Kde má oprava začít:** zjistit, proč `track.scrollTo` stopou nehne. Podezřelé
-je, že se `data-ring` rozchází s CSS větví `[data-ring="off"]`, která nastavuje
-`overflow-x: hidden` a `justify-content: center` — stopa, která nemůže
-scrollovat, se také nemůže vycentrovat, a `20 px` je přesně to, co zbude, když
-se položky jen vycentrují jako blok. Teprve po tomhle má smysl řešit klony
-a vzdálenosti.
-
-**Dva pokusy o opravu 2026-08-11 selhaly a jsou vrácené.** První nahradil pevnou
-konstantu koncem posunu (`scrollend`), druhý centroval nejbližší kopii místo
-kanonické. Ani jeden nepomohl — protože ani jeden se netýkal toho, že se stopa
-nehýbe. Nahrazení pevné konstanty
-koncem posunu (`scrollend`) vadu neodstranilo. Při tom se ale ukázalo, že je
-**širší, než zněl původní popis**: po přepnutí se route asi po 200 ms sama
-přehodí na `diagnostics` a tam zůstane, protože ve středu skončí `settings`.
-Platí to i pro sousední přepnutí, jen je tam méně vidět.
-
-Podezření se tím posouvá z délky posunu na **přerovnání smyčky**: `normaliseNavRing`
-posouvá stopu o šířku sady, což je další scroll, ten vyvolá další doběh a ten
-teprve rozhoduje o sekci. Ke všemu `navSetWidth` počítá mezery jako `n`, zatímco
-měření v `layoutNavRing` jako `n - 1` — o jednu mezeru navíc při každém
-přerovnání. Kdo to bude opravovat, ať začne tam, ne u časování.
-
-Operátor 2026-08-11: **odloženo, zapsáno k otestování.** Stav lišty je jinak
-schválený; neopravovat spolu s ničím jiným.
+Odstraněny přitom dvě věci, které se o pevný počet opíraly: výchozí umístění se
+čte z pozice první kanonické položky, ne z jedné šířky sady, a přerovnání se
+počítá vůči ní — tím zmizel i rozpor, kde `navSetWidth` počítal o jednu mezeru
+víc než měření, se kterým se porovnával.
 
 **Stav implementace k 2026-08-10:**
 

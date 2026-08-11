@@ -2428,7 +2428,9 @@ function layoutNavRing(track) {
     // Start standing on the real set.  Left at zero the ring would be at the far
     // edge of the leading copies, and the shortest way round would be measured
     // from a position it never actually occupies.
-    withoutSmoothScroll(track, () => { track.scrollLeft = navSetWidth(track); });
+    // Stand on the real set, wherever it now begins — the number of copies in
+    // front of it depends on the window, so it is read, not assumed.
+    withoutSmoothScroll(track, () => { track.scrollLeft = navRealSetStart(track); });
   }
   centreNavOnSelection();
 }
@@ -2450,8 +2452,35 @@ const NAV_GAP_PX = 2;
  * reader must hear each section once, not three times.
  */
 function ensureNavClones(track, tabs) {
-  if (track.querySelector('[data-clone]')) return false;
-  const clone = side => tabs.map(tab => {
+  // How many copies each side needs, measured — not fixed at one.
+  //
+  // One copy either side is enough on a phone, where the bar is far wider than
+  // the screen.  In a wide window it is not: four items in three sets are
+  // 1088 px against a 854 px viewport, which leaves 234 px of travel — less
+  // than a single set.  The ring then cannot bring an arbitrary item to the
+  // middle at all; it runs out of scroll and the last item stays pinned near
+  // the edge, a fixed 20 px off centre.  And because the middle decides the
+  // section, whatever is stuck there drags every navigation back to itself.
+  // That is the bar "not switching", measured on the operator's recording.
+  //
+  // So there must always be at least a viewport's worth of material on each
+  // side, whatever the window.
+  const setWidth = tabs.reduce(
+    (total, tab) => total + (tab.getBoundingClientRect?.().width ?? tab.offsetWidth ?? 0), 0,
+  ) + tabs.length * NAV_GAP_PX;
+  // Enough that the ring can always turn a whole set either way:
+  //   (2n + 1) · set − viewport ≥ 2 · set
+  // One copy per side on a phone, more as the window widens — and no more than
+  // that, because every copy is real DOM.
+  const needed = setWidth > 0
+    ? Math.max(1, Math.ceil(0.5 + track.clientWidth / (2 * setWidth)))
+    : 1;
+
+  const already = track.querySelectorAll('[data-clone="before"]').length / (tabs.length || 1);
+  if (already >= needed) return false;
+  for (const stale of track.querySelectorAll('[data-clone]')) stale.remove();
+
+  const clone = side => Array.from({ length: needed }, () => tabs).flat().map(tab => {
     const copy = tab.cloneNode(true);
     copy.dataset.clone = side;
     copy.setAttribute('aria-hidden', 'true');
@@ -2519,6 +2548,12 @@ let navSelfTurnTimer = null;
  * Re-base the ring once a turn has settled, so it never runs out of material.
  * The jump is invisible because the content one set away is identical.
  */
+/** Where the canonical copies begin, past however many clones precede them. */
+function navRealSetStart(track) {
+  const first = track.querySelector?.('[data-nav]:not([data-clone])');
+  return typeof first?.offsetLeft === 'number' ? first.offsetLeft : 0;
+}
+
 function normaliseNavRing(track) {
   if (!track || track.dataset.ring !== 'on') return;
   // Never while the ring is turning itself.  Re-basing shifts the whole track
@@ -2527,16 +2562,16 @@ function normaliseNavRing(track) {
   if (navRingTurningItself) return;
   const setWidth = navSetWidth(track);
   if (setWidth <= 0) return;
-  const behaviour = track.style.scrollBehavior;
-  if (track.scrollLeft < setWidth * 0.5) {
-    track.style.scrollBehavior = 'auto';
-    track.scrollLeft += setWidth;
-    track.style.scrollBehavior = behaviour;
-  } else if (track.scrollLeft > setWidth * 1.5) {
-    track.style.scrollBehavior = 'auto';
-    track.scrollLeft -= setWidth;
-    track.style.scrollBehavior = behaviour;
-  }
+  // Re-base towards the real set: drift of more than half a set either way is
+  // taken back a whole set, which is invisible because the material one set
+  // away is identical.  Measured against where the real set actually starts,
+  // because the number of copies in front of it varies with the window.
+  const home = navRealSetStart(track);
+  const drift = track.scrollLeft - home;
+  if (Math.abs(drift) < setWidth * 0.5) return;
+  const steps = Math.round(drift / setWidth);
+  if (!steps) return;
+  withoutSmoothScroll(track, () => { track.scrollLeft -= steps * setWidth; });
 }
 
 // ── Render ──────────────────────────────────────────────────────────────────
