@@ -8,6 +8,13 @@ export { TelegramChannel } from './channels/telegram.js';
 export { PushChannel } from './channels/push.js';
 export { WebhookChannel } from './channels/webhook.js';
 export { DesktopChannel } from './channels/desktop.js';
+export {
+  EXTERNAL_NOTIFICATION_CHANNEL_FLAGS,
+  NOTIFICATION_CHANNEL_DISABLED,
+  NOTIFICATION_CHANNEL_POLICY_INVALID,
+  notificationChannelEnabled,
+  readNotificationChannelPolicy,
+} from './channel-policy.js';
 export { NotificationPolicy } from './policy.js';
 export { NotificationPipeline } from './pipeline.js';
 export { DigestAggregator } from './digest.js';
@@ -27,6 +34,28 @@ import { DigestAggregator } from './digest.js';
 import { EmailChannel } from './channels/email.js';
 import { TelegramChannel } from './channels/telegram.js';
 import { PushChannel } from './channels/push.js';
+import { WebhookChannel } from './channels/webhook.js';
+import { DesktopChannel } from './channels/desktop.js';
+import {
+  EXTERNAL_NOTIFICATION_CHANNELS,
+  notificationChannelEnabled,
+  readNotificationChannelPolicy,
+  requireNotificationChannelPolicy,
+} from './channel-policy.js';
+
+const DEFAULT_CHANNEL_FACTORIES = Object.freeze({
+  email: channelLogger => new EmailChannel({ logger: channelLogger }),
+  telegram: channelLogger => new TelegramChannel({ logger: channelLogger }),
+  push: channelLogger => new PushChannel({ logger: channelLogger }),
+  webhook: channelLogger => new WebhookChannel({ logger: channelLogger }),
+  desktop: channelLogger => new DesktopChannel({ logger: channelLogger }),
+});
+
+function notificationFactoryError() {
+  const error = new TypeError('NOTIFICATION_CHANNEL_FACTORY_INVALID');
+  error.code = 'NOTIFICATION_CHANNEL_FACTORY_INVALID';
+  return error;
+}
 
 /**
  * Create and configure a NotificationRouter with all available channels.
@@ -36,13 +65,39 @@ import { PushChannel } from './channels/push.js';
  * @param {object} [options.db] - Database instance
  * @returns {NotificationRouter}
  */
-export function createNotificationRouter({ db = null } = {}) {
+export function createNotificationRouter({
+  db = null,
+  env = process.env,
+  channelPolicy = null,
+  channelFactories = DEFAULT_CHANNEL_FACTORIES,
+  logger: channelLogger = logger,
+} = {}) {
   const rawDb = db?.db || db;
-  const router = new NotificationRouter({ logger, db: rawDb });
+  const validatedPolicy = channelPolicy === null
+    ? readNotificationChannelPolicy(env)
+    : requireNotificationChannelPolicy(channelPolicy);
+  if (!channelFactories || typeof channelFactories !== 'object') {
+    throw notificationFactoryError();
+  }
+  const router = new NotificationRouter({
+    logger: channelLogger,
+    db: rawDb,
+    channelPolicy: validatedPolicy,
+  });
 
-  router.registerChannel(new EmailChannel({ logger }));
-  router.registerChannel(new TelegramChannel({ logger }));
-  router.registerChannel(new PushChannel({ logger }));
+  for (const channelName of EXTERNAL_NOTIFICATION_CHANNELS) {
+    if (!notificationChannelEnabled(validatedPolicy, channelName)) continue;
+    const factory = Object.hasOwn(channelFactories, channelName)
+      ? channelFactories[channelName]
+      : null;
+    if (typeof factory !== 'function') {
+      throw notificationFactoryError();
+    }
+    const channel = factory(channelLogger);
+    if (!channel || channel.name !== channelName || !router.registerChannel(channel)) {
+      throw notificationFactoryError();
+    }
+  }
 
   return router;
 }
@@ -55,12 +110,30 @@ export function createNotificationRouter({ db = null } = {}) {
  * @param {object} [options.db] - Database instance
  * @returns {{ pipeline: NotificationPipeline, router: NotificationRouter, policy: NotificationPolicy, digest: DigestAggregator }}
  */
-export function createNotificationPipeline({ db = null } = {}) {
+export function createNotificationPipeline({
+  db = null,
+  env = process.env,
+  channelPolicy = null,
+  channelFactories = DEFAULT_CHANNEL_FACTORIES,
+  logger: channelLogger = logger,
+} = {}) {
   const rawDb = db?.db || db;
-  const router = createNotificationRouter({ db: rawDb });
-  const policy = new NotificationPolicy({ db: rawDb, logger });
-  const digest = new DigestAggregator({ db: rawDb, logger });
-  const pipeline = new NotificationPipeline({ router, policy, digest, db: rawDb, logger });
+  const router = createNotificationRouter({
+    db: rawDb,
+    env,
+    channelPolicy,
+    channelFactories,
+    logger: channelLogger,
+  });
+  const policy = new NotificationPolicy({ db: rawDb, logger: channelLogger });
+  const digest = new DigestAggregator({ db: rawDb, logger: channelLogger });
+  const pipeline = new NotificationPipeline({
+    router,
+    policy,
+    digest,
+    db: rawDb,
+    logger: channelLogger,
+  });
 
   return { pipeline, router, policy, digest };
 }

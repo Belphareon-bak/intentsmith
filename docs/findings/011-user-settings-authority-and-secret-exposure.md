@@ -110,7 +110,7 @@ zůstávají oddělené a každá vyžaduje vlastní subject, Review A i Review 
 | 5 | [029 — settings reset scope](../decisions/029-m1-settings-reset-scope.md) | A | settings-only reset a ukončení legacy aliasu |
 
 025 je `PROMOTED / REVIEW A+B PASS`; 027 je
-`ACTIVE / IMPLEMENTATION_NOT_STARTED`; 028/026/029 zůstávají
+`SOURCE_IMPLEMENTED / FOCUSED_VERIFIED / REVIEW_PENDING`; 028/026/029 zůstávají
 `ACCEPTED / IMPLEMENTATION_PENDING`. Závazná sekvence je
 `025 → 027 → 028 → 026 → 029`; další krok začne až po přijetí předchozího
 candidate. Finding 011 zůstává `OPEN` a Gate 1 `BLOCKED`.
@@ -267,11 +267,41 @@ práci, nikoli zpochybnění promovaného canonical-root generic povrchu.
 
 Po promotion 025 je aktivní
 [`WP-M1-NOTIFICATION-CREDENTIAL-SCOPE`](../wp/WP-M1-NOTIFICATION-CREDENTIAL-SCOPE.md)
-se source evidence `0322d468563875ecfd588ad6938c86bc7a7f80ed`. Implementace
-ještě nezačala. WP pinuje in-app jako jediný core 1.0 support claim, pět
-external channelů jako exact-literal-true/default-off retained kandidáty,
-retirement WS SMTP injection a exact sedmiklíčový boolean `sync_settings`.
-Současně ukončí nový Setup/UI credential input, ale veškerá existující data
-zachová pro 026; neprovádí transfer, scrub, delete ani outbound journey.
-Security webhook UI zůstává vyhrazené 028. Finding 011 je nadále `OPEN` a
-Gate 1 `BLOCKED`.
+se source evidence `0322d468563875ecfd588ad6938c86bc7a7f80ed`; source subject
+vychází z čistého aktivačního base
+`89de69202b7ed72937400a40ce0fbb91475aa926`. Stav je
+`SOURCE_IMPLEMENTED / FOCUSED_VERIFIED / REVIEW_PENDING`: jediný pure policy
+seam validuje všech pět external flagů před konstrukcí channelu, veřejný router
+je default-deny i při přímém použití a direct verifier sdílí tutéž autoritu bez
+ambientního credential fallbacku. In-app zůstává jediný core 1.0 support
+claim; exact-literal-true pouze dovolí retained kandidátovi vstoupit do cesty,
+nikoli tvrdit doručení.
+
+WS SMTP injection a serverové `setNotificationDeps` jsou odstraněné;
+`sync_settings` přijímá atomicky jen sedm exact boolean feature klíčů. Setup
+notification route je inertní `410` před parse, CLI ani HTTP už notification
+credentials nepřijímají a shodný bounded writer mění pouze čtyři
+non-notification klíče v cwd `.env`. Foreign/notification řádky i legacy
+subdocument v `c3-setup.json` zůstávají pro 026; symlink, foreign owner,
+multi-link, unsafe mode, duplicate nebo multiline dotenv authority, newline a
+nepravdivý round-trip selžou typovaně. Čtyři notification UI plochy jsou
+source-only retired na pravdivý statický povrch; chat Security webhook surface zůstává
+byteově vyhrazené 028.
+
+Redukovaný důkaz má přesně čtyři programy: nová dvoupřípadová sada `2/2`, WS
+kompatibilita `92/92`, Studio VM `127/127` a registry validator. Registry nyní
+obsahuje 382 programů / 8 exclusions s fingerprintem
+`571ae1a90a4246c7037d56fe5fb786beb4b5c4aae3e61f163d5b6ffe14341d71`.
+Electron, GPU, Ollama, externí síť, outbound journey ani celý produktový test
+nebyly spuštěné. Tento commit tvoří immutable source subject `S`; source zatím
+není přijatý a čeká na Review A/B. Implementace neprovádí transfer, scrub ani
+delete; 028, 026 a 029 zůstávají ve schváleném pořadí otevřené. Finding 011 je
+nadále `OPEN` a Gate 1 `BLOCKED`. Známý compatibility residual: ACTIVE
+programy `tests/notifications.test.js`, `tests/workers-phase-b.test.js`,
+`tests/push-channel.test.js` a `tests/e2e-notifications.test.js` stále
+předpokládají permissive/default external channels nebo úspěšný legacy dry-run.
+Jsou mimo allowlist i redukovaný gate 027 a musí se srovnat před full-product
+během. `src/routes/notifications.js` navíc zatím ignoruje typed disabled
+výsledek `updateChannelConfig('email', ...)`, takže může po durable commitu
+chybně vrátit `runtimeApplied:true`; tato route semantics patří do 026 a 027 ji
+nemění.

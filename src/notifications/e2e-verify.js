@@ -1,4 +1,32 @@
 // ═══════════════════════════════════════════════════════════════════════════════
+
+import {
+  NOTIFICATION_CHANNEL_DISABLED,
+  NOTIFICATION_CHANNEL_UNSUPPORTED,
+  notificationVerifierChannelEnabled,
+  readNotificationChannelPolicy,
+} from './channel-policy.js';
+
+function disabledVerificationResult(channel) {
+  return {
+    channel,
+    configured: false,
+    sent: false,
+    delivered: false,
+    latencyMs: 0,
+    code: NOTIFICATION_CHANNEL_DISABLED,
+    error: NOTIFICATION_CHANNEL_DISABLED,
+    messageId: null,
+    details: {},
+  };
+}
+
+function requireVerificationOptIn(channel, env) {
+  const policy = readNotificationChannelPolicy(env);
+  return notificationVerifierChannelEnabled(policy, channel)
+    ? null
+    : disabledVerificationResult(channel);
+}
 // C3-Agent — B0: E2E Notification Verification
 // ═══════════════════════════════════════════════════════════════════════════════
 //
@@ -35,13 +63,16 @@
 /**
  * Verify email channel configuration and delivery.
  */
-export async function verifyEmail(config = {}) {
+export async function verifyEmail(config = {}, deps = {}) {
+  const env = deps.env ?? process.env;
+  const disabled = requireVerificationOptIn('email', env);
+  if (disabled) return disabled;
   const {
-    smtpHost = process.env.C3_SMTP_HOST,
-    smtpPort = process.env.C3_SMTP_PORT || 587,
-    smtpUser = process.env.C3_SMTP_USER,
-    smtpPass = process.env.C3_SMTP_PASS,
-    recipient = process.env.C3_TEST_EMAIL,
+    smtpHost = env.C3_SMTP_HOST,
+    smtpPort = env.C3_SMTP_PORT || 587,
+    smtpUser = env.C3_SMTP_USER,
+    smtpPass = env.C3_SMTP_PASS,
+    recipient = env.C3_TEST_EMAIL,
   } = config;
 
   const result = {
@@ -59,7 +90,8 @@ export async function verifyEmail(config = {}) {
   const start = Date.now();
   try {
     // Dynamic import nodemailer
-    const { createTransport } = await import('nodemailer');
+    const createTransport = deps.createTransport
+      || (await import('nodemailer')).createTransport;
     const transport = createTransport({
       host: smtpHost,
       port: Number(smtpPort),
@@ -94,10 +126,13 @@ export async function verifyEmail(config = {}) {
 /**
  * Verify Telegram channel configuration and delivery.
  */
-export async function verifyTelegram(config = {}) {
+export async function verifyTelegram(config = {}, deps = {}) {
+  const env = deps.env ?? process.env;
+  const disabled = requireVerificationOptIn('telegram', env);
+  if (disabled) return disabled;
   const {
-    botToken = process.env.C3_TELEGRAM_BOT_TOKEN,
-    chatId = process.env.C3_TELEGRAM_CHAT_ID,
+    botToken = env.C3_TELEGRAM_BOT_TOKEN,
+    chatId = env.C3_TELEGRAM_CHAT_ID,
   } = config;
 
   const result = {
@@ -121,7 +156,8 @@ export async function verifyTelegram(config = {}) {
       parse_mode: 'Markdown',
     };
 
-    const res = await fetch(url, {
+    const fetchImpl = deps.fetchImpl || fetch;
+    const res = await fetchImpl(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -149,11 +185,14 @@ export async function verifyTelegram(config = {}) {
 /**
  * Verify ntfy.sh push channel.
  */
-export async function verifyNtfy(config = {}) {
+export async function verifyNtfy(config = {}, deps = {}) {
+  const env = deps.env ?? process.env;
+  const disabled = requireVerificationOptIn('ntfy', env);
+  if (disabled) return disabled;
   const {
-    serverUrl = process.env.C3_NTFY_URL || 'https://ntfy.sh',
-    topic = process.env.C3_NTFY_TOPIC,
-    token = process.env.C3_NTFY_TOKEN,
+    serverUrl = env.C3_NTFY_URL || 'https://ntfy.sh',
+    topic = env.C3_NTFY_TOPIC,
+    token = env.C3_NTFY_TOKEN,
   } = config;
 
   const result = {
@@ -178,7 +217,8 @@ export async function verifyNtfy(config = {}) {
     };
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    const res = await fetch(url, {
+    const fetchImpl = deps.fetchImpl || fetch;
+    const res = await fetchImpl(url, {
       method: 'POST',
       headers,
       body: `✅ C3-Agent E2E notification verified at ${new Date().toISOString()}`,
@@ -209,8 +249,10 @@ export function dryRun() {
   return channels.map(ch => ({
     channel: ch,
     configured: false,
-    sent: true,
-    delivered: true,
+    sent: false,
+    delivered: false,
+    simulated: true,
+    proof: false,
     latencyMs: 0,
     error: null,
     messageId: `dry-run-${ch}-${Date.now()}`,
@@ -232,13 +274,13 @@ export function dryRun() {
  *   summary: string,
  * }>}
  */
-export async function verifyAll(options = {}) {
+export async function verifyAll(options = {}, deps = {}) {
   if (options.dryRun) {
     const results = dryRun();
     return {
       results,
-      allPassed: true,
-      summary: '🔸 Dry run — no real delivery. All channels simulated OK.',
+      allPassed: false,
+      summary: '🔸 Dry run — no delivery proof was attempted.',
     };
   }
 
@@ -253,16 +295,28 @@ export async function verifyAll(options = {}) {
   for (const ch of channelSet) {
     const verifier = verifiers[ch];
     if (verifier) {
-      results.push(await verifier(options[ch] || {}));
+      results.push(await verifier(options[ch] || {}, deps));
+    } else {
+      results.push({
+        channel: ch,
+        configured: false,
+        sent: false,
+        delivered: false,
+        latencyMs: 0,
+        code: NOTIFICATION_CHANNEL_UNSUPPORTED,
+        error: NOTIFICATION_CHANNEL_UNSUPPORTED,
+        messageId: null,
+        details: {},
+      });
     }
   }
 
-  const allPassed = results.every(r => r.delivered || !r.configured);
+  const allPassed = results.length > 0 && results.every(r => r.delivered === true);
   const configured = results.filter(r => r.configured);
   const delivered = results.filter(r => r.delivered);
 
   const summary = configured.length === 0
-    ? '⚠️ No channels configured. Set env vars to enable E2E verification.'
+    ? '⚠️ No requested channel produced delivery evidence.'
     : delivered.length === configured.length
       ? `✅ All ${delivered.length}/${configured.length} configured channels delivered successfully.`
       : `❌ ${delivered.length}/${configured.length} channels delivered. Failures: ${results.filter(r => r.configured && !r.delivered).map(r => r.channel).join(', ')}`;
