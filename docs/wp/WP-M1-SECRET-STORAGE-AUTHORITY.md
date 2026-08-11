@@ -4,32 +4,38 @@
 v izolovaném disk-backed worktree
 
 **Rozhodnutí:**
-[`026/A + X1`](../decisions/026-m1-secret-storage-authority.md)
+[`026/A + X1 + M1-CLOSEOUT-X1`](../decisions/026-m1-secret-storage-authority.md)
 
 **sourceEvidenceRevision:**
 `0037d56a2fb63ae0c3a3863ce00b9083d838ba8b`
 
 **integrationRef:** `integration/m1-consolidated-20260810`
 
-**baseRevision:** exact SHA aktivačního docs checkpointu obsahujícího tento WP
-zapíše až unikátní run report; `sourceEvidenceRevision` není jeho náhrada
+**baseRevision:** promoted exact governance commit `G`, který vznikne jako
+sibling P0 z `ea21bf3e2f8a54e1cbf93430cdb52037957a63c8`; jeho exact SHA zapíše až
+unikátní run report. `sourceEvidenceRevision` není jeho náhrada
 
 **Branch:** `wp/m1-secret-storage-authority-20260811`
 
 **Worktree:** `/home/belphareon/worktrees/is-m1-secret-storage-authority`
 
-**Stav:** `ACTIVE / IMPLEMENTATION_NOT_STARTED` — 025, 027 a 028 jsou
-`PROMOTED / REVIEW A+B PASS`; 028 promotion tip a současný clean source evidence
-je `0037d56a2fb63ae0c3a3863ce00b9083d838ba8b`. Finding 011 zůstává `OPEN`, Gate
-1 `BLOCKED`; 029 nezačne před přijetím 026 candidate.
+**Stav:** `ACTIVE / SETUP_P0_CHECKPOINT_PUSHED /
+REST_IMPLEMENTATION_NOT_STARTED` — 025, 027 a 028 jsou
+`PROMOTED / REVIEW A+B PASS`; 028 promotion tip a aktivační source evidence je
+`0037d56a2fb63ae0c3a3863ce00b9083d838ba8b`. Finding 011 zůstává `OPEN`, Gate
+1 `BLOCKED`; první P0 source ancestor je
+`3bb35bbb32063dd058ab35872668d645fe9ff106`. 029 nezačne před přijetím 026
+candidate.
 
 ## 1. Uživatelský výsledek
 
 Po dokončení budou retained notification credentials a private destinations
 čtené pouze z own process environment nebo exact canonical
-`<project-root>/.env`. Aplikace je nebude umět nastavit přes HTTP, WS, generic
-settings, Setup ani runtime config setter. Status vrátí pouze configured/source
-pro přesných dvanáct klíčů; raw, masked ani odvozenou hodnotu nevrátí.
+`<project-root>/.env`. Aplikace je nebude umět persistovat jako default config
+přes HTTP, WS, generic settings, Setup ani runtime config setter. Status vrátí
+pouze configured/source pro přesných dvanáct klíčů; raw, masked ani odvozenou
+hodnotu nevrátí. Explicitní manual test/send HTTP request však smí nést vlastní
+caller-supplied ephemeral destination.
 
 Každá existující legacy hodnota dostane explicitní operátorskou akci
 `TRANSFER`, `EXPORT` nebo `PURGE`. Exact source se scrubne až po ověřeném
@@ -37,17 +43,29 @@ canonical readbacku, verified mode-0600 exportu nebo explicitním purge.
 Konflikt, stale source nebo nejednoznačné mapování skončí beze změny; unknown
 data se zachovají.
 
-První source commit uzavře Setup P0: čtyři efektové Setup POSTy dostanou strict
-explicit admin-token auth, repeated `/api/setup/complete` skončí před efektem a
-bounded writer přestane odvozovat target z cwd. Teprve po commitu, pushi a
-focused ověření tohoto checkpointu smí writer začít zbytek 026. Celý WP má jeden
+Oddělený pushed source commit
+`3bb35bbb32063dd058ab35872668d645fe9ff106` na P0 branch uzavřel Setup P0:
+čtyři efektové Setup POSTy dostaly strict explicit admin-token auth, repeated
+`/api/setup/complete` skončí před efektem a bounded writer přestal odvozovat
+target z cwd. Další writer smí začít zbytek 026 až po nezávislém review a
+promotion `G` a jeho normálním merge do existující P0 branch. Celý WP má jeden
 finální immutable subject `S` a společné Review A/B.
 
 Raw legacy `localStorage['paiass_settings']` nikdy nepřejde přes HTTP, WS ani
 nový loopback connector. Operátor použije offline file/receipt flow. Cena
 přijatého úzkého core scope je výslovná: po retirementu emitteru a bez nového
-recipient env key nebudou automatické lifecycle/worker e-maily v core 1.0
-konfigurovatelné vůbec.
+recipient env key nebude `NotificationEmitter`-generovaný automatický
+lifecycle/worker email bridge v core 1.0 konfigurovatelný. Explicitní
+`AgentRunner` notify action i `POST /api/notifications/test` a
+`POST /api/notifications/send` s caller-supplied recipientem zůstávají.
+
+026 vlastní notification configuration authority, ne globální vymazání všech
+historických či per-delivery destinations. Channel/log/digest tabulky a
+persisted agent notify/webhook definitions zůstávají explicitním M5-DATA nebo
+typed-agent residualem; finální 026 je nesmí popsat jako globálně scrubnuté.
+`generic/settings/import` responses zůstávají redacted; caller-supplied
+destination v explicitním delivery requestu není oprávnění ji persistovat ani
+důkaz globální absence private destinations.
 
 ## 2. Povolené a zakázané cesty
 
@@ -67,10 +85,20 @@ konfigurovatelné vůbec.
   lokální census/transfer/export/purge/scrub command;
 - `scripts/start-workers.js` a `src/server.js` pouze pro injection stejné
   startup authority, Setup canonical root, emitter retirement a pravdivý
-  retained-channel status;
-- `src/setup/wizard.js` pouze pro první P0 checkpoint: canonical four-key
-  bounded writer, strict explicit admin-token guard čtyř efektových POSTů,
-  durable already-complete refusal a preservation legacy setup dat;
+  retained-channel status. Existing agents-disabled blanket smí vyjmout jen
+  exact `GET /api/notifications/config` status a inertní pre-parse
+  `POST /api/notifications/config` 410; send/test/verify/channels behavior při
+  `agents=false` zůstává stejné;
+- `src/setup/wizard.js` obsahuje dokončený P0 checkpoint na oddělené P0 branch v
+  exact commitu `3bb35bbb32063dd058ab35872668d645fe9ff106`, nikoli v aktuálním G
+  sibling tree. Po merge promoted `G` do P0 branch se smí post-P0 změnit jen pro
+  delegaci canonical four-key `.env` operací do shared
+  `root-environment-file.js` seamu a retirement notification
+  credential/destination leaves z `DEFAULT_SETUP`/`createDefaultSetup()`.
+  Existing well-formed legacy leaves se dál validují a zachovají do explicitní
+  migrační akce; strict admin-token guard, route responses, durable
+  already-complete refusal a completion behavior jsou byte-semanticky
+  invariantní;
 - `src/db/user-settings.js` pouze pro exact legacy census/scrub transaction a
   odstranění zbývajícího notification repository writeru/exportu;
 - `src/routes/notifications.js` pouze pro exact 12-key configured/source GET,
@@ -87,6 +115,10 @@ konfigurovatelné vůbec.
   `src/notifications/channels/push.js` pouze pro injected immutable authority a
   odstranění ambientního/živého config setteru; channel support policy z 027 se
   nemění;
+- `src/notifications/channels/webhook.js` pouze pro required own injected `url`
+  string včetně `""`; absence nebo non-string injection selže fail-closed a
+  ambientní `C3_WEBHOOK_URL` fallback je vždy zakázaný. 028 HMAC, secret status,
+  Security response a signing semantics jsou zakázané měnit;
 - `src/ui/architect/architect.html` a `src/ui/architect/architect.js` pouze pro
   offline input/receipt workflow nad exact `paiass_settings` paths; žádný raw
   network transport;
@@ -94,10 +126,17 @@ konfigurovatelné vůbec.
   `tests/m1-notification-credential-scope.test.js` a
   `tests/m1-studio-client.test.js`, bez nového top-level programu a bez růstu
   jejich počtů `4`, `2`, `128`;
+- existující `tests/notifications.test.js`, `tests/workers-phase-b.test.js`,
+  `tests/push-channel.test.js` a `tests/e2e-notifications.test.js` pouze pro
+  compatibility alignment/source audit. Nejsou pátým subject-gate programem;
+  network-free část smí běžet jen pod samostatným již přijatým envelope a
+  external E2E zůstává `NOT RUN / BLOCKED`;
 - `tests/e2e/12-notifications.e2e.js` pouze pro mechanický source-contract
   update; program zůstává `NOT RUN / BLOCKED`;
 - `docs/NOTIFICATIONS.md` pro pravdivý runtime/API popis a
   `docs/CHANGELOG.md` jako release note s tvrdým automatic-email důsledkem;
+- `docs/API-REFERENCE.md` a `docs/WS-PROTOCOL.md` pouze pro mechanické srovnání
+  veřejného source kontraktu;
 - `docs/findings/011-user-settings-authority-and-secret-exposure.md` jako jediný
   source-progress dokument;
 - unikátní
@@ -110,13 +149,21 @@ Setup P0 první commit je podmnožina allowlistu: nový
 Security `requireAuth` s dev-localhost semantics se neimportuje, nemění ani
 nevydává za strict Setup autoritu.
 
+Toto M1-CLOSEOUT-X1 rozšíření allowlistu přistane vlastním docs-only governance
+commitem `G` jako sibling P0 z exact rodiče
+`ea21bf3e2f8a54e1cbf93430cdb52037957a63c8`. `G` projde vlastním nezávislým
+review a promotion před dalším source writerem a nesmí se přimíchat do
+implementačního subjectu. Každý následný subject má nezávislého reviewera
+(`writer != reviewer`); vyjmenované compatibility cesty výše už další allowlist
+rozhodnutí nepotřebují.
+
 **Zakázané:**
 
 - všechny schema migrace, nová DB tabulka, keyring, encryption nebo nová
   dependency;
-- `src/routes/security.js`, `src/notifications/channels/webhook.js`, decision/WP
-  028 nebo jakákoli změna jeho exact Security response/status/signer/410
-  semantics;
+- `src/routes/security.js`, decision/WP 028 nebo jakákoli změna jeho exact
+  Security response/status/signer/410 semantics; webhook výjimka výše je pouze
+  URL injection fallback, ne změna 028;
 - `src/ws-bridge/**`; SMTP injection je už promovaně retired a feature-only
   contract se znovu neotvírá;
 - dormant `src/notifications/channels/ntfy.js`; jeho produkční import/registrace
@@ -128,18 +175,19 @@ nevydává za strict Setup autoritu.
 - tichý rename `C3_NTFY_URL` na `C3_NTFY_SERVER`, parsing `SMTP_URL` nebo
   odvozování `EMAIL_TO` do nové autority;
 - přenos raw localStorage value přes HTTP, WS, loopback server, URL, log,
-  clipboard automatiku nebo testovací network seam;
+  clipboard automatiku, in-app raw download nebo testovací network seam;
 - full forensic wipe SQLite freepages/WAL/starých backupů nebo tvrzení o
   secret recovery; to patří M5-DATA;
 - mobile, Electron source/build/journey, GPU, Ollama, externí síť, skutečný
   outbound channel nebo celý produktový test;
 - `tests/registry.json`, nový testovací program, registry/baseline count bump,
   package/lockfile nebo generated build output;
-- změna tohoto statického WP, decision 026, decision 028, `docs/wp/README.md`,
-  `ROADMAP.md` nebo `SYSTEM-MAP.md` po aktivačním commitu. Source progress patří
-  pouze do Findingu 011 a report-only evidence.
+- další změna tohoto statického WP, decision 026, decision 028,
+  `docs/wp/README.md`, `ROADMAP.md` nebo `SYSTEM-MAP.md` po samostatném
+  M1-CLOSEOUT-X1 docs-only amendment commitu. Source progress patří pouze do
+  Findingu 011 a report-only evidence.
 
-## 3. První checkpoint — Setup P0
+## 3. První checkpoint — Setup P0 dokončen
 
 Aktuální base už má bounded writer a před route registration volá
 `setupWizard.load()`. P0 tyto garance zachová a zesílí; nesmí je falešně
@@ -197,13 +245,17 @@ timestamp se nezmění. Malformed/unreadable existing setup state nesmí být
 přepsaný defaults; skončí typovaně fail-closed. First completion dál zachová
 well-formed legacy notification subdocument pro následný transfer.
 
-### Povinné pořadí checkpointu
+### Dokončené pořadí checkpointu
 
-Writer nejdřív implementuje pouze P0 subset, rozšíří existující první
-notification-scope případ, spustí níže uvedený redukovaný gate, udělá diff
-census/check, vytvoří první source commit a pushne jeho branch. Až potom smí
-otevřít ostatní allowlisted soubory. P0 se samostatně nepromuje; zůstává prvním
-ancestor commitem jednoho finálního `S`.
+Writer nejdřív implementoval pouze P0 subset, rozšířil existující první
+notification-scope případ, spustil níže uvedený redukovaný gate, udělal diff
+census/check a vytvořil a pushnul source commit
+`3bb35bbb32063dd058ab35872668d645fe9ff106`. P0 se samostatně nepromuje;
+zůstává prvním source ancestor commitem jednoho finálního `S`. Samostatný
+docs-only `G` se po nezávislém review a promotion běžným merge commitem bez
+rebase, cherry-picku nebo jiného rewrite připojí do existující P0 branch; exact
+P0 SHA i ancestry zůstanou zachované. Ostatní allowlisted soubory smí další
+writer otevřít až po tomto merge.
 
 ## 4. Canonical environment authority a status
 
@@ -230,9 +282,12 @@ Own process key vyhrává i jako `""`: source je `PROCESS_ENV` a
 `ROOT_ENV_FILE` i při absent file/key a configured je pravda právě pro
 non-empty string. Root file se přečte jednou přes safe regular/owner/mode-0600/
 single-link/no-follow bounded reader. Startup authority je frozen a raw values
-nejsou enumerable, serializable ani veřejně dostupné. Root-file secret values
-se nemusejí kopírovat do ambientního `process.env`; channel factories dostanou
-injected snapshot.
+nejsou enumerable, serializable ani veřejně dostupné. Own process presence se
+zachytí před root-file loadem a root-file values se do ambientního `process.env`
+nekopírují. Email, Telegram, push, webhook, verifier, server i workers dostanou
+tentýž injected frozen snapshot. Webhook musí dostat vlastní injected `url`
+string včetně `""`; absent nebo non-string dependency selže fail-closed a
+ambientní `C3_WEBHOOK_URL` fallback nikdy neexistuje.
 
 Existující 028 `C3_WEBHOOK_SECRET` capability zůstane jediným HMAC signerem.
 Jeho `status()` a stejnojmenný leaf notification mapy musejí vrátit byte-for-byte
@@ -255,16 +310,24 @@ Exact POST response je pre-parse
 emitter/cache nebo runtime effectu.
 
 Canonical root writer smí patchovat jen výše uvedených dvanáct notification
-keys a exact four-key Setup owner přes oddělené owner sady. Zachová foreign
-bytes, odmítne duplicate owned/multiline/invalid value a používá safe atomic
-mode-0600/no-follow publication a readback. Nikdy nezapisuje feature opt-iny.
+keys a exact four-key Setup owner přes oddělené owner sady. Třetí owner set je
+scrub-only a obsahuje přesně `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`,
+`NTFY_SERVER`, `NTFY_TOPIC`, `EMAIL_FROM`, `SMTP_URL`, `EMAIL_TO` a
+`C3_NTFY_URL`: tyto aliases nikdy nevytváří ani nemění, pouze exact smaže po
+verified action/readbacku. Writer zachová foreign bytes, odmítne duplicate
+owned/multiline/invalid value a používá safe atomic mode-0600/no-follow
+publication a readback. Nikdy nezapisuje feature opt-iny.
 
 ## 5. Census, transfer/export/purge a exact scrub
 
-Migrační command je lokální CLI, ne server route. Nejdřív read-only inventarizuje
-všechny exact sources a vydá redigovaný plán bez hodnot. Každá nalezená položka
-má source ID, exact path/key, SHA-256 value digest, classification a jednu
-operátorem zvolenou akci `TRANSFER|EXPORT|PURGE`; absence volby blokuje apply.
+Migrační command je lokální CLI, ne server route. Read-only census smí běžet za
+provozu; apply nezačne bez explicitní attestace, že server i workers jsou
+zastavené. Census inventarizuje všechny exact sources a vydá jeden redigovaný
+non-secret digest-bound manifest všech source actions bez hodnot. Každá nalezená
+položka má source ID, exact path/key, SHA-256 value digest, classification a
+jednu operátorem zvolenou akci `TRANSFER|EXPORT|PURGE`; operátor potvrzuje celý
+manifest, ne jednotlivé řádky znovu. Absence volby blokuje apply a `PURGE` není
+automatický default.
 
 Source census zahrnuje:
 
@@ -295,12 +358,23 @@ Source census zahrnuje:
   process-environment presence včetně empty hodnoty;
 - offline `PAIASS_SETTINGS` input podle §6.
 
+Přímé nekolidující string mapování může plán doporučit jako `TRANSFER`.
+Unsupported, unmappable a non-string hodnotu doporučí jako `EXPORT`; nikdy ji
+implicitně nekoerzuje. Numeric `smtpPort` lze transferovat pouze tehdy, když
+operátor do téhož manifestu vloží explicitní canonical decimal-string hodnotu
+a její digest. Jinak smí jen `EXPORT|PURGE`.
+
 DB scrub nikdy nepoužije prefix `c3.notif.*`. Exact důkaz musí vedle odstranění
 výše vyjmenovaných cest připnout zachování safe generic preferences
 `c3.notif.desktopEnabled`, `c3.notif.quietEnabled`, `c3.notif.quietFrom` a
 `c3.notif.quietTo` i unknown dat. Setup `notifications.email.smtp` a
 `notifications.email.to` odpovídají unmappable `SMTP_URL` a `EMAIL_TO`, takže
 smějí jen do `EXPORT|PURGE`; direct transfer je zakázaný.
+Nový/default Setup po úspěšné migraci nesmí žádný credential ani destination
+leaf znovu vytvořit. Zachová `.enabled` a unknown siblings; legacy hodnoty před
+jejich zvolenou akcí zůstávají. Úspěšný JSON scrub zachovává unknown hodnoty
+sémanticky, nikoli původní whitespace nebo byte layout. Exact byte preservation
+platí pro no-mutation failure a nedotčené env lines/files.
 Own process alias CLI samo scrubnout neumí: po explicitním export/purge plánu
 musí nový restart prokázat jeho absenci. Do té doby stage zůstává blokovaný a
 nesmí smazat shodnou legacy kopii ani tvrdit completed scrub.
@@ -325,7 +399,8 @@ ověří preimage/path digest těsně před safe atomic rewrite. Conflict/stale/
 neprovádí partial scrub. Retry stejného completed planu je no-op success; změněný
 source vyžaduje nový census a operátorskou volbu.
 
-Nástroj netvrdí transakci napříč filesystémy a SQLite. Report pravdivě uvede
+Nástroj netvrdí transakci napříč filesystémy a SQLite. Recovery je staged
+roll-forward: nikdy neobnovuje secret do legacy source. Report pravdivě uvede
 každý dokončený a zbývající stage. Logical live row a nově vytvořený export jsou
 v scope; SQLite freepages/WAL, historické backupy a Git historie zůstávají
 M5-DATA/privacy residual.
@@ -333,10 +408,10 @@ M5-DATA/privacy residual.
 ## 6. Offline localStorage receipt a automatic-email retirement
 
 Architect pracuje pouze s legacy key `paiass_settings`; `c3-settings` není
-credential blob. Raw offline input musí obsahovat exact preimage JSON bytes a
-CLI jej přijme jen jako explicitní absolutní regular owner-owned single-link
-mode-0600/no-follow file. Raw value nikdy nevstoupí do HTTP/WS/loopback API ani
-logu.
+credential blob. Raw offline input musí obsahovat exact UTF-8 preimage JSON
+bytes a CLI jej přijme jen jako explicitní absolutní regular owner-owned
+single-link mode-0600/no-follow file. Raw value nikdy nevstoupí do
+HTTP/WS/loopback API ani URL, logu, clipboardu či in-app raw downloadu.
 
 Sensitive paths jsou přesně:
 
@@ -356,8 +431,10 @@ notifications.smsPhone
 CLI pro `EXPORT` nejdřív ověří nový mode-0600 artifact podle §5. Pro `PURGE`
 vyžádá explicitní volbu. Potom vytvoří non-secret receipt schema
 `INTENTSMITH_LEGACY_CREDENTIAL_RECEIPT/V1` s exact source
-`PAIASS_SETTINGS`, preimage SHA-256, sorted unique path IDs, akcí
-`EXPORT|PURGE`, exact per-path SHA-256 digesty a při exportu export SHA-256.
+`PAIASS_SETTINGS`, `preimageSha256`, `postimageSha256`, sorted unique path IDs,
+jednou společnou akcí `EXPORT|PURGE`, exact per-path SHA-256 digesty a při
+exportu export SHA-256. Jeden V1 receipt nesmí míchat akce. Mixed plán použije
+ordered EXPORT receipt a až nad jeho exact postimage následný PURGE receipt.
 Receipt neobsahuje raw value, prefix ani suffix.
 
 Architect receipt načte výhradně lokálním file inputem. Před první změnou ověří
@@ -367,38 +444,58 @@ interní digest každé named path proti receipt-bound potvrzení. Potom z
 unknown/non-secret siblings a zapíše nový blob. Malformed JSON, extra/unknown
 path, stale preimage, digest mismatch, storage write failure nebo neúplný export
 zachová původní bytes a skončí fail-closed. Re-apply stejného receipt po
-úspěšném scrub je idempotentní success. Žádný broad `localStorage.clear()`.
+úspěšném scrub je idempotentní success jen nad exact `postimageSha256`; jakýkoli
+jiný stav je stale failure. Žádný broad `localStorage.clear()`.
 
 Zároveň se odstraní `updateNotificationUserSettings`, repository
 `commitNotification`, `NotificationRouter.updateChannelConfig`,
 `EmailChannel.updateConfig` a production konstrukce/injection/call seamy
-`NotificationEmitter`. DB credential ani private-recipient read nezůstane v
-živém notification call graphu. Email channel smí zůstat retained/default-off
-pro explicitní caller-supplied recipient.
+`NotificationEmitter`. DB credential ani default-config recipient read přes
+tento bridge nezůstane v živém notification call graphu. Explicitní
+caller-supplied recipient v `AgentRunner` notify action i manual
+`POST /api/notifications/test` a `POST /api/notifications/send` zůstává; email
+channel smí zůstat retained/default-off právě pro tyto explicitní delivery
+cesty. Jejich request destination se nesmí změnit na persisted/default config.
 
 Release docs musejí bez eufemismu uvést: **automatické lifecycle/worker e-maily
-po 026 nejsou v core 1.0 konfigurovatelné vůbec**. Nevzniká `EMAIL_TO`,
-`C3_TEST_EMAIL` ani jiný runtime recipient key. Tato ztráta configurability je
-záměrný důsledek přijatého in-app-only core scope, ne skrytý regression PASS.
+generované `NotificationEmitter` bridgem po 026 nejsou v core 1.0
+konfigurovatelné vůbec**. Explicitní `AgentRunner` notify akce s
+caller-supplied recipientem i manual test/send s caller-supplied destination
+zůstávají. `generic/settings/import` responses zůstávají redacted. Nevzniká
+`EMAIL_TO`, `C3_TEST_EMAIL` ani jiný runtime recipient key. Tato omezená ztráta
+configurability je záměrný důsledek přijatého in-app-only core scope, ne skrytý
+regression PASS.
+
+`notification_channels_v57.recipient/config`,
+`notification_log_v57.recipient`,
+`notification_digest_buffer_v57.recipient` a persisted agent notify/webhook
+definitions se tímto WP globálně nemažou. Jsou explicitně reportované jako
+M5-DATA nebo typed-agent residual a nesmějí být použité k tvrzení, že 026
+odstranil každou private destination ze všech aplikačních dat a logů.
 
 ## 7. Source pořadí, focused důkaz a stop conditions
 
 Exact source pořadí je:
 
 1. Setup P0 subset podle §3 → focused gate → diff census/check → první commit a
-   push;
-2. canonical root reader/writer + immutable 12-key authority a exact status;
-3. read-only census a explicitní transfer/export/purge apply stages;
-4. DB/setup/env scrub a offline localStorage receipt apply;
-5. HTTP/repository/runtime setter a automatic-emitter retirement;
-6. source-only E2E compatibility, notifications docs, release note a Finding
+   push; tento krok je hotový na `3bb35bbb32063dd058ab35872668d645fe9ff106`;
+2. samostatný docs-only M1-CLOSEOUT-X1 allowlist amendment `G` jako sibling P0
+   z `ea21bf3e2f8a54e1cbf93430cdb52037957a63c8` → nezávislý review → governance
+   promotion → normální merge `G` do existující P0 branch bez rewrite;
+3. canonical root reader/writer + immutable 12-key authority a exact status;
+4. read-only census a explicitní transfer/export/purge apply stages;
+5. DB/setup/env scrub a offline localStorage receipt apply;
+6. HTTP/repository/runtime setter a automatic-emitter retirement;
+7. source-only E2E compatibility, notifications docs, release note a Finding
    progress;
-7. celý redukovaný gate, syntax/diff/hygiene, commit a push final `S`; potom je
+8. celý redukovaný gate, syntax/diff/hygiene, commit a push final `S`; potom je
    `S` immutable a jde do Review A.
 
-P0 i mezilehlé checkpointy zůstávají ancestry final subjectu a samostatně se
-neintegrují. Poslední source commit nesmí být report-only evidence. Report
-vznikne až v `E_A`.
+P0 i mezilehlé source checkpointy zůstávají ancestry final subjectu a
+samostatně se neintegrují. Governance `G` se naopak reviewuje a promuje
+samostatně; po merge je base final Review A, nikoli součást range `G..S`.
+Poslední source commit nesmí být report-only evidence. Report vznikne až v
+`E_A`.
 
 Existující top-level testy se rozšíří bez růstu počtů:
 
@@ -416,6 +513,11 @@ Existující top-level testy se rozšíří bez růstu počtů:
 4. registry validator: stále 382 programů, 8 exclusions, fingerprint
    `571ae1a90a4246c7037d56fe5fb786beb4b5c4aae3e61f163d5b6ffe14341d71`.
 
+Compatibility soubory smějí dostat mechanický source alignment/audit, ale
+nepřidávají pátý program do tohoto subject gate. Network-free část smí běžet
+jen pod již explicitně přijatým samostatným envelope; external části zůstávají
+`NOT RUN / BLOCKED`.
+
 `tests/e2e/12-notifications.e2e.js` se nespouští a v reportu zůstane explicitně
 `NOT RUN / BLOCKED`. E2E13 Security, Electron/build, GPU, Ollama, externí síť,
 skutečný outbound a full-product test se nespouštějí.
@@ -424,6 +526,10 @@ Zastavit dotčenou část a eskalovat při potřebě:
 
 - měnit cestu mimo allowlist, schema/migraci, reset/import nebo 028 Security
   semantics;
+- přidat, zeslabit nebo obejít auth guard, access boundary či trusted-local
+  kontrakt; oprava uvnitř již schváleného guardu je povolená, změna hranice ne;
+- rozšířit agents-disabled výjimku za exact notification config GET a inertní
+  config POST; send/test/verify/channels behavior je capability boundary;
 - povolit Setup dev-loopback auth bypass nebo efekt před strict token checkem;
 - pokračovat po failed Setup P0 gate bez jeho commitu/pushe;
 - automaticky vybrat vítěze source conflict, parse `SMTP_URL`, rename
@@ -458,20 +564,26 @@ evidence.
 Evidence DAG je:
 
 ```text
-Setup P0 source commit (první ancestor, pushed, nepromovaný)
+ea21bf3e (společný rodič)
+  |-- Setup P0 source commit 3bb35bbb (pushed, nepromovaný)
+  `-- docs-only governance G
+        -> nezávislý governance review a promotion
+G + exact P0 branch
+  -> normální merge commit bez rewrite (P0 SHA zůstává ancestor)
   -> další 026 source checkpointy
   -> immutable final subject S
-  -> report-only E_A s Review A
+  -> report-only E_A s nezávislým Review A G..S (writer != reviewer)
   -> --no-ff merge candidate C na aktuálním integration base
   -> disk-backed --no-local Review B
   -> report-only E_B
   -> integrátorská promotion
 ```
 
-Run report poprvé vznikne v `E_A` a pinuje `integrationRef`, exact
-`baseRevision`, `subjectHead=S`, P0 commit a `reviewA.verdict`. `E_B` je přímý
-potomek candidate a pouze doplní `candidateHead=C` a `reviewB.verdict`; report
-nikdy neobsahuje SHA commitu, který jej právě zapisuje. Candidate runtime strom
-se musí rovnat stromu `E_A` mimo report-only topologii. PASS 026 neznamená Gate
-1 PASS: 029, standalone `chats/`, M5-DATA residualy a ostatní explicitní bloky
-zůstávají otevřené.
+Run report poprvé vznikne v `E_A` a pinuje `integrationRef`, exact promoted
+`baseRevision=G`, `subjectHead=S`, review range `G..S`, P0 commit, merge commit a
+`reviewA.verdict`. Tím je `G` mimo source subject a exact P0 uvnitř jeho
+ancestry. `E_B` je přímý potomek candidate a pouze doplní `candidateHead=C` a
+`reviewB.verdict`; report nikdy neobsahuje SHA commitu, který jej právě zapisuje.
+Candidate runtime strom se musí rovnat stromu `E_A` mimo report-only topologii.
+PASS 026 neznamená Gate 1 PASS: 029, standalone `chats/`, M5-DATA residualy a
+ostatní explicitní bloky zůstávají otevřené.
