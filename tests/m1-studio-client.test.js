@@ -1172,6 +1172,98 @@ function settingsBackupHarness(options = {}) {
   };
 }
 
+function webhookSecurityHarness(options = {}) {
+  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
+  const stateStart = source.indexOf('var _secTokens=');
+  const stateEnd = source.indexOf('var _fbCategory=', stateStart);
+  const securityStart = source.indexOf('/* v91: Security panel */');
+  const securityEnd = source.indexOf('function _fbGetLastAssistant', securityStart);
+  assert.ok(
+    stateStart >= 0 && stateEnd > stateStart
+      && securityStart >= 0 && securityEnd > securityStart,
+    'Webhook Security panel slice is missing',
+  );
+
+  const effects = { clipboard: 0, confirm: 0, prompt: 0 };
+  const requests = [];
+  const responses = [...(options.responses || [])];
+  let renders = 0;
+  let context;
+
+  context = vm.createContext({
+    AbortSignal: { timeout(milliseconds) { return { milliseconds }; } },
+    C: {
+      accent: '#22c55e',
+      bg3: '#222',
+      bg4: '#111',
+      border: '#333',
+      border2: '#444',
+      mono: 'monospace',
+      tx1: '#fff',
+      tx2: '#ddd',
+      tx3: '#aaa',
+      tx4: '#888',
+    },
+    _backendBase: 'http://127.0.0.1:3335',
+    _fs(value) { return value; },
+    confirm() {
+      effects.confirm += 1;
+      throw new Error('Webhook status unexpectedly requested confirmation');
+    },
+    fetch(url, init = {}) {
+      requests.push({ url, init });
+      const fixture = responses.shift();
+      if (fixture instanceof Error) return Promise.reject(fixture);
+      if (!fixture) throw new Error(`unexpected Webhook Security request: ${url}`);
+      return Promise.resolve({
+        ok: fixture.ok,
+        status: fixture.status,
+        json: fixture.jsonError
+          ? async () => { throw fixture.jsonError; }
+          : async () => vm.runInContext(
+            `JSON.parse(${JSON.stringify(JSON.stringify(fixture.body))})`,
+            context,
+          ),
+      });
+    },
+    h(type, props, ...children) { return { type, props: props || {}, children }; },
+    module: { exports: {} },
+    navigator: {
+      clipboard: {
+        writeText() {
+          effects.clipboard += 1;
+          throw new Error('Webhook status unexpectedly wrote to clipboard');
+        },
+      },
+    },
+    prompt() {
+      effects.prompt += 1;
+      throw new Error('Webhook status unexpectedly opened a prompt');
+    },
+    renderCenter() { renders += 1; },
+  });
+
+  vm.runInContext(
+    source.slice(stateStart, stateEnd)
+      + '\n'
+      + source.slice(securityStart, securityEnd)
+      + '\n_secTokens=[];_secAudit={};_secSessions={count:0,uptime_seconds:0};'
+      + '\nmodule.exports={'
+      + 'loadWebhook:_secLoadWebhook,'
+      + 'renderSecurity:settingsSecurityPanel,'
+      + 'state:function(){return JSON.parse(JSON.stringify(_secWebhook));}};',
+    context,
+    { filename: `${CHAT_PANEL.pathname}#webhook-security` },
+  );
+
+  return {
+    effects,
+    functions: context.module.exports,
+    get renders() { return renders; },
+    requests,
+  };
+}
+
 function settingsBackupFixture(overrides = {}) {
   const base = {
     kind: 'INTENTSMITH_SETTINGS_BACKUP',
@@ -6457,6 +6549,97 @@ await testAsync('the rendered Backup panel wires exact endpoints and reports Fil
     assert.equal(failureHarness.requests.length, 0);
     assert.equal(failureHarness.status().ok, false);
     assert.match(failureHarness.status().text, outcome === 'onerror' ? /nepodařilo přečíst/ : /bylo zrušeno/);
+  }
+});
+
+await testAsync('Webhook Security status is exact GET-only and malformed responses fail closed', async () => {
+  const successCases = [
+    {
+      body: { configured: true, source: 'PROCESS_ENV' },
+      configuredText: 'Stav: Nastaven',
+      sourceText: 'Procesní prostředí (PROCESS_ENV)',
+    },
+    {
+      body: { source: 'PROCESS_ENV', configured: false },
+      configuredText: 'Stav: Nenastaven',
+      sourceText: 'Procesní prostředí (PROCESS_ENV)',
+    },
+    {
+      body: { configured: true, source: 'ROOT_ENV_FILE' },
+      configuredText: 'Stav: Nastaven',
+      sourceText: 'Kořenový .env soubor (ROOT_ENV_FILE)',
+    },
+    {
+      body: { configured: false, source: 'ROOT_ENV_FILE' },
+      configuredText: 'Stav: Nenastaven',
+      sourceText: 'Kořenový .env soubor (ROOT_ENV_FILE)',
+    },
+  ];
+
+  for (const fixture of successCases) {
+    const harness = webhookSecurityHarness({
+      responses: [{ ok: true, status: 200, body: fixture.body }],
+    });
+    assert.equal(await harness.functions.loadWebhook(), true);
+    assert.equal(harness.requests.length, 1);
+    assert.equal(harness.requests[0].url, 'http://127.0.0.1:3335/api/security/webhook-secret');
+    assert.equal(harness.requests[0].init.method, undefined);
+    assert.equal(Object.hasOwn(harness.requests[0].init, 'body'), false);
+    assert.deepEqual(hostClone(harness.functions.state()), {
+      phase: 'READY',
+      configured: fixture.body.configured,
+      source: fixture.body.source,
+    });
+
+    const rendered = harness.functions.renderSecurity();
+    const text = renderedText(rendered);
+    assert.match(text, new RegExp(fixture.configuredText));
+    assert.match(text, new RegExp(fixture.sourceText.replace(/[().]/g, '\\$&')));
+    assert.match(text, /spravuje operátor/);
+    assert.match(text, /restartu serveru/);
+    assert.equal(findRenderedElement(rendered, 'button', 'Regenerovat'), null);
+    assert.deepEqual(harness.effects, { clipboard: 0, confirm: 0, prompt: 0 });
+    assert.equal(harness.requests.length, 1, 'READY render repeated the status request');
+  }
+
+  const invalidCases = [
+    { ok: false, status: 500, body: { configured: true, source: 'PROCESS_ENV' } },
+    { ok: true, status: 201, body: { configured: true, source: 'PROCESS_ENV' } },
+    { ok: true, status: 200, jsonError: new Error('malformed JSON') },
+    { ok: true, status: 200, body: { configured: true } },
+    {
+      ok: true,
+      status: 200,
+      body: { configured: true, source: 'PROCESS_ENV', masked: 'MASKED_SECRET_CANARY' },
+    },
+    { ok: true, status: 200, body: { configured: 'true', source: 'PROCESS_ENV' } },
+    { ok: true, status: 200, body: { configured: true, source: null } },
+    { ok: true, status: 200, body: { configured: true, source: 'DATABASE' } },
+    new Error('network unavailable'),
+  ];
+
+  for (const response of invalidCases) {
+    const harness = webhookSecurityHarness({ responses: [response] });
+    assert.equal(await harness.functions.loadWebhook(), false);
+    assert.equal(harness.requests.length, 1);
+    assert.deepEqual(hostClone(harness.functions.state()), {
+      phase: 'ERROR',
+    });
+
+    const firstRender = harness.functions.renderSecurity();
+    const secondRender = harness.functions.renderSecurity();
+    const text = renderedText(firstRender);
+    assert.match(text, /Stav webhook secretu není dostupný/);
+    assert.doesNotMatch(text, /Stav: Nastaven|Stav: Nenastaven|PROCESS_ENV|ROOT_ENV_FILE/);
+    assert.doesNotMatch(text, /MASKED_SECRET_CANARY/);
+    assert.equal(findRenderedElement(firstRender, 'button', 'Regenerovat'), null);
+    assert.equal(findRenderedElement(secondRender, 'button', 'Regenerovat'), null);
+    assert.equal(harness.requests.length, 1, 'ERROR render retried the status request');
+    assert.equal(
+      harness.requests.some(request => request.init.method === 'POST'),
+      false,
+    );
+    assert.deepEqual(harness.effects, { clipboard: 0, confirm: 0, prompt: 0 });
   }
 });
 

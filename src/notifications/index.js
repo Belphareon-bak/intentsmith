@@ -47,7 +47,15 @@ const DEFAULT_CHANNEL_FACTORIES = Object.freeze({
   email: channelLogger => new EmailChannel({ logger: channelLogger }),
   telegram: channelLogger => new TelegramChannel({ logger: channelLogger }),
   push: channelLogger => new PushChannel({ logger: channelLogger }),
-  webhook: channelLogger => new WebhookChannel({ logger: channelLogger }),
+  webhook: (
+    channelLogger,
+    webhookSecretAuthority,
+    requireWebhookSecretAuthority,
+  ) => new WebhookChannel({
+    logger: channelLogger,
+    requireWebhookSecretAuthority,
+    webhookSecretAuthority,
+  }),
   desktop: channelLogger => new DesktopChannel({ logger: channelLogger }),
 });
 
@@ -63,6 +71,8 @@ function notificationFactoryError() {
  *
  * @param {object} options
  * @param {object} [options.db] - Database instance
+ * @param {Function} [options.requireWebhookSecretAuthority] - Authority validator
+ * @param {object} [options.webhookSecretAuthority] - Opaque webhook HMAC authority
  * @returns {NotificationRouter}
  */
 export function createNotificationRouter({
@@ -71,6 +81,8 @@ export function createNotificationRouter({
   channelPolicy = null,
   channelFactories = DEFAULT_CHANNEL_FACTORIES,
   logger: channelLogger = logger,
+  requireWebhookSecretAuthority = null,
+  webhookSecretAuthority = null,
 } = {}) {
   const rawDb = db?.db || db;
   const validatedPolicy = channelPolicy === null
@@ -93,7 +105,13 @@ export function createNotificationRouter({
     if (typeof factory !== 'function') {
       throw notificationFactoryError();
     }
-    const channel = factory(channelLogger);
+    const channel = channelName === 'webhook'
+      ? factory(
+        channelLogger,
+        webhookSecretAuthority,
+        requireWebhookSecretAuthority,
+      )
+      : factory(channelLogger);
     if (!channel || channel.name !== channelName || !router.registerChannel(channel)) {
       throw notificationFactoryError();
     }
@@ -108,6 +126,8 @@ export function createNotificationRouter({
  *
  * @param {object} options
  * @param {object} [options.db] - Database instance
+ * @param {Function} [options.requireWebhookSecretAuthority] - Authority validator
+ * @param {object} [options.webhookSecretAuthority] - Opaque webhook HMAC authority
  * @returns {{ pipeline: NotificationPipeline, router: NotificationRouter, policy: NotificationPolicy, digest: DigestAggregator }}
  */
 export function createNotificationPipeline({
@@ -116,6 +136,8 @@ export function createNotificationPipeline({
   channelPolicy = null,
   channelFactories = DEFAULT_CHANNEL_FACTORIES,
   logger: channelLogger = logger,
+  requireWebhookSecretAuthority = null,
+  webhookSecretAuthority = null,
 } = {}) {
   const rawDb = db?.db || db;
   const router = createNotificationRouter({
@@ -124,6 +146,8 @@ export function createNotificationPipeline({
     channelPolicy,
     channelFactories,
     logger: channelLogger,
+    requireWebhookSecretAuthority,
+    webhookSecretAuthority,
   });
   const policy = new NotificationPolicy({ db: rawDb, logger: channelLogger });
   const digest = new DigestAggregator({ db: rawDb, logger: channelLogger });

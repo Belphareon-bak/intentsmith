@@ -11,10 +11,6 @@
 
 import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 import { randomUUID } from 'crypto';
-import {
-  UserSettingsError,
-  createUserSettingsRepository,
-} from '../db/user-settings.js';
 
 const MAX_AUDIT_LIMIT = 1000;
 const DEFAULT_AUDIT_LIMIT = 100;
@@ -69,18 +65,20 @@ function _hashToken(plaintext) {
   return createHash('sha256').update(plaintext).digest('hex');
 }
 
-function _maskSecret(secret) {
-  if (!secret) return null;
-  if (secret.length < 8) return 'c3_****';
-  return secret.substring(0, 7) + '...' + secret.substring(secret.length - 4);
-}
-
 // ── Routes ───────────────────────────────────────────────────────────────────
 
 /**
- * @param {{ db: Object, parseBody: Function, sendJSON: Function, logger: Object }} deps
+ * @param {{ db: Object, parseBody: Function, sendJSON: Function, logger: Object, webhookSecretAuthority: Object, requireWebhookSecretAuthority: Function }} deps
  */
-export function createSecurityRoutes({ db, parseBody, sendJSON, logger }) {
+export function createSecurityRoutes({
+  db,
+  parseBody,
+  sendJSON,
+  logger,
+  webhookSecretAuthority,
+  requireWebhookSecretAuthority,
+}) {
+  const secretAuthority = requireWebhookSecretAuthority(webhookSecretAuthority);
   const rawDb = db.db || db;
 
   // ── Startup checks ──
@@ -212,35 +210,15 @@ export function createSecurityRoutes({ db, parseBody, sendJSON, logger }) {
     'GET /api/security/webhook-secret': (req, res) => {
       if (!requireAuth(req, sendJSON, res)) return;
 
-      const secret = process.env.C3_WEBHOOK_SECRET || null;
-      sendJSON(res, 200, {
-        configured: !!secret,
-        masked: secret ? _maskSecret(secret) : null,
-      });
+      sendJSON(res, 200, secretAuthority.status());
     },
 
-    'POST /api/security/webhook-secret': async (req, res) => {
+    'POST /api/security/webhook-secret': (req, res) => {
       if (!requireAuth(req, sendJSON, res)) return;
 
-      const newSecret = 'c3_' + randomBytes(24).toString('hex');
-      let masked;
-      try {
-        createUserSettingsRepository(rawDb).commitWebhookSecret(newSecret);
-        masked = _maskSecret(newSecret);
-      } catch (err) {
-        const code = err instanceof UserSettingsError
-          ? err.code
-          : 'WEBHOOK_SECRET_STORAGE_FAILED';
-        return sendJSON(res, 503, {
-          ok: false,
-          code: code === 'USER_SETTINGS_INPUT_INVALID'
-            ? 'WEBHOOK_SECRET_INPUT_INVALID'
-            : 'WEBHOOK_SECRET_STORAGE_FAILED',
-        });
-      }
-      return sendJSON(res, 200, {
-        ok: true,
-        masked,
+      return sendJSON(res, 410, {
+        ok: false,
+        code: 'CREDENTIAL_SOURCE_READ_ONLY',
       });
     },
 

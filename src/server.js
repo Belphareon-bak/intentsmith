@@ -1,7 +1,10 @@
 // C.3 v135 Server - p(AI)assistant
 // ══════════════════════════════════════════════════════════════════════════════
 
-import './runtime-environment.js';
+import {
+  requireWebhookSecretAuthority,
+  webhookSecretAuthority,
+} from './runtime-environment.js';
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
@@ -39,6 +42,8 @@ initNotificationTables(db.db);
 const { pipeline: notificationPipeline, router: notificationRouter } = createNotificationPipeline({
   db,
   channelPolicy: notificationChannelPolicy,
+  requireWebhookSecretAuthority,
+  webhookSecretAuthority,
 });
 const notificationEmitter = new NotificationEmitter({ pipeline: notificationPipeline, db: db.db });
 // Wire lifecycle hooks (lazy import — lifecycle-build may not be loaded yet)
@@ -823,6 +828,7 @@ const routeDeps = {
   checkWizardRateLimit,
   specialistLoader, specialistRuntime, specialistTelemetry,
   notificationRouter, notificationEmitter,
+  requireWebhookSecretAuthority, webhookSecretAuthority,
   comfyuiConnector, vramManager, mediaStorage,
   modelRegistry, modelBindingApplication,
 };

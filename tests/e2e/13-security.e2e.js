@@ -85,18 +85,24 @@ try {
   // ── Webhook Secret ────────────────────────────────────────────────────────
   suite('Webhook Secret');
 
-  await testAsync('GET webhook-secret returns shape', async () => {
+  await testAsync('GET webhook-secret returns exact read-only status', async () => {
     const { status, data } = await api('GET', '/api/security/webhook-secret');
     assertEqual(status, 200);
     assert(typeof data.configured === 'boolean', 'configured must be boolean');
+    assertEqual(Object.keys(data).sort().join(','), 'configured,source');
+    assert(
+      data.source === 'PROCESS_ENV' || data.source === 'ROOT_ENV_FILE',
+      `unexpected webhook secret source: ${data.source}`,
+    );
   });
 
-  await testAsync('POST webhook-secret generates new secret', async () => {
+  await testAsync('POST webhook-secret is a stable read-only-source response', async () => {
     const { status, data } = await api('POST', '/api/security/webhook-secret');
-    assertEqual(status, 200);
-    assert(data.ok === true, 'ok flag required');
-    assert(data.masked, 'masked secret required');
-    assert(data.masked.startsWith('c3_'), 'masked should start with c3_');
+    assertEqual(status, 410);
+    assertEqual(
+      JSON.stringify(data),
+      JSON.stringify({ ok: false, code: 'CREDENTIAL_SOURCE_READ_ONLY' }),
+    );
   });
 
   // ── Sessions ──────────────────────────────────────────────────────────────

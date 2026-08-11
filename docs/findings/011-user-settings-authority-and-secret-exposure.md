@@ -14,9 +14,9 @@ Neřeší ale celou secret/support/reset frontu ani standalone `chats/` povrch:
    ukončil legacy GET/POST inertním `410`; `GET /api/settings/v2` nyní vrací
    exact redigovanou public projekci s revision a read failure je typované
    non-2xx. Promovaný 027 už ukončil nové WS/Setup notification credential
-   vstupy; plaintext legacy hodnoty ale dosud mohou zůstat v DB, setup zdrojích
-   nebo localStorage a čekají na 028 retirement falešného webhook setteru a 026
-   verified transfer/exact scrub.
+   vstupy a WP028 source retiruje falešný webhook setter. Plaintext legacy
+   hodnoty ale dosud mohou zůstat v DB, setup zdrojích nebo localStorage a
+   čekají na 026 verified transfer/exact scrub.
 2. Před 025 vracel úspěšný `POST /api/settings/import` celý commitnutý
    destination dokument, protože tehdejší Studio generic save jinak neuměl
    zachovat lokální hodnoty, které portable soubor nenese. Druhý atomický 025
@@ -75,8 +75,9 @@ Bezpečný cutover musí spojit:
 
 Tehdejší portable repair netvrdil globální lost-update odolnost ani bezpečný
 obecný settings read. Tyto canonical-root části nyní pokrývá promovaný 025;
-Gate 1 zůstává `BLOCKED` na aktivním 028 a následných 026/029,
-standalone `chats/` ownerovi a dalších výslovně uvedených residualech.
+Gate 1 zůstává `BLOCKED` na formálním review a přijetí 028 candidate,
+následných 026/029, standalone `chats/` ownerovi a dalších výslovně uvedených
+residualech.
 
 ## První repair F-A — promován, Review A+B PASS
 
@@ -112,10 +113,10 @@ zůstávají oddělené a každá vyžaduje vlastní subject, Review A i Review 
 | 5 | [029 — settings reset scope](../decisions/029-m1-settings-reset-scope.md) | A | settings-only reset a ukončení legacy aliasu |
 
 025 i 027 jsou `PROMOTED / REVIEW A+B PASS`; 028 je
-`ACTIVE / IMPLEMENTATION_NOT_STARTED` a 026/029 zůstávají
+`SOURCE_IMPLEMENTED / FOCUSED_VERIFIED / REVIEW_PENDING` a 026/029 zůstávají
 `ACCEPTED / WAITING`. Závazná sekvence je
-`025 → 027 → 028 → 026 → 029`; další krok začne až po přijetí předchozího
-candidate. Finding 011 zůstává `OPEN` a Gate 1 `BLOCKED`.
+`025 → 027 → 028 → 026 → 029`; 026 nezačne před přijetím 028 candidate a 029
+nezačne před přijetím 026. Finding 011 zůstává `OPEN` a Gate 1 `BLOCKED`.
 
 025 dokončil ohraničený
 [`WP-M1-SETTINGS-VERSIONED-AUTHORITY`](../wp/WP-M1-SETTINGS-VERSIONED-AUTHORITY.md)
@@ -299,28 +300,61 @@ Jsou mimo přijatý 027 důkaz a musí se srovnat před full-product během.
 `updateChannelConfig('email', ...)`, takže může po durable commitu chybně vrátit
 `runtimeApplied:true`; tato route semantics patří do 026.
 
-### 028 aktivace — jediná environment webhook autorita
+### 028 source checkpoint — jediná environment webhook autorita
 
 Na promotion tipu 027 je aktivní
 [`WP-M1-WEBHOOK-SECRET-SEMANTICS`](../wp/WP-M1-WEBHOOK-SECRET-SEMANTICS.md)
-se source evidence `f19135871f148f69fcc9451307e87c34c1abfcbb` ve stavu
-`ACTIVE / IMPLEMENTATION_NOT_STARTED`. Přijatý read-only subset 026/A explicitně
-načte pouze exact `<projectRoot>/.env` nezávisle na `cwd` a před loadem zachytí
-own `process.env.C3_WEBHOOK_SECRET`. Pre-load own key vyhrává i jako prázdný a
-má source `PROCESS_ENV`; jinak je source vždy `ROOT_ENV_FILE`. `configured` je
-pravda pouze pro neprázdnou vybranou hodnotu.
+se source evidence `f19135871f148f69fcc9451307e87c34c1abfcbb`. Source je nyní
+`SOURCE_IMPLEMENTED / FOCUSED_VERIFIED / REVIEW_PENDING`; immutable subject,
+Review A/B ani promotion zatím nejsou vydané. Statický WP zůstává záměrně
+aktivačním snapshotem a stav se vede zde a později v unikátním run reportu.
 
-Auth-guarded `GET /api/security/webhook-secret` a skutečný HMAC signer musí
-sdílet jeden immutable startup snapshot. GET vrací pouze exact `configured` a
-`source`; POST skončí stabilním pre-parse
-`410 CREDENTIAL_SOURCE_READ_ONLY`. Studio odstraní masked fragment i regenerate
-akci a zobrazí read-only source s restart-required stavem. Naproti tomu
-`GET /api/notifications/channels` je výslovně jen policy/registration status,
-nikoli druhý credential status.
+Explicitní startup bootstrap bezpečně čte pouze exact `<projectRoot>/.env`
+nezávisle na `cwd` a `DOTENV_CONFIG_PATH`, před načtením zachytí own
+`process.env.C3_WEBHOOK_SECRET` a ostatní dotenv hodnoty načte z již ověřených
+bytů bez override process environmentu. Existující root soubor musí být
+regular, owner-owned, exact mode `0600` a bez symlink traversal; implementace
+navíc fail-close vyžaduje jediný hardlink a velikost nejvýše 1 MiB. Fd se
+otevírá s `O_NOFOLLOW | O_NONBLOCK` a znovu se ověřuje identity/stabilita.
+Unsafe zdroj skončí typovaně před DB, listenerem, port-file nebo notification
+konstrukcí. Root-file webhook secret se nepropaguje do `process.env`; ostatní
+ověřené dotenv hodnoty zachovávají no-override prioritu procesu. Pre-load own
+key vyhrává i jako prázdný se source `PROCESS_ENV`; jinak je source vždy
+`ROOT_ENV_FILE`. `configured` je pravda pouze pro vybranou hodnotu s
+`length > 0`.
 
-028 odstraní webhook DB writer, ale žádný env/DB/localStorage writer, transfer,
-scrub ani purge nevytvoří. Historický secret může proto do 026 fyzicky zůstat v
-legacy DB blobu i plném SQLite disaster-recovery backupu; 028 jej musí ignorovat
-a zachovat. 026 a 029 čekají na přijatý 028 candidate. Finding 011 zůstává
-`OPEN`, Gate 1 `BLOCKED`; standalone `chats/`, legacy secret transfer/scrub,
-reset a uvedené compatibility residualy nejsou tímto checkpointem uzavřené.
+Jeden frozen, WeakSet-branded, null-prototype startup capability drží raw secret
+jen v privátní closure a veřejně nabízí pouze frozen `status()` a HMAC `sign()`.
+Canonical server i worker předávají tentýž capability a produkční validator do
+Security routy i default webhook factory. `WebhookChannel` už nepřijímá raw
+`options.secret`, nečte ambientní secret a při unconfigured stavu skončí před
+`fetch`. Nevznikla nová interní `src` import hrana: authority zůstala v
+existujícím `runtime-environment` seam a historická `security → user-settings`
+writer hrana naopak zmizela.
+
+Auth-guarded `GET /api/security/webhook-secret` vrací pouze exact
+`{configured,source}` ze stejného snapshotu, který podepisuje runtime webhook.
+Authenticated POST končí před parse/body, DB, revision, random nebo runtime
+efektem přesným
+`410 {"ok":false,"code":"CREDENTIAL_SOURCE_READ_ONLY"}`;
+`commitWebhookSecret` už produkční repository neexportuje. Studio
+Security povrch je GET-only, odstraňuje masked fragment i regenerate akci a
+zobrazuje read-only source s restart-required stavem. Naproti tomu
+`GET /api/notifications/channels` zůstává výslovně jen policy/registration
+status, nikoli druhý credential status.
+
+Redukovaný focused důkaz zůstává přesně ve čtyřech povolených programech:
+settings authority `4/4`, notification credential scope `2/2`, Studio VM
+`128/128` a registry `382` programů / `8` exclusions s fingerprintem
+`571ae1a90a4246c7037d56fe5fb786beb4b5c4aae3e61f163d5b6ffe14341d71`.
+BLOCKED `tests/e2e/13-security.e2e.js` má pouze mechanicky opravený source
+contract a zůstává `NOT RUN / BLOCKED`. Electron/build, GPU, Ollama, outbound
+webhook, externí síť ani celý produktový test nebyly spuštěné.
+
+028 odstranil nový webhook DB writer, ale žádný env/DB/localStorage writer,
+transfer, scrub ani purge nevytvořil. Historický secret může proto do 026
+fyzicky zůstat v legacy DB blobu i plném SQLite disaster-recovery backupu; 028
+jej ignoruje a zachovává. 026 a 029 čekají na přijatý 028 candidate. Finding 011
+zůstává `OPEN`, Gate 1 `BLOCKED`; standalone `chats/`, legacy secret
+transfer/scrub, reset a uvedené compatibility residualy nejsou tímto
+checkpointem uzavřené.

@@ -2556,7 +2556,7 @@ var _validationProgress=null;/* { suite, testName, percent, text } */
 /* v91: Feature flags state — loaded from GET /api/features */
 var _featureFlags=null;var _ffLoading=false;
 /* v91: Security state */
-var _secTokens=null;var _secAudit=null;var _secAuditType='all';var _secWebhook=null;var _secSessions=null;var _secNewToken=null;var _secLoading={};
+var _secTokens=null;var _secAudit=null;var _secAuditType='all';var _secWebhook={phase:'IDLE'};var _secSessions=null;var _secNewToken=null;var _secLoading={};
 var _fbCategory='other';var _fbMessage='';var _fbSending=false;var _fbSent=false;var _fbAttachLast=false;var _fbCooldown=0;
 var _fbFiles=[];var _fbAttachLogs=false;
 function _loadBCfg(cb,force){
@@ -4168,12 +4168,29 @@ function settingsFeatureFlags(){
 function _secFetch(path,opts){return fetch(_backendBase+path,Object.assign({signal:AbortSignal.timeout(5000)},opts||{}));}
 function _secLoadTokens(){_secLoading.tokens=true;_secFetch('/api/security/tokens').then(function(r){return r.json();}).then(function(d){_secTokens=d.tokens||[];_secLoading.tokens=false;renderCenter();}).catch(function(){_secLoading.tokens=false;});}
 function _secLoadAudit(type){_secAuditType=type||'all';_secLoading.audit=true;_secFetch('/api/security/audit?type='+encodeURIComponent(_secAuditType)+'&limit=50').then(function(r){return r.json();}).then(function(d){_secAudit=d.results||{};_secLoading.audit=false;renderCenter();}).catch(function(){_secLoading.audit=false;});}
-function _secLoadWebhook(){_secFetch('/api/security/webhook-secret').then(function(r){return r.json();}).then(function(d){_secWebhook=d;renderCenter();}).catch(function(){});}
+function _secWebhookStatus(value){
+  if(!value||Array.isArray(value)||typeof value!=='object')throw new Error('WEBHOOK_STATUS_INVALID');
+  var keys=Object.keys(value).sort();
+  if(keys.length!==2||keys[0]!=='configured'||keys[1]!=='source')throw new Error('WEBHOOK_STATUS_INVALID');
+  if(typeof value.configured!=='boolean')throw new Error('WEBHOOK_STATUS_INVALID');
+  if(value.source!=='PROCESS_ENV'&&value.source!=='ROOT_ENV_FILE')throw new Error('WEBHOOK_STATUS_INVALID');
+  return {phase:'READY',configured:value.configured,source:value.source};
+}
+function _secLoadWebhook(){
+  if(_secWebhook.phase==='LOADING'||_secWebhook.phase==='READY')return Promise.resolve(false);
+  _secWebhook={phase:'LOADING'};
+  return Promise.resolve().then(function(){return _secFetch('/api/security/webhook-secret');}).then(function(r){
+    if(!r||r.ok!==true||r.status!==200)throw new Error('WEBHOOK_STATUS_UNAVAILABLE');
+    return r.json();
+  }).then(function(d){_secWebhook=_secWebhookStatus(d);renderCenter();return true;}).catch(function(){
+    _secWebhook={phase:'ERROR'};renderCenter();return false;
+  });
+}
 function _secLoadSessions(){_secFetch('/api/security/sessions').then(function(r){return r.json();}).then(function(d){_secSessions=d;renderCenter();}).catch(function(){});}
 function settingsSecurityPanel(){
   if(!_secTokens&&!_secLoading.tokens)_secLoadTokens();
   if(!_secAudit&&!_secLoading.audit)_secLoadAudit('all');
-  if(!_secWebhook)_secLoadWebhook();
+  if(_secWebhook.phase==='IDLE')_secLoadWebhook();
   if(!_secSessions)_secLoadSessions();
   var secH={fontSize:_fs(12),fontWeight:600,color:C.tx2,marginTop:14,marginBottom:6};
   var secSub={fontSize:_fs(10),color:C.tx4,marginBottom:8};
@@ -4222,13 +4239,16 @@ function settingsSecurityPanel(){
   }
   /* ── Webhook ── */
   var webhookInfo=null;
-  if(_secWebhook){
-    webhookInfo=h('div',{style:{fontSize:_fs(10),color:C.tx3}},
-      _secWebhook.configured
-        ?h('span',null,'Secret: ',h('code',{style:{fontFamily:C.mono,background:C.bg4,padding:'1px 4px',borderRadius:3}},_secWebhook.masked))
-        :h('span',{style:{color:C.tx4}},'Není nastaven'),
-      h('button',{style:{marginLeft:8,background:C.bg4,color:C.tx2,border:'1px solid '+C.border,borderRadius:4,padding:'2px 8px',cursor:'pointer',fontSize:_fs(9)},
-        onClick:function(){if(!confirm('Regenerovat webhook secret?'))return;_secFetch('/api/security/webhook-secret',{method:'POST'}).then(function(r){return r.json();}).then(function(d){_secWebhook=d.ok?{configured:true,masked:d.masked}:_secWebhook;renderCenter();}).catch(function(){});}},'Regenerovat'));
+  if(_secWebhook.phase==='READY'){
+    var webhookSource=_secWebhook.source==='PROCESS_ENV'
+      ?'Procesní prostředí (PROCESS_ENV)'
+      :'Kořenový .env soubor (ROOT_ENV_FILE)';
+    webhookInfo=h('div',{style:{fontSize:_fs(10),color:C.tx3,lineHeight:1.5}},
+      h('div',null,'Stav: '+(_secWebhook.configured?'Nastaven':'Nenastaven')),
+      h('div',null,'Zdroj: '+webhookSource),
+      h('div',{style:{color:C.tx4,marginTop:4}},'Secret spravuje operátor v prostředí. Změna se projeví až po restartu serveru.'));
+  }else if(_secWebhook.phase==='ERROR'){
+    webhookInfo=h('div',{style:{fontSize:_fs(10),color:'#ef4444'}},'Stav webhook secretu není dostupný.');
   }
   /* ── Sessions ── */
   var sessInfo=_secSessions?h('div',{style:{fontSize:_fs(10),color:C.tx3}},'Aktivní relace: '+_secSessions.count+' | Uptime: '+Math.round((_secSessions.uptime_seconds||0)/60)+' min'):null;
