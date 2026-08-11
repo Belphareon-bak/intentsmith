@@ -16,21 +16,25 @@ commit. Neřeší ale celý živý `user_settings` povrch:
    autoritativní HTTP `200 {}`; reload po `DELIVERY_UNKNOWN` tak může odemknout
    klienta nad falešnými defaulty a pozdější generic save nad ostatními
    nechráněnými secret cestami.
-2. Úspěšný `POST /api/settings/import` vrací celý commitnutý destination
-   dokument, protože dnešní Studio generic save jinak neumí zachovat lokální
-   hodnoty, které portable soubor nenese.
+2. Před 025 vracel úspěšný `POST /api/settings/import` celý commitnutý
+   destination dokument, protože tehdejší Studio generic save jinak neuměl
+   zachovat lokální hodnoty, které portable soubor nenese. Druhý atomický 025
+   klientský checkpoint už vrací jen exact public projection a
+   všechny tři first-party consumery přecházejí na tuto redigovanou odpověď;
+   legacy route retirement a nezávislá review však ještě nejsou hotové.
 3. Před F-A dělal generic POST whole-row replacement a notification writer
-   samostatný read-modify-write. F-A převádí právě tuto dvojici na společný
-   `BEGIN IMMEDIATE` merge seam. Storage, webhook a import ale stále nemají
-   společný revision/CAS kontrakt; jejich starší snapshot může novější stav
-   nadále přepsat. Konkrétně `src/routes/security.js` u
-   `POST /api/security/webhook-secret` stále provádí raw read-modify-write a
-   `INSERT OR REPLACE`; toto lost-update okno je known-open do 025, nikoli nový
-   nález budoucího review.
-4. `/architect` legacy offline fallback stále umí držet celý dokument v
-   `localStorage`. Opravný WP zabránil tomu, aby stale snapshot přebil úspěšný
-   server read nebo recovery commit, ale local-only secret storage nemá vlastní
-   typed kontrakt.
+   samostatný read-modify-write. F-A převedl právě tuto dvojici na společný
+   `BEGIN IMMEDIATE` merge seam. Foundation 025 následně převedl canonical-root
+   storage, webhook a import/reset writery na jeden versioned repository commit
+   point; importní request v druhém klientském checkpointu navíc nese
+   explicitní `expectedRevision`. Původní raw webhook RMW je tedy historický
+   vstupní nález, ne otevřená cesta v současném 025 subjectu. Legacy generic
+   GET/POST zůstávají do posledního source commitu kompatibilitní výjimkou.
+4. `/architect` legacy offline fallback uměl držet celý dokument v
+   `localStorage`. Druhý 025 cutover checkpoint už tento blob nečte, nepřepisuje ani
+   nemaže a na generic server posílá jen 17 vlastněných preference cest.
+   Ověřený transfer/export/purge existujícího legacy blobu ale patří až 026;
+   local-only secret storage proto zůstává otevřený residual.
 5. Historické `/api/reset` aliasy resetují settings+policy, nikoli agenty,
    konverzace a paměť. Opravný WP proto v `/architect` deaktivoval nepravdivě
    popsanou „úplnou“ delete akci; skutečný factory-delete kontrakt neexistuje.
@@ -104,8 +108,8 @@ zůstávají oddělené a každá vyžaduje vlastní subject, Review A i Review 
 | 4 | [026 — secret storage authority](../decisions/026-m1-secret-storage-authority.md) | A | ověřený env transfer a odstranění credentials z aplikačních dat |
 | 5 | [029 — settings reset scope](../decisions/029-m1-settings-reset-scope.md) | A | settings-only reset a ukončení legacy aliasu |
 
-025 je `IN_PROGRESS / FOUNDATION_IMPLEMENTED / REVIEW_PENDING`; 026–029 zůstávají
-`ACCEPTED / IMPLEMENTATION_PENDING`. Závazná sekvence je
+025 je `IN_PROGRESS / FOUNDATION_IMPLEMENTED / CLIENT_CUTOVER_IMPLEMENTED / FOCUSED_VERIFIED / REVIEW_PENDING`;
+026–029 zůstávají `ACCEPTED / IMPLEMENTATION_PENDING`. Závazná sekvence je
 `025 → 027 → 028 → 026 → 029`; ostatní kroky začnou až po přijetí předchozího
 candidate. Finding 011 zůstává `OPEN` a Gate 1 `BLOCKED`, dokud neprojdou
 implementace a nezávislá review.
@@ -113,12 +117,15 @@ implementace a nezávislá review.
 025 má nyní aktivovaný ohraničený
 [`WP-M1-SETTINGS-VERSIONED-AUTHORITY`](../wp/WP-M1-SETTINGS-VERSIONED-AUTHORITY.md)
 se source evidence `68cd6a0d`. Exact base je aktivační commit obsahující tento
-WP, `55d32e14876964863b573bfd4b18086aaa46768d`. První source checkpoint nad
-tímto basem implementuje migraci 064, repository commit point, v2 GET/PUT a
-převod backendových writerů. Klientský cutover, import CAS a poslední legacy
-`410` ještě implementované nejsou.
+WP, `55d32e14876964863b573bfd4b18086aaa46768d`. První source checkpoint
+`f583ac941d5c7e17b7e70ada89ee421779bb9429` implementuje migraci 064,
+repository commit point, v2 GET/PUT a převod backendových writerů. Klientský
+cutover všech tří first-party consumerů, import CAS a redigovaná import/reset
+odpověď jsou součástí tohoto druhého source checkpointu; poslední legacy `410`
+ještě implementované není. Tyto dva checkpointy se nesmějí integrovat bez
+finálního retirement commitu.
 
-Import/reset v tomto mezilehlém checkpointu stále vrací legacy
+Import/reset v commitnutém foundation checkpointu stále vrací legacy
 `generalSettings`, včetně preserved nonportable secrets. Jejich redakce musí
 přistát atomicky s cutoverem všech tří first-party consumerů v následujícím
 source commitu; do té doby je známý leak výslovně otevřený a tento checkpoint
@@ -131,11 +138,16 @@ jej nemá v allowlistu, proto se potají neopravuje; zůstává
 `PENDING-OWNER` a blokuje případné produktově globální tvrzení o nulových raw
 writerech, nikoli tento canonical-root foundation checkpoint.
 
-### 025 průběžný checkpoint — dvě izolované connector otázky
+### 025 průběžný checkpoint — zvolené vratné connector hranice
 
 Read-only call-graph census sjednotil živé Studio a Architect settings povrchy
-do 53 navržených kanonických `GENERIC` cest: 46 persisted preferences a sedm
-feature booleans. Osm Architect aliasů má jednoznačné mapování:
+do 46 kanonických persisted `GENERIC` preferences. Sedm `c3.features.*` cest
+z generic authority vypadlo: jejich jedinou autoritou zůstávají typed
+runtime-only `/api/features` routes a `config.features` při startu. Persistovat
+je zároveň do `user_settings` by bez startup hydration a retirementu dnešních
+feature writerů vytvořilo druhou pravdu. Případná durable feature autorita je
+proto samostatné budoucí rozhodnutí. Osm Architect aliasů má jednoznačné
+mapování:
 
 - `/user/name` → `c3.account.displayName`;
 - `/location/timezone` → `c3.account.timezone`;
@@ -146,40 +158,39 @@ feature booleans. Osm Architect aliasů má jednoznačné mapování:
 - `/system/ollamaUrl` → `c3.llm.ollamaUrl`;
 - `/system/maxTokens` → `c3.llm.contextWindow`.
 
-Samostatnou autoritu dosud nemají private/effect cesty
+Private/effect cesty
 `/user/{avatar,connectedAccounts,localAccount,sessionScope}`,
 `/location/{city,country,units}`,
 `/memory/{skills,customPrompt,saveHistory,saveContext,saveAttachments}` a
-`/system/{runtime,lockConfig}`. Do rozhodnutí zůstávají `UNOWNED`: repository
-je zachová, public v2 je nevydá a generic patch je nesmí vytvořit, změnit ani
-smazat.
+`/system/{runtime,lockConfig}` zůstávají `UNOWNED` a čekají na dedicated typed
+owners: repository je zachová, public v2 je nevydá a generic patch je nesmí
+vytvořit, změnit ani smazat. Architect cutover proto používá jen osm aliasů a
+devět přímo vlastněných `appearance`/`output` cest; nikdy neodesílá celý
+private/effect `settingsState`.
 
-Druhá nejasnost je import CAS. Portable artifact schema je zmrazené a dnešní
-import body neobsahuje settings revision, zatímco T3 požaduje stale import
-`409`. Foundation proto zatím používá nejnovější snapshot uvnitř vlastněného
-`BEGIN IMMEDIATE`; žádný nový header, wrapper ani query parametr si nevymýšlí.
+Druhá hranice je import CAS. Portable artifact schema zůstává byteově zmrazené;
+revision proto nese pouze connector wrapper
+`{backup:<artifact>,expectedRevision:N}`. Repository ji porovná pod
+caller-owned `BEGIN IMMEDIATE` před první mutací. Stale stav vrací typované
+`409 USER_SETTINGS_REVISION_CONFLICT`; žádný klient jej automaticky
+nepřehrává.
 
-Nepřijatá rozhodovací fronta:
+Zvolený implementační blok pro nezávislé review:
 
 ```text
-025-owner-map: PROPOSED-CANONICAL-53
-025-architect-aliases: PROPOSED-MAP-8-TO-CANONICAL
-025-private-effect-fields: PENDING
-  A — DEDICATED-TYPED-OWNERS (doporučeno)
-  B — EXPLICIT-GENERIC
-  C — RETIRE-SERVER-PERSISTENCE
-025-import-cas: PENDING
-  A — EXPLICIT-EXPECTED-REVISION-OUTSIDE-PORTABLE-ARTIFACT (doporučeno)
-  B — LATEST-SNAPSHOT-SERIALIZATION-BEZ-EXTERNÍHO-CAS
-025-late-061-legacy-sanitization: PENDING-GOVERNANCE-CORRECTION
-  A — CONDITIONAL-061-FIRST-ONLY-WHEN-LEGACY-MODEL-KEYS-EXIST (foundation default)
-  B — CHANGE-OLD-061-TO-REVISION-AWARE (odmítnuto: přepis nasazené historie)
+025-owner-map: CANONICAL-46-PREFERENCES
+025-feature-authority: TYPED-RUNTIME-ONLY-NOT-GENERIC
+025-architect-aliases: MAP-8-TO-CANONICAL
+025-private-effect-fields: DEDICATED-TYPED-OWNERS-PENDING
+025-import-cas: EXPLICIT-EXPECTED-REVISION-OUTSIDE-PORTABLE-ARTIFACT
+025-import-conflict: 409-NO-AUTOMATIC-REPLAY
+025-late-061-legacy-sanitization: CONDITIONAL-061-FIRST-ONLY-WHEN-LEGACY-MODEL-KEYS-EXIST
 ```
 
-Tato fronta nemění přijaté 025/A a neblokuje migraci, repository, redigovanou
-v2 route ani backend typed writery. Do jejího uzavření se neprovede Architect
-cutover, stale-import acceptance ani poslední legacy `410`. Finding 011 i Gate
-1 zůstávají `OPEN`/`BLOCKED`.
+Tento blok konkretizuje přijaté 025/A nejmenším vratným způsobem a podléhá
+Review A/B celého subjectu. Poslední legacy `410` přistane až po atomickém
+cutoveru Studio, Architect a Center Views. Finding 011 i Gate 1 zůstávají
+`OPEN`/`BLOCKED`.
 
 Repository foundation nevystavuje whole-document import writer: IMPORT přijímá
 jen přesně validovanou portable projection a jedenáct cest mergeuje uvnitř
@@ -204,6 +215,16 @@ Foundation evidence na source stromu: sdílená authority sada zůstává přesn
 (`4/4`). Model-policy kompatibilita je `36/36`, schema migration oracle
 `38/38` a historická pre-064 settings sada `14/14`. Nejde o Review A ani o
 immutable subject; 025 je stále `IN_PROGRESS`.
+
+Druhý atomický klientský checkpoint převádí chat-panel Studio,
+Architect i Center Views, importní route a CDP/E2E source seams společně.
+Focused důkazy jsou Studio VM `127/127`, model-policy `36/36`, authority `4/4`,
+CDP evidence `59/59` a bezpečný Electron runner contract `16/16`; registry
+zůstává 381 programů s fingerprintem
+`665461cccea8f691e6d609c381b21c7bd8b7b2b1ff9932fd4aad42b9552216e0`.
+Nezávislý průběžný call-graph review nenašel P0/P1 blocker, ale nejde o Review
+A. Skutečný Electron ani runtime E2E běh nebyl spuštěn a není součástí tohoto
+checkpointu.
 
 Ohraničené navazující položky: Architect a Center Views zatím nemají bounded
 fetch timeout; raw compatibility objekt s vlastním `kind`/`schemaVersion` je

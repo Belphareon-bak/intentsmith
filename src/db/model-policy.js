@@ -17,6 +17,7 @@ import {
 import {
   UserSettingsError,
   createUserSettingsRepository,
+  projectPublicUserSettings,
 } from './user-settings.js';
 
 export const ModelAutomationPolicyStatus = Object.freeze({
@@ -52,6 +53,7 @@ const POLICY_SETTINGS_KEYS = Object.freeze([
   'autoCleanupDays',
 ]);
 const POLICY_SETTINGS_KEY_SET = new Set(POLICY_SETTINGS_KEYS);
+const SETTINGS_IMPORT_REQUEST_KEYS = Object.freeze(['backup', 'expectedRevision']);
 
 const DEFAULT_IDS = Object.freeze({
   event: () => `policy-event-${randomUUID()}`,
@@ -182,6 +184,33 @@ function requireBackupEnvelope(value) {
     portableValues: parsed.values,
     ignoredSourcePaths: parsed.ignoredSourcePaths,
     policySettings: requirePolicySettings(parsed.modelAutomationPolicy),
+  };
+}
+
+function requireSettingsImportRequest(value) {
+  if (!isPlainObject(value)) {
+    fail(
+      'MODEL_AUTOMATION_POLICY_BACKUP_INPUT_INVALID',
+      'Settings import request must be a plain object',
+    );
+  }
+  const actualKeys = Object.keys(value).sort();
+  if (actualKeys.length !== SETTINGS_IMPORT_REQUEST_KEYS.length
+    || actualKeys.some((key, index) => key !== SETTINGS_IMPORT_REQUEST_KEYS[index])) {
+    fail(
+      'MODEL_AUTOMATION_POLICY_BACKUP_INPUT_INVALID',
+      'Settings import request must contain exact backup and expectedRevision fields',
+    );
+  }
+  if (!Number.isSafeInteger(value.expectedRevision) || value.expectedRevision < 1) {
+    fail(
+      'USER_SETTINGS_EXPECTED_REVISION_INVALID',
+      'Settings import expectedRevision must be a positive safe integer',
+    );
+  }
+  return {
+    expectedRevision: value.expectedRevision,
+    backup: requireBackupEnvelope(value.backup),
   };
 }
 
@@ -435,6 +464,13 @@ export class ModelAutomationPolicyRepository {
     } catch (error) {
       if (error instanceof ModelAutomationPolicyError) throw error;
       if (error instanceof UserSettingsError) {
+        if (error.code === 'USER_SETTINGS_REVISION_CONFLICT') {
+          throw new ModelAutomationPolicyError(
+            'USER_SETTINGS_REVISION_CONFLICT',
+            `Policy ${operation} used a stale settings revision`,
+            { cause: error, details: error.details },
+          );
+        }
         throw new ModelAutomationPolicyError(
           'MODEL_AUTOMATION_POLICY_STORAGE_CONTRACT',
           `Policy ${operation} violated the user settings storage contract`,
@@ -638,7 +674,8 @@ export class ModelAutomationPolicyRepository {
   }
 
   replaceFromSettingsImport(value) {
-    const backup = requireBackupEnvelope(value);
+    const request = requireSettingsImportRequest(value);
+    const backup = request.backup;
     return this.#write('BACKUP_IMPORT', () => {
       const current = mapConsistentRow(selectConsistentPolicy(this.db));
       if (!current) {
@@ -651,6 +688,7 @@ export class ModelAutomationPolicyRepository {
       let settingsCommit;
       try {
         settingsCommit = settingsRepository.applyPortableImportInTransaction({
+          expectedRevision: request.expectedRevision,
           portableValues: backup.portableValues,
         });
       } catch (error) {
@@ -663,7 +701,6 @@ export class ModelAutomationPolicyRepository {
         }
         throw error;
       }
-      const generalSettings = settingsCommit.document;
       const committed = this.#commitValidated({
         expectedRevision: current.revision,
         settings: backup.policySettings || current.settings,
@@ -673,7 +710,7 @@ export class ModelAutomationPolicyRepository {
         source: 'SETTINGS_IMPORT',
       });
       return {
-        generalSettings,
+        settings: settingsCommit.settings,
         settingsRevision: settingsCommit.revision,
         sourceSchemaVersion: backup.sourceSchemaVersion,
         appliedPortablePaths: settingsCommit.appliedPortablePaths,
@@ -707,7 +744,7 @@ export class ModelAutomationPolicyRepository {
         source: 'GLOBAL_RESET',
       });
       return {
-        generalSettings: {},
+        settings: projectPublicUserSettings(settingsCommit.document),
         settingsRevision: settingsCommit.revision,
         policy: committed,
       };

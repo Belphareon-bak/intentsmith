@@ -1782,6 +1782,29 @@ const ARCHITECT_SETTINGS_PORTABLE_PATHS = Object.freeze([
 
 let architectSettingsMutationState = 'IDLE';
 let architectSettingsGeneration = 0;
+let architectSettingsRevision = null;
+let architectSettingsCommittedProjection = null;
+let architectSettingsSaveEpoch = 0;
+let architectSettingsSaveTail = Promise.resolve(true);
+
+// Architect owns only this bounded projection of the public v2 connector.
+// Private/effect UI fields remain in-memory for the current session and must
+// never reach the generic settings writer.
+const ARCHITECT_SETTINGS_ALIAS_MAP = Object.freeze([
+  Object.freeze({ server: 'c3.account.displayName', local: Object.freeze(['user', 'name']) }),
+  Object.freeze({ server: 'c3.account.timezone', local: Object.freeze(['location', 'timezone']) }),
+  Object.freeze({ server: 'c3.account.currency', local: Object.freeze(['location', 'currency']) }),
+  Object.freeze({ server: 'c3.language', local: Object.freeze(['location', 'language']) }),
+  Object.freeze({ server: 'c3.llm.chatModel', local: Object.freeze(['system', 'modelChat']) }),
+  Object.freeze({ server: 'c3.llm.codeModel', local: Object.freeze(['system', 'modelCode']) }),
+  Object.freeze({ server: 'c3.llm.ollamaUrl', local: Object.freeze(['system', 'ollamaUrl']) }),
+  Object.freeze({ server: 'c3.llm.contextWindow', local: Object.freeze(['system', 'maxTokens']) })
+]);
+
+const ARCHITECT_SETTINGS_NESTED_OWNER_MAP = Object.freeze({
+  appearance: Object.freeze(['theme', 'accentColor', 'fontFamily', 'fontSize', 'density']),
+  output: Object.freeze(['enabledTypes', 'defaultFormat', 'codeStyle', 'namingConvention'])
+});
 
 function architectSettingsPlainObject(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
@@ -1967,11 +1990,45 @@ async function architectSettingsResponse(response, mutation = false) {
     const code = body && typeof body.code === 'string' ? body.code : `HTTP_${response.status}`;
     const path = body && typeof body.path === 'string' ? ` (${body.path})` : '';
     const error = new Error(`${code}${path}`);
+    error.code = code;
+    error.status = response.status;
+    if (Number.isSafeInteger(body?.expectedRevision)) error.expectedRevision = body.expectedRevision;
+    if (Number.isSafeInteger(body?.currentRevision)) error.currentRevision = body.currentRevision;
     error.deliveryUnknown = false;
     throw error;
   }
   if (!architectSettingsPlainObject(body) || body.ok !== true) {
     const error = new Error('Server vrátil neplatnou odpověď');
+    error.deliveryUnknown = mutation;
+    throw error;
+  }
+  return body;
+}
+
+async function architectSettingsV2Response(response, mutation = false) {
+  let body;
+  try {
+    body = await response.json();
+  } catch (_) {
+    const error = new Error('Server vrátil nečitelnou odpověď nastavení');
+    error.deliveryUnknown = mutation && response.ok === true;
+    throw error;
+  }
+  if (!response.ok) {
+    const code = body && typeof body.code === 'string' ? body.code : `HTTP_${response.status}`;
+    const error = new Error(code);
+    error.code = code;
+    error.status = response.status;
+    if (Number.isSafeInteger(body?.expectedRevision)) error.expectedRevision = body.expectedRevision;
+    if (Number.isSafeInteger(body?.currentRevision)) error.currentRevision = body.currentRevision;
+    error.deliveryUnknown = false;
+    throw error;
+  }
+  if (!architectSettingsExactKeys(body, ['revision', 'settings'])
+      || !Number.isSafeInteger(body.revision)
+      || body.revision < 1
+      || !architectSettingsPlainObject(body.settings)) {
+    const error = new Error('Server vrátil neplatný verzovaný dokument nastavení');
     error.deliveryUnknown = mutation;
     throw error;
   }
@@ -2015,7 +2072,9 @@ function architectSettingsRequireCommitBase(body, expectedKeys, eventKind, sourc
   if (!architectSettingsExactKeys(body, expectedKeys)
       || body.ok !== true
       || body.success !== true
-      || !architectSettingsPlainObject(body.generalSettings)
+      || !Number.isSafeInteger(body.revision)
+      || body.revision < 1
+      || !architectSettingsPlainObject(body.settings)
       || !architectSettingsPolicyCommitValid(body.policy)
       || !architectSettingsEventValid(body.event, eventKind, source, actor)
       || body.policy.lastEventId !== body.event.eventId
@@ -2029,7 +2088,7 @@ function architectSettingsRequireCommitBase(body, expectedKeys, eventKind, sourc
   return body;
 }
 
-function architectSettingsRequireImportCommit(body, expectedEnvelope) {
+function architectSettingsRequireImportCommit(body, expectedEnvelope, expectedRevision) {
   const expectedSchemaVersion = expectedEnvelope.schemaVersion;
   const expectedEntries = architectSettingsExpectedPortableEntries(expectedEnvelope);
   const expectedPaths = expectedEntries.map(entry => entry.path);
@@ -2038,17 +2097,20 @@ function architectSettingsRequireImportCommit(body, expectedEnvelope) {
     'appliedPortablePaths',
     'event',
     'featuresChanged',
-    'generalSettings',
     'ignoredSourcePathCount',
     'ok',
     'policy',
     'preservedLocalPathCount',
+    'revision',
     'runtimeApplied',
     'runtimeErrorCode',
+    'settings',
     'sourceSchemaVersion',
     'success'
   ], 'BACKUP_IMPORT', 'SETTINGS_IMPORT', 'user:settings-import');
-  if (body.sourceSchemaVersion !== expectedSchemaVersion
+  if (!Number.isSafeInteger(expectedRevision)
+      || body.revision !== expectedRevision + 1
+      || body.sourceSchemaVersion !== expectedSchemaVersion
       || !Number.isSafeInteger(body.featuresChanged)
       || body.featuresChanged < 0
       || !Number.isSafeInteger(body.ignoredSourcePathCount)
@@ -2057,7 +2119,7 @@ function architectSettingsRequireImportCommit(body, expectedEnvelope) {
       || body.preservedLocalPathCount < 0
       || !architectSettingsExactStringList(body.appliedPortablePaths, expectedPaths)
       || !expectedEntries.every(entry => {
-        const committed = architectSettingsPortableEntry(body.generalSettings, entry.path);
+        const committed = architectSettingsPortableEntry(body.settings, entry.path);
         return committed.found && Object.is(committed.value, entry.value);
       })
       || (expectedEnvelope.modelAutomationPolicy !== null
@@ -2074,14 +2136,15 @@ function architectSettingsRequireImportCommit(body, expectedEnvelope) {
 function architectSettingsRequireResetCommit(body) {
   architectSettingsRequireCommitBase(body, [
     'event',
-    'generalSettings',
     'ok',
     'policy',
+    'revision',
     'runtimeApplied',
     'runtimeErrorCode',
+    'settings',
     'success'
   ], 'GLOBAL_RESET', 'GLOBAL_RESET', 'user:global-reset');
-  if (Object.keys(body.generalSettings).length !== 0
+  if (Object.keys(body.settings).length !== 0
       || body.policy.autoFailoverEnabled !== false
       || body.policy.autoCleanupEnabled !== false
       || body.policy.autoCleanupDays !== 14) {
@@ -2107,31 +2170,99 @@ function architectSettingsCloneData(value) {
   return clone;
 }
 
-function architectSettingsOverlayData(target, source) {
-  for (const [key, value] of Object.entries(source)) {
-    const current = Object.prototype.hasOwnProperty.call(target, key) ? target[key] : undefined;
-    const nextValue = architectSettingsPlainObject(current) && architectSettingsPlainObject(value)
-      ? architectSettingsOverlayData(current, value)
-      : architectSettingsCloneData(value);
-    Object.defineProperty(target, key, {
-      configurable: true,
-      enumerable: true,
-      value: nextValue,
-      writable: true
-    });
-  }
-  return target;
+function architectSettingsReadLocal(document, path) {
+  return path.reduce((value, key) => value[key], document);
 }
 
-function applyArchitectSettingsDocument(document) {
-  if (!architectSettingsPlainObject(document)) throw new Error('Server vrátil neplatný dokument nastavení');
-  const next = architectSettingsCloneData(ARCHITECT_SETTINGS_DEFAULT_DOCUMENT);
-  // The committed server document is authoritative, including destination
-  // local-only keys and the dotted Studio keys in the portable profile.
-  // Missing legacy UI sections receive this client's defaults.
-  architectSettingsOverlayData(next, document);
-  for (const key of Object.keys(settingsState)) delete settingsState[key];
-  architectSettingsOverlayData(settingsState, next);
+function architectSettingsWriteLocal(document, path, value) {
+  const parent = path.slice(0, -1).reduce((target, key) => target[key], document);
+  parent[path[path.length - 1]] = architectSettingsCloneData(value);
+}
+
+function architectSettingsProjectionFromState(document = settingsState) {
+  const projection = {};
+  for (const entry of ARCHITECT_SETTINGS_ALIAS_MAP) {
+    projection[entry.server] = architectSettingsCloneData(
+      architectSettingsReadLocal(document, entry.local)
+    );
+  }
+  for (const [container, children] of Object.entries(ARCHITECT_SETTINGS_NESTED_OWNER_MAP)) {
+    projection[container] = {};
+    for (const child of children) {
+      projection[container][child] = architectSettingsCloneData(document[container][child]);
+    }
+  }
+  return projection;
+}
+
+function architectSettingsStateForPublicDocument(document) {
+  if (!architectSettingsPlainObject(document)) {
+    throw new Error('Server vrátil neplatný veřejný dokument nastavení');
+  }
+  const projectedState = architectSettingsCloneData(ARCHITECT_SETTINGS_DEFAULT_DOCUMENT);
+  for (const entry of ARCHITECT_SETTINGS_ALIAS_MAP) {
+    if (Object.prototype.hasOwnProperty.call(document, entry.server)) {
+      architectSettingsWriteLocal(projectedState, entry.local, document[entry.server]);
+    }
+  }
+  for (const [container, children] of Object.entries(ARCHITECT_SETTINGS_NESTED_OWNER_MAP)) {
+    if (!Object.prototype.hasOwnProperty.call(document, container)) continue;
+    if (!architectSettingsPlainObject(document[container])) {
+      throw new Error(`Server vrátil neplatnou sekci ${container}`);
+    }
+    for (const child of children) {
+      if (Object.prototype.hasOwnProperty.call(document[container], child)) {
+        projectedState[container][child] = architectSettingsCloneData(document[container][child]);
+      }
+    }
+  }
+  return projectedState;
+}
+
+function architectSettingsValuesEqual(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function architectSettingsPatchBetween(committed, desired) {
+  const patch = {};
+  for (const entry of ARCHITECT_SETTINGS_ALIAS_MAP) {
+    if (!architectSettingsValuesEqual(committed[entry.server], desired[entry.server])) {
+      patch[entry.server] = architectSettingsCloneData(desired[entry.server]);
+    }
+  }
+  for (const [container, children] of Object.entries(ARCHITECT_SETTINGS_NESTED_OWNER_MAP)) {
+    const changed = {};
+    for (const child of children) {
+      if (!architectSettingsValuesEqual(committed[container][child], desired[container][child])) {
+        changed[child] = architectSettingsCloneData(desired[container][child]);
+      }
+    }
+    if (Object.keys(changed).length > 0) patch[container] = changed;
+  }
+  return patch;
+}
+
+function applyArchitectSettingsDocument(document, revision) {
+  if (!Number.isSafeInteger(revision) || revision < 1) {
+    throw new Error('Server vrátil neplatnou revision nastavení');
+  }
+  const publicState = architectSettingsStateForPublicDocument(document);
+  // Reset only GENERIC-owned paths. Private/effect fields remain in memory for
+  // this session and are neither read from nor written to the legacy blob.
+  for (const entry of ARCHITECT_SETTINGS_ALIAS_MAP) {
+    architectSettingsWriteLocal(
+      settingsState,
+      entry.local,
+      architectSettingsReadLocal(publicState, entry.local)
+    );
+  }
+  for (const [container, children] of Object.entries(ARCHITECT_SETTINGS_NESTED_OWNER_MAP)) {
+    for (const child of children) {
+      settingsState[container][child] = architectSettingsCloneData(publicState[container][child]);
+    }
+  }
+  architectSettingsRevision = revision;
+  architectSettingsCommittedProjection = architectSettingsProjectionFromState(publicState);
   applySettings();
   populateSettingsUI();
   updateSettingsSummary();
@@ -2178,73 +2309,165 @@ function restoreAccordionState() {
 // SETTINGS PERSISTENCE
 // ═══════════════════════════════════════════════════════════════════════════
 
-async function loadSettings() {
-  const generation = architectSettingsGeneration;
-  let serverLoaded = false;
-  try {
-    const res = await fetch('/api/settings');
-    if (res.ok) {
-      const data = await res.json();
-      if (!architectSettingsPlainObject(data)) throw new Error('invalid settings document');
-      if (generation !== architectSettingsGeneration || architectSettingsMutationState !== 'IDLE') {
-        return false;
-      }
-      serverLoaded = true;
-      applyArchitectSettingsDocument(data);
-    }
-  } catch (e) {
-    console.warn('Failed to load settings from server, using defaults');
+function architectSettingsAdoptV2Snapshot(snapshot, { apply = true } = {}) {
+  const publicState = architectSettingsStateForPublicDocument(snapshot.settings);
+  if (apply) {
+    applyArchitectSettingsDocument(snapshot.settings, snapshot.revision);
+  } else {
+    architectSettingsRevision = snapshot.revision;
+    architectSettingsCommittedProjection = architectSettingsProjectionFromState(publicState);
   }
-
-  // A stale browser snapshot must never override an authoritative server read.
-  // It remains a last-resort offline fallback for the legacy UI.
-  if (!serverLoaded
-      && generation === architectSettingsGeneration
-      && architectSettingsMutationState === 'IDLE') {
-    try {
-      const local = JSON.parse(localStorage.getItem('paiass_settings') || '{}');
-      if (architectSettingsPlainObject(local)) applyArchitectSettingsDocument(local);
-    } catch (e) {
-      console.warn('Failed to load local settings');
-    }
-  }
-
-  applySettings();
-  populateSettingsUI();
-  return serverLoaded;
+  return snapshot;
 }
 
-async function saveSettings() {
-  if (architectSettingsMutationState === 'PENDING'
-      || architectSettingsMutationState === 'DELIVERY_UNKNOWN') {
+async function architectSettingsReadV2({ apply = true } = {}) {
+  const response = await fetch('/api/settings/v2');
+  const snapshot = await architectSettingsV2Response(response, false);
+  return architectSettingsAdoptV2Snapshot(snapshot, { apply });
+}
+
+async function loadSettings() {
+  await architectSettingsSaveTail;
+  const generation = architectSettingsGeneration;
+  const loadableState = architectSettingsMutationState === 'IDLE'
+    || architectSettingsMutationState === 'READ_FAILED'
+    || architectSettingsMutationState === 'DELIVERY_UNKNOWN';
+  if (!loadableState) return false;
+  try {
+    const response = await fetch('/api/settings/v2');
+    const snapshot = await architectSettingsV2Response(response, false);
+    if (generation !== architectSettingsGeneration
+        || architectSettingsMutationState === 'PENDING') {
+      return false;
+    }
+    if (architectSettingsRevision !== null && snapshot.revision < architectSettingsRevision) {
+      return false;
+    }
+    applyArchitectSettingsDocument(snapshot.settings, snapshot.revision);
+    architectSettingsMutationState = 'IDLE';
+    return true;
+  } catch (error) {
+    if (generation !== architectSettingsGeneration
+        || architectSettingsMutationState === 'PENDING') {
+      return false;
+    }
+    architectSettingsRevision = null;
+    architectSettingsCommittedProjection = null;
+    architectSettingsMutationState = 'READ_FAILED';
+    console.warn('Failed to load versioned settings from server:', error);
+    // Do not consume, delete, or overwrite the legacy full-document blob here.
+    // Its verified transfer and purge belong to the dedicated secret-storage WP.
+    applySettings();
+    populateSettingsUI();
+    showToast(
+      'error',
+      'Nastavení se nepodařilo načíst',
+      'Zobrazené výchozí hodnoty nejsou autoritativní a ukládání je zablokované.'
+    );
+    return false;
+  }
+}
+
+async function architectSettingsReloadForReconfirmation(title) {
+  architectSettingsSaveEpoch += 1;
+  architectSettingsGeneration += 1;
+  architectSettingsRevision = null;
+  architectSettingsCommittedProjection = null;
+  architectSettingsMutationState = 'PENDING';
+  try {
+    await architectSettingsReadV2({ apply: true });
+    architectSettingsMutationState = 'IDLE';
+    showToast(
+      'error',
+      title,
+      'Serverová verze byla znovu načtena. Zkontrolujte ji a změnu potvrďte znovu.'
+    );
+    return true;
+  } catch (reloadError) {
+    architectSettingsMutationState = 'DELIVERY_UNKNOWN';
+    console.warn('Failed to reload authoritative settings:', reloadError);
+    showToast(
+      'error',
+      title,
+      'Autoritativní stav nelze načíst. Další zápisy zůstávají zablokované do obnovení stránky.'
+    );
+    return false;
+  }
+}
+
+async function architectSettingsCommitProjection(desired, epoch) {
+  if (epoch !== architectSettingsSaveEpoch) return 'STALE';
+  try {
+    if (architectSettingsRevision === null || architectSettingsCommittedProjection === null) {
+      return 'BLOCKED';
+    }
+    if (epoch !== architectSettingsSaveEpoch) return 'STALE';
+    const patch = architectSettingsPatchBetween(architectSettingsCommittedProjection, desired);
+    if (Object.keys(patch).length === 0) {
+      updateSettingsSummary();
+      return 'SESSION_ONLY';
+    }
+    const expectedRevision = architectSettingsRevision;
+    const response = await fetch('/api/settings/v2', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ expectedRevision, patch })
+    });
+    const committed = await architectSettingsV2Response(response, true);
+    if (committed.revision !== expectedRevision + 1) {
+      const error = new Error('Server nepotvrdil přesný další revision settings commitu');
+      error.deliveryUnknown = true;
+      throw error;
+    }
+    if (epoch !== architectSettingsSaveEpoch) return 'STALE';
+    architectSettingsAdoptV2Snapshot(committed, { apply: false });
+    updateSettingsSummary();
+    return 'COMMITTED';
+  } catch (error) {
+    console.warn('Failed to save versioned settings:', error);
+    if (error.code === 'USER_SETTINGS_REVISION_CONFLICT' || error.status === 409) {
+      await architectSettingsReloadForReconfirmation('Nastavení se mezitím změnilo');
+      return 'STALE';
+    }
+    if (error.deliveryUnknown !== false) {
+      await architectSettingsReloadForReconfirmation('Výsledek uložení nelze potvrdit');
+      return 'DELIVERY_UNKNOWN';
+    }
+    showToast('error', 'Uložení selhalo', error.message);
+    return 'FAILED';
+  }
+}
+
+function saveSettings() {
+  if (architectSettingsMutationState !== 'IDLE') {
     showToast(
       'error',
       'Uložení zablokováno',
       architectSettingsMutationState === 'PENDING'
-        ? 'Obnova nastavení právě probíhá.'
-        : 'Výsledek poslední obnovy je nejasný. Znovu načtěte stránku.'
+        ? 'Obnova nebo autoritativní reload nastavení právě probíhá.'
+        : 'Výsledek poslední změny je nejasný. Znovu načtěte stránku.'
     );
-    return false;
+    return Promise.resolve('BLOCKED');
   }
 
-  try {
-    const response = await fetch('/api/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(settingsState)
-    });
-    if (!response.ok) throw new Error(`HTTP_${response.status}`);
-    // The server is authoritative. A legacy local fallback is retained only
-    // when the server cannot commit the write.
-    localStorage.removeItem('paiass_settings');
-    updateSettingsSummary();
-    return true;
-  } catch (e) {
-    console.warn('Failed to save settings to server:', e);
-    localStorage.setItem('paiass_settings', JSON.stringify(settingsState));
-    updateSettingsSummary();
-    return false;
+  if (architectSettingsRevision === null || architectSettingsCommittedProjection === null) {
+    showToast(
+      'error',
+      'Uložení čeká na autoritativní stav',
+      'Nejdřív znovu načtěte nastavení; zobrazené výchozí hodnoty se neodešlou.'
+    );
+    loadSettings();
+    return Promise.resolve('BLOCKED');
   }
+
+  const desired = architectSettingsProjectionFromState();
+  const epoch = architectSettingsSaveEpoch;
+  architectSettingsGeneration += 1;
+  const operation = architectSettingsSaveTail.then(
+    () => architectSettingsCommitProjection(desired, epoch)
+  );
+  architectSettingsSaveTail = operation.catch(() => 'FAILED');
+  return operation;
 }
 
 function applySettings() {
@@ -2569,7 +2792,11 @@ function handleOAuthSuccess(provider, data) {
 
   updateUserStatus();
   saveSettings();
-  showToast('success', `${provider === 'google' ? 'Google' : 'GitHub'} propojeno`, data.email);
+  showToast(
+    'info',
+    `${provider === 'google' ? 'Google' : 'GitHub'} propojeno pro tuto relaci`,
+    'Propojený účet se na settings server neukládá.'
+  );
 }
 
 function disconnectAccount(provider) {
@@ -2600,7 +2827,7 @@ function disconnectAccount(provider) {
 
   updateUserStatus();
   saveSettings();
-  showToast('info', `${providerNames[provider]} odpojeno`, '');
+  showToast('info', `${providerNames[provider]} odpojeno v této relaci`, '');
 }
 
 function updateUserName() {
@@ -2634,7 +2861,7 @@ function showLocalAccountModal() {
   showModal(`
     <div class="modal-content local-account-modal">
       <h3>Vytvořit lokální účet</h3>
-      <p class="modal-description">Lokální účet je uložen pouze na tomto zařízení.</p>
+      <p class="modal-description">Lokální účet zůstane pouze v této otevřené relaci.</p>
 
       <div class="form-group">
         <label>Uživatelské jméno</label>
@@ -2649,7 +2876,7 @@ function showLocalAccountModal() {
       <div class="form-group">
         <label>Heslo (volitelné)</label>
         <input type="password" id="local-password" class="settings-input" placeholder="Pro lokální šifrování">
-        <span class="form-hint">Heslo slouží k šifrování lokálních dat.</span>
+        <span class="form-hint">Tato obrazovka heslo trvale neukládá.</span>
       </div>
 
       <div class="modal-actions">
@@ -2708,7 +2935,11 @@ function createLocalAccount() {
   updateUserStatus();
   saveSettings();
   hideModal();
-  showToast('success', 'Lokální účet vytvořen', username);
+  showToast(
+    'info',
+    'Lokální účet vytvořen pro tuto relaci',
+    'Profilové jméno se ukládá odděleně; účetní údaje ne.'
+  );
 }
 
 function showEditLocalAccountModal() {
@@ -2765,7 +2996,7 @@ function updateLocalAccount() {
   updateUserStatus();
   saveSettings();
   hideModal();
-  showToast('success', 'Účet aktualizován', '');
+  showToast('info', 'Účet upraven pro tuto relaci', 'Profilové jméno se ukládá odděleně.');
 }
 
 function deleteLocalAccount() {
@@ -2789,7 +3020,7 @@ function deleteLocalAccount() {
   updateUserStatus();
   saveSettings();
   hideModal();
-  showToast('info', 'Lokální účet smazán', '');
+  showToast('info', 'Lokální účet odstraněn z této relace', '');
 }
 
 function changeAvatar() {
@@ -2812,7 +3043,7 @@ function changeAvatar() {
       }
 
       saveSettings();
-      showToast('success', 'Avatar aktualizován', '');
+      showToast('info', 'Avatar změněn pro tuto relaci', 'Na settings server se neukládá.');
     };
     reader.readAsDataURL(file);
   };
@@ -2946,7 +3177,11 @@ function addEmailAddress() {
       settingsState.notifications.emailAddresses.push(input.value);
       renderEmailList();
       saveSettings();
-      showToast('success', 'Email přidán', input.value);
+      showToast(
+        'info',
+        'Email přidán pro tuto relaci',
+        'Notification adresy se na generic settings server neukládají.'
+      );
       input.value = '';
       validateChannelConfig('email');
     } else {
@@ -3005,7 +3240,11 @@ function applyNotifTemplate(template) {
 
   updateChannelStatuses();
   saveSettings();
-  showToast('success', 'Šablona aplikována', `${template.charAt(0).toUpperCase() + template.slice(1)}`);
+  showToast(
+    'info',
+    'Šablona aplikována pro tuto relaci',
+    `${template.charAt(0).toUpperCase() + template.slice(1)}`
+  );
 }
 
 // v57 - Validate channel configuration
@@ -3244,10 +3483,17 @@ function updateLocationSettings() {
   };
   
   updateSettingsSummary();
-  saveSettings();
-  
-  // Show confirmation
-  showToast('success', 'Nastavení uloženo', `Měna: ${settingsState.location.currency}, Jazyk: ${settingsState.location.language}`);
+  saveSettings().then(result => {
+    if (result === 'COMMITTED') {
+      showToast(
+        'success',
+        'Podporované regionální předvolby uloženy',
+        'Město, země a jednotky zůstávají jen v této relaci.'
+      );
+    } else if (result === 'SESSION_ONLY') {
+      showToast('info', 'Změna platí jen pro tuto relaci', 'Serverová hodnota se nezměnila.');
+    }
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3375,7 +3621,7 @@ function saveCustomPrompt() {
     settingsState.memory.customPrompt = textarea.value;
     updatePromptCharCount();
     saveSettings();
-    showToast('success', 'Prompt uložen', '');
+    showToast('info', 'Prompt změněn pro tuto relaci', 'Na settings server se neukládá.');
   }
 }
 
@@ -3386,7 +3632,7 @@ function resetCustomPrompt() {
     if (textarea) textarea.value = '';
     updatePromptCharCount();
     saveSettings();
-    showToast('info', 'Prompt obnoven', 'Výchozí nastavení obnoveno.');
+    showToast('info', 'Prompt obnoven pro tuto relaci', 'Na settings server se neukládá.');
   }
 }
 
@@ -3471,7 +3717,7 @@ function importMemorySettings() {
         Object.assign(settingsState.memory, data);
         populateSettingsUI();
         saveSettings();
-        showToast('success', 'Paměť importována', '');
+        showToast('info', 'Paměť importována pro tuto relaci', 'Na settings server se neukládá.');
       } catch (err) {
         showToast('error', 'Chyba importu', err.message);
       }
@@ -3597,7 +3843,14 @@ async function resetSettings() {
     }
     architectSettingsMutationState = 'PENDING';
     architectSettingsGeneration += 1;
+    const saveEpoch = architectSettingsSaveEpoch;
     try {
+      await architectSettingsSaveTail;
+      if (saveEpoch !== architectSettingsSaveEpoch) {
+        const error = new Error('Serverová verze se změnila; reset potvrďte znovu');
+        error.deliveryUnknown = false;
+        throw error;
+      }
       const response = await fetch('/api/settings/reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3605,24 +3858,24 @@ async function resetSettings() {
       });
       const body = architectSettingsRequireResetCommit(await architectSettingsResponse(response, true));
       architectSettingsMutationState = 'IDLE';
-      localStorage.removeItem('paiass_settings');
-      localStorage.removeItem('paiass_accordion_state');
-      applyArchitectSettingsDocument(body.generalSettings);
+      applyArchitectSettingsDocument(body.settings, body.revision);
       showToast(
         'success',
         'Nastavení resetována',
-        body.runtimeApplied ? '' : 'Část změn se projeví po restartu.'
+        [
+          body.runtimeApplied ? '' : 'Část změn se projeví po restartu.',
+          'Lokální private/effect pole této relace reset nezměnil.'
+        ].filter(Boolean).join(' ')
       );
     } catch (error) {
-      const deliveryUnknown = error.deliveryUnknown !== false;
-      architectSettingsMutationState = deliveryUnknown ? 'DELIVERY_UNKNOWN' : 'IDLE';
-      showToast(
-        'error',
-        'Reset selhal',
-        deliveryUnknown
-          ? 'Výsledek nelze potvrdit. Znovu načtěte stránku před další změnou.'
-          : error.message
-      );
+      if (error.code === 'USER_SETTINGS_REVISION_CONFLICT' || error.status === 409) {
+        await architectSettingsReloadForReconfirmation('Reset narazil na novější nastavení');
+      } else if (error.deliveryUnknown !== false) {
+        await architectSettingsReloadForReconfirmation('Výsledek resetu nelze potvrdit');
+      } else {
+        architectSettingsMutationState = 'IDLE';
+        showToast('error', 'Reset selhal', error.message);
+      }
     }
   }
 }
@@ -3723,19 +3976,33 @@ function importSettings() {
         }
         architectSettingsMutationState = 'PENDING';
         architectSettingsGeneration += 1;
+        const saveEpoch = architectSettingsSaveEpoch;
         try {
+          await architectSettingsSaveTail;
+          if (saveEpoch !== architectSettingsSaveEpoch) {
+            const error = new Error('Serverová verze se změnila; import potvrďte znovu');
+            error.deliveryUnknown = false;
+            throw error;
+          }
+          if (architectSettingsRevision === null || architectSettingsCommittedProjection === null) {
+            await architectSettingsReadV2({ apply: true });
+          }
+          const expectedRevision = architectSettingsRevision;
           const response = await fetch('/api/settings/import', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(envelope)
+            body: JSON.stringify({
+              backup: envelope,
+              expectedRevision
+            })
           });
           const body = architectSettingsRequireImportCommit(
             await architectSettingsResponse(response, true),
-            envelope
+            envelope,
+            expectedRevision
           );
           architectSettingsMutationState = 'IDLE';
-          localStorage.removeItem('paiass_settings');
-          applyArchitectSettingsDocument(body.generalSettings);
+          applyArchitectSettingsDocument(body.settings, body.revision);
           showToast(
             'success',
             'Předvolby importovány',
@@ -3743,22 +4010,24 @@ function importSettings() {
               body.runtimeApplied ? '' : 'Část změn se projeví po restartu.',
               body.ignoredSourcePathCount > 0
                 ? `${body.ignoredSourcePathCount} nepřenosných zdrojových cest bylo ignorováno.`
-                : ''
+                : '',
+              'Lokální private/effect pole této relace zůstala beze změny.'
             ].filter(Boolean).join(' ')
           );
         } catch (error) {
-          error.deliveryUnknown = error.deliveryUnknown !== false;
-          architectSettingsMutationState = error.deliveryUnknown ? 'DELIVERY_UNKNOWN' : 'IDLE';
+          if (error.code === 'USER_SETTINGS_REVISION_CONFLICT' || error.status === 409) {
+            await architectSettingsReloadForReconfirmation('Import narazil na novější nastavení');
+            error.handled = true;
+          } else if (error.deliveryUnknown !== false) {
+            await architectSettingsReloadForReconfirmation('Výsledek importu nelze potvrdit');
+            error.handled = true;
+          } else {
+            architectSettingsMutationState = 'IDLE';
+          }
           throw error;
         }
       } catch (err) {
-        showToast(
-          'error',
-          'Chyba importu',
-          err.deliveryUnknown
-            ? 'Výsledek nelze potvrdit. Znovu načtěte stránku před další změnou.'
-            : err.message
-        );
+        if (!err.handled) showToast('error', 'Chyba importu', err.message);
       }
     }
   };

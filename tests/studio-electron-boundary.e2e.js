@@ -921,20 +921,47 @@ async function waitForRendererTransport(cdp) {
   fail('renderer-transport-timeout');
 }
 
-async function rendererSettingsPost(cdp) {
+async function rendererSettingsWrite(cdp) {
   const result = await evaluate(cdp, `(async () => {
     try {
-      const response = await fetch('/api/settings', {
-        method: 'POST',
+      const observedResponse = await fetch('/api/settings/v2');
+      const observed = await observedResponse.json();
+      if (
+        !observedResponse.ok
+        || !Number.isSafeInteger(observed?.revision)
+        || observed.revision < 1
+        || !observed.settings
+        || typeof observed.settings !== 'object'
+        || Array.isArray(observed.settings)
+      ) {
+        return { resultClass: 'settings-read-failed' };
+      }
+
+      const canary = 'studio-electron-settings-authority-canary';
+      const response = await fetch('/api/settings/v2', {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: '{}'
+        body: JSON.stringify({
+          expectedRevision: observed.revision,
+          patch: { 'c3.account.description': canary }
+        })
       });
-      return { status: response.status, ok: response.ok };
+      const committed = await response.json();
+      if (
+        !response.ok
+        || committed?.revision !== observed.revision + 1
+        || committed?.settings?.['c3.account.description'] !== canary
+      ) {
+        return { resultClass: 'settings-write-failed' };
+      }
+      return { resultClass: 'ok', status: response.status };
     } catch {
-      return { status: null, ok: false };
+      return { resultClass: 'settings-write-failed' };
     }
   })()`);
-  if (!result?.ok || !Number.isInteger(result.status)) fail('renderer-settings-post-failed');
+  if (result?.resultClass !== 'ok' || !Number.isInteger(result.status)) {
+    fail('renderer-settings-write-failed');
+  }
   return result.status;
 }
 
@@ -1559,7 +1586,7 @@ async function runJourney({ artifactRoot, sourceRevision, display, xauthority })
     await waitForRendererTransport(cdp);
     await installSoakLifecycleMonitor(cdp);
     const observationStarted = monotonicMs();
-    await rendererSettingsPost(cdp);
+    await rendererSettingsWrite(cdp);
     const modelProviderRequestsBeforeTurn = modelProviderSentinel.requestCount();
     functional = await rendererFunctionalWsProbe(cdp);
     functional.modelProviderRequestsDuringTurn = (

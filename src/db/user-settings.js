@@ -90,20 +90,8 @@ export const GENERIC_USER_SETTING_PATHS = Object.freeze([
   '/output/defaultFormat',
   '/output/codeStyle',
   '/output/namingConvention',
-  'c3.features.skills',
-  'c3.features.agents',
-  'c3.features.lifecycle',
-  'c3.features.expertises',
-  'c3.features.telemetry',
-  'c3.features.specialistTelemetry',
-  'c3.features.autonomy',
 ]);
 
-export const GENERIC_FEATURE_SETTING_KEYS = Object.freeze(
-  GENERIC_USER_SETTING_PATHS.filter(path => path.startsWith('c3.features.')),
-);
-
-const GENERIC_FEATURE_SETTING_KEY_SET = new Set(GENERIC_FEATURE_SETTING_KEYS);
 const GENERIC_FLAT_SETTING_KEYS = Object.freeze(
   GENERIC_USER_SETTING_PATHS.filter(path => !path.startsWith('/')),
 );
@@ -612,13 +600,6 @@ function normalizeGenericPatch(patch) {
 
   for (const [key, rawValue] of Object.entries(patch)) {
     if (GENERIC_FLAT_SETTING_KEY_SET.has(key)) {
-      if (GENERIC_FEATURE_SETTING_KEY_SET.has(key) && typeof rawValue !== 'boolean') {
-        throw new UserSettingsError(
-          'USER_SETTINGS_VALUE_INVALID',
-          `Feature setting ${key} must be boolean`,
-          { details: { path: key } },
-        );
-      }
       entries.push({ path: key, segments: [key], value: cloneFiniteJson(rawValue) });
       continue;
     }
@@ -649,13 +630,9 @@ function normalizeGenericPatch(patch) {
 }
 
 function applyGenericEntries(document, entries) {
-  const featurePatch = {};
   for (const entry of entries) {
     if (entry.segments.length === 1) {
       setOwn(document, entry.segments[0], clone(entry.value));
-      if (GENERIC_FEATURE_SETTING_KEY_SET.has(entry.path)) {
-        setOwn(featurePatch, entry.path, entry.value);
-      }
       continue;
     }
     const [containerKey, childKey] = entry.segments;
@@ -665,7 +642,6 @@ function applyGenericEntries(document, entries) {
     setOwn(existing, childKey, clone(entry.value));
     setOwn(document, containerKey, existing);
   }
-  return featurePatch;
 }
 
 export function projectPublicUserSettings(document) {
@@ -732,11 +708,10 @@ export class UserSettingsRepository {
         return {
           revision: current.revision,
           settings: projectPublicUserSettings(current.settings),
-          featurePatch: {},
         };
       }
       const next = clone(current.settings);
-      const featurePatch = applyGenericEntries(next, entries);
+      applyGenericEntries(next, entries);
       const committed = updateVersionedRowInTransaction(
         this.db,
         current.revision,
@@ -745,7 +720,6 @@ export class UserSettingsRepository {
       return {
         revision: committed.revision,
         settings: projectPublicUserSettings(committed.document),
-        featurePatch,
       };
     });
   }
@@ -812,7 +786,7 @@ export class UserSettingsRepository {
     return { revision: current.revision, document: clone(current.settings) };
   }
 
-  applyPortableImportInTransaction({ portableValues }) {
+  applyPortableImportInTransaction({ expectedRevision, portableValues }) {
     if (!this.db.inTransaction) {
       throw new UserSettingsError(
         'USER_SETTINGS_TRANSACTION_OWNERSHIP_REQUIRED',
@@ -820,6 +794,19 @@ export class UserSettingsRepository {
       );
     }
     const current = readCurrentSettings(this.db, { requireRevision: true });
+    const requiredRevision = requireExpectedRevision(expectedRevision);
+    if (current.revision !== requiredRevision) {
+      throw new UserSettingsError(
+        'USER_SETTINGS_REVISION_CONFLICT',
+        'User settings changed since the import destination was read',
+        {
+          details: {
+            expectedRevision: requiredRevision,
+            currentRevision: current.revision,
+          },
+        },
+      );
+    }
     const merged = mergeSettingsProjection(current.settings, portableValues);
     const committed = updateVersionedRowInTransaction(
       this.db,
@@ -829,6 +816,7 @@ export class UserSettingsRepository {
     return {
       revision: committed.revision,
       document: committed.document,
+      settings: projectPublicUserSettings(committed.document),
       appliedPortablePaths: merged.appliedPortablePaths,
       preservedLocalPaths: merged.preservedLocalPaths,
     };

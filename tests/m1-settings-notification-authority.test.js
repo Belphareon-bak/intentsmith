@@ -21,6 +21,7 @@ import { createNotificationRoutes } from '../src/routes/notifications.js';
 import { up as migrateModelPolicy } from '../src/db/migrations/2026_08_09_061_model_automation_policy.js';
 import { up as migrateUserSettingsRevision } from '../src/db/migrations/2026_08_10_064_user_settings_revision.js';
 import {
+  GENERIC_USER_SETTING_PATHS,
   NOTIFICATION_SETTING_FIELD_MAP,
   NOTIFICATION_SETTING_KEYS,
 } from '../src/db/user-settings.js';
@@ -519,6 +520,11 @@ await testAsync('migration guard and notification owner preserve the versioned s
 await testAsync('v2 CAS is redacted and stale generic snapshots preserve newer notification commits', async () => {
   const db = openDb();
   try {
+    assertEqual(GENERIC_USER_SETTING_PATHS.length, 46);
+    assertEqual(
+      GENERIC_USER_SETTING_PATHS.some(path => path.startsWith('c3.features.')),
+      false,
+    );
     const harness = createRouteHarness(db);
     await harness.postNotification(INITIAL_NOTIFICATION_BODY);
 
@@ -543,7 +549,6 @@ await testAsync('v2 CAS is redacted and stale generic snapshots preserve newer n
       expectedRevision: initialV2.body.revision,
       patch: {
         'c3.language': 'en',
-        'c3.features.skills': false,
         appearance: { theme: 'dark' },
       },
     });
@@ -554,10 +559,7 @@ await testAsync('v2 CAS is redacted and stale generic snapshots preserve newer n
     assertEqual(Object.hasOwn(v2Commit.response.body.settings, 'storage'), false);
     assertEqual(Object.hasOwn(v2Commit.response.body.settings, 'webhookSecret'), false);
     assertEqual(Object.hasOwn(v2Commit.response.body.settings, 'futurePrivate'), false);
-    assertEqual(
-      JSON.stringify(v2Commit.featureDocument),
-      JSON.stringify({ 'c3.features.skills': false }),
-    );
+    assertEqual(v2Commit.featureDocument, null);
     assertEqual(JSON.stringify(v2Commit.response.body).includes('SECRET_CANARY'), false);
     const postCasDocument = readDocument(db);
     assertEqual(postCasDocument.storage.root, '/private/device/path');
@@ -565,13 +567,18 @@ await testAsync('v2 CAS is redacted and stale generic snapshots preserve newer n
     assertEqual(postCasDocument.futurePrivate, 'PRIVATE_DESTINATION_CANARY');
 
     const beforeUnowned = readSettingsRow(db);
-    const unowned = await harness.putV2({
-      expectedRevision: beforeUnowned.revision,
-      patch: { storage: { root: '/attacker/path' } },
-    });
-    assertEqual(unowned.response.status, 400);
-    assertEqual(unowned.response.body.code, 'USER_SETTINGS_PATH_UNOWNED');
-    assertEqual(JSON.stringify(readSettingsRow(db)), JSON.stringify(beforeUnowned));
+    for (const patch of [
+      { storage: { root: '/attacker/path' } },
+      { 'c3.features.skills': false },
+    ]) {
+      const unowned = await harness.putV2({
+        expectedRevision: beforeUnowned.revision,
+        patch,
+      });
+      assertEqual(unowned.response.status, 400);
+      assertEqual(unowned.response.body.code, 'USER_SETTINGS_PATH_UNOWNED');
+      assertEqual(JSON.stringify(readSettingsRow(db)), JSON.stringify(beforeUnowned));
+    }
 
     const staleRevision = readSettingsRow(db).revision;
     await harness.postNotification(UPDATED_NOTIFICATION_BODY);

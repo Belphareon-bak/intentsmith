@@ -2416,8 +2416,8 @@ function centerExpertiseWizard(){
 
 /* Settings state */
 var _settingsVals={theme:'dark',accentIdx:0,activeInt:100,passiveInt:50,fontSizeVal:13,fontIdx:0,custom1:null,custom2:null,bgIdx:0,bgCustom1:null,bgCustom2:null,customCSS:'',visualMode:'borders',tileOpacity:80,bgDim:30,sidebarOpacity:80,projectsDir:'',autoCollapse:true,restoreSession:true,lastView:''};
-/* v87.3: Backend config state — loaded from /api/settings */
-var _bCfg=null;var _bCfgLoading=false;var _gpuInfo=null;var _ollamaModels=null;var _sysInfo=null;var _storageInfo=null;var _bCfgSaveTimer=null;
+/* M1: Backend config state — loaded from the versioned settings authority. */
+var _bCfg=null;var _bCfgRevision=null;var _bCfgLoading=false;var _gpuInfo=null;var _ollamaModels=null;var _sysInfo=null;var _storageInfo=null;var _bCfgSaveTimer=null;
 var _upgradeData=null;var _upgradeLoading=false;var _upgradeMsg=null;var _upgradeAutoChecked=false;
 /* M1: operation-bound upgrade recovery.  This ledger is deliberately
    independent from transient toasts and role-only model_changed events. */
@@ -2561,41 +2561,54 @@ var _fbCategory='other';var _fbMessage='';var _fbSending=false;var _fbSent=false
 var _fbFiles=[];var _fbAttachLogs=false;
 function _loadBCfg(cb,force){
   if(_settingsMutationPending){if(cb)cb(false);return Promise.resolve(false);}
-  if(_settingsDeliveryUnknown){if(cb)cb(false);return Promise.resolve(false);}
-  if(_bCfg&&!_bCfgLoading&&force!==true){if(cb)cb(true);return Promise.resolve(true);}
+  if(_settingsDeliveryUnknown||_settingsReloadRequired){if(cb)cb(false);return Promise.resolve(false);}
+  if(_bCfg&&Number.isSafeInteger(_bCfgRevision)&&_bCfgRevision>=1&&!_bCfgLoading&&force!==true){if(cb)cb(true);return Promise.resolve(true);}
   var generation=_settingsGeneration;var token=++_bCfgLoadToken;_bCfgLoading=true;
-  return Promise.resolve().then(function(){return fetch(_backendBase+'/api/settings',{signal:AbortSignal.timeout(3000)});}).then(function(response){
-    if(!response||response.ok!==true||typeof response.json!=='function')throw new Error('settings load rejected');
-    return response.json();
-  }).then(function(document){
+  return Promise.resolve().then(function(){return fetch(_backendBase+'/api/settings/v2',{signal:AbortSignal.timeout(3000)});}).then(function(response){return _settingsVersionedReadResponse(response);}).then(function(snapshot){
     if(token!==_bCfgLoadToken||generation!==_settingsGeneration||_settingsMutationPending)return false;
-    if(!_settingsPlainObject(document))throw new Error('invalid settings document');
-    _bCfg=document;_bCfgLoading=false;if(cb)cb(true);renderCenter();return true;
+    _bCfg=snapshot.settings;_bCfgRevision=snapshot.revision;_bCfgLoading=false;if(cb)cb(true);renderCenter();return true;
   }).catch(function(){
     if(token!==_bCfgLoadToken||generation!==_settingsGeneration)return false;
-    _bCfgLoading=false;if(!_settingsDeliveryUnknown)_bCfg=_bCfg||{};if(cb)cb(false);renderCenter();return false;
+    _bCfgLoading=false;if(cb)cb(false);renderCenter();return false;
   });
 }
 function _saveBCfg(){
-  if(!_bCfg||_settingsDeliveryUnknown)return;
+  if(!_bCfg||!Number.isSafeInteger(_bCfgRevision)||_bCfgRevision<1||_settingsDeliveryUnknown||_settingsReloadRequired)return;
   clearTimeout(_bCfgSaveTimer);_bCfgSaveTimer=null;
   if(_settingsMutationPending){_settingsDeferredSave=true;return;}
   _bCfgSaveTimer=setTimeout(function(){
     _bCfgSaveTimer=null;
     if(_settingsMutationPending){_settingsDeferredSave=true;return;}
-    if(_settingsDeliveryUnknown)return;
+    if(_settingsDeliveryUnknown||_settingsReloadRequired)return;
     if(_bCfgSaveInFlight){_settingsDeferredSave=true;return;}
-    var payload=JSON.stringify(_bCfg);
-    var request=Promise.resolve().then(function(){return fetch(_backendBase+'/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:payload,signal:AbortSignal.timeout(3000)});}).catch(function(){});
+    var expectedRevision=_bCfgRevision;var generation=_settingsGeneration;
+    var payload=JSON.stringify({expectedRevision:expectedRevision,patch:_bCfg});
+    var request=Promise.resolve().then(function(){return fetch(_backendBase+'/api/settings/v2',{method:'PUT',headers:{'Content-Type':'application/json'},body:payload,signal:AbortSignal.timeout(3000)});}).then(function(response){return _settingsVersionedMutationResponse(response,expectedRevision);}).then(function(snapshot){
+      _bCfgRevision=snapshot.revision;
+      if(generation===_settingsGeneration&&!_settingsMutationPending){_bCfg=snapshot.settings;renderCenter();}
+      else if(!_settingsMutationPending)_settingsDeferredSave=true;
+      return snapshot;
+    }).catch(function(error){
+      var outcome=error&&error.settingsMutationOutcome;
+      if(outcome===_SETTINGS_MUTATION_RELOAD_REQUIRED){_settingsMutationState=outcome;_settingsReloadRequired=true;_settingsDeferredSave=false;_settingsResult(false,'Nastavení se mezitím změnila; před dalším uložením znovu načtěte Studio');}
+      else if(outcome!==_SETTINGS_MUTATION_REJECTED){_settingsMutationState=_SETTINGS_MUTATION_DELIVERY_UNKNOWN;_settingsDeliveryUnknown=true;_settingsDeferredSave=false;_settingsResult(false,'Výsledek uložení nelze potvrdit; před další změnou znovu načtěte Studio');}
+      else _settingsResult(false,'Uložení bylo odmítnuto: '+error.message);
+      return null;
+    });
     _bCfgSaveInFlight=request;
     request.finally(function(){
       if(_bCfgSaveInFlight===request)_bCfgSaveInFlight=null;
-      if(_settingsDeferredSave&&!_settingsMutationPending&&!_settingsDeliveryUnknown){_settingsDeferredSave=false;_saveBCfg();}
+      if(_settingsDeferredSave&&!_settingsMutationPending&&!_settingsDeliveryUnknown&&!_settingsReloadRequired){_settingsDeferredSave=false;_saveBCfg();}
     });
   },500);
 }
 function _bVal(key,def){return _bCfg&&_bCfg[key]!=null?_bCfg[key]:def;}
-function _bSet(key,val){if(_settingsDeliveryUnknown){_settingsResult(false,'Nastavení nelze měnit, dokud Studio znovu nenačte stav serveru');return;}if(!_bCfg)_bCfg={};_settingsGeneration++;_bCfg[key]=val;_saveBCfg();renderCenter();}
+function _bSet(key,val){
+  if(_settingsMutationPending){_settingsResult(false,'Obnova nastavení právě probíhá');return;}
+  if(_settingsDeliveryUnknown||_settingsReloadRequired){_settingsResult(false,'Nastavení nelze měnit, dokud Studio znovu nenačte stav serveru');return;}
+  if(!_bCfg||!Number.isSafeInteger(_bCfgRevision)||_bCfgRevision<1){_settingsResult(false,'Nejprve je nutné načíst autoritativní nastavení serveru');return;}
+  _settingsGeneration++;_bCfg[key]=val;_saveBCfg();renderCenter();
+}
 /* v91: Feature flags loader */
 function _loadFeatureFlags(cb){if(_ffLoading)return;_ffLoading=true;fetch(_backendBase+'/api/features',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_featureFlags=d.features||{};_ffLoading=false;if(cb)cb();renderCenter();}).catch(function(){_ffLoading=false;if(cb)cb();});}
 function _toggleFeatureFlag(name,enabled){fetch(_backendBase+'/api/features/'+encodeURIComponent(name),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:enabled}),signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){if(d.features)_featureFlags=d.features;renderCenter();}).catch(function(){});}
@@ -2612,10 +2625,22 @@ var _backupMsg=null;var _notifChannels=null;
 var _SETTINGS_BACKUP_KIND='INTENTSMITH_SETTINGS_BACKUP';var _SETTINGS_BACKUP_SCHEMA_VERSION=2;
 var _SETTINGS_PORTABLE_PROFILE='UX_PREFERENCES_V1';
 var _SETTINGS_PORTABLE_PATHS=['/appearance/accentColor','/appearance/fontFamily','/appearance/fontSize','/appearance/theme','/c3.language','/c3.output.codeBlocks','/c3.output.markdownRendering','/c3.output.syntaxHighlight','/output/codeStyle','/output/defaultFormat','/output/namingConvention'];
-var _SETTINGS_MUTATION_COMMITTED='COMMITTED';var _SETTINGS_MUTATION_REJECTED='REJECTED';var _SETTINGS_MUTATION_DELIVERY_UNKNOWN='DELIVERY_UNKNOWN';
-var _settingsResultToken=0;var _settingsMutationState='IDLE';var _settingsMutationPending=false;var _settingsDeferredSave=false;var _settingsDeliveryUnknown=false;
+var _SETTINGS_MUTATION_COMMITTED='COMMITTED';var _SETTINGS_MUTATION_REJECTED='REJECTED';var _SETTINGS_MUTATION_DELIVERY_UNKNOWN='DELIVERY_UNKNOWN';var _SETTINGS_MUTATION_RELOAD_REQUIRED='RELOAD_REQUIRED';
+var _settingsResultToken=0;var _settingsMutationState='IDLE';var _settingsMutationPending=false;var _settingsDeferredSave=false;var _settingsDeliveryUnknown=false;var _settingsReloadRequired=false;
 var _settingsGeneration=0;var _bCfgLoadToken=0;var _bCfgSaveInFlight=null;
 function _settingsPlainObject(value){if(!value||typeof value!=='object'||Array.isArray(value))return false;var proto=Object.getPrototypeOf(value);return proto===Object.prototype||proto===null;}
+function _settingsRequireVersionedSnapshot(body,expectedRevision){
+  if(!_settingsPlainObject(body)||Object.keys(body).sort().join(',')!=='revision,settings'||!Number.isSafeInteger(body.revision)||body.revision<1||!_settingsPlainObject(body.settings))throw new Error('neplatná verzovaná odpověď serveru');
+  if(expectedRevision!==null&&body.revision!==expectedRevision+1)throw new Error('server nepotvrdil očekávanou revision');
+  return body;
+}
+function _settingsVersionedReadResponse(response){
+  if(!response||typeof response.json!=='function')return Promise.reject(new Error('neplatná HTTP odpověď'));
+  return Promise.resolve().then(function(){return response.json();}).catch(function(){return null;}).then(function(body){
+    if(response.ok!==true){var code=body&&typeof body.code==='string'?body.code:'HTTP_'+(response.status||'ERROR');throw new Error(code);}
+    return _settingsRequireVersionedSnapshot(body,null);
+  });
+}
 function _settingsResponseJson(response){
   if(!response||typeof response.json!=='function')return Promise.reject(new Error('neplatná HTTP odpověď'));
   return Promise.resolve().then(function(){return response.json();}).catch(function(){return null;}).then(function(body){
@@ -2624,14 +2649,29 @@ function _settingsResponseJson(response){
     return body;
   });
 }
-function _settingsMutationError(outcome,message){var error=new Error(message);error.settingsMutationOutcome=outcome;return error;}
+function _settingsMutationError(outcome,message,code,status){var error=new Error(message);error.settingsMutationOutcome=outcome;if(typeof code==='string')error.settingsCode=code;if(Number.isInteger(status))error.settingsHttpStatus=status;return error;}
+function _settingsVersionedMutationResponse(response,expectedRevision){
+  if(!response||typeof response.json!=='function')return Promise.reject(_settingsMutationError(_SETTINGS_MUTATION_DELIVERY_UNKNOWN,'neplatná HTTP odpověď'));
+  return Promise.resolve().then(function(){return response.json();}).catch(function(){
+    if(response.ok!==true)return null;
+    throw _settingsMutationError(_SETTINGS_MUTATION_DELIVERY_UNKNOWN,'nečitelná odpověď po odeslání');
+  }).then(function(body){
+    if(response.ok!==true){
+      var code=body&&typeof body.code==='string'?body.code:'HTTP_'+(response.status||'ERROR');
+      var outcome=response.status===409&&code==='USER_SETTINGS_REVISION_CONFLICT'?_SETTINGS_MUTATION_RELOAD_REQUIRED:_SETTINGS_MUTATION_REJECTED;
+      throw _settingsMutationError(outcome,code,code,response.status);
+    }
+    try{return _settingsRequireVersionedSnapshot(body,expectedRevision);}
+    catch(error){throw _settingsMutationError(_SETTINGS_MUTATION_DELIVERY_UNKNOWN,error.message);}
+  });
+}
 function _settingsMutationResponse(response){
   if(!response||typeof response.json!=='function')return Promise.reject(_settingsMutationError(_SETTINGS_MUTATION_DELIVERY_UNKNOWN,'neplatná HTTP odpověď'));
   return Promise.resolve().then(function(){return response.json();}).catch(function(){
     if(response.ok!==true)return null;
     throw _settingsMutationError(_SETTINGS_MUTATION_DELIVERY_UNKNOWN,'nečitelná odpověď po odeslání');
   }).then(function(body){
-    if(response.ok!==true){var code=body&&typeof body.code==='string'?body.code:'HTTP_'+(response.status||'ERROR');throw _settingsMutationError(_SETTINGS_MUTATION_REJECTED,code);}
+    if(response.ok!==true){var code=body&&typeof body.code==='string'?body.code:'HTTP_'+(response.status||'ERROR');var outcome=response.status===409&&code==='USER_SETTINGS_REVISION_CONFLICT'?_SETTINGS_MUTATION_RELOAD_REQUIRED:_SETTINGS_MUTATION_REJECTED;throw _settingsMutationError(outcome,code,code,response.status);}
     if(!_settingsPlainObject(body)||body.ok!==true)throw _settingsMutationError(_SETTINGS_MUTATION_DELIVERY_UNKNOWN,'neplatná odpověď po odeslání');
     return body;
   });
@@ -2686,21 +2726,23 @@ function _settingsExactStringList(actual,expected){return Array.isArray(actual)&
 function _settingsPolicyCommitValid(policy){return _settingsPlainObject(policy)&&Object.keys(policy).sort().join(',')==='autoCleanupDays,autoCleanupEnabled,autoFailoverEnabled,lastEventId,revision,updatedAtMs'&&Number.isSafeInteger(policy.revision)&&policy.revision>=1&&typeof policy.autoFailoverEnabled==='boolean'&&typeof policy.autoCleanupEnabled==='boolean'&&Number.isSafeInteger(policy.autoCleanupDays)&&policy.autoCleanupDays>=1&&policy.autoCleanupDays<=3650&&typeof policy.lastEventId==='string'&&policy.lastEventId.length>=16&&Number.isSafeInteger(policy.updatedAtMs)&&policy.updatedAtMs>=0;}
 function _settingsEventValid(event,kind,source,actor){return _settingsPlainObject(event)&&Object.keys(event).sort().join(',')==='actor,eventId,eventKind,requestId,source'&&typeof event.eventId==='string'&&event.eventId.length>=16&&typeof event.requestId==='string'&&event.requestId.length>=16&&event.eventKind===kind&&event.actor===actor&&event.source===source;}
 function _settingsRequireCommitBase(body,expectedKeys,eventKind,eventSource,eventActor){
-  if(!_settingsPlainObject(body)||Object.keys(body).sort().join(',')!==expectedKeys||body.ok!==true||body.success!==true||!_settingsPlainObject(body.generalSettings)||!_settingsPolicyCommitValid(body.policy)||!_settingsEventValid(body.event,eventKind,eventSource,eventActor)||body.policy.lastEventId!==body.event.eventId||typeof body.runtimeApplied!=='boolean')throw new Error('neplatný commit serveru');
+  if(!_settingsPlainObject(body)||Object.keys(body).sort().join(',')!==expectedKeys||body.ok!==true||body.success!==true||!Number.isSafeInteger(body.revision)||body.revision<1||!_settingsPlainObject(body.settings)||!_settingsPolicyCommitValid(body.policy)||!_settingsEventValid(body.event,eventKind,eventSource,eventActor)||body.policy.lastEventId!==body.event.eventId||typeof body.runtimeApplied!=='boolean')throw new Error('neplatný commit serveru');
   if((body.runtimeApplied===true&&body.runtimeErrorCode!==null)||(body.runtimeApplied===false&&body.runtimeErrorCode!=='SETTINGS_RUNTIME_APPLY_FAILED'))throw new Error('nekonzistentní stav runtime');
   return body;
 }
-function _settingsRequireImportCommit(body,expectedEnvelope){
-  _settingsRequireCommitBase(body,'appliedPortablePaths,event,featuresChanged,generalSettings,ignoredSourcePathCount,ok,policy,preservedLocalPathCount,runtimeApplied,runtimeErrorCode,sourceSchemaVersion,success','BACKUP_IMPORT','SETTINGS_IMPORT','user:settings-import');
+function _settingsRequireImportCommit(body,expectedEnvelope,expectedRevision){
+  _settingsRequireCommitBase(body,'appliedPortablePaths,event,featuresChanged,ignoredSourcePathCount,ok,policy,preservedLocalPathCount,revision,runtimeApplied,runtimeErrorCode,settings,sourceSchemaVersion,success','BACKUP_IMPORT','SETTINGS_IMPORT','user:settings-import');
   var expectedEntries=_settingsExpectedPortableEntries(expectedEnvelope);var expectedPaths=expectedEntries.map(function(entry){return entry.path;});var expectedPolicy=expectedEnvelope.modelAutomationPolicy;var expectedIgnoredSourcePathCount=_settingsExpectedIgnoredSourcePathCount(expectedEnvelope);
-  if(body.sourceSchemaVersion!==expectedEnvelope.schemaVersion||!Number.isSafeInteger(body.featuresChanged)||body.featuresChanged<0||!Number.isSafeInteger(body.ignoredSourcePathCount)||body.ignoredSourcePathCount!==expectedIgnoredSourcePathCount||!Number.isSafeInteger(body.preservedLocalPathCount)||body.preservedLocalPathCount<0||!_settingsExactStringList(body.appliedPortablePaths,expectedPaths)||!expectedEntries.every(function(entry){var committed=_settingsPortableEntry(body.generalSettings,entry.path);return committed.found&&Object.is(committed.value,entry.value);})||(expectedPolicy!==null&&(body.policy.autoFailoverEnabled!==expectedPolicy.autoFailoverEnabled||body.policy.autoCleanupEnabled!==expectedPolicy.autoCleanupEnabled||body.policy.autoCleanupDays!==expectedPolicy.autoCleanupDays)))throw new Error('neplatná metadata importu');
+  if(body.revision!==expectedRevision+1||body.sourceSchemaVersion!==expectedEnvelope.schemaVersion||!Number.isSafeInteger(body.featuresChanged)||body.featuresChanged<0||!Number.isSafeInteger(body.ignoredSourcePathCount)||body.ignoredSourcePathCount!==expectedIgnoredSourcePathCount||!Number.isSafeInteger(body.preservedLocalPathCount)||body.preservedLocalPathCount<0||!_settingsExactStringList(body.appliedPortablePaths,expectedPaths)||!expectedEntries.every(function(entry){var committed=_settingsPortableEntry(body.settings,entry.path);return committed.found&&Object.is(committed.value,entry.value);})||(expectedPolicy!==null&&(body.policy.autoFailoverEnabled!==expectedPolicy.autoFailoverEnabled||body.policy.autoCleanupEnabled!==expectedPolicy.autoCleanupEnabled||body.policy.autoCleanupDays!==expectedPolicy.autoCleanupDays)))throw new Error('neplatná metadata importu');
   return body;
 }
-function _settingsRequireResetCommit(body){_settingsRequireCommitBase(body,'event,generalSettings,ok,policy,runtimeApplied,runtimeErrorCode,success','GLOBAL_RESET','GLOBAL_RESET','user:global-reset');if(Object.keys(body.generalSettings).length!==0||body.policy.autoFailoverEnabled!==false||body.policy.autoCleanupEnabled!==false||body.policy.autoCleanupDays!==14)throw new Error('neplatný reset serveru');return body;}
+function _settingsRequireResetCommit(body){_settingsRequireCommitBase(body,'event,ok,policy,revision,runtimeApplied,runtimeErrorCode,settings,success','GLOBAL_RESET','GLOBAL_RESET','user:global-reset');if(Object.keys(body.settings).length!==0||body.policy.autoFailoverEnabled!==false||body.policy.autoCleanupEnabled!==false||body.policy.autoCleanupDays!==14)throw new Error('neplatný reset serveru');return body;}
 function _settingsResult(ok,text){var token=++_settingsResultToken;_backupMsg={ok:ok,text:text};renderCenter();if(ok)setTimeout(function(){if(token!==_settingsResultToken)return;_backupMsg=null;renderCenter();},4000);}
 function _settingsBeginMutation(){
   if(_settingsMutationPending){_settingsResult(false,'Jiná obnova nastavení právě probíhá');return null;}
   if(_settingsDeliveryUnknown){_settingsResult(false,'Nejprve je nutné znovu načíst autoritativní stav serveru');return null;}
+  if(_settingsReloadRequired){_settingsResult(false,'Nastavení se na serveru změnila; nejprve znovu načtěte Studio');return null;}
+  if(!_bCfg||!Number.isSafeInteger(_bCfgRevision)||_bCfgRevision<1){_settingsResult(false,'Nejprve je nutné načíst autoritativní nastavení serveru');return null;}
   _settingsMutationState='PENDING';_settingsMutationPending=true;_settingsGeneration++;_bCfgLoadToken++;_bCfgLoading=false;
   if(_bCfgSaveTimer!==null){clearTimeout(_bCfgSaveTimer);_bCfgSaveTimer=null;_settingsDeferredSave=true;}
   return _bCfgSaveInFlight?Promise.resolve(_bCfgSaveInFlight):Promise.resolve();
@@ -2711,7 +2753,10 @@ function _settingsEndMutation(outcome){
   if(outcome===_SETTINGS_MUTATION_DELIVERY_UNKNOWN){
     _settingsDeliveryUnknown=true;_settingsDeferredSave=false;renderCenter();return;
   }
-  if(outcome===_SETTINGS_MUTATION_REJECTED&&_settingsDeferredSave){_settingsDeferredSave=false;_saveBCfg();}
+  if(outcome===_SETTINGS_MUTATION_RELOAD_REQUIRED){
+    _settingsReloadRequired=true;_settingsDeferredSave=false;renderCenter();return;
+  }
+  if(outcome===_SETTINGS_MUTATION_REJECTED&&_settingsDeferredSave&&!_settingsDeliveryUnknown&&!_settingsReloadRequired){_settingsDeferredSave=false;_saveBCfg();}
 }
 function _settingsExportBackup(){
   return fetch(_backendBase+'/api/settings/backup',{signal:AbortSignal.timeout(3000)}).then(function(r){return _settingsResponseJson(r);}).then(function(body){
@@ -2722,28 +2767,38 @@ function _settingsExportBackup(){
 }
 function _settingsImportDocument(value,fileName){
   var envelope;try{envelope=_settingsImportEnvelope(value);}catch(error){_settingsResult(false,error.message);return Promise.resolve(null);}
-  var ready=_settingsBeginMutation();if(!ready)return Promise.resolve(null);var outcome=_SETTINGS_MUTATION_DELIVERY_UNKNOWN;
-  return ready.then(function(){return fetch(_backendBase+'/api/settings/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(envelope),signal:AbortSignal.timeout(3000)});}).then(function(r){return _settingsMutationResponse(r);}).then(function(body){
-    _settingsRequireImportCommit(body,envelope);outcome=_SETTINGS_MUTATION_COMMITTED;
-    _bCfg=body.generalSettings;
+  var ready=_settingsBeginMutation();if(!ready)return Promise.resolve(null);var outcome=_SETTINGS_MUTATION_DELIVERY_UNKNOWN;var expectedRevision=null;
+  return ready.then(function(){
+    if(_settingsDeliveryUnknown)throw _settingsMutationError(_SETTINGS_MUTATION_DELIVERY_UNKNOWN,'předchozí uložení nemá potvrzený výsledek');
+    if(_settingsReloadRequired)throw _settingsMutationError(_SETTINGS_MUTATION_RELOAD_REQUIRED,'nastavení vyžaduje reload');
+    if(!_bCfg||!Number.isSafeInteger(_bCfgRevision)||_bCfgRevision<1)throw _settingsMutationError(_SETTINGS_MUTATION_RELOAD_REQUIRED,'chybí autoritativní revision');
+    expectedRevision=_bCfgRevision;
+    return fetch(_backendBase+'/api/settings/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({backup:envelope,expectedRevision:expectedRevision}),signal:AbortSignal.timeout(3000)});
+  }).then(function(r){return _settingsMutationResponse(r);}).then(function(body){
+    _settingsRequireImportCommit(body,envelope,expectedRevision);outcome=_SETTINGS_MUTATION_COMMITTED;
+    _bCfg=body.settings;_bCfgRevision=body.revision;
     var ignoredNotice=body.ignoredSourcePathCount>0?'; '+body.ignoredSourcePathCount+' nepřenosných zdrojových cest bylo ignorováno':'';
     _settingsResult(true,(body.runtimeApplied===false?'Předvolby uloženy z '+fileName+'; runtime vyžaduje restart':'Předvolby importovány z '+fileName)+ignoredNotice);
     return body;
   }).catch(function(error){
-    outcome=error&&error.settingsMutationOutcome===_SETTINGS_MUTATION_REJECTED?_SETTINGS_MUTATION_REJECTED:_SETTINGS_MUTATION_DELIVERY_UNKNOWN;
-    _settingsResult(false,outcome===_SETTINGS_MUTATION_DELIVERY_UNKNOWN?'Výsledek importu nelze potvrdit; další ukládání je do obnovení Studia zablokováno':'Import byl odmítnut: '+error.message);return null;
+    outcome=error&&error.settingsMutationOutcome===_SETTINGS_MUTATION_REJECTED?_SETTINGS_MUTATION_REJECTED:error&&error.settingsMutationOutcome===_SETTINGS_MUTATION_RELOAD_REQUIRED?_SETTINGS_MUTATION_RELOAD_REQUIRED:_SETTINGS_MUTATION_DELIVERY_UNKNOWN;
+    _settingsResult(false,outcome===_SETTINGS_MUTATION_DELIVERY_UNKNOWN?'Výsledek importu nelze potvrdit; další ukládání je do obnovení Studia zablokováno':outcome===_SETTINGS_MUTATION_RELOAD_REQUIRED?'Import narazil na novější nastavení; znovu načtěte Studio':'Import byl odmítnut: '+error.message);return null;
   }).finally(function(){_settingsEndMutation(outcome);});
 }
 function _settingsResetAll(){
   var ready=_settingsBeginMutation();if(!ready)return Promise.resolve(null);var outcome=_SETTINGS_MUTATION_DELIVERY_UNKNOWN;
-  return ready.then(function(){return fetch(_backendBase+'/api/settings/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}',signal:AbortSignal.timeout(3000)});}).then(function(r){return _settingsMutationResponse(r);}).then(function(body){
+  return ready.then(function(){
+    if(_settingsDeliveryUnknown)throw _settingsMutationError(_SETTINGS_MUTATION_DELIVERY_UNKNOWN,'předchozí uložení nemá potvrzený výsledek');
+    if(_settingsReloadRequired)throw _settingsMutationError(_SETTINGS_MUTATION_RELOAD_REQUIRED,'nastavení vyžaduje reload');
+    return fetch(_backendBase+'/api/settings/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}',signal:AbortSignal.timeout(3000)});
+  }).then(function(r){return _settingsMutationResponse(r);}).then(function(body){
     _settingsRequireResetCommit(body);outcome=_SETTINGS_MUTATION_COMMITTED;
-    _bCfg=body.generalSettings;
+    _bCfg=body.settings;_bCfgRevision=body.revision;
     _settingsResult(true,body.runtimeApplied===false?'Nastavení resetována; runtime vyžaduje restart':'Nastavení obnovena na výchozí');
     return body;
   }).catch(function(error){
-    outcome=error&&error.settingsMutationOutcome===_SETTINGS_MUTATION_REJECTED?_SETTINGS_MUTATION_REJECTED:_SETTINGS_MUTATION_DELIVERY_UNKNOWN;
-    _settingsResult(false,outcome===_SETTINGS_MUTATION_DELIVERY_UNKNOWN?'Výsledek resetu nelze potvrdit; další ukládání je do obnovení Studia zablokováno':'Reset byl odmítnut: '+error.message);return null;
+    outcome=error&&error.settingsMutationOutcome===_SETTINGS_MUTATION_REJECTED?_SETTINGS_MUTATION_REJECTED:error&&error.settingsMutationOutcome===_SETTINGS_MUTATION_RELOAD_REQUIRED?_SETTINGS_MUTATION_RELOAD_REQUIRED:_SETTINGS_MUTATION_DELIVERY_UNKNOWN;
+    _settingsResult(false,outcome===_SETTINGS_MUTATION_DELIVERY_UNKNOWN?'Výsledek resetu nelze potvrdit; další ukládání je do obnovení Studia zablokováno':outcome===_SETTINGS_MUTATION_RELOAD_REQUIRED?'Reset vyžaduje nový autoritativní stav; znovu načtěte Studio':'Reset byl odmítnut: '+error.message);return null;
   }).finally(function(){_settingsEndMutation(outcome);});
 }
 /* I2: Custom CSS injection — scoped under .c3-root */

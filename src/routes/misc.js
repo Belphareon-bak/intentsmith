@@ -9,11 +9,23 @@ import {
   sanitizeGenericModelAutomationSettings,
 } from '../db/model-policy.js';
 import {
-  GENERIC_FEATURE_SETTING_KEYS,
   UserSettingsError,
   createUserSettingsRepository,
   mergeGenericUserSettings,
 } from '../db/user-settings.js';
+
+// Compatibility-only runtime paths for the legacy whole-document POST. They
+// are deliberately not part of the versioned GENERIC persistence owner: the
+// typed /api/features routes and config.features remain the sole authority.
+const LEGACY_RUNTIME_FEATURE_SETTING_KEYS = Object.freeze([
+  'c3.features.skills',
+  'c3.features.agents',
+  'c3.features.lifecycle',
+  'c3.features.expertises',
+  'c3.features.telemetry',
+  'c3.features.specialistTelemetry',
+  'c3.features.autonomy',
+]);
 
 // H9: Settings, Health, Autocomplete, Audit, Logs routes
 const _fbRateMap = new Map(); // IP → last feedback timestamp (rate limit)
@@ -34,6 +46,8 @@ const MODEL_POLICY_SETTINGS_HTTP_STATUS = Object.freeze({
   MODEL_AUTOMATION_POLICY_BACKUP_READ_FAILED: 503,
   MODEL_AUTOMATION_POLICY_STORED_GENERAL_SETTINGS_INVALID: 503,
   MODEL_AUTOMATION_POLICY_STORED_PORTABLE_VALUE_INVALID: 409,
+  USER_SETTINGS_EXPECTED_REVISION_INVALID: 400,
+  USER_SETTINGS_REVISION_CONFLICT: 409,
 });
 
 function modelPolicySettingsHttpStatus(code) {
@@ -119,7 +133,8 @@ export function createMiscRoutes(deps) {
     return sendJSON(res, 200, {
       ok: true,
       success: true,
-      generalSettings: committed.generalSettings,
+      revision: committed.settingsRevision,
+      settings: committed.settings,
       policy: publicPolicyCommit(committed.policy),
       event: committed.policy.event,
       runtimeApplied: runtime.runtimeApplied,
@@ -196,13 +211,6 @@ export function createMiscRoutes(deps) {
         });
       }
 
-      // Runtime feature flags consume only the seven exact boolean paths.
-      // They are post-commit effects; a runtime failure cannot undo or lie
-      // about the durable CAS result represented by this exact response.
-      applyCommittedSettingsRuntime(
-        'versioned generic update',
-        () => settingsFeatureManager.applySettings(committed.featurePatch),
-      );
       return sendJSON(res, 200, {
         revision: committed.revision,
         settings: committed.settings,
@@ -242,7 +250,7 @@ export function createMiscRoutes(deps) {
         // protected values while this compatibility route remains live.
         () => settingsFeatureManager.applySettings(
           Object.fromEntries(
-            GENERIC_FEATURE_SETTING_KEYS
+            LEGACY_RUNTIME_FEATURE_SETTING_KEYS
               .filter(key => Object.hasOwn(sanitized.document, key))
               .map(key => [key, sanitized.document[key]]),
           ),
@@ -297,25 +305,28 @@ export function createMiscRoutes(deps) {
         const code = typeof error?.code === 'string'
           ? error.code
           : 'MODEL_AUTOMATION_POLICY_IMPORT_FAILED';
-        return sendJSON(res, modelPolicySettingsHttpStatus(code), { ok: false, code });
+        const details = code === 'USER_SETTINGS_REVISION_CONFLICT'
+          ? {
+              expectedRevision: error?.details?.expectedRevision,
+              currentRevision: error?.details?.currentRevision,
+            }
+          : {};
+        return sendJSON(res, modelPolicySettingsHttpStatus(code), { ok: false, code, ...details });
       }
-      const runtime = applyCommittedSettingsRuntime(
-        'import',
-        () => settingsFeatureManager.applySettings(committed.generalSettings),
-      );
       return sendJSON(res, 200, {
         ok: true,
         success: true,
-        generalSettings: committed.generalSettings,
+        revision: committed.settingsRevision,
+        settings: committed.settings,
         policy: publicPolicyCommit(committed.policy),
         event: committed.policy.event,
-        featuresChanged: runtime.value || 0,
+        featuresChanged: 0,
         sourceSchemaVersion: committed.sourceSchemaVersion,
         appliedPortablePaths: committed.appliedPortablePaths,
         ignoredSourcePathCount: committed.ignoredSourcePaths.length,
         preservedLocalPathCount: committed.preservedLocalPaths.length,
-        runtimeApplied: runtime.runtimeApplied,
-        runtimeErrorCode: runtime.runtimeErrorCode,
+        runtimeApplied: true,
+        runtimeErrorCode: null,
       });
     },
 
