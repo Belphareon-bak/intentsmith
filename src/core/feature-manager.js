@@ -22,8 +22,10 @@
 
 import { logger } from './logger.js';
 
-// IDE setting key → feature flag name mapping
-const SETTING_KEY_MAP = {
+export const FEATURE_SETTINGS_INPUT_INVALID = 'FEATURE_SETTINGS_INPUT_INVALID';
+
+// Exact WS setting key -> runtime feature flag authority.
+export const FEATURE_SETTING_KEY_MAP = Object.freeze({
   'c3.features.skills': 'skills',
   'c3.features.agents': 'agents',
   'c3.features.lifecycle': 'lifecycle',
@@ -31,7 +33,50 @@ const SETTING_KEY_MAP = {
   'c3.features.telemetry': 'telemetry',
   'c3.features.specialistTelemetry': 'specialistTelemetry',
   'c3.features.autonomy': 'autonomy',
-};
+});
+
+export const FEATURE_SETTING_KEYS = Object.freeze(
+  Object.keys(FEATURE_SETTING_KEY_MAP),
+);
+
+export class FeatureSettingsInputError extends Error {
+  constructor() {
+    super(FEATURE_SETTINGS_INPUT_INVALID);
+    this.name = 'FeatureSettingsInputError';
+    this.code = FEATURE_SETTINGS_INPUT_INVALID;
+  }
+}
+
+export function requireExactFeatureSettings(settings) {
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
+    throw new FeatureSettingsInputError();
+  }
+
+  const prototype = Object.getPrototypeOf(settings);
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new FeatureSettingsInputError();
+  }
+
+  const keys = Reflect.ownKeys(settings);
+  if (keys.length === 0 || keys.some(key => typeof key !== 'string')) {
+    throw new FeatureSettingsInputError();
+  }
+
+  const entries = [];
+  for (const settingKey of keys) {
+    if (!Object.hasOwn(FEATURE_SETTING_KEY_MAP, settingKey)
+      || typeof settings[settingKey] !== 'boolean') {
+      throw new FeatureSettingsInputError();
+    }
+    entries.push(Object.freeze({
+      settingKey,
+      featureName: FEATURE_SETTING_KEY_MAP[settingKey],
+      enabled: settings[settingKey],
+    }));
+  }
+
+  return Object.freeze(entries);
+}
 
 class FeatureManager {
   constructor() {
@@ -91,22 +136,18 @@ class FeatureManager {
   }
 
   /**
-   * Apply settings object from IDE (maps c3.features.X → feature name).
-   * Only processes known feature keys.
+   * Atomically validate and apply the exact WS feature-settings projection.
    * @param {Object} settings — e.g. { 'c3.features.skills': false }
    */
   applySettings(settings) {
-    if (!settings || typeof settings !== 'object') return;
+    const entries = requireExactFeatureSettings(settings);
 
     let changed = 0;
-    for (const [settingKey, featureName] of Object.entries(SETTING_KEY_MAP)) {
-      if (settingKey in settings) {
-        const prev = this._features.get(featureName);
-        const next = !!settings[settingKey];
-        if (prev !== next) {
-          this.set(featureName, next);
-          changed++;
-        }
+    for (const { featureName, enabled } of entries) {
+      const prev = this._features.get(featureName);
+      if (prev !== enabled) {
+        this.set(featureName, enabled);
+        changed++;
       }
     }
     return changed;
