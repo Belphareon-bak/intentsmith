@@ -1354,15 +1354,28 @@ mohou pokračovat.
    CAS. Evidence je v
    [`wp-m1-settings-versioned-authority-20260811-report.md`](docs/execution/runs/wp-m1-settings-versioned-authority-20260811-report.md).
 
-   Druhý krok je nyní aktivovaný jako
+   Druhý krok
    [`WP-M1-NOTIFICATION-CREDENTIAL-SCOPE`](docs/wp/WP-M1-NOTIFICATION-CREDENTIAL-SCOPE.md)
+   je `PROMOTED / REVIEW A+B PASS`: aktivační base `89de6920`, immutable
+   replacement subject `0ed3c0ed`, candidate `56a00c09` a report-only promotion
+   tip `f1913587` jsou připnuté v
+   [`wp-m1-notification-credential-scope-20260811-report.md`](docs/execution/runs/wp-m1-notification-credential-scope-20260811-report.md).
+   In-app je jediný core 1.0 support claim; external channels jsou
+   exact-literal-true/default-off retained kandidáti, WS je feature-only a
+   Setup/UI už nepřijímají nové notification credentials. Transfer ani scrub
+   027 neprováděl.
+
+   Třetí krok je nyní aktivovaný jako
+   [`WP-M1-WEBHOOK-SECRET-SEMANTICS`](docs/wp/WP-M1-WEBHOOK-SECRET-SEMANTICS.md)
    ve stavu `ACTIVE / IMPLEMENTATION_NOT_STARTED` se source evidence
-   `0322d468563875ecfd588ad6938c86bc7a7f80ed`. Pinuje in-app jako jediný core
-   1.0 support claim, external channels jako exact-literal-true/default-off
-   retained kandidáty, feature-only WS connector a Setup/UI credential-input
-   retirement bez transferu nebo scrubu. 028/026/029 čekají na přijatý 027
-   candidate. Finding 011 zůstává `OPEN`, Gate 1 `BLOCKED`; Electron, GPU,
-   Ollama ani externí network journey se v 027 nespouštějí.
+   `f19135871f148f69fcc9451307e87c34c1abfcbb`. Pinuje environment-only HMAC,
+   jeden immutable startup snapshot sdílený statusem a signerem, exact
+   `PROCESS_ENV|ROOT_ENV_FILE` provenance, stabilní authenticated pre-parse
+   `410` místo setteru a read-only Studio surface. Jde pouze o read-side subset
+   přijatého 026/A; env write, legacy transfer a scrub zůstávají zakázané.
+   026 a 029 čekají na přijatý 028 candidate. Finding 011 zůstává `OPEN`, Gate 1
+   `BLOCKED`; Electron, GPU, Ollama, externí network journey ani celý produktový
+   test nejsou součástí 028.
 
    Konsolidovaný M1 base je formálně přijatý na
    `integration/m1-consolidated-20260810`; wire Review B evidence obálka

@@ -1,12 +1,15 @@
 # 028 — webhook HMAC musí mít jednu pravdivou autoritu
 
 - **typ:** credential lifecycle a runtime connector
-- **stav:** `ACCEPTED 2026-08-11: A / IMPLEMENTATION_PENDING`; implementaci
-  aktivuje až vlastní ohraničený WP v přijatém pořadí
+- **stav:** `ACCEPTED 2026-08-11: A / WP_ACTIVE /
+  IMPLEMENTATION_NOT_STARTED`; aktivní ohraničený
+  [`WP-M1-WEBHOOK-SECRET-SEMANTICS`](../wp/WP-M1-WEBHOOK-SECRET-SEMANTICS.md)
+  vychází ze source evidence
+  `f19135871f148f69fcc9451307e87c34c1abfcbb`
 - **finding:** [011 — user_settings authority](../findings/011-user-settings-authority-and-secret-exposure.md)
-- **závislost:** rozhodnutí 026/A musí být přijaté pro cílovou env autoritu,
-  ale implementace 028/A předchází 026 transferu/scrub kroku; support claim by
-  navíc vyžadoval 027/B
+- **závislost:** 027/A je `PROMOTED / REVIEW A+B PASS`; rozhodnutí 026/A je
+  přijaté pro cílovou env autoritu, ale implementace 028/A předchází 026
+  transferu/scrub kroku; support claim by navíc vyžadoval 027/B
 
 ## Ověřený problém
 
@@ -61,3 +64,42 @@ Skutečný externí webhook patří až do operátorského journey pro případn
 028-secret-value: NEVER-IN-DB-HTTP-WS-LOG-OR-BACKUP
 028-review: OWN-SUBJECT-REVIEW-A-AND-B
 ```
+
+## Aktivační implementační piny
+
+Následující piny pouze konkretizují přijaté 028/A nad již přijatým cílem 026/A;
+nevytvářejí nový operátorský produktový výběr ani oprávnění k transferu či
+scrubu:
+
+```text
+028-env-read-substrate: READ-ONLY-SUBSET-OF-ACCEPTED-026A
+028-root-identity: EXACT-PROJECT-ROOT-DOTENV-INDEPENDENT-OF-CWD
+028-root-source: SAFE-REGULAR-OWNER-OWNED-MODE-0600-NO-SYMLINK-TRAVERSAL
+028-process-precedence: OWN-PRE-DOTENV-C3_WEBHOOK_SECRET-FIRST-EVEN-EMPTY
+028-read-source: ALWAYS-PROCESS_ENV-IF-PRELOAD-OWN-ELSE-ROOT_ENV_FILE
+028-configured: SELECTED-VALUE-LENGTH-GREATER-THAN-ZERO
+028-authority-snapshot: ONE-IMMUTABLE-STARTUP-SNAPSHOT-SHARED-BY-STATUS-AND-SIGNER
+028-notification-channel-list: POLICY-REGISTRATION-STATUS-ONLY-NOT-CREDENTIAL-STATUS
+028-env-write-transfer-scrub: NONE-PENDING-026
+028-legacy-db: PRESERVE-IGNORE-NO-NEW-WRITES-PENDING-026-EXACT-SCRUB
+```
+
+Před explicitním načtením dotenv se zachytí own-presence i hodnota
+`process.env.C3_WEBHOOK_SECRET`. Own process key vyhrává i jako prázdný string:
+source je `PROCESS_ENV` a `configured=false`. Jinak je source vždy
+`ROOT_ENV_FILE`, i když exact `<projectRoot>/.env`, klíč nebo jeho hodnota
+chybí; `configured` je pravda pouze pro neprázdnou vybranou hodnotu. Root se
+odvozuje z `runtime-environment.js`, nikdy z `cwd` nebo `DOTENV_CONFIG_PATH`.
+Existující root file musí projít přijatou regular/owner/mode-0600/no-symlink
+hranicí před DB, listenerem, port-file nebo notification effectem.
+
+Auth-guarded GET a skutečný HMAC signer dostanou tentýž immutable startup
+snapshot a po startu už secret znovu nečtou z process env, file ani DB. Runtime
+změna se projeví až restartem. `GET /api/notifications/channels` zůstává pouze
+policy/registration stavem: jeho dnešní pole `configured` není credential
+status a nesmí být použito jako důkaz přítomnosti HMAC secretu.
+
+Přijaté `028-secret-value` je prospective invariant nové autority a veřejných
+cest. Historická legacy hodnota může do 026 fyzicky zůstat v DB i plném SQLite
+disaster-recovery backupu; 028 ji zachová, ignoruje a ukončí nové writery, ale
+nepřenáší ji ani nescrubuje.

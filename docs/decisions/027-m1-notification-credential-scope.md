@@ -1,11 +1,12 @@
 # 027 — určit podporované notification credentials pro core 1.0
 
 - **typ:** produktový scope externích notification kanálů
-- **stav:** `ACCEPTED 2026-08-11: A / WP_ACTIVE /
-  IMPLEMENTATION_NOT_STARTED`; aktivní ohraničený
+- **stav:** `ACCEPTED 2026-08-11: A / PROMOTED / REVIEW A+B PASS`;
+  statický kontrakt
   [`WP-M1-NOTIFICATION-CREDENTIAL-SCOPE`](../wp/WP-M1-NOTIFICATION-CREDENTIAL-SCOPE.md)
-  vychází ze source evidence
-  `0322d468563875ecfd588ad6938c86bc7a7f80ed`
+  vyšel ze source evidence `0322d468563875ecfd588ad6938c86bc7a7f80ed`;
+  promotion evidence je v
+  [`wp-m1-notification-credential-scope-20260811-report.md`](../execution/runs/wp-m1-notification-credential-scope-20260811-report.md)
 - **finding:** [011 — user_settings authority](../findings/011-user-settings-authority-and-secret-exposure.md)
 - **produkt:** externí notifications jsou `RETAIN / CONDITIONAL`
 
@@ -154,3 +155,13 @@ operátorské produktové rozhodnutí a zachovávají funkční non-notification
 027-legacy-data: PRESERVE-FOR-026-NO-SCRUB-DELETE-TRANSFER
 027-dormant-ntfy-channel: NOT-REGISTERED-NOT-COVERED
 ```
+
+## Promotion evidence
+
+Aktivační base byl
+`89de69202b7ed72937400a40ce0fbb91475aa926`, immutable replacement subject
+`0ed3c0edf292acf8456e4dbc6bf0bb99ee01a2aa` a prověřený merge candidate
+`56a00c09ae66b4ebba0eedde81b53fafb816cefa`. Review A i Review B skončily
+`PASS`; report-only promotion tip na canonical integration je
+`f19135871f148f69fcc9451307e87c34c1abfcbb`. Electron, GPU, Ollama, externí
+síť, outbound journey ani celý produktový test nebyly součástí tohoto důkazu.

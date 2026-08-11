@@ -13,8 +13,10 @@ Neřeší ale celou secret/support/reset frontu ani standalone `chats/` povrch:
    model-automation klíčů a read/parse chybu měnil na `200 {}`. Promovaný 025
    ukončil legacy GET/POST inertním `410`; `GET /api/settings/v2` nyní vrací
    exact redigovanou public projekci s revision a read failure je typované
-   non-2xx. Plaintext legacy hodnoty ale dosud mohou zůstat v DB, setup
-   zdrojích nebo localStorage a čekají na 027/028/026.
+   non-2xx. Promovaný 027 už ukončil nové WS/Setup notification credential
+   vstupy; plaintext legacy hodnoty ale dosud mohou zůstat v DB, setup zdrojích
+   nebo localStorage a čekají na 028 retirement falešného webhook setteru a 026
+   verified transfer/exact scrub.
 2. Před 025 vracel úspěšný `POST /api/settings/import` celý commitnutý
    destination dokument, protože tehdejší Studio generic save jinak neuměl
    zachovat lokální hodnoty, které portable soubor nenese. Druhý atomický 025
@@ -73,7 +75,7 @@ Bezpečný cutover musí spojit:
 
 Tehdejší portable repair netvrdil globální lost-update odolnost ani bezpečný
 obecný settings read. Tyto canonical-root části nyní pokrývá promovaný 025;
-Gate 1 zůstává `BLOCKED` na aktivním 027 a následných 028/026/029,
+Gate 1 zůstává `BLOCKED` na aktivním 028 a následných 026/029,
 standalone `chats/` ownerovi a dalších výslovně uvedených residualech.
 
 ## První repair F-A — promován, Review A+B PASS
@@ -109,9 +111,9 @@ zůstávají oddělené a každá vyžaduje vlastní subject, Review A i Review 
 | 4 | [026 — secret storage authority](../decisions/026-m1-secret-storage-authority.md) | A | ověřený env transfer a odstranění credentials z aplikačních dat |
 | 5 | [029 — settings reset scope](../decisions/029-m1-settings-reset-scope.md) | A | settings-only reset a ukončení legacy aliasu |
 
-025 je `PROMOTED / REVIEW A+B PASS`; 027 je
-`SOURCE_IMPLEMENTED / FOCUSED_VERIFIED / REVIEW_PENDING`; 028/026/029 zůstávají
-`ACCEPTED / IMPLEMENTATION_PENDING`. Závazná sekvence je
+025 i 027 jsou `PROMOTED / REVIEW A+B PASS`; 028 je
+`ACTIVE / IMPLEMENTATION_NOT_STARTED` a 026/029 zůstávají
+`ACCEPTED / WAITING`. Závazná sekvence je
 `025 → 027 → 028 → 026 → 029`; další krok začne až po přijetí předchozího
 candidate. Finding 011 zůstává `OPEN` a Gate 1 `BLOCKED`.
 
@@ -263,54 +265,62 @@ záměrně rezervovaný marker; recursive JSON validace potřebuje samostatný
 depth/node/byte budget. Jde o samostatnou budoucí availability/robustness
 práci, nikoli zpochybnění promovaného canonical-root generic povrchu.
 
-### 027 aktivace — notification capability a credential-input containment
+### 027 promotion — notification capability a credential-input containment
 
-Po promotion 025 je aktivní
 [`WP-M1-NOTIFICATION-CREDENTIAL-SCOPE`](../wp/WP-M1-NOTIFICATION-CREDENTIAL-SCOPE.md)
-se source evidence `0322d468563875ecfd588ad6938c86bc7a7f80ed`; source subject
-vychází z čistého aktivačního base
-`89de69202b7ed72937400a40ce0fbb91475aa926`. Stav je
-`SOURCE_IMPLEMENTED / FOCUSED_VERIFIED / REVIEW_PENDING`: jediný pure policy
-seam validuje všech pět external flagů před konstrukcí channelu, veřejný router
-je default-deny i při přímém použití a direct verifier sdílí tutéž autoritu bez
-ambientního credential fallbacku. In-app zůstává jediný core 1.0 support
-claim; exact-literal-true pouze dovolí retained kandidátovi vstoupit do cesty,
-nikoli tvrdit doručení.
+je `PROMOTED / REVIEW A+B PASS`. Source evidence byl
+`0322d468563875ecfd588ad6938c86bc7a7f80ed`, aktivační base
+`89de69202b7ed72937400a40ce0fbb91475aa926`, immutable replacement subject
+`0ed3c0edf292acf8456e4dbc6bf0bb99ee01a2aa`, merge candidate
+`56a00c09ae66b4ebba0eedde81b53fafb816cefa` a report-only promotion tip
+`f19135871f148f69fcc9451307e87c34c1abfcbb`. Exact topologii a Review A/B
+evidence drží
+[`wp-m1-notification-credential-scope-20260811-report.md`](../execution/runs/wp-m1-notification-credential-scope-20260811-report.md).
 
-WS SMTP injection a serverové `setNotificationDeps` jsou odstraněné;
-`sync_settings` přijímá atomicky jen sedm exact boolean feature klíčů. Setup
-notification route je inertní `410` před parse, CLI ani HTTP už notification
-credentials nepřijímají a shodný bounded writer mění pouze čtyři
-non-notification klíče v cwd `.env`. Foreign/notification řádky i legacy
-subdocument v `c3-setup.json` zůstávají pro 026; symlink, foreign owner,
-multi-link, unsafe mode, duplicate nebo multiline dotenv authority, newline a
-nepravdivý round-trip selžou typovaně. Čtyři notification UI plochy jsou
-source-only retired na pravdivý statický povrch; chat Security webhook surface zůstává
-byteově vyhrazené 028.
+Jediný pure policy seam validuje všech pět external flagů před konstrukcí
+channelu; router i direct verifier jsou default-deny. In-app zůstává jediný
+core 1.0 support claim a exact-literal-true pouze dovolí retained kandidátovi
+vstoupit do cesty. WS SMTP injection a serverové `setNotificationDeps` jsou
+odstraněné, `sync_settings` přijímá atomicky jen sedm exact boolean feature
+klíčů, Setup už notification credentials nepřijímá a čtyři notification UI
+plochy jsou source-only retired. Legacy data byla zachována pro 026; 027 nic
+notification-specific nepřenesl, nescruboval ani nesmazal.
 
-Redukovaný důkaz má přesně čtyři programy: nová dvoupřípadová sada `2/2`, WS
-kompatibilita `92/92`, Studio VM `127/127` a registry validator. Registry nyní
-obsahuje 382 programů / 8 exclusions s fingerprintem
+Focused evidence je `2/2`, WS `92/92`, Studio VM `127/127` a registry 382
+programů / 8 exclusions s fingerprintem
 `571ae1a90a4246c7037d56fe5fb786beb4b5c4aae3e61f163d5b6ffe14341d71`.
-První immutable subject
-`c72b11c3f1044298f7a3e3a29420f578b7650c46` skončil v Review A jako
-`CHANGES_REQUIRED`: fyzický Setup scanner nepokrýval newline v dotenv
-delimiter span. Report `E_A` nevznikl a původní historie/ref zůstaly beze
-změny. Replacement větev z téhož base zachovává původní strom, navíc odmítá
-každý cross-line dotenv assignment podle pinovaného parseru; parserové line
-terminátory `U+2028`/`U+2029`, které bounded fyzický scanner nepodporuje,
-odmítá před publikací fail-closed. Celý výsledný dokument pak ověřuje skutečným
-parserem; replacement čeká na nové Review A.
 Electron, GPU, Ollama, externí síť, outbound journey ani celý produktový test
-nebyly spuštěné. Tento commit tvoří immutable source subject `S`; source zatím
-není přijatý a čeká na Review A/B. Implementace neprovádí transfer, scrub ani
-delete; 028, 026 a 029 zůstávají ve schváleném pořadí otevřené. Finding 011 je
-nadále `OPEN` a Gate 1 `BLOCKED`. Známý compatibility residual: ACTIVE
-programy `tests/notifications.test.js`, `tests/workers-phase-b.test.js`,
+nebyly spuštěné. Známý compatibility residual zůstává: ACTIVE programy
+`tests/notifications.test.js`, `tests/workers-phase-b.test.js`,
 `tests/push-channel.test.js` a `tests/e2e-notifications.test.js` stále
 předpokládají permissive/default external channels nebo úspěšný legacy dry-run.
-Jsou mimo allowlist i redukovaný gate 027 a musí se srovnat před full-product
-během. `src/routes/notifications.js` navíc zatím ignoruje typed disabled
-výsledek `updateChannelConfig('email', ...)`, takže může po durable commitu
-chybně vrátit `runtimeApplied:true`; tato route semantics patří do 026 a 027 ji
-nemění.
+Jsou mimo přijatý 027 důkaz a musí se srovnat před full-product během.
+`src/routes/notifications.js` navíc zatím ignoruje typed disabled výsledek
+`updateChannelConfig('email', ...)`, takže může po durable commitu chybně vrátit
+`runtimeApplied:true`; tato route semantics patří do 026.
+
+### 028 aktivace — jediná environment webhook autorita
+
+Na promotion tipu 027 je aktivní
+[`WP-M1-WEBHOOK-SECRET-SEMANTICS`](../wp/WP-M1-WEBHOOK-SECRET-SEMANTICS.md)
+se source evidence `f19135871f148f69fcc9451307e87c34c1abfcbb` ve stavu
+`ACTIVE / IMPLEMENTATION_NOT_STARTED`. Přijatý read-only subset 026/A explicitně
+načte pouze exact `<projectRoot>/.env` nezávisle na `cwd` a před loadem zachytí
+own `process.env.C3_WEBHOOK_SECRET`. Pre-load own key vyhrává i jako prázdný a
+má source `PROCESS_ENV`; jinak je source vždy `ROOT_ENV_FILE`. `configured` je
+pravda pouze pro neprázdnou vybranou hodnotu.
+
+Auth-guarded `GET /api/security/webhook-secret` a skutečný HMAC signer musí
+sdílet jeden immutable startup snapshot. GET vrací pouze exact `configured` a
+`source`; POST skončí stabilním pre-parse
+`410 CREDENTIAL_SOURCE_READ_ONLY`. Studio odstraní masked fragment i regenerate
+akci a zobrazí read-only source s restart-required stavem. Naproti tomu
+`GET /api/notifications/channels` je výslovně jen policy/registration status,
+nikoli druhý credential status.
+
+028 odstraní webhook DB writer, ale žádný env/DB/localStorage writer, transfer,
+scrub ani purge nevytvoří. Historický secret může proto do 026 fyzicky zůstat v
+legacy DB blobu i plném SQLite disaster-recovery backupu; 028 jej musí ignorovat
+a zachovat. 026 a 029 čekají na přijatý 028 candidate. Finding 011 zůstává
+`OPEN`, Gate 1 `BLOCKED`; standalone `chats/`, legacy secret transfer/scrub,
+reset a uvedené compatibility residualy nejsou tímto checkpointem uzavřené.
