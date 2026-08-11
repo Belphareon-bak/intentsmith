@@ -890,7 +890,7 @@ try {
 
   // ── §10 dynamic type — recorded, not asserted away ────────────────────────
 
-  await test('§10 OTEVŘENÉ: klient je v px, takže na 200 % písma nereaguje', async () => {
+  await test('§10 klient roste s velikost\xed p\xedsma, kterou si \u010dten\xe1\u0159 nastavil', async () => {
     const client = await page.createCDPSession();
     const sizes = async (standard) => {
       await client.send('Page.setFontSizes', { fontSizes: { standard, fixed: standard } });
@@ -909,14 +909,26 @@ try {
     assert.equal(at100.root, '16px');
     assert.equal(at200.root, '32px', 'the browser preference did not apply — the probe itself is broken');
 
-    // This is a *characterisation* test, the same device the F-100 producer
-    // test uses: it pins today's truth so the day someone converts the
-    // stylesheet to rem, this fails and the finding gets reclassified instead
-    // of quietly staying "open" next to code that fixed it.
-    assert.equal(at200.body, '16px',
-      'body now follows the browser font size — the client became scalable, reclassify the §10 dynamic-type gap');
-    assert.equal(at200.rowTime, at100.rowTime,
-      'component type now scales — reclassify the §10 dynamic-type gap and delete this test');
+    // This was a characterisation test — it pinned "the client is in px and does
+    // not react" so that the day someone converted the stylesheet it would fail
+    // rather than let the finding sit open next to code that had fixed it.
+    // 2026-08-11 is that day: it now asserts the opposite.
+    assert.equal(at200.body, '32px',
+      'body ignored the reader\'s font size — something is back to a fixed px root');
+    assert.ok(parseFloat(at200.rowTime) > parseFloat(at100.rowTime),
+      `component type must grow too: ${at100.rowTime} → ${at200.rowTime}`);
+
+    // Scaling the text without the box it lives in is worse than not scaling at
+    // all, because the letters then collide with the frame.
+    const grew = await page.evaluate(async () => {
+      const read = () => {
+        const el = document.querySelector('.nav-tab');
+        return el ? el.getBoundingClientRect().height : null;
+      };
+      return read();
+    });
+    assert.ok(grew && grew > 48,
+      `the bar's touch target must grow with the text, measured ${Math.round(grew ?? 0)} dp`);
   });
 
   await test('žádná chyba v konzoli během celé sady', () => {

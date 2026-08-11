@@ -1069,10 +1069,13 @@ await test('F-042 MS-20 actions declare the approved 48 × 48 dp minimum target'
   const css = readFileSync(new URL('../src/mobile/client/app.css', import.meta.url), 'utf8');
   const rule = css.match(/\.ms20-row \.op-actions \.btn \s*\{([^}]*)\}/);
   assert.ok(rule, 'no touch-target rule for the MS-20 actions');
-  const height = rule[1].match(/min-height:\s*(\d+(?:\.\d+)?)px/);
-  const width = rule[1].match(/min-width:\s*(\d+(?:\.\d+)?)px/);
-  assert.ok(height && Number(height[1]) >= 48, `min-height is ${height?.[1] ?? 'unset'}, needs ≥ 48px`);
-  assert.ok(width && Number(width[1]) >= 48, `min-width is ${width?.[1] ?? 'unset'}, needs ≥ 48px`);
+  const height = rule[1].match(/min-height:\s*(\d+(?:\.\d+)?(?:px|rem))/);
+  const width = rule[1].match(/min-width:\s*(\d+(?:\.\d+)?(?:px|rem))/);
+  // 48 **dp**, whatever the unit: the sheet moved to `rem` for dynamic type, so
+  // the value is normalised at the 16 px root rather than compared as a number.
+  const dp = (value) => (String(value).endsWith('rem') ? parseFloat(value) * 16 : parseFloat(value));
+  assert.ok(height && dp(height[1]) >= 48, `min-height is ${height?.[1] ?? 'unset'}, needs ≥ 48 dp`);
+  assert.ok(width && dp(width[1]) >= 48, `min-width is ${width?.[1] ?? 'unset'}, needs ≥ 48 dp`);
 
   // The rule only reaches the buttons if both action groups keep their place in
   // the row — the resting pair and the confirmation pair.

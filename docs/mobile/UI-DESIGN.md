@@ -209,6 +209,30 @@ Odstraněny přitom dvě věci, které se o pevný počet opíraly: výchozí um
 počítá vůči ní — tím zmizel i rozpor, kde `navSetWidth` počítal o jednu mezeru
 víc než měření, se kterým se porovnával.
 
+**[F] §10 dynamický typ — VYŘEŠENO 2026-08-11.** Stylesheet je převedený na
+`rem`: typografické délky, rozestupy, poloměry, výška hlavičky i dotykové cíle
+rostou s velikostí písma, kterou si čtenář nastavil v prohlížeči nebo systému.
+Kotvou je `html { font-size: 100% }` — pevné px na kořeni by preferenci potichu
+zrušilo. V px zůstaly schválně vlasové linky, stíny, rozostření a podmínky
+`@media`; ty typografické nejsou.
+
+Charakterizační test, který držel `klient je v px, takže na 200 % nereaguje`,
+byl **obrácený**, ne smazaný — teď tvrdí opak a navíc měří, že s textem roste
+i dotykový cíl. Škálovat text bez rámu, ve kterém sedí, je horší než neškálovat
+vůbec.
+
+Testy, které tvrdily dp jako pixelový literál (`48px`, `56px`, `32px`, `12px`),
+jsou nově **jednotkově nezávislé**: hodnotu normalizují při kořeni 16 px. Držely
+záměr, ne zápis — a nespadnou při další změně jednotky.
+
+**[F] OTEVŘENO — prohlížečová sada je flaky (2026-08-11).** Tři běhy po sobě
+daly tři různé výsledky: jednou `22/0`, jednou spadl test centrování prstence
+(`-92 dp`, tedy o jednu položku vedle), jednou charakterizace kontrastu popisků
+lišty. Sada sdílí jednu stránku a stav se mezi testy dědí; u kontrastu navíc
+platí dřívější výhrada, že to měření je samo o sobě nespolehlivé. **Zelený běh
+téhle sady proto zatím není důkaz.** Opravit dřív, než se o ni začne cokoli
+opírat.
+
 **Stav implementace k 2026-08-10:**
 
 | Část | Stav |

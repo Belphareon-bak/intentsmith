@@ -9,6 +9,12 @@
    different failures apart at a glance.
    ========================================================================== */
 
+/* §10 dynamic type — the whole sheet is in `rem`, so a reader who turns their
+   system font up gets a bigger app, not just bigger letters.  `100%` means "the
+   size the browser was told to use"; a fixed px here would silently cancel the
+   preference for everyone. */
+html { font-size: 100%; }
+
 :root {
   /* Light — warm paper */
   --bg:            #faf9f5;
@@ -47,10 +53,10 @@
   --info:          #3c6094;
   --info-soft:     #e6ecf5;
 
-  --radius-sm: 8px;
-  --radius:    12px;
-  --radius-lg: 18px;
-  --radius-xl: 24px;
+  --radius-sm: 0.5rem;
+  --radius:    0.75rem;
+  --radius-lg: 1.125rem;
+  --radius-xl: 1.5rem;
 
   --shadow-sm: 0 1px 2px rgba(30, 28, 26, .06);
   --shadow:    0 4px 16px rgba(30, 28, 26, .10);
@@ -59,9 +65,9 @@
   --font: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
 
-  --header-h: 52px;
-  --safe-top:    env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --header-h: 3.25rem;
+  --safe-top:    env(safe-area-inset-top, 0);
+  --safe-bottom: env(safe-area-inset-bottom, 0);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -110,7 +116,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font);
-  font-size: 16px;
+  font-size: 1rem;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
@@ -122,7 +128,7 @@ button { cursor: pointer; border: none; background: none; }
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 0.25rem;
 }
 
 .shell { display: flex; flex-direction: column; height: 100dvh; }
@@ -133,14 +139,14 @@ button { cursor: pointer; border: none; background: none; }
 /* ── Boot ──────────────────────────────────────────────────────────────── */
 .boot {
   flex: 1; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 16px;
+  align-items: center; justify-content: center; gap: 1rem;
 }
 .boot-mark {
-  width: 36px; height: 36px; border-radius: 10px;
+  width: 2.25rem; height: 2.25rem; border-radius: 0.625rem;
   background: var(--accent);
   animation: pulse 1.4s ease-in-out infinite;
 }
-.boot-text { color: var(--text-muted); font-size: 14px; margin: 0; }
+.boot-text { color: var(--text-muted); font-size: 0.875rem; margin: 0; }
 @keyframes pulse { 0%,100% { opacity: .35; transform: scale(.92); } 50% { opacity: 1; transform: scale(1); } }
 
 /* ── Trust bar (UI-DESIGN §4) ──────────────────────────────────────────── */
@@ -150,19 +156,19 @@ button { cursor: pointer; border: none; background: none; }
    style, because zero height is the design (§4.1). */
 .trust-bar {
   flex-shrink: 0; z-index: 25;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.0625rem solid var(--border);
   background: var(--bg-sunken);
-  padding: 0 14px;
+  padding: 0 0.875rem;
 }
 .trust-zones {
   /* 32 dp band, per §4.  The quiet level occupies exactly this and no more. */
-  min-height: 32px;
-  display: flex; align-items: center; flex-wrap: wrap; gap: 4px 14px;
-  font-size: 13px; font-weight: 500; line-height: 1.3;
+  min-height: 2rem;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 0.25rem 0.875rem;
+  font-size: 0.8125rem; font-weight: 500; line-height: 1.3;
 }
-.trust-zone { display: inline-flex; align-items: center; gap: 6px; }
+.trust-zone { display: inline-flex; align-items: center; gap: 0.375rem; }
 /* Without an explicit size the inline SVG stretches to fill the flex row. */
-.trust-zone svg { width: 15px; height: 15px; flex: 0 0 15px; }
+.trust-zone svg { width: 0.9375rem; height: 0.9375rem; flex: 0 0 0.9375rem; }
 /* §10 / §8 — colour never carries the meaning on its own: every zone already
    ships an icon and a word, and the tint only reinforces them. */
 .trust-zone[data-zone="conn"] { color: var(--danger); }
@@ -170,49 +176,49 @@ button { cursor: pointer; border: none; background: none; }
 .trust-zone[data-zone="lock"] { color: var(--text-muted); }
 .trust-bar[data-level="expanded"] { background: var(--danger-soft); }
 .trust-detail {
-  margin: 0; padding: 0 0 8px;
-  font-size: 12px; line-height: 1.45; color: var(--text-muted);
+  margin: 0; padding: 0 0 0.5rem;
+  font-size: 0.75rem; line-height: 1.45; color: var(--text-muted);
 }
 .trust-detail button {
-  font-size: 12px; font-weight: 600; text-decoration: underline;
+  font-size: 0.75rem; font-weight: 600; text-decoration: underline;
   color: inherit; padding: 0; white-space: nowrap;
 }
 
 /* ── Header ────────────────────────────────────────────────────────────── */
 .header {
   position: sticky; top: 0; z-index: 30;
-  display: flex; align-items: center; gap: 4px;
+  display: flex; align-items: center; gap: 0.25rem;
   height: calc(var(--header-h) + var(--safe-top));
   min-height: calc(var(--header-h) + var(--safe-top));
-  padding: var(--safe-top) 6px 0;
+  padding: var(--safe-top) 0.375rem 0;
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: saturate(180%) blur(14px);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0.0625rem solid var(--border);
   flex-shrink: 0;
 }
 .header-title {
   flex: 1; min-width: 0;
-  font-size: 15px; font-weight: 600; letter-spacing: -.01em;
+  font-size: 0.9375rem; font-weight: 600; letter-spacing: -.01em;
   text-align: center;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  padding: 0 4px;
+  padding: 0 0.25rem;
 }
 .icon-btn {
   /* §8 — 48 × 48 dp floor.  The glyph stays 20 px; what grew is the target. */
-  width: 48px; height: 48px; flex-shrink: 0;
+  width: 3rem; height: 3rem; flex-shrink: 0;
   display: grid; place-items: center;
   border-radius: var(--radius-sm);
   color: var(--text-muted);
   transition: background .12s, color .12s;
 }
 .icon-btn:hover, .icon-btn:active { background: var(--bg-hover); color: var(--text); }
-.icon-btn svg { width: 20px; height: 20px; }
+.icon-btn svg { width: 1.25rem; height: 1.25rem; }
 .icon-btn[data-badge]::after {
   content: attr(data-badge);
-  position: absolute; transform: translate(12px, -12px);
-  min-width: 16px; height: 16px; padding: 0 4px;
+  position: absolute; transform: translate(0.75rem, -0.75rem);
+  min-width: 1rem; height: 1rem; padding: 0 0.25rem;
   background: var(--accent-text); color: var(--on-accent);
-  border-radius: 8px; font-size: 10px; font-weight: 700;
+  border-radius: 0.5rem; font-size: 0.625rem; font-weight: 700;
   display: grid; place-items: center;
 }
 
@@ -221,31 +227,31 @@ button { cursor: pointer; border: none; background: none; }
   flex: 1; overflow-y: auto; overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
 }
-.container { max-width: 720px; margin: 0 auto; padding: 16px; }
+.container { max-width: 45rem; margin: 0 auto; padding: 1rem; }
 
 /* ── Chat ──────────────────────────────────────────────────────────────── */
-.thread { max-width: 720px; margin: 0 auto; padding: 12px 16px 8px; }
+.thread { max-width: 45rem; margin: 0 auto; padding: 0.75rem 1rem 0.5rem; }
 
 /* SS-03 — the older edge of the downloaded window, always labelled so a cut-off
    history can never read as a complete one (I-2). */
 .thread-edge {
   display: flex;
   justify-content: center;
-  margin: 0 0 20px;
+  margin: 0 0 1.25rem;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
   text-align: center;
 }
 .thread-edge-start { color: var(--text-muted); }
 
-.msg { margin-bottom: 22px; }
+.msg { margin-bottom: 1.375rem; }
 .msg-user { display: flex; justify-content: flex-end; }
 .msg-user .bubble {
   max-width: 85%;
   background: var(--bg-sunken);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg) var(--radius-lg) 5px var(--radius-lg);
-  padding: 10px 14px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0.3125rem var(--radius-lg);
+  padding: 0.625rem 0.875rem;
   white-space: pre-wrap; word-wrap: break-word; overflow-wrap: anywhere;
 }
 /* Assistant text is full width and unboxed — the Claude reading pattern:
@@ -253,33 +259,33 @@ button { cursor: pointer; border: none; background: none; }
 .msg-assistant .body {
   white-space: pre-wrap; word-wrap: break-word; overflow-wrap: anywhere;
 }
-.msg-assistant .body p { margin: 0 0 14px; }
+.msg-assistant .body p { margin: 0 0 0.875rem; }
 .msg-assistant .body p:last-child { margin-bottom: 0; }
 .msg-assistant .body code {
   font-family: var(--font-mono); font-size: .88em;
   background: var(--bg-sunken); border: 1px solid var(--border);
-  padding: 1px 5px; border-radius: 5px;
+  padding: 0.0625rem 0.3125rem; border-radius: 0.3125rem;
 }
 .msg-assistant .body pre {
   background: var(--bg-sunken); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 12px 14px; margin: 0 0 14px;
+  border-radius: var(--radius); padding: 0.75rem 0.875rem; margin: 0 0 0.875rem;
   overflow-x: auto;
 }
-.msg-assistant .body pre code { background: none; border: none; padding: 0; font-size: 13px; }
+.msg-assistant .body pre code { background: none; border: none; padding: 0; font-size: 0.8125rem; }
 .msg-assistant .body strong { font-weight: 650; }
-.msg-assistant .body ul, .msg-assistant .body ol { margin: 0 0 14px; padding-left: 22px; }
-.msg-assistant .body li { margin-bottom: 5px; }
+.msg-assistant .body ul, .msg-assistant .body ol { margin: 0 0 0.875rem; padding-left: 1.375rem; }
+.msg-assistant .body li { margin-bottom: 0.3125rem; }
 
 .msg-meta {
-  display: flex; align-items: center; gap: 7px;
-  font-size: 11.5px; color: var(--text-faint); margin-top: 7px;
+  display: flex; align-items: center; gap: 0.4375rem;
+  font-size: 0.7188rem; color: var(--text-faint); margin-top: 0.4375rem;
 }
 
 /* Operation state chips — MD-19 made visible.  A message whose fate is
    unknown must never look like one that was delivered. */
 .op-chip {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 20px;
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  font-size: 0.6875rem; font-weight: 600; padding: 0.125rem 0.4375rem; border-radius: 1.25rem;
   border: 1px solid transparent;
 }
 .op-chip[data-state="PENDING"]   { background: var(--info-soft);   color: var(--info);   }
@@ -294,40 +300,40 @@ button { cursor: pointer; border: none; background: none; }
 .run-silence {
   background: var(--bg-sunken);
   border: 1px solid var(--border);
-  border-left: 3px solid var(--info);
+  border-left: 0.1875rem solid var(--info);
   border-radius: var(--radius);
-  padding: 12px 14px;
-  margin-bottom: 22px;
+  padding: 0.75rem 0.875rem;
+  margin-bottom: 1.375rem;
 }
 .run-silence-head {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 14px; font-weight: 600;
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.875rem; font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
-.run-silence p { margin: 5px 0 0; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
-.run-silence .btn { margin-top: 10px; }
+.run-silence p { margin: 0.3125rem 0 0; font-size: 0.8125rem; color: var(--text-muted); line-height: 1.5; }
+.run-silence .btn { margin-top: 0.625rem; }
 /* On the root the strips stack; in a thread there is only ever one. */
 .ov-section .run-silence:last-child { margin-bottom: 0; }
 /* A steady mark, not a pulse: it says "active", never "this far along". */
 .run-mark {
-  width: 8px; height: 8px; border-radius: 50%;
+  width: 0.5rem; height: 0.5rem; border-radius: 50%;
   background: var(--info); flex-shrink: 0;
 }
 
 /* ── Composer ──────────────────────────────────────────────────────────── */
 .composer {
   flex-shrink: 0;
-  padding: 8px 12px calc(8px + var(--safe-bottom));
+  padding: 0.5rem 0.75rem calc(0.5rem + var(--safe-bottom));
   background: linear-gradient(to top, var(--bg) 65%, transparent);
-  border-top: 1px solid var(--border);
+  border-top: 0.0625rem solid var(--border);
 }
 .composer-inner {
-  max-width: 720px; margin: 0 auto;
-  display: flex; align-items: flex-end; gap: 8px;
+  max-width: 45rem; margin: 0 auto;
+  display: flex; align-items: flex-end; gap: 0.5rem;
   background: var(--bg-raised);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-xl);
-  padding: 6px 6px 6px 16px;
+  padding: 0.375rem 0.375rem 0.375rem 1rem;
   box-shadow: var(--shadow-sm);
   transition: border-color .15s, box-shadow .15s;
 }
@@ -337,28 +343,28 @@ button { cursor: pointer; border: none; background: none; }
   /* §8 — the input is a touch target too, and it was 40 dp tall.  The height
      comes from padding rather than `min-height` so `autoGrow` can still size
      it to its content. */
-  max-height: 168px; padding: 12px 0; line-height: 1.5; min-height: 48px;
-  font-size: 16px; /* 16px keeps iOS from zooming on focus */
+  max-height: 10.5rem; padding: 0.75rem 0; line-height: 1.5; min-height: 3rem;
+  font-size: 1rem; /* 16px keeps iOS from zooming on focus */
 }
 .composer textarea:focus { outline: none; }
 .composer textarea::placeholder { color: var(--text-faint); }
 .send-btn {
   /* §8 asks for 48 dp on every active target; this was 34 × 34, the smallest
      control in the app and the one tapped most often. */
-  width: 48px; height: 48px; flex-shrink: 0;
+  width: 3rem; height: 3rem; flex-shrink: 0;
   border-radius: 50%; background: var(--accent); color: var(--on-accent);
   display: grid; place-items: center;
   transition: background .12s, opacity .12s, transform .12s;
 }
 .send-btn:disabled { opacity: .3; cursor: not-allowed; }
 .send-btn:not(:disabled):active { transform: scale(.92); }
-.send-btn svg { width: 20px; height: 20px; }
+.send-btn svg { width: 1.25rem; height: 1.25rem; }
 
 /* A blocked composer is visible and explained, never hidden (SS-03/SS-04/SS-07). */
 .composer-blocked {
-  max-width: 720px; margin: 0 auto 8px;
-  display: flex; align-items: center; gap: 8px;
-  font-size: 12.5px; padding: 8px 12px; border-radius: var(--radius);
+  max-width: 45rem; margin: 0 auto 0.5rem;
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.7812rem; padding: 0.5rem 0.75rem; border-radius: var(--radius);
 }
 .composer-blocked[data-kind="scope"]   { background: var(--info-soft);   color: var(--info);   }
 .composer-blocked[data-kind="offline"] { background: var(--warn-soft);   color: var(--warn);   }
@@ -370,39 +376,39 @@ button { cursor: pointer; border: none; background: none; }
 /* ── List rows ─────────────────────────────────────────────────────────── */
 .list { display: flex; flex-direction: column; }
 .row {
-  display: flex; align-items: flex-start; gap: 12px;
+  display: flex; align-items: flex-start; gap: 0.75rem;
   width: 100%; text-align: left;
-  padding: 13px 16px;
-  border-bottom: 1px solid var(--border);
+  padding: 0.8125rem 1rem;
+  border-bottom: 0.0625rem solid var(--border);
   transition: background .12s;
 }
 .row:active { background: var(--bg-hover); }
 .row-main { flex: 1; min-width: 0; }
 .row-title {
-  font-size: 15px; font-weight: 550; letter-spacing: -.005em;
+  font-size: 0.9375rem; font-weight: 550; letter-spacing: -.005em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .row-sub {
-  font-size: 13px; color: var(--text-muted); margin-top: 2px;
+  font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.125rem;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.row-time { font-size: 12px; color: var(--text-faint); flex-shrink: 0; padding-top: 2px; }
+.row-time { font-size: 0.75rem; color: var(--text-faint); flex-shrink: 0; padding-top: 0.125rem; }
 
 /* ── Skeletons (SS-01) — shaped like the content they replace ──────────── */
-.skel { background: var(--bg-sunken); border-radius: 6px; animation: shimmer 1.5s ease-in-out infinite; }
+.skel { background: var(--bg-sunken); border-radius: 0.375rem; animation: shimmer 1.5s ease-in-out infinite; }
 @keyframes shimmer { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
-.skel-row { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.skel-row { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.875rem 1rem; border-bottom: 0.0625rem solid var(--border); }
 
 /* ── State panels ──────────────────────────────────────────────────────── */
 .state {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  text-align: center; padding: 48px 28px; gap: 12px; min-height: 260px;
+  text-align: center; padding: 3rem 1.75rem; gap: 0.75rem; min-height: 16.25rem;
 }
 .state-icon {
-  width: 48px; height: 48px; border-radius: 14px;
-  display: grid; place-items: center; margin-bottom: 2px;
+  width: 3rem; height: 3rem; border-radius: 0.875rem;
+  display: grid; place-items: center; margin-bottom: 0.125rem;
 }
-.state-icon svg { width: 24px; height: 24px; }
+.state-icon svg { width: 1.5rem; height: 1.5rem; }
 .state[data-kind="empty"]   .state-icon { background: var(--bg-sunken);   color: var(--text-faint); }
 .state[data-kind="server"]  .state-icon { background: var(--danger-soft); color: var(--danger); }
 .state[data-kind="offline"] .state-icon { background: var(--warn-soft);   color: var(--warn); }
@@ -411,13 +417,13 @@ button { cursor: pointer; border: none; background: none; }
 .state[data-kind="scope"]   .state-icon { background: var(--info-soft);   color: var(--info); }
 .state[data-kind="conflict"].state-icon,
 .state[data-kind="conflict"] .state-icon { background: var(--warn-soft);  color: var(--warn); }
-.state-title { font-size: 16px; font-weight: 600; margin: 0; }
-.state-text { font-size: 14px; color: var(--text-muted); margin: 0; max-width: 34ch; line-height: 1.55; }
+.state-title { font-size: 1rem; font-weight: 600; margin: 0; }
+.state-text { font-size: 0.875rem; color: var(--text-muted); margin: 0; max-width: 34ch; line-height: 1.55; }
 
 .btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-  padding: 10px 18px; border-radius: var(--radius);
-  font-size: 14.5px; font-weight: 600;
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.4375rem;
+  padding: 0.625rem 1.125rem; border-radius: var(--radius);
+  font-size: 0.9062rem; font-weight: 600;
   transition: background .12s, opacity .12s;
 }
 .btn-primary { background: var(--accent); color: var(--on-accent); }
@@ -428,46 +434,46 @@ button { cursor: pointer; border: none; background: none; }
 .btn-block { width: 100%; }
 /* §8 — "small" is about the type and the padding, never about the target: the
    48 dp floor holds for `Zjistit stav` (A4) exactly as for a primary button. */
-.btn-sm { padding: 7px 13px; font-size: 13px; min-height: 48px; }
+.btn-sm { padding: 0.4375rem 0.8125rem; font-size: 0.8125rem; min-height: 3rem; }
 
 /* ── Přehled — the root (UI-DESIGN §3.2) ───────────────────────────────── */
-.ov-section { margin-bottom: 26px; }
-.ov-section:last-child { margin-bottom: 8px; }
+.ov-section { margin-bottom: 1.625rem; }
+.ov-section:last-child { margin-bottom: 0.5rem; }
 .ov-h {
-  margin: 0 0 10px;
-  font-size: 13px; font-weight: 650; letter-spacing: .02em;
+  margin: 0 0 0.625rem;
+  font-size: 0.8125rem; font-weight: 650; letter-spacing: .02em;
   text-transform: uppercase; color: var(--text-muted);
 }
-.ov-note { margin: 0 0 10px; font-size: 14px; color: var(--text-muted); line-height: 1.5; }
+.ov-note { margin: 0 0 0.625rem; font-size: 0.875rem; color: var(--text-muted); line-height: 1.5; }
 .ov-note[data-tone="danger"] { color: var(--danger); }
 
 .ov-approvals, .ov-list, .ov-tiles { list-style: none; margin: 0; padding: 0; }
-.ov-approvals { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.ov-approvals { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.625rem; }
 .ov-appr {
-  width: 100%; min-height: 56px;
-  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
-  padding: 12px 14px; text-align: left;
+  width: 100%; min-height: 3.5rem;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.125rem;
+  padding: 0.75rem 0.875rem; text-align: left;
   background: var(--bg-raised); border: 1px solid var(--border-strong);
-  border-left: 3px solid var(--accent);
+  border-left: 0.1875rem solid var(--accent);
   border-radius: var(--radius);
 }
 .ov-appr:active { background: var(--bg-hover); }
-.ov-appr-title { font-size: 15px; font-weight: 600; line-height: 1.35; }
-.ov-appr-meta { font-size: 12px; color: var(--text-muted); }
+.ov-appr-title { font-size: 0.9375rem; font-weight: 600; line-height: 1.35; }
+.ov-appr-meta { font-size: 0.75rem; color: var(--text-muted); }
 
 .ov-list { display: flex; flex-direction: column; }
 .ov-row {
-  width: 100%; min-height: 48px;
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px 2px; text-align: left;
-  border-bottom: 1px solid var(--border);
+  width: 100%; min-height: 3rem;
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.75rem 0.125rem; text-align: left;
+  border-bottom: 0.0625rem solid var(--border);
 }
 .ov-row:active { background: var(--bg-hover); }
-.ov-row-title { flex: 1; min-width: 0; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ov-row-time { font-size: 12px; color: var(--text-faint); flex-shrink: 0; }
+.ov-row-title { flex: 1; min-width: 0; font-size: 0.9375rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov-row-time { font-size: 0.75rem; color: var(--text-faint); flex-shrink: 0; }
 
 /* Tiles are the completeness condition made visible: one per bar item. */
-.ov-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.ov-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.625rem; }
 /* The template puts the tiles at the top of the root, in one compact row —
    docs/mobile/design/homescreen-1_schvaleni-3.png.  `auto-fit` keeps the row
    honest when a scope is missing and a tile with it: three across on a phone,
@@ -479,50 +485,50 @@ button { cursor: pointer; border: none; background: none; }
 /* A preference is a row you can hit, not a checkbox with a caption: §8 wants a
    48 dp target and the explanation belongs next to the switch, not in a manual. */
 .pref {
-  display: flex; align-items: flex-start; justify-content: space-between; gap: 14px;
-  min-height: 48px; padding: 6px 0; cursor: pointer;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 0.875rem;
+  min-height: 3rem; padding: 0.375rem 0; cursor: pointer;
 }
-.pref-text { display: flex; flex-direction: column; gap: 3px; }
-.pref-label { font-size: 14px; font-weight: 500; }
-.pref-note { color: var(--text-muted); font-size: 13px; line-height: 1.45; }
+.pref-text { display: flex; flex-direction: column; gap: 0.1875rem; }
+.pref-label { font-size: 0.875rem; font-weight: 500; }
+.pref-note { color: var(--text-muted); font-size: 0.8125rem; line-height: 1.45; }
 .pref input[type="checkbox"] {
-  flex: 0 0 auto; width: 44px; height: 26px; margin-top: 2px;
+  flex: 0 0 auto; width: 2.75rem; height: 1.625rem; margin-top: 0.125rem;
   accent-color: var(--accent);
 }
 
-.card-note { margin: 4px 0 0; color: var(--text-muted); font-size: 13px; line-height: 1.5; }
+.card-note { margin: 0.25rem 0 0; color: var(--text-muted); font-size: 0.8125rem; line-height: 1.5; }
 
 .ov-tiles-top {
   grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
-  margin-bottom: 4px;
+  margin-bottom: 0.25rem;
 }
-.ov-tiles-top .ov-tile { gap: 6px; padding: 12px 10px; text-align: center; align-items: center; }
+.ov-tiles-top .ov-tile { gap: 0.375rem; padding: 0.75rem 0.625rem; text-align: center; align-items: center; }
 .ov-tiles-top .ov-tile-note { font-variant-numeric: tabular-nums; }
 
 /* "Zobrazit všechny" — the template's way out of a shortened section. */
 .ov-more {
-  display: block; width: 100%; margin-top: 8px; padding: 10px;
-  min-height: 48px;
-  color: var(--accent-text); font-size: 14px; font-weight: 600;
+  display: block; width: 100%; margin-top: 0.5rem; padding: 0.625rem;
+  min-height: 3rem;
+  color: var(--accent-text); font-size: 0.875rem; font-weight: 600;
 }
 
 .ov-tile {
   /* §8 — 48 × 48 dp is the floor for any touch target. */
-  width: 100%; min-height: 84px;
-  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
-  padding: 14px; text-align: left;
+  width: 100%; min-height: 5.25rem;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.25rem;
+  padding: 0.875rem; text-align: left;
   background: var(--bg-raised); border: 1px solid var(--border);
   border-radius: var(--radius);
   color: var(--text);
 }
 .ov-tile:active { background: var(--bg-hover); }
-.ov-tile svg { width: 20px; height: 20px; color: var(--text-muted); }
-.ov-tile-label { font-size: 15px; font-weight: 600; }
+.ov-tile svg { width: 1.25rem; height: 1.25rem; color: var(--text-muted); }
+.ov-tile-label { font-size: 0.9375rem; font-weight: 600; }
 .ov-tile-note {
-  display: inline-flex; align-items: center; gap: 5px;
-  font-size: 12px; color: var(--text-muted);
+  display: inline-flex; align-items: center; gap: 0.3125rem;
+  font-size: 0.75rem; color: var(--text-muted);
 }
-.ov-tile-note svg { width: 13px; height: 13px; }
+.ov-tile-note svg { width: 0.8125rem; height: 0.8125rem; }
 /* `locked` is grey *and* carries a lock plus the word "Připravujeme" (§8, §10):
    a tile that is only paler reads as a rendering glitch, not as a boundary. */
 .ov-tile[data-locked="true"] {
@@ -537,7 +543,7 @@ button { cursor: pointer; border: none; background: none; }
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
   background: color-mix(in srgb, var(--bg-raised) 92%, transparent);
   backdrop-filter: saturate(180%) blur(14px);
-  border-top: 1px solid var(--border);
+  border-top: 0.0625rem solid var(--border);
   padding-bottom: var(--safe-bottom);
   /* §8 asks for ≤ 200 ms and no decorative motion.  The retraction is the one
      named exception (operator, 2026-08-10): it is not decoration but the
@@ -554,7 +560,7 @@ button { cursor: pointer; border: none; background: none; }
 }
 .navbar[data-retracted="true"] { transform: translateY(100%); }
 .navbar-track {
-  display: flex; align-items: stretch; gap: 2px;
+  display: flex; align-items: stretch; gap: 0.125rem;
   overflow-x: auto; overflow-y: hidden;
   scroll-behavior: smooth;
   scrollbar-width: none;
@@ -576,15 +582,15 @@ button { cursor: pointer; border: none; background: none; }
    row.  It is decoration over the track, so it never intercepts a tap. */
 .navbar-gate {
   position: absolute; top: 0; bottom: 0; left: 50%;
-  width: 96px; transform: translateX(-50%);
+  width: 6rem; transform: translateX(-50%);
   pointer-events: none;
   display: flex; align-items: center; justify-content: space-between;
 }
 .navbar-gate::before,
 .navbar-gate::after {
   content: "";
-  width: 3px; height: 34px;
-  border-radius: 3px;
+  width: 0.1875rem; height: 2.125rem;
+  border-radius: 0.1875rem;
   background: linear-gradient(to bottom,
     transparent, var(--accent) 22%, var(--accent) 78%, transparent);
   box-shadow: 0 0 10px var(--accent-soft);
@@ -596,14 +602,14 @@ button { cursor: pointer; border: none; background: none; }
 .nav-tab {
   flex: 0 0 auto;
   /* §8 — 48 × 48 dp floor for a touch target. */
-  min-width: 88px; min-height: 56px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-  padding: 8px 12px;
-  font-size: 12px; font-weight: 500; color: var(--text-muted);
-  border-top: 2px solid transparent;
+  min-width: 5.5rem; min-height: 3.5rem;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.1875rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem; font-weight: 500; color: var(--text-muted);
+  border-top: 0.125rem solid transparent;
   transition: color .12s;
 }
-.nav-tab svg { width: 20px; height: 20px; }
+.nav-tab svg { width: 1.25rem; height: 1.25rem; }
 /* §3.1 — a tab must be the same width selected or not.  The highlight turns the
    label bold, and a bold label is wider, so without this the whole centred row
    re-flowed by a couple of pixels on every switch: a bar that wobbles.  The
@@ -627,13 +633,13 @@ button { cursor: pointer; border: none; background: none; }
 }
 .nav-tab[aria-disabled="true"] { color: var(--text-faint); cursor: default; }
 .nav-count {
-  min-width: 16px; padding: 0 4px;
+  min-width: 1rem; padding: 0 0.25rem;
   background: var(--accent-text); color: var(--on-accent);
-  border-radius: 8px; font-size: 10px; font-weight: 700; line-height: 16px;
+  border-radius: 0.5rem; font-size: 0.625rem; font-weight: 700; line-height: 1rem;
 }
 /* The bar overlays nothing: the scroll region gives back exactly its height. */
-body.has-navbar .scroll { padding-bottom: calc(58px + var(--safe-bottom)); }
-body.has-navbar .composer { margin-bottom: calc(58px + var(--safe-bottom)); }
+body.has-navbar .scroll { padding-bottom: calc(3.625rem + var(--safe-bottom)); }
+body.has-navbar .composer { margin-bottom: calc(3.625rem + var(--safe-bottom)); }
 
 /* ── Cards / settings ──────────────────────────────────────────────────── */
 .card {
@@ -641,29 +647,29 @@ body.has-navbar .composer { margin-bottom: calc(58px + var(--safe-bottom)); }
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  margin-bottom: 14px;
+  margin-bottom: 0.875rem;
 }
-.card-head { padding: 13px 16px 4px; }
-.card-title { font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-faint); margin: 0; }
+.card-head { padding: 0.8125rem 1rem 0.25rem; }
+.card-title { font-size: 0.75rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-faint); margin: 0; }
 .kv {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 12px 16px; border-top: 1px solid var(--border);
-  font-size: 14px;
+  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  padding: 0.75rem 1rem; border-top: 0.0625rem solid var(--border);
+  font-size: 0.875rem;
 }
 .card-head + .kv { border-top: none; }
 .kv-key { color: var(--text-muted); flex-shrink: 0; }
 /* Explanatory rows are prose, not a label: they must wrap rather than run off
    the card. */
 .kv-note {
-  display: block; padding: 12px 16px; border-top: 1px solid var(--border);
-  font-size: 12.5px; line-height: 1.55; color: var(--text-muted);
+  display: block; padding: 0.75rem 1rem; border-top: 0.0625rem solid var(--border);
+  font-size: 0.7812rem; line-height: 1.55; color: var(--text-muted);
 }
 .kv-val { font-weight: 550; text-align: right; word-break: break-word; }
-.kv-val.mono { font-family: var(--font-mono); font-size: 12.5px; }
+.kv-val.mono { font-family: var(--font-mono); font-size: 0.7812rem; }
 
 .pill {
-  display: inline-flex; align-items: center; gap: 5px;
-  font-size: 11.5px; font-weight: 650; padding: 3px 9px; border-radius: 20px;
+  display: inline-flex; align-items: center; gap: 0.3125rem;
+  font-size: 0.7188rem; font-weight: 650; padding: 0.1875rem 0.5625rem; border-radius: 1.25rem;
 }
 .pill[data-tone="ok"]     { background: var(--ok-soft);     color: var(--ok); }
 .pill[data-tone="warn"]   { background: var(--warn-soft);   color: var(--warn); }
@@ -671,67 +677,67 @@ body.has-navbar .composer { margin-bottom: calc(58px + var(--safe-bottom)); }
 .pill[data-tone="info"]   { background: var(--info-soft);   color: var(--info); }
 .pill[data-tone="muted"]  { background: var(--bg-sunken);   color: var(--text-muted); }
 
-.scope-list { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 16px; border-top: 1px solid var(--border); }
+.scope-list { display: flex; flex-wrap: wrap; gap: 0.375rem; padding: 0.75rem 1rem; border-top: 0.0625rem solid var(--border); }
 
 /* ── Pairing ───────────────────────────────────────────────────────────── */
 .pair {
   flex: 1; display: flex; flex-direction: column; justify-content: center;
-  padding: 32px 24px calc(32px + var(--safe-bottom));
-  max-width: 460px; margin: 0 auto; width: 100%;
+  padding: 2rem 1.5rem calc(2rem + var(--safe-bottom));
+  max-width: 28.75rem; margin: 0 auto; width: 100%;
 }
-.pair-brand { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-bottom: 28px; }
+.pair-brand { display: flex; flex-direction: column; align-items: center; gap: 0.875rem; margin-bottom: 1.75rem; }
 .pair-mark {
-  width: 56px; height: 56px; border-radius: 16px; background: var(--accent);
+  width: 3.5rem; height: 3.5rem; border-radius: 1rem; background: var(--accent);
   display: grid; place-items: center; color: var(--on-accent);
-  font-size: 24px; font-weight: 700;
+  font-size: 1.5rem; font-weight: 700;
 }
-.pair h1 { font-size: 22px; font-weight: 650; letter-spacing: -.02em; margin: 0; text-align: center; }
-.pair-lead { font-size: 14.5px; color: var(--text-muted); text-align: center; margin: 8px 0 0; line-height: 1.6; }
-.field { margin-bottom: 14px; }
-.field label { display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
+.pair h1 { font-size: 1.375rem; font-weight: 650; letter-spacing: -.02em; margin: 0; text-align: center; }
+.pair-lead { font-size: 0.9062rem; color: var(--text-muted); text-align: center; margin: 0.5rem 0 0; line-height: 1.6; }
+.field { margin-bottom: 0.875rem; }
+.field label { display: block; font-size: 0.8125rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.375rem; }
 .field input {
-  width: 100%; padding: 12px 14px;
+  width: 100%; padding: 0.75rem 0.875rem;
   background: var(--bg-raised);
   border: 1px solid var(--border-strong); border-radius: var(--radius);
-  font-size: 16px;
+  font-size: 1rem;
 }
 .field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-.field-hint { font-size: 12.5px; color: var(--text-faint); margin: 6px 0 0; }
+.field-hint { font-size: 0.7812rem; color: var(--text-faint); margin: 0.375rem 0 0; }
 .pair-error {
   background: var(--danger-soft); color: var(--danger);
-  padding: 11px 14px; border-radius: var(--radius);
-  font-size: 13.5px; margin-bottom: 14px; line-height: 1.5;
+  padding: 0.6875rem 0.875rem; border-radius: var(--radius);
+  font-size: 0.8438rem; margin-bottom: 0.875rem; line-height: 1.5;
 }
 .pair-steps {
-  margin: 22px 0 0; padding: 16px; background: var(--bg-sunken);
-  border-radius: var(--radius); font-size: 13px; color: var(--text-muted);
+  margin: 1.375rem 0 0; padding: 1rem; background: var(--bg-sunken);
+  border-radius: var(--radius); font-size: 0.8125rem; color: var(--text-muted);
 }
-.pair-steps ol { margin: 8px 0 0; padding-left: 20px; }
-.pair-steps li { margin-bottom: 5px; }
+.pair-steps ol { margin: 0.5rem 0 0; padding-left: 1.25rem; }
+.pair-steps li { margin-bottom: 0.3125rem; }
 .pair-steps code {
-  font-family: var(--font-mono); font-size: 12px;
+  font-family: var(--font-mono); font-size: 0.75rem;
   background: var(--bg-raised); border: 1px solid var(--border);
-  padding: 1px 5px; border-radius: 4px;
+  padding: 0.0625rem 0.3125rem; border-radius: 0.25rem;
 }
 
 /* ── Notifications ─────────────────────────────────────────────────────── */
-.notif { display: flex; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.notif { display: flex; gap: 0.75rem; padding: 0.875rem 1rem; border-bottom: 0.0625rem solid var(--border); }
 .notif[data-unread="true"] { background: var(--accent-soft); }
-.notif-dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 8px; flex-shrink: 0; background: transparent; }
+.notif-dot { width: 0.4375rem; height: 0.4375rem; border-radius: 50%; margin-top: 0.5rem; flex-shrink: 0; background: transparent; }
 .notif[data-unread="true"] .notif-dot { background: var(--accent); }
-.notif-title { font-size: 14.5px; font-weight: 600; }
-.notif-body { font-size: 13.5px; color: var(--text-muted); margin-top: 3px; line-height: 1.5; }
+.notif-title { font-size: 0.9062rem; font-weight: 600; }
+.notif-body { font-size: 0.8438rem; color: var(--text-muted); margin-top: 0.1875rem; line-height: 1.5; }
 
 /* ── Toasts ────────────────────────────────────────────────────────────── */
 .toasts {
-  position: fixed; left: 0; right: 0; bottom: calc(84px + var(--safe-bottom));
-  z-index: 70; display: flex; flex-direction: column; align-items: center; gap: 8px;
-  pointer-events: none; padding: 0 16px;
+  position: fixed; left: 0; right: 0; bottom: calc(5.25rem + var(--safe-bottom));
+  z-index: 70; display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+  pointer-events: none; padding: 0 1rem;
 }
 .toast {
   background: var(--text); color: var(--bg);
-  padding: 10px 16px; border-radius: var(--radius);
-  font-size: 13.5px; font-weight: 500; box-shadow: var(--shadow);
+  padding: 0.625rem 1rem; border-radius: var(--radius);
+  font-size: 0.8438rem; font-weight: 500; box-shadow: var(--shadow);
   animation: toast-in .2s cubic-bezier(.32,.72,0,1);
   max-width: 100%;
 }
@@ -740,18 +746,18 @@ body.has-navbar .composer { margin-bottom: calc(58px + var(--safe-bottom)); }
 
 /* ── Operations journal rows ───────────────────────────────────────────── */
 .op-row {
-  display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap;
-  padding: 12px 16px; border-top: 1px solid var(--border); font-size: 13.5px;
+  display: flex; align-items: flex-start; gap: 0.625rem; flex-wrap: wrap;
+  padding: 0.75rem 1rem; border-top: 0.0625rem solid var(--border); font-size: 0.8438rem;
 }
-.op-row .op-id { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-faint); }
+.op-row .op-id { font-family: var(--font-mono); font-size: 0.7188rem; color: var(--text-faint); }
 /* The reason an attempt is UNKNOWN is the sentence the user decides on, so it
    is body text — not the faint metadata treatment the id and timestamps get. */
-.op-row .op-why { margin-top: 4px; font-size: 12.5px; color: var(--text); }
-.op-row .op-meta { margin-top: 2px; font-size: 11.5px; color: var(--text-faint); }
+.op-row .op-why { margin-top: 0.25rem; font-size: 0.7812rem; color: var(--text); }
+.op-row .op-meta { margin-top: 0.125rem; font-size: 0.7188rem; color: var(--text-faint); }
 /* Two actions per row need room; on a narrow phone they wrap rather than
    shrink below the 48 dp touch target. */
-.op-actions { display: flex; gap: 8px; flex-wrap: wrap; width: 100%; }
-.op-actions .btn { flex: 1 1 auto; min-height: 40px; }
+.op-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; width: 100%; }
+.op-actions .btn { flex: 1 1 auto; min-height: 2.5rem; }
 
 /* ── MS-20 — unresolved attempts (UI-DESIGN §6.9) ──────────────────────────
    The screen a user reaches when nothing else works, so nothing here may rely
@@ -759,27 +765,27 @@ body.has-navbar .composer { margin-bottom: calc(58px + var(--safe-bottom)); }
    two-step abandon is a block of prose before it is a red button. */
 .ms20-cap {
   border: 1px solid var(--border-strong);
-  border-left: 3px solid var(--text-faint);
+  border-left: 0.1875rem solid var(--text-faint);
   border-radius: var(--radius);
-  padding: 12px 14px;
-  margin-bottom: 12px;
+  padding: 0.75rem 0.875rem;
+  margin-bottom: 0.75rem;
   background: var(--bg-raised);
 }
 .ms20-cap[data-tone="warn"]   { border-left-color: var(--warn); }
 .ms20-cap[data-tone="danger"] { border-left-color: var(--danger); }
 .ms20-cap[data-tone="ok"]     { border-left-color: var(--ok); }
 .ms20-cap-count {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  font-size: 14px; font-weight: 600;
+  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  font-size: 0.875rem; font-weight: 600;
 }
-.ms20-cap-note { margin: 8px 0 0; font-size: 13px; line-height: 1.5; color: var(--text); }
+.ms20-cap-note { margin: 0.5rem 0 0; font-size: 0.8125rem; line-height: 1.5; color: var(--text); }
 
 /* Provenance and per-row outcomes share one shape: a sentence, optionally with
    the action that would change it. */
 .ms20-note {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  margin: 8px 0 0; padding: 9px 12px;
-  border-radius: var(--radius); font-size: 12.5px; line-height: 1.5;
+  display: flex; align-items: center; gap: 0.625rem; flex-wrap: wrap;
+  margin: 0.5rem 0 0; padding: 0.5625rem 0.75rem;
+  border-radius: var(--radius); font-size: 0.7812rem; line-height: 1.5;
 }
 .ms20-note[data-tone="stale"]   { background: var(--info-soft);   color: var(--info); }
 .ms20-note[data-tone="offline"] { background: var(--warn-soft);   color: var(--warn); }
@@ -791,8 +797,8 @@ body.has-navbar .composer { margin-bottom: calc(58px + var(--safe-bottom)); }
 .ms20-note .btn { flex: 0 0 auto; }
 
 .ms20-lead, .ms20-foot {
-  font-size: 12.5px; line-height: 1.55; color: var(--text-muted);
-  margin: 12px 2px;
+  font-size: 0.7812rem; line-height: 1.55; color: var(--text-muted);
+  margin: 0.75rem 0.125rem;
 }
 
 /* Every MS-20 action is a 48 × 48 dp target, the approved minimum.  This is the
@@ -801,102 +807,102 @@ body.has-navbar .composer { margin-bottom: calc(58px + var(--safe-bottom)); }
    mis-tap between them is not a cosmetic problem.  The rule is scoped to the
    row so the smaller `.btn-sm` elsewhere keeps its own metrics. */
 .ms20-row .op-actions .btn {
-  min-height: 48px;
-  min-width: 48px;
+  min-height: 3rem;
+  min-width: 3rem;
 }
 
 .ms20-list { list-style: none; margin: 0; padding: 0; }
 .ms20-row { flex-direction: column; }
 .ms20-row:first-child { border-top: none; }
-.ms20-title { font-size: 14.5px; font-weight: 600; }
-.ms20-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 5px; }
+.ms20-title { font-size: 0.9062rem; font-weight: 600; }
+.ms20-line { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.3125rem; }
 /* Age is a fact the user decides on — readable, not faint metadata. */
-.ms20-age { font-size: 12.5px; color: var(--text-muted); }
+.ms20-age { font-size: 0.7812rem; color: var(--text-muted); }
 .ms20-row .row-main { width: 100%; }
 
 /* The price comes before the confirming button and is not dismissible by
    tapping past it: abandoning is meant to be inconvenient (MD-19 §4.3). */
 .ms20-confirm {
   width: 100%;
-  margin-top: 10px; padding: 12px;
+  margin-top: 0.625rem; padding: 0.75rem;
   background: var(--danger-soft);
   border: 1px solid var(--danger);
   border-radius: var(--radius);
 }
-.ms20-price { margin: 0 0 10px; font-size: 13px; line-height: 1.55; color: var(--text); }
+.ms20-price { margin: 0 0 0.625rem; font-size: 0.8125rem; line-height: 1.55; color: var(--text); }
 
 /* ── MS-13 approval queue ──────────────────────────────────────────────── */
 
-.appr-lead { margin: 0 0 12px; font-size: 13px; line-height: 1.55; color: var(--text-muted); }
+.appr-lead { margin: 0 0 0.75rem; font-size: 0.8125rem; line-height: 1.55; color: var(--text-muted); }
 .appr-list { list-style: none; margin: 0; padding: 0; }
 .appr-row {
   display: flex; flex-direction: column;
-  padding: 14px; border-top: 1px solid var(--border);
+  padding: 0.875rem; border-top: 0.0625rem solid var(--border);
   /* MS-13 is a reading screen, but the row is still a touch target on the way
      to MS-14, so it keeps the approved 48 dp minimum. */
-  min-height: 48px;
+  min-height: 3rem;
 }
 .appr-row:first-child { border-top: none; }
-.appr-title { font-size: 14.5px; font-weight: 600; }
-.appr-detail { margin-top: 5px; font-size: 13px; line-height: 1.5; color: var(--text-muted); }
+.appr-title { font-size: 0.9062rem; font-weight: 600; }
+.appr-detail { margin-top: 0.3125rem; font-size: 0.8125rem; line-height: 1.5; color: var(--text-muted); }
 
 /* SS-09.  A queue that silently shrinks is a queue that lost something without
    saying so, so the note sits above the list and is announced, not styled in. */
 .appr-gone {
-  margin: 12px 16px 0; padding: 12px;
+  margin: 0.75rem 1rem 0; padding: 0.75rem;
   background: var(--danger-soft);
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
-.appr-gone p { margin: 0 0 6px; font-size: 13px; line-height: 1.55; }
+.appr-gone p { margin: 0 0 0.375rem; font-size: 0.8125rem; line-height: 1.55; }
 .appr-gone p:last-child { margin-bottom: 0; }
 
 /* ── MS-14 decision ────────────────────────────────────────────────────── */
 
 /* The whole row is the way in, so the target is the row, not an icon in it. */
 .appr-open {
-  display: block; width: 100%; min-height: 48px;
+  display: block; width: 100%; min-height: 3rem;
   padding: 0; margin: 0; text-align: left;
   background: none; border: 0; color: inherit; font: inherit; cursor: pointer;
 }
-.appr-detail-card { padding: 16px; }
-.appr-body { margin: 10px 0 0; font-size: 14px; line-height: 1.6; }
+.appr-detail-card { padding: 1rem; }
+.appr-body { margin: 0.625rem 0 0; font-size: 0.875rem; line-height: 1.6; }
 
 /* The fingerprint is not decoration: it is what the decision is bound to, so
    it is readable body text rather than faint metadata. */
 .appr-fingerprint {
-  margin: 12px 0 0; padding-top: 12px;
-  border-top: 1px solid var(--border);
-  font-size: 12.5px; line-height: 1.6; color: var(--text-muted);
+  margin: 0.75rem 0 0; padding-top: 0.75rem;
+  border-top: 0.0625rem solid var(--border);
+  font-size: 0.7812rem; line-height: 1.6; color: var(--text-muted);
 }
 
 /* §8 — MS-14 is the one place with a higher floor than the ordinary 48 dp:
    56 dp tall and 12 dp apart, "aby palec netrefil vedle".  Measured in Chrome
    by tests/mobile-browser-a11y.test.js; the previous 10 px gap and 48 dp height
    met the general rule and missed this one. */
-.appr-actions { display: flex; gap: 12px; margin-top: 16px; }
+.appr-actions { display: flex; gap: 0.75rem; margin-top: 1rem; }
 /* Approve and reject are the same size: making one easier to hit than the
    other is a thumb-shaped opinion about someone else's decision. */
-.appr-actions .btn { flex: 1; min-height: 56px; }
+.appr-actions .btn { flex: 1; min-height: 3.5rem; }
 /* The way out of a blocked decision — a read, or the recovery screen.  It keeps
    the 48 dp target of the decision buttons but deliberately not their width:
    nothing here should be reachable with the same thumb movement as a grant. */
-.appr-actions-single { margin-top: 12px; }
+.appr-actions-single { margin-top: 0.75rem; }
 .appr-actions-single .btn { flex: 0 1 auto; }
-.appr-foot { margin: 12px 0 0; font-size: 12.5px; line-height: 1.55; color: var(--text-muted); }
+.appr-foot { margin: 0.75rem 0 0; font-size: 0.7812rem; line-height: 1.55; color: var(--text-muted); }
 
 /* Why deciding is unavailable is an answer, not an absence — it occupies the
    space the buttons would have, so nobody hunts for a control that is gone. */
 .appr-blocked {
-  margin: 16px 0 0; padding: 14px;
+  margin: 1rem 0 0; padding: 0.875rem;
   background: var(--surface-2, var(--danger-soft));
   border: 1px solid var(--border); border-radius: var(--radius);
-  font-size: 13px; line-height: 1.55;
+  font-size: 0.8125rem; line-height: 1.55;
 }
 .appr-note {
-  margin: 12px 16px 0; padding: 12px;
+  margin: 0.75rem 1rem 0; padding: 0.75rem;
   border: 1px solid var(--border); border-radius: var(--radius);
-  font-size: 13px; line-height: 1.55;
+  font-size: 0.8125rem; line-height: 1.55;
 }
 .appr-note[data-tone="danger"] { background: var(--danger-soft); border-color: var(--danger); }
 .appr-note p { margin: 0; }

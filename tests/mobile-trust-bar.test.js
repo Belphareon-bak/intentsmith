@@ -365,7 +365,12 @@ await test('§10 every zone carries an icon and a word, so colour never carries 
 await test('§4 the stylesheet reserves the 32 dp band and never lets the bar overlay content', () => {
   const css = readFileSync(new URL('../src/mobile/client/app.css', import.meta.url), 'utf8');
   const block = css.slice(css.indexOf('.trust-bar'), css.indexOf('/* ── Header'));
-  assert.match(block, /min-height:\s*32px/, 'the 32 dp band from §4 is not declared');
+  // 32 **dp**, in whatever unit the sheet uses: it moved to `rem` for dynamic
+  // type (§10), so the declared value is normalised at the 16 px root.
+  const band = block.match(/min-height:\s*(\d+(?:\.\d+)?)(px|rem)/);
+  assert.ok(band, 'the 32 dp band from §4 is not declared');
+  const declared = band[2] === 'rem' ? Number(band[1]) * 16 : Number(band[1]);
+  assert.equal(declared, 32, `§4 asks for a 32 dp band, the sheet declares ${band[1]}${band[2]}`);
   assert.ok(!/\.trust-bar\s*{[^}]*position:\s*(absolute|fixed)/.test(css),
     'the trust bar is positioned out of flow, so it would cover content instead of pushing it');
 });

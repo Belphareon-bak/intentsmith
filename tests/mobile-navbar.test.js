@@ -443,7 +443,12 @@ await test('§10 focus on an off-screen item scrolls it into view', () => {
 await test('§8 the bar declares a 48 dp touch target and pushes content instead of covering it', () => {
   const css = readFileSync(new URL('../src/mobile/client/app.css', import.meta.url), 'utf8');
   const tab = css.slice(css.indexOf('.nav-tab {'), css.indexOf('.nav-tab svg'));
-  assert.match(tab, /min-height:\s*(4[89]|5\d|6\d)px/, 'the 48 dp minimum target is not declared');
+  // 48 **dp** or more, in whatever unit: the sheet is in `rem` since the
+  // dynamic-type conversion (§10), so the value is normalised at the 16 px root.
+  const target = tab.match(/min-height:\s*(\d+(?:\.\d+)?)(px|rem)/);
+  assert.ok(target, 'the 48 dp minimum target is not declared');
+  const declared = target[2] === 'rem' ? Number(target[1]) * 16 : Number(target[1]);
+  assert.ok(declared >= 48, `§8 wants at least 48 dp of tab, the sheet declares ${target[1]}${target[2]}`);
   assert.match(css, /body\.has-navbar \.scroll \{[^}]*padding-bottom/,
     'the scroll region does not give back the height the fixed bar takes');
   const bar = css.slice(css.indexOf('.navbar {'), css.indexOf('.navbar[data-retracted'));

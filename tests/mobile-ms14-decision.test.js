@@ -666,8 +666,17 @@ await test('§10 approve and reject are the same size — the layout holds no op
   // 48 dp one this pin used to carry — `tests/mobile-browser-a11y.test.js`
   // measured the rendered buttons at 48 dp and 10 px and the stylesheet moved.
   // The claim of *this* assertion is unchanged: one rule, both buttons.
-  assert.match(css, /\.appr-actions \{ display: flex; gap: 12px;/);
-  assert.match(css, /\.appr-actions \.btn \{ flex: 1; min-height: 56px; \}/);
+  // §8 asks for 12 and 56 **dp**, not for a unit.  The sheet is in `rem` since
+  // the dynamic-type conversion, so the numbers are normalised at the 16 px root
+  // instead of being matched as literals — otherwise a unit change breaks a test
+  // about size.
+  const dp = (value) => (value.endsWith('rem') ? parseFloat(value) * 16 : parseFloat(value));
+  const gap = css.match(/\.appr-actions \{ display: flex; gap: ([\d.]+(?:px|rem));/);
+  const minHeight = css.match(/\.appr-actions \.btn \{ flex: 1; min-height: ([\d.]+(?:px|rem)); \}/);
+  assert.ok(gap, 'the decision row does not declare its gap');
+  assert.ok(minHeight, 'the decision buttons do not declare a minimum height');
+  assert.equal(dp(gap[1]), 12, `§8 wants 12 dp between the decisions, got ${gap[1]}`);
+  assert.equal(dp(minHeight[1]), 56, `§8 wants 56 dp of decision button, got ${minHeight[1]}`);
 });
 
 await test('§10 the outcome of a decision is announced, not only coloured', async () => {
