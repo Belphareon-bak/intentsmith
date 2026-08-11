@@ -528,6 +528,19 @@ počtu. Checkpoint je source-implementovaný a staticky reviewovaný; behavior
 programy, skutečný `M1-EXECUTION-MANIFEST`, operátorský apply, transfer, export,
 purge, process-alias restart ani completed scrub spuštěné nebo doložené nejsou.
 
+První immutable candidate `bbc2a70f037ff633ee38324121b327dd02a4ebd6`
+zastavil svůj povinný writer gate hned v prvním programu: settings authority
+skončila `3/4` s `MIGRATION_DIRECTORY_UNSAFE` a zbývající tři programy se kvůli
+fail-fast vůbec nespustily. Příčinou nebyl unsafe credential target, ale C3
+navíc aplikovalo private-directory mode policy na canonical module project root,
+který je owner-owned, real, non-symlink a v běžném checkoutu mode `0775`;
+shared C1 root seam na tomto adresáři správně pinuje owner a stabilní identitu,
+zatímco exact `0600` vyžaduje až pro `.env`. Následná narrow correction tuto
+paritu obnovuje pouze pro exact canonical root; DB, data, historical env,
+export, manifest a ostatní explicitní migrační adresáře dál používají přísnou
+private-directory policy. Candidate `bbc2a70f` je proto rejected, nikoli PASS;
+replacement `S` a celý writer gate jsou pending.
+
 DB census je záměrně neprefixový. Vedle `webhookSecret` a legacy
 `c3.notif.webhookSecret` zahrne všech devět retired typed notification cest a
 stejných deset nested `notifications.*` sensitive cest jako Architect

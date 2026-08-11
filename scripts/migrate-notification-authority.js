@@ -209,6 +209,21 @@ function requireSafeDirectory(directoryPath) {
   }
 }
 
+function requireOwnedDirectory(directoryPath) {
+  requireAbsolutePath(directoryPath);
+  try {
+    const stat = fs.lstatSync(directoryPath, { bigint: true });
+    if (!stat.isDirectory() || stat.isSymbolicLink() || stat.uid !== currentUid()
+      || fs.realpathSync(directoryPath) !== directoryPath) {
+      fail('MIGRATION_DIRECTORY_UNSAFE');
+    }
+    return stat;
+  } catch (error) {
+    if (error instanceof NotificationAuthorityMigrationError) throw error;
+    fail('MIGRATION_DIRECTORY_UNSAFE', error);
+  }
+}
+
 function requireSafeFileStat(stat, { mode0600 = false, maximumBytes = null } = {}) {
   const mode = stat.mode & 0o7777n;
   if (!stat.isFile() || stat.isSymbolicLink() || stat.uid !== currentUid()
@@ -237,18 +252,22 @@ function readBounded(descriptor, maximumBytes) {
 
 function readSafeFileSnapshot(filePath, {
   allowAbsent = false,
+  allowOwnedSharedDirectory = false,
   maximumBytes = MAX_JSON_BYTES,
   mode0600 = false,
 } = {}) {
   requireAbsolutePath(filePath);
   const directoryPath = path.dirname(filePath);
-  const directoryStat = requireSafeDirectory(directoryPath);
+  const inspectDirectory = allowOwnedSharedDirectory
+    ? requireOwnedDirectory
+    : requireSafeDirectory;
+  const directoryStat = inspectDirectory(directoryPath);
   let pathStat;
   try {
     pathStat = fs.lstatSync(filePath, { bigint: true });
   } catch (error) {
     if (allowAbsent && error?.code === 'ENOENT') {
-      const currentDirectory = requireSafeDirectory(directoryPath);
+      const currentDirectory = inspectDirectory(directoryPath);
       if (!sameIdentity(directoryStat, currentDirectory)) fail('MIGRATION_DIRECTORY_UNSAFE');
       return deepFreeze({
         bytes: Buffer.alloc(0),
@@ -280,7 +299,7 @@ function readSafeFileSnapshot(filePath, {
     }
     const finalPathStat = fs.lstatSync(filePath, { bigint: true });
     requireSafeFileStat(finalPathStat, { maximumBytes, mode0600 });
-    const finalDirectory = requireSafeDirectory(directoryPath);
+    const finalDirectory = inspectDirectory(directoryPath);
     if (!sameStableFile(afterRead, finalPathStat)
       || !sameIdentity(directoryStat, finalDirectory)) {
       fail('MIGRATION_FILE_UNSAFE');
@@ -462,10 +481,16 @@ function renderExactEnvDeletion(bytes, keys) {
   return Buffer.from(`${fileBom}${retained.join('')}`, 'utf8');
 }
 
-function readEnvironmentSource(filePath, { allowAbsent, kind, locator }) {
+function readEnvironmentSource(filePath, {
+  allowAbsent,
+  allowOwnedSharedDirectory = false,
+  kind,
+  locator,
+}) {
   if (path.basename(filePath) !== '.env') fail('MIGRATION_ENV_PATH_INVALID');
   const before = readSafeFileSnapshot(filePath, {
     allowAbsent,
+    allowOwnedSharedDirectory,
     maximumBytes: ROOT_ENVIRONMENT_MAX_BYTES,
     mode0600: true,
   });
@@ -480,6 +505,7 @@ function readEnvironmentSource(filePath, { allowAbsent, kind, locator }) {
   });
   const after = readSafeFileSnapshot(filePath, {
     allowAbsent,
+    allowOwnedSharedDirectory,
     maximumBytes: ROOT_ENVIRONMENT_MAX_BYTES,
     mode0600: true,
   });
@@ -734,6 +760,11 @@ export function censusNotificationAuthority({
   const rootPath = path.join(MODULE_PROJECT_ROOT, '.env');
   const rootEnvironment = readEnvironmentSource(rootPath, {
     allowAbsent: true,
+    // The canonical project root follows the shared C1 seam: exact owner,
+    // non-symlink and stable identity are required, but a normal 0775 checkout
+    // is not itself a credential file. Explicit migration/output directories
+    // retain the stricter private-directory policy.
+    allowOwnedSharedDirectory: true,
     kind: 'ENV',
     locator: rootPath,
   });
@@ -1900,6 +1931,7 @@ function scrubEnvironmentSource(manifest, source) {
   const role = source.role;
   const environment = readEnvironmentSource(source.locator, {
     allowAbsent: role === 'ROOT' || role === 'DATA_DIR',
+    allowOwnedSharedDirectory: role === 'ROOT',
     kind: 'ENV',
     locator: source.locator,
   });
