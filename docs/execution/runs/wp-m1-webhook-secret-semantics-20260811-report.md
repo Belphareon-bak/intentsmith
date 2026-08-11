@@ -54,3 +54,5 @@ standalone `chats/`, reset ani známé notification compatibility residualy.
 Finding 011 zůstává `OPEN`, Gate 1 `BLOCKED` a pokračuje pořadí 026 → 029.
 Electron/build, GPU, Ollama, outbound webhook, externí síť ani full-product test
 nebyly spuštěné.
+candidateHead: fc01a5e9c157f125f4e7638e2656c84ea8477228
+reviewB.verdict: PASS
