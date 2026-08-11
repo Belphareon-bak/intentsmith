@@ -30,7 +30,7 @@ export const STUDIO_M0_POLICY = Object.freeze({
     STUDIO_ROUTE_IDS.AGENTS_LIST,
     STUDIO_ROUTE_IDS.MEDIA_HISTORY,
   ]),
-  requiredPostRoute: STUDIO_ROUTE_IDS.SETTINGS,
+  requiredWriteRoute: STUDIO_ROUTE_IDS.SETTINGS,
   requiredSoakMs: 65_000,
   minTheiaPollingHttp: 1,
   maxTheiaPollingHttp: 128,
@@ -173,7 +173,7 @@ function classifyBackendPath(pathname) {
     ['/api/expertises', STUDIO_ROUTE_IDS.EXPERTISES_LIST],
     ['/api/agents', STUDIO_ROUTE_IDS.AGENTS_LIST],
     ['/api/media/history', STUDIO_ROUTE_IDS.MEDIA_HISTORY],
-    ['/api/settings', STUDIO_ROUTE_IDS.SETTINGS],
+    ['/api/settings/v2', STUDIO_ROUTE_IDS.SETTINGS],
     ['/api/system/info', STUDIO_ROUTE_IDS.SYSTEM_INFO],
     ['/api/workspace', STUDIO_ROUTE_IDS.WORKSPACE],
     ['/chat', STUDIO_ROUTE_IDS.CHAT],
@@ -947,11 +947,11 @@ export function evaluateStudioCdpEvidence(
   }
 
   if (!actualHttp.some(record => (
-    record.routeId === policy.requiredPostRoute
-    && record.methodClass === 'POST'
+    record.routeId === policy.requiredWriteRoute
+    && record.methodClass === 'PUT'
     && record.statusClass === '2xx'
   ))) {
-    failures.push(failure('missing-settings-post'));
+    failures.push(failure('missing-settings-write'));
   }
 
   const theiaHttp = Array.isArray(snapshot.theiaControlPlane?.http)

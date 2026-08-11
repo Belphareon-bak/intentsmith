@@ -18,6 +18,7 @@ import {
   runMigrations,
 } from '../src/db/migrate.js';
 import { up as migrateModelPolicy } from '../src/db/migrations/2026_08_09_061_model_automation_policy.js';
+import { up as migrateUserSettingsRevision } from '../src/db/migrations/2026_08_10_064_user_settings_revision.js';
 import { createMiscRoutes } from '../src/routes/misc.js';
 import { createSystemRoutes } from '../src/routes/system.js';
 import {
@@ -96,7 +97,7 @@ function openDb(databasePath = ':memory:') {
   return db;
 }
 
-function createPolicySchema(db) {
+function createPolicySchema(db, { revisioned = true } = {}) {
   db.exec(`
     CREATE TABLE user_settings (
       id INTEGER PRIMARY KEY,
@@ -104,7 +105,41 @@ function createPolicySchema(db) {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
-  db.transaction(() => migrateModelPolicy(db))();
+  db.transaction(() => {
+    migrateModelPolicy(db);
+    if (revisioned) migrateUserSettingsRevision(db);
+  })();
+}
+
+function hasSettingsRevision(db) {
+  return db.prepare('PRAGMA table_info(user_settings)').all()
+    .some(column => column.name === 'revision');
+}
+
+function writeSettingsRaw(db, raw) {
+  if (!hasSettingsRevision(db)) {
+    const result = db.prepare(`
+      INSERT INTO user_settings (id, data)
+      VALUES (1, ?)
+      ON CONFLICT(id) DO UPDATE SET data = excluded.data
+    `).run(raw);
+    assertEqual(result.changes, 1);
+    return result;
+  }
+  const result = db.prepare(`
+    UPDATE user_settings
+    SET data = ?, revision = revision + 1
+    WHERE id = 1
+  `).run(raw);
+  assertEqual(result.changes, 1);
+  return result;
+}
+
+function writeCorruptSettingsRaw(db, raw) {
+  if (hasSettingsRevision(db)) {
+    db.exec('DROP TRIGGER IF EXISTS trg_user_settings_revision_update_guard');
+  }
+  return writeSettingsRaw(db, raw);
 }
 
 function createRuntime(prefix, initialNow = 2000) {
@@ -266,16 +301,16 @@ function createSettingsRouteHarness(db) {
     get featureResetCount() { return featureResetCount; },
     setFeatureFailure(error) { featureFailure = error; },
     setLoggerFailure(error) { loggerFailure = error; },
-    async post(body) {
+    async putV2(body) {
       requestBody = body;
       response = null;
       featureDocument = null;
-      await routes['POST /api/settings']({}, {});
+      await routes['PUT /api/settings/v2']({}, {});
       return { response, featureDocument };
     },
-    async get() {
+    async getV2() {
       response = null;
-      await routes['GET /api/settings']({}, {});
+      await routes['GET /api/settings/v2']({}, {});
       return response;
     },
     backup() {
@@ -284,7 +319,9 @@ function createSettingsRouteHarness(db) {
       return response;
     },
     async importBackup(body, options = {}) {
-      requestBody = body;
+      const expectedRevision = options.expectedRevision
+        ?? db.prepare('SELECT revision FROM user_settings WHERE id=1').get()?.revision;
+      requestBody = options.requestBody ?? { backup: body, expectedRevision };
       parseFailure = options.parseFailure || null;
       response = null;
       featureDocument = null;
@@ -410,7 +447,7 @@ await testAsync('migration 061 creates exact default-off projection and audit au
   try {
     const result = await runMigrations(db);
     assert(result.applied.includes('2026_08_09_061_model_automation_policy'));
-    assertEqual(result.applied.at(-1), '2026_08_10_062_model_failover_proof_issuance');
+    assertEqual(result.applied.at(-1), '2026_08_10_064_user_settings_revision');
     const policy = readModelAutomationPolicy(db);
     assertEqual(policy.status, ModelAutomationPolicyStatus.VALID);
     assertEqual(policy.valid, true);
@@ -444,6 +481,7 @@ await testAsync('legacy values are quarantined and removed without becoming opt-
     const before061 = plan.filter(migration => ![
       '2026_08_09_061_model_automation_policy',
       '2026_08_10_062_model_failover_proof_issuance',
+      '2026_08_10_064_user_settings_revision',
     ].includes(migration.version));
     migrationInternals.runMigrationPlan(db, before061);
     db.prepare(`
@@ -464,6 +502,7 @@ await testAsync('legacy values are quarantined and removed without becoming opt-
     assertEqual(JSON.stringify(result.applied), JSON.stringify([
       '2026_08_09_061_model_automation_policy',
       '2026_08_10_062_model_failover_proof_issuance',
+      '2026_08_10_064_user_settings_revision',
     ]));
     const policy = readModelAutomationPolicy(db);
     assertEqual(policy.valid, true);
@@ -477,6 +516,10 @@ await testAsync('legacy values are quarantined and removed without becoming opt-
     assertEqual(Object.hasOwn(document.models, 'autoFailoverEnabled'), false);
     assertEqual(Object.hasOwn(document.models, 'autoCleanupEnabled'), false);
     assertEqual(Object.hasOwn(document.models, 'autoCleanupDays'), false);
+    assertEqual(
+      db.prepare('SELECT revision FROM user_settings WHERE id = 1').get().revision,
+      1,
+    );
 
     const quarantine = JSON.parse(db.prepare(`
       SELECT legacy_quarantine_json
@@ -531,7 +574,7 @@ test('pre-existing authority object fails atomically without a migration stamp',
 test('legacy INSERT and UPDATE writers cannot reintroduce owned keys', () => {
   const db = openDb();
   try {
-    createPolicySchema(db);
+    createPolicySchema(db, { revisioned: false });
     for (const [key, value] of [
       ['autoFailoverEnabled', false],
       ['autoCleanupEnabled', null],
@@ -546,7 +589,7 @@ test('legacy INSERT and UPDATE writers cannot reintroduce owned keys', () => {
       assertEqual(db.prepare('SELECT COUNT(*) AS count FROM user_settings').get().count, 0);
     }
 
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run(JSON.stringify({
+    writeSettingsRaw(db, JSON.stringify({
       models: { futureSetting: 'keep-me' },
     }));
     const safeRaw = db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data;
@@ -573,7 +616,7 @@ test('legacy INSERT and UPDATE writers cannot reintroduce owned keys', () => {
 test('duplicate models objects cannot bypass INSERT or UPDATE downgrade guards', () => {
   const db = openDb();
   try {
-    createPolicySchema(db);
+    createPolicySchema(db, { revisioned: false });
     const duplicate = '{"models":{},"models":{"autoFailoverEnabled":true}}';
     const insertError = captureError(() => db.prepare(`
       INSERT INTO user_settings (id, data) VALUES (1, ?)
@@ -593,49 +636,36 @@ test('duplicate models objects cannot bypass INSERT or UPDATE downgrade guards',
   }
 });
 
-await testAsync('generic settings POST drops owned keys and cannot mutate policy authority', async () => {
+await testAsync('versioned generic settings reject policy and runtime-feature paths before mutation', async () => {
   const db = openDb();
   try {
     createPolicySchema(db);
     const harness = createSettingsRouteHarness(db);
-    const before = readModelAutomationPolicy(db);
-    const first = await harness.post({
-      ui: { theme: 'dark' },
-      models: {
-        autoFailoverEnabled: true,
-        autoCleanupEnabled: true,
-        autoCleanupDays: 30,
-        futureSetting: 'keep-me',
+    const before = snapshot(db);
+    for (const patch of [
+      {
+        models: {
+          autoFailoverEnabled: true,
+          autoCleanupEnabled: true,
+          autoCleanupDays: 30,
+        },
       },
-    });
-    assertEqual(first.response.status, 200);
-    assertEqual(first.response.body.success, true);
-    assertEqual(
-      JSON.stringify(first.response.body.ignoredReservedKeys),
-      JSON.stringify(['autoFailoverEnabled', 'autoCleanupEnabled', 'autoCleanupDays']),
-    );
-    assertEqual(first.featureDocument.ui.theme, 'dark');
-    assertEqual(first.featureDocument.models.futureSetting, 'keep-me');
-    assertEqual(Object.hasOwn(first.featureDocument.models, 'autoFailoverEnabled'), false);
-
-    const stored = JSON.parse(db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data);
-    assertEqual(stored.ui.theme, 'dark');
-    assertEqual(stored.models.futureSetting, 'keep-me');
-    assertEqual(Object.hasOwn(stored.models, 'autoFailoverEnabled'), false);
-    assertEqual(Object.hasOwn(stored.models, 'autoCleanupEnabled'), false);
-    assertEqual(Object.hasOwn(stored.models, 'autoCleanupDays'), false);
-    assertEqual(JSON.stringify(readModelAutomationPolicy(db)), JSON.stringify(before));
-
-    const reset = await harness.post({});
-    assertEqual(reset.response.status, 200);
-    assertEqual(JSON.stringify(reset.response.body.ignoredReservedKeys), '[]');
-    assertEqual(JSON.stringify(readModelAutomationPolicy(db)), JSON.stringify(before));
+      { 'c3.features.skills': false },
+    ]) {
+      const result = await harness.putV2({ expectedRevision: 1, patch });
+      assertEqual(result.response.status, 400);
+      assertEqual(result.response.body.ok, false);
+      assertEqual(result.response.body.code, 'USER_SETTINGS_PATH_UNOWNED');
+      assertEqual(result.featureDocument, null);
+      assertEqual(snapshot(db), before);
+    }
+    assertEqual(readModelAutomationPolicy(db).settings.autoFailoverEnabled, false);
   } finally {
     db.close();
   }
 });
 
-await testAsync('generic settings GET omits owned keys from a legacy raw row', async () => {
+await testAsync('versioned settings GET projects only public paths from a legacy raw row', async () => {
   const db = openDb();
   try {
     createPolicySchema(db);
@@ -643,20 +673,19 @@ await testAsync('generic settings GET omits owned keys from a legacy raw row', a
       DROP TRIGGER trg_user_settings_model_automation_insert_guard;
       DROP TRIGGER trg_user_settings_model_automation_update_guard;
     `);
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run(JSON.stringify({
-      ui: { theme: 'light' },
+    writeSettingsRaw(db, JSON.stringify({
+      'c3.language': 'en',
       models: {
         autoFailoverEnabled: true,
         autoCleanupDays: 99,
         futureSetting: 'keep-me',
       },
     }));
-    const response = await createSettingsRouteHarness(db).get();
+    const response = await createSettingsRouteHarness(db).getV2();
     assertEqual(response.status, 200);
-    assertEqual(response.body.ui.theme, 'light');
-    assertEqual(response.body.models.futureSetting, 'keep-me');
-    assertEqual(Object.hasOwn(response.body.models, 'autoFailoverEnabled'), false);
-    assertEqual(Object.hasOwn(response.body.models, 'autoCleanupDays'), false);
+    assertEqual(response.body.revision, 2);
+    assertEqual(JSON.stringify(response.body.settings), JSON.stringify({ 'c3.language': 'en' }));
+    assertEqual(Object.hasOwn(response.body.settings, 'models'), false);
     assertEqual(readModelAutomationPolicy(db).settings.autoFailoverEnabled, false);
   } finally {
     db.close();
@@ -667,7 +696,7 @@ await testAsync('schema v2 export is one deterministic default-deny settings pro
   const db = openDb();
   try {
     createPolicySchema(db);
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run(JSON.stringify({
+    writeSettingsRaw(db, JSON.stringify({
       appearance: {
         theme: 'light',
         accentColor: '#12abEF',
@@ -767,7 +796,7 @@ await testAsync('schema v2 carries only source values and repairs a malformed ow
   const db = openDb();
   try {
     createPolicySchema(db);
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run(JSON.stringify({
+    writeSettingsRaw(db, JSON.stringify({
       appearance: { theme: 'light' },
       'c3.language': 'en',
       webhookSecret: 'SOURCE_SECRET_CANARY',
@@ -781,7 +810,7 @@ await testAsync('schema v2 carries only source values and repairs a malformed ow
     }));
     assertEqual(JSON.stringify(exported.body.backup).includes('SOURCE_SECRET_CANARY'), false);
 
-    db.prepare('UPDATE user_settings SET data = ? WHERE id = 1').run(JSON.stringify({
+    writeSettingsRaw(db, JSON.stringify({
       appearance: null,
       output: {
         codeStyle: 'google',
@@ -795,13 +824,18 @@ await testAsync('schema v2 carries only source values and repairs a malformed ow
     const { response } = await harness.importBackup(exported.body.backup);
     assertEqual(response.status, 200);
     assertEqual(response.body.appliedPortablePaths.join(','), '/appearance/theme,/c3.language');
-    assertEqual(response.body.generalSettings.appearance.theme, 'light');
-    assertEqual(response.body.generalSettings.output.codeStyle, 'google');
-    assertEqual(response.body.generalSettings.output.defaultFormat, 'yaml');
-    assertEqual(response.body.generalSettings.output.namingConvention, 'PascalCase');
-    assertEqual(response.body.generalSettings['c3.language'], 'en');
-    assertEqual(response.body.generalSettings['c3.output.codeBlocks'], false);
-    assertEqual(response.body.generalSettings.webhookSecret, 'DESTINATION_SECRET_CANARY');
+    assertEqual(response.body.settings.appearance.theme, 'light');
+    assertEqual(response.body.settings.output.codeStyle, 'google');
+    assertEqual(response.body.settings.output.defaultFormat, 'yaml');
+    assertEqual(response.body.settings.output.namingConvention, 'PascalCase');
+    assertEqual(response.body.settings['c3.language'], 'en');
+    assertEqual(response.body.settings['c3.output.codeBlocks'], false);
+    assertEqual(Object.hasOwn(response.body.settings, 'webhookSecret'), false);
+    assertEqual(
+      JSON.parse(db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data)
+        .webhookSecret,
+      'DESTINATION_SECRET_CANARY',
+    );
   } finally {
     db.close();
   }
@@ -829,7 +863,7 @@ await testAsync('schema v2 import overlays only portable preferences and preserv
       system: { ollamaUrl: 'DESTINATION_OLLAMA' },
       future: { setting: 'DESTINATION_FUTURE' },
     });
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run(JSON.stringify(destination));
+    writeSettingsRaw(db, JSON.stringify(destination));
     const harness = createSettingsRouteHarness(db);
     const imported = backupEnvelope({
       settingsProjection: {
@@ -854,31 +888,37 @@ await testAsync('schema v2 import overlays only portable preferences and preserv
     assertEqual(response.body.appliedPortablePaths.join(','), SETTINGS_PORTABLE_PATHS.join(','));
     assertEqual(response.body.ignoredSourcePathCount, 0);
     assert(response.body.preservedLocalPathCount >= 3);
-    const committed = response.body.generalSettings;
+    const committed = response.body.settings;
     assertEqual(committed.appearance.theme, 'light');
     assertEqual(committed.appearance.fontSize, 18);
-    assertEqual(committed.appearance.privateSibling, 'DESTINATION_APPEARANCE_PRIVATE');
+    assertEqual(Object.hasOwn(committed.appearance, 'privateSibling'), false);
     assertEqual(committed['c3.language'], 'en');
     assertEqual(committed.output.defaultFormat, 'yaml');
-    assertEqual(committed.notifications.telegramToken, 'DESTINATION_TELEGRAM');
-    assertEqual(committed.notifications.slackWebhook, 'DESTINATION_SLACK');
-    assertEqual(committed.notifications.discordWebhook, 'DESTINATION_DISCORD');
-    assertEqual(committed.notifications.webhookUrl, 'DESTINATION_WEBHOOK_URL');
-    assertEqual(committed.notifications.smsApiKey, 'DESTINATION_SMS_KEY');
-    assertEqual(committed.notifications.smsSecret, 'DESTINATION_SMS_SECRET');
-    assertEqual(committed['c3.notif.smtpPass'], 'DESTINATION_SMTP');
-    assertEqual(committed['c3.notif.webhookSecret'], 'DESTINATION_HMAC');
-    assertEqual(committed.webhookSecret, 'DESTINATION_TOPLEVEL_HMAC');
-    assertEqual(committed.system.ollamaUrl, 'DESTINATION_OLLAMA');
-    assertEqual(committed.future.setting, 'DESTINATION_FUTURE');
-    assertEqual(committed.constructor.local, 'DESTINATION_CONSTRUCTOR');
-    assertEqual(committed.prototype.local, 'DESTINATION_PROTOTYPE');
-    assertEqual(committed.__proto__.local, 'DESTINATION_PROTO');
-    assertEqual(JSON.stringify(featureDocument), JSON.stringify(response.body.generalSettings));
-    assertEqual(
+    for (const key of [
+      'notifications', 'c3.notif.smtpPass', 'c3.notif.webhookSecret',
+      'webhookSecret', 'system', 'future', 'constructor', 'prototype', '__proto__',
+    ]) {
+      assertEqual(Object.hasOwn(committed, key), false);
+    }
+    const persisted = JSON.parse(
       db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data,
-      JSON.stringify(response.body.generalSettings),
     );
+    assertEqual(persisted.appearance.privateSibling, 'DESTINATION_APPEARANCE_PRIVATE');
+    assertEqual(persisted.notifications.telegramToken, 'DESTINATION_TELEGRAM');
+    assertEqual(persisted.notifications.slackWebhook, 'DESTINATION_SLACK');
+    assertEqual(persisted.notifications.discordWebhook, 'DESTINATION_DISCORD');
+    assertEqual(persisted.notifications.webhookUrl, 'DESTINATION_WEBHOOK_URL');
+    assertEqual(persisted.notifications.smsApiKey, 'DESTINATION_SMS_KEY');
+    assertEqual(persisted.notifications.smsSecret, 'DESTINATION_SMS_SECRET');
+    assertEqual(persisted['c3.notif.smtpPass'], 'DESTINATION_SMTP');
+    assertEqual(persisted['c3.notif.webhookSecret'], 'DESTINATION_HMAC');
+    assertEqual(persisted.webhookSecret, 'DESTINATION_TOPLEVEL_HMAC');
+    assertEqual(persisted.system.ollamaUrl, 'DESTINATION_OLLAMA');
+    assertEqual(persisted.future.setting, 'DESTINATION_FUTURE');
+    assertEqual(persisted.constructor.local, 'DESTINATION_CONSTRUCTOR');
+    assertEqual(persisted.prototype.local, 'DESTINATION_PROTOTYPE');
+    assertEqual(persisted.__proto__.local, 'DESTINATION_PROTO');
+    assertEqual(featureDocument, null);
     assertEqual(readModelAutomationPolicy(db).settings.autoFailoverEnabled, true);
     assertEqual(db.prepare(`
       SELECT COUNT(*) AS count
@@ -894,7 +934,7 @@ await testAsync('schema v1 and raw legacy imports are projected without trusting
   const db = openDb();
   try {
     createPolicySchema(db);
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run(JSON.stringify({
+    writeSettingsRaw(db, JSON.stringify({
       appearance: {
         accentColor: '#abcdef',
         fontFamily: 'roboto',
@@ -932,23 +972,24 @@ await testAsync('schema v1 and raw legacy imports are projected without trusting
     assertEqual(response.body.appliedPortablePaths.join(','), '/appearance/theme');
     assertEqual(response.body.ignoredSourcePathCount, 5);
     assert(response.body.preservedLocalPathCount >= 2);
-    assertEqual(response.body.generalSettings.appearance.theme, 'system');
-    assertEqual(response.body.generalSettings.appearance.accentColor, '#abcdef');
-    assertEqual(response.body.generalSettings.appearance.fontFamily, 'roboto');
-    assertEqual(response.body.generalSettings.appearance.fontSize, 20);
-    assertEqual(response.body.generalSettings.output.codeStyle, 'google');
-    assertEqual(response.body.generalSettings.output.defaultFormat, 'json');
-    assertEqual(response.body.generalSettings.output.namingConvention, 'snake_case');
-    assertEqual(response.body.generalSettings['c3.language'], 'en');
-    assertEqual(response.body.generalSettings['c3.output.codeBlocks'], false);
-    assertEqual(response.body.generalSettings['c3.output.markdownRendering'], false);
-    assertEqual(response.body.generalSettings['c3.output.syntaxHighlight'], false);
-    assertEqual(
-      response.body.generalSettings.notifications.telegramToken,
-      'DESTINATION_LEGACY_TOKEN',
-    );
-    assertEqual(response.body.generalSettings.webhookSecret, 'DESTINATION_LEGACY_HMAC');
-    assertEqual(JSON.stringify(response.body.generalSettings).includes('ATTACKER_'), false);
+    assertEqual(response.body.settings.appearance.theme, 'system');
+    assertEqual(response.body.settings.appearance.accentColor, '#abcdef');
+    assertEqual(response.body.settings.appearance.fontFamily, 'roboto');
+    assertEqual(response.body.settings.appearance.fontSize, 20);
+    assertEqual(response.body.settings.output.codeStyle, 'google');
+    assertEqual(response.body.settings.output.defaultFormat, 'json');
+    assertEqual(response.body.settings.output.namingConvention, 'snake_case');
+    assertEqual(response.body.settings['c3.language'], 'en');
+    assertEqual(response.body.settings['c3.output.codeBlocks'], false);
+    assertEqual(response.body.settings['c3.output.markdownRendering'], false);
+    assertEqual(response.body.settings['c3.output.syntaxHighlight'], false);
+    assertEqual(Object.hasOwn(response.body.settings, 'notifications'), false);
+    assertEqual(Object.hasOwn(response.body.settings, 'webhookSecret'), false);
+    assertEqual(JSON.stringify(response.body.settings).includes('ATTACKER_'), false);
+    let persisted = JSON.parse(db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data);
+    assertEqual(persisted.notifications.telegramToken, 'DESTINATION_LEGACY_TOKEN');
+    assertEqual(persisted.webhookSecret, 'DESTINATION_LEGACY_HMAC');
+    assertEqual(JSON.stringify(persisted).includes('ATTACKER_'), false);
     assertEqual(response.body.policy.revision, enabled.revision + 1);
     assertEqual(response.body.policy.autoFailoverEnabled, true);
 
@@ -960,23 +1001,27 @@ await testAsync('schema v1 and raw legacy imports are projected without trusting
     assertEqual(raw.response.status, 200);
     assertEqual(raw.response.body.sourceSchemaVersion, 0);
     assertEqual(raw.response.body.appliedPortablePaths.join(','), '/appearance/theme');
-    assertEqual(raw.response.body.generalSettings.appearance.theme, 'light');
-    assertEqual(raw.response.body.generalSettings.output.defaultFormat, 'json');
-    assertEqual(raw.response.body.generalSettings['c3.language'], 'en');
-    assertEqual(
-      raw.response.body.generalSettings.notifications.telegramToken,
-      'DESTINATION_LEGACY_TOKEN',
-    );
-    assertEqual(JSON.stringify(raw.response.body.generalSettings).includes('ATTACKER_'), false);
+    assertEqual(raw.response.body.settings.appearance.theme, 'light');
+    assertEqual(raw.response.body.settings.output.defaultFormat, 'json');
+    assertEqual(raw.response.body.settings['c3.language'], 'en');
+    assertEqual(Object.hasOwn(raw.response.body.settings, 'notifications'), false);
+    assertEqual(JSON.stringify(raw.response.body.settings).includes('ATTACKER_'), false);
+    persisted = JSON.parse(db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data);
+    assertEqual(persisted.notifications.telegramToken, 'DESTINATION_LEGACY_TOKEN');
+    assertEqual(persisted.webhookSecret, 'DESTINATION_LEGACY_HMAC');
+    assertEqual(JSON.stringify(persisted).includes('ATTACKER_'), false);
     assertEqual(readModelAutomationPolicy(db).settings.autoFailoverEnabled, true);
 
     const dangerousSource = JSON.parse('{"kind":"INTENTSMITH_SETTINGS_BACKUP","schemaVersion":1,"generalSettings":{"appearance":{"theme":"dark"},"__proto__":{"polluted":true},"constructor":{"polluted":true}},"modelAutomationPolicy":null,"omittedSensitiveKeys":[]}');
     const dangerous = await harness.importBackup(dangerousSource);
     assertEqual(dangerous.response.status, 200);
-    assertEqual(dangerous.response.body.generalSettings.appearance.theme, 'dark');
+    assertEqual(dangerous.response.body.settings.appearance.theme, 'dark');
     assertEqual(Object.prototype.polluted, undefined);
-    assertEqual(Object.hasOwn(dangerous.response.body.generalSettings, '__proto__'), false);
-    assertEqual(Object.hasOwn(dangerous.response.body.generalSettings, 'constructor'), false);
+    assertEqual(Object.hasOwn(dangerous.response.body.settings, '__proto__'), false);
+    assertEqual(Object.hasOwn(dangerous.response.body.settings, 'constructor'), false);
+    persisted = JSON.parse(db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data);
+    assertEqual(Object.hasOwn(persisted, '__proto__'), false);
+    assertEqual(Object.hasOwn(persisted, 'constructor'), false);
   } finally {
     db.close();
   }
@@ -986,7 +1031,7 @@ await testAsync('invalid and nonportable v2 envelopes fail before settings or po
   const db = openDb();
   try {
     createPolicySchema(db);
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{"stable":true}');
+    writeSettingsRaw(db, '{"stable":true}');
     const harness = createSettingsRouteHarness(db);
     const before = snapshot(db);
     const extraPath = portableValues({ '/notifications/telegramToken': 'ATTACKER' });
@@ -1031,6 +1076,27 @@ await testAsync('invalid and nonportable v2 envelopes fail before settings or po
     assertEqual(malformed.response.status, 400);
     assertEqual(malformed.response.body.code, 'MODEL_AUTOMATION_POLICY_BACKUP_INPUT_INVALID');
     assertEqual(snapshot(db), before);
+
+    const currentRevision = db.prepare('SELECT revision FROM user_settings WHERE id=1').get().revision;
+    const stale = await harness.importBackup(backupEnvelope(), {
+      expectedRevision: currentRevision - 1,
+    });
+    assertEqual(stale.response.status, 409);
+    assertEqual(stale.response.body.code, 'USER_SETTINGS_REVISION_CONFLICT');
+    assertEqual(stale.response.body.expectedRevision, currentRevision - 1);
+    assertEqual(stale.response.body.currentRevision, currentRevision);
+    assertEqual(snapshot(db), before);
+
+    const extraWrapperKey = await harness.importBackup(backupEnvelope(), {
+      requestBody: {
+        backup: backupEnvelope(),
+        expectedRevision: currentRevision,
+        override: true,
+      },
+    });
+    assertEqual(extraWrapperKey.response.status, 400);
+    assertEqual(extraWrapperKey.response.body.code, 'MODEL_AUTOMATION_POLICY_BACKUP_INPUT_INVALID');
+    assertEqual(snapshot(db), before);
   } finally {
     db.close();
   }
@@ -1041,7 +1107,7 @@ await testAsync('import and reset failures roll back both settings and policy', 
   try {
     createPolicySchema(db);
     createModelAutomationPolicyRepository(db).updateFromTypedApi(updateInput(1));
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{"stable":true}');
+    writeSettingsRaw(db, '{"stable":true}');
     const harness = createSettingsRouteHarness(db);
 
     db.exec(`
@@ -1082,12 +1148,12 @@ await testAsync('general settings write failures leave policy and audit lineage 
   try {
     createPolicySchema(db);
     createModelAutomationPolicyRepository(db).updateFromTypedApi(updateInput(1));
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{"stable":true}');
+    writeSettingsRaw(db, '{"stable":true}');
     const harness = createSettingsRouteHarness(db);
 
     db.exec(`
       CREATE TRIGGER fixture_fail_settings_write
-      BEFORE INSERT ON user_settings
+      BEFORE UPDATE ON user_settings
       WHEN NEW.id = 1
       BEGIN
         SELECT RAISE(ABORT, 'fixture settings write failure');
@@ -1101,11 +1167,11 @@ await testAsync('general settings write failures leave policy and audit lineage 
     db.exec('DROP TRIGGER fixture_fail_settings_write');
 
     db.exec(`
-      CREATE TRIGGER fixture_fail_settings_delete
-      BEFORE DELETE ON user_settings
-      WHEN OLD.id = 1
+      CREATE TRIGGER fixture_fail_settings_reset
+      BEFORE UPDATE ON user_settings
+      WHEN NEW.id = 1 AND NEW.data = '{}'
       BEGIN
-        SELECT RAISE(ABORT, 'fixture settings delete failure');
+        SELECT RAISE(ABORT, 'fixture settings reset failure');
       END;
     `);
     const beforeReset = snapshot(db);
@@ -1122,12 +1188,15 @@ test('versioned settings operations reject foreign transaction ownership before 
   const db = openDb();
   try {
     createPolicySchema(db);
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{"stable":true}');
+    writeSettingsRaw(db, '{"stable":true}');
     const repository = createModelAutomationPolicyRepository(db);
     const before = snapshot(db);
     for (const operation of [
       () => repository.exportSettingsBackup(),
-      () => repository.replaceFromSettingsImport(backupEnvelope()),
+      () => repository.replaceFromSettingsImport({
+        backup: backupEnvelope(),
+        expectedRevision: db.prepare('SELECT revision FROM user_settings WHERE id=1').get().revision,
+      }),
       () => repository.resetFromGlobalSettings(),
     ]) {
       const error = captureError(() => db.transaction(operation).immediate());
@@ -1149,7 +1218,7 @@ await testAsync('versioned settings routes expose unavailable storage as 503 wit
   assertEqual(backup.status, 503);
   assertEqual(backup.body.ok, false);
 
-  const imported = await harness.importBackup(backupEnvelope());
+  const imported = await harness.importBackup(backupEnvelope(), { expectedRevision: 1 });
   assertEqual(imported.response.status, 503);
   assertEqual(imported.response.body.ok, false);
   assertEqual(imported.featureDocument, null);
@@ -1176,8 +1245,9 @@ await testAsync('post-commit runtime and diagnostic failures remain a truthful d
     }));
     assertEqual(imported.response.status, 200);
     assertEqual(imported.response.body.ok, true);
-    assertEqual(imported.response.body.runtimeApplied, false);
-    assertEqual(imported.response.body.runtimeErrorCode, 'SETTINGS_RUNTIME_APPLY_FAILED');
+    assertEqual(imported.response.body.runtimeApplied, true);
+    assertEqual(imported.response.body.runtimeErrorCode, null);
+    assertEqual(imported.featureDocument, null);
     assertEqual(
       JSON.parse(db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data)
         .appearance.theme,
@@ -1190,7 +1260,8 @@ await testAsync('post-commit runtime and diagnostic failures remain a truthful d
     assertEqual(reset.body.ok, true);
     assertEqual(reset.body.runtimeApplied, false);
     assertEqual(reset.body.runtimeErrorCode, 'SETTINGS_RUNTIME_APPLY_FAILED');
-    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM user_settings').get().count, 0);
+    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM user_settings').get().count, 1);
+    assertEqual(db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data, '{}');
     assertEqual(readModelAutomationPolicy(db).revision, 3);
     assertEqual(db.prepare(`
       SELECT COUNT(*) AS count
@@ -1208,13 +1279,14 @@ await testAsync('global settings reset is one audited OFF transition on both ali
     createPolicySchema(db);
     const repository = createModelAutomationPolicyRepository(db);
     repository.updateFromTypedApi(updateInput(1));
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{"custom":true}');
+    writeSettingsRaw(db, '{"custom":true}');
     const harness = createSettingsRouteHarness(db);
     const reset = await harness.reset();
     assertEqual(reset.status, 200);
     assertEqual(reset.body.ok, true);
     assertEqual(reset.body.policy.autoFailoverEnabled, false);
-    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM user_settings').get().count, 0);
+    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM user_settings').get().count, 1);
+    assertEqual(db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data, '{}');
     assertEqual(db.prepare(`
       SELECT COUNT(*) AS count
       FROM model_automation_policy_events
@@ -1222,11 +1294,12 @@ await testAsync('global settings reset is one audited OFF transition on both ali
     `).get().count, 1);
 
     repository.updateFromTypedApi(updateInput(reset.body.policy.revision));
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{"again":true}');
+    writeSettingsRaw(db, '{"again":true}');
     const legacyReset = await harness.reset({ legacy: true });
     assertEqual(legacyReset.status, 200);
     assertEqual(legacyReset.body.policy.autoFailoverEnabled, false);
-    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM user_settings').get().count, 0);
+    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM user_settings').get().count, 1);
+    assertEqual(db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data, '{}');
     assertEqual(db.prepare(`
       SELECT COUNT(*) AS count
       FROM model_automation_policy_events
@@ -1242,14 +1315,14 @@ await testAsync('backup export fails closed on malformed or invalid stored setti
   const db = openDb();
   try {
     createPolicySchema(db);
-    db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run('{invalid');
+    writeCorruptSettingsRaw(db, '{invalid');
     const before = snapshot(db);
     const response = createSettingsRouteHarness(db).backup();
     assertEqual(response.status, 503);
     assertEqual(response.body.code, 'MODEL_AUTOMATION_POLICY_STORED_GENERAL_SETTINGS_INVALID');
     assertEqual(snapshot(db), before);
 
-    db.prepare('UPDATE user_settings SET data = ? WHERE id = 1').run(JSON.stringify({
+    writeSettingsRaw(db, JSON.stringify({
       appearance: { theme: 'future-unreviewed-theme' },
     }));
     const invalidValue = snapshot(db);
@@ -1688,7 +1761,7 @@ test('explicit reset appends exactly one audited OFF transition', () => {
       JSON.stringify(DEFAULT_MODEL_AUTOMATION_POLICY),
     );
     assertEqual(reset.policy.event.eventKind, 'GLOBAL_RESET');
-    assertEqual(JSON.stringify(reset.generalSettings), '{}');
+    assertEqual(JSON.stringify(reset.settings), '{}');
     assertEqual(db.prepare(`
       SELECT COUNT(*) AS count FROM model_automation_policy_events
       WHERE event_kind = 'GLOBAL_RESET'

@@ -47,22 +47,35 @@ await testAsync('oversized memory payload returns 400', async () => {
 // ── Settings Persistence ────────────────────────────────────────────────────
 suite('Settings API');
 
-await testAsync('GET /api/settings returns shape', async () => {
-  const { status, data } = await api('GET', '/api/settings');
+let settingsRevision;
+
+await testAsync('GET /api/settings/v2 returns versioned public settings', async () => {
+  const { status, data } = await api('GET', '/api/settings/v2');
   assertEqual(status, 200);
-  assert(typeof data === 'object', 'settings must be object');
+  assert(Number.isSafeInteger(data.revision) && data.revision > 0, 'revision must be positive');
+  assert(
+    data.settings && typeof data.settings === 'object' && !Array.isArray(data.settings),
+    'settings must be an object',
+  );
+  settingsRevision = data.revision;
 });
 
-await testAsync('POST /api/settings saves setting', async () => {
-  const { status, data } = await api('POST', '/api/settings', { language: 'cs' });
+await testAsync('PUT /api/settings/v2 saves setting with observed revision', async () => {
+  const { status, data } = await api('PUT', '/api/settings/v2', {
+    expectedRevision: settingsRevision,
+    patch: { 'c3.language': 'cs' },
+  });
   assertEqual(status, 200);
-  assertEqual(data.success, true);
+  assertEqual(data.revision, settingsRevision + 1);
+  assertEqual(data.settings?.['c3.language'], 'cs');
+  settingsRevision = data.revision;
 });
 
-await testAsync('saved setting persists on GET', async () => {
-  const { status, data } = await api('GET', '/api/settings');
+await testAsync('versioned setting persists on GET', async () => {
+  const { status, data } = await api('GET', '/api/settings/v2');
   assertEqual(status, 200);
-  assertEqual(data.language, 'cs');
+  assertEqual(data.revision, settingsRevision);
+  assertEqual(data.settings?.['c3.language'], 'cs');
 });
 
 const result = summary();

@@ -26,6 +26,7 @@ import {
 } from '../src/chat/conversation-store.js';
 import { LLMProviderUnavailableError } from '../src/core/chat-turn-error.js';
 import { up as migrateModelPolicy } from '../src/db/migrations/2026_08_09_061_model_automation_policy.js';
+import { up as migrateUserSettingsRevision } from '../src/db/migrations/2026_08_10_064_user_settings_revision.js';
 import { SETTINGS_PORTABLE_PATHS } from '../src/db/settings-portability.js';
 import { createMiscRoutes } from '../src/routes/misc.js';
 import { createLegacyLocalCapability } from '../src/security/legacy-local-access-policy.js';
@@ -1092,6 +1093,7 @@ function settingsBackupHarness(options = {}) {
       },
     },
     _bCfg: initialSettings,
+    _bCfgRevision: options.initialRevision ?? 1,
     _bCfgLoading: false,
     _backendBase: 'http://127.0.0.1:3335',
     _backupMsg: null,
@@ -1152,7 +1154,7 @@ function settingsBackupHarness(options = {}) {
       + 'portablePaths:_SETTINGS_PORTABLE_PATHS,'
       + 'replaceAndSave:function(encoded){_settingsGeneration++;_bCfg=JSON.parse(encoded);_saveBCfg();},'
       + 'saveConfig:_saveBCfg,'
-      + 'state:function(){return {mutationState:_settingsMutationState,pending:_settingsMutationPending,deliveryUnknown:_settingsDeliveryUnknown,generation:_settingsGeneration,loading:_bCfgLoading};}};',
+      + 'state:function(){return {mutationState:_settingsMutationState,pending:_settingsMutationPending,deliveryUnknown:_settingsDeliveryUnknown,reloadRequired:_settingsReloadRequired,generation:_settingsGeneration,loading:_bCfgLoading,revision:_bCfgRevision};}};',
     context,
     { filename: `${CHAT_PANEL.pathname}#settings-backup` },
   );
@@ -1252,7 +1254,8 @@ function settingsImportCommitFixture(overrides = {}) {
   return {
     ok: true,
     success: true,
-    generalSettings: settingsPortableGeneralSettings(),
+    revision: 2,
+    settings: settingsPortableGeneralSettings(),
     policy: {
       revision: 2,
       autoFailoverEnabled: false,
@@ -1283,7 +1286,8 @@ function settingsResetCommitFixture(overrides = {}) {
   return {
     ok: true,
     success: true,
-    generalSettings: {},
+    revision: 2,
+    settings: {},
     policy: {
       revision: 2,
       autoFailoverEnabled: false,
@@ -1315,7 +1319,10 @@ function portableSettingsBackendHarness() {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
-  db.transaction(() => migrateModelPolicy(db))();
+  db.transaction(() => {
+    migrateModelPolicy(db);
+    migrateUserSettingsRevision(db);
+  })();
   let requestBody = null;
   let response = null;
   const routes = createMiscRoutes({
@@ -1335,7 +1342,8 @@ function portableSettingsBackendHarness() {
   return {
     close() { db.close(); },
     async importBackup(body) {
-      requestBody = body;
+      const current = db.prepare('SELECT revision FROM user_settings WHERE id = 1').get();
+      requestBody = { backup: body, expectedRevision: current.revision };
       response = null;
       await routes['POST /api/settings/import']({}, {});
       return response;
@@ -1347,7 +1355,7 @@ function architectSettingsHarness(options = {}) {
   const source = fs.readFileSync(ARCHITECT_UI, 'utf8');
   const helperStart = source.indexOf('const ARCHITECT_SETTINGS_DEFAULT_DOCUMENT');
   const helperEnd = source.indexOf('// ═══════════════════════════════════════════════════════════════════════════\n// ACCORDION', helperStart);
-  const persistenceStart = source.indexOf('async function loadSettings()');
+  const persistenceStart = source.indexOf('function architectSettingsAdoptV2Snapshot(');
   const persistenceEnd = source.indexOf('function applySettings()', persistenceStart);
   const resetStart = source.indexOf('async function resetSettings()');
   const resetEnd = source.indexOf('// ═══════════════════════════════════════════════════════════════════════════\n// ABOUT', resetStart);
@@ -1399,6 +1407,7 @@ function architectSettingsHarness(options = {}) {
       notifications: { telegramToken: 'local-token' },
       output: { defaultFormat: 'markdown', codeStyle: 'default', namingConvention: 'camelCase' },
     }),
+    _settingsRevisionSeed: options.initialRevision ?? 1,
     applySettings() {
       applySettingsCalls++;
       if (applySettingsCalls === options.applySettingsThrowOnCall) {
@@ -1449,7 +1458,8 @@ function architectSettingsHarness(options = {}) {
       + source.slice(resetStart, resetEnd)
       + '\n'
       + source.slice(exportStart, exportEnd)
-      + '\napplyArchitectSettingsDocument(JSON.parse(_settingsSeed));'
+      + '\nObject.assign(settingsState,architectSettingsCloneData(JSON.parse(_settingsSeed)));'
+      + '\napplyArchitectSettingsDocument(JSON.parse(_settingsSeed),_settingsRevisionSeed);'
       + '\nmodule.exports={'
       + 'exportSettings,importSettings,loadSettings,resetAll,resetSettings,saveSettings,'
       + 'defaults:ARCHITECT_SETTINGS_DEFAULT_DOCUMENT,'
@@ -1461,6 +1471,7 @@ function architectSettingsHarness(options = {}) {
       + 'appearanceOwn:Object.prototype.hasOwnProperty.call(settingsState.appearance,"__proto__"),'
       + 'appearancePrototypeSafe:Object.getPrototypeOf(settingsState.appearance)===Object.prototype};},'
       + 'snapshot:function(){return settingsState;},'
+      + 'setTheme:function(value){settingsState.appearance.theme=value;},'
       + 'state:function(){return architectSettingsMutationState;}};',
     context,
     { filename: `${ARCHITECT_UI.pathname}#portable-settings` },
@@ -5753,9 +5764,18 @@ await testAsync('import failures retain the exact local settings snapshot', asyn
   const backup = settingsBackupFixture();
   for (const fixture of [
     { ok: false, status: 400, body: { code: 'MODEL_POLICY_SETTINGS_BACKUP_INVALID' } },
+    {
+      ok: false,
+      status: 409,
+      body: {
+        code: 'USER_SETTINGS_REVISION_CONFLICT',
+        expectedRevision: 1,
+        currentRevision: 2,
+      },
+    },
     { ok: false, status: 503, body: { code: 'MODEL_POLICY_STORAGE_UNAVAILABLE' } },
-    { ok: true, status: 200, body: { ok: true, success: true, generalSettings: null } },
-    { ok: true, status: 200, body: { ok: false, success: true, generalSettings: {} } },
+    { ok: true, status: 200, body: { ok: true, success: true, settings: null } },
+    { ok: true, status: 200, body: { ok: false, success: true, settings: {} } },
     { ok: true, status: 200, jsonError: new Error('invalid JSON') },
     new Error('fixture disconnected'),
   ]) {
@@ -5772,6 +5792,11 @@ await testAsync('import failures retain the exact local settings snapshot', asyn
     assert.equal(harness.requests.length, 1);
     assert.deepEqual(harness.settings(), initial);
     assert.equal(harness.status().ok, false);
+    if (fixture && fixture.status === 409) {
+      assert.equal(harness.functions.state().mutationState, 'RELOAD_REQUIRED');
+      assert.equal(harness.functions.state().reloadRequired, true);
+      assert.equal(harness.requests.length, 1, 'revision conflict was replayed');
+    }
   }
 });
 
@@ -5805,11 +5830,9 @@ await testAsync('invalid local documents fail before any import effect', async (
   }
 });
 
-await testAsync('legacy import is wrapped, server state wins, and the next save preserves local secrets', async () => {
+await testAsync('legacy import is CAS-wrapped, adopts redacted state, and the next save stays versioned', async () => {
   const committedSettings = {
     appearance: { theme: 'light' },
-    webhookSecret: 'preserved-webhook',
-    'c3.notif.smtpPass': 'preserved-smtp',
   };
   const harness = settingsBackupHarness({
     initialSettings: { theme: 'dark', webhookSecret: 'old-webhook' },
@@ -5818,7 +5841,7 @@ await testAsync('legacy import is wrapped, server state wins, and the next save 
         ok: true,
         status: 200,
         body: settingsImportCommitFixture({
-          generalSettings: committedSettings,
+          settings: committedSettings,
           runtimeApplied: false,
           runtimeErrorCode: 'SETTINGS_RUNTIME_APPLY_FAILED',
           sourceSchemaVersion: 1,
@@ -5826,7 +5849,7 @@ await testAsync('legacy import is wrapped, server state wins, and the next save 
           preservedLocalPathCount: 2,
         }),
       },
-      { ok: true, status: 200, body: { success: true } },
+      { ok: true, status: 200, body: { revision: 3, settings: committedSettings } },
     ],
   });
 
@@ -5840,11 +5863,14 @@ await testAsync('legacy import is wrapped, server state wins, and the next save 
   assert.deepEqual(hostClone(harness.requests[0].init.headers), { 'Content-Type': 'application/json' });
   assert.equal(harness.requests[0].init.signal.milliseconds, 3000);
   assert.deepEqual(JSON.parse(harness.requests[0].init.body), {
-    kind: 'INTENTSMITH_SETTINGS_BACKUP',
-    schemaVersion: 1,
-    generalSettings: { appearance: { theme: 'light' } },
-    modelAutomationPolicy: null,
-    omittedSensitiveKeys: [],
+    backup: {
+      kind: 'INTENTSMITH_SETTINGS_BACKUP',
+      schemaVersion: 1,
+      generalSettings: { appearance: { theme: 'light' } },
+      modelAutomationPolicy: null,
+      omittedSensitiveKeys: [],
+    },
+    expectedRevision: 1,
   });
   assert.deepEqual(harness.settings(), committedSettings);
   assert.match(harness.status().text, /runtime vyžaduje restart/);
@@ -5854,8 +5880,12 @@ await testAsync('legacy import is wrapped, server state wins, and the next save 
   assert.ok(saveTimer, 'generic save was not scheduled');
   saveTimer.callback();
   await Promise.resolve();
-  assert.equal(harness.requests[1].url, 'http://127.0.0.1:3335/api/settings');
-  assert.deepEqual(JSON.parse(harness.requests[1].init.body), committedSettings);
+  assert.equal(harness.requests[1].url, 'http://127.0.0.1:3335/api/settings/v2');
+  assert.equal(harness.requests[1].init.method, 'PUT');
+  assert.deepEqual(JSON.parse(harness.requests[1].init.body), {
+    expectedRevision: 2,
+    patch: committedSettings,
+  });
 });
 
 await testAsync('reset is fail-closed and only adopts a committed server snapshot', async () => {
@@ -5875,7 +5905,7 @@ await testAsync('reset is fail-closed and only adopts a committed server snapsho
       ok: true,
       status: 200,
       body: settingsResetCommitFixture({
-        generalSettings: committedSettings,
+        settings: committedSettings,
         runtimeApplied: false,
         runtimeErrorCode: 'SETTINGS_RUNTIME_APPLY_FAILED',
       }),
@@ -5918,12 +5948,12 @@ await testAsync('successful runtime apply does not claim restart for import or r
 
 await testAsync('import and reset reject incomplete or inconsistent runtime commit metadata', async () => {
   const invalidBodies = [
-    { ok: true, success: true, generalSettings: { theme: 'partial' } },
-    { ok: true, success: true, generalSettings: { theme: 'partial' }, runtimeApplied: null, runtimeErrorCode: null },
-    { ok: true, success: true, generalSettings: { theme: 'partial' }, runtimeApplied: 'false', runtimeErrorCode: 'SETTINGS_RUNTIME_APPLY_FAILED' },
-    { ok: true, success: true, generalSettings: { theme: 'partial' }, runtimeApplied: 0, runtimeErrorCode: 'SETTINGS_RUNTIME_APPLY_FAILED' },
-    { ok: true, success: true, generalSettings: { theme: 'partial' }, runtimeApplied: true, runtimeErrorCode: 'SETTINGS_RUNTIME_APPLY_FAILED' },
-    { ok: true, success: true, generalSettings: { theme: 'partial' }, runtimeApplied: false, runtimeErrorCode: null },
+    { ok: true, success: true, settings: { theme: 'partial' } },
+    { ok: true, success: true, settings: { theme: 'partial' }, runtimeApplied: null, runtimeErrorCode: null },
+    { ok: true, success: true, settings: { theme: 'partial' }, runtimeApplied: 'false', runtimeErrorCode: 'SETTINGS_RUNTIME_APPLY_FAILED' },
+    { ok: true, success: true, settings: { theme: 'partial' }, runtimeApplied: 0, runtimeErrorCode: 'SETTINGS_RUNTIME_APPLY_FAILED' },
+    { ok: true, success: true, settings: { theme: 'partial' }, runtimeApplied: true, runtimeErrorCode: 'SETTINGS_RUNTIME_APPLY_FAILED' },
+    { ok: true, success: true, settings: { theme: 'partial' }, runtimeApplied: false, runtimeErrorCode: null },
   ];
 
   for (const body of invalidBodies) {
@@ -5947,11 +5977,12 @@ await testAsync('all first-party import consumers reject schema and audit proven
   const base = settingsImportCommitFixture();
   const mismatches = [
     { ...base, sourceSchemaVersion: 1 },
+    { ...base, revision: 1 },
     { ...base, event: { ...base.event, actor: 'user:unexpected-importer' } },
     { ...base, policy: { ...base.policy, lastEventId: 'policy-event-mismatch-0002' } },
     {
       ...base,
-      generalSettings: settingsPortableGeneralSettings({ appearance: { theme: 'dark' } }),
+      settings: settingsPortableGeneralSettings({ appearance: { theme: 'dark' } }),
     },
     { ...base, policy: { ...base.policy, autoCleanupDays: 30 } },
     { ...base, ignoredSourcePathCount: 999 },
@@ -5981,7 +6012,10 @@ await testAsync('all first-party import consumers reject schema and audit proven
     assert.equal(architect.functions.snapshot().appearance.theme, 'dark');
 
     const center = centerViewsSettingsHarness({
-      responses: [{ ok: true, status: 200, body }],
+      responses: [
+        { ok: true, status: 200, body: { revision: 1, settings: {} } },
+        { ok: true, status: 200, body },
+      ],
     });
     center.functions.importSettings.call(center.widget);
     await center.fileInputs[0].onchange({
@@ -6000,7 +6034,7 @@ await testAsync('legacy import provenance is the exact source-derived portable p
     },
   });
   const committed = settingsImportCommitFixture({
-    generalSettings: {
+    settings: {
       appearance: { theme: 'light' },
       'c3.language': 'en',
     },
@@ -6035,7 +6069,10 @@ await testAsync('legacy import provenance is the exact source-derived portable p
     assert.equal(architect.functions.state(), 'DELIVERY_UNKNOWN');
 
     const center = centerViewsSettingsHarness({
-      responses: [{ ok: true, status: 200, body }],
+      responses: [
+        { ok: true, status: 200, body: { revision: 1, settings: {} } },
+        { ok: true, status: 200, body },
+      ],
     });
     center.functions.importSettings.call(center.widget);
     await center.fileInputs[0].onchange({
@@ -6053,9 +6090,8 @@ await testAsync('legacy compatibility reports ignored non-portable source paths 
     },
   });
   const body = settingsImportCommitFixture({
-    generalSettings: {
+    settings: {
       appearance: { theme: 'light' },
-      notifications: { telegramToken: 'DESTINATION_TOKEN' },
     },
     sourceSchemaVersion: 1,
     appliedPortablePaths: ['/appearance/theme'],
@@ -6083,7 +6119,10 @@ await testAsync('legacy compatibility reports ignored non-portable source paths 
   assert.match(architect.toasts.at(-1).message, /1 nepřenosných zdrojových cest/);
 
   const center = centerViewsSettingsHarness({
-    responses: [{ ok: true, status: 200, body }],
+    responses: [
+      { ok: true, status: 200, body: { revision: 1, settings: {} } },
+      { ok: true, status: 200, body },
+    ],
   });
   center.functions.importSettings.call(center.widget);
   await center.fileInputs[0].onchange({
@@ -6096,9 +6135,9 @@ await testAsync('legacy compatibility reports ignored non-portable source paths 
 await testAsync('reset rejects a malformed 2xx commit without changing local settings', async () => {
   const exactReset = settingsResetCommitFixture();
   for (const body of [
-    { ok: true, success: false, generalSettings: {} },
-    { ok: true, success: true, generalSettings: [] },
-    settingsResetCommitFixture({ generalSettings: { appearance: { theme: 'light' } } }),
+    { ok: true, success: false, settings: {} },
+    { ok: true, success: true, settings: [] },
+    settingsResetCommitFixture({ settings: { appearance: { theme: 'light' } } }),
     settingsResetCommitFixture({
       policy: { ...exactReset.policy, autoFailoverEnabled: true },
     }),
@@ -6137,7 +6176,7 @@ await testAsync('settings mutations are single-flight and an old success timer c
   assert.match(harness.status().text, /právě probíhá/);
 
   pending.resolve(settingsImportCommitFixture({
-    generalSettings: settingsPortableGeneralSettings(),
+    settings: settingsPortableGeneralSettings(),
   }));
   assert.equal((await first).success, true);
   assert.deepEqual(harness.settings(), settingsPortableGeneralSettings());
@@ -6158,16 +6197,23 @@ await testAsync('settings recovery cancels queued saves, waits for in-flight sav
   const harness = settingsBackupHarness({
     initialSettings: { theme: 'stale', webhookSecret: 'preserved-webhook' },
     responses: [
-      () => saveDone.promise.then(() => ({
+      ({ context }) => saveDone.promise.then(() => ({
         ok: true,
         status: 200,
-        async json() { return { success: true }; },
+        async json() {
+          const body = {
+            revision: 2,
+            settings: { theme: 'stale', webhookSecret: 'preserved-webhook' },
+          };
+          return vm.runInContext(`JSON.parse(${JSON.stringify(JSON.stringify(body))})`, context);
+        },
       })),
       {
         ok: true,
         status: 200,
         body: settingsResetCommitFixture({
-          generalSettings: committedSettings,
+          revision: 3,
+          settings: committedSettings,
         }),
       },
     ],
@@ -6179,10 +6225,13 @@ await testAsync('settings recovery cancels queued saves, waits for in-flight sav
   firstSaveTimer.callback();
   await drainMicrotasks();
   assert.equal(harness.requests.length, 1);
-  assert.equal(harness.requests[0].url, 'http://127.0.0.1:3335/api/settings');
+  assert.equal(harness.requests[0].url, 'http://127.0.0.1:3335/api/settings/v2');
   assert.deepEqual(JSON.parse(harness.requests[0].init.body), {
-    theme: 'stale',
-    webhookSecret: 'preserved-webhook',
+    expectedRevision: 1,
+    patch: {
+      theme: 'stale',
+      webhookSecret: 'preserved-webhook',
+    },
   });
 
   const reset = harness.functions.resetAll();
@@ -6194,10 +6243,10 @@ await testAsync('settings recovery cancels queued saves, waits for in-flight sav
   assert.equal(harness.requests.length, 1, 'recovery did not wait for the in-flight generic save');
 
   saveDone.resolve();
-  await drainMicrotasks();
-  assert.equal(harness.requests.length, 2);
+  const resetResult = await reset;
+  assert.equal(harness.requests.length, 2, 'reset did not follow the settled in-flight PUT');
   assert.equal(harness.requests[1].url, 'http://127.0.0.1:3335/api/settings/reset');
-  assert.equal((await reset).success, true);
+  assert.equal(resetResult.success, true);
   assert.deepEqual(harness.settings(), committedSettings);
   assert.equal(
     harness.timers.filter(timer => timer.delay === 500 && !timer.cancelled).length,
@@ -6209,7 +6258,7 @@ await testAsync('settings recovery cancels queued saves, waits for in-flight sav
     initialSettings: { theme: 'unsaved' },
     responses: [
       { ok: false, status: 500, body: { code: 'MODEL_AUTOMATION_POLICY_RESET_FAILED' } },
-      { ok: true, status: 200, body: { success: true } },
+      { ok: true, status: 200, body: { revision: 2, settings: { theme: 'unsaved' } } },
     ],
   });
   failed.functions.saveConfig();
@@ -6221,9 +6270,12 @@ await testAsync('settings recovery cancels queued saves, waits for in-flight sav
   assert.ok(resumedTimer, 'failed recovery did not resume the cancelled local save');
   resumedTimer.callback();
   await drainMicrotasks();
-  assert.equal(failed.requests.length, 2);
-  assert.equal(failed.requests[1].url, 'http://127.0.0.1:3335/api/settings');
-  assert.deepEqual(JSON.parse(failed.requests[1].init.body), { theme: 'unsaved' });
+  assert.equal(failed.requests.length, 2, 'definitive rejection did not resume the deferred PUT');
+  assert.equal(failed.requests[1].url, 'http://127.0.0.1:3335/api/settings/v2');
+  assert.deepEqual(JSON.parse(failed.requests[1].init.body), {
+    expectedRevision: 1,
+    patch: { theme: 'unsaved' },
+  });
 });
 
 await testAsync('ambiguous settings delivery fences stale saves and every later mutation effect', async () => {
@@ -6245,8 +6297,10 @@ await testAsync('ambiguous settings delivery fences stale saves and every later 
       mutationState: 'DELIVERY_UNKNOWN',
       pending: false,
       deliveryUnknown: true,
+      reloadRequired: false,
       generation: 1,
       loading: false,
+      revision: 1,
     });
     assert.equal(harness.requests.length, 1);
     assert.match(harness.status().text, /nelze potvrdit/);
@@ -6274,7 +6328,7 @@ await testAsync('definitive settings rejection resumes exactly one deferred gene
     initialSettings: { theme: 'locally-edited' },
     responses: [
       { ok: false, status: 503, jsonError: new Error('unreadable rejection body') },
-      { ok: true, status: 200, body: { success: true } },
+      { ok: true, status: 200, body: { revision: 2, settings: { theme: 'locally-edited' } } },
     ],
   });
   harness.functions.saveConfig();
@@ -6289,15 +6343,18 @@ await testAsync('definitive settings rejection resumes exactly one deferred gene
   resumed[0].callback();
   await drainMicrotasks();
   assert.equal(harness.requests.length, 2);
-  assert.equal(harness.requests[1].url, 'http://127.0.0.1:3335/api/settings');
-  assert.deepEqual(JSON.parse(harness.requests[1].init.body), { theme: 'locally-edited' });
+  assert.equal(harness.requests[1].url, 'http://127.0.0.1:3335/api/settings/v2');
+  assert.deepEqual(JSON.parse(harness.requests[1].init.body), {
+    expectedRevision: 1,
+    patch: { theme: 'locally-edited' },
+  });
 });
 
 await testAsync('a settings load admitted before recovery cannot overwrite its committed snapshot', async () => {
   const staleLoad = deferred();
   const committedSettings = {};
   const harness = settingsBackupHarness({
-    initialSettings: null,
+    initialSettings: { theme: 'current' },
     responses: [
       ({ context }) => staleLoad.promise.then(body => ({
         ok: true,
@@ -6310,10 +6367,10 @@ await testAsync('a settings load admitted before recovery cannot overwrite its c
         ok: true,
         status: 200,
         body: settingsResetCommitFixture({
-          generalSettings: committedSettings,
+          settings: committedSettings,
         }),
       },
-      { ok: true, status: 200, body: { success: true } },
+      { ok: true, status: 200, body: { revision: 3, settings: committedSettings } },
     ],
   });
 
@@ -6326,7 +6383,7 @@ await testAsync('a settings load admitted before recovery cannot overwrite its c
   assert.equal((await reset).success, true);
   assert.deepEqual(harness.settings(), committedSettings);
 
-  staleLoad.resolve({ theme: 'stale-load' });
+  staleLoad.resolve({ revision: 1, settings: { theme: 'stale-load' } });
   assert.equal(await load, false);
   assert.deepEqual(harness.settings(), committedSettings);
   assert.equal(harness.functions.state().mutationState, 'COMMITTED');
@@ -6337,7 +6394,10 @@ await testAsync('a settings load admitted before recovery cannot overwrite its c
   saveTimer.callback();
   await drainMicrotasks();
   assert.equal(harness.requests.length, 3);
-  assert.deepEqual(JSON.parse(harness.requests[2].init.body), committedSettings);
+  assert.deepEqual(JSON.parse(harness.requests[2].init.body), {
+    expectedRevision: 2,
+    patch: committedSettings,
+  });
 });
 
 await testAsync('the rendered Backup panel wires exact endpoints and reports FileReader failures', async () => {
@@ -6371,7 +6431,7 @@ await testAsync('the rendered Backup panel wires exact endpoints and reports Fil
       ok: true,
       status: 200,
       body: settingsImportCommitFixture({
-        generalSettings: settingsPortableGeneralSettings(),
+        settings: settingsPortableGeneralSettings(),
       }),
     }],
   });
@@ -6446,7 +6506,10 @@ await testAsync('one real backend commit is accepted by every first-party portab
     assert.equal(architect.functions.snapshot().appearance.theme, 'light');
 
     const center = centerViewsSettingsHarness({
-      responses: [{ ok: true, status: 200, body: committed.body }],
+      responses: [
+        { ok: true, status: 200, body: { revision: 1, settings: {} } },
+        { ok: true, status: 200, body: committed.body },
+      ],
     });
     center.functions.importSettings.call(center.widget);
     await center.fileInputs[0].onchange({
@@ -6494,18 +6557,15 @@ await testAsync('Architect exports only the validated v2 artifact and rejects in
   assert.equal(rejected.toasts.at(-1).type, 'error');
 });
 
-await testAsync('Architect import is server-authoritative and ambiguous delivery fences legacy saves', async () => {
-  const committed = JSON.parse(`{
-    "appearance":{"theme":"light","accentColor":"#6366f1","fontFamily":"system","fontSize":14,"__proto__":{"architectPolluted":true}},
-    "notifications":{"telegramToken":"DESTINATION_TOKEN"},
-    "output":{"defaultFormat":"markdown","codeStyle":"default","namingConvention":"camelCase"},
-    "c3.language":"en",
-    "c3.output.codeBlocks":false,
-    "c3.output.markdownRendering":false,
-    "c3.output.syntaxHighlight":false,
-    "futureTopLevelCanary":"DESTINATION_FUTURE",
-    "__proto__":{"architectPolluted":true}
-  }`);
+await testAsync('Architect import adopts redacted generic state and fences ambiguous delivery', async () => {
+  const committed = {
+    appearance: { theme: 'light', accentColor: '#6366f1', fontFamily: 'system', fontSize: 14 },
+    output: { defaultFormat: 'markdown', codeStyle: 'default', namingConvention: 'camelCase' },
+    'c3.language': 'en',
+    'c3.output.codeBlocks': false,
+    'c3.output.markdownRendering': false,
+    'c3.output.syntaxHighlight': false,
+  };
   const successful = architectSettingsHarness({
     initialSettings: {
       appearance: { theme: 'dark', staleCanary: 'STALE_APPEARANCE' },
@@ -6518,13 +6578,23 @@ await testAsync('Architect import is server-authoritative and ambiguous delivery
         ok: true,
         status: 200,
         body: settingsImportCommitFixture({
-          generalSettings: committed,
-        sourceSchemaVersion: 1,
-        appliedPortablePaths: ['/appearance/theme'],
-        preservedLocalPathCount: 1,
+          settings: committed,
+          sourceSchemaVersion: 1,
+          appliedPortablePaths: ['/appearance/theme'],
+          preservedLocalPathCount: 1,
         }),
       },
-      { ok: true, status: 200, body: { success: true } },
+      {
+        ok: true,
+        status: 200,
+        body: {
+          revision: 3,
+          settings: {
+            ...committed,
+            appearance: { ...committed.appearance, theme: 'system' },
+          },
+        },
+      },
     ],
   });
   successful.functions.importSettings();
@@ -6535,46 +6605,50 @@ await testAsync('Architect import is server-authoritative and ambiguous delivery
   assert.equal(successful.requests[0].url, '/api/settings/import');
   assert.equal(successful.requests[0].init.method, 'POST');
   assert.deepEqual(JSON.parse(successful.requests[0].init.body), {
-    kind: 'INTENTSMITH_SETTINGS_BACKUP',
-    schemaVersion: 1,
-    generalSettings: { appearance: { theme: 'light' } },
-    modelAutomationPolicy: null,
-    omittedSensitiveKeys: [],
+    backup: {
+      kind: 'INTENTSMITH_SETTINGS_BACKUP',
+      schemaVersion: 1,
+      generalSettings: { appearance: { theme: 'light' } },
+      modelAutomationPolicy: null,
+      omittedSensitiveKeys: [],
+    },
+    expectedRevision: 1,
   });
   const committedSnapshot = hostClone(successful.functions.snapshot());
   assert.equal(committedSnapshot.appearance.theme, 'light');
-  assert.equal(committedSnapshot.appearance.staleCanary, undefined);
-  assert.equal(committedSnapshot.notifications.telegramToken, 'DESTINATION_TOKEN');
-  assert.equal(committedSnapshot['c3.language'], 'en');
-  assert.equal(committedSnapshot['c3.output.codeBlocks'], false);
-  assert.equal(committedSnapshot['c3.output.markdownRendering'], false);
-  assert.equal(committedSnapshot['c3.output.syntaxHighlight'], false);
-  assert.equal(committedSnapshot.futureTopLevelCanary, 'DESTINATION_FUTURE');
-  assert.deepEqual(hostClone(successful.functions.prototypeState()), {
-    globalPolluted: false,
-    rootOwn: true,
-    rootPrototypeSafe: true,
-    appearanceOwn: true,
-    appearancePrototypeSafe: true,
-  });
-  assert.equal(successful.storage.has('paiass_settings'), false);
+  assert.equal(committedSnapshot.appearance.staleCanary, 'STALE_APPEARANCE');
+  assert.equal(committedSnapshot.notifications.telegramToken, 'STALE_TOKEN');
+  assert.equal(committedSnapshot.location.language, 'en');
+  assert.equal(committedSnapshot['c3.output.codeBlocks'], undefined);
+  assert.equal(committedSnapshot['c3.output.markdownRendering'], undefined);
+  assert.equal(committedSnapshot['c3.output.syntaxHighlight'], undefined);
+  assert.equal(committedSnapshot.futureTopLevelCanary, 'STALE_FUTURE');
+  assert.equal(successful.functions.prototypeState().globalPolluted, false);
+  assert.equal(successful.functions.prototypeState().rootPrototypeSafe, true);
+  assert.equal(successful.functions.prototypeState().appearancePrototypeSafe, true);
+  assert.equal(successful.storage.has('paiass_settings'), true);
   assert.equal(successful.functions.state(), 'IDLE');
 
-  assert.equal(await successful.functions.saveSettings(), true);
-  const savedAfterImport = JSON.parse(successful.requests[1].init.body);
-  assert.equal(savedAfterImport.appearance.staleCanary, undefined);
-  assert.equal(savedAfterImport['c3.language'], 'en');
-  assert.equal(savedAfterImport.futureTopLevelCanary, 'DESTINATION_FUTURE');
+  successful.functions.setTheme('system');
+  assert.equal(await successful.functions.saveSettings(), 'COMMITTED');
+  assert.equal(successful.requests[1].url, '/api/settings/v2');
+  assert.equal(successful.requests[1].init.method, 'PUT');
+  assert.deepEqual(JSON.parse(successful.requests[1].init.body), {
+    expectedRevision: 2,
+    patch: { appearance: { theme: 'system' } },
+  });
   assert.equal(({}).architectPolluted, undefined);
 
-  const ambiguous = architectSettingsHarness({ responses: [new Error('connection ended')] });
+  const ambiguous = architectSettingsHarness({
+    responses: [new Error('connection ended'), new Error('reload also failed')],
+  });
   ambiguous.functions.importSettings();
   await ambiguous.fileInputs[0].onchange({
     target: { files: [{ text: async () => JSON.stringify(settingsBackupFixture()) }] },
   });
   assert.equal(ambiguous.functions.state(), 'DELIVERY_UNKNOWN');
-  assert.equal(await ambiguous.functions.saveSettings(), false);
-  assert.equal(ambiguous.requests.length, 1, 'delivery-unknown state admitted a generic save');
+  assert.equal(await ambiguous.functions.saveSettings(), 'BLOCKED');
+  assert.equal(ambiguous.requests.length, 2, 'delivery-unknown state admitted a replay or write');
 });
 
 await testAsync('Architect settings reset requires an exact commit and false factory reset has no effect', async () => {
@@ -6598,31 +6672,25 @@ await testAsync('Architect settings reset requires an exact commit and false fac
   assert.equal(harness.requests[0].url, '/api/settings/reset');
   assert.equal(harness.requests[0].init.method, 'POST');
   assert.deepEqual(JSON.parse(harness.requests[0].init.body), {});
-  assert.equal(harness.storage.has('paiass_settings'), false);
-  assert.equal(harness.storage.has('paiass_accordion_state'), false);
+  assert.equal(harness.storage.has('paiass_settings'), true);
+  assert.equal(harness.storage.has('paiass_accordion_state'), true);
   assert.equal(harness.functions.state(), 'IDLE');
-  assert.deepEqual(
-    hostClone(harness.functions.snapshot()),
-    hostClone(harness.functions.defaults),
-    'authoritative empty reset did not rebuild the in-memory defaults',
-  );
+  assert.equal(harness.functions.snapshot().appearance.theme, 'dark');
+  assert.equal(harness.functions.snapshot().notifications.telegramToken, 'RESET_STALE_TOKEN');
+  assert.equal(harness.functions.snapshot().futureTopLevelCanary, 'RESET_STALE_FUTURE');
 
   harness.functions.resetAll();
   assert.equal(harness.requests.length, 1, 'false factory reset performed an HTTP effect');
   assert.match(harness.toasts.at(-1).title, /Úplné smazání není dostupné/);
 
-  assert.equal(await harness.functions.saveSettings(), true);
-  assert.deepEqual(
-    JSON.parse(harness.requests[1].init.body),
-    hostClone(harness.functions.defaults),
-    'a later generic save resurrected pre-reset values',
-  );
+  assert.equal(await harness.functions.saveSettings(), 'SESSION_ONLY');
+  assert.equal(harness.requests.length, 1, 'session-only fields escaped after reset');
 });
 
 await testAsync('Architect rejects a nonempty or nondefault reset commit', async () => {
   const exactReset = settingsResetCommitFixture();
   for (const body of [
-    settingsResetCommitFixture({ generalSettings: { appearance: { theme: 'light' } } }),
+    settingsResetCommitFixture({ settings: { appearance: { theme: 'light' } } }),
     settingsResetCommitFixture({
       policy: { ...exactReset.policy, autoCleanupEnabled: true },
     }),
@@ -6655,13 +6723,13 @@ await testAsync('Architect recovery revokes an older settings read before it can
 
   const load = harness.functions.loadSettings();
   await drainMicrotasks();
-  assert.equal(harness.requests[0].url, '/api/settings');
+  assert.equal(harness.requests[0].url, '/api/settings/v2');
   await harness.functions.resetSettings();
   assert.equal(harness.functions.snapshot().appearance.theme, 'dark');
 
   staleLoad.resolve({
-    appearance: { theme: 'light' },
-    staleTopLevelCanary: 'STALE_LOAD',
+    revision: 1,
+    settings: { appearance: { theme: 'light' }, staleTopLevelCanary: 'STALE_LOAD' },
   });
   assert.equal(await load, false);
   assert.equal(harness.functions.snapshot().appearance.theme, 'dark');
@@ -6683,28 +6751,30 @@ await testAsync('Architect keeps an authoritative server read when rendering thr
       ok: true,
       status: 200,
       body: {
-        appearance: { theme: 'light' },
-        serverTopLevelCanary: 'AUTHORITATIVE_SERVER',
+        revision: 2,
+        settings: { appearance: { theme: 'light' }, serverTopLevelCanary: 'IGNORED_SERVER' },
       },
     }],
   });
 
-  assert.equal(await harness.functions.loadSettings(), true);
+  assert.equal(await harness.functions.loadSettings(), false);
   assert.equal(harness.functions.snapshot().appearance.theme, 'light');
-  assert.equal(harness.functions.snapshot().serverTopLevelCanary, 'AUTHORITATIVE_SERVER');
+  assert.equal(harness.functions.snapshot().serverTopLevelCanary, undefined);
   assert.equal(harness.functions.snapshot().staleTopLevelCanary, undefined);
+  assert.equal(harness.storage.has('paiass_settings'), true);
 });
 
 await testAsync('Center Views uses canonical backup/import endpoints and never WS key replay', async () => {
   const backup = settingsBackupFixture();
   const committed = settingsImportCommitFixture({
-    generalSettings: { appearance: { theme: 'light' } },
+    settings: { appearance: { theme: 'light' } },
     sourceSchemaVersion: 1,
     appliedPortablePaths: ['/appearance/theme'],
   });
   const harness = centerViewsSettingsHarness({
     responses: [
       { ok: true, status: 200, body: { ok: true, backup } },
+      { ok: true, status: 200, body: { revision: 1, settings: {} } },
       { ok: true, status: 200, body: committed },
     ],
   });
@@ -6718,14 +6788,18 @@ await testAsync('Center Views uses canonical backup/import endpoints and never W
   await harness.fileInputs[0].onchange({
     target: { files: [{ text: async () => JSON.stringify(settingsBackupV1Fixture()) }] },
   });
-  assert.equal(harness.requests[1].url, '/api/settings/import');
-  assert.equal(harness.requests[1].init.method, 'POST');
-  assert.deepEqual(JSON.parse(harness.requests[1].init.body), settingsBackupV1Fixture());
+  assert.equal(harness.requests[1].url, '/api/settings/v2');
+  assert.equal(harness.requests[2].url, '/api/settings/import');
+  assert.equal(harness.requests[2].init.method, 'POST');
+  assert.deepEqual(JSON.parse(harness.requests[2].init.body), {
+    backup: settingsBackupV1Fixture(),
+    expectedRevision: 1,
+  });
   assert.equal(harness.widget._portableSettingsMutationState, 'IDLE');
   assert.match(harness.alerts.at(-1), /imported successfully/);
 
   await harness.functions.exportAll.call(harness.widget);
-  assert.equal(harness.requests.length, 2, 'disabled full backup caused an HTTP effect');
+  assert.equal(harness.requests.length, 3, 'disabled full backup caused an HTTP effect');
   assert.match(harness.alerts.at(-1), /Full-state backup is not available/);
 
   const invalid = centerViewsSettingsHarness();
@@ -6748,14 +6822,41 @@ await testAsync('Center Views uses canonical backup/import endpoints and never W
   assert.equal(invalid.requests.length, 0);
   assert.equal(invalid.widget._portableSettingsMutationState, 'IDLE');
 
-  const ambiguous = centerViewsSettingsHarness({ responses: [new Error('connection ended')] });
+  const ambiguous = centerViewsSettingsHarness({
+    responses: [
+      { ok: true, status: 200, body: { revision: 1, settings: {} } },
+      new Error('connection ended'),
+    ],
+  });
   ambiguous.functions.importSettings.call(ambiguous.widget);
   await ambiguous.fileInputs[0].onchange({
     target: { files: [{ text: async () => JSON.stringify(backup) }] },
   });
-  assert.equal(ambiguous.requests.length, 1);
+  assert.equal(ambiguous.requests.length, 2);
   assert.equal(ambiguous.widget._portableSettingsMutationState, 'DELIVERY_UNKNOWN');
   assert.match(ambiguous.alerts.at(-1), /outcome is unknown/);
+
+  const conflict = centerViewsSettingsHarness({
+    responses: [
+      { ok: true, status: 200, body: { revision: 1, settings: {} } },
+      {
+        ok: false,
+        status: 409,
+        body: {
+          code: 'USER_SETTINGS_REVISION_CONFLICT',
+          expectedRevision: 1,
+          currentRevision: 2,
+        },
+      },
+    ],
+  });
+  conflict.functions.importSettings.call(conflict.widget);
+  await conflict.fileInputs[0].onchange({
+    target: { files: [{ text: async () => JSON.stringify(backup) }] },
+  });
+  assert.equal(conflict.requests.length, 2, 'Center replayed a revision conflict');
+  assert.equal(conflict.widget._portableSettingsMutationState, 'RELOAD_REQUIRED');
+  assert.match(conflict.alerts.at(-1), /was not retried/);
 });
 
 test('active first-party UI source no longer contains the raw export/import bypasses', () => {

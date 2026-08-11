@@ -220,7 +220,11 @@ function completeObservation(overrides = {}) {
     ['/api/media/history', overrides.mediaStatus ?? 200],
   ];
   for (const [path, status] of routes) ingestHttp(target, { path, status });
-  ingestHttp(target, { path: '/api/settings', method: 'POST', status: 200 });
+  ingestHttp(target, {
+    path: '/api/settings/v2',
+    method: overrides.settingsMethod ?? 'PUT',
+    status: 200,
+  });
   ingestValidWebSocket(target, overrides.websocket);
   if (overrides.theiaPolling !== false) {
     ingestTheiaPolling(target, overrides.theiaPolling || {});
@@ -245,6 +249,22 @@ test('classifies exact backend routes without retaining query data', () => {
       THEIA_CONTROL_PLANE,
     ),
     { targetClass: 'protected', routeId: STUDIO_ROUTE_IDS.PROJECTS_LIST },
+  );
+  assert.deepEqual(
+    classifyNetworkTarget(
+      `${BACKEND}/api/settings/v2`,
+      BACKEND,
+      THEIA_CONTROL_PLANE,
+    ),
+    { targetClass: 'protected', routeId: STUDIO_ROUTE_IDS.SETTINGS },
+  );
+  assert.deepEqual(
+    classifyNetworkTarget(
+      `${BACKEND}/api/settings`,
+      BACKEND,
+      THEIA_CONTROL_PLANE,
+    ),
+    { targetClass: 'protected', routeId: STUDIO_ROUTE_IDS.API_OTHER },
   );
 });
 
@@ -405,6 +425,12 @@ test('complete HTTP and WebSocket observation passes the network contract', () =
   assert.equal(snapshot.theiaControlPlane.websockets[0].phaseClass, 'websocket-upgrade');
   assert.equal(Object.isFrozen(snapshot), true);
   assert.equal(Object.isFrozen(snapshot.http[0]), true);
+
+  const settingsPost = evaluateStudioCdpEvidence(completeObservation({
+    settingsMethod: 'POST',
+  }).snapshot());
+  assert.equal(settingsPost.verdict, 'FAIL');
+  assert.equal(failureCodes(settingsPost).has('missing-settings-write'), true);
 });
 
 test('Theia control-plane records never retain authority, query, headers or payload', () => {
@@ -533,7 +559,7 @@ test('wire ExtraInfo is authoritative over optimistic base headers', () => {
   const codes = failureCodes(evaluateStudioCdpEvidence(target.snapshot(), {
     ...STUDIO_M0_POLICY,
     requiredHttpRoutes: [STUDIO_ROUTE_IDS.API_HEALTH],
-    requiredPostRoute: STUDIO_ROUTE_IDS.API_HEALTH,
+    requiredWriteRoute: STUDIO_ROUTE_IDS.API_HEALTH,
   }));
   assert.equal(codes.has('origin-boundary-failed'), true);
   assert.equal(codes.has('capability-boundary-failed'), true);
@@ -665,13 +691,13 @@ test('exact opaque preflight is distinguished from capability-bearing preflight'
   const exact = reducer();
   ingestHttp(exact, {
     id: 'preflight-exact',
-    path: '/api/settings',
+    path: '/api/settings/v2',
     method: 'OPTIONS',
     status: 204,
     wireHeaders: {
       Origin: 'null',
       'Sec-Fetch-Site': 'cross-site',
-      'Access-Control-Request-Method': 'POST',
+      'Access-Control-Request-Method': 'PUT',
       'Access-Control-Request-Headers': `content-type, ${CAPABILITY_HEADER}`,
     },
   });
@@ -681,14 +707,14 @@ test('exact opaque preflight is distinguished from capability-bearing preflight'
   const secretBearing = reducer();
   ingestHttp(secretBearing, {
     id: 'preflight-secret',
-    path: '/api/settings',
+    path: '/api/settings/v2',
     method: 'OPTIONS',
     status: 204,
     wireHeaders: {
       Origin: 'null',
       'Sec-Fetch-Site': 'cross-site',
       [CAPABILITY_HEADER]: CAPABILITY,
-      'Access-Control-Request-Method': 'POST',
+      'Access-Control-Request-Method': 'PUT',
       'Access-Control-Request-Headers': CAPABILITY_HEADER,
     },
   });
@@ -783,7 +809,7 @@ test('combined false-green vector is rejected on every independent axis', () => 
     '/api/agents',
     '/api/media/history',
   ]) ingestHttp(target, { path, method: 'DELETE', status: 200 });
-  ingestHttp(target, { path: '/api/settings', method: 'POST', status: 200 });
+  ingestHttp(target, { path: '/api/settings/v2', method: 'PUT', status: 200 });
   ingestValidWebSocket(target, { requestId: 'ws-good' });
   ingestValidWebSocket(target, {
     requestId: 'ws-bad',

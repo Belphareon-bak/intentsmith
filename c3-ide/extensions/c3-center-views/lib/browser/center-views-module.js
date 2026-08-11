@@ -290,6 +290,10 @@ async function portableSettingsResponse(response, mutation = false) {
     const code = body && typeof body.code === 'string' ? body.code : `HTTP_${response.status}`;
     const path = body && typeof body.path === 'string' ? ` (${body.path})` : '';
     const error = new Error(`${code}${path}`);
+    error.code = code;
+    error.status = response.status;
+    error.revisionConflict = response.status === 409
+      && code === 'USER_SETTINGS_REVISION_CONFLICT';
     error.deliveryUnknown = false;
     throw error;
   }
@@ -297,6 +301,29 @@ async function portableSettingsResponse(response, mutation = false) {
     const error = new Error('Invalid server response');
     error.deliveryUnknown = mutation;
     throw error;
+  }
+  return body;
+}
+
+async function requireVersionedSettingsSnapshot(response) {
+  let body;
+  try {
+    body = await response.json();
+  } catch (_) {
+    throw new Error('Unreadable versioned settings response');
+  }
+  if (!response.ok) {
+    const code = body && typeof body.code === 'string' ? body.code : `HTTP_${response.status}`;
+    const error = new Error(code);
+    error.code = code;
+    error.status = response.status;
+    throw error;
+  }
+  if (!portableSettingsExactKeys(body, ['revision', 'settings'])
+      || !Number.isSafeInteger(body.revision)
+      || body.revision < 1
+      || !portableSettingsPlainObject(body.settings)) {
+    throw new Error('Invalid versioned settings response');
   }
   return body;
 }
@@ -334,7 +361,7 @@ function portableSettingsEventValid(event) {
     && event.source === 'SETTINGS_IMPORT';
 }
 
-function requirePortableSettingsCommit(body, expectedEnvelope) {
+function requirePortableSettingsCommit(body, expectedEnvelope, expectedRevision) {
   const expectedSchemaVersion = expectedEnvelope.schemaVersion;
   const expectedEntries = expectedPortableSettingsEntries(expectedEnvelope);
   const expectedPaths = expectedEntries.map(entry => entry.path);
@@ -343,19 +370,21 @@ function requirePortableSettingsCommit(body, expectedEnvelope) {
     'appliedPortablePaths',
     'event',
     'featuresChanged',
-    'generalSettings',
     'ignoredSourcePathCount',
     'ok',
     'policy',
     'preservedLocalPathCount',
+    'revision',
     'runtimeApplied',
     'runtimeErrorCode',
+    'settings',
     'sourceSchemaVersion',
     'success'
   ])
       || body.ok !== true
       || body.success !== true
-      || !portableSettingsPlainObject(body.generalSettings)
+      || body.revision !== expectedRevision + 1
+      || !portableSettingsPlainObject(body.settings)
       || !portableSettingsPolicyCommitValid(body.policy)
       || !portableSettingsEventValid(body.event)
       || body.policy.lastEventId !== body.event.eventId
@@ -368,7 +397,7 @@ function requirePortableSettingsCommit(body, expectedEnvelope) {
       || body.preservedLocalPathCount < 0
       || !portableSettingsExactStringList(body.appliedPortablePaths, expectedPaths)
       || !expectedEntries.every(entry => {
-        const committed = portableSettingsEntry(body.generalSettings, entry.path);
+        const committed = portableSettingsEntry(body.settings, entry.path);
         return committed.found && Object.is(committed.value, entry.value);
       })
       || (expectedEnvelope.modelAutomationPolicy !== null
@@ -401,6 +430,7 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
     this._openSections = { user: true };
     this._selectedItem = null;
     this._portableSettingsMutationState = 'IDLE';
+    this._versionedSettingsSnapshot = null;
 
     // v63.0: Wizard state
     this._wizardMode = null;      // null | 'create' | 'edit'
@@ -1180,16 +1210,33 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
           throw new Error('Another recovery is pending or requires a reload');
         }
         this._portableSettingsMutationState = 'PENDING';
+        let mutationDispatched = false;
         try {
+          // Center Views has no generic settings save queue. Read the CAS token
+          // only after the user has confirmed the artifact and immediately
+          // before the one mutation; a conflict is never replayed automatically.
+          const current = await requireVersionedSettingsSnapshot(
+            await fetch('/api/settings/v2')
+          );
+          this._versionedSettingsSnapshot = current;
+          mutationDispatched = true;
           const response = await fetch('/api/settings/import', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(settings)
+            body: JSON.stringify({
+              backup: settings,
+              expectedRevision: current.revision
+            })
           });
           const body = requirePortableSettingsCommit(
             await portableSettingsResponse(response, true),
-            settings
+            settings,
+            current.revision
           );
+          this._versionedSettingsSnapshot = {
+            revision: body.revision,
+            settings: body.settings
+          };
           this._portableSettingsMutationState = 'IDLE';
           const ignoredNotice = body.ignoredSourcePathCount > 0
             ? `; ${body.ignoredSourcePathCount} non-portable source paths were ignored`
@@ -1198,14 +1245,18 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
             ? 'Portable preferences imported successfully'
             : 'Portable preferences imported; some changes require a restart') + ignoredNotice);
         } catch (error) {
-          error.deliveryUnknown = error.deliveryUnknown !== false;
-          this._portableSettingsMutationState = error.deliveryUnknown ? 'DELIVERY_UNKNOWN' : 'IDLE';
+          error.deliveryUnknown = mutationDispatched && error.deliveryUnknown !== false;
+          this._portableSettingsMutationState = error.revisionConflict
+            ? 'RELOAD_REQUIRED'
+            : (error.deliveryUnknown ? 'DELIVERY_UNKNOWN' : 'IDLE');
           throw error;
         }
       } catch (err) {
-        alert(err.deliveryUnknown
-          ? 'Import outcome is unknown. Reload Studio before changing settings.'
-          : `Import failed: ${err.message}`);
+        alert(err.revisionConflict
+          ? 'Settings changed before import. Reload Studio and re-confirm the import; it was not retried.'
+          : (err.deliveryUnknown
+            ? 'Import outcome is unknown. Reload Studio before changing settings.'
+            : `Import failed: ${err.message}`));
       }
     };
     input.click();

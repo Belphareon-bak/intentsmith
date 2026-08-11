@@ -12,9 +12,13 @@ import {
   SETTINGS_PORTABLE_PATHS,
   SettingsPortabilityError,
   createSettingsBackup,
-  mergeSettingsProjection,
   parseSettingsBackup,
 } from './settings-portability.js';
+import {
+  UserSettingsError,
+  createUserSettingsRepository,
+  projectPublicUserSettings,
+} from './user-settings.js';
 
 export const ModelAutomationPolicyStatus = Object.freeze({
   VALID: 'VALID',
@@ -49,6 +53,7 @@ const POLICY_SETTINGS_KEYS = Object.freeze([
   'autoCleanupDays',
 ]);
 const POLICY_SETTINGS_KEY_SET = new Set(POLICY_SETTINGS_KEYS);
+const SETTINGS_IMPORT_REQUEST_KEYS = Object.freeze(['backup', 'expectedRevision']);
 
 const DEFAULT_IDS = Object.freeze({
   event: () => `policy-event-${randomUUID()}`,
@@ -118,22 +123,22 @@ function cloneJsonDocument(
 }
 
 function readStoredGeneralSettings(db) {
-  const row = db.prepare('SELECT data FROM user_settings WHERE id = 1').get();
-  if (!row) return {};
-  let parsed;
   try {
-    parsed = JSON.parse(row.data);
+    return createUserSettingsRepository(db).readImportSnapshotInTransaction();
   } catch (error) {
+    if (error instanceof UserSettingsError) {
+      throw new ModelAutomationPolicyError(
+        'MODEL_AUTOMATION_POLICY_STORED_GENERAL_SETTINGS_INVALID',
+        'Stored general settings do not satisfy the versioned authority',
+        { cause: error, details: { settingsCode: error.code } },
+      );
+    }
     throw new ModelAutomationPolicyError(
       'MODEL_AUTOMATION_POLICY_STORED_GENERAL_SETTINGS_INVALID',
-      'Stored general settings are not valid JSON',
+      'Stored general settings cannot be read',
       { cause: error },
     );
   }
-  return cloneJsonDocument(
-    parsed,
-    'MODEL_AUTOMATION_POLICY_STORED_GENERAL_SETTINGS_INVALID',
-  ).document;
 }
 
 function requirePolicySettings(value) {
@@ -179,6 +184,33 @@ function requireBackupEnvelope(value) {
     portableValues: parsed.values,
     ignoredSourcePaths: parsed.ignoredSourcePaths,
     policySettings: requirePolicySettings(parsed.modelAutomationPolicy),
+  };
+}
+
+function requireSettingsImportRequest(value) {
+  if (!isPlainObject(value)) {
+    fail(
+      'MODEL_AUTOMATION_POLICY_BACKUP_INPUT_INVALID',
+      'Settings import request must be a plain object',
+    );
+  }
+  const actualKeys = Object.keys(value).sort();
+  if (actualKeys.length !== SETTINGS_IMPORT_REQUEST_KEYS.length
+    || actualKeys.some((key, index) => key !== SETTINGS_IMPORT_REQUEST_KEYS[index])) {
+    fail(
+      'MODEL_AUTOMATION_POLICY_BACKUP_INPUT_INVALID',
+      'Settings import request must contain exact backup and expectedRevision fields',
+    );
+  }
+  if (!Number.isSafeInteger(value.expectedRevision) || value.expectedRevision < 1) {
+    fail(
+      'USER_SETTINGS_EXPECTED_REVISION_INVALID',
+      'Settings import expectedRevision must be a positive safe integer',
+    );
+  }
+  return {
+    expectedRevision: value.expectedRevision,
+    backup: requireBackupEnvelope(value.backup),
   };
 }
 
@@ -431,6 +463,20 @@ export class ModelAutomationPolicyRepository {
       return transaction.immediate();
     } catch (error) {
       if (error instanceof ModelAutomationPolicyError) throw error;
+      if (error instanceof UserSettingsError) {
+        if (error.code === 'USER_SETTINGS_REVISION_CONFLICT') {
+          throw new ModelAutomationPolicyError(
+            'USER_SETTINGS_REVISION_CONFLICT',
+            `Policy ${operation} used a stale settings revision`,
+            { cause: error, details: error.details },
+          );
+        }
+        throw new ModelAutomationPolicyError(
+          'MODEL_AUTOMATION_POLICY_STORAGE_CONTRACT',
+          `Policy ${operation} violated the user settings storage contract`,
+          { cause: error, details: { settingsCode: error.code } },
+        );
+      }
       const sqliteCode = typeof error?.code === 'string' ? error.code : null;
       if (sqliteCode?.startsWith('SQLITE_BUSY') || sqliteCode?.startsWith('SQLITE_LOCKED')) {
         throw new ModelAutomationPolicyError(
@@ -600,7 +646,7 @@ export class ModelAutomationPolicyRepository {
         );
       }
       const stored = readStoredGeneralSettings(this.db);
-      const general = sanitizeGenericModelAutomationSettings(stored).document;
+      const general = sanitizeGenericModelAutomationSettings(stored.document).document;
       return createSettingsBackup(general, { ...policy.settings }).backup;
     });
     try {
@@ -628,7 +674,8 @@ export class ModelAutomationPolicyRepository {
   }
 
   replaceFromSettingsImport(value) {
-    const backup = requireBackupEnvelope(value);
+    const request = requireSettingsImportRequest(value);
+    const backup = request.backup;
     return this.#write('BACKUP_IMPORT', () => {
       const current = mapConsistentRow(selectConsistentPolicy(this.db));
       if (!current) {
@@ -637,10 +684,13 @@ export class ModelAutomationPolicyRepository {
           'Policy projection does not match its append-only event',
         );
       }
-      const stored = readStoredGeneralSettings(this.db);
-      let merged;
+      const settingsRepository = createUserSettingsRepository(this.db);
+      let settingsCommit;
       try {
-        merged = mergeSettingsProjection(stored, backup.portableValues);
+        settingsCommit = settingsRepository.applyPortableImportInTransaction({
+          expectedRevision: request.expectedRevision,
+          portableValues: backup.portableValues,
+        });
       } catch (error) {
         if (error instanceof SettingsPortabilityError) {
           throw new ModelAutomationPolicyError(
@@ -651,14 +701,6 @@ export class ModelAutomationPolicyRepository {
         }
         throw error;
       }
-      const generalSettings = sanitizeGenericModelAutomationSettings(merged.document).document;
-      this.db.prepare(`
-        INSERT INTO user_settings (id, data, updated_at)
-        VALUES (1, ?, datetime('now'))
-        ON CONFLICT(id) DO UPDATE SET
-          data = excluded.data,
-          updated_at = excluded.updated_at
-      `).run(JSON.stringify(generalSettings));
       const committed = this.#commitValidated({
         expectedRevision: current.revision,
         settings: backup.policySettings || current.settings,
@@ -668,11 +710,12 @@ export class ModelAutomationPolicyRepository {
         source: 'SETTINGS_IMPORT',
       });
       return {
-        generalSettings,
+        settings: settingsCommit.settings,
+        settingsRevision: settingsCommit.revision,
         sourceSchemaVersion: backup.sourceSchemaVersion,
-        appliedPortablePaths: merged.appliedPortablePaths,
+        appliedPortablePaths: settingsCommit.appliedPortablePaths,
         ignoredSourcePaths: backup.ignoredSourcePaths,
-        preservedLocalPaths: merged.preservedLocalPaths,
+        preservedLocalPaths: settingsCommit.preservedLocalPaths,
         policy: committed,
       };
     });
@@ -687,7 +730,11 @@ export class ModelAutomationPolicyRepository {
           'Policy projection does not match its append-only event',
         );
       }
-      this.db.prepare('DELETE FROM user_settings').run();
+      const settingsRepository = createUserSettingsRepository(this.db);
+      const stored = settingsRepository.readImportSnapshotInTransaction();
+      const settingsCommit = settingsRepository.resetInTransaction({
+        expectedRevision: stored.revision,
+      });
       const committed = this.#commitValidated({
         expectedRevision: current.revision,
         settings: { ...DEFAULT_MODEL_AUTOMATION_POLICY },
@@ -696,7 +743,11 @@ export class ModelAutomationPolicyRepository {
         actor: 'user:global-reset',
         source: 'GLOBAL_RESET',
       });
-      return { generalSettings: {}, policy: committed };
+      return {
+        settings: projectPublicUserSettings(settingsCommit.document),
+        settingsRevision: settingsCommit.revision,
+        policy: committed,
+      };
     });
   }
 }

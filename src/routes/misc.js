@@ -6,11 +6,9 @@ import { join } from 'path';
 import { getWebSocketBridgeHealth } from '../ws-bridge/ws-server.js';
 import {
   createModelAutomationPolicyRepository,
-  sanitizeGenericModelAutomationSettings,
 } from '../db/model-policy.js';
 import {
-  UserSettingsError,
-  mergeGenericUserSettings,
+  createUserSettingsRepository,
 } from '../db/user-settings.js';
 
 // H9: Settings, Health, Autocomplete, Audit, Logs routes
@@ -32,10 +30,34 @@ const MODEL_POLICY_SETTINGS_HTTP_STATUS = Object.freeze({
   MODEL_AUTOMATION_POLICY_BACKUP_READ_FAILED: 503,
   MODEL_AUTOMATION_POLICY_STORED_GENERAL_SETTINGS_INVALID: 503,
   MODEL_AUTOMATION_POLICY_STORED_PORTABLE_VALUE_INVALID: 409,
+  USER_SETTINGS_EXPECTED_REVISION_INVALID: 400,
+  USER_SETTINGS_REVISION_CONFLICT: 409,
 });
 
 function modelPolicySettingsHttpStatus(code) {
   return MODEL_POLICY_SETTINGS_HTTP_STATUS[code] || 500;
+}
+
+const USER_SETTINGS_HTTP_STATUS = Object.freeze({
+  USER_SETTINGS_INPUT_INVALID: 400,
+  USER_SETTINGS_EXPECTED_REVISION_INVALID: 400,
+  USER_SETTINGS_PATH_UNOWNED: 400,
+  USER_SETTINGS_VALUE_INVALID: 400,
+  USER_SETTINGS_REVISION_CONFLICT: 409,
+  USER_SETTINGS_ROW_MISSING: 503,
+  USER_SETTINGS_JSON_INVALID: 503,
+  USER_SETTINGS_DOCUMENT_NOT_OBJECT: 503,
+  USER_SETTINGS_REVISION_INVALID: 503,
+  USER_SETTINGS_REVISION_EXHAUSTED: 503,
+  USER_SETTINGS_DB_READ_FAILED: 503,
+  USER_SETTINGS_DB_WRITE_FAILED: 503,
+  USER_SETTINGS_DB_BUSY: 503,
+  USER_SETTINGS_STORAGE_CONTRACT: 503,
+  USER_SETTINGS_TRANSACTION_FAILED: 503,
+});
+
+function userSettingsHttpStatus(code) {
+  return USER_SETTINGS_HTTP_STATUS[code] || 500;
 }
 
 function publicPolicyCommit(policy) {
@@ -53,6 +75,7 @@ export function createMiscRoutes(deps) {
   const { db, parseBody, sendJSON, logger, callWithAuth, createAuthToken, LLMCallerRole } = deps;
   const settingsFeatureManager = deps.featureManager || featureManager;
   const policyRepository = () => createModelAutomationPolicyRepository(db.db);
+  const settingsRepository = () => createUserSettingsRepository(db.db);
 
   const applyCommittedSettingsRuntime = (operation, callback) => {
     try {
@@ -94,13 +117,18 @@ export function createMiscRoutes(deps) {
     return sendJSON(res, 200, {
       ok: true,
       success: true,
-      generalSettings: committed.generalSettings,
+      revision: committed.settingsRevision,
+      settings: committed.settings,
       policy: publicPolicyCommit(committed.policy),
       event: committed.policy.event,
       runtimeApplied: runtime.runtimeApplied,
       runtimeErrorCode: runtime.runtimeErrorCode,
     });
   };
+  const legacySettingsRetired = (_req, res) => sendJSON(res, 410, {
+    ok: false,
+    code: 'USER_SETTINGS_LEGACY_RETIRED',
+  });
 
   return {
     // Storage info
@@ -113,70 +141,59 @@ export function createMiscRoutes(deps) {
       }
     },
 
-    'GET /api/settings': async (req, res) => {
+    'GET /api/settings': legacySettingsRetired,
+
+    'GET /api/settings/v2': (_req, res) => {
+      let current;
       try {
-        const row = db.db.prepare('SELECT data FROM user_settings WHERE id = 1').get();
-        if (row) {
-          const result = sanitizeGenericModelAutomationSettings(JSON.parse(row.data));
-          sendJSON(res, 200, result.document);
-        } else {
-          sendJSON(res, 200, {});
-        }
-      } catch (err) {
-        sendJSON(res, 200, {});
+        current = settingsRepository().readPublic();
+      } catch (error) {
+        const code = typeof error?.code === 'string'
+          ? error.code
+          : 'USER_SETTINGS_DB_READ_FAILED';
+        return sendJSON(res, userSettingsHttpStatus(code), { ok: false, code });
       }
+      return sendJSON(res, 200, current);
     },
 
-    'POST /api/settings': async (req, res) => {
+    'PUT /api/settings/v2': async (req, res) => {
       let body;
       try {
         body = await parseBody(req);
       } catch (_) {
         return sendJSON(res, 400, {
-          success: false,
+          ok: false,
           code: 'USER_SETTINGS_INPUT_INVALID',
         });
       }
 
-      let sanitized;
       let committed;
       try {
-        sanitized = sanitizeGenericModelAutomationSettings(body);
-        committed = mergeGenericUserSettings(db.db, sanitized.document);
+        committed = settingsRepository().commitGeneric(body);
       } catch (error) {
-        const invalidInput = error instanceof UserSettingsError
-          && error.code === 'USER_SETTINGS_INPUT_INVALID';
-        return sendJSON(res, invalidInput ? 400 : 503, {
-          success: false,
-          code: invalidInput
-            ? 'USER_SETTINGS_INPUT_INVALID'
-            : 'USER_SETTINGS_STORAGE_FAILED',
+        const code = typeof error?.code === 'string'
+          ? error.code
+          : 'USER_SETTINGS_DB_WRITE_FAILED';
+        const details = code === 'USER_SETTINGS_REVISION_CONFLICT'
+          ? {
+              expectedRevision: error?.details?.expectedRevision,
+              currentRevision: error?.details?.currentRevision,
+            }
+          : {};
+        return sendJSON(res, userSettingsHttpStatus(code), {
+          ok: false,
+          code,
+          ...details,
         });
       }
 
-      const runtime = applyCommittedSettingsRuntime(
-        'generic update',
-        // Never pass the committed document here: it may contain protected
-        // notification values. Runtime feature flags consume only the filtered
-        // incoming generic patch after the durable commit.
-        () => settingsFeatureManager.applySettings(
-          Object.fromEntries(
-            Object.entries(sanitized.document).filter(
-              ([key]) => !committed.ignoredNotificationKeys.includes(key),
-            ),
-          ),
-        ),
-      );
-
       return sendJSON(res, 200, {
-        success: true,
-        featuresChanged: runtime.value || 0,
-        ignoredReservedKeys: sanitized.ignoredReservedKeys,
-        ignoredNotificationKeys: committed.ignoredNotificationKeys,
-        runtimeApplied: runtime.runtimeApplied,
-        runtimeErrorCode: runtime.runtimeErrorCode,
+        revision: committed.revision,
+        settings: committed.settings,
       });
     },
+
+    'POST /api/settings': legacySettingsRetired,
 
     'GET /api/settings/backup': (_req, res) => {
       try {
@@ -215,25 +232,28 @@ export function createMiscRoutes(deps) {
         const code = typeof error?.code === 'string'
           ? error.code
           : 'MODEL_AUTOMATION_POLICY_IMPORT_FAILED';
-        return sendJSON(res, modelPolicySettingsHttpStatus(code), { ok: false, code });
+        const details = code === 'USER_SETTINGS_REVISION_CONFLICT'
+          ? {
+              expectedRevision: error?.details?.expectedRevision,
+              currentRevision: error?.details?.currentRevision,
+            }
+          : {};
+        return sendJSON(res, modelPolicySettingsHttpStatus(code), { ok: false, code, ...details });
       }
-      const runtime = applyCommittedSettingsRuntime(
-        'import',
-        () => settingsFeatureManager.applySettings(committed.generalSettings),
-      );
       return sendJSON(res, 200, {
         ok: true,
         success: true,
-        generalSettings: committed.generalSettings,
+        revision: committed.settingsRevision,
+        settings: committed.settings,
         policy: publicPolicyCommit(committed.policy),
         event: committed.policy.event,
-        featuresChanged: runtime.value || 0,
+        featuresChanged: 0,
         sourceSchemaVersion: committed.sourceSchemaVersion,
         appliedPortablePaths: committed.appliedPortablePaths,
         ignoredSourcePathCount: committed.ignoredSourcePaths.length,
         preservedLocalPathCount: committed.preservedLocalPaths.length,
-        runtimeApplied: runtime.runtimeApplied,
-        runtimeErrorCode: runtime.runtimeErrorCode,
+        runtimeApplied: true,
+        runtimeErrorCode: null,
       });
     },
 
