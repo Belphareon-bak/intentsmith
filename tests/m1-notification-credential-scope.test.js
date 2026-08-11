@@ -45,17 +45,23 @@ import {
   verifyTelegram,
 } from '../src/notifications/e2e-verify.js';
 import {
+  SETUP_ALREADY_COMPLETE,
   SETUP_ENV_DUPLICATE_OWNED_KEY,
   SETUP_ENV_TARGET_OUT_OF_SCOPE,
   SETUP_ENV_TARGET_UNSAFE,
   SETUP_ENV_VALUE_INVALID,
   SETUP_NOTIFICATION_INPUT_RETIRED,
+  SETUP_STATE_INVALID,
   SETUP_STATE_WRITE_FAILED,
   SetupWizard,
   createSetupRoutes,
   renderSetupEnvironment,
   requireSafeSetupEnvTarget,
 } from '../src/setup/wizard.js';
+import {
+  SETUP_ADMIN_AUTH_REQUIRED,
+  createStrictAdminTokenGuard,
+} from '../src/security/strict-admin-auth.js';
 import {
   FEATURE_SETTING_KEYS,
   FEATURE_SETTINGS_INPUT_INVALID,
@@ -70,6 +76,7 @@ const SILENT_LOGGER = Object.freeze({
   info() {},
   warn() {},
 });
+const SETUP_ADMIN_TOKEN = 'fixture-admin-token';
 
 const EXPECTED_CHANNEL_FLAGS = Object.freeze({
   email: 'C3_ENABLE_NOTIFICATION_EMAIL',
@@ -130,14 +137,30 @@ function makeCounters() {
   };
 }
 
-async function invokeSetupRoute(routes, routeKey) {
-  return await routes[routeKey]({ url: routeKey.split(' ')[1] }, {});
+function setupRequest(routeKey, headers = { 'x-admin-token': SETUP_ADMIN_TOKEN }, rawHeaders) {
+  const effectiveRawHeaders = rawHeaders === undefined
+    ? Object.entries(headers).flatMap(([name, value]) => [name, value])
+    : rawHeaders;
+  return {
+    headers,
+    rawHeaders: effectiveRawHeaders,
+    url: routeKey.split(' ')[1],
+  };
 }
 
-function createSetupRouteHarness(wizard, parseBody) {
+async function invokeSetupRoute(routes, routeKey, req = setupRequest(routeKey)) {
+  return await routes[routeKey](req, {});
+}
+
+function createSetupRouteHarness(wizard, parseBody, {
+  requireSetupAdminAuth = createStrictAdminTokenGuard({
+    expectedToken: SETUP_ADMIN_TOKEN,
+  }),
+} = {}) {
   let response = null;
   const routes = createSetupRoutes(wizard, {
     parseBody,
+    requireSetupAdminAuth,
     sendJSON(_res, status, body) {
       response = { status, body };
       return response;
@@ -624,6 +647,16 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
     assert.match(serverNotificationInit, new RegExp(`\\b${dependency}\\b`));
     assert.match(serverRouteDependencies, new RegExp(`\\b${dependency}\\b`));
   }
+  assert.match(
+    serverSource,
+    /createStrictAdminTokenGuard\(\{\s*expectedToken: process\.env\.C3_ADMIN_TOKEN,?\s*\}\)/,
+  );
+  assert.match(serverRouteDependencies, /\brequireSetupAdminAuth\b/);
+  assert.equal(
+    serverSource.indexOf('const requireSetupAdminAuth = createStrictAdminTokenGuard')
+      < serverSource.indexOf('const routeDeps = {'),
+    true,
+  );
 
   const workerSource = readSource('scripts/start-workers.js');
   const workerNotificationInit = sliceBetween(
@@ -735,19 +768,174 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
   const root = mkdtempSync(join(tmpdir(), 'm1-notification-scope-'));
   const originalCwd = process.cwd();
   try {
-    process.chdir(root);
+    const canonicalRoot = join(root, 'install-root');
+    const cwdDecoy = join(root, 'cwd-decoy');
     const dataDir = join(root, 'data');
+    mkdirSync(canonicalRoot, { recursive: true });
+    mkdirSync(cwdDecoy, { recursive: true });
     mkdirSync(dataDir, { recursive: true });
-    const wizard = new SetupWizard(dataDir);
+    process.chdir(cwdDecoy);
+    const envPath = join(canonicalRoot, '.env');
+    const setupPath = join(dataDir, 'c3-setup.json');
+    const legacyNotifications = {
+      telegram: { enabled: true, token: 'legacy-token', chatId: 'legacy-chat' },
+      email: { enabled: true, smtp: 'legacy-smtp', from: 'a', to: 'b' },
+      ntfy: { enabled: true, topic: 'legacy-topic', server: 'https://legacy.invalid' },
+      unknownChannel: { preserve: true },
+    };
+    const legacySetup = {
+      version: 1,
+      completed: false,
+      completedAt: null,
+      ollama: {
+        url: 'http://127.0.0.1:11434',
+        models: { CHAT: 'fixture-chat' },
+        verified: false,
+      },
+      language: 'cs',
+      notifications: legacyNotifications,
+      dataDir: './data',
+      license: { key: '', activated: false },
+      unknownTopLevel: { preserve: 'exactly' },
+    };
+    writeFileSync(setupPath, JSON.stringify(legacySetup, null, 2));
+    const wizard = new SetupWizard(dataDir, { projectRoot: canonicalRoot });
+    wizard.load();
     wizard.config.ollama = { ...wizard.config.ollama, url: 'http://127.0.0.1:22444' };
     wizard.config.language = 'en';
     wizard.config.dataDir = './operator-data';
     wizard.config.license = { ...wizard.config.license, key: '' };
-    wizard.config.notifications = {
-      telegram: { enabled: true, token: 'legacy-token', chatId: 'legacy-chat' },
-      email: { enabled: true, smtp: 'legacy-smtp', from: 'a', to: 'b' },
-      ntfy: { enabled: true, topic: 'legacy-topic', server: 'https://legacy.invalid' },
+
+    assertErrorCode(() => createSetupRoutes(wizard, {
+      parseBody: async () => ({}),
+      sendJSON() {},
+    }), SETUP_ADMIN_AUTH_REQUIRED);
+
+    const deniedEffects = {
+      checkModels: 0,
+      complete: 0,
+      isComplete: 0,
+      parse: 0,
+      verifyOllama: 0,
+      writeEnvFile: 0,
     };
+    const deniedWizard = new SetupWizard(join(root, 'denied-data'), {
+      projectRoot: canonicalRoot,
+    });
+    deniedWizard.checkModels = async () => { deniedEffects.checkModels += 1; };
+    deniedWizard.complete = () => { deniedEffects.complete += 1; };
+    deniedWizard.isComplete = () => { deniedEffects.isComplete += 1; };
+    deniedWizard.verifyOllama = async () => { deniedEffects.verifyOllama += 1; };
+    deniedWizard.writeEnvFile = () => { deniedEffects.writeEnvFile += 1; };
+    const deniedConfig = JSON.stringify(deniedWizard.config);
+    const deniedHarness = createSetupRouteHarness(deniedWizard, async () => {
+      deniedEffects.parse += 1;
+      return { key: 'must-not-parse', language: 'en', url: 'https://must-not-fetch.invalid' };
+    });
+    const deniedRequestFactories = [
+      routeKey => ({
+        ...setupRequest(routeKey, {}),
+        socket: { remoteAddress: '127.0.0.1' },
+      }),
+      routeKey => setupRequest(routeKey, { 'x-admin-token': 'wrong-token' }),
+      routeKey => setupRequest(routeKey, { 'x-admin-token': [SETUP_ADMIN_TOKEN] }),
+      routeKey => setupRequest(routeKey, { authorization: [`Bearer ${SETUP_ADMIN_TOKEN}`] }),
+      routeKey => setupRequest(routeKey, {
+        'x-admin-token': SETUP_ADMIN_TOKEN,
+        authorization: `Bearer ${SETUP_ADMIN_TOKEN}`,
+      }),
+      routeKey => setupRequest(routeKey, { 'x-admin-token': 'fixture admin token' }),
+      routeKey => setupRequest(routeKey, { 'x-admin-token': 'fixture,admin-token' }),
+      routeKey => setupRequest(routeKey, { authorization: `bearer ${SETUP_ADMIN_TOKEN}` }),
+      routeKey => setupRequest(routeKey, { authorization: `Bearer  ${SETUP_ADMIN_TOKEN}` }),
+      routeKey => setupRequest(
+        routeKey,
+        { 'x-admin-token': SETUP_ADMIN_TOKEN },
+        ['X-Admin-Token', SETUP_ADMIN_TOKEN, 'x-admin-token', SETUP_ADMIN_TOKEN],
+      ),
+      routeKey => setupRequest(
+        routeKey,
+        { authorization: `Bearer ${SETUP_ADMIN_TOKEN}` },
+        ['Authorization', `Bearer ${SETUP_ADMIN_TOKEN}`, 'authorization', `Bearer ${SETUP_ADMIN_TOKEN}`],
+      ),
+      routeKey => setupRequest(
+        routeKey,
+        { 'x-admin-token': SETUP_ADMIN_TOKEN },
+        ['X-Admin-Token', 'incoherent-token'],
+      ),
+      routeKey => {
+        const inheritedHeaders = Object.create({ 'x-admin-token': SETUP_ADMIN_TOKEN });
+        return setupRequest(routeKey, inheritedHeaders, []);
+      },
+    ];
+    const guardedRoutes = [
+      'POST /api/setup/ollama',
+      'POST /api/setup/language',
+      'POST /api/setup/license',
+      'POST /api/setup/complete',
+    ];
+    for (const routeKey of guardedRoutes) {
+      for (const requestFactory of deniedRequestFactories) {
+        deniedHarness.reset();
+        await invokeSetupRoute(deniedHarness.routes, routeKey, requestFactory(routeKey));
+        assert.deepEqual(deniedHarness.response(), {
+          status: 403,
+          body: { ok: false, code: SETUP_ADMIN_AUTH_REQUIRED },
+        });
+      }
+    }
+    assert.deepEqual(deniedEffects, {
+      checkModels: 0,
+      complete: 0,
+      isComplete: 0,
+      parse: 0,
+      verifyOllama: 0,
+      writeEnvFile: 0,
+    });
+    assert.equal(JSON.stringify(deniedWizard.config), deniedConfig);
+
+    for (const expectedToken of [undefined, '', 'bad token', 'bad,token']) {
+      const unconfiguredHarness = createSetupRouteHarness(deniedWizard, async () => {
+        deniedEffects.parse += 1;
+      }, {
+        requireSetupAdminAuth: createStrictAdminTokenGuard({ expectedToken }),
+      });
+      await invokeSetupRoute(unconfiguredHarness.routes, 'POST /api/setup/complete');
+      assert.deepEqual(unconfiguredHarness.response(), {
+        status: 403,
+        body: { ok: false, code: SETUP_ADMIN_AUTH_REQUIRED },
+      });
+    }
+    for (const nonBooleanGuard of [() => 'true', async () => false]) {
+      const nonBooleanHarness = createSetupRouteHarness(deniedWizard, async () => {
+        deniedEffects.parse += 1;
+      }, { requireSetupAdminAuth: nonBooleanGuard });
+      await invokeSetupRoute(nonBooleanHarness.routes, 'POST /api/setup/complete');
+      assert.deepEqual(nonBooleanHarness.response(), {
+        status: 403,
+        body: { ok: false, code: SETUP_ADMIN_AUTH_REQUIRED },
+      });
+    }
+    assert.deepEqual(deniedEffects, {
+      checkModels: 0,
+      complete: 0,
+      isComplete: 0,
+      parse: 0,
+      verifyOllama: 0,
+      writeEnvFile: 0,
+    });
+
+    const bearerHarness = createSetupRouteHarness(wizard, async () => ({ language: 'en' }));
+    await invokeSetupRoute(
+      bearerHarness.routes,
+      'POST /api/setup/language',
+      setupRequest(
+        'POST /api/setup/language',
+        { authorization: `Bearer ${SETUP_ADMIN_TOKEN}` },
+        ['Authorization', `Bearer ${SETUP_ADMIN_TOKEN}`],
+      ),
+    );
+    assert.deepEqual(bearerHarness.response(), { status: 200, body: { language: 'en' } });
 
     let parseCount = 0;
     const routeHarness = createSetupRouteHarness(wizard, async () => {
@@ -755,29 +943,47 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
       return { channel: 'telegram', config: { token: 'new-secret' } };
     });
     const configBeforeRetiredRoute = JSON.stringify(wizard.config);
-    await invokeSetupRoute(routeHarness.routes, 'POST /api/setup/notifications');
+    await invokeSetupRoute(
+      routeHarness.routes,
+      'POST /api/setup/notifications',
+      setupRequest('POST /api/setup/notifications', {}),
+    );
     assert.deepEqual(routeHarness.response(), {
       status: 410,
       body: { ok: false, code: SETUP_NOTIFICATION_INPUT_RETIRED },
     });
     assert.equal(parseCount, 0);
     assert.equal(JSON.stringify(wizard.config), configBeforeRetiredRoute);
-    assert.equal(existsSync(join(root, '.env')), false);
+    assert.equal(existsSync(envPath), false);
+    await invokeSetupRoute(
+      routeHarness.routes,
+      'GET /api/setup/status',
+      setupRequest('GET /api/setup/status', {}),
+    );
+    assert.deepEqual(routeHarness.response(), { status: 200, body: wizard.getStatus() });
 
     const existingBytes = Buffer.concat([
       Buffer.from([0xef, 0xbb, 0xbf]),
-      Buffer.from('# foreign header\r\nFOREIGN=alpha\r\nC3_SMTP_PASS=legacy-secret\n'),
+      Buffer.from('# foreign header\r\nFOREIGN=alpha\r\nSMTP_URL=smtp://legacy\n'),
+      Buffer.from('EMAIL_TO=legacy@example.invalid\nC3_NTFY_URL=https://legacy-ntfy.invalid\n'),
+      Buffer.from('C3_SMTP_PASS=legacy-secret\n'),
       Buffer.from('export OLLAMA_URL = "old"\nC3_LANG=cs\nC3_DB_PATH="./old.db"\n'),
       Buffer.from('C3_LICENSE_KEY=stale-license\nTAIL=omega'),
     ]);
-    writeFileSync(join(root, '.env'), existingBytes);
-    chmodSync(join(root, '.env'), 0o600);
+    writeFileSync(envPath, existingBytes);
+    chmodSync(envPath, 0o600);
+    const retainedNotifications = wizard.config.notifications;
+    wizard.config.notifications = {};
     wizard.writeEnvFile();
-    const patchedBytes = readFileSync(join(root, '.env'));
+    wizard.config.notifications = retainedNotifications;
+    const patchedBytes = readFileSync(envPath);
     assert.equal(patchedBytes.subarray(0, 3).equals(Buffer.from([0xef, 0xbb, 0xbf])), true);
     for (const exactForeignRow of [
       '# foreign header\r\n',
       'FOREIGN=alpha\r\n',
+      'SMTP_URL=smtp://legacy\n',
+      'EMAIL_TO=legacy@example.invalid\n',
+      'C3_NTFY_URL=https://legacy-ntfy.invalid\n',
       'C3_SMTP_PASS=legacy-secret\n',
       'TAIL=omega',
     ]) {
@@ -789,8 +995,12 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
     assert.equal(patchedEnv.C3_DB_PATH, 'operator-data/c3.db');
     assert.equal(Object.hasOwn(patchedEnv, 'C3_LICENSE_KEY'), false);
     assert.equal(patchedEnv.C3_SMTP_PASS, 'legacy-secret');
-    assert.equal(lstatSync(join(root, '.env')).mode & 0o777, 0o600);
+    assert.equal(patchedEnv.SMTP_URL, 'smtp://legacy');
+    assert.equal(patchedEnv.EMAIL_TO, 'legacy@example.invalid');
+    assert.equal(patchedEnv.C3_NTFY_URL, 'https://legacy-ntfy.invalid');
+    assert.equal(lstatSync(envPath).mode & 0o7777, 0o600);
     assert.equal(existsSync(join(dataDir, '.env')), false);
+    assert.equal(existsSync(join(cwdDecoy, '.env')), false);
 
     routeHarness.reset();
     await invokeSetupRoute(routeHarness.routes, 'POST /api/setup/complete');
@@ -798,11 +1008,49 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
       status: 200,
       body: { ok: true, completed: true },
     });
-    const savedSetup = JSON.parse(readFileSync(join(dataDir, 'c3-setup.json'), 'utf8'));
-    assert.equal(savedSetup.notifications.telegram.token, 'legacy-token');
-    assert.equal(savedSetup.notifications.ntfy.topic, 'legacy-topic');
+    const savedSetup = JSON.parse(readFileSync(setupPath, 'utf8'));
+    assert.deepEqual(savedSetup.notifications, legacyNotifications);
+    assert.deepEqual(savedSetup.unknownTopLevel, { preserve: 'exactly' });
 
-    const stateFailureWizard = new SetupWizard(join(root, 'state-write-failure'));
+    const durableDataDir = join(root, 'durable-completion');
+    mkdirSync(durableDataDir);
+    const durableSetupPath = join(durableDataDir, 'c3-setup.json');
+    writeFileSync(durableSetupPath, JSON.stringify({
+      ...legacySetup,
+      completed: false,
+      unknownTopLevel: { durable: true },
+    }));
+    const durableWizard = new SetupWizard(durableDataDir, { projectRoot: canonicalRoot });
+    durableWizard.load();
+    assert.equal(durableWizard.config.completed, false);
+    writeFileSync(durableSetupPath, JSON.stringify({
+      ...legacySetup,
+      completed: true,
+      completedAt: '2026-08-11T00:00:00.000Z',
+      unknownTopLevel: { durable: true },
+    }));
+    assert.equal(durableWizard.config.completed, false);
+    const envBeforeRetry = readFileSync(envPath);
+    const setupBeforeRetry = readFileSync(durableSetupPath);
+    let retryWriteCount = 0;
+    let retryCompleteCount = 0;
+    durableWizard.writeEnvFile = () => { retryWriteCount += 1; };
+    durableWizard.complete = () => { retryCompleteCount += 1; };
+    const durableHarness = createSetupRouteHarness(durableWizard, async () => {
+      throw new Error('parse must stay unreachable');
+    });
+    await invokeSetupRoute(durableHarness.routes, 'POST /api/setup/complete');
+    assert.deepEqual(durableHarness.response(), {
+      status: 409,
+      body: { ok: false, code: SETUP_ALREADY_COMPLETE },
+    });
+    assert.deepEqual([retryWriteCount, retryCompleteCount], [0, 0]);
+    assert.equal(readFileSync(envPath).equals(envBeforeRetry), true);
+    assert.equal(readFileSync(durableSetupPath).equals(setupBeforeRetry), true);
+
+    const stateFailureWizard = new SetupWizard(join(root, 'state-write-failure'), {
+      projectRoot: canonicalRoot,
+    });
     stateFailureWizard.writeEnvFile = () => {};
     stateFailureWizard.save = () => false;
     const stateFailureHarness = createSetupRouteHarness(stateFailureWizard, async () => ({}));
@@ -814,13 +1062,85 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
     assert.equal(stateFailureWizard.config.completed, false);
     assert.equal(stateFailureWizard.config.completedAt, null);
 
-    unlinkSync(join(root, '.env'));
+    const partialDataDir = join(root, 'partial-valid-state');
+    mkdirSync(partialDataDir);
+    const partialNotifications = {
+      telegram: { enabled: true, unknownLeaf: 'preserve' },
+      unknownChannel: { preserve: true },
+    };
+    writeFileSync(join(partialDataDir, 'c3-setup.json'), JSON.stringify({
+      completed: false,
+      ollama: {},
+      notifications: partialNotifications,
+      license: {},
+      unknownTopLevel: true,
+    }));
+    const partialWizard = new SetupWizard(partialDataDir, { projectRoot: canonicalRoot });
+    partialWizard.load();
+    assert.deepEqual(partialWizard.config.notifications, partialNotifications);
+    assert.deepEqual(partialWizard.getStatus().notifications, {
+      telegram: true,
+      email: false,
+      ntfy: false,
+    });
+    assert.deepEqual(Object.keys(partialWizard.toEnvVars()).sort(), [
+      'C3_DB_PATH',
+      'C3_LANG',
+      'C3_LICENSE_KEY',
+      'OLLAMA_URL',
+    ]);
+
+    for (const [name, invalidBytes] of [
+      ['invalid-json', Buffer.from('{"completed":')],
+      ['invalid-shape', Buffer.from(JSON.stringify({
+        completed: 'yes',
+        notifications: null,
+      }))],
+      ['invalid-utf8', Buffer.from([0xc3, 0x28])],
+    ]) {
+      const invalidDataDir = join(root, name);
+      mkdirSync(invalidDataDir);
+      const invalidSetupPath = join(invalidDataDir, 'c3-setup.json');
+      writeFileSync(invalidSetupPath, invalidBytes);
+      const invalidWizard = new SetupWizard(invalidDataDir, { projectRoot: canonicalRoot });
+      assertErrorCode(() => invalidWizard.load(), SETUP_STATE_INVALID);
+      const invalidHarness = createSetupRouteHarness(invalidWizard, async () => {
+        throw new Error('parse must stay unreachable');
+      });
+      const invalidEnvBefore = readFileSync(envPath);
+      await invokeSetupRoute(invalidHarness.routes, 'POST /api/setup/complete');
+      assert.deepEqual(invalidHarness.response(), {
+        status: 409,
+        body: { ok: false, code: SETUP_STATE_INVALID },
+      });
+      assert.equal(readFileSync(invalidSetupPath).equals(invalidBytes), true);
+      assert.equal(readFileSync(envPath).equals(invalidEnvBefore), true);
+    }
+
+    const unreadableDataDir = join(root, 'unreadable-state');
+    const unreadableSetupPath = join(unreadableDataDir, 'c3-setup.json');
+    mkdirSync(unreadableSetupPath, { recursive: true });
+    const unreadableWizard = new SetupWizard(unreadableDataDir, {
+      projectRoot: canonicalRoot,
+    });
+    assertErrorCode(() => unreadableWizard.load(), SETUP_STATE_INVALID);
+    const unreadableHarness = createSetupRouteHarness(unreadableWizard, async () => {
+      throw new Error('parse must stay unreachable');
+    });
+    await invokeSetupRoute(unreadableHarness.routes, 'POST /api/setup/complete');
+    assert.deepEqual(unreadableHarness.response(), {
+      status: 409,
+      body: { ok: false, code: SETUP_STATE_INVALID },
+    });
+    assert.equal(lstatSync(unreadableSetupPath).isDirectory(), true);
+
+    unlinkSync(envPath);
     wizard.writeEnvFile();
-    const created = lstatSync(join(root, '.env'));
+    const created = lstatSync(envPath);
     assert.equal(created.isFile(), true);
     assert.equal(created.nlink, 1);
-    assert.equal(created.mode & 0o777, 0o600);
-    assert.equal(readFileSync(join(root, '.env'), 'utf8').includes('legacy-secret'), false);
+    assert.equal(created.mode & 0o7777, 0o600);
+    assert.equal(readFileSync(envPath, 'utf8').includes('legacy-secret'), false);
 
     const specialValues = {
       OLLAMA_URL: ' http://quoted.invalid/#fragment "x" ',
@@ -837,27 +1157,27 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
 
     const safeBase = Buffer.from('FOREIGN=keep\n');
     const resetTarget = (bytes = safeBase, mode = 0o600) => {
-      rmSync(join(root, '.env'), { force: true, recursive: true });
-      writeFileSync(join(root, '.env'), bytes);
-      chmodSync(join(root, '.env'), mode);
+      rmSync(envPath, { force: true, recursive: true });
+      writeFileSync(envPath, bytes);
+      chmodSync(envPath, mode);
     };
 
     const duplicate = Buffer.from('\uFEFF\u00a0OLLAMA_URL: one\nOLLAMA_URL=two\nFOREIGN=keep\n');
     resetTarget(duplicate);
     assertErrorCode(() => wizard.writeEnvFile(), SETUP_ENV_DUPLICATE_OWNED_KEY);
-    assert.equal(readFileSync(join(root, '.env')).equals(duplicate), true);
+    assert.equal(readFileSync(envPath).equals(duplicate), true);
 
     const bareCrDuplicate = Buffer.from(
       'OLLAMA_URL=one\rOLLAMA_URL=two\rFOREIGN=keep\r',
     );
     resetTarget(bareCrDuplicate);
     assertErrorCode(() => wizard.writeEnvFile(), SETUP_ENV_DUPLICATE_OWNED_KEY);
-    assert.equal(readFileSync(join(root, '.env')).equals(bareCrDuplicate), true);
+    assert.equal(readFileSync(envPath).equals(bareCrDuplicate), true);
 
     const bareCrForeign = Buffer.from('FOREIGN=keep\rOLLAMA_URL=old\rTAIL=omega\r');
     resetTarget(bareCrForeign);
     wizard.writeEnvFile();
-    const patchedBareCr = readFileSync(join(root, '.env'));
+    const patchedBareCr = readFileSync(envPath);
     assert.equal(patchedBareCr.includes(Buffer.from('FOREIGN=keep\r')), true);
     assert.equal(patchedBareCr.includes(Buffer.from('TAIL=omega\r')), true);
     assert.equal(patchedBareCr.includes(Buffer.from('TAIL=omega\r\n')), false);
@@ -887,11 +1207,11 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
     ]) {
       resetTarget(multilineDotenv);
       assertErrorCode(() => wizard.writeEnvFile(), SETUP_ENV_TARGET_UNSAFE);
-      assert.equal(readFileSync(join(root, '.env')).equals(multilineDotenv), true);
+      assert.equal(readFileSync(envPath).equals(multilineDotenv), true);
     }
 
     resetTarget();
-    const beforeNewline = readFileSync(join(root, '.env'));
+    const beforeNewline = readFileSync(envPath);
     const oldLanguage = wizard.config.language;
     for (const unsafeLanguage of [
       'en\nC3_SMTP_PASS=injected',
@@ -900,32 +1220,36 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
     ]) {
       wizard.config.language = unsafeLanguage;
       assertErrorCode(() => wizard.writeEnvFile(), SETUP_ENV_VALUE_INVALID);
-      assert.equal(readFileSync(join(root, '.env')).equals(beforeNewline), true);
+      assert.equal(readFileSync(envPath).equals(beforeNewline), true);
     }
     wizard.config.language = oldLanguage;
 
     resetTarget(safeBase, 0o644);
     assertErrorCode(() => wizard.writeEnvFile(), SETUP_ENV_TARGET_UNSAFE);
-    assert.equal(readFileSync(join(root, '.env')).equals(safeBase), true);
+    assert.equal(readFileSync(envPath).equals(safeBase), true);
 
-    rmSync(join(root, '.env'), { force: true });
+    resetTarget(safeBase, 0o4600);
+    assertErrorCode(() => wizard.writeEnvFile(), SETUP_ENV_TARGET_UNSAFE);
+    assert.equal(readFileSync(envPath).equals(safeBase), true);
+
+    rmSync(envPath, { force: true });
     const symlinkTarget = join(root, 'foreign-env');
     writeFileSync(symlinkTarget, safeBase);
     chmodSync(symlinkTarget, 0o600);
-    symlinkSync(symlinkTarget, join(root, '.env'));
+    symlinkSync(symlinkTarget, envPath);
     assertErrorCode(() => wizard.writeEnvFile(), SETUP_ENV_TARGET_UNSAFE);
     assert.equal(readFileSync(symlinkTarget).equals(safeBase), true);
 
-    unlinkSync(join(root, '.env'));
+    unlinkSync(envPath);
     const hardlinkSource = join(root, 'hardlink-env');
     writeFileSync(hardlinkSource, safeBase);
     chmodSync(hardlinkSource, 0o600);
-    linkSync(hardlinkSource, join(root, '.env'));
+    linkSync(hardlinkSource, envPath);
     assertErrorCode(() => wizard.writeEnvFile(), SETUP_ENV_TARGET_UNSAFE);
     assert.equal(readFileSync(hardlinkSource).equals(safeBase), true);
 
-    rmSync(join(root, '.env'), { force: true });
-    mkdirSync(join(root, '.env'));
+    rmSync(envPath, { force: true });
+    mkdirSync(envPath);
     assertErrorCode(() => wizard.writeEnvFile(), SETUP_ENV_TARGET_UNSAFE);
 
     assertErrorCode(
@@ -941,8 +1265,28 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
       nlink: 1,
       mode: 0o100600,
     }, localUid), SETUP_ENV_TARGET_UNSAFE);
+    assertErrorCode(() => requireSafeSetupEnvTarget({
+      isFile: () => true,
+      uid: localUid,
+      nlink: 1,
+      mode: 0o104600,
+    }, localUid), SETUP_ENV_TARGET_UNSAFE);
+    assertErrorCode(() => requireSafeSetupEnvTarget({
+      isFile: () => false,
+      uid: localUid,
+      nlink: 1,
+      mode: 0o010600,
+    }, localUid), SETUP_ENV_TARGET_UNSAFE);
 
     const wizardSource = readSource('src/setup/wizard.js');
+    const existingTargetOpen = sliceBetween(
+      wizardSource,
+      'fd = fs.openSync(targetPath,',
+      ');',
+    );
+    assert.match(existingTargetOpen, /requireSafeOpenFlags\(\)/);
+    assert.match(wizardSource, /O_NOFOLLOW === 0/);
+    assert.match(wizardSource, /O_NONBLOCK === 0/);
     const interactiveSlice = sliceBetween(
       wizardSource,
       'export async function runInteractiveWizard',
@@ -950,7 +1294,8 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
     );
     assert.equal(interactiveSlice.includes('wizard.writeEnvFile();'), true);
     assert.equal(interactiveSlice.includes('if (!wizard.complete())'), true);
-    assert.equal(interactiveSlice.includes("path.join(dataDir, '.env')"), false);
+    assert.equal(interactiveSlice.includes('process.cwd()'), false);
+    assert.equal(interactiveSlice.includes("path.join(wizard.projectRoot, '.env')"), true);
     assert.equal(interactiveSlice.includes('Configure Telegram'), false);
     assert.equal(interactiveSlice.includes('Configure ntfy'), false);
   } finally {

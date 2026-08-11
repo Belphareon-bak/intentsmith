@@ -365,23 +365,38 @@ Operátor 2026-08-11 přijal 026-X1 v offline localStorage variantě a následn�
 X1-a až X1-e. Aktivní
 [`WP-M1-SECRET-STORAGE-AUTHORITY`](../wp/WP-M1-SECRET-STORAGE-AUTHORITY.md)
 vychází z clean promotion tipu 028
-`0037d56a2fb63ae0c3a3863ce00b9083d838ba8b`. Implementace ještě nezačala;
-žádný transfer, export, purge ani scrub není tímto docs checkpointem provedený.
+`0037d56a2fb63ae0c3a3863ce00b9083d838ba8b`. Tento source tree obsahuje Setup P0
+checkpoint; zbytek 026 ještě nezačal a žádný transfer, export, purge ani scrub
+tím není provedený.
 
 Aktuální Setup census koriguje historický popis: 027 už nahradilo původní
 whole-file/truthy `.env` writer bounded atomickým patchem čtyř exact
 non-notification keys a `server.js` před route registration volá
-`setupWizard.load()`. Zbývající P0 je cwd-derived target a mutační autorita:
-čtyři efektové POSTy `/api/setup/{ollama,language,license,complete}` nemají strict
-admin-token guard a always-registered `/complete` po dokončení znovu zapisuje
-env i setup state. První source commit 026 proto přesune writer na exact
-canonical project root, zachová mode-0600/no-follow/foreign-byte ratchet, zavede
-startup-captured strict `C3_ADMIN_TOKEN` bez dev-localhost bypassu před všemi
-čtyřmi efekty a exact pre-effect
-`409 SETUP_ALREADY_COMPLETE`. Chybějící či nesprávný token skončí exact
-`403 SETUP_ADMIN_AUTH_REQUIRED`. Inertní Setup notifications 410 a GET status se
-nemění. Teprve po commitu, pushi a focused ověření P0 smí začít zbytek 026;
-finální subject `S` bude pro celý WP jeden.
+`setupWizard.load()`. P0 source checkpoint odstraňuje zbývající cwd-derived
+target a mutační autoritu: writer přijímá jen module-derived nebo explicitně
+injektovaný absolutní canonical project root, dál patchuje pouze čtyři owned
+keys, kontroluje exact mode 0600 včetně special bits a existing target otevírá
+s nenulovými `O_NOFOLLOW|O_NONBLOCK`. Tři legacy notification canaries
+`SMTP_URL`, `EMAIL_TO` a `C3_NTFY_URL` zůstávají byte/semantic zachované i při
+prázdné notification config.
+
+Čtyři efektové POSTy `/api/setup/{ollama,language,license,complete}` mají jako
+první operaci povinný startup-captured strict `C3_ADMIN_TOKEN` guard bez
+dev-localhost bypassu. Missing, malformed, duplicate, ambiguous, array,
+inherited, mismatch i unconfigured authority končí jednotným exact
+`403 SETUP_ADMIN_AUTH_REQUIRED` před parse/config/fetch/state/env efektem.
+Authenticated `/complete` znovu čte durable setup state; již dokončený vrací
+pre-effect `409 SETUP_ALREADY_COMPLETE`. Invalid JSON, fatal-invalid UTF-8,
+semanticky malformed known shape i unreadable state selžou typovaně jako
+`SETUP_STATE_INVALID` bez přepsání. Inertní Setup notifications 410 a GET status
+se nemění.
+
+Author-side checkpoint prošel syntaxí všech změněných JS souborů a
+`node tests/m1-notification-credential-scope.test.js` přesně `2/2`; izolovaný
+worktree před tím vyžadoval schválené `npm ci --offline`. Commit/push/review
+provenance se z tohoto source-progress odstavce neodvozuje a musí být doložená
+samostatným immutable checkpoint/evidence záznamem. Teprve potom smí začít
+zbytek 026; finální subject `S` bude pro celý WP jeden.
 
 Canonical status je explicitní dvanáctiklíčová mapa:
 `C3_SMTP_HOST`, `C3_SMTP_PORT`, `C3_SMTP_USER`, `C3_SMTP_PASS`,

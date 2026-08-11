@@ -215,7 +215,14 @@ try {
 
 // F1: Setup Wizard — first-run detection + API routes
 import { SetupWizard, createSetupRoutes } from './setup/wizard.js';
-const setupWizard = new SetupWizard(config.db?.path ? path.dirname(config.db.path) : './data');
+import { createStrictAdminTokenGuard } from './security/strict-admin-auth.js';
+const requireSetupAdminAuth = createStrictAdminTokenGuard({
+  expectedToken: process.env.C3_ADMIN_TOKEN,
+});
+const setupWizard = new SetupWizard(
+  config.db?.path ? path.dirname(config.db.path) : './data',
+  { projectRoot: path.resolve(__dirname, '..') },
+);
 setupWizard.load();
 const setupComplete = setupWizard.isComplete();
 if (!setupComplete) {
@@ -831,6 +838,7 @@ const routeDeps = {
   requireWebhookSecretAuthority, webhookSecretAuthority,
   comfyuiConnector, vramManager, mediaStorage,
   modelRegistry, modelBindingApplication,
+  requireSetupAdminAuth,
 };
 
 // v93: notificationRouter + notificationPipeline initialized above (before agent platform)
