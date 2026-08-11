@@ -186,11 +186,22 @@ Zamýšlená sada podle předlohy: `Konverzace`, `Projekty`, `Domů`, `Aktivita`
 | Nativní setrvačnost a dosednutí (`scroll-snap`) | ✅ hotovo |
 | Volba „Skrýt lištu na domovské obrazovce" ve Vzhledu | ✅ hotovo |
 | Zatažení **až po dojetí** na Domů (dva doby) | ✅ hotovo |
-| Vodorovný přesun obsahu mezi sekcemi | ✅ hotovo — View Transitions, viz níže |
+| Vodorovný přesun obsahu mezi sekcemi | ⬜ **vráceno podruhé 2026-08-11** — viz níže |
 | Přeskládání pořadí | ⬜ **odloženo** — drag and drop operátor 2026-08-11 zamítl pro složitost, způsob se určí jinak |
 | Sada sedmi položek (`Aktivita`, `Agenti`, `Specialisté`) | ⬜ čeká na `capabilities` |
 
-**Přesun obsahu stojí na `View Transitions API` (operátor 2026-08-10).**
+> **Vráceno 2026-08-11 na žádost operátora.** Přesun obsahu v klientovi
+> **není**. Zamrzání, které operátor hlásil, způsobil právě on: view transition
+> nahradí stránku snímkem a ten nepřijímá vstup, takže po celou dobu přechodu je
+> aplikace netečná. Zkracování z 720 na 240 ms to zmírnilo, neodstranilo.
+> Klient je vrácený do stavu po `eeae6435`, který operátor vyzkoušel a schválil:
+> smyčka, brána, dvě doby zatažení, volba ve Vzhledu — a **žádný přesun
+> obsahu**.
+>
+> Zápis níže popisuje ten vrácený pokus. Zůstává jako podklad, ne jako popis
+> dnešního stavu.
+
+**Pokus: přesun obsahu na `View Transitions API` (operátor 2026-08-10).**
 Zadané pořadí bylo: A) prověřit nativní View Transitions, B) teprve když
 nevyhoví, dočasný overlay se snapshotem, C) **nevracet se k trvalému obalu se
 dvěma živými obrazovkami**. A vyhovělo.

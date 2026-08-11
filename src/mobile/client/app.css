@@ -130,42 +130,6 @@ button { cursor: pointer; border: none; background: none; }
    column taller than the viewport. */
 .app { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 
-/* §3.1 — a section arrives from the side.
-   These are the browser's own snapshots of the old and new page, drawn outside
-   the document: nothing here is an element the app owns, so at rest the DOM is
-   exactly what it was before the animation existed.  The bar is snapshotted
-   separately by name so it stays put while the content travels under it. */
-.navbar { view-transition-name: navbar; }
-
-/* The bar is snapshotted under its own name so the content travels *under* it
-   rather than taking it along.  Its pair runs on the same clock as the content:
-   two animations of different lengths side by side is one overtaking the other,
-   which is what looks wrong. */
-::view-transition-old(navbar),
-::view-transition-new(navbar) {
-  animation-duration: var(--screen-slide);
-  animation-timing-function: cubic-bezier(.32, .72, 0, 1);
-}
-
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation-duration: var(--screen-slide);
-  animation-timing-function: cubic-bezier(.32, .72, 0, 1);
-  animation-fill-mode: both;
-  mix-blend-mode: normal;
-}
-html[data-screen-slide="right"]::view-transition-old(root) { animation-name: screen-out-left; }
-html[data-screen-slide="right"]::view-transition-new(root) { animation-name: screen-in-right; }
-html[data-screen-slide="left"]::view-transition-old(root)  { animation-name: screen-out-right; }
-html[data-screen-slide="left"]::view-transition-new(root)  { animation-name: screen-in-left; }
-
-@keyframes screen-out-left  { to   { transform: translateX(-100%); } }
-@keyframes screen-in-right  { from { transform: translateX(100%); } }
-@keyframes screen-out-right { to   { transform: translateX(100%); } }
-@keyframes screen-in-left   { from { transform: translateX(-100%); } }
-
-
-
 /* ── Boot ──────────────────────────────────────────────────────────────── */
 .boot {
   flex: 1; display: flex; flex-direction: column;
@@ -582,19 +546,11 @@ html[data-screen-slide="left"]::view-transition-new(root)  { animation-name: scr
      it is a feel, and a feel gets tuned. */
   transition: transform var(--navbar-slide) cubic-bezier(.32, .72, 0, 1);
 }
-/* Two clocks, on purpose — and the reason matters.
-   A view transition replaces the page with a snapshot, and a snapshot answers
-   no taps: for its whole length the app accepts no input at all.  Measured at
-   720 ms that is not an animation, it is a freeze, and it was one on every
-   section change.  So the screen keeps a short clock.
-   The bar's retraction may stay long because it never runs *beside* the screen:
-   it is the second beat, after the ring has landed (§3.2).  Things that happen
-   one after the other cannot overtake each other. */
-:root { --navbar-slide: 720ms; --screen-slide: 240ms; }
+:root { --navbar-slide: 720ms; }
 /* A 720 ms slide is exactly what someone who asked for less motion does not
    want, so for them it goes back under the §8 ceiling. */
 @media (prefers-reduced-motion: reduce) {
-  :root { --navbar-slide: 120ms; --screen-slide: 0ms; }
+  :root { --navbar-slide: 120ms; }
 }
 .navbar[data-retracted="true"] { transform: translateY(100%); }
 .navbar-track {
