@@ -560,21 +560,24 @@ focused regression sady.
      `src/db/user-settings.js`, `src/upgrade/model-failover.js`, malé aditivní
      `src/db/migrations/*model_failover*.js`, `model-registry.js`, identity a
      verify části `upgrade-manager.js` a scheduler seam v `src/server.js`.
-     Dnešní provisional reader používá JSON `user_settings.id=1` a pro
-     missing/malformed/DB error fail-close. Není ale jedinou writer autoritou.
-     **První checkpoint je implementovaný:** helper typovaně čte JSON,
+     Historický provisional reader používal JSON `user_settings.id=1` a pro
+     missing/malformed/DB error selhával fail-close. Nebyl ale jedinou writer
+     autoritou. **První checkpoint byl implementovaný:** helper typovaně čte JSON,
      defaultuje failover na `false` a zapisuje vlastněnou `models` sekci
-     transakčním merge. Detection scheduler jej už konzumuje, ale typed writer
-     nemá produkčního volajícího a pět legacy mutation cest může stejný blob
-     přepsat. [Rozhodnutí 020](docs/decisions/020-m1-model-failover-opt-in-surface.md)
+     transakčním merge. Detection scheduler jej konzumoval, ale typed writer
+     neměl produkčního volajícího a pět tehdejších legacy mutation cest mohlo
+     stejný blob přepsat. Promovaný 025 tyto canonical-root writer cesty později
+     sjednotil. [Rozhodnutí 020](docs/decisions/020-m1-model-failover-opt-in-surface.md)
      je operátorsky přijaté jako 020/E. **Storage/repository checkpoint je
      implementovaný:** migrace 061 zavádí default-off revisioned
      `model_automation_policy`, append-only event lineage, legacy quarantine a
      downgrade guard; repository drží projection/event CAS v jednom
      `BEGIN IMMEDIATE` a reálný dvou-workerový WAL race má jediného vítěze.
-     Detection repository i auto-cleanup/overview už čtou novou autoritu;
-     generic GET/POST dropuje přesně tři rezervované klíče, hlásí
-     `ignoredReservedKeys` a feature manager dostává sanitizovaný dokument.
+     Detection repository i auto-cleanup/overview už čtou novou autoritu.
+     Tehdejší generic GET/POST checkpoint dropoval přesně tři rezervované
+     klíče; promovaný 025 jej následně ukončil inertním `410` a převedl
+     first-party klienty na exact redigovaný settings v2/CAS connector.
+     Feature manager dostává sanitizovaný dokument.
      Source `905a3422` a exact-edge baseline `34a047d4` jsou pro tento dílčí
      checkpoint `FRESH_CLONE_VERIFIED`.
      Typed GET/PUT má source `3cbc260d` nad exact body, revision CAS a typovanými
@@ -1330,7 +1333,8 @@ mohou pokračovat.
    Review A i Review B skončily `PASS`. Kandidát `1a75188f` a promotion
    evidence tip `8c7ff414` jsou zaznamenané v
    [`wp-m1-settings-notification-clobber-20260810-report.md`](docs/execution/runs/wp-m1-settings-notification-clobber-20260810-report.md).
-   F-A nemění generic read, reset ani budoucí revision/CAS a neodemyká Gate 1.
+   Samotný F-A neměnil generic read, reset ani tehdy budoucí revision/CAS a
+   neodemykal Gate 1; navazující 025 je nyní promován.
 
    Operátor 2026-08-11 přijal navazující veřejnou a bezpečnostní frontu jako
    přesné varianty A:
@@ -1340,19 +1344,25 @@ mohou pokračovat.
    [028 webhook autorita](docs/decisions/028-m1-webhook-secret-semantics.md) a
    [029 reset scope](docs/decisions/029-m1-settings-reset-scope.md).
    Závazná implementační sekvence je `025 → 027 → 028 → 026 → 029`; každý krok
-   má vlastní subject a Review A/B. U 025 je legacy `410` poslední
+   má vlastní subject a Review A/B. 025 je `PROMOTED / REVIEW A+B PASS`: exact
+   base `55d32e14876964863b573bfd4b18086aaa46768d`, immutable replacement
+   subject `4f7f57422c525cc16d6cdffea41fc41d0df25001`, candidate
+   `901bb6bad8db31304468c74391c93019f13f5a1e` a promotion tip
+   `0322d468563875ecfd588ad6938c86bc7a7f80ed`. Legacy `410` je poslední
    runtime/source commit po schema, repository, pěti writerech a cutoveru všech
-   tří first-party consumerů; následují pouze report-only evidence commity.
-   N1–N5 podmínky jsou součástí přijatých decision dokumentů. Přijetí odemyká
-   vznik ohraničeného WP, samo není implementací, Finding 011 zůstává `OPEN` a
-   Gate 1 `BLOCKED`.
+   tří first-party consumerů; settings v2 drží exact redigovanou projekci a
+   CAS. Evidence je v
+   [`wp-m1-settings-versioned-authority-20260811-report.md`](docs/execution/runs/wp-m1-settings-versioned-authority-20260811-report.md).
 
-   První krok je nyní aktivovaný jako
-   [`WP-M1-SETTINGS-VERSIONED-AUTHORITY`](docs/wp/WP-M1-SETTINGS-VERSIONED-AUTHORITY.md).
-   Jeho source evidence je přijatý docs checkpoint `68cd6a0d`; exact integrační
-   base bude aktivační commit s tímto WP a připne jej unikátní run report.
-   Implementace začíná až v samostatném worktree. Aktivace nemění status
-   Findingu ani Gate 1 a nespouští Electron build.
+   Druhý krok je nyní aktivovaný jako
+   [`WP-M1-NOTIFICATION-CREDENTIAL-SCOPE`](docs/wp/WP-M1-NOTIFICATION-CREDENTIAL-SCOPE.md)
+   ve stavu `ACTIVE / IMPLEMENTATION_NOT_STARTED` se source evidence
+   `0322d468563875ecfd588ad6938c86bc7a7f80ed`. Pinuje in-app jako jediný core
+   1.0 support claim, external channels jako exact-literal-true/default-off
+   retained kandidáty, feature-only WS connector a Setup/UI credential-input
+   retirement bez transferu nebo scrubu. 028/026/029 čekají na přijatý 027
+   candidate. Finding 011 zůstává `OPEN`, Gate 1 `BLOCKED`; Electron, GPU,
+   Ollama ani externí network journey se v 027 nespouštějí.
 
    Konsolidovaný M1 base je formálně přijatý na
    `integration/m1-consolidated-20260810`; wire Review B evidence obálka

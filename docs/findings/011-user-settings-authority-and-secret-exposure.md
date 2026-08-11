@@ -5,31 +5,30 @@ security WP · **termín:** před Gate 1 exitem
 
 ## Co je doložené
 
-Portable schema v2 řeší obsah stahovaného artifactu a atomický importní
-commit. Neřeší ale celý živý `user_settings` povrch:
+Portable schema v2 a promovaný 025 řeší obsah stahovaného artifactu,
+atomický import, canonical-root versioned repository i stale-write CAS.
+Neřeší ale celou secret/support/reset frontu ani standalone `chats/` povrch:
 
-1. `GET /api/settings` vrací celý JSON řádek po odebrání pouze tří
-   model-automation klíčů. Stejný `webhookSecret`, který dedikovaná security
-   route vrací pouze jako `configured/masked` a chrání vlastním auth guardem,
-   je proto přes generic GET dostupný jako plaintext povolenému lokálnímu
-   klientovi. Stejná route navíc převádí DB/read/JSON parse chybu na
-   autoritativní HTTP `200 {}`; reload po `DELIVERY_UNKNOWN` tak může odemknout
-   klienta nad falešnými defaulty a pozdější generic save nad ostatními
-   nechráněnými secret cestami.
+1. Před 025 vracel `GET /api/settings` celý JSON řádek po odebrání pouze tří
+   model-automation klíčů a read/parse chybu měnil na `200 {}`. Promovaný 025
+   ukončil legacy GET/POST inertním `410`; `GET /api/settings/v2` nyní vrací
+   exact redigovanou public projekci s revision a read failure je typované
+   non-2xx. Plaintext legacy hodnoty ale dosud mohou zůstat v DB, setup
+   zdrojích nebo localStorage a čekají na 027/028/026.
 2. Před 025 vracel úspěšný `POST /api/settings/import` celý commitnutý
    destination dokument, protože tehdejší Studio generic save jinak neuměl
    zachovat lokální hodnoty, které portable soubor nenese. Druhý atomický 025
-   klientský checkpoint už vrací jen exact public projection a
-   všechny tři first-party consumery přecházejí na tuto redigovanou odpověď;
-   legacy route retirement a nezávislá review však ještě nejsou hotové.
+   klientský checkpoint vrací jen exact public projection a všechny tři
+   first-party consumery na tuto redigovanou odpověď přešly. Legacy retirement
+   i nezávislá Review A/B jsou dokončené a promované.
 3. Před F-A dělal generic POST whole-row replacement a notification writer
    samostatný read-modify-write. F-A převedl právě tuto dvojici na společný
    `BEGIN IMMEDIATE` merge seam. Foundation 025 následně převedl canonical-root
    storage, webhook a import/reset writery na jeden versioned repository commit
    point; importní request v druhém klientském checkpointu navíc nese
    explicitní `expectedRevision`. Původní raw webhook RMW je tedy historický
-   vstupní nález, ne otevřená cesta v současném 025 subjectu. Legacy generic
-   GET/POST zůstávají do posledního source commitu kompatibilitní výjimkou.
+   vstupní nález, ne otevřená canonical-root cesta. Legacy generic GET/POST
+   jsou nyní inertní `410`.
 4. `/architect` legacy offline fallback uměl držet celý dokument v
    `localStorage`. Druhý 025 cutover checkpoint už tento blob nečte, nepřepisuje ani
    nemaže a na generic server posílá jen 17 vlastněných preference cest.
@@ -42,12 +41,12 @@ commit. Neřeší ale celý živý `user_settings` povrch:
 Loopback/origin boundary snižuje dosah, ale není náhradou route-level secret
 authority: `NATIVE_LOOPBACK_CLIENT` bez Origin je podporovaný klientský typ.
 
-## Proč se generic GET neopravuje izolovanou redakcí
+## Proč samotná izolovaná redakce nestačila
 
-Redakce readu bez dokončení writer authority by byla datově nebezpečná. F-A
-chrání jen přesných devět notification klíčů; generic POST stále může zapsat či
-smazat jiné secret-bearing cesty podle přijatého top-level payloadu. Stejně tak
-oprava jednoho RMW writeru nezavírá závod s ostatními.
+Redakce readu bez dokončení writer authority by byla datově nebezpečná. Proto
+025 spojil redigovaný read s path ownership, revision/CAS a společným commit
+pointem. Samotná tato oprava ale neurčuje, které externí kanály produkt
+podporuje, odkud runtime smí číst secrets ani co reset skutečně maže.
 
 Bezpečný cutover musí spojit:
 
@@ -61,7 +60,7 @@ Bezpečný cutover musí spojit:
 - dvouconnection WAL testy import versus každý živý writer;
 - oddělený, pravdivě pojmenovaný factory-delete kontrakt.
 
-## Hranice současného repairu
+## Historická hranice portable repairu a dnešní residual
 
 `WP-M1-POLICY-PORTABLE-SECURITY` uzavírá pouze:
 
@@ -72,9 +71,10 @@ Bezpečný cutover musí spojit:
 - odstranění alternativních raw export/import bypassů ve třech first-party UI
   consumers.
 
-Netvrdí globální lost-update odolnost ani bezpečný obecný settings read.
-Gate 1 proto zůstává `BLOCKED`, dokud tento finding nedostane vlastní bounded
-WP, implementaci, negativní race důkazy a nezávislé review.
+Tehdejší portable repair netvrdil globální lost-update odolnost ani bezpečný
+obecný settings read. Tyto canonical-root části nyní pokrývá promovaný 025;
+Gate 1 zůstává `BLOCKED` na aktivním 027 a následných 028/026/029,
+standalone `chats/` ownerovi a dalších výslovně uvedených residualech.
 
 ## První repair F-A — promován, Review A+B PASS
 
@@ -92,8 +92,9 @@ Focused route-level sada má 4/4 včetně skutečných dvou WAL writerů. Immuta
 subject `ebe7ee20`, merge candidate `1a75188f` a oddělené Review A/B evidence
 prošly; promotion evidence tip `8c7ff414` je zapsaný v
 [`wp-m1-settings-notification-clobber-20260810-report.md`](../execution/runs/wp-m1-settings-notification-clobber-20260810-report.md).
-F-A neřeší generic read, ostatní writery, CAS, secrets ani reset, takže Finding
-011 zůstává `OPEN` a Gate 1 `BLOCKED`.
+Samotný F-A neřešil generic read, ostatní writery, CAS, secrets ani reset.
+Pozdější 025 vyřešil canonical-root read/writer/CAS část; Finding 011
+zůstává `OPEN` a Gate 1 `BLOCKED` na zbytku fronty.
 
 ## Rozhodovací fronta S1–S5
 
@@ -108,13 +109,13 @@ zůstávají oddělené a každá vyžaduje vlastní subject, Review A i Review 
 | 4 | [026 — secret storage authority](../decisions/026-m1-secret-storage-authority.md) | A | ověřený env transfer a odstranění credentials z aplikačních dat |
 | 5 | [029 — settings reset scope](../decisions/029-m1-settings-reset-scope.md) | A | settings-only reset a ukončení legacy aliasu |
 
-025 je `IN_PROGRESS / IMMUTABLE_SOURCE_READY / X1_AND_LATE_061_ACCEPTED / REVIEW_PENDING`;
-026–029 zůstávají `ACCEPTED / IMPLEMENTATION_PENDING`. Závazná sekvence je
-`025 → 027 → 028 → 026 → 029`; ostatní kroky začnou až po přijetí předchozího
-candidate. Finding 011 zůstává `OPEN` a Gate 1 `BLOCKED`, dokud neprojdou
-implementace a nezávislá review.
+025 je `PROMOTED / REVIEW A+B PASS`; 027 je
+`ACTIVE / IMPLEMENTATION_NOT_STARTED`; 028/026/029 zůstávají
+`ACCEPTED / IMPLEMENTATION_PENDING`. Závazná sekvence je
+`025 → 027 → 028 → 026 → 029`; další krok začne až po přijetí předchozího
+candidate. Finding 011 zůstává `OPEN` a Gate 1 `BLOCKED`.
 
-025 má nyní aktivovaný ohraničený
+025 dokončil ohraničený
 [`WP-M1-SETTINGS-VERSIONED-AUTHORITY`](../wp/WP-M1-SETTINGS-VERSIONED-AUTHORITY.md)
 se source evidence `68cd6a0d`. Exact base je aktivační commit obsahující tento
 WP, `55d32e14876964863b573bfd4b18086aaa46768d`. První source checkpoint
@@ -122,18 +123,18 @@ WP, `55d32e14876964863b573bfd4b18086aaa46768d`. První source checkpoint
 repository commit point, v2 GET/PUT a převod backendových writerů. Druhý source
 checkpoint `75a6497606f7055c06741d3992ed6bd6004b677a` atomicky převádí všechny
 tři first-party consumery, import CAS a redigovanou import/reset odpověď.
-Finální source diff už mění legacy `GET/POST /api/settings` na inertní `410`,
-odstraňuje broad writer exporty a doplňuje jejich replacement evidence.
-Operátor úzkou late-061 hranici níže výslovně přijal 2026-08-11; tento poslední
-source commit je proto immutable `S / REVIEW_PENDING` a jeho full SHA připne
-až report-only Review A evidence. Žádný dílčí checkpoint se samostatně
-neintegruje.
+Finální replacement subject
+`4f7f57422c525cc16d6cdffea41fc41d0df25001` mění legacy
+`GET/POST /api/settings` na inertní `410`, odstraňuje broad writer exporty a
+doplňuje exact owner-fixture evidence. Review A i B skončily `PASS`, candidate
+`901bb6bad8db31304468c74391c93019f13f5a1e` byl promován na
+`0322d468563875ecfd588ad6938c86bc7a7f80ed`. Dílčí checkpointy se
+samostatně neintegrovaly.
 
 Import/reset v commitnutém foundation checkpointu historicky vracel legacy
 `generalSettings`, včetně preserved nonportable secrets. Checkpoint `75a64976`
 už tento leak odstraňuje společně s cutoverem všech tří first-party consumerů;
-bez finálního `410` commitu a nezávislých Review A/B ale celý 025 subject stále
-není přijatý backend cutover.
+finální `410` commit i nezávislá Review A/B tento backend cutover uzavřely.
 
 Call-graph census navíc našel samostatně spustitelný tracked `chats/` package,
 jehož vlastní server stále obsahuje raw `INSERT OR REPLACE` a `DELETE`
@@ -195,11 +196,11 @@ Zvolený implementační blok pro nezávislé review:
 025-X1b: SQLITE-WRITE-FAILURE-IN-EXISTING-4-CASE-AUTHORITY
 ```
 
-Tento blok konkretizuje přijaté 025/A nejmenším vratným způsobem a podléhá
+Tento blok konkretizoval přijaté 025/A nejmenším vratným způsobem a prošel
 Review A/B celého subjectu. Operátor přijal X1 dne 2026-08-11 s podmínkou
 zachovat všech šest reader testů a přesunout jednu skutečnou commit-failure
 garanci do existující čtyřpřípadové authority sady. Poslední legacy `410` je
-proto připraven až po atomickém cutoveru Studio, Architect a Center Views.
+proto přistál až po atomickém cutoveru Studio, Architect a Center Views.
 Finding 011 i Gate 1 zůstávají `OPEN`/`BLOCKED`.
 
 Repository foundation nevystavuje whole-document import writer: IMPORT přijímá
@@ -239,10 +240,13 @@ První final-source candidate `cf050caaf67331c59b7bcb519b6867f18a0ea244`
 skončil v Review A jako `CHANGES_REQUIRED`: produkční 46cestný allowlist byl
 správný, ale T2 pinoval jen jeho počet a zákaz feature prefixu, takže stejně
 dlouhá záměna jedné cesty mohla zůstat false-green. Historie ani původní ref se
-nepřepisují. Náhradní sibling subject nad stejným parentem doplňuje v témže T2
-nezávislou exact 46-entry fixture, kontrolu unikátnosti a ponechává čtyři
-top-level scénáře. Jeho full SHA smí poprvé připnout až report-only `E_A` po
-opakovaném Review A; do té doby zůstává 025 `IN_PROGRESS / REVIEW_PENDING`.
+nepřepisují. Náhradní sibling subject
+`4f7f57422c525cc16d6cdffea41fc41d0df25001` nad stejným parentem doplňuje v
+témže T2 nezávislou exact 46-entry fixture, kontrolu unikátnosti a ponechává
+čtyři top-level scénáře. Report-only `E_A` jej připnul po opakovaném Review A;
+Review B nad candidate `901bb6bad8db31304468c74391c93019f13f5a1e` také
+skončilo `PASS` a 025 je promován na
+`0322d468563875ecfd588ad6938c86bc7a7f80ed`.
 
 Druhý atomický klientský checkpoint převádí chat-panel Studio,
 Architect i Center Views, importní route a CDP/E2E source seams společně.
@@ -250,12 +254,24 @@ Focused důkazy jsou Studio VM `127/127`, model-policy `36/36`, authority `4/4`,
 CDP evidence `59/59` a bezpečný Electron runner contract `16/16`; registry
 zůstává 381 programů s fingerprintem
 `665461cccea8f691e6d609c381b21c7bd8b7b2b1ff9932fd4aad42b9552216e0`.
-Nezávislý průběžný call-graph review nenašel P0/P1 blocker, ale nejde o Review
-A. Skutečný Electron ani runtime E2E běh nebyl spuštěn a není součástí tohoto
-checkpointu.
+Nezávislá Review A i B nenašla v replacement subjectu P0/P1 blocker. Skutečný
+Electron ani runtime E2E běh nebyl spuštěn a nebyl součástí 025.
 
 Ohraničené navazující položky: Architect a Center Views zatím nemají bounded
 fetch timeout; raw compatibility objekt s vlastním `kind`/`schemaVersion` je
 záměrně rezervovaný marker; recursive JSON validace potřebuje samostatný
-depth/node/byte budget. Jde o availability/robustness práci stejného budoucího
-settings-authority WP, nikoli důkaz bezpečnosti generic povrchu.
+depth/node/byte budget. Jde o samostatnou budoucí availability/robustness
+práci, nikoli zpochybnění promovaného canonical-root generic povrchu.
+
+### 027 aktivace — notification capability a credential-input containment
+
+Po promotion 025 je aktivní
+[`WP-M1-NOTIFICATION-CREDENTIAL-SCOPE`](../wp/WP-M1-NOTIFICATION-CREDENTIAL-SCOPE.md)
+se source evidence `0322d468563875ecfd588ad6938c86bc7a7f80ed`. Implementace
+ještě nezačala. WP pinuje in-app jako jediný core 1.0 support claim, pět
+external channelů jako exact-literal-true/default-off retained kandidáty,
+retirement WS SMTP injection a exact sedmiklíčový boolean `sync_settings`.
+Současně ukončí nový Setup/UI credential input, ale veškerá existující data
+zachová pro 026; neprovádí transfer, scrub, delete ani outbound journey.
+Security webhook UI zůstává vyhrazené 028. Finding 011 je nadále `OPEN` a
+Gate 1 `BLOCKED`.
