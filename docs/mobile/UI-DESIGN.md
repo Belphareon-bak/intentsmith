@@ -201,7 +201,41 @@ pohybu tam, kde je délka proměnná.** Oprava proto nemá být delší konstant
 navázání na skutečný konec posunu (`scrollend`, nebo detekce klidu) — jinak se
 to vrátí u delší lišty, až přibudou položky.
 
-**Pokus o opravu 2026-08-11 selhal a byl vrácen.** Nahrazení pevné konstanty
+**Z nahrávky `mobile-app-01-2026-08-11_18.46.10` (60 fps) a měření 2026-08-11 —
+pravděpodobný kořen je jinde, než zněly obě dřívější domněnky.**
+
+Co je na záznamu: kurzor dojede na **„Konverzace" u pravého kraje** a klepne.
+Lišta se pak **deset snímků, tedy dvě třetiny vteřiny, vůbec nehne** a teprve
+pak skočí. Ta pravá „Konverzace" je **klon**, ne kanonická položka.
+
+Co ukázalo měření a je to podstatnější:
+
+| Měřeno | Hodnota |
+|---|---|
+| Odchylka aktivní položky od středu **v klidu** | `20 px`, ne 0 |
+| Odchylka po klepnutí na kteroukoli položku | `20 px`, **nezmění se** |
+| Položka ve středu | `settings`, **nezmění se** |
+| `route` po klepnutí na `Konverzace` | vrátí se na `diagnostics` |
+
+Tedy: **prstenec se ve skutečnosti nikam neposouvá.** `centreNavOnSelection`
+doběhne, ale stopa zůstane stát. A protože platí pravidlo „co je ve středu, to je
+aktivní sekce", drží ve středu zaseknutý `settings` a **přetahuje každou
+navigaci zpátky na Nastavení**. Odtud i to, že se route po ~200 ms sama přehodí.
+
+Klepnutí na klon je tím pádem nejspíš jen **projev, ne příčina** — vypadá jako
+zaseknutí, protože se nehne nic, ať klepnete kamkoli.
+
+**Kde má oprava začít:** zjistit, proč `track.scrollTo` stopou nehne. Podezřelé
+je, že se `data-ring` rozchází s CSS větví `[data-ring="off"]`, která nastavuje
+`overflow-x: hidden` a `justify-content: center` — stopa, která nemůže
+scrollovat, se také nemůže vycentrovat, a `20 px` je přesně to, co zbude, když
+se položky jen vycentrují jako blok. Teprve po tomhle má smysl řešit klony
+a vzdálenosti.
+
+**Dva pokusy o opravu 2026-08-11 selhaly a jsou vrácené.** První nahradil pevnou
+konstantu koncem posunu (`scrollend`), druhý centroval nejbližší kopii místo
+kanonické. Ani jeden nepomohl — protože ani jeden se netýkal toho, že se stopa
+nehýbe. Nahrazení pevné konstanty
 koncem posunu (`scrollend`) vadu neodstranilo. Při tom se ale ukázalo, že je
 **širší, než zněl původní popis**: po přepnutí se route asi po 200 ms sama
 přehodí na `diagnostics` a tam zůstane, protože ve středu skončí `settings`.
