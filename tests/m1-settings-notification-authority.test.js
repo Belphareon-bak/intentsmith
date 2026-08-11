@@ -18,11 +18,12 @@ import {
 import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 import { createMiscRoutes } from '../src/routes/misc.js';
 import { createNotificationRoutes } from '../src/routes/notifications.js';
+import { createSecurityRoutes } from '../src/routes/security.js';
+import { createSystemRoutes } from '../src/routes/system.js';
 import { up as migrateModelPolicy } from '../src/db/migrations/2026_08_09_061_model_automation_policy.js';
 import { up as migrateUserSettingsRevision } from '../src/db/migrations/2026_08_10_064_user_settings_revision.js';
 import {
   GENERIC_USER_SETTING_PATHS,
-  NOTIFICATION_SETTING_FIELD_MAP,
   NOTIFICATION_SETTING_KEYS,
 } from '../src/db/user-settings.js';
 
@@ -58,7 +59,7 @@ const UPDATED_NOTIFICATION_BODY = Object.freeze({
   emailOnWorker: false,
 });
 
-const ROUTE_WAL_WORKER_SOURCE = String.raw`
+const STALE_ROUTE_WAL_WORKER_SOURCE = String.raw`
 const Database = require('better-sqlite3');
 const { parentPort, workerData } = require('node:worker_threads');
 
@@ -68,46 +69,48 @@ const { parentPort, workerData } = require('node:worker_threads');
   db.pragma('foreign_keys = ON');
   db.pragma('busy_timeout = 5000');
   let response = null;
-  const parseBody = async () => {
-    Atomics.add(workerData.barrier, 0, 1);
+  let requestBody = null;
+  const parseBody = async () => requestBody;
+  const sendJSON = (_res, status, body) => { response = { status, body }; };
+
+  try {
+    const { createMiscRoutes } = await import(workerData.miscUrl);
+    const routes = createMiscRoutes({
+      db: { db },
+      parseBody,
+      sendJSON,
+      logger: { info() {}, warn() {}, error() {}, debug() {} },
+      callWithAuth: async () => ({}),
+      createAuthToken: () => '',
+      LLMCallerRole: {},
+      featureManager: { applySettings: () => 0, resetToDefaults: () => 0 },
+    });
+    await routes['GET /api/settings/v2']({}, {});
+    if (!response || response.status !== 200) {
+      throw new Error('candidate failed to read the versioned settings snapshot');
+    }
+    const observedRevision = response.body.revision;
+    Atomics.store(workerData.barrier, 0, 1);
     Atomics.notify(workerData.barrier, 0);
     while (Atomics.load(workerData.barrier, 1) === 0) {
       Atomics.wait(workerData.barrier, 1, 0, 5000);
     }
-    return workerData.body;
-  };
-  const sendJSON = (_res, status, body) => { response = { status, body }; };
 
-  try {
+    response = null;
     if (workerData.kind === 'generic') {
-      const { createMiscRoutes } = await import(workerData.miscUrl);
-      const routes = createMiscRoutes({
-        db: { db },
-        parseBody,
-        sendJSON,
-        logger: { info() {}, warn() {}, error() {}, debug() {} },
-        callWithAuth: async () => ({}),
-        createAuthToken: () => '',
-        LLMCallerRole: {},
-        featureManager: { applySettings: () => 0 },
-      });
-      await routes['POST /api/settings']({}, {});
+      requestBody = {
+        expectedRevision: observedRevision,
+        patch: { 'c3.language': 'en' },
+      };
+      await routes['PUT /api/settings/v2']({}, {});
     } else {
-      const { createNotificationRoutes } = await import(workerData.notificationsUrl);
-      const routes = createNotificationRoutes({
-        db: { db },
-        parseBody,
-        sendJSON,
-        notificationRouter: {
-          updateChannelConfig() {},
-          getAvailableChannels: () => [],
-          channels: new Map(),
-        },
-        notificationEmitter: { invalidateCache() {} },
-      });
-      await routes['POST /api/notifications/config']({}, {});
+      requestBody = {
+        backup: workerData.backup,
+        expectedRevision: observedRevision,
+      };
+      await routes['POST /api/settings/import']({}, {});
     }
-    parentPort.postMessage({ kind: workerData.kind, response });
+    parentPort.postMessage({ kind: workerData.kind, observedRevision, response });
   } catch (error) {
     parentPort.postMessage({
       kind: 'WORKER_ERROR',
@@ -141,6 +144,15 @@ function openDb(databasePath = ':memory:') {
   return db;
 }
 
+function openPolicyDb(databasePath = ':memory:') {
+  const db = openLegacyDb(databasePath);
+  db.transaction(() => {
+    migrateModelPolicy(db);
+    migrateUserSettingsRevision(db);
+  }).immediate();
+  return db;
+}
+
 function readRaw(db) {
   return db.prepare('SELECT data FROM user_settings WHERE id = 1').get()?.data ?? null;
 }
@@ -166,6 +178,50 @@ function replaceFixtureDocument(db, value) {
   `).run(value);
 }
 
+function readRowBytes(db) {
+  return db.prepare(`
+    SELECT hex(CAST(data AS BLOB)) AS dataHex, revision, updated_at AS updatedAt
+    FROM user_settings
+    WHERE id = 1
+  `).get();
+}
+
+function backupEnvelope(overrides = {}) {
+  return {
+    kind: 'INTENTSMITH_SETTINGS_BACKUP',
+    schemaVersion: 2,
+    settingsProjection: {
+      profile: 'UX_PREFERENCES_V1',
+      values: {
+        '/appearance/accentColor': '#6366f1',
+        '/appearance/fontFamily': 'system',
+        '/appearance/fontSize': 14,
+        '/appearance/theme': 'light',
+        '/c3.language': 'cs',
+        '/c3.output.codeBlocks': true,
+        '/c3.output.markdownRendering': true,
+        '/c3.output.syntaxHighlight': true,
+        '/output/codeStyle': 'default',
+        '/output/defaultFormat': 'markdown',
+        '/output/namingConvention': 'camelCase',
+        ...overrides.portableValues,
+      },
+    },
+    modelAutomationPolicy: {
+      autoFailoverEnabled: true,
+      autoCleanupEnabled: true,
+      autoCleanupDays: 30,
+      ...overrides.modelAutomationPolicy,
+    },
+    omissions: {
+      strategy: 'DEFAULT_DENY',
+      scope: 'GENERAL_SETTINGS',
+      excluded: 'ALL_PATHS_NOT_IN_PROFILE',
+      sourceHadExcludedPaths: false,
+    },
+  };
+}
+
 function captureError(callback) {
   try {
     callback();
@@ -181,27 +237,21 @@ function notificationProjection(document) {
   );
 }
 
-function notificationProjectionFromBody(body) {
-  return Object.fromEntries(
-    Object.entries(NOTIFICATION_SETTING_FIELD_MAP).map(
-      ([field, key]) => [key, body[field]],
-    ),
-  );
-}
-
 function createRouteHarness(db) {
   let requestBody = {};
   let parseFailure = null;
+  let parseCount = 0;
   let genericResponse = null;
   let notificationResponse = null;
-  let genericRuntimeFailure = null;
-  let notificationRuntimeFailure = null;
+  let securityResponse = null;
+  let systemResponse = null;
   let featureDocument = null;
   const notificationRuntimeConfigs = [];
 
   const miscRoutes = createMiscRoutes({
     db: { db },
     parseBody: async () => {
+      parseCount += 1;
       if (parseFailure) throw parseFailure;
       return requestBody;
     },
@@ -213,7 +263,9 @@ function createRouteHarness(db) {
     featureManager: {
       applySettings(document) {
         featureDocument = document;
-        if (genericRuntimeFailure) throw genericRuntimeFailure;
+        return 0;
+      },
+      resetToDefaults() {
         return 0;
       },
     },
@@ -221,30 +273,48 @@ function createRouteHarness(db) {
   const notificationRoutes = createNotificationRoutes({
     db: { db },
     parseBody: async () => {
+      parseCount += 1;
       if (parseFailure) throw parseFailure;
       return requestBody;
     },
     sendJSON: (_res, status, body) => { notificationResponse = { status, body }; },
     notificationRouter: {
       updateChannelConfig(_channel, config) {
-        if (notificationRuntimeFailure) throw notificationRuntimeFailure;
         notificationRuntimeConfigs.push(structuredClone(config));
       },
       getAvailableChannels: () => [],
       channels: new Map(),
     },
     notificationEmitter: {
-      invalidateCache() {
-        if (notificationRuntimeFailure) throw notificationRuntimeFailure;
-      },
+      invalidateCache() {},
     },
+  });
+  const systemRoutes = createSystemRoutes({
+    db: { db },
+    parseBody: async () => {
+      parseCount += 1;
+      if (parseFailure) throw parseFailure;
+      return requestBody;
+    },
+    sendJSON: (_res, status, body) => { systemResponse = { status, body }; },
+    modelRegistry: {},
+    broadcastValidation() {},
+  });
+  const securityRoutes = createSecurityRoutes({
+    db: { db },
+    parseBody: async () => {
+      parseCount += 1;
+      if (parseFailure) throw parseFailure;
+      return requestBody;
+    },
+    sendJSON: (_res, status, body) => { securityResponse = { status, body }; },
+    logger: { info() {}, warn() {}, error() {}, debug() {} },
   });
 
   return {
+    get parseCount() { return parseCount; },
     get notificationRuntimeConfigs() { return notificationRuntimeConfigs; },
-    setGenericRuntimeFailure(error) { genericRuntimeFailure = error; },
-    setNotificationRuntimeFailure(error) { notificationRuntimeFailure = error; },
-    async postGeneric(body, options = {}) {
+    async postLegacy(body, options = {}) {
       requestBody = body;
       parseFailure = options.parseFailure || null;
       genericResponse = null;
@@ -261,7 +331,7 @@ function createRouteHarness(db) {
       parseFailure = null;
       return notificationResponse;
     },
-    async getGeneric() {
+    async getLegacy() {
       genericResponse = null;
       await miscRoutes['GET /api/settings']({}, {});
       return genericResponse;
@@ -280,11 +350,39 @@ function createRouteHarness(db) {
       parseFailure = null;
       return { response: genericResponse, featureDocument };
     },
+    async postImport(body, options = {}) {
+      requestBody = body;
+      parseFailure = options.parseFailure || null;
+      genericResponse = null;
+      await miscRoutes['POST /api/settings/import']({}, {});
+      parseFailure = null;
+      return genericResponse;
+    },
+    async postReset() {
+      genericResponse = null;
+      await miscRoutes['POST /api/settings/reset']({}, {});
+      return genericResponse;
+    },
+    async putStorage(body) {
+      requestBody = body;
+      parseFailure = null;
+      systemResponse = null;
+      await systemRoutes['PUT /api/system/storage/settings']({}, {});
+      return systemResponse;
+    },
+    async postWebhookSecret() {
+      securityResponse = null;
+      await securityRoutes['POST /api/security/webhook-secret']({
+        headers: {},
+        socket: { remoteAddress: '127.0.0.1' },
+      }, {});
+      return securityResponse;
+    },
   };
 }
 
-function startRouteWorker(workerData) {
-  const worker = new Worker(ROUTE_WAL_WORKER_SOURCE, {
+function startStaleRouteWorker(workerData) {
+  const worker = new Worker(STALE_ROUTE_WAL_WORKER_SOURCE, {
     eval: true,
     workerData,
   });
@@ -491,33 +589,23 @@ await testAsync('migration guard and notification owner preserve the versioned s
     assertEqual(readDocument(db)['c3.notif.smtpHost'], '');
     const before = notificationProjection(readDocument(db));
 
-    const generic = await harness.postGeneric({
-      appearance: { theme: 'dark' },
-      models: {
-        autoFailoverEnabled: true,
-        futureSetting: 'preserved-generic',
-      },
-      'c3.notif.futureChannel': 'exact-key-only',
+    const genericSnapshot = await harness.getV2();
+    const generic = await harness.putV2({
+      expectedRevision: genericSnapshot.body.revision,
+      patch: { appearance: { theme: 'dark' } },
     });
     assertEqual(generic.response.status, 200);
-    assertEqual(generic.response.body.runtimeApplied, true);
-    assertEqual(
-      JSON.stringify(generic.response.body.ignoredReservedKeys),
-      JSON.stringify(['autoFailoverEnabled']),
-    );
-    assertEqual(JSON.stringify(generic.response.body.ignoredNotificationKeys), '[]');
+    assertEqual(generic.response.body.revision, genericSnapshot.body.revision + 1);
     const afterDocument = readDocument(db);
     assertEqual(JSON.stringify(notificationProjection(afterDocument)), JSON.stringify(before));
     assertEqual(afterDocument.appearance.theme, 'dark');
-    assertEqual(afterDocument.models.futureSetting, 'preserved-generic');
-    assertEqual(Object.hasOwn(afterDocument.models, 'autoFailoverEnabled'), false);
-    assertEqual(afterDocument['c3.notif.futureChannel'], 'exact-key-only');
+    assertEqual(JSON.stringify(generic.response.body).includes('SECRET_CANARY'), false);
   } finally {
     db.close();
   }
 });
 
-await testAsync('v2 CAS is redacted and stale generic snapshots preserve newer notification commits', async () => {
+await testAsync('versioned generic CAS is redacted and legacy settings routes are inert 410 endpoints', async () => {
   const db = openDb();
   try {
     assertEqual(GENERIC_USER_SETTING_PATHS.length, 46);
@@ -533,6 +621,21 @@ await testAsync('v2 CAS is redacted and stale generic snapshots preserve newer n
     protectedDocument.webhookSecret = 'WEBHOOK_SECRET_CANARY';
     protectedDocument.futurePrivate = 'PRIVATE_DESTINATION_CANARY';
     replaceFixtureDocument(db, JSON.stringify(protectedDocument));
+
+    const beforeLegacy = readRowBytes(db);
+    const parseCountBeforeLegacy = harness.parseCount;
+    const legacyGet = await harness.getLegacy();
+    const legacyPost = await harness.postLegacy(
+      { storage: { root: '/must-not-parse' } },
+      { parseFailure: new Error('LEGACY_BODY_PARSE_CANARY') },
+    );
+    const retiredBody = { ok: false, code: 'USER_SETTINGS_LEGACY_RETIRED' };
+    assertEqual(legacyGet.status, 410);
+    assertEqual(JSON.stringify(legacyGet.body), JSON.stringify(retiredBody));
+    assertEqual(legacyPost.response.status, 410);
+    assertEqual(JSON.stringify(legacyPost.response.body), JSON.stringify(retiredBody));
+    assertEqual(harness.parseCount, parseCountBeforeLegacy);
+    assertEqual(JSON.stringify(readRowBytes(db)), JSON.stringify(beforeLegacy));
 
     const initialV2 = await harness.getV2();
     assertEqual(initialV2.status, 200);
@@ -566,6 +669,52 @@ await testAsync('v2 CAS is redacted and stale generic snapshots preserve newer n
     assertEqual(postCasDocument.webhookSecret, 'WEBHOOK_SECRET_CANARY');
     assertEqual(postCasDocument.futurePrivate, 'PRIVATE_DESTINATION_CANARY');
 
+    db.exec(`
+      CREATE TRIGGER fixture_reject_v2_settings_write
+      BEFORE UPDATE OF data, revision ON user_settings
+      WHEN OLD.id = 1
+      BEGIN
+        SELECT RAISE(ABORT, 'V2_SETTINGS_WRITE_FAILURE_CANARY');
+      END
+    `);
+    const beforeRejectedV2Write = readRowBytes(db);
+    const rejectedV2Write = await harness.putV2({
+      expectedRevision: beforeRejectedV2Write.revision,
+      patch: { 'c3.language': 'cs' },
+    });
+    assertEqual(rejectedV2Write.response.status, 503);
+    assertEqual(rejectedV2Write.response.body.code, 'USER_SETTINGS_DB_WRITE_FAILED');
+    assertEqual(JSON.stringify(rejectedV2Write.response.body).includes('CANARY'), false);
+    const afterRejectedV2Write = readRowBytes(db);
+    assertEqual(afterRejectedV2Write.dataHex, beforeRejectedV2Write.dataHex);
+    assertEqual(afterRejectedV2Write.revision, beforeRejectedV2Write.revision);
+    assertEqual(JSON.stringify(afterRejectedV2Write), JSON.stringify(beforeRejectedV2Write));
+    db.exec('DROP TRIGGER fixture_reject_v2_settings_write');
+
+    db.exec(`
+      CREATE TRIGGER fixture_diverge_v2_settings_after_write
+      AFTER UPDATE OF data, revision ON user_settings
+      WHEN OLD.id = 1
+      BEGIN
+        UPDATE user_settings
+        SET data = json_set(NEW.data, '$.fixtureAfterTrigger', 'injected'),
+            revision = NEW.revision + 1
+        WHERE id = 1;
+      END
+    `);
+    const beforeDivergentV2Write = readRowBytes(db);
+    const divergentV2Write = await harness.putV2({
+      expectedRevision: beforeDivergentV2Write.revision,
+      patch: { 'c3.language': 'cs' },
+    });
+    assertEqual(divergentV2Write.response.status, 503);
+    assertEqual(divergentV2Write.response.body.code, 'USER_SETTINGS_STORAGE_CONTRACT');
+    assertEqual(
+      JSON.stringify(readRowBytes(db)),
+      JSON.stringify(beforeDivergentV2Write),
+    );
+    db.exec('DROP TRIGGER fixture_diverge_v2_settings_after_write');
+
     const beforeUnowned = readSettingsRow(db);
     for (const patch of [
       { storage: { root: '/attacker/path' } },
@@ -593,193 +742,232 @@ await testAsync('v2 CAS is redacted and stale generic snapshots preserve newer n
     assertEqual(staleV2.response.body.currentRevision, afterNotification.revision);
     assertEqual(JSON.stringify(readSettingsRow(db)), JSON.stringify(afterNotification));
 
-    const stale = (await harness.getGeneric()).body;
-    await harness.postNotification(UPDATED_NOTIFICATION_BODY);
+    const beforeParseFailure = readRowBytes(db);
+    const parseFailure = await harness.putV2(
+      { expectedRevision: afterNotification.revision, patch: { 'c3.language': 'cs' } },
+      { parseFailure: new Error('TYPED_PARSE_CANARY') },
+    );
+    assertEqual(parseFailure.response.status, 400);
+    assertEqual(parseFailure.response.body.code, 'USER_SETTINGS_INPUT_INVALID');
+    assertEqual(JSON.stringify(readRowBytes(db)), JSON.stringify(beforeParseFailure));
 
-    stale.appearance = { theme: 'light' };
-    const generic = await harness.postGeneric(stale);
-    assertEqual(generic.response.status, 200);
-    assertEqual(
-      JSON.stringify(generic.response.body.ignoredNotificationKeys),
-      JSON.stringify(NOTIFICATION_SETTING_KEYS),
-    );
-    assertEqual(
-      JSON.stringify(notificationProjection(readDocument(db))),
-      JSON.stringify(notificationProjectionFromBody(UPDATED_NOTIFICATION_BODY)),
-    );
-    const featurePayload = JSON.stringify(generic.featureDocument);
-    for (const key of NOTIFICATION_SETTING_KEYS) {
-      assertEqual(Object.hasOwn(generic.featureDocument, key), false);
-    }
-    assertEqual(featurePayload.includes('INITIAL_SECRET_CANARY'), false);
-    assertEqual(featurePayload.includes('UPDATED_SECRET_CANARY'), false);
-    assertEqual(JSON.stringify(generic.response.body).includes('SECRET_CANARY'), false);
+    db.exec('DROP TRIGGER trg_user_settings_revision_update_guard');
+    db.prepare('UPDATE user_settings SET data = ?, revision = revision + 1 WHERE id = 1')
+      .run('{broken');
+    const malformedRaw = readRaw(db);
+    const malformedRead = await harness.getV2();
+    assertEqual(malformedRead.status, 503);
+    assertEqual(malformedRead.body.code, 'USER_SETTINGS_JSON_INVALID');
+    assertEqual(readRaw(db), malformedRaw);
   } finally {
     db.close();
   }
 });
 
-await testAsync('two real WAL route writers preserve disjoint notification and generic changes', async () => {
-  const directory = mkdtempSync(path.join(isolatedTestRuntime.artifacts, 'settings-notification-wal-'));
-  const databasePath = path.join(directory, 'settings.sqlite');
-  const setup = openDb(databasePath);
-  setup.close();
-  const barrier = new Int32Array(new SharedArrayBuffer(8));
-  const runs = [];
-  const common = {
-    databasePath,
-    barrier,
-    miscUrl: new URL('../src/routes/misc.js', import.meta.url).href,
-    notificationsUrl: new URL('../src/routes/notifications.js', import.meta.url).href,
-  };
+await testAsync('seven real-WAL stale candidates cannot overwrite any newer route-owned commit', async () => {
+  const directory = mkdtempSync(path.join(isolatedTestRuntime.artifacts, 'settings-authority-wal-'));
+  const cases = [
+    ['generic', 'notification'],
+    ['generic', 'storage'],
+    ['generic', 'webhook'],
+    ['import', 'notification'],
+    ['import', 'storage'],
+    ['import', 'webhook'],
+    ['import', 'generic'],
+  ];
 
   try {
-    runs.push(startRouteWorker({
-      ...common,
-      kind: 'generic',
-      body: {
-        ui: { density: 'compact' },
-        models: { autoCleanupEnabled: true, futureSetting: 'wal-preserved' },
-        'c3.notif.smtpPass': 'STALE_GENERIC_SECRET',
-      },
-    }));
-    runs.push(startRouteWorker({
-      ...common,
-      kind: 'notification',
-      body: UPDATED_NOTIFICATION_BODY,
-    }));
+    for (const [candidateKind, writerKind] of cases) {
+      const databasePath = path.join(directory, `${candidateKind}-${writerKind}.sqlite`);
+      const setup = openPolicyDb(databasePath);
+      setup.close();
+      const barrier = new Int32Array(new SharedArrayBuffer(8));
+      const candidate = startStaleRouteWorker({
+        databasePath,
+        barrier,
+        kind: candidateKind,
+        backup: backupEnvelope(),
+        miscUrl: new URL('../src/routes/misc.js', import.meta.url).href,
+      });
+      let writerDb = null;
+      try {
+        const deadline = Date.now() + 5000;
+        while (Atomics.load(barrier, 0) !== 1 && Date.now() < deadline) {
+          Atomics.wait(barrier, 0, Atomics.load(barrier, 0), 50);
+        }
+        assertEqual(Atomics.load(barrier, 0), 1);
 
-    const deadline = Date.now() + 5000;
-    while (Atomics.load(barrier, 0) < 2 && Date.now() < deadline) {
-      Atomics.wait(barrier, 0, Atomics.load(barrier, 0), 50);
-    }
-    assertEqual(Atomics.load(barrier, 0), 2);
-    Atomics.store(barrier, 1, 1);
-    Atomics.notify(barrier, 1, 2);
+        writerDb = new Database(databasePath);
+        writerDb.pragma('journal_mode = WAL');
+        writerDb.pragma('foreign_keys = ON');
+        writerDb.pragma('busy_timeout = 5000');
+        const writerHarness = createRouteHarness(writerDb);
+        const observedRevision = readSettingsRow(writerDb).revision;
+        let writerResponse;
+        let expectedWriterValue;
+        if (writerKind === 'notification') {
+          expectedWriterValue = `${candidateKind}.writer.invalid`;
+          writerResponse = await writerHarness.postNotification({
+            smtpHost: expectedWriterValue,
+          });
+        } else if (writerKind === 'storage') {
+          expectedWriterValue = candidateKind === 'generic' ? 17 : 19;
+          writerResponse = await writerHarness.putStorage({
+            retention: { llm_logs: expectedWriterValue },
+          });
+        } else if (writerKind === 'webhook') {
+          writerResponse = await writerHarness.postWebhookSecret();
+          expectedWriterValue = readDocument(writerDb).webhookSecret;
+        } else {
+          writerResponse = (await writerHarness.putV2({
+            expectedRevision: observedRevision,
+            patch: { 'c3.language': 'cs' },
+          })).response;
+          expectedWriterValue = 'cs';
+        }
+        assertEqual(writerResponse.status, 200);
 
-    const results = await Promise.all(runs.map(run => run.result));
-    assertEqual(results.every(result => result.response.status === 200), true);
-    const genericResult = results.find(result => result.kind === 'generic');
-    assertEqual(
-      JSON.stringify(genericResult.response.body.ignoredNotificationKeys),
-      JSON.stringify(['c3.notif.smtpPass']),
-    );
-    assertEqual(JSON.stringify(genericResult.response.body).includes('STALE_GENERIC_SECRET'), false);
+        const afterWriter = readRowBytes(writerDb);
+        assertEqual(afterWriter.revision, observedRevision + 1);
+        const afterWriterDocument = readDocument(writerDb);
+        if (writerKind === 'notification') {
+          assertEqual(afterWriterDocument['c3.notif.smtpHost'], expectedWriterValue);
+        } else if (writerKind === 'storage') {
+          assertEqual(afterWriterDocument.storage.retention.llm_logs, expectedWriterValue);
+        } else if (writerKind === 'webhook') {
+          assert(typeof expectedWriterValue === 'string' && expectedWriterValue.startsWith('c3_'));
+        } else {
+          assertEqual(afterWriterDocument['c3.language'], expectedWriterValue);
+        }
 
-    const verify = new Database(databasePath, { readonly: true });
-    try {
-      const document = readDocument(verify);
-      assertEqual(document.ui.density, 'compact');
-      assertEqual(document.models.futureSetting, 'wal-preserved');
-      assertEqual(Object.hasOwn(document.models, 'autoCleanupEnabled'), false);
-      assertEqual(document['c3.notif.smtpPass'], UPDATED_NOTIFICATION_BODY.smtpPass);
-      assertEqual(
-        JSON.stringify(notificationProjection(document)),
-        JSON.stringify(notificationProjectionFromBody(UPDATED_NOTIFICATION_BODY)),
-      );
-    } finally {
-      verify.close();
+        Atomics.store(barrier, 1, 1);
+        Atomics.notify(barrier, 1);
+        const stale = await candidate.result;
+        assertEqual(stale.observedRevision, observedRevision);
+        assertEqual(stale.response.status, 409);
+        assertEqual(JSON.stringify(stale.response.body), JSON.stringify({
+          ok: false,
+          code: 'USER_SETTINGS_REVISION_CONFLICT',
+          expectedRevision: observedRevision,
+          currentRevision: observedRevision + 1,
+        }));
+        assertEqual(JSON.stringify(readRowBytes(writerDb)), JSON.stringify(afterWriter));
+
+        const finalDocument = readDocument(writerDb);
+        if (writerKind === 'notification') {
+          assertEqual(finalDocument['c3.notif.smtpHost'], expectedWriterValue);
+        } else if (writerKind === 'storage') {
+          assertEqual(finalDocument.storage.retention.llm_logs, expectedWriterValue);
+        } else if (writerKind === 'webhook') {
+          assertEqual(finalDocument.webhookSecret, expectedWriterValue);
+        } else {
+          assertEqual(finalDocument['c3.language'], expectedWriterValue);
+        }
+      } finally {
+        Atomics.store(barrier, 1, 1);
+        Atomics.notify(barrier, 1);
+        if (writerDb) writerDb.close();
+        await Promise.allSettled([candidate.result]);
+        await candidate.worker.terminate();
+      }
     }
   } finally {
-    Atomics.store(barrier, 1, 1);
-    Atomics.notify(barrier, 1, runs.length);
-    await Promise.allSettled(runs.map(run => run.worker.terminate()));
-    await Promise.allSettled(runs.map(run => run.result));
     rmSync(directory, { recursive: true, force: false });
   }
 });
 
-await testAsync('input, storage and post-commit runtime failures have stable truthful boundaries', async () => {
-  const db = openDb();
+await testAsync('import and reset commit settings with policy atomically and return only redacted state', async () => {
+  const db = openPolicyDb();
+  const readPolicyState = () => ({
+    projection: db.prepare('SELECT * FROM model_automation_policy WHERE id = 1').get(),
+    events: db.prepare('SELECT * FROM model_automation_policy_events ORDER BY seq').all(),
+  });
   try {
-    replaceFixtureDocument(
-      db,
-      JSON.stringify({ sentinel: 'original', 'c3.notif.smtpPass': 'SECRET_BOUNDARY_CANARY' }),
-    );
+    replaceFixtureDocument(db, JSON.stringify({
+      appearance: { theme: 'dark' },
+      'c3.language': 'en',
+      storage: { root: '/private/device/path' },
+      webhookSecret: 'WEBHOOK_SECRET_CANARY',
+      'c3.notif.smtpPass': 'NOTIFICATION_SECRET_CANARY',
+      futurePrivate: 'PRIVATE_DESTINATION_CANARY',
+    }));
     const harness = createRouteHarness(db);
-    const original = readRaw(db);
+    const importRequest = {
+      backup: backupEnvelope(),
+      expectedRevision: readSettingsRow(db).revision,
+    };
 
-    const genericInvalid = await harness.postGeneric(null);
-    assertEqual(genericInvalid.response.status, 400);
-    assertEqual(genericInvalid.response.body.code, 'USER_SETTINGS_INPUT_INVALID');
-    const notificationInvalid = await harness.postNotification([]);
-    assertEqual(notificationInvalid.status, 400);
-    assertEqual(notificationInvalid.body.code, 'NOTIFICATION_SETTINGS_INPUT_INVALID');
-    assertEqual(readRaw(db), original);
-
-    db.exec('DROP TRIGGER trg_user_settings_revision_update_guard');
-    db.prepare('UPDATE user_settings SET data = ?, revision = revision + 1 WHERE id = 1').run('{broken');
-    const malformedRaw = readRaw(db);
-    const malformedRead = await harness.getV2();
-    assertEqual(malformedRead.status, 503);
-    assertEqual(malformedRead.body.code, 'USER_SETTINGS_JSON_INVALID');
-    const malformed = await harness.postGeneric({ sentinel: 'replacement' });
-    assertEqual(malformed.response.status, 503);
-    assertEqual(malformed.response.body.code, 'USER_SETTINGS_STORAGE_FAILED');
-    assertEqual(JSON.stringify(malformed.response.body).includes('broken'), false);
-    assertEqual(readRaw(db), malformedRaw);
-
-    db.prepare('UPDATE user_settings SET data = ?, revision = revision + 1 WHERE id = 1').run(original);
     db.exec(`
-      CREATE TRIGGER reject_notification_update
-      BEFORE UPDATE ON user_settings
+      CREATE TRIGGER fixture_reject_import_policy_event
+      BEFORE INSERT ON model_automation_policy_events
+      WHEN NEW.event_kind = 'BACKUP_IMPORT'
       BEGIN
-        SELECT RAISE(ABORT, 'RAW_DB_ERROR_CANARY');
+        SELECT RAISE(ABORT, 'IMPORT_POLICY_FAILURE_CANARY');
       END
     `);
-    const rejectedRaw = readRaw(db);
-    const rejected = await harness.postNotification({ smtpHost: 'rejected.invalid' });
-    assertEqual(rejected.status, 503);
-    assertEqual(rejected.body.code, 'NOTIFICATION_SETTINGS_STORAGE_FAILED');
-    assertEqual(JSON.stringify(rejected.body).includes('RAW_DB_ERROR_CANARY'), false);
-    assertEqual(readRaw(db), rejectedRaw);
-    db.exec('DROP TRIGGER reject_notification_update');
+    const beforeRejectedImport = readRowBytes(db);
+    const policyBeforeRejectedImport = readPolicyState();
+    const rejectedImport = await harness.postImport(importRequest);
+    assertEqual(rejectedImport.status, 503);
+    assertEqual(rejectedImport.body.code, 'MODEL_AUTOMATION_POLICY_STORAGE_CONTRACT');
+    assertEqual(JSON.stringify(rejectedImport.body).includes('CANARY'), false);
+    assertEqual(JSON.stringify(readRowBytes(db)), JSON.stringify(beforeRejectedImport));
+    assertEqual(JSON.stringify(readPolicyState()), JSON.stringify(policyBeforeRejectedImport));
+    db.exec('DROP TRIGGER fixture_reject_import_policy_event');
 
-    const beforeAfterTrigger = readSettingsRow(db);
+    const imported = await harness.postImport(importRequest);
+    assertEqual(imported.status, 200);
+    assertEqual(imported.body.revision, importRequest.expectedRevision + 1);
+    assertEqual(imported.body.settings.appearance.theme, 'light');
+    assertEqual(imported.body.settings['c3.language'], 'cs');
+    assertEqual(imported.body.policy.autoFailoverEnabled, true);
+    assertEqual(imported.body.policy.autoCleanupEnabled, true);
+    assertEqual(imported.body.policy.autoCleanupDays, 30);
+    for (const key of [
+      'storage',
+      'webhookSecret',
+      'futurePrivate',
+      ...NOTIFICATION_SETTING_KEYS,
+    ]) {
+      assertEqual(Object.hasOwn(imported.body.settings, key), false);
+    }
+    assertEqual(JSON.stringify(imported.body).includes('SECRET_CANARY'), false);
+    const importedDocument = readDocument(db);
+    assertEqual(importedDocument.storage.root, '/private/device/path');
+    assertEqual(importedDocument.webhookSecret, 'WEBHOOK_SECRET_CANARY');
+    assertEqual(importedDocument['c3.notif.smtpPass'], 'NOTIFICATION_SECRET_CANARY');
+    assertEqual(importedDocument.futurePrivate, 'PRIVATE_DESTINATION_CANARY');
+    assertEqual(importedDocument.appearance.theme, 'light');
+    assertEqual(readPolicyState().events.length, policyBeforeRejectedImport.events.length + 1);
+
     db.exec(`
-      CREATE TRIGGER fixture_mutate_settings_after_update
-      AFTER UPDATE ON user_settings
-      WHEN json_extract(NEW.data, '$.fixtureAfterTrigger') IS NULL
+      CREATE TRIGGER fixture_reject_reset_policy_event
+      BEFORE INSERT ON model_automation_policy_events
+      WHEN NEW.event_kind = 'GLOBAL_RESET'
       BEGIN
-        UPDATE user_settings
-        SET data = json_set(NEW.data, '$.fixtureAfterTrigger', 'injected'),
-            revision = NEW.revision + 1
-        WHERE id = 1;
+        SELECT RAISE(ABORT, 'RESET_POLICY_FAILURE_CANARY');
       END
     `);
-    const postWriteDivergence = await harness.postGeneric({ sentinel: 'must-roll-back' });
-    assertEqual(postWriteDivergence.response.status, 503);
-    assertEqual(postWriteDivergence.response.body.code, 'USER_SETTINGS_STORAGE_FAILED');
-    assertEqual(
-      JSON.stringify(readSettingsRow(db)),
-      JSON.stringify(beforeAfterTrigger),
-    );
-    db.exec('DROP TRIGGER fixture_mutate_settings_after_update');
+    const beforeRejectedReset = readRowBytes(db);
+    const policyBeforeRejectedReset = readPolicyState();
+    const rejectedReset = await harness.postReset();
+    assertEqual(rejectedReset.status, 503);
+    assertEqual(rejectedReset.body.code, 'MODEL_AUTOMATION_POLICY_STORAGE_CONTRACT');
+    assertEqual(JSON.stringify(rejectedReset.body).includes('CANARY'), false);
+    assertEqual(JSON.stringify(readRowBytes(db)), JSON.stringify(beforeRejectedReset));
+    assertEqual(JSON.stringify(readPolicyState()), JSON.stringify(policyBeforeRejectedReset));
+    db.exec('DROP TRIGGER fixture_reject_reset_policy_event');
 
-    harness.setGenericRuntimeFailure(new Error('GENERIC_RUNTIME_SECRET_CANARY'));
-    const genericDegraded = await harness.postGeneric({ appearance: { theme: 'system' } });
-    assertEqual(genericDegraded.response.status, 200);
-    assertEqual(genericDegraded.response.body.success, true);
-    assertEqual(genericDegraded.response.body.runtimeApplied, false);
-    assertEqual(genericDegraded.response.body.runtimeErrorCode, 'SETTINGS_RUNTIME_APPLY_FAILED');
-    assertEqual(readDocument(db).appearance.theme, 'system');
-    assertEqual(JSON.stringify(genericDegraded.response.body).includes('SECRET_CANARY'), false);
-
-    harness.setNotificationRuntimeFailure(new Error('NOTIFICATION_RUNTIME_SECRET_CANARY'));
-    const notificationDegraded = await harness.postNotification({
-      smtpHost: 'durable-before-runtime.invalid',
-      smtpPass: 'DURABLE_SECRET_CANARY',
-    });
-    assertEqual(notificationDegraded.status, 200);
-    assertEqual(notificationDegraded.body.success, true);
-    assertEqual(notificationDegraded.body.runtimeApplied, false);
-    assertEqual(
-      notificationDegraded.body.runtimeErrorCode,
-      'NOTIFICATION_RUNTIME_APPLY_FAILED',
-    );
-    assertEqual(readDocument(db)['c3.notif.smtpHost'], 'durable-before-runtime.invalid');
-    assertEqual(readDocument(db)['c3.notif.smtpPass'], 'DURABLE_SECRET_CANARY');
-    assertEqual(JSON.stringify(notificationDegraded.body).includes('SECRET_CANARY'), false);
+    const reset = await harness.postReset();
+    assertEqual(reset.status, 200);
+    assertEqual(reset.body.revision, beforeRejectedReset.revision + 1);
+    assertEqual(JSON.stringify(reset.body.settings), '{}');
+    assertEqual(reset.body.policy.autoFailoverEnabled, false);
+    assertEqual(reset.body.policy.autoCleanupEnabled, false);
+    assertEqual(reset.body.policy.autoCleanupDays, 14);
+    assertEqual(JSON.stringify(reset.body).includes('CANARY'), false);
+    assertEqual(readRaw(db), '{}');
+    assertEqual(readPolicyState().events.length, policyBeforeRejectedReset.events.length + 1);
   } finally {
     db.close();
   }

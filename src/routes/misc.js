@@ -6,26 +6,10 @@ import { join } from 'path';
 import { getWebSocketBridgeHealth } from '../ws-bridge/ws-server.js';
 import {
   createModelAutomationPolicyRepository,
-  sanitizeGenericModelAutomationSettings,
 } from '../db/model-policy.js';
 import {
-  UserSettingsError,
   createUserSettingsRepository,
-  mergeGenericUserSettings,
 } from '../db/user-settings.js';
-
-// Compatibility-only runtime paths for the legacy whole-document POST. They
-// are deliberately not part of the versioned GENERIC persistence owner: the
-// typed /api/features routes and config.features remain the sole authority.
-const LEGACY_RUNTIME_FEATURE_SETTING_KEYS = Object.freeze([
-  'c3.features.skills',
-  'c3.features.agents',
-  'c3.features.lifecycle',
-  'c3.features.expertises',
-  'c3.features.telemetry',
-  'c3.features.specialistTelemetry',
-  'c3.features.autonomy',
-]);
 
 // H9: Settings, Health, Autocomplete, Audit, Logs routes
 const _fbRateMap = new Map(); // IP → last feedback timestamp (rate limit)
@@ -141,6 +125,10 @@ export function createMiscRoutes(deps) {
       runtimeErrorCode: runtime.runtimeErrorCode,
     });
   };
+  const legacySettingsRetired = (_req, res) => sendJSON(res, 410, {
+    ok: false,
+    code: 'USER_SETTINGS_LEGACY_RETIRED',
+  });
 
   return {
     // Storage info
@@ -153,19 +141,7 @@ export function createMiscRoutes(deps) {
       }
     },
 
-    'GET /api/settings': async (req, res) => {
-      try {
-        const row = db.db.prepare('SELECT data FROM user_settings WHERE id = 1').get();
-        if (row) {
-          const result = sanitizeGenericModelAutomationSettings(JSON.parse(row.data));
-          sendJSON(res, 200, result.document);
-        } else {
-          sendJSON(res, 200, {});
-        }
-      } catch (err) {
-        sendJSON(res, 200, {});
-      }
-    },
+    'GET /api/settings': legacySettingsRetired,
 
     'GET /api/settings/v2': (_req, res) => {
       let current;
@@ -217,56 +193,7 @@ export function createMiscRoutes(deps) {
       });
     },
 
-    'POST /api/settings': async (req, res) => {
-      let body;
-      try {
-        body = await parseBody(req);
-      } catch (_) {
-        return sendJSON(res, 400, {
-          success: false,
-          code: 'USER_SETTINGS_INPUT_INVALID',
-        });
-      }
-
-      let sanitized;
-      let committed;
-      try {
-        sanitized = sanitizeGenericModelAutomationSettings(body);
-        committed = mergeGenericUserSettings(db.db, sanitized.document);
-      } catch (error) {
-        const invalidInput = error instanceof UserSettingsError
-          && error.code === 'USER_SETTINGS_INPUT_INVALID';
-        return sendJSON(res, invalidInput ? 400 : 503, {
-          success: false,
-          code: invalidInput
-            ? 'USER_SETTINGS_INPUT_INVALID'
-            : 'USER_SETTINGS_STORAGE_FAILED',
-        });
-      }
-
-      const runtime = applyCommittedSettingsRuntime(
-        'generic update',
-        // Never pass the committed or incoming document here: both may contain
-        // protected values while this compatibility route remains live.
-        () => settingsFeatureManager.applySettings(
-          Object.fromEntries(
-            LEGACY_RUNTIME_FEATURE_SETTING_KEYS
-              .filter(key => Object.hasOwn(sanitized.document, key))
-              .map(key => [key, sanitized.document[key]]),
-          ),
-        ),
-      );
-
-      return sendJSON(res, 200, {
-        success: true,
-        featuresChanged: runtime.value || 0,
-        ignoredReservedKeys: sanitized.ignoredReservedKeys,
-        ignoredNotificationKeys: committed.ignoredNotificationKeys,
-        ignoredProtectedKeys: committed.ignoredProtectedKeys,
-        runtimeApplied: runtime.runtimeApplied,
-        runtimeErrorCode: runtime.runtimeErrorCode,
-      });
-    },
+    'POST /api/settings': legacySettingsRetired,
 
     'GET /api/settings/backup': (_req, res) => {
       try {
