@@ -175,6 +175,13 @@ Zamýšlená sada podle předlohy: `Konverzace`, `Projekty`, `Domů`, `Aktivita`
 > smysl. Podmínka úplnosti kořene tím ale nepadá: dokud lišta neumí smyčku,
 > zůstává homescreen jedinou mapou.
 
+**[F] `read:projects` uděleno (operátor 2026-08-11).** Pairing ho nově vydává,
+takže `Projekty` je pátá položka smyčky a dlaždice na kořeni — **uzamčená**.
+`MR-14` zůstává `BLOCKED_BY_CONTRACT_AND_GATE1` a `MS-12` se nestaví; uděluje se
+položka, ne obrazovka. Lišta se tím nepřeskupí uživateli pod rukama v den, kdy
+kontrakt projde. Zařízení spárovaná dřív scope nemají — je vydávaný při párování,
+takže se projeví až u nového spárování.
+
 **[F] OTEVŘENÁ VADA — skok o dvě pozice (nahlášeno 2026-08-11).** Klepnutí na
 sousední položku funguje; klepnutí **ob jednu** se zasekne a je vidět, že lišta
 neví, co dělat.
@@ -194,8 +201,20 @@ pohybu tam, kde je délka proměnná.** Oprava proto nemá být delší konstant
 navázání na skutečný konec posunu (`scrollend`, nebo detekce klidu) — jinak se
 to vrátí u delší lišty, až přibudou položky.
 
-Operátor 2026-08-11: **odloženo, zapsáno k otestování.** Neopravovat spolu
-s ničím jiným; stav lišty je jinak schválený a funkční.
+**Pokus o opravu 2026-08-11 selhal a byl vrácen.** Nahrazení pevné konstanty
+koncem posunu (`scrollend`) vadu neodstranilo. Při tom se ale ukázalo, že je
+**širší, než zněl původní popis**: po přepnutí se route asi po 200 ms sama
+přehodí na `diagnostics` a tam zůstane, protože ve středu skončí `settings`.
+Platí to i pro sousední přepnutí, jen je tam méně vidět.
+
+Podezření se tím posouvá z délky posunu na **přerovnání smyčky**: `normaliseNavRing`
+posouvá stopu o šířku sady, což je další scroll, ten vyvolá další doběh a ten
+teprve rozhoduje o sekci. Ke všemu `navSetWidth` počítá mezery jako `n`, zatímco
+měření v `layoutNavRing` jako `n - 1` — o jednu mezeru navíc při každém
+přerovnání. Kdo to bude opravovat, ať začne tam, ne u časování.
+
+Operátor 2026-08-11: **odloženo, zapsáno k otestování.** Stav lišty je jinak
+schválený; neopravovat spolu s ničím jiným.
 
 **Stav implementace k 2026-08-10:**
 
