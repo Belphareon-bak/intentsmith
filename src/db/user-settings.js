@@ -20,8 +20,6 @@ export const DEFAULT_MODEL_SETTINGS = Object.freeze({
   autoCleanupDays: 14,
 });
 
-const MODEL_SETTING_KEYS = new Set(Object.keys(DEFAULT_MODEL_SETTINGS));
-
 export const NOTIFICATION_SETTING_FIELD_MAP = Object.freeze({
   emailEnabled: 'c3.notif.emailEnabled',
   smtpHost: 'c3.notif.smtpHost',
@@ -38,7 +36,6 @@ export const NOTIFICATION_SETTING_KEYS = Object.freeze(
   Object.values(NOTIFICATION_SETTING_FIELD_MAP),
 );
 
-const NOTIFICATION_SETTING_KEY_SET = new Set(NOTIFICATION_SETTING_KEYS);
 const NOTIFICATION_INPUT_FIELD_SET = new Set(Object.keys(NOTIFICATION_SETTING_FIELD_MAP));
 
 // Versioned GENERIC owner map. Dotted names are literal top-level JSON keys;
@@ -108,12 +105,6 @@ for (const [container, key] of GENERIC_NESTED_SETTING_PATHS) {
   }
   GENERIC_NESTED_SETTING_KEYS.get(container).add(key);
 }
-
-const LEGACY_PROTECTED_TOP_LEVEL_KEYS = new Set([
-  ...NOTIFICATION_SETTING_KEYS,
-  'storage',
-  'webhookSecret',
-]);
 
 export class UserSettingsError extends Error {
   constructor(code, message, options = {}) {
@@ -524,45 +515,12 @@ function applyUpdater(current, updater) {
 function commitLatestUserSettings(db, updater) {
   requireDatabase(db);
   requireUpdater(updater);
-  const versioned = hasRevisionColumn(db);
 
   return runImmediate(db, () => {
-    const current = readCurrentSettings(db, { requireRevision: versioned });
+    const current = readCurrentSettings(db, { requireRevision: true });
     const next = applyUpdater(current, updater);
-
-    if (versioned) {
-      return updateVersionedRowInTransaction(db, current.revision, next);
-    }
-
-    // Historical pre-064 compatibility only. The immutable 025 subject
-    // removes this broad callback after every production writer is converted.
-    const serialized = serializeSettingsDocument(next);
-    try {
-      db.prepare(`
-        INSERT INTO user_settings (id, data, updated_at)
-        VALUES (1, ?, datetime('now'))
-        ON CONFLICT(id) DO UPDATE SET
-          data = excluded.data,
-          updated_at = excluded.updated_at
-      `).run(serialized);
-    } catch (error) {
-      throw new UserSettingsError(
-        'USER_SETTINGS_DB_WRITE_FAILED',
-        'Failed to persist legacy user settings',
-        { cause: error },
-      );
-    }
-    return { revision: null, document: clone(next) };
+    return updateVersionedRowInTransaction(db, current.revision, next);
   });
-}
-
-/**
- * Historical broad callback retained only while the 025 feature branch cuts
- * every production writer over. It is not part of UserSettingsRepository v2
- * and must be removed before immutable S.
- */
-export function updateUserSettings(db, updater) {
-  return commitLatestUserSettings(db, updater).document;
 }
 
 function requireExpectedRevision(value) {
@@ -842,87 +800,9 @@ export function createUserSettingsRepository(db) {
 }
 
 /**
- * Atomically merge the generic top-level settings surface while preserving
- * every field absent from the request. The nine notification fields are owned
- * exclusively by the typed notification route and are ignored here by exact
- * key, never by prefix.
- */
-export function mergeGenericUserSettings(db, patch) {
-  requirePlainSettingsPatch(patch, 'USER_SETTINGS_INPUT_INVALID');
-
-  const ignoredNotificationKeys = NOTIFICATION_SETTING_KEYS.filter(
-    key => Object.hasOwn(patch, key),
-  );
-  const ignoredProtectedKeys = [...LEGACY_PROTECTED_TOP_LEVEL_KEYS]
-    .filter(key => !NOTIFICATION_SETTING_KEY_SET.has(key) && Object.hasOwn(patch, key))
-    .sort();
-  const genericEntries = Object.entries(patch).filter(
-    ([key]) => !LEGACY_PROTECTED_TOP_LEVEL_KEYS.has(key),
-  );
-
-  const document = updateUserSettings(db, (draft) => {
-    for (const [key, value] of genericEntries) {
-      setOwn(draft, key, cloneFiniteJson(value, 'USER_SETTINGS_INPUT_INVALID'));
-    }
-  });
-
-  return {
-    document,
-    ignoredNotificationKeys,
-    ignoredProtectedKeys,
-  };
-}
-
-/**
  * Atomically apply only the notification route's exact nine-field map. The
  * masked SMTP password is a preserve instruction, not a persisted value.
  */
 export function updateNotificationUserSettings(db, patch) {
-  requirePlainSettingsPatch(patch, 'NOTIFICATION_SETTINGS_INPUT_INVALID');
-
-  if (hasRevisionColumn(db)) {
-    return createUserSettingsRepository(db).commitNotification(patch).notification;
-  }
-
-  return updateUserSettings(db, (document) => {
-    for (const [field, settingKey] of Object.entries(NOTIFICATION_SETTING_FIELD_MAP)) {
-      if (Object.hasOwn(patch, field) && patch[field] !== '*****') {
-        setOwn(document, settingKey, clone(patch[field]));
-      }
-    }
-  });
-}
-
-/**
- * Pre-migration-061 compatibility writer. Unknown model keys and all unrelated
- * document sections are retained, but a migrated database rejects the retired
- * automation keys at the storage boundary.
- */
-export function updateModelSettings(db, patch) {
-  if (!isPlainObject(patch)) {
-    throw new UserSettingsError('MODEL_SETTINGS_PATCH_INVALID', 'Model settings patch must be an object');
-  }
-  for (const key of Object.keys(patch)) {
-    if (!MODEL_SETTING_KEYS.has(key)) {
-      throw new UserSettingsError('MODEL_SETTINGS_KEY_UNKNOWN', `Unknown model setting: ${key}`);
-    }
-  }
-
-  let persistedModels;
-  updateUserSettings(db, (document) => {
-    const existing = document.models;
-    if (existing !== undefined && !isPlainObject(existing)) {
-      throw new UserSettingsError('MODEL_SETTINGS_NOT_OBJECT', 'Refusing to overwrite malformed model settings');
-    }
-
-    const candidate = { ...(existing || {}), ...patch };
-    const validated = validateModelSettings(candidate);
-    if (!validated.valid) {
-      throw new UserSettingsError(validated.reason, 'Invalid model settings patch');
-    }
-
-    document.models = candidate;
-    persistedModels = { ...validated.settings };
-  });
-  return persistedModels;
+  return createUserSettingsRepository(db).commitNotification(patch).notification;
 }

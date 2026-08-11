@@ -108,7 +108,7 @@ zůstávají oddělené a každá vyžaduje vlastní subject, Review A i Review 
 | 4 | [026 — secret storage authority](../decisions/026-m1-secret-storage-authority.md) | A | ověřený env transfer a odstranění credentials z aplikačních dat |
 | 5 | [029 — settings reset scope](../decisions/029-m1-settings-reset-scope.md) | A | settings-only reset a ukončení legacy aliasu |
 
-025 je `IN_PROGRESS / FOUNDATION_IMPLEMENTED / CLIENT_CUTOVER_IMPLEMENTED / FOCUSED_VERIFIED / REVIEW_PENDING`;
+025 je `IN_PROGRESS / IMMUTABLE_SOURCE_READY / X1_AND_LATE_061_ACCEPTED / REVIEW_PENDING`;
 026–029 zůstávají `ACCEPTED / IMPLEMENTATION_PENDING`. Závazná sekvence je
 `025 → 027 → 028 → 026 → 029`; ostatní kroky začnou až po přijetí předchozího
 candidate. Finding 011 zůstává `OPEN` a Gate 1 `BLOCKED`, dokud neprojdou
@@ -119,17 +119,21 @@ implementace a nezávislá review.
 se source evidence `68cd6a0d`. Exact base je aktivační commit obsahující tento
 WP, `55d32e14876964863b573bfd4b18086aaa46768d`. První source checkpoint
 `f583ac941d5c7e17b7e70ada89ee421779bb9429` implementuje migraci 064,
-repository commit point, v2 GET/PUT a převod backendových writerů. Klientský
-cutover všech tří first-party consumerů, import CAS a redigovaná import/reset
-odpověď jsou součástí tohoto druhého source checkpointu; poslední legacy `410`
-ještě implementované není. Tyto dva checkpointy se nesmějí integrovat bez
-finálního retirement commitu.
+repository commit point, v2 GET/PUT a převod backendových writerů. Druhý source
+checkpoint `75a6497606f7055c06741d3992ed6bd6004b677a` atomicky převádí všechny
+tři first-party consumery, import CAS a redigovanou import/reset odpověď.
+Finální source diff už mění legacy `GET/POST /api/settings` na inertní `410`,
+odstraňuje broad writer exporty a doplňuje jejich replacement evidence.
+Operátor úzkou late-061 hranici níže výslovně přijal 2026-08-11; tento poslední
+source commit je proto immutable `S / REVIEW_PENDING` a jeho full SHA připne
+až report-only Review A evidence. Žádný dílčí checkpoint se samostatně
+neintegruje.
 
-Import/reset v commitnutém foundation checkpointu stále vrací legacy
-`generalSettings`, včetně preserved nonportable secrets. Jejich redakce musí
-přistát atomicky s cutoverem všech tří first-party consumerů v následujícím
-source commitu; do té doby je známý leak výslovně otevřený a tento checkpoint
-není backend cutover complete.
+Import/reset v commitnutém foundation checkpointu historicky vracel legacy
+`generalSettings`, včetně preserved nonportable secrets. Checkpoint `75a64976`
+už tento leak odstraňuje společně s cutoverem všech tří first-party consumerů;
+bez finálního `410` commitu a nezávislých Review A/B ale celý 025 subject stále
+není přijatý backend cutover.
 
 Call-graph census navíc našel samostatně spustitelný tracked `chats/` package,
 jehož vlastní server stále obsahuje raw `INSERT OR REPLACE` a `DELETE`
@@ -185,12 +189,18 @@ Zvolený implementační blok pro nezávislé review:
 025-import-cas: EXPLICIT-EXPECTED-REVISION-OUTSIDE-PORTABLE-ARTIFACT
 025-import-conflict: 409-NO-AUTOMATIC-REPLAY
 025-late-061-legacy-sanitization: CONDITIONAL-061-FIRST-ONLY-WHEN-LEGACY-MODEL-KEYS-EXIST
+025-late-061-status: ACCEPTED-2026-08-11
+025-X1: ACCEPTED-HISTORICAL-READER-ONLY
+025-X1a: RETAIN-ALL-6-READER-TESTS
+025-X1b: SQLITE-WRITE-FAILURE-IN-EXISTING-4-CASE-AUTHORITY
 ```
 
 Tento blok konkretizuje přijaté 025/A nejmenším vratným způsobem a podléhá
-Review A/B celého subjectu. Poslední legacy `410` přistane až po atomickém
-cutoveru Studio, Architect a Center Views. Finding 011 i Gate 1 zůstávají
-`OPEN`/`BLOCKED`.
+Review A/B celého subjectu. Operátor přijal X1 dne 2026-08-11 s podmínkou
+zachovat všech šest reader testů a přesunout jednu skutečnou commit-failure
+garanci do existující čtyřpřípadové authority sady. Poslední legacy `410` je
+proto připraven až po atomickém cutoveru Studio, Architect a Center Views.
+Finding 011 i Gate 1 zůstávají `OPEN`/`BLOCKED`.
 
 Repository foundation nevystavuje whole-document import writer: IMPORT přijímá
 jen přesně validovanou portable projection a jedenáct cest mergeuje uvnitř
@@ -205,16 +215,34 @@ settings blobu v trigger SQL. Foundation obě varianty fail-close odmítá: 064
 před `ALTER TABLE` vyžádá nejdřív 061 pouze tehdy, když tyto klíče skutečně
 existují. Bez nich je 064 → 061 bezpečný no-op a původní bytes i revision se
 zachovají. Canonical base už 061 obsahuje; mobile 055–060 ani budoucí 063 tím
-nejsou dotčeny. Před immutable `S` musí governance potvrdit tuto úzkou korekci
-příliš široké věty WP; foundation checkpoint na ní nezastavuje další backend
-a repository práci.
+nejsou dotčeny. Operátor tuto úzkou korekci příliš široké věty WP přijal
+2026-08-11. U poškozeného JSONu vrací `requiresLegacy061Sanitation()` `false`,
+takže pořadová záruka platí pro well-formed dokumenty; poškozený blob se
+zachová byteově beze změny a všechny produkční read/commit cesty nad ním
+fail-close odmítnou autoritativní stav.
 
-Foundation evidence na source stromu: sdílená authority sada zůstává přesně na
+Aktuální final-source evidence: sdílená authority sada zůstává přesně na
 čtyřech top-level scénářích a prokazuje migraci, redakci v2, CAS success,
-`UNOWNED` fail-close, stale `409` a zachování protected destination hodnot
-(`4/4`). Model-policy kompatibilita je `36/36`, schema migration oracle
-`38/38` a historická pre-064 settings sada `14/14`. Nejde o Review A ani o
-immutable subject; 025 je stále `IN_PROGRESS`.
+`UNOWNED` fail-close, stale `409`, sedmiřádkovou WAL matici, atomický
+import/reset a zachování protected destination hodnot. X1b navíc skutečným
+SQLite `BEFORE UPDATE` abortem dokládá `503 USER_SETTINGS_DB_WRITE_FAILED` a
+byteově shodný durable blob, revision i celý row snapshot (`4/4`). Původní F-A
+terminal-reread garance zůstává ve stejném scénáři: následná
+`AFTER UPDATE` divergence skončí `USER_SETTINGS_STORAGE_CONTRACT` a rollbackne
+celý row snapshot. Historický
+model-settings program nyní drží všech šest samostatných reader/fail-closed
+testů (`6/6`) a neimportuje retired writery. Model-policy kompatibilita je
+`36/36`, schema migration oracle `38/38` a registry zůstává 381 programů s
+fingerprintem
+`665461cccea8f691e6d609c381b21c7bd8b7b2b1ff9932fd4aad42b9552216e0`.
+První final-source candidate `cf050caaf67331c59b7bcb519b6867f18a0ea244`
+skončil v Review A jako `CHANGES_REQUIRED`: produkční 46cestný allowlist byl
+správný, ale T2 pinoval jen jeho počet a zákaz feature prefixu, takže stejně
+dlouhá záměna jedné cesty mohla zůstat false-green. Historie ani původní ref se
+nepřepisují. Náhradní sibling subject nad stejným parentem doplňuje v témže T2
+nezávislou exact 46-entry fixture, kontrolu unikátnosti a ponechává čtyři
+top-level scénáře. Jeho full SHA smí poprvé připnout až report-only `E_A` po
+opakovaném Review A; do té doby zůstává 025 `IN_PROGRESS / REVIEW_PENDING`.
 
 Druhý atomický klientský checkpoint převádí chat-panel Studio,
 Architect i Center Views, importní route a CDP/E2E source seams společně.
