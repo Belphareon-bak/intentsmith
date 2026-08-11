@@ -2395,7 +2395,17 @@ function scheduleNavRetraction(bar, wantsRetracted) {
   }, NAV_TURN_MS);
 }
 
-/** How long a turn of the ring takes to land, in step with `--navbar-slide`. */
+/**
+ * How long the bar's own slide takes, in step with `--navbar-slide`.
+ *
+ * This one is legitimately fixed: it is a CSS transition of a known duration,
+ * not a scroll whose length depends on how far it travels.  It is **not** the
+ * length of a turn of the ring — that is variable and is now observed rather
+ * than estimated (`endNavTurnWhenItActuallyEnds`).  The consequence is that on
+ * a long turn to the root the bar begins retracting slightly before the ring
+ * has landed; that is cosmetic, was not what was reported, and is left alone
+ * on purpose (UI-DESIGN §3.1, operator 2026-08-11: fix nothing else with it).
+ */
 const NAV_TURN_MS = 420;
 
 /**
@@ -2527,22 +2537,127 @@ function centreNavOnSelection(target = null) {
     left = Math.max(0, centre);
   }
 
+  const from = typeof track.scrollLeft === 'number' ? track.scrollLeft : 0;
   navRingTurningItself = true;
-  clearTimeout(navSelfTurnTimer);
-  navSelfTurnTimer = setTimeout(() => {
-    navRingTurningItself = false;
-    // Re-base now the turn has landed, so the loop keeps its material without
-    // ever moving under an animation.
-    normaliseNavRing(track);
-  }, 400);
-  if (typeof track.scrollTo === 'function') track.scrollTo({ left, behavior: 'smooth' });
-  else track.scrollLeft = left;
+  // The gate is about to move, so anything the ring had queued about where it
+  // was standing is now stale.
+  forgetNavSettle();
+
+  if (typeof track.scrollTo === 'function') {
+    track.scrollTo({ left, behavior: 'smooth' });
+    endNavTurnWhenItActuallyEnds(track, Math.abs(left - from));
+  } else {
+    // No smooth scrolling to wait for: the ring is already where it was asked
+    // to be by the time this line returns, so there is no end to watch for.
+    track.scrollLeft = left;
+    endNavTurn(track);
+  }
 }
 
 // True while the ring is turning because the app asked it to, so the settle
 // handler does not read that as the user choosing a section.
 let navRingTurningItself = false;
-let navSelfTurnTimer = null;
+let navTurnStopWatching = null;
+
+/**
+ * Ceiling on how long the ring may claim to be turning itself.
+ *
+ * **Not an estimate of the movement** — that is the mistake this replaces.  It
+ * is a last resort: if the end of the scroll is never observed at all, the flag
+ * has to come down anyway, or the bar would ignore the finger for good.
+ */
+const NAV_TURN_CEILING_MS = 1500;
+
+/** No scroll event for this long, after at least one, means the ring is at rest. */
+const NAV_TURN_QUIET_MS = 150;
+
+/**
+ * End the turn: the ring has landed, so it is the user's again.
+ *
+ * Re-basing happens here rather than on a timer, so the loop keeps its material
+ * without ever moving under a running animation.
+ */
+function endNavTurn(track) {
+  if (navTurnStopWatching) { navTurnStopWatching(); navTurnStopWatching = null; }
+  navRingTurningItself = false;
+  normaliseNavRing(track);
+}
+
+/**
+ * Hold the "this is the app moving" flag for **the whole turn**, however long
+ * the turn takes.
+ *
+ * The flag used to be cleared after a fixed 400 ms, but a native smooth scroll
+ * takes longer the further it travels.  A turn long enough to outlast the
+ * estimate dropped the flag mid-movement, and then two things went wrong at
+ * once: `normaliseNavRing` re-based the track by a whole set *under the running
+ * animation* — exactly what its own comment forbids, because the target the
+ * animation is heading for moves and the item lands one place off — and the
+ * settle handler read the middle while a **different** item was still sweeping
+ * through it, and navigated there, starting another turn.
+ *
+ * **Latent, not the defect reported on 2026-08-11.** That report ("tapping two
+ * places away sticks") was measured and traced to the clone count instead, and
+ * fixed in `42d9c40f`; a ring that had run out of scrollable material could not
+ * bring the item to the middle at all.  This is a second, independent way for
+ * the same symptom to appear, still reachable once a turn is long enough — and
+ * the bar is getting longer, `Projekty` being the most recent item.
+ *
+ * It is the same class as both the return-to-root defect and the screen
+ * transition that had to go back to a short clock: **a fixed estimate of a
+ * movement whose length is variable.**  So the fix is not a bigger constant —
+ * that only moves the failure to the next item added.  The end of the turn is
+ * observed instead:
+ *
+ *   * `scrollend` where the engine has it — the exact answer;
+ *   * otherwise rest detection: quiet for `NAV_TURN_QUIET_MS` **after** motion
+ *     has been seen, never before, so a slow first frame cannot be mistaken for
+ *     an arrival;
+ *   * a turn with no distance to travel fires neither, and is over already;
+ *   * and `NAV_TURN_CEILING_MS` behind all of it, so the flag cannot stick.
+ */
+function endNavTurnWhenItActuallyEnds(track, distance) {
+  if (navTurnStopWatching) { navTurnStopWatching(); navTurnStopWatching = null; }
+
+  // Asked to go where it already stands: no scroll event and no `scrollend`
+  // will ever come, so waiting for one would hold the ring for the full ceiling
+  // and make it ignore the finger meanwhile.
+  if (!(distance >= 1)) { endNavTurn(track); return; }
+
+  const canListen = typeof track.addEventListener === 'function'
+    && typeof track.removeEventListener === 'function';
+  if (!canListen) {
+    // Nothing to observe the end with.  The ceiling is then the only honest
+    // answer available — it is late rather than wrong, which is the right way
+    // round for a flag that suppresses navigation.
+    const alone = setTimeout(() => endNavTurn(track), NAV_TURN_CEILING_MS);
+    navTurnStopWatching = () => clearTimeout(alone);
+    return;
+  }
+
+  let quiet = null;
+  const settle = () => endNavTurn(track);
+  const onScroll = () => {
+    clearTimeout(quiet);
+    quiet = setTimeout(settle, NAV_TURN_QUIET_MS);
+  };
+
+  const ceiling = setTimeout(settle, NAV_TURN_CEILING_MS);
+  track.addEventListener('scroll', onScroll);
+  track.addEventListener('scrollend', settle);
+
+  navTurnStopWatching = () => {
+    clearTimeout(ceiling);
+    clearTimeout(quiet);
+    track.removeEventListener('scroll', onScroll);
+    track.removeEventListener('scrollend', settle);
+  };
+}
+
+/** Is the ring mid-turn because the app asked it to be?  For tests. */
+function navRingIsTurningItself() {
+  return navRingTurningItself;
+}
 
 /**
  * Re-base the ring once a turn has settled, so it never runs out of material.
@@ -3944,10 +4059,28 @@ document.addEventListener('scroll', event => {
   const track = event.target;
   if (!track?.classList?.contains?.('navbar-track')) return;
   normaliseNavRing(track);
-  if (navRingTurningItself) return;
+  // Cancel first, decide second.  A settle scheduled by an earlier scroll is
+  // stale the moment another scroll arrives — and if *this* scroll is the app
+  // turning the ring, the stale one must not outlive it either.  Clearing
+  // after the guard, as this did, let a settle scheduled 140 ms before a tap
+  // fire in the middle of the turn it started: it read the gate while another
+  // item was sweeping through, and navigated there.  `Přehled` sits in the
+  // middle of the set, so that is usually where the bar ended up.
   clearTimeout(navSettleTimer);
+  if (navRingTurningItself) return;
   navSettleTimer = setTimeout(() => followNavRingToCentre(track), 140);
 }, true);
+
+/**
+ * Drop any settle the ring has queued.
+ *
+ * Called when the app starts turning the ring itself: the pending settle was
+ * decided on a gate that is about to move, so acting on it would be answering
+ * a question nobody is asking any more.
+ */
+function forgetNavSettle() {
+  clearTimeout(navSettleTimer);
+}
 
 /** Which item is standing in the gate, clones included. */
 function navItemAtCentre(track) {
@@ -4101,6 +4234,7 @@ export const __ms20 = {
   trustBar, trustZones, withTrustBar, screenLocks, serverNow,
   viewOverview, navItems, currentSection, sectionRoute, unknownScopes, NAV_ITEMS, ROUTE_SECTION,
   renderNavBar, navCount, newChat, layoutNavRing, normaliseNavRing, centreNavOnSelection,
+  navRingIsTurningItself, NAV_TURN_CEILING_MS, NAV_TURN_QUIET_MS,
   viewChat, threadBoundary, loadThread, loadOlderMessages, threadWindowOf, THREAD_PAGE_SIZE,
   runSilence, runSilenceEntries, overviewRunSilence,
   approvalCountdown, approvalWindowMinutes, approvalRow, serverTimeMs,

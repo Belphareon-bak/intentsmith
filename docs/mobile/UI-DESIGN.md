@@ -209,6 +209,66 @@ Odstraněny přitom dvě věci, které se o pevný počet opíraly: výchozí um
 počítá vůči ní — tím zmizel i rozpor, kde `navSetWidth` počítal o jednu mezeru
 víc než měření, se kterým se porovnával.
 
+**[F] LATENTNÍ VADA ODSTRANĚNA 2026-08-12 — konec otočky se měl odhadovat časem.**
+
+**Není to znovuotevření nálezu z 2026-08-11.** Ten byl změřen, přiřazen počtu
+klonů a opraven výše. Tohle je **druhá, nezávislá cesta ke stejnému příznaku**,
+kterou ta oprava nezasáhla a kterou nekryl žádný test.
+
+Prstenec se otáčí nativním plynulým scrollem, jehož délka roste se vzdáleností.
+Příznak „tohle je pohyb aplikace" (`navRingTurningItself`) se ale rušil po
+**pevných 400 ms**. Otočka delší než ten odhad shodila příznak uprostřed pohybu
+a pak selhaly dvě věci naráz:
+
+- `normaliseNavRing` přerovnal dráhu o celou sadu **pod běžící animací** —
+  přesně to, co jeho vlastní komentář zakazuje, protože cíl, kam animace míří,
+  se posune a položka dojede o místo vedle;
+- doběhový handler přečetl střed, kterým právě projížděla *jiná* položka, a
+  přepnul na ni — čímž se rozjela další otočka.
+
+Byla to táž třída jako **dvě** dřívější vady: návrat na kořen a přechod
+obrazovky, který se musel vrátit na krátké hodiny. **Pevný časový odhad délky
+pohybu tam, kde je délka proměnná.** Delší konstanta by proto vadu jen posunula
+k další přidané položce — a lišta roste, `Projekty` přibyly včera.
+
+Konec otočky se proto **pozoruje**, ne odhaduje:
+
+| Cesta | Kdy platí |
+|---|---|
+| `scrollend` | kde ho engine má — přesná odpověď |
+| klid `150 ms` **po** pohybu | fallback; nikdy před prvním snímkem, aby pomalý start nebyl zaměněn za dojezd |
+| okamžitě | otočka s nulovou vzdáleností nevydá ani jednu událost a je hotová |
+| strop `1500 ms` | za vším ostatním, aby příznak nemohl uváznout a lišta neohluchla vůči prstu |
+
+**[F] Druhý nález, odhalený až měřením té opravy.** Prohlížečová suita spadla
+po první verzi opravy ze **1 pádu z 5 běhů na 4 z 5**. Příčina byla vedle:
+doběhový handler rušil svůj naplánovaný doběh **až po** testu „točí prstenec
+sám sebou". Doběh naplánovaný 140 ms před klepnutím tedy klepnutí **přežil**,
+vystřelil uprostřed otočky, přečetl střed, kterým právě projížděla jiná
+položka, a navigoval tam.
+
+Je to **týž příznak jinou cestou** — a `Přehled` leží uprostřed sady, takže tam
+lišta obvykle skončila. Opraveno pořadím: **nejdřív zrušit, pak se rozhodovat**,
+a otočka spuštěná aplikací navíc zahodí doběh, který se rozhodoval podle středu,
+jenž se právě chystá odjet.
+
+Po obou opravách: prstenec v širokém okně **neselhal ani jednou z 11 běhů**
+(předtím 4 z 5). Zbylá flakita prohlížečové suity je jinde a **existuje i bez
+téhle změny** — `§10 trust bar … zone 1 (connection) is missing` padá 2× ze 6
+i na nezměněném stromu. Není součástí tohoto nálezu a zůstává otevřená.
+
+Ověřeno suitou `tests/mobile-navbar-ring-turn.test.js` (11 testů). Na původní
+implementaci **8 z nich padá** a test doběhu padá na neopravené pořadí — obě
+reprodukce jsou tedy skutečné, ne dodatečná racionalizace. Suita nemá prohlížeč
+(`F-043`): ověřuje stavový automat, ne to, že se nativní scroll chová podle
+modelu; to je práce prohlížečové suity.
+
+**Vědomě neopraveno:** zatažení lišty na kořeni (`§3.2`) pořád čeká pevných
+`NAV_TURN_MS = 420 ms`. U dlouhé otočky na kořen se tedy lišta začne zatahovat
+o kousek dřív, než prstenec dojede. Je to kosmetické, nebylo to hlášeno a
+operátor 2026-08-11 řekl **„neopravovat spolu s ničím jiným"** — zapsáno tady,
+ať se na to nepřijde jako na překvapení.
+
 **[F] §10 dynamický typ — VYŘEŠENO 2026-08-11.** Stylesheet je převedený na
 `rem`: typografické délky, rozestupy, poloměry, výška hlavičky i dotykové cíle
 rostou s velikostí písma, kterou si čtenář nastavil v prohlížeči nebo systému.

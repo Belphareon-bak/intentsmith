@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 399
+- Runnable programs: 400
 - Explicit support-module exclusions: 9
-- Profiles: offline=196, database=47, server=37, model=85, soak=19, manual=15
-- States: ACTIVE=301, HISTORICAL=15, BLOCKED=83
+- Profiles: offline=197, database=47, server=37, model=85, soak=19, manual=15
+- States: ACTIVE=302, HISTORICAL=15, BLOCKED=83
 
 ## Execution profiles
 
@@ -316,6 +316,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-MOBILE-MS13-APPROVALS-TEST` | `tests/mobile-ms13-approvals.test.js` | `C3-032` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MOBILE-MS14-DECISION-TEST` | `tests/mobile-ms14-decision.test.js` | `C3-032` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MOBILE-MS20-UI-TEST` | `tests/mobile-ms20-ui.test.js` | `C3-032` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-MOBILE-NAVBAR-RING-TURN-TEST` | `tests/mobile-navbar-ring-turn.test.js` | `C3-032` | T1 | `offline` | 5 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MOBILE-NAVBAR-TEST` | `tests/mobile-navbar.test.js` | `C3-032` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MOBILE-NOTIFICATION-ACK-TEST` | `tests/mobile-notification-ack.test.js` | `C3-031` | T2 | `database` | 20 s | 3 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MOBILE-NOTIFICATION-SEQ-TEST` | `tests/mobile-notification-seq.test.js` | `C3-031` | T2 | `database` | 20 s | 3 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
