@@ -9,11 +9,13 @@
 // B8: Worker configs (weather, real estate, news)
 //
 // Run: node tests/workers-phase-b.test.js
+// WP026 compatibility note: external delivery remains NOT RUN / BLOCKED for
+// the secret-storage subject; this file receives source-contract alignment only.
 //
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { verifyAll, dryRun } from '../src/notifications/e2e-verify.js';
-import { NtfyChannel } from '../src/notifications/channels/ntfy.js';
+import { PushChannel } from '../src/notifications/channels/push.js';
 import {
   SourceType, validateMultiSourceDefinition, normalizeItems,
   deduplicateItems, fetchMultipleSources, SourceHealthTracker,
@@ -26,6 +28,67 @@ import {
 import {
   WizardSession, WizardManager, WizardState,
 } from '../src/chat/handlers/wizard-builder.js';
+
+const NOTIFICATION_ENV_KEYS = Object.freeze([
+  'C3_SMTP_HOST',
+  'C3_SMTP_PORT',
+  'C3_SMTP_USER',
+  'C3_SMTP_PASS',
+  'C3_SMTP_FROM',
+  'C3_TELEGRAM_BOT_TOKEN',
+  'C3_TELEGRAM_CHAT_ID',
+  'C3_NTFY_SERVER',
+  'C3_NTFY_TOPIC',
+  'C3_NTFY_TOKEN',
+  'C3_WEBHOOK_URL',
+  'C3_WEBHOOK_SECRET',
+]);
+const testNotificationAuthorities = new WeakSet();
+
+function createTestNotificationAuthority(values = {}) {
+  const selected = new Map(NOTIFICATION_ENV_KEYS.map(key => [key, values[key] ?? '']));
+  const sources = Object.freeze(Object.fromEntries(
+    NOTIFICATION_ENV_KEYS.map(key => [key, Object.freeze({
+      configured: selected.get(key).length > 0,
+      source: 'PROCESS_ENV',
+    })]),
+  ));
+  const authority = Object.create(null);
+  Object.defineProperties(authority, {
+    status: { value: () => sources },
+    value: { value: key => selected.get(key) },
+  });
+  Object.freeze(authority);
+  testNotificationAuthorities.add(authority);
+  return authority;
+}
+
+function requireTestNotificationAuthority(authority) {
+  if (!testNotificationAuthorities.has(authority)) {
+    throw new TypeError('NOTIFICATION_ENVIRONMENT_AUTHORITY_INVALID');
+  }
+  return authority;
+}
+
+function verifierDeps(values = {}) {
+  return {
+    env: {
+      C3_ENABLE_NOTIFICATION_EMAIL: 'true',
+      C3_ENABLE_NOTIFICATION_TELEGRAM: 'true',
+      C3_ENABLE_NOTIFICATION_PUSH: 'true',
+    },
+    notificationEnvironmentAuthority: createTestNotificationAuthority(values),
+    requireNotificationEnvironmentAuthority: requireTestNotificationAuthority,
+  };
+}
+
+function pushChannel(values = {}) {
+  return new PushChannel({
+    logger: { info: () => {}, warn: () => {}, error: () => {} },
+    notificationEnvironmentAuthority: createTestNotificationAuthority(values),
+    requireNotificationEnvironmentAuthority: requireTestNotificationAuthority,
+  });
+}
 
 // ─── Test Runner ─────────────────────────────────────────────────────────────
 
@@ -68,21 +131,21 @@ function ok(cond, msg = 'assertion failed') {
 
 section('B0.1 — Dry run mode');
 
-await t('dry run returns all channels OK', async () => {
+await t('dry run returns three simulated channels', async () => {
   const results = dryRun();
   eq(results.length, 3);
   for (const r of results) {
-    eq(r.delivered, true);
+    eq(r.delivered, false, 'Dry run is not delivery evidence');
     ok(r.messageId.startsWith('dry-run-'), 'Should have dry-run prefix');
     eq(r.details.mode, 'dry-run');
   }
 });
 
-await t('verifyAll dry run returns allPassed', async () => {
+await t('verifyAll dry run does not claim allPassed', async () => {
   const { results, allPassed, summary } = await verifyAll({ dryRun: true });
-  eq(allPassed, true);
+  eq(allPassed, false);
   eq(results.length, 3);
-  ok(summary.includes('Dry run'), 'Summary should mention dry run');
+  ok(summary.includes('no delivery proof'), 'Summary should disclose absent delivery proof');
 });
 
 section('B0.2 — Channel configuration detection');
@@ -90,8 +153,8 @@ section('B0.2 — Channel configuration detection');
 await t('email without config → configured=false', async () => {
   const { results } = await verifyAll({
     channels: ['email'],
-    email: { smtpHost: '', smtpUser: '', smtpPass: '', recipient: '' },
-  });
+    email: { recipient: '' },
+  }, verifierDeps());
   eq(results[0].configured, false);
   ok(results[0].error.includes('Missing SMTP'), 'Should report missing config');
 });
@@ -99,8 +162,8 @@ await t('email without config → configured=false', async () => {
 await t('telegram without config → configured=false', async () => {
   const { results } = await verifyAll({
     channels: ['telegram'],
-    telegram: { botToken: '', chatId: '' },
-  });
+    telegram: { recipient: '' },
+  }, verifierDeps());
   eq(results[0].configured, false);
   ok(results[0].error.includes('Missing Telegram'), 'Should report missing config');
 });
@@ -108,61 +171,82 @@ await t('telegram without config → configured=false', async () => {
 await t('ntfy without topic → configured=false', async () => {
   const { results } = await verifyAll({
     channels: ['ntfy'],
-    ntfy: { topic: '' },
-  });
+    ntfy: { recipient: '' },
+  }, verifierDeps());
   eq(results[0].configured, false);
-  ok(results[0].error.includes('Missing ntfy'), 'Should report missing config');
+  ok(results[0].error.includes('Missing explicit ntfy'), 'Should report missing config');
 });
 
-await t('allPassed=true when no channels configured', async () => {
+await t('allPassed=false when no channel produced evidence', async () => {
   const { allPassed, summary } = await verifyAll({
     channels: ['email', 'telegram', 'ntfy'],
     email: {}, telegram: {}, ntfy: {},
-  });
-  eq(allPassed, true, 'Unconfigured = not a failure');
-  ok(summary.includes('No channels configured') || summary.includes('⚠️'), 'Should warn about missing config');
+  }, verifierDeps());
+  eq(allPassed, false, 'No delivery evidence cannot pass');
+  ok(summary.includes('No requested channel') || summary.includes('⚠️'), 'Should warn about missing evidence');
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  B4: NTFY.SH PUSH CHANNEL
 // ═══════════════════════════════════════════════════════════════════════════════
 
-section('B4.1 — NtfyChannel basics');
+section('B4.1 — PushChannel basics');
 
-await t('channel name is ntfy', async () => {
-  const ch = new NtfyChannel();
-  eq(ch.name, 'ntfy');
+await t('channel name is push', async () => {
+  const ch = pushChannel();
+  eq(ch.name, 'push');
 });
 
 await t('default server URL', async () => {
-  const ch = new NtfyChannel();
-  eq(ch.serverUrl, 'https://ntfy.sh');
+  const originalFetch = globalThis.fetch;
+  let capturedUrl = '';
+  globalThis.fetch = async url => {
+    capturedUrl = url;
+    return { ok: true };
+  };
+  try {
+    await pushChannel().verify('caller-topic');
+    eq(capturedUrl, 'https://ntfy.sh/v1/health');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 await t('custom server URL', async () => {
-  const ch = new NtfyChannel({ serverUrl: 'https://my-ntfy.example.com' });
-  eq(ch.serverUrl, 'https://my-ntfy.example.com');
+  const originalFetch = globalThis.fetch;
+  let capturedUrl = '';
+  globalThis.fetch = async url => {
+    capturedUrl = url;
+    return { ok: true };
+  };
+  try {
+    const ch = pushChannel({ C3_NTFY_SERVER: 'https://my-ntfy.example.com/' });
+    await ch.verify('caller-topic');
+    eq(capturedUrl, 'https://my-ntfy.example.com/v1/health');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 await t('verify fails without topic', async () => {
-  const ch = new NtfyChannel({ topic: null });
+  const ch = pushChannel();
   const r = await ch.verify();
   eq(r.ok, false);
   ok(r.error.includes('No topic'), 'Should mention missing topic');
 });
 
 await t('send fails without topic', async () => {
-  const ch = new NtfyChannel({ topic: null });
+  const ch = pushChannel();
   const r = await ch.send({ title: 'Test', body: 'Test', priority: 'normal', agentId: 'test' });
   eq(r.delivered, false);
   ok(r.error.includes('No topic'), 'Should mention missing topic');
-  eq(r.channel, 'ntfy');
+  eq(r.channel, undefined);
 });
 
-section('B4.2 — NtfyChannel priority mapping');
+section('B4.2 — PushChannel priority mapping');
 
 await t('priority mapping covers all levels', async () => {
-  const ch = new NtfyChannel({ topic: 'test-topic' });
+  const ch = pushChannel({ C3_NTFY_TOPIC: 'test-topic' });
 
   // We can't actually send (no network), but we can verify the object construction
   // by checking that send builds correct body
@@ -172,17 +256,33 @@ await t('priority mapping covers all levels', async () => {
   }
 });
 
-section('B4.3 — NtfyChannel with recipient override');
+section('B4.3 — PushChannel with recipient override');
 
 await t('send uses recipient as topic override', async () => {
-  const ch = new NtfyChannel({ topic: 'default-topic' });
-  // Can't send without network, but verify the logic path
-  ok(ch.topic === 'default-topic', 'Default topic set');
+  const originalFetch = globalThis.fetch;
+  let capturedBody = null;
+  globalThis.fetch = async (_url, options) => {
+    capturedBody = JSON.parse(options.body);
+    return { ok: true, json: async () => ({ id: 'fixture' }) };
+  };
+  try {
+    const ch = pushChannel({ C3_NTFY_TOPIC: 'default-topic' });
+    await ch.send({
+      recipient: 'caller-topic',
+      title: 'T',
+      body: 'B',
+      priority: 'normal',
+      agentId: 'fixture',
+    });
+    eq(capturedBody.topic, 'caller-topic');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
-await t('getLastError returns null initially', async () => {
-  const ch = new NtfyChannel({ topic: 'test' });
-  eq(ch.getLastError(), null);
+await t('runtime config setter is retired', async () => {
+  const ch = pushChannel({ C3_NTFY_TOPIC: 'test' });
+  eq(ch.updateConfig, undefined);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -579,13 +679,13 @@ await t('getTemplateDescriptions supports EN', async () => {
 
 section('Integration — B4 + B6 + B8');
 
-await t('weather agent → ntfy channel flow', async () => {
-  const agent = weatherMonitor({ channel: 'ntfy', city: 'Ostrava' });
-  eq(agent.definition.action.channel, 'ntfy');
+await t('weather agent → push channel flow', async () => {
+  const agent = weatherMonitor({ channel: 'push', city: 'Ostrava' });
+  eq(agent.definition.action.channel, 'push');
 
-  const ch = new NtfyChannel({ topic: 'c3-test' });
+  const ch = pushChannel({ C3_NTFY_TOPIC: 'c3-test' });
   // Verify channel can accept the agent's notification format
-  ok(ch.name === 'ntfy', 'Channel ready');
+  ok(ch.name === 'push', 'Channel ready');
 });
 
 await t('real estate multi-source → validates', async () => {

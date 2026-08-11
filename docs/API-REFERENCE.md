@@ -443,15 +443,54 @@ Lifecycle endpoints are spread across projects and expertises routes:
 
 ### Notification System Config
 
+Notification credentials are immutable after startup. The status authority has
+exactly these canonical keys:
+
+```text
+C3_SMTP_HOST
+C3_SMTP_PORT
+C3_SMTP_USER
+C3_SMTP_PASS
+C3_SMTP_FROM
+C3_TELEGRAM_BOT_TOKEN
+C3_TELEGRAM_CHAT_ID
+C3_NTFY_SERVER
+C3_NTFY_TOPIC
+C3_NTFY_TOKEN
+C3_WEBHOOK_URL
+C3_WEBHOOK_SECRET
+```
+
+For each key, an own process value wins even when it is `""`; otherwise the
+source is the exact project-root `.env`. The snapshot is read once, so changes
+require server and worker restart. `configured` means only that the selected
+string is non-empty; it is not channel readiness, opt-in, authentication, or
+delivery proof. The GET response contains no values or masked fragments.
+
 | Method | Path | Body / Query | Response | Side Effects |
 |--------|------|-------------|----------|-------------|
-| `GET` | `/api/notifications/config` | — | SMTP config (password masked) | — |
-| `POST` | `/api/notifications/config` | `{emailEnabled, smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, emailRecipient, ...}` | `{success}` | Saves config; updates runtime channel |
-| `GET` | `/api/notifications/channels` | — | `{channels: [{name, configured}]}` | — |
-| `POST` | `/api/notifications/test` | `{channel, recipient?}` | Test result | Sends test notification |
+| `GET` | `/api/notifications/config` | — | Exact `{sources: {<12 canonical keys>: {configured, source}}}`; only `PROCESS_ENV` or `ROOT_ENV_FILE` sources | — |
+| `POST` | `/api/notifications/config` | Body is not parsed | Exact `410 {ok:false, code:"CREDENTIAL_SOURCE_READ_ONLY"}` | None; no DB, cache, emitter, or runtime mutation |
+| `GET` | `/api/notifications/channels` | — | `{channels: [{name, configured}]}` | Policy/registration view only; `configured` is not credential readiness |
+| `POST` | `/api/notifications/test` | `{channel, recipient?}` | Test result | Sends an explicit test; caller-supplied recipient is not persisted as config |
 | `POST` | `/api/notifications/verify` | `{channel}` | Verify result | Verifies channel config |
 | `GET` | `/api/notifications/log` | `?limit=50` | `{entries, count}` (max 200) | — |
-| `POST` | `/api/notifications/send` | `{channel, recipient?, title, body?, priority?}` | Send result | Sends notification |
+| `POST` | `/api/notifications/send` | `{channel, recipient?, title, body?, priority?}` | Send result | Explicit manual delivery; caller-supplied destination is not default config |
+
+The exact delete-only environment aliases are `TELEGRAM_BOT_TOKEN`,
+`TELEGRAM_CHAT_ID`, `NTFY_SERVER`, `NTFY_TOPIC`, `EMAIL_FROM`, `SMTP_URL`,
+`EMAIL_TO`, and `C3_NTFY_URL`. They never appear in the GET response and cannot
+be created or updated by the canonical writer. `C3_NTFY_URL` is not renamed to
+`C3_NTFY_SERVER`; it, `SMTP_URL`, and `EMAIL_TO` permit only verified export or
+explicit purge before scrub.
+
+External channels retain the WP027 default-off opt-in policy. The WP028 webhook
+Security/status/signer contract is unchanged. Automatic DB-configured
+lifecycle/worker email emission is retired; manual test/send and typed
+`AgentRunner` notification actions with caller-supplied destinations remain.
+Delivery inputs can still occur in `notification_log_v57.recipient` and the
+other explicitly documented M5-DATA/typed-agent residuals; this API retirement
+is not a global privacy erase.
 
 ---
 

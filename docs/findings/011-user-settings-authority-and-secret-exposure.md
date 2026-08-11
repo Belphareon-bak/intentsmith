@@ -113,9 +113,9 @@ zůstávají oddělené a každá vyžaduje vlastní subject, Review A i Review 
 | 5 | [029 — settings reset scope](../decisions/029-m1-settings-reset-scope.md) | A | settings-only reset a ukončení legacy aliasu |
 
 025, 027 i 028 jsou `PROMOTED / REVIEW A+B PASS`; 026/A + X1 +
-M1-CLOSEOUT-X1 je `WP_ACTIVE / SETUP_P0_CHECKPOINT_PUSHED /
-REST_IMPLEMENTATION_NOT_STARTED` a 029/A + M1-CLOSEOUT-X1 zůstává
-`ACCEPTED / WAITING`.
+M1-CLOSEOUT-X1 je `WP_ACTIVE / C2+C4_SOURCE_IMPLEMENTED_STATIC_REVIEWED /
+C3_NOT_COMPLETE / BEHAVIOR_AND_FINAL_REVIEW_PENDING` a 029/A +
+M1-CLOSEOUT-X1 zůstává `ACCEPTED / WAITING`.
 Závazná sekvence je `025 → 027 → 028 → 026 → 029`; 029 nezačne před přijetím
 026 candidate. Finding 011 zůstává `OPEN` a Gate 1 `BLOCKED`.
 
@@ -292,14 +292,17 @@ Focused evidence je `2/2`, WS `92/92`, Studio VM `127/127` a registry 382
 programů / 8 exclusions s fingerprintem
 `571ae1a90a4246c7037d56fe5fb786beb4b5c4aae3e61f163d5b6ffe14341d71`.
 Electron, GPU, Ollama, externí síť, outbound journey ani celý produktový test
-nebyly spuštěné. Známý compatibility residual zůstává: ACTIVE programy
-`tests/notifications.test.js`, `tests/workers-phase-b.test.js`,
-`tests/push-channel.test.js` a `tests/e2e-notifications.test.js` stále
-předpokládají permissive/default external channels nebo úspěšný legacy dry-run.
-Jsou mimo přijatý 027 důkaz a musí se srovnat před full-product během.
-`src/routes/notifications.js` navíc zatím ignoruje typed disabled výsledek
-`updateChannelConfig('email', ...)`, takže může po durable commitu chybně vrátit
-`runtimeApplied:true`; tato route semantics patří do 026.
+nebyly spuštěné. V okamžiku 027 promotion zůstával compatibility residual:
+ACTIVE programy `tests/notifications.test.js`,
+`tests/workers-phase-b.test.js`, `tests/push-channel.test.js` a
+`tests/e2e-notifications.test.js` předpokládaly permissive/default external
+channels nebo úspěšný legacy dry-run. 026 je nyní mechanicky srovnává na
+injected authority a 027 default-off policy, ale tyto programy v 026 subjectu
+nejsou behavior důkaz a external části zůstávají `NOT RUN / BLOCKED`.
+Historická route chyba kolem `updateChannelConfig('email', ...)` už na C2
+source neexistuje, protože celý runtime config writer/setter a jeho
+`runtimeApplied` kontrakt byly retired; final behavior/review evidence 026 však
+stále chybí.
 
 ### 028 promotion — jediná environment webhook autorita
 
@@ -371,9 +374,11 @@ vychází z clean promotion tipu 028
 pushed P0 branch v exact commitu
 `3bb35bbb32063dd058ab35872668d645fe9ff106`; promoted governance `G`
 `a06a3abeceb022797e122a88cc96c96af5bce878` vzniklo jako jeho sibling z rodiče
-`ea21bf3e2f8a54e1cbf93430cdb52037957a63c8`. Tento merge tree obsahuje oba
-commity bez rewrite a exact P0 SHA zůstává ancestorem. Zbytek 026 ještě nezačal
-a žádný transfer, export, purge ani scrub tím není provedený.
+`ea21bf3e2f8a54e1cbf93430cdb52037957a63c8`. Aktuální integrovaný source base
+`94d3b8fb316b6de7b97dd2525dffc6f6c7b0ad50` obsahuje oba commity bez rewrite,
+exact P0 SHA zůstává ancestorem a navíc zahrnuje C2 runtime/DB cutover a C4
+offline receipt applier. Tato ancestry sama nedokládá behavior PASS ani
+transfer, export, purge či dokončený scrub.
 
 Aktuální Setup census koriguje historický popis: 027 už nahradilo původní
 whole-file/truthy `.env` writer bounded atomickým patchem čtyř exact
@@ -434,11 +439,13 @@ verifieru. `WebhookChannel` dostává pouze odvozený injected URL string a stej
 Config GET vrací jen exact `{sources:{...12 leaves...}}`, config POST končí
 pre-parse exact 410 a runtime config settery ani `NotificationEmitter`
 lifecycle/worker bridge už nemají produkční call graph. Manual test/send a
-AgentRunner caller-supplied destinations zůstávají. Toto je pouze C2a source
-progress: C2b repository writer/scrub ještě není zapojený, legacy data nejsou
-migrovaná ani scrubnutá a celý 026 proto není hotový ani promovaný. Writer nad
-C2a záměrně nespustil behavior suite; syntax, diff hygiene a nezávislý focused
-run/review se evidují až na immutable checkpointu.
+AgentRunner caller-supplied destinations zůstávají. Aktuální integrovaný C2
+checkpoint má v ancestry repository writer retirement/scrub seam
+`4698cd5e` i runtime authority/retirement `caa42a55`; původní věta o
+nezapojeném C2b už tedy neplatí. C2 je source-implementovaný a staticky
+reviewovaný, ale legacy data nejsou kvůli chybějícímu C3 apply toku migrovaná
+ani scrubnutá. Behavior/focused evidence nad finálním immutable `S`, Review A/B
+a promotion stále chybějí, takže celý 026 není hotový ani promovaný.
 
 `SetupWizard.writeEnvFile()` deleguje jen owner `SETUP`; strict auth, route
 responses a completion flow zůstávají beze změny. Nový/default Setup vytváří
@@ -447,8 +454,9 @@ load/save nad existujícím well-formed legacy dokumentem zachovávají původn�
 credential/destination leaves do explicitní migrační akce. `.env.example`
 uvádí všech dvanáct canonical notification keys právě jednou a s prázdnou
 hodnotou. Rozšířený existující notification-scope program zůstává na dvou
-top-level případech a author-side běh skončil `2/2`; nejde ještě o commit,
-nezávislé review, transfer/scrub candidate ani 026 promotion.
+top-level případech. Historický author-side checkpoint uváděl `2/2`, ale není
+náhradou behavior důkazu nad finálním immutable `S`, nezávislé Review A/B,
+transfer/scrub candidate ani 026 promotion.
 
 Operátor následně přijal `M1-CLOSEOUT-X1` a dva autonomy dodatky. Samostatný
 docs-only amendment `G` vznikl jako sibling P0 z
@@ -497,6 +505,21 @@ aplikuje jen na deset známých `notifications.*` cest a při
 stale/malformed/failure zachová původní bytes.
 `c3-settings` není credential blob tohoto WP a raw hodnoty nikdy nejdou přes
 HTTP, WS, URL, log, clipboard ani in-app raw download.
+
+C4 receipt source `2475b29f` je integrován merge commitem
+`94d3b8fb316b6de7b97dd2525dffc6f6c7b0ad50`. Architect nyní umí lokálně
+ověřit schema `INTENTSMITH_LEGACY_CREDENTIAL_RECEIPT/V1`, exact source
+`PAIASS_SETTINGS`, preimage/postimage i per-path digesty, smazat pouze deset
+receipt-bound známých cest a bezpečně přijmout exact idempotentní postimage.
+Tento C4 checkpoint je source-implementovaný a staticky reviewovaný; behavior
+suite ani E2E tím nejsou doložené.
+
+C3 není kompletní: na tomto base chybí finální operátorský census/apply command,
+který vytváří digest-bound manifest, provádí verified `TRANSFER|EXPORT|PURGE`,
+generuje receipt a teprve po readbacku scrubuje exact legacy zdroje. Proto není
+doložený žádný skutečný transfer, export, purge, process-alias restart ani
+completed scrub. Samotná C2 runtime izolace a C4 schopnost receipt aplikovat
+nesmějí být přepsané na C3 PASS.
 
 DB census je záměrně neprefixový. Vedle `webhookSecret` a legacy
 `c3.notif.webhookSecret` zahrne všech devět retired typed notification cest a
