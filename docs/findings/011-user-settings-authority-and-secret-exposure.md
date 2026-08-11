@@ -113,8 +113,8 @@ zůstávají oddělené a každá vyžaduje vlastní subject, Review A i Review 
 | 5 | [029 — settings reset scope](../decisions/029-m1-settings-reset-scope.md) | A | settings-only reset a ukončení legacy aliasu |
 
 025, 027 i 028 jsou `PROMOTED / REVIEW A+B PASS`; 026/A + X1 +
-M1-CLOSEOUT-X1 je `WP_ACTIVE / C2+C4_SOURCE_IMPLEMENTED_STATIC_REVIEWED /
-C3_NOT_COMPLETE / BEHAVIOR_AND_FINAL_REVIEW_PENDING` a 029/A +
+M1-CLOSEOUT-X1 je `WP_ACTIVE / C2+C3+C4_SOURCE_IMPLEMENTED_STATIC_REVIEWED /
+BEHAVIOR_AND_FINAL_REVIEW_PENDING` a 029/A +
 M1-CLOSEOUT-X1 zůstává `ACCEPTED / WAITING`.
 Závazná sekvence je `025 → 027 → 028 → 026 → 029`; 029 nezačne před přijetím
 026 candidate. Finding 011 zůstává `OPEN` a Gate 1 `BLOCKED`.
@@ -374,11 +374,11 @@ vychází z clean promotion tipu 028
 pushed P0 branch v exact commitu
 `3bb35bbb32063dd058ab35872668d645fe9ff106`; promoted governance `G`
 `a06a3abeceb022797e122a88cc96c96af5bce878` vzniklo jako jeho sibling z rodiče
-`ea21bf3e2f8a54e1cbf93430cdb52037957a63c8`. Aktuální integrovaný source base
-`94d3b8fb316b6de7b97dd2525dffc6f6c7b0ad50` obsahuje oba commity bez rewrite,
-exact P0 SHA zůstává ancestorem a navíc zahrnuje C2 runtime/DB cutover a C4
-offline receipt applier. Tato ancestry sama nedokládá behavior PASS ani
-transfer, export, purge či dokončený scrub.
+`ea21bf3e2f8a54e1cbf93430cdb52037957a63c8`. Aktuální source ancestry obsahuje
+oba commity bez rewrite, exact P0 SHA zůstává ancestorem a navíc zahrnuje C2
+runtime/DB cutover, C4 offline receipt applier, compatibility alignment a C3
+offline migration command. Tato ancestry sama nedokládá behavior PASS ani
+skutečný transfer, export, purge či dokončený scrub uživatelských dat.
 
 Aktuální Setup census koriguje historický popis: 027 už nahradilo původní
 whole-file/truthy `.env` writer bounded atomickým patchem čtyř exact
@@ -443,9 +443,10 @@ AgentRunner caller-supplied destinations zůstávají. Aktuální integrovaný C
 checkpoint má v ancestry repository writer retirement/scrub seam
 `4698cd5e` i runtime authority/retirement `caa42a55`; původní věta o
 nezapojeném C2b už tedy neplatí. C2 je source-implementovaný a staticky
-reviewovaný, ale legacy data nejsou kvůli chybějícímu C3 apply toku migrovaná
-ani scrubnutá. Behavior/focused evidence nad finálním immutable `S`, Review A/B
-a promotion stále chybějí, takže celý 026 není hotový ani promovaný.
+reviewovaný. Legacy data však nebyla migrovaná ani scrubnutá, protože přijatý
+datově závislý `M1-EXECUTION-MANIFEST` a skutečný C3 apply dosud nevznikly.
+Behavior/focused evidence nad finálním immutable `S`, Review A/B a promotion
+stále chybějí, takže celý 026 není hotový ani promovaný.
 
 `SetupWizard.writeEnvFile()` deleguje jen owner `SETUP`; strict auth, route
 responses a completion flow zůstávají beze změny. Nový/default Setup vytváří
@@ -514,12 +515,18 @@ receipt-bound známých cest a bezpečně přijmout exact idempotentní postimag
 Tento C4 checkpoint je source-implementovaný a staticky reviewovaný; behavior
 suite ani E2E tím nejsou doložené.
 
-C3 není kompletní: na tomto base chybí finální operátorský census/apply command,
-který vytváří digest-bound manifest, provádí verified `TRANSFER|EXPORT|PURGE`,
-generuje receipt a teprve po readbacku scrubuje exact legacy zdroje. Proto není
-doložený žádný skutečný transfer, export, purge, process-alias restart ani
-completed scrub. Samotná C2 runtime izolace a C4 schopnost receipt aplikovat
-nesmějí být přepsané na C3 PASS.
+C3 source checkpoint `bf4a78be` přidává offline command
+`scripts/migrate-notification-authority.js`. Command odděluje read-only census,
+fresh-census `--plan` a quiescence-gated apply; final manifest váže exact source
+digests, explicitní `TRANSFER|EXPORT|PURGE` akce, numeric SMTP port override,
+canonical targety, receipts a append-only recovery ledger. Exact postimage
+uspěje pouze po absenci vybraných legacy paths, temp/export publication váže
+write-FD identitu na prepublish i postpublish readback a retry reportuje
+completed i remaining stages. Existing authority/credential-scope programy
+obsahují izolovaný census→plan→apply→restart→retry tok bez růstu top-level
+počtu. Checkpoint je source-implementovaný a staticky reviewovaný; behavior
+programy, skutečný `M1-EXECUTION-MANIFEST`, operátorský apply, transfer, export,
+purge, process-alias restart ani completed scrub spuštěné nebo doložené nejsou.
 
 DB census je záměrně neprefixový. Vedle `webhookSecret` a legacy
 `c3.notif.webhookSecret` zahrne všech devět retired typed notification cest a
