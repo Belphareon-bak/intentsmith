@@ -57,3 +57,5 @@ Finding 011 je `OPEN` a Gate 1 zůstává `BLOCKED`. Jedno přímé spuštění 
 E2E skončilo ještě v bezpečném preflightu
 `STUDIO_ELECTRON_BOUNDARY_BLOCKED artifact-root-missing`; Electron, build ani
 produkt se nespustily. GPU, Ollama a externí síť neběžely.
+candidateHead: 901bb6bad8db31304468c74391c93019f13f5a1e
+reviewB.verdict: PASS
