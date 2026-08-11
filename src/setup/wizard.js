@@ -45,6 +45,10 @@ export const SETUP_ENV_OWNED_KEYS = Object.freeze([
 
 const SETUP_ENV_OWNED_KEY_SET = new Set(SETUP_ENV_OWNED_KEYS);
 const ENV_ASSIGNMENT_PATTERN = /^(\uFEFF?[^\S\r\n]*(?:export[^\S\r\n]+)?)([\w.-]+)(?:[^\S\r\n]*=[^\S\r\n]*|:[^\S\r\n]+)/u;
+// Structurally mirrors dotenv@17.3.1's assignment matcher, with captures
+// around the spans that must never cross a physical line in this bounded
+// writer. Leading blank-line whitespace is intentionally not rejected.
+const DOTENV_ASSIGNMENT_SPAN_PATTERN = /^(\s*)(?:export(\s+))?([\w.-]+)(\s*=\s*?|:\s+?)(\s*'(?:\\'|[^'])*'|\s*"(?:\\"|[^"])*"|\s*`(?:\\`|[^`])*`|[^#\r\n]+)?\s*(?:#.*)?$/gm;
 
 export class SetupEnvironmentError extends Error {
   constructor(code) {
@@ -76,7 +80,7 @@ function validateSetupEnvValues(values) {
   const normalized = Object.create(null);
   for (const key of SETUP_ENV_OWNED_KEYS) {
     if (!Object.hasOwn(values, key) || typeof values[key] !== 'string'
-      || /[\r\n\0]/.test(values[key])) {
+      || /[\r\n\0\u2028\u2029]/u.test(values[key])) {
       throw setupEnvironmentError(SETUP_ENV_VALUE_INVALID);
     }
     normalized[key] = values[key];
@@ -130,6 +134,52 @@ function assertNoMultilineDotenvAssignments(lines) {
   }
 }
 
+function assertNoCrossLineDotenvAssignments(text) {
+  // JavaScript's multiline anchors (and therefore dotenv's pinned parser)
+  // also treat U+2028/U+2029 as line terminators. This bounded writer only
+  // preserves CR/LF physical records, so fail closed instead of allowing a
+  // second parser-visible authority that the physical scanner cannot count.
+  if (/[\u2028\u2029]/u.test(text)) {
+    throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
+  }
+  const normalized = text.replace(/\r\n?/g, '\n');
+  DOTENV_ASSIGNMENT_SPAN_PATTERN.lastIndex = 0;
+  let match;
+  while ((match = DOTENV_ASSIGNMENT_SPAN_PATTERN.exec(normalized)) !== null) {
+    const crossLineSpan = [match[2], match[4], match[5]]
+      .some(value => typeof value === 'string' && value.includes('\n'));
+    if (crossLineSpan) throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
+  }
+}
+
+function parseSetupEnvironment(bytes) {
+  try {
+    return parseDotenv(bytes);
+  } catch {
+    throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
+  }
+}
+
+function assertRenderedSetupEnvironment(existingBytes, nextBytes, normalized) {
+  const before = parseSetupEnvironment(existingBytes);
+  const after = parseSetupEnvironment(nextBytes);
+  const parsedKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
+  for (const key of parsedKeys) {
+    if (SETUP_ENV_OWNED_KEY_SET.has(key)) continue;
+    if (Object.hasOwn(before, key) !== Object.hasOwn(after, key)
+      || before[key] !== after[key]) {
+      throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
+    }
+  }
+  for (const key of SETUP_ENV_OWNED_KEYS) {
+    const expectedPresent = key !== 'C3_LICENSE_KEY' || normalized[key] !== '';
+    if (Object.hasOwn(after, key) !== expectedPresent
+      || (expectedPresent && after[key] !== normalized[key])) {
+      throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
+    }
+  }
+}
+
 function encodeEnvValue(value) {
   const candidates = [];
   if (value.trim() === value && !value.includes('#')) candidates.push(value);
@@ -154,6 +204,7 @@ export function renderSetupEnvironment(existingBytes, values) {
   }
 
   const lines = splitLinesWithEndings(text);
+  assertNoCrossLineDotenvAssignments(text);
   assertNoMultilineDotenvAssignments(lines);
   const ownedIndexes = new Map();
   for (let index = 0; index < lines.length; index++) {
@@ -210,7 +261,9 @@ export function renderSetupEnvironment(existingBytes, values) {
       rendered += appendedText;
     }
   }
-  return Buffer.from(rendered, 'utf8');
+  const nextBytes = Buffer.from(rendered, 'utf8');
+  assertRenderedSetupEnvironment(existingBytes, nextBytes, normalized);
+  return nextBytes;
 }
 
 function fsyncDirectory(directoryPath) {

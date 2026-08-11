@@ -477,6 +477,10 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
     for (const multilineDotenv of [
       Buffer.from('FOREIGN="x\nC3_LANG=embedded\ny"\nTAIL=keep\n'),
       Buffer.from('C3_LANG="cs\nC3_SMTP_PASS=shadow"\nFOREIGN=keep\n'),
+      Buffer.from('FOREIGN:\nOLLAMA_URL=old\n'),
+      Buffer.from('OLLAMA_URL\n=old\n'),
+      Buffer.from('FOREIGN=x#c\u2028OLLAMA_URL=hidden\nOLLAMA_URL=visible\n'),
+      Buffer.from('FOREIGN=x#c\u2029OLLAMA_URL=hidden\nOLLAMA_URL=visible\n'),
     ]) {
       resetTarget(multilineDotenv);
       assertErrorCode(() => wizard.writeEnvFile(), SETUP_ENV_TARGET_UNSAFE);
@@ -486,10 +490,16 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
     resetTarget();
     const beforeNewline = readFileSync(join(root, '.env'));
     const oldLanguage = wizard.config.language;
-    wizard.config.language = 'en\nC3_SMTP_PASS=injected';
-    assertErrorCode(() => wizard.writeEnvFile(), SETUP_ENV_VALUE_INVALID);
+    for (const unsafeLanguage of [
+      'en\nC3_SMTP_PASS=injected',
+      'en\u2028C3_SMTP_PASS=injected',
+      'en\u2029C3_SMTP_PASS=injected',
+    ]) {
+      wizard.config.language = unsafeLanguage;
+      assertErrorCode(() => wizard.writeEnvFile(), SETUP_ENV_VALUE_INVALID);
+      assert.equal(readFileSync(join(root, '.env')).equals(beforeNewline), true);
+    }
     wizard.config.language = oldLanguage;
-    assert.equal(readFileSync(join(root, '.env')).equals(beforeNewline), true);
 
     resetTarget(safeBase, 0o644);
     assertErrorCode(() => wizard.writeEnvFile(), SETUP_ENV_TARGET_UNSAFE);

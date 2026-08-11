@@ -292,6 +292,15 @@ Redukovaný důkaz má přesně čtyři programy: nová dvoupřípadová sada `2
 kompatibilita `92/92`, Studio VM `127/127` a registry validator. Registry nyní
 obsahuje 382 programů / 8 exclusions s fingerprintem
 `571ae1a90a4246c7037d56fe5fb786beb4b5c4aae3e61f163d5b6ffe14341d71`.
+První immutable subject
+`c72b11c3f1044298f7a3e3a29420f578b7650c46` skončil v Review A jako
+`CHANGES_REQUIRED`: fyzický Setup scanner nepokrýval newline v dotenv
+delimiter span. Report `E_A` nevznikl a původní historie/ref zůstaly beze
+změny. Replacement větev z téhož base zachovává původní strom, navíc odmítá
+každý cross-line dotenv assignment podle pinovaného parseru; parserové line
+terminátory `U+2028`/`U+2029`, které bounded fyzický scanner nepodporuje,
+odmítá před publikací fail-closed. Celý výsledný dokument pak ověřuje skutečným
+parserem; replacement čeká na nové Review A.
 Electron, GPU, Ollama, externí síť, outbound journey ani celý produktový test
 nebyly spuštěné. Tento commit tvoří immutable source subject `S`; source zatím
 není přijatý a čeká na Review A/B. Implementace neprovádí transfer, scrub ani
