@@ -175,6 +175,28 @@ Zamýšlená sada podle předlohy: `Konverzace`, `Projekty`, `Domů`, `Aktivita`
 > smysl. Podmínka úplnosti kořene tím ale nepadá: dokud lišta neumí smyčku,
 > zůstává homescreen jedinou mapou.
 
+**[F] OTEVŘENÁ VADA — skok o dvě pozice (nahlášeno 2026-08-11).** Klepnutí na
+sousední položku funguje; klepnutí **ob jednu** se zasekne a je vidět, že lišta
+neví, co dělat.
+
+Reprodukováno a změřeno: `navigate('conversations')` ze vzdálenosti dvou pozic
+skončí na `diagnostics` a aktivní položka stojí 20 px vedle středu.
+
+Podezřelá příčina, ověřená časově: prstenec se posouvá nativním plynulým
+scrollem, jehož délka roste se vzdáleností. Příznak „tohle je pohyb aplikace"
+(`navRingTurningItself`) se ale ruší po pevných `NAV_TURN_MS = 420 ms`. U souseda
+scroll doběhne dřív, u skoku ob jednu ne — příznak spadne uprostřed cesty,
+doběhový handler přečte střed, kterým právě projíždí *jiná* položka, a přepne
+na ni. Tím se rozjede další posun a lišta se viditelně pere sama se sebou.
+
+Je to táž třída jako dřívější návrat na kořen: **pevný časový odhad délky
+pohybu tam, kde je délka proměnná.** Oprava proto nemá být delší konstanta, ale
+navázání na skutečný konec posunu (`scrollend`, nebo detekce klidu) — jinak se
+to vrátí u delší lišty, až přibudou položky.
+
+Operátor 2026-08-11: **odloženo, zapsáno k otestování.** Neopravovat spolu
+s ničím jiným; stav lišty je jinak schválený a funkční.
+
 **Stav implementace k 2026-08-10:**
 
 | Část | Stav |
