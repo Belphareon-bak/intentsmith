@@ -1,7 +1,7 @@
-# Kontrakt v2 pro šest domén — NÁVRH, revize 2
+# Kontrakt v2 pro šest domén — NÁVRH, revize 3
 
-**Stav:** `NÁVRH` · **Předchozí review:** `CHANGES_REQUIRED` (f8d26e19)
-**Datum revize:** 2026-08-11 · **Autor:** implementační session
+**Stav:** `NÁVRH` · **Review revize 2:** `CHANGES_REQUIRED` (de73f893)
+**Datum revize:** 2026-08-12 · **Autor:** implementační session
 **Autorizace:** `DR-008` — autorizuje **návrh, review a refreeze**, nic víc
 **Určeno:** k novému nezávislému review; revidovat nesmí autor
 
@@ -12,9 +12,57 @@
 
 ---
 
-## 0. Co se změnilo proti revizi 1
+## 0. Stav revize 3
 
-Deset nálezů, všechny zapracované. Tři z nich byly věcné chyby, ne nepřesnosti:
+Revize 2 dostala `CHANGES_REQUIRED` se sedmi blokujícími nálezy. **Tahle revize
+uzavírá společné jádro (část A) a rozhodnutí, která review vyžádalo. Doménové
+přílohy (část B) normativní schémata ještě nemají** — viz §0.2. Netvrdím tedy,
+že je dokument refreeze-grade; není.
+
+Review také oprávněně vytklo, že §0 revize 2 hlásila „všech deset vyřešeno",
+zatímco pět z nich bylo opravených **směrem**, ne uzavřených kontraktně. Tahle
+tabulka proto rozlišuje obojí.
+
+### 0.1 Sedm nálezů z review revize 2
+
+| # | Nález | Stav |
+|---|---|---|
+| 1 | A4: identita operace a sémantika `UNKNOWN` | **uzavřeno** — otisk počítá server nad `{protocolVersion, operationType, resource, expectedVersion, payload}`; `UNKNOWN` je lokální úsudek do lookupu; body pádu a reconciliation v `A4.5` |
+| 2 | A5 nebyl uzavřený slovník | **uzavřeno** — celý enum, HTTP status, `retryable`, povinné `details`, `reason` uniony a vztah k `MutationOutcome` |
+| 3 | A7 odporoval cache lifecycle | **uzavřeno** — `EXPIRED` se nezobrazí ani offline; **globální TTL odstraněno**, je to otevřené rozhodnutí `D-M5` |
+| 4 | B4.3 a B5 jsou požadavky, ne kontrakty | **částečně** — `410` nově vrací `oldestAvailableSeq`; úplné DTO a redakční allow-list chybí (§0.2) |
+| 5 | A3 odkládal riziko do WP | **uzavřeno** — `snapshot` definován per stream, tie-break, `NULLS LAST`, rotace klíče, expirace, zákaz překladu `c1`↔`c2` |
+| 6 | A1 nebyla úplná negotiation | **uzavřeno** — konkrétní verze, hlavička, výběr, downgrade, **capability po funkcích** |
+| 7 | DTO a §10 nejsou refreeze-grade | **neuzavřeno** (§0.2) |
+
+### 0.2 Co v revizi 3 vědomě CHYBÍ
+
+Aby to nikdo nemusel hledat: **část B nemá normativní request/response schémata**
+pro těch 13 rout, chybí `T` u jednotlivých `MutationOutcome<T>`, mapování
+`INTEGER id`/`last_active` z jádra na wire, tělo `POST /m1/search`, definice
+`RunEventData` a serverový redakční allow-list. Matice v §10 je checklist
+negativních scénářů, **ne** sada pozitivních fixtures, kterou `ROADMAP` žádá.
+
+Bez toho **nemá smysl žádat o `APPROVED`**. Tahle revize je předkládaná proto,
+aby se uzavřelo jádro dřív, než se nad ním postaví třináct schémat — ne proto,
+aby se prohlásila za hotovou.
+
+### 0.3 Rozhodnutí, která review zodpovědělo a jsou zapracovaná
+
+| Rozhodnutí | Kde |
+|---|---|
+| TTL `60 s / 15 min` **neschváleno** | `A7.2` — TTL z kontraktu odstraněno |
+| Dry-run má **vlastní scope** | `A6` — `execute:worker-dry-run` |
+| Read-only `POST /m1/search` **schváleno** | `B6.3` beze změny |
+| `events` **neslučovat** s detailem běhu | `§9` beze změny |
+| `REVIEWED` **není** platný stav | `§12` — nahrazeno; `PLAN` §5 ho nezná |
+| Offline fallback hledání | `§11` — otevřené, `SCREENS` ho nezakazuje |
+
+### 0.4 Co bylo opraveno už v revizi 2
+
+Tři věcné chyby: projektová premisa (jádro projekty **má**), mazání paměti
+(`PLAN` říká „bez mazání"), a `manual` jako provenance místo `kind`. Plus pořadí
+Gate 1 a refreeze.
 
 | # | Nález | Jak je vyřešený |
 |---|---|---|
@@ -42,8 +90,9 @@ podmínka 2 schváleného kompromisu, to má obráceně a je autoritativní:
 
 Platné pořadí:
 
-1. **Návrh** (tento dokument) → nezávislé review → `REVIEWED`.
-   `REVIEWED` **není** `REFROZEN` a neautorizuje nic.
+1. **Návrh** (tento dokument) → nezávislé review → **`APPROVED`**.
+   `PLAN` §5 slovník `REVIEWED` nezná, takže se nezavádí. `APPROVED` **není**
+   `REFROZEN` a neautorizuje žádnou implementaci.
 2. **Gate 1 evidence pro `C3-002` a `C3-023`.** Bez obou se nerefreezuje.
 3. **`REFROZEN` v2.**
 4. Teprve pak **per fázi**: příslušná Gate 1 závislost + **vlastní Work Package**.
@@ -56,203 +105,290 @@ Platné pořadí:
 Dědí ho všech šest domén. Doména nesmí žádné z těchto pravidel obejít ani
 „upřesnit" po svém.
 
-## A1. Verzování a capability negotiation
+## A1. Verze a negotiation
 
-Revize 1 tvrdila „obálka beze změny" a přitom si říkala v2. To je rozpor:
-runtime hlásí `m1.2026-07-30` a `capabilities` znají jen dosavadní domény.
+### A1.1 Konkrétní verze, ne zástupné znaky
 
-**Dvě verze, oddělené:**
-
-| | Co to je | Kdo se podle toho řídí |
+| | Hodnota | Co určuje |
 |---|---|---|
-| `protocolVersion` | **wire protokol** — tvar obálky, chyb, kurzoru | odmítnutí nekompatibilního klienta (`426 protocol_mismatch`) |
-| `contractVersion` | **klientský kontrakt** — které domény a v jakém tvaru | co klient smí vykreslit |
+| Dnešní wire | `m1.2026-07-30` | dnešních 13 rout |
+| Wire v2 | **`m1.2026-08-12`** | tvar obálky, chyb, kurzoru `c2`, `MutationOutcome` |
+| Kontrakt | **`v2`** | které funkce existují a v jakém tvaru |
 
-`GET /m1/capabilities` nese nově:
+Wire verze a kontraktní verze se **mění nezávisle**: oprava tvaru chyby zvedne
+wire, přidání domény zvedne kontrakt.
+
+### A1.2 Průběh dohody
+
+1. Klient posílá hlavičku `X-M1-Protocol` se **seznamem** verzí, které umí,
+   v pořadí preference.
+2. Server vybere **nejvyšší společnou** a **každá** odpověď ji hlásí v
+   `protocolVersion` — včetně `capabilities` a včetně chyb.
+3. Bez hlavičky se předpokládá `m1.2026-07-30`, aby dnešní klient nepřestal
+   fungovat.
+4. Žádná společná → `426 protocol_mismatch` s polem `supportedProtocols`.
+   **Downgrade dělá klient vědomě**, server ho nikdy nevnutí mlčky.
+
+### A1.3 Capability po funkcích, ne po doménách
+
+Jeden stav na doménu neumí vyjádřit, že `workers.read` a `workers.toggle` jsou,
+zatímco `workers.dryRun` není. `GET /m1/capabilities` proto vrací **funkce**:
 
 ```
-{
-  protocolVersion: "m1.<datum>",
-  contractVersion: "v2",
-  supportedProtocols: ["m1.2026-07-30", "m1.<v2>"],
-  domains: {
-    settings:  { status, scopes, since },
-    projects:  { status, scopes, since },
-    memory:    { status, scopes, since },
-    workers:   { status, scopes, since },
-    runs:      { status, scopes, since },
-    search:    { status, scopes, since }
-  }
+features: {
+  "settings.read":   { status, scopes: [...], since },
+  "settings.write":  { ... },
+  "projects.read":   { ... },
+  "memory.read":     { ... },
+  "memory.append":   { ... },
+  "workers.read":    { ... },
+  "workers.toggle":  { ... },
+  "workers.dryRun":  { ... },
+  "runs.list":       { ... },
+  "runs.events":     { ... },
+  "search.query":    { ... }
 }
 ```
 
-`status` z uzavřeného seznamu:
+`status` se určuje **v tomto pořadí**, aby byl jednoznačný:
 
-| Hodnota | Význam |
-|---|---|
-| `available` | doména má providera, Gate 1 i WP; smí se vykreslit |
-| `unavailable` | kontrakt ji zná, **provider neexistuje** — klient ji ukáže uzamčenou |
-| `forbidden` | provider je, ale tohle zařízení na ni nemá scope |
+1. provider neexistuje → **`unavailable`** (bez ohledu na scopes);
+2. provider je, zařízení nemá **všechny** vypsané scopes → **`forbidden`**;
+3. jinak → **`available`**.
 
-**Neimplementovaná doména se hlásí `unavailable`, nikdy prázdným úspěchem.**
-Prázdné pole znamená „nic tam není", a to je jiné tvrzení.
-
-Klient, který dostane neznámou doménu, ji **ignoruje a zapíše do diagnostiky** —
-§3.4 `UI-DESIGN` to tak už řeší pro scopes.
+**Neimplementovaná funkce se hlásí `unavailable`, nikdy prázdným úspěchem.**
+Neznámou funkci klient ignoruje a zapíše do diagnostiky (§3.4 `UI-DESIGN`).
 
 ## A2. Obálka
 
-Beze změny proti v1 (`ok`, `protocolVersion`, `scopes`, `principalId`,
-`serverTime`, `data`), doplněná o `contractVersion`. Odpověď vždy hlásí scopes,
-pod kterými požadavek **skutečně** proběhl.
+`ok`, `protocolVersion` (dohodnutá, A1.2), `contractVersion`, `scopes`,
+`principalId`, `serverTime`, `data`. Odpověď vždy hlásí scopes, pod kterými
+požadavek **skutečně** proběhl.
 
-## A3. Stránkování — keyset, ne offset
+## A3. Stránkování — kurzor `c2`
 
-Revize 1 přebírala dnešní kurzor. Review ukázalo dvě vady, obě reálné:
+Dnešní `c1` je offset s nezabezpečeným součtem: klient si ho sestaví a při řazení
+podle měnícího se klíče přeskočí nebo zopakuje položku.
 
-1. je to **offset**, takže při řazení podle měnícího se `updatedAt` mezi
-   stránkami položky přeskočí nebo zopakuje;
-2. je to **veřejný JSON s nezabezpečeným kontrolním součtem** — klient si ho umí
-   sestavit, takže slib „serverem vydaný" neplatí.
-
-**v2 kurzor:**
+### A3.1 Tvar
 
 ```
-cursor = HMAC-podepsaný payload {
-  stream,          // doména + filtry, na které je vázaný
-  sortKey,         // hodnota řadicího klíče poslední vydané položky
-  id,              // rozřešení shody v sortKey
-  snapshot,        // revize/čas, ke kterému stránka patří
-  direction,       // forward | backward
-  issuedAt
+c2 = base64url(payload) + "." + HMAC-SHA256(payload, serverKey)
+payload = {
+  v: 2,
+  stream,        // doména + kanonizované filtry + řazení
+  principalId, deviceId,
+  snapshot,      // viz A3.2
+  sortKey, id,   // poslední vydaná položka
+  direction,     // forward | backward
+  issuedAt, expiresAt
 }
 ```
 
-- **keyset**, ne offset: pokračuje se `WHERE (sortKey, id) < (…)`, takže vložení
-  ani změna pořadí stránku neposune;
-- **podepsaný** serverovým klíčem — klient ho nesestaví, čímž slib platí;
-- **vázaný na `stream`**: kurzor z jiné domény, jiného filtru nebo jiného řazení
-  se odmítne `cursor_unknown` s `restart: true`;
-- **`snapshot`** umožní poznat, že se podklad mezi stránkami změnil natolik, že
-  pokračování by lhalo → `cursor_unknown`, `reason: snapshot_gone`.
+### A3.2 Snapshot — co to je pro každý stream
 
-`hasMore`, `end`, `nextCursor` zůstávají v obálce; `end` je **potvrzený konec**,
-ne odvozený z počtu (§8.6). `limit` se ořezává, neodmítá.
+`snapshot` je **hodnota, podle které se pozná, že podklad už není tentýž**.
+Definuje se per stream, ne obecně:
 
-Kde obrazovka začíná na konci streamu, používá se `anchor` s kurzorem mířícím
-zpět — mechanismus je hotový a ověřený (`MR-05`).
+| Stream | `snapshot` |
+|---|---|
+| `settings` | nestránkuje se |
+| `projects` | `MAX(updated_at)` nad viditelnou množinou |
+| `memory` | `MAX(last_used_at)` nad viditelnou množinou |
+| `workers` | `MAX(updated_at)` |
+| `runs` | `MAX(seq)` posledního běhu |
+| `search` | otisk dotazu + čas vydání první stránky |
 
-> **Dopad na v1:** dnešní kurzor v `MR-05` je offsetový a **funguje**, protože
-> stream zpráv je append-only a vzestupný. Migrace na keyset je součástí WP,
-> který v2 implementuje, ne tohoto dokumentu.
+Server porovná `snapshot` z kurzoru s aktuálním. Neshoda → `cursor_unknown`,
+`reason: snapshot_gone`. **Není to úsudek o „velikosti změny"** — je to
+rovnost dvou hodnot.
 
-## A4. Mutace — jednotný `MutationOutcome`
+### A3.3 Stabilita řazení
 
-`DATA-MODEL.md` `MD-19` (`D-S1`) je závazný: **každá logická mutace dostává vlastní
-`operationId`**, stejný klíč se stejným otiskem vrací původní výsledek, a
-nejasný timeout přechází do `UNKNOWN`. Revize 1 to měla jen u dry-runu — to byla
-díra, ne zkratka.
+- **Tie-break je vždy `id`**: `ORDER BY sortKey DESC, id DESC`. Bez něj dvě
+  položky se stejným časem nemají určené pořadí.
+- **`NULL` řadí poslední** (`NULLS LAST`) ve všech streamech.
+- **Membership se během chůze nemění**: filtr je součástí `stream` a je
+  kanonizovaný, takže jiný filtr = jiný kurzor.
+- Změna `sortKey` položky ji může přesunout přes už vydanou hranici. Proto je
+  `snapshot` **povinný u každého streamu, kde je řadicí klíč měnitelný** —
+  `projects`, `memory`, `workers`. Tam se změna projeví jako `snapshot_gone`,
+  ne jako tichý přeskok.
 
-**Platí pro všechny mutace v2 bez výjimky:** `PATCH /m1/settings/:key`,
-`POST /m1/memory`, `PATCH /m1/workers/:id`, `POST /m1/workers/:id/dry-run`.
+### A3.4 Klíč, expirace, koexistence
 
-### Požadavek
+- HMAC klíč je **serverový**, rotovatelný; kurzor podepsaný odvolaným klíčem →
+  `cursor_unknown`, `reason: key_rotated`.
+- `expiresAt` je povinné; prošlý kurzor → `cursor_unknown`, `reason: expired`.
+- Kurzor je vázaný na `principalId` **i** `deviceId` — cizí zařízení jím
+  stránku nevydá.
+- **`c1` a `c2` se nikdy nepřekládají.** `c1` platí jen na routách wire v1,
+  `c2` jen na v2. Záměna → `cursor_unknown`, `reason: cursor_version_mismatch`.
 
-Každá mutace nese v těle:
+> **Migrace.** Implementace `c2` patří do WP. **Sémantika koexistence je ale
+> součástí refreeze** — jinak by první WP musel rozhodovat, co se stane se
+> starým kurzorem. Dnešní `/m1/conversations` používá `updated_at DESC` s
+> offsetem, takže na v2 přechází na `c2` **povinně**, ne volitelně; historie
+> zpráv je append-only a mohla by zůstat, ale nezůstane, aby nevznikly dva
+> režimy.
+
+## A4. Mutace
+
+### A4.1 Identita operace — otisk počítá server
+
+Revize 2 nechávala otisk počítat klienta a jen z `payload`. To neváže operaci na
+typ ani na cíl, takže stejný klíč se stejným tělem na **jiné routě** by vypadal
+jako replay. Dnešní hranice to už dělá správně: `operation-journal.js` počítá
+otisk serverově a `approval-authority.js` říká výslovně, že se otisk **počítá,
+nepřijímá od volajícího**.
+
+**Klient posílá:**
 
 ```
-{ operationId, fingerprint, payload }
+{ operationId, payload, expectedVersion? }
 ```
 
-`operationId` mintuje **klient** (`MD-19`) a drží ho přes všechny retry téhož
-vědomého pokusu. `fingerprint` je kanonický otisk `payload` — server ho počítá
-znovu a **neporovnává těla, ale otisky**.
-
-### Odpověď
+**Server počítá** kanonický otisk nad:
 
 ```
-MutationOutcome<T> = {
-  operationId,
-  deviceId,
-  operationType,       // uzavřený seznam
-  state,               // CONFIRMED | REJECTED | PENDING | UNKNOWN
-  fingerprint,
-  result,              // T, jen u CONFIRMED
-  reason,              // jen u REJECTED / UNKNOWN, z uzavřeného slovníku
-  at
-}
+{ protocolVersion, operationType, resource, expectedVersion, payload }
 ```
 
-### Pravidla
+`resource` je úplný cíl (`settings:llm.temperature`, `worker:42`). Otisk od
+klienta se **ignoruje**, i kdyby dorazil.
+
+### A4.2 `MutationOutcome<T>`
+
+```
+{ operationId, deviceId, operationType, resource,
+  state,        // CONFIRMED | REJECTED | PENDING | UNKNOWN
+  fingerprint,  // serverem počítaný
+  result,       // T, jen u CONFIRMED
+  reason,       // uzavřený union, u REJECTED a UNKNOWN
+  at }
+```
+
+### A4.3 Pravidla
 
 | Situace | Chování |
 |---|---|
-| Stejný `operationId`, **stejný** `fingerprint` | vrátí **původní výsledek**, neprovede podruhé |
-| Stejný `operationId`, **jiný** `fingerprint` | `409 operation_conflict` — je to jiný záměr pod stejným klíčem |
-| Klient nedostal odpověď | stav je `UNKNOWN`, **ne neúspěch**; řeší se `GET /m1/operations/:id` |
-| Operace vázaná na zařízení | dvojice `(deviceId, operationId)`; cizí zařízení ji nedohledá |
+| Stejný `operationId`, **stejný** otisk | vrátí **původní výsledek**, neprovede podruhé |
+| Stejný `operationId`, **jiný** otisk | `409 operation_conflict` |
+| `expectedVersion` neplatí | `409 state_conflict`, vrací serverovou hodnotu |
+| Cizí `deviceId` | `404` — operace je vázaná na `(deviceId, operationId)` |
 
-Mutace je zapsaná v žurnálu operací dřív, než se projeví — jinak by po restartu
-existoval efekt bez záznamu.
+### A4.4 `UNKNOWN` — oprava sémantiky
 
-## A5. Chyby
+Revize 2 tvrdila, že ztráta odpovědi znamená serverový `UNKNOWN`. **Neplatí.**
+Když server efekt provedl a zapsal `CONFIRMED`, lookup musí vrátit `CONFIRMED` —
+dnešní `handlers.js` to tak dělá.
 
-Uzavřený slovník. Doména **nesmí zavést nový kód**, aniž ho tenhle dokument
-vyjmenuje.
+- `UNKNOWN` je **lokální úsudek klienta**, dokud se nezeptá `GET /m1/operations/:id`;
+- serverový `UNKNOWN` existuje **jen tehdy**, když server sám nedokáže efekt
+  rozhodnout, a nese `unknownReason` z uzavřeného seznamu.
 
-| Kód | Kdy |
+### A4.5 Body pádu
+
+Kontrakt musí platit v každém z nich; test #6 se dělí odpovídajícím způsobem:
+
+| Pád | Co musí platit po restartu |
 |---|---|
-| `bad_request` + `reason` | parametr, kterému server nerozumí — **nikdy se tiše neignoruje** |
-| `cursor_unknown` + `reason` + `restart` | kurzor, který server nevydal, z jiného streamu, nebo `snapshot_gone` |
-| `operation_conflict` | stejný klíč, jiný otisk (A4) |
-| `state_conflict` | zápis proti verzi, která už neplatí |
-| `scope_required` | chybí doménový scope |
-| `domain_unavailable` | doména je v kontraktu, provider není (A1) |
+| před efektem | `PENDING` nebo nic; opakování se stejným klíčem provede efekt **jednou** |
+| po efektu, před zápisem výsledku | lookup vrátí `UNKNOWN` s důvodem; **reconciliation** dohledá efekt a stav dorovná |
+| po `CONFIRMED`, před odpovědí | lookup vrátí **`CONFIRMED`**, ne `UNKNOWN` |
+
+„Žurnál se zapisuje první" atomicitu **nezaručuje**. Kontrakt proto žádá jedno
+ze dvou: **doménový zápis a terminální stav žurnálu v jedné transakci**, nebo
+**reconciliation při startu**, která nedokončené operace dorovná proti skutečnému
+efektu. WP musí doložit, kterou variantu zvolil.
+
+## A5. Chybová algebra — celý uzavřený enum
+
+Revize 2 tvrdila uzavřenost a přitom používala kódy mimo tabulku. Toto je celý
+enum; **nic mimo něj se nevydává**.
+
+| Kód | HTTP | `retryable` | Povinné `details` |
+|---|---|---|---|
+| `server_unavailable` | 503 | ano | — |
+| `token_missing` / `token_invalid` / `token_expired` / `token_revoked` | 401 | ne | — |
+| `scope_required` | 403 | ne | `required[]` |
+| `not_found` | 404 | ne | `resource` |
+| `route_not_allowed` | 404 | ne | — |
+| `state_conflict` | 409 | ne | `expectedVersion`, `actualVersion` |
+| `operation_conflict` | 409 | ne | `operationId` |
+| `bad_request` | 400 | ne | `reason`, `field?` |
+| `cursor_unknown` | 400 | ne | `reason`, `restart: true` |
+| `protocol_mismatch` | 426 | ne | `supportedProtocols[]` |
+| `domain_unavailable` | 503 | ne | `feature` |
+| `event_window_gone` | 410 | ne | `oldestAvailableSeq` |
+| `rate_limited` | 429 | ano | `retryAfterMs` |
+| `operation_limit` | 429 | ne | `open`, `limit` |
+
+**Uzavřené `reason` uniony:**
+
+- `cursor_unknown`: `malformed` | `unrecognized` | `stream_mismatch` |
+  `snapshot_gone` | `expired` | `key_rotated` | `cursor_version_mismatch`
+- `bad_request`: `anchor_unknown` | `anchor_with_cursor` | `unknown_parameter` |
+  `value_out_of_range` | `query_too_long`
+
+**Vztah k `MutationOutcome`:** HTTP chyba a `state` se **nemíchají**. Odmítnutí
+na úrovni protokolu (401/403/426) je HTTP chyba **bez** `MutationOutcome`.
+Odmítnutí doménové je `200` s `state: REJECTED` a `reason`. Konflikty (409) jsou
+HTTP chyba, protože klient nemá co potvrzovat.
 
 ## A6. Scopes
 
-Čtení a zápis zvlášť. Čtení bez zápisu je platný stav a obrazovka v něm musí být
-použitelná, ne zamčená.
-
-| Doména | Čtení | Zápis | Pozn. |
-|---|---|---|---|
-| Nastavení | `read:settings` | `write:settings` | |
-| Projekty | `read:projects` | — | **zápis v2 není** (B2.5) |
-| Paměť | `read:memory` | `write:memory` | jen přidání poznámky (B3.3) |
-| Workeři | `read:workers` | `write:workers` | bez ostrého běhu (B4.3) |
-| Průběh | `read:runs` | — | |
-| Hledání | `read:search` | — | **plus** čtecí scope každé prohledávané domény |
-
-`read:projects` už pairing vydává. Ostatní se do `PAIRABLE_SCOPES` přidají až
-s příslušným WP. **Žádný nesmí být dosažitelný přes `admin`** — `FORBIDDEN_SCOPES`
-platí beze změny.
-
-## A7. Cache, klasifikace a úklid
-
-`I-10` platí: cache je odvozená a zahoditelná. **v2 nezavádí čtvrtou výjimku**
-k dnešním třem (`MD-14`, `MD-15`, `MD-19`).
-
-`DATA-MODEL.md` `MD-05`/`I-10` vyžaduje u každého cachovaného záznamu `fetchedAt` a
-verzi/otisk. Proto pro každou cachovanou doménu platí:
-
-| | |
+| Funkce | Scope |
 |---|---|
-| Klíč | `deviceId` + doména + filtr — **partition po zařízení**; nové spárování cizí oddíl nevidí |
-| Metadata | `fetchedAt` a `version` u **každého** záznamu, ne u kolekce |
-| Stáří | `FRESH` < 60 s · `STALE` < 15 min · `EXPIRED` dál |
-| Co smí `STALE` | zobrazit se **s ukazatelem stáří**; nesmí být podkladem mutace |
-| Co smí `EXPIRED` | zobrazit se jen s výslovným „stará data"; nikdy jako potvrzená odpověď |
-| Úklid | při revokaci, odhlášení a změně `deviceId` se oddíl **maže celý** |
+| `settings.read` / `settings.write` | `read:settings` / `write:settings` |
+| `projects.read` | `read:projects` |
+| `memory.read` / `memory.append` | `read:memory` / `write:memory` |
+| `workers.read` / `workers.toggle` | `read:workers` / `write:workers` |
+| `workers.dryRun` | **`execute:worker-dry-run`** — samostatný |
+| `runs.list` / `runs.events` | `read:runs` |
+| `search.query` | `read:search` + čtecí scope každé prohledávané domény |
 
-Každá doména má v příloze řádek `Offline` s jednou ze tří hodnot: **čitelné
-z cache**, **nečitelné**, **nikdy z cache**.
+Dry-run má **vlastní scope**: `write:workers` je konfigurace, dry-run je příkaz
+ke spuštění. Spojit je do jednoho by znamenalo, že kdo smí přepnout přepínač,
+smí i spouštět. `FORBIDDEN_SCOPES` platí beze změny; `admin` nic neobchází.
+
+## A7. Cache
+
+### A7.1 Životní cyklus — beze změny proti `DATA-MODEL`
+
+`FRESH` → zobrazí se bez upozornění · `STALE` → **jen čtení**, povinný ukazatel
+stáří · `EXPIRED` → **nezobrazí se ani offline** a při úklidu se maže.
+
+Revize 2 dovolovala zobrazit `EXPIRED` s poznámkou. To je v přímém rozporu
+s invariantem a je **odstraněno**.
+
+### A7.2 TTL — nerozhodnuto, a kontrakt ho neurčuje
+
+Revize 2 zaváděla globální `60 s / 15 min`. Nemá to oporu v žádném rozhodnutí a
+review to neschválilo. `DATA-MODEL` má per-doménové návrhy (nastavení 1 h / 24 h,
+projekty 15 min / 7 dnů, paměť 1 h / 7 dnů, workeři 5 min / 7 dnů), ale ty jsou
+stále vedené jako **návrh `D-M5`**.
+
+**Kontrakt proto TTL neurčuje.** Je to otevřené rozhodnutí (§11) a musí padnout
+před refreeze — ne uvnitř tohoto dokumentu.
+
+### A7.3 Klíč a úklid
+
+Klíč cache: `serverIdentity` + `deviceId` + `contractVersion` + `domain` +
+`canonicalFilter`. `serverIdentity` tam je proto, že tentýž telefon může být
+spárovaný s jiným strojem; bez ní by se oddíly mísily.
+
+Úklid nastává při: revokaci, odhlášení, **ztrátě scope**, změně
+`serverIdentity`, změně `contractVersion` a novém spárování.
+
+> **Co kontrakt slíbit nemůže:** vzdálený wipe offline telefonu. Revokace maže
+> data teprve tehdy, když ji zařízení **autenticky přijme**. Slibovat víc by byla
+> nepravda o bezpečnostní vlastnosti.
 
 ## A8. Routy
 
-Kontrakt routy **jmenuje**, jejich vznik neautorizuje. 13-route allow-list platí
-až do WP, který routu implementuje.
-
----
+Kontrakt routy jmenuje, jejich vznik neautorizuje. 13-route allow-list platí až
+do WP, který routu implementuje.
 
 # ČÁST B — Šest doménových příloh
 
@@ -508,11 +644,19 @@ nezkontrolovatelné.
 ```
 {
   events: [...],
-  nextAfterSeq,      // odkud pokračovat
-  caughtUp,          // true = dostal jsi vše, co teď existuje
-  runTerminal,       // true = běh skončil, další události nebudou
-  waitTimedOut       // true = server čekal a nic nepřišlo
+  nextAfterSeq,        // odkud pokračovat; `afterSeq` je EXKLUZIVNÍ
+  oldestAvailableSeq,  // spodní hranice retention — mezera se pozná dřív, než na ni klient narazí
+  caughtUp,            // true = dostal jsi vše, co teď existuje
+  runTerminal,         // true = běh skončil, další události nebudou
+  waitTimedOut         // true = server čekal `waitMs` a nic nepřišlo
 }
+```
+
+`GET` přijímá `?afterSeq=&limit=&waitMs=`. `afterSeq` je **exkluzivní**; první
+dotaz posílá `afterSeq=0`, což znamená od nejstarší dostupné události. `waitMs`
+je horní mez long-pollu, ořezaná serverem; `0` znamená neblokovat.
+
+```
 ```
 
 Bez těchto čtyř znamená prázdná odpověď zároveň „zatím nic", „běh skončil"
@@ -523,17 +667,34 @@ i „staré události jsou pryč". Nyní:
 | Zatím nic nového | `events: []`, `caughtUp: true`, `runTerminal: false` |
 | Běh skončil | `runTerminal: true` + koncová událost |
 | Server čekal a nic nepřišlo | `waitTimedOut: true` |
-| `afterSeq` je pod retention hranicí | `410` **`event_window_gone`** — klient musí načíst od začátku, nesmí předstírat spojitost |
+| `afterSeq` je pod retention hranicí | `410` **`event_window_gone`** s **`oldestAvailableSeq`** — klient pokračuje odtud a **přizná mezeru**; posílat ho na začátek, který retention smazala, by byla nepravda |
 
 `RunState`: `running` | `finished` | `failed` | **`interrupted`** |
 **`cancelled`** | **`timed_out`**. Poslední tři revize 1 neměla, takže přerušený
 běh vypadal jako neúspěšný.
 
+### B5.4a Vztah k `CoreEvent`
+
+`ROADMAP` žádá, aby `RemoteCorePort` vznikal nad připnutým `CoreEvent`. Dnešní
+`contracts/m1/index.js` vede `CoreEvent` jako `PROVISIONAL_V1` a je konverzačně
+orientovaný — běhy jím neprocházejí.
+
+**Tenhle kontrakt proto nezavádí druhý konektor.** `RunEvent` je **projekce nad
+`CoreEvent`**, ne paralelní proud; WP musí doložit mapování `CoreEvent` →
+`RunEvent` a to, že `CoreEvent` byl kvůli tomu připnut. Kdyby projekce nešla, je
+to rozhodnutí o novém konektoru a patří do samostatného kola, ne sem.
+
 ### B5.5 Redakce
 
-`text` i `data` procházejí **redakcí na serveru**: tajemství, tokeny a obsah,
-na který zařízení nemá scope, se nevydávají. Agent log je jinak boční kanál
-kolem scopů.
+`text` i `data` procházejí **redakcí na serveru**. Obecné „projde redakcí" ale
+není testovatelný kontrakt, takže redakce je **allow-list, ne blacklist**:
+
+- vydává se **jen** to, co je v allow-listu pro daný `type`;
+- cokoli mimo něj se nahradí `"[redigováno]"`, ne vynechá — vynechání by mezeru
+  skrylo;
+- allow-list je součástí WP a testuje se **pozitivně i negativně** (§10, řádek 12).
+
+Agent log je jinak boční kanál kolem scopů.
 
 ### B5.6 Zakázané
 
@@ -590,7 +751,7 @@ scope na detail. Úryvek prochází stejnou redakcí jako `B5.5`.
 |---|---|
 | Routa | `POST /m1/search` |
 | Scope | `read:search` **plus** čtecí scope každé prohledávané domény |
-| Offline | **nečitelné** — hledání v cache je past z `B6.1` |
+| Offline | **otevřené rozhodnutí** — viz §11 bod 6 |
 | Obrazovka | `MS-09` — **nestaví se** |
 
 ---
@@ -613,10 +774,12 @@ pryč). Zdvojnásobení povrchu je samo o sobě věc k posouzení, ne detail.
 
 ---
 
-## 10. Matice kontraktních testů
+## 10. Matice kontraktních testů — **neúplná**
 
-Review ji vyžaduje jako podmínku refreeze. Každý řádek je **negativní** scénář —
-tvrdí, co se stát nesmí.
+`ROADMAP` žádá **pozitivní contract test i negativní boundary test**. Níže je
+zatím jen negativní polovina. **Pozitivní fixtures pro každou z 13 rout, normativní
+schémata a testovací ID chybí** (§0.2) — bez nich to není refreeze gate, ale
+checklist. Řádky 16–19 doplňuje revize 3 podle nálezů review.
 
 | # | Scénář | Očekávané |
 |---|---|---|
@@ -635,33 +798,46 @@ tvrdí, co se stát nesmí.
 | 13 | Dry-run | **nulový** efekt v ostrých datech, záznam v žurnálu |
 | 14 | Doména bez providera | `unavailable`, ne prázdný úspěch |
 | 15 | Desktop-only klíč `R-5` přes `/m1` | nedostupný ke čtení i zápisu |
+| 16 | Pád **po efektu, před zápisem výsledku** | lookup `UNKNOWN` + reconciliation dorovná (`A4.5`) |
+| 17 | Pád **po `CONFIRMED`, před odpovědí** | lookup vrací **`CONFIRMED`**, ne `UNKNOWN` |
+| 18 | Podvržený nebo cizí `c2` kurzor | `cursor_unknown`; `c1` na v2 routě → `cursor_version_mismatch` |
+| 19 | Klient nabídne jen neznámou wire verzi | `426` se `supportedProtocols`, **žádný tichý downgrade** |
 
 ---
 
-## 11. Otevřené body — pro revidujícího
+## 11. Otevřené body
 
-Uzavřeno podle akčního plánu review: **bez mazání paměti, bez zápisu projektů,
-bez ostrého běhu workera, `read:search` samostatný.** Zbývá:
+Uzavřeno v revizi 3 podle review: identita operace, chybová algebra, cache
+lifecycle, snapshot a negotiation. Zbývá:
 
-1. **`MR-07` a `MR-20` možná nejsou dodatelné jako kontrakt.** `B5.2` a `B4.3`
-   popisují, co musí vzniknout na serveru. Jestli to nevznikne, schvalujete
-   **zadání pro backend**, ne kontrakt — a Fáze 1 zůstává otevřená.
-2. **26 rout.** Sloučení `events` pod `/m1/runs/:id` by ubralo routu za cenu
-   horšího stránkování. Nedoporučuji, ale je to volba.
-3. **`POST /m1/search` jako read-only** je vědomá výjimka z „POST = mutace"
-   (`B6.3`). Alternativa `GET` s hashem dotazu je horší: hash v URL je pořád
-   korelovatelný.
-4. **Retention událostí** (`B5.2` bod 5) musí určit provoz, ne tento dokument.
-5. **Migrace kurzoru v1 → keyset** (`A3`) patří do WP, který v2 implementuje.
-   Dnešní offsetový kurzor v `MR-05` funguje a nechává se běžet.
-
----
+1. **TTL cache (`D-M5`).** Kontrakt ho vědomě neurčuje (`A7.2`). `DATA-MODEL` má
+   per-doménové návrhy, ale jsou to návrhy. **Musí padnout rozhodnutí před
+   refreeze** — jinak je „čitelné z cache" věta bez obsahu.
+2. **`MR-07` a `MR-20`: kontrakt, nebo `REQUIREMENTS_ONLY`?** Review odpovědělo,
+   že chybějící provider kontraktu nebrání a capability zůstane `unavailable`.
+   Tenhle návrh to tak drží. Pokud má být opak — tedy že jde jen o zadání pro
+   backend — musí se obě domény označit `REQUIREMENTS_ONLY` a **`DR-008` ani
+   Fáze 1 se neuzavírají**.
+3. **Retention událostí** (`B5.2` bod 5). Určí provoz, ne tento dokument; ale
+   `oldestAvailableSeq` na ni odkazuje, takže hodnota musí existovat před
+   refreeze.
+4. **Projekce `CoreEvent` → `RunEvent`** (`B5.4a`). Jestli nejde, je to nový
+   konektor a patří do samostatného kola.
+5. **Migrace `c1` → `c2`.** Sémantika koexistence je v `A3.4` a je součástí
+   refreeze; implementace patří do WP.
+6. **Offline fallback hledání.** Revize 2 přeložila „hledání nad cache
+   `MR-10` nesplňuje" na „hledání v cache je zakázané". To není totéž a review
+   to označilo za nepřesnost: `SCREENS` u `MS-09` zřetelně označený omezený
+   fallback nezakazuje. **Rozhodněte:** buď fallback zůstává a kontrakt ho musí
+   popsat (rozsah, označení, zákaz vydávat se za úplný výsledek), nebo se mění
+   obrazovkový kontrakt `MS-09`. Do rozhodnutí je řádek `Offline` v `B6`
+   otevřený.
 
 ## 12. Pořadí po schválení
 
 Podle `PLAN.md` §8 podmínky 2 a §5.3, v tomto pořadí:
 
-1. `REVIEWED` — schválený návrh. **Neautorizuje nic.**
+1. `APPROVED` — schválený návrh. **Neautorizuje nic.**
 2. **Gate 1 evidence pro `C3-002` a `C3-023`.**
 3. `REFROZEN` v2.
 4. Per fázi: příslušná Gate 1 závislost + **vlastní Work Package**.
