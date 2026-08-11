@@ -156,7 +156,7 @@ Bidirectional control messages.
 | `rehydrate` | `{rehydrateRequestId, conversationIds: [...]}` | Validate a complete bounded ID set after reconnect |
 | `edit_approve` | `{requestId}` | Approve pending file edit |
 | `edit_reject` | `{requestId}` | Reject pending file edit |
-| `sync_settings` | `{settings: {...}}` | Push feature flags + notification config |
+| `sync_settings` | `{settings: {...}}` | Apply an exact non-empty projection of supported boolean feature flags only |
 
 **Backend → IDE:**
 
@@ -165,7 +165,7 @@ Bidirectional control messages.
 | `pong` | — | Keep-alive response |
 | `rehydrate_ack` | `{rehydrateRequestId, complete: true, validIds: [...], invalidIds: [...]}` | Complete request-bound durable partition |
 | `rehydrate_reject` | `{rehydrateRequestId, reason}` | Request-bound malformed/over-limit set rejection |
-| `sync_settings` | `{changed: number}` | Settings applied count |
+| `sync_settings` | `{success:true, changed:number}` or `{success:false, changed:0, code}` | Atomic feature-setting result |
 | `session_invalid` | `{sessionId?}` | Legacy non-authoritative warning; never clears or assigns client identity |
 
 `rehydrate_ack` is authoritative only when the request ID matches and the two
@@ -176,6 +176,29 @@ the restore. A matching typed reject ends the current restore without history
 fetch or cleanup; a foreign/malformed reject cannot end it. The server emits an
 ACK only from an explicitly ready file-backed SQLite store; unavailable store
 state closes that socket without identity authority.
+
+#### Notification credential boundary
+
+`sync_settings` accepts only the exact boolean keys
+`c3.features.skills`, `c3.features.agents`, `c3.features.lifecycle`,
+`c3.features.expertises`, `c3.features.telemetry`,
+`c3.features.specialistTelemetry`, and `c3.features.autonomy`. Unknown keys,
+notification credentials, default recipients, legacy aliases, or a mixed
+payload fail atomically with `FEATURE_SETTINGS_INPUT_INVALID`; they are not
+ignored or partially applied.
+
+Notification credential status is available only through the status-only
+`GET /api/notifications/config` HTTP route. Its exact 12-key startup snapshot
+cannot be changed over WebSocket; HTTP POST is also retired pre-parse with
+`410 CREDENTIAL_SOURCE_READ_ONLY`. Manual delivery and typed `AgentRunner`
+actions may still use caller-supplied destinations, but that does not create a
+WS credential setter or a persistent default recipient.
+
+Raw `localStorage['paiass_settings']` bytes and their sensitive notification
+paths must never be sent on any WebSocket channel. WP026 uses an offline
+mode-`0600` file and non-secret digest-bound receipt flow instead. Receipt
+support is not a global erase: notification delivery tables/logs and persisted
+typed agent definitions remain separately documented residuals.
 
 ### terminal
 
