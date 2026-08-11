@@ -13,6 +13,10 @@
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
+import {
+  requireWebhookSecretAuthority,
+  webhookSecretAuthority,
+} from '../src/runtime-environment.js';
 import Database from 'better-sqlite3';
 import { AgentRepository, initAgentTables } from '../src/agents/repository.js';
 import { AgentRunner } from '../src/agents/runner.js';
@@ -50,6 +54,8 @@ const repo = new AgentRepository(db);
 const { pipeline, router } = createNotificationPipeline({
   db,
   channelPolicy: notificationChannelPolicy,
+  requireWebhookSecretAuthority,
+  webhookSecretAuthority,
 });
 
 // ── Check notification channels ──────────────────────────────────────────────

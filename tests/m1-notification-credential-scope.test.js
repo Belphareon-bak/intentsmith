@@ -1,4 +1,5 @@
 import { strict as assert } from 'node:assert';
+import { createHmac } from 'node:crypto';
 import {
   chmodSync,
   existsSync,
@@ -19,7 +20,15 @@ import { parse as parseDotenv } from 'dotenv';
 
 import {
   createNotificationRouter,
+  WebhookChannel,
 } from '../src/notifications/index.js';
+import {
+  WEBHOOK_SECRET_AUTHORITY_INVALID,
+  WEBHOOK_SECRET_NOT_CONFIGURED,
+  WEBHOOK_SECRET_SOURCE_UNSAFE,
+  readWebhookSecretAuthority,
+  requireWebhookSecretAuthority,
+} from '../src/runtime-environment.js';
 import {
   EXTERNAL_NOTIFICATION_CHANNEL_FLAGS,
   EXTERNAL_NOTIFICATION_CHANNELS,
@@ -241,6 +250,400 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
     { send: defaultCounters.send, verify: defaultCounters.verify, update: defaultCounters.update },
     { send: 0, verify: 0, update: 0 },
   );
+
+  // WP028 CORE evidence lives in this existing program: the install-root
+  // reader, opaque capability and the real default webhook factory are one
+  // authority boundary, exercised without an outbound request.
+  const authorityProjectRoot = resolve(mkdtempSync(join(tmpdir(), 'm1-webhook-authority-')));
+  const authorityForeignRoot = resolve(mkdtempSync(join(tmpdir(), 'm1-webhook-foreign-cwd-')));
+  const authorityEnvPath = join(authorityProjectRoot, '.env');
+  const authorityOriginalCwd = process.cwd();
+  const hadOwnFetch = Object.hasOwn(globalThis, 'fetch');
+  const originalFetch = globalThis.fetch;
+  const originalDateNow = Date.now;
+  const hadOwnWebhookUrl = Object.hasOwn(process.env, 'C3_WEBHOOK_URL');
+  const originalWebhookUrl = process.env.C3_WEBHOOK_URL;
+  const deterministicPayload = '{"fixture":"wp028"}';
+  const deterministicTimestamp = 1_700_000_000_123;
+  const expectedHmac = (secret, payload, timestamp) => `sha256=${createHmac('sha256', secret)
+    .update(`${timestamp}.${payload}`)
+    .digest('hex')}`;
+  const installAuthorityEnv = (content, mode = 0o600) => {
+    rmSync(authorityEnvPath, { recursive: true, force: true });
+    if (content === null) return;
+    writeFileSync(authorityEnvPath, content);
+    chmodSync(authorityEnvPath, mode);
+  };
+  const assertExactAuthorityStatus = (authority, expected) => {
+    const status = authority.status();
+    assert.equal(authority.status(), status);
+    assert.equal(Object.isFrozen(status), true);
+    assert.deepEqual(Object.keys(status), ['configured', 'source']);
+    assert.deepEqual(status, expected);
+    return status;
+  };
+  const assertTypedAuthorityError = (callback, expectedCode) => {
+    const error = captureError(callback);
+    assert.equal(error.name, 'WebhookSecretAuthorityError');
+    assert.equal(error.code, expectedCode);
+    assert.equal(error.message, expectedCode);
+    return error;
+  };
+
+  try {
+    writeFileSync(
+      join(authorityForeignRoot, '.env'),
+      'C3_WEBHOOK_SECRET=foreign-cwd-secret\nFOREIGN_CWD_CANARY=must-not-load\n',
+    );
+    chmodSync(join(authorityForeignRoot, '.env'), 0o600);
+    process.chdir(authorityForeignRoot);
+
+    const rootWithSecret = [
+      'C3_WEBHOOK_SECRET=root-file-secret',
+      'ROOT_NON_SECRET=loaded-from-install-root',
+      '',
+    ].join('\n');
+    const authorityCases = [
+      {
+        name: 'process nonempty',
+        root: rootWithSecret,
+        environment: () => ({ C3_WEBHOOK_SECRET: 'process-secret' }),
+        expected: { configured: true, source: 'PROCESS_ENV' },
+        secret: 'process-secret',
+      },
+      {
+        name: 'process empty',
+        root: rootWithSecret,
+        environment: () => ({ C3_WEBHOOK_SECRET: '' }),
+        expected: { configured: false, source: 'PROCESS_ENV' },
+        secret: '',
+      },
+      {
+        name: 'process whitespace',
+        root: rootWithSecret,
+        environment: () => ({ C3_WEBHOOK_SECRET: '   ' }),
+        expected: { configured: true, source: 'PROCESS_ENV' },
+        secret: '   ',
+      },
+      {
+        name: 'inherited process key',
+        root: rootWithSecret,
+        environment: () => Object.create({ C3_WEBHOOK_SECRET: 'prototype-secret' }),
+        expected: { configured: true, source: 'ROOT_ENV_FILE' },
+        secret: 'root-file-secret',
+      },
+      {
+        name: 'root nonempty',
+        root: rootWithSecret,
+        environment: () => ({}),
+        expected: { configured: true, source: 'ROOT_ENV_FILE' },
+        secret: 'root-file-secret',
+      },
+      {
+        name: 'root empty',
+        root: 'C3_WEBHOOK_SECRET=\nROOT_NON_SECRET=loaded-from-install-root\n',
+        environment: () => ({}),
+        expected: { configured: false, source: 'ROOT_ENV_FILE' },
+        secret: '',
+      },
+      {
+        name: 'root key absent',
+        root: 'ROOT_NON_SECRET=loaded-from-install-root\n',
+        environment: () => ({}),
+        expected: { configured: false, source: 'ROOT_ENV_FILE' },
+        secret: '',
+      },
+      {
+        name: 'root file absent',
+        root: null,
+        environment: () => ({}),
+        expected: { configured: false, source: 'ROOT_ENV_FILE' },
+        secret: '',
+      },
+    ];
+
+    for (const authorityCase of authorityCases) {
+      installAuthorityEnv(authorityCase.root);
+      const processEnvironment = authorityCase.environment();
+      const processOwnedSecretBefore = Object.hasOwn(processEnvironment, 'C3_WEBHOOK_SECRET');
+      const authority = readWebhookSecretAuthority({
+        projectRoot: authorityProjectRoot,
+        processEnvironment,
+      });
+      assertExactAuthorityStatus(authority, authorityCase.expected);
+      assert.equal(Object.isFrozen(authority), true, authorityCase.name);
+      assert.equal(Object.getPrototypeOf(authority), null, authorityCase.name);
+      assert.deepEqual(Object.keys(authority), [], authorityCase.name);
+      assert.deepEqual(Reflect.ownKeys(authority).sort(), ['sign', 'status'], authorityCase.name);
+      assert.equal(Object.getOwnPropertyDescriptor(authority, 'sign').enumerable, false);
+      assert.equal(Object.getOwnPropertyDescriptor(authority, 'status').enumerable, false);
+      assert.equal(JSON.stringify(authority), '{}', authorityCase.name);
+      assert.equal(requireWebhookSecretAuthority(authority), authority, authorityCase.name);
+      assert.equal(Object.hasOwn(processEnvironment, 'C3_WEBHOOK_SECRET'), processOwnedSecretBefore);
+      assert.equal(Object.hasOwn(processEnvironment, 'FOREIGN_CWD_CANARY'), false);
+      if (authorityCase.root?.includes('ROOT_NON_SECRET=')) {
+        assert.equal(processEnvironment.ROOT_NON_SECRET, 'loaded-from-install-root');
+      }
+      if (authorityCase.expected.source === 'ROOT_ENV_FILE') {
+        assert.equal(Object.hasOwn(processEnvironment, 'C3_WEBHOOK_SECRET'), false);
+      }
+      if (authorityCase.expected.configured) {
+        assert.equal(
+          authority.sign(deterministicPayload, deterministicTimestamp),
+          expectedHmac(authorityCase.secret, deterministicPayload, deterministicTimestamp),
+          authorityCase.name,
+        );
+      } else {
+        assertTypedAuthorityError(
+          () => authority.sign(deterministicPayload, deterministicTimestamp),
+          WEBHOOK_SECRET_NOT_CONFIGURED,
+        );
+      }
+    }
+
+    installAuthorityEnv('C3_WEBHOOK_SECRET=root-must-not-bypass-mode\n', 0o644);
+    assertTypedAuthorityError(() => readWebhookSecretAuthority({
+      projectRoot: authorityProjectRoot,
+      processEnvironment: { C3_WEBHOOK_SECRET: 'process-would-win' },
+    }), WEBHOOK_SECRET_SOURCE_UNSAFE);
+
+    const symlinkTarget = join(authorityForeignRoot, 'webhook-secret-target');
+    writeFileSync(symlinkTarget, 'C3_WEBHOOK_SECRET=symlink-secret\n');
+    chmodSync(symlinkTarget, 0o600);
+    rmSync(authorityEnvPath, { force: true });
+    symlinkSync(symlinkTarget, authorityEnvPath);
+    assertTypedAuthorityError(() => readWebhookSecretAuthority({
+      projectRoot: authorityProjectRoot,
+      processEnvironment: { C3_WEBHOOK_SECRET: 'process-would-win' },
+    }), WEBHOOK_SECRET_SOURCE_UNSAFE);
+    assert.equal(readFileSync(symlinkTarget, 'utf8'), 'C3_WEBHOOK_SECRET=symlink-secret\n');
+
+    installAuthorityEnv('C3_WEBHOOK_SECRET=root-snapshot-a\n', 0o600);
+    const rootSnapshotEnvironment = {};
+    const rootSnapshotAuthority = readWebhookSecretAuthority({
+      projectRoot: authorityProjectRoot,
+      processEnvironment: rootSnapshotEnvironment,
+    });
+    const rootSnapshotStatus = assertExactAuthorityStatus(rootSnapshotAuthority, {
+      configured: true,
+      source: 'ROOT_ENV_FILE',
+    });
+    const rootSnapshotSignature = expectedHmac(
+      'root-snapshot-a',
+      deterministicPayload,
+      deterministicTimestamp,
+    );
+    assert.equal(
+      rootSnapshotAuthority.sign(deterministicPayload, deterministicTimestamp),
+      rootSnapshotSignature,
+    );
+    assert.equal(Object.hasOwn(rootSnapshotEnvironment, 'C3_WEBHOOK_SECRET'), false);
+
+    installAuthorityEnv('C3_WEBHOOK_SECRET=root-snapshot-b\n', 0o600);
+    assert.equal(rootSnapshotAuthority.status(), rootSnapshotStatus);
+    assert.equal(
+      rootSnapshotAuthority.sign(deterministicPayload, deterministicTimestamp),
+      rootSnapshotSignature,
+    );
+    const restartedRootAuthority = readWebhookSecretAuthority({
+      projectRoot: authorityProjectRoot,
+      processEnvironment: {},
+    });
+    assert.equal(
+      restartedRootAuthority.sign(deterministicPayload, deterministicTimestamp),
+      expectedHmac('root-snapshot-b', deterministicPayload, deterministicTimestamp),
+    );
+
+    const mutableProcessEnvironment = { C3_WEBHOOK_SECRET: 'process-snapshot-a' };
+    const processSnapshotAuthority = readWebhookSecretAuthority({
+      projectRoot: authorityProjectRoot,
+      processEnvironment: mutableProcessEnvironment,
+    });
+    mutableProcessEnvironment.C3_WEBHOOK_SECRET = 'process-snapshot-b';
+    assert.equal(
+      processSnapshotAuthority.sign(deterministicPayload, deterministicTimestamp),
+      expectedHmac('process-snapshot-a', deterministicPayload, deterministicTimestamp),
+    );
+    const restartedProcessAuthority = readWebhookSecretAuthority({
+      projectRoot: authorityProjectRoot,
+      processEnvironment: mutableProcessEnvironment,
+    });
+    assert.equal(
+      restartedProcessAuthority.sign(deterministicPayload, deterministicTimestamp),
+      expectedHmac('process-snapshot-b', deterministicPayload, deterministicTimestamp),
+    );
+
+    const legacyDbFixture = {
+      webhookSecret: 'LEGACY_DB_TOP_LEVEL_CANARY',
+      'c3.notif.webhookSecret': 'LEGACY_DB_FLAT_CANARY',
+    };
+    const beforeLegacyScrubStatus = processSnapshotAuthority.status();
+    const beforeLegacyScrubSignature = processSnapshotAuthority.sign(
+      deterministicPayload,
+      deterministicTimestamp,
+    );
+    delete legacyDbFixture.webhookSecret;
+    delete legacyDbFixture['c3.notif.webhookSecret'];
+    assert.deepEqual(legacyDbFixture, {});
+    assert.equal(processSnapshotAuthority.status(), beforeLegacyScrubStatus);
+    assert.equal(
+      processSnapshotAuthority.sign(deterministicPayload, deterministicTimestamp),
+      beforeLegacyScrubSignature,
+    );
+    for (const retiredSecret of ['LEGACY_DB_TOP_LEVEL_CANARY', 'LEGACY_DB_FLAT_CANARY']) {
+      assert.notEqual(
+        beforeLegacyScrubSignature,
+        expectedHmac(retiredSecret, deterministicPayload, deterministicTimestamp),
+      );
+    }
+
+    const forgedAuthority = Object.freeze({
+      status: () => Object.freeze({ configured: true, source: 'PROCESS_ENV' }),
+      sign: () => 'sha256=forged',
+    });
+    assertTypedAuthorityError(
+      () => requireWebhookSecretAuthority(forgedAuthority),
+      WEBHOOK_SECRET_AUTHORITY_INVALID,
+    );
+    assertTypedAuthorityError(() => new WebhookChannel({
+      url: 'https://fake-webhook.invalid/forged',
+      requireWebhookSecretAuthority,
+      webhookSecretAuthority: forgedAuthority,
+    }), WEBHOOK_SECRET_AUTHORITY_INVALID);
+    const rawInjectionError = captureError(() => new WebhookChannel({
+      url: 'https://fake-webhook.invalid/raw',
+      secret: 'RAW_SECRET_CANARY',
+      requireWebhookSecretAuthority,
+      webhookSecretAuthority: processSnapshotAuthority,
+    }));
+    assert.equal(rawInjectionError.code, 'WEBHOOK_SECRET_RAW_INJECTION_RETIRED');
+    assert.equal(rawInjectionError.message, 'WEBHOOK_SECRET_RAW_INJECTION_RETIRED');
+
+    process.env.C3_WEBHOOK_URL = 'https://fake-webhook.invalid/default-factory';
+    Date.now = () => deterministicTimestamp;
+    const fakeFetchCalls = [];
+    globalThis.fetch = async (url, options) => {
+      fakeFetchCalls.push({ url: String(url), options });
+      return { ok: true, status: 204 };
+    };
+    const actualRouter = createNotificationRouter({
+      env: { C3_ENABLE_NOTIFICATION_WEBHOOK: 'true' },
+      logger: SILENT_LOGGER,
+      requireWebhookSecretAuthority,
+      webhookSecretAuthority: processSnapshotAuthority,
+    });
+    const actualWebhookChannel = actualRouter.channels.get('webhook');
+    assert.equal(actualWebhookChannel instanceof WebhookChannel, true);
+    assert.deepEqual(await actualWebhookChannel.verify(), { ok: true });
+    const actualDelivery = await actualRouter.send({
+      channel: 'webhook',
+      title: 'WP028 fake delivery',
+      body: 'no outbound request',
+      agentId: 'fixture-agent',
+      data: { fixture: true },
+    });
+    assert.equal(actualDelivery.delivered, true);
+    assert.equal(fakeFetchCalls.length, 1);
+    const [{ url: fetchedUrl, options: fetchedOptions }] = fakeFetchCalls;
+    assert.equal(fetchedUrl, 'https://fake-webhook.invalid/default-factory');
+    assert.equal(fetchedOptions.method, 'POST');
+    const sentTimestamp = Number(fetchedOptions.headers['X-C3-Timestamp']);
+    const sentPayload = JSON.parse(fetchedOptions.body);
+    assert.equal(sentTimestamp, deterministicTimestamp);
+    assert.equal(sentPayload.timestamp, sentTimestamp);
+    assert.equal(
+      fetchedOptions.headers['X-C3-Signature'],
+      expectedHmac('process-snapshot-a', fetchedOptions.body, sentTimestamp),
+    );
+
+    installAuthorityEnv('C3_WEBHOOK_SECRET=\n', 0o600);
+    const unconfiguredAuthority = readWebhookSecretAuthority({
+      projectRoot: authorityProjectRoot,
+      processEnvironment: {},
+    });
+    const unconfiguredRouter = createNotificationRouter({
+      env: { C3_ENABLE_NOTIFICATION_WEBHOOK: 'true' },
+      logger: SILENT_LOGGER,
+      requireWebhookSecretAuthority,
+      webhookSecretAuthority: unconfiguredAuthority,
+    });
+    const unconfiguredChannel = unconfiguredRouter.channels.get('webhook');
+    assert.equal(unconfiguredChannel instanceof WebhookChannel, true);
+    assert.equal((await unconfiguredChannel.verify()).ok, false);
+    const fetchCountBeforeUnconfiguredSend = fakeFetchCalls.length;
+    const unconfiguredDelivery = await unconfiguredRouter.send({
+      channel: 'webhook',
+      title: 'must stay local',
+    });
+    assert.equal(unconfiguredDelivery.delivered, false);
+    assert.equal(fakeFetchCalls.length, fetchCountBeforeUnconfiguredSend);
+  } finally {
+    process.chdir(authorityOriginalCwd);
+    Date.now = originalDateNow;
+    if (hadOwnFetch) globalThis.fetch = originalFetch;
+    else delete globalThis.fetch;
+    if (hadOwnWebhookUrl) process.env.C3_WEBHOOK_URL = originalWebhookUrl;
+    else delete process.env.C3_WEBHOOK_URL;
+    rmSync(authorityProjectRoot, { recursive: true, force: true });
+    rmSync(authorityForeignRoot, { recursive: true, force: true });
+  }
+
+  const runtimeEnvironmentSource = readSource('src/runtime-environment.js');
+  const rootEnvOpenSlice = sliceBetween(
+    runtimeEnvironmentSource,
+    'descriptor = openSync(',
+    ');',
+  );
+  assert.match(rootEnvOpenSlice, /fsConstants\.O_NOFOLLOW/);
+  assert.match(rootEnvOpenSlice, /fsConstants\.O_NONBLOCK/);
+  assert.doesNotMatch(
+    runtimeEnvironmentSource,
+    /dotenv\/config|process\.cwd\(|DOTENV_CONFIG_PATH/,
+  );
+
+  const webhookChannelSource = readSource('src/notifications/channels/webhook.js');
+  assert.doesNotMatch(webhookChannelSource, /process\.env\.C3_WEBHOOK_SECRET|this\.secret/);
+
+  const serverSource = readSource('src/server.js');
+  const serverNotificationInit = sliceBetween(
+    serverSource,
+    'const { pipeline: notificationPipeline, router: notificationRouter } = createNotificationPipeline({',
+    'const notificationEmitter =',
+  );
+  const serverRouteDependencies = sliceBetween(
+    serverSource,
+    'const routeDeps = {',
+    '// v93: notificationRouter + notificationPipeline initialized above',
+  );
+  assert.equal(
+    serverSource.indexOf("from './runtime-environment.js';")
+      < serverSource.indexOf("import db from './db/database.js';"),
+    true,
+  );
+  for (const dependency of ['requireWebhookSecretAuthority', 'webhookSecretAuthority']) {
+    assert.match(serverNotificationInit, new RegExp(`\\b${dependency}\\b`));
+    assert.match(serverRouteDependencies, new RegExp(`\\b${dependency}\\b`));
+  }
+
+  const workerSource = readSource('scripts/start-workers.js');
+  const workerNotificationInit = sliceBetween(
+    workerSource,
+    'const { pipeline, router } = createNotificationPipeline({',
+    '// ── Check notification channels',
+  );
+  assert.equal(
+    workerSource.indexOf("from '../src/runtime-environment.js';")
+      < workerSource.indexOf("import Database from 'better-sqlite3';"),
+    true,
+  );
+  for (const dependency of ['requireWebhookSecretAuthority', 'webhookSecretAuthority']) {
+    assert.match(workerNotificationInit, new RegExp(`\\b${dependency}\\b`));
+  }
+
+  const exampleEnvironment = readSource('.env.example');
+  assert.equal((exampleEnvironment.match(/^C3_WEBHOOK_SECRET=$/gm) || []).length, 1);
+  assert.match(exampleEnvironment, /install-root \.env regular, owner-owned, mode 0600/);
+  assert.match(exampleEnvironment, /restart IntentSmith after changing this value/);
 
   const verifierEffects = { fetch: 0, transport: 0 };
   const disabledEmail = await verifyEmail({}, {
@@ -615,9 +1018,36 @@ await testAsync('WS and all four UI surfaces are feature-only, atomic and creden
   assert.match(chatNotificationSlice, /Retained externí kandidáti/);
   assert.doesNotMatch(chatNotificationSlice, /c3\.notif\.|\/api\/notifications\//);
   assert.doesNotMatch(chatNotificationSlice, /_cfgToggle|_cfgInput|Aktivní|Neaktivní/);
-  assert.match(chatSource, /\/api\/security\/webhook-secret/);
-  assert.match(chatSource, /Webhook Secret/);
-  assert.match(chatSource, /Regenerovat/);
+  const chatSecuritySlice = sliceBetween(
+    chatSource,
+    '/* v91: Security panel */',
+    'function _fbGetLastAssistant',
+  );
+  const webhookLoaderSlice = sliceBetween(
+    chatSecuritySlice,
+    'function _secWebhookStatus(value)',
+    'function _secLoadSessions()',
+  );
+  const webhookRendererSlice = sliceBetween(
+    chatSecuritySlice,
+    '/* ── Webhook ── */',
+    '/* ── Sessions ── */',
+  );
+  assert.equal(
+    (chatSource.match(/\/api\/security\/webhook-secret/g) || []).length,
+    1,
+  );
+  assert.match(webhookLoaderSlice, /\/api\/security\/webhook-secret/);
+  assert.match(webhookLoaderSlice, /phase:'READY'/);
+  assert.match(webhookLoaderSlice, /phase:'ERROR'/);
+  assert.doesNotMatch(webhookLoaderSlice, /method\s*:\s*['"]POST['"]/);
+  assert.doesNotMatch(chatSecuritySlice, /\bmasked\b|Regenerovat/);
+  assert.doesNotMatch(webhookRendererSlice, /button|input|confirm|prompt/);
+  assert.match(webhookRendererSlice, /PROCESS_ENV/);
+  assert.match(webhookRendererSlice, /ROOT_ENV_FILE/);
+  assert.match(webhookRendererSlice, /spravuje operátor/);
+  assert.match(webhookRendererSlice, /restartu serveru/);
+  assert.match(chatSecuritySlice, /Webhook Secret/);
 
   const centerSource = readSource(
     'c3-ide/extensions/c3-center-views/lib/browser/center-views-module.js',

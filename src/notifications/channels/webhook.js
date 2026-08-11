@@ -5,7 +5,7 @@
 //
 // Config env vars:
 //   C3_WEBHOOK_URL    — target webhook URL (required)
-//   C3_WEBHOOK_SECRET — HMAC secret key (required for signature)
+//   C3_WEBHOOK_SECRET — read once by the injected startup authority
 //
 // Headers sent:
 //   Content-Type: application/json
@@ -17,7 +17,6 @@
 //
 // ==============================================================================
 
-import { createHmac } from 'crypto';
 import { NotificationChannel } from './base.js';
 
 const MAX_RETRIES = 3;
@@ -25,16 +24,31 @@ const BACKOFF_BASE_MS = 1000;
 const TIMEOUT_MS = 10000;
 
 export class WebhookChannel extends NotificationChannel {
+  #webhookSecretAuthority;
+
   /**
    * @param {object} [options]
    * @param {string} [options.url] - Webhook URL
-   * @param {string} [options.secret] - HMAC secret
+   * @param {Function} [options.requireWebhookSecretAuthority] - Authority validator
+   * @param {object} [options.webhookSecretAuthority] - Opaque HMAC authority
    * @param {object} [options.logger]
    */
   constructor(options = {}) {
     super();
+    if (Object.hasOwn(options, 'secret')) {
+      const error = new TypeError('WEBHOOK_SECRET_RAW_INJECTION_RETIRED');
+      error.code = 'WEBHOOK_SECRET_RAW_INJECTION_RETIRED';
+      throw error;
+    }
     this.url = options.url || process.env.C3_WEBHOOK_URL || null;
-    this.secret = options.secret || process.env.C3_WEBHOOK_SECRET || null;
+    if (typeof options.requireWebhookSecretAuthority !== 'function') {
+      const error = new TypeError('WEBHOOK_SECRET_AUTHORITY_INVALID');
+      error.code = 'WEBHOOK_SECRET_AUTHORITY_INVALID';
+      throw error;
+    }
+    this.#webhookSecretAuthority = options.requireWebhookSecretAuthority(
+      options.webhookSecretAuthority,
+    );
     this.logger = options.logger || { info: () => {}, error: () => {}, warn: () => {} };
   }
 
@@ -44,7 +58,7 @@ export class WebhookChannel extends NotificationChannel {
     if (!this.url) {
       return { ok: false, error: 'No webhook URL configured (C3_WEBHOOK_URL)' };
     }
-    if (!this.secret) {
+    if (!this.#webhookSecretAuthority.status().configured) {
       return { ok: false, error: 'No HMAC secret configured (C3_WEBHOOK_SECRET)' };
     }
     try {
@@ -59,6 +73,13 @@ export class WebhookChannel extends NotificationChannel {
    * Send notification via webhook with HMAC signature + retry.
    */
   async send(notification) {
+    if (!this.#webhookSecretAuthority.status().configured) {
+      return {
+        delivered: false,
+        error: 'No HMAC secret configured (C3_WEBHOOK_SECRET)',
+        channel: 'webhook',
+      };
+    }
     const targetUrl = notification.recipient || this.url;
     if (!targetUrl) {
       return { delivered: false, error: 'No webhook URL', channel: 'webhook' };
@@ -75,14 +96,21 @@ export class WebhookChannel extends NotificationChannel {
       data: notification.data || {},
     });
 
-    const signature = this._sign(payload, timestamp);
+    let signature;
+    try {
+      signature = this.#webhookSecretAuthority.sign(payload, timestamp);
+    } catch (error) {
+      return {
+        delivered: false,
+        error: error?.code || 'WEBHOOK_SIGNATURE_FAILED',
+        channel: 'webhook',
+      };
+    }
     const headers = {
       'Content-Type': 'application/json',
       'X-C3-Timestamp': String(timestamp),
+      'X-C3-Signature': signature,
     };
-    if (signature) {
-      headers['X-C3-Signature'] = signature;
-    }
 
     // Retry loop with exponential backoff
     let lastError = null;
@@ -119,18 +147,6 @@ export class WebhookChannel extends NotificationChannel {
     return { delivered: false, error: lastError, channel: 'webhook' };
   }
 
-  /**
-   * Compute HMAC-SHA256 signature.
-   * @param {string} payload
-   * @param {number} timestamp
-   * @returns {string|null} 'sha256=<hex>' or null if no secret
-   */
-  _sign(payload, timestamp) {
-    if (!this.secret) return null;
-    const data = `${timestamp}.${payload}`;
-    const hmac = createHmac('sha256', this.secret).update(data).digest('hex');
-    return `sha256=${hmac}`;
-  }
 }
 
 export default WebhookChannel;

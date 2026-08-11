@@ -4,7 +4,7 @@ import './helpers/isolated-test-db.js';
 
 import Database from 'better-sqlite3';
 import { Buffer } from 'node:buffer';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { Worker } from 'node:worker_threads';
 
@@ -20,12 +20,23 @@ import { createMiscRoutes } from '../src/routes/misc.js';
 import { createNotificationRoutes } from '../src/routes/notifications.js';
 import { createSecurityRoutes } from '../src/routes/security.js';
 import { createSystemRoutes } from '../src/routes/system.js';
+import {
+  readWebhookSecretAuthority,
+  requireWebhookSecretAuthority,
+  WEBHOOK_SECRET_AUTHORITY_INVALID,
+} from '../src/runtime-environment.js';
 import { up as migrateModelPolicy } from '../src/db/migrations/2026_08_09_061_model_automation_policy.js';
 import { up as migrateUserSettingsRevision } from '../src/db/migrations/2026_08_10_064_user_settings_revision.js';
 import {
+  createUserSettingsRepository,
   GENERIC_USER_SETTING_PATHS,
   NOTIFICATION_SETTING_KEYS,
 } from '../src/db/user-settings.js';
+
+const TEST_WEBHOOK_SECRET_AUTHORITY = readWebhookSecretAuthority({
+  projectRoot: isolatedTestRuntime.runtime,
+  processEnvironment: { C3_WEBHOOK_SECRET: 'ROUTE_AUTHORITY_SECRET_CANARY' },
+});
 
 const USER_SETTINGS_SCHEMA = `
   CREATE TABLE user_settings (
@@ -286,7 +297,10 @@ function notificationProjection(document) {
   );
 }
 
-function createRouteHarness(db) {
+function createRouteHarness(db, {
+  webhookSecretAuthority = TEST_WEBHOOK_SECRET_AUTHORITY,
+  webhookSecretAuthorityValidator = requireWebhookSecretAuthority,
+} = {}) {
   let requestBody = {};
   let parseFailure = null;
   let parseCount = 0;
@@ -358,6 +372,8 @@ function createRouteHarness(db) {
     },
     sendJSON: (_res, status, body) => { securityResponse = { status, body }; },
     logger: { info() {}, warn() {}, error() {}, debug() {} },
+    webhookSecretAuthority,
+    requireWebhookSecretAuthority: webhookSecretAuthorityValidator,
   });
 
   return {
@@ -419,13 +435,29 @@ function createRouteHarness(db) {
       await systemRoutes['PUT /api/system/storage/settings']({}, {});
       return systemResponse;
     },
-    async postWebhookSecret() {
+    async getWebhookSecret(request = {
+      headers: {},
+      socket: { remoteAddress: '127.0.0.1' },
+    }) {
       securityResponse = null;
-      await securityRoutes['POST /api/security/webhook-secret']({
+      await securityRoutes['GET /api/security/webhook-secret'](request, {});
+      return securityResponse;
+    },
+    async postWebhookSecret({
+      request = {
         headers: {},
         socket: { remoteAddress: '127.0.0.1' },
-      }, {});
-      return securityResponse;
+      },
+      parseError = null,
+    } = {}) {
+      parseFailure = parseError;
+      securityResponse = null;
+      try {
+        await securityRoutes['POST /api/security/webhook-secret'](request, {});
+        return securityResponse;
+      } finally {
+        parseFailure = null;
+      }
     },
   };
 }
@@ -671,6 +703,87 @@ await testAsync('versioned generic CAS is redacted and legacy settings routes ar
     protectedDocument.futurePrivate = 'PRIVATE_DESTINATION_CANARY';
     replaceFixtureDocument(db, JSON.stringify(protectedDocument));
 
+    const webhookGet = await harness.getWebhookSecret();
+    assertEqual(webhookGet.status, 200);
+    assertEqual(
+      JSON.stringify(webhookGet.body),
+      JSON.stringify({ configured: true, source: 'PROCESS_ENV' }),
+    );
+    assertEqual(
+      JSON.stringify(Object.keys(webhookGet.body)),
+      JSON.stringify(['configured', 'source']),
+    );
+
+    const beforeRetiredWebhookSetter = readRowBytes(db);
+    const parseCountBeforeRetiredWebhookSetter = harness.parseCount;
+    const signatureBeforeRetiredWebhookSetter = TEST_WEBHOOK_SECRET_AUTHORITY.sign(
+      'route-payload',
+      1_700_000_000_000,
+    );
+    const unauthorizedWebhookPost = await harness.postWebhookSecret({
+      request: {
+        headers: {},
+        socket: { remoteAddress: '203.0.113.10' },
+      },
+      parseError: new Error('WEBHOOK_BODY_MUST_NOT_PARSE'),
+    });
+    assertEqual(unauthorizedWebhookPost.status, 403);
+    assertEqual(Object.hasOwn(unauthorizedWebhookPost.body, 'source'), false);
+    assertEqual(Object.hasOwn(unauthorizedWebhookPost.body, 'code'), false);
+    assertEqual(
+      JSON.stringify(readRowBytes(db)),
+      JSON.stringify(beforeRetiredWebhookSetter),
+    );
+    assertEqual(harness.parseCount, parseCountBeforeRetiredWebhookSetter);
+
+    const retiredWebhookPost = await harness.postWebhookSecret({
+      parseError: new Error('WEBHOOK_BODY_MUST_NOT_PARSE'),
+    });
+    assertEqual(retiredWebhookPost.status, 410);
+    assertEqual(
+      JSON.stringify(retiredWebhookPost.body),
+      JSON.stringify({ ok: false, code: 'CREDENTIAL_SOURCE_READ_ONLY' }),
+    );
+    assertEqual(harness.parseCount, parseCountBeforeRetiredWebhookSetter);
+    assertEqual(
+      JSON.stringify(readRowBytes(db)),
+      JSON.stringify(beforeRetiredWebhookSetter),
+    );
+    assertEqual(
+      TEST_WEBHOOK_SECRET_AUTHORITY.sign('route-payload', 1_700_000_000_000),
+      signatureBeforeRetiredWebhookSetter,
+    );
+    assertEqual(
+      createUserSettingsRepository(db).commitWebhookSecret,
+      undefined,
+    );
+    assertEqual(readDocument(db).webhookSecret, 'WEBHOOK_SECRET_CANARY');
+    const forgedAuthorityError = captureError(() => createRouteHarness(db, {
+      webhookSecretAuthority: Object.freeze({
+        status: () => Object.freeze({ configured: true, source: 'PROCESS_ENV' }),
+        sign: () => 'sha256=forged',
+      }),
+    }));
+    assertEqual(forgedAuthorityError.code, WEBHOOK_SECRET_AUTHORITY_INVALID);
+
+    const securitySource = readFileSync(
+      new URL('../src/routes/security.js', import.meta.url),
+      'utf8',
+    );
+    const webhookRouteStart = securitySource.indexOf('// ── Webhook Secret');
+    const webhookRouteEnd = securitySource.indexOf('// ── Sessions', webhookRouteStart);
+    assert(webhookRouteStart >= 0 && webhookRouteEnd > webhookRouteStart);
+    const webhookRouteSource = securitySource.slice(webhookRouteStart, webhookRouteEnd);
+    for (const retiredSeam of [
+      '_maskSecret',
+      'masked',
+      'createUserSettingsRepository',
+      'commitWebhookSecret',
+      'randomBytes',
+    ]) {
+      assertEqual(webhookRouteSource.includes(retiredSeam), false);
+    }
+
     const beforeLegacy = readRowBytes(db);
     const parseCountBeforeLegacy = harness.parseCount;
     const legacyGet = await harness.getLegacy();
@@ -813,15 +926,13 @@ await testAsync('versioned generic CAS is redacted and legacy settings routes ar
   }
 });
 
-await testAsync('seven real-WAL stale candidates cannot overwrite any newer route-owned commit', async () => {
+await testAsync('five real-WAL stale candidates cannot overwrite any newer route-owned commit', async () => {
   const directory = mkdtempSync(path.join(isolatedTestRuntime.artifacts, 'settings-authority-wal-'));
   const cases = [
     ['generic', 'notification'],
     ['generic', 'storage'],
-    ['generic', 'webhook'],
     ['import', 'notification'],
     ['import', 'storage'],
-    ['import', 'webhook'],
     ['import', 'generic'],
   ];
 
@@ -864,9 +975,6 @@ await testAsync('seven real-WAL stale candidates cannot overwrite any newer rout
           writerResponse = await writerHarness.putStorage({
             retention: { llm_logs: expectedWriterValue },
           });
-        } else if (writerKind === 'webhook') {
-          writerResponse = await writerHarness.postWebhookSecret();
-          expectedWriterValue = readDocument(writerDb).webhookSecret;
         } else {
           writerResponse = (await writerHarness.putV2({
             expectedRevision: observedRevision,
@@ -883,8 +991,6 @@ await testAsync('seven real-WAL stale candidates cannot overwrite any newer rout
           assertEqual(afterWriterDocument['c3.notif.smtpHost'], expectedWriterValue);
         } else if (writerKind === 'storage') {
           assertEqual(afterWriterDocument.storage.retention.llm_logs, expectedWriterValue);
-        } else if (writerKind === 'webhook') {
-          assert(typeof expectedWriterValue === 'string' && expectedWriterValue.startsWith('c3_'));
         } else {
           assertEqual(afterWriterDocument['c3.language'], expectedWriterValue);
         }
@@ -907,8 +1013,6 @@ await testAsync('seven real-WAL stale candidates cannot overwrite any newer rout
           assertEqual(finalDocument['c3.notif.smtpHost'], expectedWriterValue);
         } else if (writerKind === 'storage') {
           assertEqual(finalDocument.storage.retention.llm_logs, expectedWriterValue);
-        } else if (writerKind === 'webhook') {
-          assertEqual(finalDocument.webhookSecret, expectedWriterValue);
         } else {
           assertEqual(finalDocument['c3.language'], expectedWriterValue);
         }

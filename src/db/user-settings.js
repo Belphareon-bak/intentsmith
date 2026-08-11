@@ -720,19 +720,6 @@ export class UserSettingsRepository {
     return { revision: committed.revision, storage: clone(ownedStorage) };
   }
 
-  commitWebhookSecret(secret) {
-    if (typeof secret !== 'string' || secret.length === 0) {
-      throw new UserSettingsError(
-        'USER_SETTINGS_INPUT_INVALID',
-        'Webhook secret must be a non-empty string',
-      );
-    }
-    const committed = commitLatestUserSettings(this.db, (document) => {
-      setOwn(document, 'webhookSecret', secret);
-    });
-    return { revision: committed.revision };
-  }
-
   readImportSnapshotInTransaction() {
     if (!this.db.inTransaction) {
       throw new UserSettingsError(
