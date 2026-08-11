@@ -59,3 +59,5 @@ ignoruje typed disabled runtime-apply výsledek, zůstávají výslovně zapsan�
 Findingu 011 pro navazující práci. Finding 011 je `OPEN`, Gate 1 zůstává
 `BLOCKED` a pokračuje pořadí 028 → 026 → 029. Electron, GPU, Ollama, outbound
 journey, externí síť ani full-product test nebyly spuštěné.
+candidateHead: 56a00c09ae66b4ebba0eedde81b53fafb816cefa
+reviewB.verdict: PASS
