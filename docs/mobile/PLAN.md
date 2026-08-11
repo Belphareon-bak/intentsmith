@@ -430,6 +430,11 @@ Kolo pokrývá **šest domén najednou**, aby nevznikly nekompatibilní dílčí
 projekty → Fáze 4 paměť → Fáze 5 agenti. Domény 5 a 6 v tomto pořadí
 **nefigurují** — rozhodnutí je zařadilo do kola, ne do implementační fronty.
 
+> **Návrh kontraktu v2 existuje od 2026-08-11:**
+> [`CONTRACT-V2-PROPOSAL.md`](CONTRACT-V2-PROPOSAL.md). Je to `NÁVRH` čekající na
+> **nezávislé review** — revidovat ho nesmí jeho autor. Neschválený návrh
+> neautorizuje nic; otevřené body, které z repa nešly rozhodnout, jsou v jeho §9.
+
 > **Kontraktní kolo ani schválení kontraktu neautorizují žádnou implementaci.**
 > `DR-008` autorizuje jen návrh, review a refreeze v2. Každá fáze se smí začít
 > až po splnění příslušné Gate 1 závislosti a založení samostatného Work Package.
