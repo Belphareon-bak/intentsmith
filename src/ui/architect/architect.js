@@ -2268,6 +2268,265 @@ function applyArchitectSettingsDocument(document, revision) {
   updateSettingsSummary();
 }
 
+// Offline-only authority for retiring exact legacy notification credentials
+// from localStorage['paiass_settings']. The receipt contains digests and path
+// IDs only; raw values never leave this renderer through HTTP, WS or download.
+const ARCHITECT_LEGACY_CREDENTIAL_RECEIPT_SCHEMA =
+  'INTENTSMITH_LEGACY_CREDENTIAL_RECEIPT/V1';
+const ARCHITECT_LEGACY_CREDENTIAL_RECEIPT_SOURCE = 'PAIASS_SETTINGS';
+const ARCHITECT_LEGACY_CREDENTIAL_STORAGE_KEY = 'paiass_settings';
+const ARCHITECT_LEGACY_CREDENTIAL_PATHS = Object.freeze([
+  'notifications.discordWebhook',
+  'notifications.emailAddresses',
+  'notifications.slackChannel',
+  'notifications.slackWebhook',
+  'notifications.smsApiKey',
+  'notifications.smsPhone',
+  'notifications.smsSecret',
+  'notifications.telegramChatId',
+  'notifications.telegramToken',
+  'notifications.webhookUrl'
+]);
+const ARCHITECT_LEGACY_CREDENTIAL_PURGE_KEYS = Object.freeze([
+  'action',
+  'pathDigests',
+  'postimageSha256',
+  'preimageSha256',
+  'schema',
+  'source'
+]);
+const ARCHITECT_LEGACY_CREDENTIAL_EXPORT_KEYS = Object.freeze([
+  'action',
+  'exportSha256',
+  'pathDigests',
+  'postimageSha256',
+  'preimageSha256',
+  'schema',
+  'source'
+]);
+const ARCHITECT_LEGACY_CREDENTIAL_PATH_DIGEST_KEYS = Object.freeze([
+  'path',
+  'valueSha256'
+]);
+const ARCHITECT_LEGACY_CREDENTIAL_SHA256 = /^[0-9a-f]{64}$/;
+let architectLegacyCredentialReceiptState = 'READY';
+
+function architectLegacyCredentialReceiptError(code) {
+  const error = new Error(code);
+  error.code = code;
+  return error;
+}
+
+function architectLegacyCredentialReceiptStatus(state, code = '') {
+  architectLegacyCredentialReceiptState = state;
+  const status = document.getElementById('legacy-credential-receipt-status');
+  if (status) {
+    status.dataset.state = state;
+    status.textContent = code ? `${state}: ${code}` : state;
+  }
+}
+
+function architectLegacyCredentialExactOwnKeys(value, expected) {
+  if (!architectSettingsPlainObject(value)) return false;
+  const actual = Reflect.ownKeys(value);
+  if (actual.length !== expected.length
+      || actual.some(key => typeof key !== 'string')) return false;
+  actual.sort();
+  return actual.every((key, index) => key === expected[index]);
+}
+
+function architectRequireLegacyCredentialReceipt(receipt) {
+  if (!architectSettingsPlainObject(receipt)
+      || (receipt.action !== 'EXPORT' && receipt.action !== 'PURGE')) {
+    throw architectLegacyCredentialReceiptError('LEGACY_RECEIPT_INVALID');
+  }
+  const expectedKeys = receipt.action === 'EXPORT'
+    ? ARCHITECT_LEGACY_CREDENTIAL_EXPORT_KEYS
+    : ARCHITECT_LEGACY_CREDENTIAL_PURGE_KEYS;
+  if (!architectLegacyCredentialExactOwnKeys(receipt, expectedKeys)
+      || receipt.schema !== ARCHITECT_LEGACY_CREDENTIAL_RECEIPT_SCHEMA
+      || receipt.source !== ARCHITECT_LEGACY_CREDENTIAL_RECEIPT_SOURCE
+      || !ARCHITECT_LEGACY_CREDENTIAL_SHA256.test(receipt.preimageSha256)
+      || !ARCHITECT_LEGACY_CREDENTIAL_SHA256.test(receipt.postimageSha256)
+      || receipt.preimageSha256 === receipt.postimageSha256
+      || (receipt.action === 'EXPORT'
+        && !ARCHITECT_LEGACY_CREDENTIAL_SHA256.test(receipt.exportSha256))
+      || !Array.isArray(receipt.pathDigests)
+      || receipt.pathDigests.length < 1
+      || receipt.pathDigests.length > ARCHITECT_LEGACY_CREDENTIAL_PATHS.length) {
+    throw architectLegacyCredentialReceiptError('LEGACY_RECEIPT_INVALID');
+  }
+  let previousPath = null;
+  for (const entry of receipt.pathDigests) {
+    if (!architectLegacyCredentialExactOwnKeys(
+      entry,
+      ARCHITECT_LEGACY_CREDENTIAL_PATH_DIGEST_KEYS
+    )
+        || typeof entry.path !== 'string'
+        || !ARCHITECT_LEGACY_CREDENTIAL_PATHS.includes(entry.path)
+        || (previousPath !== null && previousPath >= entry.path)
+        || !ARCHITECT_LEGACY_CREDENTIAL_SHA256.test(entry.valueSha256)) {
+      throw architectLegacyCredentialReceiptError('LEGACY_RECEIPT_INVALID');
+    }
+    previousPath = entry.path;
+  }
+  return receipt;
+}
+
+async function architectLegacyCredentialSha256(value) {
+  if (typeof value !== 'string'
+      || !globalThis.crypto
+      || !globalThis.crypto.subtle
+      || typeof globalThis.crypto.subtle.digest !== 'function') {
+    throw architectLegacyCredentialReceiptError('LEGACY_RECEIPT_DIGEST_UNAVAILABLE');
+  }
+  const bytes = new TextEncoder().encode(value);
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function architectLegacyCredentialDocument(raw) {
+  let documentValue;
+  try {
+    documentValue = JSON.parse(raw);
+  } catch (_) {
+    throw architectLegacyCredentialReceiptError('LEGACY_RECEIPT_SOURCE_INVALID');
+  }
+  if (!architectSettingsPlainObject(documentValue)) {
+    throw architectLegacyCredentialReceiptError('LEGACY_RECEIPT_SOURCE_INVALID');
+  }
+  return documentValue;
+}
+
+async function architectApplyLegacyCredentialReceipt(receiptInput) {
+  architectLegacyCredentialReceiptStatus('APPLYING');
+  try {
+    const receipt = architectRequireLegacyCredentialReceipt(receiptInput);
+    let currentRaw;
+    try {
+      currentRaw = localStorage.getItem(ARCHITECT_LEGACY_CREDENTIAL_STORAGE_KEY);
+    } catch (_) {
+      throw architectLegacyCredentialReceiptError('LEGACY_RECEIPT_STORAGE_READ_FAILED');
+    }
+    if (typeof currentRaw !== 'string') {
+      throw architectLegacyCredentialReceiptError('LEGACY_RECEIPT_SOURCE_MISSING');
+    }
+    const currentDocument = architectLegacyCredentialDocument(currentRaw);
+    const currentSha256 = await architectLegacyCredentialSha256(currentRaw);
+    if (currentSha256 === receipt.postimageSha256) {
+      if (!architectSettingsPlainObject(currentDocument.notifications)
+          || receipt.pathDigests.some(entry => Object.prototype.hasOwnProperty.call(
+            currentDocument.notifications,
+            entry.path.slice('notifications.'.length)
+          ))) {
+        throw architectLegacyCredentialReceiptError('LEGACY_RECEIPT_STALE');
+      }
+      let idempotentRaw;
+      try {
+        idempotentRaw = localStorage.getItem(ARCHITECT_LEGACY_CREDENTIAL_STORAGE_KEY);
+      } catch (_) {
+        throw architectLegacyCredentialReceiptError('LEGACY_RECEIPT_STALE');
+      }
+      if (idempotentRaw !== currentRaw) {
+        throw architectLegacyCredentialReceiptError('LEGACY_RECEIPT_STALE');
+      }
+      architectLegacyCredentialReceiptStatus('ALREADY_APPLIED');
+      return Object.freeze({ ok: true, state: 'ALREADY_APPLIED', code: null });
+    }
+    if (currentSha256 !== receipt.preimageSha256) {
+      throw architectLegacyCredentialReceiptError('LEGACY_RECEIPT_STALE');
+    }
+    if (!architectSettingsPlainObject(currentDocument.notifications)) {
+      throw architectLegacyCredentialReceiptError('LEGACY_RECEIPT_PATH_MISSING');
+    }
+
+    for (const entry of receipt.pathDigests) {
+      const property = entry.path.slice('notifications.'.length);
+      if (!Object.prototype.hasOwnProperty.call(currentDocument.notifications, property)) {
+        throw architectLegacyCredentialReceiptError('LEGACY_RECEIPT_PATH_MISSING');
+      }
+      const serializedValue = JSON.stringify(currentDocument.notifications[property]);
+      if (typeof serializedValue !== 'string'
+          || await architectLegacyCredentialSha256(serializedValue) !== entry.valueSha256) {
+        throw architectLegacyCredentialReceiptError('LEGACY_RECEIPT_PATH_DIGEST_MISMATCH');
+      }
+    }
+
+    for (const entry of receipt.pathDigests) {
+      delete currentDocument.notifications[entry.path.slice('notifications.'.length)];
+    }
+    const predictedPostimage = JSON.stringify(currentDocument);
+    if (await architectLegacyCredentialSha256(predictedPostimage)
+        !== receipt.postimageSha256) {
+      throw architectLegacyCredentialReceiptError('LEGACY_RECEIPT_POSTIMAGE_MISMATCH');
+    }
+
+    let prewriteRaw;
+    try {
+      prewriteRaw = localStorage.getItem(ARCHITECT_LEGACY_CREDENTIAL_STORAGE_KEY);
+    } catch (_) {
+      throw architectLegacyCredentialReceiptError('LEGACY_RECEIPT_STALE');
+    }
+    if (prewriteRaw !== currentRaw) {
+      throw architectLegacyCredentialReceiptError('LEGACY_RECEIPT_STALE');
+    }
+    try {
+      localStorage.setItem(
+        ARCHITECT_LEGACY_CREDENTIAL_STORAGE_KEY,
+        predictedPostimage
+      );
+    } catch (_) {
+      throw architectLegacyCredentialReceiptError('LEGACY_RECEIPT_STORAGE_WRITE_FAILED');
+    }
+    let readback;
+    try {
+      readback = localStorage.getItem(ARCHITECT_LEGACY_CREDENTIAL_STORAGE_KEY);
+    } catch (_) {
+      throw architectLegacyCredentialReceiptError('LEGACY_RECEIPT_READBACK_FAILED');
+    }
+    if (readback !== predictedPostimage) {
+      throw architectLegacyCredentialReceiptError('LEGACY_RECEIPT_READBACK_FAILED');
+    }
+    architectLegacyCredentialReceiptStatus('APPLIED');
+    return Object.freeze({ ok: true, state: 'APPLIED', code: null });
+  } catch (error) {
+    const code = typeof error?.code === 'string'
+      ? error.code
+      : 'LEGACY_RECEIPT_INVALID';
+    architectLegacyCredentialReceiptStatus('FAILED', code);
+    return Object.freeze({ ok: false, state: 'FAILED', code });
+  }
+}
+
+function importLegacyCredentialReceipt() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json,application/json';
+  input.onchange = async event => {
+    const file = event.target.files[0];
+    if (!file) return;
+    let receipt;
+    try {
+      receipt = JSON.parse(await file.text());
+    } catch (_) {
+      architectLegacyCredentialReceiptStatus('FAILED', 'LEGACY_RECEIPT_FILE_INVALID');
+      showToast('error', 'Receipt odmítnut', 'LEGACY_RECEIPT_FILE_INVALID');
+      return;
+    }
+    const result = await architectApplyLegacyCredentialReceipt(receipt);
+    if (result.ok) {
+      showToast(
+        'success',
+        result.state === 'APPLIED' ? 'Legacy credentials odstraněny' : 'Receipt již aplikován',
+        result.state
+      );
+    } else {
+      showToast('error', 'Receipt odmítnut', result.code);
+    }
+  };
+  input.click();
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // ACCORDION
 // ═══════════════════════════════════════════════════════════════════════════
