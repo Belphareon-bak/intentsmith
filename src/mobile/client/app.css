@@ -582,13 +582,19 @@ html[data-screen-slide="left"]::view-transition-new(root)  { animation-name: scr
      it is a feel, and a feel gets tuned. */
   transition: transform var(--navbar-slide) cubic-bezier(.32, .72, 0, 1);
 }
-/* One clock for the whole navigation gesture: the bar and the screen must
-   never run at different speeds — that is what looked wrong. */
-:root { --navbar-slide: 720ms; --screen-slide: var(--navbar-slide); }
+/* Two clocks, on purpose — and the reason matters.
+   A view transition replaces the page with a snapshot, and a snapshot answers
+   no taps: for its whole length the app accepts no input at all.  Measured at
+   720 ms that is not an animation, it is a freeze, and it was one on every
+   section change.  So the screen keeps a short clock.
+   The bar's retraction may stay long because it never runs *beside* the screen:
+   it is the second beat, after the ring has landed (§3.2).  Things that happen
+   one after the other cannot overtake each other. */
+:root { --navbar-slide: 720ms; --screen-slide: 240ms; }
 /* A 720 ms slide is exactly what someone who asked for less motion does not
    want, so for them it goes back under the §8 ceiling. */
 @media (prefers-reduced-motion: reduce) {
-  :root { --navbar-slide: 120ms; }
+  :root { --navbar-slide: 120ms; --screen-slide: 0ms; }
 }
 .navbar[data-retracted="true"] { transform: translateY(100%); }
 .navbar-track {

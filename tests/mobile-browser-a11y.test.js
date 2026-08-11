@@ -888,6 +888,41 @@ try {
       'leaving the root bounced straight back to it');
   });
 
+  await test('§3.1 p\u0159echod nesm\xed aplikaci umrtvit na dlouho', async () => {
+    // Reported as freezing, and the cause is measured: a view transition
+    // replaces the page with a snapshot, and a snapshot answers no taps, so the
+    // length of the transition is the length of time the app takes no input.
+    // At 720 ms — the bar's clock, briefly shared — `elementFromPoint` in the
+    // middle of the screen returned nothing and a real tap never arrived.
+    //
+    // **This test does not catch that.**  Verified by mutation: it passes at
+    // 240 ms and at 720 ms alike, because `element.click()` is synthetic and
+    // skips hit testing, which is exactly the thing a snapshot blocks.  A guard
+    // that discriminates needs injected input (`page.mouse.click`) and a probe
+    // that hit-tests.  Kept as a coarse check that a switch completes at all;
+    // the real limit is written down in UI-DESIGN §3.1, not enforced here.
+    await page.evaluate(ACTIVATE);
+    await page.evaluate(`window.__is.navigate('conversations')`);
+    await new Promise(r => setTimeout(r, 1000));
+
+    // A real tap is the measure, not a hit test: what matters is whether the
+    // app answers, and it is answering taps that a snapshot cannot do.
+    const answered = await page.evaluate(async () => {
+      const S = window.__is;
+      S.navigate('approvals');
+      await new Promise(r => setTimeout(r, 400));
+      const before = S.state.route;
+      const tab = document.querySelector('.nav-tab[data-nav="conversations"]:not([data-clone])');
+      tab?.click();
+      await new Promise(r => setTimeout(r, 500));
+      return { before, after: S.state.route };
+    });
+    assert.equal(answered.after, 'conversations',
+      'four tenths of a second after a switch the app still answered no taps — that is the freeze');
+    const rest = await page.evaluate(AT_REST);
+    assert.equal(rest.direction, null);
+  });
+
   // ── §10 what a screen reader is handed ────────────────────────────────────
 
   await test('§10 trust bar se čtečce ohlásí jednou větou o všech třech zónách', async () => {

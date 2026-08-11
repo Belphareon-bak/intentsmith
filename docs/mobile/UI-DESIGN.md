@@ -187,7 +187,7 @@ Zamýšlená sada podle předlohy: `Konverzace`, `Projekty`, `Domů`, `Aktivita`
 | Volba „Skrýt lištu na domovské obrazovce" ve Vzhledu | ✅ hotovo |
 | Zatažení **až po dojetí** na Domů (dva doby) | ✅ hotovo |
 | Vodorovný přesun obsahu mezi sekcemi | ✅ hotovo — View Transitions, viz níže |
-| Přeskládání pořadí dlouhým stiskem | ⬜ nestaví se |
+| Přeskládání pořadí | ⬜ **odloženo** — drag and drop operátor 2026-08-11 zamítl pro složitost, způsob se určí jinak |
 | Sada sedmi položek (`Aktivita`, `Agenti`, `Specialisté`) | ⬜ čeká na `capabilities` |
 
 **Přesun obsahu stojí na `View Transitions API` (operátor 2026-08-10).**
@@ -205,6 +205,22 @@ takže stojí, zatímco obsah pod ní jede.
 Podmínky, které si to vyžádalo a které hlídají testy: jeden přechod v jednu
 chvíli (další žádost během něj prostě dosedne, nevrství se), úklid ve všech
 větvích včetně timeoutu, a `prefers-reduced-motion` dostane prosté překreslení.
+
+**[F] Cena View Transitions: po dobu přechodu je stránka netečná.** Prohlížeč
+ji nahradí snímkem a snímek neodpovídá na dotyk — `elementFromPoint` uprostřed
+obrazovky nevrací nic a klepnutí se vůbec nezaregistruje. Je to vlastnost
+mechanismu, ne chyba v zápisu.
+
+Proto má obrazovka **krátké hodiny (`240 ms`) a lišta dlouhé (`720 ms`)**.
+Sjednocení na 720 ms se zkoušelo a bylo špatně: aplikace přestala na tři čtvrtě
+vteřiny přijímat vstup při každém přepnutí sekce, což operátor nahlásil jako
+zamrzání. Nekonkurují si, protože zatažení lišty je **druhá doba** — běží až po
+dojezdu prstence, ne vedle obrazovky (§3.2), a co běží po sobě, se nemůže
+předhánět.
+
+Kdyby byla nulová netečnost tvrdý požadavek, View Transitions na to nejsou
+a je potřeba varianta B z protinávrhu: dočasný overlay se snapshotem, kde živý
+DOM zůstane pod ním interaktivní.
 
 **Testuje se invariant, ne pixely.** Po dojetí musí být dokument nerozeznatelný
 od takového, kde animace neexistuje: stejný počet dětí `#app` jako po prostém
@@ -243,10 +259,11 @@ ne oblouky ze zlaté varianty předlohy.
 kontrakt, takže se ve smyčce zobrazí **uzamčené, ne skryté**: §3.1 to žádá už
 dnes a je to poctivější než lišta, která se po schválení kontraktu přeskupí.
 
-**Pořadí si mění uživatel.** Dlouhý stisk lišty ji přepne do režimu úprav a
-položky se přetahují, jako ikony na liště ve Windows nebo Ubuntu. Pořadí je
-`MD-15` — lokální preference, `S0`, přežije i revokační výmaz, protože
-`R5-2` vede vzhled a chování vázané na zařízení jako lokální.
+**Pořadí si mění uživatel — způsob je otevřený.** Původně navržený dlouhý stisk
+s přetahováním operátor 2026-08-11 **odložil pro složitost**; způsob se určí
+jinak a zatím se nestaví. Co platí dál: pořadí je uživatelova volba a patří do
+`MD-15` — lokální preference, `S0`, přežije i revokační výmaz, protože `R5-2`
+vede vzhled a chování vázané na zařízení jako lokální.
 
 **Zatahování na kořeni je volba, ne pravidlo.** Operátor chce, aby lišta při
 přechodu na `Domů` plynule sjela a uvolnila místo dashboardu — je to hezčí a
