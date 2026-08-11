@@ -112,8 +112,10 @@ zůstávají oddělené a každá vyžaduje vlastní subject, Review A i Review 
 | 4 | [026 — secret storage authority](../decisions/026-m1-secret-storage-authority.md) | A | ověřený env transfer a odstranění credentials z aplikačních dat |
 | 5 | [029 — settings reset scope](../decisions/029-m1-settings-reset-scope.md) | A | settings-only reset a ukončení legacy aliasu |
 
-025, 027 i 028 jsou `PROMOTED / REVIEW A+B PASS`; 026/A + X1 je
-`WP_ACTIVE / IMPLEMENTATION_NOT_STARTED` a 029 zůstává `ACCEPTED / WAITING`.
+025, 027 i 028 jsou `PROMOTED / REVIEW A+B PASS`; 026/A + X1 +
+M1-CLOSEOUT-X1 je `WP_ACTIVE / SETUP_P0_CHECKPOINT_PUSHED /
+REST_IMPLEMENTATION_NOT_STARTED` a 029/A + M1-CLOSEOUT-X1 zůstává
+`ACCEPTED / WAITING`.
 Závazná sekvence je `025 → 027 → 028 → 026 → 029`; 029 nezačne před přijetím
 026 candidate. Finding 011 zůstává `OPEN` a Gate 1 `BLOCKED`.
 
@@ -365,23 +367,70 @@ Operátor 2026-08-11 přijal 026-X1 v offline localStorage variantě a následn�
 X1-a až X1-e. Aktivní
 [`WP-M1-SECRET-STORAGE-AUTHORITY`](../wp/WP-M1-SECRET-STORAGE-AUTHORITY.md)
 vychází z clean promotion tipu 028
-`0037d56a2fb63ae0c3a3863ce00b9083d838ba8b`. Implementace ještě nezačala;
-žádný transfer, export, purge ani scrub není tímto docs checkpointem provedený.
+`0037d56a2fb63ae0c3a3863ce00b9083d838ba8b`. Setup P0 obsahuje oddělená pushed
+P0 branch v exact commitu `3bb35bbb32063dd058ab35872668d645fe9ff106`;
+aktuální G sibling tree z rodiče `ea21bf3e2f8a54e1cbf93430cdb52037957a63c8`
+jej neobsahuje. Výsledný 026 source tree jej získá až po promotion `G` a
+normálním merge `G` do existující P0 branch. Zbytek 026 ještě nezačal a žádný
+transfer, export, purge ani scrub tím není provedený.
 
 Aktuální Setup census koriguje historický popis: 027 už nahradilo původní
 whole-file/truthy `.env` writer bounded atomickým patchem čtyř exact
 non-notification keys a `server.js` před route registration volá
-`setupWizard.load()`. Zbývající P0 je cwd-derived target a mutační autorita:
-čtyři efektové POSTy `/api/setup/{ollama,language,license,complete}` nemají strict
-admin-token guard a always-registered `/complete` po dokončení znovu zapisuje
-env i setup state. První source commit 026 proto přesune writer na exact
-canonical project root, zachová mode-0600/no-follow/foreign-byte ratchet, zavede
-startup-captured strict `C3_ADMIN_TOKEN` bez dev-localhost bypassu před všemi
-čtyřmi efekty a exact pre-effect
-`409 SETUP_ALREADY_COMPLETE`. Chybějící či nesprávný token skončí exact
-`403 SETUP_ADMIN_AUTH_REQUIRED`. Inertní Setup notifications 410 a GET status se
-nemění. Teprve po commitu, pushi a focused ověření P0 smí začít zbytek 026;
-finální subject `S` bude pro celý WP jeden.
+`setupWizard.load()`. Oddělený P0 source checkpoint odstranil zbývající
+cwd-derived target a mutační autoritu: writer přijímá jen module-derived nebo
+explicitně injektovaný absolutní canonical project root, dál patchuje pouze čtyři owned
+keys, kontroluje exact mode 0600 včetně special bits a existing target otevírá
+s nenulovými `O_NOFOLLOW|O_NONBLOCK`. Tři legacy notification canaries
+`SMTP_URL`, `EMAIL_TO` a `C3_NTFY_URL` zůstávají byte/semantic zachované i při
+prázdné notification config.
+
+Čtyři efektové POSTy `/api/setup/{ollama,language,license,complete}` mají jako
+první operaci povinný startup-captured strict `C3_ADMIN_TOKEN` guard bez
+dev-localhost bypassu. Missing, malformed, duplicate, ambiguous, array,
+inherited, mismatch i unconfigured authority končí jednotným exact
+`403 SETUP_ADMIN_AUTH_REQUIRED` před parse/config/fetch/state/env efektem.
+Authenticated `/complete` znovu čte durable setup state; již dokončený vrací
+pre-effect `409 SETUP_ALREADY_COMPLETE`. Invalid JSON, fatal-invalid UTF-8,
+semanticky malformed known shape i unreadable state selžou typovaně jako
+`SETUP_STATE_INVALID` bez přepsání. Inertní Setup notifications 410 a GET status
+se nemění.
+
+Author-side checkpoint prošel syntaxí všech změněných JS souborů a
+`node tests/m1-notification-credential-scope.test.js` přesně `2/2`; izolovaný
+worktree před tím vyžadoval schválené `npm ci --offline`. Commit/push/review
+provenance se z tohoto source-progress odstavce neodvozuje a musí být doložená
+samostatným immutable checkpoint/evidence záznamem. Před zbytkem 026 musí navíc
+přistát níže popsaný governance amendment; finální subject `S` bude pro celý WP
+jeden.
+
+Operátor následně přijal `M1-CLOSEOUT-X1` a dva autonomy dodatky. Samostatný
+docs-only amendment `G` vznikne jako sibling P0 z
+`ea21bf3e2f8a54e1cbf93430cdb52037957a63c8`, projde nezávislým review a
+governance promotion a pak se normálním merge commitem bez rewrite připojí do
+existující P0 branch. Final Review A použije `baseRevision=G`,
+`subjectHead=S` a range `G..S`, takže `G` není uvnitř implementačního subjectu.
+P0 commit zůstává exact ancestor
+`3bb35bbb32063dd058ab35872668d645fe9ff106`; samostatně se nepromuje a nejde o
+026 PASS. Každý implementační subject reviewuje jiný agent než writer.
+
+026 nyní výslovně vlastní notification configuration authority, ne globální
+privacy erase. `notification_channels_v57.recipient/config`,
+`notification_log_v57.recipient`,
+`notification_digest_buffer_v57.recipient` a persisted agent notify/webhook
+definitions zůstávají M5-DATA/typed-agent residualem. Explicitní `AgentRunner`
+notify i manual `POST /api/notifications/test` a
+`POST /api/notifications/send` s caller-supplied destination přežívají;
+retiruje se jen `NotificationEmitter`-generovaný automatický lifecycle/worker
+bridge. `generic/settings/import` responses zůstávají redacted a 026 netvrdí
+globální absenci private destinations.
+
+Allowlist amendment povoluje úzký `webhook.js` URL-injection fix bez změny 028,
+mechanické API/WS docs a čtyři compatibility testy. Post-P0 `wizard.js` se smí
+dotknout jen shared root-env writer delegation a retirementu notification
+leaves z default schema; strict guard/routes/completion zůstávají invariantní.
+Agents-disabled blanket se neruší: výjimku dostane pouze exact config GET a
+inertní config POST, zatímco send/test/verify/channels behavior zůstává.
 
 Canonical status je explicitní dvanáctiklíčová mapa:
 `C3_SMTP_HOST`, `C3_SMTP_PORT`, `C3_SMTP_USER`, `C3_SMTP_PASS`,
@@ -396,10 +445,12 @@ verified mode-0600 export nebo explicitní purge před exact scrubem.
 LocalStorage část nepřidává loopback connector. Raw
 `localStorage['paiass_settings']` jde pouze explicitním absolutním owner-owned
 mode-0600/no-follow offline inputem do CLI. Non-secret receipt je vázaný na
-preimage a exact path digesty; Architect jej aplikuje jen na deset známých
-`notifications.*` cest a při stale/malformed/failure zachová původní bytes.
+preimage, postimage, jednu společnou `EXPORT|PURGE` akci a exact path digesty;
+mixed akce jsou ordered EXPORT receipt a potom PURGE receipt. Architect jej
+aplikuje jen na deset známých `notifications.*` cest a při
+stale/malformed/failure zachová původní bytes.
 `c3-settings` není credential blob tohoto WP a raw hodnoty nikdy nejdou přes
-HTTP, WS ani log.
+HTTP, WS, URL, log, clipboard ani in-app raw download.
 
 DB census je záměrně neprefixový. Vedle `webhookSecret` a legacy
 `c3.notif.webhookSecret` zahrne všech devět retired typed notification cest a
@@ -411,17 +462,37 @@ historické cwd `.env` je pouze explicitní absolutní operator-supplied input,
 nikoli odhad podle dnešního CLI cwd.
 
 Retirement DB/runtime config setterů a `NotificationEmitter` bez nového
-recipient env key má tvrdý produktový důsledek: automatické lifecycle/worker
-e-maily po 026 nebudou v core 1.0 konfigurovatelné vůbec. Retained/default-off
-`EmailChannel` zůstane pouze pro explicitní caller-supplied recipient. Stejná
-věta je povinná v `docs/CHANGELOG.md` release note i v pravdivém notification
-popisu; nesmí se objevit až při 1.0 release discovery.
+recipient env key má tvrdý produktový důsledek: `NotificationEmitter`-generated
+automatický lifecycle/worker email bridge po 026 nebude v core 1.0
+konfigurovatelný vůbec. Retained/default-off `EmailChannel` a explicitní
+`AgentRunner` notify i manual test/send zůstanou pouze pro caller-supplied
+recipient. Stejná přesná hranice je povinná v `docs/CHANGELOG.md` release note i
+v pravdivém notification popisu; nesmí se objevit až při 1.0 release discovery.
 
-Focused program zůstává přesně čtyřprogramový: settings authority `4/4`,
+Core focused program zůstává přesně čtyřprogramový: settings authority `4/4`,
 notification credential scope `2/2`, Studio VM `128/128` a registry 382/8 s
 fingerprintem
 `571ae1a90a4246c7037d56fe5fb786beb4b5c4aae3e61f163d5b6ffe14341d71`.
+Compatibility soubory mají jen mechanický source alignment/audit a nejsou
+pátým subject-gate programem; network-free část smí běžet jen pod samostatným
+již přijatým envelope a external části zůstanou `NOT RUN / BLOCKED`.
 E2E12 smí být pouze source-contract update a zůstává `NOT RUN / BLOCKED`;
 Electron/build, GPU, Ollama, externí síť ani celý produktový test se nespouštějí.
+
+029 je přijaté jako dual-CAS změna dřívější 029/A: exact request nese settings
+i model-policy revision. Oba CAS se ověří uvnitř jediného caller-owned
+`BEGIN IMMEDIATE` před první mutací; reset pak maže jen exact generic owner
+paths plus top-level storage. Unknown/unowned data zachová a public projection
+vrátí `{}`. Opakovaný explicitní reset je nový auditovaný `+1/+1` commit s
+jedním `GLOBAL_RESET`; lost-response retry se starými revisions je bez efektu.
+Legacy alias exact
+`410 {"ok":false,"code":"LEGACY_RESET_ALIAS_RETIRED"}` je poslední produkční
+commit po first-party/mobile cutoveru.
+
+Před promotion 029 proběhne samostatný bounded decommission tracked standalone
+`chats/`: support claim je vědomě změněný na `unsupported / not shipped`, boot
+selže před DB/listenerem, raw settings/reset routes jsou inertní a existující
+data se byteově zachovají. Reset není factory delete ani privacy erase.
+
 029 čeká na přijatý 026 candidate. Finding 011 i Gate 1 zůstávají
 `OPEN`/`BLOCKED`.

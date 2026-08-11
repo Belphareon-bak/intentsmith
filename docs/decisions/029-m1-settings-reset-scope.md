@@ -1,7 +1,8 @@
 # 029 — reset musí pravdivě pojmenovat rozsah a obě route
 
 - **typ:** destruktivní settings connector a recovery autorita
-- **stav:** `ACCEPTED 2026-08-11: A / IMPLEMENTATION_PENDING`; implementaci
+- **stav:** `ACCEPTED 2026-08-11: A + M1-CLOSEOUT-X1 /
+  IMPLEMENTATION_PENDING`; implementaci
   aktivuje až vlastní ohraničený WP v přijatém pořadí
 - **finding:** [011 — user_settings authority](../findings/011-user-settings-authority-and-secret-exposure.md)
 - **historický nález:** F-B
@@ -28,23 +29,64 @@ call ani o změnu v `src/mobile/**`, ale merge jej nesmí znovu oživit.
 
 ### A — settings-only exact scope, legacy alias 410 (přijato)
 
-- jediný aktivní endpoint je `/api/settings/reset` s exact body
-  `{scope:"SERVER_SETTINGS_V1",expectedRevision:N}`; stale revision vrátí
-  `409` bez DB, runtime nebo UI mutace a bez automatického replay;
-- resetuje pouze `user_settings.id=1` a model automation policy OFF/default v
-  jedné transakci; mění jen vlastní policy projection a append-only reset event,
-  jiné tabulky, soubory a client-local preference zachová;
-- `/api/reset` vrací stable JSON `410 LEGACY_RESET_ALIAS_RETIRED` bez serverové
-  mutace i bez client-local cleanup;
-- notification cache a FeatureManager se po commitu invalidují/resetují;
-  environment SMTP z 026/A je mimo reset scope a zůstává beze změny; degraded
-  stav se stabilním code vznikne jen při skutečné post-commit runtime chybě;
+- jediný aktivní endpoint je `/api/settings/reset` s exact plain-object body bez
+  extra keys:
+
+  ```json
+  {"scope":"SERVER_SETTINGS_V1","expectedRevision":1,"expectedPolicyRevision":1}
+  ```
+
+  Obě revisions jsou positive safe integers. Invalid input vrátí exact
+  `400 SETTINGS_RESET_INPUT_INVALID`. Settings i model-policy CAS se ověří
+  uvnitř jediného caller-owned `BEGIN IMMEDIATE` před první mutací a stejná
+  transakce vlastní celý reset;
+- stale kterékoli revision vrátí `409 SETTINGS_RESET_REVISION_CONFLICT` s oběma
+  expected/current revisions, bez DB, runtime nebo UI effectu a bez
+  automatického replay;
+- z `user_settings.id=1` odstraní pouze exact `GENERIC` owner paths z 025 a
+  top-level `storage` config. Unknown a všechny unowned hodnoty zachová;
+  veřejná settings projekce po commitu je exact `{}`;
+- model automation policy přejde OFF/default v téže transakci. Každý explicitní
+  reset, včetně resetu již defaultního stavu, inkrementuje settings revision i
+  policy revision právě o jedna a přidá právě jeden `GLOBAL_RESET` event;
+  retry se starými revisions skončí `409` bez replay;
+- `/api/reset` vrací pre-parse exact
+  `410 {"ok":false,"code":"LEGACY_RESET_ALIAS_RETIRED"}` bez DB, runtime nebo
+  client-local effectu;
+- po 026 neexistuje živá DB notification credential cache k invalidaci.
+  Immutable environment channels reset nemění. FeatureManager se po commitu
+  vrátí jen na startup env defaults. Skutečná post-commit runtime chyba
+  nevrací DB rollback ani falešný 500, ale pravdivý
+  `runtimeApplied:false` a
+  `runtimeErrorCode:"SETTINGS_RUNTIME_APPLY_FAILED"`;
+- route používá existující canonical trusted-local access boundary a UI navíc
+  explicitní confirmation. Admin token se nepřenáší do rendereru. Globální auth
+  hardening zůstává samostatný residual; potřeba změnit tuto boundary je stop
+  condition;
 - UI říká „serverová nastavení“, nikoli factory reset.
 
-Studio po exact receipt přijme prázdnou server projection, invaliduje a znovu
-načte `_featureFlags`, ale zachová všechny local UI keys. Architect smaže jen
-server-replica `paiass_settings`; zachová `paiass_accordion_state` i ostatní
-local data.
+Studio odešle dual CAS, po exact receipt přijme prázdnou server projection,
+invaliduje a znovu načte `_featureFlags`, ale zachová celý localStorage.
+Architect také odešle dual CAS a po exact receipt smaže jen server-replica
+`paiass_settings`; zachová `paiass_accordion_state` i ostatní local data.
+Client cleanup/reload failure je degraded a dovoluje jen lokální retry téže
+receipt fáze, nikdy nový server reset.
+
+Legacy `/api/reset` 410 přistane jako poslední produkční commit subjectu. Jeho
+parent už musí obsahovat dual-CAS route a cutover všech first-party callerů;
+potom smějí následovat jen evidence commity. Resulting mobile merge tree musí
+mít nula `/api/reset` callerů a nula reset cest používajících
+`localStorage.clear()`.
+
+Samostatný bounded decommission subject před promotion 029 označí tracked
+standalone `chats/` package jako `unsupported / not shipped`, zastaví jej
+fail-closed před DB/listener startem, udělá jeho raw settings/reset routy
+inertní a zachová existující chats data byteově. Toto je vědomě přijatá změna
+support claimu; není to oprávnění data smazat.
+
+029 není factory delete ani privacy erase. Zachová všechny ostatní tabulky,
+soubory, environment, Setup JSON, attachments, historii a existující backupy.
+Factory delete zůstává samostatný budoucí WP.
 
 ### B — přechodně ponechat oba aliasy
 
@@ -66,31 +108,46 @@ přejmenováním dnešního aliasu.
 
 ## Implementační hranice po přijetí
 
-Obě route jsou v jednom subjectu. Žádná migrace. Review musí pinovat přesný
-scope, zachování sentinel řádku mimo id=1, policy/event atomicitu, pravdivou
-runtime degradaci a nulový efekt legacy aliasu. Architectovo jiné tlačítko
-„Vymazat vše“ se jen eviduje jako samostatný UI finding; F-B je nerozšiřuje.
-Merge preflight musí před `410` prokázat, že žádný first-party strom nevolá
-`/api/reset` a že mobilní merge neobnovil ani starý caller, ani jeho
-`localStorage.clear()` efekt.
+Obě canonical route jsou v jednom reset subjectu. Žádná migrace. Samostatný
+standalone-chats decommission subject jej musí před promotion předcházet.
+Budoucí statický WP/allowlist přistane vlastním docs-only governance commitem
+před source writerem; decommission a reset pak mají oddělené writery/reviewery.
+Review musí pinovat exact plain-object dual-CAS request, oba pre-mutation CAS,
+jedinou transakci, exact owner-only reset, zachování unknown/unowned hodnot i
+sentinel řádku mimo id=1, obě `+1` revisions, právě jeden event, pravdivou
+runtime degradaci, trusted-local + UI confirmation a nulový efekt legacy aliasu.
+Architectovo jiné tlačítko „Vymazat vše“ se jen eviduje jako samostatný UI
+finding; F-B je nerozšiřuje. Merge preflight musí před posledním `410` commitem
+prokázat, že žádný first-party strom nevolá `/api/reset` a že mobile merge
+neobnovil ani starý caller, ani jeho `localStorage.clear()` efekt.
 
 Testovací objem: použít existující model-policy a Studio harness, nejvýše čtyři
-logické scénáře — exact scope/sentinel, alias+rollback/runtime, Studio a
-Architect. Bez nové registry suite, pokud současný harness stačí.
+logické scénáře — exact scope/dual CAS/sentinel/repeat, alias+rollback/runtime,
+Studio a Architect. Bez nové registry suite, pokud současný harness stačí.
 
 ## Přijatý potvrzovací blok
 
 ```text
 029: A
 029-scope: SERVER_SETTINGS_V1
-029-request: EXACT-SCOPE-PLUS-EXPECTED-REVISION
-029-stale: HTTP-409-NO-EFFECT-NO-REPLAY
+029-request: EXACT-SCOPE-PLUS-SETTINGS-AND-POLICY-REVISION
+029-input: PLAIN-OBJECT-NO-EXTRA-POSITIVE-SAFE-INTEGERS
+029-invalid: HTTP-400-SETTINGS-RESET-INPUT-INVALID
+029-stale: HTTP-409-BOTH-EXPECTED-CURRENT-NO-EFFECT-NO-REPLAY
 029-row: USER-SETTINGS-ID-1-ONLY
-029-policy: OFF-DEFAULT-SAME-TRANSACTION
-029-legacy-api-reset: HTTP-410-NO-MUTATION
+029-owner-scope: GENERIC-PATHS-PLUS-TOP-LEVEL-STORAGE-PRESERVE-UNOWNED
+029-public-projection: EXACT-EMPTY-OBJECT
+029-policy: OFF-DEFAULT-SAME-BEGIN-IMMEDIATE
+029-repeat: BOTH-REVISIONS-PLUS-ONE-ONE-GLOBAL-RESET-EVENT
+029-auth: EXISTING-TRUSTED-LOCAL-PLUS-UI-CONFIRMATION-NO-RENDERER-TOKEN
+029-legacy-api-reset: FINAL-PRODUCTION-COMMIT-PRE-PARSE-410-EXACT-LEGACY_RESET_ALIAS_RETIRED-BODY-NO-MUTATION
 029-local-ui: PRESERVE
-029-notification-runtime: ENV-PRESERVED-CACHE-INVALIDATED-DEGRADE-ONLY-ON-ERROR
+029-clients: DUAL-CAS-RECEIPT-LOCAL-RETRY-NO-SERVER-REPLAY
+029-notification-runtime: ENV-PRESERVED-NO-LIVE-DB-CREDENTIAL-CACHE
+029-runtime-error: SETTINGS-RUNTIME-APPLY-FAILED-NO-DB-ROLLBACK
+029-chats: SEPARATE-DECOMMISSION-UNSUPPORTED-NOT-SHIPPED-PRESERVE-DATA
+029-data: NOT-FACTORY-DELETE-NOT-PRIVACY-ERASE
 029-factory-delete: PARK-SEPARATE-WP
 029-merge-preflight: MOBILE-BRANCH-RESET-CALLER-MUST-BE-CUT-OVER
-029-review: OWN-SUBJECT-REVIEW-A-AND-B
+029-review: OWN-SUBJECT-REVIEW-A-AND-B-WRITER-NE-REVIEWER
 ```

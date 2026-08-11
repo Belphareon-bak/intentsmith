@@ -12,6 +12,15 @@ jako omezená prováděcí autorita. Plné přijetí `ROADMAP.md` v4 tím není
 nahrazené. Follow-upy níže se provádějí po malých sériových checkpointech a
 žádný vybraný BLOCK se nestává PASS bez implementace a důkazu.
 
+**M1 closeout amendment 2026-08-11:** operátor přijal celý
+`M1-CLOSEOUT-X1` včetně 026/029, B3–B6 a execution hranic a doplnil
+`AUTONOMY-STOP-EXTRA-1` a `AUTONOMY-REVIEW-1`. Tento blok je normativní pro
+closeout a při rozporu nahrazuje starší brief níže; nemění neprovedený krok na
+PASS. Přesné pořadí je
+`026 → 029 → B3 → B4 → Gate 1 → B5 → B6 → Gate 2`.
+029 dual CAS vědomě nahrazuje dřívější single-revision 029/A a standalone
+`chats/ = unsupported / not shipped` je vědomě přijatá změna support claimu.
+
 ---
 
 ## 0. Jak se to používá
@@ -107,6 +116,66 @@ zaregistruje jako známý červený s odkazem na finding.
 **Zakázané způsoby, jak rozhodnutí „vyřešit":** oslabit test, rozšířit povolené
 cesty, označit schopnost jako PASS, přepsat roadmapu tak, aby otázka zmizela.
 
+### M1-CLOSEOUT-X1 — autonomie, review a poslední manifest
+
+Uvnitř schváleného WP agent autonomně volí fail-closed, preserve-data,
+no-replay, no-network a nejvratnější kompatibilní variantu. Neeskaluje znovu
+error codes, helper API, interní pořadí, fixtures, retry/no-op nebo jiné
+implementační detaily. Vadu uvnitř allowlistu opraví a nechá nezávisle
+zreviewovat; vady mimo scope sesbírá do jednoho balíku místo jednotlivých
+zastavení.
+
+Closeout se zastaví pouze při:
+
+- nové veřejné capability nebo connectoru;
+- změně L0;
+- nevratném smazání dat;
+- external network effectu;
+- model pull/delete/rebind;
+- změně support claimu;
+- neřešitelném source conflictu;
+- přidání, zeslabení nebo obejití auth guardu, access boundary či trusted-local
+  kontraktu.
+
+Poslední bod neblokuje opravu uvnitř schváleného allowlistu a již přijaté
+hranice; změna bezpečnostní/autentizační hranice samotné se nesmí odvodit jako
+implementační detail.
+
+Nezávislé review vždy znamená `writer != reviewer`. Jakákoli nová změna
+allowlistu přistane vlastním governance/docs commitem **před** source writerem,
+nikoli uvnitř reviewovaného subjectu. Výslovně vyjmenovaná rozšíření v
+`026-ALLOWLIST-EXTENSIONS` už tímto commitem přijata jsou a další rozhodnutí
+nepotřebují.
+
+Pro tento amendment je topologie připnutá: governance commit `G` vznikne jako
+sibling P0 commitu z exact společného rodiče
+`ea21bf3e2f8a54e1cbf93430cdb52037957a63c8`, projde vlastním nezávislým review
+a promotion a teprve potom se běžným merge commitem bez rebase, cherry-picku
+nebo jiného history rewrite připojí do existující P0 branch s commitem
+`3bb35bbb32063dd058ab35872668d645fe9ff106`. Merge zachová exact P0 commit jako
+ancestor i identitu. Finální 026 Review A použije promoted `G` jako
+`baseRevision` a `S` jako `subjectHead`; review range je `G..S`, takže samotný
+governance commit není uvnitř source subjectu a P0 v něm naopak zůstává přes
+merge ancestry. P0 se tím samostatně nepromuje.
+
+Před efektovou částí closeoutu zbývají jen dvě datově závislé operátorské volby
+a předloží se společně jako jediný redigovaný `M1-EXECUTION-MANIFEST`:
+
+1. exact source/path/digest akce pro skutečně nalezené legacy hodnoty;
+2. exact aktuální desired binding a dostupný distinct fallback target včetně
+   potřebných proof pinů.
+
+Manifest nenese raw secret a není blanket purge ani model selection authority.
+Bez exact digestů se příslušná akce neprovede. Všechna ostatní rozhodnutí tohoto
+closeoutu jsou přijatá níže nebo v decision 026/029 a znovu se neotvírají.
+
+Closeout smí vytvářet bounded WP branches, commity, push, Review A/B a merge
+queue evidence podle `CONTRACT.md`. External network zůstává vypnutá;
+GPU/Ollama/Electron joby jsou sériové. Ukončovat se smějí jen test-owned process
+groups. Zakázaný je force-push, tag, release, history rewrite a model
+pull/delete/stop/unload/rebind. Uživatelská data se nemutují a failure artefakty
+se zachovají.
+
 ---
 
 ## 2. Sdílené invarianty — platí pro každý běh v dávce
@@ -115,8 +184,9 @@ cesty, označit schopnost jako PASS, přepsat roadmapu tak, aby otázka zmizela.
    musí být čistý mimo osm rozpracovaných inventur.
 2. **Osm inventur `docs/inventory/*.md` (modifikované, necommitnuté) se nikdy
    nečte jako vstup, needituje a necommituje.** Platí i pro `git add -A`.
-3. **Žádný push.** Ani `git push --dry-run` jako „kontrola". Operátor pushuje po
-   gate.
+3. **Historický režim bez push je pro M1 closeout nahrazený:** bounded WP branch
+   se po vlastním gate pushne pro immutable Review A/B a merge queue. Force-push,
+   tag, release a history rewrite zůstávají zakázané.
 4. **Malé commity.** Jeden commit = jedna ověřitelná změna chování + její test.
    Zpráva česky nebo anglicky, bez `Co-Authored-By`.
 5. **Povinná baterie před každým commitem** — všechna musí projít, jinak se
@@ -180,6 +250,20 @@ cesty, označit schopnost jako PASS, přepsat roadmapu tak, aby otázka zmizela.
 Pořadí B2 → B3 → B4 je záměrné: CHAT nemá GPU závislost a odhalí nejvíc
 kontraktních vad nejlevněji; MODEL potřebuje sériové GPU okno; STUDIO má
 nejdelší build/journey cyklus, takže jde poslední, kdy je kontrakt nejstabilnější.
+
+Pro aktuální closeout je B2 již hotový prerequisite a výše uvedený historický
+diagram se provádí přes tuto exact frontu:
+
+```text
+026 secret-storage authority
+  → 029 dual-CAS settings reset + chats decommission
+  → B3 terminal failover/proof + autorizovaný T3 GPU běh
+  → B4 immutable built Electron journey
+  → Gate 1
+  → B5 quality rozhodnutí podle předem přijatého prahu
+  → B6 dvoufázová M1 journey nad jedním build manifestem
+  → Gate 2
+```
 
 ---
 
@@ -316,8 +400,38 @@ nejdelší build/journey cyklus, takže jde poslední, kdy je kontrakt nejstabil
      Šev: `gateway.js:callWithPolicy()`.
    - `DECIDE` **D-5 VRAM nefit:** default = odmítnout typovaným errorem před
      voláním, ne best-effort a OOM. Šev: `model-ctx.js:fitsVram()`.
-   - `PARK`: GPU měření, pokud není volné bezpečné okno — offline část dokonči
-     celou a do reportu napiš, která čísla chybí.
+   - **M1-CLOSEOUT-X1 nahrazuje dřívější otevřený terminal/GPU rozsah:**
+     fallback target je explicitní per-role typed CAS pin obsahující exact
+     requested name, canonical name a digest. Nikdy neplatí „nejnovější proof
+     vyhrává“. Backup/import target nepřenáší a destination jej zachová;
+     explicitní reset target vyčistí. Nula, více nebo nezpůsobilý target je
+     `INCONCLUSIVE` bez effectu.
+   - Aktivace vyžaduje literal opt-in, explicitní target, exact installed
+     artifact a fresh same-role digest-bound proof. Durable intent předchází
+     runtime effectu; success vznikne až po exact runtime finalize receiptu.
+     Uncertain commit se pouze reconciliuje podle exact generation, nikdy blind
+     replayem ani alternativním kandidátem.
+   - Restore smí použít pouze exact desired name+digest+revision s fresh desired
+     proofem. Restore failure nechá fallback aktivní jako degraded. User binding
+     superseduje failover a blokuje pozdní restore; startup rehydrate přijme jen
+     exact active lineage. Happy-path používá skutečný connector v disposable
+     file-backed DB/runtime proti lokální Ollamě; failure/race matrix smí použít
+     test-owned adaptéry. Uživatelská DB ani config se nemění.
+   - Terminální změna `model-failover.js` zneplatní dnešní raw-byte-pinned proof.
+     Po final B3 source se operator-only sériově vydají nové CHAT proofy jen pro
+     přesně potřebné desired/fallback digests, nejvýše dva. Conditional reissue
+     je povolen jen při expiraci nebo relevantním source/digest driftu. Issuance
+     nemá background obnovu ani runtime mutaci. Active failover po expiry
+     zůstává bound jako `DEGRADED_PROOF_EXPIRED`; nový `ACTIVATE/REAPPLY` je
+     blokovaný.
+   - Je autorizovaný právě jeden registrovaný T3 běh na RTX 3090 pro
+     `qwen3.5:27b`, digest
+     `7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e`,
+     `num_ctx=4096`, headroom nejméně `1024 MiB`, GPU residency `100 %` a
+     fallback zakázaný. Měří cold, warm, classify a mid-generation cancel.
+     Preflight vyžaduje prázdný `ollama ps` a žádný compute proces. Zakázaný je
+     pull/delete/stop/unload/rebind; cleanup jen přirozenou expiry. Historický
+     `8192 FAIL` zůstává zachovaný.
 8. **Ověření bez GPU:** `node tests/llm-gateway-runtime-signal.test.js`,
    `node tests/model-ctx.test.js`, `node tests/m1-model-contract.test.js` (nový).
    GPU jen registrovanou T3 sadou s `concurrency=1`.
@@ -378,8 +492,18 @@ nejdelší build/journey cyklus, takže jde poslední, kdy je kontrakt nejstabil
      případná relokace je vlastní pozdější behavior-preserving WP.
    - `DECIDE` **D-7 reconnect backoff:** default = fixní strop a viditelný stav,
      ne tiché nekonečné opakování. Šev: `ws-client.js:_scheduleReconnect()`.
-   - `PARK`: bounded soak, pokud prostředí neposkytne stabilní displej — ale
-     zapiš, že stabilita zůstává `INCONCLUSIVE` z M0-E, a **nehlas M1 exit**.
+   - **M1-CLOSEOUT-X1 built envelope:** použij fresh disk clone `--no-local`,
+     offline/frozen install, forced protocol prebuild a production build.
+     Nespouštěj standalone chat-panel build/clean. Trackovaný strom musí zůstat
+     čistý a build/bundle digesty se uloží do immutable manifestu.
+   - Povolené prostředí je scoped X11 a user/network namespace s loopback-only
+     přístupem. Nad jedním buildem proveď negotiated inline attachment, dva
+     panely, cancel A/success B, provider failure, reconnect, server
+     restart/rehydrate, operation rollback a 65s soak. Počet external a
+     unexpected-loopback requestů je nula.
+   - Tentýž build musí získat dva po sobě jdoucí nezávislé PASS. Hidden retry a
+     disable-GPU workaround jsou zakázané. `SIGTRAP` je `FAIL` a diagnostický
+     finding, nikoli environmentální PASS.
 8. **Ověření:** `node tests/ws-bridge.test.js`,
    `node tests/m1-studio-client.test.js` (nový); v čistém klonu frozen Yarn
    install, build a registrovaný Studio journey. **Build neběží v dirty
@@ -392,27 +516,35 @@ nejdelší build/journey cyklus, takže jde poslední, kdy je kontrakt nejstabil
 
 > Integrační vlastník. Běží až po REVIEW GATE 1.
 
-1. **Výsledek:** refinement má jednoho vlastníka a naměřenou přidanou hodnotu,
-   cenu i latenci; žádná odpověď se nerefinuje dvakrát.
+1. **Výsledek:** `ResponseFinalizer` je jediný refinement owner. Synthesis smí
+   scoreovat, ale nesmí spustit refinement; na jeden turn je nejvýše jeden
+   refine provider call. Přidaná hodnota, cena i latence jsou změřené.
 2. **Povolené:** synthesis, `src/chat/quality/**`, quality telemetrie, převzatý
    `response-finalizer.js`, fixní corpus, M1 quality testy, registry, decisions.
    **Zakázané:** connector, gateway, routes, WS, Studio.
 3. **Connector:** pouze čte přijaté Model/Conversation výsledky.
 4. **Závislost:** přijaté B2, B3, B4.
-5. **Demo:** A/B report se stejným modelem a corpusem; jeden konkrétní přijatý
-   a jeden odmítnutý refinement včetně ceny.
+5. **Demo:** corpus se zmrazí před prvním outputem a má přesně 12 případů,
+   `8 CS + 4 EN`. A/B použije stejný exact model/digest a `num_ctx=4096`, jeden
+   baseline na případ a žádný reroll. Report obsahuje sample výsledky, p50/p95,
+   delta, acceptance, tokeny, latency a reject reason včetně jednoho konkrétního
+   přijatého a jednoho odmítnutého refinementu.
 6. **Test:** fake model pro skip, právě jeden refine, zlepšení, semantic drift,
    horší/prázdný výsledek, provider error, cancel. GPU A/B reportuje p50/p95,
    score delta, acceptance rate, tokeny a dobu.
    Pokrýt vadu #7 z call grafu: synthesis i finalizer dnes mohou spustit vlastní
    refinement a telemetrie je nerozliší.
-7. **Autonomie:**
-   - `BLOCK`: metrika nerozliší kvalitu; corpus nemá přijatá chování; nutná
-     změna connectoru; GPU prerekvizita není bezpečná.
-   - **`ponechat / omezit / odstranit refinement` je BLOCK, ne DECIDE.** Tvůj
-     výstup je číslo, ne rozhodnutí. Připrav rozhodovací záznam se všemi třemi
-     variantami a naměřenou `scoreBefore/scoreAfter`, acceptance rate a cenou;
-     rozhodne operátor na GATE 2.
+7. **Autonomie — předem přijaté automatické rozhodnutí:** `KEEP-LIMITED` platí
+   jen pokud současně:
+   - je nula semantic/correctness/code-invariant regresí;
+   - median accepted score delta je nejméně `5/100`;
+   - corpus-wide delta je `>= 0`;
+   - acceptance rate je nejméně `25 %`;
+   - je nula false-success, cancel nebo duplicate-call vad.
+
+   Jinak se refinement pro M1 vypne. Ambiguous metrika znamená vypnout, nikoli
+   další rozhodovací kolo. QGv2 deterministic scoring zůstává beze změny.
+   Změna connectoru nebo nebezpečná GPU prerekvizita zůstává stop condition.
 8. **Ověření:** `node tests/improvement-loops.test.js`,
    `node tests/chat-output-quality.test.js`,
    `node tests/chat-synthesis-hardening.test.js`,
@@ -425,19 +557,24 @@ nejdelší build/journey cyklus, takže jde poslední, kdy je kontrakt nejstabil
 > Není to nový WP, je to integrační ověření. Zapisuje jen do dokumentace,
 > testů a artefaktů.
 
-1. **Výsledek:** sedm povinných scénářů z `ROADMAP.md` §5 proběhne v jednom
-   journey na čerstvé instalaci.
+1. **Výsledek:** všech sedm povinných scénářů z `ROADMAP.md` §5 proběhne bez
+   `PARK` nad jedním fresh buildem a jedním immutable manifestem.
 2. **Povolené:** `tests/m1-journey.test.js` (nový), `ROADMAP.md` a `SYSTEM-MAP.md`
    stavové řádky, `docs/execution/**`, registry, artefakty.
    **Zakázané:** jakýkoli produktový soubor. Když journey najde vadu, je to
    `FINDING`, ne oprava.
-3. **Demo:** čistá instalace → Theia → konverzace → deterministická i modelová
+3. **Demo:** Phase A spustí Electron v loopback-only namespace s test-owned
+   providerem. Phase B použije tentýž build proti exact `127.0.0.1` Ollamě.
+   Dohromady: čistá instalace → Theia → konverzace → deterministická i modelová
    odpověď → restart → obnovený stav.
-4. **Měření k zápisu, ne k odhadu:** p95 deterministické odpovědi, cold/warm
+4. **Měření k zápisu, ne k odhadu:** deterministic p95 `<100 ms`, cold/warm
    whole-response latence odděleně, p95 modelového chatu, throughput,
-   refinement delta, počet neočekávaných outbound requestů (cíl 0).
+   refinement delta, false-success `0` a unexpected outbound `0`.
 5. **Autonomie:** journey se **nesmí** prohlásit za PASS s parkovanou položkou.
-   Chybějící scénář = M1 zůstává `PARTIAL` a to se tak i zapíše.
+   Chybějící scénář = M1 zůstává `PARTIAL` a to se tak i zapíše. User DB,
+   projects a config musí zůstat beze změny a shutdown čistý. Produktová vada
+   nalezená v B6 je finding; journey subject nesmí obsahovat produktovou opravu.
+   Streaming zůstává mimo M1.
 
 ---
 
@@ -463,7 +600,7 @@ nejdelší build/journey cyklus, takže jde poslední, kdy je kontrakt nejstabil
 
 ## 5. Review gates
 
-### GATE 1 — po B2+B3+B4
+### GATE 1 — po přijatých 026+029+B3+B4
 
 Operátor dostane jeden balík:
 
@@ -487,7 +624,8 @@ nespouští.
 Navíc:
 
 - naměřená L3 čísla proti cílům `ROADMAP.md` §5;
-- rozhodnutí `ponechat / omezit / odstranit refinement` s daty;
+- automatický B5 výsledek `KEEP-LIMITED` pouze při splnění všech přijatých
+  prahů, jinak refinement pro M1 vypnutý, vždy s daty;
 - journey artefakty;
 - návrh stavového řádku M1 v `ROADMAP.md` a `SYSTEM-MAP.md` **k odsouhlasení**,
   ne už zapsaný jako hotový.
