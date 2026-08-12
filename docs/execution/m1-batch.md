@@ -262,7 +262,7 @@ B3 Phase A promotion
   -> 031 docs review + canonical promotion
   -> exact operator-accepted FK recovery plan
   -> successful FK recovery + latest 065
-  -> credential census once + plan once
+  -> separate explicit 026 authority for credential census once + plan once
   -> one M1-EXECUTION-MANIFEST (credentials + model)
   -> B3 Phase B
   -> B4 -> Gate 1 -> B5 -> B6 -> Gate 2
@@ -272,6 +272,11 @@ Recovery plan není druhý M1 execution manifest. Pozdější manifest zůstáv�
 jediný, digest-bound a raw-secret-free; 031 nepředvybírá fallback model. Při
 driftu, failure nebo neúplné akceptaci je stav `STOP/BLOCKED`, ne implicitní
 preserve, delete, migration nebo PASS.
+
+031 docs/promotion, recovery plán, jeho operátorské přijetí ani recovery PASS
+nepovolují credential census, plan nebo apply. PASS pouze splní databázový
+prerequisite. Census+plan vyžadují následnou samostatnou explicitní 026
+autoritu; apply až zvlášť přijatý exact `M1-EXECUTION-MANIFEST`.
 
 Historické cleanup pokusy včetně overall
 `PARTIAL_SOURCE_SHM_METADATA_TOUCH`, odmítnutého unbound runneru a harness

@@ -136,7 +136,7 @@ docs-only 031 + WP independent PASS
   -> exact operator acceptance varianty B + materialized plan SHA-256
   -> permissions + backup + quarantine + repair + one-shot migrations
   -> FK/integrity/latest-065 verification
-  -> canonical 026 credential census exactly once + plan exactly once
+  -> separate explicit 026 authority for credential census once + plan once
   -> jeden společný M1-EXECUTION-MANIFEST pro credentials + model
   -> B3 Phase B
 ```
@@ -145,6 +145,13 @@ Recovery plan je data-recovery prerequisite, ne druhý credentials/model
 manifest. Pozdější M1 execution manifest zůstává jediný a digest-bound. Toto
 rozhodnutí nevybírá fallback model, nevydává proof a nepovoluje pull, delete,
 stop, unload nebo rebind.
+
+031 docs, jejich review/promotion, materializace ani operátorské přijetí
+recovery plánu nepovolují credential census, credential plan ani apply.
+Úspěšná recovery pouze splní jejich databázový prerequisite. Následný canonical
+026 census a plan vyžadují novou samostatnou explicitní autoritu operátora;
+credential apply smí vzniknout až z později zvlášť přijatého exact
+`M1-EXECUTION-MANIFEST`.
 
 B3 Phase B zůstává přesně podle terminal-failover WP na disposable file-backed
 DB/runtime. Nakonfigurovaná user DB, její config a jiné user files se v
@@ -243,7 +250,8 @@ nevrací na group-writable módy.
   stav je `BLOCKED_RESTORE_REQUIRED` a žádný další pokus, migration, census ani
   manifest nevznikne bez nové autority.
 - Po úspěšném recovery se server/workers rovněž automaticky nerestartují.
-  Quiescent stav se předá credential census/plan/apply toku.
+  Quiescent stav pouze umožní požádat o samostatnou 026 census/plan autoritu;
+  031 ji ani apply autoritu samo nevytváří.
 
 ## Exact operátorská akceptace
 

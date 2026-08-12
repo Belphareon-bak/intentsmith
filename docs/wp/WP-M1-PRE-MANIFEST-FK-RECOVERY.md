@@ -23,9 +23,11 @@ invocation do 065. Úspěch vyžaduje FK nula, `quick_check=ok`,
 `integrity_check=ok`, 60 stampů a latest 065. WP netvrdí, že zbývajících 300
 API rows má čistou milestone provenance.
 
-WP neprovádí credential transfer/scrub ani modelový effect. Odemkne pouze
-canonical 026 census a plan, ze kterých později vznikne jediný společný
-credentials+model `M1-EXECUTION-MANIFEST`.
+WP neprovádí ani nepovoluje credential census, plan, transfer/scrub/apply nebo
+modelový effect. Úspěch pouze splní databázový prerequisite. Canonical 026
+census a plan vyžadují následnou samostatnou explicitní autoritu operátora;
+credential apply až zvlášť přijatý exact credentials+model
+`M1-EXECUTION-MANIFEST`.
 
 ## 2. Scope
 
@@ -116,11 +118,13 @@ migration invocation bez retry, exact poststate a úplný private inventory.
 Unresolved `300 API / 48 IDs / 0 milestones / 0 joins` zůstane výslovně
 otevřený.
 
-Potom, stále bez serveru/workers, smí navázat canonical 026 credential census
-právě jednou a plan právě jednou. Drift nebo unmappable source zastaví tok před
-manifestem; recovery se kvůli tomu automaticky nevrací. Credential apply čeká
-na pozdější jediný digest-bound `M1-EXECUTION-MANIFEST` a jeho exact přijetí.
-Modelový fallback zůstává v tomto WP nevybraný.
+Recovery PASS pouze splní prerequisite. 031 docs/promotion, recovery plán ani
+jeho přijetí neopravňují spustit canonical 026 credential census nebo plan.
+Oba vyžadují následnou samostatnou explicitní autoritu operátora; případný
+drift nebo unmappable source pak zastaví tok před manifestem a recovery se
+automaticky nevrací. Credential apply čeká na pozdější jediný digest-bound
+`M1-EXECUTION-MANIFEST` a jeho zvláštní exact přijetí. Modelový fallback
+zůstává v tomto WP nevybraný.
 Následující B3 Phase B používá výhradně disposable file-backed DB/runtime;
 user DB/config a jiné user files zůstávají během modelové execution evidence
 beze změny.
