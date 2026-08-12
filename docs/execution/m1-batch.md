@@ -228,6 +228,51 @@ activation/restore lifecycle, úplnou transitivní proof source closure, mobile
 late-insertion důkaz a oddělenou Phase A/B evidence. Aktivace sama není
 implementation, proof issuance, model effect, GPU evidence ani Gate 1 PASS.
 
+### Pre-manifest C3 DB foreign-key recovery — 2026-08-12
+
+Po promotion B3 Phase A odkryl read-only real-data preflight nový predecessor:
+explicitně nakonfigurovaná
+`/home/belphareon/Projects/c3-agent-wip/data/c3.db` je na latest 044 a má 46
+preexistujících FK violations. Private-copy direct migration commitnula
+045–054 a 061, potom fail-closed skončila na 062; 064/065 nebyly spuštěné.
+Přímý live migration run by proto zanechal partial schema a je zakázaný.
+
+Samostatná proposed
+[`decision 031`](../decisions/031-m1-pre-manifest-fk-recovery.md) a
+[`WP-M1-PRE-MANIFEST-FK-RECOVERY`](../wp/WP-M1-PRE-MANIFEST-FK-RECOVERY.md)
+oddělují tuto data mutation od promovaného 026 source důkazu i B3 Phase B
+modelové hranice. Preserve-subtree varianta má nezávislý `CHANGES_REQUIRED`;
+quarantine varianta má writer i independent
+`PASS_FOR_PINNED_PRIVATE_SNAPSHOT`, ale live freshness neprokazuje. Tento
+docs-only amendment sám nepovoluje live mutation.
+
+Před prvním chmod/write je kumulativně povinné: independent docs PASS,
+canonical fast-forward promotion, fresh no-handle/no-drift live plan a exact
+operátorská akceptace jeho SHA-256. Akceptovaný plán teprve smí hardenovat
+permissions, vytvořit private backup/quarantine, v jedné transakci odstranit
+exact 34 orphan API rows a 7 orphan architecture rows, zachovat konverzaci s
+jedním `project_id -> NULL` a jedním no-retry migration invocation dojít do
+065. Unresolved `300 API / 48 milestone IDs / 0 milestones / 0 joins` zůstává
+explicitní dluh.
+
+Závazná closeout hrana se tím zpřesňuje na:
+
+```text
+B3 Phase A promotion
+  -> 031 docs review + canonical promotion
+  -> exact operator-accepted FK recovery plan
+  -> successful FK recovery + latest 065
+  -> credential census once + plan once
+  -> one M1-EXECUTION-MANIFEST (credentials + model)
+  -> B3 Phase B
+  -> B4 -> Gate 1 -> B5 -> B6 -> Gate 2
+```
+
+Recovery plan není druhý M1 execution manifest. Pozdější manifest zůstává
+jediný, digest-bound a raw-secret-free; 031 nepředvybírá fallback model. Při
+driftu, failure nebo neúplné akceptaci je stav `STOP/BLOCKED`, ne implicitní
+preserve, delete, migration nebo PASS.
+
 ---
 
 ## 2. Sdílené invarianty — platí pro každý běh v dávce
