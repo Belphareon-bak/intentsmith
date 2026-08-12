@@ -3,6 +3,10 @@
   "classificationBasis": "Gate 0 path-by-path source inspection at 3a6efa6e41701d85060e7ce1568e4a950fdc1dd7 plus same-commit test-trust repairs",
   "exclusions": [
     {
+      "path": "tests/e2e-harness.js",
+      "reason": "Imported legacy E2E harness library with no top-level test entry point."
+    },
+    {
       "path": "tests/e2e/_e2e-state.js",
       "reason": "Imported E2E state support module with no top-level test entry point."
     },
@@ -19,16 +23,16 @@
       "reason": "Imported synthetic fixture data module with no top-level test entry point."
     },
     {
-      "path": "tests/e2e-harness.js",
-      "reason": "Imported legacy E2E harness library with no top-level test entry point."
-    },
-    {
       "path": "tests/harness.js",
       "reason": "Imported unit-test harness library with no top-level test entry point."
     },
     {
       "path": "tests/helpers/isolated-test-db.js",
       "reason": "Imported direct-run database isolation bootstrap, not a standalone test."
+    },
+    {
+      "path": "tests/helpers/server-supervisor.js",
+      "reason": "Imported owned-listener supervisor used by the mobile gateway suites; it starts and stops processes for them and has no test entry point of its own."
     },
     {
       "path": "tests/run-all.js",
@@ -1267,6 +1271,96 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-CAPABILITY-01-SERVER-BEHAVIOURS-TEST",
+      "path": "tests/capability-01-server-behaviours.test.js",
+      "argv": [
+        "node",
+        "tests/capability-01-server-behaviours.test.js"
+      ],
+      "capabilityId": "C3-023",
+      "tier": "T1",
+      "fixture": "isolated-home-and-owned-loopback-server",
+      "profile": "offline",
+      "timeoutMs": 300000,
+      "expectedDurationMs": 90000,
+      "requirements": {
+        "network": "loopback",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-CAPABILITY-02-CRE-BEHAVIOURS-TEST",
+      "path": "tests/capability-02-cre-behaviours.test.js",
+      "argv": [
+        "node",
+        "tests/capability-02-cre-behaviours.test.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 20000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-TESTS-CAPABILITY-02-CRE-MODEL-BEHAVIOURS-TEST",
+      "path": "tests/capability-02-cre-model-behaviours.test.js",
+      "argv": [
+        "node",
+        "tests/capability-02-cre-model-behaviours.test.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "isolated-model",
+      "profile": "model",
+      "timeoutMs": 300000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "loopback",
+        "database": false,
+        "server": false,
+        "ollama": true,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-CAPABILITY-ENFORCER-TEST",
       "path": "tests/capability-enforcer.test.js",
       "argv": [
@@ -2110,66 +2204,6 @@
       "quarantineExpiry": null
     },
     {
-      "id": "IS-T1-TESTS-CAPABILITY-02-CRE-BEHAVIOURS-TEST",
-      "path": "tests/capability-02-cre-behaviours.test.js",
-      "argv": [
-        "node",
-        "tests/capability-02-cre-behaviours.test.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T1",
-      "fixture": "isolated-home",
-      "profile": "offline",
-      "timeoutMs": 120000,
-      "expectedDurationMs": 20000,
-      "requirements": {
-        "network": "none",
-        "database": false,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-TESTS-CAPABILITY-02-CRE-MODEL-BEHAVIOURS-TEST",
-      "path": "tests/capability-02-cre-model-behaviours.test.js",
-      "argv": [
-        "node",
-        "tests/capability-02-cre-model-behaviours.test.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "isolated-model",
-      "profile": "model",
-      "timeoutMs": 300000,
-      "expectedDurationMs": 30000,
-      "requirements": {
-        "network": "loopback",
-        "database": false,
-        "server": false,
-        "ollama": true,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
       "id": "IS-T3-TESTS-CRE-COMPREHENSIVE-TEST",
       "path": "tests/cre-comprehensive.test.js",
       "argv": [
@@ -2800,6 +2834,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T2-TESTS-E2E-HARNESS-ISOLATION-TEST",
+      "path": "tests/e2e-harness-isolation.test.js",
+      "argv": [
+        "node",
+        "tests/e2e-harness-isolation.test.js"
+      ],
+      "capabilityId": "C3-027",
+      "tier": "T2",
+      "fixture": "isolated-home-sqlite-git",
+      "profile": "database",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T3-TESTS-E2E-NOTIFICATIONS-TEST",
       "path": "tests/e2e-notifications.test.js",
       "argv": [
@@ -2950,6 +3014,1026 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T3-E2E-01-HEALTH-SMOKE",
+      "path": "tests/e2e/01-health-smoke.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/01-health-smoke.e2e.js"
+      ],
+      "capabilityId": "C3-023",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-02-CHAT-API",
+      "path": "tests/e2e/02-chat-api.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/02-chat-api.e2e.js"
+      ],
+      "capabilityId": "C3-023",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-03-CONVERSATIONS",
+      "path": "tests/e2e/03-conversations.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/03-conversations.e2e.js"
+      ],
+      "capabilityId": "C3-023",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-04-PROJECTS",
+      "path": "tests/e2e/04-projects.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/04-projects.e2e.js"
+      ],
+      "capabilityId": "C3-023",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-05-ATTACHMENTS",
+      "path": "tests/e2e/05-attachments.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/05-attachments.e2e.js"
+      ],
+      "capabilityId": "C3-023",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-06-EXPERTISES",
+      "path": "tests/e2e/06-expertises.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/06-expertises.e2e.js"
+      ],
+      "capabilityId": "C3-023",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-07-SPECIALISTS",
+      "path": "tests/e2e/07-specialists.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/07-specialists.e2e.js"
+      ],
+      "capabilityId": "C3-023",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-08-AGENTS",
+      "path": "tests/e2e/08-agents.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/08-agents.e2e.js"
+      ],
+      "capabilityId": "C3-023",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-09-SKILLS",
+      "path": "tests/e2e/09-skills.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/09-skills.e2e.js"
+      ],
+      "capabilityId": "C3-023",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-10-MARKETPLACE",
+      "path": "tests/e2e/10-marketplace.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/10-marketplace.e2e.js"
+      ],
+      "capabilityId": "C3-023",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "external",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-11-MEMORY",
+      "path": "tests/e2e/11-memory.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/11-memory.e2e.js"
+      ],
+      "capabilityId": "C3-023",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-12-NOTIFICATIONS",
+      "path": "tests/e2e/12-notifications.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/12-notifications.e2e.js"
+      ],
+      "capabilityId": "C3-023",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-13-SECURITY",
+      "path": "tests/e2e/13-security.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/13-security.e2e.js"
+      ],
+      "capabilityId": "C3-023",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-14-SYSTEM",
+      "path": "tests/e2e/14-system.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/14-system.e2e.js"
+      ],
+      "capabilityId": "C3-023",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-15-QUALITY",
+      "path": "tests/e2e/15-quality.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/15-quality.e2e.js"
+      ],
+      "capabilityId": "C3-023",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-16-SETUP-WIZARD",
+      "path": "tests/e2e/16-setup-wizard.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/16-setup-wizard.e2e.js"
+      ],
+      "capabilityId": "C3-023",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-17-EXPORT",
+      "path": "tests/e2e/17-export.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/17-export.e2e.js"
+      ],
+      "capabilityId": "C3-023",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-18-WEBSOCKET",
+      "path": "tests/e2e/18-websocket.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/18-websocket.e2e.js"
+      ],
+      "capabilityId": "C3-023",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-19-RATE-LIMIT",
+      "path": "tests/e2e/19-rate-limit.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/19-rate-limit.e2e.js"
+      ],
+      "capabilityId": "C3-023",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-20-SECURITY-HARDENING",
+      "path": "tests/e2e/20-security-hardening.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/20-security-hardening.e2e.js"
+      ],
+      "capabilityId": "C3-023",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T5-E2E-200-S1-MINIC3-P1",
+      "path": "tests/e2e/200-s1-minic3-p1.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/200-s1-minic3-p1.e2e.js"
+      ],
+      "capabilityId": "C3-027",
+      "tier": "T5",
+      "fixture": "owned-sequential-model-server-state",
+      "profile": "soak",
+      "timeoutMs": 5400000,
+      "expectedDurationMs": 3600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T5-E2E-201-S1-MINIC3-P2",
+      "path": "tests/e2e/201-s1-minic3-p2.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/201-s1-minic3-p2.e2e.js"
+      ],
+      "capabilityId": "C3-027",
+      "tier": "T5",
+      "fixture": "owned-sequential-model-server-state",
+      "profile": "soak",
+      "timeoutMs": 5400000,
+      "expectedDurationMs": 3600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T5-E2E-202-S1-MINIC3-P3",
+      "path": "tests/e2e/202-s1-minic3-p3.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/202-s1-minic3-p3.e2e.js"
+      ],
+      "capabilityId": "C3-027",
+      "tier": "T5",
+      "fixture": "owned-sequential-model-server-state",
+      "profile": "soak",
+      "timeoutMs": 5400000,
+      "expectedDurationMs": 3600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T5-E2E-203-S1-MINIC3-P4",
+      "path": "tests/e2e/203-s1-minic3-p4.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/203-s1-minic3-p4.e2e.js"
+      ],
+      "capabilityId": "C3-027",
+      "tier": "T5",
+      "fixture": "owned-sequential-model-server-state",
+      "profile": "soak",
+      "timeoutMs": 5400000,
+      "expectedDurationMs": 3600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T5-E2E-204-S1-MINIC3-P5",
+      "path": "tests/e2e/204-s1-minic3-p5.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/204-s1-minic3-p5.e2e.js"
+      ],
+      "capabilityId": "C3-027",
+      "tier": "T5",
+      "fixture": "owned-sequential-model-server-state",
+      "profile": "soak",
+      "timeoutMs": 5400000,
+      "expectedDurationMs": 3600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T5-E2E-205-S1-MINIC3-P6",
+      "path": "tests/e2e/205-s1-minic3-p6.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/205-s1-minic3-p6.e2e.js"
+      ],
+      "capabilityId": "C3-027",
+      "tier": "T5",
+      "fixture": "owned-sequential-model-server-state",
+      "profile": "soak",
+      "timeoutMs": 5400000,
+      "expectedDurationMs": 3600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T5-E2E-206-S2-SHOPFLOW-P1",
+      "path": "tests/e2e/206-s2-shopflow-p1.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/206-s2-shopflow-p1.e2e.js"
+      ],
+      "capabilityId": "C3-027",
+      "tier": "T5",
+      "fixture": "owned-sequential-model-server-state",
+      "profile": "soak",
+      "timeoutMs": 5400000,
+      "expectedDurationMs": 3600000,
+      "requirements": {
+        "network": "external",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T5-E2E-207-S2-SHOPFLOW-P2",
+      "path": "tests/e2e/207-s2-shopflow-p2.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/207-s2-shopflow-p2.e2e.js"
+      ],
+      "capabilityId": "C3-027",
+      "tier": "T5",
+      "fixture": "owned-sequential-model-server-state",
+      "profile": "soak",
+      "timeoutMs": 5400000,
+      "expectedDurationMs": 3600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T5-E2E-208-S2-SHOPFLOW-P3",
+      "path": "tests/e2e/208-s2-shopflow-p3.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/208-s2-shopflow-p3.e2e.js"
+      ],
+      "capabilityId": "C3-027",
+      "tier": "T5",
+      "fixture": "owned-sequential-model-server-state",
+      "profile": "soak",
+      "timeoutMs": 5400000,
+      "expectedDurationMs": 3600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T5-E2E-209-S2-SHOPFLOW-P4",
+      "path": "tests/e2e/209-s2-shopflow-p4.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/209-s2-shopflow-p4.e2e.js"
+      ],
+      "capabilityId": "C3-027",
+      "tier": "T5",
+      "fixture": "owned-sequential-model-server-state",
+      "profile": "soak",
+      "timeoutMs": 5400000,
+      "expectedDurationMs": 3600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-21-MODEL-UPGRADE",
+      "path": "tests/e2e/21-model-upgrade.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/21-model-upgrade.e2e.js"
+      ],
+      "capabilityId": "C3-023",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T5-E2E-210-S2-SHOPFLOW-P5",
+      "path": "tests/e2e/210-s2-shopflow-p5.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/210-s2-shopflow-p5.e2e.js"
+      ],
+      "capabilityId": "C3-027",
+      "tier": "T5",
+      "fixture": "owned-sequential-model-server-state",
+      "profile": "soak",
+      "timeoutMs": 5400000,
+      "expectedDurationMs": 3600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T5-E2E-211-S2-SHOPFLOW-P6",
+      "path": "tests/e2e/211-s2-shopflow-p6.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/211-s2-shopflow-p6.e2e.js"
+      ],
+      "capabilityId": "C3-027",
+      "tier": "T5",
+      "fixture": "owned-sequential-model-server-state",
+      "profile": "soak",
+      "timeoutMs": 5400000,
+      "expectedDurationMs": 3600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-22-AUTONOMY",
+      "path": "tests/e2e/22-autonomy.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/22-autonomy.e2e.js"
+      ],
+      "capabilityId": "C3-023",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T5-E2E-220-E2E-SUITE-RUNNER",
       "path": "tests/e2e/220-e2e-suite-runner.js",
       "argv": [
@@ -2972,6 +4056,1400 @@
       "required": true,
       "owner": "primary implementer",
       "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-23-FEEDBACK",
+      "path": "tests/e2e/23-feedback.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/23-feedback.e2e.js"
+      ],
+      "capabilityId": "C3-023",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-24-DRAFTS",
+      "path": "tests/e2e/24-drafts.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/24-drafts.e2e.js"
+      ],
+      "capabilityId": "C3-023",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-25-FEATURES",
+      "path": "tests/e2e/25-features.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/25-features.e2e.js"
+      ],
+      "capabilityId": "C3-023",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-50-CHAT-CONVERSATION",
+      "path": "tests/e2e/50-chat-conversation.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/50-chat-conversation.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server",
+      "profile": "model",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-51-CRE-CLASSIFICATION",
+      "path": "tests/e2e/51-cre-classification.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/51-cre-classification.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server",
+      "profile": "model",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "external",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-52-CHAT-QUALITY-GATE",
+      "path": "tests/e2e/52-chat-quality-gate.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/52-chat-quality-gate.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server",
+      "profile": "model",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-53-LONG-CONVERSATION",
+      "path": "tests/e2e/53-long-conversation.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/53-long-conversation.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server",
+      "profile": "model",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-54-CHAT-WITH-EXPERTISE",
+      "path": "tests/e2e/54-chat-with-expertise.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/54-chat-with-expertise.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server",
+      "profile": "model",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-55-CHAT-WITH-SPECIALIST",
+      "path": "tests/e2e/55-chat-with-specialist.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/55-chat-with-specialist.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server",
+      "profile": "model",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-56-CHAT-WITH-PROJECT",
+      "path": "tests/e2e/56-chat-with-project.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/56-chat-with-project.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-57-LIFECYCLE-FULL",
+      "path": "tests/e2e/57-lifecycle-full.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/57-lifecycle-full.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server",
+      "profile": "model",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true,
+        "modelFixture": {
+          "provider": "ollama",
+          "model": "qwen3.5:27b",
+          "digestSha256": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+          "contextWindowTokens": 8192,
+          "minimumFreeVramMiB": 20128,
+          "parallelRequests": 1,
+          "minimumHeadroomMiB": 1024,
+          "minimumGpuResidencyPercent": 100,
+          "fallbackPolicy": "forbid"
+        }
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-58-CODE-GENERATION",
+      "path": "tests/e2e/58-code-generation.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/58-code-generation.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server",
+      "profile": "model",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true,
+        "modelFixture": {
+          "provider": "ollama",
+          "model": "qwen3.5:27b",
+          "digestSha256": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+          "contextWindowTokens": 8192,
+          "minimumFreeVramMiB": 20128,
+          "parallelRequests": 1,
+          "minimumHeadroomMiB": 1024,
+          "minimumGpuResidencyPercent": 100,
+          "fallbackPolicy": "forbid"
+        }
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-59-CROSS-FEATURE",
+      "path": "tests/e2e/59-cross-feature.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/59-cross-feature.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server",
+      "profile": "model",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true,
+        "modelFixture": {
+          "provider": "ollama",
+          "model": "qwen3.5:27b",
+          "digestSha256": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+          "contextWindowTokens": 8192,
+          "minimumFreeVramMiB": 20128,
+          "parallelRequests": 1,
+          "minimumHeadroomMiB": 1024,
+          "minimumGpuResidencyPercent": 100,
+          "fallbackPolicy": "forbid"
+        }
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-60-WS-CHAT",
+      "path": "tests/e2e/60-ws-chat.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/60-ws-chat.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-61-AUTOCOMPLETE",
+      "path": "tests/e2e/61-autocomplete.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/61-autocomplete.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server",
+      "profile": "model",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-62-VALIDATION-SUITES",
+      "path": "tests/e2e/62-validation-suites.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/62-validation-suites.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server",
+      "profile": "model",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-63-AGENT-EXECUTION",
+      "path": "tests/e2e/63-agent-execution.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/63-agent-execution.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-70-CRE-INTENT-SEMANTIC",
+      "path": "tests/e2e/70-cre-intent-semantic.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/70-cre-intent-semantic.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server",
+      "profile": "model",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-71-LANGUAGE-ENFORCEMENT",
+      "path": "tests/e2e/71-language-enforcement.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/71-language-enforcement.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server",
+      "profile": "model",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-72-FOLLOWUP-COHERENCE",
+      "path": "tests/e2e/72-followup-coherence.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/72-followup-coherence.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server",
+      "profile": "model",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-73-QUALITY-GATE-CONTENT",
+      "path": "tests/e2e/73-quality-gate-content.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/73-quality-gate-content.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server",
+      "profile": "model",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-74-SESSION-ISOLATION",
+      "path": "tests/e2e/74-session-isolation.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/74-session-isolation.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server",
+      "profile": "model",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-75-EXPERTISE-BEHAVIORAL",
+      "path": "tests/e2e/75-expertise-behavioral.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/75-expertise-behavioral.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server",
+      "profile": "model",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-76-SPECIALIST-DOMAIN",
+      "path": "tests/e2e/76-specialist-domain.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/76-specialist-domain.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server",
+      "profile": "model",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-77-PROJECT-CONTEXT-INJECTION",
+      "path": "tests/e2e/77-project-context-injection.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/77-project-context-injection.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server",
+      "profile": "model",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-78-GUARD-RULES",
+      "path": "tests/e2e/78-guard-rules.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/78-guard-rules.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server",
+      "profile": "model",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-79-RESPONSE-SEMANTICS",
+      "path": "tests/e2e/79-response-semantics.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/79-response-semantics.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server",
+      "profile": "model",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-80-WS-SEMANTIC-EVENTS",
+      "path": "tests/e2e/80-ws-semantic-events.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/80-ws-semantic-events.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-81-CONVERSATION-LIFECYCLE",
+      "path": "tests/e2e/81-conversation-lifecycle.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/81-conversation-lifecycle.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server",
+      "profile": "model",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-82-CRE-CONFLICT-RESOLUTION",
+      "path": "tests/e2e/82-cre-conflict-resolution.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/82-cre-conflict-resolution.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server",
+      "profile": "model",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-85-LONG-SESSION-DEGRADATION",
+      "path": "tests/e2e/85-long-session-degradation.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/85-long-session-degradation.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server-long",
+      "profile": "model",
+      "timeoutMs": 3600000,
+      "expectedDurationMs": 2700000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-86-CODE-SEMANTIC-QUALITY",
+      "path": "tests/e2e/86-code-semantic-quality.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/86-code-semantic-quality.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server-long",
+      "profile": "model",
+      "timeoutMs": 3600000,
+      "expectedDurationMs": 2700000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-87-SECURITY-INJECTION",
+      "path": "tests/e2e/87-security-injection.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/87-security-injection.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server-long",
+      "profile": "model",
+      "timeoutMs": 3600000,
+      "expectedDurationMs": 2700000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-88-CONCURRENT-LOAD",
+      "path": "tests/e2e/88-concurrent-load.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/88-concurrent-load.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server-long",
+      "profile": "model",
+      "timeoutMs": 3600000,
+      "expectedDurationMs": 2700000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true,
+        "modelFixture": {
+          "provider": "ollama",
+          "model": "qwen3.5:27b",
+          "digestSha256": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+          "contextWindowTokens": 8192,
+          "minimumFreeVramMiB": 24016,
+          "parallelRequests": 3,
+          "minimumHeadroomMiB": 1024,
+          "minimumGpuResidencyPercent": 100,
+          "fallbackPolicy": "forbid"
+        }
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-89-RESPONSE-USEFULNESS",
+      "path": "tests/e2e/89-response-usefulness.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/89-response-usefulness.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server-long",
+      "profile": "model",
+      "timeoutMs": 3600000,
+      "expectedDurationMs": 2700000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-90-LARGE-PROJECT-GENERATION",
+      "path": "tests/e2e/90-large-project-generation.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/90-large-project-generation.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server-long",
+      "profile": "model",
+      "timeoutMs": 3600000,
+      "expectedDurationMs": 2700000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-91-MULTI-TURN-PROJECT-BUILD",
+      "path": "tests/e2e/91-multi-turn-project-build.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/91-multi-turn-project-build.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server-long",
+      "profile": "model",
+      "timeoutMs": 3600000,
+      "expectedDurationMs": 2700000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-92-CODE-ANALYSIS-DEPTH",
+      "path": "tests/e2e/92-code-analysis-depth.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/92-code-analysis-depth.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server-long",
+      "profile": "model",
+      "timeoutMs": 3600000,
+      "expectedDurationMs": 2700000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-93-CHAT-RESPONSE-QUALITY",
+      "path": "tests/e2e/93-chat-response-quality.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/93-chat-response-quality.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server-long",
+      "profile": "model",
+      "timeoutMs": 3600000,
+      "expectedDurationMs": 2700000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-94-LONG-CONVERSATION-QUALITY",
+      "path": "tests/e2e/94-long-conversation-quality.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/94-long-conversation-quality.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server-long",
+      "profile": "model",
+      "timeoutMs": 3600000,
+      "expectedDurationMs": 2700000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-95-CODE-GENERATION-QUALITY",
+      "path": "tests/e2e/95-code-generation-quality.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/95-code-generation-quality.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server-long",
+      "profile": "model",
+      "timeoutMs": 3600000,
+      "expectedDurationMs": 2700000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-96-PROJECT-WORKFLOW-QUALITY",
+      "path": "tests/e2e/96-project-workflow-quality.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/96-project-workflow-quality.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server-long",
+      "profile": "model",
+      "timeoutMs": 3600000,
+      "expectedDurationMs": 2700000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-97-PROJECT-BUILD-QUALITY",
+      "path": "tests/e2e/97-project-build-quality.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/97-project-build-quality.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server-long",
+      "profile": "model",
+      "timeoutMs": 3600000,
+      "expectedDurationMs": 2700000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-E2E-98-ANALYSIS-QUALITY",
+      "path": "tests/e2e/98-analysis-quality.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/98-analysis-quality.e2e.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "owned-isolated-model-server-long",
+      "profile": "model",
+      "timeoutMs": 3600000,
+      "expectedDurationMs": 2700000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-E2E-HELPERS-SELF-CHECK",
+      "path": "tests/e2e/_helpers.self-check.js",
+      "argv": [
+        "node",
+        "tests/e2e/_helpers.self-check.js"
+      ],
+      "capabilityId": "C3-027",
+      "tier": "T1",
+      "fixture": "isolated-home-and-owned-loopback-server",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 5000,
+      "requirements": {
+        "network": "loopback",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
       "lastGreen": {
         "commit": null,
         "artifact": null
@@ -4903,36 +7381,6 @@
       "quarantineExpiry": null
     },
     {
-      "id": "IS-T1-TESTS-M1-CONTRACT-TEST",
-      "path": "tests/m1-contract.test.js",
-      "argv": [
-        "node",
-        "tests/m1-contract.test.js"
-      ],
-      "capabilityId": "C3-023",
-      "tier": "T1",
-      "fixture": "isolated-home",
-      "profile": "offline",
-      "timeoutMs": 120000,
-      "expectedDurationMs": 30000,
-      "requirements": {
-        "network": "none",
-        "database": false,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
       "id": "IS-T2-TESTS-M1-CHAT-CONTRACT-TEST",
       "path": "tests/m1-chat-contract.test.js",
       "argv": [
@@ -4963,13 +7411,13 @@
       "quarantineExpiry": null
     },
     {
-      "id": "IS-T1-TESTS-M1-MODEL-CONTRACT-TEST",
-      "path": "tests/m1-model-contract.test.js",
+      "id": "IS-T1-TESTS-M1-CONTRACT-TEST",
+      "path": "tests/m1-contract.test.js",
       "argv": [
         "node",
-        "tests/m1-model-contract.test.js"
+        "tests/m1-contract.test.js"
       ],
-      "capabilityId": "C3-010",
+      "capabilityId": "C3-023",
       "tier": "T1",
       "fixture": "isolated-home",
       "profile": "offline",
@@ -4993,20 +7441,20 @@
       "quarantineExpiry": null
     },
     {
-      "id": "IS-T1-TESTS-M1-MODEL-IDENTITY-TEST",
-      "path": "tests/m1-model-identity.test.js",
+      "id": "IS-T1-TESTS-M1-MODEL-BINDING-APPLICATION-TEST",
+      "path": "tests/m1-model-binding-application.test.js",
       "argv": [
         "node",
-        "tests/m1-model-identity.test.js"
+        "tests/m1-model-binding-application.test.js"
       ],
       "capabilityId": "C3-010",
       "tier": "T1",
-      "fixture": "isolated-sqlite",
+      "fixture": "owned-isolated-local-server",
       "profile": "database",
       "timeoutMs": 120000,
       "expectedDurationMs": 30000,
       "requirements": {
-        "network": "none",
+        "network": "loopback",
         "database": true,
         "server": false,
         "ollama": false,
@@ -5023,101 +7471,11 @@
       "quarantineExpiry": null
     },
     {
-      "id": "IS-T1-TESTS-M1-MODEL-USE-AUTHORITY-TEST",
-      "path": "tests/m1-model-use-authority.test.js",
+      "id": "IS-T1-TESTS-M1-MODEL-BINDING-REPOSITORY-TEST",
+      "path": "tests/m1-model-binding-repository.test.js",
       "argv": [
         "node",
-        "tests/m1-model-use-authority.test.js"
-      ],
-      "capabilityId": "C3-010",
-      "tier": "T1",
-      "fixture": "isolated-home",
-      "profile": "offline",
-      "timeoutMs": 120000,
-      "expectedDurationMs": 30000,
-      "requirements": {
-        "network": "none",
-        "database": false,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
-      "path": "tests/m1-model-failover-schema.test.js",
-      "argv": [
-        "node",
-        "tests/m1-model-failover-schema.test.js"
-      ],
-      "capabilityId": "C3-010",
-      "tier": "T1",
-      "fixture": "isolated-sqlite",
-      "profile": "database",
-      "timeoutMs": 120000,
-      "expectedDurationMs": 30000,
-      "requirements": {
-        "network": "none",
-        "database": true,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-REPOSITORY-TEST",
-      "path": "tests/m1-model-failover-repository.test.js",
-      "argv": [
-        "node",
-        "tests/m1-model-failover-repository.test.js"
-      ],
-      "capabilityId": "C3-010",
-      "tier": "T1",
-      "fixture": "isolated-sqlite",
-      "profile": "database",
-      "timeoutMs": 120000,
-      "expectedDurationMs": 30000,
-      "requirements": {
-        "network": "none",
-        "database": true,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-COORDINATOR-TEST",
-      "path": "tests/m1-model-failover-coordinator.test.js",
-      "argv": [
-        "node",
-        "tests/m1-model-failover-coordinator.test.js"
+        "tests/m1-model-binding-repository.test.js"
       ],
       "capabilityId": "C3-010",
       "tier": "T1",
@@ -5173,71 +7531,11 @@
       "quarantineExpiry": null
     },
     {
-      "id": "IS-T1-TESTS-M1-MODEL-BINDING-REPOSITORY-TEST",
-      "path": "tests/m1-model-binding-repository.test.js",
+      "id": "IS-T1-TESTS-M1-MODEL-CONTRACT-TEST",
+      "path": "tests/m1-model-contract.test.js",
       "argv": [
         "node",
-        "tests/m1-model-binding-repository.test.js"
-      ],
-      "capabilityId": "C3-010",
-      "tier": "T1",
-      "fixture": "isolated-sqlite",
-      "profile": "database",
-      "timeoutMs": 120000,
-      "expectedDurationMs": 30000,
-      "requirements": {
-        "network": "none",
-        "database": true,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T1-TESTS-M1-MODEL-BINDING-APPLICATION-TEST",
-      "path": "tests/m1-model-binding-application.test.js",
-      "argv": [
-        "node",
-        "tests/m1-model-binding-application.test.js"
-      ],
-      "capabilityId": "C3-010",
-      "tier": "T1",
-      "fixture": "owned-isolated-local-server",
-      "profile": "database",
-      "timeoutMs": 120000,
-      "expectedDurationMs": 30000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-PROOF-POLICY-TEST",
-      "path": "tests/m1-model-failover-proof-policy.test.js",
-      "argv": [
-        "node",
-        "tests/m1-model-failover-proof-policy.test.js"
+        "tests/m1-model-contract.test.js"
       ],
       "capabilityId": "C3-010",
       "tier": "T1",
@@ -5248,6 +7546,36 @@
       "requirements": {
         "network": "none",
         "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-COORDINATOR-TEST",
+      "path": "tests/m1-model-failover-coordinator.test.js",
+      "argv": [
+        "node",
+        "tests/m1-model-failover-coordinator.test.js"
+      ],
+      "capabilityId": "C3-010",
+      "tier": "T1",
+      "fixture": "isolated-sqlite",
+      "profile": "database",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": true,
         "server": false,
         "ollama": false,
         "gpu": false
@@ -5323,11 +7651,71 @@
       "quarantineExpiry": null
     },
     {
-      "id": "IS-T1-TESTS-M1-MODEL-SETTINGS-TEST",
-      "path": "tests/m1-model-settings.test.js",
+      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-PROOF-POLICY-TEST",
+      "path": "tests/m1-model-failover-proof-policy.test.js",
       "argv": [
         "node",
-        "tests/m1-model-settings.test.js"
+        "tests/m1-model-failover-proof-policy.test.js"
+      ],
+      "capabilityId": "C3-010",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-REPOSITORY-TEST",
+      "path": "tests/m1-model-failover-repository.test.js",
+      "argv": [
+        "node",
+        "tests/m1-model-failover-repository.test.js"
+      ],
+      "capabilityId": "C3-010",
+      "tier": "T1",
+      "fixture": "isolated-sqlite",
+      "profile": "database",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
+      "path": "tests/m1-model-failover-schema.test.js",
+      "argv": [
+        "node",
+        "tests/m1-model-failover-schema.test.js"
       ],
       "capabilityId": "C3-010",
       "tier": "T1",
@@ -5371,6 +7759,96 @@
         "server": false,
         "ollama": true,
         "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-IDENTITY-TEST",
+      "path": "tests/m1-model-identity.test.js",
+      "argv": [
+        "node",
+        "tests/m1-model-identity.test.js"
+      ],
+      "capabilityId": "C3-010",
+      "tier": "T1",
+      "fixture": "isolated-sqlite",
+      "profile": "database",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-SETTINGS-TEST",
+      "path": "tests/m1-model-settings.test.js",
+      "argv": [
+        "node",
+        "tests/m1-model-settings.test.js"
+      ],
+      "capabilityId": "C3-010",
+      "tier": "T1",
+      "fixture": "isolated-sqlite",
+      "profile": "database",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-USE-AUTHORITY-TEST",
+      "path": "tests/m1-model-use-authority.test.js",
+      "argv": [
+        "node",
+        "tests/m1-model-use-authority.test.js"
+      ],
+      "capabilityId": "C3-010",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
       },
       "required": true,
       "owner": "primary implementer",
@@ -5600,6 +8078,699 @@
         "tests/milestone-size.test.js"
       ],
       "capabilityId": "C3-027",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T2-TESTS-MOBILE-APPROVAL-CACHE-BOUNDARY-TEST",
+      "path": "tests/mobile-approval-cache-boundary.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-approval-cache-boundary.test.js"
+      ],
+      "capabilityId": "C3-032",
+      "tier": "T2",
+      "fixture": "owned-loopback-gateway",
+      "profile": "database",
+      "timeoutMs": 240000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-APPROVAL-LIFECYCLE-REGRESSION-TEST",
+      "path": "tests/mobile-approval-lifecycle-regression.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-approval-lifecycle-regression.test.js"
+      ],
+      "capabilityId": "C3-032",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "capabilityId": "C3-031",
+      "tier": "T2",
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null,
+      "id": "IS-T2-TESTS-MOBILE-DATA-MODEL-TEST",
+      "path": "tests/mobile-data-model.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-data-model.test.js"
+      ],
+      "fixture": "isolated-sqlite-temp",
+      "profile": "database",
+      "timeoutMs": 180000,
+      "expectedDurationMs": 20000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      }
+    },
+    {
+      "capabilityId": "C3-031",
+      "tier": "T2",
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null,
+      "id": "IS-T1-TESTS-MOBILE-NOTIFICATION-ACK-TEST",
+      "path": "tests/mobile-notification-ack.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-notification-ack.test.js"
+      ],
+      "fixture": "isolated-sqlite-temp",
+      "profile": "database",
+      "timeoutMs": 180000,
+      "expectedDurationMs": 20000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      }
+    },
+    {
+      "capabilityId": "C3-031",
+      "tier": "T2",
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null,
+      "id": "IS-T1-TESTS-MOBILE-NOTIFICATION-SEQ-TEST",
+      "path": "tests/mobile-notification-seq.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-notification-seq.test.js"
+      ],
+      "fixture": "isolated-sqlite-temp",
+      "profile": "database",
+      "timeoutMs": 180000,
+      "expectedDurationMs": 20000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      }
+    },
+    {
+      "capabilityId": "C3-031",
+      "tier": "T2",
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null,
+      "id": "IS-T1-TESTS-MOBILE-APPROVAL-AUTHORITY-TEST",
+      "path": "tests/mobile-approval-authority.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-approval-authority.test.js"
+      ],
+      "fixture": "isolated-sqlite-temp",
+      "profile": "database",
+      "timeoutMs": 180000,
+      "expectedDurationMs": 20000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      }
+    },
+    {
+      "capabilityId": "C3-031",
+      "tier": "T2",
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null,
+      "id": "IS-T2-TESTS-MOBILE-FAULT-INJECTION-TEST",
+      "path": "tests/mobile-fault-injection.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-fault-injection.test.js"
+      ],
+      "fixture": "owned-loopback-gateway",
+      "profile": "database",
+      "timeoutMs": 240000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      }
+    },
+    {
+      "capabilityId": "C3-031",
+      "tier": "T2",
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null,
+      "id": "IS-T2-TESTS-MOBILE-GATEWAY-BOUNDARY-TEST",
+      "path": "tests/mobile-gateway-boundary.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-gateway-boundary.test.js"
+      ],
+      "fixture": "owned-loopback-gateway",
+      "profile": "database",
+      "timeoutMs": 240000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      }
+    },
+    {
+      "capabilityId": "C3-031",
+      "tier": "T2",
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null,
+      "id": "IS-T2-TESTS-MOBILE-GATEWAY-SUPERVISOR-TEST",
+      "path": "tests/mobile-gateway-supervisor.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-gateway-supervisor.test.js"
+      ],
+      "fixture": "owned-gateway-process",
+      "profile": "database",
+      "timeoutMs": 300000,
+      "expectedDurationMs": 60000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      }
+    },
+    {
+      "capabilityId": "C3-031",
+      "tier": "T2",
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null,
+      "id": "IS-T2-TESTS-MOBILE-MIGRATION-PARITY-TEST",
+      "path": "tests/mobile-migration-parity.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-migration-parity.test.js"
+      ],
+      "fixture": "isolated-sqlite-temp",
+      "profile": "database",
+      "timeoutMs": 180000,
+      "expectedDurationMs": 20000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      }
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-MS13-APPROVALS-TEST",
+      "path": "tests/mobile-ms13-approvals.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-ms13-approvals.test.js"
+      ],
+      "capabilityId": "C3-032",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-MS14-DECISION-TEST",
+      "path": "tests/mobile-ms14-decision.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-ms14-decision.test.js"
+      ],
+      "capabilityId": "C3-032",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-MS20-UI-TEST",
+      "path": "tests/mobile-ms20-ui.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-ms20-ui.test.js"
+      ],
+      "capabilityId": "C3-032",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-TRUST-BAR-TEST",
+      "path": "tests/mobile-trust-bar.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-trust-bar.test.js"
+      ],
+      "capabilityId": "C3-032",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-OVERVIEW-TEST",
+      "path": "tests/mobile-overview.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-overview.test.js"
+      ],
+      "capabilityId": "C3-032",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-NAVBAR-TEST",
+      "path": "tests/mobile-navbar.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-navbar.test.js"
+      ],
+      "capabilityId": "C3-032",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-NAVBAR-RING-TURN-TEST",
+      "path": "tests/mobile-navbar-ring-turn.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-navbar-ring-turn.test.js"
+      ],
+      "capabilityId": "C3-032",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 5000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-BROWSER-A11Y-TEST",
+      "path": "tests/mobile-browser-a11y.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-browser-a11y.test.js"
+      ],
+      "capabilityId": "C3-032",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 300000,
+      "expectedDurationMs": 60000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false,
+        "toolchain": [
+          "chromium-runtime"
+        ]
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-RUN-SILENCE-TEST",
+      "path": "tests/mobile-run-silence.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-run-silence.test.js"
+      ],
+      "capabilityId": "C3-032",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "capabilityId": "C3-031",
+      "tier": "T2",
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null,
+      "id": "IS-T2-TESTS-MOBILE-OPERATION-ISOLATION-TEST",
+      "path": "tests/mobile-operation-isolation.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-operation-isolation.test.js"
+      ],
+      "fixture": "owned-gateway-process",
+      "profile": "database",
+      "timeoutMs": 300000,
+      "expectedDurationMs": 60000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      }
+    },
+    {
+      "capabilityId": "C3-031",
+      "tier": "T2",
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null,
+      "id": "IS-T2-TESTS-MOBILE-CONTRACT-CURSOR-REJECTION-TEST",
+      "path": "tests/mobile-contract-cursor-rejection.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-contract-cursor-rejection.test.js"
+      ],
+      "fixture": "owned-loopback-gateway",
+      "profile": "database",
+      "timeoutMs": 300000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      }
+    },
+    {
+      "capabilityId": "C3-031",
+      "tier": "T2",
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null,
+      "id": "IS-T2-TESTS-MOBILE-CONTRACT-PAGINATION-END-TEST",
+      "path": "tests/mobile-contract-pagination-end.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-contract-pagination-end.test.js"
+      ],
+      "fixture": "owned-loopback-gateway",
+      "profile": "database",
+      "timeoutMs": 300000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      }
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-MS07-HISTORY-TEST",
+      "path": "tests/mobile-ms07-history.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-ms07-history.test.js"
+      ],
+      "capabilityId": "C3-032",
       "tier": "T1",
       "fixture": "isolated-home",
       "profile": "offline",
@@ -6133,6 +9304,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T5-TESTS-P5-ONLY-TEST",
+      "path": "tests/p5-only.test.js",
+      "argv": [
+        "node",
+        "tests/p5-only.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T5",
+      "fixture": "historical-model-comparison",
+      "profile": "manual",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": false,
+      "owner": "primary implementer",
+      "state": "HISTORICAL",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-PATCH-ENGINE-TEST",
       "path": "tests/patch-engine.test.js",
       "argv": [
@@ -6283,6 +9484,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T3-TESTS-PROJECT-CONVERSATION-E2E-V2-TEST",
+      "path": "tests/project-conversation-e2e-v2.test.js",
+      "argv": [
+        "node",
+        "tests/project-conversation-e2e-v2.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T3",
+      "fixture": "isolated-long-model-database",
+      "profile": "model",
+      "timeoutMs": 3600000,
+      "expectedDurationMs": 2700000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T3-TESTS-PROJECT-CONVERSATION-E2E-TEST",
       "path": "tests/project-conversation-e2e.test.js",
       "argv": [
@@ -6408,6 +9639,36 @@
       "argv": [
         "node",
         "tests/project-lifecycle-change-mgmt.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T2",
+      "fixture": "isolated-sqlite",
+      "profile": "database",
+      "timeoutMs": 300000,
+      "expectedDurationMs": 60000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T2-TESTS-PROJECT-LIFECYCLE-ENTRY-TEST",
+      "path": "tests/project-lifecycle-entry.test.js",
+      "argv": [
+        "node",
+        "tests/project-lifecycle-entry.test.js"
       ],
       "capabilityId": "C3-005",
       "tier": "T2",
@@ -6628,6 +9889,36 @@
       "requirements": {
         "network": "none",
         "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T2-TESTS-PROPOSAL-STALE-CLEANUP-TEST",
+      "path": "tests/proposal-stale-cleanup.test.js",
+      "argv": [
+        "node",
+        "tests/proposal-stale-cleanup.test.js"
+      ],
+      "capabilityId": "C3-025",
+      "tier": "T2",
+      "fixture": "isolated-sqlite",
+      "profile": "database",
+      "timeoutMs": 300000,
+      "expectedDurationMs": 60000,
+      "requirements": {
+        "network": "none",
+        "database": true,
         "server": false,
         "ollama": false,
         "gpu": false
@@ -7047,36 +10338,6 @@
       "expectedDurationMs": 30000,
       "requirements": {
         "network": "none",
-        "database": false,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T1-TESTS-CAPABILITY-01-SERVER-BEHAVIOURS-TEST",
-      "path": "tests/capability-01-server-behaviours.test.js",
-      "argv": [
-        "node",
-        "tests/capability-01-server-behaviours.test.js"
-      ],
-      "capabilityId": "C3-023",
-      "tier": "T1",
-      "fixture": "isolated-home-and-owned-loopback-server",
-      "profile": "offline",
-      "timeoutMs": 300000,
-      "expectedDurationMs": 90000,
-      "requirements": {
-        "network": "loopback",
         "database": false,
         "server": false,
         "ollama": false,
@@ -7650,6 +10911,36 @@
         "database": false,
         "server": false,
         "ollama": true,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T2-TESTS-SMOKE-TEST",
+      "path": "tests/smoke.test.js",
+      "argv": [
+        "node",
+        "tests/smoke.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T2",
+      "fixture": "isolated-sqlite",
+      "profile": "database",
+      "timeoutMs": 300000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
         "gpu": false
       },
       "required": true,
@@ -8800,2600 +12091,6 @@
       "required": true,
       "owner": "primary implementer",
       "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T5-TESTS-P5-ONLY-TEST",
-      "path": "tests/p5-only.test.js",
-      "argv": [
-        "node",
-        "tests/p5-only.test.js"
-      ],
-      "capabilityId": "C3-005",
-      "tier": "T5",
-      "fixture": "historical-model-comparison",
-      "profile": "manual",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": false,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": false,
-      "owner": "primary implementer",
-      "state": "HISTORICAL",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-TESTS-PROJECT-CONVERSATION-E2E-V2-TEST",
-      "path": "tests/project-conversation-e2e-v2.test.js",
-      "argv": [
-        "node",
-        "tests/project-conversation-e2e-v2.test.js"
-      ],
-      "capabilityId": "C3-005",
-      "tier": "T3",
-      "fixture": "isolated-long-model-database",
-      "profile": "model",
-      "timeoutMs": 3600000,
-      "expectedDurationMs": 2700000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": false,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T2-TESTS-PROJECT-LIFECYCLE-ENTRY-TEST",
-      "path": "tests/project-lifecycle-entry.test.js",
-      "argv": [
-        "node",
-        "tests/project-lifecycle-entry.test.js"
-      ],
-      "capabilityId": "C3-005",
-      "tier": "T2",
-      "fixture": "isolated-sqlite",
-      "profile": "database",
-      "timeoutMs": 300000,
-      "expectedDurationMs": 60000,
-      "requirements": {
-        "network": "none",
-        "database": true,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T2-TESTS-PROPOSAL-STALE-CLEANUP-TEST",
-      "path": "tests/proposal-stale-cleanup.test.js",
-      "argv": [
-        "node",
-        "tests/proposal-stale-cleanup.test.js"
-      ],
-      "capabilityId": "C3-025",
-      "tier": "T2",
-      "fixture": "isolated-sqlite",
-      "profile": "database",
-      "timeoutMs": 300000,
-      "expectedDurationMs": 60000,
-      "requirements": {
-        "network": "none",
-        "database": true,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T2-TESTS-SMOKE-TEST",
-      "path": "tests/smoke.test.js",
-      "argv": [
-        "node",
-        "tests/smoke.test.js"
-      ],
-      "capabilityId": "C3-005",
-      "tier": "T2",
-      "fixture": "isolated-sqlite",
-      "profile": "database",
-      "timeoutMs": 300000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "none",
-        "database": true,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T2-TESTS-E2E-HARNESS-ISOLATION-TEST",
-      "path": "tests/e2e-harness-isolation.test.js",
-      "argv": [
-        "node",
-        "tests/e2e-harness-isolation.test.js"
-      ],
-      "capabilityId": "C3-027",
-      "tier": "T2",
-      "fixture": "isolated-home-sqlite-git",
-      "profile": "database",
-      "timeoutMs": 120000,
-      "expectedDurationMs": 30000,
-      "requirements": {
-        "network": "none",
-        "database": true,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T1-E2E-HELPERS-SELF-CHECK",
-      "path": "tests/e2e/_helpers.self-check.js",
-      "argv": [
-        "node",
-        "tests/e2e/_helpers.self-check.js"
-      ],
-      "capabilityId": "C3-027",
-      "tier": "T1",
-      "fixture": "isolated-home-and-owned-loopback-server",
-      "profile": "offline",
-      "timeoutMs": 30000,
-      "expectedDurationMs": 5000,
-      "requirements": {
-        "network": "loopback",
-        "database": false,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-01-HEALTH-SMOKE",
-      "path": "tests/e2e/01-health-smoke.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/01-health-smoke.e2e.js"
-      ],
-      "capabilityId": "C3-023",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-02-CHAT-API",
-      "path": "tests/e2e/02-chat-api.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/02-chat-api.e2e.js"
-      ],
-      "capabilityId": "C3-023",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-03-CONVERSATIONS",
-      "path": "tests/e2e/03-conversations.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/03-conversations.e2e.js"
-      ],
-      "capabilityId": "C3-023",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-04-PROJECTS",
-      "path": "tests/e2e/04-projects.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/04-projects.e2e.js"
-      ],
-      "capabilityId": "C3-023",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-05-ATTACHMENTS",
-      "path": "tests/e2e/05-attachments.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/05-attachments.e2e.js"
-      ],
-      "capabilityId": "C3-023",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-06-EXPERTISES",
-      "path": "tests/e2e/06-expertises.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/06-expertises.e2e.js"
-      ],
-      "capabilityId": "C3-023",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-07-SPECIALISTS",
-      "path": "tests/e2e/07-specialists.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/07-specialists.e2e.js"
-      ],
-      "capabilityId": "C3-023",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-08-AGENTS",
-      "path": "tests/e2e/08-agents.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/08-agents.e2e.js"
-      ],
-      "capabilityId": "C3-023",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-09-SKILLS",
-      "path": "tests/e2e/09-skills.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/09-skills.e2e.js"
-      ],
-      "capabilityId": "C3-023",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-10-MARKETPLACE",
-      "path": "tests/e2e/10-marketplace.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/10-marketplace.e2e.js"
-      ],
-      "capabilityId": "C3-023",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "external",
-        "database": true,
-        "server": true,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-11-MEMORY",
-      "path": "tests/e2e/11-memory.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/11-memory.e2e.js"
-      ],
-      "capabilityId": "C3-023",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-12-NOTIFICATIONS",
-      "path": "tests/e2e/12-notifications.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/12-notifications.e2e.js"
-      ],
-      "capabilityId": "C3-023",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-13-SECURITY",
-      "path": "tests/e2e/13-security.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/13-security.e2e.js"
-      ],
-      "capabilityId": "C3-023",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-14-SYSTEM",
-      "path": "tests/e2e/14-system.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/14-system.e2e.js"
-      ],
-      "capabilityId": "C3-023",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-15-QUALITY",
-      "path": "tests/e2e/15-quality.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/15-quality.e2e.js"
-      ],
-      "capabilityId": "C3-023",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-16-SETUP-WIZARD",
-      "path": "tests/e2e/16-setup-wizard.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/16-setup-wizard.e2e.js"
-      ],
-      "capabilityId": "C3-023",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-17-EXPORT",
-      "path": "tests/e2e/17-export.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/17-export.e2e.js"
-      ],
-      "capabilityId": "C3-023",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-18-WEBSOCKET",
-      "path": "tests/e2e/18-websocket.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/18-websocket.e2e.js"
-      ],
-      "capabilityId": "C3-023",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-19-RATE-LIMIT",
-      "path": "tests/e2e/19-rate-limit.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/19-rate-limit.e2e.js"
-      ],
-      "capabilityId": "C3-023",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-20-SECURITY-HARDENING",
-      "path": "tests/e2e/20-security-hardening.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/20-security-hardening.e2e.js"
-      ],
-      "capabilityId": "C3-023",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T5-E2E-200-S1-MINIC3-P1",
-      "path": "tests/e2e/200-s1-minic3-p1.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/200-s1-minic3-p1.e2e.js"
-      ],
-      "capabilityId": "C3-027",
-      "tier": "T5",
-      "fixture": "owned-sequential-model-server-state",
-      "profile": "soak",
-      "timeoutMs": 5400000,
-      "expectedDurationMs": 3600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T5-E2E-201-S1-MINIC3-P2",
-      "path": "tests/e2e/201-s1-minic3-p2.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/201-s1-minic3-p2.e2e.js"
-      ],
-      "capabilityId": "C3-027",
-      "tier": "T5",
-      "fixture": "owned-sequential-model-server-state",
-      "profile": "soak",
-      "timeoutMs": 5400000,
-      "expectedDurationMs": 3600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T5-E2E-202-S1-MINIC3-P3",
-      "path": "tests/e2e/202-s1-minic3-p3.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/202-s1-minic3-p3.e2e.js"
-      ],
-      "capabilityId": "C3-027",
-      "tier": "T5",
-      "fixture": "owned-sequential-model-server-state",
-      "profile": "soak",
-      "timeoutMs": 5400000,
-      "expectedDurationMs": 3600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T5-E2E-203-S1-MINIC3-P4",
-      "path": "tests/e2e/203-s1-minic3-p4.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/203-s1-minic3-p4.e2e.js"
-      ],
-      "capabilityId": "C3-027",
-      "tier": "T5",
-      "fixture": "owned-sequential-model-server-state",
-      "profile": "soak",
-      "timeoutMs": 5400000,
-      "expectedDurationMs": 3600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T5-E2E-204-S1-MINIC3-P5",
-      "path": "tests/e2e/204-s1-minic3-p5.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/204-s1-minic3-p5.e2e.js"
-      ],
-      "capabilityId": "C3-027",
-      "tier": "T5",
-      "fixture": "owned-sequential-model-server-state",
-      "profile": "soak",
-      "timeoutMs": 5400000,
-      "expectedDurationMs": 3600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T5-E2E-205-S1-MINIC3-P6",
-      "path": "tests/e2e/205-s1-minic3-p6.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/205-s1-minic3-p6.e2e.js"
-      ],
-      "capabilityId": "C3-027",
-      "tier": "T5",
-      "fixture": "owned-sequential-model-server-state",
-      "profile": "soak",
-      "timeoutMs": 5400000,
-      "expectedDurationMs": 3600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T5-E2E-206-S2-SHOPFLOW-P1",
-      "path": "tests/e2e/206-s2-shopflow-p1.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/206-s2-shopflow-p1.e2e.js"
-      ],
-      "capabilityId": "C3-027",
-      "tier": "T5",
-      "fixture": "owned-sequential-model-server-state",
-      "profile": "soak",
-      "timeoutMs": 5400000,
-      "expectedDurationMs": 3600000,
-      "requirements": {
-        "network": "external",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T5-E2E-207-S2-SHOPFLOW-P2",
-      "path": "tests/e2e/207-s2-shopflow-p2.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/207-s2-shopflow-p2.e2e.js"
-      ],
-      "capabilityId": "C3-027",
-      "tier": "T5",
-      "fixture": "owned-sequential-model-server-state",
-      "profile": "soak",
-      "timeoutMs": 5400000,
-      "expectedDurationMs": 3600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T5-E2E-208-S2-SHOPFLOW-P3",
-      "path": "tests/e2e/208-s2-shopflow-p3.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/208-s2-shopflow-p3.e2e.js"
-      ],
-      "capabilityId": "C3-027",
-      "tier": "T5",
-      "fixture": "owned-sequential-model-server-state",
-      "profile": "soak",
-      "timeoutMs": 5400000,
-      "expectedDurationMs": 3600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T5-E2E-209-S2-SHOPFLOW-P4",
-      "path": "tests/e2e/209-s2-shopflow-p4.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/209-s2-shopflow-p4.e2e.js"
-      ],
-      "capabilityId": "C3-027",
-      "tier": "T5",
-      "fixture": "owned-sequential-model-server-state",
-      "profile": "soak",
-      "timeoutMs": 5400000,
-      "expectedDurationMs": 3600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-21-MODEL-UPGRADE",
-      "path": "tests/e2e/21-model-upgrade.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/21-model-upgrade.e2e.js"
-      ],
-      "capabilityId": "C3-023",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T5-E2E-210-S2-SHOPFLOW-P5",
-      "path": "tests/e2e/210-s2-shopflow-p5.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/210-s2-shopflow-p5.e2e.js"
-      ],
-      "capabilityId": "C3-027",
-      "tier": "T5",
-      "fixture": "owned-sequential-model-server-state",
-      "profile": "soak",
-      "timeoutMs": 5400000,
-      "expectedDurationMs": 3600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T5-E2E-211-S2-SHOPFLOW-P6",
-      "path": "tests/e2e/211-s2-shopflow-p6.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/211-s2-shopflow-p6.e2e.js"
-      ],
-      "capabilityId": "C3-027",
-      "tier": "T5",
-      "fixture": "owned-sequential-model-server-state",
-      "profile": "soak",
-      "timeoutMs": 5400000,
-      "expectedDurationMs": 3600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-22-AUTONOMY",
-      "path": "tests/e2e/22-autonomy.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/22-autonomy.e2e.js"
-      ],
-      "capabilityId": "C3-023",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-23-FEEDBACK",
-      "path": "tests/e2e/23-feedback.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/23-feedback.e2e.js"
-      ],
-      "capabilityId": "C3-023",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-24-DRAFTS",
-      "path": "tests/e2e/24-drafts.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/24-drafts.e2e.js"
-      ],
-      "capabilityId": "C3-023",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-25-FEATURES",
-      "path": "tests/e2e/25-features.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/25-features.e2e.js"
-      ],
-      "capabilityId": "C3-023",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-50-CHAT-CONVERSATION",
-      "path": "tests/e2e/50-chat-conversation.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/50-chat-conversation.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server",
-      "profile": "model",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-51-CRE-CLASSIFICATION",
-      "path": "tests/e2e/51-cre-classification.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/51-cre-classification.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server",
-      "profile": "model",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 600000,
-      "requirements": {
-        "network": "external",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-52-CHAT-QUALITY-GATE",
-      "path": "tests/e2e/52-chat-quality-gate.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/52-chat-quality-gate.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server",
-      "profile": "model",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-53-LONG-CONVERSATION",
-      "path": "tests/e2e/53-long-conversation.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/53-long-conversation.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server",
-      "profile": "model",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-54-CHAT-WITH-EXPERTISE",
-      "path": "tests/e2e/54-chat-with-expertise.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/54-chat-with-expertise.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server",
-      "profile": "model",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-55-CHAT-WITH-SPECIALIST",
-      "path": "tests/e2e/55-chat-with-specialist.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/55-chat-with-specialist.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server",
-      "profile": "model",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-56-CHAT-WITH-PROJECT",
-      "path": "tests/e2e/56-chat-with-project.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/56-chat-with-project.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-57-LIFECYCLE-FULL",
-      "path": "tests/e2e/57-lifecycle-full.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/57-lifecycle-full.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server",
-      "profile": "model",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true,
-        "modelFixture": {
-          "provider": "ollama",
-          "model": "qwen3.5:27b",
-          "digestSha256": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
-          "contextWindowTokens": 8192,
-          "minimumFreeVramMiB": 20128,
-          "parallelRequests": 1,
-          "minimumHeadroomMiB": 1024,
-          "minimumGpuResidencyPercent": 100,
-          "fallbackPolicy": "forbid"
-        }
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-58-CODE-GENERATION",
-      "path": "tests/e2e/58-code-generation.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/58-code-generation.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server",
-      "profile": "model",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true,
-        "modelFixture": {
-          "provider": "ollama",
-          "model": "qwen3.5:27b",
-          "digestSha256": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
-          "contextWindowTokens": 8192,
-          "minimumFreeVramMiB": 20128,
-          "parallelRequests": 1,
-          "minimumHeadroomMiB": 1024,
-          "minimumGpuResidencyPercent": 100,
-          "fallbackPolicy": "forbid"
-        }
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-59-CROSS-FEATURE",
-      "path": "tests/e2e/59-cross-feature.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/59-cross-feature.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server",
-      "profile": "model",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true,
-        "modelFixture": {
-          "provider": "ollama",
-          "model": "qwen3.5:27b",
-          "digestSha256": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
-          "contextWindowTokens": 8192,
-          "minimumFreeVramMiB": 20128,
-          "parallelRequests": 1,
-          "minimumHeadroomMiB": 1024,
-          "minimumGpuResidencyPercent": 100,
-          "fallbackPolicy": "forbid"
-        }
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-60-WS-CHAT",
-      "path": "tests/e2e/60-ws-chat.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/60-ws-chat.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-61-AUTOCOMPLETE",
-      "path": "tests/e2e/61-autocomplete.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/61-autocomplete.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server",
-      "profile": "model",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-62-VALIDATION-SUITES",
-      "path": "tests/e2e/62-validation-suites.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/62-validation-suites.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server",
-      "profile": "model",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-63-AGENT-EXECUTION",
-      "path": "tests/e2e/63-agent-execution.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/63-agent-execution.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-70-CRE-INTENT-SEMANTIC",
-      "path": "tests/e2e/70-cre-intent-semantic.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/70-cre-intent-semantic.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server",
-      "profile": "model",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-71-LANGUAGE-ENFORCEMENT",
-      "path": "tests/e2e/71-language-enforcement.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/71-language-enforcement.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server",
-      "profile": "model",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-72-FOLLOWUP-COHERENCE",
-      "path": "tests/e2e/72-followup-coherence.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/72-followup-coherence.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server",
-      "profile": "model",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-73-QUALITY-GATE-CONTENT",
-      "path": "tests/e2e/73-quality-gate-content.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/73-quality-gate-content.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server",
-      "profile": "model",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-74-SESSION-ISOLATION",
-      "path": "tests/e2e/74-session-isolation.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/74-session-isolation.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server",
-      "profile": "model",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-75-EXPERTISE-BEHAVIORAL",
-      "path": "tests/e2e/75-expertise-behavioral.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/75-expertise-behavioral.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server",
-      "profile": "model",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-76-SPECIALIST-DOMAIN",
-      "path": "tests/e2e/76-specialist-domain.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/76-specialist-domain.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server",
-      "profile": "model",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-77-PROJECT-CONTEXT-INJECTION",
-      "path": "tests/e2e/77-project-context-injection.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/77-project-context-injection.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server",
-      "profile": "model",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-78-GUARD-RULES",
-      "path": "tests/e2e/78-guard-rules.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/78-guard-rules.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server",
-      "profile": "model",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-79-RESPONSE-SEMANTICS",
-      "path": "tests/e2e/79-response-semantics.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/79-response-semantics.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server",
-      "profile": "model",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-80-WS-SEMANTIC-EVENTS",
-      "path": "tests/e2e/80-ws-semantic-events.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/80-ws-semantic-events.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-local-server",
-      "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-81-CONVERSATION-LIFECYCLE",
-      "path": "tests/e2e/81-conversation-lifecycle.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/81-conversation-lifecycle.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server",
-      "profile": "model",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-82-CRE-CONFLICT-RESOLUTION",
-      "path": "tests/e2e/82-cre-conflict-resolution.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/82-cre-conflict-resolution.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server",
-      "profile": "model",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-85-LONG-SESSION-DEGRADATION",
-      "path": "tests/e2e/85-long-session-degradation.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/85-long-session-degradation.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server-long",
-      "profile": "model",
-      "timeoutMs": 3600000,
-      "expectedDurationMs": 2700000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-86-CODE-SEMANTIC-QUALITY",
-      "path": "tests/e2e/86-code-semantic-quality.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/86-code-semantic-quality.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server-long",
-      "profile": "model",
-      "timeoutMs": 3600000,
-      "expectedDurationMs": 2700000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-87-SECURITY-INJECTION",
-      "path": "tests/e2e/87-security-injection.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/87-security-injection.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server-long",
-      "profile": "model",
-      "timeoutMs": 3600000,
-      "expectedDurationMs": 2700000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-88-CONCURRENT-LOAD",
-      "path": "tests/e2e/88-concurrent-load.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/88-concurrent-load.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server-long",
-      "profile": "model",
-      "timeoutMs": 3600000,
-      "expectedDurationMs": 2700000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true,
-        "modelFixture": {
-          "provider": "ollama",
-          "model": "qwen3.5:27b",
-          "digestSha256": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
-          "contextWindowTokens": 8192,
-          "minimumFreeVramMiB": 24016,
-          "parallelRequests": 3,
-          "minimumHeadroomMiB": 1024,
-          "minimumGpuResidencyPercent": 100,
-          "fallbackPolicy": "forbid"
-        }
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-89-RESPONSE-USEFULNESS",
-      "path": "tests/e2e/89-response-usefulness.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/89-response-usefulness.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server-long",
-      "profile": "model",
-      "timeoutMs": 3600000,
-      "expectedDurationMs": 2700000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-90-LARGE-PROJECT-GENERATION",
-      "path": "tests/e2e/90-large-project-generation.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/90-large-project-generation.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server-long",
-      "profile": "model",
-      "timeoutMs": 3600000,
-      "expectedDurationMs": 2700000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-91-MULTI-TURN-PROJECT-BUILD",
-      "path": "tests/e2e/91-multi-turn-project-build.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/91-multi-turn-project-build.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server-long",
-      "profile": "model",
-      "timeoutMs": 3600000,
-      "expectedDurationMs": 2700000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-92-CODE-ANALYSIS-DEPTH",
-      "path": "tests/e2e/92-code-analysis-depth.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/92-code-analysis-depth.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server-long",
-      "profile": "model",
-      "timeoutMs": 3600000,
-      "expectedDurationMs": 2700000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-93-CHAT-RESPONSE-QUALITY",
-      "path": "tests/e2e/93-chat-response-quality.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/93-chat-response-quality.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server-long",
-      "profile": "model",
-      "timeoutMs": 3600000,
-      "expectedDurationMs": 2700000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-94-LONG-CONVERSATION-QUALITY",
-      "path": "tests/e2e/94-long-conversation-quality.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/94-long-conversation-quality.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server-long",
-      "profile": "model",
-      "timeoutMs": 3600000,
-      "expectedDurationMs": 2700000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-95-CODE-GENERATION-QUALITY",
-      "path": "tests/e2e/95-code-generation-quality.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/95-code-generation-quality.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server-long",
-      "profile": "model",
-      "timeoutMs": 3600000,
-      "expectedDurationMs": 2700000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-96-PROJECT-WORKFLOW-QUALITY",
-      "path": "tests/e2e/96-project-workflow-quality.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/96-project-workflow-quality.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server-long",
-      "profile": "model",
-      "timeoutMs": 3600000,
-      "expectedDurationMs": 2700000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-97-PROJECT-BUILD-QUALITY",
-      "path": "tests/e2e/97-project-build-quality.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/97-project-build-quality.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server-long",
-      "profile": "model",
-      "timeoutMs": 3600000,
-      "expectedDurationMs": 2700000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-E2E-98-ANALYSIS-QUALITY",
-      "path": "tests/e2e/98-analysis-quality.e2e.js",
-      "argv": [
-        "node",
-        "tests/e2e/98-analysis-quality.e2e.js"
-      ],
-      "capabilityId": "C3-003",
-      "tier": "T3",
-      "fixture": "owned-isolated-model-server-long",
-      "profile": "model",
-      "timeoutMs": 3600000,
-      "expectedDurationMs": 2700000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "BLOCKED",
       "lastGreen": {
         "commit": null,
         "artifact": null

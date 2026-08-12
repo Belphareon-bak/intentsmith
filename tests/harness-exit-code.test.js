@@ -330,7 +330,16 @@ try {
   // e7829077 and removal of the dead multi-agent suite. The unprotected set
   // below remains the fail-closed safety assertion; this count only pins the
   // reviewed import-graph census.
-  const expectedDatabaseReachableRootTests = 95;
+  //
+  // Re-reviewed 2026-08-12: 95 → 99.  The drift is **pre-existing and was not
+  // caused by the twelve bootstraps added on this date** — measured on the
+  // unmodified tree with only the assertion above neutralised, the census was
+  // already 99 with an empty unprotected set, and none of those twelve appears
+  // in `databaseReachable` either before or after.  It read 95 only because the
+  // missing-bootstrap assertion above aborted the program before this line was
+  // ever reached, so four suites' worth of import-graph growth sat unreviewed
+  // behind a louder failure.  The safety assertion that follows held throughout.
+  const expectedDatabaseReachableRootTests = 99;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,
