@@ -2387,7 +2387,7 @@ await testAsync('verified audit events require a fresh matching artifact proof',
       assertThrowsMatching(() => insertActivationEvent(db, {
         eventId: `event-${label}`,
         ...overrides,
-      }), /MODEL_FAILOVER_TERMINAL_(?:INTENT_PROJECTION|EVENT_RECEIPT)_MISMATCH/);
+      }), /MODEL_FAILOVER_TERMINAL_(?:INTENT_PROJECTION|RECEIPT_PROJECTION|EVENT_RECEIPT)_MISMATCH/);
     }
 
     insertActivationEvent(db);
@@ -2750,9 +2750,9 @@ await testAsync('active failover accepts a matching reapply claim and fresh term
 
     insertPassingProof(db, {
       proofId: 'proof-reapply-0001',
-      startedAt: 4100,
-      completedAt: 4500,
-      createdAt: 4500,
+      startedAt: 3100,
+      completedAt: 3500,
+      createdAt: 3500,
     });
     insertTerminalCompanionEvent(db, {
       kind: 'REAPPLY',
