@@ -3,7 +3,7 @@
 - **typ:** destruktivní settings connector a recovery autorita
 - **stav:** `ACCEPTED 2026-08-11: A + M1-CLOSEOUT-X1 /
   CHATS_DECOMMISSION_AND_EVIDENCE_RECOVERY_PROMOTED / WP_ACTIVE /
-  MOBILE-PIN-REFRESH-1`
+  MOBILE-PIN-REFRESH-1+2`
 - **sourceEvidenceRevision:**
   `69d29ed3c929593e092d047b6e182d9715e3d08e`
 - **integrationRef:** `integration/m1-consolidated-20260810`
