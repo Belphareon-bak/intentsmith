@@ -697,3 +697,124 @@ musí ověřit parenty, stromy, allowlist, report prefix/append a nulovou změnu
 auth/access/trusted-local hranice. Canonical integration se posune na `E_B2`
 jen fast-forwardem; jiný výsledek zůstává pravdivě `CHANGES_REQUIRED` nebo
 `BLOCKED` bez promotion.
+
+## 12. Review-B remediation r3 (normativní amendment)
+
+Tento amendment zachovává oddíl 11 i všechny starší pokusy beze změny a
+nahrazuje pouze neúspěšnou r2 Review-B obálku. Nemění produkt, connector,
+dual-CAS transakci, auth/access/trusted-local hranici ani allowlist. Jediná
+nově povolená změna je oprava cross-realm porovnání ve stávající allowlistované
+suite `tests/m1-studio-client.test.js`; behavior assertions se nesmí oslabit.
+
+### 12.1 Immutable r2 výsledek
+
+Přesná r2 topologie zůstává dohledatelná a nesmí se přepsat:
+
+```text
+S2:   e95a34da0f6546e0b32019df1b9104a1668d49b0
+E_A2: fd1d45a8571d8cfb26eebcc0b718dfaaba7af743
+C2:   20f487411b1b13952ce09b689e30047875803193
+```
+
+Review A nad r2 skončila `PASS`, ale nález Review B vyžaduje nový subject, a
+proto je tento PASS pro další promotion invalidovaný a nesmí se recyklovat.
+Review-B environment preflight byl úspěšný a jeho důkazy jsou:
+
+```text
+npm-ci log SHA-256:       df29ccbfcf9d6b7d57859dbf3c67240f967cd83386a93a96d9d21afadc8852ff
+native-build log SHA-256: 017695809f8dbf2c6015ab49334243f40c9f7416925f1604182cc57baff54d03
+binding SHA-256:          2e23ed862e1cac3393f8cfb8474e6d0dd5b08d11c4b66bde6ea9b66770fdaffb
+```
+
+Max-4 gate běžel právě jednou a fail-fast:
+
+```text
+m1-settings-notification-authority.test.js   4/4 PASS
+m1-model-policy.test.js                     36/36 PASS
+m1-studio-client.test.js                  127/128 FAIL
+validate-test-registry.js           NOT RUN_FAIL_FAST
+```
+
+Jediné selhání je test/harness defect: objekt vytvořený ve VM realm má proti
+host objektu odlišnou referenční/prototypovou identitu při `deepStrictEqual`.
+Nejde o behavior failure kandidáta, gate je však povinně červený a r2 verdikt
+je `CHANGES_REQUIRED`; `E_B2` nevznikl a canonical integration se na `C2`
+neposune. Dochovaný artifact root je:
+
+```text
+/home/belphareon/worktrees/is-m1-settings-reset-authority-review-b-r2/.intentsmith-artifacts/direct-tests/m1-studio-client.test-w2Sue6
+```
+
+Jeho canonical structural inventory SHA-256 je
+`05a62c6e59fbba9660a4cbe4da48eb0a8b64ac0630d2ef12f9f1af1c11221a81`,
+SHA-256 řádku se sorted file-checksum manifestem je
+`ee37ab0291e5836b4e3191b23d8ae3cb7436f621f2e10f7be0d8b5e33355e148`
+a `runtime/intentsmith-test.sqlite` má SHA-256
+`dc817431b7186157495600c0bd106069e9437ed039f62e9dc529edf64d1bdd13`.
+Artefakt, oba preflight logy a staré refs zůstávají zachované; r3 se nesmí
+vydávat za pokračování r2 attemptu.
+
+### 12.2 Přesná oprava a r3 rezervace
+
+Oprava změní přesně čtyři již existující feature assertions tak, že hodnotu
+z VM realm před porovnáním převede existujícím `hostClone()`:
+
+```text
+succeeded.functions.features()
+fenced.functions.features()
+overlapping.functions.features()
+afterFailure.functions.features()
+```
+
+Každý výraz bude mít exact tvar `hostClone(<expression>)`; očekávané hodnoty,
+počet scénářů a všechny ostatní assertions zůstanou byte-identické. Žádná jiná
+testová, docs nebo produkční změna v subjectu není dovolena.
+
+Čerstvé refs jsou:
+
+```text
+governance: docs/m1-settings-reset-review-b-remediation-r3-20260812
+source:     wp/m1-settings-reset-authority-r3-20260812
+Review A:   evidence/m1-settings-reset-authority-review-a-r3-20260812
+queue:      queue/m1-settings-reset-authority-promotion-r3-20260812
+Review B:   evidence/m1-settings-reset-authority-review-b-r3-20260812
+report:     docs/execution/runs/wp-m1-settings-reset-authority-20260812-report.md
+```
+
+### 12.3 Povinná replacement topologie
+
+Tento docs-only amendment je `G6`, jediný child exact
+`G5=13014c394e8b7ae4a4437321f687cb2a40d3600f`, a mění právě tento WP. Writer
+není reviewer; `G6` projde nezávislým review a canonical integration se z `G5`
+na `G6` posune pouze fast-forwardem ještě před writerem.
+
+```text
+G5 -> G6
+G6 + S2 -> M3 [ordered parents G6,S2]
+             -> S3
+             -> E_A3
+G6 + E_A3 -> C3 [ordered parents G6,E_A3]
+              -> E_B3
+              -> canonical integration fast-forward
+```
+
+`M3` zachová celý immutable r2 subject ze `S2` včetně už přítomného
+produkčního legacy-alias 410 a přidá governance ancestry z `G6`; semantic
+conflict je `STOP`. `S3` je direct child `M3`, poslední immutable
+source/test subject commit, ale není novou produkční změnou: mění přesně jedinou
+cestu `tests/m1-studio-client.test.js` a pouze čtyři výše připnuté řádky.
+Po `S3` nesmí před `E_A3/C3/E_B3` přistát žádná další source/docs/test změna.
+
+Čerstvá Review A posoudí exact range `G6..S3`; starý Review-A PASS ani r2
+Review-B výsledek se nerecyklují. `E_A3` je direct child `S3`, mění pouze
+stejný report a zapíše exact `integrationRef`, `baseRevision=G6`,
+`subjectHead=S3` a `reviewA.verdict: PASS`. `C3` má ordered parents exact
+`[G6,E_A3]`, strom byte-identický s `E_A3` a žádnou behavior změnu.
+
+Review B běží v čerstvém disk-backed checkoutu exact `C3`. Offline dependency
+instalace a loadable native binding jsou pouze preflight; poté spustí celý
+max-4 gate právě jednou a fail-fast. Pouze úplný PASS dovolí `E_B3`, direct
+child `C3`, s exact dvouřádkovým appendem `candidateHead: C3` a
+`reviewB.verdict: PASS`. Metadata gate ověří parenty, stromy, jednu-cestnou S3
+opravu, report obálku a nulovou změnu auth/access/trusted-local hranice.
+Canonical integration se na `E_B3` posune pouze fast-forwardem.
