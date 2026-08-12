@@ -364,12 +364,14 @@ Historický pre-recovery reset draft ve worktree
 `/home/belphareon/worktrees/is-m1-settings-reset-authority` na branchi
 `wp/m1-settings-reset-authority-20260812` měl na invalidním `I` exact
 dvanácticestný census výše, žádnou staged změnu, procházel `git diff --check`
-a jeho
-`git diff --no-ext-diff --binary` měl SHA-256
+a jeho plain `git diff --no-ext-diff` měl SHA-256
 `856353eb3ed831dfcf0c31c68b62195e0596369bde40ada5979e1e82ce8e756b`.
-Stejný digest byl byteově ověřen bezprostředně po mechanickém přenosu na první
-docs-only governance checkpoint. Je to historická attestace preservation
-kroku, nikoli digest současného working diffu nebo finálního source subjectu.
+Privátně uložený `git diff --binary --full-index` patch měl SHA-256
+`4dd7917e75b641ba6286aef1293ec8eaf0a2e0e54732e4870c5fab1a7eaa9a51`.
+Identita binary patch artefaktu byla ověřena před přenosem; po mechanickém
+reapply byl znovu ověřen exact dvanácticestný census a plain digest `856…`.
+Je to historická attestace preservation kroku, nikoli digest současného
+working diffu nebo finálního source subjectu.
 Následné allowlisted writer opravy po samostatně přistálých governance
 commitech jej smějí změnit a musí dostat vlastní stabilní review digest.
 
@@ -467,11 +469,16 @@ writer/reviewerů.
 
 ## 10. Evidence DAG, report a promotion
 
-Povinná topologie:
+Povinná topologie; `H_RESET` zde znamená nejnovější samostatně zreviewovaný a
+na canonical integration promováný docs-only governance checkpoint popsaný v
+`baseRevision` výše, nikoli SHA zapisovaný do vlastního commitu:
 
 ```text
-R_REC = baseRevision
-  -> reset/caller cutover commits
+R_REC = sourceEvidenceBase
+  -> G_MOBILE_REFRESH (MOBILE-PIN-REFRESH-1)
+  -> H_RESET = baseRevision (tento recovery-digest governance checkpoint)
+  -> canonical integration fast-forward na H_RESET před source writerem
+  -> K_RESET (dual-CAS server + clients + docs/tests, legacy alias ještě živý)
   -> S_RESET (final production legacy 410)
   -> E_A_RESET
   -> C_RESET
@@ -481,14 +488,17 @@ R_REC = baseRevision
 
 `S_RESET` neobsahuje report a po Review A je immutable. `E_A_RESET` má jediného
 parenta `S_RESET` a mění pouze rezervovaný report. Report obsahuje právě jednou
-`integrationRef`, `baseRevision`, `subjectHead` a `reviewA.verdict`; nikdy SHA
-commitu, který jej právě zapisuje.
+`integrationRef`, `baseRevision=H_RESET`, `subjectHead=S_RESET` a
+`reviewA.verdict`; nikdy SHA commitu, který jej právě zapisuje. Review A
+hodnotí exact range `H_RESET..S_RESET`.
 
-Queue použije `--no-ff` nad aktuálním integration tipem, nemění behavior a
-vytvoří immutable `C_RESET` s ancestor vazbou na `E_A_RESET`. Semantic conflict
-vrací `CHANGES_REQUIRED`. Review B běží nad exact `C_RESET`. `E_B_RESET` má
-jediného parenta `C_RESET`, mění pouze stejný report a byteově připojí právě
-`candidateHead` a `reviewB.verdict`.
+Queue použije `--no-ff` nad stále exact canonical integration tipem
+`H_RESET`, nemění behavior a vytvoří immutable `C_RESET` s ordered parents
+exact `[H_RESET,E_A_RESET]` a ancestor vazbou na `E_A_RESET`. Semantic
+conflict vrací `CHANGES_REQUIRED`; queue nesmí vzniknout nad holým `R_REC`
+ani vynechat governance ancestry. Review B běží nad exact `C_RESET`.
+`E_B_RESET` má jediného parenta `C_RESET`, mění pouze stejný report a byteově
+připojí právě `candidateHead` a `reviewB.verdict`.
 
 Po metadata gate se integration ref fast-forwardne na `E_B_RESET`. Worktrees a
 refs se odstraní až po důkazu jeho dosažitelnosti, čistém stavu a nulových
