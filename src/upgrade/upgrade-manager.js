@@ -11,6 +11,7 @@
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
+import { randomUUID } from 'node:crypto';
 import { logger } from '../core/logger.js';
 import { config } from '../config.js';
 import { MODEL_PROFILES, parseModelName, isNewerVersion, isSameFamily } from './model-profiles.js';
@@ -403,8 +404,11 @@ export class UpgradeManager {
     this._db = null;
     this._upgrading = false;  // Mutex flag
     this._configVersion = 0;  // Monotonic counter for WS broadcast
+    this._bindingRuntimeIncarnationId = `runtime_${randomUUID()}`;
+    this._bindingRuntimeGeneration = 0;
     this._bindingRuntimeToken = null;
     this._bindingRuntimeTokenSequence = 0;
+    this._bindingRuntimeTerminalReceipts = new Map();
   }
 
   // ─── DB + Persistence (v103.1) ──────────────────────────────────────────
@@ -421,8 +425,11 @@ export class UpgradeManager {
     return Object.freeze({
       snapshot: role => this._bindingRuntimeSnapshot(role),
       prepare: input => this._prepareBindingRuntime(input),
+      prepareTerminal: input => this._prepareTerminalBindingRuntime(input),
       commit: token => this._commitBindingRuntime(token),
       compensate: token => this._compensateBindingRuntime(token),
+      getTerminalReceipt: operationId => this._bindingRuntimeTerminalReceipt(operationId),
+      clearTerminalReceipt: operationId => this._clearBindingRuntimeTerminalReceipt(operationId),
       rehydrateLegacy: input => this._rehydrateLegacyBinding(input),
       resolvePendingProposals: (role, model, operationKind) => (
         this._resolvePendingProposalsForRole(role, model, operationKind)
@@ -449,10 +456,80 @@ export class UpgradeManager {
       role,
       modelName: config.models[role],
       configVersion: this._configVersion,
+      incarnationId: this._bindingRuntimeIncarnationId,
+      generation: this._bindingRuntimeGeneration,
     });
   }
 
-  _prepareBindingRuntime(input = {}) {
+  _prepareTerminalBindingRuntime(input = {}) {
+    const allowed = new Set([
+      'operationId',
+      'role',
+      'expectedModel',
+      'targetModel',
+      'expectedIncarnationId',
+      'expectedGeneration',
+    ]);
+    const unexpected = Object.keys(input).filter(key => !allowed.has(key));
+    if (unexpected.length > 0
+      || typeof input.operationId !== 'string'
+      || input.operationId.length < 1
+      || input.operationId.length > 128
+      || input.operationId !== input.operationId.trim()
+      || typeof input.expectedIncarnationId !== 'string'
+      || input.expectedIncarnationId !== this._bindingRuntimeIncarnationId
+      || !Number.isSafeInteger(input.expectedGeneration)
+      || input.expectedGeneration < 0
+      || input.expectedGeneration !== this._bindingRuntimeGeneration) {
+      throw this._bindingRuntimeFailure(
+        'MODEL_BINDING_RUNTIME_CAS_MISMATCH',
+        'Terminal runtime authority does not match the exact process generation',
+        {
+          fields: unexpected.sort(),
+          operationId: input.operationId ?? null,
+          expectedIncarnationId: input.expectedIncarnationId ?? null,
+          actualIncarnationId: this._bindingRuntimeIncarnationId,
+          expectedGeneration: input.expectedGeneration ?? null,
+          actualGeneration: this._bindingRuntimeGeneration,
+        },
+      );
+    }
+    const prior = this._bindingRuntimeTerminalReceipts.get(input.operationId);
+    if (prior) {
+      throw this._bindingRuntimeFailure(
+        'MODEL_BINDING_RUNTIME_OPERATION_FINALIZED',
+        'Terminal runtime operation already has an exact process receipt',
+        { operationId: input.operationId },
+      );
+    }
+    if (this._bindingRuntimeTerminalReceipts.size >= 128) {
+      throw this._bindingRuntimeFailure(
+        'MODEL_BINDING_RUNTIME_RECEIPT_CAPACITY_EXHAUSTED',
+        'Terminal runtime receipt capacity requires durable reconciliation',
+      );
+    }
+    if (config.models[input.role] !== input.expectedModel) {
+      throw this._bindingRuntimeFailure(
+        'MODEL_BINDING_RUNTIME_CAS_MISMATCH',
+        'Terminal runtime model does not match the exact expected name',
+        {
+          role: input.role,
+          expectedModel: input.expectedModel ?? null,
+          currentModel: config.models[input.role] ?? null,
+        },
+      );
+    }
+    return this._prepareBindingRuntime({
+      role: input.role,
+      expectedModel: input.expectedModel,
+      targetModel: input.targetModel,
+      incrementVersion: true,
+    }, {
+      terminalOperationId: input.operationId,
+    });
+  }
+
+  _prepareBindingRuntime(input = {}, authority = null) {
     const allowed = new Set(['role', 'expectedModel', 'targetModel', 'incrementVersion']);
     const unexpected = Object.keys(input).filter(key => !allowed.has(key));
     if (unexpected.length > 0) {
@@ -503,7 +580,10 @@ export class UpgradeManager {
       previousModel: currentModel,
       targetModel,
       versionBefore: this._configVersion,
+      incarnationId: this._bindingRuntimeIncarnationId,
+      generationBefore: this._bindingRuntimeGeneration,
       incrementVersion: input.incrementVersion !== false,
+      terminalOperationId: authority?.terminalOperationId ?? null,
       changed: currentModel !== targetModel,
     });
     this._bindingRuntimeToken = token;
@@ -519,23 +599,46 @@ export class UpgradeManager {
       );
     }
     if (config.models[token.role] !== token.targetModel
-      || this._configVersion !== token.versionBefore) {
+      || this._configVersion !== token.versionBefore
+      || this._bindingRuntimeIncarnationId !== token.incarnationId
+      || this._bindingRuntimeGeneration !== token.generationBefore) {
       throw this._bindingRuntimeFailure(
         'MODEL_BINDING_RUNTIME_CAS_MISMATCH',
         'Runtime binding changed before commit',
         { role: token.role },
       );
     }
+    if (token.generationBefore === Number.MAX_SAFE_INTEGER) {
+      throw this._bindingRuntimeFailure(
+        'MODEL_BINDING_RUNTIME_GENERATION_EXHAUSTED',
+        'Runtime binding generation cannot advance safely',
+        { role: token.role },
+      );
+    }
     const nextConfigVersion = token.versionBefore + (token.incrementVersion ? 1 : 0);
-    const result = Object.freeze({
+    const nextGeneration = token.generationBefore + 1;
+    const resultValue = {
       role: token.role,
       from: token.previousModel,
       to: token.targetModel,
       configVersion: nextConfigVersion,
       changed: token.changed,
-    });
+    };
+    if (token.terminalOperationId !== null) {
+      Object.assign(resultValue, {
+        incarnationId: token.incarnationId,
+        generationBefore: token.generationBefore,
+        generationAfter: nextGeneration,
+        terminalOperationId: token.terminalOperationId,
+      });
+    }
+    const result = Object.freeze(resultValue);
     this._configVersion = nextConfigVersion;
+    this._bindingRuntimeGeneration = nextGeneration;
     this._bindingRuntimeToken = null;
+    if (token.terminalOperationId !== null) {
+      this._bindingRuntimeTerminalReceipts.set(token.terminalOperationId, result);
+    }
     return result;
   }
 
@@ -547,7 +650,9 @@ export class UpgradeManager {
       );
     }
     if (config.models[token.role] !== token.targetModel
-      || this._configVersion !== token.versionBefore) {
+      || this._configVersion !== token.versionBefore
+      || this._bindingRuntimeIncarnationId !== token.incarnationId
+      || this._bindingRuntimeGeneration !== token.generationBefore) {
       throw this._bindingRuntimeFailure(
         'MODEL_BINDING_RUNTIME_COMPENSATION_FAILED',
         'Runtime binding cannot be compensated after concurrent mutation',
@@ -561,6 +666,26 @@ export class UpgradeManager {
       restoredModel: token.previousModel,
       configVersion: this._configVersion,
     });
+  }
+
+  _bindingRuntimeTerminalReceipt(operationId) {
+    if (typeof operationId !== 'string'
+      || operationId.length < 1
+      || operationId.length > 128
+      || operationId !== operationId.trim()) {
+      throw this._bindingRuntimeFailure(
+        'MODEL_BINDING_RUNTIME_INPUT_INVALID',
+        'Terminal runtime receipt requires an exact operation ID',
+      );
+    }
+    return this._bindingRuntimeTerminalReceipts.get(operationId) ?? null;
+  }
+
+  _clearBindingRuntimeTerminalReceipt(operationId) {
+    const receipt = this._bindingRuntimeTerminalReceipt(operationId);
+    if (!receipt) return false;
+    this._bindingRuntimeTerminalReceipts.delete(operationId);
+    return true;
   }
 
   _rehydrateLegacyBinding(input = {}) {
@@ -588,7 +713,16 @@ export class UpgradeManager {
       );
     }
     const from = config.models[input.role];
+    if (from !== input.targetModel
+      && this._bindingRuntimeGeneration === Number.MAX_SAFE_INTEGER) {
+      throw this._bindingRuntimeFailure(
+        'MODEL_BINDING_RUNTIME_GENERATION_EXHAUSTED',
+        'Runtime binding generation cannot advance safely',
+        { role: input.role },
+      );
+    }
     config.models[input.role] = input.targetModel;
+    if (from !== input.targetModel) this._bindingRuntimeGeneration += 1;
     return Object.freeze({
       role: input.role,
       from,

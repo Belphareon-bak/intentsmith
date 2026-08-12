@@ -20,8 +20,26 @@ const EXPECTED_SOURCE_PINS = Object.freeze({
   modelFailover: Object.freeze({
     path: 'src/upgrade/model-failover.js',
     algorithm: 'sha256-raw-bytes-v1',
-    byteLength: 145428,
-    sha256: '88a3c8e053813ae8c4e707d5c2859560b9140cf142c3e27f30c70d7b29bac0aa',
+    byteLength: 203403,
+    sha256: '4aa33e4cb99d6a78a044aeb5a9d6a5b47d9ceb0741461a3dd7cfb6a858681863',
+  }),
+  modelPolicy: Object.freeze({
+    path: 'src/db/model-policy.js',
+    algorithm: 'sha256-raw-bytes-v1',
+    byteLength: 53900,
+    sha256: '23d3b6320e0386a8715ebc826a4ee2d81cbd848954feadc558f0a85b6c78eebd',
+  }),
+  userSettings: Object.freeze({
+    path: 'src/db/user-settings.js',
+    algorithm: 'sha256-raw-bytes-v1',
+    byteLength: 40076,
+    sha256: '02d45d725dc15f022d0b6c02e8d01dc70698e862ebae9d4bccac2c3c32fe0386',
+  }),
+  settingsPortability: Object.freeze({
+    path: 'src/db/settings-portability.js',
+    algorithm: 'sha256-raw-bytes-v1',
+    byteLength: 14912,
+    sha256: 'b51793ef371530898188903bfd3384e50edf748a7c29258e2ab11c0d63b24c5c',
   }),
   modelProfiles: Object.freeze({
     path: 'src/upgrade/model-profiles.js',
@@ -37,9 +55,12 @@ const EXPECTED_SOURCE_PINS = Object.freeze({
   }),
 });
 const EXPECTED_AUTHORITY_SHA256 =
-  '9bf5ebe2da7ca4a2d4ac68bbe5976bde3935900841b253f341931b5fbdac5f93';
+  'a7c7c2a27b3c4bec2932bfd68f4b92d5f3974641c67ca7e15dd4f756d5c7b091';
 const SOURCE_URLS = Object.freeze({
   modelFailover: new URL('./model-failover.js', import.meta.url),
+  modelPolicy: new URL('../db/model-policy.js', import.meta.url),
+  userSettings: new URL('../db/user-settings.js', import.meta.url),
+  settingsPortability: new URL('../db/settings-portability.js', import.meta.url),
   modelProfiles: new URL('./model-profiles.js', import.meta.url),
   validationSuites: new URL('./validation-suites.js', import.meta.url),
 });
@@ -285,6 +306,9 @@ function deriveRoleContracts() {
 function buildPolicy() {
   const pinnedSources = {
     modelFailover: readPinnedSource('modelFailover'),
+    modelPolicy: readPinnedSource('modelPolicy'),
+    userSettings: readPinnedSource('userSettings'),
+    settingsPortability: readPinnedSource('settingsPortability'),
     modelProfiles: readPinnedSource('modelProfiles'),
     validationSuites: readPinnedSource('validationSuites'),
   };
