@@ -263,11 +263,31 @@ reprodukce jsou tedy skutečné, ne dodatečná racionalizace. Suita nemá prohl
 (`F-043`): ověřuje stavový automat, ne to, že se nativní scroll chová podle
 modelu; to je práce prohlížečové suity.
 
-**Vědomě neopraveno:** zatažení lišty na kořeni (`§3.2`) pořád čeká pevných
-`NAV_TURN_MS = 420 ms`. U dlouhé otočky na kořen se tedy lišta začne zatahovat
-o kousek dřív, než prstenec dojede. Je to kosmetické, nebylo to hlášeno a
-operátor 2026-08-11 řekl **„neopravovat spolu s ničím jiným"** — zapsáno tady,
-ať se na to nepřijde jako na překvapení.
+**[F] DOKONČENO 2026-08-12 — druhý takt zatažení lišty čekal taky pevně.**
+
+Zbytek téže třídy, zapsaný výše jako vědomě odložený. Zatažení lišty na kořeni
+(`§3.2`) čekalo pevných `NAV_TURN_MS = 420 ms` na dojezd prstence, takže
+u dlouhé otočky na kořen začala lišta sjíždět dolů, zatímco prstenec ještě jel —
+přesně ten „jeden zmatený pohyb", proti kterému dva takty vznikly.
+
+**Ty dva takty jsou ale dva různé druhy věci, a v tom byla chyba.**
+
+| Takt | Co to je | Jak se čeká |
+|---|---|---|
+| první | dojezd prstence | **proměnná** délka (nativní scroll) → **pozoruje se** |
+| druhý | vlastní sjezd lišty | CSS přechod **známé** délky → zůstává konstanta |
+
+Konstanta tedy nezmizela, jen přestala předstírat, že ví, kdy dojel prstenec.
+Je z ní **podlaha**: lišta odchází v `max(prstenec dojel, jeden takt)`. Prstenec,
+který nemá kam jet, tak pořád nechá mezi oběma pohyby mezeru — což je ten
+původní operátorův požadavek (2026-08-10), ne vedlejší efekt časovače.
+
+Přidána i generace: zatažení nazbrojené na kořeni **nevystřelí po novějším
+renderu**, který řekl „zůstaň". Dřív to hlídala jen kontrola sekce při probuzení.
+
+Ověřeno třemi testy v `tests/mobile-navbar-ring-turn.test.js` (celkem 14).
+Na pevném časovači **padá ten rozhodující** — „lišta sjela, zatímco se prstenec
+ještě točil". Prohlížečová suita 3× po sobě bez pádu prstence.
 
 **[F] §10 dynamický typ — VYŘEŠENO 2026-08-11.** Stylesheet je převedený na
 `rem`: typografické délky, rozestupy, poloměry, výška hlavičky i dotykové cíle

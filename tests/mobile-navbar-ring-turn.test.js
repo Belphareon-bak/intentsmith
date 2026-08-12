@@ -135,8 +135,9 @@ globalThis.fetch = async () => { throw new TypeError('this suite turns a ring; i
 
 const { __ms20 } = await import('../src/mobile/client/app.js');
 const {
-  centreNavOnSelection, normaliseNavRing, state, store, K,
+  centreNavOnSelection, normaliseNavRing, state, store, K, prefs,
   navRingIsTurningItself, NAV_TURN_CEILING_MS, NAV_TURN_QUIET_MS,
+  scheduleNavRetraction, NAV_TURN_MS,
 } = __ms20;
 
 // A scroll event, delivered the way the browser delivers it: to **every**
@@ -396,6 +397,69 @@ await test('a settle queued before a tap does not fire during the turn the tap s
     'a settle decided before the tap navigated in the middle of the turn');
   assert.equal(navRingIsTurningItself(), true, 'precondition: the turn is still running here');
   assert.equal(renderBlewUp, null, `nothing should have rendered: ${renderBlewUp?.message}`);
+});
+
+
+// ── The bar's retraction is the second beat, and waits for the first ────────
+//
+// Operator, 2026-08-10: two beats, not one — the ring arrives, *then* the bar
+// goes; sliding sideways and downwards at once reads as one confused motion.
+//
+// The two beats are different kinds of thing, which is what the old code missed.
+// The ring's arrival is variable-length and must be observed.  The bar's own
+// slide is a CSS transition of known length and stays a constant — but as a
+// floor, so a ring with no distance to travel still leaves a gap between the
+// movements.  The bar therefore leaves at `max(ring landed, one beat)`.
+
+function rootBar() {
+  state.route = 'overview';
+  prefs.set('hideBarOnHome', true);
+  return { dataset: {} };
+}
+
+await test('the bar leaves the root only after the ring lands, however long the turn', () => {
+  const track = ring({ at: SET_W });
+  advance(NAV_TURN_CEILING_MS + 1);            // nothing left over from above
+  const bar = rootBar();
+
+  turnTo(track, 'diagnostics');                // a long turn is under way
+  scheduleNavRetraction(bar, true);
+  assert.equal(bar.dataset.retracted, 'false', 'the bar left before the ring had arrived');
+
+  // Past the bar's own beat — but the ring is still travelling.
+  scrollFor(track, NAV_TURN_MS + 200);
+  assert.equal(bar.dataset.retracted, 'false',
+    'the bar slid down while the ring was still turning');
+
+  advance(NAV_TURN_QUIET_MS + 16);             // the ring comes to rest
+  assert.equal(bar.dataset.retracted, 'true', 'the bar never left once the ring had landed');
+});
+
+await test('a ring with nothing to turn still leaves a beat between the two movements', () => {
+  ring({ at: 0 });
+  advance(NAV_TURN_CEILING_MS + 1);
+  const bar = rootBar();
+
+  scheduleNavRetraction(bar, true);            // ring already at rest
+  assert.equal(bar.dataset.retracted, 'false', 'the bar went in the same instant as the render');
+  advance(NAV_TURN_MS - 1);
+  assert.equal(bar.dataset.retracted, 'false', 'the two movements collapsed into one');
+  advance(2);
+  assert.equal(bar.dataset.retracted, 'true', 'the bar never left at all');
+});
+
+await test('a retraction armed on the root does not fire after a newer render says stay', () => {
+  ring({ at: 0 });
+  advance(NAV_TURN_CEILING_MS + 1);
+  const bar = rootBar();
+
+  scheduleNavRetraction(bar, true);            // armed on the root
+  state.route = 'conversations';               // a fast tap straight through
+  scheduleNavRetraction(bar, false);
+
+  advance(NAV_TURN_MS * 3);
+  assert.equal(bar.dataset.retracted, 'false',
+    'a retraction armed on the root fired over a section');
 });
 
 // ── The fix is a rule, not a bigger constant ────────────────────────────────

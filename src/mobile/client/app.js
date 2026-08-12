@@ -2368,8 +2368,11 @@ function renderNavBar() {
  * it belongs to is.
  */
 let navRetractTimer = null;
+let navRetractGeneration = 0;
 function scheduleNavRetraction(bar, wantsRetracted) {
   clearTimeout(navRetractTimer);
+  // Any retraction still waiting belongs to an older render and must not fire.
+  const generation = ++navRetractGeneration;
   const already = bar.dataset.retracted === 'true';
 
   if (!wantsRetracted) {
@@ -2386,13 +2389,38 @@ function scheduleNavRetraction(bar, wantsRetracted) {
   // holding, not an attribute nobody got round to writing.
   bar.dataset.retracted = 'false';
   document.body.classList.add('has-navbar');
-  navRetractTimer = setTimeout(() => {
+
+  // Two beats, and they are two different kinds of thing.
+  //
+  // The **first** beat is the ring arriving, and its length is *variable* — it
+  // is a native smooth scroll, so a turn from across the loop takes longer than
+  // one to a neighbour.  It is therefore observed, never estimated; estimating
+  // it with `NAV_TURN_MS` was the same defect as the one fixed in
+  // `endNavTurnWhenItActuallyEnds`, and on a long turn home the bar began
+  // sliding down while the ring was still travelling.
+  //
+  // The **second** beat is the bar's own slide, a CSS transition of known
+  // length.  That one is legitimately fixed, so it stays a constant — but as a
+  // **floor**, not as a guess about the ring: a ring with no distance to travel
+  // still leaves a beat between the two movements, which is what stops them
+  // reading as one confused motion (operator, 2026-08-10).
+  //
+  // So the bar leaves at `max(ring landed, one beat)`.
+  let landed = false;
+  let beatPassed = false;
+  const leave = () => {
+    if (!landed || !beatPassed) return;
+    // Superseded by a newer render: that render owns the decision now.
+    if (generation !== navRetractGeneration) return;
     // Only if the root is still where we are: a fast tap through Domů to
     // somewhere else must not be followed by a bar that hides itself anyway.
     if (currentSection() !== 'overview' || !prefs.get('hideBarOnHome')) return;
     bar.dataset.retracted = 'true';
     document.body.classList.remove('has-navbar');
-  }, NAV_TURN_MS);
+  };
+
+  whenNavTurnEnds(() => { landed = true; leave(); });
+  navRetractTimer = setTimeout(() => { beatPassed = true; leave(); }, NAV_TURN_MS);
 }
 
 /**
@@ -2581,6 +2609,24 @@ function endNavTurn(track) {
   if (navTurnStopWatching) { navTurnStopWatching(); navTurnStopWatching = null; }
   navRingTurningItself = false;
   normaliseNavRing(track);
+  // Whoever was waiting for the ring to land gets told once, after the re-base,
+  // so they see the position the ring actually came to rest in.
+  const waiting = navTurnEndWaiters;
+  navTurnEndWaiters = [];
+  for (const waiter of waiting) waiter();
+}
+
+/**
+ * Run `callback` once the ring has come to rest.
+ *
+ * A ring that is already at rest has nothing to wait for, so the callback runs
+ * at once — the alternative would be to invent a delay, which is the habit this
+ * whole area is being cured of.
+ */
+let navTurnEndWaiters = [];
+function whenNavTurnEnds(callback) {
+  if (!navRingTurningItself) { callback(); return; }
+  navTurnEndWaiters.push(callback);
 }
 
 /**
@@ -4235,6 +4281,7 @@ export const __ms20 = {
   viewOverview, navItems, currentSection, sectionRoute, unknownScopes, NAV_ITEMS, ROUTE_SECTION,
   renderNavBar, navCount, newChat, layoutNavRing, normaliseNavRing, centreNavOnSelection,
   navRingIsTurningItself, NAV_TURN_CEILING_MS, NAV_TURN_QUIET_MS,
+  scheduleNavRetraction, whenNavTurnEnds, NAV_TURN_MS,
   viewChat, threadBoundary, loadThread, loadOlderMessages, threadWindowOf, THREAD_PAGE_SIZE,
   runSilence, runSilenceEntries, overviewRunSilence,
   approvalCountdown, approvalWindowMinutes, approvalRow, serverTimeMs,
