@@ -48,30 +48,5 @@ Tento PASS není factory delete, privacy erase, root archive exclusion ani
 disposition canonical chat UI. Promotion dosud neproběhla; navazující reset
 zůstává blokovaný do Review B, report-only evidence a fast-forward promotion.
 Finding 011 zůstává `OPEN` a Gate 1 `BLOCKED`.
-
-## Review B
-
-Review B běžel v čistém disk-backed `git clone --no-local` nad exact immutable
-candidate. První bounded attempt skončil `CHANGES_REQUIRED / harness-only`:
-`lsof` zapisoval vlastní výstup dovnitř právě skenovaného test-owned artifact
-rootu a pozoroval své vlastní otevřené soubory. Candidate tím nebyl vyvrácen;
-nonzero výsledek se nezatajuje ani nepřepisuje na PASS.
-
-Po explicitní autorizaci proběhl právě jeden nový corrected attempt. Jediná
-změna harnessu přesunula `lsof` výstup do shell capture mimo skenovaný root.
-Import sentinelu skončil exitem `0` bez stdout/stderr. Přímý start skončil
-exitem `78`, stdout byl prázdný a stderr obsahoval právě jeden marker s LF;
-jeho SHA-256 byl
-`8cb740fc4e99efd6f47aa8836bcb1bdfbb024aab0fa2fcb14d4ea51baa994bc0`.
-
-Manifest test-owned `sentinel.db`, `sentinel.db-wal`, attachment a unknown
-souboru byl před importem, po importu a po přímém startu byteově shodný; SHA-256
-manifestu byl pokaždé
-`0a65ab74b92b95db640c6b929e1f1b5fa419512ab496dfa8b22322daacb1ddea`.
-Po wait nezůstal žádný vlastněný proces, listener ani handle. Exact efemérní
-artifact root byl po nulových handles odstraněn; žádná skutečná uživatelská
-data nebyla čtena. Neběhl npm install, build, externí síť, Electron, GPU,
-Ollama ani full-product test.
-
 candidateHead: 578876dd77c68df4bdcf6239383fa782b649f843
 reviewB.verdict: PASS
