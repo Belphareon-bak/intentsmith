@@ -662,7 +662,7 @@ potom
 [`WP-M1-SETTINGS-RESET-AUTHORITY`](../wp/WP-M1-SETTINGS-RESET-AUTHORITY.md).
 Finding 011 i Gate 1 zůstávají `OPEN`/`BLOCKED`.
 
-### 029 reset CORE source progress — final alias cutover a Review A/B pending
+### 029 reset source candidate — Review A/B pending
 
 Reset CORE candidate už vede canonical route přes exact
 `SERVER_SETTINGS_V1` dual CAS v jednom caller-owned `BEGIN IMMEDIATE`. Před
@@ -677,8 +677,8 @@ znovu načte generation-fenced feature flags bez localStorage mutace; Architect
 odstraní jen `paiass_settings` a zachová accordion, session a ostatní lokální
 data. Žádná z těchto cest není factory delete ani privacy erase.
 
-Toto stále není immutable `S_RESET`: legacy `/api/reset` je v CORE checkpointu
-záměrně ještě aktivní. Pinned mobile/caller preflight se musí zopakovat a jeho
-pre-parse exact `410 LEGACY_RESET_ALIAS_RETIRED` bude posledním produkčním
-commitem. Behavior testy, Review A/B, report-only evidence a promotion jsou
-`NOT RUN` / pending; Finding 011 i Gate 1 proto zůstávají `OPEN`/`BLOCKED`.
+Legacy `/api/reset` je v posledním produkčním commitu subjectu retired
+pre-parse exact `410 LEGACY_RESET_ALIAS_RETIRED`. Pinned mobile/caller
+preflight se před tímto cutoverem zopakoval. Behavior testy, Review A/B,
+report-only evidence a promotion jsou `NOT RUN` / pending; Finding 011 i
+Gate 1 proto zůstávají `OPEN`/`BLOCKED`.

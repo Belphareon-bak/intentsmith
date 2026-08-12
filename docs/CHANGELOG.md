@@ -8,10 +8,10 @@
 
 ---
 
-## Unreleased — exact server-settings reset authority (WP029 CORE source checkpoint, 2026-08-12)
+## Unreleased — exact server-settings reset authority (WP029 source candidate, 2026-08-12)
 
-> This is source progress before the required final legacy-alias cutover,
-> independent Review A/B, and promotion. It is not release evidence.
+> This is source progress before independent Review A/B and promotion. It is
+> not release evidence.
 
 - `POST /api/settings/reset` now requires exact scope `SERVER_SETTINGS_V1` and
   both the settings and model-policy revisions. Both CAS checks happen inside
@@ -35,10 +35,10 @@
 - A committed DB reset remains a truthful success if the post-commit feature
   runtime apply fails: the receipt reports `runtimeApplied:false` and
   `SETTINGS_RUNTIME_APPLY_FAILED` without claiming rollback.
-- The legacy `POST /api/reset` alias is deliberately still present in this
-  CORE checkpoint. Its pre-parse exact `410 LEGACY_RESET_ALIAS_RETIRED`
-  cutover must be the last production commit of the subject after the pinned
-  mobile/caller preflight; no final WP029 candidate may retain the alias.
+- The legacy `POST /api/reset` alias is retired before body parsing with exact
+  `410 {"ok":false,"code":"LEGACY_RESET_ALIAS_RETIRED"}` and no DB, runtime,
+  network, or client-local effect. The cutover is the final production commit
+  of the subject after the pinned mobile/caller preflight.
 
 ## Unreleased — standalone chats unsupported/not shipped (WP029 source candidate, 2026-08-12)
 

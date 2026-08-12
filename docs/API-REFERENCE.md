@@ -605,7 +605,7 @@ is not a global privacy erase.
 | `GET` | `/api/audit` | `?conversation_id&limit=100` | `{audit, drift}` | — |
 | `GET` | `/api/logs` | — | `{logs}` (1000 max) | — |
 | `GET` | `/api/logs/export` | — | Text file (attachment) | — |
-| `POST` | `/api/reset` | same dual-CAS body during the CORE checkpoint | Same reset receipt during CORE construction | Temporary compatibility alias only. The final production commit of WP029 retires it pre-parse with `410 LEGACY_RESET_ALIAS_RETIRED`; no released state may retain this row's temporary behavior. |
+| `POST` | `/api/reset` | Body is not parsed | `410 {"ok":false,"code":"LEGACY_RESET_ALIAS_RETIRED"}` | Retired legacy alias; no DB, runtime, network, or client-local effect |
 | `POST` | `/api/feedback` | `{message, category?, version?, context?}` | `{ok, id}` | Rate-limited (1/30s); stores in DB |
 | `POST` | `/api/feedback/:id/attach` | `{name, type, data}` | `{ok, filename, size}` | Writes attachment to disk (max 2MB per file, 5MB total) |
 | `GET` | `/api/feedback` | — | Feedback rows (100 max) | — |
