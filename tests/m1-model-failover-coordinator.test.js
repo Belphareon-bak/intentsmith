@@ -25,9 +25,13 @@ import {
 } from '../src/upgrade/model-failover.js';
 import {
   ModelFailoverDetectionStatus,
+  ModelFailoverLifecycleStatus,
   createModelFailoverDetectionCoordinator,
   createModelFailoverDetectionInventoryPort,
   createModelFailoverDetectionRepositoryPort,
+  createModelFailoverDetectionRunPort,
+  createModelFailoverLifecycleCoordinator,
+  createModelFailoverTerminalApplicationPort,
   startModelFailoverDetectionScheduler,
 } from '../src/upgrade/model-failover-coordinator.js';
 
@@ -895,6 +899,71 @@ await testAsync('scheduler preserves first delay, never overlaps and server drop
   const serverSource = readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
   assert(serverSource.includes('startModelFailoverDetectionScheduler({'));
   assert(!serverSource.includes('modelRegistry.checkBindingIntegrity().catch(() => {})'));
+});
+
+await testAsync('lifecycle serializes detection then the sole terminal application port', async () => {
+  const order = [];
+  let releaseDetection;
+  const detectionCoordinator = {
+    async runOnce() {
+      order.push('detection:start');
+      await new Promise(resolve => { releaseDetection = resolve; });
+      order.push('detection:end');
+      return { status: ModelFailoverDetectionStatus.COMPLETED };
+    },
+  };
+  const application = {
+    async runTerminalFailoverCycle() {
+      order.push('terminal');
+      return { status: 'COMPLETED' };
+    },
+  };
+  const detectionPort = createModelFailoverDetectionRunPort(detectionCoordinator);
+  const terminalPort = createModelFailoverTerminalApplicationPort(application);
+  const lifecycle = createModelFailoverLifecycleCoordinator({ detectionPort, terminalPort });
+  assert(Object.isFrozen(detectionPort));
+  assert(Object.isFrozen(terminalPort));
+  assertEqual(JSON.stringify(Object.keys(detectionPort)), JSON.stringify(['runOnce']));
+  assertEqual(JSON.stringify(Object.keys(terminalPort)), JSON.stringify(['runOnce']));
+
+  const running = lifecycle.runOnce();
+  await nextTurn();
+  const overlapping = await lifecycle.runOnce();
+  assertEqual(overlapping.status, ModelFailoverLifecycleStatus.SKIPPED_BUSY);
+  assertEqual(overlapping.detection, null);
+  assertEqual(overlapping.terminal, null);
+  releaseDetection();
+  const completed = await running;
+  assertEqual(completed.status, ModelFailoverLifecycleStatus.COMPLETED);
+  assertEqual(JSON.stringify(order), JSON.stringify([
+    'detection:start',
+    'detection:end',
+    'terminal',
+  ]));
+
+  assert(captureError(() => createModelFailoverLifecycleCoordinator({
+    detectionPort: Object.freeze({ runOnce: detectionPort.runOnce, claimOperation() {} }),
+    terminalPort,
+  })) instanceof TypeError);
+});
+
+test('server awaits fail-closed terminal startup before manual restore and model consumers', () => {
+  const serverSource = readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
+  const terminal = serverSource.indexOf(
+    'await modelBindingApplication.rehydrateTerminalBindings()',
+  );
+  const manual = serverSource.indexOf('await modelBindingApplication.rehydrateBindings()');
+  const consumer = serverSource.indexOf('const { initModelNumCtx }');
+  const routes = serverSource.indexOf('const routeDeps = {');
+  const listener = serverSource.indexOf('listenOnLegacyLoopback(server');
+  assert(terminal > 0);
+  assert(terminal < manual);
+  assert(manual < consumer);
+  assert(consumer < routes);
+  assert(routes < listener);
+  assert(serverSource.includes('terminalInventoryReader = Object.freeze(async target =>'));
+  assert(serverSource.includes('modelFailoverScheduler = startModelFailoverDetectionScheduler({'));
+  assert(serverSource.includes('modelFailoverScheduler?.stop()'));
 });
 
 test('coordinator source excludes activation, recommendation and provider mutation authority', () => {

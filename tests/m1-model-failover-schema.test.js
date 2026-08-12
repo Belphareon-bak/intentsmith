@@ -337,6 +337,308 @@ function insertPassingProof(db, {
   else db.transaction(insert)();
 }
 
+function hasTerminalCompanionSchema(db) {
+  return Boolean(db.prepare(`
+    SELECT 1 FROM sqlite_master
+    WHERE type = 'table' AND name = 'model_failover_terminal_intents'
+  `).get());
+}
+
+function ensureTerminalFixtureAuthority(db, {
+  role,
+  targetModel,
+  targetCanonical,
+  targetDigest,
+  createdAt,
+}) {
+  const policy = db.prepare('SELECT * FROM model_automation_policy WHERE id = 1').get();
+  if (policy.auto_failover_enabled !== 1) {
+    const revision = policy.revision + 1;
+    const eventId = `policy-event-terminal-${revision}`;
+    db.prepare(`
+      UPDATE model_automation_policy
+      SET revision = ?, auto_failover_enabled = 1,
+          last_event_id = ?, updated_at_ms = ?
+      WHERE id = 1 AND revision = ? AND last_event_id = ?
+    `).run(revision, eventId, createdAt, policy.revision, policy.last_event_id);
+    db.prepare(`
+      INSERT INTO model_automation_policy_events (
+        event_id, request_id, previous_revision, committed_revision,
+        event_kind, actor, source, before_auto_failover_enabled,
+        before_auto_cleanup_enabled, before_auto_cleanup_days,
+        after_auto_failover_enabled, after_auto_cleanup_enabled,
+        after_auto_cleanup_days, created_at_ms
+      ) VALUES (?, ?, ?, ?, 'USER_UPDATE', 'user:terminal-fixture', 'TYPED_API',
+        ?, ?, ?, 1, ?, ?, ?)
+    `).run(
+      eventId,
+      `policy-request-terminal-${revision}`,
+      policy.revision,
+      revision,
+      policy.auto_failover_enabled,
+      policy.auto_cleanup_enabled,
+      policy.auto_cleanup_days,
+      policy.auto_cleanup_enabled,
+      policy.auto_cleanup_days,
+      createdAt,
+    );
+  }
+
+  const target = db.prepare(
+    'SELECT * FROM model_failover_targets WHERE role = ?'
+  ).get(role);
+  if (target.requested_name === targetModel
+    && target.canonical_name === targetCanonical
+    && target.digest_sha256 === targetDigest) {
+    return;
+  }
+  const revision = target.revision + 1;
+  const eventId = `target-event-${role.toLowerCase()}-${revision}`;
+  const requestId = `target-request-${role.toLowerCase()}-${revision}`;
+  const eventKind = target.requested_name === null ? 'SET' : 'REPLACE';
+  db.prepare(`
+    UPDATE model_failover_targets
+    SET revision = ?, requested_name = ?, canonical_name = ?, digest_sha256 = ?,
+        actor = 'operator:model-failover-target-cli',
+        authority_source = 'TARGET_EVENT', last_target_event_id = ?,
+        last_policy_event_id = NULL, updated_at_ms = ?
+    WHERE role = ? AND revision = ?
+  `).run(
+    revision,
+    targetModel,
+    targetCanonical,
+    targetDigest,
+    eventId,
+    createdAt,
+    role,
+    target.revision,
+  );
+  db.prepare(`
+    INSERT INTO model_failover_target_events (
+      event_id, request_id, role, previous_revision, committed_revision,
+      event_kind, actor, before_requested_name, before_canonical_name,
+      before_digest_sha256, after_requested_name, after_canonical_name,
+      after_digest_sha256, created_at_ms
+    ) VALUES (?, ?, ?, ?, ?, ?, 'operator:model-failover-target-cli',
+      ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    eventId,
+    requestId,
+    role,
+    target.revision,
+    revision,
+    eventKind,
+    target.requested_name,
+    target.canonical_name,
+    target.digest_sha256,
+    targetModel,
+    targetCanonical,
+    targetDigest,
+    createdAt,
+  );
+}
+
+function insertTerminalCompanionEvent(db, {
+  kind,
+  eventId,
+  role,
+  revision,
+  rowVersion,
+  episodeId,
+  operationId,
+  policyVersion,
+  desiredModel,
+  desiredDigest,
+  fallbackModel,
+  fallbackCanonical,
+  fallbackDigest,
+  proofId,
+  createdAt,
+  resolution = 'DIRECT_CONFIRMED',
+  failurePhase = null,
+  failureCode = null,
+}) {
+  const state = db.prepare('SELECT * FROM model_failover_state WHERE role = ?').get(role);
+  const desired = db.prepare(`
+    SELECT * FROM model_desired_bindings
+    WHERE role = ? AND binding_revision = ?
+  `).get(role, revision);
+  const claimMatches = state
+    && desired
+    && state.claim_operation_id === operationId
+    && state.row_version + 1 === rowVersion;
+  const stateBefore = kind === 'ACTIVATE' ? 'DETECTED' : 'ACTIVATED';
+  const stateAfter = kind === 'RESTORE' ? 'RESTORED' : 'ACTIVATED';
+  const confirmed = resolution === 'DIRECT_CONFIRMED';
+  const eventType = confirmed
+    ? { ACTIVATE: 'ACTIVATED', REAPPLY: 'REAPPLIED', RESTORE: 'RESTORED' }[kind]
+    : { ACTIVATE: 'ACTIVATION_FAILED', REAPPLY: 'REAPPLY_FAILED', RESTORE: 'RESTORE_FAILED' }[kind];
+  const reasonCode = {
+    ACTIVATE: 'FAILOVER_ACTIVATED',
+    REAPPLY: 'FAILOVER_REAPPLIED',
+    RESTORE: 'DESIRED_MODEL_RESTORED',
+  }[kind];
+  const effect = kind === 'RESTORE'
+    ? {
+        model: desiredModel,
+        canonical: desired?.canonical_name ?? desiredModel,
+        digest: desiredDigest,
+      }
+    : { model: fallbackModel, canonical: fallbackCanonical, digest: fallbackDigest };
+  const expectedRuntime = kind === 'ACTIVATE'
+    ? {
+        model: desiredModel,
+        canonical: desired?.canonical_name ?? desiredModel,
+        digest: desiredDigest,
+      }
+    : {
+        model: state?.fallback_model_name ?? fallbackModel,
+        canonical: state?.fallback_canonical_name ?? fallbackCanonical,
+        digest: state?.fallback_digest_sha256 ?? fallbackDigest,
+      };
+  const incarnation = 'runtime-incarnation-fixture-0001';
+  const details = JSON.stringify({
+    failureCode,
+    resolution,
+    runtimeGenerationBefore: 0,
+    runtimeGenerationAfter: confirmed ? 1 : 0,
+    runtimeIncarnationBefore: incarnation,
+    runtimeIncarnationAfter: incarnation,
+  });
+
+  if (claimMatches) {
+    ensureTerminalFixtureAuthority(db, {
+      role,
+      targetModel: fallbackModel,
+      targetCanonical: fallbackCanonical,
+      targetDigest: fallbackDigest,
+      createdAt: state.claim_started_at_ms,
+    });
+    const policy = db.prepare('SELECT * FROM model_automation_policy WHERE id = 1').get();
+    const target = db.prepare(
+      'SELECT * FROM model_failover_targets WHERE role = ?'
+    ).get(role);
+    const proof = db.prepare(
+      'SELECT * FROM model_failover_proofs WHERE proof_id = ?'
+    ).get(proofId);
+    db.prepare(`
+      INSERT INTO model_failover_terminal_intents (
+        operation_id, claim_event_id, role, operation_kind, episode_id,
+        desired_revision, claimed_row_version, policy_revision,
+        policy_event_id, policy_version, role_contract_sha256,
+        target_revision, target_requested_name, target_canonical_name,
+        target_digest_sha256, desired_model_name, desired_canonical_name,
+        desired_digest_sha256, effect_model_name, effect_canonical_name,
+        effect_digest_sha256, observed_inventory_requested_name,
+        observed_inventory_canonical_name, observed_inventory_digest_sha256,
+        proof_id, proof_expires_at_ms,
+        expected_runtime_model_name, expected_runtime_canonical_name,
+        expected_runtime_digest_sha256, expected_runtime_incarnation_id,
+        expected_runtime_generation, claim_expires_at_ms, created_at_ms
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+    `).run(
+      operationId,
+      state.last_event_id,
+      role,
+      kind,
+      episodeId,
+      revision,
+      state.row_version,
+      policy.revision,
+      policy.last_event_id,
+      policyVersion,
+      proof?.role_contract_sha256,
+      target.revision,
+      target.requested_name,
+      target.canonical_name,
+      target.digest_sha256,
+      desiredModel,
+      desired?.canonical_name,
+      desiredDigest,
+      effect.model,
+      effect.canonical,
+      effect.digest,
+      effect.model,
+      effect.canonical,
+      effect.digest,
+      proofId,
+      proof?.expires_at_ms,
+      expectedRuntime.model,
+      expectedRuntime.canonical,
+      expectedRuntime.digest,
+      incarnation,
+      state.claim_expires_at_ms,
+      state.claim_started_at_ms,
+    );
+    db.prepare(`
+      INSERT INTO model_failover_terminal_finalize_receipts (
+        receipt_id, operation_id, resolution, terminal_event_id,
+        terminal_event_type, terminal_row_version,
+        runtime_incarnation_before, runtime_incarnation_after,
+        runtime_generation_before, runtime_generation_after,
+        runtime_from_model_name, runtime_from_canonical_name,
+        runtime_from_digest_sha256, runtime_to_model_name,
+        runtime_to_canonical_name, runtime_to_digest_sha256,
+        runtime_changed, failure_phase, failure_code, created_at_ms
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      `receipt-${eventId}`,
+      operationId,
+      resolution,
+      eventId,
+      eventType,
+      rowVersion,
+      incarnation,
+      incarnation,
+      confirmed ? 1 : 0,
+      expectedRuntime.model,
+      expectedRuntime.canonical,
+      expectedRuntime.digest,
+      confirmed ? effect.model : expectedRuntime.model,
+      confirmed ? effect.canonical : expectedRuntime.canonical,
+      confirmed ? effect.digest : expectedRuntime.digest,
+      confirmed && (expectedRuntime.canonical !== effect.canonical
+        || expectedRuntime.digest !== effect.digest) ? 1 : 0,
+      failurePhase,
+      failureCode,
+      createdAt,
+    );
+    return;
+  }
+
+  db.prepare(`
+    INSERT INTO model_failover_events (
+      event_id, event_type, role, binding_revision, row_version, episode_id,
+      operation_id, actor, reason_code, policy_version, state_before,
+      state_after, desired_model_name, desired_digest_sha256,
+      fallback_model_name, fallback_canonical_name, fallback_digest_sha256,
+      proof_id, verified, details_json, created_at_ms
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'system:binding-integrity', ?, ?, ?, ?, ?, ?,
+      ?, ?, ?, ?, 1, ?, ?)
+  `).run(
+    eventId,
+    eventType,
+    role,
+    revision,
+    rowVersion,
+    episodeId,
+    operationId,
+    reasonCode,
+    policyVersion,
+    stateBefore,
+    stateAfter,
+    desiredModel,
+    desiredDigest,
+    fallbackModel,
+    fallbackCanonical,
+    fallbackDigest,
+    proofId,
+    details,
+    createdAt,
+  );
+}
+
 function insertActivationEvent(db, {
   eventId = 'event-activated',
   role = 'CHAT',
@@ -352,7 +654,35 @@ function insertActivationEvent(db, {
   fallbackDigest = DIGEST_B,
   proofId = 'proof-fixture-0001',
   createdAt = 3000,
+  resolution = 'DIRECT_CONFIRMED',
+  failurePhase = null,
+  failureCode = null,
 } = {}) {
+  if (hasTerminalCompanionSchema(db)) {
+    const insert = () => insertTerminalCompanionEvent(db, {
+      kind: 'ACTIVATE',
+      eventId,
+      role,
+      revision,
+      rowVersion,
+      episodeId,
+      operationId,
+      policyVersion,
+      desiredModel,
+      desiredDigest,
+      fallbackModel,
+      fallbackCanonical,
+      fallbackDigest,
+      proofId,
+      createdAt,
+      resolution,
+      failurePhase,
+      failureCode,
+    });
+    if (db.inTransaction) insert();
+    else db.transaction(insert)();
+    return;
+  }
   db.prepare(`
     INSERT INTO model_failover_events (
       event_id, event_type, role, binding_revision, row_version, episode_id,
@@ -465,11 +795,557 @@ function claimOperation(db, {
   );
 }
 
+function manualSupersedeSnapshot(db) {
+  return JSON.stringify({
+    desired: db.prepare('SELECT * FROM model_desired_bindings ORDER BY role').all(),
+    operations: db.prepare(
+      'SELECT * FROM model_binding_operations ORDER BY role, committed_binding_revision'
+    ).all(),
+    events: db.prepare('SELECT * FROM model_failover_events ORDER BY seq').all(),
+    supersedes: db.prepare(
+      'SELECT * FROM model_failover_terminal_supersedes ORDER BY terminal_operation_id'
+    ).all(),
+    state: db.prepare('SELECT * FROM model_failover_state ORDER BY role').all(),
+    intents: db.prepare(
+      'SELECT * FROM model_failover_terminal_intents ORDER BY operation_id'
+    ).all(),
+    receipts: db.prepare(
+      'SELECT * FROM model_failover_terminal_finalize_receipts ORDER BY operation_id'
+    ).all(),
+  });
+}
+
+function createManualSupersedeFixtureRepository(db, prefix, initialNow = 4000) {
+  let nowMs = initialNow;
+  let event = 0;
+  let operation = 0;
+  let claimToken = 0;
+  const terminalInventoryReader = Object.freeze(() => Object.freeze({
+    name: 'fallback:latest',
+    canonicalName: 'fallback',
+    digestSha256: DIGEST_B,
+  }));
+  return {
+    repository: createModelFailoverRepository(db, {
+      clock: () => nowMs,
+      terminalInventoryReader,
+      ids: {
+        event: () => `${prefix}-event-${++event}`,
+        episode: () => `${prefix}-episode-unused`,
+        operation: () => `${prefix}-operation-${++operation}`,
+        claimToken: () => `${prefix}-claim-${String(++claimToken).padStart(4, '0')}`,
+      },
+    }),
+    setNow(value) {
+      nowMs = value;
+    },
+  };
+}
+
+function recordFixtureManualSupersede(repository, label) {
+  return repository.recordUserBindingApply({
+    requestKey: `request-p1-supersede-${label}`,
+    role: 'CHAT',
+    expectedBindingRevision: 1,
+    targetModelName: 'manual:latest',
+    targetDigestSha256: DIGEST_C,
+    actor: 'user:p1-schema',
+  });
+}
+
+function recordRawManualSupersede(db, overrides = {}) {
+  const incident = db.prepare("SELECT * FROM model_failover_state WHERE role = 'CHAT'").get();
+  const desired = db.prepare("SELECT * FROM model_desired_bindings WHERE role = 'CHAT'").get();
+  const input = {
+    operationId: 'operation-p1-raw-manual-0001',
+    requestKey: 'request-p1-raw-manual-0001',
+    desiredEventId: 'event-p1-raw-desired-0001',
+    supersedeEventId: 'event-p1-raw-supersede-0001',
+    expectedRevision: desired.binding_revision,
+    committedRevision: desired.binding_revision + 1,
+    previousModelName: desired.model_name,
+    previousCanonicalName: desired.canonical_name,
+    previousDigestSha256: desired.digest_sha256,
+    targetModelName: 'manual:latest',
+    targetCanonicalName: 'manual',
+    targetDigestSha256: DIGEST_C,
+    desiredTargetModelName: 'manual:latest',
+    desiredTargetCanonicalName: 'manual',
+    desiredTargetDigestSha256: DIGEST_C,
+    desiredSource: 'USER_APPLY',
+    desiredActor: 'user:p1-raw',
+    desiredLastEventId: 'event-p1-raw-desired-0001',
+    actor: 'user:p1-raw',
+    operationDesiredEventId: 'event-p1-raw-desired-0001',
+    createdAt: 4000,
+    insertOperation: true,
+    insertSupersedeRow: Boolean(incident.claim_operation_id),
+    insertSupersedeEvent: true,
+    updateState: true,
+    terminalOperationId: incident.claim_operation_id,
+    terminalBindingOperationId: 'operation-p1-raw-manual-0001',
+    terminalSupersedeEventId: 'event-p1-raw-supersede-0001',
+    terminalRole: 'CHAT',
+    terminalEpisodeId: incident.episode_id,
+    terminalRowVersion: incident.row_version,
+    terminalCreatedAt: 4000,
+    ...overrides,
+  };
+  const transaction = db.transaction(() => {
+    db.prepare(`
+      INSERT INTO model_failover_events (
+        event_id, event_type, role, binding_revision, operation_id, actor,
+        reason_code, policy_version, desired_model_name, desired_digest_sha256,
+        verified, details_json, created_at_ms
+      ) VALUES (?, 'DESIRED_CHANGED', 'CHAT', ?, ?, ?,
+        'USER_MODEL_BINDING_APPLIED', 'd-plus-v1', ?, ?, 0, '{}', ?)
+    `).run(
+      input.desiredEventId,
+      input.committedRevision,
+      input.operationId,
+      input.actor,
+      input.targetModelName,
+      input.targetDigestSha256,
+      input.createdAt,
+    );
+    if (input.insertOperation) {
+      db.prepare(`
+        INSERT INTO model_binding_operations (
+          operation_id, request_key, role, operation_kind,
+          expected_binding_revision, committed_binding_revision,
+          previous_model_name, previous_canonical_name, previous_digest_sha256,
+          target_model_name, target_canonical_name, target_digest_sha256,
+          predecessor_operation_id, rollback_of_operation_id,
+          verification_status, runtime_status, desired_event_id, actor,
+          reason_code, policy_version, details_json, created_at_ms
+        ) VALUES (?, ?, 'CHAT', 'USER_APPLY', ?, ?, ?, ?, ?, ?, ?, ?, NULL,
+          NULL, 'NOT_VERIFIED', 'NOT_APPLIED', ?, ?,
+          'USER_MODEL_BINDING_APPLIED', 'd-plus-v1', '{}', ?)
+      `).run(
+        input.operationId,
+        input.requestKey,
+        input.expectedRevision,
+        input.committedRevision,
+        input.previousModelName,
+        input.previousCanonicalName,
+        input.previousDigestSha256,
+        input.targetModelName,
+        input.targetCanonicalName,
+        input.targetDigestSha256,
+        input.operationDesiredEventId,
+        input.actor,
+        input.createdAt,
+      );
+    }
+    db.prepare('PRAGMA defer_foreign_keys = ON').run();
+    db.prepare(`
+      UPDATE model_desired_bindings
+      SET model_name = ?, canonical_name = ?, digest_sha256 = ?,
+          binding_revision = ?, source = ?, actor = ?, observed_at_ms = ?,
+          updated_at_ms = ?, last_event_id = ?
+      WHERE role = 'CHAT' AND binding_revision = ?
+    `).run(
+      input.desiredTargetModelName,
+      input.desiredTargetCanonicalName,
+      input.desiredTargetDigestSha256,
+      input.committedRevision,
+      input.desiredSource,
+      input.desiredActor,
+      input.createdAt,
+      input.createdAt,
+      input.desiredLastEventId,
+      desired.binding_revision,
+    );
+    if (input.insertSupersedeRow) {
+      db.prepare(`
+        INSERT INTO model_failover_terminal_supersedes (
+          terminal_operation_id, binding_operation_id, supersede_event_id,
+          role, episode_id, terminal_row_version, created_at_ms
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        input.terminalOperationId,
+        input.terminalBindingOperationId,
+        input.terminalSupersedeEventId,
+        input.terminalRole,
+        input.terminalEpisodeId,
+        input.terminalRowVersion,
+        input.terminalCreatedAt,
+      );
+    }
+    if (input.insertSupersedeEvent) {
+      db.prepare(`
+        INSERT INTO model_failover_events (
+          event_id, event_type, role, binding_revision, row_version, episode_id,
+          operation_id, actor, reason_code, policy_version, state_before,
+          state_after, desired_model_name, desired_digest_sha256,
+          fallback_model_name, fallback_canonical_name, fallback_digest_sha256,
+          proof_id, verified, details_json, created_at_ms
+        ) VALUES (?, 'SUPERSEDED_BY_USER', 'CHAT', ?, ?, ?, ?, ?,
+          'USER_BINDING_SUPERSEDED_FAILOVER', 'd-plus-v1', ?,
+          'SUPERSEDED_BY_USER', ?, ?, ?, ?, ?, ?, 0, '{}', ?)
+      `).run(
+        input.supersedeEventId,
+        input.committedRevision,
+        incident.row_version + 1,
+        incident.episode_id,
+        input.operationId,
+        input.actor,
+        incident.state,
+        input.targetModelName,
+        input.targetDigestSha256,
+        incident.fallback_model_name,
+        incident.fallback_canonical_name,
+        incident.fallback_digest_sha256,
+        incident.proof_id,
+        input.createdAt,
+      );
+    }
+    if (input.updateState) {
+      db.prepare(`
+        UPDATE model_failover_state
+        SET desired_revision = ?, state = 'SUPERSEDED_BY_USER',
+            active_failover = 0, fallback_model_name = NULL,
+            fallback_canonical_name = NULL, fallback_digest_sha256 = NULL,
+            proof_id = NULL, active_event_id = NULL, actor = ?,
+            reason_code = 'USER_BINDING_SUPERSEDED_FAILOVER',
+            failure_phase = NULL, proof_verified_at_ms = NULL,
+            row_version = ?, claim_operation_id = NULL, claim_token = NULL,
+            claim_kind = NULL, claim_started_at_ms = NULL,
+            claim_expires_at_ms = NULL, resolved_at_ms = ?, updated_at_ms = ?,
+            last_event_id = ?
+        WHERE role = 'CHAT' AND desired_revision = ? AND episode_id = ?
+          AND row_version = ? AND state = ? AND active_failover = ?
+          AND policy_version = 'd-plus-v1'
+          AND fallback_model_name IS ? AND fallback_canonical_name IS ?
+          AND fallback_digest_sha256 IS ? AND proof_id IS ?
+          AND active_event_id IS ? AND failure_phase IS ?
+          AND claim_operation_id IS ? AND claim_token IS ? AND claim_kind IS ?
+          AND claim_started_at_ms IS ? AND claim_expires_at_ms IS ?
+      `).run(
+        input.committedRevision,
+        input.actor,
+        incident.row_version + 1,
+        input.createdAt,
+        input.createdAt,
+        input.supersedeEventId,
+        desired.binding_revision,
+        incident.episode_id,
+        incident.row_version,
+        incident.state,
+        incident.active_failover,
+        incident.fallback_model_name,
+        incident.fallback_canonical_name,
+        incident.fallback_digest_sha256,
+        incident.proof_id,
+        incident.active_event_id,
+        incident.failure_phase,
+        incident.claim_operation_id,
+        incident.claim_token,
+        incident.claim_kind,
+        incident.claim_started_at_ms,
+        incident.claim_expires_at_ms,
+      );
+    }
+    assertEqual(db.prepare('PRAGMA foreign_key_check').get(), undefined);
+  });
+  transaction.immediate();
+}
+
+function setupTerminalActivationFixture(db, {
+  label,
+  resolution = 'DIRECT_CONFIRMED',
+  leaveClaimed = false,
+} = {}) {
+  insertDesiredObservedEvent(db);
+  insertDesiredBinding(db);
+  insertDetectedState(db);
+  insertPassingProof(db);
+  claimOperation(db);
+  if (leaveClaimed) {
+    const insert = () => {
+      const state = db.prepare("SELECT * FROM model_failover_state WHERE role = 'CHAT'").get();
+      const desired = db.prepare("SELECT * FROM model_desired_bindings WHERE role = 'CHAT'").get();
+      ensureTerminalFixtureAuthority(db, {
+        role: 'CHAT',
+        targetModel: 'fallback:latest',
+        targetCanonical: 'fallback',
+        targetDigest: DIGEST_B,
+        createdAt: state.claim_started_at_ms,
+      });
+      const policy = db.prepare('SELECT * FROM model_automation_policy WHERE id = 1').get();
+      const target = db.prepare("SELECT * FROM model_failover_targets WHERE role = 'CHAT'").get();
+      const proof = db.prepare(
+        "SELECT * FROM model_failover_proofs WHERE proof_id = 'proof-fixture-0001'"
+      ).get();
+      db.prepare(`
+        INSERT INTO model_failover_terminal_intents (
+          operation_id, claim_event_id, role, operation_kind, episode_id,
+          desired_revision, claimed_row_version, policy_revision,
+          policy_event_id, policy_version, role_contract_sha256,
+          target_revision, target_requested_name, target_canonical_name,
+          target_digest_sha256, desired_model_name, desired_canonical_name,
+          desired_digest_sha256, effect_model_name, effect_canonical_name,
+          effect_digest_sha256, observed_inventory_requested_name,
+          observed_inventory_canonical_name, observed_inventory_digest_sha256,
+          proof_id, proof_expires_at_ms, expected_runtime_model_name,
+          expected_runtime_canonical_name, expected_runtime_digest_sha256,
+          expected_runtime_incarnation_id, expected_runtime_generation,
+          claim_expires_at_ms, created_at_ms
+        ) VALUES (?, ?, 'CHAT', 'ACTIVATE', ?, 1, ?, ?, ?, 'd-plus-v1', ?,
+          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+          'runtime-incarnation-fixture-0001', 0, ?, ?)
+      `).run(
+        state.claim_operation_id,
+        state.last_event_id,
+        state.episode_id,
+        state.row_version,
+        policy.revision,
+        policy.last_event_id,
+        proof.role_contract_sha256,
+        target.revision,
+        target.requested_name,
+        target.canonical_name,
+        target.digest_sha256,
+        desired.model_name,
+        desired.canonical_name,
+        desired.digest_sha256,
+        target.requested_name,
+        target.canonical_name,
+        target.digest_sha256,
+        target.requested_name,
+        target.canonical_name,
+        target.digest_sha256,
+        proof.proof_id,
+        proof.expires_at_ms,
+        desired.model_name,
+        desired.canonical_name,
+        desired.digest_sha256,
+        state.claim_expires_at_ms,
+        state.claim_started_at_ms,
+      );
+    };
+    if (db.inTransaction) insert();
+    else db.transaction(insert)();
+    return;
+  }
+  insertActivationEvent(db, {
+    eventId: `event-p1-${label}`,
+    resolution,
+    failurePhase: resolution === 'EFFECT_FAILED' ? 'RUNTIME_APPLY' : null,
+    failureCode: resolution === 'EFFECT_FAILED'
+      ? 'MODEL_FAILOVER_FIXTURE_EFFECT_FAILED'
+      : null,
+  });
+}
+
+function setupRestoredTerminalFixture(db) {
+  setupTerminalActivationFixture(db, { label: 'restore-base' });
+  insertPassingProof(db, {
+    proofId: 'proof-p1-desired-0001',
+    model: 'qwen3.5:27b',
+    canonical: 'qwen3.5:27b',
+    digest: DIGEST_A,
+    startedAt: 3000,
+    completedAt: 3100,
+    createdAt: 3100,
+  });
+  claimOperation(db, {
+    eventId: 'event-p1-restore-claimed',
+    eventType: 'RESTORE_CLAIMED',
+    claimKind: 'RESTORE',
+    operationId: 'operation-p1-restore-0001',
+    claimToken: 'claim-token-p1-restore-0001',
+    rowVersion: 4,
+    state: 'ACTIVATED',
+    startedAt: 3200,
+    expiresAt: 4200,
+  });
+  insertTerminalCompanionEvent(db, {
+    kind: 'RESTORE',
+    eventId: 'event-p1-restored',
+    role: 'CHAT',
+    revision: 1,
+    rowVersion: 5,
+    episodeId: 'episode-1',
+    operationId: 'operation-p1-restore-0001',
+    policyVersion: 'd-plus-v1',
+    desiredModel: 'qwen3.5:27b',
+    desiredDigest: DIGEST_A,
+    fallbackModel: 'fallback:latest',
+    fallbackCanonical: 'fallback',
+    fallbackDigest: DIGEST_B,
+    proofId: 'proof-p1-desired-0001',
+    createdAt: 3500,
+  });
+}
+
 suite('M1 model failover schema — exact migration contract');
+
+await testAsync('manual supersede preserves immutable incident authority across desired revision', async () => {
+  for (const scenario of [
+    { label: 'detected', setup: db => {
+      insertDesiredObservedEvent(db);
+      insertDesiredBinding(db);
+      insertDetectedState(db);
+    } },
+    { label: 'activated', setup: db => setupTerminalActivationFixture(db, {
+      label: 'activated',
+    }) },
+    { label: 'failed', setup: db => setupTerminalActivationFixture(db, {
+      label: 'failed',
+      resolution: 'EFFECT_FAILED',
+    }) },
+    { label: 'unresolved-intent', setup: db => setupTerminalActivationFixture(db, {
+      label: 'unresolved',
+      leaveClaimed: true,
+    }) },
+  ]) {
+    await withMigratedDb(async (db) => {
+      scenario.setup(db);
+      const runtime = createManualSupersedeFixtureRepository(db, `p1-${scenario.label}`);
+      runtime.setNow(4000);
+      const result = recordFixtureManualSupersede(runtime.repository, scenario.label);
+      assertEqual(result.outcome, 'RECORDED');
+      assertEqual(result.currentDesired.bindingRevision, 2);
+      const state = db.prepare("SELECT * FROM model_failover_state WHERE role = 'CHAT'").get();
+      assertEqual(state.state, 'SUPERSEDED_BY_USER');
+      assertEqual(state.desired_revision, 2);
+      assertEqual(state.active_failover, 0);
+      assertEqual(state.claim_operation_id, null);
+      assertEqual(
+        db.prepare("SELECT COUNT(*) AS count FROM model_failover_events WHERE event_type = 'SUPERSEDED_BY_USER'").get().count,
+        1,
+      );
+      const operation = db.prepare(
+        "SELECT * FROM model_binding_operations WHERE role = 'CHAT' AND committed_binding_revision = 2"
+      ).get();
+      assertEqual(operation.previous_model_name, 'qwen3.5:27b');
+      assertEqual(operation.previous_canonical_name, 'qwen3.5:27b');
+      assertEqual(operation.previous_digest_sha256, DIGEST_A);
+      if (scenario.label === 'unresolved-intent') {
+        assertEqual(
+          db.prepare('SELECT COUNT(*) AS count FROM model_failover_terminal_supersedes').get().count,
+          1,
+        );
+        const committed = manualSupersedeSnapshot(db);
+        runtime.setNow(4200);
+        let late;
+        try {
+          await runtime.repository.finalizeTerminalOperation({
+            operationId: 'operation-activate-1',
+            expectedRowVersion: 2,
+            claimToken: null,
+            resolution: 'RECONCILED_CONFIRMED',
+            runtime: {
+              incarnationBefore: 'runtime-incarnation-fixture-0001',
+              incarnationAfter: 'runtime-incarnation-fixture-0002',
+              generationBefore: 0,
+              generationAfter: 1,
+              fromModelName: 'qwen3.5:27b',
+              fromDigestSha256: DIGEST_A,
+              toModelName: 'fallback:latest',
+              toDigestSha256: DIGEST_B,
+              changed: true,
+            },
+            failureCode: null,
+          });
+        } catch (error) {
+          late = error;
+        }
+        assert(late, 'late terminal finalize must fail');
+        assertEqual(late.code, 'MODEL_FAILOVER_TERMINAL_SUPERSEDED');
+        assertEqual(manualSupersedeSnapshot(db), committed);
+        assertEqual(
+          db.prepare('SELECT COUNT(*) AS count FROM model_failover_terminal_finalize_receipts').get().count,
+          0,
+        );
+      }
+    });
+  }
+});
+
+await testAsync('manual supersede rejects forged lineage and rolls back every authority table', async () => {
+  for (const scenario of [
+    { label: 'old-model', overrides: { previousModelName: 'forged-old:latest' } },
+    { label: 'old-digest', overrides: { previousDigestSha256: DIGEST_B } },
+    { label: 'old-canonical', overrides: { previousCanonicalName: 'forged-old' } },
+    { label: 'expected-revision', overrides: {
+      expectedRevision: 2,
+      committedRevision: 3,
+    } },
+    { label: 'transition-target', overrides: { desiredTargetModelName: 'forged-target:latest' } },
+    { label: 'transition-source', overrides: { desiredSource: 'USER_ROLLBACK' } },
+    { label: 'transition-actor', overrides: { desiredActor: 'user:forged' } },
+    { label: 'transition-event', overrides: { desiredLastEventId: 'event-desired-observed' } },
+    { label: 'missing-operation', overrides: { insertOperation: false } },
+    { label: 'missing-event', overrides: { insertSupersedeEvent: false } },
+  ]) {
+    await withMigratedDb(async (db) => {
+      insertDesiredObservedEvent(db);
+      insertDesiredBinding(db);
+      insertDetectedState(db);
+      const before = manualSupersedeSnapshot(db);
+      assertThrowsMatching(
+        () => recordRawManualSupersede(db, scenario.overrides),
+        /binding operation|desired binding|manual supersede|FOREIGN KEY|constraint|audit event|audit lineage/i,
+      );
+      assertEqual(manualSupersedeSnapshot(db), before);
+    });
+  }
+});
+
+await testAsync('terminal supersede linkage rejects every forged field and rolls back', async () => {
+  for (const scenario of [
+    { label: 'missing-row', overrides: { insertSupersedeRow: false } },
+    { label: 'terminal-operation', overrides: { terminalOperationId: 'operation-forged-terminal' } },
+    { label: 'binding-operation', overrides: { terminalBindingOperationId: 'operation-p1-raw-manual-0001-other' } },
+    { label: 'event', overrides: { terminalSupersedeEventId: 'event-forged-supersede' } },
+    { label: 'role', overrides: { terminalRole: 'D1' } },
+    { label: 'episode', overrides: { terminalEpisodeId: 'episode-forged' } },
+    { label: 'row-version', overrides: { terminalRowVersion: 3 } },
+    { label: 'created-at', overrides: { terminalCreatedAt: 3999 } },
+  ]) {
+    await withMigratedDb(async (db) => {
+      setupTerminalActivationFixture(db, { label: scenario.label, leaveClaimed: true });
+      const before = manualSupersedeSnapshot(db);
+      assertThrowsMatching(
+        () => recordRawManualSupersede(db, scenario.overrides),
+        /TERMINAL_SUPERSEDE|manual supersede|FOREIGN KEY|CHECK constraint/i,
+      );
+      assertEqual(manualSupersedeSnapshot(db), before);
+    });
+  }
+});
+
+await testAsync('manual supersede rejects completed terminal and closed incident lineage', async () => {
+  await withMigratedDb(async (db) => {
+    setupTerminalActivationFixture(db, { label: 'completed-terminal' });
+    const before = manualSupersedeSnapshot(db);
+    assertThrowsMatching(
+      () => recordRawManualSupersede(db, {
+        insertSupersedeRow: true,
+        terminalOperationId: 'operation-activate-1',
+        terminalRowVersion: 3,
+      }),
+      /TERMINAL_SUPERSEDE|manual supersede/i,
+    );
+    assertEqual(manualSupersedeSnapshot(db), before);
+  });
+
+  await withMigratedDb(async (db) => {
+    setupRestoredTerminalFixture(db);
+    const before = manualSupersedeSnapshot(db);
+    assertThrowsMatching(
+      () => recordRawManualSupersede(db),
+      /manual binding operation requires exact atomic incident supersede/i,
+    );
+    assertEqual(manualSupersedeSnapshot(db), before);
+  });
+});
 
 await testAsync('fresh file-backed DB creates all failover tables, indexes and triggers', async () => {
   await withMigratedDb(async (db) => {
-    assertEqual(getCurrentVersion(db), '2026_08_10_062_model_failover_proof_issuance');
+    assertEqual(getCurrentVersion(db), '2026_08_12_065_model_failover_target');
 
     for (const table of [
       'model_desired_bindings',
@@ -486,6 +1362,13 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
       'model_failover_proof_artifacts',
       'model_failover_proofs',
       'model_failover_state',
+      'model_failover_target_events',
+      'model_failover_targets',
+      'model_failover_terminal_intents',
+      'model_failover_terminal_finalize_receipts',
+      'model_failover_active_proof_expiry_events',
+      'model_failover_active_proof_revalidations',
+      'model_failover_terminal_supersedes',
     ]) {
       assert(names(db, 'table').includes(table), `missing table ${table}`);
     }
@@ -554,6 +1437,68 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
       'measurement_completed_at_ms', 'acceptance_completed_at_ms',
       'proof_ttl_ms', 'expires_at_ms', 'issued_at_ms',
     ]));
+    assertEqual(JSON.stringify(columns(db, 'model_failover_target_events')), JSON.stringify([
+      'seq', 'event_id', 'request_id', 'schema_version', 'role',
+      'previous_revision', 'committed_revision', 'event_kind', 'actor',
+      'before_requested_name', 'before_canonical_name', 'before_digest_sha256',
+      'after_requested_name', 'after_canonical_name', 'after_digest_sha256',
+      'created_at_ms',
+    ]));
+    assertEqual(JSON.stringify(columns(db, 'model_failover_targets')), JSON.stringify([
+      'role', 'schema_version', 'revision', 'requested_name', 'canonical_name',
+      'digest_sha256', 'actor', 'authority_source', 'last_target_event_id',
+      'last_policy_event_id', 'updated_at_ms',
+    ]));
+    assertEqual(JSON.stringify(columns(db, 'model_failover_terminal_intents')), JSON.stringify([
+      'operation_id', 'schema_version', 'claim_event_id', 'role',
+      'operation_kind', 'episode_id', 'desired_revision', 'claimed_row_version',
+      'policy_revision', 'policy_event_id', 'policy_version',
+      'role_contract_sha256', 'target_revision', 'target_requested_name',
+      'target_canonical_name', 'target_digest_sha256', 'desired_model_name',
+      'desired_canonical_name', 'desired_digest_sha256', 'effect_model_name',
+      'effect_canonical_name', 'effect_digest_sha256',
+      'observed_inventory_requested_name', 'observed_inventory_canonical_name',
+      'observed_inventory_digest_sha256', 'proof_id',
+      'proof_expires_at_ms', 'expected_runtime_model_name',
+      'expected_runtime_canonical_name', 'expected_runtime_digest_sha256',
+      'expected_runtime_incarnation_id', 'expected_runtime_generation',
+      'claim_expires_at_ms', 'created_at_ms',
+    ]));
+    assertEqual(
+      JSON.stringify(columns(db, 'model_failover_terminal_finalize_receipts')),
+      JSON.stringify([
+        'receipt_id', 'operation_id', 'resolution', 'terminal_event_id',
+        'terminal_event_type', 'terminal_row_version',
+        'runtime_incarnation_before', 'runtime_incarnation_after',
+        'runtime_generation_before', 'runtime_generation_after',
+        'runtime_from_model_name', 'runtime_from_canonical_name',
+        'runtime_from_digest_sha256', 'runtime_to_model_name',
+        'runtime_to_canonical_name', 'runtime_to_digest_sha256',
+        'runtime_changed', 'failure_phase', 'failure_code', 'created_at_ms',
+      ]),
+    );
+    assertEqual(
+      JSON.stringify(columns(db, 'model_failover_active_proof_expiry_events')),
+      JSON.stringify([
+        'expiry_event_id', 'active_event_id', 'role', 'episode_id',
+        'desired_revision', 'observed_row_version', 'proof_id',
+        'proof_expires_at_ms', 'observed_at_ms',
+      ]),
+    );
+    assertEqual(
+      JSON.stringify(columns(db, 'model_failover_active_proof_revalidations')),
+      JSON.stringify([
+        'revalidation_id', 'expiry_event_id', 'active_event_id', 'role',
+        'episode_id', 'desired_revision', 'observed_row_version',
+        'expired_proof_id', 'replacement_proof_id', 'policy_revision',
+        'policy_event_id', 'target_revision', 'role_contract_sha256', 'actor',
+        'created_at_ms',
+      ]),
+    );
+    assertEqual(JSON.stringify(columns(db, 'model_failover_terminal_supersedes')), JSON.stringify([
+      'terminal_operation_id', 'binding_operation_id', 'supersede_event_id',
+      'role', 'episode_id', 'terminal_row_version', 'created_at_ms',
+    ]));
     for (const column of [
       'role', 'desired_revision', 'episode_id', 'state', 'active_failover',
       'fallback_model_name', 'fallback_canonical_name', 'fallback_digest_sha256',
@@ -595,6 +1540,40 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
       'trg_model_failover_proof_artifacts_historical_attach',
       'trg_model_failover_proof_artifacts_identity_conflict',
       'trg_model_failover_proofs_artifact_companion',
+      'trg_model_failover_target_event_sequence_authority',
+      'trg_model_failover_target_event_sequence_positive',
+      'trg_model_failover_target_event_identity_conflict',
+      'trg_model_failover_target_event_projection',
+      'trg_model_failover_target_event_append_only_update',
+      'trg_model_failover_target_event_append_only_delete',
+      'trg_model_failover_target_policy_reset_projection',
+      'trg_model_failover_target_projection_guard',
+      'trg_model_failover_target_projection_insert_forbidden',
+      'trg_model_failover_target_projection_delete_forbidden',
+      'trg_model_failover_terminal_intent_identity_conflict',
+      'trg_model_failover_terminal_intent_projection',
+      'trg_model_failover_terminal_intent_append_only_update',
+      'trg_model_failover_terminal_intent_append_only_delete',
+      'trg_model_failover_terminal_receipt_identity_conflict',
+      'trg_model_failover_terminal_receipt_projection',
+      'trg_model_failover_terminal_receipt_finalize',
+      'trg_model_failover_terminal_receipt_append_only_update',
+      'trg_model_failover_terminal_receipt_append_only_delete',
+      'trg_model_failover_terminal_state_receipt_projection',
+      'trg_model_failover_terminal_event_receipt',
+      'trg_model_failover_terminal_unresolved_expiry',
+      'trg_model_failover_active_proof_expiry_identity_conflict',
+      'trg_model_failover_active_proof_expiry_projection',
+      'trg_model_failover_active_proof_expiry_append_only_update',
+      'trg_model_failover_active_proof_expiry_append_only_delete',
+      'trg_model_failover_active_proof_revalidation_identity_conflict',
+      'trg_model_failover_active_proof_revalidation_projection',
+      'trg_model_failover_active_proof_revalidation_append_only_update',
+      'trg_model_failover_active_proof_revalidation_append_only_delete',
+      'trg_model_failover_terminal_supersede_identity_conflict',
+      'trg_model_failover_terminal_supersede_projection',
+      'trg_model_failover_terminal_supersede_append_only_update',
+      'trg_model_failover_terminal_supersede_append_only_delete',
       'trg_model_desired_bindings_last_event_insert',
       'trg_model_desired_bindings_last_event_update',
       'trg_model_failover_state_active_proof_insert',
@@ -714,6 +1693,39 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
       assert(triggerNames.includes(trigger), `missing trigger ${trigger}`);
     }
 
+    const terminalIntentProjection = normalizedTriggerSql(
+      db,
+      'trg_model_failover_terminal_intent_projection',
+    );
+    for (const comparator of [
+      'NEW.observed_inventory_requested_name = NEW.effect_model_name',
+      'NEW.observed_inventory_canonical_name = NEW.effect_canonical_name',
+      'NEW.observed_inventory_digest_sha256 = NEW.effect_digest_sha256',
+    ]) assert(terminalIntentProjection.includes(comparator), `missing ${comparator}`);
+    const terminalReceiptProjection = normalizedTriggerSql(
+      db,
+      'trg_model_failover_terminal_receipt_projection',
+    );
+    assert(terminalReceiptProjection.includes(
+      "NEW.resolution NOT IN ('RECONCILED_CONFIRMED', 'RECONCILED_NO_EFFECT')",
+    ));
+    assert(terminalReceiptProjection.includes(
+      'NEW.created_at_ms >= state.claim_expires_at_ms',
+    ));
+    assert(terminalReceiptProjection.includes(
+      'NEW.runtime_incarnation_after <> NEW.runtime_incarnation_before',
+    ));
+    for (const triggerName of [
+      'trg_model_failover_terminal_event_receipt',
+      'trg_model_failover_terminal_receipt_finalize',
+    ]) {
+      const triggerSql = normalizedTriggerSql(db, triggerName);
+      assert(triggerSql.includes("intent.operation_kind IN ('ACTIVATE', 'REAPPLY')"));
+      assert(!triggerSql.includes(
+        "intent.operation_kind IN ('ACTIVATE', 'REAPPLY') OR NEW.resolution IN",
+      ));
+    }
+
     const proofIdentity = normalizedTriggerSql(
       db,
       'trg_model_failover_proofs_append_only_insert_conflict',
@@ -767,12 +1779,102 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
   });
 });
 
+await testAsync('target authority rejects orphan, replacement, deletion and invalid identity SQL', async () => {
+  await withMigratedDb(async (db) => {
+    const before = schemaSnapshot(db);
+    const statements = [
+      `INSERT INTO model_failover_target_events (
+        event_id, request_id, role, previous_revision, committed_revision,
+        event_kind, actor, before_requested_name, before_canonical_name,
+        before_digest_sha256, after_requested_name, after_canonical_name,
+        after_digest_sha256, created_at_ms
+      ) VALUES (
+        'target-event-orphan-0001', 'target-request-orphan-0001', 'CHAT', 0, 1,
+        'SET', 'operator:model-failover-target-cli', NULL, NULL, NULL,
+        'fallback', 'fallback', '${'a'.repeat(64)}', 5000
+      )`,
+      `INSERT OR REPLACE INTO model_failover_targets (
+        role, revision, actor, authority_source, updated_at_ms
+      ) VALUES ('CHAT', 0, 'system:migration-065', 'MIGRATION', 5000)`,
+      `DELETE FROM model_failover_targets WHERE role = 'CHAT'`,
+      `UPDATE model_failover_targets SET
+        revision = 1, requested_name = 'fallback', canonical_name = 'fallback',
+        digest_sha256 = '${'g'.repeat(64)}',
+        actor = 'operator:model-failover-target-cli',
+        authority_source = 'TARGET_EVENT',
+        last_target_event_id = 'target-event-invalid-0001',
+        last_policy_event_id = NULL, updated_at_ms = 5000
+       WHERE role = 'CHAT'`,
+      `UPDATE model_failover_targets SET
+        revision = 1, actor = 'user:global-reset', authority_source = 'GLOBAL_RESET',
+        last_target_event_id = NULL,
+        last_policy_event_id = 'policy-event-forged-reset-0001', updated_at_ms = 5000
+       WHERE role = 'CHAT'`,
+    ];
+    for (const statement of statements) {
+      assertThrowsMatching(() => db.exec(statement), /MODEL_FAILOVER_TARGET|constraint/i);
+      assertEqual(schemaSnapshot(db), before);
+    }
+  });
+});
+
+await testAsync('target event sequence is database-assigned and failed injection rolls back its projection', async () => {
+  await withMigratedDb(async (db) => {
+    const targetEventSnapshot = () => JSON.stringify({
+      targets: db.prepare(`
+        SELECT * FROM model_failover_targets ORDER BY role
+      `).all(),
+      events: db.prepare(`
+        SELECT * FROM model_failover_target_events ORDER BY seq
+      `).all(),
+      sequence: db.prepare(`
+        SELECT * FROM sqlite_sequence
+        WHERE name = 'model_failover_target_events'
+      `).all(),
+    });
+
+    for (const injectedSequence of [999, -1]) {
+      const suffix = injectedSequence === -1 ? 'negative' : 'positive';
+      const eventId = `target-sequence-event-${suffix}-0001`;
+      const requestId = `target-sequence-request-${suffix}-0001`;
+      const before = targetEventSnapshot();
+      const error = assertThrows(() => db.transaction(() => {
+        const projected = db.prepare(`
+          UPDATE model_failover_targets
+          SET revision = 1, requested_name = 'fallback',
+              canonical_name = 'fallback', digest_sha256 = ?,
+              actor = 'operator:model-failover-target-cli',
+              authority_source = 'TARGET_EVENT', last_target_event_id = ?,
+              last_policy_event_id = NULL, updated_at_ms = 5000
+          WHERE role = 'CHAT' AND revision = 0
+        `).run(DIGEST_A, eventId);
+        assertEqual(projected.changes, 1);
+        db.prepare(`
+          INSERT INTO model_failover_target_events (
+            seq, event_id, request_id, role, previous_revision,
+            committed_revision, event_kind, actor, before_requested_name,
+            before_canonical_name, before_digest_sha256, after_requested_name,
+            after_canonical_name, after_digest_sha256, created_at_ms
+          ) VALUES (?, ?, ?, 'CHAT', 0, 1, 'SET',
+            'operator:model-failover-target-cli', NULL, NULL, NULL,
+            'fallback', 'fallback', ?, 5000)
+        `).run(injectedSequence, eventId, requestId, DIGEST_A);
+      }).immediate());
+      assert(
+        /MODEL_FAILOVER_TARGET_EVENT_SEQUENCE_AUTHORITY/.test(error.message),
+        `Expected target sequence authority rejection, got ${error.message}`,
+      );
+      assertEqual(targetEventSnapshot(), before);
+    }
+  });
+});
+
 await testAsync('second migration run is a no-op with an identical schema snapshot', async () => {
   await withMigratedDb(async (db) => {
     const before = schemaSnapshot(db);
     const result = await runMigrations(db);
     assertEqual(result.applied.length, 0);
-    assertEqual(result.skipped.length, 58);
+    assertEqual(result.skipped.length, 60);
     assertEqual(schemaSnapshot(db), before);
   });
 });
@@ -1846,23 +2948,10 @@ await testAsync('verified audit events require a fresh matching artifact proof',
       assertThrowsMatching(() => insertActivationEvent(db, {
         eventId: `event-${label}`,
         ...overrides,
-      }), /fresh proof|live claim/i);
+      }), /MODEL_FAILOVER_TERMINAL_(?:INTENT_PROJECTION|RECEIPT_PROJECTION|EVENT_RECEIPT)_MISMATCH/);
     }
 
     insertActivationEvent(db);
-    db.prepare(`
-      UPDATE model_failover_state
-      SET state = 'ACTIVATED', active_failover = 1,
-          fallback_model_name = 'fallback:latest',
-          fallback_canonical_name = 'fallback', fallback_digest_sha256 = ?,
-          proof_id = 'proof-fixture-0001', active_event_id = 'event-activated',
-          proof_verified_at_ms = 3000, activated_at_ms = 3000,
-          row_version = 3, claim_operation_id = NULL, claim_token = NULL,
-          claim_kind = NULL, claim_started_at_ms = NULL,
-          claim_expires_at_ms = NULL, updated_at_ms = 3000,
-          last_event_id = 'event-activated'
-      WHERE role = 'CHAT'
-    `).run(DIGEST_B);
 
     insertPassingProof(db, {
       proofId: 'proof-desired-fixture-0001',
@@ -1881,38 +2970,35 @@ await testAsync('verified audit events require a fresh matching artifact proof',
       startedAt: 4000,
       expiresAt: 6000,
     });
-    const insertRestoreEvent = proofId => db.prepare(`
-      INSERT INTO model_failover_events (
-        event_id, event_type, role, binding_revision, row_version, episode_id,
-        operation_id, actor, reason_code, policy_version, state_before,
-        state_after, desired_model_name, desired_digest_sha256, proof_id,
-        verified, created_at_ms
-      ) VALUES (?, 'RESTORED', 'CHAT', 1, 5, 'episode-1',
-        'operation-restore-1',
-        'system:binding-integrity', 'DESIRED_MODEL_RESTORED', 'd-plus-v1',
-        'ACTIVATED', 'RESTORED', 'qwen3.5:27b', ?, ?, 1, 5000)
-    `).run(
-      proofId === 'proof-desired-fixture-0001'
-        ? 'event-restored-valid'
-        : 'event-restored-invalid',
-      DIGEST_A,
-      proofId,
-    );
+    const insertRestoreEvent = proofId => {
+      const insert = () => insertTerminalCompanionEvent(db, {
+        kind: 'RESTORE',
+        eventId: proofId === 'proof-desired-fixture-0001'
+          ? 'event-restored-valid'
+          : 'event-restored-invalid',
+        role: 'CHAT',
+        revision: 1,
+        rowVersion: 5,
+        episodeId: 'episode-1',
+        operationId: 'operation-restore-1',
+        policyVersion: 'd-plus-v1',
+        desiredModel: 'qwen3.5:27b',
+        desiredDigest: DIGEST_A,
+        fallbackModel: 'fallback:latest',
+        fallbackCanonical: 'fallback',
+        fallbackDigest: DIGEST_B,
+        proofId,
+        createdAt: 5000,
+      });
+      if (db.inTransaction) insert();
+      else db.transaction(insert)();
+    };
 
     assertThrowsMatching(
       () => insertRestoreEvent('proof-fixture-0001'),
-      /fresh desired proof/i,
+      /MODEL_FAILOVER_TERMINAL_INTENT_PROJECTION_MISMATCH/,
     );
     insertRestoreEvent('proof-desired-fixture-0001');
-    db.prepare(`
-      UPDATE model_failover_state
-      SET state = 'RESTORED', active_failover = 0, row_version = 5,
-          claim_operation_id = NULL, claim_token = NULL, claim_kind = NULL,
-          claim_started_at_ms = NULL, claim_expires_at_ms = NULL,
-          resolved_at_ms = 5000, updated_at_ms = 5000,
-          last_event_id = 'event-restored-valid'
-      WHERE role = 'CHAT'
-    `).run();
     assertEqual(
       db.prepare("SELECT verified FROM model_failover_events WHERE event_id = 'event-restored-valid'").get().verified,
       1,
@@ -1963,7 +3049,7 @@ await testAsync('all four proof eligibility triggers use ledger authority and st
       } else {
         assertThrowsMatching(
           () => insertActivationEvent(db, { createdAt }),
-          /verified fallback event requires matching fresh proof/,
+          /MODEL_FAILOVER_TERMINAL_RECEIPT_PROJECTION_MISMATCH/,
         );
       }
     });
@@ -1976,19 +3062,6 @@ await testAsync('all four proof eligibility triggers use ledger authority and st
     insertDetectedState(db);
     claimOperation(db);
     insertActivationEvent(db);
-    db.prepare(`
-      UPDATE model_failover_state
-      SET state = 'ACTIVATED', active_failover = 1,
-          fallback_model_name = 'fallback:latest',
-          fallback_canonical_name = 'fallback', fallback_digest_sha256 = ?,
-          proof_id = 'proof-fixture-0001', active_event_id = 'event-activated',
-          proof_verified_at_ms = 3000, activated_at_ms = 3000,
-          row_version = 3, claim_operation_id = NULL, claim_token = NULL,
-          claim_kind = NULL, claim_started_at_ms = NULL,
-          claim_expires_at_ms = NULL, updated_at_ms = 3000,
-          last_event_id = 'event-activated'
-      WHERE role = 'CHAT'
-    `).run(DIGEST_B);
     insertPassingProof(db, {
       proofId: 'proof-desired-expiry-edge-0001',
       model: 'qwen3.5:27b',
@@ -2011,17 +3084,27 @@ await testAsync('all four proof eligibility triggers use ledger authority and st
       expiresAt: 6000,
     });
   };
-  const insertRestoreAt = (db, createdAt) => db.prepare(`
-    INSERT INTO model_failover_events (
-      event_id, event_type, role, binding_revision, row_version, episode_id,
-      operation_id, actor, reason_code, policy_version, state_before,
-      state_after, desired_model_name, desired_digest_sha256, proof_id,
-      verified, created_at_ms
-    ) VALUES ('event-restored-expiry-edge', 'RESTORED', 'CHAT', 1, 5,
-      'episode-1', 'operation-restore-edge', 'system:binding-integrity',
-      'DESIRED_MODEL_RESTORED', 'd-plus-v1', 'ACTIVATED', 'RESTORED',
-      'qwen3.5:27b', ?, 'proof-desired-expiry-edge-0001', 1, ?)
-  `).run(DIGEST_A, createdAt);
+  const insertRestoreAt = (db, createdAt) => {
+    const insert = () => insertTerminalCompanionEvent(db, {
+      kind: 'RESTORE',
+      eventId: 'event-restored-expiry-edge',
+      role: 'CHAT',
+      revision: 1,
+      rowVersion: 5,
+      episodeId: 'episode-1',
+      operationId: 'operation-restore-edge',
+      policyVersion: 'd-plus-v1',
+      desiredModel: 'qwen3.5:27b',
+      desiredDigest: DIGEST_A,
+      fallbackModel: 'fallback:latest',
+      fallbackCanonical: 'fallback',
+      fallbackDigest: DIGEST_B,
+      proofId: 'proof-desired-expiry-edge-0001',
+      createdAt,
+    });
+    if (db.inTransaction) insert();
+    else db.transaction(insert)();
+  };
   for (const [createdAt, shouldPass] of [[4999, true], [5000, false]]) {
     await withMigratedDb(async (db) => {
       prepareRestore(db);
@@ -2034,7 +3117,7 @@ await testAsync('all four proof eligibility triggers use ledger authority and st
       } else {
         assertThrowsMatching(
           () => insertRestoreAt(db, createdAt),
-          /verified restore event requires matching fresh desired proof/,
+          /MODEL_FAILOVER_TERMINAL_RECEIPT_PROJECTION_MISMATCH/,
         );
       }
     });
@@ -2083,7 +3166,7 @@ await testAsync('active failover requires a matching role/name/digest proof', as
     insertPassingProof(db);
     assertThrowsMatching(
       () => insertActivationEvent(db),
-      /live claim/i,
+      /MODEL_FAILOVER_TERMINAL_EVENT_RECEIPT_MISMATCH/,
     );
     claimOperation(db);
     for (const [label, overrides] of [
@@ -2094,23 +3177,9 @@ await testAsync('active failover requires a matching role/name/digest proof', as
       assertThrowsMatching(() => insertActivationEvent(db, {
         eventId: `event-claim-${label}`,
         ...overrides,
-      }), /live claim/i);
+      }), /MODEL_FAILOVER_TERMINAL_(?:RECEIPT_PROJECTION|EVENT_RECEIPT)_MISMATCH/);
     }
     insertActivationEvent(db);
-    db.prepare(`
-      UPDATE model_failover_state
-      SET state = 'ACTIVATED', active_failover = 1,
-          fallback_model_name = 'fallback:latest',
-          fallback_canonical_name = 'fallback',
-          fallback_digest_sha256 = ?, proof_id = 'proof-fixture-0001',
-          active_event_id = 'event-activated',
-          proof_verified_at_ms = 3000,
-          activated_at_ms = 3000, updated_at_ms = 3000,
-          row_version = 3, claim_operation_id = NULL, claim_token = NULL,
-          claim_kind = NULL, claim_started_at_ms = NULL,
-          claim_expires_at_ms = NULL, last_event_id = 'event-activated'
-      WHERE role = 'CHAT'
-    `).run(DIGEST_B);
 
     const state = db.prepare('SELECT * FROM model_failover_state WHERE role = ?').get('CHAT');
     assertEqual(state.state, 'ACTIVATED');
@@ -2208,19 +3277,6 @@ await testAsync('active failover accepts a matching reapply claim and fresh term
     insertDetectedState(db);
     claimOperation(db);
     insertActivationEvent(db);
-    db.prepare(`
-      UPDATE model_failover_state
-      SET state = 'ACTIVATED', active_failover = 1,
-          fallback_model_name = 'fallback:latest',
-          fallback_canonical_name = 'fallback', fallback_digest_sha256 = ?,
-          proof_id = 'proof-fixture-0001', active_event_id = 'event-activated',
-          proof_verified_at_ms = 3000, activated_at_ms = 3000,
-          row_version = 3, claim_operation_id = NULL, claim_token = NULL,
-          claim_kind = NULL, claim_started_at_ms = NULL,
-          claim_expires_at_ms = NULL, updated_at_ms = 3000,
-          last_event_id = 'event-activated'
-      WHERE role = 'CHAT'
-    `).run(DIGEST_B);
 
     assertThrowsMatching(() => db.prepare(`
       INSERT INTO model_failover_events (
@@ -2234,7 +3290,7 @@ await testAsync('active failover accepts a matching reapply claim and fresh term
         'system:binding-integrity', 'LOCAL_FAILOVER_REAPPLIED', 'd-plus-v1',
         'ACTIVATED', 'ACTIVATED', 'qwen3.5:27b', ?, 'fallback:latest',
         'fallback', ?, 'proof-fixture-0001', 1, 4000)
-    `).run(DIGEST_A, DIGEST_B), /live claim/i);
+    `).run(DIGEST_A, DIGEST_B), /MODEL_FAILOVER_TERMINAL_EVENT_RECEIPT_MISMATCH/);
     claimOperation(db, {
       eventId: 'event-reapply-claimed',
       eventType: 'REAPPLY_CLAIMED',
@@ -2255,32 +3311,27 @@ await testAsync('active failover accepts a matching reapply claim and fresh term
 
     insertPassingProof(db, {
       proofId: 'proof-reapply-0001',
-      startedAt: 4100,
-      completedAt: 4500,
-      createdAt: 4500,
+      startedAt: 3100,
+      completedAt: 3500,
+      createdAt: 3500,
     });
-    db.prepare(`
-      INSERT INTO model_failover_events (
-        event_id, event_type, role, binding_revision, row_version, episode_id,
-        operation_id, actor, reason_code, policy_version, state_before,
-        state_after, desired_model_name, desired_digest_sha256,
-        fallback_model_name, fallback_canonical_name, fallback_digest_sha256,
-        proof_id, verified, created_at_ms
-      ) VALUES ('event-reapplied', 'REAPPLIED', 'CHAT', 1, 5, 'episode-1',
-        'operation-reapply-1', 'system:binding-integrity',
-        'LOCAL_FAILOVER_REAPPLIED', 'd-plus-v1', 'ACTIVATED', 'ACTIVATED',
-        'qwen3.5:27b', ?, 'fallback:latest', 'fallback', ?,
-        'proof-reapply-0001', 1, 5000)
-    `).run(DIGEST_A, DIGEST_B);
-    db.prepare(`
-      UPDATE model_failover_state
-      SET proof_id = 'proof-reapply-0001', active_event_id = 'event-reapplied',
-          proof_verified_at_ms = 5000, row_version = 5,
-          claim_operation_id = NULL, claim_token = NULL, claim_kind = NULL,
-          claim_started_at_ms = NULL, claim_expires_at_ms = NULL,
-          updated_at_ms = 5000, last_event_id = 'event-reapplied'
-      WHERE role = 'CHAT'
-    `).run();
+    insertTerminalCompanionEvent(db, {
+      kind: 'REAPPLY',
+      eventId: 'event-reapplied',
+      role: 'CHAT',
+      revision: 1,
+      rowVersion: 5,
+      episodeId: 'episode-1',
+      operationId: 'operation-reapply-1',
+      policyVersion: 'd-plus-v1',
+      desiredModel: 'qwen3.5:27b',
+      desiredDigest: DIGEST_A,
+      fallbackModel: 'fallback:latest',
+      fallbackCanonical: 'fallback',
+      fallbackDigest: DIGEST_B,
+      proofId: 'proof-reapply-0001',
+      createdAt: 5000,
+    });
 
     const reapplied = db.prepare(
       'SELECT * FROM model_failover_state WHERE role = ?'
