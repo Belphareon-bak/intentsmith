@@ -45,6 +45,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import os from 'node:os';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const CLIENT = path.join(ROOT, 'src/mobile/client');
@@ -774,7 +775,26 @@ try {
 
   await test('§10 trust bar se čtečce ohlásí jednou větou o všech třech zónách', async () => {
     await page.evaluate(ACTIVATE);
-    await page.evaluate(`
+    // Freeze the network before staging the state, then let anything already in
+    // flight land.
+    //
+    // This suite's fixture answers 503 for every non-client path, and the app
+    // turns a 503 into `state.conn = 'server'`.  A request started by an earlier
+    // test could therefore settle *after* this test had set `conn = 'offline'`
+    // and overwrite it — the bar then truthfully announced "Server neodpovídá",
+    // which is not the zone-1 wording this test asserts.  On an idle machine the
+    // response always landed first and the suite was green; under load it did
+    // not, which is exactly the intermittent failure that was being chased.
+    // Captured by trace: `conn: "server"`, load average 13.6.
+    //
+    // Stubbing alone is not enough — it stops new requests, not the ones already
+    // out — so the quiet beat afterwards is what makes the staged state stick.
+    await page.evaluate(`(() => {
+      window.__fetchBeforeTrustBar = window.fetch;
+      window.fetch = () => new Promise(() => {});
+    })()`);
+    await new Promise(resolve => setTimeout(resolve, 250));
+    await page.evaluate(`(() => {
       const S = window.__is;
       S.state.route = 'chat';
       S.state.conversationId = 'c-1';
@@ -782,7 +802,11 @@ try {
       S.state.cacheAge.thread = 'STALE';
       S.store.set(S.K.scopes, ['read:chat']);
       S.render();
-    `);
+    })()`);
+    // The state this test is about, asserted as staged rather than assumed.
+    const staged = await page.evaluate(() => window.__is.state.conn);
+    assert.equal(staged, 'offline',
+      'a late response overwrote the staged connection state before it was read');
     const bar = await page.evaluate(() => {
       const el = document.querySelector('.trust-bar');
       return el ? { role: el.getAttribute('role'), live: el.getAttribute('aria-live'), name: el.getAttribute('aria-label') } : null;
@@ -799,14 +823,11 @@ try {
     // the last assertion states anyway — the announced name *is* the bar's
     // summary — so nothing is weakened.
     //
-    // **This is hardening, not a proven fix.**  This suite fails intermittently
-    // here ("zone 1 is missing from the announced name"), ~2 runs in 6 while the
-    // machine was loaded and 0 in 12 while it was not — on both this code and
-    // the code before it.  What is ruled out: the bar itself.  Driven 20× in
-    // isolation, the `aria-label` and the tree's `status` name were correct and
-    // identical every time, with and without the preceding ring navigation.  So
-    // the defect is somewhere in the whole-suite run, and it is still open —
-    // do not read this wait as having closed it.
+    // This wait is hardening only.  It did **not** cause the intermittent
+    // failure that used to happen here, and did not fix it: the cause was a
+    // late 503 overwriting `state.conn`, and it is handled at the top of this
+    // test.  The wait stays because taking a snapshot in the same tick as
+    // `render()` is genuinely racy, not because it closed anything.
     const statusNodes = async () => {
       const snapshot = await page.accessibility.snapshot();
       const flat = [];
@@ -821,7 +842,51 @@ try {
     // Never settled: fall through to whatever status node is there, so the
     // assertions below report the zone that is actually missing rather than
     // failing with "no status node" and hiding which one it was.
+    //
+    // WP-0 bounded diagnostic (2026-08-12).  Two hypotheses for the measured
+    // intermittency were tested and both failed, so instead of a third guess
+    // this records the state at the moment of the miss.  Enabled only by
+    // `MOBILE_A11Y_TRACE=<dir>`, writes outside the source tree, and is
+    // deliberately cheap to delete once the cause is known.
     if (!status) [status] = await statusNodes();
+    {
+      const traceDir = process.env.MOBILE_A11Y_TRACE;
+      const zonesOk = status && /sít|offline/i.test(status.name || '')
+        && /data|starší/i.test(status.name || '') && /uzamčen/i.test(status.name || '');
+      if (traceDir && !zonesOk) {
+        const seen = await statusNodes();
+        const live = await page.evaluate(() => {
+          const S = window.__is;
+          const el = document.querySelector('.trust-bar');
+          return {
+            route: S.state.route,
+            conn: S.state.conn,
+            cacheAge: S.state.cacheAge,
+            scopes: S.store.get(S.K.scopes),
+            label: el && el.getAttribute('aria-label'),
+            text: el && el.textContent.replace(/\s+/g, ' ').trim(),
+            present: !!el,
+            viewport: { w: window.innerWidth, h: window.innerHeight },
+            animations: typeof document.getAnimations === 'function'
+              ? document.getAnimations().map(a => `${a.constructor.name}:${a.playState}`)
+              : null,
+            readyState: document.readyState,
+          };
+        }).catch(error => ({ evaluateFailed: String(error) }));
+        const record = {
+          at: new Date().toISOString(),
+          barName: bar.name,
+          statusNodesSeen: seen.map(node => node.name),
+          live,
+          pageErrors: [...pageErrors],
+          loadAverage: os.loadavg(),
+        };
+        fs.mkdirSync(traceDir, { recursive: true });
+        const file = path.join(traceDir, `trust-bar-miss-${Date.now()}.json`);
+        fs.writeFileSync(file, JSON.stringify(record, null, 2));
+        console.log(`  TRACE trust-bar miss recorded: ${file}`);
+      }
+    }
     assert.ok(status, 'the bar must reach the accessibility tree, not just the DOM');
     // §10 names the shape outright: "offline, data z 14:02, část obrazovky
     // uzamčena".  A name that drops a zone is a zone the user never hears.
@@ -829,6 +894,10 @@ try {
     assert.match(status.name, /data|starší/i, 'zone 2 (age) is missing from the announced name');
     assert.match(status.name, /uzamčen/i, 'zone 3 (lock) is missing from the announced name');
     assert.equal(status.name, bar.name, 'the announced name must be the summary, not the visual text order');
+
+    await page.evaluate(`(() => {
+      if (window.__fetchBeforeTrustBar) window.fetch = window.__fetchBeforeTrustBar;
+    })()`);
   });
 
   await test('§3.1 každá položka lišty je ve stromu přístupnosti i mimo viewport', async () => {
