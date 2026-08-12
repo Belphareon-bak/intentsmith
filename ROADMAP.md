@@ -1376,25 +1376,31 @@ mohou pokračovat.
    pre-parse `410` a Studio Security povrch je read-only. 028 neprovedlo env
    write, legacy transfer ani scrub.
 
-   Čtvrtý krok je nyní aktivní jako
+   Čtvrtý krok
    [`WP-M1-SECRET-STORAGE-AUTHORITY`](docs/wp/WP-M1-SECRET-STORAGE-AUTHORITY.md)
-   ve stavu `ACTIVE / IMPLEMENTATION_NOT_STARTED` se source evidence
-   `0037d56a2fb63ae0c3a3863ce00b9083d838ba8b`. Operátor přijal 026-X1 jako
-   explicitní transfer/export/purge s offline localStorage file/receipt flow;
-   raw credentials nesmějí přes HTTP, WS ani nový loopback connector. Exact
-   credential status má dvanáct vyjmenovaných canonical env keys;
-   `C3_NTFY_URL`, `SMTP_URL` a `EMAIL_TO` vyžadují export nebo purge, ne silent
-   mapování. První source commit musí před zbytkem 026 uzavřít Setup P0: současný
-   writer už je bounded a state se loaduje, ale cwd target se přesune na
-   canonical root, čtyři efektové Setup POSTy dostanou startup-captured strict
-   admin-token auth bez dev bypassu a repeated complete exact pre-effect 409.
-   Jeden final `S` pokryje P0 i zbytek 026. Retirement emitteru bez recipient
-   env key znamená, že automatické lifecycle/worker e-maily nebudou v core 1.0
-   konfigurovatelné vůbec; release note to musí uvést výslovně.
+   je `PROMOTED / REVIEW A+B PASS`: governance base `a06a3abe`, immutable
+   subject `27dd323e`, candidate `f4435079` a report-only promotion tip
+   `69d29ed3` jsou připnuté v
+   [promotion reportu](docs/execution/runs/wp-m1-secret-storage-authority-20260811-report.md).
+   Exact dvanáctiklíčová immutable environment authority, Setup P0, offline
+   transfer/export/purge tooling, DB/Setup/env scrub seamy, Architect receipt
+   applier i retirement automatického lifecycle/worker email bridge prošly
+   přijatým důkazem. Promotion netvrdí, že byl nad skutečnými operátorskými daty
+   spuštěn census, plan, apply, transfer, export, purge, scrub nebo restart;
+   E2E12, Electron/build, GPU, Ollama, externí síť a celý produktový test zůstaly
+   mimo tento důkaz.
 
-   029 čeká na přijatý 026 candidate. Finding 011 zůstává `OPEN`, Gate 1
-   `BLOCKED`; E2E12, Electron/build, GPU, Ollama, externí network journey ani
-   celý produktový test nejsou součástí redukovaného 026 důkazu.
+   Pátý krok je aktivovaný jako dva přísně sériové subjecty se source evidence
+   `69d29ed3c929593e092d047b6e182d9715e3d08e`. Nejdřív
+   [`WP-M1-STANDALONE-CHATS-DECOMMISSION`](docs/wp/WP-M1-STANDALONE-CHATS-DECOMMISSION.md)
+   změní už přijatý support claim tracked `chats/` na
+   `unsupported / not shipped`, zastaví boot před DB/listenerem a zachová
+   existující data byteově. Teprve po jeho Review A/B a promotion začne
+   [`WP-M1-SETTINGS-RESET-AUTHORITY`](docs/wp/WP-M1-SETTINGS-RESET-AUTHORITY.md):
+   exact `SERVER_SETTINGS_V1` dual CAS, owner-only `id=1` reset, Studio/Architect
+   cutover a poslední produkční commit s pre-parse legacy `/api/reset` 410.
+   Oba subjecty mají oddělené writery/reviewery a vlastní report-only evidence
+   DAG. Finding 011 zůstává `OPEN` a Gate 1 `BLOCKED` do přijetí celého 029.
 
    Konsolidovaný M1 base je formálně přijatý na
    `integration/m1-consolidated-20260810`; wire Review B evidence obálka

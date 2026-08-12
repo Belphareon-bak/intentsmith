@@ -1,19 +1,36 @@
 # 029 — reset musí pravdivě pojmenovat rozsah a obě route
 
 - **typ:** destruktivní settings connector a recovery autorita
-- **stav:** `ACCEPTED 2026-08-11: A + M1-CLOSEOUT-X1 /
-  IMPLEMENTATION_PENDING`; implementaci
-  aktivuje až vlastní ohraničený WP v přijatém pořadí
+- **stav:** `ACCEPTED 2026-08-11: A + M1-CLOSEOUT-X1 / WP_ACTIVE /
+  CHATS_DECOMMISSION_FIRST / RESET_BLOCKED_ON_CHATS_PROMOTION`
+- **sourceEvidenceRevision:**
+  `69d29ed3c929593e092d047b6e182d9715e3d08e`
+- **integrationRef:** `integration/m1-consolidated-20260810`
+- **aktivní WPs:** nejdřív
+  [`WP-M1-STANDALONE-CHATS-DECOMMISSION`](../wp/WP-M1-STANDALONE-CHATS-DECOMMISSION.md),
+  potom
+  [`WP-M1-SETTINGS-RESET-AUTHORITY`](../wp/WP-M1-SETTINGS-RESET-AUTHORITY.md)
+- **závislost:** 026 je `PROMOTED / REVIEW A+B PASS` na
+  `69d29ed3c929593e092d047b6e182d9715e3d08e`; promotion report je
+  [zde](../execution/runs/wp-m1-secret-storage-authority-20260811-report.md)
 - **finding:** [011 — user_settings authority](../findings/011-user-settings-authority-and-secret-exposure.md)
 - **historický nález:** F-B
 
 ## Ověřený problém
 
-`POST /api/settings/reset` i legacy `POST /api/reset` volají tentýž handler bez
-scope nebo revision. Ten v transakci dělá table-wide `DELETE FROM user_settings`
-a reset model policy. Maže tedy i případné řádky mimo autoritativní singleton
-`id=1`. Po commitu resetuje pouze FeatureManager; notification cache a SMTP
-runtime mohou zůstat staré, přesto response tvrdí `runtimeApplied:true`.
+Canonical route `POST /api/settings/reset` i legacy alias `POST /api/reset`
+volají tentýž handler. Request body se ignoruje, route nepřijímá scope ani
+settings/policy revision a žádný současný first-party caller neposílá dual CAS.
+Handler uvnitř transakce nahradí dokument `user_settings.id=1` celým `{}`,
+čímž ničí unknown/unowned hodnoty tohoto autoritativního řádku; řádky mimo
+`id=1` nemaže. Ve stejné transakci resetuje model policy.
+
+Po commitu se aplikuje pouze FeatureManager. Po promovaném 026 už ale neexistuje
+živá notification credential cache a současná runtime chyba se hlásí pravdivě
+`runtimeApplied:false` s `SETTINGS_RUNTIME_APPLY_FAILED`. Otevřený problém 029
+je přesný scope, dual CAS, owner-only preservation, client receipt semantics a
+retirement legacy aliasu, nikoli falešný claim o dnešní notification cache nebo
+runtime failure response.
 
 Studio současně říká „všechna uživatelská nastavení“, ale zachová lokální
 theme/layout/session data. Skutečný factory delete konverzací, paměti, agentů,
@@ -108,10 +125,12 @@ přejmenováním dnešního aliasu.
 
 ## Implementační hranice po přijetí
 
-Obě canonical route jsou v jednom reset subjectu. Žádná migrace. Samostatný
-standalone-chats decommission subject jej musí před promotion předcházet.
-Budoucí statický WP/allowlist přistane vlastním docs-only governance commitem
-před source writerem; decommission a reset pak mají oddělené writery/reviewery.
+Canonical route a legacy alias jsou v jednom reset subjectu. Žádná migrace.
+Samostatný standalone-chats decommission subject jej musí před promotion
+předcházet.
+Statické WPs a jejich allowlisty jsou aktivované vlastním docs-only governance
+checkpointem před source writerem; decommission a reset mají oddělené
+writery/reviewery.
 Review musí pinovat exact plain-object dual-CAS request, oba pre-mutation CAS,
 jedinou transakci, exact owner-only reset, zachování unknown/unowned hodnot i
 sentinel řádku mimo id=1, obě `+1` revisions, právě jeden event, pravdivou

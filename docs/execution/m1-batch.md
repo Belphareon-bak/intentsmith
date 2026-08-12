@@ -256,7 +256,8 @@ diagram se provádí přes tuto exact frontu:
 
 ```text
 026 secret-storage authority
-  → 029 dual-CAS settings reset + chats decommission
+  → 029 high-level krok se dvěma sériovými subjecty/reporty:
+      standalone chats decommission → dual-CAS settings reset
   → B3 terminal failover/proof + autorizovaný T3 GPU běh
   → B4 immutable built Electron journey
   → Gate 1
@@ -604,7 +605,9 @@ diagram se provádí přes tuto exact frontu:
 
 Operátor dostane jeden balík:
 
-- `docs/execution/runs/` reporty ze čtyř běhů;
+- `docs/execution/runs/` reporty z pěti subjectů: 026, samostatný 029 chats
+  decommission, samostatný 029 reset, B3 a B4. High-level krok 029 tedy
+  přispívá dvěma sériovými reporty, nikoli jedním sloučeným;
 - **rozhodovací frontu** — očekávaně D-1 až D-7 plus co přibylo; každé
   s evidencí, defaultem a cenou přepnutí;
 - seznam findingů s vlastníky;

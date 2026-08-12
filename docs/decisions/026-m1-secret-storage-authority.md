@@ -1,15 +1,15 @@
 # 026 — credentials nesmějí žít v obecném settings dokumentu
 
 - **typ:** secret storage, transfer a read/write autorita
-- **stav:** `ACCEPTED 2026-08-11: A + X1 + M1-CLOSEOUT-X1 / WP_ACTIVE /
-  SETUP_P0_CHECKPOINT_PUSHED / REST_IMPLEMENTATION_NOT_STARTED`; aktivní ohraničený
-  [`WP-M1-SECRET-STORAGE-AUTHORITY`](../wp/WP-M1-SECRET-STORAGE-AUTHORITY.md)
-  vychází ze source evidence
-  `0037d56a2fb63ae0c3a3863ce00b9083d838ba8b`
+- **stav:** `PROMOTED / REVIEW A+B PASS` na canonical integration tipu
+  `69d29ed3c929593e092d047b6e182d9715e3d08e`; exact `baseRevision`,
+  `subjectHead`, `candidateHead` a oba verdicty jsou v
+  [promotion reportu](../execution/runs/wp-m1-secret-storage-authority-20260811-report.md)
 - **finding:** [011 — user_settings authority](../findings/011-user-settings-authority-and-secret-exposure.md)
-- **závislosti:** 025, 027 a 028 jsou `PROMOTED / REVIEW A+B PASS`; 028 už
-  odstranil falešný webhook setter a dodal immutable startup HMAC autoritu,
-  takže 026 smí jako čtvrtý krok provést transfer a exact scrub
+- **závislosti:** 025, 027 a 028 jsou `PROMOTED / REVIEW A+B PASS`; 026 je
+  dokončený čtvrtý source krok a odemyká docs-only aktivaci 029. Samotná
+  promotion 026 netvrdí, že nad skutečnými operátorskými daty proběhl census,
+  transfer, export, purge, scrub nebo restart
 
 ## Ověřený problém a aktuální baseline
 
@@ -44,9 +44,10 @@ zůstávaly tři jiné P0 residualy:
   completion timestamp.
 
 První zdrojový checkpoint `3bb35bbb32063dd058ab35872668d645fe9ff106`
-tyto tři P0 residualy uzavřel. Jde o pushnutý ancestor budoucího finálního
-subjectu, nikoli o dokončený nebo promovaný 026: canonical notification
-authority, transfer/export/purge, exact scrub a retirement ještě nezačaly.
+tyto tři P0 residualy uzavřel a zůstal bez rewrite ancestorem finálního
+promovaného subjectu. Následný 026 source doplnil canonical notification
+authority, offline transfer/export/purge tooling, exact scrub seamy a
+retirement; skutečný operátorský apply ale promotion sama nespustila.
 
 Globální trusted-local origin/capability boundary je samostatná vrstva a
 nenahrazuje explicitní route auth. Samotný loopback bind ani CORS nejsou
