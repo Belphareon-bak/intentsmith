@@ -1,9 +1,9 @@
-// One truthful manual model-binding application boundary.
+// One truthful model-binding application boundary.
 //
 // The repository owns durable intent and terminal outcomes. This service owns
 // the provider/runtime effects which connect that intent to the running
-// product. Automatic failover, proof issuance and scheduling are deliberately
-// absent.
+// product. Manual changes and automatic terminal failover share this single
+// effect owner; proof issuance and scheduling remain outside this module.
 
 import { randomUUID } from 'node:crypto';
 import { config } from '../config.js';
@@ -20,6 +20,8 @@ import {
 
 const LOCAL_PROVIDER_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]']);
 const PROVIDER_CLAIM_HEARTBEAT_MS = 60 * 1000;
+const TERMINAL_CLAIM_LEASE_MS = 5 * 60 * 1000;
+const TERMINAL_NO_EFFECT_CODE = 'MODEL_FAILOVER_RUNTIME_EFFECT_NOT_OBSERVED';
 const RUNTIME_FAILURE_CODES = new Set([
   'MODEL_BINDING_PROVIDER_UNAVAILABLE',
   'MODEL_BINDING_TARGET_NOT_INSTALLED',
@@ -205,6 +207,33 @@ function verificationFailureCode(error) {
     return 'MODEL_BINDING_VERIFICATION_DIGEST_DRIFT';
   }
   return 'MODEL_BINDING_VERIFICATION_REJECTED';
+}
+
+function terminalFailureCode(error) {
+  const code = typeof error?.code === 'string' ? error.code : '';
+  if (/^MODEL_[A-Z0-9_]{2,90}$/.test(code)) return code;
+  return 'MODEL_FAILOVER_RUNTIME_EFFECT_FAILED';
+}
+
+function exactTupleChanged(from, to) {
+  return from.canonicalName !== to.canonicalName
+    || from.digestSha256 !== to.digestSha256;
+}
+
+function terminalRuntimePayload(intent, after, { success }) {
+  const from = intent.expectedRuntime;
+  const to = success ? intent.effect : intent.expectedRuntime;
+  return Object.freeze({
+    incarnationBefore: intent.expectedRuntime.incarnationId,
+    incarnationAfter: after.incarnationId,
+    generationBefore: intent.expectedRuntime.generation,
+    generationAfter: after.generation,
+    fromModelName: from.modelName,
+    fromDigestSha256: from.digestSha256,
+    toModelName: to.modelName,
+    toDigestSha256: to.digestSha256,
+    changed: success && exactTupleChanged(from, to),
+  });
 }
 
 function providerPullFailureCode(error) {
@@ -493,6 +522,7 @@ export class ModelBindingApplication {
     this._verificationTail = Promise.resolve();
     this._verificationStarted = false;
     this._rehydratePromise = null;
+    this._terminalRehydratePromise = null;
 
     for (const [name, value] of [
       ['repository', this.repository],
@@ -536,6 +566,14 @@ export class ModelBindingApplication {
       'renewManualProviderPullClaim',
       'claimManualProviderPullRecovery',
       'observeDesiredBinding',
+      'getState',
+      'getTerminalTarget',
+      'getTerminalOperation',
+      'listTerminalReconciliationRequired',
+      'prepareTerminalOperation',
+      'finalizeTerminalOperation',
+      'listActiveForRestart',
+      'recordActiveProofExpired',
     ]) {
       if (typeof this.repository[method] !== 'function') {
         fail('MODEL_BINDING_APPLICATION_OPTIONS_INVALID', `Repository is missing ${method}`);
@@ -544,8 +582,11 @@ export class ModelBindingApplication {
     for (const method of [
       'snapshot',
       'prepare',
+      'prepareTerminal',
       'commit',
       'compensate',
+      'getTerminalReceipt',
+      'clearTerminalReceipt',
       'rehydrateLegacy',
       'resolvePendingProposals',
     ]) {
@@ -980,19 +1021,549 @@ export class ModelBindingApplication {
     });
   }
 
+  async runTerminalFailoverCycle() {
+    return this.#runExclusive('terminal-failover-cycle', async () => {
+      const results = [];
+      let inconclusive = false;
+      const pendingRoles = new Set();
+      for (const intent of this.repository.listTerminalReconciliationRequired()) {
+        pendingRoles.add(intent.role);
+        try {
+          const result = await this.#reconcileTerminalIntent(intent, { startup: false });
+          if (!result.waiting) pendingRoles.delete(intent.role);
+          results.push(Object.freeze({
+            role: intent.role,
+            operationId: intent.operationId,
+            action: 'RECONCILE',
+            outcome: result.waiting ? 'WAITING_FOR_LEASE' : 'RECONCILED',
+            reason: result.reason ?? null,
+          }));
+        } catch (error) {
+          inconclusive = true;
+          results.push(Object.freeze({
+            role: intent.role,
+            operationId: intent.operationId,
+            action: 'RECONCILE',
+            outcome: 'INCONCLUSIVE',
+            reason: terminalFailureCode(error),
+          }));
+        }
+      }
+
+      for (const role of Object.keys(config.models).sort()) {
+        if (pendingRoles.has(role)) continue;
+        let state = this.repository.getState(role);
+        if (!state || state.claimPresent) continue;
+        if (state.activeFailover && state.activeEventId) {
+          try {
+            this.repository.recordActiveProofExpired({
+              role,
+              episodeId: state.episodeId,
+              expectedDesiredRevision: state.desiredRevision,
+              expectedRowVersion: state.rowVersion,
+              expectedActiveEventId: state.activeEventId,
+            });
+            state = this.repository.getState(role);
+          } catch (error) {
+            if (error?.code !== 'MODEL_FAILOVER_ACTIVE_PROOF_NOT_EXPIRED') {
+              inconclusive = true;
+              results.push(Object.freeze({
+                role,
+                operationId: null,
+                action: 'PROOF_EXPIRY',
+                outcome: 'INCONCLUSIVE',
+                reason: terminalFailureCode(error),
+              }));
+              continue;
+            }
+          }
+        }
+
+        try {
+          const action = await this.#selectTerminalAction(state);
+          if (!action) continue;
+          const result = await this.#executeTerminalAction(action);
+          results.push(Object.freeze({
+            role,
+            operationId: result.intent.operationId,
+            action: action.kind,
+            outcome: result.outcome,
+            reason: null,
+          }));
+        } catch (error) {
+          inconclusive = true;
+          results.push(Object.freeze({
+            role,
+            operationId: null,
+            action: 'TERMINAL_EFFECT',
+            outcome: 'INCONCLUSIVE',
+            reason: terminalFailureCode(error),
+          }));
+        }
+      }
+
+      return Object.freeze({
+        schemaVersion: 1,
+        status: inconclusive ? 'PARTIAL' : 'COMPLETED',
+        roles: Object.freeze(results),
+      });
+    });
+  }
+
+  async rehydrateTerminalBindings() {
+    if (this._terminalRehydratePromise) return this._terminalRehydratePromise;
+    const attempt = this.#runExclusive('terminal-startup-rehydrate', async () => {
+      const summary = { reconciled: 0, restored: 0, unchanged: 0 };
+      for (const intent of this.repository.listTerminalReconciliationRequired()) {
+        const result = await this.#reconcileTerminalIntent(intent, { startup: true });
+        if (result.waiting) {
+          fail(
+            'MODEL_FAILOVER_STARTUP_RECONCILIATION_BLOCKED',
+            'Startup cannot expose an unresolved same-incarnation terminal intent',
+            { operationId: intent.operationId, reason: result.reason },
+          );
+        }
+        summary.reconciled += 1;
+      }
+      for (const state of this.repository.listActiveForRestart()) {
+        const restored = await this.#rehydrateActiveFailover(state);
+        if (restored.changed) summary.restored += 1;
+        else summary.unchanged += 1;
+      }
+      return Object.freeze(summary);
+    });
+    this._terminalRehydratePromise = attempt;
+    try {
+      return await attempt;
+    } catch (error) {
+      this._terminalRehydratePromise = null;
+      throw error;
+    }
+  }
+
+  async #selectTerminalAction(state) {
+    if (!state) return null;
+    const desired = this.repository.getDesired(state.role);
+    const target = this.repository.getTerminalTarget(state.role);
+    if (!desired || !target?.valid || !target.target || target.revision < 1) return null;
+    if (state.state === 'DETECTED' && !state.activeFailover) {
+      return Object.freeze({ kind: 'ACTIVATE', state, desired, target });
+    }
+    if (!state.activeFailover
+      || !['ACTIVATED', 'DEGRADED_PROOF_EXPIRED'].includes(state.state)) {
+      return null;
+    }
+
+    try {
+      const restored = await this.provider.resolveExact(desired.modelName, {
+        expectedDigestSha256: desired.digestSha256,
+      });
+      if (restored.name !== desired.modelName
+        || restored.canonicalName !== desired.canonicalName) {
+        fail(
+          'MODEL_BINDING_TARGET_DIGEST_DRIFT',
+          'Desired restore artifact no longer has its exact requested identity',
+          { role: state.role },
+        );
+      }
+      return Object.freeze({ kind: 'RESTORE', state, desired, target });
+    } catch (error) {
+      if (error?.code !== 'MODEL_BINDING_TARGET_NOT_INSTALLED') throw error;
+    }
+
+    const targetChanged = target.target.requestedName !== state.fallbackModelName
+      || target.target.canonicalName !== state.fallbackCanonicalName
+      || target.target.digestSha256 !== state.fallbackDigestSha256;
+    if (state.state !== 'DEGRADED_PROOF_EXPIRED' && targetChanged) {
+      return Object.freeze({ kind: 'REAPPLY', state, desired, target });
+    }
+    return null;
+  }
+
+  async #executeTerminalAction(action) {
+    const snapshot = this.#terminalRuntimeSnapshot(action.state.role);
+    const expectedRuntime = action.kind === 'ACTIVATE'
+      ? action.desired
+      : {
+          modelName: action.state.fallbackModelName,
+          canonicalName: action.state.fallbackCanonicalName,
+          digestSha256: action.state.fallbackDigestSha256,
+        };
+    if (snapshot.modelName !== expectedRuntime.modelName) {
+      fail(
+        'MODEL_BINDING_RUNTIME_CAS_MISMATCH',
+        'Terminal runtime does not match the exact durable pre-effect binding',
+        { role: action.state.role, runtimeModel: snapshot.modelName, expectedRuntime },
+      );
+    }
+    const prepared = await this.repository.prepareTerminalOperation({
+      role: action.state.role,
+      episodeId: action.state.episodeId,
+      expectedDesiredRevision: action.state.desiredRevision,
+      expectedRowVersion: action.state.rowVersion,
+      kind: action.kind,
+      leaseMs: TERMINAL_CLAIM_LEASE_MS,
+      expectedTargetRevision: action.target.revision,
+      expectedRuntimeIncarnationId: snapshot.incarnationId,
+      expectedRuntimeGeneration: snapshot.generation,
+    });
+    return this.#commitPreparedTerminal(prepared);
+  }
+
+  async #commitPreparedTerminal(prepared) {
+    const { intent } = prepared;
+    let releaseUseLeases;
+    let token = null;
+    try {
+      releaseUseLeases = this.#acquireModelUseLeases(
+        [intent.expectedRuntime.modelName, intent.effect.modelName],
+        MODEL_ACTIVITY_OWNER.BINDING_CUTOVER,
+      );
+      const resolved = await this.provider.resolveExact(intent.effect.modelName, {
+        expectedDigestSha256: intent.effect.digestSha256,
+      });
+      if (resolved.name !== intent.effect.modelName
+        || resolved.canonicalName !== intent.effect.canonicalName) {
+        fail(
+          'MODEL_BINDING_TARGET_DIGEST_DRIFT',
+          'Terminal effect artifact no longer has its exact requested identity',
+          { operationId: intent.operationId },
+        );
+      }
+      token = this.runtime.prepareTerminal({
+        operationId: intent.operationId,
+        role: intent.role,
+        expectedModel: intent.expectedRuntime.modelName,
+        targetModel: resolved.name,
+        expectedIncarnationId: intent.expectedRuntime.incarnationId,
+        expectedGeneration: intent.expectedRuntime.generation,
+      });
+      const committed = this.runtime.commit(token);
+      token = null;
+      this.#requireTerminalCommit(intent, committed);
+      const finalized = await this.repository.finalizeTerminalOperation({
+        operationId: intent.operationId,
+        expectedRowVersion: intent.claimedRowVersion,
+        claimToken: prepared.claim.token,
+        resolution: 'DIRECT_CONFIRMED',
+        runtime: terminalRuntimePayload(intent, {
+          incarnationId: committed.incarnationId,
+          generation: committed.generationAfter,
+        }, { success: true }),
+        failureCode: null,
+      });
+      this.runtime.clearTerminalReceipt(intent.operationId);
+      return finalized;
+    } catch (error) {
+      if (token !== null) {
+        try {
+          this.runtime.compensate(token);
+        } catch (_) {
+          throw error;
+        }
+      }
+      const committed = this.runtime.getTerminalReceipt(intent.operationId);
+      if (committed) {
+        this.#requireTerminalCommit(intent, committed);
+        const finalized = await this.repository.finalizeTerminalOperation({
+          operationId: intent.operationId,
+          expectedRowVersion: intent.claimedRowVersion,
+          claimToken: prepared.claim.token,
+          resolution: 'DIRECT_CONFIRMED',
+          runtime: terminalRuntimePayload(intent, {
+            incarnationId: committed.incarnationId,
+            generation: committed.generationAfter,
+          }, { success: true }),
+          failureCode: null,
+        });
+        this.runtime.clearTerminalReceipt(intent.operationId);
+        return finalized;
+      }
+      const snapshot = this.#terminalRuntimeSnapshot(intent.role);
+      if (snapshot.incarnationId === intent.expectedRuntime.incarnationId
+        && snapshot.generation === intent.expectedRuntime.generation
+        && snapshot.modelName === intent.expectedRuntime.modelName) {
+        try {
+          return await this.repository.finalizeTerminalOperation({
+            operationId: intent.operationId,
+            expectedRowVersion: intent.claimedRowVersion,
+            claimToken: prepared.claim.token,
+            resolution: 'EFFECT_FAILED',
+            runtime: terminalRuntimePayload(intent, {
+              incarnationId: snapshot.incarnationId,
+              generation: snapshot.generation,
+            }, { success: false }),
+            failureCode: terminalFailureCode(error),
+          });
+        } catch (_) {
+          // Keep the intent unresolved if the exact failure receipt cannot
+          // itself satisfy live inventory/policy/generation authority.
+        }
+      }
+      throw error;
+    } finally {
+      releaseUseLeases?.();
+    }
+  }
+
+  async #reconcileTerminalIntent(intentValue, { startup }) {
+    const current = this.repository.getTerminalOperation(intentValue.operationId);
+    if (!current?.reconciliationRequired) {
+      this.runtime.clearTerminalReceipt(intentValue.operationId);
+      return { waiting: false, outcome: 'ALREADY_CLOSED' };
+    }
+    const { intent } = current;
+    let runtimeReceipt = this.runtime.getTerminalReceipt(intent.operationId);
+    let snapshot = this.#terminalRuntimeSnapshot(intent.role);
+
+    if (!runtimeReceipt && snapshot.incarnationId === intent.expectedRuntime.incarnationId) {
+      if (snapshot.generation === intent.expectedRuntime.generation
+        && snapshot.modelName === intent.expectedRuntime.modelName) {
+        try {
+          const finalized = await this.repository.finalizeTerminalOperation({
+            operationId: intent.operationId,
+            expectedRowVersion: intent.claimedRowVersion,
+            claimToken: null,
+            resolution: 'RECONCILED_NO_EFFECT',
+            runtime: terminalRuntimePayload(intent, {
+              incarnationId: snapshot.incarnationId,
+              generation: snapshot.generation,
+            }, { success: false }),
+            failureCode: TERMINAL_NO_EFFECT_CODE,
+          });
+          return { waiting: false, outcome: finalized.outcome };
+        } catch (error) {
+          if (error?.code === 'MODEL_FAILOVER_TERMINAL_RECONCILIATION_TOO_EARLY') {
+            return { waiting: true, reason: error.code };
+          }
+          throw error;
+        }
+      }
+      if (snapshot.generation === intent.expectedRuntime.generation + 1
+        && snapshot.modelName === intent.effect.modelName) {
+        const finalized = await this.repository.finalizeTerminalOperation({
+          operationId: intent.operationId,
+          expectedRowVersion: intent.claimedRowVersion,
+          claimToken: null,
+          resolution: 'RECONCILED_CONFIRMED',
+          runtime: terminalRuntimePayload(intent, {
+            incarnationId: snapshot.incarnationId,
+            generation: snapshot.generation,
+          }, { success: true }),
+          failureCode: null,
+        });
+        this.runtime.clearTerminalReceipt(intent.operationId);
+        return { waiting: false, outcome: finalized.outcome };
+      }
+      fail(
+        'MODEL_BINDING_RUNTIME_CAS_MISMATCH',
+        'Same-incarnation terminal reconciliation observed an unexpected generation',
+        { operationId: intent.operationId },
+      );
+    }
+
+    if (!runtimeReceipt) {
+      if (!startup) {
+        fail(
+          'MODEL_BINDING_RUNTIME_CAS_MISMATCH',
+          'Runtime incarnation changed outside startup reconciliation',
+          { operationId: intent.operationId },
+        );
+      }
+      if (snapshot.generation !== 0
+        || snapshot.modelName !== intent.expectedRuntime.modelName) {
+        fail(
+          'MODEL_FAILOVER_STARTUP_RECONCILIATION_UNRESOLVED',
+          'New runtime incarnation cannot prove the terminal operation had no effect',
+          {
+            operationId: intent.operationId,
+            runtimeGeneration: snapshot.generation,
+            runtimeModel: snapshot.modelName,
+            expectedModel: intent.expectedRuntime.modelName,
+          },
+        );
+      }
+      let releaseUseLeases;
+      try {
+        releaseUseLeases = this.#acquireModelUseLeases(
+          [intent.expectedRuntime.modelName, intent.effect.modelName],
+          MODEL_ACTIVITY_OWNER.BINDING_CUTOVER,
+        );
+        const expectedRuntime = await this.provider.resolveExact(
+          intent.expectedRuntime.modelName,
+          { expectedDigestSha256: intent.expectedRuntime.digestSha256 },
+        );
+        if (expectedRuntime.name !== intent.expectedRuntime.modelName
+          || expectedRuntime.canonicalName !== intent.expectedRuntime.canonicalName) {
+          fail(
+            'MODEL_BINDING_TARGET_DIGEST_DRIFT',
+            'Startup reconciliation pre-effect artifact lost its exact identity',
+            { operationId: intent.operationId },
+          );
+        }
+        const finalized = await this.repository.finalizeTerminalOperation({
+          operationId: intent.operationId,
+          expectedRowVersion: intent.claimedRowVersion,
+          claimToken: null,
+          resolution: 'RECONCILED_NO_EFFECT',
+          runtime: terminalRuntimePayload(intent, {
+            incarnationId: snapshot.incarnationId,
+            generation: snapshot.generation,
+          }, { success: false }),
+          failureCode: TERMINAL_NO_EFFECT_CODE,
+        });
+        return { waiting: false, outcome: finalized.outcome };
+      } finally {
+        releaseUseLeases?.();
+      }
+    }
+
+    this.#requireTerminalCommit(intent, runtimeReceipt);
+    if (snapshot.incarnationId !== runtimeReceipt.incarnationId
+      || snapshot.generation !== runtimeReceipt.generationAfter
+      || snapshot.modelName !== intent.effect.modelName) {
+      fail(
+        'MODEL_BINDING_RUNTIME_CAS_MISMATCH',
+        'Terminal runtime receipt no longer matches the live process generation',
+        { operationId: intent.operationId },
+      );
+    }
+    try {
+      const finalized = await this.repository.finalizeTerminalOperation({
+        operationId: intent.operationId,
+        expectedRowVersion: intent.claimedRowVersion,
+        claimToken: null,
+        resolution: 'RECONCILED_CONFIRMED',
+        runtime: terminalRuntimePayload(intent, {
+          incarnationId: runtimeReceipt.incarnationId,
+          generation: runtimeReceipt.generationAfter,
+        }, { success: true }),
+        failureCode: null,
+      });
+      this.runtime.clearTerminalReceipt(intent.operationId);
+      return { waiting: false, outcome: finalized.outcome };
+    } catch (error) {
+      if (error?.code === 'MODEL_FAILOVER_TERMINAL_RECONCILIATION_TOO_EARLY') {
+        return { waiting: true, reason: error.code };
+      }
+      throw error;
+    }
+  }
+
+  async #rehydrateActiveFailover(state) {
+    if (!state.activeFailover
+      || !state.fallbackModelName
+      || !state.fallbackCanonicalName
+      || !state.fallbackDigestSha256
+      || !state.activeEventId) {
+      fail(
+        'MODEL_FAILOVER_STARTUP_LINEAGE_INVALID',
+        'Startup active failover lineage is incomplete',
+        { role: state.role },
+      );
+    }
+    const resolved = await this.provider.resolveExact(state.fallbackModelName, {
+      expectedDigestSha256: state.fallbackDigestSha256,
+    });
+    if (resolved.name !== state.fallbackModelName
+      || resolved.canonicalName !== state.fallbackCanonicalName) {
+      fail(
+        'MODEL_FAILOVER_STARTUP_LINEAGE_INVALID',
+        'Startup active failover artifact lost its exact requested identity',
+        { role: state.role },
+      );
+    }
+    const snapshot = this.#terminalRuntimeSnapshot(state.role);
+    if (snapshot.modelName === state.fallbackModelName) {
+      return Object.freeze({ changed: false, role: state.role });
+    }
+    const releaseUseLeases = this.#acquireModelUseLeases(
+      [snapshot.modelName, state.fallbackModelName],
+      MODEL_ACTIVITY_OWNER.BINDING_CUTOVER,
+    );
+    try {
+      const token = this.runtime.prepare({
+        role: state.role,
+        expectedModel: snapshot.modelName,
+        targetModel: resolved.name,
+        incrementVersion: false,
+      });
+      const committed = this.runtime.commit(token);
+      if (committed.role !== state.role
+        || committed.from !== snapshot.modelName
+        || committed.to !== state.fallbackModelName
+        || committed.changed !== true) {
+        fail(
+          'MODEL_FAILOVER_STARTUP_LINEAGE_INVALID',
+          'Startup active failover runtime commit was not exact',
+          { role: state.role },
+        );
+      }
+      return Object.freeze({ changed: true, role: state.role });
+    } finally {
+      releaseUseLeases();
+    }
+  }
+
+  #terminalRuntimeSnapshot(role) {
+    const snapshot = this.runtime.snapshot(role);
+    if (!isPlainObject(snapshot)
+      || snapshot.role !== role
+      || typeof snapshot.modelName !== 'string'
+      || snapshot.modelName.length < 1
+      || typeof snapshot.incarnationId !== 'string'
+      || snapshot.incarnationId.length < 16
+      || !Number.isSafeInteger(snapshot.generation)
+      || snapshot.generation < 0) {
+      fail(
+        'MODEL_BINDING_RUNTIME_CAS_MISMATCH',
+        'Runtime port returned an invalid process-generation snapshot',
+        { role },
+      );
+    }
+    return snapshot;
+  }
+
+  #requireTerminalCommit(intent, result) {
+    if (!isPlainObject(result)
+      || result.role !== intent.role
+      || result.terminalOperationId !== intent.operationId
+      || typeof result.from !== 'string'
+      || result.to !== intent.effect.modelName
+      || typeof result.incarnationId !== 'string'
+      || result.incarnationId.length < 16
+      || !Number.isSafeInteger(result.generationBefore)
+      || result.generationAfter !== result.generationBefore + 1) {
+      fail(
+        'MODEL_BINDING_RUNTIME_COMMIT_FAILED',
+        'Terminal runtime returned an invalid operation-bound receipt',
+        { operationId: intent.operationId },
+      );
+    }
+    return result;
+  }
+
   async rehydrateBindings() {
     if (this._rehydratePromise) return this._rehydratePromise;
     const attempt = this.#runExclusive('rehydrate', async () => {
       const summary = { restored: 0, legacyRestored: 0, failed: [], warnings: [] };
-      const overrides = this.repository.listCompatibilityOverridesForRehydrate();
-      const initialOperations = this.repository.listCurrentManualBindingsForRehydrate();
+      const terminalOwnedRoles = new Set([
+        ...this.repository.listActiveForRestart().map(state => state.role),
+        ...this.repository.listTerminalReconciliationRequired().map(intent => intent.role),
+      ]);
+      const overrides = this.repository.listCompatibilityOverridesForRehydrate()
+        .filter(row => !terminalOwnedRoles.has(row.role));
+      const initialOperations = this.repository.listCurrentManualBindingsForRehydrate()
+        .filter(operation => !terminalOwnedRoles.has(operation.role));
       const initialEligibleOperations = initialOperations.filter(operation => {
         const state = this.repository.getBindingApplicationState(operation.operationId);
         return !(state.runtimeStatus === 'FAILED' && state.retryable === false);
       });
-      const pendingProviderOperations = this.repository.listPendingProviderOperations();
+      const pendingProviderOperations = this.repository.listPendingProviderOperations()
+        .filter(operation => !terminalOwnedRoles.has(operation.role));
       const initialResumableProviderOperations = this.repository
-        .listResumableProviderOperations();
+        .listResumableProviderOperations()
+        .filter(operation => !terminalOwnedRoles.has(operation.role));
       const providerOriginFailures = new Set();
       const originEligibleResumableProviderOperations = [];
       const recoverableProviderOperations = [];
@@ -1086,7 +1657,8 @@ export class ModelBindingApplication {
         }
       }
 
-      for (const providerOperation of this.repository.listResumableProviderOperations()) {
+      for (const providerOperation of this.repository.listResumableProviderOperations()
+        .filter(operation => !terminalOwnedRoles.has(operation.role))) {
         if (providerOriginFailures.has(providerOperation.operationId)) continue;
         try {
           this.#resumeProviderOperation(providerOperation);
@@ -1099,7 +1671,8 @@ export class ModelBindingApplication {
         }
       }
 
-      const operations = this.repository.listCurrentManualBindingsForRehydrate();
+      const operations = this.repository.listCurrentManualBindingsForRehydrate()
+        .filter(operation => !terminalOwnedRoles.has(operation.role));
       const currentOperationIds = new Set(operations.map(operation => operation.operationId));
       const operationStates = new Map(operations.map(operation => [
         operation.operationId,
