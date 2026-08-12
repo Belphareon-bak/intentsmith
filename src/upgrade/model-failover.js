@@ -96,6 +96,11 @@ const DEFAULT_IDS = Object.freeze({
   operation: () => `op_${randomUUID()}`,
   claimToken: () => `claim_${randomUUID()}`,
 });
+const TERMINAL_INVENTORY_RESULT_FIELDS = Object.freeze([
+  'canonicalName',
+  'digestSha256',
+  'name',
+]);
 // Migration 053 owns these exact fail-closed signals.  SQLite reports a
 // RAISE(ABORT, ...) trigger as SQLITE_CONSTRAINT_TRIGGER, so the extended
 // result code alone cannot distinguish an identity collision from any other
@@ -284,6 +289,61 @@ function requireNonNegativeInteger(value, field) {
 
 function requireRuntimeIncarnation(value, field = 'runtime.incarnationId') {
   return requireExactString(value, field, { min: 16, max: 160 });
+}
+
+function requireTerminalInventoryResult(value, expected) {
+  if (!isPlainObject(value)) {
+    fail(
+      'MODEL_FAILOVER_TERMINAL_INVENTORY_INVALID',
+      'Terminal inventory assertion must return a plain exact identity',
+    );
+  }
+  const keys = Reflect.ownKeys(value).filter(key => typeof key === 'string').sort();
+  if (Reflect.ownKeys(value).length !== TERMINAL_INVENTORY_RESULT_FIELDS.length
+    || keys.length !== TERMINAL_INVENTORY_RESULT_FIELDS.length
+    || keys.some((key, index) => key !== TERMINAL_INVENTORY_RESULT_FIELDS[index])) {
+    fail(
+      'MODEL_FAILOVER_TERMINAL_INVENTORY_INVALID',
+      'Terminal inventory assertion returned an invalid field set',
+      { actualFields: keys },
+    );
+  }
+  for (const field of TERMINAL_INVENTORY_RESULT_FIELDS) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, field);
+    if (!descriptor || !Object.hasOwn(descriptor, 'value') || descriptor.enumerable !== true) {
+      fail(
+        'MODEL_FAILOVER_TERMINAL_INVENTORY_INVALID',
+        'Terminal inventory identity fields must be enumerable data properties',
+        { field },
+      );
+    }
+  }
+  const requestedName = requireExactString(value.name, 'terminalInventory.name', {
+    max: 512,
+  });
+  const canonicalName = requireExactString(
+    value.canonicalName,
+    'terminalInventory.canonicalName',
+    { max: 512 },
+  );
+  const digestSha256 = requireDigest(
+    value.digestSha256,
+    'terminalInventory.digestSha256',
+  );
+  if (canonicalModelName(requestedName) !== canonicalName
+    || requestedName !== expected.modelName
+    || canonicalName !== expected.canonicalName
+    || digestSha256 !== expected.digestSha256) {
+    fail(
+      'MODEL_FAILOVER_TERMINAL_INVENTORY_MISMATCH',
+      'Live installed artifact does not match the exact terminal effect',
+      {
+        expected,
+        observed: { requestedName, canonicalName, digestSha256 },
+      },
+    );
+  }
+  return Object.freeze({ requestedName, canonicalName, digestSha256 });
 }
 
 function requireTerminalRuntime(value) {
@@ -509,6 +569,11 @@ function mapTerminalIntent(row) {
       digestSha256: row.expected_runtime_digest_sha256,
       incarnationId: row.expected_runtime_incarnation_id,
       generation: row.expected_runtime_generation,
+    },
+    observedInventory: {
+      requestedName: row.observed_inventory_requested_name,
+      canonicalName: row.observed_inventory_canonical_name,
+      digestSha256: row.observed_inventory_digest_sha256,
     },
     claimExpiresAtMs: row.claim_expires_at_ms,
     createdAtMs: row.created_at_ms,
@@ -768,6 +833,46 @@ export class ModelFailoverRepository {
     this.providerOperationId = typeof ids.providerOperation === 'function'
       ? ids.providerOperation
       : ids.operation;
+    this.terminalInventoryReader = options.terminalInventoryReader ?? null;
+    if (this.terminalInventoryReader !== null
+      && (typeof this.terminalInventoryReader !== 'function'
+        || !Object.isFrozen(this.terminalInventoryReader))) {
+      fail(
+        'MODEL_FAILOVER_OPTIONS_INVALID',
+        'Terminal inventory reader must be a frozen least-authority function',
+      );
+    }
+  }
+
+  async #readTerminalInventory(expected, operation) {
+    if (this.terminalInventoryReader === null) {
+      fail(
+        'MODEL_FAILOVER_TERMINAL_INVENTORY_UNAVAILABLE',
+        'Terminal operation requires the trusted local installed-model inventory',
+        { operation },
+      );
+    }
+    let observed;
+    try {
+      observed = await this.terminalInventoryReader(Object.freeze({
+        requestedName: expected.modelName,
+        canonicalName: expected.canonicalName,
+        digestSha256: expected.digestSha256,
+      }));
+    } catch (error) {
+      if (error instanceof ModelFailoverRepositoryError) throw error;
+      const missing = error?.code === 'MODEL_FAILOVER_TARGET_NOT_INSTALLED';
+      throw new ModelFailoverRepositoryError(
+        missing
+          ? 'MODEL_FAILOVER_TERMINAL_TARGET_NOT_INSTALLED'
+          : 'MODEL_FAILOVER_TERMINAL_INVENTORY_UNAVAILABLE',
+        missing
+          ? 'Exact terminal effect is no longer installed locally'
+          : 'Terminal installed-model inventory assertion failed',
+        { cause: error, details: { operation } },
+      );
+    }
+    return requireTerminalInventoryResult(observed, expected);
   }
 
   #now(operation) {
@@ -3894,7 +3999,7 @@ export class ModelFailoverRepository {
     });
   }
 
-  prepareTerminalOperation(inputValue) {
+  async prepareTerminalOperation(inputValue) {
     const input = requireInput(inputValue);
     requireExactInputFields(input, [
       'role',
@@ -3944,6 +4049,62 @@ export class ModelFailoverRepository {
     const measurementContract = getModelFailoverMeasurementContract(role);
     const policyVersion = measurementContract.contract.policyVersion;
     const roleContractSha256 = measurementContract.measurementContractSha256;
+    const inventoryExpected = this.#read('prepareTerminalOperationInventory', () => {
+      const policy = readModelAutomationPolicy(this.db);
+      if (!policy.valid || policy.settings.autoFailoverEnabled !== true) {
+        fail(
+          'MODEL_FAILOVER_AUTO_FAILOVER_DISABLED',
+          'Terminal intent requires an exact enabled automation policy',
+          { reason: policy.reason || 'AUTO_FAILOVER_DISABLED' },
+        );
+      }
+      const target = readModelFailoverTarget(this.db, role);
+      if (!target.valid || !target.target) {
+        fail(
+          'MODEL_FAILOVER_TARGET_INELIGIBLE',
+          'Terminal intent requires one exact configured target',
+          { role, reason: target.reason || 'TARGET_CLEAR' },
+        );
+      }
+      if (target.revision !== expectedTargetRevision) {
+        fail('MODEL_FAILOVER_TARGET_STALE', 'Terminal target revision no longer matches', {
+          role,
+          expectedTargetRevision,
+          actualTargetRevision: target.revision,
+        });
+      }
+      const desired = this.#desiredRow(role);
+      if (!desired || desired.binding_revision !== expectedDesiredRevision) {
+        fail('MODEL_FAILOVER_STALE_DESIRED', 'Terminal desired revision no longer matches', {
+          role,
+          expectedDesiredRevision,
+          actualDesiredRevision: desired?.binding_revision ?? null,
+        });
+      }
+      const state = this.#stateRow(role);
+      if (!state || state.episode_id !== episodeId || state.row_version !== expectedRowVersion) {
+        fail('MODEL_FAILOVER_STALE_STATE', 'Terminal incident changed before inventory assertion', {
+          role,
+          episodeId,
+          expectedRowVersion,
+        });
+      }
+      return Object.freeze(kind === 'RESTORE'
+        ? {
+            modelName: desired.model_name,
+            canonicalName: desired.canonical_name,
+            digestSha256: desired.digest_sha256,
+          }
+        : {
+            modelName: target.target.requestedName,
+            canonicalName: target.target.canonicalName,
+            digestSha256: target.target.digestSha256,
+          });
+    });
+    const observedInventory = await this.#readTerminalInventory(
+      inventoryExpected,
+      'prepareTerminalOperation',
+    );
 
     return this.#write('prepareTerminalOperation', () => {
       const policy = readModelAutomationPolicy(this.db);
@@ -4081,6 +4242,18 @@ export class ModelFailoverRepository {
             canonicalName: state.fallback_canonical_name,
             digestSha256: state.fallback_digest_sha256,
           };
+      if (effect.modelName !== inventoryExpected.modelName
+        || effect.canonicalName !== inventoryExpected.canonicalName
+        || effect.digestSha256 !== inventoryExpected.digestSha256
+        || observedInventory.requestedName !== effect.modelName
+        || observedInventory.canonicalName !== effect.canonicalName
+        || observedInventory.digestSha256 !== effect.digestSha256) {
+        fail(
+          'MODEL_FAILOVER_TERMINAL_INVENTORY_MISMATCH',
+          'Exact terminal effect changed after the live inventory assertion',
+          { role, kind },
+        );
+      }
       const proof = this.#eligibleTerminalProof({
         role,
         ...effect,
@@ -4162,12 +4335,14 @@ export class ModelFailoverRepository {
           target_revision, target_requested_name, target_canonical_name,
           target_digest_sha256, desired_model_name, desired_canonical_name,
           desired_digest_sha256, effect_model_name, effect_canonical_name,
-          effect_digest_sha256, proof_id, proof_expires_at_ms,
+          effect_digest_sha256, observed_inventory_requested_name,
+          observed_inventory_canonical_name, observed_inventory_digest_sha256,
+          proof_id, proof_expires_at_ms,
           expected_runtime_model_name, expected_runtime_canonical_name,
           expected_runtime_digest_sha256, expected_runtime_incarnation_id,
           expected_runtime_generation, claim_expires_at_ms, created_at_ms
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         operationId,
         claimEventId,
@@ -4190,6 +4365,9 @@ export class ModelFailoverRepository {
         effect.modelName,
         effect.canonicalName,
         effect.digestSha256,
+        observedInventory.requestedName,
+        observedInventory.canonicalName,
+        observedInventory.digestSha256,
         proof.proof_id,
         proof.expires_at_ms,
         expectedRuntime.modelName,
@@ -4394,7 +4572,7 @@ export class ModelFailoverRepository {
     });
   }
 
-  finalizeTerminalOperation(inputValue) {
+  async finalizeTerminalOperation(inputValue) {
     const input = requireInput(inputValue);
     requireExactInputFields(input, [
       'operationId',
@@ -4443,6 +4621,14 @@ export class ModelFailoverRepository {
     const measurementContract = getModelFailoverMeasurementContract(initialIntent.role);
     const currentPolicyVersion = measurementContract.contract.policyVersion;
     const currentRoleContractSha256 = measurementContract.measurementContractSha256;
+    const initialReceipt = this.#terminalReceiptRow(operationId);
+    const observedInventory = initialReceipt
+      ? null
+      : await this.#readTerminalInventory(Object.freeze({
+          modelName: initialIntent.effect_model_name,
+          canonicalName: initialIntent.effect_canonical_name,
+          digestSha256: initialIntent.effect_digest_sha256,
+        }), 'finalizeTerminalOperation');
 
     return this.#write('finalizeTerminalOperation', () => {
       const intent = this.#terminalIntentRow(operationId);
@@ -4589,6 +4775,18 @@ export class ModelFailoverRepository {
           operationId,
         });
       }
+      if (intent.observed_inventory_requested_name !== intent.effect_model_name
+        || intent.observed_inventory_canonical_name !== intent.effect_canonical_name
+        || intent.observed_inventory_digest_sha256 !== intent.effect_digest_sha256
+        || observedInventory?.requestedName !== intent.observed_inventory_requested_name
+        || observedInventory?.canonicalName !== intent.observed_inventory_canonical_name
+        || observedInventory?.digestSha256 !== intent.observed_inventory_digest_sha256) {
+        fail(
+          'MODEL_FAILOVER_TERMINAL_INVENTORY_MISMATCH',
+          'Terminal finalize lost its exact live inventory assertion',
+          { operationId },
+        );
+      }
       if (runtime.incarnationBefore !== intent.expected_runtime_incarnation_id
         || runtime.generationBefore !== intent.expected_runtime_generation
         || runtime.fromModelName !== intent.expected_runtime_model_name
@@ -4666,6 +4864,15 @@ export class ModelFailoverRepository {
           'MODEL_FAILOVER_TERMINAL_RECONCILIATION_REQUIRED',
           'Direct terminal finalize crossed its lease and must reconcile',
           { operationId, claimExpiresAtMs: state.claim_expires_at_ms },
+        );
+      }
+      if (!direct
+        && runtime.incarnationAfter === runtime.incarnationBefore
+        && createdAtMs < state.claim_expires_at_ms) {
+        fail(
+          'MODEL_FAILOVER_TERMINAL_RECONCILIATION_TOO_EARLY',
+          'Same-incarnation reconciliation cannot bypass a live direct claim',
+          { operationId, claimExpiresAtMs: state.claim_expires_at_ms, createdAtMs },
         );
       }
       const receiptId = this.#id('event');

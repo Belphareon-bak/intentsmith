@@ -244,6 +244,14 @@ export function up(db) {
         CHECK (length(effect_digest_sha256) = 64
           AND effect_digest_sha256 = lower(effect_digest_sha256)
           AND effect_digest_sha256 NOT GLOB '*[^0-9a-f]*'),
+      observed_inventory_requested_name TEXT NOT NULL
+        CHECK (length(observed_inventory_requested_name) BETWEEN 1 AND 512),
+      observed_inventory_canonical_name TEXT NOT NULL
+        CHECK (length(observed_inventory_canonical_name) BETWEEN 1 AND 512),
+      observed_inventory_digest_sha256 TEXT NOT NULL
+        CHECK (length(observed_inventory_digest_sha256) = 64
+          AND observed_inventory_digest_sha256 = lower(observed_inventory_digest_sha256)
+          AND observed_inventory_digest_sha256 NOT GLOB '*[^0-9a-f]*'),
       proof_id TEXT NOT NULL REFERENCES model_failover_proofs(proof_id) ON DELETE RESTRICT,
       proof_expires_at_ms INTEGER NOT NULL
         CHECK (typeof(proof_expires_at_ms) = 'integer' AND proof_expires_at_ms > 0),
@@ -268,6 +276,9 @@ export function up(db) {
       UNIQUE(role, episode_id, claimed_row_version),
       CHECK (proof_expires_at_ms > created_at_ms),
       CHECK (claim_expires_at_ms > created_at_ms),
+      CHECK (observed_inventory_requested_name = effect_model_name
+        AND observed_inventory_canonical_name = effect_canonical_name
+        AND observed_inventory_digest_sha256 = effect_digest_sha256),
       CHECK (
         (operation_kind IN ('ACTIVATE', 'REAPPLY')
           AND effect_model_name = target_requested_name
@@ -730,6 +741,9 @@ export function up(db) {
         AND proof.model_name = NEW.effect_model_name
         AND proof.model_canonical_name = NEW.effect_canonical_name
         AND proof.model_digest_sha256 = NEW.effect_digest_sha256
+        AND NEW.observed_inventory_requested_name = NEW.effect_model_name
+        AND NEW.observed_inventory_canonical_name = NEW.effect_canonical_name
+        AND NEW.observed_inventory_digest_sha256 = NEW.effect_digest_sha256
         AND proof.result = 'PASS'
         AND proof.completed_at_ms <= NEW.created_at_ms
         AND proof.expires_at_ms = NEW.proof_expires_at_ms
@@ -847,6 +861,9 @@ export function up(db) {
         AND proof.model_digest_sha256 = intent.effect_digest_sha256
         AND proof.expires_at_ms = intent.proof_expires_at_ms
         AND proof.expires_at_ms > NEW.created_at_ms
+        AND intent.observed_inventory_requested_name = intent.effect_model_name
+        AND intent.observed_inventory_canonical_name = intent.effect_canonical_name
+        AND intent.observed_inventory_digest_sha256 = intent.effect_digest_sha256
         AND NEW.runtime_incarnation_before = intent.expected_runtime_incarnation_id
         AND NEW.runtime_generation_before = intent.expected_runtime_generation
         AND NEW.runtime_from_model_name = intent.expected_runtime_model_name
@@ -876,6 +893,9 @@ export function up(db) {
         )
         AND (NEW.resolution NOT IN ('DIRECT_CONFIRMED', 'EFFECT_FAILED')
           OR state.claim_expires_at_ms > NEW.created_at_ms)
+        AND (NEW.resolution NOT IN ('RECONCILED_CONFIRMED', 'RECONCILED_NO_EFFECT')
+          OR NEW.runtime_incarnation_after <> NEW.runtime_incarnation_before
+          OR NEW.created_at_ms >= state.claim_expires_at_ms)
         AND NOT EXISTS (
           SELECT 1 FROM model_failover_terminal_supersedes supersede
           WHERE supersede.terminal_operation_id = intent.operation_id
@@ -990,15 +1010,12 @@ export function up(db) {
         END
         AND NEW.fallback_model_name IS CASE
           WHEN intent.operation_kind IN ('ACTIVATE', 'REAPPLY')
-            OR receipt.resolution IN ('EFFECT_FAILED', 'RECONCILED_NO_EFFECT')
             THEN intent.target_requested_name ELSE intent.expected_runtime_model_name END
         AND NEW.fallback_canonical_name IS CASE
           WHEN intent.operation_kind IN ('ACTIVATE', 'REAPPLY')
-            OR receipt.resolution IN ('EFFECT_FAILED', 'RECONCILED_NO_EFFECT')
             THEN intent.target_canonical_name ELSE intent.expected_runtime_canonical_name END
         AND NEW.fallback_digest_sha256 IS CASE
           WHEN intent.operation_kind IN ('ACTIVATE', 'REAPPLY')
-            OR receipt.resolution IN ('EFFECT_FAILED', 'RECONCILED_NO_EFFECT')
             THEN intent.target_digest_sha256 ELSE intent.expected_runtime_digest_sha256 END
         AND NEW.proof_id IS intent.proof_id
         AND NEW.verified = CASE
@@ -1139,19 +1156,16 @@ export function up(db) {
         intent.desired_digest_sha256,
         CASE
           WHEN intent.operation_kind IN ('ACTIVATE', 'REAPPLY')
-            OR NEW.resolution IN ('EFFECT_FAILED', 'RECONCILED_NO_EFFECT')
             THEN intent.target_requested_name
           ELSE intent.expected_runtime_model_name
         END,
         CASE
           WHEN intent.operation_kind IN ('ACTIVATE', 'REAPPLY')
-            OR NEW.resolution IN ('EFFECT_FAILED', 'RECONCILED_NO_EFFECT')
             THEN intent.target_canonical_name
           ELSE intent.expected_runtime_canonical_name
         END,
         CASE
           WHEN intent.operation_kind IN ('ACTIVATE', 'REAPPLY')
-            OR NEW.resolution IN ('EFFECT_FAILED', 'RECONCILED_NO_EFFECT')
             THEN intent.target_digest_sha256
           ELSE intent.expected_runtime_digest_sha256
         END,

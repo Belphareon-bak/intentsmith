@@ -523,12 +523,14 @@ function insertTerminalCompanionEvent(db, {
         target_revision, target_requested_name, target_canonical_name,
         target_digest_sha256, desired_model_name, desired_canonical_name,
         desired_digest_sha256, effect_model_name, effect_canonical_name,
-        effect_digest_sha256, proof_id, proof_expires_at_ms,
+        effect_digest_sha256, observed_inventory_requested_name,
+        observed_inventory_canonical_name, observed_inventory_digest_sha256,
+        proof_id, proof_expires_at_ms,
         expected_runtime_model_name, expected_runtime_canonical_name,
         expected_runtime_digest_sha256, expected_runtime_incarnation_id,
         expected_runtime_generation, claim_expires_at_ms, created_at_ms
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-        ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
     `).run(
       operationId,
       state.last_event_id,
@@ -548,6 +550,9 @@ function insertTerminalCompanionEvent(db, {
       desiredModel,
       desired?.canonical_name,
       desiredDigest,
+      effect.model,
+      effect.canonical,
+      effect.digest,
       effect.model,
       effect.canonical,
       effect.digest,
@@ -890,7 +895,9 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
       'role_contract_sha256', 'target_revision', 'target_requested_name',
       'target_canonical_name', 'target_digest_sha256', 'desired_model_name',
       'desired_canonical_name', 'desired_digest_sha256', 'effect_model_name',
-      'effect_canonical_name', 'effect_digest_sha256', 'proof_id',
+      'effect_canonical_name', 'effect_digest_sha256',
+      'observed_inventory_requested_name', 'observed_inventory_canonical_name',
+      'observed_inventory_digest_sha256', 'proof_id',
       'proof_expires_at_ms', 'expected_runtime_model_name',
       'expected_runtime_canonical_name', 'expected_runtime_digest_sha256',
       'expected_runtime_incarnation_id', 'expected_runtime_generation',
@@ -1123,6 +1130,39 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
       'trg_model_binding_user_noop_provider_supersedes_rowid_positive',
     ]) {
       assert(triggerNames.includes(trigger), `missing trigger ${trigger}`);
+    }
+
+    const terminalIntentProjection = normalizedTriggerSql(
+      db,
+      'trg_model_failover_terminal_intent_projection',
+    );
+    for (const comparator of [
+      'NEW.observed_inventory_requested_name = NEW.effect_model_name',
+      'NEW.observed_inventory_canonical_name = NEW.effect_canonical_name',
+      'NEW.observed_inventory_digest_sha256 = NEW.effect_digest_sha256',
+    ]) assert(terminalIntentProjection.includes(comparator), `missing ${comparator}`);
+    const terminalReceiptProjection = normalizedTriggerSql(
+      db,
+      'trg_model_failover_terminal_receipt_projection',
+    );
+    assert(terminalReceiptProjection.includes(
+      "NEW.resolution NOT IN ('RECONCILED_CONFIRMED', 'RECONCILED_NO_EFFECT')",
+    ));
+    assert(terminalReceiptProjection.includes(
+      'NEW.created_at_ms >= state.claim_expires_at_ms',
+    ));
+    assert(terminalReceiptProjection.includes(
+      'NEW.runtime_incarnation_after <> NEW.runtime_incarnation_before',
+    ));
+    for (const triggerName of [
+      'trg_model_failover_terminal_event_receipt',
+      'trg_model_failover_terminal_receipt_finalize',
+    ]) {
+      const triggerSql = normalizedTriggerSql(db, triggerName);
+      assert(triggerSql.includes("intent.operation_kind IN ('ACTIVATE', 'REAPPLY')"));
+      assert(!triggerSql.includes(
+        "intent.operation_kind IN ('ACTIVATE', 'REAPPLY') OR NEW.resolution IN",
+      ));
     }
 
     const proofIdentity = normalizedTriggerSql(
