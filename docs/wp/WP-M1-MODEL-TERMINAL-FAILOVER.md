@@ -11,11 +11,11 @@ izolovaném disk-backed worktree
 
 **sourceEvidenceRevision:** `6c36607421c013dd27f41e35853009bcaa0b5b51`
 
-**baseRevision:** promoted exact `G7` =
-`83c255998570f53502ffac027057911e59c13d99`. Tento one-file governance
-amendment `G8` musí být jeho direct child, projít nezávislým review a být
-promován výhradně canonical fast-forwardem `G7 -> G8`; teprve exact full SHA
-`G8` je Phase A report base.
+**baseRevision:** promoted exact `G8` =
+`e876becb62dce9a6ccf61057a489e63d5bb62be3`. Tento one-file governance
+amendment `G9` musí být jeho direct child, projít nezávislým review a být
+promován výhradně canonical fast-forwardem `G8 -> G9`; teprve exact full SHA
+`G9` je Phase A report base.
 
 **integrationRef:** `integration/m1-consolidated-20260810`
 
@@ -37,16 +37,16 @@ promován výhradně canonical fast-forwardem `G7 -> G8`; teprve exact full SHA
 - Review B: `evidence/m1-model-terminal-failover-execution-review-b-20260812`;
 - report: tentýž Phase A report, rozšířený byte-prefix-preserving obálkou.
 
-**Stav:** `ACTIVATED / PHASE_A_TEST_ONLY_STABILIZATION`. 026 a oba sériové 029
+**Stav:** `ACTIVATED / PHASE_A_PRODUCTION_REMEDIATION`. 026 a oba sériové 029
 subjecty jsou na exact canonical tipu promovány s Review A/B PASS. Production
-tree je od S4 = `e59217e7c99cf4ccbbd6366b51262793032a36a1` byteově zmrazený.
-S4_R3 = `69f2c204ba32f5be019004256973d28180c38b67` zachoval očekávaně RED
-mutation control a `m1-model-policy` prošel 41/0, ale jeho Review A attempt
-skončil `CHANGES_REQUIRED`: `m1-model-failover-schema` měl 23 PASS / 4 FAIL a
-dalších sedm sad plus mobile late-insertion zůstalo `NOT RUN`. Diagnóza je
-výhradně sedm stale regex oracle míst nad accepted error kontraktem, bez nového
-production findingu. G8 ani stabilizační lane nejsou důkazem celého bounded
-programu, nového proofu, GPU residency nebo Gate 1 PASS.
+tree byl od S4 = `e59217e7c99cf4ccbbd6366b51262793032a36a1` přes L2 byteově
+zmrazený. L2 = `e6ecc068724a03ebcebf278e4de0ed374a02038d` zachoval očekávaně RED
+mutation control, policy prošla 41/0 a schema 27/0, ale repository skončilo
+20/1. Jde o production defect v manual-supersede eligibility po desired update,
+proto Review A zůstává `CHANGES_REQUIRED`, test-only stabilization lane je
+`STOP` a šest dalších sad plus mobile late-insertion zůstalo `NOT RUN`. G9 ani
+autorizace P1 nejsou důkazem opravy, celého bounded programu, nového proofu, GPU
+residency nebo Gate 1 PASS.
 
 ## 1. Uživatelský výsledek
 
@@ -251,6 +251,25 @@ exact emitted prefixy `MODEL_FAILOVER_TERMINAL_INTENT_PROJECTION_MISMATCH`,
 `MODEL_FAILOVER_TERMINAL_EVENT_RECEIPT_MISMATCH`; nejde o production finding.
 Neúspěch ani artefakty se nemažou.
 
+Zachovaný fresh Review A attempt nad L2 =
+`e6ecc068724a03ebcebf278e4de0ed374a02038d` má offline-install log SHA-256
+`9d2559791d4c3f4574f520f6a7bd09a33cc2f02396f829fb86ad9900ad1d9b3b`,
+943 B; mutation-control log SHA-256
+`3c9b36157f9d0969fb77dc61c89a9bccc28d6ff058b378fafd4f0521210ce1bd`,
+1647124 B, 106 PASS / 1 expected FAIL / 0 unexpected, tedy kontrola RED; policy
+log SHA-256
+`d0108323f4dbe14bd906b0f063296971363409d667c83ff8e77540139a404a5b`,
+157437 B, 41 PASS / 0 FAIL; schema log SHA-256
+`8eebe5fbe7a7226c717e36463b7609b37aed37d166ec636454ed6a2442ff5404`,
+581546 B, 27 PASS / 0 FAIL; repository log SHA-256
+`0106329a0faf2e1cf6740401b1d1d58c304e02eea8cde4361f944318165efb2f`,
+355306 B, 20 PASS / 1 FAIL / 0 unexpected process errors. Zbývajících šest
+sad a mobile late-insertion nebylo spuštěno. Failure prokazuje production
+defect: manual supersede eligibility se po desired revision 1 -> 2 chybně váže
+na mutable current desired singleton místo na immutable desired lineage
+incidentu. Verdict je `CHANGES_REQUIRED`, test-only lane je `STOP` a tento
+neúspěch ani jeho artefakty se nemažou.
+
 ### Phase-A TEST-ONLY STABILIZATION LANE
 
 Per-commit „poslední corrective“ cap se nahrazuje jednou bounded lane. Od
@@ -268,40 +287,109 @@ z těchto devíti již existujících allowlistovaných cest:
 - `tests/m1-model-failover-proof-issuer.test.js`;
 - `tests/schema-migrations.test.js`.
 
-Production tree každého lane tipu musí být byte-identický se S4. Child je
-povolen pouze jako přímá odpověď na zachovaný fail-fast artefakt předchozího
-fresh Review A attemptu a smí opravit jen fixture, assertion nebo oracle tak,
-aby odpovídal již přijatému product kontraktu. Je zakázané oslabit očekávání,
-přidat skip/quarantine, smazat případ nebo snížit počet assertions/scénářů.
-Zakázaná je jakákoli source, docs, registry, package/lock nebo nová test path.
+Production tree L1 a L2 je byte-identický se S4. L1 =
+`dbb39d77bd3ce92e9921d1b2d49b8825e146cd80` změnil pouze
+`tests/m1-model-failover-schema.test.js` přesně sedmi ukotvenými regex změnami.
+L2 změnil pouze tutéž test path čtyřmi fixture/oracle opravami. Oba jsou
+immutable přímí lane children a spotřebovali dva z nejvýše osmi povolených
+children. L2 odkryl production defect, takže lane se podle své stop condition
+zastavil; zbývajících šest children se nesmí použít před independently reviewed
+P1.
 
-První lane child mění pouze
-`tests/m1-model-failover-schema.test.js` a provede přesně sedm ukotvených regex
-změn nad emitted accepted-contract error identifikátory; nesmí změnit fixture,
-control flow ani počty. Independent reviewer staticky ověří každý child a poté
-spustí nový fresh fail-fast Review A attempt. Pro další opravy uvnitř této lane
-není potřeba nový docs amendment. Lane se zastaví při production findingu,
-potřebě scope/contract změny nebo po vyčerpání osmi children bez úplného PASS.
+Každý případný post-P1 lane child musí mít jediného parenta předchozího tipu,
+změnit právě jednu cestu z allowlistu výše a vzniknout pouze jako přímá odpověď
+na zachovaný fail-fast artefakt předchozího fresh Review A attemptu. Smí opravit
+jen fixture, assertion nebo oracle tak, aby odpovídal již přijatému product
+kontraktu. Je zakázané oslabit očekávání, přidat skip/quarantine, smazat případ
+nebo snížit počet assertions/scénářů. Jeho production tree musí být
+byte-identický s independently reviewed P1. Zakázaná je jakákoli source, docs,
+registry, package/lock nebo nová test path. Independent reviewer staticky ověří
+každý child a poté spustí nový fresh fail-fast Review A attempt. Lane se znovu
+zastaví při dalším production findingu, potřebě scope/contract změny nebo po
+vyčerpání zbývajících šesti children bez úplného PASS.
+
+### Phase-A PRODUCTION REMEDIATION P1
+
+G9 neobsahuje behavior a sám P1 neimplementuje. Až po independent review `PASS`
+G9, canonical fast-forwardu a adopci M9 je autorizovaný právě jeden production
+remediation child `P1`. P1 musí být direct child M9 a smí změnit právě tyto dvě
+již allowlistované existující cesty:
+
+- `src/db/migrations/2026_08_12_065_model_failover_target.js`;
+- `tests/m1-model-failover-schema.test.js`.
+
+Dosud nepromovaná migrace 065 se opraví in-place; nevznikne nový ordinal,
+migrace ani cesta. Manual supersede eligibility musí přežít desired update
+revision 1 -> 2. Prior model name a digest se odvodí výhradně z append-only
+current-incident eventu; exact unique `DETECTED` origin a incident/current event
+tuple zůstávají povinné. Prior canonical autorita má dvě phase-alternating
+větve:
+
+1. při admission, než je `NEW` operation viditelná, ji dodá exact singleton
+   desired na `incident.desired_revision`; existující
+   `trg_model_binding_operations_current_projection` současně fail-closed váže
+   `NEW.previous_model_name`, `NEW.previous_canonical_name` a
+   `NEW.previous_digest_sha256`;
+2. po posunu singletonu ji dodá pouze immutable append-only přijatá
+   `model_binding_operations` transition. Ta je způsobilá jen při exact shodě
+   role, expected revision a previous model+digest s current incident eventem a
+   committed revision, target, source, actor i desired-event lineage s novým
+   desired singletonem.
+
+Implementace smí použít `COALESCE` těchto dvou canonical zdrojů jen s povinnou
+equality, jsou-li bezprostředně po operation insertu před desired update
+přítomné oba; po update zůstává pouze immutable transition. Je zakázaná SQL
+recanonicalizace, odstranění canonical kontroly nebo závislost eligibility view
+na mutable starém-revision desired singletonu po jeho posunu.
+
+Oprava musí zachovat fail-closed operation/event/state/supersede CAS, fencing
+neuzavřeného terminal intentu, append-only audit, jedinou atomickou transakci a
+prohru každého late finalize po vítězném supersede. Focused schema-test důkaz
+musí obsahovat pozitivní případy pro incidenty `DETECTED`, `ACTIVATED`, `FAILED`
+a unresolved intent. Negativní případy musí zahrnout forged old
+model/digest/canonical nebo expected revision; transition target/source/actor/
+desired-event mismatch; chybějící nebo chybný terminal supersede operation,
+binding operation, event, role, episode, row-version nebo created-at;
+preexisting terminal receipt; closed/ineligible state. Každý
+musí abortnout a prokázat atomický rollback: desired zůstane na staré revision,
+nevznikne nová operation, `DESIRED_CHANGED`/`SUPERSEDED` event ani supersede row
+a incident+claim tuple zůstane beze změny. Po úspěšném supersede musí late
+finalize abortnout typovaně `MODEL_FAILOVER_TERMINAL_SUPERSEDED`, zachovat novou
+desired revision i již committed operation/event/supersede lineage a nevytvořit
+terminal finalize receipt ani další state/event mutation. Existující
+`tests/m1-model-failover-repository.test.js` zůstane byte-identický s L2 a jeho
+dosavadní failing případ je povinný nezměněný pozitivní witness: expired
+unresolved `ACTIVATE` -> atomický user supersede -> late finalize typovaně
+`TERMINAL_SUPERSEDED`.
+
+P1 nesmí změnit auth/access/trusted-local hranici, route, veřejné API, request
+ani response schema, schema ordinal, jinou source/test cestu, registry,
+package/lock ani závislost. Nesmí rozšířit allowlist nebo zavést nový runtime
+owner/effect. Writer smí předat pouze static evidence; independent reviewer musí
+ověřit exact two-path diff, invariants a test-strength, než se obnoví fresh
+Review A a případně zbývající test-only lane.
 
 Adopce amendmentu zachová již existující source commity i refy beze změny:
 
-1. `G8` je one-file docs-only direct child exact `G7`; po independent `PASS`
-   se canonical integration posune pouze fast-forwardem `G7 -> G8`;
-2. S4_R3 a jeho `CHANGES_REQUIRED` Review A attempt zůstávají immutable;
-3. governance adoption merge `M8` má ordered parents exact `[G8,S4_R3]`; jeho
-   WP blob je byte-identický s G8 a všechny non-WP cesty jsou byte-identické se
-   S4_R3. M8 nesmí obsahovat behavior, source, test ani jinou docs změnu;
-4. lane začíná direct childem M8 a končí posledním skutečně potřebným childem
-   `S_FINAL`. Existující `wp/m1-model-terminal-failover-20260812` smí
-   fast-forwardovat přes M8 a lane; S4_R3 ani žádný starší commit se
-   nepřepisuje.
+1. `G9` je one-file docs-only direct child exact `G8`; po independent `PASS`
+   se canonical integration posune pouze fast-forwardem `G8 -> G9`;
+2. L1, L2 a L2 `CHANGES_REQUIRED` Review A attempt zůstávají immutable;
+3. governance adoption merge `M9` má ordered parents exact `[G9,L2]`; jeho WP
+   blob je byte-identický s G9 a všechny non-WP cesty jsou byte-identické s L2.
+   M9 nesmí obsahovat behavior, source, test ani jinou docs změnu;
+4. P1 je jediný direct child M9 s production změnou a přesně dvěma cestami
+   vymezenými výše. Až po jeho independent static `PASS` smí navázat nejvýše
+   šest zbývajících test-only lane children; poslední skutečně potřebný tip je
+   `S_FINAL`;
+5. existující `wp/m1-model-terminal-failover-20260812` smí fast-forwardovat přes
+   M9, P1 a případnou zbývající lane. L2 ani žádný starší commit se nepřepisuje.
 
-Phase A Review A posuzuje exact `G8..S_FINAL`; writer není reviewer. Po
+Phase A Review A posuzuje exact `G9..S_FINAL`; writer není reviewer. Po
 S_FINAL nesmí přistát žádná další source, test ani governance-doc změna;
 jedinou tracked výjimkou je rezervovaný report. `A_EA` je report-only direct
 child S_FINAL a obsahuje exact `phaseA.integrationRef`,
-`phaseA.baseRevision=G8`, `phaseA.subjectHead` a `phaseA.reviewA.verdict`.
-Candidate `A_C` má ordered parents exact `[G8,A_EA]`, strom byte-identický s
+`phaseA.baseRevision=G9`, `phaseA.subjectHead` a `phaseA.reviewA.verdict`.
+Candidate `A_C` má ordered parents exact `[G9,A_EA]`, strom byte-identický s
 `A_EA`; `A_EB` je direct child `A_C` a byte-exact připojí pouze
 `phaseA.candidateHead` a `phaseA.reviewB.verdict`. Teprve metadata gate dovolí
 fast-forward canonical integration na `A_EB`.
@@ -333,10 +421,12 @@ child `B_C` a připojí pouze `phaseB.candidateHead` a
 `CONTRACT.md`; Phase B nesmí zpětně měnit Phase A prefix ani source tree.
 
 ```text
-G7 -> G8 -> canonical governance amendment
 G7 + S4_R2 -> M7([G7,S4_R2]) -> S4_R3(CHANGES_REQUIRED)
-G8 + S4_R3 -> M8([G8,S4_R3]) -> L1 -> ... -> L8(max) = S_FINAL -> A_EA
-G8 + A_EA -> A_C([G8,A_EA]) -> A_EB -> canonical Phase A
+G7 -> G8 -> canonical; G8 + S4_R3 -> M8([G8,S4_R3])
+M8 -> L1 -> L2(CHANGES_REQUIRED; production defect; test-only lane STOP)
+G8 -> G9 -> canonical governance amendment
+G9 + L2 -> M9([G9,L2]) -> P1 -> L3 -> ... -> L8(max) = S_FINAL -> A_EA
+G9 + A_EA -> A_C([G9,A_EA]) -> A_EB -> canonical Phase A
 accepted M1-EXECUTION-MANIFEST
 measurementRevision(contains A_EB) -> B_S -> B_EA
 current integration + B_EA -> B_C -> B_EB -> canonical Phase B
