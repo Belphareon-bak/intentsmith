@@ -2,3 +2,5 @@ phaseA.integrationRef: integration/m1-consolidated-20260810
 phaseA.baseRevision: 49ae2bf1323c600b2318fba3c7d2beff15889fb6
 phaseA.subjectHead: 597870b5033edf392ae4c2347e136b408fc2cafc
 phaseA.reviewA.verdict: PASS
+phaseA.candidateHead: fada62c399bd4874e1f51fc069cfe0e9f4136793
+phaseA.reviewB.verdict: PASS
