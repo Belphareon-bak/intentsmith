@@ -89,3 +89,5 @@ zůstává `BLOCKED` a navazuje WP029. Standalone `chats/`, notification deliver
 residualy a historická SQLite/WAL/backup data zůstávají explicitně mimo
 privacy-erasure claim a čekají na přijaté navazující work packages včetně
 M5-DATA.
+candidateHead: f44350798d6f2a0c9d8fb00c19f436dfd4d173d9
+reviewB.verdict: PASS
