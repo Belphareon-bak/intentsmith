@@ -170,6 +170,15 @@ function updateInput(expectedRevision, overrides = {}) {
   };
 }
 
+function resetInput(db, overrides = {}) {
+  return {
+    scope: 'SERVER_SETTINGS_V1',
+    expectedRevision: db.prepare('SELECT revision FROM user_settings WHERE id = 1').get().revision,
+    expectedPolicyRevision: readModelAutomationPolicy(db).revision,
+    ...overrides,
+  };
+}
+
 function portableValues(overrides = {}) {
   return {
     '/appearance/accentColor': '#6366f1',
@@ -330,11 +339,26 @@ function createSettingsRouteHarness(db) {
       return { response, featureDocument };
     },
     async reset(options = {}) {
+      if (Object.hasOwn(options, 'requestBody')) {
+        requestBody = options.requestBody;
+      } else {
+        try {
+          requestBody = resetInput(db);
+        } catch (_) {
+          requestBody = {
+            scope: 'SERVER_SETTINGS_V1',
+            expectedRevision: 1,
+            expectedPolicyRevision: 1,
+          };
+        }
+      }
+      parseFailure = options.parseFailure || null;
       response = null;
       const route = options.legacy
         ? routes['POST /api/reset']
         : routes['POST /api/settings/reset'];
       await route({}, {});
+      parseFailure = null;
       return response;
     },
   };
@@ -1169,7 +1193,7 @@ await testAsync('general settings write failures leave policy and audit lineage 
     db.exec(`
       CREATE TRIGGER fixture_fail_settings_reset
       BEFORE UPDATE ON user_settings
-      WHEN NEW.id = 1 AND NEW.data = '{}'
+      WHEN NEW.id = 1
       BEGIN
         SELECT RAISE(ABORT, 'fixture settings reset failure');
       END;
@@ -1197,7 +1221,7 @@ test('versioned settings operations reject foreign transaction ownership before 
         backup: backupEnvelope(),
         expectedRevision: db.prepare('SELECT revision FROM user_settings WHERE id=1').get().revision,
       }),
-      () => repository.resetFromGlobalSettings(),
+      () => repository.resetFromGlobalSettings(resetInput(db)),
     ]) {
       const error = captureError(() => db.transaction(operation).immediate());
       assertPolicyError(error, 'MODEL_AUTOMATION_POLICY_TRANSACTION_OWNERSHIP_REQUIRED');
@@ -1273,39 +1297,96 @@ await testAsync('post-commit runtime and diagnostic failures remain a truthful d
   }
 });
 
-await testAsync('global settings reset is one audited OFF transition on both aliases', async () => {
+await testAsync('global settings reset uses exact dual CAS, preserves unowned data and prevents replay', async () => {
   const db = openDb();
   try {
     createPolicySchema(db);
     const repository = createModelAutomationPolicyRepository(db);
     repository.updateFromTypedApi(updateInput(1));
-    writeSettingsRaw(db, '{"custom":true}');
+    writeSettingsRaw(db, JSON.stringify({
+      'c3.language': 'cs',
+      appearance: { theme: 'dark', futureAppearance: 'PRESERVE_NESTED' },
+      storage: { root: '/private/path' },
+      custom: true,
+    }));
+    db.exec(`
+      DROP TRIGGER trg_user_settings_revision_insert_forbidden;
+      INSERT INTO user_settings (id, data, revision)
+      VALUES (2, '{"sentinel":true}', 1);
+      CREATE TRIGGER trg_user_settings_revision_insert_forbidden
+      BEFORE INSERT ON user_settings
+      BEGIN
+        SELECT RAISE(ABORT,
+          'USER_SETTINGS_INSERT_FORBIDDEN: singleton already exists; use revisioned UPDATE');
+      END;
+    `);
     const harness = createSettingsRouteHarness(db);
-    const reset = await harness.reset();
+    const request = resetInput(db);
+    const before = snapshot(db);
+
+    for (const invalid of [
+      null,
+      [],
+      {},
+      { ...request, extra: true },
+      { ...request, scope: 'ALL' },
+      { ...request, expectedRevision: 0 },
+      { ...request, expectedPolicyRevision: 1.5 },
+      Object.assign(Object.create({ inherited: true }), request),
+      Object.defineProperty({ ...request }, 'hidden', { value: true }),
+    ]) {
+      const rejected = await harness.reset({ requestBody: invalid });
+      assertEqual(rejected.status, 400);
+      assertEqual(rejected.body.code, 'SETTINGS_RESET_INPUT_INVALID');
+      assertEqual(snapshot(db), before);
+      assertEqual(harness.featureResetCount, 0);
+    }
+
+    const stale = await harness.reset({
+      requestBody: { ...request, expectedPolicyRevision: request.expectedPolicyRevision - 1 },
+    });
+    assertEqual(stale.status, 409);
+    assertEqual(stale.body.code, 'SETTINGS_RESET_REVISION_CONFLICT');
+    assertEqual(stale.body.expectedRevision, request.expectedRevision);
+    assertEqual(stale.body.currentRevision, request.expectedRevision);
+    assertEqual(stale.body.expectedPolicyRevision, request.expectedPolicyRevision - 1);
+    assertEqual(stale.body.currentPolicyRevision, request.expectedPolicyRevision);
+    assertEqual(snapshot(db), before);
+    assertEqual(harness.featureResetCount, 0);
+
+    const reset = await harness.reset({ requestBody: request });
     assertEqual(reset.status, 200);
     assertEqual(reset.body.ok, true);
+    assertEqual(reset.body.revision, request.expectedRevision + 1);
+    assertEqual(reset.body.policy.revision, request.expectedPolicyRevision + 1);
     assertEqual(reset.body.policy.autoFailoverEnabled, false);
-    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM user_settings').get().count, 1);
-    assertEqual(db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data, '{}');
+    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM user_settings').get().count, 2);
+    assertEqual(
+      db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data,
+      JSON.stringify({ appearance: { futureAppearance: 'PRESERVE_NESTED' }, custom: true }),
+    );
+    assertEqual(
+      db.prepare('SELECT data FROM user_settings WHERE id = 2').get().data,
+      '{"sentinel":true}',
+    );
     assertEqual(db.prepare(`
       SELECT COUNT(*) AS count
       FROM model_automation_policy_events
       WHERE event_kind = 'GLOBAL_RESET'
     `).get().count, 1);
+    assertEqual(harness.featureResetCount, 1);
 
-    repository.updateFromTypedApi(updateInput(reset.body.policy.revision));
-    writeSettingsRaw(db, '{"again":true}');
-    const legacyReset = await harness.reset({ legacy: true });
-    assertEqual(legacyReset.status, 200);
-    assertEqual(legacyReset.body.policy.autoFailoverEnabled, false);
-    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM user_settings').get().count, 1);
-    assertEqual(db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data, '{}');
+    const committed = snapshot(db);
+    const replay = await harness.reset({ requestBody: request });
+    assertEqual(replay.status, 409);
+    assertEqual(replay.body.code, 'SETTINGS_RESET_REVISION_CONFLICT');
+    assertEqual(snapshot(db), committed);
     assertEqual(db.prepare(`
       SELECT COUNT(*) AS count
       FROM model_automation_policy_events
       WHERE event_kind = 'GLOBAL_RESET'
-    `).get().count, 2);
-    assertEqual(harness.featureResetCount, 2);
+    `).get().count, 1);
+    assertEqual(harness.featureResetCount, 1);
   } finally {
     db.close();
   }
@@ -1754,7 +1835,7 @@ test('explicit reset appends exactly one audited OFF transition', () => {
       autoCleanupEnabled: true,
     }));
     runtime.setNow(3000);
-    const reset = repository.resetFromGlobalSettings();
+    const reset = repository.resetFromGlobalSettings(resetInput(db));
     assertEqual(reset.policy.revision, 3);
     assertEqual(
       JSON.stringify(reset.policy.settings),
@@ -1767,7 +1848,7 @@ test('explicit reset appends exactly one audited OFF transition', () => {
       WHERE event_kind = 'GLOBAL_RESET'
     `).get().count, 1);
 
-    const second = repository.resetFromGlobalSettings();
+    const second = repository.resetFromGlobalSettings(resetInput(db));
     assertEqual(second.policy.revision, 4);
     assertEqual(second.policy.event.eventKind, 'GLOBAL_RESET');
     assertEqual(db.prepare(`

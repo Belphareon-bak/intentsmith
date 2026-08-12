@@ -1074,6 +1074,18 @@ function applyGenericEntries(document, entries) {
   }
 }
 
+function removeOwnedResetSettings(document) {
+  const next = clone(document);
+  for (const key of GENERIC_FLAT_SETTING_KEYS) delete next[key];
+  for (const [containerKey, allowedChildren] of GENERIC_NESTED_SETTING_KEYS) {
+    if (!isPlainObject(next[containerKey])) continue;
+    for (const childKey of allowedChildren) delete next[containerKey][childKey];
+    if (Object.keys(next[containerKey]).length === 0) delete next[containerKey];
+  }
+  delete next.storage;
+  return next;
+}
+
 export function projectPublicUserSettings(document) {
   if (!isPlainObject(document)) {
     throw new UserSettingsError(
@@ -1173,6 +1185,17 @@ export class UserSettingsRepository {
     return { revision: current.revision, document: clone(current.settings) };
   }
 
+  readResetSnapshotInTransaction() {
+    if (!this.db.inTransaction) {
+      throw new UserSettingsError(
+        'USER_SETTINGS_TRANSACTION_OWNERSHIP_REQUIRED',
+        'Settings reset snapshot requires the caller-owned transaction',
+      );
+    }
+    const current = readCurrentSettings(this.db, { requireRevision: true });
+    return { revision: current.revision, document: clone(current.settings) };
+  }
+
   applyPortableImportInTransaction({ expectedRevision, portableValues }) {
     if (!this.db.inTransaction) {
       throw new UserSettingsError(
@@ -1209,17 +1232,31 @@ export class UserSettingsRepository {
     };
   }
 
-  resetInTransaction({ expectedRevision }) {
+  resetOwnedInTransaction({ expectedRevision }) {
     if (!this.db.inTransaction) {
       throw new UserSettingsError(
         'USER_SETTINGS_TRANSACTION_OWNERSHIP_REQUIRED',
         'Settings reset requires the caller-owned transaction',
       );
     }
+    const current = readCurrentSettings(this.db, { requireRevision: true });
+    const requiredRevision = requireExpectedRevision(expectedRevision);
+    if (current.revision !== requiredRevision) {
+      throw new UserSettingsError(
+        'USER_SETTINGS_REVISION_CONFLICT',
+        'User settings changed since the reset snapshot was read',
+        {
+          details: {
+            expectedRevision: requiredRevision,
+            currentRevision: current.revision,
+          },
+        },
+      );
+    }
     return updateVersionedRowInTransaction(
       this.db,
-      requireExpectedRevision(expectedRevision),
-      {},
+      current.revision,
+      removeOwnedResetSettings(current.settings),
     );
   }
 }

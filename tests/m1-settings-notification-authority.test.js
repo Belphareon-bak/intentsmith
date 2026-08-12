@@ -887,7 +887,14 @@ function createRouteHarness(db, {
       parseFailure = null;
       return genericResponse;
     },
-    async postReset() {
+    async postReset(body) {
+      requestBody = body ?? {
+        scope: 'SERVER_SETTINGS_V1',
+        expectedRevision: readSettingsRow(db).revision,
+        expectedPolicyRevision: db.prepare(
+          'SELECT revision FROM model_automation_policy WHERE id = 1',
+        ).get().revision,
+      };
       genericResponse = null;
       await miscRoutes['POST /api/settings/reset']({}, {});
       return genericResponse;
@@ -1919,7 +1926,14 @@ await testAsync('import and reset commit settings with policy atomically and ret
     assertEqual(reset.body.policy.autoCleanupEnabled, false);
     assertEqual(reset.body.policy.autoCleanupDays, 14);
     assertEqual(JSON.stringify(reset.body).includes('CANARY'), false);
-    assertEqual(readRaw(db), '{}');
+    const resetDocument = readDocument(db);
+    assertEqual(JSON.stringify(reset.body.settings), '{}');
+    assertEqual(Object.hasOwn(resetDocument, 'appearance'), false);
+    assertEqual(Object.hasOwn(resetDocument, 'c3.language'), false);
+    assertEqual(Object.hasOwn(resetDocument, 'storage'), false);
+    assertEqual(resetDocument.webhookSecret, 'WEBHOOK_SECRET_CANARY');
+    assertEqual(resetDocument['c3.notif.smtpPass'], 'NOTIFICATION_SECRET_CANARY');
+    assertEqual(resetDocument.futurePrivate, 'PRIVATE_DESTINATION_CANARY');
     assertEqual(readPolicyState().events.length, policyBeforeRejectedReset.events.length + 1);
   } finally {
     db.close();
