@@ -788,12 +788,23 @@ try {
     // Captured by trace: `conn: "server"`, load average 13.6.
     //
     // Stubbing alone is not enough — it stops new requests, not the ones already
-    // out — so the quiet beat afterwards is what makes the staged state stick.
+    // out — so what makes the staged state stick is *observing* that the ones
+    // already out have drained.
+    //
+    // An earlier version of this fix waited a fixed 250 ms here, which was the
+    // same mistake in miniature: a constant standing in for a variable-length
+    // wait.  Twelve loaded runs passed with it, but a request slower than the
+    // constant would put the flake straight back.  `waitForNetworkIdle` with
+    // `concurrency: 0` is the real barrier — it returns when nothing is in
+    // flight — and the round-trip after it drains the microtask that a
+    // just-settled response would have queued in the renderer.
     await page.evaluate(`(() => {
       window.__fetchBeforeTrustBar = window.fetch;
       window.fetch = () => new Promise(() => {});
     })()`);
-    await new Promise(resolve => setTimeout(resolve, 250));
+    try {
+    await page.waitForNetworkIdle({ concurrency: 0, idleTime: 100, timeout: 5_000 });
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => resolve())));
     await page.evaluate(`(() => {
       const S = window.__is;
       S.state.route = 'chat';
@@ -894,10 +905,18 @@ try {
     assert.match(status.name, /data|starší/i, 'zone 2 (age) is missing from the announced name');
     assert.match(status.name, /uzamčen/i, 'zone 3 (lock) is missing from the announced name');
     assert.equal(status.name, bar.name, 'the announced name must be the summary, not the visual text order');
-
-    await page.evaluate(`(() => {
-      if (window.__fetchBeforeTrustBar) window.fetch = window.__fetchBeforeTrustBar;
-    })()`);
+    } finally {
+      // Restore in `finally`, never after the assertions.  The harness catches a
+      // failure and carries on to the next test, so a frozen `fetch` left behind
+      // by the first failing assertion would silently starve every test after
+      // it — turning one honest failure into a cascade with a different cause.
+      await page.evaluate(`(() => {
+        if (window.__fetchBeforeTrustBar) {
+          window.fetch = window.__fetchBeforeTrustBar;
+          delete window.__fetchBeforeTrustBar;
+        }
+      })()`);
+    }
   });
 
   await test('§3.1 každá položka lišty je ve stromu přístupnosti i mimo viewport', async () => {
