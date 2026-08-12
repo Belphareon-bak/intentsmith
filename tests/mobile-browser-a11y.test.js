@@ -791,10 +791,37 @@ try {
     assert.equal(bar.role, 'status', '§10 — the bar is a status region, so a change is announced');
     assert.equal(bar.live, 'polite', 'it must not interrupt; it is context, not an alert');
 
-    const snapshot = await page.accessibility.snapshot();
-    const flat = [];
-    (function walk(node) { if (!node) return; flat.push(node); (node.children || []).forEach(walk); })(snapshot);
-    const status = flat.find(node => node.role === 'status');
+    // The accessibility tree is recomputed off the main thread, so a snapshot
+    // taken in the same tick as `render()` can describe the *previous* surface,
+    // and `find(role === 'status')` would then return a stale node — or one
+    // belonging to something else entirely.  Waiting for the tree to agree with
+    // the DOM removes that race.  The condition waited for is exactly the one
+    // the last assertion states anyway — the announced name *is* the bar's
+    // summary — so nothing is weakened.
+    //
+    // **This is hardening, not a proven fix.**  This suite fails intermittently
+    // here ("zone 1 is missing from the announced name"), ~2 runs in 6 while the
+    // machine was loaded and 0 in 12 while it was not — on both this code and
+    // the code before it.  What is ruled out: the bar itself.  Driven 20× in
+    // isolation, the `aria-label` and the tree's `status` name were correct and
+    // identical every time, with and without the preceding ring navigation.  So
+    // the defect is somewhere in the whole-suite run, and it is still open —
+    // do not read this wait as having closed it.
+    const statusNodes = async () => {
+      const snapshot = await page.accessibility.snapshot();
+      const flat = [];
+      (function walk(node) { if (!node) return; flat.push(node); (node.children || []).forEach(walk); })(snapshot);
+      return flat.filter(node => node.role === 'status');
+    };
+    let status = null;
+    for (let attempt = 0; attempt < 40 && !status; attempt++) {
+      status = (await statusNodes()).find(node => node.name === bar.name) || null;
+      if (!status) await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    // Never settled: fall through to whatever status node is there, so the
+    // assertions below report the zone that is actually missing rather than
+    // failing with "no status node" and hiding which one it was.
+    if (!status) [status] = await statusNodes();
     assert.ok(status, 'the bar must reach the accessibility tree, not just the DOM');
     // §10 names the shape outright: "offline, data z 14:02, část obrazovky
     // uzamčena".  A name that drops a zone is a zone the user never hears.
