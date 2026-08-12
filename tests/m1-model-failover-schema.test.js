@@ -1062,66 +1062,70 @@ function setupTerminalActivationFixture(db, {
   insertPassingProof(db);
   claimOperation(db);
   if (leaveClaimed) {
-    const state = db.prepare("SELECT * FROM model_failover_state WHERE role = 'CHAT'").get();
-    const desired = db.prepare("SELECT * FROM model_desired_bindings WHERE role = 'CHAT'").get();
-    ensureTerminalFixtureAuthority(db, {
-      role: 'CHAT',
-      targetModel: 'fallback:latest',
-      targetCanonical: 'fallback',
-      targetDigest: DIGEST_B,
-      createdAt: state.claim_started_at_ms,
-    });
-    const policy = db.prepare('SELECT * FROM model_automation_policy WHERE id = 1').get();
-    const target = db.prepare("SELECT * FROM model_failover_targets WHERE role = 'CHAT'").get();
-    const proof = db.prepare(
-      "SELECT * FROM model_failover_proofs WHERE proof_id = 'proof-fixture-0001'"
-    ).get();
-    db.prepare(`
-      INSERT INTO model_failover_terminal_intents (
-        operation_id, claim_event_id, role, operation_kind, episode_id,
-        desired_revision, claimed_row_version, policy_revision,
-        policy_event_id, policy_version, role_contract_sha256,
-        target_revision, target_requested_name, target_canonical_name,
-        target_digest_sha256, desired_model_name, desired_canonical_name,
-        desired_digest_sha256, effect_model_name, effect_canonical_name,
-        effect_digest_sha256, observed_inventory_requested_name,
-        observed_inventory_canonical_name, observed_inventory_digest_sha256,
-        proof_id, proof_expires_at_ms, expected_runtime_model_name,
-        expected_runtime_canonical_name, expected_runtime_digest_sha256,
-        expected_runtime_incarnation_id, expected_runtime_generation,
-        claim_expires_at_ms, created_at_ms
-      ) VALUES (?, ?, 'CHAT', 'ACTIVATE', ?, 1, ?, ?, ?, 'd-plus-v1', ?,
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-        'runtime-incarnation-fixture-0001', 0, ?, ?)
-    `).run(
-      state.claim_operation_id,
-      state.last_event_id,
-      state.episode_id,
-      state.row_version,
-      policy.revision,
-      policy.last_event_id,
-      proof.role_contract_sha256,
-      target.revision,
-      target.requested_name,
-      target.canonical_name,
-      target.digest_sha256,
-      desired.model_name,
-      desired.canonical_name,
-      desired.digest_sha256,
-      target.requested_name,
-      target.canonical_name,
-      target.digest_sha256,
-      target.requested_name,
-      target.canonical_name,
-      target.digest_sha256,
-      proof.proof_id,
-      proof.expires_at_ms,
-      desired.model_name,
-      desired.canonical_name,
-      desired.digest_sha256,
-      state.claim_expires_at_ms,
-      state.claim_started_at_ms,
-    );
+    const insert = () => {
+      const state = db.prepare("SELECT * FROM model_failover_state WHERE role = 'CHAT'").get();
+      const desired = db.prepare("SELECT * FROM model_desired_bindings WHERE role = 'CHAT'").get();
+      ensureTerminalFixtureAuthority(db, {
+        role: 'CHAT',
+        targetModel: 'fallback:latest',
+        targetCanonical: 'fallback',
+        targetDigest: DIGEST_B,
+        createdAt: state.claim_started_at_ms,
+      });
+      const policy = db.prepare('SELECT * FROM model_automation_policy WHERE id = 1').get();
+      const target = db.prepare("SELECT * FROM model_failover_targets WHERE role = 'CHAT'").get();
+      const proof = db.prepare(
+        "SELECT * FROM model_failover_proofs WHERE proof_id = 'proof-fixture-0001'"
+      ).get();
+      db.prepare(`
+        INSERT INTO model_failover_terminal_intents (
+          operation_id, claim_event_id, role, operation_kind, episode_id,
+          desired_revision, claimed_row_version, policy_revision,
+          policy_event_id, policy_version, role_contract_sha256,
+          target_revision, target_requested_name, target_canonical_name,
+          target_digest_sha256, desired_model_name, desired_canonical_name,
+          desired_digest_sha256, effect_model_name, effect_canonical_name,
+          effect_digest_sha256, observed_inventory_requested_name,
+          observed_inventory_canonical_name, observed_inventory_digest_sha256,
+          proof_id, proof_expires_at_ms, expected_runtime_model_name,
+          expected_runtime_canonical_name, expected_runtime_digest_sha256,
+          expected_runtime_incarnation_id, expected_runtime_generation,
+          claim_expires_at_ms, created_at_ms
+        ) VALUES (?, ?, 'CHAT', 'ACTIVATE', ?, 1, ?, ?, ?, 'd-plus-v1', ?,
+          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+          'runtime-incarnation-fixture-0001', 0, ?, ?)
+      `).run(
+        state.claim_operation_id,
+        state.last_event_id,
+        state.episode_id,
+        state.row_version,
+        policy.revision,
+        policy.last_event_id,
+        proof.role_contract_sha256,
+        target.revision,
+        target.requested_name,
+        target.canonical_name,
+        target.digest_sha256,
+        desired.model_name,
+        desired.canonical_name,
+        desired.digest_sha256,
+        target.requested_name,
+        target.canonical_name,
+        target.digest_sha256,
+        target.requested_name,
+        target.canonical_name,
+        target.digest_sha256,
+        proof.proof_id,
+        proof.expires_at_ms,
+        desired.model_name,
+        desired.canonical_name,
+        desired.digest_sha256,
+        state.claim_expires_at_ms,
+        state.claim_started_at_ms,
+      );
+    };
+    if (db.inTransaction) insert();
+    else db.transaction(insert)();
     return;
   }
   insertActivationEvent(db, {
