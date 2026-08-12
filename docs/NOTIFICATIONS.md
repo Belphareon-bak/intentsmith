@@ -1,9 +1,10 @@
 # Notifications System
 
-> Core 1.0 notification contract at the WP026 C2+C4 source checkpoint. C3
-> migration/apply, final behavior evidence, Review A/B, and promotion are still
-> pending. External delivery remains governed by the WP027 default-off support
-> policy; WP028 webhook HMAC semantics are unchanged.
+> Core 1.0 notification contract implemented by the WP026 source candidate,
+> including the offline C3 migration CLI and C4 receipt applier. This document
+> is not Review A/B or promotion evidence. External delivery remains governed
+> by the WP027 default-off support policy; WP028 webhook HMAC semantics are
+> unchanged.
 
 ## What remains supported
 
@@ -168,11 +169,11 @@ WebSocket, or loopback route:
 5. Recovery is staged roll-forward. It never restores a secret to a legacy
    source and never claims a cross-filesystem/SQLite transaction.
 
-At the current C2+C4 source checkpoint, the runtime cutover and offline
-Architect receipt applier are present, but the C3 migration CLI/apply closeout
-is not complete. Do not treat this procedure or the UI receipt support as proof
-that any operator data has already been transferred, exported, purged, or
-scrubbed.
+The C3 migration CLI/apply implementation and offline Architect receipt applier
+are present in the source candidate. Do not treat their presence, this
+procedure, or the UI receipt support as proof that an operator census, plan, or
+apply has run, or that any operator data has already been transferred,
+exported, purged, or scrubbed.
 
 Legacy `localStorage['paiass_settings']` is handled only through an explicit
 absolute owner-owned mode-`0600` input file. Raw bytes never travel through

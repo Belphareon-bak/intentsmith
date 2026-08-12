@@ -10,11 +10,11 @@
 
 ## Unreleased — M1 notification secret-storage authority (WP026 source candidate, 2026-08-12)
 
-> This is a source-candidate note, not release or promotion evidence. The C2
-> runtime/DB cutover and C4 offline receipt checkpoint are implemented and
-> static-reviewed on the integrated source base. C3 migration CLI/apply,
-> behavior verification, final WP026 subject review, and promotion remain
-> incomplete.
+> This is a source-candidate note, not release or promotion evidence. The
+> runtime/DB cutover, C3 offline migration CLI/apply, and C4 receipt applier are
+> implemented and static-reviewed on the integrated source base. Final review
+> and promotion evidence belongs only in the reserved WP026 run report; no
+> actual operator migration is claimed here.
 
 - Notification credentials and retained private defaults now come from one
   frozen startup authority over exactly 12 canonical keys. An own process key
@@ -34,7 +34,8 @@
   `INTENTSMITH_LEGACY_CREDENTIAL_RECEIPT/V1` to exact known paths in offline
   `localStorage['paiass_settings']`. Raw legacy bytes never use HTTP, WebSocket,
   loopback, URL, logs, clipboard automation, or in-app download. The producing
-  C3 migration/apply command is not complete in this checkpoint.
+  C3 migration/apply command is present; no actual census, plan, apply,
+  transfer, export, purge, or scrub is asserted by this source note.
 - WP027 external-channel support remains default-off. WP028 webhook HMAC,
   Security route, status, signer, and `410` semantics are unchanged.
 

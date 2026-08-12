@@ -576,6 +576,18 @@ Oprava znovu nemění produkční kód ani auth/access boundary; nahrazuje dva s
 regexy jedním přesnějším ratchetem na skutečný zdroj příznaků. Ani `544aef90`
 není PASS a další replacement musí znovu projít celým writer gate.
 
+Čtvrtý replacement `0f18136b6c3b0f2769db0388ce85c33bf57774f0`
+prošel celým writer gate: authority `4/4`, credential scope `2/2`, Studio
+`128/128` a registry `382` runnable / `8` exclusions s fingerprintem
+`571ae1a90a4246c7037d56fe5fb786beb4b5c4aae3e61f163d5b6ffe14341d71`.
+Formální Review A jej přesto označilo `CHANGES_REQUIRED`, protože
+`docs/NOTIFICATIONS.md` a `docs/CHANGELOG.md` zůstaly na pre-C3 checkpointu a
+nepravdivě tvrdily, že migration CLI/apply není přítomné. Source implementace
+C3 je přítomná, ale žádný skutečný operátorský census, plan, apply, transfer,
+export, purge ani scrub proveden nebyl. Pro `0f18136b` nevzniká `E_A`; docs-only
+alignment a tato evidence musí být součástí dalšího replacementu, který znovu
+projde celým writer gate a Review A.
+
 DB census je záměrně neprefixový. Vedle `webhookSecret` a legacy
 `c3.notif.webhookSecret` zahrne všech devět retired typed notification cest a
 stejných deset nested `notifications.*` sensitive cest jako Architect
