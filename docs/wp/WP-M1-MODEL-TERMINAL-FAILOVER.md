@@ -465,14 +465,24 @@ digestem, `num_ctx=4096`, prompt/cancel scénáři, `100 %` residency a limitem
 `OLLAMA_KV_CACHE_TYPE=q8_0`, `OLLAMA_FLASH_ATTENTION=1`, jedním paralelním
 requestem, jedním načteným modelem a zakázaným cloudem. Proces používá
 existující lokální model store pouze pro čtení, vlastní privátní `HOME`,
-samostatný loopback port a musí být po přirozené expiry ukončen. System Ollama
-service, jeho konfigurace a user data se nemění. Před corrective během musí
-být system Ollama prázdná a GPU bez compute procesu; po běhu musí být oba
-providery i GPU opět prázdné. Pull/delete/rebind a změna modelu, digestu,
+exact `http://127.0.0.1:11434` a musí být po přirozené expiry ukončen. System
+Ollama musí být před handoffem prázdná, jednou korektně zastavená a po
+ukončení test-owned procesu znovu spuštěná z nezměněného unit souboru a
+environmentu; žádný načtený model se tímto handoffem nesmí unloadnout.
+Konfigurace služby a user data se nemění. Před corrective během musí být GPU
+bez compute procesu; po běhu musí být system provider, test-owned provider i
+GPU opět prázdné. Pull/delete/rebind a změna modelu, digestu,
 contextu nebo acceptance limitu zůstávají zakázané. Corrective FAIL je
 terminální pro B3 Phase B a nesmí se opakovat; corrective PASS zachovává oba
 artefakty a dovoluje pokračovat přesně zbývající manifest-bound sekvencí bez
 opakování již dokončeného credential apply.
+
+První launcher corrective pokusu na samostatném portu skončil před provider
+efektem stavem `BLOCKED` / `provider-not-exact-loopback-http`; jeho artefakt
+SHA-256 je `2663c8de682d8b8a549ffe908c2aa4b296488b790be6c30badcae6fbe3f92196`
+a zůstává zachovaný. Tento pre-effect BLOCKED launcher není corrective T3
+behavior run. Je povolen právě jeden následný běh přes výše uvedený exact-port
+handoff; jeho FAIL/BLOCKED je terminální a bez dalšího pokusu.
 
 ## 8. Stop conditions a acceptance
 
