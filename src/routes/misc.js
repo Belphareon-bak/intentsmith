@@ -30,6 +30,9 @@ const MODEL_POLICY_SETTINGS_HTTP_STATUS = Object.freeze({
   MODEL_AUTOMATION_POLICY_BACKUP_READ_FAILED: 503,
   MODEL_AUTOMATION_POLICY_STORED_GENERAL_SETTINGS_INVALID: 503,
   MODEL_AUTOMATION_POLICY_STORED_PORTABLE_VALUE_INVALID: 409,
+  SETTINGS_RESET_INPUT_INVALID: 400,
+  SETTINGS_RESET_REVISION_CONFLICT: 409,
+  SETTINGS_RESET_REVISION_EXHAUSTED: 503,
   USER_SETTINGS_EXPECTED_REVISION_INVALID: 400,
   USER_SETTINGS_REVISION_CONFLICT: 409,
 });
@@ -100,15 +103,36 @@ export function createMiscRoutes(deps) {
     }
   };
 
-  const resetAllSettings = async (_req, res) => {
+  const resetAllSettings = async (req, res) => {
+    let body;
+    try {
+      body = await parseBody(req);
+    } catch (_) {
+      return sendJSON(res, 400, {
+        ok: false,
+        code: 'SETTINGS_RESET_INPUT_INVALID',
+      });
+    }
     let committed;
     try {
-      committed = policyRepository().resetFromGlobalSettings();
+      committed = policyRepository().resetFromGlobalSettings(body);
     } catch (error) {
       const code = typeof error?.code === 'string'
         ? error.code
         : 'MODEL_AUTOMATION_POLICY_RESET_FAILED';
-      return sendJSON(res, modelPolicySettingsHttpStatus(code), { ok: false, code });
+      const conflict = code === 'SETTINGS_RESET_REVISION_CONFLICT'
+        ? {
+            expectedRevision: error?.details?.expectedRevision,
+            currentRevision: error?.details?.currentRevision,
+            expectedPolicyRevision: error?.details?.expectedPolicyRevision,
+            currentPolicyRevision: error?.details?.currentPolicyRevision,
+          }
+        : {};
+      return sendJSON(res, modelPolicySettingsHttpStatus(code), {
+        ok: false,
+        code,
+        ...conflict,
+      });
     }
     const runtime = applyCommittedSettingsRuntime(
       'reset',
@@ -125,6 +149,11 @@ export function createMiscRoutes(deps) {
       runtimeErrorCode: runtime.runtimeErrorCode,
     });
   };
+
+  const retireLegacyResetAlias = (_req, res) => sendJSON(res, 410, {
+    ok: false,
+    code: 'LEGACY_RESET_ALIAS_RETIRED',
+  });
   const legacySettingsRetired = (_req, res) => sendJSON(res, 410, {
     ok: false,
     code: 'USER_SETTINGS_LEGACY_RETIRED',
@@ -401,9 +430,7 @@ export function createMiscRoutes(deps) {
 
     'POST /api/settings/reset': resetAllSettings,
 
-    // Legacy alias retained for the old /architect surface. Both paths now
-    // share the same audited, atomic general-settings + policy commit point.
-    'POST /api/reset': resetAllSettings,
+    'POST /api/reset': retireLegacyResetAlias,
 
     // ── Feedback ──────────────────────────────────────────────────────────
     'POST /api/feedback': async (req, res) => {
