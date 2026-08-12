@@ -1,8 +1,8 @@
-// Detection-only coordinator for the approved D+ local model failover policy.
+// Least-authority coordinators for the approved D+ local model failover policy.
 //
-// This module may observe an exact digest-bound desired baseline and may record
-// a DETECTED incident. It deliberately has no proof, claim, provider mutation,
-// runtime binding, notification, recommendation or activation authority.
+// Detection may observe an exact digest-bound desired baseline and record a
+// DETECTED incident. The lifecycle wrapper receives only two frozen run ports;
+// runtime mutation remains exclusively inside ModelBindingApplication.
 
 import { canonicalModelName } from './model-identity.js';
 import {
@@ -22,6 +22,7 @@ const REPOSITORY_PORT_METHODS = Object.freeze([
   'recordDetection',
 ]);
 const INVENTORY_PORT_METHODS = Object.freeze(['listInstalled']);
+const RUN_PORT_METHODS = Object.freeze(['runOnce']);
 
 export const ModelFailoverDetectionStatus = Object.freeze({
   COMPLETED: 'COMPLETED',
@@ -30,6 +31,12 @@ export const ModelFailoverDetectionStatus = Object.freeze({
   SKIPPED_BUSY: 'SKIPPED_BUSY',
   SKIPPED_DISABLED: 'SKIPPED_DISABLED',
   SKIPPED_INVALID_SETTINGS: 'SKIPPED_INVALID_SETTINGS',
+});
+
+export const ModelFailoverLifecycleStatus = Object.freeze({
+  COMPLETED: 'COMPLETED',
+  PARTIAL: 'PARTIAL',
+  SKIPPED_BUSY: 'SKIPPED_BUSY',
 });
 
 function isPlainObject(value) {
@@ -626,6 +633,73 @@ export function createModelFailoverDetectionRepositoryPort(repository) {
 
 export function createModelFailoverDetectionInventoryPort(provider) {
   return createNarrowPort(provider, INVENTORY_PORT_METHODS, 'provider');
+}
+
+export function createModelFailoverDetectionRunPort(coordinator) {
+  return createNarrowPort(coordinator, RUN_PORT_METHODS, 'detection coordinator');
+}
+
+export function createModelFailoverTerminalApplicationPort(application) {
+  if (!application || typeof application.runTerminalFailoverCycle !== 'function') {
+    throw new TypeError('terminal binding application dependency is required');
+  }
+  return Object.freeze({
+    runOnce: application.runTerminalFailoverCycle.bind(application),
+  });
+}
+
+export class ModelFailoverLifecycleCoordinator {
+  #running;
+
+  constructor(options = {}) {
+    if (!isPlainObject(options)) {
+      throw new TypeError('Model failover lifecycle options must be a plain object');
+    }
+    this.detectionPort = requireExactPort(
+      options.detectionPort,
+      RUN_PORT_METHODS,
+      'detection run port',
+    );
+    this.terminalPort = requireExactPort(
+      options.terminalPort,
+      RUN_PORT_METHODS,
+      'terminal application port',
+    );
+    this.#running = false;
+  }
+
+  async runOnce() {
+    if (this.#running) {
+      return freezeResult({
+        schemaVersion: 1,
+        status: ModelFailoverLifecycleStatus.SKIPPED_BUSY,
+        detection: null,
+        terminal: null,
+      });
+    }
+    this.#running = true;
+    try {
+      const detection = await this.detectionPort.runOnce();
+      const terminal = await this.terminalPort.runOnce();
+      const partial = detection?.status === ModelFailoverDetectionStatus.PARTIAL
+        || detection?.status === ModelFailoverDetectionStatus.INCONCLUSIVE
+        || terminal?.status === 'PARTIAL';
+      return freezeResult({
+        schemaVersion: 1,
+        status: partial
+          ? ModelFailoverLifecycleStatus.PARTIAL
+          : ModelFailoverLifecycleStatus.COMPLETED,
+        detection,
+        terminal,
+      });
+    } finally {
+      this.#running = false;
+    }
+  }
+}
+
+export function createModelFailoverLifecycleCoordinator(options) {
+  return new ModelFailoverLifecycleCoordinator(options);
 }
 
 export function startModelFailoverDetectionScheduler(options = {}) {

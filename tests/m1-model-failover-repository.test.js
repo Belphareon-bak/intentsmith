@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import Database from 'better-sqlite3';
+import { createHash } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { Worker } from 'node:worker_threads';
@@ -13,13 +14,21 @@ import {
 } from './harness.js';
 import { runMigrations } from '../src/db/migrate.js';
 import {
+  createModelAutomationPolicyRepository,
+  createModelFailoverTargetInventoryReader,
+} from '../src/db/model-policy.js';
+import {
   MAX_MODEL_FAILOVER_CLAIM_MS,
   ModelFailoverRepositoryError,
   createModelFailoverRepository,
 } from '../src/upgrade/model-failover.js';
+import {
+  getModelFailoverMeasurementContract,
+} from '../src/upgrade/model-failover-proof-policy.js';
 
 const DIGEST_A = 'a'.repeat(64);
 const DIGEST_B = 'b'.repeat(64);
+const DIGEST_C = 'c'.repeat(64);
 const FAILOVER_MODULE_URL = new URL('../src/upgrade/model-failover.js', import.meta.url).href;
 
 const FAILOVER_WORKER_SOURCE = `
@@ -103,8 +112,31 @@ function openDb(databasePath) {
   return db;
 }
 
+function createLiveTerminalInventory(initialRows = [
+  { name: 'reasoner', canonicalName: 'reasoner', digestSha256: DIGEST_A },
+  { name: 'fallback:latest', canonicalName: 'fallback', digestSha256: DIGEST_B },
+]) {
+  let rows = initialRows.map(row => Object.freeze({ ...row }));
+  const reader = Object.freeze(target => {
+    const matches = rows.filter(row => row.canonicalName === target.canonicalName);
+    if (matches.length === 0) {
+      const error = new Error('terminal target is not installed');
+      error.code = 'MODEL_FAILOVER_TARGET_NOT_INSTALLED';
+      throw error;
+    }
+    return matches[0];
+  });
+  return {
+    reader,
+    replace(nextRows) {
+      rows = nextRows.map(row => Object.freeze({ ...row }));
+    },
+  };
+}
+
 function createRuntime(prefix, initialNow = 1000) {
   let now = initialNow;
+  const terminalInventory = createLiveTerminalInventory();
   const counters = {
     event: 0,
     episode: 0,
@@ -116,8 +148,10 @@ function createRuntime(prefix, initialNow = 1000) {
       now = value;
     },
     counters,
+    terminalInventory,
     options: {
       clock: () => now,
+      terminalInventoryReader: terminalInventory.reader,
       ids: {
         event: () => `${prefix}-event-${++counters.event}`,
         episode: () => `${prefix}-episode-${++counters.episode}`,
@@ -153,6 +187,15 @@ function captureError(callback) {
     return error;
   }
   throw new Error('Expected operation to throw');
+}
+
+async function captureErrorAsync(callback) {
+  try {
+    await callback();
+  } catch (error) {
+    return error;
+  }
+  throw new Error('Expected operation to reject');
 }
 
 function assertRepositoryError(error, code) {
@@ -200,6 +243,167 @@ function expireChat(repository, state, overrides = {}) {
     expectedClaimKind: state.claimKind,
     ...overrides,
   });
+}
+
+function insertTerminalProof(db, {
+  proofId,
+  modelName,
+  canonicalName,
+  digestSha256,
+  completedAtMs = 2400,
+  expiresAtMs = 900000,
+}) {
+  const contract = getModelFailoverMeasurementContract('CHAT');
+  const validationRunId = `${proofId}-run`;
+  const measurementSha256 = createHash('sha256')
+    .update(`measurement:${proofId}`)
+    .digest('hex');
+  const acceptanceSha256 = createHash('sha256')
+    .update(`acceptance:${proofId}`)
+    .digest('hex');
+  const sourceRevision = createHash('sha256')
+    .update(`source:${proofId}`)
+    .digest('hex')
+    .slice(0, 40);
+  const startedAtMs = completedAtMs - 100;
+  const proofTtlMs = expiresAtMs - completedAtMs;
+  const insert = db.transaction(() => {
+    db.prepare('PRAGMA defer_foreign_keys = ON').run();
+    db.prepare(`
+      INSERT INTO model_failover_proof_artifacts (
+        proof_id, validation_run_id, parent_run_id, source_revision,
+        measurement_artifact_sha256, measurement_artifact_byte_length,
+        acceptance_artifact_sha256, acceptance_artifact_byte_length,
+        role, suite, role_contract_sha256, model_name,
+        model_canonical_name, model_digest_sha256, validation_version,
+        policy_version, score, required_score, passed_count,
+        required_passed_count, total_count, duration_ms, result,
+        inventory_before_name, inventory_before_digest,
+        inventory_after_name, inventory_after_digest,
+        measurement_started_at_ms, measurement_completed_at_ms,
+        acceptance_completed_at_ms, proof_ttl_ms, expires_at_ms, issued_at_ms
+      ) VALUES (?, ?, ?, ?, ?, 4096, ?, 2048, 'CHAT', 'chat', ?, ?, ?, ?,
+        'v123.1', ?, 1, 1, 6, 6, 6, 100, 'PASS', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      proofId,
+      validationRunId,
+      `parent-${proofId}`,
+      sourceRevision,
+      measurementSha256,
+      acceptanceSha256,
+      contract.measurementContractSha256,
+      modelName,
+      canonicalName,
+      digestSha256,
+      contract.contract.policyVersion,
+      modelName,
+      digestSha256,
+      modelName,
+      digestSha256,
+      startedAtMs,
+      completedAtMs,
+      completedAtMs,
+      proofTtlMs,
+      expiresAtMs,
+      completedAtMs,
+    );
+    db.prepare(`
+      INSERT INTO model_failover_proofs (
+        proof_id, validation_run_id, role, suite, role_contract_sha256,
+        model_name, model_canonical_name, model_digest_sha256,
+        validation_version, policy_version, score, required_score,
+        passed_count, required_passed_count, total_count, duration_ms, result,
+        inventory_before_name, inventory_before_digest, inventory_after_name,
+        inventory_after_digest, started_at_ms, completed_at_ms, expires_at_ms,
+        created_at_ms
+      ) VALUES (?, ?, 'CHAT', 'chat', ?, ?, ?, ?, 'v123.1', ?, 1, 1, 6, 6,
+        6, 100, 'PASS', ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      proofId,
+      validationRunId,
+      contract.measurementContractSha256,
+      modelName,
+      canonicalName,
+      digestSha256,
+      contract.contract.policyVersion,
+      modelName,
+      digestSha256,
+      modelName,
+      digestSha256,
+      startedAtMs,
+      completedAtMs,
+      expiresAtMs,
+      completedAtMs,
+    );
+  });
+  insert.immediate();
+}
+
+async function enableTerminalTarget(db, {
+  nowMs = 2600,
+  modelName = 'fallback:latest',
+  canonicalName = 'fallback',
+  digestSha256 = DIGEST_B,
+} = {}) {
+  const inventoryReader = createModelFailoverTargetInventoryReader([{
+    name: modelName,
+    canonicalName,
+    digestSha256,
+  }]);
+  let eventCounter = 0;
+  let requestCounter = 0;
+  const repository = createModelAutomationPolicyRepository(db, {
+    clock: () => nowMs,
+    ids: {
+      event: () => `terminal-policy-event-${++eventCounter}`,
+      request: () => `terminal-policy-request-${++requestCounter}`,
+    },
+    targetInventoryReader: inventoryReader,
+  });
+  const current = repository.read();
+  if (!current.settings.autoFailoverEnabled) {
+    repository.updateFromTypedApi({
+      expectedRevision: current.revision,
+      autoFailoverEnabled: true,
+      autoCleanupEnabled: current.settings.autoCleanupEnabled,
+      autoCleanupDays: current.settings.autoCleanupDays,
+    });
+  }
+  return repository.setTarget({
+    role: 'CHAT',
+    expectedRevision: repository.readTarget('CHAT').revision,
+    target: { requestedName: modelName, canonicalName, digestSha256 },
+  });
+}
+
+async function prepareActivation(repository, state, overrides = {}) {
+  return repository.prepareTerminalOperation({
+    role: 'CHAT',
+    episodeId: state.episodeId,
+    expectedDesiredRevision: state.desiredRevision,
+    expectedRowVersion: state.rowVersion,
+    kind: 'ACTIVATE',
+    leaseMs: 1000,
+    expectedTargetRevision: 1,
+    expectedRuntimeIncarnationId: 'runtime-incarnation-repository-0001',
+    expectedRuntimeGeneration: 0,
+    ...overrides,
+  });
+}
+
+function activationRuntime(overrides = {}) {
+  return {
+    incarnationBefore: 'runtime-incarnation-repository-0001',
+    incarnationAfter: 'runtime-incarnation-repository-0001',
+    generationBefore: 0,
+    generationAfter: 1,
+    fromModelName: 'reasoner',
+    fromDigestSha256: DIGEST_A,
+    toModelName: 'fallback:latest',
+    toDigestSha256: DIGEST_B,
+    changed: true,
+    ...overrides,
+  };
 }
 
 function runFailoverRace({
@@ -944,9 +1148,9 @@ await testAsync('claim-free next row with a non-expiry audit is never an idempot
           operation_id, actor, reason_code, policy_version, state_before,
           state_after, desired_model_name, desired_digest_sha256, failure_phase,
           created_at_ms
-        ) VALUES ('non-expiry-failed-event', 'ACTIVATION_FAILED', 'CHAT', 1, 3,
+        ) VALUES ('non-expiry-failed-event', 'DETECTED', 'CHAT', 1, 3,
           ?, ?, 'system:binding-integrity', 'FIXTURE_NON_EXPIRY_TRANSITION',
-          'd-plus-v1', 'DETECTED', 'DETECTED', 'reasoner', ?, 'VERIFICATION', 3501)
+          'd-plus-v1', 'DETECTED', 'DETECTED', 'reasoner', ?, NULL, 3501)
       `).run(claimed.state.episodeId, claimed.claim.operationId, DIGEST_A);
       firstDb.prepare(`
         UPDATE model_failover_state
@@ -990,6 +1194,559 @@ await testAsync('persisted desired, incident and claim survive a real close and 
       assertEqual(restarted.getEffectiveBinding('CHAT').source, 'DESIRED');
       assertEqual(restarted.listEvents({ role: 'CHAT', afterSeq: 1, limit: 10 }).length, 2);
       assertEqual(restarted.listActiveForRestart().length, 0);
+    } finally {
+      restartedDb.close();
+    }
+  });
+});
+
+suite('M1 model failover repository — durable terminal intent and receipt CAS');
+
+await testAsync('terminal activation commits intent before effect and one exact finalize receipt', async () => {
+  await withRepositories(async ({ firstDb }) => {
+    const runtime = createRuntime('terminal-activation');
+    const repository = createModelFailoverRepository(firstDb, runtime.options);
+    observeChat(repository);
+    runtime.setNow(2000);
+    const detected = detectChat(repository).state;
+    insertTerminalProof(firstDb, {
+      proofId: 'proof-terminal-fallback-0001',
+      modelName: 'fallback:latest',
+      canonicalName: 'fallback',
+      digestSha256: DIGEST_B,
+    });
+    await enableTerminalTarget(firstDb);
+
+    runtime.setNow(3000);
+    const prepared = await prepareActivation(repository, detected);
+    assertEqual(prepared.outcome, 'PREPARED');
+    assertEqual(
+      prepared.intent.expectedRuntime.incarnationId,
+      'runtime-incarnation-repository-0001',
+    );
+    assertEqual(prepared.intent.expectedRuntime.generation, 0);
+    assertEqual(prepared.intent.observedInventory.requestedName, 'fallback:latest');
+    assertEqual(prepared.intent.observedInventory.canonicalName, 'fallback');
+    assertEqual(prepared.intent.observedInventory.digestSha256, DIGEST_B);
+    assertEqual(repository.listTerminalReconciliationRequired().length, 1);
+    assertEqual(
+      firstDb.prepare('SELECT COUNT(*) AS count FROM model_failover_terminal_finalize_receipts').get().count,
+      0,
+    );
+
+    runtime.setNow(3200);
+    const finalized = await repository.finalizeTerminalOperation({
+      operationId: prepared.claim.operationId,
+      expectedRowVersion: prepared.state.rowVersion,
+      claimToken: prepared.claim.token,
+      resolution: 'DIRECT_CONFIRMED',
+      runtime: activationRuntime(),
+      failureCode: null,
+    });
+    assertEqual(finalized.outcome, 'FINALIZED');
+    assertEqual(finalized.receipt.resolution, 'DIRECT_CONFIRMED');
+    assertEqual(finalized.state.state, 'ACTIVATED');
+    assertEqual(finalized.state.activeFailover, true);
+    assertEqual(repository.listTerminalReconciliationRequired().length, 0);
+    assertEqual(
+      firstDb.prepare('SELECT COUNT(*) AS count FROM model_failover_terminal_finalize_receipts').get().count,
+      1,
+    );
+
+    const replay = await repository.finalizeTerminalOperation({
+      operationId: prepared.claim.operationId,
+      expectedRowVersion: prepared.state.rowVersion,
+      claimToken: prepared.claim.token,
+      resolution: 'DIRECT_CONFIRMED',
+      runtime: activationRuntime(),
+      failureCode: null,
+    });
+    assertEqual(replay.outcome, 'REPLAYED');
+    assertEqual(
+      firstDb.prepare('SELECT COUNT(*) AS count FROM model_failover_terminal_finalize_receipts').get().count,
+      1,
+    );
+
+    runtime.setNow(900000);
+    const degraded = repository.recordActiveProofExpired({
+      role: 'CHAT',
+      episodeId: finalized.state.episodeId,
+      expectedDesiredRevision: finalized.state.desiredRevision,
+      expectedRowVersion: finalized.state.rowVersion,
+      expectedActiveEventId: finalized.state.activeEventId,
+    });
+    assertEqual(degraded.outcome, 'RECORDED');
+    assertEqual(degraded.state.state, 'DEGRADED_PROOF_EXPIRED');
+    assertEqual(degraded.state.storageState, 'ACTIVATED');
+    assertEqual(degraded.state.activeFailover, true);
+
+    insertTerminalProof(firstDb, {
+      proofId: 'proof-terminal-revalidated-0001',
+      modelName: 'fallback:latest',
+      canonicalName: 'fallback',
+      digestSha256: DIGEST_B,
+      completedAtMs: 900100,
+      expiresAtMs: 1800000,
+    });
+    const eventCount = repository.listEvents({ role: 'CHAT' }).length;
+    runtime.setNow(900200);
+    const revalidated = repository.revalidateActiveProof({
+      role: 'CHAT',
+      episodeId: finalized.state.episodeId,
+      expectedDesiredRevision: finalized.state.desiredRevision,
+      expectedRowVersion: finalized.state.rowVersion,
+      expectedActiveEventId: finalized.state.activeEventId,
+    });
+    assertEqual(revalidated.outcome, 'REVALIDATED');
+    assertEqual(revalidated.state.state, 'ACTIVATED');
+    assertEqual(revalidated.state.proofId, 'proof-terminal-fallback-0001');
+    assertEqual(revalidated.state.effectiveProofId, 'proof-terminal-revalidated-0001');
+    assertEqual(repository.listEvents({ role: 'CHAT' }).length, eventCount);
+
+    runtime.setNow(1800000);
+    const degradedAgain = repository.recordActiveProofExpired({
+      role: 'CHAT',
+      episodeId: finalized.state.episodeId,
+      expectedDesiredRevision: finalized.state.desiredRevision,
+      expectedRowVersion: finalized.state.rowVersion,
+      expectedActiveEventId: finalized.state.activeEventId,
+    });
+    assertEqual(degradedAgain.outcome, 'RECORDED');
+    assertEqual(degradedAgain.state.state, 'DEGRADED_PROOF_EXPIRED');
+    assertEqual(degradedAgain.state.effectiveProofId, 'proof-terminal-revalidated-0001');
+  });
+});
+
+await testAsync('terminal writers fail closed on live inventory removal or digest drift', async () => {
+  await withRepositories(async ({ firstDb }) => {
+    const runtime = createRuntime('terminal-inventory');
+    const repository = createModelFailoverRepository(firstDb, runtime.options);
+    observeChat(repository);
+    runtime.setNow(2000);
+    const detected = detectChat(repository).state;
+    insertTerminalProof(firstDb, {
+      proofId: 'proof-terminal-inventory-0001',
+      modelName: 'fallback:latest',
+      canonicalName: 'fallback',
+      digestSha256: DIGEST_B,
+    });
+    await enableTerminalTarget(firstDb);
+    const beforePrepare = JSON.stringify({
+      state: firstDb.prepare("SELECT * FROM model_failover_state WHERE role = 'CHAT'").get(),
+      eventCount: firstDb.prepare('SELECT COUNT(*) AS count FROM model_failover_events').get().count,
+    });
+
+    runtime.setNow(3000);
+    runtime.terminalInventory.replace([]);
+    const uninstalled = await captureErrorAsync(() => prepareActivation(repository, detected));
+    assertRepositoryError(uninstalled, 'MODEL_FAILOVER_TERMINAL_TARGET_NOT_INSTALLED');
+    assertEqual(JSON.stringify({
+      state: firstDb.prepare("SELECT * FROM model_failover_state WHERE role = 'CHAT'").get(),
+      eventCount: firstDb.prepare('SELECT COUNT(*) AS count FROM model_failover_events').get().count,
+    }), beforePrepare);
+    assertEqual(
+      firstDb.prepare('SELECT COUNT(*) AS count FROM model_failover_terminal_intents').get().count,
+      0,
+    );
+
+    runtime.terminalInventory.replace([{
+      name: 'fallback:latest',
+      canonicalName: 'fallback',
+      digestSha256: DIGEST_C,
+    }]);
+    const driftBeforePrepare = await captureErrorAsync(
+      () => prepareActivation(repository, detected),
+    );
+    assertRepositoryError(driftBeforePrepare, 'MODEL_FAILOVER_TERMINAL_INVENTORY_MISMATCH');
+    assertEqual(
+      firstDb.prepare('SELECT COUNT(*) AS count FROM model_failover_terminal_intents').get().count,
+      0,
+    );
+
+    runtime.terminalInventory.replace([{
+      name: 'fallback:latest',
+      canonicalName: 'fallback',
+      digestSha256: DIGEST_B,
+    }]);
+    const prepared = await prepareActivation(repository, detected);
+    const beforeFinalize = JSON.stringify({
+      state: firstDb.prepare("SELECT * FROM model_failover_state WHERE role = 'CHAT'").get(),
+      eventCount: firstDb.prepare('SELECT COUNT(*) AS count FROM model_failover_events').get().count,
+      intentCount: firstDb.prepare(
+        'SELECT COUNT(*) AS count FROM model_failover_terminal_intents'
+      ).get().count,
+    });
+    runtime.terminalInventory.replace([{
+      name: 'fallback:latest',
+      canonicalName: 'fallback',
+      digestSha256: DIGEST_C,
+    }]);
+    runtime.setNow(3200);
+    const driftAtHandoff = await captureErrorAsync(
+      () => repository.finalizeTerminalOperation({
+        operationId: prepared.claim.operationId,
+        expectedRowVersion: prepared.state.rowVersion,
+        claimToken: prepared.claim.token,
+        resolution: 'DIRECT_CONFIRMED',
+        runtime: activationRuntime(),
+        failureCode: null,
+      }),
+    );
+    assertRepositoryError(driftAtHandoff, 'MODEL_FAILOVER_TERMINAL_INVENTORY_MISMATCH');
+    assertEqual(JSON.stringify({
+      state: firstDb.prepare("SELECT * FROM model_failover_state WHERE role = 'CHAT'").get(),
+      eventCount: firstDb.prepare('SELECT COUNT(*) AS count FROM model_failover_events').get().count,
+      intentCount: firstDb.prepare(
+        'SELECT COUNT(*) AS count FROM model_failover_terminal_intents'
+      ).get().count,
+    }), beforeFinalize);
+    assertEqual(
+      firstDb.prepare(
+        'SELECT COUNT(*) AS count FROM model_failover_terminal_finalize_receipts'
+      ).get().count,
+      0,
+    );
+  });
+});
+
+await testAsync('same-incarnation reconciliation starts at lease expiry and remains single-winner', async () => {
+  for (const [createdAtMs, expectedOutcome] of [
+    [3999, 'TOO_EARLY'],
+    [4000, 'FINALIZED'],
+    [4001, 'FINALIZED'],
+  ]) {
+    await withRepositories(async ({ firstDb }) => {
+      const runtime = createRuntime(`terminal-reconcile-${createdAtMs}`);
+      const repository = createModelFailoverRepository(firstDb, runtime.options);
+      observeChat(repository);
+      runtime.setNow(2000);
+      const detected = detectChat(repository).state;
+      insertTerminalProof(firstDb, {
+        proofId: `proof-terminal-reconcile-${createdAtMs}`,
+        modelName: 'fallback:latest',
+        canonicalName: 'fallback',
+        digestSha256: DIGEST_B,
+      });
+      await enableTerminalTarget(firstDb);
+      runtime.setNow(3000);
+      const prepared = await prepareActivation(repository, detected);
+      runtime.setNow(createdAtMs);
+      const reconcile = () => repository.finalizeTerminalOperation({
+        operationId: prepared.claim.operationId,
+        expectedRowVersion: prepared.state.rowVersion,
+        claimToken: null,
+        resolution: 'RECONCILED_CONFIRMED',
+        runtime: activationRuntime(),
+        failureCode: null,
+      });
+      if (expectedOutcome === 'TOO_EARLY') {
+        const error = await captureErrorAsync(reconcile);
+        assertRepositoryError(error, 'MODEL_FAILOVER_TERMINAL_RECONCILIATION_TOO_EARLY');
+        assertEqual(
+          firstDb.prepare(
+            'SELECT COUNT(*) AS count FROM model_failover_terminal_finalize_receipts'
+          ).get().count,
+          0,
+        );
+      } else {
+        const direct = await captureErrorAsync(() => repository.finalizeTerminalOperation({
+          operationId: prepared.claim.operationId,
+          expectedRowVersion: prepared.state.rowVersion,
+          claimToken: prepared.claim.token,
+          resolution: 'DIRECT_CONFIRMED',
+          runtime: activationRuntime(),
+          failureCode: null,
+        }));
+        assertRepositoryError(direct, 'MODEL_FAILOVER_TERMINAL_RECONCILIATION_REQUIRED');
+        const finalized = await reconcile();
+        assertEqual(finalized.outcome, 'FINALIZED');
+        assertEqual(finalized.receipt.createdAtMs, createdAtMs);
+        const lateDirect = await captureErrorAsync(() => repository.finalizeTerminalOperation({
+          operationId: prepared.claim.operationId,
+          expectedRowVersion: prepared.state.rowVersion,
+          claimToken: prepared.claim.token,
+          resolution: 'DIRECT_CONFIRMED',
+          runtime: activationRuntime(),
+          failureCode: null,
+        }));
+        assertRepositoryError(lateDirect, 'MODEL_FAILOVER_TERMINAL_FINALIZE_CONFLICT');
+        assertEqual(
+          firstDb.prepare(
+            'SELECT COUNT(*) AS count FROM model_failover_terminal_finalize_receipts'
+          ).get().count,
+          1,
+        );
+      }
+    });
+  }
+});
+
+await testAsync('changed-incarnation reconciliation accepts only the exact old-to-new tuple', async () => {
+  await withRepositories(async ({ firstDb }) => {
+    const runtime = createRuntime('terminal-new-incarnation');
+    const repository = createModelFailoverRepository(firstDb, runtime.options);
+    observeChat(repository);
+    runtime.setNow(2000);
+    const detected = detectChat(repository).state;
+    insertTerminalProof(firstDb, {
+      proofId: 'proof-terminal-new-incarnation-0001',
+      modelName: 'fallback:latest',
+      canonicalName: 'fallback',
+      digestSha256: DIGEST_B,
+    });
+    await enableTerminalTarget(firstDb);
+    runtime.setNow(3000);
+    const prepared = await prepareActivation(repository, detected);
+    runtime.setNow(3500);
+    const wrongTuple = await captureErrorAsync(() => repository.finalizeTerminalOperation({
+      operationId: prepared.claim.operationId,
+      expectedRowVersion: prepared.state.rowVersion,
+      claimToken: null,
+      resolution: 'RECONCILED_CONFIRMED',
+      runtime: activationRuntime({
+        incarnationAfter: 'runtime-incarnation-restarted-0002',
+        fromDigestSha256: DIGEST_C,
+      }),
+      failureCode: null,
+    }));
+    assertRepositoryError(wrongTuple, 'MODEL_FAILOVER_RUNTIME_GENERATION_MISMATCH');
+    const finalized = await repository.finalizeTerminalOperation({
+      operationId: prepared.claim.operationId,
+      expectedRowVersion: prepared.state.rowVersion,
+      claimToken: null,
+      resolution: 'RECONCILED_CONFIRMED',
+      runtime: activationRuntime({
+        incarnationAfter: 'runtime-incarnation-restarted-0002',
+      }),
+      failureCode: null,
+    });
+    assertEqual(finalized.outcome, 'FINALIZED');
+    assertEqual(finalized.receipt.runtime.incarnationBefore, 'runtime-incarnation-repository-0001');
+    assertEqual(finalized.receipt.runtime.incarnationAfter, 'runtime-incarnation-restarted-0002');
+  });
+});
+
+await testAsync('failed restore retains active A lineage after operator replaces target with B', async () => {
+  await withRepositories(async ({ firstDb }) => {
+    const runtime = createRuntime('terminal-restore-lineage');
+    runtime.terminalInventory.replace([
+      { name: 'reasoner', canonicalName: 'reasoner', digestSha256: DIGEST_A },
+      { name: 'fallback-a:latest', canonicalName: 'fallback-a', digestSha256: DIGEST_B },
+    ]);
+    const repository = createModelFailoverRepository(firstDb, runtime.options);
+    observeChat(repository);
+    runtime.setNow(2000);
+    const detected = detectChat(repository).state;
+    insertTerminalProof(firstDb, {
+      proofId: 'proof-terminal-fallback-a-0001',
+      modelName: 'fallback-a:latest',
+      canonicalName: 'fallback-a',
+      digestSha256: DIGEST_B,
+    });
+    await enableTerminalTarget(firstDb, {
+      modelName: 'fallback-a:latest',
+      canonicalName: 'fallback-a',
+      digestSha256: DIGEST_B,
+    });
+    runtime.setNow(3000);
+    const activation = await prepareActivation(repository, detected);
+    runtime.setNow(3200);
+    const active = await repository.finalizeTerminalOperation({
+      operationId: activation.claim.operationId,
+      expectedRowVersion: activation.state.rowVersion,
+      claimToken: activation.claim.token,
+      resolution: 'DIRECT_CONFIRMED',
+      runtime: activationRuntime({ toModelName: 'fallback-a:latest' }),
+      failureCode: null,
+    });
+    assertEqual(active.state.fallbackModelName, 'fallback-a:latest');
+
+    insertTerminalProof(firstDb, {
+      proofId: 'proof-terminal-target-b-0001',
+      modelName: 'fallback-b:latest',
+      canonicalName: 'fallback-b',
+      digestSha256: DIGEST_C,
+    });
+    await enableTerminalTarget(firstDb, {
+      nowMs: 3400,
+      modelName: 'fallback-b:latest',
+      canonicalName: 'fallback-b',
+      digestSha256: DIGEST_C,
+    });
+    insertTerminalProof(firstDb, {
+      proofId: 'proof-terminal-desired-restore-0001',
+      modelName: 'reasoner',
+      canonicalName: 'reasoner',
+      digestSha256: DIGEST_A,
+      completedAtMs: 3500,
+      expiresAtMs: 900000,
+    });
+
+    runtime.setNow(4000);
+    const restore = await repository.prepareTerminalOperation({
+      role: 'CHAT',
+      episodeId: active.state.episodeId,
+      expectedDesiredRevision: active.state.desiredRevision,
+      expectedRowVersion: active.state.rowVersion,
+      kind: 'RESTORE',
+      leaseMs: 1000,
+      expectedTargetRevision: 2,
+      expectedRuntimeIncarnationId: 'runtime-incarnation-repository-0001',
+      expectedRuntimeGeneration: 1,
+    });
+    assertEqual(restore.intent.target.requestedName, 'fallback-b:latest');
+    assertEqual(restore.intent.expectedRuntime.modelName, 'fallback-a:latest');
+    assertEqual(restore.intent.effect.modelName, 'reasoner');
+
+    runtime.setNow(4200);
+    const failed = await repository.finalizeTerminalOperation({
+      operationId: restore.claim.operationId,
+      expectedRowVersion: restore.state.rowVersion,
+      claimToken: restore.claim.token,
+      resolution: 'EFFECT_FAILED',
+      runtime: {
+        incarnationBefore: 'runtime-incarnation-repository-0001',
+        incarnationAfter: 'runtime-incarnation-repository-0001',
+        generationBefore: 1,
+        generationAfter: 1,
+        fromModelName: 'fallback-a:latest',
+        fromDigestSha256: DIGEST_B,
+        toModelName: 'fallback-a:latest',
+        toDigestSha256: DIGEST_B,
+        changed: false,
+      },
+      failureCode: 'MODEL_FAILOVER_RESTORE_EFFECT_FAILED',
+    });
+    assertEqual(failed.state.state, 'FAILED');
+    assertEqual(failed.state.activeFailover, true);
+    assertEqual(failed.state.fallbackModelName, 'fallback-a:latest');
+    assertEqual(failed.state.fallbackCanonicalName, 'fallback-a');
+    assertEqual(failed.state.fallbackDigestSha256, DIGEST_B);
+    assertEqual(failed.receipt.runtime.fromModelName, 'fallback-a:latest');
+    assertEqual(failed.receipt.runtime.toModelName, 'fallback-a:latest');
+
+    const terminalEvent = firstDb.prepare(
+      'SELECT * FROM model_failover_events WHERE event_id = ?'
+    ).get(failed.receipt.terminalEventId);
+    assertEqual(terminalEvent.event_type, 'RESTORE_FAILED');
+    assertEqual(terminalEvent.fallback_model_name, 'fallback-a:latest');
+    assertEqual(terminalEvent.fallback_canonical_name, 'fallback-a');
+    assertEqual(terminalEvent.fallback_digest_sha256, DIGEST_B);
+    const currentTarget = firstDb.prepare(
+      "SELECT requested_name, canonical_name, digest_sha256 FROM model_failover_targets WHERE role = 'CHAT'"
+    ).get();
+    assertEqual(currentTarget.requested_name, 'fallback-b:latest');
+    assertEqual(currentTarget.canonical_name, 'fallback-b');
+    assertEqual(currentTarget.digest_sha256, DIGEST_C);
+  });
+});
+
+await testAsync('unresolved terminal intent blocks expiry and user supersede fences late finalize', async () => {
+  await withRepositories(async ({ firstDb }) => {
+    const runtime = createRuntime('terminal-supersede');
+    const repository = createModelFailoverRepository(firstDb, runtime.options);
+    observeChat(repository);
+    runtime.setNow(2000);
+    const detected = detectChat(repository).state;
+    insertTerminalProof(firstDb, {
+      proofId: 'proof-terminal-supersede-0001',
+      modelName: 'fallback:latest',
+      canonicalName: 'fallback',
+      digestSha256: DIGEST_B,
+    });
+    await enableTerminalTarget(firstDb);
+    runtime.setNow(3000);
+    const prepared = await prepareActivation(repository, detected);
+
+    runtime.setNow(4001);
+    const expiryError = captureError(() => expireChat(repository, prepared.state));
+    assertRepositoryError(expiryError, 'MODEL_FAILOVER_TERMINAL_RECONCILIATION_REQUIRED');
+    assertEqual(repository.listTerminalReconciliationRequired().length, 1);
+
+    runtime.setNow(4100);
+    const manual = repository.recordUserBindingApply({
+      requestKey: 'terminal-user-request-0001',
+      role: 'CHAT',
+      expectedBindingRevision: 1,
+      targetModelName: 'manual:latest',
+      targetDigestSha256: 'c'.repeat(64),
+      actor: 'user:terminal-test',
+    });
+    assertEqual(manual.outcome, 'RECORDED');
+    assertEqual(repository.getState('CHAT').state, 'SUPERSEDED_BY_USER');
+    assertEqual(repository.listTerminalReconciliationRequired().length, 0);
+    assertEqual(
+      firstDb.prepare('SELECT COUNT(*) AS count FROM model_failover_terminal_supersedes').get().count,
+      1,
+    );
+
+    runtime.setNow(4200);
+    const lateFinalize = await captureErrorAsync(() => repository.finalizeTerminalOperation({
+      operationId: prepared.claim.operationId,
+      expectedRowVersion: prepared.state.rowVersion,
+      claimToken: null,
+      resolution: 'RECONCILED_CONFIRMED',
+      runtime: activationRuntime(),
+      failureCode: null,
+    }));
+    assertRepositoryError(lateFinalize, 'MODEL_FAILOVER_TERMINAL_SUPERSEDED');
+    assertEqual(
+      firstDb.prepare('SELECT COUNT(*) AS count FROM model_failover_terminal_finalize_receipts').get().count,
+      0,
+    );
+  });
+});
+
+await testAsync('restart reconciliation binds incarnation plus generation and never reclaims effect', async () => {
+  await withRepositories(async ({ firstDb, databasePath }) => {
+    const runtime = createRuntime('terminal-restart');
+    const repository = createModelFailoverRepository(firstDb, runtime.options);
+    observeChat(repository);
+    runtime.setNow(2000);
+    const detected = detectChat(repository).state;
+    insertTerminalProof(firstDb, {
+      proofId: 'proof-terminal-restart-0001',
+      modelName: 'fallback:latest',
+      canonicalName: 'fallback',
+      digestSha256: DIGEST_B,
+    });
+    await enableTerminalTarget(firstDb);
+    runtime.setNow(3000);
+    const prepared = await prepareActivation(repository, detected);
+    firstDb.close();
+
+    const restartedDb = openDb(databasePath);
+    try {
+      const restartedRuntime = createRuntime('terminal-reconciler', 4500);
+      const restarted = createModelFailoverRepository(restartedDb, restartedRuntime.options);
+      const pending = restarted.listTerminalReconciliationRequired();
+      assertEqual(pending.length, 1);
+      assertEqual(pending[0].operationId, prepared.claim.operationId);
+      assertEqual(
+        pending[0].expectedRuntime.incarnationId,
+        'runtime-incarnation-repository-0001',
+      );
+      assertEqual(pending[0].expectedRuntime.generation, 0);
+
+      const reconciled = await restarted.finalizeTerminalOperation({
+        operationId: prepared.claim.operationId,
+        expectedRowVersion: prepared.state.rowVersion,
+        claimToken: null,
+        resolution: 'RECONCILED_CONFIRMED',
+        runtime: activationRuntime(),
+        failureCode: null,
+      });
+      assertEqual(reconciled.outcome, 'FINALIZED');
+      assertEqual(reconciled.receipt.resolution, 'RECONCILED_CONFIRMED');
+      assertEqual(restarted.listTerminalReconciliationRequired().length, 0);
+      assertEqual(
+        restartedDb.prepare('SELECT COUNT(*) AS count FROM model_failover_terminal_intents').get().count,
+        1,
+      );
+      assertEqual(
+        restartedDb.prepare('SELECT COUNT(*) AS count FROM model_failover_terminal_finalize_receipts').get().count,
+        1,
+      );
     } finally {
       restartedDb.close();
     }

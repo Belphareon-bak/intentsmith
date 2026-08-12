@@ -280,6 +280,35 @@ async function withProviderOrigin(provider, callback) {
 
 suite('M1 model failover proof issuer — durable evidence commit point');
 
+await testAsync('issuer keeps its narrow input and both handoff plus live-policy rechecks', async () => {
+  const source = await readFile(path.join(REPOSITORY_ROOT, ISSUER_RELATIVE_PATH), 'utf8');
+  const inputBoundary = source.slice(
+    source.indexOf('function requireInput(inputValue)'),
+    source.indexOf('function parseCli(argv)'),
+  );
+  assert(inputBoundary.includes("['db', 'proposedModelName', 'role']"));
+  for (const forbidden of [
+    'acceptancePath',
+    'artifactSha256',
+    'issuedAtMs',
+    'proofTtlMs',
+    'target',
+  ]) {
+    assert(!inputBoundary.includes(forbidden), `Issuer input gained ${forbidden} authority`);
+  }
+  const issuance = source.slice(
+    source.indexOf('export async function issueModelFailoverProof'),
+    source.indexOf('function renderError(error)'),
+  );
+  assertEqual((issuance.match(/await handoff\.recheck\(\)/g) || []).length, 2);
+  const livePolicy = source.slice(
+    source.indexOf('function requireProjection(handoffResult, input)'),
+    source.indexOf('function sameHandoff(left, right)'),
+  );
+  assert(livePolicy.includes('getModelFailoverMeasurementContract(input.role)'));
+  assert(livePolicy.includes('assertModelFailoverProofIssuanceEnabled(input.role)'));
+});
+
 await testAsync('caller and database authority fail closed before provider effects', async () => {
   const issuer = await prepareCandidate();
   const provider = await startFixtureProvider();
