@@ -491,9 +491,14 @@ Exact-port corrective behavior run skončil bez retry terminálně `FAIL` ve fá
 první odpovědi. Jeho artefakt má SHA-256
 `3e60814fcf87bb30bf763c852a3094a078d3ddd4cc74d92da8343e6b7f7487dc`.
 Provider poté přirozeně přešel na nula načtených modelů a nula compute procesů;
-test-owned proces byl ukončen a původní system Ollama obnovena z nezměněného
-unit souboru SHA-256
-`b15f3fd1b35239683c73eb5cbc4523693de453f08582c2ee7165315c0f893adc`.
+test-owned proces byl ukončen a system Ollama obnovena aktivní a prázdná.
+Aktuální raw unit soubor má SHA-256
+`b15f3fd1b35239683c73eb5cbc4523693de453f08582c2ee7165315c0f893adc`
+a mtime/ctime `2026-03-07 20:40:04.557722082 +0100`. Pre-handoff artefakt
+`a7e9331b59584b7803552e96601309264876fb4f201a1a90ee24d1ac6fab3e6f`
+je hash dynamického `systemctl show` projectionu včetně PID/start-time, nikoli
+raw unit bytes; proto byte-identical pre/post raw-unit shoda není z bundle
+nezávisle prokázaná. Nebyl spuštěn žádný unit-file edit příkaz.
 
 Jednorázová neakceptační diagnostika navíc potvrdila, že vypnutí CUDA graphs
 neřeší host resource envelope: exact model při `f16`, `num_ctx=4096` a `100 %`
@@ -503,8 +508,11 @@ současně splnit `44999 ms` cold gate a `1024 MiB` headroom bez headless GPU
 handoffu nebo změny model/digest/acceptance kontraktu. Ani jedno není provedeno.
 
 Credential apply byl před T3 proveden právě jednou, bez retry, s výsledkem
-11 TRANSFER / 0 EXPORT / 0 PURGE a samostatným read-only post-censusem bez
-findings. Disposable seed commitnul 60 migrací, policy revision 2 ON, CHAT
+11 TRANSFER / 0 EXPORT / 0 PURGE. Reviewer provedl samostatný read-only
+post-census a oznámil nula findings, ale jeho raw post-census artefakt není ve
+failure bundle; tento bundle tedy nezávisle dokládá pouze apply output a
+resulting canonical/historical environment a DB hashe uvedené v summary.
+Disposable seed commitnul 60 migrací, policy revision 2 ON, CHAT
 desired revision 1 a target revision 0; lokální seed runner následně chybně
 očekával oracle `OBSERVED` místo skutečného `CREATED`, ale read-only postcheck
 potvrdil committed exact stav a seed efekt se neopakoval. DESIRED/FALLBACK
@@ -513,8 +521,13 @@ jsou kvůli terminálnímu T3 FAIL `NOT RUN`; B4 a Gate 1 zůstávají zamčené
 
 Privátní failure bundle
 `m1-b3-phaseb-execution-20260812TXXXXXXZ.Q29oJSdh` má artifact manifest
-SHA-256 `4422f21840218953f150b6de7f808567bb8893d64073a14be65e512e10868fb0`
-a zachovává oba FAIL artefakty, pre-effect BLOCKED, credential výstup,
+V2 SHA-256 `122af434d4f492a385d91dfb05ca675eb9b5fee8fc25c3bb2e50b0a86a85dcaa`
+a truth amendment SHA-256
+`4a7507bfde1b6fed22ac2ed77ee50242484fb9cfd3f4b620f3590713710d8fe1`
+a zachovává původní manifest SHA-256
+`4422f21840218953f150b6de7f808567bb8893d64073a14be65e512e10868fb0`
+a jeho původní nepřesný unit claim jako superseded evidence. V2 bundle
+zachovává oba FAIL artefakty, pre-effect BLOCKED, credential výstup,
 disposable seed/postcheck i diagnostiku. Tento výsledek není Phase-B PASS a
 nesmí vytvořit `B_S`, `B_EA`, `B_C`, `B_EB` ani canonical Phase-B promotion.
 
