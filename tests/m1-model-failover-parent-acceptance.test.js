@@ -374,6 +374,17 @@ test('parent CLI accepts only role and proposed model while config owns provider
   assertIncludes(source, "'--ignored=matching'");
   assertIncludes(source, 'scripts/run-model-failover-candidate-measurement.js');
   assertIncludes(source, 'scripts/issue-model-failover-proof.js');
+  const candidateClosure = source.slice(
+    source.indexOf('const CANDIDATE_SOURCE_PATHS'),
+    source.indexOf('const CHILD_SUMMARY_KEYS'),
+  );
+  for (const requiredPath of [
+    'src/db/model-policy.js',
+    'src/db/settings-portability.js',
+    'src/db/user-settings.js',
+  ]) {
+    assertIncludes(candidateClosure, `'${requiredPath}'`);
+  }
   assertIncludes(source, 'expectedAcceptanceAuthority');
   assertIncludes(source, 'await validateModelFailoverCandidateAcceptance(');
   assertIncludes(source, 'const PARENT_HANDOFF_AUTHORITIES = new WeakMap();');

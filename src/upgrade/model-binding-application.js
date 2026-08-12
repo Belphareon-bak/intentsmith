@@ -1370,12 +1370,14 @@ export class ModelBindingApplication {
           { operationId: intent.operationId },
         );
       }
-      if (snapshot.modelName !== intent.expectedRuntime.modelName) {
+      if (snapshot.generation !== 0
+        || snapshot.modelName !== intent.expectedRuntime.modelName) {
         fail(
-          'MODEL_BINDING_RUNTIME_CAS_MISMATCH',
-          'New runtime incarnation does not start from the durable pre-effect binding',
+          'MODEL_FAILOVER_STARTUP_RECONCILIATION_UNRESOLVED',
+          'New runtime incarnation cannot prove the terminal operation had no effect',
           {
             operationId: intent.operationId,
+            runtimeGeneration: snapshot.generation,
             runtimeModel: snapshot.modelName,
             expectedModel: intent.expectedRuntime.modelName,
           },
@@ -1399,31 +1401,21 @@ export class ModelBindingApplication {
             { operationId: intent.operationId },
           );
         }
-        const resolved = await this.provider.resolveExact(intent.effect.modelName, {
-          expectedDigestSha256: intent.effect.digestSha256,
-        });
-        if (resolved.name !== intent.effect.modelName
-          || resolved.canonicalName !== intent.effect.canonicalName) {
-          fail(
-            'MODEL_BINDING_TARGET_DIGEST_DRIFT',
-            'Startup reconciliation effect lost its exact requested identity',
-            { operationId: intent.operationId },
-          );
-        }
-        const token = this.runtime.prepareTerminal({
+        const finalized = await this.repository.finalizeTerminalOperation({
           operationId: intent.operationId,
-          role: intent.role,
-          expectedModel: snapshot.modelName,
-          targetModel: resolved.name,
-          expectedIncarnationId: snapshot.incarnationId,
-          expectedGeneration: snapshot.generation,
+          expectedRowVersion: intent.claimedRowVersion,
+          claimToken: null,
+          resolution: 'RECONCILED_NO_EFFECT',
+          runtime: terminalRuntimePayload(intent, {
+            incarnationId: snapshot.incarnationId,
+            generation: snapshot.generation,
+          }, { success: false }),
+          failureCode: TERMINAL_NO_EFFECT_CODE,
         });
-        runtimeReceipt = this.runtime.commit(token);
-        this.#requireTerminalCommit(intent, runtimeReceipt);
+        return { waiting: false, outcome: finalized.outcome };
       } finally {
         releaseUseLeases?.();
       }
-      snapshot = this.#terminalRuntimeSnapshot(intent.role);
     }
 
     this.#requireTerminalCommit(intent, runtimeReceipt);

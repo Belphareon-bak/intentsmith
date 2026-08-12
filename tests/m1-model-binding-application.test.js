@@ -744,6 +744,82 @@ await testAsync('terminal cycle owns one durable activation effect and never pul
   });
 });
 
+await testAsync('new process never treats an effect-shaped runtime as terminal success', async () => {
+  let nowMs = 1_000;
+  await withFixture(async ({ db, repository, manager, provider }) => {
+    repository.observeDesiredBinding({
+      role: 'CHAT',
+      modelName: 'fixture-base',
+      digestSha256: DIGEST_A,
+      source: 'LEGACY_OVERRIDE',
+      actor: 'user:fixture',
+    });
+    nowMs = 2_000;
+    const detected = repository.recordDetection({
+      role: 'CHAT',
+      expectedDesiredRevision: 1,
+    }).state;
+    insertTerminalProof(db, {
+      proofId: 'terminal-new-process-proof-0001',
+      modelName: 'fixture-target',
+      digestSha256: DIGEST_B,
+      completedAtMs: 2_300,
+      expiresAtMs: 900_000,
+    });
+    nowMs = 2_600;
+    const target = await enableTerminalTarget(db, { now: () => nowMs });
+    const oldSnapshot = manager.createBindingRuntimePort().snapshot('CHAT');
+    nowMs = 3_000;
+    const prepared = await repository.prepareTerminalOperation({
+      role: 'CHAT',
+      episodeId: detected.episodeId,
+      expectedDesiredRevision: detected.desiredRevision,
+      expectedRowVersion: detected.rowVersion,
+      kind: 'ACTIVATE',
+      leaseMs: 300_000,
+      expectedTargetRevision: target.revision,
+      expectedRuntimeIncarnationId: oldSnapshot.incarnationId,
+      expectedRuntimeGeneration: oldSnapshot.generation,
+    });
+
+    // A fresh process may independently start with the effect-shaped model.
+    // That is not evidence that the old process committed this operation.
+    config.models.CHAT = 'fixture-target';
+    const restartedManager = new UpgradeManager();
+    restartedManager.setDb(db);
+    const restartedRuntime = restartedManager.createBindingRuntimePort();
+    const before = restartedRuntime.snapshot('CHAT');
+    assert(before.incarnationId !== oldSnapshot.incarnationId);
+    assertEqual(before.generation, 0);
+    const restartedApplication = createModelBindingApplication({
+      repository,
+      runtime: restartedRuntime,
+      provider,
+      modelUseAuthority: new ModelUseAuthority(),
+      publishControl: () => ({ accepted: true }),
+      logger: { warn() {}, info() {}, debug() {}, error() {} },
+    });
+
+    const error = await captureError(() => restartedApplication.rehydrateTerminalBindings());
+    assertEqual(error.code, 'MODEL_FAILOVER_STARTUP_RECONCILIATION_UNRESOLVED');
+    const after = restartedRuntime.snapshot('CHAT');
+    assertEqual(after.incarnationId, before.incarnationId);
+    assertEqual(after.generation, 0);
+    assertEqual(after.modelName, 'fixture-target');
+    assertEqual(restartedRuntime.getTerminalReceipt(prepared.intent.operationId), null);
+    assertEqual(count(db, 'model_failover_terminal_finalize_receipts'), 0);
+    assertEqual(
+      repository.getTerminalOperation(prepared.intent.operationId).reconciliationRequired,
+      true,
+    );
+    assertEqual(provider.calls.pull, 0);
+  }, {
+    repositoryOptions: { clock: () => nowMs },
+    applicationClock: () => nowMs,
+    startVerification: false,
+  });
+});
+
 await testAsync('delete protection exposes current desired and one-step rollback identities', async () => {
   await withFixture(async ({ application }) => {
     const before = application.getProtectedModelNames();
