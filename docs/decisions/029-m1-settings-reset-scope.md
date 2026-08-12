@@ -60,6 +60,23 @@ rozhodnutí. Aktualizuje se pouze evidence pin a přesný merge census; při dal
 driftu platí znovu `STOP` a nový governance/review vstup. Mobile větev se tímto
 rozhodnutím nepřijímá ani nepromuje.
 
+### MOBILE-PIN-REFRESH-2 (přijato 2026-08-12)
+
+Bezprostředně před finálním legacy-alias cutoverem se pending mobile ref
+posunul z `3ea062f52425b429872ba18ace8c14f5b2248e53` na jeho přímého potomka
+`2aeaa5028d9caf731f6a51f1f6df78a5f548c511`. Jediný nový commit mění pouze
+`docs/mobile/CONTRACT-V2-PROPOSAL.md`: opravuje věcný popis
+`PROVISIONAL_V1` a povinných conversation/turn identit. Není to runtime
+změna, schválení mobile návrhu, refreeze kontraktu ani změna support claimu.
+
+Merge-base zůstává
+`8366eb085415149f49e04bd9e788104c4c3ec1f8`. Exact dvanácticestný reset
+manifest má nulový delta `merge-base→3ea`, `merge-base→2aea` i
+`3ea→2aea`; callery, `localStorage.clear()`, auth/access/trusted-local
+hranice i globální census osmi both-changed cest, šesti skutečně konfliktních
+cest a jedenácti semantic hunků jsou beze změny. Pro 029 jde proto pouze o
+nový exact evidence pin. Další drift znovu znamená `STOP`.
+
 ## Varianty
 
 ### A — settings-only exact scope, legacy alias 410 (přijato)

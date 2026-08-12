@@ -17,7 +17,7 @@ promováný `R_REC=17aba1b5749e8229d8079f3cbc6cdb865bdc25e8` z
 
 **baseRevision:** nejnovější samostatně zreviewovaný a na integration
 fast-forward promováný docs-only governance checkpoint nad `R_REC`, který
-obsahuje `MOBILE-PIN-REFRESH-1` a historickou recovery-digest attestaci níže.
+obsahuje `MOBILE-PIN-REFRESH-1+2` a historickou recovery-digest attestaci níže.
 Jeho exact SHA zapíše unikátní reset run report; governance commit sám vlastní
 SHA nepředstírá. Invalidní `I`, samotný `G_REC`, correct sibling `X` ani holý
 `R_REC` nejsou po těchto governance checkpointech přípustný source review
@@ -37,7 +37,7 @@ base.
   `/home/belphareon/worktrees/is-m1-settings-reset-authority-review-b`.
 
 **Stav:** `ACTIVE / CHAT_EVIDENCE_RECOVERY_PROMOTED /
-MOBILE-PIN-REFRESH-1 / RECOVERY-DRAFT-ATTESTATION` — canonical integration je
+MOBILE-PIN-REFRESH-1+2 / RECOVERY-DRAFT-ATTESTATION` — canonical integration je
 nejméně exact metadata-ověřený
 `R_REC=17aba1b5749e8229d8079f3cbc6cdb865bdc25e8`. Invalidní `I`, samotný
 `G_REC` ani correct sibling `X` nejsou přípustný reset base. Finding 011
@@ -278,18 +278,21 @@ subjectu a současně immutable `S_RESET`. Jeho parent už musí obsahovat:
   smí přistát v témže `S_RESET`.
 
 Aktivační census pinuje pending mobile ref
-`3ea062f52425b429872ba18ace8c14f5b2248e53`
+`2aeaa5028d9caf731f6a51f1f6df78a5f548c511`
 (`wp/mobile-refresh-20260809`) a jeho merge-base s
 `R_REC=17aba1b5749e8229d8079f3cbc6cdb865bdc25e8` i se source evidence
 `69d29ed3c929593e092d047b6e182d9715e3d08e`:
 `8366eb085415149f49e04bd9e788104c4c3ec1f8`.
 
 Tento tip je lineární potomek původně připnutého
-`b9b56d517d95475636b75427181bed9cbdd159c4` přes přesně dva commity. Diff
-starý→nový mobile tip nemění žádnou z dvanácti cest níže, auth/access/
+`b9b56d517d95475636b75427181bed9cbdd159c4`; bezprostředně před `S_RESET`
+navíc přibyl jediný direct-child commit nad dříve připnutým
+`3ea062f52425b429872ba18ace8c14f5b2248e53`, který mění pouze
+`docs/mobile/CONTRACT-V2-PROPOSAL.md`. Diff kteréhokoli z těchto pinů vůči
+novému tipu nemění žádnou z dvanácti cest níže, auth/access/
 trusted-local wiring ani executable security guard semantics. Jde o přijatý
-docs-only `MOBILE-PIN-REFRESH-1`, nikoli změnu 029 scope nebo podporu mobile
-větve.
+docs-only `MOBILE-PIN-REFRESH-1+2`, nikoli změnu 029 scope, schválení/
+refreeze mobile návrhu nebo podporu mobile větve.
 
 Na tomto snapshotu je mobile strana proti merge-base beze změny pro celý
 reset-relevant manifest:
@@ -469,17 +472,19 @@ writer/reviewerů.
 
 ## 10. Evidence DAG, report a promotion
 
-Povinná topologie; `H_RESET` zde znamená nejnovější samostatně zreviewovaný a
+Povinná topologie; `G3_RESET` zde znamená nejnovější samostatně zreviewovaný a
 na canonical integration promováný docs-only governance checkpoint popsaný v
 `baseRevision` výše, nikoli SHA zapisovaný do vlastního commitu:
 
 ```text
 R_REC = sourceEvidenceBase
   -> G_MOBILE_REFRESH (MOBILE-PIN-REFRESH-1)
-  -> H_RESET = baseRevision (tento recovery-digest governance checkpoint)
-  -> canonical integration fast-forward na H_RESET před source writerem
-  -> K_RESET (dual-CAS server + clients + docs/tests, legacy alias ještě živý)
-  -> S_RESET (final production legacy 410)
+  -> H_RESET (recovery-digest governance checkpoint)
+  -> G3_RESET = baseRevision (MOBILE-PIN-REFRESH-2)
+  -> canonical integration fast-forward na G3_RESET
+  -> M_RESET [ordered parents G3_RESET,D_RESET]
+       kde D_RESET zachovává K_RESET + pre-S docs
+  -> S_RESET (direct child M_RESET; final production legacy 410)
   -> E_A_RESET
   -> C_RESET
   -> E_B_RESET
@@ -488,13 +493,13 @@ R_REC = sourceEvidenceBase
 
 `S_RESET` neobsahuje report a po Review A je immutable. `E_A_RESET` má jediného
 parenta `S_RESET` a mění pouze rezervovaný report. Report obsahuje právě jednou
-`integrationRef`, `baseRevision=H_RESET`, `subjectHead=S_RESET` a
+`integrationRef`, `baseRevision=G3_RESET`, `subjectHead=S_RESET` a
 `reviewA.verdict`; nikdy SHA commitu, který jej právě zapisuje. Review A
-hodnotí exact range `H_RESET..S_RESET`.
+hodnotí exact range `G3_RESET..S_RESET`.
 
 Queue použije `--no-ff` nad stále exact canonical integration tipem
-`H_RESET`, nemění behavior a vytvoří immutable `C_RESET` s ordered parents
-exact `[H_RESET,E_A_RESET]` a ancestor vazbou na `E_A_RESET`. Semantic
+`G3_RESET`, nemění behavior a vytvoří immutable `C_RESET` s ordered parents
+exact `[G3_RESET,E_A_RESET]` a ancestor vazbou na `E_A_RESET`. Semantic
 conflict vrací `CHANGES_REQUIRED`; queue nesmí vzniknout nad holým `R_REC`
 ani vynechat governance ancestry. Review B běží nad exact `C_RESET`.
 `E_B_RESET` má jediného parenta `C_RESET`, mění pouze stejný report a byteově
