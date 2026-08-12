@@ -1597,6 +1597,299 @@ export function up(db) {
     DROP VIEW model_failover_manual_supersede_eligible;
 
     CREATE VIEW model_failover_manual_supersede_eligible AS
+    WITH incident_lineage AS (
+      SELECT incident.role, incident.desired_revision, incident.episode_id,
+        incident.row_version, incident.state, incident.active_failover,
+        incident.fallback_model_name, incident.fallback_canonical_name,
+        incident.fallback_digest_sha256, incident.proof_id,
+        incident.active_event_id, incident.policy_version, incident.actor,
+        incident.reason_code, incident.failure_phase,
+        incident.proof_verified_at_ms, incident.claim_operation_id,
+        incident.claim_token, incident.claim_kind,
+        incident.claim_started_at_ms, incident.claim_expires_at_ms,
+        incident.detected_at_ms, incident.activated_at_ms,
+        incident.updated_at_ms, incident.last_event_id,
+        current.desired_model_name, current.desired_digest_sha256
+      FROM model_failover_state incident
+      JOIN model_failover_events origin
+        ON origin.event_type = 'DETECTED'
+       AND origin.role = incident.role
+       AND origin.binding_revision = incident.desired_revision
+       AND origin.row_version = 1
+       AND origin.episode_id = incident.episode_id
+       AND origin.operation_id IS NULL
+       AND origin.actor = 'system:binding-integrity'
+       AND origin.reason_code = 'BOUND_MODEL_NOT_INSTALLED'
+       AND origin.policy_version = incident.policy_version
+       AND origin.state_before IS NULL
+       AND origin.state_after = 'DETECTED'
+       AND origin.fallback_model_name IS NULL
+       AND origin.fallback_canonical_name IS NULL
+       AND origin.fallback_digest_sha256 IS NULL
+       AND origin.proof_id IS NULL
+       AND origin.verified = 0
+       AND origin.failure_phase IS NULL
+       AND origin.details_json = '{}'
+       AND origin.created_at_ms = incident.detected_at_ms
+      JOIN model_failover_events current
+        ON current.event_id = incident.last_event_id
+       AND current.role = incident.role
+       AND current.binding_revision = incident.desired_revision
+       AND current.row_version = incident.row_version
+       AND current.episode_id = incident.episode_id
+       AND current.policy_version = incident.policy_version
+       AND current.state_after = incident.state
+       AND current.desired_model_name = origin.desired_model_name
+       AND current.desired_digest_sha256 = origin.desired_digest_sha256
+       AND current.created_at_ms = incident.updated_at_ms
+      WHERE incident.state IN ('DETECTED', 'ACTIVATED', 'FAILED')
+        AND incident.policy_version = 'd-plus-v1'
+        AND incident.actor = 'system:binding-integrity'
+        AND incident.resolved_at_ms IS NULL
+        AND 1 = (
+          SELECT COUNT(*) FROM model_failover_events origin_count
+          WHERE origin_count.event_type = 'DETECTED'
+            AND origin_count.role = incident.role
+            AND origin_count.binding_revision = incident.desired_revision
+            AND origin_count.episode_id = incident.episode_id
+            AND origin_count.row_version = 1
+        )
+        AND (
+          (incident.state = 'DETECTED'
+            AND incident.active_failover = 0
+            AND incident.reason_code = 'BOUND_MODEL_NOT_INSTALLED'
+            AND incident.fallback_model_name IS NULL
+            AND incident.fallback_canonical_name IS NULL
+            AND incident.fallback_digest_sha256 IS NULL
+            AND incident.proof_id IS NULL
+            AND incident.active_event_id IS NULL
+            AND incident.failure_phase IS NULL
+            AND incident.proof_verified_at_ms IS NULL
+            AND incident.activated_at_ms IS NULL)
+          OR
+          (incident.state = 'ACTIVATED'
+            AND incident.active_failover = 1
+            AND incident.reason_code IN ('FAILOVER_ACTIVATED', 'FAILOVER_REAPPLIED')
+            AND incident.fallback_model_name IS NOT NULL
+            AND incident.fallback_canonical_name IS NOT NULL
+            AND incident.fallback_digest_sha256 IS NOT NULL
+            AND incident.proof_id IS NOT NULL
+            AND incident.active_event_id IS NOT NULL
+            AND incident.failure_phase IS NULL
+            AND incident.proof_verified_at_ms IS NOT NULL
+            AND incident.activated_at_ms IS NOT NULL
+            AND EXISTS (
+              SELECT 1
+              FROM model_failover_events active_event
+              JOIN model_failover_terminal_finalize_receipts active_receipt
+                ON active_receipt.terminal_event_id = active_event.event_id
+              JOIN model_failover_terminal_intents active_intent
+                ON active_intent.operation_id = active_receipt.operation_id
+              WHERE active_event.event_id = incident.active_event_id
+                AND active_event.event_type IN ('ACTIVATED', 'REAPPLIED')
+                AND active_event.role = incident.role
+                AND active_event.binding_revision = incident.desired_revision
+                AND active_event.episode_id = incident.episode_id
+                AND active_event.state_after = 'ACTIVATED'
+                AND active_event.desired_model_name = origin.desired_model_name
+                AND active_event.desired_digest_sha256 = origin.desired_digest_sha256
+                AND active_event.fallback_model_name = incident.fallback_model_name
+                AND active_event.fallback_canonical_name = incident.fallback_canonical_name
+                AND active_event.fallback_digest_sha256 = incident.fallback_digest_sha256
+                AND active_event.proof_id = incident.proof_id
+                AND active_event.reason_code = incident.reason_code
+                AND active_event.verified = 1
+                AND active_event.failure_phase IS NULL
+                AND active_event.created_at_ms = incident.proof_verified_at_ms
+                AND active_intent.role = incident.role
+                AND active_intent.desired_revision = incident.desired_revision
+                AND active_intent.episode_id = incident.episode_id
+            ))
+          OR
+          (incident.state = 'FAILED'
+            AND incident.failure_phase IS NOT NULL
+            AND incident.reason_code IN (
+              'FAILOVER_ACTIVATION_FAILED',
+              'FAILOVER_REAPPLY_FAILED',
+              'DESIRED_MODEL_RESTORE_FAILED'
+            )
+            AND (
+              (incident.active_failover = 0
+                AND incident.fallback_model_name IS NULL
+                AND incident.fallback_canonical_name IS NULL
+                AND incident.fallback_digest_sha256 IS NULL
+                AND incident.proof_id IS NULL
+                AND incident.active_event_id IS NULL
+                AND incident.proof_verified_at_ms IS NULL)
+              OR
+              (incident.active_failover = 1
+                AND incident.fallback_model_name IS NOT NULL
+                AND incident.fallback_canonical_name IS NOT NULL
+                AND incident.fallback_digest_sha256 IS NOT NULL
+                AND incident.proof_id IS NOT NULL
+                AND incident.active_event_id IS NOT NULL
+                AND incident.proof_verified_at_ms IS NOT NULL
+                AND incident.activated_at_ms IS NOT NULL
+                AND EXISTS (
+                  SELECT 1
+                  FROM model_failover_events active_event
+                  JOIN model_failover_terminal_finalize_receipts active_receipt
+                    ON active_receipt.terminal_event_id = active_event.event_id
+                  JOIN model_failover_terminal_intents active_intent
+                    ON active_intent.operation_id = active_receipt.operation_id
+                  WHERE active_event.event_id = incident.active_event_id
+                    AND active_event.event_type IN ('ACTIVATED', 'REAPPLIED')
+                    AND active_event.role = incident.role
+                    AND active_event.binding_revision = incident.desired_revision
+                    AND active_event.episode_id = incident.episode_id
+                    AND active_event.state_after = 'ACTIVATED'
+                    AND active_event.desired_model_name = origin.desired_model_name
+                    AND active_event.desired_digest_sha256 = origin.desired_digest_sha256
+                    AND active_event.fallback_model_name = incident.fallback_model_name
+                    AND active_event.fallback_canonical_name = incident.fallback_canonical_name
+                    AND active_event.fallback_digest_sha256 = incident.fallback_digest_sha256
+                    AND active_event.proof_id = incident.proof_id
+                    AND active_event.verified = 1
+                    AND active_event.failure_phase IS NULL
+                    AND active_event.created_at_ms = incident.proof_verified_at_ms
+                    AND active_intent.role = incident.role
+                    AND active_intent.desired_revision = incident.desired_revision
+                    AND active_intent.episode_id = incident.episode_id
+                ))
+            ))
+        )
+        AND (
+          (
+            incident.claim_operation_id IS NULL
+            AND incident.claim_token IS NULL
+            AND incident.claim_kind IS NULL
+            AND incident.claim_started_at_ms IS NULL
+            AND incident.claim_expires_at_ms IS NULL
+            AND (
+              (incident.state = 'DETECTED' AND (
+                (incident.row_version = 1
+                  AND current.event_id = origin.event_id
+                  AND current.event_type = 'DETECTED'
+                  AND current.operation_id IS NULL
+                  AND current.actor = 'system:binding-integrity'
+                  AND current.reason_code = 'BOUND_MODEL_NOT_INSTALLED'
+                  AND current.state_before IS NULL
+                  AND current.fallback_model_name IS NULL
+                  AND current.fallback_canonical_name IS NULL
+                  AND current.fallback_digest_sha256 IS NULL
+                  AND current.proof_id IS NULL
+                  AND current.verified = 0
+                  AND current.failure_phase IS NULL
+                  AND current.details_json = '{}'
+                  AND incident.updated_at_ms = incident.detected_at_ms)
+                OR
+                (incident.row_version > 1
+                  AND current.event_type = 'CLAIM_EXPIRED'
+                  AND current.operation_id IS NOT NULL
+                  AND current.actor = 'system:binding-integrity'
+                  AND current.reason_code = 'EXPIRED_CLAIM_RELEASED'
+                  AND current.state_before = 'DETECTED'
+                  AND current.fallback_model_name IS NULL
+                  AND current.fallback_canonical_name IS NULL
+                  AND current.fallback_digest_sha256 IS NULL
+                  AND current.proof_id IS NULL
+                  AND current.verified = 0
+                  AND current.failure_phase IS NULL
+                  AND current.details_json = '{}'
+                  AND EXISTS (
+                    SELECT 1
+                    FROM model_failover_events claimed
+                    WHERE claimed.event_type = 'ACTIVATION_CLAIMED'
+                      AND claimed.operation_id = current.operation_id
+                      AND claimed.role = incident.role
+                      AND claimed.binding_revision = incident.desired_revision
+                      AND claimed.row_version = incident.row_version - 1
+                      AND claimed.episode_id = incident.episode_id
+                      AND claimed.actor = 'system:binding-integrity'
+                      AND claimed.reason_code = 'FAILOVER_OPERATION_CLAIMED'
+                      AND claimed.policy_version = incident.policy_version
+                      AND claimed.state_before = 'DETECTED'
+                      AND claimed.state_after = 'DETECTED'
+                      AND claimed.desired_model_name = origin.desired_model_name
+                      AND claimed.desired_digest_sha256 = origin.desired_digest_sha256
+                      AND claimed.fallback_model_name IS NULL
+                      AND claimed.fallback_canonical_name IS NULL
+                      AND claimed.fallback_digest_sha256 IS NULL
+                      AND claimed.proof_id IS NULL
+                      AND claimed.verified = 0
+                      AND claimed.failure_phase IS NULL
+                      AND claimed.details_json = '{}'
+                      AND claimed.created_at_ms < current.created_at_ms
+                  ))
+              ))
+              OR
+              (incident.state IN ('ACTIVATED', 'FAILED')
+                AND EXISTS (
+                  SELECT 1
+                  FROM model_failover_terminal_finalize_receipts receipt
+                  JOIN model_failover_terminal_intents intent
+                    ON intent.operation_id = receipt.operation_id
+                  WHERE receipt.terminal_event_id = current.event_id
+                    AND receipt.terminal_event_type = current.event_type
+                    AND receipt.terminal_row_version = incident.row_version
+                    AND intent.role = incident.role
+                    AND intent.desired_revision = incident.desired_revision
+                    AND intent.episode_id = incident.episode_id
+                    AND current.operation_id = intent.operation_id
+                    AND current.actor = 'system:binding-integrity'
+                    AND current.reason_code = incident.reason_code
+                    AND current.failure_phase IS incident.failure_phase
+                ))
+            )
+          )
+          OR
+          (
+            incident.claim_operation_id IS NOT NULL
+            AND incident.claim_token IS NOT NULL
+            AND incident.claim_kind IS NOT NULL
+            AND incident.claim_started_at_ms IS NOT NULL
+            AND incident.claim_expires_at_ms > incident.claim_started_at_ms
+            AND current.operation_id = incident.claim_operation_id
+            AND current.actor = 'system:binding-integrity'
+            AND current.reason_code = 'FAILOVER_OPERATION_CLAIMED'
+            AND current.state_before = incident.state
+            AND current.fallback_model_name IS NULL
+            AND current.fallback_canonical_name IS NULL
+            AND current.fallback_digest_sha256 IS NULL
+            AND current.proof_id IS NULL
+            AND current.verified = 0
+            AND current.failure_phase IS NULL
+            AND current.details_json = '{}'
+            AND current.created_at_ms = incident.claim_started_at_ms
+            AND (
+              (incident.state = 'DETECTED'
+                AND incident.claim_kind = 'ACTIVATE'
+                AND current.event_type = 'ACTIVATION_CLAIMED')
+              OR
+              (incident.state = 'ACTIVATED'
+                AND incident.claim_kind = 'REAPPLY'
+                AND current.event_type = 'REAPPLY_CLAIMED')
+              OR
+              (incident.state = 'ACTIVATED'
+                AND incident.claim_kind = 'RESTORE'
+                AND current.event_type = 'RESTORE_CLAIMED')
+            )
+            AND (
+              incident.state = 'DETECTED'
+              OR EXISTS (
+                SELECT 1
+                FROM model_failover_terminal_finalize_receipts active_receipt
+                JOIN model_failover_terminal_intents active_intent
+                  ON active_intent.operation_id = active_receipt.operation_id
+                WHERE active_receipt.terminal_event_id = incident.active_event_id
+                  AND active_intent.role = incident.role
+                  AND active_intent.desired_revision = incident.desired_revision
+                  AND active_intent.episode_id = incident.episode_id
+              )
+            )
+          )
+        )
+    )
     SELECT incident.role, incident.desired_revision, incident.episode_id,
       incident.row_version, incident.state, incident.active_failover,
       incident.fallback_model_name, incident.fallback_canonical_name,
@@ -1607,34 +1900,70 @@ export function up(db) {
       incident.claim_token, incident.claim_kind, incident.claim_started_at_ms,
       incident.claim_expires_at_ms, incident.detected_at_ms,
       incident.activated_at_ms, incident.updated_at_ms, incident.last_event_id,
-      desired.model_name AS desired_model_name,
+      incident.desired_model_name,
       desired.canonical_name AS desired_canonical_name,
-      desired.digest_sha256 AS desired_digest_sha256
-    FROM model_failover_state incident
+      incident.desired_digest_sha256
+    FROM incident_lineage incident
     JOIN model_desired_bindings desired
       ON desired.role = incident.role
      AND desired.binding_revision = incident.desired_revision
-    JOIN model_failover_events current
-      ON current.event_id = incident.last_event_id
-     AND current.role = incident.role
-     AND current.binding_revision = incident.desired_revision
-     AND current.row_version = incident.row_version
-     AND current.episode_id = incident.episode_id
-     AND current.policy_version = incident.policy_version
-     AND current.state_after = incident.state
-     AND current.desired_model_name = desired.model_name
-     AND current.desired_digest_sha256 = desired.digest_sha256
-     AND current.created_at_ms = incident.updated_at_ms
-    WHERE incident.state IN ('DETECTED', 'ACTIVATED', 'FAILED')
-      AND incident.policy_version = 'd-plus-v1'
-      AND 1 = (
-        SELECT COUNT(*) FROM model_failover_events origin
-        WHERE origin.event_type = 'DETECTED'
-          AND origin.role = incident.role
-          AND origin.binding_revision = incident.desired_revision
-          AND origin.episode_id = incident.episode_id
-          AND origin.row_version = 1
-      );
+     AND desired.model_name = incident.desired_model_name
+     AND desired.digest_sha256 = incident.desired_digest_sha256
+    UNION ALL
+    SELECT incident.role, incident.desired_revision, incident.episode_id,
+      incident.row_version, incident.state, incident.active_failover,
+      incident.fallback_model_name, incident.fallback_canonical_name,
+      incident.fallback_digest_sha256, incident.proof_id,
+      incident.active_event_id, incident.policy_version, incident.actor,
+      incident.reason_code, incident.failure_phase,
+      incident.proof_verified_at_ms, incident.claim_operation_id,
+      incident.claim_token, incident.claim_kind, incident.claim_started_at_ms,
+      incident.claim_expires_at_ms, incident.detected_at_ms,
+      incident.activated_at_ms, incident.updated_at_ms, incident.last_event_id,
+      incident.desired_model_name,
+      operation.previous_canonical_name AS desired_canonical_name,
+      incident.desired_digest_sha256
+    FROM incident_lineage incident
+    JOIN model_binding_operations operation
+      ON operation.role = incident.role
+     AND operation.expected_binding_revision = incident.desired_revision
+     AND operation.previous_model_name = incident.desired_model_name
+     AND operation.previous_digest_sha256 = incident.desired_digest_sha256
+     AND operation.policy_version = incident.policy_version
+    JOIN model_desired_bindings desired
+      ON desired.role = operation.role
+     AND desired.binding_revision = operation.committed_binding_revision
+     AND desired.model_name = operation.target_model_name
+     AND desired.canonical_name = operation.target_canonical_name
+     AND desired.digest_sha256 = operation.target_digest_sha256
+     AND desired.source = operation.operation_kind
+     AND desired.actor = operation.actor
+     AND desired.observed_at_ms = operation.created_at_ms
+     AND desired.updated_at_ms = operation.created_at_ms
+     AND desired.last_event_id = operation.desired_event_id
+    JOIN model_failover_events desired_event
+      ON desired_event.event_id = operation.desired_event_id
+     AND desired_event.event_type = 'DESIRED_CHANGED'
+     AND desired_event.operation_id = operation.operation_id
+     AND desired_event.role = operation.role
+     AND desired_event.binding_revision = operation.committed_binding_revision
+     AND desired_event.actor = operation.actor
+     AND desired_event.reason_code = operation.reason_code
+     AND desired_event.policy_version = operation.policy_version
+     AND desired_event.desired_model_name = operation.target_model_name
+     AND desired_event.desired_digest_sha256 = operation.target_digest_sha256
+     AND desired_event.row_version IS NULL
+     AND desired_event.episode_id IS NULL
+     AND desired_event.state_before IS NULL
+     AND desired_event.state_after IS NULL
+     AND desired_event.fallback_model_name IS NULL
+     AND desired_event.fallback_canonical_name IS NULL
+     AND desired_event.fallback_digest_sha256 IS NULL
+     AND desired_event.proof_id IS NULL
+     AND desired_event.verified = 0
+     AND desired_event.failure_phase IS NULL
+     AND desired_event.details_json = '{}'
+     AND desired_event.created_at_ms = operation.created_at_ms;
 
     CREATE TRIGGER trg_model_binding_operations_no_incident
     BEFORE INSERT ON model_binding_operations
