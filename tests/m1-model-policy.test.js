@@ -1374,7 +1374,7 @@ await testAsync('versioned settings routes expose unavailable storage as 503 wit
 await testAsync('post-commit runtime and diagnostic failures remain a truthful degraded success', async () => {
   const db = openDb();
   try {
-    createPolicySchema(db);
+    await runMigrations(db);
     const harness = createSettingsRouteHarness(db);
     harness.setFeatureFailure(new Error('fixture runtime apply failure'));
     harness.setLoggerFailure(new Error('fixture post-commit logger failure'));
@@ -1418,7 +1418,7 @@ await testAsync('post-commit runtime and diagnostic failures remain a truthful d
 await testAsync('global settings reset uses exact dual CAS, preserves unowned data and prevents replay', async () => {
   const db = openDb();
   try {
-    createPolicySchema(db);
+    await runMigrations(db);
     const repository = createModelAutomationPolicyRepository(db);
     repository.updateFromTypedApi(updateInput(1));
     writeSettingsRaw(db, JSON.stringify({
@@ -1955,10 +1955,10 @@ test('event insertion failure rolls the projection update back', () => {
   }
 });
 
-test('explicit reset appends exactly one audited OFF transition', () => {
+await testAsync('explicit reset appends exactly one audited OFF transition', async () => {
   const db = openDb();
   try {
-    createPolicySchema(db);
+    await runMigrations(db);
     const runtime = createRuntime('reset');
     const repository = createModelAutomationPolicyRepository(db, runtime.options);
     const enabled = repository.updateFromTypedApi(updateInput(1, {
