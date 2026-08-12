@@ -163,6 +163,7 @@ const ALL_MIGRATIONS = [
   '2026_08_09_061_model_automation_policy',
   '2026_08_10_062_model_failover_proof_issuance',
   '2026_08_10_064_user_settings_revision',
+  '2026_08_12_065_model_failover_target',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -188,7 +189,8 @@ const EXPECTED_TABLES = [
   'marketplace_catalog_cache', 'marketplace_packages', 'media_generations',
   'memory', 'merge_audit_log', 'messages', 'messages_fts', 'milestones',
   'model_binding_application_attempts', 'model_binding_operations', 'model_binding_runtime_finalize_cutoffs', 'model_binding_runtime_finalize_receipts', 'model_catalog_cache', 'model_desired_bindings', 'model_failover_events', 'model_failover_proof_artifacts', 'model_failover_proofs',
-  'model_failover_state', 'model_automation_policy', 'model_automation_policy_events',
+  'model_failover_state', 'model_failover_target_events', 'model_failover_targets',
+  'model_automation_policy', 'model_automation_policy_events',
   'model_overrides', 'model_performance', 'model_reconciliation_log',
   'model_runtime_guard',
   'model_signal_events', 'model_universe_derived', 'model_universe_raw',
@@ -588,6 +590,7 @@ describe('T-SM7: Baseline creates all expected tables', async () => {
       '2026_08_09_061_model_automation_policy',
       '2026_08_10_062_model_failover_proof_issuance',
       '2026_08_10_064_user_settings_revision',
+      '2026_08_12_065_model_failover_target',
     ].includes(migration.version));
     migrationTestInternals.runMigrationPlan(db, pre050);
     db.prepare(`

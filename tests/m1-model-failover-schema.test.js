@@ -469,7 +469,7 @@ suite('M1 model failover schema — exact migration contract');
 
 await testAsync('fresh file-backed DB creates all failover tables, indexes and triggers', async () => {
   await withMigratedDb(async (db) => {
-    assertEqual(getCurrentVersion(db), '2026_08_10_062_model_failover_proof_issuance');
+    assertEqual(getCurrentVersion(db), '2026_08_12_065_model_failover_target');
 
     for (const table of [
       'model_desired_bindings',
@@ -486,6 +486,8 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
       'model_failover_proof_artifacts',
       'model_failover_proofs',
       'model_failover_state',
+      'model_failover_target_events',
+      'model_failover_targets',
     ]) {
       assert(names(db, 'table').includes(table), `missing table ${table}`);
     }
@@ -554,6 +556,18 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
       'measurement_completed_at_ms', 'acceptance_completed_at_ms',
       'proof_ttl_ms', 'expires_at_ms', 'issued_at_ms',
     ]));
+    assertEqual(JSON.stringify(columns(db, 'model_failover_target_events')), JSON.stringify([
+      'seq', 'event_id', 'request_id', 'schema_version', 'role',
+      'previous_revision', 'committed_revision', 'event_kind', 'actor',
+      'before_requested_name', 'before_canonical_name', 'before_digest_sha256',
+      'after_requested_name', 'after_canonical_name', 'after_digest_sha256',
+      'created_at_ms',
+    ]));
+    assertEqual(JSON.stringify(columns(db, 'model_failover_targets')), JSON.stringify([
+      'role', 'schema_version', 'revision', 'requested_name', 'canonical_name',
+      'digest_sha256', 'actor', 'authority_source', 'last_target_event_id',
+      'last_policy_event_id', 'updated_at_ms',
+    ]));
     for (const column of [
       'role', 'desired_revision', 'episode_id', 'state', 'active_failover',
       'fallback_model_name', 'fallback_canonical_name', 'fallback_digest_sha256',
@@ -595,6 +609,14 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
       'trg_model_failover_proof_artifacts_historical_attach',
       'trg_model_failover_proof_artifacts_identity_conflict',
       'trg_model_failover_proofs_artifact_companion',
+      'trg_model_failover_target_event_identity_conflict',
+      'trg_model_failover_target_event_projection',
+      'trg_model_failover_target_event_append_only_update',
+      'trg_model_failover_target_event_append_only_delete',
+      'trg_model_failover_target_policy_reset_projection',
+      'trg_model_failover_target_projection_guard',
+      'trg_model_failover_target_projection_insert_forbidden',
+      'trg_model_failover_target_projection_delete_forbidden',
       'trg_model_desired_bindings_last_event_insert',
       'trg_model_desired_bindings_last_event_update',
       'trg_model_failover_state_active_proof_insert',
@@ -767,12 +789,51 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
   });
 });
 
+await testAsync('target authority rejects orphan, replacement, deletion and invalid identity SQL', async () => {
+  await withMigratedDb(async (db) => {
+    const before = schemaSnapshot(db);
+    const statements = [
+      `INSERT INTO model_failover_target_events (
+        event_id, request_id, role, previous_revision, committed_revision,
+        event_kind, actor, before_requested_name, before_canonical_name,
+        before_digest_sha256, after_requested_name, after_canonical_name,
+        after_digest_sha256, created_at_ms
+      ) VALUES (
+        'target-event-orphan-0001', 'target-request-orphan-0001', 'CHAT', 0, 1,
+        'SET', 'operator:model-failover-target-cli', NULL, NULL, NULL,
+        'fallback', 'fallback', '${'a'.repeat(64)}', 5000
+      )`,
+      `INSERT OR REPLACE INTO model_failover_targets (
+        role, revision, actor, authority_source, updated_at_ms
+      ) VALUES ('CHAT', 0, 'system:migration-065', 'MIGRATION', 5000)`,
+      `DELETE FROM model_failover_targets WHERE role = 'CHAT'`,
+      `UPDATE model_failover_targets SET
+        revision = 1, requested_name = 'fallback', canonical_name = 'fallback',
+        digest_sha256 = '${'g'.repeat(64)}',
+        actor = 'operator:model-failover-target-cli',
+        authority_source = 'TARGET_EVENT',
+        last_target_event_id = 'target-event-invalid-0001',
+        last_policy_event_id = NULL, updated_at_ms = 5000
+       WHERE role = 'CHAT'`,
+      `UPDATE model_failover_targets SET
+        revision = 1, actor = 'user:global-reset', authority_source = 'GLOBAL_RESET',
+        last_target_event_id = NULL,
+        last_policy_event_id = 'policy-event-forged-reset-0001', updated_at_ms = 5000
+       WHERE role = 'CHAT'`,
+    ];
+    for (const statement of statements) {
+      assertThrowsMatching(() => db.exec(statement), /MODEL_FAILOVER_TARGET|constraint/i);
+      assertEqual(schemaSnapshot(db), before);
+    }
+  });
+});
+
 await testAsync('second migration run is a no-op with an identical schema snapshot', async () => {
   await withMigratedDb(async (db) => {
     const before = schemaSnapshot(db);
     const result = await runMigrations(db);
     assertEqual(result.applied.length, 0);
-    assertEqual(result.skipped.length, 58);
+    assertEqual(result.skipped.length, 60);
     assertEqual(schemaSnapshot(db), before);
   });
 });
