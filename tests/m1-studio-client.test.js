@@ -6188,7 +6188,7 @@ await testAsync('reset is fail-closed and only adopts a committed server snapsho
     expectedPolicyRevision: 1,
   });
   assert.deepEqual(succeeded.settings(), committedSettings);
-  assert.deepEqual(succeeded.functions.features(), { agents: true });
+  assert.deepEqual(hostClone(succeeded.functions.features()), { agents: true });
   assert.deepEqual(succeeded.localStorageEffects, []);
   assert.match(succeeded.status().text, /runtime vyžaduje restart/);
 
@@ -6231,7 +6231,7 @@ await testAsync('reset is fail-closed and only adopts a committed server snapsho
   assert.equal((await fenced.functions.resetAll()).success, true);
   staleFeature.resolve({ features: { agents: false, stale: true } });
   assert.equal(await oldFeatureLoad, false);
-  assert.deepEqual(fenced.functions.features(), { agents: true });
+  assert.deepEqual(hostClone(fenced.functions.features()), { agents: true });
 
   for (const staleOutcome of ['resolve', 'reject']) {
     const stale = deferred();
@@ -6263,7 +6263,7 @@ await testAsync('reset is fail-closed and only adopts a committed server snapsho
     replacement.resolve({ features: { newest: true } });
     assert.equal(await replacementLoad, true);
     assert.equal(overlapping.functions.resetState().featureLoading, false);
-    assert.deepEqual(overlapping.functions.features(), { newest: true });
+    assert.deepEqual(hostClone(overlapping.functions.features()), { newest: true });
   }
 
   const failedForce = deferred();
@@ -6279,7 +6279,7 @@ await testAsync('reset is fail-closed and only adopts a committed server snapsho
   assert.equal(await failedLoad, false);
   assert.equal(afterFailure.functions.resetState().featureLoading, false);
   assert.equal(await afterFailure.functions.loadFeatures(), true);
-  assert.deepEqual(afterFailure.functions.features(), { recovered: true });
+  assert.deepEqual(hostClone(afterFailure.functions.features()), { recovered: true });
 });
 
 await testAsync('successful runtime apply does not claim restart for import or reset', async () => {
