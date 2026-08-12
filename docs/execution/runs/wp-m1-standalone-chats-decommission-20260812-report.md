@@ -48,3 +48,5 @@ Tento PASS není factory delete, privacy erase, root archive exclusion ani
 disposition canonical chat UI. Promotion dosud neproběhla; navazující reset
 zůstává blokovaný do Review B, report-only evidence a fast-forward promotion.
 Finding 011 zůstává `OPEN` a Gate 1 `BLOCKED`.
+candidateHead: 578876dd77c68df4bdcf6239383fa782b649f843
+reviewB.verdict: PASS
