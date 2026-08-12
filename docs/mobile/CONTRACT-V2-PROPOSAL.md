@@ -1,6 +1,6 @@
-# Kontrakt v2 pro šest domén — NÁVRH, revize 4
+# Kontrakt v2 pro šest domén — NÁVRH, revize 5 (rozpracovaná)
 
-**Stav:** `NÁVRH` · **Review revize 3:** `CHANGES_REQUIRED` (32b7c410)
+**Stav:** `NÁVRH` · **Review revize 4:** `CHANGES_REQUIRED` · **revize 5 rozpracovaná**
 **Datum revize:** 2026-08-12 · **Autor:** implementační session
 **Autorizace:** `DR-008` — autorizuje **návrh, review a refreeze**, nic víc
 **Určeno:** k novému nezávislému review; revidovat nesmí autor
@@ -94,6 +94,26 @@ nerefrozne, dokud backend nemá Gate 1 pro `C3-002` (chat sessions) a `C3-023`
 3. **`REFROZEN` v2.**
 4. Per fázi: příslušná Gate 1 závislost + **vlastní Work Package**.
 5. Teprve v tom WP vzniká routa, obrazovka a testy.
+
+### 0.5a Stav revize 5 — rozpracovaná, WP-1
+
+Review revize 4 dalo `CHANGES_REQUIRED` s osmi blokujícími nálezy a akčním
+plánem. Revize 5 ho plní **v tomto pořadí**, po dvou bisectovatelných částech:
+
+| Krok | Nález | Stav |
+|---|---|---|
+| 1 | `A1`/`A2` pre-negotiation obálka | **hotovo** — `A1.5`, `A2.3` |
+| 2 | `A4` `TXN` přechody a `state` × `phase` algebra | **hotovo** — `A4.4a`–`A4.4d` |
+| 3 | rozsah wire v2: všech 26 rout | **rozhodnuto operátorem**, zbývá migrační příloha |
+| 4 | `A3` pro conversations/messages/search + read snapshot | **zbývá** |
+| 5 | `freshForMs` vs. hard TTL | **zbývá** |
+| 6 | `CoreEvent` s diskriminovaným subjektem | **rozhodnuto operátorem**, zbývá zápis |
+| 7 | W1–W4 jako úplné fixtures | **zbývá** — druhý checkpoint |
+
+**Dokument tedy není konzistentní celek**: části `A1`/`A2`/`A4` jsou po revizi 5,
+zbytek po revizi 4. Části `B` a `W` na ně budou navázány až v krocích 4–7 —
+zejména `W2` už nese `contractVersion` v otisku, ale ostatní fixtures ještě
+nejsou přepsané.
 
 ### 0.6 Erratum — nalezeno autorem po odevzdání, před review
 
@@ -504,8 +524,14 @@ chování, které nemůže vzniknout nedorozumění.
 **Server počítá** kanonický otisk nad:
 
 ```
-{ protocolVersion, operationType, resource, expectedVersion, payload }
+{ protocolVersion, contractVersion, operationType, resource, expectedVersion, payload }
 ```
+
+**`contractVersion` v otisku je oprava.** Revize 4 ho tam neměla, ačkoli `A1.1`
+zavedla dvě nezávislé osy a `m1.2026-08-12` je kompatibilní s `v1` i `v2`.
+Stejný `operationId` se stejným tělem by se tak dal poslat jednou pod `v1`
+a podruhé pod `v2` — a otisk by je označil za **tutéž** operaci, přestože
+kontrakt určuje, co ta pole znamenají. Otisk proto nese **obě** zvolené osy.
 
 ### A4.2 `operationId`
 
@@ -543,29 +569,88 @@ nezačal těsně před pádem."* Žurnál dnes umí jen `PENDING → CONFIRMED |
 REJECTED | UNKNOWN` a při pádu procesu smete `PENDING` na `UNKNOWN`
 (`operation-journal.js`, sweep podle vlastníka). To nestačí.
 
-**Kontrakt proto zavádí durable `phase`, zapisovanou vždy _před_ krokem,
-který popisuje:**
+**Kontrakt proto zavádí `phase`. Není ale u všech tříd stejně durable, a právě
+to revize 4 popletla:** `A4.4` tvrdila, že `DISPATCHED` je durable a commitnutý
+před prvním dotykem domény, zatímco `A4.6` tvrdila, že u `TXN` po restartu
+existovat nemůže. **Obojí současně neplatí** — commit `DISPATCHED`, pád, žádný
+doménový zápis je reálné okno.
 
-| `phase` | Zapsáno **před** | Co smí restart udělat |
+| `phase` | Kdy vzniká | Durable? |
 |---|---|---|
-| `RECEIVED` | jakýmkoli dotykem domény | **bezpečně zopakovat** — efekt prokazatelně nezačal |
-| `DISPATCHED` | prvním dotykem domény nebo providera | **nezopakovat**; podle třídy `A4.6` |
-| `SETTLED` | zápisem terminálního stavu | stav je určen, jen se dočte |
+| `RECEIVED` | před **jakýmkoli** dotykem domény | **vždy**, samostatným commitem |
+| `DISPATCHED` | při prvním dotyku | **podle třídy** — viz níže |
+| `SETTLED` | s terminálním stavem | **vždy** |
 
-`RECEIVED → DISPATCHED` je právě ta hranice, kterou revize 3 neměla, a bez ní
-věta „opakování provede efekt jednou" nebyla ověřitelná. Fáze je **durable**
-(commit před krokem), ne v paměti — jinak by ji pád vzal s sebou.
+### A4.4a `TXN` — `DISPATCHED` je vnitřek transakce, ne pozorovatelný stav
 
-Sweep po pádu procesu se tím opravuje: `RECEIVED` se **nemetá na `UNKNOWN`**,
-zůstává `PENDING` a je znovu proveditelná. Na `UNKNOWN` jde jen `DISPATCHED`.
+1. **Samostatně durable `RECEIVED`.** Vlastní commit, dřív než se cokoli dotkne
+   domény.
+2. **Jedna transakce**, a v ní všechno ostatní:
+   - **CAS** `RECEIVED → DISPATCHED` (`WHERE operationId = ? AND deviceId = ?
+     AND phase = 'RECEIVED'`);
+   - doménový zápis;
+   - inkrement `domainRevision` (`A3.2`);
+   - terminální stav `SETTLED` + `CONFIRMED`/`REJECTED`.
+3. **Pád před commitem** → rollback → durable stav je zase `RECEIVED`/`PENDING`
+   a operace je **bezpečně opakovatelná**. **Pád po commitu** → rovnou
+   `SETTLED`.
+
+**Durable `DISPATCHED` u `TXN` tedy nikdy nikdo nespatří.** Není to tvrzení
+o pravděpodobnosti, ale o tom, že ta fáze žije jen uvnitř necommitnuté
+transakce.
+
+**CAS není dekorace.** Dva souběžní vykonavatelé téhož `operationId` skončí tak,
+že druhému `UPDATE` změní **nula řádků** — a ten se pak nesmí pokusit o efekt.
+Vrátí buď původní výsledek (je-li už `SETTLED`), nebo `409 operation_conflict`.
+Bez toho by „opakování provede efekt jednou" platilo jen do prvního souběhu.
+
+**Serverový `UNKNOWN` je pro čistou `TXN` mutaci nemožný.** Buď se transakce
+commitla, nebo ne. `UNKNOWN` patří výhradně třídám, které efekt opravdu nemohou
+rozhodnout atomicky (`A4.6`).
+
+### A4.4b `LOOKUP` a `TERMINAL_UNKNOWN` — tam `DISPATCHED` durable je
+
+Efekt opouští transakci, takže hranice „už jsem se dotkl" musí přežít pád:
+`DISPATCHED` se commituje **před** odesláním a po restartu je vidět. Teprve
+tady má `UNKNOWN` smysl.
+
+### A4.4c Uzavřený union dvojic `state` × `phase`
+
+Nic mimo tuhle tabulku se neukládá ani nevydává:
+
+| `state` | `phase` | Platí | Poznámka |
+|---|---|---|---|
+| `PENDING` | `RECEIVED` | **ano** | přijato, doména nedotčena — bezpečně opakovatelné |
+| `PENDING` | `DISPATCHED` | **jen `LOOKUP`/`TERMINAL_UNKNOWN`** | u `TXN` nemožné (`A4.4a`) |
+| `CONFIRMED` | `SETTLED` | **ano** | |
+| `REJECTED` | `SETTLED` | **ano** | doménové odmítnutí |
+| `UNKNOWN` | `SETTLED` | **jen `LOOKUP`/`TERMINAL_UNKNOWN`** | u `TXN` nemožné |
+| `PENDING` | `SETTLED` | **ne** | `SETTLED` znamená terminální |
+| cokoli terminálního | `RECEIVED` | **ne** | výsledek bez dotyku domény |
+| cokoli terminálního | `DISPATCHED` | **ne** | terminální stav patří k `SETTLED` |
+
+### A4.4d HTTP stav pro každý `state`
+
+| `state` | HTTP | Proč |
+|---|---|---|
+| `CONFIRMED` | `200` | hotovo |
+| `REJECTED` | `200` | požadavek proběhl, doména řekla ne (`A5.5`) |
+| `PENDING` | **`202`** | server přijal a nedokončil; klient se doptá `GET /m1/operations/:id` |
+| `UNKNOWN` | **`200`** | server **dokončil odpověď** — zní „nevím". `5xx` by pobízelo k opakování, což je přesně to, co se u nerozhodnutého efektu dělat nesmí |
+
+`domainRevision` se zvyšuje **jen při skutečné doménové změně**. `REJECTED`
+nezměnil nic, takže revizi **nezvyšuje** — jinak by odmítnutá mutace zneplatnila
+cizí kurzory a vypadala jako změna dat (`A3.2`).
 
 ### A4.5 Body pádu
 
-| Pád | `phase` po restartu | Co musí platit |
+| Pád | Třída | Co je vidět po restartu |
 |---|---|---|
-| před efektem | `RECEIVED` | `PENDING`; opakování se stejným klíčem provede efekt **jednou** |
-| po dotyku domény, před zápisem výsledku | `DISPATCHED` | řeší se podle **třídy trvanlivosti** (`A4.6`) — obecná odpověď neexistuje |
-| po zápisu terminálního stavu | `SETTLED` | lookup vrátí zapsaný stav (`CONFIRMED`/`REJECTED`), **ne `UNKNOWN`** |
+| před dotykem domény | všechny | `PENDING`/`RECEIVED`; opakování provede efekt **jednou** |
+| uvnitř necommitnuté transakce | `TXN` | rollback → `PENDING`/`RECEIVED`. **Nikdy durable `DISPATCHED`** |
+| po commitu transakce | `TXN` | `SETTLED` + `CONFIRMED`/`REJECTED` |
+| po odeslání, před výsledkem | `LOOKUP` | `PENDING`/`DISPATCHED`; reconciliation dorovná |
+| po zápisu terminálního stavu | všechny | zapsaný stav, **ne `UNKNOWN`** |
 
 ### A4.6 Třída trvanlivosti — povinná deklarace pro každou mutaci
 
@@ -579,7 +664,7 @@ a skutečné dohledání je samostatný úkol `MR-25`.
 
 | Třída | Co znamená | Co platí ve fázi `DISPATCHED` |
 |---|---|---|
-| `TXN` | doménový zápis, inkrement `domainRevision` a terminální stav žurnálu jsou **v jedné DB transakci** | fáze `DISPATCHED` po restartu **neexistuje** — buď se commitla celá, nebo nic. Lookup vrací `CONFIRMED`/`REJECTED`, případně `PENDING` k zopakování |
+| `TXN` | CAS `RECEIVED→DISPATCHED`, doménový zápis, inkrement `domainRevision` a terminální stav jsou **v jedné DB transakci** (`A4.4a`) | durable `DISPATCHED` **nikdy nevznikne** — buď se commitla celá, nebo nic. Lookup vrací `CONFIRMED`/`REJECTED`, případně `PENDING` k zopakování. Serverový `UNKNOWN` je zde **nemožný** |
 | `LOOKUP` | efekt je u providera mimo transakci, ale provider má **idempotentní klíč a dotaz na výsledek** | reconciliation při startu efekt dohledá a stav dorovná; `UNKNOWN` je dočasné |
 | `TERMINAL_UNKNOWN` | efekt dohledat **nejde** | `UNKNOWN` je **trvalý** a kontrakt to přiznává; klient nesmí opakovat automaticky |
 
@@ -606,8 +691,8 @@ nepotřebuje, protože si vybral mutace, které se bez ní obejdou.
 ### A4.7 Kanonizace otisku — normativní
 
 Bez tohohle je „stejný otisk" neověřitelné tvrzení. Vstupem je
-`{ protocolVersion, operationType, resource, expectedVersion, payload }`,
-výstupem `sha256` hex.
+`{ protocolVersion, contractVersion, operationType, resource, expectedVersion, payload }`,
+výstupem `sha256` hex. Obě negociované osy jsou uvnitř — viz `A4.1`.
 
 1. **Serializace** je JSON, UTF-8, bez mezer (`JSON.stringify` nad kanonickou
    formou) — jako dnešní `canonicalJson()` v `protocol.js`.
@@ -1012,6 +1097,7 @@ Server počítá otisk nad:
 ```json
 {
   "protocolVersion": "m1.2026-08-12",
+  "contractVersion": "v2",
   "operationType": "settings.write",
   "resource": "settings:llm.temperature",
   "expectedVersion": "v1:2b7e5590aa13c8d4471f6e0392bcda85",
@@ -1763,7 +1849,13 @@ samy. Řádek 6 je rozdělen podle bodů pádu `A4.5` — revize 3 měla v řád
 | 4 | Stejný `operationId`, stejný otisk | **původní** výsledek, žádný druhý efekt |
 | 5 | Stejný `operationId`, jiný otisk | `409 operation_conflict` |
 | 6a | Pád ve fázi `RECEIVED` | `PENDING`; opakování provede efekt **jednou** |
-| 6b | Pád ve fázi `DISPATCHED`, třída `TXN` | stav je terminální — mezistav neexistuje |
+| 6b | Pád uvnitř necommitnuté `TXN` transakce | **právě dvě** pozorovatelné možnosti: rollback na `PENDING`/`RECEIVED`, **nebo** celý terminální commit. **Durable `DISPATCHED` nikdy** |
+| 6d | Dva souběžní vykonavatelé téhož `operationId` | CAS pustí jednoho; druhý dostane původní výsledek nebo `409 operation_conflict`, **nikdy druhý efekt** |
+| 6e | `REJECTED` mutace | `domainRevision` se **nezvýší** — nic se nezměnilo |
+| 6f | Dvojice `state` × `phase` mimo `A4.4c` | **nesmí vzniknout** ani v úložišti, ani na wire |
+| 6g | Serverový `UNKNOWN` u čisté `TXN` mutace | **nemožný**; jeho vznik je porušení kontraktu |
+| 6h | `PENDING` odpověď | HTTP `202`; `UNKNOWN` odpověď HTTP `200` (`A4.4d`) |
+| 6i | Stejný `operationId` a tělo pod `v1` a pak pod `v2` | **různý otisk** → `409 operation_conflict`, ne tichý replay |
 | 6c | Pád ve fázi `DISPATCHED`, třída `LOOKUP` | `UNKNOWN` + reconciliation dorovná |
 | 7 | Pád ve fázi `SETTLED` | lookup vrací zapsaný stav, **ne `UNKNOWN`** |
 | 8 | Kurzor z jiné domény / filtru / řazení | `cursor_unknown`, `restart: true` |
