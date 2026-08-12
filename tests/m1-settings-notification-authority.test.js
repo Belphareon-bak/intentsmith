@@ -546,7 +546,7 @@ function exerciseNotificationMigrationCli() {
       return { action: MIGRATION_ACTION.PURGE };
     }, { processPaths: ['EMAIL_FROM'] });
     const smtpTarget = fullPlan.census.targets.find(target => target.key === 'C3_SMTP_PORT');
-    assertEqual(smtpTarget.processPresent, true);
+    assertEqual(smtpTarget.processPresent, true, 'smtp target must observe own process authority');
     assertEqual(
       smtpTarget.processValueSha256,
       oracleSha256(Buffer.from(JSON.stringify('2525'))),
@@ -578,7 +578,11 @@ function exerciseNotificationMigrationCli() {
       samePlanRetry.stages.find(stage => stage.kind === 'CANONICAL_TRANSFER').status,
       'ALREADY_APPLIED',
     );
-    assertEqual(samePlanRetry.exports.every(entry => entry.changed === false), true);
+    assertEqual(
+      samePlanRetry.exports.every(entry => entry.changed === false),
+      true,
+      'same-plan retry must not republish verified exports',
+    );
 
     const paiassPostimage = JSON.parse(readFileSync(full.paiassInputPath, 'utf8'));
     delete paiassPostimage.notifications.emailAddresses;
@@ -593,8 +597,16 @@ function exerciseNotificationMigrationCli() {
         committed.prepare('SELECT data FROM user_settings WHERE id = 1').get().data,
       );
       assertEqual(committedDocument['c3.notif.smtpPort'], undefined);
-      assertEqual(committedDocument['c3.notif.desktopEnabled'], true);
-      assertEqual(committedDocument.futurePrivate.preserve, true);
+      assertEqual(
+        committedDocument['c3.notif.desktopEnabled'],
+        true,
+        'DB scrub must preserve the safe desktop preference',
+      );
+      assertEqual(
+        committedDocument.futurePrivate.preserve,
+        true,
+        'DB scrub must preserve unknown future data',
+      );
     } finally {
       committed.close();
     }
@@ -1431,9 +1443,13 @@ await testAsync('migration guard and exact legacy notification scrub preserve th
       'fs.linkSync(tempPath, exportPath)',
       'privateSource.snapshot.sha256 === source.postimageSha256',
       'receipts: manifest.paiassReceipts',
-      'paiassStatus: paiass.status',
+      'context.paiassStatus = paiass.status;',
     ]) {
-      assertEqual(migrationCliSource.includes(requiredBoundedSeam), true);
+      assertEqual(
+        migrationCliSource.includes(requiredBoundedSeam),
+        true,
+        `migration CLI source missing seam: ${requiredBoundedSeam}`,
+      );
     }
     assertEqual(migrationCliSource.includes('DELETE FROM user_settings'), false);
     assertEqual(migrationCliSource.includes("startsWith('c3.notif.')"), false);

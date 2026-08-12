@@ -553,6 +553,18 @@ inherited hodnoty; array, null a non-string relevantní value zůstávají typed
 invalid. Ani `05c1d328` proto není PASS a další replacement `S` musí zopakovat
 celý writer gate.
 
+Druhý replacement `3f5875efa558ddafa3f60794e6764e031aebb938`
+prošel přes obě předchozí runtime preflight hrany, ale první program zůstal
+`3/4` na generické source-oracle assertion `Expected "true", got "false"`;
+ostatní tři programy byly opět fail-fast `NOT RUN`. Izolovaná diagnostika
+ukázala jediný stale literal: test hledal neexistující object-literal text
+`paiassStatus: paiass.status`, zatímco skutečný append-only apply tok používá
+`context.paiassStatus = paiass.status;` a dynamická fixture už stav i receipts
+ověřuje. Oprava tedy nemění produkční behavior; srovnává source ratchet se
+skutečnou assignment hranou a přidává jméno chybějícího seamu do failure
+zprávy. Ani `3f5875ef` není PASS a další replacement musí znovu projít celým
+writer gate.
+
 DB census je záměrně neprefixový. Vedle `webhookSecret` a legacy
 `c3.notif.webhookSecret` zahrne všech devět retired typed notification cest a
 stejných deset nested `notifications.*` sensitive cest jako Architect
