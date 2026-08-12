@@ -1029,13 +1029,15 @@ function settingsBackupHarness(options = {}) {
   const saveEnd = source.indexOf('function _bVal', saveStart);
   const bSetStart = source.indexOf('function _bSet', saveEnd);
   const bSetEnd = source.indexOf('/* v91: Feature flags loader', bSetStart);
+  const featureStart = bSetEnd;
+  const featureEnd = source.indexOf('/* v87.3: Info icon helper', featureStart);
   const start = source.indexOf("var _SETTINGS_BACKUP_KIND=");
   const end = source.indexOf('/* I2: Custom CSS injection', start);
   const panelStart = source.indexOf('function settingsBackupPanel()');
   const panelEnd = source.indexOf('/* v91: Feature Flags panel */', panelStart);
   assert.ok(
     loadStart >= 0 && saveStart > loadStart && saveEnd > saveStart
-      && bSetStart >= saveEnd && bSetEnd > bSetStart
+      && bSetStart >= saveEnd && bSetEnd > bSetStart && featureEnd > featureStart
       && start >= 0 && end > start && panelStart >= 0 && panelEnd > panelStart,
     'settings backup slice is missing',
   );
@@ -1045,6 +1047,9 @@ function settingsBackupHarness(options = {}) {
   const requests = [];
   const revokedObjectUrls = [];
   const timers = [];
+  const localStorageEffects = [];
+  const confirmations = [];
+  const requestWaiters = new Map();
   let renders = 0;
   const initialSettings = Object.prototype.hasOwnProperty.call(options, 'initialSettings')
     ? options.initialSettings
@@ -1095,13 +1100,17 @@ function settingsBackupHarness(options = {}) {
     _bCfg: initialSettings,
     _bCfgRevision: options.initialRevision ?? 1,
     _bCfgLoading: false,
+    _featureFlags: options.initialFeatureFlags || { agents: false },
+    _ffLoading: false,
+    _ffGeneration: 0,
+    _ffLoadToken: 0,
     _backendBase: 'http://127.0.0.1:3335',
     _backupMsg: null,
     _bCfgSaveTimer: null,
     clearTimeout(timer) {
       if (timer) timer.cancelled = true;
     },
-    confirm: () => options.confirmResponse !== false,
+    confirm(message) { confirmations.push(message); return options.confirmResponse !== false; },
     document: {
       createElement(tagName) {
         if (tagName === 'a') return anchor;
@@ -1112,7 +1121,13 @@ function settingsBackupHarness(options = {}) {
       },
     },
     fetch(url, init = {}) {
-      requests.push({ url, init });
+      const request = { url, init };
+      requests.push(request);
+      const waiters = requestWaiters.get(url);
+      if (waiters) {
+        requestWaiters.delete(url);
+        for (const resolve of waiters) resolve(request);
+      }
       const fixture = responses.shift();
       if (fixture instanceof Error) return Promise.reject(fixture);
       if (!fixture) throw new Error(`unexpected settings request: ${url}`);
@@ -1127,6 +1142,12 @@ function settingsBackupHarness(options = {}) {
     },
     module: { exports: {} },
     h(type, props, ...children) { return { type, props: props || {}, children }; },
+    localStorage: {
+      clear() { localStorageEffects.push({ method: 'clear' }); },
+      getItem(key) { localStorageEffects.push({ method: 'getItem', key }); return null; },
+      removeItem(key) { localStorageEffects.push({ method: 'removeItem', key }); },
+      setItem(key, value) { localStorageEffects.push({ method: 'setItem', key, value }); },
+    },
     _fs(value) { return value; },
     renderCenter() { renders++; },
     setTimeout(callback, delay) {
@@ -1141,6 +1162,8 @@ function settingsBackupHarness(options = {}) {
       + '\n'
       + source.slice(bSetStart, bSetEnd)
       + '\n'
+      + source.slice(featureStart, featureEnd)
+      + '\n'
       + source.slice(start, end)
       + '\n'
       + source.slice(panelStart, panelEnd)
@@ -1149,12 +1172,15 @@ function settingsBackupHarness(options = {}) {
       + 'importJson:function(encoded,fileName){return _settingsImportDocument(JSON.parse(encoded),fileName);},'
       + 'resetAll:_settingsResetAll,'
       + 'loadConfig:_loadBCfg,'
+      + 'loadFeatures:_loadFeatureFlags,'
       + 'renderBackup:settingsBackupPanel,'
       + 'setConfig:_bSet,'
       + 'portablePaths:_SETTINGS_PORTABLE_PATHS,'
       + 'replaceAndSave:function(encoded){_settingsGeneration++;_bCfg=JSON.parse(encoded);_saveBCfg();},'
       + 'saveConfig:_saveBCfg,'
-      + 'state:function(){return {mutationState:_settingsMutationState,pending:_settingsMutationPending,deliveryUnknown:_settingsDeliveryUnknown,reloadRequired:_settingsReloadRequired,generation:_settingsGeneration,loading:_bCfgLoading,revision:_bCfgRevision};}};',
+      + 'state:function(){return {mutationState:_settingsMutationState,pending:_settingsMutationPending,deliveryUnknown:_settingsDeliveryUnknown,reloadRequired:_settingsReloadRequired,generation:_settingsGeneration,loading:_bCfgLoading,revision:_bCfgRevision};},'
+      + 'resetState:function(){return {policyRevision:_settingsPolicyRevision,localPhase:_settingsResetLocalPhase,featureGeneration:_ffGeneration,featureLoading:_ffLoading,featureToken:_ffLoadToken};},'
+      + 'features:function(){return _featureFlags;}};',
     context,
     { filename: `${CHAT_PANEL.pathname}#settings-backup` },
   );
@@ -1163,8 +1189,19 @@ function settingsBackupHarness(options = {}) {
     downloads,
     fileInputs,
     functions: context.module.exports,
+    confirmations,
     get renders() { return renders; },
     requests,
+    waitForRequest(url) {
+      const existing = requests.find(request => request.url === url);
+      if (existing) return Promise.resolve(existing);
+      return new Promise(resolve => {
+        const waiters = requestWaiters.get(url) || [];
+        waiters.push(resolve);
+        requestWaiters.set(url, waiters);
+      });
+    },
+    localStorageEffects,
     revokedObjectUrls,
     settings: () => hostClone(context._bCfg),
     status: () => hostClone(context._backupMsg),
@@ -1446,6 +1483,35 @@ function settingsResetCommitFixture(overrides = {}) {
   };
 }
 
+function settingsPolicyReadFixture(overrides = {}) {
+  return {
+    ok: true,
+    policy: {
+      schemaVersion: 1,
+      revision: 1,
+      autoFailoverEnabled: true,
+      autoCleanupEnabled: false,
+      autoCleanupDays: 30,
+      lastEventId: 'policy-event-fixture-0001',
+      updatedAtMs: 1_786_313_599_999,
+      ...overrides,
+    },
+  };
+}
+
+function settingsResetResponses(commit, {
+  settings = { revision: 1, settings: {} },
+  policy = settingsPolicyReadFixture(),
+  features = { ok: true, status: 200, body: { features: { agents: true } } },
+} = {}) {
+  return [
+    { ok: true, status: 200, body: settings },
+    { ok: true, status: 200, body: policy },
+    commit,
+    features,
+  ];
+}
+
 function portableSettingsBackendHarness() {
   const db = new Database(':memory:');
   db.pragma('foreign_keys = ON');
@@ -1494,14 +1560,15 @@ function architectSettingsHarness(options = {}) {
   const helperEnd = source.indexOf('// ═══════════════════════════════════════════════════════════════════════════\n// ACCORDION', helperStart);
   const persistenceStart = source.indexOf('function architectSettingsAdoptV2Snapshot(');
   const persistenceEnd = source.indexOf('function applySettings()', persistenceStart);
-  const resetStart = source.indexOf('async function resetSettings()');
+  const resetStart = source.indexOf('async function architectSettingsCompleteResetReceipt()');
+  const resetMarker = source.indexOf('async function resetSettings()', resetStart);
   const resetEnd = source.indexOf('// ═══════════════════════════════════════════════════════════════════════════\n// ABOUT', resetStart);
   const exportStart = source.indexOf('async function exportSettings()');
   const exportEnd = source.indexOf('// ═══════════════════════════════════════════════════════════════════════════\n// TOAST', exportStart);
   assert.ok(
     helperStart >= 0 && helperEnd > helperStart
       && persistenceStart >= 0 && persistenceEnd > persistenceStart
-      && resetStart >= 0 && resetEnd > resetStart
+      && resetStart >= 0 && resetMarker > resetStart && resetEnd > resetMarker
       && exportStart >= 0 && exportEnd > exportStart,
     'Architect portable settings slices are missing',
   );
@@ -1513,6 +1580,7 @@ function architectSettingsHarness(options = {}) {
   const toasts = [];
   const storage = new Map(Object.entries(options.localStorage || {}));
   const storageEffects = { get: [], set: [], remove: [] };
+  const confirmations = [];
   const legacyReceiptStatus = { dataset: { state: 'READY' }, textContent: 'READY' };
   let digestCalls = 0;
   let applySettingsCalls = 0;
@@ -1555,7 +1623,7 @@ function architectSettingsHarness(options = {}) {
         throw new Error('fixture Architect render failure');
       }
     },
-    confirm: () => options.confirmResponse !== false,
+    confirm(message) { confirmations.push(message); return options.confirmResponse !== false; },
     console: { warn() {} },
     crypto: {
       subtle: {
@@ -1609,6 +1677,9 @@ function architectSettingsHarness(options = {}) {
       },
       removeItem(key) {
         storageEffects.remove.push(key);
+        if (options.storageRemoveThrowOnCall === storageEffects.remove.length) {
+          throw new Error('fixture localStorage remove failure');
+        }
         storage.delete(key);
       },
       setItem(key, value) {
@@ -1650,6 +1721,8 @@ function architectSettingsHarness(options = {}) {
       + 'snapshot:function(){return settingsState;},'
       + 'setTheme:function(value){settingsState.appearance.theme=value;},'
       + 'state:function(){return architectSettingsMutationState;},'
+      + 'resetState:function(){return {localPhase:architectSettingsResetLocalPhase,policyRevision:architectSettingsPolicyRevision};},'
+      + 'completeResetReceipt:architectSettingsCompleteResetReceipt,'
       + 'legacyReceiptState:function(){return architectLegacyCredentialReceiptState;}};',
     context,
     { filename: `${ARCHITECT_UI.pathname}#portable-settings` },
@@ -1662,6 +1735,7 @@ function architectSettingsHarness(options = {}) {
     downloads,
     fileInputs,
     functions: context.module.exports,
+    confirmations,
     requests,
     storage,
     storageEffects,
@@ -6075,7 +6149,11 @@ await testAsync('reset is fail-closed and only adopts a committed server snapsho
   const initial = { theme: 'dark', webhookSecret: 'keep-webhook' };
   const failed = settingsBackupHarness({
     initialSettings: initial,
-    responses: [{ ok: false, status: 500, body: { code: 'SETTINGS_RESET_FAILED' } }],
+    responses: settingsResetResponses({
+      ok: false,
+      status: 500,
+      body: { code: 'SETTINGS_RESET_FAILED' },
+    }),
   });
   assert.equal(await failed.functions.resetAll(), null);
   assert.deepEqual(failed.settings(), initial);
@@ -6084,7 +6162,7 @@ await testAsync('reset is fail-closed and only adopts a committed server snapsho
   const committedSettings = {};
   const succeeded = settingsBackupHarness({
     initialSettings: initial,
-    responses: [{
+    responses: settingsResetResponses({
       ok: true,
       status: 200,
       body: settingsResetCommitFixture({
@@ -6092,16 +6170,116 @@ await testAsync('reset is fail-closed and only adopts a committed server snapsho
         runtimeApplied: false,
         runtimeErrorCode: 'SETTINGS_RUNTIME_APPLY_FAILED',
       }),
-    }],
+    }),
   });
   assert.equal((await succeeded.functions.resetAll()).success, true);
-  assert.equal(succeeded.requests[0].url, 'http://127.0.0.1:3335/api/settings/reset');
-  assert.equal(succeeded.requests[0].init.method, 'POST');
-  assert.deepEqual(hostClone(succeeded.requests[0].init.headers), { 'Content-Type': 'application/json' });
-  assert.equal(succeeded.requests[0].init.signal.milliseconds, 3000);
-  assert.deepEqual(JSON.parse(succeeded.requests[0].init.body), {});
+  assert.deepEqual(succeeded.requests.map(request => request.url), [
+    'http://127.0.0.1:3335/api/settings/v2',
+    'http://127.0.0.1:3335/api/system/models/settings',
+    'http://127.0.0.1:3335/api/settings/reset',
+    'http://127.0.0.1:3335/api/features',
+  ]);
+  assert.equal(succeeded.requests[2].init.method, 'POST');
+  assert.deepEqual(hostClone(succeeded.requests[2].init.headers), { 'Content-Type': 'application/json' });
+  assert.equal(succeeded.requests[2].init.signal.milliseconds, 3000);
+  assert.deepEqual(JSON.parse(succeeded.requests[2].init.body), {
+    scope: 'SERVER_SETTINGS_V1',
+    expectedRevision: 1,
+    expectedPolicyRevision: 1,
+  });
   assert.deepEqual(succeeded.settings(), committedSettings);
+  assert.deepEqual(hostClone(succeeded.functions.features()), { agents: true });
+  assert.deepEqual(succeeded.localStorageEffects, []);
   assert.match(succeeded.status().text, /runtime vyžaduje restart/);
+
+  const localRetry = settingsBackupHarness({
+    responses: [
+      ...settingsResetResponses(
+        { ok: true, status: 200, body: settingsResetCommitFixture() },
+        { features: new Error('fixture feature reload failed') },
+      ),
+      { ok: true, status: 200, body: { features: { agents: false } } },
+    ],
+  });
+  assert.equal((await localRetry.functions.resetAll()).success, true);
+  assert.equal(localRetry.functions.resetState().localPhase, 'DEGRADED');
+  assert.equal(localRetry.requests.filter(request => request.init.method === 'POST').length, 1);
+  assert.equal((await localRetry.functions.resetAll()).success, true);
+  assert.equal(localRetry.functions.resetState().localPhase, 'COMPLETE');
+  assert.equal(localRetry.requests.filter(request => request.init.method === 'POST').length, 1);
+  assert.equal(localRetry.requests.at(-1).url, 'http://127.0.0.1:3335/api/features');
+  assert.deepEqual(localRetry.localStorageEffects, []);
+
+  const staleFeature = deferred();
+  const fenced = settingsBackupHarness({
+    responses: [
+      ({ context }) => staleFeature.promise.then(body => ({
+        ok: true,
+        status: 200,
+        async json() {
+          return vm.runInContext(`JSON.parse(${JSON.stringify(JSON.stringify(body))})`, context);
+        },
+      })),
+      ...settingsResetResponses(
+        { ok: true, status: 200, body: settingsResetCommitFixture() },
+        { features: { ok: true, status: 200, body: { features: { agents: true } } } },
+      ),
+    ],
+  });
+  const oldFeatureLoad = fenced.functions.loadFeatures();
+  await drainMicrotasks();
+  assert.equal((await fenced.functions.resetAll()).success, true);
+  staleFeature.resolve({ features: { agents: false, stale: true } });
+  assert.equal(await oldFeatureLoad, false);
+  assert.deepEqual(hostClone(fenced.functions.features()), { agents: true });
+
+  for (const staleOutcome of ['resolve', 'reject']) {
+    const stale = deferred();
+    const replacement = deferred();
+    const overlapping = settingsBackupHarness({
+      responses: [
+        ({ context }) => stale.promise.then(body => ({
+          ok: true,
+          status: 200,
+          async json() {
+            return vm.runInContext(`JSON.parse(${JSON.stringify(JSON.stringify(body))})`, context);
+          },
+        })),
+        ({ context }) => replacement.promise.then(body => ({
+          ok: true,
+          status: 200,
+          async json() {
+            return vm.runInContext(`JSON.parse(${JSON.stringify(JSON.stringify(body))})`, context);
+          },
+        })),
+      ],
+    });
+    const staleLoad = overlapping.functions.loadFeatures(null, true);
+    const replacementLoad = overlapping.functions.loadFeatures(null, true);
+    if (staleOutcome === 'resolve') stale.resolve({ features: { stale: true } });
+    else stale.reject(new Error('fixture stale feature failure'));
+    assert.equal(await staleLoad, false);
+    assert.equal(overlapping.functions.resetState().featureLoading, true);
+    replacement.resolve({ features: { newest: true } });
+    assert.equal(await replacementLoad, true);
+    assert.equal(overlapping.functions.resetState().featureLoading, false);
+    assert.deepEqual(hostClone(overlapping.functions.features()), { newest: true });
+  }
+
+  const failedForce = deferred();
+  const afterFailure = settingsBackupHarness({
+    responses: [
+      () => failedForce.promise,
+      { ok: true, status: 200, body: { features: { recovered: true } } },
+    ],
+  });
+  const failedLoad = afterFailure.functions.loadFeatures(null, true);
+  assert.equal(afterFailure.functions.resetState().featureLoading, true);
+  failedForce.reject(new Error('fixture current feature failure'));
+  assert.equal(await failedLoad, false);
+  assert.equal(afterFailure.functions.resetState().featureLoading, false);
+  assert.equal(await afterFailure.functions.loadFeatures(), true);
+  assert.deepEqual(hostClone(afterFailure.functions.features()), { recovered: true });
 });
 
 await testAsync('successful runtime apply does not claim restart for import or reset', async () => {
@@ -6119,11 +6297,11 @@ await testAsync('successful runtime apply does not claim restart for import or r
   assert.equal(imported.status().text.includes('restart'), false);
 
   const reset = settingsBackupHarness({
-    responses: [{
+    responses: settingsResetResponses({
       ok: true,
       status: 200,
       body: settingsResetCommitFixture(),
-    }],
+    }),
   });
   assert.equal((await reset.functions.resetAll()).success, true);
   assert.equal(reset.status().text.includes('restart'), false);
@@ -6144,7 +6322,9 @@ await testAsync('import and reset reject incomplete or inconsistent runtime comm
       const initial = { theme: 'dark', webhookSecret: 'keep-webhook' };
       const harness = settingsBackupHarness({
         initialSettings: initial,
-        responses: [{ ok: true, status: 200, body }],
+        responses: operation === 'reset'
+          ? settingsResetResponses({ ok: true, status: 200, body })
+          : [{ ok: true, status: 200, body }],
       });
       const result = operation === 'import'
         ? await harness.functions.importJson(JSON.stringify(settingsBackupFixture()), 'invalid-runtime.json')
@@ -6321,6 +6501,8 @@ await testAsync('reset rejects a malformed 2xx commit without changing local set
     { ok: true, success: false, settings: {} },
     { ok: true, success: true, settings: [] },
     settingsResetCommitFixture({ settings: { appearance: { theme: 'light' } } }),
+    settingsResetCommitFixture({ revision: 3 }),
+    settingsResetCommitFixture({ policy: { ...exactReset.policy, revision: 3 } }),
     settingsResetCommitFixture({
       policy: { ...exactReset.policy, autoFailoverEnabled: true },
     }),
@@ -6328,7 +6510,7 @@ await testAsync('reset rejects a malformed 2xx commit without changing local set
     const initial = { theme: 'dark', webhookSecret: 'keep-webhook' };
     const harness = settingsBackupHarness({
       initialSettings: initial,
-      responses: [{ ok: true, status: 200, body }],
+      responses: settingsResetResponses({ ok: true, status: 200, body }),
     });
     assert.equal(await harness.functions.resetAll(), null);
     assert.deepEqual(harness.settings(), initial);
@@ -6391,6 +6573,8 @@ await testAsync('settings recovery cancels queued saves, waits for in-flight sav
           return vm.runInContext(`JSON.parse(${JSON.stringify(JSON.stringify(body))})`, context);
         },
       })),
+      { ok: true, status: 200, body: { revision: 2, settings: { theme: 'stale', webhookSecret: 'preserved-webhook' } } },
+      { ok: true, status: 200, body: settingsPolicyReadFixture() },
       {
         ok: true,
         status: 200,
@@ -6399,6 +6583,7 @@ await testAsync('settings recovery cancels queued saves, waits for in-flight sav
           settings: committedSettings,
         }),
       },
+      { ok: true, status: 200, body: { features: { agents: true } } },
     ],
   });
 
@@ -6427,8 +6612,8 @@ await testAsync('settings recovery cancels queued saves, waits for in-flight sav
 
   saveDone.resolve();
   const resetResult = await reset;
-  assert.equal(harness.requests.length, 2, 'reset did not follow the settled in-flight PUT');
-  assert.equal(harness.requests[1].url, 'http://127.0.0.1:3335/api/settings/reset');
+  assert.equal(harness.requests.length, 5, 'reset did not complete fresh reads, commit and local reload');
+  assert.equal(harness.requests[3].url, 'http://127.0.0.1:3335/api/settings/reset');
   assert.equal(resetResult.success, true);
   assert.deepEqual(harness.settings(), committedSettings);
   assert.equal(
@@ -6440,6 +6625,8 @@ await testAsync('settings recovery cancels queued saves, waits for in-flight sav
   const failed = settingsBackupHarness({
     initialSettings: { theme: 'unsaved' },
     responses: [
+      { ok: true, status: 200, body: { revision: 1, settings: { theme: 'unsaved' } } },
+      { ok: true, status: 200, body: settingsPolicyReadFixture() },
       { ok: false, status: 500, body: { code: 'MODEL_AUTOMATION_POLICY_RESET_FAILED' } },
       { ok: true, status: 200, body: { revision: 2, settings: { theme: 'unsaved' } } },
     ],
@@ -6453,9 +6640,9 @@ await testAsync('settings recovery cancels queued saves, waits for in-flight sav
   assert.ok(resumedTimer, 'failed recovery did not resume the cancelled local save');
   resumedTimer.callback();
   await drainMicrotasks();
-  assert.equal(failed.requests.length, 2, 'definitive rejection did not resume the deferred PUT');
-  assert.equal(failed.requests[1].url, 'http://127.0.0.1:3335/api/settings/v2');
-  assert.deepEqual(JSON.parse(failed.requests[1].init.body), {
+  assert.equal(failed.requests.length, 4, 'definitive rejection did not resume the deferred PUT');
+  assert.equal(failed.requests[3].url, 'http://127.0.0.1:3335/api/settings/v2');
+  assert.deepEqual(JSON.parse(failed.requests[3].init.body), {
     expectedRevision: 1,
     patch: { theme: 'unsaved' },
   });
@@ -6468,7 +6655,11 @@ await testAsync('ambiguous settings delivery fences stale saves and every later 
   ]) {
     const harness = settingsBackupHarness({
       initialSettings: { theme: 'stale-before-reset' },
-      responses: [ambiguousResponse],
+      responses: [
+        { ok: true, status: 200, body: { revision: 1, settings: { theme: 'stale-before-reset' } } },
+        { ok: true, status: 200, body: settingsPolicyReadFixture() },
+        ambiguousResponse,
+      ],
     });
     harness.functions.saveConfig();
     const staleTimer = harness.timers.find(timer => timer.delay === 500);
@@ -6485,7 +6676,7 @@ await testAsync('ambiguous settings delivery fences stale saves and every later 
       loading: false,
       revision: 1,
     });
-    assert.equal(harness.requests.length, 1);
+    assert.equal(harness.requests.length, 3);
     assert.match(harness.status().text, /nelze potvrdit/);
     assert.equal(
       harness.timers.some(timer => timer.delay === 500 && !timer.cancelled),
@@ -6497,7 +6688,7 @@ await testAsync('ambiguous settings delivery fences stale saves and every later 
     assert.deepEqual(harness.settings(), { theme: 'stale-before-reset' });
     assert.equal(await harness.functions.resetAll(), null);
     await drainMicrotasks();
-    assert.equal(harness.requests.length, 1, 'the delivery-unknown fence admitted another write');
+    assert.equal(harness.requests.length, 3, 'the delivery-unknown fence admitted another write');
     assert.equal(
       harness.timers.some(timer => timer.delay === 500 && !timer.cancelled),
       false,
@@ -6510,6 +6701,8 @@ await testAsync('definitive settings rejection resumes exactly one deferred gene
   const harness = settingsBackupHarness({
     initialSettings: { theme: 'locally-edited' },
     responses: [
+      { ok: true, status: 200, body: { revision: 1, settings: { theme: 'locally-edited' } } },
+      { ok: true, status: 200, body: settingsPolicyReadFixture() },
       { ok: false, status: 503, jsonError: new Error('unreadable rejection body') },
       { ok: true, status: 200, body: { revision: 2, settings: { theme: 'locally-edited' } } },
     ],
@@ -6525,9 +6718,9 @@ await testAsync('definitive settings rejection resumes exactly one deferred gene
   assert.equal(resumed.length, 1);
   resumed[0].callback();
   await drainMicrotasks();
-  assert.equal(harness.requests.length, 2);
-  assert.equal(harness.requests[1].url, 'http://127.0.0.1:3335/api/settings/v2');
-  assert.deepEqual(JSON.parse(harness.requests[1].init.body), {
+  assert.equal(harness.requests.length, 4);
+  assert.equal(harness.requests[3].url, 'http://127.0.0.1:3335/api/settings/v2');
+  assert.deepEqual(JSON.parse(harness.requests[3].init.body), {
     expectedRevision: 1,
     patch: { theme: 'locally-edited' },
   });
@@ -6546,6 +6739,8 @@ await testAsync('a settings load admitted before recovery cannot overwrite its c
           return vm.runInContext(`JSON.parse(${JSON.stringify(JSON.stringify(body))})`, context);
         },
       })),
+      { ok: true, status: 200, body: { revision: 1, settings: { theme: 'current' } } },
+      { ok: true, status: 200, body: settingsPolicyReadFixture() },
       {
         ok: true,
         status: 200,
@@ -6553,6 +6748,7 @@ await testAsync('a settings load admitted before recovery cannot overwrite its c
           settings: committedSettings,
         }),
       },
+      { ok: true, status: 200, body: { features: { agents: true } } },
       { ok: true, status: 200, body: { revision: 3, settings: committedSettings } },
     ],
   });
@@ -6560,9 +6756,10 @@ await testAsync('a settings load admitted before recovery cannot overwrite its c
   const load = harness.functions.loadConfig(null, true);
   await drainMicrotasks();
   assert.equal(harness.requests.length, 1);
+  const featureRequest = harness.waitForRequest('http://127.0.0.1:3335/api/features');
   const reset = harness.functions.resetAll();
-  await drainMicrotasks();
-  assert.equal(harness.requests.length, 2);
+  await featureRequest;
+  assert.equal(harness.requests.length, 5);
   assert.equal((await reset).success, true);
   assert.deepEqual(harness.settings(), committedSettings);
 
@@ -6576,8 +6773,8 @@ await testAsync('a settings load admitted before recovery cannot overwrite its c
   assert.ok(saveTimer);
   saveTimer.callback();
   await drainMicrotasks();
-  assert.equal(harness.requests.length, 3);
-  assert.deepEqual(JSON.parse(harness.requests[2].init.body), {
+  assert.equal(harness.requests.length, 6);
+  assert.deepEqual(JSON.parse(harness.requests[5].init.body), {
     expectedRevision: 2,
     patch: committedSettings,
   });
@@ -6595,17 +6792,20 @@ await testAsync('the rendered Backup panel wires exact endpoints and reports Fil
   assert.equal(exportHarness.downloads.length, 1);
 
   const resetHarness = settingsBackupHarness({
-    responses: [{
+    responses: settingsResetResponses({
       ok: true,
       status: 200,
       body: settingsResetCommitFixture(),
-    }],
+    }),
   });
-  const resetButton = findRenderedElement(resetHarness.functions.renderBackup(), 'button', 'Obnovit výchozí');
+  const resetButton = findRenderedElement(resetHarness.functions.renderBackup(), 'button', 'Resetovat serverová nastavení');
   assert.ok(resetButton);
+  const resetRequest = resetHarness.waitForRequest('http://127.0.0.1:3335/api/settings/reset');
   resetButton.props.onClick();
-  await drainMicrotasks();
-  assert.equal(resetHarness.requests[0].url, 'http://127.0.0.1:3335/api/settings/reset');
+  assert.equal(
+    (await resetRequest).url,
+    'http://127.0.0.1:3335/api/settings/reset',
+  );
 
   const validReader = controlledFileReaderClass();
   const importHarness = settingsBackupHarness({
@@ -7328,47 +7528,110 @@ await testAsync('Architect settings reset requires an exact commit and false fac
     localStorage: {
       paiass_settings: '{"appearance":{"theme":"stale"}}',
       paiass_accordion_state: '["system"]',
+      foreign_key: 'PRESERVE_FOREIGN',
     },
     responses: [
+      { ok: true, status: 200, body: { revision: 1, settings: {} } },
+      { ok: true, status: 200, body: settingsPolicyReadFixture() },
       { ok: true, status: 200, body: settingsResetCommitFixture() },
-      { ok: true, status: 200, body: { success: true } },
     ],
   });
   await harness.functions.resetSettings();
-  assert.equal(harness.requests.length, 1);
-  assert.equal(harness.requests[0].url, '/api/settings/reset');
-  assert.equal(harness.requests[0].init.method, 'POST');
-  assert.deepEqual(JSON.parse(harness.requests[0].init.body), {});
-  assert.equal(harness.storage.has('paiass_settings'), true);
+  assert.equal(harness.requests.length, 3);
+  assert.deepEqual(harness.requests.map(request => request.url), [
+    '/api/settings/v2',
+    '/api/system/models/settings',
+    '/api/settings/reset',
+  ]);
+  assert.equal(harness.requests[2].init.method, 'POST');
+  assert.deepEqual(JSON.parse(harness.requests[2].init.body), {
+    scope: 'SERVER_SETTINGS_V1',
+    expectedRevision: 1,
+    expectedPolicyRevision: 1,
+  });
+  assert.equal(harness.storage.has('paiass_settings'), false);
   assert.equal(harness.storage.has('paiass_accordion_state'), true);
+  assert.equal(harness.storage.get('foreign_key'), 'PRESERVE_FOREIGN');
+  assert.deepEqual(harness.storageEffects.remove, ['paiass_settings']);
   assert.equal(harness.functions.state(), 'IDLE');
   assert.equal(harness.functions.snapshot().appearance.theme, 'dark');
   assert.equal(harness.functions.snapshot().notifications.telegramToken, 'RESET_STALE_TOKEN');
   assert.equal(harness.functions.snapshot().futureTopLevelCanary, 'RESET_STALE_FUTURE');
 
   harness.functions.resetAll();
-  assert.equal(harness.requests.length, 1, 'false factory reset performed an HTTP effect');
+  assert.equal(harness.requests.length, 3, 'false factory reset performed an HTTP effect');
   assert.match(harness.toasts.at(-1).title, /Úplné smazání není dostupné/);
 
   assert.equal(await harness.functions.saveSettings(), 'SESSION_ONLY');
-  assert.equal(harness.requests.length, 1, 'session-only fields escaped after reset');
+  assert.equal(harness.requests.length, 3, 'session-only fields escaped after reset');
+
+  for (const failure of [
+    { storageRemoveThrowOnCall: 1 },
+    { applySettingsThrowOnCall: 2 },
+  ]) {
+    const degraded = architectSettingsHarness({
+      ...failure,
+      localStorage: {
+        paiass_settings: 'REMOVE_ONLY_THIS',
+        paiass_accordion_state: '["system"]',
+        foreign_key: 'PRESERVE_FOREIGN',
+      },
+      responses: [
+        { ok: true, status: 200, body: { revision: 1, settings: {} } },
+        { ok: true, status: 200, body: settingsPolicyReadFixture() },
+        { ok: true, status: 200, body: settingsResetCommitFixture() },
+      ],
+    });
+    await degraded.functions.resetSettings();
+    assert.equal(degraded.functions.state(), 'LOCAL_DEGRADED');
+    assert.equal(degraded.functions.resetState().localPhase, 'DEGRADED');
+    assert.equal(degraded.confirmations.length, 1);
+    assert.equal(degraded.requests.filter(request => request.init.method === 'POST').length, 1);
+    const localRetry = degraded.functions.resetSettings();
+    const joinedRetry = degraded.functions.resetSettings();
+    assert.equal(await localRetry, true);
+    assert.equal(await joinedRetry, true);
+    assert.equal(degraded.functions.state(), 'IDLE');
+    assert.equal(degraded.functions.resetState().localPhase, 'COMPLETE');
+    assert.equal(degraded.confirmations.length, 1, 'local retries requested a new server-reset confirmation');
+    assert.equal(degraded.requests.length, 3, 'local retry performed a server request');
+    assert.equal(degraded.requests.filter(request => request.init.method === 'POST').length, 1);
+    assert.equal(degraded.storageEffects.remove.length, 2, 'concurrent local retry did not join one operation');
+    assert.equal(degraded.storage.has('paiass_settings'), false);
+    assert.equal(degraded.storage.has('paiass_accordion_state'), true);
+    assert.equal(degraded.storage.get('foreign_key'), 'PRESERVE_FOREIGN');
+  }
 });
 
 await testAsync('Architect rejects a nonempty or nondefault reset commit', async () => {
   const exactReset = settingsResetCommitFixture();
   for (const body of [
     settingsResetCommitFixture({ settings: { appearance: { theme: 'light' } } }),
+    settingsResetCommitFixture({ revision: 3 }),
+    settingsResetCommitFixture({ policy: { ...exactReset.policy, revision: 3 } }),
     settingsResetCommitFixture({
       policy: { ...exactReset.policy, autoCleanupEnabled: true },
     }),
   ]) {
     const harness = architectSettingsHarness({
       initialSettings: { appearance: { theme: 'system' } },
-      responses: [{ ok: true, status: 200, body }],
+      localStorage: {
+        paiass_settings: 'PRESERVE_BEFORE_RECEIPT',
+        paiass_accordion_state: '["system"]',
+      },
+      responses: [
+        { ok: true, status: 200, body: { revision: 1, settings: { appearance: { theme: 'system' } } } },
+        { ok: true, status: 200, body: settingsPolicyReadFixture() },
+        { ok: true, status: 200, body },
+        { ok: true, status: 200, body: { revision: 1, settings: { appearance: { theme: 'system' } } } },
+      ],
     });
     await harness.functions.resetSettings();
-    assert.equal(harness.functions.state(), 'DELIVERY_UNKNOWN');
+    assert.equal(harness.functions.state(), 'IDLE');
     assert.equal(harness.functions.snapshot().appearance.theme, 'system');
+    assert.equal(harness.storage.get('paiass_settings'), 'PRESERVE_BEFORE_RECEIPT');
+    assert.deepEqual(harness.storageEffects.remove, []);
+    assert.equal(harness.requests.filter(request => request.init.method === 'POST').length, 1);
   }
 });
 
@@ -7384,6 +7647,8 @@ await testAsync('Architect recovery revokes an older settings read before it can
           return vm.runInContext(`JSON.parse(${JSON.stringify(JSON.stringify(body))})`, context);
         },
       })),
+      { ok: true, status: 200, body: { revision: 1, settings: { appearance: { theme: 'system' } } } },
+      { ok: true, status: 200, body: settingsPolicyReadFixture() },
       { ok: true, status: 200, body: settingsResetCommitFixture() },
     ],
   });

@@ -565,8 +565,13 @@ is not a global privacy erase.
 
 | Method | Path | Body | Response | Side Effects |
 |--------|------|------|----------|-------------|
-| `GET` | `/api/settings` | — | `{...user_settings}` | — |
-| `POST` | `/api/settings` | `{...settings}` | `{success, featuresChanged}` | Saves to DB; applies feature flags |
+| `GET` | `/api/settings` | — | `410 USER_SETTINGS_LEGACY_RETIRED` | None |
+| `POST` | `/api/settings` | — | `410 USER_SETTINGS_LEGACY_RETIRED` | None; body is not parsed |
+| `GET` | `/api/settings/v2` | — | `{revision, settings}` | Exact public 46-path projection |
+| `PUT` | `/api/settings/v2` | `{expectedRevision, patch}` | `{revision, settings}` | Revision-CAS update of GENERIC-owned paths |
+| `GET` | `/api/settings/backup` | — | `{ok, backup}` | Read-only portable settings export |
+| `POST` | `/api/settings/import` | `{backup, expectedRevision}` | Audited settings and policy commit receipt | One atomic settings/policy import |
+| `POST` | `/api/settings/reset` | `{"scope":"SERVER_SETTINGS_V1","expectedRevision":n,"expectedPolicyRevision":n}` | Audited `+1/+1` reset receipt or exact `400`/`409` code | One atomic owner-only settings and policy reset; unknown data and local UI data are preserved |
 | `GET` | `/api/features` | — | `{features: {...}}` | — |
 | `POST` | `/api/features/reset` | — | `{ok, features}` | Resets to defaults |
 | `POST` | `/api/features/:name` | `{enabled: bool}` | `{ok, features}` | Toggles feature flag at runtime |
@@ -600,7 +605,7 @@ is not a global privacy erase.
 | `GET` | `/api/audit` | `?conversation_id&limit=100` | `{audit, drift}` | — |
 | `GET` | `/api/logs` | — | `{logs}` (1000 max) | — |
 | `GET` | `/api/logs/export` | — | Text file (attachment) | — |
-| `POST` | `/api/reset` | — | `{success}` | Clears user_settings |
+| `POST` | `/api/reset` | Body is not parsed | `410 {"ok":false,"code":"LEGACY_RESET_ALIAS_RETIRED"}` | Retired legacy alias; no DB, runtime, network, or client-local effect |
 | `POST` | `/api/feedback` | `{message, category?, version?, context?}` | `{ok, id}` | Rate-limited (1/30s); stores in DB |
 | `POST` | `/api/feedback/:id/attach` | `{name, type, data}` | `{ok, filename, size}` | Writes attachment to disk (max 2MB per file, 5MB total) |
 | `GET` | `/api/feedback` | — | Feedback rows (100 max) | — |
