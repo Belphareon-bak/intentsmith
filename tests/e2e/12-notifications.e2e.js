@@ -1,6 +1,24 @@
 // tests/e2e/12-notifications.e2e.js — Notification channels, config, test send
 // ══════════════════════════════════════════════════════════════════════════════
+// WP026 source-contract update only. This program is explicitly NOT RUN / BLOCKED
+// for the secret-storage subject; no external or full-product evidence is claimed.
 import { suite, testAsync, assert, assertEqual, summary, api, waitForServer } from './_helpers.js';
+
+const NOTIFICATION_ENV_KEYS = Object.freeze([
+  'C3_SMTP_HOST',
+  'C3_SMTP_PORT',
+  'C3_SMTP_USER',
+  'C3_SMTP_PASS',
+  'C3_SMTP_FROM',
+  'C3_TELEGRAM_BOT_TOKEN',
+  'C3_TELEGRAM_CHAT_ID',
+  'C3_NTFY_SERVER',
+  'C3_NTFY_TOPIC',
+  'C3_NTFY_TOKEN',
+  'C3_WEBHOOK_URL',
+  'C3_WEBHOOK_SECRET',
+]);
+let sourcesBeforeRejectedPost = null;
 
 await waitForServer();
 
@@ -18,34 +36,47 @@ await testAsync('returns channels list', async () => {
   }
 });
 
-// ── Config ──────────────────────────────────────────────────────────────────
-suite('Notification Config CRUD');
+// ── Read-only credential source status ──────────────────────────────────────
+suite('Notification Config Source Status');
 
-await testAsync('GET config returns shape', async () => {
+await testAsync('GET config returns exact status-only 12-key shape', async () => {
   const { status, data } = await api('GET', '/api/notifications/config');
   assertEqual(status, 200);
-  assert(typeof data.emailEnabled === 'boolean', 'emailEnabled must be boolean');
-  assert(typeof data.smtpPort === 'number', 'smtpPort must be numeric');
+  assertEqual(JSON.stringify(Object.keys(data)), JSON.stringify(['sources']));
+  assertEqual(
+    JSON.stringify(Object.keys(data.sources).sort()),
+    JSON.stringify([...NOTIFICATION_ENV_KEYS].sort()),
+  );
+  for (const key of NOTIFICATION_ENV_KEYS) {
+    const leaf = data.sources[key];
+    assertEqual(JSON.stringify(Object.keys(leaf).sort()), JSON.stringify(['configured', 'source']));
+    assert(typeof leaf.configured === 'boolean', `${key}.configured must be boolean`);
+    assert(
+      leaf.source === 'PROCESS_ENV' || leaf.source === 'ROOT_ENV_FILE',
+      `${key}.source must be canonical`,
+    );
+  }
+  sourcesBeforeRejectedPost = JSON.stringify(data.sources);
 });
 
-await testAsync('POST config saves settings', async () => {
+await testAsync('POST config is retired before mutation', async () => {
   const { status, data } = await api('POST', '/api/notifications/config', {
     emailEnabled: false,
     smtpPort: 2525,
     emailOnLifecycle: true,
     emailOnWorker: false,
   });
-  assertEqual(status, 200);
-  assertEqual(data.success, true);
+  assertEqual(status, 410);
+  assertEqual(JSON.stringify(data), JSON.stringify({
+    ok: false,
+    code: 'CREDENTIAL_SOURCE_READ_ONLY',
+  }));
 });
 
-await testAsync('saved notification config persists', async () => {
+await testAsync('rejected POST does not change source status', async () => {
   const { status, data } = await api('GET', '/api/notifications/config');
   assertEqual(status, 200);
-  assertEqual(data.emailEnabled, false);
-  assertEqual(data.smtpPort, 2525);
-  assertEqual(data.emailOnLifecycle, true);
-  assertEqual(data.emailOnWorker, false);
+  assertEqual(JSON.stringify(data.sources), sourcesBeforeRejectedPost);
 });
 
 // ── Test Send ───────────────────────────────────────────────────────────────

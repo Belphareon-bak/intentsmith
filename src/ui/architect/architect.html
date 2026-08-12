@@ -504,6 +504,13 @@
           <label class="settings-label">Retained externí kandidáti</label>
           <p class="settings-sublabel">Desktop, email, Telegram, webhook a push/ntfy jsou pouze operátorsky konfigurované kandidáty bez UI ovládání a bez potvrzení doručení.</p>
           <p class="settings-note">Slack, Discord a SMS nejsou podporované.</p>
+          <div class="settings-divider"></div>
+          <label class="settings-label">Legacy credential cleanup</label>
+          <p class="settings-sublabel">Načte pouze lokální ověřený V1 receipt. Raw hodnoty neopouštějí prohlížeč.</p>
+          <button class="btn btn-secondary btn-sm" onclick="importLegacyCredentialReceipt()">
+            Aplikovat offline receipt
+          </button>
+          <p class="settings-note">Stav: <span id="legacy-credential-receipt-status" data-state="READY">READY</span></p>
         </div>
       </div>
     </div>

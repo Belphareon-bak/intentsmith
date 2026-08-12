@@ -5,7 +5,55 @@ import { NotificationRouter } from '../src/notifications/service.js';
 import { NotificationChannel } from '../src/notifications/channels/base.js';
 import { TelegramChannel } from '../src/notifications/channels/telegram.js';
 import { EmailChannel } from '../src/notifications/channels/email.js';
+import { readNotificationChannelPolicy } from '../src/notifications/channel-policy.js';
 import { toHTML, toMarkdown, toPlainText } from '../src/notifications/templates/default.js';
+
+const NOTIFICATION_ENV_KEYS = Object.freeze([
+  'C3_SMTP_HOST',
+  'C3_SMTP_PORT',
+  'C3_SMTP_USER',
+  'C3_SMTP_PASS',
+  'C3_SMTP_FROM',
+  'C3_TELEGRAM_BOT_TOKEN',
+  'C3_TELEGRAM_CHAT_ID',
+  'C3_NTFY_SERVER',
+  'C3_NTFY_TOPIC',
+  'C3_NTFY_TOKEN',
+  'C3_WEBHOOK_URL',
+  'C3_WEBHOOK_SECRET',
+]);
+const testNotificationAuthorities = new WeakSet();
+
+function createTestNotificationAuthority(values = {}) {
+  const selected = new Map(NOTIFICATION_ENV_KEYS.map(key => [key, values[key] ?? '']));
+  const sources = Object.freeze(Object.fromEntries(
+    NOTIFICATION_ENV_KEYS.map(key => [key, Object.freeze({
+      configured: selected.get(key).length > 0,
+      source: 'PROCESS_ENV',
+    })]),
+  ));
+  const authority = Object.create(null);
+  Object.defineProperties(authority, {
+    status: { value: () => sources },
+    value: { value: key => selected.get(key) },
+  });
+  Object.freeze(authority);
+  testNotificationAuthorities.add(authority);
+  return authority;
+}
+
+function requireTestNotificationAuthority(authority) {
+  if (!testNotificationAuthorities.has(authority)) {
+    throw new TypeError('NOTIFICATION_ENVIRONMENT_AUTHORITY_INVALID');
+  }
+  return authority;
+}
+
+const emptyNotificationAuthority = createTestNotificationAuthority();
+const enabledTestChannelPolicy = readNotificationChannelPolicy({
+  C3_ENABLE_NOTIFICATION_EMAIL: 'true',
+  C3_ENABLE_NOTIFICATION_TELEGRAM: 'true',
+});
 
 let passed = 0;
 let failed = 0;
@@ -31,33 +79,33 @@ function assert(condition, name, detail = '') {
 console.log('\n══════ 1. NotificationRouter ══════');
 
 // 1.1 Constructor
-const router = new NotificationRouter();
+const router = new NotificationRouter({ channelPolicy: enabledTestChannelPolicy });
 assert(router instanceof NotificationRouter, 'Router instantiates');
 assert(router.channels instanceof Map, 'Router has channels map');
-assert(router.getAvailableChannels().length === 0, 'No channels initially');
+assert(router.getAvailableChannels().length === 1, 'Only in_app is available initially');
 
 // 1.2 Register channels
 class MockChannel extends NotificationChannel {
-  get name() { return 'mock'; }
+  get name() { return 'email'; }
   async send(n) { return { delivered: true, messageId: 'mock-123' }; }
   async verify() { return { ok: true }; }
 }
 
 class FailChannel extends NotificationChannel {
-  get name() { return 'fail'; }
+  get name() { return 'telegram'; }
   async send(n) { return { delivered: false, error: 'simulated failure' }; }
   async verify() { return { ok: false, error: 'not configured' }; }
 }
 
 router.registerChannel(new MockChannel());
 router.registerChannel(new FailChannel());
-assert(router.getAvailableChannels().length === 2, 'Two channels registered');
-assert(router.getAvailableChannels().includes('mock'), 'Mock channel available');
-assert(router.getAvailableChannels().includes('fail'), 'Fail channel available');
+assert(router.getAvailableChannels().length === 3, 'in_app plus two channels registered');
+assert(router.getAvailableChannels().includes('email'), 'Mock email channel available');
+assert(router.getAvailableChannels().includes('telegram'), 'Failing Telegram channel available');
 
 // 1.3 Send via mock channel
 const mockResult = await router.send({
-  channel: 'mock',
+  channel: 'email',
   recipient: 'test@test.com',
   title: 'Test',
   body: 'Test body',
@@ -65,12 +113,12 @@ const mockResult = await router.send({
   agentId: 'test-agent',
 });
 assert(mockResult.delivered === true, 'Mock delivery succeeds');
-assert(mockResult.channel === 'mock', 'Correct channel name in result');
+assert(mockResult.channel === 'email', 'Correct channel name in result');
 assert(mockResult.messageId === 'mock-123', 'Message ID returned');
 
 // 1.4 Send via fail channel
 const failResult = await router.send({
-  channel: 'fail',
+  channel: 'telegram',
   recipient: 'test@test.com',
   title: 'Test',
   body: 'Test body',
@@ -90,7 +138,7 @@ const noChannelResult = await router.send({
   agentId: 'test',
 });
 assert(noChannelResult.delivered === false, 'Non-existent channel fails gracefully');
-assert(noChannelResult.error.includes('not registered'), 'Error mentions registration');
+assert(noChannelResult.code === 'NOTIFICATION_CHANNEL_UNSUPPORTED', 'Unsupported channel is typed');
 
 // 1.6 in_app channel always succeeds
 const inAppResult = await router.send({
@@ -105,10 +153,10 @@ assert(inAppResult.delivered === true, 'in_app channel always delivered');
 assert(inAppResult.channel === 'in_app', 'in_app channel name correct');
 
 // 1.7 Test channel
-const testOk = await router.testChannel('mock', 'recipient');
+const testOk = await router.testChannel('email', 'recipient');
 assert(testOk.ok === true, 'Test channel succeeds for mock');
 
-const testFail = await router.testChannel('fail', 'recipient');
+const testFail = await router.testChannel('telegram', 'recipient');
 assert(testFail.ok === false, 'Test channel fails for fail channel');
 
 const testMissing = await router.testChannel('nonexistent', 'x');
@@ -145,7 +193,11 @@ assert(plain.includes('Test Alert'), 'Plain text contains title');
 console.log('\n══════ 3. Channel Classes ══════');
 
 // 3.1 TelegramChannel without config
-const tg = new TelegramChannel({ logger: { info: () => {}, error: () => {}, warn: () => {} } });
+const tg = new TelegramChannel({
+  logger: { info: () => {}, error: () => {}, warn: () => {} },
+  notificationEnvironmentAuthority: emptyNotificationAuthority,
+  requireNotificationEnvironmentAuthority: requireTestNotificationAuthority,
+});
 assert(tg.name === 'telegram', 'Telegram channel name correct');
 
 const tgVerify = await tg.verify();
@@ -155,7 +207,11 @@ const tgSend = await tg.send({ recipient: '123', title: 'X', body: 'Y', priority
 assert(tgSend.delivered === false, 'Telegram send fails without token');
 
 // 3.2 EmailChannel without config
-const email = new EmailChannel({ logger: { info: () => {}, error: () => {}, warn: () => {} } });
+const email = new EmailChannel({
+  logger: { info: () => {}, error: () => {}, warn: () => {} },
+  notificationEnvironmentAuthority: emptyNotificationAuthority,
+  requireNotificationEnvironmentAuthority: requireTestNotificationAuthority,
+});
 assert(email.name === 'email', 'Email channel name correct');
 
 const emailVerify = await email.verify();
@@ -352,7 +408,7 @@ import { DigestAggregator } from '../src/notifications/digest.js';
 
 // 5.1 Pipeline immediate delivery
 {
-  const mockRouter = new NotificationRouter();
+  const mockRouter = new NotificationRouter({ channelPolicy: enabledTestChannelPolicy });
   mockRouter.registerChannel(new MockChannel());
   const policy = new NotificationPolicy();
   const digest = new DigestAggregator();
@@ -360,7 +416,7 @@ import { DigestAggregator } from '../src/notifications/digest.js';
 
   const result = await pipeline.process({
     agent_id: 'test',
-    channel: 'mock',
+    channel: 'email',
     recipient: 'x',
     title: 'Test',
     body: 'Hello',
@@ -373,14 +429,14 @@ import { DigestAggregator } from '../src/notifications/digest.js';
 
 // 5.2 Pipeline digest buffering
 {
-  const mockRouter = new NotificationRouter();
+  const mockRouter = new NotificationRouter({ channelPolicy: enabledTestChannelPolicy });
   mockRouter.registerChannel(new MockChannel());
   const policy = new NotificationPolicy();
   const digest = new DigestAggregator();
   const pipeline = new NotificationPipeline({ router: mockRouter, policy, digest });
 
   const result = await pipeline.process(
-    { agent_id: 'test', channel: 'mock', recipient: 'x', title: 'Test', body: 'Hello', priority: 'low' },
+    { agent_id: 'test', channel: 'email', recipient: 'x', title: 'Test', body: 'Hello', priority: 'low' },
     { mode: 'digest', digest_schedule: '0 18 * * *' }
   );
   assert(result.delivered === false, 'Digest does not deliver immediately');
@@ -397,7 +453,7 @@ import { DigestAggregator } from '../src/notifications/digest.js';
   const pipeline = new NotificationPipeline({ router: mockRouter, policy, digest });
 
   const result = await pipeline.process({
-    agent_id: 'test', channel: 'mock', recipient: 'x', title: 'Test', body: 'Hello', priority: 'normal',
+    agent_id: 'test', channel: 'email', recipient: 'x', title: 'Test', body: 'Hello', priority: 'normal',
   });
   assert(result.delivered === false, 'Muted pipeline does not deliver');
   assert(result.decision === 'drop', 'Pipeline reports drop decision');
@@ -411,7 +467,7 @@ import { DigestAggregator } from '../src/notifications/digest.js';
   const pipeline = new NotificationPipeline({ router: mockRouter, policy, digest });
 
   const preview = pipeline.preview({
-    agent_id: 'test', channel: 'mock', recipient: 'x', title: 'Test', body: 'Hello', priority: 'normal',
+    agent_id: 'test', channel: 'email', recipient: 'x', title: 'Test', body: 'Hello', priority: 'normal',
   });
   assert(preview.would_send === true, 'Preview: would_send for immediate');
   assert(preview.decision === 'immediate', 'Preview: correct decision');
@@ -426,7 +482,7 @@ import { DigestAggregator } from '../src/notifications/digest.js';
   const pipeline = new NotificationPipeline({ router: mockRouter, policy, digest });
 
   const preview = pipeline.preview(
-    { agent_id: 'test', channel: 'mock', recipient: 'x', title: 'Test', body: 'Hello', priority: 'low' },
+    { agent_id: 'test', channel: 'email', recipient: 'x', title: 'Test', body: 'Hello', priority: 'low' },
     { mode: 'digest', digest_schedule: '0 18 * * *' }
   );
   assert(preview.would_send === false, 'Preview: would_send false for digest');

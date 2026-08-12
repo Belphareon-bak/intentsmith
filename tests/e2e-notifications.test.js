@@ -3,10 +3,13 @@
 //
 // Tests REAL notification delivery through email, telegram, and full pipeline.
 // Requires environment variables to be set — tests skip gracefully if not configured.
+// WP026 compatibility note: this external program is NOT RUN / BLOCKED for the
+// secret-storage subject; this file receives source-contract alignment only.
 //
 // Run: node tests/e2e-notifications.test.js
 //
 // Required env vars:
+//   C3_ENABLE_NOTIFICATION_EMAIL=true and/or C3_ENABLE_NOTIFICATION_TELEGRAM=true
 //   C3_SMTP_HOST, C3_SMTP_PORT, C3_SMTP_USER, C3_SMTP_PASS, C3_SMTP_FROM
 //   C3_TELEGRAM_BOT_TOKEN, C3_TELEGRAM_CHAT_ID
 // ══════════════════════════════════════════════════════════════════════════════
@@ -14,6 +17,12 @@
 import { EmailChannel } from '../src/notifications/channels/email.js';
 import { TelegramChannel } from '../src/notifications/channels/telegram.js';
 import { createNotificationRouter, createNotificationPipeline } from '../src/notifications/index.js';
+import {
+  notificationEnvironmentAuthority,
+  requireNotificationEnvironmentAuthority,
+  webhookSecretAuthority,
+  requireWebhookSecretAuthority,
+} from '../src/runtime-environment.js';
 
 let passed = 0;
 let failed = 0;
@@ -48,6 +57,17 @@ const logger = {
   debug: () => {},
 };
 
+const notificationChannelDeps = {
+  logger,
+  notificationEnvironmentAuthority,
+  requireNotificationEnvironmentAuthority,
+};
+const notificationFactoryDeps = {
+  ...notificationChannelDeps,
+  webhookSecretAuthority,
+  requireWebhookSecretAuthority,
+};
+
 const testNotification = {
   title: 'C3 E2E Test',
   body: `Toto je testovaci notifikace z C3 E2E testu.\nCas: ${new Date().toLocaleString('cs-CZ', { timeZone: 'Europe/Prague' })}`,
@@ -55,18 +75,29 @@ const testNotification = {
   agentId: 'e2e-test',
 };
 
-const hasSmtp = !!(process.env.C3_SMTP_HOST && process.env.C3_SMTP_USER && process.env.C3_SMTP_PASS);
-const hasTelegram = !!(process.env.C3_TELEGRAM_BOT_TOKEN && process.env.C3_TELEGRAM_CHAT_ID);
+const notificationSources = notificationEnvironmentAuthority.status();
+const emailOptedIn = process.env.C3_ENABLE_NOTIFICATION_EMAIL === 'true';
+const telegramOptedIn = process.env.C3_ENABLE_NOTIFICATION_TELEGRAM === 'true';
+const hasSmtp = emailOptedIn
+  && notificationSources.C3_SMTP_HOST.configured
+  && notificationSources.C3_SMTP_USER.configured
+  && notificationSources.C3_SMTP_PASS.configured;
+const hasTelegram = telegramOptedIn
+  && notificationSources.C3_TELEGRAM_BOT_TOKEN.configured
+  && notificationSources.C3_TELEGRAM_CHAT_ID.configured;
+const emailRecipient = notificationEnvironmentAuthority.value('C3_SMTP_FROM')
+  || notificationEnvironmentAuthority.value('C3_SMTP_USER');
+const telegramRecipient = notificationEnvironmentAuthority.value('C3_TELEGRAM_CHAT_ID');
 
 console.log('\n══════ B0: E2E Notification Verification ══════');
-console.log(`  SMTP configured: ${hasSmtp ? 'YES' : 'NO'}`);
-console.log(`  Telegram configured: ${hasTelegram ? 'YES' : 'NO'}\n`);
+console.log(`  SMTP E2E eligible (opt-in + key presence): ${hasSmtp ? 'YES' : 'NO'}`);
+console.log(`  Telegram E2E eligible (opt-in + key presence): ${hasTelegram ? 'YES' : 'NO'}\n`);
 
 // ══════════════════════════════════════════════════════════════════════════════
 console.log('── 1. Email Channel ──');
 
 if (hasSmtp) {
-  const email = new EmailChannel({ logger });
+  const email = new EmailChannel(notificationChannelDeps);
 
   // 1.1 Verify SMTP connection
   try {
@@ -78,25 +109,24 @@ if (hasSmtp) {
 
   // 1.2 Send real email
   try {
-    const recipient = process.env.C3_SMTP_FROM || process.env.C3_SMTP_USER;
-    const sendResult = await email.send({ ...testNotification, recipient });
+    const sendResult = await email.send({ ...testNotification, recipient: emailRecipient });
     assert(sendResult.delivered === true, 'Email send() delivers', `delivered=${sendResult.delivered}, error=${sendResult.error}`);
     if (sendResult.delivered) {
-      console.log(`    → Sent to: ${recipient}, messageId: ${sendResult.messageId}`);
+      console.log(`    → Sent to caller-supplied recipient, messageId: ${sendResult.messageId}`);
     }
   } catch (err) {
     fail('Email send() delivers', `threw: ${err.message}`);
   }
 } else {
-  skip('Email verify()', 'C3_SMTP_* not set');
-  skip('Email send()', 'C3_SMTP_* not set');
+  skip('Email verify()', 'email opt-in or required C3_SMTP_* presence missing');
+  skip('Email send()', 'email opt-in or required C3_SMTP_* presence missing');
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
 console.log('\n── 2. Telegram Channel ──');
 
 if (hasTelegram) {
-  const telegram = new TelegramChannel({ logger });
+  const telegram = new TelegramChannel(notificationChannelDeps);
 
   // 2.1 Verify bot token
   try {
@@ -108,11 +138,10 @@ if (hasTelegram) {
 
   // 2.2 Send real Telegram message
   try {
-    const chatId = process.env.C3_TELEGRAM_CHAT_ID;
-    const sendResult = await telegram.send({ ...testNotification, recipient: chatId });
+    const sendResult = await telegram.send({ ...testNotification, recipient: telegramRecipient });
     assert(sendResult.delivered === true, 'Telegram send() delivers', `delivered=${sendResult.delivered}, error=${sendResult.error}`);
     if (sendResult.delivered) {
-      console.log(`    → Sent to chat: ${chatId}, messageId: ${sendResult.messageId}`);
+      console.log(`    → Sent to caller-supplied chat, messageId: ${sendResult.messageId}`);
     }
   } catch (err) {
     fail('Telegram send() delivers', `threw: ${err.message}`);
@@ -125,7 +154,7 @@ if (hasTelegram) {
       body: 'Cena: 1.500 Kc (sleva -20%) [Praha].\nDalsi radek s ~tildem~ a `kodem`.',
       priority: 'high',
       agentId: 'e2e-markdown-test',
-      recipient: process.env.C3_TELEGRAM_CHAT_ID,
+      recipient: telegramRecipient,
     };
     const sendResult = await telegram.send(specialNotification);
     assert(sendResult.delivered === true, 'Telegram send() handles special chars', `delivered=${sendResult.delivered}, error=${sendResult.error}`);
@@ -133,43 +162,42 @@ if (hasTelegram) {
     fail('Telegram send() handles special chars', `threw: ${err.message}`);
   }
 } else {
-  skip('Telegram verify()', 'C3_TELEGRAM_* not set');
-  skip('Telegram send()', 'C3_TELEGRAM_* not set');
-  skip('Telegram special chars', 'C3_TELEGRAM_* not set');
+  skip('Telegram verify()', 'Telegram opt-in or required canonical key presence missing');
+  skip('Telegram send()', 'Telegram opt-in or required canonical key presence missing');
+  skip('Telegram special chars', 'Telegram opt-in or required canonical key presence missing');
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
 console.log('\n── 3. Notification Router ──');
 
 {
-  const router = createNotificationRouter();
+  const router = createNotificationRouter(notificationFactoryDeps);
   const channels = router.getAvailableChannels();
-  assert(channels.includes('email'), 'Router has email channel');
-  assert(channels.includes('telegram'), 'Router has telegram channel');
+  assert(channels.includes('email') === emailOptedIn, 'Router email registration matches opt-in');
+  assert(channels.includes('telegram') === telegramOptedIn, 'Router Telegram registration matches opt-in');
 
   // 3.1 testChannel for telegram
   if (hasTelegram) {
     try {
-      const result = await router.testChannel('telegram', process.env.C3_TELEGRAM_CHAT_ID);
+      const result = await router.testChannel('telegram', telegramRecipient);
       assert(result.ok === true || result.delivered === true, 'Router testChannel(telegram) succeeds', `result=${JSON.stringify(result)}`);
     } catch (err) {
       fail('Router testChannel(telegram)', `threw: ${err.message}`);
     }
   } else {
-    skip('Router testChannel(telegram)', 'C3_TELEGRAM_* not set');
+    skip('Router testChannel(telegram)', 'Telegram opt-in or canonical key presence missing');
   }
 
   // 3.2 testChannel for email
   if (hasSmtp) {
     try {
-      const recipient = process.env.C3_SMTP_FROM || process.env.C3_SMTP_USER;
-      const result = await router.testChannel('email', recipient);
+      const result = await router.testChannel('email', emailRecipient);
       assert(result.ok === true || result.delivered === true, 'Router testChannel(email) succeeds', `result=${JSON.stringify(result)}`);
     } catch (err) {
       fail('Router testChannel(email)', `threw: ${err.message}`);
     }
   } else {
-    skip('Router testChannel(email)', 'C3_SMTP_* not set');
+    skip('Router testChannel(email)', 'email opt-in or canonical key presence missing');
   }
 }
 
@@ -178,12 +206,12 @@ console.log('\n── 4. Full Pipeline (Telegram) ──');
 
 if (hasTelegram) {
   try {
-    const { pipeline } = createNotificationPipeline();
+    const { pipeline } = createNotificationPipeline(notificationFactoryDeps);
 
     const ctx = {
       agent_id: 'e2e-pipeline-test',
       channel: 'telegram',
-      recipient: process.env.C3_TELEGRAM_CHAT_ID,
+      recipient: telegramRecipient,
       title: 'Pipeline E2E Test',
       body: 'Tato zprava prosla celym pipeline: policy → router → telegram.',
       priority: 'normal',
@@ -202,8 +230,8 @@ if (hasTelegram) {
     fail('Pipeline E2E', `threw: ${err.message}`);
   }
 } else {
-  skip('Pipeline E2E (telegram)', 'C3_TELEGRAM_* not set');
-  skip('Pipeline decision check', 'C3_TELEGRAM_* not set');
+  skip('Pipeline E2E (telegram)', 'Telegram opt-in or canonical key presence missing');
+  skip('Pipeline decision check', 'Telegram opt-in or canonical key presence missing');
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -211,13 +239,12 @@ console.log('\n── 5. Full Pipeline (Email) ──');
 
 if (hasSmtp) {
   try {
-    const { pipeline } = createNotificationPipeline();
-    const recipient = process.env.C3_SMTP_FROM || process.env.C3_SMTP_USER;
+    const { pipeline } = createNotificationPipeline(notificationFactoryDeps);
 
     const ctx = {
       agent_id: 'e2e-pipeline-email',
       channel: 'email',
-      recipient,
+      recipient: emailRecipient,
       title: 'Pipeline E2E Email Test',
       body: 'Tato zprava prosla celym pipeline: policy → router → email channel.',
       priority: 'normal',
@@ -232,7 +259,7 @@ if (hasSmtp) {
     fail('Pipeline E2E email', `threw: ${err.message}`);
   }
 } else {
-  skip('Pipeline E2E (email)', 'C3_SMTP_* not set');
+  skip('Pipeline E2E (email)', 'email opt-in or canonical key presence missing');
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -249,6 +276,7 @@ if (failures.length > 0) {
 const allSkipped = skipped > 0 && passed === 0 && failed === 0;
 if (allSkipped) {
   console.log('\n⚠️  All tests skipped. Set environment variables to run E2E tests.');
+  console.log('   C3_ENABLE_NOTIFICATION_EMAIL=true and/or C3_ENABLE_NOTIFICATION_TELEGRAM=true');
   console.log('   C3_SMTP_HOST, C3_SMTP_PORT, C3_SMTP_USER, C3_SMTP_PASS');
   console.log('   C3_TELEGRAM_BOT_TOKEN, C3_TELEGRAM_CHAT_ID');
 }

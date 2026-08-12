@@ -44,17 +44,23 @@ import {
 } from './channel-policy.js';
 
 const DEFAULT_CHANNEL_FACTORIES = Object.freeze({
-  email: channelLogger => new EmailChannel({ logger: channelLogger }),
-  telegram: channelLogger => new TelegramChannel({ logger: channelLogger }),
-  push: channelLogger => new PushChannel({ logger: channelLogger }),
-  webhook: (
-    channelLogger,
-    webhookSecretAuthority,
-    requireWebhookSecretAuthority,
-  ) => new WebhookChannel({
+  email: (channelLogger, authorities) => new EmailChannel({
     logger: channelLogger,
-    requireWebhookSecretAuthority,
-    webhookSecretAuthority,
+    ...authorities,
+  }),
+  telegram: (channelLogger, authorities) => new TelegramChannel({
+    logger: channelLogger,
+    ...authorities,
+  }),
+  push: (channelLogger, authorities) => new PushChannel({
+    logger: channelLogger,
+    ...authorities,
+  }),
+  webhook: (channelLogger, authorities) => new WebhookChannel({
+    logger: channelLogger,
+    url: authorities.notificationEnvironmentAuthority.value('C3_WEBHOOK_URL'),
+    requireWebhookSecretAuthority: authorities.requireWebhookSecretAuthority,
+    webhookSecretAuthority: authorities.webhookSecretAuthority,
   }),
   desktop: channelLogger => new DesktopChannel({ logger: channelLogger }),
 });
@@ -71,6 +77,8 @@ function notificationFactoryError() {
  *
  * @param {object} options
  * @param {object} [options.db] - Database instance
+ * @param {Function} [options.requireNotificationEnvironmentAuthority] - Authority validator
+ * @param {object} [options.notificationEnvironmentAuthority] - Opaque notification authority
  * @param {Function} [options.requireWebhookSecretAuthority] - Authority validator
  * @param {object} [options.webhookSecretAuthority] - Opaque webhook HMAC authority
  * @returns {NotificationRouter}
@@ -81,6 +89,8 @@ export function createNotificationRouter({
   channelPolicy = null,
   channelFactories = DEFAULT_CHANNEL_FACTORIES,
   logger: channelLogger = logger,
+  requireNotificationEnvironmentAuthority = null,
+  notificationEnvironmentAuthority = null,
   requireWebhookSecretAuthority = null,
   webhookSecretAuthority = null,
 } = {}) {
@@ -91,6 +101,17 @@ export function createNotificationRouter({
   if (!channelFactories || typeof channelFactories !== 'object') {
     throw notificationFactoryError();
   }
+  if (typeof requireNotificationEnvironmentAuthority !== 'function') {
+    throw notificationFactoryError();
+  }
+  const validatedNotificationEnvironmentAuthority =
+    requireNotificationEnvironmentAuthority(notificationEnvironmentAuthority);
+  const authorities = Object.freeze({
+    notificationEnvironmentAuthority: validatedNotificationEnvironmentAuthority,
+    requireNotificationEnvironmentAuthority,
+    requireWebhookSecretAuthority,
+    webhookSecretAuthority,
+  });
   const router = new NotificationRouter({
     logger: channelLogger,
     db: rawDb,
@@ -105,13 +126,7 @@ export function createNotificationRouter({
     if (typeof factory !== 'function') {
       throw notificationFactoryError();
     }
-    const channel = channelName === 'webhook'
-      ? factory(
-        channelLogger,
-        webhookSecretAuthority,
-        requireWebhookSecretAuthority,
-      )
-      : factory(channelLogger);
+    const channel = factory(channelLogger, authorities);
     if (!channel || channel.name !== channelName || !router.registerChannel(channel)) {
       throw notificationFactoryError();
     }
@@ -126,6 +141,8 @@ export function createNotificationRouter({
  *
  * @param {object} options
  * @param {object} [options.db] - Database instance
+ * @param {Function} [options.requireNotificationEnvironmentAuthority] - Authority validator
+ * @param {object} [options.notificationEnvironmentAuthority] - Opaque notification authority
  * @param {Function} [options.requireWebhookSecretAuthority] - Authority validator
  * @param {object} [options.webhookSecretAuthority] - Opaque webhook HMAC authority
  * @returns {{ pipeline: NotificationPipeline, router: NotificationRouter, policy: NotificationPolicy, digest: DigestAggregator }}
@@ -136,6 +153,8 @@ export function createNotificationPipeline({
   channelPolicy = null,
   channelFactories = DEFAULT_CHANNEL_FACTORIES,
   logger: channelLogger = logger,
+  requireNotificationEnvironmentAuthority = null,
+  notificationEnvironmentAuthority = null,
   requireWebhookSecretAuthority = null,
   webhookSecretAuthority = null,
 } = {}) {
@@ -146,6 +165,8 @@ export function createNotificationPipeline({
     channelPolicy,
     channelFactories,
     logger: channelLogger,
+    requireNotificationEnvironmentAuthority,
+    notificationEnvironmentAuthority,
     requireWebhookSecretAuthority,
     webhookSecretAuthority,
   });

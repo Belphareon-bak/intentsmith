@@ -10,15 +10,27 @@ const TELEGRAM_API = 'https://api.telegram.org';
  * Telegram channel using Bot API via native fetch.
  * No external dependencies.
  *
- * Config from environment:
+ * Config from the injected startup environment authority:
  *   C3_TELEGRAM_BOT_TOKEN, C3_TELEGRAM_CHAT_ID (default recipient)
  */
 export class TelegramChannel extends NotificationChannel {
-  constructor({ logger }) {
+  #notificationEnvironmentAuthority;
+
+  constructor({
+    logger,
+    notificationEnvironmentAuthority,
+    requireNotificationEnvironmentAuthority,
+  }) {
     super();
+    if (typeof requireNotificationEnvironmentAuthority !== 'function') {
+      const error = new TypeError('NOTIFICATION_ENVIRONMENT_AUTHORITY_INVALID');
+      error.code = 'NOTIFICATION_ENVIRONMENT_AUTHORITY_INVALID';
+      throw error;
+    }
+    this.#notificationEnvironmentAuthority = requireNotificationEnvironmentAuthority(
+      notificationEnvironmentAuthority,
+    );
     this.logger = logger;
-    this.token = process.env.C3_TELEGRAM_BOT_TOKEN;
-    this.defaultChatId = process.env.C3_TELEGRAM_CHAT_ID;
   }
 
   get name() {
@@ -26,11 +38,12 @@ export class TelegramChannel extends NotificationChannel {
   }
 
   async _callAPI(method, body) {
-    if (!this.token) {
+    const token = this.#notificationEnvironmentAuthority.value('C3_TELEGRAM_BOT_TOKEN');
+    if (!token) {
       throw new Error('Telegram bot token not configured (set C3_TELEGRAM_BOT_TOKEN)');
     }
 
-    const url = `${TELEGRAM_API}/bot${this.token}/${method}`;
+    const url = `${TELEGRAM_API}/bot${token}/${method}`;
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -45,11 +58,13 @@ export class TelegramChannel extends NotificationChannel {
   }
 
   async send(notification) {
-    const chatId = notification.recipient || this.defaultChatId;
-    if (!chatId) {
+    const token = this.#notificationEnvironmentAuthority.value('C3_TELEGRAM_BOT_TOKEN');
+    const chatId = notification.recipient
+      || this.#notificationEnvironmentAuthority.value('C3_TELEGRAM_CHAT_ID');
+    if (typeof chatId !== 'string' || chatId.length === 0) {
       return { delivered: false, error: 'No recipient chat_id (set C3_TELEGRAM_CHAT_ID or provide recipient)' };
     }
-    if (!this.token) {
+    if (!token) {
       return { delivered: false, error: 'Telegram bot token not configured (set C3_TELEGRAM_BOT_TOKEN)' };
     }
 
@@ -81,8 +96,13 @@ export class TelegramChannel extends NotificationChannel {
     }
   }
 
-  async verify() {
-    if (!this.token) {
+  async verify(recipient) {
+    const chatId = recipient
+      || this.#notificationEnvironmentAuthority.value('C3_TELEGRAM_CHAT_ID');
+    if (typeof chatId !== 'string' || chatId.length === 0) {
+      return { ok: false, error: 'No recipient chat_id (set C3_TELEGRAM_CHAT_ID or provide recipient)' };
+    }
+    if (!this.#notificationEnvironmentAuthority.value('C3_TELEGRAM_BOT_TOKEN')) {
       return { ok: false, error: 'Telegram bot token not configured' };
     }
 

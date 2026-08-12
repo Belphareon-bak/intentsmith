@@ -113,9 +113,9 @@ zůstávají oddělené a každá vyžaduje vlastní subject, Review A i Review 
 | 5 | [029 — settings reset scope](../decisions/029-m1-settings-reset-scope.md) | A | settings-only reset a ukončení legacy aliasu |
 
 025, 027 i 028 jsou `PROMOTED / REVIEW A+B PASS`; 026/A + X1 +
-M1-CLOSEOUT-X1 je `WP_ACTIVE / SETUP_P0_CHECKPOINT_PUSHED /
-REST_IMPLEMENTATION_NOT_STARTED` a 029/A + M1-CLOSEOUT-X1 zůstává
-`ACCEPTED / WAITING`.
+M1-CLOSEOUT-X1 je `WP_ACTIVE / C2+C3+C4_SOURCE_IMPLEMENTED_STATIC_REVIEWED /
+BEHAVIOR_AND_FINAL_REVIEW_PENDING` a 029/A +
+M1-CLOSEOUT-X1 zůstává `ACCEPTED / WAITING`.
 Závazná sekvence je `025 → 027 → 028 → 026 → 029`; 029 nezačne před přijetím
 026 candidate. Finding 011 zůstává `OPEN` a Gate 1 `BLOCKED`.
 
@@ -292,14 +292,17 @@ Focused evidence je `2/2`, WS `92/92`, Studio VM `127/127` a registry 382
 programů / 8 exclusions s fingerprintem
 `571ae1a90a4246c7037d56fe5fb786beb4b5c4aae3e61f163d5b6ffe14341d71`.
 Electron, GPU, Ollama, externí síť, outbound journey ani celý produktový test
-nebyly spuštěné. Známý compatibility residual zůstává: ACTIVE programy
-`tests/notifications.test.js`, `tests/workers-phase-b.test.js`,
-`tests/push-channel.test.js` a `tests/e2e-notifications.test.js` stále
-předpokládají permissive/default external channels nebo úspěšný legacy dry-run.
-Jsou mimo přijatý 027 důkaz a musí se srovnat před full-product během.
-`src/routes/notifications.js` navíc zatím ignoruje typed disabled výsledek
-`updateChannelConfig('email', ...)`, takže může po durable commitu chybně vrátit
-`runtimeApplied:true`; tato route semantics patří do 026.
+nebyly spuštěné. V okamžiku 027 promotion zůstával compatibility residual:
+ACTIVE programy `tests/notifications.test.js`,
+`tests/workers-phase-b.test.js`, `tests/push-channel.test.js` a
+`tests/e2e-notifications.test.js` předpokládaly permissive/default external
+channels nebo úspěšný legacy dry-run. 026 je nyní mechanicky srovnává na
+injected authority a 027 default-off policy, ale tyto programy v 026 subjectu
+nejsou behavior důkaz a external části zůstávají `NOT RUN / BLOCKED`.
+Historická route chyba kolem `updateChannelConfig('email', ...)` už na C2
+source neexistuje, protože celý runtime config writer/setter a jeho
+`runtimeApplied` kontrakt byly retired; final behavior/review evidence 026 však
+stále chybí.
 
 ### 028 promotion — jediná environment webhook autorita
 
@@ -367,19 +370,23 @@ Operátor 2026-08-11 přijal 026-X1 v offline localStorage variantě a následn�
 X1-a až X1-e. Aktivní
 [`WP-M1-SECRET-STORAGE-AUTHORITY`](../wp/WP-M1-SECRET-STORAGE-AUTHORITY.md)
 vychází z clean promotion tipu 028
-`0037d56a2fb63ae0c3a3863ce00b9083d838ba8b`. Setup P0 obsahuje oddělená pushed
-P0 branch v exact commitu `3bb35bbb32063dd058ab35872668d645fe9ff106`;
-aktuální G sibling tree z rodiče `ea21bf3e2f8a54e1cbf93430cdb52037957a63c8`
-jej neobsahuje. Výsledný 026 source tree jej získá až po promotion `G` a
-normálním merge `G` do existující P0 branch. Zbytek 026 ještě nezačal a žádný
-transfer, export, purge ani scrub tím není provedený.
+`0037d56a2fb63ae0c3a3863ce00b9083d838ba8b`. Setup P0 vznikl na oddělené
+pushed P0 branch v exact commitu
+`3bb35bbb32063dd058ab35872668d645fe9ff106`; promoted governance `G`
+`a06a3abeceb022797e122a88cc96c96af5bce878` vzniklo jako jeho sibling z rodiče
+`ea21bf3e2f8a54e1cbf93430cdb52037957a63c8`. Aktuální source ancestry obsahuje
+oba commity bez rewrite, exact P0 SHA zůstává ancestorem a navíc zahrnuje C2
+runtime/DB cutover, C4 offline receipt applier, compatibility alignment a C3
+offline migration command. Tato ancestry sama nedokládá behavior PASS ani
+skutečný transfer, export, purge či dokončený scrub uživatelských dat.
 
 Aktuální Setup census koriguje historický popis: 027 už nahradilo původní
 whole-file/truthy `.env` writer bounded atomickým patchem čtyř exact
 non-notification keys a `server.js` před route registration volá
 `setupWizard.load()`. Oddělený P0 source checkpoint odstranil zbývající
 cwd-derived target a mutační autoritu: writer přijímá jen module-derived nebo
-explicitně injektovaný absolutní canonical project root, dál patchuje pouze čtyři owned
+explicitně injektovaný absolutní canonical project root, dál patchuje pouze
+čtyři owned
 keys, kontroluje exact mode 0600 včetně special bits a existing target otevírá
 s nenulovými `O_NOFOLLOW|O_NONBLOCK`. Tři legacy notification canaries
 `SMTP_URL`, `EMAIL_TO` a `C3_NTFY_URL` zůstávají byte/semantic zachované i při
@@ -400,15 +407,63 @@ Author-side checkpoint prošel syntaxí všech změněných JS souborů a
 `node tests/m1-notification-credential-scope.test.js` přesně `2/2`; izolovaný
 worktree před tím vyžadoval schválené `npm ci --offline`. Commit/push/review
 provenance se z tohoto source-progress odstavce neodvozuje a musí být doložená
-samostatným immutable checkpoint/evidence záznamem. Před zbytkem 026 musí navíc
-přistát níže popsaný governance amendment; finální subject `S` bude pro celý WP
-jeden.
+samostatným immutable checkpoint/evidence záznamem. Finální subject `S` bude
+pro celý WP jeden.
+
+První post-P0 C1 pracovní checkpoint převádí čtyřklíčový Setup writer do
+jediného shared `src/security/root-environment-file.js` seamu. Tři hard-coded,
+navzájem disjunktní owner sady obsahují exact Setup 4, canonical notification
+12 a scrub-only legacy alias 8; poslední sada neumí hodnotu vytvořit ani změnit.
+Safe reader/writer používá maximálně 1 MiB, fatal UTF-8, pinned dotenv fyzické
+řádky, owner-specific duplicate a expanded-control kontrolu, exact mode 0600,
+current owner, single link, `O_NOFOLLOW|O_NONBLOCK`, open/fstat/path stability,
+same-directory exclusive temp, původní write-FD identity a exact temp
+readback, atomic publish, directory fsync a finální readback. Byteově shodná
+operace ani delete-only scrub nad chybějícím souborem nic nepublikují.
+Jeden frozen branded bootstrap read s non-enumerable closure accessors odděluje
+exact canonical notification projekci od ordinary ambient hodnot a z té druhé
+vylučuje canonical 12 i legacy 8. Raw mapa není vlastností ani serializovatelným
+výstupem; explicitní canonical getter přijme jen key z hard owner setu a
+ordinary hodnoty předá pouze injected callbacku. Samotný seam nic nekopíruje
+do `process.env`.
+
+Navazující C2a pracovní checkpoint používá právě jeden tento bootstrap read pro
+frozen WeakSet-branded dvanáctiklíčovou notification environment authority i
+existující 028 webhook signer. Own process string vyhrává včetně prázdného;
+root canonical a legacy notification values se do ambientního `process.env`
+nekopírují, zatímco ordinary dotenv hodnoty zachovávají no-override chování.
+Stejná opaque notification authority je injected do serveru, workers,
+pipeline, factory, Email/Telegram/Push kanálů, config status routy a E2E
+verifieru. `WebhookChannel` dostává pouze odvozený injected URL string a stejný
+028 signer, nikoli celou notification authority ani její snapshot.
+Config GET vrací jen exact `{sources:{...12 leaves...}}`, config POST končí
+pre-parse exact 410 a runtime config settery ani `NotificationEmitter`
+lifecycle/worker bridge už nemají produkční call graph. Manual test/send a
+AgentRunner caller-supplied destinations zůstávají. Aktuální integrovaný C2
+checkpoint má v ancestry repository writer retirement/scrub seam
+`4698cd5e` i runtime authority/retirement `caa42a55`; původní věta o
+nezapojeném C2b už tedy neplatí. C2 je source-implementovaný a staticky
+reviewovaný. Legacy data však nebyla migrovaná ani scrubnutá, protože přijatý
+datově závislý `M1-EXECUTION-MANIFEST` a skutečný C3 apply dosud nevznikly.
+Behavior/focused evidence nad finálním immutable `S`, Review A/B a promotion
+stále chybějí, takže celý 026 není hotový ani promovaný.
+
+`SetupWizard.writeEnvFile()` deleguje jen owner `SETUP`; strict auth, route
+responses a completion flow zůstávají beze změny. Nový/default Setup vytváří
+u `telegram`, `email` a `ntfy` pouze `enabled:false`, zatímco validator a
+load/save nad existujícím well-formed legacy dokumentem zachovávají původní
+credential/destination leaves do explicitní migrační akce. `.env.example`
+uvádí všech dvanáct canonical notification keys právě jednou a s prázdnou
+hodnotou. Rozšířený existující notification-scope program zůstává na dvou
+top-level případech. Historický author-side checkpoint uváděl `2/2`, ale není
+náhradou behavior důkazu nad finálním immutable `S`, nezávislé Review A/B,
+transfer/scrub candidate ani 026 promotion.
 
 Operátor následně přijal `M1-CLOSEOUT-X1` a dva autonomy dodatky. Samostatný
-docs-only amendment `G` vznikne jako sibling P0 z
-`ea21bf3e2f8a54e1cbf93430cdb52037957a63c8`, projde nezávislým review a
-governance promotion a pak se normálním merge commitem bez rewrite připojí do
-existující P0 branch. Final Review A použije `baseRevision=G`,
+docs-only amendment `G` vznikl jako sibling P0 z
+`ea21bf3e2f8a54e1cbf93430cdb52037957a63c8`, prošel nezávislým review a
+governance promotion a tento merge jej bez rewrite připojuje do existující P0
+branch. Final Review A použije `baseRevision=G`,
 `subjectHead=S` a range `G..S`, takže `G` není uvnitř implementačního subjectu.
 P0 commit zůstává exact ancestor
 `3bb35bbb32063dd058ab35872668d645fe9ff106`; samostatně se nepromuje a nejde o
@@ -451,6 +506,87 @@ aplikuje jen na deset známých `notifications.*` cest a při
 stale/malformed/failure zachová původní bytes.
 `c3-settings` není credential blob tohoto WP a raw hodnoty nikdy nejdou přes
 HTTP, WS, URL, log, clipboard ani in-app raw download.
+
+C4 receipt source `2475b29f` je integrován merge commitem
+`94d3b8fb316b6de7b97dd2525dffc6f6c7b0ad50`. Architect nyní umí lokálně
+ověřit schema `INTENTSMITH_LEGACY_CREDENTIAL_RECEIPT/V1`, exact source
+`PAIASS_SETTINGS`, preimage/postimage i per-path digesty, smazat pouze deset
+receipt-bound známých cest a bezpečně přijmout exact idempotentní postimage.
+Tento C4 checkpoint je source-implementovaný a staticky reviewovaný; behavior
+suite ani E2E tím nejsou doložené.
+
+C3 source checkpoint `bf4a78be` přidává offline command
+`scripts/migrate-notification-authority.js`. Command odděluje read-only census,
+fresh-census `--plan` a quiescence-gated apply; final manifest váže exact source
+digests, explicitní `TRANSFER|EXPORT|PURGE` akce, numeric SMTP port override,
+canonical targety, receipts a append-only recovery ledger. Exact postimage
+uspěje pouze po absenci vybraných legacy paths, temp/export publication váže
+write-FD identitu na prepublish i postpublish readback a retry reportuje
+completed i remaining stages. Existing authority/credential-scope programy
+obsahují izolovaný census→plan→apply→restart→retry tok bez růstu top-level
+počtu. Checkpoint je source-implementovaný a staticky reviewovaný; behavior
+programy, skutečný `M1-EXECUTION-MANIFEST`, operátorský apply, transfer, export,
+purge, process-alias restart ani completed scrub spuštěné nebo doložené nejsou.
+
+První immutable candidate `bbc2a70f037ff633ee38324121b327dd02a4ebd6`
+zastavil svůj povinný writer gate hned v prvním programu: settings authority
+skončila `3/4` s `MIGRATION_DIRECTORY_UNSAFE` a zbývající tři programy se kvůli
+fail-fast vůbec nespustily. Příčinou nebyl unsafe credential target, ale C3
+navíc aplikovalo private-directory mode policy na canonical module project root,
+který je owner-owned, real, non-symlink a v běžném checkoutu mode `0775`;
+shared C1 root seam na tomto adresáři správně pinuje owner a stabilní identitu,
+zatímco exact `0600` vyžaduje až pro `.env`. Následná narrow correction tuto
+paritu obnovuje pouze pro exact canonical root; DB, data, historical env,
+export, manifest a ostatní explicitní migrační adresáře dál používají přísnou
+private-directory policy. Candidate `bbc2a70f` je proto rejected, nikoli PASS;
+replacement `S` a celý writer gate jsou pending.
+
+První narrow replacement `05c1d328cc11d184638db855d4fff82678174e70`
+uzavřel directory policy, ale jeho writer gate se znovu fail-fast zastavil v
+tomtéž prvním programu na `3/4`, tentokrát s
+`MIGRATION_PROCESS_ENV_INVALID`; ostatní tři programy zůstaly `NOT RUN`.
+Default CLI vstup je skutečný Node `process.env`, jehož host objekt nemá plain
+`Object.prototype`, zatímco C3 jej omylem odmítalo ještě před exact-key census.
+Narrow correction přijímá record-like host objekt, dál čte pouze vlastní hard
+owner keys, vyžaduje pro každý přítomný relevantní klíč string a ignoruje
+inherited hodnoty; array, null a non-string relevantní value zůstávají typed
+invalid. Ani `05c1d328` proto není PASS a další replacement `S` musí zopakovat
+celý writer gate.
+
+Druhý replacement `3f5875efa558ddafa3f60794e6764e031aebb938`
+prošel přes obě předchozí runtime preflight hrany, ale první program zůstal
+`3/4` na generické source-oracle assertion `Expected "true", got "false"`;
+ostatní tři programy byly opět fail-fast `NOT RUN`. Izolovaná diagnostika
+ukázala jediný stale literal: test hledal neexistující object-literal text
+`paiassStatus: paiass.status`, zatímco skutečný append-only apply tok používá
+`context.paiassStatus = paiass.status;` a dynamická fixture už stav i receipts
+ověřuje. Oprava tedy nemění produkční behavior; srovnává source ratchet se
+skutečnou assignment hranou a přidává jméno chybějícího seamu do failure
+zprávy. Ani `3f5875ef` není PASS a další replacement musí znovu projít celým
+writer gate.
+
+Třetí replacement `544aef9018c055e796606c3fa038f257985ab2ff`
+posunul writer gate za settings authority (`4/4`), ale credential-scope program
+skončil `1/2`: jeho source ratchet hledal doslovné
+`fs.constants.O_NOFOLLOW` a `fs.constants.O_NONBLOCK`, zatímco sdílený C1 seam
+bezpečně destrukturuje oba příznaky jedinou hranou
+`const { O_NOFOLLOW, O_NONBLOCK } = fs.constants;` a dál samostatně ověřuje
+jejich nenulové hodnoty. Studio a registry byly kvůli fail-fast `NOT RUN`.
+Oprava znovu nemění produkční kód ani auth/access boundary; nahrazuje dva stale
+regexy jedním přesnějším ratchetem na skutečný zdroj příznaků. Ani `544aef90`
+není PASS a další replacement musí znovu projít celým writer gate.
+
+Čtvrtý replacement `0f18136b6c3b0f2769db0388ce85c33bf57774f0`
+prošel celým writer gate: authority `4/4`, credential scope `2/2`, Studio
+`128/128` a registry `382` runnable / `8` exclusions s fingerprintem
+`571ae1a90a4246c7037d56fe5fb786beb4b5c4aae3e61f163d5b6ffe14341d71`.
+Formální Review A jej přesto označilo `CHANGES_REQUIRED`, protože
+`docs/NOTIFICATIONS.md` a `docs/CHANGELOG.md` zůstaly na pre-C3 checkpointu a
+nepravdivě tvrdily, že migration CLI/apply není přítomné. Source implementace
+C3 je přítomná, ale žádný skutečný operátorský census, plan, apply, transfer,
+export, purge ani scrub proveden nebyl. Pro `0f18136b` nevzniká `E_A`; docs-only
+alignment a tato evidence musí být součástí dalšího replacementu, který znovu
+projde celým writer gate a Review A.
 
 DB census je záměrně neprefixový. Vedle `webhookSecret` a legacy
 `c3.notif.webhookSecret` zahrne všech devět retired typed notification cest a

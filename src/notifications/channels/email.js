@@ -7,22 +7,28 @@ import { toHTML, toPlainText } from '../templates/default.js';
 /**
  * Email channel using nodemailer SMTP.
  *
- * Config from environment:
+ * Config from the injected startup environment authority:
  *   C3_SMTP_HOST, C3_SMTP_PORT, C3_SMTP_USER, C3_SMTP_PASS, C3_SMTP_FROM
  */
 export class EmailChannel extends NotificationChannel {
-  constructor({ logger }) {
+  #notificationEnvironmentAuthority;
+
+  constructor({
+    logger,
+    notificationEnvironmentAuthority,
+    requireNotificationEnvironmentAuthority,
+  }) {
     super();
+    if (typeof requireNotificationEnvironmentAuthority !== 'function') {
+      const error = new TypeError('NOTIFICATION_ENVIRONMENT_AUTHORITY_INVALID');
+      error.code = 'NOTIFICATION_ENVIRONMENT_AUTHORITY_INVALID';
+      throw error;
+    }
+    this.#notificationEnvironmentAuthority = requireNotificationEnvironmentAuthority(
+      notificationEnvironmentAuthority,
+    );
     this.logger = logger;
     this.transporter = null;
-
-    this.config = {
-      host: process.env.C3_SMTP_HOST,
-      port: parseInt(process.env.C3_SMTP_PORT || '587'),
-      user: process.env.C3_SMTP_USER,
-      pass: process.env.C3_SMTP_PASS,
-      from: process.env.C3_SMTP_FROM || process.env.C3_SMTP_USER,
-    };
   }
 
   get name() {
@@ -31,6 +37,7 @@ export class EmailChannel extends NotificationChannel {
 
   async _getTransporter() {
     if (this.transporter) return this.transporter;
+    const config = this.#config();
 
     // Lazy-load nodemailer to avoid crash if not installed
     let nodemailer;
@@ -41,12 +48,12 @@ export class EmailChannel extends NotificationChannel {
     }
 
     this.transporter = nodemailer.default.createTransport({
-      host: this.config.host,
-      port: this.config.port,
-      secure: this.config.port === 465,
+      host: config.host,
+      port: config.port,
+      secure: config.port === 465,
       auth: {
-        user: this.config.user,
-        pass: this.config.pass,
+        user: config.user,
+        pass: config.pass,
       },
     });
 
@@ -54,14 +61,18 @@ export class EmailChannel extends NotificationChannel {
   }
 
   async send(notification) {
-    if (!this.config.host || !this.config.user) {
+    if (typeof notification.recipient !== 'string' || notification.recipient.length === 0) {
+      return { delivered: false, error: 'Email recipient is required' };
+    }
+    const config = this.#config();
+    if (!config.host || !config.user) {
       return { delivered: false, error: 'SMTP not configured (set C3_SMTP_HOST, C3_SMTP_USER)' };
     }
 
     try {
       const transporter = await this._getTransporter();
       const info = await transporter.sendMail({
-        from: this.config.from,
+        from: config.from,
         to: notification.recipient,
         subject: `[C3] ${notification.title}`,
         text: toPlainText(notification),
@@ -76,23 +87,25 @@ export class EmailChannel extends NotificationChannel {
     }
   }
 
-  /**
-   * Update SMTP config at runtime (from IDE settings sync).
-   * Invalidates existing transporter so next send() creates a new one.
-   */
-  updateConfig({ host, port, user, pass, from }) {
-    if (!host) return; // minimum: host is required (relay/no-auth SMTP is valid)
-    this.config.host = host;
-    this.config.port = parseInt(port) || 587;
-    if (user !== undefined) this.config.user = user;
-    if (pass !== undefined) this.config.pass = pass;
-    this.config.from = from || user || this.config.user;
-    this.transporter = null; // force re-create on next send
-    this.logger.info('EmailChannel', `Config updated (host: ${host}, port: ${this.config.port})`);
+  #config() {
+    const value = key => this.#notificationEnvironmentAuthority.value(key);
+    const user = value('C3_SMTP_USER');
+    return {
+      host: value('C3_SMTP_HOST'),
+      port: parseInt(value('C3_SMTP_PORT') || '587'),
+      user,
+      pass: value('C3_SMTP_PASS'),
+      from: value('C3_SMTP_FROM') || user,
+    };
   }
 
-  async verify() {
-    if (!this.config.host || !this.config.user) {
+  async verify(recipient) {
+    if (arguments.length > 0
+        && (typeof recipient !== 'string' || recipient.length === 0)) {
+      return { ok: false, error: 'Email recipient is required' };
+    }
+    const config = this.#config();
+    if (!config.host || !config.user) {
       return { ok: false, error: 'SMTP not configured' };
     }
 

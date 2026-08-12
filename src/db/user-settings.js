@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import { Buffer } from 'node:buffer';
 import { mergeSettingsProjection } from './settings-portability.js';
 
 // IntentSmith user-settings authority
@@ -20,23 +22,35 @@ export const DEFAULT_MODEL_SETTINGS = Object.freeze({
   autoCleanupDays: 14,
 });
 
-export const NOTIFICATION_SETTING_FIELD_MAP = Object.freeze({
-  emailEnabled: 'c3.notif.emailEnabled',
-  smtpHost: 'c3.notif.smtpHost',
-  smtpPort: 'c3.notif.smtpPort',
-  smtpUser: 'c3.notif.smtpUser',
-  smtpPass: 'c3.notif.smtpPass',
-  smtpFrom: 'c3.notif.smtpFrom',
-  emailRecipient: 'c3.notif.emailRecipient',
-  emailOnLifecycle: 'c3.notif.emailOnLifecycle',
-  emailOnWorker: 'c3.notif.emailOnWorker',
-});
+export const LEGACY_NOTIFICATION_USER_SETTING_PATHS = Object.freeze([
+  '/notifications/discordWebhook',
+  '/notifications/emailAddresses',
+  '/notifications/slackChannel',
+  '/notifications/slackWebhook',
+  '/notifications/smsApiKey',
+  '/notifications/smsPhone',
+  '/notifications/smsSecret',
+  '/notifications/telegramChatId',
+  '/notifications/telegramToken',
+  '/notifications/webhookUrl',
+  'c3.notif.emailEnabled',
+  'c3.notif.emailOnLifecycle',
+  'c3.notif.emailOnWorker',
+  'c3.notif.emailRecipient',
+  'c3.notif.smtpFrom',
+  'c3.notif.smtpHost',
+  'c3.notif.smtpPass',
+  'c3.notif.smtpPort',
+  'c3.notif.smtpUser',
+  'c3.notif.webhookSecret',
+  'webhookSecret',
+]);
 
-export const NOTIFICATION_SETTING_KEYS = Object.freeze(
-  Object.values(NOTIFICATION_SETTING_FIELD_MAP),
+const LEGACY_NOTIFICATION_USER_SETTING_PATH_SET = new Set(
+  LEGACY_NOTIFICATION_USER_SETTING_PATHS,
 );
-
-const NOTIFICATION_INPUT_FIELD_SET = new Set(Object.keys(NOTIFICATION_SETTING_FIELD_MAP));
+const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
+const brandedLegacyNotificationCensuses = new WeakSet();
 
 // Versioned GENERIC owner map. Dotted names are literal top-level JSON keys;
 // slash-prefixed names address the two nested preference containers.
@@ -356,6 +370,69 @@ function readCurrentSettings(db, { requireRevision = false } = {}) {
   return current;
 }
 
+function readCurrentVersionedSettingsWithRaw(db) {
+  let row;
+  try {
+    row = db.prepare(`
+      SELECT data, revision
+      FROM user_settings
+      WHERE id = 1
+    `).get();
+  } catch (error) {
+    throw new UserSettingsError(
+      'USER_SETTINGS_DB_READ_FAILED',
+      'Failed to read versioned user settings for legacy notification census',
+      { cause: error },
+    );
+  }
+  if (!row) {
+    throw new UserSettingsError(
+      'USER_SETTINGS_ROW_MISSING',
+      'Versioned user settings singleton is missing',
+    );
+  }
+  let serialized;
+  if (typeof row.data === 'string') {
+    serialized = row.data;
+  } else if (Buffer.isBuffer(row.data)) {
+    try {
+      serialized = new TextDecoder('utf-8', { fatal: true }).decode(row.data);
+    } catch (error) {
+      throw new UserSettingsError(
+        'USER_SETTINGS_STORAGE_CONTRACT',
+        'Versioned user settings blob must contain valid UTF-8',
+        { cause: error },
+      );
+    }
+  } else {
+    throw new UserSettingsError(
+      'USER_SETTINGS_STORAGE_CONTRACT',
+      'Versioned user settings data must be stored as text or a legacy byte blob',
+    );
+  }
+  const current = parseSettingsRow(
+    { data: serialized, revision: row.revision },
+    { requireRevision: true },
+  );
+  if (current.status === UserSettingsStatus.MISSING) {
+    throw new UserSettingsError(
+      'USER_SETTINGS_ROW_MISSING',
+      'Versioned user settings singleton is missing',
+    );
+  }
+  if (current.status === UserSettingsStatus.MALFORMED) {
+    throw new UserSettingsError(
+      current.reason,
+      'Refusing to inspect malformed user settings',
+    );
+  }
+  return {
+    raw: row.data,
+    revision: current.revision,
+    settings: current.settings,
+  };
+}
+
 function serializeSettingsDocument(document) {
   if (!isPlainObject(document)) {
     throw new UserSettingsError(
@@ -523,6 +600,401 @@ function commitLatestUserSettings(db, updater) {
   });
 }
 
+function sha256StoredBytes(value) {
+  const digest = createHash('sha256');
+  if (typeof value === 'string') digest.update(value, 'utf8');
+  else if (Buffer.isBuffer(value)) digest.update(value);
+  else {
+    throw new UserSettingsError(
+      'USER_SETTINGS_STORAGE_CONTRACT',
+      'Stored user settings preimage is not a supported byte representation',
+    );
+  }
+  return digest.digest('hex');
+}
+
+function readLegacyNotificationPath(document, pathId) {
+  if (pathId.startsWith('/')) {
+    const [, containerKey, childKey] = pathId.split('/');
+    if (!Object.hasOwn(document, containerKey)
+      || !isPlainObject(document[containerKey])
+      || !Object.hasOwn(document[containerKey], childKey)) {
+      return Object.freeze({ present: false, value: undefined });
+    }
+    return Object.freeze({ present: true, value: document[containerKey][childKey] });
+  }
+  if (!Object.hasOwn(document, pathId)) {
+    return Object.freeze({ present: false, value: undefined });
+  }
+  return Object.freeze({ present: true, value: document[pathId] });
+}
+
+function deleteLegacyNotificationPath(document, pathId) {
+  if (pathId.startsWith('/')) {
+    const [, containerKey, childKey] = pathId.split('/');
+    if (isPlainObject(document[containerKey])) delete document[containerKey][childKey];
+    return;
+  }
+  delete document[pathId];
+}
+
+function legacyNotificationValueSha256(value) {
+  const normalized = cloneFiniteJson(
+    value,
+    'LEGACY_NOTIFICATION_SCRUB_SERIALIZATION_FAILED',
+  );
+  let serialized;
+  try {
+    serialized = JSON.stringify(normalized);
+  } catch (error) {
+    throw new UserSettingsError(
+      'LEGACY_NOTIFICATION_SCRUB_SERIALIZATION_FAILED',
+      'Legacy notification value could not be serialized',
+      { cause: error },
+    );
+  }
+  if (typeof serialized !== 'string') {
+    throw new UserSettingsError(
+      'LEGACY_NOTIFICATION_SCRUB_SERIALIZATION_FAILED',
+      'Legacy notification value could not be serialized',
+    );
+  }
+  return sha256StoredBytes(serialized);
+}
+
+function requireExactDataObject(value, expectedKeys, code, message) {
+  if (!isPlainObject(value)) throw new UserSettingsError(code, message);
+  const ownKeys = Reflect.ownKeys(value);
+  if (ownKeys.some(key => typeof key !== 'string')) {
+    throw new UserSettingsError(code, message);
+  }
+  const actualKeys = [...ownKeys].sort();
+  if (actualKeys.length !== expectedKeys.length
+    || actualKeys.some((key, index) => key !== expectedKeys[index])) {
+    throw new UserSettingsError(code, message);
+  }
+  for (const key of expectedKeys) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!descriptor || !Object.hasOwn(descriptor, 'value') || descriptor.enumerable !== true) {
+      throw new UserSettingsError(code, message);
+    }
+  }
+  return value;
+}
+
+function requireDenseArray(value, maximumLength, code, message) {
+  if (!Array.isArray(value)
+    || Object.getPrototypeOf(value) !== Array.prototype
+    || value.length < 1
+    || value.length > maximumLength) {
+    throw new UserSettingsError(code, message);
+  }
+  const expectedOwnKeys = new Set(['length']);
+  for (let index = 0; index < value.length; index++) {
+    const key = String(index);
+    expectedOwnKeys.add(key);
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!descriptor
+      || !Object.hasOwn(descriptor, 'value')
+      || descriptor.enumerable !== true) {
+      throw new UserSettingsError(code, message);
+    }
+  }
+  if (Reflect.ownKeys(value).some(key => !expectedOwnKeys.has(key))) {
+    throw new UserSettingsError(code, message);
+  }
+  return value;
+}
+
+function requireSha256(value, code, message) {
+  if (typeof value !== 'string' || !SHA256_PATTERN.test(value)) {
+    throw new UserSettingsError(code, message);
+  }
+  return value;
+}
+
+function normalizeSelectedLegacyPaths(value, { requirePresentIn } = {}) {
+  const code = 'LEGACY_NOTIFICATION_SCRUB_INPUT_INVALID';
+  const paths = requireDenseArray(
+    value,
+    LEGACY_NOTIFICATION_USER_SETTING_PATHS.length,
+    code,
+    'Legacy notification scrub paths must be a non-empty dense array',
+  ).map(pathId => {
+    if (typeof pathId !== 'string'
+      || !LEGACY_NOTIFICATION_USER_SETTING_PATH_SET.has(pathId)
+      || (requirePresentIn && !requirePresentIn.has(pathId))) {
+      throw new UserSettingsError(code, 'Legacy notification scrub path is unowned or absent');
+    }
+    return pathId;
+  });
+  for (let index = 1; index < paths.length; index++) {
+    if (paths[index - 1] >= paths[index]) {
+      throw new UserSettingsError(
+        code,
+        'Legacy notification scrub paths must be sorted and unique',
+      );
+    }
+  }
+  return Object.freeze(paths);
+}
+
+function normalizeLegacyNotificationPathDigests(value) {
+  const code = 'LEGACY_NOTIFICATION_SCRUB_INPUT_INVALID';
+  const entries = requireDenseArray(
+    value,
+    LEGACY_NOTIFICATION_USER_SETTING_PATHS.length,
+    code,
+    'Legacy notification path digests must be a non-empty dense array',
+  ).map(entry => {
+    requireExactDataObject(
+      entry,
+      ['path', 'valueSha256'],
+      code,
+      'Legacy notification path digest must contain exactly path and valueSha256',
+    );
+    if (typeof entry.path !== 'string'
+      || !LEGACY_NOTIFICATION_USER_SETTING_PATH_SET.has(entry.path)) {
+      throw new UserSettingsError(code, 'Legacy notification path digest is unowned');
+    }
+    return Object.freeze({
+      path: entry.path,
+      valueSha256: requireSha256(
+        entry.valueSha256,
+        code,
+        'Legacy notification value digest must be lowercase SHA-256',
+      ),
+    });
+  });
+  for (let index = 1; index < entries.length; index++) {
+    if (entries[index - 1].path >= entries[index].path) {
+      throw new UserSettingsError(
+        code,
+        'Legacy notification path digests must be sorted and unique',
+      );
+    }
+  }
+  return Object.freeze(entries);
+}
+
+function normalizeLegacyNotificationScrubRequest(value) {
+  const code = 'LEGACY_NOTIFICATION_SCRUB_INPUT_INVALID';
+  requireExactDataObject(
+    value,
+    ['expectedRevision', 'pathDigests', 'postimageSha256', 'preimageSha256'],
+    code,
+    'Legacy notification scrub request has an invalid shape',
+  );
+  return Object.freeze({
+    expectedRevision: requireExpectedRevision(value.expectedRevision),
+    pathDigests: normalizeLegacyNotificationPathDigests(value.pathDigests),
+    postimageSha256: requireSha256(
+      value.postimageSha256,
+      code,
+      'Legacy notification postimage digest must be lowercase SHA-256',
+    ),
+    preimageSha256: requireSha256(
+      value.preimageSha256,
+      code,
+      'Legacy notification preimage digest must be lowercase SHA-256',
+    ),
+  });
+}
+
+function createLegacyNotificationCensus(current) {
+  const capturedDocument = clone(current.settings);
+  const capturedValues = new Map();
+  const pathDescriptors = [];
+  for (const pathId of LEGACY_NOTIFICATION_USER_SETTING_PATHS) {
+    const state = readLegacyNotificationPath(capturedDocument, pathId);
+    if (!state.present) continue;
+    capturedValues.set(pathId, clone(state.value));
+    pathDescriptors.push(Object.freeze({
+      path: pathId,
+      valueSha256: legacyNotificationValueSha256(state.value),
+    }));
+  }
+  const frozenPathDescriptors = Object.freeze(pathDescriptors);
+  const presentPathSet = new Set(capturedValues.keys());
+  const preimageSha256 = sha256StoredBytes(current.raw);
+
+  const census = Object.create(null);
+  Object.defineProperties(census, {
+    revision: {
+      enumerable: false,
+      value: () => current.revision,
+    },
+    preimageSha256: {
+      enumerable: false,
+      value: () => preimageSha256,
+    },
+    paths: {
+      enumerable: false,
+      value: () => frozenPathDescriptors,
+    },
+    value: {
+      enumerable: false,
+      value: pathId => {
+        if (typeof pathId !== 'string'
+          || !LEGACY_NOTIFICATION_USER_SETTING_PATH_SET.has(pathId)) {
+          throw new UserSettingsError(
+            'LEGACY_NOTIFICATION_CENSUS_PATH_UNOWNED',
+            'Legacy notification census raw access requires an exact owned path',
+          );
+        }
+        return capturedValues.has(pathId) ? clone(capturedValues.get(pathId)) : undefined;
+      },
+    },
+    scrubRequest: {
+      enumerable: false,
+      value: (selectedPaths = [...presentPathSet]) => {
+        const paths = normalizeSelectedLegacyPaths(selectedPaths, {
+          requirePresentIn: presentPathSet,
+        });
+        const next = clone(capturedDocument);
+        const pathDigests = [];
+        for (const pathId of paths) {
+          deleteLegacyNotificationPath(next, pathId);
+          pathDigests.push(Object.freeze({
+            path: pathId,
+            valueSha256: legacyNotificationValueSha256(capturedValues.get(pathId)),
+          }));
+        }
+        const serializedPostimage = serializeSettingsDocument(next);
+        return Object.freeze({
+          expectedRevision: current.revision,
+          pathDigests: Object.freeze(pathDigests),
+          postimageSha256: sha256StoredBytes(serializedPostimage),
+          preimageSha256,
+        });
+      },
+    },
+  });
+  Object.freeze(census);
+  brandedLegacyNotificationCensuses.add(census);
+  return census;
+}
+
+export function readLegacyNotificationUserSettingsCensus(db) {
+  requireDatabase(db);
+  if (!hasRevisionColumn(db)) {
+    throw new UserSettingsError(
+      'USER_SETTINGS_STORAGE_CONTRACT',
+      'Legacy notification census requires versioned user settings authority',
+    );
+  }
+  return createLegacyNotificationCensus(readCurrentVersionedSettingsWithRaw(db));
+}
+
+export function requireLegacyNotificationUserSettingsCensus(value) {
+  if ((typeof value !== 'object' && typeof value !== 'function')
+    || value === null
+    || !Object.isFrozen(value)
+    || !brandedLegacyNotificationCensuses.has(value)) {
+    throw new UserSettingsError(
+      'LEGACY_NOTIFICATION_CENSUS_INVALID',
+      'A branded legacy notification census is required',
+    );
+  }
+  return value;
+}
+
+export function scrubLegacyNotificationUserSettingsInTransaction(db, request) {
+  requireDatabase(db);
+  const input = normalizeLegacyNotificationScrubRequest(request);
+  if (db.inTransaction !== true) {
+    throw new UserSettingsError(
+      'USER_SETTINGS_TRANSACTION_OWNERSHIP_REQUIRED',
+      'Legacy notification scrub requires caller-owned BEGIN IMMEDIATE',
+    );
+  }
+  if (!hasRevisionColumn(db)) {
+    throw new UserSettingsError(
+      'USER_SETTINGS_STORAGE_CONTRACT',
+      'Legacy notification scrub requires versioned user settings authority',
+    );
+  }
+
+  const scrubSavepoint = db.transaction(() => {
+    const current = readCurrentVersionedSettingsWithRaw(db);
+    const currentSha256 = sha256StoredBytes(current.raw);
+    const selectedPathsAbsent = input.pathDigests.every(
+      entry => !readLegacyNotificationPath(current.settings, entry.path).present,
+    );
+    if (currentSha256 === input.postimageSha256 && selectedPathsAbsent) {
+      return Object.freeze({
+        status: 'ALREADY_APPLIED',
+        revision: current.revision,
+        postimageSha256: currentSha256,
+        scrubbedPaths: Object.freeze(input.pathDigests.map(entry => entry.path)),
+      });
+    }
+    if (current.revision !== input.expectedRevision) {
+      throw new UserSettingsError(
+        'USER_SETTINGS_REVISION_CONFLICT',
+        'User settings changed since the legacy notification census',
+        {
+          details: {
+            expectedRevision: input.expectedRevision,
+            currentRevision: current.revision,
+          },
+        },
+      );
+    }
+    if (currentSha256 !== input.preimageSha256) {
+      throw new UserSettingsError(
+        'LEGACY_NOTIFICATION_SCRUB_PREIMAGE_MISMATCH',
+        'Legacy notification scrub preimage changed',
+      );
+    }
+
+    const next = clone(current.settings);
+    for (const entry of input.pathDigests) {
+      const state = readLegacyNotificationPath(current.settings, entry.path);
+      if (!state.present
+        || legacyNotificationValueSha256(state.value) !== entry.valueSha256) {
+        throw new UserSettingsError(
+          'LEGACY_NOTIFICATION_SCRUB_PATH_MISMATCH',
+          'Legacy notification scrub path changed or disappeared',
+          { details: { path: entry.path } },
+        );
+      }
+      deleteLegacyNotificationPath(next, entry.path);
+    }
+
+    const serializedPostimage = serializeSettingsDocument(next);
+    const predictedPostimageSha256 = sha256StoredBytes(serializedPostimage);
+    if (predictedPostimageSha256 !== input.postimageSha256) {
+      throw new UserSettingsError(
+        'LEGACY_NOTIFICATION_SCRUB_POSTIMAGE_MISMATCH',
+        'Legacy notification scrub postimage does not match the approved manifest',
+      );
+    }
+    const committed = updateVersionedRowInTransaction(
+      db,
+      current.revision,
+      next,
+    );
+    return Object.freeze({
+      status: 'APPLIED',
+      revision: committed.revision,
+      postimageSha256: predictedPostimageSha256,
+      scrubbedPaths: Object.freeze(input.pathDigests.map(entry => entry.path)),
+    });
+  });
+
+  try {
+    return scrubSavepoint();
+  } catch (error) {
+    if (error instanceof UserSettingsError) throw error;
+    throw new UserSettingsError(
+      'USER_SETTINGS_TRANSACTION_FAILED',
+      'Legacy notification scrub transaction failed unexpectedly',
+      { cause: error },
+    );
+  }
+}
+
 function requireExpectedRevision(value) {
   if (!isSafeRevision(value)) {
     throw new UserSettingsError(
@@ -682,36 +1154,6 @@ export class UserSettingsRepository {
     });
   }
 
-  commitNotification(patch) {
-    requirePlainSettingsPatch(patch, 'NOTIFICATION_SETTINGS_INPUT_INVALID');
-    const unknownFields = Object.keys(patch)
-      .filter(field => !NOTIFICATION_INPUT_FIELD_SET.has(field))
-      .sort();
-    if (unknownFields.length > 0) {
-      throw new UserSettingsError(
-        'NOTIFICATION_SETTINGS_INPUT_INVALID',
-        'Notification settings contain an unowned field',
-        { details: { fields: unknownFields } },
-      );
-    }
-    const committed = commitLatestUserSettings(this.db, (document) => {
-      for (const [field, settingKey] of Object.entries(NOTIFICATION_SETTING_FIELD_MAP)) {
-        if (Object.hasOwn(patch, field) && patch[field] !== '*****') {
-          setOwn(document, settingKey, cloneFiniteJson(
-            patch[field],
-            'NOTIFICATION_SETTINGS_INPUT_INVALID',
-          ));
-        }
-      }
-    });
-    return {
-      revision: committed.revision,
-      notification: Object.fromEntries(
-        NOTIFICATION_SETTING_KEYS.map(key => [key, committed.document[key]]),
-      ),
-    };
-  }
-
   commitStorage(storage) {
     const ownedStorage = cloneFiniteJson(storage, 'USER_SETTINGS_INPUT_INVALID');
     const committed = commitLatestUserSettings(this.db, (document) => {
@@ -784,12 +1226,4 @@ export class UserSettingsRepository {
 
 export function createUserSettingsRepository(db) {
   return new UserSettingsRepository(db);
-}
-
-/**
- * Atomically apply only the notification route's exact nine-field map. The
- * masked SMTP password is a preserve instruction, not a persisted value.
- */
-export function updateNotificationUserSettings(db, patch) {
-  return createUserSettingsRepository(db).commitNotification(patch).notification;
 }

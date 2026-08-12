@@ -2,6 +2,8 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import {
+  notificationEnvironmentAuthority,
+  requireNotificationEnvironmentAuthority,
   requireWebhookSecretAuthority,
   webhookSecretAuthority,
 } from './runtime-environment.js';
@@ -42,12 +44,11 @@ initNotificationTables(db.db);
 const { pipeline: notificationPipeline, router: notificationRouter } = createNotificationPipeline({
   db,
   channelPolicy: notificationChannelPolicy,
+  notificationEnvironmentAuthority,
+  requireNotificationEnvironmentAuthority,
   requireWebhookSecretAuthority,
   webhookSecretAuthority,
 });
-const notificationEmitter = new NotificationEmitter({ pipeline: notificationPipeline, db: db.db });
-// Wire lifecycle hooks (lazy import — lifecycle-build may not be loaded yet)
-import('./planner/lifecycle-build.js').then(m => m.setNotificationEmitter(notificationEmitter)).catch(() => {});
 logger.info('Server', `Notification system initialized (channels: ${notificationRouter.getAvailableChannels().join(', ')})`);
 
 // ─── Optional: Agent Platform v33 (Phase B) ─────────────────────────────────
@@ -147,7 +148,6 @@ import {
   initNotificationTables,
   readNotificationChannelPolicy,
 } from './notifications/index.js';
-import { NotificationEmitter } from './notifications/emitter.js';
 import { skillRegistry } from './skills/registry.js';
 import { creDecisionEngine } from './chat/cre-decision.js';
 import { toolRegistry } from './tools/registry.js';
@@ -215,7 +215,14 @@ try {
 
 // F1: Setup Wizard — first-run detection + API routes
 import { SetupWizard, createSetupRoutes } from './setup/wizard.js';
-const setupWizard = new SetupWizard(config.db?.path ? path.dirname(config.db.path) : './data');
+import { createStrictAdminTokenGuard } from './security/strict-admin-auth.js';
+const requireSetupAdminAuth = createStrictAdminTokenGuard({
+  expectedToken: process.env.C3_ADMIN_TOKEN,
+});
+const setupWizard = new SetupWizard(
+  config.db?.path ? path.dirname(config.db.path) : './data',
+  { projectRoot: path.resolve(__dirname, '..') },
+);
 setupWizard.load();
 const setupComplete = setupWizard.isComplete();
 if (!setupComplete) {
@@ -827,10 +834,12 @@ const routeDeps = {
   createMockResponse, agentRoutes, agentRunner,
   checkWizardRateLimit,
   specialistLoader, specialistRuntime, specialistTelemetry,
-  notificationRouter, notificationEmitter,
+  notificationRouter,
+  notificationEnvironmentAuthority, requireNotificationEnvironmentAuthority,
   requireWebhookSecretAuthority, webhookSecretAuthority,
   comfyuiConnector, vramManager, mediaStorage,
   modelRegistry, modelBindingApplication,
+  requireSetupAdminAuth,
 };
 
 // v93: notificationRouter + notificationPipeline initialized above (before agent platform)
@@ -926,8 +935,11 @@ if (!agentRoutes) {
     error: 'Agent platform not available (C3_ENABLE_AGENTS=false)'
   });
   for (const key of Object.keys(routes)) {
+    const notificationConfigSourceRoute = key === 'GET /api/notifications/config'
+      || key === 'POST /api/notifications/config';
     if (key.includes('/api/agents') || key === 'GET /agents' ||
-        key.includes('/api/sources/') || key.includes('/api/notifications') ||
+        key.includes('/api/sources/') ||
+        (key.includes('/api/notifications') && !notificationConfigSourceRoute) ||
         key.includes('/api/scheduler')) {
       routes[key] = notAvailable;
     }

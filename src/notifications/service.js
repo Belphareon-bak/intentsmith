@@ -160,7 +160,7 @@ export class NotificationRouter {
     }
 
     // First verify the channel config
-    const verifyResult = await channel.verify();
+    const verifyResult = await channel.verify(recipient);
     if (!verifyResult.ok) {
       return verifyResult;
     }
@@ -175,43 +175,6 @@ export class NotificationRouter {
     });
 
     return { ok: result.delivered, channel: channelName, error: result.error };
-  }
-
-  /**
-   * Update config on a registered channel at runtime.
-   * @param {string} channelName
-   * @param {object} config
-   */
-  updateChannelConfig(channelName, config) {
-    const policyDecision = notificationChannelDecision(this.channelPolicy, channelName);
-    if (policyDecision.external && !policyDecision.enabled) {
-      return {
-        updated: false,
-        channel: channelName,
-        code: NOTIFICATION_CHANNEL_DISABLED,
-        error: NOTIFICATION_CHANNEL_DISABLED,
-      };
-    }
-    if (!policyDecision.managed) {
-      return {
-        updated: false,
-        channel: channelName,
-        code: NOTIFICATION_CHANNEL_UNSUPPORTED,
-        error: NOTIFICATION_CHANNEL_UNSUPPORTED,
-      };
-    }
-    const channel = this.channels.get(channelName);
-    if (channel && typeof channel.updateConfig === 'function') {
-      channel.updateConfig(config);
-      this.logger.info('NotificationRouter', `Channel config updated: ${channelName}`);
-      return { updated: true, channel: channelName };
-    }
-    return {
-      updated: false,
-      channel: channelName,
-      code: NOTIFICATION_CHANNEL_UNAVAILABLE,
-      error: NOTIFICATION_CHANNEL_UNAVAILABLE,
-    };
   }
 
   /**

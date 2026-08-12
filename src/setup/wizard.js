@@ -12,7 +12,8 @@
 //
 // Retains any legacy notification subdocument for the later authority transfer,
 // but no longer accepts notification credentials or destinations. Persists the
-// setup state in c3-setup.json and patches only four owned keys in cwd .env.
+// setup state in c3-setup.json and delegates its exact four-key patch to the
+// canonical project-root .env authority.
 //
 // Usage:
 //   node src/setup/wizard.js          # Interactive terminal
@@ -22,378 +23,63 @@
 
 import fs from 'fs';
 import path from 'path';
-import { randomBytes } from 'crypto';
 import { createInterface } from 'readline';
-import { parse as parseDotenv } from 'dotenv';
+import { fileURLToPath } from 'node:url';
 import { logger } from '../core/logger.js';
+import { SETUP_ADMIN_AUTH_REQUIRED } from '../security/strict-admin-auth.js';
+import {
+  ROOT_ENVIRONMENT_OWNER,
+  SETUP_ENV_DUPLICATE_OWNED_KEY,
+  SETUP_ENV_OWNED_KEYS,
+  SETUP_ENV_PUBLICATION_UNKNOWN,
+  SETUP_ENV_TARGET_OUT_OF_SCOPE,
+  SETUP_ENV_TARGET_UNSAFE,
+  SETUP_ENV_VALUE_INVALID,
+  SETUP_ENV_WRITE_FAILED,
+  SetupEnvironmentError,
+  patchRootEnvironmentFile,
+  renderRootEnvironment,
+  requireCanonicalRootEnvironmentProjectRoot,
+  requireSafeRootEnvironmentTarget,
+} from '../security/root-environment-file.js';
+
+export {
+  SETUP_ENV_DUPLICATE_OWNED_KEY,
+  SETUP_ENV_OWNED_KEYS,
+  SETUP_ENV_PUBLICATION_UNKNOWN,
+  SETUP_ENV_TARGET_OUT_OF_SCOPE,
+  SETUP_ENV_TARGET_UNSAFE,
+  SETUP_ENV_VALUE_INVALID,
+  SETUP_ENV_WRITE_FAILED,
+  SetupEnvironmentError,
+};
 
 export const SETUP_NOTIFICATION_INPUT_RETIRED = 'SETUP_NOTIFICATION_INPUT_RETIRED';
-export const SETUP_ENV_TARGET_OUT_OF_SCOPE = 'SETUP_ENV_TARGET_OUT_OF_SCOPE';
-export const SETUP_ENV_TARGET_UNSAFE = 'SETUP_ENV_TARGET_UNSAFE';
-export const SETUP_ENV_DUPLICATE_OWNED_KEY = 'SETUP_ENV_DUPLICATE_OWNED_KEY';
-export const SETUP_ENV_VALUE_INVALID = 'SETUP_ENV_VALUE_INVALID';
-export const SETUP_ENV_WRITE_FAILED = 'SETUP_ENV_WRITE_FAILED';
-export const SETUP_ENV_PUBLICATION_UNKNOWN = 'SETUP_ENV_PUBLICATION_UNKNOWN';
 export const SETUP_STATE_WRITE_FAILED = 'SETUP_STATE_WRITE_FAILED';
+export const SETUP_STATE_INVALID = 'SETUP_STATE_INVALID';
+export const SETUP_ALREADY_COMPLETE = 'SETUP_ALREADY_COMPLETE';
 
-export const SETUP_ENV_OWNED_KEYS = Object.freeze([
-  'OLLAMA_URL',
-  'C3_LANG',
-  'C3_DB_PATH',
-  'C3_LICENSE_KEY',
-]);
-
-const SETUP_ENV_OWNED_KEY_SET = new Set(SETUP_ENV_OWNED_KEYS);
-const ENV_ASSIGNMENT_PATTERN = /^(\uFEFF?[^\S\r\n]*(?:export[^\S\r\n]+)?)([\w.-]+)(?:[^\S\r\n]*=[^\S\r\n]*|:[^\S\r\n]+)/u;
-// Structurally mirrors dotenv@17.3.1's assignment matcher, with captures
-// around the spans that must never cross a physical line in this bounded
-// writer. Leading blank-line whitespace is intentionally not rejected.
-const DOTENV_ASSIGNMENT_SPAN_PATTERN = /^(\s*)(?:export(\s+))?([\w.-]+)(\s*=\s*?|:\s+?)(\s*'(?:\\'|[^'])*'|\s*"(?:\\"|[^"])*"|\s*`(?:\\`|[^`])*`|[^#\r\n]+)?\s*(?:#.*)?$/gm;
-
-export class SetupEnvironmentError extends Error {
-  constructor(code) {
-    super(code);
-    this.name = 'SetupEnvironmentError';
-    this.code = code;
-  }
-}
+const DEFAULT_PROJECT_ROOT = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../..',
+);
 
 function setupEnvironmentError(code) {
   return new SetupEnvironmentError(code);
 }
 
-function currentUid() {
-  return typeof process.geteuid === 'function' ? process.geteuid() : null;
-}
-
-export function requireSafeSetupEnvTarget(stat, expectedUid = currentUid()) {
-  const isRegular = stat && typeof stat.isFile === 'function' && stat.isFile();
-  const ownerMatches = expectedUid === null || stat?.uid === expectedUid;
-  const mode = stat?.mode & 0o777;
-  if (!isRegular || !ownerMatches || stat?.nlink !== 1 || mode !== 0o600) {
-    throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-  }
-  return stat;
-}
-
-function validateSetupEnvValues(values) {
-  const normalized = Object.create(null);
-  for (const key of SETUP_ENV_OWNED_KEYS) {
-    if (!Object.hasOwn(values, key) || typeof values[key] !== 'string'
-      || /[\r\n\0\u2028\u2029]/u.test(values[key])) {
-      throw setupEnvironmentError(SETUP_ENV_VALUE_INVALID);
-    }
-    normalized[key] = values[key];
-  }
-  return Object.freeze(normalized);
-}
-
-function splitLinesWithEndings(text) {
-  const lines = [];
-  let start = 0;
-  for (let index = 0; index < text.length; index++) {
-    if (text[index] !== '\r' && text[index] !== '\n') continue;
-    const end = text[index] === '\r' && text[index + 1] === '\n'
-      ? index + 2
-      : index + 1;
-    lines.push(text.slice(start, end));
-    start = end;
-    if (end === index + 2) index += 1;
-  }
-  if (start < text.length) lines.push(text.slice(start));
-  return lines;
-}
-
-function envLineEnding(line) {
-  if (line.endsWith('\r\n')) return '\r\n';
-  if (line.endsWith('\n')) return '\n';
-  return line.endsWith('\r') ? '\r' : '';
-}
-
-function stripEnvLineEnding(line) {
-  if (line.endsWith('\r\n')) return line.slice(0, -2);
-  if (line.endsWith('\r') || line.endsWith('\n')) return line.slice(0, -1);
-  return line;
-}
-
-function assertNoMultilineDotenvAssignments(lines) {
-  for (const line of lines) {
-    const content = stripEnvLineEnding(line);
-    const match = ENV_ASSIGNMENT_PATTERN.exec(content);
-    if (!match) continue;
-    const quote = content[match[0].length];
-    if (quote !== "'" && quote !== '"' && quote !== '`') continue;
-    let closed = false;
-    for (let index = match[0].length + 1; index < content.length; index++) {
-      if (content[index] === quote && content[index - 1] !== '\\') {
-        closed = true;
-        break;
-      }
-    }
-    if (!closed) throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-  }
-}
-
-function assertNoCrossLineDotenvAssignments(text) {
-  // JavaScript's multiline anchors (and therefore dotenv's pinned parser)
-  // also treat U+2028/U+2029 as line terminators. This bounded writer only
-  // preserves CR/LF physical records, so fail closed instead of allowing a
-  // second parser-visible authority that the physical scanner cannot count.
-  if (/[\u2028\u2029]/u.test(text)) {
-    throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-  }
-  const normalized = text.replace(/\r\n?/g, '\n');
-  DOTENV_ASSIGNMENT_SPAN_PATTERN.lastIndex = 0;
-  let match;
-  while ((match = DOTENV_ASSIGNMENT_SPAN_PATTERN.exec(normalized)) !== null) {
-    const crossLineSpan = [match[2], match[4], match[5]]
-      .some(value => typeof value === 'string' && value.includes('\n'));
-    if (crossLineSpan) throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-  }
-}
-
-function parseSetupEnvironment(bytes) {
-  try {
-    return parseDotenv(bytes);
-  } catch {
-    throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-  }
-}
-
-function assertRenderedSetupEnvironment(existingBytes, nextBytes, normalized) {
-  const before = parseSetupEnvironment(existingBytes);
-  const after = parseSetupEnvironment(nextBytes);
-  const parsedKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
-  for (const key of parsedKeys) {
-    if (SETUP_ENV_OWNED_KEY_SET.has(key)) continue;
-    if (Object.hasOwn(before, key) !== Object.hasOwn(after, key)
-      || before[key] !== after[key]) {
-      throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-    }
-  }
-  for (const key of SETUP_ENV_OWNED_KEYS) {
-    const expectedPresent = key !== 'C3_LICENSE_KEY' || normalized[key] !== '';
-    if (Object.hasOwn(after, key) !== expectedPresent
-      || (expectedPresent && after[key] !== normalized[key])) {
-      throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-    }
-  }
-}
-
-function encodeEnvValue(value) {
-  const candidates = [];
-  if (value.trim() === value && !value.includes('#')) candidates.push(value);
-  if (!value.includes("'")) candidates.push(`'${value}'`);
-  if (!value.includes('`')) candidates.push(`\`${value}\``);
-  if (!value.includes('"')) candidates.push(`"${value}"`);
-
-  for (const candidate of candidates) {
-    const parsed = parseDotenv(Buffer.from(`C3_SETUP_VALUE=${candidate}\n`, 'utf8'));
-    if (parsed.C3_SETUP_VALUE === value) return candidate;
-  }
-  throw setupEnvironmentError(SETUP_ENV_VALUE_INVALID);
+// Backwards-compatible P0 test/API names delegate to the shared seam.
+export function requireSafeSetupEnvTarget(stat, expectedUid) {
+  return expectedUid === undefined
+    ? requireSafeRootEnvironmentTarget(stat)
+    : requireSafeRootEnvironmentTarget(stat, expectedUid);
 }
 
 export function renderSetupEnvironment(existingBytes, values) {
-  const normalized = validateSetupEnvValues(values);
-  let text;
-  try {
-    text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(existingBytes);
-  } catch {
-    throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-  }
-
-  const lines = splitLinesWithEndings(text);
-  assertNoCrossLineDotenvAssignments(text);
-  assertNoMultilineDotenvAssignments(lines);
-  const ownedIndexes = new Map();
-  for (let index = 0; index < lines.length; index++) {
-    const content = stripEnvLineEnding(lines[index]);
-    const match = ENV_ASSIGNMENT_PATTERN.exec(content);
-    if (!match || !SETUP_ENV_OWNED_KEY_SET.has(match[2])) continue;
-    if (ownedIndexes.has(match[2])) {
-      throw setupEnvironmentError(SETUP_ENV_DUPLICATE_OWNED_KEY);
-    }
-    ownedIndexes.set(match[2], index);
-  }
-
-  const removed = new Set();
-  for (const key of SETUP_ENV_OWNED_KEYS) {
-    const index = ownedIndexes.get(key);
-    const value = normalized[key];
-    if (index === undefined) continue;
-    if (key === 'C3_LICENSE_KEY' && value === '') {
-      removed.add(index);
-      continue;
-    }
-    const content = stripEnvLineEnding(lines[index]);
-    const match = ENV_ASSIGNMENT_PATTERN.exec(content);
-    lines[index] = `${match[1]}${key}=${encodeEnvValue(value)}${envLineEnding(lines[index])}`;
-  }
-
-  const retainedLines = lines
-    .map((line, index) => ({ index, line }))
-    .filter(({ index }) => !removed.has(index));
-  let rendered = retainedLines.map(({ line }) => line).join('');
-  const appended = [];
-  for (const key of SETUP_ENV_OWNED_KEYS) {
-    if (ownedIndexes.has(key)) continue;
-    const value = normalized[key];
-    if (key === 'C3_LICENSE_KEY' && value === '') continue;
-    appended.push(`${key}=${encodeEnvValue(value)}\n`);
-  }
-  if (appended.length > 0) {
-    const appendedText = appended.join('');
-    const finalLine = retainedLines.at(-1);
-    const finalLineIsUnterminated = finalLine
-      && !finalLine.line.endsWith('\n')
-      && !finalLine.line.endsWith('\r');
-    const finalLineIsOwned = finalLine
-      && [...ownedIndexes.values()].includes(finalLine.index);
-    if (finalLineIsUnterminated && !finalLineIsOwned) {
-      const prefix = retainedLines.slice(0, -1).map(({ line }) => line).join('');
-      const bom = prefix.length === 0 && finalLine.line.startsWith('\uFEFF') ? '\uFEFF' : '';
-      rendered = `${prefix}${bom}${appendedText}${finalLine.line.slice(bom.length)}`;
-    } else {
-      if (rendered.length > 0 && !rendered.endsWith('\n') && !rendered.endsWith('\r')) {
-        rendered += '\n';
-      }
-      rendered += appendedText;
-    }
-  }
-  const nextBytes = Buffer.from(rendered, 'utf8');
-  assertRenderedSetupEnvironment(existingBytes, nextBytes, normalized);
-  return nextBytes;
-}
-
-function fsyncDirectory(directoryPath) {
-  const directoryFd = fs.openSync(
-    directoryPath,
-    fs.constants.O_RDONLY | (fs.constants.O_DIRECTORY || 0),
-  );
-  try {
-    fs.fsyncSync(directoryFd);
-  } finally {
-    fs.closeSync(directoryFd);
-  }
-}
-
-function requireOwnedDirectory(directoryPath) {
-  const stat = fs.lstatSync(directoryPath);
-  const expectedUid = currentUid();
-  if (!stat.isDirectory() || stat.isSymbolicLink()
-    || (expectedUid !== null && stat.uid !== expectedUid)
-    || fs.realpathSync(directoryPath) !== directoryPath) {
-    throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-  }
-}
-
-function readSafeExistingTarget(targetPath) {
-  let lstat;
-  try {
-    lstat = fs.lstatSync(targetPath);
-  } catch (error) {
-    if (error?.code === 'ENOENT') return null;
-    throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-  }
-  requireSafeSetupEnvTarget(lstat);
-
-  let fd;
-  try {
-    fd = fs.openSync(targetPath, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
-    const fstat = fs.fstatSync(fd);
-    requireSafeSetupEnvTarget(fstat);
-    if (fstat.dev !== lstat.dev || fstat.ino !== lstat.ino) {
-      throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-    }
-    return Object.freeze({
-      bytes: fs.readFileSync(fd),
-      dev: fstat.dev,
-      ino: fstat.ino,
-    });
-  } catch (error) {
-    if (error instanceof SetupEnvironmentError) throw error;
-    throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-  } finally {
-    if (fd !== undefined) fs.closeSync(fd);
-  }
-}
-
-function recheckExistingTarget(targetPath, snapshot) {
-  const stat = fs.lstatSync(targetPath);
-  requireSafeSetupEnvTarget(stat);
-  if (stat.dev !== snapshot.dev || stat.ino !== snapshot.ino) {
-    throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-  }
-}
-
-export function patchSetupEnvironmentFile(values, outputPath = '.env') {
-  const targetPath = path.resolve(outputPath);
-  const requiredPath = path.resolve(process.cwd(), '.env');
-  if (targetPath !== requiredPath) {
-    throw setupEnvironmentError(SETUP_ENV_TARGET_OUT_OF_SCOPE);
-  }
-
-  const directoryPath = path.dirname(targetPath);
-  requireOwnedDirectory(directoryPath);
-  const snapshot = readSafeExistingTarget(targetPath);
-  const nextBytes = renderSetupEnvironment(snapshot?.bytes || Buffer.alloc(0), values);
-  const tempPath = path.join(
-    directoryPath,
-    `.env.c3-setup-${process.pid}-${randomBytes(12).toString('hex')}.tmp`,
-  );
-  let tempCreated = false;
-  let published = false;
-  try {
-    const tempFd = fs.openSync(
-      tempPath,
-      fs.constants.O_WRONLY
-        | fs.constants.O_CREAT
-        | fs.constants.O_EXCL
-        | fs.constants.O_NOFOLLOW,
-      0o600,
-    );
-    tempCreated = true;
-    try {
-      fs.writeFileSync(tempFd, nextBytes);
-      fs.fchmodSync(tempFd, 0o600);
-      fs.fsyncSync(tempFd);
-    } finally {
-      fs.closeSync(tempFd);
-    }
-
-    const tempStat = fs.lstatSync(tempPath);
-    requireSafeSetupEnvTarget(tempStat);
-
-    if (snapshot) {
-      recheckExistingTarget(targetPath, snapshot);
-      fs.renameSync(tempPath, targetPath);
-      tempCreated = false;
-      published = true;
-    } else {
-      fs.linkSync(tempPath, targetPath);
-      published = true;
-      fs.unlinkSync(tempPath);
-      tempCreated = false;
-    }
-    const publishedSnapshot = readSafeExistingTarget(targetPath);
-    if (!publishedSnapshot || !publishedSnapshot.bytes.equals(nextBytes)) {
-      throw setupEnvironmentError(SETUP_ENV_PUBLICATION_UNKNOWN);
-    }
-    fsyncDirectory(directoryPath);
-  } catch (error) {
-    if (tempCreated) {
-      try { fs.unlinkSync(tempPath); } catch { /* best-effort temp cleanup */ }
-    }
-    if (published) {
-      throw setupEnvironmentError(SETUP_ENV_PUBLICATION_UNKNOWN);
-    }
-    if (error instanceof SetupEnvironmentError) throw error;
-    if (error?.code === 'EEXIST' || error?.code === 'ELOOP') {
-      throw setupEnvironmentError(SETUP_ENV_TARGET_UNSAFE);
-    }
-    throw setupEnvironmentError(SETUP_ENV_WRITE_FAILED);
-  }
+  return renderRootEnvironment(existingBytes, {
+    owner: ROOT_ENVIRONMENT_OWNER.SETUP,
+    values,
+  });
 }
 
 // ─── Setup State ────────────────────────────────────────────────────────────
@@ -417,48 +103,142 @@ const DEFAULT_SETUP = {
   },
   language: 'cs',
   notifications: {
-    telegram: { enabled: false, token: '', chatId: '' },
-    email: { enabled: false, smtp: '', from: '', to: '' },
-    ntfy: { enabled: false, topic: '', server: 'https://ntfy.sh' },
+    telegram: { enabled: false },
+    email: { enabled: false },
+    ntfy: { enabled: false },
   },
   dataDir: './data',
   license: { key: '', activated: false },
 };
 
+function createDefaultSetup() {
+  return {
+    ...DEFAULT_SETUP,
+    ollama: {
+      ...DEFAULT_SETUP.ollama,
+      models: { ...DEFAULT_SETUP.ollama.models },
+    },
+    notifications: {
+      telegram: { ...DEFAULT_SETUP.notifications.telegram },
+      email: { ...DEFAULT_SETUP.notifications.email },
+      ntfy: { ...DEFAULT_SETUP.notifications.ntfy },
+    },
+    license: { ...DEFAULT_SETUP.license },
+  };
+}
+
+function normalizeProjectRoot(projectRoot) {
+  return requireCanonicalRootEnvironmentProjectRoot(projectRoot);
+}
+
+function isPlainObject(value) {
+  return value !== null
+    && typeof value === 'object'
+    && !Array.isArray(value)
+    && Object.getPrototypeOf(value) === Object.prototype;
+}
+
+function requireOptionalType(record, key, predicate) {
+  if (Object.hasOwn(record, key) && !predicate(record[key])) {
+    throw setupEnvironmentError(SETUP_STATE_INVALID);
+  }
+}
+
+function validateSetupState(state) {
+  if (!isPlainObject(state)) throw setupEnvironmentError(SETUP_STATE_INVALID);
+  requireOptionalType(state, 'version', value => Number.isInteger(value));
+  requireOptionalType(state, 'completed', value => typeof value === 'boolean');
+  requireOptionalType(
+    state,
+    'completedAt',
+    value => value === null || typeof value === 'string',
+  );
+  requireOptionalType(state, 'language', value => typeof value === 'string');
+  requireOptionalType(state, 'dataDir', value => typeof value === 'string');
+
+  for (const container of ['ollama', 'notifications', 'license']) {
+    requireOptionalType(state, container, isPlainObject);
+  }
+  if (state.ollama) {
+    requireOptionalType(state.ollama, 'url', value => typeof value === 'string');
+    requireOptionalType(state.ollama, 'verified', value => typeof value === 'boolean');
+    requireOptionalType(state.ollama, 'models', isPlainObject);
+    if (state.ollama.models) {
+      for (const value of Object.values(state.ollama.models)) {
+        if (typeof value !== 'string') throw setupEnvironmentError(SETUP_STATE_INVALID);
+      }
+    }
+  }
+  if (state.license) {
+    requireOptionalType(state.license, 'key', value => typeof value === 'string');
+    requireOptionalType(state.license, 'activated', value => typeof value === 'boolean');
+  }
+  if (state.notifications) {
+    const notificationShapes = {
+      telegram: { enabled: 'boolean', token: 'string', chatId: 'string' },
+      email: { enabled: 'boolean', smtp: 'string', from: 'string', to: 'string' },
+      ntfy: { enabled: 'boolean', topic: 'string', server: 'string' },
+    };
+    for (const [channel, leaves] of Object.entries(notificationShapes)) {
+      requireOptionalType(state.notifications, channel, isPlainObject);
+      const channelState = state.notifications[channel];
+      if (!channelState) continue;
+      for (const [key, type] of Object.entries(leaves)) {
+        requireOptionalType(channelState, key, value => typeof value === type);
+      }
+    }
+  }
+  return state;
+}
+
+function readDurableSetupState(setupPath) {
+  let bytes;
+  try {
+    bytes = fs.readFileSync(setupPath);
+  } catch (error) {
+    if (error?.code === 'ENOENT') return null;
+    throw setupEnvironmentError(SETUP_STATE_INVALID);
+  }
+
+  try {
+    const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    return validateSetupState(JSON.parse(text));
+  } catch (error) {
+    if (error instanceof SetupEnvironmentError) throw error;
+    throw setupEnvironmentError(SETUP_STATE_INVALID);
+  }
+}
+
 // ─── Setup Wizard Class ─────────────────────────────────────────────────────
 
 export class SetupWizard {
-  constructor(dataDir = './data') {
+  constructor(dataDir = './data', { projectRoot = DEFAULT_PROJECT_ROOT } = {}) {
     this.dataDir = dataDir;
     this.setupPath = path.join(dataDir, SETUP_FILE);
-    this.config = { ...DEFAULT_SETUP };
+    Object.defineProperty(this, 'projectRoot', {
+      configurable: false,
+      enumerable: true,
+      value: normalizeProjectRoot(projectRoot),
+      writable: false,
+    });
+    this.config = createDefaultSetup();
   }
 
   /**
    * Check if setup has been completed.
    */
   isComplete() {
-    try {
-      if (fs.existsSync(this.setupPath)) {
-        const data = JSON.parse(fs.readFileSync(this.setupPath, 'utf-8'));
-        return data.completed === true;
-      }
-    } catch { /* ignore */ }
-    return false;
+    return readDurableSetupState(this.setupPath)?.completed === true;
   }
 
   /**
    * Load existing setup or defaults.
    */
   load() {
-    try {
-      if (fs.existsSync(this.setupPath)) {
-        const data = JSON.parse(fs.readFileSync(this.setupPath, 'utf-8'));
-        this.config = { ...DEFAULT_SETUP, ...data };
-      }
-    } catch (err) {
-      logger.debug('Setup', `Load failed: ${err.message}`);
-    }
+    const data = readDurableSetupState(this.setupPath);
+    this.config = data === null
+      ? createDefaultSetup()
+      : { ...createDefaultSetup(), ...data };
     return this.config;
   }
 
@@ -528,7 +308,9 @@ export class SetupWizard {
     const result = await this.verifyOllama(url);
     if (!result.ok) return { ok: false, error: result.error, missing: [] };
 
-    const required = Object.values(this.config.ollama.models);
+    const required = Object.values(
+      this.config.ollama.models || DEFAULT_SETUP.ollama.models,
+    );
     const unique = [...new Set(required)];
     const available = result.models.map(m => m.split(':')[0] + (m.includes(':') ? ':' + m.split(':')[1] : ''));
 
@@ -545,7 +327,7 @@ export class SetupWizard {
    */
   toEnvVars() {
     const env = {};
-    env.OLLAMA_URL = this.config.ollama.url;
+    env.OLLAMA_URL = this.config.ollama.url ?? DEFAULT_SETUP.ollama.url;
     env.C3_LANG = this.config.language;
     env.C3_DB_PATH = path.join(this.config.dataDir, 'c3.db');
     env.C3_LICENSE_KEY = this.config.license.key || '';
@@ -554,10 +336,17 @@ export class SetupWizard {
   }
 
   /**
-   * Atomically patch the exact cwd .env authority owned by setup.
+   * Atomically patch only the canonical project-root .env authority.
    */
-  writeEnvFile(outputPath = '.env') {
-    patchSetupEnvironmentFile(this.toEnvVars(), outputPath);
+  writeEnvFile(...requestedTargets) {
+    if (requestedTargets.length !== 0) {
+      throw setupEnvironmentError(SETUP_ENV_TARGET_OUT_OF_SCOPE);
+    }
+    patchRootEnvironmentFile({
+      projectRoot: this.projectRoot,
+      owner: ROOT_ENVIRONMENT_OWNER.SETUP,
+      values: this.toEnvVars(),
+    });
   }
 
   /**
@@ -571,13 +360,13 @@ export class SetupWizard {
       ollamaVerified: this.config.ollama.verified,
       language: this.config.language,
       notifications: {
-        telegram: this.config.notifications.telegram.enabled,
-        email: this.config.notifications.email.enabled,
-        ntfy: this.config.notifications.ntfy.enabled,
+        telegram: this.config.notifications?.telegram?.enabled === true,
+        email: this.config.notifications?.email?.enabled === true,
+        ntfy: this.config.notifications?.ntfy?.enabled === true,
       },
       license: {
-        hasKey: !!this.config.license.key,
-        activated: this.config.license.activated,
+        hasKey: !!this.config.license?.key,
+        activated: this.config.license?.activated === true,
       },
     };
   }
@@ -654,7 +443,7 @@ export async function runInteractiveWizard(dataDir = './data') {
     if (!wizard.complete()) {
       throw setupEnvironmentError(SETUP_STATE_WRITE_FAILED);
     }
-    const envPath = path.resolve(process.cwd(), '.env');
+    const envPath = path.join(wizard.projectRoot, '.env');
 
     console.log(cs ? '\n✅ Konfigurace uložena!' : '\n✅ Configuration saved!');
     console.log(cs ? `   Setup: ${wizard.setupPath}` : `   Setup: ${wizard.setupPath}`);
@@ -675,13 +464,21 @@ export async function runInteractiveWizard(dataDir = './data') {
  * Compatible with server.js route convention: (req, res) handlers using sendJSON/parseBody from deps.
  */
 export function createSetupRoutes(wizard, deps = {}) {
-  const { sendJSON, parseBody } = deps;
+  const { sendJSON, parseBody, requireSetupAdminAuth } = deps;
+  if (typeof requireSetupAdminAuth !== 'function') {
+    throw setupEnvironmentError(SETUP_ADMIN_AUTH_REQUIRED);
+  }
+  const denyAdmin = res => sendJSON(res, 403, {
+    ok: false,
+    code: SETUP_ADMIN_AUTH_REQUIRED,
+  });
   return {
     'GET /api/setup/status': (req, res) => {
       sendJSON(res, 200, wizard.getStatus());
     },
 
     'POST /api/setup/ollama': async (req, res) => {
+      if (requireSetupAdminAuth(req) !== true) return denyAdmin(res);
       const body = await parseBody(req);
       const { url } = body;
       if (!url) return sendJSON(res, 400, { error: 'url required' });
@@ -696,6 +493,7 @@ export function createSetupRoutes(wizard, deps = {}) {
     },
 
     'POST /api/setup/language': async (req, res) => {
+      if (requireSetupAdminAuth(req) !== true) return denyAdmin(res);
       const body = await parseBody(req);
       const { language } = body;
       if (!['cs', 'en'].includes(language)) return sendJSON(res, 400, { error: 'Invalid language' });
@@ -708,6 +506,7 @@ export function createSetupRoutes(wizard, deps = {}) {
     },
 
     'POST /api/setup/license': async (req, res) => {
+      if (requireSetupAdminAuth(req) !== true) return denyAdmin(res);
       const body = await parseBody(req);
       const { key } = body;
       wizard.config.license.key = key || '';
@@ -715,7 +514,23 @@ export function createSetupRoutes(wizard, deps = {}) {
     },
 
     'POST /api/setup/complete': async (req, res) => {
+      if (requireSetupAdminAuth(req) !== true) return denyAdmin(res);
       let errorCode = null;
+      let alreadyComplete = false;
+      try {
+        alreadyComplete = wizard.isComplete();
+      } catch (error) {
+        errorCode = error instanceof SetupEnvironmentError
+          ? error.code
+          : SETUP_STATE_INVALID;
+      }
+      if (errorCode !== null) {
+        return sendJSON(res, 409, { ok: false, code: errorCode });
+      }
+      if (alreadyComplete) {
+        return sendJSON(res, 409, { ok: false, code: SETUP_ALREADY_COMPLETE });
+      }
+
       try {
         wizard.writeEnvFile();
         if (!wizard.complete()) {

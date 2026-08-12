@@ -1316,6 +1316,51 @@ function settingsBackupV1Fixture(overrides = {}) {
   };
 }
 
+const LEGACY_CREDENTIAL_RECEIPT_PATHS = Object.freeze([
+  'notifications.discordWebhook',
+  'notifications.emailAddresses',
+  'notifications.slackChannel',
+  'notifications.slackWebhook',
+  'notifications.smsApiKey',
+  'notifications.smsPhone',
+  'notifications.smsSecret',
+  'notifications.telegramChatId',
+  'notifications.telegramToken',
+  'notifications.webhookUrl',
+]);
+
+function legacyCredentialSha256(value) {
+  return createHash('sha256').update(value, 'utf8').digest('hex');
+}
+
+function legacyCredentialReceiptFixture(preimage, selectedPaths, action = 'PURGE') {
+  const document = JSON.parse(preimage);
+  const paths = [...selectedPaths].sort();
+  const pathDigests = paths.map(path => {
+    const property = path.slice('notifications.'.length);
+    return {
+      path,
+      valueSha256: legacyCredentialSha256(JSON.stringify(document.notifications[property])),
+    };
+  });
+  for (const path of paths) {
+    delete document.notifications[path.slice('notifications.'.length)];
+  }
+  const postimage = JSON.stringify(document);
+  const receipt = {
+    schema: 'INTENTSMITH_LEGACY_CREDENTIAL_RECEIPT/V1',
+    source: 'PAIASS_SETTINGS',
+    action,
+    preimageSha256: legacyCredentialSha256(preimage),
+    postimageSha256: legacyCredentialSha256(postimage),
+    pathDigests,
+  };
+  if (action === 'EXPORT') {
+    receipt.exportSha256 = legacyCredentialSha256('verified-export-artifact');
+  }
+  return { postimage, receipt };
+}
+
 function settingsPortableGeneralSettings(overrides = {}) {
   const base = {
     appearance: {
@@ -1467,6 +1512,9 @@ function architectSettingsHarness(options = {}) {
   const fileInputs = [];
   const toasts = [];
   const storage = new Map(Object.entries(options.localStorage || {}));
+  const storageEffects = { get: [], set: [], remove: [] };
+  const legacyReceiptStatus = { dataset: { state: 'READY' }, textContent: 'READY' };
+  let digestCalls = 0;
   let applySettingsCalls = 0;
   let context;
 
@@ -1487,6 +1535,7 @@ function architectSettingsHarness(options = {}) {
   context = vm.createContext({
     Blob: CapturedBlob,
     Date,
+    TextEncoder,
     URL: {
       createObjectURL(blob) {
         anchor.blob = blob;
@@ -1508,6 +1557,19 @@ function architectSettingsHarness(options = {}) {
     },
     confirm: () => options.confirmResponse !== false,
     console: { warn() {} },
+    crypto: {
+      subtle: {
+        async digest(algorithm, bytes) {
+          assert.equal(algorithm, 'SHA-256');
+          digestCalls += 1;
+          if (options.storageMutationOnDigestCall === digestCalls) {
+            storage.set('paiass_settings', options.storageMutationValue);
+          }
+          const digest = createHash('sha256').update(Buffer.from(bytes)).digest();
+          return digest.buffer.slice(digest.byteOffset, digest.byteOffset + digest.byteLength);
+        },
+      },
+    },
     document: {
       createElement(tagName) {
         if (tagName === 'a') return anchor;
@@ -1515,6 +1577,9 @@ function architectSettingsHarness(options = {}) {
         const input = { click() { input.clicked = true; } };
         fileInputs.push(input);
         return input;
+      },
+      getElementById(id) {
+        return id === 'legacy-credential-receipt-status' ? legacyReceiptStatus : null;
       },
     },
     fetch(url, init = {}) {
@@ -1532,9 +1597,27 @@ function architectSettingsHarness(options = {}) {
       });
     },
     localStorage: {
-      getItem(key) { return storage.has(key) ? storage.get(key) : null; },
-      removeItem(key) { storage.delete(key); },
-      setItem(key, value) { storage.set(key, String(value)); },
+      getItem(key) {
+        storageEffects.get.push(key);
+        if (options.storageReadThrowOnCall === storageEffects.get.length) {
+          throw new Error('fixture localStorage read failure');
+        }
+        if (options.storageReadbackValue !== undefined && storageEffects.set.length > 0) {
+          return options.storageReadbackValue;
+        }
+        return storage.has(key) ? storage.get(key) : null;
+      },
+      removeItem(key) {
+        storageEffects.remove.push(key);
+        storage.delete(key);
+      },
+      setItem(key, value) {
+        storageEffects.set.push({ key, value: String(value) });
+        if (options.storageWriteThrows) {
+          throw new Error('fixture localStorage write failure');
+        }
+        storage.set(key, String(value));
+      },
     },
     module: { exports: {} },
     populateSettingsUI() {},
@@ -1554,8 +1637,10 @@ function architectSettingsHarness(options = {}) {
       + '\napplyArchitectSettingsDocument(JSON.parse(_settingsSeed),_settingsRevisionSeed);'
       + '\nmodule.exports={'
       + 'exportSettings,importSettings,loadSettings,resetAll,resetSettings,saveSettings,'
+      + 'architectApplyLegacyCredentialReceipt,importLegacyCredentialReceipt,'
       + 'defaults:ARCHITECT_SETTINGS_DEFAULT_DOCUMENT,'
       + 'portablePaths:ARCHITECT_SETTINGS_PORTABLE_PATHS,'
+      + 'legacyCredentialPaths:ARCHITECT_LEGACY_CREDENTIAL_PATHS,'
       + 'prototypeState:function(){return {'
       + 'globalPolluted:({}).architectPolluted===true,'
       + 'rootOwn:Object.prototype.hasOwnProperty.call(settingsState,"__proto__"),'
@@ -1564,17 +1649,23 @@ function architectSettingsHarness(options = {}) {
       + 'appearancePrototypeSafe:Object.getPrototypeOf(settingsState.appearance)===Object.prototype};},'
       + 'snapshot:function(){return settingsState;},'
       + 'setTheme:function(value){settingsState.appearance.theme=value;},'
-      + 'state:function(){return architectSettingsMutationState;}};',
+      + 'state:function(){return architectSettingsMutationState;},'
+      + 'legacyReceiptState:function(){return architectLegacyCredentialReceiptState;}};',
     context,
     { filename: `${ARCHITECT_UI.pathname}#portable-settings` },
   );
 
   return {
+    contextValue(value) {
+      return vm.runInContext(`JSON.parse(${JSON.stringify(JSON.stringify(value))})`, context);
+    },
     downloads,
     fileInputs,
     functions: context.module.exports,
     requests,
     storage,
+    storageEffects,
+    legacyReceiptStatus,
     toasts,
   };
 }
@@ -6740,7 +6831,7 @@ await testAsync('Architect exports only the validated v2 artifact and rejects in
   assert.equal(rejected.toasts.at(-1).type, 'error');
 });
 
-await testAsync('Architect import adopts redacted generic state and fences ambiguous delivery', async () => {
+await testAsync('Architect import adopts redacted state, fences ambiguity, and applies offline receipt', async () => {
   const committed = {
     appearance: { theme: 'light', accentColor: '#6366f1', fontFamily: 'system', fontSize: 14 },
     output: { defaultFormat: 'markdown', codeStyle: 'default', namingConvention: 'camelCase' },
@@ -6832,6 +6923,399 @@ await testAsync('Architect import adopts redacted generic state and fences ambig
   assert.equal(ambiguous.functions.state(), 'DELIVERY_UNKNOWN');
   assert.equal(await ambiguous.functions.saveSettings(), 'BLOCKED');
   assert.equal(ambiguous.requests.length, 2, 'delivery-unknown state admitted a replay or write');
+
+  const legacyPreimage = JSON.stringify({
+    appearance: { theme: 'dark' },
+    notifications: {
+      channels: { inapp: true },
+      emailAddresses: ['private@example.invalid'],
+      telegramToken: 'PRIVATE_TELEGRAM_TOKEN',
+      telegramChatId: 'keep-unselected',
+      futureNotificationCanary: { keep: true },
+    },
+    futureTopLevelCanary: ['keep', 1],
+  }, null, 2);
+  const legacyFixture = legacyCredentialReceiptFixture(legacyPreimage, [
+    'notifications.emailAddresses',
+    'notifications.telegramToken',
+  ]);
+  const receiptHarness = architectSettingsHarness({
+    localStorage: {
+      paiass_settings: legacyPreimage,
+      'c3-settings': 'C3_SETTINGS_MUST_NOT_CHANGE',
+    },
+  });
+  assert.deepEqual(
+    hostClone(receiptHarness.functions.legacyCredentialPaths),
+    LEGACY_CREDENTIAL_RECEIPT_PATHS,
+  );
+  const appliedReceipt = await receiptHarness.functions.architectApplyLegacyCredentialReceipt(
+    receiptHarness.contextValue(legacyFixture.receipt),
+  );
+  assert.deepEqual(hostClone(appliedReceipt), { ok: true, state: 'APPLIED', code: null });
+  assert.equal(receiptHarness.storage.get('paiass_settings'), legacyFixture.postimage);
+  assert.equal(receiptHarness.storage.get('c3-settings'), 'C3_SETTINGS_MUST_NOT_CHANGE');
+  assert.deepEqual(receiptHarness.storageEffects.set, [{
+    key: 'paiass_settings',
+    value: legacyFixture.postimage,
+  }]);
+  assert.deepEqual(receiptHarness.storageEffects.get, [
+    'paiass_settings',
+    'paiass_settings',
+    'paiass_settings',
+  ]);
+  assert.deepEqual(receiptHarness.storageEffects.remove, []);
+  assert.deepEqual(receiptHarness.requests, []);
+  assert.deepEqual(receiptHarness.downloads, []);
+  const scrubbedLegacy = JSON.parse(receiptHarness.storage.get('paiass_settings'));
+  assert.equal(Object.hasOwn(scrubbedLegacy.notifications, 'emailAddresses'), false);
+  assert.equal(Object.hasOwn(scrubbedLegacy.notifications, 'telegramToken'), false);
+  assert.equal(scrubbedLegacy.notifications.telegramChatId, 'keep-unselected');
+  assert.deepEqual(scrubbedLegacy.notifications.futureNotificationCanary, { keep: true });
+  assert.deepEqual(scrubbedLegacy.futureTopLevelCanary, ['keep', 1]);
+  assert.equal(receiptHarness.legacyReceiptStatus.textContent, 'APPLIED');
+
+  const idempotentReceipt = await receiptHarness.functions.architectApplyLegacyCredentialReceipt(
+    receiptHarness.contextValue(legacyFixture.receipt),
+  );
+  assert.deepEqual(
+    hostClone(idempotentReceipt),
+    { ok: true, state: 'ALREADY_APPLIED', code: null },
+  );
+  assert.equal(receiptHarness.storageEffects.set.length, 1);
+  receiptHarness.functions.importLegacyCredentialReceipt();
+  assert.equal(receiptHarness.fileInputs.length, 1);
+  assert.equal(receiptHarness.fileInputs[0].type, 'file');
+  assert.equal(receiptHarness.fileInputs[0].accept, '.json,application/json');
+  assert.equal(receiptHarness.fileInputs[0].clicked, true);
+  await receiptHarness.fileInputs[0].onchange({
+    target: { files: [{ text: async () => JSON.stringify(legacyFixture.receipt) }] },
+  });
+  assert.equal(receiptHarness.storageEffects.set.length, 1);
+  assert.equal(receiptHarness.toasts.at(-1).message, 'ALREADY_APPLIED');
+  assert.equal(receiptHarness.requests.length, 0);
+  assert.equal(
+    receiptHarness.storageEffects.get.every(key => key === 'paiass_settings'),
+    true,
+  );
+  assert.equal(
+    JSON.stringify(receiptHarness.toasts).includes('PRIVATE_TELEGRAM_TOKEN'),
+    false,
+  );
+  assert.equal(
+    JSON.stringify(receiptHarness.toasts).includes('private@example.invalid'),
+    false,
+  );
+
+  const exportFixture = legacyCredentialReceiptFixture(
+    legacyPreimage,
+    ['notifications.telegramToken'],
+    'EXPORT',
+  );
+  const exportHarness = architectSettingsHarness({
+    localStorage: { paiass_settings: legacyPreimage },
+  });
+  assert.equal(
+    (await exportHarness.functions.architectApplyLegacyCredentialReceipt(
+      exportHarness.contextValue(exportFixture.receipt),
+    )).state,
+    'APPLIED',
+  );
+  assert.equal(exportHarness.storage.get('paiass_settings'), exportFixture.postimage);
+  assert.equal(exportHarness.storageEffects.set.length, 1);
+
+  const forgedPostimageReceipt = hostClone(legacyFixture.receipt);
+  forgedPostimageReceipt.preimageSha256 = '1'.repeat(64);
+  forgedPostimageReceipt.postimageSha256 = legacyCredentialSha256(legacyPreimage);
+  const forgedPostimageHarness = architectSettingsHarness({
+    localStorage: { paiass_settings: legacyPreimage },
+  });
+  assert.equal(
+    (await forgedPostimageHarness.functions.architectApplyLegacyCredentialReceipt(
+      forgedPostimageHarness.contextValue(forgedPostimageReceipt),
+    )).code,
+    'LEGACY_RECEIPT_STALE',
+  );
+  assert.equal(forgedPostimageHarness.storage.get('paiass_settings'), legacyPreimage);
+  assert.equal(forgedPostimageHarness.storageEffects.set.length, 0);
+
+  const idempotentRaceHarness = architectSettingsHarness({
+    localStorage: { paiass_settings: legacyFixture.postimage },
+    storageMutationOnDigestCall: 1,
+    storageMutationValue: legacyPreimage,
+  });
+  assert.equal(
+    (await idempotentRaceHarness.functions.architectApplyLegacyCredentialReceipt(
+      idempotentRaceHarness.contextValue(legacyFixture.receipt),
+    )).code,
+    'LEGACY_RECEIPT_STALE',
+  );
+  assert.equal(idempotentRaceHarness.storage.get('paiass_settings'), legacyPreimage);
+  assert.equal(idempotentRaceHarness.storageEffects.set.length, 0);
+
+  const invalidReceiptCases = [
+    {
+      name: 'extra-key',
+      mutate(receipt) { receipt.extra = true; },
+      code: 'LEGACY_RECEIPT_INVALID',
+    },
+    {
+      name: 'wrong-schema',
+      mutate(receipt) { receipt.schema = 'INTENTSMITH_LEGACY_CREDENTIAL_RECEIPT/V2'; },
+      code: 'LEGACY_RECEIPT_INVALID',
+    },
+    {
+      name: 'wrong-action',
+      mutate(receipt) { receipt.action = 'TRANSFER'; },
+      code: 'LEGACY_RECEIPT_INVALID',
+    },
+    {
+      name: 'purge-export-digest-forbidden',
+      mutate(receipt) { receipt.exportSha256 = '1'.repeat(64); },
+      code: 'LEGACY_RECEIPT_INVALID',
+    },
+    {
+      name: 'empty-path-digests',
+      mutate(receipt) { receipt.pathDigests = []; },
+      code: 'LEGACY_RECEIPT_INVALID',
+    },
+    {
+      name: 'path-digest-extra-key',
+      mutate(receipt) { receipt.pathDigests[0].extra = true; },
+      code: 'LEGACY_RECEIPT_INVALID',
+    },
+    {
+      name: 'unknown-path',
+      mutate(receipt) { receipt.pathDigests[0].path = 'notifications.unknown'; },
+      code: 'LEGACY_RECEIPT_INVALID',
+    },
+    {
+      name: 'wrong-source',
+      mutate(receipt) { receipt.source = 'C3_SETTINGS'; },
+      code: 'LEGACY_RECEIPT_INVALID',
+    },
+    {
+      name: 'duplicate-path',
+      mutate(receipt) { receipt.pathDigests[1].path = receipt.pathDigests[0].path; },
+      code: 'LEGACY_RECEIPT_INVALID',
+    },
+    {
+      name: 'unsorted-path',
+      mutate(receipt) { receipt.pathDigests.reverse(); },
+      code: 'LEGACY_RECEIPT_INVALID',
+    },
+    {
+      name: 'uppercase-digest',
+      mutate(receipt) { receipt.preimageSha256 = 'A'.repeat(64); },
+      code: 'LEGACY_RECEIPT_INVALID',
+    },
+    {
+      name: 'equal-preimage-postimage',
+      mutate(receipt) { receipt.postimageSha256 = receipt.preimageSha256; },
+      code: 'LEGACY_RECEIPT_INVALID',
+    },
+    {
+      name: 'path-digest',
+      mutate(receipt) { receipt.pathDigests[0].valueSha256 = '0'.repeat(64); },
+      code: 'LEGACY_RECEIPT_PATH_DIGEST_MISMATCH',
+    },
+    {
+      name: 'postimage-digest',
+      mutate(receipt) { receipt.postimageSha256 = '0'.repeat(64); },
+      code: 'LEGACY_RECEIPT_POSTIMAGE_MISMATCH',
+    },
+    {
+      name: 'export-digest-missing',
+      mutate(receipt) { receipt.action = 'EXPORT'; },
+      code: 'LEGACY_RECEIPT_INVALID',
+    },
+  ];
+  for (const invalidCase of invalidReceiptCases) {
+    const receipt = hostClone(legacyFixture.receipt);
+    invalidCase.mutate(receipt);
+    const harness = architectSettingsHarness({
+      localStorage: { paiass_settings: legacyPreimage },
+    });
+    const result = await harness.functions.architectApplyLegacyCredentialReceipt(
+      harness.contextValue(receipt),
+    );
+    assert.deepEqual(
+      hostClone(result),
+      { ok: false, state: 'FAILED', code: invalidCase.code },
+      invalidCase.name,
+    );
+    assert.equal(harness.storage.get('paiass_settings'), legacyPreimage, invalidCase.name);
+    assert.equal(harness.storageEffects.set.length, 0, invalidCase.name);
+    assert.equal(harness.requests.length, 0, invalidCase.name);
+  }
+
+  const staleHarness = architectSettingsHarness({
+    localStorage: { paiass_settings: `${legacyPreimage}\n` },
+  });
+  assert.equal(
+    (await staleHarness.functions.architectApplyLegacyCredentialReceipt(
+      staleHarness.contextValue(legacyFixture.receipt),
+    )).code,
+    'LEGACY_RECEIPT_STALE',
+  );
+  assert.equal(staleHarness.storageEffects.set.length, 0);
+
+  const malformedHarness = architectSettingsHarness({
+    localStorage: { paiass_settings: '{"notifications":' },
+  });
+  assert.equal(
+    (await malformedHarness.functions.architectApplyLegacyCredentialReceipt(
+      malformedHarness.contextValue(legacyFixture.receipt),
+    )).code,
+    'LEGACY_RECEIPT_SOURCE_INVALID',
+  );
+  assert.equal(malformedHarness.storageEffects.set.length, 0);
+
+  const missingPathRaw = JSON.stringify({
+    notifications: { telegramChatId: 'unselected' },
+  });
+  const missingPathReceipt = hostClone(legacyFixture.receipt);
+  missingPathReceipt.preimageSha256 = legacyCredentialSha256(missingPathRaw);
+  const missingPathHarness = architectSettingsHarness({
+    localStorage: { paiass_settings: missingPathRaw },
+  });
+  assert.equal(
+    (await missingPathHarness.functions.architectApplyLegacyCredentialReceipt(
+      missingPathHarness.contextValue(missingPathReceipt),
+    )).code,
+    'LEGACY_RECEIPT_PATH_MISSING',
+  );
+  assert.equal(missingPathHarness.storageEffects.set.length, 0);
+
+  const missingSourceHarness = architectSettingsHarness();
+  assert.equal(
+    (await missingSourceHarness.functions.architectApplyLegacyCredentialReceipt(
+      missingSourceHarness.contextValue(legacyFixture.receipt),
+    )).code,
+    'LEGACY_RECEIPT_SOURCE_MISSING',
+  );
+  assert.equal(missingSourceHarness.storageEffects.set.length, 0);
+
+  const readFailure = architectSettingsHarness({
+    localStorage: { paiass_settings: legacyPreimage },
+    storageReadThrowOnCall: 1,
+  });
+  assert.equal(
+    (await readFailure.functions.architectApplyLegacyCredentialReceipt(
+      readFailure.contextValue(legacyFixture.receipt),
+    )).code,
+    'LEGACY_RECEIPT_STORAGE_READ_FAILED',
+  );
+  assert.equal(readFailure.storageEffects.set.length, 0);
+
+  const prewriteReadFailure = architectSettingsHarness({
+    localStorage: { paiass_settings: legacyPreimage },
+    storageReadThrowOnCall: 2,
+  });
+  assert.equal(
+    (await prewriteReadFailure.functions.architectApplyLegacyCredentialReceipt(
+      prewriteReadFailure.contextValue(legacyFixture.receipt),
+    )).code,
+    'LEGACY_RECEIPT_STALE',
+  );
+  assert.equal(prewriteReadFailure.storage.get('paiass_settings'), legacyPreimage);
+  assert.equal(prewriteReadFailure.storageEffects.set.length, 0);
+
+  const writeFailure = architectSettingsHarness({
+    localStorage: { paiass_settings: legacyPreimage },
+    storageWriteThrows: true,
+  });
+  assert.equal(
+    (await writeFailure.functions.architectApplyLegacyCredentialReceipt(
+      writeFailure.contextValue(legacyFixture.receipt),
+    )).code,
+    'LEGACY_RECEIPT_STORAGE_WRITE_FAILED',
+  );
+  assert.equal(writeFailure.storage.get('paiass_settings'), legacyPreimage);
+  assert.equal(writeFailure.storageEffects.set.length, 1);
+
+  const readbackFailure = architectSettingsHarness({
+    localStorage: { paiass_settings: legacyPreimage },
+    storageReadbackValue: 'READBACK_MISMATCH',
+  });
+  assert.equal(
+    (await readbackFailure.functions.architectApplyLegacyCredentialReceipt(
+      readbackFailure.contextValue(legacyFixture.receipt),
+    )).code,
+    'LEGACY_RECEIPT_READBACK_FAILED',
+  );
+  assert.equal(readbackFailure.storageEffects.set.length, 1);
+  assert.deepEqual(readbackFailure.storageEffects.remove, []);
+
+  const readbackReadFailure = architectSettingsHarness({
+    localStorage: { paiass_settings: legacyPreimage },
+    storageReadThrowOnCall: 3,
+  });
+  assert.equal(
+    (await readbackReadFailure.functions.architectApplyLegacyCredentialReceipt(
+      readbackReadFailure.contextValue(legacyFixture.receipt),
+    )).code,
+    'LEGACY_RECEIPT_READBACK_FAILED',
+  );
+  assert.equal(readbackReadFailure.storageEffects.set.length, 1);
+  assert.deepEqual(readbackReadFailure.storageEffects.remove, []);
+
+  const foreignRaceBytes = '{"foreign":"writer-won"}';
+  const mutationDuringDigest = architectSettingsHarness({
+    localStorage: { paiass_settings: legacyPreimage },
+    storageMutationOnDigestCall: 4,
+    storageMutationValue: foreignRaceBytes,
+  });
+  assert.equal(
+    (await mutationDuringDigest.functions.architectApplyLegacyCredentialReceipt(
+      mutationDuringDigest.contextValue(legacyFixture.receipt),
+    )).code,
+    'LEGACY_RECEIPT_STALE',
+  );
+  assert.equal(mutationDuringDigest.storage.get('paiass_settings'), foreignRaceBytes);
+  assert.equal(mutationDuringDigest.storageEffects.set.length, 0);
+  assert.deepEqual(mutationDuringDigest.storageEffects.remove, []);
+
+  const fileFailure = architectSettingsHarness({
+    localStorage: { paiass_settings: legacyPreimage },
+  });
+  fileFailure.functions.importLegacyCredentialReceipt();
+  await fileFailure.fileInputs[0].onchange({
+    target: { files: [{ text: async () => '{' }] },
+  });
+  assert.equal(fileFailure.functions.legacyReceiptState(), 'FAILED');
+  assert.equal(fileFailure.toasts.at(-1).message, 'LEGACY_RECEIPT_FILE_INVALID');
+  assert.equal(fileFailure.storage.get('paiass_settings'), legacyPreimage);
+  assert.equal(fileFailure.storageEffects.set.length, 0);
+
+  const fileReadFailure = architectSettingsHarness({
+    localStorage: { paiass_settings: legacyPreimage },
+  });
+  fileReadFailure.functions.importLegacyCredentialReceipt();
+  await fileReadFailure.fileInputs[0].onchange({
+    target: { files: [{ text: async () => { throw new Error('raw file failure'); } }] },
+  });
+  assert.equal(fileReadFailure.functions.legacyReceiptState(), 'FAILED');
+  assert.equal(fileReadFailure.toasts.at(-1).message, 'LEGACY_RECEIPT_FILE_INVALID');
+  assert.equal(fileReadFailure.storage.get('paiass_settings'), legacyPreimage);
+  assert.equal(fileReadFailure.storageEffects.set.length, 0);
+
+  const architectSource = fs.readFileSync(ARCHITECT_UI, 'utf8');
+  const receiptSlice = architectSource.slice(
+    architectSource.indexOf('const ARCHITECT_LEGACY_CREDENTIAL_RECEIPT_SCHEMA'),
+    architectSource.indexOf('// ACCORDION', architectSource.indexOf(
+      'const ARCHITECT_LEGACY_CREDENTIAL_RECEIPT_SCHEMA',
+    )),
+  );
+  assert.match(receiptSlice, /localStorage\.getItem\(ARCHITECT_LEGACY_CREDENTIAL_STORAGE_KEY\)/);
+  assert.match(receiptSlice, /localStorage\.setItem\(/);
+  assert.doesNotMatch(
+    receiptSlice,
+    /c3-settings|localStorage\.(?:clear|removeItem)|fetch\(|WebSocket|clipboard|window\.open|Blob|createObjectURL|downloadJSON|console\./,
+  );
+  const architectHtml = fs.readFileSync(new URL('../src/ui/architect/architect.html', import.meta.url), 'utf8');
+  assert.match(architectHtml, /onclick="importLegacyCredentialReceipt\(\)"/);
+  assert.match(architectHtml, /id="legacy-credential-receipt-status" data-state="READY">READY</);
 });
 
 await testAsync('Architect settings reset requires an exact commit and false factory reset has no effect', async () => {

@@ -3,7 +3,7 @@
 //
 // Sends POST requests to configured webhook URLs with HMAC-SHA256 signature.
 //
-// Config env vars:
+// Injected startup environment authority keys:
 //   C3_WEBHOOK_URL    — target webhook URL (required)
 //   C3_WEBHOOK_SECRET — read once by the injected startup authority
 //
@@ -25,6 +25,7 @@ const TIMEOUT_MS = 10000;
 
 export class WebhookChannel extends NotificationChannel {
   #webhookSecretAuthority;
+  #url;
 
   /**
    * @param {object} [options]
@@ -40,7 +41,12 @@ export class WebhookChannel extends NotificationChannel {
       error.code = 'WEBHOOK_SECRET_RAW_INJECTION_RETIRED';
       throw error;
     }
-    this.url = options.url || process.env.C3_WEBHOOK_URL || null;
+    if (!Object.hasOwn(options, 'url') || typeof options.url !== 'string') {
+      const error = new TypeError('NOTIFICATION_ENVIRONMENT_AUTHORITY_INVALID');
+      error.code = 'NOTIFICATION_ENVIRONMENT_AUTHORITY_INVALID';
+      throw error;
+    }
+    this.#url = options.url;
     if (typeof options.requireWebhookSecretAuthority !== 'function') {
       const error = new TypeError('WEBHOOK_SECRET_AUTHORITY_INVALID');
       error.code = 'WEBHOOK_SECRET_AUTHORITY_INVALID';
@@ -54,17 +60,18 @@ export class WebhookChannel extends NotificationChannel {
 
   get name() { return 'webhook'; }
 
-  async verify() {
-    if (!this.url) {
+  async verify(recipient) {
+    const targetUrl = recipient || this.#url;
+    if (typeof targetUrl !== 'string' || targetUrl.length === 0) {
       return { ok: false, error: 'No webhook URL configured (C3_WEBHOOK_URL)' };
     }
     if (!this.#webhookSecretAuthority.status().configured) {
       return { ok: false, error: 'No HMAC secret configured (C3_WEBHOOK_SECRET)' };
     }
     try {
-      new URL(this.url);
+      new URL(targetUrl);
     } catch (_) {
-      return { ok: false, error: `Invalid webhook URL: ${this.url}` };
+      return { ok: false, error: 'Invalid webhook URL' };
     }
     return { ok: true };
   }
@@ -80,7 +87,7 @@ export class WebhookChannel extends NotificationChannel {
         channel: 'webhook',
       };
     }
-    const targetUrl = notification.recipient || this.url;
+    const targetUrl = notification.recipient || this.#url;
     if (!targetUrl) {
       return { delivered: false, error: 'No webhook URL', channel: 'webhook' };
     }
@@ -129,7 +136,7 @@ export class WebhookChannel extends NotificationChannel {
         });
 
         if (res.ok) {
-          this.logger.info('WebhookChannel', `Delivered to ${targetUrl} (attempt ${attempt + 1})`);
+          this.logger.info('WebhookChannel', `Delivered (attempt ${attempt + 1})`);
           return { delivered: true, channel: 'webhook' };
         }
 

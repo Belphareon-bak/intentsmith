@@ -4,7 +4,15 @@ import './helpers/isolated-test-db.js';
 
 import Database from 'better-sqlite3';
 import { Buffer } from 'node:buffer';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import fs, {
+  chmodSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import path from 'node:path';
 import { Worker } from 'node:worker_threads';
 
@@ -17,7 +25,6 @@ import {
 } from './harness.js';
 import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 import { createMiscRoutes } from '../src/routes/misc.js';
-import { createNotificationRoutes } from '../src/routes/notifications.js';
 import { createSecurityRoutes } from '../src/routes/security.js';
 import { createSystemRoutes } from '../src/routes/system.js';
 import {
@@ -30,8 +37,18 @@ import { up as migrateUserSettingsRevision } from '../src/db/migrations/2026_08_
 import {
   createUserSettingsRepository,
   GENERIC_USER_SETTING_PATHS,
-  NOTIFICATION_SETTING_KEYS,
+  LEGACY_NOTIFICATION_USER_SETTING_PATHS,
+  readLegacyNotificationUserSettingsCensus,
+  requireLegacyNotificationUserSettingsCensus,
+  scrubLegacyNotificationUserSettingsInTransaction,
 } from '../src/db/user-settings.js';
+import {
+  MIGRATION_ACTION,
+  NOTIFICATION_AUTHORITY_DECISIONS_SCHEMA,
+  applyNotificationAuthorityManifest,
+  censusNotificationAuthority,
+  finalizeNotificationAuthorityPlan,
+} from '../scripts/migrate-notification-authority.js';
 
 const TEST_WEBHOOK_SECRET_AUTHORITY = readWebhookSecretAuthority({
   projectRoot: isolatedTestRuntime.runtime,
@@ -46,29 +63,41 @@ const USER_SETTINGS_SCHEMA = `
   )
 `;
 
-const INITIAL_NOTIFICATION_BODY = Object.freeze({
-  emailEnabled: true,
-  smtpHost: 'smtp.initial.invalid',
-  smtpPort: 2525,
-  smtpUser: 'initial-user',
-  smtpPass: 'INITIAL_SECRET_CANARY',
-  smtpFrom: 'initial@example.invalid',
-  emailRecipient: 'recipient@example.invalid',
-  emailOnLifecycle: false,
-  emailOnWorker: true,
-});
+const RETIRED_TYPED_NOTIFICATION_KEYS = Object.freeze([
+  'c3.notif.emailEnabled',
+  'c3.notif.emailOnLifecycle',
+  'c3.notif.emailOnWorker',
+  'c3.notif.emailRecipient',
+  'c3.notif.smtpFrom',
+  'c3.notif.smtpHost',
+  'c3.notif.smtpPass',
+  'c3.notif.smtpPort',
+  'c3.notif.smtpUser',
+]);
 
-const UPDATED_NOTIFICATION_BODY = Object.freeze({
-  emailEnabled: false,
-  smtpHost: 'smtp.updated.invalid',
-  smtpPort: 465,
-  smtpUser: 'updated-user',
-  smtpPass: 'UPDATED_SECRET_CANARY',
-  smtpFrom: 'updated@example.invalid',
-  emailRecipient: 'new-recipient@example.invalid',
-  emailOnLifecycle: true,
-  emailOnWorker: false,
-});
+const EXPECTED_LEGACY_NOTIFICATION_USER_SETTING_PATHS = Object.freeze([
+  '/notifications/discordWebhook',
+  '/notifications/emailAddresses',
+  '/notifications/slackChannel',
+  '/notifications/slackWebhook',
+  '/notifications/smsApiKey',
+  '/notifications/smsPhone',
+  '/notifications/smsSecret',
+  '/notifications/telegramChatId',
+  '/notifications/telegramToken',
+  '/notifications/webhookUrl',
+  'c3.notif.emailEnabled',
+  'c3.notif.emailOnLifecycle',
+  'c3.notif.emailOnWorker',
+  'c3.notif.emailRecipient',
+  'c3.notif.smtpFrom',
+  'c3.notif.smtpHost',
+  'c3.notif.smtpPass',
+  'c3.notif.smtpPort',
+  'c3.notif.smtpUser',
+  'c3.notif.webhookSecret',
+  'webhookSecret',
+]);
 
 const EXPECTED_GENERIC_USER_SETTING_PATHS = Object.freeze([
   'c3.account.displayName',
@@ -291,10 +320,475 @@ function captureError(callback) {
   throw new Error('expected operation to fail');
 }
 
-function notificationProjection(document) {
-  return Object.fromEntries(
-    NOTIFICATION_SETTING_KEYS.map(key => [key, document[key]]),
+function legacyNotificationFixtureDocument() {
+  return {
+    webhookSecret: 'TOP_LEVEL_WEBHOOK_SECRET_CANARY',
+    'c3.notif.webhookSecret': 'DOTTED_WEBHOOK_SECRET_CANARY',
+    'c3.notif.emailEnabled': true,
+    'c3.notif.emailOnLifecycle': false,
+    'c3.notif.emailOnWorker': true,
+    'c3.notif.emailRecipient': 'legacy-recipient@example.invalid',
+    'c3.notif.smtpFrom': 'legacy-from@example.invalid',
+    'c3.notif.smtpHost': 'legacy-smtp.invalid',
+    'c3.notif.smtpPass': 'LEGACY_SMTP_SECRET_CANARY',
+    'c3.notif.smtpPort': 2525,
+    'c3.notif.smtpUser': 'legacy-user',
+    'c3.notif.desktopEnabled': true,
+    'c3.notif.quietEnabled': true,
+    'c3.notif.quietFrom': '22:00',
+    'c3.notif.quietTo': '07:00',
+    'c3.notif.futureSecret': 'UNOWNED_NOTIFICATION_CANARY',
+    notifications: {
+      discordWebhook: 'https://discord.invalid/LEGACY_DISCORD_CANARY',
+      emailAddresses: ['one@example.invalid', 'two@example.invalid'],
+      slackChannel: 'legacy-slack-channel',
+      slackWebhook: 'https://slack.invalid/LEGACY_SLACK_CANARY',
+      smsApiKey: 'LEGACY_SMS_API_CANARY',
+      smsPhone: '+420000000000',
+      smsSecret: 'LEGACY_SMS_SECRET_CANARY',
+      telegramChatId: 'legacy-telegram-chat',
+      telegramToken: 'LEGACY_TELEGRAM_TOKEN_CANARY',
+      webhookUrl: 'https://webhook.invalid/LEGACY_DESTINATION_CANARY',
+      enabled: true,
+      unknownNested: { preserve: 'exactly' },
+    },
+    appearance: { theme: 'dark' },
+    storage: { root: '/private/device/path' },
+    futurePrivate: { preserve: true },
+  };
+}
+
+function copyScrubRequest(request, overrides = {}) {
+  return {
+    expectedRevision: request.expectedRevision,
+    pathDigests: request.pathDigests.map(entry => ({ ...entry })),
+    postimageSha256: request.postimageSha256,
+    preimageSha256: request.preimageSha256,
+    ...overrides,
+  };
+}
+
+function runLegacyNotificationScrub(db, request) {
+  return db.transaction(
+    () => scrubLegacyNotificationUserSettingsInTransaction(db, request),
+  ).immediate();
+}
+
+function oracleSha256(bytes) {
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
+function write0600(filePath, bytes) {
+  writeFileSync(filePath, bytes, { mode: 0o600 });
+  chmodSync(filePath, 0o600);
+}
+
+function createMigrationFixture(name, {
+  document = {},
+  setup = null,
+  paiass = null,
+  historicalEnvironment = null,
+} = {}) {
+  const root = mkdtempSync(path.join(isolatedTestRuntime.artifacts, `${name}-`));
+  const databasePath = path.join(root, 'c3.sqlite');
+  const db = openDb(databasePath);
+  replaceFixtureDocument(db, JSON.stringify(document));
+  db.close();
+  if (setup !== null) write0600(path.join(root, 'c3-setup.json'), JSON.stringify(setup));
+  let paiassInputPath = null;
+  if (paiass !== null) {
+    paiassInputPath = path.join(root, 'paiass-settings.json');
+    write0600(paiassInputPath, JSON.stringify(paiass));
+  }
+  const historicalEnvironmentPaths = [];
+  if (historicalEnvironment !== null) {
+    const historicalRoot = mkdtempSync(path.join(root, 'historical-'));
+    const historicalPath = path.join(historicalRoot, '.env');
+    write0600(historicalPath, historicalEnvironment);
+    historicalEnvironmentPaths.push(historicalPath);
+  }
+  return {
+    root,
+    databasePath,
+    dataDir: root,
+    paiassInputPath,
+    historicalEnvironmentPaths,
+    decisionsPath: path.join(root, 'decisions.json'),
+    manifestPath: path.join(root, 'manifest.json'),
+  };
+}
+
+function assertIsolatedMigrationCensus(census, { processPaths = [] } = {}) {
+  const rootSourceIds = new Set(
+    census.sources
+      .filter(source => source.kind === 'ENV' && source.role === 'ROOT')
+      .map(source => source.sourceId),
   );
+  assertEqual(census.findings.filter(finding => rootSourceIds.has(finding.sourceId)).length, 0);
+  assertEqual(
+    JSON.stringify(census.findings
+      .filter(finding => finding.sourceId === 'PROCESS_ENV')
+      .map(finding => finding.path)),
+    JSON.stringify(processPaths),
+  );
+}
+
+function finalizeMigrationFixture(fixture, chooseAction, { processPaths = [] } = {}) {
+  const census = censusNotificationAuthority({
+    databasePath: fixture.databasePath,
+    dataDir: fixture.dataDir,
+    historicalEnvironmentPaths: fixture.historicalEnvironmentPaths,
+    paiassInputPath: fixture.paiassInputPath,
+  });
+  assertIsolatedMigrationCensus(census, { processPaths });
+  const actions = census.findings.map(finding => ({
+    sourceId: finding.sourceId,
+    path: finding.path,
+    valueSha256: finding.valueSha256,
+    ...chooseAction(finding, census),
+  }));
+  const decisions = {
+    schema: NOTIFICATION_AUTHORITY_DECISIONS_SCHEMA,
+    censusSha256: census.censusSha256,
+    actions,
+  };
+  const decisionsBytes = Buffer.from(`${JSON.stringify(decisions, null, 2)}\n`, 'utf8');
+  write0600(fixture.decisionsPath, decisionsBytes);
+  const plan = finalizeNotificationAuthorityPlan({
+    decisionsPath: fixture.decisionsPath,
+    decisionsSha256: oracleSha256(decisionsBytes),
+    manifestPath: fixture.manifestPath,
+    databasePath: fixture.databasePath,
+    dataDir: fixture.dataDir,
+    historicalEnvironmentPaths: fixture.historicalEnvironmentPaths,
+    paiassInputPath: fixture.paiassInputPath,
+  });
+  return { census, decisions, plan };
+}
+
+function applyMigrationFixture(fixture, plan, manifestPath = fixture.manifestPath) {
+  const manifestBytes = readFileSync(manifestPath);
+  if (manifestPath === fixture.manifestPath) {
+    assertEqual(oracleSha256(manifestBytes), plan.manifestSha256);
+  }
+  return applyNotificationAuthorityManifest({
+    manifestPath,
+    manifestSha256: oracleSha256(manifestBytes),
+    attestServerStopped: true,
+    attestWorkersStopped: true,
+    expectedDatabasePath: fixture.databasePath,
+    expectedDataDir: fixture.dataDir,
+    expectedHistoricalEnvironmentPaths: fixture.historicalEnvironmentPaths,
+    expectedPaiassInputPath: fixture.paiassInputPath,
+  });
+}
+
+function errorFromMigrationApply(callback) {
+  const error = captureError(callback);
+  assert(error && typeof error.code === 'string');
+  return error;
+}
+
+function exerciseNotificationMigrationCli() {
+  const fixtures = [];
+  const previousEmailFrom = process.env.EMAIL_FROM;
+  const hadEmailFrom = Object.hasOwn(process.env, 'EMAIL_FROM');
+  const previousSmtpPort = process.env.C3_SMTP_PORT;
+  const hadSmtpPort = Object.hasOwn(process.env, 'C3_SMTP_PORT');
+  const restoreProcessEnvironment = () => {
+    if (hadEmailFrom) process.env.EMAIL_FROM = previousEmailFrom;
+    else delete process.env.EMAIL_FROM;
+    if (hadSmtpPort) process.env.C3_SMTP_PORT = previousSmtpPort;
+    else delete process.env.C3_SMTP_PORT;
+  };
+
+  try {
+    process.env.EMAIL_FROM = 'PROCESS_ALIAS_RESTART_CANARY';
+    process.env.C3_SMTP_PORT = '2525';
+    const full = createMigrationFixture('notification-migration-full', {
+      document: {
+        'c3.notif.smtpHost': 'DB_EXPORT_SECRET_CANARY',
+        'c3.notif.smtpPort': 2525,
+        'c3.notif.desktopEnabled': true,
+        futurePrivate: { preserve: true },
+      },
+      setup: {
+        notifications: { email: { to: 'setup@example.invalid' } },
+        foreign: { preserve: true },
+      },
+      historicalEnvironment: 'C3_SMTP_USER=HISTORICAL_EXPORT_SECRET_CANARY\nFOREIGN=value\n',
+      paiass: {
+        notifications: {
+          emailAddresses: ['paiass@example.invalid'],
+          unknown: 'preserve',
+        },
+        foreign: true,
+      },
+    });
+    fixtures.push(full);
+    const dbExportPath = path.join(full.root, 'db-export.json');
+    const envExportPath = path.join(full.root, 'env-export.json');
+    const fullPlan = finalizeMigrationFixture(full, finding => {
+      if (finding.path === 'c3.notif.smtpPort') {
+        const canonicalValue = '2525';
+        return {
+          action: MIGRATION_ACTION.TRANSFER,
+          canonicalValue,
+          canonicalValueSha256: oracleSha256(Buffer.from(JSON.stringify(canonicalValue))),
+        };
+      }
+      if (finding.path === 'c3.notif.smtpHost') {
+        return { action: MIGRATION_ACTION.EXPORT, exportPath: dbExportPath };
+      }
+      if (finding.path === 'C3_SMTP_USER') {
+        return { action: MIGRATION_ACTION.EXPORT, exportPath: envExportPath };
+      }
+      return { action: MIGRATION_ACTION.PURGE };
+    }, { processPaths: ['EMAIL_FROM'] });
+    const smtpTarget = fullPlan.census.targets.find(target => target.key === 'C3_SMTP_PORT');
+    assertEqual(smtpTarget.processPresent, true, 'smtp target must observe own process authority');
+    assertEqual(
+      smtpTarget.processValueSha256,
+      oracleSha256(Buffer.from(JSON.stringify('2525'))),
+    );
+    assertEqual(fullPlan.plan.status, 'MANIFEST_READY');
+    assertEqual(fullPlan.plan.actionCounts.TRANSFER, 1);
+
+    const blocked = applyMigrationFixture(full, fullPlan.plan);
+    assertEqual(blocked.status, 'BLOCKED_RESTART_REQUIRED');
+    assertEqual(blocked.stages.find(stage => stage.kind === 'PROCESS_ENV').status,
+      'BLOCKED_RESTART_REQUIRED');
+    assertEqual(blocked.remainingStages[0].kind, 'PROCESS_ENV');
+    assertEqual(blocked.exports.length, 2);
+    assertEqual(JSON.stringify(blocked).includes('SECRET_CANARY'), false);
+
+    delete process.env.EMAIL_FROM;
+    const applied = applyMigrationFixture(full, fullPlan.plan);
+    assertEqual(applied.status, 'RECEIPTS_READY');
+    assertEqual(applied.remainingStages.length, 0);
+    assertEqual(applied.stages.find(stage => stage.kind === 'PROCESS_ENV').status,
+      'ABSENCE_CONFIRMED');
+    assertEqual(applied.paiassStatus, 'RECEIPTS_READY');
+    const firstReceipts = JSON.stringify(applied.receipts);
+
+    const samePlanRetry = applyMigrationFixture(full, fullPlan.plan);
+    assertEqual(samePlanRetry.status, 'RECEIPTS_READY');
+    assertEqual(JSON.stringify(samePlanRetry.receipts), firstReceipts);
+    assertEqual(
+      samePlanRetry.stages.find(stage => stage.kind === 'CANONICAL_TRANSFER').status,
+      'ALREADY_APPLIED',
+    );
+    assertEqual(
+      samePlanRetry.exports.every(entry => entry.changed === false),
+      true,
+      'same-plan retry must not republish verified exports',
+    );
+
+    const paiassPostimage = JSON.parse(readFileSync(full.paiassInputPath, 'utf8'));
+    delete paiassPostimage.notifications.emailAddresses;
+    write0600(full.paiassInputPath, JSON.stringify(paiassPostimage));
+    const completed = applyMigrationFixture(full, fullPlan.plan);
+    assertEqual(completed.status, 'APPLIED');
+    assertEqual(completed.paiassStatus, 'ALREADY_APPLIED');
+    assertEqual(JSON.stringify(completed.receipts), firstReceipts);
+    const committed = new Database(full.databasePath, { readonly: true });
+    try {
+      const committedDocument = JSON.parse(
+        committed.prepare('SELECT data FROM user_settings WHERE id = 1').get().data,
+      );
+      assertEqual(committedDocument['c3.notif.smtpPort'], undefined);
+      assertEqual(
+        committedDocument['c3.notif.desktopEnabled'],
+        true,
+        'DB scrub must preserve the safe desktop preference',
+      );
+      assertEqual(
+        committedDocument.futurePrivate.preserve,
+        true,
+        'DB scrub must preserve unknown future data',
+      );
+    } finally {
+      committed.close();
+    }
+
+    for (const [kind, expectedCode] of [
+      ['DB', 'MIGRATION_DATABASE_POSTIMAGE_STALE'],
+      ['SETUP', 'MIGRATION_SETUP_POSTIMAGE_STALE'],
+      ['PAIASS_SETTINGS', 'MIGRATION_PAIASS_POSTIMAGE_STALE'],
+    ]) {
+      const stale = createMigrationFixture(`notification-migration-stale-${kind.toLowerCase()}`, {
+        document: kind === 'DB' ? { 'c3.notif.smtpHost': 'DB_STALE_CANARY' } : {},
+        setup: kind === 'SETUP'
+          ? { notifications: { email: { to: 'setup-stale@example.invalid' } } }
+          : null,
+        paiass: kind === 'PAIASS_SETTINGS'
+          ? { notifications: { emailAddresses: ['paiass-stale@example.invalid'] } }
+          : null,
+      });
+      fixtures.push(stale);
+      const stalePlan = finalizeMigrationFixture(
+        stale,
+        () => ({ action: MIGRATION_ACTION.PURGE }),
+      );
+      const tampered = JSON.parse(readFileSync(stale.manifestPath, 'utf8'));
+      const source = tampered.sources.find(candidate => candidate.kind === kind);
+      source.postimageSha256 = source.preimageSha256;
+      if (kind === 'PAIASS_SETTINGS') {
+        tampered.paiassReceipts.at(-1).postimageSha256 = source.preimageSha256;
+      }
+      const tamperedPath = path.join(stale.root, 'false-postimage-manifest.json');
+      write0600(tamperedPath, `${JSON.stringify(tampered, null, 2)}\n`);
+      const staleError = errorFromMigrationApply(
+        () => applyMigrationFixture(stale, stalePlan.plan, tamperedPath),
+      );
+      assertEqual(staleError.code, expectedCode);
+      assertEqual(JSON.stringify(staleError.report).includes('CANARY'), false);
+    }
+
+    const partial = createMigrationFixture('notification-migration-partial-export', {
+      document: {
+        'c3.notif.smtpHost': 'FIRST_EXPORT_SECRET_CANARY',
+        'c3.notif.smtpUser': 'SECOND_EXPORT_SECRET_CANARY',
+      },
+    });
+    fixtures.push(partial);
+    const firstExportPath = path.join(partial.root, 'first-export.json');
+    const secondExportPath = path.join(partial.root, 'second-export.json');
+    const partialPlan = finalizeMigrationFixture(partial, finding => ({
+      action: MIGRATION_ACTION.EXPORT,
+      exportPath: finding.path === 'c3.notif.smtpHost' ? firstExportPath : secondExportPath,
+    }));
+    write0600(secondExportPath, '"conflicting-export"');
+    const partialError = errorFromMigrationApply(
+      () => applyMigrationFixture(partial, partialPlan.plan),
+    );
+    assertEqual(partialError.code, 'MIGRATION_EXPORT_CONFLICT');
+    assertEqual(partialError.report.stages.some(stage => (
+      stage.kind === 'EXPORT' && stage.path === 'c3.notif.smtpHost' && stage.status === 'APPLIED'
+    )), true);
+    assertEqual(partialError.report.stages.at(-1).status, 'FAILED');
+    assertEqual(partialError.report.remainingStages[0].path, 'c3.notif.smtpUser');
+    assertEqual(JSON.stringify(partialError.report).includes('SECRET_CANARY'), false);
+
+    const earlyWrite = createMigrationFixture('notification-migration-write-failure', {
+      document: { 'c3.notif.smtpHost': 'EARLY_WRITE_SECRET_CANARY' },
+    });
+    fixtures.push(earlyWrite);
+    const earlyExportPath = path.join(earlyWrite.root, 'early-export.json');
+    const earlyPlan = finalizeMigrationFixture(earlyWrite, () => ({
+      action: MIGRATION_ACTION.EXPORT,
+      exportPath: earlyExportPath,
+    }));
+    const originalWriteFileSync = fs.writeFileSync;
+    fs.writeFileSync = (...args) => {
+      if (typeof args[0] === 'number') {
+        const error = new Error('TEST_EARLY_DESCRIPTOR_WRITE_FAILURE');
+        error.code = 'EIO';
+        throw error;
+      }
+      return originalWriteFileSync(...args);
+    };
+    let earlyError;
+    try {
+      earlyError = errorFromMigrationApply(
+        () => applyMigrationFixture(earlyWrite, earlyPlan.plan),
+      );
+    } finally {
+      fs.writeFileSync = originalWriteFileSync;
+    }
+    assertEqual(earlyError.code, 'MIGRATION_EXPORT_WRITE_FAILED');
+    assertEqual(
+      readdirSync(earlyWrite.root).some(name => name.includes('.notification-export-')),
+      false,
+    );
+
+    const replacement = createMigrationFixture('notification-migration-replacement', {
+      document: { 'c3.notif.smtpHost': 'REPLACEMENT_SECRET_CANARY' },
+    });
+    fixtures.push(replacement);
+    const replacementExportPath = path.join(replacement.root, 'replacement-export.json');
+    const replacementPlan = finalizeMigrationFixture(replacement, () => ({
+      action: MIGRATION_ACTION.EXPORT,
+      exportPath: replacementExportPath,
+    }));
+    const originalLinkSync = fs.linkSync;
+    fs.linkSync = (sourcePath, targetPath) => {
+      if (targetPath === replacementExportPath) {
+        fs.unlinkSync(sourcePath);
+        originalWriteFileSync(sourcePath, '"replacement"', { mode: 0o600 });
+        chmodSync(sourcePath, 0o600);
+      }
+      return originalLinkSync(sourcePath, targetPath);
+    };
+    let replacementError;
+    try {
+      replacementError = errorFromMigrationApply(
+        () => applyMigrationFixture(replacement, replacementPlan.plan),
+      );
+    } finally {
+      fs.linkSync = originalLinkSync;
+    }
+    assertEqual(replacementError.code, 'MIGRATION_EXPORT_PUBLICATION_UNKNOWN');
+    assertEqual(replacementError.report.stages.at(-1).status, 'PUBLICATION_UNKNOWN');
+
+    const resumed = createMigrationFixture('notification-migration-resumed-ledger', {
+      document: { 'c3.notif.smtpHost': 'DB_PROGRESS_SECRET_CANARY' },
+      setup: { notifications: { email: { to: 'setup-progress@example.invalid' } } },
+    });
+    fixtures.push(resumed);
+    const resumedPlan = finalizeMigrationFixture(
+      resumed,
+      () => ({ action: MIGRATION_ACTION.PURGE }),
+    );
+    const originalRenameSync = fs.renameSync;
+    fs.renameSync = (sourcePath, targetPath) => {
+      if (targetPath === path.join(resumed.root, 'c3-setup.json')) {
+        const error = new Error('TEST_SETUP_RENAME_FAILURE');
+        error.code = 'EIO';
+        throw error;
+      }
+      return originalRenameSync(sourcePath, targetPath);
+    };
+    let resumedError;
+    try {
+      resumedError = errorFromMigrationApply(
+        () => applyMigrationFixture(resumed, resumedPlan.plan),
+      );
+    } finally {
+      fs.renameSync = originalRenameSync;
+    }
+    assertEqual(resumedError.report.stages.some(stage => (
+      stage.kind === 'DB' && stage.status === 'APPLIED'
+    )), true);
+    assertEqual(resumedError.report.stages.at(-1).kind, 'SETUP');
+    assertEqual(resumedError.report.stages.at(-1).status, 'FAILED');
+    assertEqual(resumedError.report.remainingStages[0].kind, 'SETUP');
+    const resumedRetry = applyMigrationFixture(resumed, resumedPlan.plan);
+    assertEqual(resumedRetry.stages.find(stage => stage.kind === 'DB').status,
+      'ALREADY_APPLIED');
+    assertEqual(resumedRetry.remainingStages.length, 0);
+  } finally {
+    restoreProcessEnvironment();
+    for (const fixture of fixtures.reverse()) {
+      rmSync(fixture.root, { recursive: true, force: true });
+    }
+  }
+}
+
+function legacyPathValueForOracle(document, pathId) {
+  if (!pathId.startsWith('/')) return document[pathId];
+  return pathId.slice(1).split('/').reduce((value, segment) => value[segment], document);
+}
+
+function deleteLegacyPathForOracle(document, pathId) {
+  if (!pathId.startsWith('/')) {
+    delete document[pathId];
+    return;
+  }
+  const segments = pathId.slice(1).split('/');
+  const leaf = segments.pop();
+  const parent = segments.reduce((value, segment) => value[segment], document);
+  delete parent[leaf];
 }
 
 function createRouteHarness(db, {
@@ -305,11 +799,9 @@ function createRouteHarness(db, {
   let parseFailure = null;
   let parseCount = 0;
   let genericResponse = null;
-  let notificationResponse = null;
   let securityResponse = null;
   let systemResponse = null;
   let featureDocument = null;
-  const notificationRuntimeConfigs = [];
 
   const miscRoutes = createMiscRoutes({
     db: { db },
@@ -331,25 +823,6 @@ function createRouteHarness(db, {
       resetToDefaults() {
         return 0;
       },
-    },
-  });
-  const notificationRoutes = createNotificationRoutes({
-    db: { db },
-    parseBody: async () => {
-      parseCount += 1;
-      if (parseFailure) throw parseFailure;
-      return requestBody;
-    },
-    sendJSON: (_res, status, body) => { notificationResponse = { status, body }; },
-    notificationRouter: {
-      updateChannelConfig(_channel, config) {
-        notificationRuntimeConfigs.push(structuredClone(config));
-      },
-      getAvailableChannels: () => [],
-      channels: new Map(),
-    },
-    notificationEmitter: {
-      invalidateCache() {},
     },
   });
   const systemRoutes = createSystemRoutes({
@@ -378,7 +851,6 @@ function createRouteHarness(db, {
 
   return {
     get parseCount() { return parseCount; },
-    get notificationRuntimeConfigs() { return notificationRuntimeConfigs; },
     async postLegacy(body, options = {}) {
       requestBody = body;
       parseFailure = options.parseFailure || null;
@@ -387,14 +859,6 @@ function createRouteHarness(db, {
       await miscRoutes['POST /api/settings']({}, {});
       parseFailure = null;
       return { response: genericResponse, featureDocument };
-    },
-    async postNotification(body, options = {}) {
-      requestBody = body;
-      parseFailure = options.parseFailure || null;
-      notificationResponse = null;
-      await notificationRoutes['POST /api/notifications/config']({}, {});
-      parseFailure = null;
-      return notificationResponse;
     },
     async getLegacy() {
       genericResponse = null;
@@ -485,7 +949,7 @@ function startStaleRouteWorker(workerData) {
 
 suite('M1 settings notification authority — route-level data integrity');
 
-await testAsync('migration guard and notification owner preserve the versioned singleton', async () => {
+await testAsync('migration guard and exact legacy notification scrub preserve the singleton', async () => {
   const preservedDb = openLegacyDb();
   try {
     const original = ' {"duplicate":1,"duplicate":2,"sentinel":"raw-bytes"} ';
@@ -628,59 +1092,376 @@ await testAsync('migration guard and notification owner preserve the versioned s
 
   const db = openDb();
   try {
-    const harness = createRouteHarness(db);
-    const notification = await harness.postNotification(INITIAL_NOTIFICATION_BODY);
-    assertEqual(notification.status, 200);
-    const beforeUnownedNotification = readSettingsRow(db);
-    const unownedNotification = await harness.postNotification({ futureCredential: 'blocked' });
-    assertEqual(unownedNotification.status, 400);
-    assertEqual(unownedNotification.body.code, 'NOTIFICATION_SETTINGS_INPUT_INVALID');
+    assertEqual(LEGACY_NOTIFICATION_USER_SETTING_PATHS.length, 21);
+    assertEqual(new Set(LEGACY_NOTIFICATION_USER_SETTING_PATHS).size, 21);
+    assertEqual(Object.isFrozen(LEGACY_NOTIFICATION_USER_SETTING_PATHS), true);
     assertEqual(
-      JSON.stringify(readSettingsRow(db)),
-      JSON.stringify(beforeUnownedNotification),
+      JSON.stringify(LEGACY_NOTIFICATION_USER_SETTING_PATHS),
+      JSON.stringify(EXPECTED_LEGACY_NOTIFICATION_USER_SETTING_PATHS),
     );
-    const runtimeConfigCount = harness.notificationRuntimeConfigs.length;
-    const maskedOnly = await harness.postNotification({ smtpPass: '*****' });
-    assertEqual(maskedOnly.status, 200);
-    assertEqual(maskedOnly.body.runtimeApplied, true);
-    assertEqual(harness.notificationRuntimeConfigs.length, runtimeConfigCount);
+
+    const legacyDocument = legacyNotificationFixtureDocument();
+    const legacyRaw = ` \n${JSON.stringify(legacyDocument)}\n\t`;
+    replaceFixtureDocument(db, legacyRaw);
+    db.exec('DROP TRIGGER trg_user_settings_revision_insert_forbidden');
+    db.prepare(`
+      INSERT INTO user_settings (id, data, revision, updated_at)
+      VALUES (2, '{"rowTwo":"preserve-exactly"}', 41, '2026-08-12 00:00:00')
+    `).run();
+    const rowTwoBefore = db.prepare(`
+      SELECT hex(CAST(data AS BLOB)) AS dataHex, revision, updated_at AS updatedAt
+      FROM user_settings WHERE id = 2
+    `).get();
+
+    const census = readLegacyNotificationUserSettingsCensus(db);
+    assertEqual(Object.isFrozen(census), true);
+    assertEqual(Object.keys(census).length, 0);
+    assertEqual(JSON.stringify(census), '{}');
+    assertEqual(requireLegacyNotificationUserSettingsCensus(census), census);
+    assertEqual(census.revision(), readSettingsRow(db).revision);
+    const preimageBytes = Buffer.from(readRowBytes(db).dataHex, 'hex');
+    assertEqual(preimageBytes.toString('utf8'), legacyRaw);
+    const parsedPreimage = JSON.parse(legacyRaw);
+    assertEqual(census.preimageSha256(), oracleSha256(preimageBytes));
+    assertEqual(
+      census.preimageSha256() === oracleSha256(
+        Buffer.from(JSON.stringify(parsedPreimage), 'utf8'),
+      ),
+      false,
+    );
+    assertEqual(Object.isFrozen(census.paths()), true);
+    assertEqual(census.paths().length, 21);
+    assertEqual(
+      JSON.stringify(census.paths().map(entry => entry.path)),
+      JSON.stringify(EXPECTED_LEGACY_NOTIFICATION_USER_SETTING_PATHS),
+    );
+    assertEqual(census.paths().every(entry => (
+      Object.isFrozen(entry)
+      && /^[a-f0-9]{64}$/.test(entry.valueSha256)
+      && JSON.stringify(entry).includes('CANARY') === false
+    )), true);
+    let sawNonStringNestedValue = false;
+    for (const entry of census.paths()) {
+      const parsedValue = legacyPathValueForOracle(parsedPreimage, entry.path);
+      if (entry.path.startsWith('/') && typeof parsedValue !== 'string') {
+        sawNonStringNestedValue = true;
+      }
+      assertEqual(
+        entry.valueSha256,
+        oracleSha256(Buffer.from(JSON.stringify(parsedValue), 'utf8')),
+      );
+    }
+    assertEqual(sawNonStringNestedValue, true);
+    const nestedArrayValue = legacyPathValueForOracle(
+      parsedPreimage,
+      '/notifications/emailAddresses',
+    );
+    assertEqual(Array.isArray(nestedArrayValue), true);
+    assertEqual(
+      census.paths().find(
+        entry => entry.path === '/notifications/emailAddresses',
+      ).valueSha256,
+      oracleSha256(Buffer.from(JSON.stringify(nestedArrayValue), 'utf8')),
+    );
+    assertEqual(census.value('c3.notif.smtpPass'), 'LEGACY_SMTP_SECRET_CANARY');
+    const safePreferenceCensusRead = captureError(
+      () => census.value('c3.notif.desktopEnabled'),
+    );
+    assertEqual(
+      safePreferenceCensusRead.code,
+      'LEGACY_NOTIFICATION_CENSUS_PATH_UNOWNED',
+    );
+    const unownedCensusRead = captureError(() => census.value('c3.notif.futureSecret'));
+    assertEqual(unownedCensusRead.code, 'LEGACY_NOTIFICATION_CENSUS_PATH_UNOWNED');
+    const forgedCensus = captureError(
+      () => requireLegacyNotificationUserSettingsCensus(Object.freeze(Object.create(null))),
+    );
+    assertEqual(forgedCensus.code, 'LEGACY_NOTIFICATION_CENSUS_INVALID');
+
+    const manifest = census.scrubRequest();
+    assertEqual(Object.isFrozen(manifest), true);
+    assertEqual(Object.isFrozen(manifest.pathDigests), true);
+    assertEqual(
+      JSON.stringify(Object.keys(manifest).sort()),
+      JSON.stringify([
+        'expectedRevision',
+        'pathDigests',
+        'postimageSha256',
+        'preimageSha256',
+      ]),
+    );
+    assertEqual(manifest.pathDigests.length, 21);
+    assertEqual(JSON.stringify(manifest).includes('CANARY'), false);
+    const oraclePostimage = JSON.parse(legacyRaw);
+    for (const pathId of EXPECTED_LEGACY_NOTIFICATION_USER_SETTING_PATHS) {
+      deleteLegacyPathForOracle(oraclePostimage, pathId);
+    }
+    const oraclePostimageBytes = Buffer.from(JSON.stringify(oraclePostimage), 'utf8');
+    assertEqual(manifest.postimageSha256, oracleSha256(oraclePostimageBytes));
+
+    const missingRowDb = openDb();
+    try {
+      missingRowDb.exec('DROP TRIGGER trg_user_settings_revision_delete_forbidden');
+      missingRowDb.prepare('DELETE FROM user_settings WHERE id = 1').run();
+      const missingBefore = missingRowDb.prepare(
+        'SELECT COUNT(*) AS rowCount FROM user_settings',
+      ).get();
+      const missingCensus = captureError(
+        () => readLegacyNotificationUserSettingsCensus(missingRowDb),
+      );
+      assertEqual(missingCensus.code, 'USER_SETTINGS_ROW_MISSING');
+      const missingScrub = captureError(
+        () => runLegacyNotificationScrub(missingRowDb, manifest),
+      );
+      assertEqual(missingScrub.code, 'USER_SETTINGS_ROW_MISSING');
+      assertEqual(
+        JSON.stringify(missingRowDb.prepare(
+          'SELECT COUNT(*) AS rowCount FROM user_settings',
+        ).get()),
+        JSON.stringify(missingBefore),
+      );
+      assertEqual(missingRowDb.inTransaction, false);
+    } finally {
+      missingRowDb.close();
+    }
+
+    const assertNoMutationFailure = (request, expectedCode) => {
+      const before = readRowBytes(db);
+      const rowTwoSnapshot = db.prepare(`
+        SELECT hex(CAST(data AS BLOB)) AS dataHex, revision, updated_at AS updatedAt
+        FROM user_settings WHERE id = 2
+      `).get();
+      const error = captureError(() => runLegacyNotificationScrub(db, request));
+      assertEqual(error.code, expectedCode);
+      assertEqual(JSON.stringify(readRowBytes(db)), JSON.stringify(before));
+      assertEqual(
+        JSON.stringify(db.prepare(`
+          SELECT hex(CAST(data AS BLOB)) AS dataHex, revision, updated_at AS updatedAt
+          FROM user_settings WHERE id = 2
+        `).get()),
+        JSON.stringify(rowTwoSnapshot),
+      );
+      return error;
+    };
+
+    const beforeOutsideTransaction = readRowBytes(db);
+    const outsideTransaction = captureError(
+      () => scrubLegacyNotificationUserSettingsInTransaction(db, manifest),
+    );
+    assertEqual(outsideTransaction.code, 'USER_SETTINGS_TRANSACTION_OWNERSHIP_REQUIRED');
+    assertEqual(
+      JSON.stringify(readRowBytes(db)),
+      JSON.stringify(beforeOutsideTransaction),
+    );
+
+    assertNoMutationFailure(copyScrubRequest(manifest, {
+      expectedRevision: manifest.expectedRevision + 1,
+    }), 'USER_SETTINGS_REVISION_CONFLICT');
+    assertNoMutationFailure(copyScrubRequest(manifest, {
+      preimageSha256: '0'.repeat(64),
+    }), 'LEGACY_NOTIFICATION_SCRUB_PREIMAGE_MISMATCH');
+    assertNoMutationFailure(copyScrubRequest(manifest, {
+      pathDigests: manifest.pathDigests.map((entry, index) => ({
+        ...entry,
+        valueSha256: index === 0 ? '0'.repeat(64) : entry.valueSha256,
+      })),
+    }), 'LEGACY_NOTIFICATION_SCRUB_PATH_MISMATCH');
+    assertNoMutationFailure(copyScrubRequest(manifest, {
+      postimageSha256: '0'.repeat(64),
+    }), 'LEGACY_NOTIFICATION_SCRUB_POSTIMAGE_MISMATCH');
+    assertNoMutationFailure(copyScrubRequest(manifest, {
+      pathDigests: [{
+        path: 'c3.notif.futureSecret',
+        valueSha256: '0'.repeat(64),
+      }],
+    }), 'LEGACY_NOTIFICATION_SCRUB_INPUT_INVALID');
+
+    const beforeApplied = readRowBytes(db);
+    const applied = runLegacyNotificationScrub(db, manifest);
+    assertEqual(applied.status, 'APPLIED');
+    assertEqual(applied.revision, beforeApplied.revision + 1);
+    assertEqual(applied.postimageSha256, manifest.postimageSha256);
+    assertEqual(Object.isFrozen(applied.scrubbedPaths), true);
+    assertEqual(applied.scrubbedPaths.length, 21);
+    const appliedRow = readRowBytes(db);
+    assertEqual(appliedRow.dataHex, oraclePostimageBytes.toString('hex').toUpperCase());
+    assertEqual(
+      applied.postimageSha256,
+      oracleSha256(Buffer.from(appliedRow.dataHex, 'hex')),
+    );
+    const scrubbedDocument = readDocument(db);
+    for (const pathId of EXPECTED_LEGACY_NOTIFICATION_USER_SETTING_PATHS) {
+      if (pathId.startsWith('/notifications/')) {
+        assertEqual(Object.hasOwn(scrubbedDocument.notifications, pathId.split('/')[2]), false);
+      } else {
+        assertEqual(Object.hasOwn(scrubbedDocument, pathId), false);
+      }
+    }
+    assertEqual(scrubbedDocument['c3.notif.desktopEnabled'], true);
+    assertEqual(scrubbedDocument['c3.notif.quietEnabled'], true);
+    assertEqual(scrubbedDocument['c3.notif.quietFrom'], '22:00');
+    assertEqual(scrubbedDocument['c3.notif.quietTo'], '07:00');
+    assertEqual(
+      scrubbedDocument['c3.notif.futureSecret'],
+      'UNOWNED_NOTIFICATION_CANARY',
+    );
+    assertEqual(scrubbedDocument.notifications.enabled, true);
+    assertEqual(
+      JSON.stringify(scrubbedDocument.notifications.unknownNested),
+      JSON.stringify({ preserve: 'exactly' }),
+    );
+    assertEqual(scrubbedDocument.storage.root, '/private/device/path');
+    assertEqual(scrubbedDocument.futurePrivate.preserve, true);
+    assertEqual(
+      JSON.stringify(db.prepare(`
+        SELECT hex(CAST(data AS BLOB)) AS dataHex, revision, updated_at AS updatedAt
+        FROM user_settings WHERE id = 2
+      `).get()),
+      JSON.stringify(rowTwoBefore),
+    );
+
+    const beforeIdempotent = readRowBytes(db);
+    const idempotent = runLegacyNotificationScrub(db, manifest);
+    assertEqual(idempotent.status, 'ALREADY_APPLIED');
+    assertEqual(idempotent.revision, beforeIdempotent.revision);
+    assertEqual(
+      JSON.stringify(readRowBytes(db)),
+      JSON.stringify(beforeIdempotent),
+    );
+
+    replaceFixtureDocument(db, JSON.stringify(legacyNotificationFixtureDocument()));
+    const failureManifest = readLegacyNotificationUserSettingsCensus(db).scrubRequest();
+    db.exec(`
+      CREATE TRIGGER fixture_reject_legacy_notification_scrub
+      BEFORE UPDATE OF data, revision ON user_settings
+      WHEN OLD.id = 1
+      BEGIN
+        SELECT RAISE(ABORT, 'LEGACY_NOTIFICATION_SCRUB_WRITE_CANARY');
+      END
+    `);
+    assertNoMutationFailure(failureManifest, 'USER_SETTINGS_DB_WRITE_FAILED');
+    db.exec('DROP TRIGGER fixture_reject_legacy_notification_scrub');
+
+    db.exec(`
+      CREATE TRIGGER fixture_ignore_legacy_notification_scrub
+      BEFORE UPDATE OF data, revision ON user_settings
+      WHEN OLD.id = 1
+      BEGIN
+        SELECT RAISE(IGNORE);
+      END
+    `);
+    assertNoMutationFailure(failureManifest, 'USER_SETTINGS_STORAGE_CONTRACT');
+    db.exec('DROP TRIGGER fixture_ignore_legacy_notification_scrub');
+
+    db.exec(`
+      CREATE TRIGGER fixture_diverge_legacy_notification_scrub
+      AFTER UPDATE OF data, revision ON user_settings
+      WHEN OLD.id = 1
+      BEGIN
+        UPDATE user_settings
+        SET data = json_set(NEW.data, '$.fixtureAfterScrub', 'injected'),
+            revision = NEW.revision + 1
+        WHERE id = 1;
+      END
+    `);
+    assertNoMutationFailure(failureManifest, 'USER_SETTINGS_STORAGE_CONTRACT');
+    db.exec('DROP TRIGGER fixture_diverge_legacy_notification_scrub');
+
+    const beforeSerializationFailure = readRowBytes(db);
+    const stringifyBeforeFailure = JSON.stringify;
+    try {
+      JSON.stringify = () => { throw new Error('SCRUB_SERIALIZATION_CANARY'); };
+      const serializationError = captureError(
+        () => runLegacyNotificationScrub(db, failureManifest),
+      );
+      assertEqual(
+        serializationError.code,
+        'LEGACY_NOTIFICATION_SCRUB_SERIALIZATION_FAILED',
+      );
+    } finally {
+      JSON.stringify = stringifyBeforeFailure;
+    }
+    const afterSerializationFailure = readRowBytes(db);
+    assertEqual(
+      afterSerializationFailure.dataHex,
+      beforeSerializationFailure.dataHex,
+    );
+    assertEqual(
+      afterSerializationFailure.revision,
+      beforeSerializationFailure.revision,
+    );
+    assertEqual(
+      afterSerializationFailure.updatedAt,
+      beforeSerializationFailure.updatedAt,
+    );
     assertEqual(
       readDocument(db)['c3.notif.smtpPass'],
-      INITIAL_NOTIFICATION_BODY.smtpPass,
+      'LEGACY_SMTP_SECRET_CANARY',
     );
 
-    const masked = await harness.postNotification({
-      smtpHost: 'smtp.partial.invalid',
-      smtpPass: '*****',
-    });
-    assertEqual(masked.status, 200);
-    assertEqual(
-      readDocument(db)['c3.notif.smtpPass'],
-      INITIAL_NOTIFICATION_BODY.smtpPass,
+    assertEqual(createUserSettingsRepository(db).commitNotification, undefined);
+    const userSettingsSource = readFileSync(
+      new URL('../src/db/user-settings.js', import.meta.url),
+      'utf8',
     );
-    const partialRuntime = harness.notificationRuntimeConfigs.at(-1);
-    assertEqual(partialRuntime.host, 'smtp.partial.invalid');
-    assertEqual(partialRuntime.port, INITIAL_NOTIFICATION_BODY.smtpPort);
-    assertEqual(partialRuntime.pass, INITIAL_NOTIFICATION_BODY.smtpPass);
-
-    const cleared = await harness.postNotification({ smtpHost: '' });
-    assertEqual(cleared.status, 200);
-    assertEqual(cleared.body.runtimeApplied, false);
-    assertEqual(cleared.body.runtimeErrorCode, 'NOTIFICATION_RUNTIME_APPLY_FAILED');
-    assertEqual(readDocument(db)['c3.notif.smtpHost'], '');
-    const before = notificationProjection(readDocument(db));
-
-    const genericSnapshot = await harness.getV2();
-    const generic = await harness.putV2({
-      expectedRevision: genericSnapshot.body.revision,
-      patch: { appearance: { theme: 'dark' } },
-    });
-    assertEqual(generic.response.status, 200);
-    assertEqual(generic.response.body.revision, genericSnapshot.body.revision + 1);
-    const afterDocument = readDocument(db);
-    assertEqual(JSON.stringify(notificationProjection(afterDocument)), JSON.stringify(before));
-    assertEqual(afterDocument.appearance.theme, 'dark');
-    assertEqual(JSON.stringify(generic.response.body).includes('SECRET_CANARY'), false);
+    for (const retiredWriterSeam of [
+      'NOTIFICATION_SETTING_FIELD_MAP',
+      'NOTIFICATION_SETTING_KEYS',
+      'NOTIFICATION_INPUT_FIELD_SET',
+      'commitNotification(',
+      'updateNotificationUserSettings',
+    ]) {
+      assertEqual(userSettingsSource.includes(retiredWriterSeam), false);
+    }
+    exerciseNotificationMigrationCli();
+    const migrationCliSource = readFileSync(
+      new URL('../scripts/migrate-notification-authority.js', import.meta.url),
+      'utf8',
+    );
+    for (const requiredBoundedSeam of [
+      'readLegacyNotificationUserSettingsCensus',
+      'scrubLegacyNotificationUserSettingsInTransaction',
+      'db.transaction(() => scrubLegacyNotificationUserSettingsInTransaction',
+      ')).immediate()',
+      'LEGACY_NOTIFICATION_USER_SETTING_PATHS',
+      'ROOT_ENVIRONMENT_OWNER.LEGACY_NOTIFICATION_SCRUB',
+      'MIGRATION_QUIESCENCE_ATTESTATION_REQUIRED',
+      'MIGRATION_MANIFEST_DIGEST_MISMATCH',
+      'MIGRATION_TRANSFER_RECOVERY_REQUIRED',
+      'MIGRATION_CANONICAL_AMBIENT_SHADOW',
+      'NOTIFICATION_AUTHORITY_DECISIONS_SCHEMA',
+      'finalizeNotificationAuthorityPlan',
+      'NUMERIC_SMTP_PORT',
+      'canonicalValueSha256',
+      'MIGRATION_DATABASE_POSTIMAGE_STALE',
+      'MIGRATION_SETUP_POSTIMAGE_STALE',
+      'MIGRATION_PAIASS_POSTIMAGE_STALE',
+      'createApplyStagePlan',
+      'remainingStages',
+      'ABSENCE_CONFIRMED',
+      'readExactFileIdentity(tempPath, tempWrittenStat',
+      'fs.linkSync(tempPath, exportPath)',
+      'privateSource.snapshot.sha256 === source.postimageSha256',
+      'receipts: manifest.paiassReceipts',
+      'context.paiassStatus = paiass.status;',
+    ]) {
+      assertEqual(
+        migrationCliSource.includes(requiredBoundedSeam),
+        true,
+        `migration CLI source missing seam: ${requiredBoundedSeam}`,
+      );
+    }
+    assertEqual(migrationCliSource.includes('DELETE FROM user_settings'), false);
+    assertEqual(migrationCliSource.includes("startsWith('c3.notif.')"), false);
+    assertEqual(migrationCliSource.includes("'--project-root'"), false);
+    assert(
+      migrationCliSource.indexOf('MIGRATION_QUIESCENCE_ATTESTATION_REQUIRED')
+      < migrationCliSource.indexOf('readSafeFileSnapshot(manifestPath'),
+    );
+    assert(
+      migrationCliSource.indexOf('readExactFileIdentity(tempPath, tempWrittenStat')
+      < migrationCliSource.indexOf('fs.linkSync(tempPath, exportPath)'),
+    );
   } finally {
     db.close();
   }
@@ -695,9 +1476,7 @@ await testAsync('versioned generic CAS is redacted and legacy settings routes ar
       JSON.stringify([...EXPECTED_GENERIC_USER_SETTING_PATHS].sort()),
     );
     const harness = createRouteHarness(db);
-    await harness.postNotification(INITIAL_NOTIFICATION_BODY);
-
-    const protectedDocument = readDocument(db);
+    const protectedDocument = legacyNotificationFixtureDocument();
     protectedDocument.storage = { root: '/private/device/path' };
     protectedDocument.webhookSecret = 'WEBHOOK_SECRET_CANARY';
     protectedDocument.futurePrivate = 'PRIVATE_DESTINATION_CANARY';
@@ -805,7 +1584,7 @@ await testAsync('versioned generic CAS is redacted and legacy settings routes ar
     assertEqual(Object.hasOwn(initialV2.body.settings, 'storage'), false);
     assertEqual(Object.hasOwn(initialV2.body.settings, 'webhookSecret'), false);
     assertEqual(Object.hasOwn(initialV2.body.settings, 'futurePrivate'), false);
-    for (const key of NOTIFICATION_SETTING_KEYS) {
+    for (const key of RETIRED_TYPED_NOTIFICATION_KEYS) {
       assertEqual(Object.hasOwn(initialV2.body.settings, key), false);
     }
     assertEqual(JSON.stringify(initialV2.body).includes('SECRET_CANARY'), false);
@@ -892,8 +1671,11 @@ await testAsync('versioned generic CAS is redacted and legacy settings routes ar
     }
 
     const staleRevision = readSettingsRow(db).revision;
-    await harness.postNotification(UPDATED_NOTIFICATION_BODY);
-    const afterNotification = readSettingsRow(db);
+    const interveningStorage = await harness.putStorage({
+      retention: { llm_logs: 23 },
+    });
+    assertEqual(interveningStorage.status, 200);
+    const afterStorage = readSettingsRow(db);
     const staleV2 = await harness.putV2({
       expectedRevision: staleRevision,
       patch: { 'c3.language': 'cs' },
@@ -901,12 +1683,12 @@ await testAsync('versioned generic CAS is redacted and legacy settings routes ar
     assertEqual(staleV2.response.status, 409);
     assertEqual(staleV2.response.body.code, 'USER_SETTINGS_REVISION_CONFLICT');
     assertEqual(staleV2.response.body.expectedRevision, staleRevision);
-    assertEqual(staleV2.response.body.currentRevision, afterNotification.revision);
-    assertEqual(JSON.stringify(readSettingsRow(db)), JSON.stringify(afterNotification));
+    assertEqual(staleV2.response.body.currentRevision, afterStorage.revision);
+    assertEqual(JSON.stringify(readSettingsRow(db)), JSON.stringify(afterStorage));
 
     const beforeParseFailure = readRowBytes(db);
     const parseFailure = await harness.putV2(
-      { expectedRevision: afterNotification.revision, patch: { 'c3.language': 'cs' } },
+      { expectedRevision: afterStorage.revision, patch: { 'c3.language': 'cs' } },
       { parseFailure: new Error('TYPED_PARSE_CANARY') },
     );
     assertEqual(parseFailure.response.status, 400);
@@ -926,12 +1708,12 @@ await testAsync('versioned generic CAS is redacted and legacy settings routes ar
   }
 });
 
-await testAsync('five real-WAL stale candidates cannot overwrite any newer route-owned commit', async () => {
+await testAsync('five real-WAL stale candidates cannot overwrite retained or scrub commits', async () => {
   const directory = mkdtempSync(path.join(isolatedTestRuntime.artifacts, 'settings-authority-wal-'));
   const cases = [
-    ['generic', 'notification'],
+    ['generic', 'scrub'],
     ['generic', 'storage'],
-    ['import', 'notification'],
+    ['import', 'scrub'],
     ['import', 'storage'],
     ['import', 'generic'],
   ];
@@ -940,6 +1722,12 @@ await testAsync('five real-WAL stale candidates cannot overwrite any newer route
     for (const [candidateKind, writerKind] of cases) {
       const databasePath = path.join(directory, `${candidateKind}-${writerKind}.sqlite`);
       const setup = openPolicyDb(databasePath);
+      if (writerKind === 'scrub') {
+        replaceFixtureDocument(
+          setup,
+          `\n${JSON.stringify(legacyNotificationFixtureDocument())}\n`,
+        );
+      }
       setup.close();
       const barrier = new Int32Array(new SharedArrayBuffer(8));
       const candidate = startStaleRouteWorker({
@@ -965,11 +1753,13 @@ await testAsync('five real-WAL stale candidates cannot overwrite any newer route
         const observedRevision = readSettingsRow(writerDb).revision;
         let writerResponse;
         let expectedWriterValue;
-        if (writerKind === 'notification') {
-          expectedWriterValue = `${candidateKind}.writer.invalid`;
-          writerResponse = await writerHarness.postNotification({
-            smtpHost: expectedWriterValue,
-          });
+        if (writerKind === 'scrub') {
+          expectedWriterValue = 'c3.notif.smtpHost';
+          const scrubResult = runLegacyNotificationScrub(
+            writerDb,
+            readLegacyNotificationUserSettingsCensus(writerDb).scrubRequest(),
+          );
+          assertEqual(scrubResult.status, 'APPLIED');
         } else if (writerKind === 'storage') {
           expectedWriterValue = candidateKind === 'generic' ? 17 : 19;
           writerResponse = await writerHarness.putStorage({
@@ -982,13 +1772,18 @@ await testAsync('five real-WAL stale candidates cannot overwrite any newer route
           })).response;
           expectedWriterValue = 'cs';
         }
-        assertEqual(writerResponse.status, 200);
+        if (writerResponse) assertEqual(writerResponse.status, 200);
 
         const afterWriter = readRowBytes(writerDb);
         assertEqual(afterWriter.revision, observedRevision + 1);
         const afterWriterDocument = readDocument(writerDb);
-        if (writerKind === 'notification') {
-          assertEqual(afterWriterDocument['c3.notif.smtpHost'], expectedWriterValue);
+        if (writerKind === 'scrub') {
+          assertEqual(Object.hasOwn(afterWriterDocument, expectedWriterValue), false);
+          assertEqual(afterWriterDocument['c3.notif.desktopEnabled'], true);
+          assertEqual(
+            afterWriterDocument['c3.notif.futureSecret'],
+            'UNOWNED_NOTIFICATION_CANARY',
+          );
         } else if (writerKind === 'storage') {
           assertEqual(afterWriterDocument.storage.retention.llm_logs, expectedWriterValue);
         } else {
@@ -1009,8 +1804,13 @@ await testAsync('five real-WAL stale candidates cannot overwrite any newer route
         assertEqual(JSON.stringify(readRowBytes(writerDb)), JSON.stringify(afterWriter));
 
         const finalDocument = readDocument(writerDb);
-        if (writerKind === 'notification') {
-          assertEqual(finalDocument['c3.notif.smtpHost'], expectedWriterValue);
+        if (writerKind === 'scrub') {
+          assertEqual(Object.hasOwn(finalDocument, expectedWriterValue), false);
+          assertEqual(finalDocument['c3.notif.desktopEnabled'], true);
+          assertEqual(
+            finalDocument['c3.notif.futureSecret'],
+            'UNOWNED_NOTIFICATION_CANARY',
+          );
         } else if (writerKind === 'storage') {
           assertEqual(finalDocument.storage.retention.llm_logs, expectedWriterValue);
         } else {
@@ -1080,7 +1880,7 @@ await testAsync('import and reset commit settings with policy atomically and ret
       'storage',
       'webhookSecret',
       'futurePrivate',
-      ...NOTIFICATION_SETTING_KEYS,
+      ...RETIRED_TYPED_NOTIFICATION_KEYS,
     ]) {
       assertEqual(Object.hasOwn(imported.body.settings, key), false);
     }
