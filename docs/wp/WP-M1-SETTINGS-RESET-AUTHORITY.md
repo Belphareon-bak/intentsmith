@@ -517,3 +517,183 @@ vlastněných procesech; ownership `UNKNOWN` neopravňuje k úklidu.
 - pravdivý Finding 011 handoff: 029 přijato, ale není factory/privacy erase;
 - Gate 1 zůstane `BLOCKED`, dokud integrační vlastník nepřijme celý 029 a
   následné B3/B4 prerequisites.
+
+## 11. Review-B remediation r2 (normativní amendment)
+
+Tento amendment nahrazuje pouze původní neúspěšnou Review-B obálku a její
+navazující topologii. Nemění veřejný connector, dual-CAS transakci, auth/access/
+trusted-local hranici, runtime/source/docs/test allowlist ani produktovou
+sémantiku oddílů 1–9. Jediná nově povolená executable remediation je oprava
+již allowlistovaného Studio test harnessu v
+`tests/m1-studio-client.test.js`; nesmí oslabit žádnou behavior assertion.
+
+### 11.1 Pravdivý výsledek původní Review B
+
+Původní immutable production subject a jeho platná Review A zůstávají
+dohledatelné, ale původní candidate nebyl přijat:
+
+```text
+G4:  4e88ca68d969f96e818c720efafdcf08f0a57258
+S:   d42dffb380232199ba3532d0645a0ee012afa12e
+E_A: c3b4b0ac0adf99fd71f1db81b6bdb68ca34835b3
+C:   ae649a3840036d53705ab50dcfb56f68ee10eae8
+```
+
+V prvním gate attemptu se první max-4 program spustil a jeho čtyři top-level
+cases skončily `0/4`, protože chyběl nativní binding `better-sqlite3`.
+Checkpointy/programy 2–4 byly `NOT RUN`. Verdikt tohoto samostatného attemptu
+je exact `BLOCKED_ENVIRONMENT / BLOCKED`; nesmí se sloučit s pozdějším
+`CHANGES_REQUIRED`. Artifact root měl mode `0700`, deset prázdných adresářů,
+nula souborů a canonical manifest SHA-256
+`47bcba2684c50a002f025c5f4c2b3bc6f5c103806f194dd5339634bc9a7f76ca`.
+Jeho exact cesta je:
+
+```text
+/home/belphareon/worktrees/is-m1-settings-reset-authority-review-b/.intentsmith-artifacts/direct-tests/m1-settings-notification-authority.test-QKIe5i
+```
+
+Pro tento pokus nevznikl žádný diskový log a zpětně se nevyrábí.
+
+Jediná environment remediation proběhla příkazem:
+
+```text
+npm_config_nodedir=/home/belphareon/.cache/node-gyp/22.21.1 npm rebuild better-sqlite3 --offline --build-from-source --foreground-scripts --no-audit --no-fund
+```
+
+Příkaz skončil `exit 0`; npm log
+`/home/belphareon/.npm/_logs/2026-08-12T08_38_17_583Z-debug-0.log`
+má SHA-256
+`7b20e61c0945c2e15c409ce5f2c083ee0817c242e36ec69580ea77f1e00d86b3`
+a dokládá install výsledek `{code:0,signal:null}`. Výsledný
+`better_sqlite3.node` měl 2 190 424 B a SHA-256
+`2e23ed862e1cac3393f8cfb8474e6d0dd5b08d11c4b66bde6ea9b66770fdaffb`.
+
+Opravený environment attempt má canonical gate-summary SHA-256
+`3cd6225ecb96d8a05d3507617643002a1ba029956fabb962283c4097824ba298`
+a skončil fail-fast takto:
+
+```text
+m1-settings-notification-authority.test.js  4/4 PASS
+m1-model-policy.test.js                    36/36 PASS
+m1-studio-client.test.js                 114/128 FAIL
+validate-test-registry.js          NOT RUN_FAIL_FAST
+```
+
+Studio artifact root níže má canonical manifest SHA-256
+`15dd5551b20b94bd996a240041872b8955b35c36cb5cc5fd526cf2d9e510de7e`.
+
+```text
+/home/belphareon/worktrees/is-m1-settings-reset-authority-review-b/.intentsmith-artifacts/direct-tests/m1-studio-client.test-KmZjCZ
+```
+
+Jeho `runtime/intentsmith-test.sqlite` má SHA-256
+`dc817431b7186157495600c0bd106069e9437ed039f62e9dc529edf64d1bdd13`.
+
+Všech čtrnáct selhání je test/harness defect v allowlistované Studio suite:
+
+- 11x `architectSettingsCompleteResetReceipt is not defined`: harness helper
+  exportuje, ale jeho slice začíná až na `async function resetSettings()` a
+  vynechá bezprostředně předcházející definici helperu;
+- 1x `succeeded.features is not a function`: harness vystavuje callable jako
+  `succeeded.functions.features`;
+- 2x fixed-microtask/request-index předpoklad po sekvenci fresh settings,
+  policy, POST a features: jednou expected `requests=5`, observed `3`, jednou
+  dereference neexistujícího `requests[2].url`.
+
+Tato selhání nevyvrátila behavior kandidáta, ale povinný max-4 gate zůstal
+červený. Výsledek je proto `CHANGES_REQUIRED`, registry program se správně
+nespustil a původní `E_B_RESET` nevznikl. Původní Review B se nesmí přepsat na
+PASS ani dokončit připojením dvou report řádků.
+
+### 11.2 Zachování historie a čerstvé r2 rezervace
+
+Původní source, Review-A a queue refs se nepohybují; absentní původní Review-B
+ref se zpětně nevytváří. Zachovají se také rejected parent-order ref
+`rejected/m1-settings-reset-parent-order-20260812` na
+`11af49c63c5048383acefb463cae3ff5817e51c0`, výše uvedené artefakty a npm log.
+Zakázaný je history rewrite, rebase, force update, nahrazení starých refs nebo
+vydávání corrected attemptu za pokračování původní obálky.
+
+Čerstvé rezervace jsou:
+
+```text
+governance: docs/m1-settings-reset-review-b-remediation-r2-20260812
+source:     wp/m1-settings-reset-authority-r2-20260812
+Review A:   evidence/m1-settings-reset-authority-review-a-r2-20260812
+queue:      queue/m1-settings-reset-authority-promotion-r2-20260812
+Review B:   evidence/m1-settings-reset-authority-review-b-r2-20260812
+report:     docs/execution/runs/wp-m1-settings-reset-authority-20260812-report.md
+```
+
+Přesné sekvenční disk-backed worktree rezervace jsou:
+
+```text
+/home/belphareon/worktrees/is-m1-settings-reset-authority-r2
+/home/belphareon/worktrees/is-m1-settings-reset-authority-review-a-r2
+/home/belphareon/worktrees/is-m1-settings-reset-authority-queue-r2
+/home/belphareon/worktrees/is-m1-settings-reset-authority-review-b-r2
+```
+
+V každém okamžiku smí existovat nejvýše jeden nový 029-owned worktree. Starý
+Review-B checkout a jeho ignored artefakty se neodstraní, dokud nejsou důkazy
+výše zachované a ověřené; dokud existuje, nový r2 checkout se nematerializuje.
+Nic nevzniká v `/tmp` a cizí worktrees zůstávají mimo cleanup autoritu.
+
+### 11.3 Povinná replacement topologie
+
+Tento docs-only amendment je `G5`, jediný child exact `G4`, a mění právě tento
+WP. `G5` musí před r2 writerem projít nezávislým review a canonical integration
+se na něj posune pouze fast-forwardem. Vlastní SHA se do tohoto dokumentu
+nezapisuje; ověří se z Git objektu spolu s jediným parentem a jednou změněnou
+cestou.
+
+Replacement DAG bez přepisu historie je:
+
+```text
+G4 -> G5
+G5 -> M2 [ordered parents G5,
+          D=beebc29f596788dd65eac7896dc1f389595fd501]
+   -> S2
+   -> E_A2
+G5 + E_A2 -> C2 [ordered parents G5,E_A2]
+             -> E_B2
+             -> canonical integration fast-forward
+```
+
+`M2` zachová docs-only amendment z `G5` a přenese původní zreviewovatelný reset
+subject z `D`; semantic conflict je `STOP`. `S2` je direct child `M2`, poslední
+produkční commit a mění přesně tři cesty:
+
+```text
+src/routes/misc.js
+tests/m1-model-policy.test.js
+tests/m1-studio-client.test.js
+```
+
+První dvě cesty jsou byte-identický finální legacy-410 delta z původního `S`.
+Třetí opraví pouze výše vyjmenované Studio harness vady: zahrne definici
+`architectSettingsCompleteResetReceipt`, volá skutečně vystavenou `features`
+funkci a nahradí fixed-microtask/index předpoklady deterministickým čekáním a
+identifikací requestu. Nesmí změnit produkční kód, očekávaný connector/receipt,
+počet behavior scénářů ani oslabit pozitivní či negativní assertion.
+Po `S2` nesmí před `E_A2/C2/E_B2` přistát žádná další source/docs/test změna.
+
+Nový writer není Review-A ani Review-B reviewer. Review A posoudí celý exact
+range `G5..S2`, včetně původního dual-CAS subjectu, final-410 pořadí a opravy
+harnessu; starý PASS se nerecykluje. `E_A2` je direct child `S2`, mění jen
+původně rezervovaný report a zapíše exact `integrationRef`, `baseRevision=G5`,
+`subjectHead=S2` a `reviewA.verdict: PASS`.
+
+`C2` je immutable queue merge s ordered parents exact `[G5,E_A2]`, stromem
+byte-identickým s `E_A2` a beze změny behavioru. Review B vznikne v čerstvém
+disk-backed checkoutu exact `C2`. Dependency instalace a výše připnutý offline
+native build jsou environment preflight před gate; gate se nespouští bez
+loadable bindingu a během gate se už prostředí neremeduje.
+
+Review B spustí čerstvý max-4 gate z oddílu 8 přesně jednou a fail-fast. Jen
+úplný PASS dovolí `E_B2`, direct child `C2`, který ve stejném reportu byteově
+připojí právě `candidateHead: C2` a `reviewB.verdict: PASS`. Metadata gate pak
+musí ověřit parenty, stromy, allowlist, report prefix/append a nulovou změnu
+auth/access/trusted-local hranice. Canonical integration se posune na `E_B2`
+jen fast-forwardem; jiný výsledek zůstává pravdivě `CHANGES_REQUIRED` nebo
+`BLOCKED` bez promotion.
