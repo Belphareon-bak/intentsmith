@@ -52,6 +52,14 @@ const CANDIDATE_SOURCE_PATHS = Object.freeze([
   'scripts/run-model-failover-measurement.js',
   'src/config.js',
   'src/core/logger.js',
+  // `src/upgrade/model-failover.js` imports `readModelSettings` from here.  It
+  // was missing, so the exact-blob source export was not import-closed and the
+  // child died on `ERR_MODULE_NOT_FOUND` before any measurement ran — which
+  // surfaced as MODEL_CANDIDATE_MEASUREMENT_UNEXPECTED_FAILURE on every
+  // postflight case at once.  This list is hand-maintained, so it drifts the
+  // moment a listed module gains a relative import; the module itself has no
+  // imports, so the graph is closed again with this one entry.
+  'src/db/user-settings.js',
   'src/timeout-policy.js',
   'src/upgrade/model-failover-proof-policy.js',
   'src/upgrade/model-failover.js',
