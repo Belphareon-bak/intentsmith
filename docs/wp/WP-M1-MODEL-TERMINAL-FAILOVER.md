@@ -531,6 +531,63 @@ zachovává oba FAIL artefakty, pre-effect BLOCKED, credential výstup,
 disposable seed/postcheck i diagnostiku. Tento výsledek není Phase-B PASS a
 nesmí vytvořit `B_S`, `B_EA`, `B_C`, `B_EB` ani canonical Phase-B promotion.
 
+### 7.3 Jednorázový headless T3 handoff
+
+Operátor 2026-08-13 výslovně autorizoval právě jeden další T3 behavior run v
+headless režimu. Tato úzká autorita nahrazuje pouze stop hranici pro další T3
+pokus v §7.2; nemění ani nemaže žádný předchozí `FAIL` nebo `BLOCKED` artefakt.
+Model `qwen3.5:27b`, exact digest
+`7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e`,
+`num_ctx=4096`, nejméně `1024 MiB` post-load headroomu, `100 %` GPU residency,
+zákaz fallbacku a původní cold/warm/classify/cancel chování zůstávají beze
+změny. Acceptance běh používá nezměněný T3 test a exact provider
+`http://127.0.0.1:11434`; nesmí mu předcházet pull, delete, rebind, změna
+kvantizace, modelu, digestu, contextu, limitu ani testového zdroje.
+
+Povinné pořadí je fail-closed:
+
+1. před odhlášením uložit práci v otevřeném Kate procesu PID `264819` a
+   zachovatelný stav Konsole, Firefoxu a Gwenview; ověřit aktivní `sshd` a
+   skutečně funkční SSH přihlášení, přes které lze běh sledovat po zániku
+   grafické relace a RustDesku;
+2. spustit `systemctl isolate multi-user.target` a teprve po potvrzení, že
+   grafická relace ani display/compute proces GPU neběží, zachytit přesný
+   `nvidia-smi` snapshot. Near-zero znamená pouze případnou driverovou režii,
+   žádný user/display/compute allocation; přesná hodnota `memory.used` a
+   `memory.free` se zapíše do artefaktu. Jakákoli jiná alokace nebo rozpor s
+   očekávaným headless envelope končí před načtením modelu jako `BLOCKED`;
+3. až po tomto pre-load gate načíst exact model na `127.0.0.1:11434` a spustit
+   právě jeden nezměněný T3 behavior run. Pozdější uvolnění VRAM není náhradou:
+   layer split a residency se hodnotí při loadu;
+4. v každé větvi po přechodu do headless režimu, včetně pre-load `BLOCKED`, T3
+   `FAIL`, timeoutu nebo interní chyby runneru, obnovit
+   `systemctl isolate graphical.target`. Test zachová přirozenou expiry a
+   všechny předepsané post-run empty-provider/GPU kontroly; nesmí používat
+   zakázaný explicitní unload jako zkratku cleanupu.
+
+Pokud headless pre-load měření odporuje očekávanému uvolnění desktopové VRAM,
+smí se místo acceptance běhu použít již vymezená Q4 větev pouze jako
+neakceptační diagnostika. Nespouští se automaticky po T3 `FAIL`/`BLOCKED`,
+nemůže vytvořit T3 `PASS`, nemění tento kontrakt a neopravňuje pull, delete,
+rebind ani opakování headless acceptance běhu. Headless T3 `FAIL` nebo
+`BLOCKED` je terminální bez retry; pouze jeho `PASS` odemyká zbývající přesně
+manifest-bound Phase-B sekvenci bez opakování credential apply.
+
+Před jakýmkoli Gate 1 odkazem musí nový non-clobber bundle amendment zachytit
+skutečný čas vzniku obou už použitých adresářů, jejichž basename místo razítka
+obsahuje literál `TXXXXXXZ`:
+
+- `m1-notification-authority-plan-20260812TXXXXXXZ-xAvz8hlA`;
+- `m1-b3-phaseb-execution-20260812TXXXXXXZ.Q29oJSdh`.
+
+Attestace pro každý adresář zapíše filesystem birth time v UTC s dostupnou
+přesností, device/inode, vlastníka, mód a UTC čas pozorování i použitou metodu.
+Pokud filesystem birth time neposkytne, nesmí jej nahradit `mtime`, `ctime`
+ani časem odvozeným z názvu; Gate 1 zůstane `BLOCKED`, dokud skutečný vznik
+nedoloží nezávislý zdroj. Původní sealed bytes se nepřepisují. Nová attestace
+musí být mode `0400`, zahrnutá délkou a SHA-256 v novém non-clobber manifestu
+a nezávisle ověřená před prvním Gate 1 claimem.
+
 ## 8. Stop conditions a acceptance
 
 Zastavit dotčenou část při nové veřejné capability/connectoru, změně L0,
