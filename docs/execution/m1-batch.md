@@ -273,6 +273,12 @@ jediný, digest-bound a raw-secret-free; 031 nepředvybírá fallback model. Př
 driftu, failure nebo neúplné akceptaci je stav `STOP/BLOCKED`, ne implicitní
 preserve, delete, migration nebo PASS.
 
+Historické cleanup pokusy včetně overall
+`PARTIAL_SOURCE_SHM_METADATA_TOUCH`, odmítnutého unbound runneru a harness
+failures zůstávají zachované; B3 PASS je zpětně nepřeznačuje. B3 Phase B dál
+běží jen nad disposable file-backed DB/runtime a user DB/config se v ní
+nemění.
+
 ---
 
 ## 2. Sdílené invarianty — platí pro každý běh v dávce

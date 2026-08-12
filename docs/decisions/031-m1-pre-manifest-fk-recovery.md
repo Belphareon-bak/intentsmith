@@ -40,6 +40,20 @@ migration log má SHA-256
 `c2e19ba9e99ee4c5ec0aa0c19fac04c49f913fa336bffa05407bc955506cb077`.
 Přímý živý migration run je proto zakázaný: nechal by DB částečně na 061.
 
+Pozdější private cleanup pokusy se nepřepisují zeleným B3 výsledkem. Effective
+B evidence měla overall verdict `PARTIAL_SOURCE_SHM_METADATA_TOUCH`: read-only
+SQLite backup/WAL attach neposunul DB rows/pages, DB bytes, WAL bytes ani módy,
+ale změnil mtime live
+`/home/belphareon/Projects/c3-agent-wip/data/c3.db-shm`. Její manifest
+`/home/belphareon/Projects/m1-fk-cleanup-rehearsal.dHII4c/evidence/effective-evidence-manifest.json`
+má SHA-256
+`c8e9cf54cad5799ea46de611807b5fe7c9a65b7de9e82f7097476f0ef4ba85cb`.
+Před B3 zůstal také `CHANGES_REQUIRED` unbound runner s SHA-256
+`b56d7450fe8ccb5485f7b9a87decaf68d7e247a1fd11a185c042ac2ac67b9843`
+a zachované harness failures s SHA-256
+`4134d152e905fb6ea8cdc28666af5876921e0b0963210bd315bc60f100496573`.
+Sealed B3 tyto pokusy pouze referencuje; nemaže je a netvrdí zpětný PASS.
+
 ## Posouzené varianty
 
 ### A — obnova dvou lifecycle subtree ze záloh: nepřijata
@@ -131,6 +145,11 @@ Recovery plan je data-recovery prerequisite, ne druhý credentials/model
 manifest. Pozdější M1 execution manifest zůstává jediný a digest-bound. Toto
 rozhodnutí nevybírá fallback model, nevydává proof a nepovoluje pull, delete,
 stop, unload nebo rebind.
+
+B3 Phase B zůstává přesně podle terminal-failover WP na disposable file-backed
+DB/runtime. Nakonfigurovaná user DB, její config a jiné user files se v
+modelové Phase B nemění; recovery tohoto rozhodnutí se nesmí použít k rozšíření
+její effect authority.
 
 ## Late-bound privátní plán
 

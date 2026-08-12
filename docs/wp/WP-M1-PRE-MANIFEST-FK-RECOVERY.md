@@ -121,6 +121,9 @@ právě jednou a plan právě jednou. Drift nebo unmappable source zastaví tok 
 manifestem; recovery se kvůli tomu automaticky nevrací. Credential apply čeká
 na pozdější jediný digest-bound `M1-EXECUTION-MANIFEST` a jeho exact přijetí.
 Modelový fallback zůstává v tomto WP nevybraný.
+Následující B3 Phase B používá výhradně disposable file-backed DB/runtime;
+user DB/config a jiné user files zůstávají během modelové execution evidence
+beze změny.
 
 ## 7. Stop conditions
 
