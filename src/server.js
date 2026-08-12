@@ -240,10 +240,14 @@ import { modelRegistry } from './upgrade/model-registry.js';
 import { createVramArtifactUsePort } from './upgrade/model-use-authority.js';
 import { modelUniverseStore } from './upgrade/model-universe-store.js';
 import { createModelFailoverRepository } from './upgrade/model-failover.js';
+import { readModelAutomationPolicy } from './db/model-policy.js';
 import {
   createModelFailoverDetectionCoordinator,
   createModelFailoverDetectionInventoryPort,
   createModelFailoverDetectionRepositoryPort,
+  createModelFailoverDetectionRunPort,
+  createModelFailoverLifecycleCoordinator,
+  createModelFailoverTerminalApplicationPort,
   startModelFailoverDetectionScheduler,
 } from './upgrade/model-failover-coordinator.js';
 import {
@@ -251,19 +255,41 @@ import {
   createOllamaModelBindingProvider,
 } from './upgrade/model-binding-application.js';
 
-// Restore every manual binding through the single durable application boundary
-// before any LLM call can observe config.models.
+// Reconcile terminal lineage first, then restore non-terminal manual bindings,
+// through the single application effect owner before any LLM consumer starts.
 upgradeManager.setDb(db.db);
 setUpgradeManager(upgradeManager);
 modelUniverseStore.setDb(db.db);
-const bindingRepository = createModelFailoverRepository(db.db);
-const { broadcast: bindingBroadcast } = await import('./ws-bridge/ws-server.js');
 const modelBindingProvider = createOllamaModelBindingProvider({
   baseUrl: config.ollama?.baseUrl,
   pullImpl: (modelName, onProgress, authority) => (
     upgradeManager.pullModel(modelName, onProgress, authority)
   ),
 });
+const terminalInventoryReader = Object.freeze(async target => {
+  let resolved;
+  try {
+    resolved = await modelBindingProvider.resolveExact(target.requestedName, {
+      expectedDigestSha256: target.digestSha256,
+    });
+  } catch (error) {
+    if (error?.code === 'MODEL_BINDING_TARGET_NOT_INSTALLED') {
+      const missing = new Error('Exact terminal artifact is not installed');
+      missing.code = 'MODEL_FAILOVER_TARGET_NOT_INSTALLED';
+      throw missing;
+    }
+    throw error;
+  }
+  return Object.freeze({
+    name: resolved.name,
+    canonicalName: resolved.canonicalName,
+    digestSha256: resolved.digestSha256,
+  });
+});
+const bindingRepository = createModelFailoverRepository(db.db, {
+  terminalInventoryReader,
+});
+const { broadcast: bindingBroadcast } = await import('./ws-bridge/ws-server.js');
 const modelBindingApplication = createModelBindingApplication({
   repository: bindingRepository,
   runtime: upgradeManager.createBindingRuntimePort(),
@@ -272,6 +298,13 @@ const modelBindingApplication = createModelBindingApplication({
   logger,
 });
 setModelBindingApplication(modelBindingApplication);
+const terminalRehydrate = await modelBindingApplication.rehydrateTerminalBindings();
+if (terminalRehydrate.reconciled > 0 || terminalRehydrate.restored > 0) {
+  logger.info(
+    'Server',
+    `Reconciled ${terminalRehydrate.reconciled} terminal operation(s) and restored ${terminalRehydrate.restored} active failover binding(s)`,
+  );
+}
 const bindingRehydrate = await modelBindingApplication.rehydrateBindings();
 if (bindingRehydrate.legacyRestored > 0 || bindingRehydrate.restored > 0) {
   logger.info(
@@ -285,6 +318,17 @@ for (const failure of bindingRehydrate.failed) {
     `Model binding rehydrate failed for ${failure.role}: ${failure.code}`,
   );
 }
+const modelFailoverDetectionCoordinator = createModelFailoverDetectionCoordinator({
+  repositoryPort: createModelFailoverDetectionRepositoryPort(bindingRepository),
+  inventoryPort: createModelFailoverDetectionInventoryPort(modelBindingProvider),
+  readSettings: () => readModelAutomationPolicy(db.db),
+  readBindings: () => ({ ...config.models }),
+});
+const modelFailoverLifecycleCoordinator = createModelFailoverLifecycleCoordinator({
+  detectionPort: createModelFailoverDetectionRunPort(modelFailoverDetectionCoordinator),
+  terminalPort: createModelFailoverTerminalApplicationPort(modelBindingApplication),
+});
+let modelFailoverScheduler = null;
 
 // v118: Phase 2 — proposal store + registry client
 try {
@@ -330,7 +374,6 @@ try {
 }
 
 // v133: Wire ModelRegistry — centralized model management
-let modelFailoverDetectionCoordinator = null;
 try {
   const { validationRunner } = await import('./upgrade/validation-suites.js');
   validationRunner.setDb(db.db);
@@ -342,12 +385,6 @@ try {
     broadcast: bindingBroadcast,
   });
   setModelRegistry(modelRegistry);
-  modelFailoverDetectionCoordinator = createModelFailoverDetectionCoordinator({
-    repositoryPort: createModelFailoverDetectionRepositoryPort(bindingRepository),
-    inventoryPort: createModelFailoverDetectionInventoryPort(modelBindingProvider),
-    readSettings: () => modelRegistry.getModelSettings(),
-    readBindings: () => modelRegistry.getBound(),
-  });
   // v133: Wire usage tracking to gateway
   llmGateway.setUsageDb(db.db);
   logger.info('Server', 'ModelRegistry initialized (+ gateway usage tracking)');
@@ -1461,30 +1498,35 @@ listenOnLegacyLoopback(server, config.server, async () => {
   // v133: ModelRegistry — auto-cleanup scheduler (every 6h) + digest-bound
   // failover detection (every 5 min, first run after the existing delay).
   {
-    if (modelFailoverDetectionCoordinator) {
-      startModelFailoverDetectionScheduler({
-        coordinator: modelFailoverDetectionCoordinator,
+    if (modelFailoverLifecycleCoordinator) {
+      modelFailoverScheduler = startModelFailoverDetectionScheduler({
+        coordinator: modelFailoverLifecycleCoordinator,
         intervalMs: 5 * 60 * 1000,
         onResult: result => {
-          if (result.status === 'SKIPPED_DISABLED') return;
-          if (result.status === 'COMPLETED') {
-            if (result.counters.detectionsCreated > 0) {
+          const detection = result.detection;
+          const terminal = result.terminal;
+          if (detection?.status === 'COMPLETED') {
+            if (detection.counters.detectionsCreated > 0) {
               logger.warn(
                 'Server',
-                `Model failover detection recorded ${result.counters.detectionsCreated} incident(s)`,
+                `Model failover detection recorded ${detection.counters.detectionsCreated} incident(s)`,
               );
-            } else if (result.counters.desiredCreated > 0) {
+            } else if (detection.counters.desiredCreated > 0) {
               logger.info(
                 'Server',
-                `Model failover detection observed ${result.counters.desiredCreated} desired binding(s)`,
+                `Model failover detection observed ${detection.counters.desiredCreated} desired binding(s)`,
               );
             }
-            return;
+          } else if (detection
+            && !['SKIPPED_DISABLED', 'SKIPPED_INVALID_SETTINGS'].includes(detection.status)) {
+            logger.warn(
+              'Server',
+              `Model failover detection ${detection.status}: ${detection.reason}`,
+            );
           }
-          logger.warn(
-            'Server',
-            `Model failover detection ${result.status}: ${result.reason}`,
-          );
+          if (terminal?.status === 'PARTIAL') {
+            logger.warn('Server', 'Model failover terminal cycle completed partially');
+          }
         },
         onError: error => {
           logger.warn('Server', `Model failover detection failed: ${error.message}`);
@@ -1601,6 +1643,9 @@ function gracefulShutdown(signal) {
 
   // v103: Stop upgrade manager periodic checks
   try { upgradeManager.stopPeriodicCheck(); } catch { /* ignore */ }
+
+  // v133: Stop the single recursive detection + terminal failover scheduler.
+  try { modelFailoverScheduler?.stop(); } catch { /* ignore */ }
 
   // v124.5: Release lazy-loaded lifecycle modules
   try { import('./planner/lifecycle-build.js').then(m => m.resetLazyModules()).catch(() => {}); } catch { /* ignore */ }

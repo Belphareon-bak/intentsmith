@@ -2101,6 +2101,11 @@ export class ModelFailoverRepository {
     return this.#read('getState', () => this.#mapStateRow(this.#stateRow(role)));
   }
 
+  getTerminalTarget(roleValue) {
+    const role = requireExactRole(roleValue);
+    return this.#read('getTerminalTarget', () => readModelFailoverTarget(this.db, role));
+  }
+
   getTerminalOperation(operationIdValue) {
     const operationId = requireExactString(operationIdValue, 'operationId');
     return this.#read('getTerminalOperation', () => {
