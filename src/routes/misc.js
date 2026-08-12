@@ -149,6 +149,11 @@ export function createMiscRoutes(deps) {
       runtimeErrorCode: runtime.runtimeErrorCode,
     });
   };
+
+  const retireLegacyResetAlias = (_req, res) => sendJSON(res, 410, {
+    ok: false,
+    code: 'LEGACY_RESET_ALIAS_RETIRED',
+  });
   const legacySettingsRetired = (_req, res) => sendJSON(res, 410, {
     ok: false,
     code: 'USER_SETTINGS_LEGACY_RETIRED',
@@ -425,9 +430,7 @@ export function createMiscRoutes(deps) {
 
     'POST /api/settings/reset': resetAllSettings,
 
-    // Temporary CORE-only compatibility alias. All first-party callers use
-    // the canonical route; S_RESET retires this alias pre-parse with 410.
-    'POST /api/reset': resetAllSettings,
+    'POST /api/reset': retireLegacyResetAlias,
 
     // ── Feedback ──────────────────────────────────────────────────────────
     'POST /api/feedback': async (req, res) => {

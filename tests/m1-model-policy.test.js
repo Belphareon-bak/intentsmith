@@ -1324,6 +1324,18 @@ await testAsync('global settings reset uses exact dual CAS, preserves unowned da
     const request = resetInput(db);
     const before = snapshot(db);
 
+    const legacy = await harness.reset({
+      legacy: true,
+      parseFailure: new Error('legacy reset must return before body parsing'),
+    });
+    assertEqual(legacy.status, 410);
+    assertEqual(
+      JSON.stringify(legacy.body),
+      JSON.stringify({ ok: false, code: 'LEGACY_RESET_ALIAS_RETIRED' }),
+    );
+    assertEqual(snapshot(db), before);
+    assertEqual(harness.featureResetCount, 0);
+
     for (const invalid of [
       null,
       [],

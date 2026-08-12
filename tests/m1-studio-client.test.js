@@ -1049,6 +1049,7 @@ function settingsBackupHarness(options = {}) {
   const timers = [];
   const localStorageEffects = [];
   const confirmations = [];
+  const requestWaiters = new Map();
   let renders = 0;
   const initialSettings = Object.prototype.hasOwnProperty.call(options, 'initialSettings')
     ? options.initialSettings
@@ -1120,7 +1121,13 @@ function settingsBackupHarness(options = {}) {
       },
     },
     fetch(url, init = {}) {
-      requests.push({ url, init });
+      const request = { url, init };
+      requests.push(request);
+      const waiters = requestWaiters.get(url);
+      if (waiters) {
+        requestWaiters.delete(url);
+        for (const resolve of waiters) resolve(request);
+      }
       const fixture = responses.shift();
       if (fixture instanceof Error) return Promise.reject(fixture);
       if (!fixture) throw new Error(`unexpected settings request: ${url}`);
@@ -1185,6 +1192,15 @@ function settingsBackupHarness(options = {}) {
     confirmations,
     get renders() { return renders; },
     requests,
+    waitForRequest(url) {
+      const existing = requests.find(request => request.url === url);
+      if (existing) return Promise.resolve(existing);
+      return new Promise(resolve => {
+        const waiters = requestWaiters.get(url) || [];
+        waiters.push(resolve);
+        requestWaiters.set(url, waiters);
+      });
+    },
     localStorageEffects,
     revokedObjectUrls,
     settings: () => hostClone(context._bCfg),
@@ -1544,14 +1560,15 @@ function architectSettingsHarness(options = {}) {
   const helperEnd = source.indexOf('// ═══════════════════════════════════════════════════════════════════════════\n// ACCORDION', helperStart);
   const persistenceStart = source.indexOf('function architectSettingsAdoptV2Snapshot(');
   const persistenceEnd = source.indexOf('function applySettings()', persistenceStart);
-  const resetStart = source.indexOf('async function resetSettings()');
+  const resetStart = source.indexOf('async function architectSettingsCompleteResetReceipt()');
+  const resetMarker = source.indexOf('async function resetSettings()', resetStart);
   const resetEnd = source.indexOf('// ═══════════════════════════════════════════════════════════════════════════\n// ABOUT', resetStart);
   const exportStart = source.indexOf('async function exportSettings()');
   const exportEnd = source.indexOf('// ═══════════════════════════════════════════════════════════════════════════\n// TOAST', exportStart);
   assert.ok(
     helperStart >= 0 && helperEnd > helperStart
       && persistenceStart >= 0 && persistenceEnd > persistenceStart
-      && resetStart >= 0 && resetEnd > resetStart
+      && resetStart >= 0 && resetMarker > resetStart && resetEnd > resetMarker
       && exportStart >= 0 && exportEnd > exportStart,
     'Architect portable settings slices are missing',
   );
@@ -6171,7 +6188,7 @@ await testAsync('reset is fail-closed and only adopts a committed server snapsho
     expectedPolicyRevision: 1,
   });
   assert.deepEqual(succeeded.settings(), committedSettings);
-  assert.deepEqual(succeeded.features(), { agents: true });
+  assert.deepEqual(succeeded.functions.features(), { agents: true });
   assert.deepEqual(succeeded.localStorageEffects, []);
   assert.match(succeeded.status().text, /runtime vyžaduje restart/);
 
@@ -6214,7 +6231,7 @@ await testAsync('reset is fail-closed and only adopts a committed server snapsho
   assert.equal((await fenced.functions.resetAll()).success, true);
   staleFeature.resolve({ features: { agents: false, stale: true } });
   assert.equal(await oldFeatureLoad, false);
-  assert.deepEqual(fenced.features(), { agents: true });
+  assert.deepEqual(fenced.functions.features(), { agents: true });
 
   for (const staleOutcome of ['resolve', 'reject']) {
     const stale = deferred();
@@ -6246,7 +6263,7 @@ await testAsync('reset is fail-closed and only adopts a committed server snapsho
     replacement.resolve({ features: { newest: true } });
     assert.equal(await replacementLoad, true);
     assert.equal(overlapping.functions.resetState().featureLoading, false);
-    assert.deepEqual(overlapping.features(), { newest: true });
+    assert.deepEqual(overlapping.functions.features(), { newest: true });
   }
 
   const failedForce = deferred();
@@ -6262,7 +6279,7 @@ await testAsync('reset is fail-closed and only adopts a committed server snapsho
   assert.equal(await failedLoad, false);
   assert.equal(afterFailure.functions.resetState().featureLoading, false);
   assert.equal(await afterFailure.functions.loadFeatures(), true);
-  assert.deepEqual(afterFailure.features(), { recovered: true });
+  assert.deepEqual(afterFailure.functions.features(), { recovered: true });
 });
 
 await testAsync('successful runtime apply does not claim restart for import or reset', async () => {
@@ -6739,8 +6756,9 @@ await testAsync('a settings load admitted before recovery cannot overwrite its c
   const load = harness.functions.loadConfig(null, true);
   await drainMicrotasks();
   assert.equal(harness.requests.length, 1);
+  const featureRequest = harness.waitForRequest('http://127.0.0.1:3335/api/features');
   const reset = harness.functions.resetAll();
-  await drainMicrotasks();
+  await featureRequest;
   assert.equal(harness.requests.length, 5);
   assert.equal((await reset).success, true);
   assert.deepEqual(harness.settings(), committedSettings);
@@ -6782,9 +6800,12 @@ await testAsync('the rendered Backup panel wires exact endpoints and reports Fil
   });
   const resetButton = findRenderedElement(resetHarness.functions.renderBackup(), 'button', 'Resetovat serverová nastavení');
   assert.ok(resetButton);
+  const resetRequest = resetHarness.waitForRequest('http://127.0.0.1:3335/api/settings/reset');
   resetButton.props.onClick();
-  await drainMicrotasks();
-  assert.equal(resetHarness.requests[2].url, 'http://127.0.0.1:3335/api/settings/reset');
+  assert.equal(
+    (await resetRequest).url,
+    'http://127.0.0.1:3335/api/settings/reset',
+  );
 
   const validReader = controlledFileReaderClass();
   const importHarness = settingsBackupHarness({
