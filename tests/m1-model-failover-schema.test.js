@@ -2387,7 +2387,7 @@ await testAsync('verified audit events require a fresh matching artifact proof',
       assertThrowsMatching(() => insertActivationEvent(db, {
         eventId: `event-${label}`,
         ...overrides,
-      }), /fresh proof|live claim|terminal intent|terminal receipt/i);
+      }), /MODEL_FAILOVER_TERMINAL_(?:INTENT_PROJECTION|EVENT_RECEIPT)_MISMATCH/);
     }
 
     insertActivationEvent(db);
@@ -2435,7 +2435,7 @@ await testAsync('verified audit events require a fresh matching artifact proof',
 
     assertThrowsMatching(
       () => insertRestoreEvent('proof-fixture-0001'),
-      /fresh desired proof|terminal intent/i,
+      /MODEL_FAILOVER_TERMINAL_INTENT_PROJECTION_MISMATCH/,
     );
     insertRestoreEvent('proof-desired-fixture-0001');
     assertEqual(
@@ -2488,7 +2488,7 @@ await testAsync('all four proof eligibility triggers use ledger authority and st
       } else {
         assertThrowsMatching(
           () => insertActivationEvent(db, { createdAt }),
-          /verified fallback event requires matching fresh proof|terminal receipt/,
+          /MODEL_FAILOVER_TERMINAL_RECEIPT_PROJECTION_MISMATCH/,
         );
       }
     });
@@ -2556,7 +2556,7 @@ await testAsync('all four proof eligibility triggers use ledger authority and st
       } else {
         assertThrowsMatching(
           () => insertRestoreAt(db, createdAt),
-          /verified restore event requires matching fresh desired proof|terminal receipt/,
+          /MODEL_FAILOVER_TERMINAL_RECEIPT_PROJECTION_MISMATCH/,
         );
       }
     });
@@ -2605,7 +2605,7 @@ await testAsync('active failover requires a matching role/name/digest proof', as
     insertPassingProof(db);
     assertThrowsMatching(
       () => insertActivationEvent(db),
-      /live claim|durable receipt/i,
+      /MODEL_FAILOVER_TERMINAL_EVENT_RECEIPT_MISMATCH/,
     );
     claimOperation(db);
     for (const [label, overrides] of [
@@ -2616,7 +2616,7 @@ await testAsync('active failover requires a matching role/name/digest proof', as
       assertThrowsMatching(() => insertActivationEvent(db, {
         eventId: `event-claim-${label}`,
         ...overrides,
-      }), /live claim|durable receipt|terminal receipt/i);
+      }), /MODEL_FAILOVER_TERMINAL_(?:RECEIPT_PROJECTION|EVENT_RECEIPT)_MISMATCH/);
     }
     insertActivationEvent(db);
 
@@ -2729,7 +2729,7 @@ await testAsync('active failover accepts a matching reapply claim and fresh term
         'system:binding-integrity', 'LOCAL_FAILOVER_REAPPLIED', 'd-plus-v1',
         'ACTIVATED', 'ACTIVATED', 'qwen3.5:27b', ?, 'fallback:latest',
         'fallback', ?, 'proof-fixture-0001', 1, 4000)
-    `).run(DIGEST_A, DIGEST_B), /live claim|durable receipt/i);
+    `).run(DIGEST_A, DIGEST_B), /MODEL_FAILOVER_TERMINAL_EVENT_RECEIPT_MISMATCH/);
     claimOperation(db, {
       eventId: 'event-reapply-claimed',
       eventType: 'REAPPLY_CLAIMED',
