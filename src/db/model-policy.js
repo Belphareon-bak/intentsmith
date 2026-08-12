@@ -54,6 +54,12 @@ const POLICY_SETTINGS_KEYS = Object.freeze([
 ]);
 const POLICY_SETTINGS_KEY_SET = new Set(POLICY_SETTINGS_KEYS);
 const SETTINGS_IMPORT_REQUEST_KEYS = Object.freeze(['backup', 'expectedRevision']);
+const GLOBAL_SETTINGS_RESET_KEYS = Object.freeze([
+  'expectedPolicyRevision',
+  'expectedRevision',
+  'scope',
+]);
+const GLOBAL_SETTINGS_RESET_SCOPE = 'SERVER_SETTINGS_V1';
 
 const DEFAULT_IDS = Object.freeze({
   event: () => `policy-event-${randomUUID()}`,
@@ -211,6 +217,45 @@ function requireSettingsImportRequest(value) {
   return {
     expectedRevision: value.expectedRevision,
     backup: requireBackupEnvelope(value.backup),
+  };
+}
+
+function requireGlobalSettingsResetRequest(value) {
+  if (!isPlainObject(value)) {
+    fail('SETTINGS_RESET_INPUT_INVALID', 'Settings reset request must be a plain object');
+  }
+  const ownKeys = Reflect.ownKeys(value);
+  const actualKeys = ownKeys.filter(key => typeof key === 'string').sort();
+  if (ownKeys.length !== GLOBAL_SETTINGS_RESET_KEYS.length
+    || actualKeys.length !== GLOBAL_SETTINGS_RESET_KEYS.length
+    || actualKeys.some((key, index) => key !== GLOBAL_SETTINGS_RESET_KEYS[index])) {
+    fail(
+      'SETTINGS_RESET_INPUT_INVALID',
+      'Settings reset request must contain the exact scope and dual revisions',
+    );
+  }
+  for (const key in value) {
+    if (!Object.hasOwn(value, key)) {
+      fail('SETTINGS_RESET_INPUT_INVALID', 'Settings reset request cannot inherit fields');
+    }
+  }
+  for (const key of GLOBAL_SETTINGS_RESET_KEYS) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!descriptor || !Object.hasOwn(descriptor, 'value') || descriptor.enumerable !== true) {
+      fail('SETTINGS_RESET_INPUT_INVALID', 'Settings reset fields must be enumerable data properties');
+    }
+  }
+  if (value.scope !== GLOBAL_SETTINGS_RESET_SCOPE
+    || !Number.isSafeInteger(value.expectedRevision)
+    || value.expectedRevision < 1
+    || !Number.isSafeInteger(value.expectedPolicyRevision)
+    || value.expectedPolicyRevision < 1) {
+    fail('SETTINGS_RESET_INPUT_INVALID', 'Settings reset scope or revisions are invalid');
+  }
+  return {
+    scope: GLOBAL_SETTINGS_RESET_SCOPE,
+    expectedRevision: value.expectedRevision,
+    expectedPolicyRevision: value.expectedPolicyRevision,
   };
 }
 
@@ -721,7 +766,8 @@ export class ModelAutomationPolicyRepository {
     });
   }
 
-  resetFromGlobalSettings() {
+  resetFromGlobalSettings(value) {
+    const input = requireGlobalSettingsResetRequest(value);
     return this.#write('GLOBAL_RESET', () => {
       const current = mapConsistentRow(selectConsistentPolicy(this.db));
       if (!current) {
@@ -731,12 +777,36 @@ export class ModelAutomationPolicyRepository {
         );
       }
       const settingsRepository = createUserSettingsRepository(this.db);
-      const stored = settingsRepository.readImportSnapshotInTransaction();
-      const settingsCommit = settingsRepository.resetInTransaction({
-        expectedRevision: stored.revision,
+      const stored = settingsRepository.readResetSnapshotInTransaction();
+      if (stored.revision !== input.expectedRevision
+        || current.revision !== input.expectedPolicyRevision) {
+        fail(
+          'SETTINGS_RESET_REVISION_CONFLICT',
+          'Settings or model policy changed since the reset snapshots were read',
+          {
+            expectedRevision: input.expectedRevision,
+            currentRevision: stored.revision,
+            expectedPolicyRevision: input.expectedPolicyRevision,
+            currentPolicyRevision: current.revision,
+          },
+        );
+      }
+      if (stored.revision === Number.MAX_SAFE_INTEGER
+        || current.revision === Number.MAX_SAFE_INTEGER) {
+        fail(
+          'SETTINGS_RESET_REVISION_EXHAUSTED',
+          'Settings reset revisions cannot advance safely',
+          {
+            currentRevision: stored.revision,
+            currentPolicyRevision: current.revision,
+          },
+        );
+      }
+      const settingsCommit = settingsRepository.resetOwnedInTransaction({
+        expectedRevision: input.expectedRevision,
       });
       const committed = this.#commitValidated({
-        expectedRevision: current.revision,
+        expectedRevision: input.expectedPolicyRevision,
         settings: { ...DEFAULT_MODEL_AUTOMATION_POLICY },
       }, {
         eventKind: 'GLOBAL_RESET',

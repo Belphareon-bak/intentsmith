@@ -8,6 +8,38 @@
 
 ---
 
+## Unreleased — exact server-settings reset authority (WP029 CORE source checkpoint, 2026-08-12)
+
+> This is source progress before the required final legacy-alias cutover,
+> independent Review A/B, and promotion. It is not release evidence.
+
+- `POST /api/settings/reset` now requires exact scope `SERVER_SETTINGS_V1` and
+  both the settings and model-policy revisions. Both CAS checks happen inside
+  one `BEGIN IMMEDIATE` before the first mutation; conflict returns both
+  expected/current revision pairs and has no reset, event, runtime, or UI
+  effect.
+- A successful explicit reset advances both revisions by exactly one, emits
+  exactly one `GLOBAL_RESET`, removes only the 46 GENERIC-owned settings paths
+  plus top-level `storage`, and leaves unknown settings, rows other than
+  `user_settings.id=1`, environment authority, Setup state, conversations,
+  projects, files, attachments, history, and backups unchanged. Its public
+  settings projection is exact `{}`. This is not factory delete or privacy
+  erase.
+- Studio and legacy Architect take fresh settings and policy snapshots before
+  one reset POST, require an exact `+1/+1` receipt, and never replay a server
+  reset automatically. Studio then reloads feature flags behind a generation
+  fence without touching localStorage. Architect removes only the local
+  server-replica key `paiass_settings`; accordion, session, and every other
+  local key remain. A post-receipt local failure is retained as degraded and
+  retries only that local phase.
+- A committed DB reset remains a truthful success if the post-commit feature
+  runtime apply fails: the receipt reports `runtimeApplied:false` and
+  `SETTINGS_RUNTIME_APPLY_FAILED` without claiming rollback.
+- The legacy `POST /api/reset` alias is deliberately still present in this
+  CORE checkpoint. Its pre-parse exact `410 LEGACY_RESET_ALIAS_RETIRED`
+  cutover must be the last production commit of the subject after the pinned
+  mobile/caller preflight; no final WP029 candidate may retain the alias.
+
 ## Unreleased — standalone chats unsupported/not shipped (WP029 source candidate, 2026-08-12)
 
 > This is source progress, not Review A/B or promotion evidence. The bounded

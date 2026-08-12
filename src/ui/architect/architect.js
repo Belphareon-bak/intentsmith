@@ -1786,6 +1786,10 @@ let architectSettingsRevision = null;
 let architectSettingsCommittedProjection = null;
 let architectSettingsSaveEpoch = 0;
 let architectSettingsSaveTail = Promise.resolve(true);
+let architectSettingsPolicyRevision = null;
+let architectSettingsResetReceipt = null;
+let architectSettingsResetLocalPhase = 'IDLE';
+let architectSettingsResetLocalInFlight = null;
 
 // Architect owns only this bounded projection of the public v2 connector.
 // Private/effect UI fields remain in-memory for the current session and must
@@ -1994,6 +1998,12 @@ async function architectSettingsResponse(response, mutation = false) {
     error.status = response.status;
     if (Number.isSafeInteger(body?.expectedRevision)) error.expectedRevision = body.expectedRevision;
     if (Number.isSafeInteger(body?.currentRevision)) error.currentRevision = body.currentRevision;
+    if (Number.isSafeInteger(body?.expectedPolicyRevision)) {
+      error.expectedPolicyRevision = body.expectedPolicyRevision;
+    }
+    if (Number.isSafeInteger(body?.currentPolicyRevision)) {
+      error.currentPolicyRevision = body.currentPolicyRevision;
+    }
     error.deliveryUnknown = false;
     throw error;
   }
@@ -2033,6 +2043,50 @@ async function architectSettingsV2Response(response, mutation = false) {
     throw error;
   }
   return body;
+}
+
+async function architectSettingsPolicyResponse(response) {
+  let body;
+  try {
+    body = await response.json();
+  } catch (_) {
+    throw new Error('Server vrátil nečitelnou model-policy odpověď');
+  }
+  if (!response.ok) {
+    const code = body && typeof body.code === 'string' ? body.code : `HTTP_${response.status}`;
+    const error = new Error(code);
+    error.code = code;
+    error.status = response.status;
+    error.deliveryUnknown = false;
+    throw error;
+  }
+  const policy = body && body.policy;
+  if (!architectSettingsExactKeys(body, ['ok', 'policy'])
+      || body.ok !== true
+      || !architectSettingsExactKeys(policy, [
+        'autoCleanupDays',
+        'autoCleanupEnabled',
+        'autoFailoverEnabled',
+        'lastEventId',
+        'revision',
+        'schemaVersion',
+        'updatedAtMs'
+      ])
+      || policy.schemaVersion !== 1
+      || !Number.isSafeInteger(policy.revision)
+      || policy.revision < 1
+      || typeof policy.autoFailoverEnabled !== 'boolean'
+      || typeof policy.autoCleanupEnabled !== 'boolean'
+      || !Number.isSafeInteger(policy.autoCleanupDays)
+      || policy.autoCleanupDays < 1
+      || policy.autoCleanupDays > 3650
+      || typeof policy.lastEventId !== 'string'
+      || policy.lastEventId.length < 16
+      || !Number.isSafeInteger(policy.updatedAtMs)
+      || policy.updatedAtMs < 0) {
+    throw new Error('Server vrátil neplatnou model-policy odpověď');
+  }
+  return policy;
 }
 
 function architectSettingsPolicyCommitValid(policy) {
@@ -2133,7 +2187,7 @@ function architectSettingsRequireImportCommit(body, expectedEnvelope, expectedRe
   return body;
 }
 
-function architectSettingsRequireResetCommit(body) {
+function architectSettingsRequireResetCommit(body, expectedRevision, expectedPolicyRevision) {
   architectSettingsRequireCommitBase(body, [
     'event',
     'ok',
@@ -2144,7 +2198,9 @@ function architectSettingsRequireResetCommit(body) {
     'settings',
     'success'
   ], 'GLOBAL_RESET', 'GLOBAL_RESET', 'user:global-reset');
-  if (Object.keys(body.settings).length !== 0
+  if (body.revision !== expectedRevision + 1
+      || body.policy.revision !== expectedPolicyRevision + 1
+      || Object.keys(body.settings).length !== 0
       || body.policy.autoFailoverEnabled !== false
       || body.policy.autoCleanupEnabled !== false
       || body.policy.autoCleanupDays !== 14) {
@@ -3604,47 +3660,108 @@ async function exportLogs() {
   }
 }
 
-async function resetSettings() {
-  if (confirm('Opravdu chcete resetovat všechna nastavení na výchozí hodnoty?')) {
-    if (architectSettingsMutationState !== 'IDLE') {
-      showToast('error', 'Reset nelze spustit', 'Nejprve dokončete obnovu nebo znovu načtěte stránku.');
-      return;
-    }
-    architectSettingsMutationState = 'PENDING';
-    architectSettingsGeneration += 1;
-    const saveEpoch = architectSettingsSaveEpoch;
-    try {
-      await architectSettingsSaveTail;
-      if (saveEpoch !== architectSettingsSaveEpoch) {
-        const error = new Error('Serverová verze se změnila; reset potvrďte znovu');
-        error.deliveryUnknown = false;
-        throw error;
-      }
-      const response = await fetch('/api/settings/reset', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: '{}'
-      });
-      const body = architectSettingsRequireResetCommit(await architectSettingsResponse(response, true));
-      architectSettingsMutationState = 'IDLE';
-      applyArchitectSettingsDocument(body.settings, body.revision);
+async function architectSettingsCompleteResetReceipt() {
+  if (!architectSettingsResetReceipt) return false;
+  if (architectSettingsResetLocalInFlight) return architectSettingsResetLocalInFlight;
+  const receipt = architectSettingsResetReceipt;
+  architectSettingsResetLocalPhase = 'APPLYING';
+  architectSettingsMutationState = 'LOCAL_APPLYING';
+  const operation = Promise.resolve().then(() => {
+    localStorage.removeItem(ARCHITECT_LEGACY_CREDENTIAL_STORAGE_KEY);
+    if (receipt !== architectSettingsResetReceipt) return false;
+    applyArchitectSettingsDocument(receipt.settings, receipt.revision);
+    architectSettingsPolicyRevision = receipt.policy.revision;
+    architectSettingsResetLocalPhase = 'COMPLETE';
+    architectSettingsMutationState = 'IDLE';
+    showToast(
+      'success',
+      'Serverová nastavení resetována',
+      [
+        receipt.runtimeApplied ? '' : 'Část změn se projeví po restartu.',
+        'Lokální rozložení, accordion stav, relace a ostatní data zůstala zachovaná.'
+      ].filter(Boolean).join(' ')
+    );
+    return true;
+  }).catch(error => {
+    if (receipt === architectSettingsResetReceipt) {
+      architectSettingsResetLocalPhase = 'DEGRADED';
+      architectSettingsMutationState = 'LOCAL_DEGRADED';
       showToast(
-        'success',
-        'Nastavení resetována',
-        [
-          body.runtimeApplied ? '' : 'Část změn se projeví po restartu.',
-          'Lokální private/effect pole této relace reset nezměnil.'
-        ].filter(Boolean).join(' ')
+        'error',
+        'Reset serveru je commitnutý',
+        `Lokální dokončení selhalo (${error.message}). Opakování provede jen lokální dokončení.`
       );
-    } catch (error) {
-      if (error.code === 'USER_SETTINGS_REVISION_CONFLICT' || error.status === 409) {
-        await architectSettingsReloadForReconfirmation('Reset narazil na novější nastavení');
-      } else if (error.deliveryUnknown !== false) {
-        await architectSettingsReloadForReconfirmation('Výsledek resetu nelze potvrdit');
-      } else {
-        architectSettingsMutationState = 'IDLE';
-        showToast('error', 'Reset selhal', error.message);
-      }
+    }
+    return false;
+  });
+  architectSettingsResetLocalInFlight = operation;
+  operation.finally(() => {
+    if (architectSettingsResetLocalInFlight === operation) {
+      architectSettingsResetLocalInFlight = null;
+    }
+  });
+  return operation;
+}
+
+async function resetSettings() {
+  if (architectSettingsResetReceipt && architectSettingsResetLocalPhase === 'DEGRADED') {
+    return architectSettingsCompleteResetReceipt();
+  }
+  if (architectSettingsResetReceipt && architectSettingsResetLocalInFlight) {
+    return architectSettingsResetLocalInFlight;
+  }
+  if (!confirm('Opravdu chcete resetovat pouze serverová nastavení? Lokální data zůstanou zachovaná.')) {
+    return;
+  }
+  if (architectSettingsMutationState !== 'IDLE') {
+    showToast('error', 'Reset nelze spustit', 'Nejprve dokončete obnovu nebo znovu načtěte stránku.');
+    return;
+  }
+  architectSettingsMutationState = 'PENDING';
+  architectSettingsGeneration += 1;
+  const saveEpoch = architectSettingsSaveEpoch;
+  try {
+    await architectSettingsSaveTail;
+    if (saveEpoch !== architectSettingsSaveEpoch) {
+      const error = new Error('Serverová verze se změnila; reset potvrďte znovu');
+      error.deliveryUnknown = false;
+      throw error;
+    }
+    const settingsSnapshot = await architectSettingsV2Response(
+      await fetch('/api/settings/v2'),
+      false
+    );
+    const policySnapshot = await architectSettingsPolicyResponse(
+      await fetch('/api/system/models/settings')
+    );
+    const expectedRevision = settingsSnapshot.revision;
+    const expectedPolicyRevision = policySnapshot.revision;
+    const response = await fetch('/api/settings/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        scope: 'SERVER_SETTINGS_V1',
+        expectedRevision,
+        expectedPolicyRevision
+      })
+    });
+    const body = architectSettingsRequireResetCommit(
+      await architectSettingsResponse(response, true),
+      expectedRevision,
+      expectedPolicyRevision
+    );
+    architectSettingsResetReceipt = body;
+    architectSettingsResetLocalPhase = 'RECEIPT';
+    architectSettingsPolicyRevision = body.policy.revision;
+    await architectSettingsCompleteResetReceipt();
+  } catch (error) {
+    if (error.code === 'SETTINGS_RESET_REVISION_CONFLICT' || error.status === 409) {
+      await architectSettingsReloadForReconfirmation('Reset narazil na novější nastavení');
+    } else if (error.deliveryUnknown !== false) {
+      await architectSettingsReloadForReconfirmation('Výsledek resetu nelze potvrdit');
+    } else {
+      architectSettingsMutationState = 'IDLE';
+      showToast('error', 'Reset selhal', error.message);
     }
   }
 }
