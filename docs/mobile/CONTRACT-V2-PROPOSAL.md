@@ -157,19 +157,24 @@ OWS           = *( SP / HTAB )
 ```
 
 - pořadí je **preference klienta, sestupně**;
-- duplicita je `bad_request`, `reason: unknown_parameter`, `field: "X-M1-Protocol"`;
-- víc než 8 položek je `bad_request`, `reason: value_out_of_range`;
 - položka, kterou syntaxe nepřipouští, se **ignoruje** (ne odmítne) — jinak by
-  nový klient nemohl nabídnout budoucí tvar verze.
+  nový klient nemohl nabídnout budoucí tvar verze;
+- chyby v nabídce samotné (duplicita, příliš dlouhý seznam) jsou vyjmenované
+  v uzavřené tabulce `A1.5` a **nesou bootstrap obálku**, ne normální.
 
 **Výběr:** server projde seznam **zleva doprava** a vezme **první**, kterou umí.
 
-1. Bez hlavičky se předpokládá `m1.2026-07-30`, aby dnešní klient nepřestal
-   fungovat.
-2. Žádná společná → `426 protocol_mismatch` s `supportedProtocols[]`.
+1. **Chybějící hlavička je výslovný legacy default**, ne tichý downgrade:
+   předpokládá se `m1.2026-07-30`, aby dnešní klient nepřestal fungovat.
+2. **Přítomná hlavička, ze které nezbyde žádná použitelná verze, legacy default
+   NEDOSTANE.** Klient, jehož všechny nabídky syntaxe zahodila, o dohodu
+   *požádal* a neuspěl; nabídnout mu mlčky nejstarší wire by byl přesně ten
+   tichý downgrade, který bod 3 zakazuje. Je to `426`, ne `m1.2026-07-30`.
+3. Žádná společná → `426 protocol_mismatch` s `supportedProtocols[]`.
    **Downgrade dělá klient vědomě**, server ho nikdy nevnutí mlčky.
-3. **Každá** odpověď hlásí zvolenou verzi v `protocolVersion` — včetně
-   `capabilities` a včetně chyb.
+4. **Každá** odpověď po úspěšné dohodě hlásí zvolenou verzi v `protocolVersion`
+   — včetně `capabilities` a včetně chyb. Odpověď **před** uzavřenou dohodou ji
+   hlásit nemůže, a proto pro ni existuje `A2.3`.
 
 ### A1.3 Contract negotiation — druhá nabídka a matice kompatibility
 
@@ -192,8 +197,9 @@ kontraktní verze, která je s ní v matici kompatibilní**.
 - Bez hlavičky `X-M1-Contract` se předpokládá **nejnižší** kontrakt kompatibilní
   se zvolenou wire verzí — dnešní klient tedy dostane `v1`, ne `v2`.
 - Žádná kompatibilní dvojice → `426 protocol_mismatch` s `supportedProtocols[]`
-  **i** `supportedContracts[]` a s polem `selectedProtocol` (co server vybral na
-  první ose), aby klient viděl, na které ose dohoda selhala.
+  **i** `supportedContracts[]`. To, na které ose dohoda selhala, klient pozná
+  z obálky (`A2.3`): `selectedProtocol` je vyplněné, `selectedContract` je
+  `null`.
 
 `m1.2026-08-12` + `v1` je platná dvojice schválně: dovoluje opravit tvar chyby
 bez toho, aby klient musel současně přijmout šest nových domén.
@@ -228,10 +234,45 @@ features: {
 **Neimplementovaná funkce se hlásí `unavailable`, nikdy prázdným úspěchem.**
 Neznámou funkci klient ignoruje a zapíše do diagnostiky (§3.4 `UI-DESIGN`).
 
-## A2. Obálka — dva přesné uniony
+### A1.5 Kdy dohoda probíhá, a uzavřená tabulka jejích selhání
+
+**Dohoda předchází autentizaci i routování.** V tomhle pořadí:
+
+1. wire osa (`A1.2`);
+2. kontraktní osa (`A1.3`);
+3. **teprve pak** autentizace, scopes a routa.
+
+Důsledek, který je potřeba říct nahlas: **bootstrap chyba nesmí tvrdit
+`principalId` ani `scopes`.** Server je v tu chvíli nevyhodnotil, takže i
+`null` a `[]` by byly tvrzení o vyhodnocení, které neproběhlo. To je jiná
+situace než `token_missing` (`A2.1`), kde server vyhodnotil a nic nenašel —
+tam `null`/`[]` znamenají „posuzoval jsem a není". Proto má bootstrap větev
+ta pole **nepřítomná**, ne prázdná.
+
+| # | Situace | Kód | HTTP | `selectedProtocol` | `selectedContract` | `details` |
+|---|---|---|---|---|---|---|
+| 1 | duplicitní verze v `X-M1-Protocol` | `bad_request` | 400 | `null` | `null` | `reason: unknown_parameter`, `field` |
+| 2 | `X-M1-Protocol` má víc než 8 položek | `bad_request` | 400 | `null` | `null` | `reason: value_out_of_range`, `field` |
+| 3 | jednotlivá položka nevyhovuje syntaxi | — | — | — | — | **ignoruje se**, není to chyba |
+| 4 | hlavička přítomná, ale nezbyla použitelná verze | `protocol_mismatch` | 426 | `null` | `null` | `supportedProtocols[]` |
+| 5 | žádná společná wire verze | `protocol_mismatch` | 426 | `null` | `null` | `supportedProtocols[]` |
+| 6 | duplicita nebo přetečení v `X-M1-Contract` | `bad_request` | 400 | zvolená | `null` | `reason`, `field` |
+| 7 | žádná kompatibilní kontraktní verze | `protocol_mismatch` | 426 | zvolená | `null` | `supportedProtocols[]`, `supportedContracts[]` |
+
+Řádky 1–5 selhávají na první ose, 6–7 na druhé. **Nic jiného bootstrap větev
+nevydává**; jakmile obě osy uspějí, platí normální obálka i pro chyby.
+
+---
+
+## A2. Obálka — tři přesné uniony
 
 Revize 3 měla jen výčet polí. Review chtělo uniony; tady jsou. **Exact schema:
 každé pole je povinné a přítomné, pole navíc se nevydávají.**
+
+Uniony jsou **tři**, ne dva: dva negociované (`SuccessEnvelope`, `ErrorEnvelope`)
+a jeden **bootstrap** (`NegotiationErrorEnvelope`, `A2.3`) pro odpovědi vydané
+dřív, než je co negociovat. Rozlišuje je pole `negotiation`, které nese **jen**
+bootstrap větev — klient tedy nemusí uhodnout větev z toho, která pole chybí.
 
 ```
 SuccessEnvelope<T> = {
@@ -257,7 +298,25 @@ ErrorEnvelope = {
     details:   object            // tvar určuje A5; nikdy chybějící, nejhůř {}
   }
 }
+
+NegotiationErrorEnvelope = {          // JEN před uzavřenou dohodou, viz A2.3
+  ok:               false,
+  negotiation:      true,             // diskriminátor; ostatní dvě ho nemají
+  selectedProtocol: string|null,      // A1.5
+  selectedContract: string|null,      // A1.5
+  serverTime:       ISO-8601,
+  error: {
+    code:      "protocol_mismatch" | "bad_request",
+    retryable: boolean,
+    details:   object
+  }
+}
 ```
+
+**`protocolVersion` a `contractVersion` zůstávají v obou negociovaných obálkách
+nenulové stringy.** Udělat je nullable by kvůli hrstce bootstrap odpovědí
+oslabilo **každou** běžnou odpověď: klient by musel u každé úspěšné odpovědi
+řešit větev, která u ní nikdy nenastane.
 
 ### A2.1 `principalId` a `scopes`, když žádný principál není
 
@@ -272,6 +331,36 @@ Pravidlo:
 
 Pole **nikdy nechybí**. `null` a `[]` jsou tvrzení („žádný principál"), zatímco
 nepřítomnost je nejednoznačná mezi „žádný" a „server to nevyplnil".
+
+### A2.3 Bootstrap větev — když ještě není co hlásit
+
+`A1` žádá, aby každá odpověď nesla zvolený `protocolVersion`; `A2` ho vyžaduje
+jako `string`. Když dohoda **selže**, nejde splnit obojí pravdivě — žádná verze
+zvolená nebyla. Revize 4 to nechávala nedořešené a test #21 tím pádem neměl
+wire-validní očekávanou odpověď. Bootstrap větev to řeší tím, že o nezvolené
+verzi **nelže ani nemlčí**: řekne `null` a řekne proč.
+
+**Uzavřený seznam možných dvojic:**
+
+| `selectedProtocol` | `selectedContract` | Význam |
+|---|---|---|
+| `null` | `null` | selhala **první** osa — nebo se k ní vůbec nedošlo |
+| string | `null` | wire dohodnut, selhala **druhá** osa |
+| string | string | **obě uspěly** → tohle už není bootstrap větev, platí `A2` |
+| `null` | string | **nemožné** — kontrakt se vybírá z matice klíčované protokolem, takže bez protokolu není z čeho vybírat |
+
+Poslední řádek není jen poznámka: je to invariant, který smí ověřovat test.
+Kdyby taková odpověď vznikla, znamenalo by to, že se druhá osa vyhodnotila bez
+první.
+
+**Co bootstrap větev nemá a proč:** `principalId`, `scopes`, `contractVersion`
+ani `protocolVersion`. Dohoda běží **před** autentizací (`A1.5`), takže server
+principála nevyhodnotil; `null` a `[]` by tvrdily opak. `data` nemá, protože
+žádná doména nebyla oslovena.
+
+**Kdy končí:** jakmile obě osy uspějí, každá další chyba — včetně `401`, `403`
+a `404` — používá **normální** `ErrorEnvelope`. Bootstrap větev je hranice,
+ne druhý režim.
 
 ### A2.2 Změna proti wire v1
 
@@ -600,7 +689,7 @@ wire v2 pokrývá **všech 26 rout** — `A3.4` výslovně převádí dnešní
 | `bad_request` | 400 | ne | `reason`, `field?` |
 | `cursor_unknown` | 400 | ne | `reason`, `restart: true` |
 | **Protokol** ||||
-| `protocol_mismatch` | 426 | ne | `supportedProtocols[]`, `supportedContracts[]`, `selectedProtocol\|null` |
+| `protocol_mismatch` | 426 | ne | `supportedProtocols[]`, `supportedContracts[]` — a **bootstrap obálku** (`A2.3`), která nese `selectedProtocol`/`selectedContract` |
 | **Události** ||||
 | `event_window_gone` | 410 | ne | `oldestAvailableSeq`, **`resumeAfterSeq`** |
 | **Limity** ||||
@@ -1690,7 +1779,13 @@ samy. Řádek 6 je rozdělen podle bodů pádu `A4.5` — revize 3 měla v řád
 | 18 | Desktop-only klíč `R-5` přes `/m1` | nedostupný ke čtení i zápisu |
 | 19 | Podvržený nebo cizí `c2` kurzor | `cursor_unknown`; `c1` na v2 routě → `cursor_version_mismatch` |
 | 20 | Kurzor s neznámým `keyId` | `key_rotated`, **ne** `malformed` |
-| 21 | Klient nabídne jen neznámou wire verzi | `426` se `supportedProtocols`, **žádný tichý downgrade** |
+| 21 | Klient nabídne jen neznámou wire verzi | `426` se `supportedProtocols`, **bootstrap obálka** s `negotiation: true` a `selectedProtocol: null` — a **žádný tichý downgrade** |
+| 21a | Hlavička `X-M1-Protocol` přítomná, ale všechny položky syntakticky vadné | `426`, **ne** legacy default — klient o dohodu požádal a neuspěl (`A1.2` bod 2) |
+| 21b | Hlavička úplně chybí | legacy `m1.2026-07-30`, výslovně a bez chyby |
+| 21c | Wire dohodnut, kontraktní osa selže | bootstrap obálka se `selectedProtocol` vyplněným a `selectedContract: null` |
+| 21d | Bootstrap odpověď | **nemá** `principalId`, `scopes`, `protocolVersion` ani `contractVersion` — dohoda běží před autentizací (`A1.5`) |
+| 21e | Dvojice `selectedProtocol: null` + `selectedContract: string` | **nesmí vzniknout**; její vznik znamená, že se druhá osa vyhodnotila bez první |
+| 21f | Chyba **po** úspěšné dohodě obou os | normální `ErrorEnvelope`, `negotiation` **nepřítomné** |
 | 22 | Klient nabídne `v1, v2` v tomto pořadí | vybere se **`v1`** — první nabídnutá, ne nejvyšší |
 | 23 | `fingerprint` v těle mutace | `400 bad_request`, `reason: unknown_field` |
 | 24 | Neautentizovaný požadavek | `principalId: null`, `scopes: []` — pole **přítomná** |
