@@ -11,8 +11,9 @@ writer v izolovaném disk-backed worktree
 
 **integrationRef:** `integration/m1-consolidated-20260810`
 
-**baseRevision:** exact promoted docs-only aktivační checkpoint obsahující tento
-WP zapíše až unikátní run report; `sourceEvidenceRevision` není jeho náhrada
+**baseRevision:**
+`5d33a46336489e6d9a09d17a5fd5edf05da76cdc` — promoted docs-only aktivační
+checkpoint obsahující tento WP
 
 **Branch:** `wp/m1-standalone-chats-decommission-20260812`
 
@@ -31,11 +32,15 @@ WP zapíše až unikátní run report; `sourceEvidenceRevision` není jeho náhr
   `evidence/m1-standalone-chats-decommission-review-b-20260812`, worktree
   `/home/belphareon/worktrees/is-m1-standalone-chats-decommission-review-b`.
 
-**Stav:** `ACTIVE / IMPLEMENTATION_NOT_STARTED` — 026 je
-`PROMOTED / REVIEW A+B PASS` na source evidence tipu. Tento subject musí projít
-Review A, queue, Review B a promotion dřív, než vznikne reset
-[`WP-M1-SETTINGS-RESET-AUTHORITY`](WP-M1-SETTINGS-RESET-AUTHORITY.md).
-Finding 011 zůstává `OPEN` a Gate 1 `BLOCKED`.
+**Stav:** `SOURCE + REVIEW A/B BEHAVIOR PASS / PROMOTION ENVELOPE INVALID /
+RECOVERY_ACTIVE` — immutable `S_CHAT=1b46d59d3c52859827f0b0b6b0ee7babd1fe2028`,
+Review A `E_A_CHAT=439a2018af2e93c65586f60107557ec004cacd0f` a queue candidate
+`C_CHAT=578876dd77c68df4bdcf6239383fa782b649f843` jsou zachované. Corrected Review
+B skončil PASS, ale canonical evidence commit
+`I=39776f1e90e425bd91a7be707edc556a299869bd` porušuje byte-exact report append.
+Decision [030](../decisions/030-m1-chats-evidence-envelope-recovery.md) proto
+aktivuje jednorázovou obálkovou recovery. Reset, Finding 011 i Gate 1 zůstávají
+`BLOCKED` do metadata gate a canonical fast-forwardu na `R_REC`.
 
 ## 1. Uživatelský výsledek
 
@@ -239,6 +244,37 @@ Po metadata gate se integration ref fast-forwardne na `E_B_CHAT`. Teprve tento
 tip je přípustný `baseRevision` reset subjectu. Worktrees/refs se uklidí až po
 důkazu dosažitelnosti `E_B_CHAT`, čistém stavu a nulových vlastněných procesech;
 neprokázané vlastnictví zůstává `UNKNOWN`.
+
+### Jednorázová recovery skutečně vzniklé invalidní obálky
+
+První pokus o `E_B_CHAT`, commit
+`I=39776f1e90e425bd91a7be707edc556a299869bd`, je sice direct child `C_CHAT` a
+mění pouze rezervovaný report, ale připojil 25 řádků Review B narativu a až za
+ně dva povinné metadata řádky. Standardní `assert_report_append` jej proto
+správně odmítá. Narativ včetně prvního
+`CHANGES_REQUIRED / harness-only` výsledku, `lsof` self-observation, věty o
+nezatajování nonzero výsledku a obou plných evidence digestů se nesmí ztratit;
+decision 030 jej uchovává verbatim mimo report.
+
+Pro tento jediný incident standardní poslední dva kroky nahrazuje
+[`WP-M1-CHATS-EVIDENCE-RECOVERY`](WP-M1-CHATS-EVIDENCE-RECOVERY.md):
+
+```text
+C_CHAT
+├── I -> G_REC -------------------┐
+└── X (correct E_B_CHAT) ---------┴-> R_REC
+```
+
+`X` je nový direct child `C_CHAT` a report byteově rozšiřuje jen o exact
+`candidateHead` a `reviewB.verdict: PASS`; jeho report blob je
+`04b839db53abcbce510a9d57d7b750f20e2c6f9d` a root tree
+`118a7b5007cfcb75baad0ce894b2e3bbd5517e72`. `R_REC` má parent order
+`[G_REC, X]`, report byte-identický s `X` a všechny non-report paths z `G_REC`.
+Corrected Review B se znovu nespouští. Integration postupuje pouze
+fast-forwardem `I -> G_REC -> R_REC`, bez history rewrite. Pro tento skutečně
+nastalý incident nahrazuje v předchozím odstavci výraz `E_B_CHAT` výhradně
+metadata-ověřený canonical `R_REC`; samotné `I`, `G_REC` ani `X` reset
+neodemknou.
 
 ## Výstup
 

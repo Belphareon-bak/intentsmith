@@ -1402,6 +1402,33 @@ mohou pokračovat.
    Oba subjecty mají oddělené writery/reviewery a vlastní report-only evidence
    DAG. Finding 011 zůstává `OPEN` a Gate 1 `BLOCKED` do přijetí celého 029.
 
+   Standalone chats source, Review A, queue candidate
+   `C_CHAT=578876dd77c68df4bdcf6239383fa782b649f843` a corrected Review B behavior
+   PASS jsou dokončené. Canonical integration ale fast-forwardla na invalidní
+   docs-only evidence commit
+   `I=39776f1e90e425bd91a7be707edc556a299869bd`: report před exact dvěma
+   povinnými metadata řádky obsahuje dalších 25 narativních řádků, takže
+   neprojde byte-exact `assert_report_append`. Candidate ani Review B tím nejsou
+   vyvrácené, ale reset nesmí z `I` pokračovat.
+
+   Operátor proto přijal jednorázovou
+   [decision 030](docs/decisions/030-m1-chats-evidence-envelope-recovery.md) a
+   [`WP-M1-CHATS-EVIDENCE-RECOVERY`](docs/wp/WP-M1-CHATS-EVIDENCE-RECOVERY.md).
+   Nejprve vznikne nezávisle reviewovaný docs-only `G_REC` jako child `I`, jenž
+   verbatim uchová první `CHANGES_REQUIRED` pokus i corrected evidence digesty.
+   Potom nový correct `X` jako direct child `C_CHAT` ponese pouze dvouřádkový
+   append a `R_REC` s parent order `[G_REC, X]` převezme report byte-identický
+   s `X`. Integration se posune pouze fast-forwardem `I -> G_REC -> R_REC`;
+   invalidní `I` zůstane historicky dosažitelné, bez history rewrite a bez
+   opakování Review B. Jedině metadata-ověřený canonical `R_REC` odemkne 029
+   reset. Již rozpracovaný přesně dvanácticestný reset diff se SHA-256
+   `856353eb3ed831dfcf0c31c68b62195e0596369bde40ada5979e1e82ce8e756b`
+   se po prokázané nulové změně těchto cest mezi `I` a `R_REC` zachová v témže
+   jediném reset worktree přes privátní disk patch, reverse-apply, `--ff-only`
+   a exact reapply/digest gate; druhý reset worktree ani stash nevznikne.
+   Závazná closeout fronta je nyní
+   `evidence recovery → 029 reset → B3 → execution manifest → B4 → Gate 1 → B5 → B6 → Gate 2`.
+
    Konsolidovaný M1 base je formálně přijatý na
    `integration/m1-consolidated-20260810`; wire Review B evidence obálka
    `58741fb9` je dosažitelná z aktuálního remote tipu. Původní konsolidační

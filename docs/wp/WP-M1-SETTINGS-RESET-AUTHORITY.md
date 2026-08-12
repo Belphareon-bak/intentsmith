@@ -11,9 +11,11 @@ jediný writer v izolovaném disk-backed worktree
 
 **integrationRef:** `integration/m1-consolidated-20260810`
 
-**baseRevision:** exact accepted `E_B_CHAT` tip samostatného
-[standalone-chats decommissionu](WP-M1-STANDALONE-CHATS-DECOMMISSION.md) zapíše
-až unikátní run report; `sourceEvidenceRevision` není jeho náhrada
+**baseRevision:** exact metadata-ověřený a canonical fast-forward promováný
+`R_REC` z
+[`WP-M1-CHATS-EVIDENCE-RECOVERY`](WP-M1-CHATS-EVIDENCE-RECOVERY.md); jeho plné
+SHA zapíše až unikátní reset run report. Invalidní `I`, samotný `G_REC` ani
+samotný correct sibling `X` nejsou přípustný base.
 
 **Branch:** `wp/m1-settings-reset-authority-20260812`
 
@@ -28,9 +30,11 @@ až unikátní run report; `sourceEvidenceRevision` není jeho náhrada
 - Review B: `evidence/m1-settings-reset-authority-review-b-20260812`, worktree
   `/home/belphareon/worktrees/is-m1-settings-reset-authority-review-b`.
 
-**Stav:** `ACTIVE / BLOCKED_ON_STANDALONE_CHATS_PROMOTION` — writer nesmí
-vzniknout z aktivačního checkpointu ani z nepromovaného chats subjectu.
-Finding 011 zůstává `OPEN` a Gate 1 `BLOCKED`.
+**Stav:** `ACTIVE / BLOCKED_ON_CHAT_EVIDENCE_RECOVERY` — chats source candidate
+a corrected Review B behavior mají PASS, ale canonical commit
+`I=39776f1e90e425bd91a7be707edc556a299869bd` má invalidní report obálku.
+Reset writer nesmí pokračovat z `I`, aktivačního checkpointu, `G_REC` ani
+nepromovaného siblingu `X`. Finding 011 zůstává `OPEN` a Gate 1 `BLOCKED`.
 
 Současně smí být materializovaný nejvýše jeden nově vytvořený 029-owned
 worktree pro writer, review nebo queue krok. Výše uvedené worktree cesty jsou
@@ -321,6 +325,48 @@ promotion musí mobile integrátor znovu ověřit actual resulting tree, nulu
 legacy callerů/resetových `localStorage.clear()` efektů a všechny tehdy aktuální
 konflikty; dnešní relevantní blob inference není budoucí merge attestace.
 
+### Evidence-recovery base a byte-identický přenos rozpracovaného diffu
+
+Decision [030](../decisions/030-m1-chats-evidence-envelope-recovery.md) připíná
+jednorázovou topologii `I -> G_REC -> R_REC` s correct siblingem `X` z
+`C_CHAT`. `G_REC` záměrně nemění žádnou z dvanácti reset-relevantních cest
+uvedených v manifestu výše; zvlášť nemění
+`docs/findings/011-user-settings-authority-and-secret-exposure.md`, přestože
+byla v governance allowlistu. `X` mění pouze standalone-chats run report a
+`R_REC` přebírá všechny non-report paths byte-identicky z `G_REC`. Proto musí
+metadata gate prokázat prázdný path i blob delta `I..R_REC` nad celým
+dvanácticestným reset manifestem.
+
+Současný necommitnutý reset draft ve worktree
+`/home/belphareon/worktrees/is-m1-settings-reset-authority` na branchi
+`wp/m1-settings-reset-authority-20260812` má exact dvanácticestný census výše,
+žádnou staged změnu, prochází `git diff --check` a jeho
+`git diff --no-ext-diff --binary` má SHA-256
+`856353eb3ed831dfcf0c31c68b62195e0596369bde40ada5979e1e82ce8e756b`.
+Nesmí se commitnout na `I`, rebasovat, mergovat, stashnout ani převést do
+druhého reset worktree.
+
+Po canonical fast-forwardu integration refu na `R_REC` se zachová limitem
+jediného materializovaného 029 worktree tento mechanický postup:
+
+1. exact binary diff se uloží do nového privátního disk-backed artifactu mimo
+   repo a `/tmp`, v novém mode-0700 adresáři a mode-0600 souboru; bez shodného
+   SHA-256 a dvanácticestného censusu se nepokračuje;
+2. teprve po `git apply --reverse --check` se tentýž owned diff reverse-aplikuje
+   v současném reset worktree a ověří se čistý index i worktree na exact `I`;
+3. existující reset branch a tentýž worktree se posunou pouze
+   `--ff-only` z `I` na exact canonical `R_REC`;
+4. po `git apply --check` se stejný patch aplikuje jednou, znovu se ověří exact
+   dvanáct cest, SHA-256
+   `856353eb3ed831dfcf0c31c68b62195e0596369bde40ada5979e1e82ce8e756b` a
+   `git diff --check`; potom se opakuje celý aktuální allowlist/mobile/caller
+   preflight.
+
+Artifact zůstane privátní a zachovaný minimálně do úspěšného reapply a digest
+gate. Zakázané jsou `stash`, `reset --hard`, force update, druhý reset worktree,
+ruční přepis patchů a cleanup před důkazem obnovy. Jakákoli odlišnost je
+`STOP`; recovery sama nedává oprávnění měnit reset behavior nebo jeho allowlist.
+
 Po `S_RESET` smějí následovat pouze report-only `E_A_RESET`, queue merge bez
 behavior editace a report-only `E_B_RESET`. Jakákoli source/docs/test změna po
 legacy 410 invaliduje subject a vyžaduje nový poslední produkční commit i review.
@@ -395,7 +441,7 @@ writer/reviewerů.
 Povinná topologie:
 
 ```text
-E_B_CHAT = baseRevision
+R_REC = baseRevision
   -> reset/caller cutover commits
   -> S_RESET (final production legacy 410)
   -> E_A_RESET

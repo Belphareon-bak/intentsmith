@@ -381,6 +381,53 @@ Toto rozdělení je záměrné: commit nemůže bez nekonečné self-reference o
 vlastní SHA ani review svého vlastního obsahu. Report proto pinuje reviewnuté
 rodiče `S` a `C`; mechanická obálka je dokázaná Git parentem a exact path gate.
 
+#### Jednorázová recovery výjimka pro chats evidence obálku 2026-08-12
+
+Operátor přijal
+[`M1-CHAT-EVIDENCE-RECOVERY-X1 + X1-a + X1-b`](docs/decisions/030-m1-chats-evidence-envelope-recovery.md)
+výhradně pro invalidní historical evidence commit
+`I=39776f1e90e425bd91a7be707edc556a299869bd` nad
+`C_CHAT=578876dd77c68df4bdcf6239383fa782b649f843`. `I` je direct child
+`C_CHAT` a mění jediný report, ale před povinnými dvěma metadata řádky přidal
+25 řádků narativu. Proto neprojde byte-exact `assert_report_append` a nesmí být
+použit jako platný `E_B`, i když oba povinné klíče na jeho konci mají správné
+hodnoty.
+
+Povinná jednorázová recovery topologie je:
+
+```text
+C_CHAT
+├── I -> G_REC -------------------┐
+└── X (correct E_B_CHAT) ---------┴-> R_REC
+```
+
+- `G_REC` je vlastní docs-only governance commit, direct child `I`, který
+  verbatim uchová 25řádkový narativ mimo run report a projde nezávislým review
+  před vznikem `X`; `writer != reviewer`;
+- `X` má jediného parenta exact `C_CHAT`, mění pouze původní chats report a
+  musí mít correct report blob
+  `04b839db53abcbce510a9d57d7b750f20e2c6f9d` a root tree
+  `118a7b5007cfcb75baad0ce894b2e3bbd5517e72`; standardní
+  `assert_report_append C_CHAT X` nad exact dvěma řádky musí projít;
+- corrected behavior Review B se neopakuje, protože candidate, runtime/source
+  a již pozorovaný corrected attempt se nemění; recovery smí spustit jen Git
+  metadata, path, blob a tree gates;
+- `R_REC` je merge commit s exact parent order `[G_REC, X]`. Jeho report je
+  byte-identický s `X`; každý non-report path je byte-identický s `G_REC`.
+  Invalidní 27řádkový report blob z `I` nesmí být v resulting tree;
+- integration se posune pouze fast-forwardem `I -> G_REC -> R_REC`. `I`
+  zůstane dosažitelné jako invalid historical evidence; rebase, cherry-pick,
+  amend, force-push a history rewrite jsou zakázané;
+- pouze metadata-ověřený a canonical fast-forward promováný `R_REC` je
+  přípustný base následného settings resetu.
+
+Tato výjimka nevytváří obecný alternativní evidence proces. Neoslabuje
+`assert_report_append`, nedovoluje volný prose v `E_B` a neopravňuje budoucí
+vadnou obálku k reconciliation merge bez nového explicitního operátorského
+rozhodnutí. Přesný allowlist, verbatim payload, parent gates a resource hranice
+jsou v
+[`WP-M1-CHATS-EVIDENCE-RECOVERY`](docs/wp/WP-M1-CHATS-EVIDENCE-RECOVERY.md).
+
 Invalidovaný první pilot prokázal porušení pravidla jednoho writera v jednom
 checkoutu. Nezakázal izolované branches/worktrees; ty zůstávají standardem pro
 WP s disjunktními cestami, connectory a vyřešenými dependencies.

@@ -176,6 +176,42 @@ groups. Zakázaný je force-push, tag, release, history rewrite a model
 pull/delete/stop/unload/rebind. Uživatelská data se nemutují a failure artefakty
 se zachovají.
 
+### M1-CHAT-EVIDENCE-RECOVERY-X1 — jednorázový predecessor resetu
+
+Operátor 2026-08-12 přijal
+[`M1-CHAT-EVIDENCE-RECOVERY-X1 + X1-a + X1-b`](../decisions/030-m1-chats-evidence-envelope-recovery.md).
+Canonical integration omylem fast-forwardla na
+`I=39776f1e90e425bd91a7be707edc556a299869bd`: direct child správného
+`C_CHAT=578876dd77c68df4bdcf6239383fa782b649f843`, který mění pouze chats report,
+ale připojuje 25 řádků narativu před dvěma povinnými metadata řádky. Tím porušuje
+byte-exact `assert_report_append`; behavior candidate ani corrected Review B
+PASS nejsou zpochybněné.
+
+Před resetem se proto sériově provede
+[`WP-M1-CHATS-EVIDENCE-RECOVERY`](../wp/WP-M1-CHATS-EVIDENCE-RECOVERY.md):
+
+1. `G_REC` jako direct child `I` uchová 25 řádků verbatim v governance
+   decision, projde vlastním nezávislým docs-only review a nezmění target
+   report ani žádnou z dvanácti reset-relevantních transfer paths;
+2. `X` jako direct child `C_CHAT` vytvoří correct `E_B_CHAT` s exact report
+   blobem `04b839db53abcbce510a9d57d7b750f20e2c6f9d` a root tree
+   `118a7b5007cfcb75baad0ce894b2e3bbd5517e72`; corrected behavior Review B se
+   znovu nespouští;
+3. `R_REC` má exact parent order `[G_REC, X]`, report byte-identický s `X` a
+   každý non-report path byte-identický s `G_REC`;
+4. integration se posune pouze fast-forwardem `I -> G_REC -> R_REC`.
+
+Invalidní 27řádkový report z `I` zůstane dohledatelný v historii, ale nesmí být
+v resulting canonical tree. Jen metadata-ověřený a fast-forward promováný
+`R_REC` je přípustný `baseRevision` resetu. Rebase, cherry-pick, amend,
+force-push, history rewrite, source/test změna a nový behavior run jsou
+zakázané. Rozpracovaný dvanácticestný reset diff se zachová bez druhého reset
+worktree: privátní disk patch + SHA, reverse-apply owned diffu, čistý `--ff-only`
+posun stávající branche `I -> R_REC`, jedno reapply a exact path/digest gate.
+`stash`, `reset --hard`, force update ani ruční přepis patch artifactu nejsou
+povolené. Recovery nemění pořadí zbytku closeoutu:
+`R_REC → 029 reset → B3 → execution manifest → B4 → Gate 1 → B5 → B6 → Gate 2`.
+
 ---
 
 ## 2. Sdílené invarianty — platí pro každý běh v dávce
