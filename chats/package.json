@@ -1,12 +1,13 @@
 {
   "name": "c3-agent",
   "version": "36.5.0",
+  "private": true,
   "type": "module",
-  "description": "C.3 Agent - CRE v36.5 (Capability Registry + System Slots + Truthful LLM)",
+  "description": "Standalone chats package - unsupported / not shipped",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "node --watch src/server.js",
+    "start": "node ./src/server.js",
+    "dev": "node ./src/server.js",
     
     "test": "npm run test:unit && npm run test:e2e && npm run test:workflow && npm run test:simulation && npm run test:integration && npm run test:guards",
     "test:all": "npm run test:unit && npm run test:e2e && npm run test:workflow && npm run test:simulation && npm run test:integration && npm run test:guards && npm run test:llm:mock",
