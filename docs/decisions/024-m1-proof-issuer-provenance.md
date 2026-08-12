@@ -1,10 +1,9 @@
 # 024 — proof issuer musí vlastnit původ měření a retry hranici
 
 - **typ:** přijatá implementační autorita pro vydání PASS proofu
-- **stav:** `ACCEPTED` 2026-08-10 jako varianta A;
-  `PARENT_HANDOFF_IMPLEMENTED`, vlastní issuer je `IMPLEMENTED / REVIEW_PENDING`;
-  schema/ledger checkpoint 062 tím není zpochybněn a automatická aktivace
-  zůstává vypnutá
+- **stav:** `ACCEPTED` 2026-08-10 jako varianta A; issuer je
+  `PROMOTED / REVIEW A+B PASS`; terminal B3 aktivován, automatic effect dosud
+  vypnutý
 - **WP:** navazující `WP-M1-PROOF-ISSUER-PROVENANCE`
 - **rail:** R1, R3, R5, R6
 - **vzniklo při:** implementaci rozhodnutí 015 a call-graph auditu parent acceptance
@@ -144,3 +143,13 @@ forgery i callerový path/authority override skončí fail-closed.
 Handoff sám nevydává proof, nepíše do DB a nemění binding ani runtime.
 Navazující issuer subject jej už zahrnuje do exact source closure; parent-only
 checkpoint zůstává historicky pravdivý a jeho blob se nepřepisuje.
+
+## Terminal B3 source-closure activation — 2026-08-12
+
+Nový terminal subject rozšíří candidate/issuer source closure o úplnou
+transitivní import hranici `model-failover.js -> model-policy.js ->
+user-settings.js + settings-portability.js`. Poslední dvě cesty jsou read-only
+inputs, ne nový edit allowlist. Final source zneplatní historický proof pin;
+nové proofy mohou vzniknout až operator-only po source Review A/B a přijatém
+execution manifestu. Issuer stále nepřijímá path, digest, čas, target ani
+binding autoritu a issuance sama nic neaktivuje.

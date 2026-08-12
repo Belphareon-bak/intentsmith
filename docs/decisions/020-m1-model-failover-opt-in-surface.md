@@ -337,3 +337,13 @@ klientovi vrací destination dokument a několik RMW writerů nemá společný C
 Je to samostatný P1 [Finding 011](../findings/011-user-settings-authority-and-secret-exposure.md),
 který blokuje Gate 1 exit. Opravný source candidate proto čeká na Review A a
 fresh-clone důkaz a nesmí být prezentován jako úplné uzavření 020/E.
+
+## Terminal target activation — 2026-08-12
+
+Promované 025/029 drží settings/reset autoritu na exact canonical tipu
+`6c36607421c013dd27f41e35853009bcaa0b5b51`. Terminal B3 smí přidat
+samostatný versioned per-role target CAS v migraci 065. Target není portable:
+backup/import jej nepřenáší a destination jej zachová; explicitní dual-CAS
+reset jej čistí. Generic settings, `user-settings.js` ani portability schema
+se znovu neotevírají. Toto je activation scope, ne tvrzení, že target writer či
+automatic effect už existuje.

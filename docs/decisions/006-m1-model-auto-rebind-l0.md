@@ -1,7 +1,8 @@
 # 006 — automatický model rebind zůstává blokovaný rozhodnutím L0-9
 
 - **typ:** BLOCK
-- **stav rozhodnutí:** D+ SCHVÁLENO; B3-IDENTITY, B3-PROFILE, FAILOVER SETTINGS, STORAGE, CLAIM RECOVERY, MANUAL BINDING LINEAGE A DETECTION COORDINATOR IMPLEMENTOVÁNY, AKTIVACE OTEVŘENÁ
+- **stav rozhodnutí:** D+ SCHVÁLENO; prerequisites implementovány, terminal B3
+  aktivován z `6c366074`, implementation/effect evidence otevřené
 - **WP:** WP-M1-MODEL
 - **rail:** R1 USER_AUTHORITY, R3 OBSERVABLE_BEHAVIOR, R6 REVERSIBILITY
 - **vzniklo při:** read-only call-graph kontrole `src/upgrade/model-registry.js:checkBindingIntegrity()`
@@ -487,3 +488,12 @@ pull/delete, provider chat, runtime binding ani broadcast autoritu. L0-9 se
 nemění; proof issuance a
 terminal automatic activation/restore zůstávají blokované na rozhodnutí 015 a
 navazující evidence.
+
+## Terminal B3 activation — 2026-08-12
+
+Po promotion 026 a obou 029 subjectů je z exact canonical base
+`6c36607421c013dd27f41e35853009bcaa0b5b51` aktivován samostatný
+[`WP-M1-MODEL-TERMINAL-FAILOVER`](../wp/WP-M1-MODEL-TERMINAL-FAILOVER.md).
+Připíná explicitní per-role target/CAS, terminal activation/restore, startup
+reconciliation a user supersede bez změny L0-9. Aktivace zadání není runtime
+aktivace; automatic failover zůstává vypnutý do source Review A/B a Phase B.

@@ -1429,6 +1429,14 @@ mohou pokračovat.
    Závazná closeout fronta je nyní
    `evidence recovery → 029 reset → B3 → execution manifest → B4 → Gate 1 → B5 → B6 → Gate 2`.
 
+   Recovery, chats decommission i dual-CAS reset jsou nyní promovány; exact
+   canonical tip je `6c36607421c013dd27f41e35853009bcaa0b5b51`. Z něj je
+   docs-only aktivován
+   [`WP-M1-MODEL-TERMINAL-FAILOVER`](docs/wp/WP-M1-MODEL-TERMINAL-FAILOVER.md).
+   Stav je `ACTIVATED / IMPLEMENTATION_NOT_STARTED`: migrace 065, target CAS,
+   terminal lifecycle, proof source closure, Phase A/B a T3 jsou zadání, ne
+   hotový effect, nový proof, GPU evidence nebo Gate 1 PASS.
+
    Konsolidovaný M1 base je formálně přijatý na
    `integration/m1-consolidated-20260810`; wire Review B evidence obálka
    `58741fb9` je dosažitelná z aktuálního remote tipu. Původní konsolidační

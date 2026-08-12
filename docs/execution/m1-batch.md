@@ -214,6 +214,22 @@ povolené. Recovery nemění pořadí zbytku closeoutu:
 
 ---
 
+### B3 terminal failover activation — 2026-08-12
+
+026, chats recovery/decommission a dual-CAS reset jsou promoted na canonical
+tipu `6c36607421c013dd27f41e35853009bcaa0b5b51`. Samostatný
+[`WP-M1-MODEL-TERMINAL-FAILOVER`](../wp/WP-M1-MODEL-TERMINAL-FAILOVER.md) je
+aktivovaný z tohoto exact base. Jeho docs-only activation commit je vlastní
+governance predecessor source writeru a nemění L0-9, connector ani
+auth/access/trusted-local boundary.
+
+WP rezervuje migraci 065, exact per-role target CAS, terminal
+activation/restore lifecycle, úplnou transitivní proof source closure, mobile
+late-insertion důkaz a oddělenou Phase A/B evidence. Aktivace sama není
+implementation, proof issuance, model effect, GPU evidence ani Gate 1 PASS.
+
+---
+
 ## 2. Sdílené invarianty — platí pro každý běh v dávce
 
 1. **Jeden zapisující vlastník.** Běhy jdou sériově. Před startem: `git status`

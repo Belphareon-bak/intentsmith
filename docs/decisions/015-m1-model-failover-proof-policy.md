@@ -1,9 +1,8 @@
 # 015 — D+ potřebuje schválenou role-suite proof policy
 
 - **typ:** BLOCK pouze pro vydání PASS proofu a terminal activation
-- **stav rozhodnutí:** A + PROVIZORNÍ 7D IMPLEMENTOVÁNO V POLICY; migrace 062
-  a immutable companion ledger jsou implementované; 024/A je přijaté a proof
-  issuer zůstává `IMPLEMENTATION_PENDING` do přijatého integračního base
+- **stav rozhodnutí:** A + PROVIZORNÍ 7D IMPLEMENTOVÁNO; 024/A issuer je
+  promoted, terminal B3 aktivován a nové source-bound proofy dosud nevydány
 - **WP:** WP-M1-MODEL / B3-FAILOVER
 - **rail:** R1, R3, R5, R6
 - **vzniklo při:** call-graph auditu authority pro rozhodnutí 006/D+
@@ -270,3 +269,13 @@ sám spustit parent measurement pro `(role, proposedModelName)`, držet jeho
 odvozenou autoritu v paměti, znovu vyžadovat connection-local
 `PRAGMA foreign_keys=ON` těsně před `BEGIN IMMEDIATE` a až potom vydat proof.
 Tato korekce statického WP vyžaduje nový Review A; není důvodem oslabit ledger.
+
+## Terminal B3 activation — 2026-08-12
+
+Historická věta výše o neimplementovaném issueru zůstává checkpointovou
+evidencí; pozdější 024/A issuer je promoted. Terminal B3 mění raw-byte-pinned
+source, proto starý proof nelze použít pro novou aktivaci. Nový WP vyžaduje
+úplnou transitivní source closure, terminální live policy/contract recheck a
+nejvýše dva manifest-bound CHAT proofy až po final source. TTL dál neuděluje
+background GPU ani renewal autoritu; expiry aktivního fallbacku znamená
+`DEGRADED_PROOF_EXPIRED`, ne náhlý cutover.

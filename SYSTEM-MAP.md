@@ -317,6 +317,15 @@ digest je scope
 jednoho proofu, ne globální pin role nebo produktu, takže rotace modelu znamená
 nový explicitní běh a nový proof pro nově pozorované bytes.
 
+Aktuální closeout override 2026-08-12: 026 a oba sériové 029 subjecty jsou
+`PROMOTED / REVIEW A+B PASS` na canonical tipu `6c366074`. Starší řádky níže,
+které ještě říkají `029 ACTIVE`, `BLOCKED_ON_CHAT` nebo issuer
+`REVIEW_PENDING`, jsou historické checkpointové texty, ne současný stav.
+[`WP-M1-MODEL-TERMINAL-FAILOVER`](docs/wp/WP-M1-MODEL-TERMINAL-FAILOVER.md)
+je z tohoto exact base `ACTIVATED / IMPLEMENTATION_NOT_STARTED`; automatic
+activation/restore, nové source-bound proofy, T3 GPU a Gate 1 PASS dosud
+nevznikly.
+
 | Co | Stav |
 |---|---|
 | Bezpečnost, credentials, privacy incident `P-001`..`P-003` | Odloženo do odladění základu (rozhodnutí operátora) |
