@@ -484,6 +484,40 @@ a zůstává zachovaný. Tento pre-effect BLOCKED launcher není corrective T3
 behavior run. Je povolen právě jeden následný běh přes výše uvedený exact-port
 handoff; jeho FAIL/BLOCKED je terminální a bez dalšího pokusu.
 
+### 7.2 Terminální výsledek Phase B
+
+Exact-port corrective behavior run skončil bez retry terminálně `FAIL` ve fázi
+`cold-answer`: gateway po `44999 ms` typovaně timeoutnul ještě před dokončením
+první odpovědi. Jeho artefakt má SHA-256
+`3e60814fcf87bb30bf763c852a3094a078d3ddd4cc74d92da8343e6b7f7487dc`.
+Provider poté přirozeně přešel na nula načtených modelů a nula compute procesů;
+test-owned proces byl ukončen a původní system Ollama obnovena z nezměněného
+unit souboru SHA-256
+`b15f3fd1b35239683c73eb5cbc4523693de453f08582c2ee7165315c0f893adc`.
+
+Jednorázová neakceptační diagnostika navíc potvrdila, že vypnutí CUDA graphs
+neřeší host resource envelope: exact model při `f16`, `num_ctx=4096` a `100 %`
+residency dokončil jediný token až za `54836 ms` a ponechal pouze `179 MiB`
+volné VRAM. M1 tedy na tomto jediném desktopem sdíleném RTX 3090 nemůže
+současně splnit `44999 ms` cold gate a `1024 MiB` headroom bez headless GPU
+handoffu nebo změny model/digest/acceptance kontraktu. Ani jedno není provedeno.
+
+Credential apply byl před T3 proveden právě jednou, bez retry, s výsledkem
+11 TRANSFER / 0 EXPORT / 0 PURGE a samostatným read-only post-censusem bez
+findings. Disposable seed commitnul 60 migrací, policy revision 2 ON, CHAT
+desired revision 1 a target revision 0; lokální seed runner následně chybně
+očekával oracle `OBSERVED` místo skutečného `CREATED`, ale read-only postcheck
+potvrdil committed exact stav a seed efekt se neopakoval. DESIRED/FALLBACK
+proofy, target CAS, detection, ACTIVATE, RESTORE a celý B3 Phase-B report DAG
+jsou kvůli terminálnímu T3 FAIL `NOT RUN`; B4 a Gate 1 zůstávají zamčené.
+
+Privátní failure bundle
+`m1-b3-phaseb-execution-20260812TXXXXXXZ.Q29oJSdh` má artifact manifest
+SHA-256 `4422f21840218953f150b6de7f808567bb8893d64073a14be65e512e10868fb0`
+a zachovává oba FAIL artefakty, pre-effect BLOCKED, credential výstup,
+disposable seed/postcheck i diagnostiku. Tento výsledek není Phase-B PASS a
+nesmí vytvořit `B_S`, `B_EA`, `B_C`, `B_EB` ani canonical Phase-B promotion.
+
 ## 8. Stop conditions a acceptance
 
 Zastavit dotčenou část při nové veřejné capability/connectoru, změně L0,
