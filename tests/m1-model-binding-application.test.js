@@ -744,7 +744,7 @@ await testAsync('terminal cycle owns one durable activation effect and never pul
   });
 });
 
-await testAsync('new process never treats an effect-shaped runtime as terminal success', async () => {
+await testAsync('new process finalizes only exact generation-zero no-effect evidence', async () => {
   let nowMs = 1_000;
   await withFixture(async ({ db, repository, manager, provider }) => {
     repository.observeDesiredBinding({
@@ -782,9 +782,9 @@ await testAsync('new process never treats an effect-shaped runtime as terminal s
       expectedRuntimeGeneration: oldSnapshot.generation,
     });
 
-    // A fresh process may independently start with the effect-shaped model.
-    // That is not evidence that the old process committed this operation.
-    config.models.CHAT = 'fixture-target';
+    // A fresh untouched process at the exact pre-effect artifact proves only
+    // that this process has not applied the old operation, never success.
+    config.models.CHAT = 'fixture-base';
     const restartedManager = new UpgradeManager();
     restartedManager.setDb(db);
     const restartedRuntime = restartedManager.createBindingRuntimePort();
@@ -800,18 +800,29 @@ await testAsync('new process never treats an effect-shaped runtime as terminal s
       logger: { warn() {}, info() {}, debug() {}, error() {} },
     });
 
-    const error = await captureError(() => restartedApplication.rehydrateTerminalBindings());
-    assertEqual(error.code, 'MODEL_FAILOVER_STARTUP_RECONCILIATION_UNRESOLVED');
+    const summary = await restartedApplication.rehydrateTerminalBindings();
+    assertEqual(summary.reconciled, 1);
+    assertEqual(summary.restored, 0);
+    assertEqual(summary.unchanged, 0);
     const after = restartedRuntime.snapshot('CHAT');
     assertEqual(after.incarnationId, before.incarnationId);
     assertEqual(after.generation, 0);
-    assertEqual(after.modelName, 'fixture-target');
+    assertEqual(after.modelName, 'fixture-base');
     assertEqual(restartedRuntime.getTerminalReceipt(prepared.intent.operationId), null);
-    assertEqual(count(db, 'model_failover_terminal_finalize_receipts'), 0);
-    assertEqual(
-      repository.getTerminalOperation(prepared.intent.operationId).reconciliationRequired,
-      true,
-    );
+    const receipts = db.prepare(`
+      SELECT resolution, terminal_event_type
+      FROM model_failover_terminal_finalize_receipts
+      WHERE operation_id = ?
+    `).all(prepared.intent.operationId);
+    assertEqual(receipts.length, 1);
+    assertEqual(receipts[0].resolution, 'RECONCILED_NO_EFFECT');
+    assertEqual(receipts[0].terminal_event_type, 'ACTIVATION_FAILED');
+    const terminal = repository.getTerminalOperation(prepared.intent.operationId);
+    assertEqual(terminal.reconciliationRequired, false);
+    assertEqual(terminal.receipt.resolution, 'RECONCILED_NO_EFFECT');
+    const state = repository.getState('CHAT');
+    assertEqual(state.state, 'FAILED');
+    assertEqual(state.activeFailover, false);
     assertEqual(provider.calls.pull, 0);
   }, {
     repositoryOptions: { clock: () => nowMs },
