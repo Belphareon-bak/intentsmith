@@ -11,11 +11,17 @@ jediný writer v izolovaném disk-backed worktree
 
 **integrationRef:** `integration/m1-consolidated-20260810`
 
-**baseRevision:** exact metadata-ověřený a canonical fast-forward promováný
-`R_REC=17aba1b5749e8229d8079f3cbc6cdb865bdc25e8` z
-[`WP-M1-CHATS-EVIDENCE-RECOVERY`](WP-M1-CHATS-EVIDENCE-RECOVERY.md); jeho plné
-SHA zopakuje také unikátní reset run report. Invalidní `I`, samotný `G_REC`
-ani samotný correct sibling `X` nejsou přípustný base.
+**sourceEvidenceBase:** exact metadata-ověřený a canonical fast-forward
+promováný `R_REC=17aba1b5749e8229d8079f3cbc6cdb865bdc25e8` z
+[`WP-M1-CHATS-EVIDENCE-RECOVERY`](WP-M1-CHATS-EVIDENCE-RECOVERY.md).
+
+**baseRevision:** nejnovější samostatně zreviewovaný a na integration
+fast-forward promováný docs-only governance checkpoint nad `R_REC`, který
+obsahuje `MOBILE-PIN-REFRESH-1` a historickou recovery-digest attestaci níže.
+Jeho exact SHA zapíše unikátní reset run report; governance commit sám vlastní
+SHA nepředstírá. Invalidní `I`, samotný `G_REC`, correct sibling `X` ani holý
+`R_REC` nejsou po těchto governance checkpointech přípustný source review
+base.
 
 **Branch:** `wp/m1-settings-reset-authority-20260812`
 
@@ -31,7 +37,8 @@ ani samotný correct sibling `X` nejsou přípustný base.
   `/home/belphareon/worktrees/is-m1-settings-reset-authority-review-b`.
 
 **Stav:** `ACTIVE / CHAT_EVIDENCE_RECOVERY_PROMOTED /
-MOBILE-PIN-REFRESH-1` — canonical integration je exact metadata-ověřený
+MOBILE-PIN-REFRESH-1 / RECOVERY-DRAFT-ATTESTATION` — canonical integration je
+nejméně exact metadata-ověřený
 `R_REC=17aba1b5749e8229d8079f3cbc6cdb865bdc25e8`. Invalidní `I`, samotný
 `G_REC` ani correct sibling `X` nejsou přípustný reset base. Finding 011
 zůstává `OPEN` a Gate 1 `BLOCKED`.
@@ -353,29 +360,35 @@ byla v governance allowlistu. `X` mění pouze standalone-chats run report a
 metadata gate prokázat prázdný path i blob delta `I..R_REC` nad celým
 dvanácticestným reset manifestem.
 
-Současný necommitnutý reset draft ve worktree
+Historický pre-recovery reset draft ve worktree
 `/home/belphareon/worktrees/is-m1-settings-reset-authority` na branchi
-`wp/m1-settings-reset-authority-20260812` má exact dvanácticestný census výše,
-žádnou staged změnu, prochází `git diff --check` a jeho
-`git diff --no-ext-diff --binary` má SHA-256
+`wp/m1-settings-reset-authority-20260812` měl na invalidním `I` exact
+dvanácticestný census výše, žádnou staged změnu, procházel `git diff --check`
+a jeho
+`git diff --no-ext-diff --binary` měl SHA-256
 `856353eb3ed831dfcf0c31c68b62195e0596369bde40ada5979e1e82ce8e756b`.
-Nesmí se commitnout na `I`, rebasovat, mergovat, stashnout ani převést do
-druhého reset worktree.
+Stejný digest byl byteově ověřen bezprostředně po mechanickém přenosu na první
+docs-only governance checkpoint. Je to historická attestace preservation
+kroku, nikoli digest současného working diffu nebo finálního source subjectu.
+Následné allowlisted writer opravy po samostatně přistálých governance
+commitech jej smějí změnit a musí dostat vlastní stabilní review digest.
 
-Po canonical fast-forwardu integration refu na `R_REC` se zachová limitem
-jediného materializovaného 029 worktree tento mechanický postup:
+Po canonical fast-forwardu integration refu na `R_REC` byl s limitem jediného
+materializovaného 029 worktree proveden tento mechanický postup:
 
-1. exact binary diff se uloží do nového privátního disk-backed artifactu mimo
+1. exact binary diff se uložil do nového privátního disk-backed artifactu mimo
    repo a `/tmp`, v novém mode-0700 adresáři a mode-0600 souboru; bez shodného
    SHA-256 a dvanácticestného censusu se nepokračuje;
-2. teprve po `git apply --reverse --check` se tentýž owned diff reverse-aplikuje
-   v současném reset worktree a ověří se čistý index i worktree na exact `I`;
-3. existující reset branch a tentýž worktree se posunou pouze
+2. teprve po `git apply --reverse --check` se tentýž owned diff
+   reverse-aplikoval v současném reset worktree a ověřil se čistý index i
+   worktree na exact `I`;
+3. existující reset branch a tentýž worktree se posunuly pouze
    `--ff-only` z `I` na exact canonical `R_REC`;
-4. po `git apply --check` se stejný patch aplikuje jednou, znovu se ověří exact
+4. po `git apply --check` se stejný patch aplikoval jednou, znovu se ověřilo
+   exact
    dvanáct cest, SHA-256
    `856353eb3ed831dfcf0c31c68b62195e0596369bde40ada5979e1e82ce8e756b` a
-   `git diff --check`; potom se opakuje celý aktuální allowlist/mobile/caller
+   `git diff --check`; potom se zopakoval celý aktuální allowlist/mobile/caller
    preflight.
 
 Artifact zůstane privátní a zachovaný minimálně do úspěšného reapply a digest
