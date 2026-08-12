@@ -19,7 +19,6 @@ import {
 } from '../src/db/migrate.js';
 import { up as migrateModelPolicy } from '../src/db/migrations/2026_08_09_061_model_automation_policy.js';
 import { up as migrateUserSettingsRevision } from '../src/db/migrations/2026_08_10_064_user_settings_revision.js';
-import { up as migrateModelFailoverTarget } from '../src/db/migrations/2026_08_12_065_model_failover_target.js';
 import { createMiscRoutes } from '../src/routes/misc.js';
 import { createSystemRoutes } from '../src/routes/system.js';
 import {
@@ -113,7 +112,6 @@ function createPolicySchema(db, { revisioned = true } = {}) {
   db.transaction(() => {
     migrateModelPolicy(db);
     if (revisioned) migrateUserSettingsRevision(db);
-    migrateModelFailoverTarget(db);
   })();
 }
 
@@ -589,7 +587,7 @@ await testAsync('migration 061 creates exact default-off projection and audit au
   try {
     const result = await runMigrations(db);
     assert(result.applied.includes('2026_08_09_061_model_automation_policy'));
-    assertEqual(result.applied.at(-1), '2026_08_10_064_user_settings_revision');
+    assertEqual(result.applied.at(-1), '2026_08_12_065_model_failover_target');
     const policy = readModelAutomationPolicy(db);
     assertEqual(policy.status, ModelAutomationPolicyStatus.VALID);
     assertEqual(policy.valid, true);
@@ -624,6 +622,7 @@ await testAsync('legacy values are quarantined and removed without becoming opt-
       '2026_08_09_061_model_automation_policy',
       '2026_08_10_062_model_failover_proof_issuance',
       '2026_08_10_064_user_settings_revision',
+      '2026_08_12_065_model_failover_target',
     ].includes(migration.version));
     migrationInternals.runMigrationPlan(db, before061);
     db.prepare(`
@@ -645,6 +644,7 @@ await testAsync('legacy values are quarantined and removed without becoming opt-
       '2026_08_09_061_model_automation_policy',
       '2026_08_10_062_model_failover_proof_issuance',
       '2026_08_10_064_user_settings_revision',
+      '2026_08_12_065_model_failover_target',
     ]));
     const policy = readModelAutomationPolicy(db);
     assertEqual(policy.valid, true);
@@ -2138,7 +2138,7 @@ await testAsync('target set rejects OFF, stale, malformed, ambiguous and ineligi
       await captureErrorAsync(() => repository.setTarget({
         role: 'CHAT',
         expectedRevision: 0,
-        target: { ...target, requestedName: 'fallback' },
+        target,
       })),
       'MODEL_FAILOVER_TARGET_STALE',
     );
