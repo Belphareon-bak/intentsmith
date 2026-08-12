@@ -15,6 +15,8 @@ export function up(db) {
   const names = [
     'model_failover_target_events',
     'model_failover_targets',
+    'trg_model_failover_target_event_sequence_authority',
+    'trg_model_failover_target_event_sequence_positive',
     'trg_model_failover_target_event_identity_conflict',
     'trg_model_failover_target_event_projection',
     'trg_model_failover_target_event_append_only_update',
@@ -180,6 +182,22 @@ export function up(db) {
   for (const role of ROLES) seed.run(role, createdAtMs);
 
   db.exec(`
+    CREATE TRIGGER trg_model_failover_target_event_sequence_authority
+    BEFORE INSERT ON model_failover_target_events
+    WHEN NEW.seq <> -1
+    BEGIN
+      SELECT RAISE(ABORT,
+        'MODEL_FAILOVER_TARGET_EVENT_SEQUENCE_AUTHORITY: target event sequence is database assigned');
+    END;
+
+    CREATE TRIGGER trg_model_failover_target_event_sequence_positive
+    AFTER INSERT ON model_failover_target_events
+    WHEN NEW.seq <= 0
+    BEGIN
+      SELECT RAISE(ABORT,
+        'MODEL_FAILOVER_TARGET_EVENT_SEQUENCE_AUTHORITY: target event sequence must be positive');
+    END;
+
     CREATE TRIGGER trg_model_failover_target_event_identity_conflict
     BEFORE INSERT ON model_failover_target_events
     WHEN EXISTS (

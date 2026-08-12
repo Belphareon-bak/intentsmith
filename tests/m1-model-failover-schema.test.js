@@ -609,6 +609,8 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
       'trg_model_failover_proof_artifacts_historical_attach',
       'trg_model_failover_proof_artifacts_identity_conflict',
       'trg_model_failover_proofs_artifact_companion',
+      'trg_model_failover_target_event_sequence_authority',
+      'trg_model_failover_target_event_sequence_positive',
       'trg_model_failover_target_event_identity_conflict',
       'trg_model_failover_target_event_projection',
       'trg_model_failover_target_event_append_only_update',
@@ -824,6 +826,57 @@ await testAsync('target authority rejects orphan, replacement, deletion and inva
     for (const statement of statements) {
       assertThrowsMatching(() => db.exec(statement), /MODEL_FAILOVER_TARGET|constraint/i);
       assertEqual(schemaSnapshot(db), before);
+    }
+  });
+});
+
+await testAsync('target event sequence is database-assigned and failed injection rolls back its projection', async () => {
+  await withMigratedDb(async (db) => {
+    const targetEventSnapshot = () => JSON.stringify({
+      targets: db.prepare(`
+        SELECT * FROM model_failover_targets ORDER BY role
+      `).all(),
+      events: db.prepare(`
+        SELECT * FROM model_failover_target_events ORDER BY seq
+      `).all(),
+      sequence: db.prepare(`
+        SELECT * FROM sqlite_sequence
+        WHERE name = 'model_failover_target_events'
+      `).all(),
+    });
+
+    for (const injectedSequence of [999, -1]) {
+      const suffix = injectedSequence === -1 ? 'negative' : 'positive';
+      const eventId = `target-sequence-event-${suffix}-0001`;
+      const requestId = `target-sequence-request-${suffix}-0001`;
+      const before = targetEventSnapshot();
+      const error = assertThrows(() => db.transaction(() => {
+        const projected = db.prepare(`
+          UPDATE model_failover_targets
+          SET revision = 1, requested_name = 'fallback',
+              canonical_name = 'fallback', digest_sha256 = ?,
+              actor = 'operator:model-failover-target-cli',
+              authority_source = 'TARGET_EVENT', last_target_event_id = ?,
+              last_policy_event_id = NULL, updated_at_ms = 5000
+          WHERE role = 'CHAT' AND revision = 0
+        `).run(DIGEST_A, eventId);
+        assertEqual(projected.changes, 1);
+        db.prepare(`
+          INSERT INTO model_failover_target_events (
+            seq, event_id, request_id, role, previous_revision,
+            committed_revision, event_kind, actor, before_requested_name,
+            before_canonical_name, before_digest_sha256, after_requested_name,
+            after_canonical_name, after_digest_sha256, created_at_ms
+          ) VALUES (?, ?, ?, 'CHAT', 0, 1, 'SET',
+            'operator:model-failover-target-cli', NULL, NULL, NULL,
+            'fallback', 'fallback', ?, 5000)
+        `).run(injectedSequence, eventId, requestId, DIGEST_A);
+      }).immediate());
+      assert(
+        /MODEL_FAILOVER_TARGET_EVENT_SEQUENCE_AUTHORITY/.test(error.message),
+        `Expected target sequence authority rejection, got ${error.message}`,
+      );
+      assertEqual(targetEventSnapshot(), before);
     }
   });
 });
