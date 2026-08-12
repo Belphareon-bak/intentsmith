@@ -190,8 +190,14 @@ quarantine/orphan-conversation-preimage.json
 quarantine/failed-live-after-error.db
 evidence/live-preflight.json
 evidence/execution-started.json
+evidence/execution-finished.json
+evidence/execution-failed.json
+evidence/permissions-started.json
 evidence/permissions-finished.json
+evidence/backup-started.json
 evidence/backup-finished.json
+evidence/quarantine-started.json
+evidence/quarantine-finished.json
 evidence/repair-started.json
 evidence/repair-finished.json
 evidence/migration-started.json
@@ -207,6 +213,16 @@ evidence/recovery-instructions.json
 Conditional failure/restore artifacts smějí být absent při úspěchu; plán
 jejich očekávanou absenci nebo přítomnost uvede. Žádný raw row, identifier nebo
 secret nesmí opustit tento privátní root.
+
+Tento rozšířený seznam opravuje rozpor mezi původním exact suffix seznamem a
+požadavkem WP na oddělený marker každé fáze. Executor je vložen přímo v plánu
+jako exact UTF-8 source a SHA-256 a smí být spuštěn jen izolovaným připnutým
+Pythonem (`-I -S -c`) s exact `--plan` a operátorem přijatým SHA-256; není to
+nový suffix ani neauditovaný helper. `artifact-manifest.json` inventarizuje
+všechny ostatní přítomné exact suffix artefakty a explicitně vyjme pouze sebe a
+svůj detached digest z rekurzivního hash scope. Po vytvoření obou musí executor
+ověřit jejich mode/owner/link/bytes/digest readback a konečný exact path set;
+nejde o výjimku pro neinventarizovaný helper nebo data.
 
 ## Fresh live gate a permissions
 

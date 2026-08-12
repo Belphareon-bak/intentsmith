@@ -92,8 +92,14 @@ Po exact akceptaci proběhne sériově:
    `300/48/0/0`;
 9. úplný sealed artifact inventory a detached digest.
 
-Každá fáze má oddělený O_EXCL STARTED/FINISHED marker. FINISHED se nevydá při
-nedokončené fázi a marker se nepřepisuje.
+Každá fáze má oddělený O_EXCL STARTED/FINISHED marker v exact suffix envelope
+decision 031. `execution-failed` je conditional terminal marker místo
+`execution-finished`; FINISHED se nevydá při nedokončené fázi a žádný marker se
+nepřepisuje. Přijímaný plán navíc obsahuje exact UTF-8 executor source+SHA a
+izolovanou připnutou `python -I -S -c` invocation. Artifact manifest používá
+explicitní nerekurzivní scope: zahrne každý jiný přítomný exact suffix artifact,
+zatímco sebe a detached digest uvede jako jediné self-referential exclusions a
+executor jejich výslednou identitu i celý final path set ověří po zápisu.
 
 ## 5. Failure a restore
 
