@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import Database from 'better-sqlite3';
+import { createHash } from 'node:crypto';
 import { once } from 'node:events';
 import { createServer } from 'node:http';
 import { Worker } from 'node:worker_threads';
@@ -21,10 +22,17 @@ import {
   testAsync,
 } from './harness.js';
 import { runMigrations } from '../src/db/migrate.js';
+import {
+  createModelAutomationPolicyRepository,
+  createModelFailoverTargetInventoryReader,
+} from '../src/db/model-policy.js';
 import { config } from '../src/config.js';
 import {
   createModelFailoverRepository,
 } from '../src/upgrade/model-failover.js';
+import {
+  getModelFailoverMeasurementContract,
+} from '../src/upgrade/model-failover-proof-policy.js';
 import {
   ModelBindingApplicationError,
   OllamaModelBindingProvider,
@@ -91,6 +99,123 @@ function model(name, digestSha256) {
     name,
     canonicalName: canonicalModelName(name),
     digestSha256,
+  });
+}
+
+function insertTerminalProof(db, {
+  proofId,
+  modelName,
+  digestSha256,
+  completedAtMs,
+  expiresAtMs,
+}) {
+  const canonicalName = canonicalModelName(modelName);
+  const contract = getModelFailoverMeasurementContract('CHAT');
+  const validationRunId = `${proofId}-run`;
+  const measurementSha256 = createHash('sha256')
+    .update(`measurement:${proofId}`)
+    .digest('hex');
+  const acceptanceSha256 = createHash('sha256')
+    .update(`acceptance:${proofId}`)
+    .digest('hex');
+  const sourceRevision = createHash('sha256')
+    .update(`source:${proofId}`)
+    .digest('hex')
+    .slice(0, 40);
+  const startedAtMs = completedAtMs - 100;
+  const proofTtlMs = expiresAtMs - completedAtMs;
+  db.transaction(() => {
+    db.prepare('PRAGMA defer_foreign_keys = ON').run();
+    db.prepare(`
+      INSERT INTO model_failover_proof_artifacts (
+        proof_id, validation_run_id, parent_run_id, source_revision,
+        measurement_artifact_sha256, measurement_artifact_byte_length,
+        acceptance_artifact_sha256, acceptance_artifact_byte_length,
+        role, suite, role_contract_sha256, model_name,
+        model_canonical_name, model_digest_sha256, validation_version,
+        policy_version, score, required_score, passed_count,
+        required_passed_count, total_count, duration_ms, result,
+        inventory_before_name, inventory_before_digest,
+        inventory_after_name, inventory_after_digest,
+        measurement_started_at_ms, measurement_completed_at_ms,
+        acceptance_completed_at_ms, proof_ttl_ms, expires_at_ms, issued_at_ms
+      ) VALUES (?, ?, ?, ?, ?, 4096, ?, 2048, 'CHAT', 'chat', ?, ?, ?, ?,
+        'v123.1', ?, 1, 1, 6, 6, 6, 100, 'PASS', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      proofId,
+      validationRunId,
+      `parent-${proofId}`,
+      sourceRevision,
+      measurementSha256,
+      acceptanceSha256,
+      contract.measurementContractSha256,
+      modelName,
+      canonicalName,
+      digestSha256,
+      contract.contract.policyVersion,
+      modelName,
+      digestSha256,
+      modelName,
+      digestSha256,
+      startedAtMs,
+      completedAtMs,
+      completedAtMs,
+      proofTtlMs,
+      expiresAtMs,
+      completedAtMs,
+    );
+    db.prepare(`
+      INSERT INTO model_failover_proofs (
+        proof_id, validation_run_id, role, suite, role_contract_sha256,
+        model_name, model_canonical_name, model_digest_sha256,
+        validation_version, policy_version, score, required_score,
+        passed_count, required_passed_count, total_count, duration_ms, result,
+        inventory_before_name, inventory_before_digest, inventory_after_name,
+        inventory_after_digest, started_at_ms, completed_at_ms, expires_at_ms,
+        created_at_ms
+      ) VALUES (?, ?, 'CHAT', 'chat', ?, ?, ?, ?, 'v123.1', ?, 1, 1, 6, 6,
+        6, 100, 'PASS', ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      proofId,
+      validationRunId,
+      contract.measurementContractSha256,
+      modelName,
+      canonicalName,
+      digestSha256,
+      contract.contract.policyVersion,
+      modelName,
+      digestSha256,
+      modelName,
+      digestSha256,
+      startedAtMs,
+      completedAtMs,
+      expiresAtMs,
+      completedAtMs,
+    );
+  }).immediate();
+}
+
+async function enableTerminalTarget(db, { now, proofModel = 'fixture-target' }) {
+  const target = model(proofModel, DIGEST_B);
+  const policy = createModelAutomationPolicyRepository(db, {
+    clock: () => now(),
+    targetInventoryReader: createModelFailoverTargetInventoryReader([target]),
+  });
+  const current = policy.read();
+  policy.updateFromTypedApi({
+    expectedRevision: current.revision,
+    autoFailoverEnabled: true,
+    autoCleanupEnabled: current.settings.autoCleanupEnabled,
+    autoCleanupDays: current.settings.autoCleanupDays,
+  });
+  return policy.setTarget({
+    role: 'CHAT',
+    expectedRevision: policy.readTarget('CHAT').revision,
+    target: {
+      requestedName: target.name,
+      canonicalName: target.canonicalName,
+      digestSha256: target.digestSha256,
+    },
   });
 }
 
@@ -363,10 +488,31 @@ function repositoryProxy(repository, overrides = {}) {
 async function withFixture(callback, options = {}) {
   const db = new Database(':memory:');
   await runMigrations(db);
-  const repository = createModelFailoverRepository(db, options.repositoryOptions || {});
+  const provider = options.provider || new FakeExactProvider();
+  const terminalInventoryReader = Object.freeze(async target => {
+    try {
+      const resolved = await provider.resolveExact(target.requestedName, {
+        expectedDigestSha256: target.digestSha256,
+      });
+      return Object.freeze({
+        name: resolved.name,
+        canonicalName: resolved.canonicalName,
+        digestSha256: resolved.digestSha256,
+      });
+    } catch (error) {
+      if (error?.code === 'MODEL_BINDING_TARGET_NOT_INSTALLED') {
+        error.code = 'MODEL_FAILOVER_TARGET_NOT_INSTALLED';
+      }
+      throw error;
+    }
+  });
+  const repository = createModelFailoverRepository(db, {
+    ...(options.repositoryOptions || {}),
+    terminalInventoryReader: options.repositoryOptions?.terminalInventoryReader
+      || terminalInventoryReader,
+  });
   const manager = new UpgradeManager();
   manager.setDb(db);
-  const provider = options.provider || new FakeExactProvider();
   const events = [];
   let requestSequence = 0;
   const repositoryPort = options.repositoryFactory
@@ -480,6 +626,210 @@ function latestOperation(repository, role = 'CHAT') {
 }
 
 suite('M1 model binding application — one truthful commit point');
+
+await testAsync('terminal runtime port binds process incarnation and advances one generation', async () => {
+  restoreBindings();
+  config.models.CHAT = 'fixture-base';
+  try {
+    const manager = new UpgradeManager();
+    const port = manager.createBindingRuntimePort();
+    const before = port.snapshot('CHAT');
+    assert(/^runtime_[0-9a-f-]{36}$/.test(before.incarnationId));
+    assertEqual(before.generation, 0);
+    assertEqual(port.snapshot('CHAT').incarnationId, before.incarnationId);
+
+    const compensated = port.prepareTerminal({
+      operationId: 'terminal-runtime-operation-0001',
+      role: 'CHAT',
+      expectedModel: 'fixture-base',
+      targetModel: 'fixture-target',
+      expectedIncarnationId: before.incarnationId,
+      expectedGeneration: before.generation,
+    });
+    port.compensate(compensated);
+    assertEqual(port.snapshot('CHAT').modelName, 'fixture-base');
+    assertEqual(port.snapshot('CHAT').generation, 0);
+
+    const token = port.prepareTerminal({
+      operationId: 'terminal-runtime-operation-0001',
+      role: 'CHAT',
+      expectedModel: 'fixture-base',
+      targetModel: 'fixture-target',
+      expectedIncarnationId: before.incarnationId,
+      expectedGeneration: before.generation,
+    });
+    const receipt = port.commit(token);
+    assertEqual(receipt.incarnationId, before.incarnationId);
+    assertEqual(receipt.generationBefore, 0);
+    assertEqual(receipt.generationAfter, 1);
+    assertEqual(receipt.terminalOperationId, 'terminal-runtime-operation-0001');
+    assertEqual(port.getTerminalReceipt(receipt.terminalOperationId), receipt);
+    assertEqual(port.snapshot('CHAT').generation, 1);
+
+    const stale = await captureError(() => port.prepareTerminal({
+      operationId: 'terminal-runtime-operation-0002',
+      role: 'CHAT',
+      expectedModel: 'fixture-target',
+      targetModel: 'fixture-other',
+      expectedIncarnationId: before.incarnationId,
+      expectedGeneration: 0,
+    }));
+    assertEqual(stale.code, 'MODEL_BINDING_RUNTIME_CAS_MISMATCH');
+    assertEqual(port.clearTerminalReceipt(receipt.terminalOperationId), true);
+    assertEqual(port.getTerminalReceipt(receipt.terminalOperationId), null);
+
+    const nextProcess = new UpgradeManager().createBindingRuntimePort().snapshot('CHAT');
+    assert(nextProcess.incarnationId !== before.incarnationId);
+    assertEqual(nextProcess.generation, 0);
+  } finally {
+    restoreBindings();
+  }
+});
+
+await testAsync('terminal cycle owns one durable activation effect and never pulls or replays', async () => {
+  let nowMs = 1_000;
+  await withFixture(async ({ db, repository, manager, provider, application }) => {
+    repository.observeDesiredBinding({
+      role: 'CHAT',
+      modelName: 'fixture-base',
+      digestSha256: DIGEST_A,
+      source: 'LEGACY_OVERRIDE',
+      actor: 'user:fixture',
+    });
+    nowMs = 2_000;
+    repository.recordDetection({ role: 'CHAT', expectedDesiredRevision: 1 });
+    insertTerminalProof(db, {
+      proofId: 'terminal-application-proof-0001',
+      modelName: 'fixture-target',
+      digestSha256: DIGEST_B,
+      completedAtMs: 2_300,
+      expiresAtMs: 900_000,
+    });
+    nowMs = 2_600;
+    await enableTerminalTarget(db, { now: () => nowMs });
+
+    // Detection means the exact desired artifact is unavailable. The runtime
+    // still holds that durable pre-effect binding until this owned cutover.
+    provider.models.delete('fixture-base');
+    nowMs = 3_000;
+    const first = await application.runTerminalFailoverCycle();
+    const activated = first.roles.find(result => result.role === 'CHAT');
+    assertEqual(first.status, 'COMPLETED');
+    assertEqual(activated.action, 'ACTIVATE');
+    assertEqual(activated.outcome, 'FINALIZED');
+    assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-target');
+    assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').generation, 1);
+    assertEqual(repository.getState('CHAT').state, 'ACTIVATED');
+    assertEqual(count(db, 'model_failover_terminal_intents'), 1);
+    assertEqual(count(db, 'model_failover_terminal_finalize_receipts'), 1);
+    assertEqual(provider.calls.pull, 0);
+
+    const before = {
+      generation: manager.createBindingRuntimePort().snapshot('CHAT').generation,
+      intents: count(db, 'model_failover_terminal_intents'),
+      receipts: count(db, 'model_failover_terminal_finalize_receipts'),
+      pulls: provider.calls.pull,
+    };
+    const second = await application.runTerminalFailoverCycle();
+    assertEqual(second.status, 'COMPLETED');
+    assertEqual(second.roles.length, 0);
+    assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').generation, before.generation);
+    assertEqual(count(db, 'model_failover_terminal_intents'), before.intents);
+    assertEqual(count(db, 'model_failover_terminal_finalize_receipts'), before.receipts);
+    assertEqual(provider.calls.pull, before.pulls);
+  }, {
+    repositoryOptions: { clock: () => nowMs },
+    applicationClock: () => nowMs,
+    startVerification: false,
+  });
+});
+
+await testAsync('new process finalizes only exact generation-zero no-effect evidence', async () => {
+  let nowMs = 1_000;
+  await withFixture(async ({ db, repository, manager, provider }) => {
+    repository.observeDesiredBinding({
+      role: 'CHAT',
+      modelName: 'fixture-base',
+      digestSha256: DIGEST_A,
+      source: 'LEGACY_OVERRIDE',
+      actor: 'user:fixture',
+    });
+    nowMs = 2_000;
+    const detected = repository.recordDetection({
+      role: 'CHAT',
+      expectedDesiredRevision: 1,
+    }).state;
+    insertTerminalProof(db, {
+      proofId: 'terminal-new-process-proof-0001',
+      modelName: 'fixture-target',
+      digestSha256: DIGEST_B,
+      completedAtMs: 2_300,
+      expiresAtMs: 900_000,
+    });
+    nowMs = 2_600;
+    const target = await enableTerminalTarget(db, { now: () => nowMs });
+    const oldSnapshot = manager.createBindingRuntimePort().snapshot('CHAT');
+    nowMs = 3_000;
+    const prepared = await repository.prepareTerminalOperation({
+      role: 'CHAT',
+      episodeId: detected.episodeId,
+      expectedDesiredRevision: detected.desiredRevision,
+      expectedRowVersion: detected.rowVersion,
+      kind: 'ACTIVATE',
+      leaseMs: 300_000,
+      expectedTargetRevision: target.revision,
+      expectedRuntimeIncarnationId: oldSnapshot.incarnationId,
+      expectedRuntimeGeneration: oldSnapshot.generation,
+    });
+
+    // A fresh untouched process at the exact pre-effect artifact proves only
+    // that this process has not applied the old operation, never success.
+    config.models.CHAT = 'fixture-base';
+    const restartedManager = new UpgradeManager();
+    restartedManager.setDb(db);
+    const restartedRuntime = restartedManager.createBindingRuntimePort();
+    const before = restartedRuntime.snapshot('CHAT');
+    assert(before.incarnationId !== oldSnapshot.incarnationId);
+    assertEqual(before.generation, 0);
+    const restartedApplication = createModelBindingApplication({
+      repository,
+      runtime: restartedRuntime,
+      provider,
+      modelUseAuthority: new ModelUseAuthority(),
+      publishControl: () => ({ accepted: true }),
+      logger: { warn() {}, info() {}, debug() {}, error() {} },
+    });
+
+    const summary = await restartedApplication.rehydrateTerminalBindings();
+    assertEqual(summary.reconciled, 1);
+    assertEqual(summary.restored, 0);
+    assertEqual(summary.unchanged, 0);
+    const after = restartedRuntime.snapshot('CHAT');
+    assertEqual(after.incarnationId, before.incarnationId);
+    assertEqual(after.generation, 0);
+    assertEqual(after.modelName, 'fixture-base');
+    assertEqual(restartedRuntime.getTerminalReceipt(prepared.intent.operationId), null);
+    const receipts = db.prepare(`
+      SELECT resolution, terminal_event_type
+      FROM model_failover_terminal_finalize_receipts
+      WHERE operation_id = ?
+    `).all(prepared.intent.operationId);
+    assertEqual(receipts.length, 1);
+    assertEqual(receipts[0].resolution, 'RECONCILED_NO_EFFECT');
+    assertEqual(receipts[0].terminal_event_type, 'ACTIVATION_FAILED');
+    const terminal = repository.getTerminalOperation(prepared.intent.operationId);
+    assertEqual(terminal.reconciliationRequired, false);
+    assertEqual(terminal.receipt.resolution, 'RECONCILED_NO_EFFECT');
+    const state = repository.getState('CHAT');
+    assertEqual(state.state, 'FAILED');
+    assertEqual(state.activeFailover, false);
+    assertEqual(provider.calls.pull, 0);
+  }, {
+    repositoryOptions: { clock: () => nowMs },
+    applicationClock: () => nowMs,
+    startVerification: false,
+  });
+});
 
 await testAsync('delete protection exposes current desired and one-step rollback identities', async () => {
   await withFixture(async ({ application }) => {
