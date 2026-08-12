@@ -349,7 +349,7 @@ kontraktní blok, a jedna z těch šesti má chybějící část.
 | # | Oblast | Požadavek | Stav | Co přesně platí |
 |---|---|---|---|---|
 | 1 | Seznam konverzací | `MR-04` | `IMPLEMENTED_LOCAL_UNREVIEWED` | — |
-| 2 | Historie konverzace | `MR-05` | `PARTIAL` | Čtení historie ano. **Kurzorové stránkování v klientovi = `MISSING_IMPLEMENTATION`** — viz níže |
+| 2 | Historie konverzace | `MR-05` | `LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED` | Čtení historie i kurzorové stránkování v klientovi existují — viz níže |
 | 3 | Odeslat zprávu, dostat odpověď najednou | `MR-06` | `IMPLEMENTED_LOCAL_UNREVIEWED` | Token streaming neexistuje (§3), odpověď přichází najednou |
 | 4 | Průběh běhu / agent log | `MR-07` | **`BLOCKED_BY_CONTRACT`** | Viz níže |
 | 5 | Reconnect, přerušený turn označen | `MR-08` | `IMPLEMENTED_LOCAL_UNREVIEWED` | V rozsahu skromné definice z §3, ne resume |
@@ -357,11 +357,16 @@ kontraktní blok, a jedna z těch šesti má chybějící část.
 | 7 | Hledání | `MR-10` | **`BLOCKED_BY_CONTRACT`** | Viz níže |
 | 8 | Draft přežije zavření i offline | `MR-11` | `IMPLEMENTED_LOCAL_UNREVIEWED` | — |
 
-**K bodu 2 — `MR-05`, kurzorové stránkování:** klient dnes stránkování nemá.
-Požadavek platí beze změny a **staví se ve vlastním Work Package**. Kompoziční
-a registry prerekvizita je splněná, ale tento docs balík implementaci
-neautorizuje a sdílená validace zůstává blokovaná. Historické `WP-MOBILE-016`
-je `CHANGES_REQUIRED`. Je-li stávající kurzor na
+**K bodu 2 — `MR-05`, kurzorové stránkování (aktualizováno 2026-08-12):**
+tvrzení „klient dnes stránkování nemá" **už není pravdivé**. Klient má
+`loadOlderMessages`, `threadWindowOf` i `THREAD_PAGE_SIZE`, server má kotvu
+`anchor` (`handlers.js` §8.2) a kryjí to `mobile-ms07-history`,
+`mobile-contract-pagination-end` a `mobile-contract-cursor-rejection`.
+
+Stav je proto `LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`: je to na integračním
+kandidátu a mobilní subset prochází, ale **produktově DONE to není** —
+sdílená validace zůstává blokovaná. Historické `WP-MOBILE-016` je
+`CHANGES_REQUIRED` a zůstává historickým záznamem. Je-li stávající kurzor na
 `/m1/conversations` pro tento účel
 použitelný, **nejde o změnu veřejného kontraktu** a kontraktní kolo se kvůli
 tomu neotevírá.
@@ -591,7 +596,7 @@ Pravdivý stav:
 | P3–P5 health, konverzace, chat | ano | `IMPLEMENTED_LOCAL_UNREVIEWED` |
 | **P6 progres běhu** | **ne** | **NESPLNĚNO** — `MR-07` je `BLOCKED_BY_CONTRACT` (§5.1) |
 | P7 reconnect dle §3 | ano, jen v rozsahu §3 | `IMPLEMENTED_LOCAL_UNREVIEWED` — resume neexistuje |
-| `MR-05` kurzorové stránkování | **ne** | **`MISSING_IMPLEMENTATION`** (§5.1) |
+| `MR-05` kurzorové stránkování | **ano, neuzavřeno** | `LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED` (§5.1) |
 | `MR-10` hledání | **ne** | **`BLOCKED_BY_CONTRACT`** (§5.1) |
 | Obrazovka `MS-20` — obnova neuzavřených operací | ano v lokální kompozici | Kompozice `RV-039`/`RV-040`, registrace pod `C3-032` `RV-042` a mobilní M3 PASS. Sdílený profil FAIL `208/3` brání produktovému DONE a `GAP-9` zůstává dokumentační mezera. `MR-25` je otevřený paralelní backendový úkol, ne prerekvizita obrazovky |
 | Offline čtení cache | ano, service worker | `IMPLEMENTED_LOCAL_UNREVIEWED` |

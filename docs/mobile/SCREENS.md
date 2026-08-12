@@ -119,7 +119,7 @@ znamená *kód existuje a lokálně běží*, ne *zrevidováno a integrováno*.
 
 | Požadavek | Stav | Důsledek pro obrazovky |
 |---|---|---|
-| `MR-05` historie a stránkování | `PARTIAL` — **kurzorové stránkování `MISSING_IMPLEMENTATION`** | `MS-07` popisuje cílové chování; kompoziční a registry prerekvizita je splněná, ale vlastní implementační Work Package tento docs balík neautorizuje a sdílená validace je blokovaná |
+| `MR-05` historie a stránkování | `LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED` | **Aktualizováno 2026-08-12:** `MS-07` popisuje chování, které klient **má** — stránkování, kotva i testy existují a procházejí. Produktově DONE to není: sdílená validace zůstává blokovaná |
 | `MR-07` průběh běhu | **`BLOCKED_BY_CONTRACT`** | **`MS-15` se nestaví.** Blokující `/m1/chat` ani žurnál operací nejsou agent log |
 | `MR-10` hledání | **`BLOCKED_BY_CONTRACT`** | **`MS-09` se nestaví.** Hledání v cachovaném okně požadavek nesplňuje |
 | `MR-14` projekty | **`BLOCKED_BY_CONTRACT_AND_GATE1`** (`F-055`) | **`MS-12` se nestaví.** Požadavek zůstává evidovaný — není odložený ani odstraněný |
@@ -359,11 +359,12 @@ ochrana, producer/projektor a Gate 1 důkazy chybějí.
 
 > Přílohy (`MD-05`) se necachují: offline zástupný stav, ne prázdné místo.
 >
-> **Stránkovací část `MR-05` je `MISSING_IMPLEMENTATION`** (§1.1). Chování
-> u `SS-03` a `SS-10` — viditelná hranice okna a plný refresh po odmítnutém
-> kurzoru — je **závazný cíl, ne dnešní stav**. Staví se ve vlastním Work
-> Package; kompoziční a registry prerekvizita je splněná, ale implementaci tento
-> docs balík neautorizuje a sdílená validace je blokovaná. Je-li
+> **Stránkovací část `MR-05` — aktualizováno 2026-08-12.** Dřívější
+> `MISSING_IMPLEMENTATION` už neplatí: stránkování v klientovi i serverová kotva
+> existují a kryjí je testy. Stav je `LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`.
+> Chování u `SS-03` a `SS-10` — viditelná hranice okna a plný refresh po
+> odmítnutém kurzoru — je implementované, ale **produktově není `DONE`**,
+> protože sdílená validace zůstává blokovaná. Je-li
 > stávající kurzor u `/m1/conversations`
 > použitelný, není to změna veřejného kontraktu.
 

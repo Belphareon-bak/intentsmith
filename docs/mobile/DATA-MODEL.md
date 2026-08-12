@@ -654,11 +654,12 @@ důkazy, B6 ani životní cyklus `MD-08` nejsou produkčně uzavřené.
 > Kurzor musí být neprůhledný a jeho odmítnutí musí být bezpečné: klient nikdy
 > nesmí „dopočítat" chybějící úsek. Neplatný kurzor = plný refresh, ne odhad.
 >
-> **Stav v klientovi: `MISSING_IMPLEMENTATION`.** Kurzorové stránkování
-> (`MR-05`) dnešní klient nemá; pravidlo výše proto zatím nemá kdo dodržet.
-> Kompoziční a registry prerekvizita je splněná, ale funkce se staví ve
-> **vlastním Work Package**, který tento dokumentační balík neautorizuje;
-> sdílená validace navíc zůstává blokovaná. Historické `WP-MOBILE-016` je
+> **Stav v klientovi — aktualizováno 2026-08-12: `LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`.**
+> Dřívější `MISSING_IMPLEMENTATION` už neplatí. Kurzorové stránkování (`MR-05`)
+> klient má (`loadOlderMessages`, `threadWindowOf`, `THREAD_PAGE_SIZE`), takže
+> pravidlo výše **má kdo dodržet** a kryjí ho `mobile-ms07-history`,
+> `mobile-contract-pagination-end` a `mobile-contract-cursor-rejection`.
+> Produktově `DONE` to není: sdílená validace zůstává blokovaná. Historické `WP-MOBILE-016` je
 > `CHANGES_REQUIRED` a současný kandidát stále není `DONE` (PLAN.md §5.1).
 > Je-li stávající kurzor u `/m1/conversations` pro tento účel použitelný,
 > **nejde o změnu veřejného kontraktu** a kontraktní kolo se kvůli tomu

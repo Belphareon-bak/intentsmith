@@ -8611,6 +8611,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-MOBILE-GATE-SELF-TEST",
+      "path": "tests/mobile-gate-self-test.js",
+      "argv": [
+        "node",
+        "tests/mobile-gate-self-test.js"
+      ],
+      "capabilityId": "C3-032",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 8000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-MOBILE-BROWSER-A11Y-TEST",
       "path": "tests/mobile-browser-a11y.test.js",
       "argv": [
@@ -8619,12 +8649,12 @@
       ],
       "capabilityId": "C3-032",
       "tier": "T1",
-      "fixture": "isolated-home",
+      "fixture": "isolated-home-and-owned-loopback-server",
       "profile": "offline",
       "timeoutMs": 300000,
       "expectedDurationMs": 60000,
       "requirements": {
-        "network": "none",
+        "network": "loopback",
         "database": false,
         "server": false,
         "ollama": false,
@@ -8640,7 +8670,7 @@
         "commit": null,
         "artifact": null
       },
-      "flakeCount": 0,
+      "flakeCount": 1,
       "quarantineExpiry": null
     },
     {

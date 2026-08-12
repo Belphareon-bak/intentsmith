@@ -594,7 +594,7 @@ zafixuje tvar, který kontrakt teprve určí, a vypadá jako pokrytí.
 | `MR-07` průběh běhu | `BLOCKED_BY_CONTRACT` | K `MS-15` nevzniká UI ani jeho testy. **Existující sady kolem `/m1/chat` a žurnálu operací nesmí být vydávány za pokrytí `MR-07`** — nejsou to testy agent logu |
 | `MR-10` hledání | `BLOCKED_BY_CONTRACT` | K `MS-09` nevzniká UI ani jeho testy. Test hledání nad cachovaným oknem by prokazoval něco, co požadavek **nesplňuje** |
 | `MR-14` projekty | `BLOCKED_BY_CONTRACT_AND_GATE1` | K `MS-12` nevzniká UI ani jeho testy. Řádky pro projektovou doménu vzniknou až s kontraktem a Gate 1 |
-| `MR-05` kurzorové stránkování | `MISSING_IMPLEMENTATION` | `MN-cursor-rejection` a `MN-pagination-end` popisují **serverové** chování a smí vzniknout; kompoziční/registry prerekvizita je splněná, ale klientská část čeká na vlastní autorizovaný Work Package a sdílenou validaci |
+| `MR-05` kurzorové stránkování | `LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED` | **Aktualizováno 2026-08-12:** `MN-cursor-rejection` a `MN-pagination-end` existují a procházejí, a klientská část už není `MISSING_IMPLEMENTATION` — kryje ji `mobile-ms07-history`. Produktově `DONE` to není: sdílená validace zůstává blokovaná |
 
 Blokáda se týká **testů k blokovaným schopnostem**, ne doménových pravidel:
 `offline` testy pravidel z DATA-MODEL.md (co se nefrontuje, co se maže, co je
