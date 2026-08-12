@@ -12,10 +12,10 @@ jediný writer v izolovaném disk-backed worktree
 **integrationRef:** `integration/m1-consolidated-20260810`
 
 **baseRevision:** exact metadata-ověřený a canonical fast-forward promováný
-`R_REC` z
+`R_REC=17aba1b5749e8229d8079f3cbc6cdb865bdc25e8` z
 [`WP-M1-CHATS-EVIDENCE-RECOVERY`](WP-M1-CHATS-EVIDENCE-RECOVERY.md); jeho plné
-SHA zapíše až unikátní reset run report. Invalidní `I`, samotný `G_REC` ani
-samotný correct sibling `X` nejsou přípustný base.
+SHA zopakuje také unikátní reset run report. Invalidní `I`, samotný `G_REC`
+ani samotný correct sibling `X` nejsou přípustný base.
 
 **Branch:** `wp/m1-settings-reset-authority-20260812`
 
@@ -30,11 +30,11 @@ samotný correct sibling `X` nejsou přípustný base.
 - Review B: `evidence/m1-settings-reset-authority-review-b-20260812`, worktree
   `/home/belphareon/worktrees/is-m1-settings-reset-authority-review-b`.
 
-**Stav:** `ACTIVE / BLOCKED_ON_CHAT_EVIDENCE_RECOVERY` — chats source candidate
-a corrected Review B behavior mají PASS, ale canonical commit
-`I=39776f1e90e425bd91a7be707edc556a299869bd` má invalidní report obálku.
-Reset writer nesmí pokračovat z `I`, aktivačního checkpointu, `G_REC` ani
-nepromovaného siblingu `X`. Finding 011 zůstává `OPEN` a Gate 1 `BLOCKED`.
+**Stav:** `ACTIVE / CHAT_EVIDENCE_RECOVERY_PROMOTED /
+MOBILE-PIN-REFRESH-1` — canonical integration je exact metadata-ověřený
+`R_REC=17aba1b5749e8229d8079f3cbc6cdb865bdc25e8`. Invalidní `I`, samotný
+`G_REC` ani correct sibling `X` nejsou přípustný reset base. Finding 011
+zůstává `OPEN` a Gate 1 `BLOCKED`.
 
 Současně smí být materializovaný nejvýše jeden nově vytvořený 029-owned
 worktree pro writer, review nebo queue krok. Výše uvedené worktree cesty jsou
@@ -271,10 +271,18 @@ subjectu a současně immutable `S_RESET`. Jeho parent už musí obsahovat:
   smí přistát v témže `S_RESET`.
 
 Aktivační census pinuje pending mobile ref
-`b9b56d517d95475636b75427181bed9cbdd159c4`
+`3ea062f52425b429872ba18ace8c14f5b2248e53`
 (`wp/mobile-refresh-20260809`) a jeho merge-base s
+`R_REC=17aba1b5749e8229d8079f3cbc6cdb865bdc25e8` i se source evidence
 `69d29ed3c929593e092d047b6e182d9715e3d08e`:
 `8366eb085415149f49e04bd9e788104c4c3ec1f8`.
+
+Tento tip je lineární potomek původně připnutého
+`b9b56d517d95475636b75427181bed9cbdd159c4` přes přesně dva commity. Diff
+starý→nový mobile tip nemění žádnou z dvanácti cest níže, auth/access/
+trusted-local wiring ani executable security guard semantics. Jde o přijatý
+docs-only `MOBILE-PIN-REFRESH-1`, nikoli změnu 029 scope nebo podporu mobile
+větve.
 
 Na tomto snapshotu je mobile strana proti merge-base beze změny pro celý
 reset-relevant manifest:
@@ -295,8 +303,16 @@ docs/findings/011-user-settings-authority-and-secret-exposure.md
 ```
 
 Relevantní three-way výsledek proto pro tyto blobs bere integration stranu.
-To není tvrzení, že celý mobile merge je čistý. Exact globální stav tohoto
-snapshotu je `CONFLICTED_OUTSIDE_029`: 11 conflict hunků v šesti cestách:
+To není tvrzení, že celý mobile merge je čistý. Exact globální census má osm
+`both-changed` cest. Dvě se auto-mergeují bez conflict markeru a 029 je
+nevlastní:
+
+- `scripts/run-model-failover-candidate-measurement.js`;
+- `src/routes/security.js` — mobile delta v relevantním výsledku nemění
+  executable auth/guard semantics.
+
+Zbývající stav je `CONFLICTED_OUTSIDE_029`: etablovaných 11 semantic
+conflict hunků v šesti cestách:
 
 - `README.md` — 3;
 - `docs/convergence/TEST-REGISTRY.md` — 1;

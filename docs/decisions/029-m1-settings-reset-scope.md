@@ -1,8 +1,9 @@
 # 029 — reset musí pravdivě pojmenovat rozsah a obě route
 
 - **typ:** destruktivní settings connector a recovery autorita
-- **stav:** `ACCEPTED 2026-08-11: A + M1-CLOSEOUT-X1 / WP_ACTIVE /
-  CHATS_DECOMMISSION_FIRST / RESET_BLOCKED_ON_CHATS_PROMOTION`
+- **stav:** `ACCEPTED 2026-08-11: A + M1-CLOSEOUT-X1 /
+  CHATS_DECOMMISSION_AND_EVIDENCE_RECOVERY_PROMOTED / WP_ACTIVE /
+  MOBILE-PIN-REFRESH-1`
 - **sourceEvidenceRevision:**
   `69d29ed3c929593e092d047b6e182d9715e3d08e`
 - **integrationRef:** `integration/m1-consolidated-20260810`
@@ -41,6 +42,23 @@ kanonický strom. Pending ref `wp/mobile-refresh-20260809` obsahuje zděděný
 snapshot `src/ui/architect/architect.js`, jehož `resetAll()` nejdřív volá
 `localStorage.clear()` a potom `POST /api/reset`. Nejde o mobilní klientský
 call ani o změnu v `src/mobile/**`, ale merge jej nesmí znovu oživit.
+
+### MOBILE-PIN-REFRESH-1 (přijato 2026-08-12)
+
+Pending mobile ref se po aktivaci 029 posunul lineárně z
+`b9b56d517d95475636b75427181bed9cbdd159c4` na
+`3ea062f52425b429872ba18ace8c14f5b2248e53`; původní tip je jeho ancestor a
+mezi nimi jsou přesně dva commity. Merge-base s canonical recovery tipem
+`17aba1b5749e8229d8079f3cbc6cdb865bdc25e8` i se source evidence
+`69d29ed3c929593e092d047b6e182d9715e3d08e` zůstává
+`8366eb085415149f49e04bd9e788104c4c3ec1f8`.
+
+Exact dvanácticestný reset manifest se mezi starým a novým mobile tipem ani
+mezi merge-base a novým tipem nezměnil. Drift nemění 029 call graph, data
+scope, trusted-local ani autentizační hranici a nevyžaduje nové produktové
+rozhodnutí. Aktualizuje se pouze evidence pin a přesný merge census; při dalším
+driftu platí znovu `STOP` a nový governance/review vstup. Mobile větev se tímto
+rozhodnutím nepřijímá ani nepromuje.
 
 ## Varianty
 
