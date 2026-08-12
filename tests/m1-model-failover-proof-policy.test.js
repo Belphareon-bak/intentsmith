@@ -74,26 +74,60 @@ test('source pins are raw-byte hashes of the exact reviewed modules', () => {
     'utf8',
   );
   assertEqual(proofPolicySource.includes("from './model-failover.js'"), false);
+  assertEqual(proofPolicySource.includes("from '../db/model-policy.js'"), false);
+  assertEqual(proofPolicySource.includes("from '../db/user-settings.js'"), false);
+  assertEqual(proofPolicySource.includes("from '../db/settings-portability.js'"), false);
   for (const [key, relativePath, logicalPath, expectedLength, expectedSha256] of [
     [
       'modelFailover',
       '../src/upgrade/model-failover.js',
       'src/upgrade/model-failover.js',
-      145428,
-      '88a3c8e053813ae8c4e707d5c2859560b9140cf142c3e27f30c70d7b29bac0aa',
+      203403,
+      '4aa33e4cb99d6a78a044aeb5a9d6a5b47d9ceb0741461a3dd7cfb6a858681863',
     ],
-    ['modelProfiles', '../src/upgrade/model-profiles.js', 'src/upgrade/model-profiles.js'],
-    ['validationSuites', '../src/upgrade/validation-suites.js', 'src/upgrade/validation-suites.js'],
+    [
+      'modelPolicy',
+      '../src/db/model-policy.js',
+      'src/db/model-policy.js',
+      53900,
+      '23d3b6320e0386a8715ebc826a4ee2d81cbd848954feadc558f0a85b6c78eebd',
+    ],
+    [
+      'userSettings',
+      '../src/db/user-settings.js',
+      'src/db/user-settings.js',
+      40076,
+      '02d45d725dc15f022d0b6c02e8d01dc70698e862ebae9d4bccac2c3c32fe0386',
+    ],
+    [
+      'settingsPortability',
+      '../src/db/settings-portability.js',
+      'src/db/settings-portability.js',
+      14912,
+      'b51793ef371530898188903bfd3384e50edf748a7c29258e2ab11c0d63b24c5c',
+    ],
+    [
+      'modelProfiles',
+      '../src/upgrade/model-profiles.js',
+      'src/upgrade/model-profiles.js',
+      9967,
+      '16941d6aa9cb99fe6b00b1ee5a95fbd5bef079a35beb23cce63edf78aa04264a',
+    ],
+    [
+      'validationSuites',
+      '../src/upgrade/validation-suites.js',
+      'src/upgrade/validation-suites.js',
+      39108,
+      '49520a4176c60f6fd27b713d4fa042dc6c164d3bbda0b983dfd10fe18a24b0ef',
+    ],
   ]) {
     const pin = policy.sourcePins[key];
     const bytes = readFileSync(new URL(relativePath, import.meta.url));
     assertEqual(pin.path, logicalPath);
     assertEqual(pin.algorithm, 'sha256-raw-bytes-v1');
-    assertEqual(pin.byteLength, expectedLength ?? (key === 'modelProfiles' ? 9967 : 39108));
+    assertEqual(pin.byteLength, expectedLength);
     assertEqual(pin.byteLength, bytes.length);
-    assertEqual(pin.sha256, expectedSha256 ?? (key === 'modelProfiles'
-      ? '16941d6aa9cb99fe6b00b1ee5a95fbd5bef079a35beb23cce63edf78aa04264a'
-      : '49520a4176c60f6fd27b713d4fa042dc6c164d3bbda0b983dfd10fe18a24b0ef'));
+    assertEqual(pin.sha256, expectedSha256);
     assertEqual(pin.sha256, sha256(bytes));
   }
   const authorityContract = {
@@ -112,7 +146,7 @@ test('source pins are raw-byte hashes of the exact reviewed modules', () => {
   );
   assertEqual(
     policy.authoritySha256,
-    '9bf5ebe2da7ca4a2d4ac68bbe5976bde3935900841b253f341931b5fbdac5f93',
+    'a7c7c2a27b3c4bec2932bfd68f4b92d5f3974641c67ca7e15dd4f756d5c7b091',
   );
   const weakenedAuthority = structuredClone(authorityContract);
   weakenedAuthority.acceptance.byRole.CHAT.requiredScore = 0.5;

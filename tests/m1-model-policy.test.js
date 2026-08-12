@@ -25,9 +25,13 @@ import {
   DEFAULT_MODEL_AUTOMATION_POLICY,
   ModelAutomationPolicyError,
   ModelAutomationPolicyStatus,
+  ModelFailoverTargetStatus,
+  createModelFailoverTargetInventoryReader,
   createModelAutomationPolicyRepository,
   readModelAutomationPolicy,
+  readModelFailoverTarget,
 } from '../src/db/model-policy.js';
+import { getModelFailoverMeasurementContract } from '../src/upgrade/model-failover-proof-policy.js';
 import {
   SETTINGS_PORTABLE_PATHS,
 } from '../src/db/settings-portability.js';
@@ -179,6 +183,99 @@ function resetInput(db, overrides = {}) {
   };
 }
 
+function installEligibleTargetProof(db, {
+  role = 'CHAT',
+  requestedName = 'fallback:latest',
+  canonicalName = 'fallback',
+  digestSha256 = 'a'.repeat(64),
+} = {}) {
+  const current = getModelFailoverMeasurementContract(role);
+  const fixtureId = digestSha256.slice(0, 8);
+  const proofId = `proof-target-${role.toLowerCase()}-${fixtureId}`;
+  const validationRunId = `run-target-${role.toLowerCase()}-${fixtureId}`;
+  const suite = current.contract.role.suite;
+  const totalCount = current.contract.role.totalCount;
+  const requiredScore = current.contract.acceptance.requiredScore;
+  const requiredPassedCount = current.contract.acceptance.requiredPassedCount;
+  const common = {
+    proof_id: proofId,
+    validation_run_id: validationRunId,
+    role,
+    suite,
+    role_contract_sha256: current.measurementContractSha256,
+    model_name: requestedName,
+    model_canonical_name: canonicalName,
+    model_digest_sha256: digestSha256,
+    validation_version: current.contract.validationVersion,
+    policy_version: current.contract.policyVersion,
+    score: 1,
+    required_score: requiredScore,
+    passed_count: totalCount,
+    required_passed_count: requiredPassedCount,
+    total_count: totalCount,
+    duration_ms: 500,
+    result: 'PASS',
+    inventory_before_name: requestedName,
+    inventory_before_digest: digestSha256,
+    inventory_after_name: requestedName,
+    inventory_after_digest: digestSha256,
+  };
+  const insert = db.transaction(() => {
+    db.prepare(`
+      INSERT INTO model_failover_proof_artifacts (
+        proof_id, validation_run_id, parent_run_id, source_revision,
+        measurement_artifact_sha256, measurement_artifact_byte_length,
+        acceptance_artifact_sha256, acceptance_artifact_byte_length,
+        role, suite, role_contract_sha256, model_name, model_canonical_name,
+        model_digest_sha256, validation_version, policy_version, score,
+        required_score, passed_count, required_passed_count, total_count,
+        duration_ms, result, inventory_before_name, inventory_before_digest,
+        inventory_after_name, inventory_after_digest, measurement_started_at_ms,
+        measurement_completed_at_ms, acceptance_completed_at_ms, proof_ttl_ms,
+        expires_at_ms, issued_at_ms
+      ) VALUES (
+        @proof_id, @validation_run_id, @parent_run_id,
+        @source_revision, @measurement_artifact_sha256, 100,
+        @acceptance_artifact_sha256, 100,
+        @role, @suite, @role_contract_sha256, @model_name,
+        @model_canonical_name, @model_digest_sha256, @validation_version,
+        @policy_version, @score, @required_score, @passed_count,
+        @required_passed_count, @total_count, @duration_ms, @result,
+        @inventory_before_name, @inventory_before_digest,
+        @inventory_after_name, @inventory_after_digest,
+        3000, 3500, 4000, 6000, 10000, 4500
+      )
+    `).run({
+      ...common,
+      parent_run_id: `parent-target-${fixtureId}`,
+      source_revision: fixtureId.padEnd(40, '1'),
+      measurement_artifact_sha256: fixtureId.padEnd(64, '2'),
+      acceptance_artifact_sha256: fixtureId.padEnd(64, '3'),
+    });
+    db.prepare(`
+      INSERT INTO model_failover_proofs (
+        proof_id, validation_run_id, role, suite, role_contract_sha256,
+        model_name, model_canonical_name, model_digest_sha256,
+        validation_version, policy_version, score, required_score,
+        passed_count, required_passed_count, total_count, duration_ms, result,
+        inventory_before_name, inventory_before_digest, inventory_after_name,
+        inventory_after_digest, started_at_ms, completed_at_ms, expires_at_ms,
+        created_at_ms
+      ) VALUES (
+        @proof_id, @validation_run_id, @role, @suite, @role_contract_sha256,
+        @model_name, @model_canonical_name, @model_digest_sha256,
+        @validation_version, @policy_version, @score, @required_score,
+        @passed_count, @required_passed_count, @total_count, @duration_ms,
+        @result, @inventory_before_name, @inventory_before_digest,
+        @inventory_after_name, @inventory_after_digest, 3000, 3500, 10000,
+        4500
+      )
+    `).run(common);
+  });
+  insert.immediate();
+  return { proofId, requestedName, canonicalName, digestSha256 };
+}
+
 function portableValues(overrides = {}) {
   return {
     '/appearance/accentColor': '#6366f1',
@@ -256,6 +353,15 @@ function captureError(fn) {
   throw new Error('expected operation to throw');
 }
 
+async function captureErrorAsync(fn) {
+  try {
+    await fn();
+  } catch (error) {
+    return error;
+  }
+  throw new Error('expected async operation to throw');
+}
+
 function assertPolicyError(error, code) {
   assert(error instanceof ModelAutomationPolicyError);
   assertEqual(error.code, code);
@@ -266,6 +372,16 @@ function snapshot(db) {
     policy: db.prepare('SELECT * FROM model_automation_policy ORDER BY id').all(),
     events: db.prepare('SELECT * FROM model_automation_policy_events ORDER BY seq').all(),
     settings: db.prepare('SELECT * FROM user_settings ORDER BY id').all(),
+  });
+}
+
+function targetAuthoritySnapshot(db) {
+  return JSON.stringify({
+    settings: db.prepare('SELECT * FROM user_settings ORDER BY id').all(),
+    policy: db.prepare('SELECT * FROM model_automation_policy ORDER BY id').all(),
+    policyEvents: db.prepare('SELECT * FROM model_automation_policy_events ORDER BY seq').all(),
+    targets: db.prepare('SELECT * FROM model_failover_targets ORDER BY role').all(),
+    targetEvents: db.prepare('SELECT * FROM model_failover_target_events ORDER BY seq').all(),
   });
 }
 
@@ -471,7 +587,7 @@ await testAsync('migration 061 creates exact default-off projection and audit au
   try {
     const result = await runMigrations(db);
     assert(result.applied.includes('2026_08_09_061_model_automation_policy'));
-    assertEqual(result.applied.at(-1), '2026_08_10_064_user_settings_revision');
+    assertEqual(result.applied.at(-1), '2026_08_12_065_model_failover_target');
     const policy = readModelAutomationPolicy(db);
     assertEqual(policy.status, ModelAutomationPolicyStatus.VALID);
     assertEqual(policy.valid, true);
@@ -506,6 +622,7 @@ await testAsync('legacy values are quarantined and removed without becoming opt-
       '2026_08_09_061_model_automation_policy',
       '2026_08_10_062_model_failover_proof_issuance',
       '2026_08_10_064_user_settings_revision',
+      '2026_08_12_065_model_failover_target',
     ].includes(migration.version));
     migrationInternals.runMigrationPlan(db, before061);
     db.prepare(`
@@ -527,6 +644,7 @@ await testAsync('legacy values are quarantined and removed without becoming opt-
       '2026_08_09_061_model_automation_policy',
       '2026_08_10_062_model_failover_proof_issuance',
       '2026_08_10_064_user_settings_revision',
+      '2026_08_12_065_model_failover_target',
     ]));
     const policy = readModelAutomationPolicy(db);
     assertEqual(policy.valid, true);
@@ -1894,6 +2012,312 @@ test('restart preserves policy revision, event identity and values', () => {
       2,
     );
   } finally {
+    if (db.open) db.close();
+    rmSync(directory, { recursive: true, force: false });
+  }
+});
+
+await testAsync('terminal target set, replace and clear use exact CAS authority', async () => {
+  const db = openDb();
+  try {
+    await runMigrations(db);
+    const runtime = createRuntime('target', 5000);
+    const targetA = installEligibleTargetProof(db);
+    const targetB = installEligibleTargetProof(db, {
+      requestedName: 'replacement:latest',
+      canonicalName: 'replacement',
+      digestSha256: 'b'.repeat(64),
+    });
+    const repository = createModelAutomationPolicyRepository(db, {
+      ...runtime.options,
+      targetInventoryReader: createModelFailoverTargetInventoryReader([
+        { name: targetA.requestedName, canonicalName: targetA.canonicalName, digestSha256: targetA.digestSha256 },
+        { name: targetB.requestedName, canonicalName: targetB.canonicalName, digestSha256: targetB.digestSha256 },
+      ]),
+    });
+    repository.updateFromTypedApi(updateInput(1));
+    const set = await repository.setTarget({
+      role: 'CHAT',
+      expectedRevision: 0,
+      target: {
+        requestedName: targetA.requestedName,
+        canonicalName: targetA.canonicalName,
+        digestSha256: targetA.digestSha256,
+      },
+    });
+    assertEqual(set.revision, 1);
+    assertEqual(set.event.eventKind, 'SET');
+    assertEqual(set.eligibility.proofId, targetA.proofId);
+    assertEqual(readModelFailoverTarget(db, 'CHAT').target.digestSha256, targetA.digestSha256);
+
+    const targetBeforePortableRoundTrip = readModelFailoverTarget(db, 'CHAT');
+    const backup = repository.exportSettingsBackup();
+    repository.replaceFromSettingsImport({
+      backup,
+      expectedRevision: db.prepare('SELECT revision FROM user_settings WHERE id = 1').get().revision,
+    });
+    assertEqual(
+      JSON.stringify(readModelFailoverTarget(db, 'CHAT')),
+      JSON.stringify(targetBeforePortableRoundTrip),
+    );
+
+    const replaced = await repository.setTarget({
+      role: 'CHAT',
+      expectedRevision: 1,
+      target: {
+        requestedName: targetB.requestedName,
+        canonicalName: targetB.canonicalName,
+        digestSha256: targetB.digestSha256,
+      },
+    });
+    assertEqual(replaced.revision, 2);
+    assertEqual(replaced.event.eventKind, 'REPLACE');
+
+    repository.updateFromTypedApi(updateInput(repository.read().revision, {
+      autoFailoverEnabled: false,
+    }));
+    const cleared = repository.clearTarget({ role: 'CHAT', expectedRevision: 2 });
+    assertEqual(cleared.revision, 3);
+    assertEqual(cleared.target, null);
+    assertEqual(cleared.event.eventKind, 'CLEAR');
+    assertEqual(db.prepare(`
+      SELECT COUNT(*) AS count FROM model_failover_target_events WHERE role = 'CHAT'
+    `).get().count, 3);
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('target set rejects OFF, stale, malformed, ambiguous and ineligible inputs', async () => {
+  const db = openDb();
+  try {
+    await runMigrations(db);
+    const runtime = createRuntime('target-negative', 5000);
+    const target = {
+      requestedName: 'fallback:latest',
+      canonicalName: 'fallback',
+      digestSha256: 'a'.repeat(64),
+    };
+    const repository = createModelAutomationPolicyRepository(db, {
+      ...runtime.options,
+      targetInventoryReader: createModelFailoverTargetInventoryReader([
+        { name: target.requestedName, canonicalName: target.canonicalName, digestSha256: target.digestSha256 },
+      ]),
+    });
+    const before = snapshot(db);
+    assertPolicyError(
+      await captureErrorAsync(() => repository.setTarget({ role: 'CHAT', expectedRevision: 0, target })),
+      'MODEL_FAILOVER_TARGET_POLICY_OFF',
+    );
+    assertEqual(snapshot(db), before);
+    repository.updateFromTypedApi(updateInput(1));
+    assertPolicyError(
+      await captureErrorAsync(() => repository.setTarget({ role: 'CHAT', expectedRevision: 0, target })),
+      'MODEL_FAILOVER_TARGET_PROOF_INELIGIBLE',
+    );
+    assertEqual(readModelFailoverTarget(db, 'CHAT').revision, 0);
+    assertPolicyError(
+      await captureErrorAsync(() => repository.setTarget({
+        role: 'CHAT',
+        expectedRevision: 0,
+        target: { ...target, canonicalName: 'wrong' },
+      })),
+      'MODEL_FAILOVER_TARGET_CANONICAL_MISMATCH',
+    );
+    assertPolicyError(
+      captureError(() => createModelFailoverTargetInventoryReader([
+        { name: 'fallback', canonicalName: 'fallback', digestSha256: 'a'.repeat(64) },
+        { name: 'fallback:latest', canonicalName: 'fallback', digestSha256: 'a'.repeat(64) },
+      ])),
+      'MODEL_FAILOVER_TARGET_INVENTORY_AMBIGUOUS',
+    );
+    installEligibleTargetProof(db);
+    const committed = await repository.setTarget({ role: 'CHAT', expectedRevision: 0, target });
+    assertEqual(committed.revision, 1);
+    assertPolicyError(
+      await captureErrorAsync(() => repository.setTarget({
+        role: 'CHAT',
+        expectedRevision: 0,
+        target,
+      })),
+      'MODEL_FAILOVER_TARGET_STALE',
+    );
+    assertPolicyError(
+      captureError(() => repository.clearTarget({ role: 'CHAT', expectedRevision: 0 })),
+      'MODEL_FAILOVER_TARGET_STALE',
+    );
+    assertPolicyError(
+      await captureErrorAsync(() => repository.setTarget({
+        role: 'CHAT',
+        expectedRevision: 1,
+        target,
+        extra: true,
+      })),
+      'MODEL_FAILOVER_TARGET_INPUT_SHAPE_INVALID',
+    );
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('global reset clears all targets under its sole policy event and defeats stale CAS', async () => {
+  const db = openDb();
+  try {
+    await runMigrations(db);
+    const runtime = createRuntime('target-reset', 5000);
+    const target = installEligibleTargetProof(db);
+    const repository = createModelAutomationPolicyRepository(db, {
+      ...runtime.options,
+      targetInventoryReader: createModelFailoverTargetInventoryReader([{
+        name: target.requestedName,
+        canonicalName: target.canonicalName,
+        digestSha256: target.digestSha256,
+      }]),
+    });
+    repository.updateFromTypedApi(updateInput(1));
+    const before = repository.readTargets();
+    assert(before.every(target => target.revision === 0 && target.target === null));
+    const reset = repository.resetFromGlobalSettings(resetInput(db));
+    const after = repository.readTargets();
+    assert(after.every(target => (
+      target.revision === 1
+      && target.target === null
+      && target.authoritySource === 'GLOBAL_RESET'
+      && target.resetEventId === reset.policy.event.eventId
+    )));
+    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM model_failover_target_events').get().count, 0);
+    assertEqual(readModelFailoverTarget(db, 'CHAT').status, ModelFailoverTargetStatus.VALID);
+    assertPolicyError(
+      captureError(() => repository.clearTarget({ role: 'CHAT', expectedRevision: 0 })),
+      'MODEL_FAILOVER_TARGET_STALE',
+    );
+    assertPolicyError(
+      await captureErrorAsync(() => repository.setTarget({
+        role: 'CHAT',
+        expectedRevision: 0,
+        target: {
+          requestedName: target.requestedName,
+          canonicalName: target.canonicalName,
+          digestSha256: target.digestSha256,
+        },
+      })),
+      'MODEL_FAILOVER_TARGET_STALE',
+    );
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('global reset target and policy failures roll back all owned authorities', async () => {
+  const db = openDb();
+  try {
+    await runMigrations(db);
+    const runtime = createRuntime('target-reset-rollback', 5000);
+    const target = installEligibleTargetProof(db);
+    const repository = createModelAutomationPolicyRepository(db, {
+      ...runtime.options,
+      targetInventoryReader: createModelFailoverTargetInventoryReader([{
+        name: target.requestedName,
+        canonicalName: target.canonicalName,
+        digestSha256: target.digestSha256,
+      }]),
+    });
+    repository.updateFromTypedApi(updateInput(1));
+    await repository.setTarget({
+      role: 'CHAT',
+      expectedRevision: 0,
+      target: {
+        requestedName: target.requestedName,
+        canonicalName: target.canonicalName,
+        digestSha256: target.digestSha256,
+      },
+    });
+    for (const fixture of [
+      {
+        name: 'fixture_reject_target_reset',
+        sql: `
+          CREATE TRIGGER fixture_reject_target_reset
+          BEFORE UPDATE ON model_failover_targets
+          WHEN NEW.authority_source = 'GLOBAL_RESET' AND NEW.role = 'CHAT'
+          BEGIN SELECT RAISE(ABORT, 'FIXTURE_TARGET_RESET_REJECTED'); END
+        `,
+      },
+      {
+        name: 'fixture_reject_global_reset_event',
+        sql: `
+          CREATE TRIGGER fixture_reject_global_reset_event
+          BEFORE INSERT ON model_automation_policy_events
+          WHEN NEW.event_kind = 'GLOBAL_RESET'
+          BEGIN SELECT RAISE(ABORT, 'FIXTURE_POLICY_RESET_REJECTED'); END
+        `,
+      },
+    ]) {
+      db.exec(fixture.sql);
+      const before = targetAuthoritySnapshot(db);
+      assertPolicyError(
+        captureError(() => repository.resetFromGlobalSettings(resetInput(db))),
+        'MODEL_AUTOMATION_POLICY_STORAGE_CONTRACT',
+      );
+      assertEqual(targetAuthoritySnapshot(db), before);
+      db.exec(`DROP TRIGGER ${fixture.name}`);
+    }
+  } finally {
+    db.close();
+  }
+});
+
+await testAsync('two WAL target writers yield one CAS winner and restart preserves lineage', async () => {
+  const directory = mkdtempSync(
+    path.join(process.env.INTENTSMITH_TEST_ARTIFACT_DIR, 'target-wal-'),
+  );
+  const databasePath = path.join(directory, 'target.sqlite');
+  let db = openDb(databasePath);
+  let peer = null;
+  try {
+    await runMigrations(db);
+    const target = installEligibleTargetProof(db);
+    const setup = createModelAutomationPolicyRepository(db, createRuntime('target-wal-setup', 5000).options);
+    setup.updateFromTypedApi(updateInput(1));
+    peer = openDb(databasePath);
+    const reader = createModelFailoverTargetInventoryReader([{
+      name: target.requestedName,
+      canonicalName: target.canonicalName,
+      digestSha256: target.digestSha256,
+    }]);
+    const request = {
+      role: 'CHAT',
+      expectedRevision: 0,
+      target: {
+        requestedName: target.requestedName,
+        canonicalName: target.canonicalName,
+        digestSha256: target.digestSha256,
+      },
+    };
+    const first = createModelAutomationPolicyRepository(db, {
+      ...createRuntime('target-wal-first', 5000).options,
+      targetInventoryReader: reader,
+    });
+    const second = createModelAutomationPolicyRepository(peer, {
+      ...createRuntime('target-wal-second', 5000).options,
+      targetInventoryReader: reader,
+    });
+    const outcomes = await Promise.allSettled([
+      first.setTarget(request),
+      second.setTarget(request),
+    ]);
+    assertEqual(outcomes.filter(outcome => outcome.status === 'fulfilled').length, 1);
+    const rejected = outcomes.find(outcome => outcome.status === 'rejected');
+    assertEqual(rejected.reason.code, 'MODEL_FAILOVER_TARGET_STALE');
+    peer.close();
+    peer = null;
+    db.close();
+    db = openDb(databasePath);
+    const restarted = readModelFailoverTarget(db, 'CHAT');
+    assertEqual(restarted.valid, true);
+    assertEqual(restarted.revision, 1);
+    assertEqual(restarted.target.digestSha256, target.digestSha256);
+  } finally {
+    if (peer?.open) peer.close();
     if (db.open) db.close();
     rmSync(directory, { recursive: true, force: false });
   }
