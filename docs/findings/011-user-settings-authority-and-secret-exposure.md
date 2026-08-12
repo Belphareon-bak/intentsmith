@@ -638,6 +638,23 @@ Před promotion 029 proběhne samostatný bounded decommission tracked standalon
 selže před DB/listenerem, raw settings/reset routes jsou inertní a existující
 data se byteově zachovají. Reset není factory delete ani privacy erase.
 
+### 029 standalone chats source progress — Review A/B pending
+
+Source candidate nahrazuje `chats/src/server.js` dependency-free ESM
+sentinelem s jediným `node:url` main guardem. Import nemá lokální, DB,
+filesystem, HTTP, listener, scheduler ani network cestu; přímý start je určený
+k jedinému stderr markeru
+`C3_STANDALONE_CHATS_UNSUPPORTED_NOT_SHIPPED` a exitu `78`. `start` i `dev`
+ukazují na stejný one-shot entrypoint bez watcheru a nested package je
+`private:true`. Canonical `/chat-ui` a hlavní server jsou mimo tento
+decommission; žádná existující standalone chats data nejsou součástí source
+allowlistu.
+
+Toto je pouze source progress. Writer spustil jen povolenou syntax a diff
+kontrolu; bounded direct-boot, listener/process a byte-preservation důkaz náleží
+Review B a zde není tvrzen jako `PASS`. Review A/B, report-only evidence i
+promotion jsou otevřené, stejně jako celý Finding 011 a Gate 1.
+
 026 candidate je přijatý na `69d29ed3` a 029 je aktivované dvěma statickými WPs:
 nejdřív
 [`WP-M1-STANDALONE-CHATS-DECOMMISSION`](../wp/WP-M1-STANDALONE-CHATS-DECOMMISSION.md),

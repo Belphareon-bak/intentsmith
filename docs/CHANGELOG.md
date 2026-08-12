@@ -8,6 +8,23 @@
 
 ---
 
+## Unreleased — standalone chats unsupported/not shipped (WP029 source candidate, 2026-08-12)
+
+> This is source progress, not Review A/B or promotion evidence. The bounded
+> behavior and data-preservation gate remains owned by Review B.
+
+- The tracked standalone `chats/` package is now explicitly unsupported and is
+  not shipped as part of core IntentSmith 1.0. Its one-shot entrypoint fails
+  closed with `C3_STANDALONE_CHATS_UNSUPPORTED_NOT_SHIPPED` before any database,
+  route, listener, scheduler, filesystem, or network capability is loaded.
+- This support change does not apply to canonical `/chat-ui` or the main
+  IntentSmith server. It does not prove that root archive/package rules exclude
+  `chats/`; that separate packaging census remains owned by M5-PACKAGE.
+- Existing standalone chats databases, WAL files, attachments, histories,
+  configuration, logs, sessions, and backups are preserved. Future export,
+  recovery, or erase requires a separate Work Package; this is not a factory
+  reset or privacy erase.
+
 ## Unreleased — M1 notification secret-storage authority (WP026 source candidate, 2026-08-12)
 
 > This is a source-candidate note, not release or promotion evidence. The
