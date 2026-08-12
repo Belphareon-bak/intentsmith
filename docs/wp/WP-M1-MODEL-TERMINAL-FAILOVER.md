@@ -447,6 +447,33 @@ zakázané; cleanup je pouze přirozená expiry. Historický `8192 FAIL` zůstá
 zachovaný. Běhy jsou serializované, artefakty disk-backed mimo `/tmp` a po
 každé fázi se ukončují pouze test-owned process groups.
 
+### 7.1 Corrective T3 po doloženém headroom FAIL
+
+První skutečný T3 běh nad exact `A_EB` skončil po úspěšných modelových
+voláních typovaně `GPU_PILOT_POST_CALL_HEADROOM_UNSAFE`: preflight měl nula
+načtených modelů, nula compute procesů a `22719 MiB` volné VRAM, model měl
+exact digest a `100 %` residency, ale `f16` KV cache pro `num_ctx=4096`
+zanechala pouze `188 MiB` místo požadovaných `1024 MiB`. Přirozená expiry
+vrátila nula načtených modelů, nula compute procesů a `22740 MiB` volné VRAM.
+Artefakt `m1-model-gpu-pilot.json` má SHA-256
+`92befe7a3f5a4e28eedbbfd61c5abaaf32bab00c16d94ede00b76ed993abfb8e` a
+nesmí být nahrazen, přepsán ani vydáván za PASS.
+
+Je autorizovaný právě jeden nový corrective T3 běh se stejným modelem,
+digestem, `num_ctx=4096`, prompt/cancel scénáři, `100 %` residency a limitem
+`1024 MiB`, ale přes izolovaný test-owned loopback Ollama proces s
+`OLLAMA_KV_CACHE_TYPE=q8_0`, `OLLAMA_FLASH_ATTENTION=1`, jedním paralelním
+requestem, jedním načteným modelem a zakázaným cloudem. Proces používá
+existující lokální model store pouze pro čtení, vlastní privátní `HOME`,
+samostatný loopback port a musí být po přirozené expiry ukončen. System Ollama
+service, jeho konfigurace a user data se nemění. Před corrective během musí
+být system Ollama prázdná a GPU bez compute procesu; po běhu musí být oba
+providery i GPU opět prázdné. Pull/delete/rebind a změna modelu, digestu,
+contextu nebo acceptance limitu zůstávají zakázané. Corrective FAIL je
+terminální pro B3 Phase B a nesmí se opakovat; corrective PASS zachovává oba
+artefakty a dovoluje pokračovat přesně zbývající manifest-bound sekvencí bez
+opakování již dokončeného credential apply.
+
 ## 8. Stop conditions a acceptance
 
 Zastavit dotčenou část při nové veřejné capability/connectoru, změně L0,
