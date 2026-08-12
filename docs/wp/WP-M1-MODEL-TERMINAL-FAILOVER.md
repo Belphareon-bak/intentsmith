@@ -11,11 +11,11 @@ izolovaném disk-backed worktree
 
 **sourceEvidenceRevision:** `6c36607421c013dd27f41e35853009bcaa0b5b51`
 
-**baseRevision:** promoted exact `G5` =
-`4b89ad96a8a5824d7437fdc623c2b3f1c8e48a34`. Tento one-file governance
-amendment `G6` musí být jeho direct child, projít nezávislým review a být
-promován výhradně canonical fast-forwardem `G5 -> G6`; teprve exact full SHA
-`G6` je Phase A report base.
+**baseRevision:** promoted exact `G6` =
+`66e65bf9e326770d945192acfdc305d4b5784164`. Tento one-file governance
+amendment `G7` musí být jeho direct child, projít nezávislým review a být
+promován výhradně canonical fast-forwardem `G6 -> G7`; teprve exact full SHA
+`G7` je Phase A report base.
 
 **integrationRef:** `integration/m1-consolidated-20260810`
 
@@ -37,16 +37,17 @@ promován výhradně canonical fast-forwardem `G5 -> G6`; teprve exact full SHA
 - Review B: `evidence/m1-model-terminal-failover-execution-review-b-20260812`;
 - report: tentýž Phase A report, rozšířený byte-prefix-preserving obálkou.
 
-**Stav:** `ACTIVATED / PHASE_A_S4_R_CHANGES_REQUIRED`. 026 a oba sériové 029
-subjecty jsou na exact canonical tipu promovány s Review A/B PASS. S1 až S4
-zůstávají immutable. S4_R =
-`825a73a6c3f607aaa663b0c1ebc9f5a1babe07e7` opravil původní false-green
-regresní oracle a mutation control byl správně RED, ale jeho zachovaný Review A
-attempt skončil `CHANGES_REQUIRED`: `m1-model-policy` byl `FAIL` 6/35 a dalších
-osm sad plus mobile late-insertion zůstalo `NOT RUN`. Diagnóza je test-only
-fixture/oracle drift bez nového production findingu. G6 ani adopce S4_R nejsou
-důkazem opravy, celého bounded programu, nového proofu, GPU residency nebo Gate
-1 PASS.
+**Stav:** `ACTIVATED / PHASE_A_S4_R2_CHANGES_REQUIRED`. 026 a oba sériové 029
+subjecty jsou na exact canonical tipu promovány s Review A/B PASS. S1 až S4_R
+zůstávají immutable. S4_R2 =
+`39c441afa2f4c926ab5acf279ce4650a17f15636` zachoval očekávaně RED mutation
+control, ale jeho Review A attempt skončil `CHANGES_REQUIRED`:
+`m1-model-policy` měl 38 PASS / 3 FAIL a dalších osm sad plus mobile
+late-insertion zůstalo `NOT RUN`. Exact residual cause jsou tři úspěšné
+`GLOBAL_RESET` testy, které používají zkrácenou `createPolicySchema` fixture
+místo úplného migračního plánu; jde pouze o test fixture drift bez nového
+production findingu. G7 ani adopce S4_R2 nejsou důkazem opravy, celého bounded
+programu, nového proofu, GPU residency nebo Gate 1 PASS.
 
 ## 1. Uživatelský výsledek
 
@@ -206,12 +207,16 @@ Původní implementační plán zůstává rozdělený do čtyř malých slice c
    false-green důkaz; exact commit je
    `825a73a6c3f607aaa663b0c1ebc9f5a1babe07e7` a jeho Review A attempt zůstává
    `CHANGES_REQUIRED`;
-6. `S4_R2` — právě jeden poslední test-only corrective commit; smí změnit pouze
-   `tests/m1-model-policy.test.js` a opravit čtyři exact fixture/oracle body:
-   odstranit 065 z legacy `createPolicySchema` fixture; změnit poslední plán
-   `064 -> 065`; v `before061` vyloučit 065 a v subsequent listu jej zahrnout
-   po 064; zachovat stale target body byte/exact jako target. Žádná jiná změna
-   není povolená.
+6. `S4_R2` = `39c441afa2f4c926ab5acf279ce4650a17f15636` — test-only
+   corrective commit změnil pouze `tests/m1-model-policy.test.js`; jeho
+   mutation control byl očekávaně RED, ale Review A zůstává
+   `CHANGES_REQUIRED` kvůli třem residual fixture selháním;
+7. `S4_R3` — právě jeden poslední test-only corrective commit; smí změnit pouze
+   `tests/m1-model-policy.test.js`. Ve třech success `GLOBAL_RESET` případech
+   přibližně na řádcích 1377, 1421 a 1961 musí použít úplné
+   `await runMigrations(db)` místo `createPolicySchema`; explicit reset sync
+   test se změní na async `testAsync`. Migrace 065 se nesmí globálně vrátit do
+   legacy fixture a žádná jiná změna není povolená.
 
 Zachovaný Review A attempt nad S4_R má tyto výsledky: první test log SHA-256
 `48becd44783bc5fc5f1719ac2cfa787214ee36c93b1cb663aee9ecb951318556`,
@@ -224,31 +229,42 @@ false/stale oracle = 35. Zbývajících osm sad a mobile late-insertion nebylo
 spuštěno. Tento neúspěch ani jeho artefakty se nemažou a nevydávají za product
 finding.
 
-Source/test historie má se S4_R sedm fyzických implementačních commitů: S1,
-S1_R, S2, S2_R, S3, S4 a S4_R. `S4_R2` je osmý a poslední fyzický commit;
-nesmí obsahovat production source ani jinou cestu. Historie se nerebasuje,
-nesquashuje ani nepřepisuje a S3, S4, S4_R, findingy i neúspěšné verdicty
-zůstávají dohledatelné. S4_R2 nerozšiřuje production behavior, allowlist,
-auth/access/trusted-local hranici, produkt ani veřejný connector.
+Zachovaný Review A attempt nad S4_R2 má policy log SHA-256
+`ace32d642a563eb848b2fe69804765abedf8e1358d3761290edc2bd47f786d84`,
+112210 B, s výsledkem 38 PASS / 3 FAIL; mutation-control log SHA-256
+`a4872293d0bc4f79839636898a5559a70c8642f5c260c148039031e02fe18a95`
+je očekávaně RED; offline-install log SHA-256
+`0105d732007ac430ec0aba5359b9767e9cbda559099d4889cbb3bd66dbb1930a`.
+Zbývajících osm sad a mobile late-insertion nebylo spuštěno. Exact tři failure
+jsou výhradně success `GLOBAL_RESET` fixture případy bez úplného migračního
+plánu; nejde o production finding. Tento neúspěch ani artefakty se nemažou.
+
+Source/test historie má se S4_R2 osm fyzických implementačních commitů: S1,
+S1_R, S2, S2_R, S3, S4, S4_R a S4_R2. `S4_R3` je devátý a poslední fyzický
+commit; nesmí obsahovat production source ani jinou cestu. Historie se
+nerebasuje, nesquashuje ani nepřepisuje a S3, S4, S4_R, S4_R2, findingy i
+neúspěšné verdicty zůstávají dohledatelné. S4_R3 nerozšiřuje production
+behavior, allowlist, auth/access/trusted-local hranici, produkt ani veřejný
+connector.
 
 Adopce amendmentu zachová již existující source commity i refy beze změny:
 
-1. `G6` je one-file docs-only direct child exact `G5`; po independent `PASS`
-   se canonical integration posune pouze fast-forwardem `G5 -> G6`;
-2. S4_R a jeho `CHANGES_REQUIRED` Review A attempt zůstávají immutable;
-3. governance adoption merge `M6` má ordered parents exact `[G6,S4_R]`; jeho
-   WP blob je byte-identický s G6 a všechny non-WP cesty jsou byte-identické se
-   S4_R. M6 nesmí obsahovat behavior, source, test ani jinou docs změnu;
-4. S4_R2 je direct child M6 a mění pouze exact test path výše. Existující
-   `wp/m1-model-terminal-failover-20260812` smí fast-forwardovat přes M6 a
-   S4_R2; S4_R ani žádný starší commit se nepřepisuje.
+1. `G7` je one-file docs-only direct child exact `G6`; po independent `PASS`
+   se canonical integration posune pouze fast-forwardem `G6 -> G7`;
+2. S4_R2 a jeho `CHANGES_REQUIRED` Review A attempt zůstávají immutable;
+3. governance adoption merge `M7` má ordered parents exact `[G7,S4_R2]`; jeho
+   WP blob je byte-identický s G7 a všechny non-WP cesty jsou byte-identické se
+   S4_R2. M7 nesmí obsahovat behavior, source, test ani jinou docs změnu;
+4. S4_R3 je direct child M7 a mění pouze exact test path výše. Existující
+   `wp/m1-model-terminal-failover-20260812` smí fast-forwardovat přes M7 a
+   S4_R3; S4_R2 ani žádný starší commit se nepřepisuje.
 
-Phase A Review A posuzuje exact `G6..S4_R2`; writer není reviewer. Po S4_R2
+Phase A Review A posuzuje exact `G7..S4_R3`; writer není reviewer. Po S4_R3
 nesmí přistát žádná další source, test ani governance-doc změna; jedinou tracked
-výjimkou je rezervovaný report. `A_EA` je report-only direct child S4_R2 a
-obsahuje exact `phaseA.integrationRef`, `phaseA.baseRevision=G6`,
+výjimkou je rezervovaný report. `A_EA` je report-only direct child S4_R3 a
+obsahuje exact `phaseA.integrationRef`, `phaseA.baseRevision=G7`,
 `phaseA.subjectHead` a `phaseA.reviewA.verdict`. Candidate `A_C` má ordered
-parents exact `[G6,A_EA]`, strom byte-identický s `A_EA`; `A_EB` je direct
+parents exact `[G7,A_EA]`, strom byte-identický s `A_EA`; `A_EB` je direct
 child `A_C` a byte-exact připojí pouze `phaseA.candidateHead` a
 `phaseA.reviewB.verdict`. Teprve metadata gate dovolí fast-forward canonical
 integration na `A_EB`.
@@ -280,10 +296,10 @@ child `B_C` a připojí pouze `phaseB.candidateHead` a
 `CONTRACT.md`; Phase B nesmí zpětně měnit Phase A prefix ani source tree.
 
 ```text
-G5 -> G6 -> canonical governance amendment
-G5 + S4 -> M5([G5,S4]) -> S4_R(CHANGES_REQUIRED)
-G6 + S4_R -> M6([G6,S4_R]) -> S4_R2 -> A_EA
-G6 + A_EA -> A_C([G6,A_EA]) -> A_EB -> canonical Phase A
+G6 -> G7 -> canonical governance amendment
+G6 + S4_R -> M6([G6,S4_R]) -> S4_R2(CHANGES_REQUIRED)
+G7 + S4_R2 -> M7([G7,S4_R2]) -> S4_R3 -> A_EA
+G7 + A_EA -> A_C([G7,A_EA]) -> A_EB -> canonical Phase A
 accepted M1-EXECUTION-MANIFEST
 measurementRevision(contains A_EB) -> B_S -> B_EA
 current integration + B_EA -> B_C -> B_EB -> canonical Phase B
