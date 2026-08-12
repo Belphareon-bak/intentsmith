@@ -95,6 +95,29 @@ nerefrozne, dokud backend nemá Gate 1 pro `C3-002` (chat sessions) a `C3-023`
 4. Per fázi: příslušná Gate 1 závislost + **vlastní Work Package**.
 5. Teprve v tom WP vzniká routa, obrazovka a testy.
 
+### 0.6 Erratum — nalezeno autorem po odevzdání, před review
+
+Faktická kontrola citací (ne review; **autor revidovat nesmí**, řádek 6) našla
+jednu nepřesnost, opravenou samostatným commitem nad `1927d1f2`:
+
+| Kde | Bylo | Je |
+|---|---|---|
+| `B5.4a` | „`contracts/m1/index.js` vede `CoreEvent` jako `PROVISIONAL_V1`" | `PROVISIONAL_V1` je `M1_CONTRACT_STAGE` v `contracts/m1/shared.js` a je to stage **celého** kontraktu, ne značka jednoho typu |
+
+Důsledek pro `B5.4a` je věcný, ne kosmetický: „připnout `CoreEvent`" nemůže být
+lokální úkon nad jedním typem, protože dnešní kód stagování per kind nezná.
+
+Ostatní citace na kód **prošly** — `approval-authority.js` („fingerprint is
+computed, never accepted"), `handlers.js` (lookup vrací `CONFIRMED`),
+`gateway-policy.js` (dotaz v URL končí v logách a historii),
+`routes/projects.js` (`GET /api/projects`, `status active|archived|deleted`),
+`agents/runner.js:167` (`dryRun(config)`), migrace `..._013_v78_archive_status`,
+`gateway-instance.js` (per-proces `instance_id`), `MD-13` (kurzor bez TTL),
+`DATA-MODEL` §4.4 (lookup není rekonciliace) a `projects` bez `updated_at`.
+
+Nově **doložený**, dřív jen tvrzený, je konverzační charakter `CoreEvent`:
+`validateCoreEvent` vyžaduje `conversationId` i `turnId` u každé události.
+
 ---
 
 # ČÁST A — Společné wire jádro
@@ -1484,9 +1507,17 @@ běh vypadal jako neúspěšný.
 
 ### B5.4a Vztah k `CoreEvent`
 
-`ROADMAP` žádá, aby `RemoteCorePort` vznikal nad připnutým `CoreEvent`. Dnešní
-`contracts/m1/index.js` vede `CoreEvent` jako `PROVISIONAL_V1` a je konverzačně
-orientovaný — běhy jím neprocházejí.
+`ROADMAP` žádá, aby `RemoteCorePort` vznikal nad připnutým `CoreEvent`. Dnešek:
+
+- **Stage.** `contracts/m1/shared.js` vede `M1_CONTRACT_STAGE = 'PROVISIONAL_V1'`.
+  Je to stage **celého** kontraktu `/m1`, ne značka jednotlivého typu; `CoreEvent`
+  je jedna z jeho pěti kind (`M1_CONTRACT_KIND.CORE_EVENT`). Připnout `CoreEvent`
+  tedy neznamená označit jeden typ — znamená to povýšit stage celého kontraktu,
+  nebo zavést pro kind samostatné stagování, které dnes neexistuje.
+- **Tvar.** `validateCoreEvent` (`contracts/m1/index.js`) vyžaduje `conversationId`
+  **i** `turnId` u každé události. `CoreEvent` je tím pádem konverzačně
+  orientovaný **doložitelně**, ne dojmem: běh bez konverzace jím projít nemůže,
+  protože by neměl čím ta dvě povinná pole vyplnit.
 
 **Tenhle kontrakt proto nezavádí druhý konektor.** `RunEvent` je **projekce nad
 `CoreEvent`**, ne paralelní proud; WP musí doložit mapování `CoreEvent` →
