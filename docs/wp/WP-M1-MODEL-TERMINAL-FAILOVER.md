@@ -11,11 +11,11 @@ izolovaném disk-backed worktree
 
 **sourceEvidenceRevision:** `6c36607421c013dd27f41e35853009bcaa0b5b51`
 
-**baseRevision:** promoted exact `G_B3_2` =
-`5e3264c209c609ef40a5971f05ad4a11ffb53864`. Commit-cap amendment
-`G_B3_3` musí být jeho direct child, projít nezávislým review a být promován
-výhradně canonical fast-forwardem `G_B3_2 -> G_B3_3`; teprve jeho exact full
-SHA je Phase A report base.
+**baseRevision:** promoted exact `G3` =
+`2d230c0067d70f31465f2066dfb16284a927babe`. Tento one-file governance
+amendment `G4` musí být jeho direct child, projít nezávislým review a být
+promován výhradně canonical fast-forwardem `G3 -> G4`; teprve exact full SHA
+`G4` je Phase A report base.
 
 **integrationRef:** `integration/m1-consolidated-20260810`
 
@@ -37,12 +37,14 @@ SHA je Phase A report base.
 - Review B: `evidence/m1-model-terminal-failover-execution-review-b-20260812`;
 - report: tentýž Phase A report, rozšířený byte-prefix-preserving obálkou.
 
-**Stav:** `ACTIVATED / PHASE_A_S2_CHANGES_REQUIRED`. 026 a oba sériové 029
-subjecty jsou na exact canonical tipu promovány s Review A/B PASS. S1 a jeho
-nezávisle zreviewovaný corrective child existují; S2 má zachovaný nezávislý
-`CHANGES_REQUIRED` verdict a čeká na právě jeden corrective child. Aktivace ani
-tento commit-cap amendment nejsou důkazem terminal effectu, nového proofu, GPU
-residency ani Gate 1 PASS.
+**Stav:** `ACTIVATED / PHASE_A_S3_CHANGES_REQUIRED`. 026 a oba sériové 029
+subjecty jsou na exact canonical tipu promovány s Review A/B PASS. S1/S1_R a
+S2/S2_R zůstávají immutable; S3 =
+`bbeed6a8501796aa5b6d44850b1d9e5b1530481e` má zachovaný nezávislý
+`CHANGES_REQUIRED` verdict kvůli changed-incarnation +
+`runtimeReceipt === null` blind replay findingu. G4 ani adopce S3 nejsou
+důkazem opravy, terminal effectu, nového proofu, GPU residency nebo Gate 1
+PASS.
 
 ## 1. Uživatelský výsledek
 
@@ -186,37 +188,45 @@ Původní implementační plán zůstává rozdělený do čtyř malých slice c
    independently reviewed direct child
    `5917ad4839493ab5d49f0464069c9d6b4f3d4015`;
 2. `S2` = `e49de24d4e4ecd671cf7382921bbe01387343b52` — terminal
-   repository/claim/CAS; independent review skončil `CHANGES_REQUIRED` a smí
-   následovat právě jeden corrective direct child `S2_R`, který je zatím
-   pending;
-3. `S3` — jediný runtime owner, coordinator a startup reconciliation;
-4. `S4` — úplná proof/source closure a finální immutable `S_B3`.
+   repository/claim/CAS; jeho zachovaný `CHANGES_REQUIRED` napravil
+   independently reviewed direct child `S2_R` =
+   `2ca8c9b75dd9406b1cc050a3fc1b872302a58741`;
+3. `S3` = `bbeed6a8501796aa5b6d44850b1d9e5b1530481e` — jediný runtime
+   owner, coordinator a startup reconciliation; independent review skončil
+   `CHANGES_REQUIRED`, protože changed runtime incarnation s
+   `runtimeReceipt === null` může blind replaynout terminal effect;
+4. `S4` — úplná proof/source closure, právě jedna oprava tohoto S3 findingu a
+   její úzký regresní test; zároveň finální immutable `S_B3`.
 
-Čtyři planned slices smějí mít dohromady nejvýše dva independently reviewed
-corrective child commity, tedy nejvýše šest fyzických implementačních commitů.
-První corrective slot už spotřeboval S1 a druhý je rezervovaný výhradně pro
-`S2_R`. Historie se nerebasuje, nesquashuje ani nepřepisuje a žádný finding ani
-neúspěšný verdict se nemaže. `S2_R` musí být direct child S2 a S3 se nesmí
-otevřít před jeho independent `PASS`; pokud corrective slot nestačí nebo S3/S4
-vyžádá další writer commit, dotčená část se zastaví pro nový governance pin.
+Source historie má před S4 pět fyzických implementačních commitů: S1, S1_R,
+S2, S2_R a S3. Nevznikne S3 corrective child ani jiný extra source commit;
+oprava se složí do plánovaného S4 jako šestého a posledního fyzického source
+commitu. S4 smí vedle původně plánované closure změnit jen existující
+allowlistované source/test cesty nutné k tomu, aby changed-incarnation +
+`runtimeReceipt === null` nemohlo bez exact durable authority znovu provést
+terminal effect, a jeden odpovídající allowlistovaný regresní test. Historie se
+nerebasuje, nesquashuje ani nepřepisuje a S3 finding i `CHANGES_REQUIRED`
+zůstávají dohledatelné. Jde o scope closure, ne rozšíření behavioru, allowlistu,
+auth/access/trusted-local hranice, produktu nebo veřejného connectoru.
 
 Adopce amendmentu zachová již existující source commity i refy beze změny:
 
-1. `G_B3_3` je docs-only direct child exact `G_B3_2`; po independent `PASS`
-   se canonical integration posune pouze fast-forwardem `G_B3_2 -> G_B3_3`;
-2. po independent `PASS` nad `S2_R` vznikne governance adoption merge `M_G`
-   s ordered parents exact `[G_B3_3,S2_R]`;
-3. strom `M_G` je pro všechny cesty kromě tohoto WP byte-identický se `S2_R`
-   a blob `docs/wp/WP-M1-MODEL-TERMINAL-FAILOVER.md` je byte-identický s
-   `G_B3_3`; merge nesmí obsahovat behavior, source, test ani jinou docs změnu;
-4. S3 je direct child `M_G` a S4 je direct child S3.
+1. `G4` je one-file docs-only direct child exact `G3`; po independent `PASS`
+   se canonical integration posune pouze fast-forwardem `G3 -> G4`;
+2. S3 a jeho `CHANGES_REQUIRED` review zůstávají immutable a bez nového
+   source corrective commitu;
+3. governance adoption merge `M4` má ordered parents exact `[G4,S3]`; jeho WP
+   blob je byte-identický s G4 a všechny non-WP cesty jsou byte-identické se
+   S3. M4 nesmí obsahovat behavior, source, test ani jinou docs změnu;
+4. S4 je direct child M4 a obsahuje jen původní scope closure plus výše
+   připnutou jednu opravu/test.
 
-Phase A Review A posuzuje exact `G_B3_3..S4`; writer není reviewer. Po S4
+Phase A Review A posuzuje exact `G4..S4`; writer není reviewer. Po S4
 nesmí přistát žádná další source, test ani governance-doc změna; jedinou tracked
 výjimkou je rezervovaný report. `A_EA` je report-only direct child S4 a
-obsahuje exact `phaseA.integrationRef`, `phaseA.baseRevision=G_B3_3`,
+obsahuje exact `phaseA.integrationRef`, `phaseA.baseRevision=G4`,
 `phaseA.subjectHead` a `phaseA.reviewA.verdict`. Candidate `A_C` má ordered
-parents exact `[G_B3_3,A_EA]`, strom byte-identický s `A_EA`; `A_EB` je direct
+parents exact `[G4,A_EA]`, strom byte-identický s `A_EA`; `A_EB` je direct
 child `A_C` a byte-exact připojí pouze `phaseA.candidateHead` a
 `phaseA.reviewB.verdict`. Teprve metadata gate dovolí fast-forward canonical
 integration na `A_EB`.
@@ -248,10 +258,10 @@ child `B_C` a připojí pouze `phaseB.candidateHead` a
 `CONTRACT.md`; Phase B nesmí zpětně měnit Phase A prefix ani source tree.
 
 ```text
-G_B3_2 -> G_B3_3 -> canonical governance amendment
-G_B3_2 -> S1 -> S1_R -> S2 -> S2_R(PASS)
-G_B3_3 + S2_R -> M_G -> S3 -> S4 -> A_EA
-G_B3_3 + A_EA -> A_C -> A_EB -> canonical Phase A
+G3 -> G4 -> canonical governance amendment
+G3 -> M3([G3,S2_R]) -> S3(CHANGES_REQUIRED)
+G4 + S3 -> M4([G4,S3]) -> S4 -> A_EA
+G4 + A_EA -> A_C([G4,A_EA]) -> A_EB -> canonical Phase A
 accepted M1-EXECUTION-MANIFEST
 measurementRevision(contains A_EB) -> B_S -> B_EA
 current integration + B_EA -> B_C -> B_EB -> canonical Phase B
