@@ -9,19 +9,30 @@ izolovaném disk-backed worktree
 [024/A](../decisions/024-m1-proof-issuer-provenance.md) a
 `M1-CLOSEOUT-X1`
 
-**sourceEvidenceRevision / baseRevision:**
-`6c36607421c013dd27f41e35853009bcaa0b5b51`
+**sourceEvidenceRevision:** `6c36607421c013dd27f41e35853009bcaa0b5b51`
+
+**baseRevision:** promoted exact `G_B3_2`, tedy finální docs-only activation tip;
+jeho full SHA zapíše Phase A report a tento commit jej sám nepředstírá
 
 **integrationRef:** `integration/m1-consolidated-20260810`
 
 **Branch:** `wp/m1-model-terminal-failover-20260812`
 
-**Review/promotion refs:**
+**Phase A implementation review/promotion refs:**
 
 - Review A: `evidence/m1-model-terminal-failover-review-a-20260812`;
 - merge queue: `queue/m1-model-terminal-failover-promotion-20260812`;
 - Review B: `evidence/m1-model-terminal-failover-review-b-20260812`;
 - report: `docs/execution/runs/wp-m1-model-terminal-failover-20260812-report.md`.
+
+**Phase B execution review/promotion refs:**
+
+- measured report subject:
+  `evidence/m1-model-terminal-failover-execution-subject-20260812`;
+- Review A: `evidence/m1-model-terminal-failover-execution-review-a-20260812`;
+- merge queue: `queue/m1-model-terminal-failover-execution-promotion-20260812`;
+- Review B: `evidence/m1-model-terminal-failover-execution-review-b-20260812`;
+- report: tentýž Phase A report, rozšířený byte-prefix-preserving obálkou.
 
 **Stav:** `ACTIVATED / IMPLEMENTATION_NOT_STARTED`. 026 a oba sériové 029
 subjecty jsou na exact canonical tipu promovány s Review A/B PASS. Aktivace
@@ -71,7 +82,7 @@ podle exact generation a nikdy blind replayem ani jiným kandidátem.
 - `tests/m1-model-failover-proof-issuer.test.js`;
 - `tests/schema-migrations.test.js`.
 
-Review A report smí jako report-only `E_A` vytvořit pouze výše rezervovaný run
+Review A report smí jako report-only `A_EA` vytvořit pouze výše rezervovaný run
 report. Po immutable source subjectu není dovolena jiná docs/source/test změna.
 
 **Zakázané:** routes, HTTP/WS connector, Studio/mobile/chat/quality, generic
@@ -87,14 +98,26 @@ Migrace 065 je jediná aditivní schema změna a zavádí versioned per-role tar
 autoritu a append-only target event. Target obsahuje requested name, canonical
 name, exact lowercase 64hex digest, revision, actor, čas a poslední event.
 Jediný writer je typed CAS seam v `src/db/model-policy.js`; caller dodává
-expected revision a celý exact target nebo explicitní clear. Missing/extra
-pole, canonical mismatch, stale revision, neinstalled/ambiguous artifact nebo
-policy OFF selžou před mutací.
+expected target revision a celý exact target nebo explicitní clear. Missing/
+extra pole, canonical mismatch, stale revision nebo neinstalled/ambiguous
+artifact selžou před mutací. Set/replace navíc vyžaduje policy ON a úplnou
+eligibility; explicitní clear je přípustný i při policy OFF.
 
-Backup/import target nepřenáší a destination jej zachová. Explicitní
-`SERVER_SETTINGS_V1` reset target vyčistí ve stejné dual-CAS transakci. Migrace
-defaultuje na žádný target a neodvozuje jej z proof ledgeru, installed modelů,
-configu ani legacy settings. „Nejnovější proof vyhrává“ je zakázaná sémantika.
+Backup/import target nepřenáší a destination jej zachová. Veřejný 029
+`SERVER_SETTINGS_V1` reset zachová exact request, response, obě existující CAS,
+route i auth hranici; nepřidává `expectedTargetRevision`. Tentýž existující
+`BEGIN IMMEDIATE` nejdřív validuje settings+policy CAS, potom pod získaným lockem
+načte a atomicky vyčistí všechny owned targety společně se settings a policy,
+nebo necommitne nic. Reset tedy vyhrává: update commitnutý před resetem se
+vyčistí, stale pre-reset target operace po resetu prohraje na policy/CAS a nový
+target smí nastavit jen nově přijatá explicitní operátorská akce po resetu.
+
+Reset nesmí provést post-commit clear, druhou transakci, runtime/provider efekt
+ani přidat target-clear/second audit event. Celý reset má přesně jednu již
+existující `GLOBAL_RESET` lineage/event. Pouze obyčejný target set/replace/clear
+vlastní právě jeden append-only target event. Migrace defaultuje na žádný target
+a neodvozuje jej z proof ledgeru, installed modelů, configu ani legacy settings.
+„Nejnovější proof vyhrává“ je zakázaná sémantika.
 
 Ordinál 065 je rezervovaný z union census canonical
 `6c36607421c013dd27f41e35853009bcaa0b5b51` a mobile ref
@@ -158,22 +181,52 @@ Source writer použije nejvýše čtyři malé commity:
 3. `S3` — jediný runtime owner, coordinator a startup reconciliation;
 4. `S4` — úplná proof/source closure a finální immutable `S_B3`.
 
-Review A posuzuje exact `G_B3..S_B3`; writer není reviewer. `E_A` je
-report-only direct child `S_B3`. Candidate `C_B3` má ordered parents exact
-`[G_B3,E_A]`, strom byte-identický s `E_A`, a projde fresh-clone Review B.
-`E_B` přidá pouze exact dvouřádkový append a teprve metadata gate dovolí
-fast-forward canonical integration.
+Phase A Review A posuzuje exact `G_B3_2..S_A`; writer není reviewer. Po `S_A`
+nesmí přistát žádná další source, test ani governance-doc změna; jedinou tracked
+výjimkou je rezervovaný report. `A_EA` je report-only direct child `S_A` a
+obsahuje exact `phaseA.integrationRef`, `phaseA.baseRevision`,
+`phaseA.subjectHead` a `phaseA.reviewA.verdict`. Candidate `A_C` má ordered
+parents exact `[G_B3_2,A_EA]`, strom byte-identický s `A_EA`; `A_EB` je direct
+child `A_C` a byte-exact připojí pouze `phaseA.candidateHead` a
+`phaseA.reviewB.verdict`. Teprve metadata gate dovolí fast-forward canonical
+integration na `A_EB`.
 
 **Phase A — implementation evidence:** offline deterministic matrix,
 source-closure, mobile late-insertion, report DAG a fresh clone. Nespouští GPU,
 Ollamu proti skutečnému modelu ani user-data effect.
 
-**Phase B — execution evidence:** až nad přijatým digest-bound
-`M1-EXECUTION-MANIFEST` může jeden disposable file-backed DB/runtime provést
+**Phase B — execution evidence:** začíná až po Phase A promotion a přijetí
+jednoho digest-bound `M1-EXECUTION-MANIFEST`. Exact measurement revision musí
+obsahovat `A_EB`; její tree, execution-manifest SHA-256 a digest každého raw
+artefaktu jsou provenance. Jeden disposable file-backed DB/runtime smí provést
 exact target/desired happy path proti lokální Ollamě a vydat potřebné proofy.
-Failure/race matrix zůstává test-owned. Skutečná user DB/config se nemění.
-Failure artefakty se zachovají a Phase B se nesmí zpětně vydávat za součást
-Phase A Review B.
+Failure/race matrix zůstává test-owned, user DB/config se nemění a failure
+artefakty se zachovají.
+
+`B_S` je report-only direct child exact measurement revision. Zachová celý
+`A_EB` report byteově jako prefix, přidá neprázdný measured payload s exact
+per-artifact SHA-256/byte length a zakončí jej exact-once klíči
+`phaseB.integrationRef`, `phaseB.reportBaseRevision`,
+`phaseB.measurementRevision`, `phaseB.measurementTree`,
+`phaseB.executionManifestSha256` a `phaseB.artifactManifestSha256`. Payload
+nesmí používat line-start namespace `phaseA.`/`phaseB.`. `B_EA` je direct child
+`B_S` a připojí pouze `phaseB.subjectHead` a `phaseB.reviewA.verdict`.
+Independent candidate `B_C` zachová report blob z `B_EA`; `B_EB` je direct
+child `B_C` a připojí pouze `phaseB.candidateHead` a
+`phaseB.reviewB.verdict`. Všechny obálky používají byte-exact
+`assert_report_same`, `assert_report_append` nebo `assert_report_extension` z
+`CONTRACT.md`; Phase B nesmí zpětně měnit Phase A prefix ani source tree.
+
+```text
+G_B3_2 -> S_A -> A_EA
+G_B3_2 + A_EA -> A_C -> A_EB -> canonical Phase A
+accepted M1-EXECUTION-MANIFEST
+measurementRevision(contains A_EB) -> B_S -> B_EA
+current integration + B_EA -> B_C -> B_EB -> canonical Phase B
+```
+
+B4 se nesmí otevřít po samotném `A_EB`; odemyká jej až metadata-ověřený a
+canonical fast-forward promováný `B_EB`.
 
 ## 7. T3 resource envelope
 
