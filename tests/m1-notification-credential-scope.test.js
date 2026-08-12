@@ -1190,8 +1190,11 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
 
   const runtimeEnvironmentSource = readSource('src/runtime-environment.js');
   const rootEnvironmentFileSource = readSource('src/security/root-environment-file.js');
-  assert.match(rootEnvironmentFileSource, /fs\.constants\.O_NOFOLLOW/);
-  assert.match(rootEnvironmentFileSource, /fs\.constants\.O_NONBLOCK/);
+  assert.match(
+    rootEnvironmentFileSource,
+    /const \{ O_NOFOLLOW, O_NONBLOCK \} = fs\.constants;/,
+    'root env safe flags must come from fs.constants',
+  );
   assert.match(runtimeEnvironmentSource, /readRootEnvironmentBootstrap/);
   assert.doesNotMatch(runtimeEnvironmentSource, /from 'node:fs'/);
   assert.doesNotMatch(

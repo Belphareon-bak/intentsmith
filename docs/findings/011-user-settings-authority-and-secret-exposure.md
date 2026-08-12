@@ -565,6 +565,17 @@ skutečnou assignment hranou a přidává jméno chybějícího seamu do failure
 zprávy. Ani `3f5875ef` není PASS a další replacement musí znovu projít celým
 writer gate.
 
+Třetí replacement `544aef9018c055e796606c3fa038f257985ab2ff`
+posunul writer gate za settings authority (`4/4`), ale credential-scope program
+skončil `1/2`: jeho source ratchet hledal doslovné
+`fs.constants.O_NOFOLLOW` a `fs.constants.O_NONBLOCK`, zatímco sdílený C1 seam
+bezpečně destrukturuje oba příznaky jedinou hranou
+`const { O_NOFOLLOW, O_NONBLOCK } = fs.constants;` a dál samostatně ověřuje
+jejich nenulové hodnoty. Studio a registry byly kvůli fail-fast `NOT RUN`.
+Oprava znovu nemění produkční kód ani auth/access boundary; nahrazuje dva stale
+regexy jedním přesnějším ratchetem na skutečný zdroj příznaků. Ani `544aef90`
+není PASS a další replacement musí znovu projít celým writer gate.
+
 DB census je záměrně neprefixový. Vedle `webhookSecret` a legacy
 `c3.notif.webhookSecret` zahrne všech devět retired typed notification cest a
 stejných deset nested `notifications.*` sensitive cest jako Architect
