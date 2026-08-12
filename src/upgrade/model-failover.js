@@ -7,8 +7,12 @@
 // verification, broadcast, automatic failover or scheduler work itself.
 
 import { randomUUID } from 'node:crypto';
-import { readModelAutomationPolicy } from '../db/model-policy.js';
+import {
+  readModelAutomationPolicy,
+  readModelFailoverTarget,
+} from '../db/model-policy.js';
 import { canonicalModelName } from './model-identity.js';
+import { getModelFailoverMeasurementContract } from './model-failover-proof-policy.js';
 
 export const MODEL_FAILOVER_POLICY_VERSION = 'd-plus-v1';
 export const MODEL_FAILOVER_ACTOR = 'system:binding-integrity';
@@ -92,6 +96,11 @@ const DEFAULT_IDS = Object.freeze({
   operation: () => `op_${randomUUID()}`,
   claimToken: () => `claim_${randomUUID()}`,
 });
+const TERMINAL_INVENTORY_RESULT_FIELDS = Object.freeze([
+  'canonicalName',
+  'digestSha256',
+  'name',
+]);
 // Migration 053 owns these exact fail-closed signals.  SQLite reports a
 // RAISE(ABORT, ...) trigger as SQLITE_CONSTRAINT_TRIGGER, so the extended
 // result code alone cannot distinguish an identity collision from any other
@@ -106,6 +115,11 @@ const APPEND_ONLY_IDENTITY_CONFLICT_SIGNALS = new Set([
   'MODEL_BINDING_PROVIDER_ATTEMPT_IDENTITY_CONFLICT',
   'MODEL_BINDING_USER_NOOP_APPEND_ONLY_CONFLICT',
   'MODEL_BINDING_USER_NOOP_PROVIDER_SUPERSEDES_CONFLICT',
+  'MODEL_FAILOVER_TERMINAL_INTENT_IDENTITY_CONFLICT',
+  'MODEL_FAILOVER_TERMINAL_RECEIPT_IDENTITY_CONFLICT',
+  'MODEL_FAILOVER_ACTIVE_PROOF_EXPIRY_IDENTITY_CONFLICT',
+  'MODEL_FAILOVER_ACTIVE_PROOF_REVALIDATION_IDENTITY_CONFLICT',
+  'MODEL_FAILOVER_TERMINAL_SUPERSEDE_IDENTITY_CONFLICT',
 ]);
 
 function hasOwnedAppendOnlyIdentityConflictSignal(error) {
@@ -273,6 +287,118 @@ function requireNonNegativeInteger(value, field) {
   return value;
 }
 
+function requireRuntimeIncarnation(value, field = 'runtime.incarnationId') {
+  return requireExactString(value, field, { min: 16, max: 160 });
+}
+
+function requireTerminalInventoryResult(value, expected) {
+  if (!isPlainObject(value)) {
+    fail(
+      'MODEL_FAILOVER_TERMINAL_INVENTORY_INVALID',
+      'Terminal inventory assertion must return a plain exact identity',
+    );
+  }
+  const keys = Reflect.ownKeys(value).filter(key => typeof key === 'string').sort();
+  if (Reflect.ownKeys(value).length !== TERMINAL_INVENTORY_RESULT_FIELDS.length
+    || keys.length !== TERMINAL_INVENTORY_RESULT_FIELDS.length
+    || keys.some((key, index) => key !== TERMINAL_INVENTORY_RESULT_FIELDS[index])) {
+    fail(
+      'MODEL_FAILOVER_TERMINAL_INVENTORY_INVALID',
+      'Terminal inventory assertion returned an invalid field set',
+      { actualFields: keys },
+    );
+  }
+  for (const field of TERMINAL_INVENTORY_RESULT_FIELDS) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, field);
+    if (!descriptor || !Object.hasOwn(descriptor, 'value') || descriptor.enumerable !== true) {
+      fail(
+        'MODEL_FAILOVER_TERMINAL_INVENTORY_INVALID',
+        'Terminal inventory identity fields must be enumerable data properties',
+        { field },
+      );
+    }
+  }
+  const requestedName = requireExactString(value.name, 'terminalInventory.name', {
+    max: 512,
+  });
+  const canonicalName = requireExactString(
+    value.canonicalName,
+    'terminalInventory.canonicalName',
+    { max: 512 },
+  );
+  const digestSha256 = requireDigest(
+    value.digestSha256,
+    'terminalInventory.digestSha256',
+  );
+  if (canonicalModelName(requestedName) !== canonicalName
+    || requestedName !== expected.modelName
+    || canonicalName !== expected.canonicalName
+    || digestSha256 !== expected.digestSha256) {
+    fail(
+      'MODEL_FAILOVER_TERMINAL_INVENTORY_MISMATCH',
+      'Live installed artifact does not match the exact terminal effect',
+      {
+        expected,
+        observed: { requestedName, canonicalName, digestSha256 },
+      },
+    );
+  }
+  return Object.freeze({ requestedName, canonicalName, digestSha256 });
+}
+
+function requireTerminalRuntime(value) {
+  if (!isPlainObject(value)) {
+    fail('MODEL_FAILOVER_INPUT_INVALID', 'runtime must be a plain object');
+  }
+  requireExactInputFields(value, [
+    'incarnationBefore',
+    'incarnationAfter',
+    'generationBefore',
+    'generationAfter',
+    'fromModelName',
+    'fromDigestSha256',
+    'toModelName',
+    'toDigestSha256',
+    'changed',
+  ]);
+  const fromModelName = requireExactString(value.fromModelName, 'runtime.fromModelName', {
+    max: 512,
+  });
+  const toModelName = requireExactString(value.toModelName, 'runtime.toModelName', {
+    max: 512,
+  });
+  const fromCanonicalName = canonicalModelName(fromModelName);
+  const toCanonicalName = canonicalModelName(toModelName);
+  if (!fromCanonicalName || !toCanonicalName) {
+    fail('MODEL_FAILOVER_MODEL_NAME_INVALID', 'Runtime model has no canonical identity');
+  }
+  if (typeof value.changed !== 'boolean') {
+    fail('MODEL_FAILOVER_INPUT_INVALID', 'runtime.changed must be a boolean');
+  }
+  return {
+    incarnationBefore: requireRuntimeIncarnation(value.incarnationBefore),
+    incarnationAfter: requireRuntimeIncarnation(
+      value.incarnationAfter,
+      'runtime.incarnationAfter',
+    ),
+    generationBefore: requireNonNegativeInteger(
+      value.generationBefore,
+      'runtime.generationBefore',
+    ),
+    generationAfter: requireNonNegativeInteger(
+      value.generationAfter,
+      'runtime.generationAfter',
+    ),
+    fromModelName,
+    fromCanonicalName,
+    fromDigestSha256: requireDigest(value.fromDigestSha256, 'runtime.fromDigestSha256'),
+    toModelName,
+    toCanonicalName,
+    toDigestSha256: requireDigest(value.toDigestSha256, 'runtime.toDigestSha256'),
+    changed: value.changed,
+  };
+}
+
 function incrementSafeInteger(value, field) {
   requirePositiveInteger(value, field);
   const incremented = value + 1;
@@ -400,6 +526,84 @@ function mapEvent(row) {
     verified: row.verified === 1,
     failurePhase: row.failure_phase,
     details,
+    createdAtMs: row.created_at_ms,
+  };
+}
+
+function mapTerminalIntent(row) {
+  if (!row) return null;
+  return {
+    operationId: row.operation_id,
+    schemaVersion: row.schema_version,
+    claimEventId: row.claim_event_id,
+    role: row.role,
+    kind: row.operation_kind,
+    episodeId: row.episode_id,
+    desiredRevision: row.desired_revision,
+    claimedRowVersion: row.claimed_row_version,
+    policyRevision: row.policy_revision,
+    policyEventId: row.policy_event_id,
+    policyVersion: row.policy_version,
+    roleContractSha256: row.role_contract_sha256,
+    targetRevision: row.target_revision,
+    target: {
+      requestedName: row.target_requested_name,
+      canonicalName: row.target_canonical_name,
+      digestSha256: row.target_digest_sha256,
+    },
+    desired: {
+      modelName: row.desired_model_name,
+      canonicalName: row.desired_canonical_name,
+      digestSha256: row.desired_digest_sha256,
+    },
+    effect: {
+      modelName: row.effect_model_name,
+      canonicalName: row.effect_canonical_name,
+      digestSha256: row.effect_digest_sha256,
+    },
+    proofId: row.proof_id,
+    proofExpiresAtMs: row.proof_expires_at_ms,
+    expectedRuntime: {
+      modelName: row.expected_runtime_model_name,
+      canonicalName: row.expected_runtime_canonical_name,
+      digestSha256: row.expected_runtime_digest_sha256,
+      incarnationId: row.expected_runtime_incarnation_id,
+      generation: row.expected_runtime_generation,
+    },
+    observedInventory: {
+      requestedName: row.observed_inventory_requested_name,
+      canonicalName: row.observed_inventory_canonical_name,
+      digestSha256: row.observed_inventory_digest_sha256,
+    },
+    claimExpiresAtMs: row.claim_expires_at_ms,
+    createdAtMs: row.created_at_ms,
+  };
+}
+
+function mapTerminalReceipt(row) {
+  if (!row) return null;
+  return {
+    receiptId: row.receipt_id,
+    operationId: row.operation_id,
+    resolution: row.resolution,
+    terminalEventId: row.terminal_event_id,
+    terminalEventType: row.terminal_event_type,
+    terminalRowVersion: row.terminal_row_version,
+    runtime: {
+      incarnationBefore: row.runtime_incarnation_before,
+      incarnationAfter: row.runtime_incarnation_after,
+      generationBefore: row.runtime_generation_before,
+      generationAfter: row.runtime_generation_after,
+      fromModelName: row.runtime_from_model_name,
+      fromCanonicalName: row.runtime_from_canonical_name,
+      fromDigestSha256: row.runtime_from_digest_sha256,
+      toModelName: row.runtime_to_model_name,
+      toCanonicalName: row.runtime_to_canonical_name,
+      toDigestSha256: row.runtime_to_digest_sha256,
+      changed: row.runtime_changed === 1,
+    },
+    failurePhase: row.failure_phase,
+    failureCode: row.failure_code,
     createdAtMs: row.created_at_ms,
   };
 }
@@ -629,6 +833,46 @@ export class ModelFailoverRepository {
     this.providerOperationId = typeof ids.providerOperation === 'function'
       ? ids.providerOperation
       : ids.operation;
+    this.terminalInventoryReader = options.terminalInventoryReader ?? null;
+    if (this.terminalInventoryReader !== null
+      && (typeof this.terminalInventoryReader !== 'function'
+        || !Object.isFrozen(this.terminalInventoryReader))) {
+      fail(
+        'MODEL_FAILOVER_OPTIONS_INVALID',
+        'Terminal inventory reader must be a frozen least-authority function',
+      );
+    }
+  }
+
+  async #readTerminalInventory(expected, operation) {
+    if (this.terminalInventoryReader === null) {
+      fail(
+        'MODEL_FAILOVER_TERMINAL_INVENTORY_UNAVAILABLE',
+        'Terminal operation requires the trusted local installed-model inventory',
+        { operation },
+      );
+    }
+    let observed;
+    try {
+      observed = await this.terminalInventoryReader(Object.freeze({
+        requestedName: expected.modelName,
+        canonicalName: expected.canonicalName,
+        digestSha256: expected.digestSha256,
+      }));
+    } catch (error) {
+      if (error instanceof ModelFailoverRepositoryError) throw error;
+      const missing = error?.code === 'MODEL_FAILOVER_TARGET_NOT_INSTALLED';
+      throw new ModelFailoverRepositoryError(
+        missing
+          ? 'MODEL_FAILOVER_TERMINAL_TARGET_NOT_INSTALLED'
+          : 'MODEL_FAILOVER_TERMINAL_INVENTORY_UNAVAILABLE',
+        missing
+          ? 'Exact terminal effect is no longer installed locally'
+          : 'Terminal installed-model inventory assertion failed',
+        { cause: error, details: { operation } },
+      );
+    }
+    return requireTerminalInventoryResult(observed, expected);
   }
 
   #now(operation) {
@@ -755,6 +999,114 @@ export class ModelFailoverRepository {
     return this.db.prepare(
       'SELECT * FROM model_failover_state WHERE role = ?'
     ).get(role);
+  }
+
+  #terminalIntentRow(operationId) {
+    return this.db.prepare(
+      'SELECT * FROM model_failover_terminal_intents WHERE operation_id = ?'
+    ).get(operationId);
+  }
+
+  #terminalReceiptRow(operationId) {
+    return this.db.prepare(
+      'SELECT * FROM model_failover_terminal_finalize_receipts WHERE operation_id = ?'
+    ).get(operationId);
+  }
+
+  #terminalSupersedeRow(operationId) {
+    return this.db.prepare(
+      'SELECT * FROM model_failover_terminal_supersedes WHERE terminal_operation_id = ?'
+    ).get(operationId);
+  }
+
+  #activeProofExpiryRow(activeEventId) {
+    if (!activeEventId) return null;
+    return this.db.prepare(`
+      SELECT expiry.*
+      FROM model_failover_active_proof_expiry_events expiry
+      LEFT JOIN model_failover_active_proof_revalidations revalidation
+        ON revalidation.expiry_event_id = expiry.expiry_event_id
+      WHERE expiry.active_event_id = ? AND revalidation.revalidation_id IS NULL
+      ORDER BY expiry.observed_at_ms DESC, expiry.expiry_event_id DESC
+      LIMIT 1
+    `).get(activeEventId);
+  }
+
+  #activeProofRevalidationRow(activeEventId) {
+    if (!activeEventId) return null;
+    return this.db.prepare(`
+      SELECT *
+      FROM model_failover_active_proof_revalidations
+      WHERE active_event_id = ?
+      ORDER BY created_at_ms DESC, revalidation_id DESC
+      LIMIT 1
+    `).get(activeEventId);
+  }
+
+  #effectiveActiveProofId(state) {
+    if (!state?.active_event_id || !state?.proof_id) return null;
+    return this.#activeProofRevalidationRow(state.active_event_id)?.replacement_proof_id
+      ?? state.proof_id;
+  }
+
+  #mapStateRow(row, options = {}) {
+    const mapped = mapState(row, options);
+    if (!mapped || !mapped.activeFailover) return mapped;
+    const revalidation = this.#activeProofRevalidationRow(mapped.activeEventId);
+    const effective = {
+      ...mapped,
+      effectiveProofId: revalidation?.replacement_proof_id ?? mapped.proofId,
+      proofRevalidationId: revalidation?.revalidation_id ?? null,
+      proofRevalidatedAtMs: revalidation?.created_at_ms ?? null,
+    };
+    const expiry = this.#activeProofExpiryRow(mapped.activeEventId);
+    if (!expiry) return effective;
+    return {
+      ...effective,
+      storageState: mapped.state,
+      state: 'DEGRADED_PROOF_EXPIRED',
+      degradedProofExpired: true,
+      proofExpiredAtMs: expiry.proof_expires_at_ms,
+      proofExpiryObservedAtMs: expiry.observed_at_ms,
+      proofExpiryEventId: expiry.expiry_event_id,
+    };
+  }
+
+  #eligibleTerminalProof({ role, modelName, canonicalName, digestSha256,
+    policyVersion, roleContractSha256, nowMs }) {
+    return this.db.prepare(`
+      SELECT proof.proof_id, proof.expires_at_ms
+      FROM model_failover_proofs proof
+      JOIN model_failover_proof_artifacts artifact
+        ON artifact.proof_id = proof.proof_id
+       AND artifact.validation_run_id = proof.validation_run_id
+       AND artifact.role = proof.role
+       AND artifact.role_contract_sha256 = proof.role_contract_sha256
+       AND artifact.model_name = proof.model_name
+       AND artifact.model_canonical_name = proof.model_canonical_name
+       AND artifact.model_digest_sha256 = proof.model_digest_sha256
+       AND artifact.validation_version = proof.validation_version
+       AND artifact.policy_version = proof.policy_version
+       AND artifact.result = proof.result
+       AND artifact.expires_at_ms = proof.expires_at_ms
+      WHERE proof.role = ? AND proof.model_name = ?
+        AND proof.model_canonical_name = ? AND proof.model_digest_sha256 = ?
+        AND proof.policy_version = ? AND proof.role_contract_sha256 = ?
+        AND proof.result = 'PASS' AND proof.completed_at_ms <= ?
+        AND proof.expires_at_ms > ? AND proof.created_at_ms <= ?
+      ORDER BY proof.expires_at_ms DESC, proof.proof_id
+      LIMIT 1
+    `).get(
+      role,
+      modelName,
+      canonicalName,
+      digestSha256,
+      policyVersion,
+      roleContractSha256,
+      nowMs,
+      nowMs,
+      nowMs,
+    );
   }
 
   #bindingOperationRow(operationId) {
@@ -1029,21 +1381,6 @@ export class ModelFailoverRepository {
     desired,
   }) {
     if (!incident) return;
-    if (incident.state === 'FAILED') {
-      fail(
-        'MODEL_FAILOVER_FAILED_INCIDENT_REQUIRES_RUNTIME_COORDINATOR',
-        'A failed failover incident requires explicit runtime recovery before manual binding',
-        {
-          role,
-          episodeId: incident.episode_id,
-          state: incident.state,
-          activeFailover: incident.active_failover === 1,
-          failurePhase: incident.failure_phase,
-          retryableNow: false,
-          retryPrerequisite: 'RUNTIME_COORDINATOR_RECOVERY',
-        },
-      );
-    }
     if (incident.state === 'RESTORED') {
       fail(
         'MODEL_FAILOVER_RESTORED_INCIDENT_REQUIRES_RUNTIME_COORDINATOR',
@@ -1059,12 +1396,37 @@ export class ModelFailoverRepository {
         },
       );
     }
-    if (incident.state !== 'DETECTED' || incident.active_failover !== 0) {
+    if (!['DETECTED', 'ACTIVATED', 'FAILED'].includes(incident.state)) {
       fail(
-        'MODEL_FAILOVER_ACTIVE_INCIDENT_REQUIRES_RUNTIME_COORDINATOR',
-        'Manual binding cannot supersede an active or non-detected incident without runtime coordination',
+        'MODEL_FAILOVER_INCIDENT_NOT_SUPERSEDABLE',
+        'Manual binding cannot supersede this terminal incident state',
         { role, episodeId: incident.episode_id, state: incident.state },
       );
+    }
+    if (incident.state !== 'DETECTED') {
+      const terminalReceipt = this.db.prepare(`
+        SELECT receipt.operation_id
+        FROM model_failover_terminal_finalize_receipts receipt
+        WHERE receipt.terminal_event_id = ?
+           OR receipt.terminal_event_id = ?
+        LIMIT 1
+      `).get(incident.active_event_id, incident.last_event_id);
+      if (!terminalReceipt) {
+        const active = incident.state === 'FAILED'
+          ? 'MODEL_FAILOVER_FAILED_INCIDENT_REQUIRES_RUNTIME_COORDINATOR'
+          : 'MODEL_FAILOVER_ACTIVE_INCIDENT_REQUIRES_RUNTIME_COORDINATOR';
+        fail(
+          active,
+          'Pre-terminal-companion incident requires explicit runtime recovery before manual binding',
+          {
+            role,
+            episodeId: incident.episode_id,
+            state: incident.state,
+            activeFailover: incident.active_failover === 1,
+            retryPrerequisite: 'TERMINAL_COMPANION_RECONCILIATION',
+          },
+        );
+      }
     }
     if (incident.desired_revision !== expectedBindingRevision) {
       fail('MODEL_FAILOVER_STALE_DESIRED', 'Incident desired revision no longer matches', {
@@ -1084,22 +1446,11 @@ export class ModelFailoverRepository {
       && incident.claim_kind === null
       && incident.claim_started_at_ms === null
       && incident.claim_expires_at_ms === null;
-    const activateClaimComplete = incident.claim_operation_id !== null
+    const claimComplete = incident.claim_operation_id !== null
       && incident.claim_token !== null
-      && incident.claim_kind === 'ACTIVATE'
+      && CLAIMS[incident.claim_kind]
       && incident.claim_started_at_ms !== null
       && incident.claim_expires_at_ms !== null;
-    const detectedMetadataValid = incident.actor === MODEL_FAILOVER_ACTOR
-      && incident.reason_code === 'BOUND_MODEL_NOT_INSTALLED'
-      && incident.fallback_model_name === null
-      && incident.fallback_canonical_name === null
-      && incident.fallback_digest_sha256 === null
-      && incident.proof_id === null
-      && incident.active_event_id === null
-      && incident.failure_phase === null
-      && incident.proof_verified_at_ms === null
-      && incident.activated_at_ms === null
-      && incident.resolved_at_ms === null;
     const originEvents = this.db.prepare(`
       SELECT *
       FROM model_failover_events
@@ -1122,7 +1473,6 @@ export class ModelFailoverRepository {
       desired.digest_sha256,
       incident.detected_at_ms,
     );
-    const origin = originEvents.length === 1 ? originEvents[0] : null;
     const current = this.db.prepare(
       'SELECT * FROM model_failover_events WHERE event_id = ?'
     ).get(incident.last_event_id);
@@ -1133,43 +1483,42 @@ export class ModelFailoverRepository {
       && current.episode_id === incident.episode_id
       && current.actor === MODEL_FAILOVER_ACTOR
       && current.policy_version === MODEL_FAILOVER_POLICY_VERSION
-      && current.state_after === 'DETECTED'
+      && current.state_after === incident.state
       && current.desired_model_name === desired.model_name
       && current.desired_digest_sha256 === desired.digest_sha256
-      && current.fallback_model_name === null
-      && current.fallback_canonical_name === null
-      && current.fallback_digest_sha256 === null
-      && current.proof_id === null
-      && current.verified === 0
-      && current.failure_phase === null
-      && current.details_json === '{}'
       && current.created_at_ms === incident.updated_at_ms;
     let currentLineageValid = false;
-    if (currentCommonValid && claimAbsent) {
+    if (currentCommonValid && claimComplete) {
+      currentLineageValid = current.event_type === CLAIMS[incident.claim_kind].eventType
+        && current.operation_id === incident.claim_operation_id
+        && current.state_before === incident.state
+        && current.state_after === incident.state
+        && current.reason_code === 'FAILOVER_OPERATION_CLAIMED'
+        && current.created_at_ms === incident.claim_started_at_ms;
+    } else if (currentCommonValid && incident.state === 'DETECTED' && claimAbsent) {
       if (incident.row_version === 1) {
-        currentLineageValid = current.event_id === origin?.event_id
-          && current.event_type === 'DETECTED'
+        currentLineageValid = current.event_type === 'DETECTED'
           && current.operation_id === null
           && current.state_before === null
           && current.reason_code === 'BOUND_MODEL_NOT_INSTALLED'
-          && incident.updated_at_ms === incident.detected_at_ms;
+          && current.created_at_ms === incident.detected_at_ms;
       } else if (current.event_type === 'CLAIM_EXPIRED'
         && current.operation_id !== null
         && current.state_before === 'DETECTED'
         && current.reason_code === 'EXPIRED_CLAIM_RELEASED') {
-        const claimed = this.db.prepare(`
-          SELECT 1 AS present
-          FROM model_failover_events
-          WHERE event_type = 'ACTIVATION_CLAIMED' AND operation_id = ?
-            AND role = ? AND binding_revision = ? AND row_version = ?
-            AND episode_id = ? AND actor = ?
-            AND reason_code = 'FAILOVER_OPERATION_CLAIMED'
-            AND policy_version = ? AND state_before = 'DETECTED'
-            AND state_after = 'DETECTED' AND desired_model_name = ?
-            AND desired_digest_sha256 = ? AND fallback_model_name IS NULL
-            AND fallback_canonical_name IS NULL AND fallback_digest_sha256 IS NULL
-            AND proof_id IS NULL AND verified = 0 AND failure_phase IS NULL
-            AND details_json = '{}' AND created_at_ms < ?
+        currentLineageValid = Boolean(this.db.prepare(`
+          SELECT 1
+          FROM model_failover_events claimed
+          WHERE claimed.event_type = 'ACTIVATION_CLAIMED'
+            AND claimed.operation_id = ? AND claimed.role = ?
+            AND claimed.binding_revision = ? AND claimed.row_version = ?
+            AND claimed.episode_id = ? AND claimed.actor = ?
+            AND claimed.reason_code = 'FAILOVER_OPERATION_CLAIMED'
+            AND claimed.policy_version = ? AND claimed.state_before = 'DETECTED'
+            AND claimed.state_after = 'DETECTED'
+            AND claimed.desired_model_name = ?
+            AND claimed.desired_digest_sha256 = ?
+            AND claimed.created_at_ms < ?
         `).get(
           current.operation_id,
           role,
@@ -1181,21 +1530,25 @@ export class ModelFailoverRepository {
           desired.model_name,
           desired.digest_sha256,
           current.created_at_ms,
-        );
-        currentLineageValid = Boolean(claimed);
+        ));
       }
-    } else if (currentCommonValid && activateClaimComplete) {
-      currentLineageValid = current.event_type === 'ACTIVATION_CLAIMED'
-        && current.operation_id === incident.claim_operation_id
-        && current.state_before === 'DETECTED'
-        && current.reason_code === 'FAILOVER_OPERATION_CLAIMED'
-        && current.created_at_ms === incident.claim_started_at_ms;
+    } else if (currentCommonValid && claimAbsent && incident.state !== 'DETECTED') {
+      currentLineageValid = Boolean(this.db.prepare(`
+        SELECT 1
+        FROM model_failover_terminal_finalize_receipts receipt
+        WHERE receipt.terminal_event_id = ?
+      `).get(current.event_id));
     }
-    if ((!claimAbsent && !activateClaimComplete)
-      || !detectedMetadataValid
+    const stateShapeValid = (incident.state === 'DETECTED' && incident.active_failover === 0)
+      || (incident.state === 'ACTIVATED' && incident.active_failover === 1)
+      || incident.state === 'FAILED';
+    if ((!claimAbsent && !claimComplete)
+      || !stateShapeValid
+      || incident.actor !== MODEL_FAILOVER_ACTOR
+      || incident.resolved_at_ms !== null
       || originEvents.length !== 1
       || !currentLineageValid) {
-      fail('MODEL_FAILOVER_CORRUPT_STORAGE', 'Detected incident is not safe for manual supersede', {
+      fail('MODEL_FAILOVER_CORRUPT_STORAGE', 'Incident is not safe for manual supersede', {
         role,
         episodeId: incident.episode_id,
       });
@@ -1363,6 +1716,27 @@ export class ModelFailoverRepository {
 
     if (incident) {
       const nextRowVersion = incrementSafeInteger(incident.row_version, 'rowVersion');
+      const unresolvedTerminalIntent = incident.claim_operation_id
+        ? this.#terminalIntentRow(incident.claim_operation_id)
+        : null;
+      if (unresolvedTerminalIntent
+        && !this.#terminalReceiptRow(incident.claim_operation_id)
+        && !this.#terminalSupersedeRow(incident.claim_operation_id)) {
+        this.db.prepare(`
+          INSERT INTO model_failover_terminal_supersedes (
+            terminal_operation_id, binding_operation_id, supersede_event_id,
+            role, episode_id, terminal_row_version, created_at_ms
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          incident.claim_operation_id,
+          operationId,
+          supersedeEventId,
+          role,
+          incident.episode_id,
+          incident.row_version,
+          nowMs,
+        );
+      }
       this.db.prepare(`
         INSERT INTO model_failover_events (
           event_id, event_type, role, binding_revision, row_version, episode_id,
@@ -1404,8 +1778,11 @@ export class ModelFailoverRepository {
             claim_expires_at_ms = NULL, resolved_at_ms = ?, updated_at_ms = ?,
             last_event_id = ?
         WHERE role = ? AND desired_revision = ? AND episode_id = ?
-          AND row_version = ? AND state = 'DETECTED' AND active_failover = 0
+          AND row_version = ? AND state = ? AND active_failover = ?
           AND policy_version = ?
+          AND fallback_model_name IS ? AND fallback_canonical_name IS ?
+          AND fallback_digest_sha256 IS ? AND proof_id IS ?
+          AND active_event_id IS ? AND failure_phase IS ?
           AND claim_operation_id IS ? AND claim_token IS ? AND claim_kind IS ?
           AND claim_started_at_ms IS ? AND claim_expires_at_ms IS ?
       `).run(
@@ -1419,7 +1796,15 @@ export class ModelFailoverRepository {
         desired.binding_revision,
         incident.episode_id,
         incident.row_version,
+        incident.state,
+        incident.active_failover,
         MODEL_FAILOVER_POLICY_VERSION,
+        incident.fallback_model_name,
+        incident.fallback_canonical_name,
+        incident.fallback_digest_sha256,
+        incident.proof_id,
+        incident.active_event_id,
+        incident.failure_phase,
         incident.claim_operation_id,
         incident.claim_token,
         incident.claim_kind,
@@ -1713,7 +2098,45 @@ export class ModelFailoverRepository {
 
   getState(roleValue) {
     const role = requireRole(roleValue);
-    return this.#read('getState', () => mapState(this.#stateRow(role)));
+    return this.#read('getState', () => this.#mapStateRow(this.#stateRow(role)));
+  }
+
+  getTerminalOperation(operationIdValue) {
+    const operationId = requireExactString(operationIdValue, 'operationId');
+    return this.#read('getTerminalOperation', () => {
+      const intent = this.#terminalIntentRow(operationId);
+      if (!intent) return null;
+      const receipt = this.#terminalReceiptRow(operationId);
+      const supersede = this.#terminalSupersedeRow(operationId);
+      return {
+        intent: mapTerminalIntent(intent),
+        receipt: mapTerminalReceipt(receipt),
+        superseded: supersede ? {
+          terminalOperationId: supersede.terminal_operation_id,
+          bindingOperationId: supersede.binding_operation_id,
+          supersedeEventId: supersede.supersede_event_id,
+          role: supersede.role,
+          episodeId: supersede.episode_id,
+          terminalRowVersion: supersede.terminal_row_version,
+          createdAtMs: supersede.created_at_ms,
+        } : null,
+        reconciliationRequired: !receipt && !supersede,
+      };
+    });
+  }
+
+  listTerminalReconciliationRequired() {
+    return this.#read('listTerminalReconciliationRequired', () => this.db.prepare(`
+      SELECT intent.*
+      FROM model_failover_terminal_intents intent
+      LEFT JOIN model_failover_terminal_finalize_receipts receipt
+        ON receipt.operation_id = intent.operation_id
+      LEFT JOIN model_failover_terminal_supersedes supersede
+        ON supersede.terminal_operation_id = intent.operation_id
+      WHERE receipt.operation_id IS NULL
+        AND supersede.terminal_operation_id IS NULL
+      ORDER BY intent.created_at_ms, intent.operation_id
+    `).all().map(mapTerminalIntent));
   }
 
   getBindingOperation(operationIdValue) {
@@ -2716,7 +3139,7 @@ export class ModelFailoverRepository {
     return this.#read('getEffectiveBinding', () => {
       const desired = mapDesired(this.#desiredRow(role));
       if (!desired) return null;
-      const state = mapState(this.#stateRow(role));
+      const state = this.#mapStateRow(this.#stateRow(role));
       if (state?.activeFailover) {
         return {
           source: 'FAILOVER',
@@ -3517,7 +3940,7 @@ export class ModelFailoverRepository {
           && existing.state === 'DETECTED'
           && existing.active_failover === 0
           && existing.claim_token === null) {
-          return { outcome: 'UNCHANGED', state: mapState(existing) };
+          return { outcome: 'UNCHANGED', state: this.#mapStateRow(existing) };
         }
         fail('MODEL_FAILOVER_INCIDENT_EXISTS', 'A failover incident already exists for this role', {
           role,
@@ -3572,7 +3995,403 @@ export class ModelFailoverRepository {
         eventId,
       );
 
-      return { outcome: 'CREATED', state: mapState(this.#stateRow(role)) };
+      return { outcome: 'CREATED', state: this.#mapStateRow(this.#stateRow(role)) };
+    });
+  }
+
+  async prepareTerminalOperation(inputValue) {
+    const input = requireInput(inputValue);
+    requireExactInputFields(input, [
+      'role',
+      'episodeId',
+      'expectedDesiredRevision',
+      'expectedRowVersion',
+      'kind',
+      'leaseMs',
+      'expectedTargetRevision',
+      'expectedRuntimeIncarnationId',
+      'expectedRuntimeGeneration',
+    ]);
+    const role = requireExactRole(input.role);
+    const episodeId = requireExactString(input.episodeId, 'episodeId');
+    const expectedDesiredRevision = requirePositiveInteger(
+      input.expectedDesiredRevision,
+      'expectedDesiredRevision',
+    );
+    const expectedRowVersion = requirePositiveInteger(
+      input.expectedRowVersion,
+      'expectedRowVersion',
+    );
+    const kind = requireExactString(input.kind, 'kind', { max: 16 });
+    const claim = CLAIMS[kind];
+    if (!claim) {
+      fail('MODEL_FAILOVER_CLAIM_KIND_INVALID', 'Unknown failover claim kind', { kind });
+    }
+    const leaseMs = requirePositiveInteger(input.leaseMs, 'leaseMs');
+    if (leaseMs > MAX_MODEL_FAILOVER_CLAIM_MS) {
+      fail('MODEL_FAILOVER_CLAIM_WINDOW_INVALID', 'Failover claim lease exceeds the maximum', {
+        leaseMs,
+        maxClaimMs: MAX_MODEL_FAILOVER_CLAIM_MS,
+      });
+    }
+    const expectedTargetRevision = requirePositiveInteger(
+      input.expectedTargetRevision,
+      'expectedTargetRevision',
+    );
+    const expectedRuntimeIncarnationId = requireRuntimeIncarnation(
+      input.expectedRuntimeIncarnationId,
+      'expectedRuntimeIncarnationId',
+    );
+    const expectedRuntimeGeneration = requireNonNegativeInteger(
+      input.expectedRuntimeGeneration,
+      'expectedRuntimeGeneration',
+    );
+    const measurementContract = getModelFailoverMeasurementContract(role);
+    const policyVersion = measurementContract.contract.policyVersion;
+    const roleContractSha256 = measurementContract.measurementContractSha256;
+    const inventoryExpected = this.#read('prepareTerminalOperationInventory', () => {
+      const policy = readModelAutomationPolicy(this.db);
+      if (!policy.valid || policy.settings.autoFailoverEnabled !== true) {
+        fail(
+          'MODEL_FAILOVER_AUTO_FAILOVER_DISABLED',
+          'Terminal intent requires an exact enabled automation policy',
+          { reason: policy.reason || 'AUTO_FAILOVER_DISABLED' },
+        );
+      }
+      const target = readModelFailoverTarget(this.db, role);
+      if (!target.valid || !target.target) {
+        fail(
+          'MODEL_FAILOVER_TARGET_INELIGIBLE',
+          'Terminal intent requires one exact configured target',
+          { role, reason: target.reason || 'TARGET_CLEAR' },
+        );
+      }
+      if (target.revision !== expectedTargetRevision) {
+        fail('MODEL_FAILOVER_TARGET_STALE', 'Terminal target revision no longer matches', {
+          role,
+          expectedTargetRevision,
+          actualTargetRevision: target.revision,
+        });
+      }
+      const desired = this.#desiredRow(role);
+      if (!desired || desired.binding_revision !== expectedDesiredRevision) {
+        fail('MODEL_FAILOVER_STALE_DESIRED', 'Terminal desired revision no longer matches', {
+          role,
+          expectedDesiredRevision,
+          actualDesiredRevision: desired?.binding_revision ?? null,
+        });
+      }
+      const state = this.#stateRow(role);
+      if (!state || state.episode_id !== episodeId || state.row_version !== expectedRowVersion) {
+        fail('MODEL_FAILOVER_STALE_STATE', 'Terminal incident changed before inventory assertion', {
+          role,
+          episodeId,
+          expectedRowVersion,
+        });
+      }
+      return Object.freeze(kind === 'RESTORE'
+        ? {
+            modelName: desired.model_name,
+            canonicalName: desired.canonical_name,
+            digestSha256: desired.digest_sha256,
+          }
+        : {
+            modelName: target.target.requestedName,
+            canonicalName: target.target.canonicalName,
+            digestSha256: target.target.digestSha256,
+          });
+    });
+    const observedInventory = await this.#readTerminalInventory(
+      inventoryExpected,
+      'prepareTerminalOperation',
+    );
+
+    return this.#write('prepareTerminalOperation', () => {
+      const policy = readModelAutomationPolicy(this.db);
+      if (!policy.valid || policy.settings.autoFailoverEnabled !== true) {
+        fail(
+          'MODEL_FAILOVER_AUTO_FAILOVER_DISABLED',
+          'Terminal intent requires an exact enabled automation policy',
+          { reason: policy.reason || 'AUTO_FAILOVER_DISABLED' },
+        );
+      }
+      const target = readModelFailoverTarget(this.db, role);
+      if (!target.valid || !target.target) {
+        fail(
+          'MODEL_FAILOVER_TARGET_INELIGIBLE',
+          'Terminal intent requires one exact configured target',
+          { role, reason: target.reason || 'TARGET_CLEAR' },
+        );
+      }
+      if (target.revision !== expectedTargetRevision) {
+        fail('MODEL_FAILOVER_TARGET_STALE', 'Terminal target revision no longer matches', {
+          role,
+          expectedTargetRevision,
+          actualTargetRevision: target.revision,
+        });
+      }
+      const desired = this.#desiredRow(role);
+      if (!desired || desired.binding_revision !== expectedDesiredRevision) {
+        fail('MODEL_FAILOVER_STALE_DESIRED', 'Terminal desired revision no longer matches', {
+          role,
+          expectedDesiredRevision,
+          actualDesiredRevision: desired?.binding_revision ?? null,
+        });
+      }
+      const state = this.#stateRow(role);
+      if (!state || state.episode_id !== episodeId) {
+        fail('MODEL_FAILOVER_INCIDENT_MISMATCH', 'Terminal incident does not match', {
+          role,
+          episodeId,
+        });
+      }
+      if (state.desired_revision !== expectedDesiredRevision) {
+        fail('MODEL_FAILOVER_STALE_DESIRED', 'Terminal incident desired revision changed', {
+          role,
+          expectedDesiredRevision,
+          actualDesiredRevision: state.desired_revision,
+        });
+      }
+      if (state.row_version !== expectedRowVersion) {
+        fail('MODEL_FAILOVER_STALE_STATE', 'Terminal incident row version changed', {
+          role,
+          expectedRowVersion,
+          actualRowVersion: state.row_version,
+        });
+      }
+      if (state.policy_version !== policyVersion) {
+        fail('MODEL_FAILOVER_POLICY_MISMATCH', 'Terminal incident policy is not current', {
+          role,
+          expectedPolicyVersion: policyVersion,
+          actualPolicyVersion: state.policy_version,
+        });
+      }
+      if (state.claim_token !== null) {
+        fail('MODEL_FAILOVER_CLAIM_HELD', 'Terminal incident already has a claim', {
+          role,
+          claimKind: state.claim_kind,
+          claimExpiresAtMs: state.claim_expires_at_ms,
+        });
+      }
+      if (state.state !== claim.allowedState || state.active_failover !== claim.activeFailover) {
+        fail('MODEL_FAILOVER_CLAIM_STATE_INVALID', 'Terminal kind is invalid for the state', {
+          role,
+          kind,
+          state: state.state,
+          activeFailover: state.active_failover === 1,
+        });
+      }
+      if (kind === 'REAPPLY' && this.#activeProofExpiryRow(state.active_event_id)) {
+        fail(
+          'MODEL_FAILOVER_ACTIVE_PROOF_EXPIRED',
+          'An expired active proof blocks automatic reapply',
+          { role, activeEventId: state.active_event_id },
+        );
+      }
+      const pending = this.db.prepare(`
+        SELECT intent.operation_id
+        FROM model_failover_terminal_intents intent
+        LEFT JOIN model_failover_terminal_finalize_receipts receipt
+          ON receipt.operation_id = intent.operation_id
+        LEFT JOIN model_failover_terminal_supersedes supersede
+          ON supersede.terminal_operation_id = intent.operation_id
+        WHERE intent.role = ? AND receipt.operation_id IS NULL
+          AND supersede.terminal_operation_id IS NULL
+        LIMIT 1
+      `).get(role);
+      if (pending) {
+        fail(
+          'MODEL_FAILOVER_TERMINAL_RECONCILIATION_REQUIRED',
+          'A prior terminal intent must be reconciled before another effect',
+          { role, operationId: pending.operation_id },
+        );
+      }
+
+      const nowMs = this.#now('prepareTerminalOperation');
+      if (nowMs < state.updated_at_ms || nowMs < desired.updated_at_ms) {
+        fail('MODEL_FAILOVER_CLOCK_ROLLBACK', 'Terminal intent clock moved backwards', {
+          role,
+          nowMs,
+          stateUpdatedAtMs: state.updated_at_ms,
+          desiredUpdatedAtMs: desired.updated_at_ms,
+        });
+      }
+      const claimExpiresAtMs = nowMs + leaseMs;
+      if (!Number.isSafeInteger(claimExpiresAtMs)) {
+        fail('MODEL_FAILOVER_CLAIM_WINDOW_INVALID', 'Terminal claim expiry overflows safe time');
+      }
+      const effect = kind === 'RESTORE'
+        ? {
+            modelName: desired.model_name,
+            canonicalName: desired.canonical_name,
+            digestSha256: desired.digest_sha256,
+          }
+        : {
+            modelName: target.target.requestedName,
+            canonicalName: target.target.canonicalName,
+            digestSha256: target.target.digestSha256,
+          };
+      const expectedRuntime = kind === 'ACTIVATE'
+        ? {
+            modelName: desired.model_name,
+            canonicalName: desired.canonical_name,
+            digestSha256: desired.digest_sha256,
+          }
+        : {
+            modelName: state.fallback_model_name,
+            canonicalName: state.fallback_canonical_name,
+            digestSha256: state.fallback_digest_sha256,
+          };
+      if (effect.modelName !== inventoryExpected.modelName
+        || effect.canonicalName !== inventoryExpected.canonicalName
+        || effect.digestSha256 !== inventoryExpected.digestSha256
+        || observedInventory.requestedName !== effect.modelName
+        || observedInventory.canonicalName !== effect.canonicalName
+        || observedInventory.digestSha256 !== effect.digestSha256) {
+        fail(
+          'MODEL_FAILOVER_TERMINAL_INVENTORY_MISMATCH',
+          'Exact terminal effect changed after the live inventory assertion',
+          { role, kind },
+        );
+      }
+      const proof = this.#eligibleTerminalProof({
+        role,
+        ...effect,
+        policyVersion,
+        roleContractSha256,
+        nowMs,
+      });
+      if (!proof) {
+        fail(
+          'MODEL_FAILOVER_TERMINAL_PROOF_INELIGIBLE',
+          'Terminal intent requires a fresh exact digest-bound proof',
+          { role, kind, effect },
+        );
+      }
+      const operationId = this.#id('operation');
+      const token = this.#id('claimToken', { min: 16 });
+      const claimEventId = this.#id('event');
+      const claimedRowVersion = incrementSafeInteger(expectedRowVersion, 'expectedRowVersion');
+
+      this.db.prepare(`
+        INSERT INTO model_failover_events (
+          event_id, event_type, role, binding_revision, row_version, episode_id,
+          operation_id, actor, reason_code, policy_version, state_before,
+          state_after, desired_model_name, desired_digest_sha256, created_at_ms
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'FAILOVER_OPERATION_CLAIMED', ?,
+          ?, ?, ?, ?, ?)
+      `).run(
+        claimEventId,
+        claim.eventType,
+        role,
+        expectedDesiredRevision,
+        claimedRowVersion,
+        episodeId,
+        operationId,
+        MODEL_FAILOVER_ACTOR,
+        policyVersion,
+        state.state,
+        state.state,
+        desired.model_name,
+        desired.digest_sha256,
+        nowMs,
+      );
+      const claimed = this.db.prepare(`
+        UPDATE model_failover_state
+        SET row_version = ?, claim_operation_id = ?, claim_token = ?,
+            claim_kind = ?, claim_started_at_ms = ?, claim_expires_at_ms = ?,
+            updated_at_ms = ?, last_event_id = ?
+        WHERE role = ? AND desired_revision = ? AND episode_id = ?
+          AND row_version = ? AND state = ? AND active_failover = ?
+          AND policy_version = ? AND claim_token IS NULL
+      `).run(
+        claimedRowVersion,
+        operationId,
+        token,
+        kind,
+        nowMs,
+        claimExpiresAtMs,
+        nowMs,
+        claimEventId,
+        role,
+        expectedDesiredRevision,
+        episodeId,
+        expectedRowVersion,
+        claim.allowedState,
+        claim.activeFailover,
+        policyVersion,
+      );
+      if (claimed.changes !== 1) {
+        fail('MODEL_FAILOVER_STALE_STATE', 'Terminal intent lost its claim CAS', {
+          role,
+          expectedRowVersion,
+        });
+      }
+      this.db.prepare(`
+        INSERT INTO model_failover_terminal_intents (
+          operation_id, claim_event_id, role, operation_kind, episode_id,
+          desired_revision, claimed_row_version, policy_revision,
+          policy_event_id, policy_version, role_contract_sha256,
+          target_revision, target_requested_name, target_canonical_name,
+          target_digest_sha256, desired_model_name, desired_canonical_name,
+          desired_digest_sha256, effect_model_name, effect_canonical_name,
+          effect_digest_sha256, observed_inventory_requested_name,
+          observed_inventory_canonical_name, observed_inventory_digest_sha256,
+          proof_id, proof_expires_at_ms,
+          expected_runtime_model_name, expected_runtime_canonical_name,
+          expected_runtime_digest_sha256, expected_runtime_incarnation_id,
+          expected_runtime_generation, claim_expires_at_ms, created_at_ms
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        operationId,
+        claimEventId,
+        role,
+        kind,
+        episodeId,
+        expectedDesiredRevision,
+        claimedRowVersion,
+        policy.revision,
+        policy.lastEventId,
+        policyVersion,
+        roleContractSha256,
+        target.revision,
+        target.target.requestedName,
+        target.target.canonicalName,
+        target.target.digestSha256,
+        desired.model_name,
+        desired.canonical_name,
+        desired.digest_sha256,
+        effect.modelName,
+        effect.canonicalName,
+        effect.digestSha256,
+        observedInventory.requestedName,
+        observedInventory.canonicalName,
+        observedInventory.digestSha256,
+        proof.proof_id,
+        proof.expires_at_ms,
+        expectedRuntime.modelName,
+        expectedRuntime.canonicalName,
+        expectedRuntime.digestSha256,
+        expectedRuntimeIncarnationId,
+        expectedRuntimeGeneration,
+        claimExpiresAtMs,
+        nowMs,
+      );
+
+      return {
+        outcome: 'PREPARED',
+        claim: {
+          operationId,
+          token,
+          kind,
+          startedAtMs: nowMs,
+          expiresAtMs: claimExpiresAtMs,
+          eventId: claimEventId,
+        },
+        intent: mapTerminalIntent(this.#terminalIntentRow(operationId)),
+        state: this.#mapStateRow(this.#stateRow(role)),
+      };
     });
   }
 
@@ -3748,7 +4567,666 @@ export class ModelFailoverRepository {
           expiresAtMs,
           eventId,
         },
-        state: mapState(this.#stateRow(role)),
+        state: this.#mapStateRow(this.#stateRow(role)),
+      };
+    });
+  }
+
+  async finalizeTerminalOperation(inputValue) {
+    const input = requireInput(inputValue);
+    requireExactInputFields(input, [
+      'operationId',
+      'expectedRowVersion',
+      'claimToken',
+      'resolution',
+      'runtime',
+      'failureCode',
+    ]);
+    const operationId = requireExactString(input.operationId, 'operationId');
+    const expectedRowVersion = requirePositiveInteger(
+      input.expectedRowVersion,
+      'expectedRowVersion',
+    );
+    const resolution = requireExactString(input.resolution, 'resolution', { max: 32 });
+    const success = resolution === 'DIRECT_CONFIRMED'
+      || resolution === 'RECONCILED_CONFIRMED';
+    const direct = resolution === 'DIRECT_CONFIRMED' || resolution === 'EFFECT_FAILED';
+    if (!success && resolution !== 'EFFECT_FAILED' && resolution !== 'RECONCILED_NO_EFFECT') {
+      fail('MODEL_FAILOVER_TERMINAL_RESOLUTION_INVALID', 'Unknown terminal resolution', {
+        resolution,
+      });
+    }
+    const claimToken = direct
+      ? requireExactString(input.claimToken, 'claimToken', { min: 16, max: 128 })
+      : input.claimToken;
+    if (!direct && claimToken !== null) {
+      fail(
+        'MODEL_FAILOVER_AUTHORITY_OVERRIDE_REJECTED',
+        'Reconciliation cannot accept a caller-owned claim token',
+      );
+    }
+    const failureCode = success
+      ? input.failureCode
+      : requireExactString(input.failureCode, 'failureCode', { min: 3, max: 96 });
+    if (success && failureCode !== null) {
+      fail('MODEL_FAILOVER_INPUT_INVALID', 'Successful terminal resolution has no failureCode');
+    }
+    const runtime = requireTerminalRuntime(input.runtime);
+    const initialIntent = this.#terminalIntentRow(operationId);
+    if (!initialIntent) {
+      fail('MODEL_FAILOVER_TERMINAL_INTENT_MISSING', 'Terminal intent does not exist', {
+        operationId,
+      });
+    }
+    const measurementContract = getModelFailoverMeasurementContract(initialIntent.role);
+    const currentPolicyVersion = measurementContract.contract.policyVersion;
+    const currentRoleContractSha256 = measurementContract.measurementContractSha256;
+    const initialReceipt = this.#terminalReceiptRow(operationId);
+    const observedInventory = initialReceipt
+      ? null
+      : await this.#readTerminalInventory(Object.freeze({
+          modelName: initialIntent.effect_model_name,
+          canonicalName: initialIntent.effect_canonical_name,
+          digestSha256: initialIntent.effect_digest_sha256,
+        }), 'finalizeTerminalOperation');
+
+    return this.#write('finalizeTerminalOperation', () => {
+      const intent = this.#terminalIntentRow(operationId);
+      if (!intent) {
+        fail('MODEL_FAILOVER_TERMINAL_INTENT_MISSING', 'Terminal intent disappeared', {
+          operationId,
+        });
+      }
+      const replay = this.#terminalReceiptRow(operationId);
+      if (replay) {
+        const matches = replay.resolution === resolution
+          && replay.runtime_incarnation_before === runtime.incarnationBefore
+          && replay.runtime_incarnation_after === runtime.incarnationAfter
+          && replay.runtime_generation_before === runtime.generationBefore
+          && replay.runtime_generation_after === runtime.generationAfter
+          && replay.runtime_from_model_name === runtime.fromModelName
+          && replay.runtime_from_canonical_name === runtime.fromCanonicalName
+          && replay.runtime_from_digest_sha256 === runtime.fromDigestSha256
+          && replay.runtime_to_model_name === runtime.toModelName
+          && replay.runtime_to_canonical_name === runtime.toCanonicalName
+          && replay.runtime_to_digest_sha256 === runtime.toDigestSha256
+          && replay.runtime_changed === (runtime.changed ? 1 : 0)
+          && replay.failure_code === failureCode;
+        if (!matches) {
+          fail(
+            'MODEL_FAILOVER_TERMINAL_FINALIZE_CONFLICT',
+            'Terminal operation already has a different receipt',
+            { operationId },
+          );
+        }
+        return {
+          outcome: 'REPLAYED',
+          intent: mapTerminalIntent(intent),
+          receipt: mapTerminalReceipt(replay),
+          state: this.#mapStateRow(this.#stateRow(intent.role)),
+        };
+      }
+      if (this.#terminalSupersedeRow(operationId)) {
+        fail(
+          'MODEL_FAILOVER_TERMINAL_SUPERSEDED',
+          'Terminal operation was superseded by an explicit user binding',
+          { operationId },
+        );
+      }
+      if (intent.policy_version !== currentPolicyVersion
+        || intent.role_contract_sha256 !== currentRoleContractSha256) {
+        fail(
+          'MODEL_FAILOVER_TERMINAL_CONTRACT_STALE',
+          'Terminal intent no longer matches the role measurement contract',
+          { operationId },
+        );
+      }
+      const state = this.#stateRow(intent.role);
+      const desired = this.#desiredRow(intent.role);
+      const policy = readModelAutomationPolicy(this.db);
+      const target = readModelFailoverTarget(this.db, intent.role);
+      if (!state || state.episode_id !== intent.episode_id) {
+        fail('MODEL_FAILOVER_INCIDENT_MISMATCH', 'Terminal finalize incident changed', {
+          operationId,
+        });
+      }
+      if (state.row_version !== expectedRowVersion
+        || state.row_version !== intent.claimed_row_version) {
+        fail('MODEL_FAILOVER_STALE_STATE', 'Terminal finalize row version changed', {
+          operationId,
+          expectedRowVersion,
+          actualRowVersion: state.row_version,
+        });
+      }
+      const allowedStorageState = intent.operation_kind === 'ACTIVATE'
+        ? 'DETECTED'
+        : 'ACTIVATED';
+      if (state.state !== allowedStorageState
+        || state.active_failover !== (intent.operation_kind === 'ACTIVATE' ? 0 : 1)) {
+        fail(
+          'MODEL_FAILOVER_CLAIM_STATE_INVALID',
+          'Terminal finalize state no longer matches its intent kind',
+          { operationId, state: state.state, kind: intent.operation_kind },
+        );
+      }
+      if (state.claim_operation_id !== operationId || state.claim_kind !== intent.operation_kind) {
+        fail('MODEL_FAILOVER_CLAIM_MISMATCH', 'Terminal finalize no longer owns its claim', {
+          operationId,
+        });
+      }
+      if (direct && state.claim_token !== claimToken) {
+        fail('MODEL_FAILOVER_CLAIM_MISMATCH', 'Terminal finalize claim token does not match', {
+          operationId,
+        });
+      }
+      if (!policy.valid || policy.settings.autoFailoverEnabled !== true
+        || policy.revision !== intent.policy_revision
+        || policy.lastEventId !== intent.policy_event_id) {
+        fail('MODEL_FAILOVER_TERMINAL_POLICY_STALE', 'Terminal policy authority changed', {
+          operationId,
+        });
+      }
+      if (!target.valid || !target.target
+        || target.revision !== intent.target_revision
+        || target.target.requestedName !== intent.target_requested_name
+        || target.target.canonicalName !== intent.target_canonical_name
+        || target.target.digestSha256 !== intent.target_digest_sha256) {
+        fail('MODEL_FAILOVER_TERMINAL_TARGET_STALE', 'Terminal target authority changed', {
+          operationId,
+        });
+      }
+      if (!desired || desired.binding_revision !== intent.desired_revision
+        || desired.model_name !== intent.desired_model_name
+        || desired.canonical_name !== intent.desired_canonical_name
+        || desired.digest_sha256 !== intent.desired_digest_sha256) {
+        fail('MODEL_FAILOVER_STALE_DESIRED', 'Terminal desired binding changed', {
+          operationId,
+        });
+      }
+      const proof = this.db.prepare(`
+        SELECT proof.proof_id, proof.expires_at_ms
+        FROM model_failover_proofs proof
+        JOIN model_failover_proof_artifacts artifact
+          ON artifact.proof_id = proof.proof_id
+         AND artifact.validation_run_id = proof.validation_run_id
+         AND artifact.role = proof.role
+         AND artifact.role_contract_sha256 = proof.role_contract_sha256
+         AND artifact.model_canonical_name = proof.model_canonical_name
+         AND artifact.model_digest_sha256 = proof.model_digest_sha256
+         AND artifact.policy_version = proof.policy_version
+         AND artifact.result = proof.result
+         AND artifact.expires_at_ms = proof.expires_at_ms
+        WHERE proof.proof_id = ? AND proof.role = ? AND proof.model_name = ?
+          AND proof.model_canonical_name = ? AND proof.model_digest_sha256 = ?
+          AND proof.policy_version = ? AND proof.role_contract_sha256 = ?
+          AND proof.result = 'PASS' AND proof.expires_at_ms = ?
+      `).get(
+        intent.proof_id,
+        intent.role,
+        intent.effect_model_name,
+        intent.effect_canonical_name,
+        intent.effect_digest_sha256,
+        intent.policy_version,
+        intent.role_contract_sha256,
+        intent.proof_expires_at_ms,
+      );
+      if (!proof) {
+        fail('MODEL_FAILOVER_TERMINAL_PROOF_STALE', 'Terminal proof lineage changed', {
+          operationId,
+        });
+      }
+      if (intent.observed_inventory_requested_name !== intent.effect_model_name
+        || intent.observed_inventory_canonical_name !== intent.effect_canonical_name
+        || intent.observed_inventory_digest_sha256 !== intent.effect_digest_sha256
+        || observedInventory?.requestedName !== intent.observed_inventory_requested_name
+        || observedInventory?.canonicalName !== intent.observed_inventory_canonical_name
+        || observedInventory?.digestSha256 !== intent.observed_inventory_digest_sha256) {
+        fail(
+          'MODEL_FAILOVER_TERMINAL_INVENTORY_MISMATCH',
+          'Terminal finalize lost its exact live inventory assertion',
+          { operationId },
+        );
+      }
+      if (runtime.incarnationBefore !== intent.expected_runtime_incarnation_id
+        || runtime.generationBefore !== intent.expected_runtime_generation
+        || runtime.fromModelName !== intent.expected_runtime_model_name
+        || runtime.fromCanonicalName !== intent.expected_runtime_canonical_name
+        || runtime.fromDigestSha256 !== intent.expected_runtime_digest_sha256) {
+        fail(
+          'MODEL_FAILOVER_RUNTIME_GENERATION_MISMATCH',
+          'Terminal runtime before-generation does not match its intent',
+          { operationId },
+        );
+      }
+      const expectedTo = success
+        ? {
+            modelName: intent.effect_model_name,
+            canonicalName: intent.effect_canonical_name,
+            digestSha256: intent.effect_digest_sha256,
+          }
+        : {
+            modelName: intent.expected_runtime_model_name,
+            canonicalName: intent.expected_runtime_canonical_name,
+            digestSha256: intent.expected_runtime_digest_sha256,
+          };
+      if (runtime.toModelName !== expectedTo.modelName
+        || runtime.toCanonicalName !== expectedTo.canonicalName
+        || runtime.toDigestSha256 !== expectedTo.digestSha256) {
+        fail(
+          'MODEL_FAILOVER_RUNTIME_GENERATION_MISMATCH',
+          'Terminal runtime after-generation has the wrong exact artifact',
+          { operationId },
+        );
+      }
+      const exactTupleChanged = runtime.fromCanonicalName !== runtime.toCanonicalName
+        || runtime.fromDigestSha256 !== runtime.toDigestSha256;
+      if (runtime.changed !== (success && exactTupleChanged)) {
+        fail(
+          'MODEL_FAILOVER_RUNTIME_GENERATION_MISMATCH',
+          'Terminal runtime changed flag contradicts its exact artifact tuple',
+          { operationId },
+        );
+      }
+      if (direct && (runtime.incarnationAfter !== runtime.incarnationBefore
+        || runtime.generationAfter !== runtime.generationBefore + (success ? 1 : 0))) {
+        fail(
+          'MODEL_FAILOVER_RUNTIME_GENERATION_MISMATCH',
+          'Direct terminal receipt skipped its exact runtime generation',
+          { operationId },
+        );
+      }
+      if (!direct && runtime.incarnationAfter === runtime.incarnationBefore) {
+        const expectedGenerationAfter = runtime.generationBefore + (success ? 1 : 0);
+        if (runtime.generationAfter !== expectedGenerationAfter) {
+          fail(
+            'MODEL_FAILOVER_RUNTIME_GENERATION_MISMATCH',
+            'Same-incarnation reconciliation skipped its exact generation',
+            { operationId },
+          );
+        }
+      }
+
+      const createdAtMs = this.#now('finalizeTerminalOperation');
+      if (createdAtMs < state.updated_at_ms || createdAtMs < intent.created_at_ms) {
+        fail('MODEL_FAILOVER_CLOCK_ROLLBACK', 'Terminal finalize clock moved backwards', {
+          operationId,
+        });
+      }
+      if (proof.expires_at_ms <= createdAtMs) {
+        fail(
+          'MODEL_FAILOVER_TERMINAL_PROOF_EXPIRED',
+          'Terminal proof expired before exact runtime finalization',
+          { operationId, proofExpiresAtMs: proof.expires_at_ms, createdAtMs },
+        );
+      }
+      if (direct && state.claim_expires_at_ms <= createdAtMs) {
+        fail(
+          'MODEL_FAILOVER_TERMINAL_RECONCILIATION_REQUIRED',
+          'Direct terminal finalize crossed its lease and must reconcile',
+          { operationId, claimExpiresAtMs: state.claim_expires_at_ms },
+        );
+      }
+      if (!direct
+        && runtime.incarnationAfter === runtime.incarnationBefore
+        && createdAtMs < state.claim_expires_at_ms) {
+        fail(
+          'MODEL_FAILOVER_TERMINAL_RECONCILIATION_TOO_EARLY',
+          'Same-incarnation reconciliation cannot bypass a live direct claim',
+          { operationId, claimExpiresAtMs: state.claim_expires_at_ms, createdAtMs },
+        );
+      }
+      const receiptId = this.#id('event');
+      const terminalEventId = this.#id('event');
+      const terminalRowVersion = incrementSafeInteger(state.row_version, 'rowVersion');
+      const terminalEventType = success
+        ? { ACTIVATE: 'ACTIVATED', REAPPLY: 'REAPPLIED', RESTORE: 'RESTORED' }[
+            intent.operation_kind
+          ]
+        : {
+            ACTIVATE: 'ACTIVATION_FAILED',
+            REAPPLY: 'REAPPLY_FAILED',
+            RESTORE: 'RESTORE_FAILED',
+          }[intent.operation_kind];
+      const failurePhase = success
+        ? null
+        : intent.operation_kind === 'RESTORE' ? 'RESTORE' : 'RUNTIME_APPLY';
+
+      this.db.prepare(`
+        INSERT INTO model_failover_terminal_finalize_receipts (
+          receipt_id, operation_id, resolution, terminal_event_id,
+          terminal_event_type, terminal_row_version,
+          runtime_incarnation_before, runtime_incarnation_after,
+          runtime_generation_before, runtime_generation_after,
+          runtime_from_model_name, runtime_from_canonical_name,
+          runtime_from_digest_sha256, runtime_to_model_name,
+          runtime_to_canonical_name, runtime_to_digest_sha256,
+          runtime_changed, failure_phase, failure_code, created_at_ms
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        receiptId,
+        operationId,
+        resolution,
+        terminalEventId,
+        terminalEventType,
+        terminalRowVersion,
+        runtime.incarnationBefore,
+        runtime.incarnationAfter,
+        runtime.generationBefore,
+        runtime.generationAfter,
+        runtime.fromModelName,
+        runtime.fromCanonicalName,
+        runtime.fromDigestSha256,
+        runtime.toModelName,
+        runtime.toCanonicalName,
+        runtime.toDigestSha256,
+        runtime.changed ? 1 : 0,
+        failurePhase,
+        failureCode,
+        createdAtMs,
+      );
+      const foreignKeyViolation = this.db.prepare('PRAGMA foreign_key_check').get();
+      if (foreignKeyViolation) {
+        fail('MODEL_FAILOVER_STORAGE_CONTRACT', 'Terminal finalize left invalid lineage', {
+          table: foreignKeyViolation.table,
+          rowid: foreignKeyViolation.rowid,
+          parent: foreignKeyViolation.parent,
+          foreignKeyId: foreignKeyViolation.fkid,
+        });
+      }
+      return {
+        outcome: 'FINALIZED',
+        intent: mapTerminalIntent(intent),
+        receipt: mapTerminalReceipt(this.#terminalReceiptRow(operationId)),
+        state: this.#mapStateRow(this.#stateRow(intent.role)),
+      };
+    });
+  }
+
+  recordActiveProofExpired(inputValue) {
+    const input = requireInput(inputValue);
+    requireExactInputFields(input, [
+      'role',
+      'episodeId',
+      'expectedDesiredRevision',
+      'expectedRowVersion',
+      'expectedActiveEventId',
+    ]);
+    const role = requireExactRole(input.role);
+    const episodeId = requireExactString(input.episodeId, 'episodeId');
+    const expectedDesiredRevision = requirePositiveInteger(
+      input.expectedDesiredRevision,
+      'expectedDesiredRevision',
+    );
+    const expectedRowVersion = requirePositiveInteger(
+      input.expectedRowVersion,
+      'expectedRowVersion',
+    );
+    const expectedActiveEventId = requireExactString(
+      input.expectedActiveEventId,
+      'expectedActiveEventId',
+    );
+
+    return this.#write('recordActiveProofExpired', () => {
+      const existing = this.#activeProofExpiryRow(expectedActiveEventId);
+      if (existing) {
+        const matches = existing.role === role
+          && existing.episode_id === episodeId
+          && existing.desired_revision === expectedDesiredRevision
+          && existing.observed_row_version === expectedRowVersion;
+        if (!matches) {
+          fail(
+            'MODEL_FAILOVER_ACTIVE_PROOF_EXPIRY_CONFLICT',
+            'Active proof expiry identity has different semantics',
+            { expectedActiveEventId },
+          );
+        }
+        return {
+          outcome: 'ALREADY_RECORDED',
+          expiryEventId: existing.expiry_event_id,
+          state: this.#mapStateRow(this.#stateRow(role)),
+        };
+      }
+      const state = this.#stateRow(role);
+      if (!state || state.episode_id !== episodeId) {
+        fail('MODEL_FAILOVER_INCIDENT_MISMATCH', 'Active proof expiry incident changed', {
+          role,
+          episodeId,
+        });
+      }
+      if (state.desired_revision !== expectedDesiredRevision) {
+        fail('MODEL_FAILOVER_STALE_DESIRED', 'Active proof expiry desired revision changed', {
+          role,
+          expectedDesiredRevision,
+          actualDesiredRevision: state.desired_revision,
+        });
+      }
+      if (state.row_version !== expectedRowVersion) {
+        fail('MODEL_FAILOVER_STALE_STATE', 'Active proof expiry row version changed', {
+          role,
+          expectedRowVersion,
+          actualRowVersion: state.row_version,
+        });
+      }
+      if (state.active_failover !== 1 || state.active_event_id !== expectedActiveEventId) {
+        fail(
+          'MODEL_FAILOVER_ACTIVE_LINEAGE_MISMATCH',
+          'Proof expiry requires the exact active failover lineage',
+          { role, expectedActiveEventId, actualActiveEventId: state.active_event_id },
+        );
+      }
+      const effectiveProofId = this.#effectiveActiveProofId(state);
+      const proof = this.db.prepare(`
+        SELECT proof_id, expires_at_ms
+        FROM model_failover_proofs
+        WHERE proof_id = ? AND role = ?
+          AND model_canonical_name = ? AND model_digest_sha256 = ?
+          AND result = 'PASS'
+      `).get(
+        effectiveProofId,
+        role,
+        state.fallback_canonical_name,
+        state.fallback_digest_sha256,
+      );
+      if (!proof) {
+        fail('MODEL_FAILOVER_CORRUPT_STORAGE', 'Active failover proof lineage is invalid', {
+          role,
+          proofId: effectiveProofId,
+        });
+      }
+      const observedAtMs = this.#now('recordActiveProofExpired');
+      if (observedAtMs < state.updated_at_ms) {
+        fail('MODEL_FAILOVER_CLOCK_ROLLBACK', 'Proof expiry clock moved backwards', {
+          role,
+          observedAtMs,
+          updatedAtMs: state.updated_at_ms,
+        });
+      }
+      if (observedAtMs < proof.expires_at_ms) {
+        fail('MODEL_FAILOVER_ACTIVE_PROOF_NOT_EXPIRED', 'Active proof is still fresh', {
+          role,
+          expiresAtMs: proof.expires_at_ms,
+          observedAtMs,
+        });
+      }
+      const expiryEventId = this.#id('event');
+      this.db.prepare(`
+        INSERT INTO model_failover_active_proof_expiry_events (
+          expiry_event_id, active_event_id, role, episode_id,
+          desired_revision, observed_row_version, proof_id,
+          proof_expires_at_ms, observed_at_ms
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        expiryEventId,
+        expectedActiveEventId,
+        role,
+        episodeId,
+        expectedDesiredRevision,
+        expectedRowVersion,
+        proof.proof_id,
+        proof.expires_at_ms,
+        observedAtMs,
+      );
+      return {
+        outcome: 'RECORDED',
+        expiryEventId,
+        state: this.#mapStateRow(this.#stateRow(role)),
+      };
+    });
+  }
+
+  revalidateActiveProof(inputValue) {
+    const input = requireInput(inputValue);
+    requireExactInputFields(input, [
+      'role',
+      'episodeId',
+      'expectedDesiredRevision',
+      'expectedRowVersion',
+      'expectedActiveEventId',
+    ]);
+    const role = requireExactRole(input.role);
+    const episodeId = requireExactString(input.episodeId, 'episodeId');
+    const expectedDesiredRevision = requirePositiveInteger(
+      input.expectedDesiredRevision,
+      'expectedDesiredRevision',
+    );
+    const expectedRowVersion = requirePositiveInteger(
+      input.expectedRowVersion,
+      'expectedRowVersion',
+    );
+    const expectedActiveEventId = requireExactString(
+      input.expectedActiveEventId,
+      'expectedActiveEventId',
+    );
+    const measurementContract = getModelFailoverMeasurementContract(role);
+    const policyVersion = measurementContract.contract.policyVersion;
+    const roleContractSha256 = measurementContract.measurementContractSha256;
+
+    return this.#write('revalidateActiveProof', () => {
+      const state = this.#stateRow(role);
+      if (!state || state.episode_id !== episodeId) {
+        fail('MODEL_FAILOVER_INCIDENT_MISMATCH', 'Proof revalidation incident changed', {
+          role,
+          episodeId,
+        });
+      }
+      if (state.desired_revision !== expectedDesiredRevision) {
+        fail('MODEL_FAILOVER_STALE_DESIRED', 'Proof revalidation desired revision changed', {
+          role,
+          expectedDesiredRevision,
+          actualDesiredRevision: state.desired_revision,
+        });
+      }
+      if (state.row_version !== expectedRowVersion) {
+        fail('MODEL_FAILOVER_STALE_STATE', 'Proof revalidation row version changed', {
+          role,
+          expectedRowVersion,
+          actualRowVersion: state.row_version,
+        });
+      }
+      if (state.active_failover !== 1 || state.active_event_id !== expectedActiveEventId) {
+        fail(
+          'MODEL_FAILOVER_ACTIVE_LINEAGE_MISMATCH',
+          'Proof revalidation requires the exact active failover lineage',
+          { role, expectedActiveEventId, actualActiveEventId: state.active_event_id },
+        );
+      }
+      const expiry = this.#activeProofExpiryRow(expectedActiveEventId);
+      if (!expiry) {
+        fail(
+          'MODEL_FAILOVER_ACTIVE_PROOF_NOT_EXPIRED',
+          'Proof revalidation requires one unresolved active-proof expiry',
+          { role, expectedActiveEventId },
+        );
+      }
+      const effectiveProofId = this.#effectiveActiveProofId(state);
+      if (expiry.role !== role
+        || expiry.episode_id !== episodeId
+        || expiry.desired_revision !== expectedDesiredRevision
+        || expiry.observed_row_version !== expectedRowVersion
+        || expiry.proof_id !== effectiveProofId) {
+        fail(
+          'MODEL_FAILOVER_ACTIVE_PROOF_EXPIRY_CONFLICT',
+          'Proof revalidation expiry no longer matches the effective active proof',
+          { role, expectedActiveEventId },
+        );
+      }
+      const policy = readModelAutomationPolicy(this.db);
+      if (!policy.valid
+        || policy.settings.autoFailoverEnabled !== true
+        || state.policy_version !== policyVersion) {
+        fail(
+          'MODEL_FAILOVER_TERMINAL_POLICY_STALE',
+          'Proof revalidation requires the current enabled automation policy',
+          { role },
+        );
+      }
+      const target = readModelFailoverTarget(this.db, role);
+      if (!target.valid || !target.target
+        || target.target.requestedName !== state.fallback_model_name
+        || target.target.canonicalName !== state.fallback_canonical_name
+        || target.target.digestSha256 !== state.fallback_digest_sha256) {
+        fail(
+          'MODEL_FAILOVER_TERMINAL_TARGET_STALE',
+          'Proof revalidation requires the exact current active target',
+          { role },
+        );
+      }
+      const createdAtMs = this.#now('revalidateActiveProof');
+      if (createdAtMs < state.updated_at_ms || createdAtMs < expiry.observed_at_ms) {
+        fail('MODEL_FAILOVER_CLOCK_ROLLBACK', 'Proof revalidation clock moved backwards', {
+          role,
+          createdAtMs,
+          stateUpdatedAtMs: state.updated_at_ms,
+          expiryObservedAtMs: expiry.observed_at_ms,
+        });
+      }
+      const proof = this.#eligibleTerminalProof({
+        role,
+        modelName: state.fallback_model_name,
+        canonicalName: state.fallback_canonical_name,
+        digestSha256: state.fallback_digest_sha256,
+        policyVersion,
+        roleContractSha256,
+        nowMs: createdAtMs,
+      });
+      if (!proof || proof.proof_id === effectiveProofId) {
+        fail(
+          'MODEL_FAILOVER_TERMINAL_PROOF_INELIGIBLE',
+          'Proof revalidation requires a new fresh exact digest-bound proof',
+          { role, effectiveProofId },
+        );
+      }
+      const revalidationId = this.#id('event');
+      this.db.prepare(`
+        INSERT INTO model_failover_active_proof_revalidations (
+          revalidation_id, expiry_event_id, active_event_id, role, episode_id,
+          desired_revision, observed_row_version, expired_proof_id,
+          replacement_proof_id, policy_revision, policy_event_id,
+          target_revision, role_contract_sha256, actor, created_at_ms
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+          'operator:model-failover-proof-revalidation', ?)
+      `).run(
+        revalidationId,
+        expiry.expiry_event_id,
+        expectedActiveEventId,
+        role,
+        episodeId,
+        expectedDesiredRevision,
+        expectedRowVersion,
+        effectiveProofId,
+        proof.proof_id,
+        policy.revision,
+        policy.lastEventId,
+        target.revision,
+        roleContractSha256,
+        createdAtMs,
+      );
+      return {
+        outcome: 'REVALIDATED',
+        revalidationId,
+        expiredProofId: effectiveProofId,
+        replacementProofId: proof.proof_id,
+        state: this.#mapStateRow(this.#stateRow(role)),
       };
     });
   }
@@ -3824,6 +5302,16 @@ export class ModelFailoverRepository {
           actualPolicyVersion: state.policy_version,
         });
       }
+      const terminalIntent = this.#terminalIntentRow(expectedOperationId);
+      if (terminalIntent
+        && !this.#terminalReceiptRow(expectedOperationId)
+        && !this.#terminalSupersedeRow(expectedOperationId)) {
+        fail(
+          'MODEL_FAILOVER_TERMINAL_RECONCILIATION_REQUIRED',
+          'An unresolved terminal intent cannot be released as an ordinary expired claim',
+          { role, operationId: expectedOperationId },
+        );
+      }
       if (state.row_version === nextExpectedRowVersion
         && state.claim_token === null) {
         const expiryEvent = this.db.prepare(`
@@ -3869,7 +5357,7 @@ export class ModelFailoverRepository {
             outcome: 'ALREADY_EXPIRED',
             expiredOperationId: expectedOperationId,
             eventId: expiryEvent.event_id,
-            state: mapState(state),
+            state: this.#mapStateRow(state),
           };
         }
       }
@@ -3982,7 +5470,7 @@ export class ModelFailoverRepository {
         outcome: 'EXPIRED',
         expiredOperationId: expectedOperationId,
         eventId,
-        state: mapState(this.#stateRow(role)),
+        state: this.#mapStateRow(this.#stateRow(role)),
       };
     });
   }
@@ -3996,7 +5484,7 @@ export class ModelFailoverRepository {
        AND desired.binding_revision = state.desired_revision
       WHERE state.active_failover = 1
       ORDER BY state.role
-    `).all().map(mapState));
+    `).all().map(row => this.#mapStateRow(row)));
   }
 
   listEvents(inputValue) {
