@@ -1809,10 +1809,59 @@ běh vypadal jako neúspěšný.
   orientovaný **doložitelně**, ne dojmem: běh bez konverzace jím projít nemůže,
   protože by neměl čím ta dvě povinná pole vyplnit.
 
-**Tenhle kontrakt proto nezavádí druhý konektor.** `RunEvent` je **projekce nad
-`CoreEvent`**, ne paralelní proud; WP musí doložit mapování `CoreEvent` →
-`RunEvent` a to, že `CoreEvent` byl kvůli tomu připnut. Kdyby projekce nešla, je
-to rozhodnutí o novém konektoru a patří do samostatného kola, ne sem.
+**Projekce dnes není možná, a je to rozhodnutí o konektoru, ne práce.** Revize 4
+vedla mapování `CoreEvent → RunEvent` v §11 jako „zbývá udělat". To bylo
+podhodnocení: `validateCoreEvent` vyžaduje `conversationId` **i** `turnId`
+u každé události, a obecný běh workera nebo dry-run **žádnou konverzaci ani
+turn nemá**. Projekce by je musela vymyslet.
+
+**Syntetická `conversationId`/`turnId` jsou zakázaná.** Vyrobit identitu
+konverzace pro běh, který žádnou nemá, znamená zanést do autoritativního
+kontraktu záznam, který odkazuje na neexistující věc — a všechno, co nad
+`CoreEvent` staví, by tomu odkazu věřilo.
+
+**Rozhodnutí operátora: `CoreEvent` v2 dostane diskriminovaný subjekt.**
+
+```
+CoreEvent.subject =
+  | { kind: "conversation", conversationId: string, turnId: string }
+  | { kind: "run",          runId: string }
+```
+
+- `conversationId` a `turnId` se z kořene události **stěhují dovnitř**
+  `subject`, kde jsou povinné **jen** pro `kind: "conversation"`;
+- `kind` je uzavřený union a rozšíření je změna wire verze;
+- **`RunEvent` je pak skutečná projekce** `subject.kind === "run"` — bez
+  vymýšlení identit.
+
+Je to změna **autoritativního** kontraktu `/m1` (`M1_CONTRACT_STAGE`), ne jen
+mobilní přílohy: `contracts/m1/shared.js` stagování per kind nezná, takže se
+připnutím mění stage celého kontraktu (`§0.6`). Vlastní WP, vlastní review.
+
+### B5.4b Redakce nesmí porušovat vlastní typ
+
+Revize 4 říkala, že cokoli mimo allow-list se **nahradí** řetězcem
+`"[redigováno]"`. U `text` to jde. U `data` **ne**: `RunEventData` je typovaný
+union, takže dosadit řetězec do pole, které má být číslo nebo objekt, znamená
+vydat hodnotu, která **neprojde vlastním schématem**. Kontrakt by si tím
+odporoval.
+
+A druhá vada: **volný text nelze ochránit allow-listem jmen polí.** Allow-list
+říká, která pole smí ven — neříká nic o tom, co je uvnitř řetězce, který ven
+smí. Tajemství v `text` projde.
+
+**Nový model:**
+
+| Pravidlo | |
+|---|---|
+| `data` | vydávají se **jen povolená typovaná pole**. Nepovolené se **vynechají**, nikdy nepřepíšou náhradním řetězcem |
+| mezera je přiznaná | `redactionApplied: boolean` a `redactedFields: string[]` — vynechání je tím **viditelné**, aniž by lhalo o typu |
+| `text` | **negeneruje se z upstreamu.** Server ho skládá z **pevných šablon** a doplňuje do nich jen hodnoty, které samy prošly allow-listem |
+| `snippet` u hledání | **vlastní politika** (`B6.4a`), ne odkaz sem — úryvek je výsek uživatelského obsahu, ne strukturovaná událost |
+
+Šablonový `text` je ten podstatný obrat: dokud se text opisoval z upstreamu,
+byla redakce hádání, co v něm je. Když ho skládá server, je otázka obrácená —
+co do něj vůbec smí vstoupit.
 
 ### B5.5 Redakce
 
@@ -1820,8 +1869,9 @@ to rozhodnutí o novém konektoru a patří do samostatného kola, ne sem.
 není testovatelný kontrakt, takže redakce je **allow-list, ne blacklist**:
 
 - vydává se **jen** to, co je v allow-listu pro daný `type`;
-- cokoli mimo něj se nahradí `"[redigováno]"`, ne vynechá — vynechání by mezeru
-  skrylo (viz `W3`, kde je náhrada vidět uvnitř `text`);
+- **`B5.4b` tohle pravidlo upřesňuje a v části `data` nahrazuje:** nepovolená
+  typovaná pole se **vynechávají** a mezera se přiznává v `redactionApplied`
+  a `redactedFields`. Náhrada řetězcem by porušila `RunEventData`;
 - allow-list je součástí WP a testuje se **pozitivně i negativně**.
 
 Agent log je jinak boční kanál kolem scopů.
@@ -1905,6 +1955,24 @@ si jeho meze určila implementace.
 | **Vlastní cache** | **nevytváří ji** — hledá nad tím, co v cache leží z domén; výsledky hledání se necachují (`A7.2`) |
 | **Kurzor** | fallback **nestránkuje serverovým kurzorem**; `c2` je serverová hodnota a offline pro ni není zdroj |
 
+### B6.4a Úryvek má vlastní politiku, ne odkaz na eventový allow-list
+
+`B5.5` chrání **strukturovanou událost**: uzavřený seznam polí, které smí ven.
+Úryvek je něco jiného — je to **výsek uživatelského obsahu**, u kterého žádný
+seznam jmen polí nepomůže, protože tajemství je uvnitř textu.
+
+| Pravidlo | |
+|---|---|
+| Původ | úryvek se bere **jen z pole, které uživatel v dané doméně smí číst** — nikdy z pole, na které by potřeboval detailní scope |
+| Délka | pevný strop, ořezává se **na hranici slova** a ořez se označí |
+| Zvýraznění | jen pozice shody, **ne** vlastní text dotazu zpět v odpovědi |
+| Co se nikdy nevydá | obsah, který doména sama označuje jako tajemství (`S2` a výš) — takový zdroj se **neindexuje** už při zápisu, ne až při čtení |
+| Přiznání | když byl úryvek zkrácen nebo vynechán, výsledek to **řekne**, ne aby vypadal jako celý |
+
+Poslední řádek je ten důležitý: filtrovat tajemství **až při čtení** znamená,
+že leží v indexu a jednou uniknou jinudy. Hledání proto smí prohledávat jen to,
+co do indexu vůbec smělo vstoupit.
+
 | | |
 |---|---|
 | Routa | `POST /m1/search` |
@@ -1980,7 +2048,10 @@ samy. Řádek 6 je rozdělen podle bodů pádu `A4.5` — revize 3 měla v řád
 | 12 | Klient pokračuje od `resumeAfterSeq` | **nejstarší dostupná událost se neztratí** |
 | 13 | Běh přerušen | `interrupted`, ne `failed` |
 | 14 | Hledání mimo udělený scope | doména se neprohledá a `scopeSkipped` to přizná |
-| 15 | Tajemství v `text` běhu nebo v úryvku | nahrazeno `[redigováno]`, ne vynecháno |
+| 15 | Nepovolené typované pole v `data` | **vynecháno**, `redactionApplied: true` a jméno v `redactedFields` — nikdy nahrazeno řetězcem, který porušuje typ |
+| 15a | `text` běhu | složen ze **serverové šablony**; hodnoty do ní vstupují jen přes allow-list, neopisuje se z upstreamu |
+| 15b | Úryvek hledání | vlastní politika `B6.4a`; zdroj označený `S2` a výš **není v indexu**, ne že se filtruje při čtení |
+| 15c | Běh workera bez konverzace | projde jako `subject.kind: "run"`; **syntetické `conversationId`/`turnId` jsou porušením** |
 | 16 | Dry-run | **nulový** efekt v ostrých datech, `runId` v žurnálu před dispatchem |
 | 17 | Funkce bez providera | `unavailable` **jen ta funkce**, ne celá doména |
 | 18 | Desktop-only klíč `R-5` přes `/m1` | nedostupný ke čtení i zápisu |
@@ -2018,8 +2089,12 @@ i samostatnou `events` routu. Všechno je zapracované jako normativní text.
 1. **Devět zbývajících schémat** (`§0.4`, `§10.1`). Podle vzoru části W.
 2. **Redakční allow-list** pro `RunEvent` (`B5.5`). Tvar je normativní, obsah je
    WP.
-3. **Projekce `CoreEvent` → `RunEvent`** (`B5.4a`). Jestli nejde, je to nový
-   konektor a patří do samostatného kola.
+3. **`CoreEvent` v2 s diskriminovaným subjektem** (`B5.4a`). **Přeřazeno
+   z „práce" na „rozhodnutí o konektoru":** dnešní `validateCoreEvent` vyžaduje
+   `conversationId` i `turnId`, takže obecný běh jimi projít nemůže a projekce
+   dnes **není možná**. Rozhodnutí operátora padlo — diskriminovaný subjekt,
+   žádné syntetické identity — ale mění to **stage celého** kontraktu `/m1`,
+   takže to má vlastní WP a vlastní review.
 
 **Požadavky na backend, které kontrakt zavádí a které dnes nemají
 implementaci** — vypsané zvlášť, aby se na ně nepřišlo až ve WP:
