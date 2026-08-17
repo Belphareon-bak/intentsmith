@@ -943,7 +943,51 @@ HTTP chyba a `state` se **nemíchají**:
 | `workers.read` / `workers.toggle` | `read:workers` / `write:workers` |
 | `workers.dryRun` | **`execute:worker-dry-run`** — samostatný |
 | `runs.list` / `runs.events` | `read:runs` |
-| `search.query` | `read:search` + čtecí scope každé prohledávané domény |
+| `search.query` | **`read:search`** — a **jen ten** je povinný pro routu; viz `A6.1` |
+
+### A6.1 Hledání má jeden povinný scope a zbytek určuje rozsah
+
+Revize 4 si odporovala na třech místech: `A6`/`B6` žádaly `read:search`
+**plus** scope každé požadované domény, `W4` a test #14 chtěly **částečný
+úspěch** s přeskočením domény bez scope, a `A1.4` říká, že chybějící kterýkoli
+vypsaný scope znamená `forbidden`. Podle prvního a třetího by hledání bez
+`read:memory` skončilo `403`; podle druhého by proběhlo a přiznalo mezeru.
+
+**Platí model, kde jsou to dvě různé role scopů:**
+
+| Role | Scope | Když chybí |
+|---|---|---|
+| **povinný pro routu** | `read:search` | `403 scope_required`, `required: ["read:search"]` |
+| **rozsahový** | `read:chat`, `read:projects`, `read:memory` | doména se **neprohledá** a odpověď to přizná v `scopeSkipped` |
+
+Důvod není pohodlí, ale to, že jinak by **jediný chybějící doménový scope
+zneviditelnil celé hledání** — a uživatel by nepoznal rozdíl mezi „nic jsem
+nenašel" a „nesměl jsem hledat". Přiznaná mezera je pravdivější než `403`.
+
+**Důsledek pro `A1.4`:** `features["search.query"].scopes` obsahuje **jen
+`read:search`**. Rozsahové scopy se do `status` funkce nepočítají — jinak by
+funkce hlásila `forbidden` kvůli doméně, která je jen mimo rozsah. Capability
+je proto vydává odděleně:
+
+```
+"search.query": {
+  status,                          // podle read:search
+  scopes:        ["read:search"],  // povinné pro routu
+  scopeDomains:  {                 // rozsahové, informativní
+    conversations: "read:chat",
+    projects:      "read:projects",
+    memory:        "read:memory"
+  },
+  since
+}
+```
+
+**Prázdný `scopeSearched` není `403`.** Zařízení, které má `read:search` a žádný
+rozsahový scope, dostane `200` s prázdným `results`, prázdným `scopeSearched`
+a **úplným** `scopeSkipped`. Že nesmí hledat nikde, je pravdivá odpověď — a je
+srozumitelnější než chyba.
+
+## A6.2 Dry-run
 
 Dry-run má **vlastní scope**: `write:workers` je konfigurace, dry-run je příkaz
 ke spuštění. Spojit je do jednoho by znamenalo, že kdo smí přepnout přepínač,
@@ -1977,10 +2021,73 @@ co do indexu vůbec smělo vstoupit.
 |---|---|
 | Routa | `POST /m1/search` |
 | Mutace | **žádné** (read-only `POST`) |
-| Scope | `read:search` **plus** čtecí scope každé prohledávané domény |
+| Scope | **`read:search`** povinný; doménové čtecí scopy jsou **rozsahové** (`A6.1`) |
 | Cache | výsledky **necachovat**; fallback čte cache domén |
 | Offline | **fallback podle `B6.5`** |
 | Obrazovka | `MS-09` — **nestaví se** |
+
+---
+
+# ČÁST L — Migrace starých 13 rout na wire v2
+
+`A5` tvrdí, že wire v2 pokrývá **všech 26 rout**. Revize 4 přitom deklarovala
+jen **čtyři** nové mutace, takže existující mutace zůstaly bez třídy
+trvanlivosti, bez mapování chyb a bez schématu. Rozhodnutí operátora zní
+**zachovat všech 26** a migrovat po vertikálních řezech; tahle příloha je to,
+co z toho dělá kontrakt místo záměru.
+
+## L1. Existující mutace, které `A4` dosud nepokrývala
+
+| Routa | `operationType` | Třída (`A4.6`) | `T` v `MutationOutcome<T>` |
+|---|---|---|---|
+| `POST /m1/chat` | `chat.send` | **`LOOKUP`** — zpráva odchází do jádra mimo transakci; `messageId` musí vzniknout a být zažurnálovaný **před** odesláním |
+| `POST /m1/operations/:id/abandon` | `operations.abandon` | **`TXN`** | `OperationRecord` |
+| `POST /m1/notifications/ack` | `notifications.ack` | **`TXN`** | `NotificationReceipt` |
+| `POST /m1/approvals/:id/decide` | `approvals.decide` | **`TXN`** | `ApprovalResolution` |
+| `POST /m1/pair/claim` | `pairing.claim` | **`TXN`** | `PairingResult` |
+
+`chat.send` je jediná `LOOKUP` a je to ta nejcitlivější: bez předem
+zažurnálovaného `messageId` po pádu nejde rozhodnout, zda zpráva odešla —
+a opakování by ji poslalo dvakrát.
+
+## L2. Mapování dnešních chyb na `A5`
+
+Dnešní `state_conflict` má **tři různé tvary**, žádný z nich neodpovídá `A5`,
+který u něj vyžaduje `{expectedVersion, actualVersion, actual}`:
+
+| Dnes (`handlers.js`) | Tvar dnes | Na v2 |
+|---|---|---|
+| `already_resolved` | `{reason, state}` | **`operation_conflict`**, `details.operationId` — je to konflikt operace, ne stavu zdroje |
+| `unbound_approval` | `{reason, approvalId}` | `409 state_conflict`, `rejectedReason: unbound_approval`, `details.resource` |
+| `already_decided` | `{reason, decision, operationId}` | **`200` + `state: REJECTED`**, `reason: already_decided` — rozhodnutý approval je **doménové odmítnutí**, ne protokolární konflikt (`A5.5`) |
+
+Přesun `already_decided` z `409` na `200 REJECTED` je věcná změna: klient
+nemá co „potvrzovat", má se dozvědět, že rozhodnutí padlo dřív — a od koho.
+
+**Scope chyba** se dnes vydává jako `{ requiredScope: <string> }`
+(`gateway-policy.js`), `A5` žádá `required[]`. Pole je **jednoprvkové pole**,
+ne přejmenovaný string — hledání (`A6.1`) je první případ, kdy jich je víc.
+
+## L3. Co se u starých rout mění a co ne
+
+| Mění se | Nemění se |
+|---|---|
+| obálka (`A2`), včetně `protocolVersion` mimo `error` | cesty a metody |
+| kurzor `c1` → `c2` (`A3.4`) | scope názvy |
+| chybové kódy a tvary (`L2`) | sémantika efektu |
+| `MutationOutcome` u pěti mutací výše | pořadí a filtry |
+
+**Kompatibilita je dočasná, ne druhý kontrakt.** Dvojice
+`m1.2026-08-12` + `v1` (`A1.3`) existuje proto, aby klient mohl přijmout nový
+tvar chyby dřív než nové domény — **ne** aby staré routy zůstaly natrvalo
+v jiném režimu. Migrace je hotová, až žádný klient nenabízí `v1`.
+
+## L4. Co tahle příloha vědomě nemá
+
+Request/response schémata těch třinácti rout. Jsou to **existující** routy
+s existujícím chováním, takže jejich schéma je popis, ne návrh — ale popis
+zatím nenapsaný. Do refreeze musí vzniknout stejně jako devět nových
+(`§0.4`), jinak „26 rout ve v2" pořád stojí na třinácti nepopsaných.
 
 ---
 
@@ -2047,7 +2154,10 @@ samy. Řádek 6 je rozdělen podle bodů pádu `A4.5` — revize 3 měla v řád
 | 11 | `afterSeq` pod retention | `410` s `oldestAvailableSeq` **i `resumeAfterSeq`** |
 | 12 | Klient pokračuje od `resumeAfterSeq` | **nejstarší dostupná událost se neztratí** |
 | 13 | Běh přerušen | `interrupted`, ne `failed` |
-| 14 | Hledání mimo udělený scope | doména se neprohledá a `scopeSkipped` to přizná |
+| 14 | Hledání bez `read:search` | `403 scope_required`, `required: ["read:search"]` |
+| 14a | Hledání s `read:search`, bez `read:memory` | `200`; `memory` v `scopeSkipped`, ostatní prohledány |
+| 14b | `read:search` a **žádný** rozsahový scope | `200`, prázdné `results`, prázdné `scopeSearched`, úplné `scopeSkipped` — **ne `403`** |
+| 14c | `capabilities` pro `search.query` | `scopes` obsahuje **jen** `read:search`; rozsahové jsou v `scopeDomains` |
 | 15 | Nepovolené typované pole v `data` | **vynecháno**, `redactionApplied: true` a jméno v `redactedFields` — nikdy nahrazeno řetězcem, který porušuje typ |
 | 15a | `text` běhu | složen ze **serverové šablony**; hodnoty do ní vstupují jen přes allow-list, neopisuje se z upstreamu |
 | 15b | Úryvek hledání | vlastní politika `B6.4a`; zdroj označený `S2` a výš **není v indexu**, ne že se filtruje při čtení |
