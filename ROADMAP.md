@@ -1426,16 +1426,41 @@ mohou pokračovat.
    se po prokázané nulové změně těchto cest mezi `I` a `R_REC` zachová v témže
    jediném reset worktree přes privátní disk patch, reverse-apply, `--ff-only`
    a exact reapply/digest gate; druhý reset worktree ani stash nevznikne.
-   Závazná closeout fronta je nyní
+   Tato closeout fronta vymezila původní pořadí
    `evidence recovery → 029 reset → B3 → execution manifest → B4 → Gate 1 → B5 → B6 → Gate 2`.
 
-   Recovery, chats decommission i dual-CAS reset jsou nyní promovány; exact
-   canonical tip je `6c36607421c013dd27f41e35853009bcaa0b5b51`. Z něj je
-   docs-only aktivován
-   [`WP-M1-MODEL-TERMINAL-FAILOVER`](docs/wp/WP-M1-MODEL-TERMINAL-FAILOVER.md).
-   Stav je `ACTIVATED / IMPLEMENTATION_NOT_STARTED`: migrace 065, target CAS,
-   terminal lifecycle, proof source closure, Phase A/B a T3 jsou zadání, ne
-   hotový effect, nový proof, GPU evidence nebo Gate 1 PASS.
+   Evidence recovery i 029 reset jsou promoted. Pozdější evidence níže
+   zpřesňuje B3 na oddělenou Phase A, 031 recovery, manifest a Phase B; žádný
+   už provedený credential ani recovery effect se při closeoutu neopakuje.
+
+   Recovery, chats decommission i dual-CAS reset jsou promovány; jejich exact
+   checkpoint je `6c36607421c013dd27f41e35853009bcaa0b5b51`. B3 Phase A
+   následně dosáhla Review A+B PASS a promotion na `578d52fc`; reconciliation
+   inventory vyšla z čistého integration snapshotu `5b375c9e`.
+
+   Aktuální canonical truth record odděluje 031
+   `TECHNICAL_PASS` od `AUTHORITY_GAP / NO_RETROACTIVE_AUTHORIZATION` a pinuje
+   jeho private evidence bez replaye. Joint manifest `fbe9e33f…e486` je
+   byte-valid, ale exact historical acceptance evidence zůstává
+   `UNBOUND/UNKNOWN`. B3 Phase B skončila
+   `STOPPED_T3_TERMINAL_FAILURE`: zachované desktopové T3
+   `FAIL/BLOCKED/FAIL` následovaly dva fail-closed pre-T3 headless orchestration
+   failures; druhý vyčerpal §7.3 headless autoritu na pre-load desktop gate.
+   Phase-B report DAG, B4 a Gate 1 jsou `NOT RUN/BLOCKED`.
+
+   Birth-time bundle obou literal-`TXXXXXXZ` roots je canonical-bound a před
+   Gate 1 patří do téhož independent-review kola; Review A/B verdicty jsou
+   výhradně v append-only reconciliation reportu. První integrační kandidát
+   `43ba3e98` dostal `Review B: CHANGES_REQUIRED` za nepřesné zobecnění mode,
+   nebyl promován a nevznikl nad ním `E_B`. Remediation R2 zachovává tento
+   failure a opravuje claim na roots `0700`, runners `0500` a ostatní bundle
+   files `0600`.
+
+   Další bezpečná hrana je pouze oddělený, exact-digest a independent-review
+   plán `H0 / HEADLESS_NO_MODEL_BASELINE_ONCE`. Reconciliation H0 ani T3
+   neautorizuje. Až H0 diagnostic PASS smí vzniknout nové samostatné T3
+   rozhodnutí; jen headless T3 PASS může odemknout zbytek B3 Phase B a potom
+   `B4 → Gate 1 → B5 → B6 → Gate 2`.
 
    Konsolidovaný M1 base je formálně přijatý na
    `integration/m1-consolidated-20260810`; wire Review B evidence obálka

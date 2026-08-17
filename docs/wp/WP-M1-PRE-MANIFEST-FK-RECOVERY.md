@@ -12,22 +12,37 @@ executor, server/workers quiescent, žádný souběžný DB writer
 
 **integrationRef:** `integration/m1-consolidated-20260810`
 
-**Stav:** `PROPOSED / BLOCKED_ON_INDEPENDENT_DOCS_PASS + CANONICAL_PROMOTION +
-EXACT_OPERATOR_PLAN_ACCEPTANCE`
+**Stav:** `TECHNICAL_PASS / AUTHORITY_GAP / NO_RETROACTIVE_AUTHORIZATION /
+NO_REPLAY`
 
 ## 1. Výsledek
 
-Před credential census vznikne verified privátní backup a quarantine preimage,
-potom jediná atomická cleanup transakce a právě jedno canonical migration
-invocation do 065. Úspěch vyžaduje FK nula, `quick_check=ok`,
-`integrity_check=ok`, 60 stampů a latest 065. WP netvrdí, že zbývajících 300
-API rows má čistou milestone provenance.
+Zachovaný private bundle dokládá verified privátní backup a quarantine
+preimage, jedinou atomickou cleanup transakci a právě jedno canonical migration
+invocation do 065. Historický technický outcome je
+`PASS_RECOVERY_PREREQUISITE_ONLY_NO_AUTO_RESTART`: FK nula,
+`quick_check=ok`, `integrity_check=ok`, 60 stampů a latest 065. WP netvrdí, že
+zbývajících 300 API rows má čistou milestone provenance.
 
-WP neprovádí ani nepovoluje credential census, plan, transfer/scrub/apply nebo
-modelový effect. Úspěch pouze splní databázový prerequisite. Canonical 026
-census a plan vyžadují následnou samostatnou explicitní autoritu operátora;
-credential apply až zvlášť přijatý exact credentials+model
-`M1-EXECUTION-MANIFEST`.
+Povinný předchozí independent docs PASS/promotion a exact acceptance finálního
+plan SHA nejsou canonical-bound. Private executor claim není jejich náhrada.
+Toto WP proto technický výsledek zaznamenává s `AUTHORITY_GAP`, nevydává jej za
+historicky autorizovaný PASS a nic nereplayuje. Nepovoluje credential census,
+plan, transfer/scrub/apply ani modelový effect.
+
+Exact technical-success piny jsou plan
+`9b9dc710fca1aef2ca7804c6de98f312e453a1c44f576b1563d181718d25c790`,
+artifact manifest
+`8f77af6174f642a7ae788b2fefba7f1604cc42efdf190a79b33ba1b423cf5f71`,
+execution-finished
+`cb1c56d5e7a17946537aa647ea0c02047f6e696246e3d0795521a1a029714c3b`
+a post-verification
+`1783cc1a9d733555a21c58c2fe6911ba53074dec51ec7b454c6cc68862168618`.
+Úplný binding, oba `RESTORED_FAILURE` attempts a review hranice stanoví
+[`decision 032`](../decisions/032-m1-closeout-authority-gap-reconciliation.md).
+
+Sekce 2–7 níže zůstávají historickým effect kontraktem, proti kterému se
+authority gap vyhodnocuje. Nejsou současnou ani opakovanou live autoritou.
 
 ## 2. Scope
 
@@ -71,9 +86,9 @@ Těsně před prvním chmod se celý gate zopakuje. Mismatch znamená
 `STOP_NO_APPLY_RE-CENSUS_REPLAN_REHEARSE`; stale plán zůstane evidencí a nový
 plán vyžaduje novou exact operátorskou akceptaci.
 
-## 4. Jediný povolený live běh
+## 4. Historicky vymezený jediný live běh — `NO_REPLAY`
 
-Po exact akceptaci proběhne sériově:
+Původní kontrakt po exact akceptaci vyžadoval sériově:
 
 1. exclusive `execution-started` marker;
 2. pouze šest exact permission přechodů z decision 031, s invariantními bytes;

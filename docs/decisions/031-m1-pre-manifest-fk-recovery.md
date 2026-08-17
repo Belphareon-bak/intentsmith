@@ -2,7 +2,7 @@
 
 - **typ:** jednorázové data-recovery a migrační rozhodnutí před M1 execution
   manifestem
-- **stav:** `PROPOSED / NO_LIVE_MUTATION_AUTHORITY`
+- **stav:** `TECHNICAL_PASS / AUTHORITY_GAP / NO_RETROACTIVE_AUTHORIZATION`
 - **integrationRef:** `integration/m1-consolidated-20260810`
 - **sourceEvidenceRevision:** Phase A `A_EB` =
   `578d52fc64c0a7f4d123c8cb8aadf2f566e54043`, tree
@@ -10,10 +10,57 @@
 - **WP:**
   [`WP-M1-PRE-MANIFEST-FK-RECOVERY`](../wp/WP-M1-PRE-MANIFEST-FK-RECOVERY.md)
 
-Tento dokument zatím žádnou živou změnu nepovoluje. I po jeho docs-only
-promotion musí operátor zvlášť přijmout materializovaný privátní plán a jeho
-SHA-256. Do té doby se nakonfigurovaná databáze, její sidecary, `.env` a
-permissions nemění.
+Původní dokument žádnou živou změnu nepovoloval. Zachovaný private bundle a
+současný read-only stav přesto dokazují, že recovery technicky proběhla;
+canonical historie však neobsahuje povinný předchozí docs PASS/promotion ani
+exact operátorskou akceptaci finálního plan digestu. Tento pozdější záznam
+proto výsledek pravdivě připíná, ale nevyrábí zpětnou autoritu a nepovoluje
+replay.
+
+## Reconciliation 2026-08-17
+
+Technický success root je:
+
+```text
+/home/belphareon/.local/share/intentsmith-private/m1-pre-manifest-fk-recovery-20260812T204833Z-bf65915c208f4166
+```
+
+Jeho exact piny jsou:
+
+- materializovaný plán SHA-256
+  `9b9dc710fca1aef2ca7804c6de98f312e453a1c44f576b1563d181718d25c790`;
+- detached plan digest file SHA-256
+  `481c0479db5e2c245671a545a78690dd642c559668547543dc3a8c963cfefafb`;
+- artifact manifest SHA-256
+  `8f77af6174f642a7ae788b2fefba7f1604cc42efdf190a79b33ba1b423cf5f71`;
+- detached manifest digest file SHA-256
+  `0c0206d77ff9da6ebd30e7156744872855b7c8088f52f81bfb15257861a8ad5f`;
+- `execution-finished.json` SHA-256
+  `cb1c56d5e7a17946537aa647ea0c02047f6e696246e3d0795521a1a029714c3b`;
+- `post-verification.json` SHA-256
+  `1783cc1a9d733555a21c58c2fe6911ba53074dec51ec7b454c6cc68862168618`.
+
+Technical outcome je přesně
+`PASS_RECOVERY_PREREQUISITE_ONLY_NO_AUTO_RESTART`: FK `0`, quick/integrity
+`ok`, 60 migration stamps, latest
+`2026_08_12_065_model_failover_target`, active map 73 se zachovaným digestem a
+otevřený non-FK dluh `300/48/0/0`. Plan bytes však samy stále říkají
+`MATERIALIZED_AWAITING_EXACT_OPERATOR_ACCEPTANCE`; pole
+`acceptedPlanSha256` v executor evidence je claim běhu, nikoli nezávislý důkaz
+historické akceptace. Exact acceptance bloku níže pro tento finální digest
+není canonical-bound. Verdikt je proto současně `TECHNICAL_PASS` a
+`AUTHORITY_GAP`, nikdy historical governance PASS.
+
+Dva předchozí executed plans
+`709fd17e9d0b3671eaad1595dcf9b300a8d55e61843811b6141652c89f104d90`
+a `db3250817906b86e5877706f8a6a6db0dca03eff4c0a43b3271988342adbf676`
+skončily `RESTORED_FAILURE` na logickém latest044/FK46. Zůstávají zachované;
+pozdější technický success je nemaže ani nepřeznačuje.
+
+Současná evidence a přesné dvouosé vyhodnocení jsou vymezené v
+[`032`](032-m1-closeout-authority-gap-reconciliation.md). Následující text
+zůstává historickým normativním kontraktem, podle něhož se authority gap
+posuzuje; není novou live autoritou.
 
 ## Ověřený nový predecessor
 

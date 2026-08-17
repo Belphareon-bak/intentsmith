@@ -317,14 +317,28 @@ digest je scope
 jednoho proofu, ne globální pin role nebo produktu, takže rotace modelu znamená
 nový explicitní běh a nový proof pro nově pozorované bytes.
 
-Aktuální closeout override 2026-08-12: 026 a oba sériové 029 subjecty jsou
-`PROMOTED / REVIEW A+B PASS` na canonical tipu `6c366074`. Starší řádky níže,
-které ještě říkají `029 ACTIVE`, `BLOCKED_ON_CHAT` nebo issuer
-`REVIEW_PENDING`, jsou historické checkpointové texty, ne současný stav.
+Aktuální closeout truth record 2026-08-17: 026 a oba sériové 029 subjecty jsou
+`PROMOTED / REVIEW A+B PASS`; B3 Phase A je rovněž promoted s Review A+B PASS.
+031 má historický technický výsledek
+`PASS_RECOVERY_PREREQUISITE_ONLY_NO_AUTO_RESTART`, ale canonical evidence
+povinné předchozí authority chybí, proto je stav
+`TECHNICAL_PASS / AUTHORITY_GAP / NO_RETROACTIVE_AUTHORIZATION / NO_REPLAY`.
+Joint execution manifest je byte-valid s SHA-256 `fbe9e33f…e486`, jeho exact
+historická acceptance evidence však zůstává `UNBOUND/UNKNOWN`.
 [`WP-M1-MODEL-TERMINAL-FAILOVER`](docs/wp/WP-M1-MODEL-TERMINAL-FAILOVER.md)
-je z tohoto exact base `ACTIVATED / IMPLEMENTATION_NOT_STARTED`; automatic
-activation/restore, nové source-bound proofy, T3 GPU a Gate 1 PASS dosud
-nevznikly.
+je `PHASE_A_PROMOTED / PHASE_B_TERMINAL_BLOCKED /
+HEADLESS_AUTHORITY_EXHAUSTED`: desktopové T3 skončily `FAIL/BLOCKED/FAIL`, oba
+pozdější headless orchestration attempts skončily před T3 subprocess a druhý
+terminálně selhal na pre-load desktop gate. Birth-time evidence patří do
+současného independent-review kola, nikoli do retroaktivní authority. První
+integrační kandidát `43ba3e98` zůstal nepromovaný s
+`Review B: CHANGES_REQUIRED`; jeho chybný bundle-mode souhrn je v R2 opraven na
+roots `0700`, runners `0500` a ostatní files `0600`, aniž se failure skryl.
+Phase-B report DAG, B4, Gate 1, B5, B6 a Gate 2 jsou stále `NOT RUN/BLOCKED`;
+H0 je pouze prospective no-model diagnostic proposal bez runtime authority.
+Starší řádky níže, které říkají `029 ACTIVE`, `BLOCKED_ON_CHAT`, issuer
+`REVIEW_PENDING`, B3 `IMPLEMENTATION_NOT_STARTED` nebo „nový T3 nebyl spuštěn“,
+jsou historické checkpointové texty, ne současný stav.
 
 | Co | Stav |
 |---|---|
