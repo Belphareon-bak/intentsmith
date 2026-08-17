@@ -326,9 +326,14 @@ nevyrábí. Exact pořadí aktuálního closeoutu je:
   -> C_REC merge + integration-owned current-state summaries
   -> E_B_REC independent Review B report-only
   -> local canonical --ff-only promotion
-  -> separately materialized/reviewed H0 no-model plan
-  -> functional preexisting SSH + saved GUI + exact operator H0 acceptance
-  -> one H0 run and independent result review
+  -> H0 V1 static materialization + two independent CHANGES_REQUIRED reviews
+  -> decision 033 S_H0R -> E_A_H0R -> C_H0R -> E_B_H0R -> canonical promotion
+  -> exactly one V2 non-clobber static materialization + two independent reviews
+  -> S_V2 -> E_A_V2 -> C_V2 -> E_B_V2 -> canonical promotion
+  -> fresh SSH/logout preflight + exact GUI-saved operator declaration
+  -> S_ACC receipt+detached digest -> E_A_ACC -> C_ACC -> E_B_ACC -> canonical promotion
+  -> immediate same-boot/no-drift gate -> at most one H0 run
+  -> independent H0 result review
   -> only after H0 PASS: separate new T3 authority decision
   -> only after headless T3 PASS: remaining Phase B -> B4 -> Gate 1 -> B5 -> B6 -> Gate 2
 ```
@@ -336,6 +341,38 @@ nevyrábí. Exact pořadí aktuálního closeoutu je:
 H0 je nový diagnostic-only no-model baseline, nikoli Q4 ani T3 retry. Tato
 reconciliation jej sama nepovoluje. Credential apply a 031 recovery se
 neopakují; B4, Gate 1, B5, B6 a Gate 2 zůstávají zamčené.
+
+První H0 static root byl materializován přesně jednou pod decision 032, ale
+formální regression review i nezávislý effect-callgraph review skončily
+`CHANGES_REQUIRED`. V1 plan SHA-256 `6a25cac18e41f066f3d9a2f638b9c95b64a3c3588f842578acfa87ad513bd664`,
+runner SHA-256 `0afbae84d37b99bd9f5effc32aac44c1397a0d4555011393ce40b75cb3a9a302`
+a manifest SHA-256 `afcda074e6b25373d93a127355d17b6751e4808c7c95c3e81077693149303219`
+jsou canonical-bound v [decision 033](../decisions/033-m1-h0-static-remediation.md).
+Evidence adresář zůstal prázdný: žádný runner mode, runtime, acceptance ani live
+effect neproběhl. V1 je `DO_NOT_EXECUTE` a one-plan allowance z 032 je
+spotřebované.
+
+Decision 033 je docs-only remediation gate. Teprve jeho independent Review
+A+B a canonical promotion mohou povolit jediný nový V2 private non-clobber
+**static** root. V2 musí opravit canonical runtime receipt, direct-post effect
+escape, immediate cumulative pre-isolate revalidation, own-unit safety stop,
+pre-pinned restore, orphan-PASS/failure closure, full pre-effect root/runtime
+binding, strict NVIDIA parsing, pravdivé timeout bounds a RustDesk broad
+`ExecStop`/`KillMode=mixed` přes odděleně reviewovanou bounded strategii. Ani
+promoted 033 nepovoluje H0 runtime, T3 nebo Gate 1.
+
+Jediný budoucí RustDesk strategy candidate je exact 43-byte runtime drop-in
+`/run/systemd/system/rustdesk.service.d/90-intentsmith-h0-v2.conf` se SHA-256
+`87f751ac676773104bbc400e38208057d4d12f8a702b8aeb4ae965984b00a9dc`, který
+vyprázdní `ExecStop` a dočasně nastaví `KillMode=control-group`. Jeho `/run`
+create/remove, daemon-reloads, isolate, sole stop, start a reconnect nejsou
+autoritou 033: po dvou V2 static PASS a jejich vlastním canonical promotion
+musí fresh SSH/logout preflight a exact user block projít ještě odděleným
+tracked `S_ACC -> E_A_ACC -> C_ACC -> E_B_ACC -> canonical --ff-only`
+receiptem s detached digestem. Uložení GUI stavu deklaruje operátor; read-only
+preflight prokazuje logout/session absence. Runtime je způsobilý až po
+same-boot/no-drift gate. `systemctl kill` ani V1/032 authority nejsou povolený
+bypass.
 
 ---
 
