@@ -435,18 +435,63 @@ množiny viditelné přes `/m1` — včetně změny `status` na `archived` nebo
 snapshot = { "<domain>": <revision>, ... }   // vektor, ne skalár
 ```
 
-| Stream | `snapshot` |
-|---|---|
-| `settings` | nestránkuje se |
-| `projects` | `{ projects: rev }` |
-| `memory` | `{ memory: rev }` |
-| `workers` | `{ workers: rev }` |
-| `runs` (seznam) | `{ runs: rev }` |
-| `runs/:id/events` | nestránkuje se kurzorem — má `afterSeq`, viz `B5.4` |
-| `search` | **vektor revizí všech prohledávaných domén** + `queryFingerprint` |
+| Stream | Druh | `snapshot` |
+|---|---|---|
+| `settings` | — | nestránkuje se |
+| `projects` | měnitelný | `{ projects: rev }` |
+| `memory` | měnitelný | `{ memory: rev }` |
+| `workers` | měnitelný | `{ workers: rev }` |
+| `runs` (seznam) | měnitelný | `{ runs: rev }` |
+| **`conversations`** | měnitelný | `{ conversations: rev }` |
+| **`messages`** | **append-only** | `{ messages: rev, headAtIssue }` — viz `A3.2a` |
+| `runs/:id/events` | append-only | nestránkuje se kurzorem — má `afterSeq`, viz `B5.4` |
+| `search` | odvozený | **vektor revizí prohledávaných domén** + `queryFingerprint` |
+
+`conversations` a `messages` v revizi 4 v tabulce **chyběly**, přestože `A3.4`
+jim přechod na `c2` nařizuje. Dnešní `c1` je u obou offsetový
+(`handlers.js`, `decodeCursor(stream: 'conversations')`), takže bez řádku
+v téhle tabulce nebylo z čeho migrovat.
 
 Server porovná `snapshot` z kurzoru s aktuálním. **Jakákoli nerovnost** →
 `cursor_unknown`, `reason: snapshot_gone`, `restart: true`.
+
+### A3.2a Append-only stream nesmí umírat na přírůstek
+
+Kdyby `messages` používaly prostou `domainRevision`, **každá nová zpráva
+kdekoli** by zabila každý otevřený kurzor historie. To je u chatu nepoužitelné
+a zároveň zbytečné: procházení **do minulosti** nemůže být přírůstkem na hlavě
+nijak poškozeno.
+
+Append-only stream proto nese **dvě** hodnoty:
+
+- **`rev`** — počítá **jen destruktivní** změny už vydané historie: editaci,
+  smazání, redakci. **Nepočítá přírůstky.**
+- **`headAtIssue`** — strop, `MAX(id)` v okamžiku vydání první stránky. Chůze
+  je **striktně pod ním** (`id < headAtIssue`), takže cokoli přibude nad ním je
+  pro tenhle kurzor neviditelné.
+
+Tím je zachovaná pravdivost i použitelnost: nová zpráva kurzor nezneplatní,
+ale editace staré ano.
+
+> **Cena, kterou tohle neřeší, a je potřeba ji vyslovit.** `conversations` je
+> stream **měnitelný**, protože `updated_at` se hýbe s každou zprávou — takže
+> seznam konverzací se při běžném provozu přeskládá a jeho kurzor umře.
+> Konzervativní pravidlo je správné, ale u tohohle streamu je drahé. Zmírnění je
+> produktové, ne kontraktní: seznam se čte **od nejnovějších**, takže restart
+> znamená načíst první stránku znovu, ne procházet vše. Kdyby se ukázalo, že to
+> nestačí, správná odpověď je jemnější klíč revize — **ne** vrátit se
+> k heuristice, která přeskupení nevidí.
+
+### A3.2b Řádky a revize se čtou v jednom snapshotu
+
+První stránka musí načíst **data i `domainRevision` v témže read snapshotu**
+databáze (`BEGIN DEFERRED` v SQLite). Bez toho může kurzor certifikovat jinou
+revizi, než jaká platila pro vydané řádky — a klient by pak dostal
+`snapshot_gone` na kurzor, který nikdy nebyl nekonzistentní, nebo hůř,
+konzistenci dostal potvrzenou tam, kde nebyla.
+
+Platí to i pro `search`, kde se čte **vektor** revizí: všechny domény v jednom
+snapshotu, ne postupně.
 
 > **Je to schválně konzervativní.** Restart při jakékoli změně domény je levnější
 > a **pravdivější** než děravé `MAX`. Kdyby se ukázalo, že to v provozu bolí, je
@@ -463,6 +508,22 @@ daty, nebo stará data pod starou revizí po zápisu.
 
 - **Tie-break je vždy `id`**: `ORDER BY sortKey DESC, id DESC`. Bez něj dvě
   položky se stejným časem nemají určené pořadí.
+- **U `search` `sortKey, id` nestačí.** Výsledky přicházejí z různých domén
+  a `id` je doménové — `conversations:41` a `projects:41` jsou dvě různé věci
+  se stejným `id`. Úplné uspořádání je proto **trojice**:
+
+  ```
+  ORDER BY score DESC, domain ASC, id DESC
+  ```
+
+  a keyset predikát pro další stránku je odpovídající lexikografický:
+
+  ```
+  (score, domain, id) < (lastScore, lastDomain, lastId)
+  ```
+
+  `domain` je z uzavřeného seznamu (`A6`), takže jeho pořadí je stabilní
+  a nezávisí na lokalizaci.
 - **`NULL` řadí poslední** (`NULLS LAST`) ve všech streamech.
 - **Membership se během chůze nemění**: filtr je součástí `stream` a je
   kanonizovaný, takže jiný filtr = jiný kurzor.
@@ -473,9 +534,23 @@ daty, nebo stará data pod starou revizí po zápisu.
 
 ### A3.4 Klíč, životnost, koexistence
 
-- HMAC klíč je **serverový** a rotovatelný; každý má `keyId`. Kurzor s `keyId`,
-  který server už nedrží → `cursor_unknown`, `reason: key_rotated`. Kurzor
-  s platným `keyId` a vadným podpisem → `cursor_unknown`, `reason: malformed`.
+- HMAC klíč je **serverový** a rotovatelný; každý má `keyId`.
+- **Neznámý `keyId` sám o sobě rotaci nedokazuje** — může být podvržený.
+  Rozlišení je proto vázané na **evidenci vydaných klíčů (tombstony)**:
+
+  | Situace | `reason` |
+  |---|---|
+  | `keyId` je v evidenci jako **odvolaný** | `key_rotated` — server ví, že ho sám vydal a stáhl |
+  | `keyId` server **nikdy neviděl** | **`key_unavailable`** — neutrální; netvrdí rotaci, kterou nemůže doložit |
+  | `keyId` platný, podpis nesedí | `malformed` |
+
+  Revize 4 hlásila `key_rotated` na obojí, čímž tvrdila fakt o vlastní historii
+  i pro klíč, který si mohl vymyslet útočník.
+- **Co přesně podpis pokrývá.** HMAC se počítá nad **bajty kanonického JSON
+  payloadu** (`A4.7`, tytéž pravidla řazení klíčů a normalizace), **ne** nad
+  jeho base64url přepisem. Base64url je až obal pro přenos. Ověření tedy zní:
+  dekóduj, kanonizuj, spočítej, porovnej v konstantním čase. Kdyby se podpis
+  počítal nad textem, dvě různá kódování téhož payloadu by daly různý podpis.
 - **`expiresAt` v kurzoru NENÍ.** Revize 3 ho měla povinné, což odporovalo
   `MD-13` v `DATA-MODEL.md`: *„TTL: žádné — kurzor nezastarává, jen se stává
   neplatným."* `MD-13` je autoritativní model a **nemění se**; místo toho se
@@ -789,7 +864,7 @@ doptat druhým requestem.
 ### A5.1 `cursor_unknown.reason`
 
 `malformed` | `unrecognized` | `stream_mismatch` | `snapshot_gone` |
-`key_rotated` | `cursor_version_mismatch` | `principal_mismatch`
+`key_rotated` | **`key_unavailable`** | `cursor_version_mismatch` | `principal_mismatch`
 
 `expired` je **odstraněno** — kurzor podle `A3.4` nemá expiraci.
 `principal_mismatch` je nové: kurzor cizího `principalId`/`deviceId` byl v `A3.4`
@@ -1870,7 +1945,12 @@ samy. Řádek 6 je rozdělen podle bodů pádu `A4.5` — revize 3 měla v řád
 | 17 | Funkce bez providera | `unavailable` **jen ta funkce**, ne celá doména |
 | 18 | Desktop-only klíč `R-5` přes `/m1` | nedostupný ke čtení i zápisu |
 | 19 | Podvržený nebo cizí `c2` kurzor | `cursor_unknown`; `c1` na v2 routě → `cursor_version_mismatch` |
-| 20 | Kurzor s neznámým `keyId` | `key_rotated`, **ne** `malformed` |
+| 20 | Kurzor s `keyId` vedeným jako odvolaný | `key_rotated` |
+| 20a | Kurzor s `keyId`, který server nikdy nevydal | **`key_unavailable`** — server netvrdí rotaci, kterou nemůže doložit |
+| 20b | Nová zpráva v otevřeném vlákně mezi stránkami | kurzor **přežije** — chůze je pod `headAtIssue` (`A3.2a`) |
+| 20c | Editace už vydané zprávy mezi stránkami | `snapshot_gone` |
+| 20d | Řádky a `domainRevision` čtené mimo jeden snapshot | zakázáno; kurzor by certifikoval jinou revizi než data (`A3.2b`) |
+| 20e | Dva výsledky hledání se shodným `score` z různých domén | určené pořadí podle `(score, domain, id)` (`A3.3`) |
 | 21 | Klient nabídne jen neznámou wire verzi | `426` se `supportedProtocols`, **bootstrap obálka** s `negotiation: true` a `selectedProtocol: null` — a **žádný tichý downgrade** |
 | 21a | Hlavička `X-M1-Protocol` přítomná, ale všechny položky syntakticky vadné | `426`, **ne** legacy default — klient o dohodu požádal a neuspěl (`A1.2` bod 2) |
 | 21b | Hlavička úplně chybí | legacy `m1.2026-07-30`, výslovně a bez chyby |
