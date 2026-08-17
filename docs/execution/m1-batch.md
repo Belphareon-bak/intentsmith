@@ -290,11 +290,11 @@ nemění.
 
 ### M1 closeout evidence reconciliation — 2026-08-17
 
-Canonical checkout je čistý na
-`5b375c9e730fea2efcab3ab2549e4cd53afda5a3` a sleduje
-`origin/integration/m1-consolidated-20260810`. To není integrace do
-`origin/main`, který je stále na `6676902c5f6fe7a5d66aba0d79cb502e0f3a60e4`
-a M1 ancestry neobsahuje.
+Reconciliation inventura vyšla z čistého canonical checkoutu na
+`5b375c9e730fea2efcab3ab2549e4cd53afda5a3`, který sledoval
+`origin/integration/m1-consolidated-20260810`. V tomto inventory snapshotu to
+nebyla integrace do lokálně pozorovaného `origin/main` na
+`6676902c5f6fe7a5d66aba0d79cb502e0f3a60e4`; ten M1 ancestry neobsahoval.
 
 Evidence recovery a 029 reset jsou promoted; B3 Phase A má Review A+B PASS.
 Pozdější filesystem a private evidence ale odhalily canonical rozpor, který se
