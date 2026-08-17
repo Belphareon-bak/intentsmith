@@ -158,8 +158,8 @@ ancestor i identitu. Finální 026 Review A použije promoted `G` jako
 governance commit není uvnitř source subjectu a P0 v něm naopak zůstává přes
 merge ancestry. P0 se tím samostatně nepromuje.
 
-Před efektovou částí closeoutu zbývají jen dvě datově závislé operátorské volby
-a předloží se společně jako jediný redigovaný `M1-EXECUTION-MANIFEST`:
+Po splnění tehdy známých predecessorů byly pro společný redigovaný
+`M1-EXECUTION-MANIFEST` vymezené dvě datově závislé operátorské volby:
 
 1. exact source/path/digest akce pro skutečně nalezené legacy hodnoty;
 2. exact aktuální desired binding a dostupný distinct fallback target včetně
@@ -168,13 +168,17 @@ a předloží se společně jako jediný redigovaný `M1-EXECUTION-MANIFEST`:
 Manifest nenese raw secret a není blanket purge ani model selection authority.
 Bez exact digestů se příslušná akce neprovede. Všechna ostatní rozhodnutí tohoto
 closeoutu jsou přijatá níže nebo v decision 026/029 a znovu se neotvírají.
+Později nalezený 031 DB predecessor je samostatná třetí data-recovery acceptance
+hranice před tímto manifestem; její historical authority gap je zaznamenaný
+níže a nesmí se zpětně zahrnout do těchto dvou voleb.
 
 Closeout smí vytvářet bounded WP branches, commity, push, Review A/B a merge
 queue evidence podle `CONTRACT.md`. External network zůstává vypnutá;
 GPU/Ollama/Electron joby jsou sériové. Ukončovat se smějí jen test-owned process
 groups. Zakázaný je force-push, tag, release, history rewrite a model
-pull/delete/stop/unload/rebind. Uživatelská data se nemutují a failure artefakty
-se zachovají.
+pull/delete/stop/unload/rebind. Uživatelská data se mimo později vymezený exact
+031 recovery scope nemutují a failure artefakty se zachovají. Reconciliation
+031 effectu nepovoluje opakování a jeho chybějící předchozí autoritu nemaže.
 
 ### M1-CHAT-EVIDENCE-RECOVERY-X1 — jednorázový predecessor resetu
 
