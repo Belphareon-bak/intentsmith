@@ -284,6 +284,55 @@ failures zůstávají zachované; B3 PASS je zpětně nepřeznačuje. B3 Phase B
 běží jen nad disposable file-backed DB/runtime a user DB/config se v ní
 nemění.
 
+### M1 closeout evidence reconciliation — 2026-08-17
+
+Canonical checkout je čistý na
+`5b375c9e730fea2efcab3ab2549e4cd53afda5a3` a sleduje
+`origin/integration/m1-consolidated-20260810`. To není integrace do
+`origin/main`, který je stále na `6676902c5f6fe7a5d66aba0d79cb502e0f3a60e4`
+a M1 ancestry neobsahuje.
+
+Evidence recovery a 029 reset jsou promoted; B3 Phase A má Review A+B PASS.
+Pozdější filesystem a private evidence ale odhalily canonical rozpor, který se
+nesmí skrýt:
+
+- 031 technical recovery dosáhla
+  `PASS_RECOVERY_PREREQUISITE_ONLY_NO_AUTO_RESTART`, ale povinná předchozí
+  docs promotion a exact acceptance finálního plan SHA nejsou canonical-bound;
+- joint manifest SHA-256
+  `fbe9e33f761b073c73093cac6455ae7a77faa102f95a6be33cd5837ef559e486`
+  je byte-valid, ale jeho canonical exact acceptance evidence je
+  `UNBOUND/UNKNOWN`;
+- Phase B zůstává `STOPPED_T3_TERMINAL_FAILURE`: desktopové T3
+  `FAIL/BLOCKED/FAIL`, potom dva fail-closed pre-T3 headless orchestration
+  failures; druhý terminálně vyčerpal §7.3 handoff na pre-load desktop gate;
+- birth-time attestace obou literal-`TXXXXXXZ` roots existuje, ale musí být v
+  tomto reconciliation kole poprvé durable nezávisle ověřena.
+
+Operátor zvolil
+[`decision 032 / variantu A`](../decisions/032-m1-closeout-authority-gap-reconciliation.md):
+nejdřív docs-only reconciliation s odděleným `TECHNICAL_PASS / AUTHORITY_GAP`,
+canonical digest bindingem a Review A+B; žádná historical authority se tím
+nevyrábí. Exact pořadí aktuálního closeoutu je:
+
+```text
+5b375c9e clean integration base
+  -> S_REC docs-only reconciliation
+  -> E_A_REC independent Review A report-only
+  -> C_REC merge + integration-owned current-state summaries
+  -> E_B_REC independent Review B report-only
+  -> local canonical --ff-only promotion
+  -> separately materialized/reviewed H0 no-model plan
+  -> functional preexisting SSH + saved GUI + exact operator H0 acceptance
+  -> one H0 run and independent result review
+  -> only after H0 PASS: separate new T3 authority decision
+  -> only after headless T3 PASS: remaining Phase B -> B4 -> Gate 1 -> B5 -> B6 -> Gate 2
+```
+
+H0 je nový diagnostic-only no-model baseline, nikoli Q4 ani T3 retry. Tato
+reconciliation jej sama nepovoluje. Credential apply a 031 recovery se
+neopakují; B4, Gate 1, B5, B6 a Gate 2 zůstávají zamčené.
+
 ---
 
 ## 2. Sdílené invarianty — platí pro každý běh v dávce

@@ -37,16 +37,15 @@ promován výhradně canonical fast-forwardem `G8 -> G9`; teprve exact full SHA
 - Review B: `evidence/m1-model-terminal-failover-execution-review-b-20260812`;
 - report: tentýž Phase A report, rozšířený byte-prefix-preserving obálkou.
 
-**Stav:** `ACTIVATED / PHASE_A_PRODUCTION_REMEDIATION`. 026 a oba sériové 029
-subjecty jsou na exact canonical tipu promovány s Review A/B PASS. Production
-tree byl od S4 = `e59217e7c99cf4ccbbd6366b51262793032a36a1` přes L2 byteově
-zmrazený. L2 = `e6ecc068724a03ebcebf278e4de0ed374a02038d` zachoval očekávaně RED
-mutation control, policy prošla 41/0 a schema 27/0, ale repository skončilo
-20/1. Jde o production defect v manual-supersede eligibility po desired update,
-proto Review A zůstává `CHANGES_REQUIRED`, test-only stabilization lane je
-`STOP` a šest dalších sad plus mobile late-insertion zůstalo `NOT RUN`. G9 ani
-autorizace P1 nejsou důkazem opravy, celého bounded programu, nového proofu, GPU
-residency nebo Gate 1 PASS.
+**Stav:** `PHASE_A_PROMOTED / PHASE_B_TERMINAL_BLOCKED /
+HEADLESS_AUTHORITY_EXHAUSTED / T3_BEHAVIOR_NOT_RUN_HEADLESS`. Phase A dosáhla
+Review A+B `PASS` a promotion na
+`578d52fc64c0a7f4d123c8cb8aadf2f566e54043`. Phase B zachovává desktopové T3
+`FAIL / BLOCKED / FAIL`; dva pozdější headless orchestration attempts skončily
+před headless T3 behavior subprocess. Druhý vstoupil do headless režimu, ale
+pre-load desktop gate skončil `BLOCKED`, takže jednorázová §7.3 authority je
+terminálně vyčerpaná. Žádný Phase-B report DAG nevznikl, B4 ani Gate 1 nejsou
+odemčené.
 
 ## 1. Uživatelský výsledek
 
@@ -587,6 +586,57 @@ ani časem odvozeným z názvu; Gate 1 zůstane `BLOCKED`, dokud skutečný vzni
 nedoloží nezávislý zdroj. Původní sealed bytes se nepřepisují. Nová attestace
 musí být mode `0400`, zahrnutá délkou a SHA-256 v novém non-clobber manifestu
 a nezávisle ověřená před prvním Gate 1 claimem.
+
+### 7.4 Reconciliation zachovaných post-5b artefaktů
+
+Joint execution manifest existuje pouze v private evidence rootu. Jeho exact
+SHA-256 je
+`fbe9e33f761b073c73093cac6455ae7a77faa102f95a6be33cd5837ef559e486`;
+deterministická byte/reproducibility kontrola prochází, ale canonical evidence
+jeho exact historické operátorské akceptace je `UNBOUND/UNKNOWN`. Self-claim v
+manifest payloadu není externí acceptance proof. Credential apply zůstává
+zachovaný jako one-shot `11 TRANSFER / 0 EXPORT / 0 PURGE` a nesmí se
+opakovat.
+
+Po commitu této §7.3 autority vznikly dva fail-closed headless orchestration
+bundles, které dřívější text ještě nezaznamenával:
+
+1. `m1-headless-t3-orchestration-20260812T225221Z`, hash-list SHA-256
+   `a3802dfb3eac854e99262e478d9ae6395e06f7be5f35bffd00f454d407e57f35`,
+   result SHA-256
+   `6b4a3b60e3b0cd4c8814d9d043fdeab7845bbdd03067d9cdbcebc86c3f6b2c57`:
+   Git `dubious ownership`, exit `128`, isolate=false, headless=false, T3
+   subprocess=false;
+2. `m1-headless-t3-orchestration-20260812T230202Z`, hash-list SHA-256
+   `7447c216213d1fd4fbcbb78d89d5f1e5ad3d1e993073380637e5d90b7dee4fd3`,
+   result SHA-256
+   `53441024f76927a29dd80614db4b5817aef666e08a3d9d04744bbea6441bfd10`:
+   isolate=true a headlessEntered=true, ale RustDesk/display procesy přežily;
+   pre-load gate skončil `BLOCKED`, T3 subprocess=false, graphical target byl
+   obnoven a empty Ollama/GPU postflight nebyl prokázán.
+
+První attempt nespotřeboval §7.3 handoff. Druhý splnil jeho terminální
+headless pre-load `BLOCKED` větev, takže další headless T3 není touto autoritou
+povolen. Nulový počet headless T3 subprocessů není retry authority a nemění
+předchozí desktopové T3 `FAIL/BLOCKED/FAIL` na `NOT RUN`.
+
+Požadovaný non-clobber birth-time bundle nyní existuje jako
+`m1-literal-directory-time-attestation-20260812T225053Z`. Payload je mode
+`0400`, 6461 bytes, SHA-256
+`fc5a384660038b45bbe7dd52b9eafb89c9c4bc9d98a0f55be52617182501bbd9`;
+manifest je mode `0400`, 588 bytes, SHA-256
+`b1783d639e914189a25b512e7d396dbbcdbae8b986d2c645754fd635fe65cd36`.
+Vznik bundle předcházel commitu této §7.3 verze a sám odkazuje `ba1c06bd`,
+takže nejde o důkaz historical authorization. Současné Review A i Review B v
+[`WP-M1-CLOSEOUT-EVIDENCE-RECONCILIATION`](WP-M1-CLOSEOUT-EVIDENCE-RECONCILIATION.md)
+musí nezávisle ověřit jeho bytes, módy, filesystem birth times, device/inode a
+všech pět referenced artifactů. Bez promoted review zůstává Gate 1 blokovaný i
+nezávisle na T3.
+
+Oddělený prospective `H0 / HEADLESS_NO_MODEL_BASELINE_ONCE` je pouze návrh v
+[`decision 032`](../decisions/032-m1-closeout-authority-gap-reconciliation.md).
+Toto WP jej nespouští ani neautorizuje. Historická Q4 větev model načítala a
+nesmí se přeznačit na no-model baseline.
 
 ## 8. Stop conditions a acceptance
 
