@@ -25,6 +25,28 @@ import { NotificationChannel } from './base.js';
 
 export const MOBILE_NOTIFICATION_CHANNEL = 'mobile';
 
+/**
+ * The capability that admits a notification to the phone — `DR-013` fail-closed.
+ *
+ * Registering this channel in the production router (`F-111`) made the inbox
+ * *reachable*, and reachable turned out to mean reachable **by anything**:
+ * `POST /api/notifications/send` and `/test` take `channel` straight from the
+ * request body, and the agent schema does not whitelist channels at all.  A
+ * caller could therefore broadcast arbitrary `body`/`data` to every paired
+ * device — while `DATA-MODEL` §`MD-11` says a mobile notification is an **S1
+ * indicator without content**, and an approval description is **S2**.
+ *
+ * A `Symbol` is the boundary because it is the one thing a JSON body cannot
+ * carry: `JSON.parse` never produces a symbol-keyed property, so no HTTP
+ * request and no agent config can set it, whatever string it puts in
+ * `channel`.  Only code holding this export can pass it.
+ *
+ * **This is the fail-closed half, not the mirror.**  Which notifications may
+ * reach a phone, and in what fixed S1 shape, is `DR-013 A` and is still open.
+ * Until that projector exists, the correct behaviour is to admit nothing.
+ */
+export const MOBILE_PROJECTOR_CAPABILITY = Symbol('mobile.projector');
+
 export class MobileChannel extends NotificationChannel {
   /**
    * @param {Object} options
@@ -54,6 +76,16 @@ export class MobileChannel extends NotificationChannel {
   }
 
   async send(notification = {}) {
+    // Fail-closed before anything else: no capability, no row.  This runs ahead
+    // of the enabled/db checks so that a caller who bypassed the boundary is
+    // told *that*, rather than being handed a more forgiving reason.
+    if (notification[MOBILE_PROJECTOR_CAPABILITY] !== true) {
+      return {
+        delivered: false,
+        channel: this.name,
+        error: 'Mobile inbox admits only the DR-013 projector; this caller has no capability',
+      };
+    }
     if (!this._enabled) {
       return { delivered: false, error: 'Mobile notifications disabled', channel: this.name };
     }

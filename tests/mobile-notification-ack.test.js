@@ -38,6 +38,7 @@ import path from 'node:path';
 import { runMigrations, _testInternals } from '../src/db/migrate.js';
 import {
   MobileChannel, listMobileNotifications, ackMobileNotifications,
+  MOBILE_PROJECTOR_CAPABILITY,
 } from '../src/notifications/channels/mobile.js';
 import { handleNotificationAck, handleNotifications } from '../src/mobile/handlers.js';
 
@@ -77,7 +78,12 @@ function clearInbox() {
 
 async function seed(rows) {
   const sent = [];
-  for (const row of rows) sent.push(await channel().send(row));
+  // The inbox is fail-closed (DR-013): only a caller holding the capability may
+  // write to it.  Seeding here stands in for the future projector, so it holds
+  // the capability explicitly rather than the boundary being relaxed for tests.
+  for (const row of rows) {
+    sent.push(await channel().send({ ...row, [MOBILE_PROJECTOR_CAPABILITY]: true }));
+  }
   return sent;
 }
 

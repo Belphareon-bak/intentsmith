@@ -26,7 +26,8 @@ Gate 0 PASS, verdiktu a handoffu.
 otevřené jako úzké child evidence stále blokujícího root findingu `F-014`, ne
 jako další unikátní root: produkční router registruje email/telegram/push a
 server navíc webhook/desktop, nikoli `MobileChannel`, takže běžná produkční
-emise nevytvoří řádek `mobile_notifications`. `F-112` je otevřený **HIGH**
+emise nevytvoří řádek `mobile_notifications`. **`F-112` je `RESOLVED_IN_CODE`
+k 2026-08-13** (per-device receipty, 10 testů PASS); dřívější **HIGH**
 blocker a úzké ACK child evidence stále blokujících root findingů `F-011` a
 `F-015`, ne další unikátní root: čtení se filtruje podle zařízení, ale ACK
 předává jen ID a SQL aktualizuje jen podle ID; cílený řádek lze potvrdit napříč
@@ -38,7 +39,9 @@ společně: server-authoritativní append-only lifecycle a per-device receipt
 tabulka jsou cílový kontrakt. `DR-013` A přijímá policy-controlled S1-safe
 companion mirror. Rozhodnutí nejsou implementace: ACK izolace, sekvenční
 závod, producer/projektor a Gate 1 důkazy chybějí, takže produkční wiring
-zůstává blokovaný (`F-011`, `F-014`, `F-015`, `F-111`, `F-112`).
+zůstává blokovaný (`F-011`, `F-014`, `F-015`, `F-111`). `F-112` je uzavřený,
+ale **uzavření child nálezu samo neuzavírá jeho rooty** `F-011` a `F-015` —
+ty potřebují vlastní review.
 
 **Aktualizace 2026-08-13 — `F-111` z poloviny, `F-112` `RESOLVED`.**
 
@@ -53,7 +56,23 @@ a broadcast má stav čtení per zařízení. Doloženo `mobile-notification-ack
 (10 testů, PASS). **Evidence výše, která ho vede jako otevřený HIGH, je
 zastaralá.**
 
-`F-111` je **z poloviny**. `MobileChannel` nebyl v produkčním routeru vůbec
+`F-111` je **z poloviny — a první pokus o jeho opravu otevřel díru.**
+
+Registrace `MobileChannel` v produkčním routeru ho zpřístupnila **všem**
+dynamickým vstupům: `POST /api/notifications/send` i `/test` berou `channel`
+přímo z těla requestu a schéma agenta kanály nefiltruje. Doloženo review
+empiricky — `200 delivered:true` a zápis obsahu kandidátního `S2` do schránky,
+broadcastem na všechna zařízení. Proti `MD-11`, podle kterého je mobilní
+notifikace **`S1` ukazatel bez obsahu**.
+
+Uzavřeno **fail-closed** capability (`Symbol`, který `JSON.parse` neumí
+vyrobit): bez ní `MobileChannel.send` odmítne cokoli, ať v `channel` stojí
+jakýkoli řetězec. Doloženo `mobile-notification-wiring` (9 testů; **čtyři
+negativní padají, když se gate odebere**, včetně obou HTTP rout).
+
+Původní verze té suity díru **nezachytila** — její „ratchet" hledal literál
+`channel: 'mobile'`, který dynamický `body.channel` nikdy netrefí. Nový ratchet
+sleduje **držitele capability**, což řetězcem obejít nejde. `MobileChannel` nebyl v produkčním routeru vůbec
 zaregistrovaný, takže `router.send({channel:'mobile'})` vracel *„Channel
 'mobile' not registered"* — a protože čtecí strana funguje, prázdná schránka
 byla k nerozeznání od tiché. Registrace doplněna v `createNotificationRouter`
@@ -75,7 +94,8 @@ malformovaný nejvýše sedm bez fabrikace identity nebo času. `F-108` je
 `RESOLVED`; jeho původní branch-aware census je historický, nikoli aktuální stav. Aktuální
 census je `362/7/5/178/33/211`; sdílenou validaci blokují `F-115` a `F-116`.
 Vstupy zůstávají pouze lokální, bez push a main integrace; `F-100`, `F-111`,
-`F-112`, `F-081`, `GAP-2`, `GAP-9`, `MR-05` a `MR-25` zůstávají otevřené.
+`F-081`, `GAP-2`, `GAP-9` a `MR-25` zůstávají otevřené; `F-112` a `MR-05` už
+ne.
 
 ---
 
@@ -198,7 +218,7 @@ obrazovkový dopad v SCREENS §1.1.
 | `MR-15`, `MR-16` approvaly | **3A** | **`LOCALLY_COMPOSED / COMPOSITION_REVIEW_APPROVED / REGISTRY_REVIEW_APPROVED / MOBILE_PASS / SHARED_VALIDATION_BLOCKED`** | Historické `392c5928` dostalo v `RV-023`–`RV-025` `CHANGES_REQUIRED`; opravená kompozice prošla `RV-039`/`RV-040` a registry `RV-042`/`RV-043`. Celý profil je `208/3`, 3A je **NOT DONE** a `F-100` blokuje produkci |
 | `MR-17`, `MR-18` | 4 | **`BLOCKED_BY_CONTRACT_AND_GATE1`** | Doména 3; kontrakt v2 + příslušná Gate 1 evidence + samostatný Work Package |
 | `MR-19`, `MR-20` | 5 | **`BLOCKED_BY_CONTRACT_AND_GATE1`** | Doména 4; kontrakt v2 + příslušná Gate 1 evidence + samostatný Work Package |
-| `MR-21` notifikace | 1+ | **`PARTIAL / PRODUCTION_BLOCKED`** | Třída/tabulka/read+ack surface existují. `DR-003` A, `DR-012` A a `DR-013` A určují append-only lifecycle, per-device receipts a S1-safe mirror, ale nejsou implementované: pipeline řádek nevytvoří (`F-111`/`F-014`), ACK není izolovaný (`F-112`/`F-011`/`F-015`) a spící PWA nemá push (`N-1`) |
+| `MR-21` notifikace | 1+ | **`PARTIAL / PRODUCTION_BLOCKED`** | Třída/tabulka/read+ack surface existují. `DR-003` A, `DR-012` A a `DR-013` A určují append-only lifecycle, per-device receipts a S1-safe mirror, ale nejsou implementované: pipeline řádek nevytvoří (`F-111`/`F-014`), ACK **je** izolovaný per zařízení (`F-112` `RESOLVED_IN_CODE`), ale rooty `F-011`/`F-015` zůstávají a spící PWA nemá push (`N-1`) |
 | `MR-22` správa zařízení | 0 | **`PARTIAL`** | Pod úložištním limitem PWA (PLAN.md §7.2) |
 | `MR-23` zámek aplikace | 0 | **`PARTIAL`** | Pod úložištním limitem PWA; `localStorage` není OS keychain, `M-R2` zůstává neodstraněné |
 | `MR-24` neuzavřené operace | 1 | **`LOCALLY_COMPOSED / COMPOSITION_REVIEW_APPROVED / REGISTRY_REVIEW_APPROVED / MOBILE_PASS / SHARED_VALIDATION_BLOCKED`** | Opravené checkpointy a journal allowlist jsou kompozičně i registry zrevidované a mobilní program prošel. Funkce není produktově DONE; sdílený profil selhal a SCREENS stále postrádá samostatnou definici toku (`GAP-9`) |
@@ -308,7 +328,7 @@ Vypsané, protože nevypsaná díra je horší než přiznaná.
 | **GAP-4** | `MR-06` slibuje odpověď „najednou", protože token streaming neexistuje. Až vznikne, změní se tok `MS-08` i `MS-15` | nízká | Ponechat; `MR-06` je pravdivý popis dneška, ne cíl |
 | **GAP-5** | Žádný test nepokrývá `SS-01`..`SS-10` jako **úplnost** — tedy že tok žádný stav nevynechal | střední | Zvážit jeden `offline` test nad deklarativním popisem toků. Riziko: test, který kontroluje dokumentaci, ne chování |
 | **GAP-6** | Budoucí klientské testy by mohly obejít kanonický registr přes souhrnný wrapper | střední | Pět dnešních successorů je registrovaných přímo a fail-closed, bez prázdného wrapperu. Každý budoucí klientský program musí dostat vlastní registry řádek; agregace nesmí skrýt jeho výsledek |
-| **GAP-7** | `MR-21` (notifikace) nemá end-to-end produkční doručení ani bezpečný ACK pro více zařízení | **vysoká** | `DR-003` A, `DR-012` A a `DR-013` A jsou přijaté cíle, ne hotový kód. Chybí per-device receipt migrace a dotazy, ochrana sekvence, S1 projector a producer/wiring; `F-011`, `F-014`, `F-015`, `F-111`, `F-112` i `N-1` zůstávají otevřené |
+| **GAP-7** | `MR-21` (notifikace) nemá end-to-end produkční doručení ani bezpečný ACK pro více zařízení | **vysoká** | `DR-003` A, `DR-012` A a `DR-013` A jsou přijaté cíle, ne hotový kód. Per-device receipty (migrace 058) a dotazy **existují**, `F-112` je uzavřený a kanál je nově registrovaný a **fail-closed**. Chybí **S1 projector `DR-013 A`**, bez kterého schránka zůstane prázdná, a `N-1`. `F-011`, `F-014`, `F-015` i druhá půlka `F-111` zůstávají otevřené |
 | ~~**GAP-8**~~ | ~~`C3-032` nemělo žádný registrovaný program~~ | **RESOLVED** | `eee04db9` a `RV-042`: `C3-031=7`, `C3-032=5`; čtyři programy byly přidány a `MS-20` přesunuto při zachování ID. To uzavírá registry mezeru; sdílenou validaci a `WP-MOBILE-025` dál blokují `F-115`/`F-116` a Gate 0 verdikt nebyl vydán |
 | **GAP-9** | `MR-24` odkazuje na tok `MS-20`, který v SCREENS §4 **neexistuje** | střední | Implementace je lokálně složená, ale dokumentační definice toku stále chybí. Jde o přiznanou díru, ne důvod maskovat stav jako DONE |
 | ~~**GAP-10**~~ | ~~Lokální operation index nevynucuje uzavřený sedmipolový tvar~~ | **RESOLVED / EVIDENCED** | `2a814434`, `RV-037`, kompoziční `RV-039`/`RV-040` a M3 mobilní PASS dokazují allowlist pro moderní i legacy zápisy |

@@ -27,7 +27,8 @@ Gate 0 PASS, verdiktu a handoffu.
 otevřené jako úzké child evidence stále blokujícího root findingu `F-014`, ne
 jako další unikátní root: produkční router registruje email/telegram/push a
 server navíc webhook/desktop, nikoli `MobileChannel`, takže běžná produkční
-emise nevytvoří řádek `mobile_notifications`. `F-112` je otevřený **HIGH**
+emise nevytvoří řádek `mobile_notifications`. **`F-112` je `RESOLVED_IN_CODE`
+k 2026-08-13** (per-device receipty, 10 testů PASS); dřívější **HIGH**
 blocker a úzké ACK child evidence stále blokujících root findingů `F-011` a
 `F-015`, ne další unikátní root: čtení se filtruje podle zařízení, ale ACK
 předává jen ID a SQL aktualizuje jen podle ID; cílený řádek lze potvrdit napříč
@@ -39,7 +40,9 @@ společně: server-authoritativní append-only lifecycle a per-device receipt
 tabulka jsou cílový kontrakt. `DR-013` A přijímá policy-controlled S1-safe
 companion mirror. Rozhodnutí nejsou implementace: ACK izolace, sekvenční
 závod, producer/projektor a Gate 1 důkazy chybějí, takže produkční wiring
-zůstává blokovaný (`F-011`, `F-014`, `F-015`, `F-111`, `F-112`).
+zůstává blokovaný (`F-011`, `F-014`, `F-015`, `F-111`). `F-112` je uzavřený,
+ale **uzavření child nálezu samo neuzavírá jeho rooty** `F-011` a `F-015` —
+ty potřebují vlastní review.
 
 `F-113` je `RESOLVED` v source checkpointu `2a814434` (`RV-037`), prošlo
 kompozičním review a má M3 testovací evidenci: každý persistence path pro
@@ -49,7 +52,8 @@ malformovaný nejvýše sedm bez fabrikace identity nebo času. `F-108` je
 `RESOLVED`; jeho původní branch-aware census je historický, nikoli aktuální stav. Aktuální
 census je `362/7/5/178/33/211`; sdílenou validaci blokují `F-115` a `F-116`.
 Vstupy zůstávají pouze lokální, bez push a main integrace; `F-100`, `F-111`,
-`F-112`, `F-081`, `GAP-2`, `GAP-9`, `MR-05` a `MR-25` zůstávají otevřené.
+`F-081`, `GAP-2`, `GAP-9` a `MR-25` zůstávají otevřené; `F-112` a `MR-05` už
+ne.
 
 Legenda: **[F]** ověřený fakt v tomto repu · **[R]** doporučení · **[?]** rozhodnutí operátora · **[D]** odloženo
 
@@ -166,7 +170,7 @@ komponent, nikoli jako zapojená produkční cesta.
 | S-4 / B3 — hraniční negativní testy | registrovaný program, **38 testovacích případů PASS** v M3; lokální a bez main integrace či non-loopback důkazu | `tests/mobile-gateway-boundary.test.js` |
 | S-5 / B4 — atomický jednorázový pairing | hotovo | `src/mobile/pairing.js`, `scripts/mobile-pair.js` |
 | B5 — `/m1` handlery | hotovo | `src/mobile/handlers.js` |
-| B6 — mobilní notifikace | **PARTIAL / PRODUCTION_BLOCKED** | Třída `MobileChannel`, tabulka a HTTP read/ack surface existují. Produkční router kanál neregistruje (`F-111` child `F-014`) a ACK není izolovaný podle zařízení (`F-112` child `F-011`/`F-015`). `DR-003` A, `DR-012` A a `DR-013` A určují cílový lifecycle, per-device receipts a S1-safe mirror, ale nejsou implementované; end-to-end delivery není hotové |
+| B6 — mobilní notifikace | **PARTIAL / PRODUCTION_BLOCKED** | Třída `MobileChannel`, tabulka a HTTP read/ack surface existují. Produkční router kanál **nově registruje** a schránka je **fail-closed**: bez capability `DR-013` do ní nezapíše ani HTTP routa, ani konfigurace agenta. ACK **je** izolovaný podle zařízení (`F-112` `RESOLVED_IN_CODE`); jeho rooty `F-011`/`F-015` tím uzavřené nejsou. Druhá půlka `F-111` — co se vůbec zrcadlí — zůstává otevřená. `DR-003` A, `DR-012` A a `DR-013` A určují cílový lifecycle, per-device receipts a S1-safe mirror, ale nejsou implementované; end-to-end delivery není hotové |
 | DATA-MODEL §8 (11 požadavků) | registrovaný program, **41 testovacích případů PASS** v M3; bez main integrace | `src/mobile/protocol.js`, `src/mobile/operation-journal.js` |
 
 **Vlastněný supervizor** (`tests/helpers/server-supervisor.js`) odstraňuje důvod,

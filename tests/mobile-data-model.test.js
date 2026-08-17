@@ -34,7 +34,7 @@ import {
   claimPairingCode, createPairingCode, isPairingEnabled, revokeDevice,
   sanitizeScopes, validateDeviceToken, PAIRABLE_SCOPES, FORBIDDEN_SCOPES,
 } from '../src/mobile/pairing.js';
-import { MobileChannel, listMobileNotifications } from '../src/notifications/channels/mobile.js';
+import { MOBILE_PROJECTOR_CAPABILITY, MobileChannel, listMobileNotifications } from '../src/notifications/channels/mobile.js';
 
 let passed = 0;
 let failed = 0;
@@ -521,7 +521,7 @@ try {
   await test('B6 delivery is reported on the durable inbox write, not on broadcast', async () => {
     let broadcasts = 0;
     const channel = new MobileChannel({ db, broadcast: () => { broadcasts++; } });
-    const result = await channel.send({ title: 'Hotovo', body: 'Milník prošel', kind: 'lifecycle' });
+    const result = await channel.send({ title: 'Hotovo', body: 'Milník prošel', kind: 'lifecycle', [MOBILE_PROJECTOR_CAPABILITY]: true });
     assert.equal(result.delivered, true);
     assert.ok(result.messageId);
     assert.equal(broadcasts, 1);
@@ -536,14 +536,14 @@ try {
       broadcast: () => { throw new Error('no clients'); },
       logger: { warn: () => {} },
     });
-    const result = await channel.send({ title: 'Stále doručeno' });
+    const result = await channel.send({ title: 'Stále doručeno', [MOBILE_PROJECTOR_CAPABILITY]: true });
     assert.equal(result.delivered, true, 'the inbox row is the delivery');
   });
 
   await test('B6 a device sees broadcasts and its own rows, never another device\'s', async () => {
     const channel = new MobileChannel({ db, broadcast: () => {} });
-    await channel.send({ title: 'pro dev-me', deviceId: 'dev-me' });
-    await channel.send({ title: 'pro dev-other', deviceId: 'dev-other' });
+    await channel.send({ title: 'pro dev-me', deviceId: 'dev-me', [MOBILE_PROJECTOR_CAPABILITY]: true });
+    await channel.send({ title: 'pro dev-other', deviceId: 'dev-other', [MOBILE_PROJECTOR_CAPABILITY]: true });
 
     const mine = listMobileNotifications(db, { deviceId: 'dev-me', afterSeq: 0, limit: 100 });
     assert.ok(mine.some(item => item.title === 'pro dev-me'));
@@ -552,8 +552,8 @@ try {
 
   await test('B6 the sequence is monotonic so a reconnect can ask for "after N"', async () => {
     const channel = new MobileChannel({ db, broadcast: () => {} });
-    const a = await channel.send({ title: 'first' });
-    const b = await channel.send({ title: 'second' });
+    const a = await channel.send({ title: 'first', [MOBILE_PROJECTOR_CAPABILITY]: true });
+    const b = await channel.send({ title: 'second', [MOBILE_PROJECTOR_CAPABILITY]: true });
     assert.ok(b.seq > a.seq);
     const after = listMobileNotifications(db, { deviceId: null, afterSeq: a.seq, limit: 100 });
     assert.ok(!after.some(item => item.id === a.messageId));

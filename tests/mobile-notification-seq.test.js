@@ -45,7 +45,9 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { runMigrations, _testInternals } from '../src/db/migrate.js';
-import { MobileChannel, listMobileNotifications } from '../src/notifications/channels/mobile.js';
+import {
+  MobileChannel, listMobileNotifications, MOBILE_PROJECTOR_CAPABILITY,
+} from '../src/notifications/channels/mobile.js';
 
 let passed = 0;
 let failed = 0;
@@ -74,7 +76,11 @@ function clearInbox() {
   db.prepare('DELETE FROM mobile_notifications').run();
 }
 
-const send = (handle, row) => new MobileChannel({ db: handle }).send(row);
+// The inbox is fail-closed (`DR-013`): only a caller holding the capability
+// may write.  These seeds stand in for the future projector, so they hold it
+// explicitly — the boundary is not relaxed for tests.
+const send = (handle, row) => new MobileChannel({ db: handle })
+  .send({ ...row, [MOBILE_PROJECTOR_CAPABILITY]: true });
 
 try {
   await test('B6 the sequence is monotonic and gapless for one writer', async () => {
