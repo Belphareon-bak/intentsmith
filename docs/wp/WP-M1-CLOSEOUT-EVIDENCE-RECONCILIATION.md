@@ -75,9 +75,21 @@ I0=5b375c9e
 Refs:
 
 - subject: `docs/m1-phaseb-evidence-reconciliation-20260817`;
-- Review A: `evidence/m1-phaseb-evidence-reconciliation-review-a-20260817`;
-- queue: `queue/m1-phaseb-evidence-reconciliation-20260817`;
-- Review B: `evidence/m1-phaseb-evidence-reconciliation-review-b-20260817`.
+- první Review A:
+  `evidence/m1-phaseb-evidence-reconciliation-review-a-20260817`;
+- první queue: `queue/m1-phaseb-evidence-reconciliation-20260817`;
+- remediation Review A:
+  `evidence/m1-phaseb-evidence-reconciliation-review-a-r2-20260817`;
+- remediation queue:
+  `queue/m1-phaseb-evidence-reconciliation-r2-20260817`;
+- remediation Review B:
+  `evidence/m1-phaseb-evidence-reconciliation-review-b-r2-20260817`.
+
+První candidate `43ba3e982e3b8e3b6e8ef7dbd3496a1e33328b19` skončil v Review B
+`CHANGES_REQUIRED` na nepřesném souhrnném mode claimu: roots jsou `0700`,
+runnery `0500` a ostatní headless files `0600`. Jeho ostatní matrix prošla,
+ale nevznikl žádný `E_B_REC` ani promotion. Remediation tento červený výsledek
+zachovává a používá výhradně `*-r2-*` review/queue refs.
 
 `S_REC` je po Review A immutable. Review B běží nad exact `C_REC`; změna
 candidate review ruší. Canonical se posune pouze non-force fast-forwardem po

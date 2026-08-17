@@ -152,8 +152,9 @@ review.
 
 §7.3 handoff authority je druhým attemptem terminálně vyčerpaná. Headless T3
 behavior subprocess se ani v jednom z těchto dvou attemptů nespustil; tato věta
-nemění dřívější desktopové T3 FAIL runs na `NOT RUN`. Headless bundles jsou
-mode `0600`, proto jejich tracked hash pin zachycuje review-time snapshot a
+nemění dřívější desktopové T3 FAIL runs na `NOT RUN`. Oba bundle roots jsou
+mode `0700`, oba `run-headless-t3.sh` mode `0500` a všechny ostatní bundle
+files mode `0600`. Proto tracked hash pin zachycuje review-time snapshot a
 nesmí být vydáván za původně immutable mode-0400 evidence.
 
 ## 3. Historical Q4 není no-model preflight
@@ -247,6 +248,31 @@ hashes/modes/closure, 031 klasifikaci, manifest reproducibility, birth-time
 stat equality a oba headless bundles. PASS znamená jen, že canonical text
 pravdivě popisuje evidence. Neznamená historickou authority, B3 Phase-B PASS,
 H0/T3 authority, Gate 1 readiness ani release readiness.
+
+### 5.1 Zachovaný první Review-B neúspěch
+
+První merge candidate
+`C_REC1=43ba3e982e3b8e3b6e8ef7dbd3496a1e33328b19`, tree
+`c49955da47b86c4e110e7cd1a19031609e03c7f0`, měl ordered parents
+`[5b375c9e730fea2efcab3ab2549e4cd53afda5a3,
+ebc3df7b20b1ac69a41a9cbc18f7ded759c0191a]`. Review B skončilo
+`CHANGES_REQUIRED`, protože předchozí text nepřesně zobecnil mode celých
+headless bundles na `0600`; skutečné roots/runner/payload modes jsou
+`0700/0500/0600`. Topologie, path scope, ostatní docs claims, private evidence
+matrix i repo baterie prošly. Pro `C_REC1` nevzniklo `E_B_REC` a candidate se
+nepromoval.
+
+Remediation zachovává první candidate i červený verdict bez amend/rebase/
+history rewrite. Nový symbolic DAG je:
+
+```text
+I0=5b375c9e
+  -> S_REC_R2 (opravený mode claim + preserved C_REC1 failure)
+  -> E_A_REC_R2 (nové independent Review A; report-only)
+  -> C_REC_R2 (merge current integration + E_A_REC_R2; summaries only)
+  -> E_B_REC_R2 (nové independent Review B; report-only)
+  -> canonical --ff-only
+```
 
 Existující šestřádkový Phase-A report
 `docs/execution/runs/wp-m1-model-terminal-failover-20260812-report.md` zůstává
