@@ -111,6 +111,16 @@ plánem. Revize 5 ho plní **v tomto pořadí**, po dvou bisectovatelných čás
 | 7 | W1–W4 jako úplné fixtures | **hotovo** — `W1`–`W4` |
 | — | nález 7: autorizace hledání | **hotovo** — `A6.1` |
 
+**Oprava po review kroků 1–2 (`c0843f37..15cba480`):** šest nálezů zapracováno
+v jediném opravném commitu, bez přepisování pushnuté historie —
+`A2.4` (matice tvarů), `A2.3` (uzavřený union přes `failedAxis`), `A1.2`
+(permisivní gramatika + algoritmus), `A4.4a`/`A4.4a1` (jedna transakce, souběh
+podle otisku), `A4.4b`/`A4.4c` (`LOOKUP` nevydává `UNKNOWN`).
+
+> **Procesní poznámka.** Commit `daac4058` jako samostatný dokument stále tvrdí
+> „revize 4"; označení rozpracované revize 5 přidává až `15cba480`. Historie se
+> kvůli tomu **nepřepisuje** — bisect je přednější než kosmetika hlavičky.
+
 **Revize 5 je tím obsahově uzavřená.** Zbývá to, co §0.4 přiznává od začátku:
 **request/response schémata devíti nových rout a třinácti starých** (`L4`).
 Bez nich je „26 rout ve v2" pořád tvrzení opřené o čtyři svědecké fixtures,
@@ -176,13 +186,20 @@ nejvyšší společnou". Když klient pošle `m1.2026-07-30, m1.2026-08-12`, dá
 tyhle algoritmy jiný výsledek. **Platí výběr podle klientovy preference**, protože
 jinak je pořadí v hlavičce dekorace.
 
-**Syntaxe hlavičky** (ABNF, `RFC 5234`):
+**Syntaxe hlavičky** (ABNF, `RFC 5234`). Gramatika je **permisivní** schválně:
 
 ```
-X-M1-Protocol = version *( OWS "," OWS version )
-version       = "m1." 4DIGIT "-" 2DIGIT "-" 2DIGIT
+X-M1-Protocol = offer *( OWS "," OWS offer )
+offer         = 1*( %x21-2B / %x2D-7E )   ; VCHAR kromě čárky
+version       = "m1." 4DIGIT "-" 2DIGIT "-" 2DIGIT   ; podmnožina `offer`
 OWS           = *( SP / HTAB )
 ```
+
+Revize 5 měla `X-M1-Protocol = version *(...)`, což hlavičku
+`m1.2026-08-12, future/3` **odmítalo jako celek** — zatímco próza pod ní
+přikazovala neplatnou položku ignorovat a vybrat `v2`. Gramatika a algoritmus
+tedy dávaly jiný výsledek. Nabídka je proto `offer` (cokoli bez čárky)
+a `version` je až kritérium **platnosti**, ne přijetí hlavičky.
 
 - pořadí je **preference klienta, sestupně**;
 - položka, kterou syntaxe nepřipouští, se **ignoruje** (ne odmítne) — jinak by
@@ -190,7 +207,25 @@ OWS           = *( SP / HTAB )
 - chyby v nabídce samotné (duplicita, příliš dlouhý seznam) jsou vyjmenované
   v uzavřené tabulce `A1.5` a **nesou bootstrap obálku**, ne normální.
 
-**Výběr:** server projde seznam **zleva doprava** a vezme **první**, kterou umí.
+**Algoritmus, v tomhle pořadí** — pořadí kroků je součástí kontraktu, protože
+mění výsledek:
+
+1. **Sloučení opakovaných hlaviček.** Víc polí téhož jména se spojí čárkou
+   v pořadí výskytu (`RFC 9110` §5.3). Klient tedy nemůže limit obejít tím, že
+   pošle hlavičku dvakrát.
+2. **Rozdělení** na čárkách a odstranění `OWS`. Prázdné položky se zahodí
+   a **do limitu se nepočítají**.
+3. **Limit 8 položek** se měří **tady** — nad *syrovým* seznamem, před
+   ověřením platnosti. Jinak by šlo poslat sto neplatných nabídek a limit
+   obejít tím, že se většina zahodí. Přes limit → `A1.5` řádek 2.
+4. **Ověření platnosti** proti `version`. Neplatná položka se **ignoruje**
+   (`A1.5` řádek 3). Porovnání je **case-sensitive**: `M1.2026-08-12` je
+   neplatné, ne alias.
+5. **Duplicita** se hledá až mezi **platnými** položkami. Dvě stejné → `A1.5`
+   řádek 1. Dvě neplatné stejné duplicitou nejsou — byly zahozené v kroku 4.
+6. **Výběr:** zleva doprava první platná, kterou server umí.
+
+Kontraktní osa (`A1.3`) používá **týž algoritmus** se svou gramatikou.
 
 1. **Chybějící hlavička je výslovný legacy default**, ne tichý downgrade:
    předpokládá se `m1.2026-07-30`, aby dnešní klient nepřestal fungovat.
@@ -282,8 +317,8 @@ ta pole **nepřítomná**, ne prázdná.
 | 1 | duplicitní verze v `X-M1-Protocol` | `bad_request` | 400 | `null` | `null` | `reason: unknown_parameter`, `field` |
 | 2 | `X-M1-Protocol` má víc než 8 položek | `bad_request` | 400 | `null` | `null` | `reason: value_out_of_range`, `field` |
 | 3 | jednotlivá položka nevyhovuje syntaxi | — | — | — | — | **ignoruje se**, není to chyba |
-| 4 | hlavička přítomná, ale nezbyla použitelná verze | `protocol_mismatch` | 426 | `null` | `null` | `supportedProtocols[]` |
-| 5 | žádná společná wire verze | `protocol_mismatch` | 426 | `null` | `null` | `supportedProtocols[]` |
+| 4 | hlavička přítomná, ale nezbyla použitelná verze | `protocol_mismatch` | 426 | `null` | `null` | `supportedProtocols[]`, `supportedContracts[]` (sjednocení) |
+| 5 | žádná společná wire verze | `protocol_mismatch` | 426 | `null` | `null` | `supportedProtocols[]`, `supportedContracts[]` (sjednocení) |
 | 6 | duplicita nebo přetečení v `X-M1-Contract` | `bad_request` | 400 | zvolená | `null` | `reason`, `field` |
 | 7 | žádná kompatibilní kontraktní verze | `protocol_mismatch` | 426 | zvolená | `null` | `supportedProtocols[]`, `supportedContracts[]` |
 
@@ -327,18 +362,23 @@ ErrorEnvelope = {
   }
 }
 
-NegotiationErrorEnvelope = {          // JEN před uzavřenou dohodou, viz A2.3
-  ok:               false,
-  negotiation:      true,             // diskriminátor; ostatní dvě ho nemají
-  selectedProtocol: string|null,      // A1.5
-  selectedContract: string|null,      // A1.5
-  serverTime:       ISO-8601,
-  error: {
-    code:      "protocol_mismatch" | "bad_request",
-    retryable: boolean,
-    details:   object
-  }
-}
+// JEN před uzavřenou dohodou (A2.3).  Dvě varianty, ne dvě nezávislá pole:
+// `failedAxis` je diskriminátor a zakázané dvojice tím nejdou ani zapsat.
+NegotiationErrorEnvelope =
+  | { ok: false, negotiation: true,
+      failedAxis:       "protocol",
+      selectedProtocol: null,
+      selectedContract: null,
+      serverTime:       ISO-8601,
+      error: { code: "protocol_mismatch"|"bad_request",
+               retryable: false, details: object } }
+  | { ok: false, negotiation: true,
+      failedAxis:       "contract",
+      selectedProtocol: string,        // nenulový — wire osa uspěla
+      selectedContract: null,
+      serverTime:       ISO-8601,
+      error: { code: "protocol_mismatch"|"bad_request",
+               retryable: false, details: object } }
 ```
 
 **`protocolVersion` a `contractVersion` zůstávají v obou negociovaných obálkách
@@ -368,27 +408,53 @@ zvolená nebyla. Revize 4 to nechávala nedořešené a test #21 tím pádem nem
 wire-validní očekávanou odpověď. Bootstrap větev to řeší tím, že o nezvolené
 verzi **nelže ani nemlčí**: řekne `null` a řekne proč.
 
-**Uzavřený seznam možných dvojic:**
+**Union je uzavřený strukturou, ne prózou.** Revize 5 měla dvě nezávislá pole
+`string|null`, takže typ **dovoloval zapsat** i zakázané `(null, string)`
+a `(string, string)`; zakazovala je až tabulka pod ním. Diskriminátor
+`failedAxis` to řeší: obě zakázané dvojice se v žádné variantě nedají vyjádřit.
 
-| `selectedProtocol` | `selectedContract` | Význam |
-|---|---|---|
-| `null` | `null` | selhala **první** osa — nebo se k ní vůbec nedošlo |
-| string | `null` | wire dohodnut, selhala **druhá** osa |
-| string | string | **obě uspěly** → tohle už není bootstrap větev, platí `A2` |
-| `null` | string | **nemožné** — kontrakt se vybírá z matice klíčované protokolem, takže bez protokolu není z čeho vybírat |
+| `failedAxis` | `selectedProtocol` | `selectedContract` | Kdy |
+|---|---|---|---|
+| `"protocol"` | `null` | `null` | selhala první osa, nebo se k ní nedošlo |
+| `"contract"` | string | `null` | wire dohodnut, selhala druhá osa |
+| — | string | string | **obě uspěly** → není to bootstrap větev, platí `A2` |
 
-Poslední řádek není jen poznámka: je to invariant, který smí ověřovat test.
-Kdyby taková odpověď vznikla, znamenalo by to, že se druhá osa vyhodnotila bez
-první.
+`retryable` je zde **literál `false`**: opakovat nabídku, kterou server právě
+odmítl, nemá co změnit. Klient musí nabídnout jinou verzi, ne tutéž znovu.
+
+**`supportedContracts[]` je povinné u obou variant** (`A5`). Při selhání
+**první** osy server nemá zvolený protokol, takže vydává **sjednocení** všech
+kontraktních verzí, které podporuje napříč protokoly. Je to méně přesné, ale
+pravdivé — a klient z toho pozná, jestli má vůbec smysl zkoušet znovu.
 
 **Co bootstrap větev nemá a proč:** `principalId`, `scopes`, `contractVersion`
 ani `protocolVersion`. Dohoda běží **před** autentizací (`A1.5`), takže server
 principála nevyhodnotil; `null` a `[]` by tvrdily opak. `data` nemá, protože
 žádná doména nebyla oslovena.
 
-**Kdy končí:** jakmile obě osy uspějí, každá další chyba — včetně `401`, `403`
-a `404` — používá **normální** `ErrorEnvelope`. Bootstrap větev je hranice,
-ne druhý režim.
+### A2.4 Závazná matice tvarů odpovědi
+
+`A2.3` říkala „po úspěchu obou os platí normální `ErrorEnvelope`". To je
+nejednoznačné právě tam, kde to nejvíc bolí: **legacy default** (`A1.2` bod 1)
+je taky „úspěch obou os" — vybere `m1.2026-07-30` + `v1` — a `A2.2` přitom
+výslovně říká, že legacy chyba má `protocolVersion` **uvnitř** `error`. Podle
+předchozího textu šlo dnešnímu klientovi legálně poslat nový tvar a rozbít ho.
+
+**Tvar odpovědi určuje výhradně tahle matice. Nic jiného ho neurčuje:**
+
+| Stav dohody | Success | Error |
+|---|---|---|
+| **před dohodou** (kterákoli osa nedokončena) | — | **`NegotiationErrorEnvelope`** (`A2.3`) |
+| `m1.2026-07-30` + `v1` | **dnešní legacy tvar, beze změny** | **dnešní legacy tvar** — `protocolVersion` uvnitř `error` (`A2.2`) |
+| `m1.2026-08-12` + `v1` | `SuccessEnvelope` (`A2`) | `ErrorEnvelope` (`A2`) |
+| `m1.2026-08-12` + `v2` | `SuccessEnvelope` (`A2`) | `ErrorEnvelope` (`A2`) |
+
+Druhý řádek je ten podstatný: **wire verze rozhoduje o tvaru, kontraktní verze
+o obsahu.** Dnešní klient, který neposlal žádnou hlavičku, dostane přesně to,
+co dostával včera — jinak by „legacy default" nechránil nikoho.
+
+Dvojice `m1.2026-08-12` + `v1` je proto jediná cesta, jak přijmout nový tvar
+chyby bez nových domén: klient o něj **musí požádat**.
 
 ### A2.2 Změna proti wire v1
 
@@ -664,53 +730,105 @@ doménový zápis je reálné okno.
 | `DISPATCHED` | při prvním dotyku | **podle třídy** — viz níže |
 | `SETTLED` | s terminálním stavem | **vždy** |
 
-### A4.4a `TXN` — `DISPATCHED` je vnitřek transakce, ne pozorovatelný stav
+### A4.4a `TXN` — jedna transakce, žádná durable předehra
 
-1. **Samostatně durable `RECEIVED`.** Vlastní commit, dřív než se cokoli dotkne
-   domény.
-2. **Jedna transakce**, a v ní všechno ostatní:
-   - **CAS** `RECEIVED → DISPATCHED` (`WHERE operationId = ? AND deviceId = ?
-     AND phase = 'RECEIVED'`);
-   - doménový zápis;
-   - inkrement `domainRevision` (`A3.2`);
-   - terminální stav `SETTLED` + `CONFIRMED`/`REJECTED`.
-3. **Pád před commitem** → rollback → durable stav je zase `RECEIVED`/`PENDING`
-   a operace je **bezpečně opakovatelná**. **Pád po commitu** → rovnou
-   `SETTLED`.
+Revize 5 předepisovala **samostatně durable `RECEIVED`** a teprve pak
+transakci. To vytvořilo stav, ze kterého nevede legální cesta ven: neplatné
+`expectedVersion` musí skončit `409 state_conflict` (`A4.8`), `409` **nesmí
+nést `MutationOutcome`** (`A5.5`) — takže durable `RECEIVED` by zůstal viset
+bez terminálu.
 
-**Durable `DISPATCHED` u `TXN` tedy nikdy nikdo nespatří.** Není to tvrzení
-o pravděpodobnosti, ale o tom, že ta fáze žije jen uvnitř necommitnuté
-transakce.
+**Pro synchronní SQLite `TXN` je durable `RECEIVED` zbytečný.** Všechno se
+vejde do **jedné** transakce:
 
-**CAS není dekorace.** Dva souběžní vykonavatelé téhož `operationId` skončí tak,
-že druhému `UPDATE` změní **nula řádků** — a ten se pak nesmí pokusit o efekt.
-Vrátí buď původní výsledek (je-li už `SETTLED`), nebo `409 operation_conflict`.
-Bez toho by „opakování provede efekt jednou" platilo jen do prvního souběhu.
+1. **claim** — vložení řádku žurnálu pro `(deviceId, operationId)` s otiskem;
+2. **ověření precondition** (`expectedVersion`);
+3. **doménový zápis**;
+4. **inkrement `domainRevision`** — *jen* pokud se opravdu něco změnilo;
+5. **terminální stav** `SETTLED` + `CONFIRMED`/`REJECTED`.
 
-**Serverový `UNKNOWN` je pro čistou `TXN` mutaci nemožný.** Buď se transakce
-commitla, nebo ne. `UNKNOWN` patří výhradně třídám, které efekt opravdu nemohou
-rozhodnout atomicky (`A4.6`).
+| Kdy se to zlomí | Co zůstane |
+|---|---|
+| precondition neplatí | **rollback celé transakce** → v žurnálu **není nic** → `409 state_conflict` bez `MutationOutcome` je legální a opakování dá tutéž odpověď |
+| pád kdykoli před commitem | rollback → v žurnálu **není nic** → opakování provede efekt **jednou** |
+| commit | `SETTLED` + terminál; opakování je replay |
 
-### A4.4b `LOOKUP` a `TERMINAL_UNKNOWN` — tam `DISPATCHED` durable je
+**U `TXN` je jediná pozorovatelná fáze `SETTLED`.** `RECEIVED` i `DISPATCHED`
+žijí uvnitř necommitnuté transakce a ven se nikdy nedostanou — ani do žurnálu,
+ani na wire.
+
+**Potvrzené no-op.** Zápis hodnoty, kterou klíč už má, je `CONFIRMED` — ale
+`domainRevision` **nezvyšuje** a `version` se nemění. Revize sleduje skutečnou
+změnu, ne počet požadavků; jinak by no-op zneplatnil cizí kurzory. Totéž platí
+pro `REJECTED` (`A4.4d`).
+
+### A4.4a1 Souběh téhož `operationId` — otisk rozhoduje, ne pořadí
+
+Revize 5 tvrdila, že druhý souběžný vykonavatel dostane
+`409 operation_conflict`. **To odporovalo `A4.8` a testu #4**, které `409`
+rezervují výhradně pro **jiný** otisk — a odporovalo to i dnešnímu kódu:
+`operation-journal.js` vrací pro shodný otisk `replay` a `handlers.js` mapuje
+otevřený replay na `202`.
+
+**Deterministická větev, když claim neuspěje (nula řádků / konflikt unikátu):**
+
+| Znovu načtený záznam | Odpověď |
+|---|---|
+| **jiný** otisk | `409 operation_conflict`, `details.operationId` |
+| stejný otisk, **stále otevřený** | **původní** `PENDING`, HTTP **`202`** |
+| stejný otisk, **terminální** | **původní** terminál (`CONFIRMED`/`REJECTED`), HTTP `200` |
+
+Pořadí vykonavatelů tedy výsledek neurčuje — určuje ho otisk. Dva klienti se
+stejným záměrem dostanou stejnou odpověď bez ohledu na to, kdo byl první.
+
+### A4.4b `LOOKUP` a `TERMINAL_UNKNOWN` — durable `DISPATCHED`
 
 Efekt opouští transakci, takže hranice „už jsem se dotkl" musí přežít pád:
-`DISPATCHED` se commituje **před** odesláním a po restartu je vidět. Teprve
-tady má `UNKNOWN` smysl.
+`DISPATCHED` se commituje **před** odesláním a po restartu je vidět.
 
-### A4.4c Uzavřený union dvojic `state` × `phase`
+**`LOOKUP` ale `UNKNOWN` nepoužívá.** Revize 5 ho měla současně jako
+terminální (`UNKNOWN`/`SETTLED`) i dočasný („reconciliation ho později
+dorovná"), což jsou dvě neslučitelná tvrzení a testy #6c a #7 si kvůli tomu
+odporovaly.
 
-Nic mimo tuhle tabulku se neukládá ani nevydává:
-
-| `state` | `phase` | Platí | Poznámka |
+| Třída | Nerozhodnutý efekt | HTTP | Kdy se to změní |
 |---|---|---|---|
-| `PENDING` | `RECEIVED` | **ano** | přijato, doména nedotčena — bezpečně opakovatelné |
-| `PENDING` | `DISPATCHED` | **jen `LOOKUP`/`TERMINAL_UNKNOWN`** | u `TXN` nemožné (`A4.4a`) |
-| `CONFIRMED` | `SETTLED` | **ano** | |
-| `REJECTED` | `SETTLED` | **ano** | doménové odmítnutí |
-| `UNKNOWN` | `SETTLED` | **jen `LOOKUP`/`TERMINAL_UNKNOWN`** | u `TXN` nemožné |
-| `PENDING` | `SETTLED` | **ne** | `SETTLED` znamená terminální |
-| cokoli terminálního | `RECEIVED` | **ne** | výsledek bez dotyku domény |
-| cokoli terminálního | `DISPATCHED` | **ne** | terminální stav patří k `SETTLED` |
+| `LOOKUP` | zůstává **`PENDING`/`DISPATCHED`** | `202` | reconciliation dá `CONFIRMED`/`REJECTED` a stav přejde na `SETTLED` |
+| `TERMINAL_UNKNOWN` | **`UNKNOWN`/`SETTLED`** | `200` | **nikdy** — je to konečná odpověď „nevím" |
+
+`UNKNOWN` tedy znamená **jen jedno**: server to nerozhodne a rozhodovat už
+nebude. Dokud existuje někdo, kdo výsledek dohledá, je operace `PENDING` —
+otevřená, ne nerozhodnutá. Klient v obou případech **neopakuje efekt sám**.
+
+### A4.4c Úplná algebra — třída × stav × událost
+
+Nic mimo tuhle tabulku se neukládá ani nevydává. Sloupec „třída" je součástí
+klíče, protože táž dvojice je u jedné třídy platná a u jiné nemožná.
+
+| Třída | Současný stav | Událost | Nový stav | HTTP |
+|---|---|---|---|---|
+| `TXN` | *(nic)* | commit transakce, efekt | `CONFIRMED`/`SETTLED` | `200` |
+| `TXN` | *(nic)* | commit transakce, doména odmítla | `REJECTED`/`SETTLED` | `200` |
+| `TXN` | *(nic)* | precondition neplatí → rollback | *(nic)* | `409` **bez** `MutationOutcome` |
+| `TXN` | *(nic)* | pád před commitem → rollback | *(nic)* | opakování provede efekt jednou |
+| `TXN` | `SETTLED` | opakování, shodný otisk | beze změny | `200` (replay) |
+| `TXN` | jakýkoli | opakování, **jiný** otisk | beze změny | `409 operation_conflict` |
+| `LOOKUP` | *(nic)* | claim + `DISPATCHED` commit | `PENDING`/`DISPATCHED` | `202` |
+| `LOOKUP` | `PENDING`/`DISPATCHED` | reconciliation našla efekt | `CONFIRMED`/`SETTLED` | `200` |
+| `LOOKUP` | `PENDING`/`DISPATCHED` | reconciliation našla odmítnutí | `REJECTED`/`SETTLED` | `200` |
+| `LOOKUP` | `PENDING`/`DISPATCHED` | opakování, shodný otisk | beze změny | `202` |
+| `TERMINAL_UNKNOWN` | `PENDING`/`DISPATCHED` | efekt nedohledatelný | `UNKNOWN`/`SETTLED` | `200` |
+
+**Co v žádné třídě neexistuje:**
+
+| Dvojice | Proč ne |
+|---|---|
+| `PENDING`/`SETTLED` | `SETTLED` znamená terminální |
+| terminální stav + `RECEIVED` | výsledek bez dotyku domény |
+| terminální stav + `DISPATCHED` | terminální stav patří k `SETTLED` |
+| `UNKNOWN` u `TXN` | transakce se buď commitla, nebo ne |
+| `UNKNOWN` u `LOOKUP` | tam je nerozhodnuto `PENDING`, ne `UNKNOWN` (`A4.4b`) |
+| pozorovatelná fáze `RECEIVED`/`DISPATCHED` u `TXN` | žijí jen uvnitř transakce (`A4.4a`) |
 
 ### A4.4d HTTP stav pro každý `state`
 
@@ -718,21 +836,22 @@ Nic mimo tuhle tabulku se neukládá ani nevydává:
 |---|---|---|
 | `CONFIRMED` | `200` | hotovo |
 | `REJECTED` | `200` | požadavek proběhl, doména řekla ne (`A5.5`) |
-| `PENDING` | **`202`** | server přijal a nedokončil; klient se doptá `GET /m1/operations/:id` |
-| `UNKNOWN` | **`200`** | server **dokončil odpověď** — zní „nevím". `5xx` by pobízelo k opakování, což je přesně to, co se u nerozhodnutého efektu dělat nesmí |
+| `PENDING` | **`202`** | server přijal a nedokončil; klient se doptá `GET /m1/operations/:id`. Sem patří i `LOOKUP` s nerozhodnutým efektem (`A4.4b`) |
+| `UNKNOWN` | **`200`** | jen `TERMINAL_UNKNOWN`. Server **dokončil odpověď** — zní „nevím a už rozhodovat nebudu". `5xx` by pobízelo k opakování, což je u nerozhodnutého efektu to nejhorší |
 
 `domainRevision` se zvyšuje **jen při skutečné doménové změně**. `REJECTED`
-nezměnil nic, takže revizi **nezvyšuje** — jinak by odmítnutá mutace zneplatnila
-cizí kurzory a vypadala jako změna dat (`A3.2`).
+ani potvrzený no-op nezměnily nic, takže revizi **nezvyšují** — jinak by
+odmítnutá nebo prázdná mutace zneplatnila cizí kurzory a vypadala jako změna
+dat (`A3.2`).
 
 ### A4.5 Body pádu
 
 | Pád | Třída | Co je vidět po restartu |
 |---|---|---|
 | před dotykem domény | všechny | `PENDING`/`RECEIVED`; opakování provede efekt **jednou** |
-| uvnitř necommitnuté transakce | `TXN` | rollback → `PENDING`/`RECEIVED`. **Nikdy durable `DISPATCHED`** |
+| uvnitř necommitnuté transakce | `TXN` | rollback → **v žurnálu není nic**; opakování provede efekt jednou |
 | po commitu transakce | `TXN` | `SETTLED` + `CONFIRMED`/`REJECTED` |
-| po odeslání, před výsledkem | `LOOKUP` | `PENDING`/`DISPATCHED`; reconciliation dorovná |
+| po odeslání, před výsledkem | `LOOKUP` | `PENDING`/`DISPATCHED` (`202`); reconciliation dorovná na terminál |
 | po zápisu terminálního stavu | všechny | zapsaný stav, **ne `UNKNOWN`** |
 
 ### A4.6 Třída trvanlivosti — povinná deklarace pro každou mutaci
@@ -748,7 +867,7 @@ a skutečné dohledání je samostatný úkol `MR-25`.
 | Třída | Co znamená | Co platí ve fázi `DISPATCHED` |
 |---|---|---|
 | `TXN` | CAS `RECEIVED→DISPATCHED`, doménový zápis, inkrement `domainRevision` a terminální stav jsou **v jedné DB transakci** (`A4.4a`) | durable `DISPATCHED` **nikdy nevznikne** — buď se commitla celá, nebo nic. Lookup vrací `CONFIRMED`/`REJECTED`, případně `PENDING` k zopakování. Serverový `UNKNOWN` je zde **nemožný** |
-| `LOOKUP` | efekt je u providera mimo transakci, ale provider má **idempotentní klíč a dotaz na výsledek** | reconciliation při startu efekt dohledá a stav dorovná; `UNKNOWN` je dočasné |
+| `LOOKUP` | efekt je u providera mimo transakci, ale provider má **idempotentní klíč a dotaz na výsledek** | operace zůstává `PENDING`/`DISPATCHED` (`202`), dokud reconciliation nedá terminál. **`UNKNOWN` se zde nevydává** (`A4.4b`) |
 | `TERMINAL_UNKNOWN` | efekt dohledat **nejde** | `UNKNOWN` je **trvalý** a kontrakt to přiznává; klient nesmí opakovat automaticky |
 
 **Deklarace pro čtyři mutace, které v2 má:**
@@ -2269,15 +2388,20 @@ samy. Řádek 6 je rozdělen podle bodů pádu `A4.5` — revize 3 měla v řád
 | 4 | Stejný `operationId`, stejný otisk | **původní** výsledek, žádný druhý efekt |
 | 5 | Stejný `operationId`, jiný otisk | `409 operation_conflict` |
 | 6a | Pád ve fázi `RECEIVED` | `PENDING`; opakování provede efekt **jednou** |
-| 6b | Pád uvnitř necommitnuté `TXN` transakce | **právě dvě** pozorovatelné možnosti: rollback na `PENDING`/`RECEIVED`, **nebo** celý terminální commit. **Durable `DISPATCHED` nikdy** |
-| 6d | Dva souběžní vykonavatelé téhož `operationId` | CAS pustí jednoho; druhý dostane původní výsledek nebo `409 operation_conflict`, **nikdy druhý efekt** |
+| 6b | Pád uvnitř necommitnuté `TXN` transakce | **právě dvě** pozorovatelné možnosti: v žurnálu **není nic**, **nebo** celý terminální commit. Nikdy mezistav |
+| 6d | Souběh, **shodný** otisk, původní stále otevřený | druhý dostane **původní `PENDING`**, HTTP `202` — **ne `409`** |
+| 6d1 | Souběh, **shodný** otisk, původní terminální | druhý dostane **původní terminál**, HTTP `200` |
+| 6d2 | Souběh, **jiný** otisk | `409 operation_conflict` — jediný případ, kdy `409` vzniká (`A4.8`) |
 | 6e | `REJECTED` mutace | `domainRevision` se **nezvýší** — nic se nezměnilo |
+| 6e1 | Potvrzený no-op (zápis hodnoty, kterou klíč už má) | `CONFIRMED`, ale `domainRevision` i `version` **beze změny** |
+| 6e2 | Neplatné `expectedVersion` u `TXN` | `409` **a v žurnálu nezůstane nic** — opakování dá tutéž odpověď (`A4.4a`) |
 | 6f | Dvojice `state` × `phase` mimo `A4.4c` | **nesmí vzniknout** ani v úložišti, ani na wire |
 | 6g | Serverový `UNKNOWN` u čisté `TXN` mutace | **nemožný**; jeho vznik je porušení kontraktu |
 | 6h | `PENDING` odpověď | HTTP `202`; `UNKNOWN` odpověď HTTP `200` (`A4.4d`) |
 | 6i | Stejný `operationId` a tělo pod `v1` a pak pod `v2` | **různý otisk** → `409 operation_conflict`, ne tichý replay |
-| 6c | Pád ve fázi `DISPATCHED`, třída `LOOKUP` | `UNKNOWN` + reconciliation dorovná |
-| 7 | Pád ve fázi `SETTLED` | lookup vrací zapsaný stav, **ne `UNKNOWN`** |
+| 6c | Pád ve fázi `DISPATCHED`, třída `LOOKUP` | `PENDING`/`DISPATCHED`, HTTP `202` — **ne `UNKNOWN`**; reconciliation dorovná na terminál |
+| 6c1 | Nerozhodnutelný efekt, třída `TERMINAL_UNKNOWN` | `UNKNOWN`/`SETTLED`, HTTP `200` — a **už se nezmění** |
+| 7 | Pád po zápisu terminálního stavu | lookup vrací **zapsaný** stav; `UNKNOWN` vrací jen tehdy, byl-li zapsaný jako terminál třídou `TERMINAL_UNKNOWN` |
 | 8 | Kurzor z jiné domény / filtru / řazení | `cursor_unknown`, `restart: true` |
 | 9 | **Smazání nebo archivace** položky mezi stránkami | `snapshot_gone` — *(regrese proti `MAX()`)* |
 | 10 | Vložení záznamu s `NULL` řadicím klíčem mezi stránkami | `snapshot_gone` — *(tentýž protipříklad)* |
@@ -2304,11 +2428,19 @@ samy. Řádek 6 je rozdělen podle bodů pádu `A4.5` — revize 3 měla v řád
 | 20e | Dva výsledky hledání se shodným `score` z různých domén | určené pořadí podle `(score, domain, id)` (`A3.3`) |
 | 21 | Klient nabídne jen neznámou wire verzi | `426` se `supportedProtocols`, **bootstrap obálka** s `negotiation: true` a `selectedProtocol: null` — a **žádný tichý downgrade** |
 | 21a | Hlavička `X-M1-Protocol` přítomná, ale všechny položky syntakticky vadné | `426`, **ne** legacy default — klient o dohodu požádal a neuspěl (`A1.2` bod 2) |
-| 21b | Hlavička úplně chybí | legacy `m1.2026-07-30`, výslovně a bez chyby |
+| 21b | Hlavička úplně chybí | legacy `m1.2026-07-30` + `v1` — a odpověď má **dnešní legacy tvar**, ne nový (`A2.4`) |
+| 21b1 | Hlavička `m1.2026-08-12, future/3` | neplatná položka se **ignoruje**, vybere se `m1.2026-08-12`; gramatika ji jako celek **neodmítá** (`A1.2`) |
+| 21b2 | Devět položek, z toho šest neplatných | `bad_request`, `value_out_of_range` — limit se měří **před** ověřením platnosti |
+| 21b3 | `M1.2026-08-12` (velké M) | neplatné, **ignoruje se**; porovnání je case-sensitive |
+| 21b4 | Táž hlavička poslaná dvakrát | sloučí se čárkou v pořadí výskytu; limit se počítá až nad sloučeným seznamem |
 | 21c | Wire dohodnut, kontraktní osa selže | bootstrap obálka se `selectedProtocol` vyplněným a `selectedContract: null` |
 | 21d | Bootstrap odpověď | **nemá** `principalId`, `scopes`, `protocolVersion` ani `contractVersion` — dohoda běží před autentizací (`A1.5`) |
-| 21e | Dvojice `selectedProtocol: null` + `selectedContract: string` | **nesmí vzniknout**; její vznik znamená, že se druhá osa vyhodnotila bez první |
-| 21f | Chyba **po** úspěšné dohodě obou os | normální `ErrorEnvelope`, `negotiation` **nepřítomné** |
+| 21e | `failedAxis: "protocol"` s nenulovým `selectedProtocol` | **nesmí vzniknout** — union to nedovolí zapsat (`A2.3`) |
+| 21e1 | Bootstrap obálka s `selectedContract` nenulovým | **nesmí vzniknout** v žádné variantě |
+| 21e2 | Bootstrap obálka s **oběma** osami vyplněnými | **nesmí vzniknout** — obě uspěly, takže to není bootstrap větev |
+| 21e3 | `retryable` v bootstrap obálce | vždy `false` |
+| 21f | Chyba po dohodě `m1.2026-08-12` + `v1`\|`v2` | `ErrorEnvelope` (`A2`), `negotiation` **nepřítomné** |
+| 21f1 | Chyba po **legacy defaultu** `m1.2026-07-30` + `v1` | **dnešní legacy tvar** — `protocolVersion` uvnitř `error`; nový tvar by rozbil dnešního klienta (`A2.4`) |
 | 22 | Klient nabídne `v1, v2` v tomto pořadí | vybere se **`v1`** — první nabídnutá, ne nejvyšší |
 | 23 | `fingerprint` v těle mutace | `400 bad_request`, `reason: unknown_field` |
 | 24 | Neautentizovaný požadavek | `principalId: null`, `scopes: []` — pole **přítomná** |
