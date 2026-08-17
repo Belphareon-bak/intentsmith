@@ -1100,22 +1100,22 @@ implementace. Časy a identifikátory jsou v nich ilustrativní.
 ### Request
 
 ```http
-GET /m1/projects?limit=2 HTTP/1.1
+GET /m1/projects?limit=2&state=active HTTP/1.1
 Authorization: Bearer <device token>
 X-M1-Protocol: m1.2026-08-12, m1.2026-07-30
 X-M1-Contract: v2, v1
 ```
 
-Query parametry — exact schema, neznámý parametr je `bad_request`,
-`reason: unknown_parameter`:
+**Exact schema query parametrů.** Neznámý parametr je `bad_request`,
+`reason: unknown_parameter`, `field` = jeho jméno.
 
-| | Typ | Default |
-|---|---|---|
-| `limit` | `1..100` | `50` |
-| `cursor` | `c2` řetězec | — |
-| `state` | `active` \| `archived` | `active` |
+| Parametr | Typ | Rozsah | Default |
+|---|---|---|---|
+| `limit` | integer | `1..100` | `50` |
+| `cursor` | `c2` řetězec | max 2048 B | — |
+| `state` | `"active"` \| `"archived"` | — | `"active"` |
 
-`cursor` a `state` současně je **povoleno** jen tehdy, když se `state` shoduje
+`cursor` a `state` současně je povolené **jen** tehdy, když se `state` shoduje
 s tím, co je zapečené ve `stream` kurzoru; jinak `cursor_unknown`,
 `reason: stream_mismatch`.
 
@@ -1152,21 +1152,44 @@ s tím, co je zapečené ve `stream` kurzoru; jinak `cursor_unknown`,
         "fetchedAt": "2026-08-12T09:14:22.481Z"
       }
     ],
-    "nextCursor": "c2.eyJ2IjoyLCJrZXlJZCI6ImsxIn0.O1n7Qb2xR",
+    "nextCursor": "c2.eyJkZXZpY2VJZCI6ImRldl83ZjNhMmMiLCJkaXJlY3Rpb24iOiJmb3J3YXJkIiwiaWQiOiIxMiIsImlzc3VlZEF0IjoiMjAyNi0wOC0xMlQwOToxNDoyMi40ODFaIiwia2V5SWQiOiJrNyIsInByaW5jaXBhbElkIjoiZGV2XzdmM2EyYyIsInNuYXBzaG90Ijp7InByb2plY3RzIjo0MTg3fSwic29ydEtleSI6IjIwMjYtMDgtMTFUMTk6MDI6NDQuMDAwWiIsInN0cmVhbSI6InByb2plY3RzfHN0YXRlPWFjdGl2ZXxzb3J0PXVwZGF0ZWRBdDpkZXNjIiwidiI6Mn0.ameOMlXUKwsRhihgDmUQS5CDdjiKlQO7_nepC_Sx15A",
     "end": false,
     "freshForMs": 900000
   }
 }
 ```
 
-Poznámky, které jsou součástí kontraktu:
+### Ten kurzor je **skutečný**, ne ilustrace
 
-- `id` je **řetězec**, i když jádro má `INTEGER PRIMARY KEY`. Číselné `id` na
-  wire je past na klienty, které je zaokrouhlí nebo přeformátují.
-- `freshForMs` zkracuje **jen `FRESH`** okno; klient bere `min(900000, 15 min)`
-  podle `A7.2a`. Hard TTL (7 dnů) tím **není dotčené** — to je kontraktní
-  hranice, kterou server neposouvá ani jedním směrem.
-- `end: false` a `nextCursor` jdou spolu. `end: true` znamená `nextCursor: null`.
+Revize 4 tu měla `c2.eyJ2IjoyLCJrZXlJZCI6ImsxIn0.O1n7Qb2xR`, což dekóduje na
+`{"v":2,"keyId":"k1"}` — tedy na payload, kterému chybí **osm** z deseti
+povinných polí `A3.1`. Normativní fixture nemůže obsahovat hodnotu, která by
+podle vlastního kontraktu byla `malformed`.
+
+Kurzor výše dekóduje na:
+
+```json
+{
+  "deviceId": "dev_7f3a2c",
+  "direction": "forward",
+  "id": "12",
+  "issuedAt": "2026-08-12T09:14:22.481Z",
+  "keyId": "k7",
+  "principalId": "dev_7f3a2c",
+  "snapshot": { "projects": 4187 },
+  "sortKey": "2026-08-11T19:02:44.000Z",
+  "stream": "projects|state=active|sort=updatedAt:desc",
+  "v": 2
+}
+```
+
+a jeho podpis je platný HMAC-SHA256 nad **bajty tohohle kanonického JSON**
+(`A3.4`) s ukázkovým klíčem `example-cursor-key-k7`. Klíč je uvedený **jen**
+proto, aby šla fixture ověřit; produkční klíče jsou serverové a nikdy se
+nepublikují.
+
+`sortKey` je `updatedAt` **poslední vydané** položky (`id: "12"`), takže další
+stránka pokračuje keysetem `(updatedAt, id) < ("2026-08-11T19:02:44.000Z", "12")`.
 
 ### Odpověď — `cursor_unknown` po změně domény
 
@@ -1186,9 +1209,8 @@ Poznámky, které jsou součástí kontraktu:
 }
 ```
 
-**Tohle je ta oprava z `A3.2` viditelně.** Mezi stránkami byl projekt `B`
-archivován. `MAX(updated_at)` by se nezměnil a klient by dostal děravou stránku;
-`domainRevision` se zvýšil, takže dostane pravdu.
+Mezi stránkami byl projekt archivován: `domainRevision` šla ze `4187` na `4188`.
+`MAX(updated_at)` by se nezměnil a klient by dostal děravou stránku.
 
 ### Odpověď — chybějící scope
 
@@ -1208,10 +1230,41 @@ archivován. `MAX(updated_at)` by se nezměnil a klient by dostal děravou strá
 }
 ```
 
-`scopes: []` je zde **skutečně použité** scopes (žádné), ne udělené —
-`A2.1`.
+`scopes: []` je **skutečně použité** scopes (žádné), ne udělené (`A2.1`).
 
 ## W2 — `PATCH /m1/settings/:key`
+
+### `SettingKey` je diskriminovaný union
+
+Revize 4 měla `value`, `default` a `constraint` jako volné sjednocení typů,
+takže schéma připouštělo `type: "bool"` s `value: 0.7` a `constraint: {min}`.
+Diskriminátorem je `type`:
+
+```
+SettingKeyCommon = {
+  key:       string,        // stabilní, ne lokalizovaný
+  section:   "llm"|"notifications"|"appearance"|"memory"|"system",
+  label:     string,
+  editable:  boolean,       // false = viditelné, mění se z desktopu
+  version:   string,        // otisk hodnoty; zápis ho vrací (A4)
+  fetchedAt: ISO-8601
+}
+
+SettingKey =
+  | SettingKeyCommon & { type: "bool",   value: boolean, default: boolean,
+                         constraint: null }
+  | SettingKeyCommon & { type: "int",    value: integer, default: integer,
+                         constraint: { min: integer, max: integer, step?: integer } }
+  | SettingKeyCommon & { type: "float",  value: number,  default: number,
+                         constraint: { min: number, max: number, step?: number } }
+  | SettingKeyCommon & { type: "enum",   value: string,  default: string,
+                         constraint: { options: string[] } }
+  | SettingKeyCommon & { type: "string", value: string,  default: string,
+                         constraint: { maxLength: integer } }
+```
+
+`constraint` je `null` **jen** u `bool`; u ostatních je povinný. Prázdné
+`options` je `bad_request` na straně serveru — enum bez hodnot není nastavení.
 
 ### Request
 
@@ -1242,7 +1295,7 @@ Server počítá otisk nad:
 }
 ```
 
-### Odpověď — `200 CONFIRMED`
+### Odpověď — `200`, `CONFIRMED`
 
 ```json
 {
@@ -1259,7 +1312,7 @@ Server počítá otisk nad:
     "resource": "settings:llm.temperature",
     "state": "CONFIRMED",
     "phase": "SETTLED",
-    "fingerprint": "8a41f0…",
+    "fingerprint": "8a41f0c2d5e79b314a6f0827bd93ce5502ab7719d4c6e830f15a2b9c4d7e6081",
     "result": {
       "key": "llm.temperature",
       "section": "llm",
@@ -1278,18 +1331,29 @@ Server počítá otisk nad:
 }
 ```
 
-`result` je `T` = `SettingKey` — `A4.3` žádá, aby `T` bylo určeno per mutace.
-`version` v `result` je **nová** hodnota, takže klient nemusí číst znovu.
+### Odpověď — `200`, `REJECTED` (**úplná**, ne zkrácená)
 
-### Odpověď — `200 REJECTED` (doménové odmítnutí)
+Revize 4 tu měla jen `{ok, data:{operationId, state, phase, result, reason, at}}`
+s poznámkou „obálková pole zkrácena". Normativní fixture zkrácená být nesmí —
+je to jediné místo, kde se pozná, že `REJECTED` nese **celý** `MutationOutcome`
+včetně `deviceId`, `operationType`, `resource` a `fingerprint`:
 
 ```json
 {
   "ok": true,
+  "protocolVersion": "m1.2026-08-12",
+  "contractVersion": "v2",
+  "serverTime": "2026-08-12T09:20:03.117Z",
+  "principalId": "dev_7f3a2c",
+  "scopes": ["write:settings"],
   "data": {
     "operationId": "9f1c4d2e-7b60-4a11-93cc-0e5d2f8a1b34",
+    "deviceId": "dev_7f3a2c",
+    "operationType": "settings.write",
+    "resource": "settings:llm.temperature",
     "state": "REJECTED",
     "phase": "SETTLED",
+    "fingerprint": "8a41f0c2d5e79b314a6f0827bd93ce5502ab7719d4c6e830f15a2b9c4d7e6081",
     "result": null,
     "reason": "not_editable",
     "at": "2026-08-12T09:20:03.117Z"
@@ -1297,10 +1361,8 @@ Server počítá otisk nad:
 }
 ```
 
-*(obálková pole zkrácena — jsou stejná jako výše a jsou povinná)*
-
-`ok: true` u `REJECTED` je schválně: požadavek proběhl, doména odpověděla ne.
-`A5.5`.
+`ok: true` u `REJECTED` je schválně: požadavek proběhl, doména odpověděla ne
+(`A5.5`). `domainRevision` se **nezvýšila** — nic se nezměnilo (`A4.4d`).
 
 ### Odpověď — `409 state_conflict`
 
@@ -1324,14 +1386,19 @@ Server počítá otisk nad:
 }
 ```
 
-**`actual` je ta oprava rozporu** mezi `A4` a `A5` z revize 3: klient ukáže
-„na serveru je 1.1" bez druhého requestu.
+`actual` je serverová hodnota, takže klient ukáže „na serveru je 1.1" bez
+druhého requestu.
 
-### Odpověď — `400` na klientský otisk
+### Odpověď — `400` na klientský otisk (**úplná**)
 
 ```json
 {
   "ok": false,
+  "protocolVersion": "m1.2026-08-12",
+  "contractVersion": "v2",
+  "serverTime": "2026-08-12T09:22:05.310Z",
+  "principalId": "dev_7f3a2c",
+  "scopes": ["write:settings"],
   "error": {
     "code": "bad_request",
     "retryable": false,
@@ -1340,7 +1407,9 @@ Server počítá otisk nad:
 }
 ```
 
-`A4.1`: **odmítnutí, ne ignorování.**
+`A4.1`: **odmítnutí, ne ignorování.** Žádná operace nevznikla, takže se nevrací
+`MutationOutcome` (`A5.5`).
+
 
 ## W3 — `GET /m1/runs/:id/events`
 
