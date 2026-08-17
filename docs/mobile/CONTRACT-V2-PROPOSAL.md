@@ -104,16 +104,24 @@ plánem. Revize 5 ho plní **v tomto pořadí**, po dvou bisectovatelných čás
 |---|---|---|
 | 1 | `A1`/`A2` pre-negotiation obálka | **hotovo** — `A1.5`, `A2.3` |
 | 2 | `A4` `TXN` přechody a `state` × `phase` algebra | **hotovo** — `A4.4a`–`A4.4d` |
-| 3 | rozsah wire v2: všech 26 rout | **rozhodnuto operátorem**, zbývá migrační příloha |
-| 4 | `A3` pro conversations/messages/search + read snapshot | **zbývá** |
-| 5 | `freshForMs` vs. hard TTL | **zbývá** |
-| 6 | `CoreEvent` s diskriminovaným subjektem | **rozhodnuto operátorem**, zbývá zápis |
-| 7 | W1–W4 jako úplné fixtures | **zbývá** — druhý checkpoint |
+| 3 | rozsah wire v2: všech 26 rout | **hotovo** — nová **ČÁST L** (migrace) |
+| 4 | `A3` pro conversations/messages/search + read snapshot | **hotovo** — `A3.2a`, `A3.2b`, `A3.3`, `A3.4` |
+| 5 | `freshForMs` vs. hard TTL | **hotovo** — `A7.2a`, `B4.1a` |
+| 6 | `CoreEvent` s diskriminovaným subjektem | **hotovo** — `B5.4a`, `B5.4b`, `B6.4a` |
+| 7 | W1–W4 jako úplné fixtures | **hotovo** — `W1`–`W4` |
+| — | nález 7: autorizace hledání | **hotovo** — `A6.1` |
 
-**Dokument tedy není konzistentní celek**: části `A1`/`A2`/`A4` jsou po revizi 5,
-zbytek po revizi 4. Části `B` a `W` na ně budou navázány až v krocích 4–7 —
-zejména `W2` už nese `contractVersion` v otisku, ale ostatní fixtures ještě
-nejsou přepsané.
+**Revize 5 je tím obsahově uzavřená.** Zbývá to, co §0.4 přiznává od začátku:
+**request/response schémata devíti nových rout a třinácti starých** (`L4`).
+Bez nich je „26 rout ve v2" pořád tvrzení opřené o čtyři svědecké fixtures,
+ne o dvacet šest schémat.
+
+**Dvě věci, které revize 5 vědomě posunula jinam:**
+
+- **`CoreEvent` v2** je rozhodnutí o **autoritativním** kontraktu `/m1`, ne
+  o mobilní příloze. Má vlastní WP a vlastní review (`B5.4a`).
+- **`W3` je `BLOCKED_BY_CONNECTOR_DECISION`** — popisuje tvar, který teprve
+  vznikne, a `runs.events` zůstává `unavailable`.
 
 ### 0.6 Erratum — nalezeno autorem po odevzdání, před review
 
@@ -1413,6 +1421,12 @@ druhého requestu.
 
 ## W3 — `GET /m1/runs/:id/events`
 
+> **`BLOCKED_BY_CONNECTOR_DECISION`.** Tahle fixture popisuje tvar, který
+> **teprve vznikne**: `RunEvent` je projekce `CoreEvent` s `subject.kind: "run"`
+> (`B5.4a`), a ten dnešní `contracts/m1` nemá. Fixture je normativní jako
+> **zadání**, ne jako popis běžícího chování, a `runs.events` zůstává
+> `unavailable`, dokud konektor nevznikne (`A1.4`).
+
 ### Request
 
 ```http
@@ -1422,11 +1436,38 @@ X-M1-Protocol: m1.2026-08-12
 X-M1-Contract: v2
 ```
 
-**První dotaz `afterSeq` vynechává.** Revize 3 měla `afterSeq=0` jako „od
-nejstarší", což bylo současně „pod retention hranicí" a mělo tedy vracet `410`.
-Nepřítomnost parametru je jednoznačná; `afterSeq=0` je nadále platná hodnota
-s běžným exkluzivním významem („po události 0"), a pokud leží pod retention,
-dostane `410` jako každá jiná.
+**Exact schema a přesné meze** — revize 4 je nechávala na „server ořízne":
+
+| Parametr | Typ | Rozsah | Default | Mimo rozsah |
+|---|---|---|---|---|
+| `afterSeq` | integer | `0 .. 2^53-1` | **vynechat** = od nejstarší | `bad_request`, `value_out_of_range` |
+| `limit` | integer | `1..500` | `100` | `bad_request`, `value_out_of_range` |
+| `waitMs` | integer | `0..30000` | `0` | **ořízne se na 30000** a odpověď to řekne v `waitCappedMs` |
+
+`waitMs` je jediný parametr, který se ořezává místo odmítnutí, protože je to
+**žádost o trpělivost**, ne tvrzení o datech — ale ořez se přiznává, aby si
+klient nemyslel, že čekal dýl.
+
+### `RunEventData` — union podle `type`
+
+```
+RunEventData =
+  | { type: "started",  worker: string, trigger: "manual"|"schedule"|"event" }
+  | { type: "step",     step: string, index: integer, total: integer|null }
+  | { type: "tool",     tool: string, durationMs: integer, ok: boolean }
+  | { type: "warning",  code: string }
+  | { type: "error",    code: string, terminal: boolean }
+  | { type: "finished", outcome: "ok"|"failed"|"cancelled"|"timed_out",
+                        durationMs: integer }
+```
+
+`total: null` u `step` je schválně: `B5.6` zakazuje procento hotovo, takže
+`total` se vydává **jen** tam, kde je předem známé, a jinak je `null` — nikdy
+dopočítaný odhad.
+
+**Allow-list má tvar `type` → povolená pole**, a je to přesně ten union výše.
+Cokoli, co provider dodá navíc, se **vynechá** a přizná (`B5.4b`) — nikdy
+nepřepíše řetězcem, který by porušil typ.
 
 ### Odpověď — `200`
 
@@ -1446,28 +1487,34 @@ dostane `410` jako každá jiná.
         "at": "2026-08-12T09:29:58.220Z",
         "type": "tool",
         "level": "info",
-        "text": "čtu konfiguraci [redigováno]",
-        "data": { "tool": "read_file", "durationMs": 12 }
+        "text": "Nástroj read_file doběhl za 12 ms.",
+        "data": { "type": "tool", "tool": "read_file", "durationMs": 12, "ok": true },
+        "redactionApplied": true,
+        "redactedFields": ["path"]
       }
     ],
     "nextAfterSeq": 41,
     "oldestAvailableSeq": 12,
     "caughtUp": true,
     "runTerminal": false,
-    "waitTimedOut": false
+    "waitTimedOut": false,
+    "waitCappedMs": null
   }
 }
 ```
 
-Šest polí odpovědi má šest různých úkolů. Bez nich znamená prázdná odpověď
-zároveň „zatím nic", „běh skončil" i „staré události jsou pryč":
+Všimněte si `text`: je složený ze **serverové šablony** („Nástroj {tool} doběhl
+za {durationMs} ms."), ne opsaný z upstreamu (`B5.4b`). `path` byl mimo
+allow-list, takže **chybí** v `data` a je jmenovaný v `redactedFields` — nikde
+není `"[redigováno]"`, které by porušilo typ `RunEventData`.
 
 | Situace | Odpověď |
 |---|---|
 | Zatím nic nového | `events: []`, `caughtUp: true`, `runTerminal: false` |
-| Běh skončil | `runTerminal: true` + koncová událost v `events` nebo dříve |
+| Běh skončil | `runTerminal: true` + koncová událost |
 | Server čekal `waitMs` a nic nepřišlo | `waitTimedOut: true`, `caughtUp: true` |
-| `afterSeq` pod retention | `410` — viz níže |
+| `waitMs` nad strop | `waitCappedMs: 30000` |
+| `afterSeq` pod retention | `410` — níže |
 
 ### Odpověď — `410 event_window_gone`
 
@@ -1487,27 +1534,14 @@ zároveň „zatím nic", „běh skončil" i „staré události jsou pryč":
 }
 ```
 
-**`resumeAfterSeq = oldestAvailableSeq − 1` je oprava z review.** `afterSeq` je
-exkluzivní, takže kdyby klient pokračoval hodnotou `oldestAvailableSeq`,
-**přeskočil by právě nejstarší dostupnou událost** — přesně tu, kterou mu server
-říká, že ještě má. Klient pokračuje od `resumeAfterSeq` a **mezeru přizná**;
-poslat ho na začátek, který retention smazala, by byla nepravda.
-
-Retention **délka** ve wire kontraktu není (rozhodnutí review): kontrakt zmrazuje
-jen **pozorovatelnou hranici** (`oldestAvailableSeq`) a **postup obnovy**
-(`resumeAfterSeq`). Provoz smí délku měnit, aniž by měnil kontrakt.
+`resumeAfterSeq = oldestAvailableSeq − 1`, protože `afterSeq` je **exkluzivní**:
+pokračování hodnotou `12` by přeskočilo právě nejstarší dostupnou událost.
 
 ## W4 — `POST /m1/search`
 
-### Request
+### Request — **exact schema, včetně pokračování**
 
-```http
-POST /m1/search HTTP/1.1
-Authorization: Bearer <device token>
-X-M1-Protocol: m1.2026-08-12
-X-M1-Contract: v2
-Content-Type: application/json
-
+```json
 {
   "query": "migrace kurzoru",
   "scope": ["conversations", "projects", "memory"],
@@ -1515,13 +1549,33 @@ Content-Type: application/json
 }
 ```
 
-`POST` je zde **read-only** (`B6.3`) a **nemá `operationId`** — nic nemění.
-Tělo má exact schema; `operationId` v něm je `bad_request`,
-`reason: unknown_field`.
+| Pole | Typ | Rozsah | Povinné |
+|---|---|---|---|
+| `query` | string | `1..256` znaků po NFC normalizaci | ano — mimo rozsah `bad_request`, `query_too_long` |
+| `scope` | string[] | neprázdný, **unikátní**, z `{conversations, projects, memory}` | ano |
+| `limit` | integer | `1..50` | ne, default `20` |
+| `cursor` | `c2` řetězec | max 2048 B | ne |
 
-### Odpověď — `200` s částečným scope
+**Pokračovací request nese `cursor` a nic jiného z původního dotazu:**
 
-Zařízení má `read:search` + `read:conversations`, ale **ne** `read:memory`:
+```json
+{ "cursor": "c2.eyJkZXZpY2VJZCI6ImRldl83ZjNhMmMiLCJkaXJlY3Rpb24iOiJmb3J3YXJkIiwiaWQiOiJjb252XzQ0MTAiLCJpc3N1ZWRBdCI6IjIwMjYtMDgtMTJUMDk6NDA6MDAuMDAwWiIsImtleUlkIjoiazciLCJwcmluY2lwYWxJZCI6ImRldl83ZjNhMmMiLCJzbmFwc2hvdCI6eyJjb252ZXJzYXRpb25zIjo4ODQxLCJwcm9qZWN0cyI6NDE4NywicXVlcnlGaW5nZXJwcmludCI6IjNkOWI3YzFlIn0sInNvcnRLZXkiOiIwLjgxNDB8Y29udmVyc2F0aW9ucyIsInN0cmVhbSI6InNlYXJjaHxxPTNkOWI3YzFlfHNjb3BlPWNvbnZlcnNhdGlvbnMscHJvamVjdHN8c29ydD1zY29yZTpkZXNjIiwidiI6Mn0.HJufgzO3WIZyL1DwNIWwSogkTeDV4aSAoSRII_fICDQ" }
+```
+
+`query`, `scope` ani `limit` se **neopakují** — jsou zapečené ve `stream`
+kurzoru. Poslat je znovu je `bad_request`, `reason: unknown_field`: kdyby je
+server přijal a lišily se, musel by tiše rozhodnout, které platí.
+
+Duplicita ve `scope` je `bad_request`, `reason: value_out_of_range`,
+`field: "scope"` — `["memory","memory"]` není dvakrát tolik oprávnění.
+
+`operationId` v těle je `bad_request`, `reason: unknown_field`: `POST` je zde
+read-only (`B6.3`).
+
+### Odpověď — `200` s částečným rozsahem
+
+Zařízení má `read:search`, `read:chat` a `read:projects`, ale **ne**
+`read:memory` (`A6.1`):
 
 ```json
 {
@@ -1530,7 +1584,7 @@ Zařízení má `read:search` + `read:conversations`, ale **ne** `read:memory`:
   "contractVersion": "v2",
   "serverTime": "2026-08-12T09:40:00.000Z",
   "principalId": "dev_7f3a2c",
-  "scopes": ["read:search", "read:conversations", "read:projects"],
+  "scopes": ["read:search", "read:chat", "read:projects"],
   "data": {
     "query": "migrace kurzoru",
     "scopeRequested": ["conversations", "projects", "memory"],
@@ -1538,39 +1592,46 @@ Zařízení má `read:search` + `read:conversations`, ale **ne** `read:memory`:
     "scopeSkipped": [{ "domain": "memory", "reason": "scope_required" }],
     "snapshot": {
       "conversations": 8841,
-      "projects": 210,
-      "queryFingerprint": "3d9b…"
+      "projects": 4187,
+      "queryFingerprint": "3d9b7c1e"
     },
     "truncated": true,
     "results": [
       {
         "domain": "conversations",
         "id": "conv_4410",
+        "score": 0.814,
         "title": "Kontrakt v2 — kurzor",
         "snippet": "…migrace kurzoru c1 → c2 je součástí…",
+        "snippetTruncated": true,
+        "link": { "route": "chat", "params": { "conversationId": "conv_4410" } },
         "at": "2026-08-11T16:20:00.000Z"
       }
     ],
-    "nextCursor": "c2.eyJ2IjoyLCJzdHJlYW0iOiJzZWFyY2gifQ.Kk91",
+    "nextCursor": "c2.eyJkZXZpY2VJZCI6ImRldl83ZjNhMmMiLCJkaXJlY3Rpb24iOiJmb3J3YXJkIiwiaWQiOiJjb252XzQ0MTAiLCJpc3N1ZWRBdCI6IjIwMjYtMDgtMTJUMDk6NDA6MDAuMDAwWiIsImtleUlkIjoiazciLCJwcmluY2lwYWxJZCI6ImRldl83ZjNhMmMiLCJzbmFwc2hvdCI6eyJjb252ZXJzYXRpb25zIjo4ODQxLCJwcm9qZWN0cyI6NDE4NywicXVlcnlGaW5nZXJwcmludCI6IjNkOWI3YzFlIn0sInNvcnRLZXkiOiIwLjgxNDB8Y29udmVyc2F0aW9ucyIsInN0cmVhbSI6InNlYXJjaHxxPTNkOWI3YzFlfHNjb3BlPWNvbnZlcnNhdGlvbnMscHJvamVjdHN8c29ydD1zY29yZTpkZXNjIiwidiI6Mn0.HJufgzO3WIZyL1DwNIWwSogkTeDV4aSAoSRII_fICDQ",
     "end": false
   }
 }
 ```
 
-Tři pole místo jednoho `scope` jsou tam schválně: **odpověď musí přiznat, kde
-se nehledalo, a proč.** Revize 3 měla jen `scope` a nedalo se z něj poznat, jestli
-prázdný výsledek znamená „nic tam není" nebo „tam se nedívalo".
+### Co je na téhle fixture normativní
 
-`snapshot` je **vektor revizí prohledávaných domén** + `queryFingerprint`
-(`A3.2`). Změna kterékoli z nich → `snapshot_gone` na další stránce.
+- **`scopes` v obálce jsou skutečně použité** — `read:chat`, ne neexistující
+  `read:search`+`read:conversations`. Revize 4 tu měla `read:conversations`,
+  který v zmrazeném seznamu **není** (`gateway-policy.js` má `read:chat`),
+  a současně tvrdila, že zařízení má jen dva scopy, zatímco vypisovala tři.
+- **`results[]` je union podle `domain`**, se společným jádrem
+  `{domain, id, score, title, snippet, snippetTruncated, link, at}`. `link` je
+  **klientská** adresa (`route` + `params`), ne URL serveru — jinak by výsledek
+  hledání zaváděl druhý routovací slovník.
+- **`truncated` ≠ `end: false`.** `end: false` znamená „je další stránka";
+  `truncated: true` znamená „**celkový** počet shod přesáhl strop, který server
+  ochoten prohledat" a nezmizí ani na poslední stránce.
+- **Pořadí je `(score, domain, id)`** (`A3.3`), takže `sortKey` v kurzoru je
+  `"0.8140|conversations"` — skóre na pevný počet míst a doména, aby bylo
+  porovnání lexikografické a stabilní.
+- **`snippetTruncated`** přiznává ořez (`B6.4a`).
 
-`truncated: true` je **jiný stav** než `end: true`: „našel jsem víc, než vracím"
-vs. „tohle bylo všechno".
-
-`results[].snippet` prochází stejnou redakcí jako `B5.5` a **nikdy nenese celý
-obsah** (`B6.4`).
-
----
 
 # ČÁST B — Šest doménových příloh
 
