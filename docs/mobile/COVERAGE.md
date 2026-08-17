@@ -40,6 +40,33 @@ companion mirror. Rozhodnutí nejsou implementace: ACK izolace, sekvenční
 závod, producer/projektor a Gate 1 důkazy chybějí, takže produkční wiring
 zůstává blokovaný (`F-011`, `F-014`, `F-015`, `F-111`, `F-112`).
 
+**Aktualizace 2026-08-13 — `F-111` z poloviny, `F-112` `RESOLVED`.**
+
+`F-112` (ACK izolace) je **vyřešená v kódu, ne jen ve schématu**. Migrace 058
+zavedla `mobile_notification_receipts` a `channels/mobile.js` je používá:
+`listMobileNotifications` bere `read` z **vlastního receiptu zařízení**
+(`LEFT JOIN … ON r.notification_id = n.id AND r.device_id = ?`), nikdy ze
+sdíleného `read_at`, a `ackMobileNotifications` bez `deviceId` nepotvrdí nic
+a jeho `SELECT` je scoped `AND (device_id IS NULL OR device_id = ?)`. Obě
+původní důsledky jsou tím uzavřené: cizí cílený řádek potvrdit nelze
+a broadcast má stav čtení per zařízení. Doloženo `mobile-notification-ack`
+(10 testů, PASS). **Evidence výše, která ho vede jako otevřený HIGH, je
+zastaralá.**
+
+`F-111` je **z poloviny**. `MobileChannel` nebyl v produkčním routeru vůbec
+zaregistrovaný, takže `router.send({channel:'mobile'})` vracel *„Channel
+'mobile' not registered"* — a protože čtecí strana funguje, prázdná schránka
+byla k nerozeznání od tiché. Registrace doplněna v `createNotificationRouter`
+(pokrývá každého volajícího továrny, ne jen `server.js`) a doložena
+`mobile-notification-wiring` (5 testů; bez registrace padají tři).
+
+**Druhá půlka zůstává otevřená a je to rozhodnutí, ne práce:** na
+`channel: 'mobile'` **nic nesměruje**. Který podíl notifikací smí doputovat do
+telefonu a v jaké citlivosti, určuje `DR-013 A` — policy-controlled S1-safe
+companion mirror. Do té doby schránka zůstane prázdná i s funkčním kanálem.
+Test to drží jako **ratchet**: jakmile se v `src/` objeví emitor, spadne, aby
+se `F-111` nemohla tiše dopsat jako hotová.
+
 `F-113` je `RESOLVED` v source checkpointu `2a814434` (`RV-037`), prošlo
 kompozičním review a má M3 testovací evidenci: každý persistence path pro
 moderní i legacy řádky prochází

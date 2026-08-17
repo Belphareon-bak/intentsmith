@@ -8232,6 +8232,36 @@
       },
       "flakeCount": 0,
       "quarantineExpiry": null,
+      "id": "IS-T1-TESTS-MOBILE-NOTIFICATION-WIRING-TEST",
+      "path": "tests/mobile-notification-wiring.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-notification-wiring.test.js"
+      ],
+      "fixture": "isolated-sqlite-temp",
+      "profile": "database",
+      "timeoutMs": 180000,
+      "expectedDurationMs": 6000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      }
+    },
+    {
+      "capabilityId": "C3-031",
+      "tier": "T2",
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null,
       "id": "IS-T1-TESTS-MOBILE-NOTIFICATION-SEQ-TEST",
       "path": "tests/mobile-notification-seq.test.js",
       "argv": [

@@ -27,6 +27,7 @@ import { DigestAggregator } from './digest.js';
 import { EmailChannel } from './channels/email.js';
 import { TelegramChannel } from './channels/telegram.js';
 import { PushChannel } from './channels/push.js';
+import { MobileChannel } from './channels/mobile.js';
 
 /**
  * Create and configure a NotificationRouter with all available channels.
@@ -43,6 +44,20 @@ export function createNotificationRouter({ db = null } = {}) {
   router.registerChannel(new EmailChannel({ logger }));
   router.registerChannel(new TelegramChannel({ logger }));
   router.registerChannel(new PushChannel({ logger }));
+  // F-111 — the mobile inbox had a channel class, a table and a read/ack API,
+  // and nothing that registered it.  `router.send()` dispatches by
+  // `notification.channel`, so an unregistered channel is not a channel that
+  // does nothing: it is an error path ("Channel 'mobile' not registered"), and
+  // no `mobile_notifications` row could ever be written by ordinary emission.
+  //
+  // Registering here rather than in `server.js` covers every caller of this
+  // factory, which is what the finding is about — the *production* router.
+  // It is additive: dispatch is by name, so no existing flow changes.
+  //
+  // A missing `db` is tolerated on purpose.  Callers that build a router
+  // without one (tests, tooling) get a channel that reports "no database"
+  // instead of throwing, which keeps the failure legible rather than fatal.
+  router.registerChannel(new MobileChannel({ db: rawDb, logger }));
 
   return router;
 }
