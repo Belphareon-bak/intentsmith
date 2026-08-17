@@ -1,0 +1,4 @@
+integrationRef: integration/m1-consolidated-20260810
+baseRevision: 61bf4729af159000d1b2e9200c1a7d6d72f8df5e
+subjectHead: 2c8e91837a5c1dbf38bdf6a8895ea2efe18ff59c
+reviewA.verdict: PASS

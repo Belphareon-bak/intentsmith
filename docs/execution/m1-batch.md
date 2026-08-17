@@ -328,8 +328,11 @@ nevyrábí. Exact pořadí aktuálního closeoutu je:
   -> local canonical --ff-only promotion
   -> H0 V1 static materialization + two independent CHANGES_REQUIRED reviews
   -> decision 033 S_H0R -> E_A_H0R -> C_H0R -> E_B_H0R -> canonical promotion
-  -> exactly one V2 non-clobber static materialization + two independent reviews
-  -> S_V2 -> E_A_V2 -> C_V2 -> E_B_V2 -> canonical promotion
+  -> exactly one V2 non-clobber partial static materialization
+  -> two independent V2 contract reviews: CHANGES_REQUIRED; V2 frozen unsealed
+  -> decision 034 S_H0M -> E_A_H0M -> C_H0M -> E_B_H0M -> canonical promotion
+  -> exactly one V3 non-clobber static materialization + two independent reviews
+  -> S_V3 -> E_A_V3 -> C_V3 -> E_B_V3 -> canonical promotion
   -> fresh SSH/logout preflight + exact GUI-saved operator declaration
   -> S_ACC receipt+detached digest -> E_A_ACC -> C_ACC -> E_B_ACC -> canonical promotion
   -> immediate same-boot/no-drift gate -> at most one H0 run
@@ -352,27 +355,69 @@ Evidence adresář zůstal prázdný: žádný runner mode, runtime, acceptance 
 effect neproběhl. V1 je `DO_NOT_EXECUTE` a one-plan allowance z 032 je
 spotřebované.
 
-Decision 033 je docs-only remediation gate. Teprve jeho independent Review
-A+B a canonical promotion mohou povolit jediný nový V2 private non-clobber
-**static** root. V2 musí opravit canonical runtime receipt, direct-post effect
-escape, immediate cumulative pre-isolate revalidation, own-unit safety stop,
-pre-pinned restore, orphan-PASS/failure closure, full pre-effect root/runtime
-binding, strict NVIDIA parsing, pravdivé timeout bounds a RustDesk broad
-`ExecStop`/`KillMode=mixed` přes odděleně reviewovanou bounded strategii. Ani
-promoted 033 nepovoluje H0 runtime, T3 nebo Gate 1.
+Decision 033 byla docs-only remediation gate. Její independent Review A+B a
+canonical promotion povolily jediný nový V2 private non-clobber **static**
+root. Prospective V2 contract požadoval opravit canonical runtime receipt,
+direct-post effect escape, immediate cumulative pre-isolate revalidation,
+own-unit safety stop, pre-pinned restore, orphan-PASS/failure closure, full
+pre-effect root/runtime binding, strict NVIDIA parsing, pravdivé timeout bounds
+a RustDesk broad `ExecStop`/`KillMode=mixed` přes odděleně reviewovanou bounded
+strategii. Promoted 033 nikdy nepovolilo H0 runtime, T3 nebo Gate 1.
 
-Jediný budoucí RustDesk strategy candidate je exact 43-byte runtime drop-in
+Jediný 033 V2 RustDesk strategy candidate byl exact 43-byte runtime drop-in
 `/run/systemd/system/rustdesk.service.d/90-intentsmith-h0-v2.conf` se SHA-256
 `87f751ac676773104bbc400e38208057d4d12f8a702b8aeb4ae965984b00a9dc`, který
 vyprázdní `ExecStop` a dočasně nastaví `KillMode=control-group`. Jeho `/run`
-create/remove, daemon-reloads, isolate, sole stop, start a reconnect nejsou
-autoritou 033: po dvou V2 static PASS a jejich vlastním canonical promotion
-musí fresh SSH/logout preflight a exact user block projít ještě odděleným
-tracked `S_ACC -> E_A_ACC -> C_ACC -> E_B_ACC -> canonical --ff-only`
-receiptem s detached digestem. Uložení GUI stavu deklaruje operátor; read-only
-preflight prokazuje logout/session absence. Runtime je způsobilý až po
-same-boot/no-drift gate. `systemctl kill` ani V1/032 authority nejsou povolený
-bypass.
+create/remove, daemon-reloads, isolate, sole stop, start a reconnect 033
+neautorizovalo. Plánovaný řetězec dvou V2 static PASS, canonical promotion,
+fresh SSH/logout, exact user block a tracked
+`S_ACC -> E_A_ACC -> C_ACC -> E_B_ACC -> canonical --ff-only` receipt nikdy
+nevznikl, protože V2 skončila před sealem `CHANGES_REQUIRED`. `systemctl kill`
+ani V1/032 authority nejsou povolený bypass.
+
+Decision 033 byla Review A+B PASS promoted na canonical tipu
+`61bf4729af159000d1b2e9200c1a7d6d72f8df5e`. Její jediná V2 materializační
+autorita byla spotřebovaná rootem
+`/home/belphareon/.local/share/intentsmith-private/m1-h0-headless-no-model-v2-20260817T192545Z.ecpyfuh7`.
+Materializace zůstala partial: runner SHA-256
+`395e41c5da40bd40a02ff49ac010eb054a9022b97ade7a6432b77bb243c99b4a`
+má 251 722 bytes/mode `0664`, strategy SHA-256
+`59b91db84fb4b7d5758039844cd077bedd3696080365fdf28a466abc41f7221d`
+má 8 606 bytes/mode `0664`; `plan/` a `evidence/` jsou empty a neexistuje
+plan, detached digest, manifest ani seal. Žádný runtime nebo live effect
+neproběhl.
+
+Dvě independent contract review identity `/root/h0_static_adversary` a
+`/root/systemd_contract_audit` skončily `CHANGES_REQUIRED_UNSEALED` a
+`CHANGES_REQUIRED`. Recorder bundles jsou pouze non-authoritative záznam jejich
+zpráv. Primární P0 je strukturální: `ExecStopPost` dostává fresh same-policy
+filesystem namespace; exact child `ReadWritePaths` nelze odstranit, protože je
+buď mountpoint (`EBUSY`), nebo by `rmdir` zapisoval do read-only parentu
+(`EROFS`). V2 navíc neuzavřela exact ledger `argvClass`, recomputed
+before/after, unique fixed-result binding ani plnou sample/fixed validation.
+V2 je proto
+`STATIC_CHANGES_REQUIRED_UNSEALED / NO_RUNTIME / DO_NOT_CONTINUE / NO_ACCEPTANCE`
+a nesmí se doplnit nebo spustit.
+
+[`Decision 034`](../decisions/034-m1-h0-v2-mount-namespace-remediation.md) je nový
+docs-only amendment bez runtime authority. V3 zachová `ProtectSystem=strict` a
+`ReadWritePaths` přesně evidence + exact child. Sandboxed `ExecStopPost` smí
+dokončit restore, unlink exact V3 file, fsync child, cleanup reload a publikovat
+pouze non-PASS `EMPTY_RUNTIME_DIR_PENDING_OUTER_RMDIR`. Teprve po
+`systemd-run --wait`, exact terminal/deactivated/no-PID/job/cgroup proofu a
+receipt/config closure smí outer v host namespace odstranit stejný empty inode,
+fsyncnout parent, dokončit proof, druhý strict `ollama ps`, seal a
+absolute-last marker. Broad parent RW, `+` command, parent FD pass,
+`RuntimeDirectory`, helper unit, namespace escape, unmount a V2 continuation
+jsou zakázané.
+
+V3 amendment musí nejprve projít vlastním
+`S_H0M -> E_A_H0M -> C_H0M -> E_B_H0M -> canonical --ff-only` řetězcem. Až
+potom smí vzniknout právě jeden nový V3 static root. V3 stále potřebuje dvě
+independent static review, vlastní canonical promotion a oddělený promoted
+acceptance receipt po fresh SSH/logout a all-system graphical absence
+preflightu. B3 Phase B zůstává `STOPPED_T3_TERMINAL_FAILURE`; B4, Gate 1, B5,
+B6 a Gate 2 zůstávají `BLOCKED`.
 
 ---
 
