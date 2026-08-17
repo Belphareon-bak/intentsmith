@@ -972,11 +972,28 @@ jako počáteční v2 politiku. Kontrakt je tím pádem **normativní**, ne otev
 
 Po **hard limitu** (druhý sloupec) je záznam **vždy `EXPIRED`** a **maže se**.
 
-**Server smí doporučit kratší dobu, nikdy klientovi tenhle hard limit
-prodloužit.** Doporučení se posílá jako `cacheHint.maxAgeMs` v obálce domény;
-klient bere `min(hint, hard limit)`. Prodloužení vyžaduje **změnu kontraktu**,
-ne serverovou hlavičku — jinak by se bezpečnostní vlastnost dala vypnout
-konfigurací.
+### A7.2a `freshForMs` — jedno pole, jeden význam
+
+Revize 4 měla `cacheHint.maxAgeMs` a **neurčila, kterou ze dvou hranic
+zkracuje**: `A7.2` ho porovnávala s hard limitem, `W1` s `FRESH` limitem
+15 minut. Jedno pole tedy znamenalo dvě různé věci podle toho, kde se člověk
+díval.
+
+**Rozděleno na dvě, protože to jsou dvě různá rozhodnutí:**
+
+| Pole | Kdo určuje | Co dělá |
+|---|---|---|
+| **`freshForMs`** | **server**, per odpověď | zkracuje okno `FRESH`. Doporučení: server ví, jak rychle se ta data mění |
+| **hard TTL** | **kontrakt** (`A7.2`) | hranice, za kterou je záznam `EXPIRED` a maže se |
+
+- `freshForMs` je **jen doporučení a jen na `FRESH`**. Klient bere
+  `min(freshForMs, kontraktní FRESH)`.
+- **Hard TTL server posunout nemůže — ani zkrátit, ani prodloužit.** Zkrácení
+  by vypadalo neškodně, ale je to tatáž vlastnost z druhé strany: server, který
+  smí zkrátit, smí i zneviditelnit uživateli data, na která má nárok offline.
+  Změna hard TTL je **změna kontraktu**.
+- Kdyby provoz někdy potřeboval i pohyblivou tvrdou hranici, je to **druhé
+  pole s vlastním rozhodnutím**, ne přetížení tohohle.
 
 ### A7.3 Klíč a úklid
 
@@ -1093,7 +1110,7 @@ s tím, co je zapečené ve `stream` kurzoru; jinak `cursor_unknown`,
     ],
     "nextCursor": "c2.eyJ2IjoyLCJrZXlJZCI6ImsxIn0.O1n7Qb2xR",
     "end": false,
-    "cacheHint": { "maxAgeMs": 900000 }
+    "freshForMs": 900000
   }
 }
 ```
@@ -1102,8 +1119,9 @@ Poznámky, které jsou součástí kontraktu:
 
 - `id` je **řetězec**, i když jádro má `INTEGER PRIMARY KEY`. Číselné `id` na
   wire je past na klienty, které je zaokrouhlí nebo přeformátují.
-- `cacheHint.maxAgeMs` je **doporučení**; klient bere `min(900000, 15 min)`
-  podle `A7.2`. Server ho nesmí zvýšit nad hard limit s efektem.
+- `freshForMs` zkracuje **jen `FRESH`** okno; klient bere `min(900000, 15 min)`
+  podle `A7.2a`. Hard TTL (7 dnů) tím **není dotčené** — to je kontraktní
+  hranice, kterou server neposouvá ani jedním směrem.
 - `end: false` a `nextCursor` jdou spolu. `end: true` znamená `nextCursor: null`.
 
 ### Odpověď — `cursor_unknown` po změně domény
@@ -1648,17 +1666,39 @@ rozhodnutí, autorizační model a negativní testy.
 ### B4.1 DTO — oddělená konfigurace, běh a výsledek
 
 ```
+// CACHOVATELNÁ část — smí ležet v telefonu (A7.2)
 Worker = {
   id:      string,
   name:    string,
   kind:    string,
   config:  { enabled: boolean },                     // co je nastavené
-  run:     { state: "idle"|"running", startedAt },   // co se děje teď
   last:    { outcome: "ok"|"failed"|"cancelled"|null, at, runId } | null,
   version: string,
   fetchedAt: ISO-8601
 }
+
+// ŽIVÁ projekce — NIKDY se necachuje, viz B4.1a
+WorkerRuntime = {
+  id:      string,
+  run:     { state: "idle"|"running", startedAt: ISO-8601|null },
+  at:      ISO-8601                                  // kdy to bylo pravda
+}
 ```
+
+### B4.1a Proč je to rozdělené na dvě
+
+Revize 4 měla `run` jako **povinné pole `Worker`u** a zároveň pravidlo
+„`run.state` **nikdy z cache**". To dohromady znamená, že **v cache nemůže
+ležet platný `Worker`** — každý cachovaný záznam by porušoval buď schéma, nebo
+to pravidlo.
+
+Rozdělení to řeší bez výjimek v obou směrech: `Worker` je cachovatelný celý
+a nemá co zastarat nepravdivě; `WorkerRuntime` je online-only a klient ho buď
+má z čerstvé odpovědi, nebo **nemá vůbec** a řekne to.
+
+Offline seznam workerů proto ukazuje jméno, druh, `config.enabled` a poslední
+výsledek — a u „běží/neběží" **prázdné místo s vysvětlením**, ne poslední
+známou hodnotu. Běh je autorita, ne vzpomínka.
 
 Vypnutý worker je `config.enabled: false`, ne `state: disabled`. Rozbitý worker
 je `last.outcome: failed`, ne `state: failed`.
@@ -1698,7 +1738,7 @@ a `workers.toggle` mohly fungovat. Opraveno.
 | `T` v `MutationOutcome<T>` | `Worker` / `DryRunResult` (tvar definuje WP) |
 | `rejectedReason` | `worker_busy`, `dry_run_unsupported_kind` |
 | Cache | `FRESH` 5 min · `STALE` 7 dnů (`A7.2`) |
-| Offline | seznam **čitelný z cache**; `run.state` **nikdy z cache** — běží/neběží je autorita |
+| Offline | `Worker` **čitelný z cache**; `WorkerRuntime` **nikdy** — běží/neběží je autorita, ne vzpomínka (`B4.1a`) |
 
 ## B5. Průběh běhu (`MR-07`)
 
@@ -1961,7 +2001,10 @@ samy. Řádek 6 je rozdělen podle bodů pádu `A4.5` — revize 3 měla v řád
 | 22 | Klient nabídne `v1, v2` v tomto pořadí | vybere se **`v1`** — první nabídnutá, ne nejvyšší |
 | 23 | `fingerprint` v těle mutace | `400 bad_request`, `reason: unknown_field` |
 | 24 | Neautentizovaný požadavek | `principalId: null`, `scopes: []` — pole **přítomná** |
-| 25 | Server pošle `cacheHint` delší než hard limit | klient použije **hard limit** |
+| 25 | Server pošle `freshForMs` delší než kontraktní `FRESH` | klient použije **kontraktní `FRESH`** |
+| 25a | Server se pokusí ovlivnit hard TTL | **nemá čím** — pole neexistuje; hard TTL je jen v kontraktu (`A7.2a`) |
+| 25b | Offline zobrazení workera | `config.enabled` a `last` z cache, „běží/neběží" **prázdné s vysvětlením** (`B4.1a`) |
+| 25c | `Worker` v cache | **neobsahuje** `run` — ten je ve `WorkerRuntime`, který se necachuje |
 | 26 | Offline hledání v `EXPIRED` cache | neprohledá se; výsledek se nevydává za úplný |
 
 ---
