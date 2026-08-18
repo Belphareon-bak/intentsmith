@@ -49,10 +49,26 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // Fail-closed.  The earlier version fell back to the debug key so
+            // that `assembleRelease` always produced *something* — which meant
+            // an APK whose signature said "debug" could be handed round as the
+            // internal build, and nobody would notice until it refused to
+            // upgrade over the real one.  A build that cannot sign correctly
+            // now stops and says which key is missing.
+            //
+            // `-PallowDebugSigning=true` is the deliberate escape for someone
+            // who genuinely wants a throwaway; it has to be typed, and it is
+            // visible in the build log.
             if (rootProject.file('keystore.properties').exists()) {
                 signingConfig signingConfigs.internal
-            } else {
+            } else if (project.hasProperty('allowDebugSigning')
+                       && project.property('allowDebugSigning').toString() == 'true') {
+                logger.warn('IntentSmith: signing the RELEASE build with the DEBUG key (allowDebugSigning=true)')
                 signingConfig signingConfigs.debug
+            } else {
+                throw new GradleException(
+                    'Release build has no signing key. Run `npm run mobile:android:keystore` first, '
+                    + 'or pass -PallowDebugSigning=true to build a throwaway APK signed with the debug key.')
             }
         }
     }
@@ -74,6 +90,10 @@ dependencies {
     // Keystore-backed store that makes ST-SECURE exist on Android at all —
     // see LockPolicy.java.
     implementation "androidx.security:security-crypto:1.1.0-alpha06"
+    // MR-23 / P-4: the lock is the *system* credential where the device has
+    // one.  A screen lock the user already trusts beats a PIN this app would
+    // have to store, rate-limit and get right on its own.
+    implementation "androidx.biometric:biometric:1.1.0"
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"

@@ -4,7 +4,10 @@
 
 **Kanonická větev prototypu:** `wp/mobile-prototype-20260817`
 
-**Runtime implementace a APK:** `485c34977078a46cc397b9b3807f6a311fc906ba`
+**Runtime implementace a APK:** `HEAD` větve (hardening po konsolidaci —
+lifecycle, systémový zámek, fail-closed podpis). Předchozí snapshot
+`485c34977078a46cc397b9b3807f6a311fc906ba` je archivovaný v
+[`archive/PROTOTYPE-485c3497.md`](archive/PROTOTYPE-485c3497.md).
 
 **Verdikt:** `CURRENT-HOST EMULATOR JOURNEY VERIFIED`; fyzický telefon,
 fresh-clone reprodukce a production release jsou `NOT RUN` / `NOT READY`.
@@ -28,11 +31,11 @@ raw obrazová evidence zůstává v [`prototype-evidence/`](prototype-evidence/)
 |---|---|
 | Worktree | `/home/belphareon/worktrees/is-mobile-prototype` |
 | Větev | `wp/mobile-prototype-20260817` |
-| Zdroj runtime a APK | `485c34977078a46cc397b9b3807f6a311fc906ba` |
+| Zdroj runtime a APK | `HEAD` (hardening); předchozí `485c3497` v archivu |
 | Vstupní mobile baseline | `2fcc2ff357238e4736a15a9e01affa14183e37ef` |
 | APK | `mobile-app/android/app/build/outputs/apk/release/app-release.apk` |
 | Absolutní cesta APK | `/home/belphareon/worktrees/is-mobile-prototype/mobile-app/android/app/build/outputs/apk/release/app-release.apk` |
-| SHA-256 APK | `3b669cea68967b2fbe7d76d99a7de31715fdd8457bc3f7c72d681acde675d10b` |
+| SHA-256 APK | `c22254de1b19cc0a558dc5c118e694311e60fb7766a3e55a3d7f9e4ea036856d` |
 | Package | `cz.intentsmith.companion` |
 | Podpis | interní RSA-4096; cert SHA-256 `9c8aafc3a480e0eccf8230e324fede05f3b3e6db62bd5aea75e539af1e5bf786` |
 | Ověřená platforma | Android 15 emulátor, `x86_64`, API 35, KVM |
@@ -40,8 +43,10 @@ raw obrazová evidence zůstává v [`prototype-evidence/`](prototype-evidence/)
 | Push / vzdálený listener | není součástí prototypu |
 
 APK je interní artefakt pro USB demonstraci. Není to store build ani release
-kandidát. Jeho hash a podpis patří přesně implementačnímu commitu výše; pozdější
-dokumentační commit obsah aplikace nemění.
+kandidát. Hash výše patří buildu z `HEAD`; každý další build ho změní, protože
+APK není bit-reprodukovatelné (razítka, pořadí v zipu) — reprodukovatelnost je
+položka `P1` v [PROD-READY-HANDBOOK.md](PROD-READY-HANDBOOK.md), ne tvrzení
+o dnešku. Kontrolovat se dá **podpis**, ne hash: cert SHA-256 výše je stabilní.
 
 Nejkratší bezpečný postup je:
 
@@ -50,11 +55,22 @@ cd /home/belphareon/worktrees/is-mobile-prototype
 npm ci --offline
 npm --prefix mobile-app ci --offline
 npm run mobile:seed -- --db /tmp/is-demo.db
+
+# Terminál 1 — gateway drží terminál obsazený, dokud běží.
 C3_DB_PATH=/tmp/is-demo.db C3_MOBILE_PAIRING=on npm run mobile:gateway
-npm run mobile:android:run
 ```
 
-Párování a ★ approval demonstrace jsou rozepsané v
+```bash
+# Terminál 2 — telefon, párovací kód, běh
+npm run mobile:android:run
+C3_DB_PATH=/tmp/is-demo.db C3_MOBILE_PAIRING=on node scripts/mobile-pair.js \
+  --scopes read:capabilities,read:chat,write:chat,read:notifications,write:notifications,read:approvals,write:approvals
+npm run mobile:demo -- --db /tmp/is-demo.db
+```
+
+Bez kroku s `mobile-pair.js` se aplikace zastaví na párovací obrazovce a nemá
+co zadat; approvaly navíc **nejsou ve výchozích scopech** (`P-8`), takže je
+příkaz žádá výslovně. Podrobnosti a co si při klikání všímat jsou v
 [TRYING-IT.md](TRYING-IT.md). Gateway zůstává na `127.0.0.1:3336`; telefon se k
 ní dostane jen přes USB `adb reverse`. Nic se nevystavuje do Wi-Fi.
 
@@ -91,17 +107,38 @@ definuje jako následující integrační WP, nikoli jako hotovou skutečnost.
 | Notifikační schránka | `DEMO PRODUCER IMPLEMENTED` | uzavřený devítivětý S1 slovník bez obsahu, zobrazený na emulátoru | je to pull; bez push a bez zapojení do skutečného core lifecycle |
 | Průběh běhu | `DEMO PROJECTION IMPLEMENTED` | demo mapuje `CoreEvent` do S1 indikátorů ve schránce | není vlastní run obrazovka ani produkční CoreEvent konektor |
 | Android shell | `EMULATOR VERIFIED` | instalace/launch, gateway přes `adb reverse`, background lock a `FLAG_SECURE` | Capacitor 6, minSdk 22, compile/target 34 a servírované UI přes `server.url` jsou prototypová konfigurace |
-| Token at rest | `PARTIAL` | credential je v Keystore-backed encrypted preferences; backup je vypnutý | [`EncryptedSharedPreferences` je deprecated](https://developer.android.com/reference/androidx/security/crypto/EncryptedSharedPreferences) a token se při bootu načte do JS paměti |
-| Background lock | `PARTIAL` | `onPause` schová WebView a zamkne vault; po PINu proběhne reload | již načtený JS token se při `onPause` nevymaže a aktivní requesty se neabortují; úplná lifecycle revokace není prokázaná |
-| Odemčení | `PROTOTYPE ONLY` | vlastní PIN, limit pokusů a wipe cesta | bez systémové biometrie/device credentialu a bez fyzického testu |
-| APK a podpis | `INTERNAL BUILD VERIFIED` | konkrétní APK má interní podpis a ověřený hash | build umí fallback na debug podpis a kontrola podpisu ve skriptu není fail-closed; žádná release key ceremony |
+| Token at rest | `PARTIAL` | credential je v Keystore-backed encrypted preferences; backup je vypnutý; JS kopie se při zamčení zahazuje | [`EncryptedSharedPreferences` je deprecated](https://developer.android.com/reference/androidx/security/crypto/EncryptedSharedPreferences); mezi odemčením a zamčením kopie v JS paměti existuje |
+| Background lock | `EMULATOR VERIFIED` | `onPause` zapečetí vault, pošle do stránky `intentsmithLock` (zahodí credential z paměti, zruší běžící requesty, zneplatní epochu) a zvedne překryv; pozdní odpověď je inertní | ověřeno na emulátoru a šesti testy; fyzický telefon `NOT RUN` |
+| Odemčení | `EMULATOR VERIFIED` | systémový `BiometricPrompt` (otisk / obličej / PIN telefonu); po odemčení se stránka reloadne a čte z trezoru | vlastní PIN zůstává jen pro telefon **bez** zámku obrazovky; fyzická biometrie `NOT RUN` |
+| APK a podpis | `INTERNAL BUILD VERIFIED` | release build **selže**, když chybí podpisový klíč; interní podpis ověřen `apksigner` | `-PallowDebugSigning=true` je vědomý únik pro jednorázový build; žádná release key ceremony |
 | Síť | `USB LOOPBACK ONLY` | `adb reverse` zachovává gateway na loopbacku | žádný vzdálený listener, VPN support claim, TLS ani push |
 | Accessibility | `BLOCKED` | automatická browser sada má deklarovanou chybějící Chromium prerekvizitu | 200% text, TalkBack a fyzická AT matice nejsou PASS |
 
-Nejdůležitější upřesnění proti starému popisu: po approval v demu provádí
+Nejdůležitější upřesnění proti staršímu popisu: po approval v demu provádí
 `scripts/mobile-demo-run.js` přímý `fs.writeFileSync`. Pořadí je správné — efekt
 nastane až po souhlasu — ale není to skutečný executor/effect broker. Proto je
 produkční F-100 integrace stále otevřená.
+
+### Co změnil hardening po konsolidaci
+
+Tři výhrady z porovnávacího review byly oprávněné a jsou zapracované, ne
+odargumentované:
+
+1. **Zámek zapečeťoval trezor, ale ne stránku.** WebView si po bootu drží
+   credential v paměti a překryv na to nesahá. `onPause` teď posílá do stránky
+   `intentsmithLock`: credential z paměti zmizí, běžící requesty se zruší a
+   epocha se posune, takže odpověď, která dorazí po zamčení, se zahodí místo
+   aby překreslila zamčenou relaci. Šest testů v
+   `tests/mobile-secure-credential.test.js` drží každou z těch vlastností zvlášť.
+2. **Vlastní PIN byl slabší než zámek, který telefon už má.** Primární cesta je
+   teď systémový `BiometricPrompt` s `DEVICE_CREDENTIAL`; aplikační PIN zůstává
+   výhradně pro telefon bez zámku obrazovky a obrazovka nastavení říká, který
+   z nich platí. Zrušený prompt neodemyká a **nepropadá** na slabší PIN.
+3. **Release build mohl tiše podepsat debug klíčem.** Teď bez klíče selže.
+
+Čtvrtou vadu našel až běh na emulátoru, ne čtení kódu: aplikace se zamykala i
+**před spárováním**, takže první obrazovkou po instalaci byl systémový prompt
+hlídající prázdnou schránku. Zámek se teď zapíná až když je co chránit.
 
 ## 4. Důkazy, které dnes existují
 
@@ -111,15 +148,16 @@ Na runtime snapshotu a znovu po dokumentační konsolidaci prošlo:
 - `mobile-browser-a11y`: **BLOCKED** na deklarované Chromium prerekvizitě;
 - `tests/mobile-companion-producer.test.js`: **17 PASS**;
 - `tests/mobile-companion-e2e.test.js`: **5 PASS** přes vlastní gateway proces a HTTP;
-- `tests/mobile-secure-credential.test.js`: **10 PASS**;
+- `tests/mobile-secure-credential.test.js`: **17 PASS** (10 úložiště + 7 lifecycle);
 - Android `lintRelease`: **0 errors / 21 warnings**;
 - `tests/artifact-validation.test.js`: **151/151 PASS**;
 - registry: **405 programů** (`307 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`),
   9 explicitních support-module exclusions;
 - repository hygiene: **PASS**, 1 687 trackovaných cest včetně tohoto dokumentu;
 - current-host emulátor: pairing → demo run → approval → durable decision →
-  soubor po schválení; obrazová evidence je v
-  [`prototype-evidence/`](prototype-evidence/).
+  soubor po schválení, a po hardeningu znovu celé včetně cyklu
+  pozadí → `BiometricPrompt` → device credential → reload → funkční relace;
+  obrazová evidence je v [`prototype-evidence/`](prototype-evidence/).
 
 Tyto výsledky nejsou release verdict. Chybí fresh-checkout attestace root i
 `mobile-app` instalace/buildu, fyzický telefon a nezávislá akceptace.
@@ -154,22 +192,35 @@ jen APK, které lze nainstalovat. Následující položky jsou povinné a jejich
    authority před skutečným efektem; efekt musí mít idempotenci, cancel,
    timeout, restart/recovery, audit a stav `UNKNOWN` při nejasném výsledku.
    Přímý demo zápis nesmí být produkční cesta.
-3. **Selektivně portovat bezpečný shell.** Použít podporovanou Capacitor řadu
-   (současná v6 je podle [oficiální support policy](https://capacitorjs.com/docs/main/reference/support-policy)
-   end-of-support), aktuální Android target, přímý AndroidKeyStore, systémový
-   `BiometricPrompt`/device credential a zabalené UI nebo jinou explicitně
-   schválenou produkční konfiguraci. Capacitor dokumentuje
-   [`server.url`](https://capacitorjs.com/docs/config) pro live reload; nesmí se
-   omylem stát store runtime.
-4. **Uzavřít lifecycle session.** Při backgroundu vymazat chráněnou JS relaci,
-   zastavit poll/requesty, zvýšit session epoch a odmítnout pozdní odpovědi;
-   po odemčení znovu načíst scopes, health a reconciliation před vykreslením
-   cache.
-5. **Provést fyzický device journey.** Alespoň jeden podporovaný telefon:
+3. ~~**Uzavřít lifecycle session.**~~ **HOTOVO** — `intentsmithLock`, abort
+   běžících requestů, epoch guard a wipe JS credentialu; testy v
+   `tests/mobile-secure-credential.test.js` §5. Zbývá potvrdit na fyzickém
+   telefonu.
+4. ~~**Systémový zámek.**~~ **HOTOVO** — `BiometricPrompt` s
+   `DEVICE_CREDENTIAL`; aplikační PIN jen jako fallback bez zámku obrazovky.
+5. ~~**Fail-closed podpis.**~~ **HOTOVO** — release bez klíče selže.
+6. **Zbytek shellu na podporovanou řadu.** Zůstává Capacitor **6** (npm dnes
+   vede `8.5.0`, takže jsme dvě major verze pozadu a mimo
+   [support policy](https://capacitorjs.com/docs/main/reference/support-policy)),
+   `compileSdk`/`targetSdk` **34**, `minSdk` **22** a
+   [`server.url`](https://capacitorjs.com/docs/config), který je určený pro live
+   reload a **nesmí se omylem stát store runtime**. Dál zůstává
+   `EncryptedSharedPreferences` místo přímého AndroidKeyStore. Postup a rizika
+   jsou v [PROD-READY-HANDBOOK.md](PROD-READY-HANDBOOK.md) §3.
+   > Zabalení UI do APK není jen build volba: klient by pak běžel z
+   > `http://localhost` a mluvil na `127.0.0.1:3336` cross-origin, takže by
+   > gateway musela otevřít **CORS**, které dnes záměrně nemá. Je to
+   > bezpečnostní rozhodnutí, ne konfigurace.
+7. **Provést fyzický device journey.** Alespoň jeden podporovaný telefon:
    install, pairing, Keystore persistence po process death, approval approve i
    reject/expire, Home/recents/lock, gateway outage a odpojení USB.
-6. **Rozhodnout boundary delta.** Integrátor zkontroluje tři hrany a až poté
+8. **Rozhodnout boundary delta.** Integrátor zkontroluje tři hrany a až poté
    změní baseline nebo implementaci. Červený ratchet se nesmí umlčet.
+9. **Odsouhlasit S1 slovník jako produktový text.** Devět vět, které uživatel
+   uvidí, dnes schválil kód. Patří to k přijetí 024, ne k implementaci.
+10. **Popsat chování s víc zařízeními.** Dva spárované telefony: kdo rozhodl,
+    co uvidí ten druhý, jak se chovají per-device receipty (`DR-012 A`) a co
+    znamená „nic nečeká" na zařízení, které o approvalu nevědělo.
 
 ### P1 — interní pilot s bezpečnou distribucí
 
@@ -237,10 +288,15 @@ focused testem a device důkazem.
 | `PROTOTYPE.md` | stabilní legacy odkaz sem, nikoli druhá verze pravdy |
 | `docs/decisions/024-*` | čekající implementační rozhodnutí a strop producenta |
 | `prototype-evidence/` | point-in-time obrazová evidence z emulátoru |
+| `PROD-READY-HANDBOOK.md` | jak se každá položka `P0`–`P2` uzavírá: kritérium hotovosti, důkaz, vlastník, runbooky |
+| `archive/PROTOTYPE-485c3497.md` | plný implementační popis snapshotu `485c3497`, zachovaný celý |
 | `WP-MOBILE-*`, `PLAN.md`, `SCREENS.md`, `UI-DESIGN.md`, návrh kontraktu v2 | historické návrhy, WP evidence nebo budoucí scope; nejsou aktuální stavový souhrn |
 
-Historické soubory se nemažou: dokazují, co bylo navrženo a ověřeno. Rozkol se
-odstraňuje jasnou autoritou, ne zničením evidence. Worktrees a větve jsou také
+Historické soubory se nemažou: dokazují, co bylo navrženo a ověřeno. Konsolidace
+je proto **přesun, ne smazání** — text, který dřív žil v `PROTOTYPE.md`, je celý
+v `archive/PROTOTYPE-485c3497.md`, aby pravidlo v tomhle odstavci platilo i pro
+commit, který ho zavedl. Rozkol se odstraňuje jasnou autoritou, ne zničením
+evidence. Worktrees a větve jsou také
 zachované; jejich odstranění je samostatná destruktivní operace a není součástí
 tohoto úklidu.
 
@@ -248,18 +304,24 @@ tohoto úklidu.
 
 - [ ] Rozhodnutí 024 je operátorem uzavřené.
 - [ ] Approval producer je zapojený do skutečného core effectu, ne jen dema.
-- [ ] Background revokuje JS session a aktivní requesty; late response je inertní.
+- [x] Background revokuje JS session a aktivní requesty; late response je inertní. *(emulátor + 7 testů; fyzický telefon zbývá)*
+- [x] Odemčení je systémový credential, ne vlastní PIN. *(emulátor; fyzická biometrie zbývá)*
 - [ ] Použitá Capacitor/Android řada je podporovaná a production konfigurace
       nenačítá vývojový server.
-- [ ] Build je reprodukovatelný z čistého checkoutu a podpis je fail-closed.
+- [ ] Build je reprodukovatelný z čistého checkoutu.
+- [x] Podpis je fail-closed — release bez klíče selže.
 - [ ] Fyzický telefon prošel approve/reject/expire, outage, restart a lost-device scénáři.
 - [ ] Accessibility a podporovaná device/OS matice jsou PASS.
 - [ ] Boundary ratchet je přijatý integrátorem, ne pouze přebaselinovaný.
 - [ ] Push nebo deklarovaný pull-only model má přijatou bezpečnostní a provozní policy.
+- [ ] S1 slovník je odsouhlasený jako produktový text, ne jen jako kód.
+- [ ] Chování s víc spárovanými zařízeními je popsané a otestované.
 - [ ] `RemoteCorePort`, oddělený listener, pairing, revokace a legacy-bypass
       negativní test jsou PASS.
 - [ ] Fresh-clone release artefakt odpovídá testovanému commitu a operátor jej
       přijal po skutečné demonstraci.
 
 Dokud není zaškrtnutý celý seznam, správné označení je **interní mobilní
-prototyp**, ne production-ready aplikace.
+prototyp**, ne production-ready aplikace. Jak se každá položka uzavírá — čím se
+prokáže, kdo ji vlastní a co je „hotovo" — je v
+[PROD-READY-HANDBOOK.md](PROD-READY-HANDBOOK.md).

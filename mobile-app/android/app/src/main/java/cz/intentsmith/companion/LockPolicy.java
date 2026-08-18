@@ -4,6 +4,8 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Base64;
 
+import androidx.biometric.BiometricManager;
+
 import androidx.security.crypto.EncryptedSharedPreferences;
 import androidx.security.crypto.MasterKey;
 
@@ -111,6 +113,60 @@ final class LockPolicy {
     static String openError() { return openError; }
 
     static boolean available(Context context) { return prefs(context) != null; }
+
+    /**
+     * Which lock this device can actually offer.
+     *
+     * `SYSTEM` means the phone has a screen lock (biometric or device
+     * credential) and `BiometricPrompt` can use it.  `PIN` is the fallback for
+     * a device with no screen lock at all — rarer than it sounds on a demo
+     * phone, and the reason the app PIN stays in the code rather than being
+     * replaced outright.  `NONE` means neither, and the app says so instead of
+     * pretending to be locked.
+     */
+    enum LockKind { SYSTEM, PIN, NONE }
+
+    static final int SYSTEM_AUTHENTICATORS =
+        BiometricManager.Authenticators.BIOMETRIC_WEAK
+            | BiometricManager.Authenticators.DEVICE_CREDENTIAL;
+
+    static boolean systemLockAvailable(Context context) {
+        try {
+            return BiometricManager.from(context.getApplicationContext())
+                .canAuthenticate(SYSTEM_AUTHENTICATORS) == BiometricManager.BIOMETRIC_SUCCESS;
+        } catch (Exception e) {
+            // A device that cannot answer the question is treated as not having
+            // it: falling back is visible, assuming success would not be.
+            return false;
+        }
+    }
+
+    /**
+     * The lock in force, in one place, so the activity, the plugin and the
+     * settings screen cannot each decide differently.  The system lock wins
+     * whenever it exists — an app PIN on a phone that already asks for a
+     * fingerprint is a second secret protecting the same thing.
+     */
+    static LockKind lockKind(Context context) {
+        if (systemLockAvailable(context)) return LockKind.SYSTEM;
+        if (pinIsSet(context)) return LockKind.PIN;
+        return LockKind.NONE;
+    }
+
+    /**
+     * Is there a lock in force *and something behind it*?
+     *
+     * The second half is not a nicety.  Without it a fresh install on a phone
+     * with a screen lock opens straight into a system prompt — before pairing,
+     * with nothing stored, guarding nothing.  The user's first experience of the
+     * app is then an authentication challenge for an empty box, which teaches
+     * exactly the wrong reflex: that the prompt is noise to be dismissed.
+     *
+     * Found by running it, not by reading it.
+     */
+    static boolean lockEngaged(Context context) {
+        return hasCredential(context) && lockKind(context) != LockKind.NONE;
+    }
 
     static boolean pinIsSet(Context context) {
         SharedPreferences store = prefs(context);

@@ -7,4 +7,9 @@
     <string name="lock_wrong">Špatný PIN. Zbývá pokusů: %1$d</string>
     <string name="lock_wiped">Deset chybných pokusů. Přihlášení bylo smazáno — spáruj zařízení znovu z počítače.</string>
     <string name="lock_note">Zámek chrání jen tuhle aplikaci. Ztracený telefon je potřeba odpárovat na počítači.</string>
+    <string name="lock_prompt_system">Odemkni zámkem telefonu</string>
+    <string name="lock_unlock_system">Odemknout</string>
+    <string name="lock_system_subtitle">IntentSmith je zamčený</string>
+    <string name="lock_system_retry">Odemčení se nezdařilo. Zkus to znovu.</string>
+    <string name="lock_system_unavailable">Systémový zámek není dostupný.</string>
 </resources>

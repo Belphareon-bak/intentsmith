@@ -14,6 +14,10 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
+import androidx.biometric.BiometricPrompt;
+import androidx.core.content.ContextCompat;
+import androidx.fragment.app.FragmentActivity;
+
 import com.getcapacitor.BridgeActivity;
 
 /**
@@ -67,7 +71,9 @@ public class MainActivity extends BridgeActivity {
     private FrameLayout lockOverlay;
     private EditText pinField;
     private TextView lockMessage;
+    private Button unlockButton;
     private long leftAt = 0L;
+    private boolean promptShowing = false;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -86,9 +92,8 @@ public class MainActivity extends BridgeActivity {
         installLockOverlay();
 
         // A cold start is a return from the longest possible background.
-        if (LockPolicy.pinIsSet(this)) {
-            VaultPlugin.LockState.lock();
-            showLock(null);
+        if (LockPolicy.lockEngaged(this)) {
+            engageLock();
         }
     }
 
@@ -96,20 +101,39 @@ public class MainActivity extends BridgeActivity {
     public void onPause() {
         super.onPause();
         leftAt = SystemClock.elapsedRealtime();
-        if (LockPolicy.pinIsSet(this)) {
+        if (LockPolicy.lockEngaged(this)) {
             // Locked on the way out.  The overlay goes up now so that the
             // thumbnail the system is about to take shows the lock, not the
             // inbox — `FLAG_SECURE` blanks it anyway, and neither mechanism is
             // trusted to be the only one.
-            VaultPlugin.LockState.lock();
-            showLock(null);
+            engageLock();
         }
+    }
+
+    /**
+     * Lock all three layers, in the order that matters.
+     *
+     * The vault is sealed first, because that is the one an attacker with the
+     * running process can reach; the page is told next, so it drops the
+     * credential it hydrated and aborts anything in flight; the overlay goes up
+     * last, because it is only what a person sees.  Doing the visible part
+     * first and the real parts afterwards is how a lock ends up being a
+     * screenshot of a lock.
+     */
+    private void engageLock() {
+        VaultPlugin.LockState.lock();
+        if (getBridge() != null) {
+            // MR-23: the WebView keeps its own copy of the credential after
+            // boot.  Hiding it does not drop that copy — this does.
+            getBridge().triggerWindowJSEvent("intentsmithLock");
+        }
+        showLock(null);
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        if (!LockPolicy.pinIsSet(this)) {
+        if (!LockPolicy.lockEngaged(this)) {
             VaultPlugin.LockState.unlock();
             hideLock();
             return;
@@ -117,9 +141,14 @@ public class MainActivity extends BridgeActivity {
         long away = SystemClock.elapsedRealtime() - leftAt;
         if (leftAt != 0L && away < LOCK_GRACE_MS && !VaultPlugin.LockState.isLocked()) {
             hideLock();
-        } else {
-            VaultPlugin.LockState.lock();
-            showLock(null);
+            return;
+        }
+        engageLock();
+        // The system lock asks by itself: a phone that already has a screen
+        // lock should not make its owner tap a second button to be asked for
+        // the same fingerprint.
+        if (LockPolicy.lockKind(this) == LockPolicy.LockKind.SYSTEM) {
+            promptSystemUnlock();
         }
     }
 
@@ -158,9 +187,17 @@ public class MainActivity extends BridgeActivity {
 
         pinField = lockOverlay.findViewById(R.id.pin_field);
         lockMessage = lockOverlay.findViewById(R.id.lock_message);
-        Button unlockButton = lockOverlay.findViewById(R.id.unlock_button);
+        unlockButton = lockOverlay.findViewById(R.id.unlock_button);
 
-        unlockButton.setOnClickListener(view -> attemptUnlock());
+        // One overlay, two doors.  Which one is shown is not a preference: it
+        // is whichever lock this device can actually enforce (`LockPolicy`).
+        unlockButton.setOnClickListener(view -> {
+            if (LockPolicy.lockKind(this) == LockPolicy.LockKind.SYSTEM) {
+                promptSystemUnlock();
+            } else {
+                attemptUnlock();
+            }
+        });
         pinField.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
             @Override public void onTextChanged(CharSequence s, int a, int b, int c) {}
@@ -175,8 +212,13 @@ public class MainActivity extends BridgeActivity {
     private void showLock(String message) {
         if (lockOverlay == null) return;
         runOnUiThread(() -> {
+            boolean system = LockPolicy.lockKind(this) == LockPolicy.LockKind.SYSTEM;
             pinField.setText("");
-            lockMessage.setText(message == null ? getString(R.string.lock_prompt) : message);
+            pinField.setVisibility(system ? View.GONE : View.VISIBLE);
+            unlockButton.setText(system ? R.string.lock_unlock_system : R.string.lock_unlock);
+            lockMessage.setText(message != null
+                ? message
+                : getString(system ? R.string.lock_prompt_system : R.string.lock_prompt));
             lockOverlay.setVisibility(View.VISIBLE);
             lockOverlay.bringToFront();
             // The rendered page goes away with the lock.  `FLAG_SECURE` keeps
@@ -197,19 +239,74 @@ public class MainActivity extends BridgeActivity {
         });
     }
 
+    /**
+     * Ask the system, not the app.
+     *
+     * `BiometricPrompt` with `DEVICE_CREDENTIAL` accepts the fingerprint, the
+     * face or the phone's own PIN/pattern — whichever the owner already set up.
+     * That is strictly better than the app PIN below: nothing new to remember,
+     * nothing new stored here, and the rate limiting and lockout are the
+     * platform's, which are harder than anything this app would write.
+     *
+     * A cancelled prompt does **not** unlock and does not fall back to the app
+     * PIN.  Falling back would make the weaker secret sufficient, which is the
+     * classic way a second factor becomes a first one.
+     */
+    private void promptSystemUnlock() {
+        if (promptShowing) return;
+        promptShowing = true;
+        try {
+            BiometricPrompt prompt = new BiometricPrompt(
+                (FragmentActivity) this,
+                ContextCompat.getMainExecutor(this),
+                new BiometricPrompt.AuthenticationCallback() {
+                    @Override
+                    public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result) {
+                        promptShowing = false;
+                        releaseLock();
+                    }
+
+                    @Override
+                    public void onAuthenticationError(int code, CharSequence message) {
+                        promptShowing = false;
+                        // Stays locked, and says what happened.  A silent
+                        // dismissal would leave a blank overlay with no way
+                        // back in and no explanation.
+                        showLock(getString(R.string.lock_system_retry));
+                    }
+                });
+
+            BiometricPrompt.PromptInfo info = new BiometricPrompt.PromptInfo.Builder()
+                .setTitle(getString(R.string.app_name))
+                .setSubtitle(getString(R.string.lock_system_subtitle))
+                .setAllowedAuthenticators(LockPolicy.SYSTEM_AUTHENTICATORS)
+                .build();
+            prompt.authenticate(info);
+        } catch (Exception e) {
+            promptShowing = false;
+            showLock(getString(R.string.lock_system_unavailable));
+        }
+    }
+
+    /** One way out of the lock, whichever door was used to get through it. */
+    private void releaseLock() {
+        VaultPlugin.LockState.unlock();
+        hideLock();
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            // The page is reloaded so the client re-reads the credential
+            // through the vault rather than continuing on whatever it held in
+            // memory before the lock — which, since `intentsmithLock`, is
+            // nothing.
+            getBridge().getWebView().reload();
+        }
+    }
+
     private void attemptUnlock() {
         String pin = pinField.getText().toString();
         LockPolicy.Result result = LockPolicy.verify(this, pin);
         switch (result.outcome) {
             case OK:
-                VaultPlugin.LockState.unlock();
-                hideLock();
-                // The page is reloaded so the client re-reads the credential
-                // through the vault rather than continuing on whatever it held
-                // in memory before the lock.
-                if (getBridge() != null && getBridge().getWebView() != null) {
-                    getBridge().getWebView().reload();
-                }
+                releaseLock();
                 break;
             case WIPED:
                 // Said plainly.  A device that quietly forgot its pairing would

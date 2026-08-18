@@ -34,6 +34,9 @@ public class VaultPlugin extends Plugin {
         result.put("available", LockPolicy.available(getContext()));
         result.put("error", LockPolicy.openError());
         result.put("hasPin", LockPolicy.pinIsSet(getContext()));
+        // Which lock is actually in force, so the settings screen states the
+        // truth rather than offering a PIN on a phone that uses its own.
+        result.put("lockKind", LockPolicy.lockKind(getContext()).name().toLowerCase());
         result.put("hasCredential", LockPolicy.hasCredential(getContext()));
         result.put("locked", LockState.isLocked());
         result.put("failures", LockPolicy.failures(getContext()));

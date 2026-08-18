@@ -30,6 +30,9 @@ import { strict as assert } from 'node:assert';
 let passed = 0;
 let failed = 0;
 
+/** Set by the fake vault, so a test can tell locking apart from logging out. */
+let vaultCleared = false;
+
 async function test(name, fn) {
   try {
     await fn();
@@ -94,11 +97,14 @@ globalThis.fetch = async () => { throw new TypeError('this suite does not call t
 // Modelled on `LockPolicy.java` rather than on the plugin's happy path: it can
 // be locked, it can refuse to open, and `read()` rejects while locked.  A fake
 // that always succeeded would only prove the client can call a function.
-function fakeVault({ available = true, error = null, hasPin = false, locked = false } = {}) {
+function fakeVault({ available = true, error = null, hasPin = false, locked = false, lockKind = null } = {}) {
   const held = { token: null, deviceId: null, scopes: '[]' };
   const vault = {
     calls: [],
-    state: { available, error, hasPin, locked, hasCredential: false, maxFailures: 10 },
+    state: {
+      available, error, hasPin, locked, hasCredential: false, maxFailures: 10,
+      lockKind: lockKind || (hasPin ? 'pin' : 'none'),
+    },
     async getState() {
       vault.calls.push('getState');
       return { ...vault.state, hasCredential: Boolean(held.token) };
@@ -119,6 +125,7 @@ function fakeVault({ available = true, error = null, hasPin = false, locked = fa
     },
     async clear() {
       vault.calls.push('clear');
+      vaultCleared = true;
       held.token = null;
       held.deviceId = null;
       return { cleared: true };
@@ -149,11 +156,18 @@ function removeShell() {
 }
 
 const { __ms20 } = await import('../src/mobile/client/app.js');
-const { state, secure, auth, store, K, render, setAppPin, clearAppPin } = __ms20;
+const { state, secure, auth, store, K, render, setAppPin, clearAppPin,
+        sessionEpoch, lockDownSession, unlockSession, api } = __ms20;
 
 /** Reset the adapter to its pre-hydrate shape — it is a module singleton. */
 function resetAdapter() {
   localStorage.clear();
+  // The epoch and the lock are module state, not per-test state.  Without this
+  // the first test that locks leaves every later `api()` call refusing before
+  // it reaches `fetch` — which is correct behaviour, and would silently make
+  // the rest of the suite prove nothing.
+  unlockSession();
+  vaultCleared = false;
   secure.plugin = null;
   secure.mode = 'browser';
   secure.reason = null;
@@ -335,6 +349,143 @@ await test('the browser build offers no lock it cannot enforce', async () => {
   const markup = nodes.app.innerHTML;
   assert.ok(!markup.includes('pin-set'),
     'the browser build offered a PIN, which nothing in a browser can enforce');
+});
+
+// ── 5. The lock, in the layer a curtain cannot reach (MR-23) ────────────────
+//
+// The native overlay hides the screen.  These tests are about the half it
+// cannot do: the page behind it keeps a credential in memory, keeps requests in
+// flight, and will happily write an approval body into state when one lands.
+// A lock that leaves that running is a screenshot of a lock.
+
+await test('MR-23 locking drops the credential the page was holding', async () => {
+  resetAdapter();
+  installShell(fakeVault());
+  await secure.hydrate();
+  auth.save({ token: 'tok-in-memory', deviceId: 'dev-1', scopes: [] });
+  assert.equal(auth.token, 'tok-in-memory');
+
+  lockDownSession();
+
+  assert.equal(auth.token, null, 'the page still holds the credential after locking');
+  assert.equal(secure.cache.token, null);
+  // The vault keeps it: locking is not logging out.  The distinction is the
+  // whole reason `forget()` exists next to `clear()`.
+  assert.ok(!vaultCleared, 'locking wiped the vault, which would make unlock impossible');
+});
+
+await test('MR-23 locking drops S2 data that was already on screen', async () => {
+  resetAdapter();
+  installShell(fakeVault());
+  await secure.hydrate();
+  state.data = {
+    conversations: [{ id: 'c1', title: 'Rozpočet 2026' }],
+    approvals: [{ id: 'ap-1', detail: 'zapsat /tajne/heslo.txt' }],
+  };
+
+  lockDownSession();
+
+  const left = JSON.stringify(state.data);
+  assert.ok(!left.includes('Rozpočet'), `conversation content survived the lock: ${left}`);
+  assert.ok(!left.includes('heslo'), `approval content survived the lock: ${left}`);
+});
+
+await test('MR-23 a request in flight when the lock falls is aborted', async () => {
+  resetAdapter();
+  installShell(fakeVault());
+  await secure.hydrate();
+  auth.save({ token: 'tok-1', deviceId: 'dev-1', scopes: [] });
+
+  let aborted = false;
+  globalThis.fetch = (url, options) => new Promise((resolve, reject) => {
+    options.signal.addEventListener('abort', () => {
+      aborted = true;
+      const error = new Error('aborted');
+      error.name = 'AbortError';
+      reject(error);
+    });
+  });
+
+  const pending = api('/approvals').catch(error => error);
+  await Promise.resolve();
+  lockDownSession();
+
+  const error = await pending;
+  assert.equal(aborted, true, 'the lock left a request running');
+  assert.equal(error.kind, 'offline');
+  assert.equal(error.code, 'locked', 'an aborted-by-lock request was reported as a timeout');
+});
+
+await test('MR-23 a response that lands after the lock is inert', async () => {
+  resetAdapter();
+  installShell(fakeVault());
+  await secure.hydrate();
+  auth.save({ token: 'tok-1', deviceId: 'dev-1', scopes: [] });
+
+  // The realistic shape: the server already answered, the bytes are on their
+  // way, and `fetch` resolves *after* the lock.  Nothing aborted it — so the
+  // epoch is the only thing standing between that body and a locked session.
+  let deliver;
+  globalThis.fetch = () => new Promise(resolve => { deliver = resolve; });
+
+  const pending = api('/approvals').catch(error => error);
+  await Promise.resolve();
+  lockDownSession();
+  deliver({
+    ok: true, status: 200,
+    json: async () => ({ ok: true, data: [{ id: 'ap-late', detail: 'tajný diff' }] }),
+  });
+
+  const error = await pending;
+  assert.equal(error.kind, 'offline');
+  assert.equal(error.code, 'locked', 'a late response was handed to a locked session');
+  assert.ok(!JSON.stringify(state.data).includes('ap-late'),
+    'a late response repopulated a locked session');
+});
+
+await test('MR-23 a locked session issues nothing at all', async () => {
+  resetAdapter();
+  installShell(fakeVault());
+  await secure.hydrate();
+  auth.save({ token: 'tok-1', deviceId: 'dev-1', scopes: [] });
+  lockDownSession();
+
+  let called = false;
+  globalThis.fetch = async () => { called = true; throw new Error('should not run'); };
+
+  const error = await api('/conversations').catch(e => e);
+  assert.equal(called, false, 'a locked session started a new request');
+  assert.equal(error.code, 'locked');
+});
+
+await test('MR-23 unlocking lets the session work again', async () => {
+  resetAdapter();
+  installShell(fakeVault());
+  await secure.hydrate();
+  auth.save({ token: 'tok-1', deviceId: 'dev-1', scopes: [] });
+  lockDownSession();
+  unlockSession();
+
+  globalThis.fetch = async () => ({
+    ok: true, status: 200,
+    json: async () => ({ ok: true, data: [] }),
+  });
+  const result = await api('/conversations');
+  assert.deepEqual(result.data, []);
+});
+
+await test('the settings screen offers no app PIN when the phone has its own lock', async () => {
+  resetAdapter();
+  installShell(fakeVault({ lockKind: 'system' }));
+  await secure.hydrate();
+  state.session = 'active';
+  state.route = 'diagnostics';
+  store.set(K.scopes, []);
+  render();
+  const markup = nodes.app.innerHTML;
+  assert.ok(markup.includes('zámek telefonu'), 'the system lock is not named');
+  assert.ok(!markup.includes('pin-set'),
+    'a second, weaker secret was offered on a phone that already has a lock');
 });
 
 console.log(`\nST-SECURE credential: ${passed} passed, ${failed} failed`);

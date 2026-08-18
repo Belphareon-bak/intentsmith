@@ -99,7 +99,7 @@ const secure = {
   mode: 'browser',
   /** Why not native, when a shell *was* present.  Rendered, not swallowed. */
   reason: null,
-  lock: { hasPin: false, locked: false, maxFailures: 0 },
+  lock: { hasPin: false, locked: false, maxFailures: 0, kind: 'none' },
   cache: { token: null, device: null },
 
   get native() { return this.mode === 'native'; },
@@ -118,6 +118,10 @@ const secure = {
         hasPin: Boolean(state.hasPin),
         locked: Boolean(state.locked),
         maxFailures: state.maxFailures || 0,
+        // 'system' — the phone's own screen lock, through BiometricPrompt;
+        // 'pin' — this app's fallback for a phone that has none;
+        // 'none' — nothing is locking anything, and the screen says so.
+        kind: state.lockKind || (state.hasPin ? 'pin' : 'none'),
       };
       if (!state.available) {
         this.reason = state.error || 'vault_unavailable';
@@ -152,6 +156,20 @@ const secure = {
     if (!this.native) return;
     try { await this.plugin.clear(); } catch { /* wiped locally regardless */ }
     this.lock = { ...this.lock, hasPin: false };
+  },
+
+  /**
+   * Drop the credential from **memory only** — the vault keeps it.
+   *
+   * This is the difference between locking and logging out, and it is the
+   * whole reason the credential is hydrated rather than read on demand: the
+   * copy in this process is the one an attacker with the running app can
+   * reach, and it is the copy a lock has to take away.  `clear()` wipes the
+   * vault as well and is `E-LOGOUT`; this is `MR-23`.
+   */
+  forget() {
+    this.cache = { token: null, device: null };
+    this.lock = { ...this.lock, locked: true };
   },
 
   async setPin(pin) {
@@ -418,13 +436,89 @@ class ApiError extends Error {
  * envelope, delivered as an exact 200, counts as an answer.  Every other 2xx is
  * a protocol failure — which is a *failure*, not a quiet nothing.
  */
+// ── The session epoch — MR-23, the half a curtain cannot do ─────────────────
+//
+// Hiding the WebView behind a native overlay stops a person from *reading* the
+// screen.  It does not stop the page behind it: a request issued before the
+// lock still lands, still carries a valid token, and still writes S2 data into
+// memory that the next screenshot, crash dump or `about:blank` inspection can
+// reach.  A lock that leaves that running is a curtain, not a lock.
+//
+// So locking bumps an epoch.  Three things follow from one number:
+//
+//   * every in-flight request is aborted, because the controllers are held
+//     here rather than in the closures that created them;
+//   * a response that was already in flight and lands anyway is **inert** — it
+//     is compared against the epoch it was issued under and dropped, so a late
+//     approval body cannot repopulate a locked session;
+//   * a request *started* while locked never leaves, which is what keeps a
+//     background timer from quietly refreshing a locked inbox.
+//
+// The credential is wiped in the same breath (`secure.forget()`); on unlock the
+// shell reloads the page, so everything is re-read from the vault rather than
+// resumed from memory.
+const sessionEpoch = {
+  value: 0,
+  locked: false,
+  inFlight: new Set(),
+
+  /** Abort everything outstanding and make anything still arriving inert. */
+  bump() {
+    this.value += 1;
+    for (const controller of this.inFlight) {
+      try { controller.abort(); } catch { /* already settled */ }
+    }
+    this.inFlight.clear();
+    return this.value;
+  },
+};
+
+/**
+ * Everything the phone must stop holding when it goes out of sight.
+ *
+ * Called from the native lock (`intentsmithLock`) and from `visibilitychange`,
+ * on purpose: the native event is the authority, and the visibility event is
+ * the belt — if the bridge ever misses one, the page still forgets.  Being
+ * called twice is harmless; being called never is the failure.
+ */
+function lockDownSession() {
+  sessionEpoch.locked = true;
+  sessionEpoch.bump();
+  secure.forget();
+  // S2 in memory: conversation windows, approval bodies, diagnostics.  The
+  // durable ST-DB cache is deliberately left alone — MD-07 governs its life,
+  // and wiping it here would turn a lock into a logout.
+  state.data = {};
+  state.loading = {};
+  state.error = {};
+  state.opsLookup = {};
+  state.thread = { cursor: null, end: false, loadingOlder: false, stickToBottom: true };
+  invalidateApprovalSurface();
+}
+
+/** The shell reloads on unlock, so this exists for the paths that do not. */
+function unlockSession() {
+  sessionEpoch.locked = false;
+  sessionEpoch.value += 1;
+}
+
 async function api(path, { method = 'GET', body = null, timeoutMs = 130_000, strict = false } = {}) {
+  // A locked session issues nothing.  Reported as `offline` because that is
+  // exactly what it is from the caller's point of view — no answer, nothing
+  // claimed, retry later — and because every caller already handles it without
+  // touching the credential.
+  if (sessionEpoch.locked) {
+    throw new ApiError('offline', { code: 'locked' });
+  }
+
   const headers = {};
   const token = auth.token;
   if (token) headers.authorization = `Bearer ${token}`;
   if (body) headers['content-type'] = 'application/json';
 
+  const issuedAt = sessionEpoch.value;
   const controller = new AbortController();
+  sessionEpoch.inFlight.add(controller);
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   let response;
@@ -444,9 +538,21 @@ async function api(path, { method = 'GET', body = null, timeoutMs = 130_000, str
     });
   } catch (error) {
     // No HTTP response at all. Ambiguous for mutations — the caller decides.
+    // An abort that came from the lock is not a timeout: saying `timeout` would
+    // invite the recovery UI to offer a retry for something the user stopped.
+    if (sessionEpoch.value !== issuedAt) {
+      throw new ApiError('offline', { code: 'locked' });
+    }
     throw new ApiError('offline', { code: error.name === 'AbortError' ? 'timeout' : 'network' });
   } finally {
     clearTimeout(timer);
+    sessionEpoch.inFlight.delete(controller);
+  }
+
+  // The response outlived its session.  Dropped here rather than in each
+  // caller: there are dozens of callers and one of them would forget.
+  if (sessionEpoch.value !== issuedAt) {
+    throw new ApiError('offline', { code: 'locked' });
   }
 
   let payload = null;
@@ -1641,7 +1747,17 @@ function securityCard() {
       ? 'Aplikace má trezor, ale nepodařilo se ho otevřít. Přihlášení je proto uložené jako v prohlížeči — bez ochrany, kterou by Keystore dal.'
       : 'Prohlížeč bezpečné úložiště nenabízí (MD-11 žádá ST-SECURE). Platí to i pro PWA přidanou na plochu.';
 
-  const pin = !native ? '' : secure.lock.hasPin
+  // The lock the device actually enforces decides what this card offers.  A
+  // PIN field on a phone that unlocks with a fingerprint would be a second
+  // secret guarding the same door — and the weaker of the two.
+  const systemLock = native && secure.lock.kind === 'system';
+  const lockRow = !native ? '' : systemLock
+    ? `<div class="kv"><span class="kv-key">Zámek aplikace</span>
+        <span class="pill" data-tone="ok">zámek telefonu</span></div>
+      <div class="kv-note">Aplikace se zamkne při odchodu do pozadí a otevře ji stejný otisk, obličej nebo PIN jako telefon. Nic dalšího si nastavovat nemusíš.</div>`
+    : '';
+
+  const pin = (!native || systemLock) ? '' : secure.lock.hasPin
     ? `<div class="kv"><span class="kv-key">PIN aplikace</span>
         <span class="pill" data-tone="ok">nastaven</span></div>
       <div class="kv"><span class="kv-key">Zrušit PIN</span>
@@ -1654,7 +1770,7 @@ function securityCard() {
         <span class="kv-val"><input class="pin-input" id="pin-new" type="password" inputmode="numeric"
           autocomplete="off" maxlength="12" placeholder="alespoň 4 číslice">
         <button class="btn btn-secondary btn-sm" data-act="pin-set">Nastavit</button></span></div>
-      <div class="kv-note">Bez PINu se aplikace po návratu z pozadí neuzamkne. Zámek je jediná obrana proti odemčenému ztracenému telefonu (P-4).</div>`;
+      <div class="kv-note">Tenhle telefon nemá vlastní zámek obrazovky, takže aplikaci uzamkne jen tenhle PIN. Bez něj se po návratu z pozadí neuzamkne nic — a zámek je jediná obrana proti odemčenému ztracenému telefonu (P-4).</div>`;
 
   return `<div class="card">
       <div class="card-head"><h3 class="card-title">Zabezpečení</h3></div>
@@ -1662,6 +1778,7 @@ function securityCard() {
         <span class="pill" data-tone="${tone}">${esc(where)}</span></div>
       <div class="kv-note">${esc(note)}</div>
       ${degraded && secure.reason ? `<div class="kv"><span class="kv-key">Důvod</span><span class="kv-val mono">${esc(secure.reason)}</span></div>` : ''}
+      ${lockRow}
       ${pin}
       ${state.error.security ? `<div class="kv-note" data-tone="danger">${esc(state.error.security)}</div>` : ''}
     </div>`;
@@ -4469,12 +4586,42 @@ async function handleVisibilityChange() {
 
 document.addEventListener('visibilitychange', handleVisibilityChange);
 
+// ── The two ways the phone tells us it is out of sight (MR-23) ─────────────
+//
+// The shell fires `intentsmithLock` from `onPause`, which is the authoritative
+// one: it happens before the system takes the recents thumbnail and before
+// another app is in front.  `visibilitychange` is the belt — it also fires in a
+// plain browser tab, where there is no shell to fire anything, and it costs
+// nothing to forget twice.
+//
+// Only the *native* build wipes on hide.  Doing it in a browser tab would make
+// switching tabs feel like being logged out, and a browser has no lock to
+// unlock with afterwards — it would be a cost with no protection bought.
+window.addEventListener('intentsmithLock', () => {
+  lockDownSession();
+  render();
+});
+
+window.addEventListener('intentsmithUnlock', () => {
+  unlockSession();
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && secure.native && state.session === 'active') {
+    lockDownSession();
+  }
+});
+
 // ── Boot ────────────────────────────────────────────────────────────────────
 async function boot() {
   // Before anything reads `auth.token`.  In the shell the credential lives in
   // the Keystore, so a boot that rendered first would show the pairing screen
   // to a paired device for one frame — and `SS-06` treats "unpaired" as a
   // destination, not a flicker.
+  //
+  // A boot is also the end of a lock: the shell reloads the page after
+  // unlocking, and this is the line that lets the new page issue requests.
+  unlockSession();
   await secure.hydrate();
 
   const hashCode = new URLSearchParams(location.hash.slice(1)).get('pair');
@@ -4505,6 +4652,7 @@ async function boot() {
 export const __ms20 = {
   state, journal, drafts, store, secure, auth, cache, prefs, K, api,
   securityCard, setAppPin, clearAppPin,
+  sessionEpoch, lockDownSession, unlockSession,
   render, navigate, viewOperations, ms20Entries,
   trustBar, trustZones, withTrustBar, screenLocks, serverNow,
   viewOverview, navItems, currentSection, sectionRoute, unknownScopes, NAV_ITEMS, ROUTE_SECTION,

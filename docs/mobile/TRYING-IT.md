@@ -46,7 +46,10 @@ npm run mobile:seed -- --db /tmp/is-demo.db
 C3_DB_PATH=/tmp/is-demo.db C3_MOBILE_PAIRING=on node src/mobile-gateway.js
 
 # 3. Párovací QR (v druhém terminálu). Approval scopes jsou pro demo povinné.
-C3_DB_PATH=/tmp/is-demo.db node scripts/mobile-pair.js \
+#    C3_MOBILE_PAIRING=on tu musí být znovu: kill switch se čte v každém
+#    procesu, takže bez něj skript kód nevydá — a skončí exit 0, takže je to
+#    ticho, ne chyba.
+C3_DB_PATH=/tmp/is-demo.db C3_MOBILE_PAIRING=on node scripts/mobile-pair.js \
   --scopes read:capabilities,read:chat,write:chat,read:notifications,write:notifications,read:approvals,write:approvals
 
 # 4. Volitelně: běh, který se zeptá na approval a čeká na odpověď

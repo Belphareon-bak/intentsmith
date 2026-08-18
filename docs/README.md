@@ -158,6 +158,7 @@ ve zbytku dokumentace.
 | Dokument | Popis |
 |----------|-------|
 | [mobile/FINAL-PROTOTYPE.md](mobile/FINAL-PROTOTYPE.md) | **Kanonický aktuální stav:** cesta k APK, evidence, role obou kandidátů a prod-ready backlog |
+| [mobile/PROD-READY-HANDBOOK.md](mobile/PROD-READY-HANDBOOK.md) | Jak se každá mezera do produkce zavírá: kritérium, důkaz, vlastník, runbooky |
 | [mobile/TRYING-IT.md](mobile/TRYING-IT.md) | Praktický web/Android USB runbook |
 | [decisions/024-mobile-companion-producer-and-shell.md](decisions/024-mobile-companion-producer-and-shell.md) | Čekající implementační rozhodnutí a strop demo producenta |
 
