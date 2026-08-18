@@ -72,11 +72,19 @@ protože má dva důsledky, které s mobilem nesouvisejí:
 1. **Mění chování IDE.** Tamní okno je 30 s, `DR-011` žádá 5 minut. Sjednocení
    se dotkne lidí, kteří o mobilu nevědí — viz [025](025-approval-window-and-push.md),
    kde se navíc řeší, jestli má okno vůbec existovat.
-2. **Potřebuje pojistku, která dnes chybí:** producent razí approval a čeká celé
-   okno **bez ohledu na to, jestli je vůbec nějaký telefon spárovaný**. V demu
-   to nevadí; v reálném seamu to je běh visící pět minut na odpověď, kterou
-   nemá kdo dát. Data na to existují (`api_tokens.last_used_at`,
-   `listDevices()`), ale musí to být podmínka zapojení, ne pozdější oprava.
+2. **Chybí druhá rozhodovací plocha.** Původně tu stálo, že producent čeká celé
+   okno, i když není spárovaný telefon, a že to chce pojistku „neptej se, když
+   není komu". Operátor to vyřešil líp a jinak (2026-08-18):
+
+   > „telefon nesmí být jedinou možností k approvalům… bez spárovaného telefonu
+   > neexistuje jakákoli remote možnost, rozhoduje IDE z PC."
+
+   Tím se speciální případ ruší: **approval je objekt v BE a rozhodovacích ploch
+   je víc.** IDE je tam vždycky, telefon jen když je spárovaný. Běh se tedy
+   neptá telefonu, ptá se člověka, a nemůže viset na odpověď, kterou nemá kdo
+   dát. Podmínkou zapojení proto **není** detekce spárovaného telefonu, ale
+   **existence desktopové plochy** nad toutéž tabulkou — ta dnes chybí
+   (viz [025](025-approval-window-and-push.md)).
 
 Souhrn: 024 říká „tenhle tvar je správný". Kdy a jak se agent doopravdy zeptá,
 řeší [025](025-approval-window-and-push.md) a [026](026-wireless-gateway-access.md).

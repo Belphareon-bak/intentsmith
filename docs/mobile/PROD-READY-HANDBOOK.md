@@ -129,7 +129,19 @@ Matice (každý řádek = pozorování, ne dojem):
 | **Vlastník** | Operátor |
 | **Pád** | uživatel dostane oznámení, kterému nerozumí, nebo které říká víc, než smí |
 
-### P0-6 Chování s víc zařízeními
+### P0-6 Druhá rozhodovací plocha (IDE)
+
+| | |
+|---|---|
+| **Kritérium** | approval z `mobile_approvals` jde rozhodnout i z počítače, se stejnou autoritou a stejným ověřením otisku |
+| **Důkaz** | test: approval vytvořený producentem se rozhodne bez telefonu; a druhý, že rozhodnutí z obou ploch je idempotentní |
+| **Vlastník** | Implementátor |
+| **Pád** | agent se zeptá, telefon není po ruce, a práce stojí — protože jiná cesta neexistuje |
+
+Zadání operátora: *„telefon nesmí být jedinou možností"*. Dnes na tuhle tabulku
+nesahá nic mimo mobilní cestu, takže tenhle pád je reálný, ne teoretický.
+
+### P0-7 Chování s víc zařízeními
 
 | | |
 |---|---|

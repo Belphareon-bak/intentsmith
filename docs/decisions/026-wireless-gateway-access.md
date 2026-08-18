@@ -1,7 +1,9 @@
 # 026 — Přístup k gateway bez kabelu
 
 - **typ:** bezpečnostní a provozní rozhodnutí; **posouvá `G0-R032`**
-- **stav rozhodnutí:** NÁVRH — čeká na operátora
+- **stav rozhodnutí:** SMĚR PŘIJAT operátorem 2026-08-18 (varianta **B**),
+  včetně obou podmínek: vazba na jednu adresu tunelu a adresa gateway
+  přenášená párovacím kódem
 - **vyvolal:** operátor 2026-08-18: *„jsem pro wireless strategii, nevím proč
   bych měl být závislý na kabelu, do toho je vpn tunel"*
 - **souvisí:** `G0-R032` (vzdálený listener až za M6), `PLAN.md` §8.1
@@ -29,7 +31,7 @@ věci navíc.
 | **B. VPN, vazba na rozhraní tunelu** ⭐ | Tailscale/WireGuard; gateway poslouchá **jen** na adrese tunelu | jen zařízení ve tvé VPN | dny |
 | **C. Vlastní vzdálený listener** | Gateway na internetu, TLS, autentizované párování | kdokoli, kdo projde autentizací | týdny; je to M6/M7 |
 
-**Doporučení: B.** VPN řeší dvě věci, které by jinak musel řešit produkt:
+**Rozhodnuto: B.** VPN řeší dvě věci, které by jinak musel řešit produkt:
 **šifrování** a **identitu protistrany**. Tailscale i WireGuard dávají obojí a
 jsou ověřitelné mimo náš kód. Varianta C je pořád na svém místě v roadmapě.
 
