@@ -2,3 +2,5 @@ integrationRef: integration/m1-consolidated-20260810
 baseRevision: df1863439b6ad83abf41396ba8063e5bffaa599e
 subjectHead: f211f2678f9724011f62c2fd5060ef5e6d534d1a
 reviewA.verdict: PASS
+candidateHead: 666ff9e65f95db7f81c7be28ddb3004b26e316b8
+reviewB.verdict: PASS
