@@ -602,10 +602,30 @@ E_B; při exit `0` issue D040 CREATE a exact hardened worktree-add je velmi dal�
 Git child, bez intervening discovery/preflight Git nebo direct common-metadata
 readu. Command nemá force/branch/cleanup/retry a race failne closed. Root
 zachová jen raw tool outcome, nikdy PASS. Při create exit `0` se lease bez gapu
-převede distinct verifierovi, který celý poststate recompute fresh. D040 má
-`MINIMAL CONTRACT FROZEN FOR PRECOMMIT AUDITS / NO OPERATIONAL AUTHORITY`;
-subject commit vyžaduje dva fresh zero-based PASS audity a private/runtime
-authority zůstává NONE.
+převede distinct verifierovi, který celý poststate recompute fresh. D040
+subject/candidate prošly Review A+B a E_B
+`d0a1c91c76eea039dddf428e57cd758c26a9c81f` vznikl, ale nebyl canonical
+promoted; canonical zůstal `c38e1b24849521b41025e70a37bf0219466c9d1e`.
+Review-B final baseline skončil `NOT_READY / OPERATIONAL_RUN_NOT_STARTED` kvůli
+persistent relevant open-CWD konfliktům. Lease nebyl aktivovaný,
+promotion/create count zůstal `0` a CREATE/VERIFY `UNMINTED`. První outside-U40
+identity následně terminalně foreclose-nula D040 jako `SUPERSEDED_BEFORE_LEASE /
+PRELEASE_IDENTITY_UNIVERSE_DRIFT`; D040 se nerecykluje ani neretryuje.
+
+Nová
+[decision 041](../decisions/041-m1-h0-v5-detached-source-checkout-prelease-readiness-remediation.md)
+je exact four-doc governance-only remediation D040 readiness/identity driftu.
+Nemá process-control authority: historické `/usr/bin/yes`, Konsole bash a adb
+cwd konflikty smí odstranit jen external user a jejich pouhé zmizení není
+důkaz. Po docs Review A+B a external cleanup signálu smí exact
+`/root/v5_d041_prelease_readiness_verifier` právě jednou z cwd `/` fresh
+recompute-nout celý prelease closure včetně system-wide handles. Pouze complete
+`PRELEASE_READY` převede tentýž lease bez gapu readiness→root; root bez
+self-preflightu ff-only promuje D041 E_B a exact D041 CREATE je velmi další Git
+child. Při exit `0` převezme fresh `D041-VERIFY-01` existující D040 source
+verifier, ale pouze s D041 READ15/baseline. Každý non-PASS readiness nebo
+command failure terminalně foreclose-ne D041 bez retry/cleanupu. Private,
+evidence, seal a runtime authority zůstávají NONE.
 
 ---
 
