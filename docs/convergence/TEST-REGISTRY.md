@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 406
+- Runnable programs: 408
 - Explicit support-module exclusions: 9
-- Profiles: offline=199, database=51, server=37, model=85, soak=19, manual=15
-- States: ACTIVE=308, HISTORICAL=15, BLOCKED=83
+- Profiles: offline=199, database=53, server=37, model=85, soak=19, manual=15
+- States: ACTIVE=310, HISTORICAL=15, BLOCKED=83
 
 ## Execution profiles
 
@@ -123,6 +123,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-DEPENDENCY-MANAGER-TEST` | `tests/dependency-manager.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-DESIGN-SPRINT34-TEST` | `tests/design-sprint34.test.js` | `C3-027` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-DESIGN-TESTS-TEST` | `tests/design-tests.test.js` | `C3-027` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
+| `IS-T2-TESTS-DESKTOP-APPROVAL-SURFACE-TEST` | `tests/desktop-approval-surface.test.js` | `C3-031` | T2 | `database` | 10 s | 3 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-DETERMINISTIC-ANSWER-LATENCY-TEST` | `tests/deterministic-answer-latency.test.js` | `C3-004` | T1 | `offline` | 5 s | 1 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-DOMAINS-TEST` | `tests/domains.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-DRIFT-DETECTOR-TEST` | `tests/drift-detector.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
@@ -240,6 +241,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-GRAPH-QUERY-TEST` | `tests/graph-query.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-GRAPH-RETRIEVAL-TEST` | `tests/graph-retrieval.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-GRAPH-SYNC-TEST` | `tests/graph-sync.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T2-TESTS-GUARDED-WRITE-TEST` | `tests/guarded-write.test.js` | `C3-031` | T2 | `database` | 15 s | 3 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-HARNESS-EXIT-CODE-TEST` | `tests/harness-exit-code.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-IMPACT-ANALYZER-TEST` | `tests/impact-analyzer.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-IMPORT-MAP-TEST` | `tests/import-map.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

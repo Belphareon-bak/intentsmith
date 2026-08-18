@@ -62,7 +62,18 @@ přijatelný mechanismus napříč procesy, (4) `adb reverse` je pro prototyp
 dostatečná cesta, (5) `EncryptedSharedPreferences` + systémový zámek jsou
 přijatelná hranice **pro interní použití**.
 
-### P0-2 Skutečný effect seam
+### P0-2 Skutečný effect seam — ⚙️ **CESTA POSTAVENÁ 2026-08-19, ZAPOJENÍ ZBÝVÁ**
+
+`src/executor/guarded-write.js` je ta cesta: vezme zámek (`027`), zeptá se
+s předpokladem (`025`), počká, a zapíše **až** po souhlasu — nebo nezapíše a
+pojmenuje proč (`locked`, `reject`, `precondition_changed`, `timeout`). Osm
+testů proti skutečnému souborovému systému, včetně toho, kdy se cíl změní mezi
+odpovědí a zápisem.
+
+Co zbývá: **zavolat ji z jádra.** Je to funkce, ne chování — schválně, protože
+`024` říká, že producent se nespouští sám. Zapojení znamená rozhodnout, které
+cesty jádra přes ni povedou, a co se stane s dnešním `edit_request` v IDE
+(okno 30 s proti čekání bez limitu).
 
 | | |
 |---|---|
@@ -129,7 +140,16 @@ Matice (každý řádek = pozorování, ne dojem):
 | **Vlastník** | Operátor |
 | **Pád** | uživatel dostane oznámení, kterému nerozumí, nebo které říká víc, než smí |
 
-### P0-6 Druhá rozhodovací plocha (IDE)
+### P0-6 Druhá rozhodovací plocha (IDE) — ⚙️ **API HOTOVÉ 2026-08-19, GUI ZBÝVÁ**
+
+`GET /api/approvals` a `POST /api/approvals/:id/decide` běží na desktopovém
+serveru nad **toutéž** tabulkou a **toutéž** autoritou jako mobil: otisk je
+povinný, nevázaný approval nejde rozhodnout, propadlý taky ne, a první odpověď
+vítězí (druhá plocha dostane tu první, ne chybu). Deset testů, včetně toho, že
+běh čekající na odpověď ji dostane i bez telefonu.
+
+Co zbývá: **obrazovka v IDE.** API je plocha, ne uživatelské rozhraní — dokud
+nad ním nic není, rozhoduje se `curl`em.
 
 | | |
 |---|---|

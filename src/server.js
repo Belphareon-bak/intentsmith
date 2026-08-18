@@ -132,6 +132,8 @@ import { createSkillRoutes } from './routes/skills.js';
 import { createSystemRoutes } from './routes/system.js';
 import { createSecurityRoutes } from './routes/security.js';
 import { createNotificationRoutes } from './routes/notifications.js';
+// P0-6: approvaly musí jít rozhodnout i odsud, ne jen z telefonu.
+import { createApprovalRoutes } from './routes/approvals.js';
 import { createMarketplaceRoutes } from './routes/marketplace.js';
 import { createMediaRoutes, recoverStuckGenerations } from './routes/media.js';
 import { createGovernorRoutes } from './routes/governor.js';
@@ -882,6 +884,10 @@ const routes = {
 
   // v87: Notification routes (channels, test, log)
   ...createNotificationRoutes({ ...routeDeps, notificationRouter }),
+
+  // P0-6 / zadání operátora: „telefon nesmí být jedinou možností k approvalům".
+  // Tatáž tabulka, tatáž autorita, jen druhá plocha.
+  ...createApprovalRoutes(routeDeps),
 
   // v123: Marketplace routes
   ...createMarketplaceRoutes({ ...routeDeps, marketplaceClient, packageInstaller }),
