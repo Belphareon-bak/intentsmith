@@ -191,8 +191,11 @@ jen APK, které lze nainstalovat. Následující položky jsou povinné a jejich
 
 ### P0 — uzavřít pravdivý interní prototyp
 
-1. **Rozhodnout 024.** Operátor přijme nebo odmítne producenta, S1 slovník,
-   durable čekání a shell hranici. Bez přijetí zůstává producent demo-only.
+1. ~~**Rozhodnout 024.**~~ **HOTOVO 2026-08-19** — operátor přijal 024 i
+   navazující [025](../decisions/025-approval-window-and-push.md),
+   [026](../decisions/026-wireless-gateway-access.md) a
+   [027](../decisions/027-single-writer-per-file.md). Producent tím **není**
+   spuštěný: přijetí potvrdilo tvar, zapojení je vázané na body 2 a P0-6.
    Dvě věci, které z 024 vypadly jako samostatná rozhodnutí, protože nejsou
    implementační: [025 — jak dlouho approval čeká a jak se o něm dozvíš](../decisions/025-approval-window-and-push.md)
    a [026 — přístup k gateway bez kabelu](../decisions/026-wireless-gateway-access.md).

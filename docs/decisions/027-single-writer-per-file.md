@@ -1,7 +1,8 @@
 # 027 — Dva agenti nesmějí zapisovat do stejného souboru ve stejné větvi
 
 - **typ:** požadavek na jádro; **není mobilní**
-- **stav rozhodnutí:** NÁVRH — čeká na operátora
+- **stav rozhodnutí:** **PŘIJATO operátorem 2026-08-19** včetně všech tří
+  otevřených otázek (odpovědi níže)
 - **vyvolal:** operátor 2026-08-18: *„chtěl bych pravidlo, které zamezuje dvěma
   agentům zapisovat do stejného souboru ve stejné branchi, kdyby to nebylo, tak
   by to byla neskutečná divočina"*
@@ -35,16 +36,13 @@ jen zámek, stačilo by jedno místo mimo něj a tichý přepis je zpátky.
    zamčený — jinak by mezi schválením a zápisem stihl zasáhnout někdo jiný a
    předpoklad z 025 by propadl u každého druhého approvalu.
 
-## Otevřené otázky pro operátora
+## Zodpovězené otázky (operátor 2026-08-19)
 
-- **Fronta, nebo odmítnutí?** Má druhý běh počkat, až se soubor uvolní, nebo
-  rovnou skončit s vysvětlením? (Doporučuji odmítnutí: čekání ve frontě je
-  místo, kde vznikají zaseknuté běhy.)
-- **Co s větví jako identitou.** Když agent pracuje v git worktree nebo
-  odděleném klonu, je to jiná větev, nebo tatáž? (Doporučuji: klíč je
-  `repozitář + větev + cesta`, protože worktree stejné větve sdílí soubory.)
-- **Kde zámek žije.** Tabulka v SQLite jako u approvalů je konzistentní se
-  zbytkem a přežije restart; souborový zámek na disku ne.
+| Otázka | Rozhodnutí | Důsledek pro implementaci |
+|---|---|---|
+| Fronta, nebo odmítnutí? | **Odmítnout hned**, s vysvětlením „soubor drží běh X" | Žádná fronta znamená žádné zaseknuté běhy, o kterých nikdo neví. Druhý běh musí umět skončit čistě, ne čekat |
+| Je worktree stejné větve tatáž větev? | **Ano** — klíč je `repozitář + větev + cesta` | Zámek se nesmí odvozovat od pracovního adresáře; dva worktree téže větve sdílejí soubory a musí sdílet i zámek |
+| Kde zámek žije? | **Tabulka v SQLite** | Přežije restart, je vidět odjinud a je konzistentní s approvaly. Souborový zámek na disku by po pádu procesu zůstal viset bez vlastníka |
 
 ## Co to znamená pro mobil
 

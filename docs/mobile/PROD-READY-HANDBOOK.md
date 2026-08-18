@@ -46,14 +46,14 @@ dvě hranice jsou důvod, proč se seznam nedá zkrátit: každá z nich mění 
 
 ## 2. P0 — uzavřít pravdivý interní prototyp
 
-### P0-1 Rozhodnout 024
+### P0-1 Rozhodnout 024 — ✅ **HOTOVO 2026-08-19**
 
-| | |
-|---|---|
-| **Kritérium** | `docs/decisions/024` má stav PŘIJATO nebo ODMÍTNUTO, s datem a jménem |
-| **Důkaz** | commit, který mění hlavičku rozhodnutí; nic víc |
-| **Vlastník** | Operátor |
-| **Pád** | producent zůstane demo-only a všechno pod ním je stavba na neuzavřeném rozhodnutí |
+Operátor přijal 024, 025, 026 i 027. Producent má tvar, který smí zůstat;
+zapojení do reálné práce agenta je vázané na P0-2 a P0-6.
+
+**Co z toho vyplynulo jako nová práce:** dvě osy platnosti approvalu (025),
+druhá rozhodovací plocha v IDE (P0-6), zámek na soubor (027), měření spotřeby
+před volbou způsobu probouzení (025, §Probuzení).
 
 Rozhoduje se **pět věcí najednou**, a je poctivé je vypsat, protože „přijímám
 024" jinak znamená pro každého něco jiného: (1) producent smí razit approvaly,

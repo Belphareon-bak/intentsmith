@@ -1,8 +1,10 @@
 # 024 — Producenti mobilního companiona a nativní shell (prototyp)
 
 - **typ:** implementační rozhodnutí pro prototyp; **nemění kontrakt `/m1`**
-- **stav rozhodnutí:** ZAPSÁNO autorem prototypu 2026-08-18; čeká na přijetí
-  operátorem. Do přijetí platí strop v §5
+- **stav rozhodnutí:** **PŘIJATO operátorem 2026-08-19.** Strop v §5 tím
+  nekončí — přijetí říká „tenhle tvar je správný", ne „spusťte producenta".
+  Zapojení do reálného seamu je vázané na [025](025-approval-window-and-push.md)
+  a na desktopovou plochu (viz §6)
 - **WP:** prototyp mobilní aplikace (větev `wp/mobile-prototype-20260817`)
 - **navazuje na:** `F-100` (producent approvalů), `DR-013 A` (S1 mirror),
   `F-111`/`F-112` (fail-closed kanál), `MR-22`/`MR-23` (úložiště a zámek)

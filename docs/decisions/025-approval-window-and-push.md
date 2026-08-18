@@ -1,8 +1,10 @@
 # 025 — Jak dlouho approval čeká a jak se o něm dozvíš
 
 - **typ:** produktové rozhodnutí; **mění přijatý kontrakt `R-3` / `DR-011`**
-- **stav rozhodnutí:** SMĚR PŘIJAT operátorem 2026-08-18 (varianta **D + 2**);
-  otevřené jsou už jen implementační podrobnosti níže
+- **stav rozhodnutí:** **PŘIJATO operátorem 2026-08-19** — varianta **D + 2**,
+  včetně obou pojistek (revokace ruší čekající approvaly, citlivé efekty si
+  nesou vlastní strop). Otázka spotřeby baterie se **neuzavírá odhadem, ale
+  měřením** — viz §Probuzení níže
 - **vyvolal:** operátor 2026-08-18: *„approval by neměl mít nějaký limit, měl by
   prostě počkat… mobilní appka dá push notifikaci a počká na vyjádření"*
 - **souvisí:** `DR-011` (okno approvalu), `N-1` (notifikace při spící appce),
@@ -60,9 +62,42 @@ s PWA, která trvalé spojení držet nemůže. Nic neopouští zařízení ani 
 což odpovídá tomu, čím produkt je. Navazuje to na rozhodnutí
 [026](026-wireless-gateway-access.md): bez VPN funguje jen na kabelu.
 
-Pokud se ukáže, že trvalé spojení příliš žere baterii, fallback je **4 (FCM)
-s obsahem `S1`** — tedy „něco čeká", nikdy co. I tak jde o rozhodnutí poslat
-informaci ven a patří do stejné diskuse.
+## Probuzení: co si operátor přeje a co dovolí systém
+
+> „chce to trvalé spojení v případě, že uživatel používá app, nebo pokud BE
+> vyšle nějakou notifikaci, aby se automaticky navázalo spojení" — operátor,
+> 2026-08-19
+
+První polovina je snadná a je to správně: **appka v popředí drží spojení**,
+takže co se stane, je hned vidět. Druhá polovina naráží na vlastnost systému,
+kterou nemá smysl obcházet slibem:
+
+> **Spící aplikaci nemůže probudit náš vlastní server.** Android to dovolí jen
+> tomu, kdo už spojení drží, nebo push službě, kterou zná operační systém.
+> „Navázat spojení, když BE vyšle notifikaci" tedy znamená, že *něco* muselo
+> běžet už předtím.
+
+Jsou přesně tři způsoby, jak to udělat, a liší se tím, co platíš:
+
+| Způsob | Latence | Co to stojí | Cizí infrastruktura |
+|---|---|---|---|
+| **Trvalé spojení** (foreground service) | okamžitá | baterie + **trvalá ikona v liště**, kterou Android vyžaduje | žádná |
+| **Periodické dotažení** (`WorkManager`) | až ~15 minut (systémový strop) | téměř nic | žádná |
+| **FCM** | okamžitá | nic navíc | **Google** |
+
+**Rozhodnuto: nejdřív změřit, pak vybrat.** Trvalé spojení se postaví jako
+výchozí, změří se spotřeba na skutečném telefonu za 24 hodin běžného dne a
+teprve podle čísla se rozhodne, jestli stačí, jestli se doplní periodické
+dotažení jako úsporný režim, nebo jestli přijde na řadu FCM.
+
+**Měření musí odpovědět na tohle:** kolik procent baterie spotřebuje aplikace
+za 24 h v pozadí s drženým spojením, jak se to změní přes noc (Doze), a jestli
+výrobce telefonu spojení sám neukončí — poslední bod je u některých značek
+zásadnější než spotřeba, protože žádné číslo nezachrání spojení, které systém
+zabije.
+
+Do té doby platí, že **spící aplikace o approvalu neví**, a produkt to musí
+říkat nahlas (`P1-4` v handbooku), místo aby to tiše předpokládal.
 
 ## Co znamená „změna toho, co schvaluješ" (upřesnění operátora)
 
@@ -111,11 +146,13 @@ nemá kdo dát.
 3. **Desktopová rozhodovací plocha** nad `mobile_approvals`, aby telefon nebyl
    jediná cesta.
 4. Revokace a odhlášení ruší čekající approvaly.
-5. Nativní služba, která drží spojení a zobrazí systémovou notifikaci
-   (text `S1`, žádný obsah — jako dnes ve schránce).
-6. Přepsat `DR-011` v `PLAN.md`, `DATA-MODEL.md` a `SCREENS.md`; obrazovka
+5. Nativní služba, která drží spojení, zobrazí systémovou notifikaci (text
+   `S1`, žádný obsah — jako dnes ve schránce) a **v popředí je vždy zapnutá**.
+6. Změřit spotřebu za 24 h na skutečném telefonu a podle výsledku doplnit
+   úsporný režim (periodické dotažení), nebo ne.
+7. Přepsat `DR-011` v `PLAN.md`, `DATA-MODEL.md` a `SCREENS.md`; obrazovka
    `MS-14` dnes ukazuje odpočet, který přestane existovat.
-7. Testy: čekání přes restart gateway, propadnutí při změně obsahu, zrušení
+8. Testy: čekání přes restart gateway, propadnutí při změně obsahu, zrušení
    při revokaci, a že se z čekání nikdy nestane souhlas.
 
 Body 1 a 4 jsou zásah do přijatého kontraktu — proto to je rozhodnutí, ne úkol.

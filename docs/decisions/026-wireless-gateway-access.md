@@ -1,9 +1,9 @@
 # 026 — Přístup k gateway bez kabelu
 
 - **typ:** bezpečnostní a provozní rozhodnutí; **posouvá `G0-R032`**
-- **stav rozhodnutí:** SMĚR PŘIJAT operátorem 2026-08-18 (varianta **B**),
-  včetně obou podmínek: vazba na jednu adresu tunelu a adresa gateway
-  přenášená párovacím kódem
+- **stav rozhodnutí:** **PŘIJATO operátorem 2026-08-19** — varianta **B**,
+  včetně obou podmínek (vazba na jednu adresu tunelu, adresa gateway jako vstup
+  buildu s runtime variantou v P1) a včetně TLS odpovědi níže
 - **vyvolal:** operátor 2026-08-18: *„jsem pro wireless strategii, nevím proč
   bych měl být závislý na kabelu, do toho je vpn tunel"*
 - **souvisí:** `G0-R032` (vzdálený listener až za M6), `PLAN.md` §8.1
@@ -55,8 +55,12 @@ jsou ověřitelné mimo náš kód. Varianta C je pořád na svém místě v roa
 3. **Rozhodnout TLS.** Uvnitř VPN je provoz šifrovaný tunelem, takže HTTP je
    obhajitelné — ale je to obhajoba typu „spoléháme na vrstvu pod námi".
    Varianty: (a) nechat HTTP a spolehnout se na VPN, (b) self-signed certifikát
-   s pinningem v aplikaci. Doporučuji **(a) pro pilot, (b) před čímkoli, co
-   opustí VPN.**
+   s pinningem v aplikaci.
+
+   **Rozhodnuto operátorem 2026-08-19: (a) pro pilot, (b) před čímkoli, co
+   opustí VPN.** Praktický důsledek: jakmile se objeví požadavek „a co když
+   nejsem na VPN", není to konfigurační úprava — je to bod (b) i s pinningem,
+   a patří do samostatné práce.
 
 ## Co se tím **ne**rozhodne
 
