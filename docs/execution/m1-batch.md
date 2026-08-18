@@ -340,7 +340,12 @@ nevyrábí. Exact pořadí aktuálního closeoutu je:
   -> exactly one V5 non-clobber static materialization
   -> formal PRESEAL CHANGES_REQUIRED; sole V5 root frozen unsealed/no runtime
   -> decision 037 S_H0V5R -> E_A_H0V5R -> C_H0V5R -> E_B_H0V5R -> canonical promotion
-  -> authentic old-red recorder + exactly one same-root three-core repair
+  -> authentic old-red recorder; repair preflight stops before transaction on missing detached source
+  -> decision 038 R1 S_H0V5SRC Review A CHANGES_REQUIRED; no report/E_A/authority
+  -> decision 038 R2 S_H0V5SRC_R2 -> E_A_H0V5SRC_R2 -> C_H0V5SRC_R2 -> E_B_H0V5SRC_R2 -> canonical promotion
+  -> exactly one fixed D037-E_B locked detached source-worktree create attempt
+  -> fresh distinct source-worktree verification + non-filesystem structured handoff
+  -> exactly one same-root three-core repair
   -> fresh distinct PRESEAL_READY over repaired bytes
   -> seal binding both old-red and fresh-ready recorders
   -> two independent post-seal V5 static reviews
@@ -522,6 +527,36 @@ musí pinnut promoted Decision037 jako live static base, zachovat OLD+red
 history, napravit všech pět P1 a znovu se zastavit na fresh distinct preseal.
 Teprve `PRESEAL_READY` s `P0=0/P1=0` dovolí seal vázající red i ready recorder.
 Ani 037, preseal ani seal nevydávají H0 runtime, T3 nebo Gate authority.
+
+Po authentic red recorderu odhalil repair preflight přesnou operační mezeru:
+Decision037 §5.6 vyžaduje čistý detached source checkout na promoted Review B
+`df1863439b6ad83abf41396ba8063e5bffaa599e`. Při pre-S-R2 inventuře jsou
+canonical, D037 Review B i D038 R2 writer worktree na B37 branch-attached; po
+`S_H0V5SRC_R2` zůstanou oba pre-existing B37 worktrees branch-attached a
+detached count je po celou dobu nula. Materializer skončil
+`BLOCKED_BEFORE_TRANSACTION`; OLD core, red
+recorder, evidence-empty stav i jeho single repair authority zůstávají beze
+změny.
+
+Nová
+[decision 038](../decisions/038-m1-h0-v5-detached-source-checkout-authority.md)
+je pouze docs-only operational erratum. Po vlastním
+R1 subject `704dfa70e5d1856d98308315e1f030eb952f8ccf` skončil Review A
+`CHANGES_REQUIRED`, `P0=0/P1=2`: poststate reads nebyly no-write a contract
+nepřipínal info attributes/exclude, ignored entries ani full raw checkout
+closure. Report/E_A nevznikly a R1 nevydává authority. Jediný live chain je
+`S_H0V5SRC_R2 -> E_A_H0V5SRC_R2 -> C_H0V5SRC_R2 -> E_B_H0V5SRC_R2`; teprve po
+jeho canonical promotion
+dovolí právě jeden hardened `umask 077` / `env -i` pokus vytvořit nový locked
+detached worktree na fixed path a exact Decision037 Review B. Nesmí detachnout
+ani změnit existující checkout/ref, použít hook, lazy fetch, síť, force,
+cleanup nebo retry. Každý Git read používá exact no-optional-lock envelope;
+distinct verifier musí potvrdit immutable index/info pins, ignored-aware empty
+streams, exact HEAD/tree, 1 614-path digest a úplnou tree/index/filesystem
+OID/mode/blob closure bez common-Git/private/runtime driftu. Teprve jeho
+structured non-filesystem handoff
+znovu otevře původního `/root/v5_materializer`; Decision037 zůstává live base.
+Decision038 sama core neopravuje, nesealuje a nevydává runtime autoritu.
 
 ---
 
