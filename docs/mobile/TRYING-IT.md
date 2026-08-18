@@ -2,6 +2,12 @@
 
 Krátký návod, ne dokument o architektuře. Ověřeno na `wp/mobile-refresh-20260809`.
 
+> **Chceš to v telefonu, ne v prohlížeči?** Tenhle soubor popisuje web na
+> `127.0.0.1:3336`. Podepsané APK, cestu telefon → gateway, Keystore a zámek
+> má [PROTOTYPE.md](PROTOTYPE.md). Přibyl s ním i běh, který si o approval
+> **řekne a počká** — bez něj zůstane fronta prázdná, protože ji nemá kdo
+> naplnit.
+
 ---
 
 ## Co jde bez běžícího IntentSmithu a co ne
@@ -17,7 +23,8 @@ i webového klienta**, takže na čtení žádný backend nepotřebuje. Legacy s
 | Přehled, trust bar, stavy cache, zamčení podle scope | ✅ |
 | Žurnál operací, obrazovka rozřešení (`MS-20`) | ✅ |
 | **Odeslat zprávu** | ❌ — `upstream: unreachable`, aplikace to řekne rovnou |
-| Approvaly s reálným obsahem | ❌ — nemá je kdo vytvořit (`F-100`) |
+| Approvaly s reálným obsahem | ✅ — `npm run mobile:demo` je vyrobí přes autoritu (`F-100`, producent) |
+| Schránka s ukazateli běhu | ✅ — S1 projektor `DR-013 A`, tentýž demo běh |
 
 Neběžící backend se **nemaskuje**: `GET /m1/health` vrací
 `upstream: "unreachable"` s důvodem a composer se zamkne s vysvětlením. To je
@@ -39,7 +46,14 @@ C3_DB_PATH=/tmp/is-demo.db C3_MOBILE_PAIRING=on node src/mobile-gateway.js
 
 # 3. Párovací QR (v druhém terminálu)
 C3_DB_PATH=/tmp/is-demo.db node scripts/mobile-pair.js
+
+# 4. Volitelně: běh, který se zeptá na approval a čeká na odpověď
+node scripts/mobile-demo-run.js --db /tmp/is-demo.db
 ```
+
+> Approvaly **nejsou ve výchozích scopech**. Aby je telefon viděl, chce to
+> `mobile-pair.js --scopes …,read:approvals,write:approvals` — nejmenší
+> dostatečný scope je záměr (`P-8`), ne opomenutí.
 
 Pak otevři `http://127.0.0.1:3336` a naskenuj/vlož kód. Kód je **jednorázový** —
 po použití je spotřebovaný a další běh `mobile-pair.js` vydá nový.
@@ -101,6 +115,6 @@ nebo Tailscale/VPN, kde je protistrana ověřená.
 | Průběh běhu / agent log chybí | `MR-07` je `BLOCKED_BY_CONTRACT` |
 | Hledání chybí | `MR-10` je `BLOCKED_BY_CONTRACT` |
 | Projekty chybí | `MR-14` čeká na `DR-008` a Gate 1 |
-| Notifikace se nenaplní | Produkční producent chybí (`F-111`/`F-014`) |
+| Notifikace nedorazí do spící aplikace | Push (`N-1`) není; schránka je pull. Naplnit ji umí `npm run mobile:demo` |
 | Na 200 % písma se nic nezvětší | Klient je celý v px — otevřený nález (`WP-MOBILE-027-RESULT.md` §7) |
 | Nové spárování = nový `deviceId` | Staré operace z nového zařízení nejsou vidět |

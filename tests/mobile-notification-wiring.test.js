@@ -163,12 +163,19 @@ await test('a capability-shaped value carried in JSON is not a capability', asyn
 
 // ── The boundary itself, ratcheted ──────────────────────────────────────────
 
-await test('nothing in src/ holds the capability yet — DR-013 is still open', () => {
-  // A real boundary check, not a grep for one spelling of a string.  The
-  // capability cannot be obtained without importing it, so the import list *is*
-  // the set of authorised producers.  When the DR-013 projector lands it will
-  // appear here and this test will fail on purpose — whoever adds it must
-  // retire the open half of F-111 rather than leave the record stale.
+await test('DR-013 exactly one producer holds the capability, and it is the recorded one', () => {
+  // This test used to require the list to be **empty**, and said that whoever
+  // added a holder would have to retire the open half of `F-111` rather than
+  // leave the record stale.  A holder was added —
+  // `src/mobile/companion-producer.js`, recorded in
+  // `docs/decisions/024-mobile-companion-producer-and-shell.md` — so the
+  // requirement moves to what it was really protecting: the capability is not
+  // a thing that spreads.
+  //
+  // The check is still structural rather than a grep for one spelling: the
+  // capability cannot be obtained without importing it, so the import list
+  // *is* the set of authorised producers.  A second holder fails here, and so
+  // does a first one that nobody wrote down.
   const srcRoot = new URL('../src/', import.meta.url).pathname;
   const walk = dir => readdirSync(dir).flatMap(entry => {
     const full = path.join(dir, entry);
@@ -181,10 +188,16 @@ await test('nothing in src/ holds the capability yet — DR-013 is still open', 
     .map(file => path.relative(srcRoot, file));
 
   assert.deepEqual(
-    holders, [],
-    'something now holds the mobile capability — DR-013 A is no longer open and the '
-    + `record must say so: ${holders.join(', ')}`,
+    holders, ['mobile/companion-producer.js'],
+    'the set of capability holders changed; a producer is release authority, so the '
+    + `decision has to be recorded before the set does: ${holders.join(', ')}`,
   );
+
+  // And the projector's text is a closed table, which is what makes "S1-safe"
+  // reviewable at all — nine sentences rather than every future call site.
+  const producer = readFileSync(path.join(srcRoot, 'mobile/companion-producer.js'), 'utf8');
+  assert.match(producer, /S1_VOCABULARY/,
+    'the projector no longer draws its text from a closed vocabulary');
 });
 
 await test('a router built without a database still refuses rather than throwing', async () => {

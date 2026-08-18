@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 402
+- Runnable programs: 405
 - Explicit support-module exclusions: 9
-- Profiles: offline=198, database=48, server=37, model=85, soak=19, manual=15
-- States: ACTIVE=304, HISTORICAL=15, BLOCKED=83
+- Profiles: offline=199, database=50, server=37, model=85, soak=19, manual=15
+- States: ACTIVE=307, HISTORICAL=15, BLOCKED=83
 
 ## Execution profiles
 
@@ -305,6 +305,8 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T2-TESTS-MOBILE-APPROVAL-CACHE-BOUNDARY-TEST` | `tests/mobile-approval-cache-boundary.test.js` | `C3-032` | T2 | `database` | 30 s | 4 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MOBILE-APPROVAL-LIFECYCLE-REGRESSION-TEST` | `tests/mobile-approval-lifecycle-regression.test.js` | `C3-032` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MOBILE-BROWSER-A11Y-TEST` | `tests/mobile-browser-a11y.test.js` | `C3-032` | T1 | `offline` | 1 min | 5 min | network:loopback, toolchain:chromium-runtime | yes | `BLOCKED` | — | primary implementer |
+| `IS-T2-TESTS-MOBILE-COMPANION-E2E-TEST` | `tests/mobile-companion-e2e.test.js` | `C3-031` | T2 | `database` | 30 s | 3 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-MOBILE-COMPANION-PRODUCER-TEST` | `tests/mobile-companion-producer.test.js` | `C3-031` | T2 | `database` | 20 s | 3 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-MOBILE-CONTRACT-CURSOR-REJECTION-TEST` | `tests/mobile-contract-cursor-rejection.test.js` | `C3-031` | T2 | `database` | 30 s | 5 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-MOBILE-CONTRACT-PAGINATION-END-TEST` | `tests/mobile-contract-pagination-end.test.js` | `C3-031` | T2 | `database` | 30 s | 5 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-MOBILE-DATA-MODEL-TEST` | `tests/mobile-data-model.test.js` | `C3-031` | T2 | `database` | 20 s | 3 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
@@ -325,6 +327,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T2-TESTS-MOBILE-OPERATION-ISOLATION-TEST` | `tests/mobile-operation-isolation.test.js` | `C3-031` | T2 | `database` | 1 min | 5 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MOBILE-OVERVIEW-TEST` | `tests/mobile-overview.test.js` | `C3-032` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MOBILE-RUN-SILENCE-TEST` | `tests/mobile-run-silence.test.js` | `C3-032` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-MOBILE-SECURE-CREDENTIAL-TEST` | `tests/mobile-secure-credential.test.js` | `C3-032` | T1 | `offline` | 5 s | 3 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MOBILE-TRUST-BAR-TEST` | `tests/mobile-trust-bar.test.js` | `C3-032` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODEL-CTX-TEST` | `tests/model-ctx.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODEL-SIMILARITY-TEST` | `tests/model-similarity.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

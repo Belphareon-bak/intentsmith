@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lock_prompt">Zadej PIN aplikace</string>
+    <string name="lock_hint">••••</string>
+    <string name="lock_unlock">Odemknout</string>
+    <string name="lock_field_description">PIN aplikace</string>
+    <string name="lock_wrong">Špatný PIN. Zbývá pokusů: %1$d</string>
+    <string name="lock_wiped">Deset chybných pokusů. Přihlášení bylo smazáno — spáruj zařízení znovu z počítače.</string>
+    <string name="lock_note">Zámek chrání jen tuhle aplikaci. Ztracený telefon je potřeba odpárovat na počítači.</string>
+</resources>

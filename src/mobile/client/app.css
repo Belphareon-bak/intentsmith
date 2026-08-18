@@ -910,3 +910,22 @@ body.has-navbar .composer { margin-bottom: calc(3.625rem + var(--safe-bottom)); 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+/* ── The lock's one input (MR-22 settings card) ──────────────────────────────
+   Sized like the buttons it sits beside so the row does not reflow when the
+   field appears, and wide enough for twelve digits without scrolling — a PIN
+   field that hides its own end invites the wrong one. */
+.pin-input {
+  font: inherit;
+  font-size: 15px;
+  padding: 8px 10px;
+  margin-right: 8px;
+  width: 9.5em;
+  min-height: 40px;
+  color: var(--text);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  letter-spacing: 0.15em;
+}
+.pin-input::placeholder { letter-spacing: normal; color: var(--text-faint); }

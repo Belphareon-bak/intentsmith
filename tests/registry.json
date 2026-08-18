@@ -8322,6 +8322,96 @@
       },
       "flakeCount": 0,
       "quarantineExpiry": null,
+      "id": "IS-T1-TESTS-MOBILE-COMPANION-PRODUCER-TEST",
+      "path": "tests/mobile-companion-producer.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-companion-producer.test.js"
+      ],
+      "fixture": "isolated-sqlite-temp",
+      "profile": "database",
+      "timeoutMs": 180000,
+      "expectedDurationMs": 20000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      }
+    },
+    {
+      "capabilityId": "C3-031",
+      "tier": "T2",
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null,
+      "id": "IS-T2-TESTS-MOBILE-COMPANION-E2E-TEST",
+      "path": "tests/mobile-companion-e2e.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-companion-e2e.test.js"
+      ],
+      "fixture": "owned-gateway-process",
+      "profile": "database",
+      "timeoutMs": 180000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      }
+    },
+    {
+      "capabilityId": "C3-032",
+      "tier": "T1",
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null,
+      "id": "IS-T1-TESTS-MOBILE-SECURE-CREDENTIAL-TEST",
+      "path": "tests/mobile-secure-credential.test.js",
+      "argv": [
+        "node",
+        "tests/mobile-secure-credential.test.js"
+      ],
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 180000,
+      "expectedDurationMs": 5000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      }
+    },
+    {
+      "capabilityId": "C3-031",
+      "tier": "T2",
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null,
       "id": "IS-T2-TESTS-MOBILE-FAULT-INJECTION-TEST",
       "path": "tests/mobile-fault-injection.test.js",
       "argv": [

@@ -65,9 +65,124 @@ const store = {
   },
 };
 
+// ── ST-SECURE — the credential, once there is somewhere to put it (MR-22) ───
+//
+// `MD-11` says the device token is **S3** and belongs in `ST-SECURE`,
+// "výhradně".  A browser has no such place: `localStorage` is the only option,
+// it is readable by anything that reaches the profile, it goes out in backups,
+// and it cannot be sealed while the app is in the background.  That is the
+// whole reason `MR-22`/`MR-23` were `PARTIAL` "pod úložištním limitem PWA" —
+// not a missing screen, a missing floor.
+//
+// The Android shell has a floor: an Android-Keystore-backed store that refuses
+// to hand the credential out while the app is locked
+// (`mobile-app/android/.../LockPolicy.java`).  This adapter is how the client
+// uses it **without four thousand lines becoming async**: the credential is
+// read once at boot into memory, and `auth` keeps exactly the synchronous
+// shape it always had.
+//
+// Two rules make it honest rather than merely convenient:
+//
+//   * **Only the token and the device id go native.**  Scopes are `S1` and
+//     `ST-DB` by `MD-12`; moving them would claim a protection the data model
+//     does not ask for and would make the settings screen lie in the other
+//     direction.
+//
+//   * **A failed vault is loud.**  If the shell is present and its vault will
+//     not open, the client does *not* quietly fall back to `localStorage` while
+//     still looking native.  It records why, says so on the settings screen,
+//     and keeps working — degraded and labelled.  Silent downgrade is how a
+//     user ends up trusting a phone they should have wiped.
+const secure = {
+  plugin: null,
+  /** 'native' once the vault is open; 'browser' otherwise — including a failed shell. */
+  mode: 'browser',
+  /** Why not native, when a shell *was* present.  Rendered, not swallowed. */
+  reason: null,
+  lock: { hasPin: false, locked: false, maxFailures: 0 },
+  cache: { token: null, device: null },
+
+  get native() { return this.mode === 'native'; },
+
+  /**
+   * Open the vault and read the credential into memory.  Called once, before
+   * the first render, because every subsequent read is synchronous.
+   */
+  async hydrate() {
+    const plugin = globalThis.Capacitor?.Plugins?.IntentSmithVault || null;
+    if (!plugin) return;                       // a plain browser: nothing to say
+    this.plugin = plugin;
+    try {
+      const state = await plugin.getState();
+      this.lock = {
+        hasPin: Boolean(state.hasPin),
+        locked: Boolean(state.locked),
+        maxFailures: state.maxFailures || 0,
+      };
+      if (!state.available) {
+        this.reason = state.error || 'vault_unavailable';
+        return;
+      }
+      this.mode = 'native';
+      if (state.hasCredential && !state.locked) {
+        const held = await plugin.read();
+        this.cache = { token: held.token || null, device: held.deviceId || null };
+      }
+    } catch (error) {
+      this.reason = String(error?.message || error);
+    }
+  },
+
+  async save({ token, deviceId }) {
+    this.cache = { token, device: deviceId };
+    if (!this.native) return;
+    try {
+      await this.plugin.save({ token, deviceId: deviceId || '' });
+    } catch (error) {
+      // The credential is in memory and the session works; what failed is its
+      // durability.  Saying so is the difference between "you will have to pair
+      // again tomorrow" and a mystery.
+      this.reason = String(error?.message || error);
+      this.mode = 'browser';
+    }
+  },
+
+  async clear() {
+    this.cache = { token: null, device: null };
+    if (!this.native) return;
+    try { await this.plugin.clear(); } catch { /* wiped locally regardless */ }
+    this.lock = { ...this.lock, hasPin: false };
+  },
+
+  async setPin(pin) {
+    if (!this.native) return { ok: false, reason: 'no_vault' };
+    try {
+      await this.plugin.setPin({ pin });
+      this.lock = { ...this.lock, hasPin: true };
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, reason: String(error?.message || error) };
+    }
+  },
+
+  async clearPin(pin) {
+    if (!this.native) return { ok: false, reason: 'no_vault' };
+    try {
+      await this.plugin.clearPin({ pin });
+      this.lock = { ...this.lock, hasPin: false };
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, reason: 'pin_wrong' };
+    }
+  },
+};
+
 const auth = {
-  get token() { return store.get(K.token); },
-  get device() { return store.get(K.device); },
+  // Reads stay synchronous.  In the shell they answer from the credential
+  // hydrated at boot; in a browser they answer from `localStorage`, exactly as
+  // before.  Nothing else in this file had to learn the difference.
+  get token() { return secure.native ? secure.cache.token : store.get(K.token); },
+  get device() { return secure.native ? secure.cache.device : store.get(K.device); },
   get scopes() { return store.get(K.scopes, []); },
   has(scope) { return (store.get(K.scopes, []) || []).includes(scope); },
   save({ token, deviceId, scopes }) {
@@ -75,12 +190,24 @@ const auth = {
     // process-local attribution from the prior credential may cross it; the
     // durable MD-19 journal intentionally remains separate.
     invalidateApprovalSession();
-    store.set(K.token, token);
-    store.set(K.device, deviceId);
+    if (secure.native) {
+      // Memory first so the caller's next synchronous read already sees it; the
+      // durable write is awaited by nobody because failing it degrades the
+      // session rather than ending it, and `secure.save` records that.
+      secure.save({ token, deviceId });
+    } else {
+      store.set(K.token, token);
+      store.set(K.device, deviceId);
+    }
     replaceScopes(scopes || []);
   },
   clear() {
     invalidateApprovalSession();
+    // `E-LOGOUT` (`MD-11`): the credential goes first, and it goes from
+    // wherever it actually lives.  A wipe that only cleared `localStorage`
+    // would leave a working token in the Keystore of a device the user just
+    // logged out.
+    secure.clear();
     store.wipeDomain();
   },
 };
@@ -1488,6 +1615,93 @@ function viewNotifications() {
   return header({ title: 'Zprávy', right, left: 'back' }) + `<div class="scroll">${body}</div>`;
 }
 
+/**
+ * Where the credential actually lives — `MR-22`, `MD-11`.
+ *
+ * This card exists because the honest answer differs between two builds of the
+ * same client, and the user cannot tell them apart by looking.  In the browser
+ * the token is in `localStorage`, which `MD-11` does not accept as `ST-SECURE`;
+ * in the Android shell it is in the Keystore and sealed while the app is
+ * locked.  Showing the same screen in both would make one of them a lie.
+ *
+ * The third state is the one worth the code: a shell whose vault would not
+ * open.  It looks native, behaves like a browser, and is the only case where a
+ * user could reasonably believe a protection they do not have — so it is
+ * spelled out, with the reason, rather than folded into "prohlížeč".
+ */
+function securityCard() {
+  const native = secure.native;
+  const degraded = Boolean(secure.plugin) && !native;
+  const tone = native ? 'ok' : degraded ? 'danger' : 'warn';
+  const where = native ? 'Android Keystore' : 'prohlížeč (localStorage)';
+
+  const note = native
+    ? 'Přihlášení je šifrované klíčem, který aplikace nemůže vynést ze zařízení, a nevydá se, dokud je aplikace zamčená.'
+    : degraded
+      ? 'Aplikace má trezor, ale nepodařilo se ho otevřít. Přihlášení je proto uložené jako v prohlížeči — bez ochrany, kterou by Keystore dal.'
+      : 'Prohlížeč bezpečné úložiště nenabízí (MD-11 žádá ST-SECURE). Platí to i pro PWA přidanou na plochu.';
+
+  const pin = !native ? '' : secure.lock.hasPin
+    ? `<div class="kv"><span class="kv-key">PIN aplikace</span>
+        <span class="pill" data-tone="ok">nastaven</span></div>
+      <div class="kv"><span class="kv-key">Zrušit PIN</span>
+        <span class="kv-val"><input class="pin-input" id="pin-old" type="password" inputmode="numeric"
+          autocomplete="off" maxlength="12" placeholder="stávající PIN">
+        <button class="btn btn-secondary btn-sm" data-act="pin-clear">Zrušit</button></span></div>`
+    : `<div class="kv"><span class="kv-key">PIN aplikace</span>
+        <span class="pill" data-tone="warn">není</span></div>
+      <div class="kv"><span class="kv-key">Nastavit PIN</span>
+        <span class="kv-val"><input class="pin-input" id="pin-new" type="password" inputmode="numeric"
+          autocomplete="off" maxlength="12" placeholder="alespoň 4 číslice">
+        <button class="btn btn-secondary btn-sm" data-act="pin-set">Nastavit</button></span></div>
+      <div class="kv-note">Bez PINu se aplikace po návratu z pozadí neuzamkne. Zámek je jediná obrana proti odemčenému ztracenému telefonu (P-4).</div>`;
+
+  return `<div class="card">
+      <div class="card-head"><h3 class="card-title">Zabezpečení</h3></div>
+      <div class="kv"><span class="kv-key">Úložiště přihlášení</span>
+        <span class="pill" data-tone="${tone}">${esc(where)}</span></div>
+      <div class="kv-note">${esc(note)}</div>
+      ${degraded && secure.reason ? `<div class="kv"><span class="kv-key">Důvod</span><span class="kv-val mono">${esc(secure.reason)}</span></div>` : ''}
+      ${pin}
+      ${state.error.security ? `<div class="kv-note" data-tone="danger">${esc(state.error.security)}</div>` : ''}
+    </div>`;
+}
+
+/**
+ * Set the app lock.  The PIN is read from the field, handed to the vault, and
+ * dropped — it is never stored in `state`, never cached, and never rendered
+ * back.  `MR-23`'s lock is only as good as the shortest-lived copy of the
+ * secret, and client state is the longest-lived place in this file.
+ */
+async function setAppPin() {
+  const field = document.getElementById('pin-new');
+  const pin = field ? field.value : '';
+  state.error.security = null;
+  if (!/^\d{4,12}$/.test(pin)) {
+    state.error.security = 'PIN musí být 4 až 12 číslic.';
+    render();
+    return;
+  }
+  const result = await secure.setPin(pin);
+  if (field) field.value = '';
+  state.error.security = result.ok ? null : `PIN se nepodařilo nastavit (${result.reason}).`;
+  if (result.ok) toast('PIN nastaven');
+  render();
+}
+
+async function clearAppPin() {
+  const field = document.getElementById('pin-old');
+  const pin = field ? field.value : '';
+  state.error.security = null;
+  const result = await secure.clearPin(pin);
+  if (field) field.value = '';
+  // A wrong PIN here is not an error condition of the app: it is the lock
+  // doing its job, so it says so plainly instead of offering a retry ritual.
+  state.error.security = result.ok ? null : 'PIN nesouhlasí.';
+  if (result.ok) toast('PIN zrušen');
+  render();
+}
+
 function viewDiagnostics() {
   const health = state.data.health;
   const caps = state.data.capabilities;
@@ -1563,6 +1777,8 @@ function viewDiagnostics() {
       <div class="kv"><span class="kv-key">Obnova</span>
         <button class="btn btn-secondary btn-sm" data-act="operations">Otevřít nerozřešené pokusy</button></div>
     </div>
+
+    ${securityCard()}
 
     <div class="card">
       <div class="card-head"><h3 class="card-title">Relace</h3></div>
@@ -4030,6 +4246,12 @@ document.addEventListener('click', event => {
     // A read of the queue, and nothing more.  It was rendered by the error panel
     // and wired to nothing at all, which made the only way out of a failed queue
     // a control that did nothing when tapped (F-066).
+    // The lock is set from here and nowhere else.  Both actions read the field
+    // next to their own button rather than any remembered value: a PIN that
+    // lingered in client state between renders would be a copy of the secret
+    // living exactly where the vault exists to prevent.
+    'pin-set': () => setAppPin(),
+    'pin-clear': () => clearAppPin(),
     'load-approvals': () => loadApprovals(),
     // The one user-initiated read that may re-arm the decision screen: it is the
     // conscious "load the current state and decide again" that SS-10 offers
@@ -4249,6 +4471,12 @@ document.addEventListener('visibilitychange', handleVisibilityChange);
 
 // ── Boot ────────────────────────────────────────────────────────────────────
 async function boot() {
+  // Before anything reads `auth.token`.  In the shell the credential lives in
+  // the Keystore, so a boot that rendered first would show the pairing screen
+  // to a paired device for one frame — and `SS-06` treats "unpaired" as a
+  // destination, not a flicker.
+  await secure.hydrate();
+
   const hashCode = new URLSearchParams(location.hash.slice(1)).get('pair');
 
   if (hashCode || !auth.token) {
@@ -4275,7 +4503,8 @@ async function boot() {
 // test surface costs nothing at runtime and keeps tests/mobile-ms20-ui.test.js
 // from re-implementing the screen it is supposed to be checking.
 export const __ms20 = {
-  state, journal, drafts, store, cache, prefs, K, api,
+  state, journal, drafts, store, secure, auth, cache, prefs, K, api,
+  securityCard, setAppPin, clearAppPin,
   render, navigate, viewOperations, ms20Entries,
   trustBar, trustZones, withTrustBar, screenLocks, serverNow,
   viewOverview, navItems, currentSection, sectionRoute, unknownScopes, NAV_ITEMS, ROUTE_SECTION,

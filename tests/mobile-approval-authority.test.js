@@ -5,13 +5,15 @@
 // no TTL authority, no mandatory fingerprint, and no authoritative binding to
 // the run, the operation and the normalised content.
 //
-// **Three of the four are closed here.  The producer is not.**  Wiring an
-// emitter would put approvals on the production surface before M6, which is
-// release authority and not this work package's to take — the same reason
-// `MobileChannel` stays out of the notification router.  So `F-100` stays open
-// on that part, and the last test in this file states it in the code rather
-// than only in a commit message, so nobody reads the other three passing and
-// concludes the finding is closed.
+// **Three of the four are closed here; the fourth was closed later.**  Wiring
+// an emitter puts approvals on the production surface, which is release
+// authority and not one work package's to take — so the last test in this file
+// demanded that whoever did it *recorded the decision*, rather than merely
+// forbidding it for ever.  That happened in
+// `docs/decisions/024-mobile-companion-producer-and-shell.md`, and the last
+// test now checks the shape of what was admitted: the producer mints through
+// the authority, the routes still do not mint at all, and the decision is on
+// disk where it can be reviewed.
 //
 // What is closed, and why each was a hole rather than an omission:
 //
@@ -277,18 +279,44 @@ try {
 
   // ── What remains open ────────────────────────────────────────────────────
 
-  await test('F-100 stays open: there is still no production producer, and nothing pretends otherwise', () => {
-    // The mint exists and is correct; nothing in the running system calls it.
-    // Wiring an emitter would put approvals on the production surface before M6
-    // — release authority, not this work package's — so the finding keeps that
-    // part open.  This test fails the day someone wires it *without* recording
-    // the decision, which is the outcome worth catching.
+  await test('F-100 the producer exists, and the decision that admitted it is written down', () => {
+    // This test used to say "there is still no production producer".  There is
+    // one now — `src/mobile/companion-producer.js` — and the test that guarded
+    // the absence was written to fail on exactly this day *unless* the decision
+    // was recorded.  So it was, and this is the recording, in code:
+    //
+    //   docs/decisions/024-mobile-companion-producer-and-shell.md
+    //
+    // The ratchet did not go away; it moved to what it was actually protecting.
+    // Two things must still hold, and each fails loudly on its own.
+    //
+    // 1. The routes stay out of the minting business.  A handler that mints is
+    //    a handler that can be reached from outside, and `DR-011`'s window
+    //    would then be one HTTP body away from being a suggestion.
     const roots = ['src/server.js', 'src/mobile/gateway.js', 'src/mobile/handlers.js'];
     for (const file of roots) {
       const source = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
       assert.ok(!/createMobileApproval/.test(source),
-        `${file} now produces approvals; F-100's producer half was closed without recording it`);
+        `${file} now mints approvals; minting belongs behind the authority, not on a route`);
     }
+
+    // 2. The producer mints **through the authority** and nowhere else.  An
+    //    `INSERT INTO mobile_approvals` in the producer would reproduce the
+    //    whole of `F-100` inside the module that exists to close it.
+    const producer = readFileSync(
+      new URL('../src/mobile/companion-producer.js', import.meta.url), 'utf8');
+    assert.match(producer, /createMobileApproval/,
+      'the producer no longer goes through the authority');
+    assert.ok(!/INSERT\s+INTO\s+mobile_approvals/i.test(producer),
+      'the producer writes the table directly, which is the finding it was written to close');
+
+    // 3. The decision is on disk.  A producer whose authorisation lives only in
+    //    a commit message is a producer nobody can review.
+    const decision = readFileSync(
+      new URL('../docs/decisions/024-mobile-companion-producer-and-shell.md', import.meta.url), 'utf8');
+    assert.match(decision, /companion-producer/,
+      'the recorded decision does not name the producer it admits');
+
     assert.deepEqual(APPROVAL_ORIGINS, ['local', 'remote']);
   });
 } finally {

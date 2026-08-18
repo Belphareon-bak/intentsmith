@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cleartext, for exactly one host, and no other.
+
+  The gateway speaks HTTP on loopback and refuses to bind anywhere else without
+  `C3_MOBILE_ALLOW_REMOTE` (`G0-R032`, ROADMAP §11).  The phone reaches it
+  through `adb reverse tcp:3336 tcp:3336`, which makes the phone's own
+  `127.0.0.1:3336` the desktop's — the traffic never leaves the USB cable, so
+  there is no network for cleartext to be observed on.
+
+  Android blocks cleartext by default since API 28, and the tempting fix is
+  `android:usesCleartextTraffic="true"` on the application.  That would permit
+  cleartext to *every* host, which on a phone that also has Wi-Fi is a much
+  larger permission than the one needed.  This file grants it to loopback only,
+  so a future build that starts talking to a real server cannot silently do it
+  in the clear.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>
