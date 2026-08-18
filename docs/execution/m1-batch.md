@@ -583,6 +583,30 @@ nemění private V5 core, evidence ani runtime a pouze verified verifier-owned
 PASS handoff může znovu otevřít dosud nespotřebovanou D037 same-root repair
 transaction.
 
+Promoted D039 operational run skončil terminal už prvním Git readem:
+`PRELAUNCH_GIT_READ_ENVELOPE_NOT_EXACT_D039`. Raw argv mělo jen 6 env
+assignments a 5 configů, z nichž `commit.gpgSign=false` byl unauthorized;
+wall time, exit, signal, stdout a stderr zůstávají `UNKNOWN`. D039 CREATE token
+je consumed s count `0`/launch `false`, VERIFY je `CANCELLED_UNISSUED/NO_RUN`
+a target/admin nevznikly. Pozdější `rg` ENOENT a 2 624-byte digest
+`45d002f6da445c78835b5c8daacee2786162faceaf632c86891bd8e0f37268aa`
+jsou superseded non-evidence, nikoli canonical observation.
+
+Nová
+[decision 040](../decisions/040-m1-h0-v5-detached-source-checkout-toolchain-remediation.md)
+je exact four-doc governance-only remediation, ne D039 retry. Tracked driver
+směr byl před subjectem abandoned jako noncanonical/non-evidence a jeho path je
+forbidden. Review B místo něj dokončí final `PRELEASE_READY` baseline a je
+fenced. Sole executor `/root` pod jedním exclusive lease ff-only promuje exact
+E_B; při exit `0` issue D040 CREATE a exact hardened worktree-add je velmi další
+Git child, bez intervening discovery/preflight Git nebo direct common-metadata
+readu. Command nemá force/branch/cleanup/retry a race failne closed. Root
+zachová jen raw tool outcome, nikdy PASS. Při create exit `0` se lease bez gapu
+převede distinct verifierovi, který celý poststate recompute fresh. D040 má
+`MINIMAL CONTRACT FROZEN FOR PRECOMMIT AUDITS / NO OPERATIONAL AUTHORITY`;
+subject commit vyžaduje dva fresh zero-based PASS audity a private/runtime
+authority zůstává NONE.
+
 ---
 
 ## 2. Sdílené invarianty — platí pro každý běh v dávce
