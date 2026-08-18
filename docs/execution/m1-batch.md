@@ -334,8 +334,12 @@ nevyrábí. Exact pořadí aktuálního closeoutu je:
   -> exactly one V3 non-clobber static materialization
   -> two independent V3 reviews: CHANGES_REQUIRED; V3 sealed/frozen/no runtime
   -> decision 035 S_H0Q -> E_A_H0Q -> C_H0Q -> E_B_H0Q -> canonical promotion
-  -> exactly one V4 non-clobber static materialization + two independent reviews
-  -> S_V4 -> E_A_V4 -> C_V4 -> E_B_V4 -> canonical promotion
+  -> exactly one V4 non-clobber static materialization
+  -> V4 Review A CHANGES_REQUIRED + Review B PASS; aggregate red/frozen/no runtime
+  -> decision 036 S_H0P -> E_A_H0P -> C_H0P -> E_B_H0P -> canonical promotion
+  -> exactly one V5 preseal-reviewed non-clobber static materialization
+  -> two independent post-seal V5 static reviews
+  -> S_V5 -> E_A_V5 -> C_V5 -> E_B_V5 -> canonical promotion
   -> fresh SSH/logout preflight + exact GUI-saved operator declaration
   -> S_ACC receipt+detached digest -> E_A_ACC -> C_ACC -> E_B_ACC -> canonical promotion
   -> immediate same-boot/no-drift gate -> at most one H0 run
@@ -462,6 +466,35 @@ client reap před inner `unit-post` terminal receiptem. Report zůstal pouze
 Review-A 4-line evidence; nevznikl E_B ani promotion. R2 opravuje summary na
 pravdivé pořadí `unit-post -> systemd-run return/reap -> outer closure` a musí
 projít novými Review A+B; původní red candidate zůstává zachovaný.
+
+Decision 035 R2 následně prošla Review A+B a byla canonical promovovaná na
+`ffe02f8c23b3c208cf6420d8857b85ca1ccb54b5`. Její jediná V4 autorita je
+spotřebovaná birth-time-honest sealed rootem
+`/home/belphareon/.local/share/intentsmith-private/m1-h0-headless-no-model-v4-20260818T013800Z.sws2y8cf`.
+Plan `98379e46...`, runner `534332e8...`, strategy `3d2ae8d1...` a
+manifest `1c5450bd...` mají validní owner-only closure a `evidence/` je
+empty. Žádný runtime ani live effect neproběhl.
+
+Dvě independent V4 static review zůstávají záměrně divergentní: Review A
+`CHANGES_REQUIRED`, Review B `PASS`. Review A prokázala
+`COMMON_MODE_NORMATIVE_PROJECTION_DRIFT`: plan a strategy mají nula exact
+`CLIENT_QUIESCED` tokenů a spolu s runner self-validací pinují stale
+osmiprvkový V3-style positive graph SHA-256 `5d221939...`, zatímco runner
+invariant reálně vynucuje. Povinné dvě PASS proto nevznikly; V4 je
+`STATIC_CHANGES_REQUIRED / SEALED / NO_RUNTIME / DO_NOT_EXECUTE`.
+
+Nová
+[decision 036](../decisions/036-m1-h0-v4-lifecycle-projection-remediation.md)
+je docs-only prospective amendment bez runtime authority. V5 musí přesně
+projektovat 15-node decision-035:335–344 lifecycle SHA-256
+`492645f2...` napříč plan-side client phases, semantic receipt contracts a
+key lists, strategy/manifest/static/acceptance/operator receipts, actual AST
+dominancí a source-derived budgetem. Po canonical
+`S_H0P -> E_A_H0P -> C_H0P -> E_B_H0P` smí vzniknout nejvýše jeden V5
+static root; před sealem jej drží independent preseal review a po sealu jsou
+nutné dvě další distinct static review. B3 Phase B zůstává
+`STOPPED_T3_TERMINAL_FAILURE`; B4, Gate 1, B5, B6 a Gate 2 zůstávají
+`BLOCKED`.
 
 ---
 
