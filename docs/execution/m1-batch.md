@@ -337,7 +337,12 @@ nevyrábí. Exact pořadí aktuálního closeoutu je:
   -> exactly one V4 non-clobber static materialization
   -> V4 Review A CHANGES_REQUIRED + Review B PASS; aggregate red/frozen/no runtime
   -> decision 036 S_H0P -> E_A_H0P -> C_H0P -> E_B_H0P -> canonical promotion
-  -> exactly one V5 preseal-reviewed non-clobber static materialization
+  -> exactly one V5 non-clobber static materialization
+  -> formal PRESEAL CHANGES_REQUIRED; sole V5 root frozen unsealed/no runtime
+  -> decision 037 S_H0V5R -> E_A_H0V5R -> C_H0V5R -> E_B_H0V5R -> canonical promotion
+  -> authentic old-red recorder + exactly one same-root three-core repair
+  -> fresh distinct PRESEAL_READY over repaired bytes
+  -> seal binding both old-red and fresh-ready recorders
   -> two independent post-seal V5 static reviews
   -> S_V5 -> E_A_V5 -> C_V5 -> E_B_V5 -> canonical promotion
   -> fresh SSH/logout preflight + exact GUI-saved operator declaration
@@ -495,6 +500,28 @@ static root; před sealem jej drží independent preseal review a po sealu jsou
 nutné dvě další distinct static review. B3 Phase B zůstává
 `STOPPED_T3_TERMINAL_FAILURE`; B4, Gate 1, B5, B6 a Gate 2 zůstávají
 `BLOCKED`.
+
+Jediný V5 root vznikl birth-time-honest jako
+`m1-h0-headless-no-model-v5-20260818T083250Z.56131a74`, ale formální preseal
+skončil `CHANGES_REQUIRED`. Frozen plan `c4764b58...`, runner `0d02ddb9...` a
+strategy `26898ebc...` zůstávají unsealed; evidence je empty a žádný detached
+digest ani manifest nevznikl. Povinný budget validator má cross-scope
+`NameError`. Read-only shadow audit navíc uzavřel nepravdivý author-harness
+claim, chybějící cleanup SHA dominanci, nevynucenou post-seal reviewer identity
+a chybějící actual one-root enumeraci. Aggregate je `P0=0/P1=5` a V5 je
+`DO_NOT_EXECUTE`.
+
+Nová
+[decision 037](../decisions/037-m1-h0-v5-preseal-remediation.md) je docs-only
+remediation bez runtime authority. Po vlastním
+`S_H0V5R -> E_A_H0V5R -> C_H0V5R -> E_B_H0V5R` a canonical promotion nejprve
+vyžaduje authentic durable recorder původního red reviewera. Potom smí právě
+jedna transaction změnit jen existující V5 plan/runner/strategy v témž rootu;
+druhý root, cleanup, evidence write, retry a seal jsou zakázané. Repaired core
+musí pinnut promoted Decision037 jako live static base, zachovat OLD+red
+history, napravit všech pět P1 a znovu se zastavit na fresh distinct preseal.
+Teprve `PRESEAL_READY` s `P0=0/P1=0` dovolí seal vázající red i ready recorder.
+Ani 037, preseal ani seal nevydávají H0 runtime, T3 nebo Gate authority.
 
 ---
 
