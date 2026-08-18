@@ -558,6 +558,31 @@ structured non-filesystem handoff
 znovu otevře původního `/root/v5_materializer`; Decision037 zůstává live base.
 Decision038 sama core neopravuje, nesealuje a nevydává runtime autoritu.
 
+Decision038 R2 byla následně canonical promovovaná na
+`9205a906602cbd6e9a0e6cf3ebe8d30ed06113c2`, ale její operational run skončil
+terminal `BLOCKED_BEFORE_ATTEMPT` ještě před final preflight snapshotem a před
+`worktree add`. Po root orchestration GO exact task
+`/root/v5_d038_source_checkout_verifier` před creator snapshotem provedl
+ambientní common-Git reads mimo exact no-write envelope a exclusive writer
+window. Creator GO přijal, ale zůstal `BEFORE_SNAPSHOT`, provedl zero post-GO
+commands a final create-launch GO zůstal false. D038 authority je proto
+spotřebovaná s attempt count `0`; target/admin zůstaly absent, explicit write
+nebyl pozorován, ale optional index refresh nelze dokázaně vyloučit a
+`canonicalIndexMutation` zůstává `UNKNOWN`. Provisional incident digesty nejsou
+evidence a D038 se nesmí retryovat ani reclassifikovat.
+
+Nová
+[decision 039](../decisions/039-m1-h0-v5-detached-source-checkout-prelaunch-remediation.md)
+je docs-only prelaunch remediation. Inkorporuje exact promoted Decision038 blob
+a mění jen explicitní substitution table: nové role/identity/lock reason,
+fresh one-shot authority a nepřerušený exclusive **all-Git-access** lease.
+Creator run `D039-CREATE-01` musí pod lease dokončit fresh byte-bound snapshot
+před GO; teprve po jeho success může distinct verifier spustit
+`D039-VERIFY-01`, stále bez jediného external Git readu nebo write. D039 sama
+nemění private V5 core, evidence ani runtime a pouze verified verifier-owned
+PASS handoff může znovu otevřít dosud nespotřebovanou D037 same-root repair
+transaction.
+
 ---
 
 ## 2. Sdílené invarianty — platí pro každý běh v dávce
