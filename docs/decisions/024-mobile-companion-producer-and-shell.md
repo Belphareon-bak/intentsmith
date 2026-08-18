@@ -7,6 +7,13 @@
 - **navazuje na:** `F-100` (producent approvalů), `DR-013 A` (S1 mirror),
   `F-111`/`F-112` (fail-closed kanál), `MR-22`/`MR-23` (úložiště a zámek)
 
+> **Bezpečnostní upřesnění po konsolidaci:** řádek 8 níže je v současné
+> implementaci pouze `PARTIAL`. Credential je chráněný at rest, ale klient jej
+> při bootu načte do JavaScriptové paměti a `onPause` tuto relaci ani aktivní
+> requesty nevymaže. Před produkčním přijetím musí background provést session
+> invalidaci, abort a epoch guard. Kanonický stav a úplný backlog jsou v
+> [`FINAL-PROTOTYPE.md`](../mobile/FINAL-PROTOTYPE.md).
+
 ## Proč to vůbec vzniká jako rozhodnutí
 
 `tests/mobile-approval-authority.test.js` končí testem, který **selže ve chvíli,

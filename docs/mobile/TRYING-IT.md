@@ -1,12 +1,12 @@
 # Jak si mobilní aplikaci zkusit — i bez backendu
 
-Krátký návod, ne dokument o architektuře. Ověřeno na `wp/mobile-refresh-20260809`.
+Praktický runbook pro kanonický prototyp na větvi
+`wp/mobile-prototype-20260817`. Aktuální stav, cesta k APK, důkazy a prod-ready
+mezery jsou výhradně v [FINAL-PROTOTYPE.md](FINAL-PROTOTYPE.md).
 
-> **Chceš to v telefonu, ne v prohlížeči?** Tenhle soubor popisuje web na
-> `127.0.0.1:3336`. Podepsané APK, cestu telefon → gateway, Keystore a zámek
-> má [PROTOTYPE.md](PROTOTYPE.md). Přibyl s ním i běh, který si o approval
-> **řekne a počká** — bez něj zůstane fronta prázdná, protože ji nemá kdo
-> naplnit.
+Tento návod obslouží stejný klient ve webovém prohlížeči i v Android shellu.
+Demo běh si o approval **řekne a počká**; bez něj zůstane fronta prázdná,
+protože producent zatím není zapojený do skutečného core effectu.
 
 ---
 
@@ -23,8 +23,8 @@ i webového klienta**, takže na čtení žádný backend nepotřebuje. Legacy s
 | Přehled, trust bar, stavy cache, zamčení podle scope | ✅ |
 | Žurnál operací, obrazovka rozřešení (`MS-20`) | ✅ |
 | **Odeslat zprávu** | ❌ — `upstream: unreachable`, aplikace to řekne rovnou |
-| Approvaly s reálným obsahem | ✅ — `npm run mobile:demo` je vyrobí přes autoritu (`F-100`, producent) |
-| Schránka s ukazateli běhu | ✅ — S1 projektor `DR-013 A`, tentýž demo běh |
+| Approvaly s reálným obsahem | ✅ jen v demu — `npm run mobile:demo` je vyrobí přes authority component; produkční F-100 seam zůstává otevřený |
+| Schránka s ukazateli běhu | ✅ jen v demu — S1 projektor `DR-013 A`, tentýž demo běh |
 
 Neběžící backend se **nemaskuje**: `GET /m1/health` vrací
 `upstream: "unreachable"` s důvodem a composer se zamkne s vysvětlením. To je
@@ -35,8 +35,9 @@ záměr, ne rozbitý stav — nefunkční odeslání se nesmí tvářit jako ode
 ## Postup
 
 ```bash
-cd /home/belphareon/worktrees/is-mobile-refresh
+cd /home/belphareon/worktrees/is-mobile-prototype
 npm ci --offline
+npm --prefix mobile-app ci --offline
 
 # 1. Demo databáze — nikdy ne ta ostrá; skript to odmítne.
 npm run mobile:seed -- --db /tmp/is-demo.db
@@ -44,19 +45,21 @@ npm run mobile:seed -- --db /tmp/is-demo.db
 # 2. Gateway (v jednom terminálu)
 C3_DB_PATH=/tmp/is-demo.db C3_MOBILE_PAIRING=on node src/mobile-gateway.js
 
-# 3. Párovací QR (v druhém terminálu)
-C3_DB_PATH=/tmp/is-demo.db node scripts/mobile-pair.js
+# 3. Párovací QR (v druhém terminálu). Approval scopes jsou pro demo povinné.
+C3_DB_PATH=/tmp/is-demo.db node scripts/mobile-pair.js \
+  --scopes read:capabilities,read:chat,write:chat,read:notifications,write:notifications,read:approvals,write:approvals
 
 # 4. Volitelně: běh, který se zeptá na approval a čeká na odpověď
 node scripts/mobile-demo-run.js --db /tmp/is-demo.db
 ```
 
-> Approvaly **nejsou ve výchozích scopech**. Aby je telefon viděl, chce to
-> `mobile-pair.js --scopes …,read:approvals,write:approvals` — nejmenší
-> dostatečný scope je záměr (`P-8`), ne opomenutí.
+Approvaly **nejsou ve výchozích scopech**. Příkaz výše je proto žádá
+explicitně; nejmenší dostatečný scope je záměr (`P-8`), ne opomenutí.
 
-Pak otevři `http://127.0.0.1:3336` a naskenuj/vlož kód. Kód je **jednorázový** —
-po použití je spotřebovaný a další běh `mobile-pair.js` vydá nový.
+V prohlížeči pak otevři `http://127.0.0.1:3336` a vlož kód. V Android aplikaci
+nejdřív proveď USB postup v další sekci a kód vlož tam. Kód je
+**jednorázový** — po použití je spotřebovaný a další běh `mobile-pair.js` vydá
+nový.
 
 Seed vytvoří tři konverzace záměrně: **240 zpráv**, 8 zpráv a prázdnou.
 
@@ -71,22 +74,28 @@ Seed vytvoří tři konverzace záměrně: **240 zpráv**, 8 zpráv a prázdnou.
 
 ---
 
-## Z telefonu na stejné síti
+## Android aplikace přes USB
 
-**Bez rozmyslu to nedělej.** Gateway se váže na loopback a vazbu mimo něj
-odmítá, dokud nenastavíš `C3_MOBILE_ALLOW_REMOTE`. Ta pojistka tam je proto, že
-vzdálený listener a produkční pairing jsou `LATER_GATE` za M6 (`G0-R032`,
-ROADMAP §11) a hranice **není prověřená**.
-
-Pro zkoušení na vlastním zařízení je bezpečnější cesta **port forward**, který
-nic nevystavuje:
+Kanonický prototyp používá jen `adb reverse`: Android otevře svůj
+`127.0.0.1:3336` a USB kabelem jej přivede ke gateway na počítači. Gateway se
+dál váže jen na loopback; žádný port se neotevře do Wi-Fi.
 
 ```bash
-# z telefonu/druhého stroje přes SSH na tenhle stroj
-ssh -L 3336:127.0.0.1:3336 <uživatel>@<stroj>
+# Jen kontrola, nic nemění
+npm run mobile:android:doctor
+
+# Jednou, pokud ještě neexistuje interní prototypový klíč
+npm run mobile:android:keystore
+
+# Build, adb reverse, instalace a spuštění
+npm run mobile:android:build
+npm run mobile:android:run
 ```
 
-nebo Tailscale/VPN, kde je protistrana ověřená.
+Příkaz `run` vyžaduje připojený a autorizovaný Android device nebo emulátor.
+Interní klíč ani výsledné APK nejsou release signing. Vzdálený listener,
+Tailscale/VPN a `C3_MOBILE_ALLOW_REMOTE` nejsou podporovaná cesta tohoto
+prototypu.
 
 ---
 
@@ -112,7 +121,7 @@ nebo Tailscale/VPN, kde je protistrana ověřená.
 | | |
 |---|---|
 | Odpověď přijde najednou, netéče po tocích | Token streaming neexistuje (`PLAN.md` §3) |
-| Průběh běhu / agent log chybí | `MR-07` je `BLOCKED_BY_CONTRACT` |
+| Vlastní obrazovka průběhu / agent log chybí | `MR-07` je `BLOCKED_BY_CONTRACT`; demo ukazuje jen S1 indikátory ve schránce |
 | Hledání chybí | `MR-10` je `BLOCKED_BY_CONTRACT` |
 | Projekty chybí | `MR-14` čeká na `DR-008` a Gate 1 |
 | Notifikace nedorazí do spící aplikace | Push (`N-1`) není; schránka je pull. Naplnit ji umí `npm run mobile:demo` |

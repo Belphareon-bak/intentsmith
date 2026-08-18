@@ -107,6 +107,8 @@ storePassword=$pass
 keyAlias=internal
 keyPassword=$pass
 EOF
+  chmod 700 "$keydir"
+  chmod 600 "$keyfile" "$props"
   note "✓ klíč vytvořen: $keyfile"
   note "  Je to interní prototypový klíč. Do obchodu s ním nic nejde."
 }

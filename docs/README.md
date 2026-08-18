@@ -134,7 +134,7 @@ ve zbytku dokumentace.
 | [convergence/GATE0-REVIEW-FINDINGS-FOLLOWUP.md](convergence/GATE0-REVIEW-FINDINGS-FOLLOWUP.md) | dispozice pěti nálezů nezávislého review a hranice jejich platnosti |
 | [convergence/DECISIONS.md](convergence/DECISIONS.md) | uzamčená rozhodnutí + čekající operátorská |
 | [convergence/FINAL-COMMIT-DISPOSITION.md](convergence/FINAL-COMMIT-DISPOSITION.md) | dispozice 225 záznamů `a7b90e3..ffd21cf` |
-| [convergence/TEST-REGISTRY.md](convergence/TEST-REGISTRY.md) | generovaný ledger 350 testovacích programů a 8 explicitních support výjimek |
+| [convergence/TEST-REGISTRY.md](convergence/TEST-REGISTRY.md) | generovaný ledger 405 testovacích programů a 9 explicitních support výjimek |
 | [convergence/PRIVACY-INCIDENT.json](convergence/PRIVACY-INCIDENT.json) | evidence potvrzené privacy kompromitace |
 
 ### Kontrakty & Protokoly
@@ -152,6 +152,14 @@ ve zbytku dokumentace.
 |----------|-------|
 | [C3-STUDIO-IDE.md](../c3-ide/docs/C3-STUDIO-IDE.md) | C3 Studio IDE dokumentace |
 | [C3-STUDIO-ROADMAP.md](../c3-ide/docs/C3-STUDIO-ROADMAP.md) | IDE integration roadmap |
+
+### Mobilní prototyp
+
+| Dokument | Popis |
+|----------|-------|
+| [mobile/FINAL-PROTOTYPE.md](mobile/FINAL-PROTOTYPE.md) | **Kanonický aktuální stav:** cesta k APK, evidence, role obou kandidátů a prod-ready backlog |
+| [mobile/TRYING-IT.md](mobile/TRYING-IT.md) | Praktický web/Android USB runbook |
+| [decisions/024-mobile-companion-producer-and-shell.md](decisions/024-mobile-companion-producer-and-shell.md) | Čekající implementační rozhodnutí a strop demo producenta |
 
 ### Další
 
