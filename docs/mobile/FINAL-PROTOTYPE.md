@@ -188,6 +188,9 @@ jen APK, které lze nainstalovat. Následující položky jsou povinné a jejich
 
 1. **Rozhodnout 024.** Operátor přijme nebo odmítne producenta, S1 slovník,
    durable čekání a shell hranici. Bez přijetí zůstává producent demo-only.
+   Dvě věci, které z 024 vypadly jako samostatná rozhodnutí, protože nejsou
+   implementační: [025 — jak dlouho approval čeká a jak se o něm dozvíš](../decisions/025-approval-window-and-push.md)
+   a [026 — přístup k gateway bez kabelu](../decisions/026-wireless-gateway-access.md).
 2. **Zapojit skutečný effect seam.** `requestApproval()` musí volat reálná
    authority před skutečným efektem; efekt musí mít idempotenci, cancel,
    timeout, restart/recovery, audit a stav `UNKNOWN` při nejasném výsledku.

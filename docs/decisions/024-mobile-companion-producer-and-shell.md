@@ -7,11 +7,14 @@
 - **navazuje na:** `F-100` (producent approvalů), `DR-013 A` (S1 mirror),
   `F-111`/`F-112` (fail-closed kanál), `MR-22`/`MR-23` (úložiště a zámek)
 
-> **Bezpečnostní upřesnění po konsolidaci:** řádek 8 níže je v současné
-> implementaci pouze `PARTIAL`. Credential je chráněný at rest, ale klient jej
-> při bootu načte do JavaScriptové paměti a `onPause` tuto relaci ani aktivní
-> requesty nevymaže. Před produkčním přijetím musí background provést session
-> invalidaci, abort a epoch guard. Kanonický stav a úplný backlog jsou v
+> **Aktualizace 2026-08-18 (dřívější výhrada je vyřešená).** Konsolidační
+> poznámka tu dřív říkala, že `onPause` nevymaže JS relaci ani neruší běžící
+> requesty. To už neplatí: zamčení posílá do stránky `intentsmithLock`, který
+> zahodí credential z paměti, zruší běžící requesty a zneplatní epochu, takže
+> pozdní odpověď je inertní (7 testů v `tests/mobile-secure-credential.test.js`).
+> Odemyká systémový `BiometricPrompt`. Řádek 8 tím zůstává `PARTIAL` už jen
+> kvůli `EncryptedSharedPreferences` (deprecated) a chybějícímu testu na
+> fyzickém telefonu. Kanonický stav je v
 > [`FINAL-PROTOTYPE.md`](../mobile/FINAL-PROTOTYPE.md).
 
 ## Proč to vůbec vzniká jako rozhodnutí
@@ -58,9 +61,22 @@ a to je přesně vada, kterou `F-111` popisuje na schránce.
 4. Podpisový klíč v `mobile-app/keys/` je **interní prototypový**, git-ignorovaný.
    Do obchodu s ním nejde nic a nesmí se zaměnit za release ceremonii.
 
-## 6. Co by přijetí odemklo
+## 6. Co by přijetí odemklo — a co do něj **nepatří**
 
-Zapojení `requestApproval()` do reálného seamu jádra (`fs.write` v režimu
-`ask`, `src/ws-bridge/session-adapter.js`) — s tím, že tamní okno je 30 s
-a `DR-011` žádá 5 minut, takže sjednocení oken je součást toho rozhodnutí,
-ne jeho vedlejší efekt.
+Přijetí odemyká zapojení `requestApproval()` do reálného seamu jádra
+(`fs.write` v režimu `ask`, `src/ws-bridge/session-adapter.js`).
+
+**To zapojení ale není součástí tohohle rozhodnutí a nemá se do něj přibalit**,
+protože má dva důsledky, které s mobilem nesouvisejí:
+
+1. **Mění chování IDE.** Tamní okno je 30 s, `DR-011` žádá 5 minut. Sjednocení
+   se dotkne lidí, kteří o mobilu nevědí — viz [025](025-approval-window-and-push.md),
+   kde se navíc řeší, jestli má okno vůbec existovat.
+2. **Potřebuje pojistku, která dnes chybí:** producent razí approval a čeká celé
+   okno **bez ohledu na to, jestli je vůbec nějaký telefon spárovaný**. V demu
+   to nevadí; v reálném seamu to je běh visící pět minut na odpověď, kterou
+   nemá kdo dát. Data na to existují (`api_tokens.last_used_at`,
+   `listDevices()`), ale musí to být podmínka zapojení, ne pozdější oprava.
+
+Souhrn: 024 říká „tenhle tvar je správný". Kdy a jak se agent doopravdy zeptá,
+řeší [025](025-approval-window-and-push.md) a [026](026-wireless-gateway-access.md).
