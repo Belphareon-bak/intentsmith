@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 405
+- Runnable programs: 406
 - Explicit support-module exclusions: 9
-- Profiles: offline=199, database=50, server=37, model=85, soak=19, manual=15
-- States: ACTIVE=307, HISTORICAL=15, BLOCKED=83
+- Profiles: offline=199, database=51, server=37, model=85, soak=19, manual=15
+- States: ACTIVE=308, HISTORICAL=15, BLOCKED=83
 
 ## Execution profiles
 
@@ -233,6 +233,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-EXPORT-PDF-DOCX-TEST` | `tests/export-pdf-docx.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none, toolchain:python-pdf-runtime | yes | `BLOCKED` | — | primary implementer |
 | `IS-T1-TESTS-FILE-DISCOVERY-TEST` | `tests/file-discovery.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-FILE-WRITE-EXTRACT-TEST` | `tests/file-write-extract.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-FILE-WRITE-LOCK-TEST` | `tests/file-write-lock.test.js` | `C3-031` | T2 | `database` | 8 s | 3 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-FIX-STRATEGY-TEST` | `tests/fix-strategy.test.js` | `C3-007` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-FIXES-V582-TEST` | `tests/fixes-v582.test.js` | `C3-027` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-GOVERNOR-TEST` | `tests/governor.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
