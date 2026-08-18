@@ -40,7 +40,7 @@
 //
 // ==============================================================================
 
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { fingerprint } from './protocol.js';
 
 /**
@@ -53,6 +53,31 @@ export const APPROVAL_TTL_MS = Object.freeze({
 });
 
 export const APPROVAL_ORIGINS = Object.freeze(Object.keys(APPROVAL_TTL_MS));
+
+/**
+ * Čím je approval omezený — rozhodnutí `025`.
+ *
+ *   `window`        starý `DR-011`: platí pět (lokálně) nebo patnáct minut.
+ *                   Zůstává pro efekty, které si samy nesou strop.
+ *   `precondition`  nový výchozí: platí, dokud se nezmění **cíl**.  Čas ho
+ *                   neomezuje; omezuje ho svět.
+ *
+ * Rozdíl není v délce, ale v tom, na co se ptáme.  Okno se ptá „stihl jsi
+ * odpovědět?", předpoklad „platí ještě to, na co jsi odpovídal?".  Druhá otázka
+ * je ta, o kterou uživateli šlo.
+ */
+export const APPROVAL_VALIDITY = Object.freeze({
+  WINDOW: 'window',
+  PRECONDITION: 'precondition',
+});
+
+/**
+ * Strop pro `precondition` approvaly.  **Není to okno** — je to pojistka proti
+ * řádku, na který se zapomnělo: čekající „ano" bez konce je přesně to, co
+ * `025` u ztraceného telefonu nechce.  Třicet dní je dost na to, aby se
+ * nikoho nedotklo, a málo na to, aby to nebyla věčnost.
+ */
+export const PRECONDITION_CAP_MS = 30 * 24 * 60 * 60_000;
 
 export class ApprovalAuthorityError extends Error {
   constructor(reason, detail = {}) {
@@ -77,6 +102,37 @@ export function approvalFingerprint(payload) {
 }
 
 /**
+ * Otisk cíle — čím se pozná, že se svět pod approvalem změnil.
+ *
+ * `null` obsah znamená „cíl neexistuje" a dostane vlastní hodnotu, ne `null`
+ * digest: schválit vytvoření souboru, který mezitím někdo založil, je tichý
+ * přepis, a ten musí být rozeznatelný od „soubor je pořád takový, jaký byl".
+ */
+export function preconditionDigest(content) {
+  if (content === null || content === undefined) return 'absent';
+  return createHash('sha256').update(String(content)).digest('hex').slice(0, 32);
+}
+
+/**
+ * Platí ještě to, na co uživatel odpovídal?
+ *
+ * @param {Object} row              řádek approvalu
+ * @param {string|null} currentContent  jak cíl vypadá **teď**
+ * @returns {{ok: true} | {ok: false, reason: string}}
+ */
+export function checkPrecondition(row, currentContent) {
+  if (!row || row.validity !== APPROVAL_VALIDITY.PRECONDITION) return { ok: true };
+  if (!row.precondition_kind) {
+    // Řádek se tváří jako vázaný na cíl a žádný cíl nemá.  To není „platí" —
+    // to je approval, u kterého nikdo neumí říct, co by grant povolil.
+    return { ok: false, reason: 'precondition_missing' };
+  }
+  const now = preconditionDigest(currentContent);
+  const then = row.precondition_digest || 'absent';
+  return now === then ? { ok: true } : { ok: false, reason: 'precondition_changed' };
+}
+
+/**
  * Mint one approval.  The single writing path for `mobile_approvals`.
  *
  * @param {Object} rawDb
@@ -98,6 +154,7 @@ export function approvalFingerprint(payload) {
 export function createMobileApproval(rawDb, {
   origin, runId, operationRef, subjectType, subjectId, title,
   payload, detail = null, id = randomUUID(), now = Date.now(),
+  precondition = null,
 } = {}) {
   if (!APPROVAL_ORIGINS.includes(origin)) {
     throw new ApprovalAuthorityError('origin_required', { allowed: APPROVAL_ORIGINS });
@@ -111,20 +168,57 @@ export function createMobileApproval(rawDb, {
     throw new ApprovalAuthorityError('payload_required', {});
   }
 
-  const expiresAt = now + APPROVAL_TTL_MS[origin];
+  // Předpoklad se **měří**, nepřijímá — ze stejného důvodu jako otisk obsahu.
+  // Kdyby ho volající mohl dodat hotový, mohl by approval navázat na stav, který
+  // nikdy nenastal, a každá kontrola pod ním by pak procházela.
+  let validity = APPROVAL_VALIDITY.WINDOW;
+  let preconditionKind = null;
+  let preconditionRef = null;
+  let preconditionDigestValue = null;
+
+  if (precondition) {
+    if (precondition.kind !== 'file-digest') {
+      throw new ApprovalAuthorityError('precondition_kind_unknown', { kind: precondition.kind });
+    }
+    if (typeof precondition.ref !== 'string' || precondition.ref.trim() === '') {
+      throw new ApprovalAuthorityError('precondition_ref_required', {});
+    }
+    if (!('content' in precondition)) {
+      // Chybějící `content` a `content: null` jsou dvě různé věci: druhé
+      // znamená „cíl neexistuje", první znamená „nikdo se nedíval".
+      throw new ApprovalAuthorityError('precondition_content_required', {});
+    }
+    validity = APPROVAL_VALIDITY.PRECONDITION;
+    preconditionKind = precondition.kind;
+    preconditionRef = precondition.ref;
+    preconditionDigestValue = preconditionDigest(precondition.content);
+  }
+
+  const expiresAt = validity === APPROVAL_VALIDITY.PRECONDITION
+    ? now + PRECONDITION_CAP_MS
+    : now + APPROVAL_TTL_MS[origin];
+
   rawDb.prepare(`
     INSERT INTO mobile_approvals
       (id, subject_type, subject_id, title, detail, payload_fingerprint,
-       created_at, expires_at, origin, run_id, operation_ref)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       created_at, expires_at, origin, run_id, operation_ref,
+       validity, precondition_kind, precondition_ref, precondition_digest)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id, subjectType, subjectId, title, detail,
     approvalFingerprint(payload),
     sqlTime(now), sqlTime(expiresAt),
     origin, runId, operationRef,
+    validity, preconditionKind, preconditionRef, preconditionDigestValue,
   );
 
-  return { id, origin, runId, operationRef, expiresAt, ttlMs: APPROVAL_TTL_MS[origin] };
+  return {
+    id, origin, runId, operationRef, expiresAt, validity,
+    ttlMs: expiresAt - now,
+    // `null` u předpokladu znamená „tenhle approval na cíl vázaný není",
+    // ne „cíl neexistoval" — to je `'absent'`.
+    preconditionDigest: preconditionDigestValue,
+  };
 }
 
 /**
@@ -138,4 +232,8 @@ export function approvalIsBound(row) {
     && typeof row.operation_ref === 'string' && row.operation_ref.trim() !== '');
 }
 
-export default { createMobileApproval, approvalIsBound, approvalFingerprint, APPROVAL_TTL_MS, APPROVAL_ORIGINS };
+export default {
+  createMobileApproval, approvalIsBound, approvalFingerprint,
+  preconditionDigest, checkPrecondition,
+  APPROVAL_TTL_MS, APPROVAL_ORIGINS, APPROVAL_VALIDITY, PRECONDITION_CAP_MS,
+};

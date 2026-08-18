@@ -980,6 +980,35 @@ await test('F-080 an approval read with an MR-05 cursor still bypasses the brows
   assert.equal(fetchLog[0]?.cache, 'no-store', 'a query-bearing approval route used the default cache mode');
 });
 
+// ── 025: approval, který nepropadá časem ────────────────────────────────────
+//
+// Odpočet je u approvalu vázaného na cíl nepravda — a nepravda toho nejhoršího
+// druhu: tlačí k rychlému rozhodnutí tam, kde na něj je čas, a mlčí o tom, co
+// approval doopravdy ukončí.
+
+await test('025 approval vázaný na cíl neukazuje odpočet, ale co ho ukončí', async () => {
+  reset();
+  fetchQueue = [ok([approval({
+    validity: 'precondition',
+    preconditionRef: 'src/config.js',
+    // Strop 30 dní, jak ho razí autorita — nikdy se nesmí zobrazit jako okno.
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * MINUTE).toISOString(),
+  })])];
+  await loadApprovals();
+  const markup = html();
+  assert.ok(markup.includes('platí, dokud se cíl nezmění'),
+    'obrazovka neřekla, čím je approval omezený');
+  assert.ok(!/zbývá \d+ min/.test(markup), 'u approvalu bez okna se ukázal odpočet');
+  assert.ok(!markup.includes('43200'), 'strop prosákl na obrazovku jako číslo');
+});
+
+await test('025 approval s oknem odpočet ukazuje dál', async () => {
+  reset();
+  fetchQueue = [ok([approval({ validity: 'window' })])];
+  await loadApprovals();
+  assert.match(html(), /zbývá \d+ min/);
+});
+
 // ── Result ──────────────────────────────────────────────────────────────────
 
 console.log(`\nMS-13 approvals: ${passed} passed, ${failed} failed`);

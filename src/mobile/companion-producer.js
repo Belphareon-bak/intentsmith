@@ -53,7 +53,9 @@
 //
 // ==============================================================================
 
-import { createMobileApproval, APPROVAL_TTL_MS } from './approval-authority.js';
+import {
+  createMobileApproval, checkPrecondition, APPROVAL_TTL_MS, APPROVAL_VALIDITY,
+} from './approval-authority.js';
 import {
   MOBILE_PROJECTOR_CAPABILITY,
   MOBILE_NOTIFICATION_CHANNEL,
@@ -230,11 +232,12 @@ export function createCompanionProducer({
    */
   async function requestApproval({
     origin, runId, operationRef, subjectType, subjectId, title,
-    payload, detail = null, deviceId = null, id = undefined,
+    payload, detail = null, deviceId = null, id = undefined, precondition = null,
   } = {}) {
     const minted = createMobileApproval(rawDb, {
       origin, runId, operationRef, subjectType, subjectId, title, payload, detail,
       ...(id === undefined ? {} : { id }),
+      ...(precondition ? { precondition } : {}),
       now: now(),
     });
 
@@ -255,46 +258,100 @@ export function createCompanionProducer({
    *
    * @returns {Promise<{state:'approve'|'reject'|'expired'|'timeout'|'missing', ...}>}
    */
-  async function awaitDecision(approvalId, { timeoutMs = null, pollMs = 500, signal = null } = {}) {
+  async function awaitDecision(approvalId, {
+    timeoutMs = null, pollMs = 500, signal = null, readTarget = null,
+  } = {}) {
     const row0 = readApproval(approvalId);
     if (!row0) return { state: 'missing', approvalId };
 
+    const boundToTarget = row0.validity === APPROVAL_VALIDITY.PRECONDITION;
     const windowEnd = sqlTimeToMs(row0.expires_at);
-    // The caller may wait for less than the window, never for more: a waiter
-    // that outlived `expires_at` would be an extension in everything but name,
-    // and `DR-011` has no extension.
-    //
-    // The load-bearing half is the `windowEnd` check inside the loop — remove
-    // it and the `DR-011` test fails.  This `Math.min` is the cheaper half: it
-    // stops a long caller timeout from being *computed* past the window at all,
-    // so a future refactor of the loop cannot quietly turn a redundant guard
-    // into the only one.
+
+    // U `window` approvalu je `expires_at` pravidlo; u `precondition` je to
+    // strop proti zapomenutému řádku (`025`).  Čekat déle než strop nedává
+    // smysl ani v jednom případě, ale u prvního je to `expired` jako výsledek,
+    // u druhého je to porucha, na kterou se čeká měsíc — a proto se u něj
+    // nepoužije jako běžná odpověď, jen jako mez.
     const deadline = timeoutMs === null
       ? windowEnd
       : Math.min(now() + timeoutMs, windowEnd);
 
+    /**
+     * Ověření předpokladu **čerstvým čtením cíle**.
+     *
+     * Čte to volající z jádra, ne gateway.  Gateway by kvůli tomu musela umět
+     * číst soubory, které dnes číst neumí — a dát mobilnímu povrchu schopnost
+     * číst disk kvůli kontrole je větší díra, než jakou to zavírá.  Ověřuje se
+     * proto tam, kde efekt vzniká.
+     */
+    async function preconditionHolds(row) {
+      if (!boundToTarget) return { ok: true };
+      if (typeof readTarget !== 'function') {
+        // Nezjistitelné není totéž co v pořádku.  Bez čtečky cíle se approval
+        // vázaný na cíl neprohlásí za platný — jinak by stačilo čtečku
+        // zapomenout předat a kontrola by tiše zmizela.
+        return { ok: false, reason: 'precondition_unverifiable' };
+      }
+      let current;
+      try {
+        current = await readTarget(row.precondition_ref);
+      } catch {
+        current = null;
+      }
+      return checkPrecondition(row, current);
+    }
+
     for (;;) {
       const row = readApproval(approvalId);
       if (!row) return { state: 'missing', approvalId };
+
       if (row.decided_at) {
-        return {
-          state: row.decision === 'approve' ? 'approve' : 'reject',
-          approvalId,
-          decidedAt: row.decided_at,
-          decidedBy: row.decided_by || null,
-        };
+        if (row.decision !== 'approve') {
+          return { state: 'reject', approvalId, decidedAt: row.decided_at, decidedBy: row.decided_by || null };
+        }
+        // Schválení se ověřuje **znovu, teď** — mezi odpovědí a provedením
+        // mohl svět stihnout cokoli.  To je celý smysl předpokladu: bez tohohle
+        // kroku by „čekej libovolně dlouho" znamenalo „schvaluj naslepo".
+        const fresh = await preconditionHolds(row);
+        if (!fresh.ok) {
+          return {
+            state: 'precondition_changed',
+            reason: fresh.reason,
+            approvalId,
+            target: row.precondition_ref,
+            decidedAt: row.decided_at,
+            decidedBy: row.decided_by || null,
+          };
+        }
+        return { state: 'approve', approvalId, decidedAt: row.decided_at, decidedBy: row.decided_by || null };
       }
+
       const t = now();
-      if (t >= windowEnd) return { state: 'expired', approvalId, expiresAt: row.expires_at };
+      if (t >= windowEnd) {
+        return boundToTarget
+          ? { state: 'abandoned', approvalId, reason: 'pending_cap', expiresAt: row.expires_at }
+          : { state: 'expired', approvalId, expiresAt: row.expires_at };
+      }
       if (t >= deadline) return { state: 'timeout', approvalId, expiresAt: row.expires_at };
       if (signal?.aborted) return { state: 'timeout', approvalId, aborted: true };
+
+      // Předpoklad se kontroluje i **během čekání**: když se cíl změní dřív,
+      // než člověk odpoví, nemá smysl ho nechat odpovídat na neaktuální otázku.
+      if (boundToTarget) {
+        const still = await preconditionHolds(row);
+        if (!still.ok && still.reason === 'precondition_changed') {
+          return { state: 'precondition_changed', reason: still.reason, approvalId, target: row.precondition_ref };
+        }
+      }
+
       await wait(Math.min(pollMs, Math.max(1, deadline - t)));
     }
   }
 
   function readApproval(approvalId) {
     return rawDb.prepare(`
-      SELECT id, expires_at, decided_at, decision, decided_by, run_id, operation_ref
+      SELECT id, expires_at, decided_at, decision, decided_by, run_id, operation_ref,
+             validity, precondition_kind, precondition_ref, precondition_digest
         FROM mobile_approvals WHERE id = ?
     `).get(approvalId) || null;
   }

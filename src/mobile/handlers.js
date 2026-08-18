@@ -571,7 +571,8 @@ export async function handleNotificationAck({ rawDb, principal, body }) {
 export async function handleApprovals({ rawDb, principal }) {
   const rows = rawDb.prepare(`
     SELECT id, subject_type, subject_id, title, detail, payload_fingerprint,
-           created_at, expires_at, decided_at, decision
+           created_at, expires_at, decided_at, decision,
+           validity, precondition_ref
       FROM mobile_approvals
      WHERE decided_at IS NULL
      ORDER BY created_at ASC
@@ -593,6 +594,13 @@ export async function handleApprovals({ rawDb, principal }) {
       createdAt: row.created_at,
       expiresAt: row.expires_at,
       expired: sqlTimeToMs(row.expires_at) < now,
+      // `025`: čím je approval omezený.  `window` propadá časem, `precondition`
+      // platí, dokud se nezmění cíl — a obrazovka to musí říkat jinak, protože
+      // odpočet u druhého případu není informace, ale mýlka.
+      validity: row.validity || 'window',
+      // Cesta k cíli je `S2`, stejně jako popis; jde stejnou routou za
+      // `read:approvals` a do notifikace se nikdy nedostane.
+      preconditionRef: row.precondition_ref || null,
     })), { principal }),
   });
 }

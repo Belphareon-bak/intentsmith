@@ -38,6 +38,7 @@ import { APPROVAL_TTL_MS } from '../src/mobile/approval-authority.js';
 import {
   createCompanionProducer, CompanionProducerError, S1_VOCABULARY, S1_EVENTS,
 } from '../src/mobile/companion-producer.js';
+import { APPROVAL_VALIDITY, PRECONDITION_CAP_MS } from '../src/mobile/approval-authority.js';
 import {
   MobileChannel, MOBILE_PROJECTOR_CAPABILITY, listMobileNotifications,
 } from '../src/notifications/channels/mobile.js';
@@ -385,6 +386,152 @@ try {
     assert.equal(minted.mirrored, false);
     assert.equal(minted.mirrorReason, 'no_router');
   });
+// ── 7. Approval vázaný na cíl, ne na hodiny (025) ────────────────────────
+//
+// Časový limit se nedal jen sundat: dokud tam byl, zakrýval, že approval o
+// stavu světa nic neví.  Tyhle testy jsou o tom, co ho nahradilo — a hlavně o
+// tom, že „nezjistitelné" se nepočítá jako „v pořádku".
+
+await test('025 approval vázaný na cíl nepropadá časem', async () => {
+  clearAll();
+  let clock = 1_700_000_000_000;
+  const core = createCompanionProducer({
+    rawDb: db, router: newRouter(), now: () => clock, sleep: async ms => { clock += ms; },
+  });
+  const minted = await core.requestApproval({
+    origin: 'local', runId: 'run-p1', operationRef: 'fs.write:/x/config.js',
+    subjectType: 'effect.write', subjectId: '/x/config.js', title: 'Zapsat',
+    payload: { v: 1 },
+    precondition: { kind: 'file-digest', ref: '/x/config.js', content: 'původní obsah' },
+  });
+
+  assert.equal(minted.validity, APPROVAL_VALIDITY.PRECONDITION);
+  // Hodinu po vzniku — pod starým `DR-011` dávno propadlý — pořád čeká.
+  const answer = await core.awaitDecision(minted.id, {
+    timeoutMs: 60 * 60_000, pollMs: 5_000,
+    readTarget: async () => 'původní obsah',
+  });
+  assert.equal(answer.state, 'timeout', `čekání skončilo jako ${answer.state}`);
+  assert.ok(clock - 1_700_000_000_000 >= 60 * 60_000, 'čekání se zkrátilo na staré okno');
+});
+
+await test('025 změna cíle během čekání ukončí čekání — nemá smysl ptát se na neaktuální', async () => {
+  clearAll();
+  const core = createCompanionProducer({ rawDb: db, router: newRouter(), sleep: yieldTick });
+  const minted = await core.requestApproval({
+    origin: 'local', runId: 'run-p2', operationRef: 'fs.write:/x/a.js',
+    subjectType: 'effect.write', subjectId: '/x/a.js', title: 'Zapsat',
+    payload: {},
+    precondition: { kind: 'file-digest', ref: '/x/a.js', content: 'A' },
+  });
+
+  let content = 'A';
+  const waiting = core.awaitDecision(minted.id, {
+    timeoutMs: 10_000, pollMs: 1, readTarget: async () => content,
+  });
+  content = 'někdo jiný to přepsal';
+
+  const answer = await waiting;
+  assert.equal(answer.state, 'precondition_changed');
+  assert.equal(answer.target, '/x/a.js');
+});
+
+await test('025 schválení propadne, když se cíl změní mezi odpovědí a provedením', async () => {
+  clearAll();
+  const core = createCompanionProducer({ rawDb: db, router: newRouter(), sleep: yieldTick });
+  const minted = await core.requestApproval({
+    origin: 'local', runId: 'run-p3', operationRef: 'fs.write:/x/b.js',
+    subjectType: 'effect.write', subjectId: '/x/b.js', title: 'Zapsat',
+    payload: { v: 3 },
+    precondition: { kind: 'file-digest', ref: '/x/b.js', content: 'B' },
+  });
+
+  // Člověk odpoví „ano"…
+  await handleApprovalDecide({
+    rawDb: db, journal, principal, params: { id: minted.id },
+    body: { decision: 'approve', operationId: 'op-precondition-001', payloadFingerprint: fingerprint({ v: 3 }) },
+  });
+
+  // …ale cíl se mezitím změnil.  Souhlas platil pro jiný svět.
+  const answer = await core.awaitDecision(minted.id, {
+    timeoutMs: 5_000, pollMs: 1, readTarget: async () => 'B se změnilo',
+  });
+  assert.equal(answer.state, 'precondition_changed',
+    'schválení prošlo, přestože se cíl pod ním změnil');
+  assert.equal(answer.decidedBy, DEVICE, 'ztratila se informace, kdo rozhodl');
+});
+
+await test('025 nezměněný cíl schválení propustí', async () => {
+  clearAll();
+  const core = createCompanionProducer({ rawDb: db, router: newRouter(), sleep: yieldTick });
+  const minted = await core.requestApproval({
+    origin: 'local', runId: 'run-p4', operationRef: 'fs.write:/x/c.js',
+    subjectType: 'effect.write', subjectId: '/x/c.js', title: 'Zapsat',
+    payload: { v: 4 },
+    precondition: { kind: 'file-digest', ref: '/x/c.js', content: 'C' },
+  });
+  await handleApprovalDecide({
+    rawDb: db, journal, principal, params: { id: minted.id },
+    body: { decision: 'approve', operationId: 'op-precondition-002', payloadFingerprint: fingerprint({ v: 4 }) },
+  });
+  const answer = await core.awaitDecision(minted.id, {
+    timeoutMs: 5_000, pollMs: 1, readTarget: async () => 'C',
+  });
+  assert.equal(answer.state, 'approve');
+});
+
+await test('025 cíl, který mezitím vznikl, je změna — ne „pořád nic"', async () => {
+  clearAll();
+  const core = createCompanionProducer({ rawDb: db, router: newRouter(), sleep: yieldTick });
+  // Approval na vytvoření souboru, který v tu chvíli neexistoval.
+  const minted = await core.requestApproval({
+    origin: 'local', runId: 'run-p5', operationRef: 'fs.write:/x/novy.js',
+    subjectType: 'effect.write', subjectId: '/x/novy.js', title: 'Vytvořit',
+    payload: { v: 5 },
+    precondition: { kind: 'file-digest', ref: '/x/novy.js', content: null },
+  });
+  await handleApprovalDecide({
+    rawDb: db, journal, principal, params: { id: minted.id },
+    body: { decision: 'approve', operationId: 'op-precondition-003', payloadFingerprint: fingerprint({ v: 5 }) },
+  });
+  const answer = await core.awaitDecision(minted.id, {
+    timeoutMs: 5_000, pollMs: 1, readTarget: async () => 'někdo ho mezitím založil',
+  });
+  assert.equal(answer.state, 'precondition_changed',
+    'zápis přes soubor, který mezitím někdo vytvořil, prošel jako schválený');
+});
+
+await test('025 bez čtečky cíle se approval neprohlásí za platný', async () => {
+  clearAll();
+  const core = createCompanionProducer({ rawDb: db, router: newRouter(), sleep: yieldTick });
+  const minted = await core.requestApproval({
+    origin: 'local', runId: 'run-p6', operationRef: 'fs.write:/x/d.js',
+    subjectType: 'effect.write', subjectId: '/x/d.js', title: 'Zapsat',
+    payload: { v: 6 },
+    precondition: { kind: 'file-digest', ref: '/x/d.js', content: 'D' },
+  });
+  await handleApprovalDecide({
+    rawDb: db, journal, principal, params: { id: minted.id },
+    body: { decision: 'approve', operationId: 'op-precondition-004', payloadFingerprint: fingerprint({ v: 6 }) },
+  });
+  // Čtečka chybí — zapomenout ji nesmí být totéž co projít.
+  const answer = await core.awaitDecision(minted.id, { timeoutMs: 5_000, pollMs: 1 });
+  assert.equal(answer.state, 'precondition_changed');
+  assert.equal(answer.reason, 'precondition_unverifiable');
+});
+
+await test('025 přiznaný předpoklad neznámého druhu se odmítne při ražbě', async () => {
+  clearAll();
+  const core = createCompanionProducer({ rawDb: db, router: newRouter() });
+  await assert.rejects(
+    () => core.requestApproval({
+      origin: 'local', runId: 'run-p7', operationRef: 'x',
+      subjectType: 'effect.write', subjectId: 'x', title: 'Zapsat', payload: {},
+      precondition: { kind: 'vibe-check', ref: '/x', content: 'x' },
+    }),
+    error => error.reason === 'precondition_kind_unknown',
+  );
+});
 } finally {
   db.close();
   rmSync(runtimeDir, { recursive: true, force: true });

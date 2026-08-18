@@ -2266,6 +2266,12 @@ function approvalsGone() {
  */
 function approvalCountdown(item) {
   if (item.expired === true) return { expired: true, text: 'vypršelo — rozhodnout už nelze' };
+  // `025`: approval vázaný na cíl **nepropadá časem**, takže odpočet by byl
+  // nepravda — a nepravda toho nejhoršího druhu, protože by tlačila k rychlému
+  // rozhodnutí tam, kde na něj je čas.  Co ho ukončí, je změna cíle.
+  if (item.validity === 'precondition') {
+    return { expired: false, bound: true, text: 'platí, dokud se cíl nezmění' };
+  }
   const expiresAt = serverTimeMs(item.expiresAt);
   if (Number.isNaN(expiresAt) || state.serverOffsetMs === null) {
     return { expired: false, text: 'vyprší brzy' };
@@ -2283,6 +2289,11 @@ function approvalCountdown(item) {
  * has no reason to hold an opinion (`UI-DESIGN.md` §14, F-100).
  */
 function approvalWindowMinutes(item) {
+  // U approvalu vázaného na cíl žádné okno neexistuje; `expiresAt` je strop
+  // proti zapomenutému řádku, ne lhůta, kterou má člověk stihnout.  Vrátit tady
+  // číslo by znamenalo napsat na obrazovku „z 30denního okna", což by znělo
+  // jako pravidlo, a ono to je pojistka.
+  if (item?.validity === 'precondition') return null;
   const created = serverTimeMs(item?.createdAt);
   const expires = serverTimeMs(item?.expiresAt);
   if (Number.isNaN(created) || Number.isNaN(expires) || expires <= created) return null;

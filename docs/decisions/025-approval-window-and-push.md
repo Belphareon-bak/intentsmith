@@ -137,6 +137,30 @@ cesta, IDE druhá. Bez spárovaného telefonu žádná vzdálená cesta neexistu
 rozhoduje se u počítače — čímž mizí i obava, že by běh visel na odpověď, kterou
 nemá kdo dát.
 
+## Stav implementace (2026-08-19)
+
+| Krok | Stav |
+|---|---|
+| Předpoklad cíle v approvalu (migrace 062, autorita, producent) | ✅ hotovo — 7 testů |
+| Klient: „platí, dokud se cíl nezmění" místo odpočtu | ✅ hotovo — 2 testy |
+| Zámek na soubor (027), aby předpoklad nepadal zbytečně | ✅ hotovo — 16 testů |
+| Ověření předpokladu **při provedení**, ne při schválení | ✅ hotovo — `awaitDecision({ readTarget })` |
+| Desktopová plocha (P0-6) | ⬜ |
+| Zapojení do reálného efektu (P0-2) | ⬜ |
+| Trvalé spojení a měření baterie | ⬜ |
+| Přepis `DR-011` v PLAN/DATA-MODEL/SCREENS | ⬜ |
+
+Dvě věci, které z implementace vyplynuly a v rozhodnutí nebyly:
+
+1. **Kontroluje se i během čekání, ne jen na konci.** Když se cíl změní dřív,
+   než člověk odpoví, nemá smysl ho nechat odpovídat na neaktuální otázku —
+   čekání skončí hned a běh to řekne.
+2. **Předpoklad ověřuje jádro, ne gateway.** Gateway by kvůli tomu musela umět
+   číst soubory, které dnes číst neumí; dát mobilnímu povrchu schopnost číst
+   disk kvůli kontrole je větší díra, než jakou to zavírá. Chybějící čtečka se
+   proto počítá jako **neplatný předpoklad**, ne jako „v pořádku" — jinak by
+   stačilo ji zapomenout předat a kontrola by tiše zmizela.
+
 ## Co je potřeba udělat (když se přijme D + 2)
 
 1. Sundat časový strop z `approval-authority` a nahradit ho vazbou na obsah;
