@@ -41,10 +41,17 @@ jsou ověřitelné mimo náš kód. Varianta C je pořád na svém místě v roa
    buď loopback, nebo cokoli. Pro VPN chceme povolit **jednu adresu tunelu** a
    dál odmítat `0.0.0.0` a veřejná rozhraní. Plus negativní test, že to opravdu
    odmítne — jinak je pojistka jen komentář.
-2. **Aplikace se musí dozvědět, kde gateway je.** Dnes má natvrdo
-   `127.0.0.1:3336`. Nejčistší cesta: **párovací QR už adresu nese** (skript má
-   `--url`), takže telefon ji dostane spolu s kódem a uloží si ji do trezoru.
-   Bez toho je bezdrát nepoužitelný, i kdyby síť fungovala.
+2. ~~**Aplikace se musí dozvědět, kde gateway je.**~~ **ČÁSTEČNĚ HOTOVO
+   2026-08-18.** Adresa už není natvrdo v kódu — je to **vstup buildu**
+   (`C3_MOBILE_APP_URL`), který se zapíše do konfigurace Capacitoru i do síťové
+   politiky Androidu naráz, aby se nemohly rozejít. Build navíc **odmítne**
+   nešifrovanou adresu mimo loopback bez výslovného souhlasu.
+
+   Co zbývá: **přepínání za běhu** (adresa z párovacího QR do trezoru). Naráží
+   na to, že Capacitor injektuje most do stránky jen pro origin ze své
+   konfigurace — na jiné adrese by aplikace přišla o trezor i zámek. Vyžaduje
+   to vlastní `JavascriptInterface` s kontrolou originu. Pro interní APK, které
+   si každý staví sám, vstup buildu stačí; pro pilot ne.
 3. **Rozhodnout TLS.** Uvnitř VPN je provoz šifrovaný tunelem, takže HTTP je
    obhajitelné — ale je to obhajoba typu „spoléháme na vrstvu pod námi".
    Varianty: (a) nechat HTTP a spolehnout se na VPN, (b) self-signed certifikát

@@ -128,5 +128,5 @@ prototypu.
 | Hledání chybí | `MR-10` je `BLOCKED_BY_CONTRACT` |
 | Projekty chybí | `MR-14` čeká na `DR-008` a Gate 1 |
 | Notifikace nedorazí do spící aplikace | Push (`N-1`) není; schránka je pull. Naplnit ji umí `npm run mobile:demo` |
-| Na 200 % písma se nic nezvětší | Klient je celý v px — otevřený nález (`WP-MOBILE-027-RESULT.md` §7) |
+| ~~Na 200 % písma se nic nezvětší~~ | **Už neplatí.** Stylesheet byl převedený 2026-08-11 a `mobile-browser-a11y` to měří v prohlížeči |
 | Nové spárování = nový `deviceId` | Staré operace z nového zařízení nejsou vidět |

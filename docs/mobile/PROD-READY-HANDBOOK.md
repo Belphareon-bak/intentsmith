@@ -227,8 +227,9 @@ klíčem z `ST-SECURE`) je stále jen návrh.
 | | |
 |---|---|
 | **Kritérium** | 200 % písmo, TalkBack, kontrast, focus order, malý displej, rotace, měkká klávesnice |
-| **Důkaz** | `mobile-browser-a11y` PASS (dnes BLOCKED — chybí Chromium) + ruční průchod na telefonu |
-| **Pád** | aplikace je nepoužitelná pro část lidí; u 200 % písma dnes **víme**, že se nic nezvětší |
+| **Důkaz** | `mobile-browser-a11y` PASS (dnes **22/22** v Chromiu, ale v gate withheld) + ruční průchod na telefonu s TalkBackem |
+| **Podmínka započtení** | sada je v registru `BLOCKED`; aby ji gate počítal, musí ji implementátor přeřadit na `ACTIVE` a Chromium se tím stane povinnou prerekvizitou gate (≈150 MB při setupu). Do té doby je to důkaz, ne gate |
+| **Pád** | aplikace je nepoužitelná pro část lidí. Automatická sada pokrývá kontrast, focus order, ohlášení čtečce a růst se 200 % písmem; **nepokrývá** TalkBack na zařízení a fyzickou AT matici |
 
 ### P1-7 Supply chain
 
@@ -282,6 +283,26 @@ reprodukovatelnosti, který neexistuje.
 npm run mobile:android:reverse   # tunel; nic se nevystavuje do sítě
 npm run mobile:android:run       # tunel + instalace + spuštění
 ```
+
+**Bezdrátově (rozhodnutí 026):** adresa gateway je vstup buildu, ne nastavení
+v aplikaci —
+
+```bash
+C3_MOBILE_APP_URL=http://100.64.1.5:3336 \
+C3_MOBILE_APP_ALLOW_CLEARTEXT=yes-i-know \
+  npm run mobile:android:build
+```
+
+Bez druhé proměnné build **selže**: nešifrovaný provoz mimo loopback je vědomé
+rozhodnutí (uvnitř VPN obhajitelné, jinde ne), ne překlep v proměnné. Loopback
+zůstává povolený i v takovém buildu, aby se telefon mohl vrátit ke kabelu, když
+tunel spadne.
+
+> **Proč to není přepínač v aplikaci.** Capacitor injektuje most do stránky jen
+> pro origin ze své konfigurace. Přepnutí adresy za běhu by znamenalo, že na
+> nové adrese most není — a s ním zmizí trezor i zámek. Runtime varianta proto
+> vyžaduje přestavbu mostu (vlastní `JavascriptInterface` s kontrolou originu)
+> a je to položka **P1**, ne úprava skriptu.
 
 Po instalaci vždy zkontrolovat v Nastavení: *Úložiště přihlášení* musí říkat
 **Android Keystore** a *Zámek aplikace* **zámek telefonu**. Když říká něco
