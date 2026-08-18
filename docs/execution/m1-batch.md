@@ -331,8 +331,11 @@ nevyrábí. Exact pořadí aktuálního closeoutu je:
   -> exactly one V2 non-clobber partial static materialization
   -> two independent V2 contract reviews: CHANGES_REQUIRED; V2 frozen unsealed
   -> decision 034 S_H0M -> E_A_H0M -> C_H0M -> E_B_H0M -> canonical promotion
-  -> exactly one V3 non-clobber static materialization + two independent reviews
-  -> S_V3 -> E_A_V3 -> C_V3 -> E_B_V3 -> canonical promotion
+  -> exactly one V3 non-clobber static materialization
+  -> two independent V3 reviews: CHANGES_REQUIRED; V3 sealed/frozen/no runtime
+  -> decision 035 S_H0Q -> E_A_H0Q -> C_H0Q -> E_B_H0Q -> canonical promotion
+  -> exactly one V4 non-clobber static materialization + two independent reviews
+  -> S_V4 -> E_A_V4 -> C_V4 -> E_B_V4 -> canonical promotion
   -> fresh SSH/logout preflight + exact GUI-saved operator declaration
   -> S_ACC receipt+detached digest -> E_A_ACC -> C_ACC -> E_B_ACC -> canonical promotion
   -> immediate same-boot/no-drift gate -> at most one H0 run
@@ -418,6 +421,40 @@ independent static review, vlastní canonical promotion a oddělený promoted
 acceptance receipt po fresh SSH/logout a all-system graphical absence
 preflightu. B3 Phase B zůstává `STOPPED_T3_TERMINAL_FAILURE`; B4, Gate 1, B5,
 B6 a Gate 2 zůstávají `BLOCKED`.
+
+Decision 034 byla Review A+B PASS promoted na canonical tipu
+`6feed197f524dbe885e12e1dcd31d996777d4a13`. Její jediná V3 materializační
+autorita byla spotřebovaná sealed rootem
+`/home/belphareon/.local/share/intentsmith-private/m1-h0-headless-no-model-v3-20260817T214721Z.f41t4nd1`.
+Plan `de8299d80...`, runner `4a241468...`, strategy `99c73d2e...` a manifest
+`5f4ab9b6...` mají validní owner-only closure a `evidence/` je empty. Žádný
+runtime ani live effect neproběhl. Writer však root sealnul před dokončením
+independent preseal auditu; tento premature-seal workflow incident je povinná
+failure evidence, ne PASS.
+
+Dvě následné source/AST review skončily `CHANGES_REQUIRED`. V3 non-daemon
+identity worker může po bounded join zůstat živý a přesto dovolit failure seal,
+zatímco dál provádí `systemctl show` a mění shared capture. Review B navíc
+prokázalo, že marker exception po digest fsync může spadnout do outer catch,
+který znovu publikuje evidence a volá další seal. PASS je fail-closed, ale
+failure closure a V3-08/V3-09/V3-25 nejsou splněné. V3 je proto
+`STATIC_CHANGES_REQUIRED / SEALED / NO_RUNTIME / DO_NOT_EXECUTE / NO_ACCEPTANCE`
+a nesmí se opravit in-place.
+
+[`Decision 035`](../decisions/035-m1-h0-v3-worker-quiescence-remediation.md) je
+docs-only prospective amendment bez runtime authority. Zachovává 034 mount
+split, ale V4 zakazuje background thread/executor/shared capture, vyžaduje
+main-owned client s terminal+reap proofem před result/seal a zavádí
+jednosměrnou terminal fázi: po manifestu jen digest, final marker, fsync a
+immediate exit. Neprokázaná quiescence nebo marker failure zůstává
+`OUTCOME_UNSEALED/UNKNOWN` bez publish/retry.
+
+Decision 035 musí nejprve projít
+`S_H0Q -> E_A_H0Q -> C_H0Q -> E_B_H0Q -> canonical --ff-only`. Až potom smí
+vzniknout právě jeden V4 static root. V4 dále potřebuje dvě independent static
+review, canonical receipt a oddělený accepted runtime řetězec po fresh
+SSH/logout preflightu. B3 Phase B zůstává `STOPPED_T3_TERMINAL_FAILURE`; B4,
+Gate 1, B5, B6 a Gate 2 zůstávají `BLOCKED`.
 
 ---
 
