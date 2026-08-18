@@ -116,6 +116,18 @@ opravuje causal pořadím unit-post→client return/reap→outer closure, aktual
 obou batch souhrnů a cestou `90-intentsmith-h0-v4.conf`; finding zůstává
 transparentní author evidence, ne red verdict nad pozdějším immutable subjectem.
 
+První immutable subject `7766cdd26ff466bab84066ed13d6c3620e52a481`
+prošel Review A v report-only commitu
+`c4b6e545e17a0edc69e5cf0fa8c9444c794c37a1`; candidate
+`d162440b40eebdd8410d5356cb705742824610bc` měl ordered parents
+`[6feed197..., c4b6e545...]` a shodný tree. Formální Review B však vrátilo
+`CHANGES_REQUIRED`: úvodní WP summary stále tvrdilo client reap před každým
+terminal receiptem, tedy odporovalo vlastnímu správnému §5.1 a skutečné
+systemd causalitě. Reserved report zůstal exact 4 lines, 184 bytes, SHA-256
+`8f4a8f97a282ede34d2a4ea2593a656eea53bfce8ed41f5f51b5b162a2d6c869`;
+nevznikl `E_B`, promotion ani V4 authority. Tento R2 subject opravuje summary
+bez přepisování původního candidate a vyžaduje nová Review A+B od nuly.
+
 ## 2. Dvě independent review a recorder bundles
 
 V3 posoudily dvě od writera oddělené task identity:

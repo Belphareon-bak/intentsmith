@@ -456,6 +456,13 @@ review, canonical receipt a oddělený accepted runtime řetězec po fresh
 SSH/logout preflightu. B3 Phase B zůstává `STOPPED_T3_TERMINAL_FAILURE`; B4,
 Gate 1, B5, B6 a Gate 2 zůstávají `BLOCKED`.
 
+První Decision 035 candidate `d162440b40eebdd8410d5356cb705742824610bc`
+skončil v Review B `CHANGES_REQUIRED`: úvodní WP summary nesprávně vyžadoval
+client reap před inner `unit-post` terminal receiptem. Report zůstal pouze
+Review-A 4-line evidence; nevznikl E_B ani promotion. R2 opravuje summary na
+pravdivé pořadí `unit-post -> systemd-run return/reap -> outer closure` a musí
+projít novými Review A+B; původní red candidate zůstává zachovaný.
+
 ---
 
 ## 2. Sdílené invarianty — platí pro každý běh v dávce

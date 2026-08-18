@@ -27,10 +27,12 @@ Decision 034 one-shot V3 materialization authority je spotřebovaná; V3 je
 immutable failure evidence a nesmí se editovat, přijmout nebo spustit.
 
 Subject přijme pouze prospective V4 contract: identity capture má jediného
-main-ownera bez background threadu, každý možný client je před terminal
-receiptem i sealem prokazatelně terminal a reapnutý a terminal seal je
-jednosměrná fáze bez publish-capable catch nebo post-digest návratu. Mount split
-z decision 034 zůstává beze změny.
+main-ownera bez background threadu; každý identity-poll child je reapnutý před
+dalším pollem nebo safety stopem a `systemd-run --wait` client je po inner
+`unit-post` receiptu nebo abnormal safety stopu terminal+reapnutý vždy před
+outer result/rmdir/sealem. Terminal seal je jednosměrná fáze bez
+publish-capable catch nebo post-digest návratu. Mount split z decision 034
+zůstává beze změny.
 
 Tento WP nemá H0 runtime, SSH/logout, `/run`, service/display,
 Ollama/GPU/model, Q4, T3, Gate 1 ani acceptance authority. Jeho Review A/B
