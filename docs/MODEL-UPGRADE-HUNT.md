@@ -200,7 +200,29 @@ a klíč obsahuje model, aby si role nemíchaly různé stávající modely.
 | `chat` | CHAT |
 | `vision` | VISION |
 
-### 3.11 GPU-agnostičnost
+### 3.11 Souboj respektuje způsobilost role
+
+První běh porovnával `qwen3-coder` i v roli VISION, kde textový model nemůže
+vyhrát — stálo to šest běhů sady navíc. O způsobilosti rozhodl filtr už dřív
+(`checkRoleEligibility`) a souboj ho nemá obcházet. Nezpůsobilá role se
+přeskočí a ohlásí (`roleSkipped`).
+
+Vlastnosti kandidáta se odvodí z názvu, ale volající je může dodat přesnější —
+`qwen3.5:27b` je podle HuggingFace multimodální, což z názvu nepoznáš.
+
+### 3.12 Jistota rozhodnutí je vidět
+
+Rozhodnutí opřené o jedinou rozlišující úlohu je jedno pozorování, ne trend.
+Signál se nezahazuje — úloha stabilní přes tři běhy nese informaci — ale
+rozhodnutí nese `confidence`, aby bylo vidět, jak široký podklad za ním stojí:
+
+| rozlišujících úloh | jistota |
+|---|---|
+| ≥ 3 | vysoká |
+| 2 | střední |
+| 1 | nízká (jediná úloha) |
+
+### 3.13 GPU-agnostičnost
 
 Detektor umí `nvidia-smi`, `rocm-smi` i `lspci`, ale slouží **jen k předvýběru**.
 O přijetí rozhoduje `/api/ps`, které funguje všude. Navíc se filtrují formáty
@@ -227,16 +249,39 @@ node scripts/model-upgrade-hunt.js --run --only=qwen3.8:latest
 
 ---
 
+## 4b. Ostrý běh
+
+Druhý běh, už s opakováním sad, na kandidátovi `qwen3-coder:latest`:
+
+```
+✓ vejde se do VRAM (20.49/20.49 GB při 32768 tok), 146.5 tok/s
+✓ schopnostní minimum prošlo (3 kontroly)
+   D1      KANDIDÁT   marže 1.000 na 1 rozlišující úloze, jistota nízká
+   D2      KANDIDÁT   marže 0.889 na 3 rozlišujících úlohách, jistota vysoká
+   CODE    stávající  kvalita nerozlišila
+   R1      KANDIDÁT   marže 1.000 na 1 rozlišující úloze, jistota nízká
+   R2      stávající  kvalita nerozlišila
+   CHAT    stávající  kvalita nerozlišila
+   VISION  stávající  kandidát ztrácí na 3 úlohách
+```
+
+D1 a R1 sdílejí sadu `reasoning` a dvojici modelů — nově dávají **shodný**
+výsledek, což byl přesně ten rozpor, který první běh odhalil.
+
+Vazby se nemění automaticky; výstup je podklad k ručnímu potvrzení.
+
+---
+
 ## 5. Testy
 
 | sada | testů |
 |---|---|
 | `tests/vram-measurement.test.js` | 14 |
 | `tests/model-sweep.test.js` | 26 |
-| `tests/pairwise-trial.test.js` | 27 |
-| `tests/candidate-trial.test.js` | 18 |
+| `tests/pairwise-trial.test.js` | 30 |
+| `tests/candidate-trial.test.js` | 21 |
 
 Všechny běží **bez sítě a bez modelů** (`fetch` nahrazený atrapou), takže jsou
 rychlé a nezávislé na tom, co je zrovna nainstalované.
 
-Celková regrese napříč 20 dotčenými sadami: **923 testů, 0 selhání.**
+Celková regrese napříč 20 dotčenými sadami: **926 testů, 0 selhání.**

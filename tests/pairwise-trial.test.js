@@ -291,4 +291,30 @@ await testAsync('skóre úlohy je průměr přes běhy', async () => {
   assertEqual(r.tasks.find(x => x.name === task).candidateScore, 0.667);
 });
 
+// ─── Jistota rozhodnutí ─────────────────────────────────────────────────────
+
+suite('jistota rozhodnutí');
+
+test('rozhodnutí o jedinou úlohu je označené jako nízká jistota', () => {
+  // Jedno pozorování není trend. Signál se nezahazuje, ale musí být vidět,
+  // jak široký podklad za rozhodnutím stojí.
+  const d = decideRole({ margin: 1, candidateWins: 1, incumbentWins: 0, discriminating: 1, inconclusive: false }, {}, 0.06);
+  assertEqual(d.winner, 'candidate');
+  assert(/nízká/.test(d.confidence), d.confidence);
+  assert(/jistota nízká/.test(d.detail), d.detail);
+});
+
+test('víc rozlišujících úloh zvedá jistotu', () => {
+  const two = decideRole({ margin: 0.5, candidateWins: 2, incumbentWins: 0, discriminating: 2, inconclusive: false }, {}, 0.05);
+  const many = decideRole({ margin: 0.5, candidateWins: 5, incumbentWins: 0, discriminating: 5, inconclusive: false }, {}, 0.05);
+  assertEqual(two.confidence, 'střední');
+  assertEqual(many.confidence, 'vysoká');
+});
+
+test('jistota se hlásí i u prohry kandidáta', () => {
+  const d = decideRole({ margin: -1, candidateWins: 0, incumbentWins: 3, discriminating: 3, inconclusive: false }, {}, 0.05);
+  assertEqual(d.winner, 'incumbent');
+  assertEqual(d.confidence, 'vysoká');
+});
+
 summary();

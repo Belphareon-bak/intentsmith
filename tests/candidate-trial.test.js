@@ -18,7 +18,7 @@ const restore = () => { globalThis.fetch = realFetch; };
  * Atrapa Ollamy.  `answers` mapuje podřetězec promptu na odpověď, `placement`
  * určuje, co vrátí /api/ps.
  */
-function stubOllama({ answers = {}, placement, pullFails = false } = {}) {
+function stubOllama({ answers = {}, placement, pullFails = false, currentModel = null } = {}) {
   const seen = [];
   globalThis.fetch = async (url, init = {}) => {
     const path = new URL(url).pathname;
@@ -34,7 +34,13 @@ function stubOllama({ answers = {}, placement, pullFails = false } = {}) {
     }
     if (path === '/api/delete') return { ok: true, status: 200, json: async () => ({}) };
     if (path === '/api/ps') {
-      return { ok: true, status: 200, json: async () => ({ models: placement ? [placement] : [] }) };
+      // Jméno se dopisuje podle právě zkoušeného modelu — `readPlacement`
+      // párauje podle jména, takže pevná hodnota by se netrefila.
+      const model = placement && (placement.name || currentModel);
+      return {
+        ok: true, status: 200,
+        json: async () => ({ models: placement ? [{ ...placement, name: model }] : [] }),
+      };
     }
     if (path === '/api/chat') {
       const prompt = body?.messages?.[0]?.content || '';
@@ -58,8 +64,8 @@ const GOOD_ANSWERS = {
   'česky': 'Obloha je modrá kvůli rozptylu světla v atmosféře.',
 };
 
-const FITS = { name: 'cand:7b', size: 10 * GB, size_vram: 10 * GB };
-const SPILLS = { name: 'cand:32b', size: 29 * GB, size_vram: 21 * GB };
+const FITS = { size: 10 * GB, size_vram: 10 * GB };
+const SPILLS = { size: 29 * GB, size_vram: 21 * GB };
 
 /**
  * Rychlý úklid paměti pro testy.  Atrapa /api/ps drží model napořád, takže bez
@@ -135,7 +141,7 @@ await testAsync('odpověď bez diakritiky propadne na češtině', async () => {
 suite('tryCandidate');
 
 await testAsync('přetékající kandidát se zamítne a smaže ještě před testy', async () => {
-  const seen = stubOllama({ answers: GOOD_ANSWERS, placement: SPILLS });
+  const seen = stubOllama({ answers: GOOD_ANSWERS, placement: SPILLS, currentModel: 'cand:32b' });
   const r = await tryCandidate('cand:32b', {
     ...FAST_DRAIN, runner: fakeRunner({}), roles: ['CODE'], bindings: { CODE: 'inc:7b' } });
   assertEqual(r.accepted, false);
@@ -148,7 +154,7 @@ await testAsync('přetékající kandidát se zamítne a smaže ještě před te
 });
 
 await testAsync('propadnutí u minima zamítne kandidáta a smaže ho', async () => {
-  stubOllama({ answers: { ...GOOD_ANSWERS, 'česky': 'no diacritics here' }, placement: FITS });
+  stubOllama({ answers: { ...GOOD_ANSWERS, 'česky': 'no diacritics here' }, placement: FITS, currentModel: 'cand:7b' });
   const r = await tryCandidate('cand:7b', {
     ...FAST_DRAIN, runner: fakeRunner({}), roles: ['CODE'], bindings: { CODE: 'inc:7b' } });
   assertEqual(r.accepted, false);
@@ -158,7 +164,7 @@ await testAsync('propadnutí u minima zamítne kandidáta a smaže ho', async ()
 });
 
 await testAsync('lepší kandidát vyhraje roli a NEsmaže se', async () => {
-  stubOllama({ answers: GOOD_ANSWERS, placement: FITS });
+  stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
   const codeTask = SUITES.code.tests[0].name;
   const r = await tryCandidate('cand:7b', {
     ...FAST_DRAIN,
@@ -173,7 +179,7 @@ await testAsync('lepší kandidát vyhraje roli a NEsmaže se', async () => {
 });
 
 await testAsync('kandidát, který nevyhraje žádnou roli, se smaže', async () => {
-  stubOllama({ answers: GOOD_ANSWERS, placement: FITS });
+  stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
   const r = await tryCandidate('cand:7b', {
     ...FAST_DRAIN,
     runner: fakeRunner({ 'cand:7b': { _default: 1 }, 'inc:7b': { _default: 1 } }),
@@ -186,7 +192,7 @@ await testAsync('kandidát, který nevyhraje žádnou roli, se smaže', async ()
 });
 
 await testAsync('keepOnFailure zabrání mazání', async () => {
-  stubOllama({ answers: GOOD_ANSWERS, placement: SPILLS });
+  stubOllama({ answers: GOOD_ANSWERS, placement: SPILLS, currentModel: 'cand:32b' });
   const r = await tryCandidate('cand:32b', {
     ...FAST_DRAIN,
     runner: fakeRunner({}), roles: [], bindings: {}, keepOnFailure: true,
@@ -207,7 +213,7 @@ await testAsync('selhání stahování nesmaže nic cizího', async () => {
 
 await testAsync('stahování nemá kvalitativní timeout', async () => {
   // Pojistka proti zaseknutí je hodina; nesmí to být kritérium vyřazení.
-  const seen = stubOllama({ answers: GOOD_ANSWERS, placement: FITS });
+  const seen = stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
   await tryCandidate('cand:7b', {
     ...FAST_DRAIN, runner: fakeRunner({}), roles: [], bindings: {} });
   assert(seen.some(s => s.path === '/api/pull'), 'stahování proběhlo');
@@ -215,7 +221,7 @@ await testAsync('stahování nemá kvalitativní timeout', async () => {
 });
 
 await testAsync('role bez navázaného modelu se přeskočí', async () => {
-  stubOllama({ answers: GOOD_ANSWERS, placement: FITS });
+  stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
   const r = await tryCandidate('cand:7b', {
     ...FAST_DRAIN,
     runner: fakeRunner({}), roles: ['CODE', 'CHAT'], bindings: { CODE: 'inc:7b' },
@@ -240,7 +246,7 @@ suite('onStage — hlášení průběhu');
 await testAsync('měření se hlásí hned, ne až po souboji', async () => {
   // Souboj trvá desítky minut; operátor má vědět dřív, jestli se kandidát
   // vůbec vešel a jak je rychlý.
-  stubOllama({ answers: GOOD_ANSWERS, placement: FITS });
+  stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
   const stages = [];
   await tryCandidate('cand:7b', {
     ...FAST_DRAIN,
@@ -261,7 +267,7 @@ await testAsync('měření se hlásí hned, ne až po souboji', async () => {
 });
 
 await testAsync('rozhodnutí role se hlásí průběžně', async () => {
-  stubOllama({ answers: GOOD_ANSWERS, placement: FITS });
+  stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
   const decided = [];
   await tryCandidate('cand:7b', {
     ...FAST_DRAIN,
@@ -275,7 +281,7 @@ await testAsync('rozhodnutí role se hlásí průběžně', async () => {
 });
 
 await testAsync('u přetékajícího kandidáta se měření jako úspěch nehlásí', async () => {
-  stubOllama({ answers: GOOD_ANSWERS, placement: SPILLS });
+  stubOllama({ answers: GOOD_ANSWERS, placement: SPILLS, currentModel: 'cand:32b' });
   const stages = [];
   await tryCandidate('cand:32b', {
     ...FAST_DRAIN,
@@ -283,6 +289,54 @@ await testAsync('u přetékajícího kandidáta se měření jako úspěch nehl�
     onStage: (stage, model, info) => stages.push(stage),
   });
   assert(!stages.includes('measured'), 'nevešel se — nemá se hlásit jako změřený');
+  restore();
+});
+
+// ─── Způsobilost pro roli ───────────────────────────────────────────────────
+
+suite('způsobilost rolí ve zkoušce');
+
+await testAsync('textový model se pro VISION vůbec nesoutěží', async () => {
+  // Nemohl by tam vyhrát a stálo by to šest běhů sady navíc — o způsobilosti
+  // rozhodl filtr, souboj ji nemá obcházet.
+  stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'qwen3-coder:30b' });
+  const skipped = [];
+  const r = await tryCandidate('qwen3-coder:30b', {
+    ...FAST_DRAIN,
+    runner: fakeRunner({}),
+    roles: ['VISION'],
+    bindings: { VISION: 'llava:13b' },
+    onStage: (stage, m, info) => { if (stage === 'roleSkipped') skipped.push(info); },
+  });
+  assertEqual(skipped.length, 1);
+  assert(/obraz/.test(skipped[0].reason), skipped[0].reason);
+  assert(!('VISION' in r.decisions), 'nezpůsobilá role nemá rozhodnutí');
+  restore();
+});
+
+await testAsync('vision model se pro VISION soutěží normálně', async () => {
+  stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'llava:34b' });
+  const r = await tryCandidate('llava:34b', {
+    ...FAST_DRAIN,
+    runner: fakeRunner({ 'llava:34b': { _default: 1 }, 'llava:13b': { _default: 1 } }),
+    roles: ['VISION'],
+    bindings: { VISION: 'llava:13b' },
+  });
+  assert('VISION' in r.decisions, 'způsobilý kandidát musí soutěžit');
+  restore();
+});
+
+await testAsync('volající může dodat přesnější vlastnosti kandidáta', async () => {
+  // qwen3.5:27b je podle HuggingFace multimodální, i když z názvu to nepoznáš.
+  stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'qwen3.5:27b' });
+  const r = await tryCandidate('qwen3.5:27b', {
+    ...FAST_DRAIN,
+    runner: fakeRunner({ 'qwen3.5:27b': { _default: 1 }, 'llava:13b': { _default: 1 } }),
+    roles: ['VISION'],
+    bindings: { VISION: 'llava:13b' },
+    candidateCapabilities: ['vision'],
+  });
+  assert('VISION' in r.decisions, 'dodaná schopnost vision musí kandidáta pustit do souboje');
   restore();
 });
 

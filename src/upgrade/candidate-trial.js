@@ -26,7 +26,8 @@ import { config } from '../config.js';
 import { logger } from '../core/logger.js';
 import { measureModel, drainResident, unloadModel } from './vram-measurement.js';
 import { trialRole, createSuiteCache } from './pairwise-trial.js';
-import { IMPROVEMENT_THRESHOLD } from './model-ranker.js';
+import { parseModelNameExtended } from './model-family-extensions.js';
+import { IMPROVEMENT_THRESHOLD, checkRoleEligibility } from './model-ranker.js';
 
 const PULL_TIMEOUT = 60 * 60 * 1000;  // hodina; jen pojistka proti zaseknutí
 const PROBE_TIMEOUT = 120_000;
@@ -219,12 +220,32 @@ export async function tryCandidate(candidateName, ctx = {}) {
 
     onStage('floorPassed', candidateName, { probes: (ctx.probes || CAPABILITY_FLOOR).length });
 
+    // Vlastnosti kandidáta pro filtr způsobilosti. Volající je může dodat
+    // přesnější (z katalogu či HuggingFace); jinak se odvodí z názvu.
+    const parsed = parseModelNameExtended(candidateName);
+    const candidateProfile = {
+      name: candidateName,
+      params: ctx.candidateParams ?? parsed.params,
+      category: ctx.candidateCategory ?? parsed.category,
+      capabilities: ctx.candidateCapabilities ?? null,
+    };
+
     out.stage = 'trial';
     // Sdílená cache napříč rolemi — `reasoning` obsluhuje D1, D2 i R1.
     const suiteCache = createSuiteCache();
     for (const role of roles) {
       const incumbent = bindings[role];
       if (!incumbent) continue;
+
+      // Nezpůsobilá role se nesoutěží.  Textový model nemá co dělat v souboji
+      // o VISION — jednak by tam nemohl vyhrát, jednak by to stálo šest běhů
+      // sady navíc. Způsobilost už jednou rozhodla, že tam nepatří.
+      const eligibility = checkRoleEligibility(candidateProfile, role);
+      if (!eligibility.eligible) {
+        out.trials.push({ role, skipped: true, reason: eligibility.reason });
+        onStage('roleSkipped', candidateName, { role, reason: eligibility.reason });
+        continue;
+      }
       const result = await trialRole(runner, role, candidateName, incumbent, {
         threshold: IMPROVEMENT_THRESHOLD[role] ?? 0.05,
         speed: {

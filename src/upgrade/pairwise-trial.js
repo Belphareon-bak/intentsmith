@@ -192,20 +192,29 @@ export async function comparePair(runner, suiteName, candidate, incumbent, opts 
 export function decideRole(comparison, speed = {}, threshold = 0.05) {
   const { margin, candidateWins, incumbentWins, inconclusive } = comparison;
 
+  // Rozhodnutí opřené o jedinou úlohu je jedno pozorování, ne trend. Signál se
+  // nezahazuje — úloha stabilní přes tři běhy nese informaci — ale operátor má
+  // vidět, jak široký podklad za rozhodnutím stojí.
+  const confidence = comparison.discriminating >= 3 ? 'vysoká'
+    : comparison.discriminating === 2 ? 'střední'
+      : comparison.discriminating === 1 ? 'nízká (jediná úloha)' : 'žádná';
+
   if (!inconclusive) {
     if (margin >= threshold && candidateWins > incumbentWins) {
       return {
         winner: 'candidate',
         basis: 'kvalita',
+        confidence,
         detail: `marže ${margin.toFixed(3)} ≥ práh ${threshold} na ${comparison.discriminating} rozlišujících úlohách `
-          + `(${candidateWins}:${incumbentWins})`,
+          + `(${candidateWins}:${incumbentWins}), jistota ${confidence}`,
       };
     }
     if (margin <= -threshold && incumbentWins > candidateWins) {
       return {
         winner: 'incumbent',
         basis: 'kvalita',
-        detail: `kandidát ztrácí ${Math.abs(margin).toFixed(3)} na ${comparison.discriminating} úlohách`,
+        confidence,
+        detail: `kandidát ztrácí ${Math.abs(margin).toFixed(3)} na ${comparison.discriminating} úlohách, jistota ${confidence}`,
       };
     }
     return {
