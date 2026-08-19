@@ -1,6 +1,6 @@
-# IntentSmith Platform — Architecture v135
+# IntentSmith Platform — Architecture v136
 
-**Version:** v135.0.0
+**Version:** v136.0.0
 **Status:** Gate 0 baseline candidate; authoritative verdict is generated in
 [`convergence/STATUS.md`](convergence/STATUS.md)
 **Date:** 2026-07-30
@@ -1014,4 +1014,4 @@ All memory systems use exponential decay: LTM (λ=0.01, half-life ~69d), Task Me
 
 ---
 
-*This document reflects C.3 Agent Platform v135.0.0 architecture (2026-03-31).*
+*This document reflects C.3 Agent Platform v136.0.0 architecture (2026-08-19).*

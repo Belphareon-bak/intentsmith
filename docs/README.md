@@ -1,7 +1,7 @@
-# IntentSmith v135.0.0 — dokumentační reference
+# IntentSmith v136.0.0 — dokumentační reference
 
 > **⚠️ Historický, neautoritativní dokument.** Zachovává dobovou instalační a
-> produktovou dokumentaci C3/IntentSmith v135. Aktivní produkt, pořadí práce a
+> produktovou dokumentaci C3/IntentSmith v136. Aktivní produkt, pořadí práce a
 > změřený stav určují [`../PRODUCT.md`](../PRODUCT.md),
 > [`../ROADMAP.md`](../ROADMAP.md) a [`../SYSTEM-MAP.md`](../SYSTEM-MAP.md).
 > Release evidence v `convergence/` zůstává historickým důkazem, nikoliv
@@ -116,7 +116,9 @@ předává vlastní izolovanou cestu.
 | Dokument | Popis |
 |----------|-------|
 | [ROADMAP.md](ROADMAP.md) | **Roadmapa 1.0** — gate ladder, evidenční stav pilířů, směr IntentSmithu |
-| [CHANGELOG.md](CHANGELOG.md) | Changelog (v56–v135) |
+| [CHANGELOG.md](CHANGELOG.md) | Changelog (v56–v136) |
+| [MODEL-SCORING-ACTIVATION.md](MODEL-SCORING-ACTIVATION.md) | Scoring modelů: zdroje dat, jejich meze, aktivace |
+| [MODEL-UPGRADE-HUNT.md](MODEL-UPGRADE-HUNT.md) | Hledání lepších modelů: trychtýř, měření VRAM, párový souboj |
 | [dev-checklist.md](dev-checklist.md) | Development checklist |
 | [archive/ROADMAP-v17-C3.md](archive/ROADMAP-v17-C3.md) | archiv — původní C3 roadmapa v17 (tvrzení o hotovosti neplatná) |
 
@@ -502,4 +504,4 @@ Systém licencí vázaný na hardware fingerprint (3 tiery: FREE / PRO / ENTERPR
 
 ---
 
-*Poslední aktualizace: v135.0.0 (2026-03-31)*
+*Poslední aktualizace: v136.0.0 (2026-08-19)*

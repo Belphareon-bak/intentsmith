@@ -54,6 +54,60 @@ omezena na skutečné vision modely.
 `model-profiles.js` zůstává bajtově nedotčený. Regrese 13 sad: 691 testů, 0
 selhání.
 
+## v136.0 — Hledání lepších modelů (2026-08-19)
+
+Scoring uměl seřadit modely, které už jsou na disku, ale nové neuměl najít.
+Plný rozbor a naměřená data: [`MODEL-UPGRADE-HUNT.md`](MODEL-UPGRADE-HUNT.md).
+
+### Příčina
+L4 discovery se ptalo `ollama.com/library/{rodina}` jen pro rodiny, které už
+jsou nainstalované — **7 z 235**. Našlo 6 „novinek", všechny kvantizace nebo
+menší varianty toho, co na disku už bylo. Nová rodina se nemohla objevit z
+principu. Katalog byl navíc 13 měsíců starý a generované návrhy měly
+`candidateScore 0.000` a navrhovaly downgrady.
+
+### Nové moduly
+- **`vram-measurement.js`**: naměřené umístění modelu z `/api/ps` (`size` vs
+  `size_vram`) a propustnost z `eval_count`/`eval_duration`. `drainResident()`
+  měří z prázdné paměti — bez toho se měří kontence, ne model.
+- **`model-sweep.js`**: fáze 0+1 — všech 235 rodin, parsování tagů s
+  velikostmi, shovívavý předfiltr podle nejnižší pozorované režie, řazení podle
+  externích signálů. Filtruje agresivní kvantizace (Q2/Q3) i formáty vázané na
+  hardware (MLX, NVFP4).
+- **`pairwise-trial.js`**: souboj na stejných úlohách. Shodné úlohy do
+  rozhodnutí nevstupují, rozhoduje marže na rozlišujících. Při remíze rozhodne
+  propustnost, ale jen při rozdílu ≥ 1.25×.
+- **`candidate-trial.js`**: fáze 2–4 — pull → měření → schopnostní minimum →
+  souboj → úklid. Na disku vždy nejvýš jeden kandidát navíc; nahrazený model
+  se nemaže.
+- **`scripts/model-upgrade-hunt.js`**: CLI přes celý řetězec.
+
+### Změny ve scoringu
+- **`hardwareFit` zmizel ze skóre kvality.** Byl 20 % a se `speed` tvořil 27 %
+  váhy pro věci, které s kvalitou nesouvisí — odtud systematická výhoda malých
+  modelů. Vejde-se je nyní tvrdá brána `checkVramGate()` podle **měření**;
+  odhad podstřeluje o třetinu (`qwen2.5:32b` odhad 22 000 MB, skutečnost
+  29 983 MB).
+- **`ROLE_WEIGHTS`**: váha rychlosti podle role — CHAT 0.15, D1/R1 0.03.
+  Fixních 7 % neseděly nikde.
+- **`computeSpeedScore` bere naměřené tok/s**, když jsou. MoE `qwen3-30b-a3b`
+  má 30B parametrů a dává 142 tok/s; odhad podle velikosti by pořadí obrátil.
+
+### Naměřeno (RTX 3090, kontext 32k)
+Přetečení není zpomalení, ale propad použitelnosti: `qwen2.5:32b` s 8.2 GB na
+CPU dal 6.0 tok/s proti 73.5 tok/s u modelu, který se vejde. Swap režim se
+proto nezavádí ani za potvrzení.
+
+Čtyři z osmi nainstalovaných modelů při 32k přetékají, včetně `qwen3.5:27b`
+(CODE/R2/CHAT) a `deepseek-r1-32b` (D1/R1).
+
+### Testy
+`vram-measurement` (14), `model-sweep` (26), `pairwise-trial` (16),
+`candidate-trial` (15) — všechny bez sítě a bez modelů. Regrese napříč 20
+sadami: **906 testů, 0 selhání.**
+
+---
+
 ### v135.3: druhý zdroj faktů + outbound discovery zapnuté
 
 Kvalitativní data celého scoringu stála na jediném externím zdroji.

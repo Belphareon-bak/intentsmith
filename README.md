@@ -7,7 +7,7 @@ a současný autoritativní C3 Studio runtime už neobsahuje implicitní Google 
 egress. Spouštěné Studio UI je stále přechodný runtime, nikoli finální vzhled
 IntentSmithu.
 
-**Verze:** 135.0.0 | **377 registrovaných testovacích programů**
+**Verze:** 136.0.0 | **377 registrovaných testovacích programů**
 (`280 ACTIVE`, `82 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`)
 
 > **Stav: aktivní vývoj, M0 — produktová pravda a ověřený baseline.** Jedna z 22
@@ -329,7 +329,7 @@ intentsmith/
 │
 ├── docs/                         # Aktivní dokumentace + archiv
 │   ├── ARCHITECTURE.md           #   Kompletní architektura
-│   ├── CHANGELOG.md              #   Historie verzí (v56–v135)
+│   ├── CHANGELOG.md              #   Historie verzí (v56–v136)
 │   ├── ROADMAP.md                #   Legacy roadmapa; aktuální je v kořeni
 │   ├── INSTALL.md                #   Instalační příručka
 │   ├── archive/                  #   Historické design dokumenty
@@ -416,7 +416,7 @@ Procesní návratový kód je součást testovacího kontraktu.
 | Dokument | Obsah |
 |----------|-------|
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Kompletní architektura systému, diagramy, design decisions |
-| [CHANGELOG.md](docs/CHANGELOG.md) | Historie všech verzí (v56–v135) |
+| [CHANGELOG.md](docs/CHANGELOG.md) | Historie všech verzí (v56–v136) |
 | [ROADMAP.md](ROADMAP.md) | Aktuální víceúrovňová roadmapa a dependency DAG |
 | [INSTALL.md](docs/INSTALL.md) | Reprodukovatelná instalace a známé platformní hranice |
 

@@ -4,10 +4,13 @@
 // Scores a model for a specific role, then compares candidate vs current.
 // No absolute ranking — pairwise evaluation only.
 //
-// Score formula (0-1):
-//   benchmarkScore * 0.35 + hardwareFit * 0.20 + maturity * 0.15
-//   + generation * 0.10 + category * 0.13 + speedScore * 0.07
-//   + sizePenalty (CODE role: params<20B → -0.05)
+// Score formula (0-1), váhy podle role viz ROLE_WEIGHTS:
+//   benchmarkScore * w.benchmark + empirical * ew + maturity * w.maturity
+//   + generation * w.generation + category * w.category + speed * w.speed
+//   + validationBonus + sizePenalty + diversityPenalty + provisionalPenalty
+//
+// `hardwareFit` už není složkou kvality — vejde se do VRAM je tvrdá brána
+// (`checkVramGate`) podle naměřeného umístění, ne bodovaná vlastnost.
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -26,6 +29,70 @@ export const BENCHMARK_WEIGHTS = {
   CHAT:   { swebench: 0.15, reasoning: 0.15, mmlu: 0.35, arena: 0.35 },
   VISION: { reasoning: 0.20, mmlu: 0.40, arena: 0.40 },
 };
+
+// ─── Váhy složek podle role ──────────────────────────────────────────────────
+
+/**
+ * Váhy kvalitativních složek skóre pro každou roli.
+ *
+ * Dvě věci se sem 2026-08-19 promítly:
+ *
+ * 1. `hardwareFit` z kvalitativního skóre **zmizel**.  Míchal dvě různé otázky
+ *    („vejde se" vs. „je dobrý") a dával systematickou výhodu malým modelům —
+ *    spolu se `speed` to bylo 27 % váhy, které s kvalitou nesouvisí.  Vejde se
+ *    do VRAM je dnes tvrdá brána (`checkVramGate`), ne bodovaná složka.
+ *
+ * 2. Váha rychlosti závisí na roli.  U CHAT je odezva součástí kvality, u D1
+ *    a R1 běží deliberace na pozadí a rychlost skoro nerozhoduje.  Fixních
+ *    7 % pro všechny role byl kompromis, který neseděl nikde.
+ *
+ * Každý řádek dává 0.90; zbytek do 1.0 je prostor pro validační bonus (0.05)
+ * a empirickou složku, která podle počtu vzorků ukrajuje z benchmarkové váhy.
+ */
+export const ROLE_WEIGHTS = Object.freeze({
+  D1:     Object.freeze({ benchmark: 0.47, maturity: 0.15, generation: 0.10, category: 0.15, speed: 0.03 }),
+  R1:     Object.freeze({ benchmark: 0.47, maturity: 0.15, generation: 0.10, category: 0.15, speed: 0.03 }),
+  D2:     Object.freeze({ benchmark: 0.44, maturity: 0.15, generation: 0.10, category: 0.15, speed: 0.06 }),
+  CODE:   Object.freeze({ benchmark: 0.42, maturity: 0.15, generation: 0.10, category: 0.15, speed: 0.08 }),
+  VISION: Object.freeze({ benchmark: 0.42, maturity: 0.15, generation: 0.10, category: 0.15, speed: 0.08 }),
+  R2:     Object.freeze({ benchmark: 0.38, maturity: 0.15, generation: 0.10, category: 0.15, speed: 0.12 }),
+  CHAT:   Object.freeze({ benchmark: 0.35, maturity: 0.15, generation: 0.10, category: 0.15, speed: 0.15 }),
+});
+
+const DEFAULT_WEIGHTS = ROLE_WEIGHTS.CODE;
+
+export function weightsForRole(role) {
+  return ROLE_WEIGHTS[role] || DEFAULT_WEIGHTS;
+}
+
+/**
+ * Tvrdá brána podle **naměřeného** umístění modelu ve VRAM.
+ *
+ * Odhad z počtu parametrů podstřeluje o třetinu (změřeno: `qwen2.5:32b` odhad
+ * 22 000 MB, skutečnost 29 983 MB), takže rozhodovat podle něj nelze.  Když
+ * měření chybí, brána se neuplatní a rozhodne se až po stažení.
+ *
+ * Přetečení není penalizace, ale diskvalifikace: model s 8 GB na CPU spadl ze
+ * 74 na 6 tok/s, což není zpomalení, ale ztráta použitelnosti.
+ *
+ * @param {{fits?: boolean, placement?: {fullyOnGpu?: boolean, cpuBytes?: number}}} measurement
+ * @returns {{measured: boolean, fits: boolean, reason: string|null}}
+ */
+export function checkVramGate(measurement) {
+  if (!measurement || (measurement.fits == null && !measurement.placement)) {
+    return { measured: false, fits: true, reason: null };
+  }
+  const fits = measurement.fits ?? measurement.placement?.fullyOnGpu ?? false;
+  if (fits) return { measured: true, fits: true, reason: null };
+  const cpuGb = (measurement.placement?.cpuBytes || 0) / 2 ** 30;
+  return {
+    measured: true,
+    fits: false,
+    reason: cpuGb > 0
+      ? `nevejde se do VRAM — ${cpuGb.toFixed(2)} GB by běželo na CPU`
+      : 'nevejde se do VRAM',
+  };
+}
 
 // ─── Improvement Thresholds per Role ─────────────────────────────────────────
 
@@ -154,7 +221,16 @@ export function computeHardwareFit(effectiveVramMb, gpuVramMb) {
  * @param {number} referenceParams - Current model param count (billions)
  * @returns {number} 0.6-1.2 (clamped)
  */
-export function computeSpeedScore(candidateParams, referenceParams) {
+export function computeSpeedScore(candidateParams, referenceParams, measurement = {}) {
+  // Naměřená propustnost má přednost před odhadem z velikosti.  Odhad
+  // předpokládá, že rychlost klesá s počtem parametrů, což u MoE architektur
+  // neplatí: `qwen3-30b-a3b` má 30B parametrů, aktivuje ~3B a dává 142 tok/s
+  // proti 74 tok/s u hustého 14B modelu.  Odhad by pořadí obrátil.
+  const { measured, reference } = measurement;
+  if (measured > 0 && reference > 0) {
+    return Math.max(0.6, Math.min(1.2, measured / reference));
+  }
+
   if (!candidateParams || !referenceParams || referenceParams === 0) return 0.8;
   const raw = 1 / Math.sqrt(candidateParams / referenceParams);
   return Math.max(0.6, Math.min(1.2, raw));
@@ -225,18 +301,27 @@ export function computeMaturity(releaseDate) {
 export function scoreModel(model, role, context = {}, empirical = {}) {
   const benchmark = computeBenchmarkScore(model.benchmarks, role);
   const category = computeCategoryBonus(model.category, role);
-  const hwFit = computeHardwareFit(
-    model.effectiveVramMb || model.baseVramMb || 0,
-    context.gpuVramMb || 0
+  // Rychlost z měření, když je k dispozici; jinak odhad z počtu parametrů.
+  // Měření je nesrovnatelně přesnější: `qwen3-30b-a3b` má 30B parametrů, ale
+  // jako MoE aktivuje jen zlomek a dává 142 tok/s — dvakrát víc než 14B model.
+  // Odhad podle velikosti by ho označil za pomalý.
+  const speed = computeSpeedScore(
+    model.params,
+    context.referenceParams,
+    { measured: model.measuredTokensPerSecond, reference: context.referenceTokensPerSecond },
   );
-  const speed = computeSpeedScore(model.params, context.referenceParams);
   const maturityRaw = computeMaturity(model.releaseDate);
   const maturity = Math.min(1.0, maturityRaw);
   const generation = computeGenerationBonus(model, context.currentModel);
 
-  // v120: Blended benchmark + empirical scoring
-  const bw = empirical.blendWeights?.benchmarkWeight ?? 0.35;
+  // Váhy podle role — rychlost váží jinak u CHAT než u D1 (viz ROLE_WEIGHTS).
+  const weights = weightsForRole(role);
+
+  // v120: Blended benchmark + empirical scoring.  Empirická složka ukrajuje
+  // z benchmarkové váhy, takže s přibývajícími vzorky přebírá rozhodování
+  // změřené chování místo publikovaných čísel.
   const ew = empirical.blendWeights?.empiricalWeight ?? 0.00;
+  const bw = Math.max(0.10, weights.benchmark - ew);
   const rawEs = empirical.empiricalScore ?? 0;
   // Hard cap: empirical contribution <= MAX_EMPIRICAL_CONTRIBUTION (0.25)
   const es = ew > 0 ? Math.min(rawEs, 0.25 / ew) : rawEs;
@@ -270,11 +355,10 @@ export function scoreModel(model, role, context = {}, empirical = {}) {
   const totalScore = Math.max(0, Math.min(1.0,
     benchmark * bw * benchConfidence +
     es * ew +
-    hwFit * 0.20 +
-    maturity * 0.15 +
-    generation * 0.10 +
-    category * 0.13 +
-    speed * 0.07 +
+    maturity * weights.maturity +
+    generation * weights.generation +
+    category * weights.category +
+    speed * weights.speed +
     validationBonus +
     sizePenalty +
     diversityPenalty +
@@ -284,9 +368,12 @@ export function scoreModel(model, role, context = {}, empirical = {}) {
   return {
     totalScore,
     normalizedScore: Math.round(totalScore * 11), // Backward compat with Phase 1 (0-11)
+    weights,
     breakdown: {
       benchmark,
-      hardwareFit: hwFit,
+      // `hardwareFit` zůstává v rozpadu jen pro diagnostiku a je vždy null:
+      // do skóre nevstupuje, o vejde-se rozhoduje `checkVramGate` z měření.
+      hardwareFit: null,
       maturity,
       generation,
       category,

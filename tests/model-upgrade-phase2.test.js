@@ -18,6 +18,7 @@ import {
   scoreModel, evaluateUpgrade, computeRiskLevel,
   computeBenchmarkScore, computeCategoryBonus, computeHardwareFit,
   computeSpeedScore, computeGenerationBonus, computeMaturity,
+  checkVramGate, weightsForRole, ROLE_WEIGHTS,
   BENCHMARK_WEIGHTS, IMPROVEMENT_THRESHOLD, EVALUATION_VERSION,
 } from '../src/upgrade/model-ranker.js';
 
@@ -467,9 +468,42 @@ test('scoreModel returns totalScore 0-1 with breakdown', () => {
   assert(result.totalScore >= 0 && result.totalScore <= 1, `Score out of range: ${result.totalScore}`);
   assert(result.breakdown, 'Missing breakdown');
   assert(typeof result.breakdown.benchmark === 'number');
-  assert(typeof result.breakdown.hardwareFit === 'number');
+  // hardwareFit už není složkou kvality — o vejde-se rozhoduje checkVramGate
+  // z naměřeného umístění, v rozpadu zůstává jen jako null pro diagnostiku.
+  assertEqual(result.breakdown.hardwareFit, null);
   assert(typeof result.breakdown.maturity === 'number');
   assert(typeof result.normalizedScore === 'number');
+  assert(result.weights && typeof result.weights.speed === 'number', 'chybí použité váhy');
+});
+
+test('váha rychlosti závisí na roli', () => {
+  const model = getCatalogEntry('qwen3:32b');
+  const ctx = { referenceTokensPerSecond: 70 };
+  const slowChat = scoreModel({ ...model, measuredTokensPerSecond: 30 }, 'CHAT', ctx).totalScore;
+  const fastChat = scoreModel({ ...model, measuredTokensPerSecond: 140 }, 'CHAT', ctx).totalScore;
+  const slowD1 = scoreModel({ ...model, measuredTokensPerSecond: 30 }, 'D1', ctx).totalScore;
+  const fastD1 = scoreModel({ ...model, measuredTokensPerSecond: 140 }, 'D1', ctx).totalScore;
+  assert((fastChat - slowChat) > (fastD1 - slowD1) * 2,
+    'u CHAT musí rychlost vážit výrazně víc než u D1 — odezva je tam součástí kvality');
+});
+
+test('naměřená rychlost přebíjí odhad z velikosti', () => {
+  // MoE model s 30B parametrů a 142 tok/s nesmí prohrát s hustým 14B modelem
+  // jen proto, že odhad počítá rychlost z počtu parametrů.
+  const moe = { ...getCatalogEntry('qwen3:32b'), params: 30, measuredTokensPerSecond: 142 };
+  const dense = { ...getCatalogEntry('qwen3:32b'), params: 14, measuredTokensPerSecond: 74 };
+  const ctx = { referenceParams: 27, referenceTokensPerSecond: 74 };
+  assert(scoreModel(moe, 'CHAT', ctx).breakdown.speed > scoreModel(dense, 'CHAT', ctx).breakdown.speed,
+    'rychlejší MoE musí mít vyšší speed složku');
+});
+
+test('checkVramGate: bez měření nebrání, s měřením rozhoduje', () => {
+  assertEqual(checkVramGate(null).measured, false);
+  assertEqual(checkVramGate(null).fits, true, 'bez měření se brána neuplatní');
+  assertEqual(checkVramGate({ fits: true }).fits, true);
+  const bad = checkVramGate({ fits: false, placement: { cpuBytes: 8 * 2 ** 30 } });
+  assertEqual(bad.fits, false);
+  assert(/8\.00 GB/.test(bad.reason), `důvod má uvést kolik jde na CPU: ${bad.reason}`);
 });
 
 test('evaluateUpgrade detects improvement', () => {
