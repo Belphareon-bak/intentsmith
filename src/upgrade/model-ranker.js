@@ -11,7 +11,7 @@
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
-import { parseModelName, isNewerVersion } from './model-profiles.js';
+import { parseModelName, isNewerVersion, MODEL_PROFILES } from './model-profiles.js';
 
 export const EVALUATION_VERSION = 'v120.2';
 
@@ -71,6 +71,54 @@ export function computeCategoryBonus(category, role) {
 }
 
 /**
+ * Tvrdá způsobilost modelu pro roli podle `MODEL_PROFILES[role].requirements`.
+ *
+ * Skóre je spojité a `computeCategoryBonus` dává vision modelu v roli VISION
+ * jen +0.10.  To nestačí: `BENCHMARK_WEIGHTS.VISION` obsahuje výhradně textové
+ * benchmarky (mmlu, arena, reasoning), takže silný textový model roli VISION
+ * vyhraje, přestože obrázek vůbec nezpracuje.  Nezpůsobilost proto není
+ * penalizace, ale vyřazení.
+ *
+ * Vynucuje se jen to, co lze poctivě rozhodnout z dostupných dat:
+ *   - rozsah parametrů (`minParams` / `maxParams`), je-li velikost známá;
+ *   - schopnost `vision`, protože textový model roli fyzicky nezastane.
+ *
+ * Ostatní požadavky (`reasoning`, `instruction-following`, `json-output`)
+ * zůstávají měkké — katalog je u naprosté většiny položek neuvádí, takže
+ * tvrdý filtr by vyprázdnil seznam kandidátů. Ty patří validačním sadám.
+ *
+ * @param {Object} model - kandidát z discovery
+ * @param {string} role
+ * @param {Object} [profiles] - MODEL_PROFILES (injektovatelné kvůli testům)
+ * @returns {{ eligible: boolean, reason: string|null }}
+ */
+export function checkRoleEligibility(model, role, profiles = MODEL_PROFILES) {
+  const profile = profiles?.[role];
+  const req = profile?.requirements;
+  if (!req) return { eligible: true, reason: null };
+
+  const params = model?.params;
+  if (params) {
+    if (req.minParams && params < req.minParams) {
+      return { eligible: false, reason: `${params}B < minimum ${req.minParams}B` };
+    }
+    if (req.maxParams && params > req.maxParams) {
+      return { eligible: false, reason: `${params}B > maximum ${req.maxParams}B` };
+    }
+  }
+
+  const needsVision = Array.isArray(req.capabilities)
+    && req.capabilities.some(c => c === 'vision' || c === 'image-understanding');
+  if (needsVision) {
+    const caps = Array.isArray(model?.capabilities) ? model.capabilities : [];
+    const hasVision = model?.category === 'vision' || caps.includes('vision');
+    if (!hasVision) return { eligible: false, reason: 'model neumí zpracovat obraz' };
+  }
+
+  return { eligible: true, reason: null };
+}
+
+/**
  * Hardware fit score based on effective VRAM vs GPU VRAM.
  * @param {number} effectiveVramMb - Model's effective VRAM requirement
  * @param {number} gpuVramMb - Available GPU VRAM (0 = CPU-only)
@@ -81,10 +129,23 @@ export function computeHardwareFit(effectiveVramMb, gpuVramMb) {
   if (!effectiveVramMb) return 0.5; // Unknown
 
   const ratio = effectiveVramMb / gpuVramMb;
-  if (ratio <= 0.80) return 1.0;  // Comfortable
-  if (ratio <= 0.95) return 0.7;  // Tight
-  if (ratio <= 1.00) return 0.4;  // Swap risk
-  return 0.0;                      // Incompatible
+
+  // Původní implementace vracela tři konstantní pásma, takže na hranici 0.80
+  // skočilo skóre o 0.30 (po váze 0.20 tedy o 0.06 celkového skóre) mezi dvěma
+  // modely lišícími se o promile VRAM.  Je to táž skoková vada, jakou audit
+  // v123 (#14) opravil u blend vah v empirical-scorer.
+  //
+  // Kotevní body původních pásem zůstávají zachované, aby se nezměnila
+  // kalibrace; mění se jen přechod mezi nimi na lineární rampu:
+  //   0.80 → 1.0 (pohodlné)   0.95 → 0.7 (těsné)   1.00 → 0.4 (riziko swapu)
+  if (ratio <= 0.80) return 1.0;
+  if (ratio > 1.00) return 0.0;   // nevejde se — tvrdé vyřazení zůstává skokové
+
+  const [from, to, fromScore, toScore] = ratio <= 0.95
+    ? [0.80, 0.95, 1.0, 0.7]
+    : [0.95, 1.00, 0.7, 0.4];
+  const t = (ratio - from) / (to - from);
+  return Math.round((fromScore + (toScore - fromScore) * t) * 1000) / 1000;
 }
 
 /**

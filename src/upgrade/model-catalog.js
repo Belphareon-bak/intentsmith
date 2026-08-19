@@ -562,6 +562,50 @@ export const CATALOG = [
     benchmarks: { swebench: null, livecodebench: null, humaneval: null, mmlu: 0.56, arena: 0.16, reasoning: 0.34 },
     releaseDate: '2024-08-06', supersedes: null,
   },
+
+  // ── Nainstalované modely bez dosavadního pokrytí ─────────────────────────
+  //
+  // Tyto tři modely jsou lokálně nainstalované, ale katalog je neznal, takže
+  // jim scoring nedokázal přiřadit žádnou benchmarkovou složku.  Čísla níže
+  // NEJSOU převzatá z ověřeného měření v tomto repu — jsou to hrubé odhady
+  // podle veřejně uváděných výsledků a u `glm-4.7-flash` odhad z pozice modelu
+  // v rodině.  Proto každá položka nese `benchmarkConfidence`, kterým ranker
+  // benchmarkovou složku úměrně utlumí.
+  //
+  // Odhad se má nahradit skutečným podkladem, jakmile doběhne validační sada
+  // (`scripts/model-scoring-report.js --validate`) nebo L5 WhatLLM enrichment.
+  {
+    name: 'qwq:32b', family: 'qwq', category: 'reasoning', params: 32,
+    variants: ['32b'],
+    sizeGB: 19.0, baseVramMb: 22000, contextWindow: 32768,
+    capabilities: ['reasoning', 'json_mode'],
+    tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
+    benchmarks: { swebench: 0.07, livecodebench: 0.60, humaneval: 0.78, mmlu: 0.76, arena: 0.40, reasoning: 0.88 },
+    benchmarkConfidence: 0.55,
+    releaseDate: '2025-03-06', supersedes: null,
+  },
+  {
+    name: 'devstral-small-2:24b', family: 'devstral', category: 'code', params: 24,
+    variants: ['24b'],
+    sizeGB: 15.0, baseVramMb: 16500, contextWindow: 131072,
+    capabilities: ['tool_use', 'json_mode'],
+    tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
+    benchmarks: { swebench: 0.46, livecodebench: 0.40, humaneval: 0.88, mmlu: 0.72, arena: 0.33, reasoning: 0.62 },
+    benchmarkConfidence: 0.55,
+    releaseDate: '2025-07-10', supersedes: null,
+  },
+  {
+    name: 'glm-4.7-flash', family: 'glm', category: 'general', params: 29,
+    variants: ['flash'],
+    sizeGB: 19.0, baseVramMb: 20500, contextWindow: 131072,
+    capabilities: ['tool_use', 'json_mode'],
+    tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
+    benchmarks: { swebench: 0.10, livecodebench: 0.45, humaneval: 0.85, mmlu: 0.78, arena: 0.35, reasoning: 0.72 },
+    benchmarkConfidence: 0.35,
+    // Datum vydání neznám a `modified_at` z Ollama je čas stažení, ne vydání.
+    // null → ranker použije neutrální fallback zralosti místo vymyšleného data.
+    releaseDate: null, supersedes: null,
+  },
 ];
 
 // ─── Catalog Hash ──────────────────────────────────────────────────────────

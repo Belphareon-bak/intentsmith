@@ -14,6 +14,8 @@
 import { config } from '../config.js';
 import { logger } from '../core/logger.js';
 import { parseModelName, MODEL_FAMILIES } from './model-profiles.js';
+import { parseModelNameExtended } from './model-family-extensions.js';
+import { catalogLookupKey, enrichLocalCandidates } from './catalog-enrichment.js';
 
 // ─── Ollama API ────────────────────────────────────────────────────────────
 
@@ -129,7 +131,7 @@ export function buildCandidates(ollamaModels) {
   const candidates = [];
 
   for (const m of ollamaModels) {
-    const parsed = parseModelName(m.name);
+    const parsed = parseModelNameExtended(m.name);
 
     // Try to get params from Ollama details if our parser missed it
     let params = parsed.params;
@@ -269,10 +271,20 @@ export function buildCatalogCandidates(installedNames, opts = {}) {
 }
 
 function _filterCatalog(catalog, installedNames, minDays) {
+  // Volající předávají buď holá jména z Ollama, nebo už lookup klíče.  Převod
+  // na klíče je idempotentní, takže obojí projde stejnou cestou a katalog
+  // nenabídne model, který je pod jiným zápisem jména už nainstalovaný.
+  const installedKeys = new Set();
+  for (const name of installedNames || []) {
+    const key = catalogLookupKey(name);
+    if (key) installedKeys.add(key);
+  }
+
   const candidates = [];
   for (const entry of catalog) {
     // Skip installed
-    if (installedNames.has(entry.name)) continue;
+    const entryKey = catalogLookupKey(entry.name);
+    if (entryKey && installedKeys.has(entryKey)) continue;
 
     // Skip immature
     if (entry.releaseDate) {
@@ -291,7 +303,7 @@ function _filterCatalog(catalog, installedNames, minDays) {
       continue;
     }
 
-    const parsed = parseModelName(entry.name);
+    const parsed = parseModelNameExtended(entry.name);
     candidates.push({
       name: entry.name,
       family: parsed.family,
@@ -369,26 +381,45 @@ export async function discover(opts = {}) {
   const ollamaAvailable = ollamaModels.length > 0;
   const localCandidates = buildCandidates(ollamaModels);
 
-  // L2: Catalog candidates (fullCycle only)
-  let catalogCandidates = [];
-  if (opts.includeCatalog) {
-    const installedNames = new Set(localCandidates.map(c => c.name));
-    try {
-      const mod = await import('./model-catalog.js');
-      const catalog = mod.CATALOG || mod.default?.CATALOG;
-      if (catalog) {
-        catalogCandidates = _filterCatalog(catalog, installedNames, opts.minMaturityDays ?? 7);
-      }
-    } catch (err) {
-      logger.warn('ModelDiscovery', `Catalog load failed: ${err.message}`);
+  // Katalog se načítá vždy, ne jen pro L2.  Lokální kandidáti z něj berou
+  // benchmarky a metadata i v rychlém cyklu — bez toho je jejich skóre řízené
+  // pouze velikostí modelu (viz catalog-enrichment.js).
+  let catalog = null;
+  try {
+    const mod = await import('./model-catalog.js');
+    catalog = mod.CATALOG || mod.default?.CATALOG || null;
+  } catch (err) {
+    logger.warn('ModelDiscovery', `Catalog load failed: ${err.message}`);
+  }
+
+  let enrichment = { exact: 0, estimated: 0, unmatched: [] };
+  if (catalog) {
+    enrichment = enrichLocalCandidates(localCandidates, catalog);
+    if (enrichment.unmatched.length > 0) {
+      logger.warn(
+        'ModelDiscovery',
+        `Katalog nepokrývá ${enrichment.unmatched.length} nainstalovaných modelů: ${enrichment.unmatched.join(', ')}`,
+      );
     }
   }
 
+  // Shoda „už nainstalováno“ musí být tolerantní ke znakovému zápisu, jinak
+  // katalog nabídne `deepseek-r1:32b` proti nainstalovanému `deepseek-r1-32b`.
+  const localKeys = new Set(
+    localCandidates.map(c => catalogLookupKey(c.name)).filter(Boolean),
+  );
+
+  // L2: Catalog candidates (fullCycle only)
+  let catalogCandidates = [];
+  if (opts.includeCatalog && catalog) {
+    catalogCandidates = _filterCatalog(catalog, localKeys, opts.minMaturityDays ?? 7);
+  }
+
   // Merge: L1 wins on name collision (dedup)
-  const localNames = new Set(localCandidates.map(c => c.name));
   const merged = [...localCandidates];
   for (const cc of catalogCandidates) {
-    if (!localNames.has(cc.name)) {
+    const key = catalogLookupKey(cc.name);
+    if (!key || !localKeys.has(key)) {
       merged.push(cc);
     }
   }
@@ -399,8 +430,11 @@ export async function discover(opts = {}) {
   if (_onlineDiscovery) {
     try {
       const provisional = await _onlineDiscovery.getDiscoveredModels();
+      const mergedKeys = new Set(merged.map(c => catalogLookupKey(c.name)).filter(Boolean));
       for (const entry of provisional) {
-        if (!localNames.has(entry.name) && !merged.some(c => c.name === entry.name)) {
+        const entryKey = catalogLookupKey(entry.name);
+        if (!entryKey || !mergedKeys.has(entryKey)) {
+          if (entryKey) mergedKeys.add(entryKey);
           merged.push({
             name: entry.name,
             family: entry.family,
@@ -449,10 +483,19 @@ export async function discover(opts = {}) {
     // model-profiles not available — skip hints
   }
 
-  const stats = { local: localCandidates.length, catalog: catalogCandidates.length, l4: l4Count, total: merged.length };
+  const stats = {
+    local: localCandidates.length,
+    catalog: catalogCandidates.length,
+    l4: l4Count,
+    total: merged.length,
+    enrichedExact: enrichment.exact,
+    enrichedEstimated: enrichment.estimated,
+    enrichmentMissing: enrichment.unmatched.length,
+  };
   logger.info('ModelDiscovery', `Discovered ${stats.local} local + ${stats.catalog} catalog + ${stats.l4} L4 = ${stats.total} candidates, ${hints.size} hints`, {
     ollamaAvailable,
     families: [...new Set(merged.map(c => c.family))],
+    enrichment: `${enrichment.exact} exact / ${enrichment.estimated} odhad / ${enrichment.unmatched.length} bez podkladu`,
   });
 
   return {

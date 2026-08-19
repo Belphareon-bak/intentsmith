@@ -8,6 +8,88 @@
 
 ---
 
+## v135.1 — Model scoring: obohacení lokálních kandidátů (2026-08-17)
+
+Scoring modelů byl postavený, ale nikdy nespuštěný, a při prvním měření dával
+nepoužitelné pořadí. Příčinou byla strukturální vada, ne známé chyby z
+`AUDIT-v123` — ty jsou opravené od v124.6. Detailní rozbor:
+[`MODEL-SCORING-ACTIVATION.md`](MODEL-SCORING-ACTIVATION.md).
+
+### Příčina
+`buildCandidates()` stavěl lokální kandidáty jen z Ollama API a nikdy je
+nespojil s katalogem, takže neměli `benchmarks`, `releaseDate` ani
+`baseVramMb`. U lokálního modelu tím bylo 88 % váhy skóre nulové nebo
+konstantní a o pořadí reálně rozhodovala jen složka `speed` — tedy inverzní
+funkce velikosti. Menší model vyhrával vždy a každý návrh zněl „nahraď
+modelem, který nemáš“.
+
+### Změny
+- **`catalog-enrichment.js`** (nový): párování lokálních kandidátů s katalogem
+  (přesná shoda → interpolace uvnitř rodiny → nahlášení). Vlastní lookup klíč
+  sjednocuje `deepseek-r1-32b` a `deepseek-r1:32b`; je oddělený od
+  `canonicalModelName()`, který autorizuje failover a shodu podle rodiny dělat
+  nesmí. Katalog se načítá vždy, ne jen při `includeCatalog`.
+- **`model-family-extensions.js`** (nový): rodiny `qwq`, `devstral`, `glm`,
+  `granite` a oprava `qwen3-coder` → kategorie `code`. Mimo `model-profiles.js`,
+  který je připnutý bajtovým hashem ve fail-closed proof policy.
+- **`model-ranker.js`**: `checkRoleEligibility()` — tvrdé vyřazení modelu
+  nezpůsobilého pro roli. Řeší, že roli VISION vyhrával textový model, protože
+  `BENCHMARK_WEIGHTS.VISION` obsahuje jen textové benchmarky.
+- **`model-ranker.js`**: `computeHardwareFit()` vyhlazen z tří konstantních
+  pásem na lineární rampu — na hranici 0.80 skákalo skóre o 0.06 mezi modely
+  lišícími se o promile VRAM (táž vada jako `AUDIT-v123` #14).
+- **`model-catalog.js`**: položky pro `qwq:32b`, `devstral-small-2:24b`,
+  `glm-4.7-flash` a nové pole `benchmarkConfidence` pro přiznaně odhadnutá
+  čísla.
+- **`scripts/model-scoring-report.js`** (nový): žebříček podle rolí +
+  doporučení k pročištění, s `--validate` pro reálné volání modelů.
+
+### Dopad
+Rozsah skóre lokálních modelů 0.225–0.272 → 0.36–0.66; benchmarková složka
+reálná u 13/13 modelů; vázaný `qwen3.5:27b` v roli CODE z 9/13 na 1/13; VISION
+omezena na skutečné vision modely.
+
+### Testy
+`tests/catalog-enrichment.test.js` (nový, 41 testů) včetně kontroly, že
+`model-profiles.js` zůstává bajtově nedotčený. Regrese 13 sad: 691 testů, 0
+selhání.
+
+### v135.2: L5 externí benchmarky (whatllm.org)
+
+Cesta L5 byla vypnutá, což zakrývalo tři vady párování. Po zapnutí by vpravila
+cizí čísla s jistotou 0.85: ze 13 nainstalovaných modelů se spárovaly 4 a
+**všechny čtyři špatně** (`qwen2.5:32b` → `Qwen3 32B`, `qwen3-coder:30b` →
+`Qwen3 Omni 30B A3B`, `deepseek-r1-32b` → `DeepSeek V4 Pro` q=53.2).
+
+- **`matchModels()`**: verze se parsovala, ale neporovnávala → shody napříč
+  generacemi. Nově musí sedět generace i tvrdá specializace (`coder`, `omni`,
+  `vl`, `vision`, `embed`, `guard`, `math`), a vyžaduje se rozlišovací znak nad
+  rámec rodiny. Nejednoznačná shoda se zahodí místo tichého výběru.
+- **`parseOllamaName()`**: velikost se hledala jen v tagu, takže
+  `deepseek-r1-32b:latest` a `qwen3-30b-a3b:latest` vyšly bez parametrů a byly
+  nespárovatelné. Nově se hledá i v základu jména.
+- **`parseWhatllmName()`**: neuměla verzi za spojovníkem (`Phi-4`, `GLM-5.1`).
+- **`buildScaleCalibration()`** (nová): `qualityIndex` se dělil globálním
+  maximem, což míchalo dvě nesouměřitelné stupnice — whatllm stojí na frontier
+  sadách (GPQA, AIME, SWE-Bench), kde lokální 14B model dá ~5/100, katalog na
+  HumanEval/MMLU, kde tentýž model dá 0.6+. Na překryvu spolu nekorelují, takže
+  se nově zachovává jen pořadí: percentil ve whatllm → týž percentil v
+  rozdělení katalogu. Bez obou rozdělení se enrichment přeskočí.
+
+Po opravě 4 obhajitelné shody z 13; `devstral-small-2:24b` dostane 0.424 místo
+0.258. `config.features.onlineDiscovery` zůstává **vypnuté** — produkt je
+local-first a `tests/outbound-network-optin.test.js` kontroluje výchozí stav.
+
+`tests/whatllm-client.test.js`: 117 testů, 0 selhání.
+
+### Validace modelů
+
+Doběhlo 65 běhů (13 modelů × 5 sad). Sady ale **saturují**: 100 % padlo 26× z
+65, `llava:13b` dostal 100 % v sadě `code`. U špičky pole validace nerozlišuje a
+její váha (0.05) je tam šum — zpřísnění graderů je otevřený bod.
+
+---
+
 ## v129.1–v129.2 — F4a Packaging Bootstrap + Hardening (2026-03-21)
 
 Production-ready install/run/stop scripts for standalone deployment.

@@ -250,19 +250,38 @@ test('computeCategoryBonus returns 0 for mismatch', () => {
   assertEqual(computeCategoryBonus('code', 'CHAT'), 0);
 });
 
-test('computeHardwareFit zones', () => {
+test('computeHardwareFit anchors', () => {
   // Comfortable: ratio <= 0.80
   assertEqual(computeHardwareFit(8000, 12000), 1.0);
-  // Tight: ratio <= 0.95
-  assertEqual(computeHardwareFit(9000, 10000), 0.7);
-  // Swap risk: ratio <= 1.00
-  assertEqual(computeHardwareFit(9800, 10000), 0.4);
-  // Incompatible: ratio > 1.00
+  // Kotevní body původních pásem zůstávají beze změny…
+  assertEqual(computeHardwareFit(8000, 10000), 1.0);   // ratio 0.80
+  assertEqual(computeHardwareFit(9500, 10000), 0.7);   // ratio 0.95
+  assertEqual(computeHardwareFit(10000, 10000), 0.4);  // ratio 1.00
+  // Incompatible: ratio > 1.00 — vyřazení zůstává skokové
   assertEqual(computeHardwareFit(11000, 10000), 0.0);
   // CPU-only
   assertEqual(computeHardwareFit(5000, 0), 0.3);
   // Unknown model VRAM
   assertEqual(computeHardwareFit(0, 10000), 0.5);
+});
+
+test('computeHardwareFit interpoluje mezi kotvami místo skoku', () => {
+  // Dřív obě hodnoty spadly do pásma „tight“ = 0.7; teď se liší podle poměru.
+  assertEqual(computeHardwareFit(8100, 10000), 0.98);  // ratio 0.81
+  assertEqual(computeHardwareFit(9000, 10000), 0.8);   // ratio 0.90
+  assertEqual(computeHardwareFit(9800, 10000), 0.52);  // ratio 0.98
+});
+
+test('computeHardwareFit je monotónní a bez útesů', () => {
+  let prev = 1.0;
+  for (let ratio = 0.70; ratio <= 1.005; ratio += 0.005) {
+    const score = computeHardwareFit(Math.round(ratio * 10000), 10000);
+    assert(score <= prev + 1e-9, `skóre musí klesat, u ratio ${ratio.toFixed(3)} vzrostlo`);
+    if (ratio > 0.705 && ratio <= 1.0) {
+      assert(prev - score < 0.10, `skok ${(prev - score).toFixed(3)} u ratio ${ratio.toFixed(3)} je útes`);
+    }
+    prev = score;
+  }
 });
 
 suite('Ranker — Speed & Generation');

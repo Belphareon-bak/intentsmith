@@ -188,6 +188,51 @@ function _unescapeNextF(html) {
  * @param {string} name - whatllm model name
  * @returns {{ family: string, version: string|null, params: number|null }}
  */
+/**
+ * Specializace, které mění účel modelu.  Coder, vision ani embedding model
+ * nejsou zaměnitelné za obecný model téže rodiny a velikosti, takže se musí
+ * shodovat na obou stranách, jinak párování odmítneme.
+ */
+const HARD_VARIANTS = Object.freeze(['coder', 'omni', 'vl', 'vision', 'embed', 'guard', 'math', 'rerank']);
+
+/**
+ * Měkké modifikátory — tytéž váhy v jiném režimu nebo řezu řady.  Rozdíl
+ * skóre způsobit mohou, ale o jiný model nejde, takže slouží jen jako
+ * rozřazovací kritérium při shodě všeho ostatního.
+ */
+const SOFT_VARIANTS = Object.freeze([
+  'instruct', 'reasoning', 'thinking', 'chat', 'flash', 'mini', 'small',
+  'medium', 'large', 'plus', 'max', 'next', 'pro', 'preview', 'turbo',
+  'distill', 'nemo', 'r1', 'v2', 'v3',
+]);
+
+/** Vytáhne z názvu množinu tvrdých a měkkých variant. */
+function extractVariants(lower) {
+  const hard = new Set();
+  const soft = new Set();
+  for (const v of HARD_VARIANTS) {
+    if (new RegExp(`(^|[^a-z])${v}([^a-z]|$)`).test(lower)) hard.add(v);
+  }
+  for (const v of SOFT_VARIANTS) {
+    if (new RegExp(`(^|[^a-z0-9])${v}([^a-z0-9]|$)`).test(lower)) soft.add(v);
+  }
+  return { hard, soft };
+}
+
+/**
+ * Verze přilepená k názvu rodiny — `qwen3.5` → 3.5, `phi-4` → 4, `glm-5.1` → 5.1,
+ * `llama 3.1` → 3.1, `gemma 2` → 2.
+ *
+ * Bere se pouze číslo bezprostředně za názvem rodiny (volitelně oddělené
+ * mezerou, spojovníkem nebo `v`).  Číslo stojící až za dalším slovem
+ * (`devstral small 2`) se za verzi rodiny nepovažuje — bez toho by se
+ * `mistral large 2` tvářilo jako druhá generace Mistralu.
+ */
+function extractFamilyVersion(lower, family) {
+  const match = lower.match(new RegExp(`^${family}[\\s-]*v?(\\d+(?:\\.\\d+)?)(?![0-9]*b\\b)`));
+  return match ? match[1] : null;
+}
+
 export function parseWhatllmName(name) {
   if (!name) return null;
   const lower = name.toLowerCase().trim();
@@ -204,11 +249,10 @@ export function parseWhatllmName(name) {
   if (!familyMatch) return null;
   const family = familyMatch[1];
 
-  // Extract version — number after family name (e.g. "3.5", "3.1", "v3.2")
-  const versionMatch = lower.match(/(?:^[a-z]+|[vV])\s*(\d+(?:\.\d+)?)/);
-  const version = versionMatch ? versionMatch[1] : null;
+  const version = extractFamilyVersion(lower, family);
+  const { hard, soft } = extractVariants(lower);
 
-  return { family, version, params };
+  return { family, version, params, hard, soft };
 }
 
 /**
@@ -229,9 +273,18 @@ export function parseOllamaName(name) {
   const [base, tag] = lower.split(':');
   if (!base) return null;
 
-  // Extract params from tag
-  const paramsMatch = (tag || '').match(/^(\d+(?:\.\d+)?)b/);
-  const params = paramsMatch ? parseFloat(paramsMatch[1]) : null;
+  // Velikost bývá v tagu (`qwen3.5:27b`), ale u implicitně otagovaných modelů
+  // je v základu jména a tag je `latest` (`deepseek-r1-32b:latest`,
+  // `qwen3-30b-a3b:latest`).  Bez druhého pokusu vyjde params null a model se
+  // nedá spárovat vůbec.
+  let params = null;
+  const tagParams = (tag || '').match(/^(\d+(?:\.\d+)?)b\b/);
+  if (tagParams) {
+    params = parseFloat(tagParams[1]);
+  } else {
+    const baseParams = base.match(/[-_](\d+(?:\.\d+)?)b(?:[-_]|$)/);
+    if (baseParams) params = parseFloat(baseParams[1]);
+  }
 
   // Extract family — strip version numbers and suffixes
   // "qwen2.5" → "qwen", "llama3.1" → "llama", "deepseek-r1" → "deepseek"
@@ -239,11 +292,10 @@ export function parseOllamaName(name) {
   if (!familyMatch) return null;
   const family = familyMatch[1];
 
-  // Extract version from base: "qwen2.5" → "2.5", "llama3.1" → "3.1"
-  const versionMatch = base.match(/(\d+(?:\.\d+)?)/);
-  const version = versionMatch ? versionMatch[1] : null;
+  const version = extractFamilyVersion(base, family);
+  const { hard, soft } = extractVariants(base);
 
-  return { family, version, params };
+  return { family, version, params, hard, soft };
 }
 
 // ─── Matching ────────────────────────────────────────────────────────────────
@@ -256,6 +308,19 @@ export function parseOllamaName(name) {
  * @param {Array} candidates - Ollama model candidates (with .name field)
  * @returns {Map<string, Object>} Map of ollamaName → whatllmModel
  */
+function sameSet(a, b) {
+  if (a.size !== b.size) return false;
+  for (const v of a) if (!b.has(v)) return false;
+  return true;
+}
+
+function setDistance(a, b) {
+  let d = 0;
+  for (const v of a) if (!b.has(v)) d++;
+  for (const v of b) if (!a.has(v)) d++;
+  return d;
+}
+
 export function matchModels(whatllmModels, candidates) {
   const matches = new Map();
 
@@ -269,30 +334,77 @@ export function matchModels(whatllmModels, candidates) {
     const cParsed = parseOllamaName(candidate.name);
     if (!cParsed?.family) continue;
 
-    // Find best matching whatllm entry: exact family + closest params
-    let bestMatch = null;
-    let bestParamDelta = Infinity;
-
+    const viable = [];
     for (const wm of parsed) {
-      // Family must match exactly
-      if (wm._parsed.family !== cParsed.family) continue;
+      const w = wm._parsed;
 
-      // Both must have params — cloud-only models (no params) can't reliably match
-      if (wm._parsed.params == null || cParsed.params == null) continue;
+      // Rodina musí sedět přesně.
+      if (w.family !== cParsed.family) continue;
 
-      // Params must be within 10%
-      const delta = Math.abs(wm._parsed.params - cParsed.params);
-      const maxP = Math.max(wm._parsed.params, cParsed.params);
-      if (delta / maxP > 0.10) continue; // >10% mismatch → skip
-      if (delta < bestParamDelta) {
-        bestParamDelta = delta;
-        bestMatch = wm;
+      // Generace musí sedět, známe-li ji na obou stranách.  Bez této podmínky
+      // se `qwen2.5:32b` spároval s `Qwen3 32B` a `qwen3.5:27b` s `Qwen3.6 27B`
+      // — tedy s jinou generací, a scoring dostal cizí čísla s jistotou 0.85.
+      if (w.version != null && cParsed.version != null && w.version !== cParsed.version) continue;
+
+      // Specializace musí sedět: coder model není zaměnitelný za obecný ani za
+      // Omni. Kvůli tomu se `qwen3-coder:30b` párovalo s `Qwen3 Omni 30B A3B`.
+      if (!sameSet(w.hard, cParsed.hard)) continue;
+
+      // Velikost musí sedět do 10 %, známe-li ji na obou stranách.  Když ji
+      // jedna strana neuvádí (`Devstral Small 2`), rozhodne rodina, generace
+      // a specializace.
+      let paramDelta = null;
+      if (w.params != null && cParsed.params != null) {
+        const delta = Math.abs(w.params - cParsed.params);
+        if (delta / Math.max(w.params, cParsed.params) > 0.10) continue;
+        paramDelta = delta;
+      }
+
+      // Sama shoda rodiny nestačí — rodiny jako `deepseek` mají v žebříčku
+      // desítky položek od 7B distilů po frontier modely.  Bez tohohle
+      // požadavku se `deepseek-r1-32b` spároval s `DeepSeek V4 Pro` (q=53.2).
+      // Rozlišovacím znakem je porovnatelná velikost, porovnatelná generace,
+      // nebo přesná shoda měkkých variant (`devstral-small-2` ↔
+      // `Devstral Small 2`, kde velikost ani generace v názvu nejsou).
+      //
+      // Shoda dvou prázdných množin variant se za rozlišovací znak nepočítá —
+      // „obojí bez přívlastku“ neříká nic a `claude:latest` by se spároval s
+      // libovolným modelem téže rodiny.
+      const hasDiscriminator = paramDelta != null
+        || (w.version != null && cParsed.version != null)
+        || (w.soft.size > 0 && sameSet(w.soft, cParsed.soft));
+      if (!hasDiscriminator) continue;
+
+      viable.push({
+        wm,
+        paramDelta: paramDelta ?? Number.MAX_SAFE_INTEGER,
+        softDistance: setDistance(w.soft, cParsed.soft),
+      });
+    }
+
+    if (viable.length === 0) continue;
+
+    viable.sort((a, b) =>
+      a.paramDelta - b.paramDelta
+      || a.softDistance - b.softDistance
+      || (b.wm.qualityIndex - a.wm.qualityIndex));
+
+    // Dva stejně dobré zásahy s výrazně odlišnou kvalitou znamenají, že název
+    // na rozlišení nestačí.  Radši žádná data než tiše vybraná půlka.
+    const [best, second] = viable;
+    if (second
+      && second.paramDelta === best.paramDelta
+      && second.softDistance === best.softDistance) {
+      const spread = Math.abs(best.wm.qualityIndex - second.wm.qualityIndex);
+      const scale = Math.max(best.wm.qualityIndex, second.wm.qualityIndex, 1);
+      if (spread / scale > 0.15) {
+        logger.warn('WhatLLM',
+          `${candidate.name}: nejednoznačná shoda (${best.wm.name} q=${best.wm.qualityIndex} vs ${second.wm.name} q=${second.wm.qualityIndex}) — přeskakuji`);
+        continue;
       }
     }
 
-    if (bestMatch) {
-      matches.set(candidate.name, bestMatch);
-    }
+    matches.set(candidate.name, best.wm);
   }
 
   return matches;
@@ -379,6 +491,80 @@ export async function fetchModels() {
  * @param {Array}  [opts.whatllmModels] - Pre-fetched whatllm data (for testing)
  * @returns {Promise<{ enriched: number, total: number }>}
  */
+/** Průměr neprázdných benchmarků katalogové položky. */
+function catalogBenchmarkAverage(entry) {
+  const values = Object.values(entry?.benchmarks || {}).filter(v => v != null);
+  if (values.length === 0) return null;
+  return values.reduce((a, b) => a + b, 0) / values.length;
+}
+
+/** Hodnota v zadaném percentilu seřazeného pole (lineární interpolace). */
+function quantile(sorted, p) {
+  if (sorted.length === 0) return null;
+  if (sorted.length === 1) return sorted[0];
+  const pos = Math.min(Math.max(p, 0), 1) * (sorted.length - 1);
+  const lo = Math.floor(pos);
+  const hi = Math.ceil(pos);
+  if (lo === hi) return sorted[lo];
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);
+}
+
+/**
+ * Sestaví převod z whatllm `qualityIndex` na stupnici katalogových benchmarků.
+ *
+ * Obě čísla jsou „kvalita modelu“, ale měří ji v jiném režimu obtížnosti:
+ * whatllm skládá index z frontier sad (GPQA Diamond, AIME, SWE-Bench Verified),
+ * kde lokální 14B model dostane ~5 ze 100, zatímco katalog nese klasické sady
+ * (HumanEval, MMLU), kde tentýž model dá 0.6–0.8.  Na modelech, které jsou v
+ * obou zdrojích, spolu ty hodnoty prakticky nekorelují — lineární přepočet by
+ * proto fitoval šum.
+ *
+ * Dělení globálním maximem (původní chování) posunulo každý whatllm model o
+ * polovinu dolů proti katalogovým, takže scoring trestal právě ty modely, které
+ * whatllm náhodou zná.  Místo toho se zachová jen **pořadí**: percentil modelu
+ * v rozdělení whatllm se přeloží na tentýž percentil rozdělení katalogu.
+ * Výsledek je s katalogem souměřitelný z konstrukce, aniž by se předstíral
+ * vztah mezi absolutními hodnotami.
+ *
+ * @returns {(qualityIndex: number) => number|null}
+ */
+export async function buildScaleCalibration(whatllmModels, catalogOverride) {
+  let catalog = catalogOverride;
+  if (!catalog) {
+    try {
+      const mod = await import('./model-catalog.js');
+      catalog = mod.CATALOG || mod.default?.CATALOG;
+    } catch { catalog = null; }
+  }
+
+  const catalogScores = (catalog || [])
+    .map(catalogBenchmarkAverage)
+    .filter(v => v != null)
+    .sort((a, b) => a - b);
+
+  const whatllmScores = (whatllmModels || [])
+    .map(m => m.qualityIndex)
+    .filter(v => v != null && v > 0)
+    .sort((a, b) => a - b);
+
+  // Bez obou rozdělení nelze převádět; raději nic než nesouměřitelné číslo.
+  if (catalogScores.length < 2 || whatllmScores.length < 2) {
+    logger.warn('WhatLLM', 'Kalibrace stupnice není k dispozici — enrichment přeskočen');
+    return () => null;
+  }
+
+  return (qualityIndex) => {
+    if (qualityIndex == null || qualityIndex <= 0) return null;
+    let below = 0;
+    for (const v of whatllmScores) {
+      if (v < qualityIndex) below++; else break;
+    }
+    const percentile = below / (whatllmScores.length - 1);
+    const mapped = quantile(catalogScores, percentile);
+    return mapped == null ? null : Math.max(0, Math.min(1, mapped));
+  };
+}
+
 export async function enrichCandidates(candidates, opts = {}) {
   const whatllmModels = opts.whatllmModels || await fetchModels();
   if (!whatllmModels || whatllmModels.length === 0) {
@@ -388,8 +574,7 @@ export async function enrichCandidates(candidates, opts = {}) {
   const matches = matchModels(whatllmModels, candidates);
   let enriched = 0;
 
-  // Find max qualityIndex for normalization (practical ceiling, not 100)
-  const maxQuality = Math.max(...whatllmModels.map(m => m.qualityIndex || 0), 1);
+  const calibration = await buildScaleCalibration(whatllmModels, opts.catalog);
 
   for (const candidate of candidates) {
     // Skip models that already have high-confidence benchmarks (catalog, manually set)
@@ -398,8 +583,10 @@ export async function enrichCandidates(candidates, opts = {}) {
     const whatllm = matches.get(candidate.name);
     if (!whatllm || !whatllm.qualityIndex) continue;
 
-    // Normalize qualityIndex to 0-1 scale (relative to observed max)
-    const rawScore = whatllm.qualityIndex / maxQuality;
+    // Převod na škálu katalogu (viz buildScaleCalibration).  Dřív se dělilo
+    // globálním maximem, což míchalo dvě nesouměřitelné stupnice.
+    const rawScore = calibration(whatllm.qualityIndex);
+    if (rawScore == null) continue;
 
     // Apply quantization penalty
     const qp = getQuantPenalty(candidate.recommendedQuant || candidate.quant);

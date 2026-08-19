@@ -8,6 +8,7 @@ import {
   matchModels,
   getQuantPenalty,
   enrichCandidates,
+  buildScaleCalibration,
   clearCache,
   WHATLLM_CONFIDENCE,
 } from '../src/upgrade/whatllm-client.js';
@@ -563,30 +564,78 @@ console.log('\n── 20. clearCache ──');
 
 console.log('\n── 21. Score normalization ──');
 {
-  // The max quality in SAMPLE_WHATLLM_MODELS is 55.00 (Claude Opus 4.5)
-  // Qwen3.5 27B has qualityIndex 37.18
-  // Candidate qwen3.5:27b should get: 37.18/55 * 0.92 = 0.6219... * 0.92 = 0.572
+  // Dřív se qualityIndex dělil globálním maximem. To míchalo dvě
+  // nesouměřitelné stupnice: whatllm index stojí na frontier sadách (GPQA,
+  // AIME, SWE-Bench), kde lokální 14B model dostane ~5/100, zatímco katalog
+  // nese HumanEval/MMLU, kde tentýž model dá 0.6+. Na modelech přítomných v
+  // obou zdrojích ty hodnoty nekorelují, takže se dnes zachovává jen pořadí:
+  // percentil ve whatllm → týž percentil v rozdělení katalogu.
   const candidates = [{
-    name: 'qwen3.5:27b',  // Note: different from qwen2.5
+    name: 'qwen3.5:27b',
     benchmarks: {},
     benchmarkConfidence: 0.30,
     params: 27,
   }];
 
-  // Make sure there's a "Qwen3.5 27B" in whatllm that matches "qwen3.5:27b"
-  // parseOllamaName('qwen3.5:27b') → family: 'qwen', params: 27
-  // parseWhatllmName('Qwen3.5 27B') → family: 'qwen', params: 27
-  // → should match!
-
   await enrichCandidates(candidates, { whatllmModels: SAMPLE_WHATLLM_MODELS });
 
   if (candidates[0].benchmarkSource === 'whatllm') {
-    const expected = (37.18 / 55.0) * 0.92;
-    assertApprox(candidates[0].benchmarks.swebench, expected, 0.01, 'qwen3.5 normalized score');
+    const score = candidates[0].benchmarks.swebench;
+    // Souměřitelnost: výsledek musí padnout do rozsahu katalogových průměrů,
+    // ne pod něj jako u dělení globálním maximem.
+    assert(score > 0.15 && score < 0.85, 'kalibrované skóre je v rozsahu katalogu');
+    // Všechny klíče nesou tutéž hodnotu (známé omezení — index nemá rozpad).
+    assertApprox(candidates[0].benchmarks.mmlu, score, 1e-9, 'všechny klíče stejné');
   } else {
-    // If not matched (due to version mismatch), that's also acceptable
     assert(true, 'qwen3.5 match depends on family+params resolution');
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 21b. Kalibrace zachovává pořadí a je souměřitelná s katalogem
+// ═══════════════════════════════════════════════════════════════════════════
+
+console.log('\n── 21b. buildScaleCalibration ──');
+{
+  const calibrate = await buildScaleCalibration(SAMPLE_WHATLLM_MODELS);
+
+  const qs = SAMPLE_WHATLLM_MODELS
+    .map(m => m.qualityIndex)
+    .filter(v => v != null && v > 0)
+    .sort((a, b) => a - b);
+
+  let monotonic = true;
+  let prev = -Infinity;
+  for (const q of qs) {
+    const v = calibrate(q);
+    if (v == null || v < prev - 1e-9) { monotonic = false; break; }
+    prev = v;
+  }
+  assert(monotonic, 'kalibrace je neklesající — vyšší qualityIndex nedá nižší skóre');
+
+  const lowest = calibrate(qs[0]);
+  const highest = calibrate(qs[qs.length - 1]);
+  assert(highest > lowest, 'nejlepší model dostane víc než nejhorší');
+  assert(lowest >= 0 && highest <= 1, 'výstup zůstává v rozsahu 0–1');
+
+  assertEq(calibrate(0), null, 'nulový index nedá skóre');
+  assertEq(calibrate(null), null, 'chybějící index nedá skóre');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 21c. Bez rozdělení se nekalibruje — radši nic než nesouměřitelné číslo
+// ═══════════════════════════════════════════════════════════════════════════
+
+console.log('\n── 21c. kalibrace bez podkladu ──');
+{
+  const calibrate = await buildScaleCalibration([{ name: 'X', qualityIndex: 10 }], []);
+  assertEq(calibrate(10), null, 'prázdný katalog → žádná kalibrace');
+
+  const candidates = [{
+    name: 'qwen3.5:27b', benchmarks: {}, benchmarkConfidence: 0.30, params: 27,
+  }];
+  await enrichCandidates(candidates, { whatllmModels: SAMPLE_WHATLLM_MODELS, catalog: [] });
+  assert(candidates[0].benchmarkSource !== 'whatllm', 'bez kalibrace se nic nezapíše');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
