@@ -74,10 +74,20 @@ function applyNoStore(res) {
   }
 }
 
-export function createApprovalRoutes({ db, sendJSON, parseBody }) {
+export function createApprovalRoutes({ db, sendJSON, parseBody, sendStaticFile }) {
   const rawDb = db?.db || db;
 
   return {
+    // ── Plocha ────────────────────────────────────────────────────────────
+    //
+    // Routy pod tím existovaly, rozhraní ne — z desktopu se rozhodovalo
+    // `curl`em.  Plocha bez rozhraní je plocha jen na papíře: „telefon nesmí
+    // být jedinou možností" neplatí, když ta druhá možnost vyžaduje, aby si
+    // člověk pamatoval tvar JSONu a otisk opsal z jiné odpovědi.
+    'GET /approvals-ui': async (req, res) => {
+      await sendStaticFile(res, 'src/approvals/approvals.html', 'text/html');
+    },
+
     // ── Fronta ────────────────────────────────────────────────────────────
     //
     // Stejná množina jako na telefonu — nerozhodnuté, seřazené od nejstaršího.
