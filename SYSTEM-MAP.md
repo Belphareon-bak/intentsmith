@@ -143,7 +143,7 @@ Aktuální registry fingerprint je
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 
-Tool census ze zdroje: **3 JavaScript soubory, 5 720 řádků, 153 top-level
+Tool census ze zdroje: **3 JavaScript soubory, 5 734 řádků, 153 top-level
 nástrojových deklarací**. Počet 213 v dřívější inventuře byl textový false count.
 
 ---

@@ -2007,7 +2007,15 @@ ChatController.handle = async function(request) {
     // běhy — píší nezávisle a mohou se přepsat.  Dokud se `runId` odvozoval ze
     // `sessionId`, byly pro zámek jedním držitelem a `027` mezi nimi nechránilo;
     // review to reprodukovalo dvěma souběžnými zápisy jedné relace.
-    turnId: `turn-${randomUUID()}`,
+    //
+    // **Příchozí `turnId` má přednost.**  Kdo tah zahájil, ten ho i pojmenoval:
+    // `m1` frame nese `turnId` z klienta a session adapter ho posílá dál.
+    // Přepsat ho vlastním UUID sice konfliktní zápisy pořád oddělí, ale rozbije
+    // korelaci approvalu se skutečným během a stabilitu při replayi — approval
+    // by ukazoval na běh, který pod tím jménem nikde jinde neexistuje.
+    // Vlastní UUID je proto **jen záloha** pro cesty, které identitu tahu
+    // nenesou (legacy HTTP chat).
+    turnId: request?.turnId || context.turnId || `turn-${randomUUID()}`,
     // v82.1: Inline attachments for FILE handlers (avoids disk read for attached content)
     attachments: request.attachments || [],
   };

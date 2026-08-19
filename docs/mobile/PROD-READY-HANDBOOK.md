@@ -62,7 +62,7 @@ přijatelný mechanismus napříč procesy, (4) `adb reverse` je pro prototyp
 dostatečná cesta, (5) `EncryptedSharedPreferences` + systémový zámek jsou
 přijatelná hranice **pro interní použití**.
 
-### P0-2 Skutečný effect seam — ⚠️ **ZAPOJENO, ALE NEZAPNUTO** (review 2026-08-19)
+### P0-2 Skutečný effect seam — ✅ **ZAPNUTO** (2026-08-19), rozsah `FILE_WRITE` + `fs.write`
 
 Nezávislé review našlo v `guardedWrite` tři `P0` vady (TOCTOU, zápis po ztrátě
 lease, chyba čtení vydávaná za neexistující soubor). Všechny jsou opravené a
@@ -114,6 +114,25 @@ nikoho nezachrání, když se na ni nikdo nedívá.
 **Pozor na rozsah.** Řízená cesta pokrývá `FILE_WRITE` intent a nástroj
 `fs.write`. **Nepokrývá** patch engine, skill write step ani další zapisovatele —
 mediace zbytku je samostatný balík a slib se zatím nesmí formulovat šířeji.
+
+**Zrušení, timeout a osiřelý efekt.** Zrušení i vypršení času efekt
+**zastaví** — signál teče z controlleru přes handler i nástroj až do
+`guardedWrite`, a `executeWithTimeout` po vypršení abortuje a **čeká na
+terminální zastavení**. Když se efekt nezastaví ani v odkladu (2 s), stav
+**není** `timeout`, ale `EFFECT_ORPHANED`:
+
+| | `timeout` | `orphaned` |
+|---|---|---|
+| Co víme | efekt **neproběhl** | **nevíme**, jestli proběhl |
+| `retryable` | ano | **ne, nikdy** |
+| Na telefonu | `run.failed` | `run.unknown` — „Stav běhu není jistý" |
+
+Rozdíl je celý smysl `025` a návrhový dokument ho žádá výslovně
+(`docs/inventory/22-effect-authority-trace.md`): `cancelled` ani `timed_out` se
+nesmí vydat před potvrzeným ukončením efektu, jinak je pravdivý stav `orphaned`.
+Zopakovat efekt, o kterém nevíme, jestli proběhl, je nejrychlejší cesta k tomu,
+aby proběhl dvakrát — proto `orphaned` nikdy nespustí auto-retry a nespadne ani
+do LLM fallbacku, který by ho zakryl klidnou větou.
 
 Co zbývá: rozšířit na další efekty než zápis souboru (shell, mazání, nasazení) a
 doplnit jim vlastní stropy podle `025`.

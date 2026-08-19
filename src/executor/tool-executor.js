@@ -262,6 +262,8 @@ export class ToolResult {
       errorCode,
       meta: {
         suggestion,
+        // `EFFECT_ORPHANED` tu schválně **není**: efekt, o kterém nevíme, jestli
+        // nastal, se nesmí zopakovat.
         retryable: ['SOURCE_BLOCKED', 'SOURCE_UNAVAILABLE', 'TIMEOUT'].includes(errorCode),
       },
     });
@@ -277,6 +279,15 @@ export const ToolErrorCode = {
   INVALID_PARAMS: 'INVALID_PARAMS',
   SANDBOX_VIOLATION: 'SANDBOX_VIOLATION', // v44.2 - path outside project
   READ_ONLY_PROJECT: 'READ_ONLY_PROJECT', // v44.5 - write in read-only mode
+  // Efekt se po abortu nezastavil v odkladu.  **Není to timeout** a nesmí se
+  // na timeout zploštit: timeout znamená „nestalo se to", orphaned znamená
+  // „nevíme, jestli se to stalo".  Rozdíl je celý smysl `025` a návrhový
+  // dokument ho žádá výslovně (`22-effect-authority-trace.md` §Effect):
+  // `cancelled` ani `timed_out` se nesmí vydat před potvrzeným ukončením.
+  //
+  // Nikdy není `retryable`.  Zopakovat efekt, o kterém nevíme, jestli
+  // proběhl, je nejrychlejší cesta k tomu, aby proběhl dvakrát.
+  EFFECT_ORPHANED: 'EFFECT_ORPHANED',
   UNKNOWN: 'UNKNOWN',
 };
 
@@ -293,6 +304,10 @@ export class ExecutionResult {
     error = null,
     errorCode = null,
     retryable = false,
+    // Efekt se po abortu nezastavil: nevíme, jestli nastal.  Nese se odděleně
+    // od `status`, protože `status` zůstává `FAILED` — orphaned **není** úspěch
+    // a spotřebitelé, kteří se ptají „nepovedlo se?", mají dostat ano.
+    orphaned = false,
     suggestion = null,
     duration = 0,
     metadata = {},
@@ -302,6 +317,7 @@ export class ExecutionResult {
     this.error = error;              // Top-level error if FAILED
     this.errorCode = errorCode;      // Machine-readable error code
     this.retryable = retryable;      // Can be retried
+    this.orphaned = orphaned;        // Outcome UNKNOWN — effect may or may not have happened
     this.suggestion = suggestion;    // Suggested action for recovery
     this.duration = duration;
     this.metadata = metadata;
@@ -892,15 +908,23 @@ export class ToolExecutor {
 
     // v45.0: No summary - tools return DATA only
     // LLM synthesizes response via synthesizeWithLLM() in handlers
+    // Osiřelý efekt se nesmí ztratit v poli výsledků.  Zvedá se na úroveň
+    // celého běhu, protože „jeden z nástrojů možná něco udělal" je vlastnost
+    // běhu, ne detail jednoho řádku — a telefon podle toho ukáže `run.unknown`
+    // místo `run.failed`.
+    const orphaned = toolResults.some(r => r.errorCode === ToolErrorCode.EFFECT_ORPHANED);
+
     return new ExecutionResult({
       status,
       toolResults,  // Array of ToolResult (structured data)
       duration,
+      orphaned,
       metadata: {
         intent: decision.intent,
         toolCount: decision.tools.length,
         retryCount,
         autoRetried: retryCount > 0,
+        ...(orphaned ? { orphaned: true } : {}),
       },
     });
   }
@@ -966,12 +990,17 @@ export class ToolExecutor {
     clearTimeout(graceTimer);
 
     if (stopped === 'stuck') {
+      // **Orphaned, ne timeout.**  Znění schválně nezačíná slovem „Timeout":
+      // `classifyError` se dívá i na text a review reprodukovalo, že se tenhle
+      // stav přeložil na obyčejný retryable `TIMEOUT` a auto-retry pak spustil
+      // druhý efekt.  Kód se kontroluje dřív než text, ale spoléhat se jen na
+      // to by znamenalo nechat past nastraženou pro příště.
       throw Object.assign(
         new Error(
-          `Timeout after ${timeout}ms and the effect did not stop within ${TOOL_ABORT_GRACE_MS}ms `
-          + '— its outcome is UNKNOWN',
+          `Effect did not stop within ${TOOL_ABORT_GRACE_MS}ms after abort `
+          + `(deadline was ${timeout}ms) — its outcome is UNKNOWN, treat the run as orphaned`,
         ),
-        { code: 'EFFECT_STOP_UNKNOWN' },
+        { code: ToolErrorCode.EFFECT_ORPHANED, retryable: false, orphaned: true },
       );
     }
 
@@ -985,6 +1014,17 @@ export class ToolExecutor {
    */
   classifyError(err) {
     const message = err.message?.toLowerCase() || '';
+
+    // **Kód má přednost před textem.**  Osiřelý efekt se nesmí přeložit na
+    // retryable timeout — druhý pokus by provedl efekt, o kterém nevíme, jestli
+    // ten první neproběhl.  Tohle je ta klasifikace, kterou review našlo.
+    if (err.code === ToolErrorCode.EFFECT_ORPHANED) {
+      return {
+        code: ToolErrorCode.EFFECT_ORPHANED,
+        retryable: false,
+        suggestion: 'Není jisté, jestli operace proběhla. Ověř stav cíle, než ji spustíš znovu.',
+      };
+    }
 
     // v44.2 - Sandbox violation (path outside project)
     if (err.code === ToolErrorCode.SANDBOX_VIOLATION || message.includes('sandbox_violation')) {

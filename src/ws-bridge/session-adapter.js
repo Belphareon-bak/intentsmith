@@ -776,8 +776,20 @@ export function createSessionAdapter({
         if (response.state !== undefined) {
           try { metadata.state = JSON.parse(JSON.stringify(response.state)); } catch (_) {}
         }
+        // Osiřelý efekt není `ok`.
+        //
+        // Turn doběhl a odpověď existuje, ale efekt pod ním se nepodařilo
+        // zastavit a nikdo neví, jestli nastal.  Ohlásit `ok` by znamenalo
+        // poslat na telefon `run.ok` — „Běh doběhl, výsledek je v konverzaci" —
+        // nad stavem, který nikdo nezná.  `orphaned` není v `TERMINAL_S1`, takže
+        // se mapuje na `run.unknown`: „Stav běhu není jistý. Zjisti stav
+        // v žurnálu operací."  To je jediná pravdivá věta, kterou tu jde říct.
+        const orphaned = response?.metadata?.orphaned === true
+          || response?.state?.orphaned === true;
+        if (orphaned) metadata.orphaned = true;
+
         m1Egress.terminal(createM1WsConversationResult(m1Command, {
-          status: 'ok',
+          status: orphaned ? 'orphaned' : 'ok',
           response: {
             content: response.response,
             metadata,

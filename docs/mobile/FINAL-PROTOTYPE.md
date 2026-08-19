@@ -180,7 +180,7 @@ Tři sondy z review jsou převedené na regresní testy
 
 Na runtime snapshotu a znovu po dokumentační konsolidaci prošlo:
 
-- `npm run test:mobile`: **31/31 aktivních mobilních programů PASS**;
+- `npm run test:mobile`: **36/36 aktivních mobilních programů PASS** (bylo 31/31 před approval balíkem);
 - `mobile-browser-a11y`: **22/22 PASS** při ručním spuštění — prerekvizita se
   doinstaluje jedním příkazem (`npx puppeteer browsers install chrome`).
   V gate zůstává **withheld**: stav `BLOCKED` je vlastnost registru, ne mého
@@ -206,21 +206,21 @@ Na runtime snapshotu a znovu po dokumentační konsolidaci prošlo:
 Tyto výsledky nejsou release verdict. Chybí fresh-checkout attestace root i
 `mobile-app` instalace/buildu, fyzický telefon a nezávislá akceptace.
 
-### Otevřený červený boundary gate
+### Boundary gate — zelený od 2026-08-19
 
-`node scripts/module-boundary-ratchet.mjs` zůstává **FAIL**:
+`node scripts/module-boundary-ratchet.mjs` **PASS**. Reviewer schválil směry
+závislostí a odmítl jedinou věc — pojmenování sdíleného jádra jako `src/mobile`.
+Autorita se proto přesunula do `src/approvals/` a baseline se rebaselinoval
+v `85d98215`:
 
 ```text
-baselineEdges=1048 currentEdges=1051 added=3
-src/notifications/index.js       -> src/notifications/channels/mobile.js
-src/mobile/companion-producer.js -> src/mobile/approval-authority.js
-src/mobile/companion-producer.js -> src/notifications/channels/mobile.js
+baselineEdges=1077 currentEdges=1075 added=0 removed=2 cycles=3 filesInCycles=28
 ```
 
-První hrana je zděděná z mobile baseline, dvě další jsou nové producentské
-hrany. Baseline se na prototypové větvi nepřepisuje. Integrátor musí hrany
-samostatně přijmout, odmítnout nebo změnit architekturu; do té doby není gate
-zelený.
+Dvě hrany naopak **ubyly** (`effects.js` už nesahá na zámek ani atomický zápis
+přímo). Utažení baseline na 1075 je rozhodnutí integrátora, ne podmínka gate —
+ratchet propouští jen přírůstky.
+
 
 ## 5. Co přesně chybí do production-ready
 

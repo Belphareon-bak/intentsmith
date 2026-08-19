@@ -304,7 +304,7 @@ tools['fs.write'] = {
   },
   permissions: ['fs.write'],
   meta: { sideEffects: true, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'write' },
-  async execute(params, context = {}) {
+  async execute(params = {}, context = {}) {
     const { path, content } = params;
 
     // Nástrojová cesta jde přes tutéž řízenou cestu jako handler (P0-2).
@@ -314,11 +314,25 @@ tools['fs.write'] = {
     // není jedna cesta.
     const { writeUserFile } = await import('../executor/effects.js');
 
+    // **Identita a zrušení se čtou z `params` i z `context`.**
+    //
+    // Registry nástroje se volají dvěma způsoby: `execute(params)` s jedním
+    // argumentem (tak je volá většina volajících i testy) a `execute(params,
+    // context)`.  Předchozí verze četla jen `context`, takže při jednoargumentovém
+    // volání neměla ani běh, ani signál — a zrušení se do zápisu nedostalo.
+    // Review to reprodukovalo: po abortu zůstal approval čekat a pozdější
+    // schválení vyrobilo soubor.
+    const runId = params.runId || context.runId
+      || params.turnId || context.turnId
+      || `tool:${params.sessionId || context.sessionId || 'anonymous'}`;
+    const signal = params.signal || context.signal || null;
+
     try {
       const result = await writeUserFile({
         filePath: path,
         content: String(content ?? ''),
-        runId: context.runId || `tool:${context.sessionId || 'anonymous'}`,
+        runId,
+        signal,
         ownerLabel: 'fs.write',
       });
       if (!result.written) {

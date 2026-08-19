@@ -281,7 +281,8 @@ await test('A4 odmítnutí řekne proč, ne jen že se nepovedlo', async () => {
 // Testovat jednotku tady nestačí — musí se projít handlerem a nástrojem.
 
 const { handleFileWriteDecision } = await import('../src/chat/handlers/file.js');
-const { ToolExecutor } = await import('../src/executor/tool-executor.js');
+const executorModule = await import('../src/executor/tool-executor.js');
+const { ToolExecutor } = executorModule;
 const { ToolType, DecisionType } = await import('../src/chat/cre-decision.js');
 
 function writeDecision(filePath) {
@@ -371,6 +372,112 @@ await test('A2 timeout nástroje efekt zastaví, ne jen přestane čekat', async
   approveAnyPending({ path: target(), content });
   await yieldTick();
   assert.equal(existsSync(target()), false, 'vznikl LATE-WRITE přes nástroj — sonda A2');
+});
+
+
+// ── Closeout: tři sondy z druhého kola review ──────────────────────────────
+//
+// První kolo zavřelo chatový handler a `ToolExecutor.FILE_WRITE`.  Druhé kolo
+// ukázalo tři místa, kudy to pořád teklo, a všechna tři mají stejný tvar jako
+// ty předchozí: **oprava byla v jedné cestě a slib mluvil o dvou.**
+
+const { ToolErrorCode } = await import('../src/executor/tool-executor.js');
+
+await test('C1 nástroj fs.write předá zrušení — pozdní souhlas soubor nevyrobí', async () => {
+  clear();
+  enable();
+  const { toolRegistry } = await import('../src/tools/registry.js');
+  const content = 'SHOULD-NOT-WRITE';
+  const controller = new AbortController();
+
+  // Jednoargumentové volání — přesně tak, jak nástroj volá většina volajících.
+  // Předchozí verze četla běh i signál jen z druhého argumentu, takže takhle
+  // volaný nástroj neměl ani jedno.
+  const running = toolRegistry.get('fs.write').execute({
+    path: target(), content, runId: 'turn-C1', signal: controller.signal,
+  });
+
+  assert.ok(await pendingId(), 'fs.write nevyrobil approval');
+  controller.abort();
+  const result = await withDeadline(running, 15_000, 'fs.write po zrušení nedoběhl');
+
+  assert.equal(result.written, 0, 'fs.write zapsal po zrušení');
+  assert.equal(result.refused, true);
+
+  approveAnyPending({ path: target(), content });
+  await yieldTick();
+  assert.equal(existsSync(target()), false,
+    'po zrušení a pozdním souhlasu vznikl SHOULD-NOT-WRITE — sonda C1');
+});
+
+await test('C2 osiřelý efekt se neklasifikuje jako retryable timeout', () => {
+  const { ToolExecutor } = executorModule;
+  const executor = new ToolExecutor();
+
+  // Přesně ta chyba, kterou `executeWithTimeout` vyrábí, když se efekt po
+  // abortu nezastaví.
+  const orphan = Object.assign(
+    new Error('Effect did not stop within 2000ms after abort (deadline was 150ms) — its outcome is UNKNOWN'),
+    { code: ToolErrorCode.EFFECT_ORPHANED, retryable: false, orphaned: true },
+  );
+
+  const classified = executor.classifyError(orphan);
+  assert.equal(classified.code, ToolErrorCode.EFFECT_ORPHANED,
+    'osiřelý efekt se přeložil na jiný kód — dřív to byl obyčejný TIMEOUT');
+  assert.equal(classified.retryable, false,
+    'osiřelý efekt je retryable — auto-retry by spustil druhý efekt nad stavem, který nikdo nezná');
+
+  // A pro jistotu i to, že se text „timeout" nepřebije nad kódem: kdyby se
+  // klasifikace vrátila k porovnávání textu, tenhle případ ji chytí.
+  const plainTimeout = new Error('Timeout after 150ms');
+  assert.equal(executor.classifyError(plainTimeout).retryable, true,
+    'obyčejný timeout přestal být retryable — to je jiná regrese');
+});
+
+await test('C2 osiřelost se nese na úrovni běhu, ne jen v jednom řádku výsledku', () => {
+  const { ToolResult } = executorModule;
+  const failed = ToolResult.failed({
+    type: 'file_write', error: 'x', errorCode: ToolErrorCode.EFFECT_ORPHANED,
+  });
+  assert.equal(failed.meta.retryable, false,
+    'osiřelý výsledek se tváří jako opakovatelný');
+});
+
+await test('C3 předaný turnId je skutečně tím, kdo drží zámek', async () => {
+  clear();
+  enable();
+  const { listHeldLocks } = await import('../src/executor/file-lock.js');
+
+  const running = writeUserFile({
+    filePath: target(), content: 'x', runId: 'wire-turn-123', workspace, timeoutMs: 20_000,
+  });
+  await pendingId();
+
+  // Identita se nesmí cestou dolů ztratit ani přejmenovat: kdo tah pojmenoval,
+  // ten musí být vidět jako držitel zámku i jako `run_id` approvalu.
+  const held = listHeldLocks(db);
+  assert.equal(held.length, 1);
+  assert.equal(held[0].run_id, 'wire-turn-123',
+    'zámek drží někdo jiný, než kdo tah zahájil');
+
+  const approval = db.prepare(
+    'SELECT run_id FROM mobile_approvals WHERE decided_at IS NULL').get();
+  assert.equal(approval.run_id, 'wire-turn-123',
+    'approval ukazuje na jiný běh — korelace s reálným během je rozbitá');
+
+  approveAnyPending({ path: target(), content: 'x' });
+  await running;
+});
+
+await test('C3 příchozí turnId se zachová, nenahradí se novým UUID', async () => {
+  const { ChatController } = await import('../src/chat/controller.js');
+  // `handle()` je těžká cesta; identita se ověřuje tam, kde se skládá kontext —
+  // příchozí `turnId` musí mít přednost před vygenerovaným.
+  const source = readFileSync(new URL('../src/chat/controller.js', import.meta.url), 'utf8');
+  assert.match(source, /turnId: request\?\.turnId \|\| context\.turnId \|\| `turn-\$\{randomUUID\(\)\}`/,
+    'controller přepisuje příchozí turnId vlastním UUID — approval pak ukazuje na běh, '
+    + 'který pod tím jménem nikde jinde neexistuje');
+  assert.ok(ChatController, 'controller se nenačetl');
 });
 
 configureEffects({ db: null, producer: null });
