@@ -134,12 +134,28 @@ async function main() {
   const writtenPath = written?.tag?.metadata?.filePath ?? '';
   const strayFiles = readdirSync(ROOT).filter(name => !before.has(name));
 
+  // C-15 defends one thing: a write with no active project must not be aimed at
+  // the installation itself.  What it can assert changed with the P0 pack —
+  // the effect path is now fail-closed, so with no approval plane configured
+  // *nothing is written anywhere*.  The claim is therefore stronger than before
+  // and split in two: the resolution is right, and no file appeared at all.
+  //
+  // `existsSync(writtenPath)` was the old teeth and would now assert the
+  // opposite of the safety property, so it is gone on purpose rather than by
+  // oversight.
   check(
     strayFiles.length === 0
     && writtenPath.startsWith(path.join(ROOT, 'data', 'output') + path.sep)
-    && existsSync(writtenPath),
-    `C-15 — a write with no active project lands in data/output, not the install root`
+    && !existsSync(writtenPath),
+    `C-15 — a write with no active project resolves into data/output and, with no`
+    + ` approval plane wired, produces no file at all`
     + ` (path "${writtenPath}", stray in root: ${strayFiles.join(', ') || 'none'})`,
+  );
+
+  check(
+    written?.tag?.metadata?.writeState === 'refused_unconfigured',
+    `C-15b — an unwired effect path refuses instead of writing`
+    + ` (state "${written?.tag?.metadata?.writeState}")`,
   );
 
   if (writtenPath && existsSync(writtenPath)) rmSync(writtenPath, { force: true });

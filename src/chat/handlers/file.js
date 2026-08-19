@@ -649,11 +649,15 @@ export async function handleFileWriteDecision(input, decision, context) {
     const guarded = await writeUserFile({
       filePath: validation.resolved,
       content,
-      // Vlastníkem zámku je běh, ne agent (`027`).  Relace je nejbližší, co
-      // chat má: dva zápisy téže relace do téhož souboru nejsou konflikt, dvě
-      // různé relace ano.
-      runId: `chat:${context.sessionId || 'anonymous'}`,
+      // Vlastníkem zámku je **jeden tah**, ne relace (`027`).  Dva tahy jedné
+      // konverzace jsou dva nezávislé běhy a mohou se přepsat; dokud se `runId`
+      // odvozoval ze `sessionId`, byly pro zámek jedním držitelem.
+      runId: context.turnId || `chat:${context.sessionId || 'anonymous'}`,
       ownerLabel: 'chat',
+      // Zrušený tah nesmí zapsat.  Signál je v kontextu od `v63.0`, jen ho sem
+      // nikdo nepředal — takže `guardedWrite` uměl zrušení respektovat a nikdy
+      // se o něm nedozvěděl.
+      signal: context.signal || null,
     });
 
     if (!guarded.written) {

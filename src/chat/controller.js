@@ -11,6 +11,7 @@
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import { logger } from '../core/logger.js';
 import { SafetyEngine } from './safety/engine.js';
@@ -2000,6 +2001,13 @@ ChatController.handle = async function(request) {
     conversationStore: store,
     // v63.0: AbortSignal for cancel propagation (from server req.on('close'))
     signal: signal || null,
+    // P0: identita **jednoho tahu**, ne relace.
+    //
+    // Zámek na soubor vlastní běh (`027`), a dva tahy jedné konverzace jsou dva
+    // běhy — píší nezávisle a mohou se přepsat.  Dokud se `runId` odvozoval ze
+    // `sessionId`, byly pro zámek jedním držitelem a `027` mezi nimi nechránilo;
+    // review to reprodukovalo dvěma souběžnými zápisy jedné relace.
+    turnId: `turn-${randomUUID()}`,
     // v82.1: Inline attachments for FILE handlers (avoids disk read for attached content)
     attachments: request.attachments || [],
   };

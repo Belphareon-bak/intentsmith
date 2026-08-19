@@ -83,18 +83,36 @@ await test('027 druhý běh je odmítnut okamžitě a dozví se, kdo soubor drž
   assert.ok(!sentence.includes('config.js'), 'hlášení o zámku nese cestu k souboru');
 });
 
-await test('027 týž běh podruhé není konflikt — zámek se mu obnoví', () => {
+await test('027 týž běh nedostane držený zámek podruhé — to je souběh, ne opakování', () => {
+  clear();
+  acquireFileLock(db, {
+    workspace: worktreeA, filePath: 'src/config.js', runId: 'run-A', now: 1_000_000,
+  });
+  // Dřív se tohle považovalo za neškodné opakování a zámek se jen obnovil.
+  // Jenže držený zámek znamená, že první operace **ještě běží** — review
+  // reprodukovalo, že dva zápisy jedné relace obě vrátily `written: true`
+  // a na disku zůstal jeden obsah.
+  const again = acquireFileLock(db, {
+    workspace: worktreeA, filePath: 'src/config.js', runId: 'run-A', now: 1_060_000,
+  });
+  assert.equal(again.ok, false, 'druhá souběžná operace téhož běhu dostala zámek');
+  assert.equal(again.reason, 'held_by_self');
+  assert.equal(again.holder.self, true,
+    'vlastní souběh se tváří jako cizí agent — to je pro uživatele jiná zpráva');
+});
+
+await test('027 sekvenční opakování téhož běhu projde — zámek se mezitím pustil', () => {
   clear();
   const first = acquireFileLock(db, {
     workspace: worktreeA, filePath: 'src/config.js', runId: 'run-A', now: 1_000_000,
   });
+  releaseFileLock(db, { lockId: first.lock.id, runId: 'run-A' });
+
   const again = acquireFileLock(db, {
     workspace: worktreeA, filePath: 'src/config.js', runId: 'run-A', now: 1_060_000,
   });
-  assert.equal(again.ok, true);
-  assert.equal(again.reentrant, true);
-  assert.equal(again.lock.id, first.lock.id, 'druhý pokus vyrobil nový zámek místo obnovy');
-  assert.ok(again.lock.expires_at > first.lock.expires_at, 'zámek se neobnovil');
+  assert.equal(again.ok, true, 'po řádném puštění se týž běh k souboru nedostal');
+  assert.notEqual(again.lock.id, first.lock.id, 'vrátil se starý řádek místo nové rezervace');
 });
 
 // ── 2. Co je stejná větev ──────────────────────────────────────────────────

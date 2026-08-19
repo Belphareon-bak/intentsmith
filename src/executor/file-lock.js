@@ -188,21 +188,28 @@ export function acquireFileLock(rawDb, {
 
   const holder = readHeldLock(rawDb, key);
   if (holder) {
-    // Týž běh podruhé není konflikt: je to opakovaný zápis do souboru, který už
-    // drží.  Zámek se mu obnoví, aby dlouhá práce (třeba čekání na approval)
-    // nepropadla uprostřed.
-    if (holder.run_id === runId) {
-      const refreshed = refreshFileLock(rawDb, { lockId: holder.id, runId, ttlMs, now });
-      return { ok: true, lock: refreshed, reentrant: true };
-    }
+    // **Ani týž běh nedostane zámek dvakrát.**
+    //
+    // Dřív se to považovalo za neškodné opakování a zámek se jen obnovil.
+    // Jenže „týž běh" a „týž běh, který ten zámek zrovna drží" jsou dvě různé
+    // věci: držený zámek znamená, že první operace **ještě běží**.  Pustit
+    // druhou vedle ní je přesně ten souběh, kterému má `027` bránit — a review
+    // to reprodukovalo: dva zápisy jedné relace obě vrátily `written: true`
+    // a na disku zůstal jeden obsah.
+    //
+    // Sekvenční opakování tím netrpí: první operace zámek v `finally` pustí,
+    // takže druhá už žádný držený řádek nenajde.  Odmítne se jen skutečný
+    // souběh, a ten se pojmenuje zvlášť, aby se nepletl s cizím agentem.
+    const self = holder.run_id === runId;
     return {
       ok: false,
-      reason: 'held',
+      reason: self ? 'held_by_self' : 'held',
       holder: {
         runId: holder.run_id,
         ownerLabel: holder.owner_label,
         since: holder.acquired_at,
         expiresAt: holder.expires_at,
+        self,
       },
       key,
     };
@@ -355,6 +362,11 @@ function readLock(rawDb, id) {
 /** Věta pro člověka. Nesmí nést obsah souboru — jen kdo a odkdy. */
 export function describeHolder(holder) {
   const who = holder.ownerLabel ? `${holder.ownerLabel} (${holder.runId})` : holder.runId;
+  // Vlastní souběh je jiná zpráva než cizí agent: uživatel s tím může udělat
+  // něco jiného, a „drží to jiný běh" by u vlastního běhu bylo matoucí.
+  if (holder.self) {
+    return `Na souboru už pracuje jiná operace téhož běhu (${who}, od ${holder.since}).`;
+  }
   return `Soubor drží jiný běh: ${who}, od ${holder.since}.`;
 }
 

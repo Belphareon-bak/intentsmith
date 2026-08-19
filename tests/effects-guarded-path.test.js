@@ -153,14 +153,30 @@ await test('zápis je atomický: po sobě nenechá dočasný soubor', async () =
   assert.deepEqual(leftovers, [], `zůstal dočasný soubor: ${leftovers.join(', ')}`);
 });
 
-await test('bez zapojené roviny se zapíše — a řekne se, že se neptalo', async () => {
+await test('bez zapojené roviny se nezapisuje — fail-closed, ne fallback', async () => {
   clear();
   disableApprovals();
   const result = await writeUserFile({
     filePath: target(), content: 'bez otázky\n', runId: 'run-effects-4',
   });
-  assert.equal(result.written, true);
-  assert.equal(result.guard, 'none', 'nezapojený běh se tváří jako schválený');
+  // Dřív tenhle test tvrdil opak: že se zapíše a režim je vidět v `guard`.
+  // Review ukázalo, proč to bylo špatně — viditelnost v návratové hodnotě
+  // nikoho nezachrání, když se na ni nikdo nedívá, a nezapojený server tak
+  // zapisoval bez ptaní úplně stejně jako předtím.
+  assert.equal(result.written, false, 'nezapojená rovina zapsala');
+  assert.equal(result.state, 'refused_unconfigured');
+  assert.equal(existsSync(target()), false);
+});
+
+await test('ani samotná databáze bez producenta nestačí — zámek není souhlas', async () => {
+  clear();
+  configureEffects({ db, producer: null });
+  const result = await writeUserFile({
+    filePath: target(), content: 'jen zámek\n', runId: 'run-effects-5',
+  });
+  assert.equal(result.written, false);
+  assert.equal(result.guard, 'lock');
+  assert.equal(existsSync(target()), false);
 });
 
 await test('bez běhu se nezapisuje: zámek bez držitele je jen zpomalení', async () => {

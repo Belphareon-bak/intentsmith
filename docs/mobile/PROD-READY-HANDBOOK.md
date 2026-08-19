@@ -101,12 +101,19 @@ předpoklad. Konec relace otázku **stáhne** a pustí zámek.
 Strop z `024` §5.1 („producent se nespouští sám") operátor sundal; `024` to má
 zaznamenané.
 
-Zápis uživatelských souborů jde přes **jednu řízenou cestu**
-(`src/executor/effects.js`). Dřív šel kolem ní: `fs.writeFile` v
-`handleFileWriteDecision` i v `ToolExecutor.executeFileWrite`. Cesta má tři
-režimy a každý se pojmenuje v návratové hodnotě (`guard`): `approval` (db +
-producent — tohle běží v serveru), `lock` (jen db) a `none`. Fallback není tichý,
-takže nezapojený běh není k nerozeznání od schváleného.
+Zápis uživatelských souborů **v cestě FILE_WRITE a `fs.write`** jde přes jednu
+řízenou cestu (`src/executor/effects.js`) a ta je **fail-closed**: zapisuje jen
+režim `approval` (db + producent). `lock` (jen db) i `none` odmítají a nic
+nezapíšou — zámek chrání dva běhy před sebou navzájem, ne uživatele před
+zápisem, na který nekývl.
+
+Původní návrh nechával oba slabší režimy zapisovat a spoléhal na to, že režim je
+vidět v návratové hodnotě. Review to označilo za `P0` a mělo pravdu: viditelnost
+nikoho nezachrání, když se na ni nikdo nedívá.
+
+**Pozor na rozsah.** Řízená cesta pokrývá `FILE_WRITE` intent a nástroj
+`fs.write`. **Nepokrývá** patch engine, skill write step ani další zapisovatele —
+mediace zbytku je samostatný balík a slib se zatím nesmí formulovat šířeji.
 
 Co zbývá: rozšířit na další efekty než zápis souboru (shell, mazání, nasazení) a
 doplnit jim vlastní stropy podle `025`.

@@ -9,11 +9,16 @@
 // Tenhle modul je **ta jedna cesta**.  Slib, který nad ním platí, zní přesně
 // takto a ne silněji:
 //
-//   > Všechny zápisy uživatelských souborů prováděné IntentSmithem jdou přes
-//   > jednu řízenou cestu.  Dva běhy IntentSmithu si nepřepíšou stejný
+//   > Zápisy uživatelských souborů **v cestě `FILE_WRITE` a nástroje `fs.write`**
+//   > jdou přes jednu řízenou cestu.  Dva běhy IntentSmithu si nepřepíšou stejný
 //   > kanonický cíl.  Externí změna zápis zastaví, pokud je viditelná při
 //   > poslední kontrole.  Mikrointerval mezi kontrolou a atomickou náhradou
 //   > souboru není pokrytý.
+//
+// Rozsah je v té větě schválně, protože „všechny zápisy" zatím **není pravda**:
+// patch engine, skill write step a další zapisovatelé jdou dál mimo.  Mediace
+// zbytku je samostatný balík; do té doby by širší formulace byla slib, který
+// kód neplní.
 //
 // Silnou variantu (žádný externí zapisovatel nikdy nepřepíše stav) by šlo
 // splnit jen mediační vrstvou pro **všechny** zapisovatele — CAS nebo verzované
@@ -25,27 +30,25 @@
 //
 // Cesta je jedna, ale co po ní jde, závisí na tom, co je zapojené:
 //
-//   `guard: 'approval'`  db + producent → plný `guardedWrite`: zámek, otázka,
-//                        čekání, poslední kontrola, teprve zápis.  Tohle běží
-//                        v serveru (`configureEffects` v `server.js`).
-//   `guard: 'lock'`      jen db → zámek a kanonický cíl, ale **nikdo se
-//                        neptá**.  Dva běhy se pořád nepřepíšou.
-//   `guard: 'none'`      nic zapojeného → holý zápis.  Testy a nástroje mimo
-//                        server; režim je ve výsledku vidět, takže se nedá
-//                        splést se schváleným zápisem.
+// **Zapisuje jen režim `approval`.**  Ostatní dva odmítají a nic nezapíšou:
 //
-// Fallback **není** tichý: `guard` je v návratové hodnotě vždycky a volající
-// (i telemetrie) podle něj pozná, co se doopravdy stalo.  Kdyby chyběl, byl by
-// nezapojený server k nerozeznání od zapojeného — a to je přesně ta záměna,
-// kvůli které se slib rozpadá.
+//   `guard: 'approval'`  db + producent → plný `guardedWrite`: zámek, otázka,
+//                        čekání, poslední kontrola, teprve zápis.  Jediný
+//                        režim, ve kterém soubor vznikne.
+//   `guard: 'lock'`      jen db, bez producenta → **odmítne**.  Zámek bez
+//                        otázky drží agenty mezi sebou, ale slib zní „zeptá
+//                        se", ne „nepřepíšou se".
+//   `guard: 'none'`      nic zapojeného → **odmítne**.
+//
+// Dřív oba slabší režimy zapisovaly a spoléhalo se na to, že režim je vidět
+// v návratové hodnotě.  To byla chyba a review ji našlo: viditelnost v
+// návratové hodnotě nikoho nezachrání, když se na ni nikdo nedívá, a
+// nezapojený server tak zapisoval bez ptaní úplně stejně jako předtím.
+// Fail-closed znamená, že se ta záměna nedá udělat — ne že je vidět.
 //
 // ==============================================================================
 
 import { guardedWrite } from './guarded-write.js';
-import { commitFile, defaultFs } from './atomic-write.js';
-import {
-  acquireFileLock, releaseFileLock, describeWorkspace, describeHolder, canonicalTarget,
-} from './file-lock.js';
 
 /**
  * Jak dlouho běh čeká na rozhodnutí, když si volající neřekne jinak.
@@ -113,39 +116,29 @@ export async function writeUserFile({
 
   const mode = effectGuardMode();
 
-  if (mode === 'approval') {
-    const result = await guardedWrite({
-      rawDb: _db, producer: _producer, runId, filePath, content,
-      workspace, fs, ownerLabel, timeoutMs, origin, deviceId, onAsked, signal,
-    });
-    return { ...result, guard: 'approval' };
+  // Fail-closed.  Bez rozhodovací roviny se **nezapisuje** — ani se zámkem.
+  //
+  // Zámek chrání dva běhy IntentSmithu před sebou navzájem; nechrání uživatele
+  // před zápisem, na který nekývl.  Slib zní „zeptá se a počká", a běh, který
+  // se nemá koho zeptat, ten slib splnit neumí.  Jediná poctivá odpověď je
+  // odmítnout a říct proč.
+  if (mode !== 'approval') {
+    return {
+      state: 'refused_unconfigured',
+      written: false,
+      guard: mode,
+      target: filePath,
+      message: mode === 'lock'
+        ? 'Rozhodovací rovina není zapojená (chybí producent), takže se nemá kdo zeptat. Nic se nezapsalo.'
+        : 'Rozhodovací rovina není zapojená, takže se nemá kdo zeptat. Nic se nezapsalo.',
+    };
   }
 
-  const space = workspace || describeWorkspace();
-  const target = canonicalTarget(space, filePath);
-  const effectPath = target.real;
-  const io = fs || await defaultFs();
-
-  if (mode === 'lock') {
-    const lock = acquireFileLock(_db, {
-      workspace: space, filePath: effectPath, runId, ownerLabel,
-    });
-    if (!lock.ok) {
-      return {
-        state: 'locked', written: false, guard: 'lock',
-        target: effectPath, holder: lock.holder, message: describeHolder(lock.holder),
-      };
-    }
-    try {
-      await commitFile(io, effectPath, content);
-      return { state: 'written', written: true, guard: 'lock', target: effectPath, bytes: content.length };
-    } finally {
-      releaseFileLock(_db, { lockId: lock.lock.id, runId });
-    }
-  }
-
-  await commitFile(io, effectPath, content);
-  return { state: 'written', written: true, guard: 'none', target: effectPath, bytes: content.length };
+  const result = await guardedWrite({
+    rawDb: _db, producer: _producer, runId, filePath, content,
+    workspace, fs, ownerLabel, timeoutMs, origin, deviceId, onAsked, signal,
+  });
+  return { ...result, guard: 'approval' };
 }
 
 export default {

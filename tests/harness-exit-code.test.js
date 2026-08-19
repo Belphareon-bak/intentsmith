@@ -356,10 +356,16 @@ try {
   //     z těch cest nevede do `db/database.js`.  Census měří dosažitelnost,
   //     ne počet nových sad.
   //
+  // Re-reviewed 2026-08-19 s P0 balíkem: 102 → 103.  Přibyl jediný program,
+  // `effects-p0-regressions.test.js`, a do censu patří, protože prochází
+  // skutečným chatovým handlerem a nástrojem — tedy přes `chat/handlers/file.js`
+  // do `db/database.js`.  To je zároveň důvod, proč ten test existuje: vada
+  // byla ve volacím místě, ne v jednotce.
+  //
   // Rozdíl množin je přesně tyhle dva a **nic neubylo** — žádný existující
   // program se do databáze nedostal cestou, kterou dřív neměl.  Fail-closed
   // kontrola `unprotected` níž platila po celou dobu.
-  const expectedDatabaseReachableRootTests = 102;
+  const expectedDatabaseReachableRootTests = 103;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,

@@ -370,6 +370,33 @@ export class ExecutionResult {
  * This is the execution layer that was MISSING.
  * CRE decides WHAT to do, ToolExecutor DOES it.
  */
+/**
+ * Kolik času dostane efekt na to, aby se po abortu zastavil.
+ *
+ * `guardedWrite` se na signál dívá na začátku každého kola čekání (`pollMs`
+ * 500 ms) a ještě jednou po rozhodnutí, takže se zastaví v řádu půl vteřiny.
+ * Odklad je dvojnásobek s rezervou — a když nestačí, je to porucha, kterou
+ * musí být slyšet, ne něco, co se přejde tichým timeoutem.
+ */
+const TOOL_ABORT_GRACE_MS = 2000;
+
+/**
+ * Zruš `child`, když se zruší `parent`.  Vrací odpojení.
+ *
+ * Bez tohohle by zrušený požadavek zastavil čekání volajícího, ale ne efekt
+ * pod ním — a zrušení, po kterém se ještě něco stane, není zrušení.
+ */
+function linkAbortSignal(parent, child) {
+  if (!parent) return () => {};
+  if (parent.aborted) {
+    child.abort(parent.reason);
+    return () => {};
+  }
+  const onAbort = () => child.abort(parent.reason);
+  parent.addEventListener('abort', onAbort, { once: true });
+  return () => parent.removeEventListener('abort', onAbort);
+}
+
 export class ToolExecutor {
   constructor(options = {}) {
     this.toolHandlers = new Map();
@@ -701,15 +728,30 @@ export class ToolExecutor {
           }
         }
 
-        const result = await this.executeWithTimeout(
-          handler({
-            ...context,
-            query: effectiveQuery,  // v56.2: MUST be AFTER ...context to override context.query
-            intent: decision.intent,
-            metadata: decision.metadata,
-          }),
-          this.timeout
-        );
+        // P0: timeout musí efekt **zastavit**, ne jen přestat na něj čekat.
+        //
+        // Řadič se vyrábí **před** spuštěním handleru, aby ho handler dostal
+        // v `signal` a mohl na zrušení zareagovat.  Naváže se i na signál
+        // volajícího, takže zrušený požadavek zastaví efekt stejně jako
+        // vypršelý čas.
+        const effectAbort = new AbortController();
+        const unlink = linkAbortSignal(context.signal, effectAbort);
+        let result;
+        try {
+          result = await this.executeWithTimeout(
+            handler({
+              ...context,
+              query: effectiveQuery,  // v56.2: MUST be AFTER ...context to override context.query
+              intent: decision.intent,
+              metadata: decision.metadata,
+              signal: effectAbort.signal,
+            }),
+            this.timeout,
+            effectAbort,
+          );
+        } finally {
+          unlink();
+        }
 
         // v45.0: Handler returns ToolResult directly
         if (result instanceof ToolResult) {
@@ -864,15 +906,76 @@ export class ToolExecutor {
   }
 
   /**
-   * Execute with timeout
+   * Execute with timeout — a **počkej, až se efekt doopravdy zastaví**.
+   *
+   * Původně to byl `Promise.race`: po vypršení času se vrátila chyba a
+   * podkladová operace běžela dál.  U zápisu souboru to znamenalo, že běh
+   * skončil jako `FAILED` a *pak* se soubor zapsal — efekt po terminálním
+   * výsledku, přesně to, co `025` zakazuje.  Review to reprodukovalo: běh
+   * spadl po 26 ms, approval čekal dál a po jeho schválení vznikl soubor.
+   *
+   * Teď se po vypršení času nejdřív **abortuje**, a teprve po terminálním
+   * zastavení operace se vyhodí chyba.  Když se operace nezastaví ani
+   * v odkladu, **řekne se to** — „nevím, jestli efekt nastal" je horší zpráva
+   * než timeout, ale je pravdivá, a tichý timeout by ji zakryl.
+   *
+   * @param {Promise} promise    běžící operace
+   * @param {number}  timeout
+   * @param {AbortController} [controller]  bez něj zůstává původní chování,
+   *   protože handler, který o zrušení neví, se zastavit nedá
    */
-  async executeWithTimeout(promise, timeout) {
-    return Promise.race([
-      promise,
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`Timeout after ${timeout}ms`)), timeout)
-      ),
-    ]);
+  async executeWithTimeout(promise, timeout, controller = null) {
+    // Nezachycený reject na `promise` by shodil proces, když ji necháme běžet.
+    const settled = promise.then(
+      value => ({ ok: true, value }),
+      error => ({ ok: false, error }),
+    );
+
+    if (!controller) {
+      return Promise.race([
+        promise,
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`Timeout after ${timeout}ms`)), timeout)
+        ),
+      ]);
+    }
+
+    let timer = null;
+    const expired = new Promise(resolve => {
+      timer = setTimeout(() => resolve('timeout'), timeout);
+      if (typeof timer.unref === 'function') timer.unref();
+    });
+
+    const first = await Promise.race([settled, expired]);
+    clearTimeout(timer);
+
+    if (first !== 'timeout') {
+      if (first.ok) return first.value;
+      throw first.error;
+    }
+
+    // Vypršelo: zastavit efekt a **počkat na jeho konec**.
+    controller.abort(new Error(`Timeout after ${timeout}ms`));
+
+    let graceTimer = null;
+    const grace = new Promise(resolve => {
+      graceTimer = setTimeout(() => resolve('stuck'), TOOL_ABORT_GRACE_MS);
+      if (typeof graceTimer.unref === 'function') graceTimer.unref();
+    });
+    const stopped = await Promise.race([settled, grace]);
+    clearTimeout(graceTimer);
+
+    if (stopped === 'stuck') {
+      throw Object.assign(
+        new Error(
+          `Timeout after ${timeout}ms and the effect did not stop within ${TOOL_ABORT_GRACE_MS}ms `
+          + '— its outcome is UNKNOWN',
+        ),
+        { code: 'EFFECT_STOP_UNKNOWN' },
+      );
+    }
+
+    throw new Error(`Timeout after ${timeout}ms`);
   }
 
   /**
@@ -1246,11 +1349,14 @@ export class ToolExecutor {
     const result = await writeUserFile({
       filePath: validatedPath,
       content: String(content),
-      // Vlastníkem zámku je běh (`027`).  `sessionId` proteče z `execute()`
-      // spolu se zbytkem kontextu; bez něj se běh pojmenuje anonymně, ale
-      // pořád je to jeden držitel, ne žádný.
-      runId: `tool:${params.sessionId || params.requestId || 'anonymous'}`,
+      // Vlastníkem zámku je **jeden tah**, ne relace (`027`) — dva tahy jedné
+      // konverzace se jinak pro zámek slijí v jednoho držitele a přepíšou se.
+      runId: params.turnId || `tool:${params.sessionId || params.requestId || 'anonymous'}`,
       ownerLabel: 'tool.file_write',
+      // Zrušení i timeout musí zápis zastavit.  `signal` sem teče z `execute()`
+      // spolu se zbytkem kontextu a `executeWithTimeout` k němu přidá svůj
+      // vlastní důvod k zastavení.
+      signal: params.signal || null,
     });
 
     if (!result.written) {
