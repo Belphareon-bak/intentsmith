@@ -627,6 +627,35 @@ verifier, ale pouze s D041 READ15/baseline. Každý non-PASS readiness nebo
 command failure terminalně foreclose-ne D041 bez retry/cleanupu. Private,
 evidence, seal a runtime authority zůstávají NONE.
 
+D041 docs následně prošly Review A+B, ale jediný operational readiness run
+skončil terminal `BLOCKED / INCOMPLETE`: první scoped Git child měl exact
+environmentový `GIT_OPTIONAL_LOCKS=0`, avšak raw argv vynechalo bezprostřední
+CLI `--no-optional-locks` před `-C`. Full argv/stdout/stderr/terminal artifact
+jsou `ABSENT/UNKNOWN`; CREATE/VERIFY byly `CANCELLED_UNISSUED`, promotion i
+create zůstaly 0/false, lease se uzavřel bez handoffu a D041 se nesmí retryovat.
+Před-D042 adversary plain status je non-evidence s možným unknown index
+refreshem, nikoli fresh baseline.
+
+Nová
+[decision 042](../decisions/042-m1-h0-v5-detached-source-checkout-read-constructor-remediation.md)
+je exact four-doc governance-only read-constructor remediation, zatím pouze
+frozen governance tooling candidate. Final V4.2 používá acyklický
+post-E_B-materialized P→D→B→outer chain: canonical authority profile, isolated
+CPython bootstrap, Popen dispatcher s odděleným stdout/stderr/exit/signal/reap
+a dash builtin preflight 22 loader variables. Ruling A pravdivě přijímá task
+runner, již načtený pinned dash a fenced filesystem jako roots of trust;
+malicious preload ani transient path swap/revert resistance netvrdí a běžné
+read-only audity přiznávají možný/unknown atime effect. Review A a adversary
+musí před mintem tokenu nezávisle rekonstruovat bytes, provést dva bounded
+same-FD ELF PASS audity four toolchain closures a oba exact
+`rootWriteChain.materializationAudits` musí dát PASS. Teprve potom smí jeden fresh readiness
+run použít closed contiguous operation manifest a prevalidated E_B-bound
+`rootWriteChain`; každý child má 1:1 ledger a unproven branch zůstává
+`UNKNOWN_OPEN/NO_HANDOFF`, zatímco non-PASS terminalně ruší další token bez
+retry.
+D042 není promoted, není source-checkout PASS, neodemkla D037 repair a není
+M1/H0/runtime/T3/Gate DONE evidence.
+
 ---
 
 ## 2. Sdílené invarianty — platí pro každý běh v dávce
