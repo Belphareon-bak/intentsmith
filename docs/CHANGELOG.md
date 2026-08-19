@@ -54,6 +54,34 @@ omezena na skutečné vision modely.
 `model-profiles.js` zůstává bajtově nedotčený. Regrese 13 sad: 691 testů, 0
 selhání.
 
+### v135.3: druhý zdroj faktů + outbound discovery zapnuté
+
+Kvalitativní data celého scoringu stála na jediném externím zdroji.
+`ollama.com/library` odpovídá jen na existenci a tagy, takže fallback
+neexistoval — výpadek whatllm.org tiše shodí veškeré obohacení.
+
+- **`huggingface-client.js`** (nový): nezávislý zdroj **faktů**, ne druhý odhad
+  kvality. Dává `createdAt` (živí `maturity` 15 % a `generation` 10 %),
+  `pipeline_tag` (schopnost vision nezávisle na názvu) a adopci.
+  `pickCanonicalRepo()` upřednostní originál před GGUF/AWQ forkem, jehož
+  `createdAt` je datum kvantizace, ne vydání. Adopce se **nepřevádí na skóre** —
+  popularita není kvalita.
+- **Rozpory mezi zdroji** se hlásí, ne přepisují: datum se doplní jen když
+  chybí, neshoda nad 90 dní jde do `stats.sourceConflicts` a do reportu.
+
+Hned po zapojení odhalil dvě chyby v primárních datech: `qwen3.5:27b` má podle
+HF `releaseDate` 2026-02-24 (katalog 2025-07-15) a je `image-text-to-text`, tedy
+multimodální — filtr způsobilosti ho z role VISION vyřazoval neprávem.
+
+**Outbound discovery:** operátorské rozhodnutí 2026-08-19 (`DIRECTION.md`)
+obrací výchozí stav `C3_ENABLE_ONLINE_DISCOVERY` z **off** na **on**; vypíná se
+explicitně hodnotou `false`. Local-first zůstává v platnosti — omezení je „nic
+mimo stroj není povinné", a každá cesta degraduje sama.
+`tests/outbound-network-optin.test.js` přepsán na nový stav.
+
+`tests/huggingface-client.test.js` (nový, 19 testů, bez sítě). Regrese: 832
+testů, 0 selhání.
+
 ### v135.2: L5 externí benchmarky (whatllm.org)
 
 Cesta L5 byla vypnutá, což zakrývalo tři vady párování. Po zapnutí by vpravila

@@ -16,6 +16,7 @@ import { logger } from '../core/logger.js';
 import { parseModelName, MODEL_FAMILIES } from './model-profiles.js';
 import { parseModelNameExtended } from './model-family-extensions.js';
 import { catalogLookupKey, enrichLocalCandidates } from './catalog-enrichment.js';
+import { enrichFromHuggingFace } from './huggingface-client.js';
 
 // ─── Ollama API ────────────────────────────────────────────────────────────
 
@@ -403,6 +404,18 @@ export async function discover(opts = {}) {
     }
   }
 
+  // Druhý zdroj faktů.  Katalog je ruční a whatllm je jediný zdroj kvality —
+  // HuggingFace slouží k ověření data vydání a schopností a k odhalení rozporu.
+  // Za bránou outbound policy; bez sítě se prostě nic nedoplní.
+  let hfSummary = { resolved: 0, datesFilled: 0, visionFound: 0, conflicts: [] };
+  if (config.features?.onlineDiscovery && opts.includeHuggingFace !== false) {
+    try {
+      hfSummary = await enrichFromHuggingFace(localCandidates);
+    } catch (err) {
+      logger.warn('ModelDiscovery', `HuggingFace enrichment selhal: ${err.message}`);
+    }
+  }
+
   // Shoda „už nainstalováno“ musí být tolerantní ke znakovému zápisu, jinak
   // katalog nabídne `deepseek-r1:32b` proti nainstalovanému `deepseek-r1-32b`.
   const localKeys = new Set(
@@ -491,6 +504,10 @@ export async function discover(opts = {}) {
     enrichedExact: enrichment.exact,
     enrichedEstimated: enrichment.estimated,
     enrichmentMissing: enrichment.unmatched.length,
+    hfResolved: hfSummary.resolved,
+    hfDatesFilled: hfSummary.datesFilled,
+    hfVisionFound: hfSummary.visionFound,
+    sourceConflicts: hfSummary.conflicts,
   };
   logger.info('ModelDiscovery', `Discovered ${stats.local} local + ${stats.catalog} catalog + ${stats.l4} L4 = ${stats.total} candidates, ${hints.size} hints`, {
     ollamaAvailable,

@@ -1,12 +1,12 @@
 # Aktivace model scoringu a pročištění modelů
 
-**Stav:** Fáze 1–3 hotové a otestované; validace doběhla, L5 opravená ale ponechaná vypnutá
+**Stav:** scoring aktivní, druhý zdroj faktů zapojen, outbound discovery zapnuté
 **Datum:** 2026-08-17
 **Verze kódu:** v135 (`src/upgrade/`)
 **Cíl:** zprovoznit scoring všech dostupných modelů tak, aby jeho výstup byl použitelný jako podklad pro smazání nepotřebných Ollama modelů (187 GB na disku).
 
 > Kapitoly 1–2 popisují stav **před** zásahem a zůstávají jako záznam příčiny.
-> Co se změnilo, je v kapitolách 6–8.
+> Co se změnilo, je v kapitolách 6–10.
 
 ---
 
@@ -366,13 +366,78 @@ generace 3. Před smazáním těch dvou dává smysl L5 zapnout a report spustit
 
 ---
 
-## 9. Co zbývá
+## 9. Druhý zdroj: HuggingFace
+
+Do 2026-08-19 stála veškerá kvalitativní data na **jediném** externím zdroji.
+`ollama.com/library` odpovídá jen na „existuje a jaké má tagy" — kvalitu nenese,
+takže fallback neexistoval a výpadek whatllm.org tiše shodí celé obohacení.
+
+`src/upgrade/huggingface-client.js` přidává nezávislá **fakta**, ne druhý odhad
+kvality:
+
+| Signál | K čemu | Proč je to fakt |
+|---|---|---|
+| `createdAt` | `maturity` (15 % váhy), `generation` bonus | ověřitelné datum publikace |
+| `pipeline_tag` | způsobilost pro VISION | metadata modelu, ne hádání z názvu |
+| `downloads`, `likes` | korroborace | — |
+
+**Adopce se záměrně nepřevádí na skóre.** Popularita není kvalita: starší model
+má víc stažení jen proto, že je déle venku, a kvantizované forky mají vlastní
+čísla. Kdyby se z ní dělal benchmark, vznikla by táž třída vady jako u míchání
+whatllm a katalogu.
+
+Výběr repozitáře (`pickCanonicalRepo`) upřednostní originál před odvozeninou —
+`unsloth/Qwen3.5-27B-GGUF` má víc stažení než `Qwen/Qwen3.5-27B`, ale jeho
+`createdAt` je datum kvantizace, ne vydání modelu.
+
+### Co druhý zdroj hned našel
+
+Dohledal 8 z 8 nainstalovaných modelů a odhalil dva rozpory v primárních datech:
+
+| model | pole | katalog | HuggingFace |
+|---|---|---|---|
+| `qwen3.5:27b` | `releaseDate` | 2025-07-15 | **2026-02-24** |
+| `qwen3.5:27b` | kategorie | `general` | **`image-text-to-text`** |
+
+Model je tedy multimodální — filtr způsobilosti ho z role VISION vyřazoval
+neprávem. Po opravě je v ní první (0.6204). Datum se liší o 7 měsíců, což
+přímo posouvá 25 % váhy skóre.
+
+Rozpory se **nepřepisují automaticky**: katalog je revidovaný, takže se datum
+jen doplní, když chybí, a při neshodě nad 90 dní se nahlásí. Report je vypisuje
+pod hlavičkou.
+
+---
+
+## 10. Outbound discovery je nově zapnuté
+
+Operátorské rozhodnutí 2026-08-19 (zaznamenáno v `DIRECTION.md`, obrací
+rozhodnutí z 2026-08-02): `C3_ENABLE_ONLINE_DISCOVERY` má výchozí **on**, vypíná
+se explicitně hodnotou `false`.
+
+Důvod: bez discovery katalog tiše stárne a scoring doporučuje modely, které byly
+před měsíci nahrazeny.
+
+Local-first tím zůstává v platnosti — omezení zní „nic mimo stroj není
+*povinné*", ne „nic mimo stroj se nesmí použít". Každá cesta degraduje sama
+(registry po 3 selháních offline, sonda na Ollamu couvá 30 s, WhatLLM i HF mají
+error cooldown), takže offline běh stále seřadí z lokálního katalogu.
+`tests/outbound-network-optin.test.js` nově hlídá, že bránu lze vypnout a že ji
+vypne jedině přesná hodnota `false`.
+
+---
+
+## 11. Co zbývá
 
 1. **Zpřísnit validační sady** — dokud dávají 100 % polovině pole, nerozhodují.
-   Nejde o drobnost, ale o předpoklad rozhodování podle měření.
-2. **Zvážit zapnutí L5** (`C3_ENABLE_ONLINE_DISCOVERY=true`) a znovu spustit
-   report — nahradí odhady u `devstral` a `qwen3-coder`.
-3. **Doplnit katalog** o `qwq` a `glm-4.7-flash`, které whatllm nezná a zůstávají
-   na odhadu (jistota 0.55 a 0.35).
+   Nejde o drobnost, ale o předpoklad rozhodování podle měření. Nově je vidět i
+   opačný extrém: `qwen3.5:27b` má v sadě `vision` jen 33 %, přestože je podle
+   metadat multimodální — buď sada, nebo formát promptu neodpovídá modelu.
+2. **Opravit `releaseDate` u `qwen3.5:27b`** v katalogu podle HF (2026-02-24) a
+   projít, jestli podobný posun nemají i další položky.
+3. **Doplnit katalog** o `qwq` a `glm-4.7-flash` — whatllm je nezná a zůstávaly
+   na odhadu. (Oba modely byly mezitím smazané.)
 4. **Naplnit `model_universe`** spuštěním `checkForUpgrades({ fullCycle: true })`
    — tabulky jsou stále prázdné, report je obchází a počítá přímo z discovery.
+5. **Zvážit třetí zdroj kvality.** HF je zdroj faktů, ne kvality, takže
+   whatllm.org zůstává jediným zdrojem benchmarků. Redundance kvality zatím není.

@@ -120,12 +120,23 @@ Není to marketingové slovo, je to omezení:
 
 - **Žádná povinná závislost na cloudu.** Bez internetu produkt funguje.
 - **Bez modelu degraduje čistě** — `LLM_PROVIDER_UNAVAILABLE`, ne pád.
-- **Tichá background síť je opt-in.** Automatické model discovery (#18b) je od
-  2026-08-02 za `C3_ENABLE_ONLINE_DISCOVERY` s výchozím **off**. Produkt má i
-  explicitní nebo konfigurované síťové schopnosti — webové nástroje,
-  marketplace, agent sources/actions, notifikace a případně vzdálenou Ollamu.
-  Ty nejsou povinnou cloudovou závislostí, ale musí projít společnou outbound
-  policy a auditem.
+- **Síť smí být použita, ale nikdy vyžadována.** Automatické model discovery
+  (#18b) bylo od 2026-08-02 za `C3_ENABLE_ONLINE_DISCOVERY` s výchozím **off**.
+  **Operátor to 2026-08-19 obrátil: výchozí je nyní `on`, vypíná se explicitně
+  hodnotou `false`.** Důvod: bez discovery katalog tiše stárne a scoring
+  doporučuje modely, které byly před měsíci nahrazeny — vyhledávání aktuálně
+  nejefektivnějších modelů je záměr produktu, ne vedlejší efekt.
+
+  Local-first tím zůstává v platnosti, protože omezení zní „nic mimo stroj není
+  *povinné*", ne „nic mimo stroj se nesmí použít". Každá discovery cesta
+  degraduje sama (registry po 3 selháních přejde do offline režimu, sonda na
+  Ollamu couvá 30 s, WhatLLM má error cooldown), takže offline běh stále
+  seřadí modely z lokálního katalogu.
+
+  Produkt má i další explicitní nebo konfigurované síťové schopnosti — webové
+  nástroje, marketplace, agent sources/actions, notifikace a případně vzdálenou
+  Ollamu. Ty nejsou povinnou cloudovou závislostí, ale musí projít společnou
+  outbound policy a auditem.
 
 ---
 

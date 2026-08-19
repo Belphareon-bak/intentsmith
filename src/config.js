@@ -25,9 +25,19 @@ export const config = {
     comfyui: process.env.C3_ENABLE_COMFYUI !== 'false',  // v130: Multimedia generation (ComfyUI)
     // Outbound model discovery (L4 online discovery, L5 WhatLLM benchmarks,
     // registry verify). This is the only path on which the product contacts
-    // anything outside the machine, so it is opt-IN, default OFF: a
-    // local-first product does not phone home unless asked to.
-    onlineDiscovery: process.env.C3_ENABLE_ONLINE_DISCOVERY === 'true',
+    // anything outside the machine.
+    //
+    // Operator decision 2026-08-19 (DIRECTION.md): default ON, opt-OUT via
+    // C3_ENABLE_ONLINE_DISCOVERY=false. Keeping a local model set current is
+    // worth the outbound traffic — without discovery the catalog silently ages
+    // and the ranking recommends models that were superseded months ago.
+    //
+    // This does not weaken local-first: the constraint is that nothing outside
+    // the machine is *required*. Every discovery path degrades on its own
+    // (registry goes offline after 3 failures, Ollama probe backs off for 30s,
+    // WhatLLM has an error cooldown), so an offline run still ranks models from
+    // the local catalog.
+    onlineDiscovery: process.env.C3_ENABLE_ONLINE_DISCOVERY !== 'false',
   },
 
   // Server

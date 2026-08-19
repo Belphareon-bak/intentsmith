@@ -270,6 +270,17 @@ if (AS_JSON) {
       : 'bez validace (--validate pro reálné testy)');
   log(`GPU VRAM: ${gpuVramMb} MB | obohaceno: ${discovery.stats.enrichedExact} přesně, ` +
       `${discovery.stats.enrichedEstimated} odhadem, ${discovery.stats.enrichmentMissing} bez podkladu | ${valNote}`);
+  if (discovery.stats.hfResolved) {
+    log(`HuggingFace: dohledáno ${discovery.stats.hfResolved}, doplněno dat vydání ` +
+        `${discovery.stats.hfDatesFilled}, nalezena vision schopnost ${discovery.stats.hfVisionFound}`);
+  }
+  const conflicts = discovery.stats.sourceConflicts || [];
+  if (conflicts.length > 0) {
+    log(`\n⚠ ROZPOR MEZI ZDROJI (${conflicts.length}) — katalog vs HuggingFace:`);
+    for (const c of conflicts) {
+      log(`   ${c.model} · ${c.field}: katalog "${c.catalog}" vs HF "${c.huggingface}"  (${c.repo})`);
+    }
+  }
 
   for (const role of ROLES) {
     const all = table.filter(r => r.role === role);
