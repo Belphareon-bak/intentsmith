@@ -156,7 +156,7 @@ to zamlčet:
 | 1 | `TOCTOU` mezi ověřením a zápisem | **zúženo** — poslední ověření je teď těsně před zápisem; zbytek viz níže |
 | 2 | zápis po ztrátě lease | **opraveno** — fencing přes id zámku, selhání heartbeatu zápis zakáže |
 | 3 | chyba čtení se vydávala za neexistující soubor | **opraveno** — `absent` smí znamenat jen `ENOENT`, ostatní je neověřitelné |
-| 4 | „ghost approval" bez terminálního stavu | **opraveno** — migrace 063, `invalidated`/`cancelled` + důvod |
+| 4 | „ghost approval" bez terminálního stavu | **opraveno** — `2026_08_19_063_mobile_approval_lifecycle`, `invalidated`/`cancelled` + důvod |
 | 5 | dvě rozhodovací autority | **opraveno** — jedna sdílená funkce pro pravidla, transport zůstává každé ploše vlastní |
 | 6 | rozpadlá kanonická dokumentace | **opraveno** — tenhle soubor |
 | 7 | identita cíle jen lexikální (symlink) | **opraveno** — kanonický cíl přes `realpath` pro zámek, předpoklad i zápis |

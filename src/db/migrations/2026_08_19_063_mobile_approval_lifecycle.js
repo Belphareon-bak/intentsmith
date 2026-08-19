@@ -22,7 +22,7 @@
 
 import { hasColumn, hasTable } from '../migrate.js';
 
-export const version = '2026_08_19_063_approval_lifecycle';
+export const version = '2026_08_19_063_mobile_approval_lifecycle';
 export const description = 'Approval má terminální stav i bez odpovědi člověka (nález 4)';
 
 export function up(db) {

@@ -35,7 +35,7 @@
 
 import { hasColumn, hasTable } from '../migrate.js';
 
-export const version = '2026_08_19_062_approval_precondition';
+export const version = '2026_08_19_062_mobile_approval_precondition';
 export const description = 'Approval se váže na stav cíle, ne na hodiny (025)';
 
 export function up(db) {
