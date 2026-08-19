@@ -41,6 +41,22 @@ if (!notificationRouter.channels.has('webhook')) notificationRouter.registerChan
 if (!notificationRouter.channels.has('desktop')) notificationRouter.registerChannel(new DesktopChannel({ logger }));
 const notificationEmitter = new NotificationEmitter({ pipeline: notificationPipeline, db: db.db });
 setNotificationDeps({ notificationRouter, notificationEmitter });
+
+// ─── P0-2: rozhodovací rovina se zapíná tady, a nikde jinde ──────────────────
+//
+// `guardedWrite` byl doteď postavený a nezapnutý: uměl se zeptat a počkat, a
+// produkční zápis šel pořád kolem něj.  Tenhle blok je ten přepínač.  Od téhle
+// chvíle platí, že **všechny zápisy uživatelských souborů jdou přes jednu
+// řízenou cestu** (`src/executor/effects.js`) a ta se ptá.
+//
+// Producent musí vzniknout před `configureEffects` a před `setApprovalDeps` —
+// obojí ho drží, obojí by bez něj tiše spadlo do režimu „neptá se".
+const companionProducer = createCompanionProducer({
+  rawDb: db.db, router: notificationRouter, logger,
+});
+configureEffects({ db: db.db, producer: companionProducer });
+setApprovalDeps({ db: db.db, producer: companionProducer });
+logger.info('Server', 'Approval plane wired: file writes ask before they write (P0-2)');
 // Wire lifecycle hooks (lazy import — lifecycle-build may not be loaded yet)
 import('./planner/lifecycle-build.js').then(m => m.setNotificationEmitter(notificationEmitter)).catch(() => {});
 logger.info('Server', `Notification system initialized (channels: ${notificationRouter.getAvailableChannels().join(', ')})`);
@@ -108,7 +124,7 @@ import { ChatController, ChatMode } from './chat/controller.js';
 
 // v59.0: WebSocket bridge for IDE integration
 import { attachWebSocketServer } from './ws-bridge/index.js';
-import { setNotificationDeps } from './ws-bridge/session-adapter.js';
+import { setNotificationDeps, setApprovalDeps } from './ws-bridge/session-adapter.js';
 import { getDefaultHandlers } from './chat/handlers/index.js';
 import {
   setModelBindingApplication,
@@ -134,6 +150,8 @@ import { createSecurityRoutes } from './routes/security.js';
 import { createNotificationRoutes } from './routes/notifications.js';
 // P0-6: approvaly musí jít rozhodnout i odsud, ne jen z telefonu.
 import { createApprovalRoutes } from './routes/approvals.js';
+import { createCompanionProducer } from './mobile/companion-producer.js';
+import { configureEffects } from './executor/effects.js';
 import { createMarketplaceRoutes } from './routes/marketplace.js';
 import { createMediaRoutes, recoverStuckGenerations } from './routes/media.js';
 import { createGovernorRoutes } from './routes/governor.js';

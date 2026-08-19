@@ -21,6 +21,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'node:url';
 import { config } from '../../config.js';
+import { writeUserFile } from '../../executor/effects.js';
 
 // ─── Default write root ──────────────────────────────────────────────────────
 //
@@ -637,12 +638,46 @@ export async function handleFileWriteDecision(input, decision, context) {
     });
   }
 
-  // 4. Write the file
+  // 4. Write the file — přes jednu řízenou cestu, ne přímo (P0-2)
+  //
+  // Tohle býval `fs.writeFile`.  Znamenalo to, že `guardedWrite` mohl být sebe-
+  // pečlivější a produkční zápis šel pořád kolem něj: agent zapsal soubor a
+  // teprve pak se to člověk dozvěděl.  `writeUserFile` je ta cesta — když je
+  // rozhodovací rovina zapojená (`server.js`), **zeptá se a počká**; když není,
+  // zapíše a řekne v `guard`, že se neptal.
   try {
-    // Ensure parent directory exists
-    const dir = path.dirname(validation.resolved);
-    await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(validation.resolved, content, 'utf-8');
+    const guarded = await writeUserFile({
+      filePath: validation.resolved,
+      content,
+      // Vlastníkem zámku je běh, ne agent (`027`).  Relace je nejbližší, co
+      // chat má: dva zápisy téže relace do téhož souboru nejsou konflikt, dvě
+      // různé relace ano.
+      runId: `chat:${context.sessionId || 'anonymous'}`,
+      ownerLabel: 'chat',
+    });
+
+    if (!guarded.written) {
+      // Neúspěch se **pojmenuje**.  `locked` není totéž co `reject` a ani jedno
+      // není „chyba zápisu" — uživatel se podle toho chová jinak.
+      const msg = describeUnwritten(guarded, filePath, lang);
+      logger.info('HandleFileWrite', `File write not performed: ${guarded.state}`, {
+        filePath: validation.resolved, state: guarded.state, guard: guarded.guard,
+      });
+      return new TaggedResponse({
+        content: msg,
+        tag: new ResponseTag({
+          speaker: ResponseSpeaker.SYSTEM,
+          mode: ChatMode.CONVERSATION,
+          confidence: 0.9,
+          canExecute: false,
+          metadata: {
+            decision: decision.toJSON(), handler: 'file.write',
+            filePath: validation.resolved, writeState: guarded.state, guard: guarded.guard,
+            approvalId: guarded.approvalId || null,
+          },
+        }),
+      });
+    }
 
     const sizeKB = Math.round(Buffer.byteLength(content, 'utf-8') / 1024) || '<1';
     const lines = content.split('\n').length;
@@ -675,6 +710,8 @@ export async function handleFileWriteDecision(input, decision, context) {
           filePath: validation.resolved,
           fileSize: Buffer.byteLength(content, 'utf-8'),
           fileLines: lines,
+          guard: guarded.guard,
+          approvalId: guarded.approvalId || null,
         },
       }),
     });
@@ -696,8 +733,52 @@ export async function handleFileWriteDecision(input, decision, context) {
   }
 }
 
+/**
+ * Věta o zápisu, který se nestal — a **proč**.
+ *
+ * `locked`, `reject`, `precondition_changed` a `timeout` jsou čtyři různé věci
+ * a jedna hláška „nepodařilo se uložit" by je slila dohromady.  Uživatel se
+ * podle nich chová jinak: u zámku počká, u zamítnutí ne, u změny cíle se
+ * podívá, co se změnilo.
+ */
+function describeUnwritten(result, filePath, lang) {
+  const cs = lang === 'cs';
+  switch (result.state) {
+    case 'locked':
+      return cs
+        ? `\u23f8\ufe0f Neuloženo do **${filePath}** — ${result.message}`
+        : `\u23f8\ufe0f Not saved to **${filePath}** — ${result.message}`;
+    case 'reject':
+      return cs
+        ? `\u26d4 Zápis do **${filePath}** byl zamítnut. Nic se nezapsalo.`
+        : `\u26d4 Write to **${filePath}** was rejected. Nothing was written.`;
+    case 'cancelled':
+      return cs
+        ? `\u26d4 Zápis do **${filePath}** byl zrušen. Nic se nezapsalo.`
+        : `\u26d4 Write to **${filePath}** was cancelled. Nothing was written.`;
+    case 'precondition_changed':
+      return cs
+        ? `\u26a0\ufe0f Neuloženo do **${filePath}** — soubor se mezitím změnil, takže souhlas už neplatí.`
+        : `\u26a0\ufe0f Not saved to **${filePath}** — the file changed, so the approval no longer applies.`;
+    case 'precondition_unverifiable':
+      return cs
+        ? `\u26a0\ufe0f Neuloženo do **${filePath}** — cíl nejde přečíst (${result.code}), takže nejde ověřit, co se přepisuje.`
+        : `\u26a0\ufe0f Not saved to **${filePath}** — the target cannot be read (${result.code}).`;
+    case 'timeout':
+    case 'expired':
+    case 'abandoned':
+      return cs
+        ? `\u23f1\ufe0f Neuloženo do **${filePath}** — nikdo nerozhodl včas. Nic se nezapsalo.`
+        : `\u23f1\ufe0f Not saved to **${filePath}** — nobody decided in time. Nothing was written.`;
+    default:
+      return cs
+        ? `\u26a0\ufe0f Neuloženo do **${filePath}** (${result.state}). Nic se nezapsalo.`
+        : `\u26a0\ufe0f Not saved to **${filePath}** (${result.state}). Nothing was written.`;
+  }
+}
+
 // Testing exports
-export { validateFilePath, readFileSafe, extractFilePathFromInput, _extractUserContent };
+export { validateFilePath, readFileSafe, extractFilePathFromInput, _extractUserContent, describeUnwritten };
 
 /**
  * Extract file path from user input (exported for testing).

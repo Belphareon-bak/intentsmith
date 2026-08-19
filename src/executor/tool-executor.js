@@ -1204,6 +1204,11 @@ export class ToolExecutor {
    * Execute file write
    * v44.2 - Now enforces project sandbox
    * v44.5 - Checks for read-only mode
+   * P0-2  - Zápis jde přes jednu řízenou cestu (`executor/effects.js`), ne
+   *         přes `fs.writeFile`.  Sandbox a read-only zůstávají tam, kde byly:
+   *         nejdřív se rozhodne, jestli **smí** vzniknout otázka, teprve pak se
+   *         ptá.  Ptát se na zápis, který by stejně neprošel sandboxem, by
+   *         znamenalo posílat lidem otázky, jejichž „ano" nic neudělá.
    */
   async executeFileWrite(params) {
     const { path, filePath, content } = params;
@@ -1237,12 +1242,34 @@ export class ToolExecutor {
     // v44.2 - Validate path is within project sandbox
     const validatedPath = await this.validateProjectPath(targetPath, 'write');
 
-    const fs = await import('fs/promises');
-    await fs.writeFile(validatedPath, content, 'utf-8');
+    const { writeUserFile } = await import('./effects.js');
+    const result = await writeUserFile({
+      filePath: validatedPath,
+      content: String(content),
+      // Vlastníkem zámku je běh (`027`).  `sessionId` proteče z `execute()`
+      // spolu se zbytkem kontextu; bez něj se běh pojmenuje anonymně, ale
+      // pořád je to jeden držitel, ne žádný.
+      runId: `tool:${params.sessionId || params.requestId || 'anonymous'}`,
+      ownerLabel: 'tool.file_write',
+    });
+
+    if (!result.written) {
+      // Nezapsáno se **vyhodí**, ne vrátí jako `success: true` s nulou bajtů.
+      // Volající tuhle hodnotu předává dál jako výsledek nástroje a „povedlo se,
+      // jen nic nevzniklo" je přesně ta věta, kvůli které se pak hledá soubor,
+      // který nikdy nebyl.
+      throw Object.assign(
+        new Error(`FILE_WRITE_NOT_PERFORMED: ${result.state}${result.message ? ` — ${result.message}` : ''}`),
+        { code: 'FILE_WRITE_NOT_PERFORMED', state: result.state, guard: result.guard,
+          approvalId: result.approvalId || null },
+      );
+    }
 
     return {
-      path: validatedPath,
+      path: result.target || validatedPath,
       bytesWritten: content.length,
+      guard: result.guard,
+      approvalId: result.approvalId || null,
       success: true,
     };
   }

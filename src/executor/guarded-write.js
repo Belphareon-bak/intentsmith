@@ -37,6 +37,7 @@
 import { createHash } from 'node:crypto';
 
 import { fingerprint } from '../approvals/fingerprint.js';
+import { commitFile, defaultFs } from './atomic-write.js';
 import { closeApprovalWithoutAnswer, APPROVAL_TERMINAL } from '../approvals/authority.js';
 import {
   acquireFileLock, refreshFileLock, releaseFileLock, describeWorkspace, describeHolder,
@@ -237,8 +238,10 @@ export async function guardedWrite({
       };
     }
 
-    await io.mkdir(dirnameOf(effectPath), { recursive: true });
-    await io.writeFile(effectPath, content, 'utf8');
+    // Atomicky: dočasný soubor + `rename`.  Zkrácení cíle na nulu a pád
+    // uprostřed by znamenal, že uživatel přišel o starý obsah a nový nedostal
+    // — konec, na který nekývl nikdo.
+    await commitFile(io, effectPath, content);
 
     return {
       state: 'written',
@@ -254,11 +257,6 @@ export async function guardedWrite({
     // přežije svůj běh, je tichý blokátor pro všechny ostatní.
     releaseFileLock(rawDb, { lockId: lock.lock.id, runId });
   }
-}
-
-async function defaultFs() {
-  const { readFile, writeFile, mkdir } = await import('node:fs/promises');
-  return { readFile, writeFile, mkdir };
 }
 
 /**
@@ -287,11 +285,6 @@ function digestOf(content) {
   return content === null || content === undefined
     ? 'absent'
     : createHash('sha256').update(String(content)).digest('hex').slice(0, 32);
-}
-
-function dirnameOf(filePath) {
-  const index = filePath.lastIndexOf('/');
-  return index <= 0 ? '/' : filePath.slice(0, index);
 }
 
 /** Otisk návrhu — pro volajícího, který chce vědět, na co se člověka ptáme. */

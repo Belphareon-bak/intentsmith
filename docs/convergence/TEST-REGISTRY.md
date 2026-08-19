@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 409
+- Runnable programs: 410
 - Explicit support-module exclusions: 9
-- Profiles: offline=199, database=54, server=37, model=85, soak=19, manual=15
-- States: ACTIVE=311, HISTORICAL=15, BLOCKED=83
+- Profiles: offline=199, database=55, server=37, model=85, soak=19, manual=15
+- States: ACTIVE=312, HISTORICAL=15, BLOCKED=83
 
 ## Execution profiles
 
@@ -214,6 +214,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T3-E2E-96-PROJECT-WORKFLOW-QUALITY` | `tests/e2e/96-project-workflow-quality.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-97-PROJECT-BUILD-QUALITY` | `tests/e2e/97-project-build-quality.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-98-ANALYSIS-QUALITY` | `tests/e2e/98-analysis-quality.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
+| `IS-T2-TESTS-EFFECTS-GUARDED-PATH-TEST` | `tests/effects-guarded-path.test.js` | `C3-031` | T2 | `database` | 15 s | 3 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-ERROR-NORMALIZER-TEST` | `tests/error-normalizer.test.js` | `C3-007` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-EXECUTION-GRAPH-TEST` | `tests/execution-graph.test.js` | `C3-007` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-EXECUTION-LOOP-TEST` | `tests/execution-loop.test.js` | `C3-007` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

@@ -295,19 +295,45 @@ tools['fs.write'] = {
   description: 'Write content to a file',
   params: {
     required: ['path', 'content'],
-    optional: ['encoding'],
+    // `encoding` tu bývalo a **zmizelo schválně**.  Řízená cesta digestuje
+    // obsah jako UTF-8 řetězec, protože přesně nad tím se počítá předpoklad i
+    // otisk approvalu; jiné kódování by znamenalo, že se člověk rozhoduje o
+    // jiných bajtech, než jaké dorazí na disk.  Deklarovaný parametr, který se
+    // tiše ignoruje, je horší než žádný.
+    optional: [],
   },
   permissions: ['fs.write'],
   meta: { sideEffects: true, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'write' },
-  async execute(params) {
-    const { path, content, encoding = 'utf-8' } = params;
-    const { writeFile, mkdir } = await import('fs/promises');
-    const { dirname } = await import('path');
+  async execute(params, context = {}) {
+    const { path, content } = params;
+
+    // Nástrojová cesta jde přes tutéž řízenou cestu jako handler (P0-2).
+    // Dokud tady byl `writeFile`, byl `fs.write` obchvat kolem approvalu:
+    // stačilo, aby model zvolil nástroj místo FILE_WRITE intentu, a soubor
+    // vznikl bez otázky.  Jedna bezpečná cesta a jedna nebezpečná vedle ní
+    // není jedna cesta.
+    const { writeUserFile } = await import('../executor/effects.js');
 
     try {
-      await mkdir(dirname(path), { recursive: true });
-      await writeFile(path, content, encoding);
-      return { path, written: content.length };
+      const result = await writeUserFile({
+        filePath: path,
+        content: String(content ?? ''),
+        runId: context.runId || `tool:${context.sessionId || 'anonymous'}`,
+        ownerLabel: 'fs.write',
+      });
+      if (!result.written) {
+        // Nezapsáno **není** zapsáno: nástroj vrací důvod, ne tiché `written: 0`.
+        return {
+          path: result.target || path,
+          written: 0,
+          refused: true,
+          state: result.state,
+          guard: result.guard,
+          ...(result.message ? { message: result.message } : {}),
+          ...(result.approvalId ? { approvalId: result.approvalId } : {}),
+        };
+      }
+      return { path: result.target || path, written: content.length, guard: result.guard };
     } catch (err) {
       return { error: err.message, code: 'FS_ERROR' };
     }
