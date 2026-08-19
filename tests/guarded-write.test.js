@@ -25,7 +25,7 @@ import { runMigrations } from '../src/db/migrate.js';
 import { fingerprint } from '../src/mobile/protocol.js';
 import { createCompanionProducer } from '../src/mobile/companion-producer.js';
 import { guardedWrite } from '../src/executor/guarded-write.js';
-import { acquireFileLock, listHeldLocks } from '../src/executor/file-lock.js';
+import { acquireFileLock, releaseFileLock, listHeldLocks } from '../src/executor/file-lock.js';
 import { handleApprovalDecide } from '../src/mobile/handlers.js';
 import { OperationJournal } from '../src/mobile/operation-journal.js';
 
@@ -377,6 +377,81 @@ await test('nález 7: symlink a přímá cesta jsou jeden cíl, ne dva', async (
     'symlink obešel zámek, takže dva běhy zapisovaly do jednoho souboru');
   assert.equal(readFileSync(real, 'utf8'), 'OBSAH');
 });
+
+// ── 8. Převzatý lease: starý zapisovatel efekt neprovede ───────────────────
+
+await test('027 převzatý lease: starý běh po souhlasu nezapíše nic', async () => {
+  clear();
+  const content = 'zápis, který už nemá právo se stát';
+
+  // Běh A si vezme zámek a čeká na člověka.
+  const write = guardedWrite({
+    rawDb: db, producer: producer(), runId: 'run-stary',
+    filePath: target(), content, workspace, timeoutMs: 20_000,
+  });
+
+  const approval = await (async () => {
+    for (let attempt = 0; attempt < 400; attempt++) {
+      const row = db.prepare('SELECT id FROM mobile_approvals WHERE decided_at IS NULL').get();
+      if (row) return row;
+      await yieldTick();
+    }
+    throw new Error('nevznikl approval');
+  })();
+
+  // Lease běhu A vyprší — spadlý proces, uspaný stroj, cokoli — a **rival si
+  // zámek řádně vezme**.  Tohle je ten okamžik, po kterém běh A ztratil právo
+  // na soubor, i když o tom ještě neví a jeho approval je pořád platný.
+  db.prepare(`
+    UPDATE file_write_locks
+       SET released_at = datetime('now'), release_reason = 'expired'
+     WHERE run_id = 'run-stary' AND released_at IS NULL
+  `).run();
+  const rival = acquireFileLock(db, {
+    workspace, filePath: target(), runId: 'run-rival', ownerLabel: 'druhý agent',
+  });
+  assert.equal(rival.ok, true, 'rival si zámek nevzal, test by nic nedokazoval');
+
+  // A teprve teď člověk odpoví „ano".  Souhlas platí; rezervace ne.
+  await answerPending('approve', { payload: { path: target(), content } });
+  const result = await write;
+
+  assert.equal(result.written, false, 'starý běh zapsal přes práci rivala');
+  assert.equal(result.state, 'lock_lost');
+  assert.equal(existsSync(target()), false, 'na disku je efekt běhu, který o zámek přišel');
+
+  // A otázka po něm nezůstala viset jako čekající.
+  const row = db.prepare('SELECT decided_at, decision FROM mobile_approvals WHERE id = ?').get(approval.id);
+  assert.equal(row.decision, 'approve', 'odpověď člověka se přepsala');
+
+  releaseFileLock(db, { lockId: rival.lock.id, runId: 'run-rival' });
+});
+
+// ── 9. Hluboká neexistující cesta přes symlink ─────────────────────────────
+
+await test('nález 7 rozšířen: symlink se rozmotá i u cesty, jejíž adresář ještě není', async () => {
+  clear();
+  const skutecny = path.join(workdir, 'skutecny');
+  mkdirSync(skutecny, { recursive: true });
+  symlinkSync(skutecny, path.join(workdir, 'odkaz'));
+
+  // Ani `a`, ani `a/b` neexistují — `mkdir -p` je udělá teprve zápis.  Dřív se
+  // v tomhle případě kanonizace vzdala a spadla do lexikální podoby, takže
+  // `odkaz/a/b/c.js` a `skutecny/a/b/c.js` byly dva klíče nad jedním souborem.
+  const pres = path.join(workdir, 'odkaz', 'a', 'b', 'c.js');
+  const primo = path.join(skutecny, 'a', 'b', 'c.js');
+
+  const drzi = acquireFileLock(db, { workspace, filePath: pres, runId: 'run-symlink-1' });
+  assert.equal(drzi.ok, true);
+
+  const druhy = acquireFileLock(db, { workspace, filePath: primo, runId: 'run-symlink-2' });
+  assert.equal(druhy.ok, false,
+    'symlink a přímá cesta k témuž budoucímu souboru dostaly dva zámky');
+  assert.equal(druhy.holder.runId, 'run-symlink-1');
+
+  releaseFileLock(db, { lockId: drzi.lock.id, runId: 'run-symlink-1' });
+});
+
 
 db.close();
 rmSync(runtimeDir, { recursive: true, force: true });

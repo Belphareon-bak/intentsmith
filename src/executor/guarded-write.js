@@ -230,6 +230,23 @@ export async function guardedWrite({
       closeQuestion(approval.id, 'lock_lost', lostLock.reason);
       return { state: 'lock_lost', written: false, approvalId: approval.id, detail: lostLock };
     }
+    // Rezervace se **obnoví** těsně před poslední kontrolou.
+    //
+    // Bez toho by zbývající lease mohl být libovolně krátký: člověk odpověděl
+    // čtrnáct minut a padesát devět vteřin po vzetí zámku a mezi kontrolou
+    // a `rename` by mezitím vypršel.  Obnovení dává poslední fázi celé TTL
+    // místo zbytku, takže okno, o kterém se mluví ve slibu, je opravdu
+    // mikrointerval, a ne „kolik zbylo".
+    try {
+      refreshFileLock(rawDb, { lockId: lock.lock.id, runId });
+    } catch (error) {
+      closeQuestion(approval.id, 'lock_lost', 'refresh_before_commit_failed');
+      return {
+        state: 'lock_lost', written: false, approvalId: approval.id,
+        detail: { reason: 'refresh_before_commit_failed', message: error.message },
+      };
+    }
+
     const fence = assertStillHeld(rawDb, { lockId: lock.lock.id, runId });
     if (!fence.ok) {
       closeQuestion(approval.id, 'lock_lost', fence.reason);
@@ -250,6 +267,23 @@ export async function guardedWrite({
         state: 'precondition_changed', written: false,
         approvalId: approval.id, target: effectPath, reason: 'changed_before_write',
       };
+    }
+
+    // A ještě jednou, **jako poslední věc před efektem**.
+    //
+    // Mezi ověřením předpokladu a zápisem se čte soubor z disku, což je I/O a
+    // trvá to; rival, který si mezitím vzal převzatý lease, by jinak dostal
+    // zápis přes ruce. Tady končí to, co jde zkontrolovat: mezi tímhle řádkem
+    // a `rename` zbývá okno, které POSIX zavřít neumí, protože zápis souboru
+    // není compare-and-swap. Slib to říká nahlas a nepředstírá víc.
+    const lastFence = assertStillHeld(rawDb, { lockId: lock.lock.id, runId });
+    if (!lastFence.ok) {
+      closeQuestion(approval.id, 'lock_lost', lastFence.reason);
+      return { state: 'lock_lost', written: false, approvalId: approval.id, detail: lastFence };
+    }
+    if (lostLock) {
+      closeQuestion(approval.id, 'lock_lost', lostLock.reason);
+      return { state: 'lock_lost', written: false, approvalId: approval.id, detail: lostLock };
     }
 
     // Atomicky: dočasný soubor + `rename`.  Zkrácení cíle na nulu a pád

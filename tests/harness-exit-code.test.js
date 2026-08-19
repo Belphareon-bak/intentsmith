@@ -339,7 +339,21 @@ try {
   // missing-bootstrap assertion above aborted the program before this line was
   // ever reached, so four suites' worth of import-graph growth sat unreviewed
   // behind a louder failure.  The safety assertion that follows held throughout.
-  const expectedDatabaseReachableRootTests = 99;
+  //
+  // Re-reviewed 2026-08-19 s balíkem P0-2: 99 → 102.  Rozpad je změřený, ne
+  // odhadnutý — census se pustil na `5c5413e4` (v odděleném worktree, aby se
+  // pracovní strom nesahal) a na tomhle stromu, a množiny se porovnaly:
+  //
+  //   * na `5c5413e4` byl census **100**, ne 99.  Ta jednička je **předchozí
+  //     drift** a s tímhle balíkem nesouvisí; konstanta byla zastaralá už
+  //     předtím, jen to nikdo nezměřil.
+  //   * +2 jsou dva programy, které tenhle balík přidává:
+  //     `effects-guarded-path.test.js` a `approval-lifecycle.test.js`.
+  //
+  // Rozdíl množin je přesně tyhle dva a **nic neubylo** — žádný existující
+  // program se do databáze nedostal cestou, kterou dřív neměl.  Fail-closed
+  // kontrola `unprotected` níž platila po celou dobu.
+  const expectedDatabaseReachableRootTests = 102;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,

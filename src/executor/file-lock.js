@@ -103,23 +103,20 @@ export function describeWorkspace(cwd = process.cwd()) {
  * běhy by na ně dostaly dva zámky a přepsaly by se navzájem přesně tak, jak
  * `027` zakazuje.
  *
- * `realpath` se dělá na **nadřazený adresář**, ne na soubor: cíl často ještě
- * neexistuje (vytváříme ho), ale jeho adresář ano, a symlinky v cestě jsou to,
- * co potřebujeme rozmotat.  Když neexistuje ani adresář, zbývá lexikální
- * podoba — a to je poctivější než tvrdit, že jsme něco rozmotali.
+ * `realpath` se dělá na **nejbližšího existujícího předka**, ne jen na soubor
+ * nebo jeho adresář.  Cíl často ještě neexistuje (vytváříme ho) a u hluboké
+ * cesty neexistuje ani jeho adresář — `mkdir -p` teprve přijde.  Zastavit se na
+ * prvním neúspěchu znamenalo spadnout do čistě lexikální podoby, ve které
+ * symlink zůstal nerozmotaný: `strom/link/a/b/c.js` a `strom/skutecny/a/b/c.js`
+ * pak byly dva klíče nad jedním budoucím inode a `027` mezi nimi nechránilo.
+ *
+ * Neexistující zbytek cesty se připojí tak, jak byl zadán.  Nic se o něm
+ * netvrdí — symlink, který teprve vznikne, rozmotat nejde a předstírat to by
+ * bylo horší než to přiznat.
  */
 export function canonicalTarget(workspace, filePath) {
   const absolute = path.resolve(workspace.root, filePath);
-  let real = absolute;
-  try {
-    real = realpathSync(absolute);
-  } catch {
-    try {
-      real = path.join(realpathSync(path.dirname(absolute)), path.basename(absolute));
-    } catch {
-      real = absolute;
-    }
-  }
+  const real = resolveThroughNearestAncestor(absolute);
 
   let root = workspace.root;
   try { root = realpathSync(workspace.root); } catch { /* strom nemusí existovat (testy) */ }
@@ -134,6 +131,31 @@ export function canonicalTarget(workspace, filePath) {
     absolute,
     real,
   };
+}
+
+/**
+ * Rozmotej cestu tak daleko, kam až skutečně vede.
+ *
+ * Jde se nahoru po předcích, dokud nějaký neexistuje; ten se rozmotá přes
+ * `realpath` a zbytek cesty se na něj připojí zpátky.  Tím je symlink kdekoli v
+ * existující části cesty rozmotaný, i když cíl ani jeho adresář zatím nejsou.
+ */
+function resolveThroughNearestAncestor(absolute) {
+  const missing = [];
+  let candidate = absolute;
+
+  for (;;) {
+    try {
+      return path.join(realpathSync(candidate), ...missing);
+    } catch { /* tenhle předek ještě neexistuje — o patro výš */ }
+
+    const parent = path.dirname(candidate);
+    // Kořen se nerozmotal: nezbývá než lexikální podoba.  Nastane jen tehdy,
+    // když neexistuje ani `/`, což je stav, ve kterém stejně nic nezapíšeme.
+    if (parent === candidate) return absolute;
+    missing.unshift(path.basename(candidate));
+    candidate = parent;
+  }
 }
 
 function keyFor(workspace, filePath) {
