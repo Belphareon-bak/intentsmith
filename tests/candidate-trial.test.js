@@ -233,4 +233,57 @@ await testAsync('odstranění modelu ohlásí výsledek', async () => {
   restore();
 });
 
+// ─── Průběžné hlášení ───────────────────────────────────────────────────────
+
+suite('onStage — hlášení průběhu');
+
+await testAsync('měření se hlásí hned, ne až po souboji', async () => {
+  // Souboj trvá desítky minut; operátor má vědět dřív, jestli se kandidát
+  // vůbec vešel a jak je rychlý.
+  stubOllama({ answers: GOOD_ANSWERS, placement: FITS });
+  const stages = [];
+  await tryCandidate('cand:7b', {
+    ...FAST_DRAIN,
+    runner: fakeRunner({ 'cand:7b': { _default: 1 }, 'inc:7b': { _default: 1 } }),
+    roles: ['CODE'],
+    bindings: { CODE: 'inc:7b' },
+    onStage: (stage, model, info) => stages.push({ stage, info }),
+  });
+  const measured = stages.find(s => s.stage === 'measured');
+  assert(measured, 'měření se musí ohlásit');
+  assertEqual(measured.info.fits, true);
+  assertEqual(measured.info.tokensPerSecond, 100);
+
+  const trialIdx = stages.findIndex(s => s.stage === 'roleDecided');
+  const measuredIdx = stages.indexOf(measured);
+  assert(measuredIdx < trialIdx, 'měření se hlásí před rozhodnutím role');
+  restore();
+});
+
+await testAsync('rozhodnutí role se hlásí průběžně', async () => {
+  stubOllama({ answers: GOOD_ANSWERS, placement: FITS });
+  const decided = [];
+  await tryCandidate('cand:7b', {
+    ...FAST_DRAIN,
+    runner: fakeRunner({ 'cand:7b': { _default: 1 }, 'inc:7b': { _default: 1 } }),
+    roles: ['CODE', 'CHAT'],
+    bindings: { CODE: 'inc:7b', CHAT: 'inc:7b' },
+    onStage: (stage, model, info) => { if (stage === 'roleDecided') decided.push(info.role); },
+  });
+  assertEqual(decided.length, 2, 'každá role se ohlásí, jakmile je rozhodnutá');
+  restore();
+});
+
+await testAsync('u přetékajícího kandidáta se měření jako úspěch nehlásí', async () => {
+  stubOllama({ answers: GOOD_ANSWERS, placement: SPILLS });
+  const stages = [];
+  await tryCandidate('cand:32b', {
+    ...FAST_DRAIN,
+    runner: fakeRunner({}), roles: [], bindings: {},
+    onStage: (stage, model, info) => stages.push(stage),
+  });
+  assert(!stages.includes('measured'), 'nevešel se — nemá se hlásit jako změřený');
+  restore();
+});
+
 summary();

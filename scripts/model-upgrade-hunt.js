@@ -177,7 +177,20 @@ for (const cand of queue) {
     roles: ROLES,
     bindings,
     incumbentSpeed,
-    onStage: (stage, m) => log(`  [${stage}] ${m}`),
+    onStage: (stage, m, info = {}) => {
+      if (stage === 'measured') {
+        const gb = n => (n / 2 ** 30).toFixed(2);
+        log(`  ✓ vejde se do VRAM (${gb(info.vramBytes)}/${gb(info.sizeBytes)} GB při ${info.numCtx} tok), `
+          + `${info.tokensPerSecond ?? '—'} tok/s`);
+      } else if (stage === 'floorPassed') {
+        log(`  ✓ schopnostní minimum prošlo (${info.probes} kontroly)`);
+      } else if (stage === 'roleDecided') {
+        const d = info.decision;
+        log(`     ${info.role.padEnd(7)} ${d.winner === 'candidate' ? 'KANDIDÁT' : 'stávající'}  (${d.basis}) ${d.detail}`);
+      } else {
+        log(`  [${stage}] ${m}`);
+      }
+    },
   });
   results.push(r);
 
@@ -186,10 +199,6 @@ for (const cand of queue) {
     continue;
   }
   const t = r.measurement.throughput?.tokensPerSecond;
-  log(`  ✓ vejde se, ${t} tok/s, schopnostní minimum prošlo`);
-  for (const [role, d] of Object.entries(r.decisions)) {
-    log(`     ${role.padEnd(7)} ${d.winner === 'candidate' ? 'KANDIDÁT' : 'stávající'}  (${d.basis}) ${d.detail}`);
-  }
   if (r.accepted) {
     const won = Object.entries(r.decisions).filter(([, d]) => d.winner === 'candidate').map(([x]) => x);
     log(`  → PŘIJAT pro role: ${won.join(', ')} (stávající modely zůstávají na disku)`);

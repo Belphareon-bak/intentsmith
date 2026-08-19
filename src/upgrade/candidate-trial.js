@@ -198,6 +198,16 @@ export async function tryCandidate(candidateName, ctx = {}) {
       return out;
     }
 
+    // Hlásí se hned, ne až po souboji — souboj trvá desítky minut a operátor
+    // má vědět, jestli se kandidát vůbec vešel a jak je rychlý.
+    onStage('measured', candidateName, {
+      fits: true,
+      tokensPerSecond: out.measurement.throughput?.tokensPerSecond ?? null,
+      vramBytes: out.measurement.placement?.vramBytes ?? 0,
+      sizeBytes: out.measurement.placement?.sizeBytes ?? 0,
+      numCtx: out.measurement.numCtx,
+    });
+
     onStage('floor', candidateName);
     out.stage = 'floor';
     out.floor = await runCapabilityFloor(candidateName, ctx);
@@ -207,7 +217,8 @@ export async function tryCandidate(candidateName, ctx = {}) {
       return out;
     }
 
-    onStage('trial', candidateName);
+    onStage('floorPassed', candidateName, { probes: (ctx.probes || CAPABILITY_FLOOR).length });
+
     out.stage = 'trial';
     // Sdílená cache napříč rolemi — `reasoning` obsluhuje D1, D2 i R1.
     const suiteCache = createSuiteCache();
@@ -225,7 +236,10 @@ export async function tryCandidate(candidateName, ctx = {}) {
         ...ctx.trialOpts,
       });
       out.trials.push(result);
-      if (!result.skipped) out.decisions[role] = result.decision;
+      if (!result.skipped) {
+        out.decisions[role] = result.decision;
+        onStage('roleDecided', candidateName, { role, decision: result.decision });
+      }
     }
 
     out.accepted = Object.values(out.decisions).some(d => d.winner === 'candidate');
