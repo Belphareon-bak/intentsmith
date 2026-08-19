@@ -20,6 +20,9 @@ import {
 } from './protocol.js';
 import { TurnTelemetry } from '../telemetry/turn-telemetry.js';
 import { config } from '../config.js';
+import {
+  resolveApprovalDecision, closeApprovalWithoutAnswer, APPROVAL_TERMINAL,
+} from '../approvals/authority.js';
 import { featureManager } from '../core/feature-manager.js';
 import {
   AbortSource,
@@ -291,20 +294,45 @@ export function createSessionAdapter({
    * pozdní „ano" z IDE nepřepíše „ne", které mezitím přišlo z telefonu.
    */
   function decideDurableApproval(approvalId, decision) {
-    if (!approvalId) return false;
+    if (!approvalId) return { outcome: 'refused', reason: 'missing_id' };
+
+    // **Čím se tahle relace prokazuje: vlastnictvím.**
+    //
+    // Doteď tenhle kód aktualizoval libovolné `id`, které mu IDE poslalo — tedy
+    // i approval jiné relace nebo takový, který si vyžádal telefon.  Stačilo
+    // uhodnout nebo odposlechnout id.  Telefon se prokazuje scopem
+    // (`write:approvals`) a otiskem, desktop tím, že sedí u stroje; relace se
+    // prokazuje tím, že tu otázku **sama položila**.
+    if (!durableApprovalIds.has(approvalId)) {
+      logger.warn('WSSession', `Relace odmítla rozhodnout cizí approval ${approvalId}`, { sessionId: sid });
+      return { outcome: 'refused', reason: 'not_owned' };
+    }
+
     try {
-      const changed = _approvalDb.prepare(`
-        UPDATE mobile_approvals
-           SET decided_at = datetime('now'), decision = ?, decided_by = 'ide'
-         WHERE id = ? AND decided_at IS NULL
-      `).run(decision, approvalId).changes;
-      if (changed === 0) {
-        logger.info('WSSession', `Edit approval ${approvalId} už byl rozhodnut jinde`, { sessionId: sid });
+      // Rozhoduje **sdílená autorita**, ne vlastní UPDATE: druhé rozhodnutí tak
+      // vrátí to první (`replay`) místo tichého `changes === 0`, a platí tu
+      // stejná pravidla jako pro telefon a desktop.
+      //
+      // Otisk se nebere od IDE — vzalo by se, co pošle, a byla by to kontrola
+      // sama se sebou.  Bere se z řádku, který si tahle relace vyrobila; její
+      // důkaz je vlastnictví výše, skutečnou pojistkou je předpoklad ověřovaný
+      // až při zápisu.
+      const row = _approvalDb.prepare(
+        'SELECT payload_fingerprint FROM mobile_approvals WHERE id = ?').get(approvalId);
+      if (!row) return { outcome: 'refused', reason: 'not_found' };
+
+      const result = resolveApprovalDecision(_approvalDb, {
+        approvalId, decision,
+        payloadFingerprint: row.payload_fingerprint,
+        decidedBy: 'ide',
+      });
+      if (result.outcome === 'replay') {
+        logger.info('WSSession', `Edit approval ${approvalId} už byl rozhodnut jinde (${result.decision})`, { sessionId: sid });
       }
-      return changed > 0;
+      return result;
     } catch (error) {
       logger.error('WSSession', `Nelze zapsat rozhodnutí ${approvalId}: ${error.message}`, { sessionId: sid });
-      return false;
+      return { outcome: 'refused', reason: error.message };
     }
   }
 
@@ -1114,7 +1142,18 @@ export function createSessionAdapter({
         // telefon, takže „schválil to Honza z IDE" a „schválil to Honza
         // z telefonu" končí ve stejném sloupci.
         if (!pending && durableApprovalsEnabled()) {
-          decideDurableApproval(data.requestId, 'approve');
+          const outcome = decideDurableApproval(data.requestId, 'approve');
+          // Odmítnuté i zopakované rozhodnutí se **řekne**.  Tiché spolknutí by
+          // znamenalo, že IDE ukáže „schváleno" nad approvalem, který rozhodl
+          // někdo jiný nebo který téhle relaci nepatří.
+          if (outcome.outcome !== 'decided') {
+            sendChannel(Channel.STATUS, {
+              editDecision: {
+                reqId: data.requestId, outcome: outcome.outcome,
+                decision: outcome.decision || null, reason: outcome.reason || null,
+              },
+            });
+          }
           break;
         }
         if (!pending) break;
@@ -1171,7 +1210,15 @@ export function createSessionAdapter({
       case 'edit_reject': {
         const pending = editPending.get(data.requestId);
         if (!pending && durableApprovalsEnabled()) {
-          decideDurableApproval(data.requestId, 'reject');
+          const outcome = decideDurableApproval(data.requestId, 'reject');
+          if (outcome.outcome !== 'decided') {
+            sendChannel(Channel.STATUS, {
+              editDecision: {
+                reqId: data.requestId, outcome: outcome.outcome,
+                decision: outcome.decision || null, reason: outcome.reason || null,
+              },
+            });
+          }
           break;
         }
         if (!pending) break;
@@ -1209,11 +1256,15 @@ export function createSessionAdapter({
     if (durableApprovalIds.size > 0 && _approvalDb) {
       for (const approvalId of durableApprovalIds) {
         try {
-          _approvalDb.prepare(`
-            UPDATE mobile_approvals
-               SET decided_at = datetime('now'), decision = 'cancelled', decided_by = 'session_gone'
-             WHERE id = ? AND decided_at IS NULL
-          `).run(approvalId);
+          // Tatáž funkce, jakou používá `guardedWrite` — jeden zapisovatel
+          // terminálních stavů.  `decided_by` je `system`, protože otázku
+          // nestáhl člověk; důvod je `session_gone` a ten se do `decision_reason`
+          // vejde bez toho, aby se vydával za identitu rozhodujícího.
+          closeApprovalWithoutAnswer(_approvalDb, approvalId, {
+            outcome: APPROVAL_TERMINAL.CANCELLED,
+            reason: 'session_gone',
+            by: 'system',
+          });
         } catch { /* databáze pryč — relace končí tak jako tak */ }
       }
       durableApprovalIds.clear();

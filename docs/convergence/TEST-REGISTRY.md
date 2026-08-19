@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 410
+- Runnable programs: 411
 - Explicit support-module exclusions: 9
-- Profiles: offline=199, database=55, server=37, model=85, soak=19, manual=15
-- States: ACTIVE=312, HISTORICAL=15, BLOCKED=83
+- Profiles: offline=199, database=56, server=37, model=85, soak=19, manual=15
+- States: ACTIVE=313, HISTORICAL=15, BLOCKED=83
 
 ## Execution profiles
 
@@ -58,6 +58,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-AGENT-SOURCES-TEST` | `tests/agent-sources.test.js` | `C3-015` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-AGENT-WIZARD-TEST` | `tests/agent-wizard.test.js` | `C3-015` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-API-CONTRACT-REGISTRY-TEST` | `tests/api-contract-registry.test.js` | `C3-023` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T2-TESTS-APPROVAL-LIFECYCLE-TEST` | `tests/approval-lifecycle.test.js` | `C3-031` | T2 | `database` | 15 s | 3 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-ARCHITECT-SMOKE-TEST` | `tests/architect-smoke.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-ARCHITECTURE-CHECK-TEST` | `tests/architecture-check.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-ARCHITECTURE-DETECTOR-TEST` | `tests/architecture-detector.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

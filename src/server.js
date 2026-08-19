@@ -56,6 +56,27 @@ const companionProducer = createCompanionProducer({
 });
 configureEffects({ db: db.db, producer: companionProducer });
 setApprovalDeps({ db: db.db, producer: companionProducer });
+
+// Úklid po předchozím spuštění.  Approval vázaný na cíl vznikl proto, že nějaký
+// běh čekal na odpověď; ten běh restart nepřežil, takže jeho „ano" už nemá kdo
+// provést.  Nechat řádek viset jako `pending` znamená nabízet rozhodnutí, po
+// kterém se nic nestane — a uživatel přitom odchází v přesvědčení, že něco
+// povolil.  Otázka nezmizí: dostane pravdivý konec (`cancelled`/`waiter_gone`)
+// a telefon ji uvidí jako rozhodnutou jinde.
+//
+// Zámky po mrtvých bězích padají se stejným odůvodněním: zámek, který přežije
+// svůj běh, je tichý blokátor pro všechny ostatní.
+try {
+  const reaped = reapApprovalsFromPreviousBoot(db.db, { bootId: BOOT_ID });
+  const unlocked = releaseStaleLocks(db.db, { bootId: BOOT_ID });
+  if (reaped.closed > 0 || unlocked > 0) {
+    logger.info('Server',
+      `Boot cleanup: ${reaped.closed} approval(s) had no waiter left, ${unlocked} lock(s) released`);
+  }
+} catch (error) {
+  logger.error('Server', `Boot cleanup failed: ${error.message}`);
+}
+
 logger.info('Server', 'Approval plane wired: file writes ask before they write (P0-2)');
 // Wire lifecycle hooks (lazy import — lifecycle-build may not be loaded yet)
 import('./planner/lifecycle-build.js').then(m => m.setNotificationEmitter(notificationEmitter)).catch(() => {});
@@ -152,6 +173,9 @@ import { createNotificationRoutes } from './routes/notifications.js';
 import { createApprovalRoutes } from './routes/approvals.js';
 import { createCompanionProducer } from './mobile/companion-producer.js';
 import { configureEffects } from './executor/effects.js';
+import { reapApprovalsFromPreviousBoot } from './approvals/authority.js';
+import { BOOT_ID } from './approvals/boot-id.js';
+import { releaseStaleLocks } from './executor/file-lock.js';
 import { createMarketplaceRoutes } from './routes/marketplace.js';
 import { createMediaRoutes, recoverStuckGenerations } from './routes/media.js';
 import { createGovernorRoutes } from './routes/governor.js';

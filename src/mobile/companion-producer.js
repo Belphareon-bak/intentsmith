@@ -54,8 +54,10 @@
 // ==============================================================================
 
 import {
-  createMobileApproval, checkPrecondition, APPROVAL_TTL_MS, APPROVAL_VALIDITY,
+  createMobileApproval, checkPrecondition, decisionState,
+  APPROVAL_TTL_MS, APPROVAL_VALIDITY,
 } from '../approvals/authority.js';
+import { BOOT_ID } from '../approvals/boot-id.js';
 import {
   MOBILE_PROJECTOR_CAPABILITY,
   MOBILE_NOTIFICATION_CHANNEL,
@@ -78,10 +80,15 @@ export const S1_VOCABULARY = Object.freeze({
     title: 'Čeká rozhodnutí',
     body: 'Otevři schránku approvalů a rozhodni.',
   },
+  // Původní znění bylo „Rozhodnutí propadlo / Okno vypršelo, běh pokračoval
+  // bez svolení."  Obojí přestalo platit rozhodnutím `025`: approval už
+  // neomezuje čas, ale **stav cíle**, a běh po propadnutí nepokračuje — nic
+  // nezapíše.  Věta, která uživateli tvrdí, že se něco stalo bez jeho svolení,
+  // je horší než žádná.
   'approval.expired': {
     kind: 'approval', priority: 'normal',
-    title: 'Rozhodnutí propadlo',
-    body: 'Okno vypršelo, běh pokračoval bez svolení.',
+    title: 'Rozhodnutí už neplatí',
+    body: 'Cíl se změnil. Otevři schránku approvalů.',
   },
   'run.started': {
     kind: 'run', priority: 'low',
@@ -238,6 +245,9 @@ export function createCompanionProducer({
       origin, runId, operationRef, subjectType, subjectId, title, payload, detail,
       ...(id === undefined ? {} : { id }),
       ...(precondition ? { precondition } : {}),
+      // Kdo na tuhle otázku čeká.  Bez toho by po restartu zůstala viset jako
+      // `pending` a její „ano" by nemělo kdo provést.
+      waiterBoot: precondition ? BOOT_ID : null,
       now: now(),
     });
 
@@ -306,12 +316,30 @@ export function createCompanionProducer({
     }
 
     for (;;) {
+      // Zrušení se ptá **jako první**, ještě před přečtením řádku.
+      //
+      // Dřív se `signal.aborted` kontrolovalo až za větví „už je rozhodnuto",
+      // takže když člověk odpověděl „ano" v téže chvíli, kdy volající přestal
+      // čekat, vrátilo se `approve` — a zápis proběhl po zrušení.  `run.cancelled`
+      // slibuje „Nic dalšího se neprovedlo"; tahle posloupnost z toho dělala lež.
+      if (signal?.aborted) {
+        return { state: 'cancelled', approvalId, reason: 'aborted' };
+      }
+
       const row = readApproval(approvalId);
       if (!row) return { state: 'missing', approvalId };
 
       if (row.decided_at) {
         if (row.decision !== 'approve') {
-          return { state: 'reject', approvalId, decidedAt: row.decided_at, decidedBy: row.decided_by || null };
+          // `invalidated` a `cancelled` **nejsou** `reject`.  Splynutí by
+          // tvrdilo, že to člověk zamítl — o rozhodnutí, které neudělal.
+          return {
+            state: decisionState(row.decision),
+            approvalId,
+            decidedAt: row.decided_at,
+            decidedBy: row.decided_by || null,
+            reason: row.decision_reason || null,
+          };
         }
         // Schválení se ověřuje **znovu, teď** — mezi odpovědí a provedením
         // mohl svět stihnout cokoli.  To je celý smysl předpokladu: bez tohohle
@@ -337,7 +365,6 @@ export function createCompanionProducer({
           : { state: 'expired', approvalId, expiresAt: row.expires_at };
       }
       if (t >= deadline) return { state: 'timeout', approvalId, expiresAt: row.expires_at };
-      if (signal?.aborted) return { state: 'timeout', approvalId, aborted: true };
 
       // Předpoklad se kontroluje i **během čekání**: když se cíl změní dřív,
       // než člověk odpoví, nemá smysl ho nechat odpovídat na neaktuální otázku.
@@ -354,7 +381,8 @@ export function createCompanionProducer({
 
   function readApproval(approvalId) {
     return rawDb.prepare(`
-      SELECT id, expires_at, decided_at, decision, decided_by, run_id, operation_ref,
+      SELECT id, expires_at, decided_at, decision, decided_by, decision_reason,
+             run_id, operation_ref,
              validity, precondition_kind, precondition_ref, precondition_digest
         FROM mobile_approvals WHERE id = ?
     `).get(approvalId) || null;

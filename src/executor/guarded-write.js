@@ -106,7 +106,10 @@ export async function guardedWrite({
    * `closeApprovalWithoutAnswer` píše jen do řádku, který je pořád nerozhodnutý.
    */
   function closeQuestion(approvalId, state, reason) {
-  const cancelled = state === 'timeout' || state === 'abandoned';
+  // `cancelled` = ten, kdo se ptal, přestal čekat.  `invalidated` = svět se
+  // změnil pod otázkou.  Rozdíl vidí uživatel na telefonu, takže se nesmí
+  // slít.
+  const cancelled = state === 'timeout' || state === 'abandoned' || state === 'cancelled';
   try {
     closeApprovalWithoutAnswer(rawDb, approvalId, {
       outcome: cancelled ? APPROVAL_TERMINAL.CANCELLED : APPROVAL_TERMINAL.INVALIDATED,
@@ -212,6 +215,17 @@ export async function guardedWrite({
     //     zavřít ho by znamenalo, že všichni zapisovatelé jdou přes jednu
     //     mediační vrstvu (CAS/verzovaný storage).  To je rozhodnutí o síle
     //     slibu, ne oprava — viz PROD-READY-HANDBOOK §P0-2.
+    // Zrušení se ptá **znovu, po souhlasu a před zápisem**.
+    //
+    // `awaitDecision` se na signál dívá na začátku každého kola, ale mezi
+    // posledním kolem a návratem `approve` je okno, ve kterém může relace
+    // skončit.  Zapsat v tom okně by znamenalo provést efekt po zrušení — a
+    // „Nic dalšího se neprovedlo" by přestalo platit právě v tom případě, kdy
+    // na tom uživateli záleží nejvíc.
+    if (signal?.aborted) {
+      closeQuestion(approval.id, 'cancelled', 'aborted_after_decision');
+      return { state: 'cancelled', written: false, approvalId: approval.id, reason: 'aborted_after_decision' };
+    }
     if (lostLock) {
       closeQuestion(approval.id, 'lock_lost', lostLock.reason);
       return { state: 'lock_lost', written: false, approvalId: approval.id, detail: lostLock };

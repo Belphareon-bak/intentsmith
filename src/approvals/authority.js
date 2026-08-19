@@ -163,7 +163,7 @@ export function checkPrecondition(row, currentContent) {
 export function createMobileApproval(rawDb, {
   origin, runId, operationRef, subjectType, subjectId, title,
   payload, detail = null, id = randomUUID(), now = Date.now(),
-  precondition = null,
+  precondition = null, waiterBoot = null,
 } = {}) {
   if (!APPROVAL_ORIGINS.includes(origin)) {
     throw new ApprovalAuthorityError('origin_required', { allowed: APPROVAL_ORIGINS });
@@ -211,14 +211,16 @@ export function createMobileApproval(rawDb, {
     INSERT INTO mobile_approvals
       (id, subject_type, subject_id, title, detail, payload_fingerprint,
        created_at, expires_at, origin, run_id, operation_ref,
-       validity, precondition_kind, precondition_ref, precondition_digest)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       validity, precondition_kind, precondition_ref, precondition_digest,
+       waiter_boot)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id, subjectType, subjectId, title, detail,
     approvalFingerprint(payload),
     sqlTime(now), sqlTime(expiresAt),
     origin, runId, operationRef,
     validity, preconditionKind, preconditionRef, preconditionDigestValue,
+    waiterBoot,
   );
 
   return {
@@ -245,6 +247,62 @@ export const APPROVAL_TERMINAL = Object.freeze({
   INVALIDATED: 'invalidated',  // svět se změnil pod otázkou
   CANCELLED: 'cancelled',      // otázku stáhl ten, kdo se ptal
 });
+
+/**
+ * Jak dopadl approval, který **už rozhodnutý je** — jedním jménem, ne dvěma.
+ *
+ * Dřív se všechno, co není `approve`, hlásilo volajícímu jako `reject`.  Bylo
+ * to pohodlné a nepravdivé: „člověk to zamítl" a „otázka propadla, protože se
+ * změnil cíl" a „běh přestal čekat" jsou tři různé věci a uživatel se podle
+ * nich chová různě.  Splynutí do `reject` navíc obviňuje člověka z rozhodnutí,
+ * které neudělal.
+ */
+export function decisionState(decision) {
+  switch (decision) {
+    case 'approve': return 'approve';
+    case 'reject': return 'reject';
+    case APPROVAL_TERMINAL.INVALIDATED: return 'invalidated';
+    case APPROVAL_TERMINAL.CANCELLED: return 'cancelled';
+    // Neznámá hodnota **není** zamítnutí.  Pojmenovat ji jako `reject` by
+    // znamenalo tvrdit o člověku něco, co o něm nevíme.
+    default: return 'unknown_decision';
+  }
+}
+
+/**
+ * Přežil tenhle approval restart procesu, který na něj čekal?
+ *
+ * Řádek restart přežije — je v databázi.  **Čekající běh ne.**  Approval vázaný
+ * na cíl (`precondition`) vznikl proto, že nějaký běh stál a čekal na odpověď,
+ * aby provedl efekt; po restartu ten běh neexistuje a jeho „ano" už nemá kdo
+ * vykonat.  Nechat takový řádek dál viset jako `pending` znamená nabízet
+ * rozhodnutí, po kterém se nic nestane — přesně ten „ghost approval", kvůli
+ * kterému vznikl nález 4, jen o restart později.
+ *
+ * Proto se při startu uzavřou jako `cancelled`/`waiter_gone`.  Otázka tím
+ * nezmizí: zůstává v databázi s pravdivým koncem, telefon ji uvidí jako
+ * rozhodnutou jinde (`SS-09`) místo aby čekal na odpověď, která nic neudělá.
+ * A `run.cancelled` — „Nic dalšího se neprovedlo" — je tím pádem pravda i přes
+ * restart.
+ *
+ * `waiter_boot` je identita **procesu**, ne běhu: dva běhy v jednom procesu
+ * sdílejí osud, dva procesy nad jednou databází se navzájem neuklízejí.
+ *
+ * @returns {{closed: number, bootId: string}}
+ */
+export function reapApprovalsFromPreviousBoot(rawDb, { bootId } = {}) {
+  if (!bootId) throw new ApprovalAuthorityError('boot_id_required', {});
+  const closed = rawDb.prepare(`
+    UPDATE mobile_approvals
+       SET decided_at = datetime('now'), decision = ?, decided_by = 'system',
+           decision_reason = 'waiter_gone'
+     WHERE decided_at IS NULL
+       AND validity = ?
+       AND waiter_boot IS NOT NULL
+       AND waiter_boot <> ?
+  `).run(APPROVAL_TERMINAL.CANCELLED, APPROVAL_VALIDITY.PRECONDITION, bootId).changes;
+  return { closed, bootId };
+}
 
 /**
  * Uzavři approval bez odpovědi člověka.
@@ -373,8 +431,9 @@ export function approvalIsBound(row) {
 
 export default {
   createMobileApproval, approvalIsBound, approvalFingerprint,
-  preconditionDigest, checkPrecondition,
+  preconditionDigest, checkPrecondition, decisionState,
   resolveApprovalDecision, evaluateApprovalDecision, closeApprovalWithoutAnswer,
+  reapApprovalsFromPreviousBoot,
   APPROVAL_TTL_MS, APPROVAL_ORIGINS, APPROVAL_VALIDITY, APPROVAL_TERMINAL,
   PRECONDITION_CAP_MS,
 };

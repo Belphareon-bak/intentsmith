@@ -280,10 +280,16 @@ await test('P0-2 konec relace stáhne otázku, kterou už nemá kdo provést', a
   session.adapter.cleanup();
   await session.finished;
 
-  const after = db.prepare('SELECT decision, decided_by FROM mobile_approvals WHERE id = ?').get(row.id);
+  const after = db.prepare(
+    'SELECT decision, decided_by, decision_reason FROM mobile_approvals WHERE id = ?').get(row.id);
   assert.equal(after.decision, 'cancelled',
     'otázka zůstala na telefonu viset, i když ji nemá kdo provést');
-  assert.equal(after.decided_by, 'session_gone');
+  // `decided_by` je **identita**, `decision_reason` je důvod.  Dřív tu stálo
+  // `decided_by = 'session_gone'`, což je důvod vydávaný za rozhodujícího — a
+  // v seznamu „kdo rozhodl" by pak vedle telefonu a desktopu stál řetězec,
+  // který nikoho neoznačuje.
+  assert.equal(after.decided_by, 'system');
+  assert.equal(after.decision_reason, 'session_gone');
 
   // A hlavně: souhlas, po kterém by se nic nestalo, už nejde dát.
   const queue = await handleApprovals({ rawDb: db, principal: phone });

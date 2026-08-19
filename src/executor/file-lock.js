@@ -35,6 +35,8 @@
 
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+
+import { BOOT_ID } from '../approvals/boot-id.js';
 import { realpathSync } from 'node:fs';
 import path from 'node:path';
 
@@ -188,10 +190,10 @@ export function acquireFileLock(rawDb, {
   try {
     rawDb.prepare(`
       INSERT INTO file_write_locks
-        (id, repo_id, branch, path, run_id, owner_label, acquired_at, expires_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        (id, repo_id, branch, path, run_id, owner_label, acquired_at, expires_at, boot_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(id, key.repoId, key.branch, key.path, runId, ownerLabel,
-      sqlTime(now), sqlTime(now + ttlMs));
+      sqlTime(now), sqlTime(now + ttlMs), BOOT_ID);
   } catch (error) {
     // Unikátní index promluvil dřív než my: mezi čtením a zápisem stihl zámek
     // vzít někdo jiný.  To není chyba volajícího, je to ten závod, kvůli
@@ -285,6 +287,28 @@ export function releaseRunLocks(rawDb, runId, { reason = 'run_finished', now = D
   `).run(sqlTime(now), reason, runId).changes;
 }
 
+/**
+ * Pusť zámky, které drží běh z **jiného spuštění procesu**.
+ *
+ * Zámek expiruje po `LOCK_TTL_MS`, což je pojistka proti spadlému běhu — ne
+ * úklid po restartu.  Po restartu je jistota, ne domněnka: běh, který ten zámek
+ * držel, neexistuje, a čekat na jeho expiraci znamená patnáct minut blokovat
+ * soubor, o kterém víme, že ho nikdo nedrží.
+ *
+ * `release_reason` to říká nahlas — `boot_cleanup`, ne `expired`.  Kdo se na to
+ * podívá později, má poznat, že tenhle běh nedoběhl kvůli restartu, a ne že mu
+ * vypršel čas.
+ */
+export function releaseStaleLocks(rawDb, { bootId, now = Date.now() } = {}) {
+  if (!bootId) throw new FileLockError('boot_id_required');
+  return rawDb.prepare(`
+    UPDATE file_write_locks
+       SET released_at = ?, release_reason = 'boot_cleanup'
+     WHERE released_at IS NULL
+       AND (boot_id IS NULL OR boot_id <> ?)
+  `).run(sqlTime(now), bootId).changes;
+}
+
 /** Co je právě zamčené — pro diagnostiku a pro obrazovku, která to ukáže. */
 export function listHeldLocks(rawDb, { now = Date.now() } = {}) {
   return rawDb.prepare(`
@@ -315,5 +339,5 @@ export function describeHolder(holder) {
 export default {
   acquireFileLock, refreshFileLock, releaseFileLock, releaseRunLocks,
   listHeldLocks, describeWorkspace, describeHolder, canonicalTarget,
-  assertStillHeld, LOCK_TTL_MS,
+  assertStillHeld, releaseStaleLocks, LOCK_TTL_MS,
 };
