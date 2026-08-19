@@ -145,8 +145,8 @@ nemá kdo dát.
 | Klient: „platí, dokud se cíl nezmění" místo odpočtu | ✅ hotovo — 2 testy |
 | Zámek na soubor (027), aby předpoklad nepadal zbytečně | ✅ hotovo — 16 testů |
 | Ověření předpokladu **při provedení**, ne při schválení | ✅ hotovo — `awaitDecision({ readTarget })` |
-| Desktopová plocha (P0-6) | ⬜ |
-| Zapojení do reálného efektu (P0-2) | ⬜ |
+| Desktopová plocha (P0-6) — API | ✅ hotovo — 10 testů; GUI v IDE zbývá |
+| Zapojení do reálného efektu (P0-2) | ✅ hotovo — editační cesta jádra, 7 testů |
 | Trvalé spojení a měření baterie | ⬜ |
 | Přepis `DR-011` v PLAN/DATA-MODEL/SCREENS | ⬜ |
 

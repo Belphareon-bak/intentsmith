@@ -8,6 +8,56 @@
 
 ---
 
+## v135.1 — Companion: approvaly, které přežijí relaci (2026-08-19)
+
+Mobilní companion přestal být čtečkou. Agent se teď umí zeptat a **počkat**, a
+odpovědět může telefon, IDE i desktop — protože otázka je řádek v databázi, ne
+promise v paměti jedné relace.
+
+### Rozhodnutí, která to odemkla
+- **024** — producent approvalů má schválený tvar (ražba výhradně přes autoritu,
+  uzavřený S1 slovník, čekání na řádku, ticho hlášené jako ticho)
+- **025** — approval se váže na **stav cíle**, ne na hodiny; k tomu trvalé
+  spojení místo cloudu, se spotřebou k doměření
+- **026** — bezdrát přes VPN s vazbou na adresu tunelu, TLS až mimo VPN
+- **027** — jeden zapisovatel na `(repozitář, větev, cesta)`
+
+### Nové vrstvy
+- **Zámek na soubor** (`src/executor/file-lock.js`, migrace 061) — odmítá hned
+  a pojmenuje držitele; klíčem je společný `.git`, takže dva worktree si
+  překážejí a dva klony ne. Pravidlo drží částečný unikátní index, ne `if`.
+- **Předpoklad approvalu** (migrace 062) — approval propadne, když se změní
+  cíl. Předpoklad se **měří, nepřijímá**; „cíl neexistoval" je plnohodnotná
+  hodnota, ne chybějící.
+- **Desktopová plocha** (`src/routes/approvals.js`) — `GET /api/approvals`,
+  `POST /api/approvals/:id/decide` nad toutéž tabulkou a autoritou jako mobil.
+  Telefon přestal být jedinou možností.
+- **Zápis, který se ptá** (`src/executor/guarded-write.js`) — zámek, otázka,
+  čekání, teprve zápis. Každý výsledek má jméno (`locked`, `reject`,
+  `precondition_changed`, `timeout`), ne `false`.
+- **Editační approval v IDE je trvalý** (`setApprovalDeps` v session-adapteru) —
+  `edit_request` chodí dál, ale `reqId` je id approvalu, takže odpovědět může i
+  telefon. Bez vložených závislostí zůstává původní chování beze změny.
+- **Konec relace stahuje otázku** — souhlas, po kterém se nic nestane, je horší
+  než nezodpovězená otázka; zámek se přitom pouští.
+
+### Mobilní aplikace
+- Nativní Android shell (Capacitor) nad servírovaným klientem, podepsané interní
+  APK, `adb reverse` cesta bez vystavení do sítě
+- Credential v Android Keystore, zámek přes systémový `BiometricPrompt`
+- Zamčení zahodí credential z paměti stránky, zruší běžící requesty a
+  zneplatní epochu — pozdní odpověď je inertní
+- Adresa gateway je vstup buildu (`C3_MOBILE_APP_URL`), build odmítne cleartext
+  mimo loopback bez výslovného souhlasu
+- Release build bez podpisového klíče **selže** místo tichého debug podpisu
+
+### Testy
+`file-write-lock` 16, `guarded-write` 8, `desktop-approval-surface` 10,
+`ide-durable-approval` 7, `mobile-secure-credential` 17, `mobile-companion-*`
+24+5, `mobile-browser-a11y` 22 (ručně). Registr 409 programů.
+
+---
+
 ## v129.1–v129.2 — F4a Packaging Bootstrap + Hardening (2026-03-21)
 
 Production-ready install/run/stop scripts for standalone deployment.

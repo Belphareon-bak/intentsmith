@@ -102,8 +102,8 @@ definuje jako následující integrační WP, nikoli jako hotovou skutečnost.
 | Oblast | Stav | Co bylo skutečně ověřeno | Hranice tvrzení |
 |---|---|---|---|
 | Párování a čtení SQLite | `EMULATOR VERIFIED` | párování, seznam konverzací, stránkovaná historie, přehled, trust bar a žurnál | pouze current-host emulátor; žádná fresh-clone ani fyzická device matice |
-| ★ approval | `DEMO JOURNEY VERIFIED` | telefon rozhodl durable approval a demo po schválení vytvořilo soubor | producenta volají jen testy a `mobile-demo-run.js`; skutečný core effect seam jej nevolá |
-| Approval authority | `COMPONENT IMPLEMENTED` | mint jde přes `createMobileApproval`, má výpočet otisku, vazbu a pětiminutové okno | rozhodnutí 024 čeká na přijetí; nejde o přijatou produkční authority |
+| ★ approval | `SEAM IMPLEMENTED` | telefon rozhodl durable approval a soubor vznikl; od 2026-08-19 vede přes `guardedWrite` i editační cesta jádra (`fs.write` v režimu `ask`), takže odpovědět může telefon, IDE i desktop | zapíná se vložením závislostí (`setApprovalDeps`), jinak platí původní chování; fyzický telefon `NOT RUN` |
+| Approval authority | `COMPONENT IMPLEMENTED` | mint jde přes `createMobileApproval`, má výpočet otisku, vazbu a od `025` **předpoklad stavu cíle** místo okna | rozhodnutí 024–027 přijata 2026-08-19; `DR-011` v PLAN/DATA-MODEL/SCREENS ještě popisuje staré okno |
 | Notifikační schránka | `DEMO PRODUCER IMPLEMENTED` | uzavřený devítivětý S1 slovník bez obsahu, zobrazený na emulátoru | je to pull; bez push a bez zapojení do skutečného core lifecycle |
 | Průběh běhu | `DEMO PROJECTION IMPLEMENTED` | demo mapuje `CoreEvent` do S1 indikátorů ve schránce | není vlastní run obrazovka ani produkční CoreEvent konektor |
 | Android shell | `EMULATOR VERIFIED` | instalace/launch, gateway přes `adb reverse`, background lock a `FLAG_SECURE` | Capacitor 6, minSdk 22, compile/target 34 a servírované UI přes `server.url` jsou prototypová konfigurace |

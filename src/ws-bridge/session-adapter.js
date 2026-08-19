@@ -147,6 +147,38 @@ export function setNotificationDeps({ notificationRouter, notificationEmitter })
   _notificationEmitter = notificationEmitter;
 }
 
+// ── Trvalé approvaly (P0-2, rozhodnutí 024/025/027) ────────────────────────
+//
+// Editační approval byl doteď **v paměti téhle relace**: mapa `editPending`,
+// promise a třicetivteřinový timer.  To má tři důsledky, které spolu souvisejí
+// víc, než se zdá:
+//
+//   * odpovědět mohl **jen ten, kdo seděl u IDE** — telefon ani jiná plocha se
+//     k té promise nedostanou, protože žijí v jiném procesu;
+//   * po třiceti vteřinách otázka **zmizela**, i když byla pořád aktuální;
+//   * restart backendu ji zahodil, aniž by o tom kdokoli věděl.
+//
+// Když se sem vloží databáze a producent, přepne se stejná cesta na **trvalý
+// approval**: řádek, který vidí telefon i desktop, čekání bez limitu a
+// předpoklad místo hodin.  IDE dál dostává `edit_request` a chová se stejně —
+// jen už není jediné, kdo může odpovědět.
+//
+// Bez vložených závislostí zůstává původní chování beze změny.  Není to
+// opatrnost pro opatrnost: `024` říká, že producent se nespouští sám, a tohle
+// je to místo, kde se zapíná.
+let _approvalDb = null;
+let _approvalProducer = null;
+
+export function setApprovalDeps({ db = null, producer = null } = {}) {
+  _approvalDb = db?.db || db || null;
+  _approvalProducer = producer || null;
+}
+
+/** Je zapnutá trvalá cesta? Obojí, nebo nic — půlka by byla horší než žádná. */
+function durableApprovalsEnabled() {
+  return Boolean(_approvalDb && _approvalProducer);
+}
+
 // Telemetry persistence — lazy-loaded once per process
 let telemetryRepo = null;
 
@@ -227,6 +259,112 @@ export function createSessionAdapter({
 
   // Fáze 5 — E4: Pending edit approvals (reqId → {resolve, reject, timer})
   const editPending = new Map();
+
+  // Trvalé approvaly téhle relace a jejich společný „konec".  Relace může
+  // skončit kdykoli — zavřený editor, restart, spadlé spojení — a čekání, které
+  // by ji přežilo, drží zámek na souboru a slibuje efekt, který se nestane.
+  const durableApprovalIds = new Set();
+  const durableWaits = new AbortController();
+
+  /**
+   * Editační approval, který přežije relaci — P0-2.
+   *
+   * Rozdíl proti mapě nahoře není v tom, kde se čeká, ale **kdo smí odpovědět**.
+   * Řádek v databázi vidí telefon (`GET /m1/approvals`), desktop
+   * (`GET /api/approvals`) i tahle relace; promise v paměti viděla jen ona.
+   *
+   * `edit_request` se posílá dál, aby se v IDE nic nezměnilo — jen už není
+   * jediným místem, kde jde odpovědět.  `reqId` je nově **id approvalu**, takže
+   * `edit_approve` z IDE zapisuje do téhož řádku, který by zapsal telefon.
+   */
+  /**
+   * Zapiš odpověď z IDE do trvalého approvalu.
+   *
+   * **Čím se tahle plocha prokazuje.**  Telefon musí poslat otisk obsahu, aby
+   * dokázal, že rozhoduje o tom, co viděl.  IDE ho neposílá a tenhle kód ho
+   * nevyžaduje — bylo by to divadlo: `reqId` dostalo od téhle relace spolu
+   * s diffem a nic jiného, čím by se prokázalo, nemá.  Je to **stejná** míra
+   * důvěry jako dosud, ne nižší; jen je teď napsaná.  Skutečnou pojistkou pro
+   * obě plochy je předpoklad, který se ověřuje až při zápisu.
+   *
+   * `WHERE decided_at IS NULL` drží pravidlo „první odpověď vítězí" i tady:
+   * pozdní „ano" z IDE nepřepíše „ne", které mezitím přišlo z telefonu.
+   */
+  function decideDurableApproval(approvalId, decision) {
+    if (!approvalId) return false;
+    try {
+      const changed = _approvalDb.prepare(`
+        UPDATE mobile_approvals
+           SET decided_at = datetime('now'), decision = ?, decided_by = 'ide'
+         WHERE id = ? AND decided_at IS NULL
+      `).run(decision, approvalId).changes;
+      if (changed === 0) {
+        logger.info('WSSession', `Edit approval ${approvalId} už byl rozhodnut jinde`, { sessionId: sid });
+      }
+      return changed > 0;
+    } catch (error) {
+      logger.error('WSSession', `Nelze zapsat rozhodnutí ${approvalId}: ${error.message}`, { sessionId: sid });
+      return false;
+    }
+  }
+
+  async function durableEditApproval({ filePath, content, turnId, sendTurnEvent }) {
+    const { guardedWrite } = await import('../executor/guarded-write.js');
+
+    const result = await guardedWrite({
+      rawDb: _approvalDb,
+      producer: _approvalProducer,
+      runId: turnId,
+      ownerLabel: `session ${sid}`,
+      filePath,
+      content,
+      signal: durableWaits.signal,
+      onAsked: async approval => {
+        // Otázky téhle relace si pamatujeme, abychom je při jejím konci mohli
+        // stáhnout.  Bez toho by na telefonu zůstala viset otázka, kterou už
+        // nemá kdo provést — a to je horší než žádná otázka.
+        durableApprovalIds.add(approval.id);
+        // Diff pro IDE.  `oldContent` čte `guardedWrite` stejně jako předtím
+        // tahle větev — proto ho podává v `before` a nečte se dvakrát.
+        sendTurnEvent('edit_request', {
+          reqId: approval.id,
+          approvalId: approval.id,
+          file: filePath,
+          oldContent: approval.before === null ? '' : approval.before,
+          newContent: content,
+          // `baseHash` zůstává kvůli zpětné kompatibilitě IDE, ale autoritou
+          // je teď předpoklad v approvalu: kontroluje se na serveru při
+          // provedení, ne v editoru při odesílání.
+          baseHash: approval.before === null ? null : 'precondition',
+          durable: true,
+        });
+      },
+    });
+
+    switch (result.state) {
+      case 'written':
+        return { approved: true };
+      case 'locked':
+        // Zámek je informace, ne chyba běhu: říká, že na souboru pracuje někdo
+        // jiný, a jméno toho běhu je to jediné, co s tím uživatel může dělat.
+        sendTurnEvent('edit_locked', { file: filePath, message: result.message });
+        throw new Error(result.message);
+      case 'precondition_changed':
+        // Totéž, co dřív dělal `baseHash` — jen se to teď kontroluje na straně,
+        // která soubor doopravdy zapisuje.
+        sendTurnEvent('edit_conflict', {
+          reqId: result.approvalId,
+          file: filePath,
+          message: 'Soubor byl změněn od doby vytvoření diffu.',
+        });
+        throw new Error('Edit conflict: file changed');
+      case 'reject':
+        throw new Error('Edit rejected by user');
+      default:
+        sendTurnEvent('edit_timeout', { reqId: result.approvalId, file: filePath });
+        throw new Error(`Edit approval ended as ${result.state}`);
+    }
+  }
 
   const sid = sessionId || `ws-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -465,6 +603,19 @@ export function createSessionAdapter({
 
             // E4: Intercept fs.write in ask mode → send diff to IDE, wait for approve/reject
             if (tool === 'fs.write' && options.editMode === 'ask') {
+              // P0-2: s vloženou databází jde otázka do trvalého approvalu, takže
+              // na ni může odpovědět i telefon nebo desktop — a nezmizí po
+              // třiceti vteřinách.  `guardedWrite` drží pořadí: zámek, otázka,
+              // čekání, teprve zápis.
+              if (durableApprovalsEnabled()) {
+                return await durableEditApproval({
+                  filePath: args.path,
+                  content: args.content,
+                  turnId,
+                  sendTurnEvent,
+                });
+              }
+
               const reqId = `er-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
               const filePath = args.path;
 
@@ -958,6 +1109,14 @@ export function createSessionAdapter({
       // E4: Edit approve — hash guard, write file, broadcast new hash
       case 'edit_approve': {
         const pending = editPending.get(data.requestId);
+        // Trvalý režim: `requestId` je id approvalu a odpověď se zapisuje do
+        // řádku, ne do promise.  Zapisuje ji tatáž autorita, jakou používá
+        // telefon, takže „schválil to Honza z IDE" a „schválil to Honza
+        // z telefonu" končí ve stejném sloupci.
+        if (!pending && durableApprovalsEnabled()) {
+          decideDurableApproval(data.requestId, 'approve');
+          break;
+        }
         if (!pending) break;
         clearTimeout(pending.timer);
         editPending.delete(data.requestId);
@@ -1011,6 +1170,10 @@ export function createSessionAdapter({
       // E4: Edit reject
       case 'edit_reject': {
         const pending = editPending.get(data.requestId);
+        if (!pending && durableApprovalsEnabled()) {
+          decideDurableApproval(data.requestId, 'reject');
+          break;
+        }
         if (!pending) break;
         clearTimeout(pending.timer);
         editPending.delete(data.requestId);
@@ -1037,6 +1200,24 @@ export function createSessionAdapter({
       pending.reject(new Error('Session disconnected'));
     }
     editPending.clear();
+
+    // Totéž pro trvalé approvaly, jen o patro níž: nejdřív se ukončí čekání
+    // (a s ním se pustí zámek), pak se **stáhne otázka**.  Nechat ji viset by
+    // znamenalo, že někdo na telefonu rozhodne o zápisu, který nikdo neprovede
+    // — souhlas, po kterém se nic nestane, je horší než nezodpovězená otázka.
+    durableWaits.abort();
+    if (durableApprovalIds.size > 0 && _approvalDb) {
+      for (const approvalId of durableApprovalIds) {
+        try {
+          _approvalDb.prepare(`
+            UPDATE mobile_approvals
+               SET decided_at = datetime('now'), decision = 'cancelled', decided_by = 'session_gone'
+             WHERE id = ? AND decided_at IS NULL
+          `).run(approvalId);
+        } catch { /* databáze pryč — relace končí tak jako tak */ }
+      }
+      durableApprovalIds.clear();
+    }
     logger.info('WSSession', 'Session cleaned up', { sessionId: sid });
   }
 

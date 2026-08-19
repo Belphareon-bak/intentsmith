@@ -54,11 +54,15 @@ const LOCK_HEARTBEAT_MS = 60_000;
  * @param {string} [options.ownerLabel] jméno agenta pro hlášku o zámku
  * @param {number} [options.timeoutMs]  jak dlouho tenhle běh vydrží čekat
  * @param {'local'|'remote'} [options.origin]
+ * @param {Function} [options.onAsked]  zavolá se hned po ražbě approvalu, ještě
+ *   než se začne čekat.  Existuje pro plochy, které mají vlastní způsob, jak
+ *   otázku ukázat — typicky IDE, které pošle `edit_request` do editoru.  Sekvence
+ *   zůstává jedna; jen se k ní přidá další místo, kde je ta otázka vidět.
  */
 export async function guardedWrite({
   rawDb, producer, runId, filePath, content,
   workspace = null, fs = null, ownerLabel = null,
-  timeoutMs = null, origin = 'local', deviceId = null,
+  timeoutMs = null, origin = 'local', deviceId = null, onAsked = null, signal = null,
 } = {}) {
   if (!rawDb) throw new Error('guardedWrite: rawDb required');
   if (!producer) throw new Error('guardedWrite: producer required');
@@ -101,6 +105,15 @@ export async function guardedWrite({
       precondition: { kind: 'file-digest', ref: filePath, content: before },
     });
 
+    if (typeof onAsked === 'function') {
+      // Chyba v cizí ploše nesmí shodit zápis: otázka existuje v databázi bez
+      // ohledu na to, jestli ji IDE stihlo vykreslit.  Kdyby to shodilo běh,
+      // byla by přídavná plocha křehčí než ta hlavní.
+      try {
+        await onAsked({ ...approval, filePath, before });
+      } catch { /* plocha si neporadila; approval stojí */ }
+    }
+
     // Zámek se během čekání obnovuje: běh žije, i když člověk spí.
     heartbeat = setInterval(() => {
       try { refreshFileLock(rawDb, { lockId: lock.lock.id, runId }); } catch { /* uvolněn jinde */ }
@@ -110,6 +123,7 @@ export async function guardedWrite({
     // ── 3. Čekání na člověka ────────────────────────────────────────────
     const answer = await producer.awaitDecision(approval.id, {
       timeoutMs,
+      signal,
       readTarget: async target => readOrNull(io, target),
     });
 

@@ -62,7 +62,7 @@ přijatelný mechanismus napříč procesy, (4) `adb reverse` je pro prototyp
 dostatečná cesta, (5) `EncryptedSharedPreferences` + systémový zámek jsou
 přijatelná hranice **pro interní použití**.
 
-### P0-2 Skutečný effect seam — ⚙️ **CESTA POSTAVENÁ 2026-08-19, ZAPOJENÍ ZBÝVÁ**
+### P0-2 Skutečný effect seam — ✅ **ZAPOJENO 2026-08-19**
 
 `src/executor/guarded-write.js` je ta cesta: vezme zámek (`027`), zeptá se
 s předpokladem (`025`), počká, a zapíše **až** po souhlasu — nebo nezapíše a
@@ -70,10 +70,17 @@ pojmenuje proč (`locked`, `reject`, `precondition_changed`, `timeout`). Osm
 testů proti skutečnému souborovému systému, včetně toho, kdy se cíl změní mezi
 odpovědí a zápisem.
 
-Co zbývá: **zavolat ji z jádra.** Je to funkce, ne chování — schválně, protože
-`024` říká, že producent se nespouští sám. Zapojení znamená rozhodnout, které
-cesty jádra přes ni povedou, a co se stane s dnešním `edit_request` v IDE
-(okno 30 s proti čekání bez limitu).
+**Zapojeno do editační cesty jádra** (`fs.write` v režimu `ask`,
+`src/ws-bridge/session-adapter.js`). `edit_request` chodí do IDE dál, ale
+`reqId` je nově **id approvalu**, takže odpovědět může telefon, desktop i IDE a
+první odpověď vítězí. Třicetivteřinový timer zmizel — otázka platí, dokud platí
+předpoklad. Konec relace otázku **stáhne** a pustí zámek.
+
+Zapíná se `setApprovalDeps({ db, producer })`; bez vložených závislostí zůstává
+původní chování beze změny, protože `024` říká, že producent se nespouští sám.
+
+Co zbývá: rozšířit na další efekty než zápis souboru (shell, mazání, nasazení) a
+doplnit jim vlastní stropy podle `025`.
 
 | | |
 |---|---|
