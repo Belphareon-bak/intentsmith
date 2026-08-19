@@ -54,8 +54,25 @@ a to je přesně vada, kterou `F-111` popisuje na schránce.
 
 ## 5. Strop, dokud to operátor nepřijme
 
-1. Producent se **nespouští sám**. Volá ho jen `scripts/mobile-demo-run.js`
-   a testy; v `server.js` ani v gateway pro něj není žádné zapojení.
+1. ~~Producent se **nespouští sám**. Volá ho jen `scripts/mobile-demo-run.js`
+   a testy; v `server.js` ani v gateway pro něj není žádné zapojení.~~
+   **Zrušeno operátorem 2026-08-19.** Strop splnil svůj účel a byl přijetím
+   sundán: „GuardedWrite se má teď zapojit do skutečné produkční cesty."
+   `server.js` producenta vyrábí a volá `configureEffects` + `setApprovalDeps`;
+   §6 níž tohle přijetí předpokládá a tohle je ta chvíle. Ostatní tři body
+   stropu platí beze změny.
+
+   Zároveň byla přijata **praktická** síla slibu, ne silná:
+
+   > Všechny zápisy uživatelských souborů prováděné IntentSmithem jdou přes
+   > jednu řízenou cestu. Dva běhy IntentSmithu si nepřepíšou stejný kanonický
+   > cíl. Externí změna zápis zastaví, pokud je viditelná při poslední kontrole.
+   > Mikrointerval mezi kontrolou a atomickou náhradou souboru není pokrytý.
+
+   Silná varianta (žádný externí zapisovatel nikdy nepřepíše stav) by znamenala
+   mediační vrstvu pro **všechny** zapisovatele — CAS nebo verzované úložiště,
+   kterým by musel projít i editor a `git checkout`. Otevře se znovu při
+   reálných kolizích, na síťovém filesystemu nebo při víc nezávislých editorech.
 2. `MobileChannel` zůstává fail-closed a capability drží **jen** projektor.
 3. Prototypová větev se **nemerguje do M1 linie** — mění `tests/registry.json`,
    o který se opírá běžící Gate 1 evidence (stejný důvod jako u

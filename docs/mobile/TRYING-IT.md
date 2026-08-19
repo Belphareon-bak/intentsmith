@@ -5,8 +5,11 @@ Praktický runbook pro kanonický prototyp na větvi
 mezery jsou výhradně v [FINAL-PROTOTYPE.md](FINAL-PROTOTYPE.md).
 
 Tento návod obslouží stejný klient ve webovém prohlížeči i v Android shellu.
-Demo běh si o approval **řekne a počká**; bez něj zůstane fronta prázdná,
-protože producent zatím není zapojený do skutečného core effectu.
+
+**Od 2026-08-19 už není potřeba demo.** Zápis uživatelských souborů jde přes
+řízenou cestu, takže si o approval řekne **skutečný běh**: napiš do chatu něco
+jako „ulož to do poznamka.md" a fronta se naplní sama. Demo (`npm run
+mobile:demo`) zůstává jako rychlý způsob, jak si frontu naplnit bez psaní.
 
 ---
 
@@ -23,7 +26,7 @@ i webového klienta**, takže na čtení žádný backend nepotřebuje. Legacy s
 | Přehled, trust bar, stavy cache, zamčení podle scope | ✅ |
 | Žurnál operací, obrazovka rozřešení (`MS-20`) | ✅ |
 | **Odeslat zprávu** | ❌ — `upstream: unreachable`, aplikace to řekne rovnou |
-| Approvaly s reálným obsahem | ✅ jen v demu — `npm run mobile:demo` je vyrobí přes authority component; produkční F-100 seam zůstává otevřený |
+| Approvaly s reálným obsahem | ✅ — produkční cesta je zapojená (`server.js`), takže je vyrobí skutečný zápis. Gateway je ale jen čte; **vyrábí** je backend, takže bez něj se nová otázka neobjeví |
 | Schránka s ukazateli běhu | ✅ jen v demu — S1 projektor `DR-013 A`, tentýž demo běh |
 
 Neběžící backend se **nemaskuje**: `GET /m1/health` vrací
@@ -31,6 +34,18 @@ Neběžící backend se **nemaskuje**: `GET /m1/health` vrací
 záměr, ne rozbitý stav — nefunkční odeslání se nesmí tvářit jako odeslané.
 
 ---
+
+## Rozhodnout se dá i z desktopu
+
+Telefon není jediná možnost (`P0-6`). Backend servíruje rozhodovací plochu na
+
+```
+http://127.0.0.1:3335/approvals-ui
+```
+
+Je to tatáž fronta a tatáž autorita jako na telefonu — první odpověď vítězí a
+druhá plocha se dozví, jak to dopadlo. V chatu (`/chat-ui`) se navíc v postranní
+liště objeví, kolik rozhodnutí čeká.
 
 ## Postup
 

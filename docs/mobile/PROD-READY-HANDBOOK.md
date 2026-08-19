@@ -96,8 +96,17 @@ odpovědí a zápisem.
 první odpověď vítězí. Třicetivteřinový timer zmizel — otázka platí, dokud platí
 předpoklad. Konec relace otázku **stáhne** a pustí zámek.
 
-Zapíná se `setApprovalDeps({ db, producer })`; bez vložených závislostí zůstává
-původní chování beze změny, protože `024` říká, že producent se nespouští sám.
+**Zapnuto v produkci od 2026-08-19.** `server.js` vyrábí producenta a volá
+`configureEffects({ db, producer })` + `setApprovalDeps({ db, producer })`.
+Strop z `024` §5.1 („producent se nespouští sám") operátor sundal; `024` to má
+zaznamenané.
+
+Zápis uživatelských souborů jde přes **jednu řízenou cestu**
+(`src/executor/effects.js`). Dřív šel kolem ní: `fs.writeFile` v
+`handleFileWriteDecision` i v `ToolExecutor.executeFileWrite`. Cesta má tři
+režimy a každý se pojmenuje v návratové hodnotě (`guard`): `approval` (db +
+producent — tohle běží v serveru), `lock` (jen db) a `none`. Fallback není tichý,
+takže nezapojený běh není k nerozeznání od schváleného.
 
 Co zbývá: rozšířit na další efekty než zápis souboru (shell, mazání, nasazení) a
 doplnit jim vlastní stropy podle `025`.
@@ -108,6 +117,7 @@ doplnit jim vlastní stropy podle `025`.
 | **Důkaz** | test, který spustí reálnou cestu, zamítne approval a **ověří, že efekt nenastal**; a druhý, který ho schválí a ověří, že nastal právě jednou |
 | **Vlastník** | Implementátor; přijetí Operátor |
 | **Pád** | agent provede efekt bez svolení, nebo ho po schválení provede dvakrát |
+| **Stav** | **splněno** — `tests/effects-guarded-path.test.js` (12 PASS) pouští skutečný handler i skutečný nástroj a kouká na disk; `tests/approval-lifecycle.test.js` (10 PASS) drží cancel, vlastnictví, idempotenci a restart |
 
 Seam musí umět pět věcí, které demo neumí: **idempotenci** (schválení se
 nesmí provést dvakrát, ani po restartu), **cancel** (běh zrušený mezi ptaním
@@ -129,6 +139,7 @@ efekt — a je to změna chování IDE, ne mobilu.
 | **Důkaz** | vyplněná matice s datem, modelem, verzí OS a jménem toho, kdo klikal |
 | **Vlastník** | Reviewer |
 | **Pád** | „na emulátoru to šlo" — biometrie, Doze, výrobcem zabité procesy a reálná USB odpojení se na emulátoru nechovají stejně |
+| **Stav** | `NOT RUN` — protokol a záznamový list jsou připravené v [DEVICE-MATRIX-RUN.md](DEVICE-MATRIX-RUN.md) včetně doslovných kroků pro řádky 3, 4, 5, 9, 10 a 12. Chybí jediné: telefon a někdo, kdo to odklikne |
 
 Matice (každý řádek = pozorování, ne dojem):
 
@@ -138,7 +149,7 @@ Matice (každý řádek = pozorování, ne dojem):
 | 2 | párování QR i vložením kódu | kód je jednorázový; druhé použití 409 |
 | 3 | approve | efekt nastane až po ťuknutí |
 | 4 | reject | efekt nenastane a běh to řekne |
-| 5 | expire (nechat doběhnout okno) | běh skončí bez efektu, telefon ukáže propadnutí |
+| 5 | nechat propadnout (změnit cíl během čekání) | běh skončí bez efektu; telefon ukáže nový text podle `025` |
 | 6 | Home → návrat | zámek, `BiometricPrompt`, po odemčení funkční relace |
 | 7 | recents náhled | prázdný / zakrytý (`FLAG_SECURE`) |
 | 8 | zabití procesu z recents | po startu zámek, credential přežil v Keystore |
