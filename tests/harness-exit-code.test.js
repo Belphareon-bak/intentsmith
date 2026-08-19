@@ -347,8 +347,14 @@ try {
   //   * na `5c5413e4` byl census **100**, ne 99.  Ta jednička je **předchozí
   //     drift** a s tímhle balíkem nesouvisí; konstanta byla zastaralá už
   //     předtím, jen to nikdo nezměřil.
-  //   * +2 jsou dva programy, které tenhle balík přidává:
-  //     `effects-guarded-path.test.js` a `approval-lifecycle.test.js`.
+  //   * +2 jsou dva programy, které tenhle balík přidává a které databázi
+  //     doopravdy dosáhnou: `effects-guarded-path.test.js` (přes
+  //     `chat/handlers/file.js`) a `approval-lifecycle.test.js` (přes
+  //     `ws-bridge/session-adapter.js`).  Třetí přidaný program,
+  //     `multi-device-approvals.test.js`, v censu **není** a být nemá:
+  //     sahá jen na `db/migrate.js`, autoritu, handlery a politiku, a žádná
+  //     z těch cest nevede do `db/database.js`.  Census měří dosažitelnost,
+  //     ne počet nových sad.
   //
   // Rozdíl množin je přesně tyhle dva a **nic neubylo** — žádný existující
   // program se do databáze nedostal cestou, kterou dřív neměl.  Fail-closed
