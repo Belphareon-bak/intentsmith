@@ -5,21 +5,33 @@
 
 import { suite, test, testAsync, assert, assertEqual, summary } from './harness.js';
 
-import { comparePair, decideRole, trialRole, createSuiteCache, TASK_MARGIN_EPSILON } from '../src/upgrade/pairwise-trial.js';
+import {
+  comparePair, decideRole, trialRole, createSuiteCache,
+  TASK_MARGIN_EPSILON, DEFAULT_REPEATS,
+} from '../src/upgrade/pairwise-trial.js';
 import { SUITES } from '../src/upgrade/validation-suites.js';
 
-/** Runner, který pro každý model vrátí předepsaná skóre úloh. */
+/**
+ * Runner, který pro každý model vrátí předepsaná skóre úloh.
+ *
+ * Hodnota může být číslo (stabilní) nebo pole (skóre pro jednotlivé běhy) —
+ * tím se dá nasimulovat úloha, která mezi běhy přeskakuje.
+ */
 function fakeRunner(scoresByModel) {
+  const runIndex = new Map();
   return {
     calls: [],
     async runSuite(suiteName, model) {
       this.calls.push({ suiteName, model });
+      const key = `${suiteName}::${model}`;
+      const n = runIndex.get(key) ?? 0;
+      runIndex.set(key, n + 1);
       const per = scoresByModel[model] || {};
-      const tests = SUITES[suiteName].tests.map(t => ({
-        name: t.name,
-        score: per[t.name] ?? per._default ?? 1.0,
-        passed: (per[t.name] ?? per._default ?? 1.0) >= 0.6,
-      }));
+      const pick = (v) => (Array.isArray(v) ? v[Math.min(n, v.length - 1)] : v);
+      const tests = SUITES[suiteName].tests.map(t => {
+        const score = pick(per[t.name] ?? per._default ?? 1.0);
+        return { name: t.name, score, passed: score >= 0.6 };
+      });
       return {
         suite: suiteName, model, tests,
         score: tests.reduce((s, t) => s + t.score, 0) / tests.length,
@@ -27,6 +39,8 @@ function fakeRunner(scoresByModel) {
     },
   };
 }
+
+const ONCE = { repeats: 1 };
 
 const CODE_TASKS = SUITES.code.tests.map(t => t.name);
 
@@ -36,7 +50,7 @@ suite('comparePair');
 
 await testAsync('oba modely projdou tutéž sadu', async () => {
   const runner = fakeRunner({ A: { _default: 1 }, B: { _default: 1 } });
-  await comparePair(runner, 'code', 'A', 'B');
+  await comparePair(runner, 'code', 'A', 'B', ONCE);
   assertEqual(runner.calls.length, 2);
   assert(runner.calls.every(c => c.suiteName === 'code'), 'stejná sada pro oba');
 });
@@ -45,7 +59,7 @@ await testAsync('shodná skóre = žádná rozlišující úloha', async () => {
   // Přesně ta situace, kvůli které párové srovnání vzniklo: 26 z 65 běhů
   // skončilo na 100 %, takže absolutní skóre nerozliší nic.
   const runner = fakeRunner({ A: { _default: 1 }, B: { _default: 1 } });
-  const r = await comparePair(runner, 'code', 'A', 'B');
+  const r = await comparePair(runner, 'code', 'A', 'B', ONCE);
   assertEqual(r.discriminating, 0);
   assertEqual(r.inconclusive, true);
   assertEqual(r.margin, 0);
@@ -57,7 +71,7 @@ await testAsync('rozdíl pod prahem se nepočítá za rozlišení', async () => 
     A: { _default: 1 },
     B: { _default: 1 - (TASK_MARGIN_EPSILON / 2) },
   });
-  const r = await comparePair(runner, 'code', 'A', 'B');
+  const r = await comparePair(runner, 'code', 'A', 'B', ONCE);
   assertEqual(r.discriminating, 0, 'drobný rozdíl je šum, ne signál');
 });
 
@@ -66,7 +80,7 @@ await testAsync('marže se počítá jen z rozlišujících úloh', async () => 
     A: { _default: 1, [CODE_TASKS[0]]: 1.0 },
     B: { _default: 1, [CODE_TASKS[0]]: 0.5 },
   });
-  const r = await comparePair(runner, 'code', 'A', 'B');
+  const r = await comparePair(runner, 'code', 'A', 'B', ONCE);
   assertEqual(r.discriminating, 1);
   assertEqual(r.candidateWins, 1);
   assertEqual(r.incumbentWins, 0);
@@ -80,14 +94,14 @@ await testAsync('prohra kandidáta se pozná', async () => {
     A: { _default: 1, [CODE_TASKS[0]]: 0.2 },
     B: { _default: 1, [CODE_TASKS[0]]: 1.0 },
   });
-  const r = await comparePair(runner, 'code', 'A', 'B');
+  const r = await comparePair(runner, 'code', 'A', 'B', ONCE);
   assertEqual(r.incumbentWins, 1);
   assert(r.margin < 0, 'marže musí být záporná');
 });
 
 await testAsync('neznámá sada vyhodí', async () => {
   let threw = false;
-  try { await comparePair(fakeRunner({}), 'neexistuje', 'A', 'B'); } catch { threw = true; }
+  try { await comparePair(fakeRunner({}), 'neexistuje', 'A', 'B', ONCE); } catch { threw = true; }
   assert(threw, 'neznámá sada nesmí projít tiše');
 });
 
@@ -148,7 +162,7 @@ test('rozhodnutí vždy nese základ i vysvětlení', () => {
 suite('trialRole');
 
 await testAsync('role bez validační sady se přeskočí', async () => {
-  const r = await trialRole(fakeRunner({}), 'NEEXISTUJICI_ROLE', 'A', 'B');
+  const r = await trialRole(fakeRunner({}), 'NEEXISTUJICI_ROLE', 'A', 'B', ONCE);
   assertEqual(r.skipped, true);
 });
 
@@ -157,7 +171,7 @@ await testAsync('vrátí porovnání i rozhodnutí', async () => {
     A: { _default: 1 },
     B: { _default: 1, [CODE_TASKS[0]]: 0.2 },
   });
-  const r = await trialRole(runner, 'CODE', 'A', 'B', { threshold: 0.05 });
+  const r = await trialRole(runner, 'CODE', 'A', 'B', { threshold: 0.05, ...ONCE });
   assertEqual(r.skipped, false);
   assertEqual(r.suite, 'code');
   assert(r.comparison && r.decision, 'musí nést obojí');
@@ -167,7 +181,7 @@ await testAsync('vrátí porovnání i rozhodnutí', async () => {
 await testAsync('mezi modely se dá vložit úklid paměti', async () => {
   let drained = 0;
   const runner = fakeRunner({ A: { _default: 1 }, B: { _default: 1 } });
-  await trialRole(runner, 'CODE', 'A', 'B', { between: async () => { drained++; } });
+  await trialRole(runner, 'CODE', 'A', 'B', { between: async () => { drained++; }, ...ONCE });
   assertEqual(drained, 1, 'kontence ve VRAM zkresluje výsledek — paměť se musí uvolnit');
 });
 
@@ -180,33 +194,33 @@ await testAsync('tatáž sada se pro tentýž model nespustí dvakrát', async (
   // modelů spustila třikrát a zkouška kandidáta by trvala skoro dvojnásobek.
   const runner = fakeRunner({ A: { _default: 1 }, B: { _default: 1 } });
   const suiteCache = createSuiteCache();
-  await comparePair(runner, 'reasoning', 'A', 'B', { suiteCache });
-  await comparePair(runner, 'reasoning', 'A', 'B', { suiteCache });
-  await comparePair(runner, 'reasoning', 'A', 'B', { suiteCache });
+  await comparePair(runner, 'reasoning', 'A', 'B', { suiteCache, ...ONCE });
+  await comparePair(runner, 'reasoning', 'A', 'B', { suiteCache, ...ONCE });
+  await comparePair(runner, 'reasoning', 'A', 'B', { suiteCache, ...ONCE });
   assertEqual(runner.calls.length, 2, 'dva běhy pro dva modely, ne šest');
 });
 
 await testAsync('jiný stávající model se spustí znovu', async () => {
   const runner = fakeRunner({ A: { _default: 1 }, B: { _default: 1 }, C: { _default: 1 } });
   const suiteCache = createSuiteCache();
-  await comparePair(runner, 'reasoning', 'A', 'B', { suiteCache });
-  await comparePair(runner, 'reasoning', 'A', 'C', { suiteCache });
+  await comparePair(runner, 'reasoning', 'A', 'B', { suiteCache, ...ONCE });
+  await comparePair(runner, 'reasoning', 'A', 'C', { suiteCache, ...ONCE });
   assertEqual(runner.calls.length, 3, 'A z cache, B i C se musí změřit');
 });
 
 await testAsync('bez cache se chování nemění', async () => {
   const runner = fakeRunner({ A: { _default: 1 }, B: { _default: 1 } });
-  await comparePair(runner, 'reasoning', 'A', 'B');
-  await comparePair(runner, 'reasoning', 'A', 'B');
+  await comparePair(runner, 'reasoning', 'A', 'B', ONCE);
+  await comparePair(runner, 'reasoning', 'A', 'B', ONCE);
   assertEqual(runner.calls.length, 4);
 });
 
 await testAsync('cache vrací tytéž výsledky jako přímý běh', async () => {
   const scores = { A: { _default: 1 }, B: { _default: 0.4 } };
-  const direct = await comparePair(fakeRunner(scores), 'reasoning', 'A', 'B');
+  const direct = await comparePair(fakeRunner(scores), 'reasoning', 'A', 'B', ONCE);
   const suiteCache = createSuiteCache();
-  await comparePair(fakeRunner(scores), 'reasoning', 'A', 'B', { suiteCache });
-  const cached = await comparePair(fakeRunner(scores), 'reasoning', 'A', 'B', { suiteCache });
+  await comparePair(fakeRunner(scores), 'reasoning', 'A', 'B', { suiteCache, ...ONCE });
+  const cached = await comparePair(fakeRunner(scores), 'reasoning', 'A', 'B', { suiteCache, ...ONCE });
   assertEqual(cached.margin, direct.margin);
   assertEqual(cached.discriminating, direct.discriminating);
 });
@@ -215,9 +229,66 @@ await testAsync('úklid paměti se přeskočí, když se druhý model nespoušt�
   let drained = 0;
   const runner = fakeRunner({ A: { _default: 1 }, B: { _default: 1 } });
   const suiteCache = createSuiteCache();
-  await comparePair(runner, 'reasoning', 'A', 'B', { suiteCache, between: async () => { drained++; } });
-  await comparePair(runner, 'reasoning', 'A', 'B', { suiteCache, between: async () => { drained++; } });
+  await comparePair(runner, 'reasoning', 'A', 'B', { suiteCache, between: async () => { drained++; }, ...ONCE });
+  await comparePair(runner, 'reasoning', 'A', 'B', { suiteCache, between: async () => { drained++; }, ...ONCE });
   assertEqual(drained, 1, 'podruhé se nic nespouští, takže není co uvolňovat');
+});
+
+// ─── Opakování a nestabilita ────────────────────────────────────────────────
+
+suite('opakování sad');
+
+await testAsync('výchozí počet opakování je víc než jedno', () => {
+  // Jeden běh nestačí: `czech_json` na témž modelu dala 1 → 0 → 1.
+  assert(DEFAULT_REPEATS >= 3, `opakování musí být aspoň 3, je ${DEFAULT_REPEATS}`);
+});
+
+await testAsync('sada se spustí tolikrát, kolik se řekne', async () => {
+  const runner = fakeRunner({ A: { _default: 1 }, B: { _default: 1 } });
+  await comparePair(runner, 'code', 'A', 'B', { repeats: 3 });
+  assertEqual(runner.calls.length, 6, '3 běhy na model');
+});
+
+await testAsync('nestabilní úloha nerozliší, i když se v jednom běhu liší', async () => {
+  // Přesně případ, který vyrobil protichůdná rozhodnutí: úloha, která na
+  // stávajícím modelu přeskakuje 0↔1, nesmí platit za rozdíl v kvalitě.
+  const task = SUITES.code.tests[0].name;
+  const runner = fakeRunner({
+    A: { _default: 1, [task]: 1 },
+    B: { _default: 1, [task]: [0, 1, 1] },
+  });
+  const r = await comparePair(runner, 'code', 'A', 'B', { repeats: 3 });
+  const t = r.tasks.find(x => x.name === task);
+  assertEqual(t.incumbentSpread, 1, 'nestabilita se změří');
+  assertEqual(t.discriminating, false, 'rozdíl menší než šum nerozlišuje');
+  assertEqual(r.inconclusive, true);
+});
+
+await testAsync('stabilní rozdíl rozliší i vedle nestabilní úlohy', async () => {
+  const [flaky, solid] = SUITES.code.tests.map(t => t.name);
+  const runner = fakeRunner({
+    A: { _default: 1, [flaky]: [1, 0, 1], [solid]: 1 },
+    B: { _default: 1, [flaky]: [0, 1, 0], [solid]: 0 },
+  });
+  const r = await comparePair(runner, 'code', 'A', 'B', { repeats: 3 });
+  assertEqual(r.tasks.find(x => x.name === flaky).discriminating, false);
+  assertEqual(r.tasks.find(x => x.name === solid).discriminating, true);
+  assertEqual(r.candidateWins, 1);
+});
+
+await testAsync('nestabilní úlohy se vypíšou', async () => {
+  const task = SUITES.code.tests[0].name;
+  const runner = fakeRunner({ A: { _default: 1 }, B: { _default: 1, [task]: [0, 1, 1] } });
+  const r = await comparePair(runner, 'code', 'A', 'B', { repeats: 3 });
+  assert(r.unstableTasks.includes(task), 'operátor má vědět, které úlohy nejsou spolehlivé');
+  assertEqual(r.repeats, 3);
+});
+
+await testAsync('skóre úlohy je průměr přes běhy', async () => {
+  const task = SUITES.code.tests[0].name;
+  const runner = fakeRunner({ A: { _default: 1, [task]: [0, 1, 1] }, B: { _default: 1 } });
+  const r = await comparePair(runner, 'code', 'A', 'B', { repeats: 3 });
+  assertEqual(r.tasks.find(x => x.name === task).candidateScore, 0.667);
 });
 
 summary();

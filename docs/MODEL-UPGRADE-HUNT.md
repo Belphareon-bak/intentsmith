@@ -148,7 +148,43 @@ nahradit":
 
 Setrvačnost je záměrná: výměna má cenu jen tehdy, když je pro ni důvod.
 
-### 3.9 Sady se mezi rolemi nespouštějí opakovaně
+### 3.9 Jeden běh sady nestačí — úlohy přeskakují
+
+První ostrý běh vydal protichůdné rozhodnutí: role **D1 a R1 používají tutéž
+sadu `reasoning` a tutéž dvojici modelů**, přesto vyšly opačně.
+
+```
+D1: qwen3-coder vs deepseek-r1-32b → kandidát vyhrál 3:0, marže 1.000
+R1: qwen3-coder vs deepseek-r1-32b → kandidát ztrácí 1.000 na 5 úlohách
+```
+
+Marže přesně ±1.000 znamená, že jeden model dal 1.0 a druhý 0.0 — to není
+rozdíl v kvalitě, ale selhání. Ověřeno třemi běhy téže sady na témž modelu
+(`deepseek-r1-32b`, `reasoning`):
+
+| úloha | běh 1 | běh 2 | běh 3 |
+|---|---|---|---|
+| `json_compliance` | 0 | **1** | 1 |
+| `czech_json` | 1 | **0** | 1 |
+| skóre sady | 63 % | 63 % | 75 % |
+
+Dvě z osmi úloh přeskakují mezi 0 a 1, protože se hodnotí binárně a model
+vzorkuje (`temperature 0.1`). Při jediném běhu pak práh 0.05 bere náhodný
+přeskok za silný signál.
+
+Oprava má dvě části:
+
+1. **Každá sada běží `DEFAULT_REPEATS` (3) krát na každém modelu** a úloha se
+   shrne na průměr.
+2. **Úloha rozlišuje, jen když je rozdíl větší než její vlastní nestabilita.**
+   Prahem není konstanta, ale `max(TASK_MARGIN_EPSILON, spread)`, kde `spread`
+   je rozdíl nejlepšího a nejhoršího běhu téže úlohy na témž modelu. Úloha,
+   která sama přeskakuje o 1.0, tak nemůže nic rozhodnout.
+
+Nestabilní úlohy se navíc vypisují (`unstableTasks`), aby bylo vidět, které
+části sady nenesou spolehlivý signál.
+
+### 3.10 Sady se mezi rolemi nespouštějí opakovaně
 
 Role sdílejí validační sady: `reasoning` obsluhuje D1, D2 i R1. Bez cache by se
 pro jednu dvojici modelů spustila třikrát a zkouška jednoho kandidáta by trvala
@@ -164,7 +200,7 @@ a klíč obsahuje model, aby si role nemíchaly různé stávající modely.
 | `chat` | CHAT |
 | `vision` | VISION |
 
-### 3.10 GPU-agnostičnost
+### 3.11 GPU-agnostičnost
 
 Detektor umí `nvidia-smi`, `rocm-smi` i `lspci`, ale slouží **jen k předvýběru**.
 O přijetí rozhoduje `/api/ps`, které funguje všude. Navíc se filtrují formáty
@@ -197,10 +233,10 @@ node scripts/model-upgrade-hunt.js --run --only=qwen3.8:latest
 |---|---|
 | `tests/vram-measurement.test.js` | 14 |
 | `tests/model-sweep.test.js` | 26 |
-| `tests/pairwise-trial.test.js` | 21 |
-| `tests/candidate-trial.test.js` | 15 |
+| `tests/pairwise-trial.test.js` | 27 |
+| `tests/candidate-trial.test.js` | 18 |
 
 Všechny běží **bez sítě a bez modelů** (`fetch` nahrazený atrapou), takže jsou
 rychlé a nezávislé na tom, co je zrovna nainstalované.
 
-Celková regrese napříč 20 dotčenými sadami: **911 testů, 0 selhání.**
+Celková regrese napříč 20 dotčenými sadami: **923 testů, 0 selhání.**

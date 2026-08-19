@@ -27,6 +27,24 @@ import { SUITES, getSuiteForRole } from './validation-suites.js';
 export const TASK_MARGIN_EPSILON = 0.05;
 
 /**
+ * Kolikrát se každá sada spustí na každém modelu.
+ *
+ * Jeden běh nestačí.  Změřeno 2026-08-19 na `deepseek-r1-32b`, sada `reasoning`
+ * třikrát po sobě:
+ *
+ *     json_compliance   0 → 1 → 1
+ *     czech_json        1 → 0 → 1
+ *     skóre sady       63% → 63% → 75%
+ *
+ * Dvě z osmi úloh přeskakují mezi 0 a 1, protože se hodnotí binárně a model
+ * vzorkuje (temperature 0.1).  Při jednom běhu pak `TASK_MARGIN_EPSILON` bere
+ * náhodný přeskok za silný signál — přesně to vyrobilo protichůdná rozhodnutí,
+ * kdy tatáž dvojice modelů na téže sadě vyšla jednou 3:0 pro kandidáta a
+ * podruhé 0:5 pro stávajícího.
+ */
+export const DEFAULT_REPEATS = 3;
+
+/**
  * Cache výsledků sady pro jeden běh.
  *
  * Role sdílejí sady: `reasoning` obsluhuje D1, D2 i R1, takže bez cache by se
@@ -39,10 +57,53 @@ export function createSuiteCache() {
   return new Map();
 }
 
-async function runSuiteCached(runner, suiteName, model, cache, onProgress) {
+/**
+ * Spustí sadu několikrát a shrne každou úlohu na průměr a rozptyl.
+ *
+ * `spread` je rozdíl mezi nejlepším a nejhorším během téže úlohy na témž
+ * modelu — tedy kolik z pozorovaného rozdílu jde na vrub náhodě, ne kvalitě.
+ */
+async function runSuiteRepeated(runner, suiteName, model, repeats, onProgress, between) {
+  const runs = [];
+  for (let i = 0; i < repeats; i++) {
+    if (i > 0 && between) await between();
+    runs.push(await runner.runSuite(suiteName, model, onProgress));
+  }
+
+  const byTask = new Map();
+  for (const run of runs) {
+    for (const t of run.tests) {
+      if (!byTask.has(t.name)) byTask.set(t.name, []);
+      byTask.get(t.name).push(t.score ?? 0);
+    }
+  }
+
+  const tasks = [...byTask.entries()].map(([name, scores]) => ({
+    name,
+    mean: scores.reduce((a, b) => a + b, 0) / scores.length,
+    spread: Math.max(...scores) - Math.min(...scores),
+    scores,
+  }));
+
+  return {
+    suite: suiteName,
+    model,
+    runs: runs.length,
+    tasks,
+    score: tasks.reduce((s, t) => s + t.mean, 0) / (tasks.length || 1),
+    unstableTasks: tasks.filter(t => t.spread > 0).map(t => t.name),
+  };
+}
+
+async function runSuiteCached(runner, suiteName, model, cache, opts = {}) {
   const key = `${suiteName}::${model}`;
   if (cache?.has(key)) return cache.get(key);
-  const result = await runner.runSuite(suiteName, model, onProgress);
+  const result = await runSuiteRepeated(
+    runner, suiteName, model,
+    opts.repeats ?? DEFAULT_REPEATS,
+    opts.onProgress,
+    opts.between,
+  );
   cache?.set(key, result);
   return result;
 }
@@ -67,23 +128,31 @@ export async function comparePair(runner, suiteName, candidate, incumbent, opts 
   // Pořadí je záměrné: oba modely projdou tutéž sadu, ale každý zvlášť, aby
   // se nepřetahovaly o VRAM. Kdo je rezidentní, ovlivňuje výsledek — změřeno
   // na `qwen3.5:27b`, který vedle jiného modelu vyšel jako přetékající.
-  const candidateRun = await runSuiteCached(runner, suiteName, candidate, cache, opts.onProgress);
+  const candidateRun = await runSuiteCached(runner, suiteName, candidate, cache, opts);
   // Uvolnit paměť má smysl jen když se druhý model bude skutečně spouštět.
   if (opts.between && !incumbentCached && !candidateCached) await opts.between();
-  const incumbentRun = await runSuiteCached(runner, suiteName, incumbent, cache, opts.onProgress);
+  const incumbentRun = await runSuiteCached(runner, suiteName, incumbent, cache, opts);
 
-  const byName = new Map(incumbentRun.tests.map(t => [t.name, t]));
+  const byName = new Map(incumbentRun.tasks.map(t => [t.name, t]));
   const tasks = [];
-  for (const c of candidateRun.tests) {
+  for (const c of candidateRun.tasks) {
     const i = byName.get(c.name);
     if (!i) continue;
-    const delta = (c.score ?? 0) - (i.score ?? 0);
+    const delta = c.mean - i.mean;
+    // Úloha rozlišuje jen tehdy, když je rozdíl větší než vlastní nestabilita
+    // obou modelů na téže úloze. Jinak by se náhodný přeskok 0↔1 počítal za
+    // rozdíl v kvalitě.
+    const noise = Math.max(c.spread, i.spread);
+    const threshold = Math.max(TASK_MARGIN_EPSILON, noise);
     tasks.push({
       name: c.name,
-      candidateScore: c.score ?? 0,
-      incumbentScore: i.score ?? 0,
+      candidateScore: Math.round(c.mean * 1000) / 1000,
+      incumbentScore: Math.round(i.mean * 1000) / 1000,
+      candidateSpread: c.spread,
+      incumbentSpread: i.spread,
       delta,
-      discriminating: Math.abs(delta) >= TASK_MARGIN_EPSILON,
+      noise,
+      discriminating: Math.abs(delta) > threshold,
     });
   }
 
@@ -104,6 +173,8 @@ export async function comparePair(runner, suiteName, candidate, incumbent, opts 
     inconclusive: discriminating.length === 0,
     candidateSuiteScore: candidateRun.score,
     incumbentSuiteScore: incumbentRun.score,
+    repeats: candidateRun.runs,
+    unstableTasks: [...new Set([...candidateRun.unstableTasks, ...incumbentRun.unstableTasks])],
   };
 }
 
@@ -187,4 +258,7 @@ export async function trialRole(runner, role, candidate, incumbent, opts = {}) {
   return { role, suite: suiteName, comparison, decision, skipped: false };
 }
 
-export default { comparePair, decideRole, trialRole, createSuiteCache, TASK_MARGIN_EPSILON };
+export default {
+  comparePair, decideRole, trialRole, createSuiteCache,
+  TASK_MARGIN_EPSILON, DEFAULT_REPEATS,
+};
