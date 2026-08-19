@@ -638,8 +638,10 @@ refreshem, nikoli fresh baseline.
 
 Nová
 [decision 042](../decisions/042-m1-h0-v5-detached-source-checkout-read-constructor-remediation.md)
-je exact four-doc governance-only read-constructor remediation, zatím pouze
-frozen governance tooling candidate. Final V4.2 používá acyklický
+je exact four-doc governance-only read-constructor remediation. Její docs
+subject a candidate prošly Review A+B a report-only E_B nyní existuje jako
+B43 `f5a4c6931fccbeb5601c1c54ea04bd70c17215bd`; jde ale o unpromoted
+docs/candidate evidence, nikoli source nebo runtime PASS. Final V4.2 používá acyklický
 post-E_B-materialized P→D→B→outer chain: canonical authority profile, isolated
 CPython bootstrap, Popen dispatcher s odděleným stdout/stderr/exit/signal/reap
 a dash builtin preflight 22 loader variables. Ruling A pravdivě přijímá task
@@ -655,6 +657,54 @@ run použít closed contiguous operation manifest a prevalidated E_B-bound
 retry.
 D042 není promoted, není source-checkout PASS, neodemkla D037 repair a není
 M1/H0/runtime/T3/Gate DONE evidence.
+
+Nová
+[decision 043](../decisions/043-m1-h0-v5-detached-source-checkout-manifest-closure-remediation.md)
+je úzká four-doc manifest-closure remediation nad exact B43. Samostatný
+capability-only artefakt a jeho fail-closed diagnostické attempts jsou pro
+operational gating `SUPERSEDED/NONAUTH`; další capability-only manual handoff
+se nespouští. Post-E_B se jejich substantivní kontroly foldnou do jediného
+root-held watchdog supervisoru a jediného final manual operation. D043 nově
+výslovně definuje all-UID `/proc` úplnost jako bounded append-only
+point-observation closure: starttime/appearance-keyed TGID/TID census, full FD
+terminal sweeps, historical relevant-once retention, fixed caps/deadline a
+fail-closed permission/hidepid/namespace/churn taxonomy. EX02, EX07 a EX14 jsou
+fresh system-last gates v exact 16-stage manifestu; pouze druhý complete
+runtimeGateBinding PASS smí otevřít contiguous RW01→RW02 batch a EX14+fresh
+post-verifier mohou vydat PASS. Subject/report/materialization/readiness/write
+exit0 samy nejsou M1/H0/runtime/T3/Gate DONE evidence. Jeden mutable
+writer-child precommit scope audit byl spuštěn mimo tehdejší U43, zastaven bez
+verdictu a zůstává `NONVOTING_SELF_AUDIT / NO_VOTE`; jeho skutečná identita je
+v opraveném U43, ale nesmí nahradit declared formal Review A/B.
+Původní D043 freeze je nyní
+`REMEDIATED_PENDING_FRESH_PRECOMMIT_REVIEWS / NO_OPERATIONAL_AUTHORITY`: root
+self-check zakázaně vyvolal `git write-tree` a
+v common-Git zanechal pět disclosed loose tree objektů `580d3c17…`,
+`8d82e4a4…`, `1f88d73a…`, `3e229db7…`, `d742035f…`; opakovaný adversary invoke
+je rovněž `NO_VOTE`. Objekty se nemažou a final prestate je musí explicitně
+přijmout. Fixed agent-thread limit vedl k sole-issuer one-time two-P1 docs
+handoffu na existující U43 architect identity, která po stagingu nehlasuje;
+repin `a33b5504…` ji pak chybně prohlásil za fenced. Recovered adversary
+transcript tento repin před vote invalidoval a root již fenced docs-patcher
+sub-roli kvůli fixed thread limitu znovu aktivoval. Incident je exact
+`ROOT_GOVERNANCE_REMEDIAL_REACTIVATION / NO_VOTE`, ne compliant handoff ani
+review. Current turn je omezen na factual four-doc correction a exact
+three-finding scratch leaf repair. Po final restage je docs-patcher sub-role
+permanentně fenced bez další Git/docs mutace; stejná identita pokračuje jen
+jako source architect/materializer bez docs Git do post-E_B immutable
+materialization handoffu a pak se fence-ne celá. U43 zůstává 56/55 a obě
+formal reviews restartují zero-based. Task appearance ordinal začne prvním
+coherent full scanem a zachová se při další coherent presence s exact stable
+core i v unrelated globálně incomplete roundu; pouze complete absence a
+reappearance jej zvýší a vyžádá nový full scan, zatímco reread/live-state/
+FDSize drift jej nemění a unresolved absence/core/lifecycle drift blokuje.
+Manifest `188679f1…` formal Review A následně invalidoval `P1=1 / NO_VOTE`,
+protože adapter uchoval celý combined output, ale repin tvrdil output unknown a
+stderr empty. Architect docs-patcher fence zůstal v platnosti; sole issuer
+`/root` provedl jen
+`ROOT_FINAL_EVIDENCE_CHANNEL_CORRECTION / NO_VOTE` ve stejných čtyřech docs a
+není formal reviewer. Po novém restage obě declared docs reviews znovu startují
+od byte zero.
 
 ---
 
