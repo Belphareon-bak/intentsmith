@@ -27,6 +27,27 @@ import { SUITES, getSuiteForRole } from './validation-suites.js';
 export const TASK_MARGIN_EPSILON = 0.05;
 
 /**
+ * Cache výsledků sady pro jeden běh.
+ *
+ * Role sdílejí sady: `reasoning` obsluhuje D1, D2 i R1, takže bez cache by se
+ * pro tutéž dvojici modelů spustila třikrát a celá zkouška kandidáta by trvala
+ * skoro dvojnásobek.  Skóre modelu na dané sadě se v rámci běhu nemění, takže
+ * je bezpečné ho podržet; klíčem je dvojice sada+model, aby si role nemíchaly
+ * různé stávající modely.
+ */
+export function createSuiteCache() {
+  return new Map();
+}
+
+async function runSuiteCached(runner, suiteName, model, cache, onProgress) {
+  const key = `${suiteName}::${model}`;
+  if (cache?.has(key)) return cache.get(key);
+  const result = await runner.runSuite(suiteName, model, onProgress);
+  cache?.set(key, result);
+  return result;
+}
+
+/**
  * Spustí jednu sadu na obou modelech a porovná ji úlohu po úloze.
  *
  * @param {Object} runner - ValidationRunner
@@ -39,12 +60,17 @@ export async function comparePair(runner, suiteName, candidate, incumbent, opts 
   const suite = SUITES[suiteName];
   if (!suite) throw new Error(`Neznámá validační sada: ${suiteName}`);
 
+  const cache = opts.suiteCache;
+  const candidateCached = cache?.has(`${suiteName}::${candidate}`);
+  const incumbentCached = cache?.has(`${suiteName}::${incumbent}`);
+
   // Pořadí je záměrné: oba modely projdou tutéž sadu, ale každý zvlášť, aby
   // se nepřetahovaly o VRAM. Kdo je rezidentní, ovlivňuje výsledek — změřeno
   // na `qwen3.5:27b`, který vedle jiného modelu vyšel jako přetékající.
-  const candidateRun = await runner.runSuite(suiteName, candidate, opts.onProgress);
-  if (opts.between) await opts.between();
-  const incumbentRun = await runner.runSuite(suiteName, incumbent, opts.onProgress);
+  const candidateRun = await runSuiteCached(runner, suiteName, candidate, cache, opts.onProgress);
+  // Uvolnit paměť má smysl jen když se druhý model bude skutečně spouštět.
+  if (opts.between && !incumbentCached && !candidateCached) await opts.between();
+  const incumbentRun = await runSuiteCached(runner, suiteName, incumbent, cache, opts.onProgress);
 
   const byName = new Map(incumbentRun.tests.map(t => [t.name, t]));
   const tasks = [];
@@ -161,4 +187,4 @@ export async function trialRole(runner, role, candidate, incumbent, opts = {}) {
   return { role, suite: suiteName, comparison, decision, skipped: false };
 }
 
-export default { comparePair, decideRole, trialRole, TASK_MARGIN_EPSILON };
+export default { comparePair, decideRole, trialRole, createSuiteCache, TASK_MARGIN_EPSILON };

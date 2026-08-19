@@ -5,7 +5,7 @@
 
 import { suite, test, testAsync, assert, assertEqual, summary } from './harness.js';
 
-import { comparePair, decideRole, trialRole, TASK_MARGIN_EPSILON } from '../src/upgrade/pairwise-trial.js';
+import { comparePair, decideRole, trialRole, createSuiteCache, TASK_MARGIN_EPSILON } from '../src/upgrade/pairwise-trial.js';
 import { SUITES } from '../src/upgrade/validation-suites.js';
 
 /** Runner, který pro každý model vrátí předepsaná skóre úloh. */
@@ -169,6 +169,55 @@ await testAsync('mezi modely se dá vložit úklid paměti', async () => {
   const runner = fakeRunner({ A: { _default: 1 }, B: { _default: 1 } });
   await trialRole(runner, 'CODE', 'A', 'B', { between: async () => { drained++; } });
   assertEqual(drained, 1, 'kontence ve VRAM zkresluje výsledek — paměť se musí uvolnit');
+});
+
+// ─── Cache sad ──────────────────────────────────────────────────────────────
+
+suite('createSuiteCache');
+
+await testAsync('tatáž sada se pro tentýž model nespustí dvakrát', async () => {
+  // D1, D2 i R1 používají sadu `reasoning`. Bez cache by se pro jednu dvojici
+  // modelů spustila třikrát a zkouška kandidáta by trvala skoro dvojnásobek.
+  const runner = fakeRunner({ A: { _default: 1 }, B: { _default: 1 } });
+  const suiteCache = createSuiteCache();
+  await comparePair(runner, 'reasoning', 'A', 'B', { suiteCache });
+  await comparePair(runner, 'reasoning', 'A', 'B', { suiteCache });
+  await comparePair(runner, 'reasoning', 'A', 'B', { suiteCache });
+  assertEqual(runner.calls.length, 2, 'dva běhy pro dva modely, ne šest');
+});
+
+await testAsync('jiný stávající model se spustí znovu', async () => {
+  const runner = fakeRunner({ A: { _default: 1 }, B: { _default: 1 }, C: { _default: 1 } });
+  const suiteCache = createSuiteCache();
+  await comparePair(runner, 'reasoning', 'A', 'B', { suiteCache });
+  await comparePair(runner, 'reasoning', 'A', 'C', { suiteCache });
+  assertEqual(runner.calls.length, 3, 'A z cache, B i C se musí změřit');
+});
+
+await testAsync('bez cache se chování nemění', async () => {
+  const runner = fakeRunner({ A: { _default: 1 }, B: { _default: 1 } });
+  await comparePair(runner, 'reasoning', 'A', 'B');
+  await comparePair(runner, 'reasoning', 'A', 'B');
+  assertEqual(runner.calls.length, 4);
+});
+
+await testAsync('cache vrací tytéž výsledky jako přímý běh', async () => {
+  const scores = { A: { _default: 1 }, B: { _default: 0.4 } };
+  const direct = await comparePair(fakeRunner(scores), 'reasoning', 'A', 'B');
+  const suiteCache = createSuiteCache();
+  await comparePair(fakeRunner(scores), 'reasoning', 'A', 'B', { suiteCache });
+  const cached = await comparePair(fakeRunner(scores), 'reasoning', 'A', 'B', { suiteCache });
+  assertEqual(cached.margin, direct.margin);
+  assertEqual(cached.discriminating, direct.discriminating);
+});
+
+await testAsync('úklid paměti se přeskočí, když se druhý model nespouští', async () => {
+  let drained = 0;
+  const runner = fakeRunner({ A: { _default: 1 }, B: { _default: 1 } });
+  const suiteCache = createSuiteCache();
+  await comparePair(runner, 'reasoning', 'A', 'B', { suiteCache, between: async () => { drained++; } });
+  await comparePair(runner, 'reasoning', 'A', 'B', { suiteCache, between: async () => { drained++; } });
+  assertEqual(drained, 1, 'podruhé se nic nespouští, takže není co uvolňovat');
 });
 
 summary();

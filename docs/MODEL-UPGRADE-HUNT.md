@@ -148,7 +148,23 @@ nahradit":
 
 Setrvačnost je záměrná: výměna má cenu jen tehdy, když je pro ni důvod.
 
-### 3.9 GPU-agnostičnost
+### 3.9 Sady se mezi rolemi nespouštějí opakovaně
+
+Role sdílejí validační sady: `reasoning` obsluhuje D1, D2 i R1. Bez cache by se
+pro jednu dvojici modelů spustila třikrát a zkouška jednoho kandidáta by trvala
+skoro dvojnásobek. `createSuiteCache()` drží výsledek podle dvojice sada+model —
+skóre modelu na dané sadě se v rámci běhu nemění, takže je bezpečné ho podržet,
+a klíč obsahuje model, aby si role nemíchaly různé stávající modely.
+
+| sada | role, které ji sdílejí |
+|---|---|
+| `reasoning` | D1, D2, R1 |
+| `code` | CODE |
+| `review` | R2 |
+| `chat` | CHAT |
+| `vision` | VISION |
+
+### 3.10 GPU-agnostičnost
 
 Detektor umí `nvidia-smi`, `rocm-smi` i `lspci`, ale slouží **jen k předvýběru**.
 O přijetí rozhoduje `/api/ps`, které funguje všude. Navíc se filtrují formáty
@@ -181,10 +197,10 @@ node scripts/model-upgrade-hunt.js --run --only=qwen3.8:latest
 |---|---|
 | `tests/vram-measurement.test.js` | 14 |
 | `tests/model-sweep.test.js` | 26 |
-| `tests/pairwise-trial.test.js` | 16 |
+| `tests/pairwise-trial.test.js` | 21 |
 | `tests/candidate-trial.test.js` | 15 |
 
 Všechny běží **bez sítě a bez modelů** (`fetch` nahrazený atrapou), takže jsou
 rychlé a nezávislé na tom, co je zrovna nainstalované.
 
-Celková regrese napříč 20 dotčenými sadami: **906 testů, 0 selhání.**
+Celková regrese napříč 20 dotčenými sadami: **911 testů, 0 selhání.**

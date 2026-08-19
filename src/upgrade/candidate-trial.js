@@ -25,7 +25,7 @@
 import { config } from '../config.js';
 import { logger } from '../core/logger.js';
 import { measureModel, drainResident, unloadModel } from './vram-measurement.js';
-import { trialRole } from './pairwise-trial.js';
+import { trialRole, createSuiteCache } from './pairwise-trial.js';
 import { IMPROVEMENT_THRESHOLD } from './model-ranker.js';
 
 const PULL_TIMEOUT = 60 * 60 * 1000;  // hodina; jen pojistka proti zaseknutí
@@ -209,6 +209,8 @@ export async function tryCandidate(candidateName, ctx = {}) {
 
     onStage('trial', candidateName);
     out.stage = 'trial';
+    // Sdílená cache napříč rolemi — `reasoning` obsluhuje D1, D2 i R1.
+    const suiteCache = createSuiteCache();
     for (const role of roles) {
       const incumbent = bindings[role];
       if (!incumbent) continue;
@@ -219,6 +221,7 @@ export async function tryCandidate(candidateName, ctx = {}) {
           incumbent: incumbentSpeed[incumbent] ?? 0,
         },
         between: () => drainResident(ctx),
+        suiteCache,
         ...ctx.trialOpts,
       });
       out.trials.push(result);
