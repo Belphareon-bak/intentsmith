@@ -56,7 +56,7 @@ import { handleApprovals, handleApprovalDecide } from '../src/mobile/handlers.js
 import {
   createMobileApproval, approvalIsBound, approvalFingerprint,
   APPROVAL_TTL_MS, APPROVAL_ORIGINS, ApprovalAuthorityError,
-} from '../src/mobile/approval-authority.js';
+} from '../src/approvals/authority.js';
 
 let passed = 0;
 let failed = 0;
@@ -157,7 +157,7 @@ try {
       assert.ok(!columns.includes(forbidden), `the schema can record an extension via ${forbidden}`);
     }
     const source = readFileSync(new URL('../src/mobile/handlers.js', import.meta.url), 'utf8')
-      + readFileSync(new URL('../src/mobile/approval-authority.js', import.meta.url), 'utf8');
+      + readFileSync(new URL('../src/approvals/authority.js', import.meta.url), 'utf8');
     assert.ok(!/UPDATE\s+mobile_approvals[\s\S]{0,200}expires_at\s*=/i.test(source),
       'some path updates expires_at, so the window is extendable after all');
   });

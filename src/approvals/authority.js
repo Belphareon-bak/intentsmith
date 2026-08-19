@@ -1,6 +1,15 @@
 // Approval authority — the only path that may create an approval (F-100)
 // ==============================================================================
 //
+// **Transportně neutrální.**  Tenhle modul bydlel v `src/mobile/`, což bylo
+// dvakrát nepravda: nerozhoduje o mobilu a mobil není jeho jediná plocha.
+// Desktopová routa, IDE relace i `guardedWrite` sahaly do mobilního adresáře pro
+// pravidla, která s mobilem nemají co dělat — a jméno adresáře pak tvrdilo, že
+// telefon je autorita a ostatní jsou hosté.  Je to naopak: **autorita je jedna,
+// plochy jsou adaptéry nad ní.**  Mobil, desktop a IDE se liší v transportu
+// (mobil má `MD-19` žurnál operací a scope, desktop sedí u stroje), ne v tom,
+// co platí.
+//
 // `F-100` is that an approval could exist without authority behind it: any
 // writer could insert a row with any expiry and any fingerprint, and the server
 // would then let a user grant it.  `R-3`/`DR-011` name the target contract —
@@ -32,16 +41,16 @@
 //
 // ── What this module is not ────────────────────────────────────────────────
 //
-// It is **not** a production producer, and nothing in the running system calls
-// it yet.  Wiring an emitter would put approvals on the production surface
-// before M6, which is release authority and not this work package's to take —
-// the same reason `MobileChannel` stays out of the notification router.  So the
-// remaining part of `F-100` is the producer, and it stays open and named.
+// It is **not** a producer and **not** a route.  It mints, evaluates and closes;
+// who asked and how the answer travelled is the adapter's business.  The
+// producer is `src/mobile/companion-producer.js`, the desktop route is
+// `src/routes/approvals.js`, the IDE surface is `src/ws-bridge/session-adapter.js`
+// — three transports, one set of rules.
 //
 // ==============================================================================
 
 import { createHash, randomUUID } from 'node:crypto';
-import { fingerprint } from './protocol.js';
+import { fingerprint } from './fingerprint.js';
 
 /**
  * `DR-011`, as the only place these numbers exist.  Frozen so a caller cannot

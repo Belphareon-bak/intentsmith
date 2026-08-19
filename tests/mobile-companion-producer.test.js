@@ -34,11 +34,11 @@ import path from 'node:path';
 
 import { runMigrations } from '../src/db/migrate.js';
 import { fingerprint } from '../src/mobile/protocol.js';
-import { APPROVAL_TTL_MS } from '../src/mobile/approval-authority.js';
+import { APPROVAL_TTL_MS } from '../src/approvals/authority.js';
 import {
   createCompanionProducer, CompanionProducerError, S1_VOCABULARY, S1_EVENTS,
 } from '../src/mobile/companion-producer.js';
-import { APPROVAL_VALIDITY, PRECONDITION_CAP_MS } from '../src/mobile/approval-authority.js';
+import { APPROVAL_VALIDITY, PRECONDITION_CAP_MS } from '../src/approvals/authority.js';
 import {
   MobileChannel, MOBILE_PROJECTOR_CAPABILITY, listMobileNotifications,
 } from '../src/notifications/channels/mobile.js';

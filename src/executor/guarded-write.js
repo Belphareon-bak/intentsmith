@@ -36,8 +36,8 @@
 
 import { createHash } from 'node:crypto';
 
-import { fingerprint } from '../mobile/protocol.js';
-import { closeApprovalWithoutAnswer, APPROVAL_TERMINAL } from '../mobile/approval-authority.js';
+import { fingerprint } from '../approvals/fingerprint.js';
+import { closeApprovalWithoutAnswer, APPROVAL_TERMINAL } from '../approvals/authority.js';
 import {
   acquireFileLock, refreshFileLock, releaseFileLock, describeWorkspace, describeHolder,
   canonicalTarget, assertStillHeld,

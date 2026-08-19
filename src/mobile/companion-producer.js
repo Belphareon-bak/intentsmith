@@ -55,7 +55,7 @@
 
 import {
   createMobileApproval, checkPrecondition, APPROVAL_TTL_MS, APPROVAL_VALIDITY,
-} from './approval-authority.js';
+} from '../approvals/authority.js';
 import {
   MOBILE_PROJECTOR_CAPABILITY,
   MOBILE_NOTIFICATION_CHANNEL,

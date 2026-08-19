@@ -37,7 +37,7 @@ import {
 } from './protocol.js';
 import { claimPairingCode } from './pairing.js';
 import { listMobileNotifications, ackMobileNotifications } from '../notifications/channels/mobile.js';
-import { approvalIsBound, evaluateApprovalDecision } from './approval-authority.js';
+import { approvalIsBound, evaluateApprovalDecision } from '../approvals/authority.js';
 
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;

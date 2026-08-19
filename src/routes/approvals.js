@@ -27,7 +27,7 @@
 //
 // ==============================================================================
 
-import { approvalIsBound, resolveApprovalDecision } from '../mobile/approval-authority.js';
+import { approvalIsBound, resolveApprovalDecision } from '../approvals/authority.js';
 
 /** Desktop je jedna identita a nemusí se párovat — sedí u toho stroje. */
 const DESKTOP_PRINCIPAL = 'desktop';

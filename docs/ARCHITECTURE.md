@@ -785,7 +785,8 @@ zruší běžící requesty. Cesta z telefonu vede přes `adb reverse` nebo VPN;
 gateway se dál váže na loopback.
 
 **Klíčové soubory:** `src/executor/guarded-write.js`, `src/executor/file-lock.js`,
-`src/mobile/approval-authority.js`, `src/mobile/companion-producer.js`,
+`src/approvals/authority.js`, `src/approvals/fingerprint.js`,
+`src/mobile/companion-producer.js`,
 `src/routes/approvals.js`, `src/ws-bridge/session-adapter.js`,
 `mobile-app/` (Android shell). Rozhodnutí: `docs/decisions/024`–`027`.
 

@@ -25,7 +25,7 @@ import path from 'node:path';
 
 import { runMigrations } from '../src/db/migrate.js';
 import { fingerprint } from '../src/mobile/protocol.js';
-import { createMobileApproval } from '../src/mobile/approval-authority.js';
+import { createMobileApproval } from '../src/approvals/authority.js';
 import { createApprovalRoutes } from '../src/routes/approvals.js';
 import { createCompanionProducer } from '../src/mobile/companion-producer.js';
 import { handleApprovals, handleApprovalDecide } from '../src/mobile/handlers.js';

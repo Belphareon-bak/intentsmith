@@ -16,6 +16,8 @@
 
 import { createHash } from 'node:crypto';
 
+import { canonicalize, canonicalJson, fingerprint } from '../approvals/fingerprint.js';
+
 export const PROTOCOL_VERSION = 'm1.2026-07-30';
 
 // ── §8.3 Distinguishable error states ────────────────────────────────────────
@@ -141,33 +143,13 @@ export function normalizeUnknownReason(raw) {
 
 // ── Canonical form and fingerprints (§8.1, MD-19 rule 5) ─────────────────────
 //
-// MD-19 rule 5: the fingerprint is computed from a *canonical* request, so
-// reordering keys cannot be used to slip a different payload past the
-// same-key/same-fingerprint check.  Object keys are sorted recursively; arrays
-// keep their order because order is meaning in a list.
+// These three now live in `src/approvals/fingerprint.js`, because the approval
+// binding is not a mobile concept: the desktop route, `guardedWrite` and the
+// authority itself all need the same digest, and none of them should have to
+// import the mobile protocol to get it.  They are re-exported here so mobile
+// callers (`operation-journal.js`, MD-19 rule 5) keep one import site.
 
-export function canonicalize(value) {
-  if (value === null || typeof value !== 'object') return value;
-  if (Array.isArray(value)) return value.map(canonicalize);
-  return Object.keys(value)
-    .sort()
-    .reduce((acc, key) => {
-      if (value[key] !== undefined) acc[key] = canonicalize(value[key]);
-      return acc;
-    }, {});
-}
-
-export function canonicalJson(value) {
-  return JSON.stringify(canonicalize(value));
-}
-
-/**
- * One-way fingerprint of a canonical request.  MD-19 §4.1 rule 2 requires this
- * to be non-invertible: it exists to compare attempts, never to rebuild one.
- */
-export function fingerprint(value) {
-  return createHash('sha256').update(canonicalJson(value)).digest('hex');
-}
+export { canonicalize, canonicalJson, fingerprint };
 
 /**
  * §8.1 — record version.  Without it the client cannot decide whether its
