@@ -21,9 +21,14 @@ raw obrazová evidence zůstává v [`prototype-evidence/`](prototype-evidence/)
 > autority [`PRODUCT.md`](../../PRODUCT.md), [`CONTRACT.md`](../../CONTRACT.md),
 > [`DIRECTION.md`](../../DIRECTION.md), [`ROADMAP.md`](../../ROADMAP.md) ani
 > [`SYSTEM-MAP.md`](../../SYSTEM-MAP.md). Remote Companion je podle roadmapy
-> samostatný M7 release. Implementační rozhodnutí
-> [024](../decisions/024-mobile-companion-producer-and-shell.md) stále čeká na
-> přijetí operátorem.
+> samostatný M7 release. Rozhodnutí
+> [024](../decisions/024-mobile-companion-producer-and-shell.md),
+> [025](../decisions/025-approval-window-and-push.md),
+> [026](../decisions/026-wireless-gateway-access.md) a
+> [027](../decisions/027-single-writer-per-file.md) jsou **přijatá
+> (2026-08-19)**. Přijetí ale nespouští producenta samo — `guardedWrite` se
+> zapíná vložením závislostí (`setApprovalDeps`) a v produkčním kódu ho zatím
+> nikdo nevkládá.
 
 ## 1. Jedna jasná cesta k dnešnímu prototypu
 
@@ -103,7 +108,7 @@ definuje jako následující integrační WP, nikoli jako hotovou skutečnost.
 |---|---|---|---|
 | Párování a čtení SQLite | `EMULATOR VERIFIED` | párování, seznam konverzací, stránkovaná historie, přehled, trust bar a žurnál | pouze current-host emulátor; žádná fresh-clone ani fyzická device matice |
 | ★ approval | `SEAM IMPLEMENTED` | telefon rozhodl durable approval a soubor vznikl; od 2026-08-19 vede přes `guardedWrite` i editační cesta jádra (`fs.write` v režimu `ask`), takže odpovědět může telefon, IDE i desktop | zapíná se vložením závislostí (`setApprovalDeps`), jinak platí původní chování; fyzický telefon `NOT RUN` |
-| Approval authority | `COMPONENT IMPLEMENTED` | mint jde přes `createMobileApproval`, má výpočet otisku, vazbu a od `025` **předpoklad stavu cíle** místo okna | rozhodnutí 024–027 přijata 2026-08-19; `DR-011` v PLAN/DATA-MODEL/SCREENS ještě popisuje staré okno |
+| Approval authority | `COMPONENT IMPLEMENTED` | mint jde přes `createMobileApproval`, má výpočet otisku, vazbu a od `025` **předpoklad stavu cíle** místo okna; rozhodovací pravidla jsou v **jedné** sdílené funkci pro mobil i desktop | rozhodnutí 024–027 přijata 2026-08-19; `DR-011` v PLAN/DATA-MODEL/SCREENS ještě popisuje staré pětiminutové okno a je tím **zastaralé** |
 | Notifikační schránka | `DEMO PRODUCER IMPLEMENTED` | uzavřený devítivětý S1 slovník bez obsahu, zobrazený na emulátoru | je to pull; bez push a bez zapojení do skutečného core lifecycle |
 | Průběh běhu | `DEMO PROJECTION IMPLEMENTED` | demo mapuje `CoreEvent` do S1 indikátorů ve schránce | není vlastní run obrazovka ani produkční CoreEvent konektor |
 | Android shell | `EMULATOR VERIFIED` | instalace/launch, gateway přes `adb reverse`, background lock a `FLAG_SECURE` | Capacitor 6, minSdk 22, compile/target 34 a servírované UI přes `server.url` jsou prototypová konfigurace |
@@ -140,23 +145,57 @@ odargumentované:
 **před spárováním**, takže první obrazovkou po instalaci byl systémový prompt
 hlídající prázdnou schránku. Zámek se teď zapíná až když je co chránit.
 
+### Co našlo nezávislé review (2026-08-19) a co s tím je
+
+Review připnuté na `5f5ffba2` našlo osm nálezů, tři z nich `P0`. **Všechny jsou
+opravené**, ale jeden z nich se opravit úplně nedá a je poctivější to napsat než
+to zamlčet:
+
+| # | Nález | Stav |
+|---|---|---|
+| 1 | `TOCTOU` mezi ověřením a zápisem | **zúženo** — poslední ověření je teď těsně před zápisem; zbytek viz níže |
+| 2 | zápis po ztrátě lease | **opraveno** — fencing přes id zámku, selhání heartbeatu zápis zakáže |
+| 3 | chyba čtení se vydávala za neexistující soubor | **opraveno** — `absent` smí znamenat jen `ENOENT`, ostatní je neověřitelné |
+| 4 | „ghost approval" bez terminálního stavu | **opraveno** — migrace 063, `invalidated`/`cancelled` + důvod |
+| 5 | dvě rozhodovací autority | **opraveno** — jedna sdílená funkce pro pravidla, transport zůstává každé ploše vlastní |
+| 6 | rozpadlá kanonická dokumentace | **opraveno** — tenhle soubor |
+| 7 | identita cíle jen lexikální (symlink) | **opraveno** — kanonický cíl přes `realpath` pro zámek, předpoklad i zápis |
+| 8 | desktopová `S2` odpověď bez `no-store` | **opraveno** |
+
+**Co u nálezu 1 zbývá a proč.** Mezi „přečti a porovnej" a „zapiš" zůstává
+štěrbina řádově mikrosekund, protože zápis souboru na POSIXu není
+compare-and-swap. Zavřít ji nejde zúžením — jde jen tím, že **všichni**
+zapisovatelé půjdou přes jednu mediační vrstvu (verzované úložiště nebo
+broker). To je rozhodnutí o síle slibu, ne oprava, a patří do `P1`:
+
+> **Dnešní slib:** dva agenti IntentSmithu si nesáhnou na týž soubor (zámek) a
+> změna, která proběhne kdykoli **do poslední kontroly**, zápis zastaví
+> (předpoklad). **Neslibuje se**, že externí zapisovatel nemůže trefit
+> mikrosekundu mezi poslední kontrolou a zápisem.
+
+Tři sondy z review jsou převedené na regresní testy
+(`tests/guarded-write.test.js` §6), takže se ty tři cesty nemůžou vrátit tiše.
+
 ## 4. Důkazy, které dnes existují
 
 Na runtime snapshotu a znovu po dokumentační konsolidaci prošlo:
 
-- `npm run test:mobile`: **27/27 aktivních mobilních programů PASS**;
+- `npm run test:mobile`: **31/31 aktivních mobilních programů PASS**;
 - `mobile-browser-a11y`: **22/22 PASS** při ručním spuštění — prerekvizita se
   doinstaluje jedním příkazem (`npx puppeteer browsers install chrome`).
   V gate zůstává **withheld**: stav `BLOCKED` je vlastnost registru, ne mého
   stroje, a gate schválně nesonduje prostředí. Aby se ten výsledek počítal,
   musí někdo přeřadit sadu na `ACTIVE` a přijmout tím, že Chromium je napříště
   povinná prerekvizita gate — to je rozhodnutí implementátora registru;
-- `tests/mobile-companion-producer.test.js`: **17 PASS**;
+- `tests/mobile-companion-producer.test.js`: **24 PASS**;
+- `tests/file-write-lock.test.js`: **16 PASS**, `tests/guarded-write.test.js`:
+  **13 PASS**, `tests/desktop-approval-surface.test.js`: **10 PASS**,
+  `tests/ide-durable-approval.test.js`: **7 PASS**;
 - `tests/mobile-companion-e2e.test.js`: **5 PASS** přes vlastní gateway proces a HTTP;
 - `tests/mobile-secure-credential.test.js`: **17 PASS** (10 úložiště + 7 lifecycle);
 - Android `lintRelease`: **0 errors / 21 warnings**;
 - `tests/artifact-validation.test.js`: **151/151 PASS**;
-- registry: **405 programů** (`307 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`),
+- registry: **409 programů** (`311 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`),
   9 explicitních support-module exclusions;
 - repository hygiene: **PASS**, 1 687 trackovaných cest včetně tohoto dokumentu;
 - current-host emulátor: pairing → demo run → approval → durable decision →

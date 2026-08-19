@@ -35,6 +35,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { realpathSync } from 'node:fs';
 import path from 'node:path';
 
 /** Výchozí životnost zámku. Živý běh si ji obnovuje; spadlý ji nechá vypršet. */
@@ -91,18 +92,50 @@ export function describeWorkspace(cwd = process.cwd()) {
   };
 }
 
-/** Cesta v klíči je vždy repo-relativní, aby dva worktree daly týž klíč. */
-function keyFor(workspace, filePath) {
+/**
+ * **Kanonický cíl** — jeden objekt, který se používá pro zámek, předpoklad
+ * i zápis.
+ *
+ * Bez tohohle je identita souboru jen lexikální: `a/b.js`, `./a/b.js` a symlink
+ * `link.js` mířící na `a/b.js` jsou tři různé řetězce a **týž inode**.  Dva
+ * běhy by na ně dostaly dva zámky a přepsaly by se navzájem přesně tak, jak
+ * `027` zakazuje.
+ *
+ * `realpath` se dělá na **nadřazený adresář**, ne na soubor: cíl často ještě
+ * neexistuje (vytváříme ho), ale jeho adresář ano, a symlinky v cestě jsou to,
+ * co potřebujeme rozmotat.  Když neexistuje ani adresář, zbývá lexikální
+ * podoba — a to je poctivější než tvrdit, že jsme něco rozmotali.
+ */
+export function canonicalTarget(workspace, filePath) {
   const absolute = path.resolve(workspace.root, filePath);
-  const relative = path.relative(workspace.root, absolute);
+  let real = absolute;
+  try {
+    real = realpathSync(absolute);
+  } catch {
+    try {
+      real = path.join(realpathSync(path.dirname(absolute)), path.basename(absolute));
+    } catch {
+      real = absolute;
+    }
+  }
+
+  let root = workspace.root;
+  try { root = realpathSync(workspace.root); } catch { /* strom nemusí existovat (testy) */ }
+
+  const relative = path.relative(root, real);
   return {
     repoId: workspace.repoId,
     branch: workspace.branch,
     // Soubor mimo strom (`../`) se klíčuje absolutní cestou — do relativní by
     // se schoval a dva různé soubory by mohly dostat týž klíč.
-    path: relative.startsWith('..') ? absolute : relative,
+    path: relative.startsWith('..') ? real : relative,
     absolute,
+    real,
   };
+}
+
+function keyFor(workspace, filePath) {
+  return canonicalTarget(workspace, filePath);
 }
 
 /**
@@ -183,6 +216,44 @@ export function acquireFileLock(rawDb, {
   return { ok: true, lock: readLock(rawDb, id), reentrant: false };
 }
 
+/**
+ * Držím ten zámek **pořád**?
+ *
+ * Tohle je fencing: mezi vzetím zámku a efektem může uplynout hodina čekání na
+ * člověka.  Když mezitím lease vyprší a zámek si vezme jiný běh, **můj zápis
+ * už nesmí proběhnout** — jinak je `027` pravidlo, které platí jen když se nic
+ * nestane.  Token není potřeba vymýšlet: id zámku je token, protože rival
+ * dostane nový řádek s novým id.
+ *
+ * @returns {{ok: true} | {ok: false, reason: 'lost'|'expired', holder?: Object}}
+ */
+export function assertStillHeld(rawDb, { lockId, runId, now = Date.now() } = {}) {
+  const row = rawDb.prepare(`
+    SELECT id, run_id, repo_id, branch, path, expires_at, released_at, release_reason
+      FROM file_write_locks WHERE id = ?
+  `).get(lockId);
+
+  if (!row || row.run_id !== runId) return { ok: false, reason: 'lost' };
+  if (row.released_at) return { ok: false, reason: 'lost', releaseReason: row.release_reason };
+  if (sqlTimeToMs(row.expires_at) <= now) {
+    // Vypršel, i když ho zatím nikdo nepřevzal.  Zapisovat na základě propadlé
+    // rezervace je totéž jako zapisovat bez ní — jen o to hůř, že si to
+    // zapisovatel neuvědomuje.
+    return { ok: false, reason: 'expired', expiresAt: row.expires_at };
+  }
+
+  // A ještě: je můj řádek opravdu ten držený pro tenhle klíč?  Kdyby moje
+  // expirace prošla a někdo si zámek vzal a zase pustil, můj řádek by mohl
+  // vypadat živě, ale mezitím do souboru sáhl někdo jiný.
+  const held = rawDb.prepare(`
+    SELECT id FROM file_write_locks
+     WHERE repo_id = ? AND branch = ? AND path = ? AND released_at IS NULL
+  `).get(row.repo_id, row.branch, row.path);
+  if (!held || held.id !== lockId) return { ok: false, reason: 'lost' };
+
+  return { ok: true };
+}
+
 /** Obnov expiraci. Jen vlastník — cizí běh nesmí prodloužit cizí zámek. */
 export function refreshFileLock(rawDb, { lockId, runId, ttlMs = LOCK_TTL_MS, now = Date.now() } = {}) {
   const changed = rawDb.prepare(`
@@ -243,5 +314,6 @@ export function describeHolder(holder) {
 
 export default {
   acquireFileLock, refreshFileLock, releaseFileLock, releaseRunLocks,
-  listHeldLocks, describeWorkspace, describeHolder, LOCK_TTL_MS,
+  listHeldLocks, describeWorkspace, describeHolder, canonicalTarget,
+  assertStillHeld, LOCK_TTL_MS,
 };

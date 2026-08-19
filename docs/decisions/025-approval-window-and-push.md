@@ -146,7 +146,9 @@ nemá kdo dát.
 | Zámek na soubor (027), aby předpoklad nepadal zbytečně | ✅ hotovo — 16 testů |
 | Ověření předpokladu **při provedení**, ne při schválení | ✅ hotovo — `awaitDecision({ readTarget })` |
 | Desktopová plocha (P0-6) — API | ✅ hotovo — 10 testů; GUI v IDE zbývá |
-| Zapojení do reálného efektu (P0-2) | ✅ hotovo — editační cesta jádra, 7 testů |
+| Zapojení do reálného efektu (P0-2) | ⚠️ postaveno a otestováno (7 testů), ale **nezapnuto** — čeká na rozhodnutí o síle slibu, viz handbook §P0-2 |
+| Terminální stav approvalu bez odpovědi (migrace 063) | ✅ hotovo — `invalidated`/`cancelled` + důvod |
+| Jedna sdílená rozhodovací autorita pro mobil i desktop | ✅ hotovo — `evaluateApprovalDecision` |
 | Trvalé spojení a měření baterie | ⬜ |
 | Přepis `DR-011` v PLAN/DATA-MODEL/SCREENS | ⬜ |
 

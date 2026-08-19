@@ -295,8 +295,12 @@ export function createCompanionProducer({
       let current;
       try {
         current = await readTarget(row.precondition_ref);
-      } catch {
-        current = null;
+      } catch (error) {
+        // Nepřečtený cíl **není** „cíl neexistuje" (nález 3 z review).  Dřív se
+        // sem chytalo všechno a překládalo na `null`, takže `EACCES` skončil
+        // jako `absent` — a approval na vytvoření souboru pak prošel nad
+        // souborem, který existoval a jen se nedal přečíst.
+        return { ok: false, reason: 'precondition_unverifiable', code: error?.code || null };
       }
       return checkPrecondition(row, current);
     }

@@ -27,15 +27,51 @@
 //
 // ==============================================================================
 
-import { approvalIsBound } from '../mobile/approval-authority.js';
+import { approvalIsBound, resolveApprovalDecision } from '../mobile/approval-authority.js';
 
 /** Desktop je jedna identita a nemusí se párovat — sedí u toho stroje. */
 const DESKTOP_PRINCIPAL = 'desktop';
+
+/**
+ * Approval je `S2` a nese cestu i popis.  Mobilní routy mají `no-store`
+ * explicitně (`handlers.js`); desktopová plocha ho neměla, takže by ta samá
+ * data mohl podržet proxy nebo cache prohlížeče (nález 8 z review).  Hranice
+ * transportu má být na obou plochách stejná — jinak je slabší ta, na kterou se
+ * zapomnělo.
+ */
+const NO_STORE = Object.freeze({ 'Cache-Control': 'no-store' });
 
 function sqlTimeToMs(text) {
   if (!text) return 0;
   const ms = Date.parse(`${String(text).replace(' ', 'T')}Z`);
   return Number.isNaN(ms) ? 0 : ms;
+}
+
+/** Odmítnutí ze sdílené autority → HTTP, na jednom místě. */
+const REFUSAL_STATUS = Object.freeze({
+  decision_invalid: 400,
+  fingerprint_required: 400,
+  not_found: 404,
+  unbound_approval: 409,
+  approval_expired: 409,
+  approval_superseded: 409,
+});
+
+const REFUSAL_MESSAGE = Object.freeze({
+  decision_invalid: 'decision must be approve or reject',
+  fingerprint_required: 'payloadFingerprint is required',
+  not_found: 'approval not found',
+  unbound_approval: 'approval is not bound to a run and operation',
+  approval_expired: 'approval expired',
+  approval_superseded: 'payload changed since it was shown',
+});
+
+function applyNoStore(res) {
+  // `res.setHeader` nemusí existovat v testovacím dvojníkovi; hlavička je
+  // vlastnost transportu, ne rozhodnutí, takže její absence nesmí nic shodit.
+  if (typeof res?.setHeader === 'function') {
+    for (const [name, value] of Object.entries(NO_STORE)) res.setHeader(name, value);
+  }
 }
 
 export function createApprovalRoutes({ db, sendJSON, parseBody }) {
@@ -60,6 +96,7 @@ export function createApprovalRoutes({ db, sendJSON, parseBody }) {
            LIMIT 200
         `).all();
 
+        applyNoStore(res);
         sendJSON(res, 200, {
           approvals: rows.map(row => ({
             id: row.id,
@@ -82,73 +119,42 @@ export function createApprovalRoutes({ db, sendJSON, parseBody }) {
           })),
         });
       } catch (error) {
+        applyNoStore(res);
         sendJSON(res, 500, { error: `Approval queue unavailable: ${error.message}` });
       }
     },
 
     // ── Rozhodnutí ────────────────────────────────────────────────────────
     'POST /api/approvals/:id/decide': async (req, res, params) => {
+      applyNoStore(res);
       try {
         const body = await parseBody(req);
-        const { decision, payloadFingerprint } = body || {};
+        const result = resolveApprovalDecision(rawDb, {
+          approvalId: params.id,
+          decision: body?.decision,
+          payloadFingerprint: body?.payloadFingerprint,
+          decidedBy: DESKTOP_PRINCIPAL,
+        });
 
-        if (decision !== 'approve' && decision !== 'reject') {
-          return sendJSON(res, 400, { error: 'decision must be approve or reject' });
+        switch (result.outcome) {
+          case 'decided':
+            return sendJSON(res, 200, {
+              id: params.id, decision: result.decision, decidedBy: result.decidedBy,
+            });
+          case 'replay':
+            // První odpověď vítězí — a druhá plocha dostane **tu první**, ať se
+            // ptá v jakémkoli pořadí.  Symetrie s mobilem je celý smysl
+            // sdílené autority (nález 5).
+            return sendJSON(res, 200, {
+              id: params.id, decision: result.decision,
+              decidedAt: result.decidedAt, decidedBy: result.decidedBy, replay: true,
+            });
+          default:
+            return sendJSON(res, REFUSAL_STATUS[result.reason] || 409, {
+              error: REFUSAL_MESSAGE[result.reason] || result.reason,
+              reason: result.reason,
+            });
         }
-        // Otisk je povinný i tady.  `F-100`: volitelná kontrola není kontrola,
-        // a plocha, která ji odpustí, je ta, přes kterou se to obejde.
-        if (typeof payloadFingerprint !== 'string' || payloadFingerprint === '') {
-          return sendJSON(res, 400, { error: 'payloadFingerprint is required' });
-        }
-
-        const row = rawDb.prepare(`
-          SELECT id, payload_fingerprint, expires_at, decided_at, decision,
-                 origin, run_id, operation_ref
-            FROM mobile_approvals WHERE id = ?
-        `).get(params.id);
-
-        if (!row) return sendJSON(res, 404, { error: 'approval not found' });
-
-        // Idempotence před vším ostatním: opakované „ano" je odpověď, ne chyba,
-        // a nesmí přepsat, kdo rozhodl první.
-        if (row.decided_at) {
-          return sendJSON(res, 200, {
-            id: row.id, decision: row.decision, decidedAt: row.decided_at, replay: true,
-          });
-        }
-        if (!approvalIsBound(row)) {
-          return sendJSON(res, 409, {
-            error: 'approval is not bound to a run and operation',
-            reason: 'unbound_approval',
-          });
-        }
-        if (sqlTimeToMs(row.expires_at) < Date.now()) {
-          return sendJSON(res, 409, { error: 'approval expired', reason: 'approval_expired' });
-        }
-        if (row.payload_fingerprint !== payloadFingerprint) {
-          // Obsah se změnil mezi zobrazením a rozhodnutím.  Grant by platil pro
-          // něco jiného, než co člověk viděl — to je celý smysl otisku.
-          return sendJSON(res, 409, {
-            error: 'payload changed since it was shown',
-            reason: 'approval_superseded',
-          });
-        }
-
-        const changed = rawDb.prepare(`
-          UPDATE mobile_approvals
-             SET decided_at = datetime('now'), decision = ?, decided_by = ?
-           WHERE id = ? AND decided_at IS NULL
-        `).run(decision, DESKTOP_PRINCIPAL, params.id).changes;
-
-        if (changed === 0) {
-          // Mezi kontrolou a zápisem rozhodl někdo jiný — typicky telefon.
-          // Vítězí první odpověď; druhá dostane tu první, ne chybu.
-          const decided = rawDb.prepare(
-            'SELECT decision, decided_at, decided_by FROM mobile_approvals WHERE id = ?').get(params.id);
-          return sendJSON(res, 200, { id: params.id, ...decided, replay: true });
-        }
-
-        sendJSON(res, 200, { id: params.id, decision, decidedBy: DESKTOP_PRINCIPAL });
       } catch (error) {
         sendJSON(res, 500, { error: `Decide failed: ${error.message}` });
       }

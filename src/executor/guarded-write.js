@@ -34,9 +34,13 @@
 //
 // ==============================================================================
 
+import { createHash } from 'node:crypto';
+
 import { fingerprint } from '../mobile/protocol.js';
+import { closeApprovalWithoutAnswer, APPROVAL_TERMINAL } from '../mobile/approval-authority.js';
 import {
   acquireFileLock, refreshFileLock, releaseFileLock, describeWorkspace, describeHolder,
+  canonicalTarget, assertStillHeld,
 } from './file-lock.js';
 
 /** Jak často se obnovuje zámek, když se čeká dlouho. */
@@ -71,9 +75,14 @@ export async function guardedWrite({
   const io = fs || await defaultFs();
   const space = workspace || describeWorkspace();
 
+  // Jeden kanonický cíl pro zámek, předpoklad i zápis (nález 7).  Bez toho by
+  // symlink a přímá cesta byly dva zámky nad jedním souborem.
+  const target = canonicalTarget(space, filePath);
+  const effectPath = target.real;
+
   // ── 1. Zámek, nebo hned pryč ──────────────────────────────────────────
   const lock = acquireFileLock(rawDb, {
-    workspace: space, filePath, runId, ownerLabel,
+    workspace: space, filePath: effectPath, runId, ownerLabel,
   });
   if (!lock.ok) {
     return {
@@ -85,24 +94,57 @@ export async function guardedWrite({
   }
 
   let heartbeat = null;
+  /** Jakmile jednou přijdeme o zámek, zápis se už nesmí stát. */
+  let lostLock = null;
+
+  /**
+   * Uzavři otázku, na kterou už nemá smysl odpovídat.
+   *
+   * `invalidated` = svět se změnil (předpoklad, ztracený zámek); `cancelled` =
+   * ten, kdo se ptal, přestal čekat.  Skutečnou odpověď to nikdy nepřepíše —
+   * `closeApprovalWithoutAnswer` píše jen do řádku, který je pořád nerozhodnutý.
+   */
+  function closeQuestion(approvalId, state, reason) {
+  const cancelled = state === 'timeout' || state === 'abandoned';
+  try {
+    closeApprovalWithoutAnswer(rawDb, approvalId, {
+      outcome: cancelled ? APPROVAL_TERMINAL.CANCELLED : APPROVAL_TERMINAL.INVALIDATED,
+      reason: reason || state,
+      by: 'system',
+    });
+  } catch { /* databáze pryč — běh stejně končí */ }
+  }
+
   try {
     // ── 2. Jak cíl vypadá teď — to je předpoklad ────────────────────────
     //
     // Čte se **před** ražbou approvalu, aby se člověk rozhodoval o stavu,
     // který skutečně nastal, ne o tom, jaký byl při plánování běhu.
-    const before = await readOrNull(io, filePath);
+    const beforeRead = await readTargetState(io, effectPath);
+    if (!beforeRead.ok) {
+      // Nepřečtený cíl znamená, že o něm nic nevíme.  Ptát se člověka na
+      // otázku, jejíž předpoklad neumíme ověřit, by byl souhlas naslepo.
+      return {
+        state: 'precondition_unverifiable',
+        written: false,
+        target: effectPath,
+        code: beforeRead.code,
+        message: `Cíl nelze přečíst (${beforeRead.code}), takže nejde ověřit, co se přepisuje.`,
+      };
+    }
+    const before = beforeRead.content;
 
     const approval = await producer.requestApproval({
       origin,
       runId,
-      operationRef: `fs.write:${filePath}`,
+      operationRef: `fs.write:${effectPath}`,
       subjectType: 'effect.write',
-      subjectId: filePath,
+      subjectId: effectPath,
       title: before === null ? 'Vytvořit soubor' : 'Přepsat soubor',
-      detail: filePath,
-      payload: { path: filePath, content },
+      detail: effectPath,
+      payload: { path: effectPath, content },
       deviceId,
-      precondition: { kind: 'file-digest', ref: filePath, content: before },
+      precondition: { kind: 'file-digest', ref: effectPath, content: before },
     });
 
     if (typeof onAsked === 'function') {
@@ -115,8 +157,16 @@ export async function guardedWrite({
     }
 
     // Zámek se během čekání obnovuje: běh žije, i když člověk spí.
+    //
+    // Selhání obnovy se **nezahazuje** (nález 2).  Když se zámek nepodaří
+    // obnovit, přišli jsme o rezervaci, i kdyby čekání pokračovalo — a zápis
+    // po ztrátě rezervace je přesně to, co `027` zakazuje.
     heartbeat = setInterval(() => {
-      try { refreshFileLock(rawDb, { lockId: lock.lock.id, runId }); } catch { /* uvolněn jinde */ }
+      try {
+        refreshFileLock(rawDb, { lockId: lock.lock.id, runId });
+      } catch (error) {
+        lostLock = lostLock || { reason: 'refresh_failed', detail: error.message };
+      }
     }, LOCK_HEARTBEAT_MS);
     if (typeof heartbeat.unref === 'function') heartbeat.unref();
 
@@ -124,25 +174,77 @@ export async function guardedWrite({
     const answer = await producer.awaitDecision(approval.id, {
       timeoutMs,
       signal,
-      readTarget: async target => readOrNull(io, target),
+      // Čtečka je fail-closed: nepřečtený cíl **není** „neexistuje".  Producent
+      // to pozná podle vyhozené výjimky a vyhodnotí jako neověřitelné.
+      readTarget: async path => {
+        const read = await readTargetState(io, path);
+        if (!read.ok) {
+          const error = new Error(`unreadable:${read.code}`);
+          error.code = read.code;
+          throw error;
+        }
+        return read.content;
+      },
     });
 
     if (answer.state !== 'approve') {
+      // Otázka končí **trvale** (nález 4 z review).  Bez toho by řádek zůstal
+      // `decided_at IS NULL`, fronta by ho dál nabízela k rozhodnutí a někdo by
+      // odpověděl na zápis, který už nemá kdo provést — „ghost approval".
+      closeQuestion(approval.id, answer.state, answer.reason);
       return { state: answer.state, written: false, approvalId: approval.id, detail: answer };
     }
 
-    // ── 4. Zápis ────────────────────────────────────────────────────────
+    // ── 4. Poslední kontrola, teprve pak zápis ──────────────────────────
     //
-    // `awaitDecision` předpoklad ověřil čerstvým čtením těsně předtím, takže
-    // tady se už jen zapisuje.  Kdyby se mezi tím a tímhle řádkem stihlo něco
-    // změnit, chrání nás zámek — a to je přesně dělba, kvůli které jsou dva.
-    await io.mkdir(dirnameOf(filePath), { recursive: true });
-    await io.writeFile(filePath, content, 'utf8');
+    // Mezi souhlasem a zápisem je okno.  Zúžit ho jde, zrušit ne — POSIX zápis
+    // souboru není compare-and-swap, takže mezi „přečti a porovnej" a „zapiš"
+    // vždycky zbývá mikroskopická štěrbina.  Co se s tím dá dělat poctivě:
+    //
+    //   * **fencing** — pořád držím zámek, který jsem si vzal?  Bez toho by
+    //     stačilo, aby lease vypršel během čekání, a zapisovali bychom přes
+    //     práci někoho, kdo si soubor mezitím řádně zamkl (nález 2);
+    //   * **poslední ověření předpokladu** těsně před zápisem, ne jen po
+    //     souhlasu (nález 1) — pokrývá editor, `git checkout` i jiný nástroj,
+    //     kterým je zámek lhostejný;
+    //   * **říct nahlas, co zbývá.**  Zbývající okno je řádově mikrosekundy a
+    //     zavřít ho by znamenalo, že všichni zapisovatelé jdou přes jednu
+    //     mediační vrstvu (CAS/verzovaný storage).  To je rozhodnutí o síle
+    //     slibu, ne oprava — viz PROD-READY-HANDBOOK §P0-2.
+    if (lostLock) {
+      closeQuestion(approval.id, 'lock_lost', lostLock.reason);
+      return { state: 'lock_lost', written: false, approvalId: approval.id, detail: lostLock };
+    }
+    const fence = assertStillHeld(rawDb, { lockId: lock.lock.id, runId });
+    if (!fence.ok) {
+      closeQuestion(approval.id, 'lock_lost', fence.reason);
+      return { state: 'lock_lost', written: false, approvalId: approval.id, detail: fence };
+    }
+
+    const finalRead = await readTargetState(io, effectPath);
+    if (!finalRead.ok) {
+      closeQuestion(approval.id, 'precondition_unverifiable', finalRead.code);
+      return {
+        state: 'precondition_unverifiable', written: false,
+        approvalId: approval.id, target: effectPath, code: finalRead.code,
+      };
+    }
+    if (digestOf(finalRead.content) !== digestOf(before)) {
+      closeQuestion(approval.id, 'precondition_changed', 'changed_before_write');
+      return {
+        state: 'precondition_changed', written: false,
+        approvalId: approval.id, target: effectPath, reason: 'changed_before_write',
+      };
+    }
+
+    await io.mkdir(dirnameOf(effectPath), { recursive: true });
+    await io.writeFile(effectPath, content, 'utf8');
 
     return {
       state: 'written',
       written: true,
       approvalId: approval.id,
+      target: effectPath,
       decidedBy: answer.decidedBy || null,
       bytes: content.length,
     };
@@ -159,14 +261,32 @@ async function defaultFs() {
   return { readFile, writeFile, mkdir };
 }
 
-async function readOrNull(io, filePath) {
+/**
+ * Přečti cíl, nebo **řekni, že to nešlo** — nález 3 z review.
+ *
+ * Dřív se sem chytaly všechny chyby a překládaly na `null`, tedy „soubor
+ * neexistuje".  Na souboru bez práva čtení (ale s právem zápisu do adresáře)
+ * to znamenalo: approval se vyrobil jako „Vytvořit soubor" s předpokladem
+ * `absent`, kontrola pak porovnávala `absent` s `absent` — a existující soubor
+ * se přepsal.  `EACCES` není `ENOENT`; splynutí obou je tichý přepis.
+ *
+ * @returns {{ok: true, content: string|null} | {ok: false, code: string}}
+ */
+async function readTargetState(io, filePath) {
   try {
-    return await io.readFile(filePath, 'utf8');
-  } catch {
-    // Neexistující i nečitelný soubor jsou pro předpoklad totéž: „nemám, s čím
-    // porovnávat".  `checkPrecondition` to pak vyhodnotí proti `'absent'`.
-    return null;
+    return { ok: true, content: await io.readFile(filePath, 'utf8') };
+  } catch (error) {
+    // Jediná chyba, která smí znamenat „cíl neexistuje".
+    if (error?.code === 'ENOENT') return { ok: true, content: null };
+    return { ok: false, code: error?.code || 'EUNKNOWN', message: error?.message };
   }
+}
+
+/** Týž otisk, jaký používá autorita — jinak by se dvě kontroly mohly rozejít. */
+function digestOf(content) {
+  return content === null || content === undefined
+    ? 'absent'
+    : createHash('sha256').update(String(content)).digest('hex').slice(0, 32);
 }
 
 function dirnameOf(filePath) {

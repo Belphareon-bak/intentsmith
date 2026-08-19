@@ -225,6 +225,136 @@ export function createMobileApproval(rawDb, {
  * Is this row bound to something the server can name?  Used by the decide path,
  * which is where the answer has to be yes before anything is granted.
  */
+/**
+ * Konce, které approval může mít bez toho, aby na něj někdo odpověděl.
+ *
+ * `approve` a `reject` jsou odpovědi člověka.  Tohle jsou konce, které nastanou
+ * samy — a musí být **trvalé**, jinak otázka dál visí ve frontě jako čekající
+ * (nález 4 z review: „ghost approval").
+ */
+export const APPROVAL_TERMINAL = Object.freeze({
+  INVALIDATED: 'invalidated',  // svět se změnil pod otázkou
+  CANCELLED: 'cancelled',      // otázku stáhl ten, kdo se ptal
+});
+
+/**
+ * Uzavři approval bez odpovědi člověka.
+ *
+ * Idempotentní a **nikdy nepřepíše skutečnou odpověď**: `WHERE decided_at IS
+ * NULL` znamená, že rozhodnutí, které mezitím přišlo z telefonu nebo z IDE,
+ * zůstává. Ukončit otázku smí jen ten, kdo ji položil, a jen dokud nikdo
+ * neodpověděl.
+ */
+export function closeApprovalWithoutAnswer(rawDb, approvalId, {
+  outcome = APPROVAL_TERMINAL.INVALIDATED, reason = null, by = 'system',
+} = {}) {
+  if (!approvalId) return false;
+  return rawDb.prepare(`
+    UPDATE mobile_approvals
+       SET decided_at = datetime('now'), decision = ?, decided_by = ?, decision_reason = ?
+     WHERE id = ? AND decided_at IS NULL
+  `).run(outcome, by, reason, approvalId).changes > 0;
+}
+
+/**
+ * **Jediné místo, kde se approval rozhoduje** — nález 5 z review.
+ *
+ * Do téhle chvíle měl mobil svoje pravidla v `handlers.js` a desktop svoje
+ * v `routes/approvals.js`.  Nebyla to duplicita na papíře: chovaly se
+ * **asymetricky**, protože každá strana si pořadí kontrol poskládala jinak.
+ * Dvě autority nad jednou tabulkou znamenají, že jedna z nich je mírnější — a
+ * přes tu se to obejde.
+ *
+ * Transport zůstává každé ploše vlastní (mobil má `MD-19` žurnál operací,
+ * desktop ne); společné je **co platí**, ne jak se to posílá.
+ *
+ * @returns {{outcome: 'decided'|'replay'|'refused', ...}}
+ */
+export function evaluateApprovalDecision(row, {
+  decision, payloadFingerprint, now = Date.now(),
+} = {}) {
+  if (decision !== 'approve' && decision !== 'reject') {
+    return { verdict: 'refused', reason: 'decision_invalid' };
+  }
+  // `F-100`: volitelná kontrola není kontrola.  Plocha, která ji odpustí, je ta,
+  // přes kterou se to obejde.
+  if (typeof payloadFingerprint !== 'string' || payloadFingerprint === '') {
+    return { verdict: 'refused', reason: 'fingerprint_required' };
+  }
+  if (!row) return { verdict: 'refused', reason: 'not_found' };
+
+  // Už rozhodnuto: **první odpověď vítězí** a druhá plocha se dozví, jak to
+  // dopadlo — ať se ptá v jakémkoli pořadí.  Jak to která plocha doručí, je
+  // její věc (mobil má na to obrazovku `SS-09`); *co platí*, je tady.
+  if (row.decided_at) {
+    return {
+      verdict: 'already_decided',
+      decision: row.decision,
+      decidedAt: row.decided_at,
+      decidedBy: row.decided_by,
+    };
+  }
+  if (!approvalIsBound(row)) return { verdict: 'refused', reason: 'unbound_approval' };
+  if (sqlTimeToMs(row.expires_at) < now) return { verdict: 'refused', reason: 'approval_expired' };
+  if (row.payload_fingerprint !== payloadFingerprint) {
+    return { verdict: 'refused', reason: 'approval_superseded' };
+  }
+  return { verdict: 'grantable' };
+}
+
+/**
+ * Vyhodnocení **a zápis** v jednom — pro plochy, které nemají vlastní žurnál
+ * operací (desktop).  Mobil používá `evaluateApprovalDecision` a zapisuje sám,
+ * protože kolem zápisu má `MD-19` a ten do sdílené funkce nepatří.
+ */
+export function resolveApprovalDecision(rawDb, {
+  approvalId, decision, payloadFingerprint, decidedBy, now = Date.now(),
+} = {}) {
+  const row = rawDb.prepare(`
+    SELECT id, payload_fingerprint, expires_at, decided_at, decision, decided_by,
+           origin, run_id, operation_ref
+      FROM mobile_approvals WHERE id = ?
+  `).get(approvalId);
+
+  const evaluated = evaluateApprovalDecision(row, { decision, payloadFingerprint, now });
+  if (evaluated.verdict === 'refused') return { outcome: 'refused', reason: evaluated.reason };
+  if (evaluated.verdict === 'already_decided') {
+    return {
+      outcome: 'replay',
+      decision: evaluated.decision,
+      decidedAt: evaluated.decidedAt,
+      decidedBy: evaluated.decidedBy,
+    };
+  }
+
+  const changed = rawDb.prepare(`
+    UPDATE mobile_approvals
+       SET decided_at = datetime('now'), decision = ?, decided_by = ?
+     WHERE id = ? AND decided_at IS NULL
+  `).run(decision, decidedBy, approvalId).changes;
+
+  if (changed === 0) {
+    // Závod prohraný mezi kontrolou a zápisem: odpověděl někdo jiný.  Vrací se
+    // jeho odpověď, ne chyba — je to týž případ jako replay, jen o milisekundu.
+    const decided = rawDb.prepare(
+      'SELECT decision, decided_at, decided_by FROM mobile_approvals WHERE id = ?').get(approvalId);
+    return {
+      outcome: 'replay',
+      decision: decided?.decision,
+      decidedAt: decided?.decided_at,
+      decidedBy: decided?.decided_by,
+    };
+  }
+
+  return { outcome: 'decided', decision, decidedBy };
+}
+
+function sqlTimeToMs(text) {
+  if (!text) return 0;
+  const ms = Date.parse(`${String(text).replace(' ', 'T')}Z`);
+  return Number.isNaN(ms) ? 0 : ms;
+}
+
 export function approvalIsBound(row) {
   return Boolean(row
     && typeof row.origin === 'string' && APPROVAL_ORIGINS.includes(row.origin)
@@ -235,5 +365,7 @@ export function approvalIsBound(row) {
 export default {
   createMobileApproval, approvalIsBound, approvalFingerprint,
   preconditionDigest, checkPrecondition,
-  APPROVAL_TTL_MS, APPROVAL_ORIGINS, APPROVAL_VALIDITY, PRECONDITION_CAP_MS,
+  resolveApprovalDecision, evaluateApprovalDecision, closeApprovalWithoutAnswer,
+  APPROVAL_TTL_MS, APPROVAL_ORIGINS, APPROVAL_VALIDITY, APPROVAL_TERMINAL,
+  PRECONDITION_CAP_MS,
 };

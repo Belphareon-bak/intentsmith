@@ -62,7 +62,27 @@ přijatelný mechanismus napříč procesy, (4) `adb reverse` je pro prototyp
 dostatečná cesta, (5) `EncryptedSharedPreferences` + systémový zámek jsou
 přijatelná hranice **pro interní použití**.
 
-### P0-2 Skutečný effect seam — ✅ **ZAPOJENO 2026-08-19**
+### P0-2 Skutečný effect seam — ⚠️ **ZAPOJENO, ALE NEZAPNUTO** (review 2026-08-19)
+
+Nezávislé review našlo v `guardedWrite` tři `P0` vady (TOCTOU, zápis po ztrátě
+lease, chyba čtení vydávaná za neexistující soubor). Všechny jsou opravené a
+sondy z review jsou regresními testy. **Jedna vlastnost se ale opravit nedá** a
+je to podmínka, ne detail:
+
+> Mezi poslední kontrolou a zápisem zůstává mikroskopické okno, protože zápis
+> souboru na POSIXu není compare-and-swap. Externí zapisovatel (editor, `git
+> checkout`) ho může trefit. Zavřít to jde jen tak, že **všichni** zapisovatelé
+> půjdou přes jednu mediační vrstvu.
+
+**Rozhodnutí, které to odemyká** (patří operátorovi, ne implementaci):
+
+| Varianta | Co slibuje | Cena |
+|---|---|---|
+| **Praktická** ⭐ | Všichni zapisovatelé IntentSmithu jsou mediovaní; externí editor se detekuje best-effort a zápis se zastaví, pokud se změna stihne projevit do poslední kontroly | dnešní stav; zbývá okno v řádu mikrosekund |
+| **Silná** | Žádný externí zapisovatel nemůže přepsat stav | verzované úložiště nebo broker pro **všechny** zapisovatele; velký zásah mimo mobil |
+
+Dokud tohle není rozhodnuté, `setApprovalDeps` se v produkčním kódu **nevolá** —
+cesta existuje a je otestovaná, ale nikdo ji nezapíná.
 
 `src/executor/guarded-write.js` je ta cesta: vezme zámek (`027`), zeptá se
 s předpokladem (`025`), počká, a zapíše **až** po souhlasu — nebo nezapíše a

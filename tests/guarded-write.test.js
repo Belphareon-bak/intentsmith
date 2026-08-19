@@ -17,7 +17,7 @@ import './helpers/isolated-test-db.js';
 
 import { strict as assert } from 'node:assert';
 import Database from 'better-sqlite3';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -233,6 +233,149 @@ await test('P0-2 když nikdo neodpoví, nic se nezapíše a stav se pojmenuje', 
   assert.equal(result.written, false);
   assert.equal(existsSync(target()), false);
   assert.equal(listHeldLocks(db).length, 0, 'nezodpovězený běh nechal soubor zamčený');
+});
+
+// ── 6. Nálezy z review — sondy převedené na regresní testy ─────────────────
+//
+// Tyhle tři případy prošly, když jsem si myslel, že je to hotové.  Každý z nich
+// končil `written` a přepsaným cizím obsahem, takže tady nestačí testovat
+// návratovou hodnotu — testuje se, **co je na disku**.
+
+await test('review 1: změna cíle po ověření souhlasu už zápis nepustí', async () => {
+  clear();
+  const content = 'MŮJ ZÁPIS';
+  writeFileSync(target(), 'ORIG', 'utf8');
+
+  // Přesně to okno, kterým sonda z review prošla: souhlas je zapsaný,
+  // `awaitDecision` předpoklad ověřil — a **teprve pak** soubor někdo změní.
+  // Dřív se v tu chvíli už jen zapisovalo; proto se cizí obsah přepsal.
+  let mutated = false;
+  const io = {
+    readFile: async (file, enc) => {
+      const value = readFileSync(file, enc);
+      const decided = db.prepare(
+        'SELECT decided_at FROM mobile_approvals ORDER BY created_at DESC LIMIT 1').get();
+      if (decided?.decided_at && !mutated) {
+        mutated = true;
+        writeFileSync(file, 'CIZÍ ZMĚNA PO OVĚŘENÍ', 'utf8');
+      }
+      return value;
+    },
+    writeFile: async (file, data, enc) => writeFileSync(file, data, enc),
+    mkdir: async () => {},
+  };
+
+  const write = guardedWrite({
+    rawDb: db, producer: producer(), runId: 'run-review-1',
+    filePath: target(), content, workspace, timeoutMs: 20_000, fs: io,
+  });
+  await answerPending('approve', { payload: { path: target(), content } });
+  const result = await write;
+
+  assert.equal(mutated, true, 'sonda nestihla soubor změnit, test by nic neměřil');
+  assert.equal(result.written, false,
+    'zápis prošel, přestože se cíl po ověření souhlasu změnil');
+  assert.equal(result.state, 'precondition_changed');
+  assert.equal(readFileSync(target(), 'utf8'), 'CIZÍ ZMĚNA PO OVĚŘENÍ',
+    'cizí obsah byl přepsán souhlasem, který platil pro jiný stav');
+});
+
+await test('review 2: po ztrátě zámku se nezapisuje, i když souhlas platí', async () => {
+  clear();
+  const content = 'OLD-WRITER';
+  writeFileSync(target(), 'ORIG', 'utf8');
+
+  const write = guardedWrite({
+    rawDb: db, producer: producer(), runId: 'run-stary',
+    filePath: target(), content, workspace, timeoutMs: 20_000,
+  });
+
+  // Lease starého běhu vyprší a soubor si vezme jiný běh — přesně jak to
+  // udělala sonda z review.
+  const row = await (async () => {
+    for (let i = 0; i < 300; i++) {
+      const found = db.prepare('SELECT id FROM mobile_approvals WHERE decided_at IS NULL').get();
+      if (found) return found;
+      await yieldTick();
+    }
+    throw new Error('approval nevznikl');
+  })();
+  db.prepare("UPDATE file_write_locks SET expires_at = '2000-01-01 00:00:00' WHERE run_id = 'run-stary'").run();
+  const rival = acquireFileLock(db, { workspace, filePath: target(), runId: 'run-rival' });
+  assert.equal(rival.ok, true, 'sonda nepřevzala zámek, test by nic neměřil');
+
+  await answerPending('approve', { payload: { path: target(), content } });
+  const result = await write;
+
+  assert.equal(result.state, 'lock_lost', `zápis po ztrátě zámku skončil jako ${result.state}`);
+  assert.equal(readFileSync(target(), 'utf8'), 'ORIG',
+    'starý běh přepsal soubor, který mezitím patřil jinému běhu (porušení 027)');
+});
+
+await test('review 3: nečitelný cíl není „neexistuje" — a nic se nepřepíše', async () => {
+  clear();
+  const content = 'ZÁPIS PŘES NEČITELNÝ SOUBOR';
+  writeFileSync(target(), 'TAJNÝ OBSAH', 'utf8');
+
+  // Soubor existuje, ale číst ho nejde (EACCES).  Dřív z toho vyšel předpoklad
+  // `absent`, tedy „vytváříme nový soubor" — a existující obsah se přepsal.
+  const io = {
+    readFile: async () => {
+      const error = new Error('permission denied');
+      error.code = 'EACCES';
+      throw error;
+    },
+    writeFile: async (file, data, enc) => writeFileSync(file, data, enc),
+    mkdir: async () => {},
+  };
+
+  const result = await guardedWrite({
+    rawDb: db, producer: producer(), runId: 'run-review-3',
+    filePath: target(), content, workspace, timeoutMs: 20_000, fs: io,
+  });
+
+  assert.equal(result.state, 'precondition_unverifiable');
+  assert.equal(result.written, false);
+  assert.equal(readFileSync(target(), 'utf8'), 'TAJNÝ OBSAH',
+    'nečitelný soubor byl přepsán, protože se tvářil jako neexistující');
+  // A hlavně: nikoho jsme se ani nezeptali.  Otázka, jejíž předpoklad neumíme
+  // ověřit, je souhlas naslepo.
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM mobile_approvals').get().n, 0);
+});
+
+await test('nález 4: neúspěšný konec uzavře otázku, aby ve frontě neviselo strašidlo', async () => {
+  clear();
+  const content = 'nikdo neodpoví';
+  const result = await guardedWrite({
+    rawDb: db, producer: producer(), runId: 'run-ghost',
+    filePath: target(), content, workspace, timeoutMs: 5,
+  });
+  assert.equal(result.state, 'timeout');
+
+  const row = db.prepare('SELECT decision, decision_reason, decided_by FROM mobile_approvals').get();
+  assert.ok(row, 'approval zmizel — historie se nemaže');
+  assert.equal(row.decision, 'cancelled', 'otázka zůstala nerozhodnutá a fronta ji dál nabízí');
+  assert.equal(row.decided_by, 'system');
+  assert.ok(row.decision_reason, 'není zapsané, proč otázka skončila');
+});
+
+await test('nález 7: symlink a přímá cesta jsou jeden cíl, ne dva', async () => {
+  clear();
+  const real = path.join(workdir, 'skutecny.js');
+  const link = path.join(workdir, 'odkaz.js');
+  writeFileSync(real, 'OBSAH', 'utf8');
+  symlinkSync(real, link);
+
+  const held = acquireFileLock(db, { workspace, filePath: real, runId: 'run-prvni' });
+  assert.equal(held.ok, true);
+
+  const result = await guardedWrite({
+    rawDb: db, producer: producer(), runId: 'run-druhy',
+    filePath: link, content: 'přes odkaz', workspace, timeoutMs: 20_000,
+  });
+  assert.equal(result.state, 'locked',
+    'symlink obešel zámek, takže dva běhy zapisovaly do jednoho souboru');
+  assert.equal(readFileSync(real, 'utf8'), 'OBSAH');
 });
 
 db.close();
