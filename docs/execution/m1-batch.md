@@ -706,6 +706,104 @@ stderr empty. Architect docs-patcher fence zůstal v platnosti; sole issuer
 není formal reviewer. Po novém restage obě declared docs reviews znovu startují
 od byte zero.
 
+D043 poté prošla validními fresh docs reviews a její exact E_B/B44
+b013bd6fe28c691953ea2d9daa925435b479d8d4 byl rootem lokálně ff-only promován
+z c38e1b24849521b41025e70a37bf0219466c9d1e. Promotion byla vůči operational
+pořadí předčasná, proto je ROOT_PREMATURE_CANONICAL_FF / NO_OPERATIONAL_VOTE.
+Canonical zůstává B44/tree 78cd0daf4451c42de4e2dbd668d21500c1bd5fdf/
+1632 paths; rollback ani source operation pod validní authority neproběhly.
+
+D044 vytvořila preserved side DAG S44 2a21ee8c → E_A44 66cdb0fd → merge C44
+a43c0ecc → E_B44 d4a49cab. Frozen manifest je 877B/1LF/SHA
+9a2d41b5cfa40f20d0699ac1b5a0ce50d56942f8142f6688c8dea7934533191e;
+six-line report je blob add026dc, 262B/6LF/SHA
+5151f5e11b7101bb046f39004764d88478a4f4d54491877f5562c4a4522ad439.
+Textual PASS rows jsou NO_VOTE. Nevyjmenovaný runtime_gate_audit existoval
+před D044 votes a sám je invaliduje; source_preflight vznikl až po dual PASS a
+samostatně foreclose-nul další authority. Obě identity jsou out-of-authority,
+nonvoting, permanently fenced a jejich complete reads/tools/side effects jsou
+UNKNOWN. D044 objects/report se zachovají, ale nepromují ani nereuse-nou.
+
+D045 staged manifest df1b6e5c (881B/1LF) sloučil tyto události do jedné
+pre-vote chronologie. Review B vydal CHANGES_REQUIRED/P0=0/P1=1; Review A po
+100% readu skončila STOPPED/NO_VOTE. Exact D045 preexisting state je:
+
+- worktree /home/belphareon/worktrees/is-m1-h0-v5-detached-source-checkout-manifest-closure-remediation-20260819-writer;
+- admin /home/belphareon/Projects/intentsmith/.git/worktrees/is-m1-h0-v5-detached-source-checkout-manifest-closure-remediation-20260819-writer;
+- branch docs/m1-h0-v5-detached-source-checkout-identity-universe-supersession-20260820-writer;
+- HEAD B44, index1634 exact df1b A/M/M/A, unstaged0, untracked0.
+
+D046 staged manifest 557b58c8 (867B/1LF; four blobs 138483B/2273LF) opravil
+chronologii, ale Review B vydal CHANGES_REQUIRED/P0=0/P1=2; Review A po 100%
+readu se stejnými provisional P1 skončila STOPPED/NO_VOTE. D046 neuvedla
+literal full mistarget paths a neuvedla literal D045 worktree/admin.
+Exact odstraněné D046 objects jsou:
+
+- /home/belphareon/Projects/docs/decisions/046-m1-h0-v5-detached-source-checkout-chronology-supersession.md, 23656B/490LF;
+- /home/belphareon/Projects/docs/wp/WP-M1-H0-V5-DETACHED-SOURCE-CHECKOUT-CHRONOLOGY-SUPERSESSION.md, 13544B/304LF.
+
+Root je odstranil přes apply_patch před D046 stagingem. Oba jsou při D047
+inventory current lstat-absent, ale historical SHA/blob/inode/timestamps,
+complete tool/syscall footprint a broader host effects jsou UNKNOWN. Current
+absence je limited proof, ne host-zero-effect claim.
+
+Exact D046 preexisting state je:
+
+- worktree /home/belphareon/worktrees/is-m1-h0-v5-detached-source-checkout-chronology-supersession-20260820-writer;
+- admin /home/belphareon/Projects/intentsmith/.git/worktrees/is-m1-h0-v5-detached-source-checkout-chronology-supersession-20260820-writer;
+- branch docs/m1-h0-v5-detached-source-checkout-chronology-supersession-20260820-writer;
+- HEAD B44, index1634 exact 557b A/M/M/A, unstaged0, untracked0.
+
+Nová
+[decision 047](../decisions/047-m1-h0-v5-detached-source-checkout-exact-path-worktree-supersession.md)
+je fresh exact-path/worktree supersession přímo z B44. Jediný docs writer
+/root/decision047_writer vznikl před authoringem a je literal člen U47.
+Jeho první patch mistarget vytvořil přesně
+/home/belphareon/Projects/docs/decisions/047-m1-h0-v5-detached-source-checkout-exact-path-worktree-supersession.md
+(29353B/553LF/SHA 78dfe3c5c624c8491b84de8ddf8a89b3082c08ede4367726a527d0cfae39a4cd)
+a /home/belphareon/Projects/docs/wp/WP-M1-H0-V5-DETACHED-SOURCE-CHECKOUT-EXACT-PATH-WORKTREE-SUPERSESSION.md
+(15753B/336LF/SHA e5bee8baad2bbf08acb5da59a8d66df52e0a9a86cec02dd34fa90eff0c736d31).
+Retained exact add-file patch payload dovoluje byte-for-byte reconstruction
+včetně terminal LF; pre-delete measurement ověřil stejný vector. Writer oba
+zjistil před stagingem, odstranil jedním apply_patch a root ověřil current
+lstat absence + correct D047 worktree B44/index1632 clean. Exact timestamps/
+apply_patch internals/inodes/directory metadata/cache/tool footprint/broader
+host effects jsou UNKNOWN. Incident je D047_WRITER_PATH_MISTARGET / NO_VOTE,
+ne host-zero-effect proof.
+
+Correct D047 preexisting state je:
+
+- worktree /home/belphareon/worktrees/is-m1-h0-v5-detached-source-checkout-exact-path-worktree-supersession-20260820-writer;
+- admin /home/belphareon/Projects/intentsmith/.git/worktrees/is-m1-h0-v5-detached-source-checkout-exact-path-worktree-supersession-20260820-writer;
+- branch docs/m1-h0-v5-detached-source-checkout-exact-path-worktree-supersession-20260820-writer;
+- HEAD B44; preauthoring index1632 clean; hard-freeze index1634 final
+  A/M/M/A manifest, unstaged0, untracked0.
+
+Future readiness A a post B musí obsahovat literal D045/D046/D047 worktree i
+admin rows FS47_D045_AUTHORING_WORKTREE/COMMON_GIT_ADMIN,
+FS47_D046_AUTHORING_WORKTREE/COMMON_GIT_ADMIN a
+FS47_D047_AUTHORING_WORKTREE/COMMON_GIT_ADMIN. Každý row je required a A==B
+na path/type/stable identity/HEAD/ref/index/staged/unstaged/untracked semantics.
+Generic parent row, alias, shortening, missing/extra/duplicate nebo mismatch
+blokuje. Jde o preexisting state v existing captures, ne nové direct children.
+
+U47 je exact U46 plus /root/decision047_writer: 61 unique/60 exclusions. Writer
+je nonreviewer/nonissuer a po hard-freeze se permanentně fence-ne. Root zůstává
+sole issuer/DAG/promoter/operation creator. Fresh
+B47→S47→E_A47→C47→E_B47 používá byte-zero Review A/B, report-only envelope a
+distinct post-create gate; D044/D045/D046 vote/tree/token/result se nerecykluje.
+
+Substantivní final operation zůstává exact 37 direct Git children, právě jeden
+RW01_CREATE rootWrite, 18 readiness + 18 post direct rows, 38 logical probes,
+18+20 logical ledgers, 24 CV a 16 EX. EX10 má jediný write child a po EX09
+před Popen není gap. Short launcher zachová same-FD
+stage0→transport→root-loader→B→D→A, max131071B pro oba Python -c payloady a
+strict outerArgvEnvAccountedBytes + 65536 < runtimeScArgMax; equality blokuje
+a broker internals jsou external TCB. Acyklický chain je pre-frozen pins→A→D→
+B→loader→transport→stage0→command→external protocol. Leaf8c zůstává truthful
+PINNED_SYSTEM_PROBE_TCB. Docs/report/promotion/materialization/CREATE exit0
+nejsou source/M1/H0/runtime DONE.
+
 ---
 
 ## 2. Sdílené invarianty — platí pro každý běh v dávce
