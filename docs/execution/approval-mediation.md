@@ -65,7 +65,11 @@ zápisy chodit přes jednu cestu, bude případná vada v `commitFile` bolet vš
 
 ## 3. Fáze M1 — spolehlivost (otevřené `P1`)
 
-### M1-a Atomický zápis zachová práva
+### M1-a Atomický zápis zachová práva — **začni tímhle**
+
+> Jediná položka v M1, která je **aktivní vada v už zapnuté cestě**: každý
+> schválený přepis existujícího souboru mu právě teď mění práva. Ostatní tři
+> jsou latentní nebo kosmetické.
 
 `src/executor/atomic-write.js`
 
@@ -89,9 +93,16 @@ zápisem a `rename` zůstane starý obsah celý.
 `src/executor/file-lock.js` (`releaseStaleLocks`)
 
 **Vada:** komentář slibuje, že se dva procesy navzájem neuklízejí, ale SQL
-uzavře **všechno** s jiným `boot_id`. Sonda potvrdila, že proces B zruší živý
-approval i zámek procesu A. Gateway přitom běží jako vlastní proces nad touž
-databází.
+uzavře **všechno** s jiným `boot_id`. Sonda review potvrdila, že proces B zruší
+živý approval i zámek procesu A.
+
+**Upřesnění rozsahu (ověřeno na `25c61a96`):** úklid volá **jen `src/server.js`**,
+gateway ne. V dnešním zapojení (jeden core + gateway) proto nehrozí, že by
+gateway sebrala approvaly coru — na to by musely běžet **dva cory** nad jednou
+databází. Vada je tím pádem latentní, ne aktivní: nic ale dvěma corům nebrání
+a komentář v kódu tvrdí něco, co kód nedělá. Oprava má obojí srovnat — buď
+lease/heartbeat, nebo **napsat a vynutit**, že jeden core na databázi je
+podmínka.
 
 **Udělat** — jedno z dvojího, rozhodni a **napiš proč**:
 - **lease/heartbeat**: tabulka živých bootů s `last_seen`, úklid sebere jen ty,
