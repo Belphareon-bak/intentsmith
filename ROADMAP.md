@@ -1277,6 +1277,24 @@ změně veřejného connectoru, produktu/scope, bezpečnostní či datové nejas
 konfliktu vlastnictví nebo výsledku, který zpochybňuje směr. Nezávislé části
 mohou pokračovat.
 
+### Když se běh zacyklí
+
+Aparát navíc není vada dokumentu, ale běhu. Zastav a eskaluj na operátora,
+jakmile platí cokoli z toho:
+
+- třetí pokus o tentýž běh po dvou selháních;
+- dvě rozhodnutí po sobě bez pokusu o skutečný běh;
+- oprava, kterou lze popsat, aniž zmíníš předmět testu — chronologie, cesty,
+  identita, promotion state, číslování; ta patří jako řádka do existujícího
+  záznamu, ne do nového dokumentu;
+- posun canonical ref bez zapsaného operátorského hlasu; ten se zapíše jako
+  breach a **dalším rozhodnutím se neopravuje**.
+
+Eskalace sama není nový dokument. Je to jedna strana s čísly — commity, pokusy
+o běh, hodiny, bajty evidence — a právě dvě nabídnuté možnosti: zjednodušit a
+doběhnout, nebo pravdivě uzavřít jako `PARTIAL/BLOCKED`. Do odpovědi operátora
+se nepokračuje.
+
 ## 13. Aktuální pořadí
 
 1. Plné přijetí `PRODUCT.md` a roadmapy v4 zůstává otevřené; pro současnou
