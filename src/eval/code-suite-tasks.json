@@ -1,0 +1,54 @@
+{
+  "generatedAt": "2026-08-20T18:40:13.134Z",
+  "repoHead": null,
+  "tasks": [
+    {
+      "hash": "d8a2aa05c865196b38dae1a31a5bc68d86d982db",
+      "source": "src/upgrade/candidate-trial.js",
+      "test": "tests/candidate-trial.test.js",
+      "subject": "hunt: hlásit měření a rozhodnutí rolí průběžně",
+      "functionLines": 87,
+      "requirements": 3
+    },
+    {
+      "hash": "cfcb63dd5cd5560a7b6729ea4420679ae3bcac0d",
+      "source": "src/upgrade/model-binding-application.js",
+      "test": "tests/m1-model-binding-application.test.js",
+      "subject": "fix(models): make startup census advisory",
+      "functionLines": 228,
+      "requirements": 2
+    },
+    {
+      "hash": "da03e8bd2e50f0079628d2728fa9da96e9feb580",
+      "source": "src/upgrade/upgrade-manager.js",
+      "test": "tests/upgrade-apply.test.js",
+      "subject": "fix(models): preserve verification abort boundary",
+      "functionLines": 31,
+      "requirements": 1
+    },
+    {
+      "hash": "723d5726087afcbac935e84b8382a963dd440520",
+      "source": "src/upgrade/upgrade-manager.js",
+      "test": "tests/upgrade-apply.test.js",
+      "subject": "fix(models): release failed verification timeout",
+      "functionLines": 31,
+      "requirements": 1
+    },
+    {
+      "hash": "a33cc20adb792e970f7c39886aecb669569cbd5a",
+      "source": "src/routes/chat.js",
+      "test": "tests/m1-chat-contract.test.js",
+      "subject": "fix(chat): make history lookup existence-aware",
+      "functionLines": 8,
+      "requirements": 3
+    },
+    {
+      "hash": "286a9117c77c6c29969ed374bcaea86c1ef1ba1a",
+      "source": "src/routes/chat.js",
+      "test": "tests/routes-smoke.test.js",
+      "subject": "fix: bind chat to stored project context",
+      "functionLines": 69,
+      "requirements": 0
+    }
+  ]
+}

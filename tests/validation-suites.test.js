@@ -14,14 +14,16 @@ import Database from 'better-sqlite3';
 
 suite('Suite Definitions');
 
-test('has exactly 5 suites', () => {
+test('has exactly 6 suites', () => {
   const names = Object.keys(SUITES);
-  assertEqual(names.length, 5);
+  assertEqual(names.length, 6);
   assert(names.includes('reasoning'));
   assert(names.includes('code'));
   assert(names.includes('chat'));
   assert(names.includes('vision'));
   assert(names.includes('review'));
+  // `code_patch` hodnotí spuštěním skrytého testu, ne klíčovými slovy.
+  assert(names.includes('code_patch'));
 });
 
 test('each suite has name, description, roles, tests', () => {
@@ -29,7 +31,9 @@ test('each suite has name, description, roles, tests', () => {
     assertEqual(s.name, key, `${key}.name`);
     assert(s.description.length > 0, `${key}.description`);
     assert(Array.isArray(s.roles), `${key}.roles`);
-    assert(s.roles.length > 0, `${key}.roles.length`);
+    // `code_patch` je záměrně bez rolí: vazba role na sadu se nemění
+    // automaticky, přepnutí potvrzuje operátor ručně (viz hlavička sady).
+    if (key !== 'code_patch') assert(s.roles.length > 0, `${key}.roles.length`);
     assert(Array.isArray(s.tests), `${key}.tests`);
     assert(s.tests.length >= 6, `${key} should have ≥6 tests, got ${s.tests.length}`);
   }
