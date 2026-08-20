@@ -367,7 +367,7 @@ formální regression review i nezávislý effect-callgraph review skončily
 `CHANGES_REQUIRED`. V1 plan SHA-256 `6a25cac18e41f066f3d9a2f638b9c95b64a3c3588f842578acfa87ad513bd664`,
 runner SHA-256 `0afbae84d37b99bd9f5effc32aac44c1397a0d4555011393ce40b75cb3a9a302`
 a manifest SHA-256 `afcda074e6b25373d93a127355d17b6751e4808c7c95c3e81077693149303219`
-jsou canonical-bound v [decision 033](../decisions/033-m1-h0-static-remediation.md).
+jsou canonical-bound v [decision 033](../archive/h0-remediation-loop/decisions/033-m1-h0-static-remediation.md).
 Evidence adresář zůstal prázdný: žádný runner mode, runtime, acceptance ani live
 effect neproběhl. V1 je `DO_NOT_EXECUTE` a one-plan allowance z 032 je
 spotřebované.
@@ -416,7 +416,7 @@ V2 je proto
 `STATIC_CHANGES_REQUIRED_UNSEALED / NO_RUNTIME / DO_NOT_CONTINUE / NO_ACCEPTANCE`
 a nesmí se doplnit nebo spustit.
 
-[`Decision 034`](../decisions/034-m1-h0-v2-mount-namespace-remediation.md) je nový
+[`Decision 034`](../archive/h0-remediation-loop/decisions/034-m1-h0-v2-mount-namespace-remediation.md) je nový
 docs-only amendment bez runtime authority. V3 zachová `ProtectSystem=strict` a
 `ReadWritePaths` přesně evidence + exact child. Sandboxed `ExecStopPost` smí
 dokončit restore, unlink exact V3 file, fsync child, cleanup reload a publikovat
@@ -455,7 +455,7 @@ failure closure a V3-08/V3-09/V3-25 nejsou splněné. V3 je proto
 `STATIC_CHANGES_REQUIRED / SEALED / NO_RUNTIME / DO_NOT_EXECUTE / NO_ACCEPTANCE`
 a nesmí se opravit in-place.
 
-[`Decision 035`](../decisions/035-m1-h0-v3-worker-quiescence-remediation.md) je
+[`Decision 035`](../archive/h0-remediation-loop/decisions/035-m1-h0-v3-worker-quiescence-remediation.md) je
 docs-only prospective amendment bez runtime authority. Zachovává 034 mount
 split, ale V4 zakazuje background thread/executor/shared capture, vyžaduje
 main-owned client s terminal+reap proofem před result/seal a zavádí
@@ -494,7 +494,7 @@ invariant reálně vynucuje. Povinné dvě PASS proto nevznikly; V4 je
 `STATIC_CHANGES_REQUIRED / SEALED / NO_RUNTIME / DO_NOT_EXECUTE`.
 
 Nová
-[decision 036](../decisions/036-m1-h0-v4-lifecycle-projection-remediation.md)
+[decision 036](../archive/h0-remediation-loop/decisions/036-m1-h0-v4-lifecycle-projection-remediation.md)
 je docs-only prospective amendment bez runtime authority. V5 musí přesně
 projektovat 15-node decision-035:335–344 lifecycle SHA-256
 `492645f2...` napříč plan-side client phases, semantic receipt contracts a
@@ -517,7 +517,7 @@ a chybějící actual one-root enumeraci. Aggregate je `P0=0/P1=5` a V5 je
 `DO_NOT_EXECUTE`.
 
 Nová
-[decision 037](../decisions/037-m1-h0-v5-preseal-remediation.md) je docs-only
+[decision 037](../archive/h0-remediation-loop/decisions/037-m1-h0-v5-preseal-remediation.md) je docs-only
 remediation bez runtime authority. Po vlastním
 `S_H0V5R -> E_A_H0V5R -> C_H0V5R -> E_B_H0V5R` a canonical promotion nejprve
 vyžaduje authentic durable recorder původního red reviewera. Potom smí právě
@@ -539,7 +539,7 @@ recorder, evidence-empty stav i jeho single repair authority zůstávají beze
 změny.
 
 Nová
-[decision 038](../decisions/038-m1-h0-v5-detached-source-checkout-authority.md)
+[decision 038](../archive/h0-remediation-loop/decisions/038-m1-h0-v5-detached-source-checkout-authority.md)
 je pouze docs-only operational erratum. Po vlastním
 R1 subject `704dfa70e5d1856d98308315e1f030eb952f8ccf` skončil Review A
 `CHANGES_REQUIRED`, `P0=0/P1=2`: poststate reads nebyly no-write a contract
@@ -572,7 +572,7 @@ nebyl pozorován, ale optional index refresh nelze dokázaně vyloučit a
 evidence a D038 se nesmí retryovat ani reclassifikovat.
 
 Nová
-[decision 039](../decisions/039-m1-h0-v5-detached-source-checkout-prelaunch-remediation.md)
+[decision 039](../archive/h0-remediation-loop/decisions/039-m1-h0-v5-detached-source-checkout-prelaunch-remediation.md)
 je docs-only prelaunch remediation. Inkorporuje exact promoted Decision038 blob
 a mění jen explicitní substitution table: nové role/identity/lock reason,
 fresh one-shot authority a nepřerušený exclusive **all-Git-access** lease.
@@ -593,7 +593,7 @@ a target/admin nevznikly. Pozdější `rg` ENOENT a 2 624-byte digest
 jsou superseded non-evidence, nikoli canonical observation.
 
 Nová
-[decision 040](../decisions/040-m1-h0-v5-detached-source-checkout-toolchain-remediation.md)
+[decision 040](../archive/h0-remediation-loop/decisions/040-m1-h0-v5-detached-source-checkout-toolchain-remediation.md)
 je exact four-doc governance-only remediation, ne D039 retry. Tracked driver
 směr byl před subjectem abandoned jako noncanonical/non-evidence a jeho path je
 forbidden. Review B místo něj dokončí final `PRELEASE_READY` baseline a je
@@ -613,7 +613,7 @@ identity následně terminalně foreclose-nula D040 jako `SUPERSEDED_BEFORE_LEAS
 PRELEASE_IDENTITY_UNIVERSE_DRIFT`; D040 se nerecykluje ani neretryuje.
 
 Nová
-[decision 041](../decisions/041-m1-h0-v5-detached-source-checkout-prelease-readiness-remediation.md)
+[decision 041](../archive/h0-remediation-loop/decisions/041-m1-h0-v5-detached-source-checkout-prelease-readiness-remediation.md)
 je exact four-doc governance-only remediation D040 readiness/identity driftu.
 Nemá process-control authority: historické `/usr/bin/yes`, Konsole bash a adb
 cwd konflikty smí odstranit jen external user a jejich pouhé zmizení není
@@ -637,7 +637,7 @@ Před-D042 adversary plain status je non-evidence s možným unknown index
 refreshem, nikoli fresh baseline.
 
 Nová
-[decision 042](../decisions/042-m1-h0-v5-detached-source-checkout-read-constructor-remediation.md)
+[decision 042](../archive/h0-remediation-loop/decisions/042-m1-h0-v5-detached-source-checkout-read-constructor-remediation.md)
 je exact four-doc governance-only read-constructor remediation. Její docs
 subject a candidate prošly Review A+B a report-only E_B nyní existuje jako
 B43 `f5a4c6931fccbeb5601c1c54ea04bd70c17215bd`; jde ale o unpromoted
@@ -659,7 +659,7 @@ D042 není promoted, není source-checkout PASS, neodemkla D037 repair a není
 M1/H0/runtime/T3/Gate DONE evidence.
 
 Nová
-[decision 043](../decisions/043-m1-h0-v5-detached-source-checkout-manifest-closure-remediation.md)
+[decision 043](../archive/h0-remediation-loop/decisions/043-m1-h0-v5-detached-source-checkout-manifest-closure-remediation.md)
 je úzká four-doc manifest-closure remediation nad exact B43. Samostatný
 capability-only artefakt a jeho fail-closed diagnostické attempts jsou pro
 operational gating `SUPERSEDED/NONAUTH`; další capability-only manual handoff
@@ -755,7 +755,7 @@ Exact D046 preexisting state je:
 - HEAD B44, index1634 exact 557b A/M/M/A, unstaged0, untracked0.
 
 Nová
-[decision 047](../decisions/047-m1-h0-v5-detached-source-checkout-exact-path-worktree-supersession.md)
+[decision 047](../archive/h0-remediation-loop/decisions/047-m1-h0-v5-detached-source-checkout-exact-path-worktree-supersession.md)
 je fresh exact-path/worktree supersession přímo z B44. Jediný docs writer
 /root/decision047_writer vznikl před authoringem a je literal člen U47.
 Jeho první patch mistarget vytvořil přesně
