@@ -117,6 +117,8 @@ předává vlastní izolovanou cestu.
 |----------|-------|
 | [ROADMAP.md](ROADMAP.md) | **Roadmapa 1.0** — gate ladder, evidenční stav pilířů, směr IntentSmithu |
 | [CHANGELOG.md](CHANGELOG.md) | Changelog (v56–v136) |
+| [EVAL-REDESIGN.md](EVAL-REDESIGN.md) | Přestavba evaluace: proč současné sady neměří schopnost, plán |
+| [EVAL-NEXT-SESSION.md](EVAL-NEXT-SESSION.md) | **Zadání pro další relaci** — kde to stojí, co dál, pasti |
 | [MODEL-PLATFORM-HANDOFF.md](MODEL-PLATFORM-HANDOFF.md) | **Souhrn stavu** scoringu a hledání modelů, otevřené body |
 | [MODEL-SCORING-ACTIVATION.md](MODEL-SCORING-ACTIVATION.md) | Scoring modelů: zdroje dat, jejich meze, aktivace |
 | [MODEL-UPGRADE-HUNT.md](MODEL-UPGRADE-HUNT.md) | Hledání lepších modelů: trychtýř, měření VRAM, párový souboj |
