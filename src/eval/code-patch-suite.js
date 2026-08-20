@@ -25,7 +25,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { logger } from '../core/logger.js';
-import { deriveTask, buildPrompt, extractFunctionCode, applyAndTest } from './code-patch-runner.js';
+import { deriveTask, buildPrompt, extractFunctionCodes, applyAndTest } from './code-patch-runner.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, '..', '..');
@@ -90,8 +90,8 @@ export function buildTests(repo = REPO_ROOT, tasks = null) {
     prompt: () => ({ text: buildPrompt(task), _task: task }),
     grade: (response, ctx) => {
       const target = ctx?._task || task;
-      const code = extractFunctionCode(response);
-      const result = applyAndTest(repo, target, code);
+      const codes = extractFunctionCodes(response, target.spans);
+      const result = applyAndTest(repo, target, codes);
       return {
         passed: result.passed,
         score: result.score,

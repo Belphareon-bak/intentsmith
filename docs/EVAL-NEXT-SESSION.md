@@ -28,21 +28,35 @@ rozlišuje.
 
 ### Nejdřív: zesílit CODE, než se přejde na REVIEW
 
-Sada rozlišuje, ale drží to **jediná úloha z šesti** a dva ze tří modelů
-neodliší. Než se na ni cokoli naváže, potřebuje víc úloh:
+Cíl je **6 ze 6 aktivních úloh rozlišuje**. Rozdělané kroky k tomu (podrobně
+[`EVAL-CODE-SUITE.md`](EVAL-CODE-SUITE.md), oddíl 9):
 
-**a) Změny ve víc funkcích** — největší jediný zdroj. 19 z 29 kandidátů padá na
-sítu „změna není uvnitř jediné funkce" (typicky import nahoře + tělo metody
-dole). `findSpanForLines()` v takovém případě vrací `null`; rozšíření znamená
-vrátit **seznam** rozsahů, poslat modelu všechny dotčené funkce a vložit je
-zpátky (od konce souboru, aby zůstala platná čísla řádků).
+1. ✅ **Odstupňované skóre** — podíl splněných požadavků místo „prošel celý
+   soubor". Ověřeno: gold 1,00, před opravou 0,00 na všech šesti úlohách.
+2. ✅ **Víc funkcí v zadání** — `findSpansForLines()` / `replaceSpans()`.
+3. ⬜ **Zapsat podlahu úlohy** (`baselineScore`) do fixture — `d8a2aa05` dává
+   0,33 i bez jakékoli opravy, takže skóre úloh nejsou srovnatelná.
+4. ⬜ **Přeměřit panel** s odstupňovaným skóre — čísla v oddílu 8 jsou z
+   binárního hodnocení a **neplatí**.
+5. ⬜ **Kalibrovat výběr úloh** — nechat jen ty, kde se skóre napříč panelem
+   liší; těžké úlohy nemazat, jen odložit jako rezervu.
+6. ⬜ **Rozšířit panel** nad tři modely, ať se výběr nepřeučí na dnešní trojici.
+
+Pozor: zásoba úloh je úzká — 29 kandidátů, 11 odvoditelných, 8 do 250 řádků.
+Další růst potřebuje:
+
+**a) Změny mimo funkce** — nové úzké hrdlo. 18 z 29 kandidátů mění řádky, které
+neleží v žádné funkci (import nahoře, konstanta na nejvyšší úrovni).
+`findSpansForLines()` na to vrací `null`. Buď to umět zadat jinak, nebo takové
+commity nechat být a hledat zásobu jinde.
 
 **b) Commity s víc testovými soubory** — `findCandidates()` vyžaduje přesně
 jeden test. Povolení víc testů (a požadavek, aby prošly všechny) přidá zhruba
 18 kandidátů z 805 commitů.
 
-**c) Rozprostřít obtížnost** — sada potřebuje i mechaničtější opravy, jinak
-rozlišuje jen na jedné těžké úloze.
+**c) Víc zdrojáků na commit** — dnes se bere jen commit s jediným souborem v
+`src/`. To je 689 z 805 commitů zahozených; povolit dva soubory by zásobu
+zvětšilo nejvíc ze všeho, ale zadání i vkládání musí umět víc souborů.
 
 ### Potom: REVIEW a CHAT
 

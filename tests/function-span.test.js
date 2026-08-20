@@ -6,7 +6,10 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { suite, test, assert, assertEqual, summary } from './harness.js';
-import { findEnclosingFunction, findSpanForLines, replaceSpan, scanBlocks } from '../src/eval/function-span.js';
+import {
+  findEnclosingFunction, findSpanForLines, findSpansForLines,
+  replaceSpan, replaceSpans, scanBlocks,
+} from '../src/eval/function-span.js';
 
 suite('function-span');
 
@@ -101,6 +104,47 @@ test('náhrada srovná odsazení podle původní funkce', () => {
   const span = findEnclosingFunction(src, 3);
   const out = replaceSpan(src, span.startLine, span.endLine, `m() {\n    return 2;\n  }`, span.tail);
   assert(out.includes('  m() {'), `odsazení se nesrovnalo:\n${out}`);
+});
+
+// ─── víc funkcí v jedné změně ───────────────────────────────────────────────
+
+test('findSpansForLines najde všechny dotčené funkce', () => {
+  const spans = findSpansForLines(SAMPLE, [3, 20]);
+  assert(spans, 'rozsahy nenalezeny');
+  assertEqual(spans.length, 2);
+  assert(spans[0].header.includes('alpha'), spans[0].header);
+  assert(spans[1].header.includes('delta'), spans[1].header);
+});
+
+test('findSpansForLines vrátí rozsahy vzestupně a bez duplicit', () => {
+  const spans = findSpansForLines(SAMPLE, [20, 3, 5]);   // pořadí naschvál zamíchané
+  assertEqual(spans.length, 2);
+  assert(spans[0].startLine < spans[1].startLine, 'rozsahy nejsou seřazené');
+});
+
+test('řádek mimo funkci rozsahy zruší', () => {
+  const withImport = `import x from 'y';\n${SAMPLE}`;
+  assertEqual(findSpansForLines(withImport, [1, 4]), null);
+});
+
+// Náhrady musí jít od konce — při postupu shora by druhá trefila posunuté řádky.
+test('replaceSpans nahradí víc funkcí najednou', () => {
+  const spans = findSpansForLines(SAMPLE, [3, 20]);
+  const out = replaceSpans(SAMPLE, spans, [
+    'export function alpha(a) {\n  return 111;\n}',
+    '  async delta(n) {\n    return 222;\n  }',
+  ]);
+  assert(out.includes('return 111;'), 'první funkce se nevložila');
+  assert(out.includes('return 222;'), 'druhá funkce se nevložila');
+  assert(out.includes('const beta'), 'kód mezi funkcemi se ztratil');
+  assert(!out.includes('return a;'), 'zůstal původní kód první funkce');
+});
+
+test('replaceSpans odmítne nesouhlasný počet náhrad', () => {
+  const spans = findSpansForLines(SAMPLE, [3, 20]);
+  let threw = false;
+  try { replaceSpans(SAMPLE, spans, ['jen jedna']); } catch { threw = true; }
+  assert(threw, 'nesouhlasný počet měl skončit chybou');
 });
 
 summary();

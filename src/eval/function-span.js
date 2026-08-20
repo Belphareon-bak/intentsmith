@@ -233,6 +233,58 @@ export function findSpanForLines(src, lines) {
 }
 
 /**
+ * Najde **všechny** funkce, do kterých změna zasahuje.
+ *
+ * Proč to musí umět víc funkcí:
+ *
+ * Změřeno na 805 commitech tohohle repa — 19 z 29 jinak použitelných kandidátů
+ * mění víc míst v jednom souboru (typicky import nahoře a tělo metody dole).
+ * Síto „jediná funkce" je tak zdaleka největší ztráta úloh; bez něj má sada
+ * z čeho vybírat, což je podmínka toho, aby šly nechat jen úlohy, které
+ * skutečně rozlišují.
+ *
+ * Vrací `null`, když některý změněný řádek neleží v žádné funkci — úprava
+ * importu nebo konstanty na nejvyšší úrovni se jako „přepiš tyhle funkce"
+ * zadat nedá.
+ *
+ * @returns {Array<{startLine, endLine, text, header, tail}>|null} vzestupně podle startLine
+ */
+export function findSpansForLines(src, lines) {
+  if (!lines.length) return null;
+  const byStart = new Map();
+  for (const ln of lines) {
+    const span = findEnclosingFunction(src, ln);
+    if (!span) return null;
+    if (!byStart.has(span.startLine)) byStart.set(span.startLine, span);
+  }
+  return [...byStart.values()].sort((a, b) => a.startLine - b.startLine);
+}
+
+/**
+ * Nahradí několik rozsahů najednou.
+ *
+ * Jde se **od konce souboru**, protože každá náhrada posune čísla řádků pod
+ * sebou — při postupu shora by druhá náhrada trefila špatné místo.
+ *
+ * @param {Array<{startLine, endLine, tail}>} spans
+ * @param {string[]} replacements ve stejném pořadí jako `spans`
+ */
+export function replaceSpans(src, spans, replacements) {
+  if (spans.length !== replacements.length) {
+    throw new Error(`počet funkcí nesedí: ${spans.length} rozsahů, ${replacements.length} náhrad`);
+  }
+  const order = spans
+    .map((span, i) => ({ span, code: replacements[i] }))
+    .sort((a, b) => b.span.startLine - a.span.startLine);
+
+  let out = src;
+  for (const { span, code } of order) {
+    out = replaceSpan(out, span.startLine, span.endLine, code, span.tail);
+  }
+  return out;
+}
+
+/**
  * Nahradí rozsah řádků novým textem.
  *
  * `tail` je zbytek původního koncového řádku za uzavírací závorkou — musí se
@@ -248,4 +300,7 @@ export function replaceSpan(src, startLine, endLine, replacement, tail = '') {
   return [...lines.slice(0, startLine - 1), reindented + tail, ...lines.slice(endLine)].join('\n');
 }
 
-export default { scanBlocks, findEnclosingFunction, findSpanForLines, replaceSpan };
+export default {
+  scanBlocks, findEnclosingFunction, findSpanForLines, findSpansForLines,
+  replaceSpan, replaceSpans,
+};

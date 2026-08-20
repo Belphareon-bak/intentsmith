@@ -42,7 +42,7 @@ import { execFileSync } from 'node:child_process';
 import { writeFileSync, mkdtempSync, rmSync, symlinkSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { findSpanForLines, replaceSpan } from './function-span.js';
+import { findSpansForLines, replaceSpans } from './function-span.js';
 
 export const DEFAULT_TEST_TIMEOUT = 120_000;
 
@@ -77,9 +77,14 @@ export function changedLines(repo, hash, source) {
 /**
  * Sestaví úlohu z commitu — bez spouštění testů, takže je to levné.
  *
- * Vrací `null` s důvodem, když se oprava nedá vyjádřit jako přepis jediné
- * funkce: změna sahající do importů i do těla metody (`bbec7635`) nebo do tří
- * různých míst souboru (`344d6d73`) se jako „přepiš tuhle funkci" zadat nedá.
+ * Zadáním je **množina funkcí**, do kterých commit sáhl.  Jedna funkce je jen
+ * nejčastější případ: měřeno na 805 commitech tohohle repa mění 19 z 29 jinak
+ * použitelných kandidátů víc míst v jednom souboru, takže omezení na jedinou
+ * funkci zahazovalo dvě třetiny materiálu.
+ *
+ * Vrací `null` s důvodem, když některý změněný řádek neleží v žádné funkci —
+ * úprava importu nebo konstanty na nejvyšší úrovni se jako „přepiš tyhle
+ * funkce" zadat nedá.
  *
  * @returns {{task: Object|null, reason: string|null}}
  */
@@ -94,23 +99,34 @@ export function deriveTask(repo, meta) {
   }
 
   const lines = changedLines(repo, hash, source);
-  const spanBefore = findSpanForLines(beforeFile, lines.before);
-  if (!spanBefore) return { task: null, reason: 'změna není uvnitř jediné funkce (verze před)' };
-  const spanAfter = findSpanForLines(afterFile, lines.after);
-  if (!spanAfter) return { task: null, reason: 'změna není uvnitř jediné funkce (verze po)' };
-  if (spanBefore.header !== spanAfter.header) {
-    return { task: null, reason: 'oprava mění hlavičku funkce — jiná jednotka' };
+  const spansBefore = findSpansForLines(beforeFile, lines.before);
+  if (!spansBefore) return { task: null, reason: 'změna zasahuje mimo funkce (verze před)' };
+  const spansAfter = findSpansForLines(afterFile, lines.after);
+  if (!spansAfter) return { task: null, reason: 'změna zasahuje mimo funkce (verze po)' };
+
+  // Počet i hlavičky musí sedět, jinak commit funkce přidával nebo přejmenoval
+  // a „přepiš tyhle funkce" by neodpovídalo tomu, co se ve skutečnosti stalo.
+  if (spansBefore.length !== spansAfter.length) {
+    return { task: null, reason: `počet dotčených funkcí se liší (${spansBefore.length} → ${spansAfter.length})` };
   }
+  for (let i = 0; i < spansBefore.length; i++) {
+    if (spansBefore[i].header !== spansAfter[i].header) {
+      return { task: null, reason: 'oprava mění hlavičku funkce — jiná jednotka' };
+    }
+  }
+
+  const functionLines = spansBefore.reduce((sum, sp) => sum + (sp.endLine - sp.startLine + 1), 0);
 
   return {
     task: {
       hash, source, test,
       subject: meta.subject,
       beforeFile,
-      span: spanBefore,
-      functionText: spanBefore.text,     // co dostane model
-      goldText: spanAfter.text,          // referenční oprava
-      functionLines: spanBefore.endLine - spanBefore.startLine + 1,
+      spans: spansBefore,
+      functionTexts: spansBefore.map(sp => sp.text),   // co dostane model
+      goldTexts: spansAfter.map(sp => sp.text),        // referenční oprava
+      functionCount: spansBefore.length,
+      functionLines,
       requirements: addedTestNames(repo, hash, test),
     },
     reason: null,
@@ -149,45 +165,98 @@ export function addedTestNames(repo, hash, testFile) {
 /**
  * Zadání pro model.
  *
- * Vada je popsaná předmětem commitu — tedy tím, co o ní bylo známo v okamžiku
- * opravy.  Test se **neukazuje** (anti-cheat pravidlo 3), stejně jako se
- * neukazuje gold patch.
+ * Vada je popsaná předmětem commitu a názvy testů, které k ní autor napsal —
+ * tedy tím, co má platit.  Test se **neukazuje** (anti-cheat pravidlo 3),
+ * stejně jako se neukazuje gold patch.
  */
 export function buildPrompt(task) {
   const fence = '```';
   const req = (task.requirements || []).length
     ? `\n\nPožadované chování:\n${task.requirements.map(r => `- ${r}`).join('\n')}`
     : '';
+
+  const many = task.functionTexts.length > 1;
+  const blocks = task.functionTexts
+    .map((text, i) => `${many ? `Funkce ${i + 1}:\n\n` : ''}${fence}javascript\n${text}\n${fence}`)
+    .join('\n\n');
+
+  const instruction = many
+    ? `Oprav vadu. Vrať POUZE ${task.functionTexts.length} bloků ${fence}javascript — každou funkci celou, `
+      + 'od hlavičky po uzavírací závorku, ve stejném pořadí jako v zadání. '
+      + 'Žádné vysvětlení, žádný zbytek souboru.'
+    : `Oprav vadu. Vrať POUZE celou opravenou funkci v jednom bloku ${fence}javascript, `
+      + 'od hlavičky po uzavírací závorku. Žádné vysvětlení, žádný zbytek souboru.';
+
   return `Soubor: ${task.source}
 
 Hlášená vada: ${task.subject}${req}
 
-Následující funkce obsahuje tuto vadu:
+${many ? 'Vadu obsahují tyto funkce:' : 'Následující funkce obsahuje tuto vadu:'}
 
-${fence}javascript
-${task.functionText}
-${fence}
+${blocks}
 
-Oprav vadu. Vrať POUZE celou opravenou funkci v jednom bloku ${fence}javascript, `
-    + `od hlavičky po uzavírací závorku. Žádné vysvětlení, žádný zbytek souboru.`;
+${instruction}`;
+}
+
+/** Všechny bloky v trojitých zpětných apostrofech, v pořadí, jak přišly. */
+function fencedBlocks(response) {
+  return [...response.matchAll(/```[a-zA-Z]*\n([\s\S]*?)```/g)].map(m => m[1].trim());
+}
+
+/** Jméno funkce z hlavičky — slouží k přiřazení bloků k rozsahům. */
+export function functionNameOf(header) {
+  const m = header.match(/([A-Za-z_$#][\w$]*)\s*\(/);
+  return m ? m[1] : null;
 }
 
 /**
- * Vytáhne z odpovědi kód funkce.
+ * Vytáhne z odpovědi kód jedné funkce.
  *
- * Bere **nejdelší** blok v trojitých zpětných apostrofech: když model přidá
- * krátkou ukázku „špatně/správně", je ta podstatná ta delší.  Bez bloku se
- * zkusí celá odpověď — model, který vrátí holý kód, není za formát trestán.
+ * Bere **nejdelší** blok: když model přidá krátkou ukázku „špatně/správně",
+ * je ta podstatná ta delší.  Bez bloku se zkusí celá odpověď — model, který
+ * vrátí holý kód, není za formát trestán.
  */
 export function extractFunctionCode(response) {
   if (!response || typeof response !== 'string') return null;
-  const blocks = [...response.matchAll(/```[a-zA-Z]*\n([\s\S]*?)```/g)].map(m => m[1]);
-  if (blocks.length) {
-    return blocks.reduce((a, b) => (b.length > a.length ? b : a)).trim();
-  }
+  const blocks = fencedBlocks(response);
+  if (blocks.length) return blocks.reduce((a, b) => (b.length > a.length ? b : a));
   const bare = response.trim();
   if (bare.includes('{') && bare.includes('}')) return bare;
   return null;
+}
+
+/**
+ * Vytáhne kód pro **každý** dotčený rozsah.
+ *
+ * Když bloků přijde přesně tolik, kolik se čekalo, berou se v pořadí.  Když
+ * jich model pošle víc (rozepsal se, přidal ukázku), přiřadí se podle jména
+ * funkce v hlavičce — pořadí samo o sobě není spolehlivé.  Když se ani tak
+ * nepodaří obsadit všechny rozsahy, úloha propadá: neúplná odpověď se nedá
+ * aplikovat a hádat, co model myslel, by měření zkreslilo.
+ *
+ * @returns {string[]|null} kód pro každý rozsah, ve stejném pořadí
+ */
+export function extractFunctionCodes(response, spans) {
+  if (!response || typeof response !== 'string') return null;
+  if (spans.length === 1) {
+    const single = extractFunctionCode(response);
+    return single ? [single] : null;
+  }
+
+  const blocks = fencedBlocks(response);
+  if (blocks.length === spans.length) return blocks;
+  if (blocks.length < spans.length) return null;
+
+  const used = new Set();
+  const matched = spans.map(span => {
+    const name = functionNameOf(span.header);
+    if (!name) return null;
+    const idx = blocks.findIndex((b, i) => !used.has(i) && b.includes(name));
+    if (idx === -1) return null;
+    used.add(idx);
+    return blocks[idx];
+  });
+  return matched.every(Boolean) ? matched : null;
 }
 
 /** Nasměruje worktree na závislosti hlavního repa (bez toho každý test spadne). */
@@ -202,15 +271,79 @@ function linkDependencies(repo, work) {
 /** Spustí testový soubor v síťovém namespace bez cesty ven. */
 export function runIsolatedTest(work, testFile, timeout = DEFAULT_TEST_TIMEOUT) {
   const env = { ...process.env, C3_DB_PATH: path.join(work, 'eval-scratch.sqlite') };
-  const inner = `ip link set lo up 2>/dev/null; exec node ${JSON.stringify(testFile)}`;
+  const inner = `ip link set lo up 2>/dev/null; exec node ${JSON.stringify(testFile)} 2>&1`;
   try {
-    execFileSync('unshare', ['-rn', 'sh', '-c', inner], {
-      cwd: work, timeout, stdio: 'ignore', env,
+    const out = execFileSync('unshare', ['-rn', 'sh', '-c', inner], {
+      cwd: work, timeout, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
-    return { passed: true, timedOut: false };
+    return { passed: true, timedOut: false, output: out || '' };
   } catch (err) {
-    return { passed: false, timedOut: err.code === 'ETIMEDOUT' || err.signal === 'SIGTERM' };
+    return {
+      passed: false,
+      timedOut: err.code === 'ETIMEDOUT' || err.signal === 'SIGTERM',
+      output: `${err.stdout || ''}${err.stderr || ''}`,
+    };
   }
+}
+
+/**
+ * Rozebere výstup testovacího harnessu na jednotlivé testy.
+ *
+ * Harness tiskne `  ✅ název` a `  ❌ název: chyba`, na konci ještě souhrn
+ * selhání ve tvaru `    ❌ [sada] název: chyba` — proto množiny, aby se tentýž
+ * test nezapočítal dvakrát.
+ *
+ * @returns {{passed: Set<string>, failed: Set<string>, totals: {passed, failed}|null}}
+ */
+export function parseTestOutput(output) {
+  const passed = new Set();
+  const failed = new Set();
+  for (const line of (output || '').split('\n')) {
+    const ok = line.match(/^\s*✅\s+(.+?)\s*$/);
+    if (ok) { passed.add(ok[1]); continue; }
+    const bad = line.match(/^\s*❌\s+(?:\[[^\]]*\]\s+)?(.+?):\s/);
+    if (bad) failed.add(bad[1]);
+  }
+  const m = (output || '').match(/RESULTS:\s*(\d+)\s+passed,\s*(\d+)\s+failed/);
+  return { passed, failed, totals: m ? { passed: +m[1], failed: +m[2] } : null };
+}
+
+/**
+ * Skóre z výsledků testů.
+ *
+ * Proč ne „prošel celý soubor / neprošel":
+ *
+ * Testový soubor úlohy obsahuje desítky testů, z nichž se opravy týkají jen ty,
+ * které commit přidal — u `da03e8bd` je to 1 test z 34.  Binární hodnocení
+ * celého souboru pak sype nulu i modelu, který z požadovaného chování zvládl
+ * část, a stírá rozdíly mezi modely.  Skóre proto počítá **podíl splněných
+ * požadavků**, tedy testů, které autor s opravou napsal.
+ *
+ * Regrese ruší zisk: oprava, která rozbije jiné chování, není oprava.  Proto
+ * jakýkoli pád mimo cílové testy sráží skóre na nulu.
+ *
+ * Když se cílové testy nedají určit (commit je nepojmenoval), padá se zpátky na
+ * binární výsledek celého souboru.
+ */
+export function scoreFromOutput(output, requirements, filePassed) {
+  const targeted = (requirements || []).filter(Boolean);
+  if (!targeted.length) {
+    return { score: filePassed ? 1 : 0, passed: filePassed, targeted: 0, targetedPassed: 0, regressions: [] };
+  }
+
+  const parsed = parseTestOutput(output);
+  const targetedPassed = targeted.filter(name => parsed.passed.has(name)).length;
+  const regressions = [...parsed.failed].filter(name => !targeted.includes(name));
+
+  const score = regressions.length ? 0 : targetedPassed / targeted.length;
+  return {
+    score,
+    passed: score === 1,
+    targeted: targeted.length,
+    targetedPassed,
+    regressions,
+  };
 }
 
 /**
@@ -220,19 +353,24 @@ export function runIsolatedTest(work, testFile, timeout = DEFAULT_TEST_TIMEOUT) 
  * jako diagnostika — říká, jestli model selhal na pochopení vady, nebo už na
  * tvaru odpovědi.
  *
+ * @param {string[]|string|null} codes kód pro každý dotčený rozsah
  * @returns {{score, passed, applied, syntaxOk, timedOut, reason}}
  */
-export function applyAndTest(repo, task, code, opts = {}) {
+export function applyAndTest(repo, task, codes, opts = {}) {
   const timeout = opts.testTimeout ?? DEFAULT_TEST_TIMEOUT;
   const fail = (reason, extra = {}) => ({
     score: 0, passed: false, applied: false, syntaxOk: false, timedOut: false, reason, ...extra,
   });
 
-  if (!code) return fail('odpověď neobsahuje použitelný kód');
+  const list = codes == null ? null : (Array.isArray(codes) ? codes : [codes]);
+  if (!list || list.some(c => !c)) return fail('odpověď neobsahuje použitelný kód');
+  if (list.length !== task.spans.length) {
+    return fail(`model vrátil ${list.length} funkcí místo ${task.spans.length}`);
+  }
 
   let patched;
   try {
-    patched = replaceSpan(task.beforeFile, task.span.startLine, task.span.endLine, code, task.span.tail);
+    patched = replaceSpans(task.beforeFile, task.spans, list);
   } catch (err) {
     return fail(`vložení selhalo: ${err.message}`);
   }
@@ -250,11 +388,19 @@ export function applyAndTest(repo, task, code, opts = {}) {
     catch { syntaxOk = false; }
     if (!syntaxOk) return fail('vložený kód není syntakticky platný', { applied: true });
 
-    const { passed, timedOut } = runIsolatedTest(work, task.test, timeout);
+    const run = runIsolatedTest(work, task.test, timeout);
+    const scored = scoreFromOutput(run.output, task.requirements, run.passed);
     return {
-      score: passed ? 1 : 0,
-      passed, applied: true, syntaxOk, timedOut,
-      reason: passed ? null : (timedOut ? 'test vypršel' : 'test neprošel'),
+      score: scored.score,
+      passed: scored.passed,
+      applied: true, syntaxOk, timedOut: run.timedOut,
+      targeted: scored.targeted,
+      targetedPassed: scored.targetedPassed,
+      regressions: scored.regressions,
+      reason: scored.passed ? null
+        : run.timedOut ? 'test vypršel'
+          : scored.regressions.length ? `oprava rozbila ${scored.regressions.length} jiných testů`
+            : `splněno ${scored.targetedPassed}/${scored.targeted} požadavků`,
     };
   } catch (err) {
     return fail(`chyba při aplikaci: ${err.message}`);
@@ -273,17 +419,17 @@ export function applyAndTest(repo, task, code, opts = {}) {
  * úlohy, které model nemůže splnit z důvodů mimo jeho schopnosti.
  */
 export function verifyTask(repo, task, opts = {}) {
-  const broken = applyAndTest(repo, task, task.functionText, opts);
+  const broken = applyAndTest(repo, task, task.functionTexts, opts);
   if (broken.passed) return { usable: false, reason: 'test projde i před opravou — úloha nic neměří' };
   if (!broken.applied || !broken.syntaxOk) return { usable: false, reason: `stav před opravou se nedá sestavit: ${broken.reason}` };
 
-  const gold = applyAndTest(repo, task, task.goldText, opts);
+  const gold = applyAndTest(repo, task, task.goldTexts, opts);
   if (!gold.passed) return { usable: false, reason: `gold patch neprojde vlastním testem: ${gold.reason}` };
 
   return { usable: true, reason: null };
 }
 
 export default {
-  changedLines, deriveTask, buildPrompt, extractFunctionCode,
-  applyAndTest, verifyTask, runIsolatedTest, DEFAULT_TEST_TIMEOUT,
+  changedLines, deriveTask, buildPrompt, extractFunctionCode, extractFunctionCodes, functionNameOf,
+  applyAndTest, verifyTask, runIsolatedTest, parseTestOutput, scoreFromOutput, DEFAULT_TEST_TIMEOUT,
 };

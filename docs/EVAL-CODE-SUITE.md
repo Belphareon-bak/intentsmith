@@ -136,6 +136,11 @@ Testy: `tests/function-span.test.js` (8), `tests/code-patch-runner.test.js` (14)
 
 ## 8. Doklad rozlišení (2026-08-20)
 
+> **⚠️ Čísla v tomhle oddíle jsou z binárního hodnocení „prošel celý soubor".**
+> Po přechodu na odstupňované skóre (oddíl 9) se musí přeměřit. Platí z nich
+> závěr, že sada rozlišuje, ale ne konkrétní hodnoty.
+
+
 `node src/eval/discrimination-report.js qwen2.5-coder:32b qwen3-coder:latest qwen3:14b`
 — 3 modely × 3 opakování × 6 úloh, 27,8 min, přes `comparePair()` z
 `pairwise-trial.js`. Surový výstup:
@@ -197,3 +202,63 @@ rozlišuje, ale jen na jedné úloze ze šesti a mezi dvěma ze tří modelů
 nerozhodne vůbec — verdikt „neuspěl" tedy pořád často znamená „nešlo změřit".
 Vazba role CODE se nepřepíná; `code_patch` běží vedle `code` jako podklad
 k ručnímu potvrzení.
+
+
+---
+
+## 9. Odstupňované skóre a víc funkcí (2026-08-20, druhá iterace)
+
+Důvod: z šesti úloh rozlišovala **jediná**. Pět ostatních dávalo všem modelům
+nulu, takže nenesly žádnou informaci. Dvě změny to mají napravit.
+
+### 9.1 Skóre je podíl splněných požadavků, ne „prošel soubor"
+
+Testový soubor úlohy má desítky testů, ale opravy se týkají jen těch, které
+commit přidal — u `da03e8bd` je to **1 test z 34**. Binární hodnocení celého
+souboru pak dávalo nulu i modelu, který z požadovaného chování zvládl část, a
+stíralo rozdíly mezi modely.
+
+```
+skóre = splněné cílové testy / všechny cílové testy
+      = 0, pokud oprava rozbije cokoli mimo ně
+```
+
+Regrese ruší zisk celý: oprava, která rozbije jiné chování, není oprava.
+Požadavek, jehož test vůbec nedoběhl, se počítá jako nesplněný, ne jako regrese.
+
+**Ověřeno na všech šesti úlohách:** gold patch dává 1,00, stav před opravou
+0,00 — s jednou výjimkou.
+
+### 9.2 Úlohy nemají stejnou podlahu
+
+`d8a2aa05` má před opravou **0,33**: jeden ze tří přidaných testů projde i na
+vadném kódu. Model, který neudělá nic, tam tedy nedostane nulu.
+
+Důsledek: skóre úloh nejsou mezi sebou přímo srovnatelná a je potřeba u každé
+úlohy znát její podlahu. Zapsat `baselineScore` do fixture je první věc, která
+se má udělat dál.
+
+### 9.3 Zadání unese víc funkcí
+
+`findSpansForLines()` + `replaceSpans()` — změna smí zasáhnout několik funkcí,
+zadání je očísluje a chce zpátky tolik bloků, kolik jich poslalo. Náhrady jdou
+**od konce souboru**, aby zůstala platná čísla řádků. Když model pošle bloků
+víc, přiřadí se podle jména funkce; když míň, úloha propadá — hádat, co model
+myslel, by měření zkreslilo.
+
+**Výtěžnost to ale skoro nezvedla:** z 29 kandidátů je odvoditelných 11 (dřív
+10), z toho 8 do 250 řádků (dřív 7). Úzké hrdlo se přesunulo jinam — 18 z 29
+commitů mění řádky, které **neleží v žádné funkci** (importy, konstanty na
+nejvyšší úrovni). Další růst zásoby proto vyžaduje buď povolit víc zdrojáků na
+commit, nebo umět zadat i změnu mimo funkce.
+
+### 9.4 Co zbývá k cíli „6 ze 6"
+
+1. Zapsat podlahu (`baselineScore`) každé úlohy do fixture.
+2. Přeměřit panel s odstupňovaným skóre — teprve to ukáže, kolik úloh reálně
+   rozlišuje.
+3. Kalibrovat výběr: v sadě nechat jen úlohy, kde se skóre napříč panelem liší.
+   Úlohy, které dnes nikdo nevyřeší, **nemazat** — jsou to rezervy pro silnější
+   modely, jen se odloží mimo aktivní sadu.
+4. Panel rozšířit nad tři modely; čím širší, tím míň hrozí přeučení výběru úloh
+   na dnešní trojici.
