@@ -480,6 +480,69 @@ await test('C3 příchozí turnId se zachová, nenahradí se novým UUID', async
   assert.ok(ChatController, 'controller se nenačetl');
 });
 
+
+// ── M1-a: atomický zápis nesmí sebrat souboru práva ────────────────────────
+//
+// Sonda review přepsala soubor `0755` a dostala `0664` — spustitelný skript
+// přestal být spustitelný.  Uživatel kýval na změnu **obsahu**, ne na to, že mu
+// program přestane jít pustit.
+
+await test('M1-a schválený přepis zachová práva souboru', async () => {
+  clear();
+  enable();
+  const { chmodSync, statSync, writeFileSync } = await import('node:fs');
+
+  writeFileSync(target(), '#!/bin/sh\necho staré\n');
+  chmodSync(target(), 0o755);
+  const before = statSync(target()).mode & 0o7777;
+  assert.equal(before, 0o755, 'příprava sondy selhala');
+
+  const content = '#!/bin/sh\necho nové\n';
+  const write = writeUserFile({
+    filePath: target(), content, runId: 'turn-mode', workspace, timeoutMs: 20_000,
+  });
+  await pendingId();
+  approveAnyPending({ path: target(), content });
+  const result = await write;
+
+  assert.equal(result.written, true);
+  assert.equal(readFileSync(target(), 'utf8'), content);
+  assert.equal(statSync(target()).mode & 0o7777, 0o755,
+    'přepis sebral souboru práva — spustitelný skript přestal být spustitelný');
+});
+
+await test('M1-a nový soubor práva nepřebírá odnikud', async () => {
+  clear();
+  enable();
+  const { statSync } = await import('node:fs');
+
+  const content = 'nový\n';
+  const write = writeUserFile({
+    filePath: target(), content, runId: 'turn-mode-new', workspace, timeoutMs: 20_000,
+  });
+  await pendingId();
+  approveAnyPending({ path: target(), content });
+  await write;
+
+  // Není od čeho přebírat, takže platí umask — jen ať to nespadne a soubor
+  // není spustitelný jen proto, že jsme si vymysleli 0755.
+  const mode = statSync(target()).mode & 0o7777;
+  assert.equal(mode & 0o111, 0, `nový soubor vznikl spustitelný (${mode.toString(8)})`);
+});
+
+await test('M1-a po zápisu nezůstane dočasný soubor a jméno je unikátní', async () => {
+  const { readdirSync } = await import('node:fs');
+  const leftovers = readdirSync(workdir).filter(n => n.includes('.intentsmith-'));
+  assert.deepEqual(leftovers, [], `zůstal dočasný soubor: ${leftovers.join(', ')}`);
+
+  // Jméno se skládá z UUID, ne z `pid + čas` — dva procesy ve stejné
+  // milisekundě by se jinak trefily do téhož temp souboru.
+  const source = readFileSync(new URL('../src/executor/atomic-write.js', import.meta.url), 'utf8');
+  assert.match(source, /randomUUID\(\)/, 'temp soubor se pojmenovává předvídatelně');
+  assert.doesNotMatch(source, /process\.pid.*Date\.now\(\)/,
+    'temp soubor se pořád jmenuje podle pid a času');
+});
+
 configureEffects({ db: null, producer: null });
 db.close();
 rmSync(runtimeDir, { recursive: true, force: true });

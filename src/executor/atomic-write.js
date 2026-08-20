@@ -18,6 +18,8 @@
 //
 // ==============================================================================
 
+import { randomUUID } from 'node:crypto';
+
 /**
  * @param {Object} io  `mkdir`/`writeFile`/`rename`, volitelně `rm`
  * @param {string} effectPath  kanonický cíl
@@ -25,21 +27,69 @@
  */
 export async function commitFile(io, effectPath, content) {
   await io.mkdir(dirnameOf(effectPath), { recursive: true });
-  const temporary = `${effectPath}.intentsmith-${process.pid}-${Date.now()}.tmp`;
+
+  // Jméno dočasného souboru musí být **bezpečně unikátní**.  `pid + čas` se dá
+  // ve dvou procesech ve stejné milisekundě trefit, a dva zápisy sdílející
+  // temp soubor jsou tichý přepis o patro níž.
+  const temporary = `${effectPath}.intentsmith-${randomUUID()}.tmp`;
+
+  // Práva cíle se **převezmou**, jinak je `rename` zahodí.
+  //
+  // `writeFile` na nový soubor použije umask, takže přepis souboru `0755`
+  // skončil souborem `0664` — a spustitelný skript přestal být spustitelný.
+  // Uživatel kýval na změnu **obsahu**, ne na to, že mu program přestane jít
+  // pustit.  U neexistujícího cíle se nechává výchozí umask, protože přebírat
+  // není od čeho.
+  let targetMode = null;
   try {
-    await io.writeFile(temporary, content, 'utf8');
+    targetMode = (await io.stat(effectPath)).mode & 0o7777;
+  } catch { /* cíl neexistuje — vytváříme ho, umask platí */ }
+
+  let handle = null;
+  try {
+    // `open` + `write` + `fsync`, ne `writeFile`: bez `fsync` může `rename`
+    // přežít pád, ale obsah ne — a zůstane přejmenovaný prázdný soubor.
+    handle = await io.open(temporary, 'wx', targetMode ?? 0o666);
+    await handle.writeFile(content, 'utf8');
+    if (targetMode !== null) await handle.chmod(targetMode);
+    await handle.sync();
+    await handle.close();
+    handle = null;
+
     await io.rename(temporary, effectPath);
+
+    // A ještě adresář: `rename` je atomický, ale jeho **záznam** v adresáři
+    // nemusí být na disku dřív než po `fsync` toho adresáře.
+    await syncDirectory(io, dirnameOf(effectPath));
   } catch (error) {
     // Úklid nesmí přebít původní chybu: co selhalo, je zápis, ne mazání.
+    if (handle) { try { await handle.close(); } catch { /* prázdné schválně */ } }
     try { await io.rm?.(temporary, { force: true }); } catch { /* prázdné schválně */ }
     throw error;
   }
 }
 
-/** Výchozí `io`.  Obsahuje `rename` — bez něj by `commitFile` nebyl atomický. */
+/** `fsync` na adresář. Neúspěch se spolkne — ne každý filesystem to umí. */
+async function syncDirectory(io, dir) {
+  if (typeof io.open !== 'function') return;
+  let handle = null;
+  try {
+    handle = await io.open(dir, 'r');
+    await handle.sync();
+  } catch { /* na některých platformách nejde adresář otevřít ke čtení */ }
+  finally {
+    if (handle) { try { await handle.close(); } catch { /* prázdné schválně */ } }
+  }
+}
+
+/**
+ * Výchozí `io`.  Obsahuje `rename` (bez něj by `commitFile` nebyl atomický),
+ * `stat` (převzetí práv) a `open` (`fsync`).
+ */
 export async function defaultFs() {
-  const { readFile, writeFile, mkdir, rename, rm } = await import('node:fs/promises');
-  return { readFile, writeFile, mkdir, rename, rm };
+  const fs = await import('node:fs/promises');
+  const { readFile, writeFile, mkdir, rename, rm, stat, open } = fs;
+  return { readFile, writeFile, mkdir, rename, rm, stat, open };
 }
 
 export function dirnameOf(filePath) {
