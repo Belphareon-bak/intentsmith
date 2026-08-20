@@ -84,7 +84,7 @@ LLM fallbacku**, který by ho zakryl klidnou větou.
 | `f9bc0c94` | cancel, vlastnictví, idempotence, lifecycle, restart, S1 slovník |
 | `3dc67e06` | kanonizace přes předka, lease přes commit, lease-takeover test |
 | `85d98215` | rebaseline ratchetu (1048 → 1077) |
-| `07b15675` | migrace 064 do ručního orákula |
+| `07b15675` | `2026_08_19_064_boot_identity` do ručního orákula migrací |
 | `05fcc5f6` | dva telefony nad jednou frontou |
 | `70682968` | rozhodovací plocha `/approvals-ui` |
 | `6e948d6e` | srovnání dokumentace + protokol device matice |
@@ -93,6 +93,11 @@ LLM fallbacku**, který by ho zakryl klidnou větou.
 | `25c61a96` | **P0-closeout** — orphaned, `fs.write` signál, `turnId` |
 
 49 souborů, +3696 / −197.
+
+> Migrace `064` je tu schválně **plnou verzí**, ne číslem. Sahá na
+> `mobile_approvals` i `file_write_locks`, takže není čistě mobilní a nemá
+> mobilní jméno; `mobile-migration-parity` proto holé číslo na mobilním povrchu
+> odmítá — a má pravdu, protože po přečíslování by ukazovalo jinam.
 
 ---
 
