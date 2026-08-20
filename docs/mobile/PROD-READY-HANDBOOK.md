@@ -64,6 +64,10 @@ přijatelná hranice **pro interní použití**.
 
 ### P0-2 Skutečný effect seam — ✅ **ZAPNUTO** (2026-08-19), rozsah `FILE_WRITE` + `fs.write`
 
+> **Výklad opraven** rozhodnutím [`028`](../decisions/028-approval-is-exceptional.md):
+> auto-approve je default, approval je **výjimka**, ne mýtné před každým zápisem.
+> Dnešní kód se ptá vždycky — to se mění fází M0 v zadání níž.
+>
 > Záznam implementace: [`WP-APPROVAL-PLANE-RESULT.md`](WP-APPROVAL-PLANE-RESULT.md).
 > Otevřené `P1` nálezy a mediace zbylých zapisovatelů:
 > [`docs/execution/approval-mediation.md`](../execution/approval-mediation.md).

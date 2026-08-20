@@ -30,6 +30,13 @@
 //
 // Cesta je jedna, ale co po ní jde, závisí na tom, co je zapojené:
 //
+// **Pozor — tenhle modul se dnes ptá na každý zápis a to je vada zadání.**
+// Rozhodnutí `028` (2026-08-20) říká, že **auto-approve je default** a approval
+// je výjimka pro pojmenované situace (citlivé soubory, změna směru proti
+// roadmapě, chybějící pravidlo).  Fáze M0 v `docs/execution/approval-mediation.md`
+// sem doplní politiku; do té doby platí, co je níž, včetně toho, že se to ptá
+// víc, než má.
+//
 // **Zapisuje jen režim `approval`.**  Ostatní dva odmítají a nic nezapíšou:
 //
 //   `guard: 'approval'`  db + producent → plný `guardedWrite`: zámek, otázka,

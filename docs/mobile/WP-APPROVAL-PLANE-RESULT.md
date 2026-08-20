@@ -5,6 +5,12 @@
 **Větev:** `wp/mobile-prototype-20260817`
 **Navazující zadání:** [`docs/execution/approval-mediation.md`](../execution/approval-mediation.md)
 
+> **Pozor — výklad opraven 2026-08-20.** Tenhle balík stavěl approval jako
+> **mýtné před každým zápisem**. [`Rozhodnutí 028`](../decisions/028-approval-is-exceptional.md)
+> to opravuje: auto-approve je default, approval je výjimka pro pojmenované
+> situace. Co je v §2 níž popsané jako hotové, **funguje** — jen se toho má
+> ptát podstatně méně často. Rozsah v §5.3 se tím zmenšuje.
+>
 > **Co tenhle dokument je.** Záznam implementace s důkazem na konkrétních SHA.
 > **Není to review verdikt.** Poslední review skončilo `CHANGES_REQUIRED` se
 > dvěma `P0` blokátory; ty jsou opravené v `25c61a96`, ale **přijetí je akt
@@ -152,13 +158,16 @@ Protokol a záznamový list jsou hotové v
 3, 4, 5, 9, 10 a 12. Chybí jediné: telefon a někdo, kdo to odklikne. Emulátor
 biometrii, Doze ani odpojení kabelu za běhu nereprodukuje.
 
-### 5.3 Mediace zbytku — neotevřená
+### 5.3 Sdílená cesta pro zbylé zapisovatele — neotevřená
+
+**Ne approval — zámek, atomický zápis a záznam** (`028` §4.3). Patch engine ani
+skill write se ptát nemají; potřebují infrastrukturu, ne otázku.
 
 Řízená cesta pokrývá **dvě** cesty. Změřeno na `25c61a96`:
 
 | Kategorie | Soubory | Poznámka |
 |---|---|---|
-| **Musí přes autoritu** | `patch/patch-engine.js`, `skills/steps/write.js`, `planner/code-cleaner.js`, `planner/lifecycle-build.js`, `chat/handlers/utils/readme-generator.js`, `domains/scaffolds/*`, zbylých 9 zápisů v `tools/registry.js` | agentem generované změny uživatelských souborů |
+| **Přes sdílenou cestu** | `patch/patch-engine.js`, `skills/steps/write.js`, `planner/code-cleaner.js`, `planner/lifecycle-build.js`, `chat/handlers/utils/readme-generator.js`, `domains/scaffolds/*`, zbylých 9 zápisů v `tools/registry.js` | agentem generované změny uživatelských souborů |
 | **Vlastní autorita** | `routes/projects.js` (14 zápisů) | explicitní uživatelský file-manager — approval na každé uložení by byl nesmysl |
 | **Mimo** | `server-port-file`, `core/db-backup`, `core/history-drain`, `media/output-storage`, `packaging/auto-updater`, `marketplace/package-installer` | infrastruktura píšící do vlastních dat |
 

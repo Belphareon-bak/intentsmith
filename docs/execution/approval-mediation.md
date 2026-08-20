@@ -1,4 +1,10 @@
-# Zadání — mediace zápisů přes efektovou autoritu
+# Zadání — sdílená cesta pro zápis a politika, kdy se ptát
+
+> **Přepsáno 2026-08-20 podle [`rozhodnutí 028`](../decisions/028-approval-is-exceptional.md).**
+> Předchozí verze chtěla protáhnout všechny zapisovatele přes **approval**. To
+> byl overkill: approval je výjimka, ne mýtné. Zapisovatelé dostanou sdílenou
+> cestu (zámek, atomický zápis, záznam) **bez ptaní**; ptá se jen politika,
+> a to ve třech pojmenovaných situacích.
 
 **Určeno pro:** jednu novou agentní relaci (jedno zapisující vlastnictví)
 **Větev:** `wp/mobile-prototype-20260817`
@@ -51,15 +57,44 @@ Detaily a důkazy: [`WP-APPROVAL-PLANE-RESULT.md`](../mobile/WP-APPROVAL-PLANE-R
 
 ---
 
-## 2. Pořadí (reviewerovo, dodržet)
+## 2. Pořadí
 
-> „Nejprve zpevnit atomický zápis a boot lease, následně převést patch engine,
-> skill write a lifecycle/code-cleaner. Infrastrukturní zápisy a uživatelský
-> file-manager musí zůstat oddělené autority, ne dostávat mobilní approval na
-> každé uložení."
+Reviewerovo pořadí platí — „nejprve zpevnit atomický zápis a boot lease,
+následně převést patch engine, skill write a lifecycle/code-cleaner" — jen se
+mění, **co** ten převod znamená. Ne approval, ale zámek + atomicita + záznam.
 
 Fáze **M1** a **M2** jdou sériově. M1 je menší a M2 na něm stojí — až budou
 zápisy chodit přes jednu cestu, bude případná vada v `commitFile` bolet všude.
+
+**Nová fáze M0** jde před obojím, protože bez ní je produkt nepoužitelný:
+otočit výchozí stav na auto-approve.
+
+---
+
+## 2.1 Fáze M0 — approval přestane být mýtné
+
+`src/executor/effects.js`
+
+**Vada:** v režimu `approval` se `writeUserFile` ptá na **každý** zápis. BUILD
+smyčka s třiceti patchi = třicet ťuknutí. Vrstva, která se ozve pokaždé, je
+z pohledu uživatele k nerozeznání od rozbité.
+
+**Udělat:**
+- zavést místo, kde se **politika** rozhodne, jestli tenhle zápis potřebuje
+  člověka. Bez pravidla → **zapisuje se** (auto-approve je default);
+- první a jediné pravidlo zatím: **důležitý soubor** (`028` §2 `c`). Seznam
+  musí být na jednom místě, čitelný a odsouhlasitelný — ne rozsypaný
+  v podmínkách;
+- `guard: 'none'`/`'lock'` zůstávají fail-closed, ale **z jiného důvodu**:
+  ne kvůli chybějícímu souhlasu, ale kvůli chybějícímu zámku a záznamu.
+  Přepsat i komentáře, které dnes tvrdí to první.
+
+**Co ještě není rozhodnuté:** co přesně je „důležitý soubor". Secrety a `.env`
+jsou zřejmé; migrace, CI, manifesty a konfigurace projektu **ne**. Nehádej —
+připrav to jako seznam k odsouhlasení a zeptej se.
+
+**Test:** deset zápisů do běžných souborů za sebou → **nula approvalů**; zápis
+do souboru z citlivého seznamu → approval; bez zapojené roviny → nezapisuje se.
 
 ---
 
@@ -132,13 +167,13 @@ zamítnutí. Autorita to rozlišuje (`decisionState`), plochy zatím ne všude.
 
 ---
 
-## 4. Fáze M2 — převést zapisovatele
+## 4. Fáze M2 — dát zapisovatelům sdílenou cestu (ne approval)
 
 **Pravidlo rozdělení** (reviewerovo, nezjednodušovat):
 
 | Kategorie | Cesta |
 |---|---|
-| agentem generované změny uživatelských souborů | **přes efektovou autoritu** |
+| agentem generované změny uživatelských souborů | **přes sdílenou cestu** — zámek, atomický zápis, záznam. Approval jen když politika řekne (`028` §2) |
 | explicitní uživatelský file-manager (`routes/projects.js`, 14 zápisů) | **vlastní autorita** — approval na každé uložení je nesmysl |
 | infrastruktura píšící do vlastních dat | **mimo** — `server-port-file`, `core/db-backup`, `core/history-drain`, `media/output-storage`, `packaging/auto-updater`, `marketplace/package-installer` |
 
@@ -152,6 +187,11 @@ zamítnutí. Autorita to rozlišuje (`decisionState`), plochy zatím ne všude.
 4. `src/chat/handlers/utils/readme-generator.js`, `src/domains/scaffolds/*`.
 5. zbylých 9 zápisových nástrojů v `src/tools/registry.js`.
 
+**Patch engine approval nepotřebuje** — má vlastní temp+rename a backup/revert.
+Potřebuje zámek (aby si dva běhy nerozbily týž soubor), atomicitu opravenou
+v M1-a a záznam. Ptát se má až tehdy, když konkrétní patch sáhne na soubor
+z citlivého seznamu.
+
 **U každého:**
 - `runId` musí být **identita tahu/efektu**, ne relace (viz `A3`);
 - `signal` se musí předat (viz `A1`/`C1`) — a ověř to **na volacím místě**,
@@ -161,7 +201,18 @@ zamítnutí. Autorita to rozlišuje (`decisionState`), plochy zatím ne všude.
 
 **Rozsah slibu se rozšiřuje až s kódem.** V `src/executor/effects.js` §12
 a v handbooku §P0-2 je věta se seznamem pokrytých cest — přepiš ji **až** když
-to bude pravda, a ani o řádek dřív.
+to bude pravda, a ani o řádek dřív. Zároveň ji přeformuluj: slib už není
+„zeptá se", ale „jde přes jednu cestu a **zeptá se podle politiky**".
+
+---
+
+## 4.1 Mimo tenhle balík — rozhodovací body `a` a `b`
+
+`028` §2 `a`/`b` (změna směru proti roadmapě, potřeba nového pravidla) **nejsou
+zápisy**. Vzniknou v planneru a potřebují **volajícího**, ne mediaci
+zapisovatelů. Autorita je na ně připravená — bere volný `subjectType`.
+
+Je to samostatná práce a do tohohle zadání nepatří. Nezačínej ji tady.
 
 ---
 
