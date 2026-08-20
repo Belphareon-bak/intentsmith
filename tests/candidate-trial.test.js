@@ -7,6 +7,7 @@ import { suite, test, testAsync, assert, assertEqual, summary } from './harness.
 
 import {
   runCapabilityFloor, tryCandidate, removeModel, CAPABILITY_FLOOR,
+  REMOVAL_ENABLED_BY_DEFAULT,
 } from '../src/upgrade/candidate-trial.js';
 import { SUITES } from '../src/upgrade/validation-suites.js';
 
@@ -143,7 +144,7 @@ suite('tryCandidate');
 await testAsync('přetékající kandidát se zamítne a smaže ještě před testy', async () => {
   const seen = stubOllama({ answers: GOOD_ANSWERS, placement: SPILLS, currentModel: 'cand:32b' });
   const r = await tryCandidate('cand:32b', {
-    ...FAST_DRAIN, runner: fakeRunner({}), roles: ['CODE'], bindings: { CODE: 'inc:7b' } });
+    ...FAST_DRAIN, allowRemoval: true, runner: fakeRunner({}), roles: ['CODE'], bindings: { CODE: 'inc:7b' } });
   assertEqual(r.accepted, false);
   assertEqual(r.stage, 'measure');
   assert(/nevejde se do VRAM/.test(r.error), r.error);
@@ -156,7 +157,7 @@ await testAsync('přetékající kandidát se zamítne a smaže ještě před te
 await testAsync('propadnutí u minima zamítne kandidáta a smaže ho', async () => {
   stubOllama({ answers: { ...GOOD_ANSWERS, 'česky': 'no diacritics here' }, placement: FITS, currentModel: 'cand:7b' });
   const r = await tryCandidate('cand:7b', {
-    ...FAST_DRAIN, runner: fakeRunner({}), roles: ['CODE'], bindings: { CODE: 'inc:7b' } });
+    ...FAST_DRAIN, allowRemoval: true, runner: fakeRunner({}), roles: ['CODE'], bindings: { CODE: 'inc:7b' } });
   assertEqual(r.accepted, false);
   assertEqual(r.stage, 'floor');
   assertEqual(r.removed, true);
@@ -168,6 +169,7 @@ await testAsync('lepší kandidát vyhraje roli a NEsmaže se', async () => {
   const codeTask = SUITES.code.tests[0].name;
   const r = await tryCandidate('cand:7b', {
     ...FAST_DRAIN,
+    allowRemoval: true,
     runner: fakeRunner({ 'cand:7b': { _default: 1 }, 'inc:7b': { _default: 1, [codeTask]: 0.1 } }),
     roles: ['CODE'],
     bindings: { CODE: 'inc:7b' },
@@ -182,6 +184,7 @@ await testAsync('kandidát, který nevyhraje žádnou roli, se smaže', async ()
   stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
   const r = await tryCandidate('cand:7b', {
     ...FAST_DRAIN,
+    allowRemoval: true,
     runner: fakeRunner({ 'cand:7b': { _default: 1 }, 'inc:7b': { _default: 1 } }),
     roles: ['CODE'],
     bindings: { CODE: 'inc:7b' },
@@ -195,6 +198,7 @@ await testAsync('keepOnFailure zabrání mazání', async () => {
   stubOllama({ answers: GOOD_ANSWERS, placement: SPILLS, currentModel: 'cand:32b' });
   const r = await tryCandidate('cand:32b', {
     ...FAST_DRAIN,
+    allowRemoval: true,
     runner: fakeRunner({}), roles: [], bindings: {}, keepOnFailure: true,
   });
   assertEqual(r.removed, false);
@@ -224,6 +228,7 @@ await testAsync('role bez navázaného modelu se přeskočí', async () => {
   stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
   const r = await tryCandidate('cand:7b', {
     ...FAST_DRAIN,
+    allowRemoval: true,
     runner: fakeRunner({}), roles: ['CODE', 'CHAT'], bindings: { CODE: 'inc:7b' },
   });
   assert(!('CHAT' in r.decisions), 'role bez stávajícího modelu nemá s čím soutěžit');
@@ -250,6 +255,7 @@ await testAsync('měření se hlásí hned, ne až po souboji', async () => {
   const stages = [];
   await tryCandidate('cand:7b', {
     ...FAST_DRAIN,
+    allowRemoval: true,
     runner: fakeRunner({ 'cand:7b': { _default: 1 }, 'inc:7b': { _default: 1 } }),
     roles: ['CODE'],
     bindings: { CODE: 'inc:7b' },
@@ -271,6 +277,7 @@ await testAsync('rozhodnutí role se hlásí průběžně', async () => {
   const decided = [];
   await tryCandidate('cand:7b', {
     ...FAST_DRAIN,
+    allowRemoval: true,
     runner: fakeRunner({ 'cand:7b': { _default: 1 }, 'inc:7b': { _default: 1 } }),
     roles: ['CODE', 'CHAT'],
     bindings: { CODE: 'inc:7b', CHAT: 'inc:7b' },
@@ -285,6 +292,7 @@ await testAsync('u přetékajícího kandidáta se měření jako úspěch nehl�
   const stages = [];
   await tryCandidate('cand:32b', {
     ...FAST_DRAIN,
+    allowRemoval: true,
     runner: fakeRunner({}), roles: [], bindings: {},
     onStage: (stage, model, info) => stages.push(stage),
   });
@@ -303,6 +311,7 @@ await testAsync('textový model se pro VISION vůbec nesoutěží', async () => 
   const skipped = [];
   const r = await tryCandidate('qwen3-coder:30b', {
     ...FAST_DRAIN,
+    allowRemoval: true,
     runner: fakeRunner({}),
     roles: ['VISION'],
     bindings: { VISION: 'llava:13b' },
@@ -318,6 +327,7 @@ await testAsync('vision model se pro VISION soutěží normálně', async () => 
   stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'llava:34b' });
   const r = await tryCandidate('llava:34b', {
     ...FAST_DRAIN,
+    allowRemoval: true,
     runner: fakeRunner({ 'llava:34b': { _default: 1 }, 'llava:13b': { _default: 1 } }),
     roles: ['VISION'],
     bindings: { VISION: 'llava:13b' },
@@ -331,12 +341,115 @@ await testAsync('volající může dodat přesnější vlastnosti kandidáta', a
   stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'qwen3.5:27b' });
   const r = await tryCandidate('qwen3.5:27b', {
     ...FAST_DRAIN,
+    allowRemoval: true,
     runner: fakeRunner({ 'qwen3.5:27b': { _default: 1 }, 'llava:13b': { _default: 1 } }),
     roles: ['VISION'],
     bindings: { VISION: 'llava:13b' },
     candidateCapabilities: ['vision'],
   });
   assert('VISION' in r.decisions, 'dodaná schopnost vision musí kandidáta pustit do souboje');
+  restore();
+});
+
+// ─── Prohra vs. nerozhodnuto ────────────────────────────────────────────────
+
+suite('nerozhodnutý kandidát');
+
+await testAsync('shodné skóre se označí jako nerozhodnuté, ne jako prohra', async () => {
+  // Sada, která oba modely neodliší, neříká, že je kandidát horší — říká, že
+  // to neumí změřit. To je vlastnost sady, ne modelu.
+  stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
+  const r = await tryCandidate('cand:7b', {
+    ...FAST_DRAIN,
+    allowRemoval: true,
+    runner: fakeRunner({ 'cand:7b': { _default: 1 }, 'inc:7b': { _default: 1 } }),
+    roles: ['CODE'], bindings: { CODE: 'inc:7b' },
+  });
+  assertEqual(r.accepted, false);
+  assertEqual(r.inconclusive, true);
+  restore();
+});
+
+await testAsync('skutečná prohra není nerozhodnuto', async () => {
+  stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
+  const task = SUITES.code.tests[0].name;
+  const r = await tryCandidate('cand:7b', {
+    ...FAST_DRAIN,
+    allowRemoval: true,
+    runner: fakeRunner({ 'cand:7b': { _default: 1, [task]: 0 }, 'inc:7b': { _default: 1 } }),
+    roles: ['CODE'], bindings: { CODE: 'inc:7b' },
+  });
+  assertEqual(r.accepted, false);
+  assertEqual(r.inconclusive, false, 'prohrál měřitelně');
+  restore();
+});
+
+await testAsync('keepInconclusive nechá nerozhodnutého na disku', async () => {
+  stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
+  const r = await tryCandidate('cand:7b', {
+    ...FAST_DRAIN,
+    allowRemoval: true,
+    runner: fakeRunner({ 'cand:7b': { _default: 1 }, 'inc:7b': { _default: 1 } }),
+    roles: ['CODE'], bindings: { CODE: 'inc:7b' },
+    keepInconclusive: true,
+  });
+  assertEqual(r.inconclusive, true);
+  assertEqual(r.removed, false);
+  restore();
+});
+
+await testAsync('keepInconclusive nezachrání toho, kdo prohrál', async () => {
+  stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
+  const task = SUITES.code.tests[0].name;
+  const r = await tryCandidate('cand:7b', {
+    ...FAST_DRAIN,
+    allowRemoval: true,
+    runner: fakeRunner({ 'cand:7b': { _default: 1, [task]: 0 }, 'inc:7b': { _default: 1 } }),
+    roles: ['CODE'], bindings: { CODE: 'inc:7b' },
+    keepInconclusive: true,
+  });
+  assertEqual(r.removed, true, 'měřitelně horší model na disku nemá co dělat');
+  restore();
+});
+
+// ─── Mazání je vypnuté ──────────────────────────────────────────────────────
+
+suite('mazání kandidátů');
+
+test('výchozí stav je nemazat', () => {
+  // Pravidlo z 2026-08-20: dokud 8 z 36 úloh dává všem modelům 100 %, je
+  // verdikt „neuspěl" často jen „nešlo změřit". Mazat podle měření, o kterém
+  // víme, že nerozlišuje, je nevratná ztráta.
+  assertEqual(REMOVAL_ENABLED_BY_DEFAULT, false);
+});
+
+await testAsync('bez allowRemoval se nesmaže ani propadlý kandidát', async () => {
+  stubOllama({ answers: { ...GOOD_ANSWERS, 'česky': 'no diacritics' }, placement: FITS, currentModel: 'cand:7b' });
+  const r = await tryCandidate('cand:7b', {
+    ...FAST_DRAIN,
+    runner: fakeRunner({}), roles: ['CODE'], bindings: { CODE: 'inc:7b' },
+  });
+  assertEqual(r.accepted, false);
+  assertEqual(r.removed, false);
+  assert(/vypnuté/.test(r.keptReason || ''), r.keptReason);
+  restore();
+});
+
+await testAsync('bez allowRemoval se nesmaže ani přetékající kandidát', async () => {
+  stubOllama({ answers: GOOD_ANSWERS, placement: SPILLS, currentModel: 'cand:32b' });
+  const r = await tryCandidate('cand:32b', {
+    ...FAST_DRAIN, runner: fakeRunner({}), roles: [], bindings: {},
+  });
+  assertEqual(r.removed, false);
+  restore();
+});
+
+await testAsync('allowRemoval mazání zapne', async () => {
+  stubOllama({ answers: GOOD_ANSWERS, placement: SPILLS, currentModel: 'cand:32b' });
+  const r = await tryCandidate('cand:32b', {
+    ...FAST_DRAIN, allowRemoval: true, runner: fakeRunner({}), roles: [], bindings: {},
+  });
+  assertEqual(r.removed, true);
   restore();
 });
 

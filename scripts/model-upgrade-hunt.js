@@ -11,6 +11,10 @@
 // Použití:
 //   node scripts/model-upgrade-hunt.js --shortlist          jen fáze 0+1 (nic nestahuje)
 //   node scripts/model-upgrade-hunt.js --role=CODE --run    jen jedna role
+//
+// Mazání kandidátů je od 2026-08-20 **vypnuté**, dokud validační sady
+// nerozlišují — verdikt „neuspěl" dnes často znamená „nešlo změřit".
+// Zapíná se vědomě: --allow-removal
 //   node scripts/model-upgrade-hunt.js --run --limit=3      zkusí 3 nejlepší kandidáty
 //   node scripts/model-upgrade-hunt.js --run --only=qwen3.8:27b
 //   node scripts/model-upgrade-hunt.js --shortlist --json
@@ -48,6 +52,10 @@ const DO_RUN = flag('run');
 const AS_JSON = flag('json');
 const LIMIT = parseInt(val('limit') || '3', 10);
 const ONLY = (val('only') || '').split(',').map(s => s.trim()).filter(Boolean);
+// Kandidát, kterého sada nerozlišila, nebyl horší — jen to nešlo změřit.
+const KEEP_INCONCLUSIVE = flag('keep-inconclusive');
+// Mazání je vypnuté, dokud sady nerozlišují (pravidlo z 2026-08-20).
+const ALLOW_REMOVAL = flag('allow-removal');
 /**
  * Role, pro které se hledá.  `--role=CODE` zúží běh na jednu roli — hodí se
  * na ověření řetězce, protože se tím zkrátí souboj i fronta kandidátů.
@@ -244,6 +252,8 @@ for (const cand of toTry) {
     // Jen role, pro které je tenhle model vůbec kandidátem.
     roles: cand.roles,
     bindings,
+    keepInconclusive: KEEP_INCONCLUSIVE,
+    allowRemoval: ALLOW_REMOVAL,
     incumbentSpeed,
     onStage: (stage, m, info = {}) => {
       if (stage === 'measured') {
@@ -272,9 +282,13 @@ for (const cand of toTry) {
     log(`  → PŘIJAT pro role: ${won.join(', ')} (stávající modely zůstávají na disku)`);
     for (const role of won) bindings[role] = cand.name;
     incumbentSpeed[cand.name] = t ?? 0;
+  } else if (r.inconclusive) {
+    log('  → NEROZHODNUTO — sada kandidáta neodlišila od stávajícího, takže');
+    log(`     to neznamená, že je horší. ${r.removed ? 'Smazán.' : 'Ponechán na disku.'}`);
   } else {
-    log(`  → zamítnut${r.removed ? ', smazán' : ''}`);
+    log(`  → prohrál v souboji${r.removed ? ', smazán' : ', ponechán na disku'}`);
   }
+  if (r.keptReason) log(`     (${r.keptReason})`);
 }
 
 log('\n══ VÝSLEDEK ══');

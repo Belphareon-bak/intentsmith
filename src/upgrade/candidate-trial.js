@@ -32,6 +32,18 @@ import { IMPROVEMENT_THRESHOLD, checkRoleEligibility } from './model-ranker.js';
 const PULL_TIMEOUT = 60 * 60 * 1000;  // hodina; jen pojistka proti zaseknutí
 const PROBE_TIMEOUT = 120_000;
 
+/**
+ * Mazání kandidátů je **vypnuté**, dokud validační sady nerozlišují.
+ *
+ * Operátorské pravidlo z 2026-08-20.  Důvod: verdikt „kandidát neuspěl" dnes
+ * často znamená „sada ho neuměla odlišit", ne „je horší" — 8 z 36 úloh dává
+ * všem modelům 100 % a nenese žádnou informaci.  Mazat na základě měření,
+ * o kterém víme, že nerozlišuje, je ztráta, kterou nejde vzít zpět.
+ *
+ * Zapnout zpátky až po doladění sad, vědomým `allowRemoval: true`.
+ */
+export const REMOVAL_ENABLED_BY_DEFAULT = false;
+
 function baseUrl(opts = {}) {
   return opts.baseUrl || config.ollama?.baseUrl || 'http://127.0.0.1:11434';
 }
@@ -165,18 +177,25 @@ export async function tryCandidate(candidateName, ctx = {}) {
     bindings = {},
     incumbentSpeed = {},
     keepOnFailure = false,
+    // Mazání je vypnuté napevno; zapíná se jen vědomě, viz
+    // REMOVAL_ENABLED_BY_DEFAULT.
+    allowRemoval = REMOVAL_ENABLED_BY_DEFAULT,
     onStage = () => {},
   } = ctx;
+
+  const removalAllowed = allowRemoval && !keepOnFailure;
 
   const out = {
     model: candidateName,
     stage: 'pull',
     accepted: false,
+    inconclusive: false,
     measurement: null,
     floor: null,
     trials: [],
     decisions: {},
     removed: false,
+    keptReason: null,
     error: null,
   };
 
@@ -195,7 +214,8 @@ export async function tryCandidate(candidateName, ctx = {}) {
       out.error = `nevejde se do VRAM při ${out.measurement.numCtx} tokenech — ${cpuGb.toFixed(2)} GB by běželo na CPU`;
     }
     if (out.error) {
-      if (!keepOnFailure) out.removed = await removeModel(candidateName, ctx);
+      if (removalAllowed) out.removed = await removeModel(candidateName, ctx);
+      else out.keptReason = 'mazání je vypnuté, dokud validační sady nerozlišují';
       return out;
     }
 
@@ -214,7 +234,8 @@ export async function tryCandidate(candidateName, ctx = {}) {
     out.floor = await runCapabilityFloor(candidateName, ctx);
     if (!out.floor.passed) {
       out.error = `neprošel schopnostním minimem: ${out.floor.failures.map(f => f.reason).join('; ')}`;
-      if (!keepOnFailure) out.removed = await removeModel(candidateName, ctx);
+      if (removalAllowed) out.removed = await removeModel(candidateName, ctx);
+      else out.keptReason = 'mazání je vypnuté, dokud validační sady nerozlišují';
       return out;
     }
 
@@ -266,13 +287,24 @@ export async function tryCandidate(candidateName, ctx = {}) {
     out.accepted = Object.values(out.decisions).some(d => d.winner === 'candidate');
     out.stage = 'done';
 
-    // Kandidát, který nevyhrál ani jednu roli, na disku nemá co dělat.
-    if (!out.accepted && !keepOnFailure) {
+    // „Prohrál" a „neumíme rozlišit" nejsou totéž.  Když sada nerozlišila,
+    // kandidát nebyl horší — jen to nešlo změřit, což je vlastnost sady, ne
+    // modelu.  Smazat kvůli tomu model s vyšším externím hodnocením je ztráta
+    // informace, takže se to aspoň musí rozlišit ve výstupu a jde to vypnout.
+    out.inconclusive = !out.accepted
+      && Object.values(out.decisions).length > 0
+      && Object.values(out.decisions).every(d => d.basis === 'nerozhodně');
+
+    if (!out.accepted && removalAllowed && !(out.inconclusive && ctx.keepInconclusive)) {
       out.removed = await removeModel(candidateName, ctx);
+    } else if (!out.accepted) {
+      out.keptReason = removalAllowed
+        ? 'sada kandidáta neodlišila — nemazat, dokud nerozlišuje'
+        : 'mazání je vypnuté, dokud validační sady nerozlišují';
     }
   } catch (err) {
     out.error = err.message;
-    if (!keepOnFailure && out.stage !== 'pull') out.removed = await removeModel(candidateName, ctx);
+    if (removalAllowed && out.stage !== 'pull') out.removed = await removeModel(candidateName, ctx);
   } finally {
     await unloadModel(candidateName, ctx).catch(() => {});
   }
@@ -280,4 +312,7 @@ export async function tryCandidate(candidateName, ctx = {}) {
   return out;
 }
 
-export default { pullModel, removeModel, runCapabilityFloor, tryCandidate, CAPABILITY_FLOOR };
+export default {
+  pullModel, removeModel, runCapabilityFloor, tryCandidate,
+  CAPABILITY_FLOOR, REMOVAL_ENABLED_BY_DEFAULT,
+};
