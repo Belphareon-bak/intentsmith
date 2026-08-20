@@ -64,6 +64,10 @@ přijatelná hranice **pro interní použití**.
 
 ### P0-2 Skutečný effect seam — ✅ **ZAPNUTO** (2026-08-19), rozsah `FILE_WRITE` + `fs.write`
 
+> Záznam implementace: [`WP-APPROVAL-PLANE-RESULT.md`](WP-APPROVAL-PLANE-RESULT.md).
+> Otevřené `P1` nálezy a mediace zbylých zapisovatelů:
+> [`docs/execution/approval-mediation.md`](../execution/approval-mediation.md).
+
 Nezávislé review našlo v `guardedWrite` tři `P0` vady (TOCTOU, zápis po ztrátě
 lease, chyba čtení vydávaná za neexistující soubor). Všechny jsou opravené a
 sondy z review jsou regresními testy. **Jedna vlastnost se ale opravit nedá** a

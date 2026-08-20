@@ -206,6 +206,12 @@ Na runtime snapshotu a znovu po dokumentační konsolidaci prošlo:
 Tyto výsledky nejsou release verdict. Chybí fresh-checkout attestace root i
 `mobile-app` instalace/buildu, fyzický telefon a nezávislá akceptace.
 
+### Approval rovina — zapnutá od 2026-08-19
+
+Zápis v cestě `FILE_WRITE` a nástroje `fs.write` se ptá a čeká; bez zapojené
+rozhodovací roviny **nezapíše nic**. Celý záznam včetně toho, co **ne**platí, je
+v [`WP-APPROVAL-PLANE-RESULT.md`](WP-APPROVAL-PLANE-RESULT.md).
+
 ### Boundary gate — zelený od 2026-08-19
 
 `node scripts/module-boundary-ratchet.mjs` **PASS**. Reviewer schválil směry
