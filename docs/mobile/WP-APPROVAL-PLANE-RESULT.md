@@ -1,15 +1,15 @@
 # WP-APPROVAL-PLANE — co bylo uděláno
 
 **Typ:** záznam výsledku · **Zadání:** operátorská rozhodnutí 2026-08-19 (viz §1)
-**Vstupní revision:** `5c5413e4` · **Výstupní revision:** `25c61a96` (12 commitů)
+**Vstupní revision:** `5c5413e4` · **Výstupní revision:** `076a5ac4` (19 commitů)
+**Etapy:** `5c5413e4`→`25c61a96` approval rovina · `25c61a96`→`076a5ac4` oprava výkladu (§7)
 **Větev:** `wp/mobile-prototype-20260817`
 **Navazující zadání:** [`docs/execution/approval-mediation.md`](../execution/approval-mediation.md)
 
-> **Pozor — výklad opraven 2026-08-20.** Tenhle balík stavěl approval jako
-> **mýtné před každým zápisem**. [`Rozhodnutí 028`](../decisions/028-approval-is-exceptional.md)
-> to opravuje: auto-approve je default, approval je výjimka pro pojmenované
-> situace. Co je v §2 níž popsané jako hotové, **funguje** — jen se toho má
-> ptát podstatně méně často. Rozsah v §5.3 se tím zmenšuje.
+> **Výklad opraven a kód srovnán 2026-08-20.** Tenhle balík stavěl approval
+> jako **mýtné před každým zápisem**;
+> [`rozhodnutí 028`](../decisions/028-approval-is-exceptional.md) to opravilo
+> a §7 níž popisuje, čím. Auto-approve je dnes výchozí stav.
 >
 > **Co tenhle dokument je.** Záznam implementace s důkazem na konkrétních SHA.
 > **Není to review verdikt.** Poslední review skončilo `CHANGES_REQUIRED` se
@@ -43,6 +43,9 @@ producenta) je také fail-closed. Mediace ostatních zapisovatelů se **neotvír
 > jdou přes jednu řízenou cestu. Dva běhy si nepřepíšou stejný kanonický cíl.
 > Externí změna zápis zastaví, pokud je viditelná při poslední kontrole.
 > Mikrointerval mezi kontrolou a atomickou náhradou souboru není pokrytý.
+>
+> **Ptá se jen tam, kde to říká politika** (`028`) — jinak zapisuje. Zámek,
+> kanonizace, fencing i atomická náhrada platí i pro zápis bez otázky.
 
 **Rozsah je v té větě schválně.** „Všechny zápisy" **není pravda** — viz §5.3.
 
@@ -141,15 +144,19 @@ Artifact validation 151/151.
 
 ### 5.1 Otevřené `P1` nálezy z review
 
-1. **Atomická náhrada ničí práva souboru.** `commitFile` vytváří temp bez
-   převzetí režimu cíle — sonda přepsala `0755` na `0664` a skript přestal být
-   spustitelný. Chybí i `fsync` a bezpečně unikátní jméno temp souboru.
-   → `src/executor/atomic-write.js`
+1. ~~**Atomická náhrada ničí práva souboru.**~~ **Vyřešeno** `70ce191f` —
+   režim cíle se přebírá, přidán `fsync` na soubor i adresář, temp jméno je
+   `randomUUID()`. Tři testy v `effects-p0-regressions`.
 2. **Boot cleanup zaměňuje „jiný proces" za „mrtvý proces".** Komentář slibuje,
    že se dva procesy navzájem neuklízejí, SQL ale uzavře všechno s jiným
-   `boot_id`. Sonda potvrdila, že proces B zruší **živý** approval i zámek
-   procesu A. Chce to lease/heartbeat, nebo vynucený singleton nad databází.
+   `boot_id`. Chce to lease/heartbeat, nebo vynucený singleton nad databází.
    → `src/approvals/authority.js`, `src/executor/file-lock.js`
+
+   **Upřesnění rozsahu (ověřeno na `25c61a96`):** úklid volá **jen
+   `src/server.js`**, gateway ne. V dnešním zapojení (jeden core + gateway)
+   proto nehrozí, že by gateway sebrala approvaly coru — na to by musely běžet
+   dva cory nad jednou databází. Vada je **latentní, ne aktivní**; komentář
+   v kódu ale tvrdí něco, co kód nedělá, a to se srovnat má.
 3. **Multi-device nedodává slíbený terminální výsledek.** Druhý telefon dostane
    `409` jen s rozhodnutím, bez `decidedAt` a `decidedBy`; závodní větev nedodá
    ani rozhodnutí. Test to obchází čtením z DB, takže nedokazuje dokumentované
@@ -196,3 +203,81 @@ protože testoval jednotku.
 **Pravidlo, které z toho plyne:** u nové vlastnosti se ptát „kolik cest ji má
 mít", ne „funguje ta jedna". Zelený test jednotky nedokazuje, že k ní cesta
 vede.
+
+
+---
+
+## 7. Pokračování 2026-08-20 — oprava výkladu
+
+Balík výš stavěl approval jako **mýtné před každým zápisem**. Operátor to
+odmítl:
+
+> „rozhodně není cílem abych povoloval každý zápis do souboru"
+
+Nebyla to vada kódu — kód dělal, co bylo zadané — ale **vada zadání**.
+Zaznamenaná v [`rozhodnutí 028`](../decisions/028-approval-is-exceptional.md).
+
+| SHA | Co |
+|---|---|
+| `a2391fcd` | tenhle záznam + zadání pro pokračování |
+| `ac3c7f6c` | upřesnění rozsahu `M1-b` (úklid volá jen `server.js`) |
+| `790a9329` | **rozhodnutí 028** — approval je výjimka |
+| `70ce191f` | **`M1-a`** — práva souboru, `fsync`, unikátní temp |
+| `e9c7e4e6` | odkaz na migraci plnou verzí (`mobile-migration-parity`) |
+| `19023a60` | **`M0`** — politika: ptá se jen na to, co je vyjmenované |
+| `076a5ac4` | rebaseline ratchetu (1 hrana přibyla, 1 ubyla) |
+
+### 7.1 Politika
+
+`src/executor/write-policy.js` — **jedno čitelné místo**, protože seznam, který
+se dá přečíst za minutu, se dá taky odsouhlasit.
+
+| Kategorie | Chování |
+|---|---|
+| `secrets` — `.env*`, `*.pem`, `*.key`, `id_rsa`, keystore, credentials | **ptá se** |
+| `ci-deploy` — workflows, Dockerfile, compose, fly/vercel | **ptá se** |
+| `applied-migration` — přepis migrace, která už proběhla | **ptá se** |
+| `.git/` | **odmítá** bez ptaní |
+| všechno ostatní | zapíše |
+
+Pravidlo, podle kterého seznam vznikl (operátor, 2026-08-20): *ptát se tam, kde
+je frekvence blízká nule a důsledek sahá mimo to, co jde snadno vrátit.*
+
+**Manifesty (`package.json`) v seznamu nejsou schválně.** Agent je při stavbě
+mění běžně, takže by se to ozývalo pořád — a zajímavá otázka je stejně „smím
+nainstalovat tenhle balík", ne „smím editovat manifest". To je jiná páka
+a patří k instalaci.
+
+**Nová migrace se neptá, přepis aplikované ano.** Nová je rutinní práce na
+schématu; přepsat tu, která už běžela, znamená rozejít databázi s tím, co kód
+tvrdí.
+
+### 7.2 Co se u toho našlo
+
+- **Politika měla vadu, kterou našel test.** Pravidla ukotvená na začátek
+  řetězce neplatila pro cíl mimo pracovní strom, kde `canonicalTarget` vrací
+  absolutní cestu — `/tmp/x/.github/workflows/deploy.yml` by prošlo bez ptaní.
+  Ukotveno na hranici segmentu.
+- **Chatový handler má vlastní, tvrdší seznam.** `.env` tam neprojde vůbec
+  (`forbidden_file`) — neptá se, odmítne. Ponecháno: na secret je to správná
+  odpověď. Pravidlo `secrets` se proto reálně uplatní hlavně na nástrojové
+  cestě a později u dalších zapisovatelů.
+
+### 7.3 Testy a gate
+
+`tests/write-policy.test.js` (11 PASS). Nejostřejší tvrzení je **negativní**:
+deset běžných zápisů za sebou vyrobí **nula** approvalů.
+
+`effects-p0-regressions` 15 → **18 PASS** (tři pro `M1-a`).
+
+Gate 2026-08-20: **`252 PASS / 4 FAIL / 3 BLOCKED`**, ratchet PASS (1077/1077),
+artifact-validation 151/151. Čtyři `FAIL` jsou ty předchozí ze §4.
+
+### 7.4 Dvě opravená vlastní tvrzení
+
+- *„patch engine musí přes approval"* — ne. Zaměněná **efektová autorita** za
+  **ptaní se člověka**. Patch engine potřebuje zámek a atomicitu, ne otázku.
+- *„projekty a specialisté na mobilu neexistují"* — nepravda. Jsou rozhodnuté,
+  `Projekty` jsou v `NAV_ITEMS` jako `locked`, `MR-14` je
+  `BLOCKED_BY_CONTRACT_AND_GATE1`, `MS-12` vyspecifikovaná a nestaví se.
+  **Zablokovaná fronta, ne chybějící nápad.**

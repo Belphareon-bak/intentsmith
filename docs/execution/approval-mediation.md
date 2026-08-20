@@ -8,9 +8,27 @@
 
 **Určeno pro:** jednu novou agentní relaci (jedno zapisující vlastnictví)
 **Větev:** `wp/mobile-prototype-20260817`
-**Vstupní revision:** `25c61a96`
+**Vstupní revision:** `076a5ac4`
 **Worktree:** `/home/belphareon/worktrees/is-mobile-prototype`
 **Předchozí balík:** [`docs/mobile/WP-APPROVAL-PLANE-RESULT.md`](../mobile/WP-APPROVAL-PLANE-RESULT.md)
+
+---
+
+## 0.0 Stav — co je hotové a co ne
+
+| Fáze | Stav |
+|---|---|
+| **M0** politika (auto-approve default) | ✅ `19023a60` |
+| **M1-a** práva souboru, `fsync`, unikátní temp | ✅ `70ce191f` |
+| **M1-b** boot lease | ⬜ **začni tímhle** |
+| **M1-c** multi-device terminální výsledek | ⬜ |
+| **M1-d** klient rozliší konce | ⬜ |
+| **M2** sdílená cesta pro zbylé zapisovatele | ⬜ |
+
+**Než otevřeš M2, nech P0 closeout projít review.** Poslední verdikt byl
+`CHANGES_REQUIRED`, oba blokátory jsou opravené v `25c61a96`, ale nikdo to od té
+doby neviděl. M2 je velký balík a stavět ho na nepotvrzeném základu je
+nejlevnější cesta k přepracování. M1 na tom nestojí — ty opravy platí samostatně.
 
 ---
 
@@ -105,11 +123,11 @@ do souboru z citlivého seznamu → approval; bez zapojené roviny → nezapisuj
 
 ## 3. Fáze M1 — spolehlivost (otevřené `P1`)
 
-### M1-a Atomický zápis zachová práva — **začni tímhle**
+### M1-a Atomický zápis zachová práva — ✅ **HOTOVO** (`70ce191f`)
 
-> Jediná položka v M1, která je **aktivní vada v už zapnuté cestě**: každý
-> schválený přepis existujícího souboru mu právě teď mění práva. Ostatní tři
-> jsou latentní nebo kosmetické.
+> Režim cíle se přebírá (`stat` → `open` s módem → `chmod`), přidán `fsync` na
+> soubor i adresář, temp jméno je `randomUUID()`. Tři testy
+> v `effects-p0-regressions`. Zbytek sekce je popis, ne úkol.
 
 `src/executor/atomic-write.js`
 
@@ -127,7 +145,7 @@ cíl. Sonda review přepsala `0755` na `0664` — skript přestal být spustitel
 **Test:** soubor `0755` po schváleném přepsání zůstane `0755`; po pádu mezi
 zápisem a `rename` zůstane starý obsah celý.
 
-### M1-b Boot cleanup nesmí rušit živé procesy
+### M1-b Boot cleanup nesmí rušit živé procesy — **začni tímhle**
 
 `src/approvals/authority.js` (`reapApprovalsFromPreviousBoot`),
 `src/executor/file-lock.js` (`releaseStaleLocks`)
