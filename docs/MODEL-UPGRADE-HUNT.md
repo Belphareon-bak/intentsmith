@@ -30,7 +30,8 @@ a paralelní; sériové je jen ověřování.
 
 ```
 0  vyjmenovat všech 235 rodin z ollama.com              1 request, 0 GB
-1  seřadit podle externích signálů, odříznout nevhodné  minuty, 0 GB
+1  PRO KAŽDOU ROLI zvlášť: vlastní laťka, způsobilost,
+   kategorie → vlastní seznam kandidátů                 minuty, 0 GB
 ┌─ 2a stáhnout jednoho kandidáta      (bez časového kritéria)
 │  2b změřit umístění ve VRAM  ──přetéká──→ smazat ────┐
 │  2c schopnostní minimum ~2 min ──propadl──→ smazat ──┤
@@ -200,6 +201,45 @@ a klíč obsahuje model, aby si role nemíchaly různé stávající modely.
 | `chat` | CHAT |
 | `vision` | VISION |
 
+### 3.10b Seznam kandidátů je vlastní pro každou roli
+
+Původní návrh stavěl **jeden** společný seznam a pak každého kandidáta hnal
+přes všechny role. To je špatná otázka: cílem není jeden univerzální model —
+ten neexistuje — ale nejlepší model pro každou roli zvlášť.
+
+Role se liší ve třech věcech a každá z nich vstupuje do seznamu:
+
+| co | jak se liší |
+|---|---|
+| **laťka** | hodnocení jejího stávajícího modelu, ne globální maximum. Silná role nezvedne laťku slabé. |
+| **způsobilost** | VISION potřebuje vision model, D1 minimálně 14B |
+| **kategorie** | `MODEL_PROFILES[role].preferredCategories` jako **filtr**, ne bonus |
+
+Kategorie byla ta chybějící část. Bez ní se `llava-phi3` (vision model)
+objevoval jako kandidát na CODE i D1. Po zavedení:
+
+```
+llava-phi3:3.8b-mini-fp16     → VISION
+bakllava:7b-v1-fp16           → VISION
+devstral:latest               → CODE, R2
+starcoder:15b-base-q8_0       → CODE, R2
+qwen3.8:latest                → D1, D2, CODE, R1, R2, CHAT
+```
+
+Neznámá kategorie se **nevyřazuje** — zahodit model kvůli mezeře v rozpoznávání
+názvu by bylo horší než ho nechat projít s nulovým bonusem; rozhodne pak souboj.
+
+Kandidát se stáhne jednou a zkouší se jen v rolích, kde je kandidátem. Pořadí
+ve frontě je dané jeho nejlepší prioritou napříč těmi rolemi.
+
+### 3.10c Pool nesmí být omezený na hodnocené rodiny
+
+whatllm hodnotí 17 z 235 rodin a mezi nimi **není jediný vision model**. Dokud
+byl pool omezený na hodnocené rodiny, role VISION nemohla dostat kandidáta
+nikdy. Externí hodnocení je proto signál pro řazení a filtr proti laťce, ale
+**ne podmínka vstupu** — `buildCandidatePool()` projde všech 235 rodin
+(182 z nich má variantu, která se na 24 GB může vejít).
+
 ### 3.11 Souboj respektuje způsobilost role
 
 První běh porovnával `qwen3-coder` i v roli VISION, kde textový model nemůže
@@ -277,11 +317,11 @@ Vazby se nemění automaticky; výstup je podklad k ručnímu potvrzení.
 | sada | testů |
 |---|---|
 | `tests/vram-measurement.test.js` | 14 |
-| `tests/model-sweep.test.js` | 26 |
+| `tests/model-sweep.test.js` | 39 |
 | `tests/pairwise-trial.test.js` | 30 |
 | `tests/candidate-trial.test.js` | 21 |
 
 Všechny běží **bez sítě a bez modelů** (`fetch` nahrazený atrapou), takže jsou
 rychlé a nezávislé na tom, co je zrovna nainstalované.
 
-Celková regrese napříč 20 dotčenými sadami: **926 testů, 0 selhání.**
+Celková regrese napříč 20 dotčenými sadami: **939 testů, 0 selhání.**

@@ -223,6 +223,18 @@ export function rankCandidates(pool, ctx = {}) {
     qualityOf = () => null,
     releaseDateOf = () => null,
     incumbentReleaseDate = null,
+    // Role, pro kterou se seznam staví.  Když je zadaná, uplatní se filtr
+    // způsobilosti a bonus za shodu specializace — bez ní by vznikl jeden
+    // univerzální seznam, což je špatná otázka: nehledá se jeden nejlepší
+    // model, ale nejlepší model pro každou roli zvlášť.
+    role = null,
+    eligibilityOf = null,
+    profileOf = null,
+    // Kategorie, které pro tuhle roli dávají smysl — `MODEL_PROFILES[role]
+    // .preferredCategories`.  Používá se jako **filtr**, ne jen bonus: vision
+    // model nemá co dělat v seznamu kandidátů na CODE a coder model v CHAT.
+    // Bez toho vzniká jeden promíchaný seznam, což je špatná otázka.
+    preferredCategories = null,
   } = ctx;
 
   const installedKeys = new Set(installed.map(canonicalModelName).filter(Boolean));
@@ -232,6 +244,25 @@ export function rankCandidates(pool, ctx = {}) {
     const key = canonicalModelName(entry.name);
     if (key && installedKeys.has(key)) continue;
     if (!mightFit(entry.sizeGB, vramMb)) continue;
+
+    // Nezpůsobilý kandidát se do seznamu role vůbec nedostane — vision role
+    // nemá co nabídnout textovému modelu a naopak.
+    let ineligibleReason = null;
+    if (role && eligibilityOf) {
+      const verdict = eligibilityOf(entry, role);
+      if (verdict && !verdict.eligible) ineligibleReason = verdict.reason;
+    }
+    if (ineligibleReason) continue;
+
+    const profile = profileOf ? (profileOf(entry) || {}) : {};
+
+    // Neznámou kategorii nevyřazujeme — nevíme, čím model je, a zahodit ho
+    // kvůli mezeře v rozpoznávání názvu by bylo horší než ho nechat projít
+    // s nulovým bonusem. Rozhodne pak souboj.
+    if (preferredCategories && profile.category && profile.category !== 'unknown'
+      && !preferredCategories.includes(profile.category)) {
+      continue;
+    }
 
     const quality = qualityOf(entry) ?? null;
     const releaseDate = releaseDateOf(entry) ?? null;
@@ -264,11 +295,75 @@ export function rankCandidates(pool, ctx = {}) {
       reasons.push('velikost těsná — rozhodne měření');
     }
 
-    out.push({ ...entry, quality, releaseDate, priority: Math.round(priority * 100) / 100, reasons });
+    // Shoda specializace s rolí. Coder model do role CODE je lepší kandidát
+    // než stejně hodnocený generalista, i když má nižší externí index.
+    if (role && profileOf) {
+      const bonus = specializationBonus(profile.category, role);
+      if (bonus > 0) {
+        priority += bonus;
+        reasons.push(`specializace ${profile.category} sedí na ${role}`);
+      }
+    }
+
+    out.push({
+      ...entry, role, quality, releaseDate,
+      priority: Math.round(priority * 100) / 100,
+      reasons,
+    });
   }
 
   out.sort((a, b) => b.priority - a.priority || a.sizeGB - b.sizeGB);
   return out;
+}
+
+/**
+ * Bonus za shodu specializace modelu s rolí.
+ *
+ * Násobky bodů priority, ne skóre kvality — ovlivňuje jen pořadí, ve kterém se
+ * kandidáti zkoušejí, ne kdo vyhraje souboj.
+ */
+export function specializationBonus(category, role) {
+  if (!category || !role) return 0;
+  if (category === 'code' && role === 'CODE') return 8;
+  if (category === 'reasoning' && (role === 'D1' || role === 'R1')) return 8;
+  if (category === 'vision' && role === 'VISION') return 8;
+  if (category === 'general' && (role === 'CHAT' || role === 'D2' || role === 'R2')) return 4;
+  return 0;
+}
+
+/**
+ * Stáhne tagy pro všechny rodiny s omezenou souběžností.
+ *
+ * Pool se **nesmí** omezit na rodiny, které hodnotí whatllm.  Ten hodnotí 17 z
+ * 235 rodin a mezi nimi není jediný vision model — role VISION by tak nikdy
+ * nemohla dostat kandidáta.  Externí hodnocení je signál pro řazení, ne
+ * podmínka vstupu.
+ *
+ * @param {string[]} families
+ * @param {{vramMb:number, gpuModel?:string, concurrency?:number, onProgress?:Function}} opts
+ * @returns {Promise<Array>} po jedné nejlepší variantě na rodinu
+ */
+export async function buildCandidatePool(families, opts = {}) {
+  const { vramMb = 0, gpuModel = '', concurrency = 6, onProgress } = opts;
+  const list = [...families];
+  const pool = [];
+  let done = 0;
+
+  async function worker() {
+    while (list.length > 0) {
+      const family = list.shift();
+      if (!family) break;
+      const tags = await fetchFamilyTags(family, opts);
+      const best = preferredTagForFamily(tags, vramMb, gpuModel);
+      if (best) pool.push(best);
+      done++;
+      if (onProgress && done % 25 === 0) onProgress(done, families.length);
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.max(1, concurrency) }, worker));
+  pool.sort((a, b) => a.family.localeCompare(b.family));
+  return pool;
 }
 
 export function clearCache() {
@@ -279,6 +374,7 @@ export function clearCache() {
 
 export default {
   fetchLibraryFamilies, fetchFamilyTags, parseTagsPage,
-  mightFit, comfortablyFits, rankCandidates, preferredTagForFamily, formatRunsHere, clearCache,
+  mightFit, comfortablyFits, rankCandidates, preferredTagForFamily, buildCandidatePool,
+  formatRunsHere, specializationBonus, clearCache,
   MIN_OBSERVED_VRAM_OVERHEAD, TYPICAL_VRAM_OVERHEAD,
 };

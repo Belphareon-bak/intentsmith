@@ -8,6 +8,7 @@ import { suite, test, testAsync, assert, assertEqual, summary } from './harness.
 import {
   fetchLibraryFamilies, parseTagsPage, mightFit, comfortablyFits,
   preferredTagForFamily, formatRunsHere, rankCandidates, clearCache,
+  specializationBonus, buildCandidatePool,
   MIN_OBSERVED_VRAM_OVERHEAD, TYPICAL_VRAM_OVERHEAD,
 } from '../src/upgrade/model-sweep.js';
 
@@ -212,6 +213,148 @@ test('rezerva ve velikosti zvedne prioritu', () => {
 
 test('prázdný pool nespadne', () => {
   assertEqual(rankCandidates([], { vramMb: VRAM_24GB }).length, 0);
+});
+
+// ─── Seznam per role ────────────────────────────────────────────────────────
+
+suite('rankCandidates — seznam pro konkrétní roli');
+
+const MIXED = [
+  { name: 'coder:14b', family: 'coder', sizeGB: 9 },
+  { name: 'seer:13b', family: 'seer', sizeGB: 8 },
+  { name: 'talker:14b', family: 'talker', sizeGB: 9 },
+  { name: 'zahadny:14b', family: 'zahadny', sizeGB: 9 },
+];
+const CATEGORY = {
+  coder: 'code', seer: 'vision', talker: 'general', zahadny: 'unknown',
+};
+const profileOf = e => ({ category: CATEGORY[e.family], params: 14 });
+
+test('vision model se do seznamu pro CODE nedostane', () => {
+  // Jádro věci: nehledá se jeden univerzální model, ale nejlepší pro každou
+  // roli. Promíchaný seznam je špatná otázka.
+  const out = rankCandidates(MIXED, {
+    vramMb: VRAM_24GB, role: 'CODE', profileOf,
+    preferredCategories: ['code', 'general'],
+  });
+  const names = out.map(c => c.family);
+  assert(!names.includes('seer'), 'vision model nepatří do CODE');
+  assert(names.includes('coder'), 'coder ano');
+});
+
+test('coder model se do seznamu pro CHAT nedostane', () => {
+  const out = rankCandidates(MIXED, {
+    vramMb: VRAM_24GB, role: 'CHAT', profileOf, preferredCategories: ['general'],
+  });
+  const names = out.map(c => c.family);
+  assert(!names.includes('coder'), 'coder nepatří do CHAT');
+  assert(names.includes('talker'), 'generalista ano');
+});
+
+test('neznámá kategorie projde — nevíme, tak nevyřazujeme', () => {
+  // Zahodit model kvůli mezeře v rozpoznávání názvu by bylo horší než ho
+  // nechat projít s nulovým bonusem; rozhodne pak souboj.
+  for (const role of ['CODE', 'CHAT', 'VISION']) {
+    const out = rankCandidates(MIXED, {
+      vramMb: VRAM_24GB, role, profileOf,
+      preferredCategories: role === 'VISION' ? ['vision'] : ['general'],
+    });
+    assert(out.some(c => c.family === 'zahadny'), `neznámá kategorie musí projít i pro ${role}`);
+  }
+});
+
+test('bez preferredCategories se nefiltruje', () => {
+  const out = rankCandidates(MIXED, { vramMb: VRAM_24GB, role: 'CODE', profileOf });
+  assertEqual(out.length, MIXED.length);
+});
+
+test('nezpůsobilý kandidát se do seznamu role nedostane', () => {
+  const out = rankCandidates(MIXED, {
+    vramMb: VRAM_24GB,
+    role: 'VISION',
+    profileOf,
+    eligibilityOf: (e, role) => ({
+      eligible: CATEGORY[e.family] === 'vision',
+      reason: 'model neumí zpracovat obraz',
+    }),
+  });
+  assertEqual(out.length, 1);
+  assertEqual(out[0].family, 'seer');
+});
+
+test('shoda specializace zvedne pořadí v rámci role', () => {
+  const out = rankCandidates(MIXED, {
+    vramMb: VRAM_24GB, role: 'CODE', profileOf,
+    preferredCategories: ['code', 'general'],
+  });
+  assertEqual(out[0].family, 'coder', 'coder má být pro CODE první');
+  assert(out[0].reasons.some(r => /specializace code/.test(r)));
+});
+
+test('výsledek nese roli, pro kterou byl sestaven', () => {
+  const out = rankCandidates(MIXED, { vramMb: VRAM_24GB, role: 'R2', profileOf });
+  assert(out.every(c => c.role === 'R2'), 'každý záznam ví, do které role patří');
+});
+
+test('laťka je vlastní pro každou roli', () => {
+  // Silná role nesmí zvednout laťku slabé — každá se poměřuje svým modelem.
+  const q = { coder: 10, talker: 30, seer: 5, zahadny: 20 };
+  const low = rankCandidates(MIXED, {
+    vramMb: VRAM_24GB, incumbentQuality: 8, qualityOf: e => q[e.family],
+  });
+  const high = rankCandidates(MIXED, {
+    vramMb: VRAM_24GB, incumbentQuality: 25, qualityOf: e => q[e.family],
+  });
+  assert(low.length > high.length, 'vyšší laťka propustí míň kandidátů');
+  assert(high.every(c => q[c.family] > 25), 'nikdo pod laťkou neprojde');
+});
+
+// ─── Bonus za specializaci ──────────────────────────────────────────────────
+
+suite('specializationBonus');
+
+test('shoda specializace s rolí dává bonus', () => {
+  assert(specializationBonus('code', 'CODE') > 0);
+  assert(specializationBonus('vision', 'VISION') > 0);
+  assert(specializationBonus('reasoning', 'D1') > 0);
+});
+
+test('neshoda nedává nic', () => {
+  assertEqual(specializationBonus('code', 'VISION'), 0);
+  assertEqual(specializationBonus('vision', 'CODE'), 0);
+  assertEqual(specializationBonus(null, 'CODE'), 0);
+});
+
+test('specializovaná shoda váží víc než obecná', () => {
+  assert(specializationBonus('code', 'CODE') > specializationBonus('general', 'CHAT'),
+    'coder do CODE je silnější signál než generalista do CHAT');
+});
+
+// ─── Pool přes všechny rodiny ───────────────────────────────────────────────
+
+suite('buildCandidatePool');
+
+await testAsync('pool se nesmí omezit na hodnocené rodiny', async () => {
+  // whatllm hodnotí 17 z 235 rodin a mezi nimi není jediný vision model —
+  // omezení poolu na hodnocené by roli VISION nechalo trvale prázdnou.
+  clearCache();
+  const families = ['alfa', 'beta', 'gama'];
+  const pool = await buildCandidatePool(families, {
+    vramMb: VRAM_24GB,
+    concurrency: 2,
+    html: 'alfa:7b 5GB beta:7b 5GB gama:7b 5GB',
+  });
+  assertEqual(pool.length, 3, 'všechny rodiny se dostanou do poolu');
+  clearCache();
+});
+
+await testAsync('rodina bez vhodné varianty do poolu nepatří', async () => {
+  clearCache();
+  const pool = await buildCandidatePool(['obri'], {
+    vramMb: VRAM_24GB, html: 'obri:400b 900GB',
+  });
+  assertEqual(pool.length, 0);
+  clearCache();
 });
 
 summary();

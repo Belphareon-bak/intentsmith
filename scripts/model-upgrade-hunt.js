@@ -25,7 +25,12 @@ import { fileURLToPath } from 'node:url';
 
 import { config } from '../src/config.js';
 import { logger } from '../src/core/logger.js';
-import { fetchLibraryFamilies, fetchFamilyTags, rankCandidates, preferredTagForFamily } from '../src/upgrade/model-sweep.js';
+import {
+  fetchLibraryFamilies, rankCandidates, buildCandidatePool,
+} from '../src/upgrade/model-sweep.js';
+import { checkRoleEligibility } from '../src/upgrade/model-ranker.js';
+import { MODEL_PROFILES } from '../src/upgrade/model-profiles.js';
+import { parseModelNameExtended } from '../src/upgrade/model-family-extensions.js';
 import { fetchModels as fetchWhatllm, matchModels } from '../src/upgrade/whatllm-client.js';
 import { lookupModel as lookupHf } from '../src/upgrade/huggingface-client.js';
 import { measureModel, drainResident } from '../src/upgrade/vram-measurement.js';
@@ -67,60 +72,93 @@ async function detectVram() {
 
 // ─── Fáze 0 + 1 ─────────────────────────────────────────────────────────────
 
-async function buildShortlist(gpu, installedNames) {
+/**
+ * Fáze 0 + 1 — pro **každou roli zvlášť**.
+ *
+ * Jeden společný seznam byl špatná otázka: cílem není jeden univerzální model,
+ * ale nejlepší model pro každou roli. Role se liší laťkou (svým stávajícím
+ * modelem), způsobilostí (VISION potřebuje vision model, D1 minimálně 14B) i
+ * tím, co je pro ni přínos (coder model do CODE, generalista do CHAT).
+ *
+ * @returns {{ perRole: Map<string, Array>, queue: Array, familiesTotal: number }}
+ */
+async function buildRoleShortlists(gpu, installedNames, bindings) {
   const families = await fetchLibraryFamilies();
   log(`Fáze 0: ${families.length} rodin v knihovně Ollamy`);
 
   const whatllm = await fetchWhatllm().catch(() => []);
   const qualityByFamily = new Map();
   if (whatllm.length) {
-    // Nejlepší hodnocení, které rodina má — kandidát se poměřuje jím.
     const probe = families.map(f => ({ name: `${f}:1b` }));
-    const matched = matchModels(whatllm, probe);
-    for (const [probeName, entry] of matched) {
+    for (const [probeName, entry] of matchModels(whatllm, probe)) {
       const fam = probeName.split(':')[0];
       const prev = qualityByFamily.get(fam);
       if (!prev || prev < entry.qualityIndex) qualityByFamily.set(fam, entry.qualityIndex);
     }
   }
-  log(`Fáze 1: whatllm zná ${qualityByFamily.size} z nich`);
+  log(`Fáze 1: whatllm hodnotí ${qualityByFamily.size} z nich`);
 
-  // Laťka: nejlepší externí hodnocení mezi tím, co už je nainstalované.
-  // Musí se párovat skutečnými jmény, ne odhadem z rodiny — `qwen3-30b-a3b`
-  // se páruje na `Qwen3 30B A3B 2507 Instruct`, což z holé rodiny `qwen3`
-  // nevyjde.
-  let incumbentQuality = null;
+  // Laťka je pro každou roli jiná — je to hodnocení jejího stávajícího modelu,
+  // ne globální maximum. Silná role tak nezvedne laťku slabé a naopak.
+  // Klíčem je kanonické jméno: config váže `qwen3-30b-a3b`, Ollama hlásí
+  // `qwen3-30b-a3b:latest`. Bez sjednocení by laťka nikdy nesedla a filtr
+  // podle hodnocení by se neuplatnil.
+  const qualityOfModel = new Map();
   if (whatllm.length) {
-    const installedMatched = matchModels(whatllm, installedNames.map(n => ({ name: n })));
-    for (const [, entry] of installedMatched) {
-      if (incumbentQuality == null || entry.qualityIndex > incumbentQuality) {
-        incumbentQuality = entry.qualityIndex;
-      }
+    for (const [name, entry] of matchModels(whatllm, installedNames.map(n => ({ name: n })))) {
+      const key = canonicalModelName(name);
+      if (key) qualityOfModel.set(key, entry.qualityIndex);
     }
   }
 
-  const interesting = families.filter(f => qualityByFamily.has(f)
-    && (incumbentQuality == null || qualityByFamily.get(f) > incumbentQuality));
-  log(`Fáze 1: ${interesting.length} rodin má vyšší hodnocení než nejlepší nainstalovaný (${incumbentQuality ?? '—'})`);
-
-  // Z každé rodiny jedna varianta — největší, která se může vejít. Víc variant
-  // téže rodiny by frontu zaplnilo bez přínosu.
-  const pool = [];
-  for (const family of interesting) {
-    const tags = await fetchFamilyTags(family);
-    const best = preferredTagForFamily(tags, gpu.vramMb, gpu.model);
-    if (best) pool.push(best);
-  }
-  log(`Fáze 1: ${pool.length} rodin má variantu, která se může vejít`);
-
-  const ranked = rankCandidates(pool, {
+  // Tagy se stahují jednou pro všechny role a pro **všechny** rodiny.
+  // Omezit pool na hodnocené rodiny by roli VISION nechalo trvale prázdnou —
+  // whatllm mezi svými 17 rodinami žádný vision model nemá.
+  const pool = await buildCandidatePool(families, {
     vramMb: gpu.vramMb,
-    installed: installedNames,
-    incumbentQuality,
-    qualityOf: e => qualityByFamily.get(e.family) ?? null,
+    gpuModel: gpu.model,
+    onProgress: (d, t) => log(`   … prohledáno ${d}/${t} rodin`),
   });
+  log(`Fáze 1: ${pool.length} rodin má variantu, která se může vejít\n`);
 
-  return { shortlist: ranked, incumbentQuality, familiesTotal: families.length };
+  const profileOf = (entry) => parseModelNameExtended(entry.name);
+  const eligibilityOf = (entry, role) => checkRoleEligibility(profileOf(entry), role);
+
+  const perRole = new Map();
+  for (const role of ROLES) {
+    const incumbent = bindings[role];
+    const baseline = qualityOfModel.get(canonicalModelName(incumbent)) ?? null;
+    const ranked = rankCandidates(pool, {
+      vramMb: gpu.vramMb,
+      installed: installedNames,
+      incumbentQuality: baseline,
+      qualityOf: e => qualityByFamily.get(e.family) ?? null,
+      role,
+      eligibilityOf,
+      profileOf,
+      preferredCategories: MODEL_PROFILES[role]?.preferredCategories ?? null,
+    });
+    perRole.set(role, ranked);
+    log(`  ${role.padEnd(7)} laťka ${incumbent} (${baseline ?? 'nehodnocen'})  →  ${ranked.length} kandidátů`);
+  }
+
+  // Fronta: kandidát se stáhne jednou a zkusí se jen v rolích, kde je
+  // kandidátem. Pořadí podle jeho nejlepší priority napříč těmi rolemi.
+  const byName = new Map();
+  for (const [role, list] of perRole) {
+    for (const c of list) {
+      const existing = byName.get(c.name);
+      if (existing) {
+        existing.roles.push(role);
+        existing.priority = Math.max(existing.priority, c.priority);
+      } else {
+        byName.set(c.name, { ...c, roles: [role] });
+      }
+    }
+  }
+  const queue = [...byName.values()].sort((a, b) => b.priority - a.priority || a.sizeGB - b.sizeGB);
+
+  return { perRole, queue, familiesTotal: families.length };
 }
 
 // ─── Běh ────────────────────────────────────────────────────────────────────
@@ -136,25 +174,40 @@ const installed = buildCandidates(await fetchInstalledModels());
 const installedNames = installed.map(m => m.name);
 log(`Nainstalováno: ${installedNames.length} modelů\n`);
 
-const { shortlist, incumbentQuality, familiesTotal } = await buildShortlist(gpu, installedNames);
+const bindings = { ...config.models };
+const { perRole, queue, familiesTotal } = await buildRoleShortlists(gpu, installedNames, bindings);
 
-let picked = shortlist;
-if (ONLY.length) picked = ONLY.map(n => ({ name: n, family: n.split(':')[0], sizeGB: 0, reasons: ['zadáno ručně'] }));
+log('\n══ KANDIDÁTI PODLE ROLÍ ══');
+for (const role of ROLES) {
+  const list = perRole.get(role) || [];
+  log(`\n── ${role}  (nyní ${bindings[role]}) ──`);
+  if (!list.length) { log('   žádný kandidát neprošel filtrem'); continue; }
+  list.slice(0, 5).forEach((c, i) =>
+    log(`  ${i + 1}. ${c.name.padEnd(28)} ${String(c.sizeGB).padStart(5)} GB  prio ${String(c.priority).padStart(6)}  ${c.reasons.join(', ')}`));
+}
 
-log(`\n══ SHORTLIST (${shortlist.length}) ══`);
-shortlist.slice(0, 15).forEach((c, i) =>
-  log(`  ${String(i + 1).padStart(2)}. ${c.name.padEnd(26)} ${String(c.sizeGB).padStart(5)} GB  prio ${String(c.priority).padStart(6)}  ${c.reasons.join(', ')}`));
-if (!shortlist.length) log('  žádný kandidát neprošel filtrem');
+log(`\n══ FRONTA KE ZKOUŠCE (${queue.length}) ══`);
+queue.slice(0, 12).forEach((c, i) =>
+  log(`  ${String(i + 1).padStart(2)}. ${c.name.padEnd(28)} pro role: ${c.roles.join(', ')}`));
+
+let picked = queue;
+if (ONLY.length) {
+  picked = ONLY.map(n => ({ name: n, family: n.split(':')[0], sizeGB: 0, roles: ROLES, reasons: ['zadáno ručně'] }));
+}
 
 if (!DO_RUN) {
-  if (AS_JSON) console.log(JSON.stringify({ gpu, familiesTotal, incumbentQuality, shortlist }, null, 2));
-  else log('\n(bez --run se nic nestahuje; --run --limit=N zkusí N nejlepších)');
+  if (AS_JSON) {
+    console.log(JSON.stringify({
+      gpu, familiesTotal,
+      perRole: Object.fromEntries([...perRole].map(([r, l]) => [r, l])),
+      queue,
+    }, null, 2));
+  } else log('\n(bez --run se nic nestahuje; --run --limit=N zkusí N nejlepších)');
   process.exit(0);
 }
 
 // Referenční rychlost stávajících modelů — potřebná pro rozhodnutí při remíze.
 log('\n══ MĚŘENÍ STÁVAJÍCÍCH MODELŮ ══');
-const bindings = { ...config.models };
 const incumbentSpeed = {};
 for (const name of new Set(Object.values(bindings))) {
   const m = await measureModel(name);
@@ -166,15 +219,16 @@ for (const name of new Set(Object.values(bindings))) {
 }
 await drainResident();
 
-const queue = picked.slice(0, LIMIT);
-log(`\n══ ZKOUŠKA KANDIDÁTŮ (${queue.length}) ══`);
+const toTry = picked.slice(0, LIMIT);
+log(`\n══ ZKOUŠKA KANDIDÁTŮ (${toTry.length}) ══`);
 
 const results = [];
-for (const cand of queue) {
-  log(`\n─── ${cand.name} ───`);
+for (const cand of toTry) {
+  log(`\n─── ${cand.name}  (role: ${cand.roles.join(', ')}) ───`);
   const r = await tryCandidate(cand.name, {
     runner: validationRunner,
-    roles: ROLES,
+    // Jen role, pro které je tenhle model vůbec kandidátem.
+    roles: cand.roles,
     bindings,
     incumbentSpeed,
     onStage: (stage, m, info = {}) => {
@@ -220,4 +274,10 @@ log(changed.length
   ? `\n${changed.length} rolí má lepšího kandidáta. Vazby se nemění automaticky — potvrď je ručně.`
   : '\nŽádný kandidát neporazil stávající modely.');
 
-if (AS_JSON) console.log(JSON.stringify({ gpu, shortlist, results, bindings }, null, 2));
+if (AS_JSON) {
+  console.log(JSON.stringify({
+    gpu,
+    perRole: Object.fromEntries([...perRole].map(([r, l]) => [r, l])),
+    queue, results, bindings,
+  }, null, 2));
+}
