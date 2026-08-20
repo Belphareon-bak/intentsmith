@@ -282,10 +282,16 @@ nestahovalo něco, co dané prostředí nespustí.
 | `scripts/model-upgrade-hunt.js` | CLI, který to spojuje |
 
 ```bash
-node scripts/model-upgrade-hunt.js --shortlist        # nic nestahuje
-node scripts/model-upgrade-hunt.js --run --limit=3
+node scripts/model-upgrade-hunt.js --shortlist            # nic nestahuje
+node scripts/model-upgrade-hunt.js --role=CODE --shortlist
+node scripts/model-upgrade-hunt.js --role=CODE --run --limit=2
+node scripts/model-upgrade-hunt.js --run --limit=3        # všechny role
 node scripts/model-upgrade-hunt.js --run --only=qwen3.8:latest
 ```
+
+`--role=` zúží běh na jednu roli nebo několik (`--role=CODE,R2`). Hodí se na
+ověření řetězce: zkrátí se fronta i souboj, protože se nespouštějí sady
+ostatních rolí.
 
 ---
 

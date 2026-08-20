@@ -10,6 +10,7 @@
 //
 // Použití:
 //   node scripts/model-upgrade-hunt.js --shortlist          jen fáze 0+1 (nic nestahuje)
+//   node scripts/model-upgrade-hunt.js --role=CODE --run    jen jedna role
 //   node scripts/model-upgrade-hunt.js --run --limit=3      zkusí 3 nejlepší kandidáty
 //   node scripts/model-upgrade-hunt.js --run --only=qwen3.8:27b
 //   node scripts/model-upgrade-hunt.js --shortlist --json
@@ -47,7 +48,18 @@ const DO_RUN = flag('run');
 const AS_JSON = flag('json');
 const LIMIT = parseInt(val('limit') || '3', 10);
 const ONLY = (val('only') || '').split(',').map(s => s.trim()).filter(Boolean);
-const ROLES = Object.keys(config.models);
+/**
+ * Role, pro které se hledá.  `--role=CODE` zúží běh na jednu roli — hodí se
+ * na ověření řetězce, protože se tím zkrátí souboj i fronta kandidátů.
+ */
+const ROLE_FILTER = (val('role') || '').split(',').map(r => r.trim().toUpperCase()).filter(Boolean);
+const ALL_ROLES = Object.keys(config.models);
+const unknownRoles = ROLE_FILTER.filter(r => !ALL_ROLES.includes(r));
+if (unknownRoles.length) {
+  console.error(`Neznámá role: ${unknownRoles.join(', ')}. Dostupné: ${ALL_ROLES.join(', ')}`);
+  process.exit(1);
+}
+const ROLES = ROLE_FILTER.length ? ROLE_FILTER : ALL_ROLES;
 
 const log = (...a) => { if (!AS_JSON) console.log(...a); };
 
@@ -172,7 +184,9 @@ validationRunner.setDb(db);
 
 const installed = buildCandidates(await fetchInstalledModels());
 const installedNames = installed.map(m => m.name);
-log(`Nainstalováno: ${installedNames.length} modelů\n`);
+log(`Nainstalováno: ${installedNames.length} modelů`);
+if (ROLE_FILTER.length) log(`Omezeno na role: ${ROLES.join(', ')}`);
+log('');
 
 const bindings = { ...config.models };
 const { perRole, queue, familiesTotal } = await buildRoleShortlists(gpu, installedNames, bindings);
