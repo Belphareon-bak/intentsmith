@@ -64,9 +64,10 @@ přijatelná hranice **pro interní použití**.
 
 ### P0-2 Skutečný effect seam — ✅ **ZAPNUTO** (2026-08-19), rozsah `FILE_WRITE` + `fs.write`
 
-> **Výklad opraven** rozhodnutím [`028`](../decisions/028-approval-is-exceptional.md):
-> auto-approve je default, approval je **výjimka**, ne mýtné před každým zápisem.
-> Dnešní kód se ptá vždycky — to se mění fází M0 v zadání níž.
+> **Auto-approve je výchozí stav** (rozhodnutí [`028`](../decisions/028-approval-is-exceptional.md)).
+> Agent zapisuje bez ptaní; approval je **výjimka** pro případy, které
+> vyjmenovává `src/executor/write-policy.js` — jedno čitelné místo, protože co
+> je citlivé, rozhoduje operátor.
 >
 > Záznam implementace: [`WP-APPROVAL-PLANE-RESULT.md`](WP-APPROVAL-PLANE-RESULT.md).
 > Otevřené `P1` nálezy a mediace zbylých zapisovatelů:
@@ -122,6 +123,17 @@ nikoho nezachrání, když se na ni nikdo nedívá.
 **Pozor na rozsah.** Řízená cesta pokrývá `FILE_WRITE` intent a nástroj
 `fs.write`. **Nepokrývá** patch engine, skill write step ani další zapisovatele —
 mediace zbytku je samostatný balík a slib se zatím nesmí formulovat šířeji.
+
+**Kdy se ptá.** Secrety a klíče · CI a nasazení · přepis už aplikované migrace.
+Zápis do `.git/` se **odmítá**, ne ptá — otázka, na kterou je správná odpověď
+vždycky „ne", je jen zdržení. Všechno ostatní jde automaticky, ale **pořád přes
+tutéž cestu**: zámek, kanonický cíl, fencing a atomická náhrada platí i pro
+zápis, na který se nikdo neptal.
+
+Pravidlo, podle kterého ten seznam vznikl: *ptát se tam, kde je frekvence
+blízká nule a důsledek sahá mimo to, co jde snadno vrátit.* Proto v něm nejsou
+manifesty (`package.json`) — agent je při stavbě mění běžně a zajímavá otázka
+je stejně „smím nainstalovat tenhle balík", ne „smím editovat manifest".
 
 **Zrušení, timeout a osiřelý efekt.** Zrušení i vypršení času efekt
 **zastaví** — signál teče z controlleru přes handler i nástroj až do

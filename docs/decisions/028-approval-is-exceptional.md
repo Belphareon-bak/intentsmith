@@ -97,8 +97,10 @@ zablokovaná fronta.**
 
 ## 4. Co z toho plyne pro rozpracovanou práci
 
-1. **Otočit výchozí stav** — `writeUserFile` nesmí razit approval na každý
-   zápis. Ptaní řídí politika; bez pravidla se zapisuje.
+1. ~~**Otočit výchozí stav**~~ — **hotovo** (`src/executor/write-policy.js`,
+   `tests/write-policy.test.js` 11 PASS). Ptaní řídí politika; bez pravidla se
+   zapisuje. Deset běžných zápisů za sebou vyrobí **nula** approvalů a je to
+   zapsané jako test.
 2. **Fail-closed zůstává** v jiném smyslu: bez zapojené roviny se nezapisuje
    ne proto, že chybí souhlas, ale proto, že chybí zámek a záznam.
 3. **Mediace zbylých zapisovatelů se zmenšuje** — dostanou sdílenou cestu

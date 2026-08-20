@@ -128,7 +128,24 @@ async function withDeadline(promise, ms, what) {
   return outcome;
 }
 
-const target = () => path.join(workdir, 'cil.txt');
+// **Cíl je schválně citlivý soubor.**
+//
+// Od rozhodnutí `028` se agent na běžné soubory **neptá** — auto-approve je
+// výchozí stav.  Sady, které zkoumají approval, proto musí mířit na něco, co do
+// citlivé kategorie spadá; jinak by testovaly cestu, která se v produkci
+// neotevře.  `.env` je nejjednodušší takový soubor (`write-policy.js`, pravidlo
+// `secrets`).
+const target = () => path.join(workdir, '.env');
+
+// **Chatový handler `.env` blokuje úplně** (`forbidden_file`) — má vlastní,
+// tvrdší seznam než politika zápisu, a je to tak správně: na secret se neptá,
+// prostě ho odmítne.  Testy, které jdou přes handler, proto míří na CI soubor:
+// ten handler pustí a politika se na něj ptá (`write-policy.js`, `ci-deploy`).
+const handlerTarget = () => path.join(workdir, '.github', 'workflows', 'deploy.yml');
+const HANDLER_REL = '.github/workflows/deploy.yml';
+
+/** Běžný soubor — tenhle se ptát nemá. */
+const ordinaryTarget = () => path.join(workdir, 'cil.txt');
 
 // ── A1: zrušení zastaví zápis ──────────────────────────────────────────────
 
@@ -295,7 +312,7 @@ await test('A1 chatový handler předá zrušení dál — soubor nevznikne ani 
   const content = 'MUST-NOT-WRITE-HANDLER';
   const controller = new AbortController();
 
-  const answer = handleFileWriteDecision('ulož to', writeDecision('cil.txt'), {
+  const answer = handleFileWriteDecision('ulož to', writeDecision(HANDLER_REL), {
     history: [{ response: { content } }],
     project: { path: workdir },
     sessionId: 'session-A1',
@@ -310,9 +327,9 @@ await test('A1 chatový handler předá zrušení dál — soubor nevznikne ani 
   assert.equal(response.tag.metadata.writeState, 'cancelled',
     'handler zrušení nepředal — přesně sonda A1');
 
-  approveAnyPending({ path: target(), content });
+  approveAnyPending({ path: handlerTarget(), content });
   await yieldTick();
-  assert.equal(existsSync(target()), false, 'po zrušení a pozdním souhlasu vznikl soubor');
+  assert.equal(existsSync(handlerTarget()), false, 'po zrušení a pozdním souhlasu vznikl soubor');
 });
 
 await test('A3 dva tahy jedné relace jsou dva běhy, ne jeden držitel', async () => {
@@ -321,12 +338,12 @@ await test('A3 dva tahy jedné relace jsou dva běhy, ne jeden držitel', async 
 
   // Táž `sessionId`, dva různé `turnId` — přesně to, co dělá controller.
   const spolecne = { project: { path: workdir }, sessionId: 'session-A3' };
-  const prvni = handleFileWriteDecision('ulož', writeDecision('cil.txt'), {
+  const prvni = handleFileWriteDecision('ulož', writeDecision(HANDLER_REL), {
     ...spolecne, turnId: 'turn-A3-1', history: [{ response: { content: 'PRVNÍ' } }],
   });
   await pendingId();
   const druhy = await withDeadline(
-    handleFileWriteDecision('ulož', writeDecision('cil.txt'), {
+    handleFileWriteDecision('ulož', writeDecision(HANDLER_REL), {
       ...spolecne, turnId: 'turn-A3-2', history: [{ response: { content: 'DRUHÝ' } }],
     }),
     15_000, 'druhý tah se nezastavil na zámku');
@@ -334,9 +351,9 @@ await test('A3 dva tahy jedné relace jsou dva běhy, ne jeden držitel', async 
   assert.equal(druhy.tag.metadata.writeState, 'locked',
     'druhý tah téže relace prošel vedle prvního — sonda A3');
 
-  approveAnyPending({ path: target(), content: 'PRVNÍ' });
+  approveAnyPending({ path: handlerTarget(), content: 'PRVNÍ' });
   await prvni;
-  assert.equal(readFileSync(target(), 'utf8'), 'PRVNÍ');
+  assert.equal(readFileSync(handlerTarget(), 'utf8'), 'PRVNÍ');
 });
 
 await test('A2 timeout nástroje efekt zastaví, ne jen přestane čekat', async () => {

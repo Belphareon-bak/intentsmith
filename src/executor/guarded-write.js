@@ -68,9 +68,10 @@ export async function guardedWrite({
   rawDb, producer, runId, filePath, content,
   workspace = null, fs = null, ownerLabel = null,
   timeoutMs = null, origin = 'local', deviceId = null, onAsked = null, signal = null,
+  approval = 'required',
 } = {}) {
   if (!rawDb) throw new Error('guardedWrite: rawDb required');
-  if (!producer) throw new Error('guardedWrite: producer required');
+  if (approval !== 'auto' && !producer) throw new Error('guardedWrite: producer required');
   if (!runId) throw new Error('guardedWrite: runId required');
 
   const io = fs || await defaultFs();
@@ -138,7 +139,28 @@ export async function guardedWrite({
     }
     const before = beforeRead.content;
 
-    const approval = await producer.requestApproval({
+    // ── 2b. Ptát se, nebo ne — rozhodla politika (`028`) ────────────────
+    //
+    // `approval: 'auto'` **není slabší cesta**.  Zámek, kanonický cíl, fencing
+    // i atomická náhrada platí stejně; vynechává se jediná věc — otázka.  Tak
+    // vypadá běžný zápis, na který se podle `028` ptát nemá, a je to výchozí
+    // stav, ne výjimka.
+    if (approval === 'auto') {
+      const fence = assertStillHeld(rawDb, { lockId: lock.lock.id, runId });
+      if (!fence.ok) {
+        return { state: 'lock_lost', written: false, detail: fence };
+      }
+      if (signal?.aborted) {
+        return { state: 'cancelled', written: false, reason: 'aborted_before_write' };
+      }
+      await commitFile(io, effectPath, content);
+      return {
+        state: 'written', written: true, target: effectPath,
+        approvalId: null, decidedBy: 'policy:auto', bytes: content.length,
+      };
+    }
+
+    const approvalRow = await producer.requestApproval({
       origin,
       runId,
       operationRef: `fs.write:${effectPath}`,
@@ -156,7 +178,7 @@ export async function guardedWrite({
       // ohledu na to, jestli ji IDE stihlo vykreslit.  Kdyby to shodilo běh,
       // byla by přídavná plocha křehčí než ta hlavní.
       try {
-        await onAsked({ ...approval, filePath, before });
+        await onAsked({ ...approvalRow, filePath, before });
       } catch { /* plocha si neporadila; approval stojí */ }
     }
 
@@ -175,7 +197,7 @@ export async function guardedWrite({
     if (typeof heartbeat.unref === 'function') heartbeat.unref();
 
     // ── 3. Čekání na člověka ────────────────────────────────────────────
-    const answer = await producer.awaitDecision(approval.id, {
+    const answer = await producer.awaitDecision(approvalRow.id, {
       timeoutMs,
       signal,
       // Čtečka je fail-closed: nepřečtený cíl **není** „neexistuje".  Producent
@@ -195,8 +217,8 @@ export async function guardedWrite({
       // Otázka končí **trvale** (nález 4 z review).  Bez toho by řádek zůstal
       // `decided_at IS NULL`, fronta by ho dál nabízela k rozhodnutí a někdo by
       // odpověděl na zápis, který už nemá kdo provést — „ghost approval".
-      closeQuestion(approval.id, answer.state, answer.reason);
-      return { state: answer.state, written: false, approvalId: approval.id, detail: answer };
+      closeQuestion(approvalRow.id, answer.state, answer.reason);
+      return { state: answer.state, written: false, approvalId: approvalRow.id, detail: answer };
     }
 
     // ── 4. Poslední kontrola, teprve pak zápis ──────────────────────────
@@ -223,12 +245,12 @@ export async function guardedWrite({
     // „Nic dalšího se neprovedlo" by přestalo platit právě v tom případě, kdy
     // na tom uživateli záleží nejvíc.
     if (signal?.aborted) {
-      closeQuestion(approval.id, 'cancelled', 'aborted_after_decision');
-      return { state: 'cancelled', written: false, approvalId: approval.id, reason: 'aborted_after_decision' };
+      closeQuestion(approvalRow.id, 'cancelled', 'aborted_after_decision');
+      return { state: 'cancelled', written: false, approvalId: approvalRow.id, reason: 'aborted_after_decision' };
     }
     if (lostLock) {
-      closeQuestion(approval.id, 'lock_lost', lostLock.reason);
-      return { state: 'lock_lost', written: false, approvalId: approval.id, detail: lostLock };
+      closeQuestion(approvalRow.id, 'lock_lost', lostLock.reason);
+      return { state: 'lock_lost', written: false, approvalId: approvalRow.id, detail: lostLock };
     }
     // Rezervace se **obnoví** těsně před poslední kontrolou.
     //
@@ -240,32 +262,32 @@ export async function guardedWrite({
     try {
       refreshFileLock(rawDb, { lockId: lock.lock.id, runId });
     } catch (error) {
-      closeQuestion(approval.id, 'lock_lost', 'refresh_before_commit_failed');
+      closeQuestion(approvalRow.id, 'lock_lost', 'refresh_before_commit_failed');
       return {
-        state: 'lock_lost', written: false, approvalId: approval.id,
+        state: 'lock_lost', written: false, approvalId: approvalRow.id,
         detail: { reason: 'refresh_before_commit_failed', message: error.message },
       };
     }
 
     const fence = assertStillHeld(rawDb, { lockId: lock.lock.id, runId });
     if (!fence.ok) {
-      closeQuestion(approval.id, 'lock_lost', fence.reason);
-      return { state: 'lock_lost', written: false, approvalId: approval.id, detail: fence };
+      closeQuestion(approvalRow.id, 'lock_lost', fence.reason);
+      return { state: 'lock_lost', written: false, approvalId: approvalRow.id, detail: fence };
     }
 
     const finalRead = await readTargetState(io, effectPath);
     if (!finalRead.ok) {
-      closeQuestion(approval.id, 'precondition_unverifiable', finalRead.code);
+      closeQuestion(approvalRow.id, 'precondition_unverifiable', finalRead.code);
       return {
         state: 'precondition_unverifiable', written: false,
-        approvalId: approval.id, target: effectPath, code: finalRead.code,
+        approvalId: approvalRow.id, target: effectPath, code: finalRead.code,
       };
     }
     if (digestOf(finalRead.content) !== digestOf(before)) {
-      closeQuestion(approval.id, 'precondition_changed', 'changed_before_write');
+      closeQuestion(approvalRow.id, 'precondition_changed', 'changed_before_write');
       return {
         state: 'precondition_changed', written: false,
-        approvalId: approval.id, target: effectPath, reason: 'changed_before_write',
+        approvalId: approvalRow.id, target: effectPath, reason: 'changed_before_write',
       };
     }
 
@@ -278,12 +300,12 @@ export async function guardedWrite({
     // není compare-and-swap. Slib to říká nahlas a nepředstírá víc.
     const lastFence = assertStillHeld(rawDb, { lockId: lock.lock.id, runId });
     if (!lastFence.ok) {
-      closeQuestion(approval.id, 'lock_lost', lastFence.reason);
-      return { state: 'lock_lost', written: false, approvalId: approval.id, detail: lastFence };
+      closeQuestion(approvalRow.id, 'lock_lost', lastFence.reason);
+      return { state: 'lock_lost', written: false, approvalId: approvalRow.id, detail: lastFence };
     }
     if (lostLock) {
-      closeQuestion(approval.id, 'lock_lost', lostLock.reason);
-      return { state: 'lock_lost', written: false, approvalId: approval.id, detail: lostLock };
+      closeQuestion(approvalRow.id, 'lock_lost', lostLock.reason);
+      return { state: 'lock_lost', written: false, approvalId: approvalRow.id, detail: lostLock };
     }
 
     // Atomicky: dočasný soubor + `rename`.  Zkrácení cíle na nulu a pád
@@ -294,7 +316,7 @@ export async function guardedWrite({
     return {
       state: 'written',
       written: true,
-      approvalId: approval.id,
+      approvalId: approvalRow.id,
       target: effectPath,
       decidedBy: answer.decidedBy || null,
       bytes: content.length,

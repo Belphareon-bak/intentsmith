@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 414
+- Runnable programs: 415
 - Explicit support-module exclusions: 9
-- Profiles: offline=199, database=59, server=37, model=85, soak=19, manual=15
-- States: ACTIVE=316, HISTORICAL=15, BLOCKED=83
+- Profiles: offline=199, database=60, server=37, model=85, soak=19, manual=15
+- States: ACTIVE=317, HISTORICAL=15, BLOCKED=83
 
 ## Execution profiles
 
@@ -447,6 +447,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-WORKERS-PHASE-B-TEST` | `tests/workers-phase-b.test.js` | `C3-015` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-WORKFLOW-ORCHESTRATOR-TEST` | `tests/workflow-orchestrator.test.js` | `C3-027` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-WORKFLOW-TEST` | `tests/workflow.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T2-TESTS-WRITE-POLICY-TEST` | `tests/write-policy.test.js` | `C3-031` | T2 | `database` | 15 s | 3 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-WS-BRIDGE-TEST` | `tests/ws-bridge.test.js` | `C3-023` | T1 | `offline` | 30 s | 2 min | network:loopback | yes | `ACTIVE` | — | primary implementer |
 
 ## Explicit support-module exclusions

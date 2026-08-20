@@ -71,7 +71,11 @@ otočit výchozí stav na auto-approve.
 
 ---
 
-## 2.1 Fáze M0 — approval přestane být mýtné
+## 2.1 Fáze M0 — approval přestane být mýtné · ✅ **HOTOVO**
+
+> Doděláno 2026-08-20. `src/executor/write-policy.js` + `guardedWrite({ approval:
+> 'auto' })`. Seznam citlivých kategorií odsouhlasil operátor. Zbytek téhle
+> sekce je popis toho, co se udělalo — ne úkol.
 
 `src/executor/effects.js`
 
@@ -89,9 +93,10 @@ z pohledu uživatele k nerozeznání od rozbité.
   ne kvůli chybějícímu souhlasu, ale kvůli chybějícímu zámku a záznamu.
   Přepsat i komentáře, které dnes tvrdí to první.
 
-**Co ještě není rozhodnuté:** co přesně je „důležitý soubor". Secrety a `.env`
-jsou zřejmé; migrace, CI, manifesty a konfigurace projektu **ne**. Nehádej —
-připrav to jako seznam k odsouhlasení a zeptej se.
+**Rozhodnuto 2026-08-20:** ptá se na **secrety a klíče**, **CI a nasazení**
+a **přepis už aplikované migrace**. `.git/` se odmítá bez ptaní. Manifesty
+(`package.json`) se **neptají** — agent je při stavbě mění běžně a správná páka
+je kontrola instalace balíku, ne zápisu souboru.
 
 **Test:** deset zápisů do běžných souborů za sebou → **nula approvalů**; zápis
 do souboru z citlivého seznamu → approval; bez zapojené roviny → nezapisuje se.

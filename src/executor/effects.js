@@ -30,12 +30,14 @@
 //
 // Cesta je jedna, ale co po ní jde, závisí na tom, co je zapojené:
 //
-// **Pozor — tenhle modul se dnes ptá na každý zápis a to je vada zadání.**
-// Rozhodnutí `028` (2026-08-20) říká, že **auto-approve je default** a approval
-// je výjimka pro pojmenované situace (citlivé soubory, změna směru proti
-// roadmapě, chybějící pravidlo).  Fáze M0 v `docs/execution/approval-mediation.md`
-// sem doplní politiku; do té doby platí, co je níž, včetně toho, že se to ptá
-// víc, než má.
+// **Auto-approve je výchozí stav** (rozhodnutí `028`).  Agent zapisuje bez
+// ptaní; approval je výjimka pro případy, které pojmenovává
+// `src/executor/write-policy.js` — a ten seznam je schválně na jednom čitelném
+// místě, protože co je citlivé, rozhoduje operátor.
+//
+// Do 2026-08-20 se to ptalo na **každý** zápis.  Nebyla to vada kódu, ale
+// zadání: vrstva, která se ozve pokaždé, je z pohledu uživatele k nerozeznání
+// od rozbité.
 //
 // **Zapisuje jen režim `approval`.**  Ostatní dva odmítají a nic nezapíšou:
 //
@@ -56,6 +58,8 @@
 // ==============================================================================
 
 import { guardedWrite } from './guarded-write.js';
+import { canonicalTarget, describeWorkspace } from './file-lock.js';
+import { classifyWrite, readAppliedMigrations } from './write-policy.js';
 
 /**
  * Jak dlouho běh čeká na rozhodnutí, když si volající neřekne jinak.
@@ -141,11 +145,41 @@ export async function writeUserFile({
     };
   }
 
+  // Politika se ptá nad **kanonickým** cílem, ne nad tím, co přišlo.
+  // Symlink `poznamky.txt` mířící na `.env` je zápis do `.env` a musí spadnout
+  // do téže kategorie — jinak by se pravidlo dalo obejít pojmenováním.
+  const space = workspace || describeWorkspace();
+  const target = canonicalTarget(space, filePath);
+  const verdict = classifyWrite({
+    relativePath: target.path,
+    appliedMigrations: readAppliedMigrations(_db),
+  });
+
+  if (verdict.action === 'refuse') {
+    // Otázka, na kterou je správná odpověď vždycky „ne", je jen zdržení.
+    return {
+      state: 'refused_forbidden',
+      written: false,
+      guard: 'approval',
+      target: target.real,
+      rule: verdict.rule,
+      message: verdict.reason,
+    };
+  }
+
   const result = await guardedWrite({
     rawDb: _db, producer: _producer, runId, filePath, content,
-    workspace, fs, ownerLabel, timeoutMs, origin, deviceId, onAsked, signal,
+    workspace: space, fs, ownerLabel, timeoutMs, origin, deviceId, onAsked, signal,
+    approval: verdict.action === 'ask' ? 'required' : 'auto',
   });
-  return { ...result, guard: 'approval' };
+  return {
+    ...result,
+    guard: 'approval',
+    // Ať je ve výsledku vidět, **jestli se někdo ptal a proč** — bez toho by se
+    // automatický zápis nedal odlišit od schváleného.
+    asked: verdict.action === 'ask',
+    ...(verdict.rule ? { rule: verdict.rule, ruleReason: verdict.reason } : {}),
+  };
 }
 
 export default {

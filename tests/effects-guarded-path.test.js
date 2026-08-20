@@ -90,7 +90,24 @@ async function answerPending(decision, payload) {
   throw new Error('žádný approval nevznikl');
 }
 
-const target = () => path.join(workdir, 'poznamka.md');
+// **Cíl je schválně citlivý soubor.**
+//
+// Od rozhodnutí `028` se agent na běžné soubory **neptá** — auto-approve je
+// výchozí stav.  Sady, které zkoumají approval, proto musí mířit na něco, co do
+// citlivé kategorie spadá; jinak by testovaly cestu, která se v produkci
+// neotevře.  `.env` je nejjednodušší takový soubor (`write-policy.js`, pravidlo
+// `secrets`).
+const target = () => path.join(workdir, '.env');
+
+// **Chatový handler `.env` blokuje úplně** (`forbidden_file`) — má vlastní,
+// tvrdší seznam než politika zápisu, a je to tak správně: na secret se neptá,
+// prostě ho odmítne.  Testy, které jdou přes handler, proto míří na CI soubor:
+// ten handler pustí a politika se na něj ptá (`write-policy.js`, `ci-deploy`).
+const handlerTarget = () => path.join(workdir, '.github', 'workflows', 'deploy.yml');
+const HANDLER_REL = '.github/workflows/deploy.yml';
+
+/** Běžný soubor — tenhle se ptát nemá. */
+const ordinaryTarget = () => path.join(workdir, 'poznamka.md');
 
 // ── 1. Režim se pojmenuje, nespoléhá se na ticho ───────────────────────────
 
@@ -198,19 +215,19 @@ await test('P0-2 chatový handler se ptá — soubor nevznikne před rozhodnutí
   clear();
   enableApprovals();
   const content = 'obsah z konverzace';
-  const answer = handleFileWriteDecision('ulož to', writeDecision('poznamka.md'), {
+  const answer = handleFileWriteDecision('ulož to', writeDecision(HANDLER_REL), {
     history: [{ response: { content } }],
     project: { path: workdir },
     sessionId: 'session-A',
   });
 
   await yieldTick();
-  assert.equal(existsSync(target()), false, 'handler zapsal dřív, než se kdokoli zeptal');
+  assert.equal(existsSync(handlerTarget()), false, 'handler zapsal dřív, než se kdokoli zeptal');
 
-  await answerPending('approve', { path: target(), content });
+  await answerPending('approve', { path: handlerTarget(), content });
   const response = await answer;
 
-  assert.equal(readFileSync(target(), 'utf8'), content);
+  assert.equal(readFileSync(handlerTarget(), 'utf8'), content);
   assert.equal(response.tag.metadata.guard, 'approval',
     'handler zapsal mimo řízenou cestu');
 });
@@ -219,15 +236,15 @@ await test('P0-2 zamítnutý chatový zápis nevytvoří soubor a řekne proč',
   clear();
   enableApprovals();
   const content = 'tohle uživatel odmítne';
-  const answer = handleFileWriteDecision('ulož to', writeDecision('poznamka.md'), {
+  const answer = handleFileWriteDecision('ulož to', writeDecision(HANDLER_REL), {
     history: [{ response: { content } }],
     project: { path: workdir },
     sessionId: 'session-B',
   });
-  await answerPending('reject', { path: target(), content });
+  await answerPending('reject', { path: handlerTarget(), content });
   const response = await answer;
 
-  assert.equal(existsSync(target()), false);
+  assert.equal(existsSync(handlerTarget()), false);
   assert.equal(response.tag.metadata.writeState, 'reject');
   assert.match(response.content, /zamítnut/i);
 });
