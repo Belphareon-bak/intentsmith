@@ -16,6 +16,8 @@
 //   node scripts/model-scoring-report.js                  # rychlý žebříček
 //   node scripts/model-scoring-report.js --validate       # + reálné testy
 //   node scripts/model-scoring-report.js --validate --only=qwq:32b,glm-4.7-flash
+//   node scripts/model-scoring-report.js --matrix         # vhodnost modelů pro role
+//   node scripts/model-scoring-report.js --matrix --measure  # + VRAM a rychlost
 //   node scripts/model-scoring-report.js --json           # strojový výstup
 //
 // ══════════════════════════════════════════════════════════════════════════════
@@ -29,6 +31,8 @@ import { discover } from '../src/upgrade/model-discovery.js';
 import { scoreModel, checkRoleEligibility } from '../src/upgrade/model-ranker.js';
 import { getSuiteForRole, validationRunner } from '../src/upgrade/validation-suites.js';
 import { canonicalModelName, sameModelName } from '../src/upgrade/model-identity.js';
+import { measureModel, drainResident } from '../src/upgrade/vram-measurement.js';
+import { MODEL_PROFILES } from '../src/upgrade/model-profiles.js';
 import { config } from '../src/config.js';
 
 const args = process.argv.slice(2);
@@ -39,6 +43,8 @@ const value = name => {
 };
 
 const DO_VALIDATE = flag('validate');
+const AS_MATRIX = flag('matrix');
+const DO_MEASURE = flag('measure');
 const AS_JSON = flag('json');
 const ONLY = (value('only') || '').split(',').map(s => s.trim()).filter(Boolean);
 
@@ -251,9 +257,116 @@ for (const [key, info] of byModel) {
 }
 removable.sort((a, b) => b.sizeGB - a.sizeGB);
 
+// ─── Matice vhodnosti pro role ──────────────────────────────────────────────
+
+/**
+ * Ze samotné velikosti a propustnosti se nepozná, na co se model hodí.
+ * Matice ukazuje pro každou dvojici model × role tři věci najednou:
+ *
+ *   - jestli je pro roli vůbec způsobilý (`—` = není, s důvodem pod tabulkou)
+ *   - skóre pro tu roli, které už zahrnuje benchmarky vážené podle role
+ *   - naměřenou validaci na sadě té role
+ *
+ * Vision a další specializované role se u nespůsobilých modelů neměří vůbec —
+ * cross-kategorie testování nemá smysl a jen by stálo čas.
+ */
+async function renderMatrix() {
+  const measured = new Map();
+  if (DO_MEASURE) {
+    log('Měřím VRAM a propustnost (modely se načítají po jednom)…\n');
+    for (const m of local) {
+      const r = await measureModel(m.name);
+      measured.set(m.name, r);
+    }
+    await drainResident();
+  }
+
+  const nameW = Math.max(...local.map(m => m.name.length), 22);
+  const head = 'MODEL'.padEnd(nameW) + (DO_MEASURE ? '   VRAM   tok/s' : '')
+    + ROLES.map(r => r.padStart(10)).join('');
+  log(head);
+  log('─'.repeat(head.length));
+
+  const ineligible = [];
+  for (const model of local) {
+    const meas = measured.get(model.name);
+    let line = model.name.padEnd(nameW);
+    if (DO_MEASURE) {
+      const p = meas?.placement;
+      const vram = p?.sizeBytes ? `${(p.sizeBytes / 2 ** 30).toFixed(1)}G` : '—';
+      line += `  ${(meas?.fits ? vram : `!${vram}`).padStart(6)} `
+        + `${String(meas?.throughput?.tokensPerSecond ?? '—').padStart(6)}`;
+    }
+    for (const role of ROLES) {
+      const row = table.find(t => t.role === role && t.model === model.name);
+      if (!row?.eligible) {
+        line += '         —';
+        ineligible.push(`${model.name} · ${role}: ${row?.ineligibleReason || 'nezpůsobilý'}`);
+        continue;
+      }
+      const bound = sameModelName(model.name, config.models[role]);
+      // Skóre i naměřená validace vedle sebe: skóre je odhad z benchmarků,
+      // validace je jediný přímý důkaz o chování modelu na úlohách té role.
+      // Kde se rozcházejí, je skóre podezřelé.
+      const val = row.validationScore == null
+        ? ' --'
+        : String(Math.round(row.validationScore * 100)).padStart(3);
+      line += (bound ? '*' : ' ') + `${row.score.toFixed(2)}·${val}%`;
+    }
+    log(line);
+  }
+
+  log('\nBuňka = skóre·validace. Skóre je odhad z benchmarků vážených podle role,'
+    + '\nvalidace je naměřený výsledek na sadě té role (-- = neměřeno).'
+    + '\n* = aktuálně navázaný, — = pro roli nezpůsobilý'
+    + (DO_MEASURE ? ', ! před VRAM = nevejde se celý' : ''));
+
+  // Kde se odhad a měření rozcházejí, je odhad podezřelý — typicky proto, že
+  // model chybí v ručním katalogu a benchmarková složka mu vyjde skoro nulová.
+  const conflicts = [];
+  for (const role of ROLES) {
+    const rows = table.filter(t => t.role === role && t.eligible && t.validationScore != null);
+    if (rows.length < 2) continue;
+    const byScore = [...rows].sort((a, b) => b.score - a.score)[0];
+    const byVal = [...rows].sort((a, b) => b.validationScore - a.validationScore)[0];
+    if (byScore.model !== byVal.model && byVal.validationScore - byScore.validationScore >= 0.15) {
+      conflicts.push(`${role}: skóre vede ${byScore.model} (val ${(byScore.validationScore * 100).toFixed(0)} %), `
+        + `ale nejlépe měřený je ${byVal.model} (val ${(byVal.validationScore * 100).toFixed(0)} %)`);
+    }
+  }
+  if (conflicts.length) {
+    log(`\n⚠ ODHAD SE ROZCHÁZÍ S MĚŘENÍM (${conflicts.length}) ══`);
+    for (const c of conflicts) log(`  ${c}`);
+  }
+
+  const uncatalogued = local.filter(m => (m.benchmarkConfidence ?? 0) === 0 || !m.benchmarks);
+  if (uncatalogued.length) {
+    log(`\n⚠ BEZ KATALOGOVÉHO PODKLADU (${uncatalogued.length}) — skóre je podhodnocené:`);
+    log(`  ${uncatalogued.map(m => m.name).join(', ')}`);
+  }
+
+  log('\n══ NEJLEPŠÍ PRO KAŽDOU ROLI ══');
+  for (const role of ROLES) {
+    const rows = table.filter(t => t.role === role && t.eligible).sort((a, b) => b.score - a.score);
+    if (!rows.length) { log(`  ${role.padEnd(7)} žádný způsobilý model`); continue; }
+    const best = rows[0];
+    const bound = config.models[role];
+    const mark = sameModelName(best.model, bound) ? '= už navázaný' : `≠ nyní ${bound}`;
+    const val = best.validationScore == null ? '' : `, validace ${(best.validationScore * 100).toFixed(0)} %`;
+    log(`  ${role.padEnd(7)} ${best.model.padEnd(nameW)} ${best.score.toFixed(3)}  ${mark}${val}`);
+  }
+
+  if (ineligible.length) {
+    log(`\n══ NEZPŮSOBILÉ DVOJICE (${ineligible.length}) ══`);
+    for (const item of ineligible) log(`  ${item}`);
+  }
+}
+
 // ─── Výstup ─────────────────────────────────────────────────────────────────
 
-if (AS_JSON) {
+if (AS_MATRIX) {
+  await renderMatrix();
+} else if (AS_JSON) {
   console.log(JSON.stringify({
     gpuVramMb,
     validated: DO_VALIDATE,
