@@ -11,18 +11,22 @@ rozhodnutí, pracovních pravidel, aktuálního stavu ani release procedury.
    která směrová rozhodnutí už operátor udělal.
 3. [`CONTRACT.md`](CONTRACT.md) — závazný způsob práce, pravomoci, invarianty a
    důkazní pravidla.
-4. [`ROADMAP.md`](ROADMAP.md) — závislosti, milníky, paralelní proudy a aktuální
+4. [`docs/development/agent-protocol.md`](docs/development/agent-protocol.md) —
+   způsob práce agenta v repozitáři, přijatý v `CONTRACT.md §10`. Podřízený
+   `CONTRACT.md`; anglicky.
+5. [`ROADMAP.md`](ROADMAP.md) — závislosti, milníky, paralelní proudy a aktuální
    pořadí práce.
-5. [`SYSTEM-MAP.md`](SYSTEM-MAP.md) — aktuálně změřený stav a mapování
+6. [`SYSTEM-MAP.md`](SYSTEM-MAP.md) — aktuálně změřený stav a mapování
    schopností na kód.
-6. Příslušný dokument v [`docs/inventory/`](docs/inventory/) — detail části,
+7. Příslušný dokument v [`docs/inventory/`](docs/inventory/) — detail části,
    které se práce skutečně týká.
 
 ## Autorita dokumentů
 
 - produkt a rozsah: přijatá verze `PRODUCT.md`;
 - evoluční směr a operátorská rozhodnutí: `DIRECTION.md`;
-- způsob práce: `CONTRACT.md`;
+- způsob práce: `CONTRACT.md`, pro agenta upřesněný v
+  `docs/development/agent-protocol.md`;
 - prováděcí pořadí: přijatá verze `ROADMAP.md`;
 - změřená fakta: `SYSTEM-MAP.md`.
 
@@ -30,6 +34,12 @@ Stav v hlavičce dokumentu je závazný. Soubor označený jako pracovní návrh
 čte kvůli kontextu a review, ale sám se nestává operátorským rozhodnutím.
 Do jeho přijetí platí již zapsaná rozhodnutí v `DIRECTION.md` a pracovní pravidla
 v `CONTRACT.md`.
+
+**Co vznikne během běhu, není autorita.** Plán, report, návrhová poznámka ani
+nový test nezakládají požadavek — smějí ho vysvětlit, implementovat nebo ověřit.
+Jakmile je soubor vytvořený v tomto běhu citován jako zdroj požadavku, práce se
+zastaví a vrátí k poslednímu nezávisle autoritativnímu požadavku.
+`CONTRACT.md §10`.
 
 Historické dokumenty v `docs/convergence/` a release evidence zůstávají
 důkazem minulých běhů. Nejsou instrukcí pro běžný vývoj. Gate 0 se spouští jen
@@ -42,3 +52,9 @@ Než cokoli změníš, ověř aktuální `HEAD`, větev, remotes, worktrees a pr
 strom. Cizí nebo nejasně vlastněné změny zachovej. Potom sleduj skutečný call
 graph a podle potřeby spusť produkt; dokument ani název testu není náhradou za
 pozorované chování.
+
+Pak **pojmenuj konkrétní autoritativní položku, kterou tenhle běh posouvá** —
+výstup aktivního Work Package, položku `ROADMAP.md §12`, schopnost ze
+`SYSTEM-MAP.md`, přijaté a neimplementované rozhodnutí z `docs/decisions/`,
+otevřenou regresi, nebo explicitní zadání operátora. Když ji pojmenovat nelze,
+zeptej se. Nezahajuj práci proto, abys zjistil, co ta práce je.

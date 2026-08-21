@@ -1,6 +1,6 @@
 # IntentSmith — pravidla vývoje
 
-**Verze:** 2 · **Datum:** 2026-08-03 · **Vlastník:** operátor
+**Verze:** 3 · **Datum:** 2026-08-21 · **Vlastník:** operátor
 
 > Tento dokument je **jediný zdroj pravdy pro pravidla vývoje**. Kde si jakýkoli
 > jiný dokument v repozitáři odporuje s tímto, platí tento.
@@ -377,3 +377,59 @@ toho se nesmí přenést jako otevřený blocker přes M5.
 - **Osud legacy web UI** `/architect` — není cílové UI, ale disposition není schválená.
 - **#18b upgrade automatika** — background síť je vypnutá; zůstává rozhodnout
   dlouhodobé retain/defer/retire.
+
+---
+
+## 10. Protokol implementačního agenta
+
+**Rozhodnutí operátora, 2026-08-21.** Způsob práce agenta v repozitáři upravuje
+[`docs/development/agent-protocol.md`](docs/development/agent-protocol.md). Ten
+dokument je **podřízený tomuto** — je jeho kapitolou vynesenou do samostatného
+souboru, ne druhou autoritou vedle něj. Je psaný anglicky, což je vědomá výjimka
+z jazyka zbytku korpusu.
+
+### Proč vznikl
+
+Dlouhý autonomní běh selhal tím, že vyráběl dokumenty a testy, které pak
+ospravedlňovaly další dokumenty a testy, aniž pohnul jakýmkoli akceptačním
+kritériem. Je to stejná nemoc, kterou měří `DIRECTION.md` §0 poměrem aparátu
+k produktu 5 : 1 — jen na úrovni jednoho běhu místo čtyř dnů.
+
+### Co z něj platí závazně
+
+- **Co agent v běhu vytvoří, není autorita.** Plán, návrhová poznámka, report,
+  nový test ani odvozené kritérium nezakládají požadavek. Smějí ho vysvětlit,
+  implementovat nebo ověřit. Autoritou se stanou až přijatým rozhodnutím
+  v `docs/decisions/`, zápisem do `ROADMAP.md` / `SYSTEM-MAP.md`, nebo souhlasem
+  operátora.
+- **Stop podmínka.** Jakmile je soubor vzniklý v tomto běhu citován jako zdroj
+  požadavku, práce se zastaví a vrátí k poslednímu nezávisle autoritativnímu
+  požadavku. Artefakty se nemažou; přestanou být autoritou.
+- **Vstup do běhu.** Před první změnou musí agent pojmenovat konkrétní
+  autoritativní položku, kterou běh posouvá. Když ji pojmenovat nelze, ptá se.
+  Nezahajuje práci proto, aby zjistil, co ta práce je — to už zakazuje §7.
+- **Pokrok je pohyb existujícího požadavku k akceptaci.** Commity, testy,
+  dokumenty a spotřebované tokeny samy o sobě pokrok nejsou. Test a dokumentace,
+  které vyžaduje tento kontrakt nebo akceptační podmínka aktivního WP, pokrok
+  jsou — omezení míří jen na to, co vzniká **nad** požadavek.
+- **Watchdog jde do handoffu, ne do souboru.** Watchdog, který vyrábí dokumenty,
+  je přesně ta vada, které má bránit.
+- **Test registrovaný v `tests/registry.json` nebo vázaný na akceptační podmínku
+  aktivního WP nesmí agent přeznačit na vadný nebo zastaralý.** To je eskalace,
+  ne rozhodnutí agenta. Navazuje na zákaz v §7.
+
+### Vztah ke Gate 0
+
+Protokol **nevrací Gate 0 do běžného vývoje**. Slovem *gate* se v něm myslí
+akceptační podmínka aktivního Work Package a zelená `L1`, nikdy attestační
+řetěz `C→E→R→A`. Platí §8 beze změny, včetně toho, že
+`nightly-orchestrator-self-test` a rozchod s zapečetěným fingerprintem registru
+jsou při vývoji **očekávaný stav, ne vada**.
+
+### Přednost
+
+Pořadí je vypsané v `agent-protocol.md` §0. Shrnutí: `L0` invarianty
+a `docs/security/` → přijatá rozhodnutí `docs/decisions/` → zbytek tohoto
+dokumentu → `PRODUCT.md` / `DIRECTION.md` / `ROADMAP.md` / zadání aktivního WP →
+protokol → cokoli z běhu. Kde by protokol vypadal, že dovoluje vynechat něco,
+co vyžaduje vyšší položka, platí vyšší položka a protokol je čten špatně.

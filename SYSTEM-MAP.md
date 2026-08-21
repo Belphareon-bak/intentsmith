@@ -300,6 +300,26 @@ znění v [`CONTRACT.md`](CONTRACT.md) §2.
 
 ---
 
+## Otevřené release-blocking vady
+
+Kanonické místo pro selhání, které je **předchozí, release-blocking a nezpůsobené
+právě rozpracovanou změnou** — `CONTRACT.md §10`,
+[`agent-protocol.md §12`](docs/development/agent-protocol.md). Každá položka
+uvádí padající test nebo bránu, co blokuje, pozorovanou kauzalitu a prioritu.
+Detail smí být v samostatném findingu; ten se odsud odkazuje, nenahrazuje tento
+seznam. **Nezakládá se na to další sledovací dokument.**
+
+Tahle sekce není totéž co „Známý stav, který se vědomě neřeší" níže: tam patří
+věci, u kterých už operátor rozhodl, že se odkládají. Sem patří to, co blokuje
+a rozhodnuté není.
+
+Nepatří sem selhání, které `CONTRACT.md §8` označuje jako při vývoji očekávané —
+`nightly-orchestrator-self-test` a rozchod se zapečetěným fingerprintem registru.
+
+| Vada | Blokuje | Kauzalita | Priorita |
+|---|---|---|---|
+| `npm run test:registry` končí exit 1: **10 neregistrovaných testovacích programů** — `candidate-trial`, `catalog-enrichment`, `code-patch-runner`, `code-patch-suite`, `code-task-extractor`, `function-span`, `huggingface-client`, `model-sweep`, `pairwise-trial`, `vram-measurement` | Povinnou kontrolu `agent-protocol.md §16`; zároveň je počet v `README.md` odvozený z `tests/registry.json`, takže je vůči skutečné testové sadě zastaralý | Testy vznikly v sérii eval commitů 2026-08-19 až 2026-08-21 (`cb8afd3a` … `43687e6b`) a nebyly zapsány do `tests/registry.json`. Změřeno na čistém `43687e6b` — není to důsledek portu protokolu | Střední. Nebrání produktové práci, ale drží povinnou kontrolu červenou, takže maskuje další drift registru. Každá z 10 sad potřebuje vlastní klasifikaci stavu a requirements, což je zapisující práce, ne úklid |
+
 ## Známý stav, který se vědomě neřeší
 
 Zaznamenané, rozhodnuté, ne zapomenuté.
