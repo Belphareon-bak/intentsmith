@@ -330,7 +330,17 @@ try {
   // e7829077 and removal of the dead multi-agent suite. The unprotected set
   // below remains the fail-closed safety assertion; this count only pins the
   // reviewed import-graph census.
-  const expectedDatabaseReachableRootTests = 95;
+  //
+  // Re-reviewed 2026-08-21. Two independent movements since the 2026-08-03
+  // review, both verified against the unprotected assertion below:
+  //   95 -> 98  eval/model-platform suites added 2026-08-19..21, each importing
+  //             the shared harness; nobody re-pinned the census. The temp
+  //             bootstrap assertion above failed first and masked this drift.
+  //   98 -> 99  module-boundary-ratchet.test.js creates temp directories and
+  //             was the one root test without a static isolation bootstrap.
+  //             The canonical bootstrap moved it into this census; it does not
+  //             evaluate the database.
+  const expectedDatabaseReachableRootTests = 99;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,

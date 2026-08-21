@@ -13,6 +13,12 @@ import { dirname, join, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+// Kanonický direct-run isolation bootstrap.  Import má vedlejší efekt:
+// nastaví INTENTSMITH_TEST_ARTIFACT_DIR na soukromý kořen, takže scratch
+// níž nespadne do sdíleného tmpdir().  Vyžaduje harness-exit-code.test.js
+// po každém root testu, který vytváří temp adresáře.
+import './helpers/isolated-test-db.js';
+
 const TEST_PATH = fileURLToPath(import.meta.url);
 const ROOT = resolve(dirname(TEST_PATH), '..');
 const CHECKER = join(ROOT, 'scripts/module-boundary-ratchet.mjs');

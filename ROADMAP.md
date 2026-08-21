@@ -913,6 +913,22 @@ M1 runtime páteř a stabilní `ConversationCommand/Result`. Vlastník effect
 brokeru nejprve vytvoří a připne `EffectRequest/Result` a `ApprovalGrant`;
 teprve jejich konzumenti smějí implementovat efektové cesty.
 
+### Mobilní companion není M2, ale připravuje mu půdu
+
+**Výklad operátora, 2026-08-21.** Mobilní aplikace je **vedlejší větev
+a vlastní produkt** — netýká se přímo IntentSmithu, ale musí s ním komunikovat.
+Právě ta komunikační část je důvod, proč na větvi
+`wp/mobile-prototype-20260817` vznikají commity s prefixem `m2`.
+
+**Není to zahájení M2.** Vývoj mobilu narazil na otázky, které M2 stejně čekají
+— vlastnictví zápisu, rozhodovací rovina, approval hranice. Řeší se dřív
+a mimo, aby M2 nezačínalo s nesrovnalostmi a neřešilo je až za běhu. Fakticky
+jsou to **prerekvizity**, ne exekuce milníku.
+
+Stav M2 v tabulce milníků proto zůstává `NOT_STARTED` a jeho vstupem je dál
+přijaté M1. Prefix `m2` na té větvi čti jako „hranice vůči M2", ne jako
+„M2 běží".
+
 ### Závislostní sekvence Work Packages
 
 1. **WP-M2-EFFECT:** canonical effect broker vlastní policy, approval, timeout,
