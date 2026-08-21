@@ -5,11 +5,18 @@
 **Rozsah:** `25c61a96` … `f5289d2e` (13 commitů)
 **Worktree:** `/home/belphareon/worktrees/is-mobile-prototype`
 
-> **Proč to existuje.** Předchozí review skončilo `CHANGES_REQUIRED` se dvěma
-> `P0` blokátory. Commit `25c61a96` je má opravovat. **Nikdo to od té doby
-> nepotvrdil**, a na tom verdiktu visí otevření balíku `M2`
-> ([`approval-mediation.md`](approval-mediation.md)) — velké práce, kterou by
-> nepotvrzený základ mohl poslat k přepracování.
+> **VERDIKT 2026-08-21: oba `P0` blokátory jsou opravené.**
+> `CHANGES_REQUIRED` z předchozího kola tím padá a P0 closeout je uzavřený.
+> Otevřené zůstávají známé mezery mimo tyhle dva blokátory — §4 níž je
+> vyjmenovává a verdikt se jich netýká. Balík `M2`
+> ([`approval-mediation.md`](approval-mediation.md)) je tím odemčený.
+>
+> Zbytek dokumentu je **zadání, podle kterého se review dělalo** — zůstává jako
+> záznam rozsahu a důkazů, ne jako otevřený úkol.
+
+> **Proč to existovalo.** Předchozí review skončilo `CHANGES_REQUIRED` se dvěma
+> `P0` blokátory. Commit `25c61a96` je měl opravovat a nikdo to od té doby
+> nepotvrdil; na tom verdiktu viselo otevření `M2`.
 
 ---
 

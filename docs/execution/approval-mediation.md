@@ -24,11 +24,17 @@
 | **M1-c** multi-device terminální výsledek | ✅ `0a21b6ac` |
 | **M1-d** klient rozliší konce | ✅ `e92291d4` |
 | **M1** oprava `orphaned` mimo kontrakt | ✅ `f5289d2e` |
-| **M2** sdílená cesta pro zbylé zapisovatele | ⬜ **další — až po review P0 closeoutu** |
+| **Review P0 closeoutu** `25c61a96`…`f5289d2e` | ✅ verdikt 2026-08-21 |
+| **M2** sdílená cesta pro zbylé zapisovatele | ⬜ **další — brána otevřená** |
 
-**Review P0 closeoutu má vlastní zadání:**
-[`p0-closeout-review.md`](p0-closeout-review.md). Bez jeho verdiktu se M2
-neotvírá.
+**Brána je otevřená — verdikt je zapsaný (2026-08-21).** Review rozsahu
+`25c61a96`…`f5289d2e` podle zadání [`p0-closeout-review.md`](p0-closeout-review.md)
+potvrdilo, že **oba původní `P0` blokátory jsou opravené**. `CHANGES_REQUIRED`
+z předchozího kola tím padá a P0 closeout je uzavřený.
+
+**Co verdikt nepokrývá:** mezery vyjmenované v `p0-closeout-review.md` §4
+zůstávají otevřené a evidované — nezavřel je, jen je nepovažoval za blokátory.
+Do M2 se nesou tak, jak jsou popsané níž.
 
 **Otevřená mezera v kontraktu (2026-08-21).** `M1_TERMINAL_STATUS` nemá slovo
 pro „nevím" (`ok | cancelled | timeout | error`). Osiřelý běh se proto hlásí
@@ -41,10 +47,9 @@ Souvisí: `projectCoreEvent` nemá v `src/` volajícího, takže projekce běhů
 telefon (`run.ok`/`run.failed`/`run.unknown`) není zapojená vůbec. Kdo bude
 dělat mobilní běhovou obrazovku, začíná odsud.
 
-**Než otevřeš M2, nech P0 closeout projít review.** Poslední verdikt byl
-`CHANGES_REQUIRED`, oba blokátory jsou opravené v `25c61a96`, ale nikdo to od té
-doby neviděl. M2 je velký balík a stavět ho na nepotvrzeném základu je
-nejlevnější cesta k přepracování. M1 na tom nestojí — ty opravy platí samostatně.
+**Základ, na kterém M2 stojí, je potvrzený.** Důvod, proč se na verdikt
+čekalo, platil: M2 je velký balík a nepotvrzený základ je nejlevnější cesta
+k přepracování. Ta podmínka je splněná, ne zrušená.
 
 ---
 
@@ -52,7 +57,7 @@ nejlevnější cesta k přepracování. M1 na tom nestojí — ty opravy platí 
 
 ```bash
 cd /home/belphareon/worktrees/is-mobile-prototype
-git log --oneline -1          # musí být 25c61a96
+git log --oneline -1          # f5289d2e, nebo dokumentační commit nad ním
 ls node_modules | wc -l       # když 0 → npm ci --offline
 ```
 
