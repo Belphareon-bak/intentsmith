@@ -318,12 +318,17 @@ Nepatří sem selhání, které `CONTRACT.md §8` označuje jako při vývoji o�
 
 | Vada | Blokuje | Kauzalita | Priorita |
 |---|---|---|---|
-| `module-boundary-ratchet` — `MODULE_BOUNDARY_RATCHET_FAIL`, `baselineEdges=1020` vs `currentEdges=1049`, `added=29`, `removed=0`, `cycles=3`, `filesInCycles=28` | `L1` a přejímku každého WP, který se opírá o ratchet | Rozchod proti exact-edge baseline `7551b907`, autorita `integration`. Baseline nebyl po sérii změn rebaselinován, nebo 29 hran skutečně přibylo — rozlišit vyžaduje výpis dvojic, ne odhad | Vysoká. Ratchet je vynucovací mechanismus L0-8 a dokud je červený, nehlídá |
+| _nic otevřeného_ | — | — | — |
 
 Změřeno 2026-08-21 na `f5d0771f`, profil `offline,database`, 231 sad:
 `{"PASS":222,"FAIL":7,"BLOCKED":2}`. Všechny čtyři vady výše ověřeny jako
 **předchozí** — běh na čistém `43687e6b` ve worktree dal bajtově shodný výstup
 selhání. Zapsány podle `CONTRACT.md §10`, neabsorbovány.
+
+Uzavřeno 2026-08-21: **`module-boundary-ratchet`** — všech 29 přidaných hran
+zrevidováno a přijato jmenovitě (`--accept-edge`), všechny uvnitř `src/eval/**`
+a `src/upgrade/**` z eval série, `removed=0`, smyčky beze změny (`3`/`28`).
+Baseline přepsán na `0765ccab`, 1 020 → 1 049 hran. `MODULE_BOUNDARY_RATCHET_PASS`.
 
 Uzavřeno 2026-08-21: **`m1-model-failover-parent-acceptance`** — parent exportuje
 pro child přesně vyjmenovaný blob set `CANDIDATE_SOURCE_PATHS`, ale
