@@ -318,12 +318,24 @@ Nepatří sem selhání, které `CONTRACT.md §8` označuje jako při vývoji o�
 
 | Vada | Blokuje | Kauzalita | Priorita |
 |---|---|---|---|
-| _nic otevřeného_ | — | — | — |
+| `module-boundary-ratchet` — `MODULE_BOUNDARY_RATCHET_FAIL`, `baselineEdges=1020` vs `currentEdges=1049`, `added=29`, `removed=0`, `cycles=3`, `filesInCycles=28` | `L1` a přejímku každého WP, který se opírá o ratchet | Rozchod proti exact-edge baseline `7551b907`, autorita `integration`. Baseline nebyl po sérii změn rebaselinován, nebo 29 hran skutečně přibylo — rozlišit vyžaduje výpis dvojic, ne odhad | Vysoká. Ratchet je vynucovací mechanismus L0-8 a dokud je červený, nehlídá |
+| `m1-model-binding-application` — `source call graph has no production reference to legacy binding writers` selhalo: očekáváno `["upgrade/model-registry.js"]`, naměřeno `["upgrade/candidate-trial.js","upgrade/model-registry.js"]` (97 passed, 1 failed) | M1 strict provider / bypass guard | `upgrade/candidate-trial.js` z hunt série (2026-08-20, `95923c9a`) zavedl produkční referenci na legacy binding writer, kterou guard zakazuje | Vysoká. Je to skutečná regrese proti přijaté M1 hranici, ne zastaralé očekávání |
+| `m1-model-failover-parent-acceptance` — 6 selhání: `NOT_ISSUED` receipt vrací `1` místo `0`, dvě chyby vracejí `MODEL_CANDIDATE_MEASUREMENT_UNEXPECTED_FAILURE` místo `..._CANDIDATE_AMBIGUOUS` a `..._INVENTORY_DRIFT`; zbytek padá kaskádou na chybějící pozitivní fixture | Přejímku failover parent acceptance | Nezjištěna. Kaskáda znamená, že první selhání shodí zbytek — diagnostika musí začít u `NOT_ISSUED` receiptu | Vysoká. Acceptance validator je důkazní aparát; když padá, nelze mu věřit ani když je zelený |
+| `harness-exit-code` — `temp-creating root tests lack a static isolation bootstrap: module-boundary-ratchet.test.js` | `L1` | `module-boundary-ratchet.test.js` vytváří temp adresáře bez statického isolation bootstrapu, který tenhle meta-test vyžaduje | Střední. Hygiena harnessu, ne produktová vada |
 
-Uzavřeno 2026-08-21: `npm run test:registry` byl červený kvůli 10
-neregistrovaným testovacím programům z eval série 2026-08-19 až 2026-08-21.
-Všech 10 zapsáno do `tests/registry.json` jako `C3-025` / `T1` / `offline`
-a klasifikace ověřena spuštěním přes `nightly-audit --suite` — 10/10 PASS.
+Změřeno 2026-08-21 na `f5d0771f`, profil `offline,database`, 231 sad:
+`{"PASS":222,"FAIL":7,"BLOCKED":2}`. Všechny čtyři vady výše ověřeny jako
+**předchozí** — běh na čistém `43687e6b` ve worktree dal bajtově shodný výstup
+selhání. Zapsány podle `CONTRACT.md §10`, neabsorbovány.
+
+Zbylá tři selhání a dvě `BLOCKED` sady **vadami nejsou**:
+
+| Sada | Proč to není vada |
+|---|---|
+| `nightly-orchestrator-self-test` | `CONTRACT.md §8` — rozchod se zapečetěným fingerprintem registru je při vývoji očekávaný stav |
+| `nightly-audit-runner-self-test` | Samostatně prochází (`rc=0`). Uvnitř auditu čeká na blocker `toolchain:x11-display`, který se uvnitř auditu nevyrobí — prostředí |
+| `vram-coordination` | GPU a prostředí, ne kód |
+| `chat-export-budget`, `export-pdf-docx` | `BLOCKED` s deklarovaným `toolchain: python-pdf-runtime`; chybějící runtime je očekávaný, ne vada |
 
 ## Známý stav, který se vědomě neřeší
 
