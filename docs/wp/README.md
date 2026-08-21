@@ -28,6 +28,12 @@ posílá jeho sekce „Výstup" — ne sem.
 | [WP-M1-BINDING-FINALIZE-RECOVERY](WP-M1-BINDING-FINALIZE-RECOVERY.md) | zapisující WP | **fresh-clone verified** na `7c4aa73c`; review range `0a6bde54..7c4aa73c` | [Finding 008](../findings/008-model-binding-commit-point-split.md) |
 | [WP-M1-MODEL-CLEANUP-AUTHORITY](WP-M1-MODEL-CLEANUP-AUTHORITY.md) | zapisující WP | **C1 + C2a + C2b gateway/binding fresh-clone / PARTIAL; 4/5 live paths**, C2a source `9b4d9f79`, baseline `19d63e1b`; gateway source `7ccd8a58`; binding source a clean-clone target `cfcb63dd`, exact-edge baseline `175d5f31`; evidence je commit obsahující tento stav | [WP-M1-MODEL report](../execution/runs/wp-m1-model-report.md) |
 | [WP-M1-BOUNDARY-RATCHET](WP-M1-BOUNDARY-RATCHET.md) | zapisující WP | **technicky dokončeno**; hardening integrován v `ec98803a`, baseline `b05392e1`; procesní pilot invalidován | [IMPORT-CENSUS](../review/2026-08-09-IMPORT-CENSUS.md) + [LIFECYCLE-PARITY](../review/2026-08-09-LIFECYCLE-PARITY.md) |
+| [WP-M3-L0-8-ENFORCEMENT](WP-M3-L0-8-ENFORCEMENT.md) | zapisující WP | **nezahájeno**; odemčeno rozhodnutím 019 | — |
+| [WP-M3-L0-8-INJECTION](WP-M3-L0-8-INJECTION.md) | zapisující WP | **nezahájeno**; odemčeno rozhodnutím 019 | — |
+| [WP-M5-OUTBOUND-GATE](WP-M5-OUTBOUND-GATE.md) | zapisující WP | **nezahájeno** | — |
+| [P8-DISABLED-BOOT](P8-DISABLED-BOOT.md) | read-only sonda | **nezahájena** | — |
+| [P9-OUTBOUND-LONG-HORIZON](P9-OUTBOUND-LONG-HORIZON.md) | read-only sonda | **nezahájena** | — |
+| [P10-CORE-OPTIONAL-MAP](P10-CORE-OPTIONAL-MAP.md) | read-only sonda | **nezahájena** | — |
 
 Zadání sondy zůstává i po doběhnutí — je v něm postup a ověřovací příkaz, kterým
 si lze výsledek přeměřit. Sloupec „stav" je tady jediná výjimka z pravidla, že se
@@ -54,3 +60,33 @@ dokončeného repository WP.
 Nemění veřejný HTTP/WS connector; rozšiřuje interní repository/application
 kontrakt o chybějící durable potvrzení mezi application success a synchronním
 runtime finalize.
+
+## Dávka nezávislé práce k `0a6bde54`
+
+Šest zadání níže vzniklo jako odpověď na otázku, co posouvá produkt k
+production-ready **bez** dotyku s běžící M1 dávkou. Nejsou to nové milníky ani
+nový track; každé má domov v existujícím WP nebo kroku
+[`2026-08-08-MODULE-INDEPENDENCE`](../review/2026-08-08-MODULE-INDEPENDENCE.md) §7.
+
+| Zadání | Sloty | Uzavírá |
+|---|---|---|
+| `WP-M3-L0-8-ENFORCEMENT` | zapisující | L0-8 přestává být neviditelný |
+| `WP-M3-L0-8-INJECTION` | zapisující | L0-8 přestává být porušený |
+| `WP-M5-OUTBOUND-GATE` | zapisující | jedna plocha L0-12 |
+| `P8-DISABLED-BOOT` | žádný | podmínka 5 nezávislosti modulů |
+| `P9-OUTBOUND-LONG-HORIZON` | žádný | `NOT RUN` horizont u L0-12 |
+| `P10-CORE-OPTIONAL-MAP` | žádný | vstup kroku A2 |
+
+**Kapacita.** `CONTRACT.md §6` dovoluje projektově nejvýše tři zapisující WP,
+v jednom checkoutu vždy právě jeden. M1 drží jeden slot, takže volné jsou dva —
+tři zapisující zadání se tedy **nespouštějí najednou**. Doporučené pořadí je
+`WP-M3-L0-8-ENFORCEMENT` + `WP-M3-L0-8-INJECTION` souběžně (disjunktní cesty,
+integrace enforcement první), `WP-M5-OUTBOUND-GATE` až po uvolnění slotu.
+
+Tři sondy slot nespotřebují, ale **žádná z nich není filesystem-read-only** —
+každá vytváří DB, logy nebo JSON výstup. Sdílený checkout proto použít nesmějí;
+patří jim vlastní checkout nebo izolovaný artifact root.
+
+Zůstává nedostupné: `WP-M5-PACKAGE` (tvrdý BLOCK na pořadí vůči M1 v jeho `§0`),
+krok G a plné `WP-M3-BOUNDARY` (vede přes 21modulový chat SCC vlastněný M1)
+a cokoli na GPU nebo Ollamě (sériový slot drží M1).

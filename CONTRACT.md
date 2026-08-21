@@ -369,10 +369,18 @@ Zůstávají v evidenci, aby se na ně nezapomnělo:
 Nic z toho nebrání lokální produktové práci v M0–M4, dokud drží loopback. Nic z
 toho se nesmí přenést jako otevřený blocker přes M5.
 
+### Rozhodnuto po vydání verze 2
+
+- **L0-8 specialist boundary** — přijata varianta A, **strict injection**.
+  Rozhodnutí [`docs/decisions/019`](docs/decisions/019-l0-8-specialist-boundary.md),
+  přijato operátorem 2026-08-09, potvrzeno 2026-08-21. Implementace zatím
+  neproběhla; nese ji `WP-M3-L0-8-INJECTION`, vynucení hranice
+  `WP-M3-L0-8-ENFORCEMENT`. Otevřené zůstávají `L8-3` (bajtově duplicitní
+  nástroje) a `L8-4` (core kopie `src/expertises/tools/**` bez konzumenta) —
+  rozhodnutí 019 je výslovně neřeší.
+
 ### Zbývá rozhodnout
 
-- **L0-8 specialist boundary:** doslovný zákaz interního importu je porušený;
-  operátor musí zvolit strict injection, nebo veřejné verzované extension SDK.
 - **Rozdělení #6** (chat pipeline) — vyplyne z hluboké runtime inventury.
 - **Osud legacy web UI** `/architect` — není cílové UI, ale disposition není schválená.
 - **#18b upgrade automatika** — background síť je vypnutá; zůstává rozhodnout
