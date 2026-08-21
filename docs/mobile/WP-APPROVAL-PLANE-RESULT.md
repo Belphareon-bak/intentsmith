@@ -286,3 +286,61 @@ artifact-validation 151/151. Čtyři `FAIL` jsou ty předchozí ze §4.
   `Projekty` jsou v `NAV_ITEMS` jako `locked`, `MR-14` je
   `BLOCKED_BY_CONTRACT_AND_GATE1`, `MS-12` vyspecifikovaná a nestaví se.
   **Zablokovaná fronta, ne chybějící nápad.**
+
+
+---
+
+## 7.5 Oprava: `orphaned` neprošel kontraktem
+
+**Nález review 2026-08-21, potvrzený reprodukcí.** P0-closeout posílal
+`status: 'orphaned'` v terminálním rámci `m1`. Jenže `M1_TERMINAL_STATUS`
+(`contracts/m1/shared.js`) je **zmrazený** na `ok | cancelled | timeout | error`
+a `classifyTerminal` cokoli jiného odmítne jako `terminal:invalid-status`.
+
+Rámec tedy **neprošel validací** a osiřelý běh spadl do obecné chybové cesty —
+přesná informace o stavu se ztratila. Tvrzení z commitu `25c61a96`, že
+„`TERMINAL_S1` to mapuje na `run.unknown`", bylo **nepravdivé**.
+
+### Byl to týž omyl potřetí
+
+Ověřil jsem mapovací tabulku (`TERMINAL_S1` skutečně posílá neznámé hodnoty na
+`run.unknown`) a **neověřil jsem, že se rámec vůbec odešle**. Stejná chyba jako
+„test jednotky neprokazuje cestu" — jen o patro výš.
+
+Chybějící strážce je doplněný: `tests/effects-p0-regressions.test.js` `C4`
+ověřuje, že vyzařovaný rámec projde `validateConversationResult`.
+
+### A druhá nepravda ve stejné větě
+
+`projectCoreEvent` v `companion-producer.js` **nemá v `src/` žádného
+volajícího**. Projekce běhů na telefon (`run.ok` / `run.failed` / `run.unknown`)
+tedy není zapojená vůbec — ani pro úspěšné běhy. Věta o tom, co „telefon uvidí",
+byla nepravdivá dvakrát.
+
+### Co platí teď
+
+Posílá se `status: 'error'` s kódem `EFFECT_ORPHANED` a větou, která říká, že
+není jisté, jestli operace proběhla. Z platných hodnot je `error` nejméně
+nepřesná:
+
+| | znamená | vhodnost |
+|---|---|---|
+| `ok` | proběhlo v pořádku | **lež** |
+| `timeout` | lhůta vypršela, **nestalo se nic** | **nebezpečné** — přesně ta domněnka, které má osiřelý stav zabránit |
+| `cancelled` | někdo to zrušil | nepřesné, nikdo nic nerušil |
+| `error` | neproběhlo v pořádku, podívej se | **nejméně nepřesné** |
+
+`error` vyžaduje chybový objekt a zakazuje `response`, takže text jde
+v `message`. Informace se neztrácí, jen jde kanálem, kam se klient pro tenhle
+stav dívá.
+
+### Mezera v kontraktu — pojmenovaná, ne obejitá
+
+**`M1` nemá pro „nevím" slovo.** To je skutečná mezera a patří do rozšíření
+kontraktu (`CONTRACT-V2-PROPOSAL.md`), ne do jednostranného rozšíření zmrazeného
+enumu. `DR-008` autorizuje návrh → review → refreeze; propašovat hodnotu mimo
+ten postup je přesně to, co `terminal:invalid-status` chytil.
+
+Dokud to slovo nevznikne, zbývá nepřesnost: klient uvidí „chyba" tam, kde
+pravdivé je „nevím". Chatová odpověď to říká přesně („Stav operace není
+jistý…"), takže uživatel, který čte konverzaci, se nesplete.

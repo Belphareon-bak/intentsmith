@@ -25,6 +25,17 @@
 | **M1-d** klient rozliší konce | ✅ |
 | **M2** sdílená cesta pro zbylé zapisovatele | ⬜ **další — až po review P0 closeoutu** |
 
+**Otevřená mezera v kontraktu (2026-08-21).** `M1_TERMINAL_STATUS` nemá slovo
+pro „nevím" (`ok | cancelled | timeout | error`). Osiřelý běh se proto hlásí
+jako `error` s kódem `EFFECT_ORPHANED` — nejméně nepřesná z platných hodnot.
+Rozšíření enumu patří do `CONTRACT-V2-PROPOSAL.md` (`DR-008`: návrh → review →
+refreeze), **ne** do jednostranné změny. Detail: `WP-APPROVAL-PLANE-RESULT.md`
+§7.5.
+
+Souvisí: `projectCoreEvent` nemá v `src/` volajícího, takže projekce běhů na
+telefon (`run.ok`/`run.failed`/`run.unknown`) není zapojená vůbec. Kdo bude
+dělat mobilní běhovou obrazovku, začíná odsud.
+
 **Než otevřeš M2, nech P0 closeout projít review.** Poslední verdikt byl
 `CHANGES_REQUIRED`, oba blokátory jsou opravené v `25c61a96`, ale nikdo to od té
 doby neviděl. M2 je velký balík a stavět ho na nepotvrzeném základu je

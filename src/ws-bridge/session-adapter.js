@@ -780,21 +780,48 @@ export function createSessionAdapter({
         //
         // Turn doběhl a odpověď existuje, ale efekt pod ním se nepodařilo
         // zastavit a nikdo neví, jestli nastal.  Ohlásit `ok` by znamenalo
-        // poslat na telefon `run.ok` — „Běh doběhl, výsledek je v konverzaci" —
-        // nad stavem, který nikdo nezná.  `orphaned` není v `TERMINAL_S1`, takže
-        // se mapuje na `run.unknown`: „Stav běhu není jistý. Zjisti stav
-        // v žurnálu operací."  To je jediná pravdivá věta, kterou tu jde říct.
+        // tvrdit „Běh doběhl" nad stavem, který nikdo nezná.
+        //
+        // **Kontrakt `M1` ale nemá pro „nevím" slovo.**  `M1_TERMINAL_STATUS` je
+        // zmrazený na `ok | cancelled | timeout | error` a `classifyTerminal`
+        // cokoli jiného odmítne jako `terminal:invalid-status`.  Předchozí verze
+        // tady posílala `status: 'orphaned'`, takže rámec **neprošel validací**
+        // a osiřelý běh spadl do chybové cesty s obecnou hláškou — přesná
+        // informace o stavu se ztratila.  Rozšířit ten enum je změna kontraktu
+        // (`DR-008`: návrh → review → refreeze), ne něco, co se propašuje.
+        //
+        // Z platných hodnot je `error` nejméně nepřesná.  `timeout` by byl
+        // **nebezpečný**: znamená „lhůta vypršela, nestalo se nic", což je
+        // přesně ta domněnka, které má osiřelý stav zabránit.  `error` říká
+        // „tenhle běh neproběhl v pořádku, podívej se" — a to je správná výzva.
+        // Konkrétní význam nese kód `EFFECT_ORPHANED`.
+        //
+        // Zbývající nepřesnost je **mezera v kontraktu**, ne vada tady, a je
+        // pojmenovaná v `WP-APPROVAL-PLANE-RESULT.md` §7.5.
         const orphaned = response?.metadata?.orphaned === true
           || response?.state?.orphaned === true;
-        if (orphaned) metadata.orphaned = true;
 
-        m1Egress.terminal(createM1WsConversationResult(m1Command, {
-          status: orphaned ? 'orphaned' : 'ok',
-          response: {
-            content: response.response,
-            metadata,
-          },
-        }));
+        if (orphaned) {
+          // `error` vyžaduje chybový objekt a **zakazuje** `response`, takže se
+          // text odpovědi nese v `message` — informace se neztrácí, jen jde
+          // kanálem, kam se pro tenhle stav klient dívá.
+          m1Egress.terminal(createM1WsConversationResult(m1Command, {
+            status: 'error',
+            error: {
+              code: 'EFFECT_ORPHANED',
+              message: 'Operaci se nepodařilo zastavit včas, takže není jisté, '
+                + 'jestli proběhla. Ověř stav cíle, než ji spustíš znovu.',
+            },
+          }));
+        } else {
+          m1Egress.terminal(createM1WsConversationResult(m1Command, {
+            status: 'ok',
+            response: {
+              content: response.response,
+              metadata,
+            },
+          }));
+        }
       } else {
         sendTurnEvent(AgentEventType.TURN_END, {
           status: 'ok',

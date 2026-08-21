@@ -560,6 +560,64 @@ await test('M1-a po zápisu nezůstane dočasný soubor a jméno je unikátní',
     'temp soubor se pořád jmenuje podle pid a času');
 });
 
+
+// ── C4: terminální rámec musí projít kontraktem ────────────────────────────
+//
+// Tohle je strážce, který dosud chyběl — a jeho absence stála přesně to, co
+// review našlo.  P0-closeout posílal `status: 'orphaned'`, jenže
+// `M1_TERMINAL_STATUS` je zmrazený na `ok | cancelled | timeout | error`,
+// takže rámec **neprošel validací** a osiřelý běh spadl do obecné chybové
+// cesty. Tvrzení „telefon uvidí run.unknown" bylo nepravdivé.
+//
+// Ověřovat mapovací tabulku a nikdy neověřit, že rámec vůbec projde, je táž
+// chyba jako testovat jednotku a neověřit volací místo.
+
+await test('C4 osiřelý terminální rámec projde kontraktem M1', async () => {
+  const { validateConversationResult } = await import('../contracts/m1/index.js');
+  const { M1_CONTRACT_KIND, M1_CONTRACT_VERSION } = await import('../contracts/m1/shared.js');
+
+  const orphanFrame = {
+    contract: M1_CONTRACT_KIND.CONVERSATION_RESULT,
+    version: M1_CONTRACT_VERSION,
+    requestId: 'r1', conversationId: 'c1', turnId: 't1',
+    status: 'error',
+    error: { code: 'EFFECT_ORPHANED', message: 'není jisté, jestli proběhla' },
+  };
+  const verdict = validateConversationResult(orphanFrame);
+  assert.equal(verdict.valid, true,
+    `osiřelý rámec neprojde kontraktem: ${JSON.stringify(verdict.errors)}`);
+});
+
+await test('C4 `orphaned` není platný terminální status — proto se neposílá', async () => {
+  const { validateConversationResult } = await import('../contracts/m1/index.js');
+  const { M1_CONTRACT_KIND, M1_CONTRACT_VERSION, TERMINAL_STATUSES } =
+    await import('../contracts/m1/shared.js');
+
+  assert.equal(TERMINAL_STATUSES.includes('orphaned'), false,
+    'kontrakt `orphaned` zná — pak se má posílat a tenhle test je zastaralý');
+
+  const verdict = validateConversationResult({
+    contract: M1_CONTRACT_KIND.CONVERSATION_RESULT,
+    version: M1_CONTRACT_VERSION,
+    requestId: 'r1', conversationId: 'c1', turnId: 't1',
+    status: 'orphaned',
+    error: { code: 'EFFECT_ORPHANED', message: 'x' },
+  });
+  assert.equal(verdict.valid, false);
+  assert.ok(verdict.errors.includes('terminal:invalid-status'));
+});
+
+await test('C4 session adapter neposílá status mimo kontrakt', () => {
+  const source = readFileSync(new URL('../src/ws-bridge/session-adapter.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /status: orphaned \? 'orphaned'/,
+    'adapter zase posílá status, který kontrakt nezná');
+  assert.match(source, /code: 'EFFECT_ORPHANED'/,
+    'osiřelost se nenese ani v kódu chyby, takže se ztratí úplně');
+  // `timeout` by byl nebezpečný: znamená „nestalo se nic".
+  assert.doesNotMatch(source, /status: orphaned \? 'timeout'/,
+    'osiřelý běh se hlásí jako timeout — to tvrdí, že se nic nestalo');
+});
+
 configureEffects({ db: null, producer: null });
 db.close();
 rmSync(runtimeDir, { recursive: true, force: true });
