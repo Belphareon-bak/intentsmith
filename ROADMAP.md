@@ -239,6 +239,19 @@ offline rozsahu:
   95) a release-policy pin nightly self-testu;
 - dvě PDF sady jsou pravdivě `BLOCKED` na pojmenovaném toolchainu.
 
+**Dodatek 2026-08-21 na `1d0daf83`.** Registrace deseti eval sad z 19.–21. 8.
+rozšířila deklarovaný offline rozsah o programy, které pod OS blokovaným
+outboundem nikdy neběžely. Doběhly stejným postupem:
+
+- run ID: `offline-egress-eval-10`, report
+  `.intentsmith-artifacts/egress-scan/offline-egress-eval-10/report.json`;
+- výsledek **10/10 PASS**, nejdelší sada 2 600 ms;
+- klasifikace `network:none` je tím ověřená spuštěním, ne deklarací.
+
+Poznámka k položce „stale harness count": pin byl 2026-08-03 opraven na 95,
+ale mezitím znovu zastaral na 99 (drift z eval sad). Srovnán na `a9b71d71`;
+fail-closed assertion `unprotected == []` držela po celou dobu.
+
 Dřívější paralelní report na stejném SHA není autoritativní: sdílený worktree
 vyvolal dirty-tree race mezi sadami. Proto je pro toto tvrzení určen výhradně
 výše uvedený sekvenční run.
