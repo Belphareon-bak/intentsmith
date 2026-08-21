@@ -21,8 +21,8 @@
 | **M0** politika (auto-approve default) | ✅ `19023a60` |
 | **M1-a** práva souboru, `fsync`, unikátní temp | ✅ `70ce191f` |
 | **M1-b** boot lease | ✅ `6eb855fc` |
-| **M1-c** multi-device terminální výsledek | ⬜ **začni tímhle** |
-| **M1-d** klient rozliší konce | ⬜ |
+| **M1-c** multi-device terminální výsledek | ✅ `M1-c` |
+| **M1-d** klient rozliší konce | ⬜ **začni tímhle** |
 | **M2** sdílená cesta pro zbylé zapisovatele | ⬜ |
 
 **Než otevřeš M2, nech P0 closeout projít review.** Poslední verdikt byl
@@ -177,7 +177,7 @@ podmínka.
 **Test:** proces A drží živý approval a zámek → úklid jménem procesu B se jich
 **nedotkne**; po skutečně mrtvém bootu se sebere obojí.
 
-### M1-c Multi-device terminální výsledek
+### M1-c Multi-device terminální výsledek — ✅ **HOTOVO**
 
 `src/mobile/handlers.js` (`handleApprovalDecide`), `docs/mobile/MULTI-DEVICE.md`
 

@@ -46,6 +46,16 @@ Druhý telefon nedostane prázdnou chybu. Dostane stav, ze kterého umí postavi
 `SS-09` („rozhodnuto jinde") — tedy **co** platí, **kdy** se to stalo a **kdo**
 to rozhodl. Ta obrazovka existuje přesně pro tenhle případ.
 
+Konkrétně obě konfliktní větve (`already_decided` i `race_lost`) vracejí
+`decision`, `state`, `decidedAt` a `decidedBy`. `state` je vedle `decision`
+schválně: `invalidated` a `cancelled` **nejsou** lidské zamítnutí a klient je
+musí umět rozlišit.
+
+> Do `M1-c` (2026-08-21) to tak nebylo: `already_decided` vracelo rozhodnutí bez
+> času a autora, `race_lost` nevracelo ani to. Test to obcházel čtením
+> z databáze — což nedokazovalo nic, protože klient databázi nevidí. Teď se čte
+> **z odpovědi**.
+
 ## 3. Rozhodnutý approval zmizí všem
 
 Ne jen tomu, kdo rozhodl. Fronta, která by ho druhému telefonu ukazovala dál, by
@@ -113,10 +123,10 @@ notifikaci nesmí být ani cesta k cíli, ani jeho obsah.
 | # | Co dokazuje |
 |---|---|
 | 1 | oba telefony vidí tentýž čekající approval, oba dostanou otisk |
-| 2 | první odpověď vítězí; druhá nepřepíše; `decided_by` nese zařízení |
+| 2 | první odpověď vítězí; druhá nepřepíše; odpověď nese `decision`, `state`, `decidedAt` i `decidedBy` |
 | 3 | rozhodnutý approval zmizí z fronty **obou** |
 | 4 | routa `decide` je scoped na `write:approvals`; čtečka rozhodnout nesmí |
 | 5 | ACK z telefonu A neoznačí zprávu přečtenou na telefonu B |
 | 6 | opakovaný ACK hlásí 0, ne práci navíc |
 | 7 | notifikace nenese cestu ani obsah |
-| 8 | souběžné rozhodnutí obou projde právě jednou a oba vidí týž konec |
+| 8 | souběžné rozhodnutí obou projde právě jednou; i poražený v závodě dostane platný konec |

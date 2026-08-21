@@ -153,10 +153,11 @@ Artifact validation 151/151.
    je bezpečný bez ohledu na to, kdo ho zavolá. Šest testů
    v `approval-lifecycle`.
 
-3. **Multi-device nedodává slíbený terminální výsledek.** Druhý telefon dostane
-   `409` jen s rozhodnutím, bez `decidedAt` a `decidedBy`; závodní větev nedodá
-   ani rozhodnutí. Test to obchází čtením z DB, takže nedokazuje dokumentované
-   „co, kdy a kdo". → `src/mobile/handlers.js`, `MULTI-DEVICE.md`
+3. ~~**Multi-device nedodává slíbený terminální výsledek.**~~ **Vyřešeno** —
+   obě konfliktní větve vracejí `decision`, `state`, `decidedAt` a `decidedBy`;
+   `race_lost` si řádek přečte znovu, protože rozhodl někdo jiný právě teď.
+   Testy čtou **z odpovědi**, ne z databáze — klient ji nevidí.
+
 4. **Klient nerozliší `invalidated`/`cancelled` od lidského zamítnutí.**
 
 ### 5.2 `P0-3` fyzická device matice — `NOT RUN`

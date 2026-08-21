@@ -143,6 +143,17 @@ await test('rozhodne první telefon; druhý dostane tu první odpověď, ne chyb
   // jinde") místo obecné chyby.
   assert.notEqual(druhy.status, 200, 'druhé rozhodnutí prošlo a přepsalo první');
 
+  // M1-c: **co, kdy a kdo** — a čte se to z **odpovědi**, ne z databáze.
+  // Dřív tenhle test sahal do DB, takže nedokazoval, co `MULTI-DEVICE.md`
+  // slibuje: klient databázi nevidí.
+  // `mobileError` rozbaluje detaily přímo do `error`, ne do `error.details`.
+  const detail = druhy.body.error;
+  assert.equal(detail.reason, 'already_decided');
+  assert.equal(detail.decision, 'approve', 'odpověď nenese rozhodnutí, které platí');
+  assert.equal(detail.decidedBy, telefonA.deviceId, 'odpověď neříká, kdo rozhodl');
+  assert.ok(detail.decidedAt, 'odpověď neříká, kdy se rozhodlo');
+  assert.equal(detail.state, 'approve', 'chybí normalizovaný stav pro klienta');
+
   const row = db.prepare('SELECT decision, decided_by FROM mobile_approvals WHERE id = ?').get(minted.id);
   assert.equal(row.decision, 'approve', 'druhý telefon přepsal odpověď prvního');
   assert.equal(row.decided_by, telefonA.deviceId,
@@ -254,6 +265,16 @@ await test('souběžné rozhodnutí obou telefonů dá oběma týž terminální
 
   const uspesne = [a, b].filter(r => r.status === 200);
   assert.equal(uspesne.length, 1, `rozhodnutí prošlo ${uspesne.length}×, má právě jednou`);
+
+  // I ten, kdo závod prohrál, musí dostat **platný konec** — jinak neví, co se
+  // vlastně stalo, a `race_lost` je pro uživatele k nerozeznání od chyby.
+  const prohral = [a, b].find(r => r.status !== 200);
+  const detail = prohral.body.error;
+  assert.ok(['already_decided', 'race_lost'].includes(detail.reason), `neočekávaný důvod ${detail.reason}`);
+  assert.ok(['approve', 'reject'].includes(detail.decision),
+    'poražený v závodě nedostal rozhodnutí, které platí');
+  assert.ok(detail.decidedBy, 'poražený v závodě neví, kdo rozhodl');
+  assert.ok(detail.decidedAt, 'poražený v závodě neví, kdy se rozhodlo');
 
   const row = db.prepare('SELECT decision, decided_by FROM mobile_approvals WHERE id = ?').get(minted.id);
   assert.ok(['approve', 'reject'].includes(row.decision));

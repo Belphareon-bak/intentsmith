@@ -37,7 +37,7 @@ import {
 } from './protocol.js';
 import { claimPairingCode } from './pairing.js';
 import { listMobileNotifications, ackMobileNotifications } from '../notifications/channels/mobile.js';
-import { approvalIsBound, evaluateApprovalDecision } from '../approvals/authority.js';
+import { approvalIsBound, evaluateApprovalDecision, decisionState } from '../approvals/authority.js';
 
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
@@ -635,6 +635,28 @@ export async function handleApprovalDecide(args) {
   return approvalResponse(await decideApproval(args));
 }
 
+/**
+ * Terminální trojice — **co**, **kdy** a **kdo** (M1-c).
+ *
+ * Konfliktní větve dřív vracely buď jen `decision`, nebo vůbec nic, takže druhé
+ * zařízení nemělo z čeho postavit `SS-09` („rozhodnuto jinde") — a muselo by si
+ * pravdu dojít do databáze, kterou nevidí.  Dokument `MULTI-DEVICE.md` přitom
+ * slibuje „co, kdy a kdo"; tohle je ta trojice, aby ten slib platil.
+ *
+ * `state` je vedle `decision` schválně: `invalidated` a `cancelled` nejsou
+ * lidské zamítnutí a klient je musí umět rozlišit (`decisionState`).
+ */
+function terminalTuple(row) {
+  if (!row || !row.decided_at) return null;
+  return {
+    decision: row.decision,
+    state: decisionState(row.decision),
+    decidedAt: row.decided_at,
+    decidedBy: row.decided_by || null,
+    ...(row.decision_reason ? { decisionReason: row.decision_reason } : {}),
+  };
+}
+
 async function decideApproval({ rawDb, journal, principal, params, body }) {
   const decision = body?.decision;
   const operationId = body?.operationId;
@@ -649,7 +671,7 @@ async function decideApproval({ rawDb, journal, principal, params, body }) {
 
   const row = rawDb.prepare(`
     SELECT id, payload_fingerprint, expires_at, decided_at, decision, decided_by,
-           origin, run_id, operation_ref
+           decision_reason, origin, run_id, operation_ref
       FROM mobile_approvals WHERE id = ?
   `).get(params.id);
 
@@ -735,7 +757,7 @@ async function decideApproval({ rawDb, journal, principal, params, body }) {
     }
     return errorResponse(MOBILE_ERRORS.STATE_CONFLICT, {
       reason: 'already_decided',
-      decision: row.decision,
+      ...terminalTuple(row),
       operationId,
     });
   }
@@ -770,7 +792,18 @@ async function decideApproval({ rawDb, journal, principal, params, body }) {
     if (!resolution.resolved) {
       return approvalResolutionResponse(resolution, params.id, operationId, principal);
     }
-    return errorResponse(MOBILE_ERRORS.STATE_CONFLICT, { reason: 'race_lost', operationId });
+    // Přečíst znovu: mezi kontrolou a zápisem odpověděl někdo jiný a jeho
+    // odpověď je ta platná.  Bez tohohle čtení by druhé zařízení dostalo holé
+    // „prohráls závod" a nevědělo **co** vlastně platí.
+    const decided = rawDb.prepare(`
+      SELECT decided_at, decision, decided_by, decision_reason
+        FROM mobile_approvals WHERE id = ?
+    `).get(params.id);
+    return errorResponse(MOBILE_ERRORS.STATE_CONFLICT, {
+      reason: 'race_lost',
+      ...(terminalTuple(decided) || {}),
+      operationId,
+    });
   }
 
   const result = { approvalId: params.id, decision };
