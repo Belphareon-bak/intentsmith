@@ -31,9 +31,13 @@ import {
   reapApprovalsFromPreviousBoot, closeApprovalWithoutAnswer, APPROVAL_TERMINAL,
 } from '../src/approvals/authority.js';
 import { BOOT_ID } from '../src/approvals/boot-id.js';
+import {
+  beginLease, heartbeatLease, endLease, liveBoots, LEASE_TTL_MS,
+} from '../src/approvals/process-lease.js';
 import { createCompanionProducer } from '../src/mobile/companion-producer.js';
 import { guardedWrite } from '../src/executor/guarded-write.js';
 import { acquireFileLock, releaseStaleLocks, listHeldLocks } from '../src/executor/file-lock.js';
+import { readFileSync } from 'node:fs';
 
 let passed = 0;
 let failed = 0;
@@ -273,6 +277,105 @@ await test('vlastní zámky si úklid nesebere', () => {
   assert.equal(releaseStaleLocks(db, { bootId: BOOT_ID }), 0,
     'úklid sebral zámek běhu, který právě žije');
   assert.equal(listHeldLocks(db).length, 1);
+});
+
+
+// ── M1-b: úklid nesmí sebrat živý proces ───────────────────────────────────
+//
+// `064` uzavíral všechno s **cizím** `boot_id`, jenže „cizí" není totéž co
+// „mrtvý": dva backendy nad jednou databází by si tak navzájem rušily živé
+// approvaly a zámky.  Komentáře v kódu přitom slibovaly opak — a to je horší
+// než vada sama, protože čtenář se na ten slib spolehne.
+//
+// Rozhoduje teď **tep**, ne odlišnost.
+
+await test('M1-b živý cizí proces si zámek udrží — úklid se ho nedotkne', () => {
+  clear();
+  const zivyBoot = 'boot-zivy-A';
+
+  // Proces A běží (má lease a právě tepal) a drží zámek.
+  beginLease(db, { bootId: zivyBoot, role: 'core' });
+  acquireFileLock(db, { workspace, filePath: target(), runId: 'run-A' });
+  db.prepare('UPDATE file_write_locks SET boot_id = ? WHERE released_at IS NULL').run(zivyBoot);
+
+  // Proces B startuje a uklízí.  Dřív by zámek procesu A sebral.
+  const released = releaseStaleLocks(db, { bootId: 'boot-B' });
+
+  assert.equal(released, 0, 'úklid sebral zámek živému procesu — přesně nález M1-b');
+  assert.equal(listHeldLocks(db).length, 1);
+});
+
+await test('M1-b mrtvý proces se uklidí — TTL vypršelo', () => {
+  clear();
+  const mrtvyBoot = 'boot-mrtvy';
+
+  beginLease(db, { bootId: mrtvyBoot, role: 'core' });
+  acquireFileLock(db, { workspace, filePath: target(), runId: 'run-mrtvy' });
+  db.prepare('UPDATE file_write_locks SET boot_id = ? WHERE released_at IS NULL').run(mrtvyBoot);
+
+  // Poslední tep je starší než TTL: proces nedýchá.
+  const davno = new Date(Date.now() - LEASE_TTL_MS - 60_000).toISOString().replace('T', ' ').slice(0, 19);
+  db.prepare('UPDATE process_leases SET last_seen = ? WHERE boot_id = ?').run(davno, mrtvyBoot);
+
+  assert.equal(releaseStaleLocks(db, { bootId: 'boot-B' }), 1);
+  assert.equal(listHeldLocks(db).length, 0);
+});
+
+await test('M1-b zámek bez boot_id se uklidí — živý proces dnes lease vždy má', () => {
+  clear();
+  acquireFileLock(db, { workspace, filePath: target(), runId: 'run-stary' });
+  db.prepare('UPDATE file_write_locks SET boot_id = NULL WHERE released_at IS NULL').run();
+
+  // Pochází z doby před migrací `2026_08_19_064_boot_identity`.  Nemůže patřit
+  // živému procesu, protože kdo nemá lease, netepe.
+  assert.equal(releaseStaleLocks(db, { bootId: 'boot-B' }), 1);
+});
+
+await test('M1-b živý cizí proces si udrží i čekající approval', () => {
+  clear();
+  const zivyBoot = 'boot-zivy-B';
+  beginLease(db, { bootId: zivyBoot, role: 'core' });
+
+  createMobileApproval(db, {
+    origin: 'local', runId: 'run-zivy', operationRef: 'fs.write:/z',
+    subjectType: 'effect.write', subjectId: '/z', title: 'Přepsat soubor',
+    payload: { path: '/z', content: 'x' },
+    precondition: { kind: 'file-digest', ref: '/z', content: null },
+    waiterBoot: zivyBoot,
+  });
+
+  const result = reapApprovalsFromPreviousBoot(db, { bootId: BOOT_ID });
+  assert.equal(result.closed, 0, 'úklid zrušil otázku, na kterou živý proces čeká');
+});
+
+await test('M1-b tep udrží proces naživu, konec ho pustí hned', () => {
+  clear();
+  const bootId = 'boot-tep';
+  beginLease(db, { bootId, role: 'core' });
+  assert.equal(liveBoots(db).has(bootId), true);
+
+  // Zastaralý lease oživí tep.
+  const davno = new Date(Date.now() - LEASE_TTL_MS - 60_000).toISOString().replace('T', ' ').slice(0, 19);
+  db.prepare('UPDATE process_leases SET last_seen = ? WHERE boot_id = ?').run(davno, bootId);
+  assert.equal(liveBoots(db).has(bootId), false, 'zastaralý lease se pořád tváří jako živý');
+
+  assert.equal(heartbeatLease(db, { bootId }), true);
+  assert.equal(liveBoots(db).has(bootId), true, 'tep lease neoživil');
+
+  // Řádné vypnutí nenechá ostatní čekat celé TTL.
+  assert.equal(endLease(db, { bootId }), true);
+  assert.equal(liveBoots(db).has(bootId), false);
+});
+
+await test('M1-b server si zapisuje lease a tepe do něj', () => {
+  const server = readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
+  assert.match(server, /beginLease\(db\.db/, 'server si lease nezapisuje, takže ho jiný start uklidí');
+  assert.match(server, /heartbeatLease\(db\.db/, 'server netepe — po TTL ho někdo prohlásí za mrtvého za běhu');
+  assert.match(server, /endLease\(db\.db/, 'server lease při vypnutí nepouští');
+
+  // Pořadí je podstatné: lease **před** úklidem.
+  assert.ok(server.indexOf('beginLease(db.db') < server.indexOf('reapApprovalsFromPreviousBoot(db.db'),
+    'úklid běží dřív, než se tenhle proces prohlásí za živý');
 });
 
 db.close();

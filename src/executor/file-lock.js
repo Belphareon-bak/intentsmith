@@ -37,6 +37,7 @@ import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 
 import { BOOT_ID } from '../approvals/boot-id.js';
+import { livenessCutoff } from '../approvals/process-lease.js';
 import { realpathSync } from 'node:fs';
 import path from 'node:path';
 
@@ -328,14 +329,31 @@ export function releaseRunLocks(rawDb, runId, { reason = 'run_finished', now = D
  * podívá později, má poznat, že tenhle běh nedoběhl kvůli restartu, a ne že mu
  * vypršel čas.
  */
-export function releaseStaleLocks(rawDb, { bootId, now = Date.now() } = {}) {
+export function releaseStaleLocks(rawDb, { bootId, now = Date.now(), ttlMs = undefined } = {}) {
   if (!bootId) throw new FileLockError('boot_id_required');
+
+  // **„Cizí" není totéž co „mrtvý"** (M1-b).  Dřív se uvolnilo všechno s jiným
+  // `boot_id`, takže dva backendy nad jednou databází si navzájem brali živé
+  // zámky — a komentář výš přitom sliboval opak.  Rozhoduje teď **tep**, ne
+  // odlišnost: uklízí se jen to, co nedýchá déle než `LEASE_TTL_MS`.
+  //
+  // `boot_id IS NULL` je zámek z doby před migrací `2026_08_19_064_boot_identity`.
+  // Uklidit ho je prokazatelně bezpečné, protože **každý živý proces má dnes
+  // lease** — kdo lease nemá, netepe, a tedy neběží.
+  const cutoff = livenessCutoff({ now, ...(ttlMs === undefined ? {} : { ttlMs }) });
   return rawDb.prepare(`
     UPDATE file_write_locks
        SET released_at = ?, release_reason = 'boot_cleanup'
      WHERE released_at IS NULL
+       -- Porovnání "boot_id <> ?" je pro NULL samo NULL, takže by řádek vypadl.
+       -- Proto se NULL uvádí výslovně, a to dvakrát: jednou aby nebyl omylem
+       -- považovaný za nás, podruhé aby se uklidil.
        AND (boot_id IS NULL OR boot_id <> ?)
-  `).run(sqlTime(now), bootId).changes;
+       AND (
+         boot_id IS NULL
+         OR boot_id NOT IN (SELECT boot_id FROM process_leases WHERE last_seen > ?)
+       )
+  `).run(sqlTime(now), bootId, cutoff).changes;
 }
 
 /** Co je právě zamčené — pro diagnostiku a pro obrazovku, která to ukáže. */

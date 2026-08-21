@@ -170,6 +170,7 @@ const ALL_MIGRATIONS = [
   '2026_08_19_062_mobile_approval_precondition',
   '2026_08_19_063_mobile_approval_lifecycle',
   '2026_08_19_064_boot_identity',
+  '2026_08_21_065_process_leases',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;

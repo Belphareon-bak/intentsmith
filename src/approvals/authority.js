@@ -51,6 +51,7 @@
 
 import { createHash, randomUUID } from 'node:crypto';
 import { fingerprint } from './fingerprint.js';
+import { livenessCutoff } from './process-lease.js';
 
 /**
  * `DR-011`, as the only place these numbers exist.  Frozen so a caller cannot
@@ -290,8 +291,14 @@ export function decisionState(decision) {
  *
  * @returns {{closed: number, bootId: string}}
  */
-export function reapApprovalsFromPreviousBoot(rawDb, { bootId } = {}) {
+export function reapApprovalsFromPreviousBoot(rawDb, {
+  bootId, now = Date.now(), ttlMs = undefined,
+} = {}) {
   if (!bootId) throw new ApprovalAuthorityError('boot_id_required', {});
+  // **„Cizí" není totéž co „mrtvý"** (M1-b).  Dřív se uzavřelo všechno s jiným
+  // `waiter_boot`, takže druhý backend rušil **živé** otázky prvního.  Rozhoduje
+  // teď tep procesu, který čeká — ne to, že je jiný než my.
+  const cutoff = livenessCutoff({ now, ...(ttlMs === undefined ? {} : { ttlMs }) });
   const closed = rawDb.prepare(`
     UPDATE mobile_approvals
        SET decided_at = datetime('now'), decision = ?, decided_by = 'system',
@@ -300,7 +307,8 @@ export function reapApprovalsFromPreviousBoot(rawDb, { bootId } = {}) {
        AND validity = ?
        AND waiter_boot IS NOT NULL
        AND waiter_boot <> ?
-  `).run(APPROVAL_TERMINAL.CANCELLED, APPROVAL_VALIDITY.PRECONDITION, bootId).changes;
+       AND waiter_boot NOT IN (SELECT boot_id FROM process_leases WHERE last_seen > ?)
+  `).run(APPROVAL_TERMINAL.CANCELLED, APPROVAL_VALIDITY.PRECONDITION, bootId, cutoff).changes;
   return { closed, bootId };
 }
 

@@ -67,11 +67,38 @@ setApprovalDeps({ db: db.db, producer: companionProducer });
 // Zámky po mrtvých bězích padají se stejným odůvodněním: zámek, který přežije
 // svůj běh, je tichý blokátor pro všechny ostatní.
 try {
+  // Lease se zapisuje **před** úklidem: kdyby se uklízelo dřív, tenhle proces by
+  // ještě nebyl vidět jako živý — a druhý backend, který by startoval současně,
+  // by nám sebral zámky, které si za chvíli vezmeme.
+  beginLease(db.db, { bootId: BOOT_ID, role: 'core' });
+
   const reaped = reapApprovalsFromPreviousBoot(db.db, { bootId: BOOT_ID });
   const unlocked = releaseStaleLocks(db.db, { bootId: BOOT_ID });
   if (reaped.closed > 0 || unlocked > 0) {
     logger.info('Server',
       `Boot cleanup: ${reaped.closed} approval(s) had no waiter left, ${unlocked} lock(s) released`);
+  }
+
+  // Tep.  Bez něj by nás po `LEASE_TTL_MS` prohlásil za mrtvé jiný proces
+  // a sebral nám zámky za běhu.  `unref()`, aby tenhle časovač nedržel proces
+  // naživu při vypínání.
+  const leaseTimer = setInterval(() => {
+    try {
+      if (!heartbeatLease(db.db, { bootId: BOOT_ID })) {
+        // Řádek zmizel — někdo nás uklidil, nebo se tabulka vyprázdnila.
+        // Obnovit ho je bezpečnější než tiše přestat existovat.
+        beginLease(db.db, { bootId: BOOT_ID, role: 'core' });
+        logger.warn('Server', 'Process lease disappeared and was re-registered');
+      }
+    } catch (error) {
+      logger.warn('Server', `Lease heartbeat failed: ${error.message}`);
+    }
+  }, LEASE_HEARTBEAT_MS);
+  if (typeof leaseTimer.unref === 'function') leaseTimer.unref();
+
+  // Při řádném konci lease zmizí hned, ať na nás další start nečeká TTL.
+  for (const signal of ['SIGINT', 'SIGTERM', 'beforeExit']) {
+    process.once(signal, () => { try { endLease(db.db, { bootId: BOOT_ID }); } catch { /* končíme */ } });
   }
 } catch (error) {
   logger.error('Server', `Boot cleanup failed: ${error.message}`);
@@ -175,6 +202,9 @@ import { createCompanionProducer } from './mobile/companion-producer.js';
 import { configureEffects } from './executor/effects.js';
 import { reapApprovalsFromPreviousBoot } from './approvals/authority.js';
 import { BOOT_ID } from './approvals/boot-id.js';
+import {
+  beginLease, heartbeatLease, endLease, LEASE_HEARTBEAT_MS,
+} from './approvals/process-lease.js';
 import { releaseStaleLocks } from './executor/file-lock.js';
 import { createMarketplaceRoutes } from './routes/marketplace.js';
 import { createMediaRoutes, recoverStuckGenerations } from './routes/media.js';
