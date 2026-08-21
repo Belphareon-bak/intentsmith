@@ -25,7 +25,8 @@
 | **M1-d** klient rozliší konce | ✅ `e92291d4` |
 | **M1** oprava `orphaned` mimo kontrakt | ✅ `f5289d2e` |
 | **Review P0 closeoutu** `25c61a96`…`f5289d2e` | ✅ verdikt 2026-08-21 |
-| **M2** sdílená cesta pro zbylé zapisovatele | ⬜ **další — brána otevřená** |
+| **M2-1** patch engine na sdílenou cestu | ✅ *(tenhle balík)* |
+| **M2-2…5** skill write, code-cleaner, scaffolds, zbylé nástroje | ⬜ **další** |
 
 **Brána je otevřená — verdikt je zapsaný (2026-08-21).** Review rozsahu
 `25c61a96`…`f5289d2e` podle zadání [`p0-closeout-review.md`](p0-closeout-review.md)
@@ -235,9 +236,14 @@ zamítnutí. Autorita to rozlišuje (`decisionState`), plochy zatím ne všude.
 
 **Převést v tomhle pořadí** (od nejrizikovějšího):
 
-1. `src/patch/patch-engine.js` — hlavní cesta BUILD smyčky, dnes vlastní
-   temp+rename i vlastní backup/revert. Pozor: má revert, který musí zůstat
-   konzistentní s tím, že zápis nemusí nastat.
+1. ~~`src/patch/patch-engine.js`~~ — ✅ **hotovo.** Vlastní temp+rename zmizel,
+   `applyPatch` i `rollbackPatch` jdou přes `writeUserFile`. `runId` je identita
+   běhu smyčky (`build:<milestone>:fix-N:<uuid>`), ne relace, a `signal` se
+   aborduje ve `finally`, takže konec smyčky ukončí i její zápisy.
+   **Vědomá volba k přezkoumání:** návrat (`rollbackPatch`) jde toutéž cestou,
+   takže u souboru z citlivé kategorie se politika zeptá i na návrat. Druhé
+   dveře bez zámku a bez politiky by zrušily smysl těch prvních; pokud reviewer
+   chce jiný kompromis, je to jednořádková změna na jednom místě.
 2. `src/skills/steps/write.js` — skill write step.
 3. `src/planner/code-cleaner.js`, `src/planner/lifecycle-build.js`.
 4. `src/chat/handlers/utils/readme-generator.js`, `src/domains/scaffolds/*`.

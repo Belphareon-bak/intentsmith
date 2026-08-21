@@ -440,6 +440,10 @@ export function partitionErrorsByProjectScope(errors, scopeFiles, projectRoot) {
  * Run the iterative fix cycle.
  *
  * @param {Object} options - See JSDoc above
+ * @param {string} options.runId  **povinné** — jménem koho se zapisuje.  Patch
+ *   engine jde od `M2` sdílenou cestou (zámek + politika + atomický zápis) a ta
+ *   chce vlastníka.
+ * @param {AbortSignal} [options.signal]  konec běhu zastaví rozdělaný zápis
  * @returns {Promise<Object>} LoopResult
  */
 export async function runFixLoop(options) {
@@ -448,10 +452,20 @@ export async function runFixLoop(options) {
     qualityGateResult: initialQualityGate,
     callLLM, runTests, runQualityGate, getGitDiff,
     taskMemory, selfCritique,
+    runId = null, signal = null,
   } = options;
 
   const maxIter = config.lifecycle?.maxLoopIterations || 8;
   const projectRoot = lifecycle.projectPath;
+
+  // **Identita zápisu se nevymýšlí tady.**  `runId` je vlastník zámku na
+  // souboru; kdyby si ho smyčka vyrobila sama, byl by to zámek proti nikomu —
+  // volající, který běh zná (a umí ho zrušit), by o něm nevěděl.  Proto je to
+  // vstup, ne lokální proměnná, a chybí-li, je to vada volajícího.
+  if (typeof runId !== 'string' || runId.trim() === '') {
+    throw new Error('runFixLoop: runId required — patch engine zapisuje jménem běhu');
+  }
+  const writeOptions = { runId, signal, ownerLabel: `build:${milestone.id}` };
 
   // Step 1: Parse initial errors
   let initialErrors = extractErrors(initialTestResults, initialQualityGate);
@@ -822,7 +836,7 @@ export async function runFixLoop(options) {
       }
 
       // 4h. Apply patches
-      const applyResult = await applyPatchSet(validPatches, projectRoot);
+      const applyResult = await applyPatchSet(validPatches, projectRoot, writeOptions);
 
       if (!applyResult.success) {
         logger.warn('ExecutionLoop', 'Patch application failed', {
@@ -868,7 +882,7 @@ export async function runFixLoop(options) {
       if (decision.reason === 'diverging') {
         // Rollback last iteration's patches
         for (const file of lastIterationFiles) {
-          const rb = rollbackPatch(file, projectRoot);
+          const rb = await rollbackPatch(file, projectRoot, writeOptions);
           if (!rb.success) {
             logger.error('ExecutionLoop', `Rollback failed: ${file}: ${rb.error}`);
           }

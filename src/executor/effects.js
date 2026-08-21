@@ -9,16 +9,21 @@
 // Tenhle modul je **ta jedna cesta**.  Slib, který nad ním platí, zní přesně
 // takto a ne silněji:
 //
-//   > Zápisy uživatelských souborů **v cestě `FILE_WRITE` a nástroje `fs.write`**
-//   > jdou přes jednu řízenou cestu.  Dva běhy IntentSmithu si nepřepíšou stejný
-//   > kanonický cíl.  Externí změna zápis zastaví, pokud je viditelná při
-//   > poslední kontrole.  Mikrointerval mezi kontrolou a atomickou náhradou
-//   > souboru není pokrytý.
+//   > Zápisy uživatelských souborů **v cestě `FILE_WRITE`, nástroje `fs.write`
+//   > a patch enginu** jdou přes jednu řízenou cestu a **ptají se podle
+//   > politiky** (`write-policy.js`), ne pokaždé.  Dva běhy IntentSmithu si
+//   > nepřepíšou stejný kanonický cíl.  Externí změna zápis zastaví, pokud je
+//   > viditelná při poslední kontrole.  Mikrointerval mezi kontrolou
+//   > a atomickou náhradou souboru není pokrytý.
 //
 // Rozsah je v té větě schválně, protože „všechny zápisy" zatím **není pravda**:
-// patch engine, skill write step a další zapisovatelé jdou dál mimo.  Mediace
-// zbytku je samostatný balík; do té doby by širší formulace byla slib, který
+// skill write step, code-cleaner, scaffolds a zbylé zápisové nástroje jdou dál
+// mimo.  Mediace zbytku je `M2`; do té doby by širší formulace byla slib, který
 // kód neplní.
+//
+// Patch engine do věty přibyl 2026-08-21 (`M2-1`) — **až s kódem**, ne před ním:
+// `applyPatch` i `rollbackPatch` volají `writeUserFile` a vlastní `tmp + rename`
+// v `patch-engine.js` už neexistuje.
 //
 // Silnou variantu (žádný externí zapisovatel nikdy nepřepíše stav) by šlo
 // splnit jen mediační vrstvou pro **všechny** zapisovatele — CAS nebo verzované

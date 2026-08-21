@@ -5,19 +5,40 @@
 // This is the ONLY patch module that touches the filesystem.
 //
 // Key features:
-//   - Atomic writes (tmp + rename)
 //   - Rollback on syntax validation failure
 //   - PatchSet with automatic rollback on partial failure
 //   - Preview mode (dry-run)
 //
-// F1 is standalone — no integration with lifecycle-build or critic-agent.
-// Integration happens in F3 (Execution Loop).
+// ── M2: zápis jde sdílenou cestou, ne vlastní ─────────────────────────────
+//
+// Do `M2` měl tenhle modul **vlastní** `tmp + rename`.  Dělal ho hůř, než ho
+// dnes dělá `atomic-write.js` (žádný `fsync`, temp jméno `path + '.tmp'`, které
+// se dvěma běhy sráží, zahozená práva cíle) — a hlavně ho dělal **mimo zámek**,
+// takže dva běhy nad jedním souborem o sobě nevěděly.
+//
+// Teď jde zápis přes `writeUserFile`.  Není to approval na každý patch:
+// rozhodnutí `028` říká, že se agent běžně **neptá**, a politika (`write-policy.js`)
+// otázku vyvolá jen u pojmenovaných kategorií.  Co se získalo, je to ostatní —
+// zámek, kanonický cíl, atomická náhrada s právy a `fsync`, a záznam.
+//
+// **Zápis nemusí nastat** a modul to musí umět říct.  `writeUserFile` vrací
+// jméno stavu (`locked`, `rejected`, `precondition_changed`, `cancelled`,
+// `refused_unconfigured`, …), ne `false`; `applyPatch` ho propouští dál pod
+// klíčem `state`, aby smyčka nad ním nemusela hádat, jestli se nezapsalo,
+// selhalo, nebo osiřelo.
+//
+// Záloha je **v paměti** (`patch-applier.js`), takže „revert" po nezapsaném
+// patchi znamená zahodit záznam, ne psát na disk.  Kdyby se zálohovalo
+// zápisem, byla by tahle cesta nekonzistentní přesně v tom případě, kvůli
+// kterému existuje.
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
 import fs from 'fs';
 import path from 'path';
 import { logger } from '../core/logger.js';
+import { writeUserFile } from '../executor/effects.js';
+import { describeWorkspace } from '../executor/file-lock.js';
 import { parsePatchFromDiff, parsePatchFromFullFile } from './patch-parser.js';
 import { validatePatch, validatePatchSet, validateSyntaxPostApply } from './patch-validator.js';
 import {
@@ -31,17 +52,38 @@ import {
 /**
  * Apply a single patch to a file.
  *
- * Flow: read → validate → backup → apply → syntax check → atomic write
+ * Flow: read → validate → backup → apply → syntax check → sdílený zápis
  * On failure at any stage: revert from backup.
  *
  * @param {Object} patch - Patch ADT
  * @param {string} projectRoot - Project root directory
- * @returns {Promise<{ success: boolean, errors?: string[], metrics?: Object, content?: string }>}
+ * @param {Object} [options]
+ * @param {string} options.runId   **povinné** — vlastník zámku.  Identita
+ *   tahu/běhu, ne relace: dvě iterace téže smyčky si nesmí navzájem projít
+ *   zámkem jen proto, že sedí ve stejné konverzaci.
+ * @param {AbortSignal} [options.signal]  zrušení běhu zastaví zápis
+ * @param {Object} [options.workspace]  výsledek `describeWorkspace(projectRoot)`;
+ *   předává ho `applyPatchSet`, aby se `git` nevolal na každý patch zvlášť
+ * @param {string} [options.ownerLabel]
+ * @param {number} [options.timeoutMs]
+ * @returns {Promise<{ success: boolean, state?: string, errors?: string[], metrics?: Object, content?: string }>}
  */
-export async function applyPatch(patch, projectRoot) {
+export async function applyPatch(patch, projectRoot, options = {}) {
+  const { runId = null, signal = null, ownerLabel = 'patch-engine', timeoutMs = null } = options;
+
+  // Chybějící `runId` je vada volajícího, ne běhový stav — proto výjimka, ne
+  // `{ success: false }`.  Zámek bez vlastníka je jen zpomalení a modul, který
+  // by si vlastníka vymyslel sám, by tiše zrušil ochranu, kvůli které tudy
+  // zápis vede.
+  if (typeof runId !== 'string' || runId.trim() === '') {
+    throw new Error('applyPatch: runId required — zápis musí mít vlastníka (běh, ne relace)');
+  }
+
   if (!patch || !patch.file) {
     return { success: false, errors: ['Invalid patch: missing file'] };
   }
+
+  const workspace = options.workspace || describeWorkspace(projectRoot);
 
   const filePath = path.resolve(projectRoot, patch.file);
 
@@ -83,21 +125,36 @@ export async function applyPatch(patch, projectRoot) {
     return { success: false, errors: [`Syntax error after patch: ${syntaxCheck.error}`] };
   }
 
-  // Atomic write: tmp → rename
-  const tmpPath = filePath + '.tmp';
+  // Zápis — sdílenou cestou.  Adresáře pro nové soubory dělá `commitFile`.
+  let write;
   try {
-    // Ensure directory exists for new files
-    const dir = path.dirname(filePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    fs.writeFileSync(tmpPath, result.content, 'utf-8');
-    fs.renameSync(tmpPath, filePath);
+    write = await writeUserFile({
+      filePath, content: result.content, runId, signal, workspace,
+      ownerLabel,
+      ...(timeoutMs ? { timeoutMs } : {}),
+    });
   } catch (err) {
-    // Clean up tmp file if rename failed
-    try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
+    // Výjimka = zápis se pokusil a rozbil se (I/O, práva).  Na disku po sobě
+    // `commitFile` uklidí temp; tady zbývá zahodit zálohu, protože cíl se
+    // nezměnil.
     revertFromBackup(patch.file);
-    return { success: false, errors: [`Write failed: ${err.message}`] };
+    return { success: false, written: false, state: 'write_failed', errors: [`Write failed: ${err.message}`] };
+  }
+
+  if (!write.written) {
+    // **Nezapsáno není totéž co selhalo.**  Zamčený soubor, zamítnutá otázka
+    // a změněný předpoklad jsou tři různé věci a smyčka se podle nich chová
+    // různě — proto se jméno stavu propouští dál, ne `false`.
+    revertFromBackup(patch.file);
+    logger.warn('PatchEngine', `Patch not written (${write.state})`, {
+      file: patch.file, state: write.state, asked: write.asked === true, rule: write.rule || null,
+    });
+    return {
+      success: false,
+      written: false,
+      state: write.state,
+      errors: [`Not written (${write.state})${write.message ? `: ${write.message}` : ''}`],
+    };
   }
 
   const metrics = computeMetrics(patch, result);
@@ -106,10 +163,13 @@ export async function applyPatch(patch, projectRoot) {
     file: patch.file,
     applied: result.applied,
     skipped: result.skipped,
+    // Jestli se někdo ptal, patří do záznamu: automatický zápis a schválený
+    // zápis vypadají na disku stejně a v logu se pak nedají rozeznat.
+    asked: write.asked === true,
     ...metrics.anchorsResolved,
   });
 
-  return { success: true, metrics, content: result.content };
+  return { success: true, written: true, state: write.state, asked: write.asked === true, metrics, content: result.content };
 }
 
 // ─── Preview Patch (Dry-Run) ────────────────────────────────────────────────
@@ -163,24 +223,56 @@ export async function previewPatch(patch, projectRoot) {
 /**
  * Rollback a previously applied patch.
  *
+ * **Návrat je taky zápis** a jde toutéž cestou.  Znamená to, že u souboru
+ * z citlivé kategorie se politika zeptá i na návrat — což je nepohodlné a je to
+ * vědomá volba: druhé dveře, kterými se dá zapsat bez zámku a bez politiky, by
+ * zrušily smysl těch prvních.  Návrat navíc nikdy nepíše nic nového, jen obsah,
+ * který na disku před chvílí byl.
+ *
+ * `revertFromBackup` **zálohu zahodí** hned na začátku — i když se pak zápis
+ * nepovede.  Je to schválně: druhý pokus o návrat ze stejné zálohy by psal
+ * obsah, který už neplatí, a tichý rollback zpátky na starou verzi je horší než
+ * hlášené selhání.
+ *
  * @param {string} filePath - Relative file path
  * @param {string} projectRoot
- * @returns {{ success: boolean, error?: string }}
+ * @param {Object} [options]  stejné jako u `applyPatch`
+ * @returns {Promise<{ success: boolean, state?: string, error?: string }>}
  */
-export function rollbackPatch(filePath, projectRoot) {
+export async function rollbackPatch(filePath, projectRoot, options = {}) {
+  const { runId = null, signal = null, ownerLabel = 'patch-engine:rollback', timeoutMs = null } = options;
+  if (typeof runId !== 'string' || runId.trim() === '') {
+    throw new Error('rollbackPatch: runId required — návrat je zápis a musí mít vlastníka');
+  }
+
   const original = revertFromBackup(filePath);
   if (original === null) {
-    return { success: false, error: 'No backup found for rollback' };
+    return { success: false, state: 'no_backup', error: 'No backup found for rollback' };
   }
 
   const absPath = path.resolve(projectRoot, filePath);
+  const workspace = options.workspace || describeWorkspace(projectRoot);
+
+  let write;
   try {
-    fs.writeFileSync(absPath, original, 'utf-8');
-    logger.info('PatchEngine', 'Patch rolled back', { file: filePath });
-    return { success: true };
+    write = await writeUserFile({
+      filePath: absPath, content: original, runId, signal, workspace, ownerLabel,
+      ...(timeoutMs ? { timeoutMs } : {}),
+    });
   } catch (err) {
-    return { success: false, error: `Rollback write failed: ${err.message}` };
+    return { success: false, state: 'write_failed', error: `Rollback write failed: ${err.message}` };
   }
+
+  if (!write.written) {
+    return {
+      success: false,
+      state: write.state,
+      error: `Rollback not written (${write.state})${write.message ? `: ${write.message}` : ''}`,
+    };
+  }
+
+  logger.info('PatchEngine', 'Patch rolled back', { file: filePath });
+  return { success: true, state: write.state };
 }
 
 // ─── Apply Patch Set ────────────────────────────────────────────────────────
@@ -192,12 +284,17 @@ export function rollbackPatch(filePath, projectRoot) {
  *
  * @param {Array<Object>} patches
  * @param {string} projectRoot
+ * @param {Object} [options]  `runId` (povinné) a `signal`, stejně jako `applyPatch`
  * @returns {Promise<{ success: boolean, results: Array, errors?: string[] }>}
  */
-export async function applyPatchSet(patches, projectRoot) {
+export async function applyPatchSet(patches, projectRoot, options = {}) {
   if (!patches || patches.length === 0) {
     return { success: true, results: [] };
   }
+
+  // Strom se popíše **jednou za sadu**.  `describeWorkspace` volá `git`, takže
+  // per-patch by to byly tři procesy na každý soubor.
+  const writeOptions = { ...options, workspace: options.workspace || describeWorkspace(projectRoot) };
 
   // Build file contents map for validation
   const fileContents = new Map();
@@ -229,7 +326,7 @@ export async function applyPatchSet(patches, projectRoot) {
   const appliedFiles = []; // Track for rollback
 
   for (const patch of composed) {
-    const result = await applyPatch(patch, projectRoot);
+    const result = await applyPatch(patch, projectRoot, writeOptions);
     results.push({ file: patch.file, ...result });
 
     if (!result.success) {
@@ -237,7 +334,7 @@ export async function applyPatchSet(patches, projectRoot) {
       logger.warn('PatchEngine', `PatchSet failed at ${patch.file}, rolling back ${appliedFiles.length} applied patches`);
 
       for (let i = appliedFiles.length - 1; i >= 0; i--) {
-        const rb = rollbackPatch(appliedFiles[i], projectRoot);
+        const rb = await rollbackPatch(appliedFiles[i], projectRoot, writeOptions);
         if (!rb.success) {
           logger.error('PatchEngine', `Rollback failed for ${appliedFiles[i]}: ${rb.error}`);
         }

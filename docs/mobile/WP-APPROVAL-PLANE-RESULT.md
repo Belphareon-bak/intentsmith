@@ -178,16 +178,23 @@ Protokol a záznamový list jsou hotové v
 3, 4, 5, 9, 10 a 12. Chybí jediné: telefon a někdo, kdo to odklikne. Emulátor
 biometrii, Doze ani odpojení kabelu za běhu nereprodukuje.
 
-### 5.3 Sdílená cesta pro zbylé zapisovatele — neotevřená
+### 5.3 Sdílená cesta pro zbylé zapisovatele — otevřená, první převeden
 
 **Ne approval — zámek, atomický zápis a záznam** (`028` §4.3). Patch engine ani
 skill write se ptát nemají; potřebují infrastrukturu, ne otázku.
 
-Řízená cesta pokrývá **dvě** cesty. Změřeno na `25c61a96`:
+**Patch engine je od 2026-08-21 převedený** (`M2-1`). `applyPatch`
+i `rollbackPatch` jdou přes `writeUserFile`; `runId` a `signal` se předávají
+z volacího místa (`lifecycle-build` → `runFixLoop` → `applyPatchSet`) a sada
+`patch-engine-shared-write` to ověřuje **z volacího místa**, ne z jednotky. Její
+citlivost je změřená proti `f5289d2e`: 12 ze 13 testů tam selže; třináctý je
+označená pozitivní kontrola.
+
+Řízená cesta pokrývá **tři** cesty. Zbytek změřený na `25c61a96`:
 
 | Kategorie | Soubory | Poznámka |
 |---|---|---|
-| **Přes sdílenou cestu** | `patch/patch-engine.js`, `skills/steps/write.js`, `planner/code-cleaner.js`, `planner/lifecycle-build.js`, `chat/handlers/utils/readme-generator.js`, `domains/scaffolds/*`, zbylých 9 zápisů v `tools/registry.js` | agentem generované změny uživatelských souborů |
+| **Přes sdílenou cestu** | ✅ `patch/patch-engine.js` · zbývá: `skills/steps/write.js`, `planner/code-cleaner.js`, `planner/lifecycle-build.js`, `chat/handlers/utils/readme-generator.js`, `domains/scaffolds/*`, zbylých 9 zápisů v `tools/registry.js` | agentem generované změny uživatelských souborů |
 | **Vlastní autorita** | `routes/projects.js` (14 zápisů) | explicitní uživatelský file-manager — approval na každé uložení by byl nesmysl |
 | **Mimo** | `server-port-file`, `core/db-backup`, `core/history-drain`, `media/output-storage`, `packaging/auto-updater`, `marketplace/package-installer` | infrastruktura píšící do vlastních dat |
 

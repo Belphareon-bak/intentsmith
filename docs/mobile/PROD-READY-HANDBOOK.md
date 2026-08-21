@@ -62,7 +62,7 @@ přijatelný mechanismus napříč procesy, (4) `adb reverse` je pro prototyp
 dostatečná cesta, (5) `EncryptedSharedPreferences` + systémový zámek jsou
 přijatelná hranice **pro interní použití**.
 
-### P0-2 Skutečný effect seam — ✅ **ZAPNUTO** (2026-08-19), rozsah `FILE_WRITE` + `fs.write`
+### P0-2 Skutečný effect seam — ✅ **ZAPNUTO** (2026-08-19), rozsah `FILE_WRITE` + `fs.write` + patch engine
 
 > **Auto-approve je výchozí stav** (rozhodnutí [`028`](../decisions/028-approval-is-exceptional.md)).
 > Agent zapisuje bez ptaní; approval je **výjimka** pro případy, které

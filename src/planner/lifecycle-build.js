@@ -16,6 +16,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'child_process';
 import { logger } from '../core/logger.js';
 import { config } from '../config.js';
@@ -94,6 +95,22 @@ async function ensureContextOptimizer() {
 // v104: Execution loop — lazy-loaded
 let _loopLoaded = false;
 let _runFixLoop;
+
+/**
+ * Spusť opravnou smyčku tak, aby její zápisy měly vlastníka a konec.
+ *
+ * Existuje kvůli jedné větě, která se jinak musí opsat na každém volacím místě:
+ * **signál se aborduje i tehdy, když smyčka skončí výjimkou.**  Bez `finally` by
+ * pád smyčky nechal její zápisy dál platné a `signal` by přestal znamenat „tenhle
+ * běh skončil".
+ */
+async function runOwnedFixLoop(controller, options) {
+  try {
+    return await _runFixLoop({ ...options, signal: controller.signal });
+  } finally {
+    controller.abort();
+  }
+}
 
 async function ensureExecutionLoop() {
   if (_loopLoaded) return true;
@@ -627,7 +644,21 @@ async function postExecution(lifecycle, milestone, wfResult) {
   if ((hasTestFailure || hasCompileFailure) && await ensureExecutionLoop()) {
     const tm = await ensureTaskMemory();
     const sc = await ensureSelfCritique();
-    const loopResult = await _runFixLoop({
+
+    // **Vlastník zápisu pro tenhle běh smyčky.**  Od `M2` jde patch engine
+    // sdílenou cestou a ta chce vědět, čí zápis to je — kvůli zámku.
+    //
+    // Klíčem je **běh, ne milník a ne relace** (`A3`).  Druhý průchod níž je
+    // jiný běh a nesmí projít zámkem toho prvního jen proto, že opravuje tentýž
+    // milník; kdyby se identita brala z milníku, byla by ochrana proti sobě
+    // samé.
+    //
+    // Signál se aborduje na konci běhu.  BUILD dnes nemá cestu, kterou by ho
+    // uživatel zrušil dřív — až ji mít bude, připojí se sem a nic dalšího se
+    // měnit nebude.  I dnes to ale něco dělá: zápis, který by doběhl po konci
+    // smyčky, se už neprovede.
+    const fixRun = new AbortController();
+    const loopResult = await runOwnedFixLoop(fixRun, {
       lifecycle,
       milestone,
       testResults,
@@ -646,6 +677,7 @@ async function postExecution(lifecycle, milestone, wfResult) {
       getGitDiff: () => getGitDiff(lifecycle),
       taskMemory: tm,
       selfCritique: sc,
+      runId: `build:${milestone.id}:fix-1:${randomUUID()}`,
     });
 
     if (loopResult.converged) {
@@ -702,7 +734,8 @@ async function postExecution(lifecycle, milestone, wfResult) {
         // Re-run fix loop with semantic errors
         const tm = await ensureTaskMemory();
         const sc = await ensureSelfCritique();
-        const loopResult2 = await _runFixLoop({
+        const fixRun2 = new AbortController();
+        const loopResult2 = await runOwnedFixLoop(fixRun2, {
           lifecycle, milestone,
           testResults,
           qualityGateResult,
@@ -727,6 +760,7 @@ async function postExecution(lifecycle, milestone, wfResult) {
           getGitDiff: () => getGitDiff(lifecycle),
           taskMemory: tm,
           selfCritique: sc,
+          runId: `build:${milestone.id}:fix-2:${randomUUID()}`,
         });
 
         if (loopResult2.converged) {
