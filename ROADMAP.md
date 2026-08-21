@@ -269,10 +269,16 @@ Online discovery při startu proběhlo (`9 local + 0 catalog + 6 L4 = 15
 kandidátů`, HuggingFace enrichment `8 exact / 1 odhad`), což potvrzuje default
 `on` z rozhodnutí 2026-08-19 na běžícím produktu.
 
-**Co tím prokázané NENÍ:** čerstvá instalace (běželo na existujícím stromu
-s hotovými `node_modules` a `data/`) a Studio část cesty. Exit kritérium proto
-zůstává otevřené — chybí fresh-clone install provenance a build envelope, kvůli
-kterému je registrovaná T5 sada pravdivě `BLOCKED`.
+**Fresh-clone doplněn 2026-08-21 na `582ddd6b`.** Klon do prázdného adresáře,
+čistý strom (0 změn), `npm ci --offline` prošel na 206 balíčcích — **install
+provenance je tím offline doložená**. Server z čerstvého klonu naběhl,
+deterministická odpověď `49 ms` bez modelu, modelová `qwen3.5:27b` za
+`53 698 ms`, 4 zprávy uložené a po restartu neporušené.
+
+**Co zbývá:** Studio část cesty. Backend, install, chat, persistence a restart
+jsou doložené z čerstvého klonu; chybí build envelope, kvůli kterému je
+registrovaná T5 sada pravdivě `BLOCKED`. Exit kritérium je tím splněné ve všech
+částech kromě Studia.
 
 Dřívější paralelní report na stejném SHA není autoritativní: sdílený worktree
 vyvolal dirty-tree race mezi sadami. Proto je pro toto tvrzení určen výhradně
@@ -359,7 +365,7 @@ Přesné instalační/build příkazy, hashe, metodická omezení a screenshot/l
 | Část | Stav | Zbývá |
 |---|---|---|
 | Autorita dokumentů | `PŘIJATO` | Operátor přijal `PRODUCT.md` i `ROADMAP.md` 2026-08-21. |
-| Backend/runtime | `PARTIAL` | Fresh-clone install provenance; backendový HTTP restart už je current-SHA ověřen. |
+| Backend/runtime | `OVĚŘENO` | Fresh-clone install provenance doložena 2026-08-21 na `582ddd6b`: `npm ci --offline`, server, deterministický i modelový chat, persistence a restart z čistého klonu. |
 | Offline boundary | `MEASURED` | Před M6 opravit release-policy sentinel a aktivovat pravdivý PDF toolchain set. |
 | Capability picture | `PŘIJATO` | 22/22 je v `SYSTEM-MAP.md`, přijato 2026-08-21. Přijetí obrazu **neznamená** PASS jednotlivých schopností — ty drží vlastní žebřík. |
 | Studio/Theia | `MEASURED` | Fresh clone na `7236d221` prošel instalací a buildem; po dvou zachovaných červených kalibračních bězích následovaly dva samostatné runtime `PASS` s nulovým egresssem, 65s live-ready soakem a čistým shutdownem. Source-level a owned-loopback M1 už pokrývá cancel i automatický reconnect, ale built negotiated Electron journey stále neproběhl; runner zůstává registry `BLOCKED`, dokud auditní orchestrátor nedodá build envelope. |
