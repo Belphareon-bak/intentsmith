@@ -1,8 +1,11 @@
 # WP-APPROVAL-PLANE — co bylo uděláno
 
 **Typ:** záznam výsledku · **Zadání:** operátorská rozhodnutí 2026-08-19 (viz §1)
-**Vstupní revision:** `5c5413e4` · **Výstupní revision:** `076a5ac4` (19 commitů)
-**Etapy:** `5c5413e4`→`25c61a96` approval rovina · `25c61a96`→`076a5ac4` oprava výkladu (§7)
+**Vstupní revision:** `5c5413e4` · **Výstupní revision:** `f5289d2e` (25 commitů)
+**Etapy:** `5c5413e4`→`25c61a96` approval rovina · `25c61a96`→`f5289d2e` oprava
+výkladu a `M1` (§7)
+**Review:** [`p0-closeout-review.md`](../execution/p0-closeout-review.md) — zadání
+pro nezávislé posouzení; verdikt zatím není
 **Větev:** `wp/mobile-prototype-20260817`
 **Navazující zadání:** [`docs/execution/approval-mediation.md`](../execution/approval-mediation.md)
 
@@ -231,6 +234,10 @@ Zaznamenaná v [`rozhodnutí 028`](../decisions/028-approval-is-exceptional.md).
 | `e9c7e4e6` | odkaz na migraci plnou verzí (`mobile-migration-parity`) |
 | `19023a60` | **`M0`** — politika: ptá se jen na to, co je vyjmenované |
 | `076a5ac4` | rebaseline ratchetu (1 hrana přibyla, 1 ubyla) |
+| `6eb855fc` | **`M1-b`** — process leases, úklid rozlišuje mrtvý od cizího |
+| `0a21b6ac` | **`M1-c`** — konfliktní větve nesou co, kdy a kdo |
+| `e92291d4` | **`M1-d`** — propadlý ≠ zamítnutý člověkem, na obou plochách |
+| `f5289d2e` | oprava: `orphaned` neprošel kontraktem `M1` (§7.5) |
 
 ### 7.1 Politika
 

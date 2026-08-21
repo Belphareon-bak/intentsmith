@@ -8,7 +8,7 @@
 
 **Určeno pro:** jednu novou agentní relaci (jedno zapisující vlastnictví)
 **Větev:** `wp/mobile-prototype-20260817`
-**Vstupní revision:** `076a5ac4`
+**Vstupní revision:** `f5289d2e`
 **Worktree:** `/home/belphareon/worktrees/is-mobile-prototype`
 **Předchozí balík:** [`docs/mobile/WP-APPROVAL-PLANE-RESULT.md`](../mobile/WP-APPROVAL-PLANE-RESULT.md)
 
@@ -21,9 +21,14 @@
 | **M0** politika (auto-approve default) | ✅ `19023a60` |
 | **M1-a** práva souboru, `fsync`, unikátní temp | ✅ `70ce191f` |
 | **M1-b** boot lease | ✅ `6eb855fc` |
-| **M1-c** multi-device terminální výsledek | ✅ `M1-c` |
-| **M1-d** klient rozliší konce | ✅ |
+| **M1-c** multi-device terminální výsledek | ✅ `0a21b6ac` |
+| **M1-d** klient rozliší konce | ✅ `e92291d4` |
+| **M1** oprava `orphaned` mimo kontrakt | ✅ `f5289d2e` |
 | **M2** sdílená cesta pro zbylé zapisovatele | ⬜ **další — až po review P0 closeoutu** |
+
+**Review P0 closeoutu má vlastní zadání:**
+[`p0-closeout-review.md`](p0-closeout-review.md). Bez jeho verdiktu se M2
+neotvírá.
 
 **Otevřená mezera v kontraktu (2026-08-21).** `M1_TERMINAL_STATUS` nemá slovo
 pro „nevím" (`ok | cancelled | timeout | error`). Osiřelý běh se proto hlásí
