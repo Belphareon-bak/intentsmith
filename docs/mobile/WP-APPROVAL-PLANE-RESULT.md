@@ -147,16 +147,12 @@ Artifact validation 151/151.
 1. ~~**Atomická náhrada ničí práva souboru.**~~ **Vyřešeno** `70ce191f` —
    režim cíle se přebírá, přidán `fsync` na soubor i adresář, temp jméno je
    `randomUUID()`. Tři testy v `effects-p0-regressions`.
-2. **Boot cleanup zaměňuje „jiný proces" za „mrtvý proces".** Komentář slibuje,
-   že se dva procesy navzájem neuklízejí, SQL ale uzavře všechno s jiným
-   `boot_id`. Chce to lease/heartbeat, nebo vynucený singleton nad databází.
-   → `src/approvals/authority.js`, `src/executor/file-lock.js`
+2. ~~**Boot cleanup zaměňuje „jiný proces" za „mrtvý proces".**~~ **Vyřešeno**
+   `6eb855fc` — zavedeny process leases s tepem (migrace
+   `2026_08_21_065_process_leases`). Úklid se ptá na tep, ne na odlišnost, takže
+   je bezpečný bez ohledu na to, kdo ho zavolá. Šest testů
+   v `approval-lifecycle`.
 
-   **Upřesnění rozsahu (ověřeno na `25c61a96`):** úklid volá **jen
-   `src/server.js`**, gateway ne. V dnešním zapojení (jeden core + gateway)
-   proto nehrozí, že by gateway sebrala approvaly coru — na to by musely běžet
-   dva cory nad jednou databází. Vada je **latentní, ne aktivní**; komentář
-   v kódu ale tvrdí něco, co kód nedělá, a to se srovnat má.
 3. **Multi-device nedodává slíbený terminální výsledek.** Druhý telefon dostane
    `409` jen s rozhodnutím, bez `decidedAt` a `decidedBy`; závodní větev nedodá
    ani rozhodnutí. Test to obchází čtením z DB, takže nedokazuje dokumentované

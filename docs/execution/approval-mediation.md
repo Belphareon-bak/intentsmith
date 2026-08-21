@@ -20,8 +20,8 @@
 |---|---|
 | **M0** politika (auto-approve default) | ✅ `19023a60` |
 | **M1-a** práva souboru, `fsync`, unikátní temp | ✅ `70ce191f` |
-| **M1-b** boot lease | ⬜ **začni tímhle** |
-| **M1-c** multi-device terminální výsledek | ⬜ |
+| **M1-b** boot lease | ✅ `6eb855fc` |
+| **M1-c** multi-device terminální výsledek | ⬜ **začni tímhle** |
 | **M1-d** klient rozliší konce | ⬜ |
 | **M2** sdílená cesta pro zbylé zapisovatele | ⬜ |
 
@@ -145,7 +145,13 @@ cíl. Sonda review přepsala `0755` na `0664` — skript přestal být spustitel
 **Test:** soubor `0755` po schváleném přepsání zůstane `0755`; po pádu mezi
 zápisem a `rename` zůstane starý obsah celý.
 
-### M1-b Boot cleanup nesmí rušit živé procesy — **začni tímhle**
+### M1-b Boot cleanup nesmí rušit živé procesy — ✅ **HOTOVO** (`6eb855fc`)
+
+> Zvolen **lease s heartbeatem**, ne singleton: i singleton musí poznat, že
+> předchozí držitel umřel, jinak by po pádu jeho značka blokovala start navždy —
+> takže by se stejně zvrhl v lease plus odmítnutí startu. Migrace
+> `2026_08_21_065_process_leases`, modul `src/approvals/process-lease.js`,
+> TTL 90 s / tep 30 s. Zbytek sekce je popis, ne úkol.
 
 `src/approvals/authority.js` (`reapApprovalsFromPreviousBoot`),
 `src/executor/file-lock.js` (`releaseStaleLocks`)
@@ -182,6 +188,12 @@ potřeba ho zpřísnit, ne jen kód opravit.
 
 **Udělat:** obě konfliktní větve vracejí efektivní `decision` + `decidedAt` +
 `decidedBy`. Test musí číst **z odpovědi**, ne z databáze.
+
+**Rozsah — jen mobil.** Druhé review tvrdilo, že nejednotný kontrakt má
+i `src/routes/approvals.js`. Ověřeno: **nemá.** Desktopová replay větev
+(dnes ř. 154–161) vrací kompletní trojici včetně `decidedAt` a `decidedBy`;
+odkazovaný řádek 110 je výpis fronty, ne rozhodovací cesta. Opravuje se
+`src/mobile/handlers.js`, desktop zůstává.
 
 ### M1-d Klient rozliší konce
 
