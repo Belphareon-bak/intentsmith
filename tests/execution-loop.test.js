@@ -3,12 +3,47 @@
 
 import fs from 'fs';
 import path from 'path';
+import Database from 'better-sqlite3';
 import { suite, test, testAsync, assert, assertEqual, assertIncludes, summary } from './harness.js';
 import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 import {
   shouldContinue, compareErrors, limitErrors, buildFixPrompt,
   extractErrors, partitionErrorsByProjectScope, runFixLoop,
 } from '../src/executor/execution-loop.js';
+import { runMigrations } from '../src/db/migrate.js';
+import { createCompanionProducer } from '../src/mobile/companion-producer.js';
+import { configureEffects } from '../src/executor/effects.js';
+
+// ─── Rozhodovací rovina ─────────────────────────────────────────────────────
+//
+// Od `M2` jde zápis patch enginu přes `writeUserFile`, a ta cesta je
+// **fail-closed**: bez zapojené roviny se nezapisuje vůbec.  Sada, která smyčku
+// pouští, ji proto musí zapnout — jinak by neměřila konvergenci, ale nezapojený
+// harness, a všechny testy níž by padaly ze správného důvodu na špatném místě.
+//
+// Ptát se nikdo nebude: testovací soubory jsou obyčejné `.js`, a podle
+// rozhodnutí `028` je auto-approve výchozí stav.
+
+const effectsDb = new Database(path.join(isolatedTestRuntime.temp, 'execution-loop-effects.sqlite'));
+effectsDb.pragma('journal_mode = WAL');
+await runMigrations(effectsDb);
+configureEffects({
+  db: effectsDb,
+  producer: createCompanionProducer({
+    rawDb: effectsDb,
+    sleep: () => new Promise(resolve => setImmediate(resolve)),
+  }),
+});
+
+/**
+ * `runFixLoop` s vlastníkem zápisu.
+ *
+ * Každé volání dostane **vlastní** `runId`: zámek se sice po zápisu pouští, ale
+ * dvě sady sdílející identitu by si navzájem prošly i tehdy, kdyby se nepustil —
+ * a test, který takovou vadu nepozná, je horší než žádný.
+ */
+let fixLoopRuns = 0;
+const fixLoop = options => runFixLoop({ runId: `test-fix-${++fixLoopRuns}`, ...options });
 
 // ─── Test Project Setup ─────────────────────────────────────────────────────
 
@@ -303,7 +338,7 @@ test('dedup across sources', () => {
 suite('runFixLoop — convergence');
 
 await testAsync('pass on iteration 1', async () => {
-  const r = await runFixLoop({
+  const r = await fixLoop({
     lifecycle: { projectPath: TEST_DIR },
     milestone: { id: 'ms-1', title: 'Test' },
     testResults: mkTestResults(false, '', ERR_SYNTAX),
@@ -323,7 +358,7 @@ await testAsync('pass on iteration 2', async () => {
   fs.writeFileSync(path.join(TEST_DIR, 'a.js'), 'function main() {\n  old;\n}\n');
   fs.writeFileSync(path.join(TEST_DIR, 'b.js'), 'function main() {\n  old;\n}\n');
   let iter = 0;
-  const r = await runFixLoop({
+  const r = await fixLoop({
     lifecycle: { projectPath: TEST_DIR },
     milestone: { id: 'ms-1', title: 'Test' },
     testResults: mkTestResults(false, '', ERR_SYNTAX),
@@ -351,7 +386,7 @@ await testAsync('not_converging — same errors repeat', async () => {
     fs.writeFileSync(path.join(TEST_DIR, `fix${i}.js`), 'function main() {\n  old;\n}\n');
   }
   let iter = 0;
-  const r = await runFixLoop({
+  const r = await fixLoop({
     lifecycle: { projectPath: TEST_DIR },
     milestone: { id: 'ms-1', title: 'Test' },
     testResults: mkTestResults(false, '', ERR_SYNTAX),
@@ -372,7 +407,7 @@ await testAsync('diverging — rollback triggered', async () => {
   fs.writeFileSync(path.join(TEST_DIR, 'first.js'), 'function main() {\n  old;\n}\n');
   fs.writeFileSync(path.join(TEST_DIR, 'second.js'), 'function main() {\n  old;\n}\n');
   let iter = 0;
-  const r = await runFixLoop({
+  const r = await fixLoop({
     lifecycle: { projectPath: TEST_DIR },
     milestone: { id: 'ms-1', title: 'Test' },
     testResults: mkTestResults(false, '', ERR_SYNTAX),
@@ -415,7 +450,7 @@ await testAsync('budget_exhausted — max 2 iterations', async () => {
   }
   let iter = 0;
   try {
-    const r = await runFixLoop({
+    const r = await fixLoop({
       lifecycle: { projectPath: TEST_DIR },
       milestone: { id: 'ms-1', title: 'Test' },
       testResults: mkTestResults(false, '', ERR_SYNTAX),
@@ -437,7 +472,7 @@ await testAsync('budget_exhausted — max 2 iterations', async () => {
 });
 
 await testAsync('unrecoverable — early stop', async () => {
-  const r = await runFixLoop({
+  const r = await fixLoop({
     lifecycle: { projectPath: TEST_DIR },
     milestone: { id: 'ms-1', title: 'Test' },
     testResults: mkTestResults(false, '', ERR_PERMISSION),
@@ -453,7 +488,7 @@ await testAsync('unrecoverable — early stop', async () => {
 });
 
 await testAsync('patch_failed — no patches parsed', async () => {
-  const r = await runFixLoop({
+  const r = await fixLoop({
     lifecycle: { projectPath: TEST_DIR },
     milestone: { id: 'ms-1', title: 'Test' },
     testResults: mkTestResults(false, '', ERR_SYNTAX),
@@ -468,7 +503,7 @@ await testAsync('patch_failed — no patches parsed', async () => {
 });
 
 await testAsync('no initial errors → immediate converge', async () => {
-  const r = await runFixLoop({
+  const r = await fixLoop({
     lifecycle: { projectPath: TEST_DIR },
     milestone: { id: 'ms-1', title: 'Test' },
     testResults: mkTestResults(true),
@@ -508,7 +543,7 @@ test('scope partition accepts declared missing files and rejects traversal', () 
 
 await testAsync('out_of_scope_only — no LLM call for hallucinated files', async () => {
   let llmCalls = 0;
-  const r = await runFixLoop({
+  const r = await fixLoop({
     lifecycle: { projectPath: TEST_DIR },
     milestone: {
       id: 'ms-1',
@@ -531,7 +566,7 @@ await testAsync('out_of_scope_only — no LLM call for hallucinated files', asyn
 });
 
 await testAsync('scope_exceeded — >5 files', async () => {
-  const r = await runFixLoop({
+  const r = await fixLoop({
     lifecycle: { projectPath: TEST_DIR },
     milestone: { id: 'ms-1', title: 'Test' },
     testResults: mkTestResults(false, '', ERR_SYNTAX),
@@ -549,7 +584,7 @@ await testAsync('scope_exceeded — >5 files', async () => {
 
 await testAsync('file_loop — >3× same file', async () => {
   let iter = 0;
-  const r = await runFixLoop({
+  const r = await fixLoop({
     lifecycle: { projectPath: TEST_DIR },
     milestone: { id: 'ms-1', title: 'Test' },
     testResults: mkTestResults(false, '', ERR_SYNTAX),
@@ -572,7 +607,7 @@ await testAsync('file_loop — >3× same file', async () => {
 
 await testAsync('oscillation_detected — same patch repeated', async () => {
   let iter = 0;
-  const r = await runFixLoop({
+  const r = await fixLoop({
     lifecycle: { projectPath: TEST_DIR },
     milestone: { id: 'ms-1', title: 'Test' },
     testResults: mkTestResults(false, '', ERR_SYNTAX),
@@ -602,7 +637,7 @@ await testAsync('compile-first — quality gate before tests', async () => {
   let testCallCount = 0;
   let qgCalledFirst = false;
 
-  const r = await runFixLoop({
+  const r = await fixLoop({
     lifecycle: { projectPath: TEST_DIR },
     milestone: { id: 'ms-1', title: 'Test' },
     testResults: mkTestResults(false, '', ERR_SYNTAX),
@@ -628,7 +663,7 @@ await testAsync('compile failure skips test run', async () => {
   let iter = 0;
   fs.writeFileSync(path.join(TEST_DIR, 'a.js'), 'function main() {\n  old;\n}\n');
 
-  const r = await runFixLoop({
+  const r = await fixLoop({
     lifecycle: { projectPath: TEST_DIR },
     milestone: { id: 'ms-1', title: 'Test' },
     testResults: mkTestResults(false, '', ERR_SYNTAX),
@@ -651,7 +686,7 @@ await testAsync('compile failure skips test run', async () => {
 });
 
 await testAsync('clearBackups always called', async () => {
-  const r = await runFixLoop({
+  const r = await fixLoop({
     lifecycle: { projectPath: TEST_DIR },
     milestone: { id: 'ms-1', title: 'Test' },
     testResults: mkTestResults(true),
@@ -671,7 +706,7 @@ suite('runFixLoop — callbacks');
 await testAsync('callLLM called with prompt', async () => {
   fs.writeFileSync(path.join(TEST_DIR, 'app.js'), 'function main() {\n  old;\n}\n');
   let promptReceived = '';
-  const r = await runFixLoop({
+  const r = await fixLoop({
     lifecycle: { projectPath: TEST_DIR },
     milestone: { id: 'ms-1', title: 'MyMilestone' },
     testResults: mkTestResults(false, '', ERR_SYNTAX),
@@ -694,7 +729,7 @@ await testAsync('runTests called per iteration', async () => {
   for (let i = 1; i <= 3; i++) {
     fs.writeFileSync(path.join(TEST_DIR, `f${i}.js`), 'function main() {\n  old;\n}\n');
   }
-  const r = await runFixLoop({
+  const r = await fixLoop({
     lifecycle: { projectPath: TEST_DIR },
     milestone: { id: 'ms-1', title: 'Test' },
     testResults: mkTestResults(false, '', ERR_SYNTAX),
@@ -717,7 +752,7 @@ await testAsync('runTests called per iteration', async () => {
 await testAsync('runQualityGate called per iteration', async () => {
   fs.writeFileSync(path.join(TEST_DIR, 'a.js'), 'function main() {\n  old;\n}\n');
   let qgCount = 0;
-  const r = await runFixLoop({
+  const r = await fixLoop({
     lifecycle: { projectPath: TEST_DIR },
     milestone: { id: 'ms-1', title: 'Test' },
     testResults: mkTestResults(false, '', ERR_SYNTAX),
@@ -736,7 +771,7 @@ await testAsync('runQualityGate called per iteration', async () => {
 await testAsync('getGitDiff called', async () => {
   fs.writeFileSync(path.join(TEST_DIR, 'a.js'), 'function main() {\n  old;\n}\n');
   let diffCalled = false;
-  const r = await runFixLoop({
+  const r = await fixLoop({
     lifecycle: { projectPath: TEST_DIR },
     milestone: { id: 'ms-1', title: 'Test' },
     testResults: mkTestResults(false, '', ERR_SYNTAX),
@@ -752,7 +787,7 @@ await testAsync('getGitDiff called', async () => {
 await testAsync('LLM receives CODE role', async () => {
   fs.writeFileSync(path.join(TEST_DIR, 'a.js'), 'function main() {\n  old;\n}\n');
   let roleReceived = '';
-  const r = await runFixLoop({
+  const r = await fixLoop({
     lifecycle: { projectPath: TEST_DIR },
     milestone: { id: 'ms-1', title: 'Test' },
     testResults: mkTestResults(false, '', ERR_SYNTAX),
@@ -777,7 +812,7 @@ await testAsync('correct iteration count', async () => {
     fs.writeFileSync(path.join(TEST_DIR, `f${i}.js`), 'function main() {\n  old;\n}\n');
   }
   let iter = 0;
-  const r = await runFixLoop({
+  const r = await fixLoop({
     lifecycle: { projectPath: TEST_DIR },
     milestone: { id: 'ms-1', title: 'Test' },
     testResults: mkTestResults(false, '', ERR_SYNTAX),
@@ -801,7 +836,7 @@ await testAsync('filesModified tracks all files', async () => {
     fs.writeFileSync(path.join(TEST_DIR, `file${i}.js`), 'function main() {\n  old;\n}\n');
   }
   let iter = 0;
-  const r = await runFixLoop({
+  const r = await fixLoop({
     lifecycle: { projectPath: TEST_DIR },
     milestone: { id: 'ms-1', title: 'Test' },
     testResults: mkTestResults(false, '', ERR_SYNTAX),
@@ -823,7 +858,7 @@ await testAsync('filesModified tracks all files', async () => {
 
 await testAsync('summary text', async () => {
   fs.writeFileSync(path.join(TEST_DIR, 'a.js'), 'function main() {\n  old;\n}\n');
-  const r = await runFixLoop({
+  const r = await fixLoop({
     lifecycle: { projectPath: TEST_DIR },
     milestone: { id: 'ms-1', title: 'Test' },
     testResults: mkTestResults(false, '', ERR_SYNTAX),
@@ -841,7 +876,7 @@ await testAsync('totalPatches count', async () => {
     fs.writeFileSync(path.join(TEST_DIR, `f${i}.js`), 'function main() {\n  old;\n}\n');
   }
   let iter = 0;
-  const r = await runFixLoop({
+  const r = await fixLoop({
     lifecycle: { projectPath: TEST_DIR },
     milestone: { id: 'ms-1', title: 'Test' },
     testResults: mkTestResults(false, '', ERR_SYNTAX),
@@ -862,7 +897,7 @@ await testAsync('totalPatches count', async () => {
 
 await testAsync('converged flag in report', async () => {
   fs.writeFileSync(path.join(TEST_DIR, 'a.js'), 'function main() {\n  old;\n}\n');
-  const r = await runFixLoop({
+  const r = await fixLoop({
     lifecycle: { projectPath: TEST_DIR },
     milestone: { id: 'ms-1', title: 'Test' },
     testResults: mkTestResults(false, '', ERR_SYNTAX),
@@ -884,7 +919,7 @@ await testAsync('rollback on diverging — report shows rolled_back', async () =
   fs.writeFileSync(path.join(TEST_DIR, 'first.js'), 'function main() {\n  old;\n}\n');
   fs.writeFileSync(path.join(TEST_DIR, 'second.js'), 'function main() {\n  old;\n}\n');
   let iter = 0;
-  const r = await runFixLoop({
+  const r = await fixLoop({
     lifecycle: { projectPath: TEST_DIR },
     milestone: { id: 'ms-1', title: 'Test' },
     testResults: mkTestResults(false, '', ERR_SYNTAX),
@@ -916,7 +951,7 @@ await testAsync('no rollback on budget_exhausted', async () => {
 
   fs.writeFileSync(path.join(TEST_DIR, 'a.js'), 'function main() {\n  old;\n}\n');
   try {
-    const r = await runFixLoop({
+    const r = await fixLoop({
       lifecycle: { projectPath: TEST_DIR },
       milestone: { id: 'ms-1', title: 'Test' },
       testResults: mkTestResults(false, '', ERR_SYNTAX),
@@ -936,7 +971,7 @@ await testAsync('no rollback on budget_exhausted', async () => {
 
 await testAsync('no rollback on convergence', async () => {
   fs.writeFileSync(path.join(TEST_DIR, 'a.js'), 'function main() {\n  old;\n}\n');
-  const r = await runFixLoop({
+  const r = await fixLoop({
     lifecycle: { projectPath: TEST_DIR },
     milestone: { id: 'ms-1', title: 'Test' },
     testResults: mkTestResults(false, '', ERR_SYNTAX),
@@ -955,7 +990,7 @@ await testAsync('rollback targets specific files', async () => {
   fs.writeFileSync(path.join(TEST_DIR, 'first.js'), 'function main() {\n  old;\n}\n');
   fs.writeFileSync(path.join(TEST_DIR, 'second.js'), 'function main() {\n  old;\n}\n');
   let iter = 0;
-  const r = await runFixLoop({
+  const r = await fixLoop({
     lifecycle: { projectPath: TEST_DIR },
     milestone: { id: 'ms-1', title: 'Test' },
     testResults: mkTestResults(false, '', ERR_SYNTAX),
@@ -984,4 +1019,6 @@ await testAsync('rollback targets specific files', async () => {
 // ─── Cleanup + Summary ─────────────────────────────────────────────────────
 
 cleanupTestProject();
+configureEffects({ db: null, producer: null });
+effectsDb.close();
 summary();

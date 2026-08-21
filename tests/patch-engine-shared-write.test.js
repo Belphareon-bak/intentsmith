@@ -104,7 +104,13 @@ const patchFor = (file, added = '  if (!user) throw new Error("no user");') => (
  * na jiném místě, než kde je vada.  Odpověď se proto kontroluje hned.
  */
 async function answerPending(decision) {
-  for (let attempt = 0; attempt < 400; attempt++) {
+  // Čeká se na **čas, ne na počet tiků.**  Než se přijde na řadu citlivý soubor,
+  // stihne se zapsat ten předchozí — a `fsync` je skutečné I/O, které se
+  // čtyřmi sty `setImmediate` tiky přeskočí, když je stroj zaneprázdněný.
+  // Sada tak prošla samostatně a padala v gate; to není flake, to je špatně
+  // zvolená jednotka čekání.
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
     const row = db.prepare(
       'SELECT id, payload_fingerprint FROM mobile_approvals WHERE decided_at IS NULL',
     ).get();
@@ -117,9 +123,9 @@ async function answerPending(decision) {
         `telefon nedokázal odpovědět: ${JSON.stringify(response)}`);
       return response;
     }
-    await yieldTick();
+    await new Promise(resolve => setTimeout(resolve, 5));
   }
-  throw new Error('žádný approval nevznikl');
+  throw new Error('žádný approval nevznikl do 15 s');
 }
 
 // ── 1. Běžný patch: zapíše se, a nikdo se neptá ────────────────────────────
