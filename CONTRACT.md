@@ -371,6 +371,9 @@ toho se nesmí přenést jako otevřený blocker přes M5.
 
 ### Rozhodnuto po vydání verze 2
 
+- **Legacy web UI `/architect`** — disposition **legacy**, potvrzeno operátorem
+  2026-08-21. Není cílové UI ani fallback, neudržuje se a nevstupuje do release
+  matice. Odstranění kódu zůstává samostatné pozdější rozhodnutí.
 - **L0-8 specialist boundary** — přijata varianta A, **strict injection**.
   Rozhodnutí [`docs/decisions/019`](docs/decisions/019-l0-8-specialist-boundary.md),
   přijato operátorem 2026-08-09, potvrzeno 2026-08-21. Implementace zatím
@@ -382,7 +385,6 @@ toho se nesmí přenést jako otevřený blocker přes M5.
 ### Zbývá rozhodnout
 
 - **Rozdělení #6** (chat pipeline) — vyplyne z hluboké runtime inventury.
-- **Osud legacy web UI** `/architect` — není cílové UI, ale disposition není schválená.
 - **#18b upgrade automatika** — background síť je vypnutá; zůstává rozhodnout
   dlouhodobé retain/defer/retire.
 

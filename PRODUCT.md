@@ -52,7 +52,11 @@ IntentSmith 1.0 není týmový SaaS ani autonomní systém bez operátora.
    zůstávají samostatné, uživatelem vyvolané a auditované schopnosti.
 4. **Data pod kontrolou.** Uživatel ví, kde data leží, může je exportovat,
    zálohovat, obnovit a odstranit. Projektová data nepřecházejí mezi projekty
-   bez explicitního opt-inu.
+   bez explicitního opt-inu. **Síť má směr:** ven se chodí pro informace
+   a open source, dovnitř se nechodí vůbec — žádná projektová ani aplikační
+   data nejsou dosažitelná z internetu a produkt nevystavuje listener mimo
+   loopback (invariant L0-10). Vzdálený přístup je samostatná schopnost
+   Remote Companion release, ne vlastnost core 1.0.
 5. **Učení nerozšiřuje pravomoc.** Naučená informace sama nesmí změnit kód ani
    konfiguraci, udělit oprávnění, spustit efekt nebo překročit projektovou
    hranici. Každá učící smyčka je lokální, auditovatelná a vratná.
@@ -114,7 +118,7 @@ mechanismů nenahrazuje ostatní.
 - **IntentSmith Studio** postavené na dnešním C3 Studio/Theia kódu je hlavní
   desktopové/IDE rozhraní 1.0;
 - Linux + Theia + Ollama je první podporovaná platforma;
-- legacy `/architect` není cílové rozhraní ani fallback 1.0;
+- legacy `/architect` není cílové rozhraní ani fallback 1.0. Operátor 2026-08-21 potvrdil disposition **legacy**: neudržuje se, nevstupuje do release matice a nesmí být nabízen jako cesta k práci. Odstranění kódu je samostatné pozdější rozhodnutí, ne podmínka 1.0;
 - jádro 1.0 dodá verzované a bezpečnostně oddělené rozhraní pro budoucí
   Remote Companion.
 
@@ -136,9 +140,9 @@ mají tuto explicitní disposition:
 |---|---|
 | Správa lokálních modelů | **IN** — je nutná pro Ollama role a degradaci. |
 | Upgrade automatika / online discovery | **IN / GOVERNED** — rozhodnutím operátora z 2026-08-19 je discovery **default on**. Tím přestává být podmíněnou plochou a stává se **podmínkou vydání**: cesta musí prokázat outbound policy, approval, audit a rollback (`WP-M5-OUTBOUND-GATE`, invariant L0-12). Nesplněná validace blokuje 1.0; vypnutí už není náhradní řešení. |
-| Notifikace | **RETAIN / CONDITIONAL** — interní Studio výsledek je povinný pro agent E2E; externí kanály jsou explicitně konfigurované a testují se, pouze pokud se vydávají jako podporované. |
-| Marketplace | **RETAIN / CONDITIONAL** — explicitní outbound funkce, ne background ani podmínka hlavní demonstrace; podporovaný release claim vyžaduje security a install/rollback journey. |
-| Media | **RETAIN / CONDITIONAL** — zachovat funkční paritu; do release matice vstoupí jen podporované Studio media journey. |
+| Notifikace | **IN pro in-app** — notifikace uvnitř Studia jsou součástí 1.0 a interní výsledek je povinný pro agent E2E. Externí kanály (mail, webhook, push) jsou **rozšíření po releasu**; testují se, jen pokud se vydají jako podporované. |
+| Marketplace | **OUT pro 1.0 / TBD** — rozhodnutí operátora 2026-08-21: není součástí prvního releasu. Kód se nemaže. Pokud se později vydá jako podporovaný, vyžaduje security a install/rollback journey. |
+| Media | **OUT pro 1.0 / TBD** — rozhodnutí operátora 2026-08-21: není součástí prvního releasu. Funkční parita se zachová, do release matice nevstupuje. |
 | Licencování | **OUT pro 1.0 claim** — nedokončený kód se bez samostatného rozhodnutí nemaže, ale není podmínkou vydání. |
 | Setup wizard | **OUT** — 1.0 má dokumentovanou instalační a konfigurační cestu. |
 
