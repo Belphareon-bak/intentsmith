@@ -22,8 +22,8 @@
 | **M1-a** práva souboru, `fsync`, unikátní temp | ✅ `70ce191f` |
 | **M1-b** boot lease | ✅ `6eb855fc` |
 | **M1-c** multi-device terminální výsledek | ✅ `M1-c` |
-| **M1-d** klient rozliší konce | ⬜ **začni tímhle** |
-| **M2** sdílená cesta pro zbylé zapisovatele | ⬜ |
+| **M1-d** klient rozliší konce | ✅ |
+| **M2** sdílená cesta pro zbylé zapisovatele | ⬜ **další — až po review P0 closeoutu** |
 
 **Než otevřeš M2, nech P0 closeout projít review.** Poslední verdikt byl
 `CHANGES_REQUIRED`, oba blokátory jsou opravené v `25c61a96`, ale nikdo to od té
@@ -195,7 +195,7 @@ i `src/routes/approvals.js`. Ověřeno: **nemá.** Desktopová replay větev
 odkazovaný řádek 110 je výpis fronty, ne rozhodovací cesta. Opravuje se
 `src/mobile/handlers.js`, desktop zůstává.
 
-### M1-d Klient rozliší konce
+### M1-d Klient rozliší konce — ✅ **HOTOVO**
 
 Mobil i `/approvals-ui` musí `invalidated` a `cancelled` ukázat jinak než lidské
 zamítnutí. Autorita to rozlišuje (`decisionState`), plochy zatím ne všude.

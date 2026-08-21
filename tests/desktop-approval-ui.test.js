@@ -261,6 +261,51 @@ await test('stránka nekreslí frontu z paměti po neúspěšném obnovení', as
   assert.match(els.list.innerHTML, /nepodařilo načíst/i);
 });
 
+
+await test('M1-d propadlý a zrušený approval nejsou zamítnutí člověkem', async () => {
+  // Skript stránky se spustí a rozhodne; server odpoví replayem s neosobním
+  // koncem.  Uživatel nesmí odejít s dojmem, že to někdo zamítl.
+  for (const [state, musi, nesmi] of [
+    ['invalidated', /Propadlo/i, /Zamítnuto/i],
+    ['cancelled', /Zrušeno/i, /Zamítnuto/i],
+  ]) {
+    let call = 0;
+    const { els, sandbox } = await renderPage(async () => {
+      call += 1;
+      if (call === 1) return jsonResponse(200, { approvals: [APPROVAL] });
+      if (call === 2) return jsonResponse(200, { replay: true, decision: state, state });
+      return jsonResponse(200, { approvals: [] });
+    });
+    sandbox.onDecide(APPROVAL.id, 'approve');
+    await flush(20);
+
+    assert.match(els.list.innerHTML, musi, `${state} se neukázal jako ${state}`);
+    assert.doesNotMatch(els.list.innerHTML, nesmi,
+      `${state} se vydává za zamítnutí člověkem`);
+    assert.match(els.list.innerHTML, /Nikdo to nezamítl/i,
+      `chybí věta, která brání domyslet si zamítnutí (${state})`);
+  }
+});
+
+await test('M1-d rozhodnutí člověkem jinde říká kdo', async () => {
+  let call = 0;
+  const { els, sandbox } = await renderPage(async () => {
+    call += 1;
+    if (call === 1) return jsonResponse(200, { approvals: [APPROVAL] });
+    if (call === 2) {
+      return jsonResponse(200, {
+        replay: true, decision: 'reject', state: 'reject', decidedBy: 'device-telefon',
+      });
+    }
+    return jsonResponse(200, { approvals: [] });
+  });
+  sandbox.onDecide(APPROVAL.id, 'approve');
+  await flush(20);
+
+  assert.match(els.list.innerHTML, /Zamítnuto jinde/i);
+  assert.match(els.list.innerHTML, /device-telefon/);
+});
+
 db.close();
 rmSync(runtimeDir, { recursive: true, force: true });
 

@@ -561,8 +561,67 @@ await test('SS-09 an approval decided elsewhere discards this decision', async (
   ];
   click('approval-approve');
   await flush();
-  assert.match(html(), /rozhodnut jinde/i);
+  // `M1-d`: konkrétnější než dřív — nestačí „rozhodnut jinde", musí být vidět
+  // **co** se stalo.
+  assert.match(html(), /zamítnut jinde/i);
   assert.match(html(), /zahodilo/i);
+});
+
+await test('M1-d propadlý approval se neukáže jako zamítnutí člověkem', async () => {
+  reset();
+  await openDecidable();
+  fetchQueue = [
+    fail(409, {
+      code: 'state_conflict', reason: 'already_decided',
+      decision: 'invalidated', state: 'invalidated',
+    }),
+    ok([]),
+  ];
+  click('approval-approve');
+  await flush();
+
+  // Dřív se cokoli mimo `approve` vykreslilo jako „zamítnut" — tedy jako
+  // rozhodnutí člověka, které nikdo neudělal.
+  assert.match(html(), /propadl/i, 'propadnutí se neukázalo jako propadnutí');
+  assert.match(html(), /nikdo ho nezamítl/i,
+    'chybí věta, která uživateli brání domyslet si zamítnutí');
+  assert.doesNotMatch(html(), /byl mezitím zamítnut/i,
+    'propadlý approval se pořád vydává za zamítnutí člověkem');
+});
+
+await test('M1-d zrušený approval se neukáže jako zamítnutí člověkem', async () => {
+  reset();
+  await openDecidable();
+  fetchQueue = [
+    fail(409, {
+      code: 'state_conflict', reason: 'already_decided',
+      decision: 'cancelled', state: 'cancelled',
+    }),
+    ok([]),
+  ];
+  click('approval-approve');
+  await flush();
+
+  assert.match(html(), /zrušen/i);
+  assert.match(html(), /přestal čekat/i, 'neříká se, proč byl zrušen');
+  assert.match(html(), /nikdo ho nezamítl/i);
+  assert.doesNotMatch(html(), /byl mezitím zamítnut/i);
+});
+
+await test('M1-d rozhodnutí jinde říká, kdo rozhodl', async () => {
+  reset();
+  await openDecidable();
+  fetchQueue = [
+    fail(409, {
+      code: 'state_conflict', reason: 'already_decided',
+      decision: 'approve', state: 'approve', decidedBy: 'device-druhy',
+    }),
+    ok([]),
+  ];
+  click('approval-approve');
+  await flush();
+  assert.match(html(), /schválen jinde/i);
+  assert.match(html(), /device-druhy/, 'odpověď nese, kdo rozhodl, ale obrazovka to neukáže');
 });
 
 await test('SS-09 an approval that vanished from the queue shows no decision control', async () => {

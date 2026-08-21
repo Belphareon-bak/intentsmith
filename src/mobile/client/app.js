@@ -1236,6 +1236,38 @@ function errorPanel(error, retryAct = 'reload') {
      <button class="btn btn-secondary btn-sm" data-act="diagnostics">Diagnostika</button>`);
 }
 
+/**
+ * Čtyři konce, ne dva (`M1-d`).
+ *
+ * Dřív tu stálo `decision === 'approve' ? 'schválen' : 'zamítnut'`, takže se
+ * `invalidated` i `cancelled` uživateli ukázaly jako **zamítnutí** — tedy jako
+ * rozhodnutí člověka, které nikdo neudělal.  Approval, který propadl, protože
+ * se změnil cíl, není totéž co „někdo řekl ne", a plést to je právě ta lež,
+ * kterou `025` rozlišením `invalidated`/`cancelled` odstraňuje.
+ *
+ * Věta proto u obou neosobních konců **výslovně říká, že to nikdo nezamítl** —
+ * bez toho by si uživatel domyslel právě to.
+ */
+function decidedElsewhereSentence(detail) {
+  const outcome = detail?.state || detail?.decision;
+  const who = detail?.decidedBy ? ` (${detail.decidedBy})` : '';
+
+  switch (outcome) {
+    case 'approve':
+      return `Požadavek byl mezitím schválen jinde${who}. Tvoje rozhodnutí se zahodilo.`;
+    case 'reject':
+      return `Požadavek byl mezitím zamítnut jinde${who}. Tvoje rozhodnutí se zahodilo.`;
+    case 'invalidated':
+      return 'Požadavek mezitím propadl, protože se změnil cíl. Nikdo ho nezamítl — '
+        + 'musí vzniknout nový.';
+    case 'cancelled':
+      return 'Požadavek byl mezitím zrušen: běh, který se ptal, přestal čekat. '
+        + 'Nikdo ho nezamítl.';
+    default:
+      return 'Požadavek byl mezitím rozhodnut jinde. Tvoje rozhodnutí se zahodilo.';
+  }
+}
+
 /** UI-DESIGN §7 — every backend code maps to one sentence the user can act on. */
 const ERROR_COPY = {
   state_conflict:      { kind: 'conflict', title: 'Stav se mezitím změnil',
@@ -3698,12 +3730,7 @@ async function decideApproval(decision) {
       await loadApprovals();
     } else if (error.code === 'state_conflict') {
       journal.setState(operationId, 'REJECTED');
-      state.approvalNote = {
-        tone: 'warn',
-        text: error.detail?.decision
-          ? `Požadavek byl mezitím rozhodnut jinde (${error.detail.decision === 'approve' ? 'schválen' : 'zamítnut'}). Tvoje rozhodnutí se zahodilo.`
-          : 'Požadavek byl mezitím rozhodnut jinde. Tvoje rozhodnutí se zahodilo.',
-      };
+      state.approvalNote = { tone: 'warn', text: decidedElsewhereSentence(error.detail) };
       await loadApprovals();
     } else if (error.code === 'operation_conflict') {
       // Rule 3.  The same key already carries a different decision — that is a

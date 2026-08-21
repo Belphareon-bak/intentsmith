@@ -98,6 +98,12 @@ button.reject:hover:not(:disabled) { background: var(--error-bg); }
 // ══════════════════════════════════════════════════════════════════════════
 let queue = null;
 let lastError = null;
+// Hláška o posledním rozhodnutí **přežije obnovení fronty**.
+//
+// Byla dřív přilepená na položku (`item._notice`), jenže `refresh()` frontu
+// nahradí novými objekty — a s nimi hlášku. Uživatel ji viděl řádově
+// milisekundy. Jedna akce = jedna zpráva, drží se stranou od dat.
+let notice = null;
 let busy = new Set();
 const POLL_MS = 3000;
 
@@ -142,18 +148,34 @@ async function decide(item, decision) {
   busy.delete(item.id);
 
   if (res.ok && res.body?.replay) {
-    item._notice = { kind: 'warn', text: `Rozhodnuto jinde: ${czDecision(res.body.decision)}`
-      + `${res.body.decidedBy ? ` (${res.body.decidedBy})` : ''}` };
+    notice = { kind: 'warn', text: decidedElsewhere(res.body) };
   } else if (!res.ok) {
-    item._notice = { kind: 'bad', text: czRefusal(res.body?.reason, res.body?.error) };
+    notice = { kind: 'bad', text: czRefusal(res.body?.reason, res.body?.error) };
+  } else {
+    notice = null;
   }
   render();
   refresh();
 }
 
-function czDecision(d) {
-  return { approve: 'schváleno', reject: 'zamítnuto',
-           invalidated: 'propadlo', cancelled: 'zrušeno' }[d] || d || 'neznámo';
+/**
+ * Čtyři konce, ne dva.
+ *
+ * `invalidated` a `cancelled` **nejsou rozhodnutí člověka** — a věta to musí
+ * říct, jinak si uživatel domyslí, že to někdo zamítl. Totéž rozlišení má
+ * mobilní klient (`decidedElsewhereSentence` v `app.js`).
+ */
+function decidedElsewhere(body) {
+  const who = body.decidedBy ? ` (${body.decidedBy})` : '';
+  switch (body.state || body.decision) {
+    case 'approve': return `Schváleno jinde${who}.`;
+    case 'reject': return `Zamítnuto jinde${who}.`;
+    case 'invalidated':
+      return 'Propadlo, protože se změnil cíl. Nikdo to nezamítl — musí vzniknout nový požadavek.';
+    case 'cancelled':
+      return 'Zrušeno: běh, který se ptal, přestal čekat. Nikdo to nezamítl.';
+    default: return 'Rozhodnuto jinde.';
+  }
 }
 
 function czRefusal(reason, fallback) {
@@ -177,10 +199,16 @@ function render() {
   const conn = document.getElementById('conn');
   const foot = document.getElementById('foot');
 
+  // Nad seznamem, ať je vidět i když rozhodnutý požadavek z fronty zmizel —
+  // což je přesně ten případ, kdy uživatel nejvíc potřebuje vědět, co se stalo.
+  const banner = notice
+    ? `<div class="card"><div class="note ${notice.kind}">${esc(notice.text)}</div></div>`
+    : '';
+
   if (queue === null) {
     conn.textContent = 'nedostupné';
     // Ani slovo o tom, že nic nečeká — nevíme to.
-    list.innerHTML = `<div class="state err">
+    list.innerHTML = banner + `<div class="state err">
       <div class="emoji">⚠️</div>
       <div><strong>Frontu se nepodařilo načíst.</strong></div>
       <div style="margin-top:6px">${esc(lastError)}</div>
@@ -195,7 +223,7 @@ function render() {
   conn.textContent = 'připojeno';
 
   if (queue.length === 0) {
-    list.innerHTML = `<div class="state">
+    list.innerHTML = banner + `<div class="state">
       <div class="emoji">✅</div>
       <div>Nic nečeká.</div>
     </div>`;
@@ -203,11 +231,9 @@ function render() {
     return;
   }
 
-  list.innerHTML = queue.map(item => {
+  list.innerHTML = banner + queue.map(item => {
     const working = busy.has(item.id);
     const undecidable = item.decidable === false;
-    const notice = item._notice
-      ? `<div class="note ${item._notice.kind}">${esc(item._notice.text)}</div>` : '';
 
     // `precondition` approval **nemá odpočet**. Odpočet u něj není informace,
     // je to mýlka: neplatí, dokud běží čas, ale dokud se nezmění cíl.
@@ -236,7 +262,6 @@ function render() {
                 onclick="onDecide('${esc(item.id)}','reject')">Zamítnout</button>
         ${working ? '<span class="note">odesílám…</span>' : ''}
       </div>`}
-      ${notice}
     </div>`;
   }).join('');
 

@@ -142,7 +142,7 @@ Artifact validation 151/151.
 
 ## 5. Co **ne**platí
 
-### 5.1 Otevřené `P1` nálezy z review
+### 5.1 `P1` nálezy z review — **všechny čtyři vyřešené**
 
 1. ~~**Atomická náhrada ničí práva souboru.**~~ **Vyřešeno** `70ce191f` —
    režim cíle se přebírá, přidán `fsync` na soubor i adresář, temp jméno je
@@ -158,7 +158,15 @@ Artifact validation 151/151.
    `race_lost` si řádek přečte znovu, protože rozhodl někdo jiný právě teď.
    Testy čtou **z odpovědi**, ne z databáze — klient ji nevidí.
 
-4. **Klient nerozliší `invalidated`/`cancelled` od lidského zamítnutí.**
+4. ~~**Klient nerozliší `invalidated`/`cancelled` od lidského zamítnutí.**~~
+   **Vyřešeno** — mobil i `/approvals-ui` mají čtyři konce místo dvou a u obou
+   neosobních výslovně říkají „nikdo to nezamítl". Mobilní klient dřív vykresloval
+   `decision === 'approve' ? 'schválen' : 'zamítnut'`, takže propadlý approval
+   tvrdil rozhodnutí člověka, které nikdo neudělal.
+
+   Test u toho našel vadu navíc: hláška na desktopu byla přilepená na položku
+   fronty, kterou `refresh()` nahradí — uživatel ji viděl řádově milisekundy.
+   Drží se teď stranou od dat a přežije obnovení.
 
 ### 5.2 `P0-3` fyzická device matice — `NOT RUN`
 
