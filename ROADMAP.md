@@ -1,15 +1,15 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Verze:** 4 · **Datum:** 2026-08-08 · **Vlastník:** operátor · **Stav:** pracovní
-návrh ke schválení. Explicitní produktová rozhodnutí operátora zůstávají
-závazná podle `DIRECTION.md`; nové členění milníků a exit kritéria začnou řídit
-práci až po přijetí této roadmapy.
+**Verze:** 4 · **Datum:** 2026-08-08 · **Vlastník:** operátor ·
+**Stav: PŘIJATO OPERÁTOREM 2026-08-21** společně s `PRODUCT.md`.
 
-Plné operátorské přijetí této verze 4 zůstává otevřené. Pro právě běžící M1 je
-však samostatně přijatým prováděcím kontraktem
-[`docs/execution/m1-batch.md`](docs/execution/m1-batch.md) a operátor 2026-08-08
-výslovně uzavřel rozhodnutí 001–014. Tato omezená autorita neznamená přijetí
-ostatních milníků ani změnu jejich exit kritérií.
+Členění milníků, závislostní DAG a exit kritéria této verze 4 od tohoto data
+**řídí práci**. Dosud platila jen omezená autorita — prováděcí kontrakt
+[`docs/execution/m1-batch.md`](docs/execution/m1-batch.md) pro běžící M1
+a rozhodnutí 001–014 uzavřená 2026-08-08. Ta zůstávají v platnosti a nově je
+zastřešuje přijatá roadmapa jako celek. Explicitní produktová rozhodnutí
+operátora dál zůstávají závazná podle `DIRECTION.md`; kde by se rozcházela
+s touto roadmapou, platí `DIRECTION.md`.
 
 **Produkt:** [`PRODUCT.md`](PRODUCT.md) · **Pravidla:**
 [`CONTRACT.md`](CONTRACT.md) · **Směr:** [`DIRECTION.md`](DIRECTION.md) ·
@@ -336,10 +336,10 @@ Přesné instalační/build příkazy, hashe, metodická omezení a screenshot/l
 
 | Část | Stav | Zbývá |
 |---|---|---|
-| Autorita dokumentů | `DRAFT_COMPLETE` | Operátorské přijetí `PRODUCT.md` a `ROADMAP.md`. |
+| Autorita dokumentů | `PŘIJATO` | Operátor přijal `PRODUCT.md` i `ROADMAP.md` 2026-08-21. |
 | Backend/runtime | `PARTIAL` | Fresh-clone install provenance; backendový HTTP restart už je current-SHA ověřen. |
 | Offline boundary | `MEASURED` | Před M6 opravit release-policy sentinel a aktivovat pravdivý PDF toolchain set. |
-| Capability picture | `DRAFT_COMPLETE` | 22/22 je v `SYSTEM-MAP.md`; operátorské přijetí neznamená automaticky PASS jednotlivých schopností. |
+| Capability picture | `PŘIJATO` | 22/22 je v `SYSTEM-MAP.md`, přijato 2026-08-21. Přijetí obrazu **neznamená** PASS jednotlivých schopností — ty drží vlastní žebřík. |
 | Studio/Theia | `MEASURED` | Fresh clone na `7236d221` prošel instalací a buildem; po dvou zachovaných červených kalibračních bězích následovaly dva samostatné runtime `PASS` s nulovým egresssem, 65s live-ready soakem a čistým shutdownem. Source-level a owned-loopback M1 už pokrývá cancel i automatický reconnect, ale built negotiated Electron journey stále neproběhl; runner zůstává registry `BLOCKED`, dokud auditní orchestrátor nedodá build envelope. |
 | L0-8 specialist boundary | `ROZHODNUTO` | Varianta A, strict injection — [rozhodnutí 019](docs/decisions/019-l0-8-specialist-boundary.md), přijato 2026-08-09, zapsáno 2026-08-21. Exit kritérium „otevřené L0 porušení má rozhodnutí" je tím splněné. Implementace nese `WP-M3-L0-8-INJECTION`, vynucení `-ENFORCEMENT`; do té doby platí zákaz nových interních importů specialistů. |
 
@@ -1243,8 +1243,10 @@ mohou pokračovat.
 
 ## 13. Aktuální pořadí
 
-1. Plné přijetí `PRODUCT.md` a roadmapy v4 zůstává otevřené; pro současnou
-   práci je samostatně přijatý M1 batch a rozhodnutí 001–014.
+1. **`PRODUCT.md` i tato roadmapa jsou od 2026-08-21 přijaté operátorem.**
+   Přijetí PRODUCT.md proběhlo s jednou opravou: online discovery je `IN /
+   GOVERNED` a **default on** podle rozhodnutí z 2026-08-19, čímž se
+   `WP-M5-OUTBOUND-GATE` mění z volitelné plochy na podmínku vydání.
 2. **Dokončený M0-E source checkpoint:** ručně udržovaný chat-panel `lib` je
    současný autoritativní runtime; stale TS je archiv a package `build`,
    `watch`, `clean` ani historický fix script jej nesmějí přepsat nebo smazat.

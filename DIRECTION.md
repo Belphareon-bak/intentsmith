@@ -138,6 +138,14 @@ Není to marketingové slovo, je to omezení:
   Ollamu. Ty nejsou povinnou cloudovou závislostí, ale musí projít společnou
   outbound policy a auditem.
 
+  **Důsledek zapsaný 2026-08-21.** Při přijetí `PRODUCT.md` se ukázalo, že jeho
+  závazek 3 a tabulka zděděných ploch pořád tvrdily „background discovery
+  zůstává default off" — tedy stav před tímhle rozhodnutím. Srovnáno.
+  Zapnutá cesta zároveň mění povahu závazku: discovery přestává být plocha,
+  kterou lze před releasem vypnout, a stává se **podmínkou vydání**. Outbound
+  policy, approval, audit a rollback (`WP-M5-OUTBOUND-GATE`, invariant L0-12)
+  musí být prokázané, jinak 1.0 nevyjde.
+
 ---
 
 ## 2. Ideologie vývoje

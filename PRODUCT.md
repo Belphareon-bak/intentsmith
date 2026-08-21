@@ -1,8 +1,11 @@
 # IntentSmith — produktový kontrakt
 
-**Verze:** 2 · **Datum:** 2026-08-03 · **Vlastník:** operátor · **Stav:** pracovní
-návrh k přijetí společně s `ROADMAP.md`; explicitní rozhodnutí již potvrzená
-operátorem jsou zaznamenána v `DIRECTION.md`
+**Verze:** 3 · **Datum:** 2026-08-21 · **Vlastník:** operátor ·
+**Stav: PŘIJATO OPERÁTOREM 2026-08-21** společně s `ROADMAP.md`.
+Verze 2 byla pracovní návrh; přijetí proběhlo s jednou opravou, která srovnala
+závazek 3 a tabulku zděděných ploch s rozhodnutím operátora z 2026-08-19
+zapsaným v `DIRECTION.md`. Explicitní rozhodnutí operátora zůstávají v
+`DIRECTION.md`.
 
 > Tento dokument je autoritou pro to, **komu IntentSmith slouží, jaký problém
 > řeší a co znamená hotový produkt**. Způsob práce určuje `CONTRACT.md`, pořadí
@@ -36,9 +39,17 @@ IntentSmith 1.0 není týmový SaaS ani autonomní systém bez operátora.
    omezený rozsahem a podle rizika vyžaduje schválení.
 2. **Local-first.** Běžná práce nevyžaduje internet ani povinný cloud. Lokální
    Ollama může obsluhovat všechny modelové role.
-3. **Žádná tichá odchozí komunikace.** Background síťová aktivita je výchozím
-   stavem vypnutá. Explicitní webový nástroj, marketplace nebo vzdálená služba
-   jsou samostatné, uživatelem vyvolané a auditované schopnosti.
+3. **Žádná tichá odchozí komunikace.** Žádná odchozí cesta neběží skrytě ani
+   se netváří jako lokální: každá je deklarovaná, auditovaná a degraduje sama,
+   takže bez internetu produkt funguje dál. Síť smí být použita, nikdy
+   vyžadována. **Automatické model discovery je od rozhodnutí operátora
+   2026-08-19 výchozím stavem zapnuté** (`C3_ENABLE_ONLINE_DISCOVERY`, vypíná
+   se hodnotou `false`) — bez něj katalog tiše stárne a scoring doporučuje
+   modely nahrazené před měsíci, takže vyhledávání aktuálně nejefektivnějších
+   modelů je **záměr produktu, ne vedlejší efekt**. Zapnutá cesta tím ale
+   nepřestává být vázaná na společnou outbound policy, approval, audit
+   a rollback. Explicitní webový nástroj, marketplace nebo vzdálená služba
+   zůstávají samostatné, uživatelem vyvolané a auditované schopnosti.
 4. **Data pod kontrolou.** Uživatel ví, kde data leží, může je exportovat,
    zálohovat, obnovit a odstranit. Projektová data nepřecházejí mezi projekty
    bez explicitního opt-inu.
@@ -124,7 +135,7 @@ mají tuto explicitní disposition:
 | Plocha | Disposition pro core 1.0 |
 |---|---|
 | Správa lokálních modelů | **IN** — je nutná pro Ollama role a degradaci. |
-| Upgrade automatika / online discovery | **RETAIN / CONDITIONAL** — background discovery zůstává default off; pokud je cesta v releasu zapnutá, musí projít outbound policy, approval, audit a rollback. |
+| Upgrade automatika / online discovery | **IN / GOVERNED** — rozhodnutím operátora z 2026-08-19 je discovery **default on**. Tím přestává být podmíněnou plochou a stává se **podmínkou vydání**: cesta musí prokázat outbound policy, approval, audit a rollback (`WP-M5-OUTBOUND-GATE`, invariant L0-12). Nesplněná validace blokuje 1.0; vypnutí už není náhradní řešení. |
 | Notifikace | **RETAIN / CONDITIONAL** — interní Studio výsledek je povinný pro agent E2E; externí kanály jsou explicitně konfigurované a testují se, pouze pokud se vydávají jako podporované. |
 | Marketplace | **RETAIN / CONDITIONAL** — explicitní outbound funkce, ne background ani podmínka hlavní demonstrace; podporovaný release claim vyžaduje security a install/rollback journey. |
 | Media | **RETAIN / CONDITIONAL** — zachovat funkční paritu; do release matice vstoupí jen podporované Studio media journey. |
@@ -134,6 +145,19 @@ mají tuto explicitní disposition:
 `CONDITIONAL` neznamená „může být rozbité“. Znamená: plocha není podmínkou
 hlavního user journey, ale pokud je v artefaktu zapnutá nebo dokumentovaná jako
 podporovaná, musí projít příslušnou M5/M6 validací.
+
+### Mobilní aplikace jako vedlejší produkt
+
+Mobilní companion **není součástí core 1.0** a nikdy jí nebyl — je to vedlejší
+větev a vlastní produkt, který s IntentSmithem musí komunikovat.
+
+Ta komunikační hranice ale není pro core bez užitku. Vytahuje otázky, které M2
+stejně čekají — vlastnictví zápisu, rozhodovací rovina, approval hranice — a
+řeší je dřív, takže M2 nezačíná s nesrovnalostmi a neřeší je až za běhu. Práce
+na mobilu proto smí běžet souběžně a její výstup vůči core se čte jako
+**prerekvizita M2**, ne jako exekuce milníku. Podrobnosti `ROADMAP.md §6`.
+
+Vydání core 1.0 na ní nezávisí. Vlastní release mobilu je M7.
 
 ## 5. Jak poznáme hotový produkt
 
