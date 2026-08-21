@@ -350,6 +350,27 @@ i exclusive mutation autoritu. Mazací funkce se tam teď dostává injekcí
 z runtime kontextu (rozhodnutí 019, strict injection), takže bez autority se
 fail-closed nemaže a nevzniká modulová hrana. 97/1 → 98/0.
 
+**Změřeno 2026-08-21: `BLOCKED` neznamená rozbité.** Operátor upozornil, že
+tyhle cesty se v C3 běžně používaly a testovaly — jen nefungovaly dokonale.
+Ověřeno spuštěním: server nastartován a **26 registrovaných `server`-profilových
+sad puštěno přímo proti němu**, mimo `nightly-audit` (`server` je tam hard
+blocker, který `--no-block` ani `--allow-blocker` neobejdou).
+
+**Výsledek 21 PASS / 5 FAIL.** Health, chat API, konverzace, projekty, přílohy,
+expertizy, specialisté, agenti, skills, paměť, notifikace, bezpečnost, kvalita,
+export, websocket, security hardening, model upgrade, feedback, drafts,
+features a agent execution prošly na první pokus.
+
+Jediné diagnostikované selhání nebylo vadou produktu: `03-conversations`
+očekával `200` s prázdným polem u neexistující konverzace, zatímco route vrací
+`404` podle [rozhodnutí 012](docs/decisions/012-m1-rehydrate-empty-history-authority.md),
+varianta B, schválené operátorem 2026-08-08. Test nesl předrozhodovací C3
+očekávání; srovnán, sada je 16/16.
+
+Zbylá čtyři selhání (`19-rate-limit`, `22-autonomy`, `56-chat-with-project`,
+`60-ws-chat`, `80-ws-semantic-events`) **nejsou diagnostikovaná** a nesmí se
+vydávat ani za vady, ani za zastaralá očekávání, dokud se nezměří.
+
 Zbylá tři selhání a dvě `BLOCKED` sady **vadami nejsou**:
 
 | Sada | Proč to není vada |

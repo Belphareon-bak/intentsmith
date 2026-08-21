@@ -74,11 +74,15 @@ try {
     assert(Array.isArray(data.messages || data), 'messages must be array');
   });
 
-  await testAsync('returns an empty list for nonexistent conversation messages', async () => {
+  // Rozhodnutí operátora 2026-08-08, varianta B (`docs/decisions/012`):
+  // neexistující konverzace vrací 404, existující prázdná 200. Do M1 vracela
+  // route 200 s prázdným polem pro obojí, takže klient neuměl odlišit orphan
+  // od legitimně prázdné historie a mohl si přepsat lokální snapshot.
+  // Tenhle test nesl to předrozhodovací očekávání.
+  await testAsync('returns 404 for nonexistent conversation messages', async () => {
     const { status, data } = await api('GET', '/api/conversations/conv-nonexistent-xyz/messages');
-    assertEqual(status, 200);
-    const msgs = data.messages || data;
-    assert(Array.isArray(msgs) && msgs.length === 0, 'should be empty array for nonexistent');
+    assertEqual(status, 404);
+    assertEqual(data.code, 'CONVERSATION_NOT_FOUND');
   });
 
   // ── Update ──────────────────────────────────────────────────────────────
