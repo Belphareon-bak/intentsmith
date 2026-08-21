@@ -1,6 +1,6 @@
 # IntentSmith Platform — Architecture v136
 
-**Version:** v136.0.0
+**Version:** v136.1.0
 **Status:** Gate 0 baseline candidate; authoritative verdict is generated in
 [`convergence/STATUS.md`](convergence/STATUS.md)
 **Date:** 2026-07-30
@@ -873,6 +873,35 @@ The upgrade system discovers, evaluates, and proposes model changes — but **ne
 
 **Anti-thrashing:** 14-day cooldown per role. Rejected models get 30-day cooldown. Dismissed = permanent block.
 
+#### Execution-Based Evaluation (`src/eval/`, v136.1)
+
+The five `SUITES` grade responses by keyword and never run the code — measured
+2026-08-19, a vision model scored 100% on the `code` suite. The `code_patch`
+suite replaces keywords with execution: tasks are mined from this repo's own fix
+commits, the model receives the broken functions plus a description of required
+behaviour, its answer is spliced back into the file and a **hidden test** runs.
+
+```
+  fix commit ─→ source before fix + required behaviour ─→ model returns functions
+                                                            ↓
+  score = repaired failToPass / |failToPass|   ←── hidden test in isolation
+        = 0 on any passToPass regression            (throwaway worktree,
+                                                     unshare -rn, timeout)
+```
+
+Target sets are derived by **running** the tests, not by parsing the commit —
+`failToPass` (fails before, passes with the gold patch) is the assignment,
+`passToPass` guards against regressions. Calibration (`calibrate-code-suite.js`)
+labels each task `active` or `reserve-*`; only discriminating tasks run, and
+reserves are kept because today's floor is tomorrow's ceiling.
+
+**`code_patch` is deliberately absent from `SUITES`.** The fail-closed proof
+policy pins `validation-suites.js` and `model-profiles.js` by raw-byte sha256
+*and* asserts `Object.keys(SUITES)` matches exactly five suites — so the suite is
+passed explicitly to `comparePair(..., { suite })` and carries its own
+`CodePatchValidationRunner`. Role bindings are unchanged; switching CODE onto it
+is an operator decision.
+
 ### Feature Flags
 
 All variables loaded from `.env` (`dotenv`). Features independently toggleable via `FeatureManager` singleton. IDE sync: `c3.features.*` → WS `sync_settings` → `featureManager.setEnabled()`.
@@ -1014,4 +1043,4 @@ All memory systems use exponential decay: LTM (λ=0.01, half-life ~69d), Task Me
 
 ---
 
-*This document reflects C.3 Agent Platform v136.0.0 architecture (2026-08-19).*
+*This document reflects C.3 Agent Platform v136.1.0 architecture (2026-08-21).*

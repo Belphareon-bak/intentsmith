@@ -1,6 +1,6 @@
 {
   "name": "intentsmith",
-  "version": "136.0.0",
+  "version": "136.1.0",
   "type": "module",
   "description": "IntentSmith — C3-derived local agent platform with CRE, lifecycle, Code Intelligence, execution, and governed model operations",
   "main": "src/server.js",

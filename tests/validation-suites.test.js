@@ -14,16 +14,14 @@ import Database from 'better-sqlite3';
 
 suite('Suite Definitions');
 
-test('has exactly 6 suites', () => {
+test('has exactly 5 suites', () => {
   const names = Object.keys(SUITES);
-  assertEqual(names.length, 6);
+  assertEqual(names.length, 5);
   assert(names.includes('reasoning'));
   assert(names.includes('code'));
   assert(names.includes('chat'));
   assert(names.includes('vision'));
   assert(names.includes('review'));
-  // `code_patch` hodnotí spuštěním skrytého testu, ne klíčovými slovy.
-  assert(names.includes('code_patch'));
 });
 
 test('each suite has name, description, roles, tests', () => {
@@ -31,16 +29,9 @@ test('each suite has name, description, roles, tests', () => {
     assertEqual(s.name, key, `${key}.name`);
     assert(s.description.length > 0, `${key}.description`);
     assert(Array.isArray(s.roles), `${key}.roles`);
-    // `code_patch` je záměrně bez rolí: vazba role na sadu se nemění
-    // automaticky, přepnutí potvrzuje operátor ručně (viz hlavička sady).
-    if (key !== 'code_patch') assert(s.roles.length > 0, `${key}.roles.length`);
+    assert(s.roles.length > 0, `${key}.roles.length`);
     assert(Array.isArray(s.tests), `${key}.tests`);
-    // `code_patch` má velikost danou kalibrací, ne návrhem: běžně měří jen
-    // úlohy, na kterých se modely liší, a ostatní drží v rezervě.  Pevný
-    // spodní počet by nutil držet v sadě úlohy, které nic neměří — přesně to,
-    // čím trpěla stará sada `code`.
-    const minTests = key === 'code_patch' ? 1 : 6;
-    assert(s.tests.length >= minTests, `${key} should have ≥${minTests} tests, got ${s.tests.length}`);
+    assert(s.tests.length >= 6, `${key} should have ≥6 tests, got ${s.tests.length}`);
   }
 });
 

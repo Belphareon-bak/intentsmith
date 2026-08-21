@@ -8,6 +8,60 @@
 
 ---
 
+## v136.1 — Evaluace CODE spuštěným testem (2026-08-21)
+
+Validační sady měřily tvar odpovědi, ne schopnost. Nová sada `code_patch`
+staví úlohy z vlastní historie repa a o skóre rozhoduje spuštěný test.
+Detail: [`EVAL-CODE-SUITE.md`](EVAL-CODE-SUITE.md).
+
+### Příčina
+Žádná z pěti sad kód nespustí. Změřeno 2026-08-19 na 13 modelech × 5 sad:
+hodnota 100 % padla **26× z 65**, `llava:13b` — vision model — dostal 100 %
+v sadě `code` a nefunkční `isPrime` dostal 1.0 za to, že obsahoval `return`
+a cyklus. Souboj kvalitních modelů tím na roli CODE skončil nerozhodně.
+
+### Řešení
+Zdroják se vrátí do stavu před skutečnou opravou, model dostane vadné funkce
+a popis požadovaného chování, jeho odpověď se vloží zpátky a spustí se skrytý
+test v izolaci (odhozený worktree, `unshare -rn`, timeout).
+
+Cílové testy se odvozují **spuštěním**, ne z textu commitu:
+
+    failToPass    padá před opravou, prochází s gold patchem → zadání
+    passToPass    prochází v obou stavech                    → hlídač regresí
+
+    skóre = spravené cílové testy / velikost failToPass, 0 při regresi
+
+### Naměřeno
+5 modelů × 3 opakování × 7 úloh, 105 běhů, 47,1 min, šum **0,000**:
+
+| model | přínos |
+|---|---|
+| `qwen2.5-coder:32b` | 0,190 |
+| `qwen3.5:27b` | 0,143 |
+| `qwen3-coder:latest` | 0,048 |
+| `qwen2.5:32b` | 0,048 |
+| `qwen3:14b` | 0,000 |
+
+Informaci nesou **2 úlohy ze 7**; zbylých 5 je nad síly celého panelu.
+Kalibrace zapisuje každé úloze `status` a běžně se měří jen `active`. Rezervy
+se nemažou — dnešní podlaha je zítřejší strop.
+
+### Co se přitom našlo
+- **Metriku šlo oklamat havárií.** V režimu, kde testovací soubor tiskne jen
+  pády, se oprava poznávala po zmizelém `FAIL:` — ten ale zmizí i tehdy, když
+  běh spadne dřív. Částečný pád dostával plné skóre a úloha kolísala 0↔1.
+  Mlčící režim teď vyžaduje doklad, že běh doběhl.
+- **`validation-suites.js` je bajtově připnutý** ve fail-closed proof policy,
+  stejně jako `model-profiles.js`, a policy navíc kontroluje přesný seznam pěti
+  sad. `code_patch` se proto do `SUITES` nezapisuje a předává se explicitně.
+
+### Nezměněno
+Vazba role CODE (`roles: []`, běží vedle `code` jako podklad k ručnímu
+potvrzení) · `REMOVAL_ENABLED_BY_DEFAULT = false` · připnuté soubory.
+
+---
+
 ## v135.1 — Model scoring: obohacení lokálních kandidátů (2026-08-17)
 
 Scoring modelů byl postavený, ale nikdy nespuštěný, a při prvním měření dával

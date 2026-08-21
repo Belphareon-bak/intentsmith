@@ -250,6 +250,26 @@ scanner závorek, ověřený round-tripem gold patche.
 
 **Commit, který soubor zakládá, není oprava** — nemá stav „před".
 
+**`validation-suites.js` je bajtově připnutý.** Vedle `model-profiles.js` ho
+`model-failover-proof-policy.js` pinuje přes `sha256-raw-bytes-v1` a navíc
+kontroluje, že `Object.keys(SUITES)` přesně odpovídá pěti očekávaným sadám.
+Přidání jediného řádku do toho souboru shodí policy na
+`MODEL_FAILOVER_PROOF_POLICY_SOURCE_DRIFT`, zápis šesté sady do registru — i
+zvenčí — na `AUTHORITY_INVALID`. Obojí bylo změřené, ne odhadnuté.
+
+`code_patch` proto do registru **nepatří** a do souboje se předává explicitně:
+
+```js
+comparePair(runner, 'code_patch', kandidat, stavajici, { suite: codePatchSuite })
+```
+
+Vlastní parametry volání modelu nese `CodePatchValidationRunner`, potomek
+`ValidationRunner`. Bez nich by platily výchozí `num_ctx` 4096, `num_predict`
+512 a timeout 30 s — vadná funkce se do toho nevejde a uříznuté generování by
+se počítalo jako selhání modelu. Hlídají to testy
+`připnutý validation-suites.js zůstává nedotčený` a
+`sada se do registru SUITES nezapisuje`.
+
 ## 10. Soubory a příkazy
 
 | soubor | co dělá |
@@ -277,7 +297,8 @@ node src/eval/calibrate-code-suite.js /tmp/panel.json
 node tests/function-span.test.js && node tests/code-patch-runner.test.js
 ```
 
-Testy: `function-span` 13, `code-patch-runner` 43, `code-task-extractor` 12.
+Testy: `function-span` 13, `code-patch-runner` 43, `code-patch-suite` 10,
+`code-task-extractor` 12.
 
 ## 11. Jak se návrh vyvíjel
 

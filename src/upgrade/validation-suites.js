@@ -12,7 +12,6 @@
 import { config } from '../config.js';
 import { logger } from '../core/logger.js';
 import { MODEL_PROFILES } from './model-profiles.js';
-import { codePatchSuite } from '../eval/code-patch-suite.js';
 import { deflateSync } from 'node:zlib';
 
 // ─── Constants ─────────────────────────────────────────────────────────────
@@ -624,14 +623,6 @@ export const SUITES = {
   },
 };
 
-// ─── Registrace sady CODE se spouštěným testem ────────────────────────────
-//
-// `code_patch` se přidává vedle `code`, ne místo ní.  Stará sada zůstává, aby
-// šlo obojí porovnat na týchž modelech; vazba role CODE se nemění — to je
-// ruční rozhodnutí operátora (`model-profiles.js` je připnutý bajtovým hashem).
-
-SUITES.code_patch = codePatchSuite;
-
 // ─── Suite Lookup ─────────────────────────────────────────────────────────
 
 /**
@@ -742,10 +733,7 @@ export class ValidationRunner {
     const msg = { role: 'user', content: promptText };
     if (images) msg.images = images;
 
-    // Sady si mohou vyžádat vlastní parametry volání. `code_patch` potřebuje
-    // větší num_ctx (vadná funkce v promptu), víc num_predict (vrací celou
-    // funkci) a delší timeout (studené načtení modelu trvalo změřeně 122 s).
-    const result = await this._callModel(modelName, [msg], testDef.options || {});
+    const result = await this._callModel(modelName, [msg]);
 
     if (result.error) {
       return {

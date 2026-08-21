@@ -1,6 +1,7 @@
 # Inventura #18a — Správa modelů
 
 **Schopnost:** #18a (pořadí 4) · **Datum:** 2026-08-02 · **Commit:** `17a8b9a8`
+**Poslední follow-up:** 2026-08-21 (evaluace CODE, oddíl 11)
 **Vznik:** rozdělením #18 rozhodnutím operátora, inventura #1 `N-1`
 
 > `CONTRACT.md` §3 krok 1. Popisuje stav, nerozhoduje.
@@ -157,3 +158,48 @@ koordinátor nevlastní. Produkční scheduler je recursive single-flight a prvn
 až po dosavadním pětiminutovém delay. Checkpoint netvoří proof, claim, fallback
 candidate, provider mutation, runtime binding ani broadcast; L0-9 se proto
 nemění a automatic activation/restore zůstává otevřená.
+
+## 11. Runtime follow-up evaluace CODE — 2026-08-21
+
+Validační sady `SUITES` hodnotí odpovědi klíčovými slovy a žádná z nich kód
+nespustí. Změřeno 2026-08-19: 100 % padlo 26× z 65 (13 modelů × 5 sad),
+`llava:13b` dostal 100 % v sadě `code` a nefunkční `isPrime` dostal 1.0 za
+`return` a cyklus. Souboj na roli CODE tím skončil nerozhodně.
+
+Nová sada `code_patch` v `src/eval/` staví úlohy z vlastní historie repa: zdroják
+se vrátí do stavu před opravou, model dostane vadné funkce a popis požadovaného
+chování, jeho odpověď se vloží zpátky do souboru a spustí se skrytý test.
+Cílové testy se odvozují spuštěním, ne z textu commitu — `failToPass` (padá před
+opravou, prochází s gold patchem) je zadání, `passToPass` hlídač regresí. Skóre
+je podíl spravených cílových testů, nula při jakékoli regresi. Model vidí vadné
+funkce a názvy požadovaného chování, ne tělo testu, fixtury ani gold patch.
+
+Izolace: odhozený `git worktree`, podproces s timeoutem a síťový namespace
+`unshare -rn` s nahozeným `lo` — loopback funguje, ven se model nedostane.
+Extrakce ani hodnocení nemají vedlejší efekt na zdrojový repozitář: používá se
+`git show <ref>:<cesta>` a ruční zápis, protože `git checkout <ref> -- <cesta>`
+mění index hlavního repa i při zápisu do jiného `--work-tree`.
+
+**Připnuté soubory zůstávají nedotčené.** `src/upgrade/validation-suites.js` je
+vedle `model-profiles.js` bajtově připnutý ve `model-failover-proof-policy.js`
+(`sha256-raw-bytes-v1`) a policy navíc kontroluje, že `Object.keys(SUITES)`
+přesně odpovídá pěti očekávaným sadám. První verze sady zapsala registraci do
+toho souboru a shodila policy na `MODEL_FAILOVER_PROOF_POLICY_SOURCE_DRIFT`;
+zápis do registru zvenčí ji shodí na `AUTHORITY_INVALID`. `code_patch` se proto
+do `SUITES` nezapisuje vůbec a do souboje se předává explicitně —
+`comparePair(runner, 'code_patch', a, b, { suite })`. Vlastní parametry volání
+(`num_ctx`, `num_predict`, timeout) nese `CodePatchValidationRunner`, potomek
+`ValidationRunner`. Hlídají to testy `připnutý validation-suites.js zůstává
+nedotčený` a `sada se do registru SUITES nezapisuje`.
+
+Vazba role CODE se **nemění**: sada má `roles: []` a běží vedle `code` jako
+podklad k ručnímu potvrzení operátorem. `REMOVAL_ENABLED_BY_DEFAULT` zůstává
+`false`.
+
+Naměřeno 2026-08-21 na pěti modelech (3 opakování × 7 úloh, 105 běhů, 47,1 min,
+šum 0,000): `qwen2.5-coder:32b` 0,190 · `qwen3.5:27b` 0,143 · `qwen3-coder`
+0,048 · `qwen2.5:32b` 0,048 · `qwen3:14b` 0,000. Informaci nesou **2 úlohy ze
+7**, zbylých 5 je nad síly celého panelu. Kalibrace (`calibrate-code-suite.js`)
+zapisuje každé úloze `status`; běžné měření jede jen přes `active`, rezervy se
+nemažou, protože dnešní podlaha je zítřejší strop. Zásoba je úzká — z 29
+kandidátů padá 18 na tom, že mění řádky mimo funkce.

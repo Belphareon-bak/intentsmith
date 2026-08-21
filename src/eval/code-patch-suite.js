@@ -15,9 +15,25 @@
 // prošel.  Klíčová slova v hodnocení nejsou — hodnotí `node tests/….test.js`.
 //
 // Sada se registruje pod novým jménem a **nepřebírá vazbu role CODE**.
-// `model-profiles.js` je připnutý bajtovým hashem ve fail-closed proof policy
-// a vazby rolí se nemění automaticky — přepnutí role na tuhle sadu je ruční
+// Vazby rolí se nemění automaticky — přepnutí role na tuhle sadu je ruční
 // rozhodnutí operátora, ne vedlejší efekt téhle změny.
+//
+// ─── Proč se registruje zvenčí a ne v `validation-suites.js` ─────────────────
+//
+// `src/upgrade/validation-suites.js` je **bajtově připnutý** ve fail-closed
+// proof policy (`sha256-raw-bytes-v1`, viz `model-failover-proof-policy.js`).
+// Jakákoli úprava toho souboru — i přidání jednoho řádku — shodí celou policy
+// na `MODEL_FAILOVER_PROOF_POLICY_SOURCE_DRIFT`.  Ověřeno: první verze téhle
+// sady tam zápis přidala a policy přestala projít.
+//
+// Do registru `SUITES` se navíc **nesmí zapisovat ani zvenčí**: policy vedle
+// bajtů kontroluje i to, že `Object.keys(SUITES)` přesně odpovídá pěti
+// očekávaným sadám, takže přidání šesté shodí `AUTHORITY_INVALID`.
+//
+// Sada se proto do souboje předává explicitně (`comparePair(..., { suite })`)
+// a vlastní parametry volání modelu nese `CodePatchValidationRunner`, potomek
+// `ValidationRunner`.  Připnutý soubor i registr zůstávají nedotčené; hlídají
+// to testy v `tests/code-patch-suite.test.js`.
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -25,6 +41,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { logger } from '../core/logger.js';
+import { ValidationRunner } from '../upgrade/validation-suites.js';
 import {
   deriveTask, buildPrompt, extractFunctionCodes, applyAndTest, normalizedGain,
 } from './code-patch-runner.js';
@@ -43,7 +60,7 @@ const FIXTURE = path.join(HERE, 'code-suite-tasks.json');
  */
 const GENERATION_TIMEOUT_MS = 300_000;
 
-const MODEL_OPTIONS = {
+export const MODEL_OPTIONS = {
   timeout: GENERATION_TIMEOUT_MS,
   num_predict: 4096,
   num_ctx: 16384,     // vadná funkce + zadání se musí vejít i u delších funkcí
@@ -130,6 +147,90 @@ export function buildTests(repo = REPO_ROOT, tasks = null) {
       };
     },
   }));
+}
+
+/**
+ * Runner s vlastními parametry volání.
+ *
+ * `ValidationRunner._runTest()` volá model bez options, takže by platily
+ * výchozí hodnoty: `num_ctx` 4096, `num_predict` 512 a timeout 30 s.  Vadná
+ * funkce se do 4096 tokenů nevejde, odpověď se do 512 tokenů nevejde a studené
+ * načtení modelu s 2000 tokeny odpovědi trvalo změřeně 122 s.  Bez vlastních
+ * parametrů by se tedy jako „selhání modelu" počítalo uříznuté generování.
+ */
+export class CodePatchValidationRunner extends ValidationRunner {
+  constructor(baseUrl, suiteDef) {
+    super(baseUrl);
+    this._suite = suiteDef || codePatchSuite;
+  }
+
+  /**
+   * `ValidationRunner.runSuite()` hledá sadu v registru `SUITES`, kam se
+   * `code_patch` zapsat nesmí.  Runner si ji proto nese sám a spouští ji
+   * stejným postupem: test po testu, s průběžným hlášením.
+   */
+  async runSuite(suiteName, modelName, onProgress) {
+    if (suiteName !== this._suite.name) return super.runSuite(suiteName, modelName, onProgress);
+
+    this._cancelled = false;
+    const startTime = Date.now();
+    const tests = [];
+    let passedCount = 0;
+    let totalScore = 0;
+
+    const defs = this._suite.tests;
+    for (let i = 0; i < defs.length; i++) {
+      if (this._cancelled) break;
+      onProgress?.({
+        suite: suiteName, testName: defs[i].name, status: 'running',
+        currentTest: i + 1, totalTests: defs.length,
+        percent: Math.round((i / defs.length) * 100),
+      });
+      const result = await this._runTest(defs[i], modelName);
+      tests.push(result);
+      if (result.passed) passedCount++;
+      totalScore += result.score;
+    }
+
+    const score = defs.length ? totalScore / defs.length : 0;
+    onProgress?.({
+      suite: suiteName, testName: null, status: 'complete',
+      currentTest: defs.length, totalTests: defs.length, percent: 100, score,
+    });
+
+    return {
+      suite: suiteName, model: modelName, score,
+      passed: passedCount, total: defs.length, tests,
+      durationMs: Date.now() - startTime,
+    };
+  }
+
+  async _runTest(testDef, modelName) {
+    const promptResult = testDef.prompt();
+    const result = await this._callModel(
+      modelName,
+      [{ role: 'user', content: promptResult.text }],
+      testDef.options || {},
+    );
+
+    if (result.error) {
+      return {
+        name: testDef.name, passed: false, score: 0, response: '',
+        durationMs: result.durationMs, evalTokens: 0, error: result.error,
+      };
+    }
+
+    const graded = testDef.grade(result.content, promptResult);
+    return {
+      name: testDef.name,
+      passed: graded.passed,
+      score: graded.score,
+      response: result.content.substring(0, 500),
+      durationMs: result.durationMs,
+      evalTokens: result.evalCount,
+      detail: graded.detail,
+    };
+  }
 }
 
 let _tests = null;

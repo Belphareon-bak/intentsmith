@@ -31,7 +31,9 @@
 
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
-import { ValidationRunner, SUITES } from '../upgrade/validation-suites.js';
+// Sada se nepředává přes registr `SUITES` — ten je pod dohledem fail-closed
+// proof policy a šestá položka by ho shodila.  Viz hlavička `code-patch-suite.js`.
+import { codePatchSuite, CodePatchValidationRunner } from './code-patch-suite.js';
 import { comparePair, createSuiteCache, TASK_MARGIN_EPSILON } from '../upgrade/pairwise-trial.js';
 
 const SUITE = 'code_patch';
@@ -65,7 +67,7 @@ export function classifyTask(values, noise) {
  * @returns {Promise<Object>} matice úloha × model, zařazení úloh a verdikt
  */
 export async function measureDiscrimination(models, opts = {}) {
-  const runner = opts.runner || new ValidationRunner();
+  const runner = opts.runner || new CodePatchValidationRunner();
   const repeats = opts.repeats ?? 3;
   const cache = createSuiteCache();
   const log = opts.log ?? (() => {});
@@ -82,6 +84,7 @@ export async function measureDiscrimination(models, opts = {}) {
     for (let j = i + 1; j < models.length; j++) {
       log(`\n── ${models[i]} vs ${models[j]} ──`);
       const cmp = await comparePair(runner, SUITE, models[i], models[j], {
+        suite: codePatchSuite,
         repeats, suiteCache: cache, between: () => unloadAll(models), onProgress: opts.onProgress,
       });
       for (const t of cmp.tasks) {

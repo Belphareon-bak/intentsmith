@@ -7,7 +7,7 @@ a současný autoritativní C3 Studio runtime už neobsahuje implicitní Google 
 egress. Spouštěné Studio UI je stále přechodný runtime, nikoli finální vzhled
 IntentSmithu.
 
-**Verze:** 136.0.0 | **377 registrovaných testovacích programů**
+**Verze:** 136.1.0 | **377 registrovaných testovacích programů**
 (`280 ACTIVE`, `82 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`)
 
 > **Stav: aktivní vývoj, M0 — produktová pravda a ověřený baseline.** Jedna z 22

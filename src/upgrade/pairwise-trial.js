@@ -118,7 +118,11 @@ async function runSuiteCached(runner, suiteName, model, cache, opts = {}) {
  * @returns {Promise<{suite, tasks, discriminating, candidateWins, incumbentWins, margin, inconclusive}>}
  */
 export async function comparePair(runner, suiteName, candidate, incumbent, opts = {}) {
-  const suite = SUITES[suiteName];
+  // Sada se dá předat explicitně, protože do registru `SUITES` nelze přidávat:
+  // fail-closed proof policy kontroluje, že jeho klíče přesně odpovídají pěti
+  // očekávaným sadám, a šestá by ho shodila na `AUTHORITY_INVALID`.  Sady mimo
+  // registr (`code_patch`) tak jdou porovnat, aniž by se registr měnil.
+  const suite = opts.suite || SUITES[suiteName];
   if (!suite) throw new Error(`Neznámá validační sada: ${suiteName}`);
 
   const cache = opts.suiteCache;
