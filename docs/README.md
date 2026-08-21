@@ -15,6 +15,7 @@ This directory is the standalone source of truth for understanding IntentSmith. 
 | How do I run or change it? | [Development guide](development/getting-started.md) |
 | What are the security boundaries? | [Security policy](../SECURITY.md) |
 | How can I contribute? | [Contributing guide](../CONTRIBUTING.md) |
+| How must an autonomous agent work here? | [Implementation agent protocol](development/agent-protocol.md) |
 
 ## Architecture and contracts
 
@@ -54,3 +55,4 @@ collapsed into another layer without a recorded ledger decision.
 3. Security claims state what has been proved, not what an architecture merely intends.
 4. Phase evidence is preserved; historical ADRs and reports are not rewritten to make the past look cleaner.
 5. A code change that alters behaviour, boundaries or sequencing updates the related document in the same pull request.
+6. Documents produced by an implementation agent during a run are not authoritative until an existing rule or the user makes them so. See the [implementation agent protocol](development/agent-protocol.md).

@@ -16,6 +16,12 @@ Read:
 
 For implementation setup, see the [development guide](docs/development/getting-started.md).
 
+Autonomous or agent-assisted work is additionally bound by the
+[implementation agent protocol](docs/development/agent-protocol.md), summarised
+for tooling in [CLAUDE.md](CLAUDE.md). It supplements this guide and never
+overrides it: it cannot authorise skipping a gate, a required test, a required
+document update or a security control.
+
 ## Ground rules
 
 - Core owns lifecycle and verdict authority.

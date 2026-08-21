@@ -1,6 +1,6 @@
 # Project status
 
-Last updated: 2026-07-29.
+Last updated: 2026-08-21.
 
 ## Phase 3 closure candidate
 
@@ -280,6 +280,18 @@ the clean-working-tree assertion.
 - multi-process Core coordination;
 - authentication for non-loopback or multi-user operation;
 - cloud inference.
+
+## Open release-blocking defects
+
+None recorded.
+
+This section is the canonical location for a failure that is pre-existing,
+release-blocking and not caused by the change in flight — see
+[Implementation agent protocol](development/agent-protocol.md), section 12. Each
+entry states the failing gate or test, the phase it blocks, the observed
+causality and its priority. A GitHub issue may hold the detail, but it is linked
+from here rather than replacing this list. Do not open a separate tracking
+document for it.
 
 ## Known stable limitations
 
