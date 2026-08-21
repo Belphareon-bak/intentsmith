@@ -252,6 +252,28 @@ Poznámka k položce „stale harness count": pin byl 2026-08-03 opraven na 95,
 ale mezitím znovu zastaral na 99 (drift z eval sad). Srovnán na `a9b71d71`;
 fail-closed assertion `unprotected == []` držela po celou dobu.
 
+**Runtime baseline změřen 2026-08-21 na `d612494b`** (existující strom, ne
+čerstvý klon). Skutečný server, skutečné požadavky, skutečná Ollama:
+
+| Krok | Výsledek |
+|---|---|
+| Start serveru | Naběhl na loopbacku, dynamický port z `~/.c3/port`, přístup přes `X-IntentSmith-Local-Capability`. Odpovídá invariantu L0-10 |
+| Deterministická odpověď bez modelu | `40 ms`, `classifiedBy: deterministic`, `localComputation: true`, žádné volání modelu — pod L3 cílem 100 ms |
+| Modelová odpověď přes lokální Ollamu | `qwen3.5:27b`, `52 990 ms` |
+| Persistence | 4 zprávy uložené a čitelné |
+| Restart | Čisté ukončení, nový běh na jiném portu |
+| Obnovení po restartu | Všechny 4 zprávy neporušené |
+| Deterministická odpověď po restartu | `39 ms`, znovu bez modelu |
+
+Online discovery při startu proběhlo (`9 local + 0 catalog + 6 L4 = 15
+kandidátů`, HuggingFace enrichment `8 exact / 1 odhad`), což potvrzuje default
+`on` z rozhodnutí 2026-08-19 na běžícím produktu.
+
+**Co tím prokázané NENÍ:** čerstvá instalace (běželo na existujícím stromu
+s hotovými `node_modules` a `data/`) a Studio část cesty. Exit kritérium proto
+zůstává otevřené — chybí fresh-clone install provenance a build envelope, kvůli
+kterému je registrovaná T5 sada pravdivě `BLOCKED`.
+
 Dřívější paralelní report na stejném SHA není autoritativní: sdílený worktree
 vyvolal dirty-tree race mezi sadami. Proto je pro toto tvrzení určen výhradně
 výše uvedený sekvenční run.
