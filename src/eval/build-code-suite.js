@@ -53,7 +53,7 @@ export function buildSuite(repo, opts = {}) {
       continue;
     }
 
-    log(`  ověřuji ${candidate.hash.slice(0, 8)} (${task.functionLines} ř.)…`);
+    log(`  ověřuji ${candidate.hash.slice(0, 8)} (${task.functionLines} ř., ${task.functionCount} fn)…`);
     const verdict = verifyTask(repo, task, opts);
     if (!verdict.usable) { rejected.push({ hash: candidate.hash, reason: verdict.reason }); continue; }
 
@@ -62,10 +62,20 @@ export function buildSuite(repo, opts = {}) {
       source: task.source,
       test: task.test,
       subject: task.subject,
+      functionCount: task.functionCount,
       functionLines: task.functionLines,
       requirements: task.requirements.length,
+      // Cílové sady odvozené spuštěním, ne z textu commitu:
+      //   failToPass — co má oprava spravit (zadání)
+      //   passToPass — co nesmí rozbít (hlídač regresí)
+      scoreMode: verdict.scoreMode,
+      failToPass: verdict.failToPass,
+      passToPass: verdict.passToPass,
+      knownFailing: verdict.knownFailing,
     });
-    log(`  ✅ ${candidate.hash.slice(0, 8)} — ${task.subject.slice(0, 50)}`);
+    log(`  ✅ ${candidate.hash.slice(0, 8)} [${verdict.scoreMode}] `
+      + `${verdict.failToPass.length} cílových / ${verdict.passToPass.length} hlídaných`
+      + ` — ${task.subject.slice(0, 38)}`);
   }
 
   return { tasks: accepted, rejected, examined: candidates.length };

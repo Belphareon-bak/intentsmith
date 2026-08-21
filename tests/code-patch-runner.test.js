@@ -12,7 +12,7 @@ import path from 'node:path';
 
 import {
   changedLines, deriveTask, buildPrompt, extractFunctionCode, extractFunctionCodes,
-  applyAndTest, verifyTask, addedTestNames, parseTestOutput, scoreFromOutput,
+  applyAndTest, verifyTask, addedTestNames, parseTestOutput, scoreFromOutput, normalizedGain,
 } from '../src/eval/code-patch-runner.js';
 
 function git(repo, args) {
@@ -193,8 +193,8 @@ test('parseTestOutput rozliší prošlé a spadlé testy', () => {
   assertEqual(r.totals.passed, 2);
 });
 
-test('skóre je podíl splněných požadavků', () => {
-  const r = scoreFromOutput(HARNESS_OUT, ['prvni pozadavek', 'druhy pozadavek'], false);
+test('skóre je podíl spravených cílových testů', () => {
+  const r = scoreFromOutput(HARNESS_OUT, { failToPass: ['prvni pozadavek', 'druhy pozadavek'] }, false);
   assertEqual(r.score, 0.5);
   assertEqual(r.passed, false);
   assertEqual(r.targetedPassed, 1);
@@ -202,30 +202,155 @@ test('skóre je podíl splněných požadavků', () => {
 
 test('splnění všech požadavků dá plné skóre', () => {
   const out = '  ✅ prvni pozadavek\n  ✅ druhy pozadavek\n  RESULTS: 2 passed, 0 failed, 0 skipped\n';
-  const r = scoreFromOutput(out, ['prvni pozadavek', 'druhy pozadavek'], true);
+  const r = scoreFromOutput(out, { failToPass: ['prvni pozadavek', 'druhy pozadavek'] }, true);
   assertEqual(r.score, 1);
   assert(r.passed);
 });
 
 // Oprava, která rozbije jiné chování, není oprava — zisk se ruší celý.
-test('regrese mimo cílové testy srazí skóre na nulu', () => {
+test('pád hlídaného testu srazí skóre na nulu', () => {
   const out = '  ✅ prvni pozadavek\n  ❌ nesouvisejici test: rozbito\n  RESULTS: 1 passed, 1 failed, 0 skipped\n';
-  const r = scoreFromOutput(out, ['prvni pozadavek'], false);
+  const r = scoreFromOutput(out, { failToPass: ['prvni pozadavek'], passToPass: ['nesouvisejici test'] }, false);
   assertEqual(r.score, 0);
   assertEqual(r.regressions.length, 1);
 });
 
-test('bez pojmenovaných požadavků se padá zpět na celý soubor', () => {
-  assertEqual(scoreFromOutput(HARNESS_OUT, [], true).score, 1);
-  assertEqual(scoreFromOutput(HARNESS_OUT, [], false).score, 0);
+test('bez cílových testů se padá zpět na celý soubor', () => {
+  assertEqual(scoreFromOutput(HARNESS_OUT, { failToPass: [] }, true).score, 1);
+  assertEqual(scoreFromOutput(HARNESS_OUT, { failToPass: [] }, false).score, 0);
 });
 
 // Požadavek, jehož test vůbec nedoběhl, není regrese — jen nesplněný požadavek.
-test('nenalezený požadavek se počítá jako nesplněný, ne jako regrese', () => {
+test('cílový test, který nedoběhl, je nesplněný, ne regrese', () => {
   const out = '  ✅ prvni pozadavek\n  RESULTS: 1 passed, 0 failed, 0 skipped\n';
-  const r = scoreFromOutput(out, ['prvni pozadavek', 'test ktery nedobehl'], false);
+  const r = scoreFromOutput(out, { failToPass: ['prvni pozadavek', 'test ktery nedobehl'] }, false);
   assertEqual(r.score, 0.5);
   assertEqual(r.regressions.length, 0);
+});
+
+// Hlídaný test, který v protokolu chybí (soubor spadl dřív), je regrese.
+test('chybějící hlídaný test se počítá jako regrese', () => {
+  const out = '  ✅ prvni pozadavek\n  RESULTS: 1 passed, 0 failed, 0 skipped\n';
+  const r = scoreFromOutput(out, { failToPass: ['prvni pozadavek'], passToPass: ['test ktery zmizel'] }, false);
+  assertEqual(r.score, 0);
+  assertEqual(r.regressions.length, 1);
+});
+
+// ─── styl, kde úspěch mlčí (routes-smoke) ───────────────────────────────────
+//
+// `assert()` v routes-smoke tiskne jen pády. Oprava se pozná po zmizelém pádu,
+// ne po přibylém průchodu — bez toho vypadaly dvě platné úlohy jako mrtvé.
+
+const SILENT_TASK = {
+  scoreMode: 'failures-only',
+  failToPass: ['chat route validates projects'],
+  knownFailing: ['cizi vada, padala uz predtim'],
+};
+
+test('u mlčícího stylu je oprava poznat po zmizelém pádu', () => {
+  const out = '  ✅ neco jineho\n  FAIL: cizi vada, padala uz predtim\n══ Results: 44 passed, 1 failed ══';
+  const r = scoreFromOutput(out, SILENT_TASK, false);
+  assertEqual(r.score, 1, 'cílový test zmizel ze spadlých → spraveno');
+  assertEqual(r.regressions.length, 0, 'známá cizí vada není regrese');
+});
+
+test('u mlčícího stylu je trvající pád nesplněný cíl', () => {
+  const out = '  FAIL: chat route validates projects\n══ Results: 44 passed, 1 failed ══';
+  assertEqual(scoreFromOutput(out, SILENT_TASK, false).score, 0);
+});
+
+test('u mlčícího stylu je nový pád regrese', () => {
+  const out = '  FAIL: neco co drive fungovalo\n══ Results: 43 passed, 1 failed ══';
+  const r = scoreFromOutput(out, SILENT_TASK, false);
+  assertEqual(r.score, 0);
+  assertEqual(r.regressions.length, 1);
+});
+
+// Prázdný výstup nesmí projít jako „nic nespadlo, tedy spraveno".
+test('u mlčícího stylu se prázdný výstup nepočítá jako oprava', () => {
+  assertEqual(scoreFromOutput('', SILENT_TASK, false).score, 0);
+});
+
+test('parseTestOutput rozumí i FAIL: a ❌ bez zprávy', () => {
+  const r = parseTestOutput('  FAIL: alfa\n  ❌ beta() → not an object\n══ Results: 2 passed, 2 failed ══');
+  assert(r.failed.has('alfa'), [...r.failed].join('|'));
+  assert(r.failed.has('beta() → not an object'), [...r.failed].join('|'));
+  assertEqual(r.totals.passed, 2);
+});
+
+// ─── přínos proti nečinnosti ────────────────────────────────────────────────
+//
+// Úlohy nemají stejnou podlahu, takže holé skóre se přes sadu sčítat nedá.
+
+test('přínos je nula, když model nepřekonal podlahu', () => {
+  assertEqual(normalizedGain(0.33, 0.33), 0);
+  assertEqual(normalizedGain(0, 0), 0);
+});
+
+test('přínos je jedna při úplné opravě bez ohledu na podlahu', () => {
+  assertEqual(normalizedGain(1, 0), 1);
+  assertEqual(normalizedGain(1, 0.5), 1);
+});
+
+test('přínos škáluje podle zbývajícího prostoru', () => {
+  // podlaha 0,5: skóre 0,75 je půlka toho, co zbývalo opravit
+  assertEqual(normalizedGain(0.75, 0.5), 0.5);
+});
+
+test('zhoršení se ořezává na nulu, ne na záporné číslo', () => {
+  assertEqual(normalizedGain(0, 0.33), 0);
+});
+
+test('úloha bez prostoru ke zlepšení dá nulu místo dělení nulou', () => {
+  assertEqual(normalizedGain(1, 1), 0);
+});
+
+// Prostý skript bez protokolu po testech → hodnotí se celý soubor.
+test('bez protokolu po testech se úloha hodnotí jako celý soubor', () => {
+  const { task } = deriveTask(fx.repo, fx.meta);
+  const v = verifyTask(fx.repo, task);
+  assert(v.usable, v.reason);
+  assertEqual(v.scoreMode, 'file');
+  assertEqual(v.failToPass.length, 0);
+});
+
+// Testový soubor s protokolem → cílové sady se odvodí ze spuštění.
+test('verifyTask odvodí cílové sady ze spuštění', () => {
+  const repo = mkdtempSync(path.join(tmpdir(), 'ftp-'));
+  git(repo, ['init', '-q']);
+  git(repo, ['config', 'user.email', 't@e.cz']);
+  git(repo, ['config', 'user.name', 'T']);
+  mkdirSync(path.join(repo, 'src'), { recursive: true });
+  mkdirSync(path.join(repo, 'tests'), { recursive: true });
+  const harness = `export function check(name, ok) {
+  if (ok) console.log('  ✅ ' + name);
+  else { console.log('  ❌ ' + name + ': selhalo'); process.exitCode = 1; }
+}
+`;
+  const testFile = `import { add } from '../src/math.js';
+import { check } from './mini-harness.js';
+check('scitani vraci soucet', add(2, 2) === 4);
+check('nula funguje', add(0, 0) === 0);
+`;
+  writeFileSync(path.join(repo, 'tests', 'mini-harness.js'), harness);
+  writeFileSync(path.join(repo, 'src', 'math.js'), SOURCE_BROKEN);
+  writeFileSync(path.join(repo, 'tests', 'math.test.js'), testFile);
+  git(repo, ['add', '-A']); git(repo, ['commit', '-qm', 'initial']);
+  writeFileSync(path.join(repo, 'src', 'math.js'), SOURCE_FIXED);
+  writeFileSync(path.join(repo, 'tests', 'math.test.js'), testFile + '\n');
+  git(repo, ['add', '-A']); git(repo, ['commit', '-qm', 'fix(math): scitani ma scitat']);
+  const hash = git(repo, ['rev-parse', 'HEAD']).trim();
+
+  const { task } = deriveTask(repo, { hash, source: 'src/math.js', test: 'tests/math.test.js', subject: 'fix(math): scitani ma scitat' });
+  const v = verifyTask(repo, task);
+  assert(v.usable, v.reason);
+  assertEqual(v.scoreMode, 'named');
+  // `scitani vraci soucet` padá před opravou a prochází po ní → cílový test.
+  assert(v.failToPass.includes('scitani vraci soucet'), JSON.stringify(v.failToPass));
+  // `nula funguje` prochází v obou stavech → hlídaný, ne cílový.
+  assert(v.passToPass.includes('nula funguje'), JSON.stringify(v.passToPass));
+  assert(!v.failToPass.includes('nula funguje'), 'test procházející před opravou nesmí být cílový');
+  rmSync(repo, { recursive: true, force: true });
 });
 
 // ─── úloha zasahující do dvou funkcí ────────────────────────────────────────

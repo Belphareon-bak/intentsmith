@@ -25,7 +25,9 @@ import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { logger } from '../core/logger.js';
-import { deriveTask, buildPrompt, extractFunctionCodes, applyAndTest } from './code-patch-runner.js';
+import {
+  deriveTask, buildPrompt, extractFunctionCodes, applyAndTest, normalizedGain,
+} from './code-patch-runner.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, '..', '..');
@@ -70,6 +72,16 @@ export function loadFixtureTasks(repo = REPO_ROOT, fixturePath = FIXTURE) {
       logger.warn('CodePatchSuite', `úloha ${entry.hash?.slice(0, 8)} vypadla: ${reason}`);
       continue;
     }
+    // Cílové sady jsou odvozené při kurátorské stavbě; přeměřovat je při každém
+    // běhu by znamenalo dva testovací běhy navíc na úlohu a nic by to nepřineslo.
+    task.scoreMode = entry.scoreMode || 'named';
+    task.failToPass = entry.failToPass || [];
+    task.passToPass = entry.passToPass || [];
+    task.knownFailing = entry.knownFailing || [];
+    if (entry.scoreMode !== 'file' && !task.failToPass.length) {
+      logger.warn('CodePatchSuite', `úloha ${entry.hash?.slice(0, 8)} přišla o cílové testy — přeskočena`);
+      continue;
+    }
     tasks.push(task);
   }
   return tasks;
@@ -92,11 +104,22 @@ export function buildTests(repo = REPO_ROOT, tasks = null) {
       const target = ctx?._task || task;
       const codes = extractFunctionCodes(response, target.spans);
       const result = applyAndTest(repo, target, codes);
+      // Podlaha je z definice nula: test, který procházel i před opravou, není
+      // cílový.  `normalizedGain` tak jen ořízne případné zhoršení na nulu.
+      const gain = normalizedGain(result.score, 0);
       return {
         passed: result.passed,
-        score: result.score,
+        score: gain,
         // Diagnostika: odlišuje „nepochopil vadu" od „nezvládl tvar odpovědi".
-        detail: { syntaxOk: result.syntaxOk, applied: result.applied, reason: result.reason },
+        detail: {
+          rawScore: result.score,
+          syntaxOk: result.syntaxOk,
+          applied: result.applied,
+          targetedPassed: result.targetedPassed,
+          targeted: result.targeted,
+          regressions: result.regressions?.length ?? 0,
+          reason: result.reason,
+        },
       };
     },
   }));

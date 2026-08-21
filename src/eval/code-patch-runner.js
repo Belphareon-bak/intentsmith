@@ -288,62 +288,92 @@ export function runIsolatedTest(work, testFile, timeout = DEFAULT_TEST_TIMEOUT) 
 }
 
 /**
- * Rozebere výstup testovacího harnessu na jednotlivé testy.
+ * Rozebere výstup testovacího souboru na jednotlivé testy.
  *
- * Harness tiskne `  ✅ název` a `  ❌ název: chyba`, na konci ještě souhrn
- * selhání ve tvaru `    ❌ [sada] název: chyba` — proto množiny, aby se tentýž
- * test nezapočítal dvakrát.
+ * V repu koexistují dva styly hlášení a rozdíl mezi nimi je zásadní:
+ *
+ *   `tests/harness.js`        tiskne `  ✅ název` i `  ❌ název: chyba`
+ *   `tests/routes-smoke.js`   tiskne **jen** `  FAIL: název`; úspěch mlčí
+ *
+ * U druhého stylu se z výstupu nedá zjistit, které testy prošly — jde poznat
+ * jen to, které spadly.  Kdo tenhle rozdíl přehlédne, přijde o úlohy: obě
+ * úlohy nad `routes-smoke.test.js` vypadaly jako „nic se opravou nepřeklopilo",
+ * přestože se překlopily čtyři testy.
  *
  * @returns {{passed: Set<string>, failed: Set<string>, totals: {passed, failed}|null}}
  */
 export function parseTestOutput(output) {
   const passed = new Set();
   const failed = new Set();
+
+  const stripMessage = (text) => {
+    const i = text.indexOf(': ');
+    return (i === -1 ? text : text.slice(0, i)).trim();
+  };
+
   for (const line of (output || '').split('\n')) {
-    const ok = line.match(/^\s*✅\s+(.+?)\s*$/);
-    if (ok) { passed.add(ok[1]); continue; }
-    const bad = line.match(/^\s*❌\s+(?:\[[^\]]*\]\s+)?(.+?):\s/);
-    if (bad) failed.add(bad[1]);
+    let m = line.match(/^\s*✅\s+(.+?)\s*$/);
+    if (m) { passed.add(m[1]); continue; }
+    m = line.match(/^\s*PASS:\s+(.+?)\s*$/);
+    if (m) { passed.add(m[1]); continue; }
+    // `❌ název: chyba` i `❌ název` bez zprávy
+    m = line.match(/^\s*❌\s+(?:\[[^\]]*\]\s+)?(.+?)\s*$/);
+    if (m) { failed.add(stripMessage(m[1])); continue; }
+    m = line.match(/^\s*FAIL:\s+(.+?)\s*$/);
+    if (m) failed.add(stripMessage(m[1]));
   }
-  const m = (output || '').match(/RESULTS:\s*(\d+)\s+passed,\s*(\d+)\s+failed/);
+
+  const m = (output || '').match(/RESULTS:\s*(\d+)\s+passed,\s*(\d+)\s+failed/)
+    || (output || '').match(/Results:\s*(\d+)\s+passed,\s*(\d+)\s+failed/);
   return { passed, failed, totals: m ? { passed: +m[1], failed: +m[2] } : null };
 }
 
 /**
  * Skóre z výsledků testů.
  *
- * Proč ne „prošel celý soubor / neprošel":
+ * Cílové testy se **neodvozují z textu commitu, ale ze spuštění** — stejný
+ * princip jako `FAIL_TO_PASS` / `PASS_TO_PASS` v SWE-benchi:
  *
- * Testový soubor úlohy obsahuje desítky testů, z nichž se opravy týkají jen ty,
- * které commit přidal — u `da03e8bd` je to 1 test z 34.  Binární hodnocení
- * celého souboru pak sype nulu i modelu, který z požadovaného chování zvládl
- * část, a stírá rozdíly mezi modely.  Skóre proto počítá **podíl splněných
- * požadavků**, tedy testů, které autor s opravou napsal.
+ *   failToPass    na vadném kódu padá, s gold patchem projde → zadání
+ *   passToPass    projde v obou stavech                      → hlídač regresí
+ *   knownFailing  padá v obou stavech                        → cizí vada, ignoruje se
  *
- * Regrese ruší zisk: oprava, která rozbije jiné chování, není oprava.  Proto
- * jakýkoli pád mimo cílové testy sráží skóre na nulu.
+ * Jak se pozná, že model test spravil, závisí na tom, co soubor tiskne:
  *
- * Když se cílové testy nedají určit (commit je nepojmenoval), padá se zpátky na
- * binární výsledek celého souboru.
+ *   `named`          úspěch je pojmenovaný → spravený = objevil se mezi prošlými
+ *   `failures-only`  úspěch mlčí           → spravený = zmizel ze spadlých
+ *
+ * Bez tohohle rozlišení by se u mlčícího stylu tvářil jako oprava i test, který
+ * vůbec nedoběhl.
+ *
+ *     skóre = spravené cílové testy / velikost failToPass
+ *           = 0 při jakékoli regresi
  */
-export function scoreFromOutput(output, requirements, filePassed) {
-  const targeted = (requirements || []).filter(Boolean);
-  if (!targeted.length) {
-    return { score: filePassed ? 1 : 0, passed: filePassed, targeted: 0, targetedPassed: 0, regressions: [] };
+export function scoreFromOutput(output, task, filePassed) {
+  const targets = (task?.failToPass || []).filter(Boolean);
+  if (!targets.length) {
+    return { score: filePassed ? 1 : 0, passed: !!filePassed, targeted: 0, targetedPassed: 0, regressions: [] };
   }
 
   const parsed = parseTestOutput(output);
-  const targetedPassed = targeted.filter(name => parsed.passed.has(name)).length;
-  const regressions = [...parsed.failed].filter(name => !targeted.includes(name));
+  const mode = task.scoreMode === 'failures-only' ? 'failures-only' : 'named';
+  const hasOutput = parsed.passed.size > 0 || parsed.failed.size > 0;
 
-  const score = regressions.length ? 0 : targetedPassed / targeted.length;
-  return {
-    score,
-    passed: score === 1,
-    targeted: targeted.length,
-    targetedPassed,
-    regressions,
-  };
+  const isFixed = (name) => (mode === 'named'
+    ? parsed.passed.has(name)
+    : hasOutput && !parsed.failed.has(name));
+
+  const targetedPassed = targets.filter(isFixed).length;
+
+  const regressions = mode === 'named'
+    ? (task.passToPass || []).filter(name => !parsed.passed.has(name))
+    // Mlčící styl nezná seznam prošlých; regrese = pád, který není ani cílem,
+    // ani vadou, která padala už předtím.
+    : [...parsed.failed].filter(name => !targets.includes(name)
+        && !(task.knownFailing || []).includes(name));
+
+  const score = regressions.length ? 0 : targetedPassed / targets.length;
+  return { score, passed: score === 1, targeted: targets.length, targetedPassed, regressions };
 }
 
 /**
@@ -389,7 +419,7 @@ export function applyAndTest(repo, task, codes, opts = {}) {
     if (!syntaxOk) return fail('vložený kód není syntakticky platný', { applied: true });
 
     const run = runIsolatedTest(work, task.test, timeout);
-    const scored = scoreFromOutput(run.output, task.requirements, run.passed);
+    const scored = scoreFromOutput(run.output, task, run.passed);
     return {
       score: scored.score,
       passed: scored.passed,
@@ -397,6 +427,7 @@ export function applyAndTest(repo, task, codes, opts = {}) {
       targeted: scored.targeted,
       targetedPassed: scored.targetedPassed,
       regressions: scored.regressions,
+      output: run.output,
       reason: scored.passed ? null
         : run.timedOut ? 'test vypršel'
           : scored.regressions.length ? `oprava rozbila ${scored.regressions.length} jiných testů`
@@ -411,6 +442,30 @@ export function applyAndTest(repo, task, codes, opts = {}) {
 }
 
 /**
+ * Přínos modelu proti tomu, neudělat nic.
+ *
+ * Proč nestačí holé skóre:
+ *
+ * Úlohy nemají stejnou podlahu.  `d8a2aa05` má tři cílové testy a jeden z nich
+ * projde i na vadném kódu — model, který neudělá vůbec nic, tam dostane 0,33,
+ * kdežto u `da03e8bd` dostane 0,00.  Průměrovat taková čísla přes sadu znamená
+ * sčítat nesrovnatelné veličiny a výsledek pak nevypovídá o schopnosti, ale o
+ * tom, jak byly úlohy poskládané.
+ *
+ *     přínos = (skóre − podlaha) / (1 − podlaha)
+ *
+ * 0 = nepřidal nic proti nečinnosti, 1 = vada opravena.  Zhoršení se ořezává na
+ * nulu: sada měří, co model spravil, ne jak hluboko dokáže klesnout — na to je
+ * příznak `regressions`.
+ */
+export function normalizedGain(score, baseline) {
+  const floor = baseline ?? 0;
+  if (floor >= 1) return 0;
+  const gain = (score - floor) / (1 - floor);
+  return Math.max(0, Math.min(1, gain));
+}
+
+/**
  * Ověří, že je úloha použitelná: před opravou test padá, gold patch ho spraví.
  *
  * Tohle je kurátorský krok — co neprojde, se do sady nedostane.  Zásadní je,
@@ -419,17 +474,59 @@ export function applyAndTest(repo, task, codes, opts = {}) {
  * úlohy, které model nemůže splnit z důvodů mimo jeho schopnosti.
  */
 export function verifyTask(repo, task, opts = {}) {
-  const broken = applyAndTest(repo, task, task.functionTexts, opts);
-  if (broken.passed) return { usable: false, reason: 'test projde i před opravou — úloha nic neměří' };
-  if (!broken.applied || !broken.syntaxOk) return { usable: false, reason: `stav před opravou se nedá sestavit: ${broken.reason}` };
+  // Bez cílových sad se skóre počítá binárně přes celý soubor; tenhle první
+  // průchod je právě od toho, aby se sady daly odvodit.
+  const bare = { ...task, failToPass: [], passToPass: [] };
 
-  const gold = applyAndTest(repo, task, task.goldTexts, opts);
+  const broken = applyAndTest(repo, bare, bare.functionTexts, opts);
+  if (!broken.applied || !broken.syntaxOk) {
+    return { usable: false, reason: `stav před opravou se nedá sestavit: ${broken.reason}` };
+  }
+  if (broken.passed) return { usable: false, reason: 'test projde i před opravou — úloha nic neměří' };
+
+  const gold = applyAndTest(repo, bare, bare.goldTexts, opts);
   if (!gold.passed) return { usable: false, reason: `gold patch neprojde vlastním testem: ${gold.reason}` };
 
-  return { usable: true, reason: null };
+  const before = parseTestOutput(broken.output);
+  const after = parseTestOutput(gold.output);
+
+  // Testový soubor nemusí tisknout nic po jednotlivých testech (prostý skript,
+  // který jen skončí nenulovým kódem).  Pak se hodnotí binárně celý soubor —
+  // hrubší, ale pořád objektivní.
+  const hasProtocol = after.passed.size || after.failed.size || before.passed.size || before.failed.size;
+  if (!hasProtocol) {
+    return { usable: true, reason: null, scoreMode: 'file', failToPass: [], passToPass: [], knownFailing: [] };
+  }
+
+  // Opravu je vidět dvěma způsoby a je potřeba umět oba: buď test přibude mezi
+  // prošlé (harness), nebo zmizí ze spadlých (styl, kde úspěch mlčí).
+  const newlyPassing = [...after.passed].filter(name => !before.passed.has(name));
+  const stoppedFailing = [...before.failed].filter(name => !after.failed.has(name));
+
+  const scoreMode = newlyPassing.length ? 'named' : 'failures-only';
+  const failToPass = scoreMode === 'named' ? newlyPassing : stoppedFailing;
+
+  // Nic se nepřeklopilo po jednotlivých testech, přestože soubor jako celek ano
+  // (padal před opravou, prochází s gold patchem — ověřeno výš).  Typicky proto,
+  // že vadný kód shodí celý běh dřív, než se protokol dotiskne: `06d49847` končí
+  // `TypeError: req.on is not a function`.  Úloha je platná, jen se nedá
+  // lokalizovat — hodnotí se binárně celý soubor.
+  if (!failToPass.length) {
+    return { usable: true, reason: null, scoreMode: 'file', failToPass: [], passToPass: [], knownFailing: [] };
+  }
+
+  return {
+    usable: true,
+    reason: null,
+    scoreMode,
+    failToPass,
+    passToPass: [...after.passed].filter(name => before.passed.has(name)),
+    knownFailing: [...after.failed].filter(name => before.failed.has(name)),
+  };
 }
 
 export default {
   changedLines, deriveTask, buildPrompt, extractFunctionCode, extractFunctionCodes, functionNameOf,
-  applyAndTest, verifyTask, runIsolatedTest, parseTestOutput, scoreFromOutput, DEFAULT_TEST_TIMEOUT,
+  applyAndTest, verifyTask, runIsolatedTest, parseTestOutput, scoreFromOutput,
+  normalizedGain, DEFAULT_TEST_TIMEOUT,
 };
