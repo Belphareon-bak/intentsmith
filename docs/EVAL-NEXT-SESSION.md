@@ -26,37 +26,34 @@ rozlišuje.
 
 ## 2. Co udělat
 
-### Nejdřív: zesílit CODE, než se přejde na REVIEW
+### Nejdřív: zvětšit zásobu úloh
 
-Cíl je **6 ze 6 aktivních úloh rozlišuje**. Rozdělané kroky k tomu (podrobně
-[`EVAL-CODE-SUITE.md`](EVAL-CODE-SUITE.md), oddíl 9):
+Sada je hotová a čistá — měření má nulový šum a v aktivní sadě jsou jen úlohy,
+které rozlišují. Problém je jejich **počet: dvě**. Pět dalších je v rezervě na
+podlaze (nevyřešil je nikdo z panelu pěti modelů).
 
-1. ✅ **Odstupňované skóre** — podíl splněných požadavků místo „prošel celý
-   soubor". Ověřeno: gold 1,00, před opravou 0,00 na všech šesti úlohách.
-2. ✅ **Víc funkcí v zadání** — `findSpansForLines()` / `replaceSpans()`.
-3. ⬜ **Zapsat podlahu úlohy** (`baselineScore`) do fixture — `d8a2aa05` dává
-   0,33 i bez jakékoli opravy, takže skóre úloh nejsou srovnatelná.
-4. ⬜ **Přeměřit panel** s odstupňovaným skóre — čísla v oddílu 8 jsou z
-   binárního hodnocení a **neplatí**.
-5. ⬜ **Kalibrovat výběr úloh** — nechat jen ty, kde se skóre napříč panelem
-   liší; těžké úlohy nemazat, jen odložit jako rezervu.
-6. ⬜ **Rozšířit panel** nad tři modely, ať se výběr nepřeučí na dnešní trojici.
+Podrobně [`EVAL-CODE-SUITE.md`](EVAL-CODE-SUITE.md), oddíly 6 a 7.
 
-Pozor: zásoba úloh je úzká — 29 kandidátů, 11 odvoditelných, 8 do 250 řádků.
-Další růst potřebuje:
+Zásoba: 29 kandidátů → 11 odvoditelných → 7 ověřených → **2 rozlišující**.
+Největší ztráty, v pořadí podle výtěžnosti:
 
-**a) Změny mimo funkce** — nové úzké hrdlo. 18 z 29 kandidátů mění řádky, které
-neleží v žádné funkci (import nahoře, konstanta na nejvyšší úrovni).
-`findSpansForLines()` na to vrací `null`. Buď to umět zadat jinak, nebo takové
-commity nechat být a hledat zásobu jinde.
+**a) Změny mimo funkce — 18 z 29 kandidátů.** Zdaleka největší zdroj. Commit
+mění import nahoře nebo konstantu na nejvyšší úrovni, takže `findSpansForLines()`
+vrátí `null`. Řešení: umět jako jednotku zadání i vrcholovou konstrukci (řádek
+importu, blok `const X = {…}`), ne jen funkci. Vkládání už umí víc rozsahů, takže
+jde hlavně o rozšíření `function-span.js`.
 
-**b) Commity s víc testovými soubory** — `findCandidates()` vyžaduje přesně
-jeden test. Povolení víc testů (a požadavek, aby prošly všechny) přidá zhruba
-18 kandidátů z 805 commitů.
+**b) Preferovat commity, které přidávají víc testů.** Úloha s jediným cílovým
+testem umí dát jen 0 nebo 1. `a33cc20a` se třemi cíli rozlišila právě proto, že
+šlo dát 0,33; `da03e8bd` s jedním cílem rozlišuje jen náhodou. Při stavbě sady
+řadit kandidáty podle `failToPass.length` sestupně.
 
-**c) Víc zdrojáků na commit** — dnes se bere jen commit s jediným souborem v
-`src/`. To je 689 z 805 commitů zahozených; povolit dva soubory by zásobu
-zvětšilo nejvíc ze všeho, ale zadání i vkládání musí umět víc souborů.
+**c) Víc zdrojáků a víc testových souborů na commit.** Dnes se bere jen commit
+s jedním souborem v `src/` a jedním v `tests/` — to je 689 z 805 commitů
+zahozených hned na prvním sítu.
+
+Po každém rozšíření zásoby: přeměřit panel a **znovu kalibrovat**, jinak sada
+měří včerejší pole kandidátů.
 
 ### Potom: REVIEW a CHAT
 

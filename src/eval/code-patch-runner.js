@@ -357,11 +357,22 @@ export function scoreFromOutput(output, task, filePassed) {
 
   const parsed = parseTestOutput(output);
   const mode = task.scoreMode === 'failures-only' ? 'failures-only' : 'named';
-  const hasOutput = parsed.passed.size > 0 || parsed.failed.size > 0;
+
+  // U mlčícího stylu se oprava pozná po **chybějícím** řádku `FAIL:` — jenže
+  // chybí i tehdy, když běh spadl dřív, než se k testu dostal.  Bez důkazu, že
+  // běh doběhl, by se havárie počítala jako oprava: změřeno na `286a9117`, kde
+  // částečný pád (`TypeError: req.on is not a function`) dostal 1,00 a úloha
+  // kolísala mezi 0 a 1 mezi opakováními.  Důkazem je závěrečný souhrn.
+  if (mode === 'failures-only' && !parsed.totals) {
+    return {
+      score: 0, passed: false, targeted: targets.length, targetedPassed: 0,
+      regressions: ['běh nedoběhl — chybí závěrečný souhrn'],
+    };
+  }
 
   const isFixed = (name) => (mode === 'named'
     ? parsed.passed.has(name)
-    : hasOutput && !parsed.failed.has(name));
+    : !parsed.failed.has(name));
 
   const targetedPassed = targets.filter(isFixed).length;
 

@@ -30,6 +30,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { execFileSync } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
 import { ValidationRunner, SUITES } from '../upgrade/validation-suites.js';
 import { comparePair, createSuiteCache, TASK_MARGIN_EPSILON } from '../upgrade/pairwise-trial.js';
 
@@ -42,11 +43,18 @@ function unloadAll(models) {
   }
 }
 
-/** Zařadí úlohu podle toho, co na daném panelu modelů dokáže rozlišit. */
+/**
+ * Zařadí úlohu podle toho, co na daném panelu modelů dokáže rozlišit.
+ *
+ * `nestabilní` je vlastní kategorie, ne poddruh „shodné": úloha, která sama
+ * kolísá víc, než činí rozdíl mezi modely, nemůže o modelech nic tvrdit —
+ * a schovat ji mezi shodné by zakrylo vadu měření.  Změřeno na `286a9117`,
+ * kde částečný pád běhu dostával plné skóre a úloha skákala mezi 0 a 1.
+ */
 export function classifyTask(values, noise) {
   const range = Math.max(...values) - Math.min(...values);
-  const threshold = Math.max(TASK_MARGIN_EPSILON, noise);
-  if (range > threshold) return 'rozlišuje';
+  if (noise > TASK_MARGIN_EPSILON && noise >= range) return 'nestabilní';
+  if (range > Math.max(TASK_MARGIN_EPSILON, noise)) return 'rozlišuje';
   if (values.every(v => v <= TASK_MARGIN_EPSILON)) return 'podlaha';
   if (values.every(v => v >= 1 - TASK_MARGIN_EPSILON)) return 'strop';
   return 'shodné';
@@ -107,7 +115,9 @@ export async function measureDiscrimination(models, opts = {}) {
 }
 
 if (process.argv[1]?.endsWith('discrimination-report.js')) {
-  const models = process.argv.slice(2);
+  const jsonAt = process.argv.indexOf('--json');
+  const jsonPath = jsonAt > -1 ? process.argv[jsonAt + 1] : null;
+  const models = process.argv.slice(2).filter((a, i, all) => a !== '--json' && all[i - 1] !== '--json');
   if (models.length < 2) {
     console.error('použití: node src/eval/discrimination-report.js <model> <model> [model…]');
     process.exit(1);
@@ -152,6 +162,18 @@ if (process.argv[1]?.endsWith('discrimination-report.js')) {
     console.log(`  ${p.a} vs ${p.b}: ${c.discriminating}/${c.tasks.length} úloh, marže ${c.margin}`
       + (c.inconclusive ? '  (nerozhodně)' : ''));
   }
+  // Výsledek se ukládá, aby na něj mohla navázat kalibrace bez dalšího běhu
+  // přes všechny modely — ten trvá desítky minut.
+  if (jsonPath) {
+    writeFileSync(jsonPath, JSON.stringify({
+      measuredAt: new Date().toISOString(),
+      models: r.models, repeats: r.repeats,
+      tasks: r.tasks, scores: r.scores,
+      discriminating: r.discriminating, total: r.total,
+    }, null, 2) + '\n');
+    console.log(`\nvýsledek uložen: ${jsonPath}`);
+  }
+
   console.log(`\ncelkem ${((Date.now() - t0) / 60000).toFixed(1)} min`);
 }
 

@@ -64,8 +64,15 @@ export function loadFixtureTasks(repo = REPO_ROOT, fixturePath = FIXTURE) {
     return [];
   }
 
+  // Po kalibraci se běžně měří jen aktivní úlohy: rezervy jsou buď nad síly
+  // celého panelu, nebo pod ním, takže by jen prodlužovaly běh a ředily průměr.
+  // `C3_EVAL_INCLUDE_RESERVE=1` je vrátí zpět — na ověření, jestli už silnější
+  // model nepřerostl podlahu.
+  const includeReserve = process.env.C3_EVAL_INCLUDE_RESERVE === '1';
+
   const tasks = [];
   for (const entry of meta.tasks || []) {
+    if (!includeReserve && entry.status && entry.status !== 'active') continue;
     const { task, reason } = deriveTask(repo, entry);
     if (!task) {
       // Historie se přepsala (rebase, squash) — úloha se přestala odvozovat.

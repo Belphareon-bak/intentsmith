@@ -271,6 +271,21 @@ test('u mlčícího stylu se prázdný výstup nepočítá jako oprava', () => {
   assertEqual(scoreFromOutput('', SILENT_TASK, false).score, 0);
 });
 
+// Nejnebezpečnější případ: běh něco vytiskne a teprve pak spadne.  Cílový test
+// se k slovu nedostane, takže „nespadl" — a bez důkazu o doběhnutí by havárie
+// dostala plné skóre.  Změřeno na 286a9117, kde úloha kvůli tomu skákala 0↔1.
+test('částečný pád se nepočítá jako oprava', () => {
+  const out = '  ✅ neco proslo\nTypeError: req.on is not a function\n    at POST /chat\n';
+  const r = scoreFromOutput(out, SILENT_TASK, false);
+  assertEqual(r.score, 0);
+  assert(r.regressions.length > 0, 'nedoběhnutý běh musí být hlášený');
+});
+
+test('doběhnutý běh se pozná podle závěrečného souhrnu', () => {
+  const out = '  ✅ neco proslo\n══ Results: 44 passed, 0 failed ══';
+  assertEqual(scoreFromOutput(out, SILENT_TASK, false).score, 1);
+});
+
 test('parseTestOutput rozumí i FAIL: a ❌ bez zprávy', () => {
   const r = parseTestOutput('  FAIL: alfa\n  ❌ beta() → not an object\n══ Results: 2 passed, 2 failed ══');
   assert(r.failed.has('alfa'), [...r.failed].join('|'));

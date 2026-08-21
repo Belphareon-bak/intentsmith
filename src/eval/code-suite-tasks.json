@@ -33,7 +33,19 @@
         "odstranění modelu ohlásí výsledek",
         "u přetékajícího kandidáta se měření jako úspěch nehlásí"
       ],
-      "knownFailing": []
+      "knownFailing": [],
+      "status": "reserve-floor",
+      "calibration": {
+        "verdict": "podlaha",
+        "values": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "noise": 0
+      }
     },
     {
       "hash": "cfcb63dd5cd5560a7b6729ea4420679ae3bcac0d",
@@ -135,7 +147,19 @@
         "real post-apply chat cleanup parks the protected one-step rollback model",
         "source call graph has no production reference to legacy binding writers"
       ],
-      "knownFailing": []
+      "knownFailing": [],
+      "status": "reserve-floor",
+      "calibration": {
+        "verdict": "podlaha",
+        "values": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "noise": 0
+      }
     },
     {
       "hash": "da03e8bd2e50f0079628d2728fa9da96e9feb580",
@@ -184,7 +208,19 @@
         "applied_by can be system or auto",
         "post-050 legacy apply fails closed before runtime or durable effects"
       ],
-      "knownFailing": []
+      "knownFailing": [],
+      "status": "active",
+      "calibration": {
+        "verdict": "rozlišuje",
+        "values": [
+          1,
+          0,
+          0,
+          1,
+          0
+        ],
+        "noise": 0
+      }
     },
     {
       "hash": "723d5726087afcbac935e84b8382a963dd440520",
@@ -232,7 +268,19 @@
         "applied_by can be system or auto",
         "post-050 legacy apply fails closed before runtime or durable effects"
       ],
-      "knownFailing": []
+      "knownFailing": [],
+      "status": "reserve-floor",
+      "calibration": {
+        "verdict": "podlaha",
+        "values": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "noise": 0
+      }
     },
     {
       "hash": "a33cc20adb792e970f7c39886aecb669569cbd5a",
@@ -268,7 +316,19 @@
         "typed user abort maps to cancelled without inventing assistant content",
         "empty controller output fails closed as a contract error terminal"
       ],
-      "knownFailing": []
+      "knownFailing": [],
+      "status": "active",
+      "calibration": {
+        "verdict": "rozlišuje",
+        "values": [
+          0.333,
+          0.333,
+          0.333,
+          0,
+          0
+        ],
+        "noise": 0
+      }
     },
     {
       "hash": "286a9117c77c6c29969ed374bcaea86c1ef1ba1a",
@@ -310,7 +370,19 @@
         "createProjectRoutes() → 32 routes",
         "createSpecialistRoutes() → 13 routes"
       ],
-      "knownFailing": []
+      "knownFailing": [],
+      "status": "reserve-floor",
+      "calibration": {
+        "verdict": "podlaha",
+        "values": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "noise": 0
+      }
     },
     {
       "hash": "06d49847988ae3fb65711fe6bf737c08c0e3ac0c",
@@ -323,7 +395,28 @@
       "scoreMode": "file",
       "failToPass": [],
       "passToPass": [],
-      "knownFailing": []
+      "knownFailing": [],
+      "status": "reserve-floor",
+      "calibration": {
+        "verdict": "podlaha",
+        "values": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "noise": 0
+      }
     }
-  ]
+  ],
+  "calibratedAt": "2026-08-21T09:08:30.014Z",
+  "calibrationPanel": [
+    "qwen2.5-coder:32b",
+    "qwen3-coder:latest",
+    "qwen2.5:32b",
+    "qwen3.5:27b",
+    "qwen3:14b"
+  ],
+  "calibrationRepeats": 3
 }

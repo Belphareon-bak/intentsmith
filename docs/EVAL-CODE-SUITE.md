@@ -144,22 +144,66 @@ ho vytáhne přes `git show`.
 
 ## 7. Co sada měří na panelu modelů
 
-> **Měření běží** — doplní se výstupem
-> `node src/eval/discrimination-report.js` na pěti modelech.
+Měřeno 2026-08-21 na pěti modelech, 3 opakování, 7 úloh — 105 běhů, 47,1 min.
+Surový výstup:
+[`execution/runs/code-patch-panel-20260821.md`](execution/runs/code-patch-panel-20260821.md).
 
-Report zařadí **každou úlohu zvlášť** do jedné ze čtyř kategorií, protože průměr
-přes sadu umí schovat, že informaci nese jediná položka:
+| úloha | qwen2.5-coder:32b | qwen3-coder | qwen2.5:32b | qwen3.5:27b | qwen3:14b | šum | zařazení |
+|---|---|---|---|---|---|---|---|
+| `da03e8bd` | **1,00** | 0,00 | 0,00 | **1,00** | 0,00 | 0,00 | rozlišuje |
+| `a33cc20a` | **0,33** | **0,33** | **0,33** | 0,00 | 0,00 | 0,00 | rozlišuje |
+| `d8a2aa05` | 0,00 | 0,00 | 0,00 | 0,00 | 0,00 | 0,00 | podlaha |
+| `cfcb63dd` | 0,00 | 0,00 | 0,00 | 0,00 | 0,00 | 0,00 | podlaha |
+| `723d5726` | 0,00 | 0,00 | 0,00 | 0,00 | 0,00 | 0,00 | podlaha |
+| `286a9117` | 0,00 | 0,00 | 0,00 | 0,00 | 0,00 | 0,00 | podlaha |
+| `06d49847` | 0,00 | 0,00 | 0,00 | 0,00 | 0,00 | 0,00 | podlaha |
+| **průměr** | **0,19** | 0,05 | 0,05 | 0,14 | 0,00 | | |
 
-| zařazení | co znamená |
-|---|---|
-| `rozlišuje` | modely se na ní liší víc, než kolik sama kolísá |
-| `podlaha` | nevyřešil ji nikdo — dnes bez informace, ale **rezerva** pro silnější modely |
-| `strop` | vyřešili ji všichni — bez informace; tohle byla nemoc staré sady `code` |
-| `shodné` | všichni stejně někde uprostřed |
+**Pořadí:** `qwen2.5-coder:32b` 0,190 · `qwen3.5:27b` 0,143 · `qwen3-coder`
+0,048 · `qwen2.5:32b` 0,048 · `qwen3:14b` 0,000.
 
-Úlohy zařazené jako `podlaha` se **nemažou**. Úloha, kterou dnes nevyřeší nikdo,
-je přesně to, čím půjde zítra odlišit lepší model od dnešního nejlepšího;
-vyhodit ji znamená připravit sadu o strop.
+### Co z toho platí
+
+**Šum je nulový.** 105 běhů, žádná úloha nezměnila skóre mezi opakováními. Proti
+staré sadě `reasoning`, kde skóre kolísalo 63 → 63 → 75 %, je rozdíl mezi modely
+tvrdý údaj, ne přeskok.
+
+**Sada rozlišuje, ale informaci nesou 2 úlohy ze 7.** Pět je na podlaze — jsou
+nad síly celého panelu. Sada odliší čtyři z pěti modelů; `qwen3-coder` proti
+`qwen2.5:32b` skončilo nerozhodně (0/7 úloh).
+
+**Odstupňování funguje tam, kde je cílů víc.** `a33cc20a` má tři cílové testy a
+tři modely na ní dostaly 0,33 — bez odstupňování by tam byla pětkrát nula a
+úloha by nerozlišila nic. Úloha s **jediným** cílovým testem umí dát jen 0, nebo
+1; `da03e8bd`, `723d5726` a `06d49847` proto žádnou mezipolohu nabídnout
+nemůžou. **Při dalším rozšiřování zásoby je tohle hlavní vodítko: preferovat
+commity, které přidávají víc testů.**
+
+### Kalibrace: aktivní sada a rezervy
+
+```bash
+node src/eval/discrimination-report.js <modely…> --json /tmp/panel.json
+node src/eval/calibrate-code-suite.js /tmp/panel.json
+```
+
+Kalibrace zapíše každé úloze `status` a běžné měření pak jede jen přes `active`:
+
+| status | úloh | proč |
+|---|---|---|
+| `active` | 2 | modely se na ní liší → nese informaci |
+| `reserve-floor` | 5 | nevyřešil ji nikdo → **rezerva** pro silnější modely |
+
+Rezervy se **nemažou**. Úloha, kterou dnes nevyřeší nikdo, je přesně to, čím
+půjde zítra odlišit lepší model od dnešního nejlepšího; vyhodit ji znamená
+připravit sadu o strop. `C3_EVAL_INCLUDE_RESERVE=1` je vrátí do běhu — na
+ověření, jestli už silnější model podlahu nepřerostl.
+
+Kalibrace je vázaná na panel, na kterém proběhla; do fixture se proto zapisuje
+i seznam modelů a datum. Se změnou panelu je potřeba ji zopakovat.
+
+**Co to znamená pro cíl „každá úloha v sadě rozlišuje":** splněno konstrukcí —
+v aktivní sadě jsou jen rozlišující úlohy. Že jsou dvě, a ne šest, je věc
+velikosti zásoby, ne návrhu měření.
 
 ## 8. Známá omezení
 
@@ -174,6 +218,10 @@ opravou a prochází s gold patchem — jen je hrubší než ostatní.
 **Panel je z lokálních modelů.** Výběr úloh podle toho, co panel rozliší, se
 může přeučit na dnešní sestavu. Proto se měří na pěti modelech, ne na dvou, a
 proto se nic nemaže.
+
+**Úloha s jediným cílovým testem nemá mezipolohu.** Skóre je podíl spravených
+cílových testů, takže při jednom cíli vychází jen 0, nebo 1. Zásobu je proto
+lepší rozšiřovat o commity, které přidávají víc testů najednou.
 
 ## 9. Pasti, které to stálo
 
@@ -212,19 +260,24 @@ scanner závorek, ověřený round-tripem gold patche.
 | `src/eval/code-patch-suite.js` | sada ve tvaru pro `ValidationRunner` |
 | `src/eval/build-code-suite.js` | kurátorská stavba fixture |
 | `src/eval/discrimination-report.js` | co která úloha měří |
+| `src/eval/calibrate-code-suite.js` | rozdělí úlohy na aktivní a rezervní |
 
 ```bash
 # přestavět sadu úloh z historie (~10 min)
 node src/eval/build-code-suite.js --max-function-lines 250 --max-diff-lines 100
 
-# co sada měří na panelu modelů
-node src/eval/discrimination-report.js qwen2.5-coder:32b qwen3-coder:latest qwen3:14b
+# co sada měří na panelu modelů (5 modelů ≈ 47 min)
+node src/eval/discrimination-report.js qwen2.5-coder:32b qwen3-coder:latest \
+  qwen2.5:32b qwen3.5:27b qwen3:14b --json /tmp/panel.json
+
+# rozdělit úlohy na aktivní a rezervní podle naměřeného
+node src/eval/calibrate-code-suite.js /tmp/panel.json
 
 # testy
 node tests/function-span.test.js && node tests/code-patch-runner.test.js
 ```
 
-Testy: `function-span` 13, `code-patch-runner` 41, `code-task-extractor` 12.
+Testy: `function-span` 13, `code-patch-runner` 43, `code-task-extractor` 12.
 
 ## 11. Jak se návrh vyvíjel
 
@@ -242,3 +295,15 @@ přestala být srovnatelná.
 **Cíle odvozené spuštěním** (současný stav). Podlaha je z definice nula, protože
 test procházející před opravou není cílový. Nedá se rozhodit přejmenováním a
 funguje i tam, kde commit testy vůbec nepřidal.
+
+**Vada, kterou odhalilo až měření.** V mlčícím režimu se oprava pozná po
+zmizelém řádku `FAIL:` — jenže ten zmizí i tehdy, když běh spadne dřív, než se
+k testu dostane. Částečný pád (`TypeError` po pár vytištěných řádcích) tak
+dostával **plné skóre** a úloha `286a9117` skákala mezi 0 a 1 mezi opakováními.
+Mlčící režim proto vyžaduje doklad, že běh doběhl — závěrečný souhrn. Po opravě
+spadla ta úloha na nulu na všech pěti modelech: ta jednička byla havárie, ne
+oprava.
+
+Poučení do dalších sad: **nestabilní úloha není slabá úloha, ale podezření na
+vadu měření.** Proto má v reportu vlastní kategorii a neschovává se pod
+„shodné".

@@ -35,7 +35,12 @@ test('each suite has name, description, roles, tests', () => {
     // automaticky, přepnutí potvrzuje operátor ručně (viz hlavička sady).
     if (key !== 'code_patch') assert(s.roles.length > 0, `${key}.roles.length`);
     assert(Array.isArray(s.tests), `${key}.tests`);
-    assert(s.tests.length >= 6, `${key} should have ≥6 tests, got ${s.tests.length}`);
+    // `code_patch` má velikost danou kalibrací, ne návrhem: běžně měří jen
+    // úlohy, na kterých se modely liší, a ostatní drží v rezervě.  Pevný
+    // spodní počet by nutil držet v sadě úlohy, které nic neměří — přesně to,
+    // čím trpěla stará sada `code`.
+    const minTests = key === 'code_patch' ? 1 : 6;
+    assert(s.tests.length >= minTests, `${key} should have ≥${minTests} tests, got ${s.tests.length}`);
   }
 });
 
