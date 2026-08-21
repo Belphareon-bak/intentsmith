@@ -38,6 +38,7 @@ import { MODEL_PROFILES } from '../src/upgrade/model-profiles.js';
 import { parseModelNameExtended } from '../src/upgrade/model-family-extensions.js';
 import { fetchModels as fetchWhatllm, matchModels } from '../src/upgrade/whatllm-client.js';
 import { lookupModel as lookupHf } from '../src/upgrade/huggingface-client.js';
+import { modelRegistry } from '../src/upgrade/model-registry.js';
 import { measureModel, drainResident } from '../src/upgrade/vram-measurement.js';
 import { tryCandidate } from '../src/upgrade/candidate-trial.js';
 import { validationRunner } from '../src/upgrade/validation-suites.js';
@@ -254,6 +255,9 @@ for (const cand of toTry) {
     bindings,
     keepInconclusive: KEEP_INCONCLUSIVE,
     allowRemoval: ALLOW_REMOVAL,
+    // Mazání vlastní model-registry; candidate-trial ho dostane injekcí,
+    // aby neobcházel kanonickou identitu a exclusive mutation autoritu.
+    deleteModel: (name, options) => modelRegistry.deleteModel(name, options),
     incumbentSpeed,
     onStage: (stage, m, info = {}) => {
       if (stage === 'measured') {

@@ -85,16 +85,31 @@ export async function pullModel(modelName, opts = {}) {
   return true;
 }
 
-/** Smaže model z disku. */
+/**
+ * Smaže model z disku **cizí autoritou**, ne vlastní cestou.
+ *
+ * Mazání modelu vlastní `upgrade/model-registry.js` — jen ono ověří kanonickou
+ * identitu, přesný digest a proběhne pod exclusive mutation autoritou.  Vlastní
+ * vlastní volání Ollama delete endpointu tady tuhle ochranu obcházelo; guard M1
+ * v `tests/m1-model-binding-application.test.js` proto vyžaduje, aby ten endpoint
+ * byl v `src/**` zmíněný právě v jednom souboru.
+ *
+ * Funkce se sem nedostane importem, ale z runtime kontextu (`ctx.deleteModel`) —
+ * strict injection podle [rozhodnutí 019](../../docs/decisions/019-l0-8-specialist-boundary.md).
+ * Bez injektované autority se **nemaže**; fail-closed, ne tichý bypass.
+ */
 export async function removeModel(modelName, opts = {}) {
+  const deleteModel = opts.deleteModel;
+  if (typeof deleteModel !== 'function') {
+    logger.warn(
+      'CandidateTrial',
+      `Smazání ${modelName} zamítnuto: chybí injektovaná autorita mazání`,
+    );
+    return false;
+  }
   try {
-    const res = await fetch(`${baseUrl(opts)}/api/delete`, {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: modelName }),
-      signal: AbortSignal.timeout(60_000),
-    });
-    return res.ok;
+    await deleteModel(modelName, { source: 'AUTO_CLEANUP' });
+    return true;
   } catch (err) {
     logger.warn('CandidateTrial', `Smazání ${modelName} selhalo: ${err.message}`);
     return false;

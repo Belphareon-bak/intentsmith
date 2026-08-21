@@ -72,7 +72,14 @@ const SPILLS = { size: 29 * GB, size_vram: 21 * GB };
  * Rychlý úklid paměti pro testy.  Atrapa /api/ps drží model napořád, takže bez
  * zkrácení by `drainResident` čekal celý minutový timeout u každé zkoušky.
  */
-const FAST_DRAIN = { drainTimeout: 30, drainPollMs: 5 };
+// Mazání vlastní model-registry a candidate-trial ho dostává injekcí, stejně
+// jako v `scripts/model-upgrade-hunt.js`.  Bez ní se fail-closed nemaže, takže
+// scénáře, které mazání očekávají, musí autoritu dodat.
+const FAST_DRAIN = {
+  drainTimeout: 30,
+  drainPollMs: 5,
+  deleteModel: async () => {},
+};
 
 function fakeRunner(scores) {
   return {
@@ -235,13 +242,28 @@ await testAsync('role bez navázaného modelu se přeskočí', async () => {
   restore();
 });
 
-await testAsync('odstranění modelu ohlásí výsledek', async () => {
-  stubOllama({});
-  assertEqual(await removeModel('x:7b'), true);
-  restore();
-  globalThis.fetch = async () => { throw new Error('down'); };
-  assertEqual(await removeModel('x:7b'), false);
-  restore();
+await testAsync('odstranění modelu jde injektovanou autoritou, ne vlastní cestou', async () => {
+  const calls = [];
+  const deleteModel = async (name, options) => { calls.push([name, options]); };
+  assertEqual(await removeModel('x:7b', { deleteModel }), true);
+  assertEqual(JSON.stringify(calls), JSON.stringify([['x:7b', { source: 'AUTO_CLEANUP' }]]));
+});
+
+await testAsync('selhání autority se ohlásí jako neúspěch, ne jako smazáno', async () => {
+  const deleteModel = async () => { throw new Error('down'); };
+  assertEqual(await removeModel('x:7b', { deleteModel }), false);
+});
+
+await testAsync('bez injektované autority se nemaže a nesahá na síť', async () => {
+  const realFetchLocal = globalThis.fetch;
+  let touchedNetwork = false;
+  globalThis.fetch = async () => { touchedNetwork = true; throw new Error('nesmí se volat'); };
+  try {
+    assertEqual(await removeModel('x:7b'), false);
+    assertEqual(touchedNetwork, false);
+  } finally {
+    globalThis.fetch = realFetchLocal;
+  }
 });
 
 // ─── Průběžné hlášení ───────────────────────────────────────────────────────
