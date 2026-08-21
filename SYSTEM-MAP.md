@@ -318,7 +318,12 @@ Nepatří sem selhání, které `CONTRACT.md §8` označuje jako při vývoji o�
 
 | Vada | Blokuje | Kauzalita | Priorita |
 |---|---|---|---|
-| `npm run test:registry` končí exit 1: **10 neregistrovaných testovacích programů** — `candidate-trial`, `catalog-enrichment`, `code-patch-runner`, `code-patch-suite`, `code-task-extractor`, `function-span`, `huggingface-client`, `model-sweep`, `pairwise-trial`, `vram-measurement` | Povinnou kontrolu `agent-protocol.md §16`; zároveň je počet v `README.md` odvozený z `tests/registry.json`, takže je vůči skutečné testové sadě zastaralý | Testy vznikly v sérii eval commitů 2026-08-19 až 2026-08-21 (`cb8afd3a` … `43687e6b`) a nebyly zapsány do `tests/registry.json`. Změřeno na čistém `43687e6b` — není to důsledek portu protokolu | Střední. Nebrání produktové práci, ale drží povinnou kontrolu červenou, takže maskuje další drift registru. Každá z 10 sad potřebuje vlastní klasifikaci stavu a requirements, což je zapisující práce, ne úklid |
+| _nic otevřeného_ | — | — | — |
+
+Uzavřeno 2026-08-21: `npm run test:registry` byl červený kvůli 10
+neregistrovaným testovacím programům z eval série 2026-08-19 až 2026-08-21.
+Všech 10 zapsáno do `tests/registry.json` jako `C3-025` / `T1` / `offline`
+a klasifikace ověřena spuštěním přes `nightly-audit --suite` — 10/10 PASS.
 
 ## Známý stav, který se vědomě neřeší
 

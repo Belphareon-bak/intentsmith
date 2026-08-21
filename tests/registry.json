@@ -1267,6 +1267,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-CANDIDATE-TRIAL-TEST",
+      "path": "tests/candidate-trial.test.js",
+      "argv": [
+        "node",
+        "tests/candidate-trial.test.js"
+      ],
+      "capabilityId": "C3-025",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-CAPABILITY-ENFORCER-TEST",
       "path": "tests/capability-enforcer.test.js",
       "argv": [
@@ -1334,6 +1364,36 @@
         "tests/capability-sandbox.test.js"
       ],
       "capabilityId": "C3-020",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-CATALOG-ENRICHMENT-TEST",
+      "path": "tests/catalog-enrichment.test.js",
+      "argv": [
+        "node",
+        "tests/catalog-enrichment.test.js"
+      ],
+      "capabilityId": "C3-025",
       "tier": "T1",
       "fixture": "isolated-home",
       "profile": "offline",
@@ -1720,6 +1780,66 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-CODE-PATCH-RUNNER-TEST",
+      "path": "tests/code-patch-runner.test.js",
+      "argv": [
+        "node",
+        "tests/code-patch-runner.test.js"
+      ],
+      "capabilityId": "C3-025",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-CODE-PATCH-SUITE-TEST",
+      "path": "tests/code-patch-suite.test.js",
+      "argv": [
+        "node",
+        "tests/code-patch-suite.test.js"
+      ],
+      "capabilityId": "C3-025",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-CODE-SEARCH-TEST",
       "path": "tests/code-search.test.js",
       "argv": [
@@ -1727,6 +1847,36 @@
         "tests/code-search.test.js"
       ],
       "capabilityId": "C3-018",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-CODE-TASK-EXTRACTOR-TEST",
+      "path": "tests/code-task-extractor.test.js",
+      "argv": [
+        "node",
+        "tests/code-task-extractor.test.js"
+      ],
+      "capabilityId": "C3-025",
       "tier": "T1",
       "fixture": "isolated-home",
       "profile": "offline",
@@ -3643,6 +3793,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-FUNCTION-SPAN-TEST",
+      "path": "tests/function-span.test.js",
+      "argv": [
+        "node",
+        "tests/function-span.test.js"
+      ],
+      "capabilityId": "C3-025",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-GOVERNOR-TEST",
       "path": "tests/governor.test.js",
       "argv": [
@@ -3770,6 +3950,36 @@
         "tests/harness-exit-code.test.js"
       ],
       "capabilityId": "C3-027",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-HUGGINGFACE-CLIENT-TEST",
+      "path": "tests/huggingface-client.test.js",
+      "argv": [
+        "node",
+        "tests/huggingface-client.test.js"
+      ],
+      "capabilityId": "C3-025",
       "tier": "T1",
       "fixture": "isolated-home",
       "profile": "offline",
@@ -5683,6 +5893,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-MODEL-SWEEP-TEST",
+      "path": "tests/model-sweep.test.js",
+      "argv": [
+        "node",
+        "tests/model-sweep.test.js"
+      ],
+      "capabilityId": "C3-025",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-MODEL-UNIVERSE-STORE-TEST",
       "path": "tests/model-universe-store.test.js",
       "argv": [
@@ -6110,6 +6350,36 @@
         "tests/output-gate.js"
       ],
       "capabilityId": "C3-027",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-PAIRWISE-TRIAL-TEST",
+      "path": "tests/pairwise-trial.test.js",
+      "argv": [
+        "node",
+        "tests/pairwise-trial.test.js"
+      ],
+      "capabilityId": "C3-025",
       "tier": "T1",
       "fixture": "isolated-home",
       "profile": "offline",
@@ -8633,6 +8903,36 @@
       "argv": [
         "node",
         "tests/vram-coordination.test.js"
+      ],
+      "capabilityId": "C3-025",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-VRAM-MEASUREMENT-TEST",
+      "path": "tests/vram-measurement.test.js",
+      "argv": [
+        "node",
+        "tests/vram-measurement.test.js"
       ],
       "capabilityId": "C3-025",
       "tier": "T1",

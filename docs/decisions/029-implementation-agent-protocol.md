@@ -87,10 +87,10 @@ odkaz na autoritu je slepý, a jeho `CLAUDE.md` by přepsal živý rozcestník.
 - `SYSTEM-MAP.md` má novou sekci **„Otevřené release-blocking vady"** jako
   kanonický cíl §12. Je odlišená od „Známý stav, který se vědomě neřeší": tam
   patří vědomě odložené, sem nerozhodnuté a blokující. První zápis vznikl hned
-  při portu — `npm run test:registry` je červený kvůli 10 neregistrovaným
+  při portu — `npm run test:registry` byl červený kvůli 10 neregistrovaným
   testovacím programům z eval série 2026-08-19 až 2026-08-21. Změřeno na čistém
-  `43687e6b`, tedy předchozí vada; podle §12 se zapsala a **neabsorbovala** do
-  tohoto běhu.
+  `43687e6b`, tedy předchozí vada; podle §12 se **zapsala a neabsorbovala** do
+  portu. Uzavřena byla až samostatně, jako vlastní práce s vlastním důkazem.
 - `CONTRACT.md` je nyní verze 3.
 - Neverzované návrhy v `docs/wp/` a `docs/decisions/019` spadají pod §2 jako
   artefakty běhu — buď se přijmou, nebo zahodí; ležet a tvářit se jako autorita
