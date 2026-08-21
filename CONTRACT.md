@@ -1,6 +1,6 @@
 # IntentSmith — pravidla vývoje
 
-**Verze:** 3 · **Datum:** 2026-08-21 · **Vlastník:** operátor
+**Verze:** 4 · **Datum:** 2026-08-21 · **Vlastník:** operátor
 
 > Tento dokument je **jediný zdroj pravdy pro pravidla vývoje**. Kde si jakýkoli
 > jiný dokument v repozitáři odporuje s tímto, platí tento.
@@ -441,3 +441,53 @@ a `docs/security/` → přijatá rozhodnutí `docs/decisions/` → zbytek tohoto
 dokumentu → `PRODUCT.md` / `DIRECTION.md` / `ROADMAP.md` / zadání aktivního WP →
 protokol → cokoli z běhu. Kde by protokol vypadal, že dovoluje vynechat něco,
 co vyžaduje vyšší položka, platí vyšší položka a protokol je čten špatně.
+
+---
+
+## 11. Autonomní režim — práce po milnících
+
+**Rozhodnutí operátora, 2026-08-21.** Agent pracuje **po milnících**, ne po
+krocích. Operátor kontroluje výsledek milníku, ne jednotlivá rozhodnutí uvnitř
+něj. Tohle je úprava eskalačního prahu z `§10` a
+[`agent-protocol.md §11`](docs/development/agent-protocol.md), ne jeho zrušení.
+
+### Co agent uvnitř milníku rozhoduje sám
+
+Všechno, co jde vyřešit z existujících požadavků, architektury, přijatých
+rozhodnutí, testů a evidence. Volbu postupu, pořadí uvnitř dávky, tvar opravy,
+rebaseline s revidovanými hranami, úpravu testu, který kódoval vadu, i to, že
+nalezenou vadu **zapíše a neopraví**. Rozhodnutí patří do commit message, ne do
+otázky na operátora.
+
+### Co ho zastaví i uprostřed milníku
+
+Krátký a uzavřený seznam. Mimo něj se neptá:
+
+1. změna `L0` invariantu nebo bezpečnostní či autoritní hranice;
+2. změna zamýšleného produktového chování nebo rozsahu 1.0;
+3. oslabení přijatého akceptačního kritéria; přeznačení testu vázaného na
+   akceptaci nebo registrovaného v `tests/registry.json` na vadný;
+4. destruktivní nebo těžko vratná akce;
+5. rozhodnutí, které patří do `docs/decisions/` a není udělané;
+6. **prostředí práci nedovolí** — zamítnuté oprávnění, chybějící toolchain,
+   nedostupný hardware. Tohle není rozhodnutí operátora o produktu, ale
+   překážka, kterou agent sám odstranit nemůže.
+
+Dvě po sobě jdoucí kola bez pohybu k akceptaci znamenají zadrhnutou strategii —
+agent zastaví a ohlásí, i uprostřed milníku (`agent-protocol.md §8`).
+
+### Co se hlásí na konci milníku
+
+Handoff podle [`agent-protocol.md §14`](docs/development/agent-protocol.md):
+posunuté požadavky, stav akceptace před a teď, odstraněné a zbylé blockery,
+zavlečené nebo nalezené regrese, rozhodnutí, která operátor skutečně musí
+udělat, a další nejcennější spustitelný krok. Ne počty commitů a testů.
+
+### Podle čeho se milníky berou
+
+`ROADMAP.md §13` — závazná Gate 1 fronta. Sedmá položka, autorizovaný GPU
+pilot, je z autonomního režimu **vyňatá**: roadmapa u ní říká „jen na akci
+operátora" a tohle rozhodnutí to nemění. Vedle fronty drží vlastní frontu
+sekce „Otevřené release-blocking vady" v `SYSTEM-MAP.md`; hygiena `L1` má
+přednost před další položkou fronty, protože červená povinná sada znehodnocuje
+přejímku všeho ostatního.
