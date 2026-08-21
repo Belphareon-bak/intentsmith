@@ -319,13 +319,25 @@ Nepatří sem selhání, které `CONTRACT.md §8` označuje jako při vývoji o�
 | Vada | Blokuje | Kauzalita | Priorita |
 |---|---|---|---|
 | `module-boundary-ratchet` — `MODULE_BOUNDARY_RATCHET_FAIL`, `baselineEdges=1020` vs `currentEdges=1049`, `added=29`, `removed=0`, `cycles=3`, `filesInCycles=28` | `L1` a přejímku každého WP, který se opírá o ratchet | Rozchod proti exact-edge baseline `7551b907`, autorita `integration`. Baseline nebyl po sérii změn rebaselinován, nebo 29 hran skutečně přibylo — rozlišit vyžaduje výpis dvojic, ne odhad | Vysoká. Ratchet je vynucovací mechanismus L0-8 a dokud je červený, nehlídá |
-| `m1-model-failover-parent-acceptance` — 6 selhání: `NOT_ISSUED` receipt vrací `1` místo `0`, dvě chyby vracejí `MODEL_CANDIDATE_MEASUREMENT_UNEXPECTED_FAILURE` místo `..._CANDIDATE_AMBIGUOUS` a `..._INVENTORY_DRIFT`; zbytek padá kaskádou na chybějící pozitivní fixture | Přejímku failover parent acceptance | Nezjištěna. Kaskáda znamená, že první selhání shodí zbytek — diagnostika musí začít u `NOT_ISSUED` receiptu | Vysoká. Acceptance validator je důkazní aparát; když padá, nelze mu věřit ani když je zelený |
-| `harness-exit-code` — `temp-creating root tests lack a static isolation bootstrap: module-boundary-ratchet.test.js` | `L1` | `module-boundary-ratchet.test.js` vytváří temp adresáře bez statického isolation bootstrapu, který tenhle meta-test vyžaduje | Střední. Hygiena harnessu, ne produktová vada |
 
 Změřeno 2026-08-21 na `f5d0771f`, profil `offline,database`, 231 sad:
 `{"PASS":222,"FAIL":7,"BLOCKED":2}`. Všechny čtyři vady výše ověřeny jako
 **předchozí** — běh na čistém `43687e6b` ve worktree dal bajtově shodný výstup
 selhání. Zapsány podle `CONTRACT.md §10`, neabsorbovány.
+
+Uzavřeno 2026-08-21: **`m1-model-failover-parent-acceptance`** — parent exportuje
+pro child přesně vyjmenovaný blob set `CANDIDATE_SOURCE_PATHS`, ale
+`src/upgrade/model-failover.js` mezitím začal importovat `src/db/user-settings.js`,
+který v seznamu nebyl. Child proto padal na `Cannot find module` a všech šest
+selhání byla kaskáda z tohohle jednoho. Tranzitivní uzávěra ověřena skriptem —
+chyběl právě ten jeden soubor. 9 failed → 15 passed / 0 failed.
+
+Uzavřeno 2026-08-21: **`harness-exit-code`** — `module-boundary-ratchet.test.js`
+jako jediný root test vytvářel temp adresáře bez statického isolation
+bootstrapu. Doplněn kanonický import; tím se odkryl evidenční census, zastaralý
+nezávisle na téhle práci (pin 95, skutečnost 99 — drift 95→98 přinesly eval
+sady z 19.–21. 8.). Fail-closed assertion `unprotected == []` držela po celou
+dobu. rc=1 → rc=0.
 
 Uzavřeno 2026-08-21: **`m1-model-binding-application`** — `upgrade/candidate-trial.js`
 volal Ollama delete endpoint vlastní cestou a obcházel tím kanonickou identitu

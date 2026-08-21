@@ -52,6 +52,7 @@ const CANDIDATE_SOURCE_PATHS = Object.freeze([
   'scripts/run-model-failover-measurement.js',
   'src/config.js',
   'src/core/logger.js',
+  'src/db/user-settings.js',
   'src/timeout-policy.js',
   'src/upgrade/model-failover-proof-policy.js',
   'src/upgrade/model-failover.js',
