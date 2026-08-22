@@ -3870,8 +3870,11 @@ function settingsBackupPanel(){
         var inp=document.createElement('input');inp.type='file';inp.accept='.json';
         inp.onchange=function(e){var f=e.target.files[0];if(!f)return;
           var reader=new FileReader();reader.onload=function(ev){try{var data=JSON.parse(ev.target.result);
-            fetch(_backendBase+'/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data),signal:AbortSignal.timeout(3000)})
-            .then(function(){_bCfg=data;_backupMsg={ok:true,text:'Nastavení importována z '+f.name};renderCenter();setTimeout(function(){_backupMsg=null;renderCenter();},4000);})
+            /* 020/E: explicit versioned adapter, and the result is checked —
+               an ignored response made a failed import look like a success. */
+            fetch(_backendBase+'/api/settings/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:1,settings:data}),signal:AbortSignal.timeout(3000)})
+            .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);
+              _bCfg=data;_backupMsg={ok:true,text:'Nastavení importována z '+f.name};renderCenter();setTimeout(function(){_backupMsg=null;renderCenter();},4000);})
             .catch(function(e){_backupMsg={ok:false,text:'Import selhal: '+e.message};renderCenter();});
           }catch(ex){_backupMsg={ok:false,text:'Neplatný JSON soubor'};renderCenter();}};reader.readAsText(f);};inp.click();}},'Importovat nastavení'),
     h('div',{style:{borderTop:'1px solid '+C.border,paddingTop:14,marginTop:8}},
@@ -3879,8 +3882,11 @@ function settingsBackupPanel(){
       h('div',{style:{fontSize:_fs(10),color:C.tx4,marginBottom:8}},'Smaže všechna uživatelská nastavení a obnoví výchozí hodnoty.'),
       h('button',{style:{width:'100%',background:'transparent',border:'1px solid #ef4444',borderRadius:6,padding:'8px 14px',fontSize:_fs(11),cursor:'pointer',color:'#ef4444',fontFamily:C.font},
         onClick:function(){if(!confirm('Opravdu obnovit výchozí nastavení? Všechny změny budou ztraceny.'))return;
-          fetch(_backendBase+'/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}',signal:AbortSignal.timeout(3000)})
-          .then(function(){_bCfg={};_backupMsg={ok:true,text:'Nastavení obnovena na výchozí'};renderCenter();setTimeout(function(){_backupMsg=null;renderCenter();},4000);}).catch(function(e){_backupMsg={ok:false,text:'Reset selhal: '+e.message};renderCenter();});}},'Obnovit výchozí')));
+          /* 020/E: the audited reset path. POST {} no longer resets the
+             automation policy, and the result is no longer ignored. */
+          fetch(_backendBase+'/api/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}',signal:AbortSignal.timeout(3000)})
+          .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);
+            _bCfg={};_backupMsg={ok:true,text:'Nastavení obnovena na výchozí'};renderCenter();setTimeout(function(){_backupMsg=null;renderCenter();},4000);}).catch(function(e){_backupMsg={ok:false,text:'Reset selhal: '+e.message};renderCenter();});}},'Obnovit výchozí')));
 }
 /* v91: Feature Flags panel */
 var _FF_META=[

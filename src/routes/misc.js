@@ -4,6 +4,13 @@ import config from '../config.js';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { getWebSocketBridgeHealth } from '../ws-bridge/ws-server.js';
+import {
+  POLICY_SOURCE,
+  readModelAutomationPolicy,
+  resetModelAutomationPolicy,
+  stripReservedAutomationKeys,
+  updateModelAutomationPolicy,
+} from '../db/model-policy.js';
 
 // H9: Settings, Health, Autocomplete, Audit, Logs routes
 const _fbRateMap = new Map(); // IP → last feedback timestamp (rate limit)
@@ -24,7 +31,9 @@ export function createMiscRoutes(deps) {
       try {
         const row = db.db.prepare('SELECT data FROM user_settings WHERE id = 1').get();
         if (row) {
-          sendJSON(res, 200, JSON.parse(row.data));
+          // Decision 020/E: the owned automation keys are not emitted here, so a
+          // client has nothing to post back and cannot round-trip a policy.
+          sendJSON(res, 200, stripReservedAutomationKeys(JSON.parse(row.data)).settings);
         } else {
           sendJSON(res, 200, {});
         }
@@ -44,17 +53,76 @@ export function createMiscRoutes(deps) {
           )
         `);
 
+        // Decision 020/E: drop, not reject — rejecting would turn every Studio
+        // settings save into a 400 on installations whose document already has
+        // `models`. Foreign keys inside `models` survive untouched.
+        const { settings, ignoredReservedKeys } = stripReservedAutomationKeys(body);
+
         db.db.prepare(`
           INSERT OR REPLACE INTO user_settings (id, data, updated_at)
           VALUES (1, ?, datetime('now'))
-        `).run(JSON.stringify(body));
+        `).run(JSON.stringify(settings));
 
-        // v85: Apply feature flag changes at runtime
-        const changed = featureManager.applySettings(body);
+        // The sanitized document also goes to the runtime: an unsaved policy
+        // must not reach the feature manager either.
+        const changed = featureManager.applySettings(settings);
 
-        sendJSON(res, 200, { success: true, featuresChanged: changed || 0 });
+        sendJSON(res, 200, {
+          success: true,
+          featuresChanged: changed || 0,
+          ignoredReservedKeys,
+        });
       } catch (err) {
         sendJSON(res, 500, safeError(err));
+      }
+    },
+
+    // Decision 020/E: the explicit, versioned adapter. Unlike the generic save
+    // this one may carry policy — and it is atomic with the general document,
+    // so a failed import leaves neither half applied.
+    'POST /api/settings/import': async (req, res) => {
+      const body = await parseBody(req);
+      try {
+        if (!body || typeof body !== 'object' || Array.isArray(body)) {
+          return sendJSON(res, 400, { error: 'Import body must be an object' });
+        }
+        if (body.version !== 1) {
+          return sendJSON(res, 400, { error: 'Unsupported import version' });
+        }
+        const settings = body.settings;
+        if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
+          return sendJSON(res, 400, { error: 'Import settings must be an object' });
+        }
+        db.db.exec(`
+          CREATE TABLE IF NOT EXISTS user_settings (
+            id INTEGER PRIMARY KEY,
+            data TEXT NOT NULL,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+        const sanitized = stripReservedAutomationKeys(settings).settings;
+        const apply = db.db.transaction(() => {
+          db.db.prepare(`
+            INSERT OR REPLACE INTO user_settings (id, data, updated_at)
+            VALUES (1, ?, datetime('now'))
+          `).run(JSON.stringify(sanitized));
+          if (body.policy !== undefined) {
+            updateModelAutomationPolicy(db.db, {
+              values: body.policy,
+              actor: 'user:explicit-import',
+              source: POLICY_SOURCE.EXPLICIT_IMPORT,
+            });
+          }
+        });
+        apply();
+        const changed = featureManager.applySettings(sanitized);
+        sendJSON(res, 200, {
+          ok: true,
+          featuresChanged: changed || 0,
+          policy: readModelAutomationPolicy(db.db).policy,
+        });
+      } catch (err) {
+        sendJSON(res, err?.httpStatus || 500, safeError(err));
       }
     },
 
@@ -202,7 +270,13 @@ export function createMiscRoutes(deps) {
 
     'POST /api/reset': async (req, res) => {
       try {
-        db.db.exec('DELETE FROM user_settings');
+        // Decision 020/E: a global reset is an audited transition to OFF, not a
+        // silent disappearance of the policy. Both halves commit together.
+        const clear = db.db.transaction(() => {
+          db.db.exec('DELETE FROM user_settings');
+          resetModelAutomationPolicy(db.db, { actor: 'user:explicit-reset' });
+        });
+        clear();
         sendJSON(res, 200, { success: true, message: 'Settings cleared' });
       } catch (err) {
         sendJSON(res, 500, safeError(err));

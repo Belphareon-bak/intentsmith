@@ -20,7 +20,7 @@ import {
   MODEL_ACTIVITY_OWNER,
   modelUseAuthority,
 } from './model-use-authority.js';
-import { readModelSettings } from '../db/user-settings.js';
+import { readModelAutomationPolicy } from '../db/model-policy.js';
 import { execSync } from 'child_process';
 import fs from 'fs';
 
@@ -338,7 +338,15 @@ export class ModelRegistry {
   }
 
   getModelSettings() {
-    return readModelSettings(this._db);
+    // Decision 020/E: automation policy has its own authority. The shape stays
+    // compatible with the previous reader so consumers do not have to branch.
+    const state = readModelAutomationPolicy(this._db);
+    return {
+      status: state.status,
+      valid: state.valid,
+      settings: state.policy,
+      reason: state.reason,
+    };
   }
 
   /** Get validation scores for a model across all suites */

@@ -362,7 +362,8 @@ suite('M1 model failover schema — exact migration contract');
 
 await testAsync('fresh file-backed DB creates all failover tables, indexes and triggers', async () => {
   await withMigratedDb(async (db) => {
-    assertEqual(getCurrentVersion(db), '2026_08_09_054_model_binding_runtime_finalization');
+    // Decision 020/E added migration 066; this pin follows the real tip.
+    assertEqual(getCurrentVersion(db), '2026_08_22_066_model_automation_policy');
 
     for (const table of [
       'model_desired_bindings',
@@ -646,7 +647,7 @@ await testAsync('second migration run is a no-op with an identical schema snapsh
     const before = schemaSnapshot(db);
     const result = await runMigrations(db);
     assertEqual(result.applied.length, 0);
-    assertEqual(result.skipped.length, 56);
+    assertEqual(result.skipped.length, 57);
     assertEqual(schemaSnapshot(db), before);
   });
 });
@@ -678,10 +679,13 @@ await testAsync('migration 054 preserves pre-existing success as unconfirmed evi
     const result = migrationTestInternals.runMigrationPlan(db, migrations);
     assertEqual(
       JSON.stringify(result.applied),
-      JSON.stringify(['2026_08_09_054_model_binding_runtime_finalization']),
+      JSON.stringify([
+        '2026_08_09_054_model_binding_runtime_finalization',
+        '2026_08_22_066_model_automation_policy',
+      ]),
     );
     assertEqual(result.skipped.length, 55);
-    assertEqual(getCurrentVersion(db), '2026_08_09_054_model_binding_runtime_finalization');
+    assertEqual(getCurrentVersion(db), '2026_08_22_066_model_automation_policy');
     assertEqual(
       db.prepare(`
         SELECT COUNT(*) AS count

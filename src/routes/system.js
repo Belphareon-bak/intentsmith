@@ -16,6 +16,11 @@ import { broadcast } from '../ws-bridge/ws-server.js';
 import { modelUniverseStore } from '../upgrade/model-universe-store.js';
 import { parseModelName } from '../upgrade/model-profiles.js';
 import { estimateModelPrior } from '../upgrade/model-similarity.js';
+import {
+  POLICY_SOURCE,
+  readModelAutomationPolicy,
+  updateModelAutomationPolicy,
+} from '../db/model-policy.js';
 
 const FEATURE_UNIVERSE_ENABLED = (process.env.C3_MODEL_UNIVERSE_ENABLED || 'true') !== 'false';
 const FEATURE_UNIVERSE_MIRROR = (process.env.C3_DISCOVERY_MIRROR_DISCOVERED_MODELS || 'true') !== 'false';
@@ -1616,6 +1621,47 @@ export function createSystemRoutes({
     },
 
     // ── v133: Model Overview (consolidated view) ──────────────────────
+    // Decision 020/E: the only supported way to change automation policy.
+    'GET /api/system/models/policy': async (req, res) => {
+      const state = readModelAutomationPolicy(db.db);
+      sendJSON(res, 200, {
+        status: state.status,
+        valid: state.valid,
+        reason: state.reason,
+        revision: state.revision,
+        policy: state.policy,
+      });
+    },
+
+    'PUT /api/system/models/policy': async (req, res) => {
+      try {
+        const body = await parseBody(req);
+        if (!body || typeof body !== 'object' || Array.isArray(body)) {
+          return sendJSON(res, 400, { error: 'Policy body must be an object' });
+        }
+        const { expectedRevision, ...values } = body;
+        if (!Number.isInteger(expectedRevision)) {
+          return sendJSON(res, 400, { error: 'expectedRevision is required' });
+        }
+        const result = updateModelAutomationPolicy(db.db, {
+          values,
+          expectedRevision,
+          actor: 'user:typed-route',
+          source: POLICY_SOURCE.TYPED_ROUTE,
+        });
+        return sendJSON(res, 200, {
+          ok: true,
+          revision: result.revision,
+          policy: result.policy,
+        });
+      } catch (err) {
+        return sendJSON(res, err?.httpStatus || 500, {
+          error: err.message,
+          code: err?.code || null,
+        });
+      }
+    },
+
     'GET /api/system/models/overview': async (req, res) => {
       try {
         if (!modelRegistry) {

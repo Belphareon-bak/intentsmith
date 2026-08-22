@@ -7,7 +7,7 @@
 // verification, broadcast, automatic failover or scheduler work itself.
 
 import { randomUUID } from 'node:crypto';
-import { readModelSettings } from '../db/user-settings.js';
+import { readModelAutomationPolicy } from '../db/model-policy.js';
 import { canonicalModelName } from './model-identity.js';
 
 export const MODEL_FAILOVER_POLICY_VERSION = 'd-plus-v1';
@@ -146,8 +146,9 @@ function requireInput(value) {
 
 function requireCoordinatorPolicy(db, required) {
   if (!required) return;
-  const policy = readModelSettings(db);
-  if (policy.valid !== true || policy.settings?.autoFailoverEnabled !== true) {
+  // Decision 020/E: the generic settings document can no longer answer this.
+  const policy = readModelAutomationPolicy(db);
+  if (policy.valid !== true || policy.policy?.autoFailoverEnabled !== true) {
     fail(
       'MODEL_FAILOVER_AUTO_FAILOVER_DISABLED',
       'Automatic failover policy is not enabled inside the write transaction',

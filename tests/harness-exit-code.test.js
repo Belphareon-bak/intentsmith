@@ -344,7 +344,10 @@ try {
   //             manager, whose ws-server edge is database-reachable. The suite
   //             itself uses no database; it is in this census for the same
   //             transitive reason multimedia and vram-coordination already were.
-  const expectedDatabaseReachableRootTests = 100;
+  //   100 -> 101 m1-model-automation-policy.test.js (decision 020/E) runs real
+  //             migrations against an in-memory database on purpose: the whole
+  //             point of the suite is that the policy storage is real.
+  const expectedDatabaseReachableRootTests = 101;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,
