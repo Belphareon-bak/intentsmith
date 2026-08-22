@@ -1,6 +1,6 @@
 # Handoff 2026-08-22
 
-**Větev:** `claude/gate1-mobile-app-progress-5sywlt`, tip `fbbe1e74`
+**Větev:** `claude/gate1-mobile-app-progress-5sywlt`, tip `387aff25`
 **Nepushnuto.** Strom čistý.
 
 ## Co se dnes stalo, v pořadí
@@ -51,6 +51,38 @@ Shodné s baseline před sérií.
 - **L3 čísla M1**: p95 deterministiky drží (40–49 ms). Chybí p95 modelového
   chatu, throughput a refinement delta.
 - **B5 `WP-M1-QUALITY`** nezačato — běží až po přijetí CHAT, MODEL a STUDIO.
+
+## Kde přesně se zastavilo 021 — byte bridge
+
+Hotové je R2/A (typovaný `M1_EFFECT_AUTHORITY_REQUIRED` místo `ok`) a celé
+R1/B: `src/ws-bridge/m1-attachment-policy.js`, serverová revalidace před
+controller efektem, klientská implementace, WS `maxPayload` a 15 testů včetně
+tabulky dvanácti případů projeté oběma implementacemi.
+
+**Nezavřený zbytek je byte bridge a je to blocker produkčního ACK.**
+
+Lokalizace: `chat-panel-module.js` řádek ~6691. Větev, která přílohy bere
+z `electronTheiaFilesystem.showOpenDialog`, pushuje
+`{name, size:'soubor', file:{path: fp, size: 1024}}` — falešný `File` bez bajtů.
+`_readAttachments()` na něm zavolá `FileReader`, dostane prázdno a vrátí
+`content: null`. Inline-only policy takovou položku odmítne, takže uživatel
+uvidí `NOT_SENT` u souboru, který si právě vybral. Drag&drop a
+`<input type=file>` větve dávají skutečné `File` objekty a fungují.
+
+Proč to nejde spravit v panelu: **preload nemá žádné API pro čtení souboru.**
+Ověřeno v `c3-ide/applications/electron/lib/frontend/preload.js` —
+`electronTheiaFilesystem` vystavuje jen `showOpenDialog` a `showSaveDialog`,
+`electronC3` jen `getBackendUrl`/`getPort`/`getLocalCapability`/`getLocalAccess`,
+`electronTheiaCore` má `getPathForFile` (cesta z `File`, ne opačně).
+
+Pořadí kroků, až se do toho někdo pustí:
+
+1. nový IPC kanál v Theia preload zdroji (ne v minifikovaném `lib/`), který pro
+   cestu vrátí bajty — vázaný na uživatelské gesto, ne obecné čtení disku;
+2. limity vynutit **už při čtení**, aby se 5 MiB strop neobcházel tím, že se
+   soubor načte celý a zahodí až v policy;
+3. rebuild preloadu a znovu built journey;
+4. teprve pak má smysl produkční ACK `m1-wire-v1`.
 
 ## Kandidát na finding, který jsem nezaložil
 
