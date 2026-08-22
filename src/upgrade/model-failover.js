@@ -6,7 +6,7 @@
 // it deliberately does not execute a provider call, runtime mutation,
 // verification, broadcast, automatic failover or scheduler work itself.
 
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { readModelAutomationPolicy } from '../db/model-policy.js';
 import { canonicalModelName } from './model-identity.js';
 
@@ -86,6 +86,45 @@ const CLAIMS = Object.freeze({
     activeFailover: 1,
   }),
 });
+const TERMINAL_OPERATIONS = Object.freeze({
+  ACTIVATE: Object.freeze({
+    successEventType: 'ACTIVATED',
+    failureEventType: 'ACTIVATION_FAILED',
+    successReasonCode: 'LOCAL_FAILOVER_ACTIVATED',
+    failureReasonCode: 'LOCAL_FAILOVER_ACTIVATION_FAILED',
+    stateBefore: 'DETECTED',
+    stateAfter: 'ACTIVATED',
+    activeBefore: 0,
+    activeAfter: 1,
+  }),
+  RESTORE: Object.freeze({
+    successEventType: 'RESTORED',
+    failureEventType: 'RESTORE_FAILED',
+    successReasonCode: 'DESIRED_MODEL_RESTORED',
+    failureReasonCode: 'DESIRED_MODEL_RESTORE_FAILED',
+    stateBefore: 'ACTIVATED',
+    stateAfter: 'RESTORED',
+    activeBefore: 1,
+    activeAfter: 0,
+  }),
+  REAPPLY: Object.freeze({
+    successEventType: 'REAPPLIED',
+    failureEventType: 'REAPPLY_FAILED',
+    successReasonCode: 'LOCAL_FAILOVER_REAPPLIED',
+    failureReasonCode: 'LOCAL_FAILOVER_REAPPLY_FAILED',
+    stateBefore: 'ACTIVATED',
+    stateAfter: 'ACTIVATED',
+    activeBefore: 1,
+    activeAfter: 1,
+  }),
+});
+const FAILOVER_FAILURE_PHASES = new Set([
+  'VERIFICATION',
+  'PERSISTENCE',
+  'RUNTIME_APPLY',
+  'RESTORE',
+  'REHYDRATE',
+]);
 const DEFAULT_IDS = Object.freeze({
   event: () => `evt_${randomUUID()}`,
   episode: () => `ep_${randomUUID()}`,
@@ -242,6 +281,21 @@ function requireDigest(value, field = 'digestSha256') {
   return digest;
 }
 
+function requireContractHash(value, field = 'roleContractSha256') {
+  return requireDigest(value, field);
+}
+
+function requireBoolean(value, field) {
+  if (typeof value !== 'boolean') {
+    fail('MODEL_FAILOVER_INPUT_INVALID', `${field} must be a boolean`, { field });
+  }
+  return value;
+}
+
+function claimTokenSha256(value) {
+  return createHash('sha256').update(value).digest('hex');
+}
+
 function requirePositiveInteger(value, field) {
   if (!Number.isSafeInteger(value) || value < 1) {
     fail('MODEL_FAILOVER_INPUT_INVALID', `${field} must be a positive safe integer`, { field });
@@ -385,6 +439,36 @@ function mapEvent(row) {
     details,
     createdAtMs: row.created_at_ms,
   };
+}
+
+function mapProof(row) {
+  if (!row) return null;
+  return Object.freeze({
+    proofId: row.proof_id,
+    validationRunId: row.validation_run_id,
+    role: row.role,
+    suite: row.suite,
+    roleContractSha256: row.role_contract_sha256,
+    modelName: row.model_name,
+    modelCanonicalName: row.model_canonical_name,
+    modelDigestSha256: row.model_digest_sha256,
+    validationVersion: row.validation_version,
+    policyVersion: row.policy_version,
+    score: row.score,
+    requiredScore: row.required_score,
+    passedCount: row.passed_count,
+    requiredPassedCount: row.required_passed_count,
+    totalCount: row.total_count,
+    durationMs: row.duration_ms,
+    result: row.result,
+    startedAtMs: row.started_at_ms,
+    completedAtMs: row.completed_at_ms,
+    expiresAtMs: row.expires_at_ms,
+    createdAtMs: row.created_at_ms,
+    measurementArtifactSha256: row.measurement_artifact_sha256,
+    acceptanceArtifactSha256: row.acceptance_artifact_sha256,
+    sourceRevision: row.source_revision,
+  });
 }
 
 function mapBindingOperation(row) {
@@ -3446,6 +3530,15 @@ export class ModelFailoverRepository {
 
   claimOperation(inputValue) {
     const input = requireInput(inputValue);
+    requireExactInputFields(input, [
+      'role',
+      'episodeId',
+      'expectedDesiredRevision',
+      'expectedRowVersion',
+      'kind',
+      'leaseMs',
+      'requireAutoFailoverEnabled',
+    ]);
     rejectAuthorityOverrides(input, [
       'nowMs',
       'eventId',
@@ -3475,8 +3568,12 @@ export class ModelFailoverRepository {
         maxClaimMs: MAX_MODEL_FAILOVER_CLAIM_MS,
       });
     }
+    const requireAutoFailoverEnabled = input.requireAutoFailoverEnabled === undefined
+      ? false
+      : requireBoolean(input.requireAutoFailoverEnabled, 'requireAutoFailoverEnabled');
 
     return this.#write('claimOperation', () => {
+      requireCoordinatorPolicy(this.db, requireAutoFailoverEnabled);
       const desired = this.#desiredRow(role);
       if (!desired) {
         fail('MODEL_FAILOVER_DESIRED_MISSING', 'Cannot claim failover without a desired binding', { role });
@@ -3616,6 +3713,532 @@ export class ModelFailoverRepository {
           expiresAtMs,
           eventId,
         },
+        state: mapState(this.#stateRow(role)),
+      };
+    });
+  }
+
+  listEligibleProofs(inputValue) {
+    const input = requireInput(inputValue);
+    requireExactInputFields(input, ['role', 'roleContractSha256']);
+    const role = requireRole(input.role);
+    const roleContractSha256 = requireContractHash(input.roleContractSha256);
+    return this.#read('listEligibleProofs', () => {
+      requireCoordinatorPolicy(this.db, true);
+      const nowMs = this.#now('listEligibleProofs');
+      return this.db.prepare(`
+        SELECT *
+        FROM model_failover_proofs
+        WHERE role = ?
+          AND role_contract_sha256 = ?
+          AND policy_version = ?
+          AND result = 'PASS'
+          AND completed_at_ms <= ?
+          AND expires_at_ms > ?
+          AND measurement_artifact_sha256 IS NOT NULL
+          AND acceptance_artifact_sha256 IS NOT NULL
+          AND source_revision IS NOT NULL
+        ORDER BY completed_at_ms DESC, proof_id
+      `).all(
+        role,
+        roleContractSha256,
+        MODEL_FAILOVER_POLICY_VERSION,
+        nowMs,
+        nowMs,
+      ).map(mapProof);
+    });
+  }
+
+  completeOperation(inputValue) {
+    const input = requireInput(inputValue);
+    requireExactInputFields(input, [
+      'role',
+      'episodeId',
+      'expectedDesiredRevision',
+      'expectedRowVersion',
+      'operationId',
+      'claimToken',
+      'kind',
+      'proofId',
+      'roleContractSha256',
+      'targetModelName',
+      'targetDigestSha256',
+    ]);
+    rejectAuthorityOverrides(input, ['nowMs', 'eventId', 'actor', 'policyVersion']);
+    const role = requireRole(input.role);
+    const episodeId = requireString(input.episodeId, 'episodeId');
+    const expectedDesiredRevision = requirePositiveInteger(
+      input.expectedDesiredRevision,
+      'expectedDesiredRevision',
+    );
+    const expectedRowVersion = requirePositiveInteger(
+      input.expectedRowVersion,
+      'expectedRowVersion',
+    );
+    const operationId = requireString(input.operationId, 'operationId');
+    const claimToken = requireString(input.claimToken, 'claimToken', { min: 16 });
+    const kind = requireString(input.kind, 'kind', { max: 16 }).toUpperCase();
+    const terminal = TERMINAL_OPERATIONS[kind];
+    if (!terminal) {
+      fail('MODEL_FAILOVER_CLAIM_KIND_INVALID', 'Unknown failover terminal kind', { kind });
+    }
+    const proofId = requireString(input.proofId, 'proofId', { min: 16 });
+    const roleContractSha256 = requireContractHash(input.roleContractSha256);
+    const targetModelName = requireString(input.targetModelName, 'targetModelName', { max: 512 });
+    const targetCanonicalName = canonicalModelName(targetModelName);
+    if (!targetCanonicalName) {
+      fail('MODEL_FAILOVER_INPUT_INVALID', 'targetModelName has no canonical identity');
+    }
+    const targetDigestSha256 = requireDigest(input.targetDigestSha256, 'targetDigestSha256');
+    const tokenDigest = claimTokenSha256(claimToken);
+
+    return this.#write('completeOperation', () => {
+      const replay = this.db.prepare(`
+        SELECT * FROM model_failover_events
+        WHERE operation_id = ? AND event_type = ?
+      `).get(operationId, terminal.successEventType);
+      if (replay) {
+        let details;
+        try {
+          details = JSON.parse(replay.details_json);
+        } catch (_) {
+          details = null;
+        }
+        const replayTargetMatches = kind === 'RESTORE'
+          ? replay.fallback_model_name === null
+            && replay.fallback_canonical_name === null
+            && replay.fallback_digest_sha256 === null
+          : replay.fallback_model_name === targetModelName
+            && replay.fallback_canonical_name === targetCanonicalName
+            && replay.fallback_digest_sha256 === targetDigestSha256;
+        if (replay.role === role
+          && replay.binding_revision === expectedDesiredRevision
+          && replay.episode_id === episodeId
+          && replay.proof_id === proofId
+          && replayTargetMatches
+          && details?.claimTokenSha256 === tokenDigest
+          && details?.roleContractSha256 === roleContractSha256) {
+          return {
+            outcome: 'ALREADY_COMPLETED',
+            event: mapEvent(replay),
+            state: mapState(this.#stateRow(role)),
+          };
+        }
+        fail(
+          'MODEL_FAILOVER_TERMINAL_IDENTITY_CONFLICT',
+          'Failover operation already has a different terminal outcome',
+          { operationId, kind },
+        );
+      }
+
+      requireCoordinatorPolicy(this.db, kind === 'ACTIVATE' || kind === 'REAPPLY');
+      const desired = this.#desiredRow(role);
+      if (!desired || desired.binding_revision !== expectedDesiredRevision) {
+        fail('MODEL_FAILOVER_STALE_DESIRED', 'Terminal desired binding no longer matches', {
+          role,
+          expectedDesiredRevision,
+          actualDesiredRevision: desired?.binding_revision ?? null,
+        });
+      }
+      const state = this.#stateRow(role);
+      if (!state || state.episode_id !== episodeId) {
+        fail('MODEL_FAILOVER_INCIDENT_MISMATCH', 'Terminal failover incident does not match', {
+          role,
+          episodeId,
+        });
+      }
+      if (state.desired_revision !== expectedDesiredRevision
+        || state.row_version !== expectedRowVersion) {
+        fail('MODEL_FAILOVER_STALE_STATE', 'Terminal failover state no longer matches', {
+          role,
+          expectedRowVersion,
+          actualRowVersion: state.row_version,
+        });
+      }
+      if (state.policy_version !== MODEL_FAILOVER_POLICY_VERSION
+        || state.state !== terminal.stateBefore
+        || state.active_failover !== terminal.activeBefore
+        || state.claim_kind !== kind
+        || state.claim_operation_id !== operationId
+        || state.claim_token !== claimToken) {
+        fail('MODEL_FAILOVER_CLAIM_MISMATCH', 'Terminal failover claim tuple does not match', {
+          role,
+          kind,
+          operationId,
+        });
+      }
+      const nowMs = this.#now('completeOperation');
+      if (nowMs < state.updated_at_ms) {
+        fail('MODEL_FAILOVER_CLOCK_ROLLBACK', 'Repository clock moved before terminal state');
+      }
+      if (state.claim_expires_at_ms < nowMs) {
+        fail('MODEL_FAILOVER_CLAIM_EXPIRED', 'Failover claim expired before terminal commit', {
+          role,
+          operationId,
+          claimExpiresAtMs: state.claim_expires_at_ms,
+          nowMs,
+        });
+      }
+      const proof = this.db.prepare(`
+        SELECT * FROM model_failover_proofs WHERE proof_id = ?
+      `).get(proofId);
+      if (!proof
+        || proof.role !== role
+        || proof.role_contract_sha256 !== roleContractSha256
+        || proof.policy_version !== MODEL_FAILOVER_POLICY_VERSION
+        || proof.result !== 'PASS'
+        || proof.model_canonical_name !== targetCanonicalName
+        || proof.model_digest_sha256 !== targetDigestSha256
+        || proof.completed_at_ms > nowMs
+        || proof.expires_at_ms <= nowMs
+        || proof.measurement_artifact_sha256 === null
+        || proof.acceptance_artifact_sha256 === null
+        || proof.source_revision === null) {
+        fail(
+          'MODEL_FAILOVER_PROOF_INELIGIBLE',
+          'Terminal transition requires the exact fresh artifact-bound role proof',
+          { role, proofId, targetModelName, targetDigestSha256 },
+        );
+      }
+      if (kind === 'ACTIVATE'
+        && targetCanonicalName === desired.canonical_name) {
+        fail(
+          'MODEL_FAILOVER_FALLBACK_INVALID',
+          'Fallback must differ from the missing desired model identity',
+        );
+      }
+      if (kind === 'RESTORE'
+        && (targetModelName !== desired.model_name
+          || targetCanonicalName !== desired.canonical_name
+          || targetDigestSha256 !== desired.digest_sha256)) {
+        fail('MODEL_FAILOVER_RESTORE_TARGET_INVALID', 'Restore target is not the exact desired artifact');
+      }
+      if (kind === 'REAPPLY'
+        && (targetModelName !== state.fallback_model_name
+          || targetCanonicalName !== state.fallback_canonical_name
+          || targetDigestSha256 !== state.fallback_digest_sha256)) {
+        fail('MODEL_FAILOVER_REAPPLY_TARGET_INVALID', 'Reapply target is not the active fallback artifact');
+      }
+
+      const eventId = this.#id('event');
+      const nextRowVersion = incrementSafeInteger(expectedRowVersion, 'expectedRowVersion');
+      const fallback = kind === 'RESTORE'
+        ? [null, null, null]
+        : [targetModelName, targetCanonicalName, targetDigestSha256];
+      const detailsJson = JSON.stringify({
+        claimTokenSha256: tokenDigest,
+        roleContractSha256,
+      });
+      this.db.prepare(`
+        INSERT INTO model_failover_events (
+          event_id, event_type, role, binding_revision, row_version, episode_id,
+          operation_id, actor, reason_code, policy_version, state_before,
+          state_after, desired_model_name, desired_digest_sha256,
+          fallback_model_name, fallback_canonical_name, fallback_digest_sha256,
+          proof_id, verified, details_json, created_at_ms
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+      `).run(
+        eventId,
+        terminal.successEventType,
+        role,
+        expectedDesiredRevision,
+        nextRowVersion,
+        episodeId,
+        operationId,
+        MODEL_FAILOVER_ACTOR,
+        terminal.successReasonCode,
+        MODEL_FAILOVER_POLICY_VERSION,
+        terminal.stateBefore,
+        terminal.stateAfter,
+        desired.model_name,
+        desired.digest_sha256,
+        ...fallback,
+        proofId,
+        detailsJson,
+        nowMs,
+      );
+
+      let update;
+      if (kind === 'ACTIVATE') {
+        update = this.db.prepare(`
+          UPDATE model_failover_state
+          SET state = 'ACTIVATED', active_failover = 1,
+              fallback_model_name = ?, fallback_canonical_name = ?,
+              fallback_digest_sha256 = ?, proof_id = ?, active_event_id = ?,
+              actor = ?, reason_code = ?, failure_phase = NULL,
+              proof_verified_at_ms = ?, row_version = ?,
+              claim_operation_id = NULL, claim_token = NULL, claim_kind = NULL,
+              claim_started_at_ms = NULL, claim_expires_at_ms = NULL,
+              activated_at_ms = ?, resolved_at_ms = NULL,
+              updated_at_ms = ?, last_event_id = ?
+          WHERE role = ? AND desired_revision = ? AND episode_id = ?
+            AND row_version = ? AND state = 'DETECTED' AND active_failover = 0
+            AND policy_version = ? AND claim_operation_id = ?
+            AND claim_token = ? AND claim_kind = 'ACTIVATE'
+        `).run(
+          targetModelName,
+          targetCanonicalName,
+          targetDigestSha256,
+          proofId,
+          eventId,
+          MODEL_FAILOVER_ACTOR,
+          terminal.successReasonCode,
+          nowMs,
+          nextRowVersion,
+          nowMs,
+          nowMs,
+          eventId,
+          role,
+          expectedDesiredRevision,
+          episodeId,
+          expectedRowVersion,
+          MODEL_FAILOVER_POLICY_VERSION,
+          operationId,
+          claimToken,
+        );
+      } else if (kind === 'REAPPLY') {
+        update = this.db.prepare(`
+          UPDATE model_failover_state
+          SET fallback_model_name = ?, fallback_canonical_name = ?,
+              fallback_digest_sha256 = ?, proof_id = ?, active_event_id = ?,
+              actor = ?, reason_code = ?, failure_phase = NULL,
+              proof_verified_at_ms = ?, row_version = ?,
+              claim_operation_id = NULL, claim_token = NULL, claim_kind = NULL,
+              claim_started_at_ms = NULL, claim_expires_at_ms = NULL,
+              updated_at_ms = ?, last_event_id = ?
+          WHERE role = ? AND desired_revision = ? AND episode_id = ?
+            AND row_version = ? AND state = 'ACTIVATED' AND active_failover = 1
+            AND policy_version = ? AND claim_operation_id = ?
+            AND claim_token = ? AND claim_kind = 'REAPPLY'
+        `).run(
+          targetModelName,
+          targetCanonicalName,
+          targetDigestSha256,
+          proofId,
+          eventId,
+          MODEL_FAILOVER_ACTOR,
+          terminal.successReasonCode,
+          nowMs,
+          nextRowVersion,
+          nowMs,
+          eventId,
+          role,
+          expectedDesiredRevision,
+          episodeId,
+          expectedRowVersion,
+          MODEL_FAILOVER_POLICY_VERSION,
+          operationId,
+          claimToken,
+        );
+      } else {
+        update = this.db.prepare(`
+          UPDATE model_failover_state
+          SET state = 'RESTORED', active_failover = 0,
+              actor = ?, reason_code = ?, failure_phase = NULL,
+              row_version = ?, claim_operation_id = NULL, claim_token = NULL,
+              claim_kind = NULL, claim_started_at_ms = NULL,
+              claim_expires_at_ms = NULL, resolved_at_ms = ?,
+              updated_at_ms = ?, last_event_id = ?
+          WHERE role = ? AND desired_revision = ? AND episode_id = ?
+            AND row_version = ? AND state = 'ACTIVATED' AND active_failover = 1
+            AND policy_version = ? AND claim_operation_id = ?
+            AND claim_token = ? AND claim_kind = 'RESTORE'
+        `).run(
+          MODEL_FAILOVER_ACTOR,
+          terminal.successReasonCode,
+          nextRowVersion,
+          nowMs,
+          nowMs,
+          eventId,
+          role,
+          expectedDesiredRevision,
+          episodeId,
+          expectedRowVersion,
+          MODEL_FAILOVER_POLICY_VERSION,
+          operationId,
+          claimToken,
+        );
+      }
+      if (update.changes !== 1) {
+        fail('MODEL_FAILOVER_STALE_STATE', 'Terminal failover transition lost its state CAS', {
+          role,
+          expectedRowVersion,
+        });
+      }
+      return {
+        outcome: 'COMPLETED',
+        proof: mapProof(proof),
+        event: mapEvent(this.db.prepare('SELECT * FROM model_failover_events WHERE event_id = ?').get(eventId)),
+        state: mapState(this.#stateRow(role)),
+      };
+    });
+  }
+
+  failOperation(inputValue) {
+    const input = requireInput(inputValue);
+    requireExactInputFields(input, [
+      'role',
+      'episodeId',
+      'expectedDesiredRevision',
+      'expectedRowVersion',
+      'operationId',
+      'claimToken',
+      'kind',
+      'failurePhase',
+    ]);
+    rejectAuthorityOverrides(input, ['nowMs', 'eventId', 'actor', 'reasonCode']);
+    const role = requireRole(input.role);
+    const episodeId = requireString(input.episodeId, 'episodeId');
+    const expectedDesiredRevision = requirePositiveInteger(
+      input.expectedDesiredRevision,
+      'expectedDesiredRevision',
+    );
+    const expectedRowVersion = requirePositiveInteger(
+      input.expectedRowVersion,
+      'expectedRowVersion',
+    );
+    const operationId = requireString(input.operationId, 'operationId');
+    const claimToken = requireString(input.claimToken, 'claimToken', { min: 16 });
+    const kind = requireString(input.kind, 'kind', { max: 16 }).toUpperCase();
+    const terminal = TERMINAL_OPERATIONS[kind];
+    if (!terminal) {
+      fail('MODEL_FAILOVER_CLAIM_KIND_INVALID', 'Unknown failover terminal kind', { kind });
+    }
+    const failurePhase = requireString(input.failurePhase, 'failurePhase', { max: 32 }).toUpperCase();
+    if (!FAILOVER_FAILURE_PHASES.has(failurePhase)) {
+      fail('MODEL_FAILOVER_FAILURE_PHASE_INVALID', 'Unknown failover failure phase', {
+        failurePhase,
+      });
+    }
+    const tokenDigest = claimTokenSha256(claimToken);
+
+    return this.#write('failOperation', () => {
+      const replay = this.db.prepare(`
+        SELECT * FROM model_failover_events
+        WHERE operation_id = ? AND event_type = ?
+      `).get(operationId, terminal.failureEventType);
+      if (replay) {
+        let details;
+        try {
+          details = JSON.parse(replay.details_json);
+        } catch (_) {
+          details = null;
+        }
+        if (replay.role === role
+          && replay.binding_revision === expectedDesiredRevision
+          && replay.episode_id === episodeId
+          && replay.failure_phase === failurePhase
+          && details?.claimTokenSha256 === tokenDigest) {
+          return {
+            outcome: 'ALREADY_FAILED',
+            event: mapEvent(replay),
+            state: mapState(this.#stateRow(role)),
+          };
+        }
+        fail(
+          'MODEL_FAILOVER_TERMINAL_IDENTITY_CONFLICT',
+          'Failover operation already has a different failure outcome',
+          { operationId, kind },
+        );
+      }
+      const desired = this.#desiredRow(role);
+      const state = this.#stateRow(role);
+      if (!desired || desired.binding_revision !== expectedDesiredRevision) {
+        fail('MODEL_FAILOVER_STALE_DESIRED', 'Failed operation desired binding no longer matches');
+      }
+      if (!state
+        || state.episode_id !== episodeId
+        || state.desired_revision !== expectedDesiredRevision
+        || state.row_version !== expectedRowVersion
+        || state.policy_version !== MODEL_FAILOVER_POLICY_VERSION
+        || state.state !== terminal.stateBefore
+        || state.active_failover !== terminal.activeBefore
+        || state.claim_kind !== kind
+        || state.claim_operation_id !== operationId
+        || state.claim_token !== claimToken) {
+        fail('MODEL_FAILOVER_CLAIM_MISMATCH', 'Failed operation claim tuple does not match', {
+          role,
+          kind,
+          operationId,
+        });
+      }
+      const nowMs = this.#now('failOperation');
+      if (nowMs < state.updated_at_ms) {
+        fail('MODEL_FAILOVER_CLOCK_ROLLBACK', 'Repository clock moved before failed operation');
+      }
+      const eventId = this.#id('event');
+      const nextRowVersion = incrementSafeInteger(expectedRowVersion, 'expectedRowVersion');
+      const stateAfter = kind === 'ACTIVATE' ? 'FAILED' : 'ACTIVATED';
+      const detailsJson = JSON.stringify({ claimTokenSha256: tokenDigest });
+      this.db.prepare(`
+        INSERT INTO model_failover_events (
+          event_id, event_type, role, binding_revision, row_version, episode_id,
+          operation_id, actor, reason_code, policy_version, state_before,
+          state_after, desired_model_name, desired_digest_sha256,
+          fallback_model_name, fallback_canonical_name, fallback_digest_sha256,
+          verified, failure_phase, details_json, created_at_ms
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
+      `).run(
+        eventId,
+        terminal.failureEventType,
+        role,
+        expectedDesiredRevision,
+        nextRowVersion,
+        episodeId,
+        operationId,
+        MODEL_FAILOVER_ACTOR,
+        terminal.failureReasonCode,
+        MODEL_FAILOVER_POLICY_VERSION,
+        terminal.stateBefore,
+        stateAfter,
+        desired.model_name,
+        desired.digest_sha256,
+        kind === 'ACTIVATE' ? null : state.fallback_model_name,
+        kind === 'ACTIVATE' ? null : state.fallback_canonical_name,
+        kind === 'ACTIVATE' ? null : state.fallback_digest_sha256,
+        failurePhase,
+        detailsJson,
+        nowMs,
+      );
+      const update = this.db.prepare(`
+        UPDATE model_failover_state
+        SET state = ?, active_failover = ?, actor = ?, reason_code = ?,
+            failure_phase = ?, row_version = ?, claim_operation_id = NULL,
+            claim_token = NULL, claim_kind = NULL, claim_started_at_ms = NULL,
+            claim_expires_at_ms = NULL, updated_at_ms = ?, last_event_id = ?
+        WHERE role = ? AND desired_revision = ? AND episode_id = ?
+          AND row_version = ? AND state = ? AND active_failover = ?
+          AND policy_version = ? AND claim_operation_id = ?
+          AND claim_token = ? AND claim_kind = ?
+      `).run(
+        stateAfter,
+        terminal.activeBefore,
+        MODEL_FAILOVER_ACTOR,
+        terminal.failureReasonCode,
+        kind === 'ACTIVATE' ? failurePhase : null,
+        nextRowVersion,
+        nowMs,
+        eventId,
+        role,
+        expectedDesiredRevision,
+        episodeId,
+        expectedRowVersion,
+        terminal.stateBefore,
+        terminal.activeBefore,
+        MODEL_FAILOVER_POLICY_VERSION,
+        operationId,
+        claimToken,
+        kind,
+      );
+      if (update.changes !== 1) {
+        fail('MODEL_FAILOVER_STALE_STATE', 'Failed failover operation lost its state CAS', {
+          role,
+          expectedRowVersion,
+        });
+      }
+      return {
+        outcome: 'FAILED',
+        event: mapEvent(this.db.prepare('SELECT * FROM model_failover_events WHERE event_id = ?').get(eventId)),
         state: mapState(this.#stateRow(role)),
       };
     });
