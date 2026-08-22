@@ -1,7 +1,8 @@
 # Handoff 2026-08-22
 
 **Aktuální closeout větev:** `codex/m1-closeout-20260822`, core runtime tip
-`56ff8053`, poslední plně testovaný integrační tip `10b3d080` nad převzatým `a317da53`.
+`56ff8053`, poslední plně testovaný integrační tip `10b3d080` a poslední čistý
+fyzicky ověřený GPU source `31859488` nad převzatým `a317da53`.
 **Nepushnuto.** Izolovaný worktree je po checkpointu čistý; cizí změny v hlavním
 a mobilním checkoutu zůstaly nedotčené.
 
@@ -32,7 +33,26 @@ namespace a bez něj sada padá bez ní.
 | 4 | 020 policy storage | hotovo | `b9731302` |
 | 5 | 015 proof ↔ artefakty | hotovo | `6368bd2f` |
 | 6 | 021 byte bridge + built journey + produkční ACK | hotovo | `2b6b151b`, `2e33e342`, `241b39ab` |
-| 7 | autorizovaný GPU pilot | **BLOCKED cizím CUDA procesem** | — |
+| 7 | autorizovaný GPU pilot | **hotovo / PASS** | source `31859488`, run `m1-b3-gpu-31859488-20260823` |
+
+### Pokračování 2026-08-23 — fyzický T3 PASS
+
+Po uvolnění sdíleného GPU okna byl kanonický registrovaný T3 spuštěn sériově
+z čistého source `3185948840b96bb76567a43da69eb1505545e308`. Audit runner
+skončil `1 PASS / 0 FAIL / 0 BLOCKED / 0 TIMEOUT`, exit `0`, za 181 342 ms.
+Profil byl exact `qwen3.5:27b`, digest `7653528b…ec06e`, `num_ctx=4096`, 100%
+GPU residency a zakázaný fallback. Cold/warm/classification byly
+26 891/590/798 ms; skutečný mid-generation cancel skončil za 154 ms jako
+`MODEL_CANCELLED` bez success auditu.
+
+Po běhu se model přirozeně uvolnil za 152 758 ms, `ollama ps` i compute seznam
+byly prázdné a GPU mělo 22 413 MiB free. Cleanup neprovedl pull, delete, unload
+ani rebind. Report/log/artifact SHA-256 jsou po řadě
+`cbb84fd1…304c1`, `9d1ee992…b58b9`, `66649693…b506b`.
+
+Tím je Gate 1 fronta 1–7 uzavřená a explicitní závislost B5 na přijatém CHAT,
+MODEL a STUDIO je splněná. Další pracovní krok je B5 `WP-M1-QUALITY`; teprve
+po něm B6 integrovaná fresh-install exit demonstrace.
 
 ## Navazující M1 closeout — skutečný produkční posun
 
@@ -101,10 +121,10 @@ prostředím podmíněné — `nightly-audit-runner-self-test` (X11 self-test fi
   warm p50 `30,1 s` / p95 `35,9 s`, throughput `1,96 turnu/min`.
   **Refinement delta zůstává nezměřená**: spouští se jen pro syntetizované
   odpovědi, takže patří do B5 s fixním corpusem.
-- **B5 `WP-M1-QUALITY`** nezačato — běží až po přijetí CHAT, MODEL a STUDIO.
-  B4 je implementačně uzavřené, ale MODEL acceptance stále čeká na povinný T3
-  GPU pilot. Tohle pořadí není preference, nýbrž explicitní závislost B5.
-- **GPU pilot je skutečně blokovaný prostředím:** při posledním preflightu
+- **B5 `WP-M1-QUALITY`** bylo k okamžiku původního handoffu nezačaté. Od
+  2026-08-23 je jeho explicitní závislost splněná fyzickým T3 PASS a práce se
+  otevírá.
+- **Historický GPU blocker 2026-08-22:** při tehdejším preflightu
   používala RTX 3090 kromě RustDesk PID `540882` (294 MiB) i dynamická
   coworkerova Ollama zátěž: po `qwen3.5:27b` (17 GB) následoval
   `qwen3-30b-a3b:latest` (18 430 MiB, 100 % GPU), při němž volno kleslo na
@@ -113,7 +133,8 @@ prostředím podmíněné — `nightly-audit-runner-self-test` (X11 self-test fi
   `4f339e309eb0f59bfeefde08a3d394980c9e6ff5` později fail-close skončil za
   98 ms před provider efektem: rezidentní `qwen3:14b`, dva compute procesy,
   10 638 MiB free proti minimu 20 128 MiB a 99% utilization. Suite artifact má
-  `measurements: null` a kód `GPU_PILOT_PREREQUISITE_BLOCKED`.
+  `measurements: null` a kód `GPU_PILOT_PREREQUISITE_BLOCKED`. Tento záznam
+  byl překonán výše uvedeným clean-source T3 PASS, ne přepsán.
 
 ## 021 — byte bridge, uzavřeno
 

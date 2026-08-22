@@ -1,6 +1,63 @@
 # M1 REVIEW GATE 1 — operátorský balík
 
-## Verdikt
+## Aktuální closeout — 2026-08-23
+
+**PASS / B5 ODBLOKOVÁNO.** Tento oddíl nahrazuje historický verdikt níže pro
+aktuální M1 tip. B2 CHAT, B3 MODEL a B4 STUDIO mají nyní všechny povinné
+pojmenované důkazy. Pokyn operátora dokončit M1, pokud se neobjeví nový
+blokátor, tím dovoluje pokračovat do B5; nevytváří ale žádný syntetický
+failover proof ani nemění odložené M2 závazky.
+
+| WP | Aktuální stav | Uzavírací důkaz |
+|---|---|---|
+| B1 `WP-M1-CONTRACT` | COMPLETE | přijaté kontrakty a fail-closed validátory |
+| B2 `WP-M1-CHAT` | PASS | persist-before-response, izolace, scoped cancel a restart persistence |
+| B3 `WP-M1-MODEL` | PASS | offline/fresh-clone runtime closeout na `10b3d080`; kanonický T3 na clean `31859488` PASS |
+| B4 `WP-M1-STUDIO` | PASS | produkční ACK `241b39ab`, built Electron journey `391fa39d` nad `417eaabb` a byte-bridge fresh clone `326a9a08` |
+
+Kanonický registrovaný T3 běh:
+
+```bash
+node scripts/nightly-audit.js \
+  --suite=IS-T3-TESTS-M1-MODEL-GPU-PILOT-TEST \
+  --allow-blocker=ollama,gpu \
+  --concurrency=1 \
+  --timeout-minutes=15 \
+  --deadline-hours=1 \
+  --fail-fast \
+  --run-id=m1-b3-gpu-31859488-20260823 \
+  --out-dir=.intentsmith-artifacts/test-runs
+```
+
+- source: `3185948840b96bb76567a43da69eb1505545e308`, čistý tracked strom;
+- runner: `1 PASS / 0 FAIL / 0 BLOCKED / 0 TIMEOUT`, exit `0`, 181 342 ms;
+- exact profil: `qwen3.5:27b`, digest `7653528b…ec06e`, `num_ctx=4096`,
+  100% GPU residency, fallback zakázaný;
+- cold answer 26 891 ms, warm answer 590 ms, classification 798 ms;
+- mid-generation cancel 154 ms, `MODEL_CANCELLED`, provider skutečně aktivní,
+  bez success auditu;
+- minimum free VRAM 5 489 MiB po alokaci 16 325 279 742 B, tedy nad
+  požadovaným 1 024 MiB headroomem;
+- přirozený restore za 152 758 ms: žádný loaded model, žádný compute proces,
+  22 413 MiB free; bez explicitní administrativní akce;
+- runner report SHA-256
+  `cbb84fd14045edfb17fb7f1ed85df71ba03a3d1c41ba04b5a1526a27b93304c1`,
+  suite log `9d1ee9921111d3b40baeb7e96a4ba62cafb23670132ae323cc04af93626b58b9`,
+  privátní measurement artifact
+  `666496934b9613dffaf26b5a595847d2abc56dd8d13bcfd5a95b5c52a9ab506b`.
+
+Plný offline/database gate zůstává `232 PASS / 3 FAIL / 2 BLOCKED` přes 237
+sad. Tři FAILy jsou přesně známé environmentálně podmíněné self-testy a VRAM
+coordination; dvě BLOCKED jsou známé PDF toolchain prerekvizity. T3 je
+samostatný fyzický acceptance důkaz, takže tyto baseline výsledky neskrývá ani
+nepřepisuje.
+
+Historické FAIL/preflight záznamy níže zůstávají platnou auditní historií, ale
+už nejsou aktuálním Gate 1 blockerem. Skutečný operator measurement/proof pro
+konkrétní failover kandidát nebyl vydán a není podmínkou tohoto T3 referenčního
+runtime přijetí.
+
+## Historický verdikt — 2026-08-08
 
 **CHANGES_REQUIRED / BLOCKED.** B1 je kompletní a B2 je PASS. B3 má zelenou
 offline connector vrstvu, ale skutečný referenční GPU pilot je červený. B4 má

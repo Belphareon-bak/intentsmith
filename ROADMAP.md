@@ -63,7 +63,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | Milník | Stav 2026-08-08 | Vstup | Uživatelský výsledek |
 |---|---|---|---|
 | **M0 Produktová pravda** | `IN_PROGRESS` | současný C3/IntentSmith strom | Víme, co produkt je a co skutečně běží; deklarace nelžou o chování. |
-| **M1 Lokální runtime páteř** | `IN_PROGRESS / GATE_1_BLOCKED` | M0 accepted | Stabilní Linux → Theia → chat → Ollama → persistence. |
+| **M1 Lokální runtime páteř** | `IN_PROGRESS / GATE_2_BUILD` | M0 accepted; Gate 1 PASS | Stabilní Linux → Theia → chat → Ollama → persistence. |
 | **M2 Řízená práce nad projektem** | `NOT_STARTED` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
 | **M3 Modulární platforma** | `NOT_STARTED` | M2 accepted | Expertise, tool, skill, specialista a agent přidají schopnost bez obcházení core. |
 | **M4 Auditovatelné self-learning** | `NOT_STARTED` | M2 accepted | Jedna uzavřená, scoped a vratná učící smyčka zlepšuje skutečný scénář. |
@@ -1340,7 +1340,7 @@ mohou pokračovat.
    | 4 | 020 oddělená policy storage | **HOTOVO** `b9731302` | první migrační položka |
    | 5 | 015 proof ↔ artefakty a striktní expiry | **HOTOVO** `6368bd2f` | druhá migrační položka, těží ze stejného census |
    | 6 | 021 byte bridge + built journey + produkční ACK | **HOTOVO** `2b6b151b`, `2e33e342`, `241b39ab` | Electron boundary je built a produkční server token pravdivě ACKuje |
-   | 7 | autorizovaný GPU pilot | **BLOCKED prostředím** | registrovaný preflight `m1-b3-gpu-preflight-4f339e30-20260822`: cizí rezidentní model, 2 compute procesy, 10 638 MiB free proti 20 128 MiB minimu, 99% utilization; bez provider efektu |
+   | 7 | autorizovaný GPU pilot | **HOTOVO / PASS** source `31859488` | run `m1-b3-gpu-31859488-20260823`: cold/warm/classify/cancel PASS, exact 4096 profil, 100% residency a přirozený restore bez administrativního efektu |
 
    **Položky 1–6 uzavřené 2026-08-22.** Deterministický gate na `a317da53` měl
    `{"PASS":229,"FAIL":3,"BLOCKED":2}` přes 234 sad. Navazující plný gate na
@@ -1349,8 +1349,8 @@ mohou pokračovat.
    sad: všechny tři nově registrované B3 sady jsou PASS a tři FAILy zůstávají
    přesně stejné prostředím podmíněné sady (`nightly-audit-runner-self-test`,
    `nightly-orchestrator-self-test`, `vram-coordination`). Dvě BLOCKED jsou
-   stejné PDF toolchain prerekvizity. Fyzický GPU pilot zatím neproběhl, takže
-   Gate 1 jako celek není PASS.
+   stejné PDF toolchain prerekvizity. Fyzický T3 pilot následně na clean
+   `31859488` prošel `1/1`; Gate 1 je proto PASS a B5 je odblokované.
 
    Levné a bezpečnostní změny se tím dokončí před drahou Studio
    infrastrukturou a obě migrační položky dostanou čísla z jednoho census.
@@ -1446,14 +1446,20 @@ mohou pokračovat.
    (0 vulnerabilities) a reprodukoval application `6/6`, terminal repository
    `7/7`, parent acceptance `16/16`, binding `108/108`, migrations `38/38` a
    ratchet `13/13`. B3 implementace a offline fresh-clone evidence jsou tím
-   hotové, nikoli však fyzicky GPU přijaté: T3 pilot blokuje cizí aktivní CUDA
-   proces RustDesk. Syntetické proof fixture nejsou produkční measurement proof.
+   hotové. Historický T3 preflight blokoval cizí aktivní CUDA proces; syntetické
+   proof fixture nejsou produkční measurement proof.
    Registrovaný T3 preflight na clean `4f339e30` následně skončil před prvním
    provider efektem typovaným `GPU_PILOT_PREREQUISITE_BLOCKED`: cizí model byl
    rezidentní, compute procesy byly dva, free VRAM 10 638 MiB proti minimu
    20 128 MiB a baseline utilization 99 %. Vlastní measurement zůstal `null`.
    Plný offline/database gate na `10b3d080` navíc prošel 232 sadami; tři FAILy
    a dvě BLOCKED jsou beze změny proti známému environmentálnímu baseline.
+   Nový autorizovaný T3 běh `m1-b3-gpu-31859488-20260823` na clean
+   `3185948840b96bb76567a43da69eb1505545e308` následně prošel: cold 26 891 ms,
+   warm 590 ms, classification 798 ms, skutečný cancel 154 ms, 100% residency,
+   minimum 5 489 MiB free a přirozený restore na prázdný Ollama/compute stav.
+   Tím je B3 fyzicky přijaté; skutečný failover-candidate proof zůstává
+   nevydaný a netvrdí se.
    Fresh clone exact `10b3d080068c81f387aa38244634a710d6281ea5` po offline
    instalaci reprodukoval application `6/6`, terminal `7/7`, schema `20/20`,
    všechny migrace `38/38`, parent `16/16`, issuer `6/6`, binding `108/108` a
@@ -1493,9 +1499,10 @@ mohou pokračovat.
    journey s nulovým egresssem a čistým shutdownem; tím se ověřilo prostředí,
    nikoli negotiated M1 consumer ani finální UI. Read-only review může běžet
    souběžně; GPU běhy nikdy.
-8. B4 je implementačně a built/fresh-clone evidencí uzavřené. B5 QUALITY se
-   smí otevřít teprve po fyzickém GPU pilotu a přijetí MODEL/B3; potom následuje
-   B6 exit demonstrace. Tato závislost se nepřeskakuje syntetickým proofem.
+8. B4 je implementačně a built/fresh-clone evidencí uzavřené. Fyzický T3 pilot
+   na `31859488` je PASS, MODEL/B3 je přijaté a B5 QUALITY je otevřené. Po B5
+   následuje B6 exit demonstrace. Závislost nebyla přeskočena syntetickým
+   proofem.
 9. M2 effect authority a project-change journey se otevírají až po M1.
 
 ## 14. Rozhodovací fronta — otázka až ve chvíli, kdy má data

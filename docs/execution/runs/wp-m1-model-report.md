@@ -1,18 +1,22 @@
 # WP-M1-MODEL — průběžný report
 
-- **stav WP:** B3-IDENTITY + B3-PROFILE READY; B3-FAILOVER storage, manual
+- **stav WP:** **PASS / Gate 1 accepted 2026-08-23**. B3-IDENTITY + B3-PROFILE,
+  B3-FAILOVER storage, manual
   repository, application-state schema, společný manual runtime cutover a
   finalize recovery FRESH-CLONE VERIFIED; detection-only coordinator je
   FRESH-CLONE VERIFIED na `1823e9a4`; C2b gateway + binding jsou FRESH-CLONE VERIFIED na `cfcb63dd`,
-  celý C2 však zůstává PARTIAL; nový referenční GPU běh 009, proof issuer a
-  automatic failover activation zůstávají BLOCKED; offline connector READY
+  C2 gateway/binding a automatic failover runtime jsou implementované a
+  fresh-clone ověřené; referenční GPU běh 009 je fyzicky PASS. Skutečný
+  operator proof pro konkrétní failover kandidát nebyl vydán a netvrdí se.
 - **poslední ověřený source SHA:**
-  `be4f2175d472f24b98970d046697a0a2a6b21e5a`
+  `3185948840b96bb76567a43da69eb1505545e308`
 - **base SHA:** `55c913d6f3cb2354b6447d10ff304e9d0323b1c3`
-- **zapisující větev:** `claude/gate1-mobile-app-progress-5sywlt`
+- **zapisující větev:** historicky `claude/gate1-mobile-app-progress-5sywlt`,
+  closeout `codex/m1-closeout-20260822`
 - **GPU/Ollama v checkpointech 1–2:** NOT RUN
 - **neplánovaný modelový proces při checkpointu 3:** PARTIAL / NOT EVIDENCE
-- **registrovaný GPU pilot v checkpointu 5:** FAIL / stav bezpečně obnoven
+- **registrovaný GPU pilot v checkpointu 5:** historický FAIL / stav bezpečně obnoven
+- **registrovaný GPU pilot 2026-08-23:** PASS / stav přirozeně obnoven
 - **push:** neproveden podle dávkového kontraktu
 
 ## Checkpoint 1 — pravdivý fake-provider gateway
@@ -2481,10 +2485,11 @@ odvozený z tranzitivní uzávěry exact Git HEAD blobů.
 | fresh-clone failover application / terminal / parent | 6/6, 7/7, 16/16 |
 | fresh-clone binding / migrations / ratchet | 108/108, 38/38, 13/13 |
 
-Implementace a offline fresh-clone reprodukce B3 jsou uzavřené. Fyzická MODEL
-acceptance uzavřená není: autorizovaný T3 GPU pilot blokoval cizí aktivní CUDA
-proces RustDesk. Žádný testovací fixture proof není vydáván za skutečný
-produkční measurement proof; B5 proto podle své explicitní závislosti nezačalo.
+Implementace a offline fresh-clone reprodukce B3 byly v tomto checkpointu
+uzavřené. Fyzická MODEL acceptance tehdy uzavřená nebyla: autorizovaný T3 GPU
+pilot blokoval cizí aktivní CUDA proces RustDesk. Žádný testovací fixture proof
+není vydáván za skutečný produkční measurement proof; B5 proto v tomto
+historickém stavu podle své explicitní závislosti nezačalo.
 
 Plný offline/database gate na exact `10b3d080068c81f387aa38244634a710d6281ea5`
 spustil 237 sad: `232 PASS`, `3 FAIL`, `2 BLOCKED`. Tři nové registrované B3
@@ -2523,6 +2528,56 @@ neprovedly.
 | suite log | `70f15729b6eb55e39e2486e28418a0739ce67dfbde0a4d2529709d136bac031d` |
 | privátní suite artifact | `32b880924a603846f4c6e66218909c72965b77d1785670aaf25c7095f5b5730e` |
 
-Jde o exact blocker evidence, ne o GPU acceptance. T3 musí být zopakován v
-opravdu čistém okně s prázdným `ollama ps`, nulovým compute seznamem a nejméně
-20 128 MiB free; B5 zůstává za touto branou.
+Jde o exact historický blocker evidence, ne o GPU acceptance. V daném okamžiku
+musel být T3 zopakován v opravdu čistém okně s prázdným `ollama ps`, nulovým
+compute seznamem a nejméně 20 128 MiB free; B5 tehdy zůstalo za touto branou.
+Následující checkpoint dokládá její pozdější splnění.
+
+## Checkpoint 2026-08-23 — kanonický T3 GPU pilot PASS
+
+Po uvolnění sdíleného GPU okna byl před efektem zaznamenán prázdný
+`ollama ps`, nulový compute seznam a 22 407 MiB free. Následný jediný
+autorizovaný sériový běh použil čistý source
+`3185948840b96bb76567a43da69eb1505545e308`:
+
+```bash
+node scripts/nightly-audit.js \
+  --suite=IS-T3-TESTS-M1-MODEL-GPU-PILOT-TEST \
+  --allow-blocker=ollama,gpu \
+  --concurrency=1 \
+  --timeout-minutes=15 \
+  --deadline-hours=1 \
+  --fail-fast \
+  --run-id=m1-b3-gpu-31859488-20260823 \
+  --out-dir=.intentsmith-artifacts/test-runs
+```
+
+| Důkaz | Výsledek |
+|---|---:|
+| audit runner | 1 PASS / 0 FAIL / 0 BLOCKED / 0 TIMEOUT, exit 0 |
+| trvání suite | 181 342 ms |
+| profil | `qwen3.5:27b`, digest `7653528b…ec06e`, `num_ctx=4096`, fallback forbid |
+| model allocation | 16 325 279 742 B, 100% GPU residency |
+| cold / warm / classification | 26 891 / 590 / 798 ms; všechny semantic checks true |
+| mid-generation cancel | 154 ms, `MODEL_CANCELLED`, active provider dosažen, success audit nevydán |
+| GPU minimum free | 5 489 MiB, bezpečně nad 1 024 MiB headroomem |
+| natural restore | 152 758 ms, 31 pollů, 0 loaded modelů, 0 compute procesů, 22 413 MiB free |
+| administrativní efekt | žádný pull/delete/unload/rebind; `explicitAdministrativeActions=[]` |
+| source/cleanup | tracked strom clean; leak false; cleanup checked a terminated |
+
+Všechny čtyři provider requesty byly exact `POST /api/chat` na připnutý model a
+`num_ctx=4096`; klasifikace jediná nesla JSON format a žádný request neposlal
+`keep_alive`. Failure je `null` a model po přirozeném restore nezůstal
+rezidentní.
+
+| Artefakt | SHA-256 |
+|---|---|
+| runner report | `cbb84fd14045edfb17fb7f1ed85df71ba03a3d1c41ba04b5a1526a27b93304c1` |
+| suite log | `9d1ee9921111d3b40baeb7e96a4ba62cafb23670132ae323cc04af93626b58b9` |
+| privátní measurement artifact | `666496934b9613dffaf26b5a595847d2abc56dd8d13bcfd5a95b5c52a9ab506b` |
+
+Tento PASS uzavírá fyzickou B3 MODEL acceptance a překonává dřívější
+environmentální blocker. Historické FAIL a BLOCKED záznamy se nemažou.
+Syntetické fixture proofy se stále nevydávají za skutečný operator measurement
+proof konkrétního failover kandidáta; takový proof není podmínkou referenčního
+T3 ani Gate 1.
