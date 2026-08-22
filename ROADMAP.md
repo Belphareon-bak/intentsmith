@@ -275,10 +275,16 @@ provenance je tím offline doložená**. Server z čerstvého klonu naběhl,
 deterministická odpověď `49 ms` bez modelu, modelová `qwen3.5:27b` za
 `53 698 ms`, 4 zprávy uložené a po restartu neporušené.
 
-**Co zbývá:** Studio část cesty. Backend, install, chat, persistence a restart
-jsou doložené z čerstvého klonu; chybí build envelope, kvůli kterému je
-registrovaná T5 sada pravdivě `BLOCKED`. Exit kritérium je tím splněné ve všech
-částech kromě Studia.
+**Studio doplněno 2026-08-22 na `2a3acdbf`.** `studio-electron-boundary` vrací
+`STUDIO_ELECTRON_BOUNDARY_PASS`. Příčinou dřívějšího `electron-exited-before-cdp`
+nebyl chybějící build ani izolace, ale **délka `TMPDIR`**: Chromium si v něm
+zakládá unix domain sockety a `sun_path` má limit 108 bajtů, zatímco runtime root
+pod `.intentsmith-artifacts` má 95 znaků. Sada teď dává Electronu krátký privátní
+temp; backend zůstává pod runtime rootem.
+
+**Exit kritérium je tím splněné celé.** Čistá instalace, server, Studio,
+deterministický i modelový chat, persistence a restart mají doložený
+reprodukovatelný baseline.
 
 Dřívější paralelní report na stejném SHA není autoritativní: sdílený worktree
 vyvolal dirty-tree race mezi sadami. Proto je pro toto tvrzení určen výhradně
@@ -368,7 +374,7 @@ Přesné instalační/build příkazy, hashe, metodická omezení a screenshot/l
 | Backend/runtime | `OVĚŘENO` | Fresh-clone install provenance doložena 2026-08-21 na `582ddd6b`: `npm ci --offline`, server, deterministický i modelový chat, persistence a restart z čistého klonu. |
 | Offline boundary | `MEASURED` | Před M6 opravit release-policy sentinel a aktivovat pravdivý PDF toolchain set. |
 | Capability picture | `PŘIJATO` | 22/22 je v `SYSTEM-MAP.md`, přijato 2026-08-21. Přijetí obrazu **neznamená** PASS jednotlivých schopností — ty drží vlastní žebřík. |
-| Studio/Theia | `MEASURED` | Fresh clone na `7236d221` prošel instalací a buildem; po dvou zachovaných červených kalibračních bězích následovaly dva samostatné runtime `PASS` s nulovým egresssem, 65s live-ready soakem a čistým shutdownem. Source-level a owned-loopback M1 už pokrývá cancel i automatický reconnect, ale built negotiated Electron journey stále neproběhl; runner zůstává registry `BLOCKED`, dokud auditní orchestrátor nedodá build envelope. |
+| Studio/Theia | `OVĚŘENO` | Fresh clone na `7236d221` prošel instalací a buildem; po dvou zachovaných červených kalibračních bězích následovaly dva samostatné runtime `PASS` s nulovým egresssem, 65s live-ready soakem a čistým shutdownem. Source-level a owned-loopback M1 už pokrývá cancel i automatický reconnect, ale built negotiated Electron journey stále neproběhl; runner zůstává registry `BLOCKED`, dokud auditní orchestrátor nedodá build envelope. |
 | L0-8 specialist boundary | `ROZHODNUTO` | Varianta A, strict injection — [rozhodnutí 019](docs/decisions/019-l0-8-specialist-boundary.md), přijato 2026-08-09, zapsáno 2026-08-21. Exit kritérium „otevřené L0 porušení má rozhodnutí" je tím splněné. Implementace nese `WP-M3-L0-8-INJECTION`, vynucení `-ENFORCEMENT`; do té doby platí zákaz nových interních importů specialistů. |
 
 **WP-M0-E je diagnosticky dokončený takto:**
@@ -937,10 +943,10 @@ registrované sady, které jen nikdy neběžely nebo se nikdy nenamapovaly.
 | 4 | cancel před / během / těsně před persistencí | **doloženo** | Tytéž sady pokrývají všechny tři okamžiky: „pre-cancelled request cannot persist an assistant turn", „cancellation during request processing cannot persist an assistant turn", „non-cooperative handler cannot turn an aborted request into late success". Navíc `chat-pipeline` (profil `model`, nikdy neběžel) **PASS** přes běhový režim |
 | 5 | restart a obnovení konverzace | **doloženo** | 4 zprávy před restartem i po něm; i z čerstvého klonu |
 | 6 | confirmation patří tomu, kdo se ptal | **doloženo** | `confirmation-ownership` 5/5. Regrese z 2026-08-02: skill se zeptal „Potvrdit spuštění?", uživatel řekl „ano" a upgrade-approval intercept to snědl a přebindoval CHAT |
-| 7 | Studio ukáže progress a přesný konečný stav | **nedoloženo** | Blokuje `electron-exited-before-cdp` (`SIGTRAP` po selhání D-Bus) |
+| 7 | Studio ukáže progress a přesný konečný stav | **doloženo** | `studio-electron-boundary` → `STUDIO_ELECTRON_BOUNDARY_PASS` na `2a3acdbf`. Nulový egress (`externalAttempts: 0`, `otherLoopbackAttempts: 0`), 65,8 s soak, boundary matice 403/403/200, deterministický turn přes WebSocket s `modelProviderRequestsDuringTurn: 0` a `forbiddenEffects: 0`, čisté ukončení obou procesů s `processGroupsClean` |
 
-**Šest ze sedmi povinných scénářů M1 je doložených.** Zbývá scénář 7, který
-sdílí blocker s posledním kritériem M0.
+**Všech sedm povinných scénářů M1 je doložených.** Zbývají L3 cíle a Gate 1
+fronta z §13.
 
 ### L3 cíle a exit
 
