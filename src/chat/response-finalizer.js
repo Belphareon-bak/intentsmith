@@ -42,6 +42,36 @@ async function defaultGenerateChatResponse(...args) {
   return generateChatResponse(...args);
 }
 
+function scoreSummary(score) {
+  if (!score || !Number.isFinite(score.total)) return null;
+  return {
+    total: score.total,
+    ...(score.dimensions ? { dimensions: score.dimensions } : {}),
+    ...(Array.isArray(score.issues) ? { issues: score.issues } : {}),
+  };
+}
+
+function baseRefinementTelemetry(outcome, synthesisScore = null) {
+  return {
+    schemaVersion: 1,
+    owner: 'response-finalizer',
+    attempted: false,
+    accepted: false,
+    improved: false,
+    outcome,
+    originalScore: Number.isFinite(synthesisScore) ? synthesisScore : null,
+    finalScore: Number.isFinite(synthesisScore) ? synthesisScore : null,
+    scoreBefore: Number.isFinite(synthesisScore) ? { total: synthesisScore } : null,
+    scoreAfter: null,
+    scoreDelta: null,
+    latencyMs: 0,
+    providerDurationMs: null,
+    usage: {},
+    similarity: null,
+    errorCode: null,
+  };
+}
+
 /**
  * Finalize an immutable handler response before the remaining post-persistence
  * housekeeping in ChatController.handle().
@@ -81,16 +111,15 @@ export async function finalizeChatResponse({
   let finalContent = result.content;
   let refinementApplied = false;
   let qualityScore = null;
+  let quality = null;
 
   const isSynthesized = !NON_SYNTHESIZED_INTENTS.has(intent);
-  const needsRefinement = Boolean(
-    finalContent
-      && finalContent.length > 20
-      && isSynthesized
-      && (synthesisScore === null || synthesisScore < 75),
+  let refinementTelemetry = baseRefinementTelemetry(
+    isSynthesized ? 'not_evaluated' : 'skipped_not_synthesized',
+    synthesisScore,
   );
 
-  if (needsRefinement) {
+  if (isSynthesized) {
     try {
       const improvement = await improveResponse(
         finalContent,
@@ -104,8 +133,24 @@ export async function finalizeChatResponse({
             signal: signal || null,
           },
         ),
-        { signal, sessionId, mode: 'balanced' },
+        {
+          signal,
+          sessionId,
+          mode: 'balanced',
+          scoreBefore: metadata.semanticScore || null,
+        },
       );
+
+      refinementTelemetry = {
+        ...refinementTelemetry,
+        ...(improvement.telemetry || {}),
+        schemaVersion: 1,
+        owner: 'response-finalizer',
+        accepted: Boolean(improvement.improved),
+        improved: Boolean(improvement.improved),
+        outcome: improvement.telemetry?.outcome
+          || (improvement.improved ? 'accepted' : 'rejected_not_improved'),
+      };
 
       if (improvement.improved) {
         finalContent = improvement.response;
@@ -117,12 +162,18 @@ export async function finalizeChatResponse({
         });
       }
     } catch (err) {
+      refinementTelemetry = {
+        ...refinementTelemetry,
+        attempted: true,
+        outcome: signal?.aborted ? 'cancelled' : 'provider_error',
+        errorCode: typeof err?.code === 'string'
+          ? err.code
+          : (typeof err?.name === 'string' ? err.name : 'MODEL_PROVIDER_ERROR'),
+      };
       log.warn('ChatController', `Self-refinement failed (non-fatal): ${err.message}`);
     }
-  } else if (!isSynthesized) {
+  } else {
     log.debug('ChatController', `Skipping selfRefine: ${intent} answer is not model-authored`);
-  } else if (synthesisScore !== null) {
-    log.debug('ChatController', `Skipping selfRefine: synthesis score ${synthesisScore} >= 75`);
   }
   throwIfAborted(signal);
 
@@ -137,17 +188,60 @@ export async function finalizeChatResponse({
       dimensions: finalScore.dimensions,
       issues: finalScore.issues,
     };
-    log.info('QualityTelemetry', `Chat response score: ${finalScore.total}`, {
-      conversationId,
-      intent,
-      score: finalScore.total,
-      dimensions: finalScore.dimensions,
-      refined: refinementApplied,
-      synthesisScore,
-    });
   } catch (err) {
     log.warn('QualityTelemetry', `Score logging failed (non-fatal): ${err.message}`);
   }
+
+  const beforeScore = scoreSummary(refinementTelemetry.scoreBefore)
+    || (Number.isFinite(refinementTelemetry.originalScore)
+      ? { total: refinementTelemetry.originalScore }
+      : scoreSummary(metadata.semanticScore))
+    || qualityScore;
+  const candidateScore = scoreSummary(refinementTelemetry.scoreAfter);
+  const acceptedScore = refinementApplied
+    ? (candidateScore || qualityScore)
+    : null;
+  quality = {
+    schemaVersion: 1,
+    refinementOwner: 'response-finalizer',
+    attempted: Boolean(refinementTelemetry.attempted),
+    accepted: refinementApplied,
+    outcome: refinementTelemetry.outcome,
+    scoreBefore: beforeScore,
+    scoreAfter: acceptedScore,
+    candidateScore,
+    finalScore: qualityScore,
+    scoreDelta: acceptedScore && beforeScore
+      ? acceptedScore.total - beforeScore.total
+      : null,
+    candidateDelta: candidateScore && beforeScore
+      ? candidateScore.total - beforeScore.total
+      : null,
+    latencyMs: Number.isFinite(refinementTelemetry.latencyMs)
+      ? refinementTelemetry.latencyMs
+      : 0,
+    providerDurationMs: Number.isFinite(refinementTelemetry.providerDurationMs)
+      ? refinementTelemetry.providerDurationMs
+      : null,
+    usage: refinementTelemetry.usage || {},
+    similarity: Number.isFinite(refinementTelemetry.similarity)
+      ? refinementTelemetry.similarity
+      : null,
+    errorCode: refinementTelemetry.errorCode || null,
+  };
+
+  log.info('QualityTelemetry', `Chat response score: ${qualityScore?.total ?? 'unavailable'}`, {
+    conversationId,
+    intent,
+    score: qualityScore?.total ?? null,
+    dimensions: qualityScore?.dimensions ?? null,
+    refined: refinementApplied,
+    refinementOwner: quality.refinementOwner,
+    refinementOutcome: quality.outcome,
+    refinementLatencyMs: quality.latencyMs,
+    refinementUsage: quality.usage,
+    synthesisScore,
+  });
 
   // No await occurs between this check and persistAssistantTurn(), so an
   // aborted turn cannot cross the persistence boundary on the same event-loop
@@ -173,6 +267,7 @@ export async function finalizeChatResponse({
     canExecute: result.canExecute,
     metadata,
     qualityScore,
+    quality,
     conversationId,
   };
 }

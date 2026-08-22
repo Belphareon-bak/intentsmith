@@ -15,7 +15,7 @@
 //
 // Integration:
 //   - Fast Retry: called inside synthesizeWithLLM() retry loop
-//   - Self-Refinement: called after synthesis returns, before final return
+//   - Self-Refinement: owned exclusively by response-finalizer.js
 //
 // Telemetry:
 //   Every improvement attempt is logged with before/after scores.
@@ -24,6 +24,52 @@
 
 import { logger } from '../../core/logger.js';
 import { scoreResponse, buildScoreRetryPrompt } from './response-scorer.js';
+
+export const REFINEMENT_OWNER = 'response-finalizer';
+
+function normalizedUsage(result) {
+  const promptTokens = result?.usage?.promptEvalCount
+    ?? result?.promptEvalCount
+    ?? result?.response?.usage?.promptEvalCount;
+  const outputTokens = result?.usage?.evalCount
+    ?? result?.evalCount
+    ?? result?.response?.usage?.evalCount;
+  const usage = {};
+  if (Number.isFinite(promptTokens)) usage.promptTokens = promptTokens;
+  if (Number.isFinite(outputTokens)) usage.outputTokens = outputTokens;
+  if (Number.isFinite(promptTokens) && Number.isFinite(outputTokens)) {
+    usage.totalTokens = promptTokens + outputTokens;
+  }
+  return usage;
+}
+
+function refinementResult({
+  response,
+  scoreBefore,
+  scoreAfter = null,
+  improved = false,
+  attempted = false,
+  outcome,
+  startedAt,
+  usage = {},
+  providerDurationMs = null,
+  similarity = null,
+  errorCode = null,
+}) {
+  return {
+    improved,
+    response,
+    scoreBefore,
+    scoreAfter,
+    attempted,
+    outcome,
+    latencyMs: attempted ? Math.max(0, Date.now() - startedAt) : 0,
+    usage,
+    providerDurationMs: Number.isFinite(providerDurationMs) ? providerDurationMs : null,
+    similarity: Number.isFinite(similarity) ? similarity : null,
+    errorCode,
+  };
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Delta Guard: Token-level similarity (Jaccard) to detect semantic drift
@@ -150,17 +196,28 @@ INSTRUKCE:
  */
 export async function selfRefine(response, context, callLLM, opts = {}) {
   const { query = '', intent = 'CONVERSATIONAL', lang = 'cs' } = context;
-
-  const scoreBefore = scoreResponse(response, context);
+  const startedAt = Date.now();
+  const measuredScore = scoreResponse(response, context);
+  const scoreBefore = opts.scoreBefore && Number.isFinite(opts.scoreBefore.total)
+    ? {
+        ...measuredScore,
+        ...opts.scoreBefore,
+        threshold: measuredScore.threshold,
+      }
+    : measuredScore;
 
   // Only refine if below refinement threshold
   if (scoreBefore.total >= scoreBefore.threshold.refinement) {
-    return { improved: false, response, scoreBefore, scoreAfter: null };
+    return refinementResult({
+      response, scoreBefore, outcome: 'skipped_high_score', startedAt,
+    });
   }
 
   // Don't refine very short or empty responses
   if (!response || response.length < 20) {
-    return { improved: false, response, scoreBefore, scoreAfter: null };
+    return refinementResult({
+      response, scoreBefore, outcome: 'skipped_short_or_empty', startedAt,
+    });
   }
 
   try {
@@ -172,12 +229,24 @@ export async function selfRefine(response, context, callLLM, opts = {}) {
       signal: opts.signal,
     });
 
+    const usage = normalizedUsage(result);
+    const providerDurationMs = result?.duration;
+
     if (!result?.content || result.content.length < 20) {
       logger.warn('ImprovementLoop', 'Self-refinement returned empty/short result');
-      return { improved: false, response, scoreBefore, scoreAfter: null };
+      return refinementResult({
+        response,
+        scoreBefore,
+        attempted: true,
+        outcome: 'rejected_empty_or_short',
+        startedAt,
+        usage,
+        providerDurationMs,
+      });
     }
 
     const candidate = result.content;
+    const scoreAfter = scoreResponse(candidate, context);
 
     // ─── DRIFT GUARD 1: Similarity check ─────────────────────────
     // Reject if refined text drifts too far from original (Jaccard < 0.35)
@@ -186,7 +255,17 @@ export async function selfRefine(response, context, callLLM, opts = {}) {
       logger.info('ImprovementLoop', 'Refinement rejected: semantic drift', {
         similarity: similarity.toFixed(2), threshold: 0.35,
       });
-      return { improved: false, response, scoreBefore, scoreAfter: null };
+      return refinementResult({
+        response,
+        scoreBefore,
+        scoreAfter,
+        attempted: true,
+        outcome: 'rejected_semantic_drift',
+        startedAt,
+        usage,
+        providerDurationMs,
+        similarity,
+      });
     }
 
     // ─── DRIFT GUARD 2: Length explosion check ───────────────────
@@ -195,7 +274,17 @@ export async function selfRefine(response, context, callLLM, opts = {}) {
       logger.info('ImprovementLoop', 'Refinement rejected: length explosion', {
         originalLen: response.length, candidateLen: candidate.length,
       });
-      return { improved: false, response, scoreBefore, scoreAfter: null };
+      return refinementResult({
+        response,
+        scoreBefore,
+        scoreAfter,
+        attempted: true,
+        outcome: 'rejected_length_explosion',
+        startedAt,
+        usage,
+        providerDurationMs,
+        similarity,
+      });
     }
 
     // ─── DRIFT GUARD 3: Intent preservation ──────────────────────
@@ -205,11 +294,19 @@ export async function selfRefine(response, context, callLLM, opts = {}) {
       const candHasCode = /```/.test(candidate);
       if (origHasCode && !candHasCode) {
         logger.info('ImprovementLoop', 'Refinement rejected: code blocks removed');
-        return { improved: false, response, scoreBefore, scoreAfter: null };
+        return refinementResult({
+          response,
+          scoreBefore,
+          scoreAfter,
+          attempted: true,
+          outcome: 'rejected_code_removed',
+          startedAt,
+          usage,
+          providerDurationMs,
+          similarity,
+        });
       }
     }
-
-    const scoreAfter = scoreResponse(candidate, context);
 
     // Only accept if refinement actually improved the score
     if (scoreAfter.total > scoreBefore.total) {
@@ -219,7 +316,18 @@ export async function selfRefine(response, context, callLLM, opts = {}) {
         delta: scoreAfter.total - scoreBefore.total,
         intent,
       });
-      return { improved: true, response: candidate, scoreBefore, scoreAfter };
+      return refinementResult({
+        response: candidate,
+        scoreBefore,
+        scoreAfter,
+        improved: true,
+        attempted: true,
+        outcome: 'accepted',
+        startedAt,
+        usage,
+        providerDurationMs,
+        similarity,
+      });
     }
 
     // Refinement didn't improve — keep original
@@ -227,11 +335,35 @@ export async function selfRefine(response, context, callLLM, opts = {}) {
       scoreBefore: scoreBefore.total,
       scoreAfter: scoreAfter.total,
     });
-    return { improved: false, response, scoreBefore, scoreAfter };
+    return refinementResult({
+      response,
+      scoreBefore,
+      scoreAfter,
+      attempted: true,
+      outcome: 'rejected_not_improved',
+      startedAt,
+      usage,
+      providerDurationMs,
+      similarity,
+    });
 
   } catch (err) {
-    logger.warn('ImprovementLoop', `Self-refinement failed: ${err.message}`);
-    return { improved: false, response, scoreBefore, scoreAfter: null };
+    const cancelled = opts.signal?.aborted
+      || err?.name === 'AbortError'
+      || err?.code === 'ABORT_ERR'
+      || err?.code === 'MODEL_CANCELLED';
+    const outcome = cancelled ? 'cancelled' : 'provider_error';
+    logger.warn('ImprovementLoop', `Self-refinement ${outcome}: ${err.message}`);
+    return refinementResult({
+      response,
+      scoreBefore,
+      attempted: true,
+      outcome,
+      startedAt,
+      errorCode: typeof err?.code === 'string'
+        ? err.code
+        : (typeof err?.name === 'string' ? err.name : 'MODEL_PROVIDER_ERROR'),
+    });
   }
 }
 
@@ -247,32 +379,75 @@ export async function selfRefine(response, context, callLLM, opts = {}) {
 export async function improveResponse(response, context, callLLM, opts = {}) {
   const mode = opts.mode || 'balanced'; // fast | balanced | max
   const telemetry = {
+    schemaVersion: 1,
+    owner: REFINEMENT_OWNER,
     originalScore: null,
     finalScore: null,
     loopsUsed: 0,
     improved: false,
     mode,
+    attempted: false,
+    accepted: false,
+    outcome: 'not_evaluated',
+    scoreBefore: null,
+    scoreAfter: null,
+    scoreDelta: null,
+    latencyMs: 0,
+    providerDurationMs: null,
+    usage: {},
+    similarity: null,
+    errorCode: null,
   };
 
-  const scoreBefore = scoreResponse(response, context);
+  const measuredScore = scoreResponse(response, context);
+  const scoreBefore = opts.scoreBefore && Number.isFinite(opts.scoreBefore.total)
+    ? {
+        ...measuredScore,
+        ...opts.scoreBefore,
+        threshold: measuredScore.threshold,
+      }
+    : measuredScore;
   telemetry.originalScore = scoreBefore.total;
+  telemetry.scoreBefore = scoreBefore;
 
   // Mode: fast — only score, no improvement
   if (mode === 'fast') {
     telemetry.finalScore = scoreBefore.total;
+    telemetry.outcome = 'skipped_fast_mode';
     return { response, improved: false, telemetry };
   }
 
-  // Self-refinement (balanced/max mode)
-  if (callLLM && scoreBefore.total < scoreBefore.threshold.refinement) {
-    const refinement = await selfRefine(response, context, callLLM, opts);
+  if (scoreBefore.total >= scoreBefore.threshold.refinement) {
+    telemetry.finalScore = scoreBefore.total;
+    telemetry.outcome = 'skipped_high_score';
+    return { response, improved: false, telemetry };
+  }
 
-    if (refinement.improved) {
-      telemetry.loopsUsed++;
-      telemetry.improved = true;
-      telemetry.finalScore = refinement.scoreAfter.total;
-      return { response: refinement.response, improved: true, telemetry };
-    }
+  if (!callLLM) {
+    telemetry.finalScore = scoreBefore.total;
+    telemetry.outcome = 'skipped_no_provider';
+    return { response, improved: false, telemetry };
+  }
+
+  const refinement = await selfRefine(response, context, callLLM, opts);
+  telemetry.attempted = refinement.attempted;
+  telemetry.accepted = refinement.improved;
+  telemetry.improved = refinement.improved;
+  telemetry.outcome = refinement.outcome;
+  telemetry.scoreAfter = refinement.scoreAfter;
+  telemetry.scoreDelta = refinement.scoreAfter
+    ? refinement.scoreAfter.total - scoreBefore.total
+    : null;
+  telemetry.latencyMs = refinement.latencyMs;
+  telemetry.providerDurationMs = refinement.providerDurationMs;
+  telemetry.usage = refinement.usage;
+  telemetry.similarity = refinement.similarity;
+  telemetry.errorCode = refinement.errorCode;
+
+  if (refinement.improved) {
+    telemetry.loopsUsed = 1;
+    telemetry.finalScore = refinement.scoreAfter.total;
+    return { response: refinement.response, improved: true, telemetry };
   }
 
   telemetry.finalScore = scoreBefore.total;

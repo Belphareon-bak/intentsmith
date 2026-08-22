@@ -19,7 +19,7 @@ import { buildStrictLanguageInstruction, validateResponseLanguage, buildLanguage
 import { runQualityPipeline } from '../../quality/quality-pipeline.js';
 import { runQualityGateV2 } from '../../quality/quality-gate-v2.js';
 import { scoreResponse } from '../../quality/response-scorer.js';
-import { fastRetryGate, selfRefine } from '../../quality/improvement-loops.js';
+import { fastRetryGate } from '../../quality/improvement-loops.js';
 import {
   filterToolResults,
   annotateWithTrust,
@@ -1109,32 +1109,11 @@ export async function synthesizeWithLLM({
         qgResult = pipelineResult.gateResult;
       }
 
-      // v128.1: Self-refinement (Loop 2) — LLM critique + rewrite for low-quality responses
-      // Runs after all deterministic quality processing. Only triggers if score < 75.
-      {
-        const preScore = scoreResponse(finalContent, { query, intent, lang: langCtx.language });
-        if (preScore.total < preScore.threshold.refinement && !context.signal?.aborted) {
-          try {
-            const refined = await selfRefine(finalContent, { query, intent, lang: langCtx.language },
-              async (prompt, system, opts) => {
-                return creBridge.generateChatResponse(prompt, system || '', {
-                  sessionId: `refine-${context.sessionId || 'default'}`,
-                  temperature: 0.3,
-                  signal: context.signal,
-                  ...opts,
-                });
-              }, { signal: context.signal, sessionId: context.sessionId });
-            if (refined.improved) {
-              finalContent = refined.response;
-              if (typeof context.onSystemStep === 'function') {
-                try { context.onSystemStep('quality_refine', `${preScore.total}→${refined.scoreAfter.total}`, 2); } catch (_) {}
-              }
-            }
-          } catch (err) {
-            logger.warn('Synthesis', `Self-refinement error: ${err.message}`);
-          }
-        }
-      }
+      // B5 owns model-backed self-refinement exclusively in
+      // response-finalizer.js. Keeping the rewrite out of synthesis prevents a
+      // low-scoring answer from being refined here and then refined a second
+      // time immediately before persistence. The deterministic pipeline and
+      // the bounded fast-retry gate above remain synthesis responsibilities.
 
       // v126: Final semantic score (after all quality processing)
       const semanticScore = scoreResponse(finalContent, {

@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 394
+- Runnable programs: 396
 - Explicit support-module exclusions: 9
-- Profiles: offline=199, database=38, server=37, model=85, soak=20, manual=15
-- States: ACTIVE=298, HISTORICAL=15, BLOCKED=81
+- Profiles: offline=200, database=38, server=37, model=86, soak=20, manual=15
+- States: ACTIVE=300, HISTORICAL=15, BLOCKED=81
 
 ## Execution profiles
 
@@ -305,6 +305,8 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M1-MODEL-IDENTITY-TEST` | `tests/m1-model-identity.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-SETTINGS-TEST` | `tests/m1-model-settings.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-USE-AUTHORITY-TEST` | `tests/m1-model-use-authority.test.js` | `C3-010` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-M1-QUALITY-CONTRACT-TEST` | `tests/m1-quality-contract.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-M1-QUALITY-GPU-AB-TEST` | `tests/m1-quality-gpu-ab.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-STUDIO-CLIENT-TEST` | `tests/m1-studio-client.test.js` | `C3-001` | T1 | `offline` | 30 s | 2 min | network:loopback | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-VRAM-ARTIFACT-USE-TEST` | `tests/m1-vram-artifact-use.test.js` | `C3-010` | T1 | `offline` | 10 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MANIFEST-V2-TEST` | `tests/manifest-v2.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
