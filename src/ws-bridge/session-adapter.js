@@ -573,6 +573,28 @@ export function createSessionAdapter({
         });
       }
 
+      // Decision 021/R2 variant A: an M1 turn that would need the legacy effect
+      // must say so instead of returning ok. Silently skipping the effect and
+      // reporting success would claim a parity the connector cannot deliver —
+      // the effect has no M1 command/result authority, no approval ledger and
+      // no single terminal. SHELL stays explicitly unavailable until M2 owns it.
+      if (m1Egress && response.metadata?.shellCommand) {
+        turnTelemetry?.finalize(turnStartTime);
+        m1Egress.terminal(createM1WsConversationResult(m1Command, {
+          status: 'error',
+          error: {
+            code: 'M1_EFFECT_AUTHORITY_REQUIRED',
+            message: 'Tento krok vyžaduje efekt, který M1 kontrakt zatím neumí '
+              + 'bezpečně potvrdit. Nic se nespustilo.',
+          },
+        }));
+        logger.info('WSSession', 'M1 turn needed a legacy shell effect — refused before ok', {
+          requestId: m1Command.requestId,
+          turnId,
+        });
+        return;
+      }
+
       // Legacy shell auto-exec is an effect authority outside B4. M1 remains
       // unadvertised in production while this behavior decision is open.
       if (!m1Egress && response.metadata?.shellCommand) {

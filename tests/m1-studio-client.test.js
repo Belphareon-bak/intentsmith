@@ -4422,7 +4422,7 @@ test('an incomplete or non-exact event is never actionable', () => {
   }
 });
 
-testAsync('the rollback request carries exactly the identity and nothing else', async () => {
+await testAsync('the rollback request carries exactly the identity and nothing else', async () => {
   const sent = [];
   const { api } = recoveryContext({
     fetch: async (url, init) => {
@@ -4440,7 +4440,7 @@ testAsync('the rollback request carries exactly the identity and nothing else', 
   assert.equal(sent[0].init.body, JSON.stringify(identity));
 });
 
-testAsync('a double click sends exactly one rollback', async () => {
+await testAsync('a double click sends exactly one rollback', async () => {
   const sent = [];
   let release;
   const gate = new Promise((resolve) => { release = resolve; });
@@ -4462,7 +4462,7 @@ testAsync('a double click sends exactly one rollback', async () => {
   assert.equal(sent.length, 1);
 });
 
-testAsync('a refused rollback keeps the warning and does not retry', async () => {
+await testAsync('a refused rollback keeps the warning and does not retry', async () => {
   const sent = [];
   const { api } = recoveryContext({
     fetch: async (url, init) => {
@@ -4485,7 +4485,7 @@ testAsync('a refused rollback keeps the warning and does not retry', async () =>
   assert.equal(state.bindings !== null, true, 'no cache was invalidated on refusal');
 });
 
-testAsync('a response that arrives after the action was superseded is ignored', async () => {
+await testAsync('a response that arrives after the action was superseded is ignored', async () => {
   let release;
   const gate = new Promise((resolve) => { release = resolve; });
   const { api } = recoveryContext({
@@ -4534,6 +4534,49 @@ test('the panel never rolls back automatically', () => {
   // The action is reachable only behind the explicit confirmation step.
   assert.match(source, /_rollbackConfirm=true;renderCenter\(\);\}\},'Rollback'\)/);
   assert.match(source, /onClick:function\(\)\{_rollbackBinding\(_verifyFailure\.identity\);\}/);
+});
+
+
+await testAsync('a turn needing the legacy shell effect ends as a typed error, not ok', async () => {
+  // Decision 021/R2 variant A. The legacy adapter fire-and-forgets
+  // handleTerminal() on metadata.shellCommand. That effect has no M1
+  // command/result authority, no approval ledger and no single terminal, so the
+  // negotiated path must refuse instead of returning ok while silently doing
+  // nothing — that would claim a parity the connector cannot deliver.
+  const harness = crossBoundaryHarness(async () => ({
+    response: 'Spouštím git status',
+    mode: 'conversation',
+    confidence: 1,
+    metadata: { shellCommand: 'git status' },
+  }), 'cross-boundary-shell-effect');
+  try {
+    harness.pane._projectId = 'project-cross-boundary-shell';
+    assert.equal(harness.client.wsSendChat('spusť git status', harness.pane, 0), true);
+    const frame = harness.frames().at(-1);
+    assert.ok(frame);
+    await harness.adapter.processM1Command(frame.data);
+
+    const events = harness.serverMessages
+      .filter(message => message.data?.requestId === frame.data.command.requestId)
+      .map(message => message.data);
+    assert.equal(validateCoreEventStream(events).valid, true);
+    assert.equal(events.at(-1).terminalStatus, 'error');
+
+    const terminal = harness.busEvents.find(event => (
+      event.name === 'chat:terminal'
+      && event.payload.requestId === frame.data.command.requestId
+    ));
+    assert.equal(terminal.payload.status, 'error');
+    assert.equal(terminal.payload.result.error.code, 'M1_EFFECT_AUTHORITY_REQUIRED');
+    // Exactly one terminal, and the refusal never claims success.
+    assert.equal(
+      events.filter(event => typeof event.terminalStatus === 'string').length,
+      1,
+    );
+    assertCanonicalCrossBoundaryMessages(harness.serverMessages, harness.busEvents);
+  } finally {
+    harness.cleanup();
+  }
 });
 
 
