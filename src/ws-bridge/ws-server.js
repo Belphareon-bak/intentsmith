@@ -19,6 +19,8 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { WebSocketServer } from 'ws';
+import { createM1AttachmentLimits } from './m1-attachment-policy.js';
+import { config } from '../config.js';
 import {
   M1_WIRE_FEATURE,
   PROTOCOL_VERSION,
@@ -213,6 +215,10 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
   const wss = new WebSocketServer({
     server: httpServer,
     path: wsPath,
+    // Decision 021/R1-B: the project had no payload ceiling at all, so the
+    // library default was the only bound. The frame ceiling comes from the same
+    // named seam as the attachment limits it has to contain.
+    maxPayload: createM1AttachmentLimits(config.limits || {}).maxFrameBytes,
     verifyClient: createLegacyWebSocketVerifyClient({
       httpServer,
       allowedOrigins: options.allowedOrigins || [],

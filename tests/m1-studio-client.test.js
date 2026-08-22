@@ -4714,4 +4714,27 @@ test('an image is measured by decoded bytes, not by its data URL length', () => 
 });
 
 
+test('the WS server enforces a frame ceiling derived from the same seam', () => {
+  const source = fs.readFileSync(
+    new URL('../src/ws-bridge/ws-server.js', import.meta.url),
+    'utf8',
+  );
+  // Before this, the project had no payload ceiling and the library default was
+  // the only bound. The ceiling must come from the attachment seam, not a
+  // second hand-written number that could drift away from it.
+  assert.match(
+    source,
+    /maxPayload: createM1AttachmentLimits\(config\.limits \|\| \{\}\)\.maxFrameBytes/,
+  );
+  const limits = createM1AttachmentLimits({
+    maxTextAttachment: 1024 * 1024,
+    maxImageAttachment: 5 * 1024 * 1024,
+  });
+  assert.ok(
+    limits.maxFrameBytes > limits.maxAggregateBytes,
+    'the frame must be able to carry a full legal attachment set plus its command',
+  );
+});
+
+
 summary();
