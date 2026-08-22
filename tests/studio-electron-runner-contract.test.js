@@ -693,6 +693,8 @@ test('M1 backend fixture uses production wire authority and durable identity sto
   assert.match(source, /evaluateLegacyLocalAccess\(/);
   assert.match(source, /writePrivatePortFile\(/);
   assert.match(source, /request\.signal\.addEventListener/);
+  assert.match(source, /target\.pathname === '\/api\/system\/info'/);
+  assert.doesNotMatch(source, /\/api\/system-info/);
   assert.doesNotMatch(source, /fetch\(/);
   assert.doesNotMatch(source, /https?:\/\/(?!127\.0\.0\.1)/);
 });

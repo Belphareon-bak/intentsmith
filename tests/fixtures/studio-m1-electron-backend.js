@@ -173,7 +173,7 @@ const server = http.createServer((request, response) => {
     sendJson(request, response, 200, { generations: [] });
     return;
   }
-  if (request.method === 'GET' && target.pathname === '/api/system-info') {
+  if (request.method === 'GET' && target.pathname === '/api/system/info') {
     sendJson(request, response, 200, { platform: process.platform });
     return;
   }
