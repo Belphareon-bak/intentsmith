@@ -104,10 +104,11 @@ prostředím podmíněné — `nightly-audit-runner-self-test` (X11 self-test fi
 - **B5 `WP-M1-QUALITY`** nezačato — běží až po přijetí CHAT, MODEL a STUDIO.
   B4 je implementačně uzavřené, ale MODEL acceptance stále čeká na povinný T3
   GPU pilot. Tohle pořadí není preference, nýbrž explicitní závislost B5.
-- **GPU pilot je skutečně blokovaný prostředím:** při posledním preflightu měl
-  RTX 3090 už kromě RustDesk PID `540882` (294 MiB) používal i coworkerův
-  `qwen3.5:27b` přes Ollamu (17 GB, 100 % GPU); volno kleslo na 4 689 MiB.
-  Cizí modelový běh ani vzdálená relace se nesmí ukončit.
+- **GPU pilot je skutečně blokovaný prostředím:** při posledním preflightu
+  používala RTX 3090 kromě RustDesk PID `540882` (294 MiB) i dynamická
+  coworkerova Ollama zátěž: po `qwen3.5:27b` (17 GB) následoval
+  `qwen3-30b-a3b:latest` (18 430 MiB, 100 % GPU), při němž volno kleslo na
+  3 856 MiB. Cizí modelový běh ani vzdálená relace se nesmí ukončit.
 
 ## 021 — byte bridge, uzavřeno
 
