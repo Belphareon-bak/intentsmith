@@ -340,7 +340,11 @@ try {
   //             was the one root test without a static isolation bootstrap.
   //             The canonical bootstrap moved it into this census; it does not
   //             evaluate the database.
-  const expectedDatabaseReachableRootTests = 99;
+  //   99 -> 100 m1-vram-artifact-use.test.js (decision 023/A) imports the VRAM
+  //             manager, whose ws-server edge is database-reachable. The suite
+  //             itself uses no database; it is in this census for the same
+  //             transitive reason multimedia and vram-coordination already were.
+  const expectedDatabaseReachableRootTests = 100;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,
