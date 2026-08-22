@@ -48,9 +48,14 @@ Shodné s baseline před sérií.
   úplný episode fixture a několik dřívějších guardů by se ozvalo dřív než
   porovnání expiry, takže by test tvrdil něco jiného, než by se zdálo. Hrana je
   připnutá na SQL úrovni, kde je jednoznačná. Patří k WP proof issueru.
-- **L3 čísla M1**: p95 deterministiky drží (40–49 ms). Chybí p95 modelového
-  chatu, throughput a refinement delta.
+- **L3 čísla M1**: změřená 2026-08-22, detail v
+  [`runs/m1-l3-measurement-20260822.md`](runs/m1-l3-measurement-20260822.md) —
+  deterministika p50 `2,77 ms` / p95 `31,6 ms`, modelový chat cold `64,1 s`,
+  warm p50 `30,1 s` / p95 `35,9 s`, throughput `1,96 turnu/min`.
+  **Refinement delta zůstává nezměřená**: spouští se jen pro syntetizované
+  odpovědi, takže patří do B5 s fixním corpusem.
 - **B5 `WP-M1-QUALITY`** nezačato — běží až po přijetí CHAT, MODEL a STUDIO.
+  Tohle pořadí není preference: B5 má závislost na přijatém STUDIU v zadání.
 
 ## Kde přesně se zastavilo 021 — byte bridge
 
