@@ -5263,6 +5263,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-M1-VRAM-ARTIFACT-USE-TEST",
+      "path": "tests/m1-vram-artifact-use.test.js",
+      "argv": [
+        "node",
+        "tests/m1-vram-artifact-use.test.js"
+      ],
+      "capabilityId": "C3-010",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 10000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
       "path": "tests/m1-model-failover-schema.test.js",
       "argv": [

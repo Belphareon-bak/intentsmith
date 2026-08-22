@@ -4,6 +4,11 @@
 import { broadcast } from '../ws-bridge/ws-server.js';
 import { logger } from '../core/logger.js';
 import { setNumCtx } from '../llm/model-ctx.js';
+import {
+  MODEL_ACTIVITY_OWNER,
+  modelUseAuthority as defaultModelUseAuthority,
+} from '../upgrade/model-use-authority.js';
+import { canonicalModelName } from '../upgrade/model-identity.js';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -32,7 +37,14 @@ function _kvMbPer1k(modelMeta, params) {
 // ── VRAMManager ────────────────────────────────────────────────────────────
 
 export class VRAMManager {
-  constructor({ ollamaUrl, chatModel, comfyuiUrl, gpuTotalVramMb, defaultNumCtx } = {}) {
+  constructor({
+    ollamaUrl,
+    chatModel,
+    comfyuiUrl,
+    gpuTotalVramMb,
+    defaultNumCtx,
+    modelUseAuthority,
+  } = {}) {
     this._ollamaUrl = ollamaUrl || 'http://127.0.0.1:11434';
     this._chatModel = chatModel || '';
     this._comfyuiUrl = comfyuiUrl || null;
@@ -43,6 +55,52 @@ export class VRAMManager {
     this._targetNumCtx = defaultNumCtx || 4096;  // safe default (not 8192 — review fix #6)
     this._lastReloadTime = 0;  // cooldown tracking (review fix #4)
     this._modelMeta = null;    // optional: { params, kv_per_1k } for active model
+    // Decision 023/A: narrow shared artifact authority. This protects the model
+    // artifact from a concurrent delete; it is NOT global GPU residency.
+    this._modelUseAuthority = modelUseAuthority || defaultModelUseAuthority;
+  }
+
+  // ── Decision 023/A: artifact-use leases ───────────────────────────────────
+
+  /**
+   * Acquire one shared VRAM_ARTIFACT_USE lease per canonical identity.
+   * All leases are taken before the first provider effect; on conflict every
+   * already-acquired lease is released and the typed error propagates, so the
+   * caller produces zero provider effects.
+   *
+   * @param {string[]} modelNames
+   * @returns {{ release: () => void, count: number }}
+   */
+  #acquireArtifactLeases(modelNames) {
+    const seen = new Set();
+    const wanted = [];
+    for (const name of modelNames) {
+      const canonicalName = canonicalModelName(name);
+      if (!canonicalName || seen.has(canonicalName)) continue;
+      seen.add(canonicalName);
+      wanted.push(name);
+    }
+
+    const leases = [];
+    const releaseAll = () => {
+      for (const lease of leases.splice(0)) {
+        try { lease.release(); } catch (_) {}
+      }
+    };
+
+    try {
+      for (const name of wanted) {
+        leases.push(this._modelUseAuthority.acquireShared({
+          modelName: name,
+          owner: MODEL_ACTIVITY_OWNER.VRAM_ARTIFACT_USE,
+        }));
+      }
+    } catch (error) {
+      releaseAll();
+      throw error;
+    }
+
+    return { release: releaseAll, count: leases.length };
   }
 
   /** Set model metadata for better KV cache estimation. */
@@ -68,12 +126,27 @@ export class VRAMManager {
 
     const { task, resolve, reject } = this._queue.shift();
 
+    // Decision 023/A: the chat identity is held from task dequeue through the
+    // finally below, so a delete during a running media task fails typed and
+    // immediately instead of removing the artifact mid-work.
+    let leases = null;
+    try {
+      if (this._chatModel) leases = this.#acquireArtifactLeases([this._chatModel]);
+    } catch (err) {
+      this._busy = false;
+      reject(err);
+      this._broadcastState();
+      this._processQueue();
+      return;
+    }
+
     try {
       const result = await task();
       resolve(result);
     } catch (err) {
       reject(err);
     } finally {
+      if (leases) leases.release();
       this._busy = false;
       this._broadcastState();
       this._processQueue();
@@ -180,23 +253,27 @@ export class VRAMManager {
    * Review fix #5: skip if VRAMManager is in generating state (busy).
    */
   async unloadOllama() {
+    // Discovery touches no artifact, so it stays outside the reservation.
+    let modelsToUnload = [this._chatModel].filter(Boolean);
     try {
-      // Discover all loaded models via /api/ps
-      let modelsToUnload = [this._chatModel].filter(Boolean);
-      try {
-        const psResp = await fetch(`${this._ollamaUrl}/api/ps`, {
-          signal: AbortSignal.timeout(5000),
-        });
-        if (psResp.ok) {
-          const psData = await psResp.json();
-          const loaded = (psData.models || []).map(m => m.name).filter(Boolean);
-          if (loaded.length > 0) modelsToUnload = loaded;
-        }
-      } catch (_) {
-        // Fallback to chatModel only
+      const psResp = await fetch(`${this._ollamaUrl}/api/ps`, {
+        signal: AbortSignal.timeout(5000),
+      });
+      if (psResp.ok) {
+        const psData = await psResp.json();
+        const loaded = (psData.models || []).map(m => m.name).filter(Boolean);
+        if (loaded.length > 0) modelsToUnload = loaded;
       }
+    } catch (_) {
+      // Fallback to chatModel only
+    }
 
-      // Unload each model
+    // Decision 023/A: reserve every discovered identity before the first unload
+    // effect and hold it through all response bodies. A conflict deliberately
+    // escapes this method — swallowing it here would let a delete race the
+    // unload, which is the exact edge this checkpoint closes.
+    const leases = this.#acquireArtifactLeases(modelsToUnload);
+    try {
       for (const model of modelsToUnload) {
         try {
           const resp = await fetch(`${this._ollamaUrl}/api/generate`, {
@@ -211,11 +288,9 @@ export class VRAMManager {
           logger.warn('VRAMManager', `Failed to unload ${model}: ${err.message}`);
         }
       }
-
       this._ollamaUnloaded = true;
-    } catch (err) {
-      logger.warn('VRAMManager', `Ollama unload failed: ${err.message}`);
-      this._ollamaUnloaded = true;
+    } finally {
+      leases.release();
     }
   }
 
@@ -237,6 +312,9 @@ export class VRAMManager {
       return;
     }
 
+    // Decision 023/A: the direct reload holds the chat identity from before the
+    // provider call through its body. The conflict is not swallowed below.
+    const leases = this.#acquireArtifactLeases([this._chatModel]);
     try {
       // Compute safe num_ctx BEFORE reload (Ollama is unloaded → VRAM query sees what's free)
       const numCtx = await this.computeNumCtx();
@@ -263,6 +341,8 @@ export class VRAMManager {
     } catch (err) {
       logger.warn('VRAMManager', `Ollama reload failed: ${err.message}`);
       this._ollamaUnloaded = false;
+    } finally {
+      leases.release();
     }
   }
 
