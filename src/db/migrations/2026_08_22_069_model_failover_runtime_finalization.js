@@ -1,4 +1,4 @@
-// Migration 068 — make automatic failover runtime finalization and proof
+// Migration 069 — make automatic failover runtime finalization and proof
 // expiry observable without rewriting the immutable incident journal.
 //
 // A successful ACTIVATE/REAPPLY/RESTORE event is the durable transition
@@ -10,7 +10,7 @@
 // health event records the accepted DEGRADED_PROOF_EXPIRED state once for the
 // exact active event, without reopening or mutating the failover projection.
 
-export const version = '2026_08_22_068_model_failover_runtime_finalization';
+export const version = '2026_08_22_069_model_failover_runtime_finalization';
 export const description = 'Add failover runtime finalize receipts and proof-expiry health events';
 
 const ROLES = "'D1','D2','CODE','R1','R2','CHAT','VISION'";
@@ -123,4 +123,3 @@ export function up(db) {
     END;
   `);
 }
-

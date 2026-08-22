@@ -62,7 +62,7 @@ balíčků, našel 0 vulnerabilities a zeleně reprodukoval failover application
 `108/108`, schema migrations `38/38` a module ratchet `13/13`.
 
 První plný closeout gate na `66c2e511` pravdivě našel tři další lokální mezery:
-stale README census, schema kontrakt nepřipnutý na migraci 068 a sedm
+stale README census, schema kontrakt nepřipnutý na nový runtime tip a sedm
 diagnostických `direct-tests` adresářů. `c018f5f6` srovnal census a exact schema
 kontrakt; diagnostické adresáře byly po přečtení logů přesunuty do koše.
 Focused výsledky jsou schema `20/20`, artifact validation `151/151` a harness

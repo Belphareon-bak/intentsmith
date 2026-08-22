@@ -32,6 +32,20 @@ zároveň.
 | **066** | [020](../decisions/020-m1-model-failover-opt-in-surface.md) | oddělená failover-policy storage, default-off, versioned/CAS řádek |
 | **067** | [015](../decisions/015-m1-model-failover-proof-policy.md) | immutable proof run artifact vázaný na PASS proof |
 
+## Navazující live rezervace 2026-08-22
+
+Po B3 runtime closeoutu se v hlavním checkoutu objevila cizí necommitnutá
+migrace `068_model_evaluation_history`, zatímco izolovaný B3 worktree používal
+stejné číslo pro failover runtime finalizaci. Do cizího rozpracovaného stromu se
+nezasahovalo. Opakovaný union census nad 351 živými commitnutými větvemi ukázal
+obsazení `001`–`068` a volné `069`; B3 runtime finalizace byla proto před
+integrací přesunuta na **069**.
+
+| Číslo | Stav | Obsah |
+|---|---|---|
+| **068** | live, cizí necommitnutá práce | role-specific model evaluation history |
+| **069** | rezervováno a použito B3 | failover runtime finalize receipts a proof-expiry health events |
+
 ## Proč to nejsou 058 a 059
 
 `ROADMAP.md` §13 bod 5 uvádí `058` = 020 a `059` = 015 a k tomu poznámku, že

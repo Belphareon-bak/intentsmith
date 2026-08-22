@@ -391,8 +391,8 @@ suite('M1 model failover schema — exact migration contract');
 
 await testAsync('fresh file-backed DB creates all failover tables, indexes and triggers', async () => {
   await withMigratedDb(async (db) => {
-    // Runtime-finalization migration 068 is the current failover schema tip.
-    assertEqual(getCurrentVersion(db), '2026_08_22_068_model_failover_runtime_finalization');
+    // Runtime-finalization migration 069 is the current failover schema tip.
+    assertEqual(getCurrentVersion(db), '2026_08_22_069_model_failover_runtime_finalization');
 
     for (const table of [
       'model_desired_bindings',
@@ -731,11 +731,11 @@ await testAsync('migration 054 preserves pre-existing success as unconfirmed evi
         '2026_08_09_054_model_binding_runtime_finalization',
         '2026_08_22_066_model_automation_policy',
         '2026_08_22_067_model_failover_proof_artifacts',
-        '2026_08_22_068_model_failover_runtime_finalization',
+        '2026_08_22_069_model_failover_runtime_finalization',
       ]),
     );
     assertEqual(result.skipped.length, 55);
-    assertEqual(getCurrentVersion(db), '2026_08_22_068_model_failover_runtime_finalization');
+    assertEqual(getCurrentVersion(db), '2026_08_22_069_model_failover_runtime_finalization');
     assertEqual(
       db.prepare(`
         SELECT COUNT(*) AS count
