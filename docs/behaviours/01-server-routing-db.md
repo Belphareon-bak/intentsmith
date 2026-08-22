@@ -1,7 +1,7 @@
 # Chování #1 — Server, routing, DB, migrace
 
 **`CONTRACT.md` §3 krok 2** · **2026-08-02** · `17a8b9a8`
-**Stav: schváleno 2026-08-02. Testy: `tests/capability-01-server-behaviours.test.js` — 13/13.**
+**Stav: schváleno 2026-08-02; M1 aktivace doplněna 2026-08-22. Testy: `tests/capability-01-server-behaviours.test.js` — 14/14.**
 
 > Každé chování je pozorovatelné zvenčí a má **právě jeden** test.
 > Sloupec „dnes" je změřený stav, ne předpoklad.
@@ -42,6 +42,7 @@
 |---|---|---|
 | **B-12** | Požadavek s cizím `Origin` je odmítnut dřív, než dosáhne handleru. | ✅ 403 |
 | **B-13** | Konfigurace vedoucí k bindu mimo loopback start odmítne — nenulový exit, žádný listener. | ✅ wildcard i LAN |
+| **B-15** | Produkční WS server ACKuje `m1-wire-v1` právě jednou jen klientovi, který jej explicitně nabídl; legacy klient jej nedostane. | ✅ |
 
 ## Degradace
 

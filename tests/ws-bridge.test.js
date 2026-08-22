@@ -3658,7 +3658,7 @@ await asyncTest('T39: server.js has WS bridge import and attach', async () => {
     'Should log WS endpoint');
 });
 
-test('T40: production server keeps the M1 wire activation seam dormant', () => {
+test('T40: production server explicitly activates the accepted M1 wire', () => {
   const serverCode = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
   const attachStart = serverCode.indexOf(
     'attachWebSocketServer(server, ChatController, logger, {',
@@ -3676,10 +3676,10 @@ test('T40: production server keeps the M1 wire activation seam dormant', () => {
     productionOptions,
     /localCapability:\s*legacyLocalCapability/,
   );
-  assert.doesNotMatch(
+  assert.match(
     productionOptions,
-    /\bm1WireSupported\b/,
-    'M1 must remain unacknowledged until the activation residuals are accepted',
+    /m1WireSupported:\s*true/,
+    'M1 activation must be an explicit production opt-in',
   );
 });
 

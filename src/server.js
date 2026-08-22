@@ -1290,6 +1290,7 @@ listenOnLegacyLoopback(server, config.server, async () => {
   attachWebSocketServer(server, ChatController, logger, {
     allowedOrigins: config.server.allowedOrigins,
     localCapability: legacyLocalCapability,
+    m1WireSupported: true,
   });
   modelBindingApplication.startBackgroundVerification();
 

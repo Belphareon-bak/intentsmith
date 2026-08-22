@@ -201,7 +201,7 @@ export function getWebSocketBridgeHealth() {
  * @param {string[]} [options.allowedOrigins=[]] — Explicit local browser origins
  * @param {string} options.localCapability — Per-process opaque-origin capability
  * @param {boolean} [options.m1WireSupported=false] — Explicit activation seam;
- *   production remains false until B4 behavior blockers are accepted.
+ *   production opts in only after the B4 behavior gate passes.
  * @returns {WebSocketServer}
  */
 export function attachWebSocketServer(httpServer, chatController, logger, options = {}) {

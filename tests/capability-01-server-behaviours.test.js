@@ -21,6 +21,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
+import { WebSocket } from 'ws';
 import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -155,6 +156,52 @@ function probe(port, { method = 'GET', pathname = '/', body = null, headers = {}
   });
 }
 
+function negotiateM1(portInfo, offeredFeatures) {
+  return new Promise((resolve, reject) => {
+    const socket = new WebSocket(
+      `ws://127.0.0.1:${portInfo.port}/c3/ws`,
+      ['c3-v1', `c3-local-v1.${portInfo.localCapability}`],
+      { handshakeTimeout: 3_000, origin: 'null' },
+    );
+    let ack = null;
+    const timer = setTimeout(() => {
+      socket.terminate();
+      reject(new Error('production M1 handshake timed out'));
+    }, 5_000);
+    socket.once('open', () => {
+      socket.send(JSON.stringify({
+        type: 'hello',
+        protocolVersion: 1,
+        ideVersion: 'm1-production-activation-test',
+        features: offeredFeatures,
+      }));
+    });
+    socket.on('message', raw => {
+      let message;
+      try {
+        message = JSON.parse(raw.toString());
+      } catch (error) {
+        clearTimeout(timer);
+        socket.terminate();
+        reject(error);
+        return;
+      }
+      if (message.type !== 'hello_ack') return;
+      ack = message;
+      socket.close(1000, 'test-complete');
+    });
+    socket.once('error', error => {
+      clearTimeout(timer);
+      reject(error);
+    });
+    socket.once('close', () => {
+      clearTimeout(timer);
+      if (ack) resolve(ack);
+      else reject(new Error('production M1 socket closed before hello_ack'));
+    });
+  });
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 
 async function main() {
@@ -203,6 +250,15 @@ async function main() {
     );
     if (!portInfo) throw new Error(`server did not start:\n${server.stdout}\n${server.stderr}`);
     const { port } = portInfo;
+
+    // ── B-15 — production M1 activation remains required-offer ─────────────
+    const m1Ack = await negotiateM1(portInfo, ['m1-wire-v1']);
+    const legacyAck = await negotiateM1(portInfo, []);
+    check(
+      m1Ack.features?.filter(feature => feature === 'm1-wire-v1').length === 1
+        && legacyAck.features?.includes('m1-wire-v1') === false,
+      'B-15 — production acknowledges m1-wire-v1 exactly once and only when offered',
+    );
 
     // ── B-01 — the started server actually answers ───────────────────────────
     const root = await probe(port, { pathname: '/' });
