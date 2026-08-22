@@ -17,6 +17,8 @@ import {
   successEvidence,
   theiaControlPlaneOriginFromEntrypoint,
   validateFunctional,
+  validateM1Functional,
+  validateM1SoakLifecycle,
   validateSoakLifecycle,
 } from './studio-electron-boundary.e2e.js';
 
@@ -61,6 +63,89 @@ function validSoak(overrides = {}) {
     forbiddenEffects: 0,
     agentErrors: 0,
     idleSignals: 1,
+    ...overrides,
+  };
+}
+
+function validM1Functional(overrides = {}) {
+  const terminals = [
+    ['built-electron-success-B', 'send', 'ok', 1, true, null, 'Built Electron M1 response'],
+    ['built-electron-success-B', 'send', 'error', 1, false, 'LLM_PROVIDER_UNAVAILABLE', null],
+    ['built-electron-cancel-A', 'send', 'cancelled', 0, false, 'CHAT_CANCELLED', null],
+    ['built-electron-cancel-A', 'cancel', 'cancelled', 0, false, 'CHAT_CANCELLED', null],
+    ['built-electron-success-B', 'send', 'ok', 1, true, null, 'Built Electron M1 response'],
+  ].map((item, index) => ({
+    conversationId: item[0],
+    action: item[1],
+    status: item[2],
+    sessionIdx: item[3],
+    renderAssistant: item[4],
+    errorCode: item[5],
+    response: item[6],
+    requestId: `request-${index}`,
+    turnId: `turn-${index}`,
+  }));
+  return {
+    resultClass: 'complete',
+    negotiated: true,
+    serverFeatures: ['workspace', 'm1-wire-v1'],
+    terminals,
+    progress: [
+      { transport: 'm1', step: 'pending' },
+      { transport: 'm1', step: 'success' },
+      { transport: 'm1', step: 'success' },
+    ],
+    legacyMessages: 0,
+    legacySystems: 0,
+    disconnects: 1,
+    reconnects: 1,
+    readyAfterRestart: 1,
+    restartStatus: 202,
+    preRestart: {
+      paneAThinkingCleared: true,
+      paneBThinkingCleared: true,
+      paneAMessages: [{ role: 'system', text: 'cancelled', tag: 'CANCELLED' }],
+      paneBMessages: [
+        { role: 'assistant', text: 'Built Electron M1 response', tag: 'conversation' },
+        { role: 'system', text: 'provider unavailable', tag: 'ERROR' },
+      ],
+    },
+    paneA: {
+      thinking: true,
+      delivery: null,
+      messages: [{ role: 'user', text: 'M1_CANCEL_PENDING' }],
+    },
+    paneB: {
+      thinking: true,
+      delivery: null,
+      messages: [{ role: 'assistant', text: 'Built Electron M1 response' }],
+    },
+    ...overrides,
+  };
+}
+
+function validM1Soak(overrides = {}) {
+  return {
+    terminals: 5,
+    sendOk: 2,
+    sendCancelled: 1,
+    sendErrors: 1,
+    cancelCancelled: 1,
+    progress: 3,
+    m1Progress: 3,
+    legacyMessages: 0,
+    legacySystems: 0,
+    disconnects: 1,
+    reconnects: 1,
+    forbiddenEffects: 0,
+    terminalIdentities: Array.from({ length: 5 }, (_, index) => [
+      `request-${index}`,
+      `conversation-${index}`,
+      `turn-${index}`,
+      index % 2,
+      'send',
+      'ok',
+    ]),
     ...overrides,
   };
 }
@@ -155,9 +240,28 @@ test('runner uses an explicit non-visual CDP surface and never observes UI state
   assert.match(source, /window\.C3WS/);
   assert.match(source, /window\.C3Bus/);
   assert.equal(source.includes('window._c3'), false);
-  assert.equal(source.includes('sendChat'), false);
+  assert.match(source, /client\.sendChat/);
   assert.match(source, /window\.C3WS\.send\('chat'/);
   assert.match(source, /uiEvaluation: 'excluded-non-final-ui'/);
+});
+
+test('built M1 journey requires exact terminal, provider, cancel, and restart evidence', () => {
+  assert.equal(validateM1Functional(validM1Functional()), true);
+  assert.equal(
+    validateM1Functional(validM1Functional({ legacyMessages: 1 })),
+    false,
+  );
+  const reordered = validM1Functional();
+  [reordered.terminals[2], reordered.terminals[3]] = [
+    reordered.terminals[3],
+    reordered.terminals[2],
+  ];
+  assert.equal(validateM1Functional(reordered), false);
+  assert.equal(validateM1SoakLifecycle(validM1Soak()), true);
+  assert.equal(
+    validateM1SoakLifecycle(validM1Soak({ m1Progress: 2 })),
+    false,
+  );
 });
 
 test('runner rechecks source revision and cleanliness before PASS evidence', () => {
@@ -529,6 +633,68 @@ test('success evidence drops incidental private fields and marks UI excluded', (
       'started',
     ],
   );
+});
+
+test('M1 evidence labels test-owned authority and serializes only bounded verdicts', () => {
+  const evidence = successEvidence({
+    sourceRevision: SHA,
+    observationDurationMs: 65_050,
+    networkCaptureDurationMs: 66_000,
+    snapshot: validSnapshot(),
+    networkVerdict: { verdict: 'PASS', reasons: [] },
+    negative: [
+      { case: 'cross-site-no-origin-with-capability', status: 403, outcome: 'rejected' },
+      { case: 'opaque-origin-without-capability', status: 403, outcome: 'rejected' },
+    ],
+    functional: validM1Functional({ privateValue: 'PRIVATE_M1_CANARY' }),
+    byteBridge: {
+      exposed: true,
+      pick: 'function',
+      read: 'function',
+      forgedOk: false,
+      forgedCode: 'M1_BRIDGE_TOKEN_UNKNOWN',
+      pathApis: [],
+    },
+    soakMonitor: validM1Soak({ privateValue: 'PRIVATE_SOAK_CANARY' }),
+    positiveBoundaryStatus: 200,
+    buildDigests: {
+      electronMainSha256: DIGEST,
+      frontendBundleSha256: DIGEST,
+      frontendIndexSha256: DIGEST,
+      preloadSha256: DIGEST,
+    },
+    shutdown: {
+      electron: validExit(),
+      backend: validExit({ requestedSignal: 'SIGTERM' }),
+    },
+    portFileRemoved: true,
+    logDigests: { backend: DIGEST, electron: DIGEST },
+    m1Journey: true,
+  });
+  const serialized = JSON.stringify(evidence);
+  assert.equal(evidence.evidenceType, 'intentsmith.studio-m1-electron-journey');
+  assert.equal(evidence.functional.transport, 'm1-wire-v1');
+  assert.equal(evidence.functional.backendAuthority, 'test-owned-production-ws-bridge');
+  assert.equal(evidence.functional.terminalCount, 5);
+  assert.equal(evidence.functional.listenerRestarts, 1);
+  assert.equal(evidence.soakLifecycle.m1Progress, 3);
+  assert.equal(serialized.includes('PRIVATE_M1_CANARY'), false);
+  assert.equal(serialized.includes('PRIVATE_SOAK_CANARY'), false);
+});
+
+test('M1 backend fixture uses production wire authority and durable identity storage', () => {
+  const source = fs.readFileSync(
+    new URL('./fixtures/studio-m1-electron-backend.js', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /attachWebSocketServer\(/);
+  assert.match(source, /m1WireSupported:\s*true/);
+  assert.match(source, /getConversationStore\(db\)/);
+  assert.match(source, /evaluateLegacyLocalAccess\(/);
+  assert.match(source, /writePrivatePortFile\(/);
+  assert.match(source, /request\.signal\.addEventListener/);
+  assert.doesNotMatch(source, /fetch\(/);
+  assert.doesNotMatch(source, /https?:\/\/(?!127\.0\.0\.1)/);
 });
 
 test('runner source has no soak-duration override or process.env spread', () => {

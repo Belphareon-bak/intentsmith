@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 390
-- Explicit support-module exclusions: 8
-- Profiles: offline=199, database=35, server=37, model=85, soak=19, manual=15
-- States: ACTIVE=294, HISTORICAL=15, BLOCKED=81
+- Runnable programs: 391
+- Explicit support-module exclusions: 9
+- Profiles: offline=199, database=35, server=37, model=85, soak=20, manual=15
+- States: ACTIVE=295, HISTORICAL=15, BLOCKED=81
 
 ## Execution profiles
 
@@ -398,6 +398,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-STUDIO-CDP-EVIDENCE-TEST` | `tests/studio-cdp-evidence.test.js` | `C3-001` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T5-TESTS-STUDIO-ELECTRON-BOUNDARY-E2E` | `tests/studio-electron-boundary.e2e.js` | `C3-001` | T5 | `soak` | 2 min | 5 min | network:loopback, temp-db, toolchain:linux-user-network-namespace, toolchain:iproute2, toolchain:x11-display | yes | `ACTIVE` | c35e47bb48883e2ac88682a393d971e63e72db83 / studio-electron-boundary.json | primary implementer |
 | `IS-T1-TESTS-STUDIO-ELECTRON-RUNNER-CONTRACT-TEST` | `tests/studio-electron-runner-contract.test.js` | `C3-001` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T5-TESTS-STUDIO-M1-ELECTRON-JOURNEY-E2E` | `tests/studio-m1-electron-journey.e2e.js` | `C3-001` | T5 | `soak` | 2 min | 5 min | network:loopback, temp-db, toolchain:linux-user-network-namespace, toolchain:iproute2, toolchain:x11-display | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SYMBOL-INDEX-TEST` | `tests/symbol-index.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-TASK-MEMORY-TEST` | `tests/task-memory.test.js` | `C3-016` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-TELEMETRY-AGGREGATION-VERSION-TEST` | `tests/telemetry-aggregation-version.test.js` | `C3-027` | T2 | `database` | 1 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
@@ -438,6 +439,7 @@ ledger.
 | `tests/e2e/_helpers.js` | Imported E2E harness support module; its direct checks live in _helpers.self-check.js. |
 | `tests/e2e/_quality-evaluator.js` | Imported deterministic scoring library with no top-level test entry point. |
 | `tests/e2e/_test-fixtures.js` | Imported synthetic fixture data module with no top-level test entry point. |
+| `tests/fixtures/studio-m1-electron-backend.js` | Suite-owned M1 Electron backend fixture launched only by studio-m1-electron-journey.e2e.js. |
 | `tests/harness.js` | Imported unit-test harness library with no top-level test entry point. |
 | `tests/helpers/isolated-test-db.js` | Imported direct-run database isolation bootstrap, not a standalone test. |
 | `tests/run-all.js` | Aggregate compatibility entry point; registering it as a child suite would recurse into the registry runner. |

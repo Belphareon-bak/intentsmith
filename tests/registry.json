@@ -31,6 +31,10 @@
       "reason": "Imported direct-run database isolation bootstrap, not a standalone test."
     },
     {
+      "path": "tests/fixtures/studio-m1-electron-backend.js",
+      "reason": "Suite-owned M1 Electron backend fixture launched only by studio-m1-electron-journey.e2e.js."
+    },
+    {
       "path": "tests/run-all.js",
       "reason": "Aggregate compatibility entry point; registering it as a child suite would recurse into the registry runner."
     }
@@ -8383,6 +8387,41 @@
       "lastGreen": {
         "commit": "c35e47bb48883e2ac88682a393d971e63e72db83",
         "artifact": "studio-electron-boundary.json"
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T5-TESTS-STUDIO-M1-ELECTRON-JOURNEY-E2E",
+      "path": "tests/studio-m1-electron-journey.e2e.js",
+      "argv": [
+        "node",
+        "tests/studio-m1-electron-journey.e2e.js"
+      ],
+      "capabilityId": "C3-001",
+      "tier": "T5",
+      "fixture": "isolated-home-owned-loopback-electron",
+      "profile": "soak",
+      "timeoutMs": 300000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false,
+        "toolchain": [
+          "linux-user-network-namespace",
+          "iproute2",
+          "x11-display"
+        ]
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
       },
       "flakeCount": 0,
       "quarantineExpiry": null

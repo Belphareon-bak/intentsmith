@@ -43,6 +43,7 @@ const MAX_LOG_BYTES = 8 * 1024 * 1024;
 const CDP_TIMEOUT_MS = 15_000;
 const STARTUP_TIMEOUT_MS = 60_000;
 const SHUTDOWN_TIMEOUT_MS = 15_000;
+const M1_JOURNEY_ENV = 'INTENTSMITH_STUDIO_M1_JOURNEY';
 
 class SafeFailure extends Error {
   constructor(code, exitCode = 1) {
@@ -280,7 +281,8 @@ async function writeSanitizedFailureEvidence(artifactRoot, error, exitCode) {
   }
 }
 
-async function outerMain() {
+async function outerMain(options = {}) {
+  const m1Journey = options.m1Journey === true;
   let facts;
   try {
     facts = await preflight();
@@ -309,6 +311,7 @@ async function outerMain() {
     INTENTSMITH_STUDIO_BASELINE_PGIDS: baselineProcessGroup.join(','),
     INTENTSMITH_STUDIO_SOURCE_ROOT: SOURCE_ROOT,
   };
+  if (m1Journey) childEnv[M1_JOURNEY_ENV] = '1';
   if (process.env.C3_AUDIT_RUN === '1') childEnv.C3_AUDIT_RUN = '1';
   const child = spawn('unshare', [
     '--user',
@@ -332,6 +335,10 @@ async function outerMain() {
     return;
   }
   process.exitCode = completion.code;
+}
+
+export async function runStudioM1ElectronJourney() {
+  await outerMain({ m1Journey: true });
 }
 
 export function observeSpawnCompletion(child) {
@@ -1038,6 +1045,91 @@ async function readAndRemoveSoakLifecycleMonitor(cdp) {
   })()`);
 }
 
+async function installM1SoakLifecycleMonitor(cdp) {
+  const installed = await evaluate(cdp, `(() => {
+    if (window.__intentSmithStudioM1LifecycleProbeV1) return false;
+    const counts = {
+      terminals: 0,
+      sendOk: 0,
+      sendCancelled: 0,
+      sendErrors: 0,
+      cancelCancelled: 0,
+      progress: 0,
+      m1Progress: 0,
+      legacyMessages: 0,
+      legacySystems: 0,
+      disconnects: 0,
+      reconnects: 0,
+      forbiddenEffects: 0
+    };
+    const terminalIdentities = [];
+    const handlers = {
+      terminal: event => {
+        counts.terminals += 1;
+        if (event?.action === 'send' && event?.status === 'ok') counts.sendOk += 1;
+        else if (event?.action === 'send' && event?.status === 'cancelled') {
+          counts.sendCancelled += 1;
+        } else if (event?.action === 'send' && event?.status === 'error') {
+          counts.sendErrors += 1;
+        } else if (event?.action === 'cancel' && event?.status === 'cancelled') {
+          counts.cancelCancelled += 1;
+        }
+        terminalIdentities.push([
+          event?.requestId,
+          event?.conversationId,
+          event?.turnId,
+          event?.sessionIdx,
+          event?.action,
+          event?.status
+        ]);
+      },
+      agent: wrapped => {
+        counts.progress += 1;
+        if (wrapped?.event?.transport === 'm1') counts.m1Progress += 1;
+        if (['tool_call', 'tool_result', 'edit_request'].includes(wrapped?.event?.type)) {
+          counts.forbiddenEffects += 1;
+        }
+      },
+      message: () => { counts.legacyMessages += 1; },
+      system: () => { counts.legacySystems += 1; },
+      disconnected: () => { counts.disconnects += 1; },
+      reconnected: () => { counts.reconnects += 1; }
+    };
+    window.C3Bus.on('chat:terminal', handlers.terminal);
+    window.C3Bus.on('agent:event', handlers.agent);
+    window.C3Bus.on('chat:message', handlers.message);
+    window.C3Bus.on('chat:system', handlers.system);
+    window.C3Bus.on('ws:disconnected', handlers.disconnected);
+    window.C3Bus.on('ws:reconnected', handlers.reconnected);
+    Object.defineProperty(window, '__intentSmithStudioM1LifecycleProbeV1', {
+      configurable: true,
+      enumerable: false,
+      writable: false,
+      value: { counts, handlers, terminalIdentities }
+    });
+    return true;
+  })()`);
+  if (installed !== true) fail('m1-lifecycle-monitor-install-failed');
+}
+
+async function readAndRemoveM1SoakLifecycleMonitor(cdp) {
+  return evaluate(cdp, `(() => {
+    const probe = window.__intentSmithStudioM1LifecycleProbeV1;
+    if (!probe) return null;
+    window.C3Bus.off('chat:terminal', probe.handlers.terminal);
+    window.C3Bus.off('agent:event', probe.handlers.agent);
+    window.C3Bus.off('chat:message', probe.handlers.message);
+    window.C3Bus.off('chat:system', probe.handlers.system);
+    window.C3Bus.off('ws:disconnected', probe.handlers.disconnected);
+    window.C3Bus.off('ws:reconnected', probe.handlers.reconnected);
+    delete window.__intentSmithStudioM1LifecycleProbeV1;
+    return {
+      ...probe.counts,
+      terminalIdentities: probe.terminalIdentities.slice()
+    };
+  })()`);
+}
+
 async function rendererFunctionalWsProbe(cdp) {
   return await evaluate(cdp, `(async () => {
     const prompt = 'kolik je 17 * 23?';
@@ -1197,6 +1289,208 @@ async function rendererFunctionalWsProbe(cdp) {
       if (!sent) finish('send-rejected');
     });
   })()`, 25_000);
+}
+
+async function rendererM1FunctionalWsProbe(cdp) {
+  return evaluate(cdp, `(async () => {
+    const client = window.C3WS;
+    const sessions = window._sessions;
+    if (!client?.isReady?.() || !client?.isM1WireNegotiated?.()) {
+      return { resultClass: 'm1-not-negotiated' };
+    }
+    if (!Array.isArray(sessions) || sessions.length < 2) {
+      return { resultClass: 'sessions-unavailable' };
+    }
+
+    const paneA = sessions[0];
+    const paneB = sessions[1];
+    const initializePane = (pane, conversationId) => {
+      pane._convId = conversationId;
+      pane._projectId = null;
+      pane._agentId = null;
+      pane.chat.msgs = [];
+      pane.chat.attachments = [];
+      pane.chat._pendingAttachments = [];
+      pane.chat.editMode = 'ask';
+      pane.chat._thinking = { started: true };
+      pane.chat._delivery = null;
+    };
+    initializePane(paneA, 'built-electron-cancel-A');
+    initializePane(paneB, 'built-electron-success-B');
+
+    const terminals = [];
+    const progress = [];
+    let legacyMessages = 0;
+    let legacySystems = 0;
+    let disconnects = 0;
+    let reconnects = 0;
+    let readyAfterRestart = 0;
+    const handlers = {
+      terminal: event => terminals.push({
+        action: event?.action,
+        requestId: event?.requestId,
+        conversationId: event?.conversationId,
+        turnId: event?.turnId,
+        sessionIdx: event?.sessionIdx,
+        status: event?.status,
+        renderAssistant: event?.renderAssistant === true,
+        errorCode: event?.result?.error?.code || null,
+        response: event?.result?.response?.content || null
+      }),
+      agent: wrapped => progress.push({
+        conversationId: wrapped?.event?.conversationId,
+        transport: wrapped?.event?.transport,
+        type: wrapped?.event?.type,
+        step: wrapped?.event?.payload?.step || null
+      }),
+      message: () => { legacyMessages += 1; },
+      system: () => { legacySystems += 1; },
+      disconnected: () => { disconnects += 1; },
+      ready: () => { readyAfterRestart += 1; },
+      reconnected: () => { reconnects += 1; }
+    };
+    Object.entries({
+      'chat:terminal': handlers.terminal,
+      'agent:event': handlers.agent,
+      'chat:message': handlers.message,
+      'chat:system': handlers.system,
+      'ws:disconnected': handlers.disconnected,
+      'ws:ready': handlers.ready,
+      'ws:reconnected': handlers.reconnected
+    }).forEach(([name, handler]) => window.C3Bus.on(name, handler));
+
+    const waitFor = async (predicate, label, timeoutMs = 12_000) => {
+      const deadline = Date.now() + timeoutMs;
+      while (Date.now() < deadline) {
+        if (predicate()) return;
+        await new Promise(resolve => setTimeout(resolve, 25));
+      }
+      throw new Error('m1-probe-timeout:' + label);
+    };
+    const terminalFor = (conversationId, action, status, after = 0) => (
+      terminals.slice(after).find(event => (
+        event.conversationId === conversationId
+        && event.action === action
+        && event.status === status
+      ))
+    );
+
+    let restartStatus = null;
+    let preRestart = null;
+    let resultClass = 'complete';
+    try {
+      if (!client.sendChat('M1_CANCEL_PENDING', paneA, 0)) {
+        resultClass = 'cancel-target-send-rejected';
+        return { resultClass };
+      }
+      await waitFor(
+        () => progress.some(event => event.conversationId === paneA._convId && event.step === 'pending'),
+        'cancel-target-progress'
+      );
+
+      paneB.chat._thinking = { started: true };
+      if (!client.sendChat('M1_SUCCESS', paneB, 1)) {
+        resultClass = 'success-send-rejected';
+        return { resultClass };
+      }
+      await waitFor(
+        () => terminalFor(paneB._convId, 'send', 'ok'),
+        'success-terminal'
+      );
+
+      paneB.chat._thinking = { started: true };
+      if (!client.sendChat('M1_PROVIDER_ERROR', paneB, 1)) {
+        resultClass = 'provider-send-rejected';
+        return { resultClass };
+      }
+      await waitFor(
+        () => terminalFor(paneB._convId, 'send', 'error'),
+        'provider-terminal'
+      );
+
+      const beforeCancel = terminals.length;
+      if (!client.sendCancel(paneA)) {
+        resultClass = 'cancel-send-rejected';
+        return { resultClass };
+      }
+      await waitFor(
+        () => terminalFor(paneA._convId, 'send', 'cancelled', beforeCancel),
+        'cancel-target-terminal'
+      );
+      await waitFor(
+        () => terminalFor(paneA._convId, 'cancel', 'cancelled', beforeCancel),
+        'cancel-command-terminal'
+      );
+
+      preRestart = {
+        paneAThinkingCleared: paneA.chat._thinking === null,
+        paneBThinkingCleared: paneB.chat._thinking === null,
+        paneAMessages: paneA.chat.msgs.map(item => ({
+          role: item.role, text: item.text, tag: item.tag
+        })),
+        paneBMessages: paneB.chat.msgs.map(item => ({
+          role: item.role, text: item.text, tag: item.tag
+        }))
+      };
+
+      const response = await fetch('/api/test/m1/restart', { method: 'POST' });
+      restartStatus = response.status;
+      await waitFor(() => disconnects === 1, 'listener-restart-disconnect');
+      await waitFor(
+        () => readyAfterRestart >= 1 && client.isM1WireNegotiated() === true,
+        'listener-restart-negotiation'
+      );
+      await waitFor(() => reconnects === 1, 'listener-restart-rehydrate');
+
+      const beforePostRestart = terminals.length;
+      paneB.chat._thinking = { started: true };
+      if (!client.sendChat('M1_SUCCESS', paneB, 1)) {
+        resultClass = 'post-restart-send-rejected';
+        return { resultClass };
+      }
+      await waitFor(
+        () => terminalFor(paneB._convId, 'send', 'ok', beforePostRestart),
+        'post-restart-success'
+      );
+    } catch (error) {
+      resultClass = String(error?.message || 'm1-probe-failed').slice(0, 160);
+    } finally {
+      Object.entries({
+        'chat:terminal': handlers.terminal,
+        'agent:event': handlers.agent,
+        'chat:message': handlers.message,
+        'chat:system': handlers.system,
+        'ws:disconnected': handlers.disconnected,
+        'ws:ready': handlers.ready,
+        'ws:reconnected': handlers.reconnected
+      }).forEach(([name, handler]) => window.C3Bus.off(name, handler));
+    }
+
+    return {
+      resultClass,
+      negotiated: client.isM1WireNegotiated() === true,
+      serverFeatures: client.serverFeatures(),
+      terminals,
+      progress,
+      legacyMessages,
+      legacySystems,
+      disconnects,
+      reconnects,
+      readyAfterRestart,
+      restartStatus,
+      preRestart,
+      paneA: {
+        thinking: paneA.chat._thinking === null,
+        delivery: paneA.chat._delivery,
+        messages: paneA.chat.msgs.map(item => ({ role: item.role, text: item.text, tag: item.tag }))
+      },
+      paneB: {
+        thinking: paneB.chat._thinking === null,
+        delivery: paneB.chat._delivery,
+        messages: paneB.chat.msgs.map(item => ({ role: item.role, text: item.text, tag: item.tag }))
+      }
+    };
+  })()`, 40_000);
 }
 
 /*
@@ -1367,6 +1661,73 @@ export function validateFunctional(result) {
   );
 }
 
+export function validateM1Functional(result) {
+  if (
+    result?.resultClass !== 'complete'
+    || result.negotiated !== true
+    || !Array.isArray(result.serverFeatures)
+    || !result.serverFeatures.includes('m1-wire-v1')
+    || result.legacyMessages !== 0
+    || result.legacySystems !== 0
+    || result.disconnects !== 1
+    || result.reconnects !== 1
+    || result.readyAfterRestart !== 1
+    || result.restartStatus !== 202
+    || !Array.isArray(result.terminals)
+    || result.terminals.length !== 5
+  ) return false;
+  const expected = [
+    ['built-electron-success-B', 'send', 'ok', 1, true],
+    ['built-electron-success-B', 'send', 'error', 1, false],
+    ['built-electron-cancel-A', 'send', 'cancelled', 0, false],
+    ['built-electron-cancel-A', 'cancel', 'cancelled', 0, false],
+    ['built-electron-success-B', 'send', 'ok', 1, true],
+  ];
+  for (let index = 0; index < expected.length; index++) {
+    const terminal = result.terminals[index];
+    const [conversationId, action, status, sessionIdx, renderAssistant] = expected[index];
+    if (
+      terminal?.conversationId !== conversationId
+      || terminal.action !== action
+      || terminal.status !== status
+      || terminal.sessionIdx !== sessionIdx
+      || terminal.renderAssistant !== renderAssistant
+      || typeof terminal.requestId !== 'string'
+      || typeof terminal.turnId !== 'string'
+    ) return false;
+  }
+  if (result.terminals[1].errorCode !== 'LLM_PROVIDER_UNAVAILABLE') return false;
+  if (result.terminals[0].response !== 'Built Electron M1 response') return false;
+  if (result.terminals[4].response !== 'Built Electron M1 response') return false;
+  if (new Set(result.terminals.map(item => item.requestId)).size !== 5) return false;
+  if (new Set(result.terminals.map(item => item.turnId)).size !== 5) return false;
+  if (
+    !Array.isArray(result.progress)
+    || result.progress.length < 3
+    || result.progress.some(item => item.transport !== 'm1')
+    || !result.progress.some(item => item.step === 'pending')
+    || result.progress.filter(item => item.step === 'success').length !== 2
+  ) return false;
+  const before = result.preRestart;
+  if (
+    before?.paneAThinkingCleared !== true
+    || before?.paneBThinkingCleared !== true
+    || !before.paneAMessages?.some(item => item.role === 'system' && item.tag === 'CANCELLED')
+    || !before.paneBMessages?.some(item => (
+      item.role === 'assistant' && item.text === 'Built Electron M1 response'
+    ))
+    || !before.paneBMessages?.some(item => item.role === 'system' && item.tag === 'ERROR')
+  ) return false;
+  return Boolean(
+    result.paneA?.thinking === true
+    && result.paneB?.thinking === true
+    && result.paneA.delivery === null
+    && result.paneB.delivery === null
+    && result.paneA.messages?.some(item => item.text === 'M1_CANCEL_PENDING')
+    && result.paneB.messages?.some(item => item.text === 'Built Electron M1 response')
+  );
+}
+
 export function validateSoakLifecycle(result) {
   return Boolean(
     result
@@ -1384,6 +1745,28 @@ export function validateSoakLifecycle(result) {
     && Number.isInteger(result.idleSignals)
     && result.idleSignals >= 1
   );
+}
+
+export function validateM1SoakLifecycle(result) {
+  if (
+    !result
+    || result.terminals !== 5
+    || result.sendOk !== 2
+    || result.sendCancelled !== 1
+    || result.sendErrors !== 1
+    || result.cancelCancelled !== 1
+    || result.progress < 3
+    || result.progress !== result.m1Progress
+    || result.legacyMessages !== 0
+    || result.legacySystems !== 0
+    || result.disconnects !== 1
+    || result.reconnects !== 1
+    || result.forbiddenEffects !== 0
+    || !Array.isArray(result.terminalIdentities)
+    || result.terminalIdentities.length !== 5
+  ) return false;
+  return new Set(result.terminalIdentities.map(identity => identity[0])).size === 5
+    && new Set(result.terminalIdentities.map(identity => identity[2])).size === 5;
 }
 
 async function waitForNetworkQuiescence(reducer) {
@@ -1431,10 +1814,13 @@ export function successEvidence({
   shutdown,
   portFileRemoved,
   logDigests,
+  m1Journey = false,
 }) {
   return Object.freeze({
     schemaVersion: SCHEMA_VERSION,
-    evidenceType: 'intentsmith.studio-electron-boundary',
+    evidenceType: m1Journey
+      ? 'intentsmith.studio-m1-electron-journey'
+      : 'intentsmith.studio-electron-boundary',
     sourceRevision,
     verdict: 'PASS',
     uiEvaluation: 'excluded-non-final-ui',
@@ -1469,28 +1855,72 @@ export function successEvidence({
         outcome: 'accepted',
       }),
     ]),
-    functional: Object.freeze({
-      transport: 'websocket',
-      requestClass: 'deterministic-arithmetic',
-      conversationCreated: functional.conversationCreated,
-      sent: functional.sent,
-      turnStarts: functional.turnStarts,
-      routingDecisions: functional.routingDecisions,
-      conversationRouteDecisions: functional.conversationRouteDecisions,
-      unexpectedRouteDecisions: functional.unexpectedRouteDecisions,
-      unexpectedAgentEvents: functional.unexpectedAgentEvents,
-      assistantMessages: functional.assistantMessages,
-      turnEndsOk: functional.turnEndsOk,
-      modelProviderRequestsDuringTurn: functional.modelProviderRequestsDuringTurn,
-      forbiddenEffects: functional.forbiddenEffects,
-      errorSignals: functional.errorSignals,
-      assistantMatches: functional.assistantMatches,
-      assistantCorrelated: functional.assistantCorrelated,
-      assistantModeValid: functional.assistantModeValid,
-      disconnected: functional.disconnected,
-      orderValid: functional.orderValid,
-      resultClass: functional.resultClass,
-    }),
+    functional: m1Journey
+      ? Object.freeze({
+        transport: 'm1-wire-v1',
+        backendAuthority: 'test-owned-production-ws-bridge',
+        panelCount: 2,
+        terminalCount: functional.terminals.length,
+        requestIdentityCount: new Set(
+          functional.terminals.map(item => item.requestId),
+        ).size,
+        turnIdentityCount: new Set(
+          functional.terminals.map(item => item.turnId),
+        ).size,
+        sendOk: functional.terminals.filter(item => (
+          item.action === 'send' && item.status === 'ok'
+        )).length,
+        sendCancelled: functional.terminals.filter(item => (
+          item.action === 'send' && item.status === 'cancelled'
+        )).length,
+        sendErrors: functional.terminals.filter(item => (
+          item.action === 'send' && item.status === 'error'
+        )).length,
+        cancelCancelled: functional.terminals.filter(item => (
+          item.action === 'cancel' && item.status === 'cancelled'
+        )).length,
+        providerErrorCode: functional.terminals.find(item => (
+          item.action === 'send' && item.status === 'error'
+        ))?.errorCode || null,
+        progressEvents: functional.progress.length,
+        allProgressM1: functional.progress.every(item => item.transport === 'm1'),
+        legacyMessages: functional.legacyMessages,
+        legacySystems: functional.legacySystems,
+        listenerRestarts: functional.disconnects,
+        reconnects: functional.reconnects,
+        restartStatus: functional.restartStatus,
+        m1NegotiatedAfterRestart: functional.negotiated,
+        spinnersClearedBeforeRestart: Boolean(
+          functional.preRestart?.paneAThinkingCleared
+          && functional.preRestart?.paneBThinkingCleared
+        ),
+        spinnersClearedAfterRestart: Boolean(
+          functional.paneA?.thinking && functional.paneB?.thinking
+        ),
+        resultClass: functional.resultClass,
+      })
+      : Object.freeze({
+        transport: 'websocket',
+        requestClass: 'deterministic-arithmetic',
+        conversationCreated: functional.conversationCreated,
+        sent: functional.sent,
+        turnStarts: functional.turnStarts,
+        routingDecisions: functional.routingDecisions,
+        conversationRouteDecisions: functional.conversationRouteDecisions,
+        unexpectedRouteDecisions: functional.unexpectedRouteDecisions,
+        unexpectedAgentEvents: functional.unexpectedAgentEvents,
+        assistantMessages: functional.assistantMessages,
+        turnEndsOk: functional.turnEndsOk,
+        modelProviderRequestsDuringTurn: functional.modelProviderRequestsDuringTurn,
+        forbiddenEffects: functional.forbiddenEffects,
+        errorSignals: functional.errorSignals,
+        assistantMatches: functional.assistantMatches,
+        assistantCorrelated: functional.assistantCorrelated,
+        assistantModeValid: functional.assistantModeValid,
+        disconnected: functional.disconnected,
+        orderValid: functional.orderValid,
+        resultClass: functional.resultClass,
+      }),
     /* 021: the byte bridge as the shipped preload actually exposes it. */
     attachmentByteBridge: Object.freeze({
       exposed: byteBridge.exposed,
@@ -1500,20 +1930,35 @@ export function successEvidence({
       forgedTokenCode: byteBridge.forgedCode,
       pathTakingReadApis: byteBridge.pathApis.length,
     }),
-    soakLifecycle: Object.freeze({
-      assistantMessages: soakMonitor.assistantMessages,
-      systemMessages: soakMonitor.systemMessages,
-      disconnects: soakMonitor.disconnects,
-      turnStarts: soakMonitor.turnStarts,
-      turnEnds: soakMonitor.turnEnds,
-      routingDecisions: soakMonitor.routingDecisions,
-      conversationRouteDecisions: soakMonitor.conversationRouteDecisions,
-      unexpectedRouteDecisions: soakMonitor.unexpectedRouteDecisions,
-      unexpectedAgentEvents: soakMonitor.unexpectedAgentEvents,
-      forbiddenEffects: soakMonitor.forbiddenEffects,
-      agentErrors: soakMonitor.agentErrors,
-      idleSignals: soakMonitor.idleSignals,
-    }),
+    soakLifecycle: m1Journey
+      ? Object.freeze({
+        terminals: soakMonitor.terminals,
+        sendOk: soakMonitor.sendOk,
+        sendCancelled: soakMonitor.sendCancelled,
+        sendErrors: soakMonitor.sendErrors,
+        cancelCancelled: soakMonitor.cancelCancelled,
+        progress: soakMonitor.progress,
+        m1Progress: soakMonitor.m1Progress,
+        legacyMessages: soakMonitor.legacyMessages,
+        legacySystems: soakMonitor.legacySystems,
+        disconnects: soakMonitor.disconnects,
+        reconnects: soakMonitor.reconnects,
+        forbiddenEffects: soakMonitor.forbiddenEffects,
+      })
+      : Object.freeze({
+        assistantMessages: soakMonitor.assistantMessages,
+        systemMessages: soakMonitor.systemMessages,
+        disconnects: soakMonitor.disconnects,
+        turnStarts: soakMonitor.turnStarts,
+        turnEnds: soakMonitor.turnEnds,
+        routingDecisions: soakMonitor.routingDecisions,
+        conversationRouteDecisions: soakMonitor.conversationRouteDecisions,
+        unexpectedRouteDecisions: soakMonitor.unexpectedRouteDecisions,
+        unexpectedAgentEvents: soakMonitor.unexpectedAgentEvents,
+        forbiddenEffects: soakMonitor.forbiddenEffects,
+        agentErrors: soakMonitor.agentErrors,
+        idleSignals: soakMonitor.idleSignals,
+      }),
     shutdown: Object.freeze({
       electron: sanitizedExit(shutdown.electron),
       backend: sanitizedExit(shutdown.backend),
@@ -1530,7 +1975,13 @@ export function successEvidence({
   });
 }
 
-async function runJourney({ artifactRoot, sourceRevision, display, xauthority }) {
+async function runJourney({
+  artifactRoot,
+  sourceRevision,
+  display,
+  xauthority,
+  m1Journey = false,
+}) {
   const paths = makeRuntimePaths(artifactRoot);
   await prepareRuntime(paths);
   const buildDigests = await captureBuildDigests();
@@ -1551,11 +2002,17 @@ async function runJourney({ artifactRoot, sourceRevision, display, xauthority })
   let browserCloseRequested = false;
 
   try {
-    modelProviderSentinel = await startModelProviderSentinel();
-    const backendEnv = makeBackendEnvironment(paths, modelProviderSentinel.origin);
+    if (!m1Journey) modelProviderSentinel = await startModelProviderSentinel();
+    const backendEnv = makeBackendEnvironment(
+      paths,
+      modelProviderSentinel?.origin || 'http://127.0.0.1:9',
+    );
     electronTmp = makeShortLivedElectronTmp();
     const electronEnv = makeElectronEnvironment(paths, display, xauthority, electronTmp);
-    backend = spawnLogged(process.execPath, ['src/server.js'], {
+    const backendEntry = m1Journey
+      ? 'tests/fixtures/studio-m1-electron-backend.js'
+      : 'src/server.js';
+    backend = spawnLogged(process.execPath, [backendEntry], {
       cwd: SOURCE_ROOT,
       env: backendEnv,
       logFile: paths.backendLog,
@@ -1629,27 +2086,42 @@ async function runJourney({ artifactRoot, sourceRevision, display, xauthority })
     const networkCaptureStarted = monotonicMs();
     await cdp.send('Page.navigate', { url: originalLocation });
     await waitForRendererTransport(cdp);
-    await installSoakLifecycleMonitor(cdp);
+    if (m1Journey) await installM1SoakLifecycleMonitor(cdp);
+    else await installSoakLifecycleMonitor(cdp);
     const observationStarted = monotonicMs();
     await rendererSettingsPost(cdp);
-    const modelProviderRequestsBeforeTurn = modelProviderSentinel.requestCount();
+    const modelProviderRequestsBeforeTurn = modelProviderSentinel?.requestCount() || 0;
     byteBridge = await rendererByteBridgeProbe(cdp);
     if (!validateByteBridge(byteBridge)) fail('byte-bridge-probe-failed');
-    functional = await rendererFunctionalWsProbe(cdp);
+    functional = m1Journey
+      ? await rendererM1FunctionalWsProbe(cdp)
+      : await rendererFunctionalWsProbe(cdp);
     functional.modelProviderRequestsDuringTurn = (
-      modelProviderSentinel.requestCount() - modelProviderRequestsBeforeTurn
+      (modelProviderSentinel?.requestCount() || 0) - modelProviderRequestsBeforeTurn
     );
-    if (!validateFunctional(functional)) fail('functional-websocket-probe-failed');
+    if (m1Journey) {
+      if (!validateM1Functional(functional)) fail('functional-m1-websocket-probe-failed');
+    } else if (!validateFunctional(functional)) {
+      fail('functional-websocket-probe-failed');
+    }
     negative = await negativeBoundary(access);
 
     const remaining = STUDIO_M0_POLICY.requiredSoakMs
       - (monotonicMs() - observationStarted);
     if (remaining > 0) await delay(remaining + 50);
-    const stillReady = await evaluate(cdp, 'window.C3WS?.isReady?.() === true');
+    const stillReady = await evaluate(cdp, m1Journey
+      ? 'window.C3WS?.isReady?.() === true && window.C3WS?.isM1WireNegotiated?.() === true'
+      : 'window.C3WS?.isReady?.() === true');
     if (stillReady !== true) fail('websocket-not-ready-after-soak');
     await waitForNetworkQuiescence(reducer);
-    soakMonitor = await readAndRemoveSoakLifecycleMonitor(cdp);
-    if (!validateSoakLifecycle(soakMonitor)) fail('soak-lifecycle-contract-failed');
+    soakMonitor = m1Journey
+      ? await readAndRemoveM1SoakLifecycleMonitor(cdp)
+      : await readAndRemoveSoakLifecycleMonitor(cdp);
+    if (m1Journey) {
+      if (!validateM1SoakLifecycle(soakMonitor)) fail('m1-soak-lifecycle-contract-failed');
+    } else if (!validateSoakLifecycle(soakMonitor)) {
+      fail('soak-lifecycle-contract-failed');
+    }
     observationDurationMs = monotonicMs() - observationStarted;
     networkCaptureDurationMs = monotonicMs() - networkCaptureStarted;
     snapshot = reducer.snapshot();
@@ -1775,6 +2247,7 @@ async function runJourney({ artifactRoot, sourceRevision, display, xauthority })
     shutdown,
     portFileRemoved,
     logDigests,
+    m1Journey,
   });
   await writePrivateJson(paths.evidence, evidence);
   return evidence;
@@ -1812,6 +2285,7 @@ async function namespaceMain() {
       sourceRevision,
       display: x11.display,
       xauthority: x11.xauthority,
+      m1Journey: process.env[M1_JOURNEY_ENV] === '1',
     });
     process.stdout.write('STUDIO_ELECTRON_BOUNDARY_PASS\n');
   } catch (error) {
