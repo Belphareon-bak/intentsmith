@@ -22,6 +22,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   STUDIO_M0_POLICY,
+  STUDIO_M1_POLICY,
   STUDIO_ROUTE_IDS,
   createStudioCdpEvidenceReducer,
   evaluateStudioCdpEvidence,
@@ -1838,7 +1839,7 @@ export function successEvidence({
       preloadSha256: buildDigests.preloadSha256,
     }),
     observation: Object.freeze({
-      requiredDurationMs: STUDIO_M0_POLICY.requiredSoakMs,
+      requiredDurationMs: (m1Journey ? STUDIO_M1_POLICY : STUDIO_M0_POLICY).requiredSoakMs,
       actualDurationMs: observationDurationMs,
       networkCaptureDurationMs,
     }),
@@ -2106,7 +2107,8 @@ async function runJourney({
     }
     negative = await negativeBoundary(access);
 
-    const remaining = STUDIO_M0_POLICY.requiredSoakMs
+    const networkPolicy = m1Journey ? STUDIO_M1_POLICY : STUDIO_M0_POLICY;
+    const remaining = networkPolicy.requiredSoakMs
       - (monotonicMs() - observationStarted);
     if (remaining > 0) await delay(remaining + 50);
     const stillReady = await evaluate(cdp, m1Journey
@@ -2127,7 +2129,7 @@ async function runJourney({
     snapshot = reducer.snapshot();
     networkVerdict = evaluateStudioCdpEvidence(
       snapshot,
-      STUDIO_M0_POLICY,
+      networkPolicy,
       { observationDurationMs },
     );
     if (networkVerdict.verdict !== 'PASS') fail('network-evidence-failed');

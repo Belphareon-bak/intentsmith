@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { suite, test, summary } from './harness.js';
 import {
   STUDIO_M0_POLICY,
+  STUDIO_M1_POLICY,
   STUDIO_ROUTE_IDS,
   classifyNetworkTarget,
   createStudioCdpEvidenceReducer,
@@ -405,6 +406,21 @@ test('complete HTTP and WebSocket observation passes the network contract', () =
   assert.equal(snapshot.theiaControlPlane.websockets[0].phaseClass, 'websocket-upgrade');
   assert.equal(Object.isFrozen(snapshot), true);
   assert.equal(Object.isFrozen(snapshot.http[0]), true);
+});
+
+test('M1 policy requires exactly one closed predecessor and one live reconnect', () => {
+  const target = completeObservation({ websocket: { closed: true } });
+  ingestValidWebSocket(target, { requestId: 'ws-m1-reconnect' });
+  const snapshot = target.snapshot();
+
+  assert.equal(evaluateStudioCdpEvidence(snapshot).verdict, 'FAIL');
+  assert.equal(evaluateStudioCdpEvidence(snapshot, STUDIO_M1_POLICY).verdict, 'PASS');
+
+  const onlyOne = completeObservation().snapshot();
+  assert.equal(evaluateStudioCdpEvidence(onlyOne, STUDIO_M1_POLICY).verdict, 'FAIL');
+
+  ingestValidWebSocket(target, { requestId: 'ws-m1-extra' });
+  assert.equal(evaluateStudioCdpEvidence(target.snapshot(), STUDIO_M1_POLICY).verdict, 'FAIL');
 });
 
 test('Theia control-plane records never retain authority, query, headers or payload', () => {

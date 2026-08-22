@@ -34,6 +34,14 @@ export const STUDIO_M0_POLICY = Object.freeze({
   requiredSoakMs: 65_000,
   minTheiaPollingHttp: 1,
   maxTheiaPollingHttp: 128,
+  requiredBackendWebSocketCount: 1,
+  requiredClosedBackendWebSocketCount: 0,
+});
+
+export const STUDIO_M1_POLICY = Object.freeze({
+  ...STUDIO_M0_POLICY,
+  requiredBackendWebSocketCount: 2,
+  requiredClosedBackendWebSocketCount: 1,
 });
 
 const CAPABILITY_PATTERN = /^[A-Za-z0-9_-]{43}$/;
@@ -1017,12 +1025,27 @@ export function evaluateStudioCdpEvidence(
   }
 
   const websocketCount = snapshot.websockets.reduce(
-    (total, record) => total + record.count,
+    (total, record) => total + (Number.isInteger(record.count) ? record.count : 0),
     0,
   );
-  const everyWebSocketValid = websocketCount === 1
+  const closedWebSocketCount = snapshot.websockets.reduce(
+    (total, record) => total + (
+      record.closed && Number.isInteger(record.count) ? record.count : 0
+    ),
+    0,
+  );
+  const everyWebSocketValid = (
+    Number.isInteger(policy.requiredBackendWebSocketCount)
+    && policy.requiredBackendWebSocketCount > 0
+    && Number.isInteger(policy.requiredClosedBackendWebSocketCount)
+    && policy.requiredClosedBackendWebSocketCount >= 0
+    && policy.requiredClosedBackendWebSocketCount < policy.requiredBackendWebSocketCount
+    && websocketCount === policy.requiredBackendWebSocketCount
+    && closedWebSocketCount === policy.requiredClosedBackendWebSocketCount
+  )
     && snapshot.websockets.every(record => (
-      record.count === 1
+      Number.isInteger(record.count)
+      && record.count > 0
       && record.routeId === STUDIO_ROUTE_IDS.WS_BRIDGE
       && record.handshakeStatus === 101
       && record.originClass === 'opaque'
@@ -1034,7 +1057,6 @@ export function evaluateStudioCdpEvidence(
       && record.sentFrames > 0
       && record.receivedFrames > 0
       && record.frameErrors === 0
-      && !record.closed
     ));
   if (!everyWebSocketValid) failures.push(failure('websocket-contract-failed'));
 

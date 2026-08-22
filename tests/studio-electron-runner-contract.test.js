@@ -704,7 +704,8 @@ test('runner source has no soak-duration override or process.env spread', () => 
   );
   assert.equal(source.includes('INTENTSMITH_STUDIO_SOAK_MS'), false);
   assert.equal(source.includes('...process.env'), false);
-  assert.match(source, /STUDIO_M0_POLICY\.requiredSoakMs/);
+  assert.match(source, /m1Journey \? STUDIO_M1_POLICY : STUDIO_M0_POLICY/);
+  assert.match(source, /networkPolicy\.requiredSoakMs/);
   assert.match(source, /--user[\s\S]*--map-root-user[\s\S]*--net/);
   assert.match(source, /detached: false/);
 });
