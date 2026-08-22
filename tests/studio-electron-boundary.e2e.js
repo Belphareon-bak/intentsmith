@@ -1199,6 +1199,45 @@ async function rendererFunctionalWsProbe(cdp) {
   })()`, 25_000);
 }
 
+/*
+ * 021 byte bridge, in the app that actually shipped.
+ *
+ * The unit tests drive the bridge module directly; this asserts the built
+ * preload really exposes it through contextIsolation, which is the part no
+ * source-level test can reach. The native dialog cannot be dismissed from CDP,
+ * so the pick itself is not driven here — what is checked is the authority the
+ * design rests on: bytes come only from a token the bridge minted, so a token
+ * the renderer invents buys nothing, and no path-taking read exists to fall
+ * back on.
+ */
+async function rendererByteBridgeProbe(cdp) {
+  return evaluate(cdp, `(() => {
+    const bridge = window.electronC3;
+    if (!bridge) return { exposed: false };
+    const forged = bridge.readAttachmentBytes('forged-token-not-minted-by-the-bridge', 1024);
+    return {
+      exposed: true,
+      pick: typeof bridge.pickAttachmentFiles,
+      read: typeof bridge.readAttachmentBytes,
+      forgedOk: forged && forged.ok === true,
+      forgedCode: forged && forged.code,
+      pathApis: Object.keys(bridge).filter(k => /readFile|readPath|AttachmentPath/.test(k))
+    };
+  })()`);
+}
+
+function validateByteBridge(probe) {
+  if (!probe || probe.exposed !== true) return false;
+  if (probe.pick !== 'function' || probe.read !== 'function') return false;
+  /* A forged token must buy nothing. If this ever passes, the token
+     indirection has stopped being the gate and the renderer can read by
+     naming, which is the authority the bridge exists to withhold. */
+  if (probe.forgedOk !== false) return false;
+  if (probe.forgedCode !== 'M1_BRIDGE_TOKEN_UNKNOWN') return false;
+  if (!Array.isArray(probe.pathApis) || probe.pathApis.length !== 0) return false;
+  return true;
+}
+
 function directRequest(access, { origin, fetchSite, includeCapability }) {
   return new Promise((resolve, reject) => {
     const headers = { 'Sec-Fetch-Site': fetchSite, Connection: 'close' };
@@ -1385,6 +1424,7 @@ export function successEvidence({
   networkVerdict,
   negative,
   functional,
+  byteBridge,
   soakMonitor,
   positiveBoundaryStatus,
   buildDigests,
@@ -1451,6 +1491,15 @@ export function successEvidence({
       orderValid: functional.orderValid,
       resultClass: functional.resultClass,
     }),
+    /* 021: the byte bridge as the shipped preload actually exposes it. */
+    attachmentByteBridge: Object.freeze({
+      exposed: byteBridge.exposed,
+      pick: byteBridge.pick,
+      read: byteBridge.read,
+      forgedTokenAccepted: byteBridge.forgedOk,
+      forgedTokenCode: byteBridge.forgedCode,
+      pathTakingReadApis: byteBridge.pathApis.length,
+    }),
     soakLifecycle: Object.freeze({
       assistantMessages: soakMonitor.assistantMessages,
       systemMessages: soakMonitor.systemMessages,
@@ -1493,6 +1542,7 @@ async function runJourney({ artifactRoot, sourceRevision, display, xauthority })
   let snapshot;
   let networkVerdict;
   let functional;
+  let byteBridge;
   let soakMonitor;
   let negative;
   let observationDurationMs = 0;
@@ -1583,6 +1633,8 @@ async function runJourney({ artifactRoot, sourceRevision, display, xauthority })
     const observationStarted = monotonicMs();
     await rendererSettingsPost(cdp);
     const modelProviderRequestsBeforeTurn = modelProviderSentinel.requestCount();
+    byteBridge = await rendererByteBridgeProbe(cdp);
+    if (!validateByteBridge(byteBridge)) fail('byte-bridge-probe-failed');
     functional = await rendererFunctionalWsProbe(cdp);
     functional.modelProviderRequestsDuringTurn = (
       modelProviderSentinel.requestCount() - modelProviderRequestsBeforeTurn
@@ -1716,6 +1768,7 @@ async function runJourney({ artifactRoot, sourceRevision, display, xauthority })
     networkVerdict,
     negative,
     functional,
+    byteBridge,
     soakMonitor,
     positiveBoundaryStatus: actualPositiveBoundary(snapshot),
     buildDigests,

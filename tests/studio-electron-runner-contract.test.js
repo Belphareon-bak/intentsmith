@@ -455,6 +455,15 @@ test('success evidence drops incidental private fields and marks UI excluded', (
       },
     ],
     functional: validFunctional({ rawAnswer: 'PRIVATE_RESPONSE_CANARY' }),
+    byteBridge: {
+      exposed: true,
+      pick: 'function',
+      read: 'function',
+      forgedOk: false,
+      forgedCode: 'M1_BRIDGE_TOKEN_UNKNOWN',
+      pathApis: [],
+      privateProbePath: '/private/bridge-canary',
+    },
     soakMonitor: validSoak({ privateEvent: 'PRIVATE_EVENT_CANARY' }),
     positiveBoundaryStatus: 204,
     buildDigests: {
@@ -482,6 +491,7 @@ test('success evidence drops incidental private fields and marks UI excluded', (
     '/private/backend-canary',
     'PRIVATE_EVENT_CANARY',
     '/private/build-canary',
+    '/private/bridge-canary',
   ]) {
     assert.equal(serialized.includes(canary), false, canary);
   }
@@ -495,6 +505,18 @@ test('success evidence drops incidental private fields and marks UI excluded', (
   assert.equal(evidence.observation.requiredDurationMs, 65_000);
   assert.equal(evidence.observation.actualDurationMs, 65_050);
   assert.equal(evidence.observation.networkCaptureDurationMs, 78_050);
+  /* 021: the byte bridge is recorded as a verdict, and a forged token is
+     recorded as refused — the two facts a reviewer needs without re-running. */
+  assert.deepEqual(Object.keys(evidence.attachmentByteBridge).sort(), [
+    'exposed',
+    'forgedTokenAccepted',
+    'forgedTokenCode',
+    'pathTakingReadApis',
+    'pick',
+    'read',
+  ]);
+  assert.equal(evidence.attachmentByteBridge.forgedTokenAccepted, false);
+  assert.equal(evidence.attachmentByteBridge.pathTakingReadApis, 0);
   assert.equal(Object.isFrozen(evidence), true);
   assert.deepEqual(
     Object.keys(evidence.shutdown.electron).sort(),
