@@ -109,6 +109,11 @@ prostředím podmíněné — `nightly-audit-runner-self-test` (X11 self-test fi
   coworkerova Ollama zátěž: po `qwen3.5:27b` (17 GB) následoval
   `qwen3-30b-a3b:latest` (18 430 MiB, 100 % GPU), při němž volno kleslo na
   3 856 MiB. Cizí modelový běh ani vzdálená relace se nesmí ukončit.
+  Registrovaný run `m1-b3-gpu-preflight-4f339e30-20260822` na clean
+  `4f339e309eb0f59bfeefde08a3d394980c9e6ff5` později fail-close skončil za
+  98 ms před provider efektem: rezidentní `qwen3:14b`, dva compute procesy,
+  10 638 MiB free proti minimu 20 128 MiB a 99% utilization. Suite artifact má
+  `measurements: null` a kód `GPU_PILOT_PREREQUISITE_BLOCKED`.
 
 ## 021 — byte bridge, uzavřeno
 

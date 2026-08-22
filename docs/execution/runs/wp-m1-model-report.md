@@ -2502,3 +2502,27 @@ rezervované 069, protože paralelní cizí necommitnutá M1 práce začala pou�
 nainstaloval 233 balíčků (0 vulnerabilities) a reprodukoval application `6/6`,
 terminal `7/7`, schema `20/20`, migrations `38/38`, parent `16/16`, issuer
 `6/6`, binding `108/108` a ratchet `13/13`; klon zůstal čistý.
+
+## Registrovaný T3 blocker preflight — 2026-08-22
+
+Kanonický T3 příkaz byl spuštěn na čistém source
+`4f339e309eb0f59bfeefde08a3d394980c9e6ff5` s run ID
+`m1-b3-gpu-preflight-4f339e30-20260822`. Suite skončila za 98 ms vlastním exit
+`2`; audit runner ji správně vykázal jako `0 PASS / 1 FAIL`, exit `1`.
+
+Preflight před prvním provider requestem doložil rezidentní cizí
+`qwen3:14b`, dva NVIDIA compute procesy, 10 638 MiB volné VRAM proti povinnému
+minimu 20 128 MiB a 99% baseline utilization. Artifact má
+`GPU_PILOT_PREREQUISITE_BLOCKED`, `gpuAcceptanceObservation: null` a
+`measurements: null`; modelový request, pull, delete, unload ani rebind se
+neprovedly.
+
+| Artefakt | SHA-256 |
+|---|---|
+| runner report | `0201d7a315162cdaea6f0622a6526fc4f7ffcf44abc8fe45a5e40bfa034734a2` |
+| suite log | `70f15729b6eb55e39e2486e28418a0739ce67dfbde0a4d2529709d136bac031d` |
+| privátní suite artifact | `32b880924a603846f4c6e66218909c72965b77d1785670aaf25c7095f5b5730e` |
+
+Jde o exact blocker evidence, ne o GPU acceptance. T3 musí být zopakován v
+opravdu čistém okně s prázdným `ollama ps`, nulovým compute seznamem a nejméně
+20 128 MiB free; B5 zůstává za touto branou.

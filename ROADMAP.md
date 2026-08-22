@@ -1340,7 +1340,7 @@ mohou pokračovat.
    | 4 | 020 oddělená policy storage | **HOTOVO** `b9731302` | první migrační položka |
    | 5 | 015 proof ↔ artefakty a striktní expiry | **HOTOVO** `6368bd2f` | druhá migrační položka, těží ze stejného census |
    | 6 | 021 byte bridge + built journey + produkční ACK | **HOTOVO** `2b6b151b`, `2e33e342`, `241b39ab` | Electron boundary je built a produkční server token pravdivě ACKuje |
-   | 7 | autorizovaný GPU pilot | **BLOCKED prostředím** | cizí aktivní CUDA proces RustDesk; sériově, jedna role/digest, jen v čistém GPU okně |
+   | 7 | autorizovaný GPU pilot | **BLOCKED prostředím** | registrovaný preflight `m1-b3-gpu-preflight-4f339e30-20260822`: cizí rezidentní model, 2 compute procesy, 10 638 MiB free proti 20 128 MiB minimu, 99% utilization; bez provider efektu |
 
    **Položky 1–6 uzavřené 2026-08-22.** Deterministický gate na `a317da53` měl
    `{"PASS":229,"FAIL":3,"BLOCKED":2}` přes 234 sad. Navazující plný gate na
@@ -1448,6 +1448,10 @@ mohou pokračovat.
    ratchet `13/13`. B3 implementace a offline fresh-clone evidence jsou tím
    hotové, nikoli však fyzicky GPU přijaté: T3 pilot blokuje cizí aktivní CUDA
    proces RustDesk. Syntetické proof fixture nejsou produkční measurement proof.
+   Registrovaný T3 preflight na clean `4f339e30` následně skončil před prvním
+   provider efektem typovaným `GPU_PILOT_PREREQUISITE_BLOCKED`: cizí model byl
+   rezidentní, compute procesy byly dva, free VRAM 10 638 MiB proti minimu
+   20 128 MiB a baseline utilization 99 %. Vlastní measurement zůstal `null`.
    Plný offline/database gate na `10b3d080` navíc prošel 232 sadami; tři FAILy
    a dvě BLOCKED jsou beze změny proti známému environmentálnímu baseline.
    Fresh clone exact `10b3d080068c81f387aa38244634a710d6281ea5` po offline
