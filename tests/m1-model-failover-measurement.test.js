@@ -21,7 +21,7 @@ import {
   validateModelFailoverMeasurementArtifact,
 } from '../scripts/run-model-failover-measurement.js';
 import {
-  MODEL_FAILOVER_PROOF_ISSUANCE_BLOCK_REASON,
+  MODEL_FAILOVER_MEASUREMENT_NOT_ISSUED_REASON,
   canonicalizeModelFailoverContract,
   getModelFailoverMeasurementContract,
 } from '../src/upgrade/model-failover-proof-policy.js';
@@ -474,7 +474,7 @@ await testAsync('CHAT executes all eight ordered tests and publishes one full im
     assertEqual(chatArtifact.measurementStatus, 'COMPLETE');
     assertEqual(chatArtifact.proofStatus, 'NOT_ISSUED');
     assertEqual(chatArtifact.proofIssued, false);
-    assertEqual(chatArtifact.proofBlockReason, MODEL_FAILOVER_PROOF_ISSUANCE_BLOCK_REASON);
+    assertEqual(chatArtifact.proofBlockReason, MODEL_FAILOVER_MEASUREMENT_NOT_ISSUED_REASON);
     assertEqual(Object.hasOwn(chatArtifact, 'proofId'), false);
     assertEqual(JSON.stringify(chatArtifact.results.map(resultEntry => resultEntry.testId)), JSON.stringify(CHAT_TEST_IDS));
     assertEqual(chatArtifact.results.length, 8);

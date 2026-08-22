@@ -1,8 +1,9 @@
-// Fail-closed D+ role-suite measurement policy.
+// Fail-closed D+ role-suite proof policy.
 //
-// This module deliberately cannot authorize a PASS proof. It establishes the
-// reviewed role/suite/source contract needed by a later isolated runner while
-// the operator-owned acceptance thresholds and proof TTL remain undecided.
+// Decision 015 accepted the conservative A bootstrap: every test must pass
+// with score 1 and a proof remains eligible for seven days. Measurement stays
+// separate from issuance; only the issuer may turn accepted immutable
+// measurement evidence into a durable PASS proof.
 
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -13,8 +14,9 @@ import { SUITES, VALIDATION_VERSION } from './validation-suites.js';
 export const MODEL_FAILOVER_PROOF_POLICY_SCHEMA_VERSION = 1;
 export const MODEL_FAILOVER_PROOF_CANONICALIZATION_VERSION =
   'sorted-key-json-utf8-v1';
-export const MODEL_FAILOVER_PROOF_ISSUANCE_BLOCK_REASON =
-  'MISSING_APPROVED_TERMINAL_THRESHOLDS_AND_TTL';
+export const MODEL_FAILOVER_PROOF_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+export const MODEL_FAILOVER_MEASUREMENT_NOT_ISSUED_REASON =
+  'SEPARATE_PROOF_ISSUER_REQUIRED';
 
 const EXPECTED_SOURCE_PINS = Object.freeze({
   modelProfiles: Object.freeze({
@@ -296,13 +298,13 @@ function buildPolicy() {
       randomizedPromptPolicy: 'CAPTURE_ACTUAL_PROMPT_AND_VERIFY_GRADE_CONTEXT',
     },
     acceptance: {
-      issuanceEnabled: false,
-      proofTtlMs: null,
+      issuanceEnabled: true,
+      proofTtlMs: MODEL_FAILOVER_PROOF_TTL_MS,
       byRole: Object.fromEntries(EXPECTED_ROLES.map(role => [role, {
-        requiredScore: null,
-        requiredPassedCount: null,
+        requiredScore: 1,
+        requiredPassedCount: roles[role].totalCount,
       }])),
-      reason: MODEL_FAILOVER_PROOF_ISSUANCE_BLOCK_REASON,
+      reason: null,
     },
     roles,
   });
@@ -401,6 +403,43 @@ export function assertModelFailoverProofIssuanceEnabled(roleValue, ...authorityO
     );
   }
   return roleContract;
+}
+
+export function getModelFailoverProofContract(roleValue, ...authorityOverrides) {
+  if (authorityOverrides.length > 0) {
+    fail(
+      'MODEL_FAILOVER_PROOF_POLICY_AUTHORITY_OVERRIDE_REJECTED',
+      'Proof contract does not accept caller-owned authority',
+    );
+  }
+  const role = requireRole(roleValue);
+  assertModelFailoverProofIssuanceEnabled(role);
+  const policy = getModelFailoverProofPolicy();
+  const roleAcceptance = policy.acceptance.byRole[role];
+  const contract = deepFreeze({
+    schemaVersion: policy.schemaVersion,
+    canonicalizationVersion: policy.canonicalizationVersion,
+    contractKind: 'MODEL_FAILOVER_ROLE_PROOF',
+    policyVersion: policy.policyVersion,
+    validationVersion: policy.validationVersion,
+    authoritySha256: policy.authoritySha256,
+    sourcePins: policy.sourcePins,
+    runner: policy.runner,
+    acceptance: {
+      issuanceEnabled: policy.acceptance.issuanceEnabled,
+      requiredScore: roleAcceptance.requiredScore,
+      requiredPassedCount: roleAcceptance.requiredPassedCount,
+      proofTtlMs: policy.acceptance.proofTtlMs,
+      reason: policy.acceptance.reason,
+    },
+    role: policy.roles[role],
+  });
+  const canonicalJson = canonicalizeModelFailoverContract(contract);
+  return deepFreeze({
+    contract,
+    canonicalJson,
+    roleContractSha256: sha256(canonicalJson),
+  });
 }
 
 export const MODEL_FAILOVER_PROOF_POLICY_SOURCE_PINS = EXPECTED_SOURCE_PINS;
