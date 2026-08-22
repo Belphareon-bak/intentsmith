@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import Database from 'better-sqlite3';
+import { createHash } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import {
@@ -173,6 +174,26 @@ function insertPreFinalizeManualRuntimeSuccess(db, {
   return operationId;
 }
 
+const PROOF_FIXTURE_SOURCE_REVISION = 'f'.repeat(40);
+
+function hasProofArtifactBinding(db) {
+  // Some cases here run a plan that stops before migration 067 on purpose.
+  return db.prepare(
+    "SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table' AND name = ?",
+  ).get('model_failover_proof_artifacts').n === 1;
+}
+
+function insertProofArtifact(db, kind, proofId) {
+  if (!hasProofArtifactBinding(db)) return null;
+  const artifactSha256 = createHash('sha256').update(`${kind}:${proofId}`).digest('hex');
+  db.prepare(`
+    INSERT OR IGNORE INTO model_failover_proof_artifacts (
+      artifact_sha256, kind, byte_length, source_revision, created_at_ms
+    ) VALUES (?, ?, 1, ?, 1)
+  `).run(artifactSha256, kind, PROOF_FIXTURE_SOURCE_REVISION);
+  return artifactSha256;
+}
+
 function insertPassingProof(db, {
   proofId = 'proof-fixture-0001',
   validationRunId = `${proofId}-run`,
@@ -193,6 +214,12 @@ function insertPassingProof(db, {
   expiresAt = 900000,
   createdAt = completedAt,
 } = {}) {
+  // Decision 015 (migration 067): a proof cannot exist without its durable
+  // artifacts. Fixtures therefore write the content-addressed rows first — the
+  // synthetic proof this helper builds is exactly what the binding forbids.
+  const measurementSha256 = insertProofArtifact(db, 'MEASUREMENT', proofId);
+  const acceptanceSha256 = insertProofArtifact(db, 'PARENT_ACCEPTANCE', proofId);
+  const bound = measurementSha256 !== null;
   db.prepare(`
     INSERT INTO model_failover_proofs (
       proof_id, validation_run_id, role, suite, role_contract_sha256,
@@ -201,9 +228,10 @@ function insertPassingProof(db, {
       required_passed_count, total_count, duration_ms, result,
       inventory_before_name, inventory_before_digest, inventory_after_name,
       inventory_after_digest, started_at_ms, completed_at_ms, expires_at_ms,
-      created_at_ms
+      created_at_ms${bound ? `, measurement_artifact_sha256, acceptance_artifact_sha256,
+      source_revision` : ''}
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'v123.1', ?, ?, ?, ?, ?, ?, 500,
-      'PASS', ?, ?, ?, ?, ?, ?, ?, ?)
+      'PASS', ?, ?, ?, ?, ?, ?, ?, ?${bound ? ', ?, ?, ?' : ''})
   `).run(
     proofId,
     validationRunId,
@@ -227,6 +255,7 @@ function insertPassingProof(db, {
     completedAt,
     expiresAt,
     createdAt,
+    ...(bound ? [measurementSha256, acceptanceSha256, PROOF_FIXTURE_SOURCE_REVISION] : []),
   );
 }
 
@@ -363,7 +392,7 @@ suite('M1 model failover schema — exact migration contract');
 await testAsync('fresh file-backed DB creates all failover tables, indexes and triggers', async () => {
   await withMigratedDb(async (db) => {
     // Decision 020/E added migration 066; this pin follows the real tip.
-    assertEqual(getCurrentVersion(db), '2026_08_22_066_model_automation_policy');
+    assertEqual(getCurrentVersion(db), '2026_08_22_067_model_failover_proof_artifacts');
 
     for (const table of [
       'model_desired_bindings',
@@ -647,7 +676,7 @@ await testAsync('second migration run is a no-op with an identical schema snapsh
     const before = schemaSnapshot(db);
     const result = await runMigrations(db);
     assertEqual(result.applied.length, 0);
-    assertEqual(result.skipped.length, 57);
+    assertEqual(result.skipped.length, 58);
     assertEqual(schemaSnapshot(db), before);
   });
 });
@@ -682,10 +711,11 @@ await testAsync('migration 054 preserves pre-existing success as unconfirmed evi
       JSON.stringify([
         '2026_08_09_054_model_binding_runtime_finalization',
         '2026_08_22_066_model_automation_policy',
+        '2026_08_22_067_model_failover_proof_artifacts',
       ]),
     );
     assertEqual(result.skipped.length, 55);
-    assertEqual(getCurrentVersion(db), '2026_08_22_066_model_automation_policy');
+    assertEqual(getCurrentVersion(db), '2026_08_22_067_model_failover_proof_artifacts');
     assertEqual(
       db.prepare(`
         SELECT COUNT(*) AS count
@@ -1732,7 +1762,8 @@ await testAsync('proofs and events are append-only and audit references block de
         passed_count, required_passed_count, total_count, duration_ms, result,
         inventory_before_name, inventory_before_digest, inventory_after_name,
         inventory_after_digest, started_at_ms, completed_at_ms, expires_at_ms,
-        created_at_ms
+        created_at_ms, measurement_artifact_sha256, acceptance_artifact_sha256,
+        source_revision
       )
       SELECT proof_id, validation_run_id, role, suite, role_contract_sha256,
         model_name, model_canonical_name, model_digest_sha256,
@@ -1740,7 +1771,8 @@ await testAsync('proofs and events are append-only and audit references block de
         passed_count, required_passed_count, total_count, duration_ms, result,
         inventory_before_name, inventory_before_digest, inventory_after_name,
         inventory_after_digest, started_at_ms, completed_at_ms, expires_at_ms,
-        created_at_ms
+        created_at_ms, measurement_artifact_sha256, acceptance_artifact_sha256,
+        source_revision
       FROM model_failover_proofs WHERE proof_id = 'proof-fixture-0001'
     `).run(), /MODEL_FAILOVER_PROOF_IDENTITY_CONFLICT/);
     assertEqual(
@@ -1758,7 +1790,8 @@ await testAsync('proofs and events are append-only and audit references block de
         passed_count, required_passed_count, total_count, duration_ms, result,
         inventory_before_name, inventory_before_digest, inventory_after_name,
         inventory_after_digest, started_at_ms, completed_at_ms, expires_at_ms,
-        created_at_ms
+        created_at_ms, measurement_artifact_sha256, acceptance_artifact_sha256,
+        source_revision
       )
       SELECT 'proof-validation-role-conflict', validation_run_id, role, suite,
         role_contract_sha256, model_name, model_canonical_name,
@@ -1766,7 +1799,8 @@ await testAsync('proofs and events are append-only and audit references block de
         required_score, passed_count, required_passed_count, total_count,
         duration_ms, result, inventory_before_name, inventory_before_digest,
         inventory_after_name, inventory_after_digest, started_at_ms,
-        completed_at_ms, expires_at_ms, created_at_ms
+        completed_at_ms, expires_at_ms, created_at_ms,
+        measurement_artifact_sha256, acceptance_artifact_sha256, source_revision
       FROM model_failover_proofs WHERE proof_id = 'proof-fixture-0001'
     `).run(), /MODEL_FAILOVER_PROOF_IDENTITY_CONFLICT/);
     assertThrowsMatching(() => db.prepare(`
@@ -1777,7 +1811,8 @@ await testAsync('proofs and events are append-only and audit references block de
         passed_count, required_passed_count, total_count, duration_ms, result,
         inventory_before_name, inventory_before_digest, inventory_after_name,
         inventory_after_digest, started_at_ms, completed_at_ms, expires_at_ms,
-        created_at_ms
+        created_at_ms, measurement_artifact_sha256, acceptance_artifact_sha256,
+        source_revision
       )
       SELECT rowid, 'proof-rowid-replacement', 'proof-rowid-replacement-run',
         role, suite, role_contract_sha256, model_name, model_canonical_name,
@@ -1785,7 +1820,8 @@ await testAsync('proofs and events are append-only and audit references block de
         required_score, passed_count, required_passed_count, total_count,
         duration_ms, result, inventory_before_name, inventory_before_digest,
         inventory_after_name, inventory_after_digest, started_at_ms,
-        completed_at_ms, expires_at_ms, created_at_ms
+        completed_at_ms, expires_at_ms, created_at_ms,
+        measurement_artifact_sha256, acceptance_artifact_sha256, source_revision
       FROM model_failover_proofs WHERE proof_id = 'proof-fixture-0001'
     `).run(), /MODEL_FAILOVER_PROOF_ROWID_AUTHORITY/);
     assertThrowsMatching(() => db.prepare(`
@@ -1796,7 +1832,8 @@ await testAsync('proofs and events are append-only and audit references block de
         passed_count, required_passed_count, total_count, duration_ms, result,
         inventory_before_name, inventory_before_digest, inventory_after_name,
         inventory_after_digest, started_at_ms, completed_at_ms, expires_at_ms,
-        created_at_ms
+        created_at_ms, measurement_artifact_sha256, acceptance_artifact_sha256,
+        source_revision
       )
       SELECT -1, 'proof-negative-rowid', 'proof-negative-rowid-run', role,
         suite, role_contract_sha256, model_name, model_canonical_name,
@@ -1804,7 +1841,8 @@ await testAsync('proofs and events are append-only and audit references block de
         required_score, passed_count, required_passed_count, total_count,
         duration_ms, result, inventory_before_name, inventory_before_digest,
         inventory_after_name, inventory_after_digest, started_at_ms,
-        completed_at_ms, expires_at_ms, created_at_ms
+        completed_at_ms, expires_at_ms, created_at_ms,
+        measurement_artifact_sha256, acceptance_artifact_sha256, source_revision
       FROM model_failover_proofs WHERE proof_id = 'proof-fixture-0001'
     `).run(), /MODEL_FAILOVER_PROOF_ROWID_AUTHORITY/);
     assertThrowsMatching(() => db.prepare(`
@@ -1815,7 +1853,8 @@ await testAsync('proofs and events are append-only and audit references block de
         passed_count, required_passed_count, total_count, duration_ms, result,
         inventory_before_name, inventory_before_digest, inventory_after_name,
         inventory_after_digest, started_at_ms, completed_at_ms, expires_at_ms,
-        created_at_ms
+        created_at_ms, measurement_artifact_sha256, acceptance_artifact_sha256,
+        source_revision
       )
       SELECT NULL, 'proof-null-identity-run', role, suite,
         role_contract_sha256, model_name, model_canonical_name,
@@ -1823,7 +1862,8 @@ await testAsync('proofs and events are append-only and audit references block de
         required_score, passed_count, required_passed_count, total_count,
         duration_ms, result, inventory_before_name, inventory_before_digest,
         inventory_after_name, inventory_after_digest, started_at_ms,
-        completed_at_ms, expires_at_ms, created_at_ms
+        completed_at_ms, expires_at_ms, created_at_ms,
+        measurement_artifact_sha256, acceptance_artifact_sha256, source_revision
       FROM model_failover_proofs WHERE proof_id = 'proof-fixture-0001'
     `).run(), /MODEL_FAILOVER_PROOF_IDENTITY_REQUIRED/);
     assertEqual(
