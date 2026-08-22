@@ -767,7 +767,9 @@ function isHardBlocker(blocker) {
   );
 }
 
-function makeSuiteEnvironment({
+// Exportováno pro `scripts/run-suites.js`, aby existoval jediný zdroj pravdy
+// o tvaru runner-owned izolace. Samotné chování auditu to nemění.
+export function makeSuiteEnvironment({
   suite,
   sourceRevision,
   homeDir,
