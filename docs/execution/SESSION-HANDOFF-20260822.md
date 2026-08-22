@@ -217,3 +217,18 @@ s editacemi, ne je jen necommitovat.
 maže runtime jen při `exitCode === 0`, aby šel neúspěch prohlédnout. Moje dva
 padlé přímé běhy `m1-studio-client.test.js` tam nechaly dva adresáře a
 `harness-exit-code` je v gate ohlásil. Před gate mazat `.intentsmith-artifacts/direct-tests`.
+
+## Pokračování B5 — 2026-08-23
+
+Source `759bcad0` odstranil double-refine: synthesis už model-backed rewrite
+nevlastní a jediný owner je response finalizer. Quality telemetry nyní
+rozlišuje všechny accepted/rejected/error/cancel outcomes a nese before,
+candidate, final score, tokeny i latenci. Offline baterie je zelená; nový M1
+quality kontrakt má 10/10 a registry 396 programů.
+
+Fyzické A/B ještě neproběhlo. Registrovaný preflight
+`m1-b5-quality-preflight-759bcad0-20260823` na clean source skončil za 89 ms
+před provider efektem: cizí model byl rezidentní, compute `1`, free 4 775 MiB
+a utilization 93 %. B5 je proto implementation-ready / GPU BLOCKED a B6 se
+nespouští. Podrobný stav je v `runs/wp-m1-quality-report.md`; rozhodnutí
+ponechat/omezit/odstranit je připravené jako 024 a čeká na skutečná čísla.

@@ -920,6 +920,22 @@ focused regression sady.
    `node tests/chat-synthesis-hardening.test.js`; **NOVÝ:**
    `node tests/m1-quality-contract.test.js`; GPU A/B pouze sériově.
 
+**Stav 2026-08-23:** implementace a offline acceptance jsou hotové na
+`759bcad0`. `response-finalizer.js` je jediný model-backed refinement owner;
+synthesis drží jen bounded retry a deterministické gate. Nová telemetry
+rozlišuje skip, accepted, semantic drift, horší/prázdný candidate, provider
+error a cancel včetně score, tokenů a latence. Focused výsledky jsou 21/21,
+45/45, 22/22, nový kontrakt 10/10 a WS/finalizer 86/86; ratchet zůstal
+1062/1062 bez nové hrany. Registry má 396 programů.
+
+Fyzické A/B je pravdivě **BLOCKED prostředím**, nikoli PASS. Registrovaný
+preflight `m1-b5-quality-preflight-759bcad0-20260823` na clean `759bcad0`
+skončil před prvním provider requestem: cizí `qwen3.5:27b` byl rezidentní,
+compute `1`, free VRAM 4 775 MiB proti minimu 20 128 MiB a utilization 93 %;
+`measurements=null`. B6 zůstává zavřené. Exact evidence je v
+[`wp-m1-quality-report.md`](docs/execution/runs/wp-m1-quality-report.md) a
+varianty Gate 2 v [024](docs/decisions/024-m1-refinement-disposition.md).
+
 ### Povinné scénáře
 
 1. deterministická odpověď bez modelu přes skutečný request;
