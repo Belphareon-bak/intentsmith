@@ -1329,7 +1329,7 @@ mohou pokračovat.
    |---|---|---|
    | 1 | 023 VRAM delete race | aditivní, bez veřejného kontraktu a bez GPU |
    | 2 | 022 operation-bound recovery | nejmenší code položka, offline ověřitelná |
-   | 3 | společná rezervace migrací | union census přes všechny větve; `058` = 020, `059` = 015 |
+   | 3 | společná rezervace migrací | union census přes všechny větve; `066` = 020, `067` = 015 |
    | 4 | 020 oddělená policy storage | první migrační položka |
    | 5 | 015 proof issuance | druhá migrační položka, těží ze stejného census |
    | 6 | 021 built journey | jediná položka vázaná na drahou Studio infrastrukturu |
@@ -1337,7 +1337,10 @@ mohou pokračovat.
 
    Levné a bezpečnostní změny se tím dokončí před drahou Studio
    infrastrukturou a obě migrační položky dostanou čísla z jednoho census.
-   `055`–`057` jsou obsazené mobilními migracemi z `d6fee86f`.
+   Census z 2026-08-22 přes 351 živých větví je v
+   [`docs/execution/migration-reservation.md`](docs/execution/migration-reservation.md):
+   union je obsazený souvisle `001`–`065`, takže dřívější `058`/`059` už kolidují
+   s mobilní linkou. Platí `066` = 020 a `067` = 015.
 6. **B3-IDENTITY a B3-PROFILE jsou implementované a focused offline
    ověřené:** canonical presence
    identity chrání schválené binding/delete/cleanup cesty a integrity scan je
