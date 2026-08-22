@@ -2,8 +2,9 @@
 //
 // The repository owns durable intent and terminal outcomes. This service owns
 // the provider/runtime effects which connect that intent to the running
-// product. Automatic failover, proof issuance and scheduling are deliberately
-// absent.
+// product. Automatic failover behavior, proof issuance and scheduling remain
+// outside this module; it exposes only the internal serialization seam needed
+// to share the same mutation owner.
 
 import { randomUUID } from 'node:crypto';
 import { config } from '../config.js';
@@ -622,6 +623,22 @@ export class ModelBindingApplication {
       );
     }
     return this.#runExclusive('model-delete', callback);
+  }
+
+  /**
+   * Serialize the internal automatic failover coordinator with every manual
+   * binding and destructive model mutation.  Public HTTP/chat adapters never
+   * receive this callback capability.
+   */
+  async runExclusiveAutomaticFailover(inputValue, callback) {
+    const input = requireExactInput(inputValue, ['kind']);
+    if (input.kind !== 'AUTOMATIC_FAILOVER' || typeof callback !== 'function') {
+      fail(
+        'MODEL_BINDING_APPLICATION_INPUT_INVALID',
+        'Exclusive automatic failover requires its exact internal kind and callback',
+      );
+    }
+    return this.#runExclusive('automatic-failover', callback);
   }
 
   /**

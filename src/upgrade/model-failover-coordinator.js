@@ -656,7 +656,10 @@ export function startModelFailoverDetectionScheduler(options = {}) {
   };
   const tick = async () => {
     try {
-      onResult(await options.coordinator.runOnce());
+      // Await the consumer so a runtime failover phase composed by the server
+      // cannot overlap the next detection tick.  The detection coordinator
+      // itself remains capability-narrow and owns no activation effect.
+      await onResult(await options.coordinator.runOnce());
     } catch (error) {
       onError(error);
     } finally {

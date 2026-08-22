@@ -233,6 +233,7 @@ import {
   createModelBindingApplication,
   createOllamaModelBindingProvider,
 } from './upgrade/model-binding-application.js';
+import { createModelFailoverApplication } from './upgrade/model-failover-application.js';
 
 // Restore every manual binding through the single durable application boundary
 // before any LLM call can observe config.models.
@@ -247,10 +248,20 @@ const modelBindingProvider = createOllamaModelBindingProvider({
     upgradeManager.pullModel(modelName, onProgress, authority)
   ),
 });
+const bindingRuntime = upgradeManager.createBindingRuntimePort();
 const modelBindingApplication = createModelBindingApplication({
   repository: bindingRepository,
-  runtime: upgradeManager.createBindingRuntimePort(),
+  runtime: bindingRuntime,
   provider: modelBindingProvider,
+  publishControl: payload => bindingBroadcast('control', payload),
+  logger,
+});
+const modelFailoverApplication = createModelFailoverApplication({
+  repository: bindingRepository,
+  runtime: bindingRuntime,
+  provider: modelBindingProvider,
+  mutationOwner: modelBindingApplication,
+  modelUseAuthority: modelBindingApplication.modelUseAuthority,
   publishControl: payload => bindingBroadcast('control', payload),
   logger,
 });
@@ -267,6 +278,17 @@ for (const failure of bindingRehydrate.failed) {
     'Server',
     `Model binding rehydrate failed for ${failure.role}: ${failure.code}`,
   );
+}
+const failoverStartupRecovery = await modelFailoverApplication.recoverStartup();
+for (const result of failoverStartupRecovery.roles) {
+  if (result.status === 'RECOVERED') {
+    logger.info('Server', `Recovered ${result.role} automatic failover runtime binding`);
+  } else if (result.status === 'INCONCLUSIVE' || result.status === 'DEGRADED_PROOF_EXPIRED') {
+    logger.warn(
+      'Server',
+      `Automatic failover startup ${result.role} ${result.status}: ${result.reason}`,
+    );
+  }
 }
 
 // v118: Phase 2 — proposal store + registry client
@@ -1432,26 +1454,42 @@ listenOnLegacyLoopback(server, config.server, async () => {
       startModelFailoverDetectionScheduler({
         coordinator: modelFailoverDetectionCoordinator,
         intervalMs: 5 * 60 * 1000,
-        onResult: result => {
-          if (result.status === 'SKIPPED_DISABLED') return;
-          if (result.status === 'COMPLETED') {
-            if (result.counters.detectionsCreated > 0) {
+        onResult: async result => {
+          if (result.status !== 'SKIPPED_DISABLED') {
+            if (result.status === 'COMPLETED') {
+              if (result.counters.detectionsCreated > 0) {
+                logger.warn(
+                  'Server',
+                  `Model failover detection recorded ${result.counters.detectionsCreated} incident(s)`,
+                );
+              } else if (result.counters.desiredCreated > 0) {
+                logger.info(
+                  'Server',
+                  `Model failover detection observed ${result.counters.desiredCreated} desired binding(s)`,
+                );
+              }
+            } else {
               logger.warn(
                 'Server',
-                `Model failover detection recorded ${result.counters.detectionsCreated} incident(s)`,
-              );
-            } else if (result.counters.desiredCreated > 0) {
-              logger.info(
-                'Server',
-                `Model failover detection observed ${result.counters.desiredCreated} desired binding(s)`,
+                `Model failover detection ${result.status}: ${result.reason}`,
               );
             }
-            return;
           }
-          logger.warn(
-            'Server',
-            `Model failover detection ${result.status}: ${result.reason}`,
-          );
+          const runtimeResult = await modelFailoverApplication.runAll();
+          for (const roleResult of runtimeResult.roles) {
+            if (roleResult.status === 'APPLIED' || roleResult.status === 'RECOVERED') {
+              logger.info(
+                'Server',
+                `Automatic failover ${roleResult.role} ${roleResult.status}: ${roleResult.reason}`,
+              );
+            } else if (roleResult.status === 'INCONCLUSIVE'
+              || roleResult.status === 'DEGRADED_PROOF_EXPIRED') {
+              logger.warn(
+                'Server',
+                `Automatic failover ${roleResult.role} ${roleResult.status}: ${roleResult.reason}`,
+              );
+            }
+          }
         },
         onError: error => {
           logger.warn('Server', `Model failover detection failed: ${error.message}`);

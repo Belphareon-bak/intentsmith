@@ -5278,7 +5278,10 @@ await testAsync('source call graph has no production reference to legacy binding
   assertEqual(violations.length, 0, `Legacy binding calls remain: ${violations.join(', ')}`);
   assertEqual(
     JSON.stringify(modelChangedOwners),
-    JSON.stringify(['upgrade/model-binding-application.js']),
+    JSON.stringify([
+      'upgrade/model-binding-application.js',
+      'upgrade/model-failover-application.js',
+    ]),
   );
   const modelDeleteOwners = files.filter(file => (
     readFileSync(file, 'utf8').includes('/api/delete')
