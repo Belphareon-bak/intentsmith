@@ -6314,6 +6314,73 @@ function _readAttachments(attachments,callback){
   });
 }
 
+/* ── 021 byte bridge: attach picker ──
+   Three ways into `st.attachments` used to produce two different shapes. Drag&drop
+   and <input type=file> yield real `File` objects; the Electron dialog branch had
+   only a path, so it pushed `{file:{path,size:1024}}` — a `File` with no bytes.
+   `_readAttachments` handed that to `FileReader`, got nothing, and emitted
+   `content:null`, which the inline-only policy refuses. The user saw NOT_SENT on a
+   file they had just picked.
+
+   The dialog branch now spends a preload grant for the actual bytes and builds a
+   real `File`, so all three ways converge on one shape and `_readAttachments`
+   stays unchanged. The per-kind ceiling goes down to the read: an oversized file is
+   refused from its stat instead of being read and thrown away in policy. */
+function _attachCeilingFor(name){
+  return _IMG_EXTS.test(name)?_MAX_IMG_SIZE:_MAX_TEXT_SIZE;
+}
+
+function _attachSizeLabel(bytes){
+  return Math.round(bytes/1024)+' KB';
+}
+
+/* A refusal is reported against the file the user named, not swallowed. The item
+   is left out of the list rather than added as an unsendable stub — a stub would
+   only fail again at send, one step further from the pick. */
+function _attachRefusal(st,refused){
+  if(refused.length===0)return;
+  st._delivery={status:'ATTACH_REFUSED',retryable:false,reason:refused[0].code,
+    text:refused.map(function(r){return r.name+' ('+r.code+')';}).join(', ')};
+}
+
+function _chatPickAttachments(st,bridge,done){
+  var finish=typeof done==='function'?done:function(){};
+  if(!bridge||typeof bridge.pickAttachmentFiles!=='function'
+    ||typeof bridge.readAttachmentBytes!=='function'){finish(null);return;}
+  bridge.pickAttachmentFiles({title:'Připojit soubory',selectMany:true,defaultPath:st._lastAttachDir||''})
+    .then(function(picked){
+      var files=(picked&&Array.isArray(picked.files))?picked.files:[];
+      if(picked&&typeof picked.directory==='string'&&picked.directory)st._lastAttachDir=picked.directory;
+      if(files.length===0){finish([]);return;}
+      var added=[];var refused=[];
+      for(var i=0;i<files.length;i++){
+        var f=files[i];
+        if(!f||typeof f.name!=='string'||typeof f.token!=='string'){continue;}
+        var ceiling=_attachCeilingFor(f.name);
+        /* Cheap pre-check on the size the dialog already reported; the read
+           re-checks against the open descriptor, which is the binding one. */
+        if(typeof f.size==='number'&&f.size>ceiling){
+          refused.push({name:f.name,code:'M1_BRIDGE_ITEM_TOO_LARGE'});continue;
+        }
+        var result=bridge.readAttachmentBytes(f.token,ceiling);
+        if(!result||result.ok!==true||!result.bytes){
+          refused.push({name:f.name,code:(result&&result.code)||'M1_BRIDGE_READ_FAILED'});continue;
+        }
+        var file;
+        try{file=new File([result.bytes],f.name,{type:typeof f.type==='string'?f.type:''});}
+        catch(e){refused.push({name:f.name,code:'M1_BRIDGE_READ_FAILED'});continue;}
+        added.push({name:f.name,size:_attachSizeLabel(result.size),file:file});
+      }
+      for(var j=0;j<added.length;j++)st.attachments.push(added[j]);
+      _attachRefusal(st,refused);
+      finish(added);
+    })
+    .catch(function(e){
+      if(typeof console!=='undefined')console.warn('[C3:attach] pickAttachmentFiles error:',e);
+      finish(null);
+    });
+}
+
 /* M1/011: Chat sends are WebSocket-only until M2 owns one effect authority.
    A successful WebSocket.send() is queued locally, not acknowledged by server. */
 function _chatTryWsSend(content,session,sessionIdx){
@@ -6640,7 +6707,9 @@ function _chatPaneUI(idx,opts){
     st._delivery&&st._delivery.status==='DELIVERY_UNKNOWN'?h('div',{style:{padding:'5px 10px',borderTop:'1px solid '+C.border,background:'rgba(245,158,11,0.12)',color:'#fbbf24',fontSize:_fs(10),lineHeight:'1.35',flexShrink:0}},
       'DELIVERY_UNKNOWN · Spojení skončilo po odeslání. Výsledek ověřte v historii; automatické opakování je vypnuté.'):
     st._delivery&&st._delivery.status==='BUSY'?h('div',{style:{padding:'5px 10px',borderTop:'1px solid '+C.border,background:'rgba(245,158,11,0.12)',color:'#fbbf24',fontSize:_fs(10),lineHeight:'1.35',flexShrink:0}},
-      'BUSY · '+st._delivery.text):null,
+      'BUSY · '+st._delivery.text):
+    st._delivery&&st._delivery.status==='ATTACH_REFUSED'?h('div',{style:{padding:'5px 10px',borderTop:'1px solid '+C.border,background:C.redBg,color:C.red,fontSize:_fs(10),lineHeight:'1.35',flexShrink:0}},
+      'Nepřipojeno · '+st._delivery.text):null,
     /* INPUT */
     h('div',{style:{padding:6,borderTop:'1px solid '+C.border,flexShrink:0},onClick:function(ev){ev.stopPropagation();}},
       h('div',{style:{background:C.bg2,border:'1px solid '+(st._dragOver?C.accent:st.editingIdx!==null?C.accent:C.border2),borderRadius:10,overflow:'visible',position:'relative',transition:'border-color 0.15s'},
@@ -6678,22 +6747,13 @@ function _chatPaneUI(idx,opts){
           h('button',{style:{background:C.accentBg,color:C.accentText,border:'none',borderRadius:4,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',width:22,height:22},title:'Připojit soubor (nebo přetáhni)',
             onClick:function(ev){ev.stopPropagation();
               /* v95: Smart file picker — project folder default + remember last dir */
-              var defDir=st._lastAttachDir||'';
-              if(!defDir){var curSess=_sessions[_sessionActive];if(curSess&&curSess._projectId){var prj=PROJECTS.find(function(p){return p.id===curSess._projectId;});if(prj&&prj.path)defDir=prj.path;}}
-              if(window.electronTheiaFilesystem&&window.electronTheiaFilesystem.showOpenDialog){
-                window.electronTheiaFilesystem.showOpenDialog({title:'Připojit soubory',openFiles:true,openFolders:false,selectMany:true,defaultPath:defDir}).then(function(filePaths){
-                  if(filePaths&&filePaths.length>0){
-                    /* Remember last directory */
-                    var lastPath=filePaths[0].replace(/\\/g,'/');var slashIdx=lastPath.lastIndexOf('/');
-                    if(slashIdx>0){st._lastAttachDir=lastPath.substring(0,slashIdx);_persistSessionState();}
-                    for(var j=0;j<filePaths.length;j++){
-                      var fp=filePaths[j];var fn=fp.replace(/\\/g,'/').split('/').pop()||fp;
-                      st.attachments.push({name:fn,size:'soubor',file:{path:fp,size:1024}});}
-                    renderChat();}
-                }).catch(function(e){if(typeof console!=='undefined')console.warn('[C3:attach] showOpenDialog error:',e);});
+              if(!st._lastAttachDir){var curSess=_sessions[_sessionActive];if(curSess&&curSess._projectId){var prj=PROJECTS.find(function(p){return p.id===curSess._projectId;});if(prj&&prj.path)st._lastAttachDir=prj.path;}}
+              var _bridge=(typeof window!=='undefined')?window.electronC3:null;
+              if(_bridge&&typeof _bridge.pickAttachmentFiles==='function'){
+                _chatPickAttachments(st,_bridge,function(added){if(added&&added.length>0)_persistSessionState();renderChat();});
               }else{
                 var inp=document.createElement('input');inp.type='file';inp.multiple=true;inp.style.display='none';document.body.appendChild(inp);inp.onchange=function(){if(inp.files){for(var j=0;j<inp.files.length;j++){st.attachments.push({name:inp.files[j].name,size:Math.round(inp.files[j].size/1024)+' KB',file:inp.files[j]});}renderChat();}document.body.removeChild(inp);};inp.click();
-              }}},svgEl(I.attach,12)),
+                            }}},svgEl(I.attach,12)),
           /* Edit mode toggle */
           h('div',{style:{display:'flex',alignItems:'center',gap:1,padding:'1px 2px',borderRadius:4,background:C.bg3,flexShrink:0},onClick:function(ev){ev.stopPropagation();}},
             h('div',{style:{padding:'2px 6px',borderRadius:3,fontSize:_fs(9),fontWeight:600,cursor:'pointer',color:st.editMode==='auto'?C.tx1:C.tx4,background:st.editMode==='auto'?C.bg4:'transparent'},

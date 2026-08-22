@@ -28,6 +28,7 @@ import { LLMProviderUnavailableError } from '../src/core/chat-turn-error.js';
 import { createLegacyLocalCapability } from '../src/security/legacy-local-access-policy.js';
 import { createSessionAdapter } from '../src/ws-bridge/session-adapter.js';
 import {
+  M1_ATTACHMENT_IMAGE_TYPES,
   createM1AttachmentLimits,
   validateM1Attachments,
 } from '../src/ws-bridge/m1-attachment-policy.js';
@@ -37,12 +38,14 @@ const require = createRequire(import.meta.url);
 const {
   REQUIRED_BUNDLE_MARKERS,
   REQUIRED_CONSUMER_FUNCTIONS,
+  REQUIRED_PRELOAD_MARKERS,
   REQUIRED_PROTOCOL_FUNCTIONS,
   assertRegularFile,
   probeConsumerRuntime,
   runCli,
   validateBundleSource,
   validateConsumerRuntime,
+  validatePreloadSource,
   validateProtocolRuntime,
 } = require('../c3-ide/scripts/verify-m1-consumer-build.js');
 
@@ -60,6 +63,12 @@ const CANONICAL_CONSUMER_FUNCTIONS = Object.freeze([
   'wsSendCancel',
   'wsHasActiveM1Turn',
   'wsIsM1WireNegotiated',
+]);
+const CANONICAL_PRELOAD_MARKERS = Object.freeze([
+  'electronC3',
+  'pickAttachmentFiles',
+  'readAttachmentBytes',
+  'M1_BRIDGE_ITEM_TOO_LARGE',
 ]);
 const CANONICAL_BUNDLE_MARKERS = Object.freeze([
   'Generated @c3/protocol M1 runtime is unavailable',
@@ -179,6 +188,7 @@ test('postbuild requirements are pinned independently of guard implementation', 
   assert.deepEqual([...REQUIRED_PROTOCOL_FUNCTIONS], [...CANONICAL_PROTOCOL_FUNCTIONS]);
   assert.deepEqual([...REQUIRED_CONSUMER_FUNCTIONS], [...CANONICAL_CONSUMER_FUNCTIONS]);
   assert.deepEqual([...REQUIRED_BUNDLE_MARKERS], [...CANONICAL_BUNDLE_MARKERS]);
+  assert.deepEqual([...REQUIRED_PRELOAD_MARKERS], [...CANONICAL_PRELOAD_MARKERS]);
 });
 
 test('postbuild guard rejects every incomplete or non-v1 protocol surface', () => {
@@ -330,11 +340,40 @@ test('postbuild CLI returns nonzero with a stable failure prefix', () => {
   );
 });
 
+test('postbuild guard rejects a preload bundle that lost the byte bridge', () => {
+  const complete = CANONICAL_PRELOAD_MARKERS.join('\n');
+  assert.doesNotThrow(() => validatePreloadSource(complete));
+  assert.throws(() => validatePreloadSource(''), /preload bundle is empty/);
+  assert.throws(() => validatePreloadSource(null), /preload bundle is empty/);
+
+  /* The failure this catches is a preload that builds and starts perfectly and
+     is missing only the bridge — the app looks healthy and every attachment
+     picked from the dialog quietly loses its bytes. */
+  for (const marker of CANONICAL_PRELOAD_MARKERS) {
+    const incomplete = CANONICAL_PRELOAD_MARKERS
+      .filter(candidate => candidate !== marker)
+      .join('\n');
+    assert.throws(
+      () => validatePreloadSource(incomplete),
+      new RegExp(`missing byte bridge marker: ${marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),
+    );
+  }
+});
+
+test('the shipped preload bundle really carries the byte bridge', () => {
+  /* lib/ is a build artifact, so this only asserts when a build is present:
+     the tracked source guard above is what runs on a fresh clone. */
+  const built = new URL('../c3-ide/applications/electron/lib/frontend/preload.js', import.meta.url);
+  if (!fs.existsSync(built)) return;
+  assert.doesNotThrow(() => validatePreloadSource(fs.readFileSync(built, 'utf8')));
+});
+
 test('postbuild CLI composes exact paths and byte-level evidence', () => {
   withOwnedPostbuildRoot(studioRoot => {
     const protocolBytes = Buffer.from('module.exports = {};\n');
     const consumerBytes = Buffer.from('module.exports = {};\n// consumer\n');
     const bundleBytes = Buffer.from(`${CANONICAL_BUNDLE_MARKERS.join('\n')}\nžluťoučký\n`);
+    const preloadBytes = Buffer.from(`${CANONICAL_PRELOAD_MARKERS.join('\n')}\n`);
     writePostbuildFile(
       studioRoot,
       'extensions/c3-protocol/lib/index.js',
@@ -349,6 +388,11 @@ test('postbuild CLI composes exact paths and byte-level evidence', () => {
       studioRoot,
       'applications/electron/lib/frontend/bundle.js',
       bundleBytes,
+    );
+    writePostbuildFile(
+      studioRoot,
+      'applications/electron/lib/frontend/preload.js',
+      preloadBytes,
     );
 
     let stdout = '';
@@ -367,6 +411,8 @@ test('postbuild CLI composes exact paths and byte-level evidence', () => {
     assert.deepEqual(evidence, {
       bundleBytes: bundleBytes.length,
       bundleSha256: createHash('sha256').update(bundleBytes).digest('hex'),
+      preloadBytes: preloadBytes.length,
+      preloadSha256: createHash('sha256').update(preloadBytes).digest('hex'),
       consumerBytes: consumerBytes.length,
       consumerSha256: createHash('sha256').update(consumerBytes).digest('hex'),
       protocolBytes: protocolBytes.length,
@@ -4733,6 +4779,460 @@ test('the WS server enforces a frame ceiling derived from the same seam', () => 
   assert.ok(
     limits.maxFrameBytes > limits.maxAggregateBytes,
     'the frame must be able to carry a full legal attachment set plus its command',
+  );
+});
+
+
+suite('M1 Studio client — 021 attachment byte bridge');
+
+/* The bridge is preload code: it runs with Node access on the other side of
+   contextIsolation. Loading it directly is the honest test — nothing here needs
+   Electron, because the dialog channel is the preload's business and the grant
+   ledger is this module's. */
+const { createAttachmentBridge, mediaTypeForName, clampCeiling, HARD_READ_CAP_BYTES, REJECTION } =
+  require('../c3-ide/applications/electron/c3-attachment-bridge.js');
+
+/* An fs double that counts reads, so "refused before allocating" is a fact the
+   test can check rather than a claim the comment makes. */
+function fakeFileSystem(files) {
+  const calls = { open: 0, read: 0, stat: 0 };
+  const open = new Map();
+  let nextFd = 10;
+  const statFor = (filePath) => {
+    const entry = files.get(filePath);
+    if (!entry) {
+      const error = new Error(`ENOENT: ${filePath}`);
+      error.code = 'ENOENT';
+      throw error;
+    }
+    return {
+      size: entry.directory ? 4096 : entry.bytes.length,
+      mtimeMs: entry.mtimeMs === undefined ? 1000 : entry.mtimeMs,
+      isFile: () => !entry.directory,
+    };
+  };
+  return {
+    calls,
+    statSync(filePath) { calls.stat++; return statFor(filePath); },
+    openSync(filePath) {
+      calls.open++;
+      statFor(filePath);
+      const fd = nextFd++;
+      open.set(fd, filePath);
+      return fd;
+    },
+    fstatSync(fd) { calls.stat++; return statFor(open.get(fd)); },
+    readSync(fd, buffer, offset, length, position) {
+      calls.read++;
+      const entry = files.get(open.get(fd));
+      const chunk = entry.bytes.subarray(position, position + length);
+      chunk.copy(buffer, offset);
+      return chunk.length;
+    },
+    closeSync(fd) { open.delete(fd); },
+  };
+}
+
+function bridgeHarness(entries, { start = 1_000_000 } = {}) {
+  const files = new Map(entries);
+  const fileSystem = fakeFileSystem(files);
+  let clock = start;
+  let counter = 0;
+  const bridge = createAttachmentBridge({
+    fileSystem,
+    now: () => clock,
+    randomToken: () => `tok-${++counter}`,
+  });
+  return {
+    bridge,
+    fileSystem,
+    files,
+    advance(ms) { clock += ms; },
+  };
+}
+
+const HELLO = Buffer.from('ahoj světe', 'utf8');
+
+test('a pick mints one single-use grant per regular file and never returns a path', () => {
+  const { bridge } = bridgeHarness([
+    ['/home/u/notes.txt', { bytes: HELLO }],
+    ['/home/u/shot.png', { bytes: Buffer.alloc(64) }],
+  ]);
+  const picked = bridge.grantPaths(['/home/u/notes.txt', '/home/u/shot.png']);
+
+  assert.equal(picked.files.length, 2);
+  assert.equal(picked.directory, '/home/u', 'the next dialog can start where this one did');
+  assert.deepEqual(
+    picked.files.map(f => f.name),
+    ['notes.txt', 'shot.png'],
+  );
+  assert.deepEqual(
+    picked.files.map(f => f.type),
+    ['text/plain', 'image/png'],
+  );
+  assert.equal(picked.files[0].size, HELLO.length, 'size comes from stat, not a placeholder');
+
+  /* The whole point of the token: the renderer is handed no path in any field,
+     under any name. A path anywhere here would hand back the read authority
+     the design removed. */
+  const serialized = JSON.stringify(picked);
+  assert.ok(!serialized.includes('/home/u/notes.txt'), 'no file path crosses the bridge');
+  assert.ok(!serialized.includes('/home/u/shot.png'), 'no file path crosses the bridge');
+});
+
+test('a granted token reads the real bytes exactly once', () => {
+  const { bridge } = bridgeHarness([['/w/notes.txt', { bytes: HELLO }]]);
+  const [file] = bridge.grantPaths(['/w/notes.txt']).files;
+
+  const first = bridge.readTokenBytes(file.token, 1024 * 1024);
+  assert.equal(first.ok, true);
+  assert.equal(Buffer.from(first.bytes).toString('utf8'), 'ahoj světe');
+  assert.equal(first.size, HELLO.length);
+
+  /* One grant stands for one user gesture. Replaying the token would let a
+     renderer re-read a file long after the dialog that authorized it. */
+  const second = bridge.readTokenBytes(file.token, 1024 * 1024);
+  assert.equal(second.ok, false);
+  assert.equal(second.code, REJECTION.NO_TOKEN);
+  assert.equal(bridge._grantCount(), 0, 'the ledger does not retain spent grants');
+});
+
+test('a token the bridge never minted buys nothing', () => {
+  const { bridge } = bridgeHarness([['/w/secret', { bytes: HELLO }]]);
+  const verdict = bridge.readTokenBytes('tok-1', 1024);
+  assert.equal(verdict.ok, false);
+  assert.equal(verdict.code, REJECTION.NO_TOKEN);
+});
+
+test('a grant expires and its file cannot be read afterwards', () => {
+  const harness = bridgeHarness([['/w/notes.txt', { bytes: HELLO }]]);
+  const [file] = harness.bridge.grantPaths(['/w/notes.txt']).files;
+  harness.advance(5 * 60 * 1000 + 1);
+
+  const verdict = harness.bridge.readTokenBytes(file.token, 1024 * 1024);
+  assert.equal(verdict.ok, false);
+  assert.equal(verdict.code, REJECTION.NO_TOKEN, 'the expired grant is swept, not merely refused');
+  assert.equal(harness.fileSystem.calls.read, 0, 'an expired grant never touches the file');
+});
+
+test('an oversized file is refused from its stat, before a byte is read', () => {
+  const { bridge, fileSystem } = bridgeHarness([
+    ['/w/huge.txt', { bytes: Buffer.alloc(4 * 1024 * 1024) }],
+  ]);
+  const [file] = bridge.grantPaths(['/w/huge.txt']).files;
+
+  const verdict = bridge.readTokenBytes(file.token, 1024 * 1024);
+  assert.equal(verdict.ok, false);
+  assert.equal(verdict.code, REJECTION.TOO_LARGE);
+  assert.equal(verdict.limit, 1024 * 1024);
+  assert.equal(verdict.size, 4 * 1024 * 1024);
+  /* This is the whole reason the ceiling lives at the read: the old shape would
+     have moved 4 MiB into the renderer and only then discovered it was over. */
+  assert.equal(fileSystem.calls.read, 0, 'the refusal costs a stat, not the file');
+});
+
+test('a file that grows between the pick and the read cannot outrun the ceiling', () => {
+  const harness = bridgeHarness([['/w/grows.txt', { bytes: Buffer.alloc(512) }]]);
+  const [file] = harness.bridge.grantPaths(['/w/grows.txt']).files;
+  assert.equal(file.size, 512);
+
+  harness.files.set('/w/grows.txt', { bytes: Buffer.alloc(8 * 1024) });
+  const verdict = harness.bridge.readTokenBytes(file.token, 1024);
+  assert.equal(verdict.ok, false);
+  assert.equal(
+    verdict.code,
+    REJECTION.TOO_LARGE,
+    'the size that binds is the one on the open descriptor, not the one from the dialog',
+  );
+});
+
+test('a caller cannot raise the ceiling past the bridge hard cap', () => {
+  assert.equal(clampCeiling(1024), 1024, 'a sane ceiling is honoured as given');
+  assert.equal(clampCeiling(HARD_READ_CAP_BYTES * 4), HARD_READ_CAP_BYTES);
+  assert.equal(clampCeiling(0), HARD_READ_CAP_BYTES, 'a missing ceiling falls back to the cap');
+  assert.equal(clampCeiling(-1), HARD_READ_CAP_BYTES);
+  assert.equal(clampCeiling(1.5), HARD_READ_CAP_BYTES);
+  assert.ok(
+    HARD_READ_CAP_BYTES > createM1AttachmentLimits({}).maxImageBytes,
+    'the memory guard sits above the policy so it never becomes the real limit',
+  );
+});
+
+test('directories and vanished paths are dropped at the pick rather than granted', () => {
+  const { bridge } = bridgeHarness([
+    ['/w/folder', { bytes: Buffer.alloc(0), directory: true }],
+    ['/w/real.txt', { bytes: HELLO }],
+  ]);
+  const picked = bridge.grantPaths(['/w/folder', '/w/gone.txt', '', null, '/w/real.txt']);
+  assert.deepEqual(picked.files.map(f => f.name), ['real.txt']);
+  assert.equal(bridge._grantCount(), 1, 'only the readable file holds a grant');
+});
+
+test('the bridge reports only the media types the attachment policy accepts as images', () => {
+  const imageTypes = new Set(M1_ATTACHMENT_IMAGE_TYPES);
+  for (const name of ['a.png', 'a.jpg', 'a.jpeg', 'a.gif', 'a.webp']) {
+    assert.ok(imageTypes.has(mediaTypeForName(name)), `${name} must be an image the policy knows`);
+  }
+  /* svg/bmp/ico/tiff/avif are image extensions the panel's own regex matches but
+     the policy refuses. The bridge must name them accurately and let the policy
+     refuse them — calling them text/plain would launder an SVG into a
+     `data:text/plain;base64,...` item that is measured and delivered as text,
+     while the same file dragged in is rejected. */
+  for (const name of ['a.svg', 'a.bmp', 'a.ico', 'a.tiff', 'a.avif']) {
+    const type = mediaTypeForName(name);
+    assert.ok(!imageTypes.has(type), `${name} is not a policy image type`);
+    assert.ok(type.startsWith('image/'), `${name} must still be named as an image, not laundered`);
+    const verdict = validateM1Attachments(
+      [{ name, type, content: base64Image(16, type) }],
+      createM1AttachmentLimits({}),
+    );
+    assert.equal(
+      verdict.code,
+      'M1_ATTACHMENT_TYPE_UNSUPPORTED',
+      `${name} must be refused the same way a dragged one is`,
+    );
+  }
+  for (const name of ['a.txt', 'a.rs', 'noext']) {
+    assert.ok(!imageTypes.has(mediaTypeForName(name)), `${name} must not claim to be an image`);
+  }
+  assert.equal(mediaTypeForName('a.json'), 'application/json');
+  assert.equal(mediaTypeForName('a.PNG'), 'image/png', 'the extension test is case-insensitive');
+});
+
+/* ── Panel side ── */
+
+/* The picker lives in the same authoritative slice as _readAttachments, so the
+   round trip below is the real one: pick → File → FileReader → wire DTO. */
+function panelPickHarness({ picked = null, reads = new Map(), rejectPick = null } = {}) {
+  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
+  const start = source.indexOf('var _TEXT_EXTS=');
+  const end = source.indexOf('function _chatPaneUI', start);
+  assert.ok(start >= 0 && end > start, 'authoritative panel attachment slice is missing');
+
+  const calls = { pick: [], read: [] };
+  const bridge = {
+    pickAttachmentFiles(options) {
+      calls.pick.push(options);
+      if (rejectPick) return Promise.reject(rejectPick);
+      return Promise.resolve(picked);
+    },
+    readAttachmentBytes(token, maxBytes) {
+      calls.read.push({ token, maxBytes });
+      return reads.has(token)
+        ? reads.get(token)
+        : { ok: false, code: 'M1_BRIDGE_TOKEN_UNKNOWN' };
+    },
+  };
+
+  const context = vm.createContext({
+    Blob,
+    File,
+    FileReader: nodeFileReaderClass(),
+    Math,
+    TextEncoder,
+    console,
+    module: { exports: {} },
+    window: { require: undefined },
+  });
+  vm.runInContext(
+    source.slice(start, end)
+      + '\nmodule.exports={_chatPickAttachments,_readAttachments,_attachCeilingFor};',
+    context,
+    { filename: `${CHAT_PANEL.pathname}#attach-slice` },
+  );
+
+  const st = { attachments: [], _delivery: null, _lastAttachDir: null };
+  return { bridge, calls, st, functions: context.module.exports };
+}
+
+/* Node has no FileReader; this is the minimum of the Web API the panel uses. */
+function nodeFileReaderClass() {
+  return class NodeFileReader {
+    readAsText(file) {
+      file.text().then(text => {
+        this.result = text;
+        this.onload && this.onload();
+      }, error => {
+        this.error = error;
+        this.onerror && this.onerror();
+      });
+    }
+
+    readAsDataURL(file) {
+      file.arrayBuffer().then(buffer => {
+        this.result = `data:${file.type};base64,${Buffer.from(buffer).toString('base64')}`;
+        this.onload && this.onload();
+      }, error => {
+        this.error = error;
+        this.onerror && this.onerror();
+      });
+    }
+  };
+}
+
+function pickAttachments(harness) {
+  return new Promise(resolve => {
+    harness.functions._chatPickAttachments(harness.st, harness.bridge, resolve);
+  });
+}
+
+await testAsync('a dialog pick produces a real File the existing reader can read', async () => {
+  const harness = panelPickHarness({
+    picked: { directory: '/home/u/proj', files: [{ token: 't1', name: 'notes.txt', size: HELLO.length, type: 'text/plain' }] },
+    reads: new Map([['t1', { ok: true, bytes: new Uint8Array(HELLO), size: HELLO.length }]]),
+  });
+
+  const added = await pickAttachments(harness);
+  assert.equal(added.length, 1);
+  assert.equal(harness.st.attachments.length, 1);
+  assert.equal(harness.st._delivery, null, 'a clean pick reports nothing');
+  assert.equal(harness.st._lastAttachDir, '/home/u/proj', 'the pick directory is remembered');
+
+  const [attachment] = harness.st.attachments;
+  assert.ok(attachment.file instanceof File, 'the dialog branch yields a real File, not a stub');
+  assert.equal(attachment.file.size, HELLO.length, 'the File carries bytes, not a fabricated 1024');
+
+  /* The regression in one assertion: this used to be content:null, which the
+     inline-only policy refuses, so a file the user had just chosen came back
+     NOT_SENT. */
+  const read = await new Promise(resolve => harness.functions._readAttachments(harness.st.attachments, resolve));
+  assert.equal(read[0].type, 'text');
+  assert.equal(read[0].content, 'ahoj světe');
+  assert.equal(read[0].path, null, 'no path reaches the wire DTO mapper');
+});
+
+await testAsync('a picked image round-trips as a data URL the policy accepts', async () => {
+  const png = Buffer.from('89504e470d0a1a0a', 'hex');
+  const harness = panelPickHarness({
+    picked: { directory: '/w', files: [{ token: 't1', name: 'shot.png', size: png.length, type: 'image/png' }] },
+    reads: new Map([['t1', { ok: true, bytes: new Uint8Array(png), size: png.length }]]),
+  });
+
+  await pickAttachments(harness);
+  const read = await new Promise(resolve => harness.functions._readAttachments(harness.st.attachments, resolve));
+  assert.equal(read[0].type, 'image');
+  assert.match(read[0].content, /^data:image\/png;base64,/);
+
+  const verdict = validateM1Attachments(
+    [{ name: read[0].name, type: 'image/png', content: read[0].content }],
+    createM1AttachmentLimits({}),
+  );
+  assert.equal(verdict.ok, true, 'what the picker produces is what the policy accepts');
+});
+
+await testAsync('the read is asked for the ceiling that kind of file will actually face', async () => {
+  const harness = panelPickHarness({
+    picked: {
+      directory: '/w',
+      files: [
+        { token: 't1', name: 'notes.txt', size: 10, type: 'text/plain' },
+        { token: 't2', name: 'shot.png', size: 10, type: 'image/png' },
+      ],
+    },
+    reads: new Map([
+      ['t1', { ok: true, bytes: new Uint8Array(10), size: 10 }],
+      ['t2', { ok: true, bytes: new Uint8Array(10), size: 10 }],
+    ]),
+  });
+
+  await pickAttachments(harness);
+  /* Passing one blanket ceiling would read a 4 MiB .txt in full and only then
+     discard it against the 1 MiB text limit — exactly what moving the limit to
+     the read was meant to stop. */
+  assert.deepEqual(harness.calls.read, [
+    { token: 't1', maxBytes: 1024 * 1024 },
+    { token: 't2', maxBytes: 5 * 1024 * 1024 },
+  ]);
+});
+
+await testAsync('an oversized pick is refused by name and never enters the attachment list', async () => {
+  const harness = panelPickHarness({
+    picked: {
+      directory: '/w',
+      files: [
+        { token: 't1', name: 'huge.txt', size: 4 * 1024 * 1024, type: 'text/plain' },
+        { token: 't2', name: 'ok.txt', size: 4, type: 'text/plain' },
+      ],
+    },
+    reads: new Map([['t2', { ok: true, bytes: new Uint8Array([104, 101, 106, 33]), size: 4 }]]),
+  });
+
+  const added = await pickAttachments(harness);
+  assert.deepEqual(Array.from(added, a => a.name), ['ok.txt'], 'the legal file still attaches');
+  assert.deepEqual(harness.calls.read, [{ token: 't2', maxBytes: 1024 * 1024 }],
+    'the oversized file is dropped on its reported size, without spending its grant');
+  assert.equal(harness.st._delivery.status, 'ATTACH_REFUSED');
+  assert.match(harness.st._delivery.text, /huge\.txt/, 'the user is told which file, not just that one failed');
+  assert.match(harness.st._delivery.text, /M1_BRIDGE_ITEM_TOO_LARGE/);
+});
+
+await testAsync('a refused read is surfaced rather than attached as an unsendable stub', async () => {
+  const harness = panelPickHarness({
+    picked: { directory: '/w', files: [{ token: 't1', name: 'gone.txt', size: 4, type: 'text/plain' }] },
+    reads: new Map([['t1', { ok: false, code: 'M1_BRIDGE_READ_FAILED' }]]),
+  });
+
+  const added = await pickAttachments(harness);
+  assert.equal(added.length, 0);
+  assert.equal(harness.st.attachments.length, 0, 'a stub would only fail again at send');
+  assert.equal(harness.st._delivery.status, 'ATTACH_REFUSED');
+  assert.match(harness.st._delivery.text, /gone\.txt \(M1_BRIDGE_READ_FAILED\)/);
+});
+
+await testAsync('a cancelled dialog attaches nothing and reports nothing', async () => {
+  const harness = panelPickHarness({ picked: { directory: null, files: [] } });
+  const added = await pickAttachments(harness);
+  assert.equal(added.length, 0);
+  assert.equal(harness.st.attachments.length, 0);
+  assert.equal(harness.st._delivery, null, 'cancelling is not an error the user needs told about');
+  assert.deepEqual(harness.calls.read, []);
+});
+
+await testAsync('the pick asks the dialog to open where the last one ended', async () => {
+  const harness = panelPickHarness({ picked: { directory: '/w/next', files: [] } });
+  harness.st._lastAttachDir = '/w/previous';
+  await pickAttachments(harness);
+  assert.equal(harness.calls.pick[0].defaultPath, '/w/previous');
+  assert.equal(harness.calls.pick[0].selectMany, true);
+  assert.equal(harness.st._lastAttachDir, '/w/next', 'and remembers where this one ended');
+});
+
+await testAsync('without the bridge the picker declines instead of inventing attachments', async () => {
+  const harness = panelPickHarness({ picked: { directory: null, files: [] } });
+  const added = await new Promise(resolve => {
+    harness.functions._chatPickAttachments(harness.st, null, resolve);
+  });
+  assert.equal(added, null, 'the caller can tell "no bridge" from "nothing picked"');
+  assert.equal(harness.st.attachments.length, 0);
+
+  const halfBridge = { pickAttachmentFiles: () => Promise.resolve({ files: [] }) };
+  const partial = await new Promise(resolve => {
+    harness.functions._chatPickAttachments(harness.st, halfBridge, resolve);
+  });
+  assert.equal(partial, null, 'a bridge that cannot deliver bytes is not used to pick');
+});
+
+await testAsync('a dialog that throws leaves the pane untouched', async () => {
+  const harness = panelPickHarness({ rejectPick: new Error('synthetic dialog failure') });
+  const added = await pickAttachments(harness);
+  assert.equal(added, null);
+  assert.equal(harness.st.attachments.length, 0);
+  assert.equal(harness.st._delivery, null);
+});
+
+test('the shipped preload exposes the byte bridge and no path-taking read', () => {
+  const source = fs.readFileSync(
+    new URL('../c3-ide/applications/electron/c3-preload.js', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /pickAttachmentFiles:/, 'the gesture-bound pick is exposed');
+  assert.match(source, /readAttachmentBytes:/, 'the token-gated read is exposed');
+  /* The failure this guards is a later "convenience" API that takes a path:
+     that would hand the renderer back exactly the disk read authority the
+     token indirection exists to withhold. */
+  assert.ok(
+    !/readFile|readAttachmentPath|readPath/.test(source),
+    'no preload API reads a path the renderer supplies',
   );
 });
 

@@ -26,6 +26,20 @@ const REQUIRED_BUNDLE_MARKERS = Object.freeze([
   'M1_CONNECTION_REPLACED'
 ]);
 
+/*
+ * 021 byte bridge. The preload is bundled by a separate webpack config whose
+ * entry `webpack.config.js` overrides by hand; if that override ever stops
+ * applying, the app still builds and starts, and the only symptom is that every
+ * attachment picked from the file dialog silently loses its bytes again. These
+ * markers make that a build failure instead of a Studio that looks fine.
+ */
+const REQUIRED_PRELOAD_MARKERS = Object.freeze([
+  'electronC3',
+  'pickAttachmentFiles',
+  'readAttachmentBytes',
+  'M1_BRIDGE_ITEM_TOO_LARGE'
+]);
+
 const REQUIRED_CONSUMER_FUNCTIONS = Object.freeze([
   'wsSendChat',
   'wsSendCancel',
@@ -145,6 +159,17 @@ function validateBundleSource(bundleSource) {
   }
 }
 
+function validatePreloadSource(preloadSource) {
+  if (typeof preloadSource !== 'string' || preloadSource.length === 0) {
+    throw new Error('Studio preload bundle is empty');
+  }
+  for (const marker of REQUIRED_PRELOAD_MARKERS) {
+    if (!preloadSource.includes(marker)) {
+      throw new Error(`Studio preload bundle is missing byte bridge marker: ${marker}`);
+    }
+  }
+}
+
 function validateConsumerRuntime(consumer) {
   if (!consumer) throw new Error('Studio M1 consumer is unavailable');
   for (const name of REQUIRED_CONSUMER_FUNCTIONS) {
@@ -223,9 +248,18 @@ function verifyM1ConsumerBuild(options = {}) {
     'frontend',
     'bundle.js'
   );
+  const preloadPath = path.join(
+    studioRoot,
+    'applications',
+    'electron',
+    'lib',
+    'frontend',
+    'preload.js'
+  );
   const protocolMetadata = assertRegularFile(protocolPath, 'generated protocol runtime');
   const consumerMetadata = assertRegularFile(consumerPath, 'authoritative Studio M1 consumer');
   const bundleMetadata = assertRegularFile(bundlePath, 'Studio production bundle');
+  const preloadMetadata = assertRegularFile(preloadPath, 'Studio preload bundle');
   const protocol = options.protocol || require(protocolPath);
   validateProtocolRuntime(protocol);
   if (options.consumer) validateConsumerRuntime(options.consumer);
@@ -233,9 +267,13 @@ function verifyM1ConsumerBuild(options = {}) {
   const bundleBytes = fs.readFileSync(bundlePath);
   const bundleSource = bundleBytes.toString('utf8');
   validateBundleSource(bundleSource);
+  const preloadBytes = fs.readFileSync(preloadPath);
+  validatePreloadSource(preloadBytes.toString('utf8'));
   return Object.freeze({
     bundleBytes: bundleMetadata.size,
     bundleSha256: sha256(bundleBytes),
+    preloadBytes: preloadMetadata.size,
+    preloadSha256: sha256(preloadBytes),
     consumerBytes: consumerMetadata.size,
     consumerSha256: sha256(fs.readFileSync(consumerPath)),
     protocolBytes: protocolMetadata.size,
@@ -261,12 +299,14 @@ if (require.main === module) process.exitCode = runCli();
 
 module.exports = {
   REQUIRED_BUNDLE_MARKERS,
+  REQUIRED_PRELOAD_MARKERS,
   REQUIRED_CONSUMER_FUNCTIONS,
   REQUIRED_PROTOCOL_FUNCTIONS,
   assertRegularFile,
   probeConsumerRuntime,
   runCli,
   validateBundleSource,
+  validatePreloadSource,
   validateConsumerRuntime,
   validateProtocolRuntime,
   verifyM1ConsumerBuild
