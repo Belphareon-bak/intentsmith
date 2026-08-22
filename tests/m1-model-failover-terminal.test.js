@@ -396,4 +396,108 @@ await testAsync('restore needs a fresh desired proof while restore failure keeps
   });
 });
 
+await testAsync('runtime finalization is unknown until one exact append-only receipt confirms it', async () => {
+  await withRepository(async context => {
+    const { activated, claimed } = await activateFallback(context);
+    const pending = context.repository.getRuntimeFinalization(claimed.claim.operationId);
+    assertEqual(pending.status, 'UNKNOWN');
+    assertEqual(pending.terminalEventId, activated.event.eventId);
+    assertEqual(pending.targetModelName, 'fallback:latest');
+    assertEqual(context.repository.listPendingRuntimeFinalizations().length, 1);
+
+    context.runtime.setNow(2250);
+    const finalized = context.repository.recordRuntimeFinalized({
+      operationId: claimed.claim.operationId,
+      terminalEventId: activated.event.eventId,
+      configVersion: 7,
+      finalizeKind: 'DIRECT_CONFIRMED',
+    });
+    assertEqual(finalized.outcome, 'FINALIZED');
+    assertEqual(finalized.finalization.status, 'DIRECT_CONFIRMED');
+    assertEqual(finalized.finalization.configVersion, 7);
+    assertEqual(context.repository.listPendingRuntimeFinalizations().length, 0);
+
+    const replay = context.repository.recordRuntimeFinalized({
+      operationId: claimed.claim.operationId,
+      terminalEventId: activated.event.eventId,
+      configVersion: 7,
+      finalizeKind: 'DIRECT_CONFIRMED',
+    });
+    assertEqual(replay.outcome, 'ALREADY_FINALIZED');
+    assertEqual(
+      context.db.prepare('SELECT COUNT(*) AS count FROM model_failover_runtime_finalize_receipts').get().count,
+      1,
+    );
+    assertRepositoryError(captureError(() => context.repository.recordRuntimeFinalized({
+      operationId: claimed.claim.operationId,
+      terminalEventId: activated.event.eventId,
+      configVersion: 8,
+      finalizeKind: 'DIRECT_CONFIRMED',
+    })), 'MODEL_FAILOVER_RUNTIME_FINALIZE_IDENTITY_CONFLICT');
+    const tamperError = captureError(() => context.db.prepare(`
+      UPDATE model_failover_runtime_finalize_receipts SET config_version = 8
+    `).run());
+    assert(
+      /append-only/.test(tamperError.message),
+      `Expected append-only rejection, got: ${tamperError.message}`,
+    );
+  });
+});
+
+await testAsync('active proof expiry is derived at equality, recorded once, and never cuts over', async () => {
+  await withRepository(async context => {
+    const proofId = insertPassingProof(context.db, {
+      proofId: 'proof-terminal-expired-active-0001',
+      modelName: 'fallback:latest',
+      canonicalName: 'fallback',
+      digestSha256: FALLBACK_DIGEST,
+      expiresAtMs: 3000,
+    });
+    context.runtime.setNow(2100);
+    const claimed = claim(context.repository, context.detected, 'ACTIVATE', { leaseMs: 2000 });
+    context.runtime.setNow(2200);
+    const activated = complete(context.repository, claimed, {
+      proofId,
+      targetModelName: 'fallback:latest',
+      targetDigestSha256: FALLBACK_DIGEST,
+    });
+    context.runtime.setNow(2999);
+    assertEqual(context.repository.getRuntimeHealth('CHAT').status, 'HEALTHY');
+    assertRepositoryError(captureError(() => context.repository.recordActiveProofExpired({
+      role: 'CHAT',
+      episodeId: activated.state.episodeId,
+      expectedRowVersion: activated.state.rowVersion,
+      activeEventId: activated.state.activeEventId,
+    })), 'MODEL_FAILOVER_PROOF_STILL_FRESH');
+
+    const stateBeforeExpiry = JSON.stringify(context.repository.getState('CHAT'));
+    context.runtime.setNow(3000);
+    assertEqual(
+      context.repository.getRuntimeHealth('CHAT').status,
+      'PROOF_EXPIRED_UNRECORDED',
+    );
+    const recorded = context.repository.recordActiveProofExpired({
+      role: 'CHAT',
+      episodeId: activated.state.episodeId,
+      expectedRowVersion: activated.state.rowVersion,
+      activeEventId: activated.state.activeEventId,
+    });
+    assertEqual(recorded.outcome, 'RECORDED');
+    assertEqual(recorded.health.status, 'DEGRADED_PROOF_EXPIRED');
+    assertEqual(JSON.stringify(context.repository.getState('CHAT')), stateBeforeExpiry);
+
+    const replay = context.repository.recordActiveProofExpired({
+      role: 'CHAT',
+      episodeId: activated.state.episodeId,
+      expectedRowVersion: activated.state.rowVersion,
+      activeEventId: activated.state.activeEventId,
+    });
+    assertEqual(replay.outcome, 'ALREADY_RECORDED');
+    assertEqual(
+      context.db.prepare('SELECT COUNT(*) AS count FROM model_failover_health_events').get().count,
+      1,
+    );
+  });
+});
+
 summary();

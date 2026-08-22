@@ -471,6 +471,45 @@ function mapProof(row) {
   });
 }
 
+function mapRuntimeFinalization(row) {
+  if (!row) return null;
+  return Object.freeze({
+    operationId: row.operation_id,
+    terminalEventId: row.terminal_event_id,
+    eventType: row.event_type,
+    role: row.role,
+    episodeId: row.episode_id,
+    targetModelName: row.event_type === 'RESTORED'
+      ? row.desired_model_name
+      : row.fallback_model_name,
+    targetCanonicalName: row.event_type === 'RESTORED'
+      ? canonicalModelName(row.desired_model_name)
+      : row.fallback_canonical_name,
+    targetDigestSha256: row.event_type === 'RESTORED'
+      ? row.desired_digest_sha256
+      : row.fallback_digest_sha256,
+    transitionCreatedAtMs: row.transition_created_at_ms,
+    status: row.receipt_id === null ? 'UNKNOWN' : row.finalize_kind,
+    receiptId: row.receipt_id,
+    configVersion: row.config_version,
+    finalizedAtMs: row.finalized_at_ms,
+  });
+}
+
+function mapRuntimeHealth(row) {
+  if (!row) return null;
+  const expired = row.proof_expires_at_ms <= row.observed_now_ms;
+  return Object.freeze({
+    role: row.role,
+    episodeId: row.episode_id,
+    activeEventId: row.active_event_id,
+    proofId: row.proof_id,
+    proofExpiresAtMs: row.proof_expires_at_ms,
+    status: row.health_status || (expired ? 'PROOF_EXPIRED_UNRECORDED' : 'HEALTHY'),
+    observedAtMs: row.health_observed_at_ms,
+  });
+}
+
 function mapBindingOperation(row) {
   if (!row) return null;
   let details;
@@ -3720,11 +3759,18 @@ export class ModelFailoverRepository {
 
   listEligibleProofs(inputValue) {
     const input = requireInput(inputValue);
-    requireExactInputFields(input, ['role', 'roleContractSha256']);
+    requireExactInputFields(input, [
+      'role',
+      'roleContractSha256',
+      'requireAutoFailoverEnabled',
+    ]);
     const role = requireRole(input.role);
     const roleContractSha256 = requireContractHash(input.roleContractSha256);
+    const requireAutoFailoverEnabled = input.requireAutoFailoverEnabled === undefined
+      ? true
+      : requireBoolean(input.requireAutoFailoverEnabled, 'requireAutoFailoverEnabled');
     return this.#read('listEligibleProofs', () => {
-      requireCoordinatorPolicy(this.db, true);
+      requireCoordinatorPolicy(this.db, requireAutoFailoverEnabled);
       const nowMs = this.#now('listEligibleProofs');
       return this.db.prepare(`
         SELECT *
@@ -4240,6 +4286,233 @@ export class ModelFailoverRepository {
         outcome: 'FAILED',
         event: mapEvent(this.db.prepare('SELECT * FROM model_failover_events WHERE event_id = ?').get(eventId)),
         state: mapState(this.#stateRow(role)),
+      };
+    });
+  }
+
+  getRuntimeFinalization(operationIdValue) {
+    const operationId = requireString(operationIdValue, 'operationId');
+    return this.#read('getRuntimeFinalization', () => mapRuntimeFinalization(
+      this.db.prepare(`
+        SELECT event.operation_id, event.event_id AS terminal_event_id,
+          event.event_type, event.role, event.episode_id,
+          event.desired_model_name, event.desired_digest_sha256,
+          event.fallback_model_name, event.fallback_canonical_name,
+          event.fallback_digest_sha256,
+          event.created_at_ms AS transition_created_at_ms,
+          receipt.receipt_id, receipt.finalize_kind, receipt.config_version,
+          receipt.created_at_ms AS finalized_at_ms
+        FROM model_failover_events event
+        LEFT JOIN model_failover_runtime_finalize_receipts receipt
+          ON receipt.operation_id = event.operation_id
+         AND receipt.terminal_event_id = event.event_id
+        WHERE event.operation_id = ?
+          AND event.event_type IN ('ACTIVATED','REAPPLIED','RESTORED')
+      `).get(operationId),
+    ));
+  }
+
+  listPendingRuntimeFinalizations() {
+    return this.#read('listPendingRuntimeFinalizations', () => this.db.prepare(`
+      SELECT event.operation_id, event.event_id AS terminal_event_id,
+        event.event_type, event.role, event.episode_id,
+        event.desired_model_name, event.desired_digest_sha256,
+        event.fallback_model_name, event.fallback_canonical_name,
+        event.fallback_digest_sha256,
+        event.created_at_ms AS transition_created_at_ms,
+        NULL AS receipt_id, NULL AS finalize_kind, NULL AS config_version,
+        NULL AS finalized_at_ms
+      FROM model_failover_events event
+      LEFT JOIN model_failover_runtime_finalize_receipts receipt
+        ON receipt.operation_id = event.operation_id
+       AND receipt.terminal_event_id = event.event_id
+      WHERE event.event_type IN ('ACTIVATED','REAPPLIED','RESTORED')
+        AND receipt.receipt_id IS NULL
+      ORDER BY event.seq
+    `).all().map(mapRuntimeFinalization));
+  }
+
+  recordRuntimeFinalized(inputValue) {
+    const input = requireInput(inputValue);
+    requireExactInputFields(input, [
+      'operationId',
+      'terminalEventId',
+      'configVersion',
+      'finalizeKind',
+    ]);
+    rejectAuthorityOverrides(input, ['receiptId', 'nowMs', 'role', 'episodeId']);
+    const operationId = requireString(input.operationId, 'operationId');
+    const terminalEventId = requireString(input.terminalEventId, 'terminalEventId');
+    const configVersion = requireNonNegativeInteger(input.configVersion, 'configVersion');
+    const finalizeKind = requireString(input.finalizeKind, 'finalizeKind', { max: 32 }).toUpperCase();
+    if (!new Set(['DIRECT_CONFIRMED', 'RECOVERED_OBSERVED']).has(finalizeKind)) {
+      fail('MODEL_FAILOVER_RUNTIME_FINALIZE_KIND_INVALID', 'Unknown runtime finalize kind', {
+        finalizeKind,
+      });
+    }
+
+    return this.#write('recordRuntimeFinalized', () => {
+      const terminal = this.db.prepare(`
+        SELECT * FROM model_failover_events
+        WHERE operation_id = ? AND event_id = ?
+          AND event_type IN ('ACTIVATED','REAPPLIED','RESTORED')
+          AND verified = 1
+      `).get(operationId, terminalEventId);
+      if (!terminal) {
+        fail(
+          'MODEL_FAILOVER_RUNTIME_FINALIZE_TARGET_INVALID',
+          'Runtime finalize receipt requires an exact successful terminal event',
+          { operationId, terminalEventId },
+        );
+      }
+      const existing = this.db.prepare(`
+        SELECT * FROM model_failover_runtime_finalize_receipts
+        WHERE operation_id = ? OR terminal_event_id = ?
+      `).get(operationId, terminalEventId);
+      if (existing) {
+        if (existing.operation_id === operationId
+          && existing.terminal_event_id === terminalEventId
+          && existing.finalize_kind === finalizeKind
+          && existing.config_version === configVersion) {
+          return {
+            outcome: 'ALREADY_FINALIZED',
+            finalization: this.getRuntimeFinalization(operationId),
+          };
+        }
+        fail(
+          'MODEL_FAILOVER_RUNTIME_FINALIZE_IDENTITY_CONFLICT',
+          'Runtime finalize receipt already exists with a different identity',
+          { operationId, terminalEventId },
+        );
+      }
+      const state = this.#stateRow(terminal.role);
+      const currentTerminal = terminal.event_type === 'RESTORED'
+        ? state?.state === 'RESTORED' && state.last_event_id === terminalEventId
+        : state?.state === 'ACTIVATED' && state.active_event_id === terminalEventId;
+      if (!currentTerminal) {
+        fail(
+          'MODEL_FAILOVER_RUNTIME_FINALIZE_STALE',
+          'Runtime finalize target is no longer the current failover transition',
+          { operationId, terminalEventId, role: terminal.role },
+        );
+      }
+      const nowMs = this.#now('recordRuntimeFinalized');
+      if (nowMs < terminal.created_at_ms) {
+        fail('MODEL_FAILOVER_CLOCK_ROLLBACK', 'Repository clock moved before terminal event');
+      }
+      const receiptId = this.#id('event');
+      this.db.prepare(`
+        INSERT INTO model_failover_runtime_finalize_receipts (
+          receipt_id, operation_id, terminal_event_id, role, episode_id,
+          finalize_kind, config_version, created_at_ms
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        receiptId,
+        operationId,
+        terminalEventId,
+        terminal.role,
+        terminal.episode_id,
+        finalizeKind,
+        configVersion,
+        nowMs,
+      );
+      return {
+        outcome: 'FINALIZED',
+        finalization: this.getRuntimeFinalization(operationId),
+      };
+    });
+  }
+
+  getRuntimeHealth(roleValue) {
+    const role = requireRole(roleValue);
+    return this.#read('getRuntimeHealth', () => {
+      const nowMs = this.#now('getRuntimeHealth');
+      const row = this.db.prepare(`
+        SELECT state.role, state.episode_id, state.active_event_id,
+          state.proof_id, proof.expires_at_ms AS proof_expires_at_ms,
+          health.health_status, health.observed_at_ms AS health_observed_at_ms,
+          ? AS observed_now_ms
+        FROM model_failover_state state
+        JOIN model_failover_proofs proof ON proof.proof_id = state.proof_id
+        LEFT JOIN model_failover_health_events health
+          ON health.active_event_id = state.active_event_id
+         AND health.health_status = 'DEGRADED_PROOF_EXPIRED'
+        WHERE state.role = ? AND state.state = 'ACTIVATED'
+          AND state.active_failover = 1
+      `).get(nowMs, role);
+      return mapRuntimeHealth(row);
+    });
+  }
+
+  recordActiveProofExpired(inputValue) {
+    const input = requireInput(inputValue);
+    requireExactInputFields(input, [
+      'role',
+      'episodeId',
+      'expectedRowVersion',
+      'activeEventId',
+    ]);
+    rejectAuthorityOverrides(input, ['healthEventId', 'nowMs', 'proofId', 'healthStatus']);
+    const role = requireRole(input.role);
+    const episodeId = requireString(input.episodeId, 'episodeId');
+    const expectedRowVersion = requirePositiveInteger(input.expectedRowVersion, 'expectedRowVersion');
+    const activeEventId = requireString(input.activeEventId, 'activeEventId');
+
+    return this.#write('recordActiveProofExpired', () => {
+      const state = this.#stateRow(role);
+      if (!state
+        || state.episode_id !== episodeId
+        || state.row_version !== expectedRowVersion
+        || state.state !== 'ACTIVATED'
+        || state.active_failover !== 1
+        || state.active_event_id !== activeEventId
+        || state.proof_id === null) {
+        fail('MODEL_FAILOVER_STALE_STATE', 'Active proof-expiry state no longer matches', {
+          role,
+          episodeId,
+          expectedRowVersion,
+          activeEventId,
+        });
+      }
+      const existing = this.db.prepare(`
+        SELECT * FROM model_failover_health_events
+        WHERE active_event_id = ? AND health_status = 'DEGRADED_PROOF_EXPIRED'
+      `).get(activeEventId);
+      if (existing) {
+        return {
+          outcome: 'ALREADY_RECORDED',
+          health: this.getRuntimeHealth(role),
+        };
+      }
+      const proof = this.db.prepare(`
+        SELECT * FROM model_failover_proofs WHERE proof_id = ?
+      `).get(state.proof_id);
+      const nowMs = this.#now('recordActiveProofExpired');
+      if (!proof || proof.expires_at_ms > nowMs) {
+        fail('MODEL_FAILOVER_PROOF_STILL_FRESH', 'Active proof has not expired', {
+          role,
+          proofId: state.proof_id,
+          expiresAtMs: proof?.expires_at_ms ?? null,
+          nowMs,
+        });
+      }
+      const healthEventId = this.#id('event');
+      this.db.prepare(`
+        INSERT INTO model_failover_health_events (
+          health_event_id, role, episode_id, active_event_id, proof_id,
+          health_status, observed_at_ms
+        ) VALUES (?, ?, ?, ?, ?, 'DEGRADED_PROOF_EXPIRED', ?)
+      `).run(
+        healthEventId,
+        role,
+        episodeId,
+        activeEventId,
+        state.proof_id,
+        nowMs,
+      );
+      return {
+        outcome: 'RECORDED',
+        health: this.getRuntimeHealth(role),
       };
     });
   }
