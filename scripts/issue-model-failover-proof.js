@@ -14,6 +14,7 @@ import { createHash } from 'node:crypto';
 import {
   constants as fsConstants,
   existsSync,
+  fstatSync,
   lstatSync,
   openSync,
   closeSync,
@@ -156,6 +157,19 @@ function requirePrivateArtifact(filePath, label) {
   let descriptor;
   try {
     descriptor = openSync(filePath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    const openedMetadata = fstatSync(descriptor);
+    if (!openedMetadata.isFile()
+      || (openedMetadata.mode & 0o777) !== 0o400
+      || openedMetadata.nlink !== 1
+      || openedMetadata.size !== metadata.size
+      || openedMetadata.dev !== metadata.dev
+      || openedMetadata.ino !== metadata.ino
+      || (typeof process.getuid === 'function' && openedMetadata.uid !== process.getuid())) {
+      fail(
+        'MODEL_FAILOVER_PROOF_ARTIFACT_METADATA_INVALID',
+        `${label} identity changed while opening`,
+      );
+    }
     const bytes = readFileSync(descriptor);
     if (bytes.length !== metadata.size) {
       fail('MODEL_FAILOVER_PROOF_ARTIFACT_DIGEST_INVALID', `${label} size changed while reading`);
