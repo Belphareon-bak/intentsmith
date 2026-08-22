@@ -4339,4 +4339,202 @@ test('panel makes reconnect exhaustion visible and keeps health offline', () => 
   assert.match(handler, /renderSidebar\(\);_updateStatusIndicator\(\)/);
 });
 
+// ── Decision 022/A — operation-bound recovery in the Studio client ─────────
+//
+// The dangerous skew direction is a new bundle against an older server or a
+// replayed event: the panel must then warn and never offer an action it cannot
+// bind to one operation.
+
+function recoveryContext(options = {}) {
+  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
+  const start = source.indexOf('function _exactRecoveryIdentity');
+  const end = source.indexOf('function _batchValidateAll', start);
+  assert.ok(start >= 0 && end > start, 'recovery helpers are present in the panel');
+  const renders = [];
+  const context = vm.createContext({
+    AbortSignal,
+    JSON,
+    Number,
+    fetch: options.fetch || (async () => ({
+      status: 200,
+      json: async () => ({ ok: true, role: 'CHAT' }),
+    })),
+    setTimeout: () => Symbol('timeout'),
+    renderCenter: () => renders.push(1),
+    module: { exports: {} },
+  });
+  vm.runInContext(
+    'var _backendBase="http://127.0.0.1:7071";'
+    + 'var _verifyFailure=null;var _rollbackConfirm=false;'
+    + 'var _rollbackInFlight=null;var _rollbackToken=0;'
+    + 'var _upgradeMsg=null;var _roleBindings={CHAT:1};var _modelOverview={x:1};'
+    + source.slice(start, end)
+    + '\nmodule.exports={_exactRecoveryIdentity,_rollbackBinding,'
+    + 'state:function(){return {verifyFailure:_verifyFailure,upgradeMsg:_upgradeMsg,'
+    + 'inFlight:_rollbackInFlight,bindings:_roleBindings};},'
+    + 'seed:function(v){_verifyFailure=v;},bump:function(){_rollbackToken++;}};',
+    context,
+  );
+  return { api: context.module.exports, source, renders };
+}
+
+const COMPLETE_EVENT = Object.freeze({
+  role: 'CHAT',
+  model: 'fixture-target',
+  operationId: 'operation-0123456789abcdef',
+  committedBindingRevision: 4,
+  failedAttemptRevision: 3,
+  text: 'Varování',
+});
+
+test('a complete failure event becomes an exact actionable identity', () => {
+  const { api } = recoveryContext();
+  const identity = api._exactRecoveryIdentity(COMPLETE_EVENT);
+  assert.equal(
+    Object.keys(identity).sort().join(','),
+    'committedBindingRevision,failedAttemptRevision,operationId,role',
+  );
+  assert.equal(identity.operationId, COMPLETE_EVENT.operationId);
+  assert.equal(identity.committedBindingRevision, 4);
+  assert.equal(identity.failedAttemptRevision, 3);
+});
+
+test('an incomplete or non-exact event is never actionable', () => {
+  const { api } = recoveryContext();
+  const rejected = [
+    { ...COMPLETE_EVENT, operationId: undefined },
+    { ...COMPLETE_EVENT, committedBindingRevision: undefined },
+    { ...COMPLETE_EVENT, failedAttemptRevision: undefined },
+    { ...COMPLETE_EVENT, role: '' },
+    { ...COMPLETE_EVENT, operationId: 'too-short' },
+    { ...COMPLETE_EVENT, committedBindingRevision: '4' },
+    { ...COMPLETE_EVENT, failedAttemptRevision: 0 },
+    { ...COMPLETE_EVENT, failedAttemptRevision: 1.5 },
+    { role: 'CHAT', text: 'older server payload' },
+    null,
+  ];
+  for (const event of rejected) {
+    assert.equal(
+      api._exactRecoveryIdentity(event),
+      null,
+      `event must stay warning-only: ${JSON.stringify(event)}`,
+    );
+  }
+});
+
+testAsync('the rollback request carries exactly the identity and nothing else', async () => {
+  const sent = [];
+  const { api } = recoveryContext({
+    fetch: async (url, init) => {
+      sent.push({ url, init });
+      return { status: 200, json: async () => ({ ok: true, role: 'CHAT' }) };
+    },
+  });
+  const identity = api._exactRecoveryIdentity(COMPLETE_EVENT);
+  api.seed({ role: 'CHAT', text: 'Varování', identity });
+  await api._rollbackBinding(identity);
+
+  assert.equal(sent.length, 1);
+  assert.match(sent[0].url, /\/api\/system\/upgrades\/rollback$/);
+  assert.equal(sent[0].init.method, 'POST');
+  assert.equal(sent[0].init.body, JSON.stringify(identity));
+});
+
+testAsync('a double click sends exactly one rollback', async () => {
+  const sent = [];
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const { api } = recoveryContext({
+    fetch: async (url, init) => {
+      sent.push(init);
+      await gate;
+      return { status: 200, json: async () => ({ ok: true, role: 'CHAT' }) };
+    },
+  });
+  const identity = api._exactRecoveryIdentity(COMPLETE_EVENT);
+  api.seed({ role: 'CHAT', text: 'Varování', identity });
+
+  const first = api._rollbackBinding(identity);
+  api._rollbackBinding(identity);
+  assert.equal(sent.length, 1, 'the second click was swallowed by single-flight');
+  release();
+  await first;
+  assert.equal(sent.length, 1);
+});
+
+testAsync('a refused rollback keeps the warning and does not retry', async () => {
+  const sent = [];
+  const { api } = recoveryContext({
+    fetch: async (url, init) => {
+      sent.push(init);
+      return {
+        status: 409,
+        json: async () => ({ error: 'Rollback no longer matches' }),
+      };
+    },
+  });
+  const identity = api._exactRecoveryIdentity(COMPLETE_EVENT);
+  api.seed({ role: 'CHAT', text: 'Varování', identity });
+  await api._rollbackBinding(identity);
+
+  const state = api.state();
+  assert.equal(sent.length, 1, 'no automatic retry');
+  assert.ok(state.verifyFailure, 'the warning stays — nothing was rolled back');
+  assert.equal(state.upgradeMsg.ok, false);
+  assert.match(state.upgradeMsg.text, /409/);
+  assert.equal(state.bindings !== null, true, 'no cache was invalidated on refusal');
+});
+
+testAsync('a response that arrives after the action was superseded is ignored', async () => {
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const { api } = recoveryContext({
+    fetch: async () => {
+      await gate;
+      return { status: 200, json: async () => ({ ok: true, role: 'CHAT' }) };
+    },
+  });
+  const identity = api._exactRecoveryIdentity(COMPLETE_EVENT);
+  api.seed({ role: 'CHAT', text: 'Varování', identity });
+  const pending = api._rollbackBinding(identity);
+  api.bump();
+  release();
+  await pending;
+
+  const state = api.state();
+  assert.ok(state.verifyFailure, 'a stale success cannot clear a newer warning');
+  assert.equal(state.upgradeMsg, null, 'a stale response writes no toast');
+});
+
+test('the clear event reaches the panel through the WS consumer', () => {
+  const consumer = fs.readFileSync(
+    new URL('../c3-ide/extensions/c3-chat-panel/lib/browser/ws-client.js', import.meta.url),
+    'utf8',
+  );
+  // Without this edge the bounded clear event would never arrive and a stale
+  // warning could stay on screen over a re-verified binding.
+  assert.match(
+    consumer,
+    /d\.action === 'upgrade_verify_cleared'[\s\S]{0,80}C3Bus\.emit\('upgrade:verify_cleared', d\)/,
+  );
+});
+
+test('the panel never rolls back automatically', () => {
+  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
+  const start = source.indexOf("C3Bus.on('upgrade:verify_failed'");
+  const end = source.indexOf("C3Bus.on('model:validation_prompt'", start);
+  assert.ok(start >= 0 && end > start);
+  const handler = source.slice(start, end);
+  assert.ok(
+    !/_rollbackBinding\(/.test(handler),
+    'the failure handler must not call the rollback itself',
+  );
+  assert.match(handler, /_exactRecoveryIdentity\(ev\)/);
+  assert.match(handler, /upgrade:verify_cleared/);
+  // The action is reachable only behind the explicit confirmation step.
+  assert.match(source, /_rollbackConfirm=true;renderCenter\(\);\}\},'Rollback'\)/);
+  assert.match(source, /onClick:function\(\)\{_rollbackBinding\(_verifyFailure\.identity\);\}/);
+});
+
+
 summary();

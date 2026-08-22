@@ -2424,6 +2424,10 @@ var _discoveredData=null;var _discoveredLoading=false;
 /* v133: Model overview + management state */
 var _modelOverview=null;var _modelOverviewLoading=false;
 var _deleteConfirm=null;/* {model,sizeGB} */var _deletingModel=null;
+/* 022/A: recovery is offered only with the complete exact identity of the
+   failed operation. Warning-only state carries no identity and no button. */
+var _verifyFailure=null;/* {role,model,text,identity|null} */
+var _rollbackConfirm=false;var _rollbackInFlight=null;var _rollbackToken=0;
 var _batchValidating=false;var _batchQueue=[];var _batchCurrent=null;
 var _overviewSort={col:'name',dir:'asc'};var _roleBindings=null;
 /* v135: Governor */
@@ -2936,6 +2940,46 @@ function _deleteModel(name){
     .catch(function(e){_deletingModel=null;_deleteConfirm=null;
       _upgradeMsg={ok:false,text:'Chyba: '+e.message};renderCenter();
       setTimeout(function(){_upgradeMsg=null;renderCenter();},5000);});
+}
+function _exactRecoveryIdentity(ev){
+  /* 022/A bidirectional skew: a new client against an older server, or a
+     replayed event, must never become actionable. Any missing or non-exact
+     member means warning only — never a {role} fallback. */
+  if(!ev||typeof ev.role!=='string'||!ev.role)return null;
+  if(typeof ev.operationId!=='string'||ev.operationId.length<16)return null;
+  if(!Number.isSafeInteger(ev.committedBindingRevision)||ev.committedBindingRevision<=0)return null;
+  if(!Number.isSafeInteger(ev.failedAttemptRevision)||ev.failedAttemptRevision<=0)return null;
+  return {role:ev.role,operationId:ev.operationId,
+    committedBindingRevision:ev.committedBindingRevision,
+    failedAttemptRevision:ev.failedAttemptRevision};
+}
+function _rollbackBinding(identity){
+  if(!identity)return;
+  if(_rollbackInFlight)return;/* single-flight: a double click cannot send twice */
+  _rollbackInFlight=identity.role;_rollbackConfirm=false;
+  var token=++_rollbackToken;renderCenter();
+  return fetch(_backendBase+'/api/system/upgrades/rollback',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(identity),signal:AbortSignal.timeout(30000)})
+    .then(function(r){return r.json().then(function(d){return {status:r.status,body:d};});})
+    .then(function(res){
+      if(token!==_rollbackToken)return;/* stale response guard */
+      _rollbackInFlight=null;
+      if(res.status>=200&&res.status<300&&res.body&&res.body.ok){
+        _verifyFailure=null;_roleBindings=null;_modelOverview=null;
+        _upgradeMsg={ok:true,text:'Rollback proveden: '+identity.role};
+      }else{
+        /* The warning stays on screen: nothing was rolled back. */
+        _upgradeMsg={ok:false,text:'Rollback odmítnut ('+res.status+'): '
+          +((res.body&&res.body.error)||'stav se mezitím změnil')};
+      }
+      renderCenter();
+      setTimeout(function(){_upgradeMsg=null;renderCenter();},8000);})
+    .catch(function(e){
+      if(token!==_rollbackToken)return;
+      _rollbackInFlight=null;
+      _upgradeMsg={ok:false,text:'Rollback selhal: '+e.message};renderCenter();
+      setTimeout(function(){_upgradeMsg=null;renderCenter();},8000);});
 }
 function _batchValidateAll(){
   if(_batchValidating)return;_batchValidating=true;renderCenter();
@@ -3516,6 +3560,25 @@ function centerUpgrades(){
       background:_upgradeMsg.ok?'rgba(34,197,94,0.1)':'rgba(239,68,68,0.1)',
       color:_upgradeMsg.ok?C.accent:'#ef4444',
       border:'1px solid '+(_upgradeMsg.ok?'rgba(34,197,94,0.2)':'rgba(239,68,68,0.2)')}},_upgradeMsg.text):null,
+    /* 022/A: verification failure. The warning always shows; the action exists
+       only with the complete exact identity, and only after confirmation. */
+    _verifyFailure?h('div',{style:{margin:'0 18px',marginTop:8,padding:'10px 14px',borderRadius:6,fontSize:_fs(11),
+      background:'rgba(239,68,68,0.08)',color:'#ef4444',border:'1px solid rgba(239,68,68,0.25)',
+      display:'flex',alignItems:'center',gap:10}},
+      h('span',{style:{flex:1}},_verifyFailure.text),
+      _verifyFailure.identity?(_rollbackConfirm
+        ?h('span',{style:{display:'flex',gap:8,alignItems:'center'}},
+          h('span',null,'Vr\u00E1tit '+_verifyFailure.identity.role+' na p\u0159edchoz\u00ED model?'),
+          h('button',{style:{padding:'4px 12px',borderRadius:4,border:'1px solid #ef4444',background:'#ef4444',
+            color:'#fff',cursor:'pointer',fontSize:_fs(10),fontFamily:C.font},
+            onClick:function(){_rollbackBinding(_verifyFailure.identity);}},
+            _rollbackInFlight?'Vrac\u00EDm...':'Potvrdit'),
+          h('button',{style:{padding:'4px 12px',borderRadius:4,border:'1px solid rgba(239,68,68,0.3)',
+            background:'transparent',color:'#ef4444',cursor:'pointer',fontSize:_fs(10),fontFamily:C.font},
+            onClick:function(){_rollbackConfirm=false;renderCenter();}},'Zru\u0161it'))
+        :h('button',{style:{padding:'4px 12px',borderRadius:4,border:'1px solid #ef4444',background:'transparent',
+          color:'#ef4444',cursor:'pointer',fontSize:_fs(10),fontFamily:C.font},
+          onClick:function(){_rollbackConfirm=true;renderCenter();}},'Rollback')):null):null,
     /* v125: validation prompt */
     _validationPrompt?h('div',{style:{margin:'0 18px',marginTop:8,padding:'10px 14px',borderRadius:6,fontSize:_fs(11),
       background:'rgba(59,130,246,0.1)',color:'#3b82f6',border:'1px solid rgba(59,130,246,0.2)',display:'flex',alignItems:'center',gap:10}},
@@ -5832,12 +5895,24 @@ function _initBusSubscriptions() {
     setTimeout(function(){_upgradeMsg=null;renderCenter();},8000);
   });
 
-  /* v125: Background verify failed warning */
+  /* v125: Background verify failed warning; 022/A: optionally actionable */
   C3Bus.on('upgrade:verify_failed', function(ev) {
-    _upgradeMsg={ok:false,text:ev.text||'Varování: model neodpovídá na ping'};
-    if(window._c3)window._c3.agentLog('TOOL','\u26A0\uFE0F '+(ev.text||'Model neodpov\u00EDd\u00E1 na ping'));
+    var identity=_exactRecoveryIdentity(ev);
+    _verifyFailure={role:ev.role||null,model:ev.model||null,
+      text:ev.text||'Varov\u00E1n\u00ED: model neodpov\u00EDd\u00E1 na ping',identity:identity};
+    _rollbackConfirm=false;
+    _upgradeMsg={ok:false,text:_verifyFailure.text};
+    if(window._c3)window._c3.agentLog('TOOL','\u26A0\uFE0F '+_verifyFailure.text);
     renderCenter();
     setTimeout(function(){_upgradeMsg=null;renderCenter();},15000);
+  });
+
+  /* 022/A: bounded clear event — UX invalidation only, never authority. */
+  C3Bus.on('upgrade:verify_cleared', function(ev) {
+    if(!_verifyFailure)return;
+    if(!ev||!ev.operationId)return;
+    if(!_verifyFailure.identity||_verifyFailure.identity.operationId!==ev.operationId)return;
+    _verifyFailure=null;_rollbackConfirm=false;renderCenter();
   });
 
   /* v125: Validation prompt after model change */
