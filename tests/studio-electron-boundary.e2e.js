@@ -47,16 +47,17 @@ const SHUTDOWN_TIMEOUT_MS = 15_000;
 const M1_JOURNEY_ENV = 'INTENTSMITH_STUDIO_M1_JOURNEY';
 
 class SafeFailure extends Error {
-  constructor(code, exitCode = 1) {
+  constructor(code, exitCode = 1, privateDetail = null) {
     super(code);
     this.name = 'SafeFailure';
     this.code = code;
     this.exitCode = exitCode;
+    this.privateDetail = privateDetail;
   }
 }
 
-function fail(code) {
-  throw new SafeFailure(code);
+function fail(code, privateDetail = null) {
+  throw new SafeFailure(code, 1, privateDetail);
 }
 
 function block(code) {
@@ -252,7 +253,11 @@ async function writePrivateJson(file, value) {
 
 async function writeFailureDetail(artifactRoot, error) {
   if (!artifactRoot) return;
-  const detail = error?.stack || String(error);
+  const stack = error?.stack || String(error);
+  const privateDetail = error instanceof SafeFailure && error.privateDetail !== null
+    ? `\n${JSON.stringify(error.privateDetail, null, 2)}`
+    : '';
+  const detail = `${stack}${privateDetail}`;
   try {
     await writeFile(path.join(artifactRoot, FAILURE_FILE), `${detail}\n`, {
       encoding: 'utf8',
@@ -2132,7 +2137,12 @@ async function runJourney({
       networkPolicy,
       { observationDurationMs },
     );
-    if (networkVerdict.verdict !== 'PASS') fail('network-evidence-failed');
+    if (networkVerdict.verdict !== 'PASS') {
+      fail('network-evidence-failed', Object.freeze({
+        evaluation: networkVerdict,
+        snapshot,
+      }));
+    }
     const positiveBoundaryStatus = actualPositiveBoundary(snapshot);
     if (!Number.isInteger(positiveBoundaryStatus)) {
       fail('positive-boundary-missing');
