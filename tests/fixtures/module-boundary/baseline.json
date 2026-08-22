@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "b973130280d0e58a2caec200260542167f7fab2e",
-  "sourceTree": "0a4572ad2e3bb9e955a62bf5a7040c3f97488ea0",
+  "sourceRevision": "0f495b1cb61ab5ba76302b3b34dd036722f140bf",
+  "sourceTree": "61549fa4d269c7fc1dae650a7e1c75470165310a",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -1058,6 +1058,7 @@
     "src/ws-bridge/session-adapter.js -> src/db/database.js",
     "src/ws-bridge/session-adapter.js -> src/executor/c3-tool-executor.js",
     "src/ws-bridge/session-adapter.js -> src/telemetry/turn-telemetry.js",
+    "src/ws-bridge/session-adapter.js -> src/ws-bridge/m1-attachment-policy.js",
     "src/ws-bridge/session-adapter.js -> src/ws-bridge/protocol.js",
     "src/ws-bridge/ws-server.js -> src/chat/conversation-store.js",
     "src/ws-bridge/ws-server.js -> src/security/legacy-local-access-policy.js",
