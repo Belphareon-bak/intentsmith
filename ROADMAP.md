@@ -924,6 +924,24 @@ focused regression sady.
 6. skill/expertise confirmation patří tomu subsystému, který se právě ptal;
 7. Studio ukáže progress a přesný konečný stav.
 
+### Doložení povinných scénářů, 2026-08-22
+
+Změřeno na `74ca2fa7`. Scénáře 3, 4 a 6 nevyžadovaly nový kód — pokrývaly je
+registrované sady, které jen nikdy neběžely nebo se nikdy nenamapovaly.
+
+| # | Scénář | Stav | Důkaz |
+|---|---|---|---|
+| 1 | deterministická odpověď bez modelu | **doloženo** | 40 / 39 / 49 ms, `classifiedBy: deterministic`, `localComputation: true`; i z čerstvého klonu |
+| 2 | modelová odpověď přes lokální Ollamu | **doloženo** | `qwen3.5:27b`, 53,7 s; i z čerstvého klonu |
+| 3 | nedostupný provider ≠ uložený OK turn | **doloženo** | `m1-chat-contract`, `llm-gateway-runtime-signal`, `capability-01-server-behaviours` — zelené v deterministickém gate na `f5d0771f`; aserce doslovné: „persistence exception is a typed terminal error, never false-success", „provider, persistence, and generic failures are valid non-success terminals", „empty controller output fails closed as a contract error terminal" |
+| 4 | cancel před / během / těsně před persistencí | **doloženo** | Tytéž sady pokrývají všechny tři okamžiky: „pre-cancelled request cannot persist an assistant turn", „cancellation during request processing cannot persist an assistant turn", „non-cooperative handler cannot turn an aborted request into late success". Navíc `chat-pipeline` (profil `model`, nikdy neběžel) **PASS** přes běhový režim |
+| 5 | restart a obnovení konverzace | **doloženo** | 4 zprávy před restartem i po něm; i z čerstvého klonu |
+| 6 | confirmation patří tomu, kdo se ptal | **doloženo** | `confirmation-ownership` 5/5. Regrese z 2026-08-02: skill se zeptal „Potvrdit spuštění?", uživatel řekl „ano" a upgrade-approval intercept to snědl a přebindoval CHAT |
+| 7 | Studio ukáže progress a přesný konečný stav | **nedoloženo** | Blokuje `electron-exited-before-cdp` (`SIGTRAP` po selhání D-Bus) |
+
+**Šest ze sedmi povinných scénářů M1 je doložených.** Zbývá scénář 7, který
+sdílí blocker s posledním kritériem M0.
+
 ### L3 cíle a exit
 
 - p95 deterministické odpovědi pod **100 ms** na referenčním stroji;
