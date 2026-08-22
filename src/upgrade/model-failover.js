@@ -3148,6 +3148,7 @@ export class ModelFailoverRepository {
       'role',
       'expectedBindingRevision',
       'rollbackOfOperationId',
+      'expectedFailedVerificationAttemptRevision',
       'actor',
     ]);
     const requestKey = requireString(input.requestKey, 'requestKey', { min: 16, max: 128 });
@@ -3160,6 +3161,13 @@ export class ModelFailoverRepository {
       input.rollbackOfOperationId,
       'rollbackOfOperationId',
       { min: 16 },
+    );
+    // Decision 022/A: the third CAS member. The rollback must land on exactly the
+    // failed verification attempt the user was warned about — not on whatever
+    // attempt happens to be latest when the click arrives.
+    const expectedFailedVerificationAttemptRevision = requireNonNegativeInteger(
+      input.expectedFailedVerificationAttemptRevision,
+      'expectedFailedVerificationAttemptRevision',
     );
     const actor = requireUserActor(input.actor);
 
@@ -3194,6 +3202,32 @@ export class ModelFailoverRepository {
           role,
           rollbackOfOperationId,
         });
+      }
+      // Decision 022/A: inside the same transaction, the newest attempt of this
+      // operation must still be exactly the FAILED verification the user acted
+      // on. A background reverify appends a newer attempt and makes the click
+      // stale — an application precheck alone cannot see that race.
+      const latestAttempt = this.#bindingApplicationAttemptRows(rollbackOfOperationId).at(-1);
+      // Exact revision equality is the whole check. A background reverify —
+      // the race decision 022 names — appends a NEW attempt revision, so a click
+      // issued against the failed verification no longer matches. Demanding the
+      // named attempt also be FAILED would add nothing here and would reject the
+      // legitimate rollback of a successfully verified binding.
+      // An operation with no attempts yet is revision 0, the same convention the
+      // derived application state uses.
+      if ((latestAttempt?.attempt_revision ?? 0) !== expectedFailedVerificationAttemptRevision) {
+        fail(
+          'MODEL_FAILOVER_ROLLBACK_ATTEMPT_STALE',
+          'Rollback no longer matches the failed verification attempt it was issued for',
+          {
+            role,
+            rollbackOfOperationId,
+            expectedFailedVerificationAttemptRevision,
+            actualAttemptRevision: latestAttempt?.attempt_revision ?? null,
+            actualAttemptKind: latestAttempt?.attempt_kind ?? null,
+            actualOutcome: latestAttempt?.outcome ?? null,
+          },
+        );
       }
       const priorRollback = this.db.prepare(`
         SELECT operation_id, request_key

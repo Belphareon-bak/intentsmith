@@ -952,10 +952,21 @@ export function createSystemRoutes({
     'POST /api/system/upgrades/rollback': async (req, res) => {
       try {
         const body = await parseBody(req);
-        const { role } = body;
+        // Decision 022/A: the recovery identity is passed through exactly as the
+        // client sent it. No trimming, no canonicalisation, no {role}-only
+        // fallback — an incomplete identity is a 400, never a wider rollback.
+        const { role, operationId, committedBindingRevision, failedAttemptRevision } = body;
 
         if (!role) {
           return sendJSON(res, 400, { error: 'Missing required field: role' });
+        }
+        if (operationId === undefined
+          || committedBindingRevision === undefined
+          || failedAttemptRevision === undefined) {
+          return sendJSON(res, 400, {
+            error: 'Missing required rollback identity: operationId, '
+              + 'committedBindingRevision, failedAttemptRevision',
+          });
         }
 
         const { MODEL_PROFILES: profiles } = await import('../upgrade/model-profiles.js');
@@ -969,7 +980,12 @@ export function createSystemRoutes({
             { code: 'MODEL_BINDING_APPLICATION_SERVICE_REQUIRED' },
           );
         }
-        const result = await modelBindingApplication.rollbackManualBinding({ role });
+        const result = await modelBindingApplication.rollbackManualBinding({
+          role,
+          operationId,
+          committedBindingRevision,
+          failedAttemptRevision,
+        });
         sendJSON(res, 200, {
           ok: result.ok,
           role: result.role,

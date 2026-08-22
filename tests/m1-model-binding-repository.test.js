@@ -313,11 +313,14 @@ function applyChat(repository, overrides = {}) {
 }
 
 function rollbackChat(repository, applyOperationId, overrides = {}) {
+  // Decision 022/A: the rollback names the attempt it was issued for.
+  const state = repository.getBindingApplicationState(applyOperationId);
   return repository.recordUserBindingRollback({
     requestKey: 'request-user-rollback-0001',
     role: 'CHAT',
     expectedBindingRevision: 2,
     rollbackOfOperationId: applyOperationId,
+    expectedFailedVerificationAttemptRevision: state?.attemptRevision ?? 0,
     actor: 'user:fixture',
     ...overrides,
   });

@@ -64,6 +64,70 @@ function requireExactInput(value, allowed) {
   return value;
 }
 
+// Decision 022/A: recovery identity is compared exactly. Trimming or
+// canonicalising it here would let a request that does not match what the user
+// was warned about still look valid.
+const ROLLBACK_SILENT_FAILURE_CODES = new Set([
+  'MODEL_BINDING_ROLLBACK_IDENTITY_INVALID',
+  'MODEL_BINDING_ROLLBACK_STALE_OPERATION',
+]);
+
+function requireExactIdentityString(value, field, { min = 16, max = 128 } = {}) {
+  if (typeof value !== 'string'
+    || value !== value.trim()
+    || value.length < min
+    || value.length > max) {
+    fail(
+      'MODEL_BINDING_ROLLBACK_IDENTITY_INVALID',
+      `${field} must be an exact identity string`,
+      { field },
+      400,
+    );
+  }
+  return value;
+}
+
+function requireExactIdentityRevision(value, field) {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    fail(
+      'MODEL_BINDING_ROLLBACK_IDENTITY_INVALID',
+      `${field} must be a positive safe integer`,
+      { field },
+      400,
+    );
+  }
+  return value;
+}
+
+function requireExactIdentityAttemptRevision(value, field) {
+  // Zero is the "no attempt recorded yet" revision; the recovery surface always
+  // names a real failed verification, so it is never zero there.
+  if (!Number.isSafeInteger(value) || value < 0) {
+    fail(
+      'MODEL_BINDING_ROLLBACK_IDENTITY_INVALID',
+      `${field} must be a non-negative safe integer`,
+      { field },
+      400,
+    );
+  }
+  return value;
+}
+
+function requireExactRole(value) {
+  if (typeof value !== 'string'
+    || value !== value.trim().toUpperCase()
+    || !value
+    || value.length > 16) {
+    fail(
+      'MODEL_BINDING_ROLLBACK_IDENTITY_INVALID',
+      'role must be an exact role identifier',
+      { field: 'role' },
+      400,
+    );
+  }
+  return value;
+}
+
 function requireString(value, field, max = 512) {
   if (typeof value !== 'string') {
     fail('MODEL_BINDING_APPLICATION_INPUT_INVALID', `${field} must be a string`, { field });
@@ -831,8 +895,24 @@ export class ModelBindingApplication {
   }
 
   async rollbackManualBinding(inputValue) {
-    const input = requireExactInput(inputValue, ['role']);
-    const role = requireString(input.role, 'role', 16).toUpperCase();
+    // Decision 022/A: role alone is rejected. The request carries the exact
+    // operation the user decided about, and every member is part of the CAS.
+    const input = requireExactInput(inputValue, [
+      'role',
+      'operationId',
+      'committedBindingRevision',
+      'failedAttemptRevision',
+    ]);
+    const role = requireExactRole(input.role);
+    const operationId = requireExactIdentityString(input.operationId, 'operationId');
+    const committedBindingRevision = requireExactIdentityRevision(
+      input.committedBindingRevision,
+      'committedBindingRevision',
+    );
+    const failedAttemptRevision = requireExactIdentityAttemptRevision(
+      input.failedAttemptRevision,
+      'failedAttemptRevision',
+    );
     return this.#runExclusive('rollback', async () => {
       try {
         this.#requireNoPendingRuntimeFinalize(role);
@@ -857,6 +937,34 @@ export class ModelBindingApplication {
             409,
           );
         }
+        // The cheap precheck fails stale clicks before the provider is touched;
+        // the repository CAS below is the authority that actually holds.
+        if (currentOperation.operationId !== operationId) {
+          fail(
+            'MODEL_BINDING_ROLLBACK_STALE_OPERATION',
+            `Rollback targets an operation that is no longer current for role ${role}`,
+            { role, operationId, currentOperationId: currentOperation.operationId },
+            409,
+          );
+        }
+        const appliedState = this.repository.getBindingApplicationState(operationId);
+        if (!appliedState
+          || appliedState.committedBindingRevision !== committedBindingRevision
+          || appliedState.attemptRevision !== failedAttemptRevision) {
+          fail(
+            'MODEL_BINDING_ROLLBACK_STALE_OPERATION',
+            `Rollback no longer matches the failed verification it was offered for: ${role}`,
+            {
+              role,
+              operationId,
+              committedBindingRevision,
+              failedAttemptRevision,
+              currentBindingRevision: appliedState?.committedBindingRevision ?? null,
+              currentAttemptRevision: appliedState?.attemptRevision ?? null,
+            },
+            409,
+          );
+        }
         const applied = this.repository.getBindingOperation(currentOperation.operationId);
         if (applied?.kind === 'USER_ROLLBACK') {
           return this.#executeOperation(applied, { startup: false });
@@ -875,19 +983,24 @@ export class ModelBindingApplication {
         const result = this.repository.recordUserBindingRollback({
           requestKey: this.#requestKey('rollback', role),
           role,
-          expectedBindingRevision: applied.committedBindingRevision,
-          rollbackOfOperationId: applied.operationId,
+          expectedBindingRevision: committedBindingRevision,
+          rollbackOfOperationId: operationId,
+          expectedFailedVerificationAttemptRevision: failedAttemptRevision,
           actor: this.#actor('rollback', role),
         });
         return this.#executeOperation(result.operation, { startup: false });
       } catch (error) {
-        this.#publishBestEffort({
-          action: 'upgrade_error',
-          role,
-          model: null,
-          error: error?.message || String(error),
-          code: error?.code || null,
-        });
+        // A stale or malformed recovery action must leave no trace at all —
+        // no runtime, provider, desired, audit or broadcast effect.
+        if (!ROLLBACK_SILENT_FAILURE_CODES.has(error?.code)) {
+          this.#publishBestEffort({
+            action: 'upgrade_error',
+            role,
+            model: null,
+            error: error?.message || String(error),
+            code: error?.code || null,
+          });
+        }
         throw error;
       }
     });
@@ -2310,6 +2423,16 @@ export class ModelBindingApplication {
           observedModelName: resolved.name,
           observedDigestSha256: resolved.digestSha256,
         });
+        // Decision 022/A: UX invalidation only. A live panel can drop a stale
+        // warning; the guarantee itself is the transactional CAS, never this
+        // best-effort event.
+        this.#publishBestEffort({
+          action: 'upgrade_verify_cleared',
+          role: operation.role,
+          model: operation.targetModelName,
+          operationId: operation.operationId,
+          committedBindingRevision: operation.committedBindingRevision,
+        });
         return { ok: true };
       } catch (error) {
         if (probeCompleted) throw error;
@@ -2324,15 +2447,21 @@ export class ModelBindingApplication {
     }
     if (!this.#isCurrentOperation(operation)) return { ok: false, stale: true };
     const state = this.repository.getBindingApplicationState(operation.operationId);
-    this.repository.recordManualVerificationFailed({
+    const recorded = this.repository.recordManualVerificationFailed({
       operationId: operation.operationId,
       expectedAttemptRevision: state.attemptRevision,
       failureCode: verificationFailureCode(lastError),
     });
+    // Decision 022/A: the warning carries the exact operation identity, so an
+    // actionable rollback can be bound to this failure and nothing newer. The
+    // addition is additive — an older client ignores the unknown fields.
     this.#publishBestEffort({
       action: 'upgrade_verify_failed',
       role: operation.role,
       model: operation.targetModelName,
+      operationId: operation.operationId,
+      committedBindingRevision: operation.committedBindingRevision,
+      failedAttemptRevision: recorded.attempt.attemptRevision,
       text: `Varování: ${operation.targetModelName} neprošel exact probe po ${attempts} pokusech. Zvažte rollback.`,
     });
     return { ok: false, error: lastError };

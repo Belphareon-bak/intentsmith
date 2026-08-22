@@ -481,6 +481,23 @@ function latestOperation(repository, role = 'CHAT') {
 
 suite('M1 model binding application — one truthful commit point');
 
+// Decision 022/A: rollback is bound to an exact operation. Tests whose subject
+// is not the recovery identity derive the current one; tests that exercise the
+// missing-override paths pass a syntactically valid identity that cannot match.
+function currentRollbackIdentity(repository, role = 'CHAT') {
+  const effective = repository.getEffectiveBinding(role);
+  const operation = effective?.operation || effective?.pendingOperation || null;
+  const state = operation
+    ? repository.getBindingApplicationState(operation.operationId)
+    : null;
+  return {
+    role,
+    operationId: operation?.operationId || 'absent-rollback-operation-id',
+    committedBindingRevision: state?.committedBindingRevision || 1,
+    failedAttemptRevision: state?.attemptRevision || 1,
+  };
+}
+
 await testAsync('delete protection exposes current desired and one-step rollback identities', async () => {
   await withFixture(async ({ application }) => {
     const before = application.getProtectedModelNames();
@@ -1572,7 +1589,7 @@ await testAsync('startup proposal repair failure never fabricates a runtime fail
 });
 
 await testAsync('rollback expires proposals without inventing an approval', async () => {
-  await withFixture(async ({ db, application }) => {
+  await withFixture(async ({ db, repository, application }) => {
     const applied = await application.applyManualBinding({
       role: 'CHAT',
       targetModel: 'fixture-target',
@@ -1588,7 +1605,7 @@ await testAsync('rollback expires proposals without inventing an approval', asyn
     insert.run('fixture-base', 99, '2026-08-09 05:00:00');
     insert.run('fixture-other', 90, '2026-08-09 04:00:00');
 
-    await application.rollbackManualBinding({ role: 'CHAT' });
+    await application.rollbackManualBinding(currentRollbackIdentity(repository));
     await application.awaitBackgroundWork();
     const rows = db.prepare(`SELECT status FROM upgrade_proposals ORDER BY id`).all();
     assertEqual(rows.filter(row => row.status === 'approved').length, 0);
@@ -2939,7 +2956,7 @@ await testAsync('non-retryable apply requires explicit rollback before a replace
     assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, before.runtime);
     assertEqual(JSON.stringify(repository.getDesired('CHAT')), before.desired);
 
-    await application.rollbackManualBinding({ role: 'CHAT' });
+    await application.rollbackManualBinding(currentRollbackIdentity(repository));
     const replacement = await application.applyManualBinding({
       role: 'CHAT',
       targetModel: 'fixture-other',
@@ -2977,7 +2994,7 @@ await testAsync('same canonical retries get a new truthful receipt after explici
     }));
     assertEqual(blocked.code, 'MODEL_BINDING_APPLICATION_NONRETRYABLE_TERMINAL');
     assertEqual(count(db, 'model_binding_operations'), 1);
-    await application.rollbackManualBinding({ role: 'CHAT' });
+    await application.rollbackManualBinding(currentRollbackIdentity(repository));
     const changedDigest = await application.beginManualBinding({
       role: 'CHAT',
       targetModel: 'fixture-target:latest',
@@ -3020,7 +3037,7 @@ await testAsync('same canonical retries get a new truthful receipt after explici
     }));
     assertEqual(blocked.code, 'MODEL_BINDING_APPLICATION_NONRETRYABLE_TERMINAL');
     assertEqual(count(db, 'model_binding_operations'), 1);
-    await application.rollbackManualBinding({ role: 'CHAT' });
+    await application.rollbackManualBinding(currentRollbackIdentity(repository));
     const sameDigest = await application.beginManualBinding({
       role: 'CHAT',
       targetModel: 'fixture-target',
@@ -3165,7 +3182,7 @@ await testAsync('guard-rejected rollback retries the same durable reversal after
       reason: blocked ? 'fixture temporary rollback guard' : null,
     });
 
-    const first = await captureError(application.rollbackManualBinding({ role: 'CHAT' }));
+    const first = await captureError(application.rollbackManualBinding(currentRollbackIdentity(repository)));
     assertEqual(first.code, 'MODEL_BINDING_RUNTIME_GUARD_REJECTED');
     const reversal = latestOperation(repository);
     assertEqual(reversal.kind, 'USER_ROLLBACK');
@@ -3173,7 +3190,7 @@ await testAsync('guard-rejected rollback retries the same durable reversal after
     assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-target');
 
     blocked = false;
-    const retry = await application.rollbackManualBinding({ role: 'CHAT' });
+    const retry = await application.rollbackManualBinding(currentRollbackIdentity(repository));
     await application.awaitBackgroundWork();
     assertEqual(retry.operationId, reversal.operationId);
     assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-base');
@@ -3318,7 +3335,7 @@ await testAsync('rollback is append-only and restores the exact previous artifac
       targetModel: 'fixture-target',
     });
     await application.awaitBackgroundWork();
-    const rolledBack = await application.rollbackManualBinding({ role: 'CHAT' });
+    const rolledBack = await application.rollbackManualBinding(currentRollbackIdentity(repository));
     await application.awaitBackgroundWork();
     assertEqual(rolledBack.from, 'fixture-target');
     assertEqual(rolledBack.to, 'fixture-base');
@@ -3334,7 +3351,7 @@ await testAsync('rollback is append-only and restores the exact previous artifac
 });
 
 await testAsync('runtime no-op rollback advances binding notification revision without DB history', async () => {
-  await withFixture(async ({ db, manager, provider, events, application }) => {
+  await withFixture(async ({ db, repository, manager, provider, events, application }) => {
     provider.afterEnsure = resolved => {
       if (resolved.name === 'fixture-target') {
         provider.models.set('fixture-target', model('fixture-target', DIGEST_C));
@@ -3345,7 +3362,7 @@ await testAsync('runtime no-op rollback advances binding notification revision w
       targetModel: 'fixture-target',
     }));
     provider.models.set('fixture-target', model('fixture-target', DIGEST_B));
-    const rollback = await application.rollbackManualBinding({ role: 'CHAT' });
+    const rollback = await application.rollbackManualBinding(currentRollbackIdentity(repository));
     await application.awaitBackgroundWork();
     assertEqual(rollback.to, 'fixture-base');
     assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-base');
@@ -3360,8 +3377,8 @@ await testAsync('runtime no-op rollback advances binding notification revision w
 });
 
 await testAsync('rollback preserves no-override 404 and isolates legacy rebind 409', async () => {
-  await withFixture(async ({ db, application }) => {
-    const missing = await captureError(application.rollbackManualBinding({ role: 'CHAT' }));
+  await withFixture(async ({ db, repository, application }) => {
+    const missing = await captureError(application.rollbackManualBinding(currentRollbackIdentity(repository)));
     assertEqual(missing.code, 'MODEL_BINDING_OVERRIDE_NOT_FOUND');
     assertEqual(missing.httpStatus, 404);
     assert(/No override found/.test(missing.message));
@@ -3374,7 +3391,7 @@ await testAsync('rollback preserves no-override 404 and isolates legacy rebind 4
       ) VALUES ('CHAT', 'fixture-target', 'fixture-base', 'user', 0,
         NULL, NULL, NULL, 'LEGACY_UNVERIFIED')
     `).run();
-    const legacy = await captureError(application.rollbackManualBinding({ role: 'CHAT' }));
+    const legacy = await captureError(application.rollbackManualBinding(currentRollbackIdentity(repository)));
     assertEqual(legacy.code, 'MODEL_BINDING_LEGACY_ROLLBACK_REQUIRES_REBIND');
     assertEqual(legacy.httpStatus, 409);
   });
@@ -4757,7 +4774,12 @@ await testAsync('HTTP and chat adapters have equal durable pull/apply truth', as
 
     if (source === 'HTTP') {
       const responseCount = responses.length;
-      requestBody = { role: 'CHAT', force: true, skipVerify: true };
+      // Decision 022/A: the HTTP recovery surface carries the exact operation
+      // identity; {role} alone is no longer an actionable rollback.
+      requestBody = {
+        role: 'CHAT',
+        ...currentRollbackIdentity(repository),
+      };
       await httpRoutes['POST /api/system/upgrades/rollback']({}, {});
       await application.awaitBackgroundWork();
       assertEqual(responses[responseCount].status, 200);
@@ -5273,5 +5295,245 @@ await testAsync('source call graph has no production reference to legacy binding
   assert(!application.includes('model_binding_proofs'), 'manual application must not issue proof');
   assert(!application.includes('claimOperation('), 'manual application must not consume failover claims');
 });
+
+// ── Decision 022/A — operation-bound recovery ──────────────────────────────
+//
+// The warning names an exact operation and the rollback must land on that
+// operation and nothing newer. These are the mandatory negative tests of the
+// decision: reverify before the click, a newer different target, a replayed
+// event, a mutated identity member, a double click and role-only.
+
+suite('M1 rollback — decision 022/A operation-bound recovery');
+
+async function failedVerification({ application, repository, provider }) {
+  provider.verifyError = new ModelBindingApplicationError(
+    'MODEL_BINDING_VERIFICATION_REJECTED',
+    'fixture probe rejected',
+  );
+  const applied = await application.applyManualBinding({
+    role: 'CHAT',
+    targetModel: 'fixture-target',
+  });
+  await application.awaitBackgroundWork();
+  const state = repository.getBindingApplicationState(applied.operationId);
+  return {
+    operationId: applied.operationId,
+    identity: {
+      role: 'CHAT',
+      operationId: applied.operationId,
+      committedBindingRevision: state.committedBindingRevision,
+      failedAttemptRevision: state.attemptRevision,
+    },
+  };
+}
+
+function effectCensus(db, manager, provider, events) {
+  return {
+    operations: count(db, 'model_binding_operations'),
+    attempts: count(db, 'model_binding_application_attempts'),
+    history: count(db, 'upgrade_history'),
+    desired: JSON.stringify(count(db, 'model_desired_bindings')),
+    runtime: manager.createBindingRuntimePort().snapshot('CHAT').modelName,
+    providerResolve: provider.calls.resolve,
+    events: events.length,
+  };
+}
+
+await testAsync('the failure warning carries the exact operation identity', async () => {
+  await withFixture(async ({ repository, provider, events, application }) => {
+    const { operationId } = await failedVerification({ application, repository, provider });
+    const state = repository.getBindingApplicationState(operationId);
+    const warning = events.filter(event => event.action === 'upgrade_verify_failed').at(-1);
+
+    assertEqual(warning.operationId, operationId);
+    assertEqual(warning.committedBindingRevision, state.committedBindingRevision);
+    assertEqual(warning.failedAttemptRevision, state.attemptRevision);
+    assert(typeof warning.text === 'string', 'the human warning survives unchanged');
+  });
+});
+
+await testAsync('a rollback bound to the failed operation is accepted', async () => {
+  await withFixture(async ({ repository, provider, application, manager }) => {
+    const { identity } = await failedVerification({ application, repository, provider });
+    const result = await application.rollbackManualBinding(identity);
+    await application.awaitBackgroundWork();
+
+    assertEqual(result.ok, true);
+    assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-base');
+  });
+});
+
+await testAsync('a same-target reverify before the click makes the rollback stale', async () => {
+  await withFixture(async ({ db, repository, manager, provider, events, application }) => {
+    const { identity } = await failedVerification({ application, repository, provider });
+
+    // The exact race: the user still sees the warning, but a successful
+    // revalidation of the same target has already landed.
+    provider.verifyError = null;
+    await application.applyManualBinding({ role: 'CHAT', targetModel: 'fixture-target:latest' });
+    await application.awaitBackgroundWork();
+    const before = effectCensus(db, manager, provider, events);
+
+    const stale = await captureError(application.rollbackManualBinding(identity));
+    assertEqual(stale.code, 'MODEL_BINDING_ROLLBACK_STALE_OPERATION');
+    assertEqual(stale.httpStatus, 409);
+    assertEqual(
+      JSON.stringify(effectCensus(db, manager, provider, events)),
+      JSON.stringify(before),
+      'a stale rollback leaves no runtime, provider, desired, audit or broadcast trace',
+    );
+  });
+});
+
+await testAsync('a newer different-target apply makes the click stale', async () => {
+  await withFixture(async ({ db, repository, manager, provider, events, application }) => {
+    const { identity } = await failedVerification({ application, repository, provider });
+
+    provider.verifyError = null;
+    await application.applyManualBinding({ role: 'CHAT', targetModel: 'fixture-other' });
+    await application.awaitBackgroundWork();
+    const before = effectCensus(db, manager, provider, events);
+
+    const stale = await captureError(application.rollbackManualBinding(identity));
+    assertEqual(stale.code, 'MODEL_BINDING_ROLLBACK_STALE_OPERATION');
+    assertEqual(stale.httpStatus, 409);
+    assertEqual(
+      JSON.stringify(effectCensus(db, manager, provider, events)),
+      JSON.stringify(before),
+      'the lost model_changed notification cannot turn into a wrong rollback',
+    );
+  });
+});
+
+await testAsync('each identity member is load-bearing on its own', async () => {
+  await withFixture(async ({ repository, provider, application }) => {
+    const { identity } = await failedVerification({ application, repository, provider });
+
+    const wrongOperation = await captureError(application.rollbackManualBinding({
+      ...identity,
+      operationId: `${identity.operationId.slice(0, -1)}${identity.operationId.endsWith('a') ? 'b' : 'a'}`,
+    }));
+    assertEqual(wrongOperation.code, 'MODEL_BINDING_ROLLBACK_STALE_OPERATION');
+
+    const wrongRevision = await captureError(application.rollbackManualBinding({
+      ...identity,
+      committedBindingRevision: identity.committedBindingRevision + 1,
+    }));
+    assertEqual(wrongRevision.code, 'MODEL_BINDING_ROLLBACK_STALE_OPERATION');
+
+    const wrongAttempt = await captureError(application.rollbackManualBinding({
+      ...identity,
+      failedAttemptRevision: identity.failedAttemptRevision + 1,
+    }));
+    assertEqual(wrongAttempt.code, 'MODEL_BINDING_ROLLBACK_STALE_OPERATION');
+
+    // And with every member intact the same request is accepted.
+    assertEqual((await application.rollbackManualBinding(identity)).ok, true);
+  });
+});
+
+await testAsync('a replayed old failure event cannot roll back a later operation', async () => {
+  await withFixture(async ({ repository, provider, application }) => {
+    const first = await failedVerification({ application, repository, provider });
+    await application.rollbackManualBinding(first.identity);
+    await application.awaitBackgroundWork();
+
+    // The panel replays the warning it still has on screen.
+    const replayed = await captureError(application.rollbackManualBinding(first.identity));
+    assertEqual(replayed.code, 'MODEL_BINDING_ROLLBACK_STALE_OPERATION');
+    assertEqual(replayed.httpStatus, 409);
+  });
+});
+
+await testAsync('a double click cannot roll back twice', async () => {
+  await withFixture(async ({ db, repository, provider, application }) => {
+    const { identity } = await failedVerification({ application, repository, provider });
+    const both = await Promise.allSettled([
+      application.rollbackManualBinding(identity),
+      application.rollbackManualBinding(identity),
+    ]);
+    await application.awaitBackgroundWork();
+
+    const accepted = both.filter(outcome => outcome.status === 'fulfilled');
+    const refused = both.filter(outcome => outcome.status === 'rejected');
+    assertEqual(accepted.length, 1, 'exactly one click won');
+    assertEqual(refused.length, 1, 'the second click was refused, not silently repeated');
+    assertEqual(
+      count(db, 'model_binding_operations'),
+      2,
+      'one apply and exactly one rollback exist',
+    );
+  });
+});
+
+await testAsync('role-only rollback is rejected without touching authority', async () => {
+  await withFixture(async ({ db, repository, manager, provider, events, application }) => {
+    await failedVerification({ application, repository, provider });
+    const before = effectCensus(db, manager, provider, events);
+
+    const roleOnly = await captureError(application.rollbackManualBinding({ role: 'CHAT' }));
+    assertEqual(roleOnly.code, 'MODEL_BINDING_ROLLBACK_IDENTITY_INVALID');
+    assertEqual(roleOnly.httpStatus, 400);
+    assertEqual(
+      JSON.stringify(effectCensus(db, manager, provider, events)),
+      JSON.stringify(before),
+      'a malformed recovery request leaves no trace at all',
+    );
+  });
+});
+
+await testAsync('verification success emits a bounded clear event that is UX only', async () => {
+  await withFixture(async ({ repository, events, application }) => {
+    const applied = await application.applyManualBinding({
+      role: 'CHAT',
+      targetModel: 'fixture-target',
+    });
+    await application.awaitBackgroundWork();
+    const cleared = events.filter(event => event.action === 'upgrade_verify_cleared').at(-1);
+
+    assertEqual(cleared.operationId, applied.operationId);
+    assertEqual(
+      cleared.committedBindingRevision,
+      repository.getBindingApplicationState(applied.operationId).committedBindingRevision,
+    );
+    assertEqual(cleared.role, 'CHAT');
+  });
+});
+
+
+await testAsync('a reverify landing between the precheck and the write is still refused', async () => {
+  // This is why an application precheck alone is not the authority: the
+  // background reverify runs outside the clicking request and can land during
+  // the provider resolve that the rollback awaits. Only the transactional CAS
+  // sees it.
+  await withFixture(async ({ db, repository, manager, provider, events, application }) => {
+    const { identity } = await failedVerification({ application, repository, provider });
+    provider.verifyError = null;
+
+    let raced = false;
+    provider.beforeResolve = () => {
+      if (raced) return;
+      raced = true;
+      const state = repository.getBindingApplicationState(identity.operationId);
+      repository.recordManualVerificationSucceeded({
+        operationId: identity.operationId,
+        expectedAttemptRevision: state.attemptRevision,
+        observedModelName: 'fixture-target',
+        observedDigestSha256: DIGEST_B,
+      });
+    };
+
+    const before = effectCensus(db, manager, provider, events);
+    const stale = await captureError(application.rollbackManualBinding(identity));
+    assert(raced, 'the reverify really did land inside the click');
+    assertEqual(stale.code, 'MODEL_FAILOVER_ROLLBACK_ATTEMPT_STALE');
+
+    const after = effectCensus(db, manager, provider, events);
+    assertEqual(after.operations, before.operations, 'no rollback operation was recorded');
+    assertEqual(after.history, before.history, 'no upgrade history was written');
+    assertEqual(after.runtime, before.runtime, 'the runtime binding did not move');
+  });
+});
+
 
 summary();
