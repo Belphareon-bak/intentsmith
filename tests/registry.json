@@ -8379,10 +8379,10 @@
       },
       "required": true,
       "owner": "primary implementer",
-      "state": "BLOCKED",
+      "state": "ACTIVE",
       "lastGreen": {
-        "commit": null,
-        "artifact": null
+        "commit": "c35e47bb48883e2ac88682a393d971e63e72db83",
+        "artifact": "studio-electron-boundary.json"
       },
       "flakeCount": 0,
       "quarantineExpiry": null
