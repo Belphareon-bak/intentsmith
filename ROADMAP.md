@@ -950,6 +950,13 @@ fronta z §13.
 
 ### L3 cíle a exit
 
+**Změřeno 2026-08-22 na `8310b821`**, sériově proti živému serveru — detail
+v [`docs/execution/runs/m1-l3-measurement-20260822.md`](docs/execution/runs/m1-l3-measurement-20260822.md):
+deterministika p50 `2,77 ms` / p95 `31,6 ms` (12/12 klasifikováno `LOCAL`),
+modelový chat cold `64,1 s`, warm p50 `30,1 s` / p95 `35,9 s`, throughput
+`1,96 turnu/min`, nula provider errors. **Refinement delta zůstává nezměřená** —
+spouští se jen pro syntetizované odpovědi, takže patří do B5 s fixním corpusem.
+
 - p95 deterministické odpovědi pod **100 ms** na referenčním stroji;
 - warm/cold whole-response latence se změří odděleně; pokud operátor přijme
   streaming do scope M1, změří se i time-to-first-token a schválí jeho budget;

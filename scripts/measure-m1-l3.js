@@ -39,12 +39,15 @@ function summarize(values) {
   };
 }
 
+const CONVERSATION_ID = process.env.M1_L3_CONVERSATION
+  || `m1-l3-${Date.now().toString(36)}`;
+
 async function chatOnce(message, extra = {}) {
   const started = process.hrtime.bigint();
   const response = await fetch(`${BASE}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, ...extra }),
+    body: JSON.stringify({ conversation_id: CONVERSATION_ID, message, ...extra }),
     signal: AbortSignal.timeout(300_000),
   });
   const body = await response.json().catch(() => null);
@@ -84,12 +87,16 @@ async function main() {
       report.notes.push(`deterministic request ${index} returned ${result.status}`);
       continue;
     }
-    if (result.body?.classifiedBy === 'deterministic'
-      || result.body?.localComputation === true) {
+    // The product reports the classification under metadata, not at the top
+    // level. Counting it matters: a p95 that silently included a model call
+    // would not be a deterministic p95 at all.
+    if (result.body?.metadata?.decision?.type === 'LOCAL'
+      || result.body?.metadata?.localComputation === true) {
       deterministicClassified += 1;
     }
     deterministicMs.push(result.elapsedMs);
   }
+  report.conversationId = CONVERSATION_ID;
   report.deterministic = {
     ...summarize(deterministicMs),
     classifiedDeterministic: deterministicClassified,
@@ -133,6 +140,9 @@ async function main() {
     throughputTurnsPerMinute: warmSummary
       ? Number((60_000 / warmSummary.meanMs).toFixed(2))
       : null,
+    // Refinement only fires for synthesized answers below the quality
+    // threshold, so plain conversational turns legitimately observe zero. The
+    // delta belongs to WP-M1-QUALITY, which runs a fixed A/B corpus.
     refinement: {
       observedTurns: refinement.observed,
       refinedTurns: refinement.improved,
@@ -147,6 +157,12 @@ async function main() {
   writeFileSync(out, `${JSON.stringify(report, null, 2)}\n`);
   console.log(JSON.stringify(report, null, 2));
   console.log(`\nreport: ${out}`);
+
+  // A run that measured nothing is a failed measurement, not a green one.
+  if (deterministicMs.length === 0 || warmMs.length === 0) {
+    console.error('MEASUREMENT_INCOMPLETE: no usable samples');
+    process.exitCode = 1;
+  }
 }
 
 main().catch((error) => {
