@@ -46,20 +46,15 @@ const CLI_FIELDS = Object.freeze({
   '--role': 'role',
   '--proposed-model-name': 'proposedModelName',
 });
-const CANDIDATE_SOURCE_PATHS = Object.freeze([
+const CANDIDATE_SOURCE_EVIDENCE_PATHS = Object.freeze([
   'package.json',
   'scripts/run-model-failover-candidate-measurement.js',
+]);
+const CANDIDATE_RUNTIME_ENTRY_PATHS = Object.freeze([
   'scripts/run-model-failover-measurement.js',
   'src/config.js',
-  'src/core/logger.js',
-  'src/db/model-policy.js',
-  'src/db/user-settings.js',
-  'src/timeout-policy.js',
-  'src/upgrade/model-failover-proof-policy.js',
-  'src/upgrade/model-failover.js',
   'src/upgrade/model-identity.js',
-  'src/upgrade/model-profiles.js',
-  'src/upgrade/validation-suites.js',
+  'src/upgrade/model-failover-proof-policy.js',
 ]);
 const CHILD_SUMMARY_KEYS = Object.freeze([
   'schemaVersion',
@@ -261,6 +256,78 @@ function gitBytes(args, cwd) {
   }
 }
 
+function localModuleSpecifiers(source) {
+  const specifiers = new Set();
+  const patterns = [
+    /\b(?:import|export)\s+(?:[^;]*?\s+from\s+)?(['"])(\.{1,2}\/[^'"\n]+)\1/g,
+    /\bimport\s*\(\s*(['"])(\.{1,2}\/[^'"\n]+)\1\s*\)/g,
+  ];
+  for (const pattern of patterns) {
+    for (const match of source.matchAll(pattern)) specifiers.add(match[2]);
+  }
+  return [...specifiers].sort();
+}
+
+function resolveTrackedModule(importer, specifier, trackedPaths) {
+  const resolved = path.posix.normalize(path.posix.join(path.posix.dirname(importer), specifier));
+  if (resolved === '..' || resolved.startsWith('../') || path.posix.isAbsolute(resolved)) {
+    fail(
+      'MODEL_CANDIDATE_MEASUREMENT_SOURCE_CLOSURE_INVALID',
+      `Candidate import escapes the repository: ${importer} -> ${specifier}`,
+    );
+  }
+  if (!trackedPaths.has(resolved)) {
+    fail(
+      'MODEL_CANDIDATE_MEASUREMENT_SOURCE_UNTRACKED',
+      `Candidate import is not one tracked HEAD blob: ${importer} -> ${resolved}`,
+    );
+  }
+  return resolved;
+}
+
+export function deriveCandidateSourcePaths(sourceRoot, revision) {
+  if (!REVISION_PATTERN.test(revision)) {
+    fail(
+      'MODEL_CANDIDATE_MEASUREMENT_SOURCE_REVISION_INVALID',
+      'Candidate source closure requires a full lowercase Git revision',
+    );
+  }
+  const trackedPaths = new Set(git([
+    'ls-tree',
+    '-r',
+    '--name-only',
+    revision,
+    '--',
+    'package.json',
+    'scripts',
+    'src',
+  ], sourceRoot).split('\n').filter(Boolean));
+  const roots = [...CANDIDATE_SOURCE_EVIDENCE_PATHS, ...CANDIDATE_RUNTIME_ENTRY_PATHS];
+  for (const relativePath of roots) {
+    if (!trackedPaths.has(relativePath)) {
+      fail(
+        'MODEL_CANDIDATE_MEASUREMENT_SOURCE_UNTRACKED',
+        `Candidate source entry is not tracked at HEAD: ${relativePath}`,
+      );
+    }
+  }
+
+  const closure = new Set(roots);
+  const queue = [...CANDIDATE_RUNTIME_ENTRY_PATHS].sort();
+  while (queue.length > 0) {
+    const importer = queue.shift();
+    const source = gitBytes(['show', `${revision}:${importer}`], sourceRoot).toString('utf8');
+    for (const specifier of localModuleSpecifiers(source)) {
+      const resolved = resolveTrackedModule(importer, specifier, trackedPaths);
+      if (closure.has(resolved)) continue;
+      closure.add(resolved);
+      if (/\.[cm]?js$/i.test(resolved)) queue.push(resolved);
+    }
+    queue.sort();
+  }
+  return Object.freeze([...closure].sort());
+}
+
 async function requireCanonicalSourceRoot(requestedRoot) {
   const requested = await realpath(requestedRoot);
   const discovered = await realpath(git(['rev-parse', '--show-toplevel'], requested));
@@ -281,15 +348,7 @@ function sourceState(sourceRoot) {
       'Candidate revision must be a full lowercase Git SHA',
     );
   }
-  try {
-    git(['ls-files', '--error-unmatch', '--', ...CANDIDATE_SOURCE_PATHS], sourceRoot);
-  } catch (error) {
-    throw new ModelFailoverCandidateMeasurementError(
-      'MODEL_CANDIDATE_MEASUREMENT_SOURCE_UNTRACKED',
-      'Candidate measurement source closure is not fully tracked at HEAD',
-      { cause: error },
-    );
-  }
+  const sourcePaths = deriveCandidateSourcePaths(sourceRoot, revision);
   const porcelain = git([
     'status',
     '--porcelain=v1',
@@ -305,6 +364,7 @@ function sourceState(sourceRoot) {
     revision,
     clean: porcelain === '',
     dirtyEntryCount: porcelain === '' ? 0 : porcelain.split('\n').length,
+    sourcePaths,
   });
 }
 
@@ -448,9 +508,9 @@ async function writeExportedSourceFile(sourceRoot, exportRoot, revision, relativ
   });
 }
 
-async function createCandidateSourceExport(sourceRoot, exportRoot, revision) {
+async function createCandidateSourceExport(sourceRoot, exportRoot, revision, sourcePaths) {
   const entries = [];
-  for (const relativePath of CANDIDATE_SOURCE_PATHS) {
+  for (const relativePath of sourcePaths) {
     entries.push(await writeExportedSourceFile(sourceRoot, exportRoot, revision, relativePath));
   }
   await mkdir(path.join(exportRoot, '.intentsmith-artifacts'), { mode: 0o700 });
@@ -1243,6 +1303,7 @@ export async function runModelFailoverCandidateMeasurement(inputValue) {
     sourceRoot,
     run.sourceExportRoot,
     beforeSource.revision,
+    beforeSource.sourcePaths,
   );
   await validateCandidateSourceExport(run.sourceExportRoot, sourceManifest);
   await createChildArtifactRoot(run.childArtifactRoot);

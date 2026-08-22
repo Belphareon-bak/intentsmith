@@ -31,6 +31,7 @@ import {
 import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 import {
   ModelFailoverCandidateMeasurementError,
+  deriveCandidateSourcePaths,
   parseModelFailoverMeasurementChildSummary,
   validateModelFailoverCandidateAcceptance,
   validateModelFailoverMeasurementChildResult,
@@ -352,7 +353,7 @@ test('parent CLI accepts only role and proposed model while config owns provider
   assertIncludes(source, "const GIT_BINARY = '/usr/bin/git'");
   const parentCliFields = source.slice(
     source.indexOf('const CLI_FIELDS'),
-    source.indexOf('const CANDIDATE_SOURCE_PATHS'),
+    source.indexOf('const CANDIDATE_SOURCE_EVIDENCE_PATHS'),
   );
   assert(!parentCliFields.includes('digest'), 'Parent CLI must not accept a digest');
   assert(!parentCliFields.includes('provider'), 'Parent CLI must not accept provider authority');
@@ -363,6 +364,8 @@ test('parent CLI accepts only role and proposed model while config owns provider
   assertIncludes(source, "'package.json',");
   assertIncludes(source, "'--ignored=matching'");
   assertIncludes(source, 'scripts/run-model-failover-candidate-measurement.js');
+  assertIncludes(source, 'deriveCandidateSourcePaths(sourceRoot, revision)');
+  assert(!source.includes('const CANDIDATE_SOURCE_PATHS'), 'Manual source closure must stay removed');
   assertIncludes(source, 'expectedAcceptanceAuthority');
   assertIncludes(source, 'await validateModelFailoverCandidateAcceptance(');
   const childSpawn = source.slice(
@@ -392,6 +395,32 @@ test('parent CLI accepts only role and proposed model while config owns provider
       < source.indexOf('await loadParentAuthorities(run.sourceExportRoot)'),
     'Product authorities must load only after candidate cleanliness is accepted',
   );
+});
+
+await testAsync('candidate source export follows the tracked transitive import closure', async () => {
+  const cloneRoot = await createCommittedCandidateClone('source-closure');
+  const importedPath = path.join(cloneRoot, 'src/closure-fixture.js');
+  await writeFile(importedPath, 'export const closureFixture = true;\n', { mode: 0o600 });
+  await appendFile(path.join(cloneRoot, 'src/config.js'), "\nimport './closure-fixture.js';\n");
+  execFileSync('git', ['add', '--', 'src/config.js', 'src/closure-fixture.js'], {
+    cwd: cloneRoot,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  execFileSync('git', [
+    '-c', 'user.name=IntentSmith Test',
+    '-c', 'user.email=intentsmith-test@invalid.local',
+    'commit', '--quiet', '-m', 'fixture: extend candidate import closure',
+  ], { cwd: cloneRoot, stdio: ['ignore', 'pipe', 'pipe'] });
+  const revision = execFileSync('git', ['rev-parse', 'HEAD'], {
+    cwd: cloneRoot,
+    encoding: 'utf8',
+  }).trim();
+  const sourcePaths = deriveCandidateSourcePaths(cloneRoot, revision);
+  assert(sourcePaths.includes('src/closure-fixture.js'));
+  assert(sourcePaths.includes('src/db/model-policy.js'));
+  assert(!sourcePaths.includes('src/db/user-settings.js'));
+  assertEqual(sourcePaths.length, new Set(sourcePaths).size);
+  assertEqual(JSON.stringify(sourcePaths), JSON.stringify([...sourcePaths].sort()));
 });
 
 test('child summary parser rejects every non-authoritative process outcome', () => {
