@@ -23,6 +23,12 @@ import {
   filterCandidates,
 } from '../src/upgrade/upgrade-manager.js';
 import { createSystemRoutes } from '../src/routes/system.js';
+import { up as installAutomationPolicy } from '../src/db/migrations/2026_08_22_066_model_automation_policy.js';
+import {
+  POLICY_SOURCE,
+  readModelAutomationPolicy,
+  updateModelAutomationPolicy,
+} from '../src/db/model-policy.js';
 
 const originalFetch = globalThis.fetch;
 const originalBindings = { ...config.models };
@@ -75,6 +81,9 @@ function createTestDb() {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+  // Decision 020/E: the automation policy lives in its own storage; this
+  // hand-built fixture installs it the same way the migration does.
+  installAutomationPolicy(db);
   return db;
 }
 
@@ -419,12 +428,28 @@ await testAsync('overview joins binding, newest validation alias, and aggregate 
   }
 });
 
-await testAsync('overview and scheduler consume only authoritative JSON model settings', async () => {
+await testAsync('overview and scheduler consume only the authoritative policy storage', async () => {
   const db = createTestDb();
   try {
+    // Decision 020/E: the settings blob is no longer the authority. A value
+    // written there must not reach the scheduler at all.
     db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run(JSON.stringify({
       models: { autoCleanupEnabled: true, autoCleanupDays: 30 },
     }));
+    const registryIgnoringBlob = createRegistry(db);
+    registryIgnoringBlob.getInstalled = async () => [];
+    assertEqual(
+      JSON.stringify((await registryIgnoringBlob.getOverview()).autoCleanup),
+      JSON.stringify({ enabled: false, days: 14 }),
+      'the legacy blob cannot enable cleanup',
+    );
+
+    updateModelAutomationPolicy(db, {
+      values: { autoCleanupEnabled: true, autoCleanupDays: 30 },
+      expectedRevision: readModelAutomationPolicy(db).revision,
+      actor: 'user:test',
+      source: POLICY_SOURCE.TYPED_ROUTE,
+    });
     const registry = createRegistry(db);
     registry.getInstalled = async () => [];
     const enabled = await registry.getOverview();
@@ -440,7 +465,9 @@ await testAsync('overview and scheduler consume only authoritative JSON model se
     assertEqual(configured.days, 30);
     assertEqual(JSON.stringify(cleanupCalls), JSON.stringify([30]));
 
-    db.prepare('UPDATE user_settings SET data = ? WHERE id = 1').run('{broken');
+    // Corrupting the projection is the equivalent of the old malformed blob.
+    db.exec('DROP TRIGGER trg_model_automation_policy_projection_event_update');
+    db.prepare('UPDATE model_automation_policy SET revision = revision + 1 WHERE id = 1').run();
     registry.invalidateCache();
     const malformed = await registry.getOverview();
     assertEqual(JSON.stringify(malformed.autoCleanup), JSON.stringify({ enabled: false, days: 14 }));

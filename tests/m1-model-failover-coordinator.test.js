@@ -14,6 +14,11 @@ import {
 } from './harness.js';
 import { runMigrations } from '../src/db/migrate.js';
 import {
+  POLICY_SOURCE,
+  readModelAutomationPolicy,
+  updateModelAutomationPolicy,
+} from '../src/db/model-policy.js';
+import {
   readModelSettings,
   updateModelSettings,
 } from '../src/db/user-settings.js';
@@ -127,7 +132,17 @@ function createCoordinator({
   repository,
   provider,
   bindings = ROLE_MODELS,
-  readSettings = () => readModelSettings(db),
+  // Production injects modelRegistry.getModelSettings(), which reads the policy
+  // authority since decision 020/E. The fixture mirrors that shape.
+  readSettings = () => {
+    const state = readModelAutomationPolicy(db);
+    return {
+      status: state.status,
+      valid: state.valid,
+      settings: state.policy,
+      reason: state.reason,
+    };
+  },
   readBindings = () => ({ ...bindings }),
 } = {}) {
   return createModelFailoverDetectionCoordinator({
@@ -157,7 +172,7 @@ function assertRepositoryError(error, code) {
 }
 
 function enableFailover(db) {
-  updateModelSettings(db, { autoFailoverEnabled: true });
+  setFailoverPolicy(db, true);
 }
 
 function countRows(db, table, where = '', params = []) {
@@ -197,29 +212,58 @@ function nextTurn() {
 
 suite('M1 model failover detection coordinator');
 
+// Decision 020/E: the repository's own opt-in gate reads the policy storage,
+// not the settings document. Coordinator-level cases still inject a settings
+// reader; this helper drives the authority the repository actually consults.
+function setFailoverPolicy(db, enabled) {
+  updateModelAutomationPolicy(db, {
+    values: { autoFailoverEnabled: enabled },
+    expectedRevision: readModelAutomationPolicy(db).revision,
+    actor: 'user:coordinator-fixture',
+    source: POLICY_SOURCE.TYPED_ROUTE,
+  });
+}
+
 await testAsync('literal opt-in is checked before inventory or repository effects', async () => {
   await withRuntime(async ({ firstDb }) => {
     const repository = createRepository(firstDb, 'settings');
     const provider = createProvider(installedInventory());
     const cases = [
       {
+        // Decision 020/E: these are the shapes the policy authority returns.
         name: 'missing',
-        prepare: () => firstDb.prepare('DELETE FROM user_settings').run(),
-        readSettings: () => readModelSettings(firstDb),
+        prepare: () => {},
+        readSettings: () => ({
+          status: 'MISSING',
+          valid: false,
+          settings: { autoFailoverEnabled: false },
+          reason: 'MODEL_POLICY_ROW_MISSING',
+        }),
         status: ModelFailoverDetectionStatus.SKIPPED_INVALID_SETTINGS,
       },
       {
         name: 'disabled',
-        prepare: () => updateModelSettings(firstDb, { autoFailoverEnabled: false }),
-        readSettings: () => readModelSettings(firstDb),
+        prepare: () => setFailoverPolicy(firstDb, false),
+        readSettings: () => {
+          const state = readModelAutomationPolicy(firstDb);
+          return {
+            status: state.status,
+            valid: state.valid,
+            settings: state.policy,
+            reason: state.reason,
+          };
+        },
         status: ModelFailoverDetectionStatus.SKIPPED_DISABLED,
       },
       {
         name: 'malformed',
-        prepare: () => firstDb.prepare(`
-          INSERT OR REPLACE INTO user_settings (id, data) VALUES (1, '{bad json')
-        `).run(),
-        readSettings: () => readModelSettings(firstDb),
+        prepare: () => {},
+        readSettings: () => ({
+          status: 'EVENT_MISMATCH',
+          valid: false,
+          settings: { autoFailoverEnabled: false },
+          reason: 'MODEL_POLICY_EVENT_MISMATCH',
+        }),
         status: ModelFailoverDetectionStatus.SKIPPED_INVALID_SETTINGS,
       },
       {
@@ -385,7 +429,7 @@ await testAsync('policy or binding drift during the one inventory snapshot stops
     enableFailover(firstDb);
     const repository = createRepository(firstDb, 'scan-drift');
     const policyProvider = createProvider(() => {
-      updateModelSettings(firstDb, { autoFailoverEnabled: false });
+      setFailoverPolicy(firstDb, false);
       return installedInventory();
     });
     const policyDrift = await createCoordinator({
@@ -426,7 +470,7 @@ await testAsync('repository opt-in check is atomic with seed and detection write
       observeDesiredBinding: input => {
         if (!seedPolicyChanged) {
           seedPolicyChanged = true;
-          updateModelSettings(secondDb, { autoFailoverEnabled: false });
+          setFailoverPolicy(secondDb, false);
         }
         return repository.observeDesiredBinding(input);
       },
@@ -460,7 +504,7 @@ await testAsync('repository opt-in check is atomic with seed and detection write
       recordDetection: input => {
         if (!detectionPolicyChanged) {
           detectionPolicyChanged = true;
-          updateModelSettings(secondDb, { autoFailoverEnabled: false });
+          setFailoverPolicy(secondDb, false);
         }
         return repository.recordDetection(input);
       },

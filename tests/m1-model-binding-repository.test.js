@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { createHash } from 'node:crypto';
 import Database from 'better-sqlite3';
 import { mkdtempSync, rmSync } from 'node:fs';
 import path from 'node:path';
@@ -342,6 +343,20 @@ function claimChat(repository, state, overrides = {}) {
   });
 }
 
+const PROOF_ARTIFACT_SOURCE_REVISION = 'f'.repeat(40);
+
+// Decision 015 (migration 067): a proof cannot exist without its durable
+// content-addressed artifacts, so the fixture writes them first.
+function insertProofArtifactFixture(db, kind, proofId) {
+  const artifactSha256 = createHash('sha256').update(`${kind}:${proofId}`).digest('hex');
+  db.prepare(`
+    INSERT OR IGNORE INTO model_failover_proof_artifacts (
+      artifact_sha256, kind, byte_length, source_revision, created_at_ms
+    ) VALUES (?, ?, 1, ?, 1)
+  `).run(artifactSha256, kind, PROOF_ARTIFACT_SOURCE_REVISION);
+  return artifactSha256;
+}
+
 function insertPassingChatProof(db, {
   proofId = 'proof-binding-repository-0001',
   completedAtMs = 2800,
@@ -357,10 +372,11 @@ function insertPassingChatProof(db, {
       required_passed_count, total_count, duration_ms, result,
       inventory_before_name, inventory_before_digest, inventory_after_name,
       inventory_after_digest, started_at_ms, completed_at_ms, expires_at_ms,
-      created_at_ms
+      created_at_ms, measurement_artifact_sha256, acceptance_artifact_sha256,
+      source_revision
     ) VALUES (?, ?, 'CHAT', 'chat', ?, ?, ?, ?,
       'v123.1', 'd-plus-v1', 1, 0.8, 6, 5, 6, 500, 'PASS',
-      ?, ?, ?, ?, ?, ?, 900000, ?)
+      ?, ?, ?, ?, ?, ?, 900000, ?, ?, ?, ?)
   `).run(
     proofId,
     `${proofId}-run`,
@@ -375,6 +391,9 @@ function insertPassingChatProof(db, {
     completedAtMs - 500,
     completedAtMs,
     completedAtMs,
+    insertProofArtifactFixture(db, 'MEASUREMENT', proofId),
+    insertProofArtifactFixture(db, 'PARENT_ACCEPTANCE', proofId),
+    PROOF_ARTIFACT_SOURCE_REVISION,
   );
 }
 

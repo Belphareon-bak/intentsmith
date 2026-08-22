@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { createHash } from 'node:crypto';
 import Database from 'better-sqlite3';
 import { mkdtempSync, rmSync } from 'node:fs';
 import path from 'node:path';
@@ -296,6 +297,19 @@ function claimDetectedIncident(db) {
   `).run();
 }
 
+const PROOF_ARTIFACT_SOURCE_REVISION = 'f'.repeat(40);
+
+// Decision 015 (migration 067): a proof requires its durable artifacts first.
+function insertProofArtifactFixture(db, kind, proofId) {
+  const artifactSha256 = createHash('sha256').update(`${kind}:${proofId}`).digest('hex');
+  db.prepare(`
+    INSERT OR IGNORE INTO model_failover_proof_artifacts (
+      artifact_sha256, kind, byte_length, source_revision, created_at_ms
+    ) VALUES (?, ?, 1, ?, 1)
+  `).run(artifactSha256, kind, PROOF_ARTIFACT_SOURCE_REVISION);
+  return artifactSha256;
+}
+
 function activateClaimedIncident(db) {
   db.prepare(`
     INSERT INTO model_failover_proofs (
@@ -305,12 +319,18 @@ function activateClaimedIncident(db) {
       required_passed_count, total_count, duration_ms, result,
       inventory_before_name, inventory_before_digest, inventory_after_name,
       inventory_after_digest, started_at_ms, completed_at_ms, expires_at_ms,
-      created_at_ms
+      created_at_ms, measurement_artifact_sha256, acceptance_artifact_sha256,
+      source_revision
     ) VALUES ('proof-incident-0001', 'validation-incident-0001', 'CHAT', 'chat', ?,
       'fallback:latest', 'fallback', ?, 'v123.1', ?, 1, 0.8, 6, 5, 6, 500,
       'PASS', 'fallback:latest', ?, 'fallback:latest', ?, 4200, 4700, 900000,
-      4700)
-  `).run(CONTRACT_DIGEST, DIGEST_B, POLICY_VERSION, DIGEST_B, DIGEST_B);
+      4700, ?, ?, ?)
+  `).run(
+    CONTRACT_DIGEST, DIGEST_B, POLICY_VERSION, DIGEST_B, DIGEST_B,
+    insertProofArtifactFixture(db, 'MEASUREMENT', 'proof-incident-0001'),
+    insertProofArtifactFixture(db, 'PARENT_ACCEPTANCE', 'proof-incident-0001'),
+    PROOF_ARTIFACT_SOURCE_REVISION,
+  );
   db.prepare(`
     INSERT INTO model_failover_events (
       event_id, event_type, role, binding_revision, row_version, episode_id,
