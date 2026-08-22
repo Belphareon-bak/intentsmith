@@ -1325,10 +1325,10 @@ mohou pokračovat.
    schválené a zapsané. **Operátor 2026-08-09 přijal i zbývající pětici
    015/020/021/022/023** — 015 `A + 7d provisional`, 020 `E`, 021
    `B/REJECT/A/B`, 022 `A`, 023 `A` — vždy s korekcemi zapsanými v příslušném
-   dokumentu. Přijetí odemyká implementaci; neodemyká aktivaci. Terminal
-   activation proofu (015), produkční ACK `m1-wire-v1` (021) i globální GPU
-   residency (023, M2) zůstávají mimo tuto dávku, takže B3 a B4 jsou dál
-   pravdivě `BLOCKED` až do svých vlastních důkazů.
+   dokumentu. Přijetí odemklo implementaci, nikoli samo o sobě aktivaci.
+   Terminální activation proofu (015) i produkční ACK `m1-wire-v1` (021) mají
+   od 2026-08-22 vlastní implementační a offline důkazy; globální GPU residency
+   (023, M2) zůstává mimo tuto dávku a Gate 1 stále čeká na fyzický T3 pilot.
 
    **Závazná Gate 1 fronta** v tomto pořadí:
 
@@ -1339,16 +1339,16 @@ mohou pokračovat.
    | 3 | společná rezervace migrací | **HOTOVO** `2013e522` | union census přes všechny větve; `066` = 020, `067` = 015 |
    | 4 | 020 oddělená policy storage | **HOTOVO** `b9731302` | první migrační položka |
    | 5 | 015 proof ↔ artefakty a striktní expiry | **HOTOVO** `6368bd2f` | druhá migrační položka, těží ze stejného census |
-   | 6 | 021 built journey | otevřené | jediná položka vázaná na drahou Studio infrastrukturu |
-   | 7 | autorizovaný GPU pilot | otevřené | sériově, jedna role/digest, jen na akci operátora |
+   | 6 | 021 byte bridge + built journey + produkční ACK | **HOTOVO** `2b6b151b`, `2e33e342`, `241b39ab` | Electron boundary je built a produkční server token pravdivě ACKuje |
+   | 7 | autorizovaný GPU pilot | **BLOCKED prostředím** | cizí aktivní CUDA proces RustDesk; sériově, jedna role/digest, jen v čistém GPU okně |
 
-   **Položky 1–5 uzavřené 2026-08-22.** Deterministický gate na `fbbe1e74`:
+   **Položky 1–6 uzavřené 2026-08-22.** Deterministický gate na `a317da53`:
    `{"PASS":229,"FAIL":3,"BLOCKED":2}`, 234 sad. Všechna tři selhání jsou
    předchozí a prostředím podmíněná (`nightly-audit-runner-self-test`,
    `nightly-orchestrator-self-test`, `vram-coordination`) — shodná s baseline
-   před touto sérií. 015 zůstává rozdělené: vazba proofu na artefakty a
-   striktní expiry hrana jsou hotové, vlastní **issuance, prahy a terminal
-   activation zůstávají blokované**, takže B3 a B4 jsou dál pravdivě `BLOCKED`.
+   před touto sérií. Navazující produkční B3 closeout a jeho focused/fresh-clone
+   evidence jsou popsány níže; plný gate po těchto commitech ani fyzický GPU
+   pilot zatím neproběhly, takže Gate 1 jako celek není PASS.
 
    Levné a bezpečnostní změny se tím dokončí před drahou Studio
    infrastrukturou a obě migrační položky dostanou čísla z jednoho census.
@@ -1374,10 +1374,10 @@ mohou pokračovat.
    zápis. Jsou tím pokryté čtyři z pěti živých cest. VRAM disposition,
    multiprocess claim a durable audit dál drží finding 010 otevřený; 023
    přesně odděluje artifact-use hranu od pozdější GPU effect authority. Sdílený
-   runtime profil nyní
-   omezuje oba gateway vstupy a conversation compaction; neprohlašuje GPU
-   PASS. V jediném worktree po malých commitech následuje nový sériový T3 běh
-   od 4096, potom **B3-FAILOVER**. Settings authority a fail-closed storage
+   runtime profil nyní omezuje oba gateway vstupy a conversation compaction;
+   neprohlašuje GPU PASS. B3-FAILOVER implementace popsaná níže je hotová a
+   nový sériový T3 běh od 4096 zůstává její fyzickou acceptance branou.
+   Settings authority a fail-closed storage
    schema, repository/CAS claim základ a striktní expired-claim recovery jsou
    implementované bez modelového effectu. Recovery je záměrně expire→nový CAS,
    takže jiný worker může legitimně vyhrát; není to atomický same-worker reclaim.
@@ -1424,16 +1424,28 @@ mohou pokračovat.
    produkční kompatibilitě jeden nedělitelný source candidate. Review jednotkou
    je `0a6bde54` spolu s opravným `7c4aa73c`; výsledné SHA `7c4aa73c` prošlo
    čistým lokálním klonem, offline instalací a celou focused/compatibility
-   baterií. Navazující detection-only koordinátor už po opt-inu ukládá exact
-   desired baseline a `DETECTED`, ale nevybírá fallback a nemá claim, proof ani
-   runtime autoritu. Podporovaný opt-in povrch čeká na `CHANGES_REQUIRED`
-   [020](docs/decisions/020-m1-model-failover-opt-in-surface.md) a jeho
-   oddělenou policy storage. Otevřené
-   zůstávají proof issuer a terminal failover activation/restore. Failover se
-   dosud neaktivuje. Proof issuance čeká na potvrzení bootstrapu 015;
-   provizorní 7d TTL je pouze eligibility a doporučená obnova je explicitně
-   operátorská, sériová a bez background GPU jobu. Nový skutečný GPU běh
-   zůstává samostatnou blokovanou evidencí, dokud není legitimně čistý checkout.
+   baterií. Navazující detection-only koordinátor po opt-inu ukládá exact
+   desired baseline a `DETECTED`; podporovaný opt-in povrch a oddělená
+   revisioned policy storage jsou nyní přijaté a implementované podle
+   [020](docs/decisions/020-m1-model-failover-opt-in-surface.md).
+   Navazující closeout aktivoval A-bootstrap/7d policy (`6037c4bc`), přidal
+   atomický operator-only proof issuer (`d87549e4`, `3af419ed`), terminální
+   claim/proof/policy/CAS přechody (`9a61b95a`) a append-only runtime finalize
+   receipt i jednorázový `DEGRADED_PROOF_EXPIRED` health event (`c8ffbccc`).
+   Produkční runtime (`6a231a42`) provádí `ACTIVATE/REAPPLY/RESTORE` přes stejného
+   mutation ownera jako ruční binding a shared model lease; nesmí pull, delete
+   ani proof renewal a po startu obnoví nedokončenou finalizaci. Equality na
+   expiry je negativně připnutá. Measurement parent od `56ff8053` exportuje
+   tranzitivní uzávěru přesných Git HEAD blobů místo ručního seznamu.
+
+   Registrovaný runtime audit na `7ea36580` prošel `8/8` a proof/source-closure
+   audit na `56ff8053` `4/4`. Fresh clone exact
+   `56ff805331b1863faeb441adbbe8dd771410b382` offline nainstaloval 233 balíčků
+   (0 vulnerabilities) a reprodukoval application `6/6`, terminal repository
+   `7/7`, parent acceptance `16/16`, binding `108/108`, migrations `38/38` a
+   ratchet `13/13`. B3 implementace a offline fresh-clone evidence jsou tím
+   hotové, nikoli však fyzicky GPU přijaté: T3 pilot blokuje cizí aktivní CUDA
+   proces RustDesk. Syntetické proof fixture nejsou produkční measurement proof.
 7. B4 má focused implementované 011/A, obě poloviny 014/A a obě poloviny
    012/B: bounded request
    ID/set, úplný partition, typed reject, explicitní durable-store autoritu,
@@ -1444,10 +1456,10 @@ mohou pokračovat.
    Generated prebuild část 010/A+ je implementovaná a clean-clone ověřená.
    Operátor přijal [017/A+A](docs/decisions/017-m1-negotiated-wire-shape.md):
    required-offer `m1-wire-v1` a exact transportní context wrapper.
-   Required-offer checkpoint je clean-clone focused implementovaný na
-   `7551b907`: Studio token nabízí,
-   ACK-bound latch se při reconnectu resetuje a server zatím token pravdivě
-   neACKuje; M1-shaped frame bez negotiation skončí před legacy controllerem.
+   Required-offer checkpoint byl clean-clone focused implementovaný na
+   `7551b907`: Studio token nabízí, ACK-bound latch se při reconnectu resetuje
+   a server v tomto checkpointu token ještě neACKoval; M1-shaped frame bez
+   negotiation skončí před legacy controllerem.
    Exact server ingress/egress adapter a Studio source producer/terminal ledger
    jsou focused implementované; clean clone `f2d9055c` navíc offline sestavil
    skutečný generated protocol i production bundle a načetl consumer bez
@@ -1459,15 +1471,19 @@ mohou pokračovat.
    následně přes skutečné sockety ukončí první connection, znovu vyjedná M1,
    autoritativně ověří a přes loopback HTTP obnoví 3/3 durable identity a po
    reconnectu doručí další korelovaný success. Nejde o server restart ani
-   Electron evidence. Produkční ACK a negotiated Electron journey tím ještě
-   nejsou prokázané. Cancel terminal ordering už závazně plyne z přijatého
+   Electron evidence. Produkční ACK `m1-wire-v1` je od `241b39ab` zapnuté a
+   built Electron journey `391fa39d` na exact `417eaabb` prokázal pět terminálů,
+   reconnect, nulový externí egress a nulový legacy pád; byte bridge má navíc
+   samostatnou fresh-clone evidenci `326a9a08`. Cancel terminal ordering už
+   závazně plyne z přijatého
    004/C a není nová otázka. Disposable fresh clone na `9464dacf` dříve offline
    reprodukoval production build a 65s non-visual legacy Electron boundary
    journey s nulovým egresssem a čistým shutdownem; tím se ověřilo prostředí,
    nikoli negotiated M1 consumer ani finální UI. Read-only review může běžet
    souběžně; GPU běhy nikdy.
-8. Teprve po built M1 multi-panel/cancel/provider/reconnect journey, soak a
-   přijetí B3+B4 otevřít B5 QUALITY a následnou B6 exit demonstraci.
+8. B4 je implementačně a built/fresh-clone evidencí uzavřené. B5 QUALITY se
+   smí otevřít teprve po fyzickém GPU pilotu a přijetí MODEL/B3; potom následuje
+   B6 exit demonstrace. Tato závislost se nepřeskakuje syntetickým proofem.
 9. M2 effect authority a project-change journey se otevírají až po M1.
 
 ## 14. Rozhodovací fronta — otázka až ve chvíli, kdy má data

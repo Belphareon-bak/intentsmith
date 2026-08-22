@@ -229,3 +229,32 @@ okamžiku už není způsobilý.
 z jednoho union census přes všechny aktivní větve. `055`–`057` jsou obsazené
 mobilními migracemi z `d6fee86f`; ordinály `046`–`051` už v historii kolidují
 napříč větvemi, takže rezervace musí být zapsaná, ne dopočítaná při zápisu.
+
+## Implementační closeout issuance a runtime — 2026-08-22
+
+Přijatý kontrakt už není pouze rozhodnutí v dokumentu. Produkční řetězec byl
+uzavřen po malých commit pointech:
+
+- `6037c4bc` aktivuje A-bootstrap, absolutní per-test průchod a 7denní TTL;
+- `d87549e4` a `3af419ed` přidávají atomický operator-only proof issuer;
+- `9a61b95a` provádí exact claim/proof/policy/CAS terminální přechody;
+- `c8ffbccc` zapisuje append-only finalize receipt a jednorázový
+  `DEGRADED_PROOF_EXPIRED` health event;
+- `6a231a42` zapojuje `ACTIVATE/REAPPLY/RESTORE` do startupu a periodického
+  běhu přes stejného mutation ownera a shared model lease jako ruční binding;
+- `56ff8053` odvozuje source export proof parentu jako tranzitivní uzávěru
+  relativních importů z přesných Git HEAD blobů.
+
+Runtime nesmí model pull/delete ani automatickou obnovu proofu. Equality
+`now === expiresAt` je odmítnutá a aktivní expirovaný proof zůstane bound se
+stavem `DEGRADED_PROOF_EXPIRED`; nový `ACTIVATE/REAPPLY` se neprovede.
+Registrovaný runtime audit na `7ea36580` prošel `8/8`, proof/source-closure audit
+na `56ff8053` `4/4`. Fresh clone exact
+`56ff805331b1863faeb441adbbe8dd771410b382` offline reprodukoval application
+`6/6`, terminal repository `7/7`, parent acceptance `16/16`, binding `108/108`,
+migrations `38/38` a module ratchet `13/13`.
+
+Tento closeout nedokládá skutečný measurement/proof konkrétního fyzického
+modelu. Povinný T3 GPU pilot při posledním preflightu blokoval cizí aktivní CUDA
+proces RustDesk; syntetické testovací proofy se za produkční acceptance
+nevydávají.

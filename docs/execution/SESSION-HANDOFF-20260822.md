@@ -1,13 +1,15 @@
 # Handoff 2026-08-22
 
-**Větev:** `claude/gate1-mobile-app-progress-5sywlt`, tip `2e33e342`
-**Nepushnuto.** Strom čistý.
+**Aktuální closeout větev:** `codex/m1-closeout-20260822`, implementační tip
+`56ff8053` nad převzatým `a317da53`. **Nepushnuto.** Izolovaný worktree je po
+checkpointu čistý; cizí změny v hlavním a mobilním checkoutu zůstaly nedotčené.
 
 ## Co se dnes stalo, v pořadí
 
 1. **M0 uzavřeno a M1 má všech sedm povinných scénářů** (`5cceed64`, 12:07).
    `studio-electron-boundary` vrací `STUDIO_ELECTRON_BOUNDARY_PASS`.
-2. **Gate 1 fronta, položky 1–5** — 023, 022, rezervace migrací, 020 a 015.
+2. **Gate 1 fronta, položky 1–6** — 023, 022, rezervace migrací, 020, 015 a
+   021 včetně produkčního ACK.
 
 ## Nález, který stojí za zapamatování
 
@@ -28,8 +30,35 @@ namespace a bez něj sada padá bez ní.
 | 3 | rezervace migrací | hotovo | `2013e522` |
 | 4 | 020 policy storage | hotovo | `b9731302` |
 | 5 | 015 proof ↔ artefakty | hotovo | `6368bd2f` |
-| 6 | 021 byte bridge + built journey | hotovo | `2b6b151b`, `2e33e342` |
-| 7 | autorizovaný GPU pilot | jen na akci operátora | — |
+| 6 | 021 byte bridge + built journey + produkční ACK | hotovo | `2b6b151b`, `2e33e342`, `241b39ab` |
+| 7 | autorizovaný GPU pilot | **BLOCKED cizím CUDA procesem** | — |
+
+## Navazující M1 closeout — skutečný produkční posun
+
+B4 už není jen testový kandidát: `241b39ab` zapnul produkční ACK
+`m1-wire-v1`; built Electron journey na `417eaabb` prošel s pěti terminály,
+reconnectem, nulovým externím egresssem a nulovým legacy pádem. Byte bridge je
+samostatně fresh-clone doložený.
+
+B3 se posunulo přes vlastní produkční commit pointy:
+
+- `6037c4bc` aktivuje přijatou A-bootstrap / 7d policy;
+- `d87549e4` + `3af419ed` přidávají atomický operator-only proof issuer;
+- `9a61b95a` uzavírá claim/proof/policy/CAS terminální repository;
+- `c8ffbccc` přidává append-only runtime finalize receipt a jednorázový
+  `DEGRADED_PROOF_EXPIRED` health event;
+- `6a231a42` zapojuje skutečný `ACTIVATE/REAPPLY/RESTORE` runtime do startupu a
+  pětiminutového cyklu přes stejný mutation owner jako manual binding;
+- `7ea36580` jmenovitě přijímá šest nových modulových hran bez růstu cyklů;
+- `56ff8053` nahrazuje křehký ruční export zdrojů proof parentu tranzitivní
+  uzávěrou importů z Git HEAD.
+
+Registrovaný runtime audit na `7ea36580` prošel `8/8`; proof/source-closure
+audit na `56ff8053` prošel `4/4`. Samostatný fresh clone exact
+`56ff805331b1863faeb441adbbe8dd771410b382` provedl offline instalaci 233
+balíčků, našel 0 vulnerabilities a zeleně reprodukoval failover application
+`6/6`, terminal repository `7/7`, parent acceptance `16/16`, manual binding
+`108/108`, schema migrations `38/38` a module ratchet `13/13`.
 
 ## Čísla, ne dojmy
 
@@ -41,13 +70,11 @@ Shodné s baseline před sérií, beze změny po 021.
 
 ## Co je vědomě nedodělané
 
-- **015 je rozdělené.** Vazba proofu na artefakty a striktní expiry hrana jsou
-  hotové. Vlastní issuance, prahy a terminal activation zůstávají blokované, tedy
-  B3 a B4 jsou dál pravdivě `BLOCKED`.
-- **Behaviorální test aktivace přesně v milisekundě expiry nevznikl.** Potřebuje
-  úplný episode fixture a několik dřívějších guardů by se ozvalo dřív než
-  porovnání expiry, takže by test tvrdil něco jiného, než by se zdálo. Hrana je
-  připnutá na SQL úrovni, kde je jednoznačná. Patří k WP proof issueru.
+- **015 už není implementační blocker.** Prahy, TTL, artifact-bound issuance,
+  equality-at-expiry negativní scénář, terminal transitions, runtime finalizace
+  i active-proof health jsou implementované a focused/fresh-clone zelené.
+  Skutečný operator measurement/proof pro konkrétní fyzický model ale nevznikl;
+  syntetické fixture proofy se za produkční důkaz nevydávají.
 - **L3 čísla M1**: změřená 2026-08-22, detail v
   [`runs/m1-l3-measurement-20260822.md`](runs/m1-l3-measurement-20260822.md) —
   deterministika p50 `2,77 ms` / p95 `31,6 ms`, modelový chat cold `64,1 s`,
@@ -55,7 +82,11 @@ Shodné s baseline před sérií, beze změny po 021.
   **Refinement delta zůstává nezměřená**: spouští se jen pro syntetizované
   odpovědi, takže patří do B5 s fixním corpusem.
 - **B5 `WP-M1-QUALITY`** nezačato — běží až po přijetí CHAT, MODEL a STUDIO.
-  Tohle pořadí není preference: B5 má závislost na přijatém STUDIU v zadání.
+  B4 je implementačně uzavřené, ale MODEL acceptance stále čeká na povinný T3
+  GPU pilot. Tohle pořadí není preference, nýbrž explicitní závislost B5.
+- **GPU pilot je skutečně blokovaný prostředím:** při posledním preflightu měl
+  RTX 3090 22 388 MiB volno a `ollama ps` bylo prázdné, ale CUDA používal
+  RustDesk PID `540882` (294 MiB). Cizí vzdálenou relaci se nesmí ukončit.
 
 ## 021 — byte bridge, uzavřeno
 
@@ -107,15 +138,13 @@ runner-contractu. Devět nových bylo napsáno bez `await`, takže doběhly až 
 `summary()` a nemohly shodit exit kód — konvence v souboru je `await testAsync`.
 Opraveno a ověřeno záměrným pádem, že failující async test teď opravdu vrací 1.
 
-## Kandidát na finding, který jsem nezaložil
+## Uzavřený kandidát na finding
 
-`scripts/run-model-failover-candidate-measurement.js` drží `CANDIDATE_SOURCE_PATHS`
-jako ručně udržovaný jmenovitý seznam blobů pro child export. Když modul v tom
-grafu získá nový import, child padne na `Cannot find module` a projeví se to jako
-šest nesouvisejících selhání. **Stalo se to dnes podruhé** — 21. 8. u
-`src/db/user-settings.js`, dnes u `src/db/model-policy.js`. Odvodit ten seznam
-z tranzitivní uzávěry místo ruční údržby by tuhle past zavřelo. Bylo to mimo
-rozsah 015 i 020, tak jsem to neopravoval.
+Křehký `CANDIDATE_SOURCE_PATHS` byl odstraněn v `56ff8053`. Parent nyní z
+runtime entrypointů odvozuje seřazenou tranzitivní uzávěru relativních importů
+z přesných blobů Git HEAD, odmítá escape i netrackovaný modul a exportuje jen
+skutečně dosažitelné zdroje. Mutace přidávající nový import se automaticky
+propsala do closure; zastaralý `src/db/user-settings.js` z ní naopak zmizel.
 
 ## Pasti, na které jsem narazil
 

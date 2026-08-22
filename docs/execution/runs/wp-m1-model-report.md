@@ -2462,3 +2462,26 @@ jsou zaznamenané níže v témže checkpointu.
 Mutace byly provedené po jedné a před finálním zeleným během vždy vrácené.
 Neautorizovaný GPU/modelový běh ani Studio runtime se v tomto checkpointu
 nespouštěl.
+
+## B3 runtime closeout — 2026-08-22
+
+Navazující produkční série `6037c4bc` → `56ff8053` implementuje přijatou proof
+policy, atomický operator-only issuer, terminální repository přechody,
+append-only runtime finalizaci, active-proof expiry health a automatický
+`ACTIVATE/REAPPLY/RESTORE` consumer. Consumer sdílí mutation ownera a model
+lease s ručním bindingem, neprovádí pull/delete/renewal a po startu obnoví
+nedokončený finalize receipt. Measurement source export je od `56ff8053`
+odvozený z tranzitivní uzávěry exact Git HEAD blobů.
+
+| Evidence | Výsledek |
+|---|---:|
+| registrovaný runtime audit na `7ea36580` | 8/8 PASS |
+| registrovaný proof/source-closure audit na `56ff8053` | 4/4 PASS |
+| fresh clone exact `56ff805331b1863faeb441adbbe8dd771410b382`, `npm ci --offline` | 233 balíčků, 0 vulnerabilities |
+| fresh-clone failover application / terminal / parent | 6/6, 7/7, 16/16 |
+| fresh-clone binding / migrations / ratchet | 108/108, 38/38, 13/13 |
+
+Implementace a offline fresh-clone reprodukce B3 jsou uzavřené. Fyzická MODEL
+acceptance uzavřená není: autorizovaný T3 GPU pilot blokoval cizí aktivní CUDA
+proces RustDesk. Žádný testovací fixture proof není vydáván za skutečný
+produkční measurement proof; B5 proto podle své explicitní závislosti nezačalo.
