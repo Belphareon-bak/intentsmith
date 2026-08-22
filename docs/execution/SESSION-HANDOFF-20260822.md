@@ -1,6 +1,6 @@
 # Handoff 2026-08-22
 
-**Větev:** `claude/gate1-mobile-app-progress-5sywlt`, tip `387aff25`
+**Větev:** `claude/gate1-mobile-app-progress-5sywlt`, tip `2e33e342`
 **Nepushnuto.** Strom čistý.
 
 ## Co se dnes stalo, v pořadí
@@ -28,16 +28,16 @@ namespace a bez něj sada padá bez ní.
 | 3 | rezervace migrací | hotovo | `2013e522` |
 | 4 | 020 policy storage | hotovo | `b9731302` |
 | 5 | 015 proof ↔ artefakty | hotovo | `6368bd2f` |
-| 6 | 021 built journey | **další v pořadí** | — |
+| 6 | 021 byte bridge + built journey | hotovo | `2b6b151b`, `2e33e342` |
 | 7 | autorizovaný GPU pilot | jen na akci operátora | — |
 
 ## Čísla, ne dojmy
 
-Deterministický gate na `fbbe1e74`: `{"PASS":229,"FAIL":3,"BLOCKED":2}`, 234 sad.
+Deterministický gate na `2e33e342`: `{"PASS":229,"FAIL":3,"BLOCKED":2}`, 234 sad.
 Tři selhání jsou předchozí a prostředím podmíněná — `nightly-audit-runner-self-test`
 (čeká blocker `toolchain:x11-display`), `nightly-orchestrator-self-test`
 (`BLOCKED` řádky s `required:true`) a `vram-coordination` (GPU/prostředí).
-Shodné s baseline před sérií.
+Shodné s baseline před sérií, beze změny po 021.
 
 ## Co je vědomě nedodělané
 
@@ -57,37 +57,55 @@ Shodné s baseline před sérií.
 - **B5 `WP-M1-QUALITY`** nezačato — běží až po přijetí CHAT, MODEL a STUDIO.
   Tohle pořadí není preference: B5 má závislost na přijatém STUDIU v zadání.
 
-## Kde přesně se zastavilo 021 — byte bridge
+## 021 — byte bridge, uzavřeno
 
-Hotové je R2/A (typovaný `M1_EFFECT_AUTHORITY_REQUIRED` místo `ok`) a celé
-R1/B: `src/ws-bridge/m1-attachment-policy.js`, serverová revalidace před
-controller efektem, klientská implementace, WS `maxPayload` a 15 testů včetně
-tabulky dvanácti případů projeté oběma implementacemi.
+Commity `2b6b151b` (bridge) a `2e33e342` (built journey).
 
-**Nezavřený zbytek je byte bridge a je to blocker produkčního ACK.**
+**Tvar řešení.** Renderer nedostal API na čtení souboru podle cesty a nedostane
+ho. Preload vystavuje dvojici: `pickAttachmentFiles` otevře nativní dialog a
+za každý vybraný soubor vydá neprůhledný token, `readAttachmentBytes` je jediná
+cesta zpátky k bajtům. Cesta do modulu vstupuje jen z dialogu a ven nejde vůbec
+— renderer žádnou cestu k souboru nevidí. Dosah rendereru je tím přesně
+"soubory, u jejichž výběru jsem byl", ne "cesta, kterou umím napsat". Grant je
+jednorázový a vyprší po pěti minutách.
 
-Lokalizace: `chat-panel-module.js` řádek ~6691. Větev, která přílohy bere
-z `electronTheiaFilesystem.showOpenDialog`, pushuje
-`{name, size:'soubor', file:{path: fp, size: 1024}}` — falešný `File` bez bajtů.
-`_readAttachments()` na něm zavolá `FileReader`, dostane prázdno a vrátí
-`content: null`. Inline-only policy takovou položku odmítne, takže uživatel
-uvidí `NOT_SENT` u souboru, který si právě vybral. Drag&drop a
-`<input type=file>` větve dávají skutečné `File` objekty a fungují.
+Nebyl potřeba nový kanál do electron-main: `ShowOpenDialog` už registruje
+Theia a preload ho volá přímo. Rebuild se tedy týká jen preloadu.
 
-Proč to nejde spravit v panelu: **preload nemá žádné API pro čtení souboru.**
-Ověřeno v `c3-ide/applications/electron/lib/frontend/preload.js` —
-`electronTheiaFilesystem` vystavuje jen `showOpenDialog` a `showSaveDialog`,
-`electronC3` jen `getBackendUrl`/`getPort`/`getLocalCapability`/`getLocalAccess`,
-`electronTheiaCore` má `getPathForFile` (cesta z `File`, ne opačně).
+**Strop u čtení.** `fstat` na otevřeném deskriptoru rozhodne PŘED alokací
+bufferu. Panel posílá strop podle druhu souboru, takže `.txt` jde proti 1 MiB
+a `.png` proti 5 MiB; jeden paušální strop by 4 MiB `.txt` načetl celý a zahodil
+až v policy, což je přesně to, čemu se krok 2 měl vyhnout. Velikost se čte znovu
+z deskriptoru, takže soubor, který mezi výběrem a čtením povyrostl, strop
+neobejde. Nad tím je ještě `HARD_READ_CAP_BYTES` 32 MiB jako paměťová pojistka,
+schválně nad policy, aby se nikdy nestala tím skutečným limitem.
 
-Pořadí kroků, až se do toho někdo pustí:
+**Panel.** Z bajtů staví skutečný `File`, takže drag&drop, `<input type=file>`
+i dialog konvergují na jeden tvar a `_readAttachments` se nemění. Picker je
+vytažený jako `_chatPickAttachments` do řezu, který testovací harness načítá —
+předtím byl zadrátovaný v `onClick` uvnitř `_chatPaneUI`, kam test nedosáhne.
 
-1. nový IPC kanál v Theia preload zdroji (ne v minifikovaném `lib/`), který pro
-   cestu vrátí bajty — vázaný na uživatelské gesto, ne obecné čtení disku;
-2. limity vynutit **už při čtení**, aby se 5 MiB strop neobcházel tím, že se
-   soubor načte celý a zahodí až v policy;
-3. rebuild preloadu a znovu built journey;
-4. teprve pak má smysl produkční ACK `m1-wire-v1`.
+**Rozhodnutí, které stojí za pozornost.** Bridge hlásí u `svg/bmp/ico/tiff/avif`
+pravdivý `image/*` typ, ne `text/plain`. Vydávat je za text by je propašovalo
+jako `data:text/plain;base64,...`, měřené a doručené jako text — zatímco tentýž
+soubor přetažený myší policy odmítne jako nepodporovaný typ. Bridge říká, co
+soubor je, a rozhodnutí nechává policy.
+
+**Co se nově hlídá.** `verify-m1-consumer-build.js` kontroluje i preload bundle.
+Ten se balí vlastním webpack configem, jehož entry přepisujeme ručně v
+`webpack.config.js`; kdyby přepis přestal platit, aplikace se normálně sestaví
+a nastartuje a jediným příznakem by bylo, že přílohy z dialogu zase tiše ztrácejí
+bajty. Teď je to chyba buildu.
+
+**Built journey.** `studio-electron-boundary` má sondu `attachmentByteBridge`.
+Nativní dialog se z CDP zavřít nedá, takže se nedrivuje samotný výběr; ověřuje
+se, že postavený preload bridge opravdu vystavuje a že token vymyšlený
+rendererem nekoupí nic (`M1_BRIDGE_TOKEN_UNKNOWN`). Výsledek jde do evidence.
+
+**Testy.** 26 nových v `tests/m1-studio-client.test.js` (122 celkem), 16 v
+runner-contractu. Devět nových bylo napsáno bez `await`, takže doběhly až po
+`summary()` a nemohly shodit exit kód — konvence v souboru je `await testAsync`.
+Opraveno a ověřeno záměrným pádem, že failující async test teď opravdu vrací 1.
 
 ## Kandidát na finding, který jsem nezaložil
 
@@ -110,3 +128,15 @@ rozsah 015 i 020, tak jsem to neopravoval.
   `harness-exit-code` (database-reachable inventář).
 - Po background úloze se `cwd` vrátí na `Projects` — relativní cesty pak míří
   mimo repo.
+
+**Runner kontroluje čistotu stromu po KAŽDÉ sadě, ne jen na začátku.**
+Editoval jsem `tests/studio-electron-boundary.e2e.js` během běhu gate a všech
+81 sad od té chvíle spadlo na `sourceEvidenceComplete`, ne na ničem skutečném:
+`{"PASS":148,"FAIL":84}` místo baseline. Není to regrese, je to neplatný běh.
+Poznámka "neupravovat strom během gate" v paměti tohle myslí doslova — čekat
+s editacemi, ne je jen necommitovat.
+
+**`direct-tests/` po neúspěšném běhu zůstává schválně.** `cleanupRequested`
+maže runtime jen při `exitCode === 0`, aby šel neúspěch prohlédnout. Moje dva
+padlé přímé běhy `m1-studio-client.test.js` tam nechaly dva adresáře a
+`harness-exit-code` je v gate ohlásil. Před gate mazat `.intentsmith-artifacts/direct-tests`.
