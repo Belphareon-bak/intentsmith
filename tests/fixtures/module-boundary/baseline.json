@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "0f495b1cb61ab5ba76302b3b34dd036722f140bf",
-  "sourceTree": "61549fa4d269c7fc1dae650a7e1c75470165310a",
+  "sourceRevision": "da3bd8fdcbe948c02afa730e224c1c7edc3a353f",
+  "sourceTree": "d0c7a96223203d5745edf6be96679ed79016b047",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -1061,8 +1061,10 @@
     "src/ws-bridge/session-adapter.js -> src/ws-bridge/m1-attachment-policy.js",
     "src/ws-bridge/session-adapter.js -> src/ws-bridge/protocol.js",
     "src/ws-bridge/ws-server.js -> src/chat/conversation-store.js",
+    "src/ws-bridge/ws-server.js -> src/config.js",
     "src/ws-bridge/ws-server.js -> src/security/legacy-local-access-policy.js",
     "src/ws-bridge/ws-server.js -> src/ws-bridge/file-watcher.js",
+    "src/ws-bridge/ws-server.js -> src/ws-bridge/m1-attachment-policy.js",
     "src/ws-bridge/ws-server.js -> src/ws-bridge/protocol.js",
     "src/ws-bridge/ws-server.js -> src/ws-bridge/session-adapter.js"
   ]
