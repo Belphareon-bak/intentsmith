@@ -14,6 +14,7 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import http from 'node:http';
+import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { createRequire } from 'node:module';
@@ -491,13 +492,32 @@ export async function startModelProviderSentinel() {
   });
 }
 
-function makeElectronEnvironment(paths, display, xauthority) {
+// Chromium si v `TMPDIR` zakládá unix domain sockety a `sun_path` má tvrdý
+// limit 108 bajtů. Runtime root testu leží pod `.intentsmith-artifacts`, takže
+// jeho `tmp` má na tomhle stroji 95 znaků — na název socketu zbyde 13 a
+// Chromium jich potřebuje kolem třiceti. Electron pak spadne `SIGTRAP`em dřív,
+// než otevře CDP, a hlásí se to jako `electron-exited-before-cdp`.
+//
+// Změřeno 2026-08-22 bisekcí prostředí: přebití `HOME` ani `XDG_*` nevadí,
+// shodí to výhradně `TMPDIR`. `TMPDIR=/tmp` běží, `TMPDIR=<95 znaků>` padá,
+// `TMPDIR=<16 znaků, mode 0700>` běží. Není to práva ani network namespace —
+// bez namespace to padá stejně.
+//
+// Backend `TMPDIR` zůstává pod runtime rootem; Node krátké sockety nepotřebuje.
+// Zkracuje se jen cesta pro Electron a zůstává privátní (0700) a vlastněná.
+function makeShortLivedElectronTmp() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'is-studio-'));
+  fs.chmodSync(dir, 0o700);
+  return dir;
+}
+
+function makeElectronEnvironment(paths, display, xauthority, electronTmp) {
   return {
     ...safeInheritedEnvironment(),
     HOME: paths.home,
-    TMPDIR: paths.tmp,
-    TMP: paths.tmp,
-    TEMP: paths.tmp,
+    TMPDIR: electronTmp,
+    TMP: electronTmp,
+    TEMP: electronTmp,
     XDG_CONFIG_HOME: paths.xdgConfig,
     XDG_CACHE_HOME: paths.xdgCache,
     XDG_DATA_HOME: paths.xdgData,
@@ -1468,6 +1488,7 @@ async function runJourney({ artifactRoot, sourceRevision, display, xauthority })
   let modelProviderSentinel;
   let backend;
   let electron;
+  let electronTmp = null;
   let cdp;
   let snapshot;
   let networkVerdict;
@@ -1482,7 +1503,8 @@ async function runJourney({ artifactRoot, sourceRevision, display, xauthority })
   try {
     modelProviderSentinel = await startModelProviderSentinel();
     const backendEnv = makeBackendEnvironment(paths, modelProviderSentinel.origin);
-    const electronEnv = makeElectronEnvironment(paths, display, xauthority);
+    electronTmp = makeShortLivedElectronTmp();
+    const electronEnv = makeElectronEnvironment(paths, display, xauthority, electronTmp);
     backend = spawnLogged(process.execPath, ['src/server.js'], {
       cwd: SOURCE_ROOT,
       env: backendEnv,
@@ -1611,6 +1633,9 @@ async function runJourney({ artifactRoot, sourceRevision, display, xauthority })
       .map(Number),
   );
   const electronRequestedSignal = browserCloseRequested ? null : 'SIGTERM';
+  if (electronTmp) {
+    try { fs.rmSync(electronTmp, { recursive: true, force: true }); } catch { /* úklid nesmí shodit verdikt */ }
+  }
   const cleanup = await runCleanupSequence([
     {
       name: 'electron',
