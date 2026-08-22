@@ -27,6 +27,10 @@ import {
 import { LLMProviderUnavailableError } from '../src/core/chat-turn-error.js';
 import { createLegacyLocalCapability } from '../src/security/legacy-local-access-policy.js';
 import { createSessionAdapter } from '../src/ws-bridge/session-adapter.js';
+import {
+  createM1AttachmentLimits,
+  validateM1Attachments,
+} from '../src/ws-bridge/m1-attachment-policy.js';
 import { attachWebSocketServer } from '../src/ws-bridge/ws-server.js';
 
 const require = createRequire(import.meta.url);
@@ -4577,6 +4581,136 @@ await testAsync('a turn needing the legacy shell effect ends as a typed error, n
   } finally {
     harness.cleanup();
   }
+});
+
+
+// ── Decision 021/R1-B — bounded inline-only attachments ───────────────────
+
+function clientAttachmentPolicy() {
+  const source = fs.readFileSync(
+    new URL('../c3-ide/extensions/c3-chat-panel/lib/browser/ws-client.js', import.meta.url),
+    'utf8',
+  );
+  const start = source.indexOf('var _M1_IMAGE_TYPES');
+  const end = source.indexOf('/* 021/R1-B: map the panel', start);
+  assert.ok(start >= 0 && end > start, 'client policy block is present');
+  const context = vm.createContext({ TextEncoder, module: { exports: {} } });
+  vm.runInContext(
+    'var _MAX_TEXT_SIZE=1024*1024;var _MAX_IMG_SIZE=5*1024*1024;'
+    + source.slice(start, end)
+    + '\nmodule.exports={validateM1Attachments,_m1AttachmentLimits};',
+    context,
+  );
+  return context.module.exports;
+}
+
+function base64Image(bytes, mime = 'image/png') {
+  return `data:${mime};base64,${Buffer.alloc(bytes).toString('base64')}`;
+}
+
+const ATTACHMENT_CASES = [
+  { label: 'empty collection', input: [], expect: true },
+  {
+    label: 'inline text',
+    input: [{ name: 'a.txt', type: 'text/plain', content: 'ahoj' }],
+    expect: true,
+  },
+  {
+    label: 'empty string is legitimate content',
+    input: [{ name: 'empty.txt', type: 'text/plain', content: '' }],
+    expect: true,
+  },
+  {
+    label: 'inline image',
+    input: [{ name: 'a.png', type: 'image/png', content: base64Image(1024) }],
+    expect: true,
+  },
+  {
+    label: 'path present',
+    input: [{ name: 'a.txt', type: 'text/plain', content: 'x', path: '/etc/passwd' }],
+    expect: 'M1_ATTACHMENT_PATH_FORBIDDEN',
+  },
+  {
+    label: 'path present even as null',
+    input: [{ name: 'a.txt', type: 'text/plain', content: 'x', path: null }],
+    expect: 'M1_ATTACHMENT_PATH_FORBIDDEN',
+  },
+  {
+    label: 'missing content',
+    input: [{ name: 'a.txt', type: 'text/plain' }],
+    expect: 'M1_ATTACHMENT_SHAPE_INVALID',
+  },
+  {
+    label: 'count over ceiling',
+    input: Array.from({ length: 6 }, (_, index) => ({
+      name: `f${index}.txt`, type: 'text/plain', content: 'x',
+    })),
+    expect: 'M1_ATTACHMENT_COUNT_EXCEEDED',
+  },
+  {
+    label: 'unsupported binary type',
+    input: [{ name: 'a.bin', type: 'application/octet-stream', content: 'x' }],
+    expect: 'M1_ATTACHMENT_TYPE_UNSUPPORTED',
+  },
+  {
+    label: 'text over its own ceiling',
+    input: [{ name: 'big.txt', type: 'text/plain', content: 'a'.repeat(1024 * 1024 + 1) }],
+    expect: 'M1_ATTACHMENT_ITEM_TOO_LARGE',
+  },
+  {
+    label: 'image over its own ceiling',
+    input: [{ name: 'big.png', type: 'image/png', content: base64Image(5 * 1024 * 1024 + 16) }],
+    expect: 'M1_ATTACHMENT_ITEM_TOO_LARGE',
+  },
+  {
+    label: 'aggregate over ceiling',
+    input: [
+      { name: 'i.png', type: 'image/png', content: base64Image(5 * 1024 * 1024) },
+      { name: 'a.txt', type: 'text/plain', content: 'a'.repeat(1024 * 1024) },
+      { name: 'b.txt', type: 'text/plain', content: 'b'.repeat(1024 * 1024) },
+      { name: 'c.txt', type: 'text/plain', content: 'c'.repeat(1024 * 1024) },
+      { name: 'd.txt', type: 'text/plain', content: 'd'.repeat(1024) },
+    ],
+    expect: 'M1_ATTACHMENT_AGGREGATE_TOO_LARGE',
+  },
+];
+
+test('server and client attachment policy agree on every case', () => {
+  const client = clientAttachmentPolicy();
+  const serverLimits = createM1AttachmentLimits({
+    maxTextAttachment: 1024 * 1024,
+    maxImageAttachment: 5 * 1024 * 1024,
+  });
+  const clientLimits = client._m1AttachmentLimits();
+  assert.equal(
+    JSON.stringify(clientLimits),
+    JSON.stringify(serverLimits),
+    'both sides derive the same ceilings',
+  );
+
+  for (const testCase of ATTACHMENT_CASES) {
+    const server = validateM1Attachments(testCase.input, serverLimits);
+    const browser = client.validateM1Attachments(testCase.input, clientLimits);
+    assert.equal(server.ok, browser.ok, `${testCase.label}: ok differs`);
+    if (testCase.expect === true) {
+      assert.equal(server.ok, true, `${testCase.label}: server rejected a legal set`);
+    } else {
+      assert.equal(server.code, testCase.expect, `${testCase.label}: server code`);
+      assert.equal(browser.code, testCase.expect, `${testCase.label}: client code`);
+    }
+  }
+});
+
+test('an image is measured by decoded bytes, not by its data URL length', () => {
+  // A 5 MiB image is ~6.7 MiB as base64. Measuring the string would reject a
+  // legal image; measuring nothing would let an oversized one through.
+  const content = base64Image(4 * 1024 * 1024);
+  assert.ok(content.length > 5 * 1024 * 1024, 'the data URL really is larger than the payload');
+  const verdict = validateM1Attachments(
+    [{ name: 'a.png', type: 'image/png', content }],
+    createM1AttachmentLimits({ maxImageAttachment: 5 * 1024 * 1024 }),
+  );
+  assert.equal(verdict.ok, true);
 });
 
 

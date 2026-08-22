@@ -1629,16 +1629,26 @@ test('T23b: M1 Studio frame and context are exact and attachment path stays park
   unknownContext.context.cwd = '/must/not/become/authority';
   assert.equal(validateM1StudioFrame(unknownContext).valid, false);
 
+  // Decision 021/R1-B: a path-backed attachment is still refused, now with the
+  // precise reason instead of the blanket park. This is the edge that would
+  // otherwise hand a remote command backend filesystem read authority.
   const pathAttachment = m1StudioFrame('attachment');
   pathAttachment.context.attachments = [{ path: '/private/file' }];
   const attachmentResult = validateM1StudioFrame(pathAttachment);
   assert.equal(attachmentResult.valid, false);
   assert.equal(
     attachmentResult.errors.includes(
-      'm1-studio-frame.context.m1-studio-context:attachments-parked',
+      'm1-studio-frame.context.m1-studio-context:attachments-M1_ATTACHMENT_PATH_FORBIDDEN',
     ),
     true,
   );
+
+  // Inline content within the ceilings is now accepted.
+  const inlineAttachment = m1StudioFrame('attachment-inline');
+  inlineAttachment.context.attachments = [
+    { name: 'poznamka.txt', type: 'text/plain', content: 'obsah' },
+  ];
+  assert.equal(validateM1StudioFrame(inlineAttachment).valid, true);
 
   assert.equal(validateM1StudioContext({
     editMode: 'ask',

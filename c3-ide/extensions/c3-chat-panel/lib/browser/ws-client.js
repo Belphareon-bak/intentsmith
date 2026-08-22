@@ -128,26 +128,125 @@ function _normalizeM1ContextIdentifier(value) {
   return _isConversationId(normalized) ? normalized : undefined;
 }
 
+/* 021/R1-B client-side policy. The authority is
+   src/ws-bridge/m1-attachment-policy.js; the protocol package is frozen for B4,
+   so the client cannot import it and carries an equivalent implementation
+   instead. tests/m1-studio-client.test.js drives one shared case table through
+   both and fails if they ever disagree. */
+var _M1_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+
+function _m1AttachmentLimits() {
+  var text = (typeof _MAX_TEXT_SIZE === 'number' && _MAX_TEXT_SIZE > 0)
+    ? _MAX_TEXT_SIZE : 1024 * 1024;
+  var image = (typeof _MAX_IMG_SIZE === 'number' && _MAX_IMG_SIZE > 0)
+    ? _MAX_IMG_SIZE : 5 * 1024 * 1024;
+  return {
+    maxCount: 5,
+    maxTextBytes: text,
+    maxImageBytes: image,
+    maxAggregateBytes: image + (3 * text),
+    maxFrameBytes: image + (3 * text) + (1024 * 1024)
+  };
+}
+
+function _m1AttachmentBytes(content) {
+  if (typeof content !== 'string') return null;
+  var dataUrl = /^data:([^;,]+);base64,([\s\S]*)$/.exec(content);
+  if (!dataUrl) return new TextEncoder().encode(content).length;
+  var base64 = dataUrl[2];
+  var padding = base64.slice(-2) === '==' ? 2 : (base64.slice(-1) === '=' ? 1 : 0);
+  return Math.max(0, Math.floor((base64.length * 3) / 4) - padding);
+}
+
+function validateM1Attachments(value, limits) {
+  if (!Array.isArray(value)) return { ok: false, code: 'M1_ATTACHMENT_SHAPE_INVALID' };
+  if (value.length === 0) return { ok: true, attachments: [] };
+  if (value.length > limits.maxCount) return { ok: false, code: 'M1_ATTACHMENT_COUNT_EXCEEDED' };
+  var aggregate = 0;
+  var normalized = [];
+  for (var i = 0; i < value.length; i++) {
+    var item = value[i];
+    if (!item || typeof item !== 'object') return { ok: false, code: 'M1_ATTACHMENT_SHAPE_INVALID' };
+    if (Object.prototype.hasOwnProperty.call(item, 'path')) {
+      return { ok: false, code: 'M1_ATTACHMENT_PATH_FORBIDDEN' };
+    }
+    if (typeof item.name !== 'string' || !item.name || item.name.length > 512) {
+      return { ok: false, code: 'M1_ATTACHMENT_SHAPE_INVALID' };
+    }
+    if (typeof item.content !== 'string') return { ok: false, code: 'M1_ATTACHMENT_SHAPE_INVALID' };
+    var isImage = _M1_IMAGE_TYPES.indexOf(item.type) >= 0;
+    var isText = item.type === undefined || item.type === ''
+      || item.type === 'application/json' || String(item.type).slice(0, 5) === 'text/';
+    if (!isImage && !isText) return { ok: false, code: 'M1_ATTACHMENT_TYPE_UNSUPPORTED' };
+    var bytes = _m1AttachmentBytes(item.content);
+    if (bytes === null) return { ok: false, code: 'M1_ATTACHMENT_SHAPE_INVALID' };
+    if (bytes > (isImage ? limits.maxImageBytes : limits.maxTextBytes)) {
+      return { ok: false, code: 'M1_ATTACHMENT_ITEM_TOO_LARGE' };
+    }
+    aggregate += bytes;
+    if (aggregate > limits.maxAggregateBytes) {
+      return { ok: false, code: 'M1_ATTACHMENT_AGGREGATE_TOO_LARGE' };
+    }
+    var out = { name: item.name, content: item.content };
+    if (typeof item.type === 'string') out.type = item.type;
+    normalized.push(out);
+  }
+  return { ok: true, attachments: normalized };
+}
+
+/* 021/R1-B: map the panel's internal attachment shape onto the exact wire DTO.
+   The internal record carries `path` (often null) and a coarse kind; the DTO
+   carries neither. A contentless item is exactly the one whose bytes the
+   backend used to read from disk, so it is refused rather than downgraded. */
+function _m1InlineAttachment(item) {
+  if (!item || typeof item !== 'object') return null;
+  if (typeof item.content !== 'string') return null;
+  if (typeof item.name !== 'string' || !item.name) return null;
+  if (item.type === 'image') {
+    var dataUrl = /^data:([^;,]+);base64,/.exec(item.content);
+    if (!dataUrl) return null;
+    return { name: item.name, type: dataUrl[1], content: item.content };
+  }
+  if (item.type === 'text') {
+    return { name: item.name, type: 'text/plain', content: item.content };
+  }
+  return null;
+}
+
 function _createM1Context(session) {
   if (!session || !session.chat) return null;
   var attachments = session.chat._pendingAttachments;
-  /* B4 deliberately parks filesystem-backed and inline attachments until one
-     bounded byte/count policy exists. Never downgrade this turn to legacy. */
-  if (
-    attachments !== null
-    && attachments !== undefined
-    && (!Array.isArray(attachments) || attachments.length > 0)
-  ) return null;
+  var wireAttachments = [];
+  if (attachments !== null && attachments !== undefined) {
+    if (!Array.isArray(attachments)) return null;
+    for (var i = 0; i < attachments.length; i++) {
+      var mapped = _m1InlineAttachment(attachments[i]);
+      /* One unusable item fails the whole turn: a partially delivered set is a
+         different message than the user composed. */
+      if (mapped === null) {
+        session.chat._m1AttachmentRejection = 'M1_ATTACHMENT_NOT_INLINE';
+        return null;
+      }
+      wireAttachments.push(mapped);
+    }
+    var verdict = validateM1Attachments(wireAttachments, _m1AttachmentLimits());
+    if (!verdict.ok) {
+      session.chat._m1AttachmentRejection = verdict.code;
+      return null;
+    }
+    wireAttachments = verdict.attachments;
+  }
   var agentId = _normalizeM1ContextIdentifier(session._agentId);
   var projectId = _normalizeM1ContextIdentifier(session._projectId);
   if (agentId === undefined || projectId === undefined) return null;
   var editMode = session.chat.editMode || 'auto';
   if (editMode !== 'auto' && editMode !== 'ask') return null;
+  session.chat._m1AttachmentRejection = null;
   return {
     editMode: editMode,
     agentId: agentId,
     projectId: projectId,
-    attachments: []
+    attachments: wireAttachments
   };
 }
 

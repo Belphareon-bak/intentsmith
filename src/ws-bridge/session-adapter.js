@@ -20,6 +20,10 @@ import {
 } from './protocol.js';
 import { TurnTelemetry } from '../telemetry/turn-telemetry.js';
 import { config } from '../config.js';
+import {
+  createM1AttachmentLimits,
+  validateM1Attachments,
+} from './m1-attachment-policy.js';
 import { featureManager } from '../core/feature-manager.js';
 import {
   AbortSource,
@@ -93,11 +97,12 @@ function mapM1WsConversationFailure(command, error, signal = null) {
   });
 }
 
-// The filesystem-backed attachment branch is deliberately not part of B4:
-// ChatController currently treats an incoming path as read authority. Until an
-// effect owner defines that authority, negotiated M1 accepts only the exact
-// empty collection and the Studio producer must keep non-empty input local.
-export const M1_STUDIO_ATTACHMENT_POLICY = 'PARKED_EMPTY_ONLY';
+// The filesystem-backed attachment branch stays out of B4: ChatController treats
+// an incoming path as read authority. Negotiated M1 therefore accepts inline
+// content only — `path` is not part of the DTO and its presence rejects the
+// whole collection, so a filesystem-backed item can never be downgraded to
+// inline behind the user's back.
+export const M1_STUDIO_ATTACHMENT_POLICY = 'BOUNDED_INLINE_ONLY';
 
 export function validateM1StudioContext(value) {
   const errors = validateExactKeys(
@@ -115,10 +120,15 @@ export function validateM1StudioContext(value) {
       errors.push(`m1-studio-context:invalid-${key}`);
     }
   }
-  if (!Array.isArray(value.attachments)) {
-    errors.push('m1-studio-context:invalid-attachments');
-  } else if (value.attachments.length !== 0) {
-    errors.push('m1-studio-context:attachments-parked');
+  // Decision 021/R1 variant B: bounded inline-only. The server re-validates the
+  // exact same policy the client applied, before any controller effect — a
+  // client-side check is a UX affordance, not an authority.
+  const attachments = validateM1Attachments(
+    value.attachments,
+    createM1AttachmentLimits(config.limits || {}),
+  );
+  if (!attachments.ok) {
+    errors.push(`m1-studio-context:attachments-${attachments.code}`);
   }
   return validationResult(errors, value);
 }
