@@ -2485,3 +2485,12 @@ Implementace a offline fresh-clone reprodukce B3 jsou uzavřené. Fyzická MODEL
 acceptance uzavřená není: autorizovaný T3 GPU pilot blokoval cizí aktivní CUDA
 proces RustDesk. Žádný testovací fixture proof není vydáván za skutečný
 produkční measurement proof; B5 proto podle své explicitní závislosti nezačalo.
+
+Plný offline/database gate na exact `c018f5f6012453c1449eec5f42a957f712790351`
+spustil 237 sad: `232 PASS`, `3 FAIL`, `2 BLOCKED`. Tři nové registrované B3
+sady prošly. FAIL zůstaly přesně známé environmentálně podmíněné
+`nightly-audit-runner-self-test`, `nightly-orchestrator-self-test` a
+`vram-coordination`; BLOCKED zůstaly dvě PDF toolchain sady. Předchozí běh na
+`66c2e511` navíc odhalil a `c018f5f6` opravil stale README census a schema pin
+migrace 068; diagnostické `direct-tests` byly po kontrole odstraněné z aktivní
+artifact cesty. Nejde o GPU acceptance ani Gate 1 PASS.

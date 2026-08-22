@@ -1342,13 +1342,14 @@ mohou pokračovat.
    | 6 | 021 byte bridge + built journey + produkční ACK | **HOTOVO** `2b6b151b`, `2e33e342`, `241b39ab` | Electron boundary je built a produkční server token pravdivě ACKuje |
    | 7 | autorizovaný GPU pilot | **BLOCKED prostředím** | cizí aktivní CUDA proces RustDesk; sériově, jedna role/digest, jen v čistém GPU okně |
 
-   **Položky 1–6 uzavřené 2026-08-22.** Deterministický gate na `a317da53`:
-   `{"PASS":229,"FAIL":3,"BLOCKED":2}`, 234 sad. Všechna tři selhání jsou
-   předchozí a prostředím podmíněná (`nightly-audit-runner-self-test`,
-   `nightly-orchestrator-self-test`, `vram-coordination`) — shodná s baseline
-   před touto sérií. Navazující produkční B3 closeout a jeho focused/fresh-clone
-   evidence jsou popsány níže; plný gate po těchto commitech ani fyzický GPU
-   pilot zatím neproběhly, takže Gate 1 jako celek není PASS.
+   **Položky 1–6 uzavřené 2026-08-22.** Deterministický gate na `a317da53` měl
+   `{"PASS":229,"FAIL":3,"BLOCKED":2}` přes 234 sad. Navazující plný gate na
+   `c018f5f6` po B3 closeoutu má `{"PASS":232,"FAIL":3,"BLOCKED":2}` přes 237
+   sad: všechny tři nově registrované B3 sady jsou PASS a tři FAILy zůstávají
+   přesně stejné prostředím podmíněné sady (`nightly-audit-runner-self-test`,
+   `nightly-orchestrator-self-test`, `vram-coordination`). Dvě BLOCKED jsou
+   stejné PDF toolchain prerekvizity. Fyzický GPU pilot zatím neproběhl, takže
+   Gate 1 jako celek není PASS.
 
    Levné a bezpečnostní změny se tím dokončí před drahou Studio
    infrastrukturou a obě migrační položky dostanou čísla z jednoho census.
@@ -1446,6 +1447,8 @@ mohou pokračovat.
    ratchet `13/13`. B3 implementace a offline fresh-clone evidence jsou tím
    hotové, nikoli však fyzicky GPU přijaté: T3 pilot blokuje cizí aktivní CUDA
    proces RustDesk. Syntetické proof fixture nejsou produkční measurement proof.
+   Plný offline/database gate na `c018f5f6` navíc prošel 232 sadami; tři FAILy
+   a dvě BLOCKED jsou beze změny proti známému environmentálnímu baseline.
 7. B4 má focused implementované 011/A, obě poloviny 014/A a obě poloviny
    012/B: bounded request
    ID/set, úplný partition, typed reject, explicitní durable-store autoritu,

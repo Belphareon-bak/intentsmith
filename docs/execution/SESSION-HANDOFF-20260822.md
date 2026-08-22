@@ -1,8 +1,9 @@
 # Handoff 2026-08-22
 
 **Aktuální closeout větev:** `codex/m1-closeout-20260822`, implementační tip
-`56ff8053` nad převzatým `a317da53`. **Nepushnuto.** Izolovaný worktree je po
-checkpointu čistý; cizí změny v hlavním a mobilním checkoutu zůstaly nedotčené.
+`56ff8053`, poslední plně testovaný tip `c018f5f6` nad převzatým `a317da53`.
+**Nepushnuto.** Izolovaný worktree je po checkpointu čistý; cizí změny v hlavním
+a mobilním checkoutu zůstaly nedotčené.
 
 ## Co se dnes stalo, v pořadí
 
@@ -60,13 +61,22 @@ balíčků, našel 0 vulnerabilities a zeleně reprodukoval failover application
 `6/6`, terminal repository `7/7`, parent acceptance `16/16`, manual binding
 `108/108`, schema migrations `38/38` a module ratchet `13/13`.
 
+První plný closeout gate na `66c2e511` pravdivě našel tři další lokální mezery:
+stale README census, schema kontrakt nepřipnutý na migraci 068 a sedm
+diagnostických `direct-tests` adresářů. `c018f5f6` srovnal census a exact schema
+kontrakt; diagnostické adresáře byly po přečtení logů přesunuty do koše.
+Focused výsledky jsou schema `20/20`, artifact validation `151/151` a harness
+metatest PASS.
+
 ## Čísla, ne dojmy
 
-Deterministický gate na `2e33e342`: `{"PASS":229,"FAIL":3,"BLOCKED":2}`, 234 sad.
-Tři selhání jsou předchozí a prostředím podmíněná — `nightly-audit-runner-self-test`
-(čeká blocker `toolchain:x11-display`), `nightly-orchestrator-self-test`
-(`BLOCKED` řádky s `required:true`) a `vram-coordination` (GPU/prostředí).
-Shodné s baseline před sérií, beze změny po 021.
+Deterministický gate na `c018f5f6`:
+`{"PASS":232,"FAIL":3,"BLOCKED":2}`, 237 sad. Oproti baseline přibyly tři
+registrované B3 sady a všechny jsou PASS. Tři FAILy jsou stejné předchozí a
+prostředím podmíněné — `nightly-audit-runner-self-test` (X11 self-test fixture),
+`nightly-orchestrator-self-test` (povinné BLOCKED řádky) a
+`vram-coordination` (hostitelský GPU stav). Dvě BLOCKED sady jsou beze změny
+`chat-export-budget` a `export-pdf-docx` na PDF toolchain prerekvizitě.
 
 ## Co je vědomě nedodělané
 
