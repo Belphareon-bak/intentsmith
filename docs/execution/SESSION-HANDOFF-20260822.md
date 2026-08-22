@@ -1,7 +1,7 @@
 # Handoff 2026-08-22
 
-**Aktuální closeout větev:** `codex/m1-closeout-20260822`, implementační tip
-`56ff8053`, poslední plně testovaný tip `c018f5f6` nad převzatým `a317da53`.
+**Aktuální closeout větev:** `codex/m1-closeout-20260822`, core runtime tip
+`56ff8053`, poslední plně testovaný integrační tip `10b3d080` nad převzatým `a317da53`.
 **Nepushnuto.** Izolovaný worktree je po checkpointu čistý; cizí změny v hlavním
 a mobilním checkoutu zůstaly nedotčené.
 
@@ -53,6 +53,8 @@ B3 se posunulo přes vlastní produkční commit pointy:
 - `7ea36580` jmenovitě přijímá šest nových modulových hran bez růstu cyklů;
 - `56ff8053` nahrazuje křehký ruční export zdrojů proof parentu tranzitivní
   uzávěrou importů z Git HEAD.
+- `10b3d080` přesouvá novou runtime-finalization migraci z 068 na rezervované
+  069 po zjištění živé kolize s coworkerovou necommitnutou model-evaluation 068.
 
 Registrovaný runtime audit na `7ea36580` prošel `8/8`; proof/source-closure
 audit na `56ff8053` prošel `4/4`. Samostatný fresh clone exact
@@ -68,9 +70,17 @@ kontrakt; diagnostické adresáře byly po přečtení logů přesunuty do koše
 Focused výsledky jsou schema `20/20`, artifact validation `151/151` a harness
 metatest PASS.
 
+Fresh clone exact `10b3d080068c81f387aa38244634a710d6281ea5` uvnitř svého
+vlastního adresáře offline nainstaloval 233 balíčků (0 vulnerabilities) a prošel
+application `6/6`, terminal `7/7`, schema `20/20`, migration suite `38/38`,
+parent `16/16`, issuer `6/6`, binding `108/108` a ratchet `13/13`; finální
+porcelain klonu byl prázdný. Jeden předchozí instalační příkaz po vytvoření
+klonu zůstal omylem v aktivním worktree, proto se za fresh-clone evidenci
+nepočítá; zdroj nezměnil.
+
 ## Čísla, ne dojmy
 
-Deterministický gate na `c018f5f6`:
+Deterministický gate na `10b3d080`:
 `{"PASS":232,"FAIL":3,"BLOCKED":2}`, 237 sad. Oproti baseline přibyly tři
 registrované B3 sady a všechny jsou PASS. Tři FAILy jsou stejné předchozí a
 prostředím podmíněné — `nightly-audit-runner-self-test` (X11 self-test fixture),
@@ -95,8 +105,9 @@ prostředím podmíněné — `nightly-audit-runner-self-test` (X11 self-test fi
   B4 je implementačně uzavřené, ale MODEL acceptance stále čeká na povinný T3
   GPU pilot. Tohle pořadí není preference, nýbrž explicitní závislost B5.
 - **GPU pilot je skutečně blokovaný prostředím:** při posledním preflightu měl
-  RTX 3090 22 388 MiB volno a `ollama ps` bylo prázdné, ale CUDA používal
-  RustDesk PID `540882` (294 MiB). Cizí vzdálenou relaci se nesmí ukončit.
+  RTX 3090 už kromě RustDesk PID `540882` (294 MiB) používal i coworkerův
+  `qwen3.5:27b` přes Ollamu (17 GB, 100 % GPU); volno kleslo na 4 689 MiB.
+  Cizí modelový běh ani vzdálená relace se nesmí ukončit.
 
 ## 021 — byte bridge, uzavřeno
 

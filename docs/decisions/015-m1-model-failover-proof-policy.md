@@ -258,3 +258,9 @@ Tento closeout nedokládá skutečný measurement/proof konkrétního fyzického
 modelu. Povinný T3 GPU pilot při posledním preflightu blokoval cizí aktivní CUDA
 proces RustDesk; syntetické testovací proofy se za produkční acceptance
 nevydávají.
+
+Před integrací byla nová runtime-finalization migrace přesunuta z 068 na 069,
+protože paralelní cizí necommitnutá M1 práce začala používat 068 pro model
+evaluation history. Exact `10b3d080068c81f387aa38244634a710d6281ea5` po této
+změně zopakoval plný offline/database gate `232 PASS / 3 FAIL / 2 BLOCKED` a
+fresh-clone baterii; tři FAILy a dvě BLOCKED zůstaly známé environmentální sady.

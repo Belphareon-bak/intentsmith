@@ -2486,7 +2486,7 @@ acceptance uzavřená není: autorizovaný T3 GPU pilot blokoval cizí aktivní 
 proces RustDesk. Žádný testovací fixture proof není vydáván za skutečný
 produkční measurement proof; B5 proto podle své explicitní závislosti nezačalo.
 
-Plný offline/database gate na exact `c018f5f6012453c1449eec5f42a957f712790351`
+Plný offline/database gate na exact `10b3d080068c81f387aa38244634a710d6281ea5`
 spustil 237 sad: `232 PASS`, `3 FAIL`, `2 BLOCKED`. Tři nové registrované B3
 sady prošly. FAIL zůstaly přesně známé environmentálně podmíněné
 `nightly-audit-runner-self-test`, `nightly-orchestrator-self-test` a
@@ -2494,3 +2494,11 @@ sady prošly. FAIL zůstaly přesně známé environmentálně podmíněné
 `66c2e511` navíc odhalil a `c018f5f6` opravil stale README census a schema pin
 nového runtime tipu; diagnostické `direct-tests` byly po kontrole odstraněné z aktivní
 artifact cesty. Nejde o GPU acceptance ani Gate 1 PASS.
+
+Před integrací byla failover runtime-finalization migrace přesunuta z 068 na
+rezervované 069, protože paralelní cizí necommitnutá M1 práce začala používat
+068 pro model evaluation history. Opakovaný plný gate na `10b3d080` zachoval
+`232 PASS / 3 FAIL / 2 BLOCKED`. Fresh clone exact stejného commitu offline
+nainstaloval 233 balíčků (0 vulnerabilities) a reprodukoval application `6/6`,
+terminal `7/7`, schema `20/20`, migrations `38/38`, parent `16/16`, issuer
+`6/6`, binding `108/108` a ratchet `13/13`; klon zůstal čistý.

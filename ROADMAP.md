@@ -1344,7 +1344,8 @@ mohou pokračovat.
 
    **Položky 1–6 uzavřené 2026-08-22.** Deterministický gate na `a317da53` měl
    `{"PASS":229,"FAIL":3,"BLOCKED":2}` přes 234 sad. Navazující plný gate na
-   `c018f5f6` po B3 closeoutu má `{"PASS":232,"FAIL":3,"BLOCKED":2}` přes 237
+   `10b3d080` po B3 closeoutu a vyřešení živé kolize migrace 068→069 má
+   `{"PASS":232,"FAIL":3,"BLOCKED":2}` přes 237
    sad: všechny tři nově registrované B3 sady jsou PASS a tři FAILy zůstávají
    přesně stejné prostředím podmíněné sady (`nightly-audit-runner-self-test`,
    `nightly-orchestrator-self-test`, `vram-coordination`). Dvě BLOCKED jsou
@@ -1447,8 +1448,12 @@ mohou pokračovat.
    ratchet `13/13`. B3 implementace a offline fresh-clone evidence jsou tím
    hotové, nikoli však fyzicky GPU přijaté: T3 pilot blokuje cizí aktivní CUDA
    proces RustDesk. Syntetické proof fixture nejsou produkční measurement proof.
-   Plný offline/database gate na `c018f5f6` navíc prošel 232 sadami; tři FAILy
+   Plný offline/database gate na `10b3d080` navíc prošel 232 sadami; tři FAILy
    a dvě BLOCKED jsou beze změny proti známému environmentálnímu baseline.
+   Fresh clone exact `10b3d080068c81f387aa38244634a710d6281ea5` po offline
+   instalaci reprodukoval application `6/6`, terminal `7/7`, schema `20/20`,
+   všechny migrace `38/38`, parent `16/16`, issuer `6/6`, binding `108/108` a
+   ratchet `13/13`; klon zůstal čistý.
 7. B4 má focused implementované 011/A, obě poloviny 014/A a obě poloviny
    012/B: bounded request
    ID/set, úplný partition, typed reject, explicitní durable-store autoritu,
