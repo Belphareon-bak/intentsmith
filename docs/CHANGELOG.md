@@ -8,6 +8,54 @@
 
 ---
 
+## v136.2 — Gate 1 fronta 1–5 (2026-08-22)
+
+Pět položek závazné Gate 1 fronty z `ROADMAP.md` §13. Všechny jsou rozhodnutí,
+která operátor přijal 2026-08-09 a která čekala na implementaci.
+
+### 023/A — poslední živá VRAM hrana
+Mezi unloadem a reloadem šlo model smazat. `VRAM_ARTIFACT_USE` je nový shared
+owner: chat identita se drží od dequeue media tasku do `finally`, unload
+rezervuje všechny canonical identity z `/api/ps` před prvním provider efektem.
+Konflikt záměrně uniká ze širokých `catch` bloků. Globální GPU residency
+zůstává finding 003 a M2.
+
+### 022/A — rollback svázaný s přesnou operací
+Role-only tlačítko mohlo rollbacknout novější operaci, než o které uživatele
+varovalo. `upgrade_verify_failed` nese `operationId`, `committedBindingRevision`
+a `failedAttemptRevision`; rollback vyžaduje všechny tři. Dvě vrstvy —
+aplikační precheck a transakční CAS — každá dokázaná zvlášť. Studio nabídne
+akci jen s úplnou identitou, za potvrzením, single-flight a se stale-response
+guardem.
+
+### Rezervace migrací — census, ne odhad
+Union census přes 351 živých větví ukázal, že čísla `058`/`059` z ROADMAPy už
+kolidují s mobilní linkou: union je obsazený souvisle `001`–`065`. Platí `066`
+a `067`. Metoda je v [`migration-reservation.md`](execution/migration-reservation.md).
+
+### 020/E — automation policy má vlastní storage (migrace 066)
+Tři automation klíče žily ve sdíleném `user_settings` blobu s pěti živými
+mutation cestami. `model_automation_policy` je teď jediná autorita s revizí,
+append-only eventy a repository-owned request ID. Generic POST vlastněné klíče
+strhne (drop, ne reject) a vrací `ignoredReservedKeys`; generic GET je
+neemituje. Migrace startuje OFF a legacy `autoFailoverEnabled=true` nepovyšuje —
+zůstává jako karanténní evidence.
+
+### 015 — proof vázaný na artefakty a striktní expiry (migrace 067)
+Proof tabulka nenesla hash measurement artefaktu, parent acceptance ani source
+revision, takže syntetický řádek vypadal jako skutečné měření. Proof bez obou
+durable artefaktů teď není možný. Zároveň se čtyři triggery migrace 046 srovnaly
+z `>=` na striktní `>` — byla to jedna milisekunda, ve které mohl expirovaný
+proof ještě autorizovat aktivaci. **Issuance, prahy ani terminal activation se
+tím nezapínají.**
+
+### Důkazy
+50 nových testů ve čtyřech sadách. Deterministický gate na `fbbe1e74`:
+`{"PASS":229,"FAIL":3,"BLOCKED":2}` — všechna tři selhání předchozí a
+prostředím podmíněná.
+
+---
+
 ## v136.1 — Evaluace CODE spuštěným testem (2026-08-21)
 
 Validační sady měřily tvar odpovědi, ne schopnost. Nová sada `code_patch`

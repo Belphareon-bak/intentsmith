@@ -320,6 +320,10 @@ Nepatří sem selhání, které `CONTRACT.md §8` označuje jako při vývoji o�
 |---|---|---|---|
 | _nic otevřeného_ | — | — | — |
 
+Změřeno 2026-08-22 na `fbbe1e74`, profil `offline,database`, 234 sad:
+`{"PASS":229,"FAIL":3,"BLOCKED":2}`. Tři selhání jsou předchozí a prostředím
+podmíněná, shodná s baseline před Gate 1 sérií.
+
 Změřeno 2026-08-21 na `f5d0771f`, profil `offline,database`, 231 sad:
 `{"PASS":222,"FAIL":7,"BLOCKED":2}`. Všechny čtyři vady výše ověřeny jako
 **předchozí** — běh na čistém `43687e6b` ve worktree dal bajtově shodný výstup

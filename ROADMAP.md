@@ -1325,15 +1325,23 @@ mohou pokračovat.
 
    **Závazná Gate 1 fronta** v tomto pořadí:
 
-   | # | Položka | Proč tady |
-   |---|---|---|
-   | 1 | 023 VRAM delete race | aditivní, bez veřejného kontraktu a bez GPU |
-   | 2 | 022 operation-bound recovery | nejmenší code položka, offline ověřitelná |
-   | 3 | společná rezervace migrací | union census přes všechny větve; `066` = 020, `067` = 015 |
-   | 4 | 020 oddělená policy storage | první migrační položka |
-   | 5 | 015 proof issuance | druhá migrační položka, těží ze stejného census |
-   | 6 | 021 built journey | jediná položka vázaná na drahou Studio infrastrukturu |
-   | 7 | autorizovaný GPU pilot | sériově, jedna role/digest, jen na akci operátora |
+   | # | Položka | Stav 2026-08-22 | Proč tady |
+   |---|---|---|---|
+   | 1 | 023 VRAM delete race | **HOTOVO** `51936ee1` | aditivní, bez veřejného kontraktu a bez GPU |
+   | 2 | 022 operation-bound recovery | **HOTOVO** `05b6c44b`, `c0a0340f` | nejmenší code položka, offline ověřitelná |
+   | 3 | společná rezervace migrací | **HOTOVO** `2013e522` | union census přes všechny větve; `066` = 020, `067` = 015 |
+   | 4 | 020 oddělená policy storage | **HOTOVO** `b9731302` | první migrační položka |
+   | 5 | 015 proof ↔ artefakty a striktní expiry | **HOTOVO** `6368bd2f` | druhá migrační položka, těží ze stejného census |
+   | 6 | 021 built journey | otevřené | jediná položka vázaná na drahou Studio infrastrukturu |
+   | 7 | autorizovaný GPU pilot | otevřené | sériově, jedna role/digest, jen na akci operátora |
+
+   **Položky 1–5 uzavřené 2026-08-22.** Deterministický gate na `fbbe1e74`:
+   `{"PASS":229,"FAIL":3,"BLOCKED":2}`, 234 sad. Všechna tři selhání jsou
+   předchozí a prostředím podmíněná (`nightly-audit-runner-self-test`,
+   `nightly-orchestrator-self-test`, `vram-coordination`) — shodná s baseline
+   před touto sérií. 015 zůstává rozdělené: vazba proofu na artefakty a
+   striktní expiry hrana jsou hotové, vlastní **issuance, prahy a terminal
+   activation zůstávají blokované**, takže B3 a B4 jsou dál pravdivě `BLOCKED`.
 
    Levné a bezpečnostní změny se tím dokončí před drahou Studio
    infrastrukturou a obě migrační položky dostanou čísla z jednoho census.
