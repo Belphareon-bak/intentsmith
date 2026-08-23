@@ -90,6 +90,10 @@ export function canonicalizeProjectContextValue(value) {
   return canonicalize(value, new Set(), 0);
 }
 
+export function isProjectContextProjectId(value) {
+  return Number.isSafeInteger(value) && value > 0;
+}
+
 export function normalizeProjectContextQuery(queryText) {
   if (typeof queryText !== 'string') {
     throw new TypeError('project-context-query:invalid-queryText');
@@ -185,7 +189,9 @@ export function validateProjectContextQuery(value) {
     errors.push(`${context}:invalid-version`);
   }
   if (!isIdentifier(value.requestId)) errors.push(`${context}:invalid-requestId`);
-  if (!isIdentifier(value.projectId)) errors.push(`${context}:invalid-projectId`);
+  if (!isProjectContextProjectId(value.projectId)) {
+    errors.push(`${context}:invalid-projectId`);
+  }
   if (!isCanonicalRoot(value.canonicalRoot)) {
     errors.push(`${context}:invalid-canonicalRoot`);
   }
@@ -464,7 +470,9 @@ export function validateProjectContextSnapshot(value) {
     errors.push(`${context}:invalid-version`);
   }
   if (!isIdentifier(value.requestId)) errors.push(`${context}:invalid-requestId`);
-  if (!isIdentifier(value.projectId)) errors.push(`${context}:invalid-projectId`);
+  if (!isProjectContextProjectId(value.projectId)) {
+    errors.push(`${context}:invalid-projectId`);
+  }
 
   if (success) {
     errors.push(...validateSuccessfulSnapshot(value));

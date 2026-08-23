@@ -99,9 +99,11 @@ normativní zdroj s generovaným JS validátorem nebo s povinným parity testem.
 
 ### 3.1 `ProjectContextQuery@1`
 
-- `schemaVersion: 1`;
+- `contract: 'ProjectContextQuery'` a `version: 1`, shodně s executable JS
+  autoritou;
 - `requestId`: stabilní identita dotazu, nevstupuje do `snapshotDigest`;
-- `projectId`: stabilní registry-backed identita projektu;
+- `projectId`: kladné safe-integer `projects.id`, tedy stabilní registry-backed
+  identita projektu;
 - `canonicalRoot`: absolutní, již kanonická cesta; provider ji znovu porovná s
   `realpath()` cesty vyřešené výhradně přes registry `projectId`;
 - `workspaceRevision`: očekávaná revision `wsr1:<sha256>`;

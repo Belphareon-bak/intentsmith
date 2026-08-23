@@ -24,7 +24,7 @@ const query = Object.freeze({
   contract: PROJECT_CONTEXT_KIND.QUERY,
   version: PROJECT_CONTEXT_CONTRACT_VERSION,
   requestId: 'request-context-001',
-  projectId: 'project-a',
+  projectId: 17,
   canonicalRoot: '/workspace/project-a',
   workspaceRevision: revisionA,
   queryText: '  KDE\u00a0je Pr\u030ci\u0301lis\u030c  definované? KDE  ',
@@ -55,7 +55,7 @@ function item(overrides = {}) {
     score: 1200,
     provenance: {
       sourceSet: 'ContextSourceSet@1',
-      projectId: 'project-a',
+      projectId: 17,
       workspaceRevision: revisionA,
       path: 'src/example.js',
       contentDigest,
@@ -224,9 +224,11 @@ test('Git SHA, zero budgets and punctuation-only queries are rejected', () => {
   const gitSha = { ...query, workspaceRevision: '44a9ba87' };
   const noBudget = { ...query, maxFiles: 0 };
   const noTerms = { ...query, queryText: ':: !!!' };
+  const stringProjectId = { ...query, projectId: '17' };
   assert.equal(validateProjectContextQuery(gitSha).valid, false);
   assert.equal(validateProjectContextQuery(noBudget).valid, false);
   assert.equal(validateProjectContextQuery(noTerms).valid, false);
+  assert.equal(validateProjectContextQuery(stringProjectId).valid, false);
 });
 
 test('ok with zero items cannot claim found and non-empty cannot claim empty', () => {
@@ -266,7 +268,7 @@ test('empty cannot hide truncation or budget exhaustion', () => {
 
 test('foreign provenance, absolute item paths and digest mutation fail closed', () => {
   const foreign = clone(found);
-  foreign.items[0].provenance.projectId = 'project-b';
+  foreign.items[0].provenance.projectId = 18;
   foreign.snapshotDigest = computeProjectContextSnapshotDigest(foreign);
   assert.equal(validateProjectContextSnapshot(foreign).valid, false);
 
