@@ -1,21 +1,23 @@
 # 001 — M2 effect authority gaps
 
 - **Zdroj:** read-only stopa `P1 M2-EFFECT-TRACE`
-- **Stav:** `OPEN`
+- **Stav:** `OPEN / 2 OF 18 CANDIDATE_CLOSED`
 - **Primární vlastník:** `WP-M2-EFFECT`
 - **Vstupní inventura:** `docs/inventory/22-effect-authority-trace.md`
 
 Tento ledger nesmí být interpretován jako tvrzení, že každá dormant cesta
 je dnes vzdáleně dosažitelná. Odděluje aktivní produkční call graph od
-neintegrovaného dluhu registru nástrojů. Nic z nálezů P1 neopravovala.
+neintegrovaného dluhu registru nástrojů. Vstupní P1 stopa sama nic neopravovala;
+kandidátní disposition jednotlivých položek se od zahájení M2 zapisuje níže a
+nesmí se zaměnit za přijetí M2.
 
 ## Souhrn
 
 | ID | Závažnost | Nález | Vlastník |
 |---|---|---|---|
-| P1-FX-001 | HIGH | Patch path nemá project containment. | M2-EFFECT |
+| P1-FX-001 | HIGH | Patch path nemá project containment. **CANDIDATE_CLOSED `37fab4f9`** | M2-EFFECT |
 | P1-FX-002 | HIGH | Scope limiter po porušení pokračuje; lifecycle jej často ani neaktivuje. | M2-EFFECT / M2-EXEC |
-| P1-FX-003 | HIGH | Dead-import stripper má druhou traversal write cestu. | M2-EFFECT / M2-LIFECYCLE |
+| P1-FX-003 | HIGH | Dead-import stripper má druhou traversal write cestu. **CANDIDATE_CLOSED `37fab4f9`** | M2-EFFECT / M2-LIFECYCLE |
 | P1-FX-004 | HIGH | Rollback je procesový, neúplný a nerecoverovatelný. | M2-EFFECT |
 | P1-FX-005 | HIGH | Milestone timeout neruší vlastní build/fix/test efekty. | M2-EFFECT / M2-LIFECYCLE |
 | P1-FX-006 | HIGH | Timeout/cancel může zanechat child proces nebo handler. | M2-EFFECT / M2-EXEC |
@@ -44,6 +46,14 @@ ne cestu.
 **Acceptance:** absolutní, `..`, symlink a rename race případy skončí před
 preview/write; evidence nese canonical root i resolved target.
 
+**Kandidátní evidence 2026-08-23:** `src/executor/project-path-authority.js`
+sdílí canonical containment, descriptor-pinned read a pre-write revalidation
+pro patch, preview i rollback. `tests/patch-engine.test.js` na `37fab4f9`
+prošel `66/66`: absolutní cesta, traversal, symlink ven, parent swap po open i
+před write skončily bez změny sentinelů; obyčejné `EIO` zůstalo `read_failed`.
+Silný nepřátelský ABA závod čeká na dirfd/openat2 broker a nebrání uzavření
+původního lexical/symlink bypassu, ale brání tvrzení o kompletní effect authority.
+
 ### P1-FX-002 — scope limiter není authority
 
 Porušení vytvoří warning nebo rozšíření scope v
@@ -61,6 +71,14 @@ je terminální před prvním write.
 
 **Acceptance:** stejná path authority jako patch engine; žádný druhý lokální
 guard.
+
+**Kandidátní evidence 2026-08-23:** přímý `fs.writeFileSync` byl nahrazen
+stejnou interní project-path primitive jako patch. Celá scope sada se validuje
+a čte před prvním zápisem; traversal, symlink a parent swap failují zavřeně.
+Pokud by se měnil více než jeden soubor, větev vrátí
+`multi_file_atomicity_required` před prvním efektem. Focused lifecycle suite na
+`37fab4f9` prošla `84/84`. Požadavek na budoucí veřejný broker, audit a durable
+multi-file journal zůstává otevřený v dalších položkách tohoto ledgeru.
 
 ### P1-FX-004 — rollback není durable
 

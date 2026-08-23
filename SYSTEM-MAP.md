@@ -283,7 +283,11 @@ znění v [`CONTRACT.md`](CONTRACT.md) §2.
     `POST /api/lifecycle/*/approve`, `POST /api/skills/executions/:id/confirm`)
     nemají žádnou per-route kontrolu — chrání je totéž co `GET /api/health`.
     Perzistentní audit efektů neexistuje; jediná audit tabulka `merge_audit_log`
-    je o mergích. `docs/review/2026-08-07-AUTH-MATRIX.md`
+    je o mergích. `docs/review/2026-08-07-AUTH-MATRIX.md`. První M2 kandidát
+    `37fab4f9` zavřel absolutní/traversal/symlink a jednoduché path-race bypassy
+    pro patch, preview, rollback a dead-import write; invariant však zůstává
+    `UNVERIFIED`, dokud neexistuje a neprojde celý effect/approval connector,
+    revokace, process/network/Git mediace, audit a uživatelský journey.
 12. Žádná tichá background outbound komunikace — **PARTIAL**; background model
     discovery je off a rodičovský deterministický profil byl empiricky
     skenovaný. Google Fonts egress byl odstraněn ze všech trackovaných Studio

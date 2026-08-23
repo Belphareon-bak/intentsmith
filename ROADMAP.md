@@ -64,7 +64,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 |---|---|---|---|
 | **M0 Produktová pravda** | `ACCEPTED / PASS` | současný C3/IntentSmith strom | Víme, co produkt je a co skutečně běží; deklarace nelžou o chování. |
 | **M1 Lokální runtime páteř** | `ACCEPTED / GATE_2_PASS` | M0 accepted; Gate 1 PASS | Stabilní Linux → Theia → chat → Ollama → persistence. |
-| **M2 Řízená práce nad projektem** | `NOT_STARTED` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
+| **M2 Řízená práce nad projektem** | `IN_PROGRESS / WP-M2-EFFECT` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
 | **M3 Modulární platforma** | `NOT_STARTED` | M2 accepted | Expertise, tool, skill, specialista a agent přidají schopnost bez obcházení core. |
 | **M4 Auditovatelné self-learning** | `NOT_STARTED` | M2 accepted | Jedna uzavřená, scoped a vratná učící smyčka zlepšuje skutečný scénář. |
 | **M5 Production hardening** | `NOT_STARTED` | M3 + M4 accepted | Instalace, data, auth, procesy, síť, výkon a recovery jsou podporovatelné. |
@@ -1035,9 +1035,16 @@ Právě ta komunikační část je důvod, proč na větvi
 a mimo, aby M2 nezačínalo s nesrovnalostmi a neřešilo je až za běhu. Fakticky
 jsou to **prerekvizity**, ne exekuce milníku.
 
-Stav M2 v tabulce milníků proto zůstává `NOT_STARTED` a jeho vstupem je dál
-přijaté M1. Prefix `m2` na té větvi čti jako „hranice vůči M2", ne jako
-„M2 běží".
+V době této mobilní prerekvizity zůstával stav M2 `NOT_STARTED` a jeho vstupem
+bylo přijaté M1. Prefix `m2` na mobilní větvi proto dál čti jako „hranice vůči
+M2", ne jako důkaz, že na ní M2 běží.
+
+**Stav 2026-08-23:** po přijetí M1 na `44a9ba87` operátor spustil vlastní M2.
+`WP-M2-EFFECT` běží v izolovaném worktree přímo z tohoto commitu; první
+rozhodnutí-prostý řez uzavírá project-path bypassy patch/dead-import cest na
+`37fab4f9` a přesné boundary hrany na `b523a47f`. Veřejné
+`EffectRequest/Result` ani `ApprovalGrant` tím ještě nejsou připnuté a M2 jako
+celek není PASS. Paralelní `WP-M2-CODE` zůstává disjunktní proud.
 
 ### Závislostní sekvence Work Packages
 
