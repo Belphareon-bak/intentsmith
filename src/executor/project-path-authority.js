@@ -299,6 +299,31 @@ export function writeProjectFileAtomic(projectRoot, filePath, content, {
   }
 
   const directory = path.dirname(before.real);
+  // Never let recursive mkdir become the first effect. The parent must already
+  // exist as a directory under the preflight target. We retain the idempotent
+  // mkdir call for legacy writer compatibility, then immediately revalidate;
+  // a swap to an existing external symlink cannot create an entry and is caught
+  // before the temp file is opened.
+  try {
+    const directoryStat = fileSystem.statSync(directory);
+    if (!directoryStat.isDirectory()) {
+      throw new ProjectPathError('parent_not_directory', {
+        input: filePath,
+        projectRoot: before.projectRoot,
+        target: directory,
+      });
+    }
+  } catch (error) {
+    if (isProjectPathError(error)) throw error;
+    if (error?.code === 'ENOENT' || error?.code === 'ENOTDIR') {
+      throw new ProjectPathError('parent_directory_missing', {
+        input: filePath,
+        projectRoot: before.projectRoot,
+        target: directory,
+      });
+    }
+    throw error;
+  }
   fileSystem.mkdirSync(directory, { recursive: true });
   const current = revalidateProjectTarget(
     projectRoot,
