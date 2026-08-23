@@ -252,7 +252,7 @@ test('grant rejects invalid expiry and non-single-use claims', () => {
   assert(checked.errors.includes('approval-grant:singleUse-required'));
 });
 
-test('grant rejects consumption at expiry and revocation before issuance', () => {
+test('grant rejects consumption at expiry and permits defensive revocation before issuance', () => {
   const consumed = validateApprovalGrant(grant({
     consumedAt: '2026-08-23T20:05:00.000Z',
     consumedByEffectId: 'effect-1',
@@ -262,7 +262,7 @@ test('grant rejects consumption at expiry and revocation before issuance', () =>
     revokedAt: '2026-08-23T19:59:59.999Z',
     revocationReason: 'cancelled',
   }));
-  assert(revoked.errors.includes('approval-grant:invalid-revocation-time'));
+  assert.equal(revoked.valid, true);
 });
 
 test('successful EffectResult is valid and failure requires an error code', () => {

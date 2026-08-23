@@ -19,12 +19,18 @@ const DIGEST_B = `sha256:${'b'.repeat(64)}`;
 const CREATED = '2026-08-23T20:00:00.000Z';
 const CONSUMED = '2026-08-23T20:00:10.000Z';
 const EXPIRES = '2026-08-23T20:05:00.000Z';
+const FUTURE_EXPIRES = '2026-08-23T20:10:00.000Z';
 
 function openDb(filename = ':memory:') {
   const db = new Database(filename);
   db.pragma('foreign_keys = ON');
   applyEffectAuthorityMigration(db);
   return db;
+}
+
+function repositoryAt(db, timestamp = CONSUMED) {
+  const atMs = Date.parse(timestamp);
+  return new EffectAuthorityRepository(db, { clock: () => atMs });
 }
 
 function request(overrides = {}) {
@@ -131,7 +137,7 @@ suite('M2 durable effect authority repository');
 
 test('registers an immutable request and exact retry is idempotent', () => {
   const db = openDb();
-  const repository = new EffectAuthorityRepository(db);
+  const repository = repositoryAt(db);
   assert.equal(repository.registerEffectRequest(request()).created, true);
   assert.equal(repository.registerEffectRequest(request()).created, false);
   assert.deepEqual(repository.listAuthorityEvents('effect-1').map(event => event.eventType), [
@@ -142,7 +148,7 @@ test('registers an immutable request and exact retry is idempotent', () => {
 
 test('request identity or idempotency collision with different bytes is rejected', () => {
   const db = openDb();
-  const repository = new EffectAuthorityRepository(db);
+  const repository = repositoryAt(db);
   repository.registerEffectRequest(request());
   expectCode(
     () => repository.registerEffectRequest(request({ payloadDigest: DIGEST_B })),
@@ -157,7 +163,7 @@ test('request identity or idempotency collision with different bytes is rejected
 
 test('grant issuance requires an existing exact effect scope', () => {
   const db = openDb();
-  const repository = new EffectAuthorityRepository(db);
+  const repository = repositoryAt(db);
   expectCode(
     () => repository.issueApprovalGrant(grant()),
     EffectAuthorityErrorCode.REQUEST_NOT_FOUND,
@@ -172,7 +178,7 @@ test('grant issuance requires an existing exact effect scope', () => {
 
 test('issue and consume commit a durable ordered audit', () => {
   const db = openDb();
-  const repository = new EffectAuthorityRepository(db);
+  const repository = repositoryAt(db);
   registerAndGrant(repository);
   const bound = repository.getEffectRequest('effect-1');
   assert.equal(bound.approvalGrantId, 'grant-1');
@@ -186,7 +192,7 @@ test('issue and consume commit a durable ordered audit', () => {
 
 test('changing target bytes after approval cannot consume the grant', () => {
   const db = openDb();
-  const repository = new EffectAuthorityRepository(db);
+  const repository = repositoryAt(db);
   registerAndGrant(repository);
   const current = repository.getEffectRequest('effect-1');
   const changed = {
@@ -210,8 +216,8 @@ test('two database connections attempting consume have exactly one winner', () =
   const filename = path.join(root, 'authority.sqlite');
   const dbA = openDb(filename);
   const dbB = openDb(filename);
-  const repositoryA = new EffectAuthorityRepository(dbA);
-  const repositoryB = new EffectAuthorityRepository(dbB);
+  const repositoryA = repositoryAt(dbA);
+  const repositoryB = repositoryAt(dbB);
   registerAndGrant(repositoryA);
   const current = repositoryA.getEffectRequest('effect-1');
   assert.equal(repositoryA.consumeApprovalGrant({ grantId: 'grant-1', request: current, consumedAt: CONSUMED }).consumed, true);
@@ -227,8 +233,8 @@ test('two database connections attempting consume have exactly one winner', () =
 
 test('expiry boundary is fail-closed and distinct from consumption', () => {
   const db = openDb();
-  const repository = new EffectAuthorityRepository(db);
-  registerAndGrant(repository);
+  registerAndGrant(repositoryAt(db));
+  const repository = repositoryAt(db, EXPIRES);
   expectCode(
     () => repository.consumeApprovalGrant({
       grantId: 'grant-1',
@@ -241,24 +247,37 @@ test('expiry boundary is fail-closed and distinct from consumption', () => {
   db.close();
 });
 
-test('grant cannot be consumed before its issuance time', () => {
+test('caller-supplied time cannot backdate consumption against the trusted clock', () => {
   const db = openDb();
-  const repository = new EffectAuthorityRepository(db);
+  const repository = repositoryAt(db);
   registerAndGrant(repository);
+  repository.consumeApprovalGrant({
+    grantId: 'grant-1',
+    request: repository.getEffectRequest('effect-1'),
+    consumedAt: '1970-01-01T00:00:00.000Z',
+  });
+  assert.equal(repository.getApprovalGrant('grant-1').consumedAt, CONSUMED);
+  db.close();
+});
+
+test('repository rejects a grant whose issuance is in the future', () => {
+  const db = openDb();
+  const repository = repositoryAt(db);
+  repository.registerEffectRequest(request());
   expectCode(
-    () => repository.consumeApprovalGrant({
-      grantId: 'grant-1',
-      request: repository.getEffectRequest('effect-1'),
-      consumedAt: '2026-08-23T19:59:59.999Z',
-    }),
-    EffectAuthorityErrorCode.GRANT_NOT_YET_VALID,
+    () => repository.issueApprovalGrant(grant({
+      issuedAt: EXPIRES,
+      expiresAt: FUTURE_EXPIRES,
+    })),
+    EffectAuthorityErrorCode.INPUT_INVALID,
   );
+  assert.equal(repository.getApprovalGrant('grant-1'), null);
   db.close();
 });
 
 test('revocation is idempotent and a revoked grant cannot be consumed', () => {
   const db = openDb();
-  const repository = new EffectAuthorityRepository(db);
+  const repository = repositoryAt(db);
   registerAndGrant(repository);
   assert.equal(repository.revokeApprovalGrant({ grantId: 'grant-1', revokedAt: CONSUMED, reason: 'user_cancelled' }).revoked, true);
   assert.equal(repository.revokeApprovalGrant({ grantId: 'grant-1', revokedAt: CONSUMED, reason: 'user_cancelled' }).revoked, false);
@@ -276,7 +295,7 @@ test('revocation is idempotent and a revoked grant cannot be consumed', () => {
 
 test('consumed grant cannot be revoked', () => {
   const db = openDb();
-  const repository = new EffectAuthorityRepository(db);
+  const repository = repositoryAt(db);
   registerAndGrant(repository);
   repository.consumeApprovalGrant({
     grantId: 'grant-1',
@@ -296,7 +315,7 @@ test('consumed grant cannot be revoked', () => {
 
 test('run revocation revokes every active grant and preserves consumed grants', () => {
   const db = openDb();
-  const repository = new EffectAuthorityRepository(db);
+  const repository = repositoryAt(db);
   registerAndGrant(repository);
   const request2 = request({
     effectId: 'effect-2',
@@ -322,11 +341,48 @@ test('run revocation revokes every active grant and preserves consumed grants', 
   db.close();
 });
 
+test('run cancellation revokes a restored not-yet-valid grant', () => {
+  const db = openDb();
+  const repository = repositoryAt(db);
+  repository.registerEffectRequest(request());
+  const futureGrant = grant({ issuedAt: EXPIRES, expiresAt: FUTURE_EXPIRES });
+  db.prepare(`
+    INSERT INTO m2_approval_grants (
+      grant_id, effect_id, run_id, project_id, kind, payload_digest,
+      workspace_revision, nonce, grant_json, issued_at_ms, expires_at_ms,
+      consumed_at_ms, consumed_by_effect_id, revoked_at_ms, revocation_reason
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL)
+  `).run(
+    futureGrant.grantId,
+    futureGrant.scope.effectId,
+    futureGrant.scope.runId,
+    futureGrant.scope.projectId,
+    futureGrant.scope.kind,
+    futureGrant.scope.payloadDigest,
+    futureGrant.scope.workspaceRevision,
+    futureGrant.nonce,
+    JSON.stringify(futureGrant),
+    Date.parse(futureGrant.issuedAt),
+    Date.parse(futureGrant.expiresAt),
+  );
+
+  const revoked = repository.revokeRunGrants({ runId: 'run-1', reason: 'run_cancelled' });
+  assert.deepEqual([...revoked.grantIds], ['grant-1']);
+  assert.equal(repository.getApprovalGrant('grant-1').revokedAt, CONSUMED);
+  expectCode(
+    () => repository.consumeApprovalGrant({
+      grantId: 'grant-1', request: repository.getEffectRequest('effect-1'),
+    }),
+    EffectAuthorityErrorCode.GRANT_REVOKED,
+  );
+  db.close();
+});
+
 test('state and audit survive database close and reopen', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'm2-effect-ledger-'));
   const filename = path.join(root, 'authority.sqlite');
   let db = openDb(filename);
-  let repository = new EffectAuthorityRepository(db);
+  let repository = repositoryAt(db);
   registerAndGrant(repository);
   repository.consumeApprovalGrant({
     grantId: 'grant-1', request: repository.getEffectRequest('effect-1'), consumedAt: CONSUMED,
@@ -334,7 +390,7 @@ test('state and audit survive database close and reopen', () => {
   db.close();
 
   db = openDb(filename);
-  repository = new EffectAuthorityRepository(db);
+  repository = repositoryAt(db);
   assert.equal(repository.getApprovalGrant('grant-1').consumedAt, CONSUMED);
   assert.deepEqual(repository.listAuthorityEvents('effect-1').map(event => event.eventType), [
     'REQUEST_REGISTERED', 'GRANT_ISSUED', 'GRANT_CONSUMED',
@@ -345,7 +401,7 @@ test('state and audit survive database close and reopen', () => {
 
 test('terminal result is immutable, exact retry is idempotent and conflict is rejected', () => {
   const db = openDb();
-  const repository = new EffectAuthorityRepository(db);
+  const repository = repositoryAt(db);
   repository.registerEffectRequest(request());
   assert.equal(repository.recordEffectResult(result()).created, true);
   assert.equal(repository.recordEffectResult(result()).created, false);
@@ -363,7 +419,7 @@ test('terminal result is immutable, exact retry is idempotent and conflict is re
 
 test('result cannot predate its request', () => {
   const db = openDb();
-  const repository = new EffectAuthorityRepository(db);
+  const repository = repositoryAt(db);
   repository.registerEffectRequest(request());
   expectCode(
     () => repository.recordEffectResult(result({
@@ -377,12 +433,21 @@ test('result cannot predate its request', () => {
 
 test('database blocks request, result and event mutation or replacement', () => {
   const db = openDb();
-  const repository = new EffectAuthorityRepository(db);
+  const repository = repositoryAt(db);
   repository.registerEffectRequest(request());
   repository.recordEffectResult(result());
   assert.throws(() => db.prepare("UPDATE m2_effect_requests SET kind = 'fs.delete' WHERE effect_id = 'effect-1'").run(), /append-only/);
   assert.throws(() => db.prepare("DELETE FROM m2_effect_results WHERE effect_id = 'effect-1'").run(), /append-only/);
   assert.throws(() => db.prepare('DELETE FROM m2_effect_authority_events').run(), /append-only/);
+  assert.throws(() => db.prepare(`
+    INSERT OR REPLACE INTO m2_effect_authority_events (
+      seq, event_id, event_type, effect_id, grant_id, run_id, project_id,
+      occurred_at_ms, details_json
+    ) SELECT seq, event_id, event_type, effect_id, grant_id, run_id, project_id,
+             occurred_at_ms, details_json
+      FROM m2_effect_authority_events
+      WHERE event_id = 'REQUEST_REGISTERED:effect-1'
+  `).run(), /EVENT_IDENTITY_CONFLICT/);
   assert.throws(() => db.prepare(`
     INSERT OR REPLACE INTO m2_effect_requests (
       effect_id, run_id, project_id, kind, payload_digest,
@@ -391,6 +456,66 @@ test('database blocks request, result and event mutation or replacement', () => 
              workspace_revision, idempotency_key, request_json, created_at_ms
       FROM m2_effect_requests WHERE effect_id = 'effect-1'
   `).run(), /IDENTITY_CONFLICT/);
+  db.close();
+});
+
+test('database rejects a forged authority event before the matching state transition', () => {
+  const db = openDb();
+  const repository = repositoryAt(db);
+  registerAndGrant(repository);
+  assert.throws(() => db.prepare(`
+    INSERT INTO m2_effect_authority_events (
+      event_id, event_type, effect_id, grant_id, run_id, project_id,
+      occurred_at_ms, details_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    'GRANT_CONSUMED:grant-1', 'GRANT_CONSUMED', 'effect-1', 'grant-1',
+    'run-1', 'project-1', Date.parse(CONSUMED),
+    JSON.stringify({ consumedByEffectId: 'effect-1' }),
+  ), /EVENT_STATE_MISMATCH/);
+
+  repository.consumeApprovalGrant({
+    grantId: 'grant-1', request: repository.getEffectRequest('effect-1'),
+  });
+  assert.equal(
+    repository.listAuthorityEvents('effect-1')
+      .filter(event => event.eventType === 'GRANT_CONSUMED').length,
+    1,
+  );
+  db.close();
+});
+
+test('storage faults are typed and are not mislabeled as identity conflicts', () => {
+  const db = openDb();
+  const repository = repositoryAt(db);
+  db.pragma('query_only = ON');
+  expectCode(
+    () => repository.registerEffectRequest(request()),
+    EffectAuthorityErrorCode.STORAGE_FAILURE,
+  );
+  db.close();
+});
+
+test('repository fails closed when direct SQL stores a structurally invalid request', () => {
+  const db = openDb();
+  const repository = repositoryAt(db);
+  const malformed = JSON.stringify({
+    ...request(),
+    target: { ...request().target, relativePath: 'src//app.js' },
+  });
+  db.prepare(`
+    INSERT INTO m2_effect_requests (
+      effect_id, run_id, project_id, kind, payload_digest,
+      workspace_revision, idempotency_key, request_json, created_at_ms
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    'effect-1', 'run-1', 'project-1', 'fs.write', DIGEST_A,
+    'wsr1:revision-a', 'write-app-1', malformed, Date.parse(CREATED),
+  );
+  expectCode(
+    () => repository.getEffectRequest('effect-1'),
+    EffectAuthorityErrorCode.STORAGE_FAILURE,
+  );
   db.close();
 });
 
@@ -415,7 +540,7 @@ test('database rejects JSON identities that disagree with indexed authority colu
 
 test('database permits one direct terminal grant transition and always emits audit', () => {
   const db = openDb();
-  const repository = new EffectAuthorityRepository(db);
+  const repository = repositoryAt(db);
   registerAndGrant(repository);
   db.prepare(`
     UPDATE m2_approval_grants

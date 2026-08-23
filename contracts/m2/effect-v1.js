@@ -527,11 +527,9 @@ export function validateApprovalGrant(value) {
   if ((value.revokedAt === null) !== (value.revocationReason === null)) {
     errors.push(`${context}:partial-revocation`);
   }
-  if (
-    isCanonicalTimestamp(value.issuedAt)
-    && isCanonicalTimestamp(value.revokedAt)
-    && timestampToMs(value.revokedAt) < timestampToMs(value.issuedAt)
-  ) errors.push(`${context}:invalid-revocation-time`);
+  // A run cancellation is an authority cutoff, not a use of the grant.  It is
+  // therefore valid for a defensive revocation to predate a not-yet-valid
+  // grant restored from an older database or written by a compromised caller.
   if (consumed && revoked) errors.push(`${context}:consumed-and-revoked`);
   return validationResult(errors, value);
 }

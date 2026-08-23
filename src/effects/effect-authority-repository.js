@@ -19,6 +19,7 @@ export const EffectAuthorityErrorCode = Object.freeze({
   GRANT_REVOKED: 'APPROVAL_GRANT_REVOKED',
   GRANT_CONSUMED: 'APPROVAL_GRANT_CONSUMED',
   GRANT_CONFLICT: 'APPROVAL_GRANT_CONFLICT',
+  STORAGE_FAILURE: 'EFFECT_AUTHORITY_STORAGE_FAILURE',
 });
 
 export class EffectAuthorityError extends Error {
@@ -70,6 +71,21 @@ function immediate(db, callback) {
   return tx.immediate ? tx.immediate() : tx();
 }
 
+function requireClock(clock) {
+  if (typeof clock !== 'function') {
+    fail(EffectAuthorityErrorCode.INPUT_INVALID, 'A trusted authority clock is required');
+  }
+  return clock;
+}
+
+function storageFailure(operation, error) {
+  fail(
+    EffectAuthorityErrorCode.STORAGE_FAILURE,
+    `Effect authority storage failed during ${operation}`,
+    { cause: error?.message || String(error), sqliteCode: error?.code || null },
+  );
+}
+
 function normalizeRequestForStoredComparison(request, grantId) {
   if (request.approvalGrantId !== grantId) {
     fail(
@@ -94,8 +110,17 @@ function grantFromRow(row) {
 }
 
 export class EffectAuthorityRepository {
-  constructor(db) {
+  constructor(db, { clock = Date.now } = {}) {
     this.db = requireDatabase(db);
+    this.clock = requireClock(clock);
+  }
+
+  #now() {
+    const value = this.clock();
+    if (!Number.isSafeInteger(value) || value < 0) {
+      fail(EffectAuthorityErrorCode.INPUT_INVALID, 'Authority clock returned an invalid timestamp');
+    }
+    return value;
   }
 
   registerEffectRequest(requestValue) {
@@ -135,6 +160,7 @@ export class EffectAuthorityRepository {
       if (existing?.request_json === encoded) {
         return Object.freeze({ created: false, request: Object.freeze({ ...request }) });
       }
+      if (!existing) storageFailure('request registration', error);
       fail(
         EffectAuthorityErrorCode.REQUEST_CONFLICT,
         'Effect request identity is already bound to different bytes',
@@ -151,7 +177,18 @@ export class EffectAuthorityRepository {
       WHERE request.effect_id = ?
     `).get(effectId);
     if (!row) return null;
-    const request = JSON.parse(row.request_json);
+    let request;
+    try {
+      request = JSON.parse(row.request_json);
+    } catch (error) {
+      storageFailure('request read', error);
+    }
+    const validation = validateEffectRequest(request);
+    if (!validation.valid || request.approvalGrantId !== null) {
+      storageFailure('request read', new Error(
+        `stored EffectRequest is invalid: ${validation.errors.join(',')}`,
+      ));
+    }
     return Object.freeze({ ...request, approvalGrantId: row.grant_id ?? null });
   }
 
@@ -164,6 +201,23 @@ export class EffectAuthorityRepository {
       || grant.revocationReason !== null
     ) {
       fail(EffectAuthorityErrorCode.INPUT_INVALID, 'A new ApprovalGrant must be active');
+    }
+    const authorityNowMs = this.#now();
+    const issuedAtMs = requireTimestamp(grant.issuedAt, 'ApprovalGrant.issuedAt');
+    const expiresAtMs = requireTimestamp(grant.expiresAt, 'ApprovalGrant.expiresAt');
+    if (issuedAtMs > authorityNowMs) {
+      fail(
+        EffectAuthorityErrorCode.INPUT_INVALID,
+        'ApprovalGrant cannot be issued in the future',
+        { issuedAtMs, authorityNowMs },
+      );
+    }
+    if (expiresAtMs <= authorityNowMs) {
+      fail(
+        EffectAuthorityErrorCode.GRANT_EXPIRED,
+        'ApprovalGrant is already expired at issuance',
+        { expiresAtMs, authorityNowMs },
+      );
     }
     const request = this.getEffectRequest(grant.scope.effectId);
     if (!request) {
@@ -204,8 +258,8 @@ export class EffectAuthorityRepository {
         grant.scope.workspaceRevision,
         grant.nonce,
         encoded,
-        requireTimestamp(grant.issuedAt, 'ApprovalGrant.issuedAt'),
-        requireTimestamp(grant.expiresAt, 'ApprovalGrant.expiresAt'),
+        issuedAtMs,
+        expiresAtMs,
       );
       return Object.freeze({ created: true, grant: Object.freeze({ ...grant }) });
     } catch (error) {
@@ -220,6 +274,7 @@ export class EffectAuthorityRepository {
         && existing.consumed_at_ms === null
         && existing.revoked_at_ms === null
       ) return Object.freeze({ created: false, grant: grantFromRow(existing) });
+      if (!existing) storageFailure('grant issuance', error);
       fail(
         EffectAuthorityErrorCode.GRANT_CONFLICT,
         'Approval grant identity is already bound or the effect already has a grant',
@@ -234,9 +289,9 @@ export class EffectAuthorityRepository {
     );
   }
 
-  consumeApprovalGrant({ grantId, request: requestValue, consumedAt }) {
+  consumeApprovalGrant({ grantId, request: requestValue }) {
     const request = requireValid(requestValue, validateEffectRequest, 'EffectRequest');
-    const atMs = requireTimestamp(consumedAt, 'consumedAt');
+    const atMs = this.#now();
     const comparable = normalizeRequestForStoredComparison(request, grantId);
     const expectedRequestJson = canonicalStringify(comparable);
 
@@ -316,8 +371,8 @@ export class EffectAuthorityRepository {
     );
   }
 
-  revokeApprovalGrant({ grantId, revokedAt, reason }) {
-    const atMs = requireTimestamp(revokedAt, 'revokedAt');
+  revokeApprovalGrant({ grantId, reason }) {
+    const atMs = this.#now();
     if (typeof reason !== 'string' || reason.trim().length === 0 || reason.length > 1024) {
       fail(EffectAuthorityErrorCode.INPUT_INVALID, 'A bounded revocation reason is required');
     }
@@ -328,8 +383,7 @@ export class EffectAuthorityRepository {
         WHERE grant_id = ?
           AND consumed_at_ms IS NULL
           AND revoked_at_ms IS NULL
-          AND issued_at_ms <= ?
-      `).run(atMs, reason, grantId, atMs);
+      `).run(atMs, reason, grantId);
       if (update.changes === 1) {
         return Object.freeze({ revoked: true, grant: this.getApprovalGrant(grantId) });
       }
@@ -341,15 +395,15 @@ export class EffectAuthorityRepository {
       if (row.revoked_at_ms !== null) {
         return Object.freeze({ revoked: false, grant: grantFromRow(row) });
       }
-      fail(EffectAuthorityErrorCode.INPUT_INVALID, 'Revocation precedes grant issuance', { grantId });
+      fail(EffectAuthorityErrorCode.GRANT_CONFLICT, 'ApprovalGrant revocation lost authority race', { grantId });
     });
   }
 
-  revokeRunGrants({ runId, revokedAt, reason }) {
+  revokeRunGrants({ runId, reason }) {
     if (typeof runId !== 'string' || runId.trim().length === 0) {
       fail(EffectAuthorityErrorCode.INPUT_INVALID, 'runId is required');
     }
-    const atMs = requireTimestamp(revokedAt, 'revokedAt');
+    const atMs = this.#now();
     if (typeof reason !== 'string' || reason.trim().length === 0 || reason.length > 1024) {
       fail(EffectAuthorityErrorCode.INPUT_INVALID, 'A bounded revocation reason is required');
     }
@@ -359,9 +413,8 @@ export class EffectAuthorityRepository {
         WHERE run_id = ?
           AND consumed_at_ms IS NULL
           AND revoked_at_ms IS NULL
-          AND issued_at_ms <= ?
         ORDER BY grant_id
-      `).all(runId, atMs);
+      `).all(runId);
       const update = this.db.prepare(`
         UPDATE m2_approval_grants
         SET revoked_at_ms = ?, revocation_reason = ?
@@ -417,6 +470,7 @@ export class EffectAuthorityRepository {
       if (existing?.result_json === encoded) {
         return Object.freeze({ created: false, result: Object.freeze({ ...result }) });
       }
+      if (!existing) storageFailure('result recording', error);
       fail(
         EffectAuthorityErrorCode.RESULT_CONFLICT,
         'Effect already has a different terminal result',

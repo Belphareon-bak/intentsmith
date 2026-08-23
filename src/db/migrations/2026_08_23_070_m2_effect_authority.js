@@ -74,7 +74,7 @@ export function up(db) {
         REFERENCES m2_effect_requests(effect_id) ON DELETE RESTRICT,
       revoked_at_ms INTEGER
         CHECK (revoked_at_ms IS NULL OR (
-          typeof(revoked_at_ms) = 'integer' AND revoked_at_ms >= issued_at_ms
+          typeof(revoked_at_ms) = 'integer' AND revoked_at_ms >= 0
         )),
       revocation_reason TEXT
         CHECK (revocation_reason IS NULL OR length(trim(revocation_reason)) BETWEEN 1 AND 1024),
@@ -376,6 +376,96 @@ export function up(db) {
     BEFORE DELETE ON m2_effect_authority_events
     BEGIN
       SELECT RAISE(ABORT, 'm2_effect_authority_events is append-only');
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS trg_m2_effect_authority_events_insert_conflict
+    BEFORE INSERT ON m2_effect_authority_events
+    WHEN EXISTS (
+      SELECT 1 FROM m2_effect_authority_events existing
+      WHERE existing.event_id = NEW.event_id
+         OR (NEW.seq > 0 AND existing.seq = NEW.seq)
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'M2_EFFECT_AUTHORITY_EVENT_IDENTITY_CONFLICT');
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS trg_m2_effect_authority_events_derived_state
+    BEFORE INSERT ON m2_effect_authority_events
+    WHEN NOT (
+      (
+        NEW.event_type = 'REQUEST_REGISTERED'
+        AND NEW.event_id = 'REQUEST_REGISTERED:' || NEW.effect_id
+        AND NEW.grant_id IS NULL
+        AND EXISTS (
+          SELECT 1 FROM m2_effect_requests request
+          WHERE request.effect_id = NEW.effect_id
+            AND request.run_id = NEW.run_id
+            AND request.project_id = NEW.project_id
+            AND request.created_at_ms = NEW.occurred_at_ms
+            AND NEW.details_json = json_object('kind', request.kind)
+        )
+      )
+      OR (
+        NEW.event_type = 'GRANT_ISSUED'
+        AND NEW.event_id = 'GRANT_ISSUED:' || NEW.grant_id
+        AND EXISTS (
+          SELECT 1 FROM m2_approval_grants grant
+          WHERE grant.grant_id = NEW.grant_id
+            AND grant.effect_id = NEW.effect_id
+            AND grant.run_id = NEW.run_id
+            AND grant.project_id = NEW.project_id
+            AND grant.issued_at_ms = NEW.occurred_at_ms
+            AND NEW.details_json = json_object('expiresAtMs', grant.expires_at_ms)
+        )
+      )
+      OR (
+        NEW.event_type = 'GRANT_CONSUMED'
+        AND NEW.event_id = 'GRANT_CONSUMED:' || NEW.grant_id
+        AND EXISTS (
+          SELECT 1 FROM m2_approval_grants grant
+          WHERE grant.grant_id = NEW.grant_id
+            AND grant.effect_id = NEW.effect_id
+            AND grant.run_id = NEW.run_id
+            AND grant.project_id = NEW.project_id
+            AND grant.consumed_at_ms = NEW.occurred_at_ms
+            AND grant.consumed_by_effect_id = NEW.effect_id
+            AND NEW.details_json = json_object(
+              'consumedByEffectId', grant.consumed_by_effect_id
+            )
+        )
+      )
+      OR (
+        NEW.event_type = 'GRANT_REVOKED'
+        AND NEW.event_id = 'GRANT_REVOKED:' || NEW.grant_id
+        AND EXISTS (
+          SELECT 1 FROM m2_approval_grants grant
+          WHERE grant.grant_id = NEW.grant_id
+            AND grant.effect_id = NEW.effect_id
+            AND grant.run_id = NEW.run_id
+            AND grant.project_id = NEW.project_id
+            AND grant.revoked_at_ms = NEW.occurred_at_ms
+            AND NEW.details_json = json_object('reason', grant.revocation_reason)
+        )
+      )
+      OR (
+        NEW.event_type = 'RESULT_RECORDED'
+        AND NEW.event_id = 'RESULT_RECORDED:' || NEW.effect_id
+        AND EXISTS (
+          SELECT 1
+          FROM m2_effect_results result
+          JOIN m2_effect_requests request ON request.effect_id = result.effect_id
+          LEFT JOIN m2_approval_grants grant ON grant.effect_id = result.effect_id
+          WHERE result.effect_id = NEW.effect_id
+            AND NEW.grant_id IS grant.grant_id
+            AND request.run_id = NEW.run_id
+            AND request.project_id = NEW.project_id
+            AND result.completed_at_ms = NEW.occurred_at_ms
+            AND NEW.details_json = json_object('terminalStatus', result.terminal_status)
+        )
+      )
+    )
+    BEGIN
+      SELECT RAISE(ABORT, 'M2_EFFECT_AUTHORITY_EVENT_STATE_MISMATCH');
     END;
   `);
 }
