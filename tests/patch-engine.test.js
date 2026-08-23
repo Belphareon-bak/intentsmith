@@ -793,8 +793,29 @@ await testAsync('patch-set path preflight happens before its first write', async
 
   assertEqual(result.success, false);
   assertEqual(result.state, 'project_path_violation');
+  assertEqual(result.results[0].file, '../set-outside.js');
   assertEqual(readFileSync(path.join(pathProject, 'app.js'), 'utf8'), PATH_SAMPLE);
   assertEqual(readFileSync(outside, 'utf8'), PATH_SAMPLE);
+});
+
+await testAsync('patch-set preflight retains contained alias rejection evidence', async () => {
+  resetPathProject();
+  const version = path.join(pathProject, 'set-v2');
+  mkdirSync(version);
+  writeFileSync(path.join(version, 'app.js'), PATH_SAMPLE, 'utf8');
+  symlinkSync('set-v2', path.join(pathProject, 'set-current'));
+
+  const result = await applyPatchSet([
+    projectPatch('app.js'),
+    projectPatch('set-current/app.js'),
+  ], pathProject);
+
+  assertEqual(result.success, false);
+  assertEqual(result.state, 'canonical_target_mismatch');
+  assertEqual(result.results[0].file, 'set-current/app.js');
+  assertEqual(result.results[0].pathAuthority.reason, 'canonical_target_mismatch');
+  assertEqual(readFileSync(path.join(pathProject, 'app.js'), 'utf8'), PATH_SAMPLE);
+  assertEqual(readFileSync(path.join(version, 'app.js'), 'utf8'), PATH_SAMPLE);
 });
 
 await testAsync('invalid rollback does not consume backup or write outside', async () => {

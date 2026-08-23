@@ -1799,11 +1799,10 @@ function _persistEffectEvidence(lifecycle, milestone, checkType, result, details
     driftChecks.addCheck(lifecycle.id, milestone.id, checkType, result, details);
     return true;
   } catch (error) {
-    logger.warn('LifecycleBuild', `Failed to persist ${checkType} evidence: ${error.message}`, {
-      lifecycleId: lifecycle.id,
-      milestoneId: milestone.id,
-    });
-    return false;
+    throw new Error(
+      `Failed to persist ${checkType} evidence for ${lifecycle.id}/${milestone.id}`,
+      { cause: error },
+    );
   }
 }
 

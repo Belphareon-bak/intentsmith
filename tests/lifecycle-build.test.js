@@ -872,6 +872,17 @@ function resetDeadProject() {
 console.log('\n── Effect evidence persistence ──');
 
 {
+  const lifecycleSource = readFileSync(
+    new URL('../src/planner/lifecycle-build.js', import.meta.url),
+    'utf8',
+  );
+  const loopCallSites = lifecycleSource.match(/_persistExecutionLoopEvidence\(lifecycle, milestone, loopResult\d?\);/g) || [];
+  const cleanupCallSites = lifecycleSource.match(/_persistDeadImportEvidence\(lifecycle, milestone, stripResult\);/g) || [];
+  assert(loopCallSites.length === 2 && cleanupCallSites.length === 1,
+    'effect evidence: both fix loops and dead-import recovery retain production persistence calls');
+}
+
+{
   const lc = createTestLifecycle('effect-evidence');
   const msId = `ms-effect-evidence-${Date.now()}`;
   addMilestone(lc.id, msId, 1);
@@ -913,6 +924,43 @@ console.log('\n── Effect evidence persistence ──');
     'effect evidence: input skips and failed effects remain distinct after persistence');
 
   db.prepare('DELETE FROM drift_checks WHERE lifecycle_id = ?').run(lc.id);
+  db.prepare('DELETE FROM milestones WHERE lifecycle_id = ?').run(lc.id);
+  db.prepare('DELETE FROM project_lifecycles WHERE id = ?').run(lc.id);
+}
+
+{
+  const lc = createTestLifecycle('effect-evidence-failure');
+  const msId = `ms-effect-evidence-failure-${Date.now()}`;
+  addMilestone(lc.id, msId, 1);
+  const milestone = msRepo.findById.get(msId);
+  const originalAddCheck = driftChecks.addCheck;
+  let threw = false;
+  try {
+    driftChecks.addCheck = () => {
+      const error = new Error('injected readonly database');
+      error.code = 'SQLITE_READONLY';
+      throw error;
+    };
+    try {
+      persistExecutionLoopEvidence(lc, milestone, {
+        converged: false,
+        stopReason: 'project_path_violation',
+        report: {
+          iterations: [{
+            rejectedPatches: [{ file: '../outside.js', state: 'project_path_violation' }],
+          }],
+        },
+      });
+    } catch (error) {
+      threw = error.message.includes('Failed to persist EFFECT_AUTHORITY evidence')
+        && error.cause?.code === 'SQLITE_READONLY';
+    }
+  } finally {
+    driftChecks.addCheck = originalAddCheck;
+  }
+  assert(threw,
+    'effect evidence: persistence failure is terminal and retains the storage cause');
+
   db.prepare('DELETE FROM milestones WHERE lifecycle_id = ?').run(lc.id);
   db.prepare('DELETE FROM project_lifecycles WHERE id = ?').run(lc.id);
 }

@@ -7,7 +7,7 @@ import { suite, test, testAsync, assert, assertEqual, assertIncludes, summary } 
 import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 import {
   shouldContinue, compareErrors, limitErrors, buildFixPrompt,
-  extractErrors, partitionErrorsByProjectScope, runFixLoop,
+  extractErrors, partitionErrorsByProjectScope, isProjectPathRejectionState, runFixLoop,
 } from '../src/executor/execution-loop.js';
 
 // ─── Test Project Setup ─────────────────────────────────────────────────────
@@ -38,6 +38,12 @@ function cleanupTestProject() {
 }
 
 setupTestProject();
+
+test('path rejection classifier retains contained aliases without escalating containment', () => {
+  assertEqual(isProjectPathRejectionState('canonical_target_mismatch'), true);
+  assertEqual(isProjectPathRejectionState('project_path_violation'), true);
+  assertEqual(isProjectPathRejectionState('not_a_file'), false);
+});
 
 // Diff template — generates a valid patch against our test files
 // Files contain: function main() {\n  old;\n}\n

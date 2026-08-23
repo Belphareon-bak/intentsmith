@@ -434,6 +434,10 @@ export function partitionErrorsByProjectScope(errors, scopeFiles, projectRoot) {
   return { inScopeErrors, outOfScopeErrors };
 }
 
+export function isProjectPathRejectionState(state) {
+  return state === 'project_path_violation' || state === 'canonical_target_mismatch';
+}
+
 // ─── Main Loop ──────────────────────────────────────────────────────────────
 
 /**
@@ -866,18 +870,19 @@ export async function runFixLoop(options) {
           errors: applyResult.errors,
         });
         const authorityRejected = applyResult.state === 'project_path_violation';
+        const pathRejected = isProjectPathRejectionState(applyResult.state);
         iterationLog.push({
           iteration: iter,
           errorCount: currentErrors.length,
           patchFiles: validPatches.map(p => p.file),
-          action: authorityRejected ? 'rejected' : 'skipped',
+          action: pathRejected ? 'rejected' : 'skipped',
           ...(applyResult.state ? { state: applyResult.state } : {}),
           ...(applyResult.pathAuthority ? { pathAuthority: applyResult.pathAuthority } : {}),
-          ...(authorityRejected ? {
+          ...(pathRejected ? {
             rejectedPatches: [
               ...rejectedPatches,
               ...(applyResult.results
-                ?.filter(result => result.state === 'project_path_violation')
+                ?.filter(result => isProjectPathRejectionState(result.state))
                 .map(result => ({
                   file: result.file,
                   state: result.state,
