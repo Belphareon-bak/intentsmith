@@ -9,13 +9,14 @@
 //            Deterministic trigger, minimal latency (~0s since it only affects
 //            the retry prompt, not an extra call).
 //
-//   Loop 2 — Self-Refinement: If score still < 75 after retry, ask LLM to
-//            critique and rewrite its own response. Adds 1 extra LLM call
-//            (~2-4s latency). Only triggers for low-quality responses.
+//   Loop 2 — Self-Refinement: historical B5 experiment retained only so the
+//            measured Decision 024 evidence remains inspectable. Decision
+//            024/C removed every production caller; this helper is not runtime
+//            product behavior.
 //
 // Integration:
 //   - Fast Retry: called inside synthesizeWithLLM() retry loop
-//   - Self-Refinement: owned exclusively by response-finalizer.js
+//   - Self-Refinement: no production owner after Decision 024/C
 //
 // Telemetry:
 //   Every improvement attempt is logged with before/after scores.
@@ -25,7 +26,7 @@
 import { logger } from '../../core/logger.js';
 import { scoreResponse, buildScoreRetryPrompt } from './response-scorer.js';
 
-export const REFINEMENT_OWNER = 'response-finalizer';
+export const REFINEMENT_OWNER = null;
 
 function normalizedUsage(result) {
   const promptTokens = result?.usage?.promptEvalCount
@@ -72,7 +73,11 @@ function refinementResult({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Delta Guard: Token-level similarity (Jaccard) to detect semantic drift
+// Historical Delta Guard: token-level Jaccard overlap.
+//
+// The persisted outcome name `rejected_semantic_drift` predates Decision 024
+// and remains for artifact compatibility. This metric is lexical overlap, not
+// semantic similarity, and must not be used as a semantic acceptance claim.
 // ─────────────────────────────────────────────────────────────────────────────
 
 function tokenize(text) {

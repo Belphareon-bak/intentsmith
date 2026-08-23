@@ -5816,7 +5816,7 @@
       "capabilityId": "C3-003",
       "tier": "T3",
       "fixture": "shared-local-model-load-without-admin-actions",
-      "profile": "model",
+      "profile": "manual",
       "timeoutMs": 900000,
       "expectedDurationMs": 600000,
       "requirements": {
@@ -5826,9 +5826,9 @@
         "ollama": true,
         "gpu": true
       },
-      "required": true,
+      "required": false,
       "owner": "primary implementer",
-      "state": "ACTIVE",
+      "state": "HISTORICAL",
       "lastGreen": {
         "commit": null,
         "artifact": null

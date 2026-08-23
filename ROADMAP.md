@@ -901,18 +901,18 @@ focused regression sady.
 
 #### WP-M1-QUALITY — až po třech konzumentech
 
-1. **Výsledek:** refinement má jednoho vlastníka a naměřenou přidanou hodnotu,
-   cenu i latenci; žádná odpověď se nerefinuje dvakrát.
+1. **Výsledek:** model-backed refinement má právě jednoho vlastníka, nebo je
+   na základě naměřené ceny/přínosu výslovně odstraněný; žádná odpověď se
+   nerefinuje dvakrát.
 2. **Povolené cesty:** synthesis, `src/chat/quality/**`, quality telemetrie,
    převzatý `response-finalizer.js`, fixní corpus a M1 quality testy.
    **Zakázané:** connector, gateway, routes, WS a Studio.
 3. **Connector:** pouze čte přijaté Model/Conversation výsledky.
 4. **Závislost:** přijaté CHAT, MODEL a STUDIO; běží sériově jako integrace.
-5. **Demo:** report A/B se stejným modelem a corpusem plus konkrétní přijatý a
-   odmítnutý refinement včetně ceny.
-6. **Test:** fake model pro skip, přesně jeden refine, zlepšení, semantic drift,
-   horší/prázdný výsledek, provider error a cancel; GPU A/B reportuje p50/p95,
-   score delta, acceptance rate, tokeny a dobu.
+5. **Demo:** report A/B se stejným modelem a corpusem, cena všech pokusů a
+   reviewovatelná data pro rozhodnutí A-KEEP / B-LIMIT / C-REMOVE.
+6. **Test:** aktivní kontrakt přesně odpovídá přijaté variantě; historický GPU
+   A/B reportuje p50/p95, score delta, acceptance rate, tokeny a dobu.
 7. **Stop:** metrika nerozliší kvalitu, corpus nemá přijatá chování, je nutná
    změna connectoru nebo GPU prerekvizita není bezpečná.
 8. **Ověření:** `node tests/improvement-loops.test.js`,
@@ -920,21 +920,26 @@ focused regression sady.
    `node tests/chat-synthesis-hardening.test.js`; **NOVÝ:**
    `node tests/m1-quality-contract.test.js`; GPU A/B pouze sériově.
 
-**Stav 2026-08-23:** implementace a offline acceptance jsou hotové na
-`759bcad0`. `response-finalizer.js` je jediný model-backed refinement owner;
-synthesis drží jen bounded retry a deterministické gate. Nová telemetry
-rozlišuje skip, accepted, semantic drift, horší/prázdný candidate, provider
-error a cancel včetně score, tokenů a latence. Focused výsledky jsou 21/21,
-45/45, 22/22, nový kontrakt 10/10 a WS/finalizer 86/86; ratchet zůstal
-1062/1062 bez nové hrany. Registry má 396 programů.
+**Stav 2026-08-23:** historická implementace jednoho ownera a offline
+acceptance vznikly na `759bcad0`; fyzické měřidlo bylo uzavřené na `20f61f2e`.
+Operátor následně přijal [Decision 024](docs/decisions/024-m1-refinement-disposition.md)
+`C-REMOVE`. Produkční `response-finalizer.js` proto už nespouští modelový
+rewrite a persistuje přesně synthesis výsledek. Synthesis drží pouze bounded
+retry a deterministické gate. Scorer a quality telemetry zůstávají, ale
+telemetrie pravdivě uvádí `refinementDisposition=removed`, nulového ownera,
+nulový pokus, latenci i tokeny. Fyzický A/B je zachovaný jako historický
+rozhodovací experiment; krátká správná FACTUAL odpověď se score 59 je vedená
+jako samostatný neblokující [finding 011](docs/findings/011-response-scorer-short-factual-calibration.md).
 
 Fyzické A/B už není blokované prostředím. Po opravě příliš absolutního
 compute preflightu na relativní non-Ollama baseline proběhl registrovaný run
 `m1-b5-quality-ab-20f61f2e-20260823` na clean `20f61f2e`. Bezpečnost, 100% GPU
 residency, headroom, corpus chování i přirozený restore prošly, ale quality
 acceptance skončila **FAIL**: 2 pokusy, 0 accepted, 2 rejected, applied delta
-0 za 1 027 tokenů a 14 291 ms. B6 zůstává zavřené na operator-only Gate 2
-disposition; doporučení je `C-REMOVE`. Exact evidence je v
+0 za 1 027 tokenů a 14 291 ms. DNS odmítl lexikální Jaccard guard, nikoli
+sémantická metrika; Praha byla false-positive scoreru a model vrátil totožný
+text. Gate 2 disposition už není blokovaný: operátor přijal `C-REMOVE`.
+Po focused ověření implementace se B5 uzavírá a otevírá B6. Exact evidence je v
 [`wp-m1-quality-report.md`](docs/execution/runs/wp-m1-quality-report.md) a
 varianty Gate 2 v [024](docs/decisions/024-m1-refinement-disposition.md).
 
@@ -972,8 +977,10 @@ fronta z §13.
 v [`docs/execution/runs/m1-l3-measurement-20260822.md`](docs/execution/runs/m1-l3-measurement-20260822.md):
 deterministika p50 `2,77 ms` / p95 `31,6 ms` (12/12 klasifikováno `LOCAL`),
 modelový chat cold `64,1 s`, warm p50 `30,1 s` / p95 `35,9 s`, throughput
-`1,96 turnu/min`, nula provider errors. **Refinement delta zůstává nezměřená** —
-spouští se jen pro syntetizované odpovědi, takže patří do B5 s fixním corpusem.
+`1,96 turnu/min`, nula provider errors. Historický refinement pokus přidal
+1 027 tokenů a 14 291 ms při nulovém aplikovaném zisku. Po přijatém
+`C-REMOVE` je produkční post-answer refinement delta konstrukčně přesně nula
+volání, tokenů i milisekund; scorer zůstává jen telemetrií.
 
 - p95 deterministické odpovědi pod **100 ms** na referenčním stroji;
 - warm/cold whole-response latence se změří odděleně; pokud operátor přijme
@@ -985,9 +992,10 @@ spouští se jen pro syntetizované odpovědi, takže patří do B5 s fixním co
 
 Streaming zůstává samostatné produktové rozhodnutí. Pokud jej operátor přijme,
 smí se zavést až po přijetí `ModelRequest/Result`, `ConversationCommand/Result`
-a `CoreEvent`, protože sahá přes všechny tři. Refinement se ponechá, omezí nebo
-odstraní podle dat
-`scoreBefore/scoreAfter`, ne podle dvou anekdot.
+a `CoreEvent`, protože sahá přes všechny tři. Refinement byl podle fixního
+fyzického A/B a Decision 024 odstraněný. Jeho případný návrat vyžaduje nový
+sémantický guard, uložený candidate text, širší přijatý corpus a nové
+operátorské rozhodnutí.
 
 ## 6. M2 — Řízená práce nad projektem
 

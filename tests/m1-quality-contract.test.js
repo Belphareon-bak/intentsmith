@@ -4,11 +4,7 @@ import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 
 import { finalizeChatResponse } from '../src/chat/response-finalizer.js';
-import {
-  improveResponse,
-  REFINEMENT_OWNER,
-  selfRefine,
-} from '../src/chat/quality/improvement-loops.js';
+import { scoreResponse } from '../src/chat/quality/response-scorer.js';
 
 let passed = 0;
 let failed = 0;
@@ -42,39 +38,18 @@ function responseResult(content, semanticScore = 60, intent = 'CONVERSATIONAL') 
 
 const dockerQuery = 'Co je Docker a proč se používá?';
 const dockerOriginal = 'Docker je kontejnerová platforma pro aplikace a jejich nasazení.';
-const dockerRefined = [
-  '## Docker',
-  '',
-  'Docker je kontejnerová platforma pro aplikace a jejich nasazení.',
-  '',
-  'Používá se pro izolaci a reprodukovatelnost.',
-].join('\n');
+console.log('\n═══ M1 quality Decision 024/C contract ════════════════════════');
 
-console.log('\n═══ M1 quality owner and telemetry contract ═══════════════════');
-
-await test('response finalizer is the only model-backed refinement owner', async () => {
+await test('production has no model-backed post-answer refinement owner', async () => {
   const synthesis = readFileSync('src/chat/handlers/utils/synthesis.js', 'utf8');
   const finalizer = readFileSync('src/chat/response-finalizer.js', 'utf8');
-  assert.equal(REFINEMENT_OWNER, 'response-finalizer');
   assert.equal(/\bselfRefine\b/.test(synthesis), false, 'synthesis must not own selfRefine');
-  assert.equal((finalizer.match(/await improveResponse\(/g) || []).length, 1);
+  assert.equal(/\bimproveResponse\b/.test(finalizer), false, 'finalizer must not call refinement');
+  assert.equal(/\bgenerateChatResponse\b/.test(finalizer), false, 'finalizer must not call a model');
 });
 
-await test('high score skips without a provider call', async () => {
-  let calls = 0;
-  const result = await improveResponse(
-    dockerOriginal,
-    { query: dockerQuery, intent: 'CONVERSATIONAL', lang: 'cs' },
-    async () => { calls += 1; },
-    { mode: 'balanced', scoreBefore: { total: 80 } },
-  );
-  assert.equal(calls, 0);
-  assert.equal(result.telemetry.attempted, false);
-  assert.equal(result.telemetry.outcome, 'skipped_high_score');
-});
-
-await test('one eligible response makes exactly one accepted refinement call', async () => {
-  let calls = 0;
+await test('a low-scored model response makes zero post-answer model calls', async () => {
+  const calls = { improve: 0, generate: 0 };
   const persisted = [];
   const finalized = await finalizeChatResponse({
     result: responseResult(dockerOriginal),
@@ -83,84 +58,26 @@ await test('one eligible response makes exactly one accepted refinement call', a
     conversationId: 'm1-quality-accepted',
     persistAssistantTurn: (content) => persisted.push(content),
     dependencies: {
-      improveResponse,
-      generateChatResponse: async () => {
-        calls += 1;
-        return {
-          content: dockerRefined,
-          duration: 17,
-          promptEvalCount: 40,
-          evalCount: 25,
-        };
-      },
+      improveResponse: async () => { calls.improve += 1; },
+      generateChatResponse: async () => { calls.generate += 1; },
     },
   });
-  assert.equal(calls, 1);
-  assert.deepEqual(persisted, [dockerRefined]);
-  assert.equal(finalized.response, dockerRefined);
-  assert.equal(finalized.quality.refinementOwner, 'response-finalizer');
-  assert.equal(finalized.quality.attempted, true);
-  assert.equal(finalized.quality.accepted, true);
-  assert.equal(finalized.quality.outcome, 'accepted');
-  assert.equal(finalized.quality.usage.totalTokens, 65);
-  assert.equal(finalized.quality.providerDurationMs, 17);
-  assert(finalized.quality.scoreAfter.total > finalized.quality.scoreBefore.total);
+  assert.deepEqual(calls, { improve: 0, generate: 0 });
+  assert.deepEqual(persisted, [dockerOriginal]);
+  assert.equal(finalized.response, dockerOriginal);
+  assert.equal(finalized.quality.refinementDisposition, 'removed');
+  assert.equal(finalized.quality.refinementOwner, null);
+  assert.equal(finalized.quality.attempted, false);
+  assert.equal(finalized.quality.accepted, false);
+  assert.equal(finalized.quality.outcome, 'removed_by_decision_024');
+  assert.deepEqual(finalized.quality.usage, {});
+  assert.equal(finalized.quality.latencyMs, 0);
+  assert(finalized.quality.finalScore);
 });
 
-await test('semantic drift is measured and rejected', async () => {
-  const result = await selfRefine(
-    dockerOriginal,
-    { query: dockerQuery, intent: 'CONVERSATIONAL', lang: 'cs' },
-    async () => ({
-      content: 'Svíčková je české jídlo z hovězího masa, kořenové zeleniny, smetany a knedlíků.',
-      promptEvalCount: 30,
-      evalCount: 20,
-    }),
-    { scoreBefore: { total: 60 } },
-  );
-  assert.equal(result.outcome, 'rejected_semantic_drift');
-  assert.equal(result.improved, false);
-  assert(result.scoreAfter);
-  assert(result.similarity < 0.35);
-});
-
-await test('worse candidate is measured and rejected', async () => {
-  const result = await selfRefine(
-    dockerOriginal,
-    { query: dockerQuery, intent: 'CONVERSATIONAL', lang: 'cs' },
-    async () => ({ content: dockerOriginal }),
-    { scoreBefore: { total: 74 } },
-  );
-  assert.equal(result.outcome, 'rejected_not_improved');
-  assert.equal(result.improved, false);
-  assert(result.scoreAfter.total <= 74);
-});
-
-await test('empty candidate has its own rejection outcome', async () => {
-  const result = await selfRefine(
-    dockerOriginal,
-    { query: dockerQuery, intent: 'CONVERSATIONAL', lang: 'cs' },
-    async () => ({ content: '', promptEvalCount: 22, evalCount: 0 }),
-    { scoreBefore: { total: 60 } },
-  );
-  assert.equal(result.outcome, 'rejected_empty_or_short');
-  assert.equal(result.usage.promptTokens, 22);
-});
-
-await test('provider error is non-fatal and distinguishable', async () => {
-  const result = await selfRefine(
-    dockerOriginal,
-    { query: dockerQuery, intent: 'CONVERSATIONAL', lang: 'cs' },
-    async () => { throw Object.assign(new Error('offline'), { code: 'MODEL_PROVIDER_UNAVAILABLE' }); },
-    { scoreBefore: { total: 60 } },
-  );
-  assert.equal(result.outcome, 'provider_error');
-  assert.equal(result.errorCode, 'MODEL_PROVIDER_UNAVAILABLE');
-  assert.equal(result.response, dockerOriginal);
-});
-
-await test('cancel is distinguishable and finalizer never persists it', async () => {
+await test('pre-cancelled finalization never persists an assistant turn', async () => {
   const controller = new AbortController();
+  controller.abort();
   let persisted = false;
   await assert.rejects(
     finalizeChatResponse({
@@ -170,20 +87,13 @@ await test('cancel is distinguishable and finalizer never persists it', async ()
       conversationId: 'm1-quality-cancel',
       signal: controller.signal,
       persistAssistantTurn: () => { persisted = true; },
-      dependencies: {
-        improveResponse,
-        generateChatResponse: async () => {
-          controller.abort();
-          throw controller.signal.reason;
-        },
-      },
     }),
     error => error?.name === 'AbortError',
   );
   assert.equal(persisted, false);
 });
 
-await test('non-model answer records skip and cannot call refinement provider', async () => {
+await test('all answer intents use the same removed refinement disposition', async () => {
   let calls = 0;
   const finalized = await finalizeChatResponse({
     result: responseResult('391', null, 'LOCAL'),
@@ -196,7 +106,30 @@ await test('non-model answer records skip and cannot call refinement provider', 
     },
   });
   assert.equal(calls, 0);
-  assert.equal(finalized.quality.outcome, 'skipped_not_synthesized');
+  assert.equal(finalized.quality.outcome, 'removed_by_decision_024');
+  assert.equal(finalized.quality.attempted, false);
+});
+
+await test('short correct FACTUAL response remains untouched while scorer defect stays visible', async () => {
+  const response = 'Praha je hlavním městem České republiky.';
+  const scored = scoreResponse(response, {
+    query: 'Odpověz jednou větou: Jaké je hlavní město České republiky?',
+    intent: 'FACTUAL',
+    lang: 'cs',
+  });
+  assert.equal(scored.total, 59, 'Finding 011 calibration baseline changed');
+
+  const persisted = [];
+  const finalized = await finalizeChatResponse({
+    result: responseResult(response, scored.total, 'FACTUAL'),
+    message: 'Odpověz jednou větou: Jaké je hlavní město České republiky?',
+    sessionId: 'm1-quality-short-factual',
+    conversationId: 'm1-quality-short-factual',
+    persistAssistantTurn: content => persisted.push(content),
+  });
+  assert.equal(finalized.response, response);
+  assert.deepEqual(persisted, [response]);
+  assert.equal(finalized.quality.finalScore.total, 59);
   assert.equal(finalized.quality.attempted, false);
 });
 
@@ -214,5 +147,5 @@ await test('fixed corpus pins accepted behaviors for the GPU A/B report', async 
   }
 });
 
-console.log(`\nM1 quality contract: ${passed} passed, ${failed} failed`);
+console.log(`\nM1 quality Decision 024/C contract: ${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);

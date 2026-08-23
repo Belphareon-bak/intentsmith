@@ -2012,8 +2012,8 @@ ChatController.handle = async function(request) {
   const result = await controller.process(message, fullContext);
   throwIfAborted(signal);
 
-  // TaggedResponse is immutable. The finalizer carries accepted refinement in a
-  // local value and uses that same value for scoring, persistence, and return.
+  // TaggedResponse is immutable. Decision 024/C removed post-answer model
+  // rewriting, so the finalizer scores, persists, and returns this exact value.
   const finalizedResponse = await finalizeChatResponse({
     result,
     message,

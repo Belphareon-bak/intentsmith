@@ -47,7 +47,6 @@ const { validateCoreEventStream } = m1ProtocolRuntime;
 import { logger } from '../src/core/logger.js';
 import { finalizeChatResponse } from '../src/chat/response-finalizer.js';
 import { createChatRoutes } from '../src/routes/chat.js';
-import { improveResponse as runImprovementLoop } from '../src/chat/quality/improvement-loops.js';
 import { scoreResponse as scoreFinalResponse } from '../src/chat/quality/response-scorer.js';
 import {
   AbortSource,
@@ -1071,15 +1070,8 @@ test('G0-R023a: TaggedResponse content remains immutable', () => {
   assert.equal(response.content, original, 'failed mutation must preserve original content');
 });
 
-await asyncTest('G0-R023b: accepted refinement is scored, persisted, returned, and reported', async () => {
+await asyncTest('Decision 024/C: finalizer never calls a post-answer model', async () => {
   const original = 'Docker je kontejnerová platforma pro aplikace a jejich nasazení.';
-  const refined = [
-    '## Docker',
-    '',
-    'Docker je kontejnerová platforma pro aplikace a jejich nasazení.',
-    '',
-    'Používá se pro izolaci a reprodukovatelnost.',
-  ].join('\n');
   const response = new TaggedResponse({
     content: original,
     tag: new ResponseTag({
@@ -1096,7 +1088,7 @@ await asyncTest('G0-R023b: accepted refinement is scored, persisted, returned, a
   const { entries, log } = createFinalizerLogCapture();
   const scored = [];
   const persisted = [];
-  let modelCalls = 0;
+  const calls = { improve: 0, generate: 0 };
 
   const finalized = await finalizeChatResponse({
     result: response,
@@ -1105,18 +1097,8 @@ await asyncTest('G0-R023b: accepted refinement is scored, persisted, returned, a
     conversationId: 'g0-r023-conversation',
     persistAssistantTurn: (content, metadata) => persisted.push({ content, metadata }),
     dependencies: {
-      improveResponse: runImprovementLoop,
-      generateChatResponse: async (prompt, systemPrompt, options) => {
-        modelCalls++;
-        assert.ok(prompt.includes(original), 'real refinement prompt must include original content');
-        assert.equal(systemPrompt, '');
-        assert.deepEqual(options, {
-          sessionId: 'refine-g0-r023-accepted',
-          temperature: 0.3,
-          signal: null,
-        });
-        return { content: refined };
-      },
+      improveResponse: async () => { calls.improve++; },
+      generateChatResponse: async () => { calls.generate++; },
       scoreResponse: (content, context) => {
         scored.push({ content, context });
         return scoreFinalResponse(content, context);
@@ -1125,45 +1107,46 @@ await asyncTest('G0-R023b: accepted refinement is scored, persisted, returned, a
     log,
   });
 
-  assert.equal(modelCalls, 1, 'accepted path must make the injected refinement call');
+  assert.deepEqual(calls, { improve: 0, generate: 0 });
   assert.equal(response.content, original, 'immutable handler result must not be mutated');
   assert.equal(Object.isFrozen(response), true, 'handler result must remain frozen');
   assert.deepEqual(scored, [{
-    content: refined,
+    content: original,
     context: {
       query: 'Co je Docker a proč se používá?',
       intent: 'CONVERSATIONAL',
       lang: 'cs',
     },
-  }], 'quality scoring must receive the accepted content');
+  }], 'quality scoring must receive the original final content');
   assert.deepEqual(persisted, [{
-    content: refined,
+    content: original,
     metadata: {
       mode: ChatMode.CONVERSATION,
       confidence: 0.9,
       model: 'test-model',
       intent: 'CONVERSATIONAL',
     },
-  }], 'assistant persistence must receive the accepted content');
-  assert.equal(finalized.response, refined, 'returned response must use accepted content');
-  assert.equal(finalized.qualityScore.total, 79, 'returned score must describe accepted content');
+  }], 'assistant persistence must receive the original final content');
+  assert.equal(finalized.response, original, 'returned response must remain unchanged');
+  assert.equal(finalized.qualityScore.total, 60, 'returned score must describe original content');
+  assert.equal(finalized.quality.refinementDisposition, 'removed');
+  assert.equal(finalized.quality.refinementOwner, null);
+  assert.equal(finalized.quality.outcome, 'removed_by_decision_024');
+  assert.equal(finalized.quality.attempted, false);
 
   const qualityLog = entries.find(entry => entry.args[0] === 'QualityTelemetry');
   assert.ok(qualityLog, 'quality telemetry must be emitted');
-  assert.equal(qualityLog.args[2].refined, true, 'telemetry must report an applied refinement');
-  assert.ok(
-    entries.some(entry => entry.args[1] === 'Self-refinement applied'),
-    'accepted refinement must emit the applied event',
-  );
+  assert.equal(qualityLog.args[2].refined, false, 'telemetry must report no refinement');
+  assert.equal(entries.some(entry => entry.args[1] === 'Self-refinement applied'), false);
   assert.equal(
     entries.filter(entry => entry.level === 'warn').length,
     0,
-    'accepted immutable refinement must not emit a mutation warning',
+    'removed refinement must not emit a warning',
   );
 }, ASYNC_TEST_TIMEOUT_MS);
 
-await asyncTest('G0-R023c: rejected refinement keeps original content and truthful telemetry', async () => {
-  const original = 'Původní odpověď je dost dlouhá pro pokus o self-refinement.';
+await asyncTest('Decision 024/C: low score is telemetry, not a rewrite trigger', async () => {
+  const original = 'Praha je hlavním městem České republiky.';
   const response = new TaggedResponse({
     content: original,
     tag: new ResponseTag({
@@ -1171,85 +1154,57 @@ await asyncTest('G0-R023c: rejected refinement keeps original content and truthf
       mode: ChatMode.CONVERSATION,
       confidence: 0.8,
       metadata: {
-        semanticScore: { total: 40 },
-        decision: { intent: 'CONVERSATIONAL' },
+        semanticScore: { total: 59 },
+        decision: { intent: 'FACTUAL' },
       },
     }),
   });
   const { entries, log } = createFinalizerLogCapture();
   const scored = [];
   const persisted = [];
+  let modelCalls = 0;
 
   const finalized = await finalizeChatResponse({
     result: response,
-    message: 'Vysvětli původní odpověď.',
+    message: 'Odpověz jednou větou: Jaké je hlavní město České republiky?',
     sessionId: 'g0-r023-rejected',
     conversationId: 'g0-r023-rejected-conversation',
     persistAssistantTurn: (content, metadata) => persisted.push({ content, metadata }),
     dependencies: {
-      improveResponse: async content => {
-        assert.equal(content, original, 'eligible original content must be offered for refinement');
-        return {
-          improved: false,
-          response: 'Tento odmítnutý kandidát se nesmí použít.',
-          telemetry: {
-            originalScore: 40,
-            finalScore: 40,
-          },
-        };
-      },
-      generateChatResponse: async () => {
-        throw new Error('rejected-path stub must not call a real model');
-      },
+      improveResponse: async () => { modelCalls++; },
+      generateChatResponse: async () => { modelCalls++; },
       scoreResponse: content => {
         scored.push(content);
         return {
-          total: 40,
-          dimensions: { relevance: 0.4 },
-          issues: ['low_relevance'],
+          total: 59,
+          dimensions: { completeness: 0.54, coherence: 0.5 },
+          issues: [],
         };
       },
     },
     log,
   });
 
-  assert.deepEqual(scored, [original], 'rejected candidate must not be scored as final');
+  assert.equal(modelCalls, 0);
+  assert.deepEqual(scored, [original], 'the short answer must be scored as final');
   assert.equal(persisted.length, 1, 'one assistant turn must be persisted');
-  assert.equal(persisted[0].content, original, 'rejected candidate must not be persisted');
-  assert.equal(finalized.response, original, 'rejected candidate must not be returned');
+  assert.equal(persisted[0].content, original, 'the correct short answer must be persisted');
+  assert.equal(finalized.response, original, 'the correct short answer must be returned');
   assert.equal(response.content, original, 'immutable handler result must remain unchanged');
+  assert.equal(finalized.quality.finalScore.total, 59);
+  assert.equal(finalized.quality.outcome, 'removed_by_decision_024');
 
   const qualityLog = entries.find(entry => entry.args[0] === 'QualityTelemetry');
   assert.ok(qualityLog, 'quality telemetry must be emitted');
-  assert.equal(
-    qualityLog.args[2].refined,
-    false,
-    'eligibility alone must not be reported as an applied refinement',
-  );
-  assert.equal(
-    entries.some(entry => entry.args[1] === 'Self-refinement applied'),
-    false,
-    'rejected refinement must not emit an applied event',
-  );
-  assert.equal(
-    entries.filter(entry => entry.level === 'warn').length,
-    0,
-    'a normal rejected refinement must not emit a failure warning',
-  );
+  assert.equal(qualityLog.args[2].refined, false);
+  assert.equal(entries.filter(entry => entry.level === 'warn').length, 0);
 }, ASYNC_TEST_TIMEOUT_MS);
 
-await asyncTest('G0-R023d: static handle persists and returns the accepted refinement', async () => {
+await asyncTest('Decision 024/C: static handle persists the original without a second fetch', async () => {
   resetConversationStore();
   const store = getConversationStore(null);
   const sessionId = 'g0-r023-controller-accepted';
   const original = 'Docker je kontejnerová platforma pro aplikace a jejich nasazení.';
-  const refined = [
-    '## Docker',
-    '',
-    'Docker je kontejnerová platforma pro aplikace a jejich nasazení.',
-    '',
-    'Používá se pro izolaci a reprodukovatelnost.',
-  ].join('\n');
   const handlerResponse = new TaggedResponse({
     content: original,
     tag: new ResponseTag({
@@ -1272,18 +1227,9 @@ await asyncTest('G0-R023d: static handle persists and returns the accepted refin
     },
     config: { autoModeDetection: false },
   });
-  globalThis.fetch = async (url, options) => {
+  globalThis.fetch = async () => {
     modelCalls++;
-    assert.match(String(url), /\/api\/chat$/);
-    const body = JSON.parse(options.body);
-    assert.ok(
-      body.messages.some(message => message.content.includes(original)),
-      'the production refinement prompt must contain the immutable original',
-    );
-    return {
-      ok: true,
-      json: async () => ({ message: { content: refined } }),
-    };
+    throw new Error('Decision 024/C forbids a post-answer model fetch');
   };
 
   try {
@@ -1294,16 +1240,16 @@ await asyncTest('G0-R023d: static handle persists and returns the accepted refin
     });
     const turns = store.getAllTurns(sessionId);
 
-    assert.equal(modelCalls, 1, 'the controller path must make one refinement model call');
-    assert.equal(finalized.response, refined, 'the controller must return accepted content');
-    assert.equal(finalized.qualityScore.total, 79, 'the controller must score accepted content');
+    assert.equal(modelCalls, 0, 'the controller path must make no post-answer model call');
+    assert.equal(finalized.response, original, 'the controller must return original content');
+    assert.equal(finalized.qualityScore.total, 60, 'the controller must score original content');
     assert.deepEqual(
       turns.map(turn => ({ role: turn.role, content: turn.content })),
       [
         { role: 'user', content: 'Co je Docker a proč se používá?' },
-        { role: 'assistant', content: refined },
+        { role: 'assistant', content: original },
       ],
-      'the controller must persist the same accepted content it returns',
+      'the controller must persist the same original content it returns',
     );
     assert.equal(handlerResponse.content, original, 'the immutable handler result must stay unchanged');
     assert.equal(Object.isFrozen(handlerResponse), true);

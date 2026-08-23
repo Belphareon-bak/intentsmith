@@ -8,7 +8,7 @@ egress. Spouštěné Studio UI je stále přechodný runtime, nikoli finální v
 IntentSmithu.
 
 **Verze:** 136.1.0 | **396 registrovaných testovacích programů**
-(`300 ACTIVE`, `81 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`)
+(`299 ACTIVE`, `81 BLOCKED`, `0 KNOWN_DEFECTIVE`, `16 HISTORICAL`)
 
 > **Stav: aktivní vývoj, M0 — produktová pravda a ověřený baseline.** Jedna z 22
 > schopností je v `ACCEPTED/PASS` (#2 CRE); #1 je pouze `RUNTIME_VERIFIED`.

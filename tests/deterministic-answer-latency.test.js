@@ -87,14 +87,14 @@ async function main() {
     'the deterministic answer reaches the user exactly as computed',
   );
 
-  // ── And the quality path is not sacrificed to get there ───────────────────
-  // FILE_EXPLAIN reads a file and then has the model explain it, so its answer
-  // IS synthesis and refinement must still run on it.
+  // ── Decision 024/C applies equally to model-authored answers ──────────────
+  // Scoring remains in the finalizer, but no answer triggers a second model
+  // call after the first response has been produced.
   const explain = await runFinalizer('FILE_EXPLAIN', CLOCK_ANSWER);
   const conversational = await runFinalizer('CONVERSATIONAL', CLOCK_ANSWER);
   check(
-    explain.calls.improve === 1 && conversational.calls.improve === 1,
-    'refinement still runs where the answer is model-authored'
+    explain.calls.improve === 0 && conversational.calls.improve === 0,
+    'post-answer refinement is removed for model-authored answers'
     + ` (FILE_EXPLAIN ${explain.calls.improve}, CONVERSATIONAL ${conversational.calls.improve})`,
   );
 

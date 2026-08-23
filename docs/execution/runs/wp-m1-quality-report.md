@@ -1,13 +1,14 @@
 # WP-M1-QUALITY — průběžný report
 
-- **stav WP:** implementation/offline PASS; fyzické GPU A/B proběhlo a skončilo
-  acceptance FAIL (`0` accepted refinementů)
+- **stav WP:** **B5 PASS / CLOSED**; fyzické GPU A/B zůstává historický
+  acceptance FAIL (`0` accepted refinementů), operátor přijal `C-REMOVE` a
+  produkční post-answer rewrite je odstraněný
 - **produkční source:** `759bcad0f3bdc4be7eb8fd134d429dc572601d3a`
 - **measurement source:** `20f61f2ea37a0396a46be88ed88881a181ea2b02`
 - **zapisující větev:** `codex/m1-closeout-20260822`
 - **push:** neproveden
-- **rozhodnutí ponechat/omezit/odstranit:** data jsou dostupná; doporučení je
-  `C-REMOVE`, čeká na výslovnou volbu operátora na Gate 2
+- **rozhodnutí ponechat/omezit/odstranit:** **C-REMOVE přijato operátorem
+  2026-08-23**; aktuální výsledek je v closeout dodatku níže
 
 ## Call graph a jediný vlastník
 
@@ -140,7 +141,50 @@ candidate minul hranici o `0,034`, není podložené bezpečné řešení.
 | suite log | `9575e77a6a679415666814721cc54890780952182f1ded837ff9d9d73a4848ff` |
 | privátní suite artifact | `04594ec5af498630069869decc0c93d70ac0dcc5be51ea964c1b101e464fbd1b` |
 
-WP tím narazil na deklarovaný `BLOCK`: fixní corpus nemá accepted refinement.
-B6 se nesmí otevřít, dokud operátor na
-[Gate 2 rozhodnutí 024](../../decisions/024-m1-refinement-disposition.md)
-výslovně nezvolí `A-KEEP`, `B-LIMIT` nebo doporučené `C-REMOVE`.
+Tento historický běh narazil na tehdejší deklarovaný `BLOCK`: fixní corpus
+neměl accepted refinement. Blok následně odstranila výslovná operátorská volba
+`C-REMOVE`; původní data a verdict se tím zpětně nemění.
+
+## Closeout Decision 024/C — 2026-08-23
+
+Operátor přijal C se zpřesněným důvodem. `dns-steps` neodmítla sémantická
+metrika, ale lexikální Jaccard přes množinu slov (`0,316 < 0,35`), který je v
+konstrukčním konfliktu s rewrite promptem. U `prague-factual` model vrátil
+doslova stejnou správnou jednovětou odpověď; score 59 vzniklo tím, že scorer
+očekává pro FACTUAL přibližně 200 znaků a strukturálně zvýhodňuje více vět či
+odstavců. Candidate text navíc A/B artefakt neuložil, takže obsah DNS kandidáta
+nejde zpětně reviewovat.
+
+Produkční caller v `response-finalizer.js` je proto odstraněný. Hlavní model,
+bounded synthesis retry, `fastRetryGate`, scorer, quality telemetry,
+provider/cancel hranice a persistence zůstávají. Finalizer zaznamená
+`refinementDisposition=removed`, `refinementOwner=null`, `attempted=false`,
+`accepted=false`, nulovou latenci a nulové tokeny a persistuje přesně původní
+synthesis výsledek. Fyzický GPU A/B je v registru zachovaný jako `HISTORICAL`,
+nikoli vydávaný za aktuální zelenou acceptance.
+
+Scorer defect přežívá jako neblokující
+[finding 011](../../findings/011-response-scorer-short-factual-calibration.md).
+Podmínky případného návratu jsou v přijatém
+[Decision 024](../../decisions/024-m1-refinement-disposition.md): sémantický
+guard, reviewovatelný candidate text, respektování explicitního formátu,
+širší přijatý corpus a nové operátorské rozhodnutí.
+
+Focused closeout ověření na kandidátním stromu:
+
+| Důkaz | Výsledek |
+|---|---:|
+| `node tests/improvement-loops.test.js` | 21/21 PASS; dormant helper zůstává inspectable |
+| `node tests/chat-output-quality.test.js` | 45/45 PASS |
+| `node tests/chat-synthesis-hardening.test.js` | 22/22 PASS |
+| `node tests/m1-quality-contract.test.js` | 6/6 PASS pro Decision 024/C |
+| `node tests/deterministic-answer-latency.test.js` | 3/3 PASS; model-authored i non-model odpovědi mají 0 post-answer volání |
+| `node tests/ws-bridge.test.js` | 86/86 PASS |
+| `node tests/response-scorer.test.js` | 35/35 PASS; known calibration defect zůstává explicitně připnutý |
+| `node tests/m1-chat-contract.test.js` | 21/21 PASS |
+| module boundary ratchet | 1060/1062, 0 přidaných a 2 odstraněné hrany |
+| artifact validation / hygiene / registry | 151/151 PASS / PASS / 396 validních programů |
+
+B5 tím končí bez přebarvení historického FAILu na PASS. Produkční acceptance
+je nyní absence model-backed post-answer větve, nulová přidaná cena a přesné
+zachování synthesis výsledku. Další krok je výhradně B6 fresh-install M1 exit.

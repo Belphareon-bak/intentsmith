@@ -160,7 +160,7 @@ sám nikdy neposouvá schopnost na `USER_JOURNEY_VERIFIED`.
 | 2 | CRE vybere hlídaný intent; deterministická cesta nevolá model. | `ACCEPTED/PASS` | Přijaté offline i Ollama behavior sady jsou 10/10 a 9/9. |
 | 3 | Modelový požadavek jde na lokální Ollamu nebo skončí typovanou chybou. | `RUNTIME_VERIFIED` | HTTP/WS provider outage, timeout a cancel bez false-success. |
 | 4 | Uživatel založí či obnoví konverzaci a historie přežije restart. | `RUNTIME_VERIFIED` | Current-SHA HTTP restart prošel; chybí cancel/error persistence journey. |
-| 5 | Výsledek je deterministicky ohodnocen bez přidání nového obsahu. | `RUNTIME_VERIFIED` | Změřit score delta, přínos a latenci refinementu na korpusu. |
+| 5 | Výsledek je deterministicky ohodnocen bez přidání nového obsahu. | `ACCEPTED/PASS` + `BROKEN` | Decision 024/C odstranilo post-answer modelový rewrite po fyzickém A/B; scorer telemetrie zůstává špatně zkalibrovaná pro krátké správné FACTUAL odpovědi (finding 011). |
 | 6 | Chat request projde routingem, syntézou a finalizací do jednoho pravdivého výsledku. | `RUNTIME_VERIFIED` | Celý success/error/cancel/timeout journey přes veřejnou hranici. |
 | 7 | Expertiza se vybere a měřitelně ovlivní odpověď. | `RUNTIME_VERIFIED` + `BROKEN` | Explicitní `code_reviewer` se stále neroutuje; chybí route→chat E2E. |
 | 8 | Zapnutý specialista využije expertizu a nástroje; vypnutý nezasáhne. | `RUNTIME_VERIFIED` + `BROKEN` | L0-8 interní import a chybějící enable→route→output→disable E2E. |

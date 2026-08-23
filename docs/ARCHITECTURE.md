@@ -428,17 +428,22 @@ QGv2 Output → Semantic Scoring
   │   ├─ Intent Alignment (0.20) — code blocks for CODE, URLs for SEARCH
   │   └─ Language Quality (0.15) — diacritics, SK contamination
   │
-  └─ improvement-loops.js — 2 improvement loops
+  └─ improvement-loops.js — production retry + historical experiment
       ├─ Loop 1: Fast Retry (score < 60) — prompt enhancement, 0 extra LLM calls
-      └─ Loop 2: Self-Refine (score < 75) — LLM critique + rewrite, 1 extra call
+      └─ Loop 2: Self-Refine (REMOVED by Decision 024/C) — dormant A/B helper
           ├─ Drift Guard: Jaccard similarity ≥ 0.35
           ├─ Length Guard: refined ≤ 2.5× original
           └─ Intent Lock: CODE must preserve ``` blocks
 ```
 
-**Latency budget:** synthesis scores ≥ 75 bypass controller selfRefine entirely. Max path: LLM → fastRetry → selfRefine = 3 calls (typical: 1–2).
+**Latency budget:** post-answer model-backed rewrite is removed by Decision
+024/C. The maximum production path is the initial synthesis call plus its
+bounded fast retry; the finalizer adds zero model calls, tokens, or model
+latency.
 
-**Telemetry:** `QualityTelemetry` logger emits per-response score with dimensions, intent, and refinement status. Score included in API response as `qualityScore`.
+**Telemetry:** `QualityTelemetry` logs per-response score, dimensions, intent,
+and `refinementDisposition=removed`. The API still includes `qualityScore`;
+finding 011 tracks its short-FACTUAL calibration defect.
 
 ### 8. Tool Registry (153 tools)
 
