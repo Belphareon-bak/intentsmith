@@ -37,6 +37,7 @@ import {
   lifecycles as lifecycleRepo,
   milestones as msRepo,
   projects,
+  driftChecks,
   db,
 } from '../src/db/database.js';
 
@@ -48,6 +49,8 @@ const {
   runPytestIfAvailable,
   canPassMilestone,
   stripDeadImports,
+  persistExecutionLoopEvidence,
+  persistDeadImportEvidence,
 } = _testInternals;
 
 let passed = 0;
@@ -735,6 +738,46 @@ function resetDeadProject() {
 
 {
   resetDeadProject();
+  const first = path.join(deadProject, 'first.js');
+  const second = path.join(deadProject, 'second.js');
+  writeFileSync(first, deadSource, 'utf8');
+  writeFileSync(second, deadSource, 'utf8');
+
+  let failed = false;
+  const constrainedFs = {
+    ...fs,
+    renameSync(source, target) {
+      if (!failed && target === first) {
+        failed = true;
+        const error = new Error('injected disk full');
+        error.code = 'ENOSPC';
+        throw error;
+      }
+      return fs.renameSync(source, target);
+    },
+  };
+
+  const result = await stripDeadImports(deadProject, ['first.js', 'second.js'], {
+    fileSystem: constrainedFs,
+  });
+
+  assert(failed && result.ok && result.stripped === 1,
+    'dead-import: one ENOSPC remains best-effort while sibling recovery completes');
+  assert(result.skipped.length === 0,
+    'dead-import: failed effect is not mixed with unusable inputs');
+  assert(result.effectFailures[0]?.state === 'write_failed'
+      && result.effectFailures[0]?.reason === 'ENOSPC',
+    'dead-import: failed effect has its own typed evidence');
+  assert(readFileSync(first, 'utf8') === deadSource,
+    'dead-import: ENOSPC target remains atomically unchanged');
+  assert(/^\/\/ \[STRIPPED: dead import\]/.test(readFileSync(second, 'utf8')),
+    'dead-import: sibling recovery completes after ENOSPC');
+  assert(!fs.readdirSync(deadProject).some(name => name.includes('.intentsmith-')),
+    'dead-import: ENOSPC leaves no temporary file');
+}
+
+{
+  resetDeadProject();
   const inside = path.join(deadProject, 'nested');
   const pinned = path.join(deadProject, 'nested-pinned');
   const outside = path.join(deadRuntime, 'read-race-outside');
@@ -824,6 +867,102 @@ function resetDeadProject() {
     'dead-import: unreadable scope file remains visible in evidence');
   assert(readFileSync(target, 'utf8') === deadSource,
     'dead-import: unreadable source remains unchanged');
+}
+
+console.log('\n── Effect evidence persistence ──');
+
+{
+  const lifecycleSource = readFileSync(
+    new URL('../src/planner/lifecycle-build.js', import.meta.url),
+    'utf8',
+  );
+  const loopCallSites = lifecycleSource.match(/_persistExecutionLoopEvidence\(lifecycle, milestone, loopResult\d?\);/g) || [];
+  const cleanupCallSites = lifecycleSource.match(/_persistDeadImportEvidence\(lifecycle, milestone, stripResult\);/g) || [];
+  assert(loopCallSites.length === 2 && cleanupCallSites.length === 1,
+    'effect evidence: both fix loops and dead-import recovery retain production persistence calls');
+}
+
+{
+  const lc = createTestLifecycle('effect-evidence');
+  const msId = `ms-effect-evidence-${Date.now()}`;
+  addMilestone(lc.id, msId, 1);
+  const milestone = msRepo.findById.get(msId);
+
+  const loopPersisted = persistExecutionLoopEvidence(lc, milestone, {
+    converged: false,
+    stopReason: 'project_path_violation',
+    report: {
+      iterations: [{
+        action: 'rejected',
+        rejectedPatches: [{
+          file: '../outside.js',
+          state: 'project_path_violation',
+          pathAuthority: { reason: 'traversal' },
+        }],
+      }],
+    },
+  });
+  const cleanupPersisted = persistDeadImportEvidence(lc, milestone, {
+    ok: true,
+    stripped: 1,
+    filesModified: ['ok.js'],
+    skipped: [{ file: 'directory.js', state: 'not_a_file' }],
+    effectFailures: [{ file: 'full.js', state: 'write_failed', reason: 'ENOSPC' }],
+  });
+
+  const evidence = driftChecks.getChecksByMilestone(msId);
+  const authority = evidence.find(check => check.check_type === 'EFFECT_AUTHORITY');
+  const cleanup = evidence.find(check => check.check_type === 'DEAD_IMPORT_RECOVERY');
+  assert(loopPersisted && authority?.result === 'FAIL',
+    'effect evidence: authority rejection persists as FAIL drift check');
+  assert(authority?.details?.rejectedPatches?.[0]?.pathAuthority?.reason === 'traversal',
+    'effect evidence: persisted authority details retain the exact reason');
+  assert(cleanupPersisted && cleanup?.result === 'WARN',
+    'effect evidence: best-effort recovery degradation persists as WARN drift check');
+  assert(cleanup?.details?.skipped?.[0]?.state === 'not_a_file'
+      && cleanup?.details?.effectFailures?.[0]?.reason === 'ENOSPC',
+    'effect evidence: input skips and failed effects remain distinct after persistence');
+
+  db.prepare('DELETE FROM drift_checks WHERE lifecycle_id = ?').run(lc.id);
+  db.prepare('DELETE FROM milestones WHERE lifecycle_id = ?').run(lc.id);
+  db.prepare('DELETE FROM project_lifecycles WHERE id = ?').run(lc.id);
+}
+
+{
+  const lc = createTestLifecycle('effect-evidence-failure');
+  const msId = `ms-effect-evidence-failure-${Date.now()}`;
+  addMilestone(lc.id, msId, 1);
+  const milestone = msRepo.findById.get(msId);
+  const originalAddCheck = driftChecks.addCheck;
+  let threw = false;
+  try {
+    driftChecks.addCheck = () => {
+      const error = new Error('injected readonly database');
+      error.code = 'SQLITE_READONLY';
+      throw error;
+    };
+    try {
+      persistExecutionLoopEvidence(lc, milestone, {
+        converged: false,
+        stopReason: 'project_path_violation',
+        report: {
+          iterations: [{
+            rejectedPatches: [{ file: '../outside.js', state: 'project_path_violation' }],
+          }],
+        },
+      });
+    } catch (error) {
+      threw = error.message.includes('Failed to persist EFFECT_AUTHORITY evidence')
+        && error.cause?.code === 'SQLITE_READONLY';
+    }
+  } finally {
+    driftChecks.addCheck = originalAddCheck;
+  }
+  assert(threw,
+    'effect evidence: persistence failure is terminal and retains the storage cause');
+
+  db.prepare('DELETE FROM milestones WHERE lifecycle_id = ?').run(lc.id);
+  db.prepare('DELETE FROM project_lifecycles WHERE id = ?').run(lc.id);
 }
 
 rmSync(deadRuntime, { recursive: true, force: true });

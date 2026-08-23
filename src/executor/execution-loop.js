@@ -434,6 +434,10 @@ export function partitionErrorsByProjectScope(errors, scopeFiles, projectRoot) {
   return { inScopeErrors, outOfScopeErrors };
 }
 
+export function isProjectPathRejectionState(state) {
+  return state === 'project_path_violation' || state === 'canonical_target_mismatch';
+}
+
 // ─── Main Loop ──────────────────────────────────────────────────────────────
 
 /**
@@ -802,6 +806,7 @@ export async function runFixLoop(options) {
       // remaining patch set appear successful.  It is terminal for the whole
       // iteration and is retained in the user-visible loop report.
       const validPatches = [];
+      const rejectedPatches = [];
       for (const patch of patches) {
         const preview = await previewPatch(patch, projectRoot);
         if (preview.valid) {
@@ -814,13 +819,14 @@ export async function runFixLoop(options) {
             pathAuthority: preview.pathAuthority || null,
             errors: preview.errors,
           });
+          const rejectedPatch = {
+            file: patch.file,
+            state: preview.state || 'invalid_patch',
+            pathAuthority: preview.pathAuthority || null,
+            errors: preview.errors || [],
+          };
+          rejectedPatches.push(rejectedPatch);
           if (preview.state === 'project_path_violation') {
-            const rejectedPatch = {
-              file: patch.file,
-              state: preview.state,
-              pathAuthority: preview.pathAuthority || null,
-              errors: preview.errors || [],
-            };
             iterationLog.push({
               iteration: iter,
               errorCount: currentErrors.length,
@@ -828,7 +834,7 @@ export async function runFixLoop(options) {
               action: 'rejected',
               state: preview.state,
               pathAuthority: preview.pathAuthority || null,
-              rejectedPatches: [rejectedPatch],
+              rejectedPatches,
             });
             return _buildResult(false, 'project_path_violation', iter,
               lastTestResults, lastQualityGate, currentErrors, iterationLog,
@@ -842,7 +848,13 @@ export async function runFixLoop(options) {
           milestoneId: milestone.id,
           iteration: iter,
         });
-        iterationLog.push({ iteration: iter, errorCount: currentErrors.length, patchFiles, action: 'skipped' });
+        iterationLog.push({
+          iteration: iter,
+          errorCount: currentErrors.length,
+          patchFiles,
+          action: 'skipped',
+          rejectedPatches,
+        });
         return _buildResult(false, 'patch_failed', iter, lastTestResults, lastQualityGate, currentErrors, iterationLog, iterMem.filesModified);
       }
 
@@ -858,23 +870,27 @@ export async function runFixLoop(options) {
           errors: applyResult.errors,
         });
         const authorityRejected = applyResult.state === 'project_path_violation';
+        const pathRejected = isProjectPathRejectionState(applyResult.state);
         iterationLog.push({
           iteration: iter,
           errorCount: currentErrors.length,
           patchFiles: validPatches.map(p => p.file),
-          action: authorityRejected ? 'rejected' : 'skipped',
+          action: pathRejected ? 'rejected' : 'skipped',
           ...(applyResult.state ? { state: applyResult.state } : {}),
           ...(applyResult.pathAuthority ? { pathAuthority: applyResult.pathAuthority } : {}),
-          ...(authorityRejected ? {
-            rejectedPatches: applyResult.results
-              ?.filter(result => result.state === 'project_path_violation')
-              .map(result => ({
-                file: result.file,
-                state: result.state,
-                pathAuthority: result.pathAuthority || null,
-                errors: result.errors || [],
-              })) || [],
-          } : {}),
+          ...(pathRejected ? {
+            rejectedPatches: [
+              ...rejectedPatches,
+              ...(applyResult.results
+                ?.filter(result => isProjectPathRejectionState(result.state))
+                .map(result => ({
+                  file: result.file,
+                  state: result.state,
+                  pathAuthority: result.pathAuthority || null,
+                  errors: result.errors || [],
+                })) || []),
+            ],
+          } : rejectedPatches.length > 0 ? { rejectedPatches } : {}),
         });
         return _buildResult(false,
           authorityRejected ? 'project_path_violation' : 'patch_failed',
@@ -921,11 +937,23 @@ export async function runFixLoop(options) {
             logger.error('ExecutionLoop', `Rollback failed: ${file}: ${rb.error}`);
           }
         }
-        iterationLog.push({ iteration: iter, errorCount: currentErrors.length, patchFiles: lastIterationFiles, action: 'rolled_back' });
+        iterationLog.push({
+          iteration: iter,
+          errorCount: currentErrors.length,
+          patchFiles: lastIterationFiles,
+          action: 'rolled_back',
+          ...(rejectedPatches.length > 0 ? { rejectedPatches } : {}),
+        });
         return _buildResult(false, 'diverging', iter, lastTestResults, lastQualityGate, prevErrors, iterationLog, iterMem.filesModified);
       }
 
-      iterationLog.push({ iteration: iter, errorCount: currentErrors.length, patchFiles: lastIterationFiles, action: 'applied' });
+      iterationLog.push({
+        iteration: iter,
+        errorCount: currentErrors.length,
+        patchFiles: lastIterationFiles,
+        action: 'applied',
+        ...(rejectedPatches.length > 0 ? { rejectedPatches } : {}),
+      });
 
       if (!decision.continue) {
         const converged = decision.reason === 'all_passed';

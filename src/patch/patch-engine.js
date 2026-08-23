@@ -37,7 +37,9 @@ function projectPathFailure(error, { preview = false } = {}) {
     ? 'not_a_file'
     : error.reason === 'symlink_loop'
       ? 'symlink_unresolvable'
-      : 'project_path_violation';
+      : error.reason === 'canonical_target_mismatch'
+        ? 'canonical_target_mismatch'
+        : 'project_path_violation';
   const message = `Project target rejected (${error.reason || 'unknown'})`;
   const pathAuthority = {
     reason: error.reason || 'unknown',
@@ -283,25 +285,25 @@ export async function applyPatchSet(patches, projectRoot, options = {}) {
   // Preflight every target before reading or writing the first file.  Without
   // this, a valid first patch could become visible before a later traversal is
   // rejected.
-  try {
-    for (const patch of patches) {
+  for (const patch of patches) {
+    try {
       resolveProjectTarget(projectRoot, patch.file, {
         fileSystem: options.fileSystem,
       });
+    } catch (error) {
+      if (isProjectPathError(error)) {
+        const failure = projectPathFailure(error);
+        return {
+          success: false,
+          results: [{ file: patch.file, success: false, ...failure }],
+          state: failure.state,
+          pathAuthority: failure.pathAuthority,
+          errors: failure.errors,
+        };
+      }
+      const failure = ioFailure(error, 'read');
+      return { ...failure, results: [{ file: patch.file, success: false, ...failure }] };
     }
-  } catch (error) {
-    if (isProjectPathError(error)) {
-      const failure = projectPathFailure(error);
-      return {
-        success: false,
-        results: [],
-        state: failure.state,
-        pathAuthority: failure.pathAuthority,
-        errors: failure.errors,
-      };
-    }
-    const failure = ioFailure(error, 'read');
-    return { ...failure, results: [] };
   }
 
   // Build file contents map for validation
@@ -317,14 +319,14 @@ export async function applyPatchSet(patches, projectRoot, options = {}) {
         const failure = projectPathFailure(error);
         return {
           success: false,
-          results: [],
+          results: [{ file: p.file, success: false, ...failure }],
           state: failure.state,
           pathAuthority: failure.pathAuthority,
           errors: failure.errors,
         };
       }
       const failure = ioFailure(error, 'read');
-      return { ...failure, results: [] };
+      return { ...failure, results: [{ file: p.file, success: false, ...failure }] };
     }
   }
 

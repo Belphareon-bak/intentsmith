@@ -7,7 +7,7 @@ import { suite, test, testAsync, assert, assertEqual, assertIncludes, summary } 
 import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 import {
   shouldContinue, compareErrors, limitErrors, buildFixPrompt,
-  extractErrors, partitionErrorsByProjectScope, runFixLoop,
+  extractErrors, partitionErrorsByProjectScope, isProjectPathRejectionState, runFixLoop,
 } from '../src/executor/execution-loop.js';
 
 // ─── Test Project Setup ─────────────────────────────────────────────────────
@@ -38,6 +38,12 @@ function cleanupTestProject() {
 }
 
 setupTestProject();
+
+test('path rejection classifier retains contained aliases without escalating containment', () => {
+  assertEqual(isProjectPathRejectionState('canonical_target_mismatch'), true);
+  assertEqual(isProjectPathRejectionState('project_path_violation'), true);
+  assertEqual(isProjectPathRejectionState('not_a_file'), false);
+});
 
 // Diff template — generates a valid patch against our test files
 // Files contain: function main() {\n  old;\n}\n
@@ -509,6 +515,52 @@ await testAsync('project path violation is terminal and retained in iteration ev
     assertEqual(fs.readFileSync(outside, 'utf8'), original);
   } finally {
     fs.rmSync(outside, { force: true });
+  }
+});
+
+await testAsync('contained canonical alias is fail-closed but non-terminal for sibling patches', async () => {
+  const main = path.join(TEST_DIR, 'main.js');
+  const version = path.join(TEST_DIR, 'v2-alias');
+  const alias = path.join(TEST_DIR, 'current-alias');
+  const original = 'function main() {\n  old;\n}\n';
+  fs.writeFileSync(main, original);
+  fs.mkdirSync(version, { recursive: true });
+  fs.writeFileSync(path.join(version, 'app.js'), original);
+  fs.symlinkSync('v2-alias', alias);
+  let qualityGateCalls = 0;
+  let testCalls = 0;
+
+  try {
+    const r = await runFixLoop({
+      lifecycle: { projectPath: TEST_DIR },
+      milestone: { id: 'ms-contained-alias', title: 'Contained alias' },
+      testResults: mkTestResults(false, '', ERR_SYNTAX),
+      qualityGateResult: mkQualityGate(true),
+      callLLM: async () => ({
+        content: `${mkDiff('main.js', 1)}\n${mkDiff('current-alias/app.js', 2)}`,
+      }),
+      runTests: async () => {
+        testCalls += 1;
+        return mkTestResults(true);
+      },
+      runQualityGate: async () => {
+        qualityGateCalls += 1;
+        return mkQualityGate(true);
+      },
+      getGitDiff: async () => '',
+    });
+
+    assertEqual(r.converged, true);
+    assertEqual(r.stopReason, 'all_passed');
+    assertEqual(r.report.iterations[0].rejectedPatches[0].state, 'canonical_target_mismatch');
+    assertEqual(r.report.iterations[0].rejectedPatches[0].pathAuthority.reason, 'canonical_target_mismatch');
+    assertEqual(qualityGateCalls, 1);
+    assertEqual(testCalls, 1);
+    assertIncludes(fs.readFileSync(main, 'utf8'), 'fixed1;');
+    assertEqual(fs.readFileSync(path.join(version, 'app.js'), 'utf8'), original);
+  } finally {
+    fs.unlinkSync(alias);
+    fs.rmSync(version, { recursive: true, force: true });
   }
 });
 

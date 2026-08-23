@@ -1,7 +1,7 @@
 # 001 — M2 effect authority gaps
 
 - **Zdroj:** read-only stopa `P1 M2-EFFECT-TRACE`
-- **Stav:** `OPEN / 2 OF 18 CANDIDATE_CLOSED`
+- **Stav:** `OPEN / CONTAINMENT SLICE REVIEW_PASSED / N1-N3 CANDIDATE_CLOSED UNREVIEWED`
 - **Primární vlastník:** `WP-M2-EFFECT`
 - **Vstupní inventura:** `docs/inventory/22-effect-authority-trace.md`
 
@@ -15,9 +15,9 @@ nesmí se zaměnit za přijetí M2.
 
 | ID | Závažnost | Nález | Vlastník |
 |---|---|---|---|
-| P1-FX-001 | HIGH | Patch path nemá project containment. **CANDIDATE_CLOSED `37fab4f9`** | M2-EFFECT |
+| P1-FX-001 | HIGH | Patch path nemá project containment. **REVIEW_PASSED `8f31e34f`** | M2-EFFECT |
 | P1-FX-002 | HIGH | Scope limiter po porušení pokračuje; lifecycle jej často ani neaktivuje. | M2-EFFECT / M2-EXEC |
-| P1-FX-003 | HIGH | Dead-import stripper má druhou traversal write cestu. **CANDIDATE_CLOSED `37fab4f9`** | M2-EFFECT / M2-LIFECYCLE |
+| P1-FX-003 | HIGH | Dead-import stripper má druhou traversal write cestu. **REVIEW_PASSED `8f31e34f`** | M2-EFFECT / M2-LIFECYCLE |
 | P1-FX-004 | HIGH | Rollback je procesový, neúplný a nerecoverovatelný. | M2-EFFECT |
 | P1-FX-005 | HIGH | Milestone timeout neruší vlastní build/fix/test efekty. | M2-EFFECT / M2-LIFECYCLE |
 | P1-FX-006 | HIGH | Timeout/cancel může zanechat child proces nebo handler. | M2-EFFECT / M2-EXEC |
@@ -33,8 +33,33 @@ nesmí se zaměnit za přijetí M2.
 | P1-FX-016 | MEDIUM | Restart zanechá aktivní workflow bez recovery. | M2-EFFECT / M2-LIFECYCLE |
 | P1-FX-017 | LOW/MEDIUM | BLOCKED timeout zapisuje a čte rozdílná pole. | M2-LIFECYCLE |
 | P1-FX-018 | HIGH | Studio `ask` není effect authority; HTTP fallback i přímý FILE_WRITE jej obcházejí. | M1-STUDIO / M2-EFFECT |
+| M2-PA-N1 | LOW/MEDIUM | Contained canonical alias byl chybně terminální containment incident. **CANDIDATE_CLOSED `86dfe4d8` / UNREVIEWED** | M2-EFFECT |
+| M2-PA-N2 | LOW | Loop/cleanup evidence byla jen tranzientní a logová. **CANDIDATE_CLOSED `86dfe4d8` / UNREVIEWED** | M2-EFFECT |
+| M2-PA-N3 | LOW | `skipped` míchalo nepoužitelný vstup se selhaným write efektem. **CANDIDATE_CLOSED `86dfe4d8` / UNREVIEWED** | M2-EFFECT |
 
 ## Evidence a acceptance směr
+
+### Re-review follow-up N1-N3
+
+Nezávislý re-review `8f31e34f` přijal původní containment řez a oddělil tři
+neblokující následné nálezy. Kandidátní oprava `86dfe4d8` je mimo přijatý
+rozsah a vyžaduje vlastní review:
+
+- N1: `canonical_target_mismatch` zůstává fail-closed odmítnutím, ale protože
+  canonical cíl je prokazatelně uvnitř rootu, nemá stav
+  `project_path_violation` a nezastaví validní sourozenecký patch. Test pokrývá
+  `current/ -> v2/`, nezměněný aliasovaný cíl a uchovanou rejection evidence.
+- N2: relevantní execution-loop rejection a degradace dead-import recovery se
+  ukládají do existující SQLite tabulky `drift_checks` jako
+  `EFFECT_AUTHORITY`/`DEAD_IMPORT_RECOVERY`. Round-trip test záznam načte zpět
+  včetně exact reason. Jde o perzistentní mezidůkaz, ne dokončený M2 audit.
+- N3: vstupní degradace zůstává v `skipped`; selhané zápisy jsou oddělené v
+  `effectFailures`. Vynucený `ENOSPC` ponechá cíl i temp prostor čistý a dovolí
+  dokončit bezpečný sourozenecký zápis.
+
+Focused výsledek: patch `70/70`, execution loop `60/60`, lifecycle BUILD
+`107/107`, lifecycle DB `71/71`, boundary ratchet `13/13`. Celý runner na
+`86dfe4d8` má pravdivě `verdict: FAIL`, `exitCode: 1`, baseline `233/3/2`.
 
 ### P1-FX-001 — patch traversal
 
@@ -46,7 +71,7 @@ ne cestu.
 **Acceptance:** absolutní, `..`, symlink a rename race případy skončí před
 preview/write; evidence nese canonical root i resolved target.
 
-**Kandidátní evidence 2026-08-23:** `src/executor/project-path-authority.js`
+**Přijatá evidence 2026-08-23:** `src/executor/project-path-authority.js`
 sdílí canonical containment, descriptor-pinned read a pre-write revalidation
 pro patch, preview i rollback. `tests/patch-engine.test.js` na `37fab4f9`
 prošel `66/66`: absolutní cesta, traversal, symlink ven, parent swap po open i
@@ -79,7 +104,7 @@ je terminální před prvním write.
 **Acceptance:** stejná path authority jako patch engine; žádný druhý lokální
 guard.
 
-**Kandidátní evidence 2026-08-23:** přímý `fs.writeFileSync` byl nahrazen
+**Přijatá evidence 2026-08-23:** přímý `fs.writeFileSync` byl nahrazen
 stejnou interní project-path primitive jako patch. Celá scope sada se validuje
 a čte před prvním zápisem; traversal, symlink a parent swap failují zavřeně.
 Review oprava `664d91d8` zachovává best-effort povahu recovery: bezpečný
