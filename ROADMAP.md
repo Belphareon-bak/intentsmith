@@ -1042,7 +1042,10 @@ M2", ne jako důkaz, že na ní M2 běží.
 **Stav 2026-08-23:** po přijetí M1 na `44a9ba87` operátor spustil vlastní M2.
 `WP-M2-EFFECT` běží v izolovaném worktree přímo z tohoto commitu; první
 rozhodnutí-prostý řez uzavírá project-path bypassy patch/dead-import cest na
-`37fab4f9` a přesné boundary hrany na `b523a47f`. Veřejné
+`37fab4f9` a přesné boundary hrany na `b523a47f`. Focused suite a celý
+deterministický gate na `7af74db8` zachovaly přijatou baseline
+`233 PASS / 3 známé FAIL / 2 BLOCKED`, takže řez je `FIRST_SLICE_VERIFIED`.
+Veřejné
 `EffectRequest/Result` ani `ApprovalGrant` tím ještě nejsou připnuté a M2 jako
 celek není PASS. Paralelní `WP-M2-CODE` zůstává disjunktní proud.
 

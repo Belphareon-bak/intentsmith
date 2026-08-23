@@ -1,6 +1,6 @@
 # WP-M2-EFFECT — project-path authority, první vertikální řez
 
-- **Stav:** `IN_PROGRESS / FIRST_SLICE_IMPLEMENTED`
+- **Stav:** `IN_PROGRESS / FIRST_SLICE_VERIFIED`
 - **Vlastník:** primární implementer M2-EFFECT
 - **Worktree:** `/home/belphareon/worktrees/is-m2-effect-20260823`
 - **Branch:** `codex/m2-effect-20260823`
@@ -75,12 +75,15 @@ node tests/execution-loop.test.js
 node tests/module-boundary-ratchet.test.js
 ```
 
-Poslední známý výsledek před dokumentačním commitem:
+Ověřený výsledek na implementačním commitu:
 
 - patch engine: `66 PASS / 0 FAIL`;
 - lifecycle BUILD: `84 PASS / 0 FAIL`;
 - execution loop: `58 PASS / 0 FAIL`;
 - module boundary: `13 PASS / 0 FAIL`, bez růstu cyklů.
+
+Registry gate prošel se `397` spustitelnými programy a fingerprintem
+`be1adcf9efc5bda2cfdcc7efdfb251643a092ec244359da5a1d226170a0939b4`.
 
 ## 7. Stop condition / eskalace
 
@@ -104,7 +107,17 @@ npm run test:deterministic
 git diff --check
 ```
 
-Aktuální pravdivý stav je `FIRST_SLICE_IMPLEMENTED`, nikoliv `WP-M2-EFFECT
-DONE`, `M2 PASS` ani připnutý effect connector. Zbývají approval/payload
-authority, timeout/cancellation/restart revokace, process supervision, durable
-rollback, network/Git/tool mediation, audit a skutečný M2 user journey.
+Celý deterministický gate na `7af74db8` skončil reportem
+`.intentsmith-artifacts/test-runs/2026-08-23T17-59-11-989Z/report.json`:
+
+- `233 PASS / 3 FAIL / 2 BLOCKED`;
+- FAIL zůstaly přesně známé baseline suite `nightly-audit-runner-self-test`,
+  `nightly-orchestrator-self-test` a `vram-coordination`;
+- BLOCKED zůstaly přesně `chat-export-budget` a `export-pdf-docx`;
+- žádná nová produktová regrese proti přijatému M1 nebyla naměřena.
+
+Aktuální pravdivý stav je `FIRST_SLICE_VERIFIED`, nikoliv `WP-M2-EFFECT DONE`,
+`M2 PASS` ani připnutý effect connector. Zbývají approval/payload authority,
+timeout/cancellation/restart revokace, process supervision, durable rollback,
+network/Git/tool mediation, audit a skutečný M2 user journey. Nezávislé review
+tohoto nového řezu zatím neproběhlo.
