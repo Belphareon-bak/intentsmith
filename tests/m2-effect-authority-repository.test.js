@@ -5,8 +5,10 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
   M2_EFFECT_CONTRACT_KIND,
+  computeEffectRequestDigest,
 } from '../contracts/m2/effect-v1.js';
 import { up as applyEffectAuthorityMigration } from '../src/db/migrations/2026_08_23_070_m2_effect_authority.js';
+import { up as applyEffectAuthorityHardening } from '../src/db/migrations/2026_08_24_071_m2_effect_authority_hardening.js';
 import {
   EffectAuthorityError,
   EffectAuthorityErrorCode,
@@ -20,6 +22,7 @@ const CREATED = '2026-08-23T20:00:00.000Z';
 const CONSUMED = '2026-08-23T20:00:10.000Z';
 const EXPIRES = '2026-08-23T20:05:00.000Z';
 const FUTURE_EXPIRES = '2026-08-23T20:10:00.000Z';
+const PAYLOAD_BYTES = 31;
 
 function openDb(filename = ':memory:') {
   const db = new Database(filename);
@@ -45,7 +48,7 @@ function request(overrides = {}) {
       surface: 'studio',
       sessionId: 'session-1',
       conversationId: 'conversation-1',
-      projectId: 'project-1',
+      projectId: 17,
     },
     kind: 'fs.write',
     target: {
@@ -55,6 +58,7 @@ function request(overrides = {}) {
       resolvedRealpath: '/workspace/project/src/app.js',
     },
     payloadDigest: DIGEST_A,
+    payloadBytes: PAYLOAD_BYTES,
     workspaceRevision: 'wsr1:revision-a',
     requiredCapability: 'project.fs.write',
     riskClass: 'write',
@@ -74,10 +78,11 @@ function grant(overrides = {}) {
     subject: { actorType: 'user', actorId: 'user-1' },
     scope: {
       runId: 'run-1',
-      projectId: 'project-1',
+      projectId: 17,
       effectId: 'effect-1',
       kind: 'fs.write',
       payloadDigest: DIGEST_A,
+      payloadBytes: PAYLOAD_BYTES,
       workspaceRevision: 'wsr1:revision-a',
     },
     constraints: {
@@ -85,7 +90,7 @@ function grant(overrides = {}) {
       allowedBinary: null,
       allowedArgvDigest: null,
       allowedOrigin: null,
-      maxBytes: 4096,
+      maxBytes: PAYLOAD_BYTES,
     },
     issuedAt: CREATED,
     expiresAt: EXPIRES,
@@ -104,6 +109,10 @@ function result(overrides = {}) {
     contract: M2_EFFECT_CONTRACT_KIND.EFFECT_RESULT,
     version: 1,
     effectId: 'effect-1',
+    runId: 'run-1',
+    projectId: 17,
+    requestDigest: computeEffectRequestDigest(request()),
+    approvalGrantId: 'grant-1',
     terminalStatus: 'succeeded',
     startedAt: '2026-08-23T20:00:01.000Z',
     completedAt: '2026-08-23T20:00:02.000Z',
@@ -170,7 +179,7 @@ test('grant issuance requires an existing exact effect scope', () => {
   );
   repository.registerEffectRequest(request());
   expectCode(
-    () => repository.issueApprovalGrant(grant({ scope: { ...grant().scope, projectId: 'project-2' } })),
+    () => repository.issueApprovalGrant(grant({ scope: { ...grant().scope, projectId: 18 } })),
     EffectAuthorityErrorCode.GRANT_SCOPE_MISMATCH,
   );
   db.close();
@@ -348,10 +357,10 @@ test('run cancellation revokes a restored not-yet-valid grant', () => {
   const futureGrant = grant({ issuedAt: EXPIRES, expiresAt: FUTURE_EXPIRES });
   db.prepare(`
     INSERT INTO m2_approval_grants (
-      grant_id, effect_id, run_id, project_id, kind, payload_digest,
+      grant_id, effect_id, run_id, project_id, kind, payload_digest, payload_bytes,
       workspace_revision, nonce, grant_json, issued_at_ms, expires_at_ms,
       consumed_at_ms, consumed_by_effect_id, revoked_at_ms, revocation_reason
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL)
   `).run(
     futureGrant.grantId,
     futureGrant.scope.effectId,
@@ -359,6 +368,7 @@ test('run cancellation revokes a restored not-yet-valid grant', () => {
     futureGrant.scope.projectId,
     futureGrant.scope.kind,
     futureGrant.scope.payloadDigest,
+    futureGrant.scope.payloadBytes,
     futureGrant.scope.workspaceRevision,
     futureGrant.nonce,
     JSON.stringify(futureGrant),
@@ -402,7 +412,10 @@ test('state and audit survive database close and reopen', () => {
 test('terminal result is immutable, exact retry is idempotent and conflict is rejected', () => {
   const db = openDb();
   const repository = repositoryAt(db);
-  repository.registerEffectRequest(request());
+  registerAndGrant(repository);
+  repository.consumeApprovalGrant({
+    grantId: 'grant-1', request: repository.getEffectRequest('effect-1'),
+  });
   assert.equal(repository.recordEffectResult(result()).created, true);
   assert.equal(repository.recordEffectResult(result()).created, false);
   expectCode(
@@ -417,12 +430,54 @@ test('terminal result is immutable, exact retry is idempotent and conflict is re
   db.close();
 });
 
+test('success cannot be recorded before the exact grant is consumed', () => {
+  const db = openDb();
+  const repository = repositoryAt(db);
+  registerAndGrant(repository);
+  expectCode(
+    () => repository.recordEffectResult(result()),
+    EffectAuthorityErrorCode.RESULT_AUTHORITY_MISSING,
+  );
+
+  const encoded = JSON.stringify(result());
+  assert.throws(() => db.prepare(`
+    INSERT INTO m2_effect_results (
+      effect_id, run_id, project_id, request_digest, approval_grant_id,
+      terminal_status, result_json, completed_at_ms
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    'effect-1', 'run-1', 17, computeEffectRequestDigest(request()), 'grant-1',
+    'succeeded', encoded, Date.parse(result().completedAt),
+  ), /RESULT_AUTHORITY_MISSING/);
+  assert.equal(repository.getEffectResult('effect-1'), null);
+  db.close();
+});
+
+test('a pre-consumption failure may be recorded but cannot impersonate another request', () => {
+  const db = openDb();
+  const repository = repositoryAt(db);
+  repository.registerEffectRequest(request());
+  const failed = result({
+    approvalGrantId: null,
+    terminalStatus: 'failed',
+    errorCode: 'EFFECT_FAILED',
+    outputDigest: null,
+  });
+  assert.equal(repository.recordEffectResult(failed).created, true);
+  assert.equal(repository.getEffectResult('effect-1').terminalStatus, 'failed');
+  db.close();
+});
+
 test('result cannot predate its request', () => {
   const db = openDb();
   const repository = repositoryAt(db);
   repository.registerEffectRequest(request());
   expectCode(
     () => repository.recordEffectResult(result({
+      approvalGrantId: null,
+      terminalStatus: 'failed',
+      errorCode: 'EFFECT_FAILED',
+      outputDigest: null,
       startedAt: '2026-08-23T19:59:59.000Z',
       completedAt: '2026-08-23T19:59:59.500Z',
     })),
@@ -434,7 +489,10 @@ test('result cannot predate its request', () => {
 test('database blocks request, result and event mutation or replacement', () => {
   const db = openDb();
   const repository = repositoryAt(db);
-  repository.registerEffectRequest(request());
+  registerAndGrant(repository);
+  repository.consumeApprovalGrant({
+    grantId: 'grant-1', request: repository.getEffectRequest('effect-1'),
+  });
   repository.recordEffectResult(result());
   assert.throws(() => db.prepare("UPDATE m2_effect_requests SET kind = 'fs.delete' WHERE effect_id = 'effect-1'").run(), /append-only/);
   assert.throws(() => db.prepare("DELETE FROM m2_effect_results WHERE effect_id = 'effect-1'").run(), /append-only/);
@@ -450,10 +508,10 @@ test('database blocks request, result and event mutation or replacement', () => 
   `).run(), /EVENT_IDENTITY_CONFLICT/);
   assert.throws(() => db.prepare(`
     INSERT OR REPLACE INTO m2_effect_requests (
-      effect_id, run_id, project_id, kind, payload_digest,
-      workspace_revision, idempotency_key, request_json, created_at_ms
-    ) SELECT effect_id, run_id, project_id, kind, payload_digest,
-             workspace_revision, idempotency_key, request_json, created_at_ms
+      effect_id, run_id, project_id, kind, payload_digest, payload_bytes,
+      request_digest, workspace_revision, idempotency_key, request_json, created_at_ms
+    ) SELECT effect_id, run_id, project_id, kind, payload_digest, payload_bytes,
+             request_digest, workspace_revision, idempotency_key, request_json, created_at_ms
       FROM m2_effect_requests WHERE effect_id = 'effect-1'
   `).run(), /IDENTITY_CONFLICT/);
   db.close();
@@ -470,7 +528,7 @@ test('database rejects a forged authority event before the matching state transi
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     'GRANT_CONSUMED:grant-1', 'GRANT_CONSUMED', 'effect-1', 'grant-1',
-    'run-1', 'project-1', Date.parse(CONSUMED),
+    'run-1', 17, Date.parse(CONSUMED),
     JSON.stringify({ consumedByEffectId: 'effect-1' }),
   ), /EVENT_STATE_MISMATCH/);
 
@@ -505,11 +563,11 @@ test('repository fails closed when direct SQL stores a structurally invalid requ
   });
   db.prepare(`
     INSERT INTO m2_effect_requests (
-      effect_id, run_id, project_id, kind, payload_digest,
-      workspace_revision, idempotency_key, request_json, created_at_ms
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      effect_id, run_id, project_id, kind, payload_digest, payload_bytes,
+      request_digest, workspace_revision, idempotency_key, request_json, created_at_ms
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    'effect-1', 'run-1', 'project-1', 'fs.write', DIGEST_A,
+    'effect-1', 'run-1', 17, 'fs.write', DIGEST_A, PAYLOAD_BYTES, DIGEST_B,
     'wsr1:revision-a', 'write-app-1', malformed, Date.parse(CREATED),
   );
   expectCode(
@@ -523,18 +581,55 @@ test('database rejects JSON identities that disagree with indexed authority colu
   const db = openDb();
   const mismatched = JSON.stringify({
     ...request(),
-    origin: { ...request().origin, projectId: 'project-other' },
+    origin: { ...request().origin, projectId: 18 },
   });
   assert.throws(() => db.prepare(`
     INSERT INTO m2_effect_requests (
-      effect_id, run_id, project_id, kind, payload_digest,
-      workspace_revision, idempotency_key, request_json, created_at_ms
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      effect_id, run_id, project_id, kind, payload_digest, payload_bytes,
+      request_digest, workspace_revision, idempotency_key, request_json, created_at_ms
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    'effect-1', 'run-1', 'project-1', 'fs.write', DIGEST_A,
+    'effect-1', 'run-1', 17, 'fs.write', DIGEST_A, PAYLOAD_BYTES,
+    computeEffectRequestDigest(request()),
     'wsr1:revision-a', 'write-app-1', mismatched, Date.parse(CREATED),
   ), /JSON_IDENTITY_MISMATCH/);
   assert.equal(db.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count, 0);
+  db.close();
+});
+
+test('repository and database reject approval by a subject other than the request actor', () => {
+  const db = openDb();
+  const repository = repositoryAt(db);
+  repository.registerEffectRequest(request());
+  const forged = grant({
+    subject: { actorType: 'user', actorId: 'attacker' },
+  });
+
+  expectCode(
+    () => repository.issueApprovalGrant(forged),
+    EffectAuthorityErrorCode.GRANT_SCOPE_MISMATCH,
+  );
+  assert.throws(() => db.prepare(`
+    INSERT INTO m2_approval_grants (
+      grant_id, effect_id, run_id, project_id, kind, payload_digest, payload_bytes,
+      workspace_revision, nonce, grant_json, issued_at_ms, expires_at_ms,
+      consumed_at_ms, consumed_by_effect_id, revoked_at_ms, revocation_reason
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL)
+  `).run(
+    forged.grantId,
+    forged.scope.effectId,
+    forged.scope.runId,
+    forged.scope.projectId,
+    forged.scope.kind,
+    forged.scope.payloadDigest,
+    forged.scope.payloadBytes,
+    forged.scope.workspaceRevision,
+    forged.nonce,
+    JSON.stringify(forged),
+    Date.parse(forged.issuedAt),
+    Date.parse(forged.expiresAt),
+  ), /GRANT_SCOPE_MISMATCH/);
+  assert.equal(repository.getEffectRequest('effect-1').approvalGrantId, null);
   db.close();
 });
 
@@ -552,6 +647,33 @@ test('database permits one direct terminal grant transition and always emits aud
   assert.throws(() => db.prepare(`
     UPDATE m2_approval_grants SET revocation_reason = 'rewritten' WHERE grant_id = 'grant-1'
   `).run(), /INVALID_TRANSITION/);
+  db.close();
+});
+
+test('hardening migration rebuilds only an empty pre-acceptance authority schema', () => {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  db.exec('CREATE TABLE m2_effect_requests (effect_id TEXT PRIMARY KEY)');
+  applyEffectAuthorityHardening(db);
+  const columns = db.prepare('PRAGMA table_info(m2_effect_requests)').all().map(row => row.name);
+  assert.equal(columns.includes('payload_bytes'), true);
+  assert.equal(columns.includes('request_digest'), true);
+  assert.equal(
+    db.prepare("SELECT count(*) AS count FROM sqlite_master WHERE name = 'm2_pending_effect_payloads'").get().count,
+    1,
+  );
+  db.close();
+});
+
+test('hardening migration refuses to fabricate authority for pre-acceptance rows', () => {
+  const db = new Database(':memory:');
+  db.exec('CREATE TABLE m2_effect_requests (effect_id TEXT PRIMARY KEY)');
+  db.prepare('INSERT INTO m2_effect_requests (effect_id) VALUES (?)').run('legacy-effect');
+  assert.throws(
+    () => applyEffectAuthorityHardening(db),
+    /PRE_ACCEPTANCE_DATA_REQUIRES_EXPLICIT_MIGRATION/,
+  );
+  assert.equal(db.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count, 1);
   db.close();
 });
 

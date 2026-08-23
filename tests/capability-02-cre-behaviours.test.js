@@ -119,9 +119,9 @@ async function main() {
     'C-07b - the engine provides audited overrides so a bypass leaves a record',
   );
 
-  // ── C-15 — a write without an active project stays out of the install root ──
-  // Regression for the C-13 finding: the fallback root used to be
-  // process.cwd(), which for `npm start` is the installation itself.
+  // ── C-15 — a write without project authority is denied without a syscall ──
+  // M2 removes the fallback output root: a write needs a registered project,
+  // an authenticated subject and a separately approved EffectRequest.
   const { handleFileWriteDecision } = await import('../src/chat/handlers/file.js');
 
   const before = new Set(readdirSync(ROOT));
@@ -131,18 +131,15 @@ async function main() {
     { history: [{ response: { content: 'obsah k uložení' } }] },
   );
 
-  const writtenPath = written?.tag?.metadata?.filePath ?? '';
   const strayFiles = readdirSync(ROOT).filter(name => !before.has(name));
 
   check(
     strayFiles.length === 0
-    && writtenPath.startsWith(path.join(ROOT, 'data', 'output') + path.sep)
-    && existsSync(writtenPath),
-    `C-15 — a write with no active project lands in data/output, not the install root`
-    + ` (path "${writtenPath}", stray in root: ${strayFiles.join(', ') || 'none'})`,
+    && written?.tag?.metadata?.securityBlocked === true
+    && written?.tag?.metadata?.error === 'effect_authority_required',
+    'C-15 — a write without project authority is denied and creates no file'
+    + ` (stray in root: ${strayFiles.join(', ') || 'none'})`,
   );
-
-  if (writtenPath && existsSync(writtenPath)) rmSync(writtenPath, { force: true });
 
   console.log(`\n══ RESULTS: ${pass} passed, ${fail} failed ══`);
   if (failures.length) {

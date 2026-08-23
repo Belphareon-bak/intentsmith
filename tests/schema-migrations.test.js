@@ -164,6 +164,7 @@ const ALL_MIGRATIONS = [
   '2026_08_22_067_model_failover_proof_artifacts',
   '2026_08_22_069_model_failover_runtime_finalization',
   '2026_08_23_070_m2_effect_authority',
+  '2026_08_24_071_m2_effect_authority_hardening',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;

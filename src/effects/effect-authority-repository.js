@@ -1,6 +1,7 @@
 import {
   M2_EFFECT_CONTRACT_KIND,
   canonicalStringify,
+  computeEffectRequestDigest,
   timestampToMs,
   validateApprovalGrant,
   validateEffectRequest,
@@ -12,6 +13,7 @@ export const EffectAuthorityErrorCode = Object.freeze({
   REQUEST_NOT_FOUND: 'EFFECT_REQUEST_NOT_FOUND',
   REQUEST_CONFLICT: 'EFFECT_REQUEST_CONFLICT',
   RESULT_CONFLICT: 'EFFECT_RESULT_CONFLICT',
+  RESULT_AUTHORITY_MISSING: 'EFFECT_RESULT_AUTHORITY_MISSING',
   GRANT_NOT_FOUND: 'APPROVAL_GRANT_NOT_FOUND',
   GRANT_SCOPE_MISMATCH: 'APPROVAL_GRANT_SCOPE_MISMATCH',
   GRANT_NOT_YET_VALID: 'APPROVAL_GRANT_NOT_YET_VALID',
@@ -99,14 +101,32 @@ function normalizeRequestForStoredComparison(request, grantId) {
 
 function grantFromRow(row) {
   if (!row) return null;
-  const original = JSON.parse(row.grant_json);
-  return Object.freeze({
-    ...original,
-    consumedAt: row.consumed_at_ms === null ? null : isoFromMs(row.consumed_at_ms),
-    consumedByEffectId: row.consumed_by_effect_id,
-    revokedAt: row.revoked_at_ms === null ? null : isoFromMs(row.revoked_at_ms),
-    revocationReason: row.revocation_reason,
-  });
+  try {
+    const original = JSON.parse(row.grant_json);
+    const grant = {
+      ...original,
+      consumedAt: row.consumed_at_ms === null ? null : isoFromMs(row.consumed_at_ms),
+      consumedByEffectId: row.consumed_by_effect_id,
+      revokedAt: row.revoked_at_ms === null ? null : isoFromMs(row.revoked_at_ms),
+      revocationReason: row.revocation_reason,
+    };
+    const validation = validateApprovalGrant(grant);
+    const indexedIdentityMatches = grant.grantId === row.grant_id
+      && grant.scope?.effectId === row.effect_id
+      && grant.scope?.runId === row.run_id
+      && grant.scope?.projectId === row.project_id
+      && grant.scope?.kind === row.kind
+      && grant.scope?.payloadDigest === row.payload_digest
+      && grant.scope?.payloadBytes === row.payload_bytes
+      && grant.scope?.workspaceRevision === row.workspace_revision
+      && grant.nonce === row.nonce;
+    if (!validation.valid || !indexedIdentityMatches) {
+      throw new Error(`stored ApprovalGrant is invalid: ${validation.errors.join(',')}`);
+    }
+    return Object.freeze(grant);
+  } catch (error) {
+    storageFailure('grant read', error);
+  }
 }
 
 export class EffectAuthorityRepository {
@@ -132,18 +152,21 @@ export class EffectAuthorityRepository {
       );
     }
     const encoded = canonicalStringify(request);
+    const requestDigest = computeEffectRequestDigest(request);
     try {
       this.db.prepare(`
         INSERT INTO m2_effect_requests (
-          effect_id, run_id, project_id, kind, payload_digest,
-          workspace_revision, idempotency_key, request_json, created_at_ms
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          effect_id, run_id, project_id, kind, payload_digest, payload_bytes,
+          request_digest, workspace_revision, idempotency_key, request_json, created_at_ms
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         request.effectId,
         request.runId,
         request.origin.projectId,
         request.kind,
         request.payloadDigest,
+        request.payloadBytes,
+        requestDigest,
         request.workspaceRevision,
         request.idempotencyKey,
         encoded,
@@ -171,25 +194,31 @@ export class EffectAuthorityRepository {
 
   getEffectRequest(effectId) {
     const row = this.db.prepare(`
-      SELECT request.request_json, grant.grant_id
+      SELECT request.*, grant.grant_id
       FROM m2_effect_requests request
       LEFT JOIN m2_approval_grants grant ON grant.effect_id = request.effect_id
       WHERE request.effect_id = ?
     `).get(effectId);
     if (!row) return null;
-    let request;
     try {
-      request = JSON.parse(row.request_json);
+      const request = JSON.parse(row.request_json);
+      const validation = validateEffectRequest(request);
+      const indexedIdentityMatches = request.effectId === row.effect_id
+        && request.runId === row.run_id
+        && request.origin?.projectId === row.project_id
+        && request.kind === row.kind
+        && request.payloadDigest === row.payload_digest
+        && request.payloadBytes === row.payload_bytes
+        && computeEffectRequestDigest(request) === row.request_digest
+        && request.workspaceRevision === row.workspace_revision
+        && request.idempotencyKey === row.idempotency_key;
+      if (!validation.valid || request.approvalGrantId !== null || !indexedIdentityMatches) {
+        throw new Error(`stored EffectRequest is invalid: ${validation.errors.join(',')}`);
+      }
+      return Object.freeze({ ...request, approvalGrantId: row.grant_id ?? null });
     } catch (error) {
       storageFailure('request read', error);
     }
-    const validation = validateEffectRequest(request);
-    if (!validation.valid || request.approvalGrantId !== null) {
-      storageFailure('request read', new Error(
-        `stored EffectRequest is invalid: ${validation.errors.join(',')}`,
-      ));
-    }
-    return Object.freeze({ ...request, approvalGrantId: row.grant_id ?? null });
   }
 
   issueApprovalGrant(grantValue) {
@@ -232,7 +261,10 @@ export class EffectAuthorityRepository {
       && request.effectId === grant.scope.effectId
       && request.kind === grant.scope.kind
       && request.payloadDigest === grant.scope.payloadDigest
-      && request.workspaceRevision === grant.scope.workspaceRevision;
+      && request.payloadBytes === grant.scope.payloadBytes
+      && request.workspaceRevision === grant.scope.workspaceRevision
+      && request.actor.type === 'user'
+      && request.actor.id === grant.subject.actorId;
     if (!scopeMatches) {
       fail(
         EffectAuthorityErrorCode.GRANT_SCOPE_MISMATCH,
@@ -244,10 +276,10 @@ export class EffectAuthorityRepository {
     try {
       this.db.prepare(`
         INSERT INTO m2_approval_grants (
-          grant_id, effect_id, run_id, project_id, kind, payload_digest,
+          grant_id, effect_id, run_id, project_id, kind, payload_digest, payload_bytes,
           workspace_revision, nonce, grant_json, issued_at_ms, expires_at_ms,
           consumed_at_ms, consumed_by_effect_id, revoked_at_ms, revocation_reason
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL)
       `).run(
         grant.grantId,
         grant.scope.effectId,
@@ -255,6 +287,7 @@ export class EffectAuthorityRepository {
         grant.scope.projectId,
         grant.scope.kind,
         grant.scope.payloadDigest,
+        grant.scope.payloadBytes,
         grant.scope.workspaceRevision,
         grant.nonce,
         encoded,
@@ -323,6 +356,7 @@ export class EffectAuthorityRepository {
           AND project_id = ?
           AND kind = ?
           AND payload_digest = ?
+          AND payload_bytes = ?
           AND workspace_revision = ?
           AND consumed_at_ms IS NULL
           AND revoked_at_ms IS NULL
@@ -336,6 +370,7 @@ export class EffectAuthorityRepository {
         request.origin.projectId,
         request.kind,
         request.payloadDigest,
+        request.payloadBytes,
         request.workspaceRevision,
         atMs,
         atMs,
@@ -443,6 +478,42 @@ export class EffectAuthorityRepository {
         { effectId: result.effectId },
       );
     }
+    const requestDigest = computeEffectRequestDigest(request);
+    const identityMatches = result.runId === request.runId
+      && result.projectId === request.origin.projectId
+      && result.requestDigest === requestDigest;
+    if (!identityMatches) {
+      fail(
+        EffectAuthorityErrorCode.RESULT_AUTHORITY_MISSING,
+        'EffectResult does not identify its exact EffectRequest authority',
+        { effectId: result.effectId },
+      );
+    }
+    if (result.approvalGrantId !== null && result.approvalGrantId !== request.approvalGrantId) {
+      fail(
+        EffectAuthorityErrorCode.RESULT_AUTHORITY_MISSING,
+        'EffectResult names a grant that is not bound to its EffectRequest',
+        { effectId: result.effectId, grantId: result.approvalGrantId },
+      );
+    }
+    if (result.terminalStatus === 'succeeded') {
+      const grant = this.getApprovalGrant(result.approvalGrantId);
+      if (
+        !grant
+        || grant.scope.effectId !== result.effectId
+        || grant.scope.runId !== result.runId
+        || grant.scope.projectId !== result.projectId
+        || grant.consumedAt === null
+        || grant.consumedByEffectId !== result.effectId
+        || grant.revokedAt !== null
+      ) {
+        fail(
+          EffectAuthorityErrorCode.RESULT_AUTHORITY_MISSING,
+          'Successful EffectResult requires its exact consumed ApprovalGrant',
+          { effectId: result.effectId, grantId: result.approvalGrantId },
+        );
+      }
+    }
     if (requireTimestamp(result.startedAt, 'EffectResult.startedAt')
       < requireTimestamp(request.createdAt, 'EffectRequest.createdAt')) {
       fail(
@@ -454,10 +525,15 @@ export class EffectAuthorityRepository {
     try {
       this.db.prepare(`
         INSERT INTO m2_effect_results (
-          effect_id, terminal_status, result_json, completed_at_ms
-        ) VALUES (?, ?, ?, ?)
+          effect_id, run_id, project_id, request_digest, approval_grant_id,
+          terminal_status, result_json, completed_at_ms
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         result.effectId,
+        result.runId,
+        result.projectId,
+        result.requestDigest,
+        result.approvalGrantId,
         result.terminalStatus,
         encoded,
         requireTimestamp(result.completedAt, 'EffectResult.completedAt'),
@@ -481,9 +557,25 @@ export class EffectAuthorityRepository {
 
   getEffectResult(effectId) {
     const row = this.db.prepare(`
-      SELECT result_json FROM m2_effect_results WHERE effect_id = ?
+      SELECT * FROM m2_effect_results WHERE effect_id = ?
     `).get(effectId);
-    return row ? Object.freeze(JSON.parse(row.result_json)) : null;
+    if (!row) return null;
+    try {
+      const result = JSON.parse(row.result_json);
+      const validation = validateEffectResult(result);
+      const indexedIdentityMatches = result.effectId === row.effect_id
+        && result.runId === row.run_id
+        && result.projectId === row.project_id
+        && result.requestDigest === row.request_digest
+        && result.approvalGrantId === row.approval_grant_id
+        && result.terminalStatus === row.terminal_status;
+      if (!validation.valid || !indexedIdentityMatches) {
+        throw new Error(`stored EffectResult is invalid: ${validation.errors.join(',')}`);
+      }
+      return Object.freeze(result);
+    } catch (error) {
+      storageFailure('result read', error);
+    }
   }
 
   listAuthorityEvents(effectId) {
@@ -495,10 +587,16 @@ export class EffectAuthorityRepository {
       FROM m2_effect_authority_events
       WHERE effect_id = ?
       ORDER BY seq
-    `).all(effectId).map(row => Object.freeze({
-      ...row,
-      details: Object.freeze(JSON.parse(row.detailsJson)),
-    })));
+    `).all(effectId).map(row => {
+      try {
+        return Object.freeze({
+          ...row,
+          details: Object.freeze(JSON.parse(row.detailsJson)),
+        });
+      } catch (error) {
+        storageFailure('authority event read', error);
+      }
+    }));
   }
 }
 

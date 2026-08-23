@@ -1701,14 +1701,19 @@ const sessionManager = new ChatSessionManager();
  * @param {Object} request
  * @param {string} request.message - User message
  * @param {string} request.sessionId - Session ID
- * @param {string} [request.userId] - User ID
+ * @param {string} [request.userId] - Untrusted display/telemetry user ID
+ * @param {{actorType:'user',actorId:string}|null} [request.authenticatedSubject]
+ *   Identity asserted by the authenticated transport boundary
  * @param {Object} [request.project] - Project to set/use { id, name, ... }
  * @param {Object} [request.expertise] - Expertise to set/use { id, name, ... }
  * @param {Object} [request.context] - Additional context
  * @returns {Promise<{response: string, mode: string, confidence: number, metadata: Object}>}
  */
 ChatController.handle = async function(request) {
-  let { message, sessionId, userId, project, expertise, signal, context = {} } = request;
+  let {
+    message, sessionId, userId, authenticatedSubject,
+    project, expertise, signal, context = {},
+  } = request;
 
   // v82: Enrich message with file attachment content from IDE
   // Supports both inline content (FileReader) and path-based reading (Electron contextIsolation)
@@ -1951,8 +1956,10 @@ ChatController.handle = async function(request) {
 
   const fullContext = {
     ...context,
+    sessionId,
     conversationId: dbConversationId,
     userId,
+    authenticatedSubject: authenticatedSubject || null,
     // Persistent state from session (survives across requests)
     project: state.project,
     expertise: state.expertise,

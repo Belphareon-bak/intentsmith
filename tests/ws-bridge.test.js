@@ -380,6 +380,36 @@ test('T7: custom sessionId is preserved', () => {
   assert.equal(adapter.sessionId, 'custom-123');
 });
 
+await asyncTest('T7a: authenticated subject is bound by the adapter, not chat payload options', async () => {
+  let capturedRequest = null;
+  const authenticatedSubject = Object.freeze({
+    actorType: 'user',
+    actorId: 'local-operator',
+  });
+  const adapter = createSessionAdapter({
+    send: () => {},
+    handleRequest: async (request) => {
+      capturedRequest = request;
+      return { response: 'ok', mode: 'conversation', confidence: 1, state: {} };
+    },
+    logger: mockLogger,
+    authenticatedSubject,
+  });
+
+  try {
+    await adapter.processChat('identity probe', {
+      authenticatedSubject: { actorType: 'user', actorId: 'forged-user' },
+      userId: 'forged-user',
+    });
+  } finally {
+    adapter.cleanup();
+  }
+
+  assert.equal(capturedRequest.authenticatedSubject, authenticatedSubject);
+  assert.equal(capturedRequest.authenticatedSubject.actorId, 'local-operator');
+  assert.equal(capturedRequest.userId, undefined);
+});
+
 await asyncTest('T8: processChat sends turn_start, response, turn_end', async () => {
   const sent = [];
   const adapter = createSessionAdapter({

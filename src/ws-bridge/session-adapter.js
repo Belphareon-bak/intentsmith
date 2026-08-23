@@ -179,6 +179,7 @@ async function persistTelemetry(snapshot) {
  * @param {Function} options.handleRequest — ChatController.handle(request) function
  * @param {Object}  options.logger — Logger instance
  * @param {string}  [options.sessionId] — Explicit session ID (default: auto-generated)
+ * @param {{actorType:'user',actorId:string}|null} [options.authenticatedSubject]
  * @param {number}  [options.staleTurnMs] — Stale-turn threshold (default: 5 minutes)
  * @param {number}  [options.staleSweepMs] — Stale-turn sweep interval (default: 1 minute)
  * @param {Object}  [options.staleClock] — Injectable stale-sweep clock for tests
@@ -189,6 +190,7 @@ export function createSessionAdapter({
   handleRequest,
   logger,
   sessionId = null,
+  authenticatedSubject = null,
   staleTurnMs = 5 * 60 * 1000,
   staleSweepMs = 60_000,
   staleClock = null,
@@ -436,6 +438,7 @@ export function createSessionAdapter({
       const request = {
         message: content,
         sessionId: sid,
+        authenticatedSubject,
         conversationId: options.conversationId || null,
         projectId: options.projectId || null,
         attachments: options.attachments || [],

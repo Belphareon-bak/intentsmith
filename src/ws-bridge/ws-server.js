@@ -312,6 +312,14 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
             send: safeSend,
             handleRequest: (request) => chatController.handle(request),
             logger,
+            // Successful upgrade verification proves possession of the
+            // per-process local capability. Bind that transport authority to
+            // one stable local operator subject; chat payload fields cannot
+            // manufacture or replace it.
+            authenticatedSubject: Object.freeze({
+              actorType: 'user',
+              actorId: 'local-operator',
+            }),
           });
 
           // Send initial status
