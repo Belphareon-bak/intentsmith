@@ -10,6 +10,11 @@ import {
 import { up as applyEffectAuthorityMigration } from '../src/db/migrations/2026_08_23_070_m2_effect_authority.js';
 import { up as applyEffectAuthorityHardening } from '../src/db/migrations/2026_08_24_071_m2_effect_authority_hardening.js';
 import {
+  EXPECTED_M2_SCHEMA_FINGERPRINT,
+  computeM2SchemaFingerprint,
+  up as applyEffectExecutionClaims,
+} from '../src/db/migrations/2026_08_24_072_m2_effect_execution_claims.js';
+import {
   EffectAuthorityError,
   EffectAuthorityErrorCode,
   EffectAuthorityRepository,
@@ -23,12 +28,61 @@ const CONSUMED = '2026-08-23T20:00:10.000Z';
 const EXPIRES = '2026-08-23T20:05:00.000Z';
 const FUTURE_EXPIRES = '2026-08-23T20:10:00.000Z';
 const PAYLOAD_BYTES = 31;
+const EXECUTION_OWNER = Object.freeze({
+  ownerId: 'owner:test-process',
+  pid: 4242,
+  bootId: 'boot-test-1',
+  startIdentity: 'start-test-1',
+});
 
 function openDb(filename = ':memory:') {
   const db = new Database(filename);
   db.pragma('foreign_keys = ON');
-  applyEffectAuthorityMigration(db);
+  const hasAuthority = Boolean(db.prepare(
+    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'm2_effect_requests'",
+  ).get());
+  if (!hasAuthority) {
+    applyEffectAuthorityMigration(db);
+    applyEffectAuthorityHardening(db);
+  }
+  applyEffectExecutionClaims(db);
   return db;
+}
+
+function installNearCurrentCandidate(db, { pendingRow = false } = {}) {
+  db.exec(`
+    CREATE TABLE m2_effect_requests (
+      effect_id TEXT PRIMARY KEY,
+      payload_bytes INTEGER,
+      request_digest TEXT
+    );
+    CREATE TABLE m2_approval_grants (grant_id TEXT PRIMARY KEY, payload_bytes INTEGER);
+    CREATE TABLE m2_effect_results (
+      effect_id TEXT PRIMARY KEY,
+      run_id TEXT,
+      project_id INTEGER,
+      request_digest TEXT,
+      approval_grant_id TEXT
+    );
+    CREATE TABLE m2_pending_effect_payloads (
+      effect_id TEXT PRIMARY KEY,
+      user_id TEXT,
+      payload BLOB
+    );
+    CREATE TABLE m2_effect_authority_events (seq INTEGER PRIMARY KEY);
+  `);
+  if (pendingRow) {
+    db.prepare(`
+      INSERT INTO m2_pending_effect_payloads (effect_id, user_id, payload)
+      VALUES (?, ?, ?)
+    `).run('legacy-effect', 'legacy-user', Buffer.from('pending'));
+  }
+}
+
+function installColumnCompleteButTriggerWeakCandidate(db, { requestRow = false } = {}) {
+  applyEffectAuthorityMigration(db);
+  if (requestRow) repositoryAt(db, CREATED).registerEffectRequest(request());
+  db.exec('DROP TRIGGER trg_m2_approval_grants_exact_scope');
 }
 
 function repositoryAt(db, timestamp = CONSUMED) {
@@ -142,6 +196,10 @@ function registerAndGrant(repository, requestValue = request(), grantValue = gra
   repository.issueApprovalGrant(grantValue);
 }
 
+function consume(repository, input) {
+  return repository.consumeApprovalGrant({ ...input, executionOwner: EXECUTION_OWNER });
+}
+
 suite('M2 durable effect authority repository');
 
 test('registers an immutable request and exact retry is idempotent', () => {
@@ -191,7 +249,7 @@ test('issue and consume commit a durable ordered audit', () => {
   registerAndGrant(repository);
   const bound = repository.getEffectRequest('effect-1');
   assert.equal(bound.approvalGrantId, 'grant-1');
-  const consumed = repository.consumeApprovalGrant({ grantId: 'grant-1', request: bound, consumedAt: CONSUMED });
+  const consumed = consume(repository, { grantId: 'grant-1', request: bound, consumedAt: CONSUMED });
   assert.equal(consumed.grant.consumedByEffectId, 'effect-1');
   assert.deepEqual(repository.listAuthorityEvents('effect-1').map(event => event.eventType), [
     'REQUEST_REGISTERED', 'GRANT_ISSUED', 'GRANT_CONSUMED',
@@ -213,7 +271,7 @@ test('changing target bytes after approval cannot consume the grant', () => {
     },
   };
   expectCode(
-    () => repository.consumeApprovalGrant({ grantId: 'grant-1', request: changed, consumedAt: CONSUMED }),
+    () => consume(repository, { grantId: 'grant-1', request: changed, consumedAt: CONSUMED }),
     EffectAuthorityErrorCode.GRANT_SCOPE_MISMATCH,
   );
   assert.equal(repository.getApprovalGrant('grant-1').consumedAt, null);
@@ -229,9 +287,9 @@ test('two database connections attempting consume have exactly one winner', () =
   const repositoryB = repositoryAt(dbB);
   registerAndGrant(repositoryA);
   const current = repositoryA.getEffectRequest('effect-1');
-  assert.equal(repositoryA.consumeApprovalGrant({ grantId: 'grant-1', request: current, consumedAt: CONSUMED }).consumed, true);
+  assert.equal(consume(repositoryA, { grantId: 'grant-1', request: current, consumedAt: CONSUMED }).consumed, true);
   expectCode(
-    () => repositoryB.consumeApprovalGrant({ grantId: 'grant-1', request: current, consumedAt: CONSUMED }),
+    () => consume(repositoryB, { grantId: 'grant-1', request: current, consumedAt: CONSUMED }),
     EffectAuthorityErrorCode.GRANT_CONSUMED,
   );
   assert.equal(repositoryA.listAuthorityEvents('effect-1').filter(event => event.eventType === 'GRANT_CONSUMED').length, 1);
@@ -245,7 +303,7 @@ test('expiry boundary is fail-closed and distinct from consumption', () => {
   registerAndGrant(repositoryAt(db));
   const repository = repositoryAt(db, EXPIRES);
   expectCode(
-    () => repository.consumeApprovalGrant({
+    () => consume(repository, {
       grantId: 'grant-1',
       request: repository.getEffectRequest('effect-1'),
       consumedAt: EXPIRES,
@@ -260,7 +318,7 @@ test('caller-supplied time cannot backdate consumption against the trusted clock
   const db = openDb();
   const repository = repositoryAt(db);
   registerAndGrant(repository);
-  repository.consumeApprovalGrant({
+  consume(repository, {
     grantId: 'grant-1',
     request: repository.getEffectRequest('effect-1'),
     consumedAt: '1970-01-01T00:00:00.000Z',
@@ -291,7 +349,7 @@ test('revocation is idempotent and a revoked grant cannot be consumed', () => {
   assert.equal(repository.revokeApprovalGrant({ grantId: 'grant-1', revokedAt: CONSUMED, reason: 'user_cancelled' }).revoked, true);
   assert.equal(repository.revokeApprovalGrant({ grantId: 'grant-1', revokedAt: CONSUMED, reason: 'user_cancelled' }).revoked, false);
   expectCode(
-    () => repository.consumeApprovalGrant({
+    () => consume(repository, {
       grantId: 'grant-1',
       request: repository.getEffectRequest('effect-1'),
       consumedAt: '2026-08-23T20:00:11.000Z',
@@ -306,7 +364,7 @@ test('consumed grant cannot be revoked', () => {
   const db = openDb();
   const repository = repositoryAt(db);
   registerAndGrant(repository);
-  repository.consumeApprovalGrant({
+  consume(repository, {
     grantId: 'grant-1',
     request: repository.getEffectRequest('effect-1'),
     consumedAt: CONSUMED,
@@ -338,7 +396,7 @@ test('run revocation revokes every active grant and preserves consumed grants', 
     constraints: { ...grant().constraints, allowedRealpaths: ['/workspace/project/src/b.js'] },
   });
   registerAndGrant(repository, request2, grant2);
-  repository.consumeApprovalGrant({
+  consume(repository, {
     grantId: 'grant-1', request: repository.getEffectRequest('effect-1'), consumedAt: CONSUMED,
   });
   const revoked = repository.revokeRunGrants({
@@ -380,7 +438,7 @@ test('run cancellation revokes a restored not-yet-valid grant', () => {
   assert.deepEqual([...revoked.grantIds], ['grant-1']);
   assert.equal(repository.getApprovalGrant('grant-1').revokedAt, CONSUMED);
   expectCode(
-    () => repository.consumeApprovalGrant({
+    () => consume(repository, {
       grantId: 'grant-1', request: repository.getEffectRequest('effect-1'),
     }),
     EffectAuthorityErrorCode.GRANT_REVOKED,
@@ -394,7 +452,7 @@ test('state and audit survive database close and reopen', () => {
   let db = openDb(filename);
   let repository = repositoryAt(db);
   registerAndGrant(repository);
-  repository.consumeApprovalGrant({
+  consume(repository, {
     grantId: 'grant-1', request: repository.getEffectRequest('effect-1'), consumedAt: CONSUMED,
   });
   db.close();
@@ -413,7 +471,7 @@ test('terminal result is immutable, exact retry is idempotent and conflict is re
   const db = openDb();
   const repository = repositoryAt(db);
   registerAndGrant(repository);
-  repository.consumeApprovalGrant({
+  consume(repository, {
     grantId: 'grant-1', request: repository.getEffectRequest('effect-1'),
   });
   assert.equal(repository.recordEffectResult(result()).created, true);
@@ -453,7 +511,7 @@ test('success cannot be recorded before the exact grant is consumed', () => {
   db.close();
 });
 
-test('a pre-consumption failure may be recorded but cannot impersonate another request', () => {
+test('pre-consumption failure is not an EffectResult and cannot create a terminal', () => {
   const db = openDb();
   const repository = repositoryAt(db);
   repository.registerEffectRequest(request());
@@ -463,18 +521,33 @@ test('a pre-consumption failure may be recorded but cannot impersonate another r
     errorCode: 'EFFECT_FAILED',
     outputDigest: null,
   });
-  assert.equal(repository.recordEffectResult(failed).created, true);
-  assert.equal(repository.getEffectResult('effect-1').terminalStatus, 'failed');
+  expectCode(
+    () => repository.recordEffectResult(failed),
+    EffectAuthorityErrorCode.INPUT_INVALID,
+  );
+  assert.throws(() => db.prepare(`
+    INSERT INTO m2_effect_results (
+      effect_id, run_id, project_id, request_digest, approval_grant_id,
+      terminal_status, result_json, completed_at_ms
+    ) VALUES (?, ?, ?, ?, NULL, ?, ?, ?)
+  `).run(
+    'effect-1', 'run-1', 17, computeEffectRequestDigest(request()),
+    'failed', JSON.stringify(failed), Date.parse(failed.completedAt),
+  ), /RESULT_AUTHORITY_MISSING/);
+  assert.equal(repository.getEffectResult('effect-1'), null);
   db.close();
 });
 
 test('result cannot predate its request', () => {
   const db = openDb();
   const repository = repositoryAt(db);
-  repository.registerEffectRequest(request());
+  registerAndGrant(repository);
+  consume(repository, {
+    grantId: 'grant-1',
+    request: repository.getEffectRequest('effect-1'),
+  });
   expectCode(
     () => repository.recordEffectResult(result({
-      approvalGrantId: null,
       terminalStatus: 'failed',
       errorCode: 'EFFECT_FAILED',
       outputDigest: null,
@@ -490,7 +563,7 @@ test('database blocks request, result and event mutation or replacement', () => 
   const db = openDb();
   const repository = repositoryAt(db);
   registerAndGrant(repository);
-  repository.consumeApprovalGrant({
+  consume(repository, {
     grantId: 'grant-1', request: repository.getEffectRequest('effect-1'),
   });
   repository.recordEffectResult(result());
@@ -532,7 +605,7 @@ test('database rejects a forged authority event before the matching state transi
     JSON.stringify({ consumedByEffectId: 'effect-1' }),
   ), /EVENT_STATE_MISMATCH/);
 
-  repository.consumeApprovalGrant({
+  consume(repository, {
     grantId: 'grant-1', request: repository.getEffectRequest('effect-1'),
   });
   assert.equal(
@@ -650,6 +723,40 @@ test('database permits one direct terminal grant transition and always emits aud
   db.close();
 });
 
+test('database refuses direct grant consumption without the exact durable execution claim', () => {
+  const db = openDb();
+  const repository = repositoryAt(db);
+  registerAndGrant(repository);
+  assert.throws(() => db.prepare(`
+    UPDATE m2_approval_grants
+    SET consumed_at_ms = ?, consumed_by_effect_id = effect_id
+    WHERE grant_id = ?
+  `).run(Date.parse(CONSUMED), 'grant-1'), /INVALID_TRANSITION/);
+  assert.equal(repository.getApprovalGrant('grant-1').consumedAt, null);
+  assert.equal(repository.getExecutionClaim('effect-1'), null);
+  db.close();
+});
+
+test('durable execution claim is exact and append-only', () => {
+  const db = openDb();
+  const repository = repositoryAt(db);
+  registerAndGrant(repository);
+  consume(repository, {
+    grantId: 'grant-1', request: repository.getEffectRequest('effect-1'),
+  });
+  const claim = repository.getExecutionClaim('effect-1');
+  assert.equal(claim.grantId, 'grant-1');
+  assert.equal(claim.ownerId, EXECUTION_OWNER.ownerId);
+  assert.throws(() => db.prepare(`
+    UPDATE m2_effect_execution_claims SET owner_pid = owner_pid + 1
+    WHERE effect_id = 'effect-1'
+  `).run(), /append-only/);
+  assert.throws(() => db.prepare(`
+    DELETE FROM m2_effect_execution_claims WHERE effect_id = 'effect-1'
+  `).run(), /append-only/);
+  db.close();
+});
+
 test('hardening migration rebuilds only an empty pre-acceptance authority schema', () => {
   const db = new Database(':memory:');
   db.pragma('foreign_keys = ON');
@@ -665,12 +772,79 @@ test('hardening migration rebuilds only an empty pre-acceptance authority schema
   db.close();
 });
 
+test('hardening migration detects and rebuilds an empty near-current user_id layout', () => {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  installNearCurrentCandidate(db);
+  applyEffectAuthorityHardening(db);
+  applyEffectExecutionClaims(db);
+  const pendingColumns = db.prepare('PRAGMA table_info(m2_pending_effect_payloads)')
+    .all().map(row => row.name);
+  assert.equal(pendingColumns.includes('subject_id'), true);
+  assert.equal(pendingColumns.includes('user_id'), false);
+  db.close();
+});
+
+test('hardening migration refuses to drop pending rows from a near-current layout', () => {
+  const db = new Database(':memory:');
+  installNearCurrentCandidate(db, { pendingRow: true });
+  applyEffectAuthorityHardening(db);
+  assert.throws(
+    () => applyEffectExecutionClaims(db),
+    /PRE_ACCEPTANCE_DATA_REQUIRES_EXPLICIT_MIGRATION/,
+  );
+  assert.equal(
+    db.prepare('SELECT count(*) AS count FROM m2_pending_effect_payloads').get().count,
+    1,
+  );
+  db.close();
+});
+
 test('hardening migration refuses to fabricate authority for pre-acceptance rows', () => {
   const db = new Database(':memory:');
   db.exec('CREATE TABLE m2_effect_requests (effect_id TEXT PRIMARY KEY)');
   db.prepare('INSERT INTO m2_effect_requests (effect_id) VALUES (?)').run('legacy-effect');
   assert.throws(
     () => applyEffectAuthorityHardening(db),
+    /PRE_ACCEPTANCE_DATA_REQUIRES_EXPLICIT_MIGRATION/,
+  );
+  assert.equal(db.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count, 1);
+  db.close();
+});
+
+test('072 advances a stamped 071 schema and pins the full sqlite_master fingerprint', () => {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  applyEffectAuthorityMigration(db);
+  applyEffectAuthorityHardening(db);
+  assert.equal(
+    db.prepare("SELECT count(*) AS count FROM sqlite_master WHERE name = 'm2_effect_execution_claims'")
+      .get().count,
+    0,
+  );
+  applyEffectExecutionClaims(db);
+  assert.equal(computeM2SchemaFingerprint(db), EXPECTED_M2_SCHEMA_FINGERPRINT);
+  applyEffectExecutionClaims(db);
+  assert.equal(computeM2SchemaFingerprint(db), EXPECTED_M2_SCHEMA_FINGERPRINT);
+  db.close();
+});
+
+test('072 rebuilds an empty column-complete but trigger-weak candidate', () => {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  installColumnCompleteButTriggerWeakCandidate(db);
+  assert.notEqual(computeM2SchemaFingerprint(db), EXPECTED_M2_SCHEMA_FINGERPRINT);
+  applyEffectExecutionClaims(db);
+  assert.equal(computeM2SchemaFingerprint(db), EXPECTED_M2_SCHEMA_FINGERPRINT);
+  db.close();
+});
+
+test('072 never drops rows from a column-complete but trigger-weak candidate', () => {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  installColumnCompleteButTriggerWeakCandidate(db, { requestRow: true });
+  assert.throws(
+    () => applyEffectExecutionClaims(db),
     /PRE_ACCEPTANCE_DATA_REQUIRES_EXPLICIT_MIGRATION/,
   );
   assert.equal(db.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count, 1);

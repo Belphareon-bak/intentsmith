@@ -6,6 +6,8 @@ import { suite, testAsync, summary } from './harness.js';
 
 const { handleFileWriteDecision } = await import('../src/chat/handlers/file.js');
 const { parseExactEffectApproval } = await import('../src/chat/handlers/pre-handler.js');
+const { handleToolCallDecision } = await import('../src/chat/handlers/decisions.js');
+const { toolExecutor } = await import('../src/executor/tool-executor.js');
 
 function decision(filePath = 'notes/result.md') {
   const serialized = { type: 'FILE_WRITE', metadata: { handler: 'file.write', filePath } };
@@ -20,6 +22,7 @@ function context(projectRoot, overrides = {}) {
     project: { id: 17, path: projectRoot },
     projectId: 17,
     authenticatedSubject: { actorType: 'user', actorId: 'user-1' },
+    userMessageId: 41,
     sessionId: 'session-1',
     conversationId: 'conversation-1',
     history: [
@@ -76,6 +79,7 @@ await testAsync('handler delegates exact bytes and authority context to the four
       sessionId: 'session-1',
       conversationId: 'conversation-1',
       subjectId: 'user-1',
+      operationId: 'message:41',
       projectId: 17,
       projectRoot,
       relativePath: 'notes/result.md',
@@ -108,6 +112,7 @@ await testAsync('missing project or authenticated caller blocks before the runti
     const cases = [
       context(projectRoot, { project: null, projectId: null }),
       context(projectRoot, { authenticatedSubject: null }),
+      context(projectRoot, { userMessageId: null }),
     ];
 
     for (const handlerContext of cases) {
@@ -174,6 +179,38 @@ await testAsync('approval parser accepts only a command containing the exact ful
   assert.equal(parseExactEffectApproval(`approve effect ${effectId}`), effectId);
   for (const rejected of ['ano', 'schvaluji', 'schválit efekt', `schválit efekt ${effectId.slice(0, -1)}`]) {
     assert.equal(parseExactEffectApproval(rejected), null);
+  }
+});
+
+await testAsync('decision execution awaits the security hook and never reaches the legacy executor', async () => {
+  const originalExecute = toolExecutor.execute;
+  let executorCalls = 0;
+  toolExecutor.execute = async () => {
+    executorCalls += 1;
+    throw new Error('legacy executor must not be reached');
+  };
+  const authorityError = new Error('M2 effect authority is required');
+  authorityError.code = 'M2_EFFECT_AUTHORITY_REQUIRED';
+  const legacyDecision = {
+    intent: 'FILE_WRITE',
+    confidence: 1,
+    tools: ['fs.write'],
+    metadata: {},
+    toJSON: () => ({ intent: 'FILE_WRITE', tools: ['fs.write'] }),
+  };
+
+  try {
+    await assert.rejects(
+      handleToolCallDecision('write the file', legacyDecision, {
+        sessionState: null,
+        history: [],
+        onToolCall: async () => { throw authorityError; },
+      }),
+      error => error === authorityError,
+    );
+    assert.equal(executorCalls, 0);
+  } finally {
+    toolExecutor.execute = originalExecute;
   }
 });
 

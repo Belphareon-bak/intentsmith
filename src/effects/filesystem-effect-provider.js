@@ -44,12 +44,33 @@ export function createFilesystemEffectProvider({ fileSystem = fs } = {}) {
       assertNotHardlinked(before.target, fileSystem);
       const beforeDigest = before.exists ? digest(Buffer.from(before.content, 'utf8')) : null;
       const content = payload.toString('utf8');
-      writeProjectFileAtomic(
-        request.target.canonicalRoot,
-        request.target.relativePath,
-        content,
-        { expectedTarget: before.target, fileSystem },
-      );
+      try {
+        writeProjectFileAtomic(
+          request.target.canonicalRoot,
+          request.target.relativePath,
+          content,
+          { expectedTarget: before.target, fileSystem },
+        );
+      } catch (error) {
+        if (error?.effectApplied === true) {
+          error.evidence = Object.freeze({
+            changes: Object.freeze({
+              paths: Object.freeze([request.target.relativePath]),
+              beforeDigest,
+              afterDigest: request.payloadDigest,
+              diffArtifact: null,
+            }),
+            rollback: Object.freeze({
+              required: true,
+              status: 'pending',
+              evidenceRef: `effect:${request.effectId}:durability-unconfirmed`,
+            }),
+            outputDigest: request.payloadDigest,
+            evidenceRefs: Object.freeze([`effect:${request.effectId}:fs-write-durability-unconfirmed`]),
+          });
+        }
+        throw error;
+      }
 
       const after = readProjectFile(
         request.target.canonicalRoot,

@@ -1,9 +1,17 @@
 import { createHash } from 'node:crypto';
 import { realpath } from 'node:fs/promises';
+import {
+  M2_EFFECT_CONTRACT_KIND,
+  computeEffectRequestDigest,
+} from '../../contracts/m2/effect-v1.js';
 import { db, projects } from '../db/database.js';
 import { EffectAuthorityRepository } from './effect-authority-repository.js';
 import { createApprovalGrantIssuer } from './approval-grant-issuer.js';
 import { createEffectBroker } from './effect-broker.js';
+import {
+  processExecutionLiveness,
+  processExecutionOwner,
+} from './execution-owner.js';
 
 function stableIdentifier(prefix, value) {
   const digest = createHash('sha256').update(String(value), 'utf8').digest('hex');
@@ -51,10 +59,80 @@ export function createEffectFileRuntime({
   workspaceAuthority = { observe: observeRegisteredWorkspace },
   broker: brokerOverride = null,
   issuer: issuerOverride = null,
+  executionOwner = processExecutionOwner,
+  executionLiveness = processExecutionLiveness,
 } = {}) {
   const repository = new EffectAuthorityRepository(database, { clock });
-  const broker = brokerOverride || createEffectBroker(repository, { clock, workspaceAuthority });
+  const broker = brokerOverride || createEffectBroker(repository, {
+    clock,
+    workspaceAuthority,
+    executionOwner,
+  });
   const issuer = issuerOverride || createApprovalGrantIssuer(repository, { clock });
+  const activeEffects = new Set();
+
+  function recoverConsumedEffect(effectId) {
+    const request = repository.getEffectRequest(effectId);
+    if (!request?.approvalGrantId || repository.getEffectResult(effectId)) return null;
+    const grant = repository.getApprovalGrant(request.approvalGrantId);
+    if (!grant?.consumedAt || grant.consumedByEffectId !== effectId) return null;
+    const claim = repository.getExecutionClaim(effectId);
+    if (!claim || executionLiveness.isProvablyDead(claim) !== true) return null;
+    const consumedAtMs = Date.parse(grant.consumedAt);
+    const completedAtMs = Math.max(consumedAtMs, clock());
+    const result = {
+      contract: M2_EFFECT_CONTRACT_KIND.EFFECT_RESULT,
+      version: 1,
+      effectId,
+      runId: request.runId,
+      projectId: request.origin.projectId,
+      requestDigest: computeEffectRequestDigest(request),
+      approvalGrantId: grant.grantId,
+      terminalStatus: 'orphaned',
+      startedAt: new Date(consumedAtMs).toISOString(),
+      completedAt: new Date(completedAtMs).toISOString(),
+      process: {
+        pid: null,
+        processGroupId: null,
+        startIdentity: null,
+        exitCode: null,
+        signal: null,
+      },
+      changes: { paths: [], beforeDigest: null, afterDigest: null, diffArtifact: null },
+      network: { resolvedAddresses: [], finalUrl: null, status: null, bytes: 0 },
+      rollback: {
+        required: true,
+        status: 'pending',
+        evidenceRef: `effect:${effectId}:rollback-pending`,
+      },
+      outputDigest: null,
+      errorCode: 'EFFECT_RECOVERY_ORPHANED',
+      evidenceRefs: [`effect:${effectId}:restart-recovery`],
+      lateCompletionRejected: true,
+    };
+    repository.recordEffectResult(result);
+    database.prepare('DELETE FROM m2_pending_effect_payloads WHERE effect_id = ?').run(effectId);
+    return Object.freeze(result);
+  }
+
+  function recoverInterruptedFilesystemEffects() {
+    const effectIds = database.prepare(`
+      SELECT pending.effect_id AS effectId
+      FROM m2_pending_effect_payloads pending
+      JOIN m2_approval_grants grant ON grant.effect_id = pending.effect_id
+      LEFT JOIN m2_effect_results result ON result.effect_id = pending.effect_id
+      WHERE grant.consumed_at_ms IS NOT NULL
+        AND result.effect_id IS NULL
+      ORDER BY pending.effect_id
+    `).all();
+    const recovered = [];
+    for (const { effectId } of effectIds) {
+      if (activeEffects.has(effectId)) continue;
+      const result = recoverConsumedEffect(effectId);
+      if (result) recovered.push(result);
+    }
+    return Object.freeze(recovered);
+  }
 
   function storePending({ effectId, sessionId, conversationId, subjectId, projectId, payload }) {
     const request = repository.getEffectRequest(effectId);
@@ -95,11 +173,12 @@ export function createEffectFileRuntime({
     }
   }
 
-  return Object.freeze({
+  const runtime = Object.freeze({
     async requestFilesystemWrite({
       sessionId,
       conversationId,
       subjectId,
+      operationId,
       projectId,
       projectRoot,
       relativePath,
@@ -109,6 +188,7 @@ export function createEffectFileRuntime({
       requireText(sessionId, 'sessionId');
       requireText(conversationId, 'conversationId');
       requireActorIdentifier(subjectId);
+      requireText(operationId, 'operationId');
       if (!Number.isSafeInteger(projectId) || projectId <= 0) {
         const error = new TypeError('projectId must identify a registered project');
         error.code = 'EFFECT_RUNTIME_INPUT_INVALID';
@@ -117,8 +197,8 @@ export function createEffectFileRuntime({
       const payload = Buffer.from(content, 'utf8');
       const runId = stableIdentifier('run', conversationId);
       const idempotencyKey = stableIdentifier(
-        'write',
-        JSON.stringify({ sessionId, projectId, relativePath, digest: payloadDigest(payload) }),
+        'operation',
+        operationId,
       );
       const prepared = await broker.prepareFilesystemWrite({
         runId,
@@ -153,18 +233,33 @@ export function createEffectFileRuntime({
       return prepared;
     },
 
-    async approveFilesystemWrite({ effectId, sessionId, conversationId, subjectId, signal } = {}) {
+    async approveFilesystemWrite({ effectId, conversationId, subjectId, signal } = {}) {
       requireText(effectId, 'effectId');
-      requireText(sessionId, 'sessionId');
       requireText(conversationId, 'conversationId');
       requireActorIdentifier(subjectId);
       const pending = database.prepare(`
         SELECT * FROM m2_pending_effect_payloads
-        WHERE effect_id = ? AND session_id = ? AND conversation_id = ? AND subject_id = ?
-      `).get(effectId, sessionId, conversationId, subjectId);
+        WHERE effect_id = ? AND conversation_id = ? AND subject_id = ?
+      `).get(effectId, conversationId, subjectId);
       if (!pending) {
         const error = new Error('No exact pending filesystem effect belongs to this caller');
         error.code = 'EFFECT_PENDING_NOT_FOUND';
+        throw error;
+      }
+      if (activeEffects.has(effectId)) {
+        const error = new Error('Filesystem effect execution is already in progress');
+        error.code = 'EFFECT_EXECUTION_IN_PROGRESS';
+        throw error;
+      }
+      const recovered = recoverConsumedEffect(effectId);
+      if (recovered) return recovered;
+      const boundRequest = repository.getEffectRequest(effectId);
+      const boundGrant = boundRequest?.approvalGrantId
+        ? repository.getApprovalGrant(boundRequest.approvalGrantId)
+        : null;
+      if (boundGrant?.consumedAt) {
+        const error = new Error('Consumed effect execution owner is still live or cannot be disproved');
+        error.code = 'EFFECT_EXECUTION_IN_DOUBT';
         throw error;
       }
       const payload = Buffer.from(pending.payload);
@@ -175,9 +270,14 @@ export function createEffectFileRuntime({
       }
       const subject = { actorType: 'user', actorId: subjectId };
       const grant = issuer.issue({ effectId, authenticatedSubject: subject }).grant;
-      const result = await broker.execute({ effectId, grantId: grant.grantId, payload, signal });
-      database.prepare('DELETE FROM m2_pending_effect_payloads WHERE effect_id = ?').run(effectId);
-      return result;
+      activeEffects.add(effectId);
+      try {
+        const result = await broker.execute({ effectId, grantId: grant.grantId, payload, signal });
+        database.prepare('DELETE FROM m2_pending_effect_payloads WHERE effect_id = ?').run(effectId);
+        return result;
+      } finally {
+        activeEffects.delete(effectId);
+      }
     },
 
     getPending(effectId) {
@@ -190,7 +290,15 @@ export function createEffectFileRuntime({
       `).get(effectId);
       return row ? Object.freeze(row) : null;
     },
+
+    recoverInterruptedFilesystemEffects,
   });
+  // A newly-created runtime is the restart boundary for this SQLite authority.
+  // Filesystem providers are synchronous and cannot survive the old process;
+  // a consumed grant without a result is therefore terminally ambiguous and
+  // must become a durable orphan instead of being replayed.
+  recoverInterruptedFilesystemEffects();
+  return runtime;
 }
 
 // Database initialization and migration complete before this module is loaded

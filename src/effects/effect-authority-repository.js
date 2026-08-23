@@ -80,6 +80,23 @@ function requireClock(clock) {
   return clock;
 }
 
+function requireExecutionOwner(value) {
+  const valid = value
+    && typeof value === 'object'
+    && typeof value.ownerId === 'string'
+    && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value.ownerId)
+    && Number.isSafeInteger(value.pid)
+    && value.pid > 0
+    && typeof value.bootId === 'string'
+    && value.bootId.trim().length > 0
+    && value.bootId.length <= 256
+    && typeof value.startIdentity === 'string'
+    && value.startIdentity.trim().length > 0
+    && value.startIdentity.length <= 256;
+  if (!valid) fail(EffectAuthorityErrorCode.INPUT_INVALID, 'A bounded execution owner is required');
+  return value;
+}
+
 function storageFailure(operation, error) {
   fail(
     EffectAuthorityErrorCode.STORAGE_FAILURE,
@@ -256,6 +273,13 @@ export class EffectAuthorityRepository {
         { effectId: grant.scope.effectId },
       );
     }
+    if (this.getEffectResult(grant.scope.effectId)) {
+      fail(
+        EffectAuthorityErrorCode.RESULT_CONFLICT,
+        'A terminal EffectRequest cannot receive a new ApprovalGrant',
+        { effectId: grant.scope.effectId },
+      );
+    }
     const scopeMatches = request.runId === grant.scope.runId
       && request.origin.projectId === grant.scope.projectId
       && request.effectId === grant.scope.effectId
@@ -322,8 +346,9 @@ export class EffectAuthorityRepository {
     );
   }
 
-  consumeApprovalGrant({ grantId, request: requestValue }) {
+  consumeApprovalGrant({ grantId, request: requestValue, executionOwner: executionOwnerValue }) {
     const request = requireValid(requestValue, validateEffectRequest, 'EffectRequest');
+    const executionOwner = requireExecutionOwner(executionOwnerValue);
     const atMs = this.#now();
     const comparable = normalizeRequestForStoredComparison(request, grantId);
     const expectedRequestJson = canonicalStringify(comparable);
@@ -346,6 +371,23 @@ export class EffectAuthorityRepository {
           { effectId: request.effectId },
         );
       }
+
+      this.#assertGrantConsumable(grantId, request, atMs);
+
+      this.db.prepare(`
+        INSERT INTO m2_effect_execution_claims (
+          effect_id, grant_id, owner_id, owner_pid, owner_boot_id,
+          owner_start_identity, claimed_at_ms
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        request.effectId,
+        grantId,
+        executionOwner.ownerId,
+        executionOwner.pid,
+        executionOwner.bootId,
+        executionOwner.startIdentity,
+        atMs,
+      );
 
       const update = this.db.prepare(`
         UPDATE m2_approval_grants
@@ -378,6 +420,52 @@ export class EffectAuthorityRepository {
       if (update.changes !== 1) this.#failGrantState(grantId, request, atMs);
       return Object.freeze({ consumed: true, grant: this.getApprovalGrant(grantId) });
     });
+  }
+
+  #assertGrantConsumable(grantId, request, atMs) {
+    const row = this.db.prepare('SELECT * FROM m2_approval_grants WHERE grant_id = ?').get(grantId);
+    if (!row) fail(EffectAuthorityErrorCode.GRANT_NOT_FOUND, 'ApprovalGrant does not exist', { grantId });
+    if (row.consumed_at_ms !== null) {
+      fail(EffectAuthorityErrorCode.GRANT_CONSUMED, 'ApprovalGrant was already consumed', { grantId });
+    }
+    if (row.revoked_at_ms !== null) {
+      fail(EffectAuthorityErrorCode.GRANT_REVOKED, 'ApprovalGrant was revoked', { grantId });
+    }
+    if (row.issued_at_ms > atMs) {
+      fail(
+        EffectAuthorityErrorCode.GRANT_NOT_YET_VALID,
+        'ApprovalGrant is not valid before its issuance time',
+        { grantId },
+      );
+    }
+    if (row.expires_at_ms <= atMs) {
+      fail(EffectAuthorityErrorCode.GRANT_EXPIRED, 'ApprovalGrant expired', { grantId });
+    }
+    const exact = row.effect_id === request.effectId
+      && row.run_id === request.runId
+      && row.project_id === request.origin.projectId
+      && row.kind === request.kind
+      && row.payload_digest === request.payloadDigest
+      && row.payload_bytes === request.payloadBytes
+      && row.workspace_revision === request.workspaceRevision;
+    if (!exact) {
+      fail(
+        EffectAuthorityErrorCode.GRANT_SCOPE_MISMATCH,
+        'ApprovalGrant does not match the current EffectRequest',
+        { grantId, effectId: request.effectId },
+      );
+    }
+  }
+
+  getExecutionClaim(effectId) {
+    const row = this.db.prepare(`
+      SELECT effect_id AS effectId, grant_id AS grantId, owner_id AS ownerId,
+             owner_pid AS ownerPid, owner_boot_id AS ownerBootId,
+             owner_start_identity AS ownerStartIdentity,
+             claimed_at_ms AS claimedAtMs
+      FROM m2_effect_execution_claims WHERE effect_id = ?
+    `).get(effectId);
+    return row ? Object.freeze(row) : null;
   }
 
   #failGrantState(grantId, request, atMs) {
@@ -489,30 +577,31 @@ export class EffectAuthorityRepository {
         { effectId: result.effectId },
       );
     }
-    if (result.approvalGrantId !== null && result.approvalGrantId !== request.approvalGrantId) {
+    if (result.approvalGrantId !== request.approvalGrantId) {
       fail(
         EffectAuthorityErrorCode.RESULT_AUTHORITY_MISSING,
         'EffectResult names a grant that is not bound to its EffectRequest',
         { effectId: result.effectId, grantId: result.approvalGrantId },
       );
     }
-    if (result.terminalStatus === 'succeeded') {
-      const grant = this.getApprovalGrant(result.approvalGrantId);
-      if (
-        !grant
-        || grant.scope.effectId !== result.effectId
-        || grant.scope.runId !== result.runId
-        || grant.scope.projectId !== result.projectId
-        || grant.consumedAt === null
-        || grant.consumedByEffectId !== result.effectId
-        || grant.revokedAt !== null
-      ) {
-        fail(
-          EffectAuthorityErrorCode.RESULT_AUTHORITY_MISSING,
-          'Successful EffectResult requires its exact consumed ApprovalGrant',
-          { effectId: result.effectId, grantId: result.approvalGrantId },
-        );
-      }
+    const grant = this.getApprovalGrant(result.approvalGrantId);
+    const claim = this.getExecutionClaim(result.effectId);
+    if (
+      !grant
+      || !claim
+      || claim.grantId !== result.approvalGrantId
+      || grant.scope.effectId !== result.effectId
+      || grant.scope.runId !== result.runId
+      || grant.scope.projectId !== result.projectId
+      || grant.consumedAt === null
+      || grant.consumedByEffectId !== result.effectId
+      || grant.revokedAt !== null
+    ) {
+      fail(
+        EffectAuthorityErrorCode.RESULT_AUTHORITY_MISSING,
+        'EffectResult requires its exact consumed grant and execution claim',
+        { effectId: result.effectId, grantId: result.approvalGrantId },
+      );
     }
     if (requireTimestamp(result.startedAt, 'EffectResult.startedAt')
       < requireTimestamp(request.createdAt, 'EffectRequest.createdAt')) {

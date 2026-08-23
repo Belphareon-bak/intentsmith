@@ -4,12 +4,14 @@ export const ChatTurnErrorCode = Object.freeze({
   LLM_PROVIDER_UNAVAILABLE: 'LLM_PROVIDER_UNAVAILABLE',
   CHAT_PROCESSING_FAILED: 'CHAT_PROCESSING_FAILED',
   CHAT_PERSISTENCE_FAILED: 'CHAT_PERSISTENCE_FAILED',
+  M2_EFFECT_AUTHORITY_REQUIRED: 'M2_EFFECT_AUTHORITY_REQUIRED',
 });
 
 export const ChatTurnErrorMessage = Object.freeze({
   LLM_PROVIDER_UNAVAILABLE: 'Model provider is temporarily unavailable.',
   CHAT_PROCESSING_FAILED: 'Chat processing failed.',
   CHAT_PERSISTENCE_FAILED: 'Chat response could not be persisted.',
+  M2_EFFECT_AUTHORITY_REQUIRED: 'This write requires M2 effect authority.',
 });
 
 const PROVIDER_FAILURE_TYPES = new Set([
@@ -73,6 +75,19 @@ export class ChatPersistenceError extends ChatTurnError {
       cause,
     });
     this.name = 'ChatPersistenceError';
+  }
+}
+
+export class EffectAuthorityRequiredError extends ChatTurnError {
+  constructor(cause = null) {
+    super(ChatTurnErrorMessage.M2_EFFECT_AUTHORITY_REQUIRED, {
+      code: ChatTurnErrorCode.M2_EFFECT_AUTHORITY_REQUIRED,
+      statusCode: 409,
+      recoverable: false,
+      sourceErrorType: 'LEGACY_FS_WRITE_CONTAINED',
+      cause,
+    });
+    this.name = 'EffectAuthorityRequiredError';
   }
 }
 

@@ -213,7 +213,6 @@ intercepts.push({
       const { effectFileRuntime } = await import('../../effects/effect-file-runtime.js');
       const result = await effectFileRuntime.approveFilesystemWrite({
         effectId,
-        sessionId: context.sessionId,
         conversationId: context.conversationId,
         subjectId: context.authenticatedSubject.actorId,
         signal: context.signal,

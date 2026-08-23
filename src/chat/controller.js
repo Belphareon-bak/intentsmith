@@ -1776,7 +1776,7 @@ ChatController.handle = async function(request) {
   });
 
   // INVARIANT: Persist user turn BEFORE processing
-  store.appendTurn(dbConversationId, TurnRole.USER, message, {
+  const persistedUserTurn = store.appendTurn(dbConversationId, TurnRole.USER, message, {
     timestamp: Date.now(),
   });
 
@@ -1958,6 +1958,7 @@ ChatController.handle = async function(request) {
     ...context,
     sessionId,
     conversationId: dbConversationId,
+    userMessageId: persistedUserTurn.id,
     userId,
     authenticatedSubject: authenticatedSubject || null,
     // Persistent state from session (survives across requests)

@@ -317,9 +317,9 @@ test('successful EffectResult is valid and failure requires an error code', () =
   assert(failure.errors.includes('effect-result:missing-errorCode'));
 });
 
-test('successful EffectResult requires exact approval and request authority identity', () => {
+test('every EffectResult requires exact approval and request authority identity', () => {
   const withoutApproval = validateEffectResult(result({ approvalGrantId: null }));
-  assert(withoutApproval.errors.includes('effect-result:success-without-approval'));
+  assert(withoutApproval.errors.includes('effect-result:invalid-approvalGrantId'));
   assert.equal(validateEffectResult(result({ projectId: '17' })).valid, false);
   assert.equal(validateEffectResult(result({ requestDigest: 'not-a-digest' })).valid, false);
 });

@@ -1979,18 +1979,15 @@ await asyncTest('T23eab: M1 cancel distinguishes target timeout from confirmatio
   }
 });
 
-await asyncTest('T23eb: M1 edit conflict stays on the canonical stream', async () => {
+await asyncTest('T23eb: legacy fs.write is contained in every edit mode', async () => {
   const sent = [];
-  let resolveEditRequest;
-  const editRequestSeen = new Promise(resolve => { resolveEditRequest = resolve; });
-  const frame = m1StudioFrame('edit-conflict');
-  const ownedFile = path.join(isolatedTestRuntime.runtime, 'm1-edit-conflict.txt');
+  const frame = m1StudioFrame('legacy-edit-contained');
+  const ownedFile = path.join(isolatedTestRuntime.runtime, 'm1-legacy-edit-contained.txt');
   fs.writeFileSync(ownedFile, 'original', 'utf8');
   const adapter = createSessionAdapter({
     send: encoded => {
       const message = JSON.parse(encoded);
       sent.push(message);
-      if (message.data?.eventType === 'edit_request') resolveEditRequest(message);
     },
     handleRequest: async request => {
       await request.context.onToolCall('fs.write', {
@@ -2003,23 +2000,11 @@ await asyncTest('T23eb: M1 edit conflict stays on the canonical stream', async (
   });
 
   try {
-    const run = adapter.processM1Command(frame);
-    let editRequestTimer;
-    const editRequest = await Promise.race([
-      editRequestSeen,
-      new Promise((_, reject) => {
-        editRequestTimer = setTimeout(
-          () => reject(new Error(`M1 edit request was not emitted: ${JSON.stringify(sent)}`)),
-          1000,
-        );
-      }),
-    ]).finally(() => clearTimeout(editRequestTimer));
-    fs.writeFileSync(ownedFile, 'changed-after-request', 'utf8');
+    await adapter.processM1Command(frame);
     adapter.handleControl({
       action: 'edit_approve',
-      requestId: editRequest.data.payload.reqId,
+      requestId: 'forged-legacy-request',
     });
-    await run;
   } finally {
     adapter.cleanup();
   }
@@ -2028,8 +2013,20 @@ await asyncTest('T23eb: M1 edit conflict stays on the canonical stream', async (
     .filter(message => message.channel === 'chat' && message.data?.contract === 'CoreEvent')
     .map(message => message.data);
   assert.equal(validateCoreEventStream(events).valid, true);
-  assert.equal(events.some(event => event.eventType === 'edit_conflict'), true);
+  assert.equal(events.some(event => event.eventType === 'edit_request'), false);
+  assert.equal(events.some(event => (
+    event.eventType === 'edit_authority_required'
+    && event.payload.code === 'M2_EFFECT_AUTHORITY_REQUIRED'
+  )), true);
   assert.equal(events.at(-1).terminalStatus, 'error');
+  assert.equal(events.at(-1).payload.result.error.code, 'M2_EFFECT_AUTHORITY_REQUIRED');
+  assert.equal(fs.readFileSync(ownedFile, 'utf8'), 'original');
+  assert.equal(sent.some(message => (
+    message.channel === 'control'
+    && message.data?.action === 'edit_approve'
+    && message.data?.success === false
+    && message.data?.error === 'M2_EFFECT_AUTHORITY_REQUIRED'
+  )), true);
   assert.equal(sent.some(message => message.channel === 'agent'), false);
   assert.equal(
     sent.some(message => message.channel === 'chat' && message.data?.contract !== 'CoreEvent'),

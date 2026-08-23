@@ -610,10 +610,14 @@ export async function handleFileWriteDecision(input, decision, context, dependen
   // production write is an EffectRequest and needs an exact ApprovalGrant.
   const projectId = Number(context.project?.id ?? context.projectId);
   const authenticatedSubject = context.authenticatedSubject;
+  const operationId = Number.isSafeInteger(context.userMessageId) && context.userMessageId > 0
+    ? `message:${context.userMessageId}`
+    : null;
   if (
     !projectPath
     || !Number.isSafeInteger(projectId)
     || projectId <= 0
+    || !operationId
     || authenticatedSubject?.actorType !== 'user'
     || !authenticatedSubject.actorId
   ) {
@@ -655,6 +659,7 @@ export async function handleFileWriteDecision(input, decision, context, dependen
       sessionId: context.sessionId,
       conversationId: context.conversationId,
       subjectId: authenticatedSubject.actorId,
+      operationId,
       projectId,
       projectRoot: projectPath,
       relativePath: filePath,

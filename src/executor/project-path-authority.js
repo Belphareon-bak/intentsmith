@@ -35,6 +35,18 @@ export class ProjectPathError extends Error {
   }
 }
 
+export class ProjectWriteDurabilityError extends Error {
+  constructor(filePath, directory, cause) {
+    super('Project file was replaced but parent-directory durability was not confirmed', {
+      cause,
+    });
+    this.name = 'ProjectWriteDurabilityError';
+    this.code = 'PROJECT_WRITE_DURABILITY_UNCONFIRMED';
+    this.effectApplied = true;
+    this.detail = { filePath, directory, ioCode: cause?.code || 'EUNKNOWN' };
+  }
+}
+
 export function isProjectPathError(error) {
   return error instanceof ProjectPathError
     || error?.code === 'PROJECT_PATH_VIOLATION';
@@ -306,6 +318,8 @@ export function writeProjectFileAtomic(projectRoot, filePath, content, {
 
   const tempPath = `${current.real}.intentsmith-${process.pid}-${randomUUID()}.tmp`;
   let descriptor = null;
+  let directoryDescriptor = null;
+  let renamed = false;
   try {
     descriptor = fileSystem.openSync(tempPath, 'wx', mode);
     // `open` applies the process umask.  Existing target permissions are an
@@ -322,11 +336,31 @@ export function writeProjectFileAtomic(projectRoot, filePath, content, {
     // visible.  The documented hostile ABA interval remains for the broker.
     revalidateProjectTarget(projectRoot, filePath, current, { fileSystem });
     fileSystem.renameSync(tempPath, current.real);
+    renamed = true;
+
+    // A successful rename is not yet a durable directory entry.  The broker
+    // may publish success only after both the file data and its parent entry
+    // have crossed an fsync boundary.
+    if (typeof fileSystem.fsyncSync !== 'function') {
+      const unsupported = new Error('Filesystem does not expose fsyncSync');
+      unsupported.code = 'ENOTSUP';
+      throw unsupported;
+    }
+    const readOnly = fileSystem.constants?.O_RDONLY ?? fs.constants.O_RDONLY;
+    const directoryOnly = fileSystem.constants?.O_DIRECTORY ?? fs.constants.O_DIRECTORY ?? 0;
+    directoryDescriptor = fileSystem.openSync(directory, readOnly | directoryOnly);
+    fileSystem.fsyncSync(directoryDescriptor);
+    fileSystem.closeSync(directoryDescriptor);
+    directoryDescriptor = null;
   } catch (error) {
     if (descriptor !== null) {
       try { fileSystem.closeSync(descriptor); } catch { /* best effort */ }
     }
+    if (directoryDescriptor !== null) {
+      try { fileSystem.closeSync(directoryDescriptor); } catch { /* best effort */ }
+    }
     try { fileSystem.unlinkSync(tempPath); } catch { /* best effort */ }
+    if (renamed) throw new ProjectWriteDurabilityError(filePath, directory, error);
     throw error;
   }
 
@@ -335,6 +369,7 @@ export function writeProjectFileAtomic(projectRoot, filePath, content, {
 
 export default {
   ProjectPathError,
+  ProjectWriteDurabilityError,
   isProjectPathError,
   resolveProjectTarget,
   revalidateProjectTarget,

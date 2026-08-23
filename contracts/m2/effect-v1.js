@@ -434,7 +434,7 @@ export function validateEffectResult(value) {
   if (!isIdentifier(value.runId)) errors.push(`${context}:invalid-runId`);
   if (!isProjectId(value.projectId)) errors.push(`${context}:invalid-projectId`);
   if (!isDigest(value.requestDigest)) errors.push(`${context}:invalid-requestDigest`);
-  if (!(value.approvalGrantId === null || isIdentifier(value.approvalGrantId))) {
+  if (!isIdentifier(value.approvalGrantId)) {
     errors.push(`${context}:invalid-approvalGrantId`);
   }
   if (!EFFECT_TERMINAL_STATUSES.includes(value.terminalStatus)) errors.push(`${context}:invalid-terminalStatus`);
@@ -453,9 +453,6 @@ export function validateEffectResult(value) {
     errors.push(`${context}:invalid-errorCode`);
   }
   if (value.terminalStatus === 'succeeded' && value.errorCode !== null) errors.push(`${context}:error-on-success`);
-  if (value.terminalStatus === 'succeeded' && value.approvalGrantId === null) {
-    errors.push(`${context}:success-without-approval`);
-  }
   if (value.terminalStatus !== 'succeeded' && value.errorCode === null) errors.push(`${context}:missing-errorCode`);
   errors.push(...validateSortedUniqueStrings(value.evidenceRefs, `${context}.evidenceRefs`));
   if (typeof value.lateCompletionRejected !== 'boolean') errors.push(`${context}:invalid-lateCompletionRejected`);

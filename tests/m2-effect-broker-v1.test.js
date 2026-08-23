@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import * as nativeFs from 'node:fs';
 import {
   linkSync,
   mkdirSync,
@@ -18,6 +19,8 @@ import {
   computeEffectRequestDigest,
 } from '../contracts/m2/effect-v1.js';
 import { up as applyEffectAuthorityMigration } from '../src/db/migrations/2026_08_23_070_m2_effect_authority.js';
+import { up as applyEffectAuthorityHardening } from '../src/db/migrations/2026_08_24_071_m2_effect_authority_hardening.js';
+import { up as applyEffectExecutionClaims } from '../src/db/migrations/2026_08_24_072_m2_effect_execution_claims.js';
 import {
   EffectAuthorityError,
   EffectAuthorityErrorCode,
@@ -30,11 +33,46 @@ import {
   createEffectBroker,
 } from '../src/effects/effect-broker.js';
 import { createFilesystemEffectProvider } from '../src/effects/filesystem-effect-provider.js';
+import { processExecutionOwner } from '../src/effects/execution-owner.js';
 import { suite, testAsync, summary } from './harness.js';
 
 const BASE_MS = Date.parse('2026-08-24T12:00:00.000Z');
 const PROJECT_ID = 17;
 const SUBJECT = Object.freeze({ actorType: 'user', actorId: 'user-1' });
+
+function tracingFilesystem({ failParentFsync = false } = {}) {
+  const descriptorPaths = new Map();
+  const events = [];
+  const fileSystem = {
+    ...nativeFs,
+    openSync(filePath, flags, mode) {
+      const descriptor = nativeFs.openSync(filePath, flags, mode);
+      descriptorPaths.set(descriptor, filePath);
+      events.push(`open:${filePath}`);
+      return descriptor;
+    },
+    fsyncSync(descriptor) {
+      const filePath = descriptorPaths.get(descriptor);
+      events.push(`fsync:${filePath}`);
+      if (failParentFsync && filePath && nativeFs.statSync(filePath).isDirectory()) {
+        const error = new Error('forced parent directory fsync failure');
+        error.code = 'EIO';
+        throw error;
+      }
+      return nativeFs.fsyncSync(descriptor);
+    },
+    closeSync(descriptor) {
+      events.push(`close:${descriptorPaths.get(descriptor)}`);
+      descriptorPaths.delete(descriptor);
+      return nativeFs.closeSync(descriptor);
+    },
+    renameSync(from, to) {
+      events.push(`rename:${from}->${to}`);
+      return nativeFs.renameSync(from, to);
+    },
+  };
+  return { fileSystem, events };
+}
 
 function mutableClock(initial = BASE_MS) {
   let value = initial;
@@ -90,7 +128,14 @@ function createManualScheduler() {
 function openDatabase(filename = ':memory:') {
   const db = new Database(filename);
   db.pragma('foreign_keys = ON');
-  applyEffectAuthorityMigration(db);
+  const hasAuthority = Boolean(db.prepare(
+    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'm2_effect_requests'",
+  ).get());
+  if (!hasAuthority) {
+    applyEffectAuthorityMigration(db);
+    applyEffectAuthorityHardening(db);
+  }
+  applyEffectExecutionClaims(db);
   return db;
 }
 
@@ -205,6 +250,7 @@ function repositoryView(repository, overrides = {}) {
     'registerEffectRequest',
     'getEffectRequest',
     'getApprovalGrant',
+    'getEffectResult',
     'consumeApprovalGrant',
     'recordEffectResult',
   ];
@@ -328,6 +374,13 @@ await testAsync('exact approval consumes before the real filesystem write and co
       environment.repository.listAuthorityEvents(prepared.effectId).map(event => event.eventType),
       ['REQUEST_REGISTERED', 'GRANT_ISSUED', 'GRANT_CONSUMED', 'RESULT_RECORDED'],
     );
+    const idempotentResult = await broker.execute({
+      effectId: prepared.effectId,
+      grantId: grant.grantId,
+      payload: Buffer.from('after\n'),
+    });
+    assert.deepEqual(idempotentResult, result);
+    assert.equal(providerCalls, 1);
 
     const restarted = environment.reopen();
     assert.equal(restarted.getEffectRequest(prepared.effectId).approvalGrantId, grant.grantId);
@@ -338,6 +391,61 @@ await testAsync('exact approval consumes before the real filesystem write and co
       ['REQUEST_REGISTERED', 'GRANT_ISSUED', 'GRANT_CONSUMED', 'RESULT_RECORDED'],
     );
   }, { persistentDatabase: true });
+});
+
+await testAsync('filesystem success is withheld until the parent directory entry is fsynced', async () => {
+  await withEnvironment(async environment => {
+    const target = path.join(environment.projectRoot, 'src/app.js');
+    writeFileSync(target, 'before\n');
+    const trace = tracingFilesystem();
+    const broker = createBroker(environment, {
+      provider: createFilesystemEffectProvider({ fileSystem: trace.fileSystem }),
+    });
+    const prepared = await prepareWrite(environment, broker);
+    const grant = issue(environment, prepared.effectId);
+    const result = await broker.execute({
+      effectId: prepared.effectId,
+      grantId: grant.grantId,
+      payload: Buffer.from('after\n'),
+    });
+
+    const renameIndex = trace.events.findIndex(event => event.startsWith('rename:'));
+    const tempFsyncIndex = trace.events.findIndex(event => (
+      event.startsWith('fsync:') && event.includes('.intentsmith-')
+    ));
+    const directoryFsyncIndex = trace.events.findIndex(event => (
+      event === `fsync:${path.dirname(target)}`
+    ));
+    assert.ok(tempFsyncIndex >= 0 && tempFsyncIndex < renameIndex);
+    assert.ok(renameIndex >= 0 && renameIndex < directoryFsyncIndex);
+    assert.equal(result.terminalStatus, 'succeeded');
+  });
+});
+
+await testAsync('parent directory fsync failure records an orphan with rollback evidence, never success', async () => {
+  await withEnvironment(async environment => {
+    const target = path.join(environment.projectRoot, 'src/app.js');
+    writeFileSync(target, 'before\n');
+    const trace = tracingFilesystem({ failParentFsync: true });
+    const broker = createBroker(environment, {
+      provider: createFilesystemEffectProvider({ fileSystem: trace.fileSystem }),
+    });
+    const prepared = await prepareWrite(environment, broker);
+    const grant = issue(environment, prepared.effectId);
+    const result = await broker.execute({
+      effectId: prepared.effectId,
+      grantId: grant.grantId,
+      payload: Buffer.from('after\n'),
+    });
+
+    assert.equal(result.terminalStatus, 'orphaned');
+    assert.equal(result.errorCode, 'PROJECT_WRITE_DURABILITY_UNCONFIRMED');
+    assert.equal(result.rollback.required, true);
+    assert.equal(result.rollback.status, 'pending');
+    assert.equal(result.lateCompletionRejected, true);
+    assert.equal(readFileSync(target, 'utf8'), 'after\n');
+    assert.deepEqual(environment.repository.getEffectResult(prepared.effectId), result);
+  });
 });
 
 await testAsync('approval issuer rejects an authenticated subject that does not own the request', async () => {
@@ -353,6 +461,23 @@ await testAsync('approval issuer rejects an authenticated subject that does not 
       error => error?.code === 'APPROVAL_GRANT_SUBJECT_MISMATCH',
     );
     assert.equal(environment.repository.getEffectRequest(prepared.effectId).approvalGrantId, null);
+  });
+});
+
+await testAsync('prepare retry reuses the original timestamp and immutable request after clock advance', async () => {
+  await withEnvironment(async environment => {
+    const broker = createBroker(environment);
+    const identity = environment.nextIdentity();
+    const first = await prepareWrite(environment, broker, identity);
+    environment.clock.set(BASE_MS + 30_000);
+    const retry = await prepareWrite(environment, broker, identity);
+
+    assert.deepEqual(retry.request, first.request);
+    assert.equal(retry.effectId, first.effectId);
+    assert.deepEqual(
+      environment.repository.listAuthorityEvents(first.effectId).map(event => event.eventType),
+      ['REQUEST_REGISTERED'],
+    );
   });
 });
 
@@ -430,7 +555,11 @@ await testAsync('repository exact-request comparison rejects actor and origin dr
       },
     ]) {
       assert.throws(
-        () => environment.repository.consumeApprovalGrant({ grantId: grant.grantId, request: changed }),
+        () => environment.repository.consumeApprovalGrant({
+          grantId: grant.grantId,
+          request: changed,
+          executionOwner: processExecutionOwner,
+        }),
         error => error instanceof EffectAuthorityError
           && error.code === EffectAuthorityErrorCode.GRANT_SCOPE_MISMATCH,
       );

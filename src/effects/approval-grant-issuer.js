@@ -8,6 +8,7 @@ export const ApprovalGrantIssuerErrorCode = Object.freeze({
   INPUT_INVALID: 'APPROVAL_GRANT_ISSUER_INPUT_INVALID',
   REQUEST_NOT_FOUND: 'EFFECT_REQUEST_NOT_FOUND',
   SUBJECT_MISMATCH: 'APPROVAL_GRANT_SUBJECT_MISMATCH',
+  REQUEST_TERMINAL: 'EFFECT_REQUEST_TERMINAL',
 });
 
 export class ApprovalGrantIssuerError extends Error {
@@ -82,6 +83,7 @@ export function createApprovalGrantIssuer(repository, {
   defaultTtlMs = 5 * 60 * 1000,
 } = {}) {
   if (!repository || typeof repository.getEffectRequest !== 'function'
+    || typeof repository.getEffectResult !== 'function'
     || typeof repository.issueApprovalGrant !== 'function') {
     fail(ApprovalGrantIssuerErrorCode.INPUT_INVALID, 'Effect authority repository is required');
   }
@@ -113,6 +115,13 @@ export function createApprovalGrantIssuer(repository, {
         fail(
           ApprovalGrantIssuerErrorCode.REQUEST_NOT_FOUND,
           'Cannot approve an unknown EffectRequest',
+          { effectId },
+        );
+      }
+      if (repository.getEffectResult(effectId)) {
+        fail(
+          ApprovalGrantIssuerErrorCode.REQUEST_TERMINAL,
+          'A terminal EffectRequest cannot be approved again',
           { effectId },
         );
       }

@@ -34,6 +34,7 @@ import {
 } from '../core/abort-error.js';
 import {
   chatTurnErrorPayload,
+  EffectAuthorityRequiredError,
   isChatTurnError,
 } from '../core/chat-turn-error.js';
 import {
@@ -236,9 +237,6 @@ export function createSessionAdapter({
       }
     }
   }, STALE_SWEEP_MS);
-
-  // Fáze 5 — E4: Pending edit approvals (reqId → {resolve, reject, timer})
-  const editPending = new Map();
 
   const sid = sessionId || `ws-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -472,54 +470,20 @@ export function createSessionAdapter({
             });
           },
 
-          // Hook: Tool call start (ASYNC — edit interception in ask mode)
+          // Hook: Tool call start (ASYNC — legacy edit containment)
           onToolCall: async (tool, args) => {
             sendTurnEvent(AgentEventType.TOOL_CALL, { tool, args });
 
-            // E4: Intercept fs.write in ask mode → send diff to IDE, wait for approve/reject
-            if (tool === 'fs.write' && options.editMode === 'ask') {
-              const reqId = `er-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-              const filePath = args.path;
-
-              // Read current file content for diff
-              const fs = await import('fs/promises');
-              let oldContent = '';
-              let baseHash = null; // null = new file
-              try {
-                oldContent = await fs.readFile(filePath, 'utf-8');
-                const { createHash } = await import('crypto');
-                baseHash = createHash('sha256').update(oldContent).digest('hex').substring(0, 16);
-              } catch { /* new file — baseHash stays null */ }
-
-              // Send edit_request with old + new + baseHash
-              sendTurnEvent('edit_request', {
-                reqId,
-                file: filePath,
-                oldContent,
-                newContent: args.content,
-                baseHash,
+            // The legacy edit-preview protocol previously read and wrote an
+            // arbitrary model-provided path here. It has no registered project
+            // snapshot or ApprovalGrant identity, so M2 contains it until the
+            // execution slice reconnects previews through the canonical broker.
+            if (tool === 'fs.write') {
+              sendTurnEvent('edit_authority_required', {
+                file: typeof args?.path === 'string' ? args.path : null,
+                code: 'M2_EFFECT_AUTHORITY_REQUIRED',
               });
-
-              // Wait for approve/reject from IDE (30s timeout — invariant 14)
-              // v124: Wrap resolve/reject to auto-clear timer (prevents leak)
-              return new Promise((rawResolve, rawReject) => {
-                const timer = setTimeout(() => {
-                  editPending.delete(reqId);
-                  sendTurnEvent('edit_timeout', { reqId, file: filePath });
-                  rawReject(new Error('Edit request timeout (30s)'));
-                }, 30000);
-                const resolve = (v) => { clearTimeout(timer); rawResolve(v); };
-                const reject = (e) => { clearTimeout(timer); rawReject(e); };
-                editPending.set(reqId, {
-                  resolve,
-                  reject,
-                  timer,
-                  filePath,
-                  newContent: args.content,
-                  baseHash,
-                  emitTurnEvent: sendTurnEvent,
-                });
-              });
+              throw new EffectAuthorityRequiredError();
             }
           },
 
@@ -990,67 +954,26 @@ export function createSessionAdapter({
         break;
       }
 
-      // E4: Edit approve — hash guard, write file, broadcast new hash
+      // Legacy edit approval no longer owns filesystem authority. A client
+      // replay cannot revive the removed direct-write bypass.
       case 'edit_approve': {
-        const pending = editPending.get(data.requestId);
-        if (!pending) break;
-        clearTimeout(pending.timer);
-        editPending.delete(data.requestId);
-
-        // Hash guard + write (async IIFE)
-        (async () => {
-          try {
-            const fs = await import('fs/promises');
-            const { createHash } = await import('crypto');
-
-            // Verify file hasn't changed since baseHash
-            if (pending.baseHash !== null) {
-              let currentHash = null;
-              try {
-                const currentContent = await fs.readFile(pending.filePath, 'utf-8');
-                currentHash = createHash('sha256').update(currentContent).digest('hex').substring(0, 16);
-              } catch { /* file deleted? */ }
-
-              if (currentHash !== pending.baseHash) {
-                pending.emitTurnEvent('edit_conflict', {
-                  reqId: data.requestId,
-                  file: pending.filePath,
-                  message: 'Soubor byl změněn od doby vytvoření diffu.',
-                });
-                pending.reject(new Error('Edit conflict: file changed'));
-                return;
-              }
-            }
-
-            // Safe write
-            await fs.writeFile(pending.filePath, pending.newContent, 'utf-8');
-            const newHash = createHash('sha256').update(pending.newContent).digest('hex').substring(0, 16);
-
-            // Broadcast for file watcher / tree refresh
-            sendChannel(Channel.STATUS, {
-              fileWritten: { path: pending.filePath, hash: newHash },
-            });
-
-            logger.info('WSSession', `Edit approved: ${pending.filePath}`, { sessionId: sid });
-            pending.resolve({ approved: true });
-          } catch (err) {
-            logger.error('WSSession', `Edit write error: ${err.message}`, { sessionId: sid });
-            pending.reject(err);
-          }
-        })().catch(err => {
-          logger.error('WSSession', `Unhandled edit_approve error: ${err.message}`, { sessionId: sid });
+        sendChannel(Channel.CONTROL, {
+          action: 'edit_approve',
+          requestId: data.requestId || null,
+          success: false,
+          error: 'M2_EFFECT_AUTHORITY_REQUIRED',
         });
         break;
       }
 
       // E4: Edit reject
       case 'edit_reject': {
-        const pending = editPending.get(data.requestId);
-        if (!pending) break;
-        clearTimeout(pending.timer);
-        editPending.delete(data.requestId);
-        logger.info('WSSession', `Edit rejected: ${pending.filePath}`, { sessionId: sid });
-        pending.reject(new Error('Edit rejected by user'));
+        sendChannel(Channel.CONTROL, {
+          action: 'edit_reject',
+          requestId: data.requestId || null,
+          success: false,
+          error: 'M2_EFFECT_AUTHORITY_REQUIRED',
+        });
         break;
       }
     }
@@ -1066,12 +989,6 @@ export function createSessionAdapter({
       abortWithReason(turn.abortController, AbortSource.USER, 'Session disconnected');
     }
     activeTurns.clear();
-    // Reject all pending edits on disconnect
-    for (const [reqId, pending] of editPending) {
-      clearTimeout(pending.timer);
-      pending.reject(new Error('Session disconnected'));
-    }
-    editPending.clear();
     logger.info('WSSession', 'Session cleaned up', { sessionId: sid });
   }
 

@@ -426,7 +426,15 @@ async function handleToolCallDecision(input, decision, context) {
 
   // v59.0 IDE Bridge: Notify tool call start
   if (typeof context.onToolCall === 'function') {
-    try { context.onToolCall(decision.tools?.[0] || 'unknown', { query: effectiveQuery }); } catch { /* */ }
+    try {
+      await context.onToolCall(
+        decision.tools?.[0] || 'unknown',
+        { query: effectiveQuery },
+      );
+    } catch (error) {
+      if (error?.code === 'M2_EFFECT_AUTHORITY_REQUIRED') throw error;
+      logger.warn('HandleToolCall', `Tool-call hook failed: ${error.message}`);
+    }
   }
 
   // v123.2: System step — tool execution

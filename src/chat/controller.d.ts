@@ -136,6 +136,7 @@ export type HandlerFunction = (
  */
 export interface HandlerContext {
   sessionId: string;
+  userMessageId?: number;
   userId?: string;
   authenticatedSubject?: AuthenticatedSubject | null;
   mode: ChatModeType;

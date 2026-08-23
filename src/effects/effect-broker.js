@@ -7,6 +7,7 @@ import {
 } from '../../contracts/m2/effect-v1.js';
 import { resolveProjectTarget } from '../executor/project-path-authority.js';
 import { createFilesystemEffectProvider } from './filesystem-effect-provider.js';
+import { processExecutionOwner } from './execution-owner.js';
 
 export const EffectBrokerErrorCode = Object.freeze({
   INPUT_INVALID: 'EFFECT_BROKER_INPUT_INVALID',
@@ -56,6 +57,7 @@ function requireRepository(repository) {
     'registerEffectRequest',
     'getEffectRequest',
     'getApprovalGrant',
+    'getEffectResult',
     'consumeApprovalGrant',
     'recordEffectResult',
   ];
@@ -212,6 +214,7 @@ export function createEffectBroker(repositoryValue, {
   scheduleTimeout = (callback, milliseconds) => setTimeout(callback, milliseconds),
   terminationGraceMs = 1_000,
   workspaceAuthority,
+  executionOwner = processExecutionOwner,
 } = {}) {
   const repository = requireRepository(repositoryValue);
   const authority = requireWorkspaceAuthority(workspaceAuthority);
@@ -257,10 +260,12 @@ export function createEffectBroker(repositoryValue, {
     if (target.projectRoot !== observed.canonicalRoot) {
       fail(EffectBrokerErrorCode.INPUT_INVALID, 'Workspace canonical root changed during observation');
     }
+    const effectId = stableEffectId(runId, idempotencyKey);
+    const existing = repository.getEffectRequest(effectId);
     const request = {
       contract: M2_EFFECT_CONTRACT_KIND.EFFECT_REQUEST,
       version: 1,
-      effectId: stableEffectId(runId, idempotencyKey),
+      effectId,
       runId,
       parentEffectId: null,
       actor,
@@ -280,9 +285,12 @@ export function createEffectBroker(repositoryValue, {
       timeoutMs,
       idempotencyKey,
       approvalGrantId: null,
-      createdAt: new Date(nowMs(clock)).toISOString(),
+      // Idempotent retry must reproduce the originally committed request
+      // bytes. A fresh wall clock would turn an exact retry into a conflict.
+      createdAt: existing?.createdAt || new Date(nowMs(clock)).toISOString(),
     };
-    const stored = repository.registerEffectRequest(request).request;
+    repository.registerEffectRequest(request);
+    const stored = repository.getEffectRequest(effectId);
     return Object.freeze({
       state: stored.approvalGrantId ? 'approved' : 'approval_required',
       effectId: stored.effectId,
@@ -307,6 +315,8 @@ export function createEffectBroker(repositoryValue, {
       fail(EffectBrokerErrorCode.PAYLOAD_MISMATCH, 'Filesystem payload is not canonical UTF-8');
     }
     verifyGrantConstraints(request, grant, payload);
+    const existingResult = repository.getEffectResult(effectId);
+    if (existingResult) return existingResult;
     if (signal?.aborted) fail(EffectBrokerErrorCode.INPUT_INVALID, 'Effect execution was cancelled before grant consumption');
 
     const observed = await observeExactProject({
@@ -330,7 +340,11 @@ export function createEffectBroker(repositoryValue, {
       fail(EffectBrokerErrorCode.PROVIDER_MISSING, `No provider is registered for ${request.kind}`);
     }
     const boundRequest = Object.freeze({ ...request, approvalGrantId: grantId });
-    repository.consumeApprovalGrant({ grantId, request: boundRequest });
+    repository.consumeApprovalGrant({
+      grantId,
+      request: boundRequest,
+      executionOwner,
+    });
 
     const startedAtMs = nowMs(clock);
     const controller = new AbortController();
@@ -355,14 +369,23 @@ export function createEffectBroker(repositoryValue, {
 
     let outcome;
     if (first.kind === 'provider') {
-      outcome = first.ok
-        ? { status: 'succeeded', evidence: first.evidence, lateCompletionRejected: false }
-        : {
-            status: first.error?.code === 'EFFECT_CANCELLED' ? 'cancelled' : 'failed',
-            errorCode: normalizedErrorCode(first.error),
-            evidence: first.error?.evidence,
-            lateCompletionRejected: false,
-          };
+      if (first.ok) {
+        outcome = { status: 'succeeded', evidence: first.evidence, lateCompletionRejected: false };
+      } else if (first.error?.effectApplied === true) {
+        outcome = {
+          status: 'orphaned',
+          errorCode: normalizedErrorCode(first.error),
+          evidence: first.error?.evidence,
+          lateCompletionRejected: true,
+        };
+      } else {
+        outcome = {
+          status: first.error?.code === 'EFFECT_CANCELLED' ? 'cancelled' : 'failed',
+          errorCode: normalizedErrorCode(first.error),
+          evidence: first.error?.evidence,
+          lateCompletionRejected: false,
+        };
+      }
     } else {
       controller.abort(first.kind);
       timeout.cancel();

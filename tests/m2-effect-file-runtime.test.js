@@ -12,6 +12,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import { up as applyEffectAuthorityMigration } from '../src/db/migrations/2026_08_23_070_m2_effect_authority.js';
+import { up as applyEffectAuthorityHardening } from '../src/db/migrations/2026_08_24_071_m2_effect_authority_hardening.js';
+import { up as applyEffectExecutionClaims } from '../src/db/migrations/2026_08_24_072_m2_effect_execution_claims.js';
 import { createEffectFileRuntime } from '../src/effects/effect-file-runtime.js';
 import { suite, testAsync, summary } from './harness.js';
 
@@ -20,7 +22,14 @@ void isolatedTestRuntime;
 function openDatabase(filename) {
   const database = new Database(filename);
   database.pragma('foreign_keys = ON');
-  applyEffectAuthorityMigration(database);
+  const hasAuthority = Boolean(database.prepare(
+    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'm2_effect_requests'",
+  ).get());
+  if (!hasAuthority) {
+    applyEffectAuthorityMigration(database);
+    applyEffectAuthorityHardening(database);
+  }
+  applyEffectExecutionClaims(database);
   return database;
 }
 
@@ -38,7 +47,11 @@ async function withEnvironment(callback) {
       });
     },
   });
-  const runtime = () => createEffectFileRuntime({ database, workspaceAuthority });
+  const runtime = (options = {}) => createEffectFileRuntime({
+    database,
+    workspaceAuthority,
+    ...options,
+  });
 
   try {
     await callback({
@@ -62,6 +75,7 @@ function requestInput(projectRoot, overrides = {}) {
     sessionId: 'session-1',
     conversationId: 'conversation-1',
     subjectId: 'local-operator',
+    operationId: 'message:101',
     projectId: 17,
     projectRoot,
     relativePath: 'notes/result.md',
@@ -132,6 +146,7 @@ await testAsync('pending effect survives restart and remains bound to its origin
   await withEnvironment(async environment => {
     const input = requestInput(environment.projectRoot, {
       conversationId: 'conversation-restart',
+      operationId: 'message:102',
       relativePath: 'notes/restart.md',
       content: 'restart durable\n',
     });
@@ -143,7 +158,7 @@ await testAsync('pending effect survives restart and remains bound to its origin
     await assert.rejects(
       restarted.approveFilesystemWrite({
         effectId: prepared.effectId,
-        sessionId: input.sessionId,
+        sessionId: 'session-after-reconnect',
         conversationId: 'different-conversation',
         subjectId: input.subjectId,
       }),
@@ -151,7 +166,7 @@ await testAsync('pending effect survives restart and remains bound to its origin
     );
     const result = await restarted.approveFilesystemWrite({
       effectId: prepared.effectId,
-      sessionId: input.sessionId,
+      sessionId: 'session-after-reconnect',
       conversationId: input.conversationId,
       subjectId: input.subjectId,
     });
@@ -162,6 +177,149 @@ await testAsync('pending effect survives restart and remains bound to its origin
       input.content,
     );
     assert.equal(restarted.getPending(prepared.effectId), null);
+  });
+});
+
+await testAsync('same operation retry is exact while changed bytes conflict under the same identity', async () => {
+  await withEnvironment(async environment => {
+    const runtime = environment.runtime();
+    const input = requestInput(environment.projectRoot, { operationId: 'message:103' });
+    const first = await runtime.requestFilesystemWrite(input);
+    const retry = await runtime.requestFilesystemWrite(input);
+
+    assert.equal(retry.effectId, first.effectId);
+    assert.equal(
+      environment.database.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count,
+      1,
+    );
+    await assert.rejects(
+      runtime.requestFilesystemWrite({ ...input, content: 'different bytes\n' }),
+      error => error?.code === 'EFFECT_REQUEST_CONFLICT',
+    );
+    assert.equal(
+      environment.database.prepare('SELECT count(*) AS count FROM m2_pending_effect_payloads').get().count,
+      1,
+    );
+  });
+});
+
+await testAsync('restart turns a consumed grant without committed result into a durable non-replayed orphan', async () => {
+  await withEnvironment(async environment => {
+    const oldOwner = Object.freeze({
+      ownerId: 'owner:old-process',
+      pid: 4101,
+      bootId: 'boot-old',
+      startIdentity: 'start-old',
+    });
+    const newOwner = Object.freeze({
+      ownerId: 'owner:new-process',
+      pid: 4102,
+      bootId: 'boot-new',
+      startIdentity: 'start-new',
+    });
+    const input = requestInput(environment.projectRoot, {
+      operationId: 'message:104',
+      relativePath: 'notes/result-commit-failure.md',
+      content: 'effect may have completed\n',
+    });
+    const runtime = environment.runtime({
+      executionOwner: oldOwner,
+      executionLiveness: { isProvablyDead: () => false },
+    });
+    const prepared = await runtime.requestFilesystemWrite(input);
+    environment.database.exec(`
+      CREATE TRIGGER force_m2_result_commit_failure
+      BEFORE INSERT ON m2_effect_results
+      BEGIN
+        SELECT RAISE(ABORT, 'forced result commit failure');
+      END;
+    `);
+
+    await assert.rejects(
+      runtime.approveFilesystemWrite({
+        effectId: prepared.effectId,
+        conversationId: input.conversationId,
+        subjectId: input.subjectId,
+      }),
+      error => error?.code === 'EFFECT_RESULT_UNCOMMITTED',
+    );
+    assert.equal(
+      readFileSync(path.join(environment.projectRoot, input.relativePath), 'utf8'),
+      input.content,
+    );
+    assert.equal(runtime.getPending(prepared.effectId)?.effectId, prepared.effectId);
+    assert.equal(
+      environment.database.prepare(`
+        SELECT consumed_at_ms IS NOT NULL AS consumed
+        FROM m2_approval_grants WHERE effect_id = ?
+      `).get(prepared.effectId).consumed,
+      1,
+    );
+    assert.equal(
+      environment.database.prepare(
+        'SELECT count(*) AS count FROM m2_effect_results WHERE effect_id = ?',
+      ).get(prepared.effectId).count,
+      0,
+    );
+
+    environment.database.exec('DROP TRIGGER force_m2_result_commit_failure');
+    const concurrentRuntime = environment.runtime({
+      executionOwner: newOwner,
+      executionLiveness: { isProvablyDead: () => false },
+    });
+    assert.equal(
+      environment.database.prepare(
+        'SELECT count(*) AS count FROM m2_effect_results WHERE effect_id = ?',
+      ).get(prepared.effectId).count,
+      0,
+      'a second live runtime must not turn IN_DOUBT into orphan',
+    );
+    assert.equal(concurrentRuntime.getPending(prepared.effectId)?.effectId, prepared.effectId);
+    await assert.rejects(
+      concurrentRuntime.approveFilesystemWrite({
+        effectId: prepared.effectId,
+        conversationId: input.conversationId,
+        subjectId: input.subjectId,
+      }),
+      error => error?.code === 'EFFECT_EXECUTION_IN_DOUBT',
+    );
+
+    environment.reopen();
+    const restarted = environment.runtime({
+      executionOwner: newOwner,
+      executionLiveness: {
+        isProvablyDead: claim => claim.ownerId === oldOwner.ownerId,
+      },
+    });
+    const stored = JSON.parse(environment.database.prepare(
+      'SELECT result_json FROM m2_effect_results WHERE effect_id = ?',
+    ).get(prepared.effectId).result_json);
+
+    assert.equal(stored.terminalStatus, 'orphaned');
+    assert.equal(stored.errorCode, 'EFFECT_RECOVERY_ORPHANED');
+    assert.equal(stored.rollback.required, true);
+    assert.equal(stored.rollback.status, 'pending');
+    assert.equal(stored.lateCompletionRejected, true);
+    assert.equal(restarted.getPending(prepared.effectId), null);
+    const secondRestart = environment.runtime({
+      executionOwner: newOwner,
+      executionLiveness: {
+        isProvablyDead: claim => claim.ownerId === oldOwner.ownerId,
+      },
+    });
+    assert.equal(secondRestart.recoverInterruptedFilesystemEffects().length, 0);
+    assert.equal(
+      environment.database.prepare(
+        'SELECT count(*) AS count FROM m2_effect_results WHERE effect_id = ?',
+      ).get(prepared.effectId).count,
+      1,
+      'competing restart recovery must converge on one immutable terminal',
+    );
+    assert.equal(
+      readFileSync(path.join(environment.projectRoot, input.relativePath), 'utf8'),
+      input.content,
+      'restart recovery must never replay or rewrite the effect',
+    );
   });
 });
 
