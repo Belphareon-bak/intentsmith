@@ -641,6 +641,51 @@ function resetDeadProject() {
 
 {
   resetDeadProject();
+  const target = path.join(deadProject, 'dead.js');
+  writeFileSync(target, deadSource, 'utf8');
+
+  const result = await stripDeadImports(deadProject, [target]);
+
+  assert(result.ok && result.stripped === 1,
+    'dead-import: absolute in-project model scope is normalized safely');
+  assert(result.filesModified[0] === 'dead.js',
+    'dead-import: evidence uses the project-relative authority name');
+  assert(/^\/\/ \[STRIPPED: dead import\]/.test(readFileSync(target, 'utf8')),
+    'dead-import: normalized absolute in-project scope reaches disk');
+}
+
+{
+  resetDeadProject();
+  const outside = path.join(deadRuntime, 'absolute-outside.js');
+  writeFileSync(outside, deadSource, 'utf8');
+
+  const result = await stripDeadImports(deadProject, [outside]);
+
+  assert(result.ok && result.stripped === 0,
+    'dead-import: absolute outside model scope degrades without granting authority');
+  assert(result.skipped[0]?.state === 'untrusted_scope_path',
+    'dead-import: skipped absolute outside scope remains typed evidence');
+  assert(readFileSync(outside, 'utf8') === deadSource,
+    'dead-import: skipped absolute outside sentinel remains unchanged');
+}
+
+{
+  resetDeadProject();
+  mkdirSync(path.join(deadProject, 'directory.js'));
+  symlinkSync(path.join(deadProject, 'missing.js'), path.join(deadProject, 'dangling.js'));
+
+  const result = await stripDeadImports(deadProject, ['directory.js', 'dangling.js']);
+
+  assert(result.ok && result.stripped === 0,
+    'dead-import: directory and dangling symlink degrade in best-effort recovery');
+  assert(result.skipped.some(entry => entry.file === 'directory.js' && entry.state === 'not_a_file'),
+    'dead-import: directory skip is not mislabeled as containment violation');
+  assert(result.skipped.some(entry => entry.file === 'dangling.js' && entry.state === 'symlink_unresolvable'),
+    'dead-import: dangling symlink skip has a distinct state');
+}
+
+{
+  resetDeadProject();
   const inside = path.join(deadProject, 'dead.js');
   const outside = path.join(deadRuntime, 'outside.js');
   writeFileSync(inside, deadSource, 'utf8');
@@ -679,12 +724,13 @@ function resetDeadProject() {
 
   const result = await stripDeadImports(deadProject, ['first.js', 'second.js']);
 
-  assert(!result.ok && result.state === 'multi_file_atomicity_required',
-    'dead-import: multi-file cleanup fails closed without durable journal');
-  assert(result.stripped === 0,
-    'dead-import: rejected multi-file cleanup claims no changes');
-  assert(readFileSync(first, 'utf8') === deadSource && readFileSync(second, 'utf8') === deadSource,
-    'dead-import: multi-file rejection happens before first write');
+  assert(result.ok && result.stripped === 2,
+    'dead-import: best-effort recovery handles multiple files');
+  assert(result.filesModified.length === 2,
+    'dead-import: multi-file recovery reports every modified authority name');
+  assert(/^\/\/ \[STRIPPED: dead import\]/.test(readFileSync(first, 'utf8'))
+      && /^\/\/ \[STRIPPED: dead import\]/.test(readFileSync(second, 'utf8')),
+    'dead-import: multi-file recovery atomically replaces each file');
 }
 
 {
@@ -744,10 +790,40 @@ function resetDeadProject() {
     fileSystem: failingFs,
   });
 
-  assert(!result.ok && result.state === 'read_failed',
-    'dead-import: ordinary I/O error is not mislabeled as path violation');
+  assert(result.ok && result.stripped === 0,
+    'dead-import: ordinary read I/O failure degrades in best-effort recovery');
+  assert(result.skipped[0]?.state === 'read_failed' && result.skipped[0]?.reason === 'EIO',
+    'dead-import: ordinary I/O error remains typed and is not a security incident');
   assert(readFileSync(target, 'utf8') === deadSource,
     'dead-import: failed read leaves source unchanged');
+}
+
+{
+  resetDeadProject();
+  const target = path.join(deadProject, 'dead.js');
+  writeFileSync(target, deadSource, 'utf8');
+  const deniedFs = {
+    ...fs,
+    openSync(file, flags, mode) {
+      if (file === target) {
+        const error = new Error('injected permission failure');
+        error.code = 'EACCES';
+        throw error;
+      }
+      return fs.openSync(file, flags, mode);
+    },
+  };
+
+  const result = await stripDeadImports(deadProject, ['dead.js'], {
+    fileSystem: deniedFs,
+  });
+
+  assert(result.ok && result.stripped === 0,
+    'dead-import: unreadable scope file degrades instead of becoming effect refusal');
+  assert(result.skipped[0]?.state === 'read_failed' && result.skipped[0]?.reason === 'EACCES',
+    'dead-import: unreadable scope file remains visible in evidence');
+  assert(readFileSync(target, 'utf8') === deadSource,
+    'dead-import: unreadable source remains unchanged');
 }
 
 rmSync(deadRuntime, { recursive: true, force: true });

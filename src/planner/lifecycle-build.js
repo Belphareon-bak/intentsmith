@@ -742,6 +742,13 @@ async function postExecution(lifecycle, milestone, wfResult) {
         } else if (loopResult2.stopReason === 'out_of_scope_only') {
           // v135.1: All errors reference files outside scope — strip dead imports instead of failing
           const stripResult = await _stripDeadImports(lifecycle.projectPath, milestone.scope_files);
+          milestone._deadImportCleanup = stripResult;
+          if (stripResult.skipped?.length > 0) {
+            logger.warn('LifecycleBuild', `Dead-import cleanup skipped ${stripResult.skipped.length} unprocessable scope entr${stripResult.skipped.length === 1 ? 'y' : 'ies'}`, {
+              milestoneId: milestone.id,
+              skipped: stripResult.skipped,
+            });
+          }
           if (!stripResult.ok) {
             return handleMilestoneFailure(lifecycle, milestone,
               `dead import strip ${stripResult.state}: ${stripResult.message || stripResult.file || 'effect refused'}`);
@@ -757,10 +764,12 @@ async function postExecution(lifecycle, milestone, wfResult) {
                 `dead import strip incomplete: ${ev2.errors.map(e => e.message).join('; ')}`);
             }
           } else {
+            const skipped = stripResult.skipped?.map(entry => `${entry.file}:${entry.state}`).join(', ');
             return handleMilestoneFailure(lifecycle, milestone,
-              `out-of-scope errors unfixable: ${enhancedValidation.errors.map(e => e.message).join('; ')}`);
+              `out-of-scope errors unfixable${skipped ? ` (cleanup skipped ${skipped})` : ''}: ${enhancedValidation.errors.map(e => e.message).join('; ')}`);
           }
         } else {
+          milestone._loopReport = loopResult2.report;
           return handleMilestoneFailure(lifecycle, milestone,
             `semantic validation fix loop ${loopResult2.stopReason}: ${enhancedValidation.errors.map(e => e.message).join('; ')}`);
         }
@@ -1779,62 +1788,147 @@ async function getChangedFiles(lifecycle) {
 /**
  * Strip import lines that reference non-existent files from scope files.
  *
- * The complete batch is path-checked and read before the first write.  Until
- * M2 has a durable multi-file journal, more than one modified file fails
- * closed instead of leaving a partially stripped project.
+ * This is a best-effort recovery path, not an effect authority grant.  The
+ * complete batch is path-checked and read before the first write.  Unusable
+ * model-provided scope entries are skipped with typed evidence, while a real
+ * containment violation or target race remains terminal.  Each accepted file
+ * is then replaced atomically; the batch itself is intentionally not atomic
+ * until M2 has a durable multi-file journal.
  */
 async function _stripDeadImports(projectPath, scopeFiles, {
   fileSystem = fs,
 } = {}) {
-  if (!scopeFiles || scopeFiles.length === 0) return { ok: true, stripped: 0 };
+  if (!scopeFiles || scopeFiles.length === 0) {
+    return { ok: true, stripped: 0, filesModified: [], skipped: [] };
+  }
 
-  // Reject the whole scope before reading or changing its first member.
-  for (const relFile of scopeFiles) {
+  const skipped = [];
+  const candidates = [];
+  const skippablePathReasons = new Set([
+    'path_required',
+    'nul_byte',
+    'project_root_target',
+    'canonical_target_mismatch',
+    'not_regular_file',
+    'symlink_loop',
+  ]);
+
+  let canonicalProjectRoot;
+  try {
+    canonicalProjectRoot = fileSystem.realpathSync(projectPath);
+  } catch (error) {
+    return {
+      ok: false,
+      stripped: 0,
+      filesModified: [],
+      skipped,
+      state: 'project_path_violation',
+      message: `project_root_unavailable:${error?.code || 'EUNKNOWN'}`,
+    };
+  }
+
+  // `scope_files` is model-produced metadata.  An absolute native path is not
+  // accepted as authority, but an exact path already below this canonical
+  // project can be reduced to the same project-relative name.  Foreign or
+  // outside absolute spellings are skipped and never read or written.
+  for (const scopeFile of scopeFiles) {
+    let relFile = scopeFile;
+    const nativeAbsolute = typeof scopeFile === 'string' && path.isAbsolute(scopeFile);
+    const foreignAbsolute = typeof scopeFile === 'string'
+      && (path.posix.isAbsolute(scopeFile) || path.win32.isAbsolute(scopeFile));
+
+    if (nativeAbsolute) {
+      const relative = path.relative(canonicalProjectRoot, path.resolve(scopeFile));
+      const outside = relative === '..'
+        || relative.startsWith(`..${path.sep}`)
+        || path.isAbsolute(relative);
+      if (outside || relative === '') {
+        skipped.push({
+          file: scopeFile,
+          state: 'untrusted_scope_path',
+          reason: outside ? 'absolute_outside_project' : 'project_root_target',
+        });
+        continue;
+      }
+      relFile = relative;
+    } else if (foreignAbsolute) {
+      skipped.push({
+        file: scopeFile,
+        state: 'untrusted_scope_path',
+        reason: 'foreign_absolute_path',
+      });
+      continue;
+    }
+
     try {
       resolveProjectTarget(projectPath, relFile, { fileSystem });
     } catch (error) {
       if (isProjectPathError(error)) {
+        if (skippablePathReasons.has(error.reason)) {
+          skipped.push({
+            file: scopeFile,
+            normalizedFile: relFile,
+            state: error.reason === 'not_regular_file' ? 'not_a_file' : 'untrusted_scope_path',
+            reason: error.reason,
+          });
+          continue;
+        }
         return {
           ok: false,
           stripped: 0,
+          filesModified: [],
+          skipped,
           state: 'project_path_violation',
-          file: relFile,
+          file: scopeFile,
           message: error.reason || error.message,
         };
       }
-      return {
-        ok: false,
-        stripped: 0,
+      skipped.push({
+        file: scopeFile,
+        normalizedFile: relFile,
         state: 'read_failed',
-        file: relFile,
-        message: error.message,
-      };
+        reason: error?.code || error.message,
+      });
+      continue;
     }
+
+    candidates.push({ scopeFile, relFile });
   }
 
   const planned = [];
 
-  for (const relFile of scopeFiles) {
+  for (const { scopeFile, relFile } of candidates) {
     let read;
     try {
       read = readProjectFile(projectPath, relFile, { fileSystem });
     } catch (error) {
       if (isProjectPathError(error)) {
+        if (skippablePathReasons.has(error.reason)) {
+          skipped.push({
+            file: scopeFile,
+            normalizedFile: relFile,
+            state: error.reason === 'not_regular_file' ? 'not_a_file' : 'untrusted_scope_path',
+            reason: error.reason,
+          });
+          continue;
+        }
         return {
           ok: false,
           stripped: 0,
+          filesModified: [],
+          skipped,
           state: 'project_path_violation',
-          file: relFile,
+          file: scopeFile,
           message: error.reason || error.message,
         };
       }
-      return {
-        ok: false,
-        stripped: 0,
-        state: 'read_failed',
-        file: relFile,
-        message: error.message,
-      };
+      skipped.push({
+        file: scopeFile,
+        normalizedFile: relFile,
+        state: error?.code === 'ELOOP' ? 'symlink_unresolvable' : 'read_failed',
+        reason: error?.code || error.message,
+      });
+      continue;
     }
     if (!read.exists) continue;
 
@@ -1881,6 +1975,7 @@ async function _stripDeadImports(projectPath, scopeFiles, {
 
     if (fileStripped > 0) {
       planned.push({
+        scopeFile,
         relFile,
         content: lines.join('\n'),
         target: read.target,
@@ -1889,44 +1984,41 @@ async function _stripDeadImports(projectPath, scopeFiles, {
     }
   }
 
-  if (planned.length > 1) {
-    return {
-      ok: false,
-      stripped: 0,
-      state: 'multi_file_atomicity_required',
-      files: planned.map(({ relFile }) => relFile),
-      message: 'dead-import cleanup would modify more than one file without a durable batch journal',
-    };
-  }
-  if (planned.length === 0) return { ok: true, stripped: 0 };
-
-  const change = planned[0];
-  try {
-    writeProjectFileAtomic(projectPath, change.relFile, change.content, {
-      expectedTarget: change.target,
-      fileSystem,
-    });
-  } catch (error) {
-    if (isProjectPathError(error)) {
-      return {
-        ok: false,
-        stripped: 0,
-        state: 'project_path_violation',
-        file: change.relFile,
-        message: error.reason || error.message,
-      };
+  let stripped = 0;
+  const filesModified = [];
+  for (const change of planned) {
+    try {
+      writeProjectFileAtomic(projectPath, change.relFile, change.content, {
+        expectedTarget: change.target,
+        fileSystem,
+      });
+    } catch (error) {
+      if (isProjectPathError(error)) {
+        return {
+          ok: false,
+          stripped,
+          filesModified,
+          skipped,
+          state: 'project_path_violation',
+          file: change.scopeFile,
+          message: error.reason || error.message,
+        };
+      }
+      skipped.push({
+        file: change.scopeFile,
+        normalizedFile: change.relFile,
+        state: 'write_failed',
+        reason: error?.code || error.message,
+      });
+      continue;
     }
-    return {
-      ok: false,
-      stripped: 0,
-      state: 'write_failed',
-      file: change.relFile,
-      message: error.message,
-    };
+
+    stripped += change.stripped;
+    filesModified.push(change.relFile);
+    logger.info('LifecycleBuild', `Stripped dead imports from ${change.relFile}`, { projectPath });
   }
 
-  logger.info('LifecycleBuild', `Stripped dead imports from ${change.relFile}`, { projectPath });
-  return { ok: true, stripped: change.stripped };
+  return { ok: true, stripped, filesModified, skipped };
 }
 
 // ─── Code Context for BUILD ──────────────────────────────────────────────────

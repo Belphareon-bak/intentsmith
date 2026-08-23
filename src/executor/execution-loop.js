@@ -797,7 +797,10 @@ export async function runFixLoop(options) {
         }
       }
 
-      // 4g. GUARD: Preview before apply — filter out invalid patches
+      // 4g. GUARD: Preview before apply — filter out ordinary invalid patches.
+      // An authority violation is different: silently dropping it can let the
+      // remaining patch set appear successful.  It is terminal for the whole
+      // iteration and is retained in the user-visible loop report.
       const validPatches = [];
       for (const patch of patches) {
         const preview = await previewPatch(patch, projectRoot);
@@ -807,8 +810,30 @@ export async function runFixLoop(options) {
           logger.warn('ExecutionLoop', `Preview rejected patch for ${patch.file}`, {
             milestoneId: milestone.id,
             iteration: iter,
+            state: preview.state || 'invalid_patch',
+            pathAuthority: preview.pathAuthority || null,
             errors: preview.errors,
           });
+          if (preview.state === 'project_path_violation') {
+            const rejectedPatch = {
+              file: patch.file,
+              state: preview.state,
+              pathAuthority: preview.pathAuthority || null,
+              errors: preview.errors || [],
+            };
+            iterationLog.push({
+              iteration: iter,
+              errorCount: currentErrors.length,
+              patchFiles,
+              action: 'rejected',
+              state: preview.state,
+              pathAuthority: preview.pathAuthority || null,
+              rejectedPatches: [rejectedPatch],
+            });
+            return _buildResult(false, 'project_path_violation', iter,
+              lastTestResults, lastQualityGate, currentErrors, iterationLog,
+              iterMem.filesModified);
+          }
         }
       }
 
@@ -828,10 +853,33 @@ export async function runFixLoop(options) {
         logger.warn('ExecutionLoop', 'Patch application failed', {
           milestoneId: milestone.id,
           iteration: iter,
+          state: applyResult.state || 'patch_failed',
+          pathAuthority: applyResult.pathAuthority || null,
           errors: applyResult.errors,
         });
-        iterationLog.push({ iteration: iter, errorCount: currentErrors.length, patchFiles: validPatches.map(p => p.file), action: 'skipped' });
-        return _buildResult(false, 'patch_failed', iter, lastTestResults, lastQualityGate, currentErrors, iterationLog, iterMem.filesModified);
+        const authorityRejected = applyResult.state === 'project_path_violation';
+        iterationLog.push({
+          iteration: iter,
+          errorCount: currentErrors.length,
+          patchFiles: validPatches.map(p => p.file),
+          action: authorityRejected ? 'rejected' : 'skipped',
+          ...(applyResult.state ? { state: applyResult.state } : {}),
+          ...(applyResult.pathAuthority ? { pathAuthority: applyResult.pathAuthority } : {}),
+          ...(authorityRejected ? {
+            rejectedPatches: applyResult.results
+              ?.filter(result => result.state === 'project_path_violation')
+              .map(result => ({
+                file: result.file,
+                state: result.state,
+                pathAuthority: result.pathAuthority || null,
+                errors: result.errors || [],
+              })) || [],
+          } : {}),
+        });
+        return _buildResult(false,
+          authorityRejected ? 'project_path_violation' : 'patch_failed',
+          iter, lastTestResults, lastQualityGate, currentErrors, iterationLog,
+          iterMem.filesModified);
       }
 
       // Track applied patches and files

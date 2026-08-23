@@ -33,7 +33,12 @@ import {
 function projectPathFailure(error, { preview = false } = {}) {
   if (!isProjectPathError(error)) throw error;
 
-  const message = `Project path rejected (${error.reason || 'unknown'})`;
+  const state = error.reason === 'not_regular_file'
+    ? 'not_a_file'
+    : error.reason === 'symlink_loop'
+      ? 'symlink_unresolvable'
+      : 'project_path_violation';
+  const message = `Project target rejected (${error.reason || 'unknown'})`;
   const pathAuthority = {
     reason: error.reason || 'unknown',
     projectRoot: error?.detail?.projectRoot || null,
@@ -41,18 +46,20 @@ function projectPathFailure(error, { preview = false } = {}) {
   };
 
   return preview
-    ? { valid: false, state: 'project_path_violation', pathAuthority, errors: [message] }
+    ? { valid: false, state, pathAuthority, errors: [message] }
     : {
       success: false,
       written: false,
-      state: 'project_path_violation',
+      state,
       pathAuthority,
       errors: [message],
     };
 }
 
 function ioFailure(error, operation, { preview = false } = {}) {
-  const state = `${operation}_failed`;
+  const state = operation === 'read' && error?.code === 'ELOOP'
+    ? 'symlink_unresolvable'
+    : `${operation}_failed`;
   const message = `${operation[0].toUpperCase()}${operation.slice(1)} failed: ${error.message}`;
   return preview
     ? { valid: false, state, errors: [message] }
@@ -359,6 +366,8 @@ export async function applyPatchSet(patches, projectRoot, options = {}) {
       return {
         success: false,
         results,
+        state: result.state,
+        pathAuthority: result.pathAuthority,
         errors: [`PatchSet failed at ${patch.file}: ${result.errors?.join(', ')}`],
       };
     }

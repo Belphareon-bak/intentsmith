@@ -467,6 +467,51 @@ await testAsync('patch_failed — no patches parsed', async () => {
   assertEqual(r.stopReason, 'patch_failed');
 });
 
+await testAsync('project path violation is terminal and retained in iteration evidence', async () => {
+  const main = path.join(TEST_DIR, 'main.js');
+  const outside = path.join(path.dirname(TEST_DIR), 'execution-loop-outside.js');
+  const original = 'function main() {\n  old;\n}\n';
+  fs.writeFileSync(main, original);
+  fs.writeFileSync(outside, original);
+  let qualityGateCalls = 0;
+  let testCalls = 0;
+
+  try {
+    const r = await runFixLoop({
+      lifecycle: { projectPath: TEST_DIR },
+      milestone: { id: 'ms-path-authority', title: 'Authority evidence' },
+      testResults: mkTestResults(false, '', ERR_SYNTAX),
+      qualityGateResult: mkQualityGate(true),
+      callLLM: async () => ({
+        content: `${mkDiff('main.js', 1)}\n${mkDiff('../execution-loop-outside.js', 2)}`,
+      }),
+      runTests: async () => {
+        testCalls += 1;
+        return mkTestResults(true);
+      },
+      runQualityGate: async () => {
+        qualityGateCalls += 1;
+        return mkQualityGate(true);
+      },
+      getGitDiff: async () => '',
+    });
+
+    assertEqual(r.converged, false);
+    assertEqual(r.stopReason, 'project_path_violation');
+    assertEqual(r.report.iterations.length, 1);
+    assertEqual(r.report.iterations[0].action, 'rejected');
+    assertEqual(r.report.iterations[0].state, 'project_path_violation');
+    assertEqual(r.report.iterations[0].pathAuthority.reason, 'traversal');
+    assertEqual(r.report.iterations[0].rejectedPatches[0].file, '../execution-loop-outside.js');
+    assertEqual(qualityGateCalls, 0);
+    assertEqual(testCalls, 0);
+    assertEqual(fs.readFileSync(main, 'utf8'), original);
+    assertEqual(fs.readFileSync(outside, 'utf8'), original);
+  } finally {
+    fs.rmSync(outside, { force: true });
+  }
+});
+
 await testAsync('no initial errors → immediate converge', async () => {
   const r = await runFixLoop({
     lifecycle: { projectPath: TEST_DIR },

@@ -14,7 +14,10 @@
 //
 // A hostile ABA rename between the final check and `rename(2)` cannot be closed
 // portably with Node path APIs.  The full broker needs a dirfd/openat2-backed
-// primitive for that threat model.  The limitation is explicit rather than
+// primitive for that threat model.  A hardlink created inside the project can
+// also expose bytes from an inode that has another name outside the project;
+// atomic replacement stays inside, but descriptor-pinned reads cannot infer
+// the ownership of every hardlink.  Both limitations are explicit rather than
 // being mistaken for a complete effect authority.
 // =============================================================================
 
@@ -143,6 +146,20 @@ export function resolveProjectTarget(projectRoot, filePath, {
       input: filePath,
       projectRoot: root,
       target: real,
+    });
+  }
+
+  // The caller authorizes the declared project-relative name, not merely any
+  // canonical inode that happens to stay below the project root.  Following an
+  // in-project symlink would otherwise let `allowed.js` mutate `secret.js`
+  // while scope, backup and evidence continue to name `allowed.js`.
+  const declaredRelativePath = path.relative(root, path.resolve(root, filePath));
+  if (relativePath !== declaredRelativePath) {
+    throw new ProjectPathError('canonical_target_mismatch', {
+      input: filePath,
+      projectRoot: root,
+      target: real,
+      declaredTarget: path.resolve(root, filePath),
     });
   }
 

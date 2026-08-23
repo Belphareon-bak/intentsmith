@@ -4,6 +4,7 @@
 import { suite, test, testAsync, assert, assertEqual, assertIncludes, assertThrows, summary } from './harness.js';
 import fs, {
   chmodSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -725,6 +726,37 @@ await testAsync('traversal and symlink escape cannot change outside sentinels', 
   assertEqual(readFileSync(symlinkSentinel, 'utf8'), PATH_SAMPLE);
 });
 
+await testAsync('in-project symlink alias cannot mutate a differently named target', async () => {
+  resetPathProject();
+  const secret = path.join(pathProject, 'secret.js');
+  const alias = path.join(pathProject, 'allowed.js');
+  writeFileSync(secret, PATH_SAMPLE, 'utf8');
+  symlinkSync(secret, alias);
+
+  const result = await applyPatchToProject(projectPatch('allowed.js'), pathProject);
+
+  assertEqual(result.success, false);
+  assertEqual(result.state, 'project_path_violation');
+  assertEqual(result.pathAuthority.reason, 'canonical_target_mismatch');
+  assertEqual(readFileSync(secret, 'utf8'), PATH_SAMPLE);
+  assertEqual(lstatSync(alias).isSymbolicLink(), true);
+});
+
+await testAsync('directory and dangling symlink have distinct non-containment states', async () => {
+  resetPathProject();
+  mkdirSync(path.join(pathProject, 'directory.js'));
+  symlinkSync(path.join(pathProject, 'missing.js'), path.join(pathProject, 'dangling.js'));
+
+  const directory = await previewPatch(projectPatch('directory.js'), pathProject);
+  const dangling = await previewPatch(projectPatch('dangling.js'), pathProject);
+
+  assertEqual(directory.valid, false);
+  assertEqual(directory.state, 'not_a_file');
+  assertEqual(directory.pathAuthority.reason, 'not_regular_file');
+  assertEqual(dangling.valid, false);
+  assertEqual(dangling.state, 'symlink_unresolvable');
+});
+
 await testAsync('preview rejects traversal without returning file bytes', async () => {
   resetPathProject();
   const result = await previewPatch(projectPatch('../outside.js'), pathProject);
@@ -859,6 +891,44 @@ await testAsync('parent swap immediately before write is rejected without outsid
   assertEqual(result.pathAuthority.reason, 'resolved_target_changed');
   assertEqual(readFileSync(path.join(pinned, 'app.js'), 'utf8'), PATH_SAMPLE);
   assertEqual(readFileSync(path.join(outside, 'app.js'), 'utf8'), 'OUTSIDE-WRITE-SENTINEL\n');
+});
+
+await testAsync('patch set propagates authority state from the apply phase', async () => {
+  resetPathProject();
+  const inside = path.join(pathProject, 'set-inside');
+  const pinned = path.join(pathProject, 'set-inside-pinned');
+  const outside = path.join(pathRuntime, 'set-apply-outside');
+  mkdirSync(inside, { recursive: true });
+  mkdirSync(outside, { recursive: true });
+  writeFileSync(path.join(inside, 'app.js'), PATH_SAMPLE, 'utf8');
+  writeFileSync(path.join(outside, 'app.js'), 'OUTSIDE-SET-APPLY-SENTINEL\n', 'utf8');
+
+  let opens = 0;
+  let swapped = false;
+  const racingFs = {
+    ...fs,
+    openSync(file, flags, mode) {
+      const descriptor = fs.openSync(file, flags, mode);
+      if (file === path.join(inside, 'app.js') && ++opens === 2) {
+        swapped = true;
+        renameSync(inside, pinned);
+        symlinkSync(outside, inside);
+      }
+      return descriptor;
+    },
+  };
+
+  const result = await applyPatchSet([projectPatch('set-inside/app.js')], pathProject, {
+    fileSystem: racingFs,
+  });
+
+  assertEqual(swapped, true);
+  assertEqual(result.success, false);
+  assertEqual(result.state, 'project_path_violation');
+  assertEqual(result.pathAuthority.reason, 'resolved_target_changed');
+  assertEqual(result.results[0].state, 'project_path_violation');
+  assertEqual(readFileSync(path.join(pinned, 'app.js'), 'utf8'), PATH_SAMPLE);
+  assertEqual(readFileSync(path.join(outside, 'app.js'), 'utf8'), 'OUTSIDE-SET-APPLY-SENTINEL\n');
 });
 
 await testAsync('ordinary patch remains atomic and preserves target mode', async () => {
