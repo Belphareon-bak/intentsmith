@@ -15,6 +15,7 @@ import { up as applyEffectAuthorityMigration } from '../src/db/migrations/2026_0
 import { up as applyEffectAuthorityHardening } from '../src/db/migrations/2026_08_24_071_m2_effect_authority_hardening.js';
 import { up as applyEffectExecutionClaims } from '../src/db/migrations/2026_08_24_072_m2_effect_execution_claims.js';
 import { createEffectFileRuntime } from '../src/effects/effect-file-runtime.js';
+import { db as applicationDatabase, projects } from '../src/db/database.js';
 import { suite, testAsync, summary } from './harness.js';
 
 void isolatedTestRuntime;
@@ -321,6 +322,50 @@ await testAsync('restart turns a consumed grant without committed result into a 
       'restart recovery must never replay or rewrite the effect',
     );
   });
+});
+
+await testAsync('production defaults bind the registered ProjectContext revision through reconnect approval', async () => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'intentsmith-effect-production-defaults-'));
+  const projectRoot = path.join(directory, 'project');
+  mkdirSync(path.join(projectRoot, 'notes'), { recursive: true });
+  const projectName = `m2-effect-defaults-${path.basename(directory)}`;
+  const projectId = Number(
+    projects.create.run(projectName, projectRoot, 'M2 effect integration fixture').lastInsertRowid,
+  );
+  const input = requestInput(projectRoot, {
+    sessionId: 'studio-session-before-reconnect',
+    conversationId: `conversation-production-${projectId}`,
+    operationId: `message:production-${projectId}`,
+    projectId,
+    relativePath: 'notes/production-defaults.md',
+    content: 'production provider bytes\n',
+  });
+
+  try {
+    const firstRuntime = createEffectFileRuntime();
+    const prepared = await firstRuntime.requestFilesystemWrite(input);
+    const storedRequest = applicationDatabase.prepare(
+      'SELECT workspace_revision AS workspaceRevision FROM m2_effect_requests WHERE effect_id = ?',
+    ).get(prepared.effectId);
+    assert.match(storedRequest.workspaceRevision, /^wsr1:[0-9a-f]{64}$/);
+    assert.equal(firstRuntime.getPending(prepared.effectId).sessionId, input.sessionId);
+
+    const reconnectedRuntime = createEffectFileRuntime();
+    const result = await reconnectedRuntime.approveFilesystemWrite({
+      effectId: prepared.effectId,
+      conversationId: input.conversationId,
+      subjectId: input.subjectId,
+    });
+
+    assert.equal(result.terminalStatus, 'succeeded');
+    assert.equal(
+      readFileSync(path.join(projectRoot, input.relativePath), 'utf8'),
+      input.content,
+    );
+    assert.equal(reconnectedRuntime.getPending(prepared.effectId), null);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 summary();
