@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import { SUITES } from '../src/upgrade/validation-suites.js';
 import { comparePair } from '../src/upgrade/pairwise-trial.js';
 import { codePatchSuite, CodePatchValidationRunner, MODEL_OPTIONS } from '../src/eval/code-patch-suite.js';
-import { preserveCalibration } from '../src/eval/build-code-suite.js';
+import { incrementalBuildSeed, preserveCalibration } from '../src/eval/build-code-suite.js';
 import { calibrate, buildPanelSummaries } from '../src/eval/calibrate-code-suite.js';
 import {
   MODEL_FAILOVER_PROOF_POLICY_SOURCE_PINS,
@@ -127,6 +127,21 @@ test('rebuild zachová kalibraci jen při totožném úplném fingerprintu', () 
   assertEqual(same.calibration.verdict, 'rozlišuje');
   assertEqual(changed.status, 'pending-recalibration');
   assertEqual(changed.calibration, null);
+});
+
+test('inkrementální rebuild použije jen fixture se stejným kontraktem', () => {
+  const previous = {
+    taskContractVersion: 'code-task-v2',
+    tasks: [{ hash: 'abc', source: 'src/a.js' }],
+    rejected: [{ hash: 'def', reason: 'podlaha' }, { hash: 'def', reason: 'jiný důvod' }],
+  };
+  const seed = incrementalBuildSeed(previous);
+  assertEqual(seed.existingTasks.length, 1);
+  assertEqual(seed.rejectedHashes.length, 1);
+
+  let blocked = false;
+  try { incrementalBuildSeed({ ...previous, taskContractVersion: 'code-task-v1' }); } catch { blocked = true; }
+  assert(blocked, 'append přes změnu kontraktu musí selhat');
 });
 
 test('inkrementální kalibrace nezahodí dříve změřenou úlohu', () => {

@@ -1,5 +1,11 @@
 # Zadání pro další relaci — evaluace CODE, rozšíření zásoby úloh
 
+> **Aktualizace 2026-08-23:** původní kroky 1–4 byly provedeny. Aktuální
+> fixture má 40 gold-ověřených úloh, z toho 4 active, 33 reserve-floor a
+> 3 reserve-unstable. Dalších 285 panelových odpovědí nepřineslo požadovaných
+> 6 active; CODE proto zůstává fail-closed. Aktuální evidence a další hranice
+> jsou v [GPU pilot reportu](execution/runs/model-upgrade-prototype-20260823.md).
+
 **Kontext:** [`EVAL-CODE-SUITE.md`](EVAL-CODE-SUITE.md) (jak sada funguje a co
 měří) · [`EVAL-REDESIGN.md`](EVAL-REDESIGN.md) (proč se evaluace přestavuje) ·
 [`MODEL-PLATFORM-HANDOFF.md`](MODEL-PLATFORM-HANDOFF.md) (stav platformy)

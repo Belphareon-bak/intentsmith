@@ -1,7 +1,7 @@
 # Model upgrade prototype v136.1
 
 **Stav:** funkční GPU prototyp; portfolio splňuje segregaci, CHAT v3 má
-11 panelově rozlišujících úloh (7 EN + 4 CZ), CODE zůstává fail-closed 3/6
+11 panelově rozlišujících úloh (7 EN + 4 CZ), CODE zůstává fail-closed 4/6
 
 **Rozsah:** discovery kandidátů, objektivní skórování podle role, trvalá historie,
 výběr vítěze a operátorem spuštěná aplikace vazby
@@ -184,7 +184,7 @@ kandidáta přes uložené skóre po aplikaci nebo pravdivé `UNCHANGED`.
   marží 0,100 a poměrem 7:5; `qwen3.8` na 10 (5 EN + 5 CZ), marží 0,127 a
   poměrem 6:4. Vazba se přesto nezměnila: oba modely už mají povolené
   maximum dvou rolí.
-- CODE má jen 3 stabilně rozlišující úlohy. Plán i CLI vyžadují 6 a
+- CODE má jen 4 stabilně rozlišující úlohy. Plán i CLI vyžadují 6 a
   končí ještě před GPU během, pokud toto minimum není splněno.
 - Aplikace D1 na `qwen3.5` je `APPLIED_NOTIFICATION_DEGRADED`: durable
   binding a runtime apply proběhly, notifikační receipt nebyl vydán.

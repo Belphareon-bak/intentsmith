@@ -5,6 +5,7 @@
 // Spouští se ručně, výstup se commituje:
 //
 //     node src/eval/build-code-suite.js [--max-function-lines 120] [--limit 1500]
+//     node src/eval/build-code-suite.js --append --count 40 [...stejne filtry...]
 //
 // Fixture drží jen **metadata** — hash, cestu ke zdrojáku, cestu k testu a
 // předmět commitu.  Zdrojový kód se nekopíruje: `deriveTask()` si ho v okamžiku
@@ -90,20 +91,45 @@ export function preserveCalibration(tasks, previous = null) {
   });
 }
 
+function taskSourceKey(task) {
+  return `${String(task?.hash || '')}\0${String(task?.source || '')}`;
+}
+
+/**
+ * Seed pro levne rozsireni uz overene fixture.
+ *
+ * Append je bezpecny pouze uvnitr stejneho kontraktu ulohy. Pri zmene promptu,
+ * scoringu nebo identity musi probehnout plny rebuild, ktery vse znovu overi.
+ */
+export function incrementalBuildSeed(previous, contractVersion = CODE_TASK_CONTRACT_VERSION) {
+  if (!previous) return { existingTasks: [], rejectedHashes: [] };
+  if (previous.taskContractVersion !== contractVersion) {
+    throw new Error(`append vyzaduje ${contractVersion}, fixture ma ${previous.taskContractVersion || 'neznamy kontrakt'}`);
+  }
+  return {
+    existingTasks: Array.isArray(previous.tasks) ? previous.tasks : [],
+    rejectedHashes: [...new Set((previous.rejected || []).map(item => item?.hash).filter(Boolean))],
+  };
+}
+
 export function buildSuite(repo, opts = {}) {
   const maxFunctionLines = opts.maxFunctionLines ?? 120;
   const maxRequirements = opts.maxRequirements ?? Number.POSITIVE_INFINITY;
   const wanted = opts.count ?? 24;
   const log = opts.log ?? (() => {});
 
+  const existingTasks = Array.isArray(opts.existingTasks) ? opts.existingTasks : [];
+  const existingKeys = new Set(existingTasks.map(taskSourceKey));
+  const rejectedHashes = new Set(opts.rejectedHashes || []);
   const candidates = findCandidates(repo, {
     limit: opts.limit ?? 1500,
     maxDiffLines: opts.maxDiffLines ?? 60,
     allowMultipleSources: opts.allowMultipleSources === true,
-  });
-  log(`kandidátů: ${candidates.length}`);
+  }).filter(candidate => !existingKeys.has(taskSourceKey(candidate))
+    && !rejectedHashes.has(candidate.hash));
+  log(`nových kandidátů: ${candidates.length} (seed ${existingTasks.length} ověřených úloh)`);
 
-  const accepted = [];
+  const accepted = [...existingTasks];
   const rejected = [];
   const timedOutCommits = new Set();
 
@@ -181,6 +207,12 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToP
     return i > -1 ? Number(process.argv[i + 1]) : dflt;
   };
   const repo = process.cwd();
+  let previous = null;
+  if (existsSync(FIXTURE_PATH)) {
+    try { previous = JSON.parse(readFileSync(FIXTURE_PATH, 'utf8')); } catch { previous = null; }
+  }
+  const append = process.argv.includes('--append');
+  const seed = append ? incrementalBuildSeed(previous) : { existingTasks: [], rejectedHashes: [] };
   const result = buildSuite(repo, {
     maxFunctionLines: arg('--max-function-lines', 120),
     maxDiffLines: arg('--max-diff-lines', 60),
@@ -189,16 +221,19 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToP
     limit: arg('--limit', 1500),
     count: arg('--count', 24),
     allowMultipleSources: process.argv.includes('--multi-source'),
+    existingTasks: seed.existingTasks,
+    rejectedHashes: seed.rejectedHashes,
     log: (m) => console.log(m),
   });
 
-  let previous = null;
-  if (existsSync(FIXTURE_PATH)) {
-    try { previous = JSON.parse(readFileSync(FIXTURE_PATH, 'utf8')); } catch { previous = null; }
-  }
   const repoHead = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim();
   const workingTreeDirty = execFileSync('git', ['status', '--porcelain'], { cwd: repo, encoding: 'utf8' }).trim().length > 0;
-  const tasks = preserveCalibration(result.tasks, previous);
+  const tasks = preserveCalibration(result.tasks, previous)
+    .sort((a, b) => (b.requirements - a.requirements) || (a.functionLines - b.functionLines));
+  const rejected = append
+    ? [...(previous?.rejected || []), ...result.rejected]
+      .filter((item, index, all) => index === all.findIndex(other => other.hash === item.hash && other.reason === item.reason))
+    : result.rejected;
 
   writeFileSync(FIXTURE_PATH, JSON.stringify({
     generatedAt: new Date().toISOString(),
@@ -206,12 +241,12 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToP
     workingTreeDirty,
     taskContractVersion: CODE_TASK_CONTRACT_VERSION,
     tasks,
-    rejected: result.rejected,
+    rejected,
   }, null, 2) + '\n');
 
-  console.log(`\nhotovo: ${result.tasks.length} úloh z ${result.examined} kandidátů → ${path.relative(repo, FIXTURE_PATH)}`);
+  console.log(`\nhotovo: ${result.tasks.length} úloh (${result.tasks.length - seed.existingTasks.length} nových) z ${result.examined} kandidátů → ${path.relative(repo, FIXTURE_PATH)}`);
   const reasons = {};
-  for (const r of result.rejected) reasons[r.reason] = (reasons[r.reason] || 0) + 1;
+  for (const r of rejected) reasons[r.reason] = (reasons[r.reason] || 0) + 1;
   console.log('zamítnuto:', reasons);
 }
 

@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-08-22T23:00:54.578Z",
-  "repoHead": "a317da531098b631cd3239979cd5711c0a521fe3",
+  "generatedAt": "2026-08-23T10:00:09.598Z",
+  "repoHead": "aeec351f614a475ea4247f76d7fd32f210e27102",
   "workingTreeDirty": true,
   "taskContractVersion": "code-task-v2",
   "tasks": [
@@ -2139,8 +2139,27 @@
       ],
       "knownFailing": [],
       "taskFingerprint": "f18b9b453b5f2f36b4a781c317019eeb255aca1e4642fe8edbdcbdb85990d839",
-      "status": "pending-recalibration",
-      "calibration": null
+      "status": "reserve-floor",
+      "calibration": {
+        "verdict": "podlaha",
+        "values": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "noise": 0,
+        "panel": [
+          "qwen3-coder:latest",
+          "qwen3.5:27b",
+          "qwen3-30b-a3b:latest",
+          "qwen3:14b",
+          "llava:13b"
+        ],
+        "repeats": 3,
+        "measuredAt": "2026-08-23T09:53:48.550Z"
+      }
     },
     {
       "hash": "da95ab15d9fdded66904195d4d5062549fb934d2",
@@ -2559,8 +2578,27 @@
       ],
       "knownFailing": [],
       "taskFingerprint": "4db486d33c95a6f80756544ebb2cba15cb7a3ec4a1832729467167e23b5b23f1",
-      "status": "pending-recalibration",
-      "calibration": null
+      "status": "active",
+      "calibration": {
+        "verdict": "rozlišuje",
+        "values": [
+          0,
+          0.333,
+          0,
+          0.778,
+          0
+        ],
+        "noise": 0.6666666666666667,
+        "panel": [
+          "qwen3-coder:latest",
+          "qwen3.5:27b",
+          "qwen3-30b-a3b:latest",
+          "qwen3:14b",
+          "llava:13b"
+        ],
+        "repeats": 3,
+        "measuredAt": "2026-08-23T09:53:48.550Z"
+      }
     },
     {
       "hash": "2f36b5168c5e4bd96ad476a93bd8a0a6cc4afab6",
@@ -3152,8 +3190,27 @@
       ],
       "knownFailing": [],
       "taskFingerprint": "4ae0131cd8b2eb2847f19aa171b733165504620609c4e0bd076426d5b628f33a",
-      "status": "pending-recalibration",
-      "calibration": null
+      "status": "reserve-floor",
+      "calibration": {
+        "verdict": "podlaha",
+        "values": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "noise": 0,
+        "panel": [
+          "qwen3-coder:latest",
+          "qwen3.5:27b",
+          "qwen3-30b-a3b:latest",
+          "qwen3:14b",
+          "llava:13b"
+        ],
+        "repeats": 3,
+        "measuredAt": "2026-08-23T09:53:48.550Z"
+      }
     },
     {
       "hash": "7c4aa73c18289eebced48511910e35dad21c3be5",
@@ -3333,8 +3390,27 @@
       ],
       "knownFailing": [],
       "taskFingerprint": "c1936094daaf07f32c12eb14a2c2e4181040b356cda8b5c1f09b8a41459cb6fb",
-      "status": "pending-recalibration",
-      "calibration": null
+      "status": "reserve-floor",
+      "calibration": {
+        "verdict": "podlaha",
+        "values": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "noise": 0,
+        "panel": [
+          "qwen3-coder:latest",
+          "qwen3.5:27b",
+          "qwen3-30b-a3b:latest",
+          "qwen3:14b",
+          "llava:13b"
+        ],
+        "repeats": 3,
+        "measuredAt": "2026-08-23T09:53:48.550Z"
+      }
     },
     {
       "hash": "56d97704fc9ec095669e6bb090142cff3f06f9db",
@@ -3676,8 +3752,27 @@
       ],
       "knownFailing": [],
       "taskFingerprint": "dcc0aaec3ce84a9fab0e6406ad02562280b76e16692c5710b18e7f77a140ff80",
-      "status": "pending-recalibration",
-      "calibration": null
+      "status": "reserve-floor",
+      "calibration": {
+        "verdict": "podlaha",
+        "values": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "noise": 0,
+        "panel": [
+          "qwen3-coder:latest",
+          "qwen3.5:27b",
+          "qwen3-30b-a3b:latest",
+          "qwen3:14b",
+          "llava:13b"
+        ],
+        "repeats": 3,
+        "measuredAt": "2026-08-23T09:02:31.507Z"
+      }
     },
     {
       "hash": "0bf2e11db5618b2dcdcbd4cdcc25e5f572c7a014",
@@ -3821,8 +3916,27 @@
       "passToPass": [],
       "knownFailing": [],
       "taskFingerprint": "f3b7e352922f71b70cbae004e95331aa078a11a7763ad185af92e0f6bab8d0ee",
-      "status": "pending-recalibration",
-      "calibration": null
+      "status": "reserve-floor",
+      "calibration": {
+        "verdict": "podlaha",
+        "values": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "noise": 0,
+        "panel": [
+          "qwen3-coder:latest",
+          "qwen3.5:27b",
+          "qwen3-30b-a3b:latest",
+          "qwen3:14b",
+          "llava:13b"
+        ],
+        "repeats": 3,
+        "measuredAt": "2026-08-23T09:02:31.507Z"
+      }
     },
     {
       "hash": "b8183d2871349f9e13d8eb39d092c32c8d474432",
@@ -4003,8 +4117,95 @@
       ],
       "knownFailing": [],
       "taskFingerprint": "9eb8e2f6aa833423178b0d29650d7f4f60e3a357fdc8d6a183cac1443c57571a",
-      "status": "pending-recalibration",
-      "calibration": null
+      "status": "reserve-unstable",
+      "calibration": {
+        "verdict": "nestabilní",
+        "values": [
+          0.4,
+          0.333,
+          0.2,
+          0.2,
+          0
+        ],
+        "noise": 0.6,
+        "panel": [
+          "qwen3-coder:latest",
+          "qwen3.5:27b",
+          "qwen3-30b-a3b:latest",
+          "qwen3:14b",
+          "llava:13b"
+        ],
+        "repeats": 3,
+        "measuredAt": "2026-08-23T09:02:31.507Z"
+      }
+    },
+    {
+      "hash": "2c15f03a7af04b4e49d42eab46992350aa23d8d2",
+      "source": "src/code-intel/graph-retrieval.js",
+      "test": "tests/graph-retrieval.test.js",
+      "tests": [
+        "tests/graph-retrieval.test.js"
+      ],
+      "subject": "v102: graph relevance stabilization — hub penalty + namespace boost",
+      "functionCount": 2,
+      "functionLines": 158,
+      "requirements": 9,
+      "scoreMode": "named",
+      "failToPass": [
+        "discovers imported files",
+        "discovers dependent files (reverse IMPORTS)",
+        "respects maxDepth",
+        "respects maxExpansion cap",
+        "dedup — skips files already in ranked set",
+        "score decay is correct",
+        "empty graph returns empty",
+        "empty rankedFiles returns empty",
+        "respects topN (only seeds from top N files)",
+        "cyclic import does not loop",
+        "minimum threshold filters low scores",
+        "all results have source: graph",
+        "low-degree node gets no penalty",
+        "hub node (degree > 15) gets penalized",
+        "penalty has safety floor at 0.1",
+        "hub node gets lower BFS score than normal node",
+        "same-module file gets boosted",
+        "different-module file gets no boost",
+        "null target returns 1.0",
+        "empty seedModules returns 1.0",
+        "same-module file scores higher in BFS",
+        "includes imports",
+        "includes dependents",
+        "includes defined symbols",
+        "unknown file returns empty",
+        "merges without duplicates",
+        "sorts by score descending",
+        "uses max score for duplicate files",
+        "does not downgrade existing score"
+      ],
+      "passToPass": [],
+      "knownFailing": [],
+      "taskFingerprint": "50421d22f6eb4283d3d3f9e6e66fd277c4577ac0e03e74d818d8cea081230952",
+      "status": "reserve-floor",
+      "calibration": {
+        "verdict": "podlaha",
+        "values": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "noise": 0,
+        "panel": [
+          "qwen3-coder:latest",
+          "qwen3.5:27b",
+          "qwen3-30b-a3b:latest",
+          "qwen3:14b",
+          "llava:13b"
+        ],
+        "repeats": 3,
+        "measuredAt": "2026-08-23T10:43:01.907Z"
+      }
     },
     {
       "hash": "b7cae5e3d06e13bef1302abe8bec18d215efcd39",
@@ -4136,8 +4337,27 @@
       ],
       "knownFailing": [],
       "taskFingerprint": "e2414b1b4dd84fad869babafda0159edf5ad015c6be10e0e9e9be3e83ec88ffd",
-      "status": "pending-recalibration",
-      "calibration": null
+      "status": "reserve-floor",
+      "calibration": {
+        "verdict": "podlaha",
+        "values": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "noise": 0,
+        "panel": [
+          "qwen3-coder:latest",
+          "qwen3.5:27b",
+          "qwen3-30b-a3b:latest",
+          "qwen3:14b",
+          "llava:13b"
+        ],
+        "repeats": 3,
+        "measuredAt": "2026-08-23T09:53:48.550Z"
+      }
     },
     {
       "hash": "51936ee12d443bbc8a85bc296f92163edca73442",
@@ -4602,8 +4822,27 @@
       "passToPass": [],
       "knownFailing": [],
       "taskFingerprint": "33de28b4a8e2b5fc53a17c67fe3e520c1a7b1f4981fd5877b6b1ba2af0e24325",
-      "status": "pending-recalibration",
-      "calibration": null
+      "status": "reserve-floor",
+      "calibration": {
+        "verdict": "podlaha",
+        "values": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "noise": 0,
+        "panel": [
+          "qwen3-coder:latest",
+          "qwen3.5:27b",
+          "qwen3-30b-a3b:latest",
+          "qwen3:14b",
+          "llava:13b"
+        ],
+        "repeats": 3,
+        "measuredAt": "2026-08-23T09:02:31.507Z"
+      }
     },
     {
       "hash": "ffea2654ea2afe51ef2f6dc46805cfa630c1623e",
@@ -4668,8 +4907,27 @@
       ],
       "knownFailing": [],
       "taskFingerprint": "b8aea13781561de34385cd96482d98448cdd6d7c38196693633ee68cdf01045b",
-      "status": "pending-recalibration",
-      "calibration": null
+      "status": "reserve-floor",
+      "calibration": {
+        "verdict": "podlaha",
+        "values": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "noise": 0,
+        "panel": [
+          "qwen3-coder:latest",
+          "qwen3.5:27b",
+          "qwen3-30b-a3b:latest",
+          "qwen3:14b",
+          "llava:13b"
+        ],
+        "repeats": 3,
+        "measuredAt": "2026-08-23T09:02:31.507Z"
+      }
     },
     {
       "hash": "f8ac2c312c1b7245f24daa16871ed236897cfc1b",
@@ -4764,6 +5022,72 @@
       }
     },
     {
+      "hash": "580800e1f1675ef105233f3d15c29b0a17e5bbd4",
+      "source": "src/upgrade/pairwise-trial.js",
+      "test": "tests/pairwise-trial.test.js",
+      "tests": [
+        "tests/pairwise-trial.test.js"
+      ],
+      "subject": "pairwise: opakovat sady a nerozhodovat podle šumu",
+      "functionCount": 3,
+      "functionLines": 72,
+      "requirements": 6,
+      "scoreMode": "named",
+      "failToPass": [
+        "oba modely projdou tutéž sadu",
+        "shodná skóre = žádná rozlišující úloha",
+        "rozdíl pod prahem se nepočítá za rozlišení",
+        "marže se počítá jen z rozlišujících úloh",
+        "prohra kandidáta se pozná",
+        "neznámá sada vyhodí",
+        "kvalita nad prahem vyhrává",
+        "kvalita pod prahem nechává stávající",
+        "víc výher nestačí, když je marže malá",
+        "při remíze kvality rozhodne výrazně vyšší rychlost",
+        "malý rozdíl rychlosti výměnu neospravedlní",
+        "bez změřené rychlosti se při remíze nemění nic",
+        "rozhodnutí vždy nese základ i vysvětlení",
+        "role bez validační sady se přeskočí",
+        "vrátí porovnání i rozhodnutí",
+        "mezi modely se dá vložit úklid paměti",
+        "tatáž sada se pro tentýž model nespustí dvakrát",
+        "jiný stávající model se spustí znovu",
+        "bez cache se chování nemění",
+        "cache vrací tytéž výsledky jako přímý běh",
+        "úklid paměti se přeskočí, když se druhý model nespouští",
+        "výchozí počet opakování je víc než jedno",
+        "sada se spustí tolikrát, kolik se řekne",
+        "nestabilní úloha nerozliší, i když se v jednom běhu liší",
+        "stabilní rozdíl rozliší i vedle nestabilní úlohy",
+        "nestabilní úlohy se vypíšou",
+        "skóre úlohy je průměr přes běhy"
+      ],
+      "passToPass": [],
+      "knownFailing": [],
+      "taskFingerprint": "5a3cd6915a809e9c5c5a71f0e67e0d8d024ea723c44202126eaa155da3418c27",
+      "status": "reserve-floor",
+      "calibration": {
+        "verdict": "podlaha",
+        "values": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "noise": 0,
+        "panel": [
+          "qwen3-coder:latest",
+          "qwen3.5:27b",
+          "qwen3-30b-a3b:latest",
+          "qwen3:14b",
+          "llava:13b"
+        ],
+        "repeats": 3,
+        "measuredAt": "2026-08-23T10:24:39.203Z"
+      }
+    },
+    {
       "hash": "f8ac2c312c1b7245f24daa16871ed236897cfc1b",
       "source": "src/upgrade/candidate-trial.js",
       "test": "tests/candidate-trial.test.js",
@@ -4833,8 +5157,27 @@
       ],
       "knownFailing": [],
       "taskFingerprint": "631a881577aa9566edc1b581b8e9491e5c073435cbb955c9fd5337fe23e7d4c9",
-      "status": "pending-recalibration",
-      "calibration": null
+      "status": "reserve-floor",
+      "calibration": {
+        "verdict": "podlaha",
+        "values": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "noise": 0,
+        "panel": [
+          "qwen3-coder:latest",
+          "qwen3.5:27b",
+          "qwen3-30b-a3b:latest",
+          "qwen3:14b",
+          "llava:13b"
+        ],
+        "repeats": 3,
+        "measuredAt": "2026-08-23T09:02:31.507Z"
+      }
     },
     {
       "hash": "66ddd5f2c376fc571748685180615a61e2dff3d1",
@@ -5182,6 +5525,604 @@
         "repeats": 3,
         "measuredAt": "2026-08-23T01:06:16.652Z"
       }
+    },
+    {
+      "hash": "7f76c7dc39846c36b75c0357a7d7072fc5402f7d",
+      "source": "src/upgrade/registry-client.js",
+      "test": "tests/online-discovery.test.js",
+      "tests": [
+        "tests/online-discovery.test.js"
+      ],
+      "subject": "feat: add bounded model family discovery",
+      "functionCount": 2,
+      "functionLines": 214,
+      "requirements": 5,
+      "scoreMode": "named",
+      "failToPass": [
+        "registryClient parses bounded, unique library index families"
+      ],
+      "passToPass": [
+        "strips hyphens and lowercases",
+        "strips underscores",
+        "strips trailing version decimals",
+        "handles empty/null input",
+        "preserves simple names",
+        "formula: 620*params+420",
+        "zero/negative params returns 0",
+        "interpolates between two known points",
+        "at exact lower point returns lower value",
+        "at exact upper point returns upper value",
+        "extrapolation above returns reasonable value",
+        "handles equal points gracefully",
+        "clamps result to [0, 1]",
+        "groups catalog entries by normalized family",
+        "entries sorted by params ascending",
+        "handles empty/null catalog",
+        "interpolation for known family (qwen)",
+        "extrapolation outside known range",
+        "family with 1 entry returns null benchmarks, confidence 0.20",
+        "unknown family returns null benchmarks, confidence 0",
+        "0 params returns null",
+        "interpolation returns 0.70-0.85",
+        "exact match returns 0.85",
+        "close extrapolation returns 0.45-0.60",
+        "far extrapolation returns 0.30-0.45",
+        "insufficient data returns 0",
+        "copies category, capabilities, contextWindow from nearest",
+        "returns null for unknown family",
+        "returns copy of capabilities (not reference)",
+        "extracts tags from href links",
+        "fallback regex when no href links found",
+        "deduplicates tags",
+        "handles empty/null HTML",
+        "parses params from tag",
+        "discoverForFamilies returns empty for empty input",
+        "discoverForFamilies returns empty for null input",
+        "no-op without setDb for getDiscoveredModels",
+        "no-op without setDb for persistEntries",
+        "no-op without setDb for pruneStale",
+        "persistEntries stores to DB and getDiscoveredModels reads back",
+        "duplicate persist does upsert (UPDATE)",
+        "pruneStale removes old entries",
+        "_buildProvisionalEntry creates correct shape",
+        "_buildProvisionalEntry returns null for 0 params",
+        "_buildProvisionalEntry returns null for params < MIN_USEFUL_PARAMS (3B)",
+        "_buildProvisionalEntry returns null when VRAM exceeds GPU limit",
+        "_buildProvisionalEntry skips VRAM check when gpuVramMb=0",
+        "_filterNewTags excludes catalog entries",
+        "_filterNewTags excludes already discovered entries",
+        "_filterNewTags excludes tags without params",
+        "max 8 families fetched per cycle",
+        "guided discovery works without installed families when seed families are provided",
+        "guided discovery reserves diversity slot for registry seeds",
+        "highPriorityRatio zero selects entirely from diversity ranking",
+        "maxVariantsPerFamily limits parsed variants",
+        "benchmarkConfidence=1.0 gives normal score",
+        "benchmarkConfidence=0.5 attenuates benchmark contribution",
+        "benchmarkConfidence defaults to 1.0 when undefined",
+        "provisional=true gets -0.02 penalty",
+        "provisional penalty does not apply to catalog models",
+        "ghost decay: provisional + 0 empirical + >7d old → extra -0.01",
+        "no ghost decay when empirical samples > 0",
+        "no ghost decay when age < 7 days",
+        "evaluateUpgrade rejects L4 candidate with >3× params",
+        "VISION role rejects model without vision capability",
+        "VISION role accepts model with vision capability",
+        "qwen-3 and qwen3 match same family in scaling models",
+        "L4 entries merged into discovery candidates",
+        "scoring API includes provisional entries with confidence",
+        "catalog model always scores higher than same L4 model",
+        "registryClient fetchLibraryPage method exists",
+        "extracts prefix before colon",
+        "strips trailing param-size suffix for models without colon",
+        "handles latest tag",
+        "handles empty/null",
+        "preserves version numbers in name",
+        "lowercases the result"
+      ],
+      "knownFailing": [],
+      "taskFingerprint": "a6043570f7971872490b62b5a71cb52a9c8639cf5d48ee5dd0e4f6f5d40fd363",
+      "status": "reserve-floor",
+      "calibration": {
+        "verdict": "podlaha",
+        "values": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "noise": 0,
+        "panel": [
+          "qwen3-coder:latest",
+          "qwen3.5:27b",
+          "qwen3-30b-a3b:latest",
+          "qwen3:14b",
+          "llava:13b"
+        ],
+        "repeats": 3,
+        "measuredAt": "2026-08-23T10:43:01.907Z"
+      }
+    },
+    {
+      "hash": "a33cc20adb792e970f7c39886aecb669569cbd5a",
+      "source": "src/routes/chat.js",
+      "test": "tests/m1-chat-contract.test.js",
+      "tests": [
+        "tests/m1-chat-contract.test.js"
+      ],
+      "subject": "fix(chat): make history lookup existence-aware",
+      "functionCount": 1,
+      "functionLines": 8,
+      "requirements": 3,
+      "scoreMode": "named",
+      "failToPass": [
+        "existing empty and non-empty conversations are read in one SQLite transaction",
+        "missing conversation is typed 404 without reading orphan messages",
+        "missing transaction, DB failure, and malformed snapshot stay sanitized 500"
+      ],
+      "passToPass": [
+        "successful result is returned only after the assistant turn persists",
+        "persistence exception is a typed terminal error, never false-success",
+        "pre-cancelled request cannot persist an assistant turn",
+        "cancellation during request processing cannot persist an assistant turn",
+        "timeout at the last pre-persistence seam stays timeout and cannot persist",
+        "two conversations sharing one transport cannot share state or turns",
+        "typed timeout from a handler stays terminal and creates no assistant turn",
+        "generic handler exception is typed terminal failure, not assistant content",
+        "serialized conversation fields survive a SessionState round-trip",
+        "exact send returns a validated durable ConversationResult with unchanged identity",
+        "invalid command and inactive HTTP cancel never reach the controller",
+        "HTTP cancel targets one conversation and keeps its own operation identity",
+        "non-cooperative handler cannot turn an aborted request into late success",
+        "timeout that precedes cancel is never relabelled as confirmed cancellation",
+        "provider, persistence, and generic failures are valid non-success terminals",
+        "request deadline produces timeout instead of an assistant response",
+        "typed user abort maps to cancelled without inventing assistant content",
+        "empty controller output fails closed as a contract error terminal"
+      ],
+      "knownFailing": [],
+      "taskFingerprint": "1eae54b0a56832e75128dfe2b96d4b0f239aa5b2d70b44300e58c64f05970e31",
+      "status": "reserve-unstable",
+      "calibration": {
+        "verdict": "nestabilní",
+        "values": [
+          0.333,
+          0,
+          0.333,
+          0.333,
+          0.222
+        ],
+        "noise": 0.3333333333333333,
+        "panel": [
+          "qwen3-coder:latest",
+          "qwen3.5:27b",
+          "qwen3-30b-a3b:latest",
+          "qwen3:14b",
+          "llava:13b"
+        ],
+        "repeats": 3,
+        "measuredAt": "2026-08-23T10:24:39.203Z"
+      }
+    },
+    {
+      "hash": "c18da1e0dc2c0e5cbb4cbfc334d533f5571dd63e",
+      "source": "src/upgrade/candidate-trial.js",
+      "test": "tests/candidate-trial.test.js",
+      "tests": [
+        "tests/candidate-trial.test.js"
+      ],
+      "subject": "fix(m1): candidate-trial nemaže vlastní cestou, ale injektovanou autoritou",
+      "functionCount": 1,
+      "functionLines": 14,
+      "requirements": 3,
+      "scoreMode": "named",
+      "failToPass": [
+        "odstranění modelu jde injektovanou autoritou, ne vlastní cestou",
+        "bez injektované autority se nemaže a nesahá na síť"
+      ],
+      "passToPass": [
+        "minimum obsahuje jen binární, jednoznačné kontroly",
+        "dobrý model projde",
+        "prázdná odpověď propadne",
+        "neplatný JSON propadne",
+        "JSON obalený textem projde",
+        "odpověď bez diakritiky propadne na češtině",
+        "přetékající kandidát se zamítne a smaže ještě před testy",
+        "propadnutí u minima zamítne kandidáta a smaže ho",
+        "lepší kandidát vyhraje roli a NEsmaže se",
+        "kandidát, který nevyhraje žádnou roli, se smaže",
+        "keepOnFailure zabrání mazání",
+        "selhání stahování nesmaže nic cizího",
+        "stahování nemá kvalitativní timeout",
+        "role bez navázaného modelu se přeskočí",
+        "selhání autority se ohlásí jako neúspěch, ne jako smazáno",
+        "měření se hlásí hned, ne až po souboji",
+        "rozhodnutí role se hlásí průběžně",
+        "u přetékajícího kandidáta se měření jako úspěch nehlásí",
+        "textový model se pro VISION vůbec nesoutěží",
+        "vision model se pro VISION soutěží normálně",
+        "volající může dodat přesnější vlastnosti kandidáta",
+        "shodné skóre se označí jako nerozhodnuté, ne jako prohra",
+        "skutečná prohra není nerozhodnuto",
+        "keepInconclusive nechá nerozhodnutého na disku",
+        "keepInconclusive nezachrání toho, kdo prohrál",
+        "výchozí stav je nemazat",
+        "bez allowRemoval se nesmaže ani propadlý kandidát",
+        "bez allowRemoval se nesmaže ani přetékající kandidát",
+        "allowRemoval mazání zapne"
+      ],
+      "knownFailing": [],
+      "taskFingerprint": "2eb4bd7aac02d66622c6d6e1d94d9215e7e3be70fffa1e964f3a013d5b553dd4",
+      "status": "reserve-floor",
+      "calibration": {
+        "verdict": "podlaha",
+        "values": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "noise": 0,
+        "panel": [
+          "qwen3-coder:latest",
+          "qwen3.5:27b",
+          "qwen3-30b-a3b:latest",
+          "qwen3:14b",
+          "llava:13b"
+        ],
+        "repeats": 3,
+        "measuredAt": "2026-08-23T10:24:39.203Z"
+      }
+    },
+    {
+      "hash": "542c111884519f6973f2dd88643643adc545d743",
+      "source": "src/chat/handlers/local.js",
+      "test": "tests/chat-fixes.test.js",
+      "tests": [
+        "tests/chat-fixes.test.js",
+        "tests/cre-comprehensive.test.js"
+      ],
+      "subject": "Apply coworker patches: chat intent fixes + comprehensive CRE test suite",
+      "functionCount": 1,
+      "functionLines": 39,
+      "requirements": 3,
+      "scoreMode": "named",
+      "failToPass": [
+        "6A. LOCAL: Moon phase: 3/3",
+        "6C. LOCAL: Date/time: 3/3",
+        "13. REGRESSION: Known bugs must not regress: 10/10"
+      ],
+      "passToPass": [
+        "\"udelej mi report zprav z webu novinky cz\" → REPORT",
+        "\"udelej report\" → REPORT",
+        "\"udělej mi report\" → REPORT (with háčky)",
+        "\"priprav report z novinky.cz\" → REPORT",
+        "\"report z webu\" → REPORT",
+        "\"report zprav\" → REPORT",
+        "\"dej mi report\" → REPORT",
+        "\"zprav z webu\" → REPORT",
+        "\"zprávy z novinky.cz\" → REPORT (diacritics)",
+        "\"z webu seznam.cz\" → REPORT (domain pattern)",
+        "\"vytvoř report\" → REPORT (existing)",
+        "\"shrnutí\" → REPORT (existing)",
+        "\"za poslední týden\" → REPORT (existing)",
+        "\"zpravy\" (no diacritics) → FACTUAL",
+        "\"zprav\" (bare, no diacritics) → FACTUAL",
+        "\"novinky\" → FACTUAL",
+        "\"pocasi\" (no diacritics) → FACTUAL",
+        "\"zprávy\" (with diacritics) → FACTUAL (existing)",
+        "\"zkus to v ceskem jazyce\" → reformulation",
+        "\"zkus to v českém jazyce\" (diacritics) → reformulation",
+        "\"zkus to po cesky\" → reformulation",
+        "\"odpověz česky\" → reformulation",
+        "\"piš to česky\" → reformulation",
+        "\"řekni to anglicky\" → reformulation",
+        "\"v anglickém jazyce\" → reformulation",
+        "\"to samé česky\" → reformulation",
+        "\"přelož to do angličtiny\" → reformulation",
+        "\"zkus to znovu\" → reformulation",
+        "\"zopakuj to\" → reformulation",
+        "\"udelej to znovu\" → reformulation (no diacritics)",
+        "\"ještě jednou\" → reformulation",
+        "\"try again\" → reformulation (EN)",
+        "\"repeat in Czech\" → reformulation (EN)",
+        "\"najdi mi novinky\" → NOT reformulation",
+        "\"co je nového\" → NOT reformulation",
+        "\"zkus vyhledat bitcoin\" → NOT reformulation",
+        "\"udelej mi report zprav z webu novinky cz\" → detects CS",
+        "\"zkus to v ceskem jazyce\" → detects CS",
+        "\"dej mi zpravy\" → detects CS",
+        "\"diky za pomoc\" → detects CS (no diacritics)",
+        "\"hello how are you\" → does NOT match CS",
+        "Bug 1: \"udelej mi report zprav z webu novinky cz\" classifies correctly",
+        "Bug 1: \"zkus to v ceskem jazyce\" detected as reformulation",
+        "Bug 1: no-diacritics Czech detected as Czech, not unknown",
+        "\"dnes je ale 8.2.2026\" → CORRECTION",
+        "\"dnes je 8.2.2026\" → CORRECTION",
+        "\"ale dnes je 15.3.\" → CORRECTION",
+        "\"dneska je 8.2.2026\" → CORRECTION",
+        "\"dnes máme 8.2.\" → CORRECTION",
+        "\"dnešní datum je jiné\" → CORRECTION",
+        "\"ne, myslel jsem něco jiného\" → CORRECTION",
+        "\"špatně, dnes je...\" → CORRECTION",
+        "\"but today is Feb 8\" → CORRECTION (EN)",
+        "\"actually, the date is...\" → CORRECTION (EN)",
+        "\"co je dnes za den\" → NOT correction (it is a question)",
+        "\"najdi mi novinky\" → NOT correction",
+        "Moon phase response includes today's date",
+        "DATE_CORRECTION_PATTERNS detect date statements",
+        "1A. INTENT: Greetings & Small Talk → CONVERSATIONAL: 14/14",
+        "1B. INTENT: Search queries → SEARCH: 15/15",
+        "1C. INTENT: Reports → REPORT: 21/21",
+        "1D. INTENT: Factual → FACTUAL: 12/12",
+        "1E. INTENT: Code → CODE: 9/9",
+        "1F. INTENT: Creative / Ideation → CREATIVE: 16/16",
+        "1G. INTENT: LOCAL deterministic → LOCAL: 15/15",
+        "1H. INTENT: Build → BUILD: 12/12",
+        "1I. INTENT: Item lookup → ITEM_LOOKUP: 7/7",
+        "1J. INTENT: Self-reference → CONVERSATIONAL: 11/11",
+        "1K. INTENT: Statements → CONVERSATIONAL: 11/11",
+        "1L. INTENT: Knowledge requests → SEARCH: 10/10",
+        "1M. INTENT: Conversational follow-ups → CONVERSATIONAL: 11/11",
+        "2. INTENT: No-diacritics Czech (must NOT fall to AMBIGUOUS): 8/8",
+        "3A. DECISION: Tool-requiring intents → TOOL_CALL: 4/4",
+        "3B. DECISION: Terminal intents → ANSWER or LOCAL: 7/7",
+        "3C. DECISION: BUILD → PLAN (never TOOL_CALL/ANSWER): 4/4",
+        "4A. CONTEXT: Sticky SEARCH intent on follow-ups: 8/8",
+        "4B. CONTEXT: CREATIVE follow-up stays CREATIVE: 12/12",
+        "4C. CONTEXT: Strong intents override sticky: 3/3",
+        "4D. CONTEXT: Intent break patterns: 5/5",
+        "5A. LANGUAGE: Czech detection: 9/9",
+        "5B. LANGUAGE: Other languages: 10/10",
+        "5C. LANGUAGE: getLanguageContext fallback: 3/3",
+        "6B. LOCAL: Math: 8/8",
+        "7A. REFORMULATION: Language switch: 16/16",
+        "7B. REFORMULATION: Retry: 13/13",
+        "7C. REFORMULATION: Negative cases (must NOT match): 7/7",
+        "8. CORRECTIONS: Date/fact corrections → CONVERSATIONAL (not AMBIGUOUS): 10/10",
+        "9A. EDGE: Very short inputs: 6/6",
+        "9B. EDGE: Empty / whitespace: 2/2",
+        "9C. EDGE: Mixed language inputs: 4/4",
+        "9D. EDGE: Numbers and special chars: 4/4",
+        "9E. EDGE: URL-like inputs: 1/1",
+        "10A. PRIORITY: LOCAL beats SEARCH: 3/3",
+        "10B. PRIORITY: CONVERSATIONAL beats SEARCH for follow-ups: 4/4",
+        "10C. PRIORITY: CREATIVE beats SEARCH: 3/3",
+        "10D. PRIORITY: ITEM_LOOKUP beats REPORT: 3/3",
+        "10E. PRIORITY: BUILD beats CODE: 2/2",
+        "11A. INVARIANT: ANSWER only for CONVERSATIONAL/CREATIVE: 3/3",
+        "11B. INVARIANT: TOOL_CALL never for CONVERSATIONAL/CREATIVE/LOCAL: 3/3",
+        "11C. INVARIANT: BUILD ↔ PLAN mutual enforcement: 2/2",
+        "12. FORBIDDEN PHRASES: validateResponse catches them: 20/20"
+      ],
+      "knownFailing": [],
+      "taskFingerprint": "031b0c7348f80bee34072c1b1f1158982fe2670ee1951da7bd0f362eeac99faf",
+      "status": "reserve-floor",
+      "calibration": {
+        "verdict": "podlaha",
+        "values": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "noise": 0,
+        "panel": [
+          "qwen3-coder:latest",
+          "qwen3.5:27b",
+          "qwen3-30b-a3b:latest",
+          "qwen3:14b",
+          "llava:13b"
+        ],
+        "repeats": 3,
+        "measuredAt": "2026-08-23T10:24:39.203Z"
+      }
+    },
+    {
+      "hash": "542c111884519f6973f2dd88643643adc545d743",
+      "source": "src/chat/handlers/utils/language.js",
+      "test": "tests/chat-fixes.test.js",
+      "tests": [
+        "tests/chat-fixes.test.js",
+        "tests/cre-comprehensive.test.js"
+      ],
+      "subject": "Apply coworker patches: chat intent fixes + comprehensive CRE test suite",
+      "functionCount": 1,
+      "functionLines": 83,
+      "requirements": 3,
+      "scoreMode": "named",
+      "failToPass": [
+        "5A. LANGUAGE: Czech detection: 9/9",
+        "13. REGRESSION: Known bugs must not regress: 10/10"
+      ],
+      "passToPass": [
+        "\"udelej mi report zprav z webu novinky cz\" → REPORT",
+        "\"udelej report\" → REPORT",
+        "\"udělej mi report\" → REPORT (with háčky)",
+        "\"priprav report z novinky.cz\" → REPORT",
+        "\"report z webu\" → REPORT",
+        "\"report zprav\" → REPORT",
+        "\"dej mi report\" → REPORT",
+        "\"zprav z webu\" → REPORT",
+        "\"zprávy z novinky.cz\" → REPORT (diacritics)",
+        "\"z webu seznam.cz\" → REPORT (domain pattern)",
+        "\"vytvoř report\" → REPORT (existing)",
+        "\"shrnutí\" → REPORT (existing)",
+        "\"za poslední týden\" → REPORT (existing)",
+        "\"zpravy\" (no diacritics) → FACTUAL",
+        "\"zprav\" (bare, no diacritics) → FACTUAL",
+        "\"novinky\" → FACTUAL",
+        "\"pocasi\" (no diacritics) → FACTUAL",
+        "\"zprávy\" (with diacritics) → FACTUAL (existing)",
+        "\"zkus to v ceskem jazyce\" → reformulation",
+        "\"zkus to v českém jazyce\" (diacritics) → reformulation",
+        "\"zkus to po cesky\" → reformulation",
+        "\"odpověz česky\" → reformulation",
+        "\"piš to česky\" → reformulation",
+        "\"řekni to anglicky\" → reformulation",
+        "\"v anglickém jazyce\" → reformulation",
+        "\"to samé česky\" → reformulation",
+        "\"přelož to do angličtiny\" → reformulation",
+        "\"zkus to znovu\" → reformulation",
+        "\"zopakuj to\" → reformulation",
+        "\"udelej to znovu\" → reformulation (no diacritics)",
+        "\"ještě jednou\" → reformulation",
+        "\"try again\" → reformulation (EN)",
+        "\"repeat in Czech\" → reformulation (EN)",
+        "\"najdi mi novinky\" → NOT reformulation",
+        "\"co je nového\" → NOT reformulation",
+        "\"zkus vyhledat bitcoin\" → NOT reformulation",
+        "\"udelej mi report zprav z webu novinky cz\" → detects CS",
+        "\"zkus to v ceskem jazyce\" → detects CS",
+        "\"dej mi zpravy\" → detects CS",
+        "\"diky za pomoc\" → detects CS (no diacritics)",
+        "\"hello how are you\" → does NOT match CS",
+        "Bug 1: \"udelej mi report zprav z webu novinky cz\" classifies correctly",
+        "Bug 1: \"zkus to v ceskem jazyce\" detected as reformulation",
+        "Bug 1: no-diacritics Czech detected as Czech, not unknown",
+        "\"dnes je ale 8.2.2026\" → CORRECTION",
+        "\"dnes je 8.2.2026\" → CORRECTION",
+        "\"ale dnes je 15.3.\" → CORRECTION",
+        "\"dneska je 8.2.2026\" → CORRECTION",
+        "\"dnes máme 8.2.\" → CORRECTION",
+        "\"dnešní datum je jiné\" → CORRECTION",
+        "\"ne, myslel jsem něco jiného\" → CORRECTION",
+        "\"špatně, dnes je...\" → CORRECTION",
+        "\"but today is Feb 8\" → CORRECTION (EN)",
+        "\"actually, the date is...\" → CORRECTION (EN)",
+        "\"co je dnes za den\" → NOT correction (it is a question)",
+        "\"najdi mi novinky\" → NOT correction",
+        "Moon phase response includes today's date",
+        "DATE_CORRECTION_PATTERNS detect date statements",
+        "1A. INTENT: Greetings & Small Talk → CONVERSATIONAL: 14/14",
+        "1B. INTENT: Search queries → SEARCH: 15/15",
+        "1C. INTENT: Reports → REPORT: 21/21",
+        "1D. INTENT: Factual → FACTUAL: 12/12",
+        "1E. INTENT: Code → CODE: 9/9",
+        "1F. INTENT: Creative / Ideation → CREATIVE: 16/16",
+        "1G. INTENT: LOCAL deterministic → LOCAL: 15/15",
+        "1H. INTENT: Build → BUILD: 12/12",
+        "1I. INTENT: Item lookup → ITEM_LOOKUP: 7/7",
+        "1J. INTENT: Self-reference → CONVERSATIONAL: 11/11",
+        "1K. INTENT: Statements → CONVERSATIONAL: 11/11",
+        "1L. INTENT: Knowledge requests → SEARCH: 10/10",
+        "1M. INTENT: Conversational follow-ups → CONVERSATIONAL: 11/11",
+        "2. INTENT: No-diacritics Czech (must NOT fall to AMBIGUOUS): 8/8",
+        "3A. DECISION: Tool-requiring intents → TOOL_CALL: 4/4",
+        "3B. DECISION: Terminal intents → ANSWER or LOCAL: 7/7",
+        "3C. DECISION: BUILD → PLAN (never TOOL_CALL/ANSWER): 4/4",
+        "4A. CONTEXT: Sticky SEARCH intent on follow-ups: 8/8",
+        "4B. CONTEXT: CREATIVE follow-up stays CREATIVE: 12/12",
+        "4C. CONTEXT: Strong intents override sticky: 3/3",
+        "4D. CONTEXT: Intent break patterns: 5/5",
+        "5B. LANGUAGE: Other languages: 10/10",
+        "5C. LANGUAGE: getLanguageContext fallback: 3/3",
+        "6A. LOCAL: Moon phase: 3/3",
+        "6B. LOCAL: Math: 8/8",
+        "6C. LOCAL: Date/time: 3/3",
+        "7A. REFORMULATION: Language switch: 16/16",
+        "7B. REFORMULATION: Retry: 13/13",
+        "7C. REFORMULATION: Negative cases (must NOT match): 7/7",
+        "8. CORRECTIONS: Date/fact corrections → CONVERSATIONAL (not AMBIGUOUS): 10/10",
+        "9A. EDGE: Very short inputs: 6/6",
+        "9B. EDGE: Empty / whitespace: 2/2",
+        "9C. EDGE: Mixed language inputs: 4/4",
+        "9D. EDGE: Numbers and special chars: 4/4",
+        "9E. EDGE: URL-like inputs: 1/1",
+        "10A. PRIORITY: LOCAL beats SEARCH: 3/3",
+        "10B. PRIORITY: CONVERSATIONAL beats SEARCH for follow-ups: 4/4",
+        "10C. PRIORITY: CREATIVE beats SEARCH: 3/3",
+        "10D. PRIORITY: ITEM_LOOKUP beats REPORT: 3/3",
+        "10E. PRIORITY: BUILD beats CODE: 2/2",
+        "11A. INVARIANT: ANSWER only for CONVERSATIONAL/CREATIVE: 3/3",
+        "11B. INVARIANT: TOOL_CALL never for CONVERSATIONAL/CREATIVE/LOCAL: 3/3",
+        "11C. INVARIANT: BUILD ↔ PLAN mutual enforcement: 2/2",
+        "12. FORBIDDEN PHRASES: validateResponse catches them: 20/20"
+      ],
+      "knownFailing": [],
+      "taskFingerprint": "3b5956a4c0586868260f16a44dfd1bf5dcb078676eb8344a1c8e7bc193038b18",
+      "status": "reserve-floor",
+      "calibration": {
+        "verdict": "podlaha",
+        "values": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "noise": 0,
+        "panel": [
+          "qwen3-coder:latest",
+          "qwen3.5:27b",
+          "qwen3-30b-a3b:latest",
+          "qwen3:14b",
+          "llava:13b"
+        ],
+        "repeats": 3,
+        "measuredAt": "2026-08-23T10:24:39.203Z"
+      }
+    },
+    {
+      "hash": "d8a2aa05c865196b38dae1a31a5bc68d86d982db",
+      "source": "src/upgrade/candidate-trial.js",
+      "test": "tests/candidate-trial.test.js",
+      "tests": [
+        "tests/candidate-trial.test.js"
+      ],
+      "subject": "hunt: hlásit měření a rozhodnutí rolí průběžně",
+      "functionCount": 1,
+      "functionLines": 87,
+      "requirements": 3,
+      "scoreMode": "named",
+      "failToPass": [
+        "měření se hlásí hned, ne až po souboji",
+        "rozhodnutí role se hlásí průběžně"
+      ],
+      "passToPass": [
+        "minimum obsahuje jen binární, jednoznačné kontroly",
+        "dobrý model projde",
+        "prázdná odpověď propadne",
+        "neplatný JSON propadne",
+        "JSON obalený textem projde",
+        "odpověď bez diakritiky propadne na češtině",
+        "přetékající kandidát se zamítne a smaže ještě před testy",
+        "propadnutí u minima zamítne kandidáta a smaže ho",
+        "lepší kandidát vyhraje roli a NEsmaže se",
+        "kandidát, který nevyhraje žádnou roli, se smaže",
+        "keepOnFailure zabrání mazání",
+        "selhání stahování nesmaže nic cizího",
+        "stahování nemá kvalitativní timeout",
+        "role bez navázaného modelu se přeskočí",
+        "odstranění modelu ohlásí výsledek",
+        "u přetékajícího kandidáta se měření jako úspěch nehlásí"
+      ],
+      "knownFailing": [],
+      "taskFingerprint": "50584fdde0273abb84fc05e67bd5e78872c743761232b779f28addbecb221d47",
+      "status": "reserve-floor",
+      "calibration": {
+        "verdict": "podlaha",
+        "values": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "noise": 0,
+        "panel": [
+          "qwen3-coder:latest",
+          "qwen3.5:27b",
+          "qwen3-30b-a3b:latest",
+          "qwen3:14b",
+          "llava:13b"
+        ],
+        "repeats": 3,
+        "measuredAt": "2026-08-23T10:24:39.203Z"
+      }
     }
   ],
   "rejected": [
@@ -5196,14 +6137,6 @@
     {
       "hash": "8310b82120873838b309c66424fffda2d39695d8",
       "reason": "úseky mají 373 ř. (limit 250)"
-    },
-    {
-      "hash": "b973130280d0e58a2caec200260542167f7fab2e",
-      "reason": "oprava mění jednotku — jiný úsek před a po"
-    },
-    {
-      "hash": "b973130280d0e58a2caec200260542167f7fab2e",
-      "reason": "oprava mění jednotku — jiný úsek před a po"
     },
     {
       "hash": "b973130280d0e58a2caec200260542167f7fab2e",
@@ -5254,20 +6187,12 @@
       "reason": "úseky mají 1663 ř. (limit 250)"
     },
     {
-      "hash": "da95ab15d9fdded66904195d4d5062549fb934d2",
-      "reason": "oprava mění jednotku — jiný úsek před a po"
-    },
-    {
       "hash": "e7d89b5ef038e1a32ad2fdff3990d6f9f20d9bec",
       "reason": "úloha má 93 požadavků (limit 40)"
     },
     {
       "hash": "e7d89b5ef038e1a32ad2fdff3990d6f9f20d9bec",
       "reason": "oprava mění jednotku — jiný úsek před a po"
-    },
-    {
-      "hash": "e7d89b5ef038e1a32ad2fdff3990d6f9f20d9bec",
-      "reason": "úloha má 93 požadavků (limit 40)"
     },
     {
       "hash": "86afb733e6b6341f53691182ff1467aa4bb9db2c",
@@ -5331,14 +6256,6 @@
     },
     {
       "hash": "b483559dba4e150f4c4ec301e2608297745aa407",
-      "reason": "oprava mění jednotku — jiný úsek před a po"
-    },
-    {
-      "hash": "b483559dba4e150f4c4ec301e2608297745aa407",
-      "reason": "oprava mění jednotku — jiný úsek před a po"
-    },
-    {
-      "hash": "b483559dba4e150f4c4ec301e2608297745aa407",
       "reason": "commit mění jen komentáře a prázdné řádky"
     },
     {
@@ -5362,10 +6279,6 @@
       "reason": "oprava mění jednotku — jiný úsek před a po"
     },
     {
-      "hash": "217df1dc8bbc89c9f5741ef12ce823b13f6789b6",
-      "reason": "oprava mění jednotku — jiný úsek před a po"
-    },
-    {
       "hash": "dcf7753ccc604fbec2fa1b87cc8235f8c4726a4b",
       "reason": "úseky mají 348 ř. (limit 250)"
     },
@@ -5376,10 +6289,6 @@
     {
       "hash": "aa2062bd96680a2aff67de7eb5325b29cde51d07",
       "reason": "úseky mají 830 ř. (limit 250)"
-    },
-    {
-      "hash": "aa2062bd96680a2aff67de7eb5325b29cde51d07",
-      "reason": "oprava mění jednotku — jiný úsek před a po"
     },
     {
       "hash": "aa2062bd96680a2aff67de7eb5325b29cde51d07",
@@ -5462,10 +6371,6 @@
       "reason": "úseky mají 297 ř. (limit 250)"
     },
     {
-      "hash": "37a36eaa8a6bf12749e6bf46f92407aeec1e23c5",
-      "reason": "oprava mění jednotku — jiný úsek před a po"
-    },
-    {
       "hash": "faf6fa570c0b69743994666d1ac79301b5ab5875",
       "reason": "úseky mají 974 ř. (limit 250)"
     },
@@ -5474,18 +6379,6 @@
       "reason": "oprava mění jednotku — jiný úsek před a po"
     },
     {
-      "hash": "e55b6af09ce3a7b08bff6313380521bbaa13b3f9",
-      "reason": "oprava mění jednotku — jiný úsek před a po"
-    },
-    {
-      "hash": "85b6f8f2f92175f1f537d70f59a27a4115e8e390",
-      "reason": "úloha má 85 požadavků (limit 40)"
-    },
-    {
-      "hash": "85b6f8f2f92175f1f537d70f59a27a4115e8e390",
-      "reason": "úloha má 85 požadavků (limit 40)"
-    },
-    {
       "hash": "85b6f8f2f92175f1f537d70f59a27a4115e8e390",
       "reason": "úloha má 85 požadavků (limit 40)"
     },
@@ -5498,24 +6391,8 @@
       "reason": "úloha má 109 požadavků (limit 40)"
     },
     {
-      "hash": "c60fc2c5d197c3e36fd693aa2eedd30d3b157dc1",
-      "reason": "úloha má 109 požadavků (limit 40)"
-    },
-    {
       "hash": "df402051f8574bab803ff4d70130721affc590c7",
       "reason": "úloha má 48 požadavků (limit 40)"
-    },
-    {
-      "hash": "df402051f8574bab803ff4d70130721affc590c7",
-      "reason": "úloha má 48 požadavků (limit 40)"
-    },
-    {
-      "hash": "557779575c030be66ff7f70de278b400c6d7ef69",
-      "reason": "úloha má 47 požadavků (limit 40)"
-    },
-    {
-      "hash": "557779575c030be66ff7f70de278b400c6d7ef69",
-      "reason": "úloha má 47 požadavků (limit 40)"
     },
     {
       "hash": "557779575c030be66ff7f70de278b400c6d7ef69",
@@ -5574,18 +6451,6 @@
       "reason": "commit mění jen komentáře a prázdné řádky"
     },
     {
-      "hash": "9aa550787718229e3109219c44fbc8b6690c81f6",
-      "reason": "úloha má 64 požadavků (limit 40)"
-    },
-    {
-      "hash": "9aa550787718229e3109219c44fbc8b6690c81f6",
-      "reason": "úloha má 64 požadavků (limit 40)"
-    },
-    {
-      "hash": "9aa550787718229e3109219c44fbc8b6690c81f6",
-      "reason": "úloha má 64 požadavků (limit 40)"
-    },
-    {
       "hash": "a6b477e1fe8f75d1cedc00ad47eba93bb0c272b5",
       "reason": "úloha má 42 požadavků (limit 40)"
     },
@@ -5606,36 +6471,12 @@
       "reason": "úloha má 102 požadavků (limit 40)"
     },
     {
-      "hash": "742abaebfaa6e811d2e4394f9f576a18df00ae5e",
-      "reason": "úloha má 102 požadavků (limit 40)"
-    },
-    {
-      "hash": "742abaebfaa6e811d2e4394f9f576a18df00ae5e",
-      "reason": "úloha má 102 požadavků (limit 40)"
-    },
-    {
-      "hash": "e64a956bd32f9fafef90042465d34c42d17149b7",
-      "reason": "úloha má 65 požadavků (limit 40)"
-    },
-    {
-      "hash": "e64a956bd32f9fafef90042465d34c42d17149b7",
-      "reason": "úloha má 65 požadavků (limit 40)"
-    },
-    {
-      "hash": "e64a956bd32f9fafef90042465d34c42d17149b7",
-      "reason": "úloha má 65 požadavků (limit 40)"
-    },
-    {
       "hash": "e64a956bd32f9fafef90042465d34c42d17149b7",
       "reason": "úloha má 65 požadavků (limit 40)"
     },
     {
       "hash": "e64a956bd32f9fafef90042465d34c42d17149b7",
       "reason": "commit mění jen komentáře a prázdné řádky"
-    },
-    {
-      "hash": "e64a956bd32f9fafef90042465d34c42d17149b7",
-      "reason": "úloha má 65 požadavků (limit 40)"
     },
     {
       "hash": "e93d67fc238f39f60473de414cf940575f66341f",
@@ -5644,10 +6485,6 @@
     {
       "hash": "e93d67fc238f39f60473de414cf940575f66341f",
       "reason": "commit mění jen komentáře a prázdné řádky"
-    },
-    {
-      "hash": "de2379927a7cb26c27c751958e798a469c861aed",
-      "reason": "úloha má 82 požadavků (limit 40)"
     },
     {
       "hash": "de2379927a7cb26c27c751958e798a469c861aed",
@@ -5678,16 +6515,8 @@
       "reason": "úloha má 45 požadavků (limit 40)"
     },
     {
-      "hash": "ea014f1e93db65fcac0e830e2a248f689f04074b",
-      "reason": "úloha má 45 požadavků (limit 40)"
-    },
-    {
       "hash": "57c1024cdd7e21b2f8a9e05f53845ef3390d9b38",
       "reason": "úseky mají 2519 ř. (limit 250)"
-    },
-    {
-      "hash": "57c1024cdd7e21b2f8a9e05f53845ef3390d9b38",
-      "reason": "commit mění jen komentáře a prázdné řádky"
     },
     {
       "hash": "57c1024cdd7e21b2f8a9e05f53845ef3390d9b38",
@@ -5702,10 +6531,6 @@
       "reason": "úseky mají 559 ř. (limit 250)"
     },
     {
-      "hash": "57c1024cdd7e21b2f8a9e05f53845ef3390d9b38",
-      "reason": "commit mění jen komentáře a prázdné řádky"
-    },
-    {
       "hash": "64e0b8258f738cba281fa09ca323cc4727bc53b7",
       "reason": "oprava mění jednotku — jiný úsek před a po"
     },
@@ -5716,18 +6541,6 @@
     {
       "hash": "0e6a5e884b1d316f3470567d554fbc4cfca5cb71",
       "reason": "úloha má 161 požadavků (limit 40)"
-    },
-    {
-      "hash": "0e6a5e884b1d316f3470567d554fbc4cfca5cb71",
-      "reason": "úloha má 161 požadavků (limit 40)"
-    },
-    {
-      "hash": "0e6a5e884b1d316f3470567d554fbc4cfca5cb71",
-      "reason": "úloha má 161 požadavků (limit 40)"
-    },
-    {
-      "hash": "428dcf7f13a9bc71fd5d228565f621151d7bf57d",
-      "reason": "oprava mění jednotku — jiný úsek před a po"
     },
     {
       "hash": "428dcf7f13a9bc71fd5d228565f621151d7bf57d",
@@ -5747,10 +6560,6 @@
     },
     {
       "hash": "0fa5c66f5379389179f76d2940f828b6916ca8b6",
-      "reason": "oprava mění jednotku — jiný úsek před a po"
-    },
-    {
-      "hash": "0fa5c66f5379389179f76d2940f828b6916ca8b6",
       "reason": "úloha má 124 požadavků (limit 40)"
     },
     {
@@ -5759,27 +6568,7 @@
     },
     {
       "hash": "bb82846617648976d8b46b682dbd0fbba492b10c",
-      "reason": "úloha má 57 požadavků (limit 40)"
-    },
-    {
-      "hash": "bb82846617648976d8b46b682dbd0fbba492b10c",
-      "reason": "úloha má 57 požadavků (limit 40)"
-    },
-    {
-      "hash": "bb82846617648976d8b46b682dbd0fbba492b10c",
-      "reason": "úloha má 57 požadavků (limit 40)"
-    },
-    {
-      "hash": "bb82846617648976d8b46b682dbd0fbba492b10c",
       "reason": "oprava mění jednotku — jiný úsek před a po"
-    },
-    {
-      "hash": "bb82846617648976d8b46b682dbd0fbba492b10c",
-      "reason": "oprava mění jednotku — jiný úsek před a po"
-    },
-    {
-      "hash": "bb82846617648976d8b46b682dbd0fbba492b10c",
-      "reason": "úloha má 57 požadavků (limit 40)"
     },
     {
       "hash": "8a303f57d8a43e89fc78a97e30e8664984970c47",
@@ -5802,32 +6591,12 @@
       "reason": "úsek zadání by byl prázdný"
     },
     {
-      "hash": "701d1de66b57e9fe70446cc2ad2aa8ad707848c3",
-      "reason": "úloha má 54 požadavků (limit 40)"
-    },
-    {
-      "hash": "701d1de66b57e9fe70446cc2ad2aa8ad707848c3",
-      "reason": "úsek zadání by byl prázdný"
-    },
-    {
-      "hash": "701d1de66b57e9fe70446cc2ad2aa8ad707848c3",
-      "reason": "úloha má 54 požadavků (limit 40)"
-    },
-    {
-      "hash": "701d1de66b57e9fe70446cc2ad2aa8ad707848c3",
-      "reason": "úloha má 54 požadavků (limit 40)"
-    },
-    {
       "hash": "0b1dddde8c9cb43149d38c463ec7483fe2234e01",
       "reason": "úseky mají 3552 ř. (limit 250)"
     },
     {
       "hash": "19de5bdd3086a1ba4e758fd8facad3dba1737ee3",
       "reason": "oprava mění jednotku — jiný úsek před a po"
-    },
-    {
-      "hash": "19de5bdd3086a1ba4e758fd8facad3dba1737ee3",
-      "reason": "úloha má 41 požadavků (limit 40)"
     },
     {
       "hash": "19de5bdd3086a1ba4e758fd8facad3dba1737ee3",
@@ -5854,10 +6623,6 @@
       "reason": "úseky mají 270 ř. (limit 250)"
     },
     {
-      "hash": "fbb5a3d14cf973cb4c94c5e025ad51d22c83822b",
-      "reason": "úsek zadání by byl prázdný"
-    },
-    {
       "hash": "ddea0ef2ded89925913a08b008e521734afc4a6c",
       "reason": "úseky mají 2503 ř. (limit 250)"
     },
@@ -5882,24 +6647,8 @@
       "reason": "oprava mění jednotku — jiný úsek před a po"
     },
     {
-      "hash": "fdb19cab01a1ab4155b0f7ab28fc4b658655988f",
-      "reason": "oprava mění jednotku — jiný úsek před a po"
-    },
-    {
       "hash": "6b3e293b1dc110eb34f6da611646eb5c66d0999c",
       "reason": "úseky mají 477 ř. (limit 250)"
-    },
-    {
-      "hash": "269fb6fe47ddc5e14cc70f8693702b174200b4ca",
-      "reason": "úloha má 44 požadavků (limit 40)"
-    },
-    {
-      "hash": "269fb6fe47ddc5e14cc70f8693702b174200b4ca",
-      "reason": "úloha má 44 požadavků (limit 40)"
-    },
-    {
-      "hash": "269fb6fe47ddc5e14cc70f8693702b174200b4ca",
-      "reason": "úloha má 44 požadavků (limit 40)"
     },
     {
       "hash": "269fb6fe47ddc5e14cc70f8693702b174200b4ca",
@@ -5943,19 +6692,7 @@
     },
     {
       "hash": "713c986a4f86eaf3ae0b70ba35d6f4d2470b31c0",
-      "reason": "oprava mění jednotku — jiný úsek před a po"
-    },
-    {
-      "hash": "713c986a4f86eaf3ae0b70ba35d6f4d2470b31c0",
-      "reason": "oprava mění jednotku — jiný úsek před a po"
-    },
-    {
-      "hash": "713c986a4f86eaf3ae0b70ba35d6f4d2470b31c0",
       "reason": "úseky mají 265 ř. (limit 250)"
-    },
-    {
-      "hash": "713c986a4f86eaf3ae0b70ba35d6f4d2470b31c0",
-      "reason": "oprava mění jednotku — jiný úsek před a po"
     },
     {
       "hash": "0672ed6b0b6597fd06cd7af8e0ba61441caf4f07",
@@ -5968,10 +6705,6 @@
     {
       "hash": "0672ed6b0b6597fd06cd7af8e0ba61441caf4f07",
       "reason": "úseky mají 251 ř. (limit 250)"
-    },
-    {
-      "hash": "0672ed6b0b6597fd06cd7af8e0ba61441caf4f07",
-      "reason": "oprava mění jednotku — jiný úsek před a po"
     },
     {
       "hash": "ca1e14cc3df5337fd2a5481f454c0550e2eff04f",
@@ -6015,35 +6748,7 @@
     },
     {
       "hash": "2b4d5ebd4c4f4385f03deea271ab0e1a6dd8744a",
-      "reason": "úloha má 51 požadavků (limit 40)"
-    },
-    {
-      "hash": "2b4d5ebd4c4f4385f03deea271ab0e1a6dd8744a",
-      "reason": "úloha má 51 požadavků (limit 40)"
-    },
-    {
-      "hash": "2b4d5ebd4c4f4385f03deea271ab0e1a6dd8744a",
-      "reason": "úloha má 51 požadavků (limit 40)"
-    },
-    {
-      "hash": "2b4d5ebd4c4f4385f03deea271ab0e1a6dd8744a",
-      "reason": "úloha má 51 požadavků (limit 40)"
-    },
-    {
-      "hash": "2b4d5ebd4c4f4385f03deea271ab0e1a6dd8744a",
-      "reason": "úloha má 51 požadavků (limit 40)"
-    },
-    {
-      "hash": "2b4d5ebd4c4f4385f03deea271ab0e1a6dd8744a",
       "reason": "oprava mění jednotku — jiný úsek před a po"
-    },
-    {
-      "hash": "2b4d5ebd4c4f4385f03deea271ab0e1a6dd8744a",
-      "reason": "úloha má 51 požadavků (limit 40)"
-    },
-    {
-      "hash": "2b4d5ebd4c4f4385f03deea271ab0e1a6dd8744a",
-      "reason": "úloha má 51 požadavků (limit 40)"
     },
     {
       "hash": "fb16a9c6f7ad0d0bbb7aa91cedf85222f68ca23c",
@@ -6068,38 +6773,6 @@
     {
       "hash": "242acf41bc2e4d33ee018cbffbd1e511ac2179fc",
       "reason": "úseky mají 664 ř. (limit 250)"
-    },
-    {
-      "hash": "d44f1634f8b58c872ae0ccb2abf97fcad6a80067",
-      "reason": "úloha má 65 požadavků (limit 40)"
-    },
-    {
-      "hash": "d44f1634f8b58c872ae0ccb2abf97fcad6a80067",
-      "reason": "úloha má 65 požadavků (limit 40)"
-    },
-    {
-      "hash": "d44f1634f8b58c872ae0ccb2abf97fcad6a80067",
-      "reason": "úloha má 65 požadavků (limit 40)"
-    },
-    {
-      "hash": "d44f1634f8b58c872ae0ccb2abf97fcad6a80067",
-      "reason": "úloha má 65 požadavků (limit 40)"
-    },
-    {
-      "hash": "d44f1634f8b58c872ae0ccb2abf97fcad6a80067",
-      "reason": "úloha má 65 požadavků (limit 40)"
-    },
-    {
-      "hash": "d44f1634f8b58c872ae0ccb2abf97fcad6a80067",
-      "reason": "úloha má 65 požadavků (limit 40)"
-    },
-    {
-      "hash": "d44f1634f8b58c872ae0ccb2abf97fcad6a80067",
-      "reason": "úloha má 65 požadavků (limit 40)"
-    },
-    {
-      "hash": "d44f1634f8b58c872ae0ccb2abf97fcad6a80067",
-      "reason": "úloha má 65 požadavků (limit 40)"
     },
     {
       "hash": "d44f1634f8b58c872ae0ccb2abf97fcad6a80067",
@@ -6154,14 +6827,6 @@
       "reason": "úsek zadání by byl prázdný"
     },
     {
-      "hash": "bcfdf76af1c5e2296d98ad4423879f9a5488f9b3",
-      "reason": "oprava mění jednotku — jiný úsek před a po"
-    },
-    {
-      "hash": "b16569508f3e13f6817a3cf6e40c5044f0956709",
-      "reason": "oprava mění jednotku — jiný úsek před a po"
-    },
-    {
       "hash": "b16569508f3e13f6817a3cf6e40c5044f0956709",
       "reason": "oprava mění jednotku — jiný úsek před a po"
     },
@@ -6182,24 +6847,8 @@
       "reason": "úloha má 81 požadavků (limit 40)"
     },
     {
-      "hash": "83fa7d99d75b4763648eedbc0753c7168c210a5c",
-      "reason": "úloha má 81 požadavků (limit 40)"
-    },
-    {
-      "hash": "83fa7d99d75b4763648eedbc0753c7168c210a5c",
-      "reason": "úloha má 81 požadavků (limit 40)"
-    },
-    {
       "hash": "39ee2016b3dd9b97411964860905e5c1286116af",
       "reason": "oprava mění jednotku — jiný úsek před a po"
-    },
-    {
-      "hash": "624f2e6362ba7913cdce437504eaf9f978934f2b",
-      "reason": "úloha má 41 požadavků (limit 40)"
-    },
-    {
-      "hash": "624f2e6362ba7913cdce437504eaf9f978934f2b",
-      "reason": "úloha má 41 požadavků (limit 40)"
     },
     {
       "hash": "624f2e6362ba7913cdce437504eaf9f978934f2b",
@@ -6231,18 +6880,6 @@
     },
     {
       "hash": "d634bb7bab62244cb4a09983485f1787fa3f9e3a",
-      "reason": "úloha má 440 požadavků (limit 40)"
-    },
-    {
-      "hash": "d634bb7bab62244cb4a09983485f1787fa3f9e3a",
-      "reason": "úloha má 440 požadavků (limit 40)"
-    },
-    {
-      "hash": "d634bb7bab62244cb4a09983485f1787fa3f9e3a",
-      "reason": "úloha má 440 požadavků (limit 40)"
-    },
-    {
-      "hash": "d634bb7bab62244cb4a09983485f1787fa3f9e3a",
       "reason": "zdroják nelze načíst: Command failed: git -C /home/belphareon/Projects/intentsmith show d634bb7bab62244cb4a09983485f1787fa3f9e3a:src/audit/index.js\nfatal: path 'src/audit/index.js' does not exist in 'd634bb7bab62244cb4a09983485f1787fa3f9e3a'\n"
     },
     {
@@ -6260,10 +6897,6 @@
     {
       "hash": "d634bb7bab62244cb4a09983485f1787fa3f9e3a",
       "reason": "zdroják nelze načíst: Command failed: git -C /home/belphareon/Projects/intentsmith show d634bb7bab62244cb4a09983485f1787fa3f9e3a:src/db/init.js\nfatal: path 'src/db/init.js' does not exist in 'd634bb7bab62244cb4a09983485f1787fa3f9e3a'\n"
-    },
-    {
-      "hash": "d634bb7bab62244cb4a09983485f1787fa3f9e3a",
-      "reason": "úloha má 440 požadavků (limit 40)"
     },
     {
       "hash": "d634bb7bab62244cb4a09983485f1787fa3f9e3a",
@@ -6291,39 +6924,11 @@
     },
     {
       "hash": "6f779282703d11afd1e9a784cd468e7e2ff28ca9",
-      "reason": "úloha má 76 požadavků (limit 40)"
-    },
-    {
-      "hash": "6f779282703d11afd1e9a784cd468e7e2ff28ca9",
       "reason": "commit mění jen komentáře a prázdné řádky"
     },
     {
-      "hash": "6f779282703d11afd1e9a784cd468e7e2ff28ca9",
-      "reason": "úloha má 76 požadavků (limit 40)"
-    },
-    {
       "hash": "72e43bf7535d5a77deb239777654ed91491ba80e",
       "reason": "úloha má 202 požadavků (limit 40)"
-    },
-    {
-      "hash": "72e43bf7535d5a77deb239777654ed91491ba80e",
-      "reason": "úloha má 202 požadavků (limit 40)"
-    },
-    {
-      "hash": "72e43bf7535d5a77deb239777654ed91491ba80e",
-      "reason": "úloha má 202 požadavků (limit 40)"
-    },
-    {
-      "hash": "72e43bf7535d5a77deb239777654ed91491ba80e",
-      "reason": "úloha má 202 požadavků (limit 40)"
-    },
-    {
-      "hash": "a84fb35ab7b2fd3321f10bd193d2fd9c9da3b106",
-      "reason": "test projde i před opravou — úloha nic neměří"
-    },
-    {
-      "hash": "a84fb35ab7b2fd3321f10bd193d2fd9c9da3b106",
-      "reason": "test projde i před opravou — úloha nic neměří"
     },
     {
       "hash": "a84fb35ab7b2fd3321f10bd193d2fd9c9da3b106",
@@ -6332,30 +6937,6 @@
     {
       "hash": "a84fb35ab7b2fd3321f10bd193d2fd9c9da3b106",
       "reason": "stav před opravou se nedá sestavit: vložený kód není syntakticky platný"
-    },
-    {
-      "hash": "a84fb35ab7b2fd3321f10bd193d2fd9c9da3b106",
-      "reason": "test projde i před opravou — úloha nic neměří"
-    },
-    {
-      "hash": "a84fb35ab7b2fd3321f10bd193d2fd9c9da3b106",
-      "reason": "test projde i před opravou — úloha nic neměří"
-    },
-    {
-      "hash": "a84fb35ab7b2fd3321f10bd193d2fd9c9da3b106",
-      "reason": "test projde i před opravou — úloha nic neměří"
-    },
-    {
-      "hash": "a84fb35ab7b2fd3321f10bd193d2fd9c9da3b106",
-      "reason": "test projde i před opravou — úloha nic neměří"
-    },
-    {
-      "hash": "a84fb35ab7b2fd3321f10bd193d2fd9c9da3b106",
-      "reason": "test projde i před opravou — úloha nic neměří"
-    },
-    {
-      "hash": "a84fb35ab7b2fd3321f10bd193d2fd9c9da3b106",
-      "reason": "test projde i před opravou — úloha nic neměří"
     },
     {
       "hash": "2be286193d296861d5058dc185d36c355788e55e",
@@ -6375,55 +6956,11 @@
     },
     {
       "hash": "e5a30156619fda4f3c22e5c029c1280750f6fb0e",
-      "reason": "gold patch neprojde vlastním testem: splněno 0/0 požadavků"
-    },
-    {
-      "hash": "3ad3e8ef2ff5d95c2a9caeabaa252e5a8179694d",
-      "reason": "test projde i před opravou — úloha nic neměří"
-    },
-    {
-      "hash": "e5a30156619fda4f3c22e5c029c1280750f6fb0e",
       "reason": "stav před opravou se nedá sestavit: vložený kód není syntakticky platný"
     },
     {
-      "hash": "e5a30156619fda4f3c22e5c029c1280750f6fb0e",
-      "reason": "gold patch neprojde vlastním testem: splněno 0/0 požadavků"
-    },
-    {
-      "hash": "e5a30156619fda4f3c22e5c029c1280750f6fb0e",
-      "reason": "gold patch neprojde vlastním testem: splněno 0/0 požadavků"
-    },
-    {
-      "hash": "e5a30156619fda4f3c22e5c029c1280750f6fb0e",
-      "reason": "gold patch neprojde vlastním testem: splněno 0/0 požadavků"
-    },
-    {
       "hash": "0672ed6b0b6597fd06cd7af8e0ba61441caf4f07",
       "reason": "gold patch neprojde vlastním testem: splněno 0/0 požadavků"
-    },
-    {
-      "hash": "0672ed6b0b6597fd06cd7af8e0ba61441caf4f07",
-      "reason": "gold patch neprojde vlastním testem: splněno 0/0 požadavků"
-    },
-    {
-      "hash": "0672ed6b0b6597fd06cd7af8e0ba61441caf4f07",
-      "reason": "gold patch neprojde vlastním testem: splněno 0/0 požadavků"
-    },
-    {
-      "hash": "0672ed6b0b6597fd06cd7af8e0ba61441caf4f07",
-      "reason": "gold patch neprojde vlastním testem: splněno 0/0 požadavků"
-    },
-    {
-      "hash": "0672ed6b0b6597fd06cd7af8e0ba61441caf4f07",
-      "reason": "gold patch neprojde vlastním testem: splněno 0/0 požadavků"
-    },
-    {
-      "hash": "0672ed6b0b6597fd06cd7af8e0ba61441caf4f07",
-      "reason": "gold patch neprojde vlastním testem: splněno 0/0 požadavků"
-    },
-    {
-      "hash": "3547ab8fffac29a88aa7299c095b6b66e6c25c8c",
-      "reason": "test projde i před opravou — úloha nic neměří"
     },
     {
       "hash": "3547ab8fffac29a88aa7299c095b6b66e6c25c8c",
@@ -6434,35 +6971,7 @@
       "reason": "stav před opravou se nedá sestavit: vložený kód není syntakticky platný"
     },
     {
-      "hash": "3547ab8fffac29a88aa7299c095b6b66e6c25c8c",
-      "reason": "test projde i před opravou — úloha nic neměří"
-    },
-    {
-      "hash": "3547ab8fffac29a88aa7299c095b6b66e6c25c8c",
-      "reason": "test projde i před opravou — úloha nic neměří"
-    },
-    {
-      "hash": "3547ab8fffac29a88aa7299c095b6b66e6c25c8c",
-      "reason": "test projde i před opravou — úloha nic neměří"
-    },
-    {
       "hash": "242acf41bc2e4d33ee018cbffbd1e511ac2179fc",
-      "reason": "gold patch neprojde vlastním testem: splněno 0/0 požadavků"
-    },
-    {
-      "hash": "242acf41bc2e4d33ee018cbffbd1e511ac2179fc",
-      "reason": "gold patch neprojde vlastním testem: splněno 0/0 požadavků"
-    },
-    {
-      "hash": "242acf41bc2e4d33ee018cbffbd1e511ac2179fc",
-      "reason": "gold patch neprojde vlastním testem: splněno 0/0 požadavků"
-    },
-    {
-      "hash": "242acf41bc2e4d33ee018cbffbd1e511ac2179fc",
-      "reason": "gold patch neprojde vlastním testem: splněno 0/0 požadavků"
-    },
-    {
-      "hash": "fa143fc0334ae360279aa769176304a4070ea11f",
       "reason": "gold patch neprojde vlastním testem: splněno 0/0 požadavků"
     },
     {
@@ -6514,10 +7023,6 @@
       "reason": "gold patch neprojde vlastním testem: splněno 0/0 požadavků"
     },
     {
-      "hash": "576053816453ddb12cf181134f01c53c3e391e32",
-      "reason": "gold patch neprojde vlastním testem: splněno 0/0 požadavků"
-    },
-    {
       "hash": "2f11e801707a93a547795b5e96ff30c7f620ba5b",
       "reason": "test projde i před opravou — úloha nic neměří"
     },
@@ -6542,22 +7047,6 @@
       "reason": "jiný zdroj téhož commitu už timeoutoval"
     },
     {
-      "hash": "203af873f40456be33870d5b62857cc501daae20",
-      "reason": "jiný zdroj téhož commitu už timeoutoval"
-    },
-    {
-      "hash": "203af873f40456be33870d5b62857cc501daae20",
-      "reason": "jiný zdroj téhož commitu už timeoutoval"
-    },
-    {
-      "hash": "203af873f40456be33870d5b62857cc501daae20",
-      "reason": "jiný zdroj téhož commitu už timeoutoval"
-    },
-    {
-      "hash": "203af873f40456be33870d5b62857cc501daae20",
-      "reason": "jiný zdroj téhož commitu už timeoutoval"
-    },
-    {
       "hash": "b483559dba4e150f4c4ec301e2608297745aa407",
       "reason": "gold patch neprojde vlastním testem: vložený kód není syntakticky platný"
     },
@@ -6566,15 +7055,115 @@
       "reason": "test projde i před opravou — úloha nic neměří"
     },
     {
-      "hash": "203af873f40456be33870d5b62857cc501daae20",
-      "reason": "jiný zdroj téhož commitu už timeoutoval"
+      "hash": "36ece31eba9376d4b0907ce49f78ac6a11210886",
+      "reason": "test projde i před opravou — úloha nic neměří"
     },
     {
-      "hash": "36ece31eba9376d4b0907ce49f78ac6a11210886",
+      "hash": "aeec351f614a475ea4247f76d7fd32f210e27102",
+      "reason": "oprava mění jednotku — jiný úsek před a po"
+    },
+    {
+      "hash": "aeec351f614a475ea4247f76d7fd32f210e27102",
+      "reason": "úloha má 64 požadavků (limit 40)"
+    },
+    {
+      "hash": "be4f2175d472f24b98970d046697a0a2a6b21e5a",
+      "reason": "oprava mění jednotku — jiný úsek před a po"
+    },
+    {
+      "hash": "7c4aa73c18289eebced48511910e35dad21c3be5",
+      "reason": "oprava mění jednotku — jiný úsek před a po"
+    },
+    {
+      "hash": "684263e34a6f18fa76ede578fee25d13bbe3b5a5",
+      "reason": "změnu se nedaří přiřadit úseku souboru"
+    },
+    {
+      "hash": "c1de74e55da73724628a9f203b4dde6205a4b26a",
+      "reason": "oprava mění jednotku — jiný úsek před a po"
+    },
+    {
+      "hash": "1a0b77946de0af7f195040d512c2a350e259a541",
+      "reason": "oprava mění jednotku — jiný úsek před a po"
+    },
+    {
+      "hash": "733eb665aada76b303449b844217869cba1767f1",
+      "reason": "oprava mění jednotku — jiný úsek před a po"
+    },
+    {
+      "hash": "ebc0cefd5489eaf36080a229d4bfae7186cac200",
+      "reason": "oprava mění jednotku — jiný úsek před a po"
+    },
+    {
+      "hash": "409c9b53cd8a9f777d26dc706984a24250b05f4b",
+      "reason": "oprava mění jednotku — jiný úsek před a po"
+    },
+    {
+      "hash": "2a96aa1293855381c22dab702aa362a0dcfab6fc",
+      "reason": "úseky mají 548 ř. (limit 250)"
+    },
+    {
+      "hash": "d32019be20585818f937c1219b7ea2e8502aceb6",
+      "reason": "úseky mají 479 ř. (limit 250)"
+    },
+    {
+      "hash": "8fef1aa7be536a31ba6976523e5d04f6689306a1",
+      "reason": "úloha má 65 požadavků (limit 40)"
+    },
+    {
+      "hash": "58f58962795365394a9df4d93d5159d7f94c7225",
+      "reason": "úseky mají 2802 ř. (limit 250)"
+    },
+    {
+      "hash": "998235382b8397b986a365fc1ecd107e72d8565d",
+      "reason": "úseky mají 2657 ř. (limit 250)"
+    },
+    {
+      "hash": "58dc9474d9fe91c943aa9a26248e6c6266dce740",
+      "reason": "úseky mají 373 ř. (limit 250)"
+    },
+    {
+      "hash": "58dc9474d9fe91c943aa9a26248e6c6266dce740",
+      "reason": "úseky mají 469 ř. (limit 250)"
+    },
+    {
+      "hash": "926eed8a4ba23dedf2eeefc2672850e7ba195af6",
+      "reason": "úloha má 88 požadavků (limit 40)"
+    },
+    {
+      "hash": "9b31ad32671562de094519ba1b9b92ff59d12f81",
+      "reason": "úloha má 46 požadavků (limit 40)"
+    },
+    {
+      "hash": "542c111884519f6973f2dd88643643adc545d743",
+      "reason": "úseky mají 794 ř. (limit 250)"
+    },
+    {
+      "hash": "4c5fd6366357795f34155ce841acf074fbb092d1",
+      "reason": "úseky mají 601 ř. (limit 250)"
+    },
+    {
+      "hash": "4c5fd6366357795f34155ce841acf074fbb092d1",
+      "reason": "úseky mají 1150 ř. (limit 250)"
+    },
+    {
+      "hash": "4a1992e9188de51c8ae07aa28573553c2852a9a9",
+      "reason": "úseky mají 768 ř. (limit 250)"
+    },
+    {
+      "hash": "d57b743eda1c510978876d6399478f82c3c85a9b",
+      "reason": "úseky mají 575 ř. (limit 250)"
+    },
+    {
+      "hash": "6437ce8408f7fa6d276f599d7616e5f57498f804",
+      "reason": "gold patch neprojde vlastním testem: vložený kód není syntakticky platný"
+    },
+    {
+      "hash": "c1707671ebb21b77591da281bf9ff60408083631",
       "reason": "test projde i před opravou — úloha nic neměří"
     }
   ],
-  "calibratedAt": "2026-08-23T01:06:16.652Z",
+  "calibratedAt": "2026-08-23T10:43:01.907Z",
   "calibrationPanel": [
     "qwen3-coder:latest",
     "qwen3.5:27b",

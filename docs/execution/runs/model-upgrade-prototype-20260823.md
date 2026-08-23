@@ -8,7 +8,7 @@ a `vision`. Konečné portfolio používá čtyři různé modelové artefakty, 
 nejvýše pro dvě role. `qwen3.5:27b` i `qwen3.8:latest` prokazatelně vyhrály
 CHAT v3.2, ale CHAT vazbu nepřevzaly, protože každý už zastává dvě role. To je
 očekávaný důkaz, že segregace skutečně omezuje výběr. CODE je správně
-fail-closed, protože má jen 3 z požadovaných 6 aktivních rozlišujících úloh.
+fail-closed, protože má jen 4 z požadovaných 6 aktivních rozlišujících úloh.
 
 ## Aktuální portfolio a širší panel
 
@@ -114,7 +114,7 @@ Discovery artefakt: [model-shortlist-20260822.json](./model-shortlist-20260822.j
 | R2 | review_v2 | 0,7458 vs 0,7167 | marže 0,035 < práh 0,05 | `qwen3:14b` zůstává |
 | CHAT | chat_v2 | 0,9017 vs 0,8633 | 2 stabilní úlohy, poměr 1:1 | `qwen3:14b` zůstává |
 | VISION | vision_v2 | 0,2000 vs 0,5333 | kandidát ztrácí 0,556 na 3 úlohách | `llava-llama3:8b` zůstává |
-| CODE | code_patch | panel pěti modelů | jen 3/6 požadovaných aktivních úloh | rozhodování zablokováno |
+| CODE | code_patch | panel pěti modelů | jen 4/6 požadovaných aktivních úloh | rozhodování zablokováno |
 
 Reasoning vysvětluje výměnu: `qwen3.8` bylo lepší např. v critical path,
 setech a logice, zatímco všechny modely měly plné body v jednoduchém budgetu,
@@ -184,14 +184,41 @@ Platné dávky:
   2/12 rozlišujících, 10 podlahových, bez šumu;
 - [code-patch-panel-multisource-medium-20260823.json](./code-patch-panel-multisource-medium-20260823.json):
   1/6 rozlišující, 4 podlahové, 1 nestabilní.
+- [code-patch-panel-pending-140-20260823.json](./code-patch-panel-pending-140-20260823.json):
+  0/6 rozlišujících, 5 podlahových, 1 nestabilní;
+- [code-patch-panel-pending-long-20260823.json](./code-patch-panel-pending-long-20260823.json):
+  1/5 rozlišující, 4 podlahové;
+- [code-patch-panel-appended-short-20260823.json](./code-patch-panel-appended-short-20260823.json):
+  0/6 rozlišujících, 5 podlahových, 1 nestabilní;
+- [code-patch-panel-appended-long-20260823.json](./code-patch-panel-appended-long-20260823.json):
+  0/2 rozlišujících, 2 podlahové.
 
-Konečná fixture: 3 active, 17 reserve-floor, 1 reserve-unstable a 11
-pending delších úloh. Hunt vyžaduje pro CODE `minimumTaskCount=6`; reálný
-`--role=CODE --run` skončil `3/6` ještě před downloadem a GPU měřením.
-Pět panelových modelů má své třúlohové exact-contract výsledky uložené.
-Při rozšíření aktivní sady vznikne nový kontrakt; platné panelové JSON
-reporty dovolí bez nového inference znovu sestavit baseline jen tehdy, když
-pokrývají všechny nově aktivní task IDs.
+Builder dostal fail-closed `--append`: pouze při shodném `code-task-v2`
+kontraktu zachová 32 dříve gold-ověřených úloh, přeskočí jejich přesné
+`(commit, source)` identity i dříve zamítnuté commity a ověřuje jen nové.
+S profilem diff ≤100, kontext ≤250, multi-source a nejvýše 40 požadavků tak
+za několik sekund doplnil osm nových gold-ověřených úloh místo opakovaného
+ověřování celé fixture.
+
+Celkem bylo v navazující kalibraci provedeno 285 odpovědí (19 úloh × 5
+modelů × 3 opakování). Konečná fixture má 40 úloh: 4 active, 33
+reserve-floor a 3 reserve-unstable, bez pending úlohy. Aktivní exact-contract
+skóre jsou:
+
+| Model | CODE skóre | Aktivní úlohy |
+|---|---:|---:|
+| `qwen3.5:27b` | 0,3333 | 4 |
+| `qwen3-coder:latest` | 0,2833 | 4 |
+| `qwen3:14b` | 0,2778 | 4 |
+| `qwen3-30b-a3b:latest` | 0,0000 | 4 |
+| `llava:13b` | 0,0000 | 4 |
+
+Tyto hodnoty neurčují vítěze, protože kontrakt vyžaduje nejméně šest
+nezávisle rozlišujících úloh. Reálný
+`--role=CODE --run --only=qwen3-coder:latest` našel osm lokálních CODE
+kandidátů a správně skončil hláškou `code_patch má 4/6` ještě před downloadem
+a GPU měřením. CODE fallback `qwen3.5:27b` proto zůstal beze změny a žádný
+model se nesmazal.
 
 ## Historie a provozní pojistky
 
@@ -218,7 +245,7 @@ pokrývají všechny nově aktivní task IDs.
 
 ## Známé hranice
 
-1. CODE není rozhodovací sada, dokud nevzniknou alespoň tři další
+1. CODE není rozhodovací sada, dokud nevzniknou alespoň dvě další
    stabilně rozlišující úlohy. Metriku ani práh nesnižovat.
 2. Binding application provedla runtime mutation, ale notification receipt je
    degraded. Produkční B3/B4 terminal activation zůstává mimo prototyp.
@@ -231,12 +258,12 @@ pokrývají všechny nově aktivní task IDs.
 ## Konečné ověření po rozšíření
 
 - Devět relevantních sad: validation 85, model-upgrade 75, pairwise 34,
-  candidate 32, schema 38, code-patch 15, runner 55, function-span 25,
-  extractor 13; dohromady 372 testů, 0 selhání. Pinned failover proof policy
-  přidává 9/9, celkově tedy 381/381.
+  candidate 32, schema 38, code-patch 16, runner 55, function-span 25,
+  extractor 13; dohromady 373 testů, 0 selhání. Pinned failover proof policy
+  přidává 9/9, celkově tedy 382/382.
 - Syntax check změněných CLI/modulů, `git diff --check`, systemd unit verify a
   SQLite `quick_check` prošly.
-- Append-only historie obsahuje 36 COMPLETE přesných kombinací
+- Append-only historie obsahuje 41 COMPLETE přesných kombinací
   digest+sada+kontrakt a 94 zachovaných BLOCKED záznamů; duplicitní COMPLETE
   klíče: 0.
 - `--json` po discovery vydává jediný validní JSON dokument; importované
