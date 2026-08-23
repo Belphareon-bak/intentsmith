@@ -1,10 +1,13 @@
 # WP-M1-QUALITY — průběžný report
 
-- **stav WP:** implementation/offline PASS; fyzické GPU A/B BLOCKED prostředím
+- **stav WP:** implementation/offline PASS; fyzické GPU A/B proběhlo a skončilo
+  acceptance FAIL (`0` accepted refinementů)
 - **produkční source:** `759bcad0f3bdc4be7eb8fd134d429dc572601d3a`
+- **measurement source:** `20f61f2ea37a0396a46be88ed88881a181ea2b02`
 - **zapisující větev:** `codex/m1-closeout-20260822`
 - **push:** neproveden
-- **rozhodnutí ponechat/omezit/odstranit:** čeká na fyzická data a Gate 2
+- **rozhodnutí ponechat/omezit/odstranit:** data jsou dostupná; doporučení je
+  `C-REMOVE`, čeká na výslovnou volbu operátora na Gate 2
 
 ## Call graph a jediný vlastník
 
@@ -94,16 +97,50 @@ ověřil čistý source a nulový leak.
 
 Předcházející pětiminutový read-only monitor viděl stejný cizí proces souvisle
 držet přibližně 4,7 GiB free a typicky 93–97 % utilization. Proces nebyl
-ukončen ani jinak ovlivněn. B5 tedy není PASS a B6 se zatím neotevírá.
+ukončen ani jinak ovlivněn.
 
-## Zbývající acceptance
+## Fyzické A/B — skutečný quality výsledek
 
-1. počkat na současně prázdný `ollama ps`, žádný Ollama/`llama-server` compute,
-   nejméně 20 128 MiB free a utilization nejvýše 60 %; stabilní non-Ollama
-   baseline se změří a po běhu porovná relativně;
-2. spustit výše uvedenou T3 sadu sériově z čistého commitu;
-3. vyžadovat minimálně jeden accepted a jeden rejected refinement, žádný
-   provider error, všechna accepted corpus chování a přirozený restore;
-4. zapsat p50/p95, delta, acceptance rate, tokeny a konkrétní accepted/rejected
-   případ do [rozhodnutí 024](../../decisions/024-m1-refinement-disposition.md);
-5. operátor na Gate 2 zvolí ponechat, omezit nebo odstranit refinement.
+Operátor odmítl absolutní požadavek na nulový compute seznam: množství volné
+VRAM není konstantní a malý desktopový workload není Ollama konflikt. Commit
+`92790a39` proto měří non-Ollama baseline relativně, ale dál fail-closed blokuje
+rezidentní model, jakýkoli cizí Ollama/`llama-server`, méně než 20 128 MiB free
+a utilization nad 60 %. První fyzický běh na tomto commitu odhalil nulový počet
+accepted refinementů a zároveň vadu evidence — acceptance FAIL zahodil již
+naměřené cases. Commit `20f61f2e` opravil pouze persistenci fail-path metrik.
+
+Kanonický běh `m1-b5-quality-ab-20f61f2e-20260823` na clean
+`20f61f2ea37a0396a46be88ed88881a181ea2b02` skončil po 352 536 ms jako
+**FAIL v acceptance**, nikoli prostředím. RustDesk byl explicitně zachycený
+baseline (294 MiB); start měl 22 255 MiB free a 12 % utilization. Model byl
+100% GPU residentní, minimum za běhu bylo 5 333 MiB free a přirozený restore
+vrátil prázdnou Ollamu i nulový Ollama compute po 302 251 ms bez
+administrativního efektu. Strom zůstal čistý a cleanup neměl leak.
+
+| Metrika | Výsledek |
+|---|---:|
+| corpus / attempted / accepted / rejected | 4 / 2 / 0 / 2 |
+| acceptance rate / mean applied delta | 0 % / 0 |
+| A latency p50 / p95 | 3 670 / 26 548 ms |
+| refinement latency p50 / p95 | 933 / 13 358 ms |
+| B final latency p50 / p95 | 3 670 / 26 548 ms |
+| A prompt / output tokeny | 399 / 377 |
+| refinement prompt / output tokeny | 565 / 462 |
+| DNS candidate | 72 → 82, ale drift `0,316 < 0,35`; odmítnut, 13 358 ms, 808 tokenů |
+| Praha candidate | 59 → 59; odmítnut jako nezlepšený, 933 ms, 219 tokenů |
+
+Všechny čtyři finální baseline odpovědi zachovaly corpus chování a nebyla žádná
+provider chyba. Refinement však nepřinesl jediný aplikovaný bod a spotřeboval
+1 027 tokenů a 14 291 ms. Oslabení semantic drift guardu jen proto, že DNS
+candidate minul hranici o `0,034`, není podložené bezpečné řešení.
+
+| Artefakt | SHA-256 |
+|---|---|
+| runner report | `188a1d3395d3a563129da192fcf344101c6f2490b401c5158d37b6c4fdf6979a` |
+| suite log | `9575e77a6a679415666814721cc54890780952182f1ded837ff9d9d73a4848ff` |
+| privátní suite artifact | `04594ec5af498630069869decc0c93d70ac0dcc5be51ea964c1b101e464fbd1b` |
+
+WP tím narazil na deklarovaný `BLOCK`: fixní corpus nemá accepted refinement.
+B6 se nesmí otevřít, dokud operátor na
+[Gate 2 rozhodnutí 024](../../decisions/024-m1-refinement-disposition.md)
+výslovně nezvolí `A-KEEP`, `B-LIMIT` nebo doporučené `C-REMOVE`.

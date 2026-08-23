@@ -232,3 +232,14 @@ před provider efektem: cizí model byl rezidentní, compute `1`, free 4 775 MiB
 a utilization 93 %. B5 je proto implementation-ready / GPU BLOCKED a B6 se
 nespouští. Podrobný stav je v `runs/wp-m1-quality-report.md`; rozhodnutí
 ponechat/omezit/odstranit je připravené jako 024 a čeká na skutečná čísla.
+
+## Pokračování B5 — fyzická čísla
+
+Operátor správně odmítl absolutní požadavek na nulový compute seznam. Commit
+`92790a39` dovolil změřený non-Ollama baseline a dál blokuje cizí Ollamu,
+nedostatek VRAM a vysokou utilization; `20f61f2e` zachovává per-case data i při
+acceptance failure. Registrovaný run `m1-b5-quality-ab-20f61f2e-20260823` na
+clean `20f61f2e` provedl fyzické A/B s `qwen3.5:27b`: bezpečnost a restore PASS,
+quality acceptance FAIL. Dva ze čtyř případů byly eligible, ale oba refinementy
+se odmítly; applied delta 0, cena 1 027 tokenů a 14 291 ms. B6 je zavřené na
+Gate 2 volbě; 024 doporučuje `C-REMOVE`, ale operátorskou volbu nepředstírá.

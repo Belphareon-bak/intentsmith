@@ -928,11 +928,13 @@ error a cancel včetně score, tokenů a latence. Focused výsledky jsou 21/21,
 45/45, 22/22, nový kontrakt 10/10 a WS/finalizer 86/86; ratchet zůstal
 1062/1062 bez nové hrany. Registry má 396 programů.
 
-Fyzické A/B je pravdivě **BLOCKED prostředím**, nikoli PASS. Registrovaný
-preflight `m1-b5-quality-preflight-759bcad0-20260823` na clean `759bcad0`
-skončil před prvním provider requestem: cizí `qwen3.5:27b` byl rezidentní,
-compute `1`, free VRAM 4 775 MiB proti minimu 20 128 MiB a utilization 93 %;
-`measurements=null`. B6 zůstává zavřené. Exact evidence je v
+Fyzické A/B už není blokované prostředím. Po opravě příliš absolutního
+compute preflightu na relativní non-Ollama baseline proběhl registrovaný run
+`m1-b5-quality-ab-20f61f2e-20260823` na clean `20f61f2e`. Bezpečnost, 100% GPU
+residency, headroom, corpus chování i přirozený restore prošly, ale quality
+acceptance skončila **FAIL**: 2 pokusy, 0 accepted, 2 rejected, applied delta
+0 za 1 027 tokenů a 14 291 ms. B6 zůstává zavřené na operator-only Gate 2
+disposition; doporučení je `C-REMOVE`. Exact evidence je v
 [`wp-m1-quality-report.md`](docs/execution/runs/wp-m1-quality-report.md) a
 varianty Gate 2 v [024](docs/decisions/024-m1-refinement-disposition.md).
 

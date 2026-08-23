@@ -1,10 +1,10 @@
 # 024 — disposition model-backed refinementu podle fixního A/B corpusu
 
 - **typ:** BLOCK na Gate 2; implementace měřidla může pokračovat bez volby
-- **stav rozhodnutí:** ČEKÁ NA FYZICKÉ A/B; nevybírat bez čísel
+- **stav rozhodnutí:** FYZICKÁ ČÍSLA DOSTUPNÁ; čeká na volbu operátora
 - **WP:** WP-M1-QUALITY / B5
 - **rail:** R2 LOCAL_FIRST, R3 OBSERVABLE_BEHAVIOR, R4 MEASURED_QUALITY, R6 REVERSIBILITY
-- **source měřidla:** `759bcad0f3bdc4be7eb8fd134d429dc572601d3a`
+- **source měřidla:** `20f61f2ea37a0396a46be88ed88881a181ea2b02`
 
 ## Proč je rozhodnutí blokované
 
@@ -26,42 +26,52 @@ jedním exact modelem, jedním commitnutým corpusem a skutečnými A/B čísly.
 
 | Metrika | Hodnota |
 |---|---:|
-| exact source | `PENDING_GPU_PASS` |
+| exact source | `20f61f2ea37a0396a46be88ed88881a181ea2b02` |
 | model/digest/context | `qwen3.5:27b` / `7653528b…ec06e` / 4096 |
 | corpus SHA-256 | `a2b1ab9175407cd144306532bf87859aaa6fef196a3c5ed9787b1f6df128790f` |
 | corpus cases | 4 |
-| attempted / accepted / rejected | `PENDING_GPU_PASS` |
-| acceptance rate | `PENDING_GPU_PASS` |
-| mean applied score delta | `PENDING_GPU_PASS` |
-| A latency p50 / p95 | `PENDING_GPU_PASS` |
-| refinement latency p50 / p95 | `PENDING_GPU_PASS` |
-| B final latency p50 / p95 | `PENDING_GPU_PASS` |
-| A prompt/output tokens | `PENDING_GPU_PASS` |
-| refinement prompt/output tokens | `PENDING_GPU_PASS` |
-| konkrétní accepted případ a cena | `PENDING_GPU_PASS` |
-| konkrétní rejected případ a cena | `PENDING_GPU_PASS` |
+| attempted / accepted / rejected | 2 / 0 / 2 |
+| acceptance rate | 0 % |
+| mean applied score delta | 0 |
+| A latency p50 / p95 | 3 670 / 26 548 ms |
+| refinement latency p50 / p95 | 933 / 13 358 ms |
+| B final latency p50 / p95 | 3 670 / 26 548 ms |
+| A prompt/output tokens | 399 / 377 |
+| refinement prompt/output tokens | 565 / 462 |
+| konkrétní accepted případ a cena | žádný — to je acceptance FAIL, ne chybějící údaj |
+| konkrétní rejected případ a cena | `dns-steps`: candidate 72 → 82, semantic drift `0,316 < 0,35`, 13 358 ms, 808 tokenů; `prague-factual`: 59 → 59, 933 ms, 219 tokenů |
 
-## Zatím dostupný důkaz
+## Fyzický důkaz
 
 Offline kontrakt má konkrétní accepted fixture `60 -> 79`, jedno volání a 65
-tokenů, ale jde o fake model a není to podklad pro variantu A/B/C. Registrovaný
-T3 preflight `m1-b5-quality-preflight-759bcad0-20260823` skončil před provider
-efektem: cizí model byl rezidentní, compute `1`, free VRAM 4 775 MiB a
-utilization 93 %. Fyzické hodnoty proto zůstávají `PENDING_GPU_PASS`, nikoli
-nula nebo odhad.
+tokenů, ale fake model nebyl podklad pro variantu A/B/C. Registrovaný fyzický
+run `m1-b5-quality-ab-20f61f2e-20260823` na clean source provedl šest exact
+`qwen3.5:27b` requestů, zachoval všechna čtyři finální corpus chování, neměl
+provider error a přirozeně obnovil GPU proti zaznamenanému RustDesk baseline.
+Verdikt je přesto FAIL: dva eligible refinementy byly oba odmítnuté, applied
+delta je 0 a cena je 1 027 tokenů plus 14 291 ms.
+
+## Doporučení
+
+**Doporučená varianta je C — odstranit model-backed refinement.** A nemá žádný
+fyzicky přijatý přínos. B by v této chvíli znamenalo buď měřit jiný corpus,
+nebo oslabit semantic drift threshold, aby prošel candidate s podobností
+`0,316`; ani jedno není důkaz přínosu na commitnuté acceptance množině.
+Deterministický scorer a synthesis retry zůstanou, takže odstranění je malé a
+vratné. Rozhodnutí ale zůstává operator-only Gate 2 BLOCK.
 
 ## Přesná otázka pro Gate 2
 
 ```text
 024-refinement-disposition: A-KEEP | B-LIMIT | C-REMOVE
-024-evidence-run: <exact PASS run id>
-024-source: <exact clean source SHA>
+024-evidence-run: m1-b5-quality-ab-20f61f2e-20260823 (acceptance FAIL)
+024-source: 20f61f2ea37a0396a46be88ed88881a181ea2b02
 024-corpus: a2b1ab9175407cd144306532bf87859aaa6fef196a3c5ed9787b1f6df128790f
-024-accepted-case: <id, score delta, latency, tokens>
-024-rejected-case: <id, candidate delta, rejection reason, latency, tokens>
+024-accepted-case: NONE
+024-rejected-case: dns-steps (+10 candidate, semantic drift, 13358 ms, 808 tokens)
 024-threshold-or-allowlist: <unchanged | exact new bounded policy | removed>
 024-rollback: <exact one-commit or config path>
 ```
 
-Do doplnění této tabulky není žádná z variant přijata. B5 může dokončit pouze
-měření; Gate 2 musí výslovně zvolit disposition.
+Tabulka je doplněná, ale žádná varianta není přijata automaticky. Gate 2 musí
+výslovně zvolit disposition; bez této volby B5 ani M1 nejsou hotové.
