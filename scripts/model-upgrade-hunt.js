@@ -32,13 +32,13 @@ import { fileURLToPath } from 'node:url';
 import { config } from '../src/config.js';
 import { logger } from '../src/core/logger.js';
 import {
-  fetchLibraryFamilies, rankCandidates, buildCandidatePool,
+  fetchLibraryFamilies, getLibraryFamilyMetadata, rankCandidates, buildCandidatePool,
 } from '../src/upgrade/model-sweep.js';
 import { checkRoleEligibility } from '../src/upgrade/model-ranker.js';
 import { MODEL_PROFILES } from '../src/upgrade/model-profiles.js';
 import { parseModelNameExtended } from '../src/upgrade/model-family-extensions.js';
 import { fetchModels as fetchWhatllm, matchModels } from '../src/upgrade/whatllm-client.js';
-import { lookupModel as lookupHf } from '../src/upgrade/huggingface-client.js';
+import { enrichFromHuggingFace } from '../src/upgrade/huggingface-client.js';
 import { modelRegistry } from '../src/upgrade/model-registry.js';
 import { upgradeManager } from '../src/upgrade/upgrade-manager.js';
 import {
@@ -49,7 +49,7 @@ import { fetchInstalledModels, buildCandidates } from '../src/upgrade/model-disc
 import { canonicalModelName } from '../src/upgrade/model-identity.js';
 import { runMigrations } from '../src/db/migrate.js';
 import {
-  RoleQualityValidationRunner, describeChatTests,
+  CHAT_QUALITY_VERSION, RoleQualityValidationRunner, describeChatTests,
 } from '../src/eval/role-quality-suites.js';
 import { createRoleEvaluationPlans } from '../src/eval/role-evaluation-plan.js';
 import { modelEvaluationHistory } from '../src/upgrade/model-evaluation-history.js';
@@ -69,7 +69,8 @@ import {
   createOllamaModelBindingProvider,
 } from '../src/upgrade/model-binding-application.js';
 import {
-  assessScheduledEvaluationReadiness, holdGpuEvaluationLock,
+  assessCandidateDownloadHeadroom, assessScheduledEvaluationReadiness,
+  holdGpuEvaluationLock,
 } from '../src/upgrade/gpu-evaluation-lock.js';
 import { TASK_MARGIN_EPSILON } from '../src/upgrade/pairwise-trial.js';
 
@@ -121,10 +122,17 @@ const log = (...a) => { if (!AS_JSON) console.log(...a); };
 
 if (SHOW_CHAT_TESTS) {
   const tests = describeChatTests();
+  const plan = createRoleEvaluationPlans().CHAT;
   if (AS_JSON || REPORT_PATH) emitJsonArtifact({
     generatedAt: new Date().toISOString(),
     suite: 'chat_v3',
+    suiteVersion: CHAT_QUALITY_VERSION,
+    suiteContractSha256: plan.suiteContractSha256,
     weighting: { en: 0.6, cs: 0.4 },
+    decisionMinimums: {
+      total: plan.minimumDiscriminatingTasks,
+      byLanguage: plan.minimumDiscriminatingByLanguage,
+    },
     tests,
   });
   else {
@@ -208,6 +216,7 @@ async function scheduledEvaluationReadiness() {
  */
 async function buildRoleShortlists(gpu, installedNames, bindings) {
   const families = await fetchLibraryFamilies();
+  const familyMetadata = getLibraryFamilyMetadata();
   log(`Fáze 0: ${families.length} rodin v knihovně Ollamy`);
 
   const whatllm = await fetchWhatllm().catch(() => []);
@@ -241,11 +250,47 @@ async function buildRoleShortlists(gpu, installedNames, bindings) {
   const pool = await buildCandidatePool(families, {
     vramMb: gpu.vramMb,
     gpuModel: gpu.model,
+    familyMetadata,
     onProgress: (d, t) => log(`   … prohledáno ${d}/${t} rodin`),
   });
   log(`Fáze 1: ${pool.length} rodin má variantu, která se může vejít\n`);
 
-  const profileOf = (entry) => parseModelNameExtended(entry.name);
+  // HF není zdroj kvality, ale u nejperspektivnějšího omezeného podvzorku
+  // ověří datum vydání a modalitu. Dotazovat všech 235 rodin by z plánovaného
+  // huntu udělalo pomalý crawler; sjednocení nejčerstvějších a externě
+  // hodnocených kandidátů zachytí nové generace i známé silné rodiny.
+  const hfTargets = new Map();
+  const byFreshness = [...pool].sort((a, b) => {
+    const aDays = Number.isFinite(Number(a.catalogUpdatedDays)) && a.catalogUpdatedDays != null
+      ? Number(a.catalogUpdatedDays) : Number.POSITIVE_INFINITY;
+    const bDays = Number.isFinite(Number(b.catalogUpdatedDays)) && b.catalogUpdatedDays != null
+      ? Number(b.catalogUpdatedDays) : Number.POSITIVE_INFINITY;
+    return aDays - bDays || a.sizeGB - b.sizeGB;
+  });
+  const byExternalQuality = [...pool].sort((a, b) =>
+    (qualityByFamily.get(b.family) ?? -1) - (qualityByFamily.get(a.family) ?? -1));
+  for (const candidate of [...byFreshness.slice(0, 16), ...byExternalQuality.slice(0, 8)]) {
+    hfTargets.set(candidate.name, candidate);
+  }
+  const hfSummary = await enrichFromHuggingFace([...hfTargets.values()]).catch(() => null);
+  if (hfSummary) {
+    log(`Fáze 1: HuggingFace ověřil ${hfSummary.resolved}/${hfTargets.size} prioritních kandidátů`);
+  }
+
+  const profileOf = (entry) => {
+    const parsed = parseModelNameExtended(entry.name);
+    if (entry.capabilities?.includes?.('vision')) return { ...parsed, category: 'vision' };
+    if (parsed.category !== 'unknown') return parsed;
+    const description = String(entry.catalogDescription || '').toLowerCase();
+    let category = 'unknown';
+    if (/\bembedding|embed model|vector search/.test(description)) category = 'embedding';
+    else if (/\bocr\b|optical character/.test(description)) category = 'ocr';
+    else if (/content safety|safety classification|guardrail|safeguard/.test(description)) category = 'safety';
+    else if (/translation model|collection of .*translation|speciali[sz]ed in translation/.test(description)) category = 'translation';
+    else if (/\bvision\b|image understanding|image-text/.test(description)) category = 'vision';
+    else if (/agentic coding|software engineering|code model|for developers/.test(description)) category = 'code';
+    return { ...parsed, category };
+  };
   const eligibilityOf = (entry, role) => checkRoleEligibility(profileOf(entry), role);
 
   const perRole = new Map();
@@ -257,6 +302,7 @@ async function buildRoleShortlists(gpu, installedNames, bindings) {
       installed: installedNames,
       incumbentQuality: baseline,
       qualityOf: e => qualityByFamily.get(e.family) ?? null,
+      releaseDateOf: e => e.releaseDate ?? null,
       role,
       eligibilityOf,
       profileOf,
@@ -438,8 +484,23 @@ const installedQueue = REMOTE_ONLY ? [] : buildInstalledCandidateQueue({
   history: modelEvaluationHistory,
   hardware: gpu,
 });
-const queue = [...installedQueue, ...remoteQueue]
-  .sort((a, b) => b.priority - a.priority || a.sizeGB - b.sizeGB);
+// Chybějící suite už staženého artefaktu má přednost před dalším downloadem:
+// je rychlejší, nezvětšuje disk a uzavírá přesně tu historii, kterou už máme.
+const byPriority = (a, b) => b.priority - a.priority || a.sizeGB - b.sizeGB;
+const installedPending = installedQueue
+  .filter(candidate => candidate.evaluationState?.state !== 'scored')
+  .sort(byPriority);
+const installedScored = installedQueue
+  .filter(candidate => candidate.evaluationState?.state === 'scored')
+  .sort(byPriority);
+const queue = [
+  ...installedPending,
+  ...remoteQueue.sort(byPriority),
+  // A fully scored local alternative can be re-compared from history, but it
+  // must not consume the bounded slots ahead of genuinely unseen artifacts on
+  // every scheduled tick.
+  ...installedScored,
+];
 
 log('\n══ KANDIDÁTI PODLE ROLÍ ══');
 for (const role of ROLES) {
@@ -539,7 +600,27 @@ for (const name of new Set(readyRoles.map(role => bindings[role]).filter(Boolean
 }
 await drainResident();
 
-const toTry = picked.slice(0, LIMIT);
+const toTry = [];
+let plannedDiskAvailableBytes = modelStorageAvailableBytes();
+for (const candidate of picked) {
+  if (toTry.length >= LIMIT) break;
+  if (SCHEDULED && candidate.installed !== true) {
+    // Ollama catalog sizes are decimal-ish labels; treating them as GiB is a
+    // conservative overestimate. Reserve cumulatively for all pulls selected
+    // in this tick, because losing candidates stay on disk by default.
+    const downloadBytes = Math.ceil(Number(candidate.sizeGB) * 2 ** 30);
+    const headroom = assessCandidateDownloadHeadroom({
+      diskAvailableBytes: plannedDiskAvailableBytes,
+      downloadBytes,
+    });
+    if (!headroom.ready) {
+      log(`  [storage-headroom] ${candidate.name}: ${headroom.reason}`);
+      continue;
+    }
+    plannedDiskAvailableBytes = headroom.remainingBytes;
+  }
+  toTry.push(candidate);
+}
 log(`\n══ ZKOUŠKA KANDIDÁTŮ (${toTry.length}) ══`);
 
 const results = [];
@@ -550,6 +631,9 @@ for (const cand of toTry) {
     skipPull: cand.installed === true,
     // Jen role, pro které je tenhle model vůbec kandidátem.
     roles: cand.roles,
+    candidateParams: cand.params,
+    candidateCategory: cand.category,
+    candidateCapabilities: cand.capabilities,
     bindings,
     keepInconclusive: KEEP_INCONCLUSIVE,
     allowRemoval: ALLOW_REMOVAL,

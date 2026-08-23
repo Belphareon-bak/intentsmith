@@ -180,6 +180,11 @@ test('celý reálný katalog pokryje všechny nainstalované rodiny', () => {
   assertEqual(res.unmatched.length, 0, `bez podkladu zůstalo: ${res.unmatched.join(', ')}`);
 });
 
+test('specializované safety a translation rodiny nejsou generalisté', () => {
+  assertEqual(parseModelNameExtended('llama-guard3:8b-fp16').category, 'safety');
+  assertEqual(parseModelNameExtended('translategemma:27b').category, 'translation');
+});
+
 // ─── Dopad na skóre ─────────────────────────────────────────────────────────
 
 suite('dopad obohacení na skóre');
@@ -302,6 +307,17 @@ test('qwq je reasoning', () => {
 
 test('devstral je code', () => {
   assertEqual(parseModelNameExtended('devstral-small-2:24b').category, 'code');
+});
+
+test('nové coding, vision a negenerativní rodiny se nepropadnou do unknown', () => {
+  assertEqual(parseModelNameExtended('north-mini-code-1.0:latest').category, 'code');
+  assertEqual(parseModelNameExtended('qwen3-coder-next:latest').category, 'code');
+  assertEqual(parseModelNameExtended('qwen3-vl:32b').category, 'vision');
+  assertEqual(parseModelNameExtended('minicpm-v4.6:latest').category, 'vision');
+  assertEqual(parseModelNameExtended('bge-m3:latest').category, 'embedding');
+  assertEqual(parseModelNameExtended('glm-ocr:latest').category, 'ocr');
+  assertEqual(parseModelNameExtended('granite4.1-guardian:8b').category, 'safety');
+  assertEqual(parseModelNameExtended('medgemma:27b').category, 'vision');
 });
 
 test('glm má rodinu a verzi', () => {

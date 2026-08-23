@@ -60,6 +60,11 @@ function createTestDb() {
       request_type TEXT
     );
 
+    CREATE TABLE model_evaluation_runs (
+      model_digest_sha256 TEXT NOT NULL,
+      status TEXT NOT NULL
+    );
+
     CREATE TABLE model_overrides (
       role TEXT PRIMARY KEY,
       model TEXT NOT NULL,
@@ -93,6 +98,7 @@ function createRegistry(db, {
   modelBindingApplication,
   validationRunner,
   clock,
+  modelStorageFreeBytes = () => 20 * 1_073_741_824,
 } = {}) {
   const registry = new ModelRegistry();
   registry.init({
@@ -113,6 +119,7 @@ function createRegistry(db, {
     validationRunner: validationRunner || null,
     broadcast: broadcast || (() => {}),
     clock,
+    modelStorageFreeBytes,
   });
   return registry;
 }
@@ -128,6 +135,13 @@ async function captureError(promise) {
 
 const DIGEST_A = 'a'.repeat(64);
 const DIGEST_B = 'b'.repeat(64);
+
+function recordCompleteEvaluation(db, digestSha256 = DIGEST_A) {
+  db.prepare(`
+    INSERT INTO model_evaluation_runs (model_digest_sha256, status)
+    VALUES (?, 'COMPLETE')
+  `).run(digestSha256);
+}
 
 function installedModel(name, digest = `sha256:${DIGEST_A}`, modifiedAt = '2025-01-01T00:00:00.000Z') {
   return {
@@ -513,6 +527,7 @@ test('equal-time validation aliases select deterministically regardless of row o
 await testAsync('outer auto-cleanup skips bound, validating, and recently used aliases', async () => {
   const db = createTestDb();
   try {
+    recordCompleteEvaluation(db);
     config.models.CHAT = 'bound-model';
     config.models.D1 = 'reverse-bound-model:latest';
     db.prepare(`
@@ -562,6 +577,7 @@ await testAsync('auto-cleanup parses every UTC usage row and is strict and fail-
     VALUES (?, 'CHAT', ?, 'answer')
   `);
   try {
+    recordCompleteEvaluation(db);
     insertUsage.run('before-cutoff', '2026-07-26 11:59:59');
     insertUsage.run('equal-cutoff', '2026-07-26 12:00:00');
     insertUsage.run('after-cutoff', '2026-07-26 12:00:01');
@@ -592,10 +608,11 @@ await testAsync('auto-cleanup parses every UTC usage row and is strict and fail-
     const deleted = await registry.runAutoCleanup(14);
     assertEqual(JSON.stringify(deleteCalls.map(call => call.name)), JSON.stringify([
       'before-cutoff:latest',
+      'old-no-usage',
     ]));
     assertEqual(deleteCalls.every(call => call.options.source === 'AUTO_CLEANUP'), true);
     assertEqual(deleteCalls.every(call => call.options.expectedDigestSha256 === DIGEST_A), true);
-    assertEqual(deleted.length, 1);
+    assertEqual(deleted.length, 2);
 
     db.exec('DROP TABLE model_usage');
     registry.getInstalled = async () => [installedModel('usage-read-failure', undefined, oldModified)];
@@ -603,6 +620,74 @@ await testAsync('auto-cleanup parses every UTC usage row and is strict and fail-
     const failedRead = await registry.runAutoCleanup(14);
     assertEqual(failedRead.length, 0);
     assertEqual(deleteCalls.length, 0);
+  } finally {
+    db.close();
+    restoreBindings();
+  }
+});
+
+await testAsync('auto-cleanup requires disk pressure and completed digest scoring', async () => {
+  const db = createTestDb();
+  const oldModified = '2026-07-01T00:00:00.000Z';
+  db.prepare(`
+    INSERT INTO model_usage (model, role, used_at, request_type)
+    VALUES ('retention-fixture', 'CHAT', '2026-07-01 00:00:00', 'answer')
+  `).run();
+  try {
+    const deleteCalls = [];
+    const registry = createRegistry(db, {
+      clock: () => Date.UTC(2026, 7, 9, 12, 0, 0),
+    });
+    registry.getInstalled = async () => [installedModel('retention-fixture', undefined, oldModified)];
+    registry.deleteModel = async name => {
+      deleteCalls.push(name);
+      return { deleted: name, freedGB: '1.0' };
+    };
+
+    assertEqual((await registry.runAutoCleanup(7)).length, 0);
+    assertEqual(deleteCalls.length, 0, 'unfinished scoring must protect the artifact');
+
+    recordCompleteEvaluation(db);
+    registry._modelStorageFreeBytes = () => 40 * 1_073_741_824;
+    assertEqual((await registry.runAutoCleanup(7)).length, 0);
+    assertEqual(deleteCalls.length, 0, 'cleanup must not run at or above the pressure threshold');
+
+    registry._modelStorageFreeBytes = () => (40 * 1_073_741_824) - 1;
+    assertEqual((await registry.runAutoCleanup(7)).length, 1);
+    assertEqual(JSON.stringify(deleteCalls), JSON.stringify(['retention-fixture']));
+  } finally {
+    db.close();
+    restoreBindings();
+  }
+});
+
+await testAsync('auto-cleanup stops deleting as soon as estimated free space reaches 40 GiB', async () => {
+  const db = createTestDb();
+  const oldModified = '2026-07-01T00:00:00.000Z';
+  try {
+    recordCompleteEvaluation(db);
+    for (const model of ['cleanup-first', 'cleanup-second']) {
+      db.prepare(`
+        INSERT INTO model_usage (model, role, used_at, request_type)
+        VALUES (?, 'CHAT', '2026-07-01 00:00:00', 'answer')
+      `).run(model);
+    }
+    const registry = createRegistry(db, {
+      clock: () => Date.UTC(2026, 7, 9, 12, 0, 0),
+      modelStorageFreeBytes: () => 39 * 1_073_741_824,
+    });
+    registry.getInstalled = async () => [
+      installedModel('cleanup-first', undefined, oldModified),
+      installedModel('cleanup-second', undefined, oldModified),
+    ];
+    const deleteCalls = [];
+    registry.deleteModel = async name => {
+      deleteCalls.push(name);
+      return { deleted: name, freedGB: '1.0' };
+    };
+
+    assertEqual((await registry.runAutoCleanup(7)).length, 1);
+    assertEqual(JSON.stringify(deleteCalls), JSON.stringify(['cleanup-first']));
   } finally {
     db.close();
     restoreBindings();

@@ -969,11 +969,11 @@ test('role suites stay outside the pinned legacy registry', () => {
   }
 });
 
-test('CHAT v3 is English-first 60/40 with thirty-five public rubrics', () => {
+test('CHAT v3 is English-first 60/40 with forty public rubrics', () => {
   const descriptions = describeChatTests();
-  assertEqual(descriptions.length, 35);
-  assertEqual(descriptions.filter(t => t.language === 'en').length, 21);
-  assertEqual(descriptions.filter(t => t.language === 'cs').length, 14);
+  assertEqual(descriptions.length, 40);
+  assertEqual(descriptions.filter(t => t.language === 'en').length, 24);
+  assertEqual(descriptions.filter(t => t.language === 'cs').length, 16);
   assert(descriptions.every(t => t.rubric.length >= 4), 'every CHAT task needs a public checklist');
 });
 
@@ -1053,6 +1053,32 @@ test('new CHAT precision tasks grade vocative, negation and ambiguity', () => {
 
   const ambiguity = chatV3Suite.tests.find(t => t.name === 'en_ambiguous_reference');
   assertEqual(ambiguity.grade("Whose deployment token expired, Jordan's or Casey's?").score, 1);
+});
+
+test('continuous-prose CHAT tasks score facts, cohesion and Czech uncertainty separately', () => {
+  const status = chatV3Suite.tests.find(t => t.name === 'cz_coherent_status_paragraph');
+  const goodStatus = status.grade('Projekt Javor má dva dny zpoždění, protože dodavatel čidel nedodal zásilku. Nápravu vede Hana a obnovení provozu očekává v pátek. Pokud se termín posune, Hana bude zákazníka informovat tentýž den.');
+  const bulletStatus = status.grade('- Projekt Javor má dva dny zpoždění.\n- Hana čeká obnovení v pátek.\n- Zákazník dostane zprávu.');
+  assertEqual(goodStatus.score, 1);
+  assert(bulletStatus.score < goodStatus.score);
+
+  const explanation = chatV3Suite.tests.find(t => t.name === 'cz_customer_explanation_paragraph');
+  const goodExplanation = explanation.grade('Incident 418 zpozdil zpracování objednávky, data však zůstávají v bezpečí. Obnovení očekáváme zítra do 12:00. Příčina zatím není potvrzená a stále se ověřuje.');
+  const abbreviatedExplanation = explanation.grade('Vážení zákazníci, kvůli incidentu č. 418 došlo k prodlení ve zpracování objednávky. Veškerá data zůstávají v plném bezpečí a obnovení očekáváme do 12:00 hodin zítra. Přesnou příčinu aktuálně prověřujeme a dřívější termín neslibujeme.');
+  const inventedExplanation = explanation.grade('Incident 418 zpozdil objednávku, ale data jsou v bezpečí. Obnovení očekáváme zítra do 12:00. Příčina je potvrzená a vše určitě obnovíme dříve.');
+  assertEqual(goodExplanation.score, 1);
+  assertEqual(abbreviatedExplanation.score, 1);
+  assert(inventedExplanation.score < goodExplanation.score);
+
+  const english = chatV3Suite.tests.find(t => t.name === 'en_coherent_status_paragraph');
+  assertEqual(english.grade('Project Cedar is two days late because its sensor supplier missed delivery. Noor owns recovery and expects service on Friday. If Friday slips, Noor will notify the customer that day.').score, 1);
+  assertEqual(english.grade('Project Cedar is two days behind schedule due to a sensor supplier missing its delivery. Noor has taken ownership of recovery and anticipates service on Friday. Should that timeline slip, she will notify the customer on that same day.').score, 1);
+
+  const comparison = chatV3Suite.tests.find(t => t.name === 'en_grounded_comparison_paragraph');
+  assertEqual(comparison.grade('Option A costs $80 per month with phone support, while Option B costs $65 and includes email support. No reliability data is available, so their reliability cannot be compared. It is not possible to recommend one option over the other.').score, 1);
+
+  const formal = chatV3Suite.tests.find(t => t.name === 'cz_formal_register');
+  assertEqual(formal.grade('Potvrzujeme přijetí vaší žádosti, kterou evidujeme pod číslem 418. Výsledek vám zašleme v pondělí.').score, 1);
 });
 
 test('reasoning task awards each exact intermediate result', () => {

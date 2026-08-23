@@ -8,7 +8,7 @@ import { CodePatchValidationRunner, codePatchSuite } from './code-patch-suite.js
 import { getTestImages } from '../upgrade/validation-suites.js';
 
 export const ROLE_QUALITY_VERSION = 'v136.1-prototype.1';
-export const CHAT_QUALITY_VERSION = 'v136.1-chat.3.2';
+export const CHAT_QUALITY_VERSION = 'v136.1-chat.3.5';
 
 const clamp01 = value => Math.max(0, Math.min(1, Number(value) || 0));
 const lower = value => String(value || '').toLocaleLowerCase('cs-CZ');
@@ -17,9 +17,21 @@ const includesAll = (text, values) => values.every(value => lower(text).includes
 const countMatches = (text, pattern) => (String(text || '').match(pattern) || []).length;
 const hasCzechDiacritics = text => /[áčďéěíňóřšťúůýž]/i.test(String(text || ''));
 const wordCount = text => String(text || '').trim().split(/\s+/).filter(Boolean).length;
-// A dot after a digit is part of a Czech date ("3. května"), not a
-// sentence boundary. Counting it as a sentence systematically penalised CZ.
-const sentenceCount = text => countMatches(text, /(?<!\d)[.!?](?:\s|$)/g);
+// A dot in a Czech written-out date ("3. května") is not a sentence
+// boundary. Other digit-final sentences (for example "do 12:00.") still are.
+const sentenceCount = text => {
+  const source = String(text || '');
+  const boundaries = countMatches(source, /[.!?](?:\s|$)/g);
+  const dateDots = countMatches(
+    source,
+    /\b\d{1,2}\.(?=\s+(?:ledna|února|března|dubna|května|června|července|srpna|září|října|listopadu|prosince)(?:\s|[,.!?;:]|$))/gi,
+  );
+  const abbreviationDots = countMatches(
+    source,
+    /(?:^|[\s(])(?:č|hod|např|tj|tzv)\.(?=\s+\S)/gi,
+  );
+  return Math.max(0, boundaries - dateDots - abbreviationDots);
+};
 
 function parseJson(text) {
   const source = String(text || '').trim();
@@ -56,7 +68,7 @@ function textTask({ name, language, prompt, rubric, grade, options }) {
   return { name, language, prompt: () => prompt, rubric, grade, options };
 }
 
-// CHAT: twenty-one English tasks and fourteen Czech tasks. Equal task weights make
+// CHAT: twenty-four English tasks and sixteen Czech tasks. Equal task weights make
 // the category score 60% EN / 40% CZ without hidden weighting logic.
 export const chatV3Suite = Object.freeze({
   name: 'chat_v3',
@@ -350,6 +362,44 @@ export const chatV3Suite = Object.freeze({
       },
     }),
     textTask({
+      name: 'en_coherent_status_paragraph', language: 'en',
+      prompt: 'Write exactly three connected prose sentences, with no heading or bullets. Project Cedar is two days late because a sensor supplier missed delivery. Noor owns recovery and expects service on Friday. If Friday slips, Noor must notify the customer that day. Preserve every fact and do not invent any.',
+      rubric: ['exactly 3 prose sentences, no heading or bullets', 'Cedar is 2 days late', 'supplier/sensor delivery caused delay', 'Noor owns recovery and Friday expectation', 'conditional same-day customer notice', 'uses connected prose without inventing facts'],
+      grade: r => checklist([
+        { id: 'format', ok: sentenceCount(r) === 3 && !/^\s*(?:[-*•#]|status:)/im.test(r) && wordCount(r) <= 95 },
+        { id: 'delay', ok: /cedar/i.test(r) && /(?:two|2)\s+days?/i.test(r) && includesAny(r, ['late', 'delay', 'behind']) },
+        { id: 'cause', ok: /sensor/i.test(r) && /supplier/i.test(r) && includesAny(r, ['missed', 'missing', 'did not deliver', 'late delivery']) },
+        { id: 'recovery', ok: /noor/i.test(r) && /recovery/i.test(r) && /friday/i.test(r) },
+        { id: 'condition', ok: includesAny(r, ['if friday', 'should friday', 'should that timeline', 'if that timeline']) && /customer/i.test(r) && includesAny(r, ['that day', 'same day']) },
+        { id: 'cohesion', ok: includesAny(r, ['because', 'therefore', 'however', 'if', 'should']) },
+      ], { penalties: [{ id: 'invented_date', hit: /monday|tuesday|wednesday|thursday|saturday|sunday/i.test(r), weight: 0.2 }] }),
+    }),
+    textTask({
+      name: 'en_customer_delay_explanation', language: 'en',
+      prompt: 'Write one professional paragraph of three or four sentences to a customer. Order 418 is delayed by weather, its new delivery date is Friday, and tracking will update by 18:00 today. The record says nothing about compensation. Explain the known facts, offer the tracking page as the next step, and do not promise compensation.',
+      rubric: ['one paragraph of 3-4 prose sentences', 'order 418 delayed by weather', 'new delivery Friday', 'tracking update by 18:00 today', 'offers tracking page', 'does not invent or promise compensation'],
+      grade: r => checklist([
+        { id: 'format', ok: sentenceCount(r) >= 3 && sentenceCount(r) <= 4 && !/\n\s*\n|^\s*[-*•#]/m.test(String(r).trim()) && wordCount(r) <= 115 },
+        { id: 'order_cause', ok: /\b418\b/.test(r) && /weather/i.test(r) && /delay/i.test(r) },
+        { id: 'delivery', ok: /friday/i.test(r) && includesAny(r, ['delivery', 'delivered', 'arrive']) },
+        { id: 'tracking_time', ok: /tracking/i.test(r) && /18[:.]00/.test(r) && /today/i.test(r) },
+        { id: 'next_step', ok: includesAll(r, ['tracking', 'page']) },
+        { id: 'no_compensation_promise', ok: !/will (?:receive|issue|provide).*compensation|compensation (?:is|has been) approved/i.test(r) },
+      ]),
+    }),
+    textTask({
+      name: 'en_grounded_comparison_paragraph', language: 'en',
+      prompt: 'Source: Option A costs $80 per month and includes phone support. Option B costs $65 per month and includes email support. No reliability data is available. In two or three connected sentences, compare the options and say that reliability cannot be compared. Do not recommend either option.',
+      rubric: ['2-3 connected prose sentences', 'A costs $80 and has phone support', 'B costs $65 and has email support', 'reliability cannot be compared', 'does not recommend a winner'],
+      grade: r => checklist([
+        { id: 'format', ok: sentenceCount(r) >= 2 && sentenceCount(r) <= 3 && !/^\s*[-*•#]/m.test(r) && wordCount(r) <= 90 },
+        { id: 'option_a', ok: /option\s+a/i.test(r) && /\$?80\b/.test(r) && includesAll(r, ['phone', 'support']) },
+        { id: 'option_b', ok: /option\s+b/i.test(r) && /\$?65\b/.test(r) && includesAll(r, ['email', 'support']) },
+        { id: 'reliability', ok: /reliab/i.test(r) && includesAny(r, ['cannot be compared', "can't be compared", 'not enough data', 'no data', 'no reliability data']) },
+        { id: 'neutral', ok: !includesAny(r, ['recommend option', 'better choice', 'best option', 'should choose']) },
+      ]),
+    }),
+    textTask({
       name: 'cz_grounded_summary', language: 'cs',
       prompt: 'Zdroj: Brněnská kancelář se otevře 3. května. Tým bude mít 12 lidí. Rozpočet je 480 000 Kč a vedoucí je Eva Šímová. Shrň zdroj nejvýše dvěma větami a nic si nevymýšlej.',
       rubric: ['3. května', 'Brno/brněnská kancelář', '12 lidí', '480 000 Kč', 'Eva Šímová', 'nejvýše 2 věty a česká diakritika'],
@@ -430,7 +480,7 @@ export const chatV3Suite = Object.freeze({
       prompt: 'Odpověz zákaznici paní Novákové formálně nejvýše dvěma větami: potvrď, že její žádost evidujeme pod číslem 418, a slib, že jí výsledek pošleme v pondělí. Nepřecházej na tykání.',
       rubric: ['formální oslovení nebo vykání', 'žádost číslo 418', 'žádost evidujeme', 'výsledek v pondělí', 'žádné tykání', 'maximálně dvě věty'],
       grade: r => checklist([
-        { id: 'formal', ok: /paní\s+novákov(?:á|é)|\bvám\b|\bvaš(?:e|i|í)\b/i.test(r) },
+        { id: 'formal', ok: /paní\s+novákov(?:á|é)|\bvám(?:\s|[,.!?]|$)|\bvaš(?:e|i|í)(?:\s|[,.!?]|$)/i.test(r) },
         { id: 'number', ok: /\b418\b/.test(r) },
         { id: 'recorded', ok: includesAny(r, ['evidujeme', 'zaevidovali', 'je evidována']) },
         { id: 'monday', ok: /výsledek/i.test(r) && /v\s+pondělí/i.test(r) && includesAny(r, ['pošleme', 'zašleme', 'obdržíte']) },
@@ -521,6 +571,32 @@ export const chatV3Suite = Object.freeze({
         { id: 'deadline', ok: /do\s+30\s+minut/i.test(r) },
         { id: 'branch', ok: !/e-?mail|týdenní\s+přehled|4\s+hodin/i.test(r) },
         { id: 'format', ok: hasCzechDiacritics(r) && sentenceCount(r) <= 1 && wordCount(r) <= 28 },
+      ]),
+    }),
+    textTask({
+      name: 'cz_coherent_status_paragraph', language: 'cs',
+      prompt: 'Napiš přesně tři navazující věty souvislého textu, bez nadpisu a odrážek. Projekt Javor má dva dny zpoždění, protože dodavatel čidel nedodal zásilku. Nápravu vede Hana a obnovení provozu očekává v pátek. Pokud se páteční termín posune, Hana musí ještě tentýž den informovat zákazníka. Zachovej všechna fakta a nic si nevymýšlej.',
+      rubric: ['přesně 3 navazující věty bez nadpisu a odrážek', 'Javor má 2 dny zpoždění', 'příčinou je nedodaná zásilka čidel', 'Hana vede nápravu a očekává obnovení v pátek', 'při posunu informuje zákazníka tentýž den', 'přirozený souvislý český text'],
+      grade: r => checklist([
+        { id: 'format', ok: sentenceCount(r) === 3 && !/^\s*(?:[-*•#]|stav:)/im.test(r) && wordCount(r) <= 105 },
+        { id: 'delay', ok: /javor/i.test(r) && /(?:dva|2)\s+dny/i.test(r) && /zpožděn/i.test(r) },
+        { id: 'cause', ok: /dodavatel/i.test(r) && /čidel/i.test(r) && includesAny(r, ['nedodal', 'nedoručil', 'chybějící zásilka']) },
+        { id: 'recovery', ok: /hana/i.test(r) && includesAny(r, ['nápravu', 'obnovení', 'obnovu']) && /v\s+pátek/i.test(r) },
+        { id: 'condition', ok: /pokud|jestli/i.test(r) && /termín/i.test(r) && /zákazník/i.test(r) && includesAny(r, ['tentýž den', 'stejný den']) },
+        { id: 'czech_cohesion', ok: countMatches(r, /[áčďéěíňóřšťúůýž]/gi) >= 8 && includesAny(r, ['protože', 'pokud', 'proto', 'zároveň']) },
+      ], { penalties: [{ id: 'invented_day', hit: /v\s+(?:pondělí|úterý|středu|čtvrtek|sobotu|neděli)/i.test(r), weight: 0.2 }] }),
+    }),
+    textTask({
+      name: 'cz_customer_explanation_paragraph', language: 'cs',
+      prompt: 'Napiš zákazníkovi jeden profesionální odstavec o přesně třech větách, bez nadpisu a odrážek. Incident 418 zpozdil zpracování objednávky, data jsou v bezpečí a obnovení očekáváme zítra do 12:00. Příčina zatím není potvrzená. Srozumitelně odděl známá fakta od nejistoty a neslibuj dřívější termín.',
+      rubric: ['jeden odstavec o přesně 3 větách', 'incident 418 zpozdil objednávku', 'data jsou v bezpečí', 'obnovení zítra do 12:00', 'příčina není potvrzená', 'profesionální souvislá čeština bez falešného slibu'],
+      grade: r => checklist([
+        { id: 'format', ok: sentenceCount(r) === 3 && !/\n\s*\n|^\s*[-*•#]/m.test(String(r).trim()) && wordCount(r) <= 105 },
+        { id: 'incident_delay', ok: /incident(?:u)?(?:\s+č\.)?\s*418/i.test(r) && /objednáv/i.test(r) && /zpozd|prodl/i.test(r) },
+        { id: 'data_safe', ok: /data/i.test(r) && includesAny(r, ['jsou v bezpečí', 'zůstávají v bezpečí', 'zůstávají v plném bezpečí', 'zůstala v bezpečí', 'nejsou ohrožena']) },
+        { id: 'recovery', ok: includesAny(r, ['obnovení', 'obnovu', 'obnovit']) && /zítra/i.test(r) && /12[:.]00/.test(r) },
+        { id: 'uncertainty', ok: /příčin/i.test(r) && (/příčin[\s\S]*(?:(?:není|nebyla)[\s\S]*potvrzen|prověř|ověř|vyšetř)/i.test(r) || includesAny(r, ['zatím neznáme'])) },
+        { id: 'czech_professional', ok: countMatches(r, /[áčďéěíňóřšťúůýž]/gi) >= 8 && !includesAny(r, ['určitě dříve', 'nejpozději ráno', 'garantujeme dřívější']) },
       ]),
     }),
   ]),

@@ -15,6 +15,31 @@ export const DEFAULT_MIN_AVAILABLE_MEMORY_BYTES = 8 * 2 ** 30;
 export const DEFAULT_MIN_AVAILABLE_DISK_BYTES = 40 * 2 ** 30;
 
 /**
+ * A scheduled pull must preserve the disk reserve after the artifact lands,
+ * not merely observe that the reserve exists before downloading it.
+ */
+export function assessCandidateDownloadHeadroom(snapshot = {}, opts = {}) {
+  const minimumDiskBytes = opts.minimumDiskBytes ?? DEFAULT_MIN_AVAILABLE_DISK_BYTES;
+  const diskAvailableBytes = Number(snapshot.diskAvailableBytes);
+  const downloadBytes = Number(snapshot.downloadBytes);
+  if (!Number.isSafeInteger(diskAvailableBytes) || diskAvailableBytes < 0) {
+    return Object.freeze({ ready: false, reason: 'volné místo pro modely nelze zjistit' });
+  }
+  if (!Number.isSafeInteger(downloadBytes) || downloadBytes <= 0) {
+    return Object.freeze({ ready: false, reason: 'velikost kandidáta nelze bezpečně zjistit' });
+  }
+  const remainingBytes = diskAvailableBytes - downloadBytes;
+  return Object.freeze({
+    ready: remainingBytes >= minimumDiskBytes,
+    reason: remainingBytes >= minimumDiskBytes
+      ? null
+      : `po stažení by zůstalo ${(remainingBytes / 2 ** 30).toFixed(1)} GiB < ${(minimumDiskBytes / 2 ** 30).toFixed(1)} GiB`,
+    remainingBytes,
+    minimumDiskBytes,
+  });
+}
+
+/**
  * Scheduled runs must never evict a model used by an interactive session or
  * compete with unrelated GPU work. Unknown host-memory state also fails
  * closed; a manual operator can still run the normal CLI after inspecting it.
@@ -107,6 +132,6 @@ export function holdGpuEvaluationLock(opts = {}) {
 
 export default {
   acquireGpuEvaluationLock, holdGpuEvaluationLock,
-  assessScheduledEvaluationReadiness,
+  assessCandidateDownloadHeadroom, assessScheduledEvaluationReadiness,
   DEFAULT_MIN_AVAILABLE_MEMORY_BYTES, DEFAULT_MIN_AVAILABLE_DISK_BYTES,
 };

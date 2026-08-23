@@ -25,6 +25,8 @@
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
+import { execFileSync } from 'node:child_process';
+
 import { config } from '../config.js';
 import { logger } from '../core/logger.js';
 import { sameModelName } from './model-identity.js';
@@ -160,6 +162,23 @@ export async function listResident(opts = {}) {
 }
 
 /**
+ * NVIDIA compute procesy jsou druhý, host-level signál. Ollama `/api/ps` může
+ * při přechodu krátce hlásit prázdno, i když starý llama-server stále vlastní
+ * CUDA alokaci. `null` znamená, že host tento signál neposkytuje (AMD/CPU), a
+ * drain pak zůstane přenositelně u stabilního Ollama pozorování.
+ */
+function gpuComputeProcesses() {
+  try {
+    return execFileSync('nvidia-smi', [
+      '--query-compute-apps=pid,process_name', '--format=csv,noheader,nounits',
+    ], { encoding: 'utf8', timeout: 5000 })
+      .split(/\r?\n/).map(row => row.trim()).filter(Boolean);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Uvolní z paměti všechno a počká, až Ollama skutečně nic nedrží.
  *
  * Bez tohohle kroku se neměří model, ale kontence.  Změřeno: `qwen3.5:27b`
@@ -170,10 +189,28 @@ export async function listResident(opts = {}) {
  */
 export async function drainResident(opts = {}) {
   const deadline = Date.now() + (opts.drainTimeout ?? 60_000);
+  const requiredEmptyPolls = opts.drainEmptyPolls ?? 4;
+  let emptyPolls = 0;
   while (Date.now() < deadline) {
     const resident = await listResident(opts);
-    if (resident.length === 0) return true;
-    for (const name of resident) await unloadModel(name, opts);
+    if (resident.length === 0) {
+      const processes = typeof opts.gpuComputeProcesses === 'function'
+        ? await opts.gpuComputeProcesses()
+        : gpuComputeProcesses();
+      // On NVIDIA, an empty API is not enough until the runner disappears
+      // from the compute process table. On hosts without nvidia-smi, `null`
+      // deliberately falls back to the portable stable-empty API check.
+      if (processes === null || processes.length === 0) emptyPolls += 1;
+      else emptyPolls = 0;
+      // /api/ps can become empty a few seconds before the old llama-server
+      // releases its CUDA allocation. Requiring stable emptiness prevents the
+      // next load from racing that teardown. The host process check above
+      // closes the longer transition observed with large models on NVIDIA.
+      if (emptyPolls >= requiredEmptyPolls) return true;
+    } else {
+      emptyPolls = 0;
+      for (const name of resident) await unloadModel(name, opts);
+    }
     await new Promise(r => setTimeout(r, opts.drainPollMs ?? 1000));
   }
   logger.warn('VramMeasurement', 'Paměť se nepodařilo vyprázdnit — měření může být zkreslené kontencí');
@@ -200,9 +237,17 @@ export async function measureModel(modelName, opts = {}) {
 
   try {
     // Měří se vždy z prázdné paměti, jinak výsledek popisuje kontenci.
-    if (opts.drain !== false) await drainResident(opts);
+    if (opts.drain !== false && !await drainResident(opts)) {
+      result.error = 'GPU se před měřením nepodařilo bezpečně uvolnit';
+      return result;
+    }
     result.numCtx = await loadModel(modelName, opts);
-    result.placement = await readPlacement(modelName, opts);
+    const placementDeadline = Date.now() + (opts.placementTimeout ?? 15_000);
+    do {
+      result.placement = await readPlacement(modelName, opts);
+      if (result.placement?.loaded) break;
+      await new Promise(r => setTimeout(r, opts.placementPollMs ?? 500));
+    } while (Date.now() < placementDeadline);
 
     if (!result.placement?.loaded) {
       result.error = 'model se nenačetl do paměti';

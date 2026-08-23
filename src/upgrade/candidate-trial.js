@@ -16,9 +16,10 @@
 // nenačte, neodpoví, nevrátí vyžádaný JSON nebo neumí česky.  Cokoli, co je
 // otázkou kvality, jde vždy do plného souboje.
 //
-// Na disku leží vždy nejvýš jeden kandidát navíc; poražený se maže hned.
-// Nahrazený model se ale **nemaže** — teprve provoz ukáže, jestli byla výměna
-// dobrý nápad.
+// Kandidát se po souboji nemaže naslepo. Přesný digest zůstává v historii a
+// bounded retenci vlastní model-registry: teprve pod diskovým tlakem, po grace
+// period a jen s dokončeným scoringem smí odstranit nevázaný artefakt, který
+// není poslední rollback.
 //
 // ══════════════════════════════════════════════════════════════════════════════
 

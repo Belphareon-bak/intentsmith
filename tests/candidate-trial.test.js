@@ -76,8 +76,15 @@ const SPILLS = { size: 29 * GB, size_vram: 21 * GB };
 // jako v `scripts/model-upgrade-hunt.js`.  Bez ní se fail-closed nemaže, takže
 // scénáře, které mazání očekávají, musí autoritu dodat.
 const FAST_DRAIN = {
+  // These unit cases hold their synthetic /api/ps placement forever. The
+  // drain contract has its own tests; skip it here instead of inheriting a
+  // real concurrently used GPU or timing out on the immutable stub.
+  drain: false,
+  // Pairwise trials still invoke their between-run drain callback. Bound it
+  // tightly because the same immutable placement fixture cannot become empty.
   drainTimeout: 30,
   drainPollMs: 5,
+  gpuComputeProcesses: () => [],
   deleteModel: async () => {},
 };
 

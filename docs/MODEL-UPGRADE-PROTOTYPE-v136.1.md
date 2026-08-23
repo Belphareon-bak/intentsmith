@@ -1,13 +1,15 @@
 # Model upgrade prototype v136.1
 
-**Stav:** funkční GPU prototyp; portfolio splňuje segregaci, CHAT v3 má
-11 panelově rozlišujících úloh (7 EN + 4 CZ) a CODE má 8 aktivních úloh
+**Stav:** funkční GPU prototyp; portfolio splňuje segregaci, CHAT v3.5 má
+40 dílčím checklistem hodnocených úloh (24 EN + 16 CZ) a CODE má 8 aktivních
+úloh
 
 **Rozsah:** discovery kandidátů, objektivní skórování podle role, trvalá historie,
 výběr vítěze a operátorem spuštěná aplikace vazby
 
-**Mimo rozsah prototypu:** automatické mazání modelů, bezobslužná aplikace
-vítězů a produkční failover proof issuance
+**Mimo rozsah prototypu:** bezobslužná aplikace vítězů a produkční failover
+proof issuance. Bezpečně omezená retence lokálních artefaktů je součástí
+prototypu.
 
 ## 1. Výsledek, který prototyp musí dodat
 
@@ -79,7 +81,17 @@ Hunt netestuje každý model. Kandidát musí současně:
   nové porovnání s dnešním incumbentem; známé COMPLETE skóre se přitom načte
   z historie a model se znovu nespustí.
 
-Modely se zkoušejí sériově. Mezi dvěma modely se uvolní Ollama residency. Hunt
+Živý Ollama katalog je zdroj rodin, popisu a stáří poslední aktualizace.
+Kategorie `code`, `vision`, `embedding`, `ocr`, `safety` a `translation` se oddělují ještě
+před role rankingem, aby například embedding nebo vision model nekandidoval na
+reasoning. Čerstvost pouze zvedá prioritu dosud neznámého artefaktu ke
+screeningu; není důkazem kvality a nikdy nenahrazuje role-specific scoring.
+Rodina bez záznamu ve statickém benchmarkovém katalogu se proto neztratí, ale
+musí kvalitu teprve fyzicky prokázat.
+
+Modely se zkoušejí sériově. Mezi dvěma modely se uvolní Ollama residency a na
+NVIDIA se čeká i na prázdný seznam compute procesů; samotné krátce prázdné
+`/api/ps` během přechodu nestačí. Neúspěšný drain ukončí měření fail-closed. Hunt
 nesmí ukončovat cizí procesy ani sessions a nesmí vyvolat `swapoff`.
 Hunt a kalibrační panel navíc sdílejí mezi-procesový GPU lock, takže se
 nemohou navzájem dostat mezi drain a placement measurement.
@@ -115,16 +127,21 @@ uplatňuje segregaci odpovědností:
 - pokud vítěz narazí na policy, jeho skóre zůstane v historii, ale vazba se
   nezmění; hunt pokračuje k dalšímu schopnému kandidátovi.
 
+Tyto čtyři dvojice operátor potvrdil jako současnou policy prototypu, nikoli
+jako navždy neměnný stav. Když policy blokuje doloženého vítěze, nejdřív se
+párově přeměří blokující role proti dnešnímu poli; zákaz se ad hoc neuvolní.
+
 ## 6. CHAT v3
 
 CHAT je English-first, nikoli English-only:
 
-- dvacet jedna EN úloh a čtrnáct CZ úloh, stále s vahami 60/40;
+- dvacet čtyři EN úloh a šestnáct CZ úloh, stále s vahami 60/40;
 - původní fakta, přesné instrukce, korekce kontextu, překlad a přiznání
   chybějícího kontextu doplňuje práce s konfliktními instrukcemi, referencemi,
   přesnou strukturou, bezpečným přiznáním limitů a zachováním významu;
 - česká část navíc ověřuje skloňování, formální registr, nejednoznačnou
-  referenci a přesný strukturovaný výstup;
+  referenci, přesný strukturovaný výstup a dva souvislé třívěté odstavce se
+  zachováním faktů a správným oddělením jistoty od nejistoty;
 - každá úloha má zveřejnitelný checklist dílčích bodů;
 - faktické rozpory, překročení formátu a hallucinated values body odebírají;
 - diakritika je jedna složka českého skóre, ne celý český test.
@@ -136,6 +153,15 @@ jsou diagnostický signál, nikoli dostatečný podklad pro výměnu.
 CLI musí umět vypsat přesné CHAT prompty a scoring rubric bez spuštění modelu,
 aby je operátor mohl samostatně posoudit.
 
+Panel v3.4 rozlišil 12 úloh, ale jen tři české. Ruční kontrola odpovědí pak
+odhalila tři příliš úzké jazykové podmínky graderu (anglické vyjádření příčiny,
+absence reliability dat a české formální `vaší`). Oprava vytvořila nový
+kontrakt v3.5; stará měření zůstala v historii, ale nesmějí rozhodovat pod novým
+hashem. Čistý souboj v3.5 mezi `qwen3.6` a incumbentem `qwen3.5` už poskytl
+čtyři stabilní české signály, avšak pouze jeden anglický. Celkových pět je pod
+branou 7 (EN 3 + CZ 4), takže vyšší průměr kandidáta ani výhra 4:1 vazbu
+nezměnily. Rozšíření signálu zůstává kalibrační úkol, ne důvod snížit práh.
+
 ## 7. Frekvence huntu
 
 - read-only discovery může běžet denně a nepoužívá GPU ani nestahuje modely;
@@ -144,10 +170,24 @@ aby je operátor mohl samostatně posoudit.
 - plánovaný běh se bez zásahu přeskočí, pokud je v Ollamě rezidentní model,
   GPU používá jiný compute proces, je dostupných méně než 8 GiB RAM nebo by
   volné místo pro modely kleslo pod bezpečnostní rezervu 40 GiB;
+- už nainstalovaný artefakt s chybějící aktuální sadou má přednost před novým
+  downloadem; plánované pully rezervují svou hlášenou velikost kumulativně a
+  nesmějí po stažení snížit volné místo pod 40 GiB;
 - známý digest a shodný suite contract se znovu neinferuje;
 - překryv ručního, plánovaného a kalibračního běhu blokuje společný GPU lock;
 - automatická aplikace zůstává vypnutá, dokud notification receipt a B3/B4
   nedávají terminální důkaz.
+
+Automatický úklid se smí spustit jen pod 40 GiB volného místa a skončí, jakmile
+se rezerva obnoví. Smí odstranit pouze nevázaný artefakt starší sedmi dnů,
+který není incumbent ani poslední rollback. Přesný digest bez alespoň jednoho
+dokončeného `COMPLETE` záznamu v historii je chráněný; chybějící nebo nečitelná
+historie znamená bez mazání.
+
+Na hostu 2026-08-23 zůstává aktivace retence fail-closed: živá DB nese novější
+automation-policy event schema z paralelní M1 linky, které v136.1 reader ještě
+nečte. Přímý SQL bypass není přípustný. Cleanup kontrakt je implementovaný a
+otestovaný, ale policy se zapne typed writerem až po sjednocení autority.
 
 ## 8. Akceptační důkaz prototypu
 
@@ -193,6 +233,12 @@ kandidáta přes uložené skóre po aplikaci nebo pravdivé `UNCHANGED`.
 - Aktivní user timer spouští nejvýše dva dosud neoscorované kandidáty každých
   48 hodin, bez mazání a bez automatické aplikace. První běh skončil úspěšně;
   další trigger je 2026-08-25 09:51 CEST.
+- Následný discovery follow-up fyzicky ověřil také nový
+  `qwen3.6:27b-mtp-q4_k_m`: při 32k kontextu je celý v 24GiB VRAM a dosáhl
+  37,3 tok/s. V reasoning souboji neporazil dnešní incumbent a v CHAT v3.5
+  sice vedl 4:1 s marží 0,0933, ale měl jen 5/7 požadovaných stabilních úloh
+  (EN 1/3, CZ 4/4), takže binding zůstal beze změny. CODE a REVIEW skóre tohoto
+  artefaktu zůstávají ve frontě; GPU byla na žádost operátora uvolněna.
 
 Kompletní evidence, CHAT odpovědi a task-level skóre jsou v
 [GPU pilot reportu](execution/runs/model-upgrade-prototype-20260823.md).

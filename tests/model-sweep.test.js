@@ -9,6 +9,7 @@ import {
   fetchLibraryFamilies, parseTagsPage, mightFit, comfortablyFits,
   preferredTagForFamily, formatRunsHere, rankCandidates, clearCache,
   specializationBonus, buildCandidatePool,
+  parseLibraryFamilyMetadata, getLibraryFamilyMetadata,
   MIN_OBSERVED_VRAM_OVERHEAD, TYPICAL_VRAM_OVERHEAD,
 } from '../src/upgrade/model-sweep.js';
 
@@ -29,6 +30,25 @@ await testAsync('vytáhne rodiny z HTML knihovny', async () => {
   const fams = await fetchLibraryFamilies({ html, force: true });
   assertEqual(fams.length, 3, `dostal: ${fams.join(',')}`);
   assert(fams.includes('deepseek-v4-pro'), 'rodina se spojovníky a číslem projde');
+  clearCache();
+});
+
+test('živý katalog zachová stáří aktualizace a popis rodiny', () => {
+  const metadata = parseLibraryFamilyMetadata(`
+    <a href="/library/qwen3.6"><p>Agentic coding and thinking.</p><span>1 week ago</span></a>
+    <a href="/library/laguna-xs-2.1"><p>Local coding model.</p><span>2 days ago</span></a>`);
+  assertEqual(metadata.get('qwen3.6').updatedDays, 7);
+  assertEqual(metadata.get('qwen3.6').description, 'Agentic coding and thinking.');
+  assertEqual(metadata.get('laguna-xs-2.1').updatedDays, 2);
+});
+
+await testAsync('metadata patří ke stejnému živému snapshotu jako rodiny', async () => {
+  clearCache();
+  await fetchLibraryFamilies({
+    html: '<a href="/library/qwen3.6"><p>New model.</p><span>1 week ago</span></a>',
+    force: true,
+  });
+  assertEqual(getLibraryFamilyMetadata().get('qwen3.6').updatedDays, 7);
   clearCache();
 });
 
@@ -211,6 +231,23 @@ test('rezerva ve velikosti zvedne prioritu', () => {
   assert(tight[0].reasons.some(r => /těsná/.test(r)), 'těsnost se musí objevit v důvodech');
 });
 
+test('čerstvá aktualizace živého katalogu zvedne netestovaný model ve frontě', () => {
+  const out = rankCandidates([
+    { name: 'fresh:14b', family: 'fresh', sizeGB: 10, catalogUpdatedDays: 7, catalogUpdatedLabel: '1 week ago' },
+    { name: 'old:14b', family: 'old', sizeGB: 10, catalogUpdatedDays: 365, catalogUpdatedLabel: '1 year ago' },
+  ], { vramMb: VRAM_24GB });
+  assertEqual(out[0].family, 'fresh');
+  assert(out[0].reasons.some(reason => /1 week ago/.test(reason)));
+});
+
+test('chybějící stáří se nesmí vydávat za aktualizaci dnes', () => {
+  const [candidate] = rankCandidates([
+    { name: 'undated:14b', family: 'undated', sizeGB: 10, catalogUpdatedDays: null },
+  ], { vramMb: VRAM_24GB });
+  assertEqual(candidate.priority, 3);
+  assert(!candidate.reasons.some(reason => /aktualizováno/.test(reason)));
+});
+
 test('prázdný pool nespadne', () => {
   assertEqual(rankCandidates([], { vramMb: VRAM_24GB }).length, 0);
 });
@@ -345,6 +382,21 @@ await testAsync('pool se nesmí omezit na hodnocené rodiny', async () => {
     html: 'alfa:7b 5GB beta:7b 5GB gama:7b 5GB',
   });
   assertEqual(pool.length, 3, 'všechny rodiny se dostanou do poolu');
+  clearCache();
+});
+
+await testAsync('pool přenese metadata živého katalogu do role rankeru', async () => {
+  clearCache();
+  const familyMetadata = new Map([['novy', {
+    updatedDays: 3, updatedLabel: '3 days ago', description: 'A capable local model.',
+  }]]);
+  const pool = await buildCandidatePool(['novy'], {
+    vramMb: VRAM_24GB,
+    html: 'novy:14b 9GB',
+    familyMetadata,
+  });
+  assertEqual(pool[0].catalogUpdatedDays, 3);
+  assertEqual(pool[0].catalogDescription, 'A capable local model.');
   clearCache();
 });
 

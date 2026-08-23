@@ -251,8 +251,8 @@ Aby se nepředstíralo, že je hotovo víc, než je.
 | **#18b — 9 470 řádků** | Síť je vypnutá, ale kód zůstává. „Ponecháno, ale vypnuto" je půlka rozhodnutí; celé zní, jestli 18b v produktu je, nebo se vyřízne. |
 | **Kritérium dělení souborů** | Návrh: *dělí se soubor obsluhující víc než jednu schopnost, řádky nerozhodují*. Neschváleno do `CONTRACT.md`. |
 | **`EX-1`** | Kolize ID rizika blokuje merge mobilní větve. Oprava navržená, neprovedená. |
-| **Přesné nezávislé dvojice modelových rolí** | Princip autor–reviewer je schválený. Prototyp nyní odděluje D1–R1, CODE–R1, CODE–R2 a D2–R2; zda je tato čtveřice konečný produktový kontrakt, ještě operátor nepotvrdil. |
-| **Retence nahrazených modelů** | Je rozhodnuto ponechat incumbent krátce jako rollback. Není rozhodnuta délka grace period, diskový strop ani podmínky automatického smazání. Do té doby je mazání vypnuté. |
+| **Přesné nezávislé dvojice modelových rolí** | Operátor 2026-08-23 potvrdil pro prototyp D1–R1, CODE–R1, CODE–R2 a D2–R2. Jde o současnou bezpečnou policy, ne neměnný konečný stav: výjimka se nedělá jen proto, aby šel aplikovat kvalitativní vítěz. Nejdřív se párově přeměří blokující role proti dnešnímu poli. |
+| **Retence nahrazených modelů** | Operátor 2026-08-23 schválil automatický úklid až při méně než 40 GiB volného místa: pouze nevázaný artefakt starší sedmi dnů, který není incumbent ani poslední rollback. Přesný digest bez dokončeného `COMPLETE` scoringu se nesmí smazat. |
 
 ---
 

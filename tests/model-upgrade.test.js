@@ -27,7 +27,8 @@ import {
   resolveCurrentBindings, selectResponsibilityPortfolio,
 } from '../src/upgrade/model-upgrade-prototype.js';
 import {
-  acquireGpuEvaluationLock, assessScheduledEvaluationReadiness,
+  acquireGpuEvaluationLock, assessCandidateDownloadHeadroom,
+  assessScheduledEvaluationReadiness,
 } from '../src/upgrade/gpu-evaluation-lock.js';
 
 const ASYNC_TEST_TIMEOUT_MS = 10_000;
@@ -71,6 +72,23 @@ test('scheduled GPU readiness requires an idle host with RAM headroom', () => {
   assert(!assessScheduledEvaluationReadiness({
     residentModels: [], computeProcesses: [], memoryAvailableBytes, diskAvailableBytes: 20 * 2 ** 30,
   }).ready, 'low model-storage headroom must block a scheduled run');
+});
+
+test('scheduled candidate pull preserves 40 GiB after cumulative download', () => {
+  assert(assessCandidateDownloadHeadroom({
+    diskAvailableBytes: 60 * 2 ** 30,
+    downloadBytes: 19 * 2 ** 30,
+  }).ready, '41 GiB after pull is safe');
+  const blocked = assessCandidateDownloadHeadroom({
+    diskAvailableBytes: 58 * 2 ** 30,
+    downloadBytes: 19 * 2 ** 30,
+  });
+  assertEqual(blocked.ready, false);
+  assert(/39\.0 GiB < 40\.0 GiB/.test(blocked.reason), blocked.reason);
+  assertEqual(assessCandidateDownloadHeadroom({
+    diskAvailableBytes: 58 * 2 ** 30,
+    downloadBytes: 0,
+  }).ready, false, 'unknown candidate size must fail closed');
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -107,7 +107,46 @@ export function preferredTagForFamily(tags, vramMb, gpuModel = '') {
 
 let _familiesCache = null;
 let _familiesAt = 0;
+let _familyMetadata = new Map();
 const _tagsCache = new Map();
+
+const RELATIVE_AGE_DAYS = Object.freeze({
+  day: 1, days: 1, week: 7, weeks: 7,
+  month: 30, months: 30, year: 365, years: 365,
+});
+
+export function parseLibraryFamilyMetadata(html) {
+  const anchors = [...String(html || '').matchAll(/href="\/library\/([a-z0-9._-]+)"/gi)];
+  const out = new Map();
+  for (let index = 0; index < anchors.length; index++) {
+    const family = anchors[index][1].toLowerCase();
+    const start = anchors[index].index ?? 0;
+    const end = anchors[index + 1]?.index ?? String(html || '').length;
+    const block = String(html || '').slice(start, end);
+    const age = /<span[^>]*>\s*(\d+)\s+(day|days|week|weeks|month|months|year|years)\s+ago\s*<\/span>/i.exec(block);
+    const description = /<p[^>]*>([\s\S]*?)<\/p>/i.exec(block)?.[1]
+      ?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() || null;
+    const count = Number(age?.[1]);
+    const unit = age?.[2]?.toLowerCase();
+    const updatedDays = Number.isFinite(count) && RELATIVE_AGE_DAYS[unit]
+      ? count * RELATIVE_AGE_DAYS[unit]
+      : null;
+    const previous = out.get(family);
+    if (!previous || (updatedDays != null && (previous.updatedDays == null || updatedDays < previous.updatedDays))) {
+      out.set(family, Object.freeze({
+        family,
+        updatedLabel: age ? `${count} ${unit} ago` : null,
+        updatedDays,
+        description,
+      }));
+    }
+  }
+  return out;
+}
+
+export function getLibraryFamilyMetadata() {
+  return new Map(_familyMetadata);
+}
 
 async function fetchText(url) {
   const res = await fetch(url, {
@@ -127,6 +166,7 @@ export async function fetchLibraryFamilies(opts = {}) {
   }
   try {
     const html = opts.html ?? await fetchText(LIBRARY_URL);
+    _familyMetadata = parseLibraryFamilyMetadata(html);
     const found = new Set();
     for (const m of html.matchAll(/href="\/library\/([a-z0-9._-]+)"/gi)) {
       found.add(m[1].toLowerCase());
@@ -281,12 +321,28 @@ export function rankCandidates(pool, ctx = {}) {
     }
     if (releaseDate) reasons.push(`vydáno ${releaseDate}`);
 
+    // `Number(null) === 0`; bez explicitní ochrany by rodina bez timestampu
+    // dostala falešný signál „aktualizováno dnes“ a předběhla skutečně čerstvé
+    // kandidáty.
+    const catalogUpdatedDays = entry.catalogUpdatedDays == null
+      ? null
+      : Number(entry.catalogUpdatedDays);
+    if (Number.isFinite(catalogUpdatedDays) && catalogUpdatedDays >= 0) {
+      reasons.push(`Ollama aktualizováno ${entry.catalogUpdatedLabel || `${catalogUpdatedDays} dní zpět`}`);
+    }
+
     // Priorita: externí hodnocení dominuje, novost a pohodlná velikost dolaďují.
     let priority = 0;
     if (quality != null) priority += quality;
     if (releaseDate) {
       const ageDays = (Date.now() - Date.parse(releaseDate)) / 86400000;
       if (Number.isFinite(ageDays)) priority += Math.max(0, 12 - ageDays / 30);
+    }
+    // Živý Ollama katalog poskytuje stáří poslední aktualizace i rodinám,
+    // které nejsou ve statickém benchmarkovém panelu. Není to důkaz kvality,
+    // ale je to silný signál, že dosud netestovaný artefakt stojí za screening.
+    if (Number.isFinite(catalogUpdatedDays) && catalogUpdatedDays >= 0) {
+      priority += Math.max(0, 16 - catalogUpdatedDays / 15);
     }
     if (comfortablyFits(entry.sizeGB, vramMb)) {
       priority += 3;
@@ -307,6 +363,7 @@ export function rankCandidates(pool, ctx = {}) {
 
     out.push({
       ...entry, role, quality, releaseDate,
+      category: entry.category ?? profile.category ?? 'unknown',
       priority: Math.round(priority * 100) / 100,
       reasons,
     });
@@ -355,7 +412,15 @@ export async function buildCandidatePool(families, opts = {}) {
       if (!family) break;
       const tags = await fetchFamilyTags(family, opts);
       const best = preferredTagForFamily(tags, vramMb, gpuModel);
-      if (best) pool.push(best);
+      if (best) {
+        const metadata = opts.familyMetadata?.get?.(family) || null;
+        pool.push({
+          ...best,
+          catalogUpdatedDays: metadata?.updatedDays ?? null,
+          catalogUpdatedLabel: metadata?.updatedLabel ?? null,
+          catalogDescription: metadata?.description ?? null,
+        });
+      }
       done++;
       if (onProgress && done % 25 === 0) onProgress(done, families.length);
     }
@@ -369,11 +434,13 @@ export async function buildCandidatePool(families, opts = {}) {
 export function clearCache() {
   _familiesCache = null;
   _familiesAt = 0;
+  _familyMetadata = new Map();
   _tagsCache.clear();
 }
 
 export default {
   fetchLibraryFamilies, fetchFamilyTags, parseTagsPage,
+  parseLibraryFamilyMetadata, getLibraryFamilyMetadata,
   mightFit, comfortablyFits, rankCandidates, preferredTagForFamily, buildCandidatePool,
   formatRunsHere, specializationBonus, clearCache,
   MIN_OBSERVED_VRAM_OVERHEAD, TYPICAL_VRAM_OVERHEAD,

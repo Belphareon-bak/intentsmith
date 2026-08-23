@@ -28,6 +28,17 @@ const VALIDATION_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 const OVERVIEW_CACHE_TTL = 30_000; // 30s
 const SUITES = ['reasoning', 'code', 'chat', 'vision', 'review'];
 const DELETE_SOURCES = new Set(['USER_REQUEST', 'USER_HTTP', 'USER_CHAT', 'AUTO_CLEANUP']);
+export const AUTO_CLEANUP_MIN_FREE_BYTES = 40 * 1_073_741_824;
+
+function readModelStorageFreeBytes() {
+  try {
+    const stats = fs.statfsSync(config.ollama?.modelsPath || '/usr/share/ollama/.ollama/models');
+    const freeBytes = Number(stats.bavail) * Number(stats.bsize);
+    return Number.isSafeInteger(freeBytes) && freeBytes >= 0 ? freeBytes : null;
+  } catch {
+    return null;
+  }
+}
 
 const ROLE_PROFILES = {
   D1:     { name: 'Hluboká analýza',   desc: 'Analýza, plánování, redesign. Vyžaduje reasoning + JSON.', suite: 'reasoning', color: '#8b5cf6' },
@@ -174,6 +185,7 @@ export class ModelRegistry {
     this._cleanupRunning = false;
     this._clock = Date.now;
     this._modelUseAuthority = modelUseAuthority;
+    this._modelStorageFreeBytes = readModelStorageFreeBytes;
   }
 
   /** Wire dependencies (called once in server.js) */
@@ -185,6 +197,7 @@ export class ModelRegistry {
     broadcast,
     clock,
     modelUseAuthority: injectedModelUseAuthority,
+    modelStorageFreeBytes,
   }) {
     this._db = db;
     this._upgradeManager = upgradeManager;
@@ -193,6 +206,9 @@ export class ModelRegistry {
     this._broadcast = broadcast || (() => {});
     this._clock = typeof clock === 'function' ? clock : Date.now;
     this._modelUseAuthority = injectedModelUseAuthority || modelUseAuthority;
+    this._modelStorageFreeBytes = typeof modelStorageFreeBytes === 'function'
+      ? modelStorageFreeBytes
+      : readModelStorageFreeBytes;
     if (typeof this._modelUseAuthority?.acquireShared !== 'function'
       || typeof this._modelUseAuthority?.acquireExclusive !== 'function') {
       registryFail(
@@ -1013,6 +1029,11 @@ export class ModelRegistry {
       if (!Number.isSafeInteger(now) || now < 1) {
         registryFail('MODEL_CLEANUP_CLOCK_INVALID', 'Cleanup clock is invalid', 500);
       }
+      // Retention is pressure relief, not routine churn. A failed or ambiguous
+      // disk measurement must keep every artifact.
+      let freeBytes = this._modelStorageFreeBytes();
+      if (!Number.isSafeInteger(freeBytes) || freeBytes < 0
+        || freeBytes >= AUTO_CLEANUP_MIN_FREE_BYTES) return [];
       const installed = await this.getInstalled({ strict: true });
       const boundModels = canonicalModelNameSet(Object.values(config.models));
       const cutoffMs = now - days * 86400000;
@@ -1020,6 +1041,7 @@ export class ModelRegistry {
       const seenCanonical = new Set();
 
       for (const m of installed) {
+        if (freeBytes >= AUTO_CLEANUP_MIN_FREE_BYTES) break;
         const canonicalName = canonicalModelName(m.name);
         if (!canonicalName || seenCanonical.has(canonicalName)) continue;
         seenCanonical.add(canonicalName);
@@ -1032,16 +1054,30 @@ export class ModelRegistry {
         // protection even when historical usage exists.
         const usage = this.getUsage(m.name);
         if (!usage.retentionValid) continue;
-        // Absence of gateway usage is not proof that the artifact was unused:
-        // validation, vision, embeddings and other provider consumers do not
-        // all write model_usage yet. Keep zero-evidence artifacts until the
-        // shared model-use port can account for every consumer.
-        if (usage.requestCount < 1) continue;
+        // COMPLETE digest-bound scoring below is authoritative evidence that a
+        // downloaded candidate finished its purpose even when it never served
+        // a gateway request. With no usage rows, provider modified_at remains
+        // the grace-period clock; malformed or unreadable usage still fails
+        // closed through retentionValid.
         if (usage.lastUsedAtMs !== null && usage.lastUsedAtMs >= cutoffMs) continue;
         const modifiedAtMs = parseCleanupUtcTimestamp(m.modified_at);
         if (modifiedAtMs === null || modifiedAtMs >= cutoffMs) continue;
         const digestSha256 = m.digestSha256 || normalizeModelDigestSha256(m.digest);
         if (!digestSha256) continue;
+        // An unfinished or never-started evaluation is precisely the artifact
+        // most likely to be needed by the next hunt tick. Only a completed,
+        // digest-bound score makes an artifact eligible for retention cleanup.
+        try {
+          const completed = this._db.prepare(`
+            SELECT 1 AS ok
+            FROM model_evaluation_runs
+            WHERE model_digest_sha256 = ? AND status = 'COMPLETE'
+            LIMIT 1
+          `).get(digestSha256);
+          if (!completed) continue;
+        } catch {
+          continue;
+        }
 
         try {
           const result = await this.deleteModel(m.name, {
@@ -1052,6 +1088,10 @@ export class ModelRegistry {
             model: result.deleted,
             freedGB: result.freedGB,
           });
+          const artifactBytes = Number(m.size);
+          if (Number.isSafeInteger(artifactBytes) && artifactBytes > 0) {
+            freeBytes = Math.min(Number.MAX_SAFE_INTEGER, freeBytes + artifactBytes);
+          }
           this._broadcast('control', {
             action: 'model_auto_cleaned',
             model: result.deleted,
