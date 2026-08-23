@@ -1044,9 +1044,12 @@ M2", ne jako důkaz, že na ní M2 běží.
 rozhodnutí-prostý řez uzavírá project-path bypassy patch/dead-import cest na
 `37fab4f9` a přesné boundary hrany na `b523a47f`. Nezávislé review
 `25cdaac8` vrátilo `CHANGES_REQUESTED`; opravy R1–R6 jsou na `664d91d8` a
-čekají na re-review. Focused suite i celý deterministický runner zachovaly
-přijatou baseline `233 PASS / 3 známé FAIL / 2 BLOCKED`, přičemž report má
-pravdivě `verdict: FAIL`, `exitCode: 1`. Veřejné
+re-review `8f31e34f` uzavřelo první řez jako `REVIEW_PASSED` v rozsahu
+`44a9ba87..eb22d10c`. Následné neblokující N1-N3 jsou kandidátně opravené na
+`86dfe4d8` a zůstávají mimo přijatý rozsah jako `UNREVIEWED`. Focused suite i
+celý deterministický runner zachovaly přijatou baseline
+`233 PASS / 3 známé FAIL / 2 BLOCKED`, přičemž report má pravdivě
+`verdict: FAIL`, `exitCode: 1`. Veřejné
 `EffectRequest/Result` ani `ApprovalGrant` tím ještě nejsou připnuté a M2 jako
 celek není PASS. Paralelní `WP-M2-CODE` zůstává disjunktní proud.
 
