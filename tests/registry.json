@@ -35,6 +35,26 @@
       "reason": "Suite-owned M1 Electron backend fixture launched only by studio-m1-electron-journey.e2e.js."
     },
     {
+      "path": "tests/fixtures/m2-project-context/project-a/src/auth/validateSessionToken.js",
+      "reason": "Static source fixture consumed by the M2 project-context retrieval and consumer suites."
+    },
+    {
+      "path": "tests/fixtures/m2-project-context/project-a/src/billing/calculateInvoiceTotal.js",
+      "reason": "Static source fixture consumed by the M2 project-context retrieval quality oracle."
+    },
+    {
+      "path": "tests/fixtures/m2-project-context/project-a/src/shared/sharedTieBreaker-alpha.js",
+      "reason": "Static bytewise-order fixture consumed by the M2 project-context retrieval suite."
+    },
+    {
+      "path": "tests/fixtures/m2-project-context/project-a/src/shared/sharedTieBreaker-beta.js",
+      "reason": "Static bytewise-order fixture consumed by the M2 project-context retrieval suite."
+    },
+    {
+      "path": "tests/fixtures/m2-project-context/project-b/src/canary-b.js",
+      "reason": "Static cross-project containment canary consumed by the M2 project-context suites."
+    },
+    {
       "path": "tests/run-all.js",
       "reason": "Aggregate compatibility entry point; registering it as a child suite would recurse into the registry runner."
     }
@@ -5142,6 +5162,126 @@
       "lastGreen": {
         "commit": null,
         "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M2-PROJECT-CONTEXT-CONTRACT-TEST",
+      "path": "tests/m2-project-context-contract.test.js",
+      "argv": [
+        "node",
+        "tests/m2-project-context-contract.test.js"
+      ],
+      "capabilityId": "C3-012",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": "11b9bfbfaaa9451566e3de2faf14aa51c224111b",
+        "artifact": "docs/execution/runs/wp-m2-code-project-context-v1.md"
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M2-PROJECT-CONTEXT-BOUNDARY-TEST",
+      "path": "tests/m2-project-context-boundary.test.js",
+      "argv": [
+        "node",
+        "tests/m2-project-context-boundary.test.js"
+      ],
+      "capabilityId": "C3-012",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": "11b9bfbfaaa9451566e3de2faf14aa51c224111b",
+        "artifact": "docs/execution/runs/wp-m2-code-project-context-v1.md"
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M2-PROJECT-CONTEXT-RETRIEVAL-TEST",
+      "path": "tests/m2-project-context-retrieval.test.js",
+      "argv": [
+        "node",
+        "tests/m2-project-context-retrieval.test.js"
+      ],
+      "capabilityId": "C3-012",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": "11b9bfbfaaa9451566e3de2faf14aa51c224111b",
+        "artifact": "docs/execution/runs/wp-m2-code-project-context-v1.md"
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M2-PROJECT-CONTEXT-CONSUMER-TEST",
+      "path": "tests/m2-project-context-consumer.test.js",
+      "argv": [
+        "node",
+        "tests/m2-project-context-consumer.test.js"
+      ],
+      "capabilityId": "C3-012",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": "11b9bfbfaaa9451566e3de2faf14aa51c224111b",
+        "artifact": "docs/execution/runs/wp-m2-code-project-context-v1.md"
       },
       "flakeCount": 0,
       "quarantineExpiry": null
