@@ -1,104 +1,115 @@
-# WP-M2-EFFECT-CONTRACT-V1 — branch evidence
+# WP-M2-EFFECT-CONTRACT-V1 — integrační evidence
 
-- **stav řezu:** `CANDIDATE_V1 / REVIEW_REQUIRED`
-- **vstupní revision:** `8f31e34f`
-- **ověřená source revision:** `8bef4cfc982a90c8fcd043f8c1b4fc2e78ed6448`
-- **větev:** `codex/m2-effect-contract-v1-20260823`
+- **oddíl:** M2 2/7
+- **stav:** `IMPLEMENTATION_GREEN / REVIEW_BLOCKED_ACCOUNT_LIMIT`
+- **integrační vstup:** `33cf221c3b772a1002311c8b1f71b67ad0d46cc9`
+- **ověřená product/test revision:** `ad4d7eb3c066a76c9480f22b868f2f142cf755e8`
+- **registry revision:** `8be95458bc944cbea7488cc1ed3f629a42cceaf8`
+- **module-graph revision:** `1dc082884579fb3c341224f6f4931bc076ddf49e`
+- **větev:** `codex/m2-integration-20260824`
 - **push:** neproveden
 
-Tento report nedokládá `PINNED_V1`, hotový effect broker ani M2 PASS.
-Dokládá executable kandidátní kontrakt a durable repository/ledger. Studio,
-transporty, tools, lifecycle ani jiný effect-capable consumer na nový šev ještě
-nejsou připojené. Repository je interní persistence seam a předpokládá trusted
-issuer; autentizace approvalu a generování nonce patří do navazujícího brokeru.
+Tento report nedokládá `PINNED_V1`, `REVIEW_PASSED` ani M2 PASS. Dokládá
+zelenou implementaci canonical effect/approval authority a prvního skutečného
+filesystem-write consumeru. Lokální Opus review s `--effort max` bylo spuštěno
+nad přesným rozsahem, ale neprovedlo audit, protože CLI vrátilo
+`You've hit your monthly spend limit`.
 
 ## Dodaný řez
 
 - striktní `EffectRequest@1`, `EffectResult@1` a `ApprovalGrant@1` s
-  byte-stabilním kanonickým encodingem;
-- uzavřené filesystem/process/network/Git targety, kind-bound risk class a
-  přesná effect/grant scope;
-- immutable request a terminal result, expirovatelný/revokovatelný single-use
-  grant a append-only authority audit;
-- SQLite migration 070 s databázově vynucenou identitou, append-only ochranou
-  a právě jedním přechodem grantu do `CONSUMED` nebo `REVOKED`;
-- atomické consume pod `BEGIN IMMEDIATE`, včetně důkazu přes dvě samostatná
-  SQLite spojení;
-- dvě nové append-only registry položky.
+  byte-stabilním encodingem a povinnou grant identity v každém resultu;
+- subject-bound issuer a canonical broker s atomickým consume + durable
+  execution claimem;
+- SQLite migrace 070–072, append-only audit a plný `sqlite_master` fingerprint
+  `8813935b17a36ff9cbb94bd10ccc29a3a5f1688b1eaa3d7d4f7766fc9760f275`;
+- owner identity přes boot ID/PID/process-start, fail-closed liveness a
+  restart recovery do `IN_DOUBT` nebo jediného `orphaned` terminalu;
+- idempotency z trusted persistované user-message identity a pending approval,
+  který přežije websocket reconnect;
+- odstranění přímého legacy `file.write`/`fs.write` obchvatu ve všech pozicích
+  tool seznamu; odmítnutí se zachová jako `M2_EFFECT_AUTHORITY_REQUIRED` přes
+  controller/M1/WS;
+- filesystem provider s project-path authority, hardlink rejection, exact byte
+  verification a fsync hranicí včetně existujícího parent directory;
+- produkční runtime používá skutečný ProjectContext provider a registrovanou
+  project revision.
 
-## Focused evidence na `8bef4cfc`
+## Adversariální review a opravy
 
-| Příkaz | Výsledek |
+Interní read-only coworker audit nad `33cf221c..33bcd33c` vrátil
+`CHANGES_REQUIRED`. Nebyl vydáván za Opus review. Všech šest produktových
+blokátorů a governance drift byly opraveny na `ad4d7eb3`:
+
+1. canonical `file.write` a write mimo `tools[0]` nyní končí před executorem;
+2. `EACCES`, `EIO`, malformed `/proc`, nekanonický boot ID a dříve neznámá
+   owner identity už nejsou důkaz smrti;
+3. commitnutý result zůstane dosažitelný při crash/DELETE okně a pending cleanup
+   se opakuje na retry/startupu;
+4. implicitní recursive mkdir byl odstraněn, takže pre-revalidation nemá
+   directory-creation side effect;
+5. post-write readback/compare failure nese applied changes a pending rollback;
+6. cancel/timeout/orphan/invalid-evidence používají konzervativní rollback truth;
+7. tento WP a report byly srovnány se skutečným broker/runtime/consumer scopem.
+
+Navíc repository odmítá result, jehož `startedAt` předchází execution claimu.
+Coworker re-review opraveného rozsahu běží; jeho výsledek nenahradí povinný
+Opus verdict.
+
+## Focused evidence
+
+| Sada | Výsledek |
 |---|---:|
-| `node tests/m2-effect-contract-v1.test.js` | 17 PASS / 0 FAIL |
-| `node tests/m2-effect-authority-repository.test.js` | 17 PASS / 0 FAIL |
-| `node tests/schema-migrations.test.js` | 38 PASS / 0 FAIL; 60 migrací |
-| `node tests/m1-model-failover-schema.test.js` | 20 PASS / 0 FAIL |
-| `node tests/module-boundary-ratchet.test.js` | 13 PASS / 0 FAIL |
-| `node tests/harness-exit-code.test.js` | PASS |
-| `git diff --check` | PASS |
+| `m2-effect-contract-v1` | 20/20 PASS |
+| `m2-effect-authority-repository` | 35/35 PASS |
+| `m2-effect-broker-v1` | 20/20 PASS |
+| `m2-effect-execution-owner` | 5/5 PASS |
+| `m2-effect-file-consumer` | 7/7 PASS |
+| `m2-effect-file-runtime` | 6/6 PASS |
+| `schema-migrations` | 38/38 PASS |
+| `m1-model-failover-schema` | 20/20 PASS |
+| `capability-02-cre-behaviours` | 10/10 PASS |
+| `ws-bridge` | 87/87 PASS |
+| `execution-loop` | 61/61 PASS |
+| `module-boundary-ratchet` | 13/13 PASS |
+| `artifact-validation` | 151/151 PASS |
 
-Negativní matice zahrnuje unknown fields, traversal/outside/alias target,
-target-kind mismatch, falešný risk class, nekanonické timestampy, změnu
-schváleného requestu, cizí scope, pre-issue/expired/revoked/consumed grant,
-dva consume pokusy přes dvě DB spojení, restart persistence, konfliktní druhý
-terminal a přímé SQL přepsání/smazání/identity drift.
+`node scripts/validate-test-registry.js --json` po remediation projekci:
 
-## Registry evidence
+- `valid: true`;
+- 407 runnable programů a 14 explicitních exclusions;
+- fingerprint
+  `43de5e61c26f1da489dc0f373f7a53ea58997d4ece64e5d367ca1d64e732874b`;
+- generovaný `docs/convergence/TEST-REGISTRY.md` je aktuální.
 
-`node scripts/validate-test-registry.js --json` skončil správně červeně:
+Module graph baseline obsahuje 1 072 hran; ratchet zachovává 3 cykly / 28
+souborů a všech 13 sentinelů prošlo.
 
-- `valid: false`, `exitCode: 1`;
-- 399 runnable programů, 9 explicitních exclusions;
-- fingerprint `0602d66e71691b855afd51c17d41745901956c026fdfb7179ece7ad6bbb663b0`;
-- jediná chyba: `docs/convergence/TEST-REGISTRY.md` je stale.
+## Celý deterministický gate
 
-Generovaný `docs/convergence/TEST-REGISTRY.md`, root README counts a souhrnný
-stav podle `CONTRACT.md` patří integračnímu SHA. Na této paralelní větvi nebyly
-ručně přegenerované ani vydávané za PASS.
+Po tomto dokumentačním integračním commitu bude znovu spuštěn
+`npm run test:deterministic`. Očekávaný celkový verdict zůstává pravdivě
+`FAIL` kvůli známé baseline; report sem bude doplněn s exact run ID, counts a
+porovnáním všech non-PASS ID. Dokud běh není hotový, není tato podsekce důkazem.
 
-## Deterministický branch gate
+## Review
 
-Finální běh:
+- Opus příkaz používá `--model opus --effort max`, read-only nástroje,
+  `--safe-mode`, `--permission-mode dontAsk` a přesný review range;
+- výsledek pokusu: `REVIEW_BLOCKED_ACCOUNT_LIMIT`, žádný modelový verdict;
+- interní coworker review první iterace: `CHANGES_REQUIRED`, opravy výše;
+- při dostupnosti účtu se celý přesný rozsah reviduje znovu; každý nález se
+  opraví a review opakuje až do `REVIEW_PASSED`.
 
-- příkaz: `npm run test:deterministic` (`offline,database`; bez model/Ollama/GPU
-  profilu);
-- run: `2026-08-23T21-03-59-472Z`;
-- report:
-  `.intentsmith-artifacts/test-runs/2026-08-23T21-03-59-472Z/report.json`;
-- source revision: `8bef4cfc982a90c8fcd043f8c1b4fc2e78ed6448`;
-- `verdict: FAIL`, `exitCode: 1`;
-- 234 PASS / 4 FAIL / 0 TIMEOUT / 2 BLOCKED / 0 SKIPPED.
+## Omezení a navazující práce
 
-Přijatá baseline na předchozím řezu byla 233 PASS / 3 FAIL / 2 BLOCKED. Všech
-pět původních non-PASS ID zůstalo nezměněných:
-
-- `IS-T1-TESTS-NIGHTLY-AUDIT-RUNNER-SELF-TEST` — FAIL;
-- `IS-T1-TESTS-NIGHTLY-ORCHESTRATOR-SELF-TEST` — FAIL;
-- `IS-T3-TESTS-VRAM-COORDINATION-TEST` — FAIL;
-- `IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST` — BLOCKED;
-- `IS-T1-TESTS-EXPORT-PDF-DOCX-TEST` — BLOCKED.
-
-Nové registry sady přidaly dva PASS. Jediný nový non-PASS je
-`IS-T1-TESTS-ARTIFACT-VALIDATION`: 150/151 assertions prošlo a selhal pouze
-root README registry-count oracle, který čeká integrátorovu projekci 399
-programů. To není přepsáno na PASS a před integrací se musí uzavřít na merge
-SHA spolu s generovaným registry dokumentem.
-
-První běh na `6f10176b` měl 232 PASS / 6 FAIL / 2 BLOCKED. Odhalil navíc
-zastaralý migration-tip oracle a ignorovaný runtime z dřívějšího
-infrastrukturního pádu. Oracle je opravený v `8bef4cfc`; oba přesně identifikované
-runtime adresáře byly po kontrole otevřených handlů přesunuty do koše. Finální
-gate potvrdil návrat obou sad do PASS.
-
-## Podmínky dalšího postupu
-
-1. Nezávislé review musí auditovat rozsah `8f31e34f..8bef4cfc`; teprve review
-   smí rozhodnout o `PINNED_V1`.
-2. Integrátor po merge přegeneruje `docs/convergence/TEST-REGISTRY.md`, opraví
-   root README counts a znovu spustí registry/artifact gate na merge SHA.
-3. Navazující implementační blok má přidat broker/issuer boundary a připojit
-   první skutečný filesystem-write consumer; bez toho není varianta 011/C
-   end-to-end uzavřená.
-4. GPU/model/Ollama běh ani coworkerův checkout či procesy tento řez nespouštěl,
-   neukončoval ani neupravoval.
+- Kontrakt zůstává `CANDIDATE_V1` do Opus PASS.
+- Node path API nezavírá hostile ABA interval; missing-parent writes se zde
+  fail-closed odmítají. Dirfd/openat2 patří sandbox/execution oddílu.
+- Synchronous filesystem provider nelze timerem přerušit uprostřed syscallu;
+  pozdní/nejisté dokončení se proto eviduje konzervativně.
+- Execution owner je v durable claim ledgeru, nikoli v event details.
+- Tento oddíl uzavírá filesystem-write consumer, ne obecné ToolRequest,
+  process/network/Git execution, lifecycle ani RemoteCorePort.
+- GPU/model/Ollama běh, coworkerovy procesy ani cizí checkouty nebyly ukončeny
+  nebo změněny.

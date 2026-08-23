@@ -1039,19 +1039,19 @@ V době této mobilní prerekvizity zůstával stav M2 `NOT_STARTED` a jeho vstu
 bylo přijaté M1. Prefix `m2` na mobilní větvi proto dál čti jako „hranice vůči
 M2", ne jako důkaz, že na ní M2 běží.
 
-**Stav 2026-08-23:** po přijetí M1 na `44a9ba87` operátor spustil vlastní M2.
-`WP-M2-EFFECT` běží v izolovaném worktree přímo z tohoto commitu; první
-rozhodnutí-prostý řez uzavírá project-path bypassy patch/dead-import cest na
-`37fab4f9` a přesné boundary hrany na `b523a47f`. Nezávislé review
-`25cdaac8` vrátilo `CHANGES_REQUESTED`; opravy R1–R6 jsou na `664d91d8` a
-re-review `8f31e34f` uzavřelo první řez jako `REVIEW_PASSED` v rozsahu
-`44a9ba87..eb22d10c`. Následné neblokující N1-N3 jsou kandidátně opravené na
-`86dfe4d8` a zůstávají mimo přijatý rozsah jako `UNREVIEWED`. Focused suite i
-celý deterministický runner zachovaly přijatou baseline
-`233 PASS / 3 známé FAIL / 2 BLOCKED`, přičemž report má pravdivě
-`verdict: FAIL`, `exitCode: 1`. Veřejné
-`EffectRequest/Result` ani `ApprovalGrant` tím ještě nejsou připnuté a M2 jako
-celek není PASS. Paralelní `WP-M2-CODE` zůstává disjunktní proud.
+**Stav 2026-08-24:** po přijetí M1 na `44a9ba87` operátor spustil vlastní M2.
+První path-authority řez prošel původním nezávislým re-review na `8f31e34f`;
+navazující N1–N3 a Opus hardening jsou implementačně zelené na `7dc6a807`, ale
+nově požadovaný Opus `--effort max` verdict blokuje účtový spend limit. Stejný
+review blocker má implementačně zelený `ProjectContextQuery/Snapshot` na
+`5e19b825`. Effect authority a první skutečný filesystem-write consumer jsou
+integrovány a po interním `CHANGES_REQUIRED` auditu opraveny na `ad4d7eb3`:
+authority je durable, approval subject-bound a single-use, execution má
+claim/recovery a canonical `file.write` fail-closed končí před efektem. Registry
+má 407 programů, fingerprint `43de5e61…`, focused sady i artifact testy jsou
+zelené. Connector přesto zůstává `CANDIDATE_V1` a žádný z těchto tří oddílů
+není označen hotově, dokud příslušný Opus review nevrátí `REVIEW_PASSED`.
+Celý M2 jako celek není PASS.
 
 ### Závislostní sekvence Work Packages
 
