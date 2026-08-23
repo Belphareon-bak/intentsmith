@@ -12014,6 +12014,66 @@
       },
       "flakeCount": 0,
       "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EFFECT-CONTRACT-V1-TEST",
+      "path": "tests/m2-effect-contract-v1.test.js",
+      "argv": [
+        "node",
+        "tests/m2-effect-contract-v1.test.js"
+      ],
+      "capabilityId": "C3-016",
+      "tier": "T1",
+      "fixture": "offline",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EFFECT-AUTHORITY-REPOSITORY-TEST",
+      "path": "tests/m2-effect-authority-repository.test.js",
+      "argv": [
+        "node",
+        "tests/m2-effect-authority-repository.test.js"
+      ],
+      "capabilityId": "C3-016",
+      "tier": "T1",
+      "fixture": "isolated-db",
+      "profile": "database",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
     }
   ]
 }
