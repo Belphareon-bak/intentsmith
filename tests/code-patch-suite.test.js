@@ -12,8 +12,12 @@ import { readFileSync } from 'node:fs';
 import { SUITES } from '../src/upgrade/validation-suites.js';
 import { comparePair } from '../src/upgrade/pairwise-trial.js';
 import { codePatchSuite, CodePatchValidationRunner, MODEL_OPTIONS } from '../src/eval/code-patch-suite.js';
-import { incrementalBuildSeed, preserveCalibration } from '../src/eval/build-code-suite.js';
-import { calibrate, buildPanelSummaries } from '../src/eval/calibrate-code-suite.js';
+import {
+  incrementalBuildSeed, preserveCalibration, reconcileVerifiedTaskSupply,
+} from '../src/eval/build-code-suite.js';
+import {
+  calibrate, rebaseCalibrationPanel, buildPanelSummaries,
+} from '../src/eval/calibrate-code-suite.js';
 import {
   MODEL_FAILOVER_PROOF_POLICY_SOURCE_PINS,
   getModelFailoverProofPolicy,
@@ -144,6 +148,27 @@ test('inkrementální rebuild použije jen fixture se stejným kontraktem', () =
   assert(blocked, 'append přes změnu kontraktu musí selhat');
 });
 
+test('plný rebuild nesmí tiše zahodit gold zásobu', () => {
+  const previous = {
+    taskContractVersion: 'code-task-v2',
+    tasks: [{
+      hash: 'gold0000', source: 'src/gold.js', taskFingerprint: 'f'.repeat(64),
+      status: 'active', calibration: { verdict: 'rozlišuje' },
+    }],
+  };
+  const same = reconcileVerifiedTaskSupply([], [], previous);
+  assertEqual(same.tasks.length, 1);
+  assertEqual(same.tasks[0].hash, 'gold0000');
+  assertEqual(same.rejected.length, 0);
+
+  const changed = reconcileVerifiedTaskSupply([], [], {
+    ...previous, taskContractVersion: 'code-task-v1',
+  });
+  assertEqual(changed.tasks.length, 0);
+  assertEqual(changed.rejected.length, 1);
+  assert(changed.rejected[0].reason.includes('code-task-v1 → code-task-v2'));
+});
+
 test('inkrementální kalibrace nezahodí dříve změřenou úlohu', () => {
   const fixture = { tasks: [
     { hash: 'aaa00000', taskFingerprint: 'a'.repeat(64), status: 'active', calibration: { verdict: 'rozlišuje' } },
@@ -156,6 +181,29 @@ test('inkrementální kalibrace nezahodí dříve změřenou úlohu', () => {
   assertEqual(out.tasks[0].status, 'active');
   assertEqual(out.tasks[0].calibration.verdict, 'rozlišuje');
   assertEqual(out.tasks[1].status, 'reserve-floor');
+});
+
+test('změna panelu znovu použije jen exact-task historii a neúplnost nechá pending', () => {
+  const fixture = { tasks: [
+    {
+      hash: 'aaa00000', taskFingerprint: 'a'.repeat(64), status: 'active',
+      calibration: {
+        verdict: 'rozlišuje', panel: ['old-a', 'old-b'], values: [0.25, 0.5],
+        noise: 0, repeats: 3, measuredAt: '2026-08-22T00:00:00.000Z',
+      },
+    },
+    { hash: 'bbb00000', taskFingerprint: 'b'.repeat(64), status: 'pending-recalibration', calibration: null },
+  ] };
+  const out = rebaseCalibrationPanel(fixture, [{
+    measuredAt: '2026-08-23T00:00:00.000Z', models: ['new-c'], repeats: 3,
+    tasks: [{ name: `patch_${'a'.repeat(12)}`, values: [1], noise: 0 }],
+  }], ['old-a', 'old-b', 'new-c']);
+  assertEqual(out.tasks[0].calibration.values.join(','), '0.25,0.5,1');
+  assertEqual(out.tasks[0].status, 'active');
+  assertEqual(out.tasks[0].calibration.modelEvidence[0].source, 'prior-exact-task');
+  assertEqual(out.tasks[0].calibration.modelEvidence[2].source, 'new-report');
+  assertEqual(out.tasks[1].status, 'pending-recalibration');
+  assert(out.tasks[1].recalibrationReason.includes('neúplný panel'));
 });
 
 test('kalibrační panel se převede na reusable historii jen z aktivních úloh', () => {
@@ -175,6 +223,20 @@ test('kalibrační panel se převede na reusable historii jen z aktivních úloh
   assertEqual(summaries[0].tasks.length, 2);
   assertEqual(summaries[0].score, 0.625);
   assertEqual(summaries[1].score, 0.625);
+});
+
+test('reusable historie doplní split panel z exact kalibrace fixture', () => {
+  const fixture = { tasks: [{
+    hash: 'aaa00000', taskFingerprint: 'a'.repeat(64), status: 'active',
+    calibration: { panel: ['old', 'new'], values: [0.25, 1], noise: 0, repeats: 3 },
+  }] };
+  const summaries = buildPanelSummaries(fixture, [{
+    models: ['new'], repeats: 3,
+    tasks: [{ name: `patch_${'a'.repeat(12)}`, values: [1], noise: 0 }],
+  }]);
+  assertEqual(summaries.length, 2);
+  assertEqual(summaries.find(row => row.model === 'old').score, 0.25);
+  assertEqual(summaries.find(row => row.model === 'new').score, 1);
 });
 
 test('multi-source úlohy ze stejného commitu mají odlišnou runtime identitu', () => {

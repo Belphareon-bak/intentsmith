@@ -1,7 +1,7 @@
 # Model upgrade prototype v136.1
 
 **Stav:** funkční GPU prototyp; portfolio splňuje segregaci, CHAT v3 má
-11 panelově rozlišujících úloh (7 EN + 4 CZ), CODE zůstává fail-closed 4/6
+11 panelově rozlišujících úloh (7 EN + 4 CZ) a CODE má 8 aktivních úloh
 
 **Rozsah:** discovery kandidátů, objektivní skórování podle role, trvalá historie,
 výběr vítěze a operátorem spuštěná aplikace vazby
@@ -107,7 +107,8 @@ Tím se neporovnává proti již supersedovanému defaultu.
 Kvalitativní vítěz ještě automaticky neznamená přípustnou vazbu. Prototyp
 uplatňuje segregaci odpovědností:
 
-- jeden přesný modelový artefakt smí být primární nejvýše pro dvě role;
+- jeden přesný modelový artefakt nesmí držet většinu rolí; při současných
+  sedmi rolích smí být primární nejvýše pro tři;
 - D1 a R1 nesmí používat stejný model (autor plánu versus finální reviewer);
 - CODE nesmí sdílet model s R1 ani R2 (implementace versus review);
 - D2 nesmí sdílet model s R2 (návrh opravy versus kontrola opravy);
@@ -171,10 +172,9 @@ kandidáta přes uložené skóre po aplikaci nebo pravdivé `UNCHANGED`.
   původního `qwen3.8:latest` byly skutečně změřeny `qwen3.5:27b`,
   `qwen3-30b-a3b:latest` a `phi4:14b`; 32B varianty a Mistral 22B byly
   hardwarově odmítnuty kvůli CPU spill při 32k kontextu.
-- Konečné portfolio je `D1=qwen3.5`, `D2/R1=qwen3.8`,
-  `CODE=qwen3.5`, `R2/CHAT=qwen3:14b`, `VISION=llava-llama3:8b`.
-  Žádný model tak nemá více než dvě role a všechny autor-reviewer zákazy
-  jsou splněny.
+- Konečné portfolio je `D1/CODE/CHAT=qwen3.5`, `D2/R1=qwen3.8`,
+  `R2=qwen3:14b`, `VISION=llava-llama3:8b`. Žádný model tak nemá většinu
+  sedmi rolí a všechny autor-reviewer zákazy jsou splněny.
 - `qwen3.5` dosáhlo v reasoning sadě 1,000 proti 0,9528 u `qwen3.8`.
   Rozdíl nebyl task-level stabilní, proto nejde o tvrzení, že je obecně
   lepší; bylo zvoleno pro D1 jako naměřená ekvivalentní alternativa potřebná
@@ -182,10 +182,12 @@ kandidáta přes uložené skóre po aplikaci nebo pravdivé `UNCHANGED`.
 - CHAT v3.2 má 35 úloh. Panel pěti modelů rozlišil 11 (7 EN + 4 CZ).
   `qwen3.5` porazilo CHAT incumbent na 12 stabilních úlohách (6 EN + 6 CZ),
   marží 0,100 a poměrem 7:5; `qwen3.8` na 10 (5 EN + 5 CZ), marží 0,127 a
-  poměrem 6:4. Vazba se přesto nezměnila: oba modely už mají povolené
-  maximum dvou rolí.
-- CODE má jen 4 stabilně rozlišující úlohy. Plán i CLI vyžadují 6 a
-  končí ještě před GPU během, pokud toto minimum není splněno.
+  poměrem 6:4. Po nahrazení svévolného limitu 2 schváleným pravidlem
+  „žádná většina“ převzalo `qwen3.5` CHAT jako třetí roli.
+- CODE má po návratu čtyř stále platných gold úloh 8 aktivních
+  rozlišujících úloh. `qwen3.8` porazilo CODE incumbent `qwen3.5` poměrem
+  4:0 a marží 0,833; vazbu nepřevzalo, protože CODE–R1 zůstává nezávislá
+  dvojice a `qwen3.8` už zastává R1.
 - Aplikace D1 na `qwen3.5` je `APPLIED_NOTIFICATION_DEGRADED`: durable
   binding a runtime apply proběhly, notifikační receipt nebyl vydán.
 - Aktivní user timer spouští nejvýše dva dosud neoscorované kandidáty každých

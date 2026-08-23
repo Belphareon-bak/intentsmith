@@ -75,6 +75,27 @@ await testAsync('rozdíl pod prahem se nepočítá za rozlišení', async () => 
   assertEqual(r.discriminating, 0, 'drobný rozdíl je šum, ne signál');
 });
 
+await testAsync('třídesetinné zaokrouhlení nepřekročí stejnou noise hranici', async () => {
+  const task = CODE_TASKS[0];
+  const historical = model => ({
+    suite: 'code', model, runs: 3, score: model === 'A' ? 1 : 0.333,
+    tasks: [{
+      name: task,
+      mean: model === 'A' ? 1 : 0.333,
+      spread: model === 'A' ? 0 : (2 / 3),
+      scores: [], responses: [], details: [], rubric: [], language: null,
+    }],
+    unstableTasks: model === 'A' ? [] : [task],
+  });
+  const r = await comparePair(fakeRunner({}), 'code', 'A', 'B', {
+    ...ONCE,
+    loadHistoricalSummary: ({ model }) => historical(model),
+  });
+  assertEqual(r.tasks[0].delta, 0.667);
+  assertEqual(r.tasks[0].discriminating, false,
+    'zaokrouhlovací artefakt nesmí být kvalitativní signál');
+});
+
 await testAsync('marže se počítá jen z rozlišujících úloh', async () => {
   const runner = fakeRunner({
     A: { _default: 1, [CODE_TASKS[0]]: 1.0 },

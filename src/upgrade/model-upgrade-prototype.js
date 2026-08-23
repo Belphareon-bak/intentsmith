@@ -7,7 +7,9 @@ import { MODEL_PROFILES } from './model-profiles.js';
 import { parseModelNameExtended } from './model-family-extensions.js';
 
 export const DEFAULT_RESPONSIBILITY_POLICY = Object.freeze({
-  maxRolesPerModel: 2,
+  // The operator-approved product rule is "no model may own a majority of
+  // roles". IntentSmith currently has seven primary roles, hence at most 3.
+  maxRolesPerModel: 3,
   maxQualityDrop: 0.15,
   changePenalty: 0.005,
   independentRolePairs: Object.freeze([
@@ -54,8 +56,9 @@ export function auditResponsibilitySegregation(bindings = {}, policy = DEFAULT_R
 
 /**
  * Select the highest-scoring whole-role portfolio that satisfies separation.
- * A role may accept a slightly weaker model to preserve independent review,
- * but never more than maxQualityDrop below the best measured option.
+ * A role may accept a slightly weaker alternative to preserve independent
+ * review, but never more than maxQualityDrop below the best measured option.
+ * The incumbent always remains a safe no-change option.
  */
 export function selectResponsibilityPortfolio(input = {}) {
   const before = input.before || {};
@@ -93,6 +96,7 @@ export function selectResponsibilityPortfolio(input = {}) {
       !Number.isFinite(bestScore)
       || !Number.isFinite(row.score)
       || row.score >= bestScore - policy.maxQualityDrop
+      || sameModelName(row.model, current)
     ));
     // A role without comparative evidence remains fixed. This prevents a
     // portfolio repair from silently replacing an unmeasured responsibility.

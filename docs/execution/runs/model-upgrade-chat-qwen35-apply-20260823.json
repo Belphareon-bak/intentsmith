@@ -1,0 +1,826 @@
+{
+  "generatedAt": "2026-08-23T12:37:46.502Z",
+  "gpu": {
+    "vramMb": 24576,
+    "model": "NVIDIA GeForce RTX 3090",
+    "igpu": false,
+    "numCtx": 32768
+  },
+  "perRole": {
+    "CHAT": []
+  },
+  "queue": [
+    {
+      "name": "qwen3-30b-a3b:latest",
+      "family": "qwen",
+      "category": "general",
+      "version": "3",
+      "params": 30,
+      "quantization": "Q4_K_S",
+      "sizeBytes": 17456010185,
+      "sizeGB": 16.3,
+      "modifiedAt": "2026-01-04T14:58:52.584237151+01:00",
+      "installed": true,
+      "source": "local",
+      "digest": "dc0b52b99d0e4310b0e74d1b5c0b4af3459537614523b84d94ce62a7c5f99201",
+      "details": {
+        "parent_model": "/usr/share/ollama/.ollama/models/blobs/sha256-fa0c96bed61759800bcab82a8a44a8effcd92cdd8bced06b8195232237390b4a",
+        "format": "gguf",
+        "family": "qwen3moe",
+        "families": [
+          "qwen3moe"
+        ],
+        "parameter_size": "30.5B",
+        "quantization_level": "Q4_K_S",
+        "context_length": 40960,
+        "embedding_length": 2048
+      },
+      "artifact": {
+        "modelName": "qwen3-30b-a3b:latest",
+        "canonicalName": "qwen3-30b-a3b",
+        "digestSha256": "dc0b52b99d0e4310b0e74d1b5c0b4af3459537614523b84d94ce62a7c5f99201",
+        "sizeBytes": null,
+        "details": {
+          "parent_model": "/usr/share/ollama/.ollama/models/blobs/sha256-fa0c96bed61759800bcab82a8a44a8effcd92cdd8bced06b8195232237390b4a",
+          "format": "gguf",
+          "family": "qwen3moe",
+          "families": [
+            "qwen3moe"
+          ],
+          "parameter_size": "30.5B",
+          "quantization_level": "Q4_K_S",
+          "context_length": 40960,
+          "embedding_length": 2048
+        }
+      },
+      "roles": [
+        "CHAT"
+      ],
+      "evaluationState": {
+        "state": "scored",
+        "missing": 0,
+        "rejected": 0,
+        "perRole": {
+          "CHAT": "scored"
+        }
+      },
+      "priority": 7.75,
+      "reasons": [
+        "already installed",
+        "current contract already scored"
+      ]
+    },
+    {
+      "name": "qwen3.5:27b",
+      "family": "qwen",
+      "category": "general",
+      "version": "3.5",
+      "params": 27,
+      "quantization": "Q4_K_M",
+      "sizeBytes": 17420432728,
+      "sizeGB": 16.2,
+      "modifiedAt": "2026-03-07T21:17:23.290013191+01:00",
+      "installed": true,
+      "source": "local",
+      "digest": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "qwen35",
+        "families": [
+          "qwen35"
+        ],
+        "parameter_size": "27.8B",
+        "quantization_level": "Q4_K_M",
+        "context_length": 262144,
+        "embedding_length": 5120
+      },
+      "artifact": {
+        "modelName": "qwen3.5:27b",
+        "canonicalName": "qwen3.5:27b",
+        "digestSha256": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+        "sizeBytes": null,
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "qwen35",
+          "families": [
+            "qwen35"
+          ],
+          "parameter_size": "27.8B",
+          "quantization_level": "Q4_K_M",
+          "context_length": 262144,
+          "embedding_length": 5120
+        }
+      },
+      "roles": [
+        "CHAT"
+      ],
+      "evaluationState": {
+        "state": "scored",
+        "missing": 0,
+        "rejected": 0,
+        "perRole": {
+          "CHAT": "scored"
+        }
+      },
+      "priority": 7.38,
+      "reasons": [
+        "already installed",
+        "current contract already scored"
+      ]
+    },
+    {
+      "name": "qwen3.8:latest",
+      "family": "qwen",
+      "category": "general",
+      "version": "3.8",
+      "params": 27,
+      "quantization": "Q4_K_M",
+      "sizeBytes": 17741872154,
+      "sizeGB": 16.5,
+      "modifiedAt": "2026-08-23T01:35:22.827575346+02:00",
+      "installed": true,
+      "source": "local",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "details": {
+        "parent_model": "qwen3.8:27b-q4_K_M",
+        "format": "gguf",
+        "family": "qwen35",
+        "families": [
+          "qwen35"
+        ],
+        "parameter_size": "27.3B",
+        "quantization_level": "Q4_K_M",
+        "context_length": 262144,
+        "embedding_length": 5120
+      },
+      "artifact": {
+        "modelName": "qwen3.8:latest",
+        "canonicalName": "qwen3.8",
+        "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+        "sizeBytes": null,
+        "details": {
+          "parent_model": "qwen3.8:27b-q4_K_M",
+          "format": "gguf",
+          "family": "qwen35",
+          "families": [
+            "qwen35"
+          ],
+          "parameter_size": "27.3B",
+          "quantization_level": "Q4_K_M",
+          "context_length": 262144,
+          "embedding_length": 5120
+        }
+      },
+      "roles": [
+        "CHAT"
+      ],
+      "evaluationState": {
+        "state": "scored",
+        "missing": 0,
+        "rejected": 0,
+        "perRole": {
+          "CHAT": "scored"
+        }
+      },
+      "priority": 7.38,
+      "reasons": [
+        "already installed",
+        "current contract already scored"
+      ]
+    },
+    {
+      "name": "phi4:14b",
+      "family": "phi",
+      "category": "general",
+      "version": "4",
+      "params": 14,
+      "quantization": "Q4_K_M",
+      "sizeBytes": 9053116391,
+      "sizeGB": 8.4,
+      "modifiedAt": "2026-08-23T09:08:36.746287184+02:00",
+      "installed": true,
+      "source": "local",
+      "digest": "ac896e5b8b34a1f4efa7b14d7520725140d5512484457fab45d2a4ea14c69dba",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "phi3",
+        "families": [
+          "phi3"
+        ],
+        "parameter_size": "14.7B",
+        "quantization_level": "Q4_K_M",
+        "context_length": 16384,
+        "embedding_length": 5120
+      },
+      "artifact": {
+        "modelName": "phi4:14b",
+        "canonicalName": "phi4:14b",
+        "digestSha256": "ac896e5b8b34a1f4efa7b14d7520725140d5512484457fab45d2a4ea14c69dba",
+        "sizeBytes": null,
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "phi3",
+          "families": [
+            "phi3"
+          ],
+          "parameter_size": "14.7B",
+          "quantization_level": "Q4_K_M",
+          "context_length": 16384,
+          "embedding_length": 5120
+        }
+      },
+      "roles": [
+        "CHAT"
+      ],
+      "evaluationState": {
+        "state": "scored",
+        "missing": 0,
+        "rejected": 0,
+        "perRole": {
+          "CHAT": "scored"
+        }
+      },
+      "priority": 5.75,
+      "reasons": [
+        "already installed",
+        "current contract already scored"
+      ]
+    }
+  ],
+  "results": [
+    {
+      "model": "qwen3.5:27b",
+      "stage": "done",
+      "accepted": true,
+      "inconclusive": false,
+      "measurement": {
+        "model": "qwen3.5:27b",
+        "numCtx": 32768,
+        "placement": {
+          "loaded": true,
+          "sizeBytes": 18233688062,
+          "vramBytes": 18233688062,
+          "cpuBytes": 0,
+          "fullyOnGpu": true
+        },
+        "throughput": {
+          "tokensPerSecond": 36.3,
+          "tokens": 160
+        },
+        "fits": true,
+        "error": null
+      },
+      "floor": {
+        "passed": true,
+        "failures": [],
+        "reused": true
+      },
+      "trials": [
+        {
+          "role": "CHAT",
+          "suite": "chat_v3",
+          "comparison": {
+            "suite": "chat_v3",
+            "tasks": [
+              {
+                "name": "en_grounded_summary",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_action_email",
+                "language": "en",
+                "candidateScore": 0.8,
+                "incumbentScore": 0.8,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_context_correction",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_missing_context",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 0.667,
+                "candidateSpread": 0,
+                "incumbentSpread": 0.25,
+                "delta": 0.33333333333333337,
+                "noise": 0.25,
+                "discriminating": true
+              },
+              {
+                "name": "en_structured_extraction",
+                "language": "en",
+                "candidateScore": 0.8,
+                "incumbentScore": 0.8,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_translation_from_czech",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_instruction_priority",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_state_updates",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_capability_boundary",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 0.8,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0.19999999999999984,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "en_exact_markdown_table",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_professional_rewrite",
+                "language": "en",
+                "candidateScore": 0.833,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": -0.16666666666666663,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "en_conditional_action",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_exact_csv",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 0.8,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0.19999999999999984,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "en_ambiguous_reference",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 0.8,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0.19999999999999984,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "en_completion_vs_verification",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_quantifier_scope",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_evidence_boundary",
+                "language": "en",
+                "candidateScore": 0.533,
+                "incumbentScore": 0.4,
+                "candidateSpread": 0.19999999999999996,
+                "incumbentSpread": 0,
+                "delta": 0.13333333333333325,
+                "noise": 0.19999999999999996,
+                "discriminating": false
+              },
+              {
+                "name": "en_exact_yaml",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_multi_correction",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_neutral_escalation",
+                "language": "en",
+                "candidateScore": 0.833,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": -0.16666666666666663,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "en_inclusion_exclusion",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_grounded_summary",
+                "language": "cs",
+                "candidateScore": 0.8,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": -0.19999999999999984,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "cz_exact_bullets",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 0.2,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0.7999999999999999,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "cz_context_correction",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_professional_reply",
+                "language": "cs",
+                "candidateScore": 0.8,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": -0.19999999999999984,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "cz_declension",
+                "language": "cs",
+                "candidateScore": 0.933,
+                "incumbentScore": 0.933,
+                "candidateSpread": 0.19999999999999996,
+                "incumbentSpread": 0.19999999999999996,
+                "delta": 0,
+                "noise": 0.19999999999999996,
+                "discriminating": false
+              },
+              {
+                "name": "cz_plural_agreement",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_formal_register",
+                "language": "cs",
+                "candidateScore": 0.833,
+                "incumbentScore": 0.833,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_ambiguity_clarification",
+                "language": "cs",
+                "candidateScore": 0.8,
+                "incumbentScore": 0.6,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0.20000000000000018,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "cz_vocative_request",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 0.933,
+                "candidateSpread": 0,
+                "incumbentSpread": 0.19999999999999996,
+                "delta": 0.06666666666666676,
+                "noise": 0.19999999999999996,
+                "discriminating": false
+              },
+              {
+                "name": "cz_double_negation_counts",
+                "language": "cs",
+                "candidateScore": 0.733,
+                "incumbentScore": 0.6,
+                "candidateSpread": 0.4,
+                "incumbentSpread": 0,
+                "delta": 0.13333333333333341,
+                "noise": 0.4,
+                "discriminating": false
+              },
+              {
+                "name": "cz_grammar_correction",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_numeral_cases",
+                "language": "cs",
+                "candidateScore": 0.8,
+                "incumbentScore": 0.4,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0.4000000000000002,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "cz_relative_pronoun",
+                "language": "cs",
+                "candidateScore": 0.6,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": -0.4,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "cz_conditional_deadline",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              }
+            ],
+            "discriminating": 12,
+            "candidateWins": 7,
+            "incumbentWins": 5,
+            "margin": 0.1,
+            "inconclusive": false,
+            "candidateSuiteScore": 0.9171428571428574,
+            "incumbentSuiteScore": 0.8733333333333334,
+            "repeats": 3,
+            "unstableTasks": [
+              "en_evidence_boundary",
+              "cz_declension",
+              "cz_double_negation_counts",
+              "en_missing_context",
+              "cz_vocative_request"
+            ]
+          },
+          "decision": {
+            "winner": "candidate",
+            "basis": "kvalita",
+            "confidence": "vysoká",
+            "detail": "marže 0.100 ≥ práh 0.04 na 12 rozlišujících úlohách (7:5), jistota vysoká"
+          },
+          "skipped": false
+        }
+      ],
+      "decisions": {
+        "CHAT": {
+          "winner": "candidate",
+          "basis": "kvalita",
+          "confidence": "vysoká",
+          "detail": "marže 0.100 ≥ práh 0.04 na 12 rozlišujících úlohách (7:5), jistota vysoká"
+        }
+      },
+      "removed": false,
+      "keptReason": null,
+      "error": null
+    }
+  ],
+  "bindings": {
+    "D1": "qwen3.5:27b",
+    "D2": "qwen3.8:latest",
+    "CODE": "qwen3.5:27b",
+    "R1": "qwen3.8:latest",
+    "R2": "qwen3:14b",
+    "CHAT": "qwen3.5:27b",
+    "VISION": "llava-llama3:8b"
+  },
+  "applicationOutcomes": [
+    {
+      "role": "CHAT",
+      "from": "qwen3:14b",
+      "to": "qwen3.5:27b",
+      "result": {
+        "ok": true,
+        "role": "CHAT",
+        "from": "qwen3:14b",
+        "to": "qwen3.5:27b",
+        "changed": true,
+        "verified": false,
+        "configVersion": 1,
+        "operationId": "op_faabc24e-037c-44e0-9cb9-5b61e2680ba4",
+        "applicationState": "APPLIED_PENDING_VERIFICATION",
+        "notificationStatus": "FAILED",
+        "proposalResolutionStatus": "SUCCEEDED",
+        "warningCode": null,
+        "outcome": "APPLIED_NOTIFICATION_DEGRADED"
+      }
+    }
+  ],
+  "portfolio": {
+    "bindings": {
+      "D1": "qwen3.5:27b",
+      "D2": "qwen3.8:latest",
+      "CODE": "qwen3.5:27b",
+      "R1": "qwen3.8:latest",
+      "R2": "qwen3:14b",
+      "CHAT": "qwen3.5:27b",
+      "VISION": "llava-llama3:8b"
+    },
+    "choices": {
+      "D1": {
+        "model": "qwen3.5:27b",
+        "score": null,
+        "source": "unmeasured-incumbent",
+        "changed": false
+      },
+      "D2": {
+        "model": "qwen3.8:latest",
+        "score": null,
+        "source": "unmeasured-incumbent",
+        "changed": false
+      },
+      "CODE": {
+        "model": "qwen3.5:27b",
+        "score": null,
+        "source": "unmeasured-incumbent",
+        "changed": false
+      },
+      "R1": {
+        "model": "qwen3.8:latest",
+        "score": null,
+        "source": "unmeasured-incumbent",
+        "changed": false
+      },
+      "R2": {
+        "model": "qwen3:14b",
+        "score": null,
+        "source": "unmeasured-incumbent",
+        "changed": false
+      },
+      "CHAT": {
+        "model": "qwen3.5:27b",
+        "score": 0.9171428571428574,
+        "source": "candidate-evaluation",
+        "changed": true
+      },
+      "VISION": {
+        "model": "llava-llama3:8b",
+        "score": null,
+        "source": "unmeasured-incumbent",
+        "changed": false
+      }
+    },
+    "audit": {
+      "compliant": true,
+      "violations": [],
+      "assignments": {
+        "qwen3.5:27b": [
+          "D1",
+          "CODE",
+          "CHAT"
+        ],
+        "qwen3.8": [
+          "D2",
+          "R1"
+        ],
+        "qwen3:14b": [
+          "R2"
+        ],
+        "llava-llama3:8b": [
+          "VISION"
+        ]
+      }
+    },
+    "utility": 0.9121428571428574,
+    "changedRoles": [
+      "CHAT"
+    ],
+    "feasible": true,
+    "repairMode": false
+  }
+}

@@ -26,6 +26,11 @@ import { SUITES, getSuiteForRole } from './validation-suites.js';
 /** O kolik musí kandidát vést v marži, aby se to počítalo za rozdíl na úloze. */
 export const TASK_MARGIN_EPSILON = 0.05;
 
+// Historical panel summaries intentionally store task means to three decimal
+// places. A rounded 0.333 must not beat an exact 2/3 noise boundary merely
+// because 1 - 0.333 is a few ten-thousandths larger than 0.666666....
+const SCORE_ROUNDING_EPSILON = 0.0005;
+
 /**
  * Kolikrát se každá sada spustí na každém modelu.
  *
@@ -203,7 +208,7 @@ export async function comparePair(runner, suiteName, candidate, incumbent, opts 
       incumbentSpread: i.spread,
       delta,
       noise,
-      discriminating: Math.abs(delta) > threshold,
+      discriminating: Math.abs(delta) > threshold + SCORE_ROUNDING_EPSILON,
     });
   }
 

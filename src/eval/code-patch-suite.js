@@ -91,17 +91,21 @@ export function loadFixtureTasks(repo = REPO_ROOT, fixturePath = FIXTURE, opts =
     || process.env.C3_EVAL_INCLUDE_RESERVE === '1';
   const onlyPending = opts.onlyPending === true
     || process.env.C3_EVAL_ONLY_PENDING === '1';
+  const explicitStatuses = Array.isArray(opts.statuses) ? opts.statuses
+    : String(process.env.C3_EVAL_STATUSES || '').split(',').map(value => value.trim()).filter(Boolean);
+  const statusSet = new Set(explicitStatuses);
   const pendingMaxFunctionLines = Number(
     opts.pendingMaxFunctionLines ?? process.env.C3_EVAL_PENDING_MAX_FUNCTION_LINES,
   );
 
   const tasks = [];
   for (const entry of meta.tasks || []) {
+    if (statusSet.size && !statusSet.has(entry.status)) continue;
     if (onlyPending && entry.status !== 'pending-recalibration') continue;
     if (onlyPending && Number.isFinite(pendingMaxFunctionLines)
       && entry.functionLines > pendingMaxFunctionLines) continue;
     // Fail closed: missing/pending/unknown status is not decision evidence.
-    if (!onlyPending && !includeReserve && entry.status !== 'active') continue;
+    if (!statusSet.size && !onlyPending && !includeReserve && entry.status !== 'active') continue;
     const { task, reason } = deriveTask(repo, entry);
     if (!task) {
       // Historie se přepsala (rebase, squash) — úloha se přestala odvozovat.

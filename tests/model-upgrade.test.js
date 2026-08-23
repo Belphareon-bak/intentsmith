@@ -18,7 +18,7 @@ import Database from 'better-sqlite3';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { up as upEvaluationHistory } from '../src/db/migrations/2026_08_22_068_model_evaluation_history.js';
+import { up as upEvaluationHistory } from '../src/db/migrations/2026_08_22_070_model_evaluation_history.js';
 import {
   ModelEvaluationHistory, suiteContract,
 } from '../src/upgrade/model-evaluation-history.js';
@@ -686,6 +686,30 @@ function evaluationDb() {
   return db;
 }
 
+test('migration 070 adopts the exact table previously shipped as 068', () => {
+  const db = evaluationDb();
+  upEvaluationHistory(db);
+  assertEqual(db.prepare(`SELECT count(*) AS n FROM sqlite_master WHERE name = 'model_evaluation_runs'`).get().n, 1);
+  assertEqual(db.prepare(`
+    SELECT count(*) AS n FROM sqlite_master
+    WHERE type = 'trigger' AND name IN (
+      'trg_model_evaluation_runs_no_update', 'trg_model_evaluation_runs_no_delete'
+    )
+  `).get().n, 2, 'adoption must retain append-only triggers');
+  db.close();
+});
+
+test('migration 070 refuses a lookalike pre-070 table', () => {
+  const db = evaluationDb();
+  db.exec('DROP INDEX idx_model_eval_suite_history; CREATE INDEX idx_model_eval_suite_history ON model_evaluation_runs(suite_name)');
+  let refused = false;
+  try { upEvaluationHistory(db); } catch (error) {
+    refused = String(error.message).includes('invalid objects: idx_model_eval_suite_history');
+  }
+  assert(refused, 'schema adoption must compare object definitions, not only names');
+  db.close();
+});
+
 const DIGEST_A = 'a'.repeat(64);
 const DIGEST_B = 'b'.repeat(64);
 const CONTRACT_A = 'c'.repeat(64);
@@ -888,7 +912,7 @@ await testAsync('only changed winning bindings reach the application port', asyn
 test('responsibility audit rejects concentration and author-reviewer identity', () => {
   const audit = auditResponsibilitySegregation({
     D1: 'qwen:14b', D2: 'qwen:14b', R1: 'qwen:14b',
-    CODE: 'coder:14b', R2: 'reviewer:14b', CHAT: 'chat:14b', VISION: 'vision:8b',
+    CODE: 'coder:14b', R2: 'reviewer:14b', CHAT: 'qwen:14b', VISION: 'vision:8b',
   });
   assertEqual(audit.compliant, false);
   assert(audit.violations.some(row => row.type === 'role-capacity'));
@@ -933,6 +957,27 @@ test('compliant portfolio never promotes a raw-score candidate that lost pairwis
   assertEqual(result.bindings.CHAT, 'chat:14b');
   assertEqual(result.changedRoles.length, 0);
   assertEqual(result.repairMode, false);
+});
+
+test('compliant incumbent remains feasible when a stronger winner conflicts with reviewer separation', () => {
+  const before = {
+    D1: 'qwen3.5:27b', D2: 'qwen3.8:latest', CODE: 'qwen3.5:27b',
+    R1: 'qwen3.8:latest', R2: 'qwen3:14b', CHAT: 'qwen3.5:27b',
+    VISION: 'llava-llama3:8b',
+  };
+  const result = selectResponsibilityPortfolio({
+    before,
+    evidenceByRole: {
+      CODE: [
+        { model: 'qwen3.5:27b', score: 0.292, eligibleForChange: true },
+        { model: 'qwen3.8:latest', score: 0.792, eligibleForChange: true },
+      ],
+    },
+  });
+  assertEqual(result.feasible, true);
+  assertEqual(result.audit.compliant, true);
+  assertEqual(result.bindings.CODE, 'qwen3.5:27b');
+  assertEqual(result.changedRoles.length, 0);
 });
 
 await testAsync('binding application fails closed on a non-segregated portfolio', async () => {

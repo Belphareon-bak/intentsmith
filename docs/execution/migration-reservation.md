@@ -1,4 +1,4 @@
-# Rezervace čísel migrací — union census 2026-08-22
+# Rezervace čísel migrací — union census 2026-08-22, kontrola 2026-08-23
 
 **Vlastník:** integrační vlastník M1 · **Metoda:** union přes všechny živé větve
 · **Platí od:** 2026-08-22
@@ -55,3 +55,29 @@ done | grep -E "^[0-9]{3}$" | sort -u
 
 Před každou další migrací se census pouští znovu. Rezervované číslo, které se
 do dvou týdnů nepoužije, se uvolňuje.
+
+## Kontrolní census 2026-08-23 — eval historie
+
+Před začleněním eval historie byl census zopakován nad aktuálně dostupnými
+branch tipy. Výsledek se od původní rezervace změnil:
+
+```text
+git branch -a  (mimo archive/** a recovery/**)   352 větví
+union obsazených čísel src/db/migrations/**      001–069
+068 na aktuálním tipu                            model_evaluation_history
+069 na codex/m1-closeout-20260822                model_failover_runtime_finalization
+první volné číslo                                070
+```
+
+`model_failover_runtime_finalization` existovalo už v commitu `c8ffbccc` jako
+068 a teprve později bylo na své větvi přesunuto na 069. Číslo 068 proto není
+bezpečné znovu použít: databáze, nad kterou se původní commit spustil, už může
+mít stejný version string v `schema_migrations` a jinou migraci by tiše
+přeskočila. Eval historie proto dostává **070**, i když na branch tipech po
+přejmenování není druhý soubor 068 vidět.
+
+| Číslo | Vlastník | Obsah |
+|---|---|---|
+| **068** | historicky `c8ffbccc` | nepoužívat znovu; původní runtime-finalization identita |
+| **069** | `codex/m1-closeout-20260822` | runtime finalization po odstranění kolize |
+| **070** | `claude/gate1-mobile-app-progress-5sywlt` | append-only historie modelových evaluací |

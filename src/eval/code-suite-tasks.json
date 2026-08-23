@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-08-23T10:00:09.598Z",
-  "repoHead": "aeec351f614a475ea4247f76d7fd32f210e27102",
+  "generatedAt": "2026-08-23T11:19:59.491Z",
+  "repoHead": "981874ac64f49019c06bfd2ac78e1b8db47e7c9e",
   "workingTreeDirty": true,
   "taskContractVersion": "code-task-v2",
   "tasks": [
@@ -694,12 +694,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T00:39:16.363Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          }
+        ]
       }
     },
     {
@@ -1392,12 +1419,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T01:06:16.652Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T01:06:16.652Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T01:06:16.652Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T01:06:16.652Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T01:06:16.652Z"
+          }
+        ]
       }
     },
     {
@@ -2088,12 +2142,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T01:06:16.652Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T01:06:16.652Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T01:06:16.652Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T01:06:16.652Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T01:06:16.652Z"
+          }
+        ]
       }
     },
     {
@@ -2153,12 +2234,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T09:53:48.550Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:53:48.550Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:53:48.550Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:53:48.550Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:53:48.550Z"
+          }
+        ]
       }
     },
     {
@@ -2282,13 +2390,13 @@
       ],
       "knownFailing": [],
       "taskFingerprint": "8cae1b58396315d7fe67230347b808ae51e6025cfa9ee94739ccd95eb52c7975",
-      "status": "reserve-floor",
+      "status": "active",
       "calibration": {
-        "verdict": "podlaha",
+        "verdict": "rozlišuje",
         "values": [
           0,
           0,
-          0,
+          1,
           0,
           0
         ],
@@ -2296,12 +2404,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T00:39:16.363Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          }
+        ]
       }
     },
     {
@@ -2444,12 +2579,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T00:39:16.363Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          }
+        ]
       }
     },
     {
@@ -2584,7 +2746,7 @@
         "values": [
           0,
           0.333,
-          0,
+          1,
           0.778,
           0
         ],
@@ -2592,12 +2754,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T09:53:48.550Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:53:48.550Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:53:48.550Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:53:48.550Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:53:48.550Z"
+          }
+        ]
       }
     },
     {
@@ -2680,12 +2869,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T00:39:16.363Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          }
+        ]
       }
     },
     {
@@ -2880,12 +3096,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T00:39:16.363Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          }
+        ]
       }
     },
     {
@@ -3004,12 +3247,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T01:06:16.652Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T01:06:16.652Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T01:06:16.652Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T01:06:16.652Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T01:06:16.652Z"
+          }
+        ]
       }
     },
     {
@@ -3204,12 +3474,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T09:53:48.550Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:53:48.550Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:53:48.550Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:53:48.550Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:53:48.550Z"
+          }
+        ]
       }
     },
     {
@@ -3404,12 +3701,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T09:53:48.550Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:53:48.550Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:53:48.550Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:53:48.550Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:53:48.550Z"
+          }
+        ]
       }
     },
     {
@@ -3516,12 +3840,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T00:39:16.363Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          }
+        ]
       }
     },
     {
@@ -3575,12 +3926,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-22T21:38:37.410Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-22T21:38:37.410Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-22T21:38:37.410Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-22T21:38:37.410Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-22T21:38:37.410Z"
+          }
+        ]
       }
     },
     {
@@ -3766,12 +4144,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T09:02:31.507Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:02:31.507Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:02:31.507Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:02:31.507Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:02:31.507Z"
+          }
+        ]
       }
     },
     {
@@ -3878,13 +4283,13 @@
       ],
       "knownFailing": [],
       "taskFingerprint": "0fe346cc820c62ce16e9a05c07773a449f0f19f32c567a4a50aab8839704eb26",
-      "status": "reserve-floor",
+      "status": "active",
       "calibration": {
-        "verdict": "podlaha",
+        "verdict": "rozlišuje",
         "values": [
           0,
           0,
-          0,
+          1,
           0,
           0
         ],
@@ -3892,12 +4297,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T00:39:16.363Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          }
+        ]
       }
     },
     {
@@ -3930,12 +4362,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T09:02:31.507Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:02:31.507Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:02:31.507Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:02:31.507Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:02:31.507Z"
+          }
+        ]
       }
     },
     {
@@ -4123,20 +4582,47 @@
         "values": [
           0.4,
           0.333,
+          0.4,
           0.2,
-          0.2,
-          0
+          0.2
         ],
         "noise": 0.6,
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T09:02:31.507Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:02:31.507Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:02:31.507Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:02:31.507Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:02:31.507Z"
+          }
+        ]
       }
     },
     {
@@ -4199,12 +4685,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T10:43:01.907Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:43:01.907Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:43:01.907Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:43:01.907Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:43:01.907Z"
+          }
+        ]
       }
     },
     {
@@ -4351,12 +4864,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T09:53:48.550Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:53:48.550Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:53:48.550Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:53:48.550Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:53:48.550Z"
+          }
+        ]
       }
     },
     {
@@ -4390,7 +4930,7 @@
         "values": [
           0,
           1,
-          0,
+          1,
           0,
           0
         ],
@@ -4398,12 +4938,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T00:39:16.363Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          }
+        ]
       }
     },
     {
@@ -4626,12 +5193,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T00:39:16.363Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          }
+        ]
       }
     },
     {
@@ -4686,12 +5280,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-22T22:49:44.799Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-22T22:49:44.799Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-22T22:49:44.799Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-22T22:49:44.799Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-22T22:49:44.799Z"
+          }
+        ]
       }
     },
     {
@@ -4754,12 +5375,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-22T22:49:44.799Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-22T22:49:44.799Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-22T22:49:44.799Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-22T22:49:44.799Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-22T22:49:44.799Z"
+          }
+        ]
       }
     },
     {
@@ -4795,12 +5443,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T00:39:16.363Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          }
+        ]
       }
     },
     {
@@ -4836,12 +5511,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T09:02:31.507Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:02:31.507Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:02:31.507Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:02:31.507Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:02:31.507Z"
+          }
+        ]
       }
     },
     {
@@ -4921,12 +5623,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T09:02:31.507Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:02:31.507Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:02:31.507Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:02:31.507Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:02:31.507Z"
+          }
+        ]
       }
     },
     {
@@ -5005,7 +5734,7 @@
         "values": [
           0.333,
           0,
-          0,
+          0.333,
           0.333,
           0
         ],
@@ -5013,12 +5742,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T01:06:16.652Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T01:06:16.652Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T01:06:16.652Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T01:06:16.652Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T01:06:16.652Z"
+          }
+        ]
       }
     },
     {
@@ -5079,12 +5835,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T10:24:39.203Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:24:39.203Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:24:39.203Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:24:39.203Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:24:39.203Z"
+          }
+        ]
       }
     },
     {
@@ -5171,12 +5954,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T09:02:31.507Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:02:31.507Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:02:31.507Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:02:31.507Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T09:02:31.507Z"
+          }
+        ]
       }
     },
     {
@@ -5216,12 +6026,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T00:39:16.363Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          }
+        ]
       }
     },
     {
@@ -5413,12 +6250,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T00:39:16.363Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T00:39:16.363Z"
+          }
+        ]
       }
     },
     {
@@ -5473,12 +6337,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T01:06:16.652Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T01:06:16.652Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T01:06:16.652Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T01:06:16.652Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T01:06:16.652Z"
+          }
+        ]
       }
     },
     {
@@ -5518,12 +6409,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T01:06:16.652Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T01:06:16.652Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T01:06:16.652Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T01:06:16.652Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T01:06:16.652Z"
+          }
+        ]
       }
     },
     {
@@ -5636,12 +6554,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T10:43:01.907Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:43:01.907Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:43:01.907Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:43:01.907Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:43:01.907Z"
+          }
+        ]
       }
     },
     {
@@ -5691,18 +6636,45 @@
           0,
           0.333,
           0.333,
-          0.222
+          0.333
         ],
         "noise": 0.3333333333333333,
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T10:24:39.203Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:24:39.203Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:24:39.203Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:24:39.203Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:24:39.203Z"
+          }
+        ]
       }
     },
     {
@@ -5768,12 +6740,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T10:24:39.203Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:24:39.203Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:24:39.203Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:24:39.203Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:24:39.203Z"
+          }
+        ]
       }
     },
     {
@@ -5913,12 +6912,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T10:24:39.203Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:24:39.203Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:24:39.203Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:24:39.203Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:24:39.203Z"
+          }
+        ]
       }
     },
     {
@@ -6058,12 +7084,39 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T10:24:39.203Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:24:39.203Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:24:39.203Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:24:39.203Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:24:39.203Z"
+          }
+        ]
       }
     },
     {
@@ -6116,12 +7169,459 @@
         "panel": [
           "qwen3-coder:latest",
           "qwen3.5:27b",
-          "qwen3-30b-a3b:latest",
+          "qwen3.8:latest",
           "qwen3:14b",
-          "llava:13b"
+          "qwen3-30b-a3b:latest"
         ],
         "repeats": 3,
-        "measuredAt": "2026-08-23T10:24:39.203Z"
+        "measuredAt": "2026-08-23T12:23:18.467Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:24:39.203Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:24:39.203Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T12:23:18.467Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:24:39.203Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "prior-exact-task",
+            "measuredAt": "2026-08-23T10:24:39.203Z"
+          }
+        ]
+      }
+    },
+    {
+      "hash": "cfcb63dd5cd5560a7b6729ea4420679ae3bcac0d",
+      "source": "src/upgrade/model-binding-application.js",
+      "test": "tests/m1-model-binding-application.test.js",
+      "tests": [
+        "tests/m1-model-binding-application.test.js"
+      ],
+      "subject": "fix(models): make startup census advisory",
+      "functionCount": 1,
+      "functionLines": 228,
+      "requirements": 2,
+      "scoreMode": "named",
+      "failToPass": [
+        "prior exact override treats stale census identity as a hint under cutover leases",
+        "startup ignores a stale failing census when exact identity recovers under lease"
+      ],
+      "passToPass": [
+        "delete protection exposes current desired and one-step rollback identities",
+        "binding cutover re-resolves and reserves previous plus target through commit",
+        "cold pull finishes before binding cutover acquires shared use",
+        "default binding wiring shares the production model-use authority",
+        "cutover conflict is retryable and releases a partially acquired lease set",
+        "repository compensation runs under both cutover leases and releases them",
+        "runtime finalize failure releases leases but leaves the named reconciliation residual",
+        "verification conflict retries after releasing the lease before delay",
+        "model delete reservation excludes binding apply before any runtime or provider effect",
+        "apply commits runtime and audit before exact verification can claim verified",
+        "commit layer approves one matching proposal and expires the rest",
+        "proposal resolution failure is repairable without replaying provider or runtime",
+        "startup proposal repair failure never fabricates a runtime failure",
+        "rollback expires proposals without inventing an approval",
+        "direct authority injection fails before durable or runtime effects",
+        "provider request-key bounds fail before every provider or binding effect",
+        "provider outage fails before intent and never emits model_changed",
+        "missing target is pulled only after durable provider intent",
+        "failed pull leaves an audited request and no binding effect",
+        "post-pull identity outage stays pending and next apply reconciles without repull",
+        "expired owned provider claim is fenced and reconciled before retry without repull",
+        "startup never reconciles a provider effect while its original lease is live",
+        "startup schedules one fenced recovery at live provider lease expiry",
+        "scheduled recovery repeats at renewed lease boundaries after transient reconciliation failures",
+        "terminal provider recovery retries the unfinished binding commit",
+        "provider origin mismatch blocks startup and explicit resume before provider reads",
+        "startup reconciles and resumes a durable provider intent with one inventory",
+        "startup resumes terminal provider success from the pre-binding crash window",
+        "startup closes a same-target provider terminal with one durable no-op receipt",
+        "installed alternate target cannot bypass an unresolved provider success",
+        "startup absence is observational, visible and requires a new provider attempt",
+        "provider status hides historical absence after a newer installed binding",
+        "same-target acceptance is durable, resolves proposals and supersedes stale provider status",
+        "no-op receipt prevents superseded provider success from reviving on timer or restart",
+        "startup leaves ambiguous provider identity pending until exact recovery",
+        "startup inventory outage leaves provider intent pending and retries exactly",
+        "startup missing digest and terminal-audit outage remain retryable pending truth",
+        "new apply reconciles same-origin pending effects from another role",
+        "concurrent apply loses with typed 409 and creates no second effect",
+        "two WAL application instances reject a second effect under a live claim",
+        "two Worker isolates race one WAL provider effect and one typed loser",
+        "digest drift after intent is durable, terminal and has no runtime effect",
+        "non-retryable apply requires explicit rollback before a replacement",
+        "same canonical retries get a new truthful receipt after explicit rollback",
+        "non-retryable terminal blocks every replacement before provider effects",
+        "repository failure compensates runtime and releases the token for retry",
+        "temporary runtime guard rejection is retryable after the guard clears",
+        "guard-rejected rollback retries the same durable reversal after clear",
+        "explicit rebind recovers a missing legacy artifact with audited pull lineage",
+        "legacy baseline recovery cannot acknowledge the user target command",
+        "same applied operation replay has no provider, runtime or broadcast effect",
+        "different target cannot overtake a retryable unapplied manual operation",
+        "rollback is append-only and restores the exact previous artifact",
+        "runtime no-op rollback advances binding notification revision without DB history",
+        "rollback preserves no-override 404 and isolates legacy rebind 409",
+        "verification failure stays active and never claims verified",
+        "explicit same-target apply retries failed verification without runtime replay",
+        "verification audit failure never rewrites a successful provider probe as failed",
+        "notification failure is degraded and replay does not retry delivery",
+        "production broadcaster without transport is receipt-not-issued degraded",
+        "real restart waits for a live provider lease then performs one fenced recovery",
+        "provider terminal resumes the accepted binding after a real DB close and reopen",
+        "restart preserves post-commit truth and repairs a pending proposal",
+        "manual binding survives a real DB close and exact startup rehydrate",
+        "restart restores prior manual override before failed newer intent",
+        "terminal runtime failure performs no provider work on restart",
+        "startup shares one inventory and serializes verification after activation",
+        "startup census hint is re-resolved under cutover leases before restore",
+        "legacy override rehydrates without invented operation, digest or verification",
+        "HTTP and chat strip caller authority and use the same application port",
+        "HTTP and chat present same-target acceptance without a false change",
+        "HTTP cold pull returns after durable intent and before provider completion",
+        "second HTTP apply receives 409 while accepted cold pull owns the commit seam",
+        "HTTP maps an actual provider outage without false started success",
+        "HTTP maps binding authority conflicts to 409 instead of false 500",
+        "HTTP and chat adapters have equal durable pull/apply truth",
+        "ModelRegistry delegates assignment without forwarding legacy authority options",
+        "strict provider rejects non-loopback, ambiguity, missing digest and drift",
+        "real loopback provider verifies tags-chat-tags with exact request shape",
+        "real loopback provider rejects malformed, incomplete, HTTP, timeout and drift",
+        "provider-owned pull origin cannot drift with mutable config",
+        "production pull composition performs tags-pull-tags on one pinned loopback origin",
+        "chat cleanup adapter consumes one exact registry plan and one single-use approval",
+        "real post-apply chat cleanup parks the protected one-step rollback model",
+        "source call graph has no production reference to legacy binding writers"
+      ],
+      "knownFailing": [],
+      "taskFingerprint": "305c9f06f123f6d5546d8827df8c096106f459c2068f0c617c685b6f0824c625",
+      "status": "reserve-floor",
+      "calibration": {
+        "verdict": "podlaha",
+        "values": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "noise": 0,
+        "panel": [
+          "qwen3-coder:latest",
+          "qwen3.5:27b",
+          "qwen3.8:latest",
+          "qwen3:14b",
+          "qwen3-30b-a3b:latest"
+        ],
+        "repeats": 3,
+        "measuredAt": "2026-08-23T11:44:07.488Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T11:44:07.488Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T11:44:07.488Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T11:44:07.488Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T11:44:07.488Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T11:44:07.488Z"
+          }
+        ]
+      }
+    },
+    {
+      "hash": "da03e8bd2e50f0079628d2728fa9da96e9feb580",
+      "source": "src/upgrade/upgrade-manager.js",
+      "test": "tests/upgrade-apply.test.js",
+      "tests": [
+        "tests/upgrade-apply.test.js"
+      ],
+      "subject": "fix(models): preserve verification abort boundary",
+      "functionCount": 1,
+      "functionLines": 31,
+      "requirements": 1,
+      "scoreMode": "named",
+      "failToPass": [
+        "original _verifyModel clears its timeout before parsing a successful response"
+      ],
+      "passToPass": [
+        "model_overrides table exists with correct PK",
+        "upgrade_history table exists with autoincrement",
+        "model_overrides INSERT OR REPLACE works (upsert)",
+        "upgrade_history indexes exist",
+        "_persistOverride writes to model_overrides",
+        "_persistOverride upserts on same role",
+        "_recordHistory appends to upgrade_history",
+        "applies stored overrides to config.models",
+        "returns 0 when DB has no overrides",
+        "ignores overrides for invalid roles",
+        "returns 0 when _db is null",
+        "handles DB errors gracefully",
+        "hot-swap changes config.models[role]",
+        "setDb stores DB handle",
+        "mutex flag prevents concurrent upgrades",
+        "mutex: concurrent apply throws \"in progress\"",
+        "runtime guard blocks applyUpgrade before install checks",
+        "configVersion increments on persist",
+        "recordUpgrade adds to in-memory history",
+        "throws when no override exists",
+        "throws when DB not initialized",
+        "rollback deletes override row + records history",
+        "returns DB history when _db is set",
+        "falls back to in-memory when _db is null",
+        "DB history includes both apply and rollback entries",
+        "returns true when mock verify succeeds",
+        "returns false when mock verify fails",
+        "original _verifyModel clears its timeout on network error",
+        "full cycle: persist override → close → reopen → loadOverrides",
+        "persist → rollback → load → role is back to default",
+        "applied_by defaults to user",
+        "applied_by can be system or auto",
+        "post-050 legacy apply fails closed before runtime or durable effects"
+      ],
+      "knownFailing": [],
+      "taskFingerprint": "22149f55b861a9caead56b03da79d7e6855fb05bb1d35ac69502a32ea222ade9",
+      "status": "active",
+      "calibration": {
+        "verdict": "rozlišuje",
+        "values": [
+          0,
+          1,
+          1,
+          0,
+          0
+        ],
+        "noise": 0,
+        "panel": [
+          "qwen3-coder:latest",
+          "qwen3.5:27b",
+          "qwen3.8:latest",
+          "qwen3:14b",
+          "qwen3-30b-a3b:latest"
+        ],
+        "repeats": 3,
+        "measuredAt": "2026-08-23T11:44:07.488Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T11:44:07.488Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T11:44:07.488Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T11:44:07.488Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T11:44:07.488Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T11:44:07.488Z"
+          }
+        ]
+      }
+    },
+    {
+      "hash": "723d5726087afcbac935e84b8382a963dd440520",
+      "source": "src/upgrade/upgrade-manager.js",
+      "test": "tests/upgrade-apply.test.js",
+      "tests": [
+        "tests/upgrade-apply.test.js"
+      ],
+      "subject": "fix(models): release failed verification timeout",
+      "functionCount": 1,
+      "functionLines": 31,
+      "requirements": 1,
+      "scoreMode": "named",
+      "failToPass": [
+        "original _verifyModel clears its timeout on network error"
+      ],
+      "passToPass": [
+        "model_overrides table exists with correct PK",
+        "upgrade_history table exists with autoincrement",
+        "model_overrides INSERT OR REPLACE works (upsert)",
+        "upgrade_history indexes exist",
+        "_persistOverride writes to model_overrides",
+        "_persistOverride upserts on same role",
+        "_recordHistory appends to upgrade_history",
+        "applies stored overrides to config.models",
+        "returns 0 when DB has no overrides",
+        "ignores overrides for invalid roles",
+        "returns 0 when _db is null",
+        "handles DB errors gracefully",
+        "hot-swap changes config.models[role]",
+        "setDb stores DB handle",
+        "mutex flag prevents concurrent upgrades",
+        "mutex: concurrent apply throws \"in progress\"",
+        "runtime guard blocks applyUpgrade before install checks",
+        "configVersion increments on persist",
+        "recordUpgrade adds to in-memory history",
+        "throws when no override exists",
+        "throws when DB not initialized",
+        "rollback deletes override row + records history",
+        "returns DB history when _db is set",
+        "falls back to in-memory when _db is null",
+        "DB history includes both apply and rollback entries",
+        "returns true when mock verify succeeds",
+        "returns false when mock verify fails",
+        "full cycle: persist override → close → reopen → loadOverrides",
+        "persist → rollback → load → role is back to default",
+        "applied_by defaults to user",
+        "applied_by can be system or auto",
+        "post-050 legacy apply fails closed before runtime or durable effects"
+      ],
+      "knownFailing": [],
+      "taskFingerprint": "adb1258cfec0e0eea96e531a8030174883544ac3440a4375c11bc090c944e4e6",
+      "status": "active",
+      "calibration": {
+        "verdict": "rozlišuje",
+        "values": [
+          0,
+          0,
+          1,
+          0,
+          0
+        ],
+        "noise": 0,
+        "panel": [
+          "qwen3-coder:latest",
+          "qwen3.5:27b",
+          "qwen3.8:latest",
+          "qwen3:14b",
+          "qwen3-30b-a3b:latest"
+        ],
+        "repeats": 3,
+        "measuredAt": "2026-08-23T11:44:07.488Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T11:44:07.488Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T11:44:07.488Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T11:44:07.488Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T11:44:07.488Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T11:44:07.488Z"
+          }
+        ]
+      }
+    },
+    {
+      "hash": "06d49847988ae3fb65711fe6bf737c08c0e3ac0c",
+      "source": "src/routes/chat.js",
+      "test": "tests/routes-smoke.test.js",
+      "tests": [
+        "tests/routes-smoke.test.js"
+      ],
+      "subject": "test: repair core HTTP E2E contracts",
+      "functionCount": 2,
+      "functionLines": 100,
+      "requirements": 0,
+      "scoreMode": "file",
+      "failToPass": [],
+      "passToPass": [],
+      "knownFailing": [],
+      "taskFingerprint": "473ed521191030e2c88eaf4585f0baa54b5378708842393ffe15b325ec566813",
+      "status": "reserve-floor",
+      "calibration": {
+        "verdict": "podlaha",
+        "values": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "noise": 0,
+        "panel": [
+          "qwen3-coder:latest",
+          "qwen3.5:27b",
+          "qwen3.8:latest",
+          "qwen3:14b",
+          "qwen3-30b-a3b:latest"
+        ],
+        "repeats": 3,
+        "measuredAt": "2026-08-23T11:44:07.488Z",
+        "modelEvidence": [
+          {
+            "model": "qwen3-coder:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T11:44:07.488Z"
+          },
+          {
+            "model": "qwen3.5:27b",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T11:44:07.488Z"
+          },
+          {
+            "model": "qwen3.8:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T11:44:07.488Z"
+          },
+          {
+            "model": "qwen3:14b",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T11:44:07.488Z"
+          },
+          {
+            "model": "qwen3-30b-a3b:latest",
+            "source": "new-report",
+            "measuredAt": "2026-08-23T11:44:07.488Z"
+          }
+        ]
       }
     }
   ],
@@ -7161,15 +8661,20 @@
     {
       "hash": "c1707671ebb21b77591da281bf9ff60408083631",
       "reason": "test projde i před opravou — úloha nic neměří"
+    },
+    {
+      "hash": "286a9117c77c6c29969ed374bcaea86c1ef1ba1a",
+      "source": "src/routes/chat.js",
+      "reason": "stav před opravou se nedá sestavit: vložený kód není syntakticky platný"
     }
   ],
-  "calibratedAt": "2026-08-23T10:43:01.907Z",
+  "calibratedAt": "2026-08-23T12:23:18.467Z",
   "calibrationPanel": [
     "qwen3-coder:latest",
     "qwen3.5:27b",
-    "qwen3-30b-a3b:latest",
+    "qwen3.8:latest",
     "qwen3:14b",
-    "llava:13b"
+    "qwen3-30b-a3b:latest"
   ],
   "calibrationRepeats": 3
 }

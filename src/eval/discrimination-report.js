@@ -119,6 +119,45 @@ export async function measureDiscrimination(models, opts = {}) {
   };
 }
 
+/**
+ * Změří jediný nově přidaný model bez zbytečného opakování celého panelu.
+ * Výstup má stejnou matici jako panelový report a lze ho bezpečně sloučit jen
+ * s exact-task historií; samotný single-model report o rozlišení nerozhoduje.
+ */
+export async function measureSingleModel(model, opts = {}) {
+  const runner = opts.runner || new CodePatchValidationRunner();
+  const repeats = opts.repeats ?? 3;
+  const cache = createSuiteCache();
+  const comparison = await comparePair(runner, SUITE, model, model, {
+    suite: codePatchSuite,
+    repeats,
+    suiteCache: cache,
+    between: () => unloadAll([model]),
+    onProgress: opts.onProgress,
+  });
+  const tasks = comparison.tasks.map(task => ({
+    name: task.name,
+    values: [task.candidateScore],
+    noise: task.candidateSpread,
+    verdict: classifyTask([task.candidateScore], task.candidateSpread),
+  }));
+  const score = tasks.reduce((sum, task) => sum + task.values[0], 0) / (tasks.length || 1);
+  return {
+    suite: SUITE,
+    models: [model],
+    repeats,
+    tasks,
+    scores: [[model, score]],
+    discriminating: 0,
+    total: tasks.length,
+    maxNoise: Math.max(0, ...tasks.map(task => task.noise)),
+    range: 0,
+    suiteDiscriminates: false,
+    singleModelExtension: true,
+    pairs: [],
+  };
+}
+
 if (process.argv[1]?.endsWith('discrimination-report.js')) {
   const jsonAt = process.argv.indexOf('--json');
   const jsonPath = jsonAt > -1 ? process.argv[jsonAt + 1] : null;
@@ -131,15 +170,16 @@ if (process.argv[1]?.endsWith('discrimination-report.js')) {
   const flagValue = (a, i, all) => a === '--json' || a === '--repeats'
     || all[i - 1] === '--json' || all[i - 1] === '--repeats';
   const models = process.argv.slice(2).filter((a, i, all) => !flagValue(a, i + 2, process.argv));
-  if (models.length < 2) {
-    console.error('použití: node src/eval/discrimination-report.js <model> <model> [model…]');
+  if (models.length < 1) {
+    console.error('použití: node src/eval/discrimination-report.js <model> [model…]');
     process.exit(1);
   }
 
   holdGpuEvaluationLock({ command: `code-patch-discrimination ${models.join(' ')}` });
 
   const t0 = Date.now();
-  const r = await measureDiscrimination(models, {
+  const measure = models.length === 1 ? measureSingleModel : measureDiscrimination;
+  const r = await measure(models.length === 1 ? models[0] : models, {
     repeats,
     log: (m) => console.log(m),
     onProgress: (p) => {
@@ -186,6 +226,7 @@ if (process.argv[1]?.endsWith('discrimination-report.js')) {
       models: r.models, repeats: r.repeats,
       tasks: r.tasks, scores: r.scores,
       discriminating: r.discriminating, total: r.total,
+      singleModelExtension: r.singleModelExtension === true,
     }, null, 2) + '\n');
     console.log(`\nvýsledek uložen: ${jsonPath}`);
   }
@@ -193,4 +234,4 @@ if (process.argv[1]?.endsWith('discrimination-report.js')) {
   console.log(`\ncelkem ${((Date.now() - t0) / 60000).toFixed(1)} min`);
 }
 
-export default { measureDiscrimination, classifyTask };
+export default { measureDiscrimination, measureSingleModel, classifyTask };

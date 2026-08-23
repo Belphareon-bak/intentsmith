@@ -1,13 +1,69 @@
+import { createHash } from 'node:crypto';
+
 // Append-only history for role-specific model evaluation.
 //
 // Legacy validation_suite_scores intentionally keeps its last-value contract.
 // This table is the durable prototype authority: exact model artifact + exact
 // suite contract. Old rows remain evidence when a suite changes.
 
-export const version = '2026_08_22_068_model_evaluation_history';
+export const version = '2026_08_22_070_model_evaluation_history';
 export const description = 'Add append-only exact-artifact model evaluation history';
 
+const REQUIRED_COLUMNS = [
+  'run_id', 'model_name', 'model_canonical_name', 'model_digest_sha256',
+  'suite_name', 'suite_version', 'suite_contract_sha256', 'role', 'status',
+  'score', 'passed', 'total', 'repeats', 'duration_ms', 'tokens_per_second',
+  'vram_bytes', 'task_results_json', 'hardware_json', 'metadata_json',
+  'error_code', 'error_message', 'started_at', 'completed_at',
+];
+
+const PRE070_SCHEMA_SHA256 = new Map([
+  ['table:model_evaluation_runs', 'acb494dd73ee0021d65f7b07295a45dc7cc3cdf86e03581dbdcd3bc2f7a7a357'],
+  ['index:idx_model_eval_complete_artifact_contract', 'f7005e36e56ff575bb9cfd97b73cda4f75da1fa3a6c98f771dee654c56c6254d'],
+  ['index:idx_model_eval_model_history', '32fd5c9430528413e33a8a594d97b4b20be123388e84033d07f62a8a898378ff'],
+  ['index:idx_model_eval_suite_history', '1299902b2a01edaa7d773487bc89050fae15fc48b69603dc3bac0148b40d03cc'],
+  ['trigger:trg_model_evaluation_runs_no_update', '421efb8a8934d347b850ed28bf45f89147fd3099320b604fe629565735858f89'],
+  ['trigger:trg_model_evaluation_runs_no_delete', '76764d3b5ae5bed1e4eade360d3071c315755077aa92e21c3e02a2104d005319'],
+]);
+
+function schemaSha256(sql) {
+  const normalized = String(sql || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  return createHash('sha256').update(normalized).digest('hex');
+}
+
+/**
+ * The evaluation table briefly shipped under migration identity 068 before a
+ * cross-branch collision was found. A DB that already ran those exact bytes
+ * must be adopted by 070; an unrelated or partial table must still fail closed.
+ */
+function adoptExactPre070Schema(db) {
+  const table = db.prepare(`
+    SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'model_evaluation_runs'
+  `).get();
+  if (!table) return false;
+
+  const columns = new Set(db.prepare('PRAGMA table_info(model_evaluation_runs)').all().map(row => row.name));
+  const missingColumns = REQUIRED_COLUMNS.filter(name => !columns.has(name));
+  const extraColumns = [...columns].filter(name => !REQUIRED_COLUMNS.includes(name));
+  const invalidObjects = [];
+  for (const [key, expectedSha256] of PRE070_SCHEMA_SHA256) {
+    const [type, name] = key.split(':');
+    const row = db.prepare(`
+      SELECT sql FROM sqlite_master WHERE type = ? AND name = ?
+    `).get(type, name);
+    if (!row || schemaSha256(row.sql) !== expectedSha256) invalidObjects.push(name);
+  }
+  if (missingColumns.length || extraColumns.length || invalidObjects.length) {
+    throw new Error(`existing model_evaluation_runs is not the exact pre-070 schema; `
+      + `missing columns: ${missingColumns.join(', ') || 'none'}; extra columns: `
+      + `${extraColumns.join(', ') || 'none'}; invalid objects: `
+      + `${invalidObjects.join(', ') || 'none'}`);
+  }
+  return true;
+}
+
 export function up(db) {
+  if (adoptExactPre070Schema(db)) return;
   db.exec(`
     CREATE TABLE model_evaluation_runs (
       run_id TEXT PRIMARY KEY

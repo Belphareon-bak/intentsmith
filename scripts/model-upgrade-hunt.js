@@ -54,6 +54,7 @@ import {
 import { createRoleEvaluationPlans } from '../src/eval/role-evaluation-plan.js';
 import { modelEvaluationHistory } from '../src/upgrade/model-evaluation-history.js';
 import {
+  DEFAULT_RESPONSIBILITY_POLICY,
   applyWinningBindings,
   auditResponsibilitySegregation,
   buildInstalledCandidateQueue,
@@ -680,7 +681,7 @@ Object.assign(bindings, portfolio.bindings);
 
 log('\n══ SEGREGACE ODPOVĚDNOSTÍ ══');
 if (portfolio.feasible) {
-  log(`  portfolio vyhovuje: nejvýše 2 role/model, kritické autor-reviewer dvojice oddělené`);
+  log(`  portfolio vyhovuje: nejvýše ${DEFAULT_RESPONSIBILITY_POLICY.maxRolesPerModel} role/model, kritické autor-reviewer dvojice oddělené`);
   for (const role of portfolio.changedRoles) {
     const choice = portfolio.choices[role];
     log(`  ${role}: ${initialBindings[role]} → ${portfolio.bindings[role]}  score ${choice?.score?.toFixed?.(3) ?? '—'}`);

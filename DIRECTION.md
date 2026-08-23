@@ -221,6 +221,7 @@ Chronologicky, s důvodem. Tohle je ta část, která se z kódu odvodit nedá.
 | 2026-08-07 | **Chybějící browser `Origin` se normalizuje v Electron main pouze pro přesný capability-autorizovaný opaque Studio request.** | Existující renderer capability shim zůstává jediným producentem headeru. Main doplní jen `Origin: null`; nemění `Sec-Fetch-Site`, cíl ani capability. Legacy backend guard se neoslabuje a všechny neshody zůstávají fail-closed. |
 | 2026-08-08 | **Modelový self-healing smí být jen explicitně opt-in, dočasný, auditovaný a vratný local failover.** | Desired binding se nemění discovery. Automatická aktivace je povolená až po společné kanonické identitě, ochraně delete/cleanup, oddělení desired/active stavu, pravdivém verify auditu a bezpečném restore. Do té doby se L0-9 nemění a současný auto-rebind zůstává blokovaný. |
 | 2026-08-08 | **Studio v M1 při výpadku WS neposílá chat přes legacy HTTP fallback.** | Route neumí vynutit effect authority; pouhá oprava response parseru by byla false-green. M1 ukáže vratný `NOT_SENT` stav bez HTTP effectu, plná WS/HTTP parita se vrátí až nad M2 `EffectRequest/ApprovalGrant`. |
+| 2026-08-23 | **Jeden model nesmí držet většinu primárních rolí a nezávislý autor s reviewerem nesmějí být tentýž modelový artefakt.** | Segregace odpovědností je produktová vlastnost, ne maximalizace počtu různých modelů. Při současných sedmi rolích z toho plyne kapacita nejvýše tři role na model; dovoluje sdílení tam, kde nebourá nezávislou kontrolu, a omezuje zbytečné přepínání modelů na jediné GPU. |
 
 ### Co to znamená pro rozsah
 
@@ -250,6 +251,8 @@ Aby se nepředstíralo, že je hotovo víc, než je.
 | **#18b — 9 470 řádků** | Síť je vypnutá, ale kód zůstává. „Ponecháno, ale vypnuto" je půlka rozhodnutí; celé zní, jestli 18b v produktu je, nebo se vyřízne. |
 | **Kritérium dělení souborů** | Návrh: *dělí se soubor obsluhující víc než jednu schopnost, řádky nerozhodují*. Neschváleno do `CONTRACT.md`. |
 | **`EX-1`** | Kolize ID rizika blokuje merge mobilní větve. Oprava navržená, neprovedená. |
+| **Přesné nezávislé dvojice modelových rolí** | Princip autor–reviewer je schválený. Prototyp nyní odděluje D1–R1, CODE–R1, CODE–R2 a D2–R2; zda je tato čtveřice konečný produktový kontrakt, ještě operátor nepotvrdil. |
+| **Retence nahrazených modelů** | Je rozhodnuto ponechat incumbent krátce jako rollback. Není rozhodnuta délka grace period, diskový strop ani podmínky automatického smazání. Do té doby je mazání vypnuté. |
 
 ---
 

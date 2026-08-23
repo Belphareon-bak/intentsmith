@@ -96,6 +96,48 @@ function taskSourceKey(task) {
 }
 
 /**
+ * Verified tasks are durable supply, not a disposable sample of the latest
+ * rebuild.  A rebuild under the same task contract must retain them.  Across
+ * a contract change they cannot be reused as measured truth, but every drop
+ * must remain visible in `rejected` with an exact reason.
+ */
+export function reconcileVerifiedTaskSupply(tasks, rejected, previous = null,
+  contractVersion = CODE_TASK_CONTRACT_VERSION) {
+  const nextTasks = [...tasks];
+  const nextRejected = [...rejected];
+  const keys = new Set(nextTasks.map(taskSourceKey));
+  const sameContract = previous?.taskContractVersion === contractVersion;
+
+  for (const old of previous?.tasks || []) {
+    const key = taskSourceKey(old);
+    if (keys.has(key)) continue;
+    if (sameContract && old.taskFingerprint) {
+      nextTasks.push(old);
+      keys.add(key);
+      continue;
+    }
+    nextRejected.push({
+      hash: old.hash,
+      source: old.source,
+      reason: `předchozí gold úloha nebyla znovu ověřena po změně kontraktu `
+        + `${previous?.taskContractVersion || 'neznamy'} → ${contractVersion}`,
+    });
+  }
+
+  return { tasks: nextTasks, rejected: nextRejected };
+}
+
+function normalizedRequiredHashes(values = []) {
+  return [...new Set(values.map(value => String(value).trim().toLowerCase())
+    .filter(value => /^[0-9a-f]{7,40}$/.test(value)))];
+}
+
+function matchingRequiredHash(hash, requiredHashes) {
+  const full = String(hash || '').toLowerCase();
+  return requiredHashes.find(required => full.startsWith(required)) || null;
+}
+
+/**
  * Seed pro levne rozsireni uz overene fixture.
  *
  * Append je bezpecny pouze uvnitr stejneho kontraktu ulohy. Pri zmene promptu,
@@ -121,12 +163,21 @@ export function buildSuite(repo, opts = {}) {
   const existingTasks = Array.isArray(opts.existingTasks) ? opts.existingTasks : [];
   const existingKeys = new Set(existingTasks.map(taskSourceKey));
   const rejectedHashes = new Set(opts.rejectedHashes || []);
+  const requiredHashes = normalizedRequiredHashes(opts.requiredHashes);
+  const remainingRequired = new Set(requiredHashes.filter(required => !existingTasks
+    .some(task => String(task.hash || '').toLowerCase().startsWith(required))));
+  const seenRequired = new Set();
+  const needsGeneralSupply = existingTasks.length < wanted;
   const candidates = findCandidates(repo, {
     limit: opts.limit ?? 1500,
     maxDiffLines: opts.maxDiffLines ?? 60,
     allowMultipleSources: opts.allowMultipleSources === true,
-  }).filter(candidate => !existingKeys.has(taskSourceKey(candidate))
-    && !rejectedHashes.has(candidate.hash));
+  }).filter(candidate => {
+    if (existingKeys.has(taskSourceKey(candidate))) return false;
+    const required = matchingRequiredHash(candidate.hash, [...remainingRequired]);
+    if (!needsGeneralSupply && !required) return false;
+    return required || !rejectedHashes.has(candidate.hash);
+  });
   log(`nových kandidátů: ${candidates.length} (seed ${existingTasks.length} ověřených úloh)`);
 
   const accepted = [...existingTasks];
@@ -137,32 +188,36 @@ export function buildSuite(repo, opts = {}) {
   // kandidáty najednou a teprve pak se rozhodne, v jakém pořadí se ověřují.
   const derived = [];
   for (const candidate of candidates) {
+    const required = matchingRequiredHash(candidate.hash, [...remainingRequired]);
+    if (required) seenRequired.add(required);
     const { task, reason } = deriveTask(repo, candidate);
-    if (!task) { rejected.push({ hash: candidate.hash, reason }); continue; }
+    if (!task) { rejected.push({ hash: candidate.hash, source: candidate.source, reason }); continue; }
     if (task.requirements.length > maxRequirements) {
       rejected.push({
-        hash: candidate.hash,
+        hash: candidate.hash, source: candidate.source,
         reason: `úloha má ${task.requirements.length} požadavků (limit ${maxRequirements})`,
       });
       continue;
     }
     if (task.functionLines > maxFunctionLines) {
-      rejected.push({ hash: candidate.hash, reason: `úseky mají ${task.functionLines} ř. (limit ${maxFunctionLines})` });
+      rejected.push({ hash: candidate.hash, source: candidate.source, reason: `úseky mají ${task.functionLines} ř. (limit ${maxFunctionLines})` });
       continue;
     }
-    derived.push({ candidate, task });
+    derived.push({ candidate, task, required });
   }
 
   // Víc přidaných testů → víc cílů → úloha umí i mezistupeň.  Při shodě jde
   // napřed kratší zadání: generuje se rychleji a sada se dá proběhnout častěji.
-  derived.sort((a, b) => (b.task.requirements.length - a.task.requirements.length)
+  derived.sort((a, b) => (Number(Boolean(b.required)) - Number(Boolean(a.required)))
+    || (b.task.requirements.length - a.task.requirements.length)
     || (a.task.functionLines - b.task.functionLines));
   log(`odvozeno: ${derived.length} (ověřuje se od nejvíc přidaných testů)`);
 
-  for (const { candidate, task } of derived) {
-    if (accepted.length >= wanted) break;
+  for (const { candidate, task, required } of derived) {
+    if (accepted.length >= wanted && remainingRequired.size === 0) break;
+    if (accepted.length >= wanted && !required) continue;
     if (timedOutCommits.has(candidate.hash)) {
-      rejected.push({ hash: candidate.hash, reason: 'jiný zdroj téhož commitu už timeoutoval' });
+      rejected.push({ hash: candidate.hash, source: candidate.source, reason: 'jiný zdroj téhož commitu už timeoutoval' });
       continue;
     }
 
@@ -171,7 +226,7 @@ export function buildSuite(repo, opts = {}) {
     const verdict = verifyTask(repo, task, opts);
     if (!verdict.usable) {
       if (/vypršel|timed?\s*out/i.test(verdict.reason || '')) timedOutCommits.add(candidate.hash);
-      rejected.push({ hash: candidate.hash, reason: verdict.reason });
+      rejected.push({ hash: candidate.hash, source: candidate.source, reason: verdict.reason });
       continue;
     }
 
@@ -193,12 +248,21 @@ export function buildSuite(repo, opts = {}) {
       knownFailing: verdict.knownFailing,
       taskFingerprint: taskFingerprint(task, verdict),
     });
+    if (required) remainingRequired.delete(required);
     log(`  ✅ ${candidate.hash.slice(0, 8)} [${verdict.scoreMode}] `
       + `${verdict.failToPass.length} cílových / ${verdict.passToPass.length} hlídaných`
       + ` — ${task.subject.slice(0, 38)}`);
   }
 
-  return { tasks: accepted, rejected, examined: candidates.length };
+  for (const required of remainingRequired) {
+    if (!seenRequired.has(required)) rejected.push({
+      hash: required,
+      source: null,
+      reason: 'požadovaná gold úloha nebyla nalezena mezi kandidáty',
+    });
+  }
+
+  return { tasks: accepted, rejected, examined: candidates.length, missingRequired: [...remainingRequired] };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
@@ -206,6 +270,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToP
     const i = process.argv.indexOf(name);
     return i > -1 ? Number(process.argv[i + 1]) : dflt;
   };
+  const args = (name) => process.argv.flatMap((value, index) => (
+    value === name && process.argv[index + 1] ? String(process.argv[index + 1]).split(',') : []
+  ));
   const repo = process.cwd();
   let previous = null;
   if (existsSync(FIXTURE_PATH)) {
@@ -223,17 +290,20 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToP
     allowMultipleSources: process.argv.includes('--multi-source'),
     existingTasks: seed.existingTasks,
     rejectedHashes: seed.rejectedHashes,
+    requiredHashes: args('--recover-hash'),
     log: (m) => console.log(m),
   });
 
   const repoHead = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim();
   const workingTreeDirty = execFileSync('git', ['status', '--porcelain'], { cwd: repo, encoding: 'utf8' }).trim().length > 0;
-  const tasks = preserveCalibration(result.tasks, previous)
+  const reconciled = reconcileVerifiedTaskSupply(result.tasks, result.rejected, previous);
+  const tasks = preserveCalibration(reconciled.tasks, previous)
     .sort((a, b) => (b.requirements - a.requirements) || (a.functionLines - b.functionLines));
   const rejected = append
-    ? [...(previous?.rejected || []), ...result.rejected]
-      .filter((item, index, all) => index === all.findIndex(other => other.hash === item.hash && other.reason === item.reason))
-    : result.rejected;
+    ? [...(previous?.rejected || []), ...reconciled.rejected]
+      .filter((item, index, all) => index === all.findIndex(other => other.hash === item.hash
+        && other.source === item.source && other.reason === item.reason))
+    : reconciled.rejected;
 
   writeFileSync(FIXTURE_PATH, JSON.stringify({
     generatedAt: new Date().toISOString(),
@@ -244,7 +314,10 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToP
     rejected,
   }, null, 2) + '\n');
 
-  console.log(`\nhotovo: ${result.tasks.length} úloh (${result.tasks.length - seed.existingTasks.length} nových) z ${result.examined} kandidátů → ${path.relative(repo, FIXTURE_PATH)}`);
+  console.log(`\nhotovo: ${tasks.length} úloh (`
+    + `${Math.max(0, result.tasks.length - seed.existingTasks.length)} nově gold ověřených) `
+    + `z ${result.examined} kandidátů → ${path.relative(repo, FIXTURE_PATH)}`);
+  if (result.missingRequired.length) console.log(`gold úlohy neobnovené: ${result.missingRequired.join(', ')}`);
   const reasons = {};
   for (const r of rejected) reasons[r.reason] = (reasons[r.reason] || 0) + 1;
   console.log('zamítnuto:', reasons);
@@ -252,5 +325,5 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToP
 
 export default {
   buildSuite, FIXTURE_PATH, CODE_TASK_CONTRACT_VERSION,
-  taskFingerprint, preserveCalibration,
+  taskFingerprint, preserveCalibration, reconcileVerifiedTaskSupply,
 };
