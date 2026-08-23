@@ -1979,7 +1979,7 @@ await asyncTest('T23eab: M1 cancel distinguishes target timeout from confirmatio
   }
 });
 
-await asyncTest('T23eb: legacy fs.write is contained in every edit mode', async () => {
+await asyncTest('T23eb: canonical file.write is contained in every edit mode', async () => {
   const sent = [];
   const frame = m1StudioFrame('legacy-edit-contained');
   const ownedFile = path.join(isolatedTestRuntime.runtime, 'm1-legacy-edit-contained.txt');
@@ -1990,7 +1990,7 @@ await asyncTest('T23eb: legacy fs.write is contained in every edit mode', async 
       sent.push(message);
     },
     handleRequest: async request => {
-      await request.context.onToolCall('fs.write', {
+      await request.context.onToolCall('file.write', {
         path: ownedFile,
         content: 'replacement',
       });

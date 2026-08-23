@@ -478,7 +478,7 @@ export function createSessionAdapter({
             // arbitrary model-provided path here. It has no registered project
             // snapshot or ApprovalGrant identity, so M2 contains it until the
             // execution slice reconnects previews through the canonical broker.
-            if (tool === 'fs.write') {
+            if (tool === 'file.write' || tool === 'fs.write') {
               sendTurnEvent('edit_authority_required', {
                 file: typeof args?.path === 'string' ? args.path : null,
                 code: 'M2_EFFECT_AUTHORITY_REQUIRED',

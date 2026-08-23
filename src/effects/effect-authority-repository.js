@@ -603,12 +603,19 @@ export class EffectAuthorityRepository {
         { effectId: result.effectId, grantId: result.approvalGrantId },
       );
     }
-    if (requireTimestamp(result.startedAt, 'EffectResult.startedAt')
-      < requireTimestamp(request.createdAt, 'EffectRequest.createdAt')) {
+    const startedAtMs = requireTimestamp(result.startedAt, 'EffectResult.startedAt');
+    if (startedAtMs < requireTimestamp(request.createdAt, 'EffectRequest.createdAt')) {
       fail(
         EffectAuthorityErrorCode.INPUT_INVALID,
         'EffectResult cannot start before its EffectRequest exists',
         { effectId: result.effectId },
+      );
+    }
+    if (startedAtMs < claim.claimedAtMs) {
+      fail(
+        EffectAuthorityErrorCode.INPUT_INVALID,
+        'EffectResult cannot start before its execution authority was consumed',
+        { effectId: result.effectId, claimedAtMs: claim.claimedAtMs },
       );
     }
     try {

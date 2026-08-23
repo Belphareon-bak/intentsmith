@@ -667,6 +667,36 @@ export async function handleFileWriteDecision(input, decision, context, dependen
       signal: context.signal,
     });
 
+    if (prepared.state === 'terminal' && prepared.result) {
+      const succeeded = prepared.result.terminalStatus === 'succeeded';
+      const msg = succeeded
+        ? (lang === 'cs'
+          ? `✅ Zápis do **${filePath}** už byl dokončen.`
+          : `✅ Write to **${filePath}** was already completed.`)
+        : (lang === 'cs'
+          ? `⚠️ Zápis do **${filePath}** už skončil stavem ${prepared.result.terminalStatus}.`
+          : `⚠️ Write to **${filePath}** already ended as ${prepared.result.terminalStatus}.`);
+      return new TaggedResponse({
+        content: msg,
+        tag: new ResponseTag({
+          speaker: ResponseSpeaker.SYSTEM,
+          mode: ChatMode.CONVERSATION,
+          confidence: 1,
+          canExecute: false,
+          metadata: {
+            decision: decision.toJSON(),
+            fileOperation: succeeded,
+            handler: 'file.write',
+            effectId: prepared.effectId,
+            effectState: 'terminal',
+            terminalStatus: prepared.result.terminalStatus,
+            approvalRequired: false,
+            filePath,
+          },
+        }),
+      });
+    }
+
     const msg = lang === 'cs'
       ? `🔐 Zápis do **${filePath}** čeká na schválení. Napiš přesně: \`schválit efekt ${prepared.effectId}\``
       : `🔐 Write to **${filePath}** awaits approval. Enter exactly: \`approve effect ${prepared.effectId}\``;

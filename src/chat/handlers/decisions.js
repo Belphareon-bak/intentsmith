@@ -426,14 +426,19 @@ async function handleToolCallDecision(input, decision, context) {
 
   // v59.0 IDE Bridge: Notify tool call start
   if (typeof context.onToolCall === 'function') {
-    try {
-      await context.onToolCall(
-        decision.tools?.[0] || 'unknown',
-        { query: effectiveQuery },
-      );
-    } catch (error) {
-      if (error?.code === 'M2_EFFECT_AUTHORITY_REQUIRED') throw error;
-      logger.warn('HandleToolCall', `Tool-call hook failed: ${error.message}`);
+    const selectedTools = Array.isArray(decision.tools) && decision.tools.length > 0
+      ? decision.tools
+      : ['unknown'];
+    // Every selected tool crosses the security hook before the executor sees
+    // the decision. A write hidden behind an earlier read/search must not bypass
+    // authority merely because legacy telemetry used to report only tools[0].
+    for (const tool of selectedTools) {
+      try {
+        await context.onToolCall(tool, { query: effectiveQuery });
+      } catch (error) {
+        if (error?.code === 'M2_EFFECT_AUTHORITY_REQUIRED') throw error;
+        logger.warn('HandleToolCall', `Tool-call hook failed: ${error.message}`);
+      }
     }
   }
 

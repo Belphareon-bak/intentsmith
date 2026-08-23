@@ -40,9 +40,10 @@ const BASE_MS = Date.parse('2026-08-24T12:00:00.000Z');
 const PROJECT_ID = 17;
 const SUBJECT = Object.freeze({ actorType: 'user', actorId: 'user-1' });
 
-function tracingFilesystem({ failParentFsync = false } = {}) {
+function tracingFilesystem({ failParentFsync = false, failSecondDescriptorRead = false } = {}) {
   const descriptorPaths = new Map();
   const events = [];
+  let descriptorReads = 0;
   const fileSystem = {
     ...nativeFs,
     openSync(filePath, flags, mode) {
@@ -69,6 +70,17 @@ function tracingFilesystem({ failParentFsync = false } = {}) {
     renameSync(from, to) {
       events.push(`rename:${from}->${to}`);
       return nativeFs.renameSync(from, to);
+    },
+    readFileSync(filePath, ...args) {
+      if (Number.isInteger(filePath)) {
+        descriptorReads += 1;
+        if (failSecondDescriptorRead && descriptorReads === 2) {
+          const error = new Error('forced post-write readback failure');
+          error.code = 'EIO';
+          throw error;
+        }
+      }
+      return nativeFs.readFileSync(filePath, ...args);
     },
   };
   return { fileSystem, events };
@@ -448,6 +460,57 @@ await testAsync('parent directory fsync failure records an orphan with rollback 
   });
 });
 
+await testAsync('missing parent is rejected before mkdir and produces no filesystem side effect', async () => {
+  await withEnvironment(async environment => {
+    const missingParent = path.join(environment.projectRoot, 'missing', 'nested');
+    const broker = createBroker(environment, {
+      provider: createFilesystemEffectProvider(),
+    });
+    const prepared = await prepareWrite(environment, broker, {
+      relativePath: 'missing/nested/result.md',
+    });
+    const grant = issue(environment, prepared.effectId);
+    const result = await broker.execute({
+      effectId: prepared.effectId,
+      grantId: grant.grantId,
+      payload: Buffer.from('after\n'),
+    });
+
+    assert.equal(result.terminalStatus, 'failed');
+    assert.equal(result.errorCode, 'PROJECT_PATH_VIOLATION');
+    assert.equal(nativeFs.existsSync(missingParent), false);
+    assert.equal(result.rollback.required, false);
+  });
+});
+
+await testAsync('post-write readback failure records applied orphan and pending rollback', async () => {
+  await withEnvironment(async environment => {
+    const target = path.join(environment.projectRoot, 'src/app.js');
+    writeFileSync(target, 'before\n');
+    const trace = tracingFilesystem({ failSecondDescriptorRead: true });
+    const broker = createBroker(environment, {
+      provider: createFilesystemEffectProvider({ fileSystem: trace.fileSystem }),
+    });
+    const prepared = await prepareWrite(environment, broker);
+    const grant = issue(environment, prepared.effectId);
+    const result = await broker.execute({
+      effectId: prepared.effectId,
+      grantId: grant.grantId,
+      payload: Buffer.from('after\n'),
+    });
+
+    assert.equal(readFileSync(target, 'utf8'), 'after\n');
+    assert.equal(result.terminalStatus, 'orphaned');
+    assert.equal(result.errorCode, 'EIO');
+    assert.deepEqual(result.changes.paths, ['src/app.js']);
+    assert.equal(result.changes.beforeDigest?.startsWith('sha256:'), true);
+    assert.equal(result.changes.afterDigest, null);
+    assert.equal(result.rollback.required, true);
+    assert.equal(result.rollback.status, 'pending');
+    assert.equal(result.lateCompletionRejected, true);
+  });
+});
+
 await testAsync('approval issuer rejects an authenticated subject that does not own the request', async () => {
   await withEnvironment(async environment => {
     const broker = createBroker(environment);
@@ -696,7 +759,13 @@ await testAsync('timeout followed by provider settlement records timed_out and r
     assert.equal(result.terminalStatus, 'timed_out');
     assert.equal(result.errorCode, 'EFFECT_TIMED_OUT');
     assert.equal(result.lateCompletionRejected, true);
-    assert.deepEqual(result.evidenceRefs, ['provider:settled-after-timeout']);
+    assert.equal(result.rollback.required, true);
+    assert.equal(result.rollback.status, 'pending');
+    assert.deepEqual(result.changes.paths, ['src/app.js']);
+    assert.deepEqual(result.evidenceRefs, [
+      `effect:${prepared.effectId}:timed_out-after-provider-start`,
+      'provider:settled-after-timeout',
+    ]);
     assert.deepEqual(environment.repository.getEffectResult(prepared.effectId), result);
   });
 });
@@ -735,7 +804,13 @@ await testAsync('cancellation followed by provider settlement records cancelled 
     assert.equal(result.terminalStatus, 'cancelled');
     assert.equal(result.errorCode, 'EFFECT_CANCELLED');
     assert.equal(result.lateCompletionRejected, true);
-    assert.deepEqual(result.evidenceRefs, ['provider:settled-after-cancel']);
+    assert.equal(result.rollback.required, true);
+    assert.equal(result.rollback.status, 'pending');
+    assert.deepEqual(result.changes.paths, ['src/app.js']);
+    assert.deepEqual(result.evidenceRefs, [
+      `effect:${prepared.effectId}:cancelled-after-provider-start`,
+      'provider:settled-after-cancel',
+    ]);
     assert.deepEqual(environment.repository.getEffectResult(prepared.effectId), result);
   });
 });
@@ -771,6 +846,9 @@ await testAsync('provider that does not settle within termination grace records 
     assert.equal(result.terminalStatus, 'orphaned');
     assert.equal(result.errorCode, 'EFFECT_ORPHANED');
     assert.equal(result.lateCompletionRejected, true);
+    assert.equal(result.rollback.required, true);
+    assert.equal(result.rollback.status, 'pending');
+    assert.deepEqual(result.changes.paths, ['src/app.js']);
     assert.deepEqual(environment.repository.getEffectResult(prepared.effectId), result);
   });
 });

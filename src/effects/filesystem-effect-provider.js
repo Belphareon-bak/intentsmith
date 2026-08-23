@@ -22,6 +22,24 @@ function assertNotHardlinked(target, fileSystem) {
   }
 }
 
+function appliedFilesystemEvidence({ request, beforeDigest, afterDigest = null, reason }) {
+  return Object.freeze({
+    changes: Object.freeze({
+      paths: Object.freeze([request.target.relativePath]),
+      beforeDigest,
+      afterDigest,
+      diffArtifact: null,
+    }),
+    rollback: Object.freeze({
+      required: true,
+      status: 'pending',
+      evidenceRef: `effect:${request.effectId}:rollback-pending`,
+    }),
+    outputDigest: afterDigest,
+    evidenceRefs: Object.freeze([`effect:${request.effectId}:${reason}`]),
+  });
+}
+
 export function createFilesystemEffectProvider({ fileSystem = fs } = {}) {
   return Object.freeze({
     async execute({ request, payload, signal }) {
@@ -53,37 +71,43 @@ export function createFilesystemEffectProvider({ fileSystem = fs } = {}) {
         );
       } catch (error) {
         if (error?.effectApplied === true) {
-          error.evidence = Object.freeze({
-            changes: Object.freeze({
-              paths: Object.freeze([request.target.relativePath]),
-              beforeDigest,
-              afterDigest: request.payloadDigest,
-              diffArtifact: null,
-            }),
-            rollback: Object.freeze({
-              required: true,
-              status: 'pending',
-              evidenceRef: `effect:${request.effectId}:durability-unconfirmed`,
-            }),
-            outputDigest: request.payloadDigest,
-            evidenceRefs: Object.freeze([`effect:${request.effectId}:fs-write-durability-unconfirmed`]),
+          error.evidence = appliedFilesystemEvidence({
+            request,
+            beforeDigest,
+            afterDigest: request.payloadDigest,
+            reason: 'fs-write-durability-unconfirmed',
           });
         }
         throw error;
       }
 
-      const after = readProjectFile(
-        request.target.canonicalRoot,
-        request.target.relativePath,
-        { fileSystem },
-      );
-      const afterBytes = after.exists ? Buffer.from(after.content, 'utf8') : null;
-      if (!afterBytes?.equals(payload)) {
-        const error = new Error('Filesystem write did not persist the exact authorized bytes');
-        error.code = 'EFFECT_FS_WRITE_VERIFICATION_FAILED';
+      let afterDigest = null;
+      try {
+        const after = readProjectFile(
+          request.target.canonicalRoot,
+          request.target.relativePath,
+          { fileSystem },
+        );
+        const afterBytes = after.exists ? Buffer.from(after.content, 'utf8') : null;
+        afterDigest = afterBytes ? digest(afterBytes) : null;
+        if (!afterBytes?.equals(payload)) {
+          const error = new Error('Filesystem write did not persist the exact authorized bytes');
+          error.code = 'EFFECT_FS_WRITE_VERIFICATION_FAILED';
+          throw error;
+        }
+      } catch (error) {
+        // writeProjectFileAtomic returned only after the rename and durability
+        // boundary. Any subsequent read/compare error therefore describes an
+        // applied effect whose exact terminal bytes are uncertain.
+        error.effectApplied = true;
+        error.evidence = appliedFilesystemEvidence({
+          request,
+          beforeDigest,
+          afterDigest,
+          reason: 'fs-write-post-commit-verification-failed',
+        });
         throw error;
       }
-      const afterDigest = digest(afterBytes);
       return Object.freeze({
         changes: Object.freeze({
           paths: Object.freeze([request.target.relativePath]),

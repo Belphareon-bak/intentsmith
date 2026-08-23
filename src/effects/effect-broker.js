@@ -97,6 +97,33 @@ function emptyRollback() {
   return { required: false, status: 'not_required', evidenceRef: null };
 }
 
+function conservativeRollbackEvidence(request, evidence, reason) {
+  const observed = evidence && typeof evidence === 'object' ? evidence : {};
+  const fallbackPaths = request.kind.startsWith('fs.')
+    ? [request.target.relativePath]
+    : [];
+  const evidenceRefs = new Set(observed.evidenceRefs || []);
+  evidenceRefs.add(`effect:${request.effectId}:${reason}`);
+  return {
+    ...observed,
+    changes: {
+      ...emptyChanges(),
+      ...(observed.changes || {}),
+      paths: observed.changes?.paths?.length
+        ? observed.changes.paths
+        : fallbackPaths,
+    },
+    rollback: observed.rollback?.required === true
+      ? observed.rollback
+      : {
+        required: true,
+        status: 'pending',
+        evidenceRef: `effect:${request.effectId}:rollback-pending`,
+      },
+    evidenceRefs: [...evidenceRefs],
+  };
+}
+
 function normalizedErrorCode(error, fallback = 'EFFECT_FAILED') {
   const candidate = typeof error?.code === 'string' ? error.code : fallback;
   const normalized = candidate.toUpperCase().replace(/[^A-Z0-9_:-]/g, '_').slice(0, 64);
@@ -375,7 +402,11 @@ export function createEffectBroker(repositoryValue, {
         outcome = {
           status: 'orphaned',
           errorCode: normalizedErrorCode(first.error),
-          evidence: first.error?.evidence,
+          evidence: conservativeRollbackEvidence(
+            request,
+            first.error?.evidence,
+            'provider-applied-error',
+          ),
           lateCompletionRejected: true,
         };
       } else {
@@ -397,14 +428,22 @@ export function createEffectBroker(repositoryValue, {
         outcome = {
           status: first.kind === 'cancelled' ? 'cancelled' : 'timed_out',
           errorCode: first.kind === 'cancelled' ? 'EFFECT_CANCELLED' : 'EFFECT_TIMED_OUT',
-          evidence: settled.ok ? settled.evidence : settled.error?.evidence,
+          evidence: conservativeRollbackEvidence(
+            request,
+            settled.ok ? settled.evidence : settled.error?.evidence,
+            `${first.kind}-after-provider-start`,
+          ),
           lateCompletionRejected: true,
         };
       } else {
         outcome = {
           status: 'orphaned',
           errorCode: 'EFFECT_ORPHANED',
-          evidence: null,
+          evidence: conservativeRollbackEvidence(
+            request,
+            null,
+            'provider-settlement-unknown',
+          ),
           lateCompletionRejected: true,
         };
       }
@@ -427,7 +466,11 @@ export function createEffectBroker(repositoryValue, {
         outcome: {
           status: 'orphaned',
           errorCode: 'EFFECT_PROVIDER_EVIDENCE_INVALID',
-          evidence: null,
+          evidence: conservativeRollbackEvidence(
+            request,
+            null,
+            'provider-evidence-invalid',
+          ),
           lateCompletionRejected: true,
         },
       });

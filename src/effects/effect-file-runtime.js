@@ -71,9 +71,34 @@ export function createEffectFileRuntime({
   const issuer = issuerOverride || createApprovalGrantIssuer(repository, { clock });
   const activeEffects = new Set();
 
+  function removeTerminalPending(effectId) {
+    const result = repository.getEffectResult(effectId);
+    if (!result) return null;
+    // The result is the durable authority truth. Cleanup is deliberately
+    // retryable: a crash or transient DELETE failure after result commit must
+    // never make that terminal unreachable on the next approval/reconnect.
+    try {
+      database.prepare('DELETE FROM m2_pending_effect_payloads WHERE effect_id = ?').run(effectId);
+    } catch { /* retried at runtime startup and on the next exact request */ }
+    return result;
+  }
+
+  function reconcileTerminalPendingEffects() {
+    const rows = database.prepare(`
+      SELECT pending.effect_id AS effectId
+      FROM m2_pending_effect_payloads pending
+      JOIN m2_effect_results result ON result.effect_id = pending.effect_id
+      ORDER BY pending.effect_id
+    `).all();
+    for (const { effectId } of rows) removeTerminalPending(effectId);
+    return rows.length;
+  }
+
   function recoverConsumedEffect(effectId) {
     const request = repository.getEffectRequest(effectId);
-    if (!request?.approvalGrantId || repository.getEffectResult(effectId)) return null;
+    if (!request?.approvalGrantId) return null;
+    const terminal = removeTerminalPending(effectId);
+    if (terminal) return terminal;
     const grant = repository.getApprovalGrant(request.approvalGrantId);
     if (!grant?.consumedAt || grant.consumedByEffectId !== effectId) return null;
     const claim = repository.getExecutionClaim(effectId);
@@ -217,10 +242,13 @@ export function createEffectFileRuntime({
         idempotencyKey,
         signal,
       });
-      if (repository.getEffectResult(prepared.effectId)) {
-        const error = new Error('Effect already has an immutable terminal result');
-        error.code = 'EFFECT_ALREADY_TERMINAL';
-        throw error;
+      const terminal = removeTerminalPending(prepared.effectId);
+      if (terminal) {
+        return Object.freeze({
+          ...prepared,
+          state: 'terminal',
+          result: terminal,
+        });
       }
       storePending({
         effectId: prepared.effectId,
@@ -242,6 +270,16 @@ export function createEffectFileRuntime({
         WHERE effect_id = ? AND conversation_id = ? AND subject_id = ?
       `).get(effectId, conversationId, subjectId);
       if (!pending) {
+        const request = repository.getEffectRequest(effectId);
+        const terminal = repository.getEffectResult(effectId);
+        if (
+          terminal
+          && request?.actor?.type === 'user'
+          && request.actor.id === subjectId
+          && request.origin?.conversationId === stableIdentifier('conversation', conversationId)
+        ) {
+          return terminal;
+        }
         const error = new Error('No exact pending filesystem effect belongs to this caller');
         error.code = 'EFFECT_PENDING_NOT_FOUND';
         throw error;
@@ -251,6 +289,8 @@ export function createEffectFileRuntime({
         error.code = 'EFFECT_EXECUTION_IN_PROGRESS';
         throw error;
       }
+      const terminal = removeTerminalPending(effectId);
+      if (terminal) return terminal;
       const recovered = recoverConsumedEffect(effectId);
       if (recovered) return recovered;
       const boundRequest = repository.getEffectRequest(effectId);
@@ -273,7 +313,7 @@ export function createEffectFileRuntime({
       activeEffects.add(effectId);
       try {
         const result = await broker.execute({ effectId, grantId: grant.grantId, payload, signal });
-        database.prepare('DELETE FROM m2_pending_effect_payloads WHERE effect_id = ?').run(effectId);
+        removeTerminalPending(effectId);
         return result;
       } finally {
         activeEffects.delete(effectId);
@@ -292,11 +332,13 @@ export function createEffectFileRuntime({
     },
 
     recoverInterruptedFilesystemEffects,
+    reconcileTerminalPendingEffects,
   });
   // A newly-created runtime is the restart boundary for this SQLite authority.
   // Filesystem providers are synchronous and cannot survive the old process;
   // a consumed grant without a result is therefore terminally ambiguous and
   // must become a durable orphan instead of being replayed.
+  reconcileTerminalPendingEffects();
   recoverInterruptedFilesystemEffects();
   return runtime;
 }

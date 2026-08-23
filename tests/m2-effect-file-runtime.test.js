@@ -204,6 +204,58 @@ await testAsync('same operation retry is exact while changed bytes conflict unde
   });
 });
 
+await testAsync('result commit followed by pending cleanup failure remains reachable and self-heals', async () => {
+  await withEnvironment(async environment => {
+    const input = requestInput(environment.projectRoot, {
+      operationId: 'message:cleanup-window',
+      relativePath: 'notes/cleanup-window.md',
+      content: 'durable terminal survives cleanup failure\n',
+    });
+    const runtime = environment.runtime();
+    const prepared = await runtime.requestFilesystemWrite(input);
+    environment.database.exec(`
+      CREATE TRIGGER force_m2_pending_cleanup_failure
+      BEFORE DELETE ON m2_pending_effect_payloads
+      BEGIN
+        SELECT RAISE(ABORT, 'forced pending cleanup failure');
+      END;
+    `);
+
+    const result = await runtime.approveFilesystemWrite({
+      effectId: prepared.effectId,
+      conversationId: input.conversationId,
+      subjectId: input.subjectId,
+    });
+    assert.equal(result.terminalStatus, 'succeeded');
+    assert.equal(runtime.getPending(prepared.effectId)?.effectId, prepared.effectId);
+    assert.deepEqual(
+      JSON.parse(environment.database.prepare(
+        'SELECT result_json FROM m2_effect_results WHERE effect_id = ?',
+      ).get(prepared.effectId).result_json),
+      result,
+    );
+
+    environment.database.exec('DROP TRIGGER force_m2_pending_cleanup_failure');
+    const sameRuntimeRetry = await runtime.approveFilesystemWrite({
+      effectId: prepared.effectId,
+      conversationId: input.conversationId,
+      subjectId: input.subjectId,
+    });
+    assert.deepEqual(sameRuntimeRetry, result);
+    assert.equal(runtime.getPending(prepared.effectId), null);
+
+    environment.reopen();
+    const restarted = environment.runtime();
+    assert.equal(restarted.getPending(prepared.effectId), null);
+    const reconnectRetry = await restarted.approveFilesystemWrite({
+      effectId: prepared.effectId,
+      conversationId: input.conversationId,
+      subjectId: input.subjectId,
+    });
+    assert.deepEqual(reconnectRetry, result);
+  });
+});
+
 await testAsync('restart turns a consumed grant without committed result into a durable non-replayed orphan', async () => {
   await withEnvironment(async environment => {
     const oldOwner = Object.freeze({

@@ -173,6 +173,35 @@ await testAsync('an unavailable injected runtime fails closed instead of using d
   });
 });
 
+await testAsync('an idempotent terminal retry is rendered without asking for a second approval', async () => {
+  await withProject(async ({ projectRoot }) => {
+    const effectId = `effect:${'d'.repeat(64)}`;
+    const response = await handleFileWriteDecision(
+      'ulož to do notes/result.md',
+      decision(),
+      context(projectRoot),
+      {
+        effectRuntime: {
+          async requestFilesystemWrite() {
+            return {
+              effectId,
+              state: 'terminal',
+              result: { terminalStatus: 'succeeded' },
+            };
+          },
+        },
+      },
+    );
+
+    assert.equal(response.tag.metadata.effectId, effectId);
+    assert.equal(response.tag.metadata.effectState, 'terminal');
+    assert.equal(response.tag.metadata.terminalStatus, 'succeeded');
+    assert.equal(response.tag.metadata.approvalRequired, false);
+    assert.equal(response.tag.metadata.fileOperation, true);
+    assert.doesNotMatch(response.content, /approve|schvál/i);
+  });
+});
+
 await testAsync('approval parser accepts only a command containing the exact full effect ID', async () => {
   const effectId = `effect:${'c'.repeat(64)}`;
   assert.equal(parseExactEffectApproval(`schválit efekt ${effectId}`), effectId);
@@ -194,20 +223,25 @@ await testAsync('decision execution awaits the security hook and never reaches t
   const legacyDecision = {
     intent: 'FILE_WRITE',
     confidence: 1,
-    tools: ['fs.write'],
+    tools: ['web.search', 'file.write'],
     metadata: {},
-    toJSON: () => ({ intent: 'FILE_WRITE', tools: ['fs.write'] }),
+    toJSON: () => ({ intent: 'FILE_WRITE', tools: ['web.search', 'file.write'] }),
   };
+  const hookedTools = [];
 
   try {
     await assert.rejects(
       handleToolCallDecision('write the file', legacyDecision, {
         sessionState: null,
         history: [],
-        onToolCall: async () => { throw authorityError; },
+        onToolCall: async tool => {
+          hookedTools.push(tool);
+          if (tool === 'file.write') throw authorityError;
+        },
       }),
       error => error === authorityError,
     );
+    assert.deepEqual(hookedTools, ['web.search', 'file.write']);
     assert.equal(executorCalls, 0);
   } finally {
     toolExecutor.execute = originalExecute;

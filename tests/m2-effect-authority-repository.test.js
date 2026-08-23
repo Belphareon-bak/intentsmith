@@ -168,8 +168,8 @@ function result(overrides = {}) {
     requestDigest: computeEffectRequestDigest(request()),
     approvalGrantId: 'grant-1',
     terminalStatus: 'succeeded',
-    startedAt: '2026-08-23T20:00:01.000Z',
-    completedAt: '2026-08-23T20:00:02.000Z',
+    startedAt: '2026-08-23T20:00:11.000Z',
+    completedAt: '2026-08-23T20:00:12.000Z',
     process: { pid: null, processGroupId: null, startIdentity: null, exitCode: null, signal: null },
     changes: {
       paths: ['src/app.js'],
@@ -553,6 +553,24 @@ test('result cannot predate its request', () => {
       outputDigest: null,
       startedAt: '2026-08-23T19:59:59.000Z',
       completedAt: '2026-08-23T19:59:59.500Z',
+    })),
+    EffectAuthorityErrorCode.INPUT_INVALID,
+  );
+  db.close();
+});
+
+test('result cannot predate the durable execution claim', () => {
+  const db = openDb();
+  const repository = repositoryAt(db);
+  registerAndGrant(repository);
+  consume(repository, {
+    grantId: 'grant-1',
+    request: repository.getEffectRequest('effect-1'),
+  });
+  expectCode(
+    () => repository.recordEffectResult(result({
+      startedAt: '2026-08-23T20:00:09.999Z',
+      completedAt: '2026-08-23T20:00:10.001Z',
     })),
     EffectAuthorityErrorCode.INPUT_INVALID,
   );
