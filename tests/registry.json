@@ -5190,8 +5190,8 @@
       "owner": "primary implementer",
       "state": "ACTIVE",
       "lastGreen": {
-        "commit": null,
-        "artifact": null
+        "commit": "11b9bfbfaaa9451566e3de2faf14aa51c224111b",
+        "artifact": "docs/execution/runs/wp-m2-code-project-context-v1.md"
       },
       "flakeCount": 0,
       "quarantineExpiry": null
@@ -5220,8 +5220,8 @@
       "owner": "primary implementer",
       "state": "ACTIVE",
       "lastGreen": {
-        "commit": null,
-        "artifact": null
+        "commit": "11b9bfbfaaa9451566e3de2faf14aa51c224111b",
+        "artifact": "docs/execution/runs/wp-m2-code-project-context-v1.md"
       },
       "flakeCount": 0,
       "quarantineExpiry": null
@@ -5250,8 +5250,8 @@
       "owner": "primary implementer",
       "state": "ACTIVE",
       "lastGreen": {
-        "commit": null,
-        "artifact": null
+        "commit": "11b9bfbfaaa9451566e3de2faf14aa51c224111b",
+        "artifact": "docs/execution/runs/wp-m2-code-project-context-v1.md"
       },
       "flakeCount": 0,
       "quarantineExpiry": null
@@ -5280,8 +5280,8 @@
       "owner": "primary implementer",
       "state": "ACTIVE",
       "lastGreen": {
-        "commit": null,
-        "artifact": null
+        "commit": "11b9bfbfaaa9451566e3de2faf14aa51c224111b",
+        "artifact": "docs/execution/runs/wp-m2-code-project-context-v1.md"
       },
       "flakeCount": 0,
       "quarantineExpiry": null
