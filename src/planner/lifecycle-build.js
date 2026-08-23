@@ -39,6 +39,12 @@ import { checkDependencies, rawId, writeRoadmapFile } from './lifecycle-planning
 import { MilestoneStatus, CheckpointMode } from './lifecycle.js';
 import { ensureReadme, ensureArchitectureDoc, appendReadmeChangelog } from '../chat/handlers/utils/readme-generator.js';
 import { C3ToolExecutor } from '../executor/c3-tool-executor.js';
+import {
+  isProjectPathError,
+  readProjectFile,
+  resolveProjectTarget,
+  writeProjectFileAtomic,
+} from '../executor/project-path-authority.js';
 import { validateMilestoneSize } from './milestone-size.js';
 import { runQualityGate, runEnhancedValidation } from './quality-gate.js';
 import { validateArchitecture } from './architecture-check.js';
@@ -735,9 +741,13 @@ async function postExecution(lifecycle, milestone, wfResult) {
           enhancedValidation = { errors: [], warnings: [] }; // cleared
         } else if (loopResult2.stopReason === 'out_of_scope_only') {
           // v135.1: All errors reference files outside scope — strip dead imports instead of failing
-          const stripped = await _stripDeadImports(lifecycle.projectPath, milestone.scope_files);
-          if (stripped > 0) {
-            logger.info('LifecycleBuild', `Stripped ${stripped} dead import(s)`, { milestoneId: milestone.id });
+          const stripResult = await _stripDeadImports(lifecycle.projectPath, milestone.scope_files);
+          if (!stripResult.ok) {
+            return handleMilestoneFailure(lifecycle, milestone,
+              `dead import strip ${stripResult.state}: ${stripResult.message || stripResult.file || 'effect refused'}`);
+          }
+          if (stripResult.stripped > 0) {
+            logger.info('LifecycleBuild', `Stripped ${stripResult.stripped} dead import(s)`, { milestoneId: milestone.id });
             const ev2 = await runEnhancedValidation(lifecycle.projectPath, await getChangedFiles(lifecycle));
             if (ev2.errors.length === 0) {
               enhancedValidation = ev2;
@@ -1768,20 +1778,71 @@ async function getChangedFiles(lifecycle) {
 
 /**
  * Strip import lines that reference non-existent files from scope files.
- * Returns count of stripped lines.
+ *
+ * The complete batch is path-checked and read before the first write.  Until
+ * M2 has a durable multi-file journal, more than one modified file fails
+ * closed instead of leaving a partially stripped project.
  */
-async function _stripDeadImports(projectPath, scopeFiles) {
-  if (!scopeFiles || scopeFiles.length === 0) return 0;
-  let totalStripped = 0;
+async function _stripDeadImports(projectPath, scopeFiles, {
+  fileSystem = fs,
+} = {}) {
+  if (!scopeFiles || scopeFiles.length === 0) return { ok: true, stripped: 0 };
+
+  // Reject the whole scope before reading or changing its first member.
+  for (const relFile of scopeFiles) {
+    try {
+      resolveProjectTarget(projectPath, relFile, { fileSystem });
+    } catch (error) {
+      if (isProjectPathError(error)) {
+        return {
+          ok: false,
+          stripped: 0,
+          state: 'project_path_violation',
+          file: relFile,
+          message: error.reason || error.message,
+        };
+      }
+      return {
+        ok: false,
+        stripped: 0,
+        state: 'read_failed',
+        file: relFile,
+        message: error.message,
+      };
+    }
+  }
+
+  const planned = [];
 
   for (const relFile of scopeFiles) {
-    const fullPath = path.join(projectPath, relFile);
-    let code;
-    try { code = fs.readFileSync(fullPath, 'utf-8'); } catch { continue; }
+    let read;
+    try {
+      read = readProjectFile(projectPath, relFile, { fileSystem });
+    } catch (error) {
+      if (isProjectPathError(error)) {
+        return {
+          ok: false,
+          stripped: 0,
+          state: 'project_path_violation',
+          file: relFile,
+          message: error.reason || error.message,
+        };
+      }
+      return {
+        ok: false,
+        stripped: 0,
+        state: 'read_failed',
+        file: relFile,
+        message: error.message,
+      };
+    }
+    if (!read.exists) continue;
+
+    const code = read.content;
 
     const ext = path.extname(relFile);
     const lines = code.split('\n');
-    let modified = false;
+    let fileStripped = 0;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -1803,27 +1864,69 @@ async function _stripDeadImports(projectPath, scopeFiles) {
 
       if (importTarget && importTarget.startsWith('.')) {
         // Resolve relative import
-        const fromDir = path.dirname(fullPath);
+        const fromDir = path.dirname(read.target.real);
         const base = path.resolve(fromDir, importTarget);
         const candidates = [base, base + '.js', base + '.mjs', base + '.cjs',
           path.join(base, 'index.js'), base + '.py'];
-        const exists = candidates.some(c => { try { return fs.statSync(c).isFile(); } catch { return false; } });
+        const exists = candidates.some(c => {
+          try { return fileSystem.statSync(c).isFile(); } catch { return false; }
+        });
 
         if (!exists) {
           lines[i] = `// [STRIPPED: dead import] ${line.trim()}`;
-          modified = true;
-          totalStripped++;
+          fileStripped++;
         }
       }
     }
 
-    if (modified) {
-      fs.writeFileSync(fullPath, lines.join('\n'), 'utf-8');
-      logger.info('LifecycleBuild', `Stripped dead imports from ${relFile}`, { projectPath });
+    if (fileStripped > 0) {
+      planned.push({
+        relFile,
+        content: lines.join('\n'),
+        target: read.target,
+        stripped: fileStripped,
+      });
     }
   }
 
-  return totalStripped;
+  if (planned.length > 1) {
+    return {
+      ok: false,
+      stripped: 0,
+      state: 'multi_file_atomicity_required',
+      files: planned.map(({ relFile }) => relFile),
+      message: 'dead-import cleanup would modify more than one file without a durable batch journal',
+    };
+  }
+  if (planned.length === 0) return { ok: true, stripped: 0 };
+
+  const change = planned[0];
+  try {
+    writeProjectFileAtomic(projectPath, change.relFile, change.content, {
+      expectedTarget: change.target,
+      fileSystem,
+    });
+  } catch (error) {
+    if (isProjectPathError(error)) {
+      return {
+        ok: false,
+        stripped: 0,
+        state: 'project_path_violation',
+        file: change.relFile,
+        message: error.reason || error.message,
+      };
+    }
+    return {
+      ok: false,
+      stripped: 0,
+      state: 'write_failed',
+      file: change.relFile,
+      message: error.message,
+    };
+  }
+
+  logger.info('LifecycleBuild', `Stripped dead imports from ${change.relFile}`, { projectPath });
+  return { ok: true, stripped: change.stripped };
 }
 
 // ─── Code Context for BUILD ──────────────────────────────────────────────────
@@ -2128,6 +2231,7 @@ export const _testInternals = {
   matchesScopePattern,
   runPytestIfAvailable: _runPytestIfAvailable,
   canPassMilestone,
+  stripDeadImports: _stripDeadImports,
 };
 
 export default {

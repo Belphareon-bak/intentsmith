@@ -15,9 +15,13 @@
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
-import fs from 'fs';
-import path from 'path';
 import { logger } from '../core/logger.js';
+import {
+  isProjectPathError,
+  readProjectFile,
+  resolveProjectTarget,
+  writeProjectFileAtomic,
+} from '../executor/project-path-authority.js';
 import { parsePatchFromDiff, parsePatchFromFullFile } from './patch-parser.js';
 import { validatePatch, validatePatchSet, validateSyntaxPostApply } from './patch-validator.js';
 import {
@@ -25,6 +29,35 @@ import {
   saveBackup, revertPatch as revertFromBackup, clearBackups,
   composePatchSet, computeMetrics, hasBackup, formatPatch,
 } from './patch-applier.js';
+
+function projectPathFailure(error, { preview = false } = {}) {
+  if (!isProjectPathError(error)) throw error;
+
+  const message = `Project path rejected (${error.reason || 'unknown'})`;
+  const pathAuthority = {
+    reason: error.reason || 'unknown',
+    projectRoot: error?.detail?.projectRoot || null,
+    target: error?.detail?.target || null,
+  };
+
+  return preview
+    ? { valid: false, state: 'project_path_violation', pathAuthority, errors: [message] }
+    : {
+      success: false,
+      written: false,
+      state: 'project_path_violation',
+      pathAuthority,
+      errors: [message],
+    };
+}
+
+function ioFailure(error, operation, { preview = false } = {}) {
+  const state = `${operation}_failed`;
+  const message = `${operation[0].toUpperCase()}${operation.slice(1)} failed: ${error.message}`;
+  return preview
+    ? { valid: false, state, errors: [message] }
+    : { success: false, written: false, state, errors: [message] };
+}
 
 // ─── Apply Single Patch ─────────────────────────────────────────────────────
 
@@ -36,25 +69,31 @@ import {
  *
  * @param {Object} patch - Patch ADT
  * @param {string} projectRoot - Project root directory
- * @returns {Promise<{ success: boolean, errors?: string[], metrics?: Object, content?: string }>}
+ * @param {Object} [options]
+ * @param {Object} [options.fileSystem] injectable filesystem for boundary tests
+ * @returns {Promise<{ success: boolean, state?: string, errors?: string[], metrics?: Object, content?: string }>}
  */
-export async function applyPatch(patch, projectRoot) {
+export async function applyPatch(patch, projectRoot, options = {}) {
   if (!patch || !patch.file) {
     return { success: false, errors: ['Invalid patch: missing file'] };
   }
 
-  const filePath = path.resolve(projectRoot, patch.file);
-
-  // Read current content
-  let fileContent = '';
-  if (fs.existsSync(filePath)) {
-    fileContent = fs.readFileSync(filePath, 'utf-8');
+  let read;
+  try {
+    read = readProjectFile(projectRoot, patch.file, {
+      fileSystem: options.fileSystem,
+    });
+  } catch (error) {
+    if (isProjectPathError(error)) return projectPathFailure(error);
+    return ioFailure(error, 'read');
   }
+  const filePath = read.target.real;
+  const fileContent = read.content;
 
   // Validate
   const fileContents = new Map([[patch.file, fileContent || undefined]]);
   // For new files (pure inserts), don't set in map
-  if (!fs.existsSync(filePath)) fileContents.delete(patch.file);
+  if (!read.exists) fileContents.delete(patch.file);
 
   const validation = validatePatch(patch, fileContents);
   if (!validation.valid) {
@@ -83,21 +122,16 @@ export async function applyPatch(patch, projectRoot) {
     return { success: false, errors: [`Syntax error after patch: ${syntaxCheck.error}`] };
   }
 
-  // Atomic write: tmp → rename
-  const tmpPath = filePath + '.tmp';
+  // Atomic write through the same project boundary used for preview/read.
   try {
-    // Ensure directory exists for new files
-    const dir = path.dirname(filePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    fs.writeFileSync(tmpPath, result.content, 'utf-8');
-    fs.renameSync(tmpPath, filePath);
+    writeProjectFileAtomic(projectRoot, patch.file, result.content, {
+      expectedTarget: read.target,
+      fileSystem: options.fileSystem,
+    });
   } catch (err) {
-    // Clean up tmp file if rename failed
-    try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
     revertFromBackup(patch.file);
-    return { success: false, errors: [`Write failed: ${err.message}`] };
+    if (isProjectPathError(err)) return projectPathFailure(err);
+    return ioFailure(err, 'write');
   }
 
   const metrics = computeMetrics(patch, result);
@@ -109,7 +143,7 @@ export async function applyPatch(patch, projectRoot) {
     ...metrics.anchorsResolved,
   });
 
-  return { success: true, metrics, content: result.content };
+  return { success: true, written: true, state: 'written', metrics, content: result.content };
 }
 
 // ─── Preview Patch (Dry-Run) ────────────────────────────────────────────────
@@ -121,19 +155,24 @@ export async function applyPatch(patch, projectRoot) {
  * @param {string} projectRoot
  * @returns {Promise<{ valid: boolean, errors?: string[], preview?: { before: string, after: string, metrics: Object, formatted: string } }>}
  */
-export async function previewPatch(patch, projectRoot) {
+export async function previewPatch(patch, projectRoot, options = {}) {
   if (!patch || !patch.file) {
     return { valid: false, errors: ['Invalid patch: missing file'] };
   }
 
-  const filePath = path.resolve(projectRoot, patch.file);
-  let fileContent = '';
-  if (fs.existsSync(filePath)) {
-    fileContent = fs.readFileSync(filePath, 'utf-8');
+  let read;
+  try {
+    read = readProjectFile(projectRoot, patch.file, {
+      fileSystem: options.fileSystem,
+    });
+  } catch (error) {
+    if (isProjectPathError(error)) return projectPathFailure(error, { preview: true });
+    return ioFailure(error, 'read', { preview: true });
   }
+  const fileContent = read.content;
 
   const fileContents = new Map();
-  if (fs.existsSync(filePath)) fileContents.set(patch.file, fileContent);
+  if (read.exists) fileContents.set(patch.file, fileContent);
 
   const validation = validatePatch(patch, fileContents);
   if (!validation.valid) {
@@ -167,19 +206,54 @@ export async function previewPatch(patch, projectRoot) {
  * @param {string} projectRoot
  * @returns {{ success: boolean, error?: string }}
  */
-export function rollbackPatch(filePath, projectRoot) {
-  const original = revertFromBackup(filePath);
-  if (original === null) {
-    return { success: false, error: 'No backup found for rollback' };
+export function rollbackPatch(filePath, projectRoot, options = {}) {
+  // Validate before consuming the process-local backup.  A traversal reject
+  // must not destroy the only rollback material even though no effect began.
+  let target;
+  try {
+    target = resolveProjectTarget(projectRoot, filePath, {
+      fileSystem: options.fileSystem,
+    });
+  } catch (error) {
+    if (isProjectPathError(error)) {
+      const failure = projectPathFailure(error);
+      return {
+        success: false,
+        state: failure.state,
+        pathAuthority: failure.pathAuthority,
+        error: failure.errors[0],
+      };
+    }
+    return {
+      success: false,
+      state: 'read_failed',
+      error: `Rollback preflight failed: ${error.message}`,
+    };
   }
 
-  const absPath = path.resolve(projectRoot, filePath);
+  const original = revertFromBackup(filePath);
+  if (original === null) {
+    return { success: false, state: 'no_backup', error: 'No backup found for rollback' };
+  }
+
   try {
-    fs.writeFileSync(absPath, original, 'utf-8');
+    writeProjectFileAtomic(projectRoot, filePath, original, {
+      expectedTarget: target,
+      fileSystem: options.fileSystem,
+    });
     logger.info('PatchEngine', 'Patch rolled back', { file: filePath });
-    return { success: true };
+    return { success: true, state: 'written' };
   } catch (err) {
-    return { success: false, error: `Rollback write failed: ${err.message}` };
+    if (isProjectPathError(err)) {
+      const failure = projectPathFailure(err);
+      return {
+        success: false,
+        state: failure.state,
+        pathAuthority: failure.pathAuthority,
+        error: failure.errors[0],
+      };
+    }
+    return { success: false, state: 'write_failed', error: `Rollback write failed: ${err.message}` };
   }
 }
 
@@ -194,17 +268,56 @@ export function rollbackPatch(filePath, projectRoot) {
  * @param {string} projectRoot
  * @returns {Promise<{ success: boolean, results: Array, errors?: string[] }>}
  */
-export async function applyPatchSet(patches, projectRoot) {
+export async function applyPatchSet(patches, projectRoot, options = {}) {
   if (!patches || patches.length === 0) {
     return { success: true, results: [] };
+  }
+
+  // Preflight every target before reading or writing the first file.  Without
+  // this, a valid first patch could become visible before a later traversal is
+  // rejected.
+  try {
+    for (const patch of patches) {
+      resolveProjectTarget(projectRoot, patch.file, {
+        fileSystem: options.fileSystem,
+      });
+    }
+  } catch (error) {
+    if (isProjectPathError(error)) {
+      const failure = projectPathFailure(error);
+      return {
+        success: false,
+        results: [],
+        state: failure.state,
+        pathAuthority: failure.pathAuthority,
+        errors: failure.errors,
+      };
+    }
+    const failure = ioFailure(error, 'read');
+    return { ...failure, results: [] };
   }
 
   // Build file contents map for validation
   const fileContents = new Map();
   for (const p of patches) {
-    const fp = path.resolve(projectRoot, p.file);
-    if (fs.existsSync(fp)) {
-      fileContents.set(p.file, fs.readFileSync(fp, 'utf-8'));
+    try {
+      const read = readProjectFile(projectRoot, p.file, {
+        fileSystem: options.fileSystem,
+      });
+      if (read.exists) fileContents.set(p.file, read.content);
+    } catch (error) {
+      if (isProjectPathError(error)) {
+        const failure = projectPathFailure(error);
+        return {
+          success: false,
+          results: [],
+          state: failure.state,
+          pathAuthority: failure.pathAuthority,
+          errors: failure.errors,
+        };
+      }
+      const failure = ioFailure(error, 'read');
+      return { ...failure, results: [] };
     }
   }
 
@@ -229,7 +342,7 @@ export async function applyPatchSet(patches, projectRoot) {
   const appliedFiles = []; // Track for rollback
 
   for (const patch of composed) {
-    const result = await applyPatch(patch, projectRoot);
+    const result = await applyPatch(patch, projectRoot, options);
     results.push({ file: patch.file, ...result });
 
     if (!result.success) {
@@ -237,7 +350,7 @@ export async function applyPatchSet(patches, projectRoot) {
       logger.warn('PatchEngine', `PatchSet failed at ${patch.file}, rolling back ${appliedFiles.length} applied patches`);
 
       for (let i = appliedFiles.length - 1; i >= 0; i--) {
-        const rb = rollbackPatch(appliedFiles[i], projectRoot);
+        const rb = rollbackPatch(appliedFiles[i], projectRoot, options);
         if (!rb.success) {
           logger.error('PatchEngine', `Rollback failed for ${appliedFiles[i]}: ${rb.error}`);
         }

@@ -1,5 +1,17 @@
 import './helpers/isolated-test-db.js';
 
+import fs, {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
 // Lifecycle BUILD Tests — Milestone Execution Logic
 // ══════════════════════════════════════════════════════════════════════════════
 // Tests: getBuildProgress, handleMilestoneBlocked (retry/skip/modify),
@@ -35,6 +47,7 @@ const {
   matchesScopePattern,
   runPytestIfAvailable,
   canPassMilestone,
+  stripDeadImports,
 } = _testInternals;
 
 let passed = 0;
@@ -593,6 +606,151 @@ console.log('\n── Required pytest gate ──');
   assert(result === null, 'pytest not applicable: preserves the no-test-file contract');
   assert(!commandCalled, 'pytest not applicable: does not probe the tool');
 }
+
+// ════════════════════════════════════════════════════════════════════════════════
+// Dead-import project-path authority
+// ════════════════════════════════════════════════════════════════════════════════
+
+console.log('\n── Dead-import project-path authority ──');
+
+const deadRuntime = mkdtempSync(path.join(tmpdir(), 'is-m2-dead-import-'));
+const deadProject = path.join(deadRuntime, 'project');
+const deadSource = [
+  "import missing from './missing.js';",
+  'export default missing;',
+  '',
+].join('\n');
+
+function resetDeadProject() {
+  rmSync(deadProject, { recursive: true, force: true });
+  mkdirSync(deadProject, { recursive: true });
+}
+
+{
+  resetDeadProject();
+  const target = path.join(deadProject, 'dead.js');
+  writeFileSync(target, deadSource, 'utf8');
+
+  const result = await stripDeadImports(deadProject, ['dead.js']);
+
+  assert(result.ok && result.stripped === 1,
+    'dead-import: ordinary single-file cleanup succeeds');
+  assert(/^\/\/ \[STRIPPED: dead import\]/.test(readFileSync(target, 'utf8')),
+    'dead-import: successful cleanup reaches disk');
+}
+
+{
+  resetDeadProject();
+  const inside = path.join(deadProject, 'dead.js');
+  const outside = path.join(deadRuntime, 'outside.js');
+  writeFileSync(inside, deadSource, 'utf8');
+  writeFileSync(outside, deadSource, 'utf8');
+
+  const result = await stripDeadImports(deadProject, ['dead.js', '../outside.js']);
+
+  assert(!result.ok && result.state === 'project_path_violation',
+    'dead-import: traversal is rejected');
+  assert(readFileSync(inside, 'utf8') === deadSource,
+    'dead-import: full path preflight precedes first write');
+  assert(readFileSync(outside, 'utf8') === deadSource,
+    'dead-import: traversal sentinel remains unchanged');
+}
+
+{
+  resetDeadProject();
+  const outside = path.join(deadRuntime, 'symlink-outside.js');
+  writeFileSync(outside, deadSource, 'utf8');
+  symlinkSync(outside, path.join(deadProject, 'dead-link.js'));
+
+  const result = await stripDeadImports(deadProject, ['dead-link.js']);
+
+  assert(!result.ok && result.state === 'project_path_violation',
+    'dead-import: symlink escape is rejected');
+  assert(readFileSync(outside, 'utf8') === deadSource,
+    'dead-import: symlink sentinel remains unchanged');
+}
+
+{
+  resetDeadProject();
+  const first = path.join(deadProject, 'first.js');
+  const second = path.join(deadProject, 'second.js');
+  writeFileSync(first, deadSource, 'utf8');
+  writeFileSync(second, deadSource, 'utf8');
+
+  const result = await stripDeadImports(deadProject, ['first.js', 'second.js']);
+
+  assert(!result.ok && result.state === 'multi_file_atomicity_required',
+    'dead-import: multi-file cleanup fails closed without durable journal');
+  assert(result.stripped === 0,
+    'dead-import: rejected multi-file cleanup claims no changes');
+  assert(readFileSync(first, 'utf8') === deadSource && readFileSync(second, 'utf8') === deadSource,
+    'dead-import: multi-file rejection happens before first write');
+}
+
+{
+  resetDeadProject();
+  const inside = path.join(deadProject, 'nested');
+  const pinned = path.join(deadProject, 'nested-pinned');
+  const outside = path.join(deadRuntime, 'read-race-outside');
+  mkdirSync(inside, { recursive: true });
+  mkdirSync(outside, { recursive: true });
+  writeFileSync(path.join(inside, 'dead.js'), deadSource, 'utf8');
+  writeFileSync(path.join(outside, 'dead.js'), 'OUTSIDE-DEAD-IMPORT-SECRET\n', 'utf8');
+
+  let swapped = false;
+  const racingFs = {
+    ...fs,
+    openSync(file, flags, mode) {
+      const descriptor = fs.openSync(file, flags, mode);
+      if (!swapped && file === path.join(inside, 'dead.js')) {
+        swapped = true;
+        renameSync(inside, pinned);
+        symlinkSync(outside, inside);
+      }
+      return descriptor;
+    },
+  };
+
+  const result = await stripDeadImports(deadProject, ['nested/dead.js'], {
+    fileSystem: racingFs,
+  });
+
+  assert(swapped, 'dead-import: read-race probe swapped the parent');
+  assert(!result.ok && result.state === 'project_path_violation',
+    'dead-import: parent swap during read is rejected');
+  assert(readFileSync(path.join(pinned, 'dead.js'), 'utf8') === deadSource,
+    'dead-import: pinned in-project file remains unchanged');
+  assert(readFileSync(path.join(outside, 'dead.js'), 'utf8') === 'OUTSIDE-DEAD-IMPORT-SECRET\n',
+    'dead-import: outside race sentinel remains unchanged');
+}
+
+{
+  resetDeadProject();
+  const target = path.join(deadProject, 'dead.js');
+  writeFileSync(target, deadSource, 'utf8');
+  const failingFs = {
+    ...fs,
+    openSync(file, flags, mode) {
+      if (file === target) {
+        const error = new Error('injected dead-import read failure');
+        error.code = 'EIO';
+        throw error;
+      }
+      return fs.openSync(file, flags, mode);
+    },
+  };
+
+  const result = await stripDeadImports(deadProject, ['dead.js'], {
+    fileSystem: failingFs,
+  });
+
+  assert(!result.ok && result.state === 'read_failed',
+    'dead-import: ordinary I/O error is not mislabeled as path violation');
+  assert(readFileSync(target, 'utf8') === deadSource,
+    'dead-import: failed read leaves source unchanged');
+}
+
+rmSync(deadRuntime, { recursive: true, force: true });
 
 // ════════════════════════════════════════════════════════════════════════════════
 // Cleanup & Summary

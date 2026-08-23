@@ -2,8 +2,27 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { suite, test, testAsync, assert, assertEqual, assertIncludes, assertThrows, summary } from './harness.js';
+import fs, {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { AnchorType, PatchType, normalizeNewlines, parsePatchFromDiff, parsePatchFromFullFile } from '../src/patch/patch-parser.js';
 import { PATCH_LIMITS, findAnchor, validatePatch, validatePatchSet } from '../src/patch/patch-validator.js';
+import {
+  applyPatch as applyPatchToProject,
+  applyPatchSet,
+  previewPatch,
+  rollbackPatch,
+} from '../src/patch/patch-engine.js';
 import {
   applyPatch, saveBackup, revertPatch, hasBackup, clearBackups,
   composePatchSet, computeMetrics, formatPatch,
@@ -642,6 +661,220 @@ test('handles null/empty', () => {
 test('preserves pure LF', () => {
   assertEqual(normalizeNewlines('a\nb\nc'), 'a\nb\nc');
 });
+
+// ═══ Suite 12: M2 project-path authority ══════════════════════════════════
+
+suite('M2 project-path authority');
+
+const pathRuntime = mkdtempSync(path.join(tmpdir(), 'is-m2-path-authority-'));
+const pathProject = path.join(pathRuntime, 'project');
+const PATH_SAMPLE = [
+  'function value() {',
+  '  return 1;',
+  '}',
+  '',
+].join('\n');
+
+function resetPathProject() {
+  clearBackups();
+  rmSync(pathProject, { recursive: true, force: true });
+  mkdirSync(pathProject, { recursive: true });
+  writeFileSync(path.join(pathProject, 'app.js'), PATH_SAMPLE, 'utf8');
+}
+
+function projectPatch(file = 'app.js') {
+  return {
+    file,
+    type: 'fix',
+    regions: [{
+      anchor: 'function value()',
+      anchorType: 'function',
+      old: ['  return 1;'],
+      new: ['  return 2;'],
+    }],
+  };
+}
+
+await testAsync('absolute path is rejected before write even when it points inside', async () => {
+  resetPathProject();
+  const target = path.join(pathProject, 'app.js');
+  const result = await applyPatchToProject(projectPatch(target), pathProject);
+
+  assertEqual(result.success, false);
+  assertEqual(result.state, 'project_path_violation');
+  assertEqual(result.pathAuthority.reason, 'absolute_path');
+  assertEqual(readFileSync(target, 'utf8'), PATH_SAMPLE);
+});
+
+await testAsync('traversal and symlink escape cannot change outside sentinels', async () => {
+  resetPathProject();
+  const traversalSentinel = path.join(pathRuntime, 'outside.js');
+  const symlinkSentinel = path.join(pathRuntime, 'symlink-outside.js');
+  writeFileSync(traversalSentinel, PATH_SAMPLE, 'utf8');
+  writeFileSync(symlinkSentinel, PATH_SAMPLE, 'utf8');
+  symlinkSync(symlinkSentinel, path.join(pathProject, 'link.js'));
+
+  const traversal = await applyPatchToProject(projectPatch('../outside.js'), pathProject);
+  const symlink = await applyPatchToProject(projectPatch('link.js'), pathProject);
+
+  assertEqual(traversal.state, 'project_path_violation');
+  assertEqual(traversal.pathAuthority.reason, 'traversal');
+  assertEqual(symlink.state, 'project_path_violation');
+  assertEqual(symlink.pathAuthority.reason, 'outside_project');
+  assertEqual(readFileSync(traversalSentinel, 'utf8'), PATH_SAMPLE);
+  assertEqual(readFileSync(symlinkSentinel, 'utf8'), PATH_SAMPLE);
+});
+
+await testAsync('preview rejects traversal without returning file bytes', async () => {
+  resetPathProject();
+  const result = await previewPatch(projectPatch('../outside.js'), pathProject);
+
+  assertEqual(result.valid, false);
+  assertEqual(result.state, 'project_path_violation');
+  assert(!Object.hasOwn(result, 'preview'), 'rejected preview exposed content');
+});
+
+await testAsync('patch-set path preflight happens before its first write', async () => {
+  resetPathProject();
+  const outside = path.join(pathRuntime, 'set-outside.js');
+  writeFileSync(outside, PATH_SAMPLE, 'utf8');
+
+  const result = await applyPatchSet([
+    projectPatch('app.js'),
+    projectPatch('../set-outside.js'),
+  ], pathProject);
+
+  assertEqual(result.success, false);
+  assertEqual(result.state, 'project_path_violation');
+  assertEqual(readFileSync(path.join(pathProject, 'app.js'), 'utf8'), PATH_SAMPLE);
+  assertEqual(readFileSync(outside, 'utf8'), PATH_SAMPLE);
+});
+
+await testAsync('invalid rollback does not consume backup or write outside', async () => {
+  resetPathProject();
+  const outside = path.join(pathRuntime, 'rollback-outside.js');
+  writeFileSync(outside, 'sentinel\n', 'utf8');
+  saveBackup('../rollback-outside.js', 'backup\n');
+
+  const result = rollbackPatch('../rollback-outside.js', pathProject);
+
+  assertEqual(result.success, false);
+  assertEqual(result.state, 'project_path_violation');
+  assertEqual(hasBackup('../rollback-outside.js'), true);
+  assertEqual(readFileSync(outside, 'utf8'), 'sentinel\n');
+  clearBackups();
+});
+
+await testAsync('descriptor-pinned preview rejects a parent swap after open', async () => {
+  resetPathProject();
+  const inside = path.join(pathProject, 'inside');
+  const pinned = path.join(pathProject, 'inside-pinned');
+  const outside = path.join(pathRuntime, 'preview-outside');
+  mkdirSync(inside, { recursive: true });
+  mkdirSync(outside, { recursive: true });
+  writeFileSync(path.join(inside, 'app.js'), PATH_SAMPLE, 'utf8');
+  writeFileSync(path.join(outside, 'app.js'), 'OUTSIDE-PREVIEW-SECRET\n', 'utf8');
+
+  let swapped = false;
+  const racingFs = {
+    ...fs,
+    openSync(file, flags, mode) {
+      const descriptor = fs.openSync(file, flags, mode);
+      if (!swapped && file === path.join(inside, 'app.js')) {
+        swapped = true;
+        renameSync(inside, pinned);
+        symlinkSync(outside, inside);
+      }
+      return descriptor;
+    },
+  };
+
+  const result = await previewPatch(projectPatch('inside/app.js'), pathProject, {
+    fileSystem: racingFs,
+  });
+
+  assertEqual(swapped, true);
+  assertEqual(result.valid, false);
+  assertEqual(result.state, 'project_path_violation');
+  assertEqual(result.pathAuthority.reason, 'resolved_target_changed');
+  assert(!Object.hasOwn(result, 'preview'), 'raced preview exposed content');
+  assertEqual(readFileSync(path.join(outside, 'app.js'), 'utf8'), 'OUTSIDE-PREVIEW-SECRET\n');
+});
+
+await testAsync('ordinary read I/O failure stays read_failed, not path violation', async () => {
+  resetPathProject();
+  const target = path.join(pathProject, 'app.js');
+  const failingFs = {
+    ...fs,
+    openSync(file, flags, mode) {
+      if (file === target) {
+        const error = new Error('injected read failure');
+        error.code = 'EIO';
+        throw error;
+      }
+      return fs.openSync(file, flags, mode);
+    },
+  };
+
+  const result = await applyPatchToProject(projectPatch(), pathProject, {
+    fileSystem: failingFs,
+  });
+
+  assertEqual(result.success, false);
+  assertEqual(result.state, 'read_failed');
+  assertEqual(readFileSync(target, 'utf8'), PATH_SAMPLE);
+});
+
+await testAsync('parent swap immediately before write is rejected without outside effect', async () => {
+  resetPathProject();
+  const inside = path.join(pathProject, 'write-inside');
+  const pinned = path.join(pathProject, 'write-inside-pinned');
+  const outside = path.join(pathRuntime, 'write-outside');
+  mkdirSync(inside, { recursive: true });
+  mkdirSync(outside, { recursive: true });
+  writeFileSync(path.join(inside, 'app.js'), PATH_SAMPLE, 'utf8');
+  writeFileSync(path.join(outside, 'app.js'), 'OUTSIDE-WRITE-SENTINEL\n', 'utf8');
+
+  let swapped = false;
+  const racingFs = {
+    ...fs,
+    mkdirSync(directory, options) {
+      const result = fs.mkdirSync(directory, options);
+      if (!swapped && directory === inside) {
+        swapped = true;
+        renameSync(inside, pinned);
+        symlinkSync(outside, inside);
+      }
+      return result;
+    },
+  };
+
+  const result = await applyPatchToProject(projectPatch('write-inside/app.js'), pathProject, {
+    fileSystem: racingFs,
+  });
+
+  assertEqual(swapped, true);
+  assertEqual(result.success, false);
+  assertEqual(result.state, 'project_path_violation');
+  assertEqual(result.pathAuthority.reason, 'resolved_target_changed');
+  assertEqual(readFileSync(path.join(pinned, 'app.js'), 'utf8'), PATH_SAMPLE);
+  assertEqual(readFileSync(path.join(outside, 'app.js'), 'utf8'), 'OUTSIDE-WRITE-SENTINEL\n');
+});
+
+await testAsync('ordinary patch remains atomic and preserves target mode', async () => {
+  resetPathProject();
+  const target = path.join(pathProject, 'app.js');
+  chmodSync(target, 0o640);
+
+  const result = await applyPatchToProject(projectPatch(), pathProject);
+
+  assertEqual(result.success, true);
+  assertEqual(result.state, 'written');
+  assertIncludes(readFileSync(target, 'utf8'), 'return 2;');
+  assertEqual(statSync(target).mode & 0o777, 0o640);
+});
+
+rmSync(pathRuntime, { recursive: true, force: true });
 
 // ═══════════════════════════════════════════════════════════════════════════
 
