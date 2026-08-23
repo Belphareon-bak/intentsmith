@@ -616,11 +616,6 @@ async function main() {
     const refinementTokens = summarizeTokens(attempted.map(item => item.refinement.usage));
     const appliedDeltas = cases.map(item => item.final.appliedDelta);
 
-    assert(accepted.length >= 1, 'fixed corpus produced no accepted refinement');
-    assert(rejected.length >= 1, 'fixed corpus produced no rejected refinement');
-    assert(cases.every(item => item.final.acceptedBehavior.pass), 'final output violated a corpus behavior');
-    assert(!attempted.some(item => item.refinement.errorCode), 'refinement had a provider error');
-
     report.measurements = {
       cases,
       summary: {
@@ -652,6 +647,13 @@ async function main() {
       explicitAdministrativeActions: [],
       modelLeftResident: false,
     };
+
+    stage = 'acceptance-validation';
+    assert(accepted.length >= 1, 'fixed corpus produced no accepted refinement');
+    assert(rejected.length >= 1, 'fixed corpus produced no rejected refinement');
+    assert(cases.every(item => item.final.acceptedBehavior.pass), 'final output violated a corpus behavior');
+    assert(!attempted.some(item => item.refinement.errorCode), 'refinement had a provider error');
+
     report.verdict = 'PASS';
     report.endedAt = new Date().toISOString();
     boundary.restore();
