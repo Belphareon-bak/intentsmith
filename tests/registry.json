@@ -5807,6 +5807,41 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T5-TESTS-M1-JOURNEY-TEST",
+      "path": "tests/m1-journey.test.js",
+      "argv": [
+        "node",
+        "tests/m1-journey.test.js"
+      ],
+      "capabilityId": "C3-001",
+      "tier": "T5",
+      "fixture": "fresh-install-owned-server-electron-and-local-model",
+      "profile": "soak",
+      "timeoutMs": 1200000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": true,
+        "gpu": true,
+        "toolchain": [
+          "linux-user-network-namespace",
+          "iproute2",
+          "x11-display"
+        ]
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T3-TESTS-M1-QUALITY-GPU-AB-TEST",
       "path": "tests/m1-quality-gpu-ab.test.js",
       "argv": [

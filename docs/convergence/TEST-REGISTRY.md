@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 396
+- Runnable programs: 397
 - Explicit support-module exclusions: 9
-- Profiles: offline=200, database=38, server=37, model=85, soak=20, manual=16
-- States: ACTIVE=299, HISTORICAL=16, BLOCKED=81
+- Profiles: offline=200, database=38, server=37, model=85, soak=21, manual=16
+- States: ACTIVE=300, HISTORICAL=16, BLOCKED=81
 
 ## Execution profiles
 
@@ -286,6 +286,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-LOCAL-MATH-NONFINITE-TEST` | `tests/local-math-nonfinite.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-M1-CHAT-CONTRACT-TEST` | `tests/m1-chat-contract.test.js` | `C3-004` | T2 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-CONTRACT-TEST` | `tests/m1-contract.test.js` | `C3-023` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T5-TESTS-M1-JOURNEY-TEST` | `tests/m1-journey.test.js` | `C3-001` | T5 | `soak` | 10 min | 20 min | network:loopback, temp-db, server, ollama, gpu, toolchain:linux-user-network-namespace, toolchain:iproute2, toolchain:x11-display | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-AUTOMATION-POLICY-TEST` | `tests/m1-model-automation-policy.test.js` | `C3-010` | T1 | `offline` | 15 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-BINDING-APPLICATION-TEST` | `tests/m1-model-binding-application.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-BINDING-REPOSITORY-TEST` | `tests/m1-model-binding-repository.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
