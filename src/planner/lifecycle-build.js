@@ -653,6 +653,7 @@ async function postExecution(lifecycle, milestone, wfResult) {
       taskMemory: tm,
       selfCritique: sc,
     });
+    _persistExecutionLoopEvidence(lifecycle, milestone, loopResult);
 
     if (loopResult.converged) {
       testResults = loopResult.finalTestResults;
@@ -661,7 +662,6 @@ async function postExecution(lifecycle, milestone, wfResult) {
       milestone._lastCompileErrors = loopResult.lastErrors
         ?.filter(e => e.category === 'compile')
         .map(e => `${e.file}:${e.line || '?'} ${e.message}`) || [];
-      milestone._loopReport = loopResult.report;
       return handleMilestoneFailure(lifecycle, milestone,
         `execution loop ${loopResult.stopReason}: ${loopResult.report?.summary || 'fix cycle did not converge'}`);
     }
@@ -734,6 +734,7 @@ async function postExecution(lifecycle, milestone, wfResult) {
           taskMemory: tm,
           selfCritique: sc,
         });
+        _persistExecutionLoopEvidence(lifecycle, milestone, loopResult2);
 
         if (loopResult2.converged) {
           testResults = loopResult2.finalTestResults;
@@ -742,11 +743,17 @@ async function postExecution(lifecycle, milestone, wfResult) {
         } else if (loopResult2.stopReason === 'out_of_scope_only') {
           // v135.1: All errors reference files outside scope — strip dead imports instead of failing
           const stripResult = await _stripDeadImports(lifecycle.projectPath, milestone.scope_files);
-          milestone._deadImportCleanup = stripResult;
+          _persistDeadImportEvidence(lifecycle, milestone, stripResult);
           if (stripResult.skipped?.length > 0) {
             logger.warn('LifecycleBuild', `Dead-import cleanup skipped ${stripResult.skipped.length} unprocessable scope entr${stripResult.skipped.length === 1 ? 'y' : 'ies'}`, {
               milestoneId: milestone.id,
               skipped: stripResult.skipped,
+            });
+          }
+          if (stripResult.effectFailures?.length > 0) {
+            logger.warn('LifecycleBuild', `Dead-import cleanup had ${stripResult.effectFailures.length} failed effect${stripResult.effectFailures.length === 1 ? '' : 's'}`, {
+              milestoneId: milestone.id,
+              effectFailures: stripResult.effectFailures,
             });
           }
           if (!stripResult.ok) {
@@ -765,11 +772,15 @@ async function postExecution(lifecycle, milestone, wfResult) {
             }
           } else {
             const skipped = stripResult.skipped?.map(entry => `${entry.file}:${entry.state}`).join(', ');
+            const failedEffects = stripResult.effectFailures?.map(entry => `${entry.file}:${entry.state}`).join(', ');
+            const recoveryEvidence = [
+              skipped ? `input skips ${skipped}` : '',
+              failedEffects ? `failed effects ${failedEffects}` : '',
+            ].filter(Boolean).join('; ');
             return handleMilestoneFailure(lifecycle, milestone,
-              `out-of-scope errors unfixable${skipped ? ` (cleanup skipped ${skipped})` : ''}: ${enhancedValidation.errors.map(e => e.message).join('; ')}`);
+              `out-of-scope errors unfixable${recoveryEvidence ? ` (${recoveryEvidence})` : ''}: ${enhancedValidation.errors.map(e => e.message).join('; ')}`);
           }
         } else {
-          milestone._loopReport = loopResult2.report;
           return handleMilestoneFailure(lifecycle, milestone,
             `semantic validation fix loop ${loopResult2.stopReason}: ${enhancedValidation.errors.map(e => e.message).join('; ')}`);
         }
@@ -1783,6 +1794,53 @@ async function getChangedFiles(lifecycle) {
   return [];
 }
 
+function _persistEffectEvidence(lifecycle, milestone, checkType, result, details) {
+  try {
+    driftChecks.addCheck(lifecycle.id, milestone.id, checkType, result, details);
+    return true;
+  } catch (error) {
+    logger.warn('LifecycleBuild', `Failed to persist ${checkType} evidence: ${error.message}`, {
+      lifecycleId: lifecycle.id,
+      milestoneId: milestone.id,
+    });
+    return false;
+  }
+}
+
+function _persistExecutionLoopEvidence(lifecycle, milestone, loopResult) {
+  const rejectedPatches = loopResult?.report?.iterations
+    ?.flatMap(iteration => iteration.rejectedPatches || []) || [];
+  if (rejectedPatches.length === 0 && loopResult?.stopReason !== 'project_path_violation') {
+    return false;
+  }
+  return _persistEffectEvidence(
+    lifecycle,
+    milestone,
+    'EFFECT_AUTHORITY',
+    loopResult.converged ? 'WARN' : 'FAIL',
+    {
+      stopReason: loopResult.stopReason,
+      rejectedPatches,
+      report: loopResult.report,
+    },
+  );
+}
+
+function _persistDeadImportEvidence(lifecycle, milestone, stripResult) {
+  const inputSkips = stripResult?.skipped || [];
+  const effectFailures = stripResult?.effectFailures || [];
+  if (stripResult?.ok && inputSkips.length === 0 && effectFailures.length === 0) {
+    return false;
+  }
+  return _persistEffectEvidence(
+    lifecycle,
+    milestone,
+    'DEAD_IMPORT_RECOVERY',
+    stripResult?.ok ? 'WARN' : 'FAIL',
+    stripResult,
+  );
+}
+
 // ─── v135.1: Dead Import Stripping ──────────────────────────────────────────
 
 /**
@@ -1799,10 +1857,11 @@ async function _stripDeadImports(projectPath, scopeFiles, {
   fileSystem = fs,
 } = {}) {
   if (!scopeFiles || scopeFiles.length === 0) {
-    return { ok: true, stripped: 0, filesModified: [], skipped: [] };
+    return { ok: true, stripped: 0, filesModified: [], skipped: [], effectFailures: [] };
   }
 
   const skipped = [];
+  const effectFailures = [];
   const candidates = [];
   const skippablePathReasons = new Set([
     'path_required',
@@ -1822,6 +1881,7 @@ async function _stripDeadImports(projectPath, scopeFiles, {
       stripped: 0,
       filesModified: [],
       skipped,
+      effectFailures,
       state: 'project_path_violation',
       message: `project_root_unavailable:${error?.code || 'EUNKNOWN'}`,
     };
@@ -1878,6 +1938,7 @@ async function _stripDeadImports(projectPath, scopeFiles, {
           stripped: 0,
           filesModified: [],
           skipped,
+          effectFailures,
           state: 'project_path_violation',
           file: scopeFile,
           message: error.reason || error.message,
@@ -1917,6 +1978,7 @@ async function _stripDeadImports(projectPath, scopeFiles, {
           stripped: 0,
           filesModified: [],
           skipped,
+          effectFailures,
           state: 'project_path_violation',
           file: scopeFile,
           message: error.reason || error.message,
@@ -1999,12 +2061,13 @@ async function _stripDeadImports(projectPath, scopeFiles, {
           stripped,
           filesModified,
           skipped,
+          effectFailures,
           state: 'project_path_violation',
           file: change.scopeFile,
           message: error.reason || error.message,
         };
       }
-      skipped.push({
+      effectFailures.push({
         file: change.scopeFile,
         normalizedFile: change.relFile,
         state: 'write_failed',
@@ -2018,7 +2081,7 @@ async function _stripDeadImports(projectPath, scopeFiles, {
     logger.info('LifecycleBuild', `Stripped dead imports from ${change.relFile}`, { projectPath });
   }
 
-  return { ok: true, stripped, filesModified, skipped };
+  return { ok: true, stripped, filesModified, skipped, effectFailures };
 }
 
 // ─── Code Context for BUILD ──────────────────────────────────────────────────
@@ -2324,6 +2387,8 @@ export const _testInternals = {
   runPytestIfAvailable: _runPytestIfAvailable,
   canPassMilestone,
   stripDeadImports: _stripDeadImports,
+  persistExecutionLoopEvidence: _persistExecutionLoopEvidence,
+  persistDeadImportEvidence: _persistDeadImportEvidence,
 };
 
 export default {

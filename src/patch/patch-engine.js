@@ -37,6 +37,8 @@ function projectPathFailure(error, { preview = false } = {}) {
     ? 'not_a_file'
     : error.reason === 'symlink_loop'
       ? 'symlink_unresolvable'
+      : error.reason === 'canonical_target_mismatch'
+        ? 'canonical_target_mismatch'
       : 'project_path_violation';
   const message = `Project target rejected (${error.reason || 'unknown'})`;
   const pathAuthority = {

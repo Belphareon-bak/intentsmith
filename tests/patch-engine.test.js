@@ -736,10 +736,25 @@ await testAsync('in-project symlink alias cannot mutate a differently named targ
   const result = await applyPatchToProject(projectPatch('allowed.js'), pathProject);
 
   assertEqual(result.success, false);
-  assertEqual(result.state, 'project_path_violation');
+  assertEqual(result.state, 'canonical_target_mismatch');
   assertEqual(result.pathAuthority.reason, 'canonical_target_mismatch');
   assertEqual(readFileSync(secret, 'utf8'), PATH_SAMPLE);
   assertEqual(lstatSync(alias).isSymbolicLink(), true);
+});
+
+await testAsync('symlinked in-project directory is rejected without a containment incident', async () => {
+  resetPathProject();
+  const version = path.join(pathProject, 'v2');
+  mkdirSync(version);
+  writeFileSync(path.join(version, 'app.js'), PATH_SAMPLE, 'utf8');
+  symlinkSync('v2', path.join(pathProject, 'current'));
+
+  const result = await previewPatch(projectPatch('current/app.js'), pathProject);
+
+  assertEqual(result.valid, false);
+  assertEqual(result.state, 'canonical_target_mismatch');
+  assertEqual(result.pathAuthority.reason, 'canonical_target_mismatch');
+  assertEqual(readFileSync(path.join(version, 'app.js'), 'utf8'), PATH_SAMPLE);
 });
 
 await testAsync('directory and dangling symlink have distinct non-containment states', async () => {
