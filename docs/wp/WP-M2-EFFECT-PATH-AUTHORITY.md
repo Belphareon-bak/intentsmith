@@ -1,11 +1,12 @@
 # WP-M2-EFFECT — project-path authority, první vertikální řez
 
-- **Stav:** `IN_PROGRESS / FIRST_SLICE_VERIFIED`
+- **Stav:** `IN_PROGRESS / REVIEW_CHANGES_APPLIED / RE_REVIEW_REQUIRED`
 - **Vlastník:** primární implementer M2-EFFECT
 - **Worktree:** `/home/belphareon/worktrees/is-m2-effect-20260823`
 - **Branch:** `codex/m2-effect-20260823`
 - **Vstupní revision:** `44a9ba87c99a448b1b1b5f479963c3b6aaac7e91`
 - **Implementace:** `37fab4f9dd3f6e7508c5a30746df30acf353f79d`
+- **Review opravy:** `664d91d85b77e8524ac2515656d6c2e74035df2d`
 - **Boundary baseline:** `b523a47f`
 
 ## 1. Uživatelský výsledek
@@ -62,9 +63,13 @@ větve mají široce odlišnou historii.
    `project_path_violation` před změnou sentinelů.
 3. Descriptor-pinned preview nevrátí obsah po výměně rodičovské cesty.
 4. Patch set provede path preflight celé sady před prvním zápisem.
-5. Dead-import cleanup předem odmítne traversal/symlink; více skutečně
-   měněných souborů vrátí `multi_file_atomicity_required` před prvním efektem.
+5. Dead-import recovery předem odmítne traversal/symlink ven, ale nečitelný,
+   adresářový či nerozřešitelný vstup přeskočí s typovaným důkazem; více
+   souborů zpracuje po jednotlivých atomických náhradách bez tvrzení o batch
+   atomicitě.
 6. Běžné `EIO` zůstane `read_failed`, není maskované jako security incident.
+7. In-project symlink alias je odmítnut jako `canonical_target_mismatch`, aby
+   deklarované jméno, scope, backup a skutečný cíl nemohly divergovat.
 
 ## 6. Focused pozitivní a negativní test
 
@@ -75,11 +80,11 @@ node tests/execution-loop.test.js
 node tests/module-boundary-ratchet.test.js
 ```
 
-Ověřený výsledek na implementačním commitu:
+Ověřený výsledek na review-fix commitu `664d91d8`:
 
-- patch engine: `66 PASS / 0 FAIL`;
-- lifecycle BUILD: `84 PASS / 0 FAIL`;
-- execution loop: `58 PASS / 0 FAIL`;
+- patch engine: `69 PASS / 0 FAIL`;
+- lifecycle BUILD: `97 PASS / 0 FAIL`;
+- execution loop: `59 PASS / 0 FAIL`;
 - module boundary: `13 PASS / 0 FAIL`, bez růstu cyklů.
 
 Registry gate prošel se `397` spustitelnými programy a fingerprintem
@@ -94,7 +99,8 @@ Tento WP se zastaví před:
 - volbou kompatibility, UX approvalů nebo nového product scope;
 - tvrzením, že Node path API uzavírá nepřátelský ABA závod — silná varianta
   vyžaduje dirfd/openat2 broker;
-- povolením více-souborového efektu bez durable batch journalu;
+- tvrzením, že best-effort více-souborová recovery je transakční effect batch;
+  durable batch journal stále neexistuje;
 - integrací coworkerova CODE streamu bez samostatného review.
 
 ## 8. Ověření a aktuální výsledek
@@ -107,17 +113,21 @@ npm run test:deterministic
 git diff --check
 ```
 
-Celý deterministický gate na `7af74db8` skončil reportem
-`.intentsmith-artifacts/test-runs/2026-08-23T17-59-11-989Z/report.json`:
+Celý deterministický runner na `664d91d8` skončil reportem
+`.intentsmith-artifacts/test-runs/2026-08-23T18-33-25-223Z/report.json`:
 
+- celkový `verdict: FAIL`, `exitCode: 1`;
 - `233 PASS / 3 FAIL / 2 BLOCKED`;
 - FAIL zůstaly přesně známé baseline suite `nightly-audit-runner-self-test`,
   `nightly-orchestrator-self-test` a `vram-coordination`;
 - BLOCKED zůstaly přesně `chat-export-budget` a `export-pdf-docx`;
 - žádná nová produktová regrese proti přijatému M1 nebyla naměřena.
 
-Aktuální pravdivý stav je `FIRST_SLICE_VERIFIED`, nikoliv `WP-M2-EFFECT DONE`,
-`M2 PASS` ani připnutý effect connector. Zbývají approval/payload authority,
-timeout/cancellation/restart revokace, process supervision, durable rollback,
-network/Git/tool mediation, audit a skutečný M2 user journey. Nezávislé review
-tohoto nového řezu zatím neproběhlo.
+Nezávislé review `25cdaac8` skončilo `CHANGES_REQUESTED`. Implementační odpověď
+`664d91d8` uzavírá kandidátně R1, R2, R3, R5 a R6, přiznává R4 jako hardlink
+read exposure a eviduje R7 bez přepisování historie. Dokud reviewer změny
+nepřevezme, stav je `REVIEW_CHANGES_APPLIED / RE_REVIEW_REQUIRED`, nikoliv
+`REVIEW_PASSED`, `WP-M2-EFFECT DONE`, `M2 PASS` ani připnutý effect connector.
+Zbývají approval/payload authority, timeout/cancellation/restart revokace,
+process supervision, durable rollback, network/Git/tool mediation, audit a
+skutečný M2 user journey.

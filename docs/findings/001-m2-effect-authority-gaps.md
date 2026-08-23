@@ -51,8 +51,15 @@ sdílí canonical containment, descriptor-pinned read a pre-write revalidation
 pro patch, preview i rollback. `tests/patch-engine.test.js` na `37fab4f9`
 prošel `66/66`: absolutní cesta, traversal, symlink ven, parent swap po open i
 před write skončily bez změny sentinelů; obyčejné `EIO` zůstalo `read_failed`.
+Review oprava `664d91d8` navíc odmítá in-project symlink alias jako
+`canonical_target_mismatch`; execution loop ukončí celou iteraci při
+`project_path_violation` a zachová odmítnutý soubor i path authority v reportu.
+Focused výsledek je `69/69` patch a `59/59` execution-loop testů.
 Silný nepřátelský ABA závod čeká na dirfd/openat2 broker a nebrání uzavření
 původního lexical/symlink bypassu, ale brání tvrzení o kompletní effect authority.
+Stejně explicitně zůstává hardlink read exposure: in-project hardlink může
+zpřístupnit bajty inode s dalším jménem mimo projekt, ačkoli atomický zápis ven
+neuteče.
 
 ### P1-FX-002 — scope limiter není authority
 
@@ -75,10 +82,13 @@ guard.
 **Kandidátní evidence 2026-08-23:** přímý `fs.writeFileSync` byl nahrazen
 stejnou interní project-path primitive jako patch. Celá scope sada se validuje
 a čte před prvním zápisem; traversal, symlink a parent swap failují zavřeně.
-Pokud by se měnil více než jeden soubor, větev vrátí
-`multi_file_atomicity_required` před prvním efektem. Focused lifecycle suite na
-`37fab4f9` prošla `84/84`. Požadavek na budoucí veřejný broker, audit a durable
-multi-file journal zůstává otevřený v dalších položkách tohoto ledgeru.
+Review oprava `664d91d8` zachovává best-effort povahu recovery: bezpečný
+absolutní in-project modelový vstup normalizuje na relativní authority jméno;
+adresář, dangling symlink, nečitelný nebo absolutní outside vstup přeskočí s
+typovanou evidencí. Více souborů zpracuje samostatnými atomickými náhradami,
+nikoliv jako transakční batch. Focused lifecycle suite prošla `97/97`.
+Požadavek na budoucí veřejný broker, audit a durable multi-file journal zůstává
+otevřený v dalších položkách tohoto ledgeru.
 
 ### P1-FX-004 — rollback není durable
 
