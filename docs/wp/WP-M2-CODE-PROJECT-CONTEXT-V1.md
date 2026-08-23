@@ -164,6 +164,15 @@ a všechny položky providerem pozorovatelného `ContextSourceSet@1`. Walk:
 - při unreadable položce, symlinku ven, překročení pevného scan ceilingu nebo
   neověřitelném typu selže explicitně; nevydá částečnou revision.
 
+Executable autorita připíná `ContextFilePolicy@1`: nejvýše `1 MiB` na regular
+file, hloubku `64`, `10 000` navštívených entries a `512 MiB` skutečně
+hashovaných UTF-8 bajtů. Allowlist code/config/text přípon, explicitní basenames
+a přesný seznam ignorovaných build/dependency adresářů jsou součástí kanonicky
+serializovaného policy descriptoru v `project-context-manifest.js`; změna
+kteréhokoli filtru tedy vyžaduje novou verzi policy a změní revision. Platný
+UTF-8 text se hashuje celý. NUL/invalid-UTF-8 soubor, oversize soubor a interní
+symlink mají verzovaný sentinel; symlink ven je scope error.
+
 `maxFiles` je output budget, nikoli limit úplnosti manifestu. Scan ceiling je
 samostatná provider policy; jeho překročení vrací
 `PROJECT_CONTEXT_SCAN_LIMIT`, ne revision prvních N souborů.

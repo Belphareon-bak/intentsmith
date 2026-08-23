@@ -1,7 +1,16 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, realpath, rm, symlink } from 'node:fs/promises';
+import {
+  lstat,
+  mkdir,
+  mkdtemp,
+  realpath,
+  rm,
+  symlink,
+  utimes,
+  writeFile,
+} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -11,6 +20,13 @@ import {
   ProjectContextScopeError,
   resolveProjectContextScope,
 } from '../src/code-intel/project-context-scope.js';
+import {
+  PROJECT_CONTEXT_FILE_POLICY,
+  ProjectContextManifestError,
+  buildProjectContextManifest,
+  computeProjectContextWorkspaceRevision,
+} from '../src/code-intel/project-context-manifest.js';
+import { AbortSource, abortWithReason } from '../src/core/abort-error.js';
 
 function registry(rows, calls) {
   return {
@@ -36,6 +52,24 @@ async function expectInvalidScope(promise, reason) {
       && error.code === PROJECT_CONTEXT_ERROR_CODE.INVALID_SCOPE
       && error.reason === reason,
   );
+}
+
+async function expectManifestError(promise, code, reason) {
+  await assert.rejects(
+    promise,
+    error => error instanceof ProjectContextManifestError
+      && error.code === code
+      && error.reason === reason,
+  );
+}
+
+async function withManifestProject(callback) {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'is-m2-project-manifest-'));
+  try {
+    await callback(root);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 }
 
 const fixtureRoot = await mkdtemp(path.join(os.tmpdir(), 'is-m2-project-scope-'));
@@ -160,6 +194,122 @@ try {
       resolveProjectContextScope({ projectId: 17, canonicalRoot: projectA }),
       /projects\.findById\.get-required/,
     );
+  });
+
+  suite('M2 project-context boundary — content-addressed workspace revision');
+
+  await testAsync('manifest is bytewise ordered and independent of mtime and ignored trees', async () => {
+    await withManifestProject(async root => {
+      await mkdir(path.join(root, 'src'));
+      await mkdir(path.join(root, 'node_modules'));
+      await writeFile(path.join(root, 'z.js'), 'export const z = 1;\n');
+      await writeFile(path.join(root, 'src', 'a.js'), 'export const a = 1;\n');
+      await writeFile(path.join(root, 'node_modules', 'decoy.js'), 'foreign noise\n');
+      await writeFile(path.join(root, 'asset.png'), Buffer.from([1, 2, 3]));
+
+      const scope = { projectId: 17, canonicalRoot: await realpath(root) };
+      const first = await buildProjectContextManifest(scope);
+      await utimes(path.join(root, 'z.js'), new Date(1_000), new Date(2_000));
+      await writeFile(path.join(root, 'node_modules', 'decoy.js'), 'changed noise\n');
+      const second = await buildProjectContextManifest(scope);
+
+      assert.equal(first.revision, second.revision);
+      assert.deepEqual(first.entries.map(entry => entry.path), ['src/a.js', 'z.js']);
+      assert.equal(first.stats.observableEntries, 2);
+      assert.equal(first.filePolicy, 'ContextFilePolicy@1');
+    });
+  });
+
+  await testAsync('dirty same-size content and project identity both change revision', async () => {
+    await withManifestProject(async root => {
+      const file = path.join(root, 'index.js');
+      await writeFile(file, 'alpha\n');
+      const scope = { projectId: 17, canonicalRoot: await realpath(root) };
+      const before = await buildProjectContextManifest(scope);
+      await writeFile(file, 'ALPHA\n');
+      const after = await buildProjectContextManifest(scope);
+
+      assert.notEqual(before.revision, after.revision);
+      assert.notEqual(before.entries[0].contentDigest, after.entries[0].contentDigest);
+      assert.notEqual(
+        computeProjectContextWorkspaceRevision(18, after.entries),
+        after.revision,
+      );
+    });
+  });
+
+  await testAsync('binary, oversize and internal symlink use deterministic sentinels', async () => {
+    await withManifestProject(async root => {
+      await writeFile(path.join(root, 'text.js'), 'export const safe = true;\n');
+      await writeFile(path.join(root, 'binary.js'), Buffer.from([0x61, 0, 0x62]));
+      await writeFile(
+        path.join(root, 'oversize.js'),
+        Buffer.alloc(PROJECT_CONTEXT_FILE_POLICY.maxRegularFileBytes + 1, 0x61),
+      );
+      await symlink(path.join(root, 'text.js'), path.join(root, 'alias.js'));
+
+      const manifest = await buildProjectContextManifest({
+        projectId: 17,
+        canonicalRoot: await realpath(root),
+      });
+      const byPath = Object.fromEntries(manifest.entries.map(entry => [entry.path, entry]));
+
+      assert.equal(byPath['alias.js'].kind, 'symlink-excluded@1');
+      assert.equal(byPath['alias.js'].sentinel, 'text.js');
+      assert.equal(byPath['binary.js'].kind, 'binary@1');
+      assert.equal(byPath['oversize.js'].kind, 'oversize@1');
+      assert.equal(Object.hasOwn(byPath['binary.js'], 'contentDigest'), false);
+      assert.equal(Object.hasOwn(byPath['oversize.js'], 'contentDigest'), false);
+    });
+  });
+
+  await testAsync('symlink outside the registered root fails before producing a revision', async () => {
+    await withManifestProject(async root => {
+      const outside = await mkdtemp(path.join(os.tmpdir(), 'is-m2-project-outside-'));
+      try {
+        await writeFile(path.join(outside, 'canary.js'), 'PROJECT_B_CANARY\n');
+        await symlink(path.join(outside, 'canary.js'), path.join(root, 'foreign.js'));
+        await expectManifestError(buildProjectContextManifest({
+          projectId: 17,
+          canonicalRoot: await realpath(root),
+        }), PROJECT_CONTEXT_ERROR_CODE.INVALID_SCOPE, 'symlink-outside-root');
+      } finally {
+        await rm(outside, { recursive: true, force: true });
+      }
+    });
+  });
+
+  await testAsync('pre-cancel, deadline and fixed entry ceiling have distinct errors', async () => {
+    await withManifestProject(async root => {
+      const scope = { projectId: 17, canonicalRoot: await realpath(root) };
+      const controller = new AbortController();
+      abortWithReason(controller, AbortSource.USER, 'fixture cancel');
+      await expectManifestError(
+        buildProjectContextManifest(scope, { signal: controller.signal }),
+        PROJECT_CONTEXT_ERROR_CODE.CANCELLED,
+        'caller-aborted',
+      );
+      await expectManifestError(
+        buildProjectContextManifest(scope, { deadlineAt: 10 }, { now: () => 10 }),
+        PROJECT_CONTEXT_ERROR_CODE.TIMEOUT,
+        'deadline-elapsed',
+      );
+
+      const rootInfo = await lstat(root);
+      const fakeFileInfo = {
+        isSymbolicLink: () => false,
+        isDirectory: () => false,
+        isFile: () => true,
+      };
+      const fakeEntries = Array.from(
+        { length: PROJECT_CONTEXT_FILE_POLICY.maxScannedEntries + 1 },
+        (_, index) => ({ name: `ignored-${String(index).padStart(5, '0')}.bin` }),
+      );
+      await expectManifestError(buildProjectContextManifest(scope, {}, {
+        lstat: async target => target === root ? rootInfo : fakeFileInfo,
+        readdir: async () => fakeEntries,
+      }), PROJECT_CONTEXT_ERROR_CODE.SCAN_LIMIT, 'entry-count-exceeded');
+    });
   });
 } finally {
   await rm(fixtureRoot, { recursive: true, force: true });
