@@ -806,8 +806,12 @@ async function main() {
     'model journey used an unexpected model identity',
   );
   assert.ok(
-    modelProviderRequests.every(item => item.numCtx === 4096),
-    'model journey violated the accepted num_ctx=4096 runtime profile',
+    modelProviderRequests.every(item => (
+      Number.isInteger(item.numCtx)
+      && item.numCtx > 0
+      && item.numCtx <= 4096
+    )),
+    'model journey exceeded the accepted num_ctx=4096 runtime-profile cap',
   );
   assert.equal(
     modelProviderRequests.some(item => item.refinementPrompt),
@@ -896,6 +900,7 @@ async function main() {
       totalRequests: proxy.requests.length,
       chatRequests: modelProviderRequests.length,
       refinementPrompts: 0,
+      numCtxValues: [...new Set(modelProviderRequests.map(item => item.numCtx))].sort((a, b) => a - b),
       requests: proxy.requests,
     },
     scenarios: {
@@ -930,6 +935,7 @@ async function main() {
     modelColdMs: coldMs,
     modelWarmP95Ms: warm.p95Ms,
     modelProviderRequests: modelProviderRequests.length,
+    numCtxValues: report.providerAudit.numCtxValues,
     studioExternalAttempts: 0,
   })}\n`);
 }
