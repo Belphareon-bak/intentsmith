@@ -12179,7 +12179,7 @@
       "owner": "primary implementer",
       "state": "ACTIVE",
       "lastGreen": {
-        "commit": "17d73303b9533bf6599c10e393ad221f8163a97a",
+        "commit": "d3dc5e58d08a6e3b5c90c9342d1efa70cbdf6d27",
         "artifact": "docs/execution/runs/wp-m2-effect-contract-v1-20260823.md"
       },
       "flakeCount": 0,
@@ -12209,7 +12209,7 @@
       "owner": "primary implementer",
       "state": "ACTIVE",
       "lastGreen": {
-        "commit": "17d73303b9533bf6599c10e393ad221f8163a97a",
+        "commit": "d3dc5e58d08a6e3b5c90c9342d1efa70cbdf6d27",
         "artifact": "docs/execution/runs/wp-m2-effect-contract-v1-20260823.md"
       },
       "flakeCount": 0,
@@ -12239,7 +12239,7 @@
       "owner": "primary implementer",
       "state": "ACTIVE",
       "lastGreen": {
-        "commit": "17d73303b9533bf6599c10e393ad221f8163a97a",
+        "commit": "d3dc5e58d08a6e3b5c90c9342d1efa70cbdf6d27",
         "artifact": "docs/execution/runs/wp-m2-effect-contract-v1-20260823.md"
       },
       "flakeCount": 0,
@@ -12269,7 +12269,7 @@
       "owner": "primary implementer",
       "state": "ACTIVE",
       "lastGreen": {
-        "commit": "17d73303b9533bf6599c10e393ad221f8163a97a",
+        "commit": "d3dc5e58d08a6e3b5c90c9342d1efa70cbdf6d27",
         "artifact": "docs/execution/runs/wp-m2-effect-contract-v1-20260823.md"
       },
       "flakeCount": 0,
@@ -12299,7 +12299,7 @@
       "owner": "primary implementer",
       "state": "ACTIVE",
       "lastGreen": {
-        "commit": "17d73303b9533bf6599c10e393ad221f8163a97a",
+        "commit": "d3dc5e58d08a6e3b5c90c9342d1efa70cbdf6d27",
         "artifact": "docs/execution/runs/wp-m2-effect-contract-v1-20260823.md"
       },
       "flakeCount": 0,
@@ -12329,7 +12329,7 @@
       "owner": "primary implementer",
       "state": "ACTIVE",
       "lastGreen": {
-        "commit": "17d73303b9533bf6599c10e393ad221f8163a97a",
+        "commit": "d3dc5e58d08a6e3b5c90c9342d1efa70cbdf6d27",
         "artifact": "docs/execution/runs/wp-m2-effect-contract-v1-20260823.md"
       },
       "flakeCount": 0,
