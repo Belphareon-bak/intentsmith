@@ -14,6 +14,7 @@ import Database from 'better-sqlite3';
 import { up as applyEffectAuthorityMigration } from '../src/db/migrations/2026_08_23_070_m2_effect_authority.js';
 import { up as applyEffectAuthorityHardening } from '../src/db/migrations/2026_08_24_071_m2_effect_authority_hardening.js';
 import { up as applyEffectExecutionClaims } from '../src/db/migrations/2026_08_24_072_m2_effect_execution_claims.js';
+import { up as applyEffectClaimTruth } from '../src/db/migrations/2026_08_24_073_m2_effect_claim_truth.js';
 import { createEffectFileRuntime } from '../src/effects/effect-file-runtime.js';
 import { db as applicationDatabase, projects } from '../src/db/database.js';
 import { suite, testAsync, summary } from './harness.js';
@@ -29,8 +30,9 @@ function openDatabase(filename) {
   if (!hasAuthority) {
     applyEffectAuthorityMigration(database);
     applyEffectAuthorityHardening(database);
+    applyEffectExecutionClaims(database);
   }
-  applyEffectExecutionClaims(database);
+  applyEffectClaimTruth(database);
   return database;
 }
 

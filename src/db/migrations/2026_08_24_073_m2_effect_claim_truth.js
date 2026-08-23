@@ -1,33 +1,16 @@
-import { createHash } from 'node:crypto';
-import { up as createCandidateEffectAuthoritySchema } from './2026_08_23_070_m2_effect_authority.js';
+import {
+  EXPECTED_M2_SCHEMA_FINGERPRINT as EXPECTED_M2_SCHEMA_FINGERPRINT_V072,
+  computeM2SchemaFingerprint,
+} from './2026_08_24_072_m2_effect_execution_claims.js';
 
-export const version = '2026_08_24_072_m2_effect_execution_claims';
-export const description = 'Bind consumed M2 grants to durable execution owners and final schema';
+export const version = '2026_08_24_073_m2_effect_claim_truth';
+export const description = 'Harden M2 execution claim identities and result time ordering';
 
 // Filled from the canonical sqlite_master projection produced by this migration.
-export const EXPECTED_M2_SCHEMA_FINGERPRINT = '8813935b17a36ff9cbb94bd10ccc29a3a5f1688b1eaa3d7d4f7766fc9760f275';
+export const EXPECTED_M2_SCHEMA_FINGERPRINT_V073 = '5b2beabf4faa47c0bff8ee8cbb07ce7e4b923634745972082c285620a69e7587';
 
 function quoteIdentifier(value) {
   return `"${String(value).replaceAll('"', '""')}"`;
-}
-
-export function computeM2SchemaFingerprint(db) {
-  const rows = db.prepare(`
-    SELECT type, name, sql
-    FROM sqlite_master
-    WHERE sql IS NOT NULL
-      AND (
-        name GLOB 'm2_*'
-        OR name GLOB 'trg_m2_*'
-        OR name GLOB 'idx_m2_*'
-      )
-    ORDER BY type, name
-  `).all().map(row => ({
-    type: row.type,
-    name: row.name,
-    sql: row.sql.replace(/\s+/g, ' ').trim(),
-  }));
-  return createHash('sha256').update(JSON.stringify(rows), 'utf8').digest('hex');
 }
 
 function m2Tables(db) {
@@ -46,45 +29,41 @@ function storedRowCount(db, tables) {
   );
 }
 
-function dropCandidateSchema(db) {
-  const standalone = db.prepare(`
-    SELECT type, name FROM sqlite_master
-    WHERE sql IS NOT NULL
-      AND type IN ('trigger', 'index')
-      AND (name GLOB 'trg_m2_*' OR name GLOB 'idx_m2_*')
-    ORDER BY CASE type WHEN 'trigger' THEN 0 ELSE 1 END, name
-  `).all();
-  for (const object of standalone) {
-    db.exec(`DROP ${object.type.toUpperCase()} IF EXISTS ${quoteIdentifier(object.name)}`);
-  }
-  const preferred = [
-    'm2_effect_execution_claims',
-    'm2_pending_effect_payloads',
-    'm2_effect_authority_events',
-    'm2_effect_results',
-    'm2_approval_grants',
-    'm2_effect_requests',
-  ];
-  const existing = new Set(m2Tables(db));
-  for (const table of preferred) {
-    if (!existing.delete(table)) continue;
-    db.exec(`DROP TABLE ${quoteIdentifier(table)}`);
-  }
-  for (const table of [...existing].sort().reverse()) {
-    db.exec(`DROP TABLE ${quoteIdentifier(table)}`);
-  }
-}
-
-function installFinalAuthorityHardening(db) {
+function installClaimTruthHardening(db) {
   db.exec(`
+    DROP TRIGGER trg_m2_approval_grants_transition;
+    DROP TRIGGER trg_m2_effect_results_authority;
+    DROP TABLE m2_effect_execution_claims;
+
     CREATE TABLE m2_effect_execution_claims (
       effect_id TEXT PRIMARY KEY REFERENCES m2_effect_requests(effect_id) ON DELETE RESTRICT,
       grant_id TEXT NOT NULL UNIQUE REFERENCES m2_approval_grants(grant_id) ON DELETE RESTRICT,
       owner_id TEXT NOT NULL CHECK (length(trim(owner_id)) BETWEEN 1 AND 128),
       owner_pid INTEGER NOT NULL CHECK (typeof(owner_pid) = 'integer' AND owner_pid > 0),
-      owner_boot_id TEXT NOT NULL CHECK (length(trim(owner_boot_id)) BETWEEN 1 AND 256),
+      owner_boot_id TEXT NOT NULL CHECK (
+        (
+          owner_boot_id = lower(owner_boot_id)
+          AND length(owner_boot_id) = 36
+          AND substr(owner_boot_id, 9, 1) = '-'
+          AND substr(owner_boot_id, 14, 1) = '-'
+          AND substr(owner_boot_id, 19, 1) = '-'
+          AND substr(owner_boot_id, 24, 1) = '-'
+          AND substr(owner_boot_id, 15, 1) GLOB '[1-5]'
+          AND substr(owner_boot_id, 20, 1) GLOB '[89ab]'
+          AND replace(owner_boot_id, '-', '') NOT GLOB '*[^0-9a-f]*'
+        ) OR (
+          substr(owner_boot_id, 1, 8) = 'unknown:'
+          AND length(owner_boot_id) BETWEEN 9 AND 136
+        )
+      ),
       owner_start_identity TEXT NOT NULL CHECK (
-        length(trim(owner_start_identity)) BETWEEN 1 AND 256
+        (
+          length(owner_start_identity) BETWEEN 1 AND 256
+          AND owner_start_identity NOT GLOB '*[^0-9]*'
+        ) OR (
+          substr(owner_start_identity, 1, 8) = 'unknown:'
+          AND length(owner_start_identity) BETWEEN 9 AND 136
+        )
       ),
       claimed_at_ms INTEGER NOT NULL CHECK (
         typeof(claimed_at_ms) = 'integer' AND claimed_at_ms >= 0
@@ -118,30 +97,6 @@ function installFinalAuthorityHardening(db) {
       SELECT RAISE(ABORT, 'm2_effect_execution_claims is append-only');
     END;
 
-    DROP TRIGGER trg_m2_approval_grants_exact_scope;
-    CREATE TRIGGER trg_m2_approval_grants_exact_scope
-    BEFORE INSERT ON m2_approval_grants
-    WHEN NOT EXISTS (
-      SELECT 1 FROM m2_effect_requests request
-      WHERE request.effect_id = NEW.effect_id
-        AND request.run_id = NEW.run_id
-        AND request.project_id = NEW.project_id
-        AND request.kind = NEW.kind
-        AND request.payload_digest = NEW.payload_digest
-        AND request.payload_bytes = NEW.payload_bytes
-        AND request.workspace_revision = NEW.workspace_revision
-        AND json_extract(request.request_json, '$.actor.type') = 'user'
-        AND json_extract(request.request_json, '$.actor.id') = json_extract(NEW.grant_json, '$.subject.actorId')
-        AND json_extract(NEW.grant_json, '$.subject.actorType') = 'user'
-        AND NOT EXISTS (
-          SELECT 1 FROM m2_effect_results result WHERE result.effect_id = request.effect_id
-        )
-    )
-    BEGIN
-      SELECT RAISE(ABORT, 'M2_APPROVAL_GRANT_SCOPE_MISMATCH');
-    END;
-
-    DROP TRIGGER trg_m2_approval_grants_transition;
     CREATE TRIGGER trg_m2_approval_grants_transition
     BEFORE UPDATE ON m2_approval_grants
     WHEN OLD.consumed_at_ms IS NOT NULL
@@ -183,7 +138,6 @@ function installFinalAuthorityHardening(db) {
       SELECT RAISE(ABORT, 'M2_APPROVAL_GRANT_INVALID_TRANSITION');
     END;
 
-    DROP TRIGGER trg_m2_effect_results_success_authority;
     CREATE TRIGGER trg_m2_effect_results_authority
     BEFORE INSERT ON m2_effect_results
     WHEN NOT EXISTS (
@@ -198,6 +152,10 @@ function installFinalAuthorityHardening(db) {
         AND grant.consumed_at_ms IS NOT NULL
         AND grant.consumed_by_effect_id = NEW.effect_id
         AND grant.revoked_at_ms IS NULL
+        AND (
+          CAST(strftime('%s', json_extract(NEW.result_json, '$.startedAt')) AS INTEGER) * 1000
+          + CAST(substr(json_extract(NEW.result_json, '$.startedAt'), 21, 3) AS INTEGER)
+        ) >= claim.claimed_at_ms
     )
     BEGIN
       SELECT RAISE(ABORT, 'M2_EFFECT_RESULT_AUTHORITY_MISSING');
@@ -207,19 +165,17 @@ function installFinalAuthorityHardening(db) {
 
 export function up(db) {
   const currentFingerprint = computeM2SchemaFingerprint(db);
-  if (currentFingerprint === EXPECTED_M2_SCHEMA_FINGERPRINT) return;
-
-  const tables = m2Tables(db);
-  if (storedRowCount(db, tables) !== 0) {
-    throw new Error('M2_EFFECT_AUTHORITY_PRE_ACCEPTANCE_DATA_REQUIRES_EXPLICIT_MIGRATION');
+  if (currentFingerprint === EXPECTED_M2_SCHEMA_FINGERPRINT_V073) return;
+  if (currentFingerprint !== EXPECTED_M2_SCHEMA_FINGERPRINT_V072) {
+    throw new Error('M2_EFFECT_AUTHORITY_073_SOURCE_SCHEMA_FINGERPRINT_MISMATCH');
+  }
+  if (storedRowCount(db, m2Tables(db)) !== 0) {
+    throw new Error('M2_EFFECT_AUTHORITY_073_PRE_ACCEPTANCE_DATA_REQUIRES_EXPLICIT_MIGRATION');
   }
 
-  dropCandidateSchema(db);
-  createCandidateEffectAuthoritySchema(db);
-  installFinalAuthorityHardening(db);
-  const installedFingerprint = computeM2SchemaFingerprint(db);
-  if (installedFingerprint !== EXPECTED_M2_SCHEMA_FINGERPRINT) {
-    throw new Error('M2_EFFECT_AUTHORITY_FINAL_SCHEMA_FINGERPRINT_MISMATCH');
+  installClaimTruthHardening(db);
+  if (computeM2SchemaFingerprint(db) !== EXPECTED_M2_SCHEMA_FINGERPRINT_V073) {
+    throw new Error('M2_EFFECT_AUTHORITY_073_FINAL_SCHEMA_FINGERPRINT_MISMATCH');
   }
 }
 

@@ -96,7 +96,11 @@ export function createFilesystemEffectProvider({ fileSystem = fs } = {}) {
           request.target.canonicalRoot,
           request.target.relativePath,
           content,
-          { expectedTarget: before.target, fileSystem },
+          {
+            expectedTarget: before.target,
+            fileSystem,
+            createParents: false,
+          },
         );
       } catch (error) {
         if (error?.effectApplied === true) {

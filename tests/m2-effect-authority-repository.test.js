@@ -10,10 +10,19 @@ import {
 import { up as applyEffectAuthorityMigration } from '../src/db/migrations/2026_08_23_070_m2_effect_authority.js';
 import { up as applyEffectAuthorityHardening } from '../src/db/migrations/2026_08_24_071_m2_effect_authority_hardening.js';
 import {
-  EXPECTED_M2_SCHEMA_FINGERPRINT,
+  EXPECTED_M2_SCHEMA_FINGERPRINT as EXPECTED_M2_SCHEMA_FINGERPRINT_V072,
   computeM2SchemaFingerprint,
+  description as effectExecutionClaimsDescription,
   up as applyEffectExecutionClaims,
+  version as effectExecutionClaimsVersion,
 } from '../src/db/migrations/2026_08_24_072_m2_effect_execution_claims.js';
+import {
+  EXPECTED_M2_SCHEMA_FINGERPRINT_V073,
+  description as effectClaimTruthDescription,
+  up as applyEffectClaimTruth,
+  version as effectClaimTruthVersion,
+} from '../src/db/migrations/2026_08_24_073_m2_effect_claim_truth.js';
+import { _testInternals as migrationTestInternals } from '../src/db/migrate.js';
 import {
   EffectAuthorityError,
   EffectAuthorityErrorCode,
@@ -44,8 +53,9 @@ function openDb(filename = ':memory:') {
   if (!hasAuthority) {
     applyEffectAuthorityMigration(db);
     applyEffectAuthorityHardening(db);
+    applyEffectExecutionClaims(db);
   }
-  applyEffectExecutionClaims(db);
+  applyEffectClaimTruth(db);
   return db;
 }
 
@@ -897,9 +907,9 @@ test('072 advances a stamped 071 schema and pins the full sqlite_master fingerpr
     0,
   );
   applyEffectExecutionClaims(db);
-  assert.equal(computeM2SchemaFingerprint(db), EXPECTED_M2_SCHEMA_FINGERPRINT);
+  assert.equal(computeM2SchemaFingerprint(db), EXPECTED_M2_SCHEMA_FINGERPRINT_V072);
   applyEffectExecutionClaims(db);
-  assert.equal(computeM2SchemaFingerprint(db), EXPECTED_M2_SCHEMA_FINGERPRINT);
+  assert.equal(computeM2SchemaFingerprint(db), EXPECTED_M2_SCHEMA_FINGERPRINT_V072);
   db.close();
 });
 
@@ -907,9 +917,9 @@ test('072 rebuilds an empty column-complete but trigger-weak candidate', () => {
   const db = new Database(':memory:');
   db.pragma('foreign_keys = ON');
   installColumnCompleteButTriggerWeakCandidate(db);
-  assert.notEqual(computeM2SchemaFingerprint(db), EXPECTED_M2_SCHEMA_FINGERPRINT);
+  assert.notEqual(computeM2SchemaFingerprint(db), EXPECTED_M2_SCHEMA_FINGERPRINT_V072);
   applyEffectExecutionClaims(db);
-  assert.equal(computeM2SchemaFingerprint(db), EXPECTED_M2_SCHEMA_FINGERPRINT);
+  assert.equal(computeM2SchemaFingerprint(db), EXPECTED_M2_SCHEMA_FINGERPRINT_V072);
   db.close();
 });
 
@@ -921,6 +931,70 @@ test('072 never drops rows from a column-complete but trigger-weak candidate', (
     () => applyEffectExecutionClaims(db),
     /PRE_ACCEPTANCE_DATA_REQUIRES_EXPLICIT_MIGRATION/,
   );
+  assert.equal(db.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count, 1);
+  db.close();
+});
+
+test('073 upgrades an empty immutable 072 schema and is idempotent', () => {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  applyEffectAuthorityMigration(db);
+  applyEffectAuthorityHardening(db);
+  applyEffectExecutionClaims(db);
+  assert.equal(computeM2SchemaFingerprint(db), EXPECTED_M2_SCHEMA_FINGERPRINT_V072);
+
+  applyEffectClaimTruth(db);
+  assert.equal(computeM2SchemaFingerprint(db), EXPECTED_M2_SCHEMA_FINGERPRINT_V073);
+  applyEffectClaimTruth(db);
+  assert.equal(computeM2SchemaFingerprint(db), EXPECTED_M2_SCHEMA_FINGERPRINT_V073);
+  db.close();
+});
+
+test('migration runner skips stamped 072 and still applies 073', () => {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  applyEffectAuthorityMigration(db);
+  applyEffectAuthorityHardening(db);
+  applyEffectExecutionClaims(db);
+  db.exec('CREATE TABLE schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT)');
+  db.prepare('INSERT INTO schema_migrations (version) VALUES (?)').run(effectExecutionClaimsVersion);
+
+  const result = migrationTestInternals.runMigrationPlan(db, [
+    {
+      version: effectExecutionClaimsVersion,
+      description: effectExecutionClaimsDescription,
+      up: applyEffectExecutionClaims,
+      file: `${effectExecutionClaimsVersion}.js`,
+    },
+    {
+      version: effectClaimTruthVersion,
+      description: effectClaimTruthDescription,
+      up: applyEffectClaimTruth,
+      file: `${effectClaimTruthVersion}.js`,
+    },
+  ]);
+
+  assert.deepEqual(result.skipped, [effectExecutionClaimsVersion]);
+  assert.deepEqual(result.applied, [effectClaimTruthVersion]);
+  assert.equal(computeM2SchemaFingerprint(db), EXPECTED_M2_SCHEMA_FINGERPRINT_V073);
+  db.close();
+});
+
+test('073 refuses populated 072 data without changing schema or rows', () => {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  applyEffectAuthorityMigration(db);
+  applyEffectAuthorityHardening(db);
+  applyEffectExecutionClaims(db);
+  const repository = repositoryAt(db);
+  repository.registerEffectRequest(request());
+  assert.equal(computeM2SchemaFingerprint(db), EXPECTED_M2_SCHEMA_FINGERPRINT_V072);
+
+  assert.throws(
+    () => applyEffectClaimTruth(db),
+    /073_PRE_ACCEPTANCE_DATA_REQUIRES_EXPLICIT_MIGRATION/,
+  );
+  assert.equal(computeM2SchemaFingerprint(db), EXPECTED_M2_SCHEMA_FINGERPRINT_V072);
   assert.equal(db.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count, 1);
   db.close();
 });

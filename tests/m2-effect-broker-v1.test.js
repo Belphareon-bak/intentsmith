@@ -21,6 +21,7 @@ import {
 import { up as applyEffectAuthorityMigration } from '../src/db/migrations/2026_08_23_070_m2_effect_authority.js';
 import { up as applyEffectAuthorityHardening } from '../src/db/migrations/2026_08_24_071_m2_effect_authority_hardening.js';
 import { up as applyEffectExecutionClaims } from '../src/db/migrations/2026_08_24_072_m2_effect_execution_claims.js';
+import { up as applyEffectClaimTruth } from '../src/db/migrations/2026_08_24_073_m2_effect_claim_truth.js';
 import {
   EffectAuthorityError,
   EffectAuthorityErrorCode,
@@ -146,8 +147,9 @@ function openDatabase(filename = ':memory:') {
   if (!hasAuthority) {
     applyEffectAuthorityMigration(db);
     applyEffectAuthorityHardening(db);
+    applyEffectExecutionClaims(db);
   }
-  applyEffectExecutionClaims(db);
+  applyEffectClaimTruth(db);
   return db;
 }
 
@@ -480,6 +482,39 @@ await testAsync('missing parent is rejected before mkdir and produces no filesys
     assert.equal(result.errorCode, 'PROJECT_PATH_VIOLATION');
     assert.equal(nativeFs.existsSync(missingParent), false);
     assert.equal(result.rollback.required, false);
+  });
+});
+
+await testAsync('M2 writer never invokes legacy mkdir even when its race hook could recreate a parent', async () => {
+  await withEnvironment(async environment => {
+    const target = path.join(environment.projectRoot, 'src/app.js');
+    writeFileSync(target, 'before\n');
+    let mkdirCalls = 0;
+    const racingFs = {
+      ...nativeFs,
+      mkdirSync(directory, options) {
+        mkdirCalls += 1;
+        // This is the adversarial hook that used to remove and then recreate
+        // an authorized parent inside recursive mkdir. It must be unreachable
+        // from the M2 provider.
+        rmSync(directory, { recursive: true, force: true });
+        return nativeFs.mkdirSync(directory, options);
+      },
+    };
+    const broker = createBroker(environment, {
+      provider: createFilesystemEffectProvider({ fileSystem: racingFs }),
+    });
+    const prepared = await prepareWrite(environment, broker);
+    const grant = issue(environment, prepared.effectId);
+    const result = await broker.execute({
+      effectId: prepared.effectId,
+      grantId: grant.grantId,
+      payload: Buffer.from('after\n'),
+    });
+
+    assert.equal(result.terminalStatus, 'succeeded');
+    assert.equal(mkdirCalls, 0);
+    assert.equal(readFileSync(target, 'utf8'), 'after\n');
   });
 });
 

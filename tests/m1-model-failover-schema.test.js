@@ -392,7 +392,7 @@ suite('M1 model failover schema — exact migration contract');
 await testAsync('fresh file-backed DB creates all failover tables, indexes and triggers', async () => {
   await withMigratedDb(async (db) => {
     // M2 execution-claim hardening migration 072 is the current repository schema tip.
-    assertEqual(getCurrentVersion(db), '2026_08_24_072_m2_effect_execution_claims');
+    assertEqual(getCurrentVersion(db), '2026_08_24_073_m2_effect_claim_truth');
 
     for (const table of [
       'model_desired_bindings',
@@ -695,7 +695,7 @@ await testAsync('second migration run is a no-op with an identical schema snapsh
     const before = schemaSnapshot(db);
     const result = await runMigrations(db);
     assertEqual(result.applied.length, 0);
-    assertEqual(result.skipped.length, 62);
+    assertEqual(result.skipped.length, 63);
     assertEqual(schemaSnapshot(db), before);
   });
 });
@@ -735,10 +735,11 @@ await testAsync('migration 054 preserves pre-existing success as unconfirmed evi
         '2026_08_23_070_m2_effect_authority',
         '2026_08_24_071_m2_effect_authority_hardening',
         '2026_08_24_072_m2_effect_execution_claims',
+        '2026_08_24_073_m2_effect_claim_truth',
       ]),
     );
     assertEqual(result.skipped.length, 55);
-    assertEqual(getCurrentVersion(db), '2026_08_24_072_m2_effect_execution_claims');
+    assertEqual(getCurrentVersion(db), '2026_08_24_073_m2_effect_claim_truth');
     assertEqual(
       db.prepare(`
         SELECT COUNT(*) AS count
