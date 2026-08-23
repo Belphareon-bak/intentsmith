@@ -159,6 +159,8 @@ export function buildCandidates(ollamaModels) {
       modifiedAt: m.modified_at || null,
       installed: true,
       source: 'local',
+      digest: m.digest || null,
+      details: m.details || null,
     });
   }
 

@@ -311,10 +311,72 @@ test('víc rozlišujících úloh zvedá jistotu', () => {
   assertEqual(many.confidence, 'vysoká');
 });
 
+test('role-specific evidence gate blocks a narrow language sample', () => {
+  const comparison = {
+    margin: 0.4, candidateWins: 2, incumbentWins: 0, discriminating: 2,
+    inconclusive: false,
+    tasks: [
+      { name: 'cz_a', language: 'cs', discriminating: true },
+      { name: 'cz_b', language: 'cs', discriminating: true },
+    ],
+  };
+  const decision = decideRole(comparison, {}, 0.04, {
+    minimumDiscriminatingTasks: 6,
+    minimumDiscriminatingByLanguage: { en: 3, cs: 4 },
+  });
+  assertEqual(decision.winner, 'incumbent');
+  assertEqual(decision.basis, 'nedostatečný důkaz');
+  assert(/cs 2\/4/.test(decision.detail), decision.detail);
+});
+
+test('role-specific evidence gate admits a broad bilingual sample', () => {
+  const tasks = [
+    ...Array.from({ length: 3 }, (_, i) => ({ name: `en_${i}`, language: 'en', discriminating: true })),
+    ...Array.from({ length: 4 }, (_, i) => ({ name: `cs_${i}`, language: 'cs', discriminating: true })),
+  ];
+  const decision = decideRole({
+    margin: 0.2, candidateWins: 6, incumbentWins: 1,
+    discriminating: tasks.length, inconclusive: false, tasks,
+  }, {}, 0.04, {
+    minimumDiscriminatingTasks: 6,
+    minimumDiscriminatingByLanguage: { en: 3, cs: 4 },
+  });
+  assertEqual(decision.winner, 'candidate');
+});
+
 test('jistota se hlásí i u prohry kandidáta', () => {
   const d = decideRole({ margin: -1, candidateWins: 0, incumbentWins: 3, discriminating: 3, inconclusive: false }, {}, 0.05);
   assertEqual(d.winner, 'incumbent');
   assertEqual(d.confidence, 'vysoká');
+});
+
+await testAsync('durable history prevents a second model run for the same contract', async () => {
+  const runner = fakeRunner({ A: { _default: 0.9 }, B: { _default: 0.4 } });
+  const stored = new Map();
+  const options = {
+    repeats: 1,
+    suiteContractSha256: 'a'.repeat(64),
+    suiteVersion: 'test-v1',
+    loadHistoricalSummary: async ({ model }) => stored.get(model) || null,
+    saveHistoricalSummary: async ({ model, summary }) => { stored.set(model, summary); },
+  };
+  await comparePair(runner, 'code', 'A', 'B', options);
+  assertEqual(runner.calls.length, 2);
+  await comparePair(runner, 'code', 'A', 'B', options);
+  assertEqual(runner.calls.length, 2, 'second comparison must reuse both durable summaries');
+});
+
+await testAsync('a different suite contract cannot reuse an old summary', async () => {
+  const runner = fakeRunner({ A: { _default: 0.9 }, B: { _default: 0.4 } });
+  const stored = new Map();
+  const hooks = {
+    repeats: 1,
+    loadHistoricalSummary: async ({ model, suiteContractSha256 }) => stored.get(`${suiteContractSha256}:${model}`) || null,
+    saveHistoricalSummary: async ({ model, suiteContractSha256, summary }) => { stored.set(`${suiteContractSha256}:${model}`, summary); },
+  };
+  await comparePair(runner, 'code', 'A', 'B', { ...hooks, suiteContractSha256: 'a'.repeat(64) });
+  await comparePair(runner, 'code', 'A', 'B', { ...hooks, suiteContractSha256: 'b'.repeat(64) });
+  assertEqual(runner.calls.length, 4);
 });
 
 summary();

@@ -34,7 +34,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { FIXTURE_PATH } from './build-code-suite.js';
+import { codeTaskName, FIXTURE_PATH } from './build-code-suite.js';
 
 const VERDICT_TO_STATUS = {
   'rozlišuje': 'active',
@@ -44,22 +44,33 @@ const VERDICT_TO_STATUS = {
   'shodné': 'reserve-flat',
 };
 
-/** Název úlohy v reportu (`patch_<hash8>`) zpátky na hash z fixture. */
-function matchesTask(taskName, entryHash) {
-  return taskName === `patch_${entryHash.slice(0, 8)}`;
+/** Název úlohy v reportu zpátky na její plný kontrakt ve fixture. */
+function matchesTask(taskName, entry) {
+  return taskName === codeTaskName(entry);
 }
 
 export function calibrate(fixture, measurement) {
+  if (measurement?.invalidated) {
+    throw new Error(`calibration report is invalidated: ${measurement.invalidReason || 'unspecified reason'}`);
+  }
   const tasks = fixture.tasks.map(entry => {
-    const measured = measurement.tasks.find(t => matchesTask(t.name, entry.hash));
-    if (!measured) return { ...entry, status: entry.status ?? 'active', calibration: null };
+    const measured = measurement.tasks.find(t => matchesTask(t.name, entry));
+    // Inkrementální rozšíření panelu měří jen nové pending úlohy. Již doložená
+    // kalibrace stejného fingerprintu se při takovém běhu nesmí zahodit.
+    if (!measured) {
+      if (entry.calibration && entry.status && entry.status !== 'pending-recalibration') return entry;
+      return { ...entry, status: 'pending-recalibration', calibration: null };
+    }
     return {
       ...entry,
-      status: VERDICT_TO_STATUS[measured.verdict] || 'active',
+      status: VERDICT_TO_STATUS[measured.verdict] || 'pending-recalibration',
       calibration: {
         verdict: measured.verdict,
         values: measured.values,
         noise: measured.noise,
+        panel: measurement.models,
+        repeats: measurement.repeats,
+        measuredAt: measurement.measuredAt,
       },
     };
   });
@@ -71,6 +82,46 @@ export function calibrate(fixture, measurement) {
     calibrationRepeats: measurement.repeats,
     tasks,
   };
+}
+
+export function buildPanelSummaries(fixture, measurements) {
+  const reports = Array.isArray(measurements) ? measurements : [measurements];
+  const invalid = reports.find(report => report?.invalidated);
+  if (invalid) {
+    throw new Error(`panel report is invalidated: ${invalid.invalidReason || 'unspecified reason'}`);
+  }
+  const active = (fixture?.tasks || [])
+    .filter(task => task.status === 'active')
+    .map(codeTaskName);
+  if (!active.length) return [];
+  const models = [...new Set(reports.flatMap(report => report?.models || []))];
+  return models.map((model) => {
+    const tasks = active.map((name) => {
+      const report = reports.find(item => item?.tasks?.some(task => task.name === name));
+      const measured = report?.tasks?.find(task => task.name === name);
+      const modelIndex = report?.models?.indexOf(model) ?? -1;
+      if (!measured || modelIndex < 0 || !Number.isFinite(measured.values?.[modelIndex])) {
+        throw new Error(`panel history is incomplete for ${model}/${name}`);
+      }
+      const mean = measured.values[modelIndex];
+      return {
+        name,
+        mean,
+        spread: Number(measured.noise || 0),
+        // The report stores the measured mean and conservative task noise,
+        // not each raw response. Do not invent raw repetitions.
+        scores: [],
+        source: 'code-patch-calibration-panel',
+      };
+    });
+    const repeats = Math.max(...reports.map(report => Number(report?.repeats) || 1));
+    return {
+      model,
+      runs: repeats,
+      tasks,
+      score: tasks.reduce((sum, task) => sum + task.mean, 0) / tasks.length,
+    };
+  });
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
@@ -100,4 +151,4 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToP
   if (!active) console.log('VAROVÁNÍ: žádná úloha nerozlišuje, sada by nic neměřila');
 }
 
-export default { calibrate };
+export default { calibrate, buildPanelSummaries };

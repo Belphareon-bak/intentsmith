@@ -11,12 +11,13 @@
 //
 // `code_patch` se ptá jinak: vezme skutečnou vadu z historie repa, dá modelu
 // vadnou funkci a popis požadovaného chování, jeho odpověď vloží zpátky do
-// souboru a **spustí skrytý test**.  Skóre je 1 nebo 0 podle toho, jestli test
-// prošel.  Klíčová slova v hodnocení nejsou — hodnotí `node tests/….test.js`.
+// souboru a **spustí skryté testy**. Skóre je podíl opravených cílových
+// kontrol `0..1`; nová regrese skóre vynuluje. Klíčová slova v hodnocení
+// nejsou — hodnotí skutečný výstup `node tests/….test.js`.
 //
-// Sada se registruje pod novým jménem a **nepřebírá vazbu role CODE**.
-// Vazby rolí se nemění automaticky — přepnutí role na tuhle sadu je ruční
-// rozhodnutí operátora, ne vedlejší efekt téhle změny.
+// Sada se registruje pod novým jménem a sama **nemutuje vazbu role CODE**.
+// Hunt ji pro CODE předává explicitním evaluation planem a vítěze může
+// aplikovat jen přes `ModelBindingApplication`.
 //
 // ─── Proč se registruje zvenčí a ne v `validation-suites.js` ─────────────────
 //
@@ -45,6 +46,7 @@ import { ValidationRunner } from '../upgrade/validation-suites.js';
 import {
   deriveTask, buildPrompt, extractFunctionCodes, applyAndTest, normalizedGain,
 } from './code-patch-runner.js';
+import { codeTaskName } from './build-code-suite.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, '..', '..');
@@ -68,7 +70,7 @@ export const MODEL_OPTIONS = {
 };
 
 /** Načte kurátorovanou sadu úloh; bez fixture je sada prázdná, ne rozbitá. */
-export function loadFixtureTasks(repo = REPO_ROOT, fixturePath = FIXTURE) {
+export function loadFixtureTasks(repo = REPO_ROOT, fixturePath = FIXTURE, opts = {}) {
   if (!existsSync(fixturePath)) {
     logger.warn('CodePatchSuite', `fixture chybí (${fixturePath}) — sada bude prázdná; spusť build-code-suite.js`);
     return [];
@@ -85,11 +87,21 @@ export function loadFixtureTasks(repo = REPO_ROOT, fixturePath = FIXTURE) {
   // celého panelu, nebo pod ním, takže by jen prodlužovaly běh a ředily průměr.
   // `C3_EVAL_INCLUDE_RESERVE=1` je vrátí zpět — na ověření, jestli už silnější
   // model nepřerostl podlahu.
-  const includeReserve = process.env.C3_EVAL_INCLUDE_RESERVE === '1';
+  const includeReserve = opts.includeNonActive === true
+    || process.env.C3_EVAL_INCLUDE_RESERVE === '1';
+  const onlyPending = opts.onlyPending === true
+    || process.env.C3_EVAL_ONLY_PENDING === '1';
+  const pendingMaxFunctionLines = Number(
+    opts.pendingMaxFunctionLines ?? process.env.C3_EVAL_PENDING_MAX_FUNCTION_LINES,
+  );
 
   const tasks = [];
   for (const entry of meta.tasks || []) {
-    if (!includeReserve && entry.status && entry.status !== 'active') continue;
+    if (onlyPending && entry.status !== 'pending-recalibration') continue;
+    if (onlyPending && Number.isFinite(pendingMaxFunctionLines)
+      && entry.functionLines > pendingMaxFunctionLines) continue;
+    // Fail closed: missing/pending/unknown status is not decision evidence.
+    if (!onlyPending && !includeReserve && entry.status !== 'active') continue;
     const { task, reason } = deriveTask(repo, entry);
     if (!task) {
       // Historie se přepsala (rebase, squash) — úloha se přestala odvozovat.
@@ -121,7 +133,7 @@ export function loadFixtureTasks(repo = REPO_ROOT, fixturePath = FIXTURE) {
 export function buildTests(repo = REPO_ROOT, tasks = null) {
   const loaded = tasks || loadFixtureTasks(repo);
   return loaded.map(task => ({
-    name: `patch_${task.hash.slice(0, 8)}`,
+    name: codeTaskName(task),
     options: MODEL_OPTIONS,
     prompt: () => ({ text: buildPrompt(task), _task: task }),
     grade: (response, ctx) => {

@@ -3,6 +3,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 //
 //     node src/eval/discrimination-report.js qwen2.5-coder:32b qwen3-coder:latest …
+//         [--repeats 3] [--json <cesta>]
 //
 // Proč zvláštní krok:
 //
@@ -35,6 +36,7 @@ import { writeFileSync } from 'node:fs';
 // proof policy a šestá položka by ho shodila.  Viz hlavička `code-patch-suite.js`.
 import { codePatchSuite, CodePatchValidationRunner } from './code-patch-suite.js';
 import { comparePair, createSuiteCache, TASK_MARGIN_EPSILON } from '../upgrade/pairwise-trial.js';
+import { holdGpuEvaluationLock } from '../upgrade/gpu-evaluation-lock.js';
 
 const SUITE = 'code_patch';
 
@@ -120,14 +122,25 @@ export async function measureDiscrimination(models, opts = {}) {
 if (process.argv[1]?.endsWith('discrimination-report.js')) {
   const jsonAt = process.argv.indexOf('--json');
   const jsonPath = jsonAt > -1 ? process.argv[jsonAt + 1] : null;
-  const models = process.argv.slice(2).filter((a, i, all) => a !== '--json' && all[i - 1] !== '--json');
+  // Opakování určuje, jak přesně se změří **šum** úlohy, a na něm stojí
+  // zařazení „nestabilní".  Snižovat se dá kvůli délce běhu, ale pod dvě ne:
+  // z jediného běhu se rozptyl spočítat nedá a všechny úlohy by vyšly jako
+  // bezšumové.
+  const repAt = process.argv.indexOf('--repeats');
+  const repeats = repAt > -1 ? Math.max(1, Number(process.argv[repAt + 1]) || 3) : 3;
+  const flagValue = (a, i, all) => a === '--json' || a === '--repeats'
+    || all[i - 1] === '--json' || all[i - 1] === '--repeats';
+  const models = process.argv.slice(2).filter((a, i, all) => !flagValue(a, i + 2, process.argv));
   if (models.length < 2) {
     console.error('použití: node src/eval/discrimination-report.js <model> <model> [model…]');
     process.exit(1);
   }
 
+  holdGpuEvaluationLock({ command: `code-patch-discrimination ${models.join(' ')}` });
+
   const t0 = Date.now();
   const r = await measureDiscrimination(models, {
+    repeats,
     log: (m) => console.log(m),
     onProgress: (p) => {
       if (p.status === 'running') process.stderr.write(`\r   ${p.suite} ${p.currentTest}/${p.totalTests} ${p.testName}      `);

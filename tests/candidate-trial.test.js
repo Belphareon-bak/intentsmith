@@ -326,6 +326,31 @@ await testAsync('u přetékajícího kandidáta se měření jako úspěch nehl�
 
 suite('způsobilost rolí ve zkoušce');
 
+await testAsync('role se nesoutěží pod minimálním počtem aktivních úloh', async () => {
+  stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'qwen3-coder:30b' });
+  const skipped = [];
+  const stages = [];
+  const r = await tryCandidate('qwen3-coder:30b', {
+    ...FAST_DRAIN,
+    runner: fakeRunner({}),
+    roles: ['CODE'],
+    bindings: { CODE: 'inc:7b' },
+    evaluationPlans: {
+      CODE: { suiteName: 'code_patch', taskCount: 3, minimumTaskCount: 6 },
+    },
+    onStage: (stage, model, info) => {
+      stages.push(stage);
+      if (stage === 'roleSkipped') skipped.push(info);
+    },
+  });
+  assertEqual(skipped.length, 1);
+  assert(/3\/6/.test(skipped[0].reason), skipped[0].reason);
+  assert(!('CODE' in r.decisions), 'nedostatečná sada nesmí rozhodnout vazbu');
+  assertEqual(r.stage, 'suite-readiness');
+  assert(!stages.includes('pull') && !stages.includes('measure'), 'nepřipravená sada nesmí použít síť ani GPU');
+  restore();
+});
+
 await testAsync('textový model se pro VISION vůbec nesoutěží', async () => {
   // Nemohl by tam vyhrát a stálo by to šest běhů sady navíc — o způsobilosti
   // rozhodl filtr, souboj ji nemá obcházet.

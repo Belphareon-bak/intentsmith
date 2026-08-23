@@ -1,0 +1,2343 @@
+{
+  "generatedAt": "2026-08-23T01:11:30.974Z",
+  "suite": "chat_v2",
+  "version": "v136.1-prototype.1",
+  "contractSha256": "0cd135801a5b71c945afac6e63940b0b8dbc32bdc18bee918e1c5f2547c26ec9",
+  "models": [
+    {
+      "model": "qwen3.8:latest",
+      "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "score": 0.9016666666666667,
+      "enScore": 0.9027777777777778,
+      "csScore": 0.9,
+      "repeats": 3,
+      "tokensPerSecond": 40.1,
+      "completedAt": "2026-08-23T00:05:10.094Z",
+      "tasks": [
+        {
+          "name": "en_grounded_summary",
+          "mean": 1,
+          "spread": 0,
+          "scores": [
+            1,
+            1,
+            1
+          ],
+          "responses": [
+            "Project Northstar launches on October 14 with an approved budget of $2.4 million. Maya Chen is responsible for delivery, and the only listed risk is a delayed battery supplier.",
+            "Project Northstar launches on October 14 with an approved budget of $2.4 million. Maya Chen is responsible for delivery, and the only listed risk is a delayed battery supplier.",
+            "Project Northstar launches on October 14 with an approved budget of $2.4 million. Maya Chen is responsible for delivery, and the only listed risk is a delayed battery supplier."
+          ],
+          "details": [
+            {
+              "parts": [
+                {
+                  "id": "date",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "budget",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "owner",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "risk",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "length",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "date",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "budget",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "owner",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "risk",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "length",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "date",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "budget",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "owner",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "risk",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "length",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            }
+          ],
+          "rubric": [
+            "October 14",
+            "$2.4 million",
+            "Maya Chen owns delivery",
+            "battery supplier delay",
+            "at most 3 sentences",
+            "no conflicting date or budget"
+          ],
+          "language": "en"
+        },
+        {
+          "name": "en_action_email",
+          "mean": 0.8666666666666667,
+          "spread": 0.19999999999999996,
+          "scores": [
+            0.8,
+            0.8,
+            1
+          ],
+          "responses": [
+            "Subject: Security Review Decision Deadline\n\nHi Priya,\n\nYou are the owner of the upcoming security review. Please ensure the final decision is submitted by June 12. Any delay in this decision will directly postpone the product rollout. Thank you for your prompt attention to this matter.\n\nBest regards,\n[Your Name]",
+            "Subject: Security Review Decision Due\n\nHi Priya,\n\nYou own the security review for this project. Please ensure the final decision is submitted by June 12. Any delay in this decision will directly postpone the rollout schedule. Thank you for your prompt attention to this matter.\n\nBest regards,\n[Your Name]",
+            "Hi Priya,\n\nI am writing to confirm that you own the security review for this project. Please note that your decision is due by June 12. Any delay in this decision will directly postpone the rollout schedule. I appreciate your prompt attention to this matter.\n\nBest regards,\n[Your Name]"
+          ],
+          "details": [
+            {
+              "parts": [
+                {
+                  "id": "greeting",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "owner",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "deadline",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "consequence",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "length",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "greeting",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "owner",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "deadline",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "consequence",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "length",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "greeting",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "owner",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "deadline",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "consequence",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "length",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            }
+          ],
+          "rubric": [
+            "professional greeting",
+            "Priya owns security review",
+            "June 12 deadline",
+            "late decision delays rollout",
+            "maximum 5 sentences"
+          ],
+          "language": "en"
+        },
+        {
+          "name": "en_context_correction",
+          "mean": 1,
+          "spread": 0,
+          "scores": [
+            1,
+            1,
+            1
+          ],
+          "responses": [
+            "The Atlas workshop is currently located in Oslo with 24 attendees.",
+            "The Atlas workshop is currently located in Oslo with 24 attendees.",
+            "The Atlas workshop is currently located in Oslo with 24 attendees."
+          ],
+          "details": [
+            {
+              "parts": [
+                {
+                  "id": "location",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "attendance",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "old_values_removed",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "one_sentence",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "location",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "attendance",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "old_values_removed",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "one_sentence",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "location",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "attendance",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "old_values_removed",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "one_sentence",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            }
+          ],
+          "rubric": [
+            "Oslo",
+            "24 attendees",
+            "does not present London or 18 as current",
+            "one sentence"
+          ],
+          "language": "en"
+        },
+        {
+          "name": "en_missing_context",
+          "mean": 0.75,
+          "spread": 0,
+          "scores": [
+            0.75,
+            0.75,
+            0.75
+          ],
+          "responses": [
+            "I understand you’d like to proceed with a deployment tomorrow. However, I cannot initiate or schedule any deployment actions because I don’t have access to your systems, credentials, or specific project details.\n\nTo help you prepare for a successful deployment, could you please clarify the following?\n\n1. **What** is being deployed? (e.g., a specific application, service, or code branch)\n2. **Where** is it being deployed? (e.g., staging, production, a specific cloud provider or region)\n3. **When** is the preferred time window? (Please specify the time zone, as “tomorrow” is ambiguous without it)\n4. **Who** is responsible for approval or execution? (e.g., a DevOps team, CI/CD pipeline, or manual process)\n\nOnce you provide these details, I can help you:\n- Draft a deployment checklist\n- Review potential risks or rollback plans\n- Suggest best practices for the deployment window\n- Help communicate the plan to relevant stakeholders\n\nLet me know how you’d like to proceed!",
+            "I cannot initiate a deployment because I do not have access to your infrastructure, credentials, or the specific project details. Additionally, \"tomorrow\" is ambiguous without a defined time zone and a specific deployment window.\n\nTo proceed safely, please provide the following:\n\n1. **Project/Service Name**: What exactly needs to be deployed?\n2. **Environment**: Target environment (e.g., staging, production, specific cluster).\n3. **Time Zone & Window**: Your local time zone and the preferred start/end time for the deployment.\n4. **Access Method**: How should the deployment be triggered? (e.g., CI/CD pipeline ID, specific CLI command, API endpoint, or manual steps you want me to draft).\n5. **Rollback Plan**: What is the procedure if the deployment fails?\n\nOnce you provide these details, I can help you:\n- Draft the deployment script or CI/CD configuration.\n- Create a checklist for pre-deployment validation.\n- Schedule the task in your project management tool (if integrated).\n- Prepare monitoring alerts for post-deployment verification.\n\nLet me know how you’d like to proceed.",
+            "I understand you’d like to proceed with a deployment tomorrow. However, I cannot initiate or schedule any deployment actions because I don’t have access to your systems, credentials, or specific project details.\n\nTo help you prepare for a successful deployment, could you please clarify the following?\n\n1. **What** is being deployed? (e.g., a specific application, service, or code branch)\n2. **Where** is it being deployed? (e.g., staging, production, a specific cloud provider or region)\n3. **When** exactly? (Please specify the time zone and preferred deployment window)\n4. **Who** is responsible for approval or execution? (e.g., DevOps team, CI/CD pipeline, manual trigger)\n\nOnce you provide these details, I can help you:\n- Draft a deployment checklist\n- Review potential risks or rollback plans\n- Prepare communication templates for stakeholders\n- Suggest best practices for the deployment process\n\nLet me know how you’d like to proceed!"
+          ],
+          "details": [
+            {
+              "parts": [
+                {
+                  "id": "project",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "environment",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "time",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "honesty",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "project",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "environment",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "time",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "honesty",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "project",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "environment",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "time",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "honesty",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            }
+          ],
+          "rubric": [
+            "asks which project",
+            "asks environment",
+            "asks time zone or window",
+            "does not claim execution"
+          ],
+          "language": "en"
+        },
+        {
+          "name": "en_structured_extraction",
+          "mean": 0.8000000000000002,
+          "spread": 0,
+          "scores": [
+            0.8,
+            0.8,
+            0.8
+          ],
+          "responses": [
+            "{\n  \"risk\": \"database saturation\",\n  \"owner\": \"Elena Rossi\",\n  \"mitigation\": \"cap concurrent imports at 12\"\n}",
+            "{\n  \"risk\": \"database saturation\",\n  \"owner\": \"Elena Rossi\",\n  \"mitigation\": \"cap concurrent imports at 12\"\n}",
+            "{\n  \"risk\": \"database saturation\",\n  \"owner\": \"Elena Rossi\",\n  \"mitigation\": \"cap concurrent imports at 12\"\n}"
+          ],
+          "details": [
+            {
+              "parts": [
+                {
+                  "id": "json",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "keys",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "risk",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "owner",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "mitigation",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "json",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "keys",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "risk",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "owner",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "mitigation",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "json",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "keys",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "risk",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "owner",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "mitigation",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            }
+          ],
+          "rubric": [
+            "valid JSON object",
+            "exact three keys",
+            "R-17/database saturation",
+            "Elena Rossi",
+            "cap concurrent imports at 12"
+          ],
+          "language": "en"
+        },
+        {
+          "name": "en_translation_from_czech",
+          "mean": 1,
+          "spread": 0,
+          "scores": [
+            1,
+            1,
+            1
+          ],
+          "responses": [
+            "The meeting has been rescheduled from Tuesday to Thursday at 9:30. Petra will send the materials by Wednesday at the latest.",
+            "The meeting has been rescheduled from Tuesday to Thursday at 9:30. Petra will send the materials by Wednesday at the latest.",
+            "The meeting has been rescheduled from Tuesday to Thursday at 9:30. Petra will send the materials by Wednesday at the latest."
+          ],
+          "details": [
+            {
+              "parts": [
+                {
+                  "id": "from_tuesday",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "to_thursday",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "petra_materials",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "deadline",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "from_tuesday",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "to_thursday",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "petra_materials",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "deadline",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "from_tuesday",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "to_thursday",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "petra_materials",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "deadline",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            }
+          ],
+          "rubric": [
+            "moved from Tuesday",
+            "to Thursday at 9:30",
+            "Petra sends materials",
+            "no later than Wednesday"
+          ],
+          "language": "en"
+        },
+        {
+          "name": "cz_grounded_summary",
+          "mean": 1,
+          "spread": 0,
+          "scores": [
+            1,
+            1,
+            1
+          ],
+          "responses": [
+            "Brněnská kancelář se otevře 3. května a bude mít tým 12 lidí pod vedením Evy Šímové. Její rozpočet činí 480 000 Kč.",
+            "Brněnská kancelář se otevře 3. května a bude mít tým 12 lidí pod vedením Evy Šímové. Její rozpočet činí 480 000 Kč.",
+            "Brněnská kancelář se otevře 3. května a bude mít tým 12 lidí pod vedením Evy Šímové. Její rozpočet činí 480 000 Kč."
+          ],
+          "details": [
+            {
+              "parts": [
+                {
+                  "id": "date_place",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "team",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "budget",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "leader",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "language_length",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "date_place",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "team",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "budget",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "leader",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "language_length",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "date_place",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "team",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "budget",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "leader",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "language_length",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            }
+          ],
+          "rubric": [
+            "3. května",
+            "Brno/brněnská kancelář",
+            "12 lidí",
+            "480 000 Kč",
+            "Eva Šímová",
+            "nejvýše 2 věty a česká diakritika"
+          ],
+          "language": "cs"
+        },
+        {
+          "name": "cz_exact_bullets",
+          "mean": 1,
+          "spread": 0,
+          "scores": [
+            1,
+            1,
+            1
+          ],
+          "responses": [
+            "* záloha databáze\n* ověření obnovy\n* zápis výsledku do auditu",
+            "* záloha databáze\n* ověření obnovy\n* zápis výsledku do auditu",
+            "* záloha databáze\n* ověření obnovy\n* zápis výsledku do auditu"
+          ],
+          "details": [
+            {
+              "parts": [
+                {
+                  "id": "three_bullets",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "first",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "second",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "third",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "czech",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "three_bullets",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "first",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "second",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "third",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "czech",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "three_bullets",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "first",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "second",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "third",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "czech",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            }
+          ],
+          "rubric": [
+            "přesně 3 odrážky",
+            "správné pořadí tří požadavků",
+            "bez textu mimo odrážky",
+            "česká diakritika"
+          ],
+          "language": "cs"
+        },
+        {
+          "name": "cz_context_correction",
+          "mean": 1,
+          "spread": 0,
+          "scores": [
+            1,
+            1,
+            1
+          ],
+          "responses": [
+            "Projekt Javor se bude konat 30. září v Olomouci s 11 účastníky.",
+            "Projekt Javor se bude konat 30. září v Olomouci s 11 účastníky.",
+            "Projekt Javor se bude konat 30. září v Olomouci s 11 účastníky."
+          ],
+          "details": [
+            {
+              "parts": [
+                {
+                  "id": "place",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "people",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "date",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "old_removed",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "language_length",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "place",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "people",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "date",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "old_removed",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "language_length",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "place",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "people",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "date",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "old_removed",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "language_length",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            }
+          ],
+          "rubric": [
+            "Olomouc",
+            "11 účastníků",
+            "30. září",
+            "neuvádí Ostravu ani 8 jako aktuální",
+            "jedna česká věta"
+          ],
+          "language": "cs"
+        },
+        {
+          "name": "cz_professional_reply",
+          "mean": 0.6000000000000001,
+          "spread": 0,
+          "scores": [
+            0.6000000000000001,
+            0.6000000000000001,
+            0.6000000000000001
+          ],
+          "responses": [
+            "Vaši požadavek jsme úspěšně přijali a zpracování jsme zahájili. Závěrečnou odpověď vám zašleme nejpozději v pátek. Pro případné doplňující dotazy se prosím obraťte na Jana Kříže.",
+            "Vaši požadavek jsme úspěšně přijali a zpracováváme ho. Závěrečnou odpověď vám zašleme nejpozději v pátek. Pro případné doplňující dotazy se prosím obraťte na Jana Kříže.",
+            "Vaši požadavek jsme úspěšně přijali a zpracování jsme zahájili. Závěrečnou odpověď vám zašleme nejpozději v pátek. Pro případné doplňující dotazy se prosím obraťte na Jana Kříže."
+          ],
+          "details": [
+            {
+              "parts": [
+                {
+                  "id": "receipt",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "deadline",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "contact",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "length",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "czech",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [
+                {
+                  "id": "gender_agreement",
+                  "weight": 0.2
+                }
+              ],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "receipt",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "deadline",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "contact",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "length",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "czech",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [
+                {
+                  "id": "gender_agreement",
+                  "weight": 0.2
+                }
+              ],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "receipt",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "deadline",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "contact",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "length",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "czech",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [
+                {
+                  "id": "gender_agreement",
+                  "weight": 0.2
+                }
+              ],
+              "passAt": 0.7
+            }
+          ],
+          "rubric": [
+            "potvrzení přijetí",
+            "odpověď nejpozději v pátek",
+            "Jan Kříž jako kontakt",
+            "maximálně 3 věty",
+            "přirozená česká diakritika",
+            "bez zjevné chyby ve shodě rodu u slova požadavek"
+          ],
+          "language": "cs"
+        }
+      ]
+    },
+    {
+      "model": "qwen3:14b",
+      "digestSha256": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+      "score": 0.8633333333333333,
+      "enScore": 0.9055555555555556,
+      "csScore": 0.8,
+      "repeats": 3,
+      "tokensPerSecond": 69.4,
+      "completedAt": "2026-08-23T00:06:26.127Z",
+      "tasks": [
+        {
+          "name": "en_grounded_summary",
+          "mean": 1,
+          "spread": 0,
+          "scores": [
+            1,
+            1,
+            1
+          ],
+          "responses": [
+            "Project Northstar launches on October 14 with an approved budget of $2.4 million. Maya Chen is responsible for delivery. The only listed risk is a potential delay from the battery supplier.",
+            "Project Northstar launches on October 14 with an approved budget of $2.4 million. Maya Chen is responsible for delivery. The only listed risk is a potential delay from the battery supplier.",
+            "Project Northstar launches on October 14 with an approved budget of $2.4 million. Maya Chen is responsible for delivery. The only listed risk is a potential delay from the battery supplier."
+          ],
+          "details": [
+            {
+              "parts": [
+                {
+                  "id": "date",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "budget",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "owner",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "risk",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "length",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "date",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "budget",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "owner",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "risk",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "length",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "date",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "budget",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "owner",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "risk",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "length",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            }
+          ],
+          "rubric": [
+            "October 14",
+            "$2.4 million",
+            "Maya Chen owns delivery",
+            "battery supplier delay",
+            "at most 3 sentences",
+            "no conflicting date or budget"
+          ],
+          "language": "en"
+        },
+        {
+          "name": "en_action_email",
+          "mean": 0.8000000000000002,
+          "spread": 0,
+          "scores": [
+            0.8,
+            0.8,
+            0.8
+          ],
+          "responses": [
+            "Subject: Security Review Decision Deadline\n\nDear Priya,\n\nI wanted to remind you that you own the security review, and the decision is due by June 12. A late decision may delay the rollout. Please ensure the review is completed on time to avoid any disruptions. Let me know if you need any support. Thank you for your attention to this matter.\n\nBest regards,  \n[Your Name]",
+            "Subject: Security Review Decision Deadline\n\nDear Priya,\n\nI wanted to remind you that you own the security review, and the decision is due by June 12. A late decision may delay the rollout. Please ensure the review is completed on time to avoid any disruptions. Let me know if you need any support. Thank you for your attention to this matter.\n\nBest regards,  \n[Your Name]",
+            "Subject: Security Review Decision Deadline\n\nDear Priya,\n\nI wanted to remind you that you own the security review, and the decision is due by June 12. A late decision may delay the rollout of the project. Please ensure the review is completed on time to avoid any disruptions. If you need any support, feel free to reach out. Thank you for your attention to this matter.\n\nBest regards,  \n[Your Name]"
+          ],
+          "details": [
+            {
+              "parts": [
+                {
+                  "id": "greeting",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "owner",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "deadline",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "consequence",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "length",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "greeting",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "owner",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "deadline",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "consequence",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "length",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "greeting",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "owner",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "deadline",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "consequence",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "length",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            }
+          ],
+          "rubric": [
+            "professional greeting",
+            "Priya owns security review",
+            "June 12 deadline",
+            "late decision delays rollout",
+            "maximum 5 sentences"
+          ],
+          "language": "en"
+        },
+        {
+          "name": "en_context_correction",
+          "mean": 1,
+          "spread": 0,
+          "scores": [
+            1,
+            1,
+            1
+          ],
+          "responses": [
+            "The Atlas workshop is currently located in Oslo with 24 attendees.",
+            "The Atlas workshop is currently located in Oslo with 24 attendees.",
+            "The Atlas workshop is currently located in Oslo with 24 attendees."
+          ],
+          "details": [
+            {
+              "parts": [
+                {
+                  "id": "location",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "attendance",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "old_values_removed",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "one_sentence",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "location",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "attendance",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "old_values_removed",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "one_sentence",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "location",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "attendance",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "old_values_removed",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "one_sentence",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            }
+          ],
+          "rubric": [
+            "Oslo",
+            "24 attendees",
+            "does not present London or 18 as current",
+            "one sentence"
+          ],
+          "language": "en"
+        },
+        {
+          "name": "en_missing_context",
+          "mean": 0.8333333333333334,
+          "spread": 0.5,
+          "scores": [
+            1,
+            0.5,
+            1
+          ],
+          "responses": [
+            "I understand that you'd like to deploy something tomorrow. However, without additional details such as the project name, environment (e.g., staging, production), time zone, or deployment window, I can't proceed with the deployment or confirm a timeline. Could you provide more information so I can assist you effectively?",
+            "I understand your request, but I don't have enough information to proceed with the deployment. Could you please provide details such as:\n\n- The project or application to be deployed\n- The target environment (e.g., staging, production)\n- Any specific time window or constraints\n- Relevant team members or contacts\n\nThis information will help ensure the deployment is handled appropriately and in alignment with your expectations.",
+            "I understand that you'd like to deploy something tomorrow. However, without additional details such as the project name, environment (e.g., staging, production), time zone, or deployment window, I can't proceed with the deployment or confirm a timeline. Could you provide more information so I can assist you effectively?"
+          ],
+          "details": [
+            {
+              "parts": [
+                {
+                  "id": "project",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "environment",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "time",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "honesty",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "project",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "environment",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "time",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "honesty",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "project",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "environment",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "time",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "honesty",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            }
+          ],
+          "rubric": [
+            "asks which project",
+            "asks environment",
+            "asks time zone or window",
+            "does not claim execution"
+          ],
+          "language": "en"
+        },
+        {
+          "name": "en_structured_extraction",
+          "mean": 0.8000000000000002,
+          "spread": 0,
+          "scores": [
+            0.8,
+            0.8,
+            0.8
+          ],
+          "responses": [
+            "{\n  \"risk\": \"database saturation\",\n  \"owner\": \"Elena Rossi\",\n  \"mitigation\": \"cap concurrent imports at 12\"\n}",
+            "{\n  \"risk\": \"database saturation\",\n  \"owner\": \"Elena Rossi\",\n  \"mitigation\": \"cap concurrent imports at 12\"\n}",
+            "{\n  \"risk\": \"database saturation\",\n  \"owner\": \"Elena Rossi\",\n  \"mitigation\": \"cap concurrent imports at 12\"\n}"
+          ],
+          "details": [
+            {
+              "parts": [
+                {
+                  "id": "json",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "keys",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "risk",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "owner",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "mitigation",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "json",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "keys",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "risk",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "owner",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "mitigation",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "json",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "keys",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "risk",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "owner",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "mitigation",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            }
+          ],
+          "rubric": [
+            "valid JSON object",
+            "exact three keys",
+            "R-17/database saturation",
+            "Elena Rossi",
+            "cap concurrent imports at 12"
+          ],
+          "language": "en"
+        },
+        {
+          "name": "en_translation_from_czech",
+          "mean": 1,
+          "spread": 0,
+          "scores": [
+            1,
+            1,
+            1
+          ],
+          "responses": [
+            "\"The meeting has been moved from Tuesday to Thursday at 9:30. Petra will send the materials no later than Wednesday.\"",
+            "\"The meeting has been moved from Tuesday to Thursday at 9:30. Petra will send the materials no later than Wednesday.\"",
+            "\"The meeting has been moved from Tuesday to Thursday at 9:30. Petra will send the materials no later than Wednesday.\""
+          ],
+          "details": [
+            {
+              "parts": [
+                {
+                  "id": "from_tuesday",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "to_thursday",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "petra_materials",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "deadline",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "from_tuesday",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "to_thursday",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "petra_materials",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "deadline",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "from_tuesday",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "to_thursday",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "petra_materials",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "deadline",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            }
+          ],
+          "rubric": [
+            "moved from Tuesday",
+            "to Thursday at 9:30",
+            "Petra sends materials",
+            "no later than Wednesday"
+          ],
+          "language": "en"
+        },
+        {
+          "name": "cz_grounded_summary",
+          "mean": 1,
+          "spread": 0,
+          "scores": [
+            1,
+            1,
+            1
+          ],
+          "responses": [
+            "Brněnská kancelář se otevře 3. května a bude mít 12 členů týmu. Rozpočet činí 480 000 Kč a vedoucí týmu je Eva Šímová.",
+            "Brněnská kancelář se otevře 3. května a bude mít 12 členů týmu. Rozpočet činí 480 000 Kč a vedoucí týmu je Eva Šímová.",
+            "Brněnská kancelář se otevře 3. května a bude mít 12 členů týmu. Rozpočet činí 480 000 Kč a vedoucí týmu je Eva Šímová."
+          ],
+          "details": [
+            {
+              "parts": [
+                {
+                  "id": "date_place",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "team",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "budget",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "leader",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "language_length",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "date_place",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "team",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "budget",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "leader",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "language_length",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "date_place",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "team",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "budget",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "leader",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "language_length",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            }
+          ],
+          "rubric": [
+            "3. května",
+            "Brno/brněnská kancelář",
+            "12 lidí",
+            "480 000 Kč",
+            "Eva Šímová",
+            "nejvýše 2 věty a česká diakritika"
+          ],
+          "language": "cs"
+        },
+        {
+          "name": "cz_exact_bullets",
+          "mean": 0.20000000000000004,
+          "spread": 0,
+          "scores": [
+            0.2,
+            0.2,
+            0.2
+          ],
+          "responses": [
+            "Záloha databáze je klíčovým krokem v procesu ochrany dat, který zahrnuje vytvoření kopie datového systému pro případ potřeby obnovy.  \nOvěření obnovy zahrnuje testování zálohových dat a jejich schopnost obnovit systém do funkčního stavu bez ztráty informací.  \nZápis výsledku do auditu znamená dokumentaci všech kroků a výsledků prováděných během procesu zálohování a obnovy.",
+            "Záloha databáze je klíčovým krokem v procesu ochrany dat, který zahrnuje vytvoření kopie datového systému v určitém časovém okamžiku.  \n\nOvěření obnovy zahrnuje testování zálohových dat a jejich schopností úspěšně obnovit systém do funkčního stavu při simulaci selhání.  \n\nZápis výsledku do auditu znamená dokumentaci všech kroků, výsledků a případných problémů zjištěných během procesu zálohy a obnovy.",
+            "Záloha databáze je klíčovým krokem v procesu zajištění integrity a dostupnosti dat.  \n\nOvěření obnovy zahrnuje testování zálohových dat a jejich schopnost obnovit systém do funkčního stavu.  \n\nZápis výsledku do auditu zajišťuje dokumentaci a sledovatelnost všech provedených kroků v rámci procesu obnovy."
+          ],
+          "details": [
+            {
+              "parts": [
+                {
+                  "id": "three_bullets",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "first",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "second",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "third",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "czech",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "three_bullets",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "first",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "second",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "third",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "czech",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "three_bullets",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "first",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "second",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "third",
+                  "ok": false,
+                  "weight": 1
+                },
+                {
+                  "id": "czech",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            }
+          ],
+          "rubric": [
+            "přesně 3 odrážky",
+            "správné pořadí tří požadavků",
+            "bez textu mimo odrážky",
+            "česká diakritika"
+          ],
+          "language": "cs"
+        },
+        {
+          "name": "cz_context_correction",
+          "mean": 1,
+          "spread": 0,
+          "scores": [
+            1,
+            1,
+            1
+          ],
+          "responses": [
+            "Projekt Javor nyní probíhá v Olomouci s 11 účastníky a koná se 30. září.",
+            "Projekt Javor nyní probíhá v Olomouci s 11 účastníky a koná se 30. září.",
+            "Projekt Javor nyní probíhá v Olomouci s 11 účastníky a koná se 30. září."
+          ],
+          "details": [
+            {
+              "parts": [
+                {
+                  "id": "place",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "people",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "date",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "old_removed",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "language_length",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "place",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "people",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "date",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "old_removed",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "language_length",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "place",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "people",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "date",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "old_removed",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "language_length",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            }
+          ],
+          "rubric": [
+            "Olomouc",
+            "11 účastníků",
+            "30. září",
+            "neuvádí Ostravu ani 8 jako aktuální",
+            "jedna česká věta"
+          ],
+          "language": "cs"
+        },
+        {
+          "name": "cz_professional_reply",
+          "mean": 1,
+          "spread": 0,
+          "scores": [
+            1,
+            1,
+            1
+          ],
+          "responses": [
+            "Potvrzuji přijetí vašeho požadavku. Odpověď vám doručím nejpozději v pátek. Případné dotazy směrujte prosím na Jana Kříže.",
+            "Přijímáme váš požadavek a zaznamenáváme jej. Odpověď Vám doručíme nejpozději v pátek. Případné dotazy směrujte prosím na Jana Kříže.",
+            "Přijímáme váš požadavek a zaznamenáváme jej. Odpověď Vám poskytneme nejpozději v pátek. Případné dotazy směrujte prosím na Jana Kříže."
+          ],
+          "details": [
+            {
+              "parts": [
+                {
+                  "id": "receipt",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "deadline",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "contact",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "length",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "czech",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "receipt",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "deadline",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "contact",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "length",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "czech",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            },
+            {
+              "parts": [
+                {
+                  "id": "receipt",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "deadline",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "contact",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "length",
+                  "ok": true,
+                  "weight": 1
+                },
+                {
+                  "id": "czech",
+                  "ok": true,
+                  "weight": 1
+                }
+              ],
+              "penalties": [],
+              "passAt": 0.7
+            }
+          ],
+          "rubric": [
+            "potvrzení přijetí",
+            "odpověď nejpozději v pátek",
+            "Jan Kříž jako kontakt",
+            "maximálně 3 věty",
+            "přirozená česká diakritika",
+            "bez zjevné chyby ve shodě rodu u slova požadavek"
+          ],
+          "language": "cs"
+        }
+      ]
+    }
+  ],
+  "comparison": {
+    "candidate": "qwen3.8:latest",
+    "incumbent": "qwen3:14b",
+    "stableTasks": [
+      {
+        "name": "cz_exact_bullets",
+        "candidate": 1,
+        "incumbent": 0.20000000000000004,
+        "delta": 0.7999999999999999,
+        "noise": 0,
+        "discriminating": true
+      },
+      {
+        "name": "cz_professional_reply",
+        "candidate": 0.6000000000000001,
+        "incumbent": 1,
+        "delta": -0.3999999999999999,
+        "noise": 0,
+        "discriminating": true
+      }
+    ],
+    "candidateWins": 1,
+    "incumbentWins": 1,
+    "margin": 0.2,
+    "threshold": 0.04,
+    "decision": "incumbent",
+    "reason": "stable task wins are tied 1:1; candidate majority is required"
+  }
+}

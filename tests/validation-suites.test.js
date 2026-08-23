@@ -9,6 +9,10 @@ import {
 } from '../src/upgrade/validation-suites.js';
 import { scoreModel, EVALUATION_VERSION } from '../src/upgrade/model-ranker.js';
 import Database from 'better-sqlite3';
+import {
+  ROLE_QUALITY_SUITES, chatV3Suite, reasoningV2Suite, reviewV2Suite,
+  describeChatTests,
+} from '../src/eval/role-quality-suites.js';
 
 // ─── Suite: Definitions ────────────────────────────────────────────────────
 
@@ -951,6 +955,126 @@ test('no_image_guard has no images', () => {
   const t = SUITES.vision.tests.find(t => t.name === 'no_image_guard');
   const p = t.prompt();
   assert(typeof p === 'string', 'no_image_guard returns plain string');
+});
+
+// ─── Suite: v136.1 Role Quality Prototype ─────────────────────────────────
+
+suite('v136.1 Role Quality Prototype');
+
+test('role suites stay outside the pinned legacy registry', () => {
+  assertEqual(Object.keys(SUITES).length, 5);
+  for (const name of ['reasoning_v2', 'chat_v3', 'review_v2', 'vision_v2']) {
+    assert(ROLE_QUALITY_SUITES[name], `missing ${name}`);
+    assertEqual(SUITES[name], undefined, `${name} must not mutate pinned SUITES`);
+  }
+});
+
+test('CHAT v3 is English-first 60/40 with thirty-five public rubrics', () => {
+  const descriptions = describeChatTests();
+  assertEqual(descriptions.length, 35);
+  assertEqual(descriptions.filter(t => t.language === 'en').length, 21);
+  assertEqual(descriptions.filter(t => t.language === 'cs').length, 14);
+  assert(descriptions.every(t => t.rubric.length >= 4), 'every CHAT task needs a public checklist');
+});
+
+test('CHAT scoring is partial rather than binary', () => {
+  const task = chatV3Suite.tests.find(t => t.name === 'en_grounded_summary');
+  const partial = task.grade('Project Northstar launches on October 14.');
+  const full = task.grade('Project Northstar launches on October 14 with a $2.4 million budget. Maya Chen owns delivery, and the risk is a delayed battery supplier.');
+  assert(partial.score > 0 && partial.score < 1, `partial score ${partial.score}`);
+  assert(full.score > partial.score, `${full.score} must exceed ${partial.score}`);
+});
+
+test('Czech CHAT rewards facts, constraints and language together', () => {
+  const task = chatV3Suite.tests.find(t => t.name === 'cz_grounded_summary');
+  const good = task.grade('Brněnská kancelář se otevře 3. května, bude mít 12 lidí a rozpočet 480 000 Kč. Vedoucí bude Eva Šímová.');
+  const weak = task.grade('Kancelar bude otevrena.');
+  assert(good.score >= 0.8, `good Czech score ${good.score}`);
+  assert(weak.score < good.score, `weak Czech score ${weak.score}`);
+});
+
+test('Czech CHAT accepts inflected names and does not count a date dot as a sentence', () => {
+  const summaryTask = chatV3Suite.tests.find(t => t.name === 'cz_grounded_summary');
+  const summary = summaryTask.grade('Brněnská kancelář se otevře 3. května a bude mít tým 12 lidí pod vedením Evy Šímové. Její rozpočet činí 480 000 Kč.');
+  assertEqual(summary.score, 1);
+
+  const correctionTask = chatV3Suite.tests.find(t => t.name === 'cz_context_correction');
+  const correction = correctionTask.grade('Projekt Javor se bude konat 30. září v Olomouci s 11 účastníky.');
+  assertEqual(correction.score, 1);
+});
+
+test('Czech professional reply penalizes an observed gender-agreement error', () => {
+  const task = chatV3Suite.tests.find(t => t.name === 'cz_professional_reply');
+  const correct = task.grade('Váš požadavek jsme přijali. Odpověď pošleme nejpozději v pátek. S dotazy se obraťte na Jana Kříže.');
+  const incorrect = task.grade('Vaši požadavek jsme přijali. Odpověď pošleme nejpozději v pátek. S dotazy se obraťte na Jana Kříže.');
+  assert(correct.score > incorrect.score, `${correct.score} must exceed ${incorrect.score}`);
+  assert(incorrect.detail.penalties.some(item => item.id === 'gender_agreement'));
+});
+
+test('new Czech grammar tasks distinguish correct inflection and agreement', () => {
+  const declension = chatV3Suite.tests.find(t => t.name === 'cz_declension');
+  const goodDeclension = declension.grade('Děkuji Evě Šímové za pomoc a dokument pošlu Janu Křížovi zítra.');
+  const badDeclension = declension.grade('Děkuji Eva Šímová za pomoc a dokument pošlu Jan Kříž zítra.');
+  assertEqual(goodDeclension.score, 1);
+  assert(badDeclension.score < goodDeclension.score);
+
+  const plural = chatV3Suite.tests.find(t => t.name === 'cz_plural_agreement');
+  assertEqual(plural.grade('Noví zákazníci byli spokojení, protože jejich požadavky byly vyřešené.').score, 1);
+  assert(plural.grade('Nový zákazník byl spokojený, protože jeho požadavek byl vyřešený.').score < 0.5);
+
+  const correction = chatV3Suite.tests.find(t => t.name === 'cz_grammar_correction');
+  assertEqual(correction.grade('Nové analýzy byly dokončeny v pondělí a jejich výsledky byly odeslány zákazníkovi.').score, 1);
+  assert(correction.grade('Nové analýzy byl dokončený v pondělí a jejich výsledky byl odeslaný zákazníkovi.').score < 0.5);
+
+  const numerals = chatV3Suite.tests.find(t => t.name === 'cz_numeral_cases');
+  assertEqual(numerals.grade('Evidujeme 2 nové požadavky bez 5 příloh a se 3 otevřenými incidenty.').score, 1);
+  assert(numerals.grade('Evidujeme 2 nový požadavek bez 5 příloha a se 3 otevřený incident.').score < 0.5);
+});
+
+test('CHAT exact-format tasks award components without accepting stale values', () => {
+  const priority = chatV3Suite.tests.find(t => t.name === 'en_instruction_priority');
+  assertEqual(priority.grade('Owner: Luis\nDeadline: Monday').score, 1);
+  assert(priority.grade('Owner: Mina\nDeadline: Friday').score < 0.5);
+
+  const clarification = chatV3Suite.tests.find(t => t.name === 'cz_ambiguity_clarification');
+  const good = clarification.grade('Komu a co mám poslat a v jakém časovém pásmu či konkrétním čase?');
+  assertEqual(good.score, 1);
+});
+
+test('new CHAT precision tasks grade vocative, negation and ambiguity', () => {
+  const vocative = chatV3Suite.tests.find(t => t.name === 'cz_vocative_request');
+  assertEqual(vocative.grade('Vážený pane Dvořáku, zašlete prosím podepsanou smlouvu nejpozději ve středu.').score, 1);
+  assertEqual(vocative.grade('Vážený pane Dvořáku, prosím, zašlete mi podepsanou smlouvu nejpozději ve středu.').score, 1);
+  assert(vocative.grade('Vážený pane Dvořák, pošlete smlouvu ve středu.').score < 0.5);
+
+  const counts = chatV3Suite.tests.find(t => t.name === 'cz_double_negation_counts');
+  assertEqual(counts.grade('Dva audity prošly a tři audity neprošly.').score, 1);
+  assert(counts.grade('Žádný audit neprošel.').score < 0.5);
+
+  const ambiguity = chatV3Suite.tests.find(t => t.name === 'en_ambiguous_reference');
+  assertEqual(ambiguity.grade("Whose deployment token expired, Jordan's or Casey's?").score, 1);
+});
+
+test('reasoning task awards each exact intermediate result', () => {
+  const task = reasoningV2Suite.tests.find(t => t.name === 'reason_transform');
+  const partial = task.grade('{"after_multiply":20,"after_subtract":14,"after_divide":8,"result":64}');
+  const full = task.grade('{"after_multiply":20,"after_subtract":14,"after_divide":7,"result":49}');
+  assert(partial.score > 0 && partial.score < 1);
+  assertEqual(full.score, 1);
+});
+
+test('review scoring rewards recall and penalizes invented findings', () => {
+  const task = reviewV2Suite.tests.find(t => t.name === 'review_sql_null');
+  const exact = task.grade('{"findings":[{"line":2,"kind":"sql_injection"},{"line":3,"kind":"null_dereference"}]}');
+  const noisy = task.grade('{"findings":[{"line":2,"kind":"sql_injection"},{"line":3,"kind":"secret_exposure"}]}');
+  assertEqual(exact.score, 1);
+  assert(noisy.score < exact.score, `${noisy.score} must be below exact`);
+});
+
+test('clean review case gets full score only for an empty finding set', () => {
+  const task = reviewV2Suite.tests.find(t => t.name === 'review_clean');
+  assertEqual(task.grade('{"findings":[]}').score, 1);
+  assert(task.grade('{"findings":[{"line":1,"kind":"resource_leak"}]}').score < 1);
 });
 
 // ─── Summary ───────────────────────────────────────────────────────────────

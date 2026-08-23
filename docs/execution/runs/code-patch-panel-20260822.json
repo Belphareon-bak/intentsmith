@@ -1,0 +1,145 @@
+{
+  "measuredAt": "2026-08-22T21:38:37.410Z",
+  "models": [
+    "qwen3-coder:latest",
+    "qwen3.5:27b",
+    "qwen3-30b-a3b:latest",
+    "qwen3:14b",
+    "llava:13b"
+  ],
+  "repeats": 3,
+  "tasks": [
+    {
+      "name": "patch_055c8210",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_a33cc20a",
+      "values": [
+        0.333,
+        0,
+        0.333,
+        0.333,
+        0.222
+      ],
+      "noise": 0.3333333333333333,
+      "verdict": "nestabilní"
+    },
+    {
+      "name": "patch_c18da1e0",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_d8a2aa05",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_da03e8bd",
+      "values": [
+        0,
+        1,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "rozlišuje"
+    },
+    {
+      "name": "patch_723d5726",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_cc4bc3e7",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_419090cd",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_06d49847",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    }
+  ],
+  "scores": [
+    [
+      "qwen3.5:27b",
+      0.1111111111111111
+    ],
+    [
+      "qwen3-coder:latest",
+      0.037000000000000005
+    ],
+    [
+      "qwen3-30b-a3b:latest",
+      0.037000000000000005
+    ],
+    [
+      "qwen3:14b",
+      0.037000000000000005
+    ],
+    [
+      "llava:13b",
+      0.024666666666666667
+    ]
+  ],
+  "discriminating": 1,
+  "total": 9
+}

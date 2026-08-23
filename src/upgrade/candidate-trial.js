@@ -214,9 +214,37 @@ export async function tryCandidate(candidateName, ctx = {}) {
     error: null,
   };
 
+  // Suite readiness is known before download or GPU placement. Do not spend
+  // network, VRAM and capability probes on a candidate when none of its roles
+  // is allowed to make a decision yet.
+  const runnableRoles = [];
+  for (const role of roles) {
+    const plan = ctx.evaluationPlans?.[role] || null;
+    const minimumTaskCount = plan?.minimumTaskCount ?? 1;
+    if (plan && plan.taskCount < minimumTaskCount) {
+      const reason = `${plan.suiteName} má ${plan.taskCount}/${minimumTaskCount} `
+        + 'požadovaných aktivních úloh';
+      out.trials.push({ role, skipped: true, reason });
+      onStage('roleSkipped', candidateName, { role, reason });
+    } else {
+      runnableRoles.push(role);
+    }
+  }
+  if (roles.length > 0 && runnableRoles.length === 0) {
+    out.stage = 'suite-readiness';
+    out.inconclusive = true;
+    out.keptReason = 'role nemá dostatečně rozlišující validační sadu';
+    return out;
+  }
+
   try {
-    onStage('pull', candidateName);
-    await pullModel(candidateName, ctx);
+    if (ctx.skipPull === true) {
+      out.stage = 'measure';
+      onStage('pullSkipped', candidateName, { reason: 'already installed' });
+    } else {
+      onStage('pull', candidateName);
+      await pullModel(candidateName, ctx);
+    }
 
     onStage('measure', candidateName);
     out.stage = 'measure';
@@ -246,7 +274,12 @@ export async function tryCandidate(candidateName, ctx = {}) {
 
     onStage('floor', candidateName);
     out.stage = 'floor';
-    out.floor = await runCapabilityFloor(candidateName, ctx);
+    const reusable = typeof ctx.hasReusableEvaluation === 'function'
+      ? await ctx.hasReusableEvaluation(candidateName, runnableRoles)
+      : false;
+    out.floor = reusable
+      ? { passed: true, failures: [], reused: true }
+      : await runCapabilityFloor(candidateName, ctx);
     if (!out.floor.passed) {
       out.error = `neprošel schopnostním minimem: ${out.floor.failures.map(f => f.reason).join('; ')}`;
       if (removalAllowed) out.removed = await removeModel(candidateName, ctx);
@@ -269,9 +302,10 @@ export async function tryCandidate(candidateName, ctx = {}) {
     out.stage = 'trial';
     // Sdílená cache napříč rolemi — `reasoning` obsluhuje D1, D2 i R1.
     const suiteCache = createSuiteCache();
-    for (const role of roles) {
+    for (const role of runnableRoles) {
       const incumbent = bindings[role];
       if (!incumbent) continue;
+      const evaluationPlan = ctx.evaluationPlans?.[role] || null;
 
       // Nezpůsobilá role se nesoutěží.  Textový model nemá co dělat v souboji
       // o VISION — jednak by tam nemohl vyhrát, jednak by to stálo šest běhů
@@ -283,6 +317,7 @@ export async function tryCandidate(candidateName, ctx = {}) {
         continue;
       }
       const result = await trialRole(runner, role, candidateName, incumbent, {
+        evaluationPlan,
         threshold: IMPROVEMENT_THRESHOLD[role] ?? 0.05,
         speed: {
           candidate: out.measurement.throughput?.tokensPerSecond ?? 0,

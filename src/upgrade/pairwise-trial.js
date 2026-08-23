@@ -64,6 +64,7 @@ export function createSuiteCache() {
  * modelu — tedy kolik z pozorovaného rozdílu jde na vrub náhodě, ne kvalitě.
  */
 async function runSuiteRepeated(runner, suiteName, model, repeats, onProgress, between) {
+  const started = Date.now();
   const runs = [];
   for (let i = 0; i < repeats; i++) {
     if (i > 0 && between) await between();
@@ -73,16 +74,28 @@ async function runSuiteRepeated(runner, suiteName, model, repeats, onProgress, b
   const byTask = new Map();
   for (const run of runs) {
     for (const t of run.tests) {
-      if (!byTask.has(t.name)) byTask.set(t.name, []);
-      byTask.get(t.name).push(t.score ?? 0);
+      if (!byTask.has(t.name)) {
+        byTask.set(t.name, {
+          scores: [], responses: [], details: [], rubric: t.rubric || [],
+          language: t.language || null,
+        });
+      }
+      const row = byTask.get(t.name);
+      row.scores.push(t.score ?? 0);
+      row.responses.push(t.response || '');
+      row.details.push(t.detail || null);
     }
   }
 
-  const tasks = [...byTask.entries()].map(([name, scores]) => ({
+  const tasks = [...byTask.entries()].map(([name, row]) => ({
     name,
-    mean: scores.reduce((a, b) => a + b, 0) / scores.length,
-    spread: Math.max(...scores) - Math.min(...scores),
-    scores,
+    mean: row.scores.reduce((a, b) => a + b, 0) / row.scores.length,
+    spread: Math.max(...row.scores) - Math.min(...row.scores),
+    scores: row.scores,
+    responses: row.responses,
+    details: row.details,
+    rubric: row.rubric,
+    language: row.language,
   }));
 
   return {
@@ -92,18 +105,51 @@ async function runSuiteRepeated(runner, suiteName, model, repeats, onProgress, b
     tasks,
     score: tasks.reduce((s, t) => s + t.mean, 0) / (tasks.length || 1),
     unstableTasks: tasks.filter(t => t.spread > 0).map(t => t.name),
+    durationMs: Date.now() - started,
+    reused: false,
   };
 }
 
+function cacheKey(suiteName, model, opts = {}) {
+  return `${suiteName}::${opts.suiteContractSha256 || 'legacy'}::${model}`;
+}
+
 async function runSuiteCached(runner, suiteName, model, cache, opts = {}) {
-  const key = `${suiteName}::${model}`;
+  const key = cacheKey(suiteName, model, opts);
   if (cache?.has(key)) return cache.get(key);
+
+  if (typeof opts.loadHistoricalSummary === 'function') {
+    const historical = await opts.loadHistoricalSummary({
+      role: opts.role || null,
+      suiteName,
+      suiteVersion: opts.suiteVersion || 'unversioned',
+      suiteContractSha256: opts.suiteContractSha256 || null,
+      model,
+      repeats: opts.repeats ?? DEFAULT_REPEATS,
+    });
+    if (historical) {
+      const reused = { ...historical, suite: suiteName, model, reused: true };
+      cache?.set(key, reused);
+      return reused;
+    }
+  }
+
   const result = await runSuiteRepeated(
     runner, suiteName, model,
     opts.repeats ?? DEFAULT_REPEATS,
     opts.onProgress,
     opts.between,
   );
+  if (typeof opts.saveHistoricalSummary === 'function') {
+    await opts.saveHistoricalSummary({
+      role: opts.role || null,
+      suiteName,
+      suiteVersion: opts.suiteVersion || 'unversioned',
+      suiteContractSha256: opts.suiteContractSha256 || null,
+      model,
+      summary: result,
+    });
+  }
   cache?.set(key, result);
   return result;
 }
@@ -126,8 +172,8 @@ export async function comparePair(runner, suiteName, candidate, incumbent, opts 
   if (!suite) throw new Error(`Neznámá validační sada: ${suiteName}`);
 
   const cache = opts.suiteCache;
-  const candidateCached = cache?.has(`${suiteName}::${candidate}`);
-  const incumbentCached = cache?.has(`${suiteName}::${incumbent}`);
+  const candidateCached = cache?.has(cacheKey(suiteName, candidate, opts));
+  const incumbentCached = cache?.has(cacheKey(suiteName, incumbent, opts));
 
   // Pořadí je záměrné: oba modely projdou tutéž sadu, ale každý zvlášť, aby
   // se nepřetahovaly o VRAM. Kdo je rezidentní, ovlivňuje výsledek — změřeno
@@ -150,6 +196,7 @@ export async function comparePair(runner, suiteName, candidate, incumbent, opts 
     const threshold = Math.max(TASK_MARGIN_EPSILON, noise);
     tasks.push({
       name: c.name,
+      language: c.language || i.language || null,
       candidateScore: Math.round(c.mean * 1000) / 1000,
       incumbentScore: Math.round(i.mean * 1000) / 1000,
       candidateSpread: c.spread,
@@ -193,8 +240,33 @@ export async function comparePair(runner, suiteName, candidate, incumbent, opts 
  * @param {Object} speed - { candidate: tok/s, incumbent: tok/s }
  * @param {number} threshold - IMPROVEMENT_THRESHOLD pro roli
  */
-export function decideRole(comparison, speed = {}, threshold = 0.05) {
+export function decideRole(comparison, speed = {}, threshold = 0.05, evidence = {}) {
   const { margin, candidateWins, incumbentWins, inconclusive } = comparison;
+
+  const minimumTotal = Math.max(0, Number(evidence.minimumDiscriminatingTasks) || 0);
+  const languageMinimums = evidence.minimumDiscriminatingByLanguage || {};
+  const discriminatingRows = (comparison.tasks || []).filter(task => task.discriminating);
+  const byLanguage = Object.fromEntries(Object.keys(languageMinimums).map(language => [
+    language,
+    discriminatingRows.filter(task => task.language === language).length,
+  ]));
+  const missingTotal = comparison.discriminating < minimumTotal;
+  const missingLanguages = Object.entries(languageMinimums)
+    .filter(([language, minimum]) => (byLanguage[language] || 0) < minimum);
+  if (missingTotal || missingLanguages.length) {
+    const requirements = [
+      minimumTotal ? `${comparison.discriminating}/${minimumTotal} celkem` : null,
+      ...Object.entries(languageMinimums).map(([language, minimum]) => (
+        `${language} ${byLanguage[language] || 0}/${minimum}`
+      )),
+    ].filter(Boolean).join(', ');
+    return {
+      winner: 'incumbent',
+      basis: 'nedostatečný důkaz',
+      confidence: 'nedostatečná',
+      detail: `automatická výměna zablokována: stabilně rozlišující úlohy ${requirements}`,
+    };
+  }
 
   // Rozhodnutí opřené o jedinou úlohu je jedno pozorování, ne trend. Signál se
   // nezahazuje — úloha stabilní přes tři běhy nese informaci — ale operátor má
@@ -219,6 +291,15 @@ export function decideRole(comparison, speed = {}, threshold = 0.05) {
         basis: 'kvalita',
         confidence,
         detail: `kandidát ztrácí ${Math.abs(margin).toFixed(3)} na ${comparison.discriminating} úlohách, jistota ${confidence}`,
+      };
+    }
+    if (margin >= threshold && candidateWins <= incumbentWins) {
+      return {
+        winner: 'incumbent',
+        basis: 'kvalita',
+        confidence,
+        detail: `marže ${margin.toFixed(3)} splnila práh ${threshold}, ale poměr rozlišujících úloh `
+          + `${candidateWins}:${incumbentWins} nepotvrdil většinu kandidáta — stávající zůstává`,
       };
     }
     return {
@@ -259,11 +340,23 @@ export function decideRole(comparison, speed = {}, threshold = 0.05) {
  * Kompletní souboj pro jednu roli: porovná a rozhodne.
  */
 export async function trialRole(runner, role, candidate, incumbent, opts = {}) {
-  const suiteName = getSuiteForRole(role);
+  const plan = opts.evaluationPlan || null;
+  const suiteName = plan?.suiteName || getSuiteForRole(role);
   if (!suiteName) return { role, skipped: true, reason: `role ${role} nemá validační sadu` };
 
-  const comparison = await comparePair(runner, suiteName, candidate, incumbent, opts);
-  const decision = decideRole(comparison, opts.speed || {}, opts.threshold ?? 0.05);
+  const comparison = await comparePair(runner, suiteName, candidate, incumbent, {
+    ...opts,
+    role,
+    suite: plan?.suite || opts.suite,
+    suiteVersion: plan?.suiteVersion || opts.suiteVersion,
+    suiteContractSha256: plan?.suiteContractSha256 || opts.suiteContractSha256,
+  });
+  const decision = decideRole(comparison, opts.speed || {}, opts.threshold ?? 0.05, {
+    minimumDiscriminatingTasks: plan?.minimumDiscriminatingTasks
+      ?? opts.minimumDiscriminatingTasks,
+    minimumDiscriminatingByLanguage: plan?.minimumDiscriminatingByLanguage
+      ?? opts.minimumDiscriminatingByLanguage,
+  });
 
   logger.info('PairwiseTrial',
     `${role}: ${candidate} vs ${incumbent} → ${decision.winner} (${decision.basis}) — ${decision.detail}`);

@@ -12,6 +12,8 @@ import { readFileSync } from 'node:fs';
 import { SUITES } from '../src/upgrade/validation-suites.js';
 import { comparePair } from '../src/upgrade/pairwise-trial.js';
 import { codePatchSuite, CodePatchValidationRunner, MODEL_OPTIONS } from '../src/eval/code-patch-suite.js';
+import { preserveCalibration } from '../src/eval/build-code-suite.js';
+import { calibrate, buildPanelSummaries } from '../src/eval/calibrate-code-suite.js';
 import {
   MODEL_FAILOVER_PROOF_POLICY_SOURCE_PINS,
   getModelFailoverProofPolicy,
@@ -106,9 +108,83 @@ await testAsync('chyba volání dá nulu a nespadne', async () => {
 
 test('v běžné sadě jsou jen kalibrované aktivní úlohy', () => {
   const fixture = JSON.parse(readFileSync(new URL('../src/eval/code-suite-tasks.json', import.meta.url), 'utf8'));
-  const active = fixture.tasks.filter(t => !t.status || t.status === 'active');
+  const active = fixture.tasks.filter(t => t.status === 'active');
   assertEqual(codePatchSuite.tests.length, active.length);
-  assert(codePatchSuite.tests.length > 0, 'sada by neměřila nic');
+});
+
+test('rebuild zachová kalibraci jen při totožném úplném fingerprintu', () => {
+  const previous = {
+    tasks: [{
+      hash: 'abc', taskFingerprint: 'same', status: 'active',
+      calibration: { verdict: 'rozlišuje', values: [1, 0] },
+    }],
+  };
+  const [same, changed] = preserveCalibration([
+    { hash: 'abc', taskFingerprint: 'same' },
+    { hash: 'abc', taskFingerprint: 'different' },
+  ], previous);
+  assertEqual(same.status, 'active');
+  assertEqual(same.calibration.verdict, 'rozlišuje');
+  assertEqual(changed.status, 'pending-recalibration');
+  assertEqual(changed.calibration, null);
+});
+
+test('inkrementální kalibrace nezahodí dříve změřenou úlohu', () => {
+  const fixture = { tasks: [
+    { hash: 'aaa00000', taskFingerprint: 'a'.repeat(64), status: 'active', calibration: { verdict: 'rozlišuje' } },
+    { hash: 'bbb00000', taskFingerprint: 'b'.repeat(64), status: 'pending-recalibration', calibration: null },
+  ] };
+  const out = calibrate(fixture, {
+    measuredAt: '2026-08-22T00:00:00.000Z', models: ['a', 'b'], repeats: 3,
+    tasks: [{ name: `patch_${'b'.repeat(12)}`, verdict: 'podlaha', values: [0, 0], noise: 0 }],
+  });
+  assertEqual(out.tasks[0].status, 'active');
+  assertEqual(out.tasks[0].calibration.verdict, 'rozlišuje');
+  assertEqual(out.tasks[1].status, 'reserve-floor');
+});
+
+test('kalibrační panel se převede na reusable historii jen z aktivních úloh', () => {
+  const summaries = buildPanelSummaries({ tasks: [
+    { hash: 'aaa00000', taskFingerprint: 'a'.repeat(64), status: 'active' },
+    { hash: 'bbb00000', taskFingerprint: 'b'.repeat(64), status: 'active' },
+    { hash: 'ccc00000', taskFingerprint: 'c'.repeat(64), status: 'reserve-floor' },
+  ] }, [{
+    models: ['candidate', 'incumbent'], repeats: 3,
+    tasks: [
+      { name: `patch_${'a'.repeat(12)}`, values: [0.25, 0.75], noise: 0 },
+      { name: `patch_${'b'.repeat(12)}`, values: [1, 0.5], noise: 0.1 },
+      { name: `patch_${'c'.repeat(12)}`, values: [0, 0], noise: 0 },
+    ],
+  }]);
+  assertEqual(summaries.length, 2);
+  assertEqual(summaries[0].tasks.length, 2);
+  assertEqual(summaries[0].score, 0.625);
+  assertEqual(summaries[1].score, 0.625);
+});
+
+test('multi-source úlohy ze stejného commitu mají odlišnou runtime identitu', () => {
+  const fixture = { tasks: [
+    { hash: 'abc12345', source: 'src/a.js', taskFingerprint: '1'.repeat(64), status: 'pending-recalibration', calibration: null },
+    { hash: 'abc12345', source: 'src/b.js', taskFingerprint: '2'.repeat(64), status: 'pending-recalibration', calibration: null },
+  ] };
+  const out = calibrate(fixture, {
+    measuredAt: '2026-08-23T00:00:00.000Z', models: ['a', 'b'], repeats: 3,
+    tasks: [
+      { name: `patch_${'1'.repeat(12)}`, verdict: 'rozlišuje', values: [1, 0], noise: 0 },
+      { name: `patch_${'2'.repeat(12)}`, verdict: 'podlaha', values: [0, 0], noise: 0 },
+    ],
+  });
+  assertEqual(out.tasks[0].status, 'active');
+  assertEqual(out.tasks[1].status, 'reserve-floor');
+});
+
+test('zneplatněný kolizní report nelze kalibrovat ani importovat', () => {
+  const invalid = { invalidated: true, invalidReason: 'task id collision', tasks: [] };
+  let calibrationBlocked = false;
+  let importBlocked = false;
+  try { calibrate({ tasks: [] }, invalid); } catch { calibrationBlocked = true; }
+  try { buildPanelSummaries({ tasks: [] }, [invalid]); } catch { importBlocked = true; }
+  assert(calibrationBlocked && importBlocked, 'invalid evidence must fail closed');
 });
 
 summary();

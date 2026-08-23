@@ -13,54 +13,147 @@
 //
 // Kurátorský filtr má čtyři síta a každé z nich něco vyřazuje:
 //
-//   1. jeden zdroják + jeden test v commitu   — jinak není jasné, co opravit
-//   2. změna uvnitř jediné funkce             — jinak se nedá zadat „přepiš tuhle funkci"
-//   3. funkce do N řádků                      — delší se generují minuty
+//   1. jeden zdroják v commitu                 — jinak není jasné, co opravit
+//   2. změna se dá přiřadit úsekům souboru    — funkcím i vrcholovým konstrukcím
+//   3. úseky do N řádků dohromady             — delší se generují minuty
 //   4. test padá před opravou, prochází s gold patchem, **ve stejné izolaci**
 //      jako pak poběží odpověď modelu
 //
 // Čtvrté síto je to podstatné: co jím projde, je zaručeně řešitelné a měřitelné.
 //
+// ─── Proč se kandidáti řadí, a ne berou popořadě ────────────────────────────
+//
+// Úloha s **jediným** cílovým testem umí dát jen 0, nebo 1 — žádnou mezipolohu,
+// takže o modelech mezi podlahou a stropem neřekne nic.  `a33cc20a` rozlišila
+// právě proto, že má tři cíle a šlo dát 0,33.  Kolik cílů úloha bude mít, se
+// s jistotou pozná až po ověření, ale počet testů, které commit přidal, je
+// levný a těsný odhad — `deriveTask()` ho vrací jako `requirements` a testy
+// se nespouští.  Ověřuje se proto v pořadí podle něj, ne podle stáří commitu.
+//
 // ══════════════════════════════════════════════════════════════════════════════
 
-import { writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { findCandidates } from './code-task-extractor.js';
-import { deriveTask, verifyTask } from './code-patch-runner.js';
+import { buildPrompt, deriveTask, verifyTask } from './code-patch-runner.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const FIXTURE_PATH = path.join(HERE, 'code-suite-tasks.json');
+export const CODE_TASK_CONTRACT_VERSION = 'code-task-v2';
+
+function digest(value) {
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
+/**
+ * Stable runtime identity of one patch task.
+ *
+ * A commit hash is not enough in multi-source mode: one commit can yield
+ * several independently verified source-file tasks.  Prefer the complete
+ * contract fingerprint; retain a deterministic fallback for older fixtures.
+ */
+export function codeTaskName(task) {
+  const fingerprint = String(task?.taskFingerprint || '').toLowerCase();
+  if (/^[0-9a-f]{64}$/.test(fingerprint)) return `patch_${fingerprint.slice(0, 12)}`;
+  const hash = String(task?.hash || '').slice(0, 8);
+  if (task?.source) return `patch_${hash}_${digest(String(task.source)).slice(0, 8)}`;
+  return `patch_${hash}`;
+}
+
+export function taskFingerprint(task, verdict) {
+  return digest({
+    version: CODE_TASK_CONTRACT_VERSION,
+    hash: task.hash,
+    source: task.source,
+    tests: task.tests,
+    prompt: buildPrompt(task),
+    scoreMode: verdict.scoreMode,
+    failToPass: verdict.failToPass,
+    passToPass: verdict.passToPass,
+    knownFailing: verdict.knownFailing,
+  });
+}
+
+export function preserveCalibration(tasks, previous = null) {
+  const byFingerprint = new Map((previous?.tasks || [])
+    .filter(task => task.taskFingerprint)
+    .map(task => [task.taskFingerprint, task]));
+  return tasks.map(task => {
+    const old = byFingerprint.get(task.taskFingerprint);
+    if (old?.calibration && old?.status) {
+      return { ...task, status: old.status, calibration: old.calibration };
+    }
+    return { ...task, status: 'pending-recalibration', calibration: null };
+  });
+}
 
 export function buildSuite(repo, opts = {}) {
   const maxFunctionLines = opts.maxFunctionLines ?? 120;
-  const wanted = opts.count ?? 12;
+  const maxRequirements = opts.maxRequirements ?? Number.POSITIVE_INFINITY;
+  const wanted = opts.count ?? 24;
   const log = opts.log ?? (() => {});
 
-  const candidates = findCandidates(repo, { limit: opts.limit ?? 1500, maxDiffLines: opts.maxDiffLines ?? 60 });
+  const candidates = findCandidates(repo, {
+    limit: opts.limit ?? 1500,
+    maxDiffLines: opts.maxDiffLines ?? 60,
+    allowMultipleSources: opts.allowMultipleSources === true,
+  });
   log(`kandidátů: ${candidates.length}`);
 
   const accepted = [];
   const rejected = [];
+  const timedOutCommits = new Set();
 
+  // Odvození je levné (žádný spuštěný test), takže se udělá pro všechny
+  // kandidáty najednou a teprve pak se rozhodne, v jakém pořadí se ověřují.
+  const derived = [];
   for (const candidate of candidates) {
-    if (accepted.length >= wanted) break;
-
     const { task, reason } = deriveTask(repo, candidate);
     if (!task) { rejected.push({ hash: candidate.hash, reason }); continue; }
+    if (task.requirements.length > maxRequirements) {
+      rejected.push({
+        hash: candidate.hash,
+        reason: `úloha má ${task.requirements.length} požadavků (limit ${maxRequirements})`,
+      });
+      continue;
+    }
     if (task.functionLines > maxFunctionLines) {
-      rejected.push({ hash: candidate.hash, reason: `funkce má ${task.functionLines} ř. (limit ${maxFunctionLines})` });
+      rejected.push({ hash: candidate.hash, reason: `úseky mají ${task.functionLines} ř. (limit ${maxFunctionLines})` });
+      continue;
+    }
+    derived.push({ candidate, task });
+  }
+
+  // Víc přidaných testů → víc cílů → úloha umí i mezistupeň.  Při shodě jde
+  // napřed kratší zadání: generuje se rychleji a sada se dá proběhnout častěji.
+  derived.sort((a, b) => (b.task.requirements.length - a.task.requirements.length)
+    || (a.task.functionLines - b.task.functionLines));
+  log(`odvozeno: ${derived.length} (ověřuje se od nejvíc přidaných testů)`);
+
+  for (const { candidate, task } of derived) {
+    if (accepted.length >= wanted) break;
+    if (timedOutCommits.has(candidate.hash)) {
+      rejected.push({ hash: candidate.hash, reason: 'jiný zdroj téhož commitu už timeoutoval' });
       continue;
     }
 
-    log(`  ověřuji ${candidate.hash.slice(0, 8)} (${task.functionLines} ř., ${task.functionCount} fn)…`);
+    log(`  ověřuji ${candidate.hash.slice(0, 8)} (${task.functionLines} ř., ${task.functionCount} úseků, `
+      + `${task.requirements.length} přidaných testů)…`);
     const verdict = verifyTask(repo, task, opts);
-    if (!verdict.usable) { rejected.push({ hash: candidate.hash, reason: verdict.reason }); continue; }
+    if (!verdict.usable) {
+      if (/vypršel|timed?\s*out/i.test(verdict.reason || '')) timedOutCommits.add(candidate.hash);
+      rejected.push({ hash: candidate.hash, reason: verdict.reason });
+      continue;
+    }
 
     accepted.push({
       hash: task.hash,
       source: task.source,
       test: task.test,
+      tests: task.tests,
       subject: task.subject,
       functionCount: task.functionCount,
       functionLines: task.functionLines,
@@ -72,6 +165,7 @@ export function buildSuite(repo, opts = {}) {
       failToPass: verdict.failToPass,
       passToPass: verdict.passToPass,
       knownFailing: verdict.knownFailing,
+      taskFingerprint: taskFingerprint(task, verdict),
     });
     log(`  ✅ ${candidate.hash.slice(0, 8)} [${verdict.scoreMode}] `
       + `${verdict.failToPass.length} cílových / ${verdict.passToPass.length} hlídaných`
@@ -90,15 +184,29 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToP
   const result = buildSuite(repo, {
     maxFunctionLines: arg('--max-function-lines', 120),
     maxDiffLines: arg('--max-diff-lines', 60),
+    maxRequirements: arg('--max-requirements', Number.POSITIVE_INFINITY),
+    testTimeout: arg('--test-timeout', 120_000),
     limit: arg('--limit', 1500),
-    count: arg('--count', 12),
+    count: arg('--count', 24),
+    allowMultipleSources: process.argv.includes('--multi-source'),
     log: (m) => console.log(m),
   });
 
+  let previous = null;
+  if (existsSync(FIXTURE_PATH)) {
+    try { previous = JSON.parse(readFileSync(FIXTURE_PATH, 'utf8')); } catch { previous = null; }
+  }
+  const repoHead = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim();
+  const workingTreeDirty = execFileSync('git', ['status', '--porcelain'], { cwd: repo, encoding: 'utf8' }).trim().length > 0;
+  const tasks = preserveCalibration(result.tasks, previous);
+
   writeFileSync(FIXTURE_PATH, JSON.stringify({
     generatedAt: new Date().toISOString(),
-    repoHead: process.env.EVAL_HEAD || null,
-    tasks: result.tasks,
+    repoHead,
+    workingTreeDirty,
+    taskContractVersion: CODE_TASK_CONTRACT_VERSION,
+    tasks,
+    rejected: result.rejected,
   }, null, 2) + '\n');
 
   console.log(`\nhotovo: ${result.tasks.length} úloh z ${result.examined} kandidátů → ${path.relative(repo, FIXTURE_PATH)}`);
@@ -107,4 +215,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToP
   console.log('zamítnuto:', reasons);
 }
 
-export default { buildSuite, FIXTURE_PATH };
+export default {
+  buildSuite, FIXTURE_PATH, CODE_TASK_CONTRACT_VERSION,
+  taskFingerprint, preserveCalibration,
+};
