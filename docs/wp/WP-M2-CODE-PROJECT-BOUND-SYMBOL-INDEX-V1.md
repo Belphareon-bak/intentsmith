@@ -10,6 +10,8 @@ mezikrok, nikoli cílový stav; jako první se obnoví project-bound symbol look
 
 **Contract-review base:** `c4ffb2de`
 
+**Containment implementation base:** `44a9ba87`
+
 **Inspekční revision závady:** `b00df959`
 
 **Produkční vstup:** čistý integrační SHA s přijatým M1 a integrovaným
@@ -55,8 +57,9 @@ Implementace nezačne, dokud současně neplatí:
 - balík má vlastní worktree/branch z tohoto integračního SHA;
 - vlastník test registry rezervoval nové append-only suite ID.
 
-Tento dokument neodblokovává psaní product code na divergentním `c4ffb2de`,
-`44a9ba87` ani `b00df959`.
+Tento dokument neodblokovává symbol-index product code na `c4ffb2de`,
+`b00df959` ani na samotném `44a9ba87`. Symbol WP dostane vlastní branch až z
+pozdějšího SHA, které integruje containment a jeho přijatou evidenci.
 
 ## 3. Contract boundary
 

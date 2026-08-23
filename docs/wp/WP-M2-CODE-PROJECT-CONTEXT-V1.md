@@ -2,20 +2,21 @@
 
 **Typ:** větší paralelní Work Package pro coworkera
 
-**Stav:** `CONTRACT_ACCEPTED / IMPLEMENTATION_BLOCKED_ON_INTEGRATION_BASE`;
-žádná M2 implementace
+**Stav:** `CONTRACT_ACCEPTED / READY_FOR_IMPLEMENTATION_ON_44a9ba87`
 
 **Contract-review base:** `c4ffb2de` — poslední commit této linie před M2
 implementací, který otevírá M2 po P0 closeoutu
 
 **Inspekční revision:** `b00df959`
 
-**Produkční vstup:** nový čistý integrační SHA s operátorsky přijatým M1;
-`c4ffb2de` ani divergentní `44a9ba87` se za něj samostatně nepovažují
+**Produkční implementační base:** `44a9ba87` — čistý M1 closeout,
+`ROADMAP.md` zde vede M1 jako `ACCEPTED / GATE_2_PASS`; tato branch je jeho
+přímý potomek
 
-**Integrační evidence 2026-08-23:**
-`git rev-list --left-right --count c4ffb2de...44a9ba87` => `113 101`;
-žádný z těchto tipů tedy není náhradou čistého integračního kroku
+**Nahrazený blocker:** původní review zjistilo divergenci
+`c4ffb2de...44a9ba87` => `113 101`. Implementace proto nevzniká mergem těchto
+tipů: schválený contract commit byl čistě přenesen na nový branch přímo z
+`44a9ba87`.
 
 **Autorita:** `ROADMAP.md` §6 `WP-M2-CODE`; `CONTRACT.md` §7
 
@@ -30,15 +31,14 @@ nevydá za jinou.
 `ROADMAP.md` dovoluje `WP-M2-CODE` běžet vedle `WP-M2-EFFECT`, protože
 project-context connector neprovádí write, exec, network ani Git efekt.
 Veřejný tvar, pozorovatelné chování a Containment V1 disposition v §7 operátor
-schválil 2026-08-23. Produkční implementace přesto nezačne, dokud nevznikne nový
-čistý integrační SHA s přijatým M1. Do té doby je dovolena pouze read-only
-sonda, údržba schválených WP dokumentů a příprava contract testů bez product
-code zápisu.
+schválil 2026-08-23. M1 base `44a9ba87` nyní splňuje vstupní podmínku a tento
+samostatný produkční branch smí implementovat výhradně povolený scope v §4.
 
 Balík je disjunktní od GPU/model hunta i od path-authority proudu. Contract
-review proto žije na vlastní větvi a produkční větev vznikne až z nového
-čistého integračního SHA. Jediná plánovaná integrační kolize je append-only
-rezervace nových test suite ID.
+review zůstává zachovaný na původní větvi; produkční větev vznikla přímo z
+M1 closeoutu a nese přenesený contract commit. `eb22d10c` není base tohoto WP,
+protože jeho path-authority řez stále čeká na nezávislý re-review. Jediná
+plánovaná integrační kolize je append-only rezervace nových test suite ID.
 
 WP ovlivňuje tyto trvalé rails:
 
@@ -401,7 +401,8 @@ focused sady projdou.
 
 ## 8. Stop conditions
 
-- neexistuje nový čistý integrační SHA s operátorsky přijatým M1;
+- branch přestane být přímým potomkem přijatého M1 base `44a9ba87` nebo bude
+  jeho acceptance odvolaná novým autoritativním nálezem;
 - caller nemá registry-backed project identity nebo přesnou revision;
 - implementace vyžaduje effect/write/network/Git/exec connector;
 - je nutné změnit globální L0 hranici, stavové dokumenty nebo cizí dirt;
