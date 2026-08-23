@@ -2,6 +2,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 
 const LINUX_BOOT_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UNKNOWN_IDENTITY_PATTERN = /^unknown:[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+const PROCESS_START_IDENTITY_PATTERN = /^\d+$/;
 
 function readTextObservation(filePath, fileSystem = fs) {
   try {
@@ -77,6 +79,11 @@ export function createProcessExecutionLiveness({ fileSystem = fs } = {}) {
         || typeof claim.ownerStartIdentity !== 'string'
         || claim.ownerStartIdentity.length === 0
       ) return false;
+      const persistedBootIdIsCanonical = LINUX_BOOT_ID_PATTERN.test(claim.ownerBootId)
+        || UNKNOWN_IDENTITY_PATTERN.test(claim.ownerBootId);
+      const persistedStartIsCanonical = PROCESS_START_IDENTITY_PATTERN.test(claim.ownerStartIdentity)
+        || UNKNOWN_IDENTITY_PATTERN.test(claim.ownerStartIdentity);
+      if (!persistedBootIdIsCanonical || !persistedStartIsCanonical) return false;
       const currentBootId = linuxBootId(fileSystem);
       // Unknown platform/boot identity is fail-closed: absence is not proof.
       if (

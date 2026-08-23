@@ -5,7 +5,7 @@ export const version = '2026_08_24_072_m2_effect_execution_claims';
 export const description = 'Bind consumed M2 grants to durable execution owners and final schema';
 
 // Filled from the canonical sqlite_master projection produced by this migration.
-export const EXPECTED_M2_SCHEMA_FINGERPRINT = '8813935b17a36ff9cbb94bd10ccc29a3a5f1688b1eaa3d7d4f7766fc9760f275';
+export const EXPECTED_M2_SCHEMA_FINGERPRINT = '5b2beabf4faa47c0bff8ee8cbb07ce7e4b923634745972082c285620a69e7587';
 
 function quoteIdentifier(value) {
   return `"${String(value).replaceAll('"', '""')}"`;
@@ -82,9 +82,30 @@ function installFinalAuthorityHardening(db) {
       grant_id TEXT NOT NULL UNIQUE REFERENCES m2_approval_grants(grant_id) ON DELETE RESTRICT,
       owner_id TEXT NOT NULL CHECK (length(trim(owner_id)) BETWEEN 1 AND 128),
       owner_pid INTEGER NOT NULL CHECK (typeof(owner_pid) = 'integer' AND owner_pid > 0),
-      owner_boot_id TEXT NOT NULL CHECK (length(trim(owner_boot_id)) BETWEEN 1 AND 256),
+      owner_boot_id TEXT NOT NULL CHECK (
+        (
+          owner_boot_id = lower(owner_boot_id)
+          AND length(owner_boot_id) = 36
+          AND substr(owner_boot_id, 9, 1) = '-'
+          AND substr(owner_boot_id, 14, 1) = '-'
+          AND substr(owner_boot_id, 19, 1) = '-'
+          AND substr(owner_boot_id, 24, 1) = '-'
+          AND substr(owner_boot_id, 15, 1) GLOB '[1-5]'
+          AND substr(owner_boot_id, 20, 1) GLOB '[89ab]'
+          AND replace(owner_boot_id, '-', '') NOT GLOB '*[^0-9a-f]*'
+        ) OR (
+          substr(owner_boot_id, 1, 8) = 'unknown:'
+          AND length(owner_boot_id) BETWEEN 9 AND 136
+        )
+      ),
       owner_start_identity TEXT NOT NULL CHECK (
-        length(trim(owner_start_identity)) BETWEEN 1 AND 256
+        (
+          length(owner_start_identity) BETWEEN 1 AND 256
+          AND owner_start_identity NOT GLOB '*[^0-9]*'
+        ) OR (
+          substr(owner_start_identity, 1, 8) = 'unknown:'
+          AND length(owner_start_identity) BETWEEN 9 AND 136
+        )
       ),
       claimed_at_ms INTEGER NOT NULL CHECK (
         typeof(claimed_at_ms) = 'integer' AND claimed_at_ms >= 0
@@ -198,6 +219,10 @@ function installFinalAuthorityHardening(db) {
         AND grant.consumed_at_ms IS NOT NULL
         AND grant.consumed_by_effect_id = NEW.effect_id
         AND grant.revoked_at_ms IS NULL
+        AND (
+          CAST(strftime('%s', json_extract(NEW.result_json, '$.startedAt')) AS INTEGER) * 1000
+          + CAST(substr(json_extract(NEW.result_json, '$.startedAt'), 21, 3) AS INTEGER)
+        ) >= claim.claimed_at_ms
     )
     BEGIN
       SELECT RAISE(ABORT, 'M2_EFFECT_RESULT_AUTHORITY_MISSING');

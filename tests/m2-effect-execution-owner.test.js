@@ -102,6 +102,8 @@ test('malformed or previously unknown identity fails closed', () => {
   assert.equal(liveness.isProvablyDead(claim({ ownerBootId: 'unknown:fallback' })), false);
   assert.equal(liveness.isProvablyDead(claim({ ownerStartIdentity: 'unknown:fallback' })), false);
   assert.equal(liveness.isProvablyDead(claim({ ownerStartIdentity: '' })), false);
+  assert.equal(liveness.isProvablyDead(claim({ ownerBootId: 'persisted-malformed' })), false);
+  assert.equal(liveness.isProvablyDead(claim({ ownerStartIdentity: 'persisted-malformed' })), false);
   assert.equal(
     createProcessExecutionLiveness({ fileSystem: fakeProc({ statErrorCode: 'EACCES' }) })
       .isProvablyDead(claim()),

@@ -81,18 +81,20 @@ function requireClock(clock) {
 }
 
 function requireExecutionOwner(value) {
+  const canonicalBootId = typeof value?.bootId === 'string'
+    && (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.bootId)
+      || /^unknown:[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value.bootId));
+  const canonicalStartIdentity = typeof value?.startIdentity === 'string'
+    && (/^\d+$/.test(value.startIdentity)
+      || /^unknown:[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value.startIdentity));
   const valid = value
     && typeof value === 'object'
     && typeof value.ownerId === 'string'
     && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value.ownerId)
     && Number.isSafeInteger(value.pid)
     && value.pid > 0
-    && typeof value.bootId === 'string'
-    && value.bootId.trim().length > 0
-    && value.bootId.length <= 256
-    && typeof value.startIdentity === 'string'
-    && value.startIdentity.trim().length > 0
-    && value.startIdentity.length <= 256;
+    && canonicalBootId
+    && canonicalStartIdentity;
   if (!valid) fail(EffectAuthorityErrorCode.INPUT_INVALID, 'A bounded execution owner is required');
   return value;
 }

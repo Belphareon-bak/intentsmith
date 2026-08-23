@@ -347,7 +347,10 @@ try {
   //   100 -> 101 m1-model-automation-policy.test.js (decision 020/E) runs real
   //             migrations against an in-memory database on purpose: the whole
   //             point of the suite is that the policy storage is real.
-  const expectedDatabaseReachableRootTests = 101;
+  //   101 -> 105 M2 effect authority added repository, broker, consumer and
+  //              runtime suites. Each reaches the real database import graph
+  //              and each is protected by the canonical harness/bootstrap.
+  const expectedDatabaseReachableRootTests = 105;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,

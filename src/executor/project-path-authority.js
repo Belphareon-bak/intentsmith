@@ -287,10 +287,7 @@ export function readProjectFile(projectRoot, filePath, {
 /**
  * Atomically replace one in-project file after revalidating the read/preflight
  * target.  Existing mode bits are retained.  Temp data is fsync'd before the
- * rename; any failed attempt removes only its own unique temp file. Parent
- * directories are never created implicitly: Node does not expose a portable
- * openat2/dirfd mkdir primitive, so recursive path-based mkdir would introduce
- * an effect before a post-check could detect a symlink swap.
+ * rename; any failed attempt removes only its own unique temp file.
  */
 export function writeProjectFileAtomic(projectRoot, filePath, content, {
   expectedTarget = null,
@@ -302,26 +299,7 @@ export function writeProjectFileAtomic(projectRoot, filePath, content, {
   }
 
   const directory = path.dirname(before.real);
-  try {
-    const directoryStat = fileSystem.statSync(directory);
-    if (!directoryStat.isDirectory()) {
-      throw new ProjectPathError('parent_not_directory', {
-        input: filePath,
-        projectRoot: before.projectRoot,
-        target: directory,
-      });
-    }
-  } catch (error) {
-    if (isProjectPathError(error)) throw error;
-    if (error?.code === 'ENOENT' || error?.code === 'ENOTDIR') {
-      throw new ProjectPathError('parent_directory_missing', {
-        input: filePath,
-        projectRoot: before.projectRoot,
-        target: directory,
-      });
-    }
-    throw error;
-  }
+  fileSystem.mkdirSync(directory, { recursive: true });
   const current = revalidateProjectTarget(
     projectRoot,
     filePath,

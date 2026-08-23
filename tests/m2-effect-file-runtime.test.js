@@ -261,14 +261,14 @@ await testAsync('restart turns a consumed grant without committed result into a 
     const oldOwner = Object.freeze({
       ownerId: 'owner:old-process',
       pid: 4101,
-      bootId: 'boot-old',
-      startIdentity: 'start-old',
+      bootId: '11111111-1111-4111-8111-111111111111',
+      startIdentity: '4101001',
     });
     const newOwner = Object.freeze({
       ownerId: 'owner:new-process',
       pid: 4102,
-      bootId: 'boot-new',
-      startIdentity: 'start-new',
+      bootId: '22222222-2222-4222-8222-222222222222',
+      startIdentity: '4102001',
     });
     const input = requestInput(environment.projectRoot, {
       operationId: 'message:104',

@@ -31,8 +31,8 @@ const PAYLOAD_BYTES = 31;
 const EXECUTION_OWNER = Object.freeze({
   ownerId: 'owner:test-process',
   pid: 4242,
-  bootId: 'boot-test-1',
-  startIdentity: 'start-test-1',
+  bootId: '11111111-1111-4111-8111-111111111111',
+  startIdentity: '9191',
 });
 
 function openDb(filename = ':memory:') {
@@ -772,6 +772,62 @@ test('durable execution claim is exact and append-only', () => {
   assert.throws(() => db.prepare(`
     DELETE FROM m2_effect_execution_claims WHERE effect_id = 'effect-1'
   `).run(), /append-only/);
+  db.close();
+});
+
+test('repository and database reject malformed persisted execution owner identities', () => {
+  const db = openDb();
+  const repository = repositoryAt(db);
+  registerAndGrant(repository);
+  expectCode(
+    () => repository.consumeApprovalGrant({
+      grantId: 'grant-1',
+      request: { ...repository.getEffectRequest('effect-1'), approvalGrantId: 'grant-1' },
+      executionOwner: { ...EXECUTION_OWNER, bootId: 'malformed-boot-id' },
+    }),
+    EffectAuthorityErrorCode.INPUT_INVALID,
+  );
+  assert.throws(() => db.prepare(`
+    INSERT INTO m2_effect_execution_claims (
+      effect_id, grant_id, owner_id, owner_pid, owner_boot_id,
+      owner_start_identity, claimed_at_ms
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    'effect-1', 'grant-1', EXECUTION_OWNER.ownerId, EXECUTION_OWNER.pid,
+    'malformed-boot-id', 'malformed-start-id', Date.parse(CONSUMED),
+  ), /CHECK constraint failed/);
+  assert.equal(repository.getExecutionClaim('effect-1'), null);
+  assert.equal(repository.getApprovalGrant('grant-1').consumedAt, null);
+  db.close();
+});
+
+test('database rejects a direct EffectResult that predates its execution claim', () => {
+  const db = openDb();
+  const repository = repositoryAt(db);
+  registerAndGrant(repository);
+  consume(repository, {
+    grantId: 'grant-1', request: repository.getEffectRequest('effect-1'),
+  });
+  const forged = result({
+    startedAt: '2026-08-23T20:00:09.999Z',
+    completedAt: '2026-08-23T20:00:10.001Z',
+  });
+  assert.throws(() => db.prepare(`
+    INSERT INTO m2_effect_results (
+      effect_id, run_id, project_id, request_digest, approval_grant_id,
+      terminal_status, result_json, completed_at_ms
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    forged.effectId,
+    forged.runId,
+    forged.projectId,
+    forged.requestDigest,
+    forged.approvalGrantId,
+    forged.terminalStatus,
+    JSON.stringify(forged),
+    Date.parse(forged.completedAt),
+  ), /RESULT_AUTHORITY_MISSING/);
+  assert.equal(repository.getEffectResult('effect-1'), null);
   db.close();
 });
 

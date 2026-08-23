@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
+import path from 'node:path';
 import {
+  ProjectPathError,
   readProjectFile,
   writeProjectFileAtomic,
 } from '../executor/project-path-authority.js';
@@ -19,6 +21,29 @@ function assertNotHardlinked(target, fileSystem) {
     }
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error;
+  }
+}
+
+function assertExistingParent(target, fileSystem) {
+  const directory = path.dirname(target.real);
+  try {
+    if (!fileSystem.statSync(directory).isDirectory()) {
+      throw new ProjectPathError('parent_not_directory', {
+        input: target.input,
+        projectRoot: target.projectRoot,
+        target: directory,
+      });
+    }
+  } catch (error) {
+    if (error instanceof ProjectPathError) throw error;
+    if (error?.code === 'ENOENT' || error?.code === 'ENOTDIR') {
+      throw new ProjectPathError('parent_directory_missing', {
+        input: target.input,
+        projectRoot: target.projectRoot,
+        target: directory,
+      });
+    }
+    throw error;
   }
 }
 
@@ -60,6 +85,10 @@ export function createFilesystemEffectProvider({ fileSystem = fs } = {}) {
         { fileSystem },
       );
       assertNotHardlinked(before.target, fileSystem);
+      // The shared legacy writer retains its pre-M2 ability to create parent
+      // directories. This authority-bearing provider deliberately does not:
+      // path-based recursive mkdir would be an effect before its post-check.
+      assertExistingParent(before.target, fileSystem);
       const beforeDigest = before.exists ? digest(Buffer.from(before.content, 'utf8')) : null;
       const content = payload.toString('utf8');
       try {
