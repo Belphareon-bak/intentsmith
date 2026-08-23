@@ -117,8 +117,9 @@ zapojením současně:
 
 ## Rollback
 
-Implementace C je jediný malý produkční commit. Návrat současného chování je
-technicky `git revert <Decision-024/C implementation commit>`, ale takový
+Implementace C je jediný malý produkční commit
+`4b20a5dd32b68cb3d231a8ec8348e8b5b63d0fa7`. Návrat současného chování je
+technicky `git revert 4b20a5dd`, ale takový
 revert je povolen jen jako výslovný nový produktový krok; sám neřeší výše
 uvedené podmínky návratu.
 
@@ -128,11 +129,12 @@ uvedené podmínky návratu.
 024-refinement-disposition: C-REMOVE (ACCEPTED 2026-08-23)
 024-evidence-run: m1-b5-quality-ab-20f61f2e-20260823 (acceptance FAIL)
 024-source: 20f61f2ea37a0396a46be88ed88881a181ea2b02
+024-implementation: 4b20a5dd32b68cb3d231a8ec8348e8b5b63d0fa7
 024-corpus: a2b1ab9175407cd144306532bf87859aaa6fef196a3c5ed9787b1f6df128790f
 024-accepted-case: NONE
 024-rejected-case: dns-steps (+10 candidate, lexical Jaccard reject, 13358 ms, 808 tokens)
 024-threshold-or-allowlist: removed
-024-rollback: revert the single Decision-024/C implementation commit
+024-rollback: git revert 4b20a5dd
 ```
 
 Operátorská volba odstranila rozhodovací BLOCK. B5 se uzavírá až implementací

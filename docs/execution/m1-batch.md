@@ -484,6 +484,15 @@ nespouští.
 
 ### GATE 2 — M1 exit, po B5+B6
 
+**Výsledek 2026-08-23: `ACCEPTED / PASS`.** Operátor přijal Decision 024/C;
+B5 je uzavřené implementací `4b20a5dd`. B6 na standalone fresh clone exact
+`d518d7ec2156b108c5d71b72d16ee855781c6be5` prošlo bez parkované povinné
+položky, včetně literal Studio → skutečný server/SQLite/Ollama cesty, restartu,
+error/cancel/reconnect terminálů, L3 měření, nulového neočekávaného egressu a
+čistého shutdownu. Kanonický report:
+[`runs/m1-b6-fresh-install-20260823.md`](runs/m1-b6-fresh-install-20260823.md).
+Stavové řádky M0/M1 jsou proto odsouhlasené, ne jen návrh k odsouhlasení.
+
 Navíc:
 
 - naměřená L3 čísla proti cílům `ROADMAP.md` §5;

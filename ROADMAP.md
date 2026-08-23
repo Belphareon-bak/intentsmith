@@ -60,10 +60,10 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 
 ### A. Milníky M0–M7 — kdy a proč
 
-| Milník | Stav 2026-08-08 | Vstup | Uživatelský výsledek |
+| Milník | Aktuální stav | Vstup | Uživatelský výsledek |
 |---|---|---|---|
-| **M0 Produktová pravda** | `IN_PROGRESS` | současný C3/IntentSmith strom | Víme, co produkt je a co skutečně běží; deklarace nelžou o chování. |
-| **M1 Lokální runtime páteř** | `IN_PROGRESS / GATE_2_BUILD` | M0 accepted; Gate 1 PASS | Stabilní Linux → Theia → chat → Ollama → persistence. |
+| **M0 Produktová pravda** | `ACCEPTED / PASS` | současný C3/IntentSmith strom | Víme, co produkt je a co skutečně běží; deklarace nelžou o chování. |
+| **M1 Lokální runtime páteř** | `ACCEPTED / GATE_2_PASS` | M0 accepted; Gate 1 PASS | Stabilní Linux → Theia → chat → Ollama → persistence. |
 | **M2 Řízená práce nad projektem** | `NOT_STARTED` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
 | **M3 Modulární platforma** | `NOT_STARTED` | M2 accepted | Expertise, tool, skill, specialista a agent přidají schopnost bez obcházení core. |
 | **M4 Auditovatelné self-learning** | `NOT_STARTED` | M2 accepted | Jedna uzavřená, scoped a vratná učící smyčka zlepšuje skutečný scénář. |
@@ -374,7 +374,7 @@ Přesné instalační/build příkazy, hashe, metodická omezení a screenshot/l
 | Backend/runtime | `OVĚŘENO` | Fresh-clone install provenance doložena 2026-08-21 na `582ddd6b`: `npm ci --offline`, server, deterministický i modelový chat, persistence a restart z čistého klonu. |
 | Offline boundary | `MEASURED` | Před M6 opravit release-policy sentinel a aktivovat pravdivý PDF toolchain set. |
 | Capability picture | `PŘIJATO` | 22/22 je v `SYSTEM-MAP.md`, přijato 2026-08-21. Přijetí obrazu **neznamená** PASS jednotlivých schopností — ty drží vlastní žebřík. |
-| Studio/Theia | `OVĚŘENO` | Fresh clone na `7236d221` prošel instalací a buildem; po dvou zachovaných červených kalibračních bězích následovaly dva samostatné runtime `PASS` s nulovým egresssem, 65s live-ready soakem a čistým shutdownem. Source-level a owned-loopback M1 už pokrývá cancel i automatický reconnect, ale built negotiated Electron journey stále neproběhl; runner zůstává registry `BLOCKED`, dokud auditní orchestrátor nedodá build envelope. |
+| Studio/Theia | `PŘIJATO / PASS` | B4 produkční ACK a byte bridge jsou integrovány. Finální standalone fresh clone na `d518d7ec` prošel offline instalací, produkčním buildem a built negotiated Electron journey: literal Studio → skutečný server/SQLite/Ollama, 2 panely, cancel/error/reconnect, nulový egress a čistý shutdown. Registry B6 řádek připíná tento `lastGreen`. |
 | L0-8 specialist boundary | `ROZHODNUTO` | Varianta A, strict injection — [rozhodnutí 019](docs/decisions/019-l0-8-specialist-boundary.md), přijato 2026-08-09, zapsáno 2026-08-21. Exit kritérium „otevřené L0 porušení má rozhodnutí" je tím splněné. Implementace nese `WP-M3-L0-8-INJECTION`, vynucení `-ENFORCEMENT`; do té doby platí zákaz nových interních importů specialistů. |
 
 **WP-M0-E je diagnosticky dokončený takto:**
@@ -930,6 +930,7 @@ telemetrie pravdivě uvádí `refinementDisposition=removed`, nulového ownera,
 nulový pokus, latenci i tokeny. Fyzický A/B je zachovaný jako historický
 rozhodovací experiment; krátká správná FACTUAL odpověď se score 59 je vedená
 jako samostatný neblokující [finding 011](docs/findings/011-response-scorer-short-factual-calibration.md).
+Implementace C a focused closeout jsou v `4b20a5dd`; B5 je `PASS/CLOSED`.
 
 Fyzické A/B už není blokované prostředím. Po opravě příliš absolutního
 compute preflightu na relativní non-Ollama baseline proběhl registrovaný run
@@ -968,8 +969,12 @@ registrované sady, které jen nikdy neběžely nebo se nikdy nenamapovaly.
 | 6 | confirmation patří tomu, kdo se ptal | **doloženo** | `confirmation-ownership` 5/5. Regrese z 2026-08-02: skill se zeptal „Potvrdit spuštění?", uživatel řekl „ano" a upgrade-approval intercept to snědl a přebindoval CHAT |
 | 7 | Studio ukáže progress a přesný konečný stav | **doloženo** | `studio-electron-boundary` → `STUDIO_ELECTRON_BOUNDARY_PASS` na `2a3acdbf`. Nulový egress (`externalAttempts: 0`, `otherLoopbackAttempts: 0`), 65,8 s soak, boundary matice 403/403/200, deterministický turn přes WebSocket s `modelProviderRequestsDuringTurn: 0` a `forbiddenEffects: 0`, čisté ukončení obou procesů s `processGroupsClean` |
 
-**Všech sedm povinných scénářů M1 je doložených.** Zbývají L3 cíle a Gate 1
-fronta z §13.
+**Všech sedm povinných scénářů M1 je doložených.** Finální sjednocená B6
+evidence na clean standalone source `d518d7ec2156…` je navíc provedla v jedné
+fresh-install obálce přes skutečný server/SQLite/Ollamu a shipped Electron
+build. Controlled backend byl použit jen pro reprodukovatelné error/cancel/
+reconnect terminály. Report je v
+[`m1-b6-fresh-install-20260823.md`](docs/execution/runs/m1-b6-fresh-install-20260823.md).
 
 ### L3 cíle a exit
 
@@ -981,6 +986,13 @@ modelový chat cold `64,1 s`, warm p50 `30,1 s` / p95 `35,9 s`, throughput
 1 027 tokenů a 14 291 ms při nulovém aplikovaném zisku. Po přijatém
 `C-REMOVE` je produkční post-answer refinement delta konstrukčně přesně nula
 volání, tokenů i milisekund; scorer zůstává jen telemetrií.
+
+**B6 current-source měření 2026-08-23:** 20 HTTP deterministických vzorků mělo
+p50 `1 ms`, nearest-rank p95 `34 ms` a transparentní cold max `114 ms`.
+Modelový HTTP chat měl cold `51,2 s`, warm p95 `55,3 s` a throughput `1,11`
+turnu/min; literal Studio model turn trval `52,3 s`. Exact `qwen3.5:27b`
+provider audit měl 8 chat requestů, `num_ctx` pouze `1024/4096`, nula
+refinement promptů a Studio nula neočekávaných outbound requestů.
 
 - p95 deterministické odpovědi pod **100 ms** na referenčním stroji;
 - warm/cold whole-response latence se změří odděleně; pokud operátor přijme
@@ -1526,9 +1538,10 @@ mohou pokračovat.
    nikoli negotiated M1 consumer ani finální UI. Read-only review může běžet
    souběžně; GPU běhy nikdy.
 8. B4 je implementačně a built/fresh-clone evidencí uzavřené. Fyzický T3 pilot
-   na `31859488` je PASS, MODEL/B3 je přijaté a B5 QUALITY je otevřené. Po B5
-   následuje B6 exit demonstrace. Závislost nebyla přeskočena syntetickým
-   proofem.
+   na `31859488` je PASS a MODEL/B3 je přijaté. B5 QUALITY skončilo
+   `PASS/CLOSED` implementací Decision 024/C na `4b20a5dd`. B6 fresh-install
+   exit na `d518d7ec` prošel všemi sedmi scénáři, L3 gate, nulovým egresssem a
+   čistým shutdownem. Gate 2 i M1 jsou proto `ACCEPTED/PASS`; M2 smí navázat.
 9. M2 effect authority a project-change journey se otevírají až po M1.
 
 ## 14. Rozhodovací fronta — otázka až ve chvíli, kdy má data

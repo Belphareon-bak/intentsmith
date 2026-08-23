@@ -5835,8 +5835,8 @@
       "owner": "primary implementer",
       "state": "ACTIVE",
       "lastGreen": {
-        "commit": null,
-        "artifact": null
+        "commit": "d518d7ec2156b108c5d71b72d16ee855781c6be5",
+        "artifact": "m1-journey.json"
       },
       "flakeCount": 0,
       "quarantineExpiry": null

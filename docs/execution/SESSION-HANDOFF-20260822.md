@@ -1,10 +1,10 @@
 # Handoff 2026-08-22
 
-**Aktuální closeout větev:** `codex/m1-closeout-20260822`, core runtime tip
-`56ff8053`, poslední plně testovaný integrační tip `10b3d080` a poslední čistý
-fyzicky ověřený GPU source `31859488` nad převzatým `a317da53`.
-**Nepushnuto.** Izolovaný worktree je po checkpointu čistý; cizí změny v hlavním
-a mobilním checkoutu zůstaly nedotčené.
+**Aktuální closeout větev:** `codex/m1-closeout-20260822`; finální fyzicky
+ověřený B6 source `d518d7ec2156b108c5d71b72d16ee855781c6be5`, B5/C implementace
+`4b20a5dd` a B3 GPU source `31859488`.
+**Nepushnuto.** Izolovaný worktree je určený pouze pro M1 closeout; cizí změny
+v hlavním a mobilním checkoutu zůstaly nedotčené.
 
 ## Co se dnes stalo, v pořadí
 
@@ -243,3 +243,28 @@ clean `20f61f2e` provedl fyzické A/B s `qwen3.5:27b`: bezpečnost a restore PAS
 quality acceptance FAIL. Dva ze čtyř případů byly eligible, ale oba refinementy
 se odmítly; applied delta 0, cena 1 027 tokenů a 14 291 ms. B6 je zavřené na
 Gate 2 volbě; 024 doporučuje `C-REMOVE`, ale operátorskou volbu nepředstírá.
+
+## Finální M1 closeout — 2026-08-23
+
+Operátor přijal `024-refinement-disposition: C-REMOVE` se zpřesněným důvodem:
+lexikální Jaccard guard konstrukčně odporoval rewrite promptu a krátká správná
+FACTUAL odpověď aktivovala refinement kvůli false-positive scoreru. Produkční
+post-answer modelový caller odstranil jediný vratný commit `4b20a5dd`; scorer,
+telemetrie, synthesis `fastRetryGate`, provider/cancel hranice a persistence
+zůstaly. B5 je `PASS/CLOSED`; historický A/B acceptance FAIL se nepřebarvil.
+
+B6 následně prošlo na standalone `git clone --no-local` exact source
+`d518d7ec2156b108c5d71b72d16ee855781c6be5`. Offline npm/Yarn instalace a
+produkční Theia/Electron build byly zelené. Jedna evidence envelope provedla
+všech sedm M1 scénářů přes skutečný server, izolovanou SQLite, exact lokální
+`qwen3.5:27b` a shipped Studio; controlled backend sloužil pouze pro přesně
+vyvolané error/cancel/reconnect terminály. Deterministické HTTP p95 bylo 34 ms
+z 20 raw vzorků, model cold 51,2 s, warm p95 55,3 s, Studio model turn 52,3 s,
+provider audit měl nula refinement promptů a síťový census nula neočekávaného
+egressu. Restart obnovil exact 50/50 zpráv, oba procesy skončily čistě.
+
+Kanonický report je
+[`runs/m1-b6-fresh-install-20260823.md`](runs/m1-b6-fresh-install-20260823.md).
+Gate 2 a M1 jsou `ACCEPTED/PASS`; dalším neotevřeným milníkem je M2. Finding
+011 zůstává samostatná neblokující chyba scoreru. Coworkerovy GPU/Ollama běhy
+nebyly ukončeny ani měněny; vlastní kolidující B6 pokusy byly přerušeny.

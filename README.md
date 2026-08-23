@@ -10,8 +10,9 @@ IntentSmithu.
 **Verze:** 136.1.0 | **397 registrovaných testovacích programů**
 (`300 ACTIVE`, `81 BLOCKED`, `0 KNOWN_DEFECTIVE`, `16 HISTORICAL`)
 
-> **Stav: aktivní vývoj, M0 — produktová pravda a ověřený baseline.** Jedna z 22
-> schopností je v `ACCEPTED/PASS` (#2 CRE); #1 je pouze `RUNTIME_VERIFIED`.
+> **Stav: aktivní vývoj; M1 lokální runtime páteř je `ACCEPTED/PASS`.** Sedm z
+> 22 schopností je v `ACCEPTED/PASS`; M2 řízená práce nad projektem je další
+> neotevřený milník.
 > Registry řádek sám není akceptační důkaz.
 > Gate 0 a historická convergence evidence se používají až nad zmraženým
 > release kandidátem. Aktuální autorita: [PRODUCT.md](PRODUCT.md),

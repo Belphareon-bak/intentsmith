@@ -3,7 +3,8 @@
 - **stav WP:** **B5 PASS / CLOSED**; fyzické GPU A/B zůstává historický
   acceptance FAIL (`0` accepted refinementů), operátor přijal `C-REMOVE` a
   produkční post-answer rewrite je odstraněný
-- **produkční source:** `759bcad0f3bdc4be7eb8fd134d429dc572601d3a`
+- **původní single-owner source:** `759bcad0f3bdc4be7eb8fd134d429dc572601d3a`
+- **Decision 024/C implementace:** `4b20a5dd32b68cb3d231a8ec8348e8b5b63d0fa7`
 - **measurement source:** `20f61f2ea37a0396a46be88ed88881a181ea2b02`
 - **zapisující větev:** `codex/m1-closeout-20260822`
 - **push:** neproveden
@@ -185,6 +186,7 @@ Focused closeout ověření na kandidátním stromu:
 | module boundary ratchet | 1060/1062, 0 přidaných a 2 odstraněné hrany |
 | artifact validation / hygiene / registry | 151/151 PASS / PASS / 396 validních programů |
 
-B5 tím končí bez přebarvení historického FAILu na PASS. Produkční acceptance
+B5 tím na `4b20a5dd` končí bez přebarvení historického FAILu na PASS. Produkční acceptance
 je nyní absence model-backed post-answer větve, nulová přidaná cena a přesné
-zachování synthesis výsledku. Další krok je výhradně B6 fresh-install M1 exit.
+zachování synthesis výsledku. Navazující B6 fresh-install M1 exit následně
+prošel na `d518d7ec`; viz `m1-b6-fresh-install-20260823.md`.
