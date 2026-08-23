@@ -45,7 +45,11 @@ const CAPABILITY_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const SERVER_START_TIMEOUT_MS = 60_000;
 const SERVER_STOP_TIMEOUT_MS = 20_000;
 const REQUEST_TIMEOUT_MS = 300_000;
-const DETERMINISTIC_HTTP_SAMPLES = 12;
+// Nearest-rank p95 needs at least twenty samples before it differs from max.
+// Deterministic requests are cheap, so use the minimum statistically honest
+// sample instead of disguising one cold-start outlier as a percentile.
+const DETERMINISTIC_HTTP_SAMPLES = 20;
+const DETERMINISTIC_REPORT_FILE = 'm1-journey-deterministic-http.json';
 const REPORT_FILE = 'm1-journey.json';
 const ownedChildren = new Set();
 
@@ -660,8 +664,8 @@ function selfCheck() {
   }
   assert.equal(
     DETERMINISTIC_HTTP_SAMPLES,
-    12,
-    'M1 deterministic p95 must use the accepted twelve-request HTTP sample',
+    20,
+    'nearest-rank M1 deterministic p95 requires at least twenty HTTP samples',
   );
   process.stdout.write('M1_JOURNEY_SELF_CHECK_PASS\n');
 }
@@ -686,6 +690,7 @@ async function main() {
   let historyAfterRestart;
   let outageEvidence;
   let literalStudioEvidence;
+  let deterministicEvidence;
 
   try {
     server = await startServer(runtime, 'm1-b6-product-first-000000000001', proxy.origin);
@@ -701,6 +706,20 @@ async function main() {
       assert.ok(response.json?.response?.content, 'deterministic response content missing');
       deterministicHttpLatencies.push(response.elapsedMs);
     }
+    deterministicEvidence = {
+      ...summarize(deterministicHttpLatencies),
+      targetP95Ms: 100,
+      samplesMs: deterministicHttpLatencies.map(value => Math.round(value)),
+    };
+    writeFileSync(
+      path.join(artifactRoot, DETERMINISTIC_REPORT_FILE),
+      `${JSON.stringify(deterministicEvidence, null, 2)}\n`,
+      { mode: 0o600, flag: 'wx' },
+    );
+    assert.ok(
+      deterministicEvidence.p95Ms < deterministicEvidence.targetP95Ms,
+      `deterministic p95 ${deterministicEvidence.p95Ms}ms exceeds the M1 target`,
+    );
 
     const modelPrompts = [
       'Vysvětli jednou větou, co znamená HTTP status 409.',
@@ -866,15 +885,9 @@ async function main() {
   assert.equal(studio.network.snapshot.counts.otherLoopbackAttempts, 0);
   assert.equal(studio.shutdown.processGroupsClean, true);
 
-  // The accepted <100 ms L3 budget is the real-server HTTP boundary measured
-  // by the canonical twelve-sample run. Electron/CDP includes renderer and
-  // transport scheduling; keep that latency explicit in literalStudioEvidence
-  // instead of folding one UI round-trip into a six-sample "p95" (the max).
-  const deterministic = summarize(deterministicHttpLatencies);
-  assert.ok(
-    deterministic.p95Ms < 100,
-    `deterministic p95 ${deterministic.p95Ms}ms exceeds the M1 target`,
-  );
+  // The accepted <100 ms L3 budget is the real-server HTTP boundary. Electron/
+  // CDP includes renderer and transport scheduling; keep that latency explicit
+  // in literalStudioEvidence instead of mixing two incomparable boundaries.
   const coldMs = Math.round(modelHttpLatencies[0]);
   const warm = summarize(modelHttpLatencies.slice(1));
   const report = Object.freeze({
@@ -886,7 +899,7 @@ async function main() {
       productRuntime: 'built-electron-real-server-sqlite-local-ollama',
       studioRuntime: 'built-electron-test-owned-production-m1-wire-backend',
       literalStudioToRealOllamaTurn: true,
-      deterministicLatency: 'real-server-http-twelve-sample',
+      deterministicLatency: 'real-server-http-twenty-sample-nearest-rank',
       modelLatency: 'real-server-http-only',
     },
     install: {
@@ -897,10 +910,7 @@ async function main() {
     },
     model: modelIdentity,
     measurements: {
-      deterministic: {
-        ...deterministic,
-        samplesMs: deterministicHttpLatencies.map(value => Math.round(value)),
-      },
+      deterministic: deterministicEvidence,
       modelChat: {
         coldMs,
         warm: {
@@ -952,7 +962,7 @@ async function main() {
   });
   process.stdout.write(`M1_JOURNEY_PASS ${JSON.stringify({
     sourceRevision,
-    deterministicP95Ms: deterministic.p95Ms,
+    deterministicP95Ms: deterministicEvidence.p95Ms,
     modelColdMs: coldMs,
     modelWarmP95Ms: warm.p95Ms,
     modelProviderRequests: modelProviderRequests.length,
