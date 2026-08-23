@@ -370,6 +370,9 @@ async function startOllamaProxy(upstreamOrigin) {
         path: incoming.url,
         method: incoming.method,
         model: parsed?.model || null,
+        numCtx: Number.isInteger(parsed?.options?.num_ctx)
+          ? parsed.options.num_ctx
+          : null,
         requestSha256: sha256(body),
         refinementPrompt: promptText.includes('Jsi recenzent odpovědí.'),
       }));
@@ -801,6 +804,10 @@ async function main() {
   assert.ok(
     modelProviderRequests.every(item => item.model === EXPECTED_MODEL),
     'model journey used an unexpected model identity',
+  );
+  assert.ok(
+    modelProviderRequests.every(item => item.numCtx === 4096),
+    'model journey violated the accepted num_ctx=4096 runtime profile',
   );
   assert.equal(
     modelProviderRequests.some(item => item.refinementPrompt),
