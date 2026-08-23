@@ -4,13 +4,14 @@
 //
 // This is one serial evidence envelope with two deliberately explicit runtime
 // boundaries:
-//   1. the real product server, SQLite and local Ollama;
-//   2. the shipped Electron build against the test-owned production M1 wire
-//      backend used by the accepted Studio boundary journey.
+//   1. the shipped Electron build, real product server, SQLite and local
+//      Ollama for literal deterministic and model turns;
+//   2. the same shipped Electron build against the test-owned production M1
+//      wire backend for deterministic error/cancel/reconnect terminals.
 //
-// The distinction is part of the artifact. The Studio phase is not mislabeled
-// as a real-Ollama UI turn, while the model phase is not mislabeled as a built
-// renderer probe.
+// The distinction is part of the artifact: the literal path proves real model
+// integration, while the controlled backend supplies reproducible negative
+// terminals that a healthy real provider cannot produce on demand.
 
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
@@ -21,6 +22,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
@@ -31,6 +33,10 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
 import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
+import {
+  CdpClient,
+  exactStudioPageTarget,
+} from './studio-electron-boundary.e2e.js';
 
 const SOURCE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const EXPECTED_MODEL = 'qwen3.5:27b';
@@ -441,6 +447,200 @@ function runChild(label, args, env = {}, timeoutMs = 300_000) {
   });
 }
 
+async function evaluateRenderer(cdp, expression, timeoutMs = 15_000) {
+  const result = await cdp.send('Runtime.evaluate', {
+    expression,
+    awaitPromise: true,
+    returnByValue: true,
+  }, timeoutMs);
+  if (result?.exceptionDetails || !Object.hasOwn(result || {}, 'result')) {
+    throw new Error('literal Studio renderer evaluation failed');
+  }
+  return result.result.value;
+}
+
+async function waitForLiteralStudioTarget(userData, childState) {
+  const activePortFile = path.join(userData, 'DevToolsActivePort');
+  const expectedEntrypoint = path.join(
+    SOURCE_ROOT,
+    'c3-ide/applications/electron/lib/frontend/index.html',
+  );
+  const deadline = Date.now() + SERVER_START_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    if (childState.exitCode !== null || childState.signal !== null) {
+      throw new Error(`literal Studio exited before CDP: ${childState.stderr.slice(-2_000)}`);
+    }
+    if (existsSync(activePortFile)) {
+      const lines = readFileSync(activePortFile, 'utf8').trim().split(/\r?\n/);
+      const debugPort = Number(lines[0]);
+      if (Number.isInteger(debugPort) && debugPort > 0) {
+        try {
+          const response = await fetch(`http://127.0.0.1:${debugPort}/json/list`, {
+            signal: AbortSignal.timeout(1_000),
+          });
+          const targets = response.ok ? await response.json() : [];
+          const target = Array.isArray(targets)
+            ? targets.find(item => exactStudioPageTarget(item, debugPort, expectedEntrypoint))
+            : null;
+          if (target) return target;
+        } catch {
+          // Expected while Chromium and Theia are still starting.
+        }
+      }
+    }
+    await delay(100);
+  }
+  throw new Error('literal Studio CDP readiness timeout');
+}
+
+async function startLiteralStudio(runtime) {
+  const display = process.env.INTENTSMITH_STUDIO_DISPLAY;
+  const xauthority = process.env.INTENTSMITH_STUDIO_XAUTHORITY;
+  assert.match(display || '', /^:\d+(?:\.\d+)?$/, 'scoped Studio DISPLAY is required');
+  assert.ok(path.isAbsolute(xauthority || ''), 'scoped Studio XAUTHORITY is required');
+  const userData = path.join(runtime.root, 'literal-electron-data');
+  mkdirSync(userData, { mode: 0o700 });
+  const electronTmp = mkdtempSync('/tmp/is-m1-lit-');
+  chmodSync(electronTmp, 0o700);
+  const child = spawn(process.execPath, [
+    'c3-ide/applications/electron/scripts/launch.js',
+    '--no-sandbox',
+    '--remote-debugging-port=0',
+    `--user-data-dir=${userData}`,
+  ], {
+    cwd: SOURCE_ROOT,
+    env: {
+      ...safeBaseEnvironment(),
+      HOME: runtime.home,
+      TMPDIR: electronTmp,
+      TMP: electronTmp,
+      TEMP: electronTmp,
+      XDG_CONFIG_HOME: runtime.xdgConfig,
+      XDG_CACHE_HOME: runtime.xdgCache,
+      XDG_DATA_HOME: runtime.xdgData,
+      XDG_STATE_HOME: runtime.xdgState,
+      DISPLAY: display,
+      XAUTHORITY: xauthority,
+      NODE_ENV: 'test',
+      NODE_NO_WARNINGS: '1',
+      NO_COLOR: '1',
+      C3_PORT_FILE: runtime.portFile,
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  ownedChildren.add(child);
+  const state = { child, exitCode: null, signal: null, stdout: '', stderr: '' };
+  child.stdout.setEncoding('utf8');
+  child.stderr.setEncoding('utf8');
+  child.stdout.on('data', chunk => { state.stdout = bounded(state.stdout, chunk); });
+  child.stderr.on('data', chunk => { state.stderr = bounded(state.stderr, chunk); });
+  child.once('exit', (code, signal) => {
+    state.exitCode = code;
+    state.signal = signal;
+    ownedChildren.delete(child);
+  });
+
+  try {
+    const target = await waitForLiteralStudioTarget(userData, state);
+    const cdp = new CdpClient(target.webSocketDebuggerUrl);
+    await cdp.open();
+    await cdp.send('Runtime.enable');
+    const deadline = Date.now() + SERVER_START_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      const ready = await evaluateRenderer(cdp, `(() => ({
+        negotiated: window.C3WS?.isReady?.() === true
+          && window.C3WS?.isM1WireNegotiated?.() === true,
+        sessions: Array.isArray(window._sessions) ? window._sessions.length : 0
+      }))()`);
+      if (ready?.negotiated && ready.sessions >= 1) {
+        state.cdp = cdp;
+        state.electronTmp = electronTmp;
+        return state;
+      }
+      await delay(100);
+    }
+    cdp.close();
+    throw new Error('literal Studio M1 wire readiness timeout');
+  } catch (error) {
+    if (state.exitCode === null && state.signal === null) child.kill('SIGTERM');
+    rmSync(electronTmp, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+async function literalStudioTurn(studio, conversationId, prompt, label) {
+  const expression = `(async () => {
+    const client = window.C3WS;
+    const pane = window._sessions?.[0];
+    if (!client?.isReady?.() || !client?.isM1WireNegotiated?.() || !pane) {
+      return { resultClass: 'not-ready' };
+    }
+    pane._convId = ${JSON.stringify(conversationId)};
+    pane._projectId = null;
+    pane._agentId = null;
+    pane.chat.msgs = [];
+    pane.chat.attachments = [];
+    pane.chat._pendingAttachments = [];
+    pane.chat.editMode = 'ask';
+    pane.chat._thinking = { started: true };
+    pane.chat._delivery = null;
+    return await new Promise(resolve => {
+      let settled = false;
+      const finish = value => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        window.C3Bus.off('chat:terminal', onTerminal);
+        resolve(value);
+      };
+      const onTerminal = event => {
+        if (event?.conversationId !== ${JSON.stringify(conversationId)}
+          || event?.action !== 'send') return;
+        finish({
+          resultClass: 'terminal',
+          status: event.status,
+          requestId: event.requestId,
+          turnId: event.turnId,
+          responseLength: String(event?.result?.response?.content || '').length,
+          errorCode: event?.result?.error?.code || null,
+          thinkingCleared: pane.chat._thinking === null
+        });
+      };
+      const timer = setTimeout(() => finish({ resultClass: 'timeout' }), 300000);
+      window.C3Bus.on('chat:terminal', onTerminal);
+      if (!client.sendChat(${JSON.stringify(prompt)}, pane, 0)) {
+        finish({ resultClass: 'send-rejected' });
+      }
+    });
+  })()`;
+  const started = process.hrtime.bigint();
+  const terminal = await evaluateRenderer(studio.cdp, expression, 310_000);
+  const elapsedMs = Number(process.hrtime.bigint() - started) / 1e6;
+  assert.equal(terminal?.resultClass, 'terminal', `${label}: ${JSON.stringify(terminal)}`);
+  assert.equal(terminal.status, 'ok', `${label}: ${JSON.stringify(terminal)}`);
+  assert.ok(terminal.responseLength > 0, `${label}: response content missing`);
+  assert.equal(terminal.thinkingCleared, true, `${label}: spinner did not clear`);
+  return { ...terminal, elapsedMs };
+}
+
+async function stopLiteralStudio(studio) {
+  try { await studio.cdp.send('Browser.close', {}, 2_000); } catch { /* closes CDP */ }
+  studio.cdp.close();
+  const deadline = Date.now() + SERVER_STOP_TIMEOUT_MS;
+  while (
+    Date.now() < deadline
+    && studio.exitCode === null
+    && studio.signal === null
+  ) {
+    await delay(25);
+  }
+  if (studio.exitCode === null && studio.signal === null) studio.child.kill('SIGTERM');
+  while (studio.exitCode === null && studio.signal === null) await delay(25);
+  assert.equal(studio.signal, null, `literal Studio stopped by ${studio.signal}`);
+  assert.equal(studio.exitCode, 0, studio.stderr.slice(-2_000));
+  rmSync(studio.electronTmp, { recursive: true, force: true });
+}
+
 function selfCheck() {
   const source = readFileSync(fileURLToPath(import.meta.url), 'utf8');
   for (const marker of [
@@ -450,6 +650,7 @@ function selfCheck() {
     'tests/confirmation-ownership.test.js',
     'tests/studio-m1-electron-journey.e2e.js',
     'removed_by_decision_024',
+    'literalStudioToRealOllamaTurn: true',
   ]) {
     assert.ok(source.includes(marker), `self-check marker missing: ${marker}`);
   }
@@ -475,6 +676,7 @@ async function main() {
   let historyBeforeRestart;
   let historyAfterRestart;
   let outageEvidence;
+  let literalStudioEvidence;
 
   try {
     server = await startServer(runtime, 'm1-b6-product-first-000000000001', proxy.origin);
@@ -512,8 +714,38 @@ async function main() {
       modelLatencies.push(response.elapsedMs);
     }
 
+    let literalStudio = null;
+    try {
+      literalStudio = await startLiteralStudio(runtime);
+      const deterministicTurn = await literalStudioTurn(
+        literalStudio,
+        conversationId,
+        'kolik je 23 * 4?',
+        'literal Studio deterministic turn',
+      );
+      deterministicLatencies.push(deterministicTurn.elapsedMs);
+      const modelTurn = await literalStudioTurn(
+        literalStudio,
+        conversationId,
+        'Jednou větou vysvětli, proč HTTP používá stavový kód 503.',
+        'literal Studio model turn',
+      );
+      modelLatencies.push(modelTurn.elapsedMs);
+      literalStudioEvidence = {
+        transport: 'm1-wire-v1',
+        deterministicStatus: deterministicTurn.status,
+        deterministicLatencyMs: Math.round(deterministicTurn.elapsedMs),
+        modelStatus: modelTurn.status,
+        modelLatencyMs: Math.round(modelTurn.elapsedMs),
+        exactConversationId: conversationId,
+        spinnersCleared: deterministicTurn.thinkingCleared && modelTurn.thinkingCleared,
+      };
+    } finally {
+      if (literalStudio) await stopLiteralStudio(literalStudio);
+    }
+
     historyBeforeRestart = await listMessages(server, conversationId);
-    assert.equal(historyBeforeRestart.length, 16, 'eight successful turns must persist 16 messages');
+    assert.equal(historyBeforeRestart.length, 20, 'ten successful turns must persist 20 messages');
     await stopServer(server);
     server = null;
 
@@ -565,7 +797,7 @@ async function main() {
   }
 
   const modelProviderRequests = proxy.requests.filter(item => item.path === '/api/chat');
-  assert.ok(modelProviderRequests.length >= 3, 'real model turns did not reach Ollama');
+  assert.ok(modelProviderRequests.length >= 4, 'real model turns did not reach Ollama');
   assert.ok(
     modelProviderRequests.every(item => item.model === EXPECTED_MODEL),
     'model journey used an unexpected model identity',
@@ -627,9 +859,9 @@ async function main() {
     sourceRevision,
     verdict: 'PASS',
     boundaries: {
-      productRuntime: 'real-server-sqlite-local-ollama',
+      productRuntime: 'built-electron-real-server-sqlite-local-ollama',
       studioRuntime: 'built-electron-test-owned-production-m1-wire-backend',
-      literalStudioToRealOllamaTurn: false,
+      literalStudioToRealOllamaTurn: true,
     },
     install: {
       standaloneClone: true,
@@ -662,6 +894,7 @@ async function main() {
     scenarios: {
       deterministicRealRequest: true,
       localOllamaModelResponse: true,
+      literalStudioDeterministicAndModel: literalStudioEvidence,
       providerOutageNoFalseSuccess: outageEvidence,
       cancelBeforeDuringPrePersistence: true,
       restartExactHistory: {
