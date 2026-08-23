@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import {
   lstat,
+  link,
   mkdir,
   mkdtemp,
   realpath,
@@ -179,6 +180,10 @@ try {
       projectId: 17,
       canonicalRoot: `${projectA}/../project-a`,
     }, { projects }), 'noncanonical-root');
+    await expectInvalidScope(resolveProjectContextScope({
+      projectId: 17,
+      canonicalRoot: `${projectA}/`,
+    }, { projects }), 'noncanonical-root');
 
     const corruptRegistry = {
       findById: { get: () => ({ id: 18, path: projectA, status: 'active' }) },
@@ -273,6 +278,56 @@ try {
           projectId: 17,
           canonicalRoot: await realpath(root),
         }), PROJECT_CONTEXT_ERROR_CODE.INVALID_SCOPE, 'symlink-outside-root');
+      } finally {
+        await rm(outside, { recursive: true, force: true });
+      }
+    });
+  });
+
+  await testAsync('ignored and non-allowlisted symlinks are skipped before target resolution', async () => {
+    await withManifestProject(async root => {
+      const outside = await mkdtemp(path.join(os.tmpdir(), 'is-m2-project-ignored-outside-'));
+      try {
+        await writeFile(path.join(root, 'index.js'), 'export const visible = true;\n');
+        await writeFile(path.join(outside, 'canary.bin'), 'PROJECT_B_CANARY\n');
+        await symlink(outside, path.join(root, 'node_modules'), 'dir');
+        await symlink(
+          path.join(outside, 'canary.bin'),
+          path.join(root, 'foreign.bin'),
+        );
+
+        const manifest = await buildProjectContextManifest({
+          projectId: 17,
+          canonicalRoot: await realpath(root),
+        });
+        assert.deepEqual(manifest.entries.map(entry => entry.path), ['index.js']);
+      } finally {
+        await rm(outside, { recursive: true, force: true });
+      }
+    });
+  });
+
+  await testAsync('dangling allowlisted symlink fails closed instead of yielding a revision', async () => {
+    await withManifestProject(async root => {
+      await symlink(path.join(root, 'missing.js'), path.join(root, 'dangling.js'));
+      await expectManifestError(buildProjectContextManifest({
+        projectId: 17,
+        canonicalRoot: await realpath(root),
+      }), PROJECT_CONTEXT_ERROR_CODE.INTERNAL, 'symlink-unresolvable');
+    });
+  });
+
+  await testAsync('a hardlink cannot import bytes from an inode also named outside the project', async () => {
+    await withManifestProject(async root => {
+      const outside = await mkdtemp(path.join(os.tmpdir(), 'is-m2-project-hardlink-outside-'));
+      try {
+        const canary = path.join(outside, 'foreign.js');
+        await writeFile(canary, 'PROJECT_B_HARDLINK_CANARY\n');
+        await link(canary, path.join(root, 'foreign.js'));
+        await expectManifestError(buildProjectContextManifest({
+          projectId: 17,
+          canonicalRoot: await realpath(root),
+        }), PROJECT_CONTEXT_ERROR_CODE.INVALID_SCOPE, 'hardlink-not-authorized');
       } finally {
         await rm(outside, { recursive: true, force: true });
       }

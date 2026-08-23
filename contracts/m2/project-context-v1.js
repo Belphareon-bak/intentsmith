@@ -124,7 +124,15 @@ function isCanonicalRoot(value) {
     && value.length > 0
     && !value.includes('\0')
     && path.posix.isAbsolute(value)
+    && (value === '/' || !value.endsWith('/'))
     && path.posix.normalize(value) === value;
+}
+
+export function estimateProjectContextTokens(byteCount) {
+  if (!Number.isSafeInteger(byteCount) || byteCount < 0) {
+    throw new TypeError('project-context-tokens:invalid-byte-count');
+  }
+  return Math.ceil(byteCount / 4);
 }
 
 function isProjectRelativePath(value) {
@@ -342,6 +350,27 @@ function validateSuccessfulSnapshot(value) {
       const identity = `${item.path}\0${item.startLine}\0${item.endLine}`;
       if (identities.has(identity)) errors.push(`${context}:duplicate-item`);
       identities.add(identity);
+      if (index > 0 && isPlainRecord(value.items[index - 1])) {
+        const previous = value.items[index - 1];
+        const scoreOrderInvalid = Number.isSafeInteger(previous.score)
+          && Number.isSafeInteger(item.score)
+          && previous.score < item.score;
+        const pathOrder = typeof previous.path === 'string' && typeof item.path === 'string'
+          ? compareUtf8(previous.path, item.path)
+          : 0;
+        const tieOrderInvalid = previous.score === item.score && (
+          pathOrder > 0
+          || (pathOrder === 0 && previous.startLine > item.startLine)
+          || (
+            pathOrder === 0
+            && previous.startLine === item.startLine
+            && previous.endLine > item.endLine
+          )
+        );
+        if (scoreOrderInvalid || tieOrderInvalid) {
+          errors.push(`${context}:items-not-deterministically-ordered`);
+        }
+      }
     });
     if (value.outcome === PROJECT_CONTEXT_OUTCOME.FOUND && value.items.length === 0) {
       errors.push(`${context}:found-without-items`);
@@ -358,6 +387,20 @@ function validateSuccessfulSnapshot(value) {
     && isPlainRecord(value.budget)
     && value.budget.usedFiles !== value.items.length
   ) errors.push(`${context}:usedFiles-mismatch`);
+  if (Array.isArray(value.items) && isPlainRecord(value.budget)) {
+    const usedBytes = value.items.reduce(
+      (total, item) => total + (typeof item?.content === 'string'
+        ? Buffer.byteLength(item.content, 'utf8')
+        : 0),
+      0,
+    );
+    if (value.budget.usedBytes !== usedBytes) {
+      errors.push(`${context}:usedBytes-mismatch`);
+    }
+    if (value.budget.usedTokens !== estimateProjectContextTokens(usedBytes)) {
+      errors.push(`${context}:usedTokens-mismatch`);
+    }
+  }
   if (
     value.outcome === PROJECT_CONTEXT_OUTCOME.EMPTY
     && isPlainRecord(value.truncation)

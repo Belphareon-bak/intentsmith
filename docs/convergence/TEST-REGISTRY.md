@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 397
-- Explicit support-module exclusions: 9
-- Profiles: offline=200, database=38, server=37, model=85, soak=21, manual=16
-- States: ACTIVE=300, HISTORICAL=16, BLOCKED=81
+- Runnable programs: 401
+- Explicit support-module exclusions: 14
+- Profiles: offline=204, database=38, server=37, model=85, soak=21, manual=16
+- States: ACTIVE=304, HISTORICAL=16, BLOCKED=81
 
 ## Execution profiles
 
@@ -310,6 +310,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T3-TESTS-M1-QUALITY-GPU-AB-TEST` | `tests/m1-quality-gpu-ab.test.js` | `C3-003` | T3 | `manual` | 10 min | 15 min | network:loopback, ollama, gpu | no | `HISTORICAL` | — | primary implementer |
 | `IS-T1-TESTS-M1-STUDIO-CLIENT-TEST` | `tests/m1-studio-client.test.js` | `C3-001` | T1 | `offline` | 30 s | 2 min | network:loopback | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-VRAM-ARTIFACT-USE-TEST` | `tests/m1-vram-artifact-use.test.js` | `C3-010` | T1 | `offline` | 10 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-M2-PROJECT-CONTEXT-BOUNDARY-TEST` | `tests/m2-project-context-boundary.test.js` | `C3-012` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-M2-PROJECT-CONTEXT-CONSUMER-TEST` | `tests/m2-project-context-consumer.test.js` | `C3-012` | T1 | `offline` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-M2-PROJECT-CONTEXT-CONTRACT-TEST` | `tests/m2-project-context-contract.test.js` | `C3-012` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-M2-PROJECT-CONTEXT-RETRIEVAL-TEST` | `tests/m2-project-context-retrieval.test.js` | `C3-012` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MANIFEST-V2-TEST` | `tests/manifest-v2.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MARKETPLACE-CATALOG-V125-TEST` | `tests/marketplace-catalog-v125.test.js` | `C3-022` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MARKETPLACE-TEST` | `tests/marketplace.test.js` | `C3-022` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
@@ -445,6 +449,11 @@ ledger.
 | `tests/e2e/_helpers.js` | Imported E2E harness support module; its direct checks live in _helpers.self-check.js. |
 | `tests/e2e/_quality-evaluator.js` | Imported deterministic scoring library with no top-level test entry point. |
 | `tests/e2e/_test-fixtures.js` | Imported synthetic fixture data module with no top-level test entry point. |
+| `tests/fixtures/m2-project-context/project-a/src/auth/validateSessionToken.js` | Static source fixture consumed by the M2 project-context retrieval and consumer suites. |
+| `tests/fixtures/m2-project-context/project-a/src/billing/calculateInvoiceTotal.js` | Static source fixture consumed by the M2 project-context retrieval quality oracle. |
+| `tests/fixtures/m2-project-context/project-a/src/shared/sharedTieBreaker-alpha.js` | Static bytewise-order fixture consumed by the M2 project-context retrieval suite. |
+| `tests/fixtures/m2-project-context/project-a/src/shared/sharedTieBreaker-beta.js` | Static bytewise-order fixture consumed by the M2 project-context retrieval suite. |
+| `tests/fixtures/m2-project-context/project-b/src/canary-b.js` | Static cross-project containment canary consumed by the M2 project-context suites. |
 | `tests/fixtures/studio-m1-electron-backend.js` | Suite-owned M1 Electron backend fixture launched only by studio-m1-electron-journey.e2e.js. |
 | `tests/harness.js` | Imported unit-test harness library with no top-level test entry point. |
 | `tests/helpers/isolated-test-db.js` | Imported direct-run database isolation bootstrap, not a standalone test. |

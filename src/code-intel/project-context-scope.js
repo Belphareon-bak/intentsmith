@@ -14,6 +14,7 @@ function isCanonicalAbsoluteRoot(value) {
     && value.length > 0
     && !value.includes('\0')
     && path.posix.isAbsolute(value)
+    && (value === '/' || !value.endsWith('/'))
     && path.posix.normalize(value) === value;
 }
 

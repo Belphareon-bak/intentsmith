@@ -10,6 +10,7 @@ import {
   PROJECT_CONTEXT_NORMALIZATION_VERSION,
   canonicalizeProjectContextValue,
   computeProjectContextSnapshotDigest,
+  estimateProjectContextTokens,
   normalizeProjectContextQuery,
   validateProjectContextContract,
   validateProjectContextQuery,
@@ -34,6 +35,8 @@ const query = Object.freeze({
 });
 
 const normalized = normalizeProjectContextQuery(query.queryText);
+const itemContent = 'export function příliš() {\n  return true;\n}';
+const itemContentBytes = Buffer.byteLength(itemContent, 'utf8');
 
 function clone(value) {
   return structuredClone(value);
@@ -50,7 +53,7 @@ function item(overrides = {}) {
     path: 'src/example.js',
     startLine: 10,
     endLine: 14,
-    content: 'export function příliš() {\n  return true;\n}',
+    content: itemContent,
     contentDigest,
     score: 1200,
     provenance: {
@@ -82,8 +85,8 @@ const found = snapshotWithDigest({
     maxBytes: 8192,
     maxTokens: 2048,
     usedFiles: 1,
-    usedBytes: 49,
-    usedTokens: 13,
+    usedBytes: itemContentBytes,
+    usedTokens: estimateProjectContextTokens(itemContentBytes),
   },
   truncation: { truncated: false },
 });
@@ -216,8 +219,10 @@ suite('M2 project-context connector — fail-closed negatives');
 test('caller-supplied terms and non-canonical roots are rejected', () => {
   const withTerms = { ...query, terms: ['kde'] };
   const badRoot = { ...query, canonicalRoot: '/workspace/project-a/../project-b' };
+  const trailingSlash = { ...query, canonicalRoot: '/workspace/project-a/' };
   assert.equal(validateProjectContextQuery(withTerms).valid, false);
   assert.equal(validateProjectContextQuery(badRoot).valid, false);
+  assert.equal(validateProjectContextQuery(trailingSlash).valid, false);
 });
 
 test('Git SHA, zero budgets and punctuation-only queries are rejected', () => {
@@ -281,6 +286,35 @@ test('foreign provenance, absolute item paths and digest mutation fail closed', 
   const mutated = clone(found);
   mutated.items[0].content = 'different bytes';
   assert.equal(validateProjectContextSnapshot(mutated).valid, false);
+});
+
+test('successful snapshot rejects lied byte/token accounting and item order', () => {
+  const liedBytes = clone(found);
+  liedBytes.budget.usedBytes += 1;
+  liedBytes.snapshotDigest = computeProjectContextSnapshotDigest(liedBytes);
+  assert.equal(validateProjectContextSnapshot(liedBytes).valid, false);
+
+  const liedTokens = clone(found);
+  liedTokens.budget.usedTokens += 1;
+  liedTokens.snapshotDigest = computeProjectContextSnapshotDigest(liedTokens);
+  assert.equal(validateProjectContextSnapshot(liedTokens).valid, false);
+
+  const second = item({
+    path: 'src/a.js',
+    content: 'export const a = true;\n',
+    score: found.items[0].score + 1,
+    provenance: {
+      ...found.items[0].provenance,
+      path: 'src/a.js',
+    },
+  });
+  const misordered = clone(found);
+  misordered.items.push(second);
+  misordered.budget.usedFiles = 2;
+  misordered.budget.usedBytes += Buffer.byteLength(second.content, 'utf8');
+  misordered.budget.usedTokens = estimateProjectContextTokens(misordered.budget.usedBytes);
+  misordered.snapshotDigest = computeProjectContextSnapshotDigest(misordered);
+  assert.equal(validateProjectContextSnapshot(misordered).valid, false);
 });
 
 test('stale requires distinct complete revisions and never accepts items', () => {

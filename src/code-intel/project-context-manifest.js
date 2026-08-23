@@ -95,6 +95,7 @@ function isCanonicalAbsoluteRoot(value) {
     && value.length > 0
     && !value.includes('\0')
     && path.posix.isAbsolute(value)
+    && (value === '/' || !value.endsWith('/'))
     && path.posix.normalize(value) === value;
 }
 
@@ -210,10 +211,19 @@ async function readStableRegularFile(
       !openedStat.isFile()
       || !Number.isSafeInteger(openedStat.size)
       || openedStat.size < 0
+      || openedStat.nlink !== 1
+      || currentPathStat.nlink !== 1
       || !sameFileIdentity(initialStat, openedStat)
       || !sameFileIdentity(openedStat, currentPathStat)
     ) {
-      throw manifestError(PROJECT_CONTEXT_ERROR_CODE.INTERNAL, 'file-changed-before-read');
+      throw manifestError(
+        openedStat.nlink !== 1 || currentPathStat.nlink !== 1
+          ? PROJECT_CONTEXT_ERROR_CODE.INVALID_SCOPE
+          : PROJECT_CONTEXT_ERROR_CODE.INTERNAL,
+        openedStat.nlink !== 1 || currentPathStat.nlink !== 1
+          ? 'hardlink-not-authorized'
+          : 'file-changed-before-read',
+      );
     }
 
     if (openedStat.size > MAX_REGULAR_FILE_BYTES) {
@@ -229,11 +239,17 @@ async function readStableRegularFile(
     checkInvocation(invocationContext, now);
     const finalStat = await handle.stat();
     if (
-      !sameFileIdentity(openedStat, finalStat)
+      finalStat.nlink !== 1
+      || !sameFileIdentity(openedStat, finalStat)
       || finalStat.size !== openedStat.size
       || bytes.length !== openedStat.size
     ) {
-      throw manifestError(PROJECT_CONTEXT_ERROR_CODE.INTERNAL, 'file-changed-during-read');
+      throw manifestError(
+        finalStat.nlink !== 1
+          ? PROJECT_CONTEXT_ERROR_CODE.INVALID_SCOPE
+          : PROJECT_CONTEXT_ERROR_CODE.INTERNAL,
+        finalStat.nlink !== 1 ? 'hardlink-not-authorized' : 'file-changed-during-read',
+      );
     }
 
     const contentDigest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
@@ -386,6 +402,7 @@ export async function buildProjectContextManifest(
       ) {
         throw manifestError(PROJECT_CONTEXT_ERROR_CODE.INTERNAL, 'invalid-directory-entry-name');
       }
+      if (ignoredDirectorySet.has(child.name)) continue;
 
       const absolutePath = path.join(directory, child.name);
       const relativePath = toRelativePosix(root, absolutePath);
@@ -397,6 +414,7 @@ export async function buildProjectContextManifest(
       }
 
       if (entryStat.isSymbolicLink()) {
+        if (!isIncludedFile(child.name)) continue;
         entries.push(await describeSymlink(
           absolutePath,
           relativePath,
@@ -406,9 +424,7 @@ export async function buildProjectContextManifest(
           now,
         ));
       } else if (entryStat.isDirectory()) {
-        if (!ignoredDirectorySet.has(child.name)) {
-          await walk(absolutePath, depth + 1);
-        }
+        await walk(absolutePath, depth + 1);
       } else if (entryStat.isFile()) {
         if (!isIncludedFile(child.name)) continue;
         const description = await readStableRegularFile(

@@ -2,7 +2,7 @@
 
 **Typ:** větší paralelní Work Package pro coworkera
 
-**Stav:** `CONTRACT_ACCEPTED / READY_FOR_IMPLEMENTATION_ON_44a9ba87`
+**Stav:** `IMPLEMENTED / FOCUSED_GREEN / OPUS_RE_REVIEW_BLOCKED_BY_ACCOUNT_LIMIT`
 
 **Contract-review base:** `c4ffb2de` — poslední commit této linie před M2
 implementací, který otevírá M2 po P0 closeoutu
@@ -290,11 +290,20 @@ wall-clock/Git podobě se neobnovuje.
 - `tests/m2-project-context-retrieval.test.js`;
 - `tests/fixtures/m2-project-context/**`;
 - pouze čtyři předem rezervované nové `suites/<id>` v `tests/registry.json`;
+- přesné fixture-program exclusions v `tests/registry.json` a mechanicky
+  generovaný `docs/convergence/TEST-REGISTRY.md`;
+- `tests/fixtures/module-boundary/baseline.json` pouze přes explicitní
+  `module-boundary-ratchet --write-baseline --accept-edge` po čistém source
+  commitu;
 - unikátní branch report
   `docs/execution/runs/wp-m2-code-project-context-v1.md`.
 
 Souhrnné dokumenty a generovaný registry report aktualizuje integrátor až po
 merge.
+
+Implementační větev tento původní deferral výslovně překonala: registry gate je
+součástí acceptance a proto byl generovaný report aktualizován v témže řezu.
+Nejde o ručně udržovanou druhou autoritu.
 
 ## 5. Zakázané cesty a závislosti
 
