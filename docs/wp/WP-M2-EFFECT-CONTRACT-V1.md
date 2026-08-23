@@ -27,6 +27,8 @@ effect-capable consumery a nesmí být vydáván za hotový broker nebo M2 PASS.
 - `tests/m2-effect-contract-v1.test.js`;
 - `tests/m2-effect-authority-repository.test.js`;
 - nezbytná rozšíření `tests/schema-migrations.test.js`;
+- mechanické rozšíření exact migration oracle v
+  `tests/m1-model-failover-schema.test.js`;
 - nové append-only suite záznamy v `tests/registry.json`;
 - tento Work Package a unikátní run report tohoto bloku.
 
