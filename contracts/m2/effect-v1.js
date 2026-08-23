@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { isIP } from 'node:net';
 
@@ -76,6 +77,10 @@ function validateExactKeys(value, required, optional, context) {
 
 function isIdentifier(value) {
   return typeof value === 'string' && IDENTIFIER_PATTERN.test(value);
+}
+
+function isProjectId(value) {
+  return Number.isSafeInteger(value) && value > 0;
 }
 
 function isNonEmptyString(value, maximum = 1024) {
@@ -162,7 +167,7 @@ function validateOrigin(value) {
   for (const key of ['sessionId', 'conversationId']) {
     if (!(value[key] === null || isIdentifier(value[key]))) errors.push(`${context}:invalid-${key}`);
   }
-  if (!isIdentifier(value.projectId)) errors.push(`${context}:invalid-projectId`);
+  if (!isProjectId(value.projectId)) errors.push(`${context}:invalid-projectId`);
   return errors;
 }
 
@@ -195,13 +200,21 @@ function validateFilesystemTarget(value) {
 
 function validateProcessTarget(value) {
   const context = 'effect-request.target';
-  const errors = validateExactKeys(value, ['type', 'binary', 'argv', 'canonicalCwd'], [], context);
+  const errors = validateExactKeys(
+    value,
+    ['type', 'binary', 'argv', 'argvDigest', 'canonicalCwd'],
+    [],
+    context,
+  );
   if (!isPlainRecord(value)) return errors;
   if (value.type !== 'process') errors.push(`${context}:invalid-type`);
   if (!isCanonicalAbsolute(value.binary)) errors.push(`${context}:invalid-binary`);
   if (!Array.isArray(value.argv) || value.argv.some(arg => typeof arg !== 'string')) {
     errors.push(`${context}:invalid-argv`);
+  } else if (value.argvDigest !== computeEffectArgvDigest(value.argv)) {
+    errors.push(`${context}:argvDigest-mismatch`);
   }
+  if (!isDigest(value.argvDigest)) errors.push(`${context}:invalid-argvDigest`);
   if (!isCanonicalAbsolute(value.canonicalCwd)) errors.push(`${context}:invalid-canonicalCwd`);
   return errors;
 }
@@ -224,13 +237,21 @@ function validateNetworkTarget(value) {
   const context = 'effect-request.target';
   const errors = validateExactKeys(
     value,
-    ['type', 'url', 'method', 'redirectPolicy', 'dnsPolicy'],
+    ['type', 'url', 'origin', 'method', 'redirectPolicy', 'dnsPolicy'],
     [],
     context,
   );
   if (!isPlainRecord(value)) return errors;
   if (value.type !== 'network') errors.push(`${context}:invalid-type`);
   errors.push(...validateNormalizedHttpUrl(value.url, context));
+  try {
+    if (new URL(value.url).origin !== value.origin) {
+      errors.push(`${context}:origin-mismatch`);
+    }
+  } catch {
+    // The URL validator above owns the invalid URL diagnostic.
+  }
+  if (!isNonEmptyString(value.origin, 4096)) errors.push(`${context}:invalid-origin`);
   if (!['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(value.method)) {
     errors.push(`${context}:invalid-method`);
   }
@@ -287,7 +308,8 @@ export function validateEffectRequest(value) {
   const errors = validateExactKeys(value, [
     'contract', 'version', 'effectId', 'runId', 'parentEffectId', 'actor', 'origin',
     'kind', 'target', 'payloadDigest', 'workspaceRevision', 'requiredCapability',
-    'riskClass', 'timeoutMs', 'idempotencyKey', 'approvalGrantId', 'createdAt',
+    'payloadBytes', 'riskClass', 'timeoutMs', 'idempotencyKey',
+    'approvalGrantId', 'createdAt',
   ], [], context);
   if (!isPlainRecord(value)) return validationResult(errors, value);
   if (value.contract !== M2_EFFECT_CONTRACT_KIND.EFFECT_REQUEST) errors.push(`${context}:invalid-contract`);
@@ -304,6 +326,9 @@ export function validateEffectRequest(value) {
   if (!EFFECT_KINDS.includes(value.kind)) errors.push(`${context}:invalid-kind`);
   errors.push(...validateTarget(value.target, value.kind, value.workspaceRevision));
   if (!isDigest(value.payloadDigest)) errors.push(`${context}:invalid-payloadDigest`);
+  if (!Number.isSafeInteger(value.payloadBytes) || value.payloadBytes < 0) {
+    errors.push(`${context}:invalid-payloadBytes`);
+  }
   if (!isNonEmptyString(value.workspaceRevision, 256)) errors.push(`${context}:invalid-workspaceRevision`);
   if (typeof value.requiredCapability !== 'string' || !CAPABILITY_PATTERN.test(value.requiredCapability)) {
     errors.push(`${context}:invalid-requiredCapability`);
@@ -397,7 +422,8 @@ function validateRollbackResult(value) {
 export function validateEffectResult(value) {
   const context = 'effect-result';
   const errors = validateExactKeys(value, [
-    'contract', 'version', 'effectId', 'terminalStatus', 'startedAt', 'completedAt',
+    'contract', 'version', 'effectId', 'runId', 'projectId', 'requestDigest',
+    'approvalGrantId', 'terminalStatus', 'startedAt', 'completedAt',
     'process', 'changes', 'network', 'rollback', 'outputDigest', 'errorCode',
     'evidenceRefs', 'lateCompletionRejected',
   ], [], context);
@@ -405,6 +431,12 @@ export function validateEffectResult(value) {
   if (value.contract !== M2_EFFECT_CONTRACT_KIND.EFFECT_RESULT) errors.push(`${context}:invalid-contract`);
   if (value.version !== M2_EFFECT_CONTRACT_VERSION) errors.push(`${context}:invalid-version`);
   if (!isIdentifier(value.effectId)) errors.push(`${context}:invalid-effectId`);
+  if (!isIdentifier(value.runId)) errors.push(`${context}:invalid-runId`);
+  if (!isProjectId(value.projectId)) errors.push(`${context}:invalid-projectId`);
+  if (!isDigest(value.requestDigest)) errors.push(`${context}:invalid-requestDigest`);
+  if (!isIdentifier(value.approvalGrantId)) {
+    errors.push(`${context}:invalid-approvalGrantId`);
+  }
   if (!EFFECT_TERMINAL_STATUSES.includes(value.terminalStatus)) errors.push(`${context}:invalid-terminalStatus`);
   if (!isCanonicalTimestamp(value.startedAt)) errors.push(`${context}:invalid-startedAt`);
   if (!isCanonicalTimestamp(value.completedAt)) errors.push(`${context}:invalid-completedAt`);
@@ -440,21 +472,28 @@ function validateGrantScope(value) {
   const context = 'approval-grant.scope';
   const errors = validateExactKeys(
     value,
-    ['runId', 'projectId', 'effectId', 'kind', 'payloadDigest', 'workspaceRevision'],
+    [
+      'runId', 'projectId', 'effectId', 'kind', 'payloadDigest',
+      'payloadBytes', 'workspaceRevision',
+    ],
     [],
     context,
   );
   if (!isPlainRecord(value)) return errors;
-  for (const key of ['runId', 'projectId', 'effectId']) {
+  for (const key of ['runId', 'effectId']) {
     if (!isIdentifier(value[key])) errors.push(`${context}:invalid-${key}`);
   }
+  if (!isProjectId(value.projectId)) errors.push(`${context}:invalid-projectId`);
   if (!EFFECT_KINDS.includes(value.kind)) errors.push(`${context}:invalid-kind`);
   if (!isDigest(value.payloadDigest)) errors.push(`${context}:invalid-payloadDigest`);
+  if (!Number.isSafeInteger(value.payloadBytes) || value.payloadBytes < 0) {
+    errors.push(`${context}:invalid-payloadBytes`);
+  }
   if (!isNonEmptyString(value.workspaceRevision, 256)) errors.push(`${context}:invalid-workspaceRevision`);
   return errors;
 }
 
-function validateGrantConstraints(value) {
+function validateGrantConstraints(value, scope) {
   const context = 'approval-grant.constraints';
   const errors = validateExactKeys(
     value,
@@ -476,6 +515,9 @@ function validateGrantConstraints(value) {
   if (!(value.maxBytes === null || (Number.isSafeInteger(value.maxBytes) && value.maxBytes >= 0))) {
     errors.push(`${context}:invalid-maxBytes`);
   }
+  if (Number.isSafeInteger(scope?.payloadBytes) && value.maxBytes !== scope.payloadBytes) {
+    errors.push(`${context}:maxBytes-scope-mismatch`);
+  }
   return errors;
 }
 
@@ -492,7 +534,7 @@ export function validateApprovalGrant(value) {
   if (!isIdentifier(value.grantId)) errors.push(`${context}:invalid-grantId`);
   errors.push(...validateGrantSubject(value.subject));
   errors.push(...validateGrantScope(value.scope));
-  errors.push(...validateGrantConstraints(value.constraints));
+  errors.push(...validateGrantConstraints(value.constraints, value.scope));
   if (!isCanonicalTimestamp(value.issuedAt)) errors.push(`${context}:invalid-issuedAt`);
   if (!isCanonicalTimestamp(value.expiresAt)) errors.push(`${context}:invalid-expiresAt`);
   if (isCanonicalTimestamp(value.issuedAt) && isCanonicalTimestamp(value.expiresAt)
@@ -565,6 +607,24 @@ function canonicalize(value) {
 
 export function canonicalStringify(value) {
   return JSON.stringify(canonicalize(value));
+}
+
+export function computeEffectArgvDigest(argv) {
+  if (!Array.isArray(argv) || argv.some(value => typeof value !== 'string')) {
+    throw new TypeError('m2-effect:invalid-argv');
+  }
+  return `sha256:${createHash('sha256').update(canonicalStringify(argv), 'utf8').digest('hex')}`;
+}
+
+export function computeEffectRequestDigest(request) {
+  const normalized = { ...request, approvalGrantId: null };
+  const validation = validateEffectRequest(normalized);
+  if (!validation.valid) {
+    throw new TypeError(`m2-effect:invalid-request-for-digest:${validation.errors.join(',')}`);
+  }
+  return `sha256:${createHash('sha256')
+    .update(canonicalStringify(normalized), 'utf8')
+    .digest('hex')}`;
 }
 
 export function encodeM2EffectContract(value, expectedContract = null) {

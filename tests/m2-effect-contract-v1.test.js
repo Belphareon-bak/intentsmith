@@ -3,6 +3,8 @@ import {
   M2_EFFECT_CONTRACT_KIND,
   M2_EFFECT_CONTRACT_STAGE,
   canonicalStringify,
+  computeEffectArgvDigest,
+  computeEffectRequestDigest,
   decodeM2EffectContract,
   encodeM2EffectContract,
   validateApprovalGrant,
@@ -16,6 +18,7 @@ const DIGEST_B = `sha256:${'b'.repeat(64)}`;
 const CREATED = '2026-08-23T20:00:00.000Z';
 const STARTED = '2026-08-23T20:00:01.000Z';
 const COMPLETED = '2026-08-23T20:00:02.000Z';
+const PAYLOAD_BYTES = 31;
 
 function request(overrides = {}) {
   const base = {
@@ -29,7 +32,7 @@ function request(overrides = {}) {
       surface: 'studio',
       sessionId: 'session-1',
       conversationId: 'conversation-1',
-      projectId: 'project-1',
+      projectId: 17,
     },
     kind: 'fs.write',
     target: {
@@ -39,6 +42,7 @@ function request(overrides = {}) {
       resolvedRealpath: '/workspace/project/src/app.js',
     },
     payloadDigest: DIGEST_A,
+    payloadBytes: PAYLOAD_BYTES,
     workspaceRevision: 'wsr1:revision-a',
     requiredCapability: 'project.fs.write',
     riskClass: 'write',
@@ -58,10 +62,11 @@ function grant(overrides = {}) {
     subject: { actorType: 'user', actorId: 'user-1' },
     scope: {
       runId: 'run-1',
-      projectId: 'project-1',
+      projectId: 17,
       effectId: 'effect-1',
       kind: 'fs.write',
       payloadDigest: DIGEST_A,
+      payloadBytes: PAYLOAD_BYTES,
       workspaceRevision: 'wsr1:revision-a',
     },
     constraints: {
@@ -69,7 +74,7 @@ function grant(overrides = {}) {
       allowedBinary: null,
       allowedArgvDigest: null,
       allowedOrigin: null,
-      maxBytes: 4096,
+      maxBytes: PAYLOAD_BYTES,
     },
     issuedAt: CREATED,
     expiresAt: '2026-08-23T20:05:00.000Z',
@@ -88,6 +93,10 @@ function result(overrides = {}) {
     contract: M2_EFFECT_CONTRACT_KIND.EFFECT_RESULT,
     version: 1,
     effectId: 'effect-1',
+    runId: 'run-1',
+    projectId: 17,
+    requestDigest: computeEffectRequestDigest(request()),
+    approvalGrantId: 'grant-1',
     terminalStatus: 'succeeded',
     startedAt: STARTED,
     completedAt: COMPLETED,
@@ -173,11 +182,35 @@ test('process target requires an absolute binary and argv array', () => {
   const value = request({
     kind: 'process.exec',
     riskClass: 'exec',
-    target: { type: 'process', binary: 'node', argv: 'script.js', canonicalCwd: '/workspace/project' },
+    target: {
+      type: 'process',
+      binary: 'node',
+      argv: 'script.js',
+      argvDigest: DIGEST_A,
+      canonicalCwd: '/workspace/project',
+    },
   });
   const errors = validateEffectRequest(value).errors;
   assert(errors.includes('effect-request.target:invalid-binary'));
   assert(errors.includes('effect-request.target:invalid-argv'));
+});
+
+test('process argv digest is derived from exact ordered argv bytes', () => {
+  const argv = ['node', 'script.js', '--mode=test'];
+  const value = request({
+    kind: 'process.exec',
+    riskClass: 'exec',
+    target: {
+      type: 'process',
+      binary: '/usr/bin/node',
+      argv,
+      argvDigest: computeEffectArgvDigest(argv),
+      canonicalCwd: '/workspace/project',
+    },
+  });
+  assert.equal(validateEffectRequest(value).valid, true);
+  value.target.argv = [...argv, '--drift'];
+  assert(validateEffectRequest(value).errors.includes('effect-request.target:argvDigest-mismatch'));
 });
 
 test('network target rejects credentialed and non-normalized URLs', () => {
@@ -187,6 +220,7 @@ test('network target rejects credentialed and non-normalized URLs', () => {
     target: {
       type: 'network',
       url: 'https://user:pass@example.com',
+      origin: 'https://example.com',
       method: 'GET',
       redirectPolicy: 'revalidate',
       dnsPolicy: 'public-only',
@@ -232,6 +266,18 @@ test('fresh exact single-use grant is valid', () => {
   assert.equal(validateApprovalGrant(grant()).valid, true);
 });
 
+test('request digest excludes grant binding but covers payload byte count', () => {
+  const original = request();
+  assert.equal(
+    computeEffectRequestDigest({ ...original, approvalGrantId: 'grant-1' }),
+    computeEffectRequestDigest(original),
+  );
+  assert.notEqual(
+    computeEffectRequestDigest({ ...original, payloadBytes: original.payloadBytes + 1 }),
+    computeEffectRequestDigest(original),
+  );
+});
+
 test('grant rejects partial or simultaneous consumed and revoked states', () => {
   const partial = validateApprovalGrant(grant({ consumedAt: COMPLETED }));
   assert(partial.errors.includes('approval-grant:invalid-consumedByEffectId'));
@@ -269,6 +315,13 @@ test('successful EffectResult is valid and failure requires an error code', () =
   assert.equal(validateEffectResult(result()).valid, true);
   const failure = validateEffectResult(result({ terminalStatus: 'failed', errorCode: null }));
   assert(failure.errors.includes('effect-result:missing-errorCode'));
+});
+
+test('every EffectResult requires exact approval and request authority identity', () => {
+  const withoutApproval = validateEffectResult(result({ approvalGrantId: null }));
+  assert(withoutApproval.errors.includes('effect-result:invalid-approvalGrantId'));
+  assert.equal(validateEffectResult(result({ projectId: '17' })).valid, false);
+  assert.equal(validateEffectResult(result({ requestDigest: 'not-a-digest' })).valid, false);
 });
 
 test('EffectResult rejects time inversion and contradictory rollback state', () => {

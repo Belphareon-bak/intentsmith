@@ -176,6 +176,84 @@ function filterOldCleanupCandidates(candidates, now = Date.now()) {
 
 const intercepts = [];
 
+export function parseExactEffectApproval(input) {
+  const match = String(input || '').trim().match(
+    /^(?:schv[aá]lit\s+efekt|approve\s+effect)\s+(effect:[a-f0-9]{64})$/iu,
+  );
+  return match ? match[1] : null;
+}
+
+// M2 effect approval is deliberately exact. Generic affirmations such as
+// "ano" or "schvaluji" never authorize a filesystem syscall; the user must
+// name the full immutable effect ID in the same authenticated conversation.
+intercepts.push({
+  name: 'm2_effect_approval',
+  modes: ['*'],
+  async fn(input, context, mode) {
+    const effectId = parseExactEffectApproval(input);
+    if (!effectId) return { handled: false };
+
+    if (
+      context.authenticatedSubject?.actorType !== 'user'
+      || !context.authenticatedSubject.actorId
+      || !context.sessionId
+      || !context.conversationId
+    ) {
+      return {
+        handled: true,
+        response: systemResponse(
+          '🔒 Efekt nelze schválit bez ověřené identity a konverzace.',
+          mode,
+          { handler: 'effect.approval', effectId, error: 'effect_identity_required' },
+        ),
+      };
+    }
+
+    try {
+      const { effectFileRuntime } = await import('../../effects/effect-file-runtime.js');
+      const result = await effectFileRuntime.approveFilesystemWrite({
+        effectId,
+        conversationId: context.conversationId,
+        subjectId: context.authenticatedSubject.actorId,
+        signal: context.signal,
+      });
+      const path = result.changes?.paths?.[0] || null;
+      if (result.terminalStatus === 'succeeded' && path) {
+        context.sessionState?.setActiveFile?.(path);
+      }
+      const content = result.terminalStatus === 'succeeded'
+        ? `✅ Efekt \`${result.effectId}\` byl proveden${path ? `: **${path}**` : '.'}`
+        : `❌ Efekt \`${result.effectId}\` skončil stavem **${result.terminalStatus}**.`;
+      return {
+        handled: true,
+        response: systemResponse(content, mode, {
+          handler: 'effect.approval',
+          effectId: result.effectId,
+          effectResult: result.terminalStatus,
+          filePath: path,
+        }),
+      };
+    } catch (error) {
+      logger.warn('PreHandler', `Exact effect approval failed: ${error.message}`, {
+        effectId,
+        code: error.code || null,
+      });
+      return {
+        handled: true,
+        response: systemResponse(
+          `❌ Efekt \`${effectId}\` nebyl proveden: ${error.message}`,
+          mode,
+          {
+            handler: 'effect.approval',
+            effectId,
+            error: error.code || 'effect_approval_failed',
+          },
+        ),
+      };
+    }
+  },
+});
+
 // 0. UPGRADE NOTIFICATION (v103) — side-effect only, once per session
 intercepts.push({
   name: 'upgrade_notification',

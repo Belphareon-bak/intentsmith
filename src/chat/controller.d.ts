@@ -136,13 +136,24 @@ export type HandlerFunction = (
  */
 export interface HandlerContext {
   sessionId: string;
+  userMessageId?: number;
   userId?: string;
+  authenticatedSubject?: AuthenticatedSubject | null;
   mode: ChatModeType;
   project?: ProjectInfo;
   expertise?: ExpertiseInfo;
   agent?: AgentInfo;
   sessionState?: SessionState;
   config?: Record<string, unknown>;
+}
+
+/**
+ * Identity established by the transport/authentication boundary. Message
+ * payload fields must not be used as a substitute for this authority.
+ */
+export interface AuthenticatedSubject {
+  actorType: 'user';
+  actorId: string;
 }
 
 /**
@@ -273,6 +284,7 @@ export interface ChatRequest {
   message: string;
   sessionId: string;
   userId?: string;
+  authenticatedSubject?: AuthenticatedSubject | null;
   project?: ProjectInfo;
   expertise?: ExpertiseInfo;
   context?: Record<string, unknown>;

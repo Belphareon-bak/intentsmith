@@ -164,6 +164,8 @@ const ALL_MIGRATIONS = [
   '2026_08_22_067_model_failover_proof_artifacts',
   '2026_08_22_069_model_failover_runtime_finalization',
   '2026_08_23_070_m2_effect_authority',
+  '2026_08_24_071_m2_effect_authority_hardening',
+  '2026_08_24_072_m2_effect_execution_claims',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -188,7 +190,8 @@ const EXPECTED_TABLES = [
   'learned_patterns', 'lifecycle_handoff_state', 'llm_execution_log', 'logs',
   'marketplace_catalog_cache', 'marketplace_packages', 'media_generations',
   'memory', 'merge_audit_log', 'messages', 'messages_fts', 'milestones',
-  'm2_approval_grants', 'm2_effect_authority_events', 'm2_effect_requests', 'm2_effect_results',
+  'm2_approval_grants', 'm2_effect_authority_events', 'm2_effect_execution_claims',
+  'm2_effect_requests', 'm2_effect_results', 'm2_pending_effect_payloads',
   'model_binding_application_attempts', 'model_binding_operations', 'model_binding_runtime_finalize_cutoffs', 'model_binding_runtime_finalize_receipts', 'model_catalog_cache', 'model_desired_bindings', 'model_failover_events', 'model_failover_proofs',
   'model_failover_health_events', 'model_failover_runtime_finalize_receipts', 'model_failover_state', 'model_overrides', 'model_performance', 'model_reconciliation_log',
   'model_runtime_guard',

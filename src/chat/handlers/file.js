@@ -19,22 +19,7 @@ import { getLanguageContext } from './utils/language.js';
 import { synthesizeWithLLM } from './utils/synthesis.js';
 import fs from 'fs/promises';
 import path from 'path';
-import { fileURLToPath } from 'node:url';
 import { config } from '../../config.js';
-
-// ─── Default write root ──────────────────────────────────────────────────────
-//
-// A write without an active project used to resolve against process.cwd(),
-// which for `npm start` is the installation root — so "ulož to" dropped
-// output-<timestamp>.md next to the source tree. Writes the operator did not
-// place themselves belong in runtime state, not in the installation.
-//
-const INSTALL_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
-
-function defaultWriteRoot() {
-  const configured = process.env.C3_OUTPUT_DIR?.trim();
-  return configured ? path.resolve(configured) : path.join(INSTALL_ROOT, 'data', 'output');
-}
 
 // ─── Security constants ──────────────────────────────────────────────────────
 
@@ -549,12 +534,11 @@ function _extractUserContent(input) {
  * Handle FILE_WRITE decision — saves previous assistant output to a file.
  * v131: Falls back to extracting content from user's own message when
  * no prior assistant response exists (compound intent: content + save command).
- * TERMINAL: writes to filesystem, returns confirmation.
+ * M2: registers an effect and returns an exact approval instruction. The
+ * separate approval intercept owns execution through the canonical broker.
  */
-export async function handleFileWriteDecision(input, decision, context) {
-  const projectPath = decision.metadata?.projectScope?.projectPath
-    || context.project?.path
-    || defaultWriteRoot();
+export async function handleFileWriteDecision(input, decision, context, dependencies = {}) {
+  const projectPath = context.project?.path || null;
 
   const langCtx = context.langCtx || getLanguageContext(input);
   const lang = langCtx?.language || 'cs';
@@ -621,45 +605,78 @@ export async function handleFileWriteDecision(input, decision, context) {
     });
   }
 
-  // 3. Security validation — reuse existing validateFilePath
-  const validation = validateFilePath(filePath, projectPath);
-  if (!validation.safe) {
-    const msg = formatSecurityBlock(filePath, validation.reason, lang);
+  // 3. M2 writes require a registered active project and authenticated caller.
+  // There is deliberately no output-directory escape hatch on this path: every
+  // production write is an EffectRequest and needs an exact ApprovalGrant.
+  const projectId = Number(context.project?.id ?? context.projectId);
+  const authenticatedSubject = context.authenticatedSubject;
+  const operationId = Number.isSafeInteger(context.userMessageId) && context.userMessageId > 0
+    ? `message:${context.userMessageId}`
+    : null;
+  if (
+    !projectPath
+    || !Number.isSafeInteger(projectId)
+    || projectId <= 0
+    || !operationId
+    || authenticatedSubject?.actorType !== 'user'
+    || !authenticatedSubject.actorId
+  ) {
+    const msg = lang === 'cs'
+      ? '🔒 Zápis vyžaduje aktivní registrovaný projekt a ověřeného uživatele.'
+      : '🔒 Writing requires an active registered project and authenticated user.';
     return new TaggedResponse({
       content: msg,
       tag: new ResponseTag({
         speaker: ResponseSpeaker.SYSTEM,
         mode: ChatMode.CONVERSATION,
-        confidence: 0.95,
+        confidence: 1,
         canExecute: false,
-        metadata: { decision: decision.toJSON(), handler: 'file.write', securityBlocked: true, reason: validation.reason },
+        metadata: {
+          decision: decision.toJSON(),
+          handler: 'file.write',
+          securityBlocked: true,
+          error: 'effect_authority_required',
+        },
       }),
     });
   }
 
-  // 4. Write the file
+  // 4. Register the exact effect. The handler never owns a filesystem syscall;
+  // the runtime can only execute after a separate authenticated approval.
   try {
-    // Ensure parent directory exists
-    const dir = path.dirname(validation.resolved);
-    await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(validation.resolved, content, 'utf-8');
+    let runtime = dependencies.effectRuntime;
+    if (!runtime) {
+      const module = await import('../../effects/effect-file-runtime.js');
+      runtime = module.effectFileRuntime;
+    }
+    if (!runtime || typeof runtime.requestFilesystemWrite !== 'function') {
+      throw Object.assign(new Error('Effect file runtime is unavailable'), {
+        code: 'EFFECT_RUNTIME_NOT_READY',
+      });
+    }
 
-    const sizeKB = Math.round(Buffer.byteLength(content, 'utf-8') / 1024) || '<1';
-    const lines = content.split('\n').length;
-    const msg = lang === 'cs'
-      ? `✅ Uloženo do **${filePath}** (${lines} řádků, ${sizeKB} KB)\n\nCesta: \`${validation.resolved}\``
-      : `✅ Saved to **${filePath}** (${lines} lines, ${sizeKB} KB)\n\nPath: \`${validation.resolved}\``;
-
-    logger.info('HandleFileWrite', `File written successfully`, {
-      filePath: validation.resolved,
-      size: Buffer.byteLength(content, 'utf-8'),
-      lines,
+    const prepared = await runtime.requestFilesystemWrite({
+      sessionId: context.sessionId,
+      conversationId: context.conversationId,
+      subjectId: authenticatedSubject.actorId,
+      operationId,
+      projectId,
+      projectRoot: projectPath,
+      relativePath: filePath,
+      content,
+      signal: context.signal,
     });
 
-    // v87: Track last active file for context continuity
-    if (context.sessionState) {
-      context.sessionState.setActiveFile(validation.resolved);
-    }
+    const msg = lang === 'cs'
+      ? `🔐 Zápis do **${filePath}** čeká na schválení. Napiš přesně: \`schválit efekt ${prepared.effectId}\``
+      : `🔐 Write to **${filePath}** awaits approval. Enter exactly: \`approve effect ${prepared.effectId}\``;
+
+    logger.info('HandleFileWrite', 'Filesystem effect registered for approval', {
+      effectId: prepared.effectId,
+      projectId,
+      filePath,
+      size: Buffer.byteLength(content, 'utf8'),
+    });
 
     return new TaggedResponse({
       content: msg,
@@ -670,19 +687,25 @@ export async function handleFileWriteDecision(input, decision, context) {
         canExecute: false,
         metadata: {
           decision: decision.toJSON(),
-          fileOperation: true,
+          fileOperation: false,
           handler: 'file.write',
-          filePath: validation.resolved,
-          fileSize: Buffer.byteLength(content, 'utf-8'),
-          fileLines: lines,
+          effectId: prepared.effectId,
+          effectState: prepared.state,
+          approvalRequired: true,
+          filePath,
+          fileSize: Buffer.byteLength(content, 'utf8'),
+          fileLines: content.split('\n').length,
         },
       }),
     });
   } catch (err) {
-    logger.error('HandleFileWrite', `File write failed: ${err.message}`, { filePath: validation.resolved });
+    logger.error('HandleFileWrite', `Effect preparation failed: ${err.message}`, {
+      filePath,
+      code: err.code || null,
+    });
     const msg = lang === 'cs'
-      ? `❌ Chyba při zápisu do **${filePath}**: ${err.message}`
-      : `❌ Error writing to **${filePath}**: ${err.message}`;
+      ? `❌ Zápis do **${filePath}** nebyl autorizován: ${err.message}`
+      : `❌ Write to **${filePath}** was not authorized: ${err.message}`;
     return new TaggedResponse({
       content: msg,
       tag: new ResponseTag({
@@ -690,7 +713,11 @@ export async function handleFileWriteDecision(input, decision, context) {
         mode: ChatMode.CONVERSATION,
         confidence: 0.8,
         canExecute: false,
-        metadata: { decision: decision.toJSON(), handler: 'file.write', error: err.message },
+        metadata: {
+          decision: decision.toJSON(),
+          handler: 'file.write',
+          error: err.code || 'effect_prepare_failed',
+        },
       }),
     });
   }
