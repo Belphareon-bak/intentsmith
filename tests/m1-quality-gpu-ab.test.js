@@ -109,6 +109,29 @@ async function observeComputeApps() {
   });
 }
 
+function isOllamaCompute(app) {
+  return /(?:ollama|llama-server)/i.test(app.processName);
+}
+
+function computeCountsByProcessName(apps) {
+  return apps.reduce((counts, app) => {
+    const name = String(app.processName || '').trim();
+    counts.set(name, (counts.get(name) || 0) + 1);
+    return counts;
+  }, new Map());
+}
+
+function unexpectedNonOllamaCompute(current, baseline) {
+  const remaining = computeCountsByProcessName(baseline.filter(app => !isOllamaCompute(app)));
+  return current.filter(app => {
+    if (isOllamaCompute(app)) return false;
+    const available = remaining.get(app.processName) || 0;
+    if (available === 0) return true;
+    remaining.set(app.processName, available - 1);
+    return false;
+  });
+}
+
 async function fetchJson(url) {
   const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
   if (!response.ok) throw new Error(`${url} returned HTTP ${response.status}`);
@@ -199,7 +222,7 @@ function startGpuMonitor() {
   };
 }
 
-async function waitForNaturalRestore(baseUrl, beforeGpu) {
+async function waitForNaturalRestore(baseUrl, beforeGpu, baselineCompute) {
   const startedAt = Date.now();
   let polls = 0;
   let last = null;
@@ -208,10 +231,19 @@ async function waitForNaturalRestore(baseUrl, beforeGpu) {
       observeOllama(baseUrl), observeGpu(), observeComputeApps(),
     ]);
     polls += 1;
-    last = { loadedModels: ollama.loaded.map(model => model.name), computeCount: compute.length, gpu };
+    const ollamaCompute = compute.filter(isOllamaCompute);
+    const unexpectedCompute = unexpectedNonOllamaCompute(compute, baselineCompute);
+    last = {
+      loadedModels: ollama.loaded.map(model => model.name),
+      computeCount: compute.length,
+      ollamaComputeCount: ollamaCompute.length,
+      unexpectedCompute,
+      gpu,
+    };
     if (
       ollama.loaded.length === 0
-      && compute.length === 0
+      && ollamaCompute.length === 0
+      && unexpectedCompute.length === 0
       && gpu.usedMiB <= beforeGpu.usedMiB + MINIMUM_HEADROOM_MIB
     ) {
       return { elapsedMs: Date.now() - startedAt, polls, ...last };
@@ -271,7 +303,7 @@ function initialIssues({ ollama, gpu, compute, concurrency }) {
   if (!installed) issues.push('pinned-model-not-installed');
   else if (installed.digestSha256 !== DIGEST) issues.push('pinned-model-digest-mismatch');
   if (ollama.loaded.length !== 0) issues.push('gpu-model-already-resident');
-  if (compute.length !== 0) issues.push('gpu-compute-process-already-active');
+  if (compute.some(isOllamaCompute)) issues.push('ollama-compute-process-already-active');
   if (gpu.freeMiB < MINIMUM_FREE_VRAM_MIB) issues.push('preload-free-vram-insufficient');
   if (gpu.utilizationPercent > 60) issues.push('gpu-baseline-utilization-too-high');
   if (concurrency.max !== 1 || concurrency.active !== 0 || concurrency.queued !== 0) {
@@ -377,10 +409,25 @@ async function selfCheck() {
   const safe = initialIssues({
     ollama: { installed: [{ name: MODEL, digestSha256: DIGEST }], loaded: [] },
     gpu: { freeMiB: MINIMUM_FREE_VRAM_MIB, utilizationPercent: 0 },
-    compute: [],
+    compute: [{ pid: 42, processName: '/usr/bin/desktop-renderer', usedMemoryMiB: 256 }],
     concurrency: { max: 1, active: 0, queued: 0 },
   });
   assert(safe.length === 0, `safe preflight fixture rejected: ${safe.join(',')}`);
+  const unsafe = initialIssues({
+    ollama: { installed: [{ name: MODEL, digestSha256: DIGEST }], loaded: [] },
+    gpu: { freeMiB: MINIMUM_FREE_VRAM_MIB, utilizationPercent: 0 },
+    compute: [{ pid: 43, processName: '/usr/local/lib/ollama/llama-server', usedMemoryMiB: 1024 }],
+    concurrency: { max: 1, active: 0, queued: 0 },
+  });
+  assert(unsafe.includes('ollama-compute-process-already-active'), 'Ollama compute preflight opened');
+  assert(unexpectedNonOllamaCompute(
+    [{ pid: 2, processName: '/usr/bin/desktop-renderer', usedMemoryMiB: 384 }],
+    [{ pid: 1, processName: '/usr/bin/desktop-renderer', usedMemoryMiB: 256 }],
+  ).length === 0, 'same non-Ollama baseline process name was rejected');
+  assert(unexpectedNonOllamaCompute(
+    [{ pid: 2, processName: '/usr/bin/foreign-compute', usedMemoryMiB: 128 }],
+    [{ pid: 1, processName: '/usr/bin/desktop-renderer', usedMemoryMiB: 256 }],
+  ).length === 1, 'unexpected non-Ollama compute was admitted');
   console.log('SELF_CHECK_PASS: M1 quality A/B performs no provider or GPU effect');
 }
 
@@ -410,6 +457,7 @@ async function main() {
       contextWindowTokens: NUM_CTX,
       minimumFreeVramMiB: MINIMUM_FREE_VRAM_MIB,
       minimumHeadroomMiB: MINIMUM_HEADROOM_MIB,
+      computeBaselinePolicy: 'allow-non-ollama-with-relative-restore',
       fallbackPolicy: MODEL_RUNTIME_PROFILE.fallbackPolicy,
       corpusPath: CORPUS_PATH,
       corpusSha256,
@@ -423,6 +471,7 @@ async function main() {
   let boundary = null;
   let monitor = null;
   let beforeGpu = null;
+  let baselineCompute = [];
   let providerEffectStarted = false;
   let stage = 'static-preflight';
   try {
@@ -442,11 +491,13 @@ async function main() {
       observeOllama(baseUrl), observeGpu(), observeComputeApps(),
     ]);
     beforeGpu = gpu;
+    baselineCompute = compute;
     const concurrency = llmGateway.getConcurrencyStats();
     const issues = initialIssues({ ollama, gpu, compute, concurrency });
     report.safety = {
       initialLoadedModels: ollama.loaded.map(model => model.name),
       initialComputeProcessCount: compute.length,
+      initialComputeProcesses: compute,
       beforeGpu: gpu,
       gatewayConcurrency: concurrency,
       issues,
@@ -540,6 +591,10 @@ async function main() {
     assert(residencyPercent >= 100, 'model was not fully GPU resident');
     assert(postGpu.freeMiB >= MINIMUM_HEADROOM_MIB, 'post-call GPU headroom is unsafe');
     assert(postCompute.some(item => /ollama/i.test(item.processName)), 'Ollama compute was not observed');
+    assert(
+      unexpectedNonOllamaCompute(postCompute, baselineCompute).length === 0,
+      'unexpected non-Ollama compute appeared during A/B',
+    );
 
     stage = 'gpu-monitor-stop';
     const samples = await monitor.stop();
@@ -548,7 +603,7 @@ async function main() {
     assert(minimumFreeMiB >= MINIMUM_HEADROOM_MIB, 'monitored GPU headroom is unsafe');
 
     stage = 'natural-restore';
-    const naturalRestore = await waitForNaturalRestore(baseUrl, beforeGpu);
+    const naturalRestore = await waitForNaturalRestore(baseUrl, beforeGpu, baselineCompute);
     const attempted = cases.filter(item => item.refinement.attempted);
     const accepted = attempted.filter(item => item.refinement.accepted);
     const rejected = attempted.filter(item => !item.refinement.accepted);
@@ -618,7 +673,9 @@ async function main() {
     }
     let restoration = null;
     if (providerEffectStarted && beforeGpu) {
-      try { restoration = await waitForNaturalRestore(baseUrl, beforeGpu); } catch (restoreError) {
+      try {
+        restoration = await waitForNaturalRestore(baseUrl, beforeGpu, baselineCompute);
+      } catch (restoreError) {
         restoration = { errorCode: restoreError.code || 'M1_QUALITY_RESTORE_FAILED' };
       }
     }

@@ -58,6 +58,12 @@ Fyzický běh používá stejný exact `qwen3.5:27b`, digest
 Měří A baseline proti B final output: p50/p95 baseline/refinement/final latency,
 score delta, acceptance rate, tokeny, wire shape, GPU residency/headroom a
 přirozený restore. Nevolá pull/delete/unload/rebind a neposílá `keep_alive`.
+Bezpečnost je vázaná na skutečný Ollama konflikt a dostupnou kapacitu: malý
+non-Ollama desktopový workload je zaznamenaný jako baseline, zatímco rezidentní
+model, cizí `ollama`/`llama-server`, méně než 20 128 MiB free nebo utilization
+nad 60 % běh dál blokují. Restore vyžaduje prázdnou Ollamu, žádný Ollama
+compute, žádný nový non-Ollama proces a návrat použité VRAM k baseline v rámci
+commitnutého headroomu; nevyžaduje absolutně prázdnou GPU.
 
 První registrovaný preflight:
 
@@ -92,8 +98,9 @@ ukončen ani jinak ovlivněn. B5 tedy není PASS a B6 se zatím neotevírá.
 
 ## Zbývající acceptance
 
-1. počkat na současně prázdný `ollama ps`, nulový compute seznam, nejméně
-   20 128 MiB free a utilization nejvýše 60 %;
+1. počkat na současně prázdný `ollama ps`, žádný Ollama/`llama-server` compute,
+   nejméně 20 128 MiB free a utilization nejvýše 60 %; stabilní non-Ollama
+   baseline se změří a po běhu porovná relativně;
 2. spustit výše uvedenou T3 sadu sériově z čistého commitu;
 3. vyžadovat minimálně jeden accepted a jeden rejected refinement, žádný
    provider error, všechna accepted corpus chování a přirozený restore;
