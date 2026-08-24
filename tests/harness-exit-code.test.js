@@ -353,7 +353,10 @@ try {
   //   105 -> 107 M2 tool authority added the durable repository and active
   //              production-consumer suites. Both use the canonical isolated
   //              database bootstrap before importing the production runtime.
-  const expectedDatabaseReachableRootTests = 107;
+  //   107 -> 108 M2 execution authority added one production-runtime path to
+  //              the database-reachable census. The root remains protected by
+  //              the canonical isolated database bootstrap.
+  const expectedDatabaseReachableRootTests = 108;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,

@@ -51,8 +51,12 @@ Registry po přidání pěti execution programů:
 - `valid: true`;
 - 416 runnable programů a 14 explicitních exclusions;
 - fingerprint
-  `a1c342bb2228159456935ac1036d0020295066d4c59d6dbab7fd4156bb3c6d99`;
+  `d6a006c086879d350395857a60b9eb794d4f54d4c9cd102d15e02d14d2ff65d4`;
 - generovaný `docs/convergence/TEST-REGISTRY.md` je aktuální.
+
+Tři sady vyžadující host `bwrap`/Git jsou podle existující registry konvence
+aktivní v explicitním `soak` profilu. Výchozí `offline,database` gate je proto
+nevydává za BLOCKED; jejich čerstvý výsledek dokládají přímé focused běhy výše.
 
 ## Nezávislý interní audit před Opus
 

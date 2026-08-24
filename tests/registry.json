@@ -12525,7 +12525,7 @@
       "capabilityId": "C3-011",
       "tier": "T1",
       "fixture": "isolated-db-and-project-process",
-      "profile": "database",
+      "profile": "soak",
       "timeoutMs": 60000,
       "expectedDurationMs": 10000,
       "requirements": {
@@ -12559,7 +12559,7 @@
       "capabilityId": "C3-011",
       "tier": "T1",
       "fixture": "isolated-process-tree",
-      "profile": "offline",
+      "profile": "soak",
       "timeoutMs": 60000,
       "expectedDurationMs": 10000,
       "requirements": {
@@ -12592,7 +12592,7 @@
       "capabilityId": "C3-011",
       "tier": "T1",
       "fixture": "isolated-git-repository",
-      "profile": "offline",
+      "profile": "soak",
       "timeoutMs": 30000,
       "expectedDurationMs": 5000,
       "requirements": {
