@@ -47,6 +47,13 @@ function sha(bytes) {
   return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 }
 
+function isWorkspaceRevisionObservation(value) {
+  return value !== null
+    && typeof value === 'object'
+    && typeof value.workspaceRevision === 'string'
+    && /^wsr1:[0-9a-f]{64}$/.test(value.workspaceRevision);
+}
+
 function eventId(executionId, generation, type, key) {
   const digest = createHash('sha256')
     .update(JSON.stringify({ executionId, generation, type, key }), 'utf8')
@@ -559,8 +566,7 @@ async function recoverOnly(request, claim, dependencies, startedAt) {
       } catch {
         afterObservation = null;
       }
-      if (!afterObservation
-        || afterObservation.workspaceRevision === request.project.workspaceRevision) {
+      if (!isWorkspaceRevisionObservation(afterObservation)) {
         const result = recoveryInDoubtResult({
           request,
           claim,
@@ -730,11 +736,17 @@ export async function executeProjectChange({
     return result;
   }
 
-  const observed = await observeRevision({
-    projectId: request.project.projectId,
-    canonicalRoot: request.project.canonicalRoot,
-  });
-  if (observed.workspaceRevision !== request.project.workspaceRevision) {
+  let observed;
+  try {
+    observed = await observeRevision({
+      projectId: request.project.projectId,
+      canonicalRoot: request.project.canonicalRoot,
+    });
+  } catch {
+    observed = null;
+  }
+  if (!isWorkspaceRevisionObservation(observed)
+    || observed.workspaceRevision !== request.project.workspaceRevision) {
     const result = parentResult({
       request,
       generation: claim.generation,
@@ -752,13 +764,19 @@ export async function executeProjectChange({
     executionRepository.recordResult(result);
     return result;
   }
-  const initialGitObservation = observeGitBaseline(
-    request.project.canonicalRoot,
-    request.changes.map(change => change.path),
-    { projectId: request.project.projectId },
-  );
+  let initialGitObservation;
+  try {
+    initialGitObservation = observeGitBaseline(
+      request.project.canonicalRoot,
+      request.changes.map(change => change.path),
+      { projectId: request.project.projectId },
+    );
+  } catch {
+    initialGitObservation = null;
+  }
   if (
-    initialGitObservation.head !== request.project.gitHead
+    !initialGitObservation
+    || initialGitObservation.head !== request.project.gitHead
     || initialGitObservation.branchRef !== request.project.gitBranchRef
     || initialGitObservation.foreignDirtDigest !== request.project.foreignDirtDigest
     || initialGitObservation.targetDirtyPaths.length !== 0
@@ -786,6 +804,42 @@ export async function executeProjectChange({
   let focused = notStartedFocused(request);
   let git = initialGit(request);
   let stop = null;
+
+  const finishStopped = async () => {
+    const rolledBack = await rollbackApplied({
+      request,
+      material,
+      appliedPaths,
+      generation: claim.generation,
+      executionRepository,
+      effectRepository,
+      clock,
+    });
+    const rollbackFailed = rolledBack.failed.length > 0;
+    const required = appliedPaths.size > 0;
+    const result = parentResult({
+      request,
+      generation: claim.generation,
+      startedAt,
+      completedAt: timestamp(clock),
+      terminalStatus: rollbackFailed ? 'orphaned' : stop.status,
+      changedPaths: [],
+      afterRevision: null,
+      focusedTest: focused,
+      git,
+      rollback: {
+        required,
+        status: rollbackFailed ? 'failed' : required ? 'succeeded' : 'not_required',
+        paths: rollbackFailed ? rolledBack.failed : rolledBack.restored,
+        evidenceRef: required ? `execution:${executionId}:rollback` : null,
+      },
+      errorCode: rollbackFailed ? ProjectChangeRuntimeErrorCode.ROLLBACK_FAILED : stop.code,
+      evidenceRefs: [`execution:${executionId}:failed`],
+      lateCompletionRejected: focused.terminalStatus === 'orphaned',
+    });
+    executionRepository.recordResult(result);
+    return result;
+  };
 
   for (const file of material) {
     const change = request.changes[file.ordinal];
@@ -1053,69 +1107,64 @@ export async function executeProjectChange({
   }
 
   if (!stop && request.gitCommit === null) {
-    const finalGitObservation = observeGitBaseline(
-      request.project.canonicalRoot,
-      request.changes.map(change => change.path),
-      { projectId: request.project.projectId },
-    );
+    let finalGitObservation;
+    try {
+      finalGitObservation = observeGitBaseline(
+        request.project.canonicalRoot,
+        request.changes.map(change => change.path),
+        { projectId: request.project.projectId },
+      );
+    } catch {
+      finalGitObservation = null;
+    }
     const expectedPaths = request.changes.map(change => change.path);
     if (
-      finalGitObservation.head !== request.project.gitHead
+      !finalGitObservation
+      || finalGitObservation.head !== request.project.gitHead
       || finalGitObservation.branchRef !== request.project.gitBranchRef
       || finalGitObservation.foreignDirtDigest !== request.project.foreignDirtDigest
       || finalGitObservation.targetDirtyPaths.length !== expectedPaths.length
       || finalGitObservation.targetDirtyPaths.some((candidate, index) => candidate !== expectedPaths[index])
     ) {
       git = {
-        status: 'failed', beforeHead: request.project.gitHead,
-        afterHead: request.project.gitHead, commitId: null, foreignDirtPreserved: false,
+        ...initialGit(request), foreignDirtPreserved: false,
       };
       stop = { status: 'failed', code: ProjectChangeRuntimeErrorCode.GIT_FAILED };
     }
   }
 
-  if (stop) {
-    const rolledBack = await rollbackApplied({
-      request,
-      material,
-      appliedPaths,
-      generation: claim.generation,
-      executionRepository,
-      effectRepository,
-      clock,
+  if (stop) return finishStopped();
+
+  let afterObservation;
+  try {
+    afterObservation = await observeRevision({
+      projectId: request.project.projectId,
+      canonicalRoot: request.project.canonicalRoot,
     });
-    const rollbackFailed = rolledBack.failed.length > 0;
-    const required = appliedPaths.size > 0;
+  } catch {
+    afterObservation = null;
+  }
+  if (!isWorkspaceRevisionObservation(afterObservation)) {
+    if (git.status !== 'committed') {
+      stop = { status: 'failed', code: ProjectChangeRuntimeErrorCode.CONTEXT_STALE };
+      return finishStopped();
+    }
     const result = parentResult({
       request,
       generation: claim.generation,
       startedAt,
       completedAt: timestamp(clock),
-      terminalStatus: rollbackFailed ? 'orphaned' : stop.status,
+      terminalStatus: 'orphaned',
       changedPaths: [],
       afterRevision: null,
       focusedTest: focused,
       git,
-      rollback: {
-        required,
-        status: rollbackFailed ? 'failed' : required ? 'succeeded' : 'not_required',
-        paths: rollbackFailed ? rolledBack.failed : rolledBack.restored,
-        evidenceRef: required ? `execution:${executionId}:rollback` : null,
-      },
-      errorCode: rollbackFailed ? ProjectChangeRuntimeErrorCode.ROLLBACK_FAILED : stop.code,
-      evidenceRefs: [`execution:${executionId}:failed`],
-      lateCompletionRejected: focused.terminalStatus === 'orphaned',
+      rollback: { required: false, status: 'not_required', paths: [], evidenceRef: null },
+      errorCode: ProjectChangeRuntimeErrorCode.CONTEXT_STALE,
+      evidenceRefs: [`execution:${executionId}:revision-observation-failed-after-commit`],
     });
     executionRepository.recordResult(result);
     return result;
-  }
-
-  const afterObservation = await observeRevision({
-    projectId: request.project.projectId,
-    canonicalRoot: request.project.canonicalRoot,
-  });
-  if (afterObservation.workspaceRevision === request.project.workspaceRevision) {
-    fail(ProjectChangeRuntimeErrorCode.CONTEXT_STALE, 'Successful writes did not advance workspace revision');
   }
   executionRepository.appendEvent({
     eventId: eventId(executionId, claim.generation, 'terminal_prepared', 'success'),

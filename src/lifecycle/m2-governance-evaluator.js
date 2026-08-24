@@ -314,7 +314,11 @@ export function evaluateM2Governance({
       errors: candidateValidation.errors,
     });
   }
-  if (boundAfterRevision === null || boundAfterRevision === request.project.workspaceRevision) {
+  // ContextFilePolicy@1 intentionally revisions only its source set. A valid
+  // project change to a non-observable path (for example deploy.cfg) therefore
+  // has an expected revision equal to its before revision. The exact
+  // before/after bytes remain request- and candidate-bound below.
+  if (boundAfterRevision === null) {
     inputStatus = M2_GOVERNANCE_CHECK_STATUS.UNAVAILABLE;
     addFinding(findingsById, 'input.bindings', 'EXPECTED_AFTER_REVISION_INVALID', null, {
       beforeRevision: request.project.workspaceRevision,

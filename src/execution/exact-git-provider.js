@@ -124,27 +124,102 @@ function status(gitBinary, root) {
   ]).stdout ?? Buffer.alloc(0);
 }
 
+function indexRecordsByPath(gitBinary, root) {
+  const bytes = invoke(gitBinary, root, ['ls-files', '--stage', '-z', '--']).stdout ?? Buffer.alloc(0);
+  const records = new Map();
+  let offset = 0;
+  while (offset < bytes.length) {
+    const end = bytes.indexOf(0, offset);
+    if (end === -1) {
+      fail(ExactGitErrorCode.COMMAND_FAILED, 'Git returned an unterminated index record');
+    }
+    const raw = bytes.subarray(offset, end);
+    const separator = raw.indexOf(0x09);
+    if (separator === -1) {
+      fail(ExactGitErrorCode.COMMAND_FAILED, 'Git returned an unknown index record');
+    }
+    const recordPath = raw.subarray(separator + 1).toString('utf8');
+    const existing = records.get(recordPath) ?? [];
+    existing.push(raw);
+    records.set(recordPath, existing);
+    offset = end + 1;
+  }
+  return records;
+}
+
+function sameFileSnapshot(left, right) {
+  return left.dev === right.dev
+    && left.ino === right.ino
+    && left.mode === right.mode
+    && left.size === right.size
+    && left.mtimeNs === right.mtimeNs
+    && left.ctimeNs === right.ctimeNs;
+}
+
+function worktreeDigest(absolute, buffer) {
+  let before;
+  try {
+    before = fs.lstatSync(absolute, { bigint: true });
+  } catch (error) {
+    if (error?.code === 'ENOENT') return null;
+    fail(ExactGitErrorCode.COMMAND_FAILED, 'Foreign worktree entry could not be inspected', {
+      cause: error?.code ?? error?.message ?? 'unknown',
+    });
+  }
+  if (!before.isFile()) return `type:${Number(before.mode & 0o170000n)}`;
+
+  let descriptor;
+  try {
+    descriptor = fs.openSync(absolute, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    const opened = fs.fstatSync(descriptor, { bigint: true });
+    if (!sameFileSnapshot(before, opened)) {
+      fail(ExactGitErrorCode.BASELINE_CHANGED, 'Foreign worktree entry changed while opening');
+    }
+    const digest = createHash('sha256');
+    let remaining = opened.size;
+    while (remaining > 0n) {
+      const wanted = Number(remaining < BigInt(buffer.length) ? remaining : BigInt(buffer.length));
+      const count = fs.readSync(descriptor, buffer, 0, wanted, null);
+      if (count === 0) {
+        fail(ExactGitErrorCode.BASELINE_CHANGED, 'Foreign worktree entry changed while reading');
+      }
+      digest.update(buffer.subarray(0, count));
+      remaining -= BigInt(count);
+    }
+    const after = fs.fstatSync(descriptor, { bigint: true });
+    if (!sameFileSnapshot(opened, after)) {
+      fail(ExactGitErrorCode.BASELINE_CHANGED, 'Foreign worktree entry changed while hashing');
+    }
+    return `sha256:${digest.digest('hex')}`;
+  } catch (error) {
+    if (error instanceof ExactGitError) throw error;
+    fail(ExactGitErrorCode.COMMAND_FAILED, 'Foreign worktree entry could not be hashed', {
+      cause: error?.code ?? error?.message ?? 'unknown',
+    });
+  } finally {
+    if (descriptor !== undefined) fs.closeSync(descriptor);
+  }
+}
+
 function foreignDirt(gitBinary, root, targetPaths) {
   const targets = new Set(targetPaths);
   const records = statusRecords(status(gitBinary, root));
   const targetDirtyPaths = records.filter(record => targets.has(record.path)).map(record => record.path);
+  const indexByPath = indexRecordsByPath(gitBinary, root);
+  const readBuffer = Buffer.allocUnsafe(64 * 1024);
   const projection = [];
   for (const record of records.filter(candidate => !targets.has(candidate.path)).sort((a, b) => compareUtf8(a.path, b.path))) {
     const absolute = path.join(root, record.path);
-    let worktreeDigest = null;
-    try {
-      const stat = fs.lstatSync(absolute);
-      worktreeDigest = stat.isFile() ? sha(fs.readFileSync(absolute)) : `type:${stat.mode & 0o170000}`;
-    } catch (error) {
-      if (error?.code !== 'ENOENT') throw error;
-    }
-    const index = invoke(gitBinary, root, ['ls-files', '--stage', '-z', '--', record.path]).stdout ?? Buffer.alloc(0);
+    const index = indexByPath.get(record.path) ?? [];
+    const indexBytes = index.length === 0
+      ? Buffer.alloc(0)
+      : Buffer.concat(index.flatMap(raw => [raw, Buffer.from([0])]));
     projection.push({
       path: record.path,
       x: record.x,
       y: record.y,
-      worktreeDigest,
-      indexDigest: sha(index),
+      worktreeDigest: worktreeDigest(absolute, readBuffer),
+      indexDigest: sha(indexBytes),
     });
   }
   const encoded = Buffer.from(JSON.stringify(projection), 'utf8');

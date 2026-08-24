@@ -107,6 +107,70 @@ test('baseline exposes a pre-existing dirty target instead of blessing it', () =
   }
 });
 
+test('foreign dirt inventory batches 3000 untracked paths into one index read under one second', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-m2-git-scale-'));
+  const wrapperRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-m2-git-wrapper-'));
+  try {
+    fs.writeFileSync(path.join(root, 'target.txt'), 'target-before\n');
+    git(root, ['init', '-b', 'main']);
+    git(root, ['add', '--', 'target.txt']);
+    git(root, [
+      '-c', 'user.name=IntentSmith Test',
+      '-c', 'user.email=intentsmith@example.invalid',
+      'commit', '-m', 'baseline',
+    ]);
+    for (let index = 0; index < 3_000; index += 1) {
+      fs.writeFileSync(path.join(root, `foreign-${String(index).padStart(4, '0')}.txt`), 'x');
+    }
+    const logPath = path.join(wrapperRoot, 'argv.log');
+    const wrapperPath = path.join(wrapperRoot, 'git-wrapper.sh');
+    fs.writeFileSync(wrapperPath, `#!/bin/sh\nprintf '%s\\0' "$@" >> ${JSON.stringify(logPath)}\nexec /usr/bin/git "$@"\n`);
+    fs.chmodSync(wrapperPath, 0o755);
+    const startedAt = performance.now();
+    const baseline = observeExactGitBaseline(root, ['target.txt'], {
+      projectId: 17,
+      gitBinary: wrapperPath,
+    });
+    const durationMs = performance.now() - startedAt;
+    const calls = fs.readFileSync(logPath).toString('utf8')
+      .split('ls-files\0--stage\0-z\0--\0').length - 1;
+    assert.equal(baseline.targetDirtyPaths.length, 0);
+    assert.equal(calls, 1);
+    assert(durationMs < 1_000, `batched foreign-dirt baseline took ${durationMs.toFixed(1)} ms`);
+  } finally {
+    cleanup(root);
+    cleanup(wrapperRoot);
+  }
+});
+
+test('large foreign file is content-bound with bounded resident memory', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-m2-git-large-'));
+  try {
+    fs.writeFileSync(path.join(root, 'target.txt'), 'target-before\n');
+    git(root, ['init', '-b', 'main']);
+    git(root, ['add', '--', 'target.txt']);
+    git(root, [
+      '-c', 'user.name=IntentSmith Test',
+      '-c', 'user.email=intentsmith@example.invalid',
+      'commit', '-m', 'baseline',
+    ]);
+    const largePath = path.join(root, 'foreign-large.bin');
+    fs.closeSync(fs.openSync(largePath, 'w'));
+    fs.truncateSync(largePath, 200 * 1024 * 1024);
+    const beforeRss = process.memoryUsage().rss;
+    const before = observeExactGitBaseline(root, ['target.txt'], { projectId: 17 });
+    const peakDelta = process.memoryUsage().rss - beforeRss;
+    const descriptor = fs.openSync(largePath, 'r+');
+    fs.writeSync(descriptor, Buffer.from([1]), 0, 1, 100 * 1024 * 1024);
+    fs.closeSync(descriptor);
+    const after = observeExactGitBaseline(root, ['target.txt'], { projectId: 17 });
+    assert.notEqual(after.foreignDirtDigest, before.foreignDirtDigest);
+    assert(peakDelta < 50 * 1024 * 1024, `foreign-dirt hashing grew RSS by ${peakDelta} bytes`);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('branch race before CAS is rejected and the competing head is preserved', () => {
   const root = fixture();
   try {

@@ -14,6 +14,7 @@ import { up as applyEffectAuthorityHardening } from '../src/db/migrations/2026_0
 import { up as applyEffectExecutionClaims } from '../src/db/migrations/2026_08_24_072_m2_effect_execution_claims.js';
 import { up as applyEffectClaimTruth } from '../src/db/migrations/2026_08_24_073_m2_effect_claim_truth.js';
 import { up as applyExecutionAuthority } from '../src/db/migrations/2026_08_24_078_m2_execution_authority.js';
+import { observeWorkspaceRevision } from '../src/code-intel/project-context-provider.js';
 import { createApprovalGrantIssuer } from '../src/effects/approval-grant-issuer.js';
 import { EffectAuthorityRepository } from '../src/effects/effect-authority-repository.js';
 import { ExecutionAuthorityRepository } from '../src/execution/execution-authority-repository.js';
@@ -94,6 +95,17 @@ function workspaceRevision(root) {
   return `wsr1:${createHash('sha256').update(JSON.stringify(entries)).digest('hex')}`;
 }
 
+function productionRevisionObserver(root) {
+  const projects = Object.freeze({
+    findById: Object.freeze({
+      get(projectId) {
+        return projectId === 17 ? { id: 17, path: root, status: 'active' } : null;
+      },
+    }),
+  });
+  return scope => observeWorkspaceRevision(scope, {}, { projects });
+}
+
 function openDb(databasePath = ':memory:') {
   const db = new Database(databasePath);
   db.pragma('foreign_keys = ON');
@@ -149,10 +161,25 @@ function failingProcess() {
   });
 }
 
-async function prepare(root, { twoFiles = true, commit = false, databasePath = ':memory:' } = {}) {
-  const targetPaths = twoFiles ? ['src/app.js', 'src/new.js'] : ['src/app.js'];
+async function prepare(root, {
+  twoFiles = true,
+  commit = false,
+  databasePath = ':memory:',
+  changes = null,
+  revisionObserver = null,
+} = {}) {
+  const plannedChanges = changes ?? [
+    { path: 'src/app.js', afterContent: 'export const value = 2;\n' },
+    ...(twoFiles ? [{ path: 'src/new.js', afterContent: 'export const added = true;\n' }] : []),
+  ];
+  const targetPaths = plannedChanges.map(change => change.path);
   const baseline = observeExactGitBaseline(root, targetPaths, { projectId: 17 });
-  const revision = workspaceRevision(root);
+  const observe = revisionObserver ?? (async () => ({
+    projectId: 17,
+    canonicalRoot: root,
+    workspaceRevision: workspaceRevision(root),
+  }));
+  const revision = (await observe({ projectId: 17, canonicalRoot: root })).workspaceRevision;
   const environment = { NODE_ENV: 'test', NO_COLOR: '1' };
   const plan = await planProjectChange({
     executionId: 'execution-runtime-1',
@@ -166,10 +193,7 @@ async function prepare(root, { twoFiles = true, commit = false, databasePath = '
     },
     projectContext: { projectId: 17, canonicalRoot: root, workspaceRevision: revision },
     gitBaseline: baseline,
-    changes: [
-      { path: 'src/app.js', afterContent: 'export const value = 2;\n' },
-      ...(twoFiles ? [{ path: 'src/new.js', afterContent: 'export const added = true;\n' }] : []),
-    ],
+    changes: plannedChanges,
     focusedTest: {
       binary: '/usr/bin/node',
       argv: ['--version'],
@@ -189,7 +213,7 @@ async function prepare(root, { twoFiles = true, commit = false, databasePath = '
     } : null,
     createdAt: new Date(CREATED_MS).toISOString(),
   }, {
-    observeRevision: async () => ({ projectId: 17, canonicalRoot: root, workspaceRevision: workspaceRevision(root) }),
+    observeRevision: observe,
   });
 
   const db = openDb(databasePath);
@@ -219,6 +243,7 @@ async function prepare(root, { twoFiles = true, commit = false, databasePath = '
     grants,
     environment,
     baseline,
+    observeRevision: observe,
     clock: () => ++authorityNow,
     advance(ms) { authorityNow += ms; },
   };
@@ -238,7 +263,7 @@ function dependencies(
     owner,
     liveness,
     clock: prepared.clock,
-    observeRevision: async () => ({ projectId: 17, canonicalRoot: root, workspaceRevision: workspaceRevision(root) }),
+    observeRevision: prepared.observeRevision,
     observeGitBaseline: observeExactGitBaseline,
     processProvider,
     gitProvider,
@@ -299,6 +324,134 @@ await testAsync('direct journey uses real bwrap test and exact Git commit end to
   }
 }, 30_000);
 
+await testAsync('real production revision observer accepts an exact committed non-manifest change', async () => {
+  const root = makeProject();
+  try {
+    const observe = productionRevisionObserver(root);
+    const prepared = await prepare(root, {
+      commit: true,
+      changes: [{ path: 'deploy.cfg', afterContent: 'release=green\n' }],
+      revisionObserver: observe,
+    });
+    const beforeRevision = prepared.plan.request.project.workspaceRevision;
+    const result = await executeProjectChange({
+      executionId: prepared.plan.request.executionId,
+      grants: prepared.grants,
+      focusedEnvironment: prepared.environment,
+    }, dependencies(
+      prepared,
+      root,
+      successfulProcess(),
+      OWNER_ONE,
+      { isProvablyDead: () => false },
+      exactGitProvider,
+    ));
+    assert.equal(result.terminalStatus, 'succeeded');
+    assert.equal(result.changes.beforeRevision, beforeRevision);
+    assert.equal(result.changes.afterRevision, beforeRevision);
+    assert.equal(result.git.status, 'committed');
+    assert.equal(result.rollback.required, false);
+    assert.equal(fs.readFileSync(path.join(root, 'deploy.cfg'), 'utf8'), 'release=green\n');
+    assert.equal(prepared.executionRepository.getResult(result.executionId)?.terminalStatus, 'succeeded');
+    prepared.db.close();
+  } finally {
+    cleanup(root);
+  }
+}, 30_000);
+
+await testAsync('post-write revision observer failure is durably failed and rolled back', async () => {
+  const root = makeProject();
+  try {
+    const prepared = await prepare(root, { twoFiles: false });
+    let observations = 0;
+    prepared.observeRevision = async () => {
+      observations += 1;
+      if (observations === 1) {
+        return { projectId: 17, canonicalRoot: root, workspaceRevision: prepared.plan.request.project.workspaceRevision };
+      }
+      throw new Error('revision observer unavailable');
+    };
+    const result = await executeProjectChange({
+      executionId: prepared.plan.request.executionId,
+      grants: prepared.grants,
+      focusedEnvironment: prepared.environment,
+    }, dependencies(prepared, root, successfulProcess()));
+    assert.equal(result.terminalStatus, 'failed');
+    assert.equal(result.errorCode, ProjectChangeRuntimeErrorCode.CONTEXT_STALE);
+    assert.equal(result.rollback.status, 'succeeded');
+    assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), 'export const value = 1;\n');
+    assert.equal(prepared.executionRepository.getResult(result.executionId)?.terminalStatus, 'failed');
+    prepared.db.close();
+  } finally {
+    cleanup(root);
+  }
+});
+
+await testAsync('post-write Git observer failure is durably failed and rolled back', async () => {
+  const root = makeProject();
+  try {
+    const prepared = await prepare(root, { twoFiles: false });
+    const runtimeDependencies = dependencies(prepared, root, successfulProcess());
+    let observations = 0;
+    runtimeDependencies.observeGitBaseline = (...args) => {
+      observations += 1;
+      if (observations === 1) return observeExactGitBaseline(...args);
+      throw new Error('git observer unavailable');
+    };
+    const result = await executeProjectChange({
+      executionId: prepared.plan.request.executionId,
+      grants: prepared.grants,
+      focusedEnvironment: prepared.environment,
+    }, runtimeDependencies);
+    assert.equal(result.terminalStatus, 'failed');
+    assert.equal(result.errorCode, ProjectChangeRuntimeErrorCode.GIT_FAILED);
+    assert.equal(result.git.status, 'not_requested');
+    assert.equal(result.git.foreignDirtPreserved, false);
+    assert.equal(result.rollback.status, 'succeeded');
+    assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), 'export const value = 1;\n');
+    assert.equal(prepared.executionRepository.getResult(result.executionId)?.terminalStatus, 'failed');
+    prepared.db.close();
+  } finally {
+    cleanup(root);
+  }
+});
+
+await testAsync('post-commit revision observer failure records an honest durable orphan without throwing', async () => {
+  const root = makeProject();
+  try {
+    const prepared = await prepare(root, { commit: true, twoFiles: false });
+    let observations = 0;
+    prepared.observeRevision = async () => {
+      observations += 1;
+      if (observations === 1) {
+        return { projectId: 17, canonicalRoot: root, workspaceRevision: prepared.plan.request.project.workspaceRevision };
+      }
+      throw new Error('revision observer unavailable after commit');
+    };
+    const result = await executeProjectChange({
+      executionId: prepared.plan.request.executionId,
+      grants: prepared.grants,
+      focusedEnvironment: prepared.environment,
+    }, dependencies(
+      prepared,
+      root,
+      successfulProcess(),
+      OWNER_ONE,
+      { isProvablyDead: () => false },
+      exactGitProvider,
+    ));
+    assert.equal(result.terminalStatus, 'orphaned');
+    assert.equal(result.errorCode, ProjectChangeRuntimeErrorCode.CONTEXT_STALE);
+    assert.equal(result.git.status, 'committed');
+    assert.equal(result.rollback.required, false);
+    assert.equal(git(root, ['rev-parse', 'HEAD']), result.git.commitId);
+    assert.equal(prepared.executionRepository.getResult(result.executionId)?.terminalStatus, 'orphaned');
+    prepared.db.close();
+  } finally {
+    cleanup(root);
+  }
+});
+
 await testAsync('SIGKILL after Git index update is completed by generation-two recovery without rerunning effects', async () => {
   const root = makeProject();
   const artifactRoot = path.join(process.cwd(), '.intentsmith-artifacts', 'direct-tests');
@@ -306,7 +459,12 @@ await testAsync('SIGKILL after Git index update is completed by generation-two r
   const crashRoot = fs.mkdtempSync(path.join(artifactRoot, 'm2-runtime-git-crash-'));
   const databasePath = path.join(crashRoot, 'authority.sqlite');
   try {
-    const prepared = await prepare(root, { commit: true, databasePath });
+    const prepared = await prepare(root, {
+      commit: true,
+      databasePath,
+      changes: [{ path: 'deploy.cfg', afterContent: 'release=green\n' }],
+      revisionObserver: productionRevisionObserver(root),
+    });
     const originalHead = prepared.plan.request.project.gitHead;
     prepared.db.close();
 
@@ -315,17 +473,17 @@ await testAsync('SIGKILL after Git index update is completed by generation-two r
       executionRepository: new URL('../src/execution/execution-authority-repository.js', import.meta.url).href,
       runtime: new URL('../src/execution/project-change-runtime.js', import.meta.url).href,
       git: new URL('../src/execution/exact-git-provider.js', import.meta.url).href,
+      projectContext: new URL('../src/code-intel/project-context-provider.js', import.meta.url).href,
     };
     const crashScript = path.join(crashRoot, 'runtime-crash.mjs');
     fs.writeFileSync(crashScript, `
       import { createHash } from 'node:crypto';
-      import fs from 'node:fs';
-      import path from 'node:path';
       import Database from 'better-sqlite3';
       import { EffectAuthorityRepository } from ${JSON.stringify(moduleUrls.effectRepository)};
       import { ExecutionAuthorityRepository } from ${JSON.stringify(moduleUrls.executionRepository)};
       import { executeProjectChange } from ${JSON.stringify(moduleUrls.runtime)};
       import { commitExactProjectChange, observeExactGitBaseline } from ${JSON.stringify(moduleUrls.git)};
+      import { observeWorkspaceRevision } from ${JSON.stringify(moduleUrls.projectContext)};
 
       const root = ${JSON.stringify(root)};
       const databasePath = ${JSON.stringify(databasePath)};
@@ -334,15 +492,9 @@ await testAsync('SIGKILL after Git index update is completed by generation-two r
       db.pragma('foreign_keys = ON');
       const effectRepository = new EffectAuthorityRepository(db, { clock: () => fixedNow });
       const executionRepository = new ExecutionAuthorityRepository(db, { clock: () => fixedNow });
-      const workspaceRevision = () => {
-        const entries = ['src/app.js', 'src/new.js'].map(relative => ({
-          path: relative,
-          digest: fs.existsSync(path.join(root, relative))
-            ? 'sha256:' + createHash('sha256').update(fs.readFileSync(path.join(root, relative))).digest('hex')
-            : null,
-        }));
-        return 'wsr1:' + createHash('sha256').update(JSON.stringify(entries)).digest('hex');
-      };
+      const projects = { findById: { get: projectId => (
+        projectId === 17 ? { id: 17, path: root, status: 'active' } : null
+      ) } };
       const processProvider = {
         async execute({ onSupervisor }) {
           onSupervisor({
@@ -369,7 +521,7 @@ await testAsync('SIGKILL after Git index update is completed by generation-two r
         owner: ${JSON.stringify(OWNER_ONE)},
         liveness: { isProvablyDead: () => false },
         clock: () => fixedNow,
-        observeRevision: async () => ({ projectId: 17, canonicalRoot: root, workspaceRevision: workspaceRevision() }),
+        observeRevision: scope => observeWorkspaceRevision(scope, {}, { projects }),
         observeGitBaseline: observeExactGitBaseline,
         processProvider,
         gitProvider: {
@@ -396,6 +548,7 @@ await testAsync('SIGKILL after Git index update is completed by generation-two r
     const recoveryPrepared = {
       executionRepository: new ExecutionAuthorityRepository(recoveryDb, { clock: () => recoveryNow }),
       effectRepository: new EffectAuthorityRepository(recoveryDb, { clock: () => recoveryNow }),
+      observeRevision: productionRevisionObserver(root),
       clock: () => ++recoveryNow,
     };
     let processReruns = 0;
@@ -413,8 +566,11 @@ await testAsync('SIGKILL after Git index update is completed by generation-two r
     assert.equal(result.terminalStatus, 'succeeded');
     assert.equal(result.fencingGeneration, 2);
     assert.equal(result.git.status, 'committed');
+    assert.equal(result.changes.afterRevision, result.changes.beforeRevision);
     assert.equal(git(root, ['rev-parse', 'HEAD']), result.git.commitId);
     assert.equal(git(root, ['status', '--porcelain=v1']), '');
+    assert.equal(fs.readFileSync(path.join(root, 'deploy.cfg'), 'utf8'), 'release=green\n');
+    assert.equal(result.rollback.required, false);
     assert.equal(processReruns, 0);
     assert.equal(recoveryPrepared.effectRepository
       .getEffectResult(prepared.plan.request.gitCommit.authority.effectId)?.terminalStatus, 'succeeded');

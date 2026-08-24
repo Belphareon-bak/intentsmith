@@ -115,10 +115,13 @@ function projectRegistry(root) {
   });
 }
 
-function proposal({ commit = true } = {}) {
+function proposal({
+  commit = true,
+  changes = [{ path: 'src/app.js', afterContent: 'export const value = 2;\n' }],
+} = {}) {
   const value = {
     intent: 'Update the exact exported application value',
-    changes: [{ path: 'src/app.js', afterContent: 'export const value = 2;\n' }],
+    changes,
     focusedTest: {
       binary: '/usr/bin/node',
       argv: ['--version'],
@@ -221,6 +224,35 @@ await testAsync('real SQLite, ProjectContext, Git and bwrap journey reaches one 
     if (db.open) db.close();
     fs.rmSync(root, { recursive: true, force: true });
     fs.rmSync(authorityRoot, { recursive: true, force: true });
+  }
+}, 60_000);
+
+await testAsync('production lifecycle commits a governed non-manifest file with an unchanged revision', async () => {
+  const root = makeProject();
+  const db = openDatabase();
+  try {
+    const service = createService(db, root);
+    assert.deepEqual(await service.recoverIncompleteSmallProjectChanges(), []);
+    const planned = await prepare(service, proposal({
+      changes: [{ path: 'src/deploy.cfg', afterContent: 'release=green\n' }],
+    }));
+    assert.equal(planned.audit.governanceDecision.verdict, 'allow');
+    assert.equal(planned.plan.expectedAfterRevision, planned.plan.project.workspaceRevision);
+    const completed = await service.approveSmallProjectChange({
+      authenticatedSubject: SUBJECT,
+      lifecycleId: planned.lifecycleId,
+      planDigest: planned.planDigest,
+      origin: ORIGIN,
+    });
+    assert.equal(completed.state, 'succeeded');
+    assert.equal(completed.result.changes.afterRevision, planned.plan.project.workspaceRevision);
+    assert.equal(completed.result.git.status, 'committed');
+    assert.equal(completed.result.rollback.required, false);
+    assert.equal(fs.readFileSync(path.join(root, 'src/deploy.cfg'), 'utf8'), 'release=green\n');
+    assert.equal(git(root, ['status', '--porcelain=v1']), '');
+  } finally {
+    db.close();
+    fs.rmSync(root, { recursive: true, force: true });
   }
 }, 60_000);
 

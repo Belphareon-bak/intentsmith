@@ -429,7 +429,7 @@ test('success cannot hide Git failure, foreign dirt loss or a missing required c
   }
 });
 
-test('success must cover every requested path and advance the workspace revision', () => {
+test('success must cover every requested path and may preserve a policy-limited revision', () => {
   const boundRequest = request();
   const partial = result(boundRequest);
   partial.changes.paths = ['src/app.js'];
@@ -437,7 +437,7 @@ test('success must cover every requested path and advance the workspace revision
 
   const unchanged = result(boundRequest);
   unchanged.changes.afterRevision = unchanged.changes.beforeRevision;
-  assert(validateM2ProjectChangeResultForRequest(boundRequest, unchanged).errors.includes('project-change-result:success-revision-unchanged'));
+  assert.equal(validateM2ProjectChangeResultForRequest(boundRequest, unchanged).valid, true);
 });
 
 test('result is bound to exact request identity, revision, test effect and target paths', () => {

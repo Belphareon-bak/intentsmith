@@ -694,9 +694,6 @@ export function validateM2ProjectChangeResultForRequest(request, result) {
     if (!arraysEqual(result.changes.paths, requestedPaths)) {
       errors.push('project-change-result:success-paths-incomplete');
     }
-    if (result.changes.afterRevision === result.changes.beforeRevision) {
-      errors.push('project-change-result:success-revision-unchanged');
-    }
     if (request.gitCommit === null && result.git.afterHead !== request.project.gitHead) {
       errors.push('project-change-result:head-changed-without-commit');
     }

@@ -415,7 +415,7 @@ test('missing, extra, reordered or digest-mismatched candidate material is unava
   }
 });
 
-test('baseline-before mismatch and invalid expected revision are unavailable', () => {
+test('baseline-before mismatch and malformed expected revision are unavailable', () => {
   const inputs = setup();
   const mismatchedBaseline = structuredClone(inputs.baselineSnapshot);
   mismatchedBaseline.files[0] = baselineFile(
@@ -423,11 +423,19 @@ test('baseline-before mismatch and invalid expected revision are unavailable', (
     'export const app = 999;\n',
   );
   const baselineDecision = evaluate(inputs, { baselineSnapshot: mismatchedBaseline });
-  const revisionDecision = evaluate(inputs, { expectedAfterRevision: BEFORE_REVISION });
+  const revisionDecision = evaluate(inputs, { expectedAfterRevision: 'not-a-revision' });
   assert.equal(baselineDecision.verdict, 'unavailable');
   assert(baselineDecision.findings.some(finding => finding.code === 'BASELINE_BEFORE_IMAGE_MISMATCH'));
   assert.equal(revisionDecision.verdict, 'unavailable');
   assert(revisionDecision.findings.some(finding => finding.code === 'EXPECTED_AFTER_REVISION_INVALID'));
+});
+
+test('valid expected revision may equal the before revision', () => {
+  const inputs = setup();
+  const decision = evaluate(inputs, { expectedAfterRevision: BEFORE_REVISION });
+  assert.equal(decision.verdict, 'allow');
+  assert.equal(decision.expectedAfterRevision, BEFORE_REVISION);
+  assert.equal(decision.findings.length, 0);
 });
 
 test('unresolved relative import and invalid UTF-8 source are unavailable', () => {
