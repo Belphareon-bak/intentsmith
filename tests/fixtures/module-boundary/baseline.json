@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "5e6f25f748cd98834673fcfdfc8fdf7189419b04",
-  "sourceTree": "ce9a14f69cf6446723a7817abba9b2f27d47a551",
+  "sourceRevision": "60d39810fce974f2c0fd8213ed9014a52d015a62",
+  "sourceTree": "44a3f9e2b4bed4e23b66c970316c6215ba6a10ad",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -491,6 +491,7 @@
     "src/db/migrations/2026_08_24_076_m2_tool_authority_truth.js -> src/tools/m2-tool-registry.js",
     "src/db/migrations/2026_08_24_077_m2_effect_invalidations.js -> src/db/m2-effect-core-v073-prerequisite.js",
     "src/db/migrations/2026_08_24_077_m2_effect_invalidations.js -> src/tools/m2-tool-registry.js",
+    "src/db/migrations/2026_08_24_080_m2_effect_semantic_authority.js -> src/db/m2-effect-core-v073-prerequisite.js",
     "src/domains/index.js -> src/core/logger.js",
     "src/domains/index.js -> src/domains/recipes/cicd.js",
     "src/domains/index.js -> src/domains/recipes/infra.js",
