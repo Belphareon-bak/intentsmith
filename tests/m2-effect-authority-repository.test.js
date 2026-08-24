@@ -223,6 +223,73 @@ test('registers an immutable request and exact retry is idempotent', () => {
   db.close();
 });
 
+test('atomically consumes a complete multi-effect approval set', () => {
+  const db = openDb();
+  const repository = repositoryAt(db);
+  const firstRequest = request();
+  const secondRequest = request({
+    effectId: 'effect-2',
+    idempotencyKey: 'write-app-2',
+  });
+  const secondGrant = grant({
+    grantId: 'grant-2',
+    nonce: 'nonce-000000000002',
+    scope: {
+      ...grant().scope,
+      effectId: secondRequest.effectId,
+    },
+  });
+  registerAndGrant(repository, firstRequest, grant());
+  registerAndGrant(repository, secondRequest, secondGrant);
+
+  const consumed = repository.consumeApprovalGrantBatch({
+    items: [
+      { grantId: 'grant-1', request: { ...firstRequest, approvalGrantId: 'grant-1' } },
+      { grantId: 'grant-2', request: { ...secondRequest, approvalGrantId: 'grant-2' } },
+    ],
+    executionOwner: EXECUTION_OWNER,
+  });
+
+  assert.equal(consumed.grants.length, 2);
+  assert.equal(repository.getApprovalGrant('grant-1').consumedByEffectId, 'effect-1');
+  assert.equal(repository.getApprovalGrant('grant-2').consumedByEffectId, 'effect-2');
+  assert.equal(repository.getExecutionClaim('effect-1').ownerId, EXECUTION_OWNER.ownerId);
+  assert.equal(repository.getExecutionClaim('effect-2').ownerId, EXECUTION_OWNER.ownerId);
+});
+
+test('batch consumption rolls every earlier member back when one grant is revoked', () => {
+  const db = openDb();
+  const repository = repositoryAt(db);
+  const firstRequest = request();
+  const secondRequest = request({
+    effectId: 'effect-2',
+    idempotencyKey: 'write-app-2',
+  });
+  const secondGrant = grant({
+    grantId: 'grant-2',
+    nonce: 'nonce-000000000002',
+    scope: {
+      ...grant().scope,
+      effectId: secondRequest.effectId,
+    },
+  });
+  registerAndGrant(repository, firstRequest, grant());
+  registerAndGrant(repository, secondRequest, secondGrant);
+  repository.revokeApprovalGrant({ grantId: 'grant-2', reason: 'operator rejected batch' });
+
+  expectCode(() => repository.consumeApprovalGrantBatch({
+    items: [
+      { grantId: 'grant-1', request: { ...firstRequest, approvalGrantId: 'grant-1' } },
+      { grantId: 'grant-2', request: { ...secondRequest, approvalGrantId: 'grant-2' } },
+    ],
+    executionOwner: EXECUTION_OWNER,
+  }), EffectAuthorityErrorCode.GRANT_REVOKED);
+
+  assert.equal(repository.getApprovalGrant('grant-1').consumedAt, null);
+  assert.equal(repository.getExecutionClaim('effect-1'), null);
+  assert.equal(repository.getExecutionClaim('effect-2'), null);
+});
+
 test('request identity or idempotency collision with different bytes is rejected', () => {
   const db = openDb();
   const repository = repositoryAt(db);

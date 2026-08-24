@@ -377,49 +377,88 @@ export class EffectAuthorityRepository {
   }
 
   consumeApprovalGrant({ grantId, request: requestValue, executionOwner: executionOwnerValue }) {
-    const request = requireValid(requestValue, validateEffectRequest, 'EffectRequest');
+    const batch = this.consumeApprovalGrantBatch({
+      items: [{ grantId, request: requestValue }],
+      executionOwner: executionOwnerValue,
+    });
+    return Object.freeze({ consumed: true, grant: batch.grants[0] });
+  }
+
+  /**
+   * Atomically consume one complete authority set before a composite runtime
+   * can make its first externally visible change. Any stale, revoked, expired,
+   * replayed, or mismatched member rolls the entire BEGIN IMMEDIATE transaction
+   * back, including execution claims created for earlier members.
+   */
+  consumeApprovalGrantBatch({ items: itemValues, executionOwner: executionOwnerValue }) {
+    if (!Array.isArray(itemValues) || itemValues.length === 0 || itemValues.length > 68) {
+      fail(
+        EffectAuthorityErrorCode.INPUT_INVALID,
+        'An authority batch must contain between 1 and 68 items',
+      );
+    }
     const executionOwner = requireExecutionOwner(executionOwnerValue);
+    const items = itemValues.map((item, index) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) {
+        fail(EffectAuthorityErrorCode.INPUT_INVALID, `Authority batch item ${index} is invalid`);
+      }
+      if (typeof item.grantId !== 'string' || item.grantId.trim().length === 0) {
+        fail(EffectAuthorityErrorCode.INPUT_INVALID, `Authority batch item ${index} has no grantId`);
+      }
+      const request = requireValid(item.request, validateEffectRequest, `EffectRequest[${index}]`);
+      const comparable = normalizeRequestForStoredComparison(request, item.grantId);
+      return Object.freeze({
+        grantId: item.grantId,
+        request,
+        expectedRequestJson: canonicalStringify(comparable),
+      });
+    });
+    if (new Set(items.map(item => item.grantId)).size !== items.length
+      || new Set(items.map(item => item.request.effectId)).size !== items.length) {
+      fail(EffectAuthorityErrorCode.INPUT_INVALID, 'Authority batch identities must be unique');
+    }
+    const first = items[0].request;
+    if (items.some(({ request }) => (
+      request.runId !== first.runId
+      || request.origin.projectId !== first.origin.projectId
+      || request.workspaceRevision !== first.workspaceRevision
+    ))) {
+      fail(
+        EffectAuthorityErrorCode.GRANT_SCOPE_MISMATCH,
+        'Every authority batch member must share run, project, and workspace revision',
+      );
+    }
     const atMs = this.#now();
-    const comparable = normalizeRequestForStoredComparison(request, grantId);
-    const expectedRequestJson = canonicalStringify(comparable);
 
     return immediate(this.db, () => {
-      const storedRequest = this.db.prepare(`
-        SELECT request_json FROM m2_effect_requests WHERE effect_id = ?
-      `).get(request.effectId);
-      if (!storedRequest) {
-        fail(
-          EffectAuthorityErrorCode.REQUEST_NOT_FOUND,
-          'EffectRequest does not exist',
-          { effectId: request.effectId },
-        );
-      }
-      if (storedRequest.request_json !== expectedRequestJson) {
-        fail(
-          EffectAuthorityErrorCode.GRANT_SCOPE_MISMATCH,
-          'Current EffectRequest differs from the approved request',
-          { effectId: request.effectId },
-        );
+      for (const item of items) {
+        const storedRequest = this.db.prepare(`
+          SELECT request_json FROM m2_effect_requests WHERE effect_id = ?
+        `).get(item.request.effectId);
+        if (!storedRequest) {
+          fail(
+            EffectAuthorityErrorCode.REQUEST_NOT_FOUND,
+            'EffectRequest does not exist',
+            { effectId: item.request.effectId },
+          );
+        }
+        if (storedRequest.request_json !== item.expectedRequestJson) {
+          fail(
+            EffectAuthorityErrorCode.GRANT_SCOPE_MISMATCH,
+            'Current EffectRequest differs from the approved request',
+            { effectId: item.request.effectId },
+          );
+        }
+        this.#assertGrantConsumable(item.grantId, item.request, atMs);
       }
 
-      this.#assertGrantConsumable(grantId, request, atMs);
-
-      this.db.prepare(`
+      const insertClaim = this.db.prepare(`
         INSERT INTO m2_effect_execution_claims (
           effect_id, grant_id, owner_id, owner_pid, owner_boot_id,
           owner_start_identity, claimed_at_ms
         ) VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        request.effectId,
-        grantId,
-        executionOwner.ownerId,
-        executionOwner.pid,
-        executionOwner.bootId,
-        executionOwner.startIdentity,
-        atMs,
-      );
-
-      const update = this.db.prepare(`
+      `);
+      const consumeGrant = this.db.prepare(`
         UPDATE m2_approval_grants
         SET consumed_at_ms = ?, consumed_by_effect_id = effect_id
         WHERE grant_id = ?
@@ -434,21 +473,36 @@ export class EffectAuthorityRepository {
           AND revoked_at_ms IS NULL
           AND issued_at_ms <= ?
           AND expires_at_ms > ?
-      `).run(
-        atMs,
-        grantId,
-        request.effectId,
-        request.runId,
-        request.origin.projectId,
-        request.kind,
-        request.payloadDigest,
-        request.payloadBytes,
-        request.workspaceRevision,
-        atMs,
-        atMs,
-      );
-      if (update.changes !== 1) this.#failGrantState(grantId, request, atMs);
-      return Object.freeze({ consumed: true, grant: this.getApprovalGrant(grantId) });
+      `);
+      for (const { grantId, request } of items) {
+        insertClaim.run(
+          request.effectId,
+          grantId,
+          executionOwner.ownerId,
+          executionOwner.pid,
+          executionOwner.bootId,
+          executionOwner.startIdentity,
+          atMs,
+        );
+        const update = consumeGrant.run(
+          atMs,
+          grantId,
+          request.effectId,
+          request.runId,
+          request.origin.projectId,
+          request.kind,
+          request.payloadDigest,
+          request.payloadBytes,
+          request.workspaceRevision,
+          atMs,
+          atMs,
+        );
+        if (update.changes !== 1) this.#failGrantState(grantId, request, atMs);
+      }
+      return Object.freeze({
+        consumed: true,
+        grants: Object.freeze(items.map(item => this.getApprovalGrant(item.grantId))),
+      });
     });
   }
 

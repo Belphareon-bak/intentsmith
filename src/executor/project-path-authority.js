@@ -47,6 +47,18 @@ export class ProjectWriteDurabilityError extends Error {
   }
 }
 
+export class ProjectDeleteDurabilityError extends Error {
+  constructor(filePath, directory, cause) {
+    super('Project file was removed but parent-directory durability was not confirmed', {
+      cause,
+    });
+    this.name = 'ProjectDeleteDurabilityError';
+    this.code = 'PROJECT_DELETE_DURABILITY_UNCONFIRMED';
+    this.effectApplied = true;
+    this.detail = { filePath, directory, ioCode: cause?.code || 'EUNKNOWN' };
+  }
+}
+
 export function isProjectPathError(error) {
   return error instanceof ProjectPathError
     || error?.code === 'PROJECT_PATH_VIOLATION';
@@ -285,6 +297,57 @@ export function readProjectFile(projectRoot, filePath, {
 }
 
 /**
+ * Descriptor-pinned binary counterpart used by durable execution journals.
+ * Keeping bytes lossless is required to restore a pre-existing file exactly;
+ * the planner separately decides whether those bytes are valid UTF-8 source.
+ */
+export function readProjectFileBytes(projectRoot, filePath, {
+  fileSystem = fs,
+} = {}) {
+  const before = resolveProjectTarget(projectRoot, filePath, { fileSystem });
+  const noFollow = fileSystem.constants?.O_NOFOLLOW ?? fs.constants.O_NOFOLLOW ?? 0;
+  const readOnly = fileSystem.constants?.O_RDONLY ?? fs.constants.O_RDONLY;
+  let descriptor;
+
+  try {
+    descriptor = fileSystem.openSync(before.real, readOnly | noFollow);
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+    const afterMissing = revalidateProjectTarget(projectRoot, filePath, before, { fileSystem });
+    if (fileSystem.existsSync(afterMissing.real)) {
+      throw changedTargetError(before, afterMissing, filePath);
+    }
+    return { target: afterMissing, exists: false, bytes: Buffer.alloc(0), mode: null };
+  }
+
+  try {
+    const opened = fileSystem.fstatSync(descriptor);
+    if (!opened.isFile()) {
+      throw new ProjectPathError('not_regular_file', {
+        input: filePath,
+        projectRoot: before.projectRoot,
+        target: before.real,
+      });
+    }
+    const bytes = fileSystem.readFileSync(descriptor);
+    const after = revalidateProjectTarget(projectRoot, filePath, before, { fileSystem });
+    const current = fileSystem.statSync(after.real);
+    if (opened.dev !== current.dev || opened.ino !== current.ino) {
+      throw changedTargetError(before, after, filePath);
+    }
+    return {
+      target: after,
+      exists: true,
+      bytes: Buffer.from(bytes),
+      mode: opened.mode & 0o777,
+      linkCount: opened.nlink,
+    };
+  } finally {
+    fileSystem.closeSync(descriptor);
+  }
+}
+
+/**
  * Atomically replace one in-project file after revalidating the read/preflight
  * target.  Existing mode bits are retained.  Temp data is fsync'd before the
  * rename; any failed attempt removes only its own unique temp file.
@@ -293,6 +356,7 @@ export function writeProjectFileAtomic(projectRoot, filePath, content, {
   expectedTarget = null,
   fileSystem = fs,
   createParents = true,
+  desiredMode = null,
 } = {}) {
   const before = resolveProjectTarget(projectRoot, filePath, { fileSystem });
   if (expectedTarget && !sameTarget(expectedTarget, before)) {
@@ -341,6 +405,12 @@ export function writeProjectFileAtomic(projectRoot, filePath, content, {
     preserveMode = true;
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error;
+    if (desiredMode !== null) {
+      if (!Number.isSafeInteger(desiredMode) || desiredMode < 0 || desiredMode > 0o777) {
+        throw new TypeError('desiredMode must be a POSIX permission mode');
+      }
+      mode = desiredMode;
+    }
   }
 
   const tempPath = `${current.real}.intentsmith-${process.pid}-${randomUUID()}.tmp`;
@@ -351,7 +421,7 @@ export function writeProjectFileAtomic(projectRoot, filePath, content, {
     descriptor = fileSystem.openSync(tempPath, 'wx', mode);
     // `open` applies the process umask.  Existing target permissions are an
     // invariant, so restore the exact observed mode on the already-open temp.
-    if (preserveMode && typeof fileSystem.fchmodSync === 'function') {
+    if ((preserveMode || desiredMode !== null) && typeof fileSystem.fchmodSync === 'function') {
       fileSystem.fchmodSync(descriptor, mode);
     }
     fileSystem.writeFileSync(descriptor, content, 'utf8');
@@ -394,12 +464,95 @@ export function writeProjectFileAtomic(projectRoot, filePath, content, {
   return current;
 }
 
+/**
+ * Durably remove one exact in-project regular file. This is intentionally not
+ * a recursive delete and never creates authority over a parent directory. It
+ * exists for compensation of a project-change file that was absent before the
+ * transaction began.
+ */
+export function deleteProjectFileDurable(projectRoot, filePath, {
+  expectedTarget = null,
+  fileSystem = fs,
+} = {}) {
+  const before = resolveProjectTarget(projectRoot, filePath, { fileSystem });
+  if (expectedTarget && !sameTarget(expectedTarget, before)) {
+    throw changedTargetError(expectedTarget, before, filePath);
+  }
+  const noFollow = fileSystem.constants?.O_NOFOLLOW ?? fs.constants.O_NOFOLLOW ?? 0;
+  const readOnly = fileSystem.constants?.O_RDONLY ?? fs.constants.O_RDONLY;
+  let descriptor;
+  try {
+    descriptor = fileSystem.openSync(before.real, readOnly | noFollow);
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      throw new ProjectPathError('target_missing', {
+        input: filePath,
+        projectRoot: before.projectRoot,
+        target: before.real,
+      });
+    }
+    throw error;
+  }
+
+  try {
+    const opened = fileSystem.fstatSync(descriptor);
+    if (!opened.isFile()) {
+      throw new ProjectPathError('not_regular_file', {
+        input: filePath,
+        projectRoot: before.projectRoot,
+        target: before.real,
+      });
+    }
+    const current = revalidateProjectTarget(
+      projectRoot,
+      filePath,
+      expectedTarget || before,
+      { fileSystem },
+    );
+    const named = fileSystem.statSync(current.real);
+    if (opened.dev !== named.dev || opened.ino !== named.ino) {
+      throw changedTargetError(before, current, filePath);
+    }
+  } finally {
+    fileSystem.closeSync(descriptor);
+  }
+
+  const directory = path.dirname(before.real);
+  let removed = false;
+  let directoryDescriptor = null;
+  try {
+    revalidateProjectTarget(projectRoot, filePath, expectedTarget || before, { fileSystem });
+    fileSystem.unlinkSync(before.real);
+    removed = true;
+    if (typeof fileSystem.fsyncSync !== 'function') {
+      const unsupported = new Error('Filesystem does not expose fsyncSync');
+      unsupported.code = 'ENOTSUP';
+      throw unsupported;
+    }
+    const directoryOnly = fileSystem.constants?.O_DIRECTORY ?? fs.constants.O_DIRECTORY ?? 0;
+    directoryDescriptor = fileSystem.openSync(directory, readOnly | directoryOnly);
+    fileSystem.fsyncSync(directoryDescriptor);
+    fileSystem.closeSync(directoryDescriptor);
+    directoryDescriptor = null;
+  } catch (error) {
+    if (directoryDescriptor !== null) {
+      try { fileSystem.closeSync(directoryDescriptor); } catch { /* best effort */ }
+    }
+    if (removed) throw new ProjectDeleteDurabilityError(filePath, directory, error);
+    throw error;
+  }
+  return before;
+}
+
 export default {
   ProjectPathError,
+  ProjectDeleteDurabilityError,
   ProjectWriteDurabilityError,
+  deleteProjectFileDurable,
   isProjectPathError,
   resolveProjectTarget,
   revalidateProjectTarget,
   readProjectFile,
+  readProjectFileBytes,
   writeProjectFileAtomic,
 };

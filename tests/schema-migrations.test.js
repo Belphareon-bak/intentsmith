@@ -171,6 +171,7 @@ const ALL_MIGRATIONS = [
   '2026_08_24_075_m2_tool_effect_links',
   '2026_08_24_076_m2_tool_authority_truth',
   '2026_08_24_077_m2_effect_invalidations',
+  '2026_08_24_078_m2_execution_authority',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
