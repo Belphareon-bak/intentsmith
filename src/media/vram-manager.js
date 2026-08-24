@@ -3,7 +3,7 @@
 
 import { broadcast } from '../ws-bridge/ws-server.js';
 import { logger } from '../core/logger.js';
-import { setNumCtx } from '../llm/model-ctx.js';
+import { getNumCtx, setNumCtx } from '../llm/model-ctx.js';
 import {
   MODEL_ACTIVITY_OWNER,
   modelUseAuthority as defaultModelUseAuthority,
@@ -108,6 +108,18 @@ export class VRAMManager {
     this._modelMeta = meta;
   }
 
+  /** Store the value the runtime will actually consume after profile caps. */
+  _storeTargetNumCtx(numCtx) {
+    if (!this._chatModel) {
+      this._targetNumCtx = numCtx;
+      return numCtx;
+    }
+    setNumCtx(this._chatModel, numCtx);
+    const effectiveNumCtx = getNumCtx(this._chatModel, numCtx);
+    this._targetNumCtx = effectiveNumCtx;
+    return effectiveNumCtx;
+  }
+
   // ── Core: FIFO serialized GPU access (capacity 1) ──────────────────────────
 
   async acquire(task) {
@@ -176,9 +188,7 @@ export class VRAMManager {
     const vram = await getVramUsageAsync({ comfyuiUrl: this._comfyuiUrl });
     if (!vram) {
       logger.debug('VRAMManager', 'Cannot query VRAM — using fallback num_ctx 4096');
-      this._targetNumCtx = 4096;
-      if (this._chatModel) setNumCtx(this._chatModel, 4096);
-      return 4096;
+      return this._storeTargetNumCtx(4096);
     }
 
     const gatewayLimit = opts.maxCtx ?? 8192;
@@ -191,19 +201,16 @@ export class VRAMManager {
 
     if (availableForKV < kvPer1k) {
       logger.warn('VRAMManager', `Tight VRAM: total=${vram.totalMb}, used=${vram.usedMb}, weights=${modelWeightsMb} → num_ctx=2048`);
-      this._targetNumCtx = 2048;
-      if (this._chatModel) setNumCtx(this._chatModel, 2048);
-      return 2048;
+      return this._storeTargetNumCtx(2048);
     }
 
     let maxCtx = Math.floor(availableForKV / kvPer1k) * 1024;
     maxCtx = Math.floor(maxCtx / 1024) * 1024;
     maxCtx = Math.max(2048, Math.min(gatewayLimit, maxCtx));
 
-    logger.info('VRAMManager', `computeNumCtx=${maxCtx} (total=${vram.totalMb}, used=${vram.usedMb}, weights=${modelWeightsMb}, kvPer1k=${kvPer1k})`);
-    this._targetNumCtx = maxCtx;
-    if (this._chatModel) setNumCtx(this._chatModel, maxCtx);
-    return maxCtx;
+    const effectiveNumCtx = this._storeTargetNumCtx(maxCtx);
+    logger.info('VRAMManager', `computeNumCtx=${effectiveNumCtx} (computed=${maxCtx}, total=${vram.totalMb}, used=${vram.usedMb}, weights=${modelWeightsMb}, kvPer1k=${kvPer1k})`);
+    return effectiveNumCtx;
   }
 
   /** @returns {number} Last computed target num_ctx. */

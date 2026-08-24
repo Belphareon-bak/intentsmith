@@ -13,10 +13,12 @@
 //   - every background caller sits behind that switch;
 //   - the switch is honoured in both directions.
 //
-// This suite covers only background model discovery (L4), WhatLLM enrichment
-// (L5) and registry verification. Explicit web tools, marketplace, agent
-// sources/actions, notifications and remote Ollama are separate outbound
-// capabilities and are not claimed by this test.
+// This suite covers only background factual model discovery (L4). WhatLLM is
+// now a discovery-order signal owned exclusively by the explicit/scheduled
+// model-upgrade hunt; it must not return to UpgradeManager as a runtime quality
+// authority. Explicit web tools, marketplace, agent sources/actions,
+// notifications and remote Ollama are separate outbound capabilities and are
+// not claimed by this test.
 //
 // Structural on purpose: checkable without a network and without a 24h wait.
 //
@@ -39,6 +41,7 @@ function check(condition, label) {
 }
 
 const manager = readFileSync(path.join(ROOT, 'src/upgrade/upgrade-manager.js'), 'utf8');
+const hunt = readFileSync(path.join(ROOT, 'scripts/model-upgrade-hunt.js'), 'utf8');
 
 async function main() {
   console.log('\n══ Automatic online model discovery is gated and opt-out ══\n');
@@ -78,23 +81,19 @@ async function main() {
   );
 
   // ── Every background discovery caller sits behind the flag ────────────────
-  // The three discovery call sites are L4 online discovery, L5 WhatLLM
-  // enrichment (inside the same guarded block) and the registry verify batch.
+  // UpgradeManager owns one background online-discovery block. Quality
+  // enrichment and registry scoring were removed from this runtime path.
   const guardedBlocks = manager.match(
     /if \(opts\.fullCycle && config\.features\?\.onlineDiscovery[^)]*\)/g,
   ) || [];
   check(
-    guardedBlocks.length >= 2,
-    `online discovery and registry verify are both gated (${guardedBlocks.length} gates)`,
+    guardedBlocks.length === 1,
+    `the sole background online-discovery path is gated (${guardedBlocks.length} gate)`,
   );
 
-  const whatllmLine = manager.split('\n').findIndex(l => l.includes('whatllm-client.js'));
-  const l4GateLine = manager.split('\n').findIndex(
-    l => /if \(opts\.fullCycle && config\.features\?\.onlineDiscovery/.test(l),
-  );
   check(
-    l4GateLine !== -1 && whatllmLine > l4GateLine,
-    'WhatLLM enrichment sits inside the gated block, not beside it',
+    !manager.includes('whatllm-client.js') && hunt.includes('whatllm-client.js'),
+    'WhatLLM is hunt-only and cannot score inside the background UpgradeManager',
   );
 
   console.log(`\n══ RESULTS: ${pass} passed, ${fail} failed ══`);

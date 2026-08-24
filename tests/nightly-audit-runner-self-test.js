@@ -5,6 +5,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
 import {
+  chmod,
   mkdir,
   mkdtemp,
   readFile,
@@ -1111,7 +1112,10 @@ assert.deepEqual(
 );
 
 const permissiveXauthority = path.join(toolchainRoot, 'xauthority-permissive');
-await writeFile(permissiveXauthority, 'permissive-xauthority', { mode: 0o644 });
+await writeFile(permissiveXauthority, 'permissive-xauthority', { mode: 0o600 });
+// The deterministic audit sets umask 077, so writeFile({ mode: 0644 }) alone
+// can silently create 0600 and invalidate this deliberately unsafe fixture.
+await chmod(permissiveXauthority, 0o644);
 process.env.INTENTSMITH_STUDIO_XAUTHORITY = permissiveXauthority;
 const permissiveXauthorityRun = await runToolchainFixture(
   'toolchain-permissive-xauthority',

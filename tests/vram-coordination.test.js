@@ -208,13 +208,14 @@ await testAsync('returns 4096 fallback when VRAM cannot be queried', async () =>
   assertEqual(mgr.getTargetNumCtx(), 4096);
 });
 
-await testAsync('computeNumCtx stores result in _targetNumCtx', async () => {
+await testAsync('computeNumCtx stores the profile-capped effective result', async () => {
   const mgr = createManager();
   clearNumCtxCache();
   const result = await withIsolatedVramSources(
     { device: comfyVramDevice() },
     () => mgr.computeNumCtx({ modelParams: 27 }),
   );
+  assertEqual(result, 4096);
   assertEqual(mgr.getTargetNumCtx(), result);
   assertEqual(getNumCtx('qwen3.5:27b'), result);
 });
@@ -247,7 +248,7 @@ await testAsync('computeNumCtx is always a multiple of 1024', async () => {
 });
 
 await testAsync('computeNumCtx uses model meta kv_per_1k when available', async () => {
-  const mgr = createManager();
+  const mgr = createManager({ chatModel: 'test-model:27b' });
   mgr.setModelMeta({ kv_per_1k: 1000 });
   const result = await withIsolatedVramSources(
     { device: comfyVramDevice() },

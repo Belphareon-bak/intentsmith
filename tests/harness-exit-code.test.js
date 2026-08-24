@@ -347,7 +347,11 @@ try {
   //   100 -> 101 m1-model-automation-policy.test.js (decision 020/E) runs real
   //             migrations against an in-memory database on purpose: the whole
   //             point of the suite is that the policy storage is real.
-  const expectedDatabaseReachableRootTests = 101;
+  //   101 -> 100 model-validation-integration.test.js was removed with the
+  //              retired validation/ranker path during model-evaluation
+  //              consolidation. The active replacement imports the same
+  //              isolated database bootstrap through its current suites.
+  const expectedDatabaseReachableRootTests = 100;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,
