@@ -1071,7 +1071,7 @@ journal a terminal truth, focused test běží bez fallbacku v read-only
 stav. Skutečný `SIGKILL` před i po aktualizaci indexu, restart generation 2,
 approval crash window, rollback, drift, pathspec magic a LF filename mají
 negativní proby. Vlastní sady mají 22/22, 13/13, 10/10, 11/11 a 10/10 PASS.
-Registry má 416 programů, fingerprint `d6a006c0…`; aktuální module graph má 1 098 hran,
+Registry má 416 programů, fingerprint `318e38d8…`; aktuální module graph má 1 098 hran,
 stále 3 cykly s membership 28 souborů. Oddíl 5 zůstává
 `CANDIDATE_V1 / REVIEW_PENDING` a celý M2 jako celek není PASS.
 

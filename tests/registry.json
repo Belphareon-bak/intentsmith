@@ -12286,8 +12286,8 @@
       "tier": "T1",
       "fixture": "isolated-db",
       "profile": "database",
-      "timeoutMs": 30000,
-      "expectedDurationMs": 5000,
+      "timeoutMs": 120000,
+      "expectedDurationMs": 45000,
       "requirements": {
         "network": "none",
         "database": true,

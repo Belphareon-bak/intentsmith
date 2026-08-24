@@ -51,12 +51,18 @@ Registry po přidání pěti execution programů:
 - `valid: true`;
 - 416 runnable programů a 14 explicitních exclusions;
 - fingerprint
-  `d6a006c086879d350395857a60b9eb794d4f54d4c9cd102d15e02d14d2ff65d4`;
+  `318e38d8752181de401e8100c762a056e704df51d9a03bd22f20ece759b7cb96`;
 - generovaný `docs/convergence/TEST-REGISTRY.md` je aktuální.
 
 Tři sady vyžadující host `bwrap`/Git jsou podle existující registry konvence
 aktivní v explicitním `soak` profilu. Výchozí `offline,database` gate je proto
 nevydává za BLOCKED; jejich čerstvý výsledek dokládají přímé focused běhy výše.
+
+První opakovaný celý gate odhalil i příliš těsný 30s limit starší
+`m2-effect-file-runtime`: sada se pod aktuální I/O zátěží ukončila na 30,033 s,
+zatímco samostatný opakovaný běh dokončil všech 6 checků za 34,21 s. Registry
+proto pravdivě kalibruje očekávání na 45 s a hard timeout na 120 s; produktový
+kód ani výsledek sady se tím nemění.
 
 ## Nezávislý interní audit před Opus
 
