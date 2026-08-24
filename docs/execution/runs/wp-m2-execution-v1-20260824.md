@@ -5,7 +5,7 @@
 - **contract commit:** `1ef645cd`
 - **process containment commit:** `9b2a7cce`
 - **durable project-change commit:** `1c41cbd3`
-- **review-fix revision:** `5d9b53c050d78525d9effc3e439d75afbe6e910a`
+- **review-fix revision:** `816c5b1479064bd9c1b1ae529976f45b795ed0c9`
 - **větev:** `codex/m2-integration-20260824`
 - **push:** neproveden
 
@@ -40,12 +40,12 @@ review.
 |---|---:|
 | `m2-execution-contract-v1` | 22/22 PASS |
 | `m2-execution-authority-repository` | 13/13 PASS |
-| `m2-execution-project-change` | 14/14 PASS |
+| `m2-execution-project-change` | 17/17 PASS |
 | `m2-execution-process-supervision` | 13/13 PASS |
 | `m2-execution-git-preservation` | 12/12 PASS |
 | `m2-effect-authority-repository` | 43/43 PASS |
 | `m2-governance-evaluator` | 20/20 PASS |
-| `m2-lifecycle-application-service` | 5/5 PASS |
+| `m2-lifecycle-application-service` | 6/6 PASS |
 | `schema-migrations` | 38/38 PASS; 69 migrací |
 | `m1-model-failover-schema` | 20/20 PASS; tip 079 / 69 migrací |
 | `module-boundary-ratchet` | 13/13 PASS; 1 116 hran; 3 cykly / 28 souborů |
@@ -151,6 +151,15 @@ streaming content hash. Odpověď s falsifikovatelnými důkazy je v
 `2026-08-24T09-49-09-778Z`, zůstává pravdivě `verdict: FAIL`, `exitCode: 1` a
 `260 PASS / 3 FAIL / 0 TIMEOUT / 2 BLOCKED / 0 SKIPPED` s přesně stejnou
 baseline non-PASS množinou. Oddíl čeká na Opus re-review a stále není PASS.
+
+Druhé Opus kolo oba původní nálezy uzavřelo, ale našlo další HIGH type-swap
+false success a unguarded rollback/recovery read bez terminalu. `816c5b14`
+proto přidává final exact after-image re-proof, type-aware foreign klasifikaci
+a symlink/directory proby přes immediate run, takeover, restart a produkční
+lifecycle census. Runtime je 17/17 a lifecycle journey 6/6 PASS. Čerstvý gate
+`2026-08-24T10-19-26-305Z` na tomto SHA má pravdivě `FAIL / exitCode 1`, přesně
+`260 PASS / 3 FAIL / 2 BLOCKED / 0 TIMEOUT` a nezměněná baseline ID. Oddíl čeká
+na třetí exact-scope Opus review.
 
 ## Omezení a navazující práce
 

@@ -18,7 +18,7 @@ nenahrazují žádný z těchto sedmi verdictů. Account/tool limit je vždy
 | 2 | effect/approval authority | `33cf221c3b772a1002311c8b1f71b67ad0d46cc9..fa437d021e07728388eb61bbca88bcc98e208ddf` | `REVIEW_BLOCKED_ACCOUNT_LIMIT` |
 | 3 | ProjectContext | `44a9ba87c99a448b1b1b5f479963c3b6aaac7e91..5e19b8256f714367bc9ec444eb7d256d01e01e3e` | `REVIEW_BLOCKED_ACCOUNT_LIMIT` |
 | 4 | ToolRequest/ToolResult | `fa437d021e07728388eb61bbca88bcc98e208ddf..a35805ee79b778638151c608eaf29afec6d7df3b` | `CHANGES_REQUESTED / RE_REVIEW_BLOCKED_ACCOUNT_LIMIT` |
-| 5 | durable project execution | `a35805ee79b778638151c608eaf29afec6d7df3b..da8698ffec6ce56e90603f05d55ec6644f6c4a29` | `CHANGES_REQUESTED / RE_REVIEW_REQUIRED` |
+| 5 | durable project execution | `a35805ee79b778638151c608eaf29afec6d7df3b..da8698ffec6ce56e90603f05d55ec6644f6c4a29` | `CHANGES_REQUESTED_ROUND_2 / RE_REVIEW_REQUIRED` |
 | 6 | lifecycle/governance journey | `da8698ffec6ce56e90603f05d55ec6644f6c4a29..cb9058b499961fc68711cbfc243ad2a7b68b0eba` | `REVIEW_BLOCKED_ACCOUNT_LIMIT` |
 | 7 | RemoteCorePort contract | `cb9058b499961fc68711cbfc243ad2a7b68b0eba..d034df62c525dbfc3dc81ffc5de9f6c6cc527b7e` | `REVIEW_BLOCKED_ACCOUNT_LIMIT` |
 
@@ -77,8 +77,8 @@ nesmí uzavřít M2.
 ## Společná integrační evidence
 
 Poslední čistý `offline,database` gate na
-`5d9b53c050d78525d9effc3e439d75afbe6e910a` má report
-`.intentsmith-artifacts/test-runs/2026-08-24T09-49-09-778Z/report.json`:
+`816c5b1479064bd9c1b1ae529976f45b795ed0c9` má report
+`.intentsmith-artifacts/test-runs/2026-08-24T10-19-26-305Z/report.json`:
 
 - `verdict: FAIL`, `exitCode: 1`;
 - `260 PASS / 3 FAIL / 0 TIMEOUT / 2 BLOCKED / 0 SKIPPED`;
@@ -88,7 +88,7 @@ Poslední čistý `offline,database` gate na
   `54dce9be3a18ef854097c5919d1471e53f38bf6ef0e828ecc5ff0438f9e302d2`.
 
 Cross-section audit po section-5 opravě přímo zopakoval zbývající čtyři
-M2 `soak` sady: lifecycle application service 5/5, project change 14/14,
+M2 `soak` sady: lifecycle application service 6/6, project change 17/17,
 process supervision 13/13 a exact Git preservation 12/12 PASS. Direct-test
 runtime po bězích zůstal prázdný.
 
@@ -121,3 +121,10 @@ není sedm review.
 `docs/review/2026-08-24-WP-M2-EXECUTION-V1-OPUS-MAX-REVIEW.md` a
 `docs/review/2026-08-24-WP-M2-EXECUTION-V1-OPUS-MAX-RESPONSE.md`. Opravný head
 čeká na celý exact-scope re-review; stav tedy stále není PASS.
+
+První re-review na `0260bcb9` oba původní nálezy uzavřel, ale vrátil druhé
+`CHANGES_REQUESTED` kvůli type-swap false success a unguarded type driftu v
+rollback/recovery. Záznam, oprava `816c5b14` a nové důkazy jsou v
+`docs/review/2026-08-24-WP-M2-EXECUTION-V1-OPUS-MAX-RE-REVIEW.md` a
+`docs/review/2026-08-24-WP-M2-EXECUTION-V1-OPUS-MAX-RE-REVIEW-RESPONSE.md`.
+Ani toto opravné kolo není PASS; čeká na další celý Opus review.

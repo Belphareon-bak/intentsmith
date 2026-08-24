@@ -4,7 +4,7 @@
 - **reviewer:** lokální Claude Opus, `--model opus --effort max`
 - **režim:** read-only `--permission-mode plan --no-session-persistence`
 - **provenance range:** `a35805ee79b778638151c608eaf29afec6d7df3b..da8698ffec6ce56e90603f05d55ec6644f6c4a29`
-- **současné product bytes:** `61e09d47654518275f84b4e0afed4f0ec3752d60`
+- **současné product bytes:** `61e09d47298c3d24b0bb7ba6fef7f2940553ec49`
 - **verdict:** `CHANGES_REQUESTED`
 - **původní modelový výstup:** `/home/belphareon/.claude/plans/perform-an-independent-read-only-snuggly-ladybug.md`
 - **SHA-256 původního výstupu:** `95dc075dee5fce2c970d4c25c31e64a64aa3d608d2546cb8912d8c98518a9c5a`

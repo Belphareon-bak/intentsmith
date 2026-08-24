@@ -1137,6 +1137,17 @@ governance 20/20 a lifecycle 5/5 PASS. Čistý gate na `5d9b53c0`, run
 množinou. Section 5 čeká na exact-scope Opus re-review; M2 stále nemá žádný
 finální Opus PASS.
 
+První re-review oba předchozí nálezy uzavřel, ale znovu vrátil
+`CHANGES_REQUESTED`: focused test mohl po readbacku nahradit target symlinkem a
+runtime přesto false-succeed; directory/symlink mismatch navíc vyhazoval z
+rollback/recovery bez terminalu. `816c5b14` proto provádí final exact
+after-image re-proof až po Git/revision observerech a všechny path-authority
+výjimky klasifikuje jako foreign evidence. Čtyři symlink kombinace
+(manifest/non-manifest × Git ano/ne), adresář, generation-2 takeover, opakovaný
+restart i produkční lifecycle census jsou zelené. Runtime je 17/17, lifecycle
+6/6, celý gate na `816c5b14` je pravdivě `FAIL / 260 PASS / 3 FAIL / 2 BLOCKED`
+bez M2 non-PASS. Section 5 čeká na třetí Opus max kolo a stále není PASS.
+
 ### Závislostní sekvence Work Packages
 
 1. **WP-M2-EFFECT:** canonical effect broker vlastní policy, approval, timeout,

@@ -8,7 +8,7 @@ a restart recovery
 **Autorita:** operátorské spuštění celé M2; `ROADMAP.md` §6 krok 3 a exit
 kritéria pro atomický patch, focused test, rollback, cancel/restart a audit
 
-**Product/test revision:** `5d9b53c050d78525d9effc3e439d75afbe6e910a`
+**Product/test revision:** `816c5b1479064bd9c1b1ae529976f45b795ed0c9`
 
 ## Uživatelský výsledek
 
@@ -74,6 +74,9 @@ s `--effort max` nevrátí `REVIEW_PASSED`.
 - Workspace revision je policy-limited evidence, ne náhradní proof zápisu:
   exact byte/mode readback dovoluje legitimní success i při stejné revision.
   Post-write observer failure vždy vytvoří durable non-success terminal.
+- Po všech externích test/Git/revision krocích se exact after-images znovu
+  ověřují bezprostředně před parent terminalem. Type/canonical mismatch se
+  klasifikuje jako foreign, durable terminalizuje a nikdy nepřepíše cizí inode.
 - Foreign dirt používá jeden batched NUL index read a obsahové hashování přes
   konstantní 64KiB buffer s before/after inode a metadata race kontrolou.
 - Success vyžaduje všechny forward/test/Git EffectResulty, žádný rollback
@@ -106,9 +109,9 @@ s `--effort max` nevrátí `REVIEW_PASSED`.
   architektura skončí před spuštěním focused testu jako unsupported profil.
 - Tento oddíl je connector/direct journey. Aktivní lifecycle a Studio surface
   zůstávají do oddílu 6 na legacy cestě.
-- První skutečný Opus max review vrátil `CHANGES_REQUESTED`; oprava je na
-  `5d9b53c0` a čeká na exact-scope re-review. Account/tool failure ani vlastní
-  odpověď nesmí být přeloženy na review PASS.
+- Dvě skutečná Opus max kola vrátila `CHANGES_REQUESTED`; druhá oprava je na
+  `816c5b14` a čeká na další exact-scope re-review. Account/tool failure ani
+  vlastní odpověď nesmí být přeloženy na review PASS.
 
 ## Ověření
 
