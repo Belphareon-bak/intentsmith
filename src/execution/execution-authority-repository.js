@@ -118,13 +118,13 @@ function freezeRow(row) {
 
 function latestLease(db, executionId, generation) {
   const row = db.prepare(`
-    SELECT COALESCE(
-      (SELECT lease_until_ms FROM m2_execution_claim_renewals
-       WHERE execution_id = ? AND generation = ?
-       ORDER BY renewal_seq DESC LIMIT 1),
-      (SELECT lease_until_ms FROM m2_execution_claims
-       WHERE execution_id = ? AND generation = ?)
-    ) AS lease_until_ms
+    SELECT max(lease_until_ms) AS lease_until_ms FROM (
+      SELECT lease_until_ms FROM m2_execution_claims
+      WHERE execution_id = ? AND generation = ?
+      UNION ALL
+      SELECT lease_until_ms FROM m2_execution_claim_renewals
+      WHERE execution_id = ? AND generation = ?
+    )
   `).get(executionId, generation, executionId, generation);
   return row?.lease_until_ms ?? null;
 }
@@ -467,6 +467,10 @@ export class ExecutionAuthorityRepository {
       if (claim.leaseUntilMs <= atMs) {
         fail(ExecutionAuthorityErrorCode.STALE_FENCE, 'An expired claim cannot renew itself');
       }
+      const nextLeaseUntilMs = atMs + leaseMs;
+      if (nextLeaseUntilMs <= claim.leaseUntilMs) {
+        fail(ExecutionAuthorityErrorCode.STALE_FENCE, 'A claim renewal must extend the effective lease');
+      }
       const row = this.db.prepare(`
         SELECT COALESCE(max(renewal_seq), 0) + 1 AS next_seq
         FROM m2_execution_claim_renewals WHERE execution_id = ? AND generation = ?
@@ -475,7 +479,7 @@ export class ExecutionAuthorityRepository {
         INSERT INTO m2_execution_claim_renewals (
           execution_id, generation, renewal_seq, renewed_at_ms, lease_until_ms
         ) VALUES (?, ?, ?, ?, ?)
-      `).run(executionId, generation, row.next_seq, atMs, atMs + leaseMs);
+      `).run(executionId, generation, row.next_seq, atMs, nextLeaseUntilMs);
       return this.getLatestClaim(executionId);
     });
   }

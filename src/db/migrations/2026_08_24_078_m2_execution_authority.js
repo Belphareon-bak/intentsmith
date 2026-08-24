@@ -10,7 +10,7 @@ export const version = '2026_08_24_078_m2_execution_authority';
 export const description = 'Add durable M2 project-change authority, fencing, and terminal truth';
 
 // Filled from the canonical sqlite_master projection produced by this migration.
-export const EXPECTED_M2_EXECUTION_SCHEMA_FINGERPRINT = 'b6fce70cf1a8708f7218db3f4d79212679a6c02bc88f8c62f9827904a7c87c1c';
+export const EXPECTED_M2_EXECUTION_SCHEMA_FINGERPRINT = '057d60b1438bae5b264510447982711fae9789234aca1bbfb4c5b7142c96284a';
 
 function requestValid(requestJson) {
   try {
@@ -309,11 +309,10 @@ function installExecutionAuthority(db) {
         NEW.generation > 1
         AND NEW.claimed_at_ms < COALESCE(
           (
-            SELECT renewal.lease_until_ms
+            SELECT max(renewal.lease_until_ms)
             FROM m2_execution_claim_renewals renewal
             WHERE renewal.execution_id = NEW.execution_id
               AND renewal.generation = NEW.generation - 1
-            ORDER BY renewal.renewal_seq DESC LIMIT 1
           ),
           (
             SELECT claim.lease_until_ms
@@ -359,6 +358,28 @@ function installExecutionAuthority(db) {
         SELECT claim.claimed_at_ms FROM m2_execution_claims claim
         WHERE claim.execution_id = NEW.execution_id AND claim.generation = NEW.generation
       ))
+      OR NEW.renewed_at_ms >= max(
+        (
+          SELECT claim.lease_until_ms FROM m2_execution_claims claim
+          WHERE claim.execution_id = NEW.execution_id AND claim.generation = NEW.generation
+        ),
+        COALESCE((
+          SELECT max(renewal.lease_until_ms) FROM m2_execution_claim_renewals renewal
+          WHERE renewal.execution_id = NEW.execution_id
+            AND renewal.generation = NEW.generation
+        ), 0)
+      )
+      OR NEW.lease_until_ms <= max(
+        (
+          SELECT claim.lease_until_ms FROM m2_execution_claims claim
+          WHERE claim.execution_id = NEW.execution_id AND claim.generation = NEW.generation
+        ),
+        COALESCE((
+          SELECT max(renewal.lease_until_ms) FROM m2_execution_claim_renewals renewal
+          WHERE renewal.execution_id = NEW.execution_id
+            AND renewal.generation = NEW.generation
+        ), 0)
+      )
     BEGIN
       SELECT RAISE(ABORT, 'M2_EXECUTION_CLAIM_RENEWAL_MISMATCH');
     END;

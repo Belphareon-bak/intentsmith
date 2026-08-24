@@ -246,13 +246,14 @@ test('real process crash after update-ref is deterministically recovered with ex
         files: [{ path: 'target.txt', bytes: Buffer.from('target-after\\n'), mode: ${targetMode} }],
         message: ${JSON.stringify(message)},
         identity: ${JSON.stringify(exactIdentity)},
-      }, { afterRefUpdate() { process.exit(86); } });
+      }, { afterRefUpdate() { process.kill(process.pid, 'SIGKILL'); } });
     `);
     const crashed = spawnSync('/usr/bin/node', [crashScript], {
       encoding: 'utf8',
       env: { PATH: '/usr/bin:/bin', HOME: '/nonexistent', LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8' },
     });
-    assert.equal(crashed.status, 86);
+    assert.equal(crashed.status, null);
+    assert.equal(crashed.signal, 'SIGKILL');
     assert.notEqual(git(root, ['rev-parse', 'HEAD']), baseline.head);
     assert.equal(git(root, ['status', '--porcelain=v1', '--', 'target.txt']).length > 0, true);
 
@@ -277,11 +278,79 @@ test('real process crash after update-ref is deterministically recovered with ex
   }
 });
 
+test('pathspec-magic target remains literal and cannot reset foreign staged entries', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-m2-git-literal-'));
+  const target = ':(glob)*';
+  try {
+    fs.writeFileSync(path.join(root, target), 'target-before\n');
+    fs.writeFileSync(path.join(root, 'foreign.txt'), 'foreign-before\n');
+    git(root, ['init', '-b', 'main']);
+    git(root, ['--literal-pathspecs', 'add', '--', target, 'foreign.txt']);
+    git(root, [
+      '-c', 'user.name=IntentSmith Test',
+      '-c', 'user.email=intentsmith@example.invalid',
+      'commit', '-m', 'literal baseline',
+    ]);
+    fs.writeFileSync(path.join(root, 'foreign.txt'), 'foreign-staged\n');
+    git(root, ['--literal-pathspecs', 'add', '--', 'foreign.txt']);
+    const baseline = observeExactGitBaseline(root, [target], { projectId: 17 });
+    const mode = fs.statSync(path.join(root, target)).mode & 0o777;
+    fs.writeFileSync(path.join(root, target), 'target-after\n');
+    const result = commitExactProjectChange({
+      projectRoot: root,
+      baseline,
+      files: [{ path: target, bytes: Buffer.from('target-after\n'), mode }],
+      message: 'literal magic target',
+      identity: identity(),
+    });
+    assert.equal(result.status, 'committed');
+    assert.equal(git(root, ['diff', '--cached', '--name-only']), 'foreign.txt');
+    assert.equal(fs.readFileSync(path.join(root, 'foreign.txt'), 'utf8'), 'foreign-staged\n');
+    const changed = git(root, ['diff-tree', '-z', '--no-commit-id', '--name-only', '-r', 'HEAD'])
+      .split('\0').filter(Boolean);
+    assert.deepEqual(changed, [target]);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('newline filename is committed byte-exact through NUL-delimited index input', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-m2-git-newline-'));
+  const target = 'line\nbreak.txt';
+  try {
+    fs.writeFileSync(path.join(root, target), 'before\n');
+    git(root, ['init', '-b', 'main']);
+    git(root, ['--literal-pathspecs', 'add', '--', target]);
+    git(root, [
+      '-c', 'user.name=IntentSmith Test',
+      '-c', 'user.email=intentsmith@example.invalid',
+      'commit', '-m', 'newline baseline',
+    ]);
+    const baseline = observeExactGitBaseline(root, [target], { projectId: 17 });
+    const mode = fs.statSync(path.join(root, target)).mode & 0o777;
+    fs.writeFileSync(path.join(root, target), 'after\n');
+    const result = commitExactProjectChange({
+      projectRoot: root,
+      baseline,
+      files: [{ path: target, bytes: Buffer.from('after\n'), mode }],
+      message: 'newline exact target',
+      identity: identity(),
+    });
+    assert.equal(result.status, 'committed');
+    assert.equal(git(root, ['show', `HEAD:${target}`]), 'after');
+    const names = git(root, ['ls-tree', '-rz', '--name-only', 'HEAD']).split('\0').filter(Boolean);
+    assert.deepEqual(names, [target]);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('provider source contains no add-all staging path', () => {
   const source = fs.readFileSync(new URL('../src/execution/exact-git-provider.js', import.meta.url), 'utf8');
   assert.equal(source.includes("'add', '-A'"), false);
   assert.equal(source.includes('git add -A'), false);
-  assert.equal(source.includes("'update-index', '--index-info'"), true);
+  assert.equal(source.includes("'update-index', '-z', '--index-info'"), true);
+  assert.equal(source.includes("GIT_LITERAL_PATHSPECS: '1'"), true);
 });
 
 summary();

@@ -299,7 +299,7 @@ await testAsync('direct journey uses real bwrap test and exact Git commit end to
   }
 }, 30_000);
 
-await testAsync('process crash after Git ref CAS is completed by generation-two recovery without rerunning effects', async () => {
+await testAsync('SIGKILL after Git index update is completed by generation-two recovery without rerunning effects', async () => {
   const root = makeProject();
   const artifactRoot = path.join(process.cwd(), '.intentsmith-artifacts', 'direct-tests');
   fs.mkdirSync(artifactRoot, { recursive: true });
@@ -374,7 +374,9 @@ await testAsync('process crash after Git ref CAS is completed by generation-two 
         processProvider,
         gitProvider: {
           commit(input) {
-            return commitExactProjectChange(input, { afterRefUpdate() { process.exit(86); } });
+            return commitExactProjectChange(input, {
+              afterIndexUpdate() { process.kill(process.pid, 'SIGKILL'); },
+            });
           },
         },
       });
@@ -385,7 +387,8 @@ await testAsync('process crash after Git ref CAS is completed by generation-two 
       env: { ...process.env, HOME: '/nonexistent' },
       stdio: 'pipe',
     });
-    assert.equal(crashed.status, 86, crashed.stderr);
+    assert.equal(crashed.status, null, crashed.stderr);
+    assert.equal(crashed.signal, 'SIGKILL');
     assert.notEqual(git(root, ['rev-parse', 'HEAD']), originalHead);
     let recoveryNow = CREATED_MS + 45_000;
     const recoveryDb = new Database(databasePath);

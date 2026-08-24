@@ -491,6 +491,38 @@ test('SQL fencing rejects a premature next generation across original and renewe
   db.close();
 });
 
+test('lease renewal can only extend a live effective lease and cannot resurrect expiry', () => {
+  const db = openDb();
+  registerFixture(db);
+  let now = CLAIM_MS;
+  const repository = new ExecutionAuthorityRepository(db, { clock: () => now });
+  repository.acquireClaim({
+    executionId: 'execution-1', owner: OWNER_ONE, leaseMs: 300_000,
+    liveness: { isProvablyDead: () => false },
+  });
+  now += 500;
+  expectCode(() => repository.renewClaim({
+    executionId: 'execution-1', generation: 1, ownerId: OWNER_ONE.ownerId, leaseMs: 1_000,
+  }), ExecutionAuthorityErrorCode.STALE_FENCE);
+
+  const insertRenewal = (renewedAt, leaseUntil) => db.prepare(`
+    INSERT INTO m2_execution_claim_renewals (
+      execution_id, generation, renewal_seq, renewed_at_ms, lease_until_ms
+    ) VALUES ('execution-1', 1, 1, ?, ?)
+  `).run(renewedAt, leaseUntil);
+  assert.throws(
+    () => insertRenewal(CLAIM_MS + 500, CLAIM_MS + 1_500),
+    /M2_EXECUTION_CLAIM_RENEWAL_MISMATCH/,
+  );
+  assert.throws(
+    () => insertRenewal(CLAIM_MS + 300_001, CLAIM_MS + 301_001),
+    /M2_EXECUTION_CLAIM_RENEWAL_MISMATCH/,
+  );
+  assert.equal(db.prepare(`SELECT count(*) AS count FROM m2_execution_claim_renewals`).get().count, 0);
+  assert.equal(repository.getLatestClaim('execution-1').leaseUntilMs, CLAIM_MS + 300_000);
+  db.close();
+});
+
 test('stale fencing generation cannot append an event after takeover', () => {
   const db = openDb();
   registerFixture(db);

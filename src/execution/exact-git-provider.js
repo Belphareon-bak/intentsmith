@@ -61,6 +61,7 @@ function baseEnvironment(extra = {}) {
     XDG_CONFIG_HOME: '/nonexistent',
     GIT_CONFIG_NOSYSTEM: '1',
     GIT_CONFIG_GLOBAL: '/dev/null',
+    GIT_LITERAL_PATHSPECS: '1',
     ...extra,
   };
 }
@@ -275,9 +276,9 @@ function buildExactCommitObject({
       entries.push({ path: file.path, blob, mode });
     }
     const indexInfo = Buffer.from(entries.map(entry => (
-      `${entry.mode} ${entry.blob}\t${entry.path}\n`
+      `${entry.mode} ${entry.blob}\t${entry.path}\0`
     )).join(''), 'utf8');
-    invoke(gitBinary, root, ['update-index', '--index-info'], {
+    invoke(gitBinary, root, ['update-index', '-z', '--index-info'], {
       input: indexInfo,
       environment: indexEnvironment,
     });
@@ -373,7 +374,7 @@ export function commitExactProjectChange({
 
     // One real-index lock updates all and only the authorized paths. Foreign
     // staged entries are loaded and retained by Git; there is never `add -A`.
-    invoke(gitBinary, root, ['update-index', '--index-info'], { input: prepared.indexInfo });
+    invoke(gitBinary, root, ['update-index', '-z', '--index-info'], { input: prepared.indexInfo });
     if (afterIndexUpdate) afterIndexUpdate({ root, commitId, baseline });
     const afterDirt = foreignDirt(gitBinary, root, paths);
     const currentHead = outputText(invoke(gitBinary, root, ['rev-parse', '--verify', 'HEAD']));
@@ -467,7 +468,7 @@ export function recoverExactProjectChange({
     // A process crash can leave the ref advanced while the real index still
     // describes the parent. Reapply all and only the authorized paths, then
     // prove the same foreign dirt and a clean target projection.
-    invoke(gitBinary, root, ['update-index', '--index-info'], { input: prepared.indexInfo });
+    invoke(gitBinary, root, ['update-index', '-z', '--index-info'], { input: prepared.indexInfo });
     const afterDirt = foreignDirt(gitBinary, root, paths);
     const provenHead = outputText(invoke(gitBinary, root, ['rev-parse', '--verify', 'HEAD']));
     if (provenHead !== prepared.commitId
