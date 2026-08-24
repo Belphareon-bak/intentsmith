@@ -5,7 +5,7 @@
 - **contract commit:** `1ef645cd`
 - **process containment commit:** `9b2a7cce`
 - **durable project-change commit:** `1c41cbd3`
-- **hardening revision:** `08d249adab097fc4e628b5ee8e54e9df1a26fa9c`
+- **hardening revision:** `05c5a8561a0302e1cd8236d395718684b49f0ba1`
 - **větev:** `codex/m2-integration-20260824`
 - **push:** neproveden
 
@@ -23,8 +23,11 @@ review.
 - atomická multi-grant consumption a restartová rekonstrukce úplné consumed set;
 - file intent/applied journal, byte/mode readback a reverse rollback bez přepsání
   third-party driftu;
-- fail-closed bubblewrap provider s read-only root/project, network/PID/IPC
-  isolation, private tmp, durable supervisor handshake a celým PGID lifecycle;
+- fail-closed `linux-bwrap-ro-v2` provider s prázdným mount rootem, pouze
+  minimálním runtime/exact project/exact binary, read-only root/project,
+  private tmp, oddělenými network/PID/IPC/user namespaces, seccomp zákazem
+  host IPC/keyring/io_uring vstupů, durable supervisor handshake a celým PGID
+  lifecycle;
 - exact Git commit přes temporary index, literal/NUL paths, CAS ref, exact-path
   real index a foreign dirt proof;
 - restartová klasifikace baseline/exact/foreign: rollback baseline, roll-forward
@@ -38,7 +41,7 @@ review.
 | `m2-execution-contract-v1` | 22/22 PASS |
 | `m2-execution-authority-repository` | 13/13 PASS |
 | `m2-execution-project-change` | 10/10 PASS |
-| `m2-execution-process-supervision` | 11/11 PASS |
+| `m2-execution-process-supervision` | 13/13 PASS |
 | `m2-execution-git-preservation` | 10/10 PASS |
 | `m2-effect-authority-repository` | 43/43 PASS |
 | `schema-migrations` | 38/38 PASS; 68 migrací |
@@ -50,8 +53,8 @@ Registry po přidání pěti execution programů:
 
 - `valid: true`;
 - 416 runnable programů a 14 explicitních exclusions;
-- fingerprint
-  `318e38d8752181de401e8100c762a056e704df51d9a03bd22f20ece759b7cb96`;
+- po cross-section hardeningu fingerprint
+  `54dce9be3a18ef854097c5919d1471e53f38bf6ef0e828ecc5ff0438f9e302d2`;
 - generovaný `docs/convergence/TEST-REGISTRY.md` je aktuální.
 
 Tři sady vyžadující host `bwrap`/Git jsou podle existující registry konvence
@@ -72,6 +75,16 @@ ještě renewal shortening/resurrection a ne-literal/LF Git paths. Hardening na
 `08d249ad` přidal MAX effective lease, monotonic live renewal, literal
 pathspecs, NUL index-info a skutečný `SIGKILL`. Následné focused sady jsou výše
 zelené. Tento interní audit nenahrazuje požadovaný Opus verdict.
+
+Cross-section audit pak prokázal další HIGH containment v původním
+`linux-bwrap-ro-v1`: read-only bind celého host rootu stále dovoloval číst
+caller-readable soubory mimo projekt a komunikovat přes pathname Unix socket.
+Reprodukční sonda obdržela ze sandboxu host odpověď `ack` a host zaznamenal
+payload `sandbox-effect`. `05c5a856` proto přešel na v2 s prázdným rootem,
+minimálními runtime bindy, read-only scaffoldingem, zakázanými dalšími user
+namespaces a cBPF seccomp profilem. Negativní testy dokazují nepřítomnost
+outside souboru/socketu i nulové spojení se socketem, který je viditelný přímo
+uvnitř read-only projektu. Host connection counter zůstal v obou případech 0.
 
 ## Artifact a celý gate
 
@@ -103,9 +116,9 @@ Gate tedy zůstává pravdivě baseline `FAIL`; současně nevznikl nový non-PA
 timeout ani produktová regrese. Oddíl zůstává `REVIEW_PENDING`, dokud Opus max
 nevrátí `REVIEW_PASSED`.
 
-Při cross-section auditu na čistém `d034df62` byly všechny tři host-toolchain
-sady spuštěny znovu přímo a zůstaly zelené: project change 10/10, process
-supervision 11/11 a exact Git preservation 10/10. Běhy použily skutečné
+Při posledním cross-section auditu na čistém product headu `05c5a856` byly
+všechny tři host-toolchain sady spuštěny znovu přímo a zůstaly zelené: project
+change 10/10, process supervision 13/13 a exact Git preservation 10/10. Běhy použily skutečné
 `bwrap`/Git procesy, nezanechaly direct-test runtime a nedotkly se GPU/Ollamy.
 
 ## Omezení a navazující práce

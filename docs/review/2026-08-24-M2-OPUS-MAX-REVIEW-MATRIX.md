@@ -28,7 +28,7 @@ sekvenční. Každý base je ověřený lokální ancestor příslušného headu
 
 Tyto ranges určují původ a odpovědnost změny, nikoli povolení revidovat pouze
 historické bajty. Reviewer musí pro každý oddíl také porovnat jeho vlastněné
-soubory se současným product-integration headem `d034df62`, trasovat aktuální
+soubory se současným product-integration headem `05c5a856`, trasovat aktuální
 produkční konzumenty a ověřit, že pozdější oddíl nezměnil dříve posuzovaný
 terminální nebo authority kontrakt. Pozdější delta se věcně připíše oddílu,
 který ji zavedl, ale nalezená regrese blokuje aktuální review obou dotčených
@@ -87,10 +87,18 @@ nesmí uzavřít M2.
 - registry 428 programů / 14 exclusions / fingerprint
   `c487692dd5ccea126d3b858f4dcf207cc701e945c545ee2843c7227b946d4374`.
 
-Cross-section audit na čistém `d034df62` navíc přímo zopakoval zbývající čtyři
+Cross-section audit na čistém `05c5a856` navíc přímo zopakoval zbývající čtyři
 M2 `soak` sady: lifecycle application service 4/4, project change 10/10,
-process supervision 11/11 a exact Git preservation 10/10 PASS. Direct-test
+process supervision 13/13 a exact Git preservation 10/10 PASS. Direct-test
 runtime po bězích zůstal prázdný.
+
+Tento head navíc uzavírá HIGH interní nález v section-5 sandboxu: původní
+read-only host-root bind dovoloval pathname Unix socket effect a čtení mimo
+projekt. `linux-bwrap-ro-v2` používá prázdný mount root, exact project/binary,
+minimální runtime a seccomp; inside-project i outside-project host socket proby
+mají nula spojení. Tato vlastní oprava rozšiřuje současné product bytes oddílu
+5, a proto ji musí Opus zahrnout do section-5 review i do call-graph kontroly
+navazujícího section-6 journey.
 
 Tato evidence dokládá implementační integraci, nikoli nezávislé review ani M2
 acceptance. M2 se smí uzavřít až po sedmi zaznamenaných Opus max

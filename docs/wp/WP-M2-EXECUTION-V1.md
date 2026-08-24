@@ -8,7 +8,7 @@ a restart recovery
 **Autorita:** operátorské spuštění celé M2; `ROADMAP.md` §6 krok 3 a exit
 kritéria pro atomický patch, focused test, rollback, cancel/restart a audit
 
-**Product/test revision:** `08d249adab097fc4e628b5ee8e54e9df1a26fa9c`
+**Product/test revision:** `05c5a8561a0302e1cd8236d395718684b49f0ba1`
 
 ## Uživatelský výsledek
 
@@ -62,8 +62,11 @@ s `--effort max` nevrátí `REVIEW_PASSED`.
   odmítnou zkrácení, oživení po expiraci a předčasnou další generaci.
 - Každý file intent předchází efektu a exact readback předchází applied eventu.
   Rollback přepisuje jen exact after-image; třetí obsah nikdy.
-- Sandbox používá exact binary/project file descriptors, read-only root a
-  projekt, private tmp, oddělené PID/network/IPC namespaces a žádný fallback.
+- Sandbox profil `linux-bwrap-ro-v2` začíná prázdným mount namespace, vystaví
+  pouze systémový runtime, exact binary/project file descriptors a private
+  tmp, kořenovou scaffolding znovu přimountuje read-only a oddělí
+  PID/network/IPC/user namespaces. Seccomp odmítne socket/connect, kernel
+  keyring a `io_uring_setup`; žádný plain-spawn fallback neexistuje.
 - Supervisor identita je durable před start handshake. Timeout/cancel ukončí
   celý PGID přes TERM/KILL a success vyžaduje potvrzené vyklizení skupiny.
 - Git používá temporary index, NUL-delimited index-info, literal pathspecs,
@@ -94,6 +97,8 @@ s `--effort max` nevrátí `REVIEW_PASSED`.
   konvergenci, ne současnou POSIX viditelnost více souborů.
 - Linux/bubblewrap je jediný implementovaný sandbox profil. Jeho absence je
   typed unavailable bez plain-spawn fallbacku.
+- Seccomp program je fail-closed připravený pro Linux `x64` a `arm64`; jiná
+  architektura skončí před spuštěním focused testu jako unsupported profil.
 - Tento oddíl je connector/direct journey. Aktivní lifecycle a Studio surface
   zůstávají do oddílu 6 na legacy cestě.
 - Opus account limit nesmí být přeložen na review PASS.

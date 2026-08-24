@@ -96,9 +96,14 @@ podle registry v explicitním `soak` profilu kvůli `bwrap`/Git a má samostatn�
 `--effort max` nevrátí explicitní `REVIEW_PASSED` nad přesným stabilním řezem.
 Každé `CHANGES_REQUESTED` se opraví a review zopakuje.
 
-Cross-section audit na čistém `d034df62` zopakoval i skutečnou SQLite →
-ProjectContext → approval → `bwrap` → Git application-service journey; zůstala
-4/4 PASS včetně restartové obnovy a cancel/rollback negativní větve.
+Poslední cross-section audit na čistém product headu `05c5a856` zopakoval i
+skutečnou SQLite → ProjectContext → approval → `bwrap` → Git
+application-service journey; zůstala 4/4 PASS včetně restartové obnovy a
+cancel/rollback negativní větve. Journey už používá `linux-bwrap-ro-v2` s
+minimálním filesystemem a seccomp IPC hranicí. Všech deset lifecycle/governance
+sad bylo na stejných product bytes znovu zelených; současný registry fingerprint
+po aktualizaci jejich `lastGreen` je
+`54dce9be3a18ef854097c5919d1471e53f38bf6ef0e828ecc5ff0438f9e302d2`.
 
 ## Přiznané limity
 

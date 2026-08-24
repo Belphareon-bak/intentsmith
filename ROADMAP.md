@@ -1103,6 +1103,20 @@ non-PASS množinou; obě nové remote sady prošly. Přijetí čeká, dokud vše
 exact-scope Opus `--effort max` review nevrátí `REVIEW_PASSED` a integrační
 closeout nezůstane bez nové produktové regrese.
 
+Následný cross-section bezpečnostní audit našel HIGH mezeru v section-5
+`linux-bwrap-ro-v1`: read-only bind celého host rootu blokoval běžný zápis, ale
+nezabránil čtení mimo projekt ani efektu přes pathname Unix socket. Oprava na
+`05c5a856` zavádí `linux-bwrap-ro-v2` s prázdným mount rootem, pouze minimálním
+runtime a exact project/binary bindy, read-only scaffoldingem, zákazem dalších
+user namespaces a seccomp filtrem pro socket/connect, kernel keyring a
+`io_uring_setup`. Reálné outside- i inside-project host-socket proby skončily
+bez spojení; process supervision je 13/13, project change 10/10, Git
+preservation 10/10 a úplná lifecycle application journey 4/4 PASS. Všech deset
+lifecycle/governance sad bylo znovu zelených. Registry zůstává na 428
+programech a 14 exclusions; po aktualizaci přesných `lastGreen` má fingerprint
+`54dce9be…`. Tento hardening nerovná se Opus review ani M2 PASS a vyžaduje nový
+clean gate nad committed evidence.
+
 ### Závislostní sekvence Work Packages
 
 1. **WP-M2-EFFECT:** canonical effect broker vlastní policy, approval, timeout,
