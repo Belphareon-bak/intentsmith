@@ -350,7 +350,10 @@ try {
   //   101 -> 105 M2 effect authority added repository, broker, consumer and
   //              runtime suites. Each reaches the real database import graph
   //              and each is protected by the canonical harness/bootstrap.
-  const expectedDatabaseReachableRootTests = 105;
+  //   105 -> 107 M2 tool authority added the durable repository and active
+  //              production-consumer suites. Both use the canonical isolated
+  //              database bootstrap before importing the production runtime.
+  const expectedDatabaseReachableRootTests = 107;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,
