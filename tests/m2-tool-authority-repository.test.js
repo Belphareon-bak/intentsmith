@@ -81,6 +81,12 @@ function databaseThrough075() {
   return value;
 }
 
+const fixedToolClock = () => Date.parse('2026-08-24T08:00:00.000Z');
+
+function createFixedToolRepository(databaseValue) {
+  return new M2ToolAuthorityRepository(databaseValue, { clock: fixedToolClock });
+}
+
 function request(overrides = {}) {
   const input = overrides.input || { query: '2+2' };
   return {
@@ -400,7 +406,7 @@ test('076 upgrades populated 074/075 authority without loss and is idempotent', 
   `).get(), { requests: 2, results: 1, links: 1 });
 
   applyToolTruth(db);
-  const upgraded = new M2ToolAuthorityRepository(db);
+  const upgraded = createFixedToolRepository(db);
   assert.deepEqual(db.prepare(`
     SELECT
       (SELECT count(*) FROM tool_v1_requests) AS requests,
@@ -431,7 +437,7 @@ test('076 upgrades populated 074/075 authority without loss and is idempotent', 
 test('076 permits a no-project effectful denial while preserving exact terminal fencing', () => {
   const db = databaseThrough075();
   applyToolTruth(db);
-  const repository = new M2ToolAuthorityRepository(db);
+  const repository = createFixedToolRepository(db);
   const input = { query: 'IntentSmith' };
   const descriptor = getM2ToolDescriptor('web.search');
   const toolRequest = request({
@@ -548,7 +554,7 @@ test('migration refuses a pre-existing or drifted tool authority schema', () => 
 
 test('exact duplicate request is idempotent and drift conflicts', () => {
   const db = database();
-  const repository = new M2ToolAuthorityRepository(db);
+  const repository = createFixedToolRepository(db);
   const value = request();
   assert.equal(repository.registerToolRequest(value).created, true);
   assert.equal(repository.registerToolRequest(value).created, false);
@@ -567,7 +573,7 @@ test('exact duplicate request is idempotent and drift conflicts', () => {
 
 test('same run/idempotency key cannot be rebound to another request ID', () => {
   const db = database();
-  const repository = new M2ToolAuthorityRepository(db);
+  const repository = createFixedToolRepository(db);
   const value = request();
   repository.registerToolRequest(value);
   assert.throws(
@@ -617,7 +623,7 @@ suite('M2 durable tool authority — immutable terminal truth');
 
 test('one exact terminal is durable and duplicate commit is idempotent', () => {
   const db = database();
-  const repository = new M2ToolAuthorityRepository(db);
+  const repository = createFixedToolRepository(db);
   const toolRequest = request();
   const toolResult = result(toolRequest);
   repository.registerToolRequest(toolRequest);
@@ -637,7 +643,7 @@ test('one exact terminal is durable and duplicate commit is idempotent', () => {
 
 test('conflicting terminal and mismatched request digest are rejected', () => {
   const db = database();
-  const repository = new M2ToolAuthorityRepository(db);
+  const repository = createFixedToolRepository(db);
   const toolRequest = request();
   const toolResult = result(toolRequest);
   repository.registerToolRequest(toolRequest);
@@ -651,7 +657,7 @@ test('conflicting terminal and mismatched request digest are rejected', () => {
     error => error.code === M2ToolAuthorityErrorCode.RESULT_CONFLICT,
   );
   const mismatchDb = database();
-  const mismatchRepository = new M2ToolAuthorityRepository(mismatchDb);
+  const mismatchRepository = createFixedToolRepository(mismatchDb);
   mismatchRepository.registerToolRequest(toolRequest);
   const mismatchClaim = claimFor(mismatchRepository, toolRequest.requestId);
   const wrongDigest = { ...toolResult, requestDigest: `sha256:${'0'.repeat(64)}` };
@@ -665,7 +671,7 @@ test('conflicting terminal and mismatched request digest are rejected', () => {
 
 test('append-only triggers reject direct mutation and deletion', () => {
   const db = database();
-  const repository = new M2ToolAuthorityRepository(db);
+  const repository = createFixedToolRepository(db);
   const toolRequest = request();
   repository.registerToolRequest(toolRequest);
   const executionClaim = claimFor(repository, toolRequest.requestId);
@@ -720,7 +726,7 @@ test('direct SQL cannot mismatch indexed identity and request JSON', () => {
 
 test('validly digested direct-SQL request cannot forge the installed registry descriptor', () => {
   const db = database();
-  const repository = new M2ToolAuthorityRepository(db);
+  const repository = createFixedToolRepository(db);
   const forged = request({
     riskClass: 'exec',
     authorityMode: 'unavailable',
@@ -763,7 +769,7 @@ test('validly digested direct-SQL request cannot forge the installed registry de
 
 test('direct-SQL result projection drift is unreadable even when result JSON is valid', () => {
   const db = database();
-  const repository = new M2ToolAuthorityRepository(db);
+  const repository = createFixedToolRepository(db);
   const toolRequest = request();
   const toolResult = result(toolRequest);
   repository.registerToolRequest(toolRequest);
@@ -920,7 +926,7 @@ test('same-input operations cannot swap EffectRequests across ToolRequest identi
 
 test('effectful ToolResult success is rejected until canonical EffectResult is durable', () => {
   const db = database();
-  const toolRepository = new M2ToolAuthorityRepository(db);
+  const toolRepository = createFixedToolRepository(db);
   const effectRepository = new EffectAuthorityRepository(db, { clock: () => 1_777_000_000_000 });
   const toolInput = { path: 'src/answer.js', content: 'export const answer = 42;\n' };
   const toolRequest = request({
