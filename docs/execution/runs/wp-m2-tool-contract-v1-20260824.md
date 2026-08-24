@@ -5,6 +5,7 @@
 - **integrační vstup:** `fa437d021e07728388eb61bbca88bcc98e208ddf`
 - **product/test revision:** `8ec1351e988f3a179ba64934813910ce8300c5c0`
 - **module-graph revision:** `8dce31d73eebe58430eeee35bdf5b3d048c067fd`
+- **integration-sentinel revision:** `46d08312b22304cbaaa190306168d1461963ab49`
 - **registry fingerprint:** `a67d451426b8fefa4e1e5287d5378e975fd36b7b8a87acc26f0108a5331483a0`
 - **větev:** `codex/m2-integration-20260824`
 - **push:** neproveden
@@ -39,6 +40,8 @@ repository na účtovém spend limitu.
 | `m2-tool-authority-repository` | 9/9 PASS |
 | `m2-tool-production-consumer` | 7/7 PASS |
 | `schema-migrations` | 38/38 PASS; 64 migrací |
+| `m1-model-failover-schema` | 20/20 PASS |
+| `harness-exit-code` | PASS |
 | `module-boundary-ratchet` | 13/13 PASS |
 | `artifact-validation` | 151/151 PASS |
 
@@ -61,6 +64,33 @@ Artifact validace v první iteraci pravdivě skončila `149 PASS / 2 FAIL`, prot
 README nesl starý registry count a SYSTEM-MAP starý `src/tools` census. Obě
 zdrojově odvozené projekce byly opraveny na 411 programů a 8 tool modulů;
 opakovaný běh prošel `151/151`.
+
+První celý gate na `637a5d97` skončil `245 PASS / 5 FAIL / 2 BLOCKED`.
+Oproti baseline přibyly dva stale sentinely: harness čekal 105 místo 107
+database-reachable root testů a M1 schema suite čekala tip 073/63 migrací místo
+074/64. Po zdrojově odvozené opravě prošly standalone. Druhý gate měl ještě
+`harness-exit-code` FAIL, protože v `.intentsmith-artifacts/direct-tests`
+zůstaly mnou vytvořené runtime adresáře z ručních běhů. Byly beze ztráty
+přesunuty do `/tmp/intentsmith-m2-direct-tests.90rxgL/direct-tests`; žádná cizí
+data ani proces nebyly změněny.
+
+## Celý deterministický gate
+
+Autoritativní opakování na `46d08312`:
+
+- run ID `2026-08-24T00-55-12-548Z`;
+- `verdict: FAIL`, `exitCode: 1`;
+- `247 PASS / 3 FAIL / 2 BLOCKED / 0 TIMEOUT / 0 SKIPPED`;
+- všechny čtyři `m2-tool-*` programy PASS;
+- non-PASS ID jsou přesně známá baseline množina:
+  - `nightly-audit-runner-self-test` — FAIL;
+  - `nightly-orchestrator-self-test` — FAIL;
+  - `vram-coordination` — FAIL;
+  - `chat-export-budget` — BLOCKED;
+  - `export-pdf-docx` — BLOCKED.
+
+Vyšší PASS count proti starému M1 reportu tvoří nově registrované zelené M2
+effect, ProjectContext a Tool sady; celkový `FAIL` se nevydává za gate PASS.
 
 ## Review
 
@@ -87,6 +117,5 @@ mimo koordinovaný modelový slot nebude opakovat.
   před efektem. To je záměrná dočasná availability ztráta, ne dokončená funkce.
 - Obecný sandbox, patch/Git/test/rollback, lifecycle a RemoteCorePort zůstávají
   v oddílech 5–7.
-- Celý deterministický gate a artifact validace se připíchnou až na čistém
-  evidenčním commitu; očekávaný celkový verdict zůstává pravdivě `FAIL` kvůli
-  známé baseline, dokud konkrétní běh neprokáže opak.
+- Celý deterministický gate zůstává pravdivě `FAIL` kvůli výše uvedené známé
+  baseline; oddíl 4 nepřidal nové non-PASS ID.
