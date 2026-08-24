@@ -54,6 +54,26 @@ Každý běh musí:
 7. po každé opravě zopakovat celý exact-scope review, dokud nevznikne
    `REVIEW_PASSED`.
 
+## Pinning bez mezery po review
+
+Oddíl 1 je interní path primitive a veřejný stage nepřipíná. Oddíly 2 a 4–7
+mají veřejné kontrakty stále `CANDIDATE_V1`; ProjectContext v oddílu 3 je
+`PROVISIONAL_V1`. To je povinný stav před prvním nezávislým review, nikoli
+finální stav M2.
+
+Pro oddíly 2–7 platí dvoufázový cyklus:
+
+1. Opus max vrátí `REVIEW_PASSED` nad kandidátem;
+2. teprve potom se stage mechanicky změní na `PINNED_V1`, synchronizují se
+   exact stage sentinely, descriptor digesty a pravdivá evidence;
+3. zopakují se focused sady, registry/artifact/module checks a celý clean gate;
+4. Opus max znovu reviduje finální připnuté bajty a musí vrátit
+   `REVIEW_PASSED`.
+
+Do součtu `7 OF 7` se počítá pouze verdict svázaný s finálními současnými
+bajty. Kandidátní PASS, po němž se změnil contract stage, není finálním PASS a
+nesmí uzavřít M2.
+
 ## Společná integrační evidence
 
 Čistý `offline,database` gate na
