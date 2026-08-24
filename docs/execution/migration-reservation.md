@@ -1,4 +1,4 @@
-# Rezervace čísel migrací — union census 2026-08-22, kontrola 2026-08-23
+# Rezervace čísel migrací — union census 2026-08-22, kontroly 2026-08-23 a 2026-08-24
 
 **Vlastník:** integrační vlastník M1 · **Metoda:** union přes všechny živé větve
 · **Platí od:** 2026-08-22
@@ -81,3 +81,25 @@ přejmenování není druhý soubor 068 vidět.
 | **068** | historicky `c8ffbccc` | nepoužívat znovu; původní runtime-finalization identita |
 | **069** | `codex/m1-closeout-20260822` | runtime finalization po odstranění kolize |
 | **070** | `claude/gate1-mobile-app-progress-5sywlt` | append-only historie modelových evaluací |
+
+## Kontrolní census 2026-08-24 — konsolidace modelových evaluací
+
+Před vytvořením nové migrace byl union census zopakován přes všechny dostupné
+živé větve mimo `archive/**` a `recovery/**`. Dřívější pracovní odhad `081` už
+neplatí: integrační M2 větev mezitím přidala i toto číslo.
+
+```text
+git branch -a  (mimo archive/** a recovery/**)   363 větví
+union obsazených čísel src/db/migrations/**      001–081
+071–081                                         M2 authority migrace
+první volné číslo                                082
+```
+
+| Číslo | Vlastník | Obsah |
+|---|---|---|
+| **071–081** | `codex/m2-integration-20260824` a zdrojové M2 větve | M2 effect/tool/execution/lifecycle authority |
+| **082** | `codex/model-evaluation-consolidation-20260824` | model evaluation decision/audit a odstranění v123 runtime tabulek |
+
+Rezervace `082` je aktivní od 2026-08-24. Před vznikem souboru migrace se
+census zopakuje ještě jednou; případný novější konflikt dostane přednost a WP
+se posune na další volné číslo.
