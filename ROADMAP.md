@@ -64,7 +64,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 |---|---|---|---|
 | **M0 Produktová pravda** | `ACCEPTED / PASS` | současný C3/IntentSmith strom | Víme, co produkt je a co skutečně běží; deklarace nelžou o chování. |
 | **M1 Lokální runtime páteř** | `ACCEPTED / GATE_2_PASS` | M0 accepted; Gate 1 PASS | Stabilní Linux → Theia → chat → Ollama → persistence. |
-| **M2 Řízená práce nad projektem** | `IN_PROGRESS / SECTION_5_IMPLEMENTATION_GREEN / REVIEWS_PENDING` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
+| **M2 Řízená práce nad projektem** | `IN_PROGRESS / SECTION_6_IMPLEMENTATION_GREEN / REVIEWS_PENDING` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
 | **M3 Modulární platforma** | `NOT_STARTED` | M2 accepted | Expertise, tool, skill, specialista a agent přidají schopnost bez obcházení core. |
 | **M4 Auditovatelné self-learning** | `NOT_STARTED` | M2 accepted | Jedna uzavřená, scoped a vratná učící smyčka zlepšuje skutečný scénář. |
 | **M5 Production hardening** | `NOT_STARTED` | M3 + M4 accepted | Instalace, data, auth, procesy, síť, výkon a recovery jsou podporovatelné. |
@@ -1075,7 +1075,18 @@ Registry má 416 programů, fingerprint `318e38d8…`; aktuální module graph m
 stále 3 cykly s membership 28 souborů. Oddíl 5 zůstává
 `CANDIDATE_V1 / REVIEW_PENDING`. Deterministický gate na `181bb0cd` zůstal
 pravdivě `FAIL` s `249 PASS / 3 FAIL / 2 BLOCKED`, nulovým timeoutem a přesně
-nezměněnou baseline non-PASS množinou. Celý M2 jako celek není PASS.
+nezměněnou baseline non-PASS množinou. Oddíl 6 má implementační kandidát
+`5e6f25f7`: exact governance policy/decision/receipt a lifecycle
+plan/approval/terminal kontrakty, deterministic governance evaluator,
+proposal compiler, SQLite migraci 079, durable repository a application service,
+skutečné start/approve/cancel/status HTTP hranice, Studio ovládání a karanténu
+legacy lifecycle mutátorů. Focused sady mají dohromady 103/103 PASS a relevantní
+M1/Studio/chat regrese 459/459 PASS; schema migrace mají 38/38, M1 failover
+schema 20/20 a artifact validation 154/154. Registry má 426 programů,
+fingerprint `5796d25d…`; aktuální module graph má 1 116 hran, stále 3 cykly
+s membership 28 souborů. Oddíl 6 zůstává `IMPLEMENTED / REVIEW_REQUIRED`, dokud
+stabilní řez neprojde deterministickým gate a Opus `--effort max` review.
+Celý M2 jako celek není PASS.
 
 ### Závislostní sekvence Work Packages
 
