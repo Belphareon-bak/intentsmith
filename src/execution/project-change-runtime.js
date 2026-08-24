@@ -130,6 +130,33 @@ function matchesImage(observation, image) {
     && observation.mode === image.mode;
 }
 
+function observeProjectImage(canonicalRoot, relativePath) {
+  try {
+    return Object.freeze({ state: 'observed', value: readProjectFileBytes(canonicalRoot, relativePath) });
+  } catch {
+    return Object.freeze({ state: 'foreign', value: null });
+  }
+}
+
+function imageState(observation, before, after) {
+  if (observation.state !== 'observed') return 'foreign';
+  if (matchesImage(observation.value, before)) return 'before';
+  if (matchesImage(observation.value, { exists: true, ...after })) return 'after';
+  return 'foreign';
+}
+
+function mismatchedAfterImages(request, material) {
+  const mismatched = [];
+  for (const file of material) {
+    const observation = observeProjectImage(request.project.canonicalRoot, file.path);
+    const change = request.changes[file.ordinal];
+    if (imageState(observation, change.before, change.after) !== 'after') {
+      mismatched.push(file.path);
+    }
+  }
+  return mismatched;
+}
+
 function requireDependencies(dependencies) {
   const required = [
     'executionRepository', 'effectRepository', 'owner', 'liveness',
@@ -236,9 +263,13 @@ async function rollbackApplied({
     if (!appliedPaths.has(file.path)) continue;
     const change = request.changes[file.ordinal];
     const rollbackRequest = effectRepository.getEffectRequest(file.rollbackEffectId);
-    const observed = readProjectFileBytes(request.project.canonicalRoot, file.path);
-    if (!matchesImage(observed, { exists: true, ...change.after })) {
-      if (matchesImage(observed, change.before)) {
+    const observed = observeProjectImage(request.project.canonicalRoot, file.path);
+    if (observed.state !== 'observed') {
+      failed.push(file.path);
+      continue;
+    }
+    if (!matchesImage(observed.value, { exists: true, ...change.after })) {
+      if (matchesImage(observed.value, change.before)) {
         restored.push(file.path);
         continue;
       }
@@ -262,13 +293,13 @@ async function rollbackApplied({
           request.project.canonicalRoot,
           file.path,
           file.beforeBytes,
-          { expectedTarget: observed.target, createParents: false, desiredMode: change.before.mode },
+          { expectedTarget: observed.value.target, createParents: false, desiredMode: change.before.mode },
         );
       } else {
         deleteProjectFileDurable(
           request.project.canonicalRoot,
           file.path,
-          { expectedTarget: observed.target },
+          { expectedTarget: observed.value.target },
         );
       }
       const restoredObservation = readProjectFileBytes(request.project.canonicalRoot, file.path);
@@ -395,12 +426,8 @@ async function recoverOnly(request, claim, dependencies, startedAt) {
   const drift = [];
   for (const file of material) {
     const change = request.changes[file.ordinal];
-    const observed = readProjectFileBytes(request.project.canonicalRoot, file.path);
-    const state = matchesImage(observed, change.before)
-      ? 'before'
-      : matchesImage(observed, { exists: true, ...change.after })
-        ? 'after'
-        : 'foreign';
+    const observed = observeProjectImage(request.project.canonicalRoot, file.path);
+    const state = imageState(observed, change.before, change.after);
     executionRepository.appendEvent({
       eventId: eventId(request.executionId, claim.generation, 'recovery_observed', file.path),
       executionId: request.executionId,
@@ -843,11 +870,13 @@ export async function executeProjectChange({
 
   for (const file of material) {
     const change = request.changes[file.ordinal];
-    const current = readProjectFileBytes(request.project.canonicalRoot, file.path);
-    if (!matchesImage(current, change.before)) {
+    const currentObservation = observeProjectImage(request.project.canonicalRoot, file.path);
+    if (currentObservation.state !== 'observed'
+      || !matchesImage(currentObservation.value, change.before)) {
       stop = { status: 'failed', code: ProjectChangeRuntimeErrorCode.FILE_DRIFT };
       break;
     }
+    const current = currentObservation.value;
     const forward = effectRepository.getEffectRequest(file.forwardEffectId);
     const effectStartedAt = timestamp(clock);
     executionRepository.appendEvent({
@@ -1165,6 +1194,10 @@ export async function executeProjectChange({
     });
     executionRepository.recordResult(result);
     return result;
+  }
+  if (mismatchedAfterImages(request, material).length > 0) {
+    stop = { status: 'failed', code: ProjectChangeRuntimeErrorCode.FILE_DRIFT };
+    return finishStopped();
   }
   executionRepository.appendEvent({
     eventId: eventId(executionId, claim.generation, 'terminal_prepared', 'success'),

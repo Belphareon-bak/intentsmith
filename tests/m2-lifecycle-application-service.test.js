@@ -256,6 +256,70 @@ await testAsync('production lifecycle commits a governed non-manifest file with 
   }
 }, 60_000);
 
+await testAsync('type drift terminalizes and a restarted lifecycle recovery census completes', async () => {
+  const root = makeProject();
+  const authorityRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-m2-type-drift-'));
+  const databasePath = path.join(authorityRoot, 'authority.sqlite');
+  const targetPath = path.join(root, 'src/app.js');
+  let db = openDatabase(databasePath);
+  const processProvider = Object.freeze({
+    async execute({ onSupervisor }) {
+      onSupervisor({
+        pid: 8124,
+        processGroupId: 8124,
+        bootId: '11111111-1111-4111-8111-111111111111',
+        startIdentity: '902',
+      });
+      fs.rmSync(targetPath, { force: true });
+      fs.mkdirSync(targetPath);
+      fs.writeFileSync(path.join(targetPath, 'foreign.txt'), 'foreign directory bytes\n');
+      return {
+        terminalStatus: 'succeeded',
+        exitCode: 0,
+        signal: null,
+        stdoutDigest: sha(Buffer.alloc(0)),
+        stderrDigest: sha(Buffer.alloc(0)),
+        outputTruncated: false,
+        lateCompletionRejected: false,
+      };
+    },
+  });
+  try {
+    const service = createService(db, root, makeClock(), { processProvider });
+    assert.deepEqual(await service.recoverIncompleteSmallProjectChanges(), []);
+    const planned = await prepare(service, proposal({ commit: false }));
+    const completed = await service.approveSmallProjectChange({
+      authenticatedSubject: SUBJECT,
+      lifecycleId: planned.lifecycleId,
+      planDigest: planned.planDigest,
+      origin: ORIGIN,
+    });
+    assert.equal(completed.state, 'orphaned');
+    assert.equal(completed.result.terminalStatus, 'orphaned');
+    assert.equal(completed.result.rollback.status, 'failed');
+    assert.equal(completed.terminal.state, 'orphaned');
+    assert.equal(fs.readFileSync(path.join(targetPath, 'foreign.txt'), 'utf8'), 'foreign directory bytes\n');
+
+    const lifecycleId = planned.lifecycleId;
+    db.close();
+    db = openDatabase(databasePath);
+    const restarted = createService(db, root);
+    assert.deepEqual(await restarted.recoverIncompleteSmallProjectChanges(), []);
+    const durable = restarted.getSmallProjectChangeStatus({
+      authenticatedSubject: SUBJECT,
+      lifecycleId,
+      origin: ORIGIN,
+    });
+    assert.equal(durable.state, 'orphaned');
+    assert.equal(durable.result.terminalStatus, 'orphaned');
+    assert.equal(db.prepare('SELECT count(*) AS count FROM m2_lifecycle_terminals').get().count, 1);
+  } finally {
+    if (db.open) db.close();
+    fs.rmSync(root, { recursive: true, force: true });
+    fs.rmSync(authorityRoot, { recursive: true, force: true });
+  }
+}, 60_000);
+
 await testAsync('policy or workspace drift after planning blocks approval before grants or effects', async () => {
   const root = makeProject();
   const db = openDatabase();

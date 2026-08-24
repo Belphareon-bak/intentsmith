@@ -139,6 +139,29 @@ function successfulProcess() {
   });
 }
 
+function successfulMutatingProcess(mutate) {
+  return Object.freeze({
+    async execute({ onSupervisor }) {
+      onSupervisor({
+        pid: 6203,
+        processGroupId: 6203,
+        bootId: '11111111-1111-4111-8111-111111111111',
+        startIdentity: '303',
+      });
+      mutate();
+      return {
+        terminalStatus: 'succeeded',
+        exitCode: 0,
+        signal: null,
+        stdoutDigest: sha(Buffer.alloc(0)),
+        stderrDigest: sha(Buffer.alloc(0)),
+        outputTruncated: false,
+        lateCompletionRejected: false,
+      };
+    },
+  });
+}
+
 function failingProcess() {
   return Object.freeze({
     async execute({ onSupervisor }) {
@@ -602,6 +625,155 @@ await testAsync('nonzero focused test restores old bytes and deletes a newly cre
     prepared.db.close();
   } finally {
     cleanup(root);
+  }
+});
+
+await testAsync('post-readback symlink replacement never succeeds across revision and Git variants', async () => {
+  for (const target of ['src/app.js', 'deploy.cfg']) {
+    for (const commit of [false, true]) {
+      const root = makeProject();
+      const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-m2-foreign-target-'));
+      const secret = path.join(outside, 'secret.txt');
+      const secretBytes = `SECRET:${target}:${commit}\n`;
+      fs.writeFileSync(secret, secretBytes);
+      try {
+        const observe = productionRevisionObserver(root);
+        const prepared = await prepare(root, {
+          commit,
+          changes: [{ path: target, afterContent: 'approved=true\n' }],
+          revisionObserver: observe,
+        });
+        const targetPath = path.join(root, target);
+        const result = await executeProjectChange({
+          executionId: prepared.plan.request.executionId,
+          grants: prepared.grants,
+          focusedEnvironment: prepared.environment,
+        }, dependencies(
+          prepared,
+          root,
+          successfulMutatingProcess(() => {
+            fs.rmSync(targetPath, { recursive: true, force: true });
+            fs.symlinkSync(secret, targetPath);
+          }),
+          OWNER_ONE,
+          { isProvablyDead: () => false },
+          commit ? exactGitProvider : null,
+        ));
+        assert.equal(result.terminalStatus, 'orphaned', `${target} commit=${commit}`);
+        assert.equal(result.errorCode, ProjectChangeRuntimeErrorCode.ROLLBACK_FAILED);
+        assert.equal(result.rollback.status, 'failed');
+        assert.deepEqual(result.rollback.paths, [target]);
+        assert.equal(fs.lstatSync(targetPath).isSymbolicLink(), true);
+        assert.equal(fs.readFileSync(secret, 'utf8'), secretBytes);
+        assert.equal(prepared.executionRepository.getResult(result.executionId)?.terminalStatus, 'orphaned');
+        const restarted = await executeProjectChange({
+          executionId: prepared.plan.request.executionId,
+          focusedEnvironment: prepared.environment,
+        }, dependencies(
+          prepared,
+          root,
+          { async execute() { throw new Error('terminal restart must not execute'); } },
+          OWNER_TWO,
+          { isProvablyDead: () => true },
+          commit ? exactGitProvider : null,
+        ));
+        assert.deepEqual(restarted, result);
+        prepared.db.close();
+      } finally {
+        cleanup(root);
+        cleanup(outside);
+      }
+    }
+  }
+});
+
+await testAsync('post-readback directory replacement records one durable orphan and restart returns it', async () => {
+  const root = makeProject();
+  try {
+    const prepared = await prepare(root, { twoFiles: false });
+    const targetPath = path.join(root, 'src/app.js');
+    const result = await executeProjectChange({
+      executionId: prepared.plan.request.executionId,
+      grants: prepared.grants,
+      focusedEnvironment: prepared.environment,
+    }, dependencies(prepared, root, successfulMutatingProcess(() => {
+      fs.rmSync(targetPath, { force: true });
+      fs.mkdirSync(targetPath);
+      fs.writeFileSync(path.join(targetPath, 'foreign.txt'), 'foreign directory bytes\n');
+    })));
+    assert.equal(result.terminalStatus, 'orphaned');
+    assert.equal(result.errorCode, ProjectChangeRuntimeErrorCode.ROLLBACK_FAILED);
+    assert.equal(result.rollback.status, 'failed');
+    assert.equal(fs.readFileSync(path.join(targetPath, 'foreign.txt'), 'utf8'), 'foreign directory bytes\n');
+    assert.equal(prepared.executionRepository.getResult(result.executionId)?.terminalStatus, 'orphaned');
+    const restarted = await executeProjectChange({
+      executionId: prepared.plan.request.executionId,
+      focusedEnvironment: prepared.environment,
+    }, dependencies(prepared, root, successfulProcess(), OWNER_TWO, { isProvablyDead: () => true }));
+    assert.deepEqual(restarted, result);
+    prepared.db.close();
+  } finally {
+    cleanup(root);
+  }
+});
+
+await testAsync('takeover classifies symlink and directory observations as foreign without throwing', async () => {
+  for (const replacement of ['symlink', 'directory']) {
+    const root = makeProject();
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-m2-recovery-foreign-'));
+    try {
+      const prepared = await prepare(root, { twoFiles: false });
+      const claim = prepared.executionRepository.acquireClaim({
+        executionId: prepared.plan.request.executionId,
+        owner: OWNER_ONE,
+        leaseMs: 1_000,
+        liveness: { isProvablyDead: () => false },
+      });
+      const items = prepared.plan.effectRequests.map(effect => {
+        const grantId = prepared.grants.find(entry => entry.effectId === effect.effectId).grantId;
+        return { grantId, request: { ...effect, approvalGrantId: grantId } };
+      });
+      prepared.effectRepository.consumeApprovalGrantBatch({ items, executionOwner: OWNER_ONE });
+      prepared.executionRepository.recordApprovalSet({
+        executionId: prepared.plan.request.executionId,
+        generation: claim.generation,
+        grantIds: prepared.grants.map(entry => entry.grantId)
+          .sort((left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right))),
+      });
+      const targetPath = path.join(root, 'src/app.js');
+      fs.rmSync(targetPath, { force: true });
+      if (replacement === 'directory') {
+        fs.mkdirSync(targetPath);
+        fs.writeFileSync(path.join(targetPath, 'foreign.txt'), 'foreign\n');
+      } else {
+        const secret = path.join(outside, 'secret.txt');
+        fs.writeFileSync(secret, 'foreign\n');
+        fs.symlinkSync(secret, targetPath);
+      }
+      prepared.advance(2_000);
+      const result = await executeProjectChange({
+        executionId: prepared.plan.request.executionId,
+        focusedEnvironment: prepared.environment,
+      }, dependencies(
+        prepared,
+        root,
+        { async execute() { throw new Error('recovery must not execute'); } },
+        OWNER_TWO,
+        { isProvablyDead: () => true },
+      ));
+      assert.equal(result.terminalStatus, 'orphaned', replacement);
+      assert.equal(result.rollback.status, 'failed');
+      assert.equal(prepared.executionRepository.getResult(result.executionId)?.terminalStatus, 'orphaned');
+      const restarted = await executeProjectChange({
+        executionId: prepared.plan.request.executionId,
+        focusedEnvironment: prepared.environment,
+      }, dependencies(prepared, root, successfulProcess(), OWNER_TWO, { isProvablyDead: () => true }));
+      assert.deepEqual(restarted, result);
+      prepared.db.close();
+    } finally {
+      cleanup(root);
+      cleanup(outside);
+    }
   }
 });
 
