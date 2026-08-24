@@ -143,6 +143,7 @@ záznamu selže v `artifact-validation`.
 | `2026_08_24_077_m2_effect_invalidations.js` | použito |
 | `2026_08_24_078_m2_execution_authority.js` | použito |
 | `2026_08_24_079_m2_lifecycle_authority.js` | použito |
+| `2026_08_24_080_m2_effect_semantic_authority.js` | použito |
 <!-- migration-source-manifest:end -->
 
 ## Proč to nejsou 058 a 059

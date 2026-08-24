@@ -485,23 +485,7 @@ export function validateEffectResultForRequest(request, result) {
     || result.requestDigest !== computeEffectRequestDigest(request)
   ) errors.push('effect-result:request-identity-mismatch');
 
-  if (result.terminalStatus === 'succeeded' && request.kind === 'fs.write') {
-    if (
-      result.changes.paths.length !== 1
-      || result.changes.paths[0] !== request.target.relativePath
-    ) errors.push('effect-result:fs-write-path-evidence-mismatch');
-    if (result.changes.afterDigest !== request.payloadDigest) {
-      errors.push('effect-result:fs-write-after-digest-mismatch');
-    }
-    if (result.outputDigest !== request.payloadDigest) {
-      errors.push('effect-result:fs-write-output-digest-mismatch');
-    }
-    if (result.rollback.required !== false || result.rollback.status !== 'not_required') {
-      errors.push('effect-result:fs-write-success-rollback-mismatch');
-    }
-    if (result.changes.diffArtifact !== null) {
-      errors.push('effect-result:fs-write-success-diff-artifact-mismatch');
-    }
+  if (request.kind === 'fs.write') {
     if (
       result.process.pid !== null
       || result.process.processGroupId !== null
@@ -514,9 +498,60 @@ export function validateEffectResultForRequest(request, result) {
       || result.network.finalUrl !== null
       || result.network.status !== null
       || result.network.bytes !== 0
-    ) errors.push('effect-result:fs-write-success-network-mismatch');
-    if (result.lateCompletionRejected !== false) {
-      errors.push('effect-result:fs-write-success-late-completion-mismatch');
+    ) errors.push('effect-result:fs-write-network-mismatch');
+    if (result.changes.diffArtifact !== null) {
+      errors.push('effect-result:fs-write-diff-artifact-mismatch');
+    }
+
+    if (result.terminalStatus === 'succeeded') {
+      if (
+        result.changes.paths.length !== 1
+        || result.changes.paths[0] !== request.target.relativePath
+      ) errors.push('effect-result:fs-write-path-evidence-mismatch');
+      if (result.changes.afterDigest !== request.payloadDigest) {
+        errors.push('effect-result:fs-write-after-digest-mismatch');
+      }
+      if (result.outputDigest !== request.payloadDigest) {
+        errors.push('effect-result:fs-write-output-digest-mismatch');
+      }
+      if (result.rollback.required !== false || result.rollback.status !== 'not_required') {
+        errors.push('effect-result:fs-write-success-rollback-mismatch');
+      }
+      if (result.lateCompletionRejected !== false) {
+        errors.push('effect-result:fs-write-success-late-completion-mismatch');
+      }
+    } else if (result.rollback.required === true) {
+      if (
+        result.changes.paths.length !== 1
+        || result.changes.paths[0] !== request.target.relativePath
+      ) errors.push('effect-result:fs-write-rollback-path-evidence-mismatch');
+      if (result.rollback.evidenceRef === null) {
+        errors.push('effect-result:fs-write-rollback-evidence-missing');
+      }
+      if (
+        result.changes.afterDigest !== null
+        && result.changes.afterDigest !== request.payloadDigest
+      ) errors.push('effect-result:fs-write-rollback-after-digest-mismatch');
+      if (result.outputDigest !== null && result.outputDigest !== request.payloadDigest) {
+        errors.push('effect-result:fs-write-rollback-output-digest-mismatch');
+      }
+    } else {
+      if (
+        result.changes.paths.length !== 0
+        || result.changes.beforeDigest !== null
+        || result.changes.afterDigest !== null
+        || result.outputDigest !== null
+      ) errors.push('effect-result:fs-write-pre-effect-evidence-mismatch');
+      if (result.lateCompletionRejected !== false) {
+        errors.push('effect-result:fs-write-pre-effect-late-completion-mismatch');
+      }
+    }
+    if (
+      ['orphaned', 'killed'].includes(result.terminalStatus)
+      && result.rollback.required !== true
+    ) errors.push('effect-result:fs-write-ambiguous-without-rollback');
+    if (result.lateCompletionRejected === true && result.rollback.required !== true) {
+      errors.push('effect-result:fs-write-late-completion-without-rollback');
     }
   }
   return validationResult(errors, result);
@@ -584,6 +619,40 @@ function validateGrantConstraints(value, scope) {
   return errors;
 }
 
+/**
+ * Approval constraints are not caller-selected metadata. They are the exact
+ * executable projection of the immutable EffectRequest.
+ */
+export function deriveApprovalGrantConstraints(request) {
+  const validation = validateEffectRequest(request);
+  if (!validation.valid) {
+    throw new TypeError(`m2-effect:invalid-request-for-grant:${validation.errors.join(',')}`);
+  }
+  const constraints = {
+    allowedRealpaths: [],
+    allowedBinary: null,
+    allowedArgvDigest: null,
+    allowedOrigin: null,
+    maxBytes: request.payloadBytes,
+  };
+  if (request.kind.startsWith('fs.')) {
+    constraints.allowedRealpaths = [request.target.resolvedRealpath];
+  } else if (request.kind === 'process.exec') {
+    constraints.allowedBinary = request.target.binary;
+    constraints.allowedArgvDigest = request.target.argvDigest;
+  } else if (request.kind === 'network.request') {
+    constraints.allowedOrigin = request.target.origin;
+  } else if (request.kind.startsWith('git.')) {
+    constraints.allowedRealpaths = request.target.paths
+      .map(relativePath => path.resolve(request.target.canonicalRepo, relativePath))
+      .sort((left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right)));
+  }
+  return Object.freeze({
+    ...constraints,
+    allowedRealpaths: Object.freeze([...constraints.allowedRealpaths]),
+  });
+}
+
 export function validateApprovalGrant(value) {
   const context = 'approval-grant';
   const errors = validateExactKeys(value, [
@@ -637,6 +706,33 @@ export function validateApprovalGrant(value) {
   // grant restored from an older database or written by a compromised caller.
   if (consumed && revoked) errors.push(`${context}:consumed-and-revoked`);
   return validationResult(errors, value);
+}
+
+export function validateApprovalGrantForRequest(request, grant) {
+  const errors = [];
+  const requestValidation = validateEffectRequest(request);
+  const grantValidation = validateApprovalGrant(grant);
+  errors.push(...requestValidation.errors, ...grantValidation.errors);
+  if (!requestValidation.valid || !grantValidation.valid) {
+    return validationResult(errors, grant);
+  }
+  const scopeMatches = grant.scope.runId === request.runId
+    && grant.scope.projectId === request.origin.projectId
+    && grant.scope.effectId === request.effectId
+    && grant.scope.kind === request.kind
+    && grant.scope.payloadDigest === request.payloadDigest
+    && grant.scope.payloadBytes === request.payloadBytes
+    && grant.scope.workspaceRevision === request.workspaceRevision
+    && request.actor.type === 'user'
+    && grant.subject.actorType === 'user'
+    && grant.subject.actorId === request.actor.id
+    && (request.approvalGrantId === null || request.approvalGrantId === grant.grantId);
+  if (!scopeMatches) errors.push('approval-grant:request-scope-mismatch');
+  const expectedConstraints = deriveApprovalGrantConstraints(request);
+  if (canonicalStringify(grant.constraints) !== canonicalStringify(expectedConstraints)) {
+    errors.push('approval-grant:request-constraints-mismatch');
+  }
+  return validationResult(errors, grant);
 }
 
 const VALIDATORS = Object.freeze({

@@ -22,6 +22,18 @@ import {
   up as applyEffectClaimTruth,
   version as effectClaimTruthVersion,
 } from '../src/db/migrations/2026_08_24_073_m2_effect_claim_truth.js';
+import { up as applyToolAuthority } from '../src/db/migrations/2026_08_24_074_m2_tool_authority.js';
+import { up as applyToolEffectLinks } from '../src/db/migrations/2026_08_24_075_m2_tool_effect_links.js';
+import { up as applyToolTruth } from '../src/db/migrations/2026_08_24_076_m2_tool_authority_truth.js';
+import { up as applyEffectInvalidations } from '../src/db/migrations/2026_08_24_077_m2_effect_invalidations.js';
+import {
+  EXPECTED_M2_EFFECT_CORE_FINGERPRINT_V080,
+  up as applyEffectSemanticAuthority,
+} from '../src/db/migrations/2026_08_24_080_m2_effect_semantic_authority.js';
+import {
+  EXPECTED_M2_EFFECT_CORE_FINGERPRINT_V077,
+  computeM2EffectCoreFingerprintV073,
+} from '../src/db/m2-effect-core-v073-prerequisite.js';
 import { _testInternals as migrationTestInternals } from '../src/db/migrate.js';
 import {
   EffectAuthorityError,
@@ -204,6 +216,40 @@ function expectCode(fn, code) {
 function registerAndGrant(repository, requestValue = request(), grantValue = grant()) {
   repository.registerEffectRequest(requestValue);
   repository.issueApprovalGrant(grantValue);
+}
+
+function insertGrantDirectly(db, grantValue) {
+  return db.prepare(`
+    INSERT INTO m2_approval_grants (
+      grant_id, effect_id, run_id, project_id, kind, payload_digest, payload_bytes,
+      workspace_revision, nonce, grant_json, issued_at_ms, expires_at_ms,
+      consumed_at_ms, consumed_by_effect_id, revoked_at_ms, revocation_reason
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL)
+  `).run(
+    grantValue.grantId,
+    grantValue.scope.effectId,
+    grantValue.scope.runId,
+    grantValue.scope.projectId,
+    grantValue.scope.kind,
+    grantValue.scope.payloadDigest,
+    grantValue.scope.payloadBytes,
+    grantValue.scope.workspaceRevision,
+    grantValue.nonce,
+    JSON.stringify(grantValue),
+    Date.parse(grantValue.issuedAt),
+    Date.parse(grantValue.expiresAt),
+  );
+}
+
+function applyEffectAuthorityThrough077(db) {
+  applyEffectAuthorityMigration(db);
+  applyEffectAuthorityHardening(db);
+  applyEffectExecutionClaims(db);
+  applyEffectClaimTruth(db);
+  applyToolAuthority(db);
+  applyToolEffectLinks(db);
+  applyToolTruth(db);
+  applyEffectInvalidations(db);
 }
 
 function consume(repository, input) {
@@ -557,6 +603,7 @@ test('terminal result is immutable, exact retry is idempotent and conflict is re
     () => repository.recordEffectResult(result({
       terminalStatus: 'failed',
       errorCode: 'EFFECT_FAILED',
+      changes: { paths: [], beforeDigest: null, afterDigest: null, diffArtifact: null },
       outputDigest: null,
     })),
     EffectAuthorityErrorCode.RESULT_CONFLICT,
@@ -627,6 +674,7 @@ test('result cannot predate its request', () => {
     () => repository.recordEffectResult(result({
       terminalStatus: 'failed',
       errorCode: 'EFFECT_FAILED',
+      changes: { paths: [], beforeDigest: null, afterDigest: null, diffArtifact: null },
       outputDigest: null,
       startedAt: '2026-08-23T19:59:59.000Z',
       completedAt: '2026-08-23T19:59:59.500Z',
@@ -1097,6 +1145,70 @@ test('073 refuses populated 072 data without changing schema or rows', () => {
   );
   assert.equal(computeM2SchemaFingerprint(db), EXPECTED_M2_SCHEMA_FINGERPRINT_V072);
   assert.equal(db.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count, 1);
+  db.close();
+});
+
+test('080 refuses a pre-existing grant whose executable constraints differ from its request', () => {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  applyEffectAuthorityThrough077(db);
+  const repository = repositoryAt(db);
+  repository.registerEffectRequest(request());
+  const forged = grant({
+    constraints: {
+      ...grant().constraints,
+      allowedRealpaths: ['/workspace/project/src/other.js'],
+    },
+  });
+  insertGrantDirectly(db, forged);
+  assert.equal(computeM2EffectCoreFingerprintV073(db), EXPECTED_M2_EFFECT_CORE_FINGERPRINT_V077);
+
+  assert.throws(
+    () => applyEffectSemanticAuthority(db),
+    /080_EXISTING_GRANT_INVALID:grant-1/,
+  );
+  assert.equal(computeM2EffectCoreFingerprintV073(db), EXPECTED_M2_EFFECT_CORE_FINGERPRINT_V077);
+  assert.equal(db.prepare('SELECT count(*) AS count FROM m2_approval_grants').get().count, 1);
+  db.close();
+});
+
+test('080 migrates valid grants, is idempotent and rejects later direct-SQL constraint forgery', () => {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  applyEffectAuthorityThrough077(db);
+  const repository = repositoryAt(db);
+  repository.registerEffectRequest(request());
+  insertGrantDirectly(db, grant());
+
+  applyEffectSemanticAuthority(db);
+  assert.equal(computeM2EffectCoreFingerprintV073(db), EXPECTED_M2_EFFECT_CORE_FINGERPRINT_V080);
+  applyEffectSemanticAuthority(db);
+  assert.equal(computeM2EffectCoreFingerprintV073(db), EXPECTED_M2_EFFECT_CORE_FINGERPRINT_V080);
+
+  const secondRequest = request({
+    effectId: 'effect-2',
+    idempotencyKey: 'write-app-2',
+    target: {
+      ...request().target,
+      relativePath: 'src/b.js',
+      resolvedRealpath: '/workspace/project/src/b.js',
+    },
+  });
+  repository.registerEffectRequest(secondRequest);
+  const forged = grant({
+    grantId: 'grant-2',
+    nonce: 'nonce-000000000002',
+    scope: { ...grant().scope, effectId: secondRequest.effectId },
+    constraints: {
+      ...grant().constraints,
+      allowedRealpaths: ['/workspace/project/src/other.js'],
+    },
+  });
+  assert.throws(
+    () => insertGrantDirectly(db, forged),
+    /M2_APPROVAL_GRANT_SCOPE_MISMATCH/,
+  );
+  assert.equal(db.prepare('SELECT count(*) AS count FROM m2_approval_grants').get().count, 1);
   db.close();
 });
 

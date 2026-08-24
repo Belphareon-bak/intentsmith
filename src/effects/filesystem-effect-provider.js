@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   ProjectPathError,
-  readProjectFile,
+  readProjectFileBytes,
   writeProjectFileAtomic,
 } from '../executor/project-path-authority.js';
 
@@ -11,16 +11,11 @@ function digest(bytes) {
   return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 }
 
-function assertNotHardlinked(target, fileSystem) {
-  try {
-    const stat = fileSystem.statSync(target.real);
-    if (stat.isFile() && stat.nlink !== 1) {
-      const error = new Error('Existing filesystem target has multiple hardlinks');
-      error.code = 'EFFECT_FS_HARDLINK_REJECTED';
-      throw error;
-    }
-  } catch (error) {
-    if (error?.code !== 'ENOENT') throw error;
+function assertNotHardlinked(before) {
+  if (before.exists && before.linkCount !== 1) {
+    const error = new Error('Existing filesystem target has multiple hardlinks');
+    error.code = 'EFFECT_FS_HARDLINK_REJECTED';
+    throw error;
   }
 }
 
@@ -79,23 +74,22 @@ export function createFilesystemEffectProvider({ fileSystem = fs } = {}) {
         throw error;
       }
 
-      const before = readProjectFile(
+      const before = readProjectFileBytes(
         request.target.canonicalRoot,
         request.target.relativePath,
         { fileSystem },
       );
-      assertNotHardlinked(before.target, fileSystem);
+      assertNotHardlinked(before);
       // The shared legacy writer retains its pre-M2 ability to create parent
       // directories. This authority-bearing provider deliberately does not:
       // path-based recursive mkdir would be an effect before its post-check.
       assertExistingParent(before.target, fileSystem);
-      const beforeDigest = before.exists ? digest(Buffer.from(before.content, 'utf8')) : null;
-      const content = payload.toString('utf8');
+      const beforeDigest = before.exists ? digest(before.bytes) : null;
       try {
         writeProjectFileAtomic(
           request.target.canonicalRoot,
           request.target.relativePath,
-          content,
+          payload,
           {
             expectedTarget: before.target,
             fileSystem,
@@ -116,12 +110,12 @@ export function createFilesystemEffectProvider({ fileSystem = fs } = {}) {
 
       let afterDigest = null;
       try {
-        const after = readProjectFile(
+        const after = readProjectFileBytes(
           request.target.canonicalRoot,
           request.target.relativePath,
           { fileSystem },
         );
-        const afterBytes = after.exists ? Buffer.from(after.content, 'utf8') : null;
+        const afterBytes = after.exists ? after.bytes : null;
         afterDigest = afterBytes ? digest(afterBytes) : null;
         if (!afterBytes?.equals(payload)) {
           const error = new Error('Filesystem write did not persist the exact authorized bytes');

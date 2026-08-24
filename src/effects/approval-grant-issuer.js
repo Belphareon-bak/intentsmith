@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import path from 'node:path';
 import {
   M2_EFFECT_CONTRACT_KIND,
+  deriveApprovalGrantConstraints,
 } from '../../contracts/m2/effect-v1.js';
 
 export const ApprovalGrantIssuerErrorCode = Object.freeze({
@@ -44,31 +44,6 @@ function requireIdentifier(value, label) {
     fail(ApprovalGrantIssuerErrorCode.INPUT_INVALID, `${label} is invalid`);
   }
   return value;
-}
-
-function deriveConstraints(request) {
-  const constraints = {
-    allowedRealpaths: [],
-    allowedBinary: null,
-    allowedArgvDigest: null,
-    allowedOrigin: null,
-    maxBytes: request.payloadBytes,
-  };
-
-  if (request.kind.startsWith('fs.')) {
-    constraints.allowedRealpaths = [request.target.resolvedRealpath];
-  } else if (request.kind === 'process.exec') {
-    constraints.allowedBinary = request.target.binary;
-    constraints.allowedArgvDigest = request.target.argvDigest;
-  } else if (request.kind === 'network.request') {
-    constraints.allowedOrigin = request.target.origin;
-  } else if (request.kind.startsWith('git.')) {
-    constraints.allowedRealpaths = request.target.paths
-      .map(relativePath => path.resolve(request.target.canonicalRepo, relativePath))
-      .sort((left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right)));
-  }
-
-  return constraints;
 }
 
 /**
@@ -169,7 +144,7 @@ export function createApprovalGrantIssuer(repository, {
           payloadBytes: request.payloadBytes,
           workspaceRevision: request.workspaceRevision,
         },
-        constraints: deriveConstraints(request),
+        constraints: deriveApprovalGrantConstraints(request),
         issuedAt: new Date(issuedAtMs).toISOString(),
         expiresAt: new Date(expiresAtMs).toISOString(),
         singleUse: true,

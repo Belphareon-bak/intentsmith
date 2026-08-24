@@ -123,7 +123,12 @@ export function createEffectFileRuntime({
         exitCode: null,
         signal: null,
       },
-      changes: { paths: [], beforeDigest: null, afterDigest: null, diffArtifact: null },
+      changes: {
+        paths: [request.target.relativePath],
+        beforeDigest: null,
+        afterDigest: null,
+        diffArtifact: null,
+      },
       network: { resolvedAddresses: [], finalUrl: null, status: null, bytes: 0 },
       rollback: {
         required: true,
@@ -184,8 +189,7 @@ export function createEffectFileRuntime({
                payload_digest, payload_bytes
         FROM m2_pending_effect_payloads WHERE effect_id = ?
       `).get(effectId);
-      const exact = existing?.session_id === sessionId
-        && existing.conversation_id === conversationId
+      const exact = existing?.conversation_id === conversationId
         && existing.subject_id === subjectId
         && existing.project_id === projectId
         && existing.payload_digest === digest
@@ -230,7 +234,9 @@ export function createEffectFileRuntime({
         actor: { type: 'user', id: subjectId },
         origin: {
           surface: 'studio',
-          sessionId: stableIdentifier('session', sessionId),
+          // Websocket sessions are authenticated ingress metadata, not durable
+          // effect identity. Reconnect retries must reproduce request bytes.
+          sessionId: stableIdentifier('session', conversationId),
           conversationId: stableIdentifier('conversation', conversationId),
           projectId,
         },

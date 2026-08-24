@@ -90,6 +90,7 @@ function effectResult({
   errorCode = null,
   evidenceRef,
   lateCompletionRejected = false,
+  rollback = { required: false, status: 'not_required', evidenceRef: null },
 }) {
   return {
     contract: M2_EFFECT_CONTRACT_KIND.EFFECT_RESULT,
@@ -105,7 +106,7 @@ function effectResult({
     process,
     changes: { paths, beforeDigest, afterDigest, diffArtifact: null },
     network: emptyNetwork(),
-    rollback: { required: false, status: 'not_required', evidenceRef: null },
+    rollback,
     outputDigest,
     errorCode,
     evidenceRefs: [evidenceRef],
@@ -921,18 +922,35 @@ export async function executeProjectChange({
         evidenceRef: `execution:${executionId}:forward:${file.ordinal}`,
       }));
     } catch (error) {
+      let exactAfterObserved = false;
       try {
         const afterFailure = readProjectFileBytes(request.project.canonicalRoot, file.path);
-        if (matchesImage(afterFailure, { exists: true, ...change.after })) appliedPaths.add(file.path);
+        if (matchesImage(afterFailure, { exists: true, ...change.after })) {
+          exactAfterObserved = true;
+          appliedPaths.add(file.path);
+        }
       } catch { /* rollback scanner will classify this as foreign */ }
+      const appliedOrAmbiguous = appliedPaths.has(file.path)
+        || exactAfterObserved
+        || error?.effectApplied === true;
       if (!effectRepository.getEffectResult(forward.effectId)) {
         effectRepository.recordEffectResult(effectResult({
           request: forward,
-          terminalStatus: 'failed',
+          terminalStatus: appliedOrAmbiguous ? 'orphaned' : 'failed',
           startedAt: effectStartedAt,
           completedAt: timestamp(clock),
+          paths: appliedOrAmbiguous ? [file.path] : [],
+          beforeDigest: appliedOrAmbiguous ? change.before.digest : null,
+          afterDigest: exactAfterObserved ? change.after.digest : null,
+          outputDigest: exactAfterObserved ? change.after.digest : null,
           errorCode: 'FS_WRITE_FAILED',
           evidenceRef: `execution:${executionId}:forward-failed:${file.ordinal}`,
+          lateCompletionRejected: appliedOrAmbiguous,
+          rollback: appliedOrAmbiguous ? {
+            required: true,
+            status: 'pending',
+            evidenceRef: `execution:${executionId}:forward-rollback-pending:${file.ordinal}`,
+          } : undefined,
         }));
       }
       stop = { status: 'failed', code: ProjectChangeRuntimeErrorCode.WRITE_FAILED };

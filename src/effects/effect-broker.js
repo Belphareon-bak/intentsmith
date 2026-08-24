@@ -3,6 +3,7 @@ import {
   M2_EFFECT_CONTRACT_KIND,
   canonicalStringify,
   computeEffectRequestDigest,
+  validateApprovalGrantForRequest,
   validateEffectResult,
   validateEffectResultForRequest,
 } from '../../contracts/m2/effect-v1.js';
@@ -138,14 +139,8 @@ function providerFor(providers, kind) {
 }
 
 function verifyGrantConstraints(request, grant, payload) {
-  const exactScope = grant.scope.effectId === request.effectId
-    && grant.scope.runId === request.runId
-    && grant.scope.projectId === request.origin.projectId
-    && grant.scope.kind === request.kind
-    && grant.scope.payloadDigest === request.payloadDigest
-    && grant.scope.payloadBytes === request.payloadBytes
-    && grant.scope.workspaceRevision === request.workspaceRevision;
-  if (!exactScope || grant.constraints.maxBytes !== payload.length) {
+  const authority = validateApprovalGrantForRequest(request, grant);
+  if (!authority.valid || grant.constraints.maxBytes !== payload.length) {
     fail(
       EffectBrokerErrorCode.CONSTRAINT_MISMATCH,
       'ApprovalGrant does not authorize the exact effect payload and scope',
@@ -153,31 +148,6 @@ function verifyGrantConstraints(request, grant, payload) {
     );
   }
 
-  if (request.kind.startsWith('fs.')) {
-    if (
-      grant.constraints.allowedRealpaths.length !== 1
-      || grant.constraints.allowedRealpaths[0] !== request.target.resolvedRealpath
-      || grant.constraints.allowedBinary !== null
-      || grant.constraints.allowedArgvDigest !== null
-      || grant.constraints.allowedOrigin !== null
-    ) {
-      fail(EffectBrokerErrorCode.CONSTRAINT_MISMATCH, 'Filesystem grant constraints differ');
-    }
-  } else if (request.kind === 'process.exec') {
-    if (
-      grant.constraints.allowedRealpaths.length !== 0
-      || grant.constraints.allowedBinary !== request.target.binary
-      || grant.constraints.allowedArgvDigest !== request.target.argvDigest
-      || grant.constraints.allowedOrigin !== null
-    ) fail(EffectBrokerErrorCode.CONSTRAINT_MISMATCH, 'Process grant constraints differ');
-  } else if (request.kind === 'network.request') {
-    if (
-      grant.constraints.allowedRealpaths.length !== 0
-      || grant.constraints.allowedBinary !== null
-      || grant.constraints.allowedArgvDigest !== null
-      || grant.constraints.allowedOrigin !== request.target.origin
-    ) fail(EffectBrokerErrorCode.CONSTRAINT_MISMATCH, 'Network grant constraints differ');
-  }
 }
 
 function cancelScheduled(handle) {
@@ -432,7 +402,7 @@ export function createEffectBroker(repositoryValue, {
         status: observation.kind === 'cancelled' ? 'cancelled' : 'timed_out',
         errorCode: observation.kind === 'cancelled' ? 'EFFECT_CANCELLED' : 'EFFECT_TIMED_OUT',
         evidence: { evidenceRefs: [`effect:${effectId}:workspace-observation-${observation.kind}`] },
-        lateCompletionRejected: true,
+        lateCompletionRejected: false,
       });
     }
     if (!observation.ok) {

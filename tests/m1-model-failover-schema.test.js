@@ -391,8 +391,8 @@ suite('M1 model failover schema — exact migration contract');
 
 await testAsync('fresh file-backed DB creates all failover tables, indexes and triggers', async () => {
   await withMigratedDb(async (db) => {
-    // M2 lifecycle authority migration 079 is the current repository schema tip.
-    assertEqual(getCurrentVersion(db), '2026_08_24_079_m2_lifecycle_authority');
+    // M2 effect semantic authority migration 080 is the current repository schema tip.
+    assertEqual(getCurrentVersion(db), '2026_08_24_080_m2_effect_semantic_authority');
 
     for (const table of [
       'model_desired_bindings',
@@ -695,7 +695,7 @@ await testAsync('second migration run is a no-op with an identical schema snapsh
     const before = schemaSnapshot(db);
     const result = await runMigrations(db);
     assertEqual(result.applied.length, 0);
-    assertEqual(result.skipped.length, 69);
+    assertEqual(result.skipped.length, 70);
     assertEqual(schemaSnapshot(db), before);
   });
 });
@@ -742,10 +742,11 @@ await testAsync('migration 054 preserves pre-existing success as unconfirmed evi
         '2026_08_24_077_m2_effect_invalidations',
         '2026_08_24_078_m2_execution_authority',
         '2026_08_24_079_m2_lifecycle_authority',
+        '2026_08_24_080_m2_effect_semantic_authority',
       ]),
     );
     assertEqual(result.skipped.length, 55);
-    assertEqual(getCurrentVersion(db), '2026_08_24_079_m2_lifecycle_authority');
+    assertEqual(getCurrentVersion(db), '2026_08_24_080_m2_effect_semantic_authority');
     assertEqual(
       db.prepare(`
         SELECT COUNT(*) AS count

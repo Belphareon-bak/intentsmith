@@ -19,6 +19,7 @@ import { up as applyToolAuthority } from '../src/db/migrations/2026_08_24_074_m2
 import { up as applyToolEffectLinks } from '../src/db/migrations/2026_08_24_075_m2_tool_effect_links.js';
 import { up as applyToolTruth } from '../src/db/migrations/2026_08_24_076_m2_tool_authority_truth.js';
 import { up as applyEffectInvalidations } from '../src/db/migrations/2026_08_24_077_m2_effect_invalidations.js';
+import { up as applyEffectSemanticAuthority } from '../src/db/migrations/2026_08_24_080_m2_effect_semantic_authority.js';
 import { createEffectFileRuntime } from '../src/effects/effect-file-runtime.js';
 import { db as applicationDatabase, projects } from '../src/db/database.js';
 import { suite, testAsync, summary } from './harness.js';
@@ -45,6 +46,7 @@ function openDatabase(filename) {
     applyToolEffectLinks(database);
     applyToolTruth(database);
     applyEffectInvalidations(database);
+    applyEffectSemanticAuthority(database);
   }
   return database;
 }
@@ -201,13 +203,17 @@ await testAsync('same operation retry is exact while changed bytes conflict unde
     const runtime = environment.runtime();
     const input = requestInput(environment.projectRoot, { operationId: 'message:103' });
     const first = await runtime.requestFilesystemWrite(input);
-    const retry = await runtime.requestFilesystemWrite(input);
+    const retry = await runtime.requestFilesystemWrite({
+      ...input,
+      sessionId: 'session-after-reconnect',
+    });
 
     assert.equal(retry.effectId, first.effectId);
     assert.equal(
       environment.database.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count,
       1,
     );
+    assert.equal(runtime.getPending(first.effectId).sessionId, input.sessionId);
     await assert.rejects(
       runtime.requestFilesystemWrite({ ...input, content: 'different bytes\n' }),
       error => error?.code === 'EFFECT_REQUEST_CONFLICT',
@@ -368,6 +374,7 @@ await testAsync('restart turns a consumed grant without committed result into a 
     assert.equal(stored.rollback.required, true);
     assert.equal(stored.rollback.status, 'pending');
     assert.equal(stored.lateCompletionRejected, true);
+    assert.deepEqual(stored.changes.paths, [input.relativePath]);
     assert.equal(restarted.getPending(prepared.effectId), null);
     const secondRestart = environment.runtime({
       executionOwner: newOwner,

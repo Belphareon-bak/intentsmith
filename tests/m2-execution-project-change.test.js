@@ -628,6 +628,57 @@ await testAsync('nonzero focused test restores old bytes and deletes a newly cre
   }
 });
 
+await testAsync('post-write readback failure records the forward effect as orphaned before compensation', async () => {
+  const root = makeProject();
+  const targetPath = path.join(root, 'src/app.js');
+  const originalReadFileSync = fs.readFileSync;
+  let injectedReads = 0;
+  try {
+    const prepared = await prepare(root, { twoFiles: false });
+    const change = prepared.plan.request.changes[0];
+    fs.readFileSync = function injectedRead(file, ...args) {
+      if (Number.isInteger(file) && injectedReads < 2) {
+        let openedPath = null;
+        try { openedPath = fs.realpathSync(`/proc/self/fd/${file}`); } catch { /* unrelated descriptor */ }
+        if (openedPath === targetPath) {
+          const bytes = originalReadFileSync.call(fs, file, ...args);
+          if (sha(bytes) === change.after.digest) {
+            injectedReads += 1;
+            const error = new Error('forced post-write readback failure');
+            error.code = 'EIO';
+            throw error;
+          }
+          return bytes;
+        }
+      }
+      return originalReadFileSync.call(fs, file, ...args);
+    };
+
+    const result = await executeProjectChange({
+      executionId: prepared.plan.request.executionId,
+      grants: prepared.grants,
+      focusedEnvironment: prepared.environment,
+    }, dependencies(prepared, root, successfulProcess()));
+    const forwardEffectId = change.forwardAuthority.effectId;
+    const forward = prepared.effectRepository.getEffectResult(forwardEffectId);
+
+    assert.equal(injectedReads, 2);
+    assert.equal(forward.terminalStatus, 'orphaned');
+    assert.deepEqual(forward.changes.paths, [change.path]);
+    assert.equal(forward.changes.afterDigest, null);
+    assert.equal(forward.rollback.required, true);
+    assert.equal(forward.rollback.status, 'pending');
+    assert.equal(forward.lateCompletionRejected, true);
+    assert.equal(result.terminalStatus, 'failed');
+    assert.equal(result.rollback.status, 'succeeded');
+    assert.equal(fs.readFileSync(targetPath, 'utf8'), 'export const value = 1;\n');
+    prepared.db.close();
+  } finally {
+    fs.readFileSync = originalReadFileSync;
+    cleanup(root);
+  }
+});
+
 await testAsync('post-readback symlink replacement never succeeds across revision and Git variants', async () => {
   for (const target of ['src/app.js', 'deploy.cfg']) {
     for (const commit of [false, true]) {

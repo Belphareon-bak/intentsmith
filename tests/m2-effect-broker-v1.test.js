@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import * as nativeFs from 'node:fs';
 import {
   linkSync,
@@ -26,6 +27,7 @@ import { up as applyToolAuthority } from '../src/db/migrations/2026_08_24_074_m2
 import { up as applyToolEffectLinks } from '../src/db/migrations/2026_08_24_075_m2_tool_effect_links.js';
 import { up as applyToolTruth } from '../src/db/migrations/2026_08_24_076_m2_tool_authority_truth.js';
 import { up as applyEffectInvalidations } from '../src/db/migrations/2026_08_24_077_m2_effect_invalidations.js';
+import { up as applyEffectSemanticAuthority } from '../src/db/migrations/2026_08_24_080_m2_effect_semantic_authority.js';
 import {
   EffectAuthorityError,
   EffectAuthorityErrorCode,
@@ -162,6 +164,7 @@ function openDatabase(filename = ':memory:') {
     applyToolEffectLinks(db);
     applyToolTruth(db);
     applyEffectInvalidations(db);
+    applyEffectSemanticAuthority(db);
   }
   return db;
 }
@@ -271,6 +274,63 @@ function issue(environment, effectId, extras = {}) {
     authenticatedSubject: SUBJECT,
     ...extras,
   }).grant;
+}
+
+function grantForRequest(request, overrides = {}) {
+  const base = {
+    contract: M2_EFFECT_CONTRACT_KIND.APPROVAL_GRANT,
+    version: 1,
+    grantId: 'grant-forged',
+    subject: { actorType: 'user', actorId: request.actor.id },
+    scope: {
+      runId: request.runId,
+      projectId: request.origin.projectId,
+      effectId: request.effectId,
+      kind: request.kind,
+      payloadDigest: request.payloadDigest,
+      payloadBytes: request.payloadBytes,
+      workspaceRevision: request.workspaceRevision,
+    },
+    constraints: {
+      allowedRealpaths: [request.target.resolvedRealpath],
+      allowedBinary: null,
+      allowedArgvDigest: null,
+      allowedOrigin: null,
+      maxBytes: request.payloadBytes,
+    },
+    issuedAt: new Date(BASE_MS).toISOString(),
+    expiresAt: new Date(BASE_MS + 60_000).toISOString(),
+    singleUse: true,
+    nonce: 'nonce-forged-00000001',
+    consumedAt: null,
+    consumedByEffectId: null,
+    revokedAt: null,
+    revocationReason: null,
+  };
+  return { ...base, ...overrides };
+}
+
+function insertGrantDirectly(db, grant) {
+  return db.prepare(`
+    INSERT INTO m2_approval_grants (
+      grant_id, effect_id, run_id, project_id, kind, payload_digest, payload_bytes,
+      workspace_revision, nonce, grant_json, issued_at_ms, expires_at_ms,
+      consumed_at_ms, consumed_by_effect_id, revoked_at_ms, revocation_reason
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL)
+  `).run(
+    grant.grantId,
+    grant.scope.effectId,
+    grant.scope.runId,
+    grant.scope.projectId,
+    grant.scope.kind,
+    grant.scope.payloadDigest,
+    grant.scope.payloadBytes,
+    grant.scope.workspaceRevision,
+    grant.nonce,
+    canonicalStringify(grant),
+    Date.parse(grant.issuedAt),
+    Date.parse(grant.expiresAt),
+  );
 }
 
 function repositoryView(repository, overrides = {}) {
@@ -623,6 +683,31 @@ await testAsync('approval issuer rejects an authenticated subject that does not 
   });
 });
 
+await testAsync('repository and direct SQL reject grant constraints not derived from the request', async () => {
+  await withEnvironment(async environment => {
+    const broker = createBroker(environment);
+    const prepared = await prepareWrite(environment, broker);
+    const request = environment.repository.getEffectRequest(prepared.effectId);
+    const forged = grantForRequest(request, {
+      constraints: {
+        ...grantForRequest(request).constraints,
+        allowedRealpaths: [path.join(environment.projectRoot, 'src/other.js')],
+      },
+    });
+
+    assert.throws(
+      () => environment.repository.issueApprovalGrant(forged),
+      error => error instanceof EffectAuthorityError
+        && error.code === EffectAuthorityErrorCode.GRANT_SCOPE_MISMATCH,
+    );
+    assert.throws(
+      () => insertGrantDirectly(environment.db, forged),
+      /M2_APPROVAL_GRANT_SCOPE_MISMATCH/,
+    );
+    assert.equal(environment.repository.getApprovalGrant(forged.grantId), null);
+  });
+});
+
 await testAsync('prepare retry reuses the original timestamp and immutable request after clock advance', async () => {
   await withEnvironment(async environment => {
     const broker = createBroker(environment);
@@ -778,7 +863,9 @@ await testAsync('execution timeout during workspace observation is terminal and 
 
     assert.equal(result.terminalStatus, 'timed_out');
     assert.equal(result.errorCode, 'EFFECT_TIMED_OUT');
-    assert.equal(result.lateCompletionRejected, true);
+    assert.equal(result.lateCompletionRejected, false);
+    assert.equal(result.rollback.required, false);
+    assert.deepEqual(result.changes.paths, []);
     assert.equal(providerCalls, 0);
     assert.deepEqual(environment.repository.getEffectResult(prepared.effectId), result);
     observationCompletion.resolve({
@@ -1098,6 +1185,51 @@ await testAsync('repository and direct SQL cannot store success before the exact
   });
 });
 
+await testAsync('repository and direct SQL reject an orphaned fs.write with no rollback path evidence', async () => {
+  await withEnvironment(async environment => {
+    const broker = createBroker(environment);
+    const prepared = await prepareWrite(environment, broker);
+    const grant = issue(environment, prepared.effectId);
+    const request = environment.repository.getEffectRequest(prepared.effectId);
+    environment.repository.consumeApprovalGrant({
+      grantId: grant.grantId,
+      request: { ...request, approvalGrantId: grant.grantId },
+      executionOwner: processExecutionOwner,
+    });
+    const forged = {
+      ...successfulResult(request, grant.grantId),
+      terminalStatus: 'orphaned',
+      changes: { paths: [], beforeDigest: null, afterDigest: null, diffArtifact: null },
+      rollback: { required: false, status: 'not_required', evidenceRef: null },
+      outputDigest: null,
+      errorCode: 'EFFECT_ORPHANED',
+      lateCompletionRejected: true,
+    };
+
+    assert.throws(
+      () => environment.repository.recordEffectResult(forged),
+      error => error instanceof EffectAuthorityError
+        && error.code === EffectAuthorityErrorCode.RESULT_AUTHORITY_MISSING,
+    );
+    assert.throws(() => environment.db.prepare(`
+      INSERT INTO m2_effect_results (
+        effect_id, run_id, project_id, request_digest, approval_grant_id,
+        terminal_status, result_json, completed_at_ms
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      forged.effectId,
+      forged.runId,
+      forged.projectId,
+      forged.requestDigest,
+      forged.approvalGrantId,
+      forged.terminalStatus,
+      canonicalStringify(forged),
+      BASE_MS,
+    ), /M2_EFFECT_RESULT_SEMANTIC_AUTHORITY_MISMATCH/);
+    assert.equal(environment.repository.getEffectResult(prepared.effectId), null);
+  });
+});
+
 await testAsync('path traversal and external symlink targets are rejected before request registration', async () => {
   await withEnvironment(async environment => {
     const outside = path.join(environment.directory, 'outside.txt');
@@ -1142,6 +1274,30 @@ await testAsync('existing hardlinked filesystem target is not written and record
     assert.equal(readFileSync(target, 'utf8'), 'before\n');
     assert.equal(readFileSync(alias, 'utf8'), 'before\n');
     assert.deepEqual(environment.repository.getEffectResult(prepared.effectId), result);
+  });
+});
+
+await testAsync('filesystem beforeDigest hashes exact pre-existing bytes without UTF-8 replacement', async () => {
+  await withEnvironment(async environment => {
+    const target = path.join(environment.projectRoot, 'src/non-utf8.js');
+    const beforeBytes = Buffer.from([0xff, 0xfe, 0x00, 0x61]);
+    writeFileSync(target, beforeBytes);
+    const broker = createBroker(environment, { provider: createFilesystemEffectProvider() });
+    const prepared = await prepareWrite(environment, broker, {
+      relativePath: 'src/non-utf8.js',
+      content: 'valid after\n',
+    });
+    const grant = issue(environment, prepared.effectId);
+    const result = await broker.execute({
+      effectId: prepared.effectId,
+      grantId: grant.grantId,
+      payload: 'valid after\n',
+    });
+
+    const expectedBeforeDigest = `sha256:${createHash('sha256').update(beforeBytes).digest('hex')}`;
+    assert.equal(result.terminalStatus, 'succeeded');
+    assert.equal(result.changes.beforeDigest, expectedBeforeDigest);
+    assert.equal(readFileSync(target, 'utf8'), 'valid after\n');
   });
 });
 

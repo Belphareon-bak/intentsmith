@@ -4,6 +4,7 @@ import {
   computeEffectRequestDigest,
   timestampToMs,
   validateApprovalGrant,
+  validateApprovalGrantForRequest,
   validateEffectRequest,
   validateEffectResult,
   validateEffectResultForRequest,
@@ -165,6 +166,18 @@ export class EffectAuthorityRepository {
         return 0;
       }
     });
+    this.db.function('m2_approval_grant_matches_request_v1', {
+      deterministic: true,
+    }, (requestJson, grantJson) => {
+      try {
+        return validateApprovalGrantForRequest(
+          JSON.parse(requestJson),
+          JSON.parse(grantJson),
+        ).valid ? 1 : 0;
+      } catch {
+        return 0;
+      }
+    });
   }
 
   #now() {
@@ -310,20 +323,12 @@ export class EffectAuthorityRepository {
         { effectId: grant.scope.effectId },
       );
     }
-    const scopeMatches = request.runId === grant.scope.runId
-      && request.origin.projectId === grant.scope.projectId
-      && request.effectId === grant.scope.effectId
-      && request.kind === grant.scope.kind
-      && request.payloadDigest === grant.scope.payloadDigest
-      && request.payloadBytes === grant.scope.payloadBytes
-      && request.workspaceRevision === grant.scope.workspaceRevision
-      && request.actor.type === 'user'
-      && request.actor.id === grant.subject.actorId;
-    if (!scopeMatches) {
+    const authority = validateApprovalGrantForRequest(request, grant);
+    if (!authority.valid) {
       fail(
         EffectAuthorityErrorCode.GRANT_SCOPE_MISMATCH,
-        'ApprovalGrant scope does not exactly match its EffectRequest',
-        { effectId: grant.scope.effectId },
+        'ApprovalGrant scope and constraints do not exactly match its EffectRequest',
+        { effectId: grant.scope.effectId, errors: [...authority.errors] },
       );
     }
     const encoded = canonicalStringify(grant);
@@ -532,10 +537,14 @@ export class EffectAuthorityRepository {
       && row.payload_digest === request.payloadDigest
       && row.payload_bytes === request.payloadBytes
       && row.workspace_revision === request.workspaceRevision;
-    if (!exact) {
+    let semantic = false;
+    try {
+      semantic = validateApprovalGrantForRequest(request, grantFromRow(row)).valid;
+    } catch { /* classified as an authority mismatch below */ }
+    if (!exact || !semantic) {
       fail(
         EffectAuthorityErrorCode.GRANT_SCOPE_MISMATCH,
-        'ApprovalGrant does not match the current EffectRequest',
+        'ApprovalGrant scope and constraints do not match the current EffectRequest',
         { grantId, effectId: request.effectId },
       );
     }
