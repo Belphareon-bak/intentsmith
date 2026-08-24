@@ -59,6 +59,9 @@ git diff --find-renames bd71b2ff37036f1b80d56620083402ffe3610269..HEAD
 
 - clean deterministic run `2026-08-24T22-43-55-697Z` nad `c8b34091`:
   227 PASS / 0 FAIL / 0 BLOCKED / 0 TIMEOUT;
+- finální clean deterministic run `2026-08-24T22-53-27-269Z` nad handoff
+  commitem `7980e6f5c6ce86fb4d55045912d42a9e4039f615`:
+  227 PASS / 0 FAIL / 0 BLOCKED / 0 TIMEOUT;
 - runner-owned server run `2026-08-24T22-51-23-483Z` nad `836a4eb5`:
   - `IS-T3-E2E-21-MODEL-UPGRADE`: PASS, 8 kroků;
   - `IS-T3-E2E-62-MODEL-EVALUATIONS`: PASS, 2 kroky;
@@ -71,8 +74,8 @@ git diff --find-renames bd71b2ff37036f1b80d56620083402ffe3610269..HEAD
 - disputed E2E path hash:
   `54611abfccccc11318da8ebc974e2782f9bf1f9a8a109cd9d1bb57b1fef4e180`.
 
-Po tomto evidenčním commitu se clean deterministic gate spustí ještě jednou;
-jeho exact run ID a source revision doplní navazující evidence-only commit.
+Tento řádek s finálním run ID je jediná změna navazujícího evidence-only
+commitu; po zeleném handoff běhu už se produkční kód nezměnil.
 
 ### Zachované non-PASS
 
