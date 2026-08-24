@@ -1097,8 +1097,11 @@ PASS a module ratchet zůstává 13/13 na přesných 1 116 hranách, 3 cyklech a
 cyklických souborech. Registry má 428 programů, fingerprint `c487692d…`.
 Oddíl 7 zůstává `IMPLEMENTATION_GREEN / REVIEW_REQUIRED`; listener, pairing,
 authentication, device authority a remote runtime nevznikly. Celý M2 jako celek
-není PASS, dokud všech sedm exact-scope Opus `--effort max` review nevrátí
-`REVIEW_PASSED` a integrační closeout nezůstane bez nové produktové regrese.
+není PASS. Deterministický gate na `d415e6d7` zůstal pravdivě `FAIL` s
+`260 PASS / 3 FAIL / 2 BLOCKED`, nulovým timeoutem a přesně nezměněnou baseline
+non-PASS množinou; obě nové remote sady prošly. Přijetí čeká, dokud všech sedm
+exact-scope Opus `--effort max` review nevrátí `REVIEW_PASSED` a integrační
+closeout nezůstane bez nové produktové regrese.
 
 ### Závislostní sekvence Work Packages
 

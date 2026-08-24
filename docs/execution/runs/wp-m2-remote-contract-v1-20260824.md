@@ -3,6 +3,7 @@
 - **oddíl:** M2 7/7
 - **stav:** `IMPLEMENTATION_GREEN / REVIEW_REQUIRED`
 - **candidate revision:** `a7d4ce3d8b7886e521f70f78e7a2ff262736b93a`
+- **gate evidence revision:** `d415e6d780a0cac931a28e59c7a51919aed79251`
 - **větev:** `codex/m2-integration-20260824`
 - **push:** neproveden
 
@@ -50,8 +51,30 @@ Ollamy, Electronu, síťového listeneru a remote runtime.
 - registry fingerprint po připnutí `lastGreen` je
   `c487692dd5ccea126d3b858f4dcf207cc701e945c545ee2843c7227b946d4374`;
 - `artifact-validation`: 154/154 PASS;
-- celý deterministický `offline,database` gate se spustí až nad čistým
-  evidence commitem a jeho skutečný verdict/counts/non-PASS set se sem doplní.
+
+## Celý gate
+
+Celý deterministický `offline,database` gate proběhl nad čistým
+`d415e6d780a0cac931a28e59c7a51919aed79251`:
+
+- run `2026-08-24T08-27-21-820Z`;
+- report
+  `.intentsmith-artifacts/test-runs/2026-08-24T08-27-21-820Z/report.json`;
+- registry hash
+  `c487692dd5ccea126d3b858f4dcf207cc701e945c545ee2843c7227b946d4374`;
+- přesně 265 vybraných programů (`219 offline`, `46 database`);
+- `verdict: FAIL`, `exitCode: 1`;
+- `260 PASS / 3 FAIL / 0 TIMEOUT / 2 BLOCKED / 0 SKIPPED`;
+- přesná nezměněná non-PASS množina:
+  `IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST` (`BLOCKED`),
+  `IS-T1-TESTS-EXPORT-PDF-DOCX-TEST` (`BLOCKED`),
+  `IS-T1-TESTS-NIGHTLY-AUDIT-RUNNER-SELF-TEST` (`FAIL`),
+  `IS-T1-TESTS-NIGHTLY-ORCHESTRATOR-SELF-TEST` (`FAIL`) a
+  `IS-T3-TESTS-VRAM-COORDINATION-TEST` (`FAIL`).
+
+Gate tedy zůstává pravdivě baseline `FAIL`; nevznikl nový non-PASS ID, timeout
+ani M2 produktová regrese. Obě nové remote sady jsou v celém gate PASS a
+vysvětlují posun proti oddílu 6 z 258 na 260 PASS.
 
 ## Review
 
