@@ -791,6 +791,12 @@ await testAsync('canonical failed EffectResult becomes one linked failed ToolRes
         const effectResult = {
           ...succeededEffectResult(effectRequest),
           terminalStatus: 'failed',
+          changes: {
+            paths: [],
+            beforeDigest: null,
+            afterDigest: null,
+            diffArtifact: null,
+          },
           outputDigest: null,
           errorCode: 'EFFECT_TEST_FAILED',
         };
