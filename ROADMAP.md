@@ -64,7 +64,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 |---|---|---|---|
 | **M0 Produktová pravda** | `ACCEPTED / PASS` | současný C3/IntentSmith strom | Víme, co produkt je a co skutečně běží; deklarace nelžou o chování. |
 | **M1 Lokální runtime páteř** | `ACCEPTED / GATE_2_PASS` | M0 accepted; Gate 1 PASS | Stabilní Linux → Theia → chat → Ollama → persistence. |
-| **M2 Řízená práce nad projektem** | `IN_PROGRESS / SECTION_6_IMPLEMENTATION_GREEN / REVIEWS_PENDING` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
+| **M2 Řízená práce nad projektem** | `IN_PROGRESS / SECTION_7_IMPLEMENTATION_GREEN / REVIEWS_PENDING` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
 | **M3 Modulární platforma** | `NOT_STARTED` | M2 accepted | Expertise, tool, skill, specialista a agent přidají schopnost bez obcházení core. |
 | **M4 Auditovatelné self-learning** | `NOT_STARTED` | M2 accepted | Jedna uzavřená, scoped a vratná učící smyčka zlepšuje skutečný scénář. |
 | **M5 Production hardening** | `NOT_STARTED` | M3 + M4 accepted | Instalace, data, auth, procesy, síť, výkon a recovery jsou podporovatelné. |
@@ -1088,7 +1088,17 @@ s membership 28 souborů. Oddíl 6 zůstává `IMPLEMENTED / REVIEW_REQUIRED`, d
 Opus `--effort max` review nevrátí `REVIEW_PASSED`. Deterministický gate na
 `01055661` zůstal pravdivě `FAIL` s `258 PASS / 3 FAIL / 2 BLOCKED`, nulovým
 timeoutem a přesně nezměněnou baseline non-PASS množinou; žádná M2 sada
-neselhala. Celý M2 jako celek není PASS.
+neselhala. Oddíl 7 má implementační kandidát `a7d4ce3d`: exact verzované
+`RemoteCorePortDescriptor`, `RemoteCoreHello` a `RemoteCoreNegotiation`, strict
+capability negotiation pro sedm remote tříd, explicitní unavailable provider a
+negativní fyzickou hranici proti serveru, routes, DB, network, WS a legacy
+listeneru. Focused sady mají 17/17 a 10/10 PASS, relevantní regrese 169/169
+PASS a module ratchet zůstává 13/13 na přesných 1 116 hranách, 3 cyklech a 28
+cyklických souborech. Registry má 428 programů, fingerprint `c487692d…`.
+Oddíl 7 zůstává `IMPLEMENTATION_GREEN / REVIEW_REQUIRED`; listener, pairing,
+authentication, device authority a remote runtime nevznikly. Celý M2 jako celek
+není PASS, dokud všech sedm exact-scope Opus `--effort max` review nevrátí
+`REVIEW_PASSED` a integrační closeout nezůstane bez nové produktové regrese.
 
 ### Závislostní sekvence Work Packages
 

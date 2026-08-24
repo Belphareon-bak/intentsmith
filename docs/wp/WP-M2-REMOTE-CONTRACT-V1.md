@@ -3,7 +3,7 @@
 **Typ:** M2 oddíl 7/7 — zmražený `RemoteCorePort` negotiation a security
 boundary kontrakt
 
-**Stav:** `IMPLEMENTATION_IN_PROGRESS / REVIEW_REQUIRED`
+**Stav:** `IMPLEMENTATION_GREEN / REVIEW_REQUIRED`
 
 **Autorita:** operátorské spuštění celé M2; `ROADMAP.md` §6 krok 5 a M2 exit
 kritérium pro verzovaný remote connector bez legacy bypassu
