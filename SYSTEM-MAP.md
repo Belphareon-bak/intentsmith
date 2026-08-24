@@ -145,7 +145,7 @@ Aktuální registry fingerprint je
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 
-Tool census ze zdroje: **8 JavaScript soubory, 6 870 řádků, 153 top-level
+Tool census ze zdroje: **8 JavaScript soubory, 7 625 řádků, 153 top-level
 nástrojových deklarací**. Počet 213 v dřívější inventuře byl textový false count.
 
 ---
@@ -216,7 +216,7 @@ adresáře** — u čtyř schopností kód leží jinde, než by název adresá�
 | 6 | Chat pipeline | 20,4k | `chat/handlers/` (45), `chat/controller.js` |
 | 21 | Studio + WS | 1,3k + **14,9k** | `ws-bridge/` + **`c3-ide/` (139 souborů TS/TSX, 20+ rozšíření)** — Theia IDE je **plocha produktu**, viz `DIRECTION.md` |
 | 7 | Expertizy | 9,5k | `expertises/` **mimo** specialist-runtime, scenario-engine, knowledge-base |
-| 16 | Nástroje | 6,9k | `tools/` — legacy `registry.js` drží **153 registrovaných nástrojů**; M2 typed authority je v `m2-tool-*.js` |
+| 16 | Nástroje | 7,6k | `tools/` — legacy `registry.js` drží **153 registrovaných nástrojů**; M2 typed authority je v `m2-tool-*.js` |
 | 9 | Skills | 1,8k | `skills/` — 8 vykonávaných step typů + samostatná substitution helper vrstva |
 | 15 | Paměť | 3,1k | `memory/` |
 | 12 | Code Intelligence | 11,6k | `code-intel/` |
