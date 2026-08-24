@@ -75,9 +75,33 @@ zelené. Tento interní audit nenahrazuje požadovaný Opus verdict.
 
 ## Artifact a celý gate
 
-Artifact validation je čerstvě zelená 154/154. Celý deterministický gate bude
-do tohoto reportu doplněn až na čistém evidence commitu. Do té doby oddíl
-zůstává `REVIEW_PENDING`; historický celkový gate je pravdivě `FAIL`, ne PASS.
+Artifact validation je čerstvě zelená 154/154. Host-toolchain sady mají navíc
+runner report
+`.intentsmith-artifacts/test-runs/2026-08-24-m2-section5-toolchain/report.json`:
+na čistém `69370d49` je `verdict: PASS`, `exitCode: 0`, `3 PASS / 0 non-PASS`
+a exact allow-set obsahuje jen `toolchain:bwrap` a `toolchain:git`. Kalibrační
+runner report
+`.intentsmith-artifacts/test-runs/2026-08-24-m2-effect-runtime-timeout-calibration/report.json`
+na čistém `181bb0cd` dokládá `1/1 PASS` za 44 204 ms, bez timeoutu a leaků.
+
+Celý deterministický `offline,database` gate na čistém
+`181bb0cdfa371aaef222fee53e39d7ed60ff8c25`:
+
+- run `2026-08-24T06-26-18-087Z`;
+- report
+  `.intentsmith-artifacts/test-runs/2026-08-24T06-26-18-087Z/report.json`;
+- `verdict: FAIL`, `exitCode: 1`;
+- `249 PASS / 3 FAIL / 0 TIMEOUT / 2 BLOCKED / 0 SKIPPED`;
+- přesná nezměněná non-PASS množina:
+  `IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST` (`BLOCKED`),
+  `IS-T1-TESTS-EXPORT-PDF-DOCX-TEST` (`BLOCKED`),
+  `IS-T1-TESTS-NIGHTLY-AUDIT-RUNNER-SELF-TEST` (`FAIL`),
+  `IS-T1-TESTS-NIGHTLY-ORCHESTRATOR-SELF-TEST` (`FAIL`) a
+  `IS-T3-TESTS-VRAM-COORDINATION-TEST` (`FAIL`).
+
+Gate tedy zůstává pravdivě baseline `FAIL`; současně nevznikl nový non-PASS ID,
+timeout ani produktová regrese. Oddíl zůstává `REVIEW_PENDING`, dokud Opus max
+nevrátí `REVIEW_PASSED`.
 
 ## Omezení a navazující práce
 

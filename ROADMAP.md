@@ -1073,7 +1073,9 @@ approval crash window, rollback, drift, pathspec magic a LF filename mají
 negativní proby. Vlastní sady mají 22/22, 13/13, 10/10, 11/11 a 10/10 PASS.
 Registry má 416 programů, fingerprint `318e38d8…`; aktuální module graph má 1 098 hran,
 stále 3 cykly s membership 28 souborů. Oddíl 5 zůstává
-`CANDIDATE_V1 / REVIEW_PENDING` a celý M2 jako celek není PASS.
+`CANDIDATE_V1 / REVIEW_PENDING`. Deterministický gate na `181bb0cd` zůstal
+pravdivě `FAIL` s `249 PASS / 3 FAIL / 2 BLOCKED`, nulovým timeoutem a přesně
+nezměněnou baseline non-PASS množinou. Celý M2 jako celek není PASS.
 
 ### Závislostní sekvence Work Packages
 
