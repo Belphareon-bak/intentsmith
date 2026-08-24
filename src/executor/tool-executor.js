@@ -24,6 +24,8 @@ import { ToolType, DecisionType, IntentType } from '../chat/cre-decision.js';
 import { searchWeb, fetchPage, getProviderStatus } from '../llm/web-search.js';
 import { CircuitBreaker, CircuitState } from './circuit-breaker.js';
 import { canonicalizeQuery } from './query-canonicalizer.js';
+import { M2_TOOL_TERMINAL_STATUS } from '../../contracts/m2/tool-v1.js';
+import { projectLegacyToolInput } from '../tools/m2-tool-registry.js';
 // v121: Accountant expert tool imports removed — tools now registered dynamically
 //       by specialist packages via registerToolHandler() during register(ctx).
 import { config } from '../config.js';
@@ -130,6 +132,17 @@ function sanitizeSearchQuery(rawInput) {
   }
 
   return q;
+}
+
+function legacyResultTypeForTool(toolType) {
+  if (toolType === ToolType.WEB_SEARCH) return ToolResultType.SEARCH;
+  if (toolType === ToolType.WEB_SCRAPE) return ToolResultType.SCRAPE;
+  if (toolType === ToolType.FILE_READ) return ToolResultType.FILE_READ;
+  if (toolType === ToolType.FILE_WRITE) return ToolResultType.FILE_WRITE;
+  if (toolType === ToolType.CODE_EXECUTE) return ToolResultType.CODE;
+  if (toolType === ToolType.DATABASE_QUERY) return ToolResultType.DATABASE;
+  if (toolType?.startsWith('local.')) return ToolResultType.LOCAL;
+  return toolType;
 }
 
 // Export for testing
@@ -375,6 +388,10 @@ export class ToolExecutor {
     this.toolHandlers = new Map();
     this.timeout = options.timeout || 30000;
     this.maxConcurrent = options.maxConcurrent || 3;
+    // The exported production singleton installs the M2 broker explicitly.
+    // Standalone legacy executors remain available to isolated compatibility
+    // suites, but they are not on the Studio/chat production call graph.
+    this.m2ToolBroker = options.m2ToolBroker || null;
 
     // v44.2 - Project sandbox
     this.projectRootPath = null;   // Set via setProjectContext()
@@ -701,15 +718,59 @@ export class ToolExecutor {
           }
         }
 
-        const result = await this.executeWithTimeout(
-          handler({
-            ...context,
-            query: effectiveQuery,  // v56.2: MUST be AFTER ...context to override context.query
-            intent: decision.intent,
-            metadata: decision.metadata,
-          }),
-          this.timeout
-        );
+        const handlerParams = {
+          ...context,
+          query: effectiveQuery,  // v56.2: MUST be AFTER ...context to override context.query
+          intent: decision.intent,
+          metadata: decision.metadata,
+        };
+        let result;
+        if (this.m2ToolBroker) {
+          const m2Execution = await this.m2ToolBroker.execute({
+            toolId: toolType,
+            input: projectLegacyToolInput(toolType, handlerParams),
+            context,
+            timeoutMs: this.timeout,
+            invoke: authoritySignal => handler({ ...handlerParams, signal: authoritySignal }),
+          });
+          if (m2Execution.state === 'approval_required') {
+            result = ToolResult.failed({
+              type: toolType,
+              error: `${toolType} is waiting for exact effect approval`,
+              errorCode: 'TOOL_EFFECT_AUTHORITY_REQUIRED',
+            });
+          } else if (m2Execution.result.status === M2_TOOL_TERMINAL_STATUS.OK) {
+            result = m2Execution.value instanceof ToolResult
+              ? m2Execution.value
+              : new ToolResult({
+                type: legacyResultTypeForTool(toolType),
+                success: true,
+                data: m2Execution.value,
+                meta: { source: 'm2-durable-replay' },
+              });
+          } else if (m2Execution.value instanceof ToolResult) {
+            result = m2Execution.value;
+          } else {
+            result = ToolResult.failed({
+              type: toolType,
+              error: m2Execution.result.error.message,
+              errorCode: m2Execution.result.error.code,
+            });
+          }
+          if (result instanceof ToolResult) {
+            result.meta = {
+              ...result.meta,
+              m2ToolRequestId: m2Execution.request.requestId,
+              m2ToolStatus: m2Execution.state || m2Execution.result.status,
+              m2RiskClass: m2Execution.request.riskClass,
+              effectRequestId: m2Execution.effectRequestId
+                || m2Execution.result?.effectRequestId
+                || null,
+            };
+          }
+        } else {
+          result = await this.executeWithTimeout(handler(handlerParams), this.timeout);
+        }
 
         // v45.0: Handler returns ToolResult directly
         if (result instanceof ToolResult) {
@@ -1519,7 +1580,21 @@ function broadenSearchQuery(query) {
 // Singleton Instance
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const toolExecutor = new ToolExecutor();
+// This singleton is the only ToolExecutor on the active Studio/chat path.
+// Every selected tool therefore crosses the typed M2 boundary. Pure local
+// tools can run directly; all read/write/exec/network tools fail closed until
+// an exact EffectRequest adapter is installed.
+const productionM2ToolBroker = Object.freeze({
+  async execute(input) {
+    // Lazy loading preserves the existing module-only test boundary while the
+    // production server, whose database is already migrated, gets durable
+    // exact-replay ToolRequest/ToolResult authority on first use.
+    const { m2ToolRuntime } = await import('../tools/m2-tool-runtime.js');
+    return m2ToolRuntime.execute(input);
+  },
+});
+
+export const toolExecutor = new ToolExecutor({ m2ToolBroker: productionM2ToolBroker });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Exports

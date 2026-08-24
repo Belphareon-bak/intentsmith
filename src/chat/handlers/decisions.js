@@ -35,6 +35,39 @@ import { patternTracker } from '../../memory/pattern-tracker.js';
 import { enrichSearchQuery, isMetaContinuation, buildConversationContext } from './utils/search-enrichment.js';
 import { handleAskUserDecision, formatClarificationRequest } from './ask-user.js';
 
+function findM2ToolAuthorityDenial(executionResult) {
+  return executionResult?.toolResults?.find(result => (
+    result?.errorCode === 'TOOL_EFFECT_AUTHORITY_REQUIRED'
+    || result?.errorCode === 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE'
+  )) || null;
+}
+
+function buildM2ToolAuthorityDeniedResponse(decision, denial, context) {
+  const effectId = denial?.meta?.effectRequestId || null;
+  const approvalRequired = denial?.errorCode === 'TOOL_EFFECT_AUTHORITY_REQUIRED' && effectId;
+  const content = approvalRequired
+    ? `🔐 Nástroj čeká na přesné schválení efektu. Napiš: \`schválit efekt ${effectId}\``
+    : '🔒 Nástroj nebyl spuštěn: chybí přesná M2 effect authority. Žádné síťové spojení ani jiný efekt nevznikl.';
+  return new TaggedResponse({
+    content,
+    tag: new ResponseTag({
+      speaker: ResponseSpeaker.SYSTEM,
+      mode: context?.hasActiveProject ? ChatMode.PROJECT : ChatMode.CONVERSATION,
+      confidence: 1,
+      canExecute: false,
+      metadata: {
+        decision: decision.toJSON(),
+        handler: 'tool.authority',
+        securityBlocked: true,
+        error: denial?.errorCode || 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE',
+        effectId,
+        approvalRequired: Boolean(approvalRequired),
+        fallbackSuppressed: true,
+      },
+    }),
+  });
+}
+
 async function handleToolCallDecision(input, decision, context) {
   const { sessionState } = context;
 
@@ -302,6 +335,10 @@ async function handleToolCallDecision(input, decision, context) {
     const hasResults = searchData?.success && searchData?.data?.results?.length > 0;
 
     if (!hasResults) {
+      const authorityDenial = findM2ToolAuthorityDenial(searchResult);
+      if (authorityDenial) {
+        return buildM2ToolAuthorityDeniedResponse(decision, authorityDenial, context);
+      }
       logger.warn('HandleToolCall', `${pipelineIntent} pipeline: search failed or no results`, {
         status: searchResult.status,
         hasData: !!searchData,
@@ -507,6 +544,10 @@ async function handleToolCallDecision(input, decision, context) {
     // Many SEARCH queries (capitals, history, recommendations) can be answered
     // by the LLM without web data. Only fall through to error if LLM also fails.
     // ═══════════════════════════════════════════════════════════════════════
+    const authorityDenial = findM2ToolAuthorityDenial(executionResult);
+    if (authorityDenial) {
+      return buildM2ToolAuthorityDeniedResponse(decision, authorityDenial, context);
+    }
     if (decision.intent === IntentType.SEARCH || decision.intent === IntentType.FACTUAL) {
       try {
         logger.info('HandleToolCall', 'Search failed → trying LLM knowledge fallback', {

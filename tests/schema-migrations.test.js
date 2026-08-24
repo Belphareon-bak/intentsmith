@@ -167,6 +167,7 @@ const ALL_MIGRATIONS = [
   '2026_08_24_071_m2_effect_authority_hardening',
   '2026_08_24_072_m2_effect_execution_claims',
   '2026_08_24_073_m2_effect_claim_truth',
+  '2026_08_24_074_m2_tool_authority',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -205,6 +206,7 @@ const EXPECTED_TABLES = [
   'specialist_memory', 'specialist_migrations', 'specialist_telemetry', 'specialists',
   'task_memory', 'tax_losses', 'telemetry_alerts', 'telemetry_improvements', 'telemetry_metrics',
   'telemetry_snapshots',
+  'tool_v1_requests', 'tool_v1_results',
   'upgrade_history', 'upgrade_proposals', 'user_memory', 'user_settings',
   'validation_results', 'validation_suite_scores', 'vat_periods',
   'workflow_patterns', 'workflow_sessions',
