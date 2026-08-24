@@ -4,6 +4,7 @@ import {
   canonicalStringify,
   computeEffectRequestDigest,
   validateEffectResult,
+  validateEffectResultForRequest,
 } from '../../contracts/m2/effect-v1.js';
 import { resolveProjectTarget } from '../executor/project-path-authority.js';
 import { createFilesystemEffectProvider } from './filesystem-effect-provider.js';
@@ -58,6 +59,7 @@ function requireRepository(repository) {
     'getEffectRequest',
     'getApprovalGrant',
     'getEffectResult',
+    'getEffectInvalidation',
     'consumeApprovalGrant',
     'recordEffectResult',
   ];
@@ -335,6 +337,11 @@ export function createEffectBroker(repositoryValue, {
     const payload = bytesFromPayload(payloadValue);
     const request = repository.getEffectRequest(effectId);
     if (!request) fail(EffectBrokerErrorCode.REQUEST_NOT_FOUND, 'EffectRequest does not exist', { effectId });
+    if (repository.getEffectInvalidation(effectId)) {
+      fail(EffectBrokerErrorCode.CONSTRAINT_MISMATCH, 'EffectRequest was durably invalidated', {
+        effectId,
+      });
+    }
     const grant = repository.getApprovalGrant(grantId);
     if (!grant) fail(EffectBrokerErrorCode.GRANT_NOT_FOUND, 'ApprovalGrant does not exist', { grantId });
     if (payload.length !== request.payloadBytes || sha256(payload) !== request.payloadDigest) {
@@ -368,7 +375,7 @@ export function createEffectBroker(repositoryValue, {
         completedAtMs: nowMs(clock),
         outcome: outcomeValue,
       });
-      const validation = validateEffectResult(result);
+      const validation = validateEffectResultForRequest(boundRequest, result);
       if (!validation.valid) {
         result = resultFromOutcome({
           request: boundRequest,

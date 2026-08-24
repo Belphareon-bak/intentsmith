@@ -11,7 +11,6 @@
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
-import fs from 'node:fs';
 import { logger } from '../core/logger.js';
 import { SafetyEngine } from './safety/engine.js';
 import { getConversationStore, TurnRole } from './conversation-store.js';
@@ -1715,25 +1714,43 @@ ChatController.handle = async function(request) {
     project, expertise, signal, context = {},
   } = request;
 
-  // v82: Enrich message with file attachment content from IDE
-  // Supports both inline content (FileReader) and path-based reading (Electron contextIsolation)
-  if (request.attachments && request.attachments.length > 0) {
-    logger.info('ChatController', `Processing ${request.attachments.length} attachment(s)`, {
-      attachments: request.attachments.map(a => ({ name: a.name, size: a.size, hasContent: !!a.content, hasPath: !!a.path, path: a.path || null }))
+  // Attachments are transport data, never ambient filesystem authority. Studio
+  // already sends bounded inline bytes; accepting a caller-provided `path`
+  // here let the HTTP body trigger readFileSync before ToolRequest authority.
+  const attachments = Array.isArray(request.attachments)
+    ? request.attachments.map(attachment => ({ ...attachment }))
+    : [];
+  if (attachments.length > 0) {
+    logger.info('ChatController', `Processing ${attachments.length} attachment(s)`, {
+      attachments: attachments.map(a => ({
+        name: a.name,
+        size: a.size,
+        hasContent: typeof a.content === 'string',
+        hasPath: typeof a.path === 'string' && a.path.length > 0,
+      })),
     });
-    for (const a of request.attachments) {
-      if (!a.content && a.path) {
-        try {
-          a.content = fs.readFileSync(a.path, 'utf-8');
-          logger.info('ChatController', `Read attachment from path: ${a.path} (${a.content.length} chars)`);
-        } catch (e) {
-          logger.warn('ChatController', `Failed to read attachment: ${a.path}`, { error: e.message });
-          a.content = `[Soubor nelze přečíst: ${e.message}]`;
-        }
-      }
+    const pathOnly = attachments.find(a => (
+      typeof a.content !== 'string'
+      && typeof a.path === 'string'
+      && a.path.length > 0
+    ));
+    if (pathOnly) {
+      logger.warn('ChatController', 'Rejected path-only attachment without filesystem authority', {
+        name: pathOnly.name || null,
+      });
+      return {
+        response: '🔒 Příloha nebyla načtena: cesta k souboru sama o sobě není oprávnění ke čtení. Přilož soubor znovu jako inline obsah.',
+        mode: ChatMode.CONVERSATION,
+        confidence: 1,
+        metadata: {
+          error: 'ATTACHMENT_CONTENT_AUTHORITY_REQUIRED',
+          securityBlocked: true,
+          fallbackSuppressed: true,
+        },
+      };
     }
-    const attachmentBlocks = request.attachments
-      .filter(a => a.content)
+    const attachmentBlocks = attachments
+      .filter(a => typeof a.content === 'string')
       .map(a => `\n--- Příloha: ${a.name} (${a.size}) ---\n${a.content}\n---`);
     if (attachmentBlocks.length > 0) {
       message = message + attachmentBlocks.join('');
@@ -1807,11 +1824,11 @@ ChatController.handle = async function(request) {
     logger.warn('ChatController', `Memory Bank context failed: ${err.message}`);
   }
 
-  // v67.0: Context Init — hierarchical scan on first project turn
+  // v67.0: Context Init — persisted memory/analysis only on first project turn
   let contextInitBlock = '';
   try {
     const projectId = context.projectId || state.project?.id;
-    if (projectId && state.project?.path) {
+    if (projectId) {
       const bank = getMemoryBank();
       contextInitBlock = maybeInitContext(dbConversationId, state.project, bank, db);
     }
@@ -2009,7 +2026,7 @@ ChatController.handle = async function(request) {
     // v63.0: AbortSignal for cancel propagation (from server req.on('close'))
     signal: signal || null,
     // v82.1: Inline attachments for FILE handlers (avoids disk read for attached content)
-    attachments: request.attachments || [],
+    attachments,
   };
 
   // Preserve the existing user-turn persistence semantics, but use the same

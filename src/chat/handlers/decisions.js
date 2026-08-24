@@ -35,19 +35,44 @@ import { patternTracker } from '../../memory/pattern-tracker.js';
 import { enrichSearchQuery, isMetaContinuation, buildConversationContext } from './utils/search-enrichment.js';
 import { handleAskUserDecision, formatClarificationRequest } from './ask-user.js';
 
-function findM2ToolAuthorityDenial(executionResult) {
+const M2_TOOL_FALLBACK_SUPPRESS_ERROR_CODES = new Set([
+  'TOOL_EFFECT_AUTHORITY_REQUIRED',
+  'TOOL_EFFECT_AUTHORITY_UNAVAILABLE',
+  'TOOL_EFFECT_TRANSLATION_INVALID',
+  'TOOL_EXECUTION_IN_PROGRESS',
+]);
+
+function isM2DurableEffectTerminal(result) {
+  return result?.success === false
+    && typeof result?.meta?.m2ToolRequestId === 'string'
+    && result.meta.m2ToolRequestId.length > 0
+    && typeof result?.meta?.m2RiskClass === 'string'
+    && result.meta.m2RiskClass !== 'pure';
+}
+
+function findM2ToolTerminalDenial(executionResult) {
   return executionResult?.toolResults?.find(result => (
-    result?.errorCode === 'TOOL_EFFECT_AUTHORITY_REQUIRED'
-    || result?.errorCode === 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE'
+    result?.meta?.m2AuthorityFailure === true
+    || isM2DurableEffectTerminal(result)
+    || M2_TOOL_FALLBACK_SUPPRESS_ERROR_CODES.has(result?.errorCode)
   )) || null;
 }
 
 function buildM2ToolAuthorityDeniedResponse(decision, denial, context) {
   const effectId = denial?.meta?.effectRequestId || null;
   const approvalRequired = denial?.errorCode === 'TOOL_EFFECT_AUTHORITY_REQUIRED' && effectId;
+  const executionInProgress = denial?.errorCode === 'TOOL_EXECUTION_IN_PROGRESS';
+  const authorityFailure = denial?.meta?.m2AuthorityFailure === true;
+  const durableEffectTerminal = isM2DurableEffectTerminal(denial);
   const content = approvalRequired
     ? `🔐 Nástroj čeká na přesné schválení efektu. Napiš: \`schválit efekt ${effectId}\``
-    : '🔒 Nástroj nebyl spuštěn: chybí přesná M2 effect authority. Žádné síťové spojení ani jiný efekt nevznikl.';
+    : executionInProgress
+      ? '⏳ Stejný požadavek nástroje už zpracovává aktivní M2 execution claim. Tento pokus nespustil další nástroj ani náhradní LLM odpověď.'
+      : authorityFailure
+        ? '🔒 Autoritativní výsledek nástroje se nepodařilo bezpečně uložit nebo ověřit. Náhradní LLM odpověď nebyla spuštěna.'
+        : durableEffectTerminal
+          ? '⛔ Autoritativní M2 efekt skončil terminálním výsledkem. Náhradní LLM odpověď nebyla spuštěna.'
+      : '🔒 Nástroj nebyl spuštěn: chybí přesná M2 effect authority. Žádné síťové spojení ani jiný efekt nevznikl.';
   return new TaggedResponse({
     content,
     tag: new ResponseTag({
@@ -62,6 +87,9 @@ function buildM2ToolAuthorityDeniedResponse(decision, denial, context) {
         error: denial?.errorCode || 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE',
         effectId,
         approvalRequired: Boolean(approvalRequired),
+        executionInProgress,
+        m2AuthorityFailure: authorityFailure,
+        m2EffectTerminal: durableEffectTerminal,
         fallbackSuppressed: true,
       },
     }),
@@ -335,7 +363,7 @@ async function handleToolCallDecision(input, decision, context) {
     const hasResults = searchData?.success && searchData?.data?.results?.length > 0;
 
     if (!hasResults) {
-      const authorityDenial = findM2ToolAuthorityDenial(searchResult);
+      const authorityDenial = findM2ToolTerminalDenial(searchResult);
       if (authorityDenial) {
         return buildM2ToolAuthorityDeniedResponse(decision, authorityDenial, context);
       }
@@ -382,7 +410,7 @@ async function handleToolCallDecision(input, decision, context) {
         projectGoal,
         ...context,
       });
-      const scrapeAuthorityDenial = findM2ToolAuthorityDenial(scrapeResult);
+      const scrapeAuthorityDenial = findM2ToolTerminalDenial(scrapeResult);
       if (scrapeAuthorityDenial) {
         return buildM2ToolAuthorityDeniedResponse(decision, scrapeAuthorityDenial, context);
       }
@@ -495,17 +523,6 @@ async function handleToolCallDecision(input, decision, context) {
     ...context,
   });
 
-  // v59.0 IDE Bridge: Notify tool call result
-  if (typeof context.onToolResult === 'function') {
-    try {
-      context.onToolResult(decision.tools?.[0] || 'unknown', {
-        success: executionResult.status !== ExecutionStatus.FAILED,
-        durationMs: executionResult.duration,
-        summary: `${executionResult.toolResults?.length || 0} results`,
-      });
-    } catch { /* */ }
-  }
-
   // v56.0 FIX: Defensive — ensure toolResults is always an array
   if (!Array.isArray(executionResult.toolResults)) {
     executionResult.toolResults = [];
@@ -514,9 +531,33 @@ async function handleToolCallDecision(input, decision, context) {
   // A mixed batch cannot turn an authority denial into PARTIAL success and
   // feed the successful subset to synthesis. Any authority denial is terminal
   // for the user-visible decision; no fallback or LLM call follows.
-  const batchAuthorityDenial = findM2ToolAuthorityDenial(executionResult);
+  const batchAuthorityDenial = findM2ToolTerminalDenial(executionResult);
   if (batchAuthorityDenial) {
+    if (typeof context.onToolResult === 'function') {
+      try {
+        context.onToolResult(decision.tools?.[0] || 'unknown', {
+          success: false,
+          durationMs: executionResult.duration,
+          summary: 'M2 durable tool terminal stopped the batch',
+          errorCode: batchAuthorityDenial.errorCode,
+          effectRequestId: batchAuthorityDenial.meta?.effectRequestId || null,
+          m2AuthorityFailure: batchAuthorityDenial.meta?.m2AuthorityFailure === true,
+        });
+      } catch { /* */ }
+    }
     return buildM2ToolAuthorityDeniedResponse(decision, batchAuthorityDenial, context);
+  }
+
+  // v59.0 IDE Bridge: notify only after authority classification so a PARTIAL
+  // batch containing a denial cannot emit a contradictory success event.
+  if (typeof context.onToolResult === 'function') {
+    try {
+      context.onToolResult(decision.tools?.[0] || 'unknown', {
+        success: executionResult.status !== ExecutionStatus.FAILED,
+        durationMs: executionResult.duration,
+        summary: `${executionResult.toolResults.length} results`,
+      });
+    } catch { /* */ }
   }
 
   // ════════════════════════════════════════════════════════════════════════════

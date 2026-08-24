@@ -91,9 +91,19 @@ function canonicalize(value, seen, depth) {
   if (Array.isArray(value)) {
     serialized = `[${value.map(item => canonicalize(item, seen, depth + 1)).join(',')}]`;
   } else if (isPlainRecord(value)) {
-    const fields = Object.keys(value)
-      .sort(compareUtf8)
-      .map(key => `${JSON.stringify(key.normalize('NFC'))}:${canonicalize(value[key], seen, depth + 1)}`);
+    const normalizedFields = Object.keys(value)
+      .map(key => ({ original: key, normalized: key.normalize('NFC') }))
+      .sort((left, right) => compareUtf8(left.normalized, right.normalized));
+    for (let index = 1; index < normalizedFields.length; index += 1) {
+      if (normalizedFields[index - 1].normalized === normalizedFields[index].normalized) {
+        seen.delete(value);
+        throw new TypeError('m2-tool-canonical:normalized-key-collision');
+      }
+    }
+    const fields = normalizedFields
+      .map(({ original, normalized }) => (
+        `${JSON.stringify(normalized)}:${canonicalize(value[original], seen, depth + 1)}`
+      ));
     serialized = `{${fields.join(',')}}`;
   } else {
     seen.delete(value);
@@ -106,6 +116,15 @@ function canonicalize(value, seen, depth) {
 export function canonicalizeM2ToolValue(value) {
   if (!isJsonValue(value)) throw new TypeError('m2-tool-canonical:not-json');
   return canonicalize(value, new Set(), 0);
+}
+
+/**
+ * Materialize the exact JSON value represented by the canonical wire bytes.
+ * Callers use this before deriving identities, bindings, or invoking a tool so
+ * persistence cannot silently change the bytes after authority was computed.
+ */
+export function normalizeM2ToolValue(value) {
+  return JSON.parse(canonicalizeM2ToolValue(value));
 }
 
 export function computeM2ToolValueDigest(value) {
@@ -267,10 +286,6 @@ export function validateM2ToolRequest(value) {
     || value.requiredEffectKind === null
     || value.effectBinding !== null
   )) errors.push(`${context}:invalid-unavailable-authority`);
-  if (
-    value.authorityMode !== M2_TOOL_AUTHORITY_MODE.DIRECT
-    && (!Number.isSafeInteger(value.origin?.projectId) || value.origin.projectId <= 0)
-  ) errors.push(`${context}:effectful-tool-missing-project`);
   if (value.authorityMode !== M2_TOOL_AUTHORITY_MODE.DIRECT && value.actor?.type !== 'user') {
     errors.push(`${context}:effectful-tool-requires-user`);
   }

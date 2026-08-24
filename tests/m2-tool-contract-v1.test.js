@@ -12,6 +12,7 @@ import {
   computeM2ToolValueDigest,
   decodeM2ToolContract,
   encodeM2ToolContract,
+  normalizeM2ToolValue,
   validateM2ToolContract,
   validateM2ToolRequest,
   validateM2ToolResult,
@@ -117,6 +118,17 @@ test('canonical encoding is key-order independent and NFC-normalized', () => {
   );
   const encoded = encodeM2ToolContract(request, M2_TOOL_CONTRACT_KIND.REQUEST);
   assert.deepEqual(decodeM2ToolContract(encoded), request);
+});
+
+test('canonical normalization materializes NFC values and rejects normalized key collisions', () => {
+  assert.deepEqual(
+    normalizeM2ToolValue({ z: ['Cafe\u0301'], nested: { 'Pr\u030ci\u0301lis\u030c': true } }),
+    { nested: { 'Příliš': true }, z: ['Café'] },
+  );
+  assert.throws(
+    () => normalizeM2ToolValue({ 'e\u0301': 1, 'é': 2 }),
+    /normalized-key-collision/,
+  );
 });
 
 suite('M2 ToolRequest/ToolResult v1 — fail-closed negatives');

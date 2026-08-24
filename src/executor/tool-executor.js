@@ -26,6 +26,7 @@ import { CircuitBreaker, CircuitState } from './circuit-breaker.js';
 import { canonicalizeQuery } from './query-canonicalizer.js';
 import { M2_TOOL_TERMINAL_STATUS } from '../../contracts/m2/tool-v1.js';
 import { projectLegacyToolInput } from '../tools/m2-tool-registry.js';
+import { computeCalendar, computeMath } from '../tools/local-computations.js';
 // v121: Accountant expert tool imports removed — tools now registered dynamically
 //       by specialist packages via registerToolHandler() during register(ctx).
 import { config } from '../config.js';
@@ -143,6 +144,22 @@ function legacyResultTypeForTool(toolType) {
   if (toolType === ToolType.DATABASE_QUERY) return ToolResultType.DATABASE;
   if (toolType?.startsWith('local.')) return ToolResultType.LOCAL;
   return toolType;
+}
+
+const M2_TOOL_AUTHORITY_FAILURE_CODES = new Set([
+  'TOOL_REQUEST_CONFLICT',
+  'TOOL_REQUEST_NOT_FOUND',
+  'TOOL_RESULT_CONFLICT',
+  'TOOL_RESULT_REQUEST_MISMATCH',
+  'TOOL_EFFECT_LINK_CONFLICT',
+  'TOOL_EFFECT_LINK_MISMATCH',
+]);
+
+function isM2AuthorityFailureCode(code) {
+  return typeof code === 'string' && (
+    M2_TOOL_AUTHORITY_FAILURE_CODES.has(code)
+    || /^(?:M2_TOOL_|TOOL_AUTHORITY_|EFFECT_AUTHORITY_|EFFECT_BROKER_)/.test(code)
+  );
 }
 
 // Export for testing
@@ -267,13 +284,14 @@ export class ToolResult {
   /**
    * Create a failed result
    */
-  static failed({ type, error, errorCode, suggestion = null }) {
+  static failed({ type, error, errorCode, suggestion = null, meta = {} }) {
     return new ToolResult({
       type,
       success: false,
       error,
       errorCode,
       meta: {
+        ...meta,
         suggestion,
         retryable: ['SOURCE_BLOCKED', 'SOURCE_UNAVAILABLE', 'TIMEOUT'].includes(errorCode),
       },
@@ -750,14 +768,14 @@ export class ToolExecutor {
             input: projectLegacyToolInput(toolType, handlerParams),
             context,
             timeoutMs: this.timeout,
-            invoke: authoritySignal => circuitOpen
+            invoke: (authoritySignal, authorityInput) => circuitOpen
               ? ToolResult.failed({
                 type: toolType,
                 error: `Tool ${toolType} temporarily disabled (circuit breaker open after repeated failures)`,
                 errorCode: ToolErrorCode.CIRCUIT_OPEN || 'CIRCUIT_OPEN',
                 retryable: false,
               })
-              : handler({ ...handlerParams, signal: authoritySignal }),
+              : handler({ ...handlerParams, ...authorityInput, signal: authoritySignal }),
           });
           if (m2Execution.state === 'approval_required') {
             result = ToolResult.failed({
@@ -765,17 +783,20 @@ export class ToolExecutor {
               error: `${toolType} is waiting for exact effect approval`,
               errorCode: 'TOOL_EFFECT_AUTHORITY_REQUIRED',
             });
+          } else if (m2Execution.state === 'in_progress') {
+            result = ToolResult.failed({
+              type: toolType,
+              error: `${toolType} already has a durable execution in progress`,
+              errorCode: 'TOOL_EXECUTION_IN_PROGRESS',
+              retryable: true,
+            });
           } else if (m2Execution.result.status === M2_TOOL_TERMINAL_STATUS.OK) {
-            result = m2Execution.value instanceof ToolResult
-              ? m2Execution.value
-              : new ToolResult({
-                type: legacyResultTypeForTool(toolType),
-                success: true,
-                data: m2Execution.value,
-                meta: { source: 'm2-durable-replay' },
-              });
-          } else if (m2Execution.value instanceof ToolResult) {
-            result = m2Execution.value;
+            result = new ToolResult({
+              type: legacyResultTypeForTool(toolType),
+              success: true,
+              data: m2Execution.result.output,
+              meta: { source: 'm2-durable-authority' },
+            });
           } else {
             result = ToolResult.failed({
               type: toolType,
@@ -786,6 +807,9 @@ export class ToolExecutor {
           if (result instanceof ToolResult) {
             result.meta = {
               ...result.meta,
+              ...(m2Execution.result?.completedAt
+                ? { timestamp: Date.parse(m2Execution.result.completedAt) }
+                : {}),
               m2ToolRequestId: m2Execution.request.requestId,
               m2ToolStatus: m2Execution.state || m2Execution.result.status,
               m2RiskClass: m2Execution.request.riskClass,
@@ -857,13 +881,21 @@ export class ToolExecutor {
         const breakerRef = this.circuitBreakers.get(toolType);
         if (breakerRef) breakerRef.recordFailure();
 
-        const errorInfo = this.classifyError(err);
+        // Storage/contract failures at the durable M2 authority boundary must
+        // remain distinguishable from ordinary provider failures. Collapsing
+        // these to UNKNOWN lets chat handlers fabricate a SEARCH/REPORT LLM
+        // fallback even though no authoritative ToolResult was committed.
+        const m2AuthorityFailure = isM2AuthorityFailureCode(err?.code);
+        const errorInfo = m2AuthorityFailure
+          ? { code: err.code, retryable: false, suggestion: null }
+          : this.classifyError(err);
 
         toolResults.push(ToolResult.failed({
           type: toolType,
           error: err.message,
           errorCode: errorInfo.code,
           suggestion: errorInfo.suggestion,
+          meta: m2AuthorityFailure ? { m2AuthorityFailure: true } : {},
         }));
         hasFailure = true;
 
@@ -1407,45 +1439,23 @@ export class ToolExecutor {
    * v45.0 - Returns ToolResult with structured data
    */
   async executeLocalCalendar(params) {
-    const now = new Date();
-
-    // Moon phase calculation (approximation)
-    const knownNewMoon = new Date('2000-01-06T18:14:00Z');
-    const lunarCycle = 29.53058867;
-    const daysSinceKnown = (now - knownNewMoon) / (1000 * 60 * 60 * 24);
-    const currentCycleDay = daysSinceKnown % lunarCycle;
-
-    // Phase names
-    let phase, phaseEmoji;
-    if (currentCycleDay < 1.85) { phase = 'nov'; phaseEmoji = '🌑'; }
-    else if (currentCycleDay < 7.38) { phase = 'dorůstající srpek'; phaseEmoji = '🌒'; }
-    else if (currentCycleDay < 9.23) { phase = 'první čtvrť'; phaseEmoji = '🌓'; }
-    else if (currentCycleDay < 14.77) { phase = 'dorůstající měsíc'; phaseEmoji = '🌔'; }
-    else if (currentCycleDay < 16.61) { phase = 'úplněk'; phaseEmoji = '🌕'; }
-    else if (currentCycleDay < 22.15) { phase = 'couvající měsíc'; phaseEmoji = '🌖'; }
-    else if (currentCycleDay < 23.99) { phase = 'poslední čtvrť'; phaseEmoji = '🌗'; }
-    else { phase = 'couvající srpek'; phaseEmoji = '🌘'; }
-
-    // Days until next full moon
-    const daysUntilFull = currentCycleDay < 14.77
-      ? 14.77 - currentCycleDay
-      : lunarCycle - currentCycleDay + 14.77;
-
-    // Days until next new moon
-    const daysUntilNew = currentCycleDay < 1
-      ? 1 - currentCycleDay
-      : lunarCycle - currentCycleDay;
-
-    // v45.0: Return structured data via ToolResult.local()
+    const computed = computeCalendar(params.query);
+    if (computed.error || !Number.isFinite(computed.answer)) {
+      return ToolResult.failed({
+        type: ToolResultType.LOCAL,
+        error: computed.error || 'Calendar computation failed',
+        errorCode: 'COMPUTE_ERROR',
+      });
+    }
     return ToolResult.local({
       subtype: 'calendar',
       data: {
-        currentPhase: phase,
-        phaseEmoji,
-        cycleDay: Math.round(currentCycleDay * 10) / 10,
-        daysUntilFullMoon: Math.round(daysUntilFull),
-        daysUntilNewMoon: Math.round(daysUntilNew),
-        illumination: Math.round(Math.abs(Math.cos((currentCycleDay / lunarCycle) * 2 * Math.PI)) * 100),
+        type: computed.type,
+        answer: computed.answer,
+        unit: computed.unit,
+        date: computed.date,
+        today: computed.today,
+        explanation: computed.explanation,
       },
     });
   }
@@ -1456,46 +1466,20 @@ export class ToolExecutor {
    */
   async executeLocalMath(params) {
     const { query } = params;
-
-    // Extract math expression from query
-    const mathMatch = query.match(/[\d\s+\-*/().]+/);
-    if (!mathMatch) {
-      return ToolResult.failed({
-        type: ToolResultType.LOCAL,
-        error: 'Nenalezen matematický výraz',
-        errorCode: 'NO_EXPRESSION',
-      });
-    }
-
-    const expression = mathMatch[0].trim();
-
-    // Safe evaluation - only allow numbers and basic operators
-    if (!/^[\d\s+\-*/().]+$/.test(expression)) {
-      return ToolResult.failed({
-        type: ToolResultType.LOCAL,
-        error: 'Neplatný matematický výraz',
-        errorCode: 'INVALID_EXPRESSION',
-      });
-    }
-
     try {
-      // Use Function constructor for safe eval (no access to global scope)
-      const result = new Function(`return (${expression})`)();
-
-      if (typeof result !== 'number' || !isFinite(result)) {
+      const computed = computeMath(query);
+      if (!Number.isFinite(computed.answer) || typeof computed.expression !== 'string') {
         return ToolResult.failed({
           type: ToolResultType.LOCAL,
-          error: 'Výsledek není platné číslo',
-          errorCode: 'INVALID_RESULT',
+          error: computed.error || 'Nenalezen matematický výraz',
+          errorCode: computed.error === 'non_finite_result' ? 'INVALID_RESULT' : 'NO_EXPRESSION',
         });
       }
-
-      // v45.0: Return structured data via ToolResult.local()
       return ToolResult.local({
         subtype: 'math',
         data: {
-          expression,
-          result,
+          expression: computed.expression,
+          result: computed.answer,
         },
       });
     } catch (err) {

@@ -327,18 +327,18 @@ test('maybeInitContext injects analysis from DB when available', () => {
   assert(result.includes('Total files: 42'), 'should contain analysis data');
 });
 
-test('maybeInitContext works without DB (backward compat)', () => {
+test('maybeInitContext has no ambient filesystem fallback without persisted context', () => {
   const convId = 'test-conv-no-db-' + Date.now();
   const dir = path.join(tmpDir, 'proj-ctx-no-db');
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'README.md'), '# NoDBTest\nContent');
 
   const result = maybeInitContext(convId, { id: 888, name: 'NoDBTest', path: dir }, null, null);
-  assert(result.includes('README.md'), 'should still contain README section');
-  assert(!result.includes('Analýza projektu'), 'should NOT contain analysis section without DB');
+  assertEqual(result, '');
+  assert(fs.existsSync(path.join(dir, 'README.md')), 'filesystem canary remains untouched');
 });
 
-test('maybeInitContext skips analysis when DB has no last_analysis', () => {
+test('maybeInitContext returns empty when DB has no last_analysis', () => {
   const convId = 'test-conv-empty-db-' + Date.now();
   const dir = path.join(tmpDir, 'proj-ctx-empty');
   fs.mkdirSync(dir, { recursive: true });
@@ -353,8 +353,8 @@ test('maybeInitContext skips analysis when DB has no last_analysis', () => {
   };
 
   const result = maybeInitContext(convId, { id: 777, name: 'EmptyDB', path: dir }, null, fakeDb);
-  assert(result.includes('README.md'), 'should still contain README');
-  assert(!result.includes('Analýza projektu'), 'should NOT contain analysis when DB returns null');
+  assertEqual(result, '');
+  assert(fs.existsSync(path.join(dir, 'README.md')), 'filesystem canary remains untouched');
 });
 
 // ─── Suite 7: v88.2 — buildProjectStatusResponse enrichment ─────────────────

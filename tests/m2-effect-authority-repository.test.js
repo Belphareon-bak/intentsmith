@@ -183,15 +183,15 @@ function result(overrides = {}) {
     process: { pid: null, processGroupId: null, startIdentity: null, exitCode: null, signal: null },
     changes: {
       paths: ['src/app.js'],
-      beforeDigest: DIGEST_A,
-      afterDigest: DIGEST_B,
-      diffArtifact: 'artifact:diff-1',
+      beforeDigest: DIGEST_B,
+      afterDigest: DIGEST_A,
+      diffArtifact: null,
     },
     network: { resolvedAddresses: [], finalUrl: null, status: null, bytes: 0 },
     rollback: { required: false, status: 'not_required', evidenceRef: null },
-    outputDigest: DIGEST_B,
+    outputDigest: DIGEST_A,
     errorCode: null,
-    evidenceRefs: ['artifact:diff-1'],
+    evidenceRefs: [],
     lateCompletionRejected: false,
   };
   return { ...base, ...overrides };

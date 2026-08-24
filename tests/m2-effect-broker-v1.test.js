@@ -22,6 +22,10 @@ import { up as applyEffectAuthorityMigration } from '../src/db/migrations/2026_0
 import { up as applyEffectAuthorityHardening } from '../src/db/migrations/2026_08_24_071_m2_effect_authority_hardening.js';
 import { up as applyEffectExecutionClaims } from '../src/db/migrations/2026_08_24_072_m2_effect_execution_claims.js';
 import { up as applyEffectClaimTruth } from '../src/db/migrations/2026_08_24_073_m2_effect_claim_truth.js';
+import { up as applyToolAuthority } from '../src/db/migrations/2026_08_24_074_m2_tool_authority.js';
+import { up as applyToolEffectLinks } from '../src/db/migrations/2026_08_24_075_m2_tool_effect_links.js';
+import { up as applyToolTruth } from '../src/db/migrations/2026_08_24_076_m2_tool_authority_truth.js';
+import { up as applyEffectInvalidations } from '../src/db/migrations/2026_08_24_077_m2_effect_invalidations.js';
 import {
   EffectAuthorityError,
   EffectAuthorityErrorCode,
@@ -149,7 +153,16 @@ function openDatabase(filename = ':memory:') {
     applyEffectAuthorityHardening(db);
     applyEffectExecutionClaims(db);
   }
-  applyEffectClaimTruth(db);
+  const hasInvalidations = Boolean(db.prepare(
+    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'm2_effect_invalidations'",
+  ).get());
+  if (!hasInvalidations) {
+    applyEffectClaimTruth(db);
+    applyToolAuthority(db);
+    applyToolEffectLinks(db);
+    applyToolTruth(db);
+    applyEffectInvalidations(db);
+  }
   return db;
 }
 
@@ -266,6 +279,7 @@ function repositoryView(repository, overrides = {}) {
     'getEffectRequest',
     'getApprovalGrant',
     'getEffectResult',
+    'getEffectInvalidation',
     'consumeApprovalGrant',
     'recordEffectResult',
   ];
@@ -313,6 +327,19 @@ function successfulResult(request, approvalGrantId) {
     errorCode: null,
     evidenceRefs: [`effect:${request.effectId}:test`],
     lateCompletionRejected: false,
+  };
+}
+
+function successfulEvidence(request) {
+  return {
+    changes: {
+      paths: [request.target.relativePath],
+      beforeDigest: null,
+      afterDigest: request.payloadDigest,
+      diffArtifact: null,
+    },
+    outputDigest: request.payloadDigest,
+    evidenceRefs: [`effect:${request.effectId}:test-provider`],
   };
 }
 
@@ -406,6 +433,39 @@ await testAsync('exact approval consumes before the real filesystem write and co
       ['REQUEST_REGISTERED', 'GRANT_ISSUED', 'GRANT_CONSUMED', 'RESULT_RECORDED'],
     );
   }, { persistentDatabase: true });
+});
+
+await testAsync('empty provider evidence is durably orphaned and can never fabricate fs.write success', async () => {
+  await withEnvironment(async environment => {
+    const target = path.join(environment.projectRoot, 'src/app.js');
+    writeFileSync(target, 'before\n');
+    let providerCalls = 0;
+    const broker = createBroker(environment, {
+      provider: {
+        async execute() {
+          providerCalls += 1;
+          return {};
+        },
+      },
+    });
+    const prepared = await prepareWrite(environment, broker);
+    const grant = issue(environment, prepared.effectId);
+
+    const result = await broker.execute({
+      effectId: prepared.effectId,
+      grantId: grant.grantId,
+      payload: Buffer.from('after\n'),
+    });
+
+    assert.equal(providerCalls, 1);
+    assert.equal(result.terminalStatus, 'orphaned');
+    assert.equal(result.errorCode, 'EFFECT_PROVIDER_EVIDENCE_INVALID');
+    assert.equal(result.rollback.required, true);
+    assert.equal(result.rollback.status, 'pending');
+    assert.equal(result.lateCompletionRejected, true);
+    assert.equal(readFileSync(target, 'utf8'), 'before\n');
+    assert.deepEqual(environment.repository.getEffectResult(prepared.effectId), result);
+  });
 });
 
 await testAsync('filesystem success is withheld until the parent directory entry is fsynced', async () => {
@@ -785,7 +845,7 @@ await testAsync('concurrent replay has one grant-consumption winner and one prov
       broker.execute(execution),
       assertCode(EffectAuthorityErrorCode.GRANT_CONSUMED),
     );
-    providerCompletion.resolve({});
+    providerCompletion.resolve(successfulEvidence(prepared.request));
     const result = await winner;
 
     assert.equal(result.terminalStatus, 'succeeded');

@@ -255,6 +255,7 @@ export function createChatRoutes(deps) {
         requestId: body.requestId,
         turnId: body.turnId,
         signal: abortController.signal,
+        authenticatedSubject: req.authenticatedSubject || null,
         context: {
           requestId: body.requestId,
           conversationId: body.conversationId,
@@ -409,6 +410,7 @@ export function createChatRoutes(deps) {
           sessionId,
           expertise: body.expertise || undefined,  // v79: forward expertise for E2E testing
           userId: null,
+          authenticatedSubject: req.authenticatedSubject || null,
           signal: abortController.signal,  // v63.0: propagate cancel signal
           attachments: body.attachments || [],  // v81.1: file attachments from IDE
           conversationId: body.conversationId || null,
@@ -795,6 +797,7 @@ export function createChatRoutes(deps) {
           message,
           sessionId: conversation_id,
           userId: body.userId || null,
+          authenticatedSubject: req.authenticatedSubject || null,
           expertise,
           attachments: body.attachments || [],
           signal: abortController.signal,  // v63.0: propagate cancel signal

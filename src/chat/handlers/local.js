@@ -2,7 +2,8 @@
 // ══════════════════════════════════════════════════════════════════════════════
 // v44.7 - LOCAL is special: deterministic computation, no external APIs
 // Examples: "kdy bude úplněk?", "kolik je hodin?", "5+3"
-// INVARIANT: LOCAL NEVER calls tools, NEVER goes to web.search
+// INVARIANT: LOCAL crosses the durable M2 direct-tool boundary and NEVER goes
+// to web.search or any effect provider.
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { ResponseTag, TaggedResponse, ResponseSpeaker, ChatMode } from '../controller.js';
@@ -20,7 +21,7 @@ import {
 /**
  * Handle LOCAL decision - TERMINAL direct computation
  */
-export async function handleLocalDecision(input, decision, context) {
+export async function handleLocalDecision(input, decision, context, dependencies = {}) {
   const { sessionState } = context;
   const handler = decision.metadata?.handler || 'local.date';
 
@@ -30,22 +31,80 @@ export async function handleLocalDecision(input, decision, context) {
   });
 
   let result;
+  let durableToolResult = null;
   try {
-    switch (handler) {
-      case 'local.calendar':
-        result = computeCalendar(input);
-        break;
-      case 'local.math':
-        result = computeMath(input);
-        break;
-      case 'local.date':
-      default:
-        result = computeDate(input);
-        break;
+    let executor = dependencies.toolExecutor;
+    if (!executor) {
+      const module = await import('../../executor/tool-executor.js');
+      executor = module.toolExecutor;
+    }
+    if (!executor || typeof executor.execute !== 'function') {
+      throw Object.assign(new Error('M2 tool runtime is unavailable'), {
+        code: 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE',
+      });
+    }
+    const execution = await executor.execute({
+      type: 'TOOL_CALL',
+      tools: [handler],
+      intent: decision.intent,
+    }, {
+      ...context,
+      input,
+      query: input,
+      maxAutoRetries: 0,
+    });
+    durableToolResult = execution.toolResults?.[0] || null;
+    if (!durableToolResult?.success) {
+      const error = new Error(durableToolResult?.error || 'Durable local tool failed');
+      error.code = durableToolResult?.errorCode || execution.errorCode || 'M2_TOOL_RESULT_UNCOMMITTED';
+      error.m2AuthorityFailure = durableToolResult?.meta?.m2AuthorityFailure === true;
+      throw error;
+    }
+    const output = durableToolResult.data;
+    if (handler === 'local.math') {
+      result = { expression: output.expression, answer: output.result };
+    } else if (handler === 'local.calendar') {
+      result = {
+        type: output.type,
+        answer: output.answer,
+        unit: output.unit,
+        date: output.date,
+        today: output.today,
+        explanation: output.explanation,
+      };
+    } else {
+      const exact = new Date(output.timestamp);
+      const asksForTime = /kolik\s+(je\s+)?hodin|what.*time|current.*time/i.test(input);
+      result = {
+        answer: asksForTime
+          ? exact.toLocaleTimeString('cs-CZ')
+          : exact.toLocaleDateString('cs-CZ'),
+        dayOfWeek: output.dayOfWeek,
+        timestamp: output.timestamp,
+        explanation: asksForTime
+          ? `Aktuální čas: ${exact.toLocaleTimeString('cs-CZ')}`
+          : `Dnes je ${output.dayOfWeek}, ${exact.toLocaleDateString('cs-CZ')}`,
+      };
     }
   } catch (err) {
     logger.error('HandleLocal', `Computation failed: ${err.message}`);
-    result = { error: err.message, answer: null };
+    return new TaggedResponse({
+      content: '🔒 Lokální nástroj nemá ověřený M2 výsledek. Náhradní odpověď nebyla vytvořena.',
+      tag: new ResponseTag({
+        speaker: ResponseSpeaker.SYSTEM,
+        mode: context.hasActiveProject ? ChatMode.PROJECT : ChatMode.CONVERSATION,
+        confidence: 1,
+        canExecute: false,
+        metadata: {
+          decision: decision.toJSON(),
+          handler,
+          securityBlocked: true,
+          fallbackSuppressed: true,
+          error: err.code || 'M2_TOOL_RESULT_UNCOMMITTED',
+          m2AuthorityFailure: err.m2AuthorityFailure === true,
+        },
+      }),
+    });
   }
 
   // Record successful decision
@@ -63,6 +122,8 @@ export async function handleLocalDecision(input, decision, context) {
       localComputation: true,
       handler,
       computationResult: result,
+      toolRequestId: durableToolResult?.meta?.m2ToolRequestId || null,
+      toolTerminalStatus: durableToolResult?.meta?.m2ToolStatus || null,
     },
   });
 
@@ -78,240 +139,12 @@ export async function handleLocalDecision(input, decision, context) {
   });
 }
 
-/**
- * Compute calendar-related queries (moon phases, days until events)
- */
-export function computeCalendar(input) {
-  const now = new Date();
-
-  // Moon phase calculation (simplified)
-  if (/úplněk|uplnek|full.*moon/i.test(input)) {
-    const lunarCycle = 29.53;
-    const refFullMoon = new Date('2025-01-13');
-    const daysSinceRef = (now - refFullMoon) / (1000 * 60 * 60 * 24);
-    const daysInCurrentCycle = daysSinceRef % lunarCycle;
-    const daysToFullMoon = Math.round(lunarCycle - daysInCurrentCycle);
-
-    const nextFullMoon = new Date(now);
-    nextFullMoon.setDate(nextFullMoon.getDate() + daysToFullMoon);
-
-    // v57.3: Include today's date for transparency
-    const todayStr = now.toLocaleDateString('cs-CZ');
-
-    return {
-      type: 'moon',
-      answer: daysToFullMoon,
-      unit: 'dní',
-      date: nextFullMoon.toLocaleDateString('cs-CZ'),
-      today: todayStr,
-      explanation: `Příští úplněk bude za ${daysToFullMoon} dní (${nextFullMoon.toLocaleDateString('cs-CZ')}), počítáno od ${todayStr}`,
-    };
-  }
-
-  // Days until Christmas (v72: added "vanoc" without diacritics)
-  if (/váno|vanoc|christmas/i.test(input)) {
-    const christmas = new Date(now.getFullYear(), 11, 24);
-    if (christmas < now) {
-      christmas.setFullYear(christmas.getFullYear() + 1);
-    }
-    const days = Math.ceil((christmas - now) / (1000 * 60 * 60 * 24));
-    const todayStr = now.toLocaleDateString('cs-CZ');
-    return {
-      type: 'christmas',
-      answer: days,
-      unit: 'dní',
-      date: christmas.toLocaleDateString('cs-CZ'),
-      today: todayStr,
-      explanation: `Do Vánoc zbývá ${days} dní (od ${todayStr})`,
-    };
-  }
-
-  return computeDate(input);
-}
-
-/**
- * Normalize Czech natural-language math into a standard expression.
- * "847 děleno 7" → "847 / 7", "3 krát 5" → "3 * 5", "2 na druhou" → "2 ** 2"
- */
-export function normalizeCzechMath(input) {
-  let expr = input.toLowerCase().trim();
-
-  // Strip common Czech prefixes: "vypočítej", "kolik je", "spočítej", etc.
-  expr = expr
-    .replace(/^(vypočít[ea][jž]\s*(mi\s*(prosím\s*)?)?)/i, '')
-    .replace(/^(spočít[ea][jž]\s*(mi\s*(prosím\s*)?)?)/i, '')
-    .replace(/^(kolik\s+je\s*)/i, '')
-    .replace(/^(jaký\s+je\s+výsledek\s*)/i, '')
-    .trim();
-
-  // Division: "děleno", "lomeno", "÷"
-  expr = expr.replace(/\s*(děleno|lomeno|÷)\s*/gi, ' / ');
-
-  // Multiplication: "krát", "×", "násobek"
-  expr = expr.replace(/\s*(krát|×)\s*/gi, ' * ');
-
-  // Addition: "plus", "a"(between numbers)
-  expr = expr.replace(/\s+plus\s+/gi, ' + ');
-  expr = expr.replace(/(\d)\s+a\s+(\d)/g, '$1 + $2');
-
-  // Subtraction: "mínus", "méně"
-  expr = expr.replace(/\s*(mínus|minus|méně)\s*/gi, ' - ');
-
-  // Power: "na druhou" → **2, "na třetí" → **3
-  expr = expr.replace(/(\d+)\s+na\s+druhou/gi, '$1 ** 2');
-  expr = expr.replace(/(\d+)\s+na\s+t[řr]et[ií]/gi, '$1 ** 3');
-
-  // Square root: "odmocnina z 144" → Math.sqrt(144)
-  expr = expr.replace(/odmocnina\s+z\s+(\d+)/gi, 'Math.sqrt($1)');
-
-  // Percent: "15 procent z 200" → (15/100)*200
-  expr = expr.replace(/(\d+)\s*procent\s+z\s+(\d+)/gi, '($1/100)*$2');
-
-  // Clean remaining Czech words (keep digits, operators, parens, dots)
-  // Protect Math.sqrt and ** from being stripped
-  const sqrtPlaceholder = '\x00SQ\x00';
-  const powPlaceholder = '\x00PW\x00';
-  expr = expr.replace(/Math\.sqrt/g, sqrtPlaceholder);
-  expr = expr.replace(/\*\*/g, powPlaceholder);
-  expr = expr.replace(/[a-záčďéěíňóřšťúůýž]+/gi, '').trim();
-  expr = expr.replace(new RegExp(sqrtPlaceholder.replace(/\x00/g, '\\x00'), 'g'), 'Math.sqrt');
-  expr = expr.replace(new RegExp(powPlaceholder.replace(/\x00/g, '\\x00'), 'g'), '**');
-
-  // Collapse extra spaces
-  expr = expr.replace(/\s{2,}/g, ' ').trim();
-
-  return expr || null;
-}
-
-/**
- * Compute math expressions
- * Supports both standard notation (5+3) and Czech natural language (847 děleno 7)
- * v82.1: DPH/VAT calculation — "DPH z 10000 při 21%" → 2100
- */
-export function computeMath(input) {
-  const nonFiniteResult = (expression, result) => ({
-    answer: NaN,
-    expression,
-    error: 'non_finite_result',
-    nonFiniteResult: Number.isNaN(result) ? 'NaN' : String(result),
-    explanation: `${expression} does not have a finite numeric result`,
-  });
-
-  // v82.1: DPH/VAT — "DPH z 10000 Kč při sazbě 21%", "DPH z 5000 (15%)"
-  const dphMatch = input.match(/dph\s+(?:z\s+)?(?:částky\s+)?(\d[\d\s]*)\s*(?:kč\s*)?(?:při\s+(?:sazbě\s+)?)?(\d+)\s*%/i);
-  if (dphMatch) {
-    const base = parseFloat(dphMatch[1].replace(/\s/g, ''));
-    const rate = parseFloat(dphMatch[2]);
-    const vat = Math.round(base * rate / 100 * 100) / 100;
-    const total = base + vat;
-    return {
-      answer: vat,
-      expression: `DPH ${rate}% z ${base}`,
-      explanation: `Základ: ${base} Kč, DPH ${rate}%: ${vat} Kč, celkem s DPH: ${total} Kč`,
-    };
-  }
-  // v72: Factorial — "5!", "10!"
-  const factMatch = input.match(/(\d+)\s*!/);
-  if (factMatch) {
-    const n = parseInt(factMatch[1], 10);
-    if (n >= 0 && n <= 170) { // 170! is max safe for JS floats
-      let result = 1;
-      for (let i = 2; i <= n; i++) result *= i;
-      return {
-        answer: result,
-        expression: `${n}!`,
-        explanation: `${n}! = ${result}`,
-      };
-    }
-  }
-
-  // v72: Power — "2**10", "3 ** 4", "2^8"
-  const powMatch = input.match(/(\d+)\s*(?:\*\*|\^)\s*(\d+)/);
-  if (powMatch) {
-    const base = parseFloat(powMatch[1]);
-    const exp = parseFloat(powMatch[2]);
-    const result = Math.pow(base, exp);
-    return {
-      answer: result,
-      expression: `${powMatch[1]} ** ${powMatch[2]}`,
-      explanation: `${powMatch[1]} ** ${powMatch[2]} = ${result}`,
-    };
-  }
-
-  // Try standard notation — extract full arithmetic expression from input
-  const exprMatch = input.match(/([\d]+(?:\s*[+\-*/]\s*[\d]+)+)/);
-  if (exprMatch) {
-    const expr = exprMatch[1].replace(/\s+/g, '');
-    // Safe eval: only digits and basic operators
-    if (/^[\d+\-*/().]+$/.test(expr)) {
-      try {
-        const result = Function('"use strict"; return (' + expr + ')')();
-        if (typeof result === 'number' && Number.isFinite(result)) {
-          return {
-            answer: result,
-            expression: expr,
-            explanation: `${expr} = ${result}`,
-          };
-        }
-        if (typeof result === 'number') return nonFiniteResult(expr, result);
-      } catch {
-        // fall through to Czech normalization
-      }
-    }
-  }
-
-  // Try Czech natural language normalization
-  const normalized = normalizeCzechMath(input);
-  if (normalized && /[\d]/.test(normalized)) {
-    try {
-      // Safe eval: only allow digits, operators, parens, dots, Math.sqrt, **
-      if (/^[\d\s+\-*/().%]*(?:Math\.sqrt\([\d.]+\))?[\d\s+\-*/().%]*$/.test(normalized)
-          || /\*\*/.test(normalized)) {
-        const result = Function('"use strict"; return (' + normalized + ')')();
-        if (typeof result === 'number' && Number.isFinite(result)) {
-          return {
-            answer: result,
-            expression: normalized,
-            explanation: `${normalized} = ${result}`,
-          };
-        }
-        if (typeof result === 'number') return nonFiniteResult(normalized, result);
-      }
-    } catch {
-      // eval failed — fall through
-    }
-  }
-
-  return { answer: null, error: 'Could not parse math expression' };
-}
-
-/**
- * Compute date/time queries
- */
-export function computeDate(input) {
-  const now = new Date();
-
-  if (/kolik\s+(je\s+)?hodin|what.*time|current.*time/i.test(input)) {
-    return {
-      answer: now.toLocaleTimeString('cs-CZ'),
-      explanation: `Aktuální čas: ${now.toLocaleTimeString('cs-CZ')}`,
-    };
-  }
-
-  if (/datum|date|den|day/i.test(input)) {
-    const dayNames = ['neděle', 'pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota'];
-    return {
-      answer: now.toLocaleDateString('cs-CZ'),
-      dayOfWeek: dayNames[now.getDay()],
-      explanation: `Dnes je ${dayNames[now.getDay()]}, ${now.toLocaleDateString('cs-CZ')}`,
-    };
-  }
-
-  return {
-    answer: now.toLocaleString('cs-CZ'),
-    explanation: `Aktuální datum a čas: ${now.toLocaleString('cs-CZ')}`,
-  };
-}
+export {
+  computeCalendar,
+  computeDate,
+  computeMath,
+  normalizeCzechMath,
+} from '../../tools/local-computations.js';
 
 /**
  * Format LOCAL computation result for user
@@ -327,10 +160,15 @@ export function formatLocalResponse(input, result, handler, lang = 'cs') {
   // Q4: Use i18n-aware formatters based on handler type
   switch (handler) {
     case 'local.date':
+      {
+        const exact = Number.isSafeInteger(result.timestamp)
+          ? new Date(result.timestamp)
+          : null;
       if (/kolik\s+(je\s+)?hodin|what.*time|current.*time/i.test(input)) {
-        return formatTimeResponse(lang);
+          return formatTimeResponse(lang, exact);
+        }
+        return formatTodayResponse(lang, exact);
       }
-      return formatTodayResponse(lang);
 
     case 'local.math':
       if (result.expression && result.answer !== null) {

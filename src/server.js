@@ -1199,6 +1199,14 @@ const server = http.createServer(async (req, res) => {
     }));
   }
 
+  // The shared local-access decision above is the HTTP transport authority.
+  // Bind it to the same stable local operator identity as the verified WS
+  // upgrade; request body fields such as userId remain non-authoritative.
+  req.authenticatedSubject = Object.freeze({
+    actorType: 'user',
+    actorId: 'local-operator',
+  });
+
   const requestOrigin = req.headers.origin;
   res._corsOrigin = (
     requestOrigin === 'null'

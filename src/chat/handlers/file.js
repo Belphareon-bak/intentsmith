@@ -17,7 +17,6 @@ import { IntentType } from '../cre-decision.js';
 import { logger } from '../../core/logger.js';
 import { getLanguageContext } from './utils/language.js';
 import { synthesizeWithLLM } from './utils/synthesis.js';
-import fs from 'fs/promises';
 import path from 'path';
 import { config } from '../../config.js';
 
@@ -101,66 +100,6 @@ function validateFilePath(filePath, projectPath) {
   }
 
   return { safe: true, resolved };
-}
-
-// ─── File reading ────────────────────────────────────────────────────────────
-
-/**
- * Read a file safely with size guard.
- * @param {string} resolvedPath — Absolute path (already validated)
- * @returns {{ content: string, size: number, lines: number, truncated: boolean, error?: string }}
- */
-async function readFileSafe(resolvedPath) {
-  try {
-    const stat = await fs.stat(resolvedPath);
-
-    if (stat.isDirectory()) {
-      // List directory contents instead
-      const entries = await fs.readdir(resolvedPath, { withFileTypes: true });
-      const listing = entries.map(e =>
-        `${e.isDirectory() ? '📁' : '📄'} ${e.name}`
-      ).join('\n');
-      return {
-        content: listing,
-        size: stat.size,
-        lines: entries.length,
-        truncated: false,
-        isDirectory: true,
-      };
-    }
-
-    if (stat.size > MAX_FILE_SIZE) {
-      return {
-        content: '',
-        size: stat.size,
-        lines: 0,
-        truncated: true,
-        error: `file_too_large:${stat.size}`,
-      };
-    }
-
-    const content = await fs.readFile(resolvedPath, 'utf-8');
-    const lines = content.split('\n');
-    const truncated = lines.length > MAX_DISPLAY_LINES;
-    const displayContent = truncated
-      ? lines.slice(0, MAX_DISPLAY_LINES).join('\n') + `\n\n... (zkráceno, celkem ${lines.length} řádků)`
-      : content;
-
-    return {
-      content: displayContent,
-      size: stat.size,
-      lines: lines.length,
-      truncated,
-    };
-  } catch (err) {
-    if (err.code === 'ENOENT') {
-      return { content: '', size: 0, lines: 0, truncated: false, error: 'file_not_found' };
-    }
-    if (err.code === 'EACCES') {
-      return { content: '', size: 0, lines: 0, truncated: false, error: 'permission_denied' };
-    }
-    return { content: '', size: 0, lines: 0, truncated: false, error: err.message };
-  }
 }
 
 // ─── Response formatting ─────────────────────────────────────────────────────
@@ -267,7 +206,7 @@ function formatSecurityBlock(filePath, reason, lang = 'cs') {
 /**
  * Handle FILE_READ and FILE_EXPLAIN decisions — TERMINAL
  */
-export async function handleFileDecision(input, decision, context) {
+export async function handleFileDecision(input, decision, context, dependencies = {}) {
   const { sessionState } = context;
   const handler = decision.metadata?.handler || 'file.read';
   // v84: When FILE_READ has no specific file in project mode → default to directory listing ('.')
@@ -344,8 +283,85 @@ export async function handleFileDecision(input, decision, context) {
       truncated: false,
     };
   } else {
-    // Read the file from disk
-    result = await readFileSafe(validation.resolved);
+    // A path is an input, never read authority. Until an exact fs.read effect
+    // adapter exists, the durable broker records a fail-closed Tool terminal.
+    // No stat/readdir/readFile or FILE_EXPLAIN synthesis may run on this branch.
+    try {
+      let executor = dependencies.toolExecutor;
+      if (!executor) {
+        const module = await import('../../executor/tool-executor.js');
+        executor = module.toolExecutor;
+      }
+      if (!executor || typeof executor.executeM2Tool !== 'function') {
+        throw Object.assign(new Error('M2 tool runtime is unavailable'), {
+          code: 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE',
+        });
+      }
+      const toolId = filePath === '.' ? 'file.list' : 'file.read';
+      const execution = await executor.executeM2Tool({
+        toolId,
+        input: { path: filePath },
+        context,
+        timeoutMs: 30_000,
+      });
+      const errorCode = execution.result?.error?.code
+        || (execution.state === 'in_progress' ? 'TOOL_EXECUTION_IN_PROGRESS' : null)
+        || (execution.state === 'approval_required' ? 'TOOL_EFFECT_AUTHORITY_REQUIRED' : null)
+        || 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE';
+      const content = execution.state === 'approval_required' && execution.effectRequestId
+        ? (lang === 'cs'
+          ? `🔐 Čtení čeká na přesné schválení efektu ${execution.effectRequestId}. Obsah zatím nebyl načten.`
+          : `🔐 Reading awaits exact effect approval ${execution.effectRequestId}. No content was loaded.`)
+        : (lang === 'cs'
+          ? '🔒 Soubor nebyl načten: chybí přesná M2 autorita pro čtení. Nebyl spuštěn diskový přístup ani náhradní LLM odpověď.'
+          : '🔒 File not loaded: exact M2 read authority is unavailable. No disk access or fallback LLM response ran.');
+      return new TaggedResponse({
+        content,
+        tag: new ResponseTag({
+          speaker: ResponseSpeaker.SYSTEM,
+          mode: context.hasActiveProject ? ChatMode.PROJECT : ChatMode.CONVERSATION,
+          confidence: 1,
+          canExecute: false,
+          metadata: {
+            decision: decision.toJSON(),
+            fileOperation: false,
+            handler: decision.intent === IntentType.FILE_EXPLAIN ? 'file.explain' : toolId,
+            securityBlocked: true,
+            fallbackSuppressed: true,
+            error: errorCode,
+            toolRequestId: execution.request?.requestId || null,
+            effectId: execution.effectRequestId || null,
+            approvalRequired: execution.state === 'approval_required',
+          },
+        }),
+      });
+    } catch (error) {
+      logger.warn('HandleFile', 'Durable file.read authority rejected the request', {
+        code: error?.code || null,
+      });
+      return new TaggedResponse({
+        content: lang === 'cs'
+          ? '🔒 Soubor nebyl načten: požadavek neprošel M2 autoritou. Nebyl spuštěn diskový přístup ani náhradní LLM odpověď.'
+          : '🔒 File not loaded: the request failed M2 authority. No disk access or fallback LLM response ran.',
+        tag: new ResponseTag({
+          speaker: ResponseSpeaker.SYSTEM,
+          mode: context.hasActiveProject ? ChatMode.PROJECT : ChatMode.CONVERSATION,
+          confidence: 1,
+          canExecute: false,
+          metadata: {
+            decision: decision.toJSON(),
+            fileOperation: false,
+            handler: decision.intent === IntentType.FILE_EXPLAIN
+              ? 'file.explain'
+              : (filePath === '.' ? 'file.list' : 'file.read'),
+            securityBlocked: true,
+            fallbackSuppressed: true,
+            error: error?.code || 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE',
+            approvalRequired: false,
+          },
+        }),
+      });
+    }
   }
 
   // Record decision
@@ -755,7 +771,7 @@ export async function handleFileWriteDecision(input, decision, context, dependen
 }
 
 // Testing exports
-export { validateFilePath, readFileSafe, extractFilePathFromInput, _extractUserContent };
+export { validateFilePath, extractFilePathFromInput, _extractUserContent };
 
 /**
  * Extract file path from user input (exported for testing).

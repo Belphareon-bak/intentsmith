@@ -108,8 +108,14 @@ function isCanonicalAbsolute(candidate) {
     && path.normalize(candidate) === candidate;
 }
 
-function isProjectRelative(candidate) {
-  if (!isNonEmptyString(candidate, 4096) || path.isAbsolute(candidate) || candidate.includes('\\')) {
+export function isM2ProjectRelativePath(candidate) {
+  if (
+    !isNonEmptyString(candidate, 4096)
+    || path.isAbsolute(candidate)
+    || candidate.includes('\\')
+    || candidate.includes('\0')
+    || candidate.endsWith('/')
+  ) {
     return false;
   }
   const normalized = path.posix.normalize(candidate);
@@ -182,7 +188,7 @@ function validateFilesystemTarget(value) {
   if (!isPlainRecord(value)) return errors;
   if (value.type !== 'filesystem') errors.push(`${context}:invalid-type`);
   if (!isCanonicalAbsolute(value.canonicalRoot)) errors.push(`${context}:invalid-canonicalRoot`);
-  if (!isProjectRelative(value.relativePath)) errors.push(`${context}:invalid-relativePath`);
+  if (!isM2ProjectRelativePath(value.relativePath)) errors.push(`${context}:invalid-relativePath`);
   if (!isCanonicalAbsolute(value.resolvedRealpath)) errors.push(`${context}:invalid-resolvedRealpath`);
   if (
     isCanonicalAbsolute(value.canonicalRoot)
@@ -191,7 +197,7 @@ function validateFilesystemTarget(value) {
   ) errors.push(`${context}:outside-project`);
   if (
     isCanonicalAbsolute(value.canonicalRoot)
-    && isProjectRelative(value.relativePath)
+    && isM2ProjectRelativePath(value.relativePath)
     && isCanonicalAbsolute(value.resolvedRealpath)
     && path.resolve(value.canonicalRoot, value.relativePath) !== value.resolvedRealpath
   ) errors.push(`${context}:canonical-target-mismatch`);
@@ -275,7 +281,7 @@ function validateGitTarget(value, kind, workspaceRevision) {
   if (!isPlainRecord(value)) return errors;
   if (value.type !== 'git') errors.push(`${context}:invalid-type`);
   if (!isCanonicalAbsolute(value.canonicalRepo)) errors.push(`${context}:invalid-canonicalRepo`);
-  errors.push(...validateSortedUniqueStrings(value.paths, `${context}.paths`, isProjectRelative));
+  errors.push(...validateSortedUniqueStrings(value.paths, `${context}.paths`, isM2ProjectRelativePath));
   if (value.paths?.length === 0) errors.push(`${context}.paths:empty`);
   if (value.expectedWorkspaceRevision !== workspaceRevision) {
     errors.push(`${context}:workspace-revision-mismatch`);
@@ -371,7 +377,7 @@ function validateChangesResult(value) {
     context,
   );
   if (!isPlainRecord(value)) return errors;
-  errors.push(...validateSortedUniqueStrings(value.paths, `${context}.paths`, isProjectRelative));
+  errors.push(...validateSortedUniqueStrings(value.paths, `${context}.paths`, isM2ProjectRelativePath));
   for (const key of ['beforeDigest', 'afterDigest']) {
     if (!(value[key] === null || isDigest(value[key]))) errors.push(`${context}:invalid-${key}`);
   }
@@ -457,6 +463,63 @@ export function validateEffectResult(value) {
   errors.push(...validateSortedUniqueStrings(value.evidenceRefs, `${context}.evidenceRefs`));
   if (typeof value.lateCompletionRejected !== 'boolean') errors.push(`${context}:invalid-lateCompletionRejected`);
   return validationResult(errors, value);
+}
+
+/**
+ * Validate the terminal evidence against the exact EffectRequest it claims to
+ * complete. Generic shape alone is insufficient: a provider returning `{}`
+ * must never turn an fs.write into a succeeded authority record.
+ */
+export function validateEffectResultForRequest(request, result) {
+  const errors = [];
+  const requestValidation = validateEffectRequest(request);
+  const resultValidation = validateEffectResult(result);
+  errors.push(...requestValidation.errors, ...resultValidation.errors);
+  if (!requestValidation.valid || !resultValidation.valid) {
+    return validationResult(errors, result);
+  }
+  if (
+    result.effectId !== request.effectId
+    || result.runId !== request.runId
+    || result.projectId !== request.origin.projectId
+    || result.requestDigest !== computeEffectRequestDigest(request)
+  ) errors.push('effect-result:request-identity-mismatch');
+
+  if (result.terminalStatus === 'succeeded' && request.kind === 'fs.write') {
+    if (
+      result.changes.paths.length !== 1
+      || result.changes.paths[0] !== request.target.relativePath
+    ) errors.push('effect-result:fs-write-path-evidence-mismatch');
+    if (result.changes.afterDigest !== request.payloadDigest) {
+      errors.push('effect-result:fs-write-after-digest-mismatch');
+    }
+    if (result.outputDigest !== request.payloadDigest) {
+      errors.push('effect-result:fs-write-output-digest-mismatch');
+    }
+    if (result.rollback.required !== false || result.rollback.status !== 'not_required') {
+      errors.push('effect-result:fs-write-success-rollback-mismatch');
+    }
+    if (result.changes.diffArtifact !== null) {
+      errors.push('effect-result:fs-write-success-diff-artifact-mismatch');
+    }
+    if (
+      result.process.pid !== null
+      || result.process.processGroupId !== null
+      || result.process.startIdentity !== null
+      || result.process.exitCode !== null
+      || result.process.signal !== null
+    ) errors.push('effect-result:fs-write-success-process-mismatch');
+    if (
+      result.network.resolvedAddresses.length !== 0
+      || result.network.finalUrl !== null
+      || result.network.status !== null
+      || result.network.bytes !== 0
+    ) errors.push('effect-result:fs-write-success-network-mismatch');
+    if (result.lateCompletionRejected !== false) {
+      errors.push('effect-result:fs-write-success-late-completion-mismatch');
+    }
+  }
+  return validationResult(errors, result);
 }
 
 function validateGrantSubject(value) {

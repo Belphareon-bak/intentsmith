@@ -2,7 +2,14 @@
 
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import Database from 'better-sqlite3';
@@ -12,12 +19,17 @@ import { computeEffectRequestDigest } from '../contracts/m2/effect-v1.js';
 import {
   M2_TOOL_ERROR_CODE,
   canonicalizeM2ToolValue,
+  computeM2ToolRequestDigest,
   validateM2ToolRequest,
   validateM2ToolResult,
 } from '../contracts/m2/tool-v1.js';
 import { createM2ToolBroker, M2ToolBrokerErrorCode } from '../src/tools/m2-tool-broker.js';
 import { createM2ToolEffectAdapter } from '../src/tools/m2-tool-effect-adapter.js';
-import { M2ToolAuthorityRepository } from '../src/tools/m2-tool-authority-repository.js';
+import { expectedM2EffectOperationKey } from '../src/tools/m2-tool-registry.js';
+import {
+  M2ToolAuthorityErrorCode,
+  M2ToolAuthorityRepository,
+} from '../src/tools/m2-tool-authority-repository.js';
 import { createEffectFileRuntime } from '../src/effects/effect-file-runtime.js';
 import { up as applyEffectAuthority } from '../src/db/migrations/2026_08_23_070_m2_effect_authority.js';
 import { up as applyEffectHardening } from '../src/db/migrations/2026_08_24_071_m2_effect_authority_hardening.js';
@@ -25,6 +37,8 @@ import { up as applyEffectClaims } from '../src/db/migrations/2026_08_24_072_m2_
 import { up as applyEffectClaimTruth } from '../src/db/migrations/2026_08_24_073_m2_effect_claim_truth.js';
 import { up as applyToolAuthority } from '../src/db/migrations/2026_08_24_074_m2_tool_authority.js';
 import { up as applyToolEffectLinks } from '../src/db/migrations/2026_08_24_075_m2_tool_effect_links.js';
+import { up as applyToolTruth } from '../src/db/migrations/2026_08_24_076_m2_tool_authority_truth.js';
+import { up as applyEffectInvalidations } from '../src/db/migrations/2026_08_24_077_m2_effect_invalidations.js';
 
 function clockFrom(values) {
   const queue = [...values];
@@ -37,6 +51,7 @@ function memoryRepository() {
   const linksByRequest = new Map();
   const linksByEffect = new Map();
   const effectResults = new Map();
+  const claims = new Map();
   return {
     registerToolRequest(request) {
       const encoded = canonicalizeM2ToolValue(request);
@@ -90,14 +105,44 @@ function memoryRepository() {
       const value = effectResults.get(effectRequestId);
       return value ? structuredClone(value) : null;
     },
+    invalidatePendingEffect({ requestId, effectRequestId, reasonCode }) {
+      return { requestId, effectId: effectRequestId, reasonCode, invalidatedAtMs: 1 };
+    },
+    invalidateToolEffectOperation({ requestId, reasonCode }) {
+      return { requestId, effectId: null, reasonCode, invalidatedAtMs: 1 };
+    },
+    getToolEffectOperationInvalidation() {
+      return null;
+    },
+    getToolEffectInvalidation() {
+      return null;
+    },
+    getToolExecutionClaim(requestId) {
+      return claims.get(requestId) || null;
+    },
+    claimToolExecution({ requestId, executionOwner, allowTakeover = false }) {
+      const existing = claims.get(requestId);
+      if (existing && !allowTakeover) return { acquired: false, claim: existing };
+      const claim = Object.freeze({
+        requestId,
+        generation: (existing?.generation || 0) + 1,
+        ownerId: executionOwner.ownerId,
+        ownerPid: executionOwner.pid,
+        ownerBootId: executionOwner.bootId,
+        ownerStartIdentity: executionOwner.startIdentity,
+        claimedAtMs: 1,
+      });
+      claims.set(requestId, claim);
+      return { acquired: true, claim };
+    },
     _recordEffectResult(value) {
       effectResults.set(value.effectId, structuredClone(value));
     },
   };
 }
 
-function realAuthorityDatabase() {
-  const database = new Database(':memory:');
+function realAuthorityDatabase(filename = ':memory:') {
+  const database = new Database(filename);
   database.pragma('foreign_keys = ON');
   applyEffectAuthority(database);
   applyEffectHardening(database);
@@ -105,7 +150,35 @@ function realAuthorityDatabase() {
   applyEffectClaimTruth(database);
   applyToolAuthority(database);
   applyToolEffectLinks(database);
+  applyToolTruth(database);
+  applyEffectInvalidations(database);
   return database;
+}
+
+function openAuthorityDatabase(filename) {
+  const database = new Database(filename);
+  database.pragma('foreign_keys = ON');
+  database.pragma('busy_timeout = 2000');
+  return database;
+}
+
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return Object.freeze({ promise, resolve, reject });
+}
+
+function executionOwner(token, pid) {
+  return Object.freeze({
+    ownerId: `owner:${token}`,
+    pid,
+    bootId: `${token.repeat(8).slice(0, 8)}-${token.repeat(4).slice(0, 4)}-4${token.repeat(3).slice(0, 3)}-8${token.repeat(3).slice(0, 3)}-${token.repeat(12).slice(0, 12)}`,
+    startIdentity: String(10_000 + pid),
+  });
 }
 
 function broker(options = {}) {
@@ -143,7 +216,7 @@ function effectRequestForTool(request, {
     requiredCapability: capability,
     riskClass,
     timeoutMs: request.timeoutMs,
-    idempotencyKey: `effect-operation:${sha256(request.idempotencyKey)}`,
+    idempotencyKey: expectedM2EffectOperationKey(request),
     approvalGrantId: null,
     createdAt: '2026-08-24T08:00:00.000Z',
   };
@@ -224,6 +297,48 @@ test('same run, operation and normalized bytes yield stable request identity', (
   assert.equal(first.createdAt, second.createdAt);
 });
 
+test('real SQLite stores one NFC input before digest and effect-binding derivation', () => {
+  const database = realAuthorityDatabase();
+  const repository = new M2ToolAuthorityRepository(database, { clock: () => 1_777_000_000_000 });
+  const toolBroker = createM2ToolBroker({
+    repository,
+    clock: () => 1_777_000_000_000,
+  });
+  try {
+    const decomposedContent = 'Cafe\u0301\n';
+    const fileRequest = toolBroker.createRequest({
+      toolId: 'file.write',
+      input: { path: 'notes.txt', content: decomposedContent },
+      context,
+    });
+    assert.equal(fileRequest.input.content, 'Café\n');
+    assert.equal(fileRequest.effectBinding.payloadDigest, digest(Buffer.from('Café\n', 'utf8')));
+    assert.equal(fileRequest.effectBinding.payloadBytes, Buffer.byteLength('Café\n', 'utf8'));
+    assert.deepEqual(repository.getToolRequest(fileRequest.requestId), fileRequest);
+    const fileReplay = toolBroker.createRequest({
+      toolId: 'file.write',
+      input: { path: 'notes.txt', content: 'Café\n' },
+      context,
+    });
+    assert.equal(fileReplay.requestId, fileRequest.requestId);
+
+    const webContext = { ...context, userMessageId: 205 };
+    const webRequest = toolBroker.createRequest({
+      toolId: 'web.search',
+      input: { query: 'Cafe\u0301 IntentSmith' },
+      context: webContext,
+    });
+    assert.equal(webRequest.input.query, 'Café IntentSmith');
+    assert.equal(
+      webRequest.effectBinding.target.url,
+      'https://html.duckduckgo.com/html/?q=Caf%C3%A9%20IntentSmith',
+    );
+    assert.deepEqual(repository.getToolRequest(webRequest.requestId), webRequest);
+  } finally {
+    database.close();
+  }
+});
+
 await testAsync('pure local tool executes once and returns schema-validated ToolResult', async () => {
   let calls = 0;
   const toolBroker = broker({ clock: clockFrom([100, 101, 102, 103]) });
@@ -243,6 +358,26 @@ await testAsync('pure local tool executes once and returns schema-validated Tool
   assert.equal(validateM2ToolResult(execution.result).valid, true);
 });
 
+await testAsync('direct provider receives the same NFC input owned by ToolRequest', async () => {
+  let invokedInput = null;
+  const toolBroker = broker({ clock: clockFrom([100, 101, 102, 103]) });
+  const execution = await toolBroker.execute({
+    toolId: 'local.math',
+    input: { query: 'Cafe\u0301' },
+    context: { ...context, userMessageId: 206 },
+    invoke: async (_signal, authorityInput) => {
+      invokedInput = authorityInput;
+      return {
+        success: true,
+        data: { subtype: 'math', expression: authorityInput.query, result: 4 },
+      };
+    },
+  });
+  assert.deepEqual(invokedInput, { query: 'Café' });
+  assert.deepEqual(execution.request.input, invokedInput);
+  assert.equal(execution.result.output.expression, 'Café');
+});
+
 await testAsync('invalid direct output becomes typed error, never success', async () => {
   const toolBroker = broker({ clock: clockFrom([100, 101, 102, 103]) });
   const execution = await toolBroker.execute({
@@ -253,6 +388,177 @@ await testAsync('invalid direct output becomes typed error, never success', asyn
   });
   assert.equal(execution.result.status, 'error');
   assert.equal(execution.result.error.code, M2_TOOL_ERROR_CODE.OUTPUT_INVALID);
+});
+
+await testAsync('two SQLite brokers have one live-claim winner, one provider call and exact replay', async () => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'm2-tool-claim-race-'));
+  const databasePath = path.join(directory, 'authority.sqlite');
+  realAuthorityDatabase(databasePath).close();
+  const databaseA = openAuthorityDatabase(databasePath);
+  const databaseB = openAuthorityDatabase(databasePath);
+  const liveness = Object.freeze({ isProvablyDead() { return false; } });
+  const repositoryA = new M2ToolAuthorityRepository(databaseA, {
+    clock: () => 1_777_000_300_000,
+    executionLiveness: liveness,
+  });
+  const repositoryB = new M2ToolAuthorityRepository(databaseB, {
+    clock: () => 1_777_000_300_000,
+    executionLiveness: liveness,
+  });
+  const providerStarted = deferred();
+  const providerRelease = deferred();
+  let providerCalls = 0;
+  const brokerA = createM2ToolBroker({
+    repository: repositoryA,
+    clock: () => 1_777_000_300_000,
+    executionOwnerFactory: () => executionOwner('a', 101),
+  });
+  const brokerB = createM2ToolBroker({
+    repository: repositoryB,
+    clock: () => 1_777_000_300_000,
+    executionOwnerFactory: () => executionOwner('b', 102),
+  });
+  const raceContext = { ...context, userMessageId: 301 };
+  const invoke = async (_signal, authorityInput) => {
+    providerCalls += 1;
+    providerStarted.resolve();
+    await providerRelease.promise;
+    return {
+      success: true,
+      data: { subtype: 'math', expression: authorityInput.query, result: 4 },
+    };
+  };
+  try {
+    const winnerPromise = brokerA.execute({
+      toolId: 'local.math',
+      input: { query: '2+2' },
+      context: raceContext,
+      invoke,
+    });
+    await providerStarted.promise;
+    const loser = await brokerB.execute({
+      toolId: 'local.math',
+      input: { query: '2+2' },
+      context: raceContext,
+      invoke: async () => assert.fail('claim loser must not invoke the provider'),
+    });
+    assert.equal(loser.state, 'in_progress');
+    assert.equal(loser.result, null);
+    assert.equal(providerCalls, 1);
+    providerRelease.resolve();
+    const winner = await winnerPromise;
+    const replay = await brokerB.execute({
+      toolId: 'local.math',
+      input: { query: '2+2' },
+      context: raceContext,
+      invoke: async () => assert.fail('terminal replay must not invoke the provider'),
+    });
+    assert.deepEqual(replay.result, winner.result);
+    assert.deepEqual(replay.value, winner.value);
+    assert.equal(providerCalls, 1);
+    assert.deepEqual(databaseA.prepare(`
+      SELECT
+        (SELECT count(*) FROM tool_v1_execution_claims) AS claims,
+        (SELECT count(*) FROM tool_v1_results) AS results
+    `).get(), { claims: 1, results: 1 });
+  } finally {
+    providerRelease.resolve();
+    databaseA.close();
+    databaseB.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+await testAsync('unknown liveness blocks takeover; proven death advances generation and fences stale owner', async () => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'm2-tool-claim-takeover-'));
+  const databasePath = path.join(directory, 'authority.sqlite');
+  realAuthorityDatabase(databasePath).close();
+  const databaseA = openAuthorityDatabase(databasePath);
+  const databaseB = openAuthorityDatabase(databasePath);
+  const clock = () => 1_777_000_400_000;
+  const ownerA = executionOwner('c', 103);
+  const ownerB = executionOwner('d', 104);
+  const repositoryA = new M2ToolAuthorityRepository(databaseA, {
+    clock,
+    executionLiveness: { isProvablyDead() { return false; } },
+  });
+  const seeder = createM2ToolBroker({
+    repository: repositoryA,
+    clock,
+    executionOwnerFactory: () => ownerA,
+  });
+  const takeoverContext = { ...context, userMessageId: 302 };
+  try {
+    const request = seeder.createRequest({
+      toolId: 'local.math',
+      input: { query: '2+2' },
+      context: takeoverContext,
+    });
+    const staleClaim = repositoryA.claimToolExecution({
+      requestId: request.requestId,
+      executionOwner: ownerA,
+    }).claim;
+    const unknownRepository = new M2ToolAuthorityRepository(databaseB, {
+      clock,
+      executionLiveness: { isProvablyDead() { return false; } },
+    });
+    const unknownBroker = createM2ToolBroker({
+      repository: unknownRepository,
+      clock,
+      executionOwnerFactory: () => ownerB,
+    });
+    let providerCalls = 0;
+    const unknown = await unknownBroker.execute({
+      toolId: 'local.math',
+      input: { query: '2+2' },
+      context: takeoverContext,
+      invoke: async () => { providerCalls += 1; },
+    });
+    assert.equal(unknown.state, 'in_progress');
+    assert.equal(providerCalls, 0);
+    assert.equal(unknownRepository.getToolExecutionClaim(request.requestId).generation, 1);
+
+    const takeoverRepository = new M2ToolAuthorityRepository(databaseB, {
+      clock,
+      executionLiveness: { isProvablyDead() { return true; } },
+    });
+    const takeoverBroker = createM2ToolBroker({
+      repository: takeoverRepository,
+      clock,
+      executionOwnerFactory: () => ownerB,
+    });
+    const takeover = await takeoverBroker.execute({
+      toolId: 'local.math',
+      input: { query: '2+2' },
+      context: takeoverContext,
+      invoke: async (_signal, authorityInput) => {
+        providerCalls += 1;
+        return {
+          success: true,
+          data: { subtype: 'math', expression: authorityInput.query, result: 4 },
+        };
+      },
+    });
+    assert.equal(takeover.result.status, 'ok');
+    assert.equal(providerCalls, 1);
+    assert.equal(takeoverRepository.getToolExecutionClaim(request.requestId).generation, 2);
+    assert.throws(
+      () => repositoryA.recordToolResult(takeover.result, { executionClaim: staleClaim }),
+      error => error.code === M2ToolAuthorityErrorCode.RESULT_REQUEST_MISMATCH,
+    );
+    assert.deepEqual(repositoryA.getToolResult(request.requestId), takeover.result);
+    assert.throws(
+      () => takeoverRepository.claimToolExecution({
+        requestId: request.requestId,
+        executionOwner: executionOwner('e', 105),
+      }),
+      error => error.code === M2ToolAuthorityErrorCode.RESULT_CONFLICT,
+    );
+  } finally {
+    databaseA.close();
+    databaseB.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 suite('M2 tool broker — effect translation and fail-closed boundary');
@@ -272,10 +578,12 @@ await testAsync('network tool without exact adapter never invokes legacy handler
   assert.equal(execution.result.effectRequestId, null);
 });
 
-await testAsync('forged adapter approval without canonical EffectRequest is rejected', async () => {
+await testAsync('forged adapter authority is invalidated into one durable Tool error', async () => {
   let calls = 0;
   let captured;
-  const toolBroker = broker({
+  const repository = memoryRepository();
+  const toolBroker = createM2ToolBroker({
+    repository,
     clock: clockFrom([100, 101, 102, 103]),
     effectAdapter: {
       async prepare(input) {
@@ -285,16 +593,17 @@ await testAsync('forged adapter approval without canonical EffectRequest is reje
     },
   });
   const execution = await toolBroker.execute({
-    toolId: 'web.scrape',
-    input: { url: 'https://example.test/page', query: 'test', maxLength: 5_000 },
-    context,
-    invoke: async () => { calls += 1; return {}; },
-  });
+      toolId: 'web.scrape',
+      input: { url: 'https://example.test/page', query: 'test', maxLength: 5_000 },
+      context,
+      invoke: async () => { calls += 1; return {}; },
+    });
   assert.equal(calls, 0);
   assert.equal(Object.isFrozen(captured), true);
   assert.equal(captured.requiredEffectKind, 'network.request');
-  assert.equal(execution.result.error.code, M2_TOOL_ERROR_CODE.EFFECT_AUTHORITY_UNAVAILABLE);
-  assert.equal(execution.result.effectRequestId, null);
+  assert.equal(execution.result.status, 'error');
+  assert.equal(execution.result.error.code, 'TOOL_EFFECT_TRANSLATION_INVALID');
+  assert.deepEqual(repository.getToolResult(captured.requestId), execution.result);
 });
 
 await testAsync('canonical exact network EffectRequest can return approval-required without connect', async () => {
@@ -414,7 +723,7 @@ await testAsync('network search query is not misrepresented as one exact network
     invoke: async () => assert.fail('network handler must not run'),
   });
   assert.equal(runtimeCalls, 0);
-  assert.equal(execution.result.error.code, M2_TOOL_ERROR_CODE.EFFECT_AUTHORITY_UNAVAILABLE);
+  assert.equal(execution.result.error.code, 'TOOL_EFFECT_TRANSLATION_INVALID');
 });
 
 await testAsync('pending file effect has no ToolResult; canonical terminal retry commits success once', async () => {
@@ -569,7 +878,7 @@ await testAsync('effect adapter throw becomes one durable error terminal', async
     context,
   });
   assert.equal(execution.result.status, 'error');
-  assert.equal(execution.result.error.code, 'EFFECT_ADAPTER_THROW');
+  assert.equal(execution.result.error.code, 'TOOL_EFFECT_PREPARATION_FAILED');
   assert.deepEqual(repository.getToolResult(execution.request.requestId), execution.result);
 });
 
@@ -690,6 +999,22 @@ await testAsync('real filesystem adapter timeout and cancel create no late effec
       await new Promise(resolve => setImmediate(resolve));
       await new Promise(resolve => setImmediate(resolve));
 
+      await assert.rejects(
+        runtime.requestFilesystemWrite({
+          sessionId: realContext.conversationId,
+          conversationId: realContext.conversationId,
+          subjectId: realContext.authenticatedSubject.actorId,
+          operationId: execution.request.requestId,
+          projectId: 7,
+          projectRoot,
+          relativePath: `src/forged-after-${mode}.js`,
+          content: 'forged after terminal\n',
+        }),
+        error => /M2_TOOL_EFFECT_OPERATION_INVALIDATED/.test(
+          error?.details?.cause || error?.message || '',
+        ),
+      );
+
       assert.deepEqual(database.prepare(`
         SELECT
           (SELECT count(*) FROM m2_effect_requests) AS effectRequests,
@@ -702,6 +1027,854 @@ await testAsync('real filesystem adapter timeout and cancel create no late effec
       database.close();
       rmSync(directory, { recursive: true, force: true });
     }
+  }
+});
+
+await testAsync('timeout and cancel after durable prepare invalidate the exact pending effect', async () => {
+  for (const mode of ['timeout', 'cancel']) {
+    const directory = mkdtempSync(path.join(tmpdir(), `m2-tool-post-register-${mode}-`));
+    const projectRoot = path.join(directory, 'project');
+    mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
+    const database = realAuthorityDatabase();
+    const clock = () => 1_777_000_075_000;
+    const runtime = createEffectFileRuntime({
+      database,
+      clock,
+      workspaceAuthority: {
+        async observe() {
+          return {
+            canonicalRoot: realpathSync(projectRoot),
+            workspaceRevision: 'wsr1:post-register-race',
+          };
+        },
+      },
+    });
+    const canonicalAdapter = createM2ToolEffectAdapter({ effectRuntime: runtime });
+    const prepared = deferred();
+    const release = deferred();
+    let durableEffectId = null;
+    let timeoutCallback = null;
+    const controller = new AbortController();
+    const toolBroker = createM2ToolBroker({
+      repository: new M2ToolAuthorityRepository(database, { clock }),
+      clock,
+      scheduleTimeout(callback) {
+        timeoutCallback = callback;
+        return { cancel() {} };
+      },
+      effectAdapter: {
+        async prepare(args) {
+          const authority = await canonicalAdapter.prepare(args);
+          durableEffectId = authority.effectRequestId;
+          prepared.resolve();
+          await release.promise;
+          return authority;
+        },
+      },
+    });
+    const realContext = {
+      ...context,
+      sessionId: `studio-post-register-${mode}`,
+      conversationId: `conversation-post-register-${mode}`,
+      userMessageId: mode === 'timeout' ? 221 : 222,
+      project: { id: 7, path: projectRoot },
+      signal: controller.signal,
+    };
+    try {
+      const executionPromise = toolBroker.execute({
+        toolId: 'file.write',
+        input: { path: `src/post-${mode}.js`, content: 'must not run\n' },
+        context: realContext,
+        timeoutMs: 1,
+      });
+      await prepared.promise;
+      if (mode === 'timeout') timeoutCallback();
+      else controller.abort('user');
+      const execution = await executionPromise;
+      assert.equal(execution.result.status, mode === 'timeout' ? 'timeout' : 'cancelled');
+      assert.deepEqual(database.prepare(`
+        SELECT
+          (SELECT count(*) FROM m2_effect_requests) AS effectRequests,
+          (SELECT count(*) FROM m2_effect_invalidations) AS effectInvalidations,
+          (SELECT count(*) FROM m2_tool_effect_operation_invalidations) AS operationInvalidations,
+          (SELECT count(*) FROM m2_pending_effect_payloads) AS pending,
+          (SELECT count(*) FROM m2_tool_effect_links) AS links,
+          (SELECT count(*) FROM tool_v1_results) AS toolResults
+      `).get(), {
+        effectRequests: 1,
+        effectInvalidations: 1,
+        operationInvalidations: 1,
+        pending: 0,
+        links: 0,
+        toolResults: 1,
+      });
+      await assert.rejects(
+        runtime.approveFilesystemWrite({
+          effectId: durableEffectId,
+          conversationId: realContext.conversationId,
+          subjectId: realContext.authenticatedSubject.actorId,
+        }),
+        error => error.code === 'EFFECT_INVALIDATED',
+      );
+      release.resolve();
+      await new Promise(resolve => setImmediate(resolve));
+      assert.equal(existsSync(path.join(projectRoot, `src/post-${mode}.js`)), false);
+    } finally {
+      release.resolve();
+      database.close();
+      rmSync(directory, { recursive: true, force: true });
+    }
+  }
+});
+
+await testAsync('adapter throw or hidden return after prepare cannot leave approvable authority', async () => {
+  for (const mode of ['throw', 'hidden']) {
+    const directory = mkdtempSync(path.join(tmpdir(), `m2-tool-hidden-${mode}-`));
+    const projectRoot = path.join(directory, 'project');
+    mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
+    const database = realAuthorityDatabase();
+    const clock = () => 1_777_000_085_000;
+    const runtime = createEffectFileRuntime({
+      database,
+      clock,
+      workspaceAuthority: {
+        async observe() {
+          return {
+            canonicalRoot: realpathSync(projectRoot),
+            workspaceRevision: 'wsr1:hidden-adapter-authority',
+          };
+        },
+      },
+    });
+    const canonicalAdapter = createM2ToolEffectAdapter({ effectRuntime: runtime });
+    let durableEffectId = null;
+    const toolBroker = createM2ToolBroker({
+      repository: new M2ToolAuthorityRepository(database, { clock }),
+      clock,
+      effectAdapter: {
+        async prepare(args) {
+          const authority = await canonicalAdapter.prepare(args);
+          durableEffectId = authority.effectRequestId;
+          if (mode === 'throw') {
+            throw Object.assign(new Error('post-registration adapter failure'), {
+              code: 'EFFECT_ADAPTER_POST_REGISTER_THROW',
+            });
+          }
+          return {};
+        },
+      },
+    });
+    const realContext = {
+      ...context,
+      sessionId: `studio-hidden-${mode}`,
+      conversationId: `conversation-hidden-${mode}`,
+      userMessageId: mode === 'throw' ? 223 : 224,
+      project: { id: 7, path: projectRoot },
+    };
+    try {
+      const execution = await toolBroker.execute({
+        toolId: 'file.write',
+        input: { path: `src/hidden-${mode}.js`, content: 'must not run\n' },
+        context: realContext,
+      });
+      assert.equal(execution.result.status, 'error');
+      assert.equal(
+        execution.result.error.code,
+        mode === 'throw'
+          ? 'TOOL_EFFECT_PREPARATION_FAILED'
+          : 'TOOL_EFFECT_TRANSLATION_INVALID',
+      );
+      assert.deepEqual(database.prepare(`
+        SELECT
+          (SELECT count(*) FROM m2_effect_requests) AS effectRequests,
+          (SELECT count(*) FROM m2_effect_invalidations) AS effectInvalidations,
+          (SELECT count(*) FROM m2_tool_effect_operation_invalidations) AS operationInvalidations,
+          (SELECT count(*) FROM m2_pending_effect_payloads) AS pending,
+          (SELECT count(*) FROM m2_tool_effect_links) AS links,
+          (SELECT count(*) FROM tool_v1_results) AS toolResults
+      `).get(), {
+        effectRequests: 1,
+        effectInvalidations: 1,
+        operationInvalidations: 1,
+        pending: 0,
+        links: 0,
+        toolResults: 1,
+      });
+      await assert.rejects(
+        runtime.approveFilesystemWrite({
+          effectId: durableEffectId,
+          conversationId: realContext.conversationId,
+          subjectId: realContext.authenticatedSubject.actorId,
+        }),
+        error => error.code === 'EFFECT_INVALIDATED',
+      );
+      assert.equal(existsSync(path.join(projectRoot, `src/hidden-${mode}.js`)), false);
+    } finally {
+      database.close();
+      rmSync(directory, { recursive: true, force: true });
+    }
+  }
+});
+
+await testAsync('restart retry projects the first operation closure after ToolResult commit failure', async () => {
+  for (const mode of ['timeout', 'cancel', 'invalid']) {
+    const database = realAuthorityDatabase();
+    let nowMs = 1_777_000_090_000;
+    const clock = () => nowMs++;
+    const repository = new M2ToolAuthorityRepository(database, {
+      clock,
+      executionLiveness: { isProvablyDead() { return true; } },
+    });
+    const record = repository.recordToolResult.bind(repository);
+    let failCommit = true;
+    repository.recordToolResult = (...args) => {
+      if (failCommit) throw new Error('injected ToolResult commit failure');
+      return record(...args);
+    };
+    const controller = new AbortController();
+    let adapterCalls = 0;
+    const toolBroker = createM2ToolBroker({
+      repository,
+      clock,
+      scheduleTimeout(callback) {
+        if (mode === 'timeout') queueMicrotask(callback);
+        return { cancel() {} };
+      },
+      effectAdapter: {
+        async prepare() {
+          adapterCalls += 1;
+          if (mode === 'cancel') queueMicrotask(() => controller.abort('user'));
+          if (mode === 'invalid') return {};
+          return new Promise(() => {});
+        },
+      },
+    });
+    const retryContext = {
+      ...context,
+      sessionId: `studio-retry-closure-${mode}`,
+      conversationId: `conversation-retry-closure-${mode}`,
+      userMessageId: mode === 'timeout' ? 226 : mode === 'cancel' ? 227 : 228,
+      project: { id: 7, path: '/workspace/project-a' },
+      signal: controller.signal,
+    };
+    const input = { path: `src/retry-${mode}.js`, content: 'never executes\n' };
+    try {
+      await assert.rejects(
+        toolBroker.execute({ toolId: 'file.write', input, context: retryContext, timeoutMs: 1 }),
+        error => error.code === M2ToolBrokerErrorCode.RESULT_UNCOMMITTED,
+      );
+      assert.equal(database.prepare(`
+        SELECT count(*) AS count FROM m2_tool_effect_operation_invalidations
+      `).get().count, 1);
+      assert.equal(database.prepare('SELECT count(*) AS count FROM tool_v1_results').get().count, 0);
+
+      failCommit = false;
+      const recovered = await toolBroker.execute({
+        toolId: 'file.write',
+        input,
+        context: retryContext,
+        timeoutMs: 1,
+      });
+      assert.equal(
+        recovered.result.status,
+        mode === 'timeout' ? 'timeout' : mode === 'cancel' ? 'cancelled' : 'error',
+      );
+      assert.equal(
+        recovered.result.error.code,
+        mode === 'timeout'
+          ? M2_TOOL_ERROR_CODE.TIMEOUT
+          : mode === 'cancel'
+            ? M2_TOOL_ERROR_CODE.CANCELLED
+            : 'TOOL_EFFECT_TRANSLATION_INVALID',
+      );
+      assert.equal(adapterCalls, 1);
+      const latestClaim = database.prepare(`
+        SELECT claimed_at_ms FROM tool_v1_execution_claims
+        ORDER BY generation DESC LIMIT 1
+      `).get();
+      const operationInvalidation = database.prepare(`
+        SELECT invalidated_at_ms FROM m2_tool_effect_operation_invalidations
+      `).get();
+      assert.equal(Date.parse(recovered.result.startedAt), latestClaim.claimed_at_ms);
+      assert.equal(Date.parse(recovered.result.completedAt), latestClaim.claimed_at_ms);
+      assert.equal(operationInvalidation.invalidated_at_ms < latestClaim.claimed_at_ms, true);
+      assert.deepEqual(database.prepare(`
+        SELECT
+          (SELECT count(*) FROM tool_v1_results) AS toolResults,
+          (SELECT count(*) FROM m2_tool_effect_operation_invalidations) AS operationInvalidations,
+          (SELECT count(*) FROM tool_v1_execution_claims) AS claims
+      `).get(), { toolResults: 1, operationInvalidations: 1, claims: 2 });
+    } finally {
+      database.close();
+    }
+  }
+});
+
+await testAsync('operation tombstone raced during adapter prepare cannot become approval-required', async () => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'm2-tool-prepare-tombstone-race-'));
+  const projectRoot = path.join(directory, 'project');
+  mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
+  const database = realAuthorityDatabase();
+  const clock = () => 1_777_000_093_000;
+  const runtime = createEffectFileRuntime({
+    database,
+    clock,
+    workspaceAuthority: {
+      async observe() {
+        return {
+          canonicalRoot: realpathSync(projectRoot),
+          workspaceRevision: 'wsr1:prepare-tombstone-race',
+        };
+      },
+    },
+  });
+  const productionAdapter = createM2ToolEffectAdapter({ effectRuntime: runtime });
+  let durableEffectId = null;
+  const toolBroker = createM2ToolBroker({
+    repository: new M2ToolAuthorityRepository(database, { clock }),
+    clock,
+    effectAdapter: {
+      async prepare(args) {
+        const prepared = await productionAdapter.prepare(args);
+        durableEffectId = prepared.effectRequestId;
+        database.prepare(`
+          INSERT INTO m2_tool_effect_operation_invalidations (
+            source_tool_request_id, tool_request_digest, run_id, project_id,
+            effect_idempotency_key, reason_code, invalidated_at_ms
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          args.request.requestId,
+          computeM2ToolRequestDigest(args.request),
+          args.request.runId,
+          args.request.origin.projectId,
+          expectedM2EffectOperationKey(args.request),
+          'TOOL_EFFECT_PREPARATION_TIMEOUT',
+          clock(),
+        );
+        return prepared;
+      },
+    },
+  });
+  const raceContext = {
+    ...context,
+    sessionId: 'studio-prepare-tombstone-race',
+    conversationId: 'conversation-prepare-tombstone-race',
+    userMessageId: 229,
+    project: { id: 7, path: projectRoot },
+  };
+  try {
+    const execution = await toolBroker.execute({
+      toolId: 'file.write',
+      input: { path: 'src/race.js', content: 'must not execute\n' },
+      context: raceContext,
+    });
+    assert.equal(execution.state, undefined);
+    assert.equal(execution.result.status, 'timeout');
+    assert.equal(execution.result.error.code, M2_TOOL_ERROR_CODE.TIMEOUT);
+    assert.equal(execution.result.lateCompletionRejected, true);
+    assert.deepEqual(database.prepare(`
+      SELECT
+        (SELECT count(*) FROM m2_tool_effect_links) AS links,
+        (SELECT count(*) FROM m2_pending_effect_payloads) AS pending,
+        (SELECT count(*) FROM m2_approval_grants) AS grants,
+        (SELECT count(*) FROM m2_effect_invalidations) AS effectInvalidations,
+        (SELECT count(*) FROM m2_tool_effect_operation_invalidations) AS operationInvalidations,
+        (SELECT count(*) FROM tool_v1_results) AS toolResults
+    `).get(), {
+      links: 0,
+      pending: 0,
+      grants: 0,
+      effectInvalidations: 1,
+      operationInvalidations: 1,
+      toolResults: 1,
+    });
+    await assert.rejects(
+      runtime.approveFilesystemWrite({
+        effectId: durableEffectId,
+        conversationId: raceContext.conversationId,
+        subjectId: raceContext.authenticatedSubject.actorId,
+      }),
+      error => error.code === 'EFFECT_INVALIDATED',
+    );
+    assert.equal(existsSync(path.join(projectRoot, 'src/race.js')), false);
+  } finally {
+    database.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+await testAsync('standalone effect invalidation raced during adapter prepare commits one durable terminal', async () => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'm2-tool-effect-invalidation-race-'));
+  const projectRoot = path.join(directory, 'project');
+  mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
+  const database = realAuthorityDatabase();
+  const clock = () => 1_777_000_094_000;
+  const runtime = createEffectFileRuntime({
+    database,
+    clock,
+    workspaceAuthority: {
+      async observe() {
+        return {
+          canonicalRoot: realpathSync(projectRoot),
+          workspaceRevision: 'wsr1:effect-invalidation-race',
+        };
+      },
+    },
+  });
+  const productionAdapter = createM2ToolEffectAdapter({ effectRuntime: runtime });
+  const repository = new M2ToolAuthorityRepository(database, { clock });
+  let adapterCalls = 0;
+  let durableEffectId = null;
+  const toolBroker = createM2ToolBroker({
+    repository,
+    clock,
+    effectAdapter: {
+      async prepare(args) {
+        adapterCalls += 1;
+        const prepared = await productionAdapter.prepare(args);
+        durableEffectId = prepared.effectRequestId;
+        database.prepare(`
+          INSERT INTO m2_effect_invalidations (
+            effect_id, request_digest, source_tool_request_id,
+            reason_code, invalidated_at_ms
+          ) VALUES (?, ?, ?, ?, ?)
+        `).run(
+          prepared.effectRequestId,
+          computeEffectRequestDigest(prepared.effectRequest),
+          args.request.requestId,
+          'TOOL_EFFECT_PREPARATION_FAILED',
+          clock(),
+        );
+        return prepared;
+      },
+    },
+  });
+  const raceContext = {
+    ...context,
+    sessionId: 'studio-effect-invalidation-race',
+    conversationId: 'conversation-effect-invalidation-race',
+    userMessageId: 230,
+    project: { id: 7, path: projectRoot },
+  };
+  const input = { path: 'src/standalone-race.js', content: 'must not execute\n' };
+  try {
+    const execution = await toolBroker.execute({
+      toolId: 'file.write',
+      input,
+      context: raceContext,
+    });
+    assert.equal(execution.state, undefined);
+    assert.equal(execution.result.status, 'error');
+    assert.equal(execution.result.error.code, 'TOOL_EFFECT_PREPARATION_FAILED');
+    assert.equal(execution.result.lateCompletionRejected, true);
+    assert.deepEqual(repository.getToolEffectInvalidation(execution.request.requestId), {
+      requestId: execution.request.requestId,
+      effectId: durableEffectId,
+      operationKey: expectedM2EffectOperationKey(execution.request),
+      reasonCode: 'TOOL_EFFECT_PREPARATION_FAILED',
+      invalidatedAtMs: clock(),
+    });
+    assert.deepEqual(database.prepare(`
+      SELECT
+        (SELECT count(*) FROM m2_tool_effect_links) AS links,
+        (SELECT count(*) FROM m2_pending_effect_payloads) AS pending,
+        (SELECT count(*) FROM m2_approval_grants) AS grants,
+        (SELECT count(*) FROM m2_effect_results) AS effectResults,
+        (SELECT count(*) FROM m2_effect_invalidations) AS effectInvalidations,
+        (SELECT count(*) FROM m2_tool_effect_operation_invalidations) AS operationInvalidations,
+        (SELECT count(*) FROM tool_v1_results) AS toolResults
+    `).get(), {
+      links: 0,
+      pending: 0,
+      grants: 0,
+      effectResults: 0,
+      effectInvalidations: 1,
+      operationInvalidations: 0,
+      toolResults: 1,
+    });
+
+    const restartedBroker = createM2ToolBroker({
+      repository: new M2ToolAuthorityRepository(database, { clock }),
+      clock,
+      effectAdapter: {
+        async prepare() {
+          assert.fail('durable terminal replay must not invoke the adapter');
+        },
+      },
+    });
+    const replay = await restartedBroker.execute({
+      toolId: 'file.write',
+      input,
+      context: raceContext,
+    });
+    assert.deepEqual(replay.result, execution.result);
+    assert.equal(replay.state, undefined);
+    assert.equal(adapterCalls, 1);
+    await assert.rejects(
+      runtime.approveFilesystemWrite({
+        effectId: durableEffectId,
+        conversationId: raceContext.conversationId,
+        subjectId: raceContext.authenticatedSubject.actorId,
+      }),
+      error => error.code === 'EFFECT_INVALIDATED',
+    );
+    assert.equal(existsSync(path.join(projectRoot, 'src/standalone-race.js')), false);
+  } finally {
+    database.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+await testAsync('mutated durable effect bytes under the exact operation tuple are invalidated', async () => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'm2-tool-mutated-durable-effect-'));
+  const projectRoot = path.join(directory, 'project');
+  mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
+  const database = realAuthorityDatabase();
+  const clock = () => 1_777_000_095_000;
+  const runtime = createEffectFileRuntime({
+    database,
+    clock,
+    workspaceAuthority: {
+      async observe() {
+        return {
+          canonicalRoot: realpathSync(projectRoot),
+          workspaceRevision: 'wsr1:mutated-durable-effect',
+        };
+      },
+    },
+  });
+  let durableEffectId = null;
+  const toolBroker = createM2ToolBroker({
+    repository: new M2ToolAuthorityRepository(database, { clock }),
+    clock,
+    effectAdapter: {
+      async prepare({ request, context: adapterContext, signal }) {
+        const forged = await runtime.requestFilesystemWrite({
+          sessionId: adapterContext.conversationId,
+          conversationId: adapterContext.conversationId,
+          subjectId: request.actor.id,
+          operationId: request.requestId,
+          projectId: request.origin.projectId,
+          projectRoot,
+          relativePath: 'src/forged.js',
+          content: 'forged bytes\n',
+          signal,
+        });
+        durableEffectId = forged.effectId;
+        return {
+          state: 'approval_required',
+          effectRequestId: forged.effectId,
+          effectRequest: forged.request,
+          effectResult: null,
+        };
+      },
+    },
+  });
+  const realContext = {
+    ...context,
+    sessionId: 'studio-mutated-durable-effect',
+    conversationId: 'conversation-mutated-durable-effect',
+    userMessageId: 225,
+    project: { id: 7, path: projectRoot },
+  };
+  try {
+    const execution = await toolBroker.execute({
+      toolId: 'file.write',
+      input: { path: 'src/owned.js', content: 'owned bytes\n' },
+      context: realContext,
+    });
+    assert.equal(execution.result.status, 'error');
+    assert.equal(execution.result.error.code, 'TOOL_EFFECT_TRANSLATION_INVALID');
+    assert.deepEqual(database.prepare(`
+      SELECT
+        (SELECT count(*) FROM m2_effect_requests) AS effectRequests,
+        (SELECT count(*) FROM m2_effect_invalidations) AS effectInvalidations,
+        (SELECT count(*) FROM m2_tool_effect_operation_invalidations) AS operationInvalidations,
+        (SELECT count(*) FROM m2_pending_effect_payloads) AS pending,
+        (SELECT count(*) FROM m2_tool_effect_links) AS links,
+        (SELECT count(*) FROM tool_v1_results) AS toolResults
+    `).get(), {
+      effectRequests: 1,
+      effectInvalidations: 1,
+      operationInvalidations: 1,
+      pending: 0,
+      links: 0,
+      toolResults: 1,
+    });
+    await assert.rejects(
+      runtime.approveFilesystemWrite({
+        effectId: durableEffectId,
+        conversationId: realContext.conversationId,
+        subjectId: realContext.authenticatedSubject.actorId,
+      }),
+      error => error.code === 'EFFECT_INVALIDATED',
+    );
+    assert.equal(existsSync(path.join(projectRoot, 'src/owned.js')), false);
+    assert.equal(existsSync(path.join(projectRoot, 'src/forged.js')), false);
+  } finally {
+    database.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+await testAsync('canonical pending authority outranks corrupted adapter state metadata', async () => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'm2-tool-state-recovery-'));
+  const projectRoot = path.join(directory, 'project');
+  mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
+  const database = realAuthorityDatabase();
+  const observed = {
+    canonicalRoot: realpathSync(projectRoot),
+    workspaceRevision: 'wsr1:stable-tool-state-recovery',
+  };
+  const runtime = createEffectFileRuntime({
+    database,
+    clock: () => 1_777_000_100_000,
+    workspaceAuthority: { async observe() { return observed; } },
+  });
+  const canonicalAdapter = createM2ToolEffectAdapter({ effectRuntime: runtime });
+  const repository = new M2ToolAuthorityRepository(database, {
+    clock: () => 1_777_000_100_000,
+  });
+  const toolBroker = createM2ToolBroker({
+    repository,
+    clock: () => 1_777_000_100_000,
+    effectAdapter: {
+      async prepare(args) {
+        const prepared = await canonicalAdapter.prepare(args);
+        return {
+          ...prepared,
+          state: 'unavailable',
+          effectRequestId: `effect:${'0'.repeat(64)}`,
+        };
+      },
+    },
+  });
+  const realContext = {
+    ...context,
+    sessionId: 'studio-state-recovery',
+    conversationId: 'conversation-state-recovery',
+    userMessageId: 203,
+    project: { id: 7, path: projectRoot },
+  };
+  const target = path.join(projectRoot, 'src/state-recovery.js');
+  try {
+    const pending = await toolBroker.execute({
+      toolId: 'file.write',
+      input: { path: 'src/state-recovery.js', content: 'recovered\n' },
+      context: realContext,
+    });
+    assert.equal(pending.state, 'approval_required');
+    assert.equal(pending.result, null);
+    assert.notEqual(pending.effectRequestId, `effect:${'0'.repeat(64)}`);
+    assert.deepEqual(database.prepare(`
+      SELECT
+        (SELECT count(*) FROM m2_effect_requests) AS effectRequests,
+        (SELECT count(*) FROM m2_pending_effect_payloads) AS pending,
+        (SELECT count(*) FROM m2_tool_effect_links) AS links,
+        (SELECT count(*) FROM tool_v1_results) AS toolResults
+    `).get(), { effectRequests: 1, pending: 1, links: 1, toolResults: 0 });
+    assert.equal(existsSync(target), false);
+
+    const effectResult = await runtime.approveFilesystemWrite({
+      effectId: pending.effectRequestId,
+      conversationId: realContext.conversationId,
+      subjectId: realContext.authenticatedSubject.actorId,
+    });
+    assert.equal(effectResult.terminalStatus, 'succeeded');
+    const settled = toolBroker.settleEffect({
+      effectId: pending.effectRequestId,
+      context: realContext,
+    });
+    assert.equal(settled.result.status, 'ok');
+    assert.equal(settled.result.effectRequestId, pending.effectRequestId);
+    assert.equal(readFileSync(target, 'utf8'), 'recovered\n');
+    assert.deepEqual(database.prepare(`
+      SELECT
+        (SELECT count(*) FROM m2_effect_results) AS effectResults,
+        (SELECT count(*) FROM tool_v1_results) AS toolResults,
+        (SELECT count(*) FROM m2_pending_effect_payloads) AS pending
+    `).get(), { effectResults: 1, toolResults: 1, pending: 0 });
+  } finally {
+    database.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+await testAsync('malformed real adapter output invalidates its pending effect and cannot be approved later', async () => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'm2-tool-invalid-adapter-'));
+  const projectRoot = path.join(directory, 'project');
+  mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
+  const database = realAuthorityDatabase();
+  const clock = () => 1_777_000_150_000;
+  const runtime = createEffectFileRuntime({
+    database,
+    clock,
+    workspaceAuthority: {
+      async observe() {
+        return {
+          canonicalRoot: realpathSync(projectRoot),
+          workspaceRevision: 'wsr1:invalid-adapter',
+        };
+      },
+    },
+  });
+  const canonicalAdapter = createM2ToolEffectAdapter({ effectRuntime: runtime });
+  const repository = new M2ToolAuthorityRepository(database, { clock });
+  let adapterCalls = 0;
+  let durableEffectId = null;
+  const toolBroker = createM2ToolBroker({
+    repository,
+    clock,
+    effectAdapter: {
+      async prepare(args) {
+        adapterCalls += 1;
+        const prepared = await canonicalAdapter.prepare(args);
+        durableEffectId = prepared.effectRequestId;
+        return {
+          ...prepared,
+          effectRequest: {
+            ...prepared.effectRequest,
+            target: {
+              ...prepared.effectRequest.target,
+              relativePath: 'src/forged.js',
+              resolvedRealpath: `${projectRoot}/src/forged.js`,
+            },
+          },
+        };
+      },
+    },
+  });
+  const realContext = {
+    ...context,
+    sessionId: 'studio-invalid-adapter',
+    conversationId: 'conversation-invalid-adapter',
+    userMessageId: 207,
+    project: { id: 7, path: projectRoot },
+  };
+  const input = { path: 'src/owned.js', content: 'must never be written\n' };
+  try {
+    let first;
+    try {
+      first = await toolBroker.execute({ toolId: 'file.write', input, context: realContext });
+    } catch (error) {
+      assert.fail(`${error.message}: ${JSON.stringify(error.details || null)}`);
+    }
+    assert.equal(first.result.status, 'error');
+    assert.equal(first.result.error.code, 'TOOL_EFFECT_TRANSLATION_INVALID');
+    assert.equal(first.result.effectRequestId, null);
+    assert.match(durableEffectId, /^effect:/);
+    assert.deepEqual(database.prepare(`
+      SELECT
+        (SELECT count(*) FROM tool_v1_requests) AS toolRequests,
+        (SELECT count(*) FROM tool_v1_results) AS toolResults,
+        (SELECT count(*) FROM m2_effect_requests) AS effectRequests,
+        (SELECT count(*) FROM m2_effect_invalidations) AS invalidations,
+        (SELECT count(*) FROM m2_pending_effect_payloads) AS pending,
+        (SELECT count(*) FROM m2_approval_grants) AS grants,
+        (SELECT count(*) FROM m2_effect_results) AS effectResults,
+        (SELECT count(*) FROM m2_tool_effect_links) AS links
+    `).get(), {
+      toolRequests: 1,
+      toolResults: 1,
+      effectRequests: 1,
+      invalidations: 1,
+      pending: 0,
+      grants: 0,
+      effectResults: 0,
+      links: 0,
+    });
+
+    const replay = await toolBroker.execute({ toolId: 'file.write', input, context: realContext });
+    assert.deepEqual(replay.result, first.result);
+    assert.equal(adapterCalls, 1);
+    await assert.rejects(
+      runtime.approveFilesystemWrite({
+        effectId: durableEffectId,
+        conversationId: realContext.conversationId,
+        subjectId: realContext.authenticatedSubject.actorId,
+      }),
+      error => error.code === 'EFFECT_INVALIDATED',
+    );
+    assert.equal(existsSync(path.join(projectRoot, 'src/owned.js')), false);
+    assert.equal(existsSync(path.join(projectRoot, 'src/forged.js')), false);
+  } finally {
+    database.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+await testAsync('non-canonical file paths fail before real effect runtime registration', async () => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'm2-tool-path-contract-'));
+  const projectRoot = path.join(directory, 'project');
+  mkdirSync(path.join(projectRoot, 'sub'), { recursive: true });
+  const database = realAuthorityDatabase();
+  const runtime = createEffectFileRuntime({
+    database,
+    clock: () => 1_777_000_200_000,
+    workspaceAuthority: {
+      async observe() {
+        return {
+          canonicalRoot: realpathSync(projectRoot),
+          workspaceRevision: 'wsr1:stable-tool-path-contract',
+        };
+      },
+    },
+  });
+  const canonicalAdapter = createM2ToolEffectAdapter({ effectRuntime: runtime });
+  let adapterCalls = 0;
+  const toolBroker = createM2ToolBroker({
+    repository: new M2ToolAuthorityRepository(database, {
+      clock: () => 1_777_000_200_000,
+    }),
+    clock: () => 1_777_000_200_000,
+    effectAdapter: {
+      async prepare(args) {
+        adapterCalls += 1;
+        return canonicalAdapter.prepare(args);
+      },
+    },
+  });
+  const realContext = {
+    ...context,
+    sessionId: 'studio-path-contract',
+    conversationId: 'conversation-path-contract',
+    userMessageId: 204,
+    project: { id: 7, path: projectRoot },
+  };
+  try {
+    for (const invalidPath of [
+      'sub/./answer.txt',
+      'sub//answer.txt',
+      'sub\\answer.txt',
+      'sub/',
+    ]) {
+      await assert.rejects(
+        () => toolBroker.execute({
+          toolId: 'file.write',
+          input: { path: invalidPath, content: 'must not register\n' },
+          context: realContext,
+        }),
+        error => error.code === M2ToolBrokerErrorCode.INPUT_INVALID,
+      );
+    }
+    assert.equal(adapterCalls, 0);
+    assert.deepEqual(database.prepare(`
+      SELECT
+        (SELECT count(*) FROM tool_v1_requests) AS toolRequests,
+        (SELECT count(*) FROM tool_v1_results) AS toolResults,
+        (SELECT count(*) FROM m2_effect_requests) AS effectRequests,
+        (SELECT count(*) FROM m2_pending_effect_payloads) AS pending,
+        (SELECT count(*) FROM m2_tool_effect_links) AS links
+    `).get(), {
+      toolRequests: 0,
+      toolResults: 0,
+      effectRequests: 0,
+      pending: 0,
+      links: 0,
+    });
+  } finally {
+    database.close();
+    rmSync(directory, { recursive: true, force: true });
   }
 });
 

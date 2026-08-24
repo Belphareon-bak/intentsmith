@@ -6,6 +6,7 @@ import {
   validateApprovalGrant,
   validateEffectRequest,
   validateEffectResult,
+  validateEffectResultForRequest,
 } from '../../contracts/m2/effect-v1.js';
 
 export const EffectAuthorityErrorCode = Object.freeze({
@@ -152,6 +153,18 @@ export class EffectAuthorityRepository {
   constructor(db, { clock = Date.now } = {}) {
     this.db = requireDatabase(db);
     this.clock = requireClock(clock);
+    this.db.function('m2_effect_result_matches_request_v1', {
+      deterministic: true,
+    }, (requestJson, resultJson) => {
+      try {
+        return validateEffectResultForRequest(
+          JSON.parse(requestJson),
+          JSON.parse(resultJson),
+        ).valid ? 1 : 0;
+      } catch {
+        return 0;
+      }
+    });
   }
 
   #now() {
@@ -238,6 +251,21 @@ export class EffectAuthorityRepository {
     } catch (error) {
       storageFailure('request read', error);
     }
+  }
+
+  getEffectInvalidation(effectId) {
+    const row = this.db.prepare(`
+      SELECT effect_id AS effectId, request_digest AS requestDigest,
+             source_tool_request_id AS sourceToolRequestId,
+             reason_code AS reasonCode, invalidated_at_ms AS invalidatedAtMs
+      FROM m2_effect_invalidations WHERE effect_id = ?
+    `).get(effectId);
+    if (!row) return null;
+    const request = this.getEffectRequest(effectId);
+    if (!request || row.requestDigest !== computeEffectRequestDigest(request)) {
+      storageFailure('effect invalidation read', new Error('invalidation authority mismatch'));
+    }
+    return Object.freeze(row);
   }
 
   issueApprovalGrant(grantValue) {
@@ -568,6 +596,14 @@ export class EffectAuthorityRepository {
         { effectId: result.effectId },
       );
     }
+    const semanticValidation = validateEffectResultForRequest(request, result);
+    if (!semanticValidation.valid) {
+      fail(
+        EffectAuthorityErrorCode.RESULT_AUTHORITY_MISSING,
+        'EffectResult evidence does not prove its exact EffectRequest outcome',
+        { effectId: result.effectId, errors: semanticValidation.errors },
+      );
+    }
     const requestDigest = computeEffectRequestDigest(request);
     const identityMatches = result.runId === request.runId
       && result.projectId === request.origin.projectId
@@ -660,7 +696,10 @@ export class EffectAuthorityRepository {
     if (!row) return null;
     try {
       const result = JSON.parse(row.result_json);
-      const validation = validateEffectResult(result);
+      const request = this.getEffectRequest(result.effectId);
+      const validation = request
+        ? validateEffectResultForRequest(request, result)
+        : validateEffectResult(result);
       const indexedIdentityMatches = result.effectId === row.effect_id
         && result.runId === row.run_id
         && result.projectId === row.project_id

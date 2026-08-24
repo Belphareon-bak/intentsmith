@@ -16,6 +16,7 @@
  */
 
 import { spawn } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { mkdirSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -162,7 +163,11 @@ Výstup NENÍ Gate 0 evidence — registr se nemění a lastGreen se nezapisuje.
     xdgDataDir: dirs.xdgData, xdgStateDir: dirs.xdgState,
     gitConfigPath: dirs.gitConfig,
   });
-  const env = { ...base.env, C3_LOG_LEVEL: opts.logLevel };
+  const env = {
+    ...base.env,
+    C3_LOG_LEVEL: opts.logLevel,
+    INTENTSMITH_TEST_SERVER_NONCE: randomBytes(32).toString('base64url'),
+  };
 
   console.log(`══ běhový režim ── run ${runId}`);
   console.log(`   sad: ${selected.length} · izolace: ${path.relative(ROOT, dirs.root)}`);
@@ -181,7 +186,14 @@ Výstup NENÍ Gate 0 evidence — registr se nemění a lastGreen se nezapisuje.
     const ready = await waitForReady(env.C3_PORT_FILE, serverLog, 180_000);
     const url = `http://127.0.0.1:${ready.port}`;
     console.log(`   server: ${url}\n`);
-    const suiteEnv = { ...env, C3_URL: url };
+    if (!Number.isSafeInteger(server.pid) || server.pid < 1) {
+      throw new Error('Runner-owned server has no valid PID attestation');
+    }
+    const suiteEnv = {
+      ...env,
+      C3_URL: url,
+      INTENTSMITH_TEST_SERVER_PID: String(server.pid),
+    };
 
     for (const [index, suite] of selected.entries()) {
       const timeoutMs = Math.max(1000, Math.round(suite.timeoutMs * opts.timeoutScale));

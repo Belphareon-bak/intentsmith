@@ -270,6 +270,11 @@ export function createEffectFileRuntime({
       requireText(effectId, 'effectId');
       requireText(conversationId, 'conversationId');
       requireActorIdentifier(subjectId);
+      if (repository.getEffectInvalidation(effectId)) {
+        const error = new Error('Filesystem effect was durably invalidated before approval');
+        error.code = 'EFFECT_INVALIDATED';
+        throw error;
+      }
       const pending = database.prepare(`
         SELECT * FROM m2_pending_effect_payloads
         WHERE effect_id = ? AND conversation_id = ? AND subject_id = ?

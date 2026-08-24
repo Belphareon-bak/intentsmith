@@ -11,7 +11,7 @@ import {
 } from '../cre-decision.js';
 import { logger } from '../../core/logger.js';
 import { tryResolveClarification, assessGoalAlignment } from './clarification.js';
-import { handleLocalDecision, computeCalendar, computeDate } from './local.js';
+import { handleLocalDecision } from './local.js';
 import { handleFileDecision, handleFileWriteDecision } from './file.js';
 import {
   handleToolCallDecision,
@@ -274,33 +274,30 @@ export async function conversationHandler(input, context) {
     });
 
     if (previousDecision.intent === IntentType.LOCAL) {
-      // Replay LOCAL computation — it already uses new Date() so result is correct
-      // Just need to acknowledge and confirm
-      const now = new Date();
-      const todayStr = now.toLocaleDateString('cs-CZ');
-
-      // Re-run the original computation to get fresh result with today's date
-      let recomputedResult;
-      try {
-        if (/úplněk|uplnek|moon/i.test(previousInput)) {
-          recomputedResult = computeCalendar(previousInput);
-        } else {
-          recomputedResult = computeDate(previousInput);
-        }
-      } catch (e) {
-        recomputedResult = { explanation: null };
-      }
-
-      const confirmationMsg = recomputedResult?.explanation
-        ? `Ano, dnes je ${todayStr}. ${recomputedResult.explanation}.`
-        : `Ano, dnes je ${todayStr}. Moje předchozí odpověď byla vypočtena z tohoto data.`;
-
-      // Record and return
+      // A correction is a fresh tool attempt, not permission to recompute from
+      // ambient wall-clock state. Rebuild an audited CRE decision and let the
+      // normal LOCAL handler render only its durable ToolResult.
+      const replayDecision = creDecisionEngine.overrideDecision({
+        type: previousDecision.type || DecisionType.LOCAL,
+        intent: IntentType.LOCAL,
+        tools: previousDecision.tools || [],
+        source: 'date_correction_replay',
+        reason: 'Replay the previous LOCAL request through durable M2 authority',
+        confidence: previousDecision.confidence || 0.95,
+        originalDecision: previousDecision,
+        metadata: {
+          ...(previousDecision.metadata || {}),
+          dateCorrection: true,
+        },
+      });
+      const durableReplay = await handleLocalDecision(previousInput, replayDecision, {
+        ...context,
+        sessionState: null,
+      });
       if (sessionState) {
-        sessionState.recordDecision(previousDecision, input);
+        sessionState.recordDecision(replayDecision, input);
       }
-
-      return systemResponse(`📊 **${confirmationMsg}**`, { dateCorrection: true }, 0.95);
+      return durableReplay;
     }
     // For non-LOCAL previous intents, fall through to normal processing
   }

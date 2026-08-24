@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import { isPlainRecord } from '../../contracts/m1/shared.js';
+import { isM2ProjectRelativePath } from '../../contracts/m2/effect-v1.js';
 import {
   M2_TOOL_AUTHORITY_MODE,
   M2_TOOL_ERROR_CODE,
@@ -15,6 +16,11 @@ function error(message) {
 
 function ok() {
   return Object.freeze([]);
+}
+
+export function expectedM2EffectOperationKey(toolRequest) {
+  if (typeof toolRequest?.requestId !== 'string') return null;
+  return `operation:${createHash('sha256').update(toolRequest.requestId, 'utf8').digest('hex')}`;
 }
 
 function boundedString(value, maximum = 4096) {
@@ -55,10 +61,17 @@ function validateFileInput(value, write) {
   const context = write ? 'tool-input.file-write' : 'tool-input.file-read';
   const keys = write ? ['path', 'content'] : ['path'];
   const errors = [...validateExactInput(value, keys, context)];
-  if (!boundedString(value?.path, 4096)) errors.push(`${context}:invalid-path`);
+  if (!isM2ProjectRelativePath(value?.path)) errors.push(`${context}:invalid-path`);
   if (write && (typeof value?.content !== 'string' || value.content.length > 1_048_576)) {
     errors.push(`${context}:invalid-content`);
   }
+  return Object.freeze(errors);
+}
+
+function validateFileListInput(value) {
+  const context = 'tool-input.file-list';
+  const errors = [...validateExactInput(value, ['path'], context)];
+  if (value?.path !== '.') errors.push(`${context}:invalid-path`);
   return Object.freeze(errors);
 }
 
@@ -92,10 +105,7 @@ function validateLocalOutput(value, subtype) {
     ? ['subtype', 'expression', 'result']
     : subtype === 'date'
       ? ['subtype', 'date', 'time', 'dayOfWeek', 'dayOfMonth', 'month', 'year', 'timestamp']
-      : [
-        'subtype', 'currentPhase', 'phaseEmoji', 'cycleDay',
-        'daysUntilFullMoon', 'daysUntilNewMoon', 'illumination',
-      ];
+      : ['subtype', 'type', 'answer', 'unit', 'date', 'today', 'explanation'];
   const errors = [...validateExactInput(value, keys, context)];
   if (value?.subtype !== subtype) errors.push(`${context}:invalid-subtype`);
   if (subtype === 'math') {
@@ -123,16 +133,12 @@ function validateLocalOutput(value, subtype) {
       errors.push(`${context}:invalid-timestamp`);
     }
   } else {
-    for (const key of ['currentPhase', 'phaseEmoji']) {
-      if (!boundedString(value?.[key], 64)) errors.push(`${context}:invalid-${key}`);
-    }
-    for (const key of ['cycleDay', 'daysUntilFullMoon', 'daysUntilNewMoon', 'illumination']) {
-      if (typeof value?.[key] !== 'number' || !Number.isFinite(value[key]) || value[key] < 0) {
+    if (!['moon', 'christmas'].includes(value?.type)) errors.push(`${context}:invalid-type`);
+    if (!Number.isFinite(value?.answer) || value.answer < 0) errors.push(`${context}:invalid-answer`);
+    for (const key of ['unit', 'date', 'today', 'explanation']) {
+      if (!boundedString(value?.[key], key === 'explanation' ? 1024 : 64)) {
         errors.push(`${context}:invalid-${key}`);
       }
-    }
-    if (typeof value?.illumination === 'number' && value.illumination > 100) {
-      errors.push(`${context}:illumination-out-of-range`);
     }
   }
   return Object.freeze(errors);
@@ -356,6 +362,15 @@ const DESCRIPTORS = Object.freeze([
     },
   }),
   descriptor({
+    id: 'file.list',
+    riskClass: M2_TOOL_RISK_CLASS.READ,
+    authorityMode: M2_TOOL_AUTHORITY_MODE.UNAVAILABLE,
+    requiredEffectKind: 'fs.read',
+    inputSchema: 'intentsmith.tool.file-list.input@1',
+    outputSchema: 'intentsmith.tool.file-list.output@1',
+    validateInput: validateFileListInput,
+  }),
+  descriptor({
     id: 'file.read',
     riskClass: M2_TOOL_RISK_CLASS.READ,
     authorityMode: M2_TOOL_AUTHORITY_MODE.EFFECT,
@@ -487,6 +502,8 @@ export function projectLegacyToolInput(toolId, params = {}) {
       };
     case 'file.read':
       return { path: String(params.path ?? params.filePath ?? '') };
+    case 'file.list':
+      return { path: '.' };
     case 'file.write':
       return {
         path: String(params.path ?? params.filePath ?? ''),

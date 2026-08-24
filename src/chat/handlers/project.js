@@ -11,6 +11,8 @@ import {
   DecisionType,
   IntentType,
   assertDecision,
+  extractFilePath,
+  isExplicitFileReadIntent,
 } from '../cre-decision.js';
 import { logger } from '../../core/logger.js';
 import {
@@ -24,8 +26,6 @@ import { handleLocalDecision } from './local.js';
 import { handleShellDecision } from './conversation.js';
 import { handleDesignDecision } from './design.js';
 import { config } from '../../config.js';
-import { readdirSync } from 'fs';
-import { extname } from 'path';
 import { preHandle } from './pre-handler.js';
 
 // ─── Post-CRE modules (lazy-loaded, null if feature disabled) ──────────────
@@ -175,90 +175,43 @@ function buildProjectStatusResponse(input, project, workingMemory, context) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
-// FILE INTENT HEURISTIC — dynamic detection (replaces static CRE phrases)
+// FILE INTENT HEURISTIC — lexical detection (replaces static CRE phrases)
 // ════════════════════════════════════════════════════════════════════════════════
-// Instead of adding regex patterns for every Czech morphological form,
-// this matches user input tokens against ACTUAL files in the project directory.
+// This classifier is lexical only. It must never enumerate the project before
+// the resulting file.read request crosses M2 authority.
 //
 //   "co je v readme?"  → token "readme" matches README.md → FILE_READ
 //   "co za soubory je v tomto projektu?" → file-signal + project ref → dir listing
 //   "najdi článek o AI" → no file match, no signal → falls through to CRE
 // ════════════════════════════════════════════════════════════════════════════════
 
-const _dirCache = new Map();
-const DIR_CACHE_TTL = 10000; // 10s
-
-function _getProjectFiles(projectPath) {
-  if (!projectPath) return [];
-  const cached = _dirCache.get(projectPath);
-  if (cached && Date.now() - cached.ts < DIR_CACHE_TTL) return cached.files;
-  try {
-    const entries = readdirSync(projectPath, { withFileTypes: true });
-    const files = entries.map(e => e.name);
-    _dirCache.set(projectPath, { files, ts: Date.now() });
-    return files;
-  } catch {
-    return [];
-  }
-}
-
-// Common words to skip when matching tokens against filenames
-const _SKIP_TOKENS = new Set([
-  // Czech
-  'a','i','v','k','z','o','u','s','na','do','ze','za','po','od',
-  'co','to','je','se','si','mi','ti','me','te','ho','mu','ji','ni',
-  'ja','ty','on','my','vy','ne','az','uz','by','ale','ani','tak','jak',
-  'pro','pri','pre','pod','nad','ten','tou','tom','tem','at',
-  'kde','kdy','kdo','kam','jen','jiz','pak','tam','sem','ted',
-  'ano','ok','hm','jeste','potom','proto','prece',
-  'tohoto','toho','teto','tento','tenhle','tomto',
-  'projektu','projekt','projektem','soubor','soubory','souboru',
-  'obsah','obsahuje','obsahem','otevri','ukaz','zobraz','precti',
-  'vysvetli','popis','adresari','adresar','slozka','slozku',
-  'jake','jaky','jaka','ktere','ktery','ktera',
-  // English
-  'the','is','in','it','of','to','and','or','but','for',
-  'this','that','with','from','not','are','was','has','have',
-  'what','how','why','when','where','who','can','do','does',
-  'show','list','open','read','file','files','display','tell','me',
-]);
-
 /**
- * Detect file-related intent by matching input against actual project files.
- * Dynamic — works with any project, any language form.
+ * Detect only lexical directory-list intent without touching the filesystem.
  *
  * @param {string} input
- * @param {string} projectPath
  * @returns {{ detected: boolean, filePath: string|null, reason: string|null }}
  */
-function detectFileIntent(input, projectPath) {
-  // NFD normalize + strip diacritics for token matching
+function detectFileIntent(input) {
   const stripped = input.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  const tokens = stripped.split(/[\s,;:!?.()[\]{}"']+/).filter(Boolean);
 
-  // ── 1. Match tokens against actual project files ──────────────────────────
-  const files = _getProjectFiles(projectPath);
-  if (files.length > 0) {
-    const filesLower = files.map(f => f.toLowerCase());
-    const basenames = files.map(f => {
-      const ext = extname(f);
-      return ext ? f.slice(0, -ext.length).toLowerCase() : f.toLowerCase();
-    });
-
-    for (const token of tokens) {
-      if (token.length < 2 || _SKIP_TOKENS.has(token)) continue;
-
-      // Direct match: "package.json" → package.json
-      const di = filesLower.indexOf(token);
-      if (di >= 0) return { detected: true, filePath: files[di], reason: `token→file:${files[di]}` };
-
-      // Basename match: "readme" → README.md
-      const bi = basenames.indexOf(token);
-      if (bi >= 0) return { detected: true, filePath: files[bi], reason: `token→base:${files[bi]}` };
-    }
+  // Exact lexical filenames outrank the directory-list heuristic. In
+  // particular, `PROJECT-NOTE.txt` must not make the `project` substring look
+  // like a request to enumerate the project root. A path alone does not grant
+  // this pre-CRE override: only the canonical READ/EXPLAIN grammar may bypass
+  // CRE, so writes, edits and code requests remain available to their routes.
+  const explicitFilePath = extractFilePath(input);
+  if (
+    explicitFilePath
+    && explicitFilePath !== '.'
+    && isExplicitFileReadIntent(input)
+  ) {
+    return { detected: true, filePath: explicitFilePath, reason: 'explicit-file-path' };
   }
 
-  // ── 2. "list files/contents" + project reference → directory listing ──────
+  // NFD normalize + strip diacritics for token matching
+  const tokens = stripped.split(/[\s,;:!?.()[\]{}"']+/).filter(Boolean);
+
+  // "list files/contents" + project reference → a durable file.read request.
   const hasFileSignal = /soubor|obsah|struktur|adres|slozk|files|directory|contents|folder|tree|listing/i.test(stripped);
   const hasProjectRef = /projekt|project|tomto|tady|zde|here|this/i.test(stripped);
 
@@ -266,7 +219,7 @@ function detectFileIntent(input, projectPath) {
     return { detected: true, filePath: '.', reason: 'file-signal+project-ref' };
   }
 
-  // ── 3. "co je v" / "what's in" + project reference (no explicit file word) ─
+  // "co je v" / "what's in" + project reference (no explicit file word)
   if (/co\s+je|co\s+tam|what'?s?\s+in|ukaz|zobraz|show|list/i.test(stripped) &&
       hasProjectRef && tokens.length <= 10) {
     return { detected: true, filePath: '.', reason: 'content-query+project-ref' };
@@ -316,14 +269,14 @@ export async function projectHandler(input, context) {
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    // FILE INTENT HEURISTIC — pre-CRE dynamic detection
+    // FILE INTENT HEURISTIC — pre-CRE lexical detection
     // ════════════════════════════════════════════════════════════════════════
-    // Matches input tokens against actual files in the project directory.
-    // "co je v readme?" → "readme" matches README.md → FILE_READ.
+    // Extracts only text present in the request; it never enumerates project
+    // files. "přečti src/app.js" → "src/app.js" → FILE_READ.
     // Runs BEFORE CRE to avoid misclassification of file queries.
     // ════════════════════════════════════════════════════════════════════════
     if (project.path) {
-      const fileDetect = detectFileIntent(input, project.path);
+      const fileDetect = detectFileIntent(input);
       if (fileDetect.detected) {
         logger.info('ProjectHandler', 'File intent detected by heuristic (bypassing CRE)', {
           input: input.substring(0, 60),
@@ -331,15 +284,16 @@ export async function projectHandler(input, context) {
           reason: fileDetect.reason,
         });
 
+        const toolId = fileDetect.filePath === '.' ? 'file.list' : 'file.read';
         const fileDecision = creDecisionEngine.overrideDecision({
           type: DecisionType.LOCAL,
           intent: IntentType.FILE_READ,
-          tools: ['file.read'],
+          tools: [toolId],
           source: 'project_file_heuristic',
           reason: fileDetect.reason,
           confidence: 0.9,
           metadata: {
-            handler: 'file.read',
+            handler: toolId,
             filePath: fileDetect.filePath,
             projectScope: { projectPath: project.path },
           },
@@ -502,5 +456,3 @@ export async function projectHandler(input, context) {
     tag,
   });
 }
-
-

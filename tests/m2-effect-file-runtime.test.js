@@ -15,6 +15,10 @@ import { up as applyEffectAuthorityMigration } from '../src/db/migrations/2026_0
 import { up as applyEffectAuthorityHardening } from '../src/db/migrations/2026_08_24_071_m2_effect_authority_hardening.js';
 import { up as applyEffectExecutionClaims } from '../src/db/migrations/2026_08_24_072_m2_effect_execution_claims.js';
 import { up as applyEffectClaimTruth } from '../src/db/migrations/2026_08_24_073_m2_effect_claim_truth.js';
+import { up as applyToolAuthority } from '../src/db/migrations/2026_08_24_074_m2_tool_authority.js';
+import { up as applyToolEffectLinks } from '../src/db/migrations/2026_08_24_075_m2_tool_effect_links.js';
+import { up as applyToolTruth } from '../src/db/migrations/2026_08_24_076_m2_tool_authority_truth.js';
+import { up as applyEffectInvalidations } from '../src/db/migrations/2026_08_24_077_m2_effect_invalidations.js';
 import { createEffectFileRuntime } from '../src/effects/effect-file-runtime.js';
 import { db as applicationDatabase, projects } from '../src/db/database.js';
 import { suite, testAsync, summary } from './harness.js';
@@ -32,7 +36,16 @@ function openDatabase(filename) {
     applyEffectAuthorityHardening(database);
     applyEffectExecutionClaims(database);
   }
-  applyEffectClaimTruth(database);
+  const hasInvalidations = Boolean(database.prepare(
+    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'm2_effect_invalidations'",
+  ).get());
+  if (!hasInvalidations) {
+    applyEffectClaimTruth(database);
+    applyToolAuthority(database);
+    applyToolEffectLinks(database);
+    applyToolTruth(database);
+    applyEffectInvalidations(database);
+  }
   return database;
 }
 

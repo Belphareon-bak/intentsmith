@@ -1,7 +1,8 @@
 // tests/e2e/56-chat-with-project.e2e.js — Chat with project context
 // ══════════════════════════════════════════════════════════════════════════════
-// Tier 3 deterministic server scenario: uses local file.read and an explicit
-// project_id. No LLM response is accepted as proof of project context.
+// Tier 3 deterministic server scenario: proves an explicit project binding does
+// not grant ambient file.read authority. No LLM response or disk byte is
+// accepted as project-context evidence.
 // ══════════════════════════════════════════════════════════════════════════════
 import {
   suite,
@@ -58,7 +59,7 @@ try {
 
   suite('Chat with Project — Deterministic Context');
 
-  await testAsync('explicit project_id enables local file.read of the canary', async () => {
+  await testAsync('explicit project_id preserves binding but file.read fails closed', async () => {
     const result = await chatInConv(
       projectConvId,
       'Přečti soubor PROJECT-NOTE.txt.',
@@ -66,9 +67,15 @@ try {
     );
     assertEqual(result.status, 200);
     assertEqual(result.intent, 'FILE_READ');
+    assertEqual(result.metadata?.securityBlocked, true);
+    assertEqual(result.metadata?.fallbackSuppressed, true);
     assert(
-      result.response.includes(PROJECT_CANARY),
-      `file.read response must contain the exact project canary: ${result.response.substring(0, 280)}`,
+      /^tool:[a-f0-9]{64}$/.test(result.metadata?.toolRequestId || ''),
+      'file.read denial must retain its durable ToolRequest identity',
+    );
+    assert(
+      !result.response.includes(PROJECT_CANARY),
+      'file.read denial must not leak project bytes',
     );
 
     const info = await api('GET', `/api/chat/sessions/${projectConvId}`);

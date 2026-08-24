@@ -90,8 +90,10 @@ const LABELS = {
  * @param {string} lang
  * @returns {string}
  */
-export function formatTodayResponse(lang = 'cs') {
-  const now = new Date();
+export function formatTodayResponse(lang = 'cs', exactDate = null) {
+  const now = exactDate instanceof Date && Number.isFinite(exactDate.getTime())
+    ? exactDate
+    : new Date();
   const l = LABELS[lang] || LABELS['en'];
   return `📊 **${l.today} ${formatDate(now, lang)}**`;
 }
@@ -101,8 +103,10 @@ export function formatTodayResponse(lang = 'cs') {
  * @param {string} lang
  * @returns {string}
  */
-export function formatTimeResponse(lang = 'cs') {
-  const now = new Date();
+export function formatTimeResponse(lang = 'cs', exactDate = null) {
+  const now = exactDate instanceof Date && Number.isFinite(exactDate.getTime())
+    ? exactDate
+    : new Date();
   const l = LABELS[lang] || LABELS['en'];
   return `📊 **${l.time}: ${formatTime(now, lang)}**`;
 }

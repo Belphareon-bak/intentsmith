@@ -1016,6 +1016,17 @@ const FILE_EXPLAIN_PATTERNS = [
   /(?:^|\s)(explain|analyze|describe)\s+(what\s+)?[\w./-]+\.\w{1,10}\s+(does|contains|is)/i,
 ];
 
+export function isExplicitFileReadIntent(input) {
+  const text = typeof input === 'string' ? input.trim() : '';
+  return FILE_READ_PATTERNS.some(pattern => pattern.test(text))
+    || FILE_EXPLAIN_PATTERNS.some(pattern => pattern.test(text));
+}
+
+export function isExplicitFileWriteIntent(input) {
+  const text = typeof input === 'string' ? input.trim() : '';
+  return FILE_WRITE_PATTERNS.some(pattern => pattern.test(text));
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // v65.0: SHELL PATTERNS — user wants to execute a terminal/shell command
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1077,12 +1088,14 @@ function extractShellCommand(input) {
 // in any phrasing (Czech, English, mixed).
 // ─────────────────────────────────────────────────────────────────────────────
 const FILE_WRITE_PATTERNS = [
+  // CZ/EN explicit target with both imperative and infinitive forms.
+  /(?:^|\s)(?:ulo[žz](?:it)?|zapi[šs]|zapsat|napi[šs]|napsat|vytvo[rř](?:it)?|save|write|create)(?=\s|$).{0,40}(?:do|into|to)\s+(?:souboru?\s+|file\s+)?[\w./-]+\.\w{1,10}/i,
   // CZ: "ulož/zapiš/napiš/dej ... do souboru"
   /(?:^|\s)(ulo[žz]|uloz|ulo[žz]it|zapi[šs]|zapsat|napi[šs]|napsat|dej|vlo[žz])\s+.{0,20}(do\s+souboru|do\s+file)/i,
   // CZ: "ulož/zapiš/napiš to/ho/ji/je" (short form)
   /(?:^|\s)(ulo[žz]|uloz|zapi[šs]|napi[šs]|dej)\s+(to|ho|ji|je)\b/i,
   // CZ: "vytvoř soubor X"
-  /(?:^|\s)(vytvo[rř]|vytvorit)\s+.{0,10}soubor\b/i,
+  /(?:^|\s)(vytvo[rř]|vytvo[rř]it|vytvorit)\s+.{0,10}soubor\b/i,
   // CZ: "ulož/zapiš to do plan.md" (explicit path)
   /(?:^|\s)(ulo[žz]|uloz|save|zapi[šs]|napi[šs])\s+(?:to\s+)?(?:do|jako|into)\s+[\w./-]+/i,
   // EN: "save it to a file / to disk"
@@ -1378,7 +1391,7 @@ function _detectNegatedIntents(input) {
 
 // v63.0: Extract file path from user input
 // Looks for quoted paths, paths with extensions, or common filename patterns
-function extractFilePath(input) {
+export function extractFilePath(input) {
   // 0. Project-content queries → return "." for directory listing
   if (/(?:co|jak[ée])\s+(?:je\s+)?(?:sou[cč][áa]st[ií]|v)\s+(?:tohoto\s+|toho\s+)?projekt/i.test(input) ||
       /vypi[sš]\s+(?:mi\s+)?(?:obsah|soubory|adres[áa][rř]|slo[zž]ku)/i.test(input) ||
