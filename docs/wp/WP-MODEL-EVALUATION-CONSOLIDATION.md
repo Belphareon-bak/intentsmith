@@ -11,8 +11,10 @@
 sjednotit scoring/evaluace a pokračovat přes všechny milníky až k jednomu
 review candidate.
 
-**Stav:** `REVIEW_PENDING`; implementační brány se doplňují níže, tento soubor
-není nezávislé review ani `ACCEPTED` evidence.
+**Stav:** `IMPLEMENTATION_GREEN / REVIEW_PENDING`; všechny implementační
+milníky doběhly. Přesná evidence a review rozsah jsou v
+[`model-evaluation-consolidation-20260825.md`](../execution/runs/model-evaluation-consolidation-20260825.md).
+Tento stav není nezávislé review ani `ACCEPTED` evidence.
 
 ## 1. Uživatelský výsledek
 
@@ -143,3 +145,20 @@ Po přijetí této modelové části následuje samostatný whole-repo audit dal
 zastaralých nebo paralelních implementací IntentSmith. Tento následný audit je
 záměrně mimo aktuální review rozsah a nesmí být použit k předčasnému uzavření
 tohoto WP.
+
+## 9. Dokončení milníků
+
+| Milník | Výsledek |
+|---|---|
+| M0 — scope, base a invarianty | PASS |
+| M1 — odstranění v123 runtime | PASS |
+| M2 — exact-artifact storage a společný read model | PASS |
+| M3 — oddělené decision, portfolio gate a manual activation | PASS |
+| M4 — sedm role suites a fail-closed minima | PASS |
+| M5 — API, CLI, Studio, governor, registry a dokumentace | PASS |
+| M6 — registry, hygiene a module-boundary ratchet | PASS |
+| M7 — clean deterministic + server-owned read E2E handoff | PASS |
+
+Přijetí operátorem zůstává `REVIEW_PENDING`. Ostrý GPU/Ollama eval panel nebyl
+součástí cleanup acceptance a je pravdivě `NOT RUN`; starší výsledky se
+nepovyšují na current-contract PASS.

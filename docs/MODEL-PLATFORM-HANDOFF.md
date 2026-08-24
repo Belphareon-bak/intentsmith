@@ -1,7 +1,8 @@
 # Modelová platforma — aktuální handoff
 
-**Datum:** 2026-08-25 · **Stav:** implementace probíhá, `REVIEW_PENDING`
+**Datum:** 2026-08-25 · **Stav:** `IMPLEMENTATION_GREEN / REVIEW_PENDING`
 **Autoritativní popis:** [MODEL-SCORING-ACTIVATION.md](MODEL-SCORING-ACTIVATION.md)
+**Evidence:** [model-evaluation-consolidation-20260825.md](execution/runs/model-evaluation-consolidation-20260825.md)
 
 ## Co je hotové v review kandidátovi
 
@@ -26,6 +27,8 @@
 - Implementační testy nenahrazují nezávislé review operátora.
 - Automatický failover/proof issuance zůstává vypnutý; aktivace je ruční přes
   exact binding application.
+- `IMPLEMENTATION_GREEN` není `ACCEPTED`; konečný verdikt patří nezávislému
+  review operátora nad přesným rozsahem uvedeným v evidenci.
 
 ## Praktický read-only start
 
