@@ -64,7 +64,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 |---|---|---|---|
 | **M0 Produktová pravda** | `ACCEPTED / PASS` | současný C3/IntentSmith strom | Víme, co produkt je a co skutečně běží; deklarace nelžou o chování. |
 | **M1 Lokální runtime páteř** | `ACCEPTED / GATE_2_PASS` | M0 accepted; Gate 1 PASS | Stabilní Linux → Theia → chat → Ollama → persistence. |
-| **M2 Řízená práce nad projektem** | `IN_PROGRESS / SECTION_4_IMPLEMENTATION_GREEN` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
+| **M2 Řízená práce nad projektem** | `IN_PROGRESS / SECTION_5_IMPLEMENTATION_GREEN / REVIEWS_PENDING` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
 | **M3 Modulární platforma** | `NOT_STARTED` | M2 accepted | Expertise, tool, skill, specialista a agent přidají schopnost bez obcházení core. |
 | **M4 Auditovatelné self-learning** | `NOT_STARTED` | M2 accepted | Jedna uzavřená, scoped a vratná učící smyčka zlepšuje skutečný scénář. |
 | **M5 Production hardening** | `NOT_STARTED` | M3 + M4 accepted | Instalace, data, auth, procesy, síť, výkon a recovery jsou podporovatelné. |
@@ -1063,8 +1063,17 @@ providery. Registry má 411 programů a fingerprint `a5688cc4…`, module graph
 1 083 hran bez růstu cyklů. Deterministický gate na `d172cc0f` zůstal pravdivě
 `FAIL` s `247 PASS / 3 FAIL / 2 BLOCKED` a přesně baseline non-PASS množinou.
 Connector dál zůstává `CANDIDATE_V1 / CHANGES_REQUESTED`, dokud Opus max
-nevrátí `REVIEW_PASSED`. Aktuální module graph má 1 093 hran, stále 3 cykly
-s membership 28 souborů. Celý M2 jako celek není PASS.
+nevrátí `REVIEW_PASSED`. Oddíl 5 je implementačně zelený na `08d249ad`:
+`ProjectChangeRequest/Result` váže úplnou sadu forward/rollback/test/Git
+authority, SQLite 078 drží immutable material, approval set, lease fencing,
+journal a terminal truth, focused test běží bez fallbacku v read-only
+`bwrap` sandboxu a exact Git provider zachovává foreign staged/unstaged/untracked
+stav. Skutečný `SIGKILL` před i po aktualizaci indexu, restart generation 2,
+approval crash window, rollback, drift, pathspec magic a LF filename mají
+negativní proby. Vlastní sady mají 22/22, 13/13, 10/10, 11/11 a 10/10 PASS.
+Registry má 416 programů, fingerprint `a1c342bb…`; aktuální module graph má 1 098 hran,
+stále 3 cykly s membership 28 souborů. Oddíl 5 zůstává
+`CANDIDATE_V1 / REVIEW_PENDING` a celý M2 jako celek není PASS.
 
 ### Závislostní sekvence Work Packages
 

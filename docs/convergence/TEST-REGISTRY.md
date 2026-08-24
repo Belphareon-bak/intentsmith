@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 411
+- Runnable programs: 416
 - Explicit support-module exclusions: 14
-- Profiles: offline=208, database=44, server=37, model=85, soak=21, manual=16
-- States: ACTIVE=314, HISTORICAL=16, BLOCKED=81
+- Profiles: offline=211, database=46, server=37, model=85, soak=21, manual=16
+- States: ACTIVE=319, HISTORICAL=16, BLOCKED=81
 
 ## Execution profiles
 
@@ -316,6 +316,11 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M2-EFFECT-EXECUTION-OWNER-TEST` | `tests/m2-effect-execution-owner.test.js` | `C3-016` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | ba47da96ef7460335b5a4053605886e23c5f7924 / docs/execution/runs/wp-m2-effect-contract-v1-20260823.md | primary implementer |
 | `IS-T1-TESTS-M2-EFFECT-FILE-CONSUMER-TEST` | `tests/m2-effect-file-consumer.test.js` | `C3-016` | T1 | `database` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | d172cc0fe0200556a2177600fe8b0e993bec462d / docs/execution/runs/wp-m2-tool-contract-v1-20260824.md | primary implementer |
 | `IS-T1-TESTS-M2-EFFECT-FILE-RUNTIME-TEST` | `tests/m2-effect-file-runtime.test.js` | `C3-016` | T1 | `database` | 5 s | 30 s | network:none, temp-db | yes | `ACTIVE` | ba47da96ef7460335b5a4053605886e23c5f7924 / docs/execution/runs/wp-m2-effect-contract-v1-20260823.md | primary implementer |
+| `IS-T1-TESTS-M2-EXECUTION-AUTHORITY-REPOSITORY-TEST` | `tests/m2-execution-authority-repository.test.js` | `C3-011` | T1 | `database` | 5 s | 30 s | network:none, temp-db | yes | `ACTIVE` | 08d249adab097fc4e628b5ee8e54e9df1a26fa9c / docs/execution/runs/wp-m2-execution-v1-20260824.md | primary implementer |
+| `IS-T1-TESTS-M2-EXECUTION-CONTRACT-V1-TEST` | `tests/m2-execution-contract-v1.test.js` | `C3-011` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | 08d249adab097fc4e628b5ee8e54e9df1a26fa9c / docs/execution/runs/wp-m2-execution-v1-20260824.md | primary implementer |
+| `IS-T1-TESTS-M2-EXECUTION-GIT-PRESERVATION-TEST` | `tests/m2-execution-git-preservation.test.js` | `C3-011` | T1 | `offline` | 5 s | 30 s | network:none, toolchain:git | yes | `ACTIVE` | 08d249adab097fc4e628b5ee8e54e9df1a26fa9c / docs/execution/runs/wp-m2-execution-v1-20260824.md | primary implementer |
+| `IS-T1-TESTS-M2-EXECUTION-PROCESS-SUPERVISION-TEST` | `tests/m2-execution-process-supervision.test.js` | `C3-011` | T1 | `offline` | 10 s | 1 min | network:none, toolchain:bwrap | yes | `ACTIVE` | 08d249adab097fc4e628b5ee8e54e9df1a26fa9c / docs/execution/runs/wp-m2-execution-v1-20260824.md | primary implementer |
+| `IS-T1-TESTS-M2-EXECUTION-PROJECT-CHANGE-TEST` | `tests/m2-execution-project-change.test.js` | `C3-011` | T1 | `database` | 10 s | 1 min | network:none, temp-db, toolchain:bwrap, toolchain:git | yes | `ACTIVE` | 08d249adab097fc4e628b5ee8e54e9df1a26fa9c / docs/execution/runs/wp-m2-execution-v1-20260824.md | primary implementer |
 | `IS-T1-TESTS-M2-PROJECT-CONTEXT-BOUNDARY-TEST` | `tests/m2-project-context-boundary.test.js` | `C3-012` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | 11b9bfbfaaa9451566e3de2faf14aa51c224111b / docs/execution/runs/wp-m2-code-project-context-v1.md | primary implementer |
 | `IS-T1-TESTS-M2-PROJECT-CONTEXT-CONSUMER-TEST` | `tests/m2-project-context-consumer.test.js` | `C3-012` | T1 | `offline` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | 11b9bfbfaaa9451566e3de2faf14aa51c224111b / docs/execution/runs/wp-m2-code-project-context-v1.md | primary implementer |
 | `IS-T1-TESTS-M2-PROJECT-CONTEXT-CONTRACT-TEST` | `tests/m2-project-context-contract.test.js` | `C3-012` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | 11b9bfbfaaa9451566e3de2faf14aa51c224111b / docs/execution/runs/wp-m2-code-project-context-v1.md | primary implementer |
