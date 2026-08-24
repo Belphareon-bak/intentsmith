@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 
 import {
   validateEffectRequest,
-  validateEffectResultForRequest,
+  validateEffectResultForRequestV1,
 } from '../../../contracts/m2/effect-v1.js';
 import { expectedM2EffectOperationKey } from '../../tools/m2-tool-registry.js';
 import {
@@ -21,7 +21,7 @@ function resultMatchesRequest(requestJson, resultJson) {
     const request = JSON.parse(requestJson);
     const result = JSON.parse(resultJson);
     return validateEffectRequest(request).valid
-      && validateEffectResultForRequest(request, result).valid
+      && validateEffectResultForRequestV1(request, result).valid
       ? 1
       : 0;
   } catch {

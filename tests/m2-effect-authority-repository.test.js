@@ -5,7 +5,9 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
   M2_EFFECT_CONTRACT_KIND,
+  computeEffectArgvDigest,
   computeEffectRequestDigest,
+  deriveApprovalGrantConstraints,
 } from '../contracts/m2/effect-v1.js';
 import { up as applyEffectAuthorityMigration } from '../src/db/migrations/2026_08_23_070_m2_effect_authority.js';
 import { up as applyEffectAuthorityHardening } from '../src/db/migrations/2026_08_24_071_m2_effect_authority_hardening.js';
@@ -25,11 +27,20 @@ import {
 import { up as applyToolAuthority } from '../src/db/migrations/2026_08_24_074_m2_tool_authority.js';
 import { up as applyToolEffectLinks } from '../src/db/migrations/2026_08_24_075_m2_tool_effect_links.js';
 import { up as applyToolTruth } from '../src/db/migrations/2026_08_24_076_m2_tool_authority_truth.js';
-import { up as applyEffectInvalidations } from '../src/db/migrations/2026_08_24_077_m2_effect_invalidations.js';
+import {
+  computeM2EffectInvalidationSchemaFingerprint,
+  up as applyEffectInvalidations,
+} from '../src/db/migrations/2026_08_24_077_m2_effect_invalidations.js';
 import {
   EXPECTED_M2_EFFECT_CORE_FINGERPRINT_V080,
   up as applyEffectSemanticAuthority,
 } from '../src/db/migrations/2026_08_24_080_m2_effect_semantic_authority.js';
+import {
+  EXPECTED_M2_EFFECT_INVALIDATION_SCHEMA_FINGERPRINT_V081,
+  EXPECTED_M2_EFFECT_RESULT_SEMANTIC_V2_FINGERPRINT,
+  computeM2EffectResultSemanticV2Fingerprint,
+  up as applyEffectResultSemanticV2,
+} from '../src/db/migrations/2026_08_24_081_m2_effect_result_semantic_authority_v2.js';
 import {
   EXPECTED_M2_EFFECT_CORE_FINGERPRINT_V077,
   computeM2EffectCoreFingerprintV073,
@@ -203,7 +214,7 @@ function result(overrides = {}) {
     rollback: { required: false, status: 'not_required', evidenceRef: null },
     outputDigest: DIGEST_A,
     errorCode: null,
-    evidenceRefs: [],
+    evidenceRefs: ['effect:effect-1:test'],
     lateCompletionRejected: false,
   };
   return { ...base, ...overrides };
@@ -250,6 +261,56 @@ function applyEffectAuthorityThrough077(db) {
   applyToolEffectLinks(db);
   applyToolTruth(db);
   applyEffectInvalidations(db);
+}
+
+function processRequest(overrides = {}) {
+  const argv = ['--version'];
+  return request({
+    kind: 'process.exec',
+    target: {
+      type: 'process',
+      binary: '/usr/bin/node',
+      argv,
+      argvDigest: computeEffectArgvDigest(argv),
+      canonicalCwd: '/workspace/project',
+    },
+    requiredCapability: 'process.exec',
+    riskClass: 'exec',
+    idempotencyKey: 'process-version-1',
+    ...overrides,
+  });
+}
+
+function processGrant(requestValue = processRequest(), overrides = {}) {
+  return grant({
+    scope: {
+      ...grant().scope,
+      effectId: requestValue.effectId,
+      kind: requestValue.kind,
+      payloadDigest: requestValue.payloadDigest,
+      payloadBytes: requestValue.payloadBytes,
+      workspaceRevision: requestValue.workspaceRevision,
+    },
+    constraints: deriveApprovalGrantConstraints(requestValue),
+    ...overrides,
+  });
+}
+
+function looseLegacyProcessResult(requestValue = processRequest(), overrides = {}) {
+  return result({
+    effectId: requestValue.effectId,
+    runId: requestValue.runId,
+    projectId: requestValue.origin.projectId,
+    requestDigest: computeEffectRequestDigest(requestValue),
+    terminalStatus: 'succeeded',
+    process: {
+      pid: null, processGroupId: null, startIdentity: null, exitCode: null, signal: null,
+    },
+    changes: { paths: [], beforeDigest: null, afterDigest: null, diffArtifact: null },
+    outputDigest: null,
+    evidenceRefs: [],
+    ...overrides,
+  });
 }
 
 function consume(repository, input) {
@@ -1209,6 +1270,151 @@ test('080 migrates valid grants, is idempotent and rejects later direct-SQL cons
     /M2_APPROVAL_GRANT_SCOPE_MISMATCH/,
   );
   assert.equal(db.prepare('SELECT count(*) AS count FROM m2_approval_grants').get().count, 1);
+  db.close();
+});
+
+test('081 quarantines loose legacy non-fs terminals and enforces v2 on every new result', () => {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  applyEffectAuthorityThrough077(db);
+  applyEffectSemanticAuthority(db);
+  const repository = repositoryAt(db);
+
+  const legacyRequest = processRequest();
+  const legacyGrant = processGrant(legacyRequest);
+  registerAndGrant(repository, legacyRequest, legacyGrant);
+  consume(repository, {
+    grantId: legacyGrant.grantId,
+    request: repository.getEffectRequest(legacyRequest.effectId),
+  });
+  const legacyResult = looseLegacyProcessResult(legacyRequest);
+  db.prepare(`
+    INSERT INTO m2_effect_results (
+      effect_id, run_id, project_id, request_digest, approval_grant_id,
+      terminal_status, result_json, completed_at_ms
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    legacyResult.effectId,
+    legacyResult.runId,
+    legacyResult.projectId,
+    legacyResult.requestDigest,
+    legacyResult.approvalGrantId,
+    legacyResult.terminalStatus,
+    JSON.stringify(legacyResult),
+    Date.parse(legacyResult.completedAt),
+  );
+
+  const validRequest = request({
+    effectId: 'effect-valid-v2',
+    idempotencyKey: 'write-valid-v2',
+    target: {
+      ...request().target,
+      relativePath: 'src/valid-v2.js',
+      resolvedRealpath: '/workspace/project/src/valid-v2.js',
+    },
+  });
+  const validGrant = grant({
+    grantId: 'grant-valid-v2',
+    nonce: 'nonce-valid-v2-0001',
+    scope: { ...grant().scope, effectId: validRequest.effectId },
+    constraints: deriveApprovalGrantConstraints(validRequest),
+  });
+  registerAndGrant(repository, validRequest, validGrant);
+  consume(repository, {
+    grantId: validGrant.grantId,
+    request: repository.getEffectRequest(validRequest.effectId),
+  });
+  repository.recordEffectResult(result({
+    effectId: validRequest.effectId,
+    requestDigest: computeEffectRequestDigest(validRequest),
+    approvalGrantId: validGrant.grantId,
+    changes: {
+      paths: [validRequest.target.relativePath],
+      beforeDigest: DIGEST_B,
+      afterDigest: DIGEST_A,
+      diffArtifact: null,
+    },
+    evidenceRefs: ['effect:effect-valid-v2:test'],
+  }));
+
+  applyEffectResultSemanticV2(db);
+  assert.equal(
+    computeM2EffectResultSemanticV2Fingerprint(db),
+    EXPECTED_M2_EFFECT_RESULT_SEMANTIC_V2_FINGERPRINT,
+  );
+  assert.equal(
+    computeM2EffectInvalidationSchemaFingerprint(db),
+    EXPECTED_M2_EFFECT_INVALIDATION_SCHEMA_FINGERPRINT_V081,
+  );
+  assert.deepEqual(db.prepare(`
+    SELECT effect_id AS effectId, reason_code AS reasonCode, rejected_by_validator AS validator
+    FROM m2_effect_result_semantic_quarantine
+  `).all(), [{
+    effectId: legacyRequest.effectId,
+    reasonCode: 'LEGACY_RESULT_V2_SEMANTIC_MISMATCH',
+    validator: 2,
+  }]);
+  expectCode(
+    () => repository.getEffectResult(legacyRequest.effectId),
+    EffectAuthorityErrorCode.RESULT_SEMANTIC_QUARANTINED,
+  );
+  assert.equal(db.prepare(`
+    SELECT count(*) AS count FROM m2_effect_results WHERE effect_id = ?
+  `).get(legacyRequest.effectId).count, 1, 'legacy source evidence remains append-only');
+  assert.equal(repository.getEffectResult(validRequest.effectId).terminalStatus, 'succeeded');
+
+  const validStored = db.prepare(`
+    SELECT request_digest AS requestDigest,
+           m2_effect_result_json_digest_v1(result_json) AS resultDigest
+    FROM m2_effect_results WHERE effect_id = ?
+  `).get(validRequest.effectId);
+  assert.throws(() => db.prepare(`
+    INSERT INTO m2_effect_result_semantic_quarantine (
+      effect_id, request_digest, result_digest, reason_code,
+      rejected_by_validator, source_migration
+    ) VALUES (?, ?, ?, 'LEGACY_RESULT_V2_SEMANTIC_MISMATCH', 2,
+      '2026_08_24_081_m2_effect_result_semantic_authority_v2')
+  `).run(validRequest.effectId, validStored.requestDigest, validStored.resultDigest),
+  /M2_EFFECT_RESULT_QUARANTINE_AUTHORITY_MISMATCH/);
+
+  const rejectedRequest = processRequest({
+    effectId: 'effect-rejected-v2',
+    idempotencyKey: 'process-version-rejected-v2',
+  });
+  const rejectedGrant = processGrant(rejectedRequest, {
+    grantId: 'grant-rejected-v2',
+    nonce: 'nonce-rejected-v2-1',
+  });
+  registerAndGrant(repository, rejectedRequest, rejectedGrant);
+  consume(repository, {
+    grantId: rejectedGrant.grantId,
+    request: repository.getEffectRequest(rejectedRequest.effectId),
+  });
+  const rejectedResult = looseLegacyProcessResult(rejectedRequest, {
+    approvalGrantId: rejectedGrant.grantId,
+  });
+  assert.throws(() => db.prepare(`
+    INSERT INTO m2_effect_results (
+      effect_id, run_id, project_id, request_digest, approval_grant_id,
+      terminal_status, result_json, completed_at_ms
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    rejectedResult.effectId,
+    rejectedResult.runId,
+    rejectedResult.projectId,
+    rejectedResult.requestDigest,
+    rejectedResult.approvalGrantId,
+    rejectedResult.terminalStatus,
+    JSON.stringify(rejectedResult),
+    Date.parse(rejectedResult.completedAt),
+  ), /M2_EFFECT_RESULT_SEMANTIC_AUTHORITY_MISMATCH/);
+  assert.equal(repository.getEffectResult(rejectedRequest.effectId), null);
+
+  applyEffectResultSemanticV2(db);
+  assert.equal(
+    computeM2EffectResultSemanticV2Fingerprint(db),
+    EXPECTED_M2_EFFECT_RESULT_SEMANTIC_V2_FINGERPRINT,
+  );
   db.close();
 });
 

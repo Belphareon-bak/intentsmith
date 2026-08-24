@@ -465,18 +465,13 @@ export function validateEffectResult(value) {
   return validationResult(errors, value);
 }
 
-/**
- * Validate the terminal evidence against the exact EffectRequest it claims to
- * complete. Generic shape alone is insufficient: a provider returning `{}`
- * must never turn an fs.write into a succeeded authority record.
- */
-export function validateEffectResultForRequest(request, result) {
+function resultRequestValidation(request, result) {
   const errors = [];
   const requestValidation = validateEffectRequest(request);
   const resultValidation = validateEffectResult(result);
   errors.push(...requestValidation.errors, ...resultValidation.errors);
   if (!requestValidation.valid || !resultValidation.valid) {
-    return validationResult(errors, result);
+    return { errors, valid: false };
   }
   if (
     result.effectId !== request.effectId
@@ -484,77 +479,357 @@ export function validateEffectResultForRequest(request, result) {
     || result.projectId !== request.origin.projectId
     || result.requestDigest !== computeEffectRequestDigest(request)
   ) errors.push('effect-result:request-identity-mismatch');
+  return { errors, valid: true };
+}
 
-  if (request.kind === 'fs.write') {
-    if (
-      result.process.pid !== null
-      || result.process.processGroupId !== null
-      || result.process.startIdentity !== null
-      || result.process.exitCode !== null
-      || result.process.signal !== null
-    ) errors.push('effect-result:fs-write-success-process-mismatch');
-    if (
-      result.network.resolvedAddresses.length !== 0
-      || result.network.finalUrl !== null
-      || result.network.status !== null
-      || result.network.bytes !== 0
-    ) errors.push('effect-result:fs-write-network-mismatch');
-    if (result.changes.diffArtifact !== null) {
-      errors.push('effect-result:fs-write-diff-artifact-mismatch');
-    }
+function processEvidenceIsEmpty(result) {
+  return result.process.pid === null
+    && result.process.processGroupId === null
+    && result.process.startIdentity === null
+    && result.process.exitCode === null
+    && result.process.signal === null;
+}
 
-    if (result.terminalStatus === 'succeeded') {
-      if (
-        result.changes.paths.length !== 1
-        || result.changes.paths[0] !== request.target.relativePath
-      ) errors.push('effect-result:fs-write-path-evidence-mismatch');
-      if (result.changes.afterDigest !== request.payloadDigest) {
-        errors.push('effect-result:fs-write-after-digest-mismatch');
-      }
-      if (result.outputDigest !== request.payloadDigest) {
-        errors.push('effect-result:fs-write-output-digest-mismatch');
-      }
-      if (result.rollback.required !== false || result.rollback.status !== 'not_required') {
-        errors.push('effect-result:fs-write-success-rollback-mismatch');
-      }
-      if (result.lateCompletionRejected !== false) {
-        errors.push('effect-result:fs-write-success-late-completion-mismatch');
-      }
-    } else if (result.rollback.required === true) {
-      if (
-        result.changes.paths.length !== 1
-        || result.changes.paths[0] !== request.target.relativePath
-      ) errors.push('effect-result:fs-write-rollback-path-evidence-mismatch');
-      if (result.rollback.evidenceRef === null) {
-        errors.push('effect-result:fs-write-rollback-evidence-missing');
-      }
-      if (
-        result.changes.afterDigest !== null
-        && result.changes.afterDigest !== request.payloadDigest
-      ) errors.push('effect-result:fs-write-rollback-after-digest-mismatch');
-      if (result.outputDigest !== null && result.outputDigest !== request.payloadDigest) {
-        errors.push('effect-result:fs-write-rollback-output-digest-mismatch');
-      }
-    } else {
-      if (
-        result.changes.paths.length !== 0
-        || result.changes.beforeDigest !== null
-        || result.changes.afterDigest !== null
-        || result.outputDigest !== null
-      ) errors.push('effect-result:fs-write-pre-effect-evidence-mismatch');
-      if (result.lateCompletionRejected !== false) {
-        errors.push('effect-result:fs-write-pre-effect-late-completion-mismatch');
-      }
+function networkEvidenceIsEmpty(result) {
+  return result.network.resolvedAddresses.length === 0
+    && result.network.finalUrl === null
+    && result.network.status === null
+    && result.network.bytes === 0;
+}
+
+function changesEvidenceIsEmpty(result) {
+  return result.changes.paths.length === 0
+    && result.changes.beforeDigest === null
+    && result.changes.afterDigest === null
+    && result.changes.diffArtifact === null;
+}
+
+function hasExactPaths(result, expectedPaths) {
+  return result.changes.paths.length === expectedPaths.length
+    && result.changes.paths.every((candidate, index) => candidate === expectedPaths[index]);
+}
+
+function validateNoProcessEvidence(result, kind, errors) {
+  if (!processEvidenceIsEmpty(result)) {
+    errors.push(`effect-result:${kind}-process-evidence-mismatch`);
+  }
+}
+
+function validateNoNetworkEvidence(result, kind, errors) {
+  if (!networkEvidenceIsEmpty(result)) {
+    errors.push(`effect-result:${kind}-network-evidence-mismatch`);
+  }
+}
+
+function validateNoRollbackEvidence(result, kind, errors) {
+  if (
+    result.rollback.required !== false
+    || result.rollback.status !== 'not_required'
+    || result.rollback.evidenceRef !== null
+  ) errors.push(`effect-result:${kind}-rollback-evidence-mismatch`);
+}
+
+function validateFsWriteResultForRequest(request, result, errors) {
+  if (!processEvidenceIsEmpty(result)) {
+    errors.push('effect-result:fs-write-success-process-mismatch');
+  }
+  if (!networkEvidenceIsEmpty(result)) {
+    errors.push('effect-result:fs-write-network-mismatch');
+  }
+  if (result.changes.diffArtifact !== null) {
+    errors.push('effect-result:fs-write-diff-artifact-mismatch');
+  }
+
+  if (result.terminalStatus === 'succeeded') {
+    if (!hasExactPaths(result, [request.target.relativePath])) {
+      errors.push('effect-result:fs-write-path-evidence-mismatch');
+    }
+    if (result.changes.afterDigest !== request.payloadDigest) {
+      errors.push('effect-result:fs-write-after-digest-mismatch');
+    }
+    if (result.outputDigest !== request.payloadDigest) {
+      errors.push('effect-result:fs-write-output-digest-mismatch');
+    }
+    if (result.rollback.required !== false || result.rollback.status !== 'not_required') {
+      errors.push('effect-result:fs-write-success-rollback-mismatch');
+    }
+    if (result.lateCompletionRejected !== false) {
+      errors.push('effect-result:fs-write-success-late-completion-mismatch');
+    }
+  } else if (result.rollback.required === true) {
+    if (!hasExactPaths(result, [request.target.relativePath])) {
+      errors.push('effect-result:fs-write-rollback-path-evidence-mismatch');
+    }
+    if (result.rollback.evidenceRef === null) {
+      errors.push('effect-result:fs-write-rollback-evidence-missing');
     }
     if (
-      ['orphaned', 'killed'].includes(result.terminalStatus)
-      && result.rollback.required !== true
-    ) errors.push('effect-result:fs-write-ambiguous-without-rollback');
-    if (result.lateCompletionRejected === true && result.rollback.required !== true) {
-      errors.push('effect-result:fs-write-late-completion-without-rollback');
+      result.changes.afterDigest !== null
+      && result.changes.afterDigest !== request.payloadDigest
+    ) errors.push('effect-result:fs-write-rollback-after-digest-mismatch');
+    if (result.outputDigest !== null && result.outputDigest !== request.payloadDigest) {
+      errors.push('effect-result:fs-write-rollback-output-digest-mismatch');
+    }
+  } else {
+    if (
+      result.changes.paths.length !== 0
+      || result.changes.beforeDigest !== null
+      || result.changes.afterDigest !== null
+      || result.outputDigest !== null
+    ) errors.push('effect-result:fs-write-pre-effect-evidence-mismatch');
+    if (result.lateCompletionRejected !== false) {
+      errors.push('effect-result:fs-write-pre-effect-late-completion-mismatch');
     }
   }
-  return validationResult(errors, result);
+  if (
+    ['orphaned', 'killed'].includes(result.terminalStatus)
+    && result.rollback.required !== true
+  ) errors.push('effect-result:fs-write-ambiguous-without-rollback');
+  if (result.lateCompletionRejected === true && result.rollback.required !== true) {
+    errors.push('effect-result:fs-write-late-completion-without-rollback');
+  }
+}
+
+function validateFsReadResultForRequest(result, errors) {
+  validateNoProcessEvidence(result, 'fs-read', errors);
+  validateNoNetworkEvidence(result, 'fs-read', errors);
+  validateNoRollbackEvidence(result, 'fs-read', errors);
+  if (!changesEvidenceIsEmpty(result)) errors.push('effect-result:fs-read-change-evidence-mismatch');
+  if (result.terminalStatus === 'succeeded' && result.outputDigest === null) {
+    errors.push('effect-result:fs-read-output-evidence-missing');
+  }
+  if (result.terminalStatus !== 'succeeded' && result.outputDigest !== null) {
+    errors.push('effect-result:fs-read-failure-output-evidence-mismatch');
+  }
+  if (result.lateCompletionRejected !== false) {
+    errors.push('effect-result:fs-read-late-completion-mismatch');
+  }
+}
+
+function validateFsDeleteResultForRequest(request, result, errors) {
+  validateNoProcessEvidence(result, 'fs-delete', errors);
+  validateNoNetworkEvidence(result, 'fs-delete', errors);
+  if (result.changes.diffArtifact !== null) {
+    errors.push('effect-result:fs-delete-diff-artifact-mismatch');
+  }
+  if (result.terminalStatus === 'succeeded') {
+    if (!hasExactPaths(result, [request.target.relativePath])) {
+      errors.push('effect-result:fs-delete-path-evidence-mismatch');
+    }
+    if (result.changes.beforeDigest === null || result.changes.afterDigest !== null) {
+      errors.push('effect-result:fs-delete-digest-evidence-mismatch');
+    }
+    if (result.outputDigest !== request.payloadDigest) {
+      errors.push('effect-result:fs-delete-output-evidence-mismatch');
+    }
+    validateNoRollbackEvidence(result, 'fs-delete-success', errors);
+    if (result.lateCompletionRejected !== false) {
+      errors.push('effect-result:fs-delete-success-late-completion-mismatch');
+    }
+  } else if (result.rollback.required === true) {
+    if (!hasExactPaths(result, [request.target.relativePath])) {
+      errors.push('effect-result:fs-delete-rollback-path-evidence-mismatch');
+    }
+    if (result.rollback.evidenceRef === null) {
+      errors.push('effect-result:fs-delete-rollback-evidence-missing');
+    }
+  } else if (!changesEvidenceIsEmpty(result) || result.outputDigest !== null) {
+    errors.push('effect-result:fs-delete-pre-effect-evidence-mismatch');
+  }
+  if (['orphaned', 'killed'].includes(result.terminalStatus) && result.rollback.required !== true) {
+    errors.push('effect-result:fs-delete-ambiguous-without-rollback');
+  }
+  if (result.lateCompletionRejected === true && result.rollback.required !== true) {
+    errors.push('effect-result:fs-delete-late-completion-without-rollback');
+  }
+}
+
+function validateProcessExecResultForRequest(result, errors) {
+  validateNoNetworkEvidence(result, 'process-exec', errors);
+  validateNoRollbackEvidence(result, 'process-exec', errors);
+  if (!changesEvidenceIsEmpty(result)) errors.push('effect-result:process-exec-change-evidence-mismatch');
+  const identity = result.process.pid !== null
+    || result.process.processGroupId !== null
+    || result.process.startIdentity !== null;
+  const completeIdentity = Number.isSafeInteger(result.process.pid) && result.process.pid > 0
+    && Number.isSafeInteger(result.process.processGroupId) && result.process.processGroupId > 0
+    && isNonEmptyString(result.process.startIdentity, 256);
+  if (identity && !completeIdentity) errors.push('effect-result:process-exec-partial-process-identity');
+  if (result.terminalStatus === 'succeeded') {
+    if (!completeIdentity || result.process.exitCode !== 0 || result.process.signal !== null) {
+      errors.push('effect-result:process-exec-success-process-evidence-missing');
+    }
+    if (result.outputDigest === null) errors.push('effect-result:process-exec-output-evidence-missing');
+    if (result.lateCompletionRejected !== false) {
+      errors.push('effect-result:process-exec-success-late-completion-mismatch');
+    }
+  } else if (!identity && !processEvidenceIsEmpty(result)) {
+    errors.push('effect-result:process-exec-pre-start-evidence-mismatch');
+  }
+}
+
+function validateGitCommitResultForRequest(request, result, errors) {
+  validateNoProcessEvidence(result, 'git-commit', errors);
+  validateNoNetworkEvidence(result, 'git-commit', errors);
+  if (result.changes.diffArtifact !== null) errors.push('effect-result:git-commit-diff-artifact-mismatch');
+  if (result.terminalStatus === 'succeeded') {
+    if (!hasExactPaths(result, request.target.paths)) {
+      errors.push('effect-result:git-commit-path-evidence-mismatch');
+    }
+    if (
+      result.changes.beforeDigest === null
+      || result.changes.afterDigest === null
+      || result.outputDigest === null
+      || result.outputDigest !== result.changes.afterDigest
+    ) errors.push('effect-result:git-commit-digest-evidence-mismatch');
+    validateNoRollbackEvidence(result, 'git-commit-success', errors);
+    if (result.lateCompletionRejected !== false) {
+      errors.push('effect-result:git-commit-success-late-completion-mismatch');
+    }
+    return;
+  }
+  if (result.rollback.required === true) {
+    if (!hasExactPaths(result, request.target.paths)) {
+      errors.push('effect-result:git-commit-rollback-path-evidence-mismatch');
+    }
+    if (
+      result.changes.beforeDigest === null
+      || result.changes.afterDigest === null
+      || result.outputDigest !== result.changes.afterDigest
+    ) errors.push('effect-result:git-commit-rollback-digest-evidence-mismatch');
+    if (result.rollback.evidenceRef === null) {
+      errors.push('effect-result:git-commit-rollback-evidence-missing');
+    }
+    if (result.rollback.status === 'succeeded') {
+      if (
+        result.terminalStatus !== 'failed'
+        || result.errorCode !== 'GIT_COMMIT_COMPENSATED'
+        || result.lateCompletionRejected !== false
+      ) {
+        errors.push('effect-result:git-commit-compensated-terminal-mismatch');
+      }
+    } else if (
+      result.terminalStatus !== 'orphaned'
+      || result.errorCode !== 'GIT_COMMIT_IN_DOUBT'
+      || result.lateCompletionRejected !== true
+    ) errors.push('effect-result:git-commit-in-doubt-terminal-mismatch');
+  } else {
+    if (!changesEvidenceIsEmpty(result) || result.outputDigest !== null) {
+      errors.push('effect-result:git-commit-pre-effect-evidence-mismatch');
+    }
+    if (result.lateCompletionRejected !== false) {
+      errors.push('effect-result:git-commit-pre-effect-late-completion-mismatch');
+    }
+    if (result.terminalStatus === 'orphaned') {
+      errors.push('effect-result:git-commit-ambiguous-without-rollback');
+    }
+    const expectedPreEffectCode = Object.freeze({
+      failed: 'GIT_COMMIT_PRE_EFFECT_FAILED',
+      cancelled: 'GIT_COMMIT_CANCELLED',
+      timed_out: 'GIT_COMMIT_TIMED_OUT',
+    })[result.terminalStatus];
+    if (result.errorCode !== expectedPreEffectCode) {
+      errors.push('effect-result:git-commit-pre-effect-error-code-mismatch');
+    }
+  }
+}
+
+function validateNetworkRequestResultForRequest(result, errors) {
+  validateNoProcessEvidence(result, 'network-request', errors);
+  validateNoRollbackEvidence(result, 'network-request', errors);
+  if (!changesEvidenceIsEmpty(result)) errors.push('effect-result:network-request-change-evidence-mismatch');
+  if (result.terminalStatus === 'succeeded') {
+    if (
+      result.network.resolvedAddresses.length === 0
+      || result.network.finalUrl === null
+      || result.network.status === null
+      || result.outputDigest === null
+    ) errors.push('effect-result:network-request-success-evidence-missing');
+    if (result.lateCompletionRejected !== false) {
+      errors.push('effect-result:network-request-success-late-completion-mismatch');
+    }
+  } else if (networkEvidenceIsEmpty(result) && result.outputDigest !== null) {
+    errors.push('effect-result:network-request-pre-effect-output-mismatch');
+  }
+}
+
+function validateGitPushResultForRequest(request, result, errors) {
+  validateNoProcessEvidence(result, 'git-push', errors);
+  validateNoRollbackEvidence(result, 'git-push', errors);
+  if (result.changes.diffArtifact !== null) errors.push('effect-result:git-push-diff-artifact-mismatch');
+  if (result.terminalStatus === 'succeeded') {
+    if (!hasExactPaths(result, request.target.paths)) {
+      errors.push('effect-result:git-push-path-evidence-mismatch');
+    }
+    if (
+      result.changes.beforeDigest === null
+      || result.changes.afterDigest === null
+      || result.outputDigest === null
+      || result.network.resolvedAddresses.length === 0
+      || result.network.finalUrl === null
+    ) errors.push('effect-result:git-push-success-evidence-missing');
+    if (result.lateCompletionRejected !== false) {
+      errors.push('effect-result:git-push-success-late-completion-mismatch');
+    }
+  } else if (changesEvidenceIsEmpty(result) && networkEvidenceIsEmpty(result)) {
+    if (result.outputDigest !== null || result.lateCompletionRejected !== false) {
+      errors.push('effect-result:git-push-pre-effect-evidence-mismatch');
+    }
+  } else if (result.terminalStatus !== 'orphaned' || result.lateCompletionRejected !== true) {
+    errors.push('effect-result:git-push-ambiguous-terminal-mismatch');
+  }
+}
+
+/**
+ * Historical v1 semantic authority, frozen for migration 077 backfill and
+ * exact legacy-row classification. It intentionally owns only fs.write
+ * evidence because that was the accepted meaning when v1 was installed.
+ */
+export function validateEffectResultForRequestV1(request, result) {
+  const validation = resultRequestValidation(request, result);
+  if (!validation.valid) return validationResult(validation.errors, result);
+  if (request.kind === 'fs.write') {
+    validateFsWriteResultForRequest(request, result, validation.errors);
+  }
+  return validationResult(validation.errors, result);
+}
+
+/**
+ * Current semantic authority. Every public effect kind must prove its exact
+ * outcome; a generic shaped result is never sufficient terminal authority.
+ */
+export function validateEffectResultForRequest(request, result) {
+  const validation = resultRequestValidation(request, result);
+  if (!validation.valid) return validationResult(validation.errors, result);
+  if (result.evidenceRefs.length === 0) {
+    validation.errors.push('effect-result:evidence-refs-empty');
+  }
+  switch (request.kind) {
+    case 'fs.read':
+      validateFsReadResultForRequest(result, validation.errors);
+      break;
+    case 'fs.write':
+      validateFsWriteResultForRequest(request, result, validation.errors);
+      break;
+    case 'fs.delete':
+      validateFsDeleteResultForRequest(request, result, validation.errors);
+      break;
+    case 'process.exec':
+      validateProcessExecResultForRequest(result, validation.errors);
+      break;
+    case 'network.request':
+      validateNetworkRequestResultForRequest(result, validation.errors);
+      break;
+    case 'git.commit':
+      validateGitCommitResultForRequest(request, result, validation.errors);
+      break;
+    case 'git.push':
+      validateGitPushResultForRequest(request, result, validation.errors);
+      break;
+    default:
+      validation.errors.push('effect-result:request-kind-unsupported');
+  }
+  return validationResult(validation.errors, result);
 }
 
 function validateGrantSubject(value) {

@@ -19,6 +19,7 @@ import { createApprovalGrantIssuer } from '../src/effects/approval-grant-issuer.
 import { EffectAuthorityRepository } from '../src/effects/effect-authority-repository.js';
 import { ExecutionAuthorityRepository } from '../src/execution/execution-authority-repository.js';
 import {
+  commitExactProjectChange,
   exactGitProvider,
   observeExactGitBaseline,
 } from '../src/execution/exact-git-provider.js';
@@ -404,6 +405,109 @@ await testAsync('post-write revision observer failure is durably failed and roll
     assert.equal(result.rollback.status, 'succeeded');
     assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), 'export const value = 1;\n');
     assert.equal(prepared.executionRepository.getResult(result.executionId)?.terminalStatus, 'failed');
+    prepared.db.close();
+  } finally {
+    cleanup(root);
+  }
+});
+
+await testAsync('post-ref Git failure with exact compensation records a proven failed child terminal', async () => {
+  const root = makeProject();
+  try {
+    const prepared = await prepare(root, { commit: true, twoFiles: false });
+    const originalHead = prepared.plan.request.project.gitHead;
+    const result = await executeProjectChange({
+      executionId: prepared.plan.request.executionId,
+      grants: prepared.grants,
+      focusedEnvironment: prepared.environment,
+    }, dependencies(
+      prepared,
+      root,
+      successfulProcess(),
+      OWNER_ONE,
+      { isProvablyDead: () => false },
+      {
+        commit(input) {
+          return commitExactProjectChange(input, {
+            afterRefUpdate() {
+              const error = new Error('injected post-ref failure');
+              error.code = 'FAULT_INJECTION';
+              throw error;
+            },
+          });
+        },
+      },
+    ));
+    const child = prepared.effectRepository.getEffectResult(
+      prepared.plan.request.gitCommit.authority.effectId,
+    );
+    assert.equal(result.terminalStatus, 'failed');
+    assert.equal(result.git.status, 'failed');
+    assert.equal(git(root, ['rev-parse', 'HEAD']), originalHead);
+    assert.equal(child.terminalStatus, 'failed');
+    assert.equal(child.errorCode, 'GIT_COMMIT_COMPENSATED');
+    assert.equal(child.rollback.required, true);
+    assert.equal(child.rollback.status, 'succeeded');
+    assert.deepEqual(child.changes.paths, prepared.plan.request.gitCommit.paths);
+    assert.equal(child.outputDigest, child.changes.afterDigest);
+    prepared.db.close();
+  } finally {
+    cleanup(root);
+  }
+});
+
+await testAsync('lost post-ref compensation records an orphaned in-doubt child and parent', async () => {
+  const root = makeProject();
+  try {
+    const prepared = await prepare(root, { commit: true, twoFiles: false });
+    let competingHead = null;
+    const result = await executeProjectChange({
+      executionId: prepared.plan.request.executionId,
+      grants: prepared.grants,
+      focusedEnvironment: prepared.environment,
+    }, dependencies(
+      prepared,
+      root,
+      successfulProcess(),
+      OWNER_ONE,
+      { isProvablyDead: () => false },
+      {
+        commit(input) {
+          return commitExactProjectChange(input, {
+            afterRefUpdate({ root: repository, commitId, baseline }) {
+              const tree = git(repository, ['rev-parse', `${commitId}^{tree}`]);
+              competingHead = git(repository, ['commit-tree', tree, '-p', commitId], {
+                input: 'post-effect competing commit\n',
+                env: {
+                  PATH: '/usr/bin:/bin', HOME: '/nonexistent',
+                  GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null',
+                  GIT_AUTHOR_NAME: 'Competitor', GIT_AUTHOR_EMAIL: 'competitor@example.invalid',
+                  GIT_AUTHOR_DATE: '2026-08-24T06:30:01Z',
+                  GIT_COMMITTER_NAME: 'Competitor', GIT_COMMITTER_EMAIL: 'competitor@example.invalid',
+                  GIT_COMMITTER_DATE: '2026-08-24T06:30:01Z',
+                },
+              });
+              git(repository, ['update-ref', baseline.branchRef, competingHead, commitId]);
+              const error = new Error('injected compensation CAS loss');
+              error.code = 'FAULT_INJECTION';
+              throw error;
+            },
+          });
+        },
+      },
+    ));
+    const child = prepared.effectRepository.getEffectResult(
+      prepared.plan.request.gitCommit.authority.effectId,
+    );
+    assert.equal(result.terminalStatus, 'orphaned');
+    assert.equal(result.git.status, 'in_doubt');
+    assert.equal(git(root, ['rev-parse', 'HEAD']), competingHead);
+    assert.equal(child.terminalStatus, 'orphaned');
+    assert.equal(child.errorCode, 'GIT_COMMIT_IN_DOUBT');
+    assert.equal(child.rollback.required, true);
+    assert.equal(child.rollback.status, 'failed');
+    assert.equal(child.lateCompletionRejected, true);
+    assert.deepEqual(child.changes.paths, prepared.plan.request.gitCommit.paths);
     prepared.db.close();
   } finally {
     cleanup(root);

@@ -1131,24 +1131,67 @@ export async function executeProjectChange({
           evidenceRef: `execution:${executionId}:git-commit`,
         }));
       } catch (error) {
+        const provenPostEffectCode = [
+          'EXACT_GIT_COMMAND_FAILED',
+          'EXACT_GIT_IN_DOUBT',
+        ].includes(error?.code);
+        const candidateCommitId = provenPostEffectCode
+          && error?.details?.effectApplied === true
+          && typeof error?.details?.commitId === 'string'
+          ? error.details.commitId
+          : null;
+        const compensated = candidateCommitId !== null
+          && error.code === 'EXACT_GIT_COMMAND_FAILED'
+          && error?.details?.rollbackStatus === 'succeeded';
+        const inDoubt = candidateCommitId !== null
+          && error.code === 'EXACT_GIT_IN_DOUBT'
+          && error?.details?.rollbackStatus === 'failed';
+        const appliedCommitId = compensated || inDoubt ? candidateCommitId : null;
         git = {
-          status: error?.code === 'EXACT_GIT_IN_DOUBT' ? 'in_doubt' : 'failed',
+          status: inDoubt ? 'in_doubt' : 'failed',
           beforeHead: request.project.gitHead,
-          afterHead: null,
-          commitId: null,
-          foreignDirtPreserved: error?.code !== 'EXACT_GIT_IN_DOUBT',
+          afterHead: compensated ? request.project.gitHead : null,
+          commitId: appliedCommitId,
+          foreignDirtPreserved: !inDoubt,
         };
         if (!effectRepository.getEffectResult(gitRequest.effectId)) {
           effectRepository.recordEffectResult(effectResult({
             request: gitRequest,
-            terminalStatus: 'failed',
+            terminalStatus: inDoubt ? 'orphaned' : 'failed',
             startedAt: gitStartedAt,
             completedAt: timestamp(clock),
-            errorCode: 'GIT_COMMIT_FAILED',
-            evidenceRef: `execution:${executionId}:git-failed`,
+            paths: appliedCommitId === null ? [] : request.gitCommit.paths,
+            beforeDigest: appliedCommitId === null
+              ? null
+              : sha(Buffer.from(request.project.gitHead)),
+            afterDigest: appliedCommitId === null ? null : sha(Buffer.from(appliedCommitId)),
+            outputDigest: appliedCommitId === null ? null : sha(Buffer.from(appliedCommitId)),
+            errorCode: inDoubt
+              ? 'GIT_COMMIT_IN_DOUBT'
+              : compensated
+                ? 'GIT_COMMIT_COMPENSATED'
+                : 'GIT_COMMIT_PRE_EFFECT_FAILED',
+            evidenceRef: inDoubt
+              ? `execution:${executionId}:git-in-doubt`
+              : compensated
+                ? `execution:${executionId}:git-compensated`
+                : `execution:${executionId}:git-pre-effect-failed`,
+            lateCompletionRejected: inDoubt,
+            rollback: appliedCommitId === null
+              ? { required: false, status: 'not_required', evidenceRef: null }
+              : {
+                required: true,
+                status: compensated ? 'succeeded' : 'failed',
+                evidenceRef: compensated
+                  ? `execution:${executionId}:git-compensated`
+                  : `execution:${executionId}:git-compensation-failed`,
+              },
           }));
         }
-        stop = { status: 'failed', code: ProjectChangeRuntimeErrorCode.GIT_FAILED };
+        stop = {
+          status: inDoubt ? 'orphaned' : 'failed',
+          code: ProjectChangeRuntimeErrorCode.GIT_FAILED,
+        };
       }
     }
   }

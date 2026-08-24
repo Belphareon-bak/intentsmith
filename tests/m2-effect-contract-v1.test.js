@@ -10,6 +10,8 @@ import {
   validateApprovalGrant,
   validateEffectRequest,
   validateEffectResult,
+  validateEffectResultForRequest,
+  validateEffectResultForRequestV1,
 } from '../contracts/m2/effect-v1.js';
 import { suite, test, summary } from './harness.js';
 
@@ -345,6 +347,99 @@ test('EffectResult network evidence rejects credentials and non-IP addresses', (
   }));
   assert(checked.errors.includes('effect-result.network.resolvedAddresses[0]:invalid'));
   assert(checked.errors.includes('effect-result.network:credentialed-finalUrl'));
+});
+
+test('historical v1 stays frozen while current process.exec requires execution evidence', () => {
+  const argv = ['/workspace/project/test.js'];
+  const processRequest = request({
+    approvalGrantId: 'grant-1',
+    kind: 'process.exec',
+    riskClass: 'exec',
+    requiredCapability: 'project.process.exec',
+    target: {
+      type: 'process',
+      binary: '/usr/bin/node',
+      argv,
+      argvDigest: computeEffectArgvDigest(argv),
+      canonicalCwd: '/workspace/project',
+    },
+  });
+  const emptyProcessSuccess = result({
+    requestDigest: computeEffectRequestDigest(processRequest),
+    process: {
+      pid: null, processGroupId: null, startIdentity: null, exitCode: null, signal: null,
+    },
+    changes: { paths: [], beforeDigest: null, afterDigest: null, diffArtifact: null },
+    outputDigest: DIGEST_B,
+    evidenceRefs: ['effect:process:test'],
+  });
+  assert.equal(validateEffectResultForRequestV1(processRequest, emptyProcessSuccess).valid, true);
+  const checked = validateEffectResultForRequest(processRequest, emptyProcessSuccess);
+  assert.equal(checked.valid, false);
+  assert(checked.errors.includes('effect-result:process-exec-success-process-evidence-missing'));
+
+  const proven = {
+    ...emptyProcessSuccess,
+    process: {
+      pid: 4242,
+      processGroupId: 4242,
+      startIdentity: 'process-start-1',
+      exitCode: 0,
+      signal: null,
+    },
+  };
+  assert.equal(validateEffectResultForRequest(processRequest, proven).valid, true);
+});
+
+test('git.commit success is exact-path and an in-doubt failure cannot claim zero effects', () => {
+  const gitRequest = request({
+    approvalGrantId: 'grant-1',
+    kind: 'git.commit',
+    riskClass: 'write',
+    requiredCapability: 'project.git.commit',
+    target: {
+      type: 'git',
+      canonicalRepo: '/workspace/project',
+      paths: ['src/app.js'],
+      expectedWorkspaceRevision: 'wsr1:revision-a',
+      remote: null,
+    },
+  });
+  const success = result({
+    requestDigest: computeEffectRequestDigest(gitRequest),
+    process: {
+      pid: null, processGroupId: null, startIdentity: null, exitCode: null, signal: null,
+    },
+    changes: {
+      paths: ['src/app.js'], beforeDigest: DIGEST_A, afterDigest: DIGEST_B, diffArtifact: null,
+    },
+    outputDigest: DIGEST_B,
+    evidenceRefs: ['effect:git:test'],
+  });
+  assert.equal(validateEffectResultForRequest(gitRequest, success).valid, true);
+
+  const foreignPath = {
+    ...success,
+    changes: { ...success.changes, paths: ['src/foreign.js'] },
+  };
+  assert(validateEffectResultForRequest(gitRequest, foreignPath).errors
+    .includes('effect-result:git-commit-path-evidence-mismatch'));
+
+  const falseInDoubt = result({
+    requestDigest: computeEffectRequestDigest(gitRequest),
+    terminalStatus: 'failed',
+    process: {
+      pid: null, processGroupId: null, startIdentity: null, exitCode: null, signal: null,
+    },
+    changes: { paths: [], beforeDigest: null, afterDigest: null, diffArtifact: null },
+    rollback: { required: false, status: 'not_required', evidenceRef: null },
+    outputDigest: null,
+    errorCode: 'GIT_COMMIT_IN_DOUBT',
+    evidenceRefs: ['effect:git:in-doubt'],
+  });
+  const checked = validateEffectResultForRequest(gitRequest, falseInDoubt);
+  assert.equal(checked.valid, false);
+  assert(checked.errors.includes('effect-result:git-commit-pre-effect-error-code-mismatch'));
 });
 
 summary();

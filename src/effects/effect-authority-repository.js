@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import {
   M2_EFFECT_CONTRACT_KIND,
   canonicalStringify,
@@ -8,6 +10,7 @@ import {
   validateEffectRequest,
   validateEffectResult,
   validateEffectResultForRequest,
+  validateEffectResultForRequestV1,
 } from '../../contracts/m2/effect-v1.js';
 
 export const EffectAuthorityErrorCode = Object.freeze({
@@ -16,6 +19,7 @@ export const EffectAuthorityErrorCode = Object.freeze({
   REQUEST_CONFLICT: 'EFFECT_REQUEST_CONFLICT',
   RESULT_CONFLICT: 'EFFECT_RESULT_CONFLICT',
   RESULT_AUTHORITY_MISSING: 'EFFECT_RESULT_AUTHORITY_MISSING',
+  RESULT_SEMANTIC_QUARANTINED: 'EFFECT_RESULT_SEMANTIC_QUARANTINED',
   GRANT_NOT_FOUND: 'APPROVAL_GRANT_NOT_FOUND',
   GRANT_SCOPE_MISMATCH: 'APPROVAL_GRANT_SCOPE_MISMATCH',
   GRANT_NOT_YET_VALID: 'APPROVAL_GRANT_NOT_YET_VALID',
@@ -158,6 +162,18 @@ export class EffectAuthorityRepository {
       deterministic: true,
     }, (requestJson, resultJson) => {
       try {
+        return validateEffectResultForRequestV1(
+          JSON.parse(requestJson),
+          JSON.parse(resultJson),
+        ).valid ? 1 : 0;
+      } catch {
+        return 0;
+      }
+    });
+    this.db.function('m2_effect_result_matches_request_v2', {
+      deterministic: true,
+    }, (requestJson, resultJson) => {
+      try {
         return validateEffectResultForRequest(
           JSON.parse(requestJson),
           JSON.parse(resultJson),
@@ -165,6 +181,12 @@ export class EffectAuthorityRepository {
       } catch {
         return 0;
       }
+    });
+    this.db.function('m2_effect_result_json_digest_v1', {
+      deterministic: true,
+    }, resultJson => {
+      if (typeof resultJson !== 'string') return null;
+      return `sha256:${createHash('sha256').update(resultJson, 'utf8').digest('hex')}`;
     });
     this.db.function('m2_approval_grant_matches_request_v1', {
       deterministic: true,
@@ -758,6 +780,32 @@ export class EffectAuthorityRepository {
     `).get(effectId);
     if (!row) return null;
     try {
+      const hasSemanticQuarantine = this.db.prepare(`
+        SELECT 1 AS present FROM sqlite_master
+        WHERE type = 'table' AND name = 'm2_effect_result_semantic_quarantine'
+      `).get()?.present === 1;
+      const quarantine = hasSemanticQuarantine
+        ? this.db.prepare(`
+          SELECT result_digest AS resultDigest, reason_code AS reasonCode
+          FROM m2_effect_result_semantic_quarantine
+          WHERE effect_id = ?
+        `).get(effectId)
+        : null;
+      if (quarantine) {
+        const storedDigest = `sha256:${createHash('sha256')
+          .update(row.result_json, 'utf8')
+          .digest('hex')}`;
+        fail(
+          EffectAuthorityErrorCode.RESULT_SEMANTIC_QUARANTINED,
+          'Legacy EffectResult is quarantined from current semantic authority',
+          {
+            effectId,
+            reasonCode: quarantine.reasonCode,
+            resultDigest: quarantine.resultDigest,
+            storedDigest,
+          },
+        );
+      }
       const result = JSON.parse(row.result_json);
       const request = this.getEffectRequest(result.effectId);
       const validation = request
@@ -774,6 +822,10 @@ export class EffectAuthorityRepository {
       }
       return Object.freeze(result);
     } catch (error) {
+      if (
+        error instanceof EffectAuthorityError
+        && error.code === EffectAuthorityErrorCode.RESULT_SEMANTIC_QUARANTINED
+      ) throw error;
       storageFailure('result read', error);
     }
   }

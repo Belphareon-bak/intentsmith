@@ -477,9 +477,19 @@ export function commitExactProjectChange({
       if (!restored) {
         fail(ExactGitErrorCode.IN_DOUBT, 'Commit failed after ref update and exact compensation failed', {
           commitId,
+          effectApplied: true,
+          rollbackStatus: 'failed',
+          causeCode: error?.code || null,
           cause: error.message,
         });
       }
+      fail(ExactGitErrorCode.COMMAND_FAILED, 'Commit failed after ref update and was exactly compensated', {
+        commitId,
+        effectApplied: true,
+        rollbackStatus: 'succeeded',
+        causeCode: error?.code || null,
+        cause: error?.message || String(error),
+      });
     }
     throw error;
   } finally {

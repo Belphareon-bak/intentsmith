@@ -227,7 +227,13 @@ test('failure immediately after ref update is CAS-compensated to original head',
         error.code = 'FAULT_INJECTION';
         throw error;
       },
-    }), /fault after update-ref/);
+    }), error => (
+      error?.code === ExactGitErrorCode.COMMAND_FAILED
+      && error?.details?.effectApplied === true
+      && error?.details?.rollbackStatus === 'succeeded'
+      && typeof error?.details?.commitId === 'string'
+      && error?.details?.causeCode === 'FAULT_INJECTION'
+    ));
     assert.equal(git(root, ['rev-parse', 'HEAD']), baseline.head);
     assert.equal(git(root, ['diff', '--', 'target.txt']).includes('target-after'), true);
     const after = observeExactGitBaseline(root, ['target.txt'], { projectId: 17 });
@@ -254,11 +260,60 @@ test('failure after real-index update compensates both ref and exact target inde
         error.code = 'FAULT_INJECTION';
         throw error;
       },
-    }), /fault after real index update/);
+    }), error => (
+      error?.code === ExactGitErrorCode.COMMAND_FAILED
+      && error?.details?.effectApplied === true
+      && error?.details?.rollbackStatus === 'succeeded'
+      && error?.details?.causeCode === 'FAULT_INJECTION'
+    ));
     assert.equal(git(root, ['rev-parse', 'HEAD']), baseline.head);
     assert.equal(git(root, ['diff', '--cached', '--name-only', '--', 'target.txt']), '');
     assert.equal(git(root, ['diff', '--name-only', '--', 'target.txt']), 'target.txt');
     assert.equal(git(root, ['diff', '--cached', '--name-only']), 'staged.txt');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('failure after ref update is in doubt only when exact compensation loses its CAS', () => {
+  const root = fixture();
+  try {
+    const baseline = observeExactGitBaseline(root, ['target.txt'], { projectId: 17 });
+    fs.writeFileSync(path.join(root, 'target.txt'), 'target-after\n');
+    let competingHead = null;
+    assert.throws(() => commitExactProjectChange({
+      projectRoot: root,
+      baseline,
+      files: [{ path: 'target.txt', bytes: Buffer.from('target-after\n'), mode: 0o644 }],
+      message: 'uncompensated exact commit',
+      identity: identity(),
+    }, {
+      afterRefUpdate({ root: repository, commitId }) {
+        const tree = git(repository, ['rev-parse', `${commitId}^{tree}`]);
+        competingHead = git(repository, ['commit-tree', tree, '-p', commitId], {
+          input: 'competing post-effect commit\n',
+          env: {
+            PATH: '/usr/bin:/bin', HOME: '/nonexistent',
+            GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null',
+            GIT_AUTHOR_NAME: 'Competitor', GIT_AUTHOR_EMAIL: 'competitor@example.invalid',
+            GIT_AUTHOR_DATE: '2026-08-24T06:00:02Z',
+            GIT_COMMITTER_NAME: 'Competitor', GIT_COMMITTER_EMAIL: 'competitor@example.invalid',
+            GIT_COMMITTER_DATE: '2026-08-24T06:00:02Z',
+          },
+        });
+        git(repository, ['update-ref', baseline.branchRef, competingHead, commitId]);
+        const error = new Error('fault after competing ref update');
+        error.code = 'FAULT_INJECTION';
+        throw error;
+      },
+    }), error => (
+      error?.code === ExactGitErrorCode.IN_DOUBT
+      && error?.details?.effectApplied === true
+      && error?.details?.rollbackStatus === 'failed'
+      && typeof error?.details?.commitId === 'string'
+      && error?.details?.causeCode === 'FAULT_INJECTION'
+    ));
+    assert.equal(git(root, ['rev-parse', 'HEAD']), competingHead);
   } finally {
     cleanup(root);
   }
