@@ -12334,6 +12334,126 @@
       },
       "flakeCount": 0,
       "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M2-TOOL-CONTRACT-V1-TEST",
+      "path": "tests/m2-tool-contract-v1.test.js",
+      "argv": [
+        "node",
+        "tests/m2-tool-contract-v1.test.js"
+      ],
+      "capabilityId": "C3-020",
+      "tier": "T1",
+      "fixture": "offline",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": "8ec1351e988f3a179ba64934813910ce8300c5c0",
+        "artifact": "docs/execution/runs/wp-m2-tool-contract-v1-20260824.md"
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M2-TOOL-AUTHORITY-REPOSITORY-TEST",
+      "path": "tests/m2-tool-authority-repository.test.js",
+      "argv": [
+        "node",
+        "tests/m2-tool-authority-repository.test.js"
+      ],
+      "capabilityId": "C3-020",
+      "tier": "T1",
+      "fixture": "isolated-db",
+      "profile": "database",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": "8ec1351e988f3a179ba64934813910ce8300c5c0",
+        "artifact": "docs/execution/runs/wp-m2-tool-contract-v1-20260824.md"
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M2-TOOL-BROKER-V1-TEST",
+      "path": "tests/m2-tool-broker-v1.test.js",
+      "argv": [
+        "node",
+        "tests/m2-tool-broker-v1.test.js"
+      ],
+      "capabilityId": "C3-020",
+      "tier": "T1",
+      "fixture": "offline",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": "8ec1351e988f3a179ba64934813910ce8300c5c0",
+        "artifact": "docs/execution/runs/wp-m2-tool-contract-v1-20260824.md"
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M2-TOOL-PRODUCTION-CONSUMER-TEST",
+      "path": "tests/m2-tool-production-consumer.test.js",
+      "argv": [
+        "node",
+        "tests/m2-tool-production-consumer.test.js"
+      ],
+      "capabilityId": "C3-020",
+      "tier": "T1",
+      "fixture": "isolated-db",
+      "profile": "database",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": "8ec1351e988f3a179ba64934813910ce8300c5c0",
+        "artifact": "docs/execution/runs/wp-m2-tool-contract-v1-20260824.md"
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
     }
   ]
 }

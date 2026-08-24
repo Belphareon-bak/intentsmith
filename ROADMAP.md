@@ -64,7 +64,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 |---|---|---|---|
 | **M0 Produktová pravda** | `ACCEPTED / PASS` | současný C3/IntentSmith strom | Víme, co produkt je a co skutečně běží; deklarace nelžou o chování. |
 | **M1 Lokální runtime páteř** | `ACCEPTED / GATE_2_PASS` | M0 accepted; Gate 1 PASS | Stabilní Linux → Theia → chat → Ollama → persistence. |
-| **M2 Řízená práce nad projektem** | `IN_PROGRESS / WP-M2-EFFECT` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
+| **M2 Řízená práce nad projektem** | `IN_PROGRESS / SECTION_4_IMPLEMENTATION_GREEN` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
 | **M3 Modulární platforma** | `NOT_STARTED` | M2 accepted | Expertise, tool, skill, specialista a agent přidají schopnost bez obcházení core. |
 | **M4 Auditovatelné self-learning** | `NOT_STARTED` | M2 accepted | Jedna uzavřená, scoped a vratná učící smyčka zlepšuje skutečný scénář. |
 | **M5 Production hardening** | `NOT_STARTED` | M3 + M4 accepted | Instalace, data, auth, procesy, síť, výkon a recovery jsou podporovatelné. |
@@ -1051,7 +1051,12 @@ claim/recovery a canonical `file.write` fail-closed končí před efektem. Regis
 má 407 programů, fingerprint `43de5e61…`, focused sady i artifact testy jsou
 zelené. Connector přesto zůstává `CANDIDATE_V1` a žádný z těchto tří oddílů
 není označen hotově, dokud příslušný Opus review nevrátí `REVIEW_PASSED`.
-Celý M2 jako celek není PASS.
+Oddíl 4 má na `8ec1351e` durable `ToolRequest/ToolResult` hranici na aktivním
+Studio/chat executoru, exact replay a canonical `file.write` effect překlad.
+Web, file read, exec a database zůstávají pravdivě secure-unavailable; nejsou
+vydávány za hotové providery. Registry má 411 programů a fingerprint
+`a67d4514…`, module graph 1 081 hran bez růstu cyklů. I tento connector zůstává
+`CANDIDATE_V1 / REVIEW_BLOCKED_ACCOUNT_LIMIT`. Celý M2 jako celek není PASS.
 
 ### Závislostní sekvence Work Packages
 

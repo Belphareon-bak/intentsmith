@@ -7,8 +7,8 @@ a současný autoritativní C3 Studio runtime už neobsahuje implicitní Google 
 egress. Spouštěné Studio UI je stále přechodný runtime, nikoli finální vzhled
 IntentSmithu.
 
-**Verze:** 136.1.0 | **407 registrovaných testovacích programů**
-(`310 ACTIVE`, `81 BLOCKED`, `0 KNOWN_DEFECTIVE`, `16 HISTORICAL`)
+**Verze:** 136.1.0 | **411 registrovaných testovacích programů**
+(`314 ACTIVE`, `81 BLOCKED`, `0 KNOWN_DEFECTIVE`, `16 HISTORICAL`)
 
 > **Stav: aktivní vývoj; M1 lokální runtime páteř je `ACCEPTED/PASS`.** Sedm z
 > 22 schopností je v `ACCEPTED/PASS`; M2 řízená práce nad projektem je ve vývoji
@@ -319,14 +319,14 @@ intentsmith/
 │   ├── report-gen.json           #   Generování reportů
 │   └── summarizer.json           #   Sumarizace textu
 │
-├── tests/                        # Testy a kanonický registr 407 programů
+├── tests/                        # Testy a kanonický registr 411 programů
 │   ├── harness.js                #   Custom ESM test harness
 │   ├── cre-*.test.js             #   CRE testy (401+)
 │   ├── lifecycle-*.test.js       #   Lifecycle testy (103+)
 │   ├── code-intel-*.test.js      #   Code Intelligence testy (339+)
 │   ├── execution-loop.test.js    #   Execution Engine testy (597+)
 │   ├── upgrade-*.test.js         #   Model Upgrade testy
-│   └── registry.json             #   Kanonický registr 407 programů
+│   └── registry.json             #   Kanonický registr 411 programů
 │
 ├── docs/                         # Aktivní dokumentace + archiv
 │   ├── ARCHITECTURE.md           #   Kompletní architektura

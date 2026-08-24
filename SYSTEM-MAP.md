@@ -133,19 +133,19 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 | | |
 |---|---:|
-| `src/**/*.js` | **158 339 ř.**, 420 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **171 792 ř.**, 371 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **376** (`279 ACTIVE`, `82 BLOCKED`, `15 HISTORICAL`) |
-| Tabulek v čerstvé DB / aplikovaných migrací | **106 / 55** |
+| `src/**/*.js` | **174 152 ř.**, 462 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **193 510 ř.**, 412 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **411** (`314 ACTIVE`, `81 BLOCKED`, `16 HISTORICAL`) |
+| Tabulek v čerstvé DB / aplikovaných migrací | **121 / 64** |
 | HTTP rout | ~230 |
 | **Schopností v `ACCEPTED/PASS`** | **1 z 22** (#2 CRE); #1 server/routing/DB je zatím `RUNTIME_VERIFIED` — jeho suite má 13 interních checků, zatímco behavior dokument obsahuje 16 řádků, takže tvrzení „13/13 chování“ není platný akceptační součet |
 
 Aktuální registry fingerprint je
-`0472f18e3cc526a823d0e302c6c2ff9d13a7c60b0c480b940237487799024fd0`.
+`a67d451426b8fefa4e1e5287d5378e975fd36b7b8a87acc26f0108a5331483a0`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 
-Tool census ze zdroje: **3 JavaScript soubory, 5 694 řádků, 153 top-level
+Tool census ze zdroje: **8 JavaScript soubory, 6 870 řádků, 153 top-level
 nástrojových deklarací**. Počet 213 v dřívější inventuře byl textový false count.
 
 ---
@@ -216,7 +216,7 @@ adresáře** — u čtyř schopností kód leží jinde, než by název adresá�
 | 6 | Chat pipeline | 20,4k | `chat/handlers/` (45), `chat/controller.js` |
 | 21 | Studio + WS | 1,3k + **14,9k** | `ws-bridge/` + **`c3-ide/` (139 souborů TS/TSX, 20+ rozšíření)** — Theia IDE je **plocha produktu**, viz `DIRECTION.md` |
 | 7 | Expertizy | 9,5k | `expertises/` **mimo** specialist-runtime, scenario-engine, knowledge-base |
-| 16 | Nástroje | 5,7k | `tools/` — `registry.js` sám 5 094 ř. / **153 registrovaných nástrojů** |
+| 16 | Nástroje | 6,9k | `tools/` — legacy `registry.js` drží **153 registrovaných nástrojů**; M2 typed authority je v `m2-tool-*.js` |
 | 9 | Skills | 1,8k | `skills/` — 8 vykonávaných step typů + samostatná substitution helper vrstva |
 | 15 | Paměť | 3,1k | `memory/` |
 | 12 | Code Intelligence | 11,6k | `code-intel/` |
