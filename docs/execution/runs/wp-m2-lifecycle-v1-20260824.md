@@ -3,6 +3,7 @@
 - **oddíl:** M2 6/7
 - **stav:** `IMPLEMENTATION_GREEN / REVIEW_REQUIRED`
 - **candidate revision:** `5e6f25f748cd98834673fcfdfc8fdf7189419b04`
+- **gate hardening revision:** `010556619c9b216b950d8f7e15014d76775a80d2`
 - **větev:** `codex/m2-integration-20260824`
 - **push:** neproveden
 
@@ -59,11 +60,41 @@ PASS. Všechny běhy byly offline, bez GPU, Ollamy, Electronu a sítě.
 
 ## Celý gate a review
 
-Celý deterministický `offline,database` gate bude doplněn až z čistého evidence
-commitu. Historický gate je pravdivě `FAIL` s pěti známými non-PASS ID; tento
-report jej nevydává za PASS. Oddíl zůstává `REVIEW_REQUIRED`, dokud lokální
-Claude Opus s `--effort max` nevrátí explicitní `REVIEW_PASSED` nad přesným
-stabilním řezem. Každé `CHANGES_REQUESTED` se opraví a review zopakuje.
+První celý gate našel dvě evidence-infrastrukturní vady, které focused běhy
+nemohly ukázat:
+
+- lifecycle DB sady nebyly v fail-closed import-graph census připnuté přes
+  canonical isolation bootstrap; `26234510` přidal bootstrap a revidoval census
+  z 108 na 110 database-reachable root testů;
+- `m2-tool-authority-repository` z oddílu 4 používal pevné terminal časy, ale
+  execution claim z reálného `Date.now`; po překročení pevného času SQL fence
+  správně začal test odmítat. `01055661` zmrazil testovací clock a exact
+  registry-runner recheck má 1/1 PASS.
+
+Dva meziběhy zasažené vlastními direct-test runtime zbytky a následným `ENOSPC`
+nejsou vydávány za produktovou evidence. Po odstranění pouze přesně vlastněných
+ignorovaných run adresářů proběhl celý deterministický `offline,database` gate
+na čistém `010556619c9b216b950d8f7e15014d76775a80d2`:
+
+- run `2026-08-24T08-05-53-988Z`;
+- report
+  `.intentsmith-artifacts/test-runs/2026-08-24T08-05-53-988Z/report.json`;
+- `verdict: FAIL`, `exitCode: 1`;
+- `258 PASS / 3 FAIL / 0 TIMEOUT / 2 BLOCKED / 0 SKIPPED`;
+- přesná nezměněná non-PASS množina:
+  `IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST` (`BLOCKED`),
+  `IS-T1-TESTS-EXPORT-PDF-DOCX-TEST` (`BLOCKED`),
+  `IS-T1-TESTS-NIGHTLY-AUDIT-RUNNER-SELF-TEST` (`FAIL`),
+  `IS-T1-TESTS-NIGHTLY-ORCHESTRATOR-SELF-TEST` (`FAIL`) a
+  `IS-T3-TESTS-VRAM-COORDINATION-TEST` (`FAIL`).
+
+Gate tedy zůstává pravdivě baseline `FAIL`; současně nevznikl nový non-PASS ID,
+timeout ani M2 produktová regrese. Devět nových `offline,database` sad vysvětluje
+posun proti oddílu 5 z 249 na 258 PASS. Reálná application-service journey je
+podle registry v explicitním `soak` profilu kvůli `bwrap`/Git a má samostatně
+4/4 PASS. Oddíl zůstává `REVIEW_REQUIRED`, dokud lokální Claude Opus s
+`--effort max` nevrátí explicitní `REVIEW_PASSED` nad přesným stabilním řezem.
+Každé `CHANGES_REQUESTED` se opraví a review zopakuje.
 
 ## Přiznané limity
 

@@ -1085,8 +1085,10 @@ M1/Studio/chat regrese 459/459 PASS; schema migrace mají 38/38, M1 failover
 schema 20/20 a artifact validation 154/154. Registry má 426 programů,
 fingerprint `5796d25d…`; aktuální module graph má 1 116 hran, stále 3 cykly
 s membership 28 souborů. Oddíl 6 zůstává `IMPLEMENTED / REVIEW_REQUIRED`, dokud
-stabilní řez neprojde deterministickým gate a Opus `--effort max` review.
-Celý M2 jako celek není PASS.
+Opus `--effort max` review nevrátí `REVIEW_PASSED`. Deterministický gate na
+`01055661` zůstal pravdivě `FAIL` s `258 PASS / 3 FAIL / 2 BLOCKED`, nulovým
+timeoutem a přesně nezměněnou baseline non-PASS množinou; žádná M2 sada
+neselhala. Celý M2 jako celek není PASS.
 
 ### Závislostní sekvence Work Packages
 
