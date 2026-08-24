@@ -121,6 +121,15 @@ všechny tři host-toolchain sady spuštěny znovu přímo a zůstaly zelené: p
 change 10/10, process supervision 13/13 a exact Git preservation 10/10. Běhy použily skutečné
 `bwrap`/Git procesy, nezanechaly direct-test runtime a nedotkly se GPU/Ollamy.
 
+Navazující čistý `offline,database` gate na
+`0046cd9d76c19cb3160659b5caf56a32af5024c0` má report
+`.intentsmith-artifacts/test-runs/2026-08-24T09-09-50-584Z/report.json`,
+`verdict: FAIL`, `exitCode: 1` a přesně
+`260 PASS / 3 FAIL / 0 TIMEOUT / 2 BLOCKED / 0 SKIPPED`. Obě registrované
+execution sady ve zvoleném profilu prošly a nevznikl nový non-PASS ID; tři
+host-toolchain `soak` sady dokládají samostatné reálné běhy výše. Celkový gate
+se proto dál pravdivě nejmenuje PASS.
+
 ## Omezení a navazující práce
 
 - Oddíl 5 nepřepojil legacy lifecycle ani Studio surface; to je oddíl 6.

@@ -105,6 +105,14 @@ sad bylo na stejných product bytes znovu zelených; současný registry fingerp
 po aktualizaci jejich `lastGreen` je
 `54dce9be3a18ef854097c5919d1471e53f38bf6ef0e828ecc5ff0438f9e302d2`.
 
+Poslední čistý `offline,database` gate na
+`0046cd9d76c19cb3160659b5caf56a32af5024c0` má report
+`.intentsmith-artifacts/test-runs/2026-08-24T09-09-50-584Z/report.json` a
+znovu spustil všech devět lifecycle/governance programů svého profilu jako
+PASS. Celkově zůstal pravdivě `FAIL`, `exitCode: 1`, s přesnými
+`260 PASS / 3 FAIL / 0 TIMEOUT / 2 BLOCKED / 0 SKIPPED` a bez nového non-PASS
+ID. Reálný application-service `soak` zůstává oddělený 4/4 důkaz výše.
+
 ## Přiznané limity
 
 - V1 přijímá jen strict strukturovaný proposal; volný modelový text není

@@ -60,7 +60,7 @@ Opus verdict.
 
 ## Focused evidence
 
-Assertion totals níže jsou obnovené cross-section revalidací na `d034df62`;
+Assertion totals níže jsou obnovené cross-section revalidací na `05c5a856`;
 section-local registry a module facts zůstávají připnuté k `fa437d02`.
 
 | Sada | Výsledek |
@@ -99,11 +99,11 @@ zelený section gate. Navazující hardening do `fa437d02` obě nové regrese
 opravil, ale samostatný celý gate před otevřením oddílu 4 už spuštěn nebyl.
 
 Aktuální integrační důkaz je celý čistý `offline,database` gate na
-`d415e6d780a0cac931a28e59c7a51919aed79251`:
+`0046cd9d76c19cb3160659b5caf56a32af5024c0`:
 
-- run `2026-08-24T08-27-21-820Z`;
+- run `2026-08-24T09-09-50-584Z`;
 - report
-  `.intentsmith-artifacts/test-runs/2026-08-24T08-27-21-820Z/report.json`;
+  `.intentsmith-artifacts/test-runs/2026-08-24T09-09-50-584Z/report.json`;
 - `verdict: FAIL`, `exitCode: 1`;
 - `260 PASS / 3 FAIL / 0 TIMEOUT / 2 BLOCKED / 0 SKIPPED`;
 - všech šest registrovaných `m2-effect-*` sad PASS, včetně per-suite clean
@@ -116,7 +116,7 @@ Tento pozdější gate dokládá, že section hardening zůstal v kompletní M2
 integraci bez nové produktové regrese; nepřepisuje historický červený běh ani
 z něj nedělá section-local PASS.
 
-Cross-section audit na čistém `d034df62` navíc přímo zopakoval všech šest
+Cross-section audit na čistém product headu `05c5a856` navíc přímo zopakoval všech šest
 effect sad s aktuálními assertion totals 20/20, 43/43, 25/25, 5/5, 7/7 a 6/6
 PASS. Direct-test runtime byl po doběhu prázdný.
 

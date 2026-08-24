@@ -3,7 +3,7 @@
 - **oddíl:** M2 7/7
 - **stav:** `IMPLEMENTATION_GREEN / REVIEW_REQUIRED`
 - **candidate revision:** `a7d4ce3d8b7886e521f70f78e7a2ff262736b93a`
-- **gate evidence revision:** `d415e6d780a0cac931a28e59c7a51919aed79251`
+- **gate evidence revision:** `0046cd9d76c19cb3160659b5caf56a32af5024c0`
 - **větev:** `codex/m2-integration-20260824`
 - **push:** neproveden
 
@@ -48,20 +48,20 @@ Ollamy, Electronu, síťového listeneru a remote runtime.
   3 cykly / 28 souborů;
 - nové contract/provider moduly jsou fyzicky odpojené od produkčního serveru;
 - registry: 428 runnable programů, 14 explicitních exclusions a 331 ACTIVE;
-- registry fingerprint po připnutí `lastGreen` je
-  `c487692dd5ccea126d3b858f4dcf207cc701e945c545ee2843c7227b946d4374`;
+- současný integrační registry fingerprint po pozdějším section-5 hardeningu je
+  `54dce9be3a18ef854097c5919d1471e53f38bf6ef0e828ecc5ff0438f9e302d2`;
 - `artifact-validation`: 154/154 PASS;
 
 ## Celý gate
 
 Celý deterministický `offline,database` gate proběhl nad čistým
-`d415e6d780a0cac931a28e59c7a51919aed79251`:
+`0046cd9d76c19cb3160659b5caf56a32af5024c0`:
 
-- run `2026-08-24T08-27-21-820Z`;
+- run `2026-08-24T09-09-50-584Z`;
 - report
-  `.intentsmith-artifacts/test-runs/2026-08-24T08-27-21-820Z/report.json`;
+  `.intentsmith-artifacts/test-runs/2026-08-24T09-09-50-584Z/report.json`;
 - registry hash
-  `c487692dd5ccea126d3b858f4dcf207cc701e945c545ee2843c7227b946d4374`;
+  `54dce9be3a18ef854097c5919d1471e53f38bf6ef0e828ecc5ff0438f9e302d2`;
 - přesně 265 vybraných programů (`219 offline`, `46 database`);
 - `verdict: FAIL`, `exitCode: 1`;
 - `260 PASS / 3 FAIL / 0 TIMEOUT / 2 BLOCKED / 0 SKIPPED`;

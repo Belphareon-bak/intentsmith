@@ -1115,7 +1115,12 @@ preservation 10/10 a úplná lifecycle application journey 4/4 PASS. Všech dese
 lifecycle/governance sad bylo znovu zelených. Registry zůstává na 428
 programech a 14 exclusions; po aktualizaci přesných `lastGreen` má fingerprint
 `54dce9be…`. Tento hardening nerovná se Opus review ani M2 PASS a vyžaduje nový
-clean gate nad committed evidence.
+clean gate nad committed evidence. Ten následně proběhl na `0046cd9d`:
+report `2026-08-24T09-09-50-584Z` má pravdivý celkový `verdict: FAIL`,
+`exitCode: 1`, přesně `260 PASS / 3 FAIL / 2 BLOCKED / 0 TIMEOUT` a stejných
+pět baseline non-PASS ID. Všech 27 vybraných M2 programů prošlo; čtyři
+toolchain `soak` journey zůstaly samostatně zelené. Nevznikla M2 regrese, ale
+M2 stále čeká na sedm finálních Opus max PASS.
 
 ### Závislostní sekvence Work Packages
 

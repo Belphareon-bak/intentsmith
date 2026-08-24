@@ -147,8 +147,9 @@ supervision, durable rollback, network/Git/tool mediation, úplný audit a
 skutečný M2 user journey.
 
 Aktuální čistý integrační gate na
-`d415e6d780a0cac931a28e59c7a51919aed79251` znovu spustil `patch-engine`,
+`0046cd9d76c19cb3160659b5caf56a32af5024c0` znovu spustil `patch-engine`,
 `lifecycle-build`, `execution-loop`, `lifecycle-db` i module ratchet jako PASS.
 Celkový verdict zůstal pravdivě baseline `FAIL` s
 `260 PASS / 3 FAIL / 2 BLOCKED / 0 TIMEOUT`; tento pozdější důkaz nenahrazuje
-chybějící Opus max verdict rozšířeného section range.
+chybějící Opus max verdict rozšířeného section range. Exact report je
+`.intentsmith-artifacts/test-runs/2026-08-24T09-09-50-584Z/report.json`.

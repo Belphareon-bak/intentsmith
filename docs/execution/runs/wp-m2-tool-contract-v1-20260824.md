@@ -113,6 +113,15 @@ evidence-rails remediaci:
 Vyšší PASS count proti starému M1 reportu tvoří nově registrované zelené M2
 effect, ProjectContext a Tool sady; celkový `FAIL` se nevydává za gate PASS.
 
+Poslední cross-section gate na čistém
+`0046cd9d76c19cb3160659b5caf56a32af5024c0` zopakoval všechny čtyři
+`m2-tool-*` programy jako PASS. Report
+`.intentsmith-artifacts/test-runs/2026-08-24T09-09-50-584Z/report.json` má
+nad současnou kompletní M2 integrací stále přesně
+`260 PASS / 3 FAIL / 2 BLOCKED / 0 TIMEOUT`; non-PASS ID jsou stejných pět
+baseline programů. Tento důkaz nemaže section-local historii ani chybějící
+Opus re-review.
+
 ## Review
 
 - Opus byl spuštěn read-only nad čistým `e45ea351` a rozsahem

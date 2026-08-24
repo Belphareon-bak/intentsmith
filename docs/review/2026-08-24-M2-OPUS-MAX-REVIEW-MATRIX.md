@@ -76,16 +76,16 @@ nesmí uzavřít M2.
 
 ## Společná integrační evidence
 
-Čistý `offline,database` gate na
-`d415e6d780a0cac931a28e59c7a51919aed79251` má report
-`.intentsmith-artifacts/test-runs/2026-08-24T08-27-21-820Z/report.json`:
+Poslední čistý `offline,database` gate na
+`0046cd9d76c19cb3160659b5caf56a32af5024c0` má report
+`.intentsmith-artifacts/test-runs/2026-08-24T09-09-50-584Z/report.json`:
 
 - `verdict: FAIL`, `exitCode: 1`;
 - `260 PASS / 3 FAIL / 0 TIMEOUT / 2 BLOCKED / 0 SKIPPED`;
 - přesně pět známých baseline non-PASS ID a žádné M2 non-PASS;
 - všech 27 M2 `offline,database` programů PASS;
 - registry 428 programů / 14 exclusions / fingerprint
-  `c487692dd5ccea126d3b858f4dcf207cc701e945c545ee2843c7227b946d4374`.
+  `54dce9be3a18ef854097c5919d1471e53f38bf6ef0e828ecc5ff0438f9e302d2`.
 
 Cross-section audit na čistém `05c5a856` navíc přímo zopakoval zbývající čtyři
 M2 `soak` sady: lifecycle application service 4/4, project change 10/10,

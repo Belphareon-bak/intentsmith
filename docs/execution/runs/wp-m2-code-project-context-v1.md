@@ -104,9 +104,9 @@ navazující project-bound index WP.
 
 Přesný rozšířený source review range je
 `44a9ba87c99a448b1b1b5f479963c3b6aaac7e91..5e19b825`. Čistý společný
-`offline,database` gate na `d415e6d780a0cac931a28e59c7a51919aed79251`
+`offline,database` gate na `0046cd9d76c19cb3160659b5caf56a32af5024c0`
 znovu spustil všechny čtyři registrované ProjectContext sady jako PASS; report
-je `.intentsmith-artifacts/test-runs/2026-08-24T08-27-21-820Z/report.json` a
+je `.intentsmith-artifacts/test-runs/2026-08-24T09-09-50-584Z/report.json` a
 celkově zůstal na přesné baseline
 `260 PASS / 3 FAIL / 2 BLOCKED / 0 TIMEOUT`. To uzavírá dříve odloženou
 integrační revalidaci, ale nikoli povinný Opus max re-review.
