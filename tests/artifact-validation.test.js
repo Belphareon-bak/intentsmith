@@ -260,6 +260,15 @@ const rootReadme = readFileSync(new URL('../README.md', import.meta.url), 'utf8'
 const rootAgents = readFileSync(new URL('../AGENTS.md', import.meta.url), 'utf8');
 const rootClaude = readFileSync(new URL('../CLAUDE.md', import.meta.url), 'utf8');
 const rootSystemMap = readFileSync(new URL('../SYSTEM-MAP.md', import.meta.url), 'utf8');
+const rootRoadmap = readFileSync(new URL('../ROADMAP.md', import.meta.url), 'utf8');
+const migrationReservation = readFileSync(
+  new URL('../docs/execution/migration-reservation.md', import.meta.url),
+  'utf8',
+);
+const moduleBoundaryBaseline = JSON.parse(readFileSync(
+  new URL('./fixtures/module-boundary/baseline.json', import.meta.url),
+  'utf8',
+));
 const installScript = readFileSync(
   new URL('../scripts/install.sh', import.meta.url),
   'utf8',
@@ -323,6 +332,32 @@ function systemMapMatchesToolInventory(markdown, inventory) {
     `**${inventory.files} JavaScript soubory, ${formattedLines.replace(',', ' ')} řádků, `
     + `${inventory.declarations} top-level\nnástrojových deklarací**`,
   );
+}
+
+function migrationSourceFiles() {
+  return readdirSync(new URL('../src/db/migrations/', import.meta.url))
+    .filter(name => name.endsWith('.js'))
+    .sort();
+}
+
+function migrationReservationManifest(markdown) {
+  const match = String(markdown).match(
+    /<!-- migration-source-manifest:start -->([\s\S]*?)<!-- migration-source-manifest:end -->/,
+  );
+  if (!match) return [];
+  return [...match[1].matchAll(/^\| `([^`]+\.js)` \|/gm)].map(entry => entry[1]);
+}
+
+function systemMapMatchesSchemaCensus(markdown, migrationCount) {
+  const match = String(markdown).match(
+    /Tabulek v čerstvé DB \/ aplikovaných migrací \| \*\*(\d+) \/ (\d+)\*\* \|/,
+  );
+  return Boolean(match) && Number(match[2]) === migrationCount;
+}
+
+function roadmapMatchesModuleEdgeCount(markdown, baseline) {
+  const expected = String(baseline.edges.length).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return String(markdown).includes(`module graph má ${expected} hran`);
 }
 
 function entrypointDocumentsAreValid(agentsMarkdown, claudeMarkdown) {
@@ -467,6 +502,21 @@ test('SYSTEM-MAP tool census rejects source-count drift', () => {
     rootSystemMap.replace('153 top-level', '154 top-level'),
     currentToolInventory(),
   ));
+});
+
+test('migration reservation manifest exactly covers every migration source file', () => {
+  const sources = migrationSourceFiles();
+  const reservations = migrationReservationManifest(migrationReservation);
+  assertEqual(new Set(reservations).size, reservations.length);
+  assertEqual(JSON.stringify(reservations), JSON.stringify(sources));
+});
+
+test('SYSTEM-MAP applied migration census derives from migration sources', () => {
+  assert(systemMapMatchesSchemaCensus(rootSystemMap, migrationSourceFiles().length));
+});
+
+test('ROADMAP module edge census derives from the accepted exact-edge baseline', () => {
+  assert(roadmapMatchesModuleEdgeCount(rootRoadmap, moduleBoundaryBaseline));
 });
 
 test('diacritics scan ignores intentional fenced, inline, and path examples', () => {

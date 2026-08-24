@@ -50,11 +50,92 @@ integrací přesunuta na **069**.
 
 Union census všech commitnutých větví mimo `archive/**` a `recovery/**` a
 samostatný census necommitnutých worktree migrací potvrdily obsazení do `074`.
-První volné číslo je proto rezervováno pro opravu M2 tool settlement authority.
+M2/4 následně spotřebovalo souvislý blok `075`–`077`; všechny tři identity jsou
+zapsané zde i v níže strojově kontrolovaném source manifestu.
 
 | Číslo | Stav | Obsah |
 |---|---|---|
 | **075** | rezervováno a použito M2/4 | append-only exact `ToolRequest` ↔ `EffectRequest` link pro approval settlement |
+| **076** | rezervováno a použito M2/4 | execution fencing a exact terminal truth pro `ToolResult` |
+| **077** | rezervováno a použito M2/4 | atomická invalidace pending effect authority a semantic result evidence |
+
+### Strojově kontrolovaný manifest použitých migrací
+
+Každý současný migrační soubor musí být právě jednou v tomto seznamu. Tím se
+reservation ledger kontroluje proti skutečnému zdroji a nová migrace bez
+záznamu selže v `artifact-validation`.
+
+<!-- migration-source-manifest:start -->
+| Soubor | Stav |
+|---|---|
+| `2026_02_14_001_baseline.js` | použito |
+| `2026_02_14_002_v59_is_external.js` | použito |
+| `2026_02_14_003_v62_active_session.js` | použito |
+| `2026_02_14_004_v63_execution_trace.js` | použito |
+| `2026_02_14_005_v64_cre_override_log.js` | použito |
+| `2026_02_18_006_v67_auto_compact.js` | použito |
+| `2026_02_19_007_v68_knowledge_base.js` | použito |
+| `2026_02_19_008_v69_ledger_core.js` | použito |
+| `2026_02_20_008_v69_expert_to_expertise.js` | použito |
+| `2026_02_20_009_v70_period_locks.js` | použito |
+| `2026_02_22_010_v72_vat_engine.js` | použito |
+| `2026_02_22_011_v73_compliance.js` | použito |
+| `2026_02_22_012_v74_specialists.js` | použito |
+| `2026_02_24_013_v78_archive_status.js` | použito |
+| `2026_02_24_014_v78_drop_old_expert_tables.js` | použito |
+| `2026_02_24_015_v79_specialist_memory.js` | použito |
+| `2026_02_24_016_v80_quality_scores.js` | použito |
+| `2026_02_24_017_v81_telemetry_snapshots.js` | použito |
+| `2026_02_25_018_v82_specialist_telemetry.js` | použito |
+| `2026_02_26_019_v83_autonomy_tables.js` | použito |
+| `2026_02_26_020_v85_skills.js` | použito |
+| `2026_02_27_021_v86_memory_retention.js` | použito |
+| `2026_02_27_022_v85_workflow_patterns.js` | použito |
+| `2026_02_28_023_v87_auto_expertise_log.js` | použito |
+| `2026_03_01_024_v91_security.js` | použito |
+| `2026_03_01_025_v91_specialist_expertises.js` | použito |
+| `2026_03_02_026_v92_checkpoint_mode.js` | použito |
+| `2026_03_03_027_v91_feedback.js` | použito |
+| `2026_03_03_028_v91_feedback_attachments.js` | použito |
+| `2026_03_05_029_v98_architecture_governance.js` | použito |
+| `2026_03_08_030_v103_model_overrides.js` | použito |
+| `2026_03_08_030_v107_task_memory.js` | použito |
+| `2026_03_10_031_v118_upgrade_proposals.js` | použito |
+| `2026_03_11_032_v120_model_performance.js` | použito |
+| `2026_03_11_033_v121_discovered_models.js` | použito |
+| `2026_03_12_034_v123_validation_results.js` | použito |
+| `2026_03_12_035_v124_marketplace.js` | použito |
+| `2026_03_12_036_v125_model_verified.js` | použito |
+| `2026_03_22_037_v130_media_generations.js` | použito |
+| `2026_03_25_038_v132_benchmark_source.js` | použito |
+| `2026_03_26_039_v133_model_usage.js` | použito |
+| `2026_03_27_040_v135_governor.js` | použito |
+| `2026_04_08_041_v136_model_universe.js` | použito |
+| `2026_04_08_042_v137_universe_reconciliation.js` | použito |
+| `2026_04_12_043_drafts_table.js` | použito |
+| `2026_04_12_044_v138_runtime_guard.js` | použito |
+| `2026_07_30_045_telemetry_aggregation_version.js` | použito |
+| `2026_08_08_046_model_failover.js` | použito |
+| `2026_08_08_047_model_failover_claim_expiry.js` | použito |
+| `2026_08_08_048_model_binding_operations.js` | použito |
+| `2026_08_08_049_model_binding_manual_supersede.js` | použito |
+| `2026_08_09_050_model_binding_application_attempts.js` | použito |
+| `2026_08_09_051_model_binding_runtime_generation.js` | použito |
+| `2026_08_09_052_model_binding_provider_effects.js` | použito |
+| `2026_08_09_053_model_binding_append_only_identity.js` | použito |
+| `2026_08_09_054_model_binding_runtime_finalization.js` | použito |
+| `2026_08_22_066_model_automation_policy.js` | použito |
+| `2026_08_22_067_model_failover_proof_artifacts.js` | použito |
+| `2026_08_22_069_model_failover_runtime_finalization.js` | použito |
+| `2026_08_23_070_m2_effect_authority.js` | použito |
+| `2026_08_24_071_m2_effect_authority_hardening.js` | použito |
+| `2026_08_24_072_m2_effect_execution_claims.js` | použito |
+| `2026_08_24_073_m2_effect_claim_truth.js` | použito |
+| `2026_08_24_074_m2_tool_authority.js` | použito |
+| `2026_08_24_075_m2_tool_effect_links.js` | použito |
+| `2026_08_24_076_m2_tool_authority_truth.js` | použito |
+| `2026_08_24_077_m2_effect_invalidations.js` | použito |
+<!-- migration-source-manifest:end -->
 
 ## Proč to nejsou 058 a 059
 

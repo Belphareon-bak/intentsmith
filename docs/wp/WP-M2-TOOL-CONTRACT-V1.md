@@ -3,7 +3,7 @@
 **Typ:** M2 oddíl 4/7 — jednotný `ToolRequest/ToolResult`, durable authority
 a aktivní Studio/chat consumer
 
-**Stav:** `IMPLEMENTATION_GREEN / REVIEW_BLOCKED_ACCOUNT_LIMIT`
+**Stav:** `IMPLEMENTATION_GREEN / CHANGES_REQUESTED`
 
 **Autorita:** operátorské spuštění celé M2; `ROADMAP.md` §6 krok 3;
 `ToolRequest/Result` connector v tabulce integračních kontraktů
@@ -32,8 +32,9 @@ s `--effort max` nevrátí pro tento oddíl `REVIEW_PASSED`.
 - `contracts/m2/tool-v1.js`;
 - registry descriptorů, broker, durable repository, effect adapter a runtime v
   `src/tools/m2-tool-*.js`;
-- SQLite migrace 074 pro append-only `tool_v1_requests/results` a migrace 075
-  pro exact append-only `ToolRequest` ↔ `EffectRequest` vazbu;
+- SQLite migrace 074 pro append-only `tool_v1_requests/results`, 075 pro exact
+  append-only `ToolRequest` ↔ `EffectRequest` vazbu, 076 pro execution fencing
+  a terminal truth a 077 pro atomickou invalidaci zbývající effect authority;
 - aktivní Studio/chat singleton v `src/executor/tool-executor.js`;
 - skutečný LOCAL `file.write` consumer a approval settlement v chat handlerech;
 - potlačení fallbacku po authority denial v `src/chat/handlers/decisions.js`,
@@ -109,8 +110,8 @@ s `--effort max` nevrátí pro tento oddíl `REVIEW_PASSED`.
 - Standalone `new ToolExecutor()` zůstává pro staré izolované compatibility
   testy; aktivní Studio/chat exportovaný singleton má broker povinně.
 - Obecný execution sandbox a rollback truth patří oddílu 5/7.
-- Lokální Opus review je blokované účtovým limitem; interní coworker review se
-  používá k opravám, ale nenahrazuje požadovaný modelový verdikt.
+- První dostupné Opus max review na `e45ea351` nenašlo produktový blocker, ale
+  správně vrátilo `CHANGES_REQUESTED` kvůli stale gate a dokumentační evidenci.
 
 ## Stop conditions
 
