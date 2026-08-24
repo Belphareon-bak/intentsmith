@@ -77,8 +77,8 @@ nesmí uzavřít M2.
 ## Společná integrační evidence
 
 Poslední čistý `offline,database` gate na
-`4ddfe56e6ca2ea8e1eed0f60b80f2ab78711d5fe` má report
-`.intentsmith-artifacts/test-runs/2026-08-24T10-38-56-185Z/report.json`:
+`64e0583a199457bda06d1130139a5d1db9a762b5` má report
+`.intentsmith-artifacts/test-runs/2026-08-24T14-35-29-453Z/report.json`:
 
 - `verdict: FAIL`, `exitCode: 1`;
 - `260 PASS / 3 FAIL / 0 TIMEOUT / 2 BLOCKED / 0 SKIPPED`;
@@ -142,4 +142,7 @@ remediován na `60d39810` s module ratchetem `ab97809b`. Uzavírá semantic gran
 constraints na repository/SQLite hranici, non-success fs.write evidence,
 reconnect identity, restart path evidence, byte-exact provider hash a pozdější
 project-change child result. Focused a integrační ratchety jsou zelené, ale
-nevznikl Opus verdict; oddíl 2 zůstává `REVIEW_BLOCKED_ACCOUNT_LIMIT`.
+první celý gate správně odhalil neplatný success-derived failure fixture.
+Po čistě testové korekci `64e0583a` má přímý broker `33/33` a celý gate znovu
+přesně baseline `260/3/2`; nevznikl Opus verdict, takže oddíl 2 zůstává
+`REVIEW_BLOCKED_ACCOUNT_LIMIT`.

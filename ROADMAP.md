@@ -1122,6 +1122,16 @@ pět baseline non-PASS ID. Všech 27 vybraných M2 programů prošlo; čtyři
 toolchain `soak` journey zůstaly samostatně zelené. Nevznikla M2 regrese, ale
 M2 stále čeká na sedm finálních Opus max PASS.
 
+Section-2 semantic audit byl následně remediován na `60d39810`: approval grant
+constraints jsou společná contract/repository/SQLite authority, non-success
+filesystem results jsou svázané s exact target/rollback truth, reconnect drží
+durable conversation identity, restart orphan uvádí target, provider hash je
+byte-exact a navazující project-change child result přiznává applied/ambiguous
+write. Zpřísnění odhalilo neplatný broker failure fixture; po jeho čistě testové
+korekci `64e0583a` doběhl celý gate s pravdivým `verdict: FAIL`, `exitCode: 1`,
+`260 PASS / 3 FAIL / 2 BLOCKED / 0 TIMEOUT` a přesně nezměněnými baseline ID.
+To stále není Opus verdict ani M2 PASS.
+
 První skutečný section-5 Opus max review následně proběhl a vrátil
 `CHANGES_REQUESTED`, nikoli PASS. HIGH nález prokázal, že legitimní změna mimo
 `ContextFilePolicy@1` source set po správném write/test/Git skončila výjimkou

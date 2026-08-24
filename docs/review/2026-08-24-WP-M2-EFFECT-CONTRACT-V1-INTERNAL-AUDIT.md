@@ -1,9 +1,10 @@
 # M2 section 2 — integrační audit před Opus max review
 
 - **Provenance range:** `33cf221c3b772a1002311c8b1f71b67ad0d46cc9..fa437d021e07728388eb61bbca88bcc98e208ddf`
-- **Auditovaný integrační head:** `4e9f3a7d7294433e50f3f429634798e3323d6a73`
+- **Auditovaný integrační head:** `64e0583a199457bda06d1130139a5d1db9a762b5`
 - **Product remediation:** `60d39810fce974f2c0fd8213ed9014a52d015a62`
 - **Module ratchet:** `ab97809b`
+- **Compatibility fixture correction:** `64e0583a`
 - **Výsledek interního auditu:** `6 FINDINGS / CANDIDATE_CLOSED`
 - **Nezávislý verdict:** `NOT_AVAILABLE / OPUS_ACCOUNT_LIMIT`
 
@@ -85,6 +86,23 @@ První post-migration artifact a module běh pravdivě selhal na odvozeném cens
 69→70 a jedné nové import hraně. `SYSTEM-MAP`, `ROADMAP` a explicitní
 module-edge baseline byly následně aktualizovány; teprve opakované běhy výše
 jsou zelené.
+
+První celý gate po semantic remediaci navíc pravdivě odhalil neplatný testovací
+fixture v `m2-tool-broker-v1`: `failed` EffectResult byl odvozený ze success
+fixture a ponechával applied changes. Zpřísněný kontrakt jej správně odmítl jako
+`TOOL_EFFECT_TRANSLATION_INVALID`. Korekce `64e0583a` používá kanonický
+pre-effect failure s prázdnými changes; přímá broker sada má `33/33` PASS.
+Nejde o uvolnění validátoru ani změnu produktové failure semantiky.
+
+Celý source-bound gate na tomto čistém headu má report
+`.intentsmith-artifacts/test-runs/2026-08-24T14-35-29-453Z/report.json` a
+pravdivý celkový `verdict: FAIL`, `exitCode: 1`, přesně
+`260 PASS / 3 FAIL / 2 BLOCKED / 0 TIMEOUT / 0 SKIPPED`. Non-PASS množina je
+stejných pět známých baseline ID; žádná M2 sada neselhala. Dva předchozí běhy
+byly procesně přerušené a nevytvořily report, proto nejsou gate důkaz. Druhý z
+nich zachoval červený per-test log flaky `code-patch-runner` výsledku `38/43`;
+beze změny zdroje bezprostřední přímý rerun prošel `43/43` a následný úplný
+gate rovněž. Historická červená evidence zůstává přiznaná.
 
 ## Review stav
 

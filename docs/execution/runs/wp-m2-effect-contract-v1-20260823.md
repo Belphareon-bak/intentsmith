@@ -8,6 +8,7 @@
 - **finální hardening revision:** `ba47da96ef7460335b5a4053605886e23c5f7924`
 - **current-byte semantic remediation:** `60d39810fce974f2c0fd8213ed9014a52d015a62`
 - **module ratchet revision:** `ab97809b`
+- **compatibility fixture correction:** `64e0583a199457bda06d1130139a5d1db9a762b5`
 - **registry revision:** `fa437d021e07728388eb61bbca88bcc98e208ddf`
 - **module-graph revision:** `fe594fb8`
 - **větev:** `codex/m2-integration-20260824`
@@ -140,6 +141,28 @@ project-change consumer 18/18. Registry zůstává 428/14 s fingerprintem
 `54dce9be…`; artifact je 154/154 a module ratchet 13/13. První artifact/module
 běh po přidání migrace skončil červeně na neaktualizovaném census/edge
 baseline; až po explicitní opravě odvozených dokumentů a edge ratchetu prošel.
+
+První celý gate na `85d41c17` následně skončil pravdivě `FAIL`, `exitCode: 1`,
+`259 PASS / 4 FAIL / 2 BLOCKED`: navíc oproti baseline selhal
+`m2-tool-broker-v1`, protože jeho failure test odvozoval result ze success
+fixture a ponechal applied changes. Produktový validátor tento rozpor správně
+odmítl. Commit `64e0583a` narovnal pouze fixture na kanonický pre-effect
+failure; přímá suite poté prošla `33/33`.
+
+Dva navazující interaktivní gate běhy byly přerušené před vytvořením
+`report.json` a nejsou vydávány za úplný důkaz. Druhý zachoval per-test FAIL
+`code-patch-runner` s nulovým rozpoznaným target setem; okamžitý rerun bez
+source změny prošel `43/43`. Tato flaky evidence není skryta.
+
+Konečný odděleně spuštěný čistý gate na
+`64e0583a199457bda06d1130139a5d1db9a762b5` doběhl celý:
+
+- run `2026-08-24T14-35-29-453Z`;
+- report
+  `.intentsmith-artifacts/test-runs/2026-08-24T14-35-29-453Z/report.json`;
+- `verdict: FAIL`, `exitCode: 1`;
+- `260 PASS / 3 FAIL / 0 TIMEOUT / 2 BLOCKED / 0 SKIPPED`;
+- non-PASS ID jsou přesně známá baseline množina a žádná M2 sada neselhala.
 
 ## Review
 
