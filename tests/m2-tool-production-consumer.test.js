@@ -150,6 +150,39 @@ await testAsync('web.search is denied before handler and before any fetch attemp
   }
 });
 
+await testAsync('open legacy circuit cannot bypass durable M2 authority', async () => {
+  const original = toolExecutor.toolHandlers.get(ToolType.WEB_SEARCH);
+  let handlerCalls = 0;
+  toolExecutor.register(ToolType.WEB_SEARCH, async () => {
+    handlerCalls += 1;
+    return ToolResult.search({ results: [], count: 0, source: 'forged', latency: 0 });
+  });
+  try {
+    const requestIds = [];
+    for (let index = 0; index < 6; index += 1) {
+      const result = await toolExecutor.execute(
+        decision(ToolType.WEB_SEARCH, IntentType.SEARCH),
+        context({
+          input: `IntentSmith ${index}`,
+          query: `IntentSmith ${index}`,
+          sessionId: 'm2-tool-session-circuit',
+          conversationId: 'm2-tool-conversation-circuit',
+          userMessageId: 60 + index,
+          project: { id: 17, path: '/workspace/project-a' },
+        }),
+      );
+      assert.equal(result.status, ExecutionStatus.FAILED);
+      assert.equal(result.toolResults[0].errorCode, 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE');
+      assert.match(result.toolResults[0].meta.m2ToolRequestId, /^tool:[a-f0-9]{64}$/);
+      requestIds.push(result.toolResults[0].meta.m2ToolRequestId);
+    }
+    assert.equal(handlerCalls, 0);
+    assert.equal(new Set(requestIds).size, 6);
+  } finally {
+    toolExecutor.register(ToolType.WEB_SEARCH, original);
+  }
+});
+
 await testAsync('web.scrape, database and unregistered tools cannot bypass the dispatcher', async () => {
   const originalScrape = toolExecutor.toolHandlers.get(ToolType.WEB_SCRAPE);
   const originalDatabase = toolExecutor.toolHandlers.get(ToolType.DATABASE_QUERY);

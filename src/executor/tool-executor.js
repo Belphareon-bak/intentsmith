@@ -687,7 +687,8 @@ export class ToolExecutor {
         const breaker = this.circuitBreakers.get(breakerKey);
         const cbStateBefore = breaker.state;
 
-        if (breaker.state === CircuitState.OPEN) {
+        const circuitOpen = breaker.state === CircuitState.OPEN;
+        if (circuitOpen && !this.m2ToolBroker) {
           logger.warn('ToolExecutor', `Circuit OPEN for ${toolType}, skipping`, {
             failures: breaker.failureCount,
           });
@@ -749,7 +750,14 @@ export class ToolExecutor {
             input: projectLegacyToolInput(toolType, handlerParams),
             context,
             timeoutMs: this.timeout,
-            invoke: authoritySignal => handler({ ...handlerParams, signal: authoritySignal }),
+            invoke: authoritySignal => circuitOpen
+              ? ToolResult.failed({
+                type: toolType,
+                error: `Tool ${toolType} temporarily disabled (circuit breaker open after repeated failures)`,
+                errorCode: ToolErrorCode.CIRCUIT_OPEN || 'CIRCUIT_OPEN',
+                retryable: false,
+              })
+              : handler({ ...handlerParams, signal: authoritySignal }),
           });
           if (m2Execution.state === 'approval_required') {
             result = ToolResult.failed({
