@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "0838dec92170828067b779cf8211cc51a5589736",
-  "sourceTree": "7c662cc5734dcc6c86c60efc3c5db76ee0e06a5c",
+  "sourceRevision": "c293d149e3f84a6923158313efb1dc01794942b9",
+  "sourceTree": "edf97984857817ff116f4f5e6aaebcbe13c5bfd5",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -482,6 +482,7 @@
     "src/db/migrations/2026_07_30_045_telemetry_aggregation_version.js -> src/db/migrate.js",
     "src/db/migrations/2026_08_24_071_m2_effect_authority_hardening.js -> src/db/migrations/2026_08_23_070_m2_effect_authority.js",
     "src/db/migrations/2026_08_24_072_m2_effect_execution_claims.js -> src/db/migrations/2026_08_23_070_m2_effect_authority.js",
+    "src/db/migrations/2026_08_24_073_m2_effect_claim_truth.js -> src/db/migrations/2026_08_24_072_m2_effect_execution_claims.js",
     "src/domains/index.js -> src/core/logger.js",
     "src/domains/index.js -> src/domains/recipes/cicd.js",
     "src/domains/index.js -> src/domains/recipes/infra.js",
