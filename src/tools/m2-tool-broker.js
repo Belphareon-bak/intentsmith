@@ -17,7 +17,10 @@ import {
   validateM2ToolRequest,
   validateM2ToolResult,
 } from '../../contracts/m2/tool-v1.js';
-import { getM2ToolDescriptor } from './m2-tool-registry.js';
+import {
+  getM2ToolDescriptor,
+  projectM2EffectToolTerminal,
+} from './m2-tool-registry.js';
 
 export const M2ToolBrokerErrorCode = Object.freeze({
   INPUT_INVALID: 'M2_TOOL_BROKER_INPUT_INVALID',
@@ -342,94 +345,32 @@ export function createM2ToolBroker({
     return translation;
   }
 
-  function commitEffectTerminal({ request, descriptor, translation, startedAtMs }) {
+  function commitEffectTerminal({ request, descriptor, translation }) {
     const effectRequest = translation.effectRequest;
     const effectResult = translation.effectResult;
     if (!effectResult) return null;
-    const effectRequestId = effectRequest.effectId;
-    const terminalStartedAtMs = Number.isFinite(Date.parse(effectResult.startedAt))
-      ? Date.parse(effectResult.startedAt)
-      : startedAtMs;
-    const terminalCompletedAtMs = Number.isFinite(Date.parse(effectResult.completedAt))
-      ? Date.parse(effectResult.completedAt)
-      : requireClockValue(clock);
-
-    if (effectResult.terminalStatus === 'succeeded') {
-      const output = typeof descriptor.projectEffectOutput === 'function'
-        ? descriptor.projectEffectOutput(request, effectRequest, effectResult)
-        : null;
-      const outputErrors = descriptor.validateOutput(output);
-      if (output !== null && outputErrors.length === 0) {
-        return commitExecution({
-          request,
-          value: output,
-          result: terminalResult({
-            request,
-            descriptor,
-            status: M2_TOOL_TERMINAL_STATUS.OK,
-            output,
-            effectRequestId,
-            startedAtMs: terminalStartedAtMs,
-            completedAtMs: terminalCompletedAtMs,
-            evidenceRefs: [
-              `effect:${effectRequestId}`,
-              ...(effectResult.evidenceRefs || []),
-            ],
-            lateCompletionRejected: effectResult.lateCompletionRejected,
-          }),
-        });
-      }
-      return commitExecution({
-        request,
-        value: null,
-        result: terminalResult({
-          request,
-          descriptor,
-          status: M2_TOOL_TERMINAL_STATUS.ERROR,
-          error: {
-            code: M2_TOOL_ERROR_CODE.OUTPUT_INVALID,
-            message: `Canonical effect output does not match ${request.outputSchema}`,
-            retryable: false,
-          },
-          effectRequestId,
-          startedAtMs: terminalStartedAtMs,
-          completedAtMs: terminalCompletedAtMs,
-          evidenceRefs: [
-            `effect:${effectRequestId}`,
-            ...outputErrors.map(value => `schema:${value}`),
-          ],
-          lateCompletionRejected: effectResult.lateCompletionRejected,
-        }),
-      });
-    }
-
-    const status = effectResult.terminalStatus === 'cancelled'
-      ? M2_TOOL_TERMINAL_STATUS.CANCELLED
-      : effectResult.terminalStatus === 'timed_out'
-        ? M2_TOOL_TERMINAL_STATUS.TIMEOUT
-        : ['orphaned', 'killed'].includes(effectResult.terminalStatus)
-          ? M2_TOOL_TERMINAL_STATUS.ORPHANED
-          : M2_TOOL_TERMINAL_STATUS.ERROR;
+    const projection = projectM2EffectToolTerminal(
+      request,
+      descriptor,
+      effectRequest,
+      effectResult,
+    );
+    const terminalStartedAtMs = Date.parse(projection.startedAt);
+    const terminalCompletedAtMs = Date.parse(projection.completedAt);
     return commitExecution({
       request,
-      value: null,
+      value: projection.status === M2_TOOL_TERMINAL_STATUS.OK ? projection.output : null,
       result: terminalResult({
         request,
         descriptor,
-        status,
-        error: {
-          code: effectResult.errorCode || M2_TOOL_ERROR_CODE.EXECUTION_FAILED,
-          message: `${request.toolId} effect ended as ${effectResult.terminalStatus}`,
-          retryable: false,
-        },
-        effectRequestId,
+        status: projection.status,
+        output: projection.output,
+        error: projection.error,
+        effectRequestId: projection.effectRequestId,
         startedAtMs: terminalStartedAtMs,
         completedAtMs: terminalCompletedAtMs,
-        evidenceRefs: [
-          `effect:${effectRequestId}`,
-          ...(effectResult.evidenceRefs || []),
-        ],
-        lateCompletionRejected: effectResult.lateCompletionRejected,
+        evidenceRefs: projection.evidenceRefs,
+        lateCompletionRejected: projection.lateCompletionRejected,
       }),
     });
   }
@@ -515,12 +456,7 @@ export function createM2ToolBroker({
         { requestId: request.requestId, effectId, reason: translation.reason },
       );
     }
-    return commitEffectTerminal({
-      request,
-      descriptor,
-      translation,
-      startedAtMs: Date.parse(effectResult.startedAt),
-    });
+    return commitEffectTerminal({ request, descriptor, translation });
   }
 
   async function execute({ toolId, input, context = {}, timeoutMs = 30_000, invoke } = {}) {
@@ -631,7 +567,7 @@ export function createM2ToolBroker({
       );
       const effectRequestId = translation.valid ? translation.effectRequest.effectId : null;
       const terminal = translation.valid
-        ? commitEffectTerminal({ request, descriptor, translation, startedAtMs })
+        ? commitEffectTerminal({ request, descriptor, translation })
         : null;
       if (terminal) return terminal;
       const approvalRequired = prepared?.state === 'approval_required' && translation.valid;

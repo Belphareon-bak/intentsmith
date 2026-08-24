@@ -3,7 +3,10 @@ import { createHash } from 'node:crypto';
 import { isPlainRecord } from '../../contracts/m1/shared.js';
 import {
   M2_TOOL_AUTHORITY_MODE,
+  M2_TOOL_ERROR_CODE,
   M2_TOOL_RISK_CLASS,
+  M2_TOOL_TERMINAL_STATUS,
+  computeM2ToolValueDigest,
 } from '../../contracts/m2/tool-v1.js';
 
 function error(message) {
@@ -214,6 +217,84 @@ function bindingMatchesEffect(binding, effectRequest) {
       .every(key => binding.target[key] === effectRequest.target[key]);
   }
   return false;
+}
+
+function sortedUnique(values) {
+  return [...new Set(values)]
+    .sort((left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right)));
+}
+
+/**
+ * The one canonical projection from durable EffectResult truth into the
+ * terminal fields owned by a linked ToolResult. Both the broker and the
+ * repository use this function so direct SQL cannot invent a different
+ * failure, evidence trail, timing, or late-completion disposition.
+ */
+export function projectM2EffectToolTerminal(request, descriptorValue, effectRequest, effectResult) {
+  const descriptor = descriptorValue || getM2ToolDescriptor(request?.toolId);
+  if (!request || !descriptor || !effectRequest || !effectResult) return null;
+  const evidenceRefs = sortedUnique([
+    `effect:${effectRequest.effectId}`,
+    ...(effectResult.evidenceRefs || []),
+  ]);
+  const common = {
+    effectRequestId: effectRequest.effectId,
+    startedAt: effectResult.startedAt,
+    completedAt: effectResult.completedAt,
+    lateCompletionRejected: effectResult.lateCompletionRejected === true,
+  };
+
+  if (effectResult.terminalStatus === 'succeeded') {
+    const output = typeof descriptor.projectEffectOutput === 'function'
+      ? descriptor.projectEffectOutput(request, effectRequest, effectResult)
+      : null;
+    const outputErrors = descriptor.validateOutput(output);
+    if (output !== null && outputErrors.length === 0) {
+      return Object.freeze({
+        ...common,
+        status: M2_TOOL_TERMINAL_STATUS.OK,
+        output,
+        outputDigest: computeM2ToolValueDigest(output),
+        error: null,
+        evidenceRefs: Object.freeze(evidenceRefs),
+      });
+    }
+    return Object.freeze({
+      ...common,
+      status: M2_TOOL_TERMINAL_STATUS.ERROR,
+      output: null,
+      outputDigest: null,
+      error: Object.freeze({
+        code: M2_TOOL_ERROR_CODE.OUTPUT_INVALID,
+        message: `Canonical effect output does not match ${request.outputSchema}`,
+        retryable: false,
+      }),
+      evidenceRefs: Object.freeze(sortedUnique([
+        ...evidenceRefs,
+        ...outputErrors.map(value => `schema:${value}`),
+      ])),
+    });
+  }
+
+  const status = effectResult.terminalStatus === 'cancelled'
+    ? M2_TOOL_TERMINAL_STATUS.CANCELLED
+    : effectResult.terminalStatus === 'timed_out'
+      ? M2_TOOL_TERMINAL_STATUS.TIMEOUT
+      : ['orphaned', 'killed'].includes(effectResult.terminalStatus)
+        ? M2_TOOL_TERMINAL_STATUS.ORPHANED
+        : M2_TOOL_TERMINAL_STATUS.ERROR;
+  return Object.freeze({
+    ...common,
+    status,
+    output: null,
+    outputDigest: null,
+    error: Object.freeze({
+      code: effectResult.errorCode || M2_TOOL_ERROR_CODE.EXECUTION_FAILED,
+      message: `${request.toolId} effect ended as ${effectResult.terminalStatus}`,
+      retryable: false,
+    }),
+    evidenceRefs: Object.freeze(evidenceRefs),
+  });
 }
 
 function validateNetworkEffect(request, effectRequest, expectedUrl) {

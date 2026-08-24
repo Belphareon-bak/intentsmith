@@ -10,7 +10,10 @@ import {
   validateEffectRequest,
   validateEffectResult,
 } from '../../contracts/m2/effect-v1.js';
-import { getM2ToolDescriptor } from './m2-tool-registry.js';
+import {
+  getM2ToolDescriptor,
+  projectM2EffectToolTerminal,
+} from './m2-tool-registry.js';
 
 export const M2ToolAuthorityErrorCode = Object.freeze({
   INPUT_INVALID: 'TOOL_AUTHORITY_INPUT_INVALID',
@@ -125,12 +128,17 @@ function effectMatchesToolRequest(toolRequest, descriptor, effectRequest) {
     && descriptor.validateEffectTranslation(toolRequest, effectRequest) === true;
 }
 
-function expectedStatusForEffect(effectResult) {
-  if (effectResult.terminalStatus === 'succeeded') return 'ok';
-  if (effectResult.terminalStatus === 'cancelled') return 'cancelled';
-  if (effectResult.terminalStatus === 'timed_out') return 'timeout';
-  if (['orphaned', 'killed'].includes(effectResult.terminalStatus)) return 'orphaned';
-  return 'error';
+function effectProjectionMatches(result, projection) {
+  return projection
+    && result.status === projection.status
+    && canonicalizeM2ToolValue(result.output) === canonicalizeM2ToolValue(projection.output)
+    && result.outputDigest === projection.outputDigest
+    && result.effectRequestId === projection.effectRequestId
+    && canonicalizeM2ToolValue(result.error) === canonicalizeM2ToolValue(projection.error)
+    && result.startedAt === projection.startedAt
+    && result.completedAt === projection.completedAt
+    && canonicalizeM2ToolValue(result.evidenceRefs) === canonicalizeM2ToolValue(projection.evidenceRefs)
+    && result.lateCompletionRejected === projection.lateCompletionRejected;
 }
 
 export class M2ToolAuthorityRepository {
@@ -471,21 +479,13 @@ export class M2ToolAuthorityRepository {
           { requestId: result.requestId, effectRequestId: result.effectRequestId },
         );
       }
-      const expectedStatus = expectedStatusForEffect(effectResult);
-      const projectedOutput = effectResult.terminalStatus === 'succeeded'
-        && typeof descriptor.projectEffectOutput === 'function'
-        ? descriptor.projectEffectOutput(request, effectRequest, effectResult)
-        : null;
-      const exactSuccess = expectedStatus === 'ok'
-        && result.status === 'ok'
-        && descriptor.validateOutput(projectedOutput).length === 0
-        && canonicalizeM2ToolValue(projectedOutput) === canonicalizeM2ToolValue(result.output);
-      const exactFailure = expectedStatus !== 'ok' && result.status === expectedStatus;
-      const outputProjectionFailure = expectedStatus === 'ok'
-        && result.status === 'error'
-        && result.error?.code === 'TOOL_OUTPUT_INVALID'
-        && descriptor.validateOutput(projectedOutput).length > 0;
-      if (!exactSuccess && !exactFailure && !outputProjectionFailure) {
+      const projection = projectM2EffectToolTerminal(
+        request,
+        descriptor,
+        effectRequest,
+        effectResult,
+      );
+      if (!effectProjectionMatches(result, projection)) {
         fail(
           M2ToolAuthorityErrorCode.RESULT_REQUEST_MISMATCH,
           'ToolResult terminal does not exactly project its EffectResult',
@@ -581,16 +581,15 @@ export class M2ToolAuthorityRepository {
         if (!link || link.effectId !== result.effectRequestId || !effectResult) {
           throw new Error('stored ToolResult effect link mismatch');
         }
-        const expectedStatus = expectedStatusForEffect(effectResult);
-        const projectedOutput = expectedStatus === 'ok'
-          && typeof descriptor.projectEffectOutput === 'function'
-          ? descriptor.projectEffectOutput(request, link.effectRequest, effectResult)
-          : null;
-        const relationMatches = expectedStatus === 'ok'
-          ? result.status === 'ok'
-            && canonicalizeM2ToolValue(result.output) === canonicalizeM2ToolValue(projectedOutput)
-          : result.status === expectedStatus;
-        if (!relationMatches) throw new Error('stored ToolResult effect projection mismatch');
+        const projection = projectM2EffectToolTerminal(
+          request,
+          descriptor,
+          link.effectRequest,
+          effectResult,
+        );
+        if (!effectProjectionMatches(result, projection)) {
+          throw new Error('stored ToolResult effect projection mismatch');
+        }
       } else if (result.status === 'ok' && request.authorityMode !== 'direct') {
         throw new Error('stored non-direct success lacks effect authority');
       }

@@ -242,6 +242,11 @@ export function createEffectFileRuntime({
         idempotencyKey,
         signal,
       });
+      if (signal?.aborted) {
+        const error = new Error('Filesystem effect preparation was cancelled before pending authority');
+        error.code = 'EFFECT_RUNTIME_INPUT_INVALID';
+        throw error;
+      }
       const terminal = removeTerminalPending(prepared.effectId);
       if (terminal) {
         return Object.freeze({

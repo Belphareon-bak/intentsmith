@@ -283,6 +283,9 @@ export function createEffectBroker(repositoryValue, {
     }
     const payload = bytesFromPayload(content);
     const observed = await observeExactProject({ projectId, projectRoot, signal });
+    if (signal?.aborted) {
+      fail(EffectBrokerErrorCode.INPUT_INVALID, 'Effect preparation was cancelled during workspace observation');
+    }
     const target = resolveProjectTarget(observed.canonicalRoot, relativePath);
     if (target.projectRoot !== observed.canonicalRoot) {
       fail(EffectBrokerErrorCode.INPUT_INVALID, 'Workspace canonical root changed during observation');
@@ -316,6 +319,9 @@ export function createEffectBroker(repositoryValue, {
       // bytes. A fresh wall clock would turn an exact retry into a conflict.
       createdAt: existing?.createdAt || new Date(nowMs(clock)).toISOString(),
     };
+    if (signal?.aborted) {
+      fail(EffectBrokerErrorCode.INPUT_INVALID, 'Effect preparation was cancelled before request registration');
+    }
     repository.registerEffectRequest(request);
     const stored = repository.getEffectRequest(effectId);
     return Object.freeze({
@@ -346,26 +352,6 @@ export function createEffectBroker(repositoryValue, {
     if (existingResult) return existingResult;
     if (signal?.aborted) fail(EffectBrokerErrorCode.INPUT_INVALID, 'Effect execution was cancelled before grant consumption');
 
-    const observed = await observeExactProject({
-      projectId: request.origin.projectId,
-      projectRoot: request.target.canonicalRoot,
-      signal,
-    });
-    if (
-      observed.canonicalRoot !== request.target.canonicalRoot
-      || observed.workspaceRevision !== request.workspaceRevision
-    ) {
-      fail(
-        EffectBrokerErrorCode.WORKSPACE_STALE,
-        'Workspace changed after approval and before effect execution',
-        { expected: request.workspaceRevision, observed: observed.workspaceRevision },
-      );
-    }
-
-    const provider = providerFor(providers, request.kind);
-    if (!provider || typeof provider.execute !== 'function') {
-      fail(EffectBrokerErrorCode.PROVIDER_MISSING, `No provider is registered for ${request.kind}`);
-    }
     const boundRequest = Object.freeze({ ...request, approvalGrantId: grantId });
     repository.consumeApprovalGrant({
       grantId,
@@ -374,9 +360,115 @@ export function createEffectBroker(repositoryValue, {
     });
 
     const startedAtMs = nowMs(clock);
+    const commitOutcome = outcomeValue => {
+      let result = resultFromOutcome({
+        request: boundRequest,
+        grantId,
+        startedAtMs,
+        completedAtMs: nowMs(clock),
+        outcome: outcomeValue,
+      });
+      const validation = validateEffectResult(result);
+      if (!validation.valid) {
+        result = resultFromOutcome({
+          request: boundRequest,
+          grantId,
+          startedAtMs,
+          completedAtMs: nowMs(clock),
+          outcome: {
+            status: 'orphaned',
+            errorCode: 'EFFECT_PROVIDER_EVIDENCE_INVALID',
+            evidence: conservativeRollbackEvidence(
+              boundRequest,
+              null,
+              'provider-evidence-invalid',
+            ),
+            lateCompletionRejected: true,
+          },
+        });
+      }
+      try {
+        repository.recordEffectResult(result);
+      } catch (error) {
+        throw new EffectBrokerError(
+          EffectBrokerErrorCode.RESULT_UNCOMMITTED,
+          'Effect terminal result could not be committed; success is withheld',
+          { effectId, terminalStatus: result.terminalStatus, cause: error?.message || String(error) },
+        );
+      }
+      return Object.freeze(result);
+    };
+
     const controller = new AbortController();
-    const timeout = delay(scheduleTimeout, request.timeoutMs, { kind: 'timed_out' });
+    const timeout = delay(scheduleTimeout, boundRequest.timeoutMs, { kind: 'timed_out' });
     const cancellation = cancelledPromise(signal);
+    const observationPromise = Promise.resolve()
+      .then(() => observeExactProject({
+        projectId: boundRequest.origin.projectId,
+        projectRoot: boundRequest.target.canonicalRoot,
+        signal: controller.signal,
+      }))
+      .then(
+        value => ({ kind: 'observation', ok: true, value }),
+        error => ({ kind: 'observation', ok: false, error }),
+      );
+    const observation = await Promise.race([
+      observationPromise,
+      timeout.promise,
+      cancellation.promise,
+    ]);
+    if (observation.kind !== 'observation') {
+      controller.abort(observation.kind);
+      timeout.cancel();
+      cancellation.cancel();
+      return commitOutcome({
+        status: observation.kind === 'cancelled' ? 'cancelled' : 'timed_out',
+        errorCode: observation.kind === 'cancelled' ? 'EFFECT_CANCELLED' : 'EFFECT_TIMED_OUT',
+        evidence: { evidenceRefs: [`effect:${effectId}:workspace-observation-${observation.kind}`] },
+        lateCompletionRejected: true,
+      });
+    }
+    if (!observation.ok) {
+      timeout.cancel();
+      cancellation.cancel();
+      return commitOutcome({
+        status: signal?.aborted ? 'cancelled' : 'failed',
+        errorCode: signal?.aborted
+          ? 'EFFECT_CANCELLED'
+          : normalizedErrorCode(observation.error, 'EFFECT_WORKSPACE_OBSERVATION_FAILED'),
+        evidence: {
+          evidenceRefs: [`effect:${effectId}:workspace-observation-failed`],
+        },
+        lateCompletionRejected: signal?.aborted === true,
+      });
+    }
+    const observed = observation.value;
+    if (
+      observed.canonicalRoot !== boundRequest.target.canonicalRoot
+      || observed.workspaceRevision !== boundRequest.workspaceRevision
+    ) {
+      timeout.cancel();
+      cancellation.cancel();
+      return commitOutcome({
+        status: 'failed',
+        errorCode: EffectBrokerErrorCode.WORKSPACE_STALE,
+        evidence: { evidenceRefs: [`effect:${effectId}:workspace-stale`] },
+        lateCompletionRejected: false,
+      });
+    }
+
+    const provider = providerFor(providers, boundRequest.kind);
+    if (!provider || typeof provider.execute !== 'function') {
+      timeout.cancel();
+      cancellation.cancel();
+      return commitOutcome({
+        status: 'failed',
+        errorCode: EffectBrokerErrorCode.PROVIDER_MISSING,
+        evidence: { evidenceRefs: [`effect:${effectId}:provider-missing`] },
+        lateCompletionRejected: false,
+      });
+    }
+
     const providerPromise = Promise.resolve()
       .then(() => provider.execute({ request: boundRequest, grant, payload, signal: controller.signal }))
       .then(
@@ -449,42 +541,7 @@ export function createEffectBroker(repositoryValue, {
       }
     }
 
-    let result = resultFromOutcome({
-      request,
-      grantId,
-      startedAtMs,
-      completedAtMs: nowMs(clock),
-      outcome,
-    });
-    const validation = validateEffectResult(result);
-    if (!validation.valid) {
-      result = resultFromOutcome({
-        request,
-        grantId,
-        startedAtMs,
-        completedAtMs: nowMs(clock),
-        outcome: {
-          status: 'orphaned',
-          errorCode: 'EFFECT_PROVIDER_EVIDENCE_INVALID',
-          evidence: conservativeRollbackEvidence(
-            request,
-            null,
-            'provider-evidence-invalid',
-          ),
-          lateCompletionRejected: true,
-        },
-      });
-    }
-    try {
-      repository.recordEffectResult(result);
-    } catch (error) {
-      throw new EffectBrokerError(
-        EffectBrokerErrorCode.RESULT_UNCOMMITTED,
-        'Effect terminal result could not be committed; success is withheld',
-        { effectId, terminalStatus: result.terminalStatus, cause: error?.message || String(error) },
-      );
-    }
-    return Object.freeze(result);
+    return commitOutcome(outcome);
   }
 
   return Object.freeze({ prepareFilesystemWrite, execute });

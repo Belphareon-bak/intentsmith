@@ -2,6 +2,10 @@
 
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import Database from 'better-sqlite3';
 
 import { suite, test, testAsync, summary } from './harness.js';
 import { computeEffectRequestDigest } from '../contracts/m2/effect-v1.js';
@@ -13,6 +17,14 @@ import {
 } from '../contracts/m2/tool-v1.js';
 import { createM2ToolBroker, M2ToolBrokerErrorCode } from '../src/tools/m2-tool-broker.js';
 import { createM2ToolEffectAdapter } from '../src/tools/m2-tool-effect-adapter.js';
+import { M2ToolAuthorityRepository } from '../src/tools/m2-tool-authority-repository.js';
+import { createEffectFileRuntime } from '../src/effects/effect-file-runtime.js';
+import { up as applyEffectAuthority } from '../src/db/migrations/2026_08_23_070_m2_effect_authority.js';
+import { up as applyEffectHardening } from '../src/db/migrations/2026_08_24_071_m2_effect_authority_hardening.js';
+import { up as applyEffectClaims } from '../src/db/migrations/2026_08_24_072_m2_effect_execution_claims.js';
+import { up as applyEffectClaimTruth } from '../src/db/migrations/2026_08_24_073_m2_effect_claim_truth.js';
+import { up as applyToolAuthority } from '../src/db/migrations/2026_08_24_074_m2_tool_authority.js';
+import { up as applyToolEffectLinks } from '../src/db/migrations/2026_08_24_075_m2_tool_effect_links.js';
 
 function clockFrom(values) {
   const queue = [...values];
@@ -82,6 +94,18 @@ function memoryRepository() {
       effectResults.set(value.effectId, structuredClone(value));
     },
   };
+}
+
+function realAuthorityDatabase() {
+  const database = new Database(':memory:');
+  database.pragma('foreign_keys = ON');
+  applyEffectAuthority(database);
+  applyEffectHardening(database);
+  applyEffectClaims(database);
+  applyEffectClaimTruth(database);
+  applyToolAuthority(database);
+  applyToolEffectLinks(database);
+  return database;
 }
 
 function broker(options = {}) {
@@ -602,6 +626,83 @@ await testAsync('caller cancellation during effect preparation commits cancelled
   assert.equal(execution.result.status, 'cancelled');
   assert.equal(execution.result.error.code, M2_TOOL_ERROR_CODE.CANCELLED);
   assert.deepEqual(repository.getToolResult(execution.request.requestId), execution.result);
+});
+
+await testAsync('real filesystem adapter timeout and cancel create no late effect authority', async () => {
+  for (const mode of ['timeout', 'cancel']) {
+    const directory = mkdtempSync(path.join(tmpdir(), `m2-tool-late-${mode}-`));
+    const projectRoot = path.join(directory, 'project');
+    mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
+    const database = realAuthorityDatabase();
+    const observationStarted = { resolve: null, promise: null };
+    observationStarted.promise = new Promise(resolve => { observationStarted.resolve = resolve; });
+    const observationCompletion = { resolve: null, promise: null };
+    observationCompletion.promise = new Promise(resolve => { observationCompletion.resolve = resolve; });
+    const runtime = createEffectFileRuntime({
+      database,
+      clock: () => 1_777_000_000_000,
+      workspaceAuthority: {
+        async observe() {
+          observationStarted.resolve();
+          return observationCompletion.promise;
+        },
+      },
+    });
+    const repository = new M2ToolAuthorityRepository(database, {
+      clock: () => 1_777_000_000_000,
+    });
+    let timeoutCallback;
+    const controller = new AbortController();
+    const toolBroker = createM2ToolBroker({
+      repository,
+      clock: () => 1_777_000_000_000,
+      scheduleTimeout(callback) {
+        timeoutCallback = callback;
+        return { cancel() {} };
+      },
+      effectAdapter: createM2ToolEffectAdapter({ effectRuntime: runtime }),
+    });
+    const realContext = {
+      ...context,
+      sessionId: `studio-${mode}`,
+      conversationId: `conversation-${mode}`,
+      userMessageId: mode === 'timeout' ? 201 : 202,
+      project: { id: 7, path: projectRoot },
+      signal: controller.signal,
+    };
+    try {
+      const executionPromise = toolBroker.execute({
+        toolId: 'file.write',
+        input: { path: `src/${mode}.js`, content: `${mode}\n` },
+        context: realContext,
+        timeoutMs: 1,
+      });
+      await observationStarted.promise;
+      if (mode === 'timeout') timeoutCallback();
+      else controller.abort('user');
+      const execution = await executionPromise;
+      assert.equal(execution.result.status, mode === 'timeout' ? 'timeout' : 'cancelled');
+
+      observationCompletion.resolve({
+        canonicalRoot: realpathSync(projectRoot),
+        workspaceRevision: 'wsr1:late-observation',
+      });
+      await new Promise(resolve => setImmediate(resolve));
+      await new Promise(resolve => setImmediate(resolve));
+
+      assert.deepEqual(database.prepare(`
+        SELECT
+          (SELECT count(*) FROM m2_effect_requests) AS effectRequests,
+          (SELECT count(*) FROM m2_pending_effect_payloads) AS pending,
+          (SELECT count(*) FROM m2_tool_effect_links) AS links,
+          (SELECT count(*) FROM m2_effect_results) AS effectResults
+      `).get(), { effectRequests: 0, pending: 0, links: 0, effectResults: 0 });
+      assert.equal(existsSync(path.join(projectRoot, `src/${mode}.js`)), false);
+    } finally {
+      database.close();
+      rmSync(directory, { recursive: true, force: true });
+    }
+  }
 });
 
 await testAsync('timeout aborts direct provider signal and rejects late completion', async () => {

@@ -30,6 +30,12 @@ import {
   M2ToolAuthorityRepository,
 } from '../src/tools/m2-tool-authority-repository.js';
 import { EffectAuthorityRepository } from '../src/effects/effect-authority-repository.js';
+import { createApprovalGrantIssuer } from '../src/effects/approval-grant-issuer.js';
+import { processExecutionOwner } from '../src/effects/execution-owner.js';
+import {
+  getM2ToolDescriptor,
+  projectM2EffectToolTerminal,
+} from '../src/tools/m2-tool-registry.js';
 
 function database() {
   const value = new Database(':memory:');
@@ -153,6 +159,111 @@ function fileWriteAuthority({
     createdAt: '2026-08-24T08:00:00.000Z',
   };
   return { toolRequest, effectRequest };
+}
+
+function failedFileWriteAuthority(token = '9') {
+  const db = database();
+  const clock = () => Date.parse('2026-08-24T08:00:00.001Z');
+  const toolRepository = new M2ToolAuthorityRepository(db, { clock });
+  const effectRepository = new EffectAuthorityRepository(db, { clock });
+  const issuer = createApprovalGrantIssuer(effectRepository, {
+    clock,
+    grantIdFactory: () => `grant:${token.repeat(64)}`,
+    nonceFactory: () => token.repeat(32),
+  });
+  const { toolRequest, effectRequest } = fileWriteAuthority({ token });
+  toolRepository.registerToolRequest(toolRequest);
+  effectRepository.registerEffectRequest(effectRequest);
+  toolRepository.bindToolEffect({
+    requestId: toolRequest.requestId,
+    effectRequestId: effectRequest.effectId,
+    effectRequest,
+  });
+  const grant = issuer.issue({
+    effectId: effectRequest.effectId,
+    authenticatedSubject: { actorType: 'user', actorId: toolRequest.actor.id },
+  }).grant;
+  const boundEffectRequest = effectRepository.getEffectRequest(effectRequest.effectId);
+  effectRepository.consumeApprovalGrant({
+    grantId: grant.grantId,
+    request: boundEffectRequest,
+    executionOwner: processExecutionOwner,
+  });
+  const effectResult = {
+    contract: 'EffectResult',
+    version: 1,
+    effectId: boundEffectRequest.effectId,
+    runId: boundEffectRequest.runId,
+    projectId: boundEffectRequest.origin.projectId,
+    requestDigest: computeEffectRequestDigest(boundEffectRequest),
+    approvalGrantId: grant.grantId,
+    terminalStatus: 'failed',
+    startedAt: '2026-08-24T08:00:00.001Z',
+    completedAt: '2026-08-24T08:00:00.002Z',
+    process: {
+      pid: null,
+      processGroupId: null,
+      startIdentity: null,
+      exitCode: null,
+      signal: null,
+    },
+    changes: { paths: [], beforeDigest: null, afterDigest: null, diffArtifact: null },
+    network: { resolvedAddresses: [], finalUrl: null, status: null, bytes: 0 },
+    rollback: { required: false, status: 'not_required', evidenceRef: null },
+    outputDigest: null,
+    errorCode: 'PROJECT_PATH_VIOLATION',
+    evidenceRefs: [],
+    lateCompletionRejected: false,
+  };
+  effectRepository.recordEffectResult(effectResult);
+  const projection = projectM2EffectToolTerminal(
+    toolRequest,
+    getM2ToolDescriptor(toolRequest.toolId),
+    boundEffectRequest,
+    effectResult,
+  );
+  const toolResult = result(toolRequest, {
+    status: projection.status,
+    outputSchema: toolRequest.outputSchema,
+    output: projection.output,
+    outputDigest: projection.outputDigest,
+    effectRequestId: projection.effectRequestId,
+    error: projection.error,
+    startedAt: projection.startedAt,
+    completedAt: projection.completedAt,
+    evidenceRefs: projection.evidenceRefs,
+    lateCompletionRejected: projection.lateCompletionRejected,
+  });
+  return { db, toolRepository, toolRequest, toolResult };
+}
+
+function insertToolResultDirect(db, value) {
+  db.prepare(`
+    INSERT INTO tool_v1_results (
+      request_id, request_digest, run_id, project_id, tool_id, tool_version,
+      status, output_schema, output_json, output_digest, effect_request_id,
+      error_json, started_at_ms, completed_at_ms, evidence_json,
+      late_completion_rejected, result_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    value.requestId,
+    value.requestDigest,
+    value.runId,
+    value.projectId,
+    value.toolId,
+    value.toolVersion,
+    value.status,
+    value.outputSchema,
+    value.output === null ? null : JSON.stringify(value.output),
+    value.outputDigest,
+    value.effectRequestId,
+    value.error === null ? null : JSON.stringify(value.error),
+    Date.parse(value.startedAt),
+    Date.parse(value.completedAt),
+    JSON.stringify(value.evidenceRefs),
+    value.lateCompletionRejected ? 1 : 0,
+    JSON.stringify(value),
+  );
 }
 
 suite('M2 durable tool authority — request and exact replay');
@@ -545,6 +656,36 @@ test('effectful ToolResult success is rejected until canonical EffectResult is d
   );
   assert.equal(toolRepository.getToolResult(exactToolRequest.requestId), null);
   db.close();
+});
+
+test('failed effect projection is canonical and direct-SQL metadata forgeries are unreadable', () => {
+  const canonical = failedFileWriteAuthority('8');
+  assert.equal(canonical.toolRepository.recordToolResult(canonical.toolResult).created, true);
+  assert.deepEqual(
+    canonical.toolRepository.getToolResult(canonical.toolRequest.requestId),
+    canonical.toolResult,
+  );
+  canonical.db.close();
+
+  const mutations = [
+    value => ({ ...value, error: { ...value.error, code: 'FORGED_ERROR' } }),
+    value => ({ ...value, error: { ...value.error, message: 'forged message' } }),
+    value => ({ ...value, error: { ...value.error, retryable: true } }),
+    value => ({ ...value, evidenceRefs: ['forged:evidence'] }),
+    value => ({ ...value, lateCompletionRejected: true }),
+    value => ({ ...value, startedAt: '2026-08-24T08:00:00.002Z' }),
+    value => ({ ...value, completedAt: '2026-08-24T08:00:00.003Z' }),
+  ];
+  for (const [index, mutate] of mutations.entries()) {
+    const fixture = failedFileWriteAuthority(String(index + 1));
+    insertToolResultDirect(fixture.db, mutate(fixture.toolResult));
+    assert.throws(
+      () => fixture.toolRepository.getToolResult(fixture.toolRequest.requestId),
+      error => error.code === M2ToolAuthorityErrorCode.STORAGE_FAILURE,
+      `forged failed-effect projection ${index + 1} must be unreadable`,
+    );
+    fixture.db.close();
+  }
 });
 
 summary();

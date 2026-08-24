@@ -221,13 +221,14 @@ function createBroker(environment, {
   provider = { async execute() { return {}; } },
   scheduler,
   terminationGraceMs = 5,
+  workspaceAuthority = environment.workspaceAuthority,
 } = {}) {
   return createEffectBroker(repository, {
     providers: { 'fs.write': provider },
     clock: environment.clock.now,
     scheduleTimeout: scheduler?.schedule,
     terminationGraceMs,
-    workspaceAuthority: environment.workspaceAuthority,
+    workspaceAuthority,
   });
 }
 
@@ -622,18 +623,108 @@ await testAsync('payload, grant-constraint, and workspace-revision drift all fai
       );
     }
 
-    const revisionCase = await prepareWrite(environment, broker, { relativePath: 'src/revision.js' });
-    const revisionGrant = issue(environment, revisionCase.effectId);
-    environment.revision.value = 'wsr1:revision-b';
-    await assert.rejects(
-      broker.execute({ effectId: revisionCase.effectId, grantId: revisionGrant.grantId, payload: 'after\n' }),
-      assertCode(EffectBrokerErrorCode.WORKSPACE_STALE),
-    );
-
     assert.equal(providerCalls, 0);
-    for (const grant of [payloadGrant, constraintGrant, revisionGrant]) {
+    for (const grant of [payloadGrant, constraintGrant]) {
       assert.equal(environment.repository.getApprovalGrant(grant.grantId).consumedAt, null);
     }
+  });
+});
+
+await testAsync('workspace drift after approval consumes authority and records one failed terminal', async () => {
+  await withEnvironment(async environment => {
+    let providerCalls = 0;
+    const broker = createBroker(environment, {
+      provider: { async execute() { providerCalls += 1; return {}; } },
+    });
+    const prepared = await prepareWrite(environment, broker, { relativePath: 'src/revision.js' });
+    const grant = issue(environment, prepared.effectId);
+    environment.revision.value = 'wsr1:revision-b';
+
+    const result = await broker.execute({
+      effectId: prepared.effectId,
+      grantId: grant.grantId,
+      payload: 'after\n',
+    });
+
+    assert.equal(result.terminalStatus, 'failed');
+    assert.equal(result.errorCode, EffectBrokerErrorCode.WORKSPACE_STALE);
+    assert.equal(providerCalls, 0);
+    assert.equal(
+      environment.repository.getApprovalGrant(grant.grantId).consumedByEffectId,
+      prepared.effectId,
+    );
+    assert.deepEqual(environment.repository.getEffectResult(prepared.effectId), result);
+  });
+});
+
+await testAsync('cancellation during a non-cooperative workspace observation registers no effect', async () => {
+  await withEnvironment(async environment => {
+    const observationStarted = deferred();
+    const observationCompletion = deferred();
+    const controller = new AbortController();
+    const broker = createBroker(environment, {
+      workspaceAuthority: {
+        async observe() {
+          observationStarted.resolve();
+          return observationCompletion.promise;
+        },
+      },
+    });
+    const preparation = prepareWrite(environment, broker, { signal: controller.signal });
+    await observationStarted.promise;
+    controller.abort('tool-timeout');
+    observationCompletion.resolve({
+      canonicalRoot: realpathSync(environment.projectRoot),
+      workspaceRevision: environment.revision.value,
+    });
+
+    await assert.rejects(
+      preparation,
+      assertCode(EffectBrokerErrorCode.INPUT_INVALID),
+    );
+    assert.equal(
+      environment.db.prepare('SELECT count(*) AS count FROM m2_effect_requests').get().count,
+      0,
+    );
+  });
+});
+
+await testAsync('execution timeout during workspace observation is terminal and never reaches provider', async () => {
+  await withEnvironment(async environment => {
+    const scheduler = createManualScheduler();
+    const observationStarted = deferred();
+    const observationCompletion = deferred();
+    let providerCalls = 0;
+    const broker = createBroker(environment, {
+      scheduler,
+      workspaceAuthority: {
+        async observe() {
+          observationStarted.resolve();
+          return observationCompletion.promise;
+        },
+      },
+      provider: { async execute() { providerCalls += 1; return {}; } },
+    });
+    const prepared = await prepareWrite(environment, createBroker(environment));
+    const grant = issue(environment, prepared.effectId);
+    const execution = broker.execute({
+      effectId: prepared.effectId,
+      grantId: grant.grantId,
+      payload: 'after\n',
+    });
+    await observationStarted.promise;
+    scheduler.fireNext(50);
+    const result = await execution;
+
+    assert.equal(result.terminalStatus, 'timed_out');
+    assert.equal(result.errorCode, 'EFFECT_TIMED_OUT');
+    assert.equal(result.lateCompletionRejected, true);
+    assert.equal(providerCalls, 0);
+    assert.deepEqual(environment.repository.getEffectResult(prepared.effectId), result);
+    observationCompletion.resolve({
+      canonicalRoot: realpathSync(environment.projectRoot),
+      workspaceRevision: environment.revision.value,
+    });
   });
 });
 

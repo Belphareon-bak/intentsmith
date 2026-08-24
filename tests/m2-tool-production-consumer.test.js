@@ -3,7 +3,14 @@
 import './helpers/isolated-test-db.js';
 
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import path from 'node:path';
 
 import { suite, test, testAsync, summary } from './harness.js';
@@ -440,6 +447,78 @@ await testAsync('production file.write persists request/link, approval settles o
         .get(effectId).count,
       1,
     );
+  } finally {
+    rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+await testAsync('workspace drift before approval settles both effect and tool as durable errors', async () => {
+  const parent = mkdtempSync(path.join(process.env.TMPDIR, 'm2-tool-stale-approval-'));
+  const projectRoot = path.join(parent, 'project');
+  mkdirSync(projectRoot, { recursive: true, mode: 0o700 });
+  const registered = projects.registerExternal(`m2-tool-stale-${Date.now()}`, projectRoot).project;
+  const target = path.join(projectRoot, 'stale.md');
+  const writeContext = context({
+    sessionId: 'm2-tool-stale-session',
+    conversationId: 'm2-tool-stale-conversation',
+    userMessageId: 506,
+    project: { id: Number(registered.id), path: projectRoot },
+    projectId: Number(registered.id),
+    input: 'save it to stale.md',
+    query: 'save it to stale.md',
+    history: [
+      { response: { content: 'must not be written\n', tag: { speaker: 'system' } } },
+      { response: { content: 'save it to stale.md', tag: { speaker: 'user' } } },
+    ],
+    langCtx: { language: 'en' },
+    sessionState: { setActiveFile() {} },
+  });
+  try {
+    const pending = await handleFileWriteDecision(
+      'save it to stale.md',
+      fileDecision('stale.md'),
+      writeContext,
+    );
+    const effectId = pending.tag.metadata.effectId;
+    writeFileSync(path.join(projectRoot, 'workspace-drift.txt'), 'changed after request\n');
+
+    const approved = await preHandle(
+      `approve effect ${effectId}`,
+      { ...writeContext, sessionId: 'm2-tool-stale-reconnected', userMessageId: 507 },
+      'PROJECT',
+    );
+
+    assert.equal(approved.handled, true);
+    assert.equal(approved.response.tag.metadata.effectResult, 'failed');
+    assert.equal(approved.response.tag.metadata.toolResult, 'error');
+    assert.equal(existsSync(target), false);
+    const durable = db.prepare(`
+      SELECT
+        (SELECT terminal_status FROM m2_effect_results WHERE effect_id = ?) AS effectStatus,
+        (SELECT result_json FROM m2_effect_results WHERE effect_id = ?) AS effectJson,
+        (SELECT status FROM tool_v1_results WHERE request_id = ?) AS toolStatus,
+        (SELECT result_json FROM tool_v1_results WHERE request_id = ?) AS toolJson,
+        (SELECT count(*) FROM m2_pending_effect_payloads WHERE effect_id = ?) AS pending
+    `).get(
+      effectId,
+      effectId,
+      pending.tag.metadata.toolRequestId,
+      pending.tag.metadata.toolRequestId,
+      effectId,
+    );
+    assert.deepEqual({
+      effectStatus: durable.effectStatus,
+      effectError: JSON.parse(durable.effectJson).errorCode,
+      toolStatus: durable.toolStatus,
+      toolError: JSON.parse(durable.toolJson).error.code,
+      pending: durable.pending,
+    }, {
+      effectStatus: 'failed',
+      effectError: 'EFFECT_WORKSPACE_STALE',
+      toolStatus: 'error',
+      toolError: 'EFFECT_WORKSPACE_STALE',
+      pending: 0,
+    });
   } finally {
     rmSync(parent, { recursive: true, force: true });
   }
