@@ -573,6 +573,24 @@ export class ToolExecutor {
     logger.debug('ToolExecutor', `Unregistered handler for ${toolType}`);
   }
 
+  async executeM2Tool({ toolId, input, context = {}, timeoutMs = this.timeout } = {}) {
+    if (!this.m2ToolBroker || typeof this.m2ToolBroker.execute !== 'function') {
+      throw Object.assign(new Error('Durable M2 tool authority is unavailable'), {
+        code: 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE',
+      });
+    }
+    return this.m2ToolBroker.execute({ toolId, input, context, timeoutMs });
+  }
+
+  async settleM2Effect({ effectId, context = {} } = {}) {
+    if (!this.m2ToolBroker || typeof this.m2ToolBroker.settleEffect !== 'function') {
+      throw Object.assign(new Error('Durable M2 tool settlement authority is unavailable'), {
+        code: 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE',
+      });
+    }
+    return this.m2ToolBroker.settleEffect({ effectId, context });
+  }
+
   /**
    * Execute a CRE decision
    *
@@ -1591,6 +1609,10 @@ const productionM2ToolBroker = Object.freeze({
     // exact-replay ToolRequest/ToolResult authority on first use.
     const { m2ToolRuntime } = await import('../tools/m2-tool-runtime.js');
     return m2ToolRuntime.execute(input);
+  },
+  async settleEffect(input) {
+    const { m2ToolRuntime } = await import('../tools/m2-tool-runtime.js');
+    return m2ToolRuntime.settleEffect(input);
   },
 });
 

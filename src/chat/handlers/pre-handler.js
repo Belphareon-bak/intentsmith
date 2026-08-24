@@ -218,6 +218,32 @@ intercepts.push({
         signal: context.signal,
       });
       const path = result.changes?.paths?.[0] || null;
+      let toolSettlement = null;
+      try {
+        const { toolExecutor } = await import('../../executor/tool-executor.js');
+        toolSettlement = await toolExecutor.settleM2Effect({ effectId, context });
+      } catch (settlementError) {
+        logger.error('PreHandler', 'Effect completed but ToolResult settlement failed', {
+          effectId,
+          terminalStatus: result.terminalStatus,
+          code: settlementError.code || null,
+        });
+        return {
+          handled: true,
+          response: systemResponse(
+            `⚠️ Efekt \`${result.effectId}\` skončil stavem **${result.terminalStatus}**, ale jeho ToolResult se nepodařilo bezpečně uložit: ${settlementError.message}`,
+            mode,
+            {
+              handler: 'effect.approval',
+              effectId: result.effectId,
+              effectResult: result.terminalStatus,
+              toolSettlement: 'uncommitted',
+              error: settlementError.code || 'tool_result_uncommitted',
+              filePath: path,
+            },
+          ),
+        };
+      }
       if (result.terminalStatus === 'succeeded' && path) {
         context.sessionState?.setActiveFile?.(path);
       }
@@ -230,6 +256,8 @@ intercepts.push({
           handler: 'effect.approval',
           effectId: result.effectId,
           effectResult: result.terminalStatus,
+          toolRequestId: toolSettlement?.request?.requestId || null,
+          toolResult: toolSettlement?.result?.status || null,
           filePath: path,
         }),
       };

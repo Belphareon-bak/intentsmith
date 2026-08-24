@@ -9,6 +9,7 @@ import {
 import {
   M2_TOOL_CONTRACT_KIND,
   M2_TOOL_CONTRACT_VERSION,
+  M2_TOOL_AUTHORITY_MODE,
   M2_TOOL_ERROR_CODE,
   M2_TOOL_TERMINAL_STATUS,
   computeM2ToolRequestDigest,
@@ -47,6 +48,11 @@ function requireRepository(repository) {
     'getToolRequest',
     'getToolResult',
     'recordToolResult',
+    'bindToolEffect',
+    'getToolRequestByEffect',
+    'getEffectLinkByRequest',
+    'getEffectLinkByEffect',
+    'getExactEffectResult',
   ];
   if (!repository || methods.some(method => typeof repository[method] !== 'function')) {
     fail(M2ToolBrokerErrorCode.INPUT_INVALID, 'Durable M2 tool authority repository is required');
@@ -93,7 +99,10 @@ function canonicalOrigin(context) {
   }
   return {
     surface: 'studio',
-    sessionId: stableIdentifier('session', sessionSeed),
+    // A websocket connection ID changes on reconnect. The durable authority
+    // session is therefore derived from the persisted conversation identity;
+    // the transient session is still required above as authenticated ingress.
+    sessionId: stableIdentifier('session', conversationSeed),
     conversationId: stableIdentifier('conversation', conversationSeed),
     projectId: positiveProjectId(context),
   };
@@ -108,6 +117,9 @@ function validateEffectTranslation(request, descriptor, prepared) {
     && effectRequest.origin.projectId === request.origin.projectId
     && effectRequest.actor.type === request.actor.type
     && effectRequest.actor.id === request.actor.id
+    && effectRequest.origin.surface === request.origin.surface
+    && effectRequest.origin.sessionId === request.origin.sessionId
+    && effectRequest.origin.conversationId === request.origin.conversationId
     && effectRequest.kind === descriptor.requiredEffectKind;
   if (!requestMatches) return { valid: false, reason: 'EffectRequest identity mismatch' };
   if (
@@ -163,7 +175,7 @@ function terminalResult({
     toolId: request.toolId,
     toolVersion: request.toolVersion,
     status,
-    outputSchema: descriptor.outputSchema,
+    outputSchema: request.outputSchema,
     output: successful ? output : null,
     outputDigest: successful ? computeM2ToolValueDigest(output) : null,
     effectRequestId,
@@ -268,10 +280,15 @@ export function createM2ToolBroker({
       toolId: descriptor.id,
       toolVersion: descriptor.version,
       riskClass: descriptor.riskClass,
+      authorityMode: descriptor.authorityMode,
       inputSchema: descriptor.inputSchema,
+      outputSchema: descriptor.outputSchema,
       input,
       inputDigest,
       requiredEffectKind: descriptor.requiredEffectKind,
+      effectBinding: typeof descriptor.buildEffectBinding === 'function'
+        ? descriptor.buildEffectBinding(input)
+        : null,
       timeoutMs,
       idempotencyKey,
       createdAt: existing?.createdAt || new Date(requireClockValue(clock)).toISOString(),
@@ -307,6 +324,205 @@ export function createM2ToolBroker({
     return Object.freeze({ request, value, result: stored });
   }
 
+  function bindTranslatedEffect(request, translation) {
+    if (!translation.valid) return translation;
+    try {
+      repository.bindToolEffect({
+        requestId: request.requestId,
+        effectRequestId: translation.effectRequest.effectId,
+        effectRequest: translation.effectRequest,
+      });
+    } catch (error) {
+      throw new M2ToolBrokerError(
+        M2ToolBrokerErrorCode.RESULT_UNCOMMITTED,
+        'Tool effect binding could not be committed; terminal truth is withheld',
+        { requestId: request.requestId, cause: error?.message || String(error) },
+      );
+    }
+    return translation;
+  }
+
+  function commitEffectTerminal({ request, descriptor, translation, startedAtMs }) {
+    const effectRequest = translation.effectRequest;
+    const effectResult = translation.effectResult;
+    if (!effectResult) return null;
+    const effectRequestId = effectRequest.effectId;
+    const terminalStartedAtMs = Number.isFinite(Date.parse(effectResult.startedAt))
+      ? Date.parse(effectResult.startedAt)
+      : startedAtMs;
+    const terminalCompletedAtMs = Number.isFinite(Date.parse(effectResult.completedAt))
+      ? Date.parse(effectResult.completedAt)
+      : requireClockValue(clock);
+
+    if (effectResult.terminalStatus === 'succeeded') {
+      const output = typeof descriptor.projectEffectOutput === 'function'
+        ? descriptor.projectEffectOutput(request, effectRequest, effectResult)
+        : null;
+      const outputErrors = descriptor.validateOutput(output);
+      if (output !== null && outputErrors.length === 0) {
+        return commitExecution({
+          request,
+          value: output,
+          result: terminalResult({
+            request,
+            descriptor,
+            status: M2_TOOL_TERMINAL_STATUS.OK,
+            output,
+            effectRequestId,
+            startedAtMs: terminalStartedAtMs,
+            completedAtMs: terminalCompletedAtMs,
+            evidenceRefs: [
+              `effect:${effectRequestId}`,
+              ...(effectResult.evidenceRefs || []),
+            ],
+            lateCompletionRejected: effectResult.lateCompletionRejected,
+          }),
+        });
+      }
+      return commitExecution({
+        request,
+        value: null,
+        result: terminalResult({
+          request,
+          descriptor,
+          status: M2_TOOL_TERMINAL_STATUS.ERROR,
+          error: {
+            code: M2_TOOL_ERROR_CODE.OUTPUT_INVALID,
+            message: `Canonical effect output does not match ${request.outputSchema}`,
+            retryable: false,
+          },
+          effectRequestId,
+          startedAtMs: terminalStartedAtMs,
+          completedAtMs: terminalCompletedAtMs,
+          evidenceRefs: [
+            `effect:${effectRequestId}`,
+            ...outputErrors.map(value => `schema:${value}`),
+          ],
+          lateCompletionRejected: effectResult.lateCompletionRejected,
+        }),
+      });
+    }
+
+    const status = effectResult.terminalStatus === 'cancelled'
+      ? M2_TOOL_TERMINAL_STATUS.CANCELLED
+      : effectResult.terminalStatus === 'timed_out'
+        ? M2_TOOL_TERMINAL_STATUS.TIMEOUT
+        : ['orphaned', 'killed'].includes(effectResult.terminalStatus)
+          ? M2_TOOL_TERMINAL_STATUS.ORPHANED
+          : M2_TOOL_TERMINAL_STATUS.ERROR;
+    return commitExecution({
+      request,
+      value: null,
+      result: terminalResult({
+        request,
+        descriptor,
+        status,
+        error: {
+          code: effectResult.errorCode || M2_TOOL_ERROR_CODE.EXECUTION_FAILED,
+          message: `${request.toolId} effect ended as ${effectResult.terminalStatus}`,
+          retryable: false,
+        },
+        effectRequestId,
+        startedAtMs: terminalStartedAtMs,
+        completedAtMs: terminalCompletedAtMs,
+        evidenceRefs: [
+          `effect:${effectRequestId}`,
+          ...(effectResult.evidenceRefs || []),
+        ],
+        lateCompletionRejected: effectResult.lateCompletionRejected,
+      }),
+    });
+  }
+
+  function commitInterrupted({ request, descriptor, kind, startedAtMs }) {
+    return commitExecution({
+      request,
+      value: null,
+      result: terminalResult({
+        request,
+        descriptor,
+        status: kind === 'cancelled'
+          ? M2_TOOL_TERMINAL_STATUS.CANCELLED
+          : M2_TOOL_TERMINAL_STATUS.TIMEOUT,
+        error: {
+          code: kind === 'cancelled'
+            ? M2_TOOL_ERROR_CODE.CANCELLED
+            : M2_TOOL_ERROR_CODE.TIMEOUT,
+          message: kind === 'cancelled'
+            ? 'Tool effect preparation was cancelled'
+            : 'Tool effect preparation exceeded its deadline',
+          retryable: kind === 'timed_out',
+        },
+        startedAtMs,
+        completedAtMs: requireClockValue(clock),
+        evidenceRefs: [`tool:${request.requestId}:${kind}:effect-not-executed`],
+        lateCompletionRejected: true,
+      }),
+    });
+  }
+
+  function assertSettlementCaller(request, context) {
+    const actor = canonicalActor(context);
+    const conversationSeed = context?.conversationId;
+    if (!(['string', 'number'].includes(typeof conversationSeed))
+      || String(conversationSeed).length === 0) {
+      fail(M2ToolBrokerErrorCode.INPUT_INVALID, 'Persisted conversation identity is required');
+    }
+    const exact = actor.type === request.actor.type
+      && actor.id === request.actor.id
+      && stableIdentifier('conversation', conversationSeed) === request.origin.conversationId;
+    if (!exact) {
+      fail(M2ToolBrokerErrorCode.INPUT_INVALID, 'Tool effect settlement caller does not own the request');
+    }
+  }
+
+  function settleEffect({ effectId, context = {} } = {}) {
+    const link = repository.getEffectLinkByEffect(effectId);
+    if (!link) return null;
+    const request = link.request || repository.getToolRequestByEffect(effectId);
+    assertSettlementCaller(request, context);
+    const existingResult = repository.getToolResult(request.requestId);
+    if (existingResult) {
+      return Object.freeze({
+        request,
+        value: existingResult.status === M2_TOOL_TERMINAL_STATUS.OK
+          ? existingResult.output
+          : null,
+        result: existingResult,
+        effectRequestId: effectId,
+      });
+    }
+    const descriptor = descriptorResolver(request.toolId);
+    const effectResult = repository.getExactEffectResult(effectId);
+    if (!effectResult) {
+      return Object.freeze({
+        request,
+        value: null,
+        result: null,
+        state: 'approval_required',
+        effectRequestId: effectId,
+      });
+    }
+    const translation = bindTranslatedEffect(request, validateEffectTranslation(
+      request,
+      descriptor,
+      { effectRequest: link.effectRequest, effectResult },
+    ));
+    if (!translation.valid) {
+      fail(
+        M2ToolBrokerErrorCode.CONTRACT_INVALID,
+        'Stored tool/effect settlement no longer matches its exact translation',
+        { requestId: request.requestId, effectId, reason: translation.reason },
+      );
+    }
+    return commitEffectTerminal({
+      request,
+      descriptor,
+      translation,
+      startedAtMs: Date.parse(effectResult.startedAt),
+    });
+  }
+
   async function execute({ toolId, input, context = {}, timeoutMs = 30_000, invoke } = {}) {
     const request = createRequest({ toolId, input, context, timeoutMs });
     const descriptor = descriptorResolver(request.toolId);
@@ -320,9 +536,33 @@ export function createM2ToolBroker({
         result: existingResult,
       });
     }
+    const existingLink = repository.getEffectLinkByRequest(request.requestId);
+    if (existingLink) {
+      return settleEffect({ effectId: existingLink.effectId, context });
+    }
     const startedAtMs = requireClockValue(clock);
 
-    if (!descriptor.direct) {
+    if (request.authorityMode === M2_TOOL_AUTHORITY_MODE.UNAVAILABLE) {
+      return commitExecution({
+        request,
+        value: null,
+        result: terminalResult({
+          request,
+          descriptor,
+          status: M2_TOOL_TERMINAL_STATUS.ERROR,
+          error: {
+            code: M2_TOOL_ERROR_CODE.EFFECT_AUTHORITY_UNAVAILABLE,
+            message: `${toolId} has no exact M2 effect translation installed`,
+            retryable: false,
+          },
+          startedAtMs,
+          completedAtMs: requireClockValue(clock),
+          evidenceRefs: [`tool:${request.requestId}:authority-unavailable`],
+        }),
+      });
+    }
+
+    if (request.authorityMode === M2_TOOL_AUTHORITY_MODE.EFFECT) {
       if (!effectAdapter || typeof effectAdapter.prepare !== 'function') {
         return commitExecution({
           request,
@@ -333,7 +573,7 @@ export function createM2ToolBroker({
             status: M2_TOOL_TERMINAL_STATUS.ERROR,
             error: {
               code: M2_TOOL_ERROR_CODE.EFFECT_AUTHORITY_UNAVAILABLE,
-              message: `${toolId} requires ${descriptor.requiredEffectKind} authority before execution`,
+              message: `${toolId} requires ${request.requiredEffectKind} authority before execution`,
               retryable: false,
             },
             startedAtMs,
@@ -342,62 +582,58 @@ export function createM2ToolBroker({
           }),
         });
       }
-      const prepared = await effectAdapter.prepare({ request, context, signal: context?.signal });
-      const translation = validateEffectTranslation(request, descriptor, prepared);
-      const effectRequestId = translation.valid ? translation.effectRequest.effectId : null;
-      const canonicalEffectResult = translation.valid ? translation.effectResult : null;
-      if (canonicalEffectResult?.terminalStatus === 'succeeded') {
-        const outputErrors = descriptor.validateOutput(prepared.output);
-        if (
-          outputErrors.length === 0
-        ) {
-          return commitExecution({
-            request,
-            value: prepared.output,
-            result: terminalResult({
-              request,
-              descriptor,
-              status: M2_TOOL_TERMINAL_STATUS.OK,
-              output: prepared.output,
-              effectRequestId,
-              startedAtMs,
-              completedAtMs: requireClockValue(clock),
-              evidenceRefs: prepared.evidenceRefs || [],
-            }),
-          });
-        }
+      if (context?.signal?.aborted) {
+        return commitInterrupted({ request, descriptor, kind: 'cancelled', startedAtMs });
       }
-      if (canonicalEffectResult) {
-        const status = canonicalEffectResult.terminalStatus === 'cancelled'
-          ? M2_TOOL_TERMINAL_STATUS.CANCELLED
-          : canonicalEffectResult.terminalStatus === 'timed_out'
-            ? M2_TOOL_TERMINAL_STATUS.TIMEOUT
-            : ['orphaned', 'killed'].includes(canonicalEffectResult.terminalStatus)
-              ? M2_TOOL_TERMINAL_STATUS.ORPHANED
-              : M2_TOOL_TERMINAL_STATUS.ERROR;
+      const controller = new AbortController();
+      const timeout = timeoutPromise(scheduleTimeout, request.timeoutMs);
+      const cancellation = cancellationPromise(context?.signal);
+      const preparation = Promise.resolve()
+        .then(() => effectAdapter.prepare({
+          request,
+          context: { ...context, signal: controller.signal },
+          signal: controller.signal,
+        }))
+        .then(
+          value => ({ kind: 'provider', ok: true, value }),
+          error => ({ kind: 'provider', ok: false, error }),
+        );
+      const first = await Promise.race([preparation, timeout.promise, cancellation.promise]);
+      timeout.dispose();
+      cancellation.dispose();
+      if (first.kind !== 'provider') {
+        controller.abort(first.kind);
+        return commitInterrupted({ request, descriptor, kind: first.kind, startedAtMs });
+      }
+      if (!first.ok) {
         return commitExecution({
           request,
           value: null,
           result: terminalResult({
             request,
             descriptor,
-            status,
+            status: M2_TOOL_TERMINAL_STATUS.ERROR,
             error: {
-              code: canonicalEffectResult.errorCode || M2_TOOL_ERROR_CODE.EXECUTION_FAILED,
-              message: `${toolId} effect ended as ${canonicalEffectResult.terminalStatus}`,
+              code: errorCode(first.error),
+              message: first.error?.message || 'Tool effect preparation failed',
               retryable: false,
             },
-            effectRequestId,
-            startedAtMs: Date.parse(canonicalEffectResult.startedAt),
-            completedAtMs: Date.parse(canonicalEffectResult.completedAt),
-            evidenceRefs: [
-              `effect:${effectRequestId}`,
-              ...(canonicalEffectResult.evidenceRefs || []),
-            ],
-            lateCompletionRejected: canonicalEffectResult.lateCompletionRejected,
+            startedAtMs,
+            completedAtMs: requireClockValue(clock),
+            evidenceRefs: [`tool:${request.requestId}:effect-prepare-failed`],
           }),
         });
       }
+      const prepared = first.value;
+      const translation = bindTranslatedEffect(
+        request,
+        validateEffectTranslation(request, descriptor, prepared),
+      );
+      const effectRequestId = translation.valid ? translation.effectRequest.effectId : null;
+      const terminal = translation.valid
+        ? commitEffectTerminal({ request, descriptor, translation, startedAtMs })
+        : null;
+      if (terminal) return terminal;
       const approvalRequired = prepared?.state === 'approval_required' && translation.valid;
       if (approvalRequired) {
         return Object.freeze({
@@ -428,6 +664,9 @@ export function createM2ToolBroker({
       });
     }
 
+    if (request.authorityMode !== M2_TOOL_AUTHORITY_MODE.DIRECT || !descriptor.direct) {
+      fail(M2ToolBrokerErrorCode.CONTRACT_INVALID, `Tool ${toolId} has inconsistent authority mode`);
+    }
     if (typeof invoke !== 'function') {
       fail(M2ToolBrokerErrorCode.INPUT_INVALID, `Direct tool ${toolId} requires an implementation`);
     }
@@ -545,7 +784,7 @@ export function createM2ToolBroker({
     });
   }
 
-  return Object.freeze({ createRequest, execute });
+  return Object.freeze({ createRequest, execute, settleEffect });
 }
 
 export default createM2ToolBroker;

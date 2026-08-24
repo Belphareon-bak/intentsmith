@@ -7,7 +7,7 @@ import { suite, testAsync, summary } from './harness.js';
 const { handleFileWriteDecision } = await import('../src/chat/handlers/file.js');
 const { parseExactEffectApproval } = await import('../src/chat/handlers/pre-handler.js');
 const { handleToolCallDecision } = await import('../src/chat/handlers/decisions.js');
-const { toolExecutor } = await import('../src/executor/tool-executor.js');
+const { toolExecutor, ExecutionStatus, ToolResult } = await import('../src/executor/tool-executor.js');
 
 function decision(filePath = 'notes/result.md') {
   const serialized = { type: 'FILE_WRITE', metadata: { handler: 'file.write', filePath } };
@@ -48,7 +48,7 @@ async function withProject(callback) {
 
 suite('M2 first filesystem effect consumer');
 
-await testAsync('handler delegates exact bytes and authority context to the fourth runtime seam without writing', async () => {
+await testAsync('handler delegates exact bytes and authority context to the M2 ToolRequest seam without writing', async () => {
   await withProject(async ({ projectRoot }) => {
     const calls = [];
     const requestReached = new Promise(resolve => {
@@ -56,8 +56,8 @@ await testAsync('handler delegates exact bytes and authority context to the four
     });
     let release;
     const runtimeResult = new Promise(resolve => { release = resolve; });
-    const effectRuntime = {
-      async requestFilesystemWrite(input) {
+    const injectedToolExecutor = {
+      async executeM2Tool(input) {
         calls.push(input);
         calls.onRequest();
         return runtimeResult;
@@ -69,25 +69,28 @@ await testAsync('handler delegates exact bytes and authority context to the four
       'ulož to do notes/result.md',
       decision(),
       handlerContext,
-      { effectRuntime },
+      { toolExecutor: injectedToolExecutor },
     );
 
     await requestReached;
     assert.equal(existsSync(target), false, 'consumer must not write before or instead of the broker runtime');
     assert.equal(calls.length, 1);
     assert.deepEqual(calls[0], {
-      sessionId: 'session-1',
-      conversationId: 'conversation-1',
-      subjectId: 'user-1',
-      operationId: 'message:41',
-      projectId: 17,
-      projectRoot,
-      relativePath: 'notes/result.md',
-      content: 'authoritative assistant content\n',
-      signal: handlerContext.signal,
+      toolId: 'file.write',
+      input: {
+        path: 'notes/result.md',
+        content: 'authoritative assistant content\n',
+      },
+      context: handlerContext,
+      timeoutMs: 120_000,
     });
 
-    release({ effectId: `effect:${'a'.repeat(64)}`, state: 'approval_required' });
+    release({
+      request: { requestId: `tool:${'f'.repeat(64)}` },
+      effectRequestId: `effect:${'a'.repeat(64)}`,
+      state: 'approval_required',
+      result: null,
+    });
     const response = await responsePromise;
     assert.equal(existsSync(target), false, 'request registration must not be presented as a completed write');
     assert.equal(response.tag.canExecute, false);
@@ -103,10 +106,15 @@ await testAsync('handler delegates exact bytes and authority context to the four
 await testAsync('missing project or authenticated caller blocks before the runtime seam', async () => {
   await withProject(async ({ projectRoot }) => {
     let runtimeCalls = 0;
-    const effectRuntime = {
-      async requestFilesystemWrite() {
+    const injectedToolExecutor = {
+      async executeM2Tool() {
         runtimeCalls += 1;
-        return { effectId: `effect:${'b'.repeat(64)}`, state: 'approval_required' };
+        return {
+          request: { requestId: `tool:${'f'.repeat(64)}` },
+          effectRequestId: `effect:${'b'.repeat(64)}`,
+          state: 'approval_required',
+          result: null,
+        };
       },
     };
     const cases = [
@@ -120,7 +128,7 @@ await testAsync('missing project or authenticated caller blocks before the runti
         'ulož to do notes/result.md',
         decision(),
         handlerContext,
-        { effectRuntime },
+        { toolExecutor: injectedToolExecutor },
       );
       assert.equal(response.tag.metadata.securityBlocked, true);
       assert.equal(response.tag.metadata.error, 'effect_authority_required');
@@ -134,8 +142,8 @@ await testAsync('missing project or authenticated caller blocks before the runti
 await testAsync('runtime rejection is surfaced as authorization failure and never falls back to a legacy write', async () => {
   await withProject(async ({ projectRoot }) => {
     let runtimeCalls = 0;
-    const effectRuntime = {
-      async requestFilesystemWrite() {
+    const injectedToolExecutor = {
+      async executeM2Tool() {
         runtimeCalls += 1;
         const error = new Error('workspace changed after approval');
         error.code = 'EFFECT_WORKSPACE_STALE';
@@ -146,7 +154,7 @@ await testAsync('runtime rejection is surfaced as authorization failure and neve
       'ulož to do notes/result.md',
       decision(),
       context(projectRoot),
-      { effectRuntime },
+      { toolExecutor: injectedToolExecutor },
     );
 
     assert.equal(runtimeCalls, 1);
@@ -164,11 +172,11 @@ await testAsync('an unavailable injected runtime fails closed instead of using d
       'ulož to do notes/result.md',
       decision(),
       context(projectRoot),
-      { effectRuntime: {} },
+      { toolExecutor: {} },
     );
 
     assert.equal(response.tag.canExecute, false);
-    assert.equal(response.tag.metadata.error, 'EFFECT_RUNTIME_NOT_READY');
+    assert.equal(response.tag.metadata.error, 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE');
     assert.equal(existsSync(path.join(projectRoot, 'notes/result.md')), false);
   });
 });
@@ -181,12 +189,12 @@ await testAsync('an idempotent terminal retry is rendered without asking for a s
       decision(),
       context(projectRoot),
       {
-        effectRuntime: {
-          async requestFilesystemWrite() {
+        toolExecutor: {
+          async executeM2Tool() {
             return {
-              effectId,
-              state: 'terminal',
-              result: { terminalStatus: 'succeeded' },
+              request: { requestId: `tool:${'e'.repeat(64)}` },
+              value: { path: 'notes/result.md', effectId, terminalStatus: 'succeeded' },
+              result: { status: 'ok', effectRequestId: effectId },
             };
           },
         },
@@ -195,7 +203,7 @@ await testAsync('an idempotent terminal retry is rendered without asking for a s
 
     assert.equal(response.tag.metadata.effectId, effectId);
     assert.equal(response.tag.metadata.effectState, 'terminal');
-    assert.equal(response.tag.metadata.terminalStatus, 'succeeded');
+    assert.equal(response.tag.metadata.terminalStatus, 'ok');
     assert.equal(response.tag.metadata.approvalRequired, false);
     assert.equal(response.tag.metadata.fileOperation, true);
     assert.doesNotMatch(response.content, /approve|schvál/i);
@@ -211,12 +219,20 @@ await testAsync('approval parser accepts only a command containing the exact ful
   }
 });
 
-await testAsync('decision execution awaits the security hook and never reaches the legacy executor', async () => {
+await testAsync('security hook is telemetry-only and authority denial comes from the M2 executor', async () => {
   const originalExecute = toolExecutor.execute;
   let executorCalls = 0;
   toolExecutor.execute = async () => {
     executorCalls += 1;
-    throw new Error('legacy executor must not be reached');
+    return {
+      status: ExecutionStatus.FAILED,
+      duration: 1,
+      toolResults: [ToolResult.failed({
+        type: 'file.write',
+        error: 'exact effect approval is required',
+        errorCode: 'TOOL_EFFECT_AUTHORITY_REQUIRED',
+      })],
+    };
   };
   const authorityError = new Error('M2 effect authority is required');
   authorityError.code = 'M2_EFFECT_AUTHORITY_REQUIRED';
@@ -230,19 +246,19 @@ await testAsync('decision execution awaits the security hook and never reaches t
   const hookedTools = [];
 
   try {
-    await assert.rejects(
-      handleToolCallDecision('write the file', legacyDecision, {
+    const response = await handleToolCallDecision('write the file', legacyDecision, {
         sessionState: null,
         history: [],
+        hasActiveProject: true,
         onToolCall: async tool => {
           hookedTools.push(tool);
           if (tool === 'file.write') throw authorityError;
         },
-      }),
-      error => error === authorityError,
-    );
+      });
     assert.deepEqual(hookedTools, ['web.search', 'file.write']);
-    assert.equal(executorCalls, 0);
+    assert.equal(executorCalls, 1);
+    assert.equal(response.tag.metadata.securityBlocked, true);
+    assert.equal(response.tag.metadata.fallbackSuppressed, true);
   } finally {
     toolExecutor.execute = originalExecute;
   }

@@ -1979,7 +1979,7 @@ await asyncTest('T23eab: M1 cancel distinguishes target timeout from confirmatio
   }
 });
 
-await asyncTest('T23eb: canonical file.write is contained in every edit mode', async () => {
+await asyncTest('T23eb: file.write hook is telemetry-only and canonical pending authority is terminal', async () => {
   const sent = [];
   const frame = m1StudioFrame('legacy-edit-contained');
   const ownedFile = path.join(isolatedTestRuntime.runtime, 'm1-legacy-edit-contained.txt');
@@ -1994,7 +1994,13 @@ await asyncTest('T23eb: canonical file.write is contained in every edit mode', a
         path: ownedFile,
         content: 'replacement',
       });
-      return { response: 'must-not-complete' };
+      return {
+        response: 'must-not-complete',
+        metadata: {
+          approvalRequired: true,
+          effectId: `effect:${'a'.repeat(64)}`,
+        },
+      };
     },
     logger: mockLogger,
   });
@@ -2015,8 +2021,8 @@ await asyncTest('T23eb: canonical file.write is contained in every edit mode', a
   assert.equal(validateCoreEventStream(events).valid, true);
   assert.equal(events.some(event => event.eventType === 'edit_request'), false);
   assert.equal(events.some(event => (
-    event.eventType === 'edit_authority_required'
-    && event.payload.code === 'M2_EFFECT_AUTHORITY_REQUIRED'
+    event.eventType === 'edit_authority_delegated'
+    && event.payload.authority === 'm2-tool-broker'
   )), true);
   assert.equal(events.at(-1).terminalStatus, 'error');
   assert.equal(events.at(-1).payload.result.error.code, 'M2_EFFECT_AUTHORITY_REQUIRED');

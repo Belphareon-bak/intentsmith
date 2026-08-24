@@ -610,14 +610,12 @@ export async function handleFileWriteDecision(input, decision, context, dependen
   // production write is an EffectRequest and needs an exact ApprovalGrant.
   const projectId = Number(context.project?.id ?? context.projectId);
   const authenticatedSubject = context.authenticatedSubject;
-  const operationId = Number.isSafeInteger(context.userMessageId) && context.userMessageId > 0
-    ? `message:${context.userMessageId}`
-    : null;
+  const hasMessageIdentity = Number.isSafeInteger(context.userMessageId) && context.userMessageId > 0;
   if (
     !projectPath
     || !Number.isSafeInteger(projectId)
     || projectId <= 0
-    || !operationId
+    || !hasMessageIdentity
     || authenticatedSubject?.actorType !== 'user'
     || !authenticatedSubject.actorId
   ) {
@@ -641,41 +639,36 @@ export async function handleFileWriteDecision(input, decision, context, dependen
     });
   }
 
-  // 4. Register the exact effect. The handler never owns a filesystem syscall;
-  // the runtime can only execute after a separate authenticated approval.
+  // 4. Cross the same durable ToolRequest boundary as TOOL_CALL. The handler
+  // never owns a filesystem syscall; canonical EffectRequest execution remains
+  // behind the separate exact approval intercept.
   try {
-    let runtime = dependencies.effectRuntime;
-    if (!runtime) {
-      const module = await import('../../effects/effect-file-runtime.js');
-      runtime = module.effectFileRuntime;
+    let executor = dependencies.toolExecutor;
+    if (!executor) {
+      const module = await import('../../executor/tool-executor.js');
+      executor = module.toolExecutor;
     }
-    if (!runtime || typeof runtime.requestFilesystemWrite !== 'function') {
-      throw Object.assign(new Error('Effect file runtime is unavailable'), {
-        code: 'EFFECT_RUNTIME_NOT_READY',
+    if (!executor || typeof executor.executeM2Tool !== 'function') {
+      throw Object.assign(new Error('M2 tool runtime is unavailable'), {
+        code: 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE',
       });
     }
-
-    const prepared = await runtime.requestFilesystemWrite({
-      sessionId: context.sessionId,
-      conversationId: context.conversationId,
-      subjectId: authenticatedSubject.actorId,
-      operationId,
-      projectId,
-      projectRoot: projectPath,
-      relativePath: filePath,
-      content,
-      signal: context.signal,
+    const execution = await executor.executeM2Tool({
+      toolId: 'file.write',
+      input: { path: filePath, content },
+      context,
+      timeoutMs: 120_000,
     });
 
-    if (prepared.state === 'terminal' && prepared.result) {
-      const succeeded = prepared.result.terminalStatus === 'succeeded';
+    if (execution.result) {
+      const succeeded = execution.result.status === 'ok';
       const msg = succeeded
         ? (lang === 'cs'
           ? `✅ Zápis do **${filePath}** už byl dokončen.`
           : `✅ Write to **${filePath}** was already completed.`)
         : (lang === 'cs'
-          ? `⚠️ Zápis do **${filePath}** už skončil stavem ${prepared.result.terminalStatus}.`
-          : `⚠️ Write to **${filePath}** already ended as ${prepared.result.terminalStatus}.`);
+          ? `⚠️ Zápis do **${filePath}** už skončil stavem ${execution.result.status}.`
+          : `⚠️ Write to **${filePath}** already ended as ${execution.result.status}.`);
       return new TaggedResponse({
         content: msg,
         tag: new ResponseTag({
@@ -687,9 +680,10 @@ export async function handleFileWriteDecision(input, decision, context, dependen
             decision: decision.toJSON(),
             fileOperation: succeeded,
             handler: 'file.write',
-            effectId: prepared.effectId,
+            toolRequestId: execution.request.requestId,
+            effectId: execution.result.effectRequestId,
             effectState: 'terminal',
-            terminalStatus: prepared.result.terminalStatus,
+            terminalStatus: execution.result.status,
             approvalRequired: false,
             filePath,
           },
@@ -697,12 +691,18 @@ export async function handleFileWriteDecision(input, decision, context, dependen
       });
     }
 
+    if (execution.state !== 'approval_required' || !execution.effectRequestId) {
+      throw Object.assign(new Error('M2 tool runtime returned no terminal or approval authority'), {
+        code: 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE',
+      });
+    }
+
     const msg = lang === 'cs'
-      ? `🔐 Zápis do **${filePath}** čeká na schválení. Napiš přesně: \`schválit efekt ${prepared.effectId}\``
-      : `🔐 Write to **${filePath}** awaits approval. Enter exactly: \`approve effect ${prepared.effectId}\``;
+      ? `🔐 Zápis do **${filePath}** čeká na schválení. Napiš přesně: \`schválit efekt ${execution.effectRequestId}\``
+      : `🔐 Write to **${filePath}** awaits approval. Enter exactly: \`approve effect ${execution.effectRequestId}\``;
 
     logger.info('HandleFileWrite', 'Filesystem effect registered for approval', {
-      effectId: prepared.effectId,
+      effectId: execution.effectRequestId,
       projectId,
       filePath,
       size: Buffer.byteLength(content, 'utf8'),
@@ -719,8 +719,9 @@ export async function handleFileWriteDecision(input, decision, context, dependen
           decision: decision.toJSON(),
           fileOperation: false,
           handler: 'file.write',
-          effectId: prepared.effectId,
-          effectState: prepared.state,
+          toolRequestId: execution.request.requestId,
+          effectId: execution.effectRequestId,
+          effectState: execution.state,
           approvalRequired: true,
           filePath,
           fileSize: Buffer.byteLength(content, 'utf8'),

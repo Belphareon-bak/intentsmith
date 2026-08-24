@@ -3,6 +3,8 @@
 import './helpers/isolated-test-db.js';
 
 import assert from 'node:assert/strict';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import path from 'node:path';
 
 import { suite, test, testAsync, summary } from './harness.js';
 
@@ -17,6 +19,9 @@ const {
   toolExecutor,
 } = await import('../src/executor/tool-executor.js');
 const { handleToolCallDecision } = await import('../src/chat/handlers/decisions.js');
+const { handleFileWriteDecision } = await import('../src/chat/handlers/file.js');
+const { preHandle } = await import('../src/chat/handlers/pre-handler.js');
+const { db, projects } = await import('../src/db/database.js');
 
 function decision(tool, intent = IntentType.LOCAL) {
   const value = {
@@ -49,6 +54,15 @@ function context(overrides = {}) {
     signal: new AbortController().signal,
     maxAutoRetries: 0,
     ...overrides,
+  };
+}
+
+function fileDecision(filePath) {
+  return {
+    metadata: { filePath, handler: 'file.write' },
+    toJSON() {
+      return { type: 'LOCAL', intent: 'FILE_WRITE', metadata: this.metadata };
+    },
   };
 }
 
@@ -275,6 +289,168 @@ await testAsync('authority denial suppresses LLM fallback in regular and REPORT 
     assert.equal(calls, 2);
   } finally {
     toolExecutor.execute = originalExecute;
+  }
+});
+
+await testAsync('mixed pure success plus authority denial is terminal and never reaches synthesis', async () => {
+  const originalExecute = toolExecutor.execute;
+  let llmStarts = 0;
+  toolExecutor.execute = async () => ({
+    status: ExecutionStatus.PARTIAL,
+    duration: 1,
+    toolResults: [
+      ToolResult.local({ subtype: 'math', data: { expression: '2+2', result: 4 } }),
+      ToolResult.failed({
+        type: 'web.search',
+        error: 'network effect authority unavailable',
+        errorCode: 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE',
+      }),
+    ],
+  });
+  const mixedDecision = decision(ToolType.LOCAL_MATH, IntentType.FACTUAL);
+  mixedDecision.tools = [ToolType.LOCAL_MATH, ToolType.WEB_SEARCH];
+  try {
+    const response = await handleToolCallDecision('spočítej a vyhledej', mixedDecision, {
+      ...context({
+        input: 'spočítej a vyhledej',
+        query: 'spočítej a vyhledej',
+        sessionId: 'm2-mixed-denial-session',
+        conversationId: 'm2-mixed-denial-conversation',
+        userMessageId: 50,
+      }),
+      history: [],
+      hasActiveProject: false,
+      userPreferences: {},
+      onLLMStart() { llmStarts += 1; },
+    });
+    assert.equal(response.tag.metadata.securityBlocked, true);
+    assert.equal(response.tag.metadata.fallbackSuppressed, true);
+    assert.equal(response.tag.metadata.error, 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE');
+    assert.equal(llmStarts, 0);
+  } finally {
+    toolExecutor.execute = originalExecute;
+  }
+});
+
+await testAsync('production file.write persists request/link, approval settles one result across reconnect', async () => {
+  const parent = mkdtempSync(path.join(process.env.TMPDIR, 'm2-tool-journey-'));
+  const projectRoot = path.join(parent, 'project');
+  mkdirSync(projectRoot, { recursive: true, mode: 0o700 });
+  const registered = projects.registerExternal(`m2-tool-${Date.now()}`, projectRoot).project;
+  const target = path.join(projectRoot, 'result.md');
+  const baseContext = context({
+    sessionId: 'm2-tool-write-session-before-reconnect',
+    conversationId: 'm2-tool-write-conversation',
+    userMessageId: 501,
+    project: { id: Number(registered.id), path: projectRoot },
+    projectId: Number(registered.id),
+    input: 'save it to result.md',
+    query: 'save it to result.md',
+    history: [
+      { response: { content: 'durable tool content\n', tag: { speaker: 'system' } } },
+      { response: { content: 'save it to result.md', tag: { speaker: 'user' } } },
+    ],
+    langCtx: { language: 'en' },
+    sessionState: { setActiveFile() {} },
+  });
+  try {
+    const pending = await handleFileWriteDecision(
+      'save it to result.md',
+      fileDecision('result.md'),
+      baseContext,
+    );
+    const effectId = pending.tag.metadata.effectId;
+    assert.equal(pending.tag.metadata.approvalRequired, true);
+    assert.match(pending.tag.metadata.toolRequestId, /^tool:[a-f0-9]{64}$/);
+    assert.match(effectId, /^effect:[a-f0-9]{64}$/);
+    assert.equal(existsSync(target), false);
+    assert.deepEqual(db.prepare(`
+      SELECT
+        (SELECT count(*) FROM tool_v1_requests WHERE request_id = ?) AS requests,
+        (SELECT count(*) FROM m2_tool_effect_links WHERE request_id = ?) AS links,
+        (SELECT count(*) FROM tool_v1_results WHERE request_id = ?) AS results
+    `).get(
+      pending.tag.metadata.toolRequestId,
+      pending.tag.metadata.toolRequestId,
+      pending.tag.metadata.toolRequestId,
+    ), { requests: 1, links: 1, results: 0 });
+
+    const reconnectedContext = {
+      ...baseContext,
+      sessionId: 'm2-tool-write-session-after-reconnect',
+      userMessageId: 502,
+    };
+    const approved = await preHandle(
+      `approve effect ${effectId}`,
+      reconnectedContext,
+      'PROJECT',
+    );
+    assert.equal(approved.handled, true);
+    assert.equal(approved.response.tag.metadata.effectResult, 'succeeded');
+    assert.equal(approved.response.tag.metadata.toolResult, 'ok');
+    assert.equal(readFileSync(target, 'utf8'), 'durable tool content\n');
+    assert.equal(
+      db.prepare('SELECT count(*) AS count FROM tool_v1_results WHERE request_id = ?')
+        .get(pending.tag.metadata.toolRequestId).count,
+      1,
+    );
+
+    const replay = await handleFileWriteDecision(
+      'save it to result.md',
+      fileDecision('result.md'),
+      { ...baseContext, sessionId: 'm2-tool-write-session-third', userMessageId: 501 },
+    );
+    assert.equal(replay.tag.metadata.terminalStatus, 'ok');
+    assert.equal(replay.tag.metadata.approvalRequired, false);
+    assert.equal(
+      db.prepare('SELECT count(*) AS count FROM m2_effect_requests WHERE effect_id = ?')
+        .get(effectId).count,
+      1,
+    );
+  } finally {
+    rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+await testAsync('file.write does not smuggle an unauthorized parent-directory creation', async () => {
+  const parent = mkdtempSync(path.join(process.env.TMPDIR, 'm2-tool-no-mkdir-'));
+  const projectRoot = path.join(parent, 'project');
+  mkdirSync(projectRoot, { recursive: true, mode: 0o700 });
+  const registered = projects.registerExternal(`m2-tool-no-mkdir-${Date.now()}`, projectRoot).project;
+  const target = path.join(projectRoot, 'missing/result.md');
+  const writeContext = context({
+    sessionId: 'm2-tool-no-mkdir-session',
+    conversationId: 'm2-tool-no-mkdir-conversation',
+    userMessageId: 503,
+    project: { id: Number(registered.id), path: projectRoot },
+    projectId: Number(registered.id),
+    input: 'save it to missing/result.md',
+    query: 'save it to missing/result.md',
+    history: [
+      { response: { content: 'bounded content\n', tag: { speaker: 'system' } } },
+      { response: { content: 'save it to missing/result.md', tag: { speaker: 'user' } } },
+    ],
+    langCtx: { language: 'en' },
+    sessionState: { setActiveFile() {} },
+  });
+  try {
+    const pending = await handleFileWriteDecision(
+      'save it to missing/result.md',
+      fileDecision('missing/result.md'),
+      writeContext,
+    );
+    const approved = await preHandle(
+      `approve effect ${pending.tag.metadata.effectId}`,
+      { ...writeContext, sessionId: 'm2-tool-no-mkdir-reconnected', userMessageId: 504 },
+      'PROJECT',
+    );
+    assert.equal(approved.handled, true);
+    assert.equal(approved.response.tag.metadata.effectResult, 'failed');
+    assert.equal(approved.response.tag.metadata.toolResult, 'error');
+    assert.equal(existsSync(target), false);
+    assert.equal(existsSync(path.dirname(target)), false);
+  } finally {
+    rmSync(parent, { recursive: true, force: true });
   }
 });
 

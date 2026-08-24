@@ -46,7 +46,9 @@ export function createM2ToolEffectAdapter({ effectRuntime = null } = {}) {
         return unavailable('Filesystem effect runtime is not ready');
       }
       const prepared = await runtime.requestFilesystemWrite({
-        sessionId: String(context.sessionId),
+        // Durable authority session follows the persisted conversation so a
+        // websocket reconnect cannot change ToolRequest/EffectRequest bytes.
+        sessionId: String(context.conversationId),
         conversationId: String(context.conversationId),
         subjectId: request.actor.id,
         operationId: request.requestId,

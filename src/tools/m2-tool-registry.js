@@ -1,7 +1,10 @@
 import { createHash } from 'node:crypto';
 
 import { isPlainRecord } from '../../contracts/m1/shared.js';
-import { M2_TOOL_RISK_CLASS } from '../../contracts/m2/tool-v1.js';
+import {
+  M2_TOOL_AUTHORITY_MODE,
+  M2_TOOL_RISK_CLASS,
+} from '../../contracts/m2/tool-v1.js';
 
 function error(message) {
   return Object.freeze([message]);
@@ -66,6 +69,16 @@ function validateCodeInput(value) {
   return Object.freeze(errors);
 }
 
+function validateDatabaseInput(value) {
+  const context = 'tool-input.database-query';
+  const errors = [...validateExactInput(value, ['query', 'database'], context)];
+  if (!boundedString(value?.query, 1_048_576)) errors.push(`${context}:invalid-query`);
+  if (!(value?.database === null || boundedString(value.database, 4096))) {
+    errors.push(`${context}:invalid-database`);
+  }
+  return Object.freeze(errors);
+}
+
 function validateJsonObjectOutput(value, context) {
   return isPlainRecord(value) ? ok() : error(`${context}:not-object`);
 }
@@ -125,52 +138,114 @@ function validateLocalOutput(value, subtype) {
 function descriptor({
   id,
   riskClass,
+  authorityMode,
   requiredEffectKind,
   inputSchema,
   outputSchema,
   validateInput,
   validateOutput = value => validateJsonObjectOutput(value, `tool-output.${id}`),
   direct = false,
+  buildEffectBinding = null,
   validateEffectTranslation = null,
+  projectEffectOutput = null,
 }) {
   return Object.freeze({
     id,
     version: 1,
     riskClass,
+    authorityMode,
     requiredEffectKind,
     inputSchema,
     outputSchema,
     validateInput,
     validateOutput,
     direct,
+    buildEffectBinding,
     validateEffectTranslation,
+    projectEffectOutput,
   });
 }
 
 const EMPTY_PAYLOAD_DIGEST = `sha256:${createHash('sha256').update(Buffer.alloc(0)).digest('hex')}`;
 
+function effectBinding({ kind, target, payloadDigest, payloadBytes, requiredCapability, riskClass }) {
+  return Object.freeze({
+    kind,
+    target: Object.freeze(target),
+    payloadDigest,
+    payloadBytes,
+    requiredCapability,
+    riskClass,
+  });
+}
+
+function buildNetworkBinding(url) {
+  return effectBinding({
+    kind: 'network.request',
+    target: {
+      type: 'network',
+      url,
+      origin: new URL(url).origin,
+      method: 'GET',
+      redirectPolicy: 'deny',
+      dnsPolicy: 'public-only',
+    },
+    payloadDigest: EMPTY_PAYLOAD_DIGEST,
+    payloadBytes: 0,
+    requiredCapability: 'network.http.get',
+    riskClass: 'network',
+  });
+}
+
+function bindingMatchesEffect(binding, effectRequest) {
+  if (!binding || !effectRequest) return false;
+  const common = binding.kind === effectRequest.kind
+    && binding.payloadDigest === effectRequest.payloadDigest
+    && binding.payloadBytes === effectRequest.payloadBytes
+    && binding.requiredCapability === effectRequest.requiredCapability
+    && binding.riskClass === effectRequest.riskClass
+    && binding.target?.type === effectRequest.target?.type;
+  if (!common) return false;
+  if (binding.target.type === 'filesystem') {
+    return binding.target.relativePath === effectRequest.target.relativePath;
+  }
+  if (binding.target.type === 'network') {
+    return ['url', 'origin', 'method', 'redirectPolicy', 'dnsPolicy']
+      .every(key => binding.target[key] === effectRequest.target[key]);
+  }
+  return false;
+}
+
 function validateNetworkEffect(request, effectRequest, expectedUrl) {
-  const expectedOrigin = new URL(expectedUrl).origin;
-  return effectRequest.target?.type === 'network'
-    && effectRequest.target.url === expectedUrl
-    && effectRequest.target.origin === expectedOrigin
-    && effectRequest.target.method === 'GET'
-    && effectRequest.target.redirectPolicy === 'deny'
-    && effectRequest.target.dnsPolicy === 'public-only'
-    && effectRequest.payloadBytes === 0
-    && effectRequest.payloadDigest === EMPTY_PAYLOAD_DIGEST
-    && effectRequest.requiredCapability === 'network.http.get'
-    && effectRequest.riskClass === 'network';
+  return request.effectBinding?.target?.url === expectedUrl
+    && bindingMatchesEffect(request.effectBinding, effectRequest);
+}
+
+function validateFileWriteOutput(value) {
+  const context = 'tool-output.file-write';
+  const errors = [...validateExactInput(value, ['path', 'effectId', 'terminalStatus'], context)];
+  if (!boundedString(value?.path, 4096)) errors.push(`${context}:invalid-path`);
+  if (typeof value?.effectId !== 'string' || !/^effect:[a-f0-9]{64}$/.test(value.effectId)) {
+    errors.push(`${context}:invalid-effectId`);
+  }
+  if (value?.terminalStatus !== 'succeeded') errors.push(`${context}:invalid-terminalStatus`);
+  return Object.freeze(errors);
 }
 
 const DESCRIPTORS = Object.freeze([
   descriptor({
     id: 'web.search',
     riskClass: M2_TOOL_RISK_CLASS.NETWORK,
+    authorityMode: M2_TOOL_AUTHORITY_MODE.EFFECT,
     requiredEffectKind: 'network.request',
     inputSchema: 'intentsmith.tool.web-search.input@1',
     outputSchema: 'intentsmith.tool.web-search.output@1',
     validateInput: value => validateQueryInput(value, 'tool-input.web-search'),
+    buildEffectBinding(input) {
+      return buildNetworkBinding(
+        `https://html.duckduckgo.com/html/?q=${encodeURIComponent(input.query)}`,
+      );
+    },
     validateEffectTranslation(request, effectRequest) {
       const expectedUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(request.input.query)}`;
       return validateNetworkEffect(request, effectRequest, expectedUrl);
@@ -179,10 +254,18 @@ const DESCRIPTORS = Object.freeze([
   descriptor({
     id: 'web.scrape',
     riskClass: M2_TOOL_RISK_CLASS.NETWORK,
+    authorityMode: M2_TOOL_AUTHORITY_MODE.EFFECT,
     requiredEffectKind: 'network.request',
     inputSchema: 'intentsmith.tool.web-scrape.input@1',
     outputSchema: 'intentsmith.tool.web-scrape.output@1',
     validateInput: validateScrapeInput,
+    buildEffectBinding(input) {
+      try {
+        return buildNetworkBinding(new URL(input.url).href);
+      } catch {
+        return null;
+      }
+    },
     validateEffectTranslation(request, effectRequest) {
       try {
         return validateNetworkEffect(request, effectRequest, new URL(request.input.url).href);
@@ -194,38 +277,79 @@ const DESCRIPTORS = Object.freeze([
   descriptor({
     id: 'file.read',
     riskClass: M2_TOOL_RISK_CLASS.READ,
+    authorityMode: M2_TOOL_AUTHORITY_MODE.EFFECT,
     requiredEffectKind: 'fs.read',
     inputSchema: 'intentsmith.tool.file-read.input@1',
     outputSchema: 'intentsmith.tool.file-read.output@1',
     validateInput: value => validateFileInput(value, false),
+    buildEffectBinding(input) {
+      return effectBinding({
+        kind: 'fs.read',
+        target: { type: 'filesystem', relativePath: input.path },
+        payloadDigest: EMPTY_PAYLOAD_DIGEST,
+        payloadBytes: 0,
+        requiredCapability: 'project.fs.read',
+        riskClass: 'read',
+      });
+    },
+    validateEffectTranslation(request, effectRequest) {
+      return bindingMatchesEffect(request.effectBinding, effectRequest);
+    },
   }),
   descriptor({
     id: 'file.write',
     riskClass: M2_TOOL_RISK_CLASS.WRITE,
+    authorityMode: M2_TOOL_AUTHORITY_MODE.EFFECT,
     requiredEffectKind: 'fs.write',
     inputSchema: 'intentsmith.tool.file-write.input@1',
     outputSchema: 'intentsmith.tool.file-write.output@1',
     validateInput: value => validateFileInput(value, true),
+    validateOutput: validateFileWriteOutput,
+    buildEffectBinding(input) {
+      const payload = Buffer.from(input.content, 'utf8');
+      return effectBinding({
+        kind: 'fs.write',
+        target: { type: 'filesystem', relativePath: input.path },
+        payloadDigest: `sha256:${createHash('sha256').update(payload).digest('hex')}`,
+        payloadBytes: payload.length,
+        requiredCapability: 'project.fs.write',
+        riskClass: 'write',
+      });
+    },
     validateEffectTranslation(request, effectRequest) {
-      const payload = Buffer.from(request.input.content, 'utf8');
-      const digest = `sha256:${createHash('sha256').update(payload).digest('hex')}`;
-      return effectRequest.target?.type === 'filesystem'
-        && effectRequest.target.relativePath === request.input.path
-        && effectRequest.payloadDigest === digest
-        && effectRequest.payloadBytes === payload.length;
+      return bindingMatchesEffect(request.effectBinding, effectRequest);
+    },
+    projectEffectOutput(request, effectRequest, effectResult) {
+      if (effectResult?.terminalStatus !== 'succeeded') return null;
+      return Object.freeze({
+        path: request.input.path,
+        effectId: effectRequest.effectId,
+        terminalStatus: effectResult.terminalStatus,
+      });
     },
   }),
   descriptor({
     id: 'code.execute',
     riskClass: M2_TOOL_RISK_CLASS.EXEC,
+    authorityMode: M2_TOOL_AUTHORITY_MODE.UNAVAILABLE,
     requiredEffectKind: 'process.exec',
     inputSchema: 'intentsmith.tool.code-execute.input@1',
     outputSchema: 'intentsmith.tool.code-execute.output@1',
     validateInput: validateCodeInput,
   }),
   descriptor({
+    id: 'database.query',
+    riskClass: M2_TOOL_RISK_CLASS.EXEC,
+    authorityMode: M2_TOOL_AUTHORITY_MODE.UNAVAILABLE,
+    requiredEffectKind: 'process.exec',
+    inputSchema: 'intentsmith.tool.database-query.input@1',
+    outputSchema: 'intentsmith.tool.database-query.output@1',
+    validateInput: validateDatabaseInput,
+  }),
+  descriptor({
     id: 'local.date',
     riskClass: M2_TOOL_RISK_CLASS.PURE,
+    authorityMode: M2_TOOL_AUTHORITY_MODE.DIRECT,
     requiredEffectKind: null,
     inputSchema: 'intentsmith.tool.local-date.input@1',
     outputSchema: 'intentsmith.tool.local-date.output@1',
@@ -236,6 +360,7 @@ const DESCRIPTORS = Object.freeze([
   descriptor({
     id: 'local.calendar',
     riskClass: M2_TOOL_RISK_CLASS.PURE,
+    authorityMode: M2_TOOL_AUTHORITY_MODE.DIRECT,
     requiredEffectKind: null,
     inputSchema: 'intentsmith.tool.local-calendar.input@1',
     outputSchema: 'intentsmith.tool.local-calendar.output@1',
@@ -246,6 +371,7 @@ const DESCRIPTORS = Object.freeze([
   descriptor({
     id: 'local.math',
     riskClass: M2_TOOL_RISK_CLASS.PURE,
+    authorityMode: M2_TOOL_AUTHORITY_MODE.DIRECT,
     requiredEffectKind: null,
     inputSchema: 'intentsmith.tool.local-math.input@1',
     outputSchema: 'intentsmith.tool.local-math.output@1',
@@ -289,6 +415,11 @@ export function projectLegacyToolInput(toolId, params = {}) {
       return {
         code: typeof params.code === 'string' ? params.code : '',
         language: typeof params.language === 'string' ? params.language : null,
+      };
+    case 'database.query':
+      return {
+        query: String(params.query ?? params.input ?? ''),
+        database: typeof params.database === 'string' ? params.database : null,
       };
     default:
       return {};

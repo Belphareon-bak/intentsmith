@@ -37,10 +37,13 @@ const request = Object.freeze({
   toolId: 'local.math',
   toolVersion: 1,
   riskClass: 'pure',
+  authorityMode: 'direct',
   inputSchema: 'intentsmith.tool.local-math.input@1',
+  outputSchema: 'intentsmith.tool.local-math.output@1',
   input,
   inputDigest: computeM2ToolValueDigest(input),
   requiredEffectKind: null,
+  effectBinding: null,
   timeoutMs: 30_000,
   idempotencyKey: `tool-operation:${'e'.repeat(64)}`,
   createdAt: '2026-08-24T08:00:00.000Z',
@@ -127,12 +130,14 @@ test('caller cannot down-class network or write tools as pure', () => {
     input: networkInput,
     inputDigest: computeM2ToolValueDigest(networkInput),
     riskClass: 'pure',
+    authorityMode: 'effect',
     requiredEffectKind: 'network.request',
   };
   const writeWithoutEffect = {
     ...request,
     toolId: 'file.write',
     riskClass: 'write',
+    authorityMode: 'effect',
     requiredEffectKind: null,
   };
   assert.equal(validateM2ToolRequest(downClassed).valid, false);

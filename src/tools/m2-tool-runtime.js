@@ -9,7 +9,7 @@ export function createM2ToolRuntime({
   scheduleTimeout,
   effectAdapter = createM2ToolEffectAdapter(),
 } = {}) {
-  const repository = new M2ToolAuthorityRepository(database);
+  const repository = new M2ToolAuthorityRepository(database, { clock });
   return createM2ToolBroker({
     repository,
     clock,

@@ -382,6 +382,10 @@ async function handleToolCallDecision(input, decision, context) {
         projectGoal,
         ...context,
       });
+      const scrapeAuthorityDenial = findM2ToolAuthorityDenial(scrapeResult);
+      if (scrapeAuthorityDenial) {
+        return buildM2ToolAuthorityDeniedResponse(decision, scrapeAuthorityDenial, context);
+      }
       scrapeResults = scrapeResult.toolResults || [];
     }
 
@@ -473,7 +477,6 @@ async function handleToolCallDecision(input, decision, context) {
       try {
         await context.onToolCall(tool, { query: effectiveQuery });
       } catch (error) {
-        if (error?.code === 'M2_EFFECT_AUTHORITY_REQUIRED') throw error;
         logger.warn('HandleToolCall', `Tool-call hook failed: ${error.message}`);
       }
     }
@@ -506,6 +509,14 @@ async function handleToolCallDecision(input, decision, context) {
   // v56.0 FIX: Defensive — ensure toolResults is always an array
   if (!Array.isArray(executionResult.toolResults)) {
     executionResult.toolResults = [];
+  }
+
+  // A mixed batch cannot turn an authority denial into PARTIAL success and
+  // feed the successful subset to synthesis. Any authority denial is terminal
+  // for the user-visible decision; no fallback or LLM call follows.
+  const batchAuthorityDenial = findM2ToolAuthorityDenial(executionResult);
+  if (batchAuthorityDenial) {
+    return buildM2ToolAuthorityDeniedResponse(decision, batchAuthorityDenial, context);
   }
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -544,10 +555,6 @@ async function handleToolCallDecision(input, decision, context) {
     // Many SEARCH queries (capitals, history, recommendations) can be answered
     // by the LLM without web data. Only fall through to error if LLM also fails.
     // ═══════════════════════════════════════════════════════════════════════
-    const authorityDenial = findM2ToolAuthorityDenial(executionResult);
-    if (authorityDenial) {
-      return buildM2ToolAuthorityDeniedResponse(decision, authorityDenial, context);
-    }
     if (decision.intent === IntentType.SEARCH || decision.intent === IntentType.FACTUAL) {
       try {
         logger.info('HandleToolCall', 'Search failed → trying LLM knowledge fallback', {

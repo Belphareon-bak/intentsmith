@@ -26,6 +26,12 @@ export const M2_TOOL_RISK_CLASS = Object.freeze({
   DESTRUCTIVE: 'destructive',
 });
 
+export const M2_TOOL_AUTHORITY_MODE = Object.freeze({
+  DIRECT: 'direct',
+  EFFECT: 'effect',
+  UNAVAILABLE: 'unavailable',
+});
+
 export const M2_TOOL_TERMINAL_STATUS = Object.freeze({
   OK: 'ok',
   ERROR: 'error',
@@ -46,6 +52,7 @@ export const M2_TOOL_ERROR_CODE = Object.freeze({
 });
 
 const RISK_CLASSES = new Set(Object.values(M2_TOOL_RISK_CLASS));
+const AUTHORITY_MODES = new Set(Object.values(M2_TOOL_AUTHORITY_MODE));
 const TERMINAL_STATUSES = new Set(Object.values(M2_TOOL_TERMINAL_STATUS));
 const EFFECT_KINDS = new Set([
   'fs.read',
@@ -168,12 +175,45 @@ function validateErrorValue(value, context) {
   return errors;
 }
 
+function validateEffectBinding(value) {
+  const context = 'tool-request.effectBinding';
+  if (value === null) return [];
+  const errors = validateExactKeys(value, [
+    'kind', 'target', 'payloadDigest', 'payloadBytes', 'requiredCapability', 'riskClass',
+  ], [], context);
+  if (!isPlainRecord(value)) return errors;
+  if (!EFFECT_KINDS.has(value.kind)) errors.push(`${context}:invalid-kind`);
+  if (!isPlainRecord(value.target) || !isJsonValue(value.target)) {
+    errors.push(`${context}:invalid-target`);
+  } else {
+    try {
+      if (Buffer.byteLength(canonicalizeM2ToolValue(value.target), 'utf8') > 65_536) {
+        errors.push(`${context}:target-too-large`);
+      }
+    } catch {
+      errors.push(`${context}:invalid-target-canonical-form`);
+    }
+  }
+  if (!isDigest(value.payloadDigest)) errors.push(`${context}:invalid-payloadDigest`);
+  if (!Number.isSafeInteger(value.payloadBytes) || value.payloadBytes < 0 || value.payloadBytes > 1_048_576) {
+    errors.push(`${context}:invalid-payloadBytes`);
+  }
+  if (!isIdentifier(value.requiredCapability)) {
+    errors.push(`${context}:invalid-requiredCapability`);
+  }
+  if (!RISK_CLASSES.has(value.riskClass) || value.riskClass === M2_TOOL_RISK_CLASS.PURE) {
+    errors.push(`${context}:invalid-riskClass`);
+  }
+  return errors;
+}
+
 export function validateM2ToolRequest(value) {
   const context = 'tool-request';
   const errors = validateExactKeys(value, [
     'contract', 'version', 'requestId', 'runId', 'actor', 'origin',
-    'toolId', 'toolVersion', 'riskClass', 'inputSchema', 'input',
-    'inputDigest', 'requiredEffectKind', 'timeoutMs', 'idempotencyKey',
+    'toolId', 'toolVersion', 'riskClass', 'authorityMode', 'inputSchema',
+    'outputSchema', 'input', 'inputDigest', 'requiredEffectKind', 'effectBinding',
+    'timeoutMs', 'idempotencyKey',
     'createdAt',
   ], [], context);
   if (!isPlainRecord(value)) return validationResult(errors, value);
@@ -188,7 +228,9 @@ export function validateM2ToolRequest(value) {
   errors.push(...validateActor(value.actor));
   errors.push(...validateOrigin(value.origin));
   if (!RISK_CLASSES.has(value.riskClass)) errors.push(`${context}:invalid-riskClass`);
+  if (!AUTHORITY_MODES.has(value.authorityMode)) errors.push(`${context}:invalid-authorityMode`);
   if (!isSchemaId(value.inputSchema)) errors.push(`${context}:invalid-inputSchema`);
+  if (!isSchemaId(value.outputSchema)) errors.push(`${context}:invalid-outputSchema`);
   if (!isJsonValue(value.input)) {
     errors.push(`${context}:invalid-input`);
   } else {
@@ -207,17 +249,29 @@ export function validateM2ToolRequest(value) {
   if (!(value.requiredEffectKind === null || EFFECT_KINDS.has(value.requiredEffectKind))) {
     errors.push(`${context}:invalid-requiredEffectKind`);
   }
-  if (value.riskClass === M2_TOOL_RISK_CLASS.PURE && value.requiredEffectKind !== null) {
-    errors.push(`${context}:pure-tool-cannot-require-effect`);
-  }
-  if (value.riskClass !== M2_TOOL_RISK_CLASS.PURE && value.requiredEffectKind === null) {
-    errors.push(`${context}:effectful-tool-missing-effect-kind`);
-  }
-  if (
+  errors.push(...validateEffectBinding(value.effectBinding));
+  if (value.authorityMode === M2_TOOL_AUTHORITY_MODE.DIRECT && (
     value.riskClass !== M2_TOOL_RISK_CLASS.PURE
+    || value.requiredEffectKind !== null
+    || value.effectBinding !== null
+  )) errors.push(`${context}:invalid-direct-authority`);
+  if (value.authorityMode === M2_TOOL_AUTHORITY_MODE.EFFECT && (
+    value.riskClass === M2_TOOL_RISK_CLASS.PURE
+    || value.requiredEffectKind === null
+    || value.effectBinding === null
+    || value.effectBinding?.kind !== value.requiredEffectKind
+    || value.effectBinding?.riskClass !== value.riskClass
+  )) errors.push(`${context}:invalid-effect-authority`);
+  if (value.authorityMode === M2_TOOL_AUTHORITY_MODE.UNAVAILABLE && (
+    value.riskClass === M2_TOOL_RISK_CLASS.PURE
+    || value.requiredEffectKind === null
+    || value.effectBinding !== null
+  )) errors.push(`${context}:invalid-unavailable-authority`);
+  if (
+    value.authorityMode !== M2_TOOL_AUTHORITY_MODE.DIRECT
     && (!Number.isSafeInteger(value.origin?.projectId) || value.origin.projectId <= 0)
   ) errors.push(`${context}:effectful-tool-missing-project`);
-  if (value.riskClass !== M2_TOOL_RISK_CLASS.PURE && value.actor?.type !== 'user') {
+  if (value.authorityMode !== M2_TOOL_AUTHORITY_MODE.DIRECT && value.actor?.type !== 'user') {
     errors.push(`${context}:effectful-tool-requires-user`);
   }
   if (!Number.isSafeInteger(value.timeoutMs) || value.timeoutMs < 1 || value.timeoutMs > 300_000) {

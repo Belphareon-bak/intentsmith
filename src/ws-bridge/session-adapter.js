@@ -34,7 +34,6 @@ import {
 } from '../core/abort-error.js';
 import {
   chatTurnErrorPayload,
-  EffectAuthorityRequiredError,
   isChatTurnError,
 } from '../core/chat-turn-error.js';
 import {
@@ -470,20 +469,16 @@ export function createSessionAdapter({
             });
           },
 
-          // Hook: Tool call start (ASYNC — legacy edit containment)
+          // Hook: Tool call start. This is telemetry only; M2 tool/effect
+          // brokers own authority and must be reached before a decision can be
+          // classified as approval-required.
           onToolCall: async (tool, args) => {
             sendTurnEvent(AgentEventType.TOOL_CALL, { tool, args });
-
-            // The legacy edit-preview protocol previously read and wrote an
-            // arbitrary model-provided path here. It has no registered project
-            // snapshot or ApprovalGrant identity, so M2 contains it until the
-            // execution slice reconnects previews through the canonical broker.
             if (tool === 'file.write' || tool === 'fs.write') {
-              sendTurnEvent('edit_authority_required', {
+              sendTurnEvent('edit_authority_delegated', {
                 file: typeof args?.path === 'string' ? args.path : null,
-                code: 'M2_EFFECT_AUTHORITY_REQUIRED',
+                authority: 'm2-tool-broker',
               });
-              throw new EffectAuthorityRequiredError();
             }
           },
 
@@ -568,6 +563,26 @@ export function createSessionAdapter({
         logger.info('WSSession', 'M1 turn needed a legacy shell effect — refused before ok', {
           requestId: m1Command.requestId,
           turnId,
+        });
+        return;
+      }
+
+      if (m1Egress && response.metadata?.approvalRequired) {
+        const effectId = response.metadata.effectId || null;
+        turnTelemetry?.finalize(turnStartTime);
+        m1Egress.terminal(createM1WsConversationResult(m1Command, {
+          status: 'error',
+          error: {
+            code: 'M2_EFFECT_AUTHORITY_REQUIRED',
+            message: effectId
+              ? `Efekt čeká na přesné schválení: ${effectId}`
+              : 'Efekt čeká na přesné M2 schválení.',
+          },
+        }));
+        logger.info('WSSession', 'M1 turn reached canonical pending M2 effect', {
+          requestId: m1Command.requestId,
+          turnId,
+          effectId,
         });
         return;
       }

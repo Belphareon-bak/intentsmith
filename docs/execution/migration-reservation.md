@@ -46,6 +46,16 @@ integrací přesunuta na **069**.
 | **068** | live, cizí necommitnutá práce | role-specific model evaluation history |
 | **069** | rezervováno a použito B3 | failover runtime finalize receipts a proof-expiry health events |
 
+## Navazující live rezervace 2026-08-24
+
+Union census všech commitnutých větví mimo `archive/**` a `recovery/**` a
+samostatný census necommitnutých worktree migrací potvrdily obsazení do `074`.
+První volné číslo je proto rezervováno pro opravu M2 tool settlement authority.
+
+| Číslo | Stav | Obsah |
+|---|---|---|
+| **075** | rezervováno a použito M2/4 | append-only exact `ToolRequest` ↔ `EffectRequest` link pro approval settlement |
+
 ## Proč to nejsou 058 a 059
 
 `ROADMAP.md` §13 bod 5 uvádí `058` = 020 a `059` = 015 a k tomu poznámku, že

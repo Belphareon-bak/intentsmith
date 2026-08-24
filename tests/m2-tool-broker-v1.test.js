@@ -22,6 +22,9 @@ function clockFrom(values) {
 function memoryRepository() {
   const requests = new Map();
   const results = new Map();
+  const linksByRequest = new Map();
+  const linksByEffect = new Map();
+  const effectResults = new Map();
   return {
     registerToolRequest(request) {
       const encoded = canonicalizeM2ToolValue(request);
@@ -45,6 +48,38 @@ function memoryRepository() {
         throw new Error('result conflict');
       }
       results.set(result.requestId, structuredClone(result));
+    },
+    bindToolEffect({ requestId, effectRequestId, effectRequest }) {
+      const existing = linksByRequest.get(requestId) || linksByEffect.get(effectRequestId);
+      const link = {
+        requestId,
+        effectId: effectRequestId,
+        request: structuredClone(requests.get(requestId)),
+        effectRequest: structuredClone(effectRequest),
+      };
+      if (existing && canonicalizeM2ToolValue(existing.effectRequest)
+        !== canonicalizeM2ToolValue(effectRequest)) throw new Error('effect link conflict');
+      linksByRequest.set(requestId, link);
+      linksByEffect.set(effectRequestId, link);
+    },
+    getEffectLinkByRequest(requestId) {
+      const value = linksByRequest.get(requestId);
+      return value ? structuredClone(value) : null;
+    },
+    getEffectLinkByEffect(effectRequestId) {
+      const value = linksByEffect.get(effectRequestId);
+      return value ? structuredClone(value) : null;
+    },
+    getToolRequestByEffect(effectRequestId) {
+      const value = linksByEffect.get(effectRequestId)?.request;
+      return value ? structuredClone(value) : null;
+    },
+    getExactEffectResult(effectRequestId) {
+      const value = effectResults.get(effectRequestId);
+      return value ? structuredClone(value) : null;
+    },
+    _recordEffectResult(value) {
+      effectResults.set(value.effectId, structuredClone(value));
     },
   };
 }
@@ -360,7 +395,6 @@ await testAsync('network search query is not misrepresented as one exact network
 
 await testAsync('pending file effect has no ToolResult; canonical terminal retry commits success once', async () => {
   const repository = memoryRepository();
-  let approved = false;
   let adapterCalls = 0;
   const toolBroker = createM2ToolBroker({
     repository,
@@ -381,20 +415,7 @@ await testAsync('pending file effect has no ToolResult; canonical terminal retry
           capability: 'project.fs.write',
           riskClass: 'write',
         });
-        if (!approved) {
-          return { state: 'approval_required', effectRequestId: effectRequest.effectId, effectRequest };
-        }
-        return {
-          state: 'succeeded',
-          effectRequestId: effectRequest.effectId,
-          effectRequest,
-          effectResult: succeededEffectResult(effectRequest),
-          output: {
-            path: request.input.path,
-            effectId: effectRequest.effectId,
-            terminalStatus: 'succeeded',
-          },
-        };
+        return { state: 'approval_required', effectRequestId: effectRequest.effectId, effectRequest };
       },
     },
   });
@@ -404,15 +425,16 @@ await testAsync('pending file effect has no ToolResult; canonical terminal retry
   assert.equal(pending.result, null);
   assert.equal(repository.getToolResult(pending.request.requestId), null);
 
-  approved = true;
-  const terminal = await toolBroker.execute({ toolId: 'file.write', input, context });
+  const linked = repository.getEffectLinkByEffect(pending.effectRequestId);
+  repository._recordEffectResult(succeededEffectResult(linked.effectRequest));
+  const terminal = toolBroker.settleEffect({ effectId: pending.effectRequestId, context });
   assert.equal(terminal.result.status, 'ok');
   assert.equal(terminal.result.effectRequestId, terminal.value.effectId);
   assert.equal(repository.getToolResult(terminal.request.requestId).status, 'ok');
 
   const replay = await toolBroker.execute({ toolId: 'file.write', input, context });
   assert.equal(replay.result.status, 'ok');
-  assert.equal(adapterCalls, 2);
+  assert.equal(adapterCalls, 1);
 });
 
 await testAsync('canonical failed EffectResult becomes one linked failed ToolResult', async () => {
@@ -459,7 +481,128 @@ await testAsync('canonical failed EffectResult becomes one linked failed ToolRes
   assert.match(execution.result.effectRequestId, /^effect:/);
 });
 
+await testAsync('adapter output cannot forge canonical effect-backed success', async () => {
+  const toolBroker = broker({
+    clock: clockFrom([100, 101, 102, 103]),
+    effectAdapter: {
+      async prepare({ request }) {
+        const payload = Buffer.from(request.input.content, 'utf8');
+        const effectRequest = effectRequestForTool(request, {
+          kind: 'fs.write',
+          target: {
+            type: 'filesystem',
+            canonicalRoot: '/workspace/project-a',
+            relativePath: request.input.path,
+            resolvedRealpath: `/workspace/project-a/${request.input.path}`,
+          },
+          payload,
+          capability: 'project.fs.write',
+          riskClass: 'write',
+        });
+        return {
+          state: 'terminal',
+          effectRequestId: effectRequest.effectId,
+          effectRequest,
+          effectResult: succeededEffectResult(effectRequest),
+          output: {
+            path: '../../forged.txt',
+            effectId: `effect:${'0'.repeat(64)}`,
+            terminalStatus: 'succeeded',
+          },
+        };
+      },
+    },
+  });
+  const input = { path: 'src/owned.js', content: 'owned\n' };
+  const execution = await toolBroker.execute({ toolId: 'file.write', input, context });
+  assert.equal(execution.result.status, 'ok');
+  assert.deepEqual(execution.result.output, {
+    path: input.path,
+    effectId: execution.result.effectRequestId,
+    terminalStatus: 'succeeded',
+  });
+  assert.deepEqual(execution.value, execution.result.output);
+});
+
 suite('M2 tool broker — timeout, cancellation and invalid registration');
+
+await testAsync('effect adapter throw becomes one durable error terminal', async () => {
+  const repository = memoryRepository();
+  const toolBroker = createM2ToolBroker({
+    repository,
+    clock: clockFrom([100, 101, 102, 103]),
+    effectAdapter: {
+      async prepare() {
+        const error = new Error('adapter exploded');
+        error.code = 'EFFECT_ADAPTER_THROW';
+        throw error;
+      },
+    },
+  });
+  const execution = await toolBroker.execute({
+    toolId: 'file.write',
+    input: { path: 'src/throw.js', content: 'throw\n' },
+    context,
+  });
+  assert.equal(execution.result.status, 'error');
+  assert.equal(execution.result.error.code, 'EFFECT_ADAPTER_THROW');
+  assert.deepEqual(repository.getToolResult(execution.request.requestId), execution.result);
+});
+
+await testAsync('hung effect adapter times out into one durable terminal and is aborted', async () => {
+  const repository = memoryRepository();
+  let providerSignal;
+  const toolBroker = createM2ToolBroker({
+    repository,
+    clock: clockFrom([100, 101, 102, 103]),
+    scheduleTimeout(callback) {
+      queueMicrotask(callback);
+      return { cancel() {} };
+    },
+    effectAdapter: {
+      async prepare({ signal }) {
+        providerSignal = signal;
+        return new Promise(() => {});
+      },
+    },
+  });
+  const execution = await toolBroker.execute({
+    toolId: 'file.write',
+    input: { path: 'src/hang.js', content: 'hang\n' },
+    context,
+    timeoutMs: 1,
+  });
+  assert.equal(providerSignal.aborted, true);
+  assert.equal(execution.result.status, 'timeout');
+  assert.equal(execution.result.lateCompletionRejected, true);
+  assert.deepEqual(repository.getToolResult(execution.request.requestId), execution.result);
+});
+
+await testAsync('caller cancellation during effect preparation commits cancelled terminal', async () => {
+  const repository = memoryRepository();
+  const controller = new AbortController();
+  let providerSignal;
+  const toolBroker = createM2ToolBroker({
+    repository,
+    clock: clockFrom([100, 101, 102, 103]),
+    effectAdapter: {
+      async prepare({ signal }) {
+        providerSignal = signal;
+        queueMicrotask(() => controller.abort('user'));
+        return new Promise(() => {});
+      },
+    },
+  });
+  const execution = await toolBroker.execute({
+    toolId: 'file.write',
+    input: { path: 'src/cancel.js', content: 'cancel\n' },
+    context: { ...context, signal: controller.signal },
+  });
+  assert.equal(providerSignal.aborted, true);
+  assert.equal(execution.result.status, 'cancelled');
+  assert.equal(execution.result.error.code, M2_TOOL_ERROR_CODE.CANCELLED);
+  assert.deepEqual(repository.getToolResult(execution.request.requestId), execution.result);
+});
 
 await testAsync('timeout aborts direct provider signal and rejects late completion', async () => {
   let providerSignal;
