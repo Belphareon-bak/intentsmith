@@ -96,6 +96,10 @@ podle registry v explicitním `soak` profilu kvůli `bwrap`/Git a má samostatn�
 `--effort max` nevrátí explicitní `REVIEW_PASSED` nad přesným stabilním řezem.
 Každé `CHANGES_REQUESTED` se opraví a review zopakuje.
 
+Cross-section audit na čistém `d034df62` zopakoval i skutečnou SQLite →
+ProjectContext → approval → `bwrap` → Git application-service journey; zůstala
+4/4 PASS včetně restartové obnovy a cancel/rollback negativní větve.
+
 ## Přiznané limity
 
 - V1 přijímá jen strict strukturovaný proposal; volný modelový text není
@@ -103,4 +107,6 @@ Každé `CHANGES_REQUESTED` se opraví a review zopakuje.
 - Jeden project change vlastní právě jeden focused argv-only proces.
 - Network provider, obecný shell, Git push/tag, mobil a remote listener nejsou
   součástí oddílu 6.
-- Oddíl 7 (`RemoteCorePort` a bezpečná remote boundary) ještě není implementován.
+- V okamžiku section-6 gate ještě oddíl 7 nebyl implementován. Nyní je
+  implementačně zelený na `a7d4ce3d`, ale stejně jako tento oddíl čeká na
+  povinný Opus max `REVIEW_PASSED`.

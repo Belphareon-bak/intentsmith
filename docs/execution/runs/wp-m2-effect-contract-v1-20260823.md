@@ -3,9 +3,11 @@
 - **oddíl:** M2 2/7
 - **stav:** `IMPLEMENTATION_GREEN / REVIEW_BLOCKED_ACCOUNT_LIMIT`
 - **integrační vstup:** `33cf221c3b772a1002311c8b1f71b67ad0d46cc9`
-- **ověřená product/test revision:** `ad4d7eb3c066a76c9480f22b868f2f142cf755e8`
-- **registry revision:** `8be95458bc944cbea7488cc1ed3f629a42cceaf8`
-- **module-graph revision:** `1dc082884579fb3c341224f6f4931bc076ddf49e`
+- **první product/test remediation:** `ad4d7eb3c066a76c9480f22b868f2f142cf755e8`
+- **finální section head:** `fa437d021e07728388eb61bbca88bcc98e208ddf`
+- **finální hardening revision:** `ba47da96ef7460335b5a4053605886e23c5f7924`
+- **registry revision:** `fa437d021e07728388eb61bbca88bcc98e208ddf`
+- **module-graph revision:** `fe594fb8`
 - **větev:** `codex/m2-integration-20260824`
 - **push:** neproveden
 
@@ -58,11 +60,14 @@ Opus verdict.
 
 ## Focused evidence
 
+Assertion totals níže jsou obnovené cross-section revalidací na `d034df62`;
+section-local registry a module facts zůstávají připnuté k `fa437d02`.
+
 | Sada | Výsledek |
 |---|---:|
 | `m2-effect-contract-v1` | 20/20 PASS |
-| `m2-effect-authority-repository` | 35/35 PASS |
-| `m2-effect-broker-v1` | 20/20 PASS |
+| `m2-effect-authority-repository` | 43/43 PASS |
+| `m2-effect-broker-v1` | 25/25 PASS |
 | `m2-effect-execution-owner` | 5/5 PASS |
 | `m2-effect-file-consumer` | 7/7 PASS |
 | `m2-effect-file-runtime` | 6/6 PASS |
@@ -72,30 +77,55 @@ Opus verdict.
 | `ws-bridge` | 87/87 PASS |
 | `execution-loop` | 61/61 PASS |
 | `module-boundary-ratchet` | 13/13 PASS |
-| `artifact-validation` | 151/151 PASS |
+| `artifact-validation` | 154/154 PASS |
 
-`node scripts/validate-test-registry.js --json` po remediation projekci:
+`node scripts/validate-test-registry.js --json` na finálním section headu:
 
 - `valid: true`;
 - 407 runnable programů a 14 explicitních exclusions;
 - fingerprint
-  `43de5e61c26f1da489dc0f373f7a53ea58997d4ece64e5d367ca1d64e732874b`;
+  `0472f18e3cc526a823d0e302c6c2ff9d13a7c60b0c480b940237487799024fd0`;
 - generovaný `docs/convergence/TEST-REGISTRY.md` je aktuální.
 
-Module graph baseline obsahuje 1 072 hran; ratchet zachovává 3 cykly / 28
+Module graph baseline obsahuje 1 073 hran; ratchet zachovává 3 cykly / 28
 souborů a všech 13 sentinelů prošlo.
 
 ## Celý deterministický gate
 
-Po tomto dokumentačním integračním commitu bude znovu spuštěn
-`npm run test:deterministic`. Očekávaný celkový verdict zůstává pravdivě
-`FAIL` kvůli známé baseline; report sem bude doplněn s exact run ID, counts a
-porovnáním všech non-PASS ID. Dokud běh není hotový, není tato podsekce důkazem.
+První section-local běh na `334f2796` skončil pravdivě `FAIL`, `exitCode: 1`,
+`241 PASS / 5 FAIL / 2 BLOCKED`. Vedle pěti známých baseline non-PASS ID tehdy
+selhaly `harness-exit-code` a `patch-engine`; tento běh tedy není vydáván za
+zelený section gate. Navazující hardening do `fa437d02` obě nové regrese
+opravil, ale samostatný celý gate před otevřením oddílu 4 už spuštěn nebyl.
+
+Aktuální integrační důkaz je celý čistý `offline,database` gate na
+`d415e6d780a0cac931a28e59c7a51919aed79251`:
+
+- run `2026-08-24T08-27-21-820Z`;
+- report
+  `.intentsmith-artifacts/test-runs/2026-08-24T08-27-21-820Z/report.json`;
+- `verdict: FAIL`, `exitCode: 1`;
+- `260 PASS / 3 FAIL / 0 TIMEOUT / 2 BLOCKED / 0 SKIPPED`;
+- všech šest registrovaných `m2-effect-*` sad PASS, včetně per-suite clean
+  source a leak-cleanup evidence;
+- non-PASS ID jsou přesně známá baseline množina: dva export BLOCKED,
+  `nightly-audit-runner-self-test`, `nightly-orchestrator-self-test` a
+  `vram-coordination`.
+
+Tento pozdější gate dokládá, že section hardening zůstal v kompletní M2
+integraci bez nové produktové regrese; nepřepisuje historický červený běh ani
+z něj nedělá section-local PASS.
+
+Cross-section audit na čistém `d034df62` navíc přímo zopakoval všech šest
+effect sad s aktuálními assertion totals 20/20, 43/43, 25/25, 5/5, 7/7 a 6/6
+PASS. Direct-test runtime byl po doběhu prázdný.
 
 ## Review
 
-- Opus příkaz používá `--model opus --effort max`, read-only nástroje,
-  `--safe-mode`, `--permission-mode dontAsk` a přesný review range;
+- Připravený přesný source review range je
+  `33cf221c3b772a1002311c8b1f71b67ad0d46cc9..fa437d021e07728388eb61bbca88bcc98e208ddf`;
+- Opus příkaz používá `--model opus --effort max`, read-only
+  `--permission-mode plan` a `--no-session-persistence`;
 - výsledek pokusu: `REVIEW_BLOCKED_ACCOUNT_LIMIT`, žádný modelový verdict;
 - interní coworker review první iterace: `CHANGES_REQUIRED`, opravy výše;
 - při dostupnosti účtu se celý přesný rozsah reviduje znovu; každý nález se

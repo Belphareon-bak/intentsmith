@@ -1,6 +1,6 @@
 # WP-M2-EFFECT — project-path authority, první vertikální řez
 
-- **Stav:** `FIRST_SLICE_REVIEW_PASSED / N1-N3_FOLLOWUP_UNREVIEWED`
+- **Stav:** `IMPLEMENTATION_GREEN / OPUS_MAX_REVIEW_BLOCKED_ACCOUNT_LIMIT`
 - **Vlastník:** primární implementer M2-EFFECT
 - **Worktree:** `/home/belphareon/worktrees/is-m2-effect-20260823`
 - **Branch:** `codex/m2-effect-20260823`
@@ -137,8 +137,18 @@ Celý deterministický runner na `86dfe4d8` skončil reportem
 Nezávislý re-review `8f31e34f` uzavřel původní containment řez jako
 `REVIEW_PASSED` v rozsahu `44a9ba87..eb22d10c`. N1-N3 z téhož re-review jsou
 kandidátně opravené až následným commitem `86dfe4d8`, který do přijatého rozsahu
-nepatří a zůstává `UNREVIEWED`. Ani přijatý první řez neznamená
+nepatří. Celý rozšířený section range pro nově požadovaný Opus max review je
+`44a9ba87c99a448b1b1b5f479963c3b6aaac7e91..7dc6a807`; jeho review blokuje
+účtový spend limit, takže N1-N3 hardening zůstává `UNREVIEWED`, nikoli PASS.
+Ani přijatý první řez neznamená
 `WP-M2-EFFECT DONE`, `M2 PASS` nebo připnutý effect connector. Zbývají
 approval/payload authority, timeout/cancellation/restart revokace, process
 supervision, durable rollback, network/Git/tool mediation, úplný audit a
 skutečný M2 user journey.
+
+Aktuální čistý integrační gate na
+`d415e6d780a0cac931a28e59c7a51919aed79251` znovu spustil `patch-engine`,
+`lifecycle-build`, `execution-loop`, `lifecycle-db` i module ratchet jako PASS.
+Celkový verdict zůstal pravdivě baseline `FAIL` s
+`260 PASS / 3 FAIL / 2 BLOCKED / 0 TIMEOUT`; tento pozdější důkaz nenahrazuje
+chybějící Opus max verdict rozšířeného section range.

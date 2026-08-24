@@ -5,7 +5,7 @@
 **Accepted M1 base:** `44a9ba87c99a448b1b1b5f479963c3b6aaac7e91`  
 **Original contract candidate:** `a73f786bab306222421161d493e18aec2369b492`  
 **Production implementation:** `11b9bfbfaaa9451566e3de2faf14aa51c224111b`  
-**Status:** `IMPLEMENTED / FOCUSED_GREEN / OPUS_RE_REVIEW_REQUIRED`
+**Status:** `IMPLEMENTED / FOCUSED_GREEN / OPUS_RE_REVIEW_BLOCKED_BY_ACCOUNT_LIMIT`
 
 Tento report není `REVIEW_PASSED` ani M2 acceptance. Povinný nezávislý
 Claude Opus review s `--model opus --effort max` je připravený, ale lokální
@@ -99,3 +99,14 @@ vědomě fail-closed `INTERNAL`; hardlink read exposure je nyní odmítnuté
 `INVALID_SCOPE`. Plná heuristická parity se symbol indexem/grafem není
 tvrzená — containment je vědomý, schválený capability reduction a obnovuje ji
 navazující project-bound index WP.
+
+## Aktuální integrační revalidace
+
+Přesný rozšířený source review range je
+`44a9ba87c99a448b1b1b5f479963c3b6aaac7e91..5e19b825`. Čistý společný
+`offline,database` gate na `d415e6d780a0cac931a28e59c7a51919aed79251`
+znovu spustil všechny čtyři registrované ProjectContext sady jako PASS; report
+je `.intentsmith-artifacts/test-runs/2026-08-24T08-27-21-820Z/report.json` a
+celkově zůstal na přesné baseline
+`260 PASS / 3 FAIL / 2 BLOCKED / 0 TIMEOUT`. To uzavírá dříve odloženou
+integrační revalidaci, ale nikoli povinný Opus max re-review.

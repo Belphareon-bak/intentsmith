@@ -103,8 +103,15 @@ Gate tedy zůstává pravdivě baseline `FAIL`; současně nevznikl nový non-PA
 timeout ani produktová regrese. Oddíl zůstává `REVIEW_PENDING`, dokud Opus max
 nevrátí `REVIEW_PASSED`.
 
+Při cross-section auditu na čistém `d034df62` byly všechny tři host-toolchain
+sady spuštěny znovu přímo a zůstaly zelené: project change 10/10, process
+supervision 11/11 a exact Git preservation 10/10. Běhy použily skutečné
+`bwrap`/Git procesy, nezanechaly direct-test runtime a nedotkly se GPU/Ollamy.
+
 ## Omezení a navazující práce
 
 - Oddíl 5 nepřepojil legacy lifecycle ani Studio surface; to je oddíl 6.
 - Není zde network provider, obecný shell, Git push/tag ani non-Linux sandbox.
-- Celý M2 stále čeká na oddíly 6–7 a Opus max PASS všech sedmi oddílů.
+- V okamžiku section-5 gate ještě celý M2 čekal na oddíly 6–7. Oba jsou nyní
+  implementačně zelené; acceptance dál čeká na Opus max PASS všech sedmi
+  oddílů a finální closeout.

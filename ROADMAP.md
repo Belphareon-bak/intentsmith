@@ -1060,7 +1060,7 @@ database unavailable, SQL forge i circuit-open bypass mají negativní proby.
 Web, file read, exec a
 database zůstávají pravdivě secure-unavailable; nejsou vydávány za hotové
 providery. Registry má 411 programů a fingerprint `a5688cc4…`, module graph
-1 083 hran bez růstu cyklů. Deterministický gate na `d172cc0f` zůstal pravdivě
+1 093 hran bez růstu cyklů. Deterministický gate na `d172cc0f` zůstal pravdivě
 `FAIL` s `247 PASS / 3 FAIL / 2 BLOCKED` a přesně baseline non-PASS množinou.
 Connector dál zůstává `CANDIDATE_V1 / CHANGES_REQUESTED`, dokud Opus max
 nevrátí `REVIEW_PASSED`. Oddíl 5 je implementačně zelený na `08d249ad`:
