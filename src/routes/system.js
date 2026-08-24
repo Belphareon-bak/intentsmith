@@ -901,6 +901,16 @@ export function createSystemRoutes({
         if (!role) {
           return sendJSON(res, 400, { error: 'Missing required field: role' });
         }
+
+        // Reject an invalid authority domain before interpreting recovery
+        // identity fields. Otherwise an invalid role can be disguised as an
+        // incomplete rollback request and the public error contract depends on
+        // unrelated field presence.
+        const { MODEL_PROFILES: profiles } = await import('../upgrade/model-profiles.js');
+        if (!isExactModelRole(profiles, role)) {
+          return sendJSON(res, 400, { error: `Invalid role: ${role}` });
+        }
+
         if (operationId === undefined
           || committedBindingRevision === undefined
           || failedAttemptRevision === undefined) {
@@ -908,11 +918,6 @@ export function createSystemRoutes({
             error: 'Missing required rollback identity: operationId, '
               + 'committedBindingRevision, failedAttemptRevision',
           });
-        }
-
-        const { MODEL_PROFILES: profiles } = await import('../upgrade/model-profiles.js');
-        if (!isExactModelRole(profiles, role)) {
-          return sendJSON(res, 400, { error: `Invalid role: ${role}` });
         }
 
         if (!modelBindingApplication) {

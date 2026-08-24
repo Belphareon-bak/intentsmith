@@ -4199,6 +4199,10 @@ async function assertHttpModelRouteRejectsInvalidRoles(endpoint) {
 
       assertEqual(responses.length, 1);
       assertEqual(responses[0].status, 400);
+      assert(
+        responses[0].body.error.includes('Invalid role'),
+        `${endpoint} validated unrelated fields before the invalid role`,
+      );
       assertEqual(calls.length, 0, `${endpoint} leaked invalid role to application authority`);
     }
   });
