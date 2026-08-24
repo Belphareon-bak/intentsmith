@@ -67,3 +67,14 @@ Tato evidence dokládá implementační integraci, nikoli nezávislé review ani
 acceptance. M2 se smí uzavřít až po sedmi zaznamenaných Opus max
 `REVIEW_PASSED`, následném finálním clean gate a requirement-by-requirement
 closeout auditu.
+
+## Account-limit pokusy
+
+- Na section-7 evidence headu `efa1a5de` skončil exact section-7 Opus max
+  příkaz exit 1 před review zprávou o měsíčním spend limitu.
+- Po cross-section evidence hardeningu `62836571` skončil stejně exact
+  section-1 Opus max příkaz. Nevznikl modelový výstup, nález ani verdict.
+
+Oba pokusy jsou pouze `REVIEW_BLOCKED_ACCOUNT_LIMIT`. Další sekce se během
+stejného účtového bloku nespouštějí, protože sedm identických billing failure
+není sedm review.
