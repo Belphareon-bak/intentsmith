@@ -5,7 +5,7 @@
 - **contract commit:** `1ef645cd`
 - **process containment commit:** `9b2a7cce`
 - **durable project-change commit:** `1c41cbd3`
-- **hardening revision:** `05c5a8561a0302e1cd8236d395718684b49f0ba1`
+- **review-fix revision:** `5d9b53c050d78525d9effc3e439d75afbe6e910a`
 - **větev:** `codex/m2-integration-20260824`
 - **push:** neproveden
 
@@ -40,19 +40,21 @@ review.
 |---|---:|
 | `m2-execution-contract-v1` | 22/22 PASS |
 | `m2-execution-authority-repository` | 13/13 PASS |
-| `m2-execution-project-change` | 10/10 PASS |
+| `m2-execution-project-change` | 14/14 PASS |
 | `m2-execution-process-supervision` | 13/13 PASS |
-| `m2-execution-git-preservation` | 10/10 PASS |
+| `m2-execution-git-preservation` | 12/12 PASS |
 | `m2-effect-authority-repository` | 43/43 PASS |
-| `schema-migrations` | 38/38 PASS; 68 migrací |
-| `m1-model-failover-schema` | 20/20 PASS; tip 078 / 68 migrací |
-| `module-boundary-ratchet` | 13/13 PASS; 1 098 hran; 3 cykly / 28 souborů |
+| `m2-governance-evaluator` | 20/20 PASS |
+| `m2-lifecycle-application-service` | 5/5 PASS |
+| `schema-migrations` | 38/38 PASS; 69 migrací |
+| `m1-model-failover-schema` | 20/20 PASS; tip 079 / 69 migrací |
+| `module-boundary-ratchet` | 13/13 PASS; 1 116 hran; 3 cykly / 28 souborů |
 | `artifact-validation` | 154/154 PASS |
 
 Registry po přidání pěti execution programů:
 
 - `valid: true`;
-- 416 runnable programů a 14 explicitních exclusions;
+- 428 runnable programů a 14 explicitních exclusions;
 - po cross-section hardeningu fingerprint
   `54dce9be3a18ef854097c5919d1471e53f38bf6ef0e828ecc5ff0438f9e302d2`;
 - generovaný `docs/convergence/TEST-REGISTRY.md` je aktuální.
@@ -129,6 +131,26 @@ Navazující čistý `offline,database` gate na
 execution sady ve zvoleném profilu prošly a nevznikl nový non-PASS ID; tři
 host-toolchain `soak` sady dokládají samostatné reálné běhy výše. Celkový gate
 se proto dál pravdivě nejmenuje PASS.
+
+## Opus max review a oprava
+
+První skutečný Opus max review nad současnými section-5 bajty vrátil
+`CHANGES_REQUESTED`: HIGH falešný neúspěch a chybějící terminal u legitimní
+ne-manifestové změny a MEDIUM neomezené čtení/per-path Git spawn při foreign
+dirt proofu. Plný záznam je v
+`docs/review/2026-08-24-WP-M2-EXECUTION-V1-OPUS-MAX-REVIEW.md`.
+
+`5d9b53c0` dovoluje validní stejnou policy-limited revision, terminalizuje
+post-write observer failures, přidává produkční `deploy.cfg` i SIGKILL recovery
+journey a přepisuje foreign dirt na jeden batched index read plus 64KiB
+streaming content hash. Odpověď s falsifikovatelnými důkazy je v
+`docs/review/2026-08-24-WP-M2-EXECUTION-V1-OPUS-MAX-RESPONSE.md`.
+
+Čerstvý source-bound gate na
+`5d9b53c050d78525d9effc3e439d75afbe6e910a`, run
+`2026-08-24T09-49-09-778Z`, zůstává pravdivě `verdict: FAIL`, `exitCode: 1` a
+`260 PASS / 3 FAIL / 0 TIMEOUT / 2 BLOCKED / 0 SKIPPED` s přesně stejnou
+baseline non-PASS množinou. Oddíl čeká na Opus re-review a stále není PASS.
 
 ## Omezení a navazující práce
 

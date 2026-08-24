@@ -8,7 +8,7 @@ a restart recovery
 **Autorita:** operátorské spuštění celé M2; `ROADMAP.md` §6 krok 3 a exit
 kritéria pro atomický patch, focused test, rollback, cancel/restart a audit
 
-**Product/test revision:** `05c5a8561a0302e1cd8236d395718684b49f0ba1`
+**Product/test revision:** `5d9b53c050d78525d9effc3e439d75afbe6e910a`
 
 ## Uživatelský výsledek
 
@@ -71,6 +71,11 @@ s `--effort max` nevrátí `REVIEW_PASSED`.
   celý PGID přes TERM/KILL a success vyžaduje potvrzené vyklizení skupiny.
 - Git používá temporary index, NUL-delimited index-info, literal pathspecs,
   exact-path real-index update, CAS `update-ref` a post-proof foreign dirt.
+- Workspace revision je policy-limited evidence, ne náhradní proof zápisu:
+  exact byte/mode readback dovoluje legitimní success i při stejné revision.
+  Post-write observer failure vždy vytvoří durable non-success terminal.
+- Foreign dirt používá jeden batched NUL index read a obsahové hashování přes
+  konstantní 64KiB buffer s before/after inode a metadata race kontrolou.
 - Success vyžaduje všechny forward/test/Git EffectResulty, žádný rollback
   result, ukončený proces, exact after-images a immutable parent terminal.
 
@@ -101,7 +106,9 @@ s `--effort max` nevrátí `REVIEW_PASSED`.
   architektura skončí před spuštěním focused testu jako unsupported profil.
 - Tento oddíl je connector/direct journey. Aktivní lifecycle a Studio surface
   zůstávají do oddílu 6 na legacy cestě.
-- Opus account limit nesmí být přeložen na review PASS.
+- První skutečný Opus max review vrátil `CHANGES_REQUESTED`; oprava je na
+  `5d9b53c0` a čeká na exact-scope re-review. Account/tool failure ani vlastní
+  odpověď nesmí být přeloženy na review PASS.
 
 ## Ověření
 

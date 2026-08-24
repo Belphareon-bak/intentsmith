@@ -18,7 +18,7 @@ nenahrazují žádný z těchto sedmi verdictů. Account/tool limit je vždy
 | 2 | effect/approval authority | `33cf221c3b772a1002311c8b1f71b67ad0d46cc9..fa437d021e07728388eb61bbca88bcc98e208ddf` | `REVIEW_BLOCKED_ACCOUNT_LIMIT` |
 | 3 | ProjectContext | `44a9ba87c99a448b1b1b5f479963c3b6aaac7e91..5e19b8256f714367bc9ec444eb7d256d01e01e3e` | `REVIEW_BLOCKED_ACCOUNT_LIMIT` |
 | 4 | ToolRequest/ToolResult | `fa437d021e07728388eb61bbca88bcc98e208ddf..a35805ee79b778638151c608eaf29afec6d7df3b` | `CHANGES_REQUESTED / RE_REVIEW_BLOCKED_ACCOUNT_LIMIT` |
-| 5 | durable project execution | `a35805ee79b778638151c608eaf29afec6d7df3b..da8698ffec6ce56e90603f05d55ec6644f6c4a29` | `REVIEW_BLOCKED_ACCOUNT_LIMIT` |
+| 5 | durable project execution | `a35805ee79b778638151c608eaf29afec6d7df3b..da8698ffec6ce56e90603f05d55ec6644f6c4a29` | `CHANGES_REQUESTED / RE_REVIEW_REQUIRED` |
 | 6 | lifecycle/governance journey | `da8698ffec6ce56e90603f05d55ec6644f6c4a29..cb9058b499961fc68711cbfc243ad2a7b68b0eba` | `REVIEW_BLOCKED_ACCOUNT_LIMIT` |
 | 7 | RemoteCorePort contract | `cb9058b499961fc68711cbfc243ad2a7b68b0eba..d034df62c525dbfc3dc81ffc5de9f6c6cc527b7e` | `REVIEW_BLOCKED_ACCOUNT_LIMIT` |
 
@@ -77,8 +77,8 @@ nesmí uzavřít M2.
 ## Společná integrační evidence
 
 Poslední čistý `offline,database` gate na
-`0046cd9d76c19cb3160659b5caf56a32af5024c0` má report
-`.intentsmith-artifacts/test-runs/2026-08-24T09-09-50-584Z/report.json`:
+`5d9b53c050d78525d9effc3e439d75afbe6e910a` má report
+`.intentsmith-artifacts/test-runs/2026-08-24T09-49-09-778Z/report.json`:
 
 - `verdict: FAIL`, `exitCode: 1`;
 - `260 PASS / 3 FAIL / 0 TIMEOUT / 2 BLOCKED / 0 SKIPPED`;
@@ -87,9 +87,9 @@ Poslední čistý `offline,database` gate na
 - registry 428 programů / 14 exclusions / fingerprint
   `54dce9be3a18ef854097c5919d1471e53f38bf6ef0e828ecc5ff0438f9e302d2`.
 
-Cross-section audit na čistém `05c5a856` navíc přímo zopakoval zbývající čtyři
-M2 `soak` sady: lifecycle application service 4/4, project change 10/10,
-process supervision 13/13 a exact Git preservation 10/10 PASS. Direct-test
+Cross-section audit po section-5 opravě přímo zopakoval zbývající čtyři
+M2 `soak` sady: lifecycle application service 5/5, project change 14/14,
+process supervision 13/13 a exact Git preservation 12/12 PASS. Direct-test
 runtime po bězích zůstal prázdný.
 
 Tento head navíc uzavírá HIGH interní nález v section-5 sandboxu: původní
@@ -115,3 +115,9 @@ closeout auditu.
 Oba pokusy jsou pouze `REVIEW_BLOCKED_ACCOUNT_LIMIT`. Další sekce se během
 stejného účtového bloku nespouštějí, protože sedm identických billing failure
 není sedm review.
+
+Účtový blok následně skončil. První skutečný section-5 Opus max review na
+`61e09d47` vrátil `CHANGES_REQUESTED`; repo-local záznam a fix response jsou v
+`docs/review/2026-08-24-WP-M2-EXECUTION-V1-OPUS-MAX-REVIEW.md` a
+`docs/review/2026-08-24-WP-M2-EXECUTION-V1-OPUS-MAX-RESPONSE.md`. Opravný head
+čeká na celý exact-scope re-review; stav tedy stále není PASS.

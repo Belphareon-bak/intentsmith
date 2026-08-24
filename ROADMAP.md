@@ -1122,6 +1122,21 @@ pět baseline non-PASS ID. Všech 27 vybraných M2 programů prošlo; čtyři
 toolchain `soak` journey zůstaly samostatně zelené. Nevznikla M2 regrese, ale
 M2 stále čeká na sedm finálních Opus max PASS.
 
+První skutečný section-5 Opus max review následně proběhl a vrátil
+`CHANGES_REQUESTED`, nikoli PASS. HIGH nález prokázal, že legitimní změna mimo
+`ContextFilePolicy@1` source set po správném write/test/Git skončila výjimkou
+bez terminalu a po restartu falešným orphaned/failed rollbackem. MEDIUM nález
+prokázal whole-file RSS a jeden Git subprocess na každou foreign dirty cestu.
+Oprava na `5d9b53c0` odděluje exact write proof od policy-limited revision,
+terminalizuje observer failure, přidává skutečný `deploy.cfg` immediate i
+SIGKILL recovery journey a používá jeden batched index read plus 64KiB
+streaming hash. Focused výsledky jsou nově project change 14/14, Git 12/12,
+governance 20/20 a lifecycle 5/5 PASS. Čistý gate na `5d9b53c0`, run
+`2026-08-24T09-49-09-778Z`, zůstává pravdivě `FAIL / exitCode 1` s přesně
+`260 PASS / 3 FAIL / 2 BLOCKED / 0 TIMEOUT` a nezměněnou baseline non-PASS
+množinou. Section 5 čeká na exact-scope Opus re-review; M2 stále nemá žádný
+finální Opus PASS.
+
 ### Závislostní sekvence Work Packages
 
 1. **WP-M2-EFFECT:** canonical effect broker vlastní policy, approval, timeout,
