@@ -4398,7 +4398,7 @@ test('panel makes reconnect exhaustion visible and keeps health offline', () => 
 function recoveryContext(options = {}) {
   const source = fs.readFileSync(CHAT_PANEL, 'utf8');
   const start = source.indexOf('function _exactRecoveryIdentity');
-  const end = source.indexOf('function _batchValidateAll', start);
+  const end = source.indexOf('function _discoverNewModels', start);
   assert.ok(start >= 0 && end > start, 'recovery helpers are present in the panel');
   const renders = [];
   const context = vm.createContext({
@@ -4572,7 +4572,7 @@ test('the clear event reaches the panel through the WS consumer', () => {
 test('the panel never rolls back automatically', () => {
   const source = fs.readFileSync(CHAT_PANEL, 'utf8');
   const start = source.indexOf("C3Bus.on('upgrade:verify_failed'");
-  const end = source.indexOf("C3Bus.on('model:validation_prompt'", start);
+  const end = source.indexOf("C3Bus.on('model:deleted'", start);
   assert.ok(start >= 0 && end > start);
   const handler = source.slice(start, end);
   assert.ok(

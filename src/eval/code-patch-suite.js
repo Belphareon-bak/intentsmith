@@ -16,25 +16,11 @@
 // nejsou — hodnotí skutečný výstup `node tests/….test.js`.
 //
 // Sada se registruje pod novým jménem a sama **nemutuje vazbu role CODE**.
-// Hunt ji pro CODE předává explicitním evaluation planem a vítěze může
-// aplikovat jen přes `ModelBindingApplication`.
+// Hunt ji pro CODE předává explicitním evaluation planem, uloží evidence a
+// portfolio decision, ale nikdy binding neaplikuje.
 //
-// ─── Proč se registruje zvenčí a ne v `validation-suites.js` ─────────────────
-//
-// `src/upgrade/validation-suites.js` je **bajtově připnutý** ve fail-closed
-// proof policy (`sha256-raw-bytes-v1`, viz `model-failover-proof-policy.js`).
-// Jakákoli úprava toho souboru — i přidání jednoho řádku — shodí celou policy
-// na `MODEL_FAILOVER_PROOF_POLICY_SOURCE_DRIFT`.  Ověřeno: první verze téhle
-// sady tam zápis přidala a policy přestala projít.
-//
-// Do registru `SUITES` se navíc **nesmí zapisovat ani zvenčí**: policy vedle
-// bajtů kontroluje i to, že `Object.keys(SUITES)` přesně odpovídá pěti
-// očekávaným sadám, takže přidání šesté shodí `AUTHORITY_INVALID`.
-//
-// Sada se proto do souboje předává explicitně (`comparePair(..., { suite })`)
-// a vlastní parametry volání modelu nese `CodePatchValidationRunner`, potomek
-// `ValidationRunner`.  Připnutý soubor i registr zůstávají nedotčené; hlídají
-// to testy v `tests/code-patch-suite.test.js`.
+// Sada se do souboje předává explicitně v role evaluation planu. Neexistuje
+// globální mutable registr ani fallback na odstraněnou v123 scoring cestu.
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -42,7 +28,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { logger } from '../core/logger.js';
-import { ValidationRunner } from '../upgrade/validation-suites.js';
+import { ModelEvaluationRunner } from './model-evaluation-runner.js';
 import {
   deriveTask, buildPrompt, extractFunctionCodes, applyAndTest, normalizedGain,
 } from './code-patch-runner.js';
@@ -55,7 +41,7 @@ const FIXTURE = path.join(HERE, 'code-suite-tasks.json');
 /**
  * Časový strop na generování.
  *
- * Výchozích 30 s ze `validation-suites.js` nestačí: funkce o 228 řádcích si
+ * Obecný 30s limit nestačí: funkce o 228 řádcích si
  * vyžádá skoro 2000 tokenů odpovědi a při studeném načtení modelu do VRAM to
  * změřeně trvalo 122 s.  Strop musí pokrýt načtení i generování, jinak by se
  * jako „selhání modelu" počítalo vypršení našeho vlastního limitu.
@@ -128,7 +114,7 @@ export function loadFixtureTasks(repo = REPO_ROOT, fixturePath = FIXTURE, opts =
 }
 
 /**
- * Postaví testy sady ve tvaru, kterému rozumí `ValidationRunner`.
+ * Postaví testy sady ve tvaru, kterému rozumí `ModelEvaluationRunner`.
  *
  * `grade()` je záměrně synchronní — `applyAndTest()` stojí na `execFileSync`,
  * takže se vejde do stávajícího rozhraní a runner se kvůli téhle sadě nemusí
@@ -168,22 +154,21 @@ export function buildTests(repo = REPO_ROOT, tasks = null) {
 /**
  * Runner s vlastními parametry volání.
  *
- * `ValidationRunner._runTest()` volá model bez options, takže by platily
- * výchozí hodnoty: `num_ctx` 4096, `num_predict` 512 a timeout 30 s.  Vadná
+ * Výchozí hodnoty runneru jsou `num_ctx` 4096, `num_predict` 512 a timeout
+ * 30 s. Vadná
  * funkce se do 4096 tokenů nevejde, odpověď se do 512 tokenů nevejde a studené
  * načtení modelu s 2000 tokeny odpovědi trvalo změřeně 122 s.  Bez vlastních
  * parametrů by se tedy jako „selhání modelu" počítalo uříznuté generování.
  */
-export class CodePatchValidationRunner extends ValidationRunner {
+export class CodePatchEvaluationRunner extends ModelEvaluationRunner {
   constructor(baseUrl, suiteDef) {
-    super(baseUrl);
-    this._suite = suiteDef || codePatchSuite;
+    const selected = suiteDef || codePatchSuite;
+    super(baseUrl, { suites: { [selected.name]: selected } });
+    this._suite = selected;
   }
 
   /**
-   * `ValidationRunner.runSuite()` hledá sadu v registru `SUITES`, kam se
-   * `code_patch` zapsat nesmí.  Runner si ji proto nese sám a spouští ji
-   * stejným postupem: test po testu, s průběžným hlášením.
+   * Runner nese explicitní suite contract; neexistuje globální fallback.
    */
   async runSuite(suiteName, modelName, onProgress) {
     if (suiteName !== this._suite.name) return super.runSuite(suiteName, modelName, onProgress);
@@ -251,7 +236,7 @@ export class CodePatchValidationRunner extends ValidationRunner {
 
 let _tests = null;
 
-/** Sada pro registraci v `SUITES`. Testy se staví líně — odvození sahá do gitu. */
+/** Current CODE suite. Testy se staví líně — odvození sahá do gitu. */
 export const codePatchSuite = {
   name: 'code_patch',
   description: 'Oprava skutečné vady z historie repa, ověřená spuštěním skrytého testu',

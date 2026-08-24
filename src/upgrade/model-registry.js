@@ -1,8 +1,9 @@
 // ModelRegistry v133 — Centralized Model Management
 // ══════════════════════════════════════════════════════════════════════════════
 //
-// Single source of truth for all model queries and mutations.
-// Consolidates logic from config, upgrade-manager, validation-suites, routes.
+// Central inventory/deletion surface. Durable binding state and exact-contract
+// evaluation state are injected authorities, not reconstructed from legacy
+// last-value scoring tables.
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -21,12 +22,11 @@ import {
   modelUseAuthority,
 } from './model-use-authority.js';
 import { readModelAutomationPolicy } from '../db/model-policy.js';
+import { resolveCurrentBindings } from './model-upgrade-prototype.js';
 import { execSync } from 'child_process';
 import fs from 'fs';
 
-const VALIDATION_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 const OVERVIEW_CACHE_TTL = 30_000; // 30s
-const SUITES = ['reasoning', 'code', 'chat', 'vision', 'review'];
 const DELETE_SOURCES = new Set(['USER_REQUEST', 'USER_HTTP', 'USER_CHAT', 'AUTO_CLEANUP']);
 export const AUTO_CLEANUP_MIN_FREE_BYTES = 40 * 1_073_741_824;
 
@@ -41,43 +41,14 @@ function readModelStorageFreeBytes() {
 }
 
 const ROLE_PROFILES = {
-  D1:     { name: 'Hluboká analýza',   desc: 'Analýza, plánování, redesign. Vyžaduje reasoning + JSON.', suite: 'reasoning', color: '#8b5cf6' },
-  D2:     { name: 'Analýza oprav',     desc: 'Fokusovaný reasoning pro opravy a fix-loop.',              suite: 'reasoning', color: '#a78bfa' },
-  CODE:   { name: 'Generování kódu',   desc: 'Implementace, generování a editace kódu.',                 suite: 'code',      color: '#22c55e' },
-  R1:     { name: 'Hluboká revize',    desc: 'Finální deep review (stejný reasoning jako D1).',          suite: 'reasoning', color: '#6366f1' },
-  R2:     { name: 'Rychlá revize',     desc: 'Rychlý strukturální a logický check.',                     suite: 'review',    color: '#818cf8' },
-  CHAT:   { name: 'Konverzace',        desc: 'Uživatelská konverzace, čeština, syntéza.',                suite: 'chat',      color: '#3b82f6' },
-  VISION: { name: 'Analýza obrázků',   desc: 'Porozumění obrázkům a vizuálnímu obsahu. Vyžaduje vision.',suite: 'vision',    color: '#f59e0b' },
+  D1:     { name: 'Hluboká analýza',   desc: 'Analýza, plánování, redesign. Vyžaduje reasoning + JSON.', suite: 'reasoning_v2', color: '#8b5cf6' },
+  D2:     { name: 'Analýza oprav',     desc: 'Fokusovaný reasoning pro opravy a fix-loop.',              suite: 'reasoning_v2', color: '#a78bfa' },
+  CODE:   { name: 'Generování kódu',   desc: 'Implementace, generování a editace kódu.',                 suite: 'code_patch',   color: '#22c55e' },
+  R1:     { name: 'Hluboká revize',    desc: 'Finální deep review (stejný reasoning jako D1).',          suite: 'reasoning_v2', color: '#6366f1' },
+  R2:     { name: 'Rychlá revize',     desc: 'Rychlý strukturální a logický check.',                     suite: 'review_v2',    color: '#818cf8' },
+  CHAT:   { name: 'Konverzace',        desc: 'Uživatelská konverzace, čeština, syntéza.',                suite: 'chat_v3',      color: '#3b82f6' },
+  VISION: { name: 'Analýza obrázků',   desc: 'Porozumění obrázkům a vizuálnímu obsahu. Vyžaduje vision.',suite: 'vision_v2',    color: '#f59e0b' },
 };
-
-function parseValidationTimestamp(value) {
-  const parsed = value ? Date.parse(value) : NaN;
-  return Number.isFinite(parsed) ? parsed : -Infinity;
-}
-
-function normalizeValidationScore(value) {
-  if (value && typeof value === 'object') {
-    return {
-      score: Number.isFinite(value.score) ? value.score : null,
-      updatedAt: value.validatedAt || value.updatedAt || null,
-    };
-  }
-  return { score: Number.isFinite(value) ? value : null, updatedAt: null };
-}
-
-function shouldReplaceValidationScore(current, candidate) {
-  if (!current) return true;
-  const currentTime = parseValidationTimestamp(current.updatedAt);
-  const candidateTime = parseValidationTimestamp(candidate.updatedAt);
-  if (candidateTime !== currentTime) return candidateTime > currentTime;
-  if (candidate.sourcePriority !== current.sourcePriority) {
-    return candidate.sourcePriority > current.sourcePriority;
-  }
-  if (candidate.sourceModel !== current.sourceModel) {
-    return candidate.sourceModel < current.sourceModel;
-  }
-  return candidate.score > current.score;
-}
 
 function parseCleanupUtcTimestamp(value) {
   if (typeof value !== 'string') return null;
@@ -175,13 +146,11 @@ export class ModelRegistry {
     this._db = null;
     this._upgradeManager = null;
     this._modelBindingApplication = null;
-    this._validationRunner = null;
+    this._bindingRepository = null;
+    this._evaluationReadModel = null;
     this._broadcast = null;
     this._overviewCache = null;
     this._overviewCacheTime = 0;
-    this._batchRunning = false;
-    this._batchCancelled = false;
-    this._validatingModel = null;
     this._cleanupRunning = false;
     this._clock = Date.now;
     this._modelUseAuthority = modelUseAuthority;
@@ -193,7 +162,8 @@ export class ModelRegistry {
     db,
     upgradeManager,
     modelBindingApplication,
-    validationRunner,
+    bindingRepository,
+    modelEvaluationReadModel,
     broadcast,
     clock,
     modelUseAuthority: injectedModelUseAuthority,
@@ -202,7 +172,8 @@ export class ModelRegistry {
     this._db = db;
     this._upgradeManager = upgradeManager;
     this._modelBindingApplication = modelBindingApplication || null;
-    this._validationRunner = validationRunner;
+    this._bindingRepository = bindingRepository || null;
+    this._evaluationReadModel = modelEvaluationReadModel || null;
     this._broadcast = broadcast || (() => {});
     this._clock = typeof clock === 'function' ? clock : Date.now;
     this._modelUseAuthority = injectedModelUseAuthority || modelUseAuthority;
@@ -227,36 +198,10 @@ export class ModelRegistry {
       });
     } catch (error) {
       if (error?.code === 'MODEL_MUTATION_ACTIVE_USE'
-        && error?.details?.activeOwners?.includes(MODEL_ACTIVITY_OWNER.MODEL_VALIDATION)) {
-        registryFail(
-          'MODEL_DELETE_VALIDATING',
-          `Model právě prochází validací: ${modelName}`,
-          409,
-        );
-      }
-      if (error?.code === 'MODEL_MUTATION_ACTIVE_USE'
         || error?.code === 'MODEL_MUTATION_EXCLUSIVE_ACTIVE') {
         registryFail(
           'MODEL_DELETE_IN_USE',
           `Model je používán nebo měněn: ${modelName}`,
-          409,
-        );
-      }
-      throw error;
-    }
-  }
-
-  #acquireValidationLease(modelName) {
-    try {
-      return this._modelUseAuthority.acquireShared({
-        modelName,
-        owner: MODEL_ACTIVITY_OWNER.MODEL_VALIDATION,
-      });
-    } catch (error) {
-      if (error?.code === 'MODEL_USE_EXCLUSIVE_ACTIVE') {
-        registryFail(
-          'MODEL_VALIDATION_MODEL_MUTATING',
-          `Model je právě měněn: ${modelName}`,
           409,
         );
       }
@@ -323,18 +268,45 @@ export class ModelRegistry {
   }
 
   /** Get current role → model bindings */
-  getBound() {
-    const bindings = {};
-    for (const role of Object.keys(config.models)) {
-      bindings[role] = config.models[role];
+  getBindingState() {
+    if (!this._bindingRepository) {
+      return Object.freeze({
+        status: 'BOOTSTRAP_FALLBACK',
+        bindings: Object.freeze({ ...config.models }),
+        durable: Object.freeze({}),
+      });
     }
-    return bindings;
+    try {
+      const resolved = resolveCurrentBindings(
+        config.models,
+        this._bindingRepository,
+        Object.keys(ROLE_PROFILES),
+      );
+      const durableCount = Object.keys(resolved.durable).length;
+      return Object.freeze({
+        status: durableCount === Object.keys(ROLE_PROFILES).length
+          ? 'DURABLE'
+          : 'DURABLE_WITH_BOOTSTRAP_FALLBACK',
+        bindings: resolved.bindings,
+        durable: resolved.durable,
+      });
+    } catch (error) {
+      throw new ModelRegistryError(
+        'MODEL_BINDING_READ_FAILED',
+        `Durable model binding read failed: ${error.message}`,
+        { cause: error, httpStatus: 503 },
+      );
+    }
+  }
+
+  getBound() {
+    return this.getBindingState().bindings;
   }
 
   /** Get which roles a model is bound to */
   getBoundRoles(modelName) {
     const roles = [];
-    for (const [role, model] of Object.entries(config.models)) {
+    for (const [role, model] of Object.entries(this.getBound())) {
       if (sameModelName(model, modelName)) roles.push(role);
     }
     return roles;
@@ -342,7 +314,7 @@ export class ModelRegistry {
 
   /** Check if model is bound to any role */
   isBound(modelName) {
-    return Object.values(config.models).some(model => sameModelName(model, modelName));
+    return Object.values(this.getBound()).some(model => sameModelName(model, modelName));
   }
 
   /** Check if model can be deleted */
@@ -365,89 +337,8 @@ export class ModelRegistry {
     };
   }
 
-  /** Get validation scores for a model across all suites */
-  getValidationScores(modelName) {
-    const key = canonicalModelName(modelName);
-    if (!key) return {};
-    const consolidated = this.getAllValidationScores()[key] || {};
-    return Object.fromEntries(SUITES.map(suite => [suite, consolidated[suite] || null]));
-  }
-
-  /** Get all validation scores for all models */
-  getAllValidationScores() {
-    try {
-      const selected = new Map();
-      const aliasesByScore = new Map();
-      const consider = ({ model, suite, score, updatedAt, sourcePriority }) => {
-        const key = canonicalModelName(model);
-        if (!key || !suite || !Number.isFinite(score)) return;
-        const selectionKey = `${key}\0${suite}`;
-        const candidate = {
-          score,
-          updatedAt: updatedAt || null,
-          sourceModel: String(model),
-          sourcePriority,
-        };
-        if (shouldReplaceValidationScore(selected.get(selectionKey), candidate)) {
-          selected.set(selectionKey, candidate);
-        }
-        if (!aliasesByScore.has(selectionKey)) aliasesByScore.set(selectionKey, new Set());
-        aliasesByScore.get(selectionKey).add(String(model));
-      };
-
-      if (this._validationRunner?.getAllScores) {
-        const allScores = this._validationRunner.getAllScores();
-        for (const [model, suiteScores] of allScores || []) {
-          for (const [suite, rawScore] of Object.entries(suiteScores || {})) {
-            const normalized = normalizeValidationScore(rawScore);
-            consider({ model, suite, ...normalized, sourcePriority: 0 });
-          }
-        }
-      }
-
-      if (this._db) {
-        try {
-          const rows = this._db.prepare(
-            'SELECT model, suite, score, validated_at FROM validation_suite_scores'
-          ).all();
-          for (const r of rows) {
-            consider({
-              model: r.model,
-              suite: r.suite,
-              score: r.score,
-              updatedAt: r.validated_at,
-              sourcePriority: 1,
-            });
-          }
-        } catch (_) {}
-      }
-
-      const result = {};
-      const now = Date.now();
-      for (const [selectionKey, score] of [...selected.entries()].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) {
-        const [model, suite] = selectionKey.split('\0');
-        if (!result[model]) result[model] = {};
-        const aliases = [...(aliasesByScore.get(selectionKey) || [])].sort();
-        result[model][suite] = {
-          score: score.score,
-          updatedAt: score.updatedAt,
-          expired: score.updatedAt
-            ? (now - parseValidationTimestamp(score.updatedAt)) > VALIDATION_TTL_MS
-            : true,
-          sourceModel: score.sourceModel,
-          identityAliases: aliases,
-          identityAmbiguous: aliases.length > 1,
-          artifactVerified: false,
-        };
-      }
-      return result;
-    } catch (_) {
-      return {};
-    }
-  }
-
   /** Get last usage info for a model */
-  getUsage(modelName) {
+  getUsage(modelName, digestValue = null) {
     if (!this._db) {
       return {
         lastUsedAt: null,
@@ -458,6 +349,7 @@ export class ModelRegistry {
       };
     }
     const aliases = modelNameAliases(modelName);
+    const digestSha256 = normalizeModelDigestSha256(digestValue);
     if (aliases.length === 0) {
       return {
         lastUsedAt: null,
@@ -470,12 +362,25 @@ export class ModelRegistry {
     try {
       const placeholders = aliases.map(() => '?').join(', ');
       const rows = this._db.prepare(
-        `SELECT used_at
+        `SELECT used_at, model_digest_sha256
          FROM model_usage
          WHERE lower(trim(model)) IN (${placeholders})`
       ).all(...aliases);
       let newest = null;
       for (const row of rows) {
+        // Name-only historical usage cannot prove which mutable tag artifact
+        // served the request. Preserve it as a deletion block instead of
+        // guessing that it belongs to either the old or current digest.
+        if (digestSha256 && !row?.model_digest_sha256) {
+          return {
+            lastUsedAt: null,
+            lastUsedAtMs: null,
+            requestCount: rows.length,
+            retentionValid: false,
+            reason: 'MODEL_USAGE_DIGEST_UNKNOWN',
+          };
+        }
+        if (digestSha256 && row.model_digest_sha256 !== digestSha256) continue;
         const epochMs = parseCleanupUtcTimestamp(row?.used_at);
         if (epochMs === null) {
           return {
@@ -508,11 +413,27 @@ export class ModelRegistry {
     }
   }
 
-  /** Check if any model is being validated */
-  isValidating() { return !!this._validatingModel; }
-  isValidatingBatch() { return this._batchRunning; }
-
   // ─── Computed ──────────────────────────────────────────────────────────────
+
+  async getEvaluations(installedInput = null) {
+    if (!this._evaluationReadModel || typeof this._evaluationReadModel.read !== 'function') {
+      registryFail(
+        'MODEL_EVALUATION_READ_AUTHORITY_REQUIRED',
+        'Model evaluation read authority is unavailable',
+        503,
+      );
+    }
+    const installed = installedInput || await this.getInstalled();
+    const bindingState = this.getBindingState();
+    return this._evaluationReadModel.read({
+      inventory: installed,
+      bindings: bindingState.bindings,
+      bindingAuthority: {
+        status: bindingState.status,
+        durableRoles: Object.keys(bindingState.durable).sort(),
+      },
+    });
+  }
 
   /** Full consolidated overview (cached 30s) */
   async getOverview() {
@@ -522,8 +443,8 @@ export class ModelRegistry {
     }
 
     const installed = await this.getInstalled();
-    const bindings = this.getBound();
-    const allScores = this.getAllValidationScores();
+    const evaluations = await this.getEvaluations(installed);
+    const bindings = evaluations.bindings;
     const ollamaAvailable = installed.length > 0 || Object.keys(bindings).length > 0;
 
     // Disk usage
@@ -554,23 +475,26 @@ export class ModelRegistry {
       days: modelSettings.settings.autoCleanupDays,
     };
 
-    let unvalidatedCount = 0;
+    const evaluationByModel = new Map(
+      evaluations.models.map(model => [model.canonicalName, model.evaluations]),
+    );
+    let incompleteEvaluationCount = 0;
     const models = installed.map(m => {
-      const boundRoles = this.getBoundRoles(m.name);
+      const boundRoles = Object.entries(bindings)
+        .filter(([, model]) => sameModelName(model, m.name))
+        .map(([role]) => role);
       const { deletable, reason } = this.isDeletable(m.name);
-      const vs = allScores[canonicalModelName(m.name)] || {};
-      const usage = this.getUsage(m.name);
-      const unvalidatedSuites = SUITES.filter(s => !vs[s] || vs[s].expired);
-      if (unvalidatedSuites.length > 0) unvalidatedCount++;
-
-      // Overall score: average of non-null, non-expired scores
-      const validScores = SUITES.map(s => vs[s]?.score).filter(s => s != null);
-      const overallScore = validScores.length > 0
-        ? validScores.reduce((a, b) => a + b, 0) / validScores.length
-        : null;
+      const modelEvaluations = evaluationByModel.get(canonicalModelName(m.name)) || {};
+      const usage = this.getUsage(m.name, m.digestSha256);
+      const missingEvaluationRoles = Object.entries(modelEvaluations)
+        .filter(([, row]) => row.status !== 'COMPLETE')
+        .map(([role]) => role);
+      if (missingEvaluationRoles.length > 0) incompleteEvaluationCount++;
 
       return {
         name: m.name,
+        canonicalName: canonicalModelName(m.name),
+        digestSha256: m.digestSha256,
         size: m.size,
         sizeGB: m.sizeGB,
         params: m.params,
@@ -584,9 +508,10 @@ export class ModelRegistry {
         boundRoles,
         lastUsedAt: usage.lastUsedAt,
         requestCount: usage.requestCount,
-        validationScores: vs,
-        overallScore,
-        unvalidatedSuites,
+        evaluations: modelEvaluations,
+        evaluatedRoleCount: Object.values(modelEvaluations)
+          .filter(row => row.status === 'COMPLETE').length,
+        missingEvaluationRoles,
       };
     });
 
@@ -596,8 +521,14 @@ export class ModelRegistry {
       profiles: ROLE_PROFILES,
       diskUsage,
       autoCleanup,
-      unvalidatedCount,
-      batchValidating: this._batchRunning,
+      evaluations: {
+        authority: evaluations.authority,
+        bindingAuthority: evaluations.bindingAuthority,
+        statusCounts: evaluations.statusCounts,
+        roles: evaluations.roles,
+        decisions: evaluations.decisions,
+      },
+      incompleteEvaluationCount,
       ollamaAvailable,
     };
 
@@ -617,35 +548,6 @@ export class ModelRegistry {
     return [];
   }
 
-  /** Get recommendation for a role (best non-current model by validation score) */
-  getRecommendation(role) {
-    const profile = ROLE_PROFILES[role];
-    if (!profile) return null;
-    const current = config.models[role];
-    const allScores = this.getAllValidationScores();
-    const suite = profile.suite;
-
-    let best = null;
-    let bestScore = -1;
-    const currentKey = canonicalModelName(current);
-    const currentScore = allScores[currentKey]?.[suite]?.score ?? -1;
-
-    for (const [model, scores] of Object.entries(allScores).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) {
-      if (model === currentKey) continue;
-      const s = scores[suite]?.score;
-      if (s != null && s > bestScore) {
-        bestScore = s;
-        best = scores[suite]?.sourceModel || model;
-      }
-    }
-
-    if (best && bestScore > currentScore) {
-      const delta = currentScore >= 0 ? Math.round((bestScore - currentScore) * 100) : null;
-      return { model: best, score: bestScore, delta };
-    }
-    return null;
-  }
-
   // ─── Mutations ─────────────────────────────────────────────────────────────
 
   #getDeleteBlock(name) {
@@ -661,13 +563,6 @@ export class ModelRegistry {
       return {
         code: 'MODEL_DELETE_BOUND',
         message: `Model je přiřazený k rolím: ${roles}`,
-        httpStatus: 409,
-      };
-    }
-    if (sameModelName(this._validatingModel, name)) {
-      return {
-        code: 'MODEL_DELETE_VALIDATING',
-        message: 'Model je právě validován',
         httpStatus: 409,
       };
     }
@@ -860,159 +755,6 @@ export class ModelRegistry {
     return result;
   }
 
-  // ─── Batch Validation ──────────────────────────────────────────────────────
-
-  /** Validate all installed models that need it (sequential, mutex-guarded) */
-  async validateAll(onProgress) {
-    if (this._batchRunning || this._validatingModel) {
-      return { ok: true, alreadyRunning: true, model: this._validatingModel };
-    }
-    if (!this._validationRunner) return { ok: false, error: 'Validation runner not available' };
-
-    const installed = await this.getInstalled();
-    const allScores = this.getAllValidationScores();
-    const now = Date.now();
-
-    // Filter to models needing validation
-    const queue = installed.filter(m => {
-      const scores = allScores[canonicalModelName(m.name)];
-      if (!scores) return true;
-      // Need validation if any suite is missing or expired
-      return SUITES.some(s => !scores[s] || scores[s].expired);
-    }).map(m => m.name);
-
-    if (queue.length === 0) return { ok: true, queued: [], estimatedMinutes: 0 };
-
-    this._batchRunning = true;
-    this._batchCancelled = false;
-    const estimatedMinutes = queue.length * 3;
-
-    logger.info('ModelRegistry', `Batch validation started: ${queue.length} models (~${estimatedMinutes} min)`);
-
-    // Return immediately — run async
-    const self = this;
-    (async () => {
-      try {
-        for (let i = 0; i < queue.length; i++) {
-          if (self._batchCancelled) break;
-
-          const model = queue[i];
-
-          // Check model still exists
-          const check = await self.getInstalled();
-          if (!check.some(m => sameModelName(m.name, model))) {
-            logger.warn('ModelRegistry', `Skipping ${model} — no longer installed`);
-            continue;
-          }
-
-          let validationLease;
-          try {
-            validationLease = self.#acquireValidationLease(model);
-          } catch (error) {
-            self._broadcast('control', {
-              action: 'model_validation_progress', model,
-              status: 'error', percent: -1,
-              batchIndex: i + 1, batchTotal: queue.length,
-              text: `${model} — Chyba: ${error.message}`,
-            });
-            continue;
-          }
-          self._validatingModel = model;
-
-          self._broadcast('control', {
-            action: 'model_validation_progress', model,
-            status: 'starting', percent: 0,
-            batchIndex: i + 1, batchTotal: queue.length,
-            text: `${model} — Spouštím validaci... (${i + 1}/${queue.length})`,
-          });
-
-          try {
-            const result = await self._validationRunner.runAll(model, null, (progress) => {
-              self._broadcast('control', {
-                action: 'model_validation_progress', model,
-                suite: progress.suite, testName: progress.testName,
-                status: progress.status,
-                currentTest: progress.currentTest, totalTests: progress.totalTests,
-                percent: progress.percent, score: progress.score,
-                batchIndex: i + 1, batchTotal: queue.length,
-                text: progress.status === 'complete'
-                  ? `${model} — ${progress.suite}: ${Math.round((progress.score || 0) * 100)}%`
-                  : `${model} — ${progress.suite}: ${progress.testName} (${progress.currentTest}/${progress.totalTests})`,
-              });
-              if (onProgress) onProgress({ model, batchIndex: i + 1, batchTotal: queue.length, ...progress });
-            });
-
-            self._broadcast('control', {
-              action: 'model_validation_progress', model,
-              status: 'done', percent: 100,
-              batchIndex: i + 1, batchTotal: queue.length,
-              text: `${model} — Validace dokončena: ${Math.round(result.overallScore * 100)}%`,
-              overallScore: result.overallScore,
-              results: result.results.map(r => ({ suite: r.suite, score: r.score, passed: r.passed, total: r.total })),
-            });
-          } catch (err) {
-            self._broadcast('control', {
-              action: 'model_validation_progress', model,
-              status: 'error', percent: -1,
-              batchIndex: i + 1, batchTotal: queue.length,
-              text: `${model} — Chyba: ${err.message}`,
-            });
-          } finally {
-            self._validatingModel = null;
-            validationLease.release();
-          }
-        }
-      } finally {
-        self._batchRunning = false;
-        self._validatingModel = null;
-        self.invalidateCache();
-        logger.info('ModelRegistry', 'Batch validation finished');
-      }
-    })();
-
-    return { ok: true, queued: queue, estimatedMinutes };
-  }
-
-  cancelBatchValidation() {
-    this._batchCancelled = true;
-    if (this._validationRunner) {
-      try { this._validationRunner._cancelled = true; } catch (_) {}
-    }
-  }
-
-  /** Reserve the live single-model validation path before its async work starts. */
-  startValidation(modelName, suiteNames, onProgress) {
-    const model = typeof modelName === 'string' ? modelName.trim() : '';
-    if (!canonicalModelName(model)
-      || !Array.isArray(suiteNames)
-      || suiteNames.length < 1
-      || suiteNames.some(suite => typeof suite !== 'string' || !suite.trim())) {
-      registryFail('MODEL_VALIDATION_INPUT_INVALID', 'Model validation input is invalid', 400);
-    }
-    if (!this._validationRunner?.runAll) {
-      registryFail('MODEL_VALIDATION_AUTHORITY_REQUIRED', 'Model validation authority is unavailable', 503);
-    }
-    if (this._batchRunning || this._validatingModel) {
-      registryFail(
-        'MODEL_VALIDATION_BUSY',
-        `Model validation is already running${this._validatingModel ? ` for ${this._validatingModel}` : ''}`,
-        409,
-      );
-    }
-    const validationLease = this.#acquireValidationLease(model);
-    this._validatingModel = model;
-    // Defer the runner by one microtask. The route can publish the accepted
-    // reservation before a synchronous progress callback is able to fire.
-    const completion = Promise.resolve()
-      .then(() => this._validationRunner.runAll(model, [...suiteNames], onProgress))
-      .finally(() => {
-        if (sameModelName(this._validatingModel, model)) this._validatingModel = null;
-        this.invalidateCache();
-        validationLease.release();
-      });
-    return Object.freeze({ model, suites: Object.freeze([...suiteNames]), completion });
-  }
-
   // ─── Auto-Cleanup ──────────────────────────────────────────────────────────
 
   /** Run auto-cleanup of unused models older than `days` */
@@ -1035,7 +777,7 @@ export class ModelRegistry {
       if (!Number.isSafeInteger(freeBytes) || freeBytes < 0
         || freeBytes >= AUTO_CLEANUP_MIN_FREE_BYTES) return [];
       const installed = await this.getInstalled({ strict: true });
-      const boundModels = canonicalModelNameSet(Object.values(config.models));
+      const boundModels = canonicalModelNameSet(Object.values(this.getBound()));
       const cutoffMs = now - days * 86400000;
       const deleted = [];
       const seenCanonical = new Set();
@@ -1047,12 +789,10 @@ export class ModelRegistry {
         seenCanonical.add(canonicalName);
         // Skip bound models
         if (boundModels.has(canonicalName)) continue;
-        // Skip if currently validating
-        if (sameModelName(this._validatingModel, m.name)) continue;
         // Retention is fail-closed. Every stored usage timestamp must parse as
         // explicit UTC and provider modification time remains a second
         // protection even when historical usage exists.
-        const usage = this.getUsage(m.name);
+        const usage = this.getUsage(m.name, m.digestSha256 || m.digest);
         if (!usage.retentionValid) continue;
         // COMPLETE digest-bound scoring below is authoritative evidence that a
         // downloaded candidate finished its purpose even when it never served
@@ -1064,17 +804,19 @@ export class ModelRegistry {
         if (modifiedAtMs === null || modifiedAtMs >= cutoffMs) continue;
         const digestSha256 = m.digestSha256 || normalizeModelDigestSha256(m.digest);
         if (!digestSha256) continue;
-        // An unfinished or never-started evaluation is precisely the artifact
-        // most likely to be needed by the next hunt tick. Only a completed,
-        // digest-bound score makes an artifact eligible for retention cleanup.
+        // An unfinished, blocked, failed or inconclusive role evaluation is
+        // precisely the artifact most likely to be needed by the next hunt
+        // tick. Retention therefore requires COMPLETE evidence for every
+        // current role contract, never merely one historical score.
         try {
-          const completed = this._db.prepare(`
-            SELECT 1 AS ok
-            FROM model_evaluation_runs
-            WHERE model_digest_sha256 = ? AND status = 'COMPLETE'
-            LIMIT 1
-          `).get(digestSha256);
-          if (!completed) continue;
+          const evaluation = this._evaluationReadModel.read({
+            inventory: [m],
+            bindings: this.getBound(),
+          }).models[0];
+          if (!evaluation
+            || Object.values(evaluation.evaluations).some(row => row.status !== 'COMPLETE')) {
+            continue;
+          }
         } catch {
           continue;
         }
@@ -1156,32 +898,18 @@ export class ModelRegistry {
 
       const findings = [];
 
-      for (const [role, model] of Object.entries(config.models).sort(([a], [b]) => a.localeCompare(b))) {
+      for (const [role, model] of Object.entries(this.getBound()).sort(([a], [b]) => a.localeCompare(b))) {
         if (installed.some(entry => sameModelName(entry.name, model))) continue;
-
-        const rec = this.getRecommendation(role);
-        const installedCandidate = rec
-          ? installed.find(entry => sameModelName(entry.name, rec.model))
-          : null;
-        const candidate = installedCandidate ? {
-          model: installedCandidate.name,
-          digest: installedCandidate.digest || null,
-          score: rec.score,
-          delta: rec.delta,
-        } : null;
-        const state = candidate ? 'PROPOSED' : 'DETECTED';
         findings.push({
           role,
           configuredModel: model,
-          state,
+          state: 'DETECTED',
           reason: 'BOUND_MODEL_NOT_INSTALLED',
-          candidate,
+          candidate: null,
         });
         logger.warn(
           'ModelRegistry',
-          candidate
-            ? `Model ${model} missing for ${role}; proposed local candidate ${candidate.model}`
-            : `Model ${model} missing for ${role}; no local candidate proposed`,
+          `Model ${model} missing for ${role}; no audited replacement decision is available`,
         );
       }
 
@@ -1214,5 +942,5 @@ export class ModelRegistry {
 }
 
 export const modelRegistry = new ModelRegistry();
-export { ROLE_PROFILES, SUITES };
+export { ROLE_PROFILES };
 export default modelRegistry;

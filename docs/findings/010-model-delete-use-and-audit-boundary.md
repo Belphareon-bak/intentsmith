@@ -1,5 +1,10 @@
 # 010 — delete autorita zatím nekryje aktivní použití ani durable audit
 
+> **Point-in-time finding.** Validation consumer uvedený níže byl odstraněn
+> 2026-08-25 rozhodnutím 030; současný cleanup používá exact usage, durable
+> binding a current-contract evaluační ochrany. Dobová call-graph evidence
+> zůstává kvůli reprodukovatelnosti.
+
 - **vlastník:** navazující checkpoint
   `WP-M1-MODEL-CLEANUP-AUTHORITY / C2–C3`
 - **nalezeno v:** read-only call-graph review cleanup authority

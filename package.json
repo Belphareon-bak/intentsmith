@@ -24,6 +24,7 @@
     "test:database": "node scripts/nightly-audit.js --profile=database",
     "test:deterministic": "node scripts/nightly-audit.js --profile=offline,database",
     "run:suites": "node scripts/run-suites.js",
+    "report:model-evaluations": "node scripts/model-evaluation-report.js",
     "test:server:registry": "node scripts/nightly-audit.js --profile=server",
     "test:model:registry": "node scripts/nightly-audit.js --profile=model",
     "test:soak:registry": "node scripts/nightly-audit.js --profile=soak",

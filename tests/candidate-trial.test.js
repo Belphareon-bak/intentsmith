@@ -9,7 +9,12 @@ import {
   runCapabilityFloor, tryCandidate, removeModel, CAPABILITY_FLOOR,
   REMOVAL_ENABLED_BY_DEFAULT,
 } from '../src/upgrade/candidate-trial.js';
-import { SUITES } from '../src/upgrade/validation-suites.js';
+import { createRoleEvaluationPlans } from '../src/eval/role-evaluation-plan.js';
+
+const EVALUATION_PLANS = createRoleEvaluationPlans({ repeats: 1 });
+const SUITES = Object.fromEntries(
+  Object.values(EVALUATION_PLANS).map(plan => [plan.suiteName, plan.suite]),
+);
 
 const GB = 2 ** 30;
 const realFetch = globalThis.fetch;
@@ -180,11 +185,14 @@ await testAsync('propadnutí u minima zamítne kandidáta a smaže ho', async ()
 
 await testAsync('lepší kandidát vyhraje roli a NEsmaže se', async () => {
   stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
-  const codeTask = SUITES.code.tests[0].name;
+  const [firstCodeTask, secondCodeTask] = EVALUATION_PLANS.CODE.suite.tests.map(test => test.name);
   const r = await tryCandidate('cand:7b', {
     ...FAST_DRAIN,
     allowRemoval: true,
-    runner: fakeRunner({ 'cand:7b': { _default: 1 }, 'inc:7b': { _default: 1, [codeTask]: 0.1 } }),
+    runner: fakeRunner({
+      'cand:7b': { _default: 1 },
+      'inc:7b': { _default: 1, [firstCodeTask]: 0.1, [secondCodeTask]: 0.1 },
+    }),
     roles: ['CODE'],
     bindings: { CODE: 'inc:7b' },
   });
@@ -426,11 +434,14 @@ await testAsync('shodné skóre se označí jako nerozhodnuté, ne jako prohra',
 
 await testAsync('skutečná prohra není nerozhodnuto', async () => {
   stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
-  const task = SUITES.code.tests[0].name;
+  const [firstTask, secondTask] = EVALUATION_PLANS.CODE.suite.tests.map(test => test.name);
   const r = await tryCandidate('cand:7b', {
     ...FAST_DRAIN,
     allowRemoval: true,
-    runner: fakeRunner({ 'cand:7b': { _default: 1, [task]: 0 }, 'inc:7b': { _default: 1 } }),
+    runner: fakeRunner({
+      'cand:7b': { _default: 1, [firstTask]: 0, [secondTask]: 0 },
+      'inc:7b': { _default: 1 },
+    }),
     roles: ['CODE'], bindings: { CODE: 'inc:7b' },
   });
   assertEqual(r.accepted, false);
@@ -454,11 +465,14 @@ await testAsync('keepInconclusive nechá nerozhodnutého na disku', async () => 
 
 await testAsync('keepInconclusive nezachrání toho, kdo prohrál', async () => {
   stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
-  const task = SUITES.code.tests[0].name;
+  const [firstTask, secondTask] = EVALUATION_PLANS.CODE.suite.tests.map(test => test.name);
   const r = await tryCandidate('cand:7b', {
     ...FAST_DRAIN,
     allowRemoval: true,
-    runner: fakeRunner({ 'cand:7b': { _default: 1, [task]: 0 }, 'inc:7b': { _default: 1 } }),
+    runner: fakeRunner({
+      'cand:7b': { _default: 1, [firstTask]: 0, [secondTask]: 0 },
+      'inc:7b': { _default: 1 },
+    }),
     roles: ['CODE'], bindings: { CODE: 'inc:7b' },
     keepInconclusive: true,
   });

@@ -1,15 +1,8 @@
 // Model Catalog v118 — Curated Model Database for Upgrade Discovery
 // ══════════════════════════════════════════════════════════════════════════════
 //
-// Static catalog of ~55 Ollama models with benchmarks, capabilities, and
-// hardware requirements. Role score is derived from benchmarks × BENCHMARK_WEIGHTS
-// — no manual roleSuitability assignment.
-//
-// Benchmark sources:
-//   - Official papers (Qwen blog, DeepSeek papers, Meta model cards, MS Research)
-//   - Chatbot Arena Elo (normalized: (elo-1000)/400, clamped [0,1])
-//   - Community evaluations (SWE-bench runs, LiveCodeBench)
-//   - Estimates for unreleased/less-documented models (marked in comments)
+// Static catalog of ~55 Ollama models with factual identity, capabilities and
+// hardware requirements. It intentionally carries no quality scores.
 //
 // VRAM model:
 //   baseVramMb = Q4_K_M runtime VRAM (weights + overhead, before KV cache)
@@ -37,7 +30,6 @@ export const CATALOG = [
     sizeGB: 2.0, baseVramMb: 2800, contextWindow: 32768,
     capabilities: ['json_mode', 'tool_use'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: 0.10, humaneval: 0.61, mmlu: 0.64, arena: 0.14, reasoning: 0.46 },
     releaseDate: '2024-09-19', supersedes: null,
   },
   {
@@ -46,7 +38,6 @@ export const CATALOG = [
     sizeGB: 4.4, baseVramMb: 5500, contextWindow: 32768,
     capabilities: ['json_mode', 'tool_use'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: 0.18, humaneval: 0.756, mmlu: 0.745, arena: 0.24, reasoning: 0.625 },
     releaseDate: '2024-09-19', supersedes: null,
   },
   {
@@ -55,7 +46,6 @@ export const CATALOG = [
     sizeGB: 8.7, baseVramMb: 10500, contextWindow: 32768,
     capabilities: ['json_mode', 'tool_use'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: 0.22, humaneval: 0.823, mmlu: 0.797, arena: 0.30, reasoning: 0.72 },
     releaseDate: '2024-09-19', supersedes: null,
   },
   {
@@ -64,7 +54,6 @@ export const CATALOG = [
     sizeGB: 19.6, baseVramMb: 22000, contextWindow: 32768,
     capabilities: ['json_mode', 'tool_use', 'long_context'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: 0.28, humaneval: 0.872, mmlu: 0.832, arena: 0.36, reasoning: 0.795 },
     releaseDate: '2024-09-19', supersedes: null,
   },
   {
@@ -73,7 +62,6 @@ export const CATALOG = [
     sizeGB: 44.0, baseVramMb: 46000, contextWindow: 32768,
     capabilities: ['json_mode', 'tool_use', 'long_context'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: 0.14, livecodebench: 0.33, humaneval: 0.866, mmlu: 0.862, arena: 0.42, reasoning: 0.84 },
     releaseDate: '2024-09-19', supersedes: null,
   },
 
@@ -84,7 +72,6 @@ export const CATALOG = [
     sizeGB: 4.4, baseVramMb: 5500, contextWindow: 32768,
     capabilities: ['json_mode', 'tool_use'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: 0.048, livecodebench: 0.248, humaneval: 0.884, mmlu: 0.68, arena: 0.22, reasoning: 0.52 },
     releaseDate: '2024-11-11', supersedes: null,
   },
   {
@@ -93,7 +80,6 @@ export const CATALOG = [
     sizeGB: 8.7, baseVramMb: 10500, contextWindow: 32768,
     capabilities: ['json_mode', 'tool_use'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: 0.072, livecodebench: 0.304, humaneval: 0.927, mmlu: 0.72, arena: 0.28, reasoning: 0.58 },
     releaseDate: '2024-11-11', supersedes: null,
   },
   {
@@ -102,7 +88,6 @@ export const CATALOG = [
     sizeGB: 19.6, baseVramMb: 22000, contextWindow: 32768,
     capabilities: ['json_mode', 'tool_use'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: 0.128, livecodebench: 0.387, humaneval: 0.927, mmlu: 0.78, arena: 0.38, reasoning: 0.65 },
     releaseDate: '2024-11-11', supersedes: null,
   },
 
@@ -113,7 +98,6 @@ export const CATALOG = [
     sizeGB: 2.5, baseVramMb: 3200, contextWindow: 32768,
     capabilities: ['json_mode', 'tool_use'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: 0.028, livecodebench: 0.30, humaneval: 0.80, mmlu: 0.72, arena: 0.22, reasoning: 0.65 },
     releaseDate: '2025-04-29', supersedes: 'qwen2.5',
   },
   {
@@ -122,7 +106,6 @@ export const CATALOG = [
     sizeGB: 4.9, baseVramMb: 5800, contextWindow: 32768,
     capabilities: ['json_mode', 'tool_use'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: 0.052, livecodebench: 0.41, humaneval: 0.86, mmlu: 0.78, arena: 0.30, reasoning: 0.74 },
     releaseDate: '2025-04-29', supersedes: 'qwen2.5',
   },
   {
@@ -131,7 +114,6 @@ export const CATALOG = [
     sizeGB: 8.7, baseVramMb: 10500, contextWindow: 32768,
     capabilities: ['json_mode', 'tool_use', 'long_context'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: 0.075, livecodebench: 0.47, humaneval: 0.89, mmlu: 0.82, arena: 0.35, reasoning: 0.80 },
     releaseDate: '2025-04-29', supersedes: 'qwen2.5',
   },
   {
@@ -140,7 +122,6 @@ export const CATALOG = [
     sizeGB: 18.0, baseVramMb: 20000, contextWindow: 32768,
     capabilities: ['json_mode', 'tool_use', 'long_context'],
     tokenizer: 'bpe', architecture: 'moe', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: 0.10, livecodebench: 0.52, humaneval: 0.90, mmlu: 0.84, arena: 0.38, reasoning: 0.82 },
     releaseDate: '2025-04-29', supersedes: 'qwen2.5',
   },
   {
@@ -149,7 +130,6 @@ export const CATALOG = [
     sizeGB: 19.6, baseVramMb: 22000, contextWindow: 32768,
     capabilities: ['json_mode', 'tool_use', 'long_context'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: 0.11, livecodebench: 0.54, humaneval: 0.91, mmlu: 0.85, arena: 0.40, reasoning: 0.84 },
     releaseDate: '2025-04-29', supersedes: 'qwen2.5',
   },
 
@@ -160,7 +140,6 @@ export const CATALOG = [
     sizeGB: 2.5, baseVramMb: 3200, contextWindow: 32768,
     capabilities: ['json_mode', 'tool_use'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: 0.035, livecodebench: 0.34, humaneval: 0.83, mmlu: 0.75, arena: 0.25, reasoning: 0.69 },
     releaseDate: '2025-07-15', supersedes: 'qwen3',
   },
   {
@@ -169,7 +148,6 @@ export const CATALOG = [
     sizeGB: 5.5, baseVramMb: 6400, contextWindow: 32768,
     capabilities: ['json_mode', 'tool_use'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: 0.065, livecodebench: 0.46, humaneval: 0.89, mmlu: 0.81, arena: 0.34, reasoning: 0.78 },
     releaseDate: '2025-07-15', supersedes: 'qwen3',
   },
   {
@@ -178,7 +156,6 @@ export const CATALOG = [
     sizeGB: 16.5, baseVramMb: 18500, contextWindow: 32768,
     capabilities: ['json_mode', 'tool_use', 'long_context'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: 0.11, livecodebench: 0.54, humaneval: 0.92, mmlu: 0.86, arena: 0.40, reasoning: 0.84 },
     releaseDate: '2025-07-15', supersedes: 'qwen3',
   },
   {
@@ -187,7 +164,6 @@ export const CATALOG = [
     sizeGB: 21.4, baseVramMb: 24000, contextWindow: 32768,
     capabilities: ['json_mode', 'tool_use', 'long_context'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: 0.13, livecodebench: 0.57, humaneval: 0.93, mmlu: 0.87, arena: 0.43, reasoning: 0.86 },
     releaseDate: '2025-07-15', supersedes: 'qwen3',
   },
 
@@ -198,7 +174,6 @@ export const CATALOG = [
     sizeGB: 4.4, baseVramMb: 5500, contextWindow: 131072,
     capabilities: ['long_context'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: 0.371, humaneval: 0.689, mmlu: 0.558, arena: 0.28, reasoning: 0.77 },
     releaseDate: '2025-01-20', supersedes: null,
   },
   {
@@ -207,7 +182,6 @@ export const CATALOG = [
     sizeGB: 8.7, baseVramMb: 10500, contextWindow: 131072,
     capabilities: ['json_mode', 'long_context'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: 0.539, humaneval: 0.732, mmlu: 0.692, arena: 0.35, reasoning: 0.84 },
     releaseDate: '2025-01-20', supersedes: null,
   },
   {
@@ -216,7 +190,6 @@ export const CATALOG = [
     sizeGB: 19.6, baseVramMb: 22000, contextWindow: 131072,
     capabilities: ['json_mode', 'long_context'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: 0.08, livecodebench: 0.578, humaneval: 0.720, mmlu: 0.728, arena: 0.42, reasoning: 0.89 },
     releaseDate: '2025-01-20', supersedes: null,
   },
   {
@@ -225,7 +198,6 @@ export const CATALOG = [
     sizeGB: 42.8, baseVramMb: 46000, contextWindow: 131072,
     capabilities: ['json_mode', 'long_context'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: 0.10, livecodebench: 0.574, humaneval: 0.756, mmlu: 0.758, arena: 0.45, reasoning: 0.88 },
     releaseDate: '2025-01-20', supersedes: null,
   },
 
@@ -236,7 +208,6 @@ export const CATALOG = [
     sizeGB: 4.4, baseVramMb: 5500, contextWindow: 131072,
     capabilities: ['json_mode', 'long_context'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: 0.40, humaneval: 0.72, mmlu: 0.59, arena: 0.30, reasoning: 0.80 },
     releaseDate: '2025-05-28', supersedes: 'deepseek-r1',
   },
   {
@@ -245,7 +216,6 @@ export const CATALOG = [
     sizeGB: 8.7, baseVramMb: 10500, contextWindow: 131072,
     capabilities: ['json_mode', 'long_context'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: 0.57, humaneval: 0.76, mmlu: 0.72, arena: 0.38, reasoning: 0.87 },
     releaseDate: '2025-05-28', supersedes: 'deepseek-r1',
   },
   {
@@ -254,7 +224,6 @@ export const CATALOG = [
     sizeGB: 19.6, baseVramMb: 22000, contextWindow: 131072,
     capabilities: ['json_mode', 'long_context'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: 0.10, livecodebench: 0.61, humaneval: 0.75, mmlu: 0.76, arena: 0.45, reasoning: 0.92 },
     releaseDate: '2025-05-28', supersedes: 'deepseek-r1',
   },
   {
@@ -263,7 +232,6 @@ export const CATALOG = [
     sizeGB: 42.8, baseVramMb: 46000, contextWindow: 131072,
     capabilities: ['json_mode', 'long_context'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: 0.12, livecodebench: 0.60, humaneval: 0.78, mmlu: 0.78, arena: 0.48, reasoning: 0.91 },
     releaseDate: '2025-05-28', supersedes: 'deepseek-r1',
   },
 
@@ -274,7 +242,6 @@ export const CATALOG = [
     sizeGB: 9.9, baseVramMb: 11000, contextWindow: 131072,
     capabilities: ['json_mode', 'long_context'],
     tokenizer: 'bpe', architecture: 'moe', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: 0.042, livecodebench: 0.26, humaneval: 0.810, mmlu: 0.600, arena: 0.25, reasoning: 0.58 },
     releaseDate: '2024-06-17', supersedes: null,
   },
 
@@ -285,7 +252,6 @@ export const CATALOG = [
     sizeGB: 4.4, baseVramMb: 5500, contextWindow: 16384,
     capabilities: [],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: 0.12, humaneval: 0.734, mmlu: 0.45, arena: null, reasoning: 0.35 },
     releaseDate: '2023-11-02', supersedes: null,
   },
   {
@@ -294,7 +260,6 @@ export const CATALOG = [
     sizeGB: 20.2, baseVramMb: 22500, contextWindow: 16384,
     capabilities: [],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: 0.18, humaneval: 0.793, mmlu: 0.53, arena: null, reasoning: 0.42 },
     releaseDate: '2023-11-02', supersedes: null,
   },
 
@@ -305,7 +270,6 @@ export const CATALOG = [
     sizeGB: 4.9, baseVramMb: 5800, contextWindow: 131072,
     capabilities: ['json_mode', 'tool_use', 'long_context'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: 0.14, humaneval: 0.726, mmlu: 0.733, arena: 0.22, reasoning: 0.60 },
     releaseDate: '2024-07-23', supersedes: null,
   },
   {
@@ -314,7 +278,6 @@ export const CATALOG = [
     sizeGB: 42.8, baseVramMb: 46000, contextWindow: 131072,
     capabilities: ['json_mode', 'tool_use', 'long_context'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: 0.10, livecodebench: 0.26, humaneval: 0.805, mmlu: 0.838, arena: 0.38, reasoning: 0.80 },
     releaseDate: '2024-07-23', supersedes: null,
   },
 
@@ -325,7 +288,6 @@ export const CATALOG = [
     sizeGB: 2.0, baseVramMb: 2800, contextWindow: 131072,
     capabilities: ['json_mode', 'tool_use', 'long_context'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: 0.08, humaneval: 0.610, mmlu: 0.637, arena: 0.14, reasoning: 0.46 },
     releaseDate: '2024-09-25', supersedes: 'llama3.1',
   },
   {
@@ -334,7 +296,6 @@ export const CATALOG = [
     sizeGB: 6.5, baseVramMb: 7800, contextWindow: 131072,
     capabilities: ['json_mode', 'tool_use', 'long_context', 'vision'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: 0.15, humaneval: 0.720, mmlu: 0.73, arena: 0.23, reasoning: 0.58 },
     releaseDate: '2024-09-25', supersedes: 'llama3.1',
   },
 
@@ -345,7 +306,6 @@ export const CATALOG = [
     sizeGB: 42.8, baseVramMb: 46000, contextWindow: 131072,
     capabilities: ['json_mode', 'tool_use', 'long_context'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: 0.12, livecodebench: 0.30, humaneval: 0.829, mmlu: 0.862, arena: 0.40, reasoning: 0.83 },
     releaseDate: '2024-12-06', supersedes: 'llama3.2',
   },
 
@@ -356,7 +316,6 @@ export const CATALOG = [
     sizeGB: 13.5, baseVramMb: 15000, contextWindow: 32768,
     capabilities: ['json_mode'],
     tokenizer: 'sentencepiece', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: 0.035, livecodebench: 0.25, humaneval: 0.817, mmlu: 0.62, arena: 0.28, reasoning: 0.50 },
     releaseDate: '2024-05-29', supersedes: null,
   },
 
@@ -367,7 +326,6 @@ export const CATALOG = [
     sizeGB: 4.4, baseVramMb: 5200, contextWindow: 32768,
     capabilities: ['json_mode'],
     tokenizer: 'sentencepiece', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: 0.10, humaneval: 0.378, mmlu: 0.628, arena: 0.18, reasoning: 0.42 },
     releaseDate: '2024-05-22', supersedes: null,
   },
   {
@@ -376,7 +334,6 @@ export const CATALOG = [
     sizeGB: 7.4, baseVramMb: 8800, contextWindow: 131072,
     capabilities: ['json_mode', 'tool_use', 'long_context'],
     tokenizer: 'sentencepiece', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: 0.16, humaneval: 0.680, mmlu: 0.740, arena: 0.26, reasoning: 0.55 },
     releaseDate: '2024-07-18', supersedes: 'mistral',
   },
   {
@@ -385,7 +342,6 @@ export const CATALOG = [
     sizeGB: 13.5, baseVramMb: 15000, contextWindow: 32768,
     capabilities: ['json_mode', 'tool_use'],
     tokenizer: 'sentencepiece', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: 0.22, humaneval: 0.74, mmlu: 0.81, arena: 0.34, reasoning: 0.68 },
     releaseDate: '2024-09-18', supersedes: 'mistral-nemo',
   },
 
@@ -396,7 +352,6 @@ export const CATALOG = [
     sizeGB: 28.0, baseVramMb: 30000, contextWindow: 32768,
     capabilities: ['json_mode'],
     tokenizer: 'sentencepiece', architecture: 'moe', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: 0.15, humaneval: 0.608, mmlu: 0.706, arena: 0.30, reasoning: 0.55 },
     releaseDate: '2023-12-11', supersedes: null,
   },
 
@@ -407,7 +362,6 @@ export const CATALOG = [
     sizeGB: 4.4, baseVramMb: 5200, contextWindow: 16384,
     capabilities: [],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: 0.10, humaneval: 0.354, mmlu: 0.40, arena: null, reasoning: 0.25 },
     releaseDate: '2024-02-28', supersedes: null,
   },
   {
@@ -416,7 +370,6 @@ export const CATALOG = [
     sizeGB: 9.2, baseVramMb: 10500, contextWindow: 16384,
     capabilities: [],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: 0.14, humaneval: 0.460, mmlu: 0.45, arena: null, reasoning: 0.30 },
     releaseDate: '2024-02-28', supersedes: null,
   },
 
@@ -427,7 +380,6 @@ export const CATALOG = [
     sizeGB: 8.7, baseVramMb: 10000, contextWindow: 4096,
     capabilities: ['json_mode'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: 0.18, humaneval: 0.72, mmlu: 0.782, arena: 0.24, reasoning: 0.68 },
     releaseDate: '2024-04-23', supersedes: null,
   },
   {
@@ -436,7 +388,6 @@ export const CATALOG = [
     sizeGB: 8.7, baseVramMb: 10000, contextWindow: 16384,
     capabilities: ['json_mode', 'tool_use'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: 0.28, humaneval: 0.823, mmlu: 0.847, arena: 0.32, reasoning: 0.82 },
     releaseDate: '2024-12-12', supersedes: 'phi3',
   },
 
@@ -447,7 +398,6 @@ export const CATALOG = [
     sizeGB: 1.6, baseVramMb: 2200, contextWindow: 8192,
     capabilities: [],
     tokenizer: 'sentencepiece', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: 0.06, humaneval: 0.38, mmlu: 0.52, arena: 0.10, reasoning: 0.32 },
     releaseDate: '2024-06-27', supersedes: null,
   },
   {
@@ -456,7 +406,6 @@ export const CATALOG = [
     sizeGB: 5.5, baseVramMb: 6400, contextWindow: 8192,
     capabilities: ['json_mode'],
     tokenizer: 'sentencepiece', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: 0.14, humaneval: 0.543, mmlu: 0.713, arena: 0.26, reasoning: 0.53 },
     releaseDate: '2024-06-27', supersedes: null,
   },
   {
@@ -465,7 +414,6 @@ export const CATALOG = [
     sizeGB: 16.5, baseVramMb: 18000, contextWindow: 8192,
     capabilities: ['json_mode'],
     tokenizer: 'sentencepiece', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: 0.20, humaneval: 0.665, mmlu: 0.753, arena: 0.34, reasoning: 0.62 },
     releaseDate: '2024-06-27', supersedes: null,
   },
 
@@ -476,7 +424,6 @@ export const CATALOG = [
     sizeGB: 2.5, baseVramMb: 3200, contextWindow: 32768,
     capabilities: ['json_mode', 'tool_use'],
     tokenizer: 'sentencepiece', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: 0.12, humaneval: 0.62, mmlu: 0.72, arena: 0.22, reasoning: 0.56 },
     releaseDate: '2025-03-12', supersedes: 'gemma2',
   },
   {
@@ -485,7 +432,6 @@ export const CATALOG = [
     sizeGB: 7.4, baseVramMb: 8800, contextWindow: 32768,
     capabilities: ['json_mode', 'tool_use', 'vision'],
     tokenizer: 'sentencepiece', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: 0.20, humaneval: 0.72, mmlu: 0.78, arena: 0.30, reasoning: 0.65 },
     releaseDate: '2025-03-12', supersedes: 'gemma2',
   },
   {
@@ -494,7 +440,6 @@ export const CATALOG = [
     sizeGB: 16.5, baseVramMb: 18000, contextWindow: 32768,
     capabilities: ['json_mode', 'tool_use', 'vision'],
     tokenizer: 'sentencepiece', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: 0.26, humaneval: 0.78, mmlu: 0.84, arena: 0.38, reasoning: 0.72 },
     releaseDate: '2025-03-12', supersedes: 'gemma2',
   },
 
@@ -505,7 +450,6 @@ export const CATALOG = [
     sizeGB: 4.5, baseVramMb: 5800, contextWindow: 4096,
     capabilities: ['vision'],
     tokenizer: 'sentencepiece', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: null, humaneval: null, mmlu: 0.36, arena: 0.10, reasoning: 0.22 },
     releaseDate: '2023-10-05', supersedes: null,
   },
   {
@@ -514,7 +458,6 @@ export const CATALOG = [
     sizeGB: 8.0, baseVramMb: 9500, contextWindow: 4096,
     capabilities: ['vision'],
     tokenizer: 'sentencepiece', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: null, humaneval: null, mmlu: 0.54, arena: 0.14, reasoning: 0.30 },
     releaseDate: '2023-10-05', supersedes: null,
   },
   {
@@ -523,7 +466,6 @@ export const CATALOG = [
     sizeGB: 20.8, baseVramMb: 23000, contextWindow: 4096,
     capabilities: ['vision'],
     tokenizer: 'sentencepiece', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: null, humaneval: null, mmlu: 0.68, arena: 0.22, reasoning: 0.42 },
     releaseDate: '2023-10-05', supersedes: null,
   },
   {
@@ -532,7 +474,6 @@ export const CATALOG = [
     sizeGB: 4.5, baseVramMb: 5800, contextWindow: 4096,
     capabilities: ['vision'],
     tokenizer: 'sentencepiece', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: null, humaneval: null, mmlu: 0.38, arena: 0.12, reasoning: 0.24 },
     releaseDate: '2023-10-18', supersedes: null,
   },
   {
@@ -541,7 +482,6 @@ export const CATALOG = [
     sizeGB: 5.0, baseVramMb: 6200, contextWindow: 8192,
     capabilities: ['vision'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: null, humaneval: null, mmlu: 0.60, arena: 0.18, reasoning: 0.38 },
     releaseDate: '2024-04-22', supersedes: 'llava',
   },
   {
@@ -550,7 +490,6 @@ export const CATALOG = [
     sizeGB: 1.1, baseVramMb: 1800, contextWindow: 2048,
     capabilities: ['vision'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: null, humaneval: null, mmlu: 0.28, arena: null, reasoning: 0.15 },
     releaseDate: '2024-02-15', supersedes: null,
   },
   {
@@ -559,29 +498,18 @@ export const CATALOG = [
     sizeGB: 5.0, baseVramMb: 6200, contextWindow: 4096,
     capabilities: ['vision'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: null, livecodebench: null, humaneval: null, mmlu: 0.56, arena: 0.16, reasoning: 0.34 },
     releaseDate: '2024-08-06', supersedes: null,
   },
 
   // ── Nainstalované modely bez dosavadního pokrytí ─────────────────────────
   //
-  // Tyto tři modely jsou lokálně nainstalované, ale katalog je neznal, takže
-  // jim scoring nedokázal přiřadit žádnou benchmarkovou složku.  Čísla níže
-  // NEJSOU převzatá z ověřeného měření v tomto repu — jsou to hrubé odhady
-  // podle veřejně uváděných výsledků a u `glm-4.7-flash` odhad z pozice modelu
-  // v rodině.  Proto každá položka nese `benchmarkConfidence`, kterým ranker
-  // benchmarkovou složku úměrně utlumí.
-  //
-  // Odhad se má nahradit skutečným podkladem, jakmile doběhne validační sada
-  // (`scripts/model-scoring-report.js --validate`) nebo L5 WhatLLM enrichment.
+  // Tyto tři lokálně používané modely doplňují factual pokrytí katalogu.
   {
     name: 'qwq:32b', family: 'qwq', category: 'reasoning', params: 32,
     variants: ['32b'],
     sizeGB: 19.0, baseVramMb: 22000, contextWindow: 32768,
     capabilities: ['reasoning', 'json_mode'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: 0.07, livecodebench: 0.60, humaneval: 0.78, mmlu: 0.76, arena: 0.40, reasoning: 0.88 },
-    benchmarkConfidence: 0.55,
     releaseDate: '2025-03-06', supersedes: null,
   },
   {
@@ -590,8 +518,6 @@ export const CATALOG = [
     sizeGB: 15.0, baseVramMb: 16500, contextWindow: 131072,
     capabilities: ['tool_use', 'json_mode'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: 0.46, livecodebench: 0.40, humaneval: 0.88, mmlu: 0.72, arena: 0.33, reasoning: 0.62 },
-    benchmarkConfidence: 0.55,
     releaseDate: '2025-07-10', supersedes: null,
   },
   {
@@ -600,10 +526,8 @@ export const CATALOG = [
     sizeGB: 19.0, baseVramMb: 20500, contextWindow: 131072,
     capabilities: ['tool_use', 'json_mode'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
-    benchmarks: { swebench: 0.10, livecodebench: 0.45, humaneval: 0.85, mmlu: 0.78, arena: 0.35, reasoning: 0.72 },
-    benchmarkConfidence: 0.35,
     // Datum vydání neznám a `modified_at` z Ollama je čas stažení, ne vydání.
-    // null → ranker použije neutrální fallback zralosti místo vymyšleného data.
+    // Chybějící release date zůstává explicitně neznámé.
     releaseDate: null, supersedes: null,
   },
 ];
@@ -619,7 +543,7 @@ function _djb2(str) {
   return Math.abs(hash).toString(36);
 }
 
-const _hashInput = CATALOG.map(e => `${e.name}:${JSON.stringify(e.benchmarks)}`).sort().join('|');
+const _hashInput = CATALOG.map(entry => JSON.stringify(entry)).sort().join('|');
 export const CATALOG_HASH = `${CATALOG_VERSION}-${_djb2(_hashInput)}`;
 
 // ─── Lookup Index ──────────────────────────────────────────────────────────

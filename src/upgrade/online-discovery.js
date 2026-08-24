@@ -5,8 +5,8 @@
 // for families already present in L1 (installed locally).
 //
 // Pipeline:
-//   installed families → fetch library pages → parse tags → estimate benchmarks
-//   → build provisional entries → persist to discovered_models DB → scoring
+//   installed families → fetch library pages → parse tags
+//   → factual provisional entries → persist to discovered_models DB
 //
 // Guards:
 //   - Rate limit: max 3 family fetches per cycle
@@ -18,9 +18,8 @@
 
 import { logger } from '../core/logger.js';
 import {
-  estimateVram, estimateBenchmarks,
-  buildFamilyScalingModels, inheritFromNearest, extractLibraryName,
-} from './benchmark-estimator.js';
+  estimateVram, buildFamilyMetadataModels, inheritFromNearest, extractLibraryName,
+} from './model-metadata-estimator.js';
 
 const MAX_FAMILY_FETCHES = readIntEnv('C3_DISCOVERY_MAX_FAMILIES', 8, 1, 200);
 const MAX_VARIANTS_PER_FAMILY = readIntEnv('C3_DISCOVERY_MAX_VARIANTS_PER_FAMILY', 6, 1, 30);
@@ -120,7 +119,7 @@ export class OnlineDiscovery {
     this._db = null;
     this._registryClient = null;
     this._cache = new Map(); // family → { tags, fetchedAt }
-    this._scalingModels = null;
+    this._familyMetadata = null;
     this._catalogNames = null;
   }
 
@@ -155,8 +154,8 @@ export class OnlineDiscovery {
    */
   async discoverForFamilies(installedFamilies, opts = {}) {
     // Build scaling models from catalog (lazy, cached per call)
-    if (!this._scalingModels && opts.catalog) {
-      this._scalingModels = buildFamilyScalingModels(opts.catalog);
+    if (!this._familyMetadata && opts.catalog) {
+      this._familyMetadata = buildFamilyMetadataModels(opts.catalog);
     }
 
     // Cache catalog names for filtering
@@ -482,7 +481,7 @@ export class OnlineDiscovery {
   }
 
   /**
-   * Build a provisional catalog entry with estimated benchmarks.
+   * Build a factual provisional catalog entry.
    */
   _buildProvisionalEntry(family, tagInfo, gpuVramMb) {
     const { tag, params } = tagInfo;
@@ -497,23 +496,13 @@ export class OnlineDiscovery {
 
     const fullName = `${family}:${tag}`;
 
-    // Estimate benchmarks via log-space interpolation
-    let benchmarks = null;
-    let benchmarkConfidence = 0;
-
-    if (this._scalingModels) {
-      const est = estimateBenchmarks(family, params, this._scalingModels);
-      benchmarks = est.benchmarks;
-      benchmarkConfidence = est.confidence;
-    }
-
-    // Inherit non-benchmark fields from nearest catalog entry
+    // Inherit descriptive fields from the nearest same-family catalog entry.
     let category = 'general';
     let capabilities = null;
     let contextWindow = null;
 
-    if (this._scalingModels) {
-      const inherited = inheritFromNearest(family, params, this._scalingModels);
+    if (this._familyMetadata) {
+      const inherited = inheritFromNearest(family, params, this._familyMetadata);
       if (inherited.category) category = inherited.category;
       if (inherited.capabilities) capabilities = inherited.capabilities;
       if (inherited.contextWindow != null) contextWindow = inherited.contextWindow;
@@ -529,8 +518,6 @@ export class OnlineDiscovery {
       effectiveVramMb: null,
       contextWindow,
       releaseDate: null,
-      benchmarks,
-      benchmarkConfidence,
       capabilities,
       provisional: true,
       source: 'L4',
@@ -547,15 +534,13 @@ export class OnlineDiscovery {
     const stmt = this._db.prepare(`
       INSERT INTO discovered_models
         (name, family, params, category, base_vram_mb, context_window,
-         benchmarks_json, benchmark_confidence, capabilities_json, source, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+         capabilities_json, source, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(name) DO UPDATE SET
         params = excluded.params,
         category = excluded.category,
         base_vram_mb = excluded.base_vram_mb,
         context_window = excluded.context_window,
-        benchmarks_json = excluded.benchmarks_json,
-        benchmark_confidence = excluded.benchmark_confidence,
         capabilities_json = excluded.capabilities_json,
         updated_at = CURRENT_TIMESTAMP
     `);
@@ -565,8 +550,6 @@ export class OnlineDiscovery {
         stmt.run(
           e.name, e.family, e.params, e.category,
           e.baseVramMb, e.contextWindow,
-          e.benchmarks ? JSON.stringify(e.benchmarks) : null,
-          e.benchmarkConfidence,
           e.capabilities ? JSON.stringify(e.capabilities) : null,
           e.source || 'L4'
         );
@@ -577,33 +560,6 @@ export class OnlineDiscovery {
       tx();
     } catch (err) {
       logger.warn('OnlineDiscovery', `Persist failed: ${err.message}`);
-    }
-  }
-
-  /**
-   * Persist L5 enrichment (WhatLLM benchmark source) back to discovered_models.
-   * Called after enrichCandidates() to make source visible in scoring UI.
-   */
-  persistEnrichment(entries) {
-    if (!this._db || !entries?.length) return;
-    try {
-      const stmt = this._db.prepare(`
-        UPDATE discovered_models SET
-          benchmarks_json = ?, benchmark_confidence = ?, benchmark_source = ?
-        WHERE name = ?`);
-      const tx = this._db.transaction(() => {
-        for (const e of entries) {
-          stmt.run(
-            e.benchmarks ? JSON.stringify(e.benchmarks) : null,
-            e.benchmarkConfidence,
-            e.benchmarkSource || 'whatllm',
-            e.name
-          );
-        }
-      });
-      tx();
-    } catch (err) {
-      logger.warn('OnlineDiscovery', `Enrichment persist failed: ${err.message}`);
     }
   }
 
@@ -624,12 +580,9 @@ export class OnlineDiscovery {
         effectiveVramMb: null,
         contextWindow: r.context_window,
         releaseDate: null,
-        benchmarks: r.benchmarks_json ? JSON.parse(r.benchmarks_json) : null,
-        benchmarkConfidence: r.benchmark_confidence,
         capabilities: r.capabilities_json ? JSON.parse(r.capabilities_json) : null,
         provisional: true,
         source: r.source || 'L4',
-        benchmarkSource: r.benchmark_source || null,
         discoveredAt: r.discovered_at,
         installed: false,
       }));
@@ -666,7 +619,7 @@ export class OnlineDiscovery {
    */
   clearCaches() {
     this._cache.clear();
-    this._scalingModels = null;
+    this._familyMetadata = null;
     this._catalogNames = null;
   }
 }

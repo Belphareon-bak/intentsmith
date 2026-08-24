@@ -1,19 +1,8 @@
 // Model Family Extensions — rozpoznání rodin, které základní parser nezná
 // ══════════════════════════════════════════════════════════════════════════════
 //
-// Proč samostatný modul a ne úprava `model-profiles.js`:
-//
-// `model-profiles.js` je připnutý bajtovým hashem v
-// `model-failover-proof-policy.js` (`EXPECTED_SOURCE_PINS.modelProfiles`) jako
-// revidovaná autorita pro kontrakt rolí a validačních sad.  Pin je fail-closed
-// právě proto, aby se ten kontrakt nemohl změnit bez review — a platí na celý
-// soubor, takže i čistě aditivní zásah do tabulky rodin by ho shodil.
-//
-// Rozpoznání rodiny modelu ale žádnou autoritou nad rolemi není.  Patří sem,
-// mimo pin, a `model-profiles.js` zůstává bajtově nedotčený.
-//
-// Kdyby se někdy tabulka rodin měla vrátit zpět do profilů, je to operátorské
-// rozhodnutí spojené s přepočtem pinu, ne úklid v rámci běžné práce.
+// Rozpoznání rodiny modelu není autoritou nad rolemi ani evaluacemi.
+// Zůstává proto oddělené od role profilů a exact-contract evaluation plans.
 //
 // ══════════════════════════════════════════════════════════════════════════════
 

@@ -45,6 +45,23 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const FIXTURE_PATH = path.join(HERE, 'code-suite-tasks.json');
 export const CODE_TASK_CONTRACT_VERSION = 'code-task-v2';
 
+export function usage() {
+  return [
+    'Usage: node src/eval/build-code-suite.js [options]',
+    '',
+    '  --append                    preserve verified supply and append candidates',
+    '  --count N                   requested verified task count (default 24)',
+    '  --limit N                   maximum history candidates (default 1500)',
+    '  --max-function-lines N      maximum task source span (default 120)',
+    '  --max-diff-lines N          maximum candidate diff size (default 60)',
+    '  --max-requirements N        maximum derived requirements',
+    '  --test-timeout N            verification timeout in milliseconds',
+    '  --multi-source              allow multiple source files per commit',
+    '  --recover-hash HASH[,HASH]  require selected historical fixes',
+    '  --help                      print this text without touching the fixture',
+  ].join('\n');
+}
+
 function digest(value) {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
@@ -266,6 +283,10 @@ export function buildSuite(repo, opts = {}) {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
+  if (process.argv.includes('--help')) {
+    console.log(usage());
+    process.exit(0);
+  }
   const arg = (name, dflt) => {
     const i = process.argv.indexOf(name);
     return i > -1 ? Number(process.argv[i + 1]) : dflt;
@@ -325,5 +346,5 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToP
 
 export default {
   buildSuite, FIXTURE_PATH, CODE_TASK_CONTRACT_VERSION,
-  taskFingerprint, preserveCalibration, reconcileVerifiedTaskSupply,
+  taskFingerprint, preserveCalibration, reconcileVerifiedTaskSupply, usage,
 };

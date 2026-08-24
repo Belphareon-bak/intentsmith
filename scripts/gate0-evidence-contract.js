@@ -10,8 +10,8 @@ import { isDeepStrictEqual } from 'node:util';
 export const GATE0_EVIDENCE_SCHEMA_VERSION = 1;
 export const GATE0_EVIDENCE_MANIFEST_TYPE =
   'intentsmith.gate0-candidate-evidence';
-export const GATE0_OFFLINE_COUNT = 173;
-export const GATE0_DATABASE_COUNT = 26;
+export const GATE0_OFFLINE_COUNT = 191;
+export const GATE0_DATABASE_COUNT = 36;
 export const GATE0_DETERMINISTIC_COUNT =
   GATE0_OFFLINE_COUNT + GATE0_DATABASE_COUNT;
 export const GATE0_PILOT_SUITE_ID =

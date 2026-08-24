@@ -11,13 +11,13 @@ The orchestrator is locked to:
 - dependency install: `npm ci`, then the hash-locked isolated PDF runtime;
 - concurrency: `1`.
 
-The canonical registry currently contains 350 runnable programs. This Gate 0
-orchestrator selects exactly the 173 `offline` and 26 `database` entries. The
-remaining 36 `server`, 82 `model`, 18 `soak`, and 15 `manual` programs are not
+The canonical registry currently contains 384 runnable programs. This Gate 0
+orchestrator selects exactly the 191 `offline` and 36 `database` entries. The
+remaining 38 `server`, 84 `model`, 19 `soak`, and 16 `manual` programs are not
 silently counted as passing. The reviewed parsed-registry serialization
 fingerprint uses `sha256-json-stringify-v1` (SHA-256 over
 `JSON.stringify(JSON.parse(bytes))`) and is
-`21992f9fcc1625c14baa0a7d53771a88e4f704e97e4c276f4d4b8fd9ea08cd73`;
+`a2c4d29e6bcc09bea6fc3baca03c339bbb79a662b0b1a2f6dbebce9116948fd3`;
 the run fails closed if either that fingerprint or the reviewed profile counts
 change. This is not a byte-level hash: formatting-only JSON whitespace does not
 change it. The candidate commit independently binds the exact registry blob.

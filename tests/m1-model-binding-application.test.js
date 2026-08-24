@@ -44,7 +44,6 @@ import { UpgradeManager } from '../src/upgrade/upgrade-manager.js';
 import { createSystemRoutes } from '../src/routes/system.js';
 import {
   preHandle,
-  setModelBindingApplication,
   setModelRegistry,
   setUpgradeManager,
 } from '../src/chat/handlers/pre-handler.js';
@@ -416,7 +415,6 @@ async function withFixture(callback, options = {}) {
       modelUseAuthority: useAuthority,
     });
   } finally {
-    setModelBindingApplication(null);
     restoreBindings();
     db.close();
   }
@@ -611,13 +609,8 @@ await testAsync('binding cutover re-resolves and reserves previous plus target t
   });
 });
 
-await testAsync('non-authoritative in-memory history cannot tear a committed runtime finalize', async () => {
-  await withFixture(async ({ db, repository, manager, application }) => {
-    let historyCalls = 0;
-    manager.recordUpgrade = () => {
-      historyCalls++;
-      throw new Error('fixture in-memory history failure');
-    };
+await testAsync('durable history survives the runtime finalize path without a second writer', async () => {
+  await withFixture(async ({ db, repository, application }) => {
     const result = await application.applyManualBinding({
       role: 'CHAT',
       targetModel: 'fixture-target',
@@ -630,7 +623,6 @@ await testAsync('non-authoritative in-memory history cannot tear a committed run
     );
     assertEqual(count(db, 'model_binding_runtime_finalize_receipts'), 1);
     assertEqual(count(db, 'upgrade_history'), 1);
-    assertEqual(historyCalls, 0);
   });
 });
 
@@ -1431,189 +1423,7 @@ await testAsync('apply commits runtime and audit before exact verification can c
   });
 });
 
-await testAsync('commit layer approves one matching proposal and expires the rest', async () => {
-  await withFixture(async ({ db, application }) => {
-    const insert = db.prepare(`
-      INSERT INTO upgrade_proposals (
-        role, current_model, candidate_model, score, status, detected_at
-      ) VALUES ('CHAT', 'fixture-base', ?, ?, 'pending', ?)
-    `);
-    insert.run('fixture-target', 80, '2026-08-09 01:00:00');
-    insert.run('fixture-target:latest', 90, '2026-08-09 02:00:00');
-    insert.run('fixture-other', 95, '2026-08-09 03:00:00');
-
-    await application.applyManualBinding({
-      role: 'CHAT',
-      targetModel: 'fixture-target',
-    });
-    await application.awaitBackgroundWork();
-    const rows = db.prepare(`
-      SELECT candidate_model AS model, status
-      FROM upgrade_proposals
-      ORDER BY candidate_model
-    `).all();
-    assertEqual(rows.filter(row => row.status === 'approved').length, 1);
-    assertEqual(rows.find(row => row.status === 'approved').model, 'fixture-target:latest');
-    assertEqual(rows.filter(row => row.status === 'expired').length, 2);
-  });
-});
-
-await testAsync('proposal resolution failure is repairable without replaying provider or runtime', async () => {
-  let failResolution = true;
-  await withFixture(async ({ db, repository, manager, provider, events, application }) => {
-    db.prepare(`
-      INSERT INTO upgrade_proposals (
-        role, current_model, candidate_model, score, status, detected_at
-      ) VALUES ('CHAT', 'fixture-base', 'fixture-target', 90, 'pending', ?)
-    `).run('2026-08-09 04:00:00');
-
-    const first = await application.applyManualBinding({
-      role: 'CHAT',
-      targetModel: 'fixture-target',
-    });
-    assertEqual(first.outcome, 'APPLIED_PROPOSAL_REPAIR_PENDING');
-    assertEqual(first.proposalResolutionStatus, 'REPAIR_PENDING');
-    assertEqual(first.warningCode, 'MODEL_BINDING_PROPOSAL_RESOLUTION_FAILED');
-    assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-target');
-    assertEqual(db.prepare(`SELECT status FROM upgrade_proposals`).get().status, 'pending');
-    assertEqual(events.filter(event => event.action === 'model_changed').length, 1);
-    assertEqual(repository.getBindingApplicationState(first.operationId).notificationStatus, 'SUCCEEDED');
-    const resolveCalls = provider.calls.resolve;
-
-    const replay = await application.applyManualBinding({
-      role: 'CHAT',
-      targetModel: 'fixture-target',
-    });
-    await application.awaitBackgroundWork();
-
-    assertEqual(replay.outcome, 'POST_COMMIT_REPAIRED');
-    assertEqual(db.prepare(`SELECT status FROM upgrade_proposals`).get().status, 'approved');
-    assertEqual(provider.calls.resolve, resolveCalls, 'Repair must not revisit the provider');
-    assertEqual(count(db, 'upgrade_history'), 1);
-    assertEqual(events.filter(event => event.action === 'model_changed').length, 1);
-    assertEqual(repository.getBindingApplicationState(replay.operationId).notificationStatus, 'SUCCEEDED');
-  }, {
-    runtimeFactory: runtime => Object.freeze({
-      ...runtime,
-      resolvePendingProposals(role, modelName) {
-        if (failResolution) {
-          failResolution = false;
-          throw new Error('fixture proposal transaction failed');
-        }
-        return runtime.resolvePendingProposals(role, modelName);
-      },
-    }),
-  });
-});
-
-await testAsync('startup proposal repair failure never fabricates a runtime failure', async () => {
-  let initialProposalFailure = true;
-  await withFixture(async ({ db, repository, provider, application }) => {
-    db.prepare(`
-      INSERT INTO upgrade_proposals (
-        role, current_model, candidate_model, score, status, detected_at
-      ) VALUES ('CHAT', 'fixture-base', 'fixture-target', 90, 'pending', ?)
-    `).run('2026-08-09 04:30:00');
-    const first = await application.applyManualBinding({
-      role: 'CHAT',
-      targetModel: 'fixture-target',
-    });
-    assertEqual(first.outcome, 'APPLIED_PROPOSAL_REPAIR_PENDING');
-    const operation = latestOperation(repository);
-    assertEqual(
-      repository.getBindingApplicationState(operation.operationId).runtimeStatus,
-      'APPLIED',
-    );
-
-    config.models.CHAT = 'fixture-base';
-    const restartManager = new UpgradeManager();
-    restartManager.setDb(db);
-    const restartRuntime = restartManager.createBindingRuntimePort();
-    let restartProposalFailure = true;
-    const restartApplication = createModelBindingApplication({
-      repository,
-      runtime: Object.freeze({
-        ...restartRuntime,
-        resolvePendingProposals(role, modelName, operationKind) {
-          if (restartProposalFailure) {
-            restartProposalFailure = false;
-            throw new Error('fixture startup proposal repair unavailable');
-          }
-          return restartRuntime.resolvePendingProposals(role, modelName, operationKind);
-        },
-      }),
-      provider,
-      publishControl: () => ({ accepted: true }),
-      verificationAttempts: 1,
-      delay: async () => {},
-    });
-
-    const restored = await restartApplication.rehydrateBindings();
-    assertEqual(restored.failed.length, 0);
-    assertEqual(restored.restored, 1);
-    assertEqual(restored.warnings.length, 1);
-    assertEqual(restored.warnings[0].code, 'MODEL_BINDING_PROPOSAL_RESOLUTION_FAILED');
-    assertEqual(restartManager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-target');
-    let state = repository.getBindingApplicationState(operation.operationId);
-    assertEqual(
-      state.attempts.filter(attempt => (
-        attempt.kind === 'STARTUP_REHYDRATE' && attempt.outcome === 'FAILED'
-      )).length,
-      0,
-    );
-
-    restartApplication.startBackgroundVerification();
-    await restartApplication.awaitBackgroundWork();
-    state = repository.getBindingApplicationState(operation.operationId);
-    assertEqual(
-      state.attempts.filter(attempt => (
-        attempt.kind === 'STARTUP_REHYDRATE' && attempt.outcome === 'FAILED'
-      )).length,
-      0,
-    );
-    assertEqual(db.prepare('SELECT status FROM upgrade_proposals').get().status, 'approved');
-    assertEqual(state.notificationStatus, 'SUCCEEDED');
-    assertEqual(state.verificationStatus, 'VERIFIED');
-  }, {
-    runtimeFactory: runtime => Object.freeze({
-      ...runtime,
-      resolvePendingProposals(role, modelName, operationKind) {
-        if (initialProposalFailure) {
-          initialProposalFailure = false;
-          throw new Error('fixture initial proposal resolution unavailable');
-        }
-        return runtime.resolvePendingProposals(role, modelName, operationKind);
-      },
-    }),
-  });
-});
-
-await testAsync('rollback expires proposals without inventing an approval', async () => {
-  await withFixture(async ({ db, repository, application }) => {
-    const applied = await application.applyManualBinding({
-      role: 'CHAT',
-      targetModel: 'fixture-target',
-    });
-    await application.awaitBackgroundWork();
-    assertEqual(applied.outcome, 'APPLIED');
-
-    const insert = db.prepare(`
-      INSERT INTO upgrade_proposals (
-        role, current_model, candidate_model, score, status, detected_at
-      ) VALUES ('CHAT', 'fixture-target', ?, ?, 'pending', ?)
-    `);
-    insert.run('fixture-base', 99, '2026-08-09 05:00:00');
-    insert.run('fixture-other', 90, '2026-08-09 04:00:00');
-
-    await application.rollbackManualBinding(currentRollbackIdentity(repository));
-    await application.awaitBackgroundWork();
-    const rows = db.prepare(`SELECT status FROM upgrade_proposals ORDER BY id`).all();
-    assertEqual(rows.filter(row => row.status === 'approved').length, 0);
-    assertEqual(rows.filter(row => row.status === 'expired').length, 2);
-  });
-});
-
-await testAsync('direct authority injection fails before durable or runtime effects', async () => {
+ await testAsync('direct authority injection fails before durable or runtime effects', async () => {
   await withFixture(async ({ db, manager, application, events }) => {
     const error = await captureError(application.applyManualBinding({
       role: 'CHAT',
@@ -2376,7 +2186,7 @@ await testAsync('provider status hides historical absence after a newer installe
   });
 });
 
-await testAsync('same-target acceptance is durable, resolves proposals and supersedes stale provider status', async () => {
+await testAsync('same-target acceptance is durable and supersedes stale provider status', async () => {
   await withExpiringProviderFixture(async ({
     db, repository, provider, events, application, expireProviderClaim,
   }) => {
@@ -2403,12 +2213,6 @@ await testAsync('same-target acceptance is durable, resolves proposals and super
       application.getBindingStatus({ role: 'CHAT' }).providerOperationId,
       absent.operation.operationId,
     );
-    db.prepare(`
-      INSERT INTO upgrade_proposals (
-        role, current_model, candidate_model, score, status, detected_at
-      ) VALUES ('CHAT', 'fixture-base', 'fixture-base', 90, 'pending', ?)
-    `).run('2026-08-09 05:00:00');
-
     const started = await application.beginManualBinding({
       role: 'CHAT',
       targetModel: 'fixture-base',
@@ -2421,10 +2225,8 @@ await testAsync('same-target acceptance is durable, resolves proposals and super
     assertEqual(applied.changed, false);
     assertEqual(applied.from, 'fixture-base');
     assertEqual(applied.to, 'fixture-base');
-    assertEqual(applied.proposalResolutionStatus, 'SUCCEEDED');
     assertEqual(count(db, 'model_binding_operations'), 0);
     assertEqual(count(db, 'model_binding_user_noop_receipts'), 1);
-    assertEqual(db.prepare('SELECT status FROM upgrade_proposals').get().status, 'approved');
     assertEqual(application.getBindingStatus({ role: 'CHAT' }).providerOperationId, null);
     assertEqual(events.filter(event => event.action === 'model_changed').length, 0);
   });
@@ -3848,100 +3650,7 @@ await testAsync('provider terminal resumes the accepted binding after a real DB 
   }
 });
 
-await testAsync('restart preserves post-commit truth and repairs a pending proposal', async () => {
-  const directory = mkdtempSync(path.join(
-    process.env.INTENTSMITH_TEST_ARTIFACT_DIR,
-    'binding-application-post-commit-repair-',
-  ));
-  const databasePath = path.join(directory, 'binding.sqlite');
-  const provider = new FakeExactProvider();
-  let firstDb;
-  let secondDb;
-  try {
-    config.models.CHAT = 'fixture-base';
-    firstDb = new Database(databasePath);
-    await runMigrations(firstDb);
-    const firstRepository = createModelFailoverRepository(firstDb);
-    const firstManager = new UpgradeManager();
-    firstManager.setDb(firstDb);
-    const firstRuntime = firstManager.createBindingRuntimePort();
-    let failResolution = true;
-    const firstApplication = createModelBindingApplication({
-      repository: firstRepository,
-      runtime: Object.freeze({
-        ...firstRuntime,
-        resolvePendingProposals(role, modelName, operationKind) {
-          if (failResolution) {
-            failResolution = false;
-            throw new Error('fixture crash before proposal resolution');
-          }
-          return firstRuntime.resolvePendingProposals(role, modelName, operationKind);
-        },
-      }),
-      provider,
-      publishControl: () => ({ accepted: true }),
-      verificationAttempts: 1,
-      delay: async () => {},
-    });
-    firstDb.prepare(`
-      INSERT INTO upgrade_proposals (
-        role, current_model, candidate_model, score, status, detected_at
-      ) VALUES ('CHAT', 'fixture-base', 'fixture-target', 90, 'pending', ?)
-    `).run('2026-08-09 06:00:00');
-    const applied = await firstApplication.applyManualBinding({
-      role: 'CHAT',
-      targetModel: 'fixture-target',
-    });
-    assertEqual(applied.outcome, 'APPLIED_PROPOSAL_REPAIR_PENDING');
-    const operation = latestOperation(firstRepository);
-    const beforeRestart = firstRepository.getBindingApplicationState(operation.operationId);
-    assertEqual(beforeRestart.runtimeStatus, 'APPLIED');
-    assertEqual(beforeRestart.notificationStatus, 'SUCCEEDED');
-    assertEqual(firstDb.prepare(`SELECT status FROM upgrade_proposals`).get().status, 'pending');
-    firstDb.close();
-    firstDb = null;
-
-    config.models.CHAT = 'fixture-base';
-    secondDb = new Database(databasePath);
-    const secondRepository = createModelFailoverRepository(secondDb);
-    const secondManager = new UpgradeManager();
-    secondManager.setDb(secondDb);
-    const notifications = [];
-    const secondApplication = createModelBindingApplication({
-      repository: secondRepository,
-      runtime: secondManager.createBindingRuntimePort(),
-      provider,
-      publishControl: payload => {
-        notifications.push(payload);
-        return { accepted: true };
-      },
-      verificationAttempts: 1,
-      delay: async () => {},
-    });
-    const restored = await secondApplication.rehydrateBindings();
-    assertEqual(restored.failed.length, 0);
-    assertEqual(secondDb.prepare(`SELECT status FROM upgrade_proposals`).get().status, 'approved');
-    assertEqual(
-      secondRepository.getBindingApplicationState(operation.operationId).notificationStatus,
-      'SUCCEEDED',
-    );
-    secondApplication.startBackgroundVerification();
-    await secondApplication.awaitBackgroundWork();
-    assertEqual(
-      secondRepository.getBindingApplicationState(operation.operationId).notificationStatus,
-      'SUCCEEDED',
-    );
-    assertEqual(notifications.filter(event => event.action === 'model_changed').length, 0);
-    assertEqual(secondManager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-target');
-  } finally {
-    if (firstDb?.open) firstDb.close();
-    if (secondDb?.open) secondDb.close();
-    restoreBindings();
-    rmSync(directory, { recursive: true, force: false });
-  }
-});
-
-await testAsync('manual binding survives a real DB close and exact startup rehydrate', async () => {
+ await testAsync('manual binding survives a real DB close and exact startup rehydrate', async () => {
   const directory = mkdtempSync(path.join(
     process.env.INTENTSMITH_TEST_ARTIFACT_DIR,
     'binding-application-restart-',
@@ -4393,7 +4102,7 @@ await testAsync('legacy override rehydrates without invented operation, digest o
   });
 });
 
-await testAsync('HTTP and chat strip caller authority and use the same application port', async () => {
+await testAsync('HTTP strips caller authority before the binding application port', async () => {
   await withFixture(async ({ db }) => {
     const calls = [];
     const applyStarted = deferred();
@@ -4409,17 +4118,6 @@ await testAsync('HTTP and chat strip caller authority and use the same applicati
           configVersion: 1,
         }));
         return { accepted: true, phase: 'BINDING_OPERATION', completion };
-      },
-      async applyManualBinding(input) {
-        calls.push({ source: 'application-complete', input });
-        return {
-          ok: true,
-          role: input.role,
-          from: 'fixture-base',
-          to: input.targetModel,
-          verified: false,
-          configVersion: 1,
-        };
       },
       async rollbackManualBinding() {
         throw new Error('not used');
@@ -4459,27 +4157,7 @@ await testAsync('HTTP and chat strip caller authority and use the same applicati
     }));
     applyStarted.resolve();
     await Promise.resolve();
-    setModelBindingApplication(fakeApplication);
-    const sessionState = {
-      _upgradeNotified: true,
-      _pendingUpgrades: [{
-        role: 'CHAT',
-        currentModel: 'fixture-base',
-        candidateModel: 'fixture-target',
-        score: 99,
-        actor: 'system:forged',
-      }],
-    };
-    const chat = await preHandle('ano', {
-      sessionState,
-      sessionId: 'fixture-session',
-      conversationId: 'fixture-conversation',
-    }, 'conversation');
-    assertEqual(chat.handled, true);
-    assertEqual(JSON.stringify(calls[1].input), JSON.stringify({
-      role: 'CHAT',
-      targetModel: 'fixture-target',
-    }));
+    assertEqual(calls.length, 1);
   });
 });
 
@@ -4534,7 +4212,7 @@ await testAsync('HTTP rollback rejects inherited or non-exact model roles before
   await assertHttpModelRouteRejectsInvalidRoles('POST /api/system/upgrades/rollback');
 });
 
-await testAsync('HTTP and chat present same-target acceptance without a false change', async () => {
+await testAsync('HTTP presents same-target acceptance without a false change', async () => {
   await withFixture(async ({ db, events, application }) => {
     const responses = [];
     const routes = createSystemRoutes({
@@ -4552,23 +4230,7 @@ await testAsync('HTTP and chat present same-target acceptance without a false ch
       'HTTP same-target acceptance did not persist its no-op receipt',
     );
 
-    setModelBindingApplication(application);
-    const chat = await preHandle('ano', {
-      sessionState: {
-        _upgradeNotified: true,
-        _pendingUpgrades: [{
-          role: 'CHAT',
-          currentModel: 'fixture-base',
-          candidateModel: 'fixture-base',
-          score: 99,
-        }],
-      },
-      sessionId: 'fixture-session',
-      conversationId: 'fixture-conversation',
-    }, 'conversation');
-    assertEqual(chat.handled, true);
-    assert(/Modely potvrzeny beze zmeny/.test(chat.response.content));
-    assertEqual(count(db, 'model_binding_user_noop_receipts'), 2);
+    assertEqual(count(db, 'model_binding_user_noop_receipts'), 1);
     assertEqual(count(db, 'model_binding_operations'), 0);
     assertEqual(events.filter(event => event.action === 'model_changed').length, 0);
   });
@@ -4703,100 +4365,7 @@ await testAsync('HTTP maps binding authority conflicts to 409 instead of false 5
   });
 });
 
-await testAsync('HTTP and chat adapters have equal durable pull/apply truth', async () => {
-  const runJourney = source => withFixture(async ({
-    db,
-    repository,
-    manager,
-    provider,
-    events,
-    application,
-  }) => {
-    const target = model('fixture-pulled', DIGEST_C);
-    provider.pullTargets.set(target.canonicalName, target);
-    let httpRoutes = null;
-    const responses = [];
-    let requestBody = {
-      role: 'CHAT',
-      targetModel: target.name,
-      actor: 'system:forged',
-      digestSha256: DIGEST_A,
-    };
-
-    if (source === 'HTTP') {
-      httpRoutes = createSystemRoutes({
-        db: { db },
-        modelRegistry: null,
-        modelBindingApplication: application,
-        parseBody: async () => requestBody,
-        sendJSON: (_res, status, body) => responses.push({ status, body }),
-      });
-      await httpRoutes['POST /api/system/upgrades/apply']({}, {});
-      assertEqual(responses[0].status, 200);
-      await waitUntil(
-        () => events.some(event => event.action === 'model_changed'),
-        'HTTP durable start did not reach the shared commit layer',
-      );
-    } else {
-      setModelBindingApplication(application);
-      const chat = await preHandle('ano', {
-        sessionState: {
-          _upgradeNotified: true,
-          _pendingUpgrades: [{
-            role: 'CHAT',
-            currentModel: 'fixture-base',
-            candidateModel: target.name,
-            score: 99,
-            actor: 'system:forged',
-          }],
-        },
-        sessionId: 'fixture-session',
-        conversationId: 'fixture-conversation',
-      }, 'conversation');
-      assertEqual(chat.handled, true);
-    }
-    await application.awaitBackgroundWork();
-
-    const operation = latestOperation(repository);
-    const state = repository.getBindingApplicationState(operation.operationId);
-    const shape = {
-      kind: operation.kind,
-      desiredSource: repository.getDesired('CHAT').source,
-      runtimeModel: manager.createBindingRuntimePort().snapshot('CHAT').modelName,
-      runtimeStatus: state.runtimeStatus,
-      verificationStatus: state.verificationStatus,
-      notificationStatus: state.notificationStatus,
-      history: count(db, 'upgrade_history'),
-      providerPulls: provider.calls.pull,
-      providerAudit: count(db, 'model_binding_provider_attempts'),
-      progress: events.filter(event => event.action === 'model_pull_progress').length > 0,
-    };
-
-    if (source === 'HTTP') {
-      const responseCount = responses.length;
-      // Decision 022/A: the HTTP recovery surface carries the exact operation
-      // identity; {role} alone is no longer an actionable rollback.
-      requestBody = {
-        role: 'CHAT',
-        ...currentRollbackIdentity(repository),
-      };
-      await httpRoutes['POST /api/system/upgrades/rollback']({}, {});
-      await application.awaitBackgroundWork();
-      assertEqual(responses[responseCount].status, 200);
-      assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-base');
-      assertEqual(count(db, 'model_binding_operations'), 2);
-
-      assert(application.getBindingStatus({ role: 'CHAT' }).verificationStatus !== null);
-    }
-    return shape;
-  });
-
-  const http = await runJourney('HTTP');
-  const chat = await runJourney('CHAT');
-  assertEqual(JSON.stringify(http), JSON.stringify(chat));
-});
-
-await testAsync('ModelRegistry delegates assignment without forwarding legacy authority options', async () => {
+ await testAsync('ModelRegistry delegates assignment without forwarding legacy authority options', async () => {
   const calls = [];
   const registry = new ModelRegistry();
   registry.init({
@@ -4808,7 +4377,6 @@ await testAsync('ModelRegistry delegates assignment without forwarding legacy au
         return { ok: true, role: input.role, to: input.targetModel };
       },
     },
-    validationRunner: null,
     broadcast: () => {},
   });
   const result = await registry.assignModel('CHAT', 'fixture-target', {
@@ -5202,7 +4770,6 @@ await testAsync('real post-apply chat cleanup parks the protected one-step rollb
       db,
       upgradeManager: manager,
       modelBindingApplication: application,
-      validationRunner: null,
       broadcast: () => {},
     });
     registry.getInstalled = async () => {
@@ -5252,16 +4819,8 @@ await testAsync('source call graph has no production reference to legacy binding
     'rollbackUpgrade',
     'loadPersistedOverrides',
     '_backgroundVerify',
+    'recordUpgrade',
   ];
-  const allowedLegacyOccurrences = new Set([
-    'upgrade/upgrade-manager.js:loadPersistedOverrides() {',
-    'upgrade/upgrade-manager.js:async applyUpgrade(role, targetModel, opts = {}) {',
-    "upgrade/upgrade-manager.js:this._requireLegacyBindingWriterAllowed('applyUpgrade');",
-    'upgrade/upgrade-manager.js:async rollbackUpgrade(role, opts = {}) {',
-    "upgrade/upgrade-manager.js:this._requireLegacyBindingWriterAllowed('rollbackUpgrade');",
-    'upgrade/upgrade-manager.js:async _backgroundVerify(role, targetModel, previousModel, onFail) {',
-    'upgrade/upgrade-manager.js:* Called after applyUpgrade to clean up proposals that are now obsolete.',
-  ]);
   const violations = [];
   const modelChangedOwners = [];
   for (const file of files) {
@@ -5269,7 +4828,7 @@ await testAsync('source call graph has no production reference to legacy binding
     for (const line of source.split('\n')) {
       if (!forbidden.some(method => line.includes(method))) continue;
       const occurrence = `${path.relative(root, file)}:${line.trim()}`;
-      if (!allowedLegacyOccurrences.has(occurrence)) violations.push(occurrence);
+      violations.push(occurrence);
     }
     if (/action\s*:\s*['"]model_changed['"]/.test(source)) {
       modelChangedOwners.push(path.relative(root, file));

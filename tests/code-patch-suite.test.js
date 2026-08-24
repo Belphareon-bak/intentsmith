@@ -1,65 +1,31 @@
-// tests/code-patch-suite.test.js — zapojení sady bez zásahu do připnutého souboru
-// ══════════════════════════════════════════════════════════════════════════════
-// `src/upgrade/validation-suites.js` je bajtově připnutý ve fail-closed proof
-// policy. Sada `code_patch` se proto registruje zvenčí. Tenhle soubor hlídá,
-// že to tak zůstane — porušení se jinak projeví až pádem proof policy.
+// tests/code-patch-suite.test.js — executable CODE evaluation suite
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { suite, test, testAsync, assert, assertEqual, summary } from './harness.js';
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 
-import { SUITES } from '../src/upgrade/validation-suites.js';
 import { comparePair } from '../src/upgrade/pairwise-trial.js';
-import { codePatchSuite, CodePatchValidationRunner, MODEL_OPTIONS } from '../src/eval/code-patch-suite.js';
+import { codePatchSuite, CodePatchEvaluationRunner, MODEL_OPTIONS } from '../src/eval/code-patch-suite.js';
 import {
   incrementalBuildSeed, preserveCalibration, reconcileVerifiedTaskSupply,
 } from '../src/eval/build-code-suite.js';
 import {
   calibrate, rebaseCalibrationPanel, buildPanelSummaries,
 } from '../src/eval/calibrate-code-suite.js';
-import {
-  MODEL_FAILOVER_PROOF_POLICY_SOURCE_PINS,
-  getModelFailoverProofPolicy,
-} from '../src/upgrade/model-failover-proof-policy.js';
+import { createRoleEvaluationPlans } from '../src/eval/role-evaluation-plan.js';
 
 suite('code-patch-suite');
 
-// Regrese 2026-08-21: první verze sady zapsala registraci přímo do
-// `validation-suites.js` a shodila celou policy na SOURCE_DRIFT.
-test('připnutý validation-suites.js zůstává nedotčený', () => {
-  const pin = MODEL_FAILOVER_PROOF_POLICY_SOURCE_PINS.validationSuites;
-  const bytes = readFileSync(new URL('../src/upgrade/validation-suites.js', import.meta.url));
-  assertEqual(bytes.length, pin.byteLength, 'délka připnutého souboru se změnila');
-  assertEqual(createHash('sha256').update(bytes).digest('hex'), pin.sha256,
-    'obsah připnutého souboru se změnil — proof policy spadne na SOURCE_DRIFT');
-});
-
-test('proof policy projde i se zaregistrovanou sadou', () => {
-  const policy = getModelFailoverProofPolicy();
-  assert(policy, 'policy nevrátila nic');
-});
-
-// Registr hlídá policy: `Object.keys(SUITES)` musí přesně odpovídat pěti
-// sadám, takže se do něj `code_patch` zapsat nesmí ani zvenčí.
-test('sada se do registru SUITES nezapisuje', () => {
-  assertEqual(SUITES.code_patch, undefined, 'code_patch je v registru — policy spadne');
-  assertEqual(Object.keys(SUITES).length, 5);
-});
-
-// Vazba role se nepřebírá — přepnutí CODE je ruční rozhodnutí operátora.
-test('sada nepřebírá vazbu žádné role', () => {
-  assertEqual(codePatchSuite.roles.length, 0);
-});
-
-test('staré sady zůstávají beze změny', () => {
-  for (const name of ['reasoning', 'code', 'chat', 'vision', 'review']) {
-    assert(SUITES[name], `chybí sada ${name}`);
-  }
+test('CODE role plan nese exact current code_patch suite', () => {
+  const plan = createRoleEvaluationPlans({ repeats: 1 }).CODE;
+  assertEqual(plan.suiteName, 'code_patch');
+  assert(plan.suite === codePatchSuite, 'plan must carry the exact suite object');
+  assert(/^[a-f0-9]{64}$/.test(plan.suiteContractSha256), 'missing suite contract SHA');
 });
 
 // Souboj se neobchází: sada se do `comparePair` předá explicitně.
-await testAsync('comparePair sadu přijme mimo registr', async () => {
+await testAsync('comparePair přijme explicitní current suite', async () => {
   const fake = {
     runSuite: async (name, model) => ({
       suite: name, model, tests: [{ name: 'patch_x', score: model === 'a' ? 1 : 0 }],
@@ -73,9 +39,11 @@ await testAsync('comparePair sadu přijme mimo registr', async () => {
   assertEqual(cmp.candidateWins, 1);
 });
 
-await testAsync('bez předané sady souboj mimo registr selže', async () => {
+await testAsync('runner bez známé sady selže', async () => {
   let threw = false;
-  try { await comparePair({}, 'code_patch', 'a', 'b', { repeats: 1 }); } catch { threw = true; }
+  try {
+    await comparePair(new CodePatchEvaluationRunner(), 'missing', 'a', 'b', { repeats: 1 });
+  } catch { threw = true; }
   assert(threw, 'neznámá sada měla skončit chybou');
 });
 
@@ -83,7 +51,7 @@ await testAsync('bez předané sady souboj mimo registr selže', async () => {
 // vadná funkce se do nich nevejde a uříznuté generování by se počítalo jako
 // selhání modelu.
 await testAsync('runner posílá vlastní parametry volání', async () => {
-  const runner = new CodePatchValidationRunner('http://127.0.0.1:1');
+  const runner = new CodePatchEvaluationRunner('http://127.0.0.1:1');
   let seen = null;
   runner._callModel = async (model, messages, options) => {
     seen = options;
@@ -101,7 +69,7 @@ await testAsync('runner posílá vlastní parametry volání', async () => {
 });
 
 await testAsync('chyba volání dá nulu a nespadne', async () => {
-  const runner = new CodePatchValidationRunner('http://127.0.0.1:1');
+  const runner = new CodePatchEvaluationRunner('http://127.0.0.1:1');
   runner._callModel = async () => ({ content: '', error: 'timeout', durationMs: 5 });
   const r = await runner._runTest({
     name: 'x', options: {}, prompt: () => ({ text: 'z' }), grade: () => ({ passed: true, score: 1 }),
@@ -114,6 +82,23 @@ test('v běžné sadě jsou jen kalibrované aktivní úlohy', () => {
   const fixture = JSON.parse(readFileSync(new URL('../src/eval/code-suite-tasks.json', import.meta.url), 'utf8'));
   const active = fixture.tasks.filter(t => t.status === 'active');
   assertEqual(codePatchSuite.tests.length, active.length);
+});
+
+test('fixture nenese úlohy odstraněné paralelní scoring cesty', () => {
+  const fixture = JSON.parse(readFileSync(new URL('../src/eval/code-suite-tasks.json', import.meta.url), 'utf8'));
+  const deprecated = /model-ranker|validation-suites|benchmark-estimator|empirical-scorer|metrics-collector/;
+  assert(!deprecated.test(JSON.stringify(fixture.tasks)), 'deprecated scoring task remained in fixture');
+});
+
+test('--help je read-only a fixture nepřegeneruje', () => {
+  const fixtureUrl = new URL('../src/eval/code-suite-tasks.json', import.meta.url);
+  const before = readFileSync(fixtureUrl, 'utf8');
+  const output = execFileSync(process.execPath, ['src/eval/build-code-suite.js', '--help'], {
+    cwd: process.cwd(), encoding: 'utf8',
+  });
+  const after = readFileSync(fixtureUrl, 'utf8');
+  assert(output.includes('Usage:'), 'help output missing');
+  assertEqual(after, before);
 });
 
 test('rebuild zachová kalibraci jen při totožném úplném fingerprintu', () => {

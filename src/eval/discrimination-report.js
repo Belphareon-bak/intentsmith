@@ -34,7 +34,7 @@ import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 // Sada se nepředává přes registr `SUITES` — ten je pod dohledem fail-closed
 // proof policy a šestá položka by ho shodila.  Viz hlavička `code-patch-suite.js`.
-import { codePatchSuite, CodePatchValidationRunner } from './code-patch-suite.js';
+import { codePatchSuite, CodePatchEvaluationRunner } from './code-patch-suite.js';
 import { comparePair, createSuiteCache, TASK_MARGIN_EPSILON } from '../upgrade/pairwise-trial.js';
 import { holdGpuEvaluationLock } from '../upgrade/gpu-evaluation-lock.js';
 
@@ -69,7 +69,7 @@ export function classifyTask(values, noise) {
  * @returns {Promise<Object>} matice úloha × model, zařazení úloh a verdikt
  */
 export async function measureDiscrimination(models, opts = {}) {
-  const runner = opts.runner || new CodePatchValidationRunner();
+  const runner = opts.runner || new CodePatchEvaluationRunner();
   const repeats = opts.repeats ?? 3;
   const cache = createSuiteCache();
   const log = opts.log ?? (() => {});
@@ -125,7 +125,7 @@ export async function measureDiscrimination(models, opts = {}) {
  * s exact-task historií; samotný single-model report o rozlišení nerozhoduje.
  */
 export async function measureSingleModel(model, opts = {}) {
-  const runner = opts.runner || new CodePatchValidationRunner();
+  const runner = opts.runner || new CodePatchEvaluationRunner();
   const repeats = opts.repeats ?? 3;
   const cache = createSuiteCache();
   const comparison = await comparePair(runner, SUITE, model, model, {

@@ -11,13 +11,13 @@ const registryPath = path.join(root, 'tests', 'registry.json');
 const write = process.argv.slice(2).includes('--write');
 
 const EXPECTED_PATH_COUNT = 78;
-const EXPECTED_PATH_HASH = '43108129171be799d282df0fc5b7db5d40daefda0bbcebe5cc287f3139b033ff';
+const EXPECTED_PATH_HASH = '54611abfccccc11318da8ebc974e2782f9bf1f9a8a109cd9d1bb57b1fef4e180';
 // Suite 08 validates and stores an HTTPS source definition but never executes
 // it; only suites that actually perform external I/O belong here.
 const EXTERNAL_NETWORK = new Set([10, 51, 206]);
 const OLLAMA_ONLY_SERVER = new Set([14, 16]);
 const MIXED_SERVER_MODEL = new Set();
-const LOCAL_SERVER_ONLY = new Set([56, 60, 63, 80]);
+const LOCAL_SERVER_ONLY = new Set([56, 60, 62, 63, 80]);
 const QWEN_35_27B_DIGEST = '7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e';
 const MODEL_FIXTURE_PARALLELISM = new Map([
   [57, 1],

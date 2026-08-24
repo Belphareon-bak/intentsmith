@@ -3,7 +3,7 @@
 **Version:** v136.1.0
 **Status:** Gate 0 baseline candidate; authoritative verdict is generated in
 [`convergence/STATUS.md`](convergence/STATUS.md)
-**Date:** 2026-07-30
+**Date:** 2026-08-25
 
 > This document describes the *intended* architecture inherited from C3. It is a
 > design reference, not acceptance evidence: 0 of 30 capabilities currently carry
@@ -31,11 +31,11 @@ C.3 is a conversational AI platform combining:
 10. **Execution Engine** — Patch engine (3-tier anchor), error normalizer (14 codes), iterative fix loop, strategy selection, self-critique, scope limiter
 11. **Prompt Pipeline** — Unified structured prompt builder (12 sections, adaptive weighting), KG-based import map, signature cache
 12. **Architecture Governance** — Cross-milestone drift enforcement, API contract tracking, critic/repair agent, regression prediction
-13. **Model Upgrade System** — Curated catalog (55 models), pairwise evaluation, feasibility gate, proposal store, chat-based approval, empirical scoring (Phase 3), L4 online discovery, L5 external benchmarks (whatllm.org)
+13. **Model Platform** — factual candidate discovery, exact-artifact role evaluation, append-only decisions and one manual durable binding boundary
 14. **Task Memory** — Persistent cross-milestone learning, cross-project pattern sharing, decay-based relevance
 15. **Marketplace** — Remote package catalog (skills, expertises, specialists), transactional install/update/uninstall, dependency resolver, mandatory SHA-256 verification, archive security
-16. **Validation Suites** — 5 role-specific test suites (reasoning, code, chat, vision, review), deterministic + partial scoring, direct Ollama calls, 14d TTL, model ranker integration
-17. **Upgrade UX** — Tiered rate limiting (3 tiers), async background model verification, auto-pull on approval, auto-validation prompt, fire-and-forget upgrade routes
+16. **Model Evaluation Authority** — 7 role-specific versioned plans, exact-digest append-only runs/decisions, one API/CLI/Studio reader, fail-closed evidence floors
+17. **Model Operations UX** — factual candidates, current-contract evaluation state, durable manual apply/rollback and provider pull progress
 18. **Security Hardening** — Path traversal guards (workspace, projects, attachments), input sanitization (conversationId, package IDs), mandatory SHA-256 for remote packages
 
 All decisions flow through CRE — LLM is the text generator, never the authority.
@@ -198,19 +198,24 @@ src/                              # ~137,000 lines / 380+ files / 29 directories
 │   ├── feedback-detector.js      #   6 signal types
 │   ├── pattern-tracker.js        #   Cross-conversation learning
 │   └── preferences.js            #   User preference tracking
-├── upgrade/                      # 15 files, ~6,780 LOC — Model Upgrade System (Phase 2 + 3 + L4 + L5 + Validation)
+├── upgrade/                      # Model discovery, evaluation history/decisions and manual binding
 │   ├── model-profiles.js         #   Model capabilities + family definitions
 │   ├── model-discovery.js        #   L1 local + L2 catalog + L3 hints + L4 online + L5 external
-│   ├── model-catalog.js          #   55-model curated catalog with benchmarks
-│   ├── model-ranker.js           #   Pairwise evaluation, per-role scoring, confidence attenuation
-│   ├── proposal-store.js         #   DB-backed proposals (cooldown, dismiss, anti-thrashing)
-│   ├── preference-tracker.js     #   Implicit preferences from user actions
+│   ├── model-catalog.js          #   Curated factual metadata for candidate discovery
+│   ├── candidate-eligibility.js  #   Hard role/capability eligibility; no quality score
 │   ├── registry-client.js        #   Online verification + library page fetch
 │   ├── online-discovery.js       #   L4: HTML tag parsing, provisional entry builder
-│   ├── benchmark-estimator.js    #   Log-space interpolation, VRAM estimation
-│   ├── whatllm-client.js         #   L5: External benchmark enrichment from whatllm.org
-│   ├── validation-suites.js      #   5 role-specific test suites, grading, TTL
-│   └── upgrade-manager.js        #   Full pipeline: feasibility → pairwise → L4 → L5 → store
+│   ├── model-metadata-estimator.js # Factual family/VRAM metadata inheritance
+│   ├── whatllm-client.js         #   L5 discovery-order signal from whatllm.org
+│   ├── model-evaluation-history.js    # append-only exact-artifact runs
+│   ├── model-evaluation-read-model.js # one current-contract reader
+│   ├── model-evaluation-decision-store.js # append-only role decisions
+│   ├── model-binding-application.js # only durable/runtime binding writer
+│   └── upgrade-manager.js        #   Factual discovery, provider pull and runtime port
+├── eval/                         # Versioned role plans, suites and direct Ollama runner
+│   ├── role-evaluation-plan.js   #   role → suite/version/contract/floors
+│   ├── role-quality-suites.js    #   reasoning_v2, chat_v3, review_v2, vision_v2
+│   └── code-patch-suite.js       #   executable hidden-test CODE evaluation
 ├── architect/                    # 13 files, 4,007 LOC — Architecture Intelligence
 │   ├── architecture-policy.js    #   Unified policy, load priority
 │   ├── refactor-agent.js         #   Smell detection → risk-gated plan
@@ -583,93 +588,37 @@ Architecture Intelligence (v100):
   └─ multi-agent.js — 5-role pipeline (planner→builder→architect→critic→debugger)
 ```
 
-### 14. Model Upgrade System (v103 + v118 Phase 2 + v120 Phase 3 + v121.1 L4 + v131 L5)
+### 14. Model Platform (current v136.1 contract)
 
-Five-layer discovery with curated catalog, pairwise evaluation, empirical scoring, online discovery, and external benchmarks.
+Candidate discovery and quality evaluation are deliberately separate:
 
 ```
-Phase 1 (v103): discover → filter → rank → propose → chat approval → pull → apply
-Phase 2 (v118): catalog → discover(L1+L2+L3) → feasibility gate → pairwise evaluation
-  → preference adjust → proposal store (DB) → chat approval → pull → apply
-Phase 3 (v120): + empirical scoring from real execution metrics → blended benchmark+empirical
-L4 (v121.1): + online discovery from ollama.com/library pages → estimated benchmarks → provisional entries
-L5 (v131): + external benchmark enrichment from whatllm.org → real quality scores for L4 provisionals
-
-Discovery:
-  L1: Local (Ollama /api/tags) — always
-  L2: Catalog (55 curated models with benchmarks) — fullCycle (24h ±90min)
-  L3: Family upgrade hints — always
-  L4: Online (ollama.com/library/{family} HTML) — fullCycle, max 3 families/cycle
-  L5: External (whatllm.org qualityIndex) — fullCycle, enriches L4 provisionals
-
-Pairwise Evaluation (v120.2 calibration):
-  scoreModel(benchmark×B + empirical×E + hwFit×0.20 + maturity×0.15 + gen×0.10 + cat×0.13 + speed×0.07 + sizePenalty)
-  B+E = 0.35, blend ratio shifts with sample count (v124: linear interpolation):
-    <10 samples:  B=0.35, E=0.00 (Phase 2 behavior)
-    10-50:        linear interpolation B: 0.25→0.15, E: 0.10→0.20
-    >50:          B=0.15, E=0.20
-  CODE benchmark weights: swebench 0.15, livecodebench 0.40, humaneval 0.30, arena 0.15
-  Category bonus: code+CODE 0.10 (was 0.05). Size floor: CODE params<20B → -0.05.
-  Dominance gate bypassed when empirical delta >0.15 (Phase 3 data overrides heuristic)
-  empiricalScore = patchSuccess×0.45 + checkpointPass×0.35 + efficiency×0.20
-  Hard cap: empirical contribution ≤ 0.25
-
-Metrics Collection (fire-and-forget):
-  execution-loop → recordEvent(patch success, iterations, tokens, duration)
-  lifecycle-build → recordEvent(checkpoint verdict, build completion)
-  Batch buffer (10 events / 5s), outlier filter, recency decay (exp(-days/60)),
-  Bayesian smoothing (prior=0.5, k=5), difficulty normalization, telemetry guard
-
-L4 Online Discovery (v121.1):
-  Fetch ollama.com/library/{family} HTML → parse tags (href links, regex fallback)
-  → estimate benchmarks (log-space interpolation from known family members)
-  → provisional entry (benchmarkConfidence 0.30-0.85, source='L4')
-  → persist to discovered_models DB → merge into discovery as lowest priority
-  VRAM estimation: 620 * params + 420 (Q4_K_M fit)
-  Family normalization: strip hyphens/underscores, lowercase, strip trailing version
-  Family scaling guard: <2 catalog entries → skip interpolation, confidence=0.20
-  Provisional penalty: -0.02 (catalog preferred). Ghost decay: +7d no empirical → extra -0.01
-  Params jump guard: >3× param increase rejected. Capability inheritance guard.
-  Ranking candidate limit: top 8 per role after scoring
-  30-day pruning, 24h cache TTL, rate limit 3 families/cycle
-
-L5 External Benchmark Enrichment (v131):
-  Fetch whatllm.org HTML → parse models (multi-strategy: __NEXT_DATA__, raw JSON, __next_f.push RSC)
-  → strict match to Ollama candidates (exact family + params within 10%)
-  → normalize qualityIndex (0-100 composite from GPQA+AIME+LiveCodeBench+SWE-Bench+MMLU)
-  → apply quantization penalty (Q4_K_M=0.92, Q5_K_M=0.96, Q8_0=0.99, FP16=1.0)
-  → sets all 6 benchmark keys to same adjusted score, benchmarkConfidence → 0.85
-  Only enriches candidates with benchmarkConfidence < 0.85 (preserves catalog data)
-  24h cache + 1h error cooldown. MIN_MODELS=20 sanity guard. Cloud-only models rejected (require params).
-  File: src/upgrade/whatllm-client.js (~330 LOC)
-
-Guards:
-  Drift detection: recent 20 samples < historical × 0.8 → reset to Phase 2 weights
-  Blacklist: patchSuccess < 0.2 after 20+ samples → exclude candidate
-  Confidence: score × min(1, samples/50)
-
-Proposal Lifecycle:
-  pending → approved | rejected (30d cooldown) | dismissed (permanent) | expired (7d)
-  Anti-thrashing: 14d minimum between upgrades per role
-  Invalidation: catalog hash + evaluation version change → re-evaluate
-  Atomic dedup: storeProposal() wrapped in db.transaction() (v124)
-  Auto-cleanup: expireStale(7) at start of each evaluation cycle (v124)
+local/catalog/online metadata → role eligibility → candidate work order
+                                              (no quality verdict)
+exact Ollama artifact + role suite → repeated run → append-only run
+incumbent run + candidate run + policy → append-only decision
+operator command → durable binding application → exact verification
 ```
 
-**Safety:** Never auto-upgrades. Discovery never changes config. Runtime never touches internet. Communication only through proposals in DB.
+External/catalog benchmarks may prioritize which candidate is measured first.
+They never become a current quality score, exclude an otherwise eligible model,
+or authorize a binding. The removed v118-v125 ranker/proposal/preference path has
+no production source, route, UI or active test ledger entry.
 
-**Validation Suites (v123):**
+**Safety:** Hunt never changes a binding. Discovery emits no recommendation.
+Only the manual binding application owns durable/runtime mutation and rollback.
+
+**Model Evaluation Authority (v136.1):**
 ```
-5 suites: reasoning (D1/D2/R1), code (CODE), chat (CHAT), vision (VISION), review (R2)
-Deterministic grading: JSON.parse, regex, keyword matching, diacritics check + partial scoring
-Direct Ollama calls (bypass gateway): temperature 0.1, top_p 0.9, num_predict 512, timeout 30s
-DB: validation_results + validation_suite_scores (migration 034), INSERT OR REPLACE
-TTL 14d, blacklist score < 0.2, vision guard (skip if no vision capability)
-Model ranker: validationScore × 0.05 bonus in scoreModel(), role-specific suite mapping
-API: POST /api/system/models/validate, GET /api/system/models/validation-scores
+7 roles → explicit suite/version/contract SHA + task/discrimination floors
+Direct Ollama runner; every decision task is repeated 3× and compared pairwise
+DB: append-only model_evaluation_runs + model_evaluation_decisions
+Current = exact artifact digest AND current suite contract; no name/TTL fallback
+Read: GET /api/system/models/evaluations or npm run report:model-evaluations
+Activation: separate manual exact-digest binding application; evaluation never auto-binds
 ```
 
-**Upgrade UX (v125):**
+**Model Operations UX:**
 ```
 Tiered Rate Limiting:
   Tier 0 — Exempt (no limit): OPTIONS, /api/health, WebSocket upgrades
@@ -678,19 +627,12 @@ Tiered Rate Limiting:
   Localhost disabled: rate limiting OFF when binding to 127.0.0.1
   Proxy support: C3_TRUST_PROXY=true → reads X-Forwarded-For / X-Real-IP
 
-Async Background Verify:
-  applyUpgrade() → instant HTTP 200 → _backgroundVerify(3 attempts × 30s delay)
-  Never auto-rollbacks — sets verified=0 in DB + WS warning
-  DB: model_overrides.verified column (migration 036)
-
-Auto-Pull on Approval:
-  Non-installed model → auto-pull via pullModel() with streaming WS progress
-  Fire-and-forget route: POST /api/system/upgrades/apply → HTTP 200 immediately
-  WS events: upgrade_progress, model_changed, upgrade_error, model_pull_progress
-
-Auto-Validation Prompt:
-  After model_changed → emit model_validation_prompt with suite info
-  FE shows consent notification → user clicks "Spustit" → existing validation pipeline
+Manual binding:
+  POST /api/system/upgrades/apply accepts only role + targetModel
+  HTTP success follows a durable operation/pull intent, not an in-memory swap
+  Exact digest is resolved and verified by ModelBindingApplication
+  Rollback requires the exact operation/revision identity; no role-only fallback
+  WS model_changed is emitted only by ModelBindingApplication
 
 Dynamic Port Allocation:
   Default port 0 (OS-assigned). Port file ~/.c3/port (JSON: port, host, pid, started).
@@ -778,7 +720,7 @@ Registry → Resolver (LLM intent match) → Runner (state machine) → Step exe
 | Memory | global_memory, user_memory, project_memory, memory (LTM), task_memory |
 | Skills | skill_executions, skill_steps, workflow_patterns |
 | Architecture | architecture_state, api_contracts |
-| Model Upgrade | model_overrides, upgrade_history, upgrade_proposals, model_catalog_cache, model_performance, discovered_models, validation_results, validation_suite_scores |
+| Model Platform | model_overrides, upgrade_history, model_catalog_cache, model_performance, discovered_models, model_desired_bindings, model_evaluation_runs, model_evaluation_decisions, model_evaluation_import_evidence, model_binding_operations, model_binding_application_attempts |
 | Marketplace | marketplace_packages, marketplace_catalog_cache |
 | Quality | quality_scores |
 | Security | api_tokens (SHA-256 hashed) |
@@ -810,11 +752,11 @@ Model selection is **purely static** — there is no adaptive layer that chooses
 **Resolution pipeline:**
 
 ```
-config.models[role]          ← base binding (config.js / env var)
-  ↑ mutated by
-upgradeManager.applyUpgrade()  ← user-approved upgrade (persisted to model_overrides DB)
-  ↑ loaded at startup by
-upgradeManager.loadPersistedOverrides()  ← restores overrides from DB into config
+config.models[role]                    ← runtime projection
+  ↑ only runtime mutation port
+ModelBindingApplication               ← durable command/verification owner
+  ↑ reads and writes through
+model failover repository             ← desired binding + operation lineage
 ```
 
 **Every LLM call** reads `config.models[role]` at call time:
@@ -832,54 +774,28 @@ User Query
 - **No routing by complexity** — a simple "ahoj" and a complex synthesis both use the same CHAT model
 - **No fallback chains** — if a model fails (OOM, timeout), the call fails; no automatic switch to a smaller model
 - **Role = model** — each role maps to exactly one model at any time
-- **Override is user-controlled** — the Model Upgrade System proposes candidates, but only a user-approved upgrade changes the binding (see Upgrade Pipeline below)
-- **Hot-swap** — `applyUpgrade()` mutates `config.models` in-place; all subsequent LLM calls immediately use the new model (no restart needed)
+- **Binding is user-controlled** — evaluation may produce a decision, but only an explicit manual binding command changes the role
+- **Single writer** — `ModelBindingApplication` durably records, applies and verifies the exact artifact; old `UpgradeManager` writers do not exist
 - **Concurrency** — single-slot semaphore by default (`C3_MAX_CONCURRENT_LLM=1`), serializes all LLM calls across roles to prevent GPU contention
 
-**MODEL_PROFILES** (defined in `src/upgrade/model-profiles.js`) are metadata used **exclusively** by the upgrade system for discovery, filtering, and ranking. They are never consulted at request time.
+**MODEL_PROFILES** (defined in `src/upgrade/model-profiles.js`) are metadata used by discovery and role eligibility. They are never a request-time router or quality authority.
 
-### Model Upgrade Pipeline
+### Model Evaluation and Binding Pipeline
 
-The upgrade system discovers, evaluates, and proposes model changes — but **never auto-upgrades**.
+See [MODEL-SCORING-ACTIVATION.md](MODEL-SCORING-ACTIVATION.md). In short:
+candidate order is factual/advisory, measurements are exact-contract and
+append-only, decisions reference both COMPLETE runs, and activation is a
+separate explicit manual command. A chat acknowledgement is never interpreted
+as model approval.
 
-```
-  ┌─────────────────────────────────────────────────────────────┐
-  │ L1: Local Ollama (/api/tags)       — every poll cycle       │
-  │ L2: Curated Catalog (55 models)    — every full cycle (24h) │
-  │ L4: Online Discovery (ollama.com)  — every full cycle       │
-  │ L5: External Benchmarks (whatllm.org) — enriches L4         │
-  └──────────┬──────────────────────────────────────────────────┘
-             ↓
-  Filter: requirements (minParams, capabilities, json_mode)
-             ↓
-  Feasibility: VRAM (90%), RAM (70%), disk (80%), CPU cap 14B
-             ↓
-  L5 Enrichment: whatllm qualityIndex → replace L4 estimates
-             ↓
-  Pairwise Eval: score(candidate) − score(current) ≥ threshold
-    Score = benchmark×0.35 + hwFit×0.20 + maturity×0.15
-          + generation×0.10 + category×0.13 + speed×0.07
-    Thresholds: D1=0.06, CODE=0.05, CHAT=0.04, R2=0.05
-    Dominance gate: reject if context window >20% worse
-             ↓
-  Empirical Blend (Phase 3): blend real metrics when >10 samples
-             ↓
-  Proposal Store → User Notification (WS + chat)
-             ↓
-  User Approval ("schvaluji" / "approve" / "ano")
-             ↓
-  Pull (if not installed) → Verify (3×30s) → Apply → Persist
-```
+#### Execution-Based CODE Evaluation (`src/eval/`, current contract)
 
-**Anti-thrashing:** 14-day cooldown per role. Rejected models get 30-day cooldown. Dismissed = permanent block.
-
-#### Execution-Based Evaluation (`src/eval/`, v136.1)
-
-The five `SUITES` grade responses by keyword and never run the code — measured
-2026-08-19, a vision model scored 100% on the `code` suite. The `code_patch`
-suite replaces keywords with execution: tasks are mined from this repo's own fix
-commits, the model receives the broken functions plus a description of required
-behaviour, its answer is spliced back into the file and a **hidden test** runs.
+The removed v123 keyword suites could report high code quality without running
+the answer; in a 2026-08-19 audit a vision model even scored 100% on the old
+`code` suite. The current `code_patch` suite measures execution instead: tasks
+are mined from this repo's own fix commits, the model receives the broken
+functions plus a description of required behaviour, its answer is spliced back
+into the file and a **hidden test** runs.
 
 ```
   fix commit ─→ source before fix + required behaviour ─→ model returns functions
@@ -895,12 +811,10 @@ Target sets are derived by **running** the tests, not by parsing the commit —
 labels each task `active` or `reserve-*`; only discriminating tasks run, and
 reserves are kept because today's floor is tomorrow's ceiling.
 
-**`code_patch` is deliberately absent from `SUITES`.** The fail-closed proof
-policy pins `validation-suites.js` and `model-profiles.js` by raw-byte sha256
-*and* asserts `Object.keys(SUITES)` matches exactly five suites — so the suite is
-passed explicitly to `comparePair(..., { suite })` and carries its own
-`CodePatchValidationRunner`. Role bindings are unchanged; switching CODE onto it
-is an operator decision.
+`code_patch` is the explicit current suite for role CODE in
+`role-evaluation-plan.js`. Its fixture hash is part of the suite contract, the
+runner is `CodePatchEvaluationRunner`, and switching the durable CODE binding
+remains a separate operator-authorized action.
 
 ### Feature Flags
 
@@ -942,10 +856,10 @@ C3_NTFY_SERVER, C3_NTFY_TOPIC, C3_NTFY_TOKEN
 > [convergence/TEST-REGISTRY.md](convergence/TEST-REGISTRY.md) and validated by
 > `node scripts/validate-test-registry.js`.
 >
-> Current registry: **350 runnable programs** — `256 ACTIVE`, `79 BLOCKED`
-> (each with a concrete prerequisite), `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`.
+> Current registry: **384 runnable programs** — `289 ACTIVE`, `81 BLOCKED`
+> (each with a concrete prerequisite), `0 KNOWN_DEFECTIVE`, `14 HISTORICAL`.
 > The Gate 0 acceptance scope (`required`, no Ollama/GPU/server)
-> is **199 suites** (`173 offline` + `26 database`).
+> is **227 suites** (`191 offline` + `36 database`).
 >
 > The per-suite counts below are historical C3 figures. They describe assertion
 > volume, not verification: a printed assertion total cannot override a failed
@@ -974,8 +888,8 @@ C3_NTFY_SERVER, C3_NTFY_TOPIC, C3_NTFY_TOKEN
 | Architecture governance | 57 | Guardian, contracts, critic |
 | Architecture intelligence | 161 | Policy, context, refactor, predictor, KB, multi-agent |
 | Large project scaling | 107 | Graph storage, BFS, streaming, concept registry |
-| Model upgrade (v103-v120) | 221 | Discovery, catalog, pairwise, proposals, approval, pull, empirical scoring |
-| **Validation suites (v123)** | **73** | 5 role-specific suites, scoring, TTL, model ranker |
+| Historical model upgrade (v103-v120) | removed | Superseded ranker/proposal/empirical-scoring runtime |
+| **Current model evaluations** | **registered suites** | 7 role plans, exact-digest runs/decisions, fail-closed read model |
 | **Marketplace (v124)** | **44** | Catalog, install, deps, security |
 | **Guard interactions (v124)** | **25** | Guard combinations, creativeLock, ordering invariants |
 | **Upgrade UX (v125)** | **49** | Rate limiting, async verify, auto-pull, dynamic port, multi-session |
@@ -1036,7 +950,7 @@ All memory systems use exponential decay: LTM (λ=0.01, half-life ~69d), Task Me
 | G (Code Intel) | 100% | 33 modules, symbol index, KG, graph expansion, architecture detection |
 | H (Agent Evolution) | 100% | F1-F8 core (355 tests), FΔ+F9-F14 extensions (242 tests) |
 | I (Governance) | 100% | Guardian, contracts, critic, policy, regression prediction, multi-agent |
-| J (Model Mgmt) | 100% | Phase 1-3 + validation suites + upgrade UX + L5 whatllm: discovery, catalog, pairwise, empirical, validation (452 tests) |
+| J (Model Mgmt) | REVIEW_PENDING | Discovery, catalog, pairwise current-contract evaluation, exact history/decisions and manual activation; independent review pending |
 | K (Prompt Pipeline) | 100% | Prompt builder, import map, scope limiter, signature cache (83 tests) |
 | L (Marketplace) | 100% | Remote catalog, transactional install, dependency resolver, mandatory SHA-256 (44 tests) |
 | M (Security) | 100% | Path traversal guards, input sanitization, package integrity (47 tests) |

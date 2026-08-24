@@ -1,5 +1,10 @@
 # WP-M1-MODEL-CLEANUP-AUTHORITY — jeden vlastník modelového delete effectu
 
+> **Historický WP.** Odkazy na v123 validation runtime a smazané testovací
+> příkazy zachycují tehdejší review jednotku. Current evaluace a cleanup
+> kontrakt přebírá
+> [WP-MODEL-EVALUATION-CONSOLIDATION](WP-MODEL-EVALUATION-CONSOLIDATION.md).
+
 **Typ:** zapisující WP · **Slot:** hlavní checkout, jeden writer
 **Vstupní revision:** `a3a00baae2dffa6204afa327b97f102ee36c8c09`
 **Závislosti:** dokončený manual binding application checkpoint a canonical

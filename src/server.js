@@ -111,7 +111,6 @@ import { attachWebSocketServer } from './ws-bridge/index.js';
 import { setNotificationDeps } from './ws-bridge/session-adapter.js';
 import { getDefaultHandlers } from './chat/handlers/index.js';
 import {
-  setModelBindingApplication,
   setModelRegistry,
   setUpgradeManager,
 } from './chat/handlers/pre-handler.js';
@@ -221,6 +220,7 @@ import { upgradeManager } from './upgrade/upgrade-manager.js';
 
 // v133: ModelRegistry — centralized model management
 import { modelRegistry } from './upgrade/model-registry.js';
+import { ModelEvaluationReadModel } from './upgrade/model-evaluation-read-model.js';
 import { modelUniverseStore } from './upgrade/model-universe-store.js';
 import { createModelFailoverRepository } from './upgrade/model-failover.js';
 import {
@@ -240,6 +240,7 @@ upgradeManager.setDb(db.db);
 setUpgradeManager(upgradeManager);
 modelUniverseStore.setDb(db.db);
 const bindingRepository = createModelFailoverRepository(db.db);
+const modelEvaluationReadModel = new ModelEvaluationReadModel(db.db);
 const { broadcast: bindingBroadcast } = await import('./ws-bridge/ws-server.js');
 const modelBindingProvider = createOllamaModelBindingProvider({
   baseUrl: config.ollama?.baseUrl,
@@ -254,7 +255,6 @@ const modelBindingApplication = createModelBindingApplication({
   publishControl: payload => bindingBroadcast('control', payload),
   logger,
 });
-setModelBindingApplication(modelBindingApplication);
 const bindingRehydrate = await modelBindingApplication.rehydrateBindings();
 if (bindingRehydrate.legacyRestored > 0 || bindingRehydrate.restored > 0) {
   logger.info(
@@ -269,23 +269,14 @@ for (const failure of bindingRehydrate.failed) {
   );
 }
 
-// v118: Phase 2 — proposal store + registry client
+// Registry metadata client supports factual online discovery only.
 try {
-  const { proposalStore } = await import('./upgrade/proposal-store.js');
-  proposalStore.setDb(db.db);
-  upgradeManager.setProposalStore(proposalStore);
-
   const { registryClient } = await import('./upgrade/registry-client.js');
   registryClient.setDb(db.db);
   registryClient.loadCache();
-  upgradeManager.setRegistryClient(registryClient);
-
-  // Expire stale proposals on startup
-  const expired = proposalStore.expireStale();
-  if (expired > 0) logger.info('Server', `Expired ${expired} stale upgrade proposal(s)`);
-  logger.info('Server', 'Phase 2 upgrade pipeline initialized');
+  logger.info('Server', 'Model registry metadata client initialized');
 } catch (err) {
-  logger.warn('Server', `Phase 2 upgrade pipeline not available: ${err.message}`);
+  logger.warn('Server', `Model registry metadata client not available: ${err.message}`);
 }
 
 // v120: Phase 3 — metrics collector for empirical model evaluation
@@ -315,13 +306,12 @@ try {
 // v133: Wire ModelRegistry — centralized model management
 let modelFailoverDetectionCoordinator = null;
 try {
-  const { validationRunner } = await import('./upgrade/validation-suites.js');
-  validationRunner.setDb(db.db);
   modelRegistry.init({
     db: db.db,
     upgradeManager,
     modelBindingApplication,
-    validationRunner,
+    bindingRepository,
+    modelEvaluationReadModel,
     broadcast: bindingBroadcast,
   });
   setModelRegistry(modelRegistry);

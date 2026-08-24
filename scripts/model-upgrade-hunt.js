@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// Model Upgrade Hunt — celý řetězec od vyjmenování rodin po výměnu modelu
+// Model Evaluation Hunt — discovery, exact measurement and append-only decision
 // ══════════════════════════════════════════════════════════════════════════════
 //
 //   0  vyjmenovat všech ~235 rodin z ollama.com          bez stahování
 //   1  seřadit podle externích signálů, odříznout, co se nevejde
 //   2  po jednom: stáhnout → změřit VRAM → schopnostní minimum
 //   3  souboj se stávajícím modelem na stejných úlohách
-//   4  rozhodnout, uklidit, pokračovat dalším kandidátem
+//   4  uložit decision, uklidit, pokračovat dalším kandidátem
 //
 // Použití:
 //   node scripts/model-upgrade-hunt.js --shortlist          jen fáze 0+1 (nic nestahuje)
@@ -32,15 +32,14 @@ import { fileURLToPath } from 'node:url';
 import { config } from '../src/config.js';
 import { logger } from '../src/core/logger.js';
 import {
-  fetchLibraryFamilies, getLibraryFamilyMetadata, rankCandidates, buildCandidatePool,
+  fetchLibraryFamilies, getLibraryFamilyMetadata, prioritizeCandidates, buildCandidatePool,
 } from '../src/upgrade/model-sweep.js';
-import { checkRoleEligibility } from '../src/upgrade/model-ranker.js';
+import { checkRoleEligibility } from '../src/upgrade/candidate-eligibility.js';
 import { MODEL_PROFILES } from '../src/upgrade/model-profiles.js';
 import { parseModelNameExtended } from '../src/upgrade/model-family-extensions.js';
 import { fetchModels as fetchWhatllm, matchModels } from '../src/upgrade/whatllm-client.js';
 import { enrichFromHuggingFace } from '../src/upgrade/huggingface-client.js';
 import { modelRegistry } from '../src/upgrade/model-registry.js';
-import { upgradeManager } from '../src/upgrade/upgrade-manager.js';
 import {
   measureModel, drainResident, intendedNumCtx, listResident,
 } from '../src/upgrade/vram-measurement.js';
@@ -49,13 +48,13 @@ import { fetchInstalledModels, buildCandidates } from '../src/upgrade/model-disc
 import { canonicalModelName } from '../src/upgrade/model-identity.js';
 import { runMigrations } from '../src/db/migrate.js';
 import {
-  CHAT_QUALITY_VERSION, RoleQualityValidationRunner, describeChatTests,
+  CHAT_QUALITY_VERSION, RoleQualityEvaluationRunner, describeChatTests,
 } from '../src/eval/role-quality-suites.js';
 import { createRoleEvaluationPlans } from '../src/eval/role-evaluation-plan.js';
 import { modelEvaluationHistory } from '../src/upgrade/model-evaluation-history.js';
+import { ModelEvaluationDecisionStore } from '../src/upgrade/model-evaluation-decision-store.js';
 import {
   DEFAULT_RESPONSIBILITY_POLICY,
-  applyWinningBindings,
   auditResponsibilitySegregation,
   buildInstalledCandidateQueue,
   createHistoryCallbacks,
@@ -64,10 +63,6 @@ import {
   selectResponsibilityPortfolio,
 } from '../src/upgrade/model-upgrade-prototype.js';
 import { createModelFailoverRepository } from '../src/upgrade/model-failover.js';
-import {
-  createModelBindingApplication,
-  createOllamaModelBindingProvider,
-} from '../src/upgrade/model-binding-application.js';
 import {
   assessCandidateDownloadHeadroom, assessScheduledEvaluationReadiness,
   holdGpuEvaluationLock,
@@ -86,7 +81,6 @@ const ONLY = (val('only') || '').split(',').map(s => s.trim()).filter(Boolean);
 const KEEP_INCONCLUSIVE = flag('keep-inconclusive');
 // Mazání je vypnuté, dokud sady nerozlišují (pravidlo z 2026-08-20).
 const ALLOW_REMOVAL = flag('allow-removal');
-const APPLY_WINNERS = flag('apply-winners');
 const SHOW_CHAT_TESTS = flag('show-chat-tests');
 const REMOTE_ONLY = flag('remote-only');
 const EXPORT_CHAT_HISTORY = flag('export-chat-history');
@@ -297,11 +291,10 @@ async function buildRoleShortlists(gpu, installedNames, bindings) {
   for (const role of ROLES) {
     const incumbent = bindings[role];
     const baseline = qualityOfModel.get(canonicalModelName(incumbent)) ?? null;
-    const ranked = rankCandidates(pool, {
+    const ranked = prioritizeCandidates(pool, {
       vramMb: gpu.vramMb,
       installed: installedNames,
-      incumbentQuality: baseline,
-      qualityOf: e => qualityByFamily.get(e.family) ?? null,
+      externalSignalOf: e => qualityByFamily.get(e.family) ?? null,
       releaseDateOf: e => e.releaseDate ?? null,
       role,
       eligibilityOf,
@@ -340,9 +333,9 @@ if (!gpu.vramMb) log('⚠ VRAM se nepodařilo zjistit — předfiltr velikosti s
 const db = openDb();
 await runMigrations(db);
 modelEvaluationHistory.setDb(db);
+const evaluationDecisionStore = new ModelEvaluationDecisionStore(db);
 const bindingRepository = createModelFailoverRepository(db);
-const validationRunner = new RoleQualityValidationRunner(config.ollama?.baseUrl);
-validationRunner.setDb(db);
+const evaluationRunner = new RoleQualityEvaluationRunner(config.ollama?.baseUrl);
 const evaluationPlans = createRoleEvaluationPlans();
 
 if (EXPORT_CHAT_HISTORY) {
@@ -627,7 +620,7 @@ const results = [];
 for (const cand of toTry) {
   log(`\n─── ${cand.name}  (role: ${cand.roles.join(', ')}) ───`);
   const r = await tryCandidate(cand.name, {
-    runner: validationRunner,
+    runner: evaluationRunner,
     skipPull: cand.installed === true,
     // Jen role, pro které je tenhle model vůbec kandidátem.
     roles: cand.roles,
@@ -763,6 +756,28 @@ const portfolio = selectResponsibilityPortfolio({
 });
 Object.assign(bindings, portfolio.bindings);
 
+// Pairwise outcomes are durable evidence, but only the exact candidate chosen
+// by the feasible whole-role portfolio can be advertised for manual binding.
+// Persist after portfolio selection so a raw winner cannot bypass segregation.
+for (const result of results) {
+  result.decisionRecords = [];
+  for (const trial of result.trials || []) {
+    if (trial?.skipped || !trial?.decision) continue;
+    const selected = portfolio.feasible
+      && trial.decision.winner === 'candidate'
+      && canonicalModelName(portfolio.bindings[trial.role]) === canonicalModelName(result.model);
+    result.decisionRecords.push(evaluationDecisionStore.recordTrial(trial, {
+      candidateModel: result.model,
+      incumbentModel: initialBindings[trial.role],
+      source: 'model-upgrade-hunt-v136.1',
+      activationEligible: selected,
+      activationBlockReason: portfolio.feasible
+        ? 'CANDIDATE_NOT_SELECTED_BY_PORTFOLIO'
+        : 'RESPONSIBILITY_SEGREGATION_FAILED',
+    }));
+  }
+}
+
 log('\n══ SEGREGACE ODPOVĚDNOSTÍ ══');
 if (portfolio.feasible) {
   log(`  portfolio vyhovuje: nejvýše ${DEFAULT_RESPONSIBILITY_POLICY.maxRolesPerModel} role/model, kritické autor-reviewer dvojice oddělené`);
@@ -784,36 +799,8 @@ for (const role of ROLES) {
   log(`  ${role.padEnd(7)} ${before === after ? `beze změny (${before})` : `${before} → ${after}`}`);
 }
 const changed = ROLES.filter(r => initialBindings[r] !== bindings[r]);
-let applicationOutcomes = [];
-if (changed.length && APPLY_WINNERS) {
-  log('\n══ APLIKACE VÍTĚZŮ ══');
-  upgradeManager.setDb(db);
-  const provider = createOllamaModelBindingProvider({
-    baseUrl: config.ollama?.baseUrl,
-    pullImpl: (modelName, onProgress, authority) => (
-      upgradeManager.pullModel(modelName, onProgress, authority)
-    ),
-  });
-  const application = createModelBindingApplication({
-    repository: bindingRepository,
-    runtime: upgradeManager.createBindingRuntimePort(),
-    provider,
-    publishControl: () => {},
-    actorFactory: () => 'user:model-upgrade-hunt',
-    logger,
-  });
-  await application.rehydrateBindings();
-  applicationOutcomes = await applyWinningBindings({
-    before: initialBindings,
-    after: bindings,
-    roles: changed,
-    applyBinding: (role, targetModel) => application.applyManualBinding({ role, targetModel }),
-  });
-  for (const outcome of applicationOutcomes) {
-    log(`  ${outcome.role}: ${outcome.from} → ${outcome.to}  ${outcome.result.verified ? 'verified' : outcome.result.outcome}`);
-  }
-} else if (changed.length) {
-  log(`\n${changed.length} rolí má lepšího kandidáta. Přidej --apply-winners pro durable aplikaci; incumbent zůstane na disku.`);
+if (changed.length) {
+  log(`\n${changed.length} rolí má decision pro kandidáta. Hunt binding nikdy nemění; ruční aktivace používá samostatnou binding application.`);
 } else {
   const rawWinners = results.flatMap(result => Object.entries(result.decisions || {})
     .filter(([, decision]) => decision.winner === 'candidate')
@@ -830,6 +817,6 @@ if (AS_JSON || REPORT_PATH) {
     generatedAt: new Date().toISOString(),
     gpu,
     perRole: Object.fromEntries([...perRole].map(([r, l]) => [r, l])),
-    queue, results, bindings, applicationOutcomes, portfolio,
+    queue, results, proposedBindings: bindings, portfolio,
   });
 }

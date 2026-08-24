@@ -1,11 +1,11 @@
 # Model upgrade prototype v136.1
 
-**Stav:** funkční GPU prototyp; portfolio splňuje segregaci, CHAT v3.5 má
-40 dílčím checklistem hodnocených úloh (24 EN + 16 CZ) a CODE má 8 aktivních
-úloh
+**Stav:** aktuální evaluační kontrakt a historický GPU pilot; implementace
+konsolidace čeká na nezávislé review. Autorita:
+[MODEL-SCORING-ACTIVATION.md](MODEL-SCORING-ACTIVATION.md).
 
-**Rozsah:** discovery kandidátů, objektivní skórování podle role, trvalá historie,
-výběr vítěze a operátorem spuštěná aplikace vazby
+**Rozsah:** discovery kandidátů, měření kvality podle role, trvalá historie,
+portfolio decision a samostatná operátorem spuštěná aplikace vazby
 
 **Mimo rozsah prototypu:** bezobslužná aplikace vítězů a produkční failover
 proof issuance. Bezpečně omezená retence lokálních artefaktů je součástí
@@ -21,8 +21,8 @@ Jeden operátorem spuštěný hunt:
 3. odliší již změřený přesný modelový artefakt od nového;
 4. spustí pouze chybějící aktuální role-specific sady;
 5. porovná uložené skóre kandidáta a incumbent modelu;
-6. při průkazně lepším výsledku aplikuje novou vazbu přes existující binding
-   application boundary;
+6. při průkazně lepším výsledku uloží rozhodnutí a až po kontrole celého
+   portfolia označí právě vybraného kandidáta jako způsobilého k ruční aktivaci;
 7. původní model ponechá na disku a v append-only historii jako rollbackovou
    volbu.
 
@@ -86,8 +86,8 @@ Kategorie `code`, `vision`, `embedding`, `ocr`, `safety` a `translation` se odd�
 před role rankingem, aby například embedding nebo vision model nekandidoval na
 reasoning. Čerstvost pouze zvedá prioritu dosud neznámého artefaktu ke
 screeningu; není důkazem kvality a nikdy nenahrazuje role-specific scoring.
-Rodina bez záznamu ve statickém benchmarkovém katalogu se proto neztratí, ale
-musí kvalitu teprve fyzicky prokázat.
+Rodina bez záznamu ve faktickém katalogu se proto neztratí; její metadata se
+doplní z registry, ale kvalitu musí vždy fyzicky prokázat.
 
 Modely se zkoušejí sériově. Mezi dvěma modely se uvolní Ollama residency a na
 NVIDIA se čeká i na prázdný seznam compute procesů; samotné krátce prázdné
@@ -107,9 +107,10 @@ rozptyl a minimální marži. Kandidát vyhraje, když:
 - nemá neúplný nebo BLOCKED výsledek.
 
 Rychlost je pouze tie-breaker při kvalitativní shodě; sama nesmí překonat
-prokázanou ztrátu kvality. Aplikace jde jedině přes existující
-`ModelBindingApplication`. Přímý zápis do `config.models` nebo binding tabulek
-je zakázán. Incumbent se nemaže.
+prokázanou ztrátu kvality. Hunt nikdy nevolá aplikaci bindingu. Případný
+pozdější ruční operátorský příkaz jde jedině přes `ModelBindingApplication`.
+Přímý zápis do `config.models` nebo binding tabulek je zakázán. Incumbent se
+nemaže.
 
 Incumbent se neurčuje pouze z `config.models`: po startupu jsou autoritou
 durable `USER_APPLY`/`USER_ROLLBACK` desired bindings. Hunt je načte přes
@@ -146,9 +147,10 @@ CHAT je English-first, nikoli English-only:
 - faktické rozpory, překročení formátu a hallucinated values body odebírají;
 - diakritika je jedna složka českého skóre, ne celý český test.
 
-CHAT smí automaticky změnit vazbu jen při nejméně sedmi stabilně
-rozlišujících úlohách, z toho nejméně třech EN a čtyřech CZ. Dvě české úlohy
-jsou diagnostický signál, nikoli dostatečný podklad pro výměnu.
+CHAT smí vytvořit activation-eligible rozhodnutí jen při nejméně sedmi
+stabilně rozlišujících úlohách, z toho nejméně třech EN a čtyřech CZ. Ani toto
+rozhodnutí samo vazbu nemění. Dvě české úlohy jsou diagnostický signál, nikoli
+dostatečný podklad pro výměnu.
 
 CLI musí umět vypsat přesné CHAT prompty a scoring rubric bez spuštění modelu,
 aby je operátor mohl samostatně posoudit.
@@ -189,7 +191,11 @@ automation-policy event schema z paralelní M1 linky, které v136.1 reader ješt
 nečte. Přímý SQL bypass není přípustný. Cleanup kontrakt je implementovaný a
 otestovaný, ale policy se zapne typed writerem až po sjednocení autority.
 
-## 8. Akceptační důkaz prototypu
+## 8. Historický pilot a dnešní akceptační hranice
+
+Následující naměřené výsledky jsou point-in-time evidence pilotu z 2026-08-23,
+nikoli automaticky current výsledky. Current je pouze shodný digest a dnešní
+suite contract SHA v `model_evaluation_runs`.
 
 - migrace a schema testy pro append-only historii;
 - unit test: stejný digest + kontrakt se podruhé nespustí;

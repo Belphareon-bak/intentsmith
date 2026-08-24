@@ -248,21 +248,19 @@ export function comfortablyFits(sizeGB, vramMb) {
  * Priorita **není** kvalita, ale pořadí, ve kterém se vyplatí kandidáty zkoušet:
  * čím výš, tím větší šance, že se stažení a test vyplatí.  Vstupují do ní:
  *
- *   - externí hodnocení (whatllm qualityIndex) proti stávajícímu modelu
- *   - datum vydání z HuggingFace: starší než to, co už mám, nemá smysl zkoušet
+ *   - externí discovery signál (whatllm qualityIndex), pouze pro pořadí
+ *   - datum vydání z HuggingFace, pouze pro pořadí
  *   - pohodlnost velikosti: co se vejde s rezervou, je lepší kandidát než to,
  *     co projde předfiltrem jen těsně
  *
- * @returns {Array<{name, family, sizeGB, quality, releaseDate, priority, reasons}>}
+ * @returns {Array<{name, family, sizeGB, externalSignal, releaseDate, priority, reasons}>}
  */
-export function rankCandidates(pool, ctx = {}) {
+export function prioritizeCandidates(pool, ctx = {}) {
   const {
     vramMb = 0,
     installed = [],
-    incumbentQuality = null,
-    qualityOf = () => null,
+    externalSignalOf = () => null,
     releaseDateOf = () => null,
-    incumbentReleaseDate = null,
     // Role, pro kterou se seznam staví.  Když je zadaná, uplatní se filtr
     // způsobilosti a bonus za shodu specializace — bez ní by vznikl jeden
     // univerzální seznam, což je špatná otázka: nehledá se jeden nejlepší
@@ -304,21 +302,11 @@ export function rankCandidates(pool, ctx = {}) {
       continue;
     }
 
-    const quality = qualityOf(entry) ?? null;
+    const externalSignal = externalSignalOf(entry) ?? null;
     const releaseDate = releaseDateOf(entry) ?? null;
     const reasons = [];
 
-    // Externí hodnocení, když je: horší než stávající se nezkouší.
-    if (quality != null && incumbentQuality != null) {
-      if (quality <= incumbentQuality) continue;
-      reasons.push(`externí hodnocení ${quality} > ${incumbentQuality}`);
-    }
-
-    // Starší model než ten, který mám, nemá co nabídnout.
-    if (releaseDate && incumbentReleaseDate
-      && Date.parse(releaseDate) <= Date.parse(incumbentReleaseDate)) {
-      continue;
-    }
+    if (externalSignal != null) reasons.push(`externí discovery signál ${externalSignal}`);
     if (releaseDate) reasons.push(`vydáno ${releaseDate}`);
 
     // `Number(null) === 0`; bez explicitní ochrany by rodina bez timestampu
@@ -331,9 +319,10 @@ export function rankCandidates(pool, ctx = {}) {
       reasons.push(`Ollama aktualizováno ${entry.catalogUpdatedLabel || `${catalogUpdatedDays} dní zpět`}`);
     }
 
-    // Priorita: externí hodnocení dominuje, novost a pohodlná velikost dolaďují.
+    // Priorita objednává frontu. Nesmí být publikována jako quality score ani
+    // vyřadit kandidáta, který prošel faktickými eligibility filtry.
     let priority = 0;
-    if (quality != null) priority += quality;
+    if (externalSignal != null) priority += externalSignal;
     if (releaseDate) {
       const ageDays = (Date.now() - Date.parse(releaseDate)) / 86400000;
       if (Number.isFinite(ageDays)) priority += Math.max(0, 12 - ageDays / 30);
@@ -362,7 +351,7 @@ export function rankCandidates(pool, ctx = {}) {
     }
 
     out.push({
-      ...entry, role, quality, releaseDate,
+      ...entry, role, externalSignal, releaseDate,
       category: entry.category ?? profile.category ?? 'unknown',
       priority: Math.round(priority * 100) / 100,
       reasons,
@@ -441,7 +430,7 @@ export function clearCache() {
 export default {
   fetchLibraryFamilies, fetchFamilyTags, parseTagsPage,
   parseLibraryFamilyMetadata, getLibraryFamilyMetadata,
-  mightFit, comfortablyFits, rankCandidates, preferredTagForFamily, buildCandidatePool,
+  mightFit, comfortablyFits, prioritizeCandidates, preferredTagForFamily, buildCandidatePool,
   formatRunsHere, specializationBonus, clearCache,
   MIN_OBSERVED_VRAM_OVERHEAD, TYPICAL_VRAM_OVERHEAD,
 };

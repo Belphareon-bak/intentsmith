@@ -187,36 +187,6 @@
       "quarantineExpiry": null
     },
     {
-      "id": "IS-T5-TESTS-LEGACY-P5-SCORING-SIMULATION",
-      "path": "tests/_legacy/p5-scoring-simulation.js",
-      "argv": [
-        "node",
-        "tests/_legacy/p5-scoring-simulation.js"
-      ],
-      "capabilityId": "C3-027",
-      "tier": "T5",
-      "fixture": "operator-provided",
-      "profile": "manual",
-      "timeoutMs": 3600000,
-      "expectedDurationMs": 1800000,
-      "requirements": {
-        "network": "external",
-        "database": true,
-        "server": true,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": false,
-      "owner": "primary implementer",
-      "state": "HISTORICAL",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
       "id": "IS-T5-TESTS-LEGACY-PHASE-C-TEST",
       "path": "tests/_legacy/phase-c.test.cjs",
       "argv": [
@@ -1387,11 +1357,11 @@
       "quarantineExpiry": null
     },
     {
-      "id": "IS-T1-TESTS-CATALOG-ENRICHMENT-TEST",
-      "path": "tests/catalog-enrichment.test.js",
+      "id": "IS-T1-TESTS-CATALOG-METADATA-TEST",
+      "path": "tests/catalog-metadata.test.js",
       "argv": [
         "node",
-        "tests/catalog-enrichment.test.js"
+        "tests/catalog-metadata.test.js"
       ],
       "capabilityId": "C3-025",
       "tier": "T1",
@@ -1426,7 +1396,7 @@
       "capabilityId": "C3-003",
       "tier": "T1",
       "fixture": "isolated-home",
-      "profile": "offline",
+      "profile": "manual",
       "timeoutMs": 120000,
       "expectedDurationMs": 30000,
       "requirements": {
@@ -1912,36 +1882,6 @@
       "profile": "offline",
       "timeoutMs": 120000,
       "expectedDurationMs": 30000,
-      "requirements": {
-        "network": "none",
-        "database": false,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T1-TESTS-CONFIRMATION-OWNERSHIP-TEST",
-      "path": "tests/confirmation-ownership.test.js",
-      "argv": [
-        "node",
-        "tests/confirmation-ownership.test.js"
-      ],
-      "capabilityId": "C3-027",
-      "tier": "T1",
-      "fixture": "isolated-home",
-      "profile": "offline",
-      "timeoutMs": 60000,
-      "expectedDurationMs": 5000,
       "requirements": {
         "network": "none",
         "database": false,
@@ -3649,7 +3589,7 @@
       "capabilityId": "C3-027",
       "tier": "T1",
       "fixture": "isolated-home",
-      "profile": "offline",
+      "profile": "manual",
       "timeoutMs": 120000,
       "expectedDurationMs": 30000,
       "requirements": {
@@ -5203,36 +5143,6 @@
       "quarantineExpiry": null
     },
     {
-      "id": "IS-T1-TESTS-M1-MODEL-IDENTITY-TEST",
-      "path": "tests/m1-model-identity.test.js",
-      "argv": [
-        "node",
-        "tests/m1-model-identity.test.js"
-      ],
-      "capabilityId": "C3-010",
-      "tier": "T1",
-      "fixture": "isolated-sqlite",
-      "profile": "database",
-      "timeoutMs": 120000,
-      "expectedDurationMs": 30000,
-      "requirements": {
-        "network": "none",
-        "database": true,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
       "id": "IS-T1-TESTS-M1-MODEL-USE-AUTHORITY-TEST",
       "path": "tests/m1-model-use-authority.test.js",
       "argv": [
@@ -5518,96 +5428,6 @@
       "requirements": {
         "network": "loopback",
         "database": true,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-PROOF-POLICY-TEST",
-      "path": "tests/m1-model-failover-proof-policy.test.js",
-      "argv": [
-        "node",
-        "tests/m1-model-failover-proof-policy.test.js"
-      ],
-      "capabilityId": "C3-010",
-      "tier": "T1",
-      "fixture": "isolated-home",
-      "profile": "offline",
-      "timeoutMs": 120000,
-      "expectedDurationMs": 30000,
-      "requirements": {
-        "network": "none",
-        "database": false,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-MEASUREMENT-TEST",
-      "path": "tests/m1-model-failover-measurement.test.js",
-      "argv": [
-        "node",
-        "tests/m1-model-failover-measurement.test.js"
-      ],
-      "capabilityId": "C3-010",
-      "tier": "T1",
-      "fixture": "isolated-home-and-owned-loopback-server",
-      "profile": "offline",
-      "timeoutMs": 120000,
-      "expectedDurationMs": 30000,
-      "requirements": {
-        "network": "loopback",
-        "database": false,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-PARENT-ACCEPTANCE-TEST",
-      "path": "tests/m1-model-failover-parent-acceptance.test.js",
-      "argv": [
-        "node",
-        "tests/m1-model-failover-parent-acceptance.test.js"
-      ],
-      "capabilityId": "C3-010",
-      "tier": "T1",
-      "fixture": "isolated-home-and-owned-loopback-server",
-      "profile": "offline",
-      "timeoutMs": 120000,
-      "expectedDurationMs": 30000,
-      "requirements": {
-        "network": "loopback",
-        "database": false,
         "server": false,
         "ollama": false,
         "gpu": false
@@ -6018,66 +5838,6 @@
       "argv": [
         "node",
         "tests/model-universe-store.test.js"
-      ],
-      "capabilityId": "C3-025",
-      "tier": "T1",
-      "fixture": "isolated-home",
-      "profile": "offline",
-      "timeoutMs": 120000,
-      "expectedDurationMs": 30000,
-      "requirements": {
-        "network": "none",
-        "database": false,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T1-TESTS-MODEL-UPGRADE-PHASE2-TEST",
-      "path": "tests/model-upgrade-phase2.test.js",
-      "argv": [
-        "node",
-        "tests/model-upgrade-phase2.test.js"
-      ],
-      "capabilityId": "C3-025",
-      "tier": "T1",
-      "fixture": "isolated-home",
-      "profile": "offline",
-      "timeoutMs": 120000,
-      "expectedDurationMs": 30000,
-      "requirements": {
-        "network": "none",
-        "database": false,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T1-TESTS-MODEL-UPGRADE-PHASE3-TEST",
-      "path": "tests/model-upgrade-phase3.test.js",
-      "argv": [
-        "node",
-        "tests/model-upgrade-phase3.test.js"
       ],
       "capabilityId": "C3-025",
       "tier": "T1",
@@ -8203,6 +7963,366 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T5-TESTS-P5-ONLY-TEST",
+      "path": "tests/p5-only.test.js",
+      "argv": [
+        "node",
+        "tests/p5-only.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T5",
+      "fixture": "historical-model-comparison",
+      "profile": "manual",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": false,
+      "owner": "primary implementer",
+      "state": "HISTORICAL",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-TESTS-PROJECT-CONVERSATION-E2E-V2-TEST",
+      "path": "tests/project-conversation-e2e-v2.test.js",
+      "argv": [
+        "node",
+        "tests/project-conversation-e2e-v2.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T3",
+      "fixture": "isolated-long-model-database",
+      "profile": "model",
+      "timeoutMs": 3600000,
+      "expectedDurationMs": 2700000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T2-TESTS-PROJECT-LIFECYCLE-ENTRY-TEST",
+      "path": "tests/project-lifecycle-entry.test.js",
+      "argv": [
+        "node",
+        "tests/project-lifecycle-entry.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T2",
+      "fixture": "isolated-sqlite",
+      "profile": "database",
+      "timeoutMs": 300000,
+      "expectedDurationMs": 60000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T2-TESTS-SMOKE-TEST",
+      "path": "tests/smoke.test.js",
+      "argv": [
+        "node",
+        "tests/smoke.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T2",
+      "fixture": "isolated-sqlite",
+      "profile": "database",
+      "timeoutMs": 300000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T2-TESTS-E2E-HARNESS-ISOLATION-TEST",
+      "path": "tests/e2e-harness-isolation.test.js",
+      "argv": [
+        "node",
+        "tests/e2e-harness-isolation.test.js"
+      ],
+      "capabilityId": "C3-027",
+      "tier": "T2",
+      "fixture": "isolated-home-sqlite-git",
+      "profile": "database",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-E2E-HELPERS-SELF-CHECK",
+      "path": "tests/e2e/_helpers.self-check.js",
+      "argv": [
+        "node",
+        "tests/e2e/_helpers.self-check.js"
+      ],
+      "capabilityId": "C3-027",
+      "tier": "T1",
+      "fixture": "isolated-home-and-owned-loopback-server",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 5000,
+      "requirements": {
+        "network": "loopback",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-METRICS-COLLECTOR-TEST",
+      "path": "tests/metrics-collector.test.js",
+      "argv": [
+        "node",
+        "tests/metrics-collector.test.js"
+      ],
+      "capabilityId": "C3-025",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-CATALOG-REGISTRY-TEST",
+      "path": "tests/model-catalog-registry.test.js",
+      "argv": [
+        "node",
+        "tests/model-catalog-registry.test.js"
+      ],
+      "capabilityId": "C3-025",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-EVALUATION-CONSOLIDATION-TEST",
+      "path": "tests/model-evaluation-consolidation.test.js",
+      "argv": [
+        "node",
+        "tests/model-evaluation-consolidation.test.js"
+      ],
+      "capabilityId": "C3-010",
+      "tier": "T1",
+      "fixture": "isolated-sqlite",
+      "profile": "database",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-EVALUATION-READ-MODEL-TEST",
+      "path": "tests/model-evaluation-read-model.test.js",
+      "argv": [
+        "node",
+        "tests/model-evaluation-read-model.test.js"
+      ],
+      "capabilityId": "C3-010",
+      "tier": "T1",
+      "fixture": "isolated-sqlite",
+      "profile": "database",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-EVALUATION-SUITES-TEST",
+      "path": "tests/model-evaluation-suites.test.js",
+      "argv": [
+        "node",
+        "tests/model-evaluation-suites.test.js"
+      ],
+      "capabilityId": "C3-010",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-REGISTRY-CURRENT-AUTHORITY-TEST",
+      "path": "tests/model-registry-current-authority.test.js",
+      "argv": [
+        "node",
+        "tests/model-registry-current-authority.test.js"
+      ],
+      "capabilityId": "C3-010",
+      "tier": "T1",
+      "fixture": "isolated-sqlite",
+      "profile": "database",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-SPECIALIST-LOADER-TEST",
       "path": "tests/specialist-loader.test.js",
       "argv": [
@@ -8838,66 +8958,6 @@
       "quarantineExpiry": null
     },
     {
-      "id": "IS-T1-TESTS-UPGRADE-APPLY-TEST",
-      "path": "tests/upgrade-apply.test.js",
-      "argv": [
-        "node",
-        "tests/upgrade-apply.test.js"
-      ],
-      "capabilityId": "C3-025",
-      "tier": "T1",
-      "fixture": "isolated-home",
-      "profile": "offline",
-      "timeoutMs": 120000,
-      "expectedDurationMs": 30000,
-      "requirements": {
-        "network": "none",
-        "database": false,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T1-TESTS-UPGRADE-FLOW-TEST",
-      "path": "tests/upgrade-flow.test.js",
-      "argv": [
-        "node",
-        "tests/upgrade-flow.test.js"
-      ],
-      "capabilityId": "C3-025",
-      "tier": "T1",
-      "fixture": "isolated-home",
-      "profile": "offline",
-      "timeoutMs": 120000,
-      "expectedDurationMs": 30000,
-      "requirements": {
-        "network": "none",
-        "database": false,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
       "id": "IS-T1-TESTS-UPGRADE-UX-V125-TEST",
       "path": "tests/upgrade-ux-v125.test.js",
       "argv": [
@@ -8935,36 +8995,6 @@
         "tests/v583-tier1.test.js"
       ],
       "capabilityId": "C3-027",
-      "tier": "T1",
-      "fixture": "isolated-home",
-      "profile": "offline",
-      "timeoutMs": 120000,
-      "expectedDurationMs": 30000,
-      "requirements": {
-        "network": "none",
-        "database": false,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T1-TESTS-VALIDATION-SUITES-TEST",
-      "path": "tests/validation-suites.test.js",
-      "argv": [
-        "node",
-        "tests/validation-suites.test.js"
-      ],
-      "capabilityId": "C3-025",
       "tier": "T1",
       "fixture": "isolated-home",
       "profile": "offline",
@@ -9180,216 +9210,6 @@
       "profile": "offline",
       "timeoutMs": 120000,
       "expectedDurationMs": 30000,
-      "requirements": {
-        "network": "loopback",
-        "database": false,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T5-TESTS-P5-ONLY-TEST",
-      "path": "tests/p5-only.test.js",
-      "argv": [
-        "node",
-        "tests/p5-only.test.js"
-      ],
-      "capabilityId": "C3-005",
-      "tier": "T5",
-      "fixture": "historical-model-comparison",
-      "profile": "manual",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 600000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": false,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": false,
-      "owner": "primary implementer",
-      "state": "HISTORICAL",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T3-TESTS-PROJECT-CONVERSATION-E2E-V2-TEST",
-      "path": "tests/project-conversation-e2e-v2.test.js",
-      "argv": [
-        "node",
-        "tests/project-conversation-e2e-v2.test.js"
-      ],
-      "capabilityId": "C3-005",
-      "tier": "T3",
-      "fixture": "isolated-long-model-database",
-      "profile": "model",
-      "timeoutMs": 3600000,
-      "expectedDurationMs": 2700000,
-      "requirements": {
-        "network": "loopback",
-        "database": true,
-        "server": false,
-        "ollama": true,
-        "gpu": true
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T2-TESTS-PROJECT-LIFECYCLE-ENTRY-TEST",
-      "path": "tests/project-lifecycle-entry.test.js",
-      "argv": [
-        "node",
-        "tests/project-lifecycle-entry.test.js"
-      ],
-      "capabilityId": "C3-005",
-      "tier": "T2",
-      "fixture": "isolated-sqlite",
-      "profile": "database",
-      "timeoutMs": 300000,
-      "expectedDurationMs": 60000,
-      "requirements": {
-        "network": "none",
-        "database": true,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T2-TESTS-PROPOSAL-STALE-CLEANUP-TEST",
-      "path": "tests/proposal-stale-cleanup.test.js",
-      "argv": [
-        "node",
-        "tests/proposal-stale-cleanup.test.js"
-      ],
-      "capabilityId": "C3-025",
-      "tier": "T2",
-      "fixture": "isolated-sqlite",
-      "profile": "database",
-      "timeoutMs": 300000,
-      "expectedDurationMs": 60000,
-      "requirements": {
-        "network": "none",
-        "database": true,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T2-TESTS-SMOKE-TEST",
-      "path": "tests/smoke.test.js",
-      "argv": [
-        "node",
-        "tests/smoke.test.js"
-      ],
-      "capabilityId": "C3-005",
-      "tier": "T2",
-      "fixture": "isolated-sqlite",
-      "profile": "database",
-      "timeoutMs": 300000,
-      "expectedDurationMs": 120000,
-      "requirements": {
-        "network": "none",
-        "database": true,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T2-TESTS-E2E-HARNESS-ISOLATION-TEST",
-      "path": "tests/e2e-harness-isolation.test.js",
-      "argv": [
-        "node",
-        "tests/e2e-harness-isolation.test.js"
-      ],
-      "capabilityId": "C3-027",
-      "tier": "T2",
-      "fixture": "isolated-home-sqlite-git",
-      "profile": "database",
-      "timeoutMs": 120000,
-      "expectedDurationMs": 30000,
-      "requirements": {
-        "network": "none",
-        "database": true,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T1-E2E-HELPERS-SELF-CHECK",
-      "path": "tests/e2e/_helpers.self-check.js",
-      "argv": [
-        "node",
-        "tests/e2e/_helpers.self-check.js"
-      ],
-      "capabilityId": "C3-027",
-      "tier": "T1",
-      "fixture": "isolated-home-and-owned-loopback-server",
-      "profile": "offline",
-      "timeoutMs": 30000,
-      "expectedDurationMs": 5000,
       "requirements": {
         "network": "loopback",
         "database": false,
@@ -10911,24 +10731,24 @@
       "quarantineExpiry": null
     },
     {
-      "id": "IS-T3-E2E-62-VALIDATION-SUITES",
-      "path": "tests/e2e/62-validation-suites.e2e.js",
+      "id": "IS-T3-E2E-62-MODEL-EVALUATIONS",
+      "path": "tests/e2e/62-model-evaluations.e2e.js",
       "argv": [
         "node",
-        "tests/e2e/62-validation-suites.e2e.js"
+        "tests/e2e/62-model-evaluations.e2e.js"
       ],
       "capabilityId": "C3-003",
       "tier": "T3",
-      "fixture": "owned-isolated-model-server",
-      "profile": "model",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
       "timeoutMs": 900000,
-      "expectedDurationMs": 600000,
+      "expectedDurationMs": 120000,
       "requirements": {
         "network": "loopback",
         "database": true,
         "server": true,
-        "ollama": true,
-        "gpu": true
+        "ollama": false,
+        "gpu": false
       },
       "required": true,
       "owner": "primary implementer",

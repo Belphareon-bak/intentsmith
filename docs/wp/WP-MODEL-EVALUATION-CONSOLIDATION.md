@@ -11,7 +11,8 @@
 sjednotit scoring/evaluace a pokračovat přes všechny milníky až k jednomu
 review candidate.
 
-**Stav:** `IN PROGRESS`; tento soubor je zadání, nikoli PASS evidence.
+**Stav:** `REVIEW_PENDING`; implementační brány se doplňují níže, tento soubor
+není nezávislé review ani `ACCEPTED` evidence.
 
 ## 1. Uživatelský výsledek
 
@@ -112,8 +113,12 @@ finální brány jsou:
 C3_LOG_LEVEL=error npm run test:deterministic
 C3_LOG_LEVEL=error npm run test:registry
 node tests/schema-migrations.test.js
-node tests/model-evaluation-history.test.js
-node tests/model-upgrade-hunt.test.js
+node tests/model-evaluation-consolidation.test.js
+node tests/model-evaluation-read-model.test.js
+node tests/model-evaluation-suites.test.js
+node tests/pairwise-trial.test.js
+node tests/model-sweep.test.js
+node tests/m1-model-binding-application.test.js
 node tests/routes-smoke.test.js
 node tests/ws-bridge.test.js
 node scripts/validate-test-registry.js

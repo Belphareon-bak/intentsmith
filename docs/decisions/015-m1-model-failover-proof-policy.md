@@ -1,5 +1,11 @@
 # 015 — D+ potřebuje schválenou role-suite proof policy
 
+> **Follow-up 2026-08-24:** produkční measurement implementace popsaná v tomto
+> historickém rozhodnutí byla odstraněna rozhodnutím
+> [030](030-model-evaluation-authority-consolidation.md). Přijatá dobová
+> evidence zůstává auditní stopou; není fallbackem pro current v136.1 suite a
+> automatický proof issuer/failover tím není zapnut.
+
 - **typ:** BLOCK pouze pro vydání PASS proofu a terminal activation
 - **stav rozhodnutí:** C IMPLEMENTOVÁNO; A + PROVIZORNÍ 7D PŘIJATO operátorem
   2026-08-09 včetně striktní expiry hrany

@@ -9,7 +9,16 @@ import {
   comparePair, decideRole, trialRole, createSuiteCache,
   TASK_MARGIN_EPSILON, DEFAULT_REPEATS,
 } from '../src/upgrade/pairwise-trial.js';
-import { SUITES } from '../src/upgrade/validation-suites.js';
+
+const UNIT_TASKS = Object.freeze([
+  Object.freeze({ name: 'unit_alpha' }),
+  Object.freeze({ name: 'unit_beta' }),
+  Object.freeze({ name: 'unit_gamma' }),
+]);
+const SUITES = Object.freeze({
+  code: Object.freeze({ name: 'code', tests: UNIT_TASKS }),
+  reasoning: Object.freeze({ name: 'reasoning', tests: UNIT_TASKS }),
+});
 
 /**
  * Runner, který pro každý model vrátí předepsaná skóre úloh.
@@ -41,6 +50,16 @@ function fakeRunner(scoresByModel) {
 }
 
 const ONCE = { repeats: 1 };
+const CODE_PLAN = Object.freeze({
+  role: 'CODE',
+  suiteName: 'code',
+  suite: SUITES.code,
+  suiteVersion: 'unit-v1',
+  suiteContractSha256: 'c'.repeat(64),
+  repeats: 1,
+  minimumDiscriminatingTasks: 0,
+  minimumDiscriminatingByLanguage: Object.freeze({}),
+});
 
 const CODE_TASKS = SUITES.code.tests.map(t => t.name);
 
@@ -192,7 +211,9 @@ await testAsync('vrátí porovnání i rozhodnutí', async () => {
     A: { _default: 1 },
     B: { _default: 1, [CODE_TASKS[0]]: 0.2 },
   });
-  const r = await trialRole(runner, 'CODE', 'A', 'B', { threshold: 0.05, ...ONCE });
+  const r = await trialRole(runner, 'CODE', 'A', 'B', {
+    evaluationPlan: CODE_PLAN, threshold: 0.05, ...ONCE,
+  });
   assertEqual(r.skipped, false);
   assertEqual(r.suite, 'code');
   assert(r.comparison && r.decision, 'musí nést obojí');
@@ -202,7 +223,9 @@ await testAsync('vrátí porovnání i rozhodnutí', async () => {
 await testAsync('mezi modely se dá vložit úklid paměti', async () => {
   let drained = 0;
   const runner = fakeRunner({ A: { _default: 1 }, B: { _default: 1 } });
-  await trialRole(runner, 'CODE', 'A', 'B', { between: async () => { drained++; }, ...ONCE });
+  await trialRole(runner, 'CODE', 'A', 'B', {
+    evaluationPlan: CODE_PLAN, between: async () => { drained++; }, ...ONCE,
+  });
   assertEqual(drained, 1, 'kontence ve VRAM zkresluje výsledek — paměť se musí uvolnit');
 });
 

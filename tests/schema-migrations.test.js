@@ -163,6 +163,7 @@ const ALL_MIGRATIONS = [
   '2026_08_22_066_model_automation_policy',
   '2026_08_22_067_model_failover_proof_artifacts',
   '2026_08_22_070_model_evaluation_history',
+  '2026_08_24_082_model_evaluation_consolidation',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -189,7 +190,7 @@ const EXPECTED_TABLES = [
   'memory', 'merge_audit_log', 'messages', 'messages_fts', 'milestones',
   'model_binding_application_attempts', 'model_binding_operations', 'model_binding_runtime_finalize_cutoffs', 'model_binding_runtime_finalize_receipts', 'model_catalog_cache', 'model_desired_bindings', 'model_failover_events', 'model_failover_proofs',
   'model_failover_state', 'model_overrides', 'model_performance', 'model_reconciliation_log',
-  'model_evaluation_runs',
+  'model_evaluation_decisions', 'model_evaluation_import_evidence', 'model_evaluation_runs',
   'model_runtime_guard',
   'model_signal_events', 'model_universe_derived', 'model_universe_raw',
   'model_usage', 'model_write_log',
@@ -200,8 +201,8 @@ const EXPECTED_TABLES = [
   'specialist_memory', 'specialist_migrations', 'specialist_telemetry', 'specialists',
   'task_memory', 'tax_losses', 'telemetry_alerts', 'telemetry_improvements', 'telemetry_metrics',
   'telemetry_snapshots',
-  'upgrade_history', 'upgrade_proposals', 'user_memory', 'user_settings',
-  'validation_results', 'validation_suite_scores', 'vat_periods',
+  'upgrade_history', 'user_memory', 'user_settings',
+  'vat_periods',
   'workflow_patterns', 'workflow_sessions',
 ];
 

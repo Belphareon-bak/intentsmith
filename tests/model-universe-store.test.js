@@ -16,11 +16,8 @@ function createDiscoveredTable(db) {
       category TEXT,
       base_vram_mb INTEGER,
       context_window INTEGER,
-      benchmarks_json TEXT,
-      benchmark_confidence REAL,
       capabilities_json TEXT,
       source TEXT DEFAULT 'L4',
-      benchmark_source TEXT DEFAULT NULL,
       discovered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
@@ -33,6 +30,10 @@ function createDb(withUniverse = true) {
     upModelUniverse(db);
     upUniverseReconcile(db);
     upRuntimeGuard(db);
+    db.exec(`
+      ALTER TABLE model_universe_derived DROP COLUMN score_estimated;
+      ALTER TABLE model_universe_derived DROP COLUMN score_state;
+    `);
   }
   createDiscoveredTable(db);
   return db;
@@ -133,24 +134,21 @@ test('upsertDerived updates same model+tag record', () => {
   modelUniverseStore.upsertDerived({
     modelName: 'gemma4:27b',
     tag: '27b',
-    scoreEstimated: 0.55,
     confidence: 0.25,
     confidenceState: 'LOW',
-    scoreState: 'estimated_partial',
   });
   modelUniverseStore.upsertDerived({
     modelName: 'gemma4:27b',
     tag: '27b',
-    scoreEstimated: 0.68,
     confidence: 0.45,
     confidenceState: 'MEDIUM',
-    scoreState: 'estimated',
   });
 
   const row = db.prepare('SELECT * FROM model_universe_derived WHERE model_name = ? AND tag = ?').get('gemma4:27b', '27b');
   const count = db.prepare('SELECT COUNT(*) as c FROM model_universe_derived').get().c;
   assertEqual(count, 1);
-  assert(row.score_estimated >= 0.68, `Expected updated score, got ${row.score_estimated}`);
+  assertEqual('score_estimated' in row, false);
+  assertEqual(row.confidence, 0.45);
   assertEqual(row.confidence_state, 'MEDIUM');
 });
 

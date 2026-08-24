@@ -1,10 +1,12 @@
 # Inventura #18a — Správa modelů
 
 **Schopnost:** #18a (pořadí 4) · **Datum:** 2026-08-02 · **Commit:** `17a8b9a8`
-**Poslední follow-up:** 2026-08-21 (evaluace CODE, oddíl 11)
+**Poslední follow-up:** 2026-08-25 (konsolidace evaluací, rozhodnutí 030)
 **Vznik:** rozdělením #18 rozhodnutím operátora, inventura #1 `N-1`
 
 > `CONTRACT.md` §3 krok 1. Popisuje stav, nerozhoduje.
+> Staré scoring/validation části této point-in-time inventury jsou superseded;
+> current stav je v [MODEL-SCORING-ACTIVATION.md](../MODEL-SCORING-ACTIVATION.md).
 
 ## 1. Rozsah
 

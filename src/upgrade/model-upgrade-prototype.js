@@ -2,7 +2,7 @@
 
 import { artifactFromInventory, resolveInstalledArtifact } from './model-evaluation-history.js';
 import { canonicalModelName, sameModelName } from './model-identity.js';
-import { checkRoleEligibility } from './model-ranker.js';
+import { checkRoleEligibility } from './candidate-eligibility.js';
 import { MODEL_PROFILES } from './model-profiles.js';
 import { parseModelNameExtended } from './model-family-extensions.js';
 

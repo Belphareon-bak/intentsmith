@@ -8,6 +8,21 @@
 
 ---
 
+## v136.3 — konsolidace modelových evaluací (2026-08-25)
+
+- Jedna current-contract autorita: exact-digest append-only runy a rozhodnutí,
+  společný API/CLI/Studio reader a durable binding oddělený od evaluace.
+- Odstraněn v123 scoring/validation runtime, jeho endpointy, WS/UI, report a
+  paralelní proof-measurement skripty; migrace 082 před dropem archivuje důkaz.
+- Všech sedm rolí má fail-closed task a discrimination minimum; CHAT vyžaduje
+  samostatný EN/CS důkaz. Stav implementace je `REVIEW_PENDING`.
+- Odstraněny také heuristické benchmarky/quality score v katalogu a model
+  universe a mrtvý telemetry scorer/blacklist. Pairwise výhra je akční pouze
+  po portfolio gate s explicitním `activationEligible=true`.
+
+Detail: [MODEL-SCORING-ACTIVATION.md](MODEL-SCORING-ACTIVATION.md) a rozhodnutí
+[030](decisions/030-model-evaluation-authority-consolidation.md).
+
 ## v136.2 — Gate 1 fronta 1–5 (2026-08-22)
 
 Pět položek závazné Gate 1 fronty z `ROADMAP.md` §13. Všechny jsou rozhodnutí,

@@ -12,7 +12,7 @@ import { canonicalModelName } from '../upgrade/model-identity.js';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-/** Estimate model weights VRAM (MB) from param count. From benchmark-estimator.js formula. */
+/** Estimate model weights VRAM (MB) from parameter count and quantization. */
 function _estimateWeightsMb(params) {
   if (!params || params <= 0) return 16200;  // default for ~27B model
   return Math.round(620 * params + 420);

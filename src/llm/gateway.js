@@ -24,6 +24,7 @@ import {
 } from '../core/abort-error.js';
 import { logger } from '../core/logger.js';
 import { modelUniverseStore } from '../upgrade/model-universe-store.js';
+import { modelNameAliases } from '../upgrade/model-identity.js';
 import {
   MODEL_ACTIVITY_OWNER,
   modelUseAuthority,
@@ -985,9 +986,22 @@ class LLMGateway {
         // v133: Usage tracking for auto-cleanup decisions
         if (this._usageDb) {
           try {
+            const usageRole = authToken?.role || 'UNKNOWN';
+            const aliases = modelNameAliases(model);
+            const desired = aliases.length ? this._usageDb.prepare(`
+              SELECT DISTINCT digest_sha256
+              FROM model_desired_bindings
+              WHERE lower(trim(model_name)) IN (${aliases.map(() => '?').join(', ')})
+              ORDER BY digest_sha256
+            `).all(...aliases) : [];
+            // Auth roles describe the caller (CRE, synthesizer, workflow), not
+            // the seven model slots. Resolve the served artifact by exact
+            // binding identity instead. Ambiguous bindings deliberately keep
+            // a NULL digest so retention cannot guess.
+            const usageDigest = desired.length === 1 ? desired[0].digest_sha256 : null;
             this._usageDb.prepare(
-              'INSERT INTO model_usage (model, role, request_type) VALUES (?, ?, ?)'
-            ).run(model, authToken?.role || 'UNKNOWN', requestType);
+              'INSERT INTO model_usage (model, role, request_type, model_digest_sha256) VALUES (?, ?, ?, ?)'
+            ).run(model, usageRole, requestType, usageDigest);
           } catch (_) {}
         }
 

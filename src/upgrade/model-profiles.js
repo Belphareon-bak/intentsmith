@@ -5,10 +5,10 @@
 //   - Role description and current binding
 //   - Model family preferences (deepseek, qwen, llama, codestral…)
 //   - Hardware/capability requirements
-//   - Validation criteria
+//   - Eligibility criteria
 //
-// This is the source of truth for the upgrade pipeline.
-// Discovery and ranking use profiles to filter and score candidates.
+// This is the source of truth for discovery eligibility and ranking only.
+// Versioned evaluation authority lives in `src/eval/role-evaluation-plan.js`.
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -114,7 +114,6 @@ export const MODEL_PROFILES = {
     },
     preferredFamilies: ['deepseek-r1', 'qwen', 'llama'],
     preferredCategories: ['reasoning', 'general'],
-    validationSuite: 'reasoning',
   },
 
   D2: {
@@ -129,7 +128,6 @@ export const MODEL_PROFILES = {
     },
     preferredFamilies: ['qwen', 'deepseek-r1', 'llama', 'mistral'],
     preferredCategories: ['general', 'reasoning'],
-    validationSuite: 'reasoning',
   },
 
   CODE: {
@@ -144,7 +142,6 @@ export const MODEL_PROFILES = {
     },
     preferredFamilies: ['qwen', 'qwen-coder', 'codestral', 'deepseek-coder', 'starcoder'],
     preferredCategories: ['code', 'general'],
-    validationSuite: 'code',
   },
 
   R1: {
@@ -159,7 +156,6 @@ export const MODEL_PROFILES = {
     },
     preferredFamilies: ['deepseek-r1', 'qwen', 'llama'],
     preferredCategories: ['reasoning', 'general'],
-    validationSuite: 'reasoning',
   },
 
   R2: {
@@ -174,7 +170,6 @@ export const MODEL_PROFILES = {
     },
     preferredFamilies: ['qwen', 'llama', 'mistral', 'phi'],
     preferredCategories: ['general', 'code'],
-    validationSuite: 'review',
   },
 
   CHAT: {
@@ -189,7 +184,6 @@ export const MODEL_PROFILES = {
     },
     preferredFamilies: ['qwen', 'llama', 'mistral'],
     preferredCategories: ['general'],
-    validationSuite: 'chat',
   },
 
   VISION: {
@@ -204,7 +198,6 @@ export const MODEL_PROFILES = {
     },
     preferredFamilies: ['llava'],
     preferredCategories: ['vision'],
-    validationSuite: 'vision',
   },
 };
 

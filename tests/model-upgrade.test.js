@@ -1,4 +1,4 @@
-// tests/model-upgrade.test.js — Model Upgrade System v103 Phase 1 tests
+// Model discovery, binding lifecycle, and exact evaluation history tests.
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { suite, test, testAsync, assert, assertEqual, summary } from './harness.js';
@@ -10,14 +10,12 @@ import {
 import {
   buildCandidates, getUpgradeHints, UPGRADE_HINTS,
 } from '../src/upgrade/model-discovery.js';
-import {
-  filterCandidates, rankCandidates, generateProposals,
-  UpgradeManager, MIN_NOTIFY_SCORE,
-} from '../src/upgrade/upgrade-manager.js';
+import { UpgradeManager } from '../src/upgrade/upgrade-manager.js';
 import Database from 'better-sqlite3';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { up as upLegacyEvaluationSchema } from '../src/db/migrations/2026_03_12_034_v123_validation_results.js';
 import { up as upEvaluationHistory } from '../src/db/migrations/2026_08_22_070_model_evaluation_history.js';
 import {
   ModelEvaluationHistory, suiteContract,
@@ -188,7 +186,7 @@ test('each profile has required fields', () => {
     assert(typeof p.getCurrentModel === 'function', `${p.role}: missing getCurrentModel`);
     assert(p.requirements?.minParams > 0, `${p.role}: missing minParams`);
     assert(Array.isArray(p.preferredFamilies), `${p.role}: missing preferredFamilies`);
-    assert(typeof p.validationSuite === 'string', `${p.role}: missing validationSuite`);
+    assert(!Object.hasOwn(p, 'validationSuite'), `${p.role}: evaluation authority leaked into profile`);
   }
 });
 
@@ -317,252 +315,6 @@ test('unknown model gets no hints', () => {
 //  Suite 6: Candidate Filtering
 // ═══════════════════════════════════════════════════════════════════════════
 
-suite('filterCandidates');
-
-test('filters by minParams', () => {
-  const profile = getProfile('D1'); // minParams = 14
-  const candidates = [
-    { name: 'qwen3:7b', family: 'qwen', category: 'general', params: 7, installed: true },
-    { name: 'qwen3:14b', family: 'qwen', category: 'general', params: 14, installed: true },
-    { name: 'qwen3:32b', family: 'qwen', category: 'general', params: 32, installed: true },
-  ];
-  const filtered = filterCandidates(candidates, profile);
-  assert(!filtered.some(c => c.params === 7), 'should exclude 7b for D1');
-  assert(filtered.some(c => c.params === 14), 'should include 14b');
-  assert(filtered.some(c => c.params === 32), 'should include 32b');
-});
-
-test('filters by family/category', () => {
-  const profile = getProfile('VISION'); // preferredFamilies: ['llava']
-  const candidates = [
-    { name: 'llava:34b', family: 'llava', category: 'vision', params: 34, installed: true },
-    { name: 'qwen3:27b', family: 'qwen', category: 'general', params: 27, installed: true },
-  ];
-  const filtered = filterCandidates(candidates, profile);
-  assertEqual(filtered.length, 1, 'should only keep vision models');
-  assertEqual(filtered[0].name, 'llava:34b');
-});
-
-test('excludes current model', () => {
-  const profile = getProfile('CHAT');
-  const current = profile.getCurrentModel();
-  const candidates = [
-    { name: current, family: 'qwen', category: 'general', params: 27, installed: true },
-    { name: 'qwen3:14b', family: 'qwen', category: 'general', params: 14, installed: true },
-  ];
-  const filtered = filterCandidates(candidates, profile);
-  assert(!filtered.some(c => c.name === current), 'should exclude current model');
-});
-
-test('supports blockedModels set (runtime guard)', () => {
-  const profile = getProfile('CHAT');
-  const candidates = [
-    { name: 'qwen3:14b', family: 'qwen', category: 'general', params: 14, installed: true },
-    { name: 'llama3.1:8b', family: 'llama', category: 'general', params: 8, installed: true },
-  ];
-  const filtered = filterCandidates(candidates, profile, {
-    blockedModels: new Set(['qwen3:14b']),
-  });
-  assertEqual(filtered.length, 1);
-  assertEqual(filtered[0].name, 'llama3.1:8b');
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  Suite 7: Candidate Ranking
-// ═══════════════════════════════════════════════════════════════════════════
-
-suite('rankCandidates');
-
-test('newer version scores higher than older', () => {
-  const profile = getProfile('CHAT');
-  const candidates = [
-    { name: 'qwen3:27b', family: 'qwen', category: 'general', version: '3', params: 27, installed: true, modifiedAt: '2025-06-01T00:00:00Z' },
-    { name: 'qwen3.5:27b', family: 'qwen', category: 'general', version: '3.5', params: 27, installed: true, modifiedAt: '2026-02-01T00:00:00Z' },
-  ];
-  const ranked = rankCandidates(candidates, profile);
-  // qwen3.5 should score higher (newer version + recency)
-  assert(ranked[0].name === 'qwen3.5:27b' || ranked[0].score >= ranked[1].score,
-    `expected qwen3.5 to rank higher, got ${ranked[0].name} (${ranked[0].score}) vs ${ranked[1].name} (${ranked[1].score})`);
-});
-
-test('hint match gets bonus', () => {
-  // Simulate a profile where current model is qwen2.5-coder:32b
-  const profile = {
-    ...getProfile('CODE'),
-    getCurrentModel: () => 'qwen2.5-coder:32b',
-  };
-  const candidates = [
-    { name: 'qwen3:27b', family: 'qwen', category: 'general', version: '3', params: 27, installed: true },
-    { name: 'qwen3.5:27b', family: 'qwen', category: 'general', version: '3.5', params: 27, installed: true },
-  ];
-  const ranked = rankCandidates(candidates, profile);
-  // Both qwen3 and qwen3.5 are in upgrade hints for qwen2.5
-  const qwen35 = ranked.find(c => c.name === 'qwen3.5:27b');
-  assert(qwen35.scoreBreakdown.hintBonus > 0, 'qwen3.5 should get hint bonus');
-});
-
-test('scoreBreakdown is populated', () => {
-  const profile = getProfile('CHAT');
-  const candidates = [
-    { name: 'qwen3:14b', family: 'qwen', category: 'general', version: '3', params: 14, installed: true },
-  ];
-  const ranked = rankCandidates(candidates, profile);
-  const bd = ranked[0].scoreBreakdown;
-  assert('familyBonus' in bd, 'should have familyBonus');
-  assert('versionBonus' in bd, 'should have versionBonus');
-  assert('paramsBonus' in bd, 'should have paramsBonus');
-  assert('recencyBonus' in bd, 'should have recencyBonus');
-  assert('hintBonus' in bd, 'should have hintBonus');
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  Suite 8: Proposal Generation
-// ═══════════════════════════════════════════════════════════════════════════
-
-suite('generateProposals');
-
-test('generates proposals for matching candidates', () => {
-  const candidates = [
-    { name: 'qwen3.5:27b', family: 'qwen', category: 'general', version: '3.5', params: 27, installed: true, sizeGB: 15, modifiedAt: '2026-03-01T00:00:00Z' },
-    { name: 'deepseek-r1-0528', family: 'deepseek-r1', category: 'reasoning', version: null, params: 32, installed: true, sizeGB: 20, modifiedAt: '2026-02-28T00:00:00Z' },
-    { name: 'llava:34b', family: 'llava', category: 'vision', params: 34, installed: true, sizeGB: 22, modifiedAt: '2026-01-15T00:00:00Z' },
-  ];
-  const proposals = generateProposals(candidates, { minScore: 1 });
-  assert(proposals.length > 0, 'should generate at least one proposal');
-});
-
-test('proposals have required fields', () => {
-  const candidates = [
-    { name: 'qwen3.5:27b', family: 'qwen', category: 'general', version: '3.5', params: 27, installed: true, sizeGB: 15, modifiedAt: '2026-03-01T00:00:00Z' },
-  ];
-  const proposals = generateProposals(candidates, { minScore: 1 });
-  if (proposals.length > 0) {
-    const p = proposals[0];
-    assert(typeof p.role === 'string', 'should have role');
-    assert(typeof p.currentModel === 'string', 'should have currentModel');
-    assert(typeof p.candidateModel === 'string', 'should have candidateModel');
-    assert(typeof p.score === 'number', 'should have score');
-    assert(typeof p.reason === 'string', 'should have reason');
-    assert(['low', 'medium', 'high'].includes(p.riskLevel), `invalid riskLevel: ${p.riskLevel}`);
-  }
-});
-
-test('minScore filters low-quality proposals', () => {
-  const candidates = [
-    { name: 'phi3:3b', family: 'phi', category: 'general', version: '3', params: 3, installed: true, sizeGB: 2 },
-  ];
-  // phi3:3b is too small for D1 (minParams=14) and won't match most roles well
-  const proposals = generateProposals(candidates, { minScore: 8 });
-  assertEqual(proposals.length, 0, 'high minScore should filter everything');
-});
-
-test('empty candidates → no proposals', () => {
-  const proposals = generateProposals([], { minScore: 1 });
-  assertEqual(proposals.length, 0);
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  Suite 9: UpgradeManager class
-// ═══════════════════════════════════════════════════════════════════════════
-
-suite('UpgradeManager');
-
-test('formatProposals with proposals', () => {
-  const proposals = [
-    { role: 'CHAT', currentModel: 'qwen3:27b', candidateModel: 'qwen3.5:27b', score: 8, riskLevel: 'low', installed: true, reason: 'newer version', scoreBreakdown: {} },
-    { role: 'D1', currentModel: 'deepseek-r1-32b', candidateModel: 'deepseek-r1-0528', score: 7, riskLevel: 'low', installed: false, reason: 'improved JSON reliability', scoreBreakdown: {} },
-  ];
-  const text = UpgradeManager.formatProposals(proposals);
-  assert(text.includes('CHAT'), 'should mention CHAT');
-  assert(text.includes('qwen3.5:27b'), 'should mention candidate');
-  assert(text.includes('LOW'), 'should show risk level');
-  assert(text.includes('not installed'), 'should note uninstalled');
-});
-
-test('formatProposals with empty list', () => {
-  const text = UpgradeManager.formatProposals([]);
-  assert(text.includes('No model upgrades'), 'should show no upgrades message');
-});
-
-test('recordUpgrade and getHistory', () => {
-  const manager = new UpgradeManager();
-  manager.recordUpgrade('CHAT', 'qwen3:27b', 'qwen3.5:27b', 8);
-  const history = manager.getHistory();
-  assertEqual(history.length, 1);
-  assertEqual(history[0].role, 'CHAT');
-  assertEqual(history[0].toModel, 'qwen3.5:27b');
-  assert(history[0].timestamp > 0, 'should have timestamp');
-});
-
-test('getLastResults initially null', () => {
-  const manager = new UpgradeManager();
-  const { proposals, discovery } = manager.getLastResults();
-  assertEqual(proposals, null);
-  assertEqual(discovery, null);
-});
-
-test('_filterRuntimeGuardedCandidates excludes disabled models', () => {
-  const manager = new UpgradeManager();
-  manager._getRuntimeGuardDecision = (name) => {
-    if (name === 'blocked:7b') return { allowed: false, reason: 'error_rate_guard' };
-    return { allowed: true, reason: 'ok' };
-  };
-
-  const result = manager._filterRuntimeGuardedCandidates([
-    { name: 'allowed:14b' },
-    { name: 'blocked:7b' },
-  ], 'test');
-
-  assertEqual(result.filtered.length, 1);
-  assertEqual(result.filtered[0].name, 'allowed:14b');
-  assertEqual(result.blocked.length, 1);
-  assertEqual(result.blocked[0].name, 'blocked:7b');
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  Suite 10: Risk Assessment
-// ═══════════════════════════════════════════════════════════════════════════
-
-suite('Risk assessment');
-
-test('same family newer version → low risk', () => {
-  const candidates = [
-    { name: 'qwen3.5:27b', family: 'qwen', category: 'general', version: '3.5', params: 27, installed: true, sizeGB: 15, modifiedAt: '2026-03-01T00:00:00Z' },
-  ];
-  // CHAT uses qwen3.5:27b by default, so we need a profile with older model
-  const profile = { ...getProfile('CHAT'), getCurrentModel: () => 'qwen3:27b' };
-  const filtered = filterCandidates(candidates, profile);
-  if (filtered.length > 0) {
-    const proposals = generateProposals(candidates, { minScore: 1 });
-    const chatProposal = proposals.find(p => p.role === 'CHAT');
-    // With our profile override this won't work through generateProposals...
-    // So test via rankCandidates scoring instead
-    const ranked = rankCandidates(filtered, profile);
-    assert(ranked[0].score > 0, 'should have positive score');
-  }
-});
-
-test('different family → high risk', () => {
-  const candidates = [
-    { name: 'llama3.3:27b', family: 'llama', category: 'general', version: '3.3', params: 27, installed: true, sizeGB: 15, modifiedAt: '2026-03-01T00:00:00Z' },
-  ];
-  const proposals = generateProposals(candidates, { minScore: 1 });
-  // For roles currently using qwen, llama would be different family → high risk
-  const highRiskProposal = proposals.find(p => p.riskLevel === 'high');
-  // This depends on which roles match — at least CHAT should generate a high-risk proposal
-  // since CHAT prefers qwen but llama is in preferredFamilies
-  if (proposals.length > 0) {
-    const chatProposal = proposals.find(p => p.role === 'CHAT');
-    if (chatProposal) {
-      assertEqual(chatProposal.riskLevel, 'high', 'llama for qwen-configured CHAT should be high risk');
-    }
-  }
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  Suite 11: MODEL_FAMILIES coverage
-// ═══════════════════════════════════════════════════════════════════════════
-
 suite('MODEL_FAMILIES');
 
 test('covers major model families', () => {
@@ -596,7 +348,7 @@ suite('UpgradeManager lifecycle');
 test('startPeriodicCheck sets _active flag', () => {
   const mgr = new UpgradeManager();
   // Override checkForUpgrades to prevent real Ollama call
-  mgr.checkForUpgrades = async () => ({ proposals: [], discovery: { candidates: [], hints: new Map(), ollamaAvailable: false, timestamp: Date.now() } });
+  mgr.checkForUpgrades = async () => ({ discovery: { candidates: [], hints: new Map(), ollamaAvailable: false, timestamp: Date.now() } });
   mgr.startPeriodicCheck({ recheckMs: 999999, pollMs: 999999 });
   assert(mgr._active === true, 'should be active after start');
   mgr.stopPeriodicCheck();
@@ -606,7 +358,7 @@ test('startPeriodicCheck sets _active flag', () => {
 test('startPeriodicCheck is idempotent', () => {
   const mgr = new UpgradeManager();
   let callCount = 0;
-  mgr.checkForUpgrades = async () => { callCount++; return { proposals: [], discovery: { candidates: [], hints: new Map(), ollamaAvailable: false, timestamp: Date.now() } }; };
+  mgr.checkForUpgrades = async () => { callCount++; return { discovery: { candidates: [], hints: new Map(), ollamaAvailable: false, timestamp: Date.now() } }; };
   mgr.startPeriodicCheck({ recheckMs: 999999, pollMs: 999999 });
   mgr.startPeriodicCheck({ recheckMs: 999999, pollMs: 999999 }); // second call is no-op
   // Only 1 initial check should fire (from first start)
@@ -618,7 +370,7 @@ test('startPeriodicCheck is idempotent', () => {
 
 test('stopPeriodicCheck clears scheduled timers', () => {
   const mgr = new UpgradeManager();
-  mgr.checkForUpgrades = async () => ({ proposals: [], discovery: { candidates: [], hints: new Map(), ollamaAvailable: false, timestamp: Date.now() } });
+  mgr.checkForUpgrades = async () => ({ discovery: { candidates: [], hints: new Map(), ollamaAvailable: false, timestamp: Date.now() } });
   mgr.startPeriodicCheck({ recheckMs: 999999, pollMs: 999999 });
   assert(mgr._recheckTimeout !== null, 'should have full-cycle timeout');
   assert(mgr._pollInterval !== null, 'should have poll interval');
@@ -631,7 +383,7 @@ await testAsync('_pollModelChanges detects model list change', async () => {
   const mgr = new UpgradeManager();
   let checkCalled = false;
   mgr._modelHash = 'llava:13b,qwen3.5:27b'; // Old hash
-  mgr.checkForUpgrades = async () => { checkCalled = true; return { proposals: [], discovery: { candidates: [], hints: new Map(), ollamaAvailable: true, timestamp: Date.now() } }; };
+  mgr.checkForUpgrades = async () => { checkCalled = true; return { discovery: { candidates: [], hints: new Map(), ollamaAvailable: true, timestamp: Date.now() } }; };
 
   // Mock fetchInstalledModels by providing a custom _pollModelChanges
   // Instead, we test the hash change logic directly
@@ -655,29 +407,7 @@ await testAsync('_pollModelChanges detects model list change', async () => {
   assert(checkCalled, 'hash change should trigger re-check');
 }, ASYNC_TEST_TIMEOUT_MS);
 
-test('getNotifiableProposals filters by MIN_NOTIFY_SCORE', () => {
-  const mgr = new UpgradeManager();
-  mgr._lastProposals = [
-    { role: 'CHAT', score: 9, candidateModel: 'qwen4:27b' },
-    { role: 'D1', score: 3, candidateModel: 'something:14b' },
-    { role: 'R1', score: 7, candidateModel: 'deepseek-r1-0528' },
-  ];
-  const notifiable = mgr.getNotifiableProposals();
-  assertEqual(notifiable.length, 2, 'should only return proposals with score >= MIN_NOTIFY_SCORE');
-  assert(notifiable.every(p => p.score >= MIN_NOTIFY_SCORE), 'all should be above threshold');
-});
-
-test('getNotifiableProposals returns empty when no proposals', () => {
-  const mgr = new UpgradeManager();
-  const notifiable = mgr.getNotifiableProposals();
-  assertEqual(notifiable.length, 0);
-});
-
-test('MIN_NOTIFY_SCORE is exported and equals 6', () => {
-  assertEqual(MIN_NOTIFY_SCORE, 6, 'MIN_NOTIFY_SCORE should be 6');
-});
-
-await testAsync('_lastCheckTime is set after checkForUpgrades', async () => {
+ await testAsync('_lastCheckTime is set after checkForUpgrades', async () => {
   const mgr = new UpgradeManager();
   // Mock discover to avoid real Ollama call
   const origDiscover = (await import('../src/upgrade/model-discovery.js')).discover;
@@ -693,13 +423,9 @@ await testAsync('_lastCheckTime is set after checkForUpgrades', async () => {
 
 function evaluationDb() {
   const db = new Database(':memory:');
-  db.exec(`
-    CREATE TABLE validation_suite_scores (
-      id INTEGER PRIMARY KEY, model TEXT NOT NULL, suite TEXT NOT NULL,
-      score REAL NOT NULL, passed INTEGER NOT NULL, total INTEGER NOT NULL,
-      duration_ms INTEGER DEFAULT 0, validated_at TEXT
-    );
-  `);
+  // 070 consumes the historical pre-070 schema. Runtime code no longer uses
+  // these tables; the isolated fixture preserves the real migration order.
+  upLegacyEvaluationSchema(db);
   upEvaluationHistory(db);
   return db;
 }

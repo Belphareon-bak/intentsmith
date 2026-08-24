@@ -28,7 +28,9 @@ import { logger } from '../core/logger.js';
 import { measureModel, drainResident, unloadModel } from './vram-measurement.js';
 import { trialRole, createSuiteCache } from './pairwise-trial.js';
 import { parseModelNameExtended } from './model-family-extensions.js';
-import { IMPROVEMENT_THRESHOLD, checkRoleEligibility } from './model-ranker.js';
+import { ROLE_IMPROVEMENT_THRESHOLDS } from '../eval/role-evaluation-plan.js';
+import { checkRoleEligibility } from './candidate-eligibility.js';
+import { createRoleEvaluationPlans } from '../eval/role-evaluation-plan.js';
 
 const PULL_TIMEOUT = 60 * 60 * 1000;  // hodina; jen pojistka proti zaseknutí
 const PROBE_TIMEOUT = 120_000;
@@ -215,16 +217,22 @@ export async function tryCandidate(candidateName, ctx = {}) {
     error: null,
   };
 
+  const evaluationPlans = ctx.evaluationPlans || createRoleEvaluationPlans();
+
   // Suite readiness is known before download or GPU placement. Do not spend
   // network, VRAM and capability probes on a candidate when none of its roles
   // is allowed to make a decision yet.
   const runnableRoles = [];
   for (const role of roles) {
-    const plan = ctx.evaluationPlans?.[role] || null;
-    const minimumTaskCount = plan?.minimumTaskCount ?? 1;
-    if (plan && plan.taskCount < minimumTaskCount) {
+    const plan = evaluationPlans[role] || null;
+    const minimumTaskCount = plan?.minimumTaskCount ?? null;
+    if (!plan) {
+      const reason = `role ${role} nemá explicitní current evaluation plan`;
+      out.trials.push({ role, skipped: true, reason });
+      onStage('roleSkipped', candidateName, { role, reason });
+    } else if (!plan.decisionReady || plan.taskCount < minimumTaskCount) {
       const reason = `${plan.suiteName} má ${plan.taskCount}/${minimumTaskCount} `
-        + 'požadovaných aktivních úloh';
+        + 'požadovaných aktivních úloh — current contract není decision-ready';
       out.trials.push({ role, skipped: true, reason });
       onStage('roleSkipped', candidateName, { role, reason });
     } else {
@@ -306,7 +314,7 @@ export async function tryCandidate(candidateName, ctx = {}) {
     for (const role of runnableRoles) {
       const incumbent = bindings[role];
       if (!incumbent) continue;
-      const evaluationPlan = ctx.evaluationPlans?.[role] || null;
+      const evaluationPlan = evaluationPlans[role] || null;
 
       // Nezpůsobilá role se nesoutěží.  Textový model nemá co dělat v souboji
       // o VISION — jednak by tam nemohl vyhrát, jednak by to stálo šest běhů
@@ -319,7 +327,7 @@ export async function tryCandidate(candidateName, ctx = {}) {
       }
       const result = await trialRole(runner, role, candidateName, incumbent, {
         evaluationPlan,
-        threshold: IMPROVEMENT_THRESHOLD[role] ?? 0.05,
+        threshold: ROLE_IMPROVEMENT_THRESHOLDS[role] ?? 0.05,
         speed: {
           candidate: out.measurement.throughput?.tokensPerSecond ?? 0,
           incumbent: incumbentSpeed[incumbent] ?? 0,
@@ -344,7 +352,9 @@ export async function tryCandidate(candidateName, ctx = {}) {
     // informace, takže se to aspoň musí rozlišit ve výstupu a jde to vypnout.
     out.inconclusive = !out.accepted
       && Object.values(out.decisions).length > 0
-      && Object.values(out.decisions).every(d => d.basis === 'nerozhodně');
+      && Object.values(out.decisions).every(d => (
+        d.basis === 'nerozhodně' || d.basis === 'nedostatečný důkaz'
+      ));
 
     if (!out.accepted && removalAllowed && !(out.inconclusive && ctx.keepInconclusive)) {
       out.removed = await removeModel(candidateName, ctx);

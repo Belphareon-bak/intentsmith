@@ -2418,8 +2418,8 @@ function centerExpertiseWizard(){
 var _settingsVals={theme:'dark',accentIdx:0,activeInt:100,passiveInt:50,fontSizeVal:13,fontIdx:0,custom1:null,custom2:null,bgIdx:0,bgCustom1:null,bgCustom2:null,customCSS:'',visualMode:'borders',tileOpacity:80,bgDim:30,sidebarOpacity:80,projectsDir:'',autoCollapse:true,restoreSession:true,lastView:''};
 /* v87.3: Backend config state — loaded from /api/settings */
 var _bCfg=null;var _bCfgLoading=false;var _gpuInfo=null;var _ollamaModels=null;var _sysInfo=null;var _storageInfo=null;var _bCfgSaveTimer=null;
-var _upgradeData=null;var _upgradeLoading=false;var _upgradeMsg=null;var _upgradeAutoChecked=false;
-var _scoringData=null;var _scoringLoading=false;var _upgradeTab='overview';
+var _upgradeData=null;var _upgradeLoading=false;var _upgradeMsg=null;
+var _evaluationData=null;var _evaluationLoading=false;var _upgradeTab='overview';
 var _discoveredData=null;var _discoveredLoading=false;
 /* v133: Model overview + management state */
 var _modelOverview=null;var _modelOverviewLoading=false;
@@ -2428,16 +2428,12 @@ var _deleteConfirm=null;/* {model,sizeGB} */var _deletingModel=null;
    failed operation. Warning-only state carries no identity and no button. */
 var _verifyFailure=null;/* {role,model,text,identity|null} */
 var _rollbackConfirm=false;var _rollbackInFlight=null;var _rollbackToken=0;
-var _batchValidating=false;var _batchQueue=[];var _batchCurrent=null;
 var _overviewSort={col:'name',dir:'asc'};var _roleBindings=null;
 /* v135: Governor */
 var _governorData=null;var _governorLoading=false;var _governorProposals=null;
 /* v124: Marketplace */
 var _mpData=null;var _mpLoading=false;var _mpMsg=null;var _mpTab='skills';var _mpSearch='';var _mpPage=1;var _mpInstalling={};
-var _pullState={};/* model name → {status,percent,text,downloadedGB,totalGB,eta,scores} */
-var _validationScores={};/* model name → { reasoning: { score, validatedAt }, code: { ... } } */
-var _validatingModel=null;/* currently validating model name or null */
-var _validationProgress=null;/* { suite, testName, percent, text } */
+var _pullState={};/* model name → {status,percent,text,downloadedGB,totalGB,eta} */
 /* v91: Feature flags state — loaded from GET /api/features */
 var _featureFlags=null;var _ffLoading=false;
 /* v91: Security state */
@@ -2762,6 +2758,7 @@ function settingsLLM(){
   if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
   if(!_gpuInfo){fetch(_backendBase+'/api/system/gpu',{signal:AbortSignal.timeout(5000)}).then(function(r){return r.json();}).then(function(d){_gpuInfo=d;renderCenter();}).catch(function(){_gpuInfo={error:true};});}
   if(!_ollamaModels){fetch(_backendBase+'/api/system/models',{signal:AbortSignal.timeout(5000)}).then(function(r){return r.json();}).then(function(d){_ollamaModels=d.models||d||[];renderCenter();}).catch(function(){_ollamaModels=[];});}
+  if(!_evaluationData&&!_evaluationLoading)_loadEvaluationData();
   var models=[...new Set((_ollamaModels||[]).map(function(m){return typeof m==='string'?m:m.name||m.model||'';}).filter(Boolean))];
   if(models.length===0)models=['qwen3.5:27b','llava:13b','llama3.1:70b','mistral:7b'];
   var gpus=_gpuInfo&&_gpuInfo.profile?_gpuInfo.profile.gpus:(_gpuInfo&&_gpuInfo.gpus?_gpuInfo.gpus:null);
@@ -2797,11 +2794,10 @@ function settingsLLM(){
         h('div',{style:{display:'flex',flexDirection:'column',gap:4}},
           roles.map(function(r){
             var m=_roleBindings[r]||'?';
-            var vs=_validationScores[m];
-            var scoreText='\u2014';var scoreColor=C.tx4;
-            if(vs){var vals=Object.values(vs).filter(function(v){return v&&v.score!=null;});
-              if(vals.length>0){var avg=vals.reduce(function(a,b){return a+b.score;},0)/vals.length;
-                scoreText=Math.round(avg*100)+'%';scoreColor=avg>=0.7?C.accent:avg>=0.4?'#eab308':'#ef4444';}}
+            var roleEval=_evaluationData&&_evaluationData.roles?_evaluationData.roles[r]:null;
+            var evalRow=roleEval?(roleEval.artifacts||[]).find(function(x){return x.isCurrentBinding;}):null;
+            var scoreText=evalRow&&evalRow.status==='COMPLETE'?Math.round(evalRow.score*100)+'%':(evalRow?evalRow.status:'MISSING');
+            var scoreColor=evalRow&&evalRow.status==='COMPLETE'?C.accent:evalRow&&evalRow.status==='BLOCKED'?'#eab308':C.tx4;
             var installed=models.indexOf(m)>=0;
             return h('div',{key:r,style:{display:'flex',alignItems:'center',gap:8,padding:'4px 8px',borderRadius:6,background:C.bg2}},
               h('span',{style:{fontWeight:700,fontSize:_fs(10),color:rp[r].color,minWidth:48}},r),
@@ -2831,10 +2827,8 @@ function _loadUpgradeData(){
   if(_upgradeLoading)return;_upgradeLoading=true;
   fetch(_backendBase+'/api/system/upgrades',{signal:AbortSignal.timeout(8000)})
     .then(function(r){return r.json();})
-    .then(function(d){_upgradeData=d;_upgradeLoading=false;
-      if(!_upgradeAutoChecked&&(!d.proposals||d.proposals.length===0)){_upgradeAutoChecked=true;_upgradeCheck();}
-      else renderCenter();})
-    .catch(function(e){_upgradeData={error:e.message};_upgradeLoading=false;_upgradeAutoChecked=true;renderCenter();});
+    .then(function(d){_upgradeData=d;_upgradeLoading=false;renderCenter();})
+    .catch(function(e){_upgradeData={error:e.message};_upgradeLoading=false;renderCenter();});
 }
 /* v125: fire-and-forget — progress comes via WS events */
 function _upgradeApply(role,model){
@@ -2859,13 +2853,6 @@ function _upgradeApply(role,model){
     .catch(function(e){_upgradeLoading=false;_upgradeMsg={ok:false,text:'Chyba s\u00EDt\u011B: '+e.message};renderCenter();
       if(window._c3)window._c3.agentLog('TOOL','\u274C Chyba s\u00EDt\u011B: '+e.message);});
 }
-var _validationPrompt=null;/* v125: pending validation consent */
-function _upgradeDismiss(id){
-  fetch(_backendBase+'/api/system/proposals/'+id+'/dismiss',{method:'POST',signal:AbortSignal.timeout(5000)})
-    .then(function(r){return r.json();})
-    .then(function(d){if(d.ok){_upgradeData=null;_loadUpgradeData();}})
-    .catch(function(){});
-}
 function _upgradeCheck(){
   _upgradeMsg={ok:true,text:'Probíhá kontrola + vyhledávání nových modelů...'};_upgradeLoading=true;renderCenter();
   fetch(_backendBase+'/api/system/upgrades/check',{method:'POST',
@@ -2874,33 +2861,18 @@ function _upgradeCheck(){
     .then(function(r){return r.json();})
     .then(function(d){_upgradeData=d;_upgradeLoading=false;
       var stats=d.discovery||{};var l4=stats.l4Count||0;
-      _upgradeMsg={ok:true,text:'Kontrola dokončena — '+(d.proposals||[]).length+' návrh(ů)'+(l4>0?', '+l4+' nových modelů objeveno':'')};renderCenter();
+      _upgradeMsg={ok:true,text:'Discovery dokončeno — '+(stats.candidateCount||0)+' kandidátů'+(l4>0?', '+l4+' nově objeveno':'')+'. Kvalitu určuje pouze evaluace.'};renderCenter();
       setTimeout(function(){_upgradeMsg=null;renderCenter();},5000);})
     .catch(function(e){_upgradeLoading=false;_upgradeMsg={ok:false,text:'Chyba: '+e.message};renderCenter();});
 }
-function _loadScoringData(){
-  if(_scoringLoading)return;_scoringLoading=true;
-  fetch(_backendBase+'/api/system/upgrades/scoring',{signal:AbortSignal.timeout(10000)})
+function _loadEvaluationData(){
+  if(_evaluationLoading)return;_evaluationLoading=true;
+  fetch(_backendBase+'/api/system/models/evaluations',{signal:AbortSignal.timeout(10000)})
     .then(function(r){return r.json();})
-    .then(function(d){_scoringData=d;_scoringLoading=false;_loadValidationScores();renderCenter();})
-    .catch(function(e){_scoringData={error:e.message};_scoringLoading=false;renderCenter();});
+    .then(function(d){_evaluationData=d;_evaluationLoading=false;renderCenter();})
+    .catch(function(e){_evaluationData={error:e.message};_evaluationLoading=false;renderCenter();});
 }
-function _loadValidationScores(){
-  fetch(_backendBase+'/api/system/models/validation-scores',{signal:AbortSignal.timeout(5000)})
-    .then(function(r){return r.json();})
-    .then(function(d){_validationScores=d.scores||{};renderCenter();})
-    .catch(function(){});
-}
-function _validateModel(name){
-  if(_validatingModel)return;
-  _validatingModel=name;_validationProgress={suite:'',testName:'',percent:0,text:name+' — Spouštím...'};renderCenter();
-  fetch(_backendBase+'/api/system/models/validate',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({model:name}),signal:AbortSignal.timeout(10000)})
-    .then(function(r){return r.json();})
-    .then(function(d){if(!d.ok){_validatingModel=null;_validationProgress=null;renderCenter();}})
-    .catch(function(e){_validatingModel=null;_validationProgress=null;renderCenter();});
-}
-/* Installed models cache for scoring tab */
+/* Installed models cache for role and evaluation tabs */
 var _installedModels=null;var _installedLoading=false;var _assigningRole=null;
 function _loadInstalledModels(){
   if(_installedLoading)return;_installedLoading=true;
@@ -2912,21 +2884,23 @@ function _loadInstalledModels(){
 function _assignModel(role,model){
   if(_assigningRole)return;_assigningRole=role;renderCenter();
   fetch(_backendBase+'/api/system/upgrades/apply',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({role:role,targetModel:model,appliedBy:'user-scoring'}),signal:AbortSignal.timeout(30000)})
+    body:JSON.stringify({role:role,targetModel:model,appliedBy:'user-roles'}),signal:AbortSignal.timeout(30000)})
     .then(function(r){return r.json();})
     .then(function(d){_assigningRole=null;
-      if(d.ok||d.applied){_scoringData=null;_loadScoringData();_discoveredData=null;}
+      if(d.ok||d.applied){_evaluationData=null;_loadEvaluationData();_discoveredData=null;}
       else{_assigningRole=null;}renderCenter();})
     .catch(function(){_assigningRole=null;renderCenter();});
 }
-/* v133: Overview loader + model delete + batch validate */
+/* v133: Overview loader + model delete */
 function _loadModelOverview(){
   if(_modelOverviewLoading)return;_modelOverviewLoading=true;
   fetch(_backendBase+'/api/system/models/overview',{signal:AbortSignal.timeout(10000)})
     .then(function(r){return r.json();})
     .then(function(d){_modelOverview=d;_modelOverviewLoading=false;
-      _batchValidating=d.batchValidating||false;
-      _roleBindings=d.bindings||null;renderCenter();})
+      _roleBindings=d.bindings||null;_evaluationData={schemaVersion:2,authority:d.evaluations&&d.evaluations.authority,
+        bindingAuthority:d.evaluations&&d.evaluations.bindingAuthority,statusCounts:d.evaluations&&d.evaluations.statusCounts,
+        decisions:d.evaluations&&d.evaluations.decisions,roles:d.evaluations&&d.evaluations.roles,bindings:d.bindings||{},
+        models:(d.models||[]).map(function(m){return {name:m.name,canonicalName:m.canonicalName||m.name,digestSha256:m.digestSha256||null,evaluations:m.evaluations||{}};})};renderCenter();})
     .catch(function(){_modelOverviewLoading=false;renderCenter();});
 }
 function _deleteModel(name){
@@ -2981,20 +2955,6 @@ function _rollbackBinding(identity){
       _upgradeMsg={ok:false,text:'Rollback selhal: '+e.message};renderCenter();
       setTimeout(function(){_upgradeMsg=null;renderCenter();},8000);});
 }
-function _batchValidateAll(){
-  if(_batchValidating)return;_batchValidating=true;renderCenter();
-  fetch(_backendBase+'/api/system/models/validate-all',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:'{}',signal:AbortSignal.timeout(10000)})
-    .then(function(r){return r.json();})
-    .then(function(d){if(d.alreadyRunning){_upgradeMsg={ok:true,text:'Validace ji\u017E prob\u00EDh\u00E1'};setTimeout(function(){_upgradeMsg=null;renderCenter();},3000);}
-      else if(d.queued){_batchQueue=d.queued;
-        _upgradeMsg={ok:true,text:'Validace spu\u0161t\u011Bna: '+d.queued.length+' model\u016F (~'+d.estimatedMinutes+' min)'};
-        if(window._c3)window._c3.agentLog('TOOL','\uD83E\uDDEA D\u00E1vkov\u00E1 validace: '+d.queued.length+' model\u016F');
-        setTimeout(function(){_upgradeMsg=null;renderCenter();},5000);}
-      renderCenter();})
-    .catch(function(e){_batchValidating=false;_upgradeMsg={ok:false,text:'Chyba: '+e.message};renderCenter();
-      setTimeout(function(){_upgradeMsg=null;renderCenter();},5000);});
-}
 var _discoverLoading=false;var _discoverMsg=null;
 function _discoverNewModels(){
   if(_discoverLoading)return;
@@ -3021,331 +2981,91 @@ function _pullModel(name){
 }
 function _loadDiscoveredData(){
   if(_discoveredLoading)return;_discoveredLoading=true;
-  fetch(_backendBase+'/api/system/upgrades/recommendations',{signal:AbortSignal.timeout(10000)})
+  fetch(_backendBase+'/api/system/models/candidates',{signal:AbortSignal.timeout(10000)})
     .then(function(r){return r.json();})
     .then(function(d){_discoveredData=d;_discoveredLoading=false;renderCenter();})
     .catch(function(e){_discoveredData={error:e.message};_discoveredLoading=false;renderCenter();});
 }
-var _recExpanded={};/* model name → true/false for comparison details */
 function _renderDiscoveredTab(){
   var toast=_discoverMsg?h('div',{style:{marginBottom:12,padding:'8px 14px',borderRadius:6,fontSize:_fs(11),fontWeight:600,
-    background:_discoverMsg.ok?'rgba(34,197,94,0.1)':'rgba(239,68,68,0.1)',
-    color:_discoverMsg.ok?C.accent:'#ef4444',
+    background:_discoverMsg.ok?'rgba(34,197,94,0.1)':'rgba(239,68,68,0.1)',color:_discoverMsg.ok?C.accent:'#ef4444',
     border:'1px solid '+(_discoverMsg.ok?'rgba(34,197,94,0.2)':'rgba(239,68,68,0.2)')}},_discoverMsg.text):null;
-  if(_discoveredLoading&&!_discoveredData)return h('div',null,toast,h('div',{style:{color:C.tx3,padding:20,textAlign:'center'}},'Nacitam doporucene modely...'));
-  if(!_discoveredData||_discoveredData.error)return h('div',null,
-    h('div',{style:{textAlign:'center',padding:'40px 20px'}},
-      h('div',{style:{fontSize:_fs(28),marginBottom:12}},'\uD83D\uDD0D'),
-      h('div',{style:{fontSize:_fs(13),color:C.tx2,fontWeight:600,marginBottom:8}},_discoveredData?'Chyba: '+_discoveredData.error:'Nacitam doporuceni...')));
-  var sections=_discoveredData.sections||[];
-  var curModels=_discoveredData.currentModels||{};
-  if(sections.length===0)return h('div',null,toast,
-    h('div',{style:{textAlign:'center',padding:'40px 20px'}},
-      h('div',{style:{fontSize:_fs(28),marginBottom:10}},'\uD83D\uDD0D'),
-      h('div',{style:{fontSize:_fs(13),color:C.tx2,fontWeight:600}},'Zadna doporuceni')));
-  var semColors={upgrade:'#22c55e',sidegrade:'#eab308',downgrade:'#ef4444',unknown:C.tx4};
-  var semBg={upgrade:'rgba(34,197,94,0.12)',sidegrade:'rgba(234,179,8,0.12)',downgrade:'rgba(239,68,68,0.12)',unknown:C.bg3};
-  var semLabels={upgrade:'Upgrade',sidegrade:'Srovnatelny',downgrade:'Slabsi',unknown:'?'};
-  var semIcons={upgrade:'\u2B06\uFE0F',sidegrade:'\u2194\uFE0F',downgrade:'\u2B07\uFE0F',unknown:'\u2753'};
-  var bL={mmlu:'MMLU',gpqa:'GPQA',humaneval:'HumanEval',livecodebench:'LiveCode',swebench:'SWE-Bench',
-    arena:'Arena',reasoning:'Reasoning',math:'Math',code:'Code',multimodal:'Multimodal'};
-  var roleColors={D1:'#8b5cf6',D2:'#a78bfa',CODE:'#22c55e',R1:'#6366f1',R2:'#818cf8',CHAT:'#3b82f6',VISION:'#f59e0b'};
-  var capColors={vision:'#8b5cf6',tool_use:'#f59e0b',reasoning:'#3b82f6',json_mode:'#6366f1',long_context:'#06b6d4'};
-  var gpuGB=_discoveredData.gpuVramMb?(_discoveredData.gpuVramMb/1024).toFixed(0):null;
-  var budgetGB=_discoveredData.vramBudget?(_discoveredData.vramBudget/1024).toFixed(1):null;
-  /* Helper: format context window */
+  if(_discoveredLoading&&!_discoveredData)return h('div',null,toast,h('div',{style:{color:C.tx3,padding:20,textAlign:'center'}},'Načítám kandidáty...'));
+  if(!_discoveredData||_discoveredData.error)return h('div',null,toast,
+    h('div',{style:{color:'#ef4444',padding:20,textAlign:'center'}},'Chyba: '+(_discoveredData?_discoveredData.error:'žádná data')));
+  var candidates=_discoveredData.candidates||[];
   function fCtx(w){if(!w)return'-';return w>=1048576?(w/1048576).toFixed(0)+'M':w>=1024?(w/1024).toFixed(0)+'K':w+'';}
-  /* Helper: delta cell */
-  function dCell(a,b){if(a==null||b==null)return h('td',{style:{padding:'2px 6px',textAlign:'right',fontSize:_fs(9),color:C.tx4}},'-');
-    var d=a-b;var col=d>0.005?'#22c55e':d<-0.005?'#ef4444':C.tx4;
-    return h('td',{style:{padding:'2px 6px',textAlign:'right',fontSize:_fs(9),fontWeight:600,color:col}},
-      (d>0?'+':'')+Math.round(d*100));}
-  return h('div',null,
-    toast,
-    h('div',{style:{marginBottom:14}},
-      h('div',{style:{fontSize:_fs(13),fontWeight:700,color:C.tx1,marginBottom:3}},'Doporucene modely pro C3'),
-      h('div',{style:{fontSize:_fs(10),color:C.tx4,lineHeight:1.4}},
-        gpuGB?'GPU: '+gpuGB+' GB VRAM'+(budgetGB?' — zobrazeny modely do '+budgetGB+' GB (80%)':'')+'. ':'','Kliknete pro porovnani s aktualnim modelem.')),
-    sections.map(function(sec){
-      return h('div',{key:sec.id,style:{marginBottom:22}},
-        h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:8,paddingBottom:6,borderBottom:'1px solid '+C.border}},
-          h('span',{style:{fontSize:_fs(16)}},sec.icon),
-          h('div',{style:{flex:1}},
-            h('div',{style:{fontSize:_fs(12),fontWeight:700,color:C.tx1}},sec.title),
-            h('div',{style:{fontSize:_fs(9),color:C.tx4,marginTop:1}},sec.subtitle))),
-        sec.models.map(function(m){
-          var vramGB=(m.vramMb/1024).toFixed(1);
-          var sizeGB=(m.vramMb*0.75/1024).toFixed(1);
-          var sem=m.bestSemaphore||'unknown';
-          var isHL=m.highlight===true;
-          var ps=_pullState[m.name];
-          var isPulling=ps&&ps.status&&ps.status!=='done'&&ps.status!=='error';
-          var isDone=ps&&ps.status==='done';
-          var isError=ps&&ps.status==='error';
-          var isExp=_recExpanded[m.name+'-'+sec.id]===true;
-          /* Primary role for comparison (first role in list) */
-          var priRole=(m.roles||[])[0]||null;
-          var priCur=priRole?curModels[priRole]:null;
-          return h('div',{key:m.name+'-'+sec.id,style:{background:isHL?'linear-gradient(135deg,rgba(99,102,241,0.05),rgba(139,92,246,0.03))':C.bg2,
-            border:'1px solid '+(isHL?'rgba(99,102,241,0.25)':isPulling?'rgba(59,130,246,0.4)':isDone?'rgba(34,197,94,0.3)':C.border),
-            borderRadius:10,padding:'12px 14px',marginBottom:8,cursor:'pointer'},
-            onClick:function(){_recExpanded[m.name+'-'+sec.id]=!isExp;renderCenter();}},
-            /* ── Row 1: header line ── */
-            h('div',{style:{display:'flex',alignItems:'center',gap:6,marginBottom:4}},
-              h('span',{style:{fontSize:_fs(12),fontWeight:700,color:C.tx1,fontFamily:C.mono}},m.name),
-              isHL?h('span',{style:{fontSize:_fs(8),padding:'1px 5px',borderRadius:3,background:'rgba(99,102,241,0.15)',color:'#6366f1',fontWeight:700}},'TOP'):null,
-              h('span',{style:{flex:1}}),
-              /* Semaphore badge */
-              h('span',{style:{fontSize:_fs(9),padding:'2px 8px',borderRadius:4,fontWeight:600,background:semBg[sem],color:semColors[sem]}},
-                semIcons[sem]+' '+semLabels[sem]),
-              /* Right side: installed badge | pull progress | download button */
-              m.installed?h('span',{style:{fontSize:_fs(9),padding:'3px 10px',borderRadius:6,background:'rgba(34,197,94,0.12)',
-                color:C.accent,fontWeight:600,marginLeft:6,whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:4}},
-                '\u2705 Nainstalováno'):
-              isPulling?h('div',{style:{marginLeft:6,display:'flex',flexDirection:'column',alignItems:'flex-end',gap:2,minWidth:180}},
-                h('div',{style:{display:'flex',alignItems:'center',gap:6}},
-                  h('span',{style:{fontSize:_fs(9),color:'#3b82f6',fontWeight:600,whiteSpace:'nowrap'}},
-                    ps.percent>=0?ps.percent+'%':(ps.status==='scoring'?'Scoring...':'Stahování...')),
-                  ps.downloadedGB&&ps.totalGB?h('span',{style:{fontSize:_fs(8),color:C.tx4,whiteSpace:'nowrap'}},
-                    ps.downloadedGB+'/'+ps.totalGB+' GB'):null,
-                  ps.eta?h('span',{style:{fontSize:_fs(8),color:C.tx4,whiteSpace:'nowrap'}},'~'+ps.eta):null),
-                h('div',{style:{width:'100%',background:C.bg3,borderRadius:3,height:4,overflow:'hidden'}},
-                  ps.percent>=0?h('div',{style:{width:Math.max(2,ps.percent)+'%',height:'100%',borderRadius:3,transition:'width 0.3s ease',
-                    background:ps.status==='scoring'?'linear-gradient(90deg,#8b5cf6,#6366f1)':'linear-gradient(90deg,#3b82f6,#60a5fa)'}}):
-                  h('div',{style:{width:'30%',height:'100%',borderRadius:3,
-                    background:'linear-gradient(90deg,transparent,#3b82f6,transparent)',
-                    animation:'c3-pulse 1.5s ease-in-out infinite'}}))):
-              isDone?h('div',{style:{marginLeft:6,display:'flex',alignItems:'center',gap:6}},
-                h('span',{style:{fontSize:_fs(9),color:C.accent,fontWeight:600,whiteSpace:'nowrap'}},'\u2705 Staženo'),
-                h('button',{style:{background:'linear-gradient(135deg,#8b5cf6,#6366f1)',color:'#fff',border:'none',borderRadius:6,
-                  padding:'3px 10px',fontSize:_fs(9),fontWeight:600,cursor:'pointer',fontFamily:C.font,
-                  display:'flex',alignItems:'center',gap:4,whiteSpace:'nowrap'},
-                  onClick:function(e){e.stopPropagation();_validateModel(m.name);}},
-                  'Otestovat')):
-              isError?h('span',{style:{fontSize:_fs(9),color:'#ef4444',fontWeight:600,marginLeft:6,whiteSpace:'nowrap'}},
-                '\u274C Chyba'):
-              h('button',{style:{background:'linear-gradient(135deg,#3b82f6,#2563eb)',color:'#fff',border:'none',borderRadius:6,
-                padding:'4px 12px',fontSize:_fs(9),fontWeight:600,cursor:'pointer',fontFamily:C.font,marginLeft:6,
-                display:'flex',alignItems:'center',gap:4,boxShadow:'0 1px 4px rgba(37,99,235,0.25)',whiteSpace:'nowrap'},
-                onClick:function(e){e.stopPropagation();_pullModel(m.name);}},
-                svgEl('<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>',12),
-                '~'+sizeGB+' GB')),
-            /* ── Row 2: description + specs ── */
-            h('div',{style:{display:'flex',alignItems:'baseline',gap:8,marginBottom:3,flexWrap:'wrap'}},
-              h('span',{style:{fontSize:_fs(10),color:C.tx2,flex:'1 1 auto',lineHeight:1.3,minWidth:150}},m.description),
-              h('span',{style:{fontSize:_fs(9),color:C.tx4,whiteSpace:'nowrap'}},m.params+'B'),
-              h('span',{style:{fontSize:_fs(9),color:C.tx4,whiteSpace:'nowrap'}},vramGB+' GB'),
-              m.moe?h('span',{style:{fontSize:_fs(8),padding:'0px 5px',borderRadius:3,background:'rgba(245,158,11,0.1)',color:'#f59e0b',fontWeight:600,whiteSpace:'nowrap'}},
-                'MoE '+m.moe.activeParams+'B'):null,
-              h('span',{style:{fontSize:_fs(9),color:C.tx4,whiteSpace:'nowrap'}},fCtx(m.contextWindow)+' ctx')),
-            /* ── Row 3: roles + capabilities ── */
-            h('div',{style:{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}},
-              (m.roles||[]).map(function(r){var sv=m.semaphores&&m.semaphores[r];
-                return h('span',{key:r,style:{fontSize:_fs(8),padding:'1px 5px',borderRadius:3,fontWeight:600,
-                  background:(roleColors[r]||C.tx4)+'1a',color:roleColors[r]||C.tx4,
-                  borderLeft:sv?'2px solid '+semColors[sv]:'none'}},r);}),
-              h('span',{style:{width:1,height:10,background:C.border,margin:'0 2px'}}),
-              (m.capabilities||[]).map(function(cap){
-                return h('span',{key:cap,style:{fontSize:_fs(7),padding:'1px 4px',borderRadius:2,
-                  background:(capColors[cap]||C.tx4)+'12',color:capColors[cap]||C.tx4}},cap.replace(/_/g,' '));})),
-            /* ── Pull status detail line (below rows when pulling) ── */
-            isPulling?h('div',{style:{marginTop:4,fontSize:_fs(9),color:'#3b82f6',fontWeight:500}},ps.text||'Stahování...'):null,
-            isError&&ps?h('div',{style:{marginTop:4,fontSize:_fs(9),color:'#ef4444',fontWeight:600}},ps.text):null,
-            /* ── Expanded: comparison table ── */
-            isExp?h('div',{style:{marginTop:8,borderTop:'1px solid '+C.border,paddingTop:8}},
-              /* Detail text */
-              m.detail?h('div',{style:{fontSize:_fs(9),color:C.tx3,lineHeight:1.4,marginBottom:8}},m.detail):null,
-              /* Comparison per role — deduplicate when multiple roles share the same current model */
-              (function(){
-                var seen={};var deduped=[];
-                (m.roles||[]).forEach(function(role){
-                  var cur=curModels[role];var curName=cur?cur.name:'?';
-                  if(seen[curName]){seen[curName].roles.push(role);return;}
-                  seen[curName]={roles:[role],cur:cur,curName:curName};
-                  deduped.push(seen[curName]);
-                });
-                return deduped;
-              })().map(function(grp){
-                var roleLabel=grp.roles.join('+');
-                /* Skip self-comparison: show badge instead of table */
-                var allCurrent=m.isCurrent&&grp.roles.every(function(r){return m.isCurrent[r];});
-                if(allCurrent)return h('div',{key:roleLabel,style:{marginBottom:8,display:'flex',alignItems:'center',gap:6}},
-                  h('span',{style:{fontSize:_fs(9),fontWeight:700,color:roleColors[grp.roles[0]]||C.tx2}},roleLabel),
-                  h('span',{style:{fontSize:_fs(8),padding:'2px 8px',borderRadius:4,fontWeight:600,
-                    background:'rgba(34,197,94,0.12)',color:C.accent}},'Aktualni model'));
-                var cur=grp.cur;var curB=cur&&cur.benchmarks?cur.benchmarks:{};
-                var recB=m.benchmarks||{};
-                var allKeys=Object.keys(Object.assign({},curB,recB)).filter(function(k){return curB[k]!=null||recB[k]!=null;});
-                if(allKeys.length===0)return null;
-                var curName=grp.curName;
-                /* Best semaphore for merged group */
-                var grpSem='unknown';var semOrd={upgrade:3,sidegrade:2,downgrade:1,unknown:0};
-                grp.roles.forEach(function(r){var s=m.semaphores&&m.semaphores[r];if((semOrd[s]||0)>(semOrd[grpSem]||0))grpSem=s;});
-                return h('div',{key:roleLabel,style:{marginBottom:8}},
-                  h('div',{style:{display:'flex',alignItems:'center',gap:6,marginBottom:4}},
-                    h('span',{style:{fontSize:_fs(9),fontWeight:700,color:roleColors[grp.roles[0]]||C.tx2}},roleLabel),
-                    h('span',{style:{fontSize:_fs(8),color:C.tx4}},'vs'),
-                    h('span',{style:{fontSize:_fs(9),fontFamily:C.mono,color:C.tx3}},grp.curName),
-                    grpSem!=='unknown'?h('span',{style:{fontSize:_fs(8),padding:'0px 4px',borderRadius:3,
-                      background:semBg[grpSem],color:semColors[grpSem],fontWeight:600}},
-                      semLabels[grpSem]):null),
-                  h('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:_fs(9),fontFamily:C.mono}},
-                    h('thead',null,h('tr',{style:{borderBottom:'1px solid '+C.border}},
-                      h('th',{style:{textAlign:'left',padding:'2px 6px',color:C.tx4,fontWeight:500,fontSize:_fs(8)}},'Benchmark'),
-                      h('th',{style:{textAlign:'right',padding:'2px 6px',color:C.tx4,fontWeight:500,fontSize:_fs(8)}},m.name.split(':')[0]),
-                      h('th',{style:{textAlign:'right',padding:'2px 6px',color:C.tx4,fontWeight:500,fontSize:_fs(8)}},curName.split(':')[0]),
-                      h('th',{style:{textAlign:'right',padding:'2px 6px',color:C.tx4,fontWeight:500,fontSize:_fs(8)}},'\u0394'))),
-                    h('tbody',null,
-                      allKeys.map(function(k){
-                        var rv=recB[k];var cv=curB[k];
-                        return h('tr',{key:k,style:{borderBottom:'1px solid '+C.border+'44'}},
-                          h('td',{style:{padding:'2px 6px',color:C.tx3,fontSize:_fs(8)}},bL[k]||k),
-                          h('td',{style:{padding:'2px 6px',textAlign:'right',fontWeight:600,color:C.tx2,fontSize:_fs(9)}},rv!=null?Math.round(rv*100):'-'),
-                          h('td',{style:{padding:'2px 6px',textAlign:'right',color:C.tx3,fontSize:_fs(9)}},cv!=null?Math.round(cv*100):'-'),
-                          dCell(rv,cv));
-                      }),
-                      /* VRAM row */
-                      h('tr',{style:{borderBottom:'1px solid '+C.border+'44'}},
-                        h('td',{style:{padding:'2px 6px',color:C.tx3,fontSize:_fs(8)}},'VRAM'),
-                        h('td',{style:{padding:'2px 6px',textAlign:'right',fontWeight:600,color:C.tx2,fontSize:_fs(9)}},(m.vramMb/1024).toFixed(1)+' GB'),
-                        h('td',{style:{padding:'2px 6px',textAlign:'right',color:C.tx3,fontSize:_fs(9)}},cur&&cur.vramMb?(cur.vramMb/1024).toFixed(1)+' GB':'-'),
-                        h('td',{style:{padding:'2px 6px',textAlign:'right',fontSize:_fs(9),fontWeight:600,
-                          color:cur&&cur.vramMb?(m.vramMb<cur.vramMb?'#22c55e':m.vramMb>cur.vramMb?'#ef4444':C.tx4):C.tx4}},
-                          cur&&cur.vramMb?((m.vramMb-cur.vramMb)/1024).toFixed(1)+' GB':'-')),
-                      /* Context row */
-                      h('tr',null,
-                        h('td',{style:{padding:'2px 6px',color:C.tx3,fontSize:_fs(8)}},'Kontext'),
-                        h('td',{style:{padding:'2px 6px',textAlign:'right',fontWeight:600,color:C.tx2,fontSize:_fs(9)}},fCtx(m.contextWindow)),
-                        h('td',{style:{padding:'2px 6px',textAlign:'right',color:C.tx3,fontSize:_fs(9)}},fCtx(cur&&cur.contextWindow)),
-                        h('td',{style:{padding:'2px 6px',textAlign:'right',color:C.tx4,fontSize:_fs(9)}},'-'))
-                    )));
-              }),
-              /* Footnote */
-              h('div',{style:{fontSize:_fs(8),color:C.tx4,lineHeight:1.4,marginTop:4,fontStyle:'italic'}},
-                '* Odhad z benchmarku. Po instalaci model projde lokalnim scoringem a empirickymi testy.')
-            ):null);
-        }));
+  return h('div',null,toast,
+    h('div',{style:{fontSize:_fs(10),color:C.tx3,lineHeight:1.5,marginBottom:12}},
+      'Discovery inventář — bez quality score a bez doporučení. „Nevyhodnoceno“ znamená, že model nesmí být považován za upgrade, dokud nemá exact-contract decision.'),
+    candidates.length===0?h('div',{style:{color:C.tx4,padding:20,textAlign:'center'}},'Žádní kandidáti'):
+    candidates.map(function(m){
+      var ps=_pullState[m.name];var pulling=ps&&ps.status&&ps.status!=='done'&&ps.status!=='error';
+      return h('div',{key:m.canonicalName,style:{background:C.bg2,border:'1px solid '+C.border,borderRadius:8,padding:'10px 12px',marginBottom:8}},
+        h('div',{style:{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}},
+          h('span',{style:{fontSize:_fs(11),fontWeight:700,color:C.tx1,fontFamily:C.mono}},m.name),
+          h('span',{style:{fontSize:_fs(8),padding:'2px 6px',borderRadius:4,background:'rgba(234,179,8,0.12)',color:'#eab308'}},'Nevyhodnoceno'),
+          m.installed?h('span',{style:{fontSize:_fs(8),color:C.accent}},'Nainstalováno'):null,
+          m.fitsVram===false?h('span',{style:{fontSize:_fs(8),color:'#ef4444'}},'Mimo VRAM budget'):null,
+          h('span',{style:{flex:1}}),
+          !m.installed?h('button',{style:{background:'#2563eb',color:'#fff',border:'none',borderRadius:5,padding:'4px 10px',fontSize:_fs(9),cursor:'pointer'},
+            disabled:pulling,onClick:function(){_pullModel(m.name);}},pulling?'Stahuji...':'Stáhnout'):null),
+        h('div',{style:{display:'flex',gap:10,marginTop:5,color:C.tx4,fontSize:_fs(9),flexWrap:'wrap'}},
+          m.params?h('span',null,m.params+'B'):null,m.vramMb?h('span',null,(m.vramMb/1024).toFixed(1)+' GB VRAM'):null,
+          m.contextWindow?h('span',null,fCtx(m.contextWindow)+' ctx'):null,h('span',null,(m.sources||[]).join('+'))),
+        h('div',{style:{display:'flex',gap:4,marginTop:5,flexWrap:'wrap'}},(m.eligibleRoles||[]).map(function(role){
+          return h('span',{key:role,style:{fontSize:_fs(8),padding:'1px 5px',borderRadius:3,background:C.bg3,color:C.tx3}},role);})),
+        ps?h('div',{style:{marginTop:5,fontSize:_fs(9),color:ps.status==='error'?'#ef4444':'#3b82f6'}},ps.text):null);
     }));
 }
-function _describeUpgrade(p,bd){
-  var items=[];var cur=bd.current||{};var cand=bd.candidate||{};
-  var role=p.role||'';
-  /* Benchmark comparison — role-specific interpretation */
-  var benchDelta=(cand.benchmark||0)-(cur.benchmark||0);
-  if(benchDelta>0.05){
-    var benchDesc='Lepší benchmarkové skóre';
-    if(role==='CODE')benchDesc='Lepší v generování a úpravách kódu (LiveCodeBench, HumanEval)';
-    else if(role==='D1'||role==='R1')benchDesc='Lepší dedukce a logické uvažování';
-    else if(role==='CHAT')benchDesc='Kvalitnější odpovědi v konverzaci (MMLU, Arena)';
-    else if(role==='D2'||role==='R2')benchDesc='Lepší znalostní báze a reasoning';
-    else if(role==='VISION')benchDesc='Lepší porozumění obrázkům a textu';
-    items.push({text:benchDesc+' (+'+((benchDelta)*100).toFixed(0)+'%)',icon:'\u2B06',color:C.accent});
-  }else if(benchDelta<-0.05){
-    items.push({text:'Mírně slabší benchmarky (\u2212'+((0-benchDelta)*100).toFixed(0)+'%), ale jiné výhody kompenzují',icon:'\u26A0',color:'#eab308'});
-  }
-  /* Hardware fit */
-  var hwDelta=(cand.hardwareFit||0)-(cur.hardwareFit||0);
-  if(hwDelta>0.15)items.push({text:'Lépe využívá dostupný HW (GPU VRAM)',icon:'\u2699'});
-  else if(hwDelta<-0.15)items.push({text:'Vyšší nároky na HW',icon:'\u26A0',color:'#eab308'});
-  /* Speed */
-  var speedDelta=(cand.speed||0)-(cur.speed||0);
-  if(speedDelta>0.1)items.push({text:'Rychlejší inference — kratší čekání na odpovědi',icon:'\u26A1'});
-  else if(speedDelta<-0.1)items.push({text:'Pomalejší inference',icon:'\u231B',color:'#eab308'});
-  /* Generation */
-  var genDelta=(cand.generation||0)-(cur.generation||0);
-  if(genDelta>0.3)items.push({text:'Novější generace modelu s vylepšenou architekturou',icon:'\u2728'});
-  /* Maturity */
-  if((cand.maturity||0)>0.8&&(cur.maturity||0)<0.5)items.push({text:'Stabilní a prověřený model',icon:'\u2705'});
-  /* Provisional / L4 */
-  if(p.source==='L4'){
-    var conf=p.benchmarkConfidence||bd.benchConfidence;
-    if(conf&&conf<0.7)items.push({text:'Odhadované benchmarky (spolehlivost '+(conf*100).toFixed(0)+'%) — empirické testování upřesní',icon:'\u2139',color:C.tx4});
-  }
-  /* benchConfidence from candidate breakdown */
-  if(cand.benchConfidence!=null&&cand.benchConfidence<0.7&&!p.source)
-    items.push({text:'Odhadované benchmarky (spolehlivost '+(cand.benchConfidence*100).toFixed(0)+'%)',icon:'\u2139',color:C.tx4});
-  /* Provisional penalty info */
-  if(cand.provisionalPenalty&&cand.provisionalPenalty<0)
-    items.push({text:'Provizorní model — skóre sníženo, empirické testování upřesní',icon:'\u2139',color:C.tx4});
-  /* Fallback: if no items, show generic reason */
-  if(items.length===0&&p.reason)items.push({text:p.reason,icon:'\u2022'});
-  return items;
-}
-function _renderScoringTab(){
-  if(_scoringLoading&&!_scoringData)return h('div',{style:{color:C.tx3,padding:20,textAlign:'center'}},'Načítám hodnocení modelů...');
-  if(!_scoringData||_scoringData.error)return h('div',{style:{color:'#ef4444',padding:20,textAlign:'center'}},'Chyba: '+(_scoringData?_scoringData.error:'žádná data'));
-  var scoring=_scoringData.scoring;var roles=Object.keys(scoring);
-  var bdKeys=['benchmark','hardwareFit','maturity','generation','category','speed','diversityPenalty'];
-  var bdLabels={benchmark:'Bench',hardwareFit:'HW Fit',maturity:'Zralost',generation:'Generace',category:'Kategorie',speed:'Rychlost',diversityPenalty:'Diverzita'};
-  var bdTooltips={benchmark:'Benchmark skóre z veřejných testů (MMLU, HumanEval, reasoning). Váha 35%.',hardwareFit:'Jak dobře model využívá dostupnou GPU VRAM (0=příliš velký, 1=ideální). Váha 20%.',maturity:'Stáří a stabilita modelu (starší = ověřenější). Váha 15%.',generation:'Bonus za novější generaci architektury (0=stará, 0.5=nová). Váha 10%.',category:'Bonus za kategorii modelu vhodnou pro danou roli. Váha 13%.',speed:'Rychlost inference (tokens/s normalizováno). Váha 7%.',diversityPenalty:'Penalizace pokud model již slouží v jiné roli (zabrání přiřazení jednoho modelu všude).'};
-  var roleSuiteMap={D1:'reasoning',D2:'reasoning',CODE:'code',R1:'reasoning',R2:'review',CHAT:'chat',VISION:'vision'};
+function _renderEvaluationsTab(){
+  if(_evaluationLoading&&!_evaluationData)return h('div',{style:{color:C.tx3,padding:20,textAlign:'center'}},'Načítám evaluace modelů...');
+  if(!_evaluationData||_evaluationData.error)return h('div',{style:{color:'#ef4444',padding:20,textAlign:'center'}},'Chyba: '+(_evaluationData?_evaluationData.error:'žádná data'));
+  var roles=_evaluationData.roles||{};var roleNames=Object.keys(roles);
+  var statusColor={COMPLETE:C.accent,FAILED:'#ef4444',BLOCKED:'#eab308',MISSING:C.tx4};
+  function tested(value){return value?new Date(value).toLocaleString('cs-CZ'):'\u2014';}
   return h('div',null,
-    _scoringData.gpuVramMb?h('div',{style:{fontSize:_fs(10),color:C.tx4,marginBottom:12}},'GPU VRAM: '+(_scoringData.gpuVramMb/1024).toFixed(1)+' GB  |  Eval: '+(_scoringData.evalVersion||'?')):null,
-    /* validation progress banner */
-    _validatingModel&&_validationProgress?h('div',{style:{margin:'0 0 12px',padding:'8px 14px',borderRadius:6,fontSize:_fs(11),
-      background:'rgba(59,130,246,0.1)',color:'#3b82f6',border:'1px solid rgba(59,130,246,0.2)'}},
-      _validationProgress.text||(_validatingModel+' — validace...')):null,
-    roles.map(function(role){
-      var rd=scoring[role];var models=rd.models||[];var suiteName=roleSuiteMap[role]||'';
+    h('div',{style:{fontSize:_fs(10),color:C.tx3,marginBottom:12,lineHeight:1.5}},
+      'Autorita: model_evaluation_runs · pouze exact digest + current suite contract · bez legacy fallbacku. ',
+      'Čas testu je auditní údaj; neexistuje skrytá 14denní platnost ani mezi-role průměr.'),
+    roleNames.map(function(role){
+      var rd=roles[role];var artifacts=rd.artifacts||[];var decision=rd.latestDecision||null;
       return h('div',{key:role,style:{marginBottom:20}},
         h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:8}},
           h('span',{style:{background:C.accent,color:'#fff',borderRadius:4,padding:'2px 8px',fontSize:_fs(10),fontWeight:700}},role),
           h('span',{style:{fontSize:_fs(10),color:C.tx4}},'Aktuální: '),
-          h('span',{style:{fontSize:_fs(10),color:C.tx2,fontFamily:C.mono}},rd.current||'?'),
-          suiteName?h('span',{style:{fontSize:_fs(9),color:C.tx4,marginLeft:8}},'('+suiteName+')'):null),
-        models.length===0?h('div',{style:{fontSize:_fs(10),color:C.tx4,padding:8}},'Žádné modely v katalogu'):
+          h('span',{style:{fontSize:_fs(10),color:C.tx2,fontFamily:C.mono}},rd.binding||'?'),
+          h('span',{style:{fontSize:_fs(9),color:C.tx4,marginLeft:8}},rd.suiteName+' · '+rd.suiteVersion),
+          h('span',{style:{fontSize:_fs(8),color:C.tx4,fontFamily:C.mono},title:rd.suiteContractSha256},rd.suiteContractSha256.slice(0,12))),
+        decision?h('div',{style:{marginBottom:8,padding:'7px 9px',borderRadius:6,background:C.bg2,border:'1px solid '+C.border,fontSize:_fs(9),color:C.tx3}},
+          h('span',{style:{fontWeight:700,color:decision.outcome==='CANDIDATE'?C.accent:decision.outcome==='BLOCKED'?'#ef4444':'#eab308'}},decision.outcome),
+          ' · '+decision.incumbentModel+' → '+decision.candidateModel+' · '+new Date(decision.createdAt).toLocaleString('cs-CZ')+' · '+decision.actionability):null,
+        artifacts.length===0?h('div',{style:{fontSize:_fs(10),color:C.tx4,padding:8}},'Žádný nainstalovaný artefakt'):
         h('div',{style:{overflowX:'auto'}},
           h('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:_fs(10),fontFamily:C.mono}},
             h('thead',null,h('tr',{style:{borderBottom:'1px solid '+C.border}},
-              h('th',{style:{textAlign:'left',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font}},'#'),
               h('th',{style:{textAlign:'left',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font}},'Model'),
-              h('th',{title:'Celkové skóre modelu pro danou roli (vyšší = lepší). Skládá se z vážené kombinace sloupců vpravo.',style:{textAlign:'right',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font,cursor:'help'}},'Skóre'),
-              h('th',{title:'Odkud pocházejí benchmarky: Katalog (manuálně kurované), WhatLLM (reálné testy z whatllm.org), Odhad (interpolace z rodiny modelů)',style:{textAlign:'center',padding:'4px 6px',color:C.tx4,fontWeight:500,fontSize:_fs(9),fontFamily:C.font,cursor:'help'}},'Zdroj'),
-              h('th',{title:'Výsledek lokálního syntetického testu (0-100%). Klikněte ▶ pro spuštění. Platnost 14 dní.',style:{textAlign:'right',padding:'4px 6px',color:'#3b82f6',fontWeight:600,fontFamily:C.font,cursor:'help'}},'Validace'),
-              h('th',{title:'Přiřadit model k této roli (pouze lokálně nainstalované)',style:{textAlign:'center',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font,cursor:'help',width:60}},''),
-              bdKeys.map(function(k){return h('th',{key:k,title:bdTooltips[k]||'',style:{textAlign:'right',padding:'4px 6px',color:C.tx4,fontWeight:500,fontSize:_fs(9),fontFamily:C.font,cursor:'help'}},bdLabels[k]);}))),
-            h('tbody',null,models.map(function(m,i){
-              var isCur=m.isCurrent;
-              var vs=_validationScores[m.name];
-              var valScore=vs&&vs[suiteName]?vs[suiteName].score:null;
-              var valAge=vs&&vs[suiteName]&&vs[suiteName].validatedAt?Math.round((Date.now()-new Date(vs[suiteName].validatedAt).getTime())/(86400000)):null;
-              var isValidating=_validatingModel===m.name;
-              var valColor=valScore!=null?(valScore>=0.7?C.accent:valScore>=0.4?'#eab308':'#ef4444'):C.tx4;
-              return h('tr',{key:m.name,style:{borderBottom:'1px solid '+C.border,background:isCur?'rgba(34,197,94,0.06)':'transparent'}},
-                h('td',{style:{padding:'4px 6px',color:C.tx4}},i+1),
-                h('td',{style:{padding:'4px 6px',color:isCur?C.accent:C.tx2,fontWeight:isCur?700:400}},m.name+(isCur?' *':'')),
-                h('td',{style:{padding:'4px 6px',textAlign:'right',color:C.tx1,fontWeight:700}},m.score.toFixed(4)),
-                h('td',{style:{padding:'4px 6px',textAlign:'center'}},
-                  h('span',{style:{fontSize:_fs(8),padding:'1px 5px',borderRadius:3,
-                    background:m.benchmarkSource==='whatllm'?'rgba(59,130,246,0.12)':m.benchmarkSource==='catalog'?'rgba(34,197,94,0.08)':m.benchmarkSource==='L4'?'rgba(234,179,8,0.1)':'transparent',
-                    color:m.benchmarkSource==='whatllm'?'#3b82f6':m.benchmarkSource==='catalog'?C.accent:m.benchmarkSource==='L4'?'#eab308':C.tx4},
-                    title:m.benchmarkSource==='whatllm'?'Reálné benchmarky z whatllm.org (Quality Index)':m.benchmarkSource==='catalog'?'Benchmarky z kurovaného katalogu':m.benchmarkSource==='L4'?'Odhadované benchmarky (log-interpolace z rodiny)':'Neznámý zdroj'},
-                    m.benchmarkSource==='whatllm'?'WhatLLM':m.benchmarkSource==='catalog'?'Katalog':m.benchmarkSource==='L4'?'Odhad':'\u2014')),
-                h('td',{style:{padding:'4px 6px',textAlign:'right'}},
-                  isValidating?h('span',{style:{color:'#3b82f6',fontSize:_fs(9)}},'...'):
-                  valScore!=null?h('span',{style:{color:valColor,fontWeight:600,cursor:'default'},
-                    title:'Validováno '+((valAge!=null&&valAge>=0)?valAge+'d ago':'')},
-                    Math.round(valScore*100)+'%'):
-                  h('button',{style:{background:'none',border:'1px solid '+C.border2,borderRadius:4,padding:'1px 6px',
-                    color:C.tx3,fontSize:_fs(9),cursor:'pointer',fontFamily:C.font},
-                    onClick:function(){_validateModel(m.name);}},'\u25B6')),
+              h('th',{style:{textAlign:'left',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font}},'Digest'),
+              h('th',{style:{textAlign:'left',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font}},'Stav'),
+              h('th',{style:{textAlign:'right',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font}},'Score'),
+              h('th',{style:{textAlign:'left',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font}},'Testováno'),
+              h('th',{style:{textAlign:'center',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font}},''))),
+            h('tbody',null,artifacts.map(function(row){
+              var isCur=row.isCurrentBinding;var color=statusColor[row.status]||C.tx4;
+              return h('tr',{key:row.model+row.digestSha256,style:{borderBottom:'1px solid '+C.border,background:isCur?'rgba(34,197,94,0.06)':'transparent'}},
+                h('td',{style:{padding:'4px 6px',color:isCur?C.accent:C.tx2,fontWeight:isCur?700:400}},row.model+(isCur?' *':'')),
+                h('td',{style:{padding:'4px 6px',color:C.tx4},title:row.digestSha256||'digest chybí'},row.digestSha256?row.digestSha256.slice(0,12):'\u2014'),
+                h('td',{style:{padding:'4px 6px',color:color,fontWeight:600}},row.status),
+                h('td',{style:{padding:'4px 6px',textAlign:'right',color:row.status==='COMPLETE'?C.tx1:C.tx4,fontWeight:600}},row.score!=null?Math.round(row.score*100)+'%':'\u2014'),
+                h('td',{style:{padding:'4px 6px',color:C.tx3}},tested(row.testedAt)),
                 h('td',{style:{padding:'4px 6px',textAlign:'center'}},
                   isCur?h('span',{style:{fontSize:_fs(8),color:C.accent,fontWeight:600}},'\u2713'):
-                  _installedModels&&_installedModels.indexOf(m.name)>=0?
-                    _assigningRole===role?h('span',{style:{fontSize:_fs(8),color:'#3b82f6'}},'...'):
-                    h('button',{style:{background:'none',border:'1px solid rgba(59,130,246,0.3)',borderRadius:4,padding:'1px 8px',
-                      color:'#3b82f6',fontSize:_fs(8),cursor:'pointer',fontFamily:C.font,whiteSpace:'nowrap'},
-                      onClick:function(){_assignModel(role,m.name);}},'\u2190 Přiřadit'):
-                  h('span',{style:{fontSize:_fs(7),color:C.tx4}},'\u2014')),
-                bdKeys.map(function(k){
-                  var v=m.breakdown?m.breakdown[k]:0;
-                  var color=C.tx3;if(k==='diversityPenalty'&&v<0)color='#ef4444';
-                  return h('td',{key:k,title:bdTooltips[k]||'',style:{padding:'4px 6px',textAlign:'right',color:color,cursor:'help'}},v!=null?v.toFixed(2):'—');
-                }));
+                  _assigningRole===role?h('span',{style:{fontSize:_fs(8),color:'#3b82f6'}},'...'):
+                  h('button',{style:{background:'none',border:'1px solid rgba(59,130,246,0.3)',borderRadius:4,padding:'1px 8px',
+                    color:'#3b82f6',fontSize:_fs(8),cursor:'pointer',fontFamily:C.font,whiteSpace:'nowrap'},
+                    onClick:function(){_assignModel(role,row.model);}},'\u2190 Přiřadit')));
             })))));
-    }),
-    h('div',{style:{marginTop:12,fontSize:_fs(9),color:C.tx4,lineHeight:1.5}},
-      '* = aktuálně přiřazený model. Skóre: benchmark*0.35 + hwFit*0.20 + maturity*0.15 + generation*0.10 + category*0.13 + speed*0.07. Validace = lokální syntetický test (TTL 14d).'));
+    }));
 }
 /* ═══════════════════════════════════════════════════════════
    v133: MODEL OVERVIEW + ROLES TABS
@@ -3360,7 +3080,7 @@ function _renderOverviewTab(){
     var c=_overviewSort.col;var d=_overviewSort.dir==='asc'?1:-1;
     if(c==='name')return a.name.localeCompare(b.name)*d;
     if(c==='size')return((a.size||0)-(b.size||0))*d;
-    if(c==='score')return((a.overallScore||0)-(b.overallScore||0))*d;
+    if(c==='score')return((a.evaluatedRoleCount||0)-(b.evaluatedRoleCount||0))*d;
     if(c==='roles')return((a.boundRoles||[]).length-(b.boundRoles||[]).length)*d;
     return 0;
   });
@@ -3383,11 +3103,6 @@ function _renderOverviewTab(){
       h('span',null,'Voln\u00E9 m\u00EDsto: '+(du.freeGB||'?')+' GB')),
     /* Action bar */
     h('div',{style:{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}},
-      h('button',{style:{padding:'6px 14px',borderRadius:6,border:'1px solid rgba(59,130,246,0.3)',
-        background:_batchValidating?'rgba(59,130,246,0.05)':'rgba(59,130,246,0.1)',color:'#3b82f6',fontSize:_fs(11),
-        fontWeight:600,cursor:_batchValidating?'default':'pointer',fontFamily:C.font,opacity:_batchValidating?0.6:1},
-        disabled:_batchValidating,onClick:_batchValidateAll},
-        _batchValidating?'Validuji...':'Validovat v\u0161e'+(ov.unvalidatedCount>0?' ('+ov.unvalidatedCount+')':'')),
       delCount>0?h('button',{style:{padding:'6px 14px',borderRadius:6,border:'1px solid rgba(239,68,68,0.3)',
         background:'rgba(239,68,68,0.1)',color:'#ef4444',fontSize:_fs(11),cursor:'pointer',fontFamily:C.font},
         onClick:function(){/* Delete all unused one by one */
@@ -3398,10 +3113,6 @@ function _renderOverviewTab(){
       h('button',{style:{padding:'6px 14px',borderRadius:6,border:'1px solid '+C.border2,background:'transparent',
         color:C.tx3,fontSize:_fs(11),cursor:'pointer',fontFamily:C.font},
         onClick:function(){_modelOverview=null;_loadModelOverview();}},'\u21BB Obnovit')),
-    /* Batch progress */
-    _batchValidating&&_batchCurrent?h('div',{style:{padding:'8px 12px',borderRadius:6,marginBottom:12,
-      background:'rgba(59,130,246,0.08)',border:'1px solid rgba(59,130,246,0.2)',fontSize:_fs(11),color:'#3b82f6'}},
-      'Validuji: '+_batchCurrent+(_validationProgress?' \u2014 '+_validationProgress.text:'...')):null,
     /* Delete confirm */
     _deleteConfirm?h('div',{style:{padding:'10px 14px',borderRadius:8,marginBottom:12,
       background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.25)',display:'flex',alignItems:'center',gap:10}},
@@ -3425,12 +3136,11 @@ function _renderOverviewTab(){
         h('th',{style:{padding:'6px 8px',textAlign:'right',fontSize:_fs(10),fontWeight:600,color:C.tx3,borderBottom:'2px solid '+C.border}},'Kv.'),
         sortBtn('size','Velikost'),
         sortBtn('roles','Role'),
-        sortBtn('score','Validace'),
+        sortBtn('score','Evaluace'),
         h('th',{style:{padding:'6px 8px',textAlign:'center',fontSize:_fs(10),fontWeight:600,color:C.tx3,borderBottom:'2px solid '+C.border}},'Akce'))),
       h('tbody',null,sorted.map(function(m){
-        var scorePct=m.overallScore!=null?Math.round(m.overallScore*100)+'%':'\u2014';
-        var scoreColor=m.overallScore==null?C.tx4:m.overallScore>=0.7?C.accent:m.overallScore>=0.4?'#eab308':'#ef4444';
-        var validBtn=m.unvalidatedSuites&&m.unvalidatedSuites.length>0&&!_validatingModel;
+        var evalCount=m.evaluatedRoleCount||0;var scorePct=evalCount+'/7';
+        var scoreColor=evalCount===7?C.accent:evalCount>0?'#eab308':C.tx4;
         return h('tr',{key:m.name,style:{borderBottom:'1px solid '+C.border}},
           h('td',{style:{padding:'6px 8px',color:C.tx1,fontFamily:C.mono,maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},
             m.name,
@@ -3444,10 +3154,7 @@ function _renderOverviewTab(){
                 background:'rgba(0,0,0,0.15)',color:rp[r]||C.tx3,marginLeft:2}},r);
             }):h('span',{style:{color:C.tx4}},'\u2014')),
           h('td',{style:{padding:'6px 8px',textAlign:'right'}},
-            h('span',{style:{fontWeight:600,color:scoreColor}},scorePct),
-            validBtn?h('button',{style:{marginLeft:4,padding:'1px 6px',borderRadius:3,border:'1px solid rgba(59,130,246,0.3)',
-              background:'rgba(59,130,246,0.1)',color:'#3b82f6',fontSize:_fs(9),cursor:'pointer',fontFamily:C.font},
-              onClick:function(){_validateModel(m.name);}},'\u25B6'):null),
+            h('span',{style:{fontWeight:600,color:scoreColor},title:(m.missingEvaluationRoles||[]).join(', ')},scorePct)),
           h('td',{style:{padding:'6px 8px',textAlign:'center'}},
             m.isDeletable?h('button',{style:{padding:'2px 8px',borderRadius:4,border:'1px solid rgba(239,68,68,0.3)',
               background:'rgba(239,68,68,0.06)',color:'#ef4444',fontSize:_fs(10),cursor:'pointer',fontFamily:C.font},
@@ -3463,33 +3170,23 @@ function _renderOverviewTab(){
 function _renderRolesTab(){
   if(_modelOverviewLoading&&!_modelOverview)return h('div',{style:{color:C.tx3,padding:20,textAlign:'center'}},'Na\u010D\u00EDt\u00E1m...');
   var ov=_modelOverview||{};var bindings=ov.bindings||_roleBindings||{};
-  var profiles=ov.profiles||{D1:{name:'Hlubok\u00E1 anal\u00FDza',desc:'Anal\u00FDza, pl\u00E1nov\u00E1n\u00ED, redesign.',suite:'reasoning',color:'#8b5cf6'},
-    D2:{name:'Anal\u00FDza oprav',desc:'Fokusovan\u00FD reasoning pro opravy.',suite:'reasoning',color:'#a78bfa'},
-    CODE:{name:'Generov\u00E1n\u00ED k\u00F3du',desc:'Implementace a editace k\u00F3du.',suite:'code',color:'#22c55e'},
-    R1:{name:'Hlubok\u00E1 revize',desc:'Fin\u00E1ln\u00ED deep review.',suite:'reasoning',color:'#6366f1'},
-    R2:{name:'Rychl\u00E1 revize',desc:'Rychl\u00FD check.',suite:'review',color:'#818cf8'},
-    CHAT:{name:'Konverzace',desc:'U\u017Eivatelsk\u00E1 konverzace.',suite:'chat',color:'#3b82f6'},
-    VISION:{name:'Anal\u00FDza obr\u00E1zk\u016F',desc:'Porozum\u011Bn\u00ED obr\u00E1zk\u016Fm.',suite:'vision',color:'#f59e0b'}};
+  var profiles=ov.profiles||{D1:{name:'Hlubok\u00E1 anal\u00FDza',desc:'Anal\u00FDza, pl\u00E1nov\u00E1n\u00ED, redesign.',suite:'reasoning_v2',color:'#8b5cf6'},
+    D2:{name:'Anal\u00FDza oprav',desc:'Fokusovan\u00FD reasoning pro opravy.',suite:'reasoning_v2',color:'#a78bfa'},
+    CODE:{name:'Generov\u00E1n\u00ED k\u00F3du',desc:'Implementace a editace k\u00F3du.',suite:'code_patch',color:'#22c55e'},
+    R1:{name:'Hlubok\u00E1 revize',desc:'Fin\u00E1ln\u00ED deep review.',suite:'reasoning_v2',color:'#6366f1'},
+    R2:{name:'Rychl\u00E1 revize',desc:'Rychl\u00FD check.',suite:'review_v2',color:'#818cf8'},
+    CHAT:{name:'Konverzace',desc:'U\u017Eivatelsk\u00E1 konverzace.',suite:'chat_v3',color:'#3b82f6'},
+    VISION:{name:'Anal\u00FDza obr\u00E1zk\u016F',desc:'Porozum\u011Bn\u00ED obr\u00E1zk\u016Fm.',suite:'vision_v2',color:'#f59e0b'}};
   var models=[...new Set((_installedModels||[]).concat(Object.values(bindings)))].filter(Boolean).sort();
-  var allScores=ov.models?{}:null;
-  if(ov.models)ov.models.forEach(function(m){allScores[m.name]=m.validationScores||{};});
   var roles=Object.keys(profiles);
   return h('div',{style:{display:'flex',flexDirection:'column',gap:12}},
     roles.map(function(role){
       var p=profiles[role];var current=bindings[role]||'?';
-      var vs=allScores?allScores[current]||{}:(_validationScores[current]||{});
-      var suiteScore=vs[p.suite];var scoreVal=suiteScore&&suiteScore.score!=null?suiteScore.score:null;
-      var scorePct=scoreVal!=null?Math.round(scoreVal*100)+'%':'\u2014';
-      var scoreColor=scoreVal==null?C.tx4:scoreVal>=0.7?C.accent:scoreVal>=0.4?'#eab308':'#ef4444';
-      /* Recommendation */
-      var rec=null;if(ov.models){
-        var bestScore=-1;var bestModel=null;
-        ov.models.forEach(function(m){var ms=m.validationScores||{};var s=ms[p.suite];
-          if(s&&s.score!=null&&m.name!==current&&s.score>bestScore){bestScore=s.score;bestModel=m.name;}});
-        if(bestModel&&scoreVal!=null&&bestScore>scoreVal){
-          rec={model:bestModel,delta:Math.round((bestScore-scoreVal)*100)};
-        }
-      }
+      var boundArtifact=(ov.models||[]).find(function(m){return (m.boundRoles||[]).indexOf(role)>=0;});
+      var roleEval=boundArtifact?(boundArtifact.evaluations||{})[role]:null;
+      var scoreVal=roleEval&&roleEval.status==='COMPLETE'?roleEval.score:null;
+      var scorePct=scoreVal!=null?Math.round(scoreVal*100)+'%':(roleEval?roleEval.status:'MISSING');
+      var scoreColor=roleEval&&roleEval.status==='COMPLETE'?C.accent:roleEval&&roleEval.status==='BLOCKED'?'#eab308':C.tx4;
       var installed=models.indexOf(current)>=0;
       return h('div',{key:role,style:{background:C.bg2,border:'1px solid '+C.border,borderRadius:10,padding:14}},
         /* Header */
@@ -3513,26 +3210,20 @@ function _renderRolesTab(){
             scoreVal!=null&&scoreVal<0.4?h('span',{style:{color:'#ef4444'}},'\u26A0'):null),
         /* Warnings */
         !installed?h('div',{style:{marginTop:6,fontSize:_fs(10),color:'#ef4444'}},'\u26A0 Model nen\u00ED nainstalovan\u00FD!'):null,
-        scoreVal!=null&&scoreVal<0.5?h('div',{style:{marginTop:4,fontSize:_fs(10),color:'#eab308'}},'\u26A0 Slab\u00FD model pro tuto roli ('+scorePct+')'):null,
-        rec?h('div',{style:{marginTop:4,fontSize:_fs(10),color:'rgba(34,197,94,0.8)'}},
-          'Lep\u0161\u00ED model dostupn\u00FD: '+rec.model+' (+'+rec.delta+'%)'):null);
+        roleEval&&roleEval.testedAt?h('div',{style:{marginTop:4,fontSize:_fs(9),color:C.tx4}},
+          'Testov\u00E1no '+new Date(roleEval.testedAt).toLocaleString('cs-CZ')+' · '+roleEval.suiteContractSha256.slice(0,12)):null);
     }));
 }
 function centerUpgrades(){
   if(_upgradeTab==='overview'&&!_modelOverview&&!_modelOverviewLoading)_loadModelOverview();
   if(_upgradeTab==='roles'&&!_modelOverview&&!_modelOverviewLoading)_loadModelOverview();
   if(_upgradeTab==='roles'&&!_installedModels&&!_installedLoading)_loadInstalledModels();
-  if(_upgradeTab==='proposals'&&!_upgradeData&&!_upgradeLoading)_loadUpgradeData();
-  if(_upgradeTab==='scoring'&&!_scoringData&&!_scoringLoading)_loadScoringData();
-  if(_upgradeTab==='scoring'&&!_installedModels&&!_installedLoading)_loadInstalledModels();
+  if(!_upgradeData&&!_upgradeLoading)_loadUpgradeData();
+  if(_upgradeTab==='evaluations'&&!_evaluationData&&!_evaluationLoading)_loadEvaluationData();
+  if(_upgradeTab==='evaluations'&&!_installedModels&&!_installedLoading)_loadInstalledModels();
   if(_upgradeTab==='discovered'&&!_discoveredData&&!_discoveredLoading)_loadDiscoveredData();
-  var proposals=_upgradeData&&_upgradeData.proposals?_upgradeData.proposals:[];
   var history=_upgradeData&&_upgradeData.history?_upgradeData.history:[];
-  var discovery=_upgradeData&&_upgradeData.discovery?_upgradeData.discovery:null;
   var lastCheck=_upgradeData&&_upgradeData.lastCheckTime?new Date(_upgradeData.lastCheckTime).toLocaleString('cs-CZ'):null;
-  var riskColors={low:'rgba(34,197,94,0.15)',medium:'rgba(234,179,8,0.15)',high:'rgba(239,68,68,0.15)'};
-  var riskBorders={low:'rgba(34,197,94,0.3)',medium:'rgba(234,179,8,0.3)',high:'rgba(239,68,68,0.3)'};
-  var riskText={low:C.accent,medium:'#eab308',high:'#ef4444'};
   var tabStyle=function(t){return{background:_upgradeTab===t?C.accent:'transparent',color:_upgradeTab===t?'#fff':C.tx3,
     border:'1px solid '+(_upgradeTab===t?C.accent:C.border2),borderRadius:6,padding:'5px 14px',fontSize:_fs(11),
     fontWeight:_upgradeTab===t?600:400,cursor:'pointer',fontFamily:C.font};};
@@ -3550,10 +3241,9 @@ function centerUpgrades(){
     h('div',{style:{display:'flex',gap:6,padding:'10px 18px',borderBottom:'1px solid '+C.border,flexWrap:'wrap'}},
       h('button',{style:tabStyle('overview'),onClick:function(){_upgradeTab='overview';renderCenter();}},'P\u0159ehled'),
       h('button',{style:tabStyle('roles'),onClick:function(){_upgradeTab='roles';renderCenter();}},'Role (7)'),
-      h('button',{style:tabStyle('scoring'),onClick:function(){_upgradeTab='scoring';renderCenter();}},'Hodnocen\u00ED'),
-      h('button',{style:tabStyle('proposals'),onClick:function(){_upgradeTab='proposals';renderCenter();}},'N\u00E1vrhy ('+proposals.length+')'),
+      h('button',{style:tabStyle('evaluations'),onClick:function(){_upgradeTab='evaluations';renderCenter();}},'Evaluace'),
       h('button',{style:tabStyle('history'),onClick:function(){_upgradeTab='history';renderCenter();}},'Historie'),
-      h('button',{style:tabStyle('discovered'),onClick:function(){_upgradeTab='discovered';renderCenter();}},'Nov\u00E9 modely'),
+      h('button',{style:tabStyle('discovered'),onClick:function(){_upgradeTab='discovered';renderCenter();}},'Kandid\u00E1ti'),
       h('button',{style:tabStyle('governor'),onClick:function(){_upgradeTab='governor';_governorData=null;_loadGovernorData();renderCenter();}},'Spr\u00E1vce')),
     /* toast */
     _upgradeMsg?h('div',{style:{margin:'0 18px',marginTop:12,padding:'8px 14px',borderRadius:6,fontSize:_fs(11),fontWeight:600,
@@ -3579,73 +3269,15 @@ function centerUpgrades(){
         :h('button',{style:{padding:'4px 12px',borderRadius:4,border:'1px solid #ef4444',background:'transparent',
           color:'#ef4444',cursor:'pointer',fontSize:_fs(10),fontFamily:C.font},
           onClick:function(){_rollbackConfirm=true;renderCenter();}},'Rollback')):null):null,
-    /* v125: validation prompt */
-    _validationPrompt?h('div',{style:{margin:'0 18px',marginTop:8,padding:'10px 14px',borderRadius:6,fontSize:_fs(11),
-      background:'rgba(59,130,246,0.1)',color:'#3b82f6',border:'1px solid rgba(59,130,246,0.2)',display:'flex',alignItems:'center',gap:10}},
-      h('span',{style:{flex:1}},_validationPrompt.text||'Spustit validaci?'),
-      h('button',{style:{padding:'4px 12px',borderRadius:4,border:'1px solid #3b82f6',background:'#3b82f6',color:'#fff',cursor:'pointer',fontSize:_fs(10)},
-        onClick:function(){var m=_validationPrompt.model;_validationPrompt=null;_validateModel(m);renderCenter();}},'Spustit'),
-      h('button',{style:{padding:'4px 12px',borderRadius:4,border:'1px solid rgba(59,130,246,0.3)',background:'transparent',color:'#3b82f6',cursor:'pointer',fontSize:_fs(10)},
-        onClick:function(){_validationPrompt=null;renderCenter();}},'P\u0159eskočit')):null,
     /* body */
     h('div',{style:{flex:1,overflowY:'auto',padding:18}},
       /* ── Overview tab (v133) ── */
       _upgradeTab==='overview'?_renderOverviewTab():null,
       /* ── Roles tab (v133) ── */
       _upgradeTab==='roles'?_renderRolesTab():null,
-      /* ── Scoring tab ── */
-      _upgradeTab==='scoring'?_renderScoringTab():null,
-      /* ── Proposals tab ── */
-      _upgradeTab==='proposals'?h('div',null,
-        _upgradeLoading&&!_upgradeData?h('div',{style:{color:C.tx3,padding:20,textAlign:'center'}},'Načítám návrhy...'):null,
-        _upgradeData&&_upgradeData.error?h('div',{style:{color:'#ef4444',padding:20,textAlign:'center'}},'Chyba: '+_upgradeData.error):null,
-        /* discovery info */
-        discovery?h('div',{style:{background:C.bg2,border:'1px solid '+C.border,borderRadius:8,padding:12,marginBottom:16,display:'flex',gap:16,flexWrap:'wrap'}},
-          h('div',{style:{fontSize:_fs(10),color:C.tx3}},h('span',{style:{fontWeight:600,color:C.tx2}},'Ollama: '),discovery.ollamaAvailable?'dostupný':'nedostupný'),
-          h('div',{style:{fontSize:_fs(10),color:C.tx3}},h('span',{style:{fontWeight:600,color:C.tx2}},'Kandidátů: '),discovery.candidateCount||0),
-          h('div',{style:{fontSize:_fs(10),color:C.tx3}},h('span',{style:{fontWeight:600,color:C.tx2}},'Hinty: '),discovery.hintsCount||0)):null,
-        /* proposals */
-        proposals.length>0?h('div',null,
-          h('div',{style:{fontSize:_fs(13),fontWeight:700,color:C.tx1,marginBottom:12}},'Návrhy na upgrade ('+proposals.length+')'),
-          proposals.map(function(p,i){
-            var risk=p.riskLevel||p.risk_level||'low';
-            var improvement=p.improvement!=null?(p.improvement*100).toFixed(1)+'%':p.score?p.score.toFixed(2):'?';
-            var bd=p.scoreBreakdown||p.score_breakdown||{};
-            var desc=_describeUpgrade(p,bd);
-            return h('div',{key:p.id||i,style:{background:C.bg2,border:'1px solid '+C.border,borderRadius:10,padding:16,marginBottom:12,position:'relative'}},
-              /* risk badge */
-              h('div',{style:{position:'absolute',top:12,right:14,background:riskColors[risk],border:'1px solid '+riskBorders[risk],borderRadius:4,padding:'2px 8px',fontSize:_fs(9),fontWeight:600,color:riskText[risk]}},risk.toUpperCase()),
-              /* role + models */
-              h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:8}},
-                h('span',{style:{background:C.accent,color:'#fff',borderRadius:4,padding:'2px 8px',fontSize:_fs(10),fontWeight:700}},p.role),
-                h('span',{style:{fontSize:_fs(12),color:C.tx2,fontFamily:C.mono}},p.currentModel||p.current_model||'?'),
-                h('span',{style:{color:C.tx4,fontSize:_fs(11)}},'\u2192'),
-                h('span',{style:{fontSize:_fs(12),color:C.tx1,fontWeight:600,fontFamily:C.mono}},p.candidateModel||p.candidate_model||'?')),
-              /* improvement + meta */
-              h('div',{style:{display:'flex',gap:16,marginBottom:8,flexWrap:'wrap',alignItems:'center'}},
-                h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.accent}},'+'+improvement),
-                p.installed!=null?h('div',{style:{fontSize:_fs(10),padding:'1px 6px',borderRadius:4,
-                  background:p.installed?'rgba(34,197,94,0.1)':'rgba(234,179,8,0.1)',
-                  color:p.installed?C.accent:'#eab308'}},p.installed?'Nainstalován':'Nutný pull'):null,
-                p.sizeGB?h('div',{style:{fontSize:_fs(10),color:C.tx4}},p.sizeGB+' GB'):null,
-                p.source==='L4'?h('div',{style:{fontSize:_fs(9),padding:'1px 5px',borderRadius:3,background:'rgba(139,92,246,0.1)',color:'#8b5cf6'}},'L4 discovered'):null),
-              /* rich description */
-              desc.length>0?h('div',{style:{marginBottom:10}},desc.map(function(d,j){
-                return h('div',{key:j,style:{display:'flex',gap:6,alignItems:'baseline',marginBottom:3}},
-                  h('span',{style:{fontSize:_fs(10),color:d.color||C.tx3}},d.icon||'\u2022'),
-                  h('span',{style:{fontSize:_fs(10),color:C.tx2,lineHeight:1.4}},d.text));
-              })):null,
-              /* actions */
-              h('div',{style:{display:'flex',gap:8,justifyContent:'flex-end'}},
-                h('button',{style:{background:'transparent',color:C.tx4,border:'1px solid '+C.border2,borderRadius:6,padding:'5px 14px',fontSize:_fs(11),cursor:'pointer',fontFamily:C.font},
-                  onClick:function(){_upgradeDismiss(p.id);}},'Zahodit'),
-                h('button',{style:{background:C.accent,color:'#fff',border:'none',borderRadius:6,padding:'5px 14px',fontSize:_fs(11),fontWeight:600,cursor:'pointer',fontFamily:C.font},
-                  onClick:function(){_upgradeApply(p.role,p.candidateModel||p.candidate_model);}},'Schválit')));
-          })):
-          (!_upgradeLoading?h('div',{style:{textAlign:'center',padding:'40px 20px'}},
-            h('div',{style:{fontSize:_fs(32),marginBottom:12}},'\u2705'),
-            h('div',{style:{fontSize:_fs(13),color:C.tx2,fontWeight:600,marginBottom:4}},'Žádné návrhy na upgrade'),
-            h('div',{style:{fontSize:_fs(11),color:C.tx4}},'Všechny modely jsou aktuální. Klikněte na "Zkontrolovat" pro novou analýzu.')):null)):null,
+      /* ── Exact-contract evaluations tab ── */
+      _upgradeTab==='evaluations'?_renderEvaluationsTab():null,
+
       /* ── History tab ── */
       _upgradeTab==='history'?h('div',null,
         history.length>0?h('div',null,
@@ -5819,7 +5451,7 @@ function _initBusSubscriptions() {
   C3Bus.on('model:pull_progress', function(ev) {
     var m=ev.model;if(!m)return;
     _pullState[m]={status:ev.status||'unknown',percent:ev.percent||0,text:ev.text||'',
-      downloadedGB:ev.downloadedGB,totalGB:ev.totalGB,eta:ev.eta,scores:ev.scores||null};
+      downloadedGB:ev.downloadedGB,totalGB:ev.totalGB,eta:ev.eta};
     if(ev.status==='done'||ev.status==='error'){
       /* Refresh discovered data after completion */
       _discoveredData=null;_loadDiscoveredData();
@@ -5827,52 +5459,9 @@ function _initBusSubscriptions() {
     renderCenter();
   });
 
-  C3Bus.on('model:validation_progress', function(ev) {
-    var m=ev.model;if(!m)return;
-    _validationProgress={suite:ev.suite||'',testName:ev.testName||'',percent:ev.percent||0,text:ev.text||''};
-    /* Route details to log panel */
-    if(window._c3){
-      if(ev.status==='starting'){
-        window._c3.agentLog('TOOL','\uD83E\uDDEA Validace '+m+' \u2014 spou\u0161t\u00EDm testy...');
-      }else if(ev.status==='running'&&ev.testName){
-        window._c3.agentLog('TOOL','\uD83D\uDD04 ['+ev.suite+'] '+ev.testName+' ('+ev.currentTest+'/'+ev.totalTests+')');
-      }else if(ev.status==='complete'&&ev.suite){
-        var pct=ev.score!=null?Math.round(ev.score*100)+'%':'?';
-        window._c3.agentLog('TOOL','\u2705 ['+ev.suite+'] hotovo \u2014 sk\u00F3re: '+pct);
-      }else if(ev.status==='done'){
-        var overall=ev.overallScore!=null?Math.round(ev.overallScore*100)+'%':'?';
-        window._c3.agentLog('TOOL','\uD83C\uDFC1 Validace '+m+' dokon\u010Dena \u2014 celkov\u00E9 sk\u00F3re: '+overall);
-        if(ev.results){ev.results.forEach(function(r){
-          window._c3.agentLog('TOOL','   '+r.suite+': '+Math.round(r.score*100)+'% ('+r.passed+'/'+r.total+')');
-        });}
-      }else if(ev.status==='error'){
-        window._c3.agentLog('TOOL','\u274C Validace '+m+' selhala: '+(ev.text||'nezn\u00E1m\u00E1 chyba'));
-      }
-    }
-    /* v133: Track batch validation state */
-    if(ev.batchIndex!=null){
-      _batchValidating=true;_batchCurrent=ev.model;
-      if((ev.status==='done'||ev.status==='error')&&ev.batchIndex===ev.batchTotal){
-        _batchValidating=false;_batchCurrent=null;_modelOverview=null;
-      }
-    }
-    if(ev.status==='done'||ev.status==='error'){
-      _validatingModel=null;_validationProgress=null;
-      /* Store results if provided */
-      if(ev.results){
-        if(!_validationScores[m])_validationScores[m]={};
-        ev.results.forEach(function(r){_validationScores[m][r.suite]={score:r.score,validatedAt:new Date().toISOString()};});
-      }
-      /* Also refresh from backend */
-      _loadValidationScores();
-      _modelOverview=null;/* invalidate overview cache */
-    }
-    renderCenter();
-  });
-
   /* v125: Model changed via WS (fire-and-forget apply) */
   C3Bus.on('model:changed', function(ev) {
-    _upgradeLoading=false;_assigningRole=null;_roleBindings=null;_modelOverview=null;
+    _upgradeLoading=false;_assigningRole=null;_roleBindings=null;_modelOverview=null;_evaluationData=null;
     _upgradeMsg={ok:true,text:'Upgrade '+ev.role+': '+(ev.fromModel||'?')+' \u2192 '+(ev.toModel||'?')};
     if(window._c3)window._c3.agentLog('TOOL','\u2705 Model zm\u011Bn\u011Bn: '+ev.role+' '+(ev.fromModel||'?')+' \u2192 '+(ev.toModel||'?'));
     _upgradeData=null;_loadUpgradeData();renderCenter();
@@ -5919,11 +5508,6 @@ function _initBusSubscriptions() {
     if(!ev||!ev.operationId)return;
     if(!_verifyFailure.identity||_verifyFailure.identity.operationId!==ev.operationId)return;
     _verifyFailure=null;_rollbackConfirm=false;renderCenter();
-  });
-
-  /* v125: Validation prompt after model change */
-  C3Bus.on('model:validation_prompt', function(ev) {
-    _validationPrompt=ev;renderCenter();
   });
 
   /* v133: Model deleted — refresh overview */

@@ -3,6 +3,7 @@
 // Read-only. Each dimension: SQL aggregation → { score, status, details, trend, trendDirection, dataCompleteness }
 
 import { logger } from '../../core/logger.js';
+import { createRoleEvaluationPlans } from '../../eval/role-evaluation-plan.js';
 
 const DIMENSION_WEIGHTS = {
   models: 0.25,
@@ -169,43 +170,52 @@ function analyzeSpecialists(db) {
 // ── Dimension: Upgrades ───────────────────────────────────────────────────────
 function analyzeUpgrades(db) {
   try {
-    let pendingCount = 0;
-    if (tableExists(db, 'upgrade_proposals')) {
-      const p = db.prepare("SELECT COUNT(*) as c FROM upgrade_proposals WHERE status='pending'").get();
-      pendingCount = p.c || 0;
-    }
-    let stalestDays = 0;
-    if (tableExists(db, 'validation_suite_scores')) {
-      // Scope to currently active models (from model_overrides or recent model_performance)
-      let activeModels = [];
-      if (tableExists(db, 'model_overrides')) {
-        activeModels = db.prepare("SELECT DISTINCT model FROM model_overrides").all().map(r => r.model);
-      }
-      if (!activeModels.length && tableExists(db, 'model_performance')) {
-        activeModels = db.prepare(
-          "SELECT DISTINCT model FROM model_performance WHERE created_at >= datetime('now', '-7 days')"
-        ).all().map(r => r.model);
-      }
-      if (activeModels.length) {
-        const placeholders = activeModels.map(() => '?').join(',');
-        const v = db.prepare(
-          `SELECT MIN(validated_at) as oldest FROM validation_suite_scores WHERE model IN (${placeholders})`
-        ).get(...activeModels);
-        if (v?.oldest) {
-          stalestDays = (Date.now() - new Date(v.oldest + 'Z').getTime()) / (1000 * 60 * 60 * 24);
+    const evaluation = { complete: 0, missing: [], failed: [], blocked: [], durable: 0 };
+    if (tableExists(db, 'model_desired_bindings') && tableExists(db, 'model_evaluation_runs')) {
+      const plans = createRoleEvaluationPlans();
+      const desired = db.prepare(
+        'SELECT role, digest_sha256 FROM model_desired_bindings ORDER BY role'
+      ).all();
+      evaluation.durable = desired.length;
+      for (const binding of desired) {
+        const plan = plans[binding.role];
+        if (!plan) {
+          evaluation.missing.push(binding.role);
+          continue;
         }
+        const row = db.prepare(`
+          SELECT status
+          FROM model_evaluation_runs
+          WHERE model_digest_sha256 = ?
+            AND suite_name = ?
+            AND suite_contract_sha256 = ?
+          ORDER BY CASE status WHEN 'COMPLETE' THEN 0 ELSE 1 END,
+                   completed_at DESC,
+                   run_id DESC
+          LIMIT 1
+        `).get(binding.digest_sha256, plan.suiteName, plan.suiteContractSha256);
+        if (row?.status === 'COMPLETE') evaluation.complete++;
+        else if (row?.status === 'FAILED') evaluation.failed.push(binding.role);
+        else if (row?.status === 'BLOCKED') evaluation.blocked.push(binding.role);
+        else evaluation.missing.push(binding.role);
       }
-      // If no active models found, no stale penalty (nothing to validate)
     }
-    const pendingPenalty = Math.min(pendingCount * 0.1, 0.3);
-    const stalePenalty = stalestDays > 14 ? 0.2 : 0;
-    const score = clamp(1.0 - pendingPenalty - stalePenalty, 0, 1);
+    const incompleteCount = evaluation.missing.length + evaluation.failed.length + evaluation.blocked.length;
+    const evaluationPenalty = incompleteCount > 0 || evaluation.durable < 7 ? 0.2 : 0;
+    const score = clamp(1.0 - evaluationPenalty, 0, 1);
     return {
       score,
       status: classifyStatus(score),
-      details: { pending_proposals: pendingCount, stalest_validation_days: Math.round(stalestDays), stale_penalty: stalePenalty },
+      details: {
+        current_evaluation_complete: evaluation.complete,
+        current_evaluation_missing_roles: evaluation.missing,
+        current_evaluation_failed_roles: evaluation.failed,
+        current_evaluation_blocked_roles: evaluation.blocked,
+        durable_binding_count: evaluation.durable,
+        evaluation_penalty: evaluationPenalty,
+      },
       trend: 0, trendDirection: 'stable',
-      dataCompleteness: 1.0,
+      dataCompleteness: evaluation.durable / 7,
     };
   } catch (e) { return fallbackDimension('upgrades', e.message); }
 }

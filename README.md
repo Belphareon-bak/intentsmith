@@ -7,8 +7,8 @@ a současný autoritativní C3 Studio runtime už neobsahuje implicitní Google 
 egress. Spouštěné Studio UI je stále přechodný runtime, nikoli finální vzhled
 IntentSmithu.
 
-**Verze:** 136.1.0 | **390 registrovaných testovacích programů**
-(`294 ACTIVE`, `81 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`)
+**Verze:** 136.1.0 | **384 registrovaných testovacích programů**
+(`289 ACTIVE`, `81 BLOCKED`, `0 KNOWN_DEFECTIVE`, `14 HISTORICAL`)
 
 > **Stav: aktivní vývoj, M0 — produktová pravda a ověřený baseline.** Jedna z 22
 > schopností je v `ACCEPTED/PASS` (#2 CRE); #1 je pouze `RUNTIME_VERIFIED`.
@@ -46,7 +46,7 @@ zpevňuje. Produktový kontrakt, cílový uživatel a hranice 1.0 jsou v
 - **Cross-Project Learning** — modul pro podobnost a generalizaci existuje, ale produkční učící smyčka není prokázaná. Přechod mezi projekty musí být default off a pouze na explicitní opt-in.
 
 ### Infrastruktura
-- **Model Upgrade System** — curated catalog (55 modelů), 18 modulů (10 312 řádků), pairwise evaluation, empirical scoring (Phase 3), L4 online discovery, validation suites (5 sad), chat-based approval, streaming pull, rollback.
+- **Modelová platforma** — factual discovery, versioned role-specific evaluace exact artefaktů, append-only run/decision historie a jediná ruční durable binding cesta.
 - **Marketplace** — remote package catalog pro skills, expertízy a specialisty. Transactional install/update/uninstall, dependency resolver, SHA-256 ověření, archive security.
 - **C3 Studio IDE** — Theia + Electron, 32 rozšíření, chat panel, agent log, settings (12 sekcí), specialist focus mode, multimedia view.
 - **153 nástrojů** ve 35 kategoriích. Sandboxed execution, circuit breaker, risk assessment.
@@ -219,9 +219,9 @@ Tři vrstvy: LTM s confidence decay (λ=0.01, poločas 69 dní), task memory (cr
 - [docs/MEMORY.md](docs/MEMORY.md) — architektura paměťového systému
 
 ### Model Upgrade System
-4-vrstvý discovery (local, catalog, hints, online), pairwise evaluation, empirical scoring z reálných metrik, validation suites (5 testovacích sad na model), chat-based approval (nikdy auto-upgrade), streaming pull, rollback.
+Factual discovery (local, catalog, hints, online), role-specific versioned evaluace s exact digestem a timestampem, fail-closed důkazní minima a samostatný manual binding. Discovery ani chatové „ano“ nejsou doporučení nebo aktivační autorita.
 
-- `src/upgrade/` — 18 modulů, 10 312 řádků
+- `src/upgrade/` — 30 modulů, 17 209 řádků
 
 ### Quality Gate v2
 4-vrstvý deterministický pipeline (structural → language → intent → content). Bez LLM — čistě pravidlová validace výstupů. SK→CZ transliterace (~160 pravidel), language drift detection.
@@ -264,7 +264,7 @@ intentsmith/
 │   ├── planner/                  #   Lifecycle + sdílená governance (32 modulů, 14 382 ř.)
 │   ├── patch/                    #   Patch Engine (5 modulů, 1,505 ř.)
 │   ├── memory/                   #   LTM, task memory, cross-project (9 modulů)
-│   ├── upgrade/                  #   Model upgrade system (18 modulů, 10 312 ř.)
+│   ├── upgrade/                  #   Model platform (30 modulů, 17 209 ř.)
 │   ├── expertises/               #   14 built-in expertíz, merge engine, ledger
 │   ├── agents/                   #   Worker agenti, scheduler, conditions
 │   ├── skills/                   #   Registry, resolver, runner, 8 step types + substitution helper
@@ -318,14 +318,14 @@ intentsmith/
 │   ├── report-gen.json           #   Generování reportů
 │   └── summarizer.json           #   Sumarizace textu
 │
-├── tests/                        # Testy a kanonický registr 377 programů
+├── tests/                        # Testy a kanonický registr 384 programů
 │   ├── harness.js                #   Custom ESM test harness
 │   ├── cre-*.test.js             #   CRE testy (401+)
 │   ├── lifecycle-*.test.js       #   Lifecycle testy (103+)
 │   ├── code-intel-*.test.js      #   Code Intelligence testy (339+)
 │   ├── execution-loop.test.js    #   Execution Engine testy (597+)
 │   ├── upgrade-*.test.js         #   Model Upgrade testy
-│   └── registry.json             #   Kanonický registr 377 programů
+│   └── registry.json             #   Kanonický registr 384 programů
 │
 ├── docs/                         # Aktivní dokumentace + archiv
 │   ├── ARCHITECTURE.md           #   Kompletní architektura

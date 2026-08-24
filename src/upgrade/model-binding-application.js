@@ -510,7 +510,6 @@ export class ModelBindingApplication {
     this._background = new Map();
     this._pendingVerification = new Map();
     this._pendingNotifications = new Map();
-    this._pendingProposalRepairs = new Map();
     this._ownedProviderClaims = new Map();
     this._providerRecoveryTimers = new Map();
     this._runtimeFinalizeRecoveryTimers = new Map();
@@ -570,7 +569,6 @@ export class ModelBindingApplication {
       'commit',
       'compensate',
       'rehydrateLegacy',
-      'resolvePendingProposals',
     ]) {
       if (typeof this.runtime[method] !== 'function') {
         fail('MODEL_BINDING_APPLICATION_OPTIONS_INVALID', `Runtime port is missing ${method}`);
@@ -852,12 +850,6 @@ export class ModelBindingApplication {
             operationId: null,
           });
           const snapshot = this.runtime.snapshot(role);
-          const proposalResolution = this.#tryResolvePendingProposals({
-            operationId: receipt.receiptId,
-            role,
-            targetModelName: receipt.modelName,
-            kind: 'USER_APPLY',
-          });
           return {
             ok: true,
             role,
@@ -868,11 +860,7 @@ export class ModelBindingApplication {
             configVersion: snapshot.configVersion,
             operationId: null,
             noOpReceiptId: receipt.receiptId,
-            proposalResolutionStatus: proposalResolution.status,
-            warningCode: proposalResolution.warningCode,
-            outcome: proposalResolution.status === 'SUCCEEDED'
-              ? result.outcome
-              : 'UNCHANGED_PROPOSAL_REPAIR_PENDING',
+            outcome: result.outcome,
           };
         }
         accept({
@@ -1187,13 +1175,6 @@ export class ModelBindingApplication {
           executionStarted = true;
           const restored = await this.#executeOperation(operation, { startup: true });
           summary.restored++;
-          if (restored.proposalResolutionStatus === 'REPAIR_PENDING') {
-            summary.warnings.push({
-              role: operation.role,
-              operationId: operation.operationId,
-              code: restored.warningCode,
-            });
-          }
         } catch (error) {
           const state = this.repository.getBindingApplicationState(operation.operationId);
           if (!executionStarted
@@ -1267,9 +1248,6 @@ export class ModelBindingApplication {
 
   startBackgroundVerification() {
     this._verificationStarted = true;
-    for (const operation of [...this._pendingProposalRepairs.values()]) {
-      this.#enqueueProposalRepair(operation);
-    }
     for (const entry of [...this._pendingNotifications.values()]) {
       this.#enqueueNotification(entry.operation, entry.runtimeResult);
     }
@@ -1962,7 +1940,6 @@ export class ModelBindingApplication {
       && state.runtimeStatus === 'APPLIED'
       && state.runtimeFinalizeStatus === 'DIRECT_CONFIRMED') {
       const runtime = this.runtime.snapshot(operation.role);
-      const proposalResolution = this.#tryResolvePendingProposals(operation);
       let outcome = 'REPLAYED';
       if (state.notificationStatus === 'NOT_RECORDED') {
         const notification = await this.#publishBindingCommitted(operation, {
@@ -1976,20 +1953,11 @@ export class ModelBindingApplication {
           : 'APPLIED_NOTIFICATION_DEGRADED';
       }
       if (state.verificationStatus === 'NOT_VERIFIED') this.#scheduleVerification(operation);
-      if (proposalResolution.status === 'REPAIR_PENDING'
-        && outcome !== 'APPLIED_NOTIFICATION_DEGRADED') {
-        outcome = 'APPLIED_PROPOSAL_REPAIR_PENDING';
-      } else if (proposalResolution.status === 'SUCCEEDED'
-        && proposalResolution.repaired
-        && outcome === 'REPLAYED') {
-        outcome = 'POST_COMMIT_REPAIRED';
-      }
       return this.#result(
         operation,
         runtime.configVersion,
         state,
         outcome,
-        proposalResolution,
       );
     }
     if (state.runtimeStatus === 'FAILED' && state.retryable === false) {
@@ -2175,10 +2143,6 @@ export class ModelBindingApplication {
 
   async #finishCommittedOperation(operation, state, runtimeResult, startup) {
     if (startup) {
-      const proposalResolution = this.#tryResolvePendingProposals(operation);
-      if (proposalResolution.status === 'REPAIR_PENDING') {
-        this.#scheduleProposalRepair(operation);
-      }
       const currentState = this.repository.getBindingApplicationState(operation.operationId);
       if (currentState.notificationStatus === 'NOT_RECORDED') {
         this.#scheduleNotification(operation, runtimeResult);
@@ -2188,14 +2152,10 @@ export class ModelBindingApplication {
         operation,
         runtimeResult.configVersion,
         state,
-        proposalResolution.status === 'SUCCEEDED'
-          ? 'REHYDRATED'
-          : 'REHYDRATED_PROPOSAL_REPAIR_PENDING',
-        proposalResolution,
+        'REHYDRATED',
       );
     }
 
-    const proposalResolution = this.#tryResolvePendingProposals(operation);
     const notification = await this.#publishBindingCommitted(operation, runtimeResult);
     this.#scheduleVerification(operation);
     return this.#result(
@@ -2204,88 +2164,8 @@ export class ModelBindingApplication {
       this.repository.getBindingApplicationState(operation.operationId),
       notification.status !== 'SUCCEEDED'
         ? 'APPLIED_NOTIFICATION_DEGRADED'
-        : proposalResolution.status === 'SUCCEEDED'
-          ? 'APPLIED'
-          : 'APPLIED_PROPOSAL_REPAIR_PENDING',
-      proposalResolution,
+        : 'APPLIED',
     );
-  }
-
-  #tryResolvePendingProposals(operation) {
-    try {
-      const result = this.#resolvePendingProposals(operation);
-      return Object.freeze({
-        status: 'SUCCEEDED',
-        warningCode: null,
-        repaired: result.approved !== null || result.expired > 0,
-        result,
-      });
-    } catch (error) {
-      this.logger.warn(
-        'ModelBindingApplication',
-        `Binding ${operation.operationId} committed; proposal repair remains pending: ${error.message}`,
-      );
-      return Object.freeze({
-        status: 'REPAIR_PENDING',
-        warningCode: error?.code || 'MODEL_BINDING_PROPOSAL_RESOLUTION_FAILED',
-        repaired: false,
-        result: null,
-      });
-    }
-  }
-
-  #resolvePendingProposals(operation) {
-    try {
-      const result = this.runtime.resolvePendingProposals(
-        operation.role,
-        operation.targetModelName,
-        operation.kind,
-      );
-      if (!isPlainObject(result)
-        || !(result.approved === null || Number.isSafeInteger(result.approved))
-        || !Number.isSafeInteger(result.expired)
-        || result.expired < 0) {
-        fail(
-          'MODEL_BINDING_PROPOSAL_RESOLUTION_INVALID',
-          'Proposal resolver returned an invalid result',
-          { operationId: operation.operationId },
-        );
-      }
-      return result;
-    } catch (error) {
-      throw asApplicationError(
-        error,
-        'MODEL_BINDING_PROPOSAL_RESOLUTION_FAILED',
-        'Binding committed but proposal resolution needs an idempotent retry',
-        { operationId: operation.operationId, bindingCommitted: true },
-      );
-    }
-  }
-
-  #scheduleProposalRepair(operation) {
-    if (this._pendingProposalRepairs.has(operation.operationId)
-      || this._background.has(`proposal:${operation.operationId}`)) return;
-    this._pendingProposalRepairs.set(operation.operationId, operation);
-    if (this._verificationStarted) this.#enqueueProposalRepair(operation);
-  }
-
-  #enqueueProposalRepair(operation) {
-    const key = `proposal:${operation.operationId}`;
-    if (this._background.has(key)) return;
-    this._pendingProposalRepairs.delete(operation.operationId);
-    const task = Promise.resolve()
-      .then(() => this.#tryResolvePendingProposals(operation))
-      .then(result => {
-        if (result.status === 'REPAIR_PENDING') {
-          this.logger.warn(
-            'ModelBindingApplication',
-            `Proposal repair remains pending for ${operation.operationId}`,
-          );
-        }
-        return result;
-      })
-      .finally(() => this._background.delete(key));
-    this._background.set(key, task);
   }
 
   async #recordRuntimeFailure(operation, state, error, startup) {
@@ -2488,7 +2368,7 @@ export class ModelBindingApplication {
     }
   }
 
-  #result(operation, configVersion, state, outcome, proposalResolution = null) {
+  #result(operation, configVersion, state, outcome) {
     const publicState = publicApplicationState(state);
     return {
       ok: true,
@@ -2501,8 +2381,6 @@ export class ModelBindingApplication {
       operationId: operation.operationId,
       applicationState: publicState.state,
       notificationStatus: publicState.notificationStatus,
-      proposalResolutionStatus: proposalResolution?.status || 'NOT_APPLICABLE',
-      warningCode: proposalResolution?.warningCode || null,
       outcome,
     };
   }

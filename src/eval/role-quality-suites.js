@@ -1,11 +1,10 @@
 // Objective role-quality suites used by the model-upgrade prototype.
 //
-// These suites deliberately live outside validation-suites.js: that legacy
-// registry is source-pinned by the failover proof policy. Every task returns a
-// graded 0..1 score and a public rubric; PASS is only a readable task marker.
+// Every task returns a graded 0..1 score and a public rubric; PASS is only a
+// readable task marker. Exact authority comes from the role evaluation plan.
 
-import { CodePatchValidationRunner, codePatchSuite } from './code-patch-suite.js';
-import { getTestImages } from '../upgrade/validation-suites.js';
+import { CodePatchEvaluationRunner, codePatchSuite } from './code-patch-suite.js';
+import { getSyntheticTestImages } from './synthetic-images.js';
 
 export const ROLE_QUALITY_VERSION = 'v136.1-prototype.1';
 export const CHAT_QUALITY_VERSION = 'v136.1-chat.3.5';
@@ -708,7 +707,7 @@ export const visionV2Suite = Object.freeze({
   name: 'vision_v2', version: ROLE_QUALITY_VERSION,
   description: 'Multi-attribute deterministic synthetic image understanding', roles: ['VISION'],
   get tests() {
-    const images = getTestImages();
+    const images = getSyntheticTestImages();
     return Object.freeze([
       visionJsonTask('vision_red', 'Return ONLY JSON {"color":string,"uniform":boolean}.', [images.red8x8], ['red', 'uniform true', 'valid JSON'], obj => checklist([
         { id: 'json', ok: !!obj }, { id: 'red', ok: obj && includesAny(String(obj.color), ['red', 'červen']) }, { id: 'uniform', ok: obj?.uniform === true },
@@ -771,7 +770,7 @@ export function describeChatTests() {
   }));
 }
 
-export class RoleQualityValidationRunner extends CodePatchValidationRunner {
+export class RoleQualityEvaluationRunner extends CodePatchEvaluationRunner {
   constructor(baseUrl, opts = {}) {
     super(baseUrl, opts.codePatchSuite || codePatchSuite);
     this._roleSuites = opts.roleSuites || ROLE_QUALITY_SUITES;
@@ -838,5 +837,5 @@ export default {
   ROLE_SUITE_NAMES,
   getQualitySuiteForRole,
   describeChatTests,
-  RoleQualityValidationRunner,
+  RoleQualityEvaluationRunner,
 };
