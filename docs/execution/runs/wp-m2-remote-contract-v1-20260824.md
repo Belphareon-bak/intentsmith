@@ -83,6 +83,14 @@ mode nad exact base/candidate rozsahem. Každé `CHANGES_REQUESTED` se opraví a
 review zopakuje. Odpověď o vyčerpaném spend limitu je pouze
 `REVIEW_BLOCKED_ACCOUNT_LIMIT`, nikoli review verdict.
 
+Pokus 2026-08-24 nad exact committed rozsahem
+`cb9058b499961fc68711cbfc243ad2a7b68b0eba..efa1a5de` použil lokální Claude
+Code 2.1.220, `--model opus --effort max --permission-mode plan` a
+`--no-session-persistence`. CLI skončilo exit 1 ještě před review se zprávou o
+měsíčním spend limitu. Nevznikl verdict, nález ani `REVIEW_PASSED`; stav je
+`REVIEW_BLOCKED_ACCOUNT_LIMIT` a po obnovení dostupnosti se opakuje stejný
+exact-scope read-only review.
+
 ## Přiznané limity
 
 - V1 zmrazuje negotiation/security obálku a capability identity, nikoli
