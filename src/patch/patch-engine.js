@@ -17,6 +17,7 @@
 
 import { logger } from '../core/logger.js';
 import {
+  deleteProjectFileDurable,
   isProjectPathError,
   readProjectFile,
   resolveProjectTarget,
@@ -59,13 +60,23 @@ function projectPathFailure(error, { preview = false } = {}) {
 }
 
 function ioFailure(error, operation, { preview = false } = {}) {
-  const state = operation === 'read' && error?.code === 'ELOOP'
-    ? 'symlink_unresolvable'
-    : `${operation}_failed`;
+  const effectApplied = operation === 'write' && error?.effectApplied === true;
+  const state = effectApplied
+    ? 'write_durability_unconfirmed'
+    : operation === 'read' && error?.code === 'ELOOP'
+      ? 'symlink_unresolvable'
+      : `${operation}_failed`;
   const message = `${operation[0].toUpperCase()}${operation.slice(1)} failed: ${error.message}`;
   return preview
     ? { valid: false, state, errors: [message] }
-    : { success: false, written: false, state, errors: [message] };
+    : {
+      success: false,
+      written: effectApplied,
+      effectApplied,
+      state,
+      ...(effectApplied ? { durability: error.detail || null } : {}),
+      errors: [message],
+    };
 }
 
 // ─── Apply Single Patch ─────────────────────────────────────────────────────
@@ -138,9 +149,57 @@ export async function applyPatch(patch, projectRoot, options = {}) {
       fileSystem: options.fileSystem,
     });
   } catch (err) {
-    revertFromBackup(patch.file);
-    if (isProjectPathError(err)) return projectPathFailure(err);
-    return ioFailure(err, 'write');
+    if (isProjectPathError(err)) {
+      revertFromBackup(patch.file);
+      return projectPathFailure(err);
+    }
+    const failure = ioFailure(err, 'write');
+    if (!failure.effectApplied) {
+      revertFromBackup(patch.file);
+      return failure;
+    }
+
+    // A directory-fsync failure happens after rename: the requested bytes are
+    // already visible.  Attempt the promised compensation while the in-memory
+    // backup is still available, and report the after-state honestly.
+    let rollback;
+    if (read.exists) {
+      rollback = rollbackPatch(patch.file, projectRoot, options);
+    } else {
+      // The legacy backup map stores only bytes, so an absent before-image
+      // would otherwise be "restored" as an empty file.  Compensate creation
+      // with the exact durable delete primitive and consume the unusable empty
+      // backup explicitly.
+      revertFromBackup(patch.file);
+      try {
+        deleteProjectFileDurable(projectRoot, patch.file, {
+          expectedTarget: read.target,
+          fileSystem: options.fileSystem,
+        });
+        rollback = { success: true, state: 'deleted' };
+      } catch (rollbackError) {
+        if (isProjectPathError(rollbackError)) {
+          const rejected = projectPathFailure(rollbackError);
+          rollback = {
+            ...rejected,
+            error: rejected.errors[0],
+          };
+        } else {
+          const rollbackFailure = ioFailure(rollbackError, 'write');
+          rollback = {
+            ...rollbackFailure,
+            error: `Create compensation failed: ${rollbackError.message}`,
+          };
+        }
+      }
+    }
+    return {
+      ...failure,
+      written: rollback.success ? false : null,
+      compensated: rollback.success,
+      orphaned: !rollback.success,
+      rollback,
+    };
   }
 
   const metrics = computeMetrics(patch, result);
@@ -262,7 +321,11 @@ export function rollbackPatch(filePath, projectRoot, options = {}) {
         error: failure.errors[0],
       };
     }
-    return { success: false, state: 'write_failed', error: `Rollback write failed: ${err.message}` };
+    const failure = ioFailure(err, 'write');
+    return {
+      ...failure,
+      error: `Rollback write failed: ${err.message}`,
+    };
   }
 }
 
@@ -358,17 +421,29 @@ export async function applyPatchSet(patches, projectRoot, options = {}) {
       // Rollback all previously applied patches in reverse
       logger.warn('PatchEngine', `PatchSet failed at ${patch.file}, rolling back ${appliedFiles.length} applied patches`);
 
+      const rollbackResults = [];
       for (let i = appliedFiles.length - 1; i >= 0; i--) {
-        const rb = rollbackPatch(appliedFiles[i], projectRoot, options);
+        const file = appliedFiles[i];
+        const rb = rollbackPatch(file, projectRoot, options);
+        rollbackResults.push({ file, ...rb });
         if (!rb.success) {
-          logger.error('PatchEngine', `Rollback failed for ${appliedFiles[i]}: ${rb.error}`);
+          logger.error('PatchEngine', `Rollback failed for ${file}: ${rb.error}`);
         }
       }
+
+      const compensated = (!result.effectApplied || result.compensated === true)
+        && rollbackResults.every(rollback => rollback.success);
+      const orphaned = result.orphaned === true
+        || rollbackResults.some(rollback => !rollback.success);
 
       return {
         success: false,
         results,
         state: result.state,
+        effectApplied: result.effectApplied === true || appliedFiles.length > 0,
+        compensated,
+        orphaned,
+        rollbackResults,
         pathAuthority: result.pathAuthority,
         errors: [`PatchSet failed at ${patch.file}: ${result.errors?.join(', ')}`],
       };

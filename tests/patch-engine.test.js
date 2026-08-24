@@ -980,6 +980,45 @@ await testAsync('ordinary patch remains atomic and preserves target mode', async
   assertEqual(statSync(target).mode & 0o777, 0o640);
 });
 
+await testAsync('post-rename durability failure is compensated and never reported as no effect', async () => {
+  resetPathProject();
+  const target = path.join(pathProject, 'app.js');
+  let directoryFd = null;
+  let failedDirectorySync = false;
+  const durabilityFs = {
+    ...fs,
+    openSync(file, flags, mode) {
+      const descriptor = fs.openSync(file, flags, mode);
+      if (file === pathProject) directoryFd = descriptor;
+      return descriptor;
+    },
+    fsyncSync(descriptor) {
+      if (!failedDirectorySync && descriptor === directoryFd) {
+        failedDirectorySync = true;
+        const error = new Error('injected directory fsync failure');
+        error.code = 'EIO';
+        throw error;
+      }
+      return fs.fsyncSync(descriptor);
+    },
+  };
+
+  const result = await applyPatchToProject(projectPatch(), pathProject, {
+    fileSystem: durabilityFs,
+  });
+
+  assertEqual(failedDirectorySync, true);
+  assertEqual(result.success, false);
+  assertEqual(result.state, 'write_durability_unconfirmed');
+  assertEqual(result.effectApplied, true);
+  assertEqual(result.compensated, true);
+  assertEqual(result.orphaned, false);
+  assertEqual(result.written, false);
+  assertEqual(result.rollback.success, true);
+  assertEqual(readFileSync(target, 'utf8'), PATH_SAMPLE);
+  assertEqual(hasBackup('app.js'), false);
+});
+
 rmSync(pathRuntime, { recursive: true, force: true });
 
 // ═══════════════════════════════════════════════════════════════════════════

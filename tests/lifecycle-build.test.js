@@ -51,6 +51,7 @@ const {
   stripDeadImports,
   persistExecutionLoopEvidence,
   persistDeadImportEvidence,
+  handleEnhancedValidationFailure,
 } = _testInternals;
 
 let passed = 0;
@@ -644,6 +645,45 @@ function resetDeadProject() {
 
 {
   resetDeadProject();
+  const target = path.join(deadProject, 'nested', 'dead.js');
+  const outside = path.join(deadRuntime, 'outside-import.js');
+  mkdirSync(path.dirname(target), { recursive: true });
+  writeFileSync(target, [
+    "import secret from '../../outside-import.js';",
+    'export default secret;',
+    '',
+  ].join('\n'), 'utf8');
+  writeFileSync(outside, 'OUTSIDE-IMPORT-SENTINEL\n', 'utf8');
+
+  let outsideMetadataReads = 0;
+  const tracingFs = {
+    ...fs,
+    statSync(candidate, ...args) {
+      if (typeof candidate === 'string') {
+        const relative = path.relative(deadProject, path.resolve(candidate));
+        const outsideProject = relative === '..'
+          || relative.startsWith(`..${path.sep}`)
+          || path.isAbsolute(relative);
+        if (outsideProject) outsideMetadataReads += 1;
+      }
+      return fs.statSync(candidate, ...args);
+    },
+  };
+
+  const result = await stripDeadImports(deadProject, ['nested/dead.js'], {
+    fileSystem: tracingFs,
+  });
+
+  assert(result.ok && result.stripped === 1,
+    'dead-import: relative import escaping project is unavailable to recovery');
+  assert(outsideMetadataReads === 0,
+    'dead-import: import existence probes never read metadata outside project');
+  assert(readFileSync(outside, 'utf8') === 'OUTSIDE-IMPORT-SENTINEL\n',
+    'dead-import: outside import sentinel remains byte-identical');
+}
+
+{
+  resetDeadProject();
   const target = path.join(deadProject, 'dead.js');
   writeFileSync(target, deadSource, 'utf8');
 
@@ -923,6 +963,24 @@ console.log('\n── Effect evidence persistence ──');
       && cleanup?.details?.effectFailures?.[0]?.reason === 'ENOSPC',
     'effect evidence: input skips and failed effects remain distinct after persistence');
 
+  const anomalyPersisted = persistExecutionLoopEvidence(lc, milestone, {
+    converged: false,
+    stopReason: 'effect_orphaned',
+    report: {
+      iterations: [{
+        action: 'orphaned',
+        state: 'write_durability_unconfirmed',
+        effectApplied: true,
+        compensated: false,
+      }],
+    },
+  });
+  const anomaly = driftChecks.getChecksByMilestone(msId)
+    .find(check => check.details?.stopReason === 'effect_orphaned');
+  assert(anomalyPersisted && anomaly?.result === 'FAIL'
+      && anomaly?.details?.effectAnomalies?.[0]?.compensated === false,
+    'effect evidence: uncontained write anomaly persists as terminal evidence');
+
   db.prepare('DELETE FROM drift_checks WHERE lifecycle_id = ?').run(lc.id);
   db.prepare('DELETE FROM milestones WHERE lifecycle_id = ?').run(lc.id);
   db.prepare('DELETE FROM project_lifecycles WHERE id = ?').run(lc.id);
@@ -953,6 +1011,7 @@ console.log('\n── Effect evidence persistence ──');
       });
     } catch (error) {
       threw = error.message.includes('Failed to persist EFFECT_AUTHORITY evidence')
+        && error.code === 'EFFECT_EVIDENCE_PERSISTENCE_FAILED'
         && error.cause?.code === 'SQLITE_READONLY';
     }
   } finally {
@@ -960,6 +1019,17 @@ console.log('\n── Effect evidence persistence ──');
   }
   assert(threw,
     'effect evidence: persistence failure is terminal and retains the storage cause');
+
+  let wrapperRethrewSameError = false;
+  const evidenceError = new Error('injected wrapped evidence failure');
+  evidenceError.code = 'EFFECT_EVIDENCE_PERSISTENCE_FAILED';
+  try {
+    handleEnhancedValidationFailure(evidenceError);
+  } catch (error) {
+    wrapperRethrewSameError = error === evidenceError;
+  }
+  assert(wrapperRethrewSameError,
+    'effect evidence: semantic best-effort wrapper cannot swallow persistence failure');
 
   db.prepare('DELETE FROM milestones WHERE lifecycle_id = ?').run(lc.id);
   db.prepare('DELETE FROM project_lifecycles WHERE id = ?').run(lc.id);

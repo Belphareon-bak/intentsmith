@@ -794,7 +794,7 @@ async function postExecution(lifecycle, milestone, wfResult) {
       });
     }
   } catch (err) {
-    logger.warn('LifecycleBuild', `Enhanced validation failed (non-blocking): ${err.message}`);
+    _handleEnhancedValidationFailure(err);
   }
 
   // ─── ARCHITECTURE CONTRACT CHECK ─────────────────────────────────────────
@@ -1799,17 +1799,33 @@ function _persistEffectEvidence(lifecycle, milestone, checkType, result, details
     driftChecks.addCheck(lifecycle.id, milestone.id, checkType, result, details);
     return true;
   } catch (error) {
-    throw new Error(
+    const persistenceError = new Error(
       `Failed to persist ${checkType} evidence for ${lifecycle.id}/${milestone.id}`,
       { cause: error },
     );
+    persistenceError.code = 'EFFECT_EVIDENCE_PERSISTENCE_FAILED';
+    throw persistenceError;
   }
+}
+
+function _handleEnhancedValidationFailure(error) {
+  // Effect-authority evidence is part of the terminal contract, not an
+  // optional semantic-validation diagnostic.  Both the second fix loop and
+  // dead-import recovery run inside this legacy best-effort wrapper, so let
+  // their storage failure escape instead of continuing toward a false
+  // milestone success without the promised durable rejection record.
+  if (error?.code === 'EFFECT_EVIDENCE_PERSISTENCE_FAILED') throw error;
+  logger.warn('LifecycleBuild', `Enhanced validation failed (non-blocking): ${error.message}`);
 }
 
 function _persistExecutionLoopEvidence(lifecycle, milestone, loopResult) {
   const rejectedPatches = loopResult?.report?.iterations
     ?.flatMap(iteration => iteration.rejectedPatches || []) || [];
-  if (rejectedPatches.length === 0 && loopResult?.stopReason !== 'project_path_violation') {
+  const effectAnomalies = loopResult?.report?.iterations
+    ?.filter(iteration => iteration.effectApplied || iteration.action === 'orphaned') || [];
+  if (rejectedPatches.length === 0
+    && effectAnomalies.length === 0
+    && loopResult?.stopReason !== 'project_path_violation') {
     return false;
   }
   return _persistEffectEvidence(
@@ -1820,6 +1836,7 @@ function _persistExecutionLoopEvidence(lifecycle, milestone, loopResult) {
     {
       stopReason: loopResult.stopReason,
       rejectedPatches,
+      effectAnomalies,
       report: loopResult.report,
     },
   );
@@ -1838,6 +1855,24 @@ function _persistDeadImportEvidence(lifecycle, milestone, stripResult) {
     stripResult?.ok ? 'WARN' : 'FAIL',
     stripResult,
   );
+}
+
+function _isRegularProjectImportCandidate(projectPath, canonicalProjectRoot, candidate, fileSystem) {
+  const relative = path.relative(canonicalProjectRoot, candidate);
+  const outside = relative === '..'
+    || relative.startsWith(`..${path.sep}`)
+    || path.isAbsolute(relative);
+  if (outside || relative === '') return false;
+
+  try {
+    const target = resolveProjectTarget(projectPath, relative, { fileSystem });
+    return fileSystem.statSync(target.real).isFile();
+  } catch {
+    // Dead-import cleanup is best effort.  A missing, unreadable, aliased or
+    // otherwise unauthorised import candidate is treated as unavailable, but
+    // no metadata probe is allowed to cross the canonical project boundary.
+    return false;
+  }
 }
 
 // ─── v135.1: Dead Import Stripping ──────────────────────────────────────────
@@ -2023,9 +2058,12 @@ async function _stripDeadImports(projectPath, scopeFiles, {
         const base = path.resolve(fromDir, importTarget);
         const candidates = [base, base + '.js', base + '.mjs', base + '.cjs',
           path.join(base, 'index.js'), base + '.py'];
-        const exists = candidates.some(c => {
-          try { return fileSystem.statSync(c).isFile(); } catch { return false; }
-        });
+        const exists = candidates.some(candidate => _isRegularProjectImportCandidate(
+          projectPath,
+          canonicalProjectRoot,
+          candidate,
+          fileSystem,
+        ));
 
         if (!exists) {
           lines[i] = `// [STRIPPED: dead import] ${line.trim()}`;
@@ -2388,6 +2426,7 @@ export const _testInternals = {
   stripDeadImports: _stripDeadImports,
   persistExecutionLoopEvidence: _persistExecutionLoopEvidence,
   persistDeadImportEvidence: _persistDeadImportEvidence,
+  handleEnhancedValidationFailure: _handleEnhancedValidationFailure,
 };
 
 export default {

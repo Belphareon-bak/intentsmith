@@ -871,12 +871,16 @@ export async function runFixLoop(options) {
         });
         const authorityRejected = applyResult.state === 'project_path_violation';
         const pathRejected = isProjectPathRejectionState(applyResult.state);
+        const orphanedEffect = applyResult.orphaned === true;
         iterationLog.push({
           iteration: iter,
           errorCount: currentErrors.length,
           patchFiles: validPatches.map(p => p.file),
-          action: pathRejected ? 'rejected' : 'skipped',
+          action: orphanedEffect ? 'orphaned' : pathRejected ? 'rejected' : 'skipped',
           ...(applyResult.state ? { state: applyResult.state } : {}),
+          ...(applyResult.effectApplied ? { effectApplied: true } : {}),
+          ...(applyResult.compensated !== undefined ? { compensated: applyResult.compensated } : {}),
+          ...(applyResult.rollbackResults?.length > 0 ? { rollbackResults: applyResult.rollbackResults } : {}),
           ...(applyResult.pathAuthority ? { pathAuthority: applyResult.pathAuthority } : {}),
           ...(pathRejected ? {
             rejectedPatches: [
@@ -893,7 +897,9 @@ export async function runFixLoop(options) {
           } : rejectedPatches.length > 0 ? { rejectedPatches } : {}),
         });
         return _buildResult(false,
-          authorityRejected ? 'project_path_violation' : 'patch_failed',
+          orphanedEffect
+            ? 'effect_orphaned'
+            : authorityRejected ? 'project_path_violation' : 'patch_failed',
           iter, lastTestResults, lastQualityGate, currentErrors, iterationLog,
           iterMem.filesModified);
       }
