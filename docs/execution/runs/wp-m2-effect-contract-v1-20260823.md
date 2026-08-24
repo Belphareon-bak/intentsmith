@@ -84,7 +84,7 @@ section-local registry a module facts zůstávají připnuté k `fa437d02`.
 - `valid: true`;
 - 407 runnable programů a 14 explicitních exclusions;
 - fingerprint
-  `0472f18e3cc526a823d0e302c6c2ff9d13a7c60b0c480b940237487799024fd0`;
+  `0358b40c2442e268f3e384def8b2471b496d94a65b9a3b363c8f8753d53e16d3`;
 - generovaný `docs/convergence/TEST-REGISTRY.md` je aktuální.
 
 Module graph baseline obsahuje 1 073 hran; ratchet zachovává 3 cykly / 28

@@ -26,6 +26,14 @@ Oddíly 1 a 3 vznikly paralelně ze stejného přijatého M1 base; proto mají
 samostatné branch-local ranges. Ostatní rozsahy jsou po integrační linii
 sekvenční. Každý base je ověřený lokální ancestor příslušného headu.
 
+Tyto ranges určují původ a odpovědnost změny, nikoli povolení revidovat pouze
+historické bajty. Reviewer musí pro každý oddíl také porovnat jeho vlastněné
+soubory se současným product-integration headem `d034df62`, trasovat aktuální
+produkční konzumenty a ověřit, že pozdější oddíl nezměnil dříve posuzovaný
+terminální nebo authority kontrakt. Pozdější delta se věcně připíše oddílu,
+který ji zavedl, ale nalezená regrese blokuje aktuální review obou dotčených
+hran. Evidence dokumenty se vždy čtou z aktuálního review checkoutu.
+
 ## Povinný review protokol
 
 Každý běh musí:
@@ -34,6 +42,7 @@ Každý běh musí:
    `--permission-mode plan` a `--no-session-persistence`;
 2. inspektovat skutečný diff, produkční call/import graph, výsledný
    persisted/emitted kontrakt a negativní hranice — nikoli pouze WP nebo testy;
+   vedle provenance range zkontrolovat i současný product-integration head;
 3. číst současný evidence report daného oddílu a ověřit jej proti source-bound
    logům; historický `FAIL` se nesmí přepsat na PASS;
 4. znovu spustit bezpečné relevantní deterministic testy, ale nedotknout se
