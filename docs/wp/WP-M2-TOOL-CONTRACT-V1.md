@@ -32,9 +32,12 @@ s `--effort max` nevrátí pro tento oddíl `REVIEW_PASSED`.
 - `contracts/m2/tool-v1.js`;
 - registry descriptorů, broker, durable repository, effect adapter a runtime v
   `src/tools/m2-tool-*.js`;
-- SQLite migrace 074 pro append-only `tool_v1_requests/results`;
+- SQLite migrace 074 pro append-only `tool_v1_requests/results` a migrace 075
+  pro exact append-only `ToolRequest` ↔ `EffectRequest` vazbu;
 - aktivní Studio/chat singleton v `src/executor/tool-executor.js`;
-- potlačení fallbacku po authority denial v `src/chat/handlers/decisions.js`;
+- skutečný LOCAL `file.write` consumer a approval settlement v chat handlerech;
+- potlačení fallbacku po authority denial v `src/chat/handlers/decisions.js`,
+  včetně mixed-batch výsledku;
 - contract, broker, repository a production-consumer testy;
 - test registry, module-boundary baseline, tento WP a run report.
 
@@ -56,14 +59,23 @@ s `--effort max` nevrátí pro tento oddíl `REVIEW_PASSED`.
   identity; stejné bajty replayují, drift konfliktuje.
 - Každý request má nejvýše jeden immutable terminal; approval-required je
   nonterminal a nemá `ToolResult`.
+- Effectful request má nejvýše jednu durable vazbu na přesný EffectRequest;
+  A/B záměna, actor/origin/target/payload drift i jiný registry descriptor
+  fail-close selžou při zápisu i opětovném čtení.
 - Effectful success musí jmenovat canonical succeeded `EffectResult`, který
   odpovídá runu, projektu, actorovi, kindu a přesnému target/payload překladu.
+- Effectful output se deterministicky projektuje z canonical EffectResult;
+  adapterem dodaný output není zdroj pravdy.
 - Provider output je success až po schema validaci a durable result commitu;
   storage failure úspěch zadrží.
-- Timeout/cancel abortuje pure provider, uloží pravdivý terminal a odmítá pozdní
-  completion.
+- Timeout/cancel abortuje pure provider i effect preparation, uloží pravdivý
+  terminal a odmítá pozdní completion; adapter throw nikdy nezůstane bez
+  durable terminalu.
 - Neznámý nebo nepřeložitelný nástroj nesmí zavolat legacy handler ani způsobit
   filesystem, process nebo network efekt.
+- Legacy circuit breaker smí zadržet pure provider, ale nesmí přeskočit durable
+  ToolRequest/ToolResult authority; effectful unavailable cesta zůstává
+  fail-closed v brokeru.
 
 ## Acceptance
 
@@ -71,12 +83,15 @@ s `--effort max` nevrátí pro tento oddíl `REVIEW_PASSED`.
    down-classing risku, schema-invalid input/output a rozporný terminal.
 2. Exact retry nezavolá provider znovu; jiná request/result bytes konfliktují.
 3. Pending approval nevytvoří terminal; po canonical settlement vznikne právě
-   jeden linked terminal.
+   jeden linked terminal i přes WS reconnect a workspace drift po provedeném
+   efektu. Exact replay už adapter ani efekt znovu nevolá.
 4. Forged adapter state, cizí EffectRequest/Result nebo pouhá effect ID nestačí
    k success.
 5. Aktivní Studio/chat local tool projde durable brokerem; web, database,
-   unregistered a další nepodporované effectful nástroje skončí před handlerem.
-6. Authority denial v běžném i REPORT flow potlačí LLM fallback.
+   unregistered a další nepodporované effectful nástroje skončí před handlerem;
+   totéž platí i po otevření legacy circuit breakeru.
+6. Authority denial v běžném, REPORT i mixed pure+denial flow potlačí LLM
+   fallback/syntézu.
 7. Migrace je append-only, fingerprintovaná a odmítne pre-existing drift.
 8. Registry, module graph, focused sady, artifact validace a deterministický gate
    se zopakují na čistém kandidátu; známý baseline `FAIL/BLOCKED` se nesmí

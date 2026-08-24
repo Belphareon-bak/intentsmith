@@ -3,10 +3,10 @@
 - **oddíl:** M2 4/7
 - **stav:** `IMPLEMENTATION_GREEN / REVIEW_BLOCKED_ACCOUNT_LIMIT`
 - **integrační vstup:** `fa437d021e07728388eb61bbca88bcc98e208ddf`
-- **product/test revision:** `8ec1351e988f3a179ba64934813910ce8300c5c0`
-- **module-graph revision:** `8dce31d73eebe58430eeee35bdf5b3d048c067fd`
-- **integration-sentinel revision:** `46d08312b22304cbaaa190306168d1461963ab49`
-- **registry fingerprint:** `a67d451426b8fefa4e1e5287d5378e975fd36b7b8a87acc26f0108a5331483a0`
+- **product/test remediation revision:** `a8a37b40d5e0ea6eedc8933449cbb23923a9d3f2`
+- **module-graph revision:** `526824f72698c7cbeb84be87d12865409e61489e`
+- **registry evidence revision:** `7547a9a59cbd57472aee2ff32bd1938405609080`
+- **registry fingerprint:** `a5688cc420066eb048de511708a6ef9db5be933589ac7ee19d73c2a56c05f42e`
 - **větev:** `codex/m2-integration-20260824`
 - **push:** neproveden
 
@@ -23,23 +23,39 @@ repository na účtovém spend limitu.
   durable replay;
 - append-only SQLite authority s jedním resultem na request, exact indexed
   identity checks a effectful-success gate nad durable EffectResult;
+- migraci 075 s append-only exact `ToolRequest` ↔ `EffectRequest` vazbou;
+  SQLite odmítá křížové A/B přivázání a repository přepočítá registry,
+  request/result/link digests i všechny čtené projekce;
 - registry-owned překlad `file.write -> fs.write` a explicitní absence
   nepřesných providerů;
-- aktivní Studio/chat singleton zapojený na durable broker; standalone legacy
-  instance zůstávají jen mimo tuto produkční call graph;
+- aktivní Studio/chat singleton i běžný LOCAL file handler zapojené na durable
+  broker; pending effect se po schválení settluje z durable vazby bez druhého
+  workspace observe a reconnect nemění authority identitu;
 - fail-closed web/database/unknown consumer proby, nulové handler/fetch calls a
-  potlačený LLM fallback po authority denial;
-- osm přesně přijatých module edges bez růstu cyklů.
+  potlačený LLM fallback po authority denial, včetně mixed pure+denial batche;
+- throw, hang, cancel a timeout v effect adapteru vždy vytvoří durable terminal;
+  providerem nabídnutý output nemůže přepsat projekci canonical EffectResult;
+- otevřený legacy circuit breaker už nepřeskočí broker: circuit-open pure výsledek
+  se journaluje a effectful unavailable request stále končí v authority vrstvě;
+- tři nové a jedna odstraněná přesně auditovaná module edge bez růstu cyklů.
 
 ## Focused evidence
 
 | Sada | Výsledek |
 |---|---:|
 | `m2-tool-contract-v1` | 11/11 PASS |
-| `m2-tool-broker-v1` | 15/15 PASS |
-| `m2-tool-authority-repository` | 9/9 PASS |
-| `m2-tool-production-consumer` | 7/7 PASS |
-| `schema-migrations` | 38/38 PASS; 64 migrací |
+| `m2-tool-broker-v1` | 19/19 PASS |
+| `m2-tool-authority-repository` | 13/13 PASS |
+| `m2-tool-production-consumer` | 11/11 PASS |
+| `schema-migrations` | 38/38 PASS; 65 migrací |
+| `m1-model-failover-schema` | 20/20 PASS; tip 075 / 65 migrací |
+| `m2-effect-contract-v1` | 20/20 PASS |
+| `m2-effect-authority-repository` | 41/41 PASS |
+| `m2-effect-broker-v1` | 21/21 PASS |
+| `m2-effect-execution-owner` | 5/5 PASS |
+| `m2-effect-file-consumer` | 7/7 PASS |
+| `m2-effect-file-runtime` | 6/6 PASS |
+| `ws-bridge` | 87/87 PASS |
 | `m1-model-failover-schema` | 20/20 PASS |
 | `harness-exit-code` | PASS |
 | `module-boundary-ratchet` | 13/13 PASS |
@@ -49,21 +65,23 @@ Navazující effect a ProjectContext contract/consumer sady byly během integrac
 znovu spuštěny bez změny jejich non-PASS množiny. Do tohoto reportu nejsou
 započteny jako důkaz Tool connectoru.
 
-Registry po přidání čtyř programů:
+Registry po přepnutí remediovaných sad na nový `lastGreen`:
 
 - `valid: true`;
 - 411 runnable programů a 14 explicitních exclusions;
 - fingerprint
-  `a67d451426b8fefa4e1e5287d5378e975fd36b7b8a87acc26f0108a5331483a0`;
+  `a5688cc420066eb048de511708a6ef9db5be933589ac7ee19d73c2a56c05f42e`;
 - generovaný `docs/convergence/TEST-REGISTRY.md` je aktuální.
 
-Module graph baseline obsahuje 1 081 hran. Přibylo osm explicitních tool
-authority hran, cykly zůstaly 3 a jejich membership 28 souborů.
+Module graph baseline obsahuje 1 083 hran. Remediace přidala přesně hrany
+`file -> tool-executor`, `pre-handler -> tool-executor` a
+`tool-authority-repository -> tool-registry`; současně odstranila starou
+`file -> effect-file-runtime`. Cykly zůstaly 3 a jejich membership 28 souborů.
 
-Artifact validace v první iteraci pravdivě skončila `149 PASS / 2 FAIL`, protože
-README nesl starý registry count a SYSTEM-MAP starý `src/tools` census. Obě
-zdrojově odvozené projekce byly opraveny na 411 programů a 8 tool modulů;
-opakovaný běh prošel `151/151`.
+Artifact validace po remediaci nejprve pravdivě skončila `150 PASS / 1 FAIL`,
+protože rozšířený tool authority kód změnil zdrojově odvozený počet řádků.
+`SYSTEM-MAP` byl přepočten na 8 JavaScript souborů / 7 625 řádků / 153
+deklarací; opakovaný běh prošel `151/151`.
 
 První celý gate na `637a5d97` skončil `245 PASS / 5 FAIL / 2 BLOCKED`.
 Oproti baseline přibyly dva stale sentinely: harness čekal 105 místo 107
@@ -74,11 +92,14 @@ zůstaly mnou vytvořené runtime adresáře z ručních běhů. Byly beze ztrá
 přesunuty do `/tmp/intentsmith-m2-direct-tests.90rxgL/direct-tests`; žádná cizí
 data ani proces nebyly změněny.
 
-## Celý deterministický gate
+## Celý deterministický gate po remediaci
 
-Autoritativní opakování na `46d08312`:
+První běh po migraci 075 pravdivě skončil `246 PASS / 4 FAIL / 2 BLOCKED`,
+protože M1 schema sentinel stále připínal tip 074 a 64 migrací. Zdrojově
+odvozený sentinel byl opraven na tip 075 / 65 a jeho standalone sada prošla
+20/20. Autoritativní opakování na `d172cc0f`:
 
-- run ID `2026-08-24T00-55-12-548Z`;
+- run ID `2026-08-24T01-38-08-449Z`;
 - `verdict: FAIL`, `exitCode: 1`;
 - `247 PASS / 3 FAIL / 2 BLOCKED / 0 TIMEOUT / 0 SKIPPED`;
 - všechny čtyři `m2-tool-*` programy PASS;
@@ -94,13 +115,18 @@ effect, ProjectContext a Tool sady; celkový `FAIL` se nevydává za gate PASS.
 
 ## Review
 
-- Opus byl spuštěn read-only nad rozsahem
+- Opus byl spuštěn read-only nad původním rozsahem
   `fa437d021e07728388eb61bbca88bcc98e208ddf..8dce31d73eebe58430eeee35bdf5b3d048c067fd`
   s `--model opus --effort max`, bez write/network/GPU nástrojů;
 - CLI skončilo exit 1 zprávou `You've hit your monthly spend limit`; stav je
   `REVIEW_BLOCKED_ACCOUNT_LIMIT`, nikoli verdict;
-- interní coworker adversariální review stejného rozsahu běží a jeho nálezy se
-  opraví, ale jeho případný PASS nenahradí Opus.
+- interní coworker review původně vrátil sedm nálezů: misbound/lživý effect
+  success, settlement drift po approval, chybějící adapter terminály, produkční
+  file bypass, mixed-batch synthesis, database bypass a čitelný SQL forge.
+  Všechny mají nyní konkrétní produktovou opravu a negativní test. Následný
+  self-audit navíc uzavřel circuit-breaker bypass před brokerem. Nezávislé
+  re-review rozsahu `46d87d9f..a8a37b40` probíhá; ani jeho případný PASS
+  nenahrazuje povinný Opus verdict.
 
 ## Test isolation poznámka
 

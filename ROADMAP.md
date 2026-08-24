@@ -1051,12 +1051,19 @@ claim/recovery a canonical `file.write` fail-closed končí před efektem. Regis
 má 407 programů, fingerprint `43de5e61…`, focused sady i artifact testy jsou
 zelené. Connector přesto zůstává `CANDIDATE_V1` a žádný z těchto tří oddílů
 není označen hotově, dokud příslušný Opus review nevrátí `REVIEW_PASSED`.
-Oddíl 4 má na `8ec1351e` durable `ToolRequest/ToolResult` hranici na aktivním
-Studio/chat executoru, exact replay a canonical `file.write` effect překlad.
-Web, file read, exec a database zůstávají pravdivě secure-unavailable; nejsou
-vydávány za hotové providery. Registry má 411 programů a fingerprint
-`a67d4514…`, module graph 1 081 hran bez růstu cyklů. I tento connector zůstává
-`CANDIDATE_V1 / REVIEW_BLOCKED_ACCOUNT_LIMIT`. Celý M2 jako celek není PASS.
+Oddíl 4 byl po interním `CHANGES_REQUESTED` auditu remediován na `a8a37b40`:
+durable `ToolRequest/ToolResult` nyní vlastní exact append-only vazbu na
+`EffectRequest`, terminal se projektuje jen z canonical `EffectResult`, approval
+se přes reconnect settluje bez druhého observe a skutečný LOCAL `file.write`
+už broker neobchází. Adapter throw/hang/cancel/timeout, mixed authority denial,
+database unavailable, SQL forge i circuit-open bypass mají negativní proby.
+Web, file read, exec a
+database zůstávají pravdivě secure-unavailable; nejsou vydávány za hotové
+providery. Registry má 411 programů a fingerprint `a5688cc4…`, module graph
+1 083 hran bez růstu cyklů. Deterministický gate na `d172cc0f` zůstal pravdivě
+`FAIL` s `247 PASS / 3 FAIL / 2 BLOCKED` a přesně baseline non-PASS množinou.
+Connector dál zůstává `CANDIDATE_V1 / REVIEW_BLOCKED_ACCOUNT_LIMIT`, dokud Opus
+max nevrátí `REVIEW_PASSED`. Celý M2 jako celek není PASS.
 
 ### Závislostní sekvence Work Packages
 
