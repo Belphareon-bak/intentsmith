@@ -1387,22 +1387,16 @@ function _doOpenExistingProject(folderPath){
         _ts._projectId=proj.id;_ts._label=projName;
         _ts._conversationFocus=false; /* v122.3 */
         /* Reset session for new project context */
-        _ts._convId=null;_ts._agentId=null;_ts._lifecycleResumed=false;
+        _ts._convId=null;_ts._agentId=null;_ts._lifecycleResumed=false;_ts._m2Pending=null;
         _ts.chat.msgs=[{role:'system',text:'Projekt: '+projName}];
         _ts.chat.ctx=0;
-        /* Create conversation for the project, then bind lifecycle (v88) */
+        /* Create conversation for the project. M2 lifecycle starts only via explicit /m2-plan. */
         fetch(_backendBase+'/api/conversations',{method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({project_id:proj.id,title:projName,welcomeMessage:_welcomeMsg}),signal:AbortSignal.timeout(5000)})
         .then(function(r){return r.json();}).then(function(cd){
           var conv=cd.conversation||cd;
           if(conv&&conv.id){_ts._convId=conv.id;_persistSessionState();renderChat();}
           if(_welcomeMsg){_ts.chat.msgs.push({role:'assistant',text:_welcomeMsg,tag:'PROJECT'});renderChat();_chatScrollPane(_ti);}
-          var bindSessionId=_ts._agentId||_ts._convId||('session-'+_ti);
-          fetch(_backendBase+'/api/projects/'+proj.id+'/lifecycle/bind',{method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({sessionId:bindSessionId}),signal:AbortSignal.timeout(5000)})
-          .then(function(r2){return r2.json();}).then(function(result){
-            if(result.ok){_ts._lifecycleResumed=true;if(window._c3)window._c3.agentLog('TOOL','Lifecycle obnoven: faze '+result.phase);}
-          }).catch(function(){});
         }).catch(function(){});
         _persistSessionState();
       }
@@ -1445,10 +1439,10 @@ function _wizardSubmit(){
       _ts._label=projName;
       if(realPath){_wtRoot=realPath;_loadWorkspaceTree(realPath);}
       /* Reset session for new project */
-      _ts._lifecycleResumed=false;
+      _ts._lifecycleResumed=false;_ts._m2Pending=null;
       _ts.log=[];_ts.term=[{text:'$ ',ts:new Date().toISOString(),type:'prompt'}];
       _ts.chat.msgs=[{role:'system',text:'Projekt: '+projName}];
-      /* Create conversation for the project, THEN start lifecycle (v88) */
+      /* Create conversation for the project. M2 lifecycle starts only via explicit /m2-plan. */
       if(projId){
         fetch(_backendBase+'/api/conversations',{method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({project_id:projId,title:projName,welcomeMessage:_welcomeMsg}),signal:AbortSignal.timeout(5000)})
@@ -1456,21 +1450,13 @@ function _wizardSubmit(){
           var conv=cd.conversation||cd;
           if(conv&&conv.id){_ts._convId=conv.id;_persistSessionState();renderChat();}
           if(_welcomeMsg){_ts.chat.msgs.push({role:'assistant',text:_welcomeMsg,tag:'PROJECT'});renderChat();_chatScrollPane(_ti);}
-          var lcSessionId=_ts._agentId||_ts._convId||('session-'+_ti);
-          fetch(_backendBase+'/api/projects/lifecycle/start',{method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({projectId:projId,projectPath:realPath,projectName:projName,description:d.description.trim(),type:d.type,sessionId:lcSessionId}),
-            signal:AbortSignal.timeout(5000)}).then(function(r){return r.json();}).then(function(lc){
-            if(window._c3)window._c3.agentLog('TOOL','Lifecycle aktivovan: '+((lc&&lc.phase)||'SPEC'));
-          }).catch(function(e){
-            if(window._c3)window._c3.agentLog('TOOL','Lifecycle start: '+(e.message||e));
-          });
         }).catch(function(){});
       }
       var scaff=created.scaffold?created.scaffold.join(', '):'';
       if(window._c3){
         window._c3.agentLog('TOOL','📁 Projekt '+projName+' vytvořen ('+d.type+') → '+realPath);
         if(scaff)window._c3.agentLog('TOOL','🔧 Scaffolding: '+scaff);
-        window._c3.agentLog('TOOL','🔄 Lifecycle: SPEC — popište specifikaci v chatu');
+        window._c3.agentLog('TOOL','M2 lifecycle je neaktivní; plán připravíte explicitním /m2-plan <JSON>.');
       }
       fetchBackendData();renderCenter();renderChat();
     });
@@ -4974,7 +4960,7 @@ function _detailActionHandler(d,a){
     if(conv){_showOpenDialog('conv',conv,function(_ti){
       var _ts=_sessions[_ti];
       c3.agentLog('TOOL','Načítám konverzaci: '+conv.title+'...');c3.setExpertise(conv.expertise);
-      if(conv.id){_ts._convId=conv.id;_ts._label=conv.title||'Konverzace';
+      if(conv.id){_ts._convId=conv.id;_ts._label=conv.title||'Konverzace';_ts._m2Pending=null;
         /* v122.2: Activate conversation center-panel focus */
         _ts._conversationFocus=true;_syncFocusClass();renderCenter();
         _persistSessionState();
@@ -4992,7 +4978,7 @@ function _detailActionHandler(d,a){
       if(proj.path){_wtRoot=proj.path;_loadWorkspaceTree(proj.path);}
       _ts._projectId=proj.id||null;_ts._label=proj.name||'Projekt';
       _ts._conversationFocus=false; /* v122.3: project sessions use normal layout */
-      _ts._lifecycleResumed=false;
+      _ts._lifecycleResumed=false;_ts._m2Pending=null;
       _ts.log=[];_ts.term=[{text:'$ ',ts:new Date().toISOString(),type:'prompt'}];
       _syncFocusClass();_persistSessionState();
       var openToken=Date.now();
@@ -5007,13 +4993,9 @@ function _detailActionHandler(d,a){
             return fetch(_backendBase+'/api/conversations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project_id:proj.id,title:proj.name}),signal:AbortSignal.timeout(5000)})
               .then(function(r){return r.json();}).then(function(d2){return d2.conversation||d2;});
           });
-        var pLifecycle=fetch(_backendBase+'/api/projects/'+proj.id+'/lifecycle',{signal:AbortSignal.timeout(5000)})
-          .then(function(r){return r.json();}).catch(function(){return{lifecycle:null};});
         fetch(_backendBase+'/api/projects/'+proj.id,{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(pd){if(pd.description)c3.agentLog('TOOL',_s(pd.description));if(pd.path&&!proj.path){proj.path=pd.path;_wtRoot=pd.path;_loadWorkspaceTree(pd.path);}}).catch(function(){});
-        Promise.all([pConv,pLifecycle]).then(function(results){
+        pConv.then(function(conv2){
           if(_ts._openToken!==openToken)return;
-          var conv2=results[0];
-          var lcData=results[1];
           if(conv2&&conv2.id){
             _ts._convId=conv2.id;_persistSessionState();
             fetch(_backendBase+'/api/conversations/'+conv2.id,{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(cd){
@@ -5026,15 +5008,6 @@ function _detailActionHandler(d,a){
               _ts.chat.msgs=[{role:'system',text:'Projekt: '+proj.name}];
               if(items.length>0){
                 items.forEach(function(m){var mt=null;try{mt=m.metadata?JSON.parse(m.metadata):null;}catch(e){}_ts.chat.msgs.push({role:m.role||'user',text:m.content||m.text||'',tag:(mt&&mt.mode)||undefined});});
-              }
-              var lc=lcData&&lcData.lifecycle;
-              if(lc&&lc.phase!=='COMPLETED'&&lc.phase!=='FAILED'){
-                if(!_ts._lifecycleResumed){
-                  var ms=lc.milestones||{};
-                  _ts.chat.msgs.push({role:'system',text:'Lifecycle: faze '+lc.phase+' | milestones: '+(ms.PASSED||0)+'/'+(ms.total||0)});
-                  _ts._lifecycleResumed=true;
-                }
-                fetch(_backendBase+'/api/projects/'+proj.id+'/lifecycle/bind',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:_ts._convId}),signal:AbortSignal.timeout(3000)}).catch(function(){});
               }
               renderChat();
               requestAnimationFrame(function(){_chatScrollPane(_ti);});
@@ -5283,7 +5256,7 @@ function centerDetail(){
               var c3=window._c3;if(!c3)return;
               if(cv.id){_smartRouteToRelay(function(_ti){
                 var _ts=_sessions[_ti];
-                _ts._convId=cv.id;_ts._label=cv.title||'Konverzace';_persistSessionState();
+                _ts._convId=cv.id;_ts._label=cv.title||'Konverzace';_ts._m2Pending=null;_persistSessionState();
                 fetch(_backendBase+'/api/conversations/'+cv.id+'/messages',{signal:AbortSignal.timeout(5000)}).then(function(r){return r.json();}).then(function(msgs){
                   var items=Array.isArray(msgs)?msgs:(msgs.messages||[]);
                   _ts.chat.msgs=[{role:'system',text:'Konverzace: '+(cv.title||'#'+cv.id)}];
@@ -5344,7 +5317,7 @@ function _c3OpenFolderDo(folderPath){
     var proj=res.project;var realPath=(proj&&proj.path)||folderPath;
     _wtRoot=realPath;_loadWorkspaceTree(realPath);
     _smartRouteToRelay(function(_ti){
-      if(proj&&proj.id){_sessions[_ti]._projectId=proj.id;_sessions[_ti]._conversationFocus=false;_sessions[_ti]._label=proj.name||folderPath.split('/').filter(Boolean).pop()||'Projekt';_syncFocusClass();_persistSessionState();}
+      if(proj&&proj.id){_sessions[_ti]._projectId=proj.id;_sessions[_ti]._conversationFocus=false;_sessions[_ti]._label=proj.name||folderPath.split('/').filter(Boolean).pop()||'Projekt';_sessions[_ti]._m2Pending=null;_syncFocusClass();_persistSessionState();}
       if(window._c3){window._c3.agentLog('TOOL','📂 Složka otevřena: '+realPath);}
       fetchBackendData();renderCenter();renderChat();
     });
@@ -5407,6 +5380,7 @@ function _mkSession(){return{
   _agentId:null,         /* G1: agent binding — persists with conversation metadata */
   _openToken:null,       /* guard: project switch during async — stale responses ignored */
   _lifecycleResumed:false, /* guard: lifecycle resume message shown only once */
+  _m2Pending:null,       /* exact durable {lifecycleId,planDigest,origin} awaiting explicit approval */
   _label:'',             /* v90: snapshot label for relay header — persisted */
   chat:{msgs:[{role:'system',text:'C3 Studio připraven. Začni psát zprávu.'}],ctx:0,expertise:'Výchozí',specialist:null,showExpertises:false,showAllExpertises:false,attachments:[],editMode:'ask',editingIdx:null,editOriginalText:null,acSuggestion:null,acLoading:false,_thinking:null,_delivery:null,_sendContextToken:{},_sendTurnToken:{},_preparedSend:null},
   bottom:'split', /* 'agent' | 'terminal' | 'split' | 'mix' */
@@ -5489,7 +5463,7 @@ var _newChatDialog=null; /* null | {idx, projectId, projectName} */
 
 function _resetSessionToClean(s){
   _chatInvalidatePreparedSends(s&&s.chat);
-  s._label='';s._convId=null;s._agentId=null;s._projectId=null;s._lifecycleResumed=false;
+  s._label='';s._convId=null;s._agentId=null;s._projectId=null;s._lifecycleResumed=false;s._m2Pending=null;
   s.chat.msgs=[{role:'system',text:'Nový chat.'}];s.chat.ctx=0;s.chat.attachments=[];s.chat._thinking=null;s.chat._delivery=null;
 }
 function _newChatInProject(idx){
@@ -5519,7 +5493,7 @@ function _newChatDialogAction(choice){
     /* New conversation in same project */
     s._label=_newChatDialog.projectName;
     s.chat.msgs=[{role:'system',text:'📂 Nová konverzace v projektu: '+_newChatDialog.projectName}];
-    s.chat.ctx=0;s.chat.attachments=[];s.chat._thinking=null;s.chat._delivery=null;s._convId=null;s._agentId=null;
+    s.chat.ctx=0;s.chat.attachments=[];s.chat._thinking=null;s.chat._delivery=null;s._convId=null;s._agentId=null;s._m2Pending=null;
     /* Create new conversation linked to project */
     fetch(_backendBase+'/api/conversations',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({project_id:_newChatDialog.projectId,title:_newChatDialog.projectName}),signal:AbortSignal.timeout(5000)})
@@ -5528,7 +5502,7 @@ function _newChatDialogAction(choice){
     /* New conversation outside project */
     s._label='';
     s.chat.msgs=[{role:'system',text:'Nový chat.'}];s.chat.ctx=0;s.chat.attachments=[];s.chat._thinking=null;s.chat._delivery=null;
-    s._convId=null;s._agentId=null;s._projectId=null;s._lifecycleResumed=false;
+    s._convId=null;s._agentId=null;s._projectId=null;s._lifecycleResumed=false;s._m2Pending=null;
     /* Clear tree for this session */
     _perSessionTree[idx]=null;
     if(idx===_sessionActive){_wtRoot='';_wtRawTree=null;FILES=[];renderSidebar();}
@@ -5547,7 +5521,7 @@ function _closeDialogAction(choice){
   if(choice==='conv'||choice==='pane')_chatInvalidatePreparedSends(s.chat);
   if(choice==='conv'){
     /* A) Close conversation only — reset pane to empty state */
-    s._convId=null;s._projectId=null;s._agentId=null;s._lifecycleResumed=false;s._label='';
+    s._convId=null;s._projectId=null;s._agentId=null;s._lifecycleResumed=false;s._m2Pending=null;s._label='';
     s.chat.msgs=[];
     s.chat.ctx=0;s.chat.expertise='Výchozí';s.chat.attachments=[];s.chat._thinking=null;s.chat._delivery=null;
     var _now=new Date();
@@ -5558,7 +5532,7 @@ function _closeDialogAction(choice){
     _persistSessionState();
   } else if(choice==='pane'){
     /* B) Close conversation + reduce panel count */
-    s._convId=null;s._projectId=null;s._agentId=null;s._lifecycleResumed=false;s._label='';
+    s._convId=null;s._projectId=null;s._agentId=null;s._lifecycleResumed=false;s._m2Pending=null;s._label='';
     s.chat.msgs=[];
     s.chat.ctx=0;s.chat.expertise='Výchozí';s.chat.attachments=[];s.chat._thinking=null;s.chat._delivery=null;
     s.log=[];s.term=[{text:'$ ',ts:new Date().toISOString(),type:'prompt'}];
@@ -6034,7 +6008,8 @@ function _persistSessionState() {
             wtRoot: (_perSessionTree[i]&&_perSessionTree[i].wtRoot)||(i===_sessionActive?_wtRoot:''),
             recentMsgs: recentMsgs,
             focusFiles: s._focusFiles||[],
-            lastAttachDir: s.chat._lastAttachDir||''
+            lastAttachDir: s.chat._lastAttachDir||'',
+            m2Pending: _m2NormalizePending(s._m2Pending)
           };
         })
       }));
@@ -6060,7 +6035,8 @@ window.addEventListener('beforeunload', function() {
           wtRoot: (_perSessionTree[i]&&_perSessionTree[i].wtRoot)||(i===_sessionActive?_wtRoot:''),
           recentMsgs: recentMsgs,
           focusFiles: s._focusFiles||[],
-          lastAttachDir: s.chat._lastAttachDir||''
+          lastAttachDir: s.chat._lastAttachDir||'',
+          m2Pending: _m2NormalizePending(s._m2Pending)
         };
       })
     }));
@@ -6121,6 +6097,8 @@ function _restoreSessionState() {
             _sessions[i]._focusFiles=ss.focusFiles||[];
             /* v95: Restore last attach directory */
             if(ss.lastAttachDir)_sessions[i].chat._lastAttachDir=ss.lastAttachDir;
+            /* M2: Restore only the exact durable approval binding. */
+            _sessions[i]._m2Pending=_m2NormalizePending(ss.m2Pending);
           }
           /* v81.2: Always clear editing state on restore — editing cannot survive restart */
           _sessions[i].chat.editingIdx=null;
@@ -6469,6 +6447,265 @@ function _chatCancelPreparedSend(idx,s){
   return _chatRejectPreparedSend(prepared,'CANCELLED_BEFORE_SEND');
 }
 
+/* ── M2 lifecycle — explicit Studio plan/approval surface ── */
+var _M2_TERMINAL_STATES={succeeded:true,failed:true,cancelled:true,timed_out:true,orphaned:true,blocked:true};
+function _m2IsRecord(value){return value!==null&&typeof value==='object'&&!Array.isArray(value);}
+function _m2NormalizePending(value){
+  if(!_m2IsRecord(value)||typeof value.lifecycleId!=='string'||!value.lifecycleId.trim()
+    ||typeof value.planDigest!=='string'||!/^sha256:[0-9a-f]{64}$/.test(value.planDigest)||!_m2IsRecord(value.origin))return null;
+  var origin=value.origin;
+  if(origin.surface!=='studio'||typeof origin.sessionId!=='string'||!origin.sessionId.trim()
+    ||typeof origin.conversationId!=='string'||!origin.conversationId.trim()
+    ||!Number.isSafeInteger(origin.projectId)||origin.projectId<1)return null;
+  return {lifecycleId:value.lifecycleId,planDigest:value.planDigest,origin:{
+    surface:'studio',sessionId:origin.sessionId,conversationId:origin.conversationId,projectId:origin.projectId
+  }};
+}
+function _m2StudioOrigin(s){
+  var projectId=Number(s&&s._projectId);
+  var conversationId=s&&s._convId!==null&&s._convId!==undefined?String(s._convId).trim():'';
+  if(!Number.isSafeInteger(projectId)||projectId<1)throw Object.assign(new Error('M2 vyžaduje aktivní projekt s číselným ID.'),{code:'M2_STUDIO_PROJECT_REQUIRED'});
+  if(!conversationId)throw Object.assign(new Error('M2 vyžaduje uloženou konverzaci se stabilním ID.'),{code:'M2_STUDIO_CONVERSATION_REQUIRED'});
+  return {surface:'studio',sessionId:conversationId,conversationId:conversationId,projectId:projectId};
+}
+function _m2SameOrigin(left,right){
+  return !!left&&!!right&&left.surface===right.surface&&left.sessionId===right.sessionId
+    &&left.conversationId===right.conversationId&&left.projectId===right.projectId;
+}
+function _m2AssertCurrentContext(idx,s,origin){
+  if(_sessions[idx]!==s||!_m2SameOrigin(_m2StudioOrigin(s),origin)){
+    throw Object.assign(new Error('Studio kontext se během M2 požadavku změnil.'),{code:'M2_STUDIO_CONTEXT_CHANGED'});
+  }
+}
+function _m2FetchJSON(endpoint,options,timeoutMs){
+  var request=Object.assign({credentials:'same-origin'},options||{});
+  if(!request.signal)request.signal=AbortSignal.timeout(timeoutMs);
+  return fetch(_backendBase+endpoint,request).then(function(r){
+    return r.json().catch(function(){return{};}).then(function(payload){
+      if(!r.ok){
+        var code=typeof payload.code==='string'?payload.code:'HTTP_'+r.status;
+        var message=typeof payload.error==='string'?payload.error:'M2 lifecycle HTTP '+r.status;
+        throw Object.assign(new Error(message),{code:code,status:r.status});
+      }
+      return payload;
+    });
+  });
+}
+function _m2RequireStatusView(view,expectedLifecycleId,expectedOrigin,expectedPlanDigest){
+  if(!_m2IsRecord(view)||view.lifecycleId!==expectedLifecycleId||typeof view.planDigest!=='string'||!view.planDigest
+    ||(expectedPlanDigest&&view.planDigest!==expectedPlanDigest)
+    ||!_m2IsRecord(view.plan)||!_m2IsRecord(view.plan.identity)||view.plan.identity.lifecycleId!==expectedLifecycleId
+    ||!_m2SameOrigin(view.plan.origin,expectedOrigin)){
+    throw Object.assign(new Error('Server vrátil neúplný nebo cizí M2 status view.'),{code:'M2_STUDIO_INVALID_RESPONSE'});
+  }
+  if(view.state==='awaiting_approval'){
+    var focused=view.plan.focusedTest;var decision=view.audit&&view.audit.governanceDecision;
+    if(view.plan.state!=='awaiting_approval'||!Array.isArray(view.plan.changes)||view.plan.changes.length<1
+      ||!_m2IsRecord(focused)||!Array.isArray(focused.argv)||!Number.isSafeInteger(focused.timeoutMs)
+      ||!_m2IsRecord(decision)||decision.verdict!=='allow'){
+      throw Object.assign(new Error('Server nevrátil úplný schvalovatelný M2 plán.'),{code:'M2_STUDIO_INVALID_PLAN'});
+    }
+  }
+  if(_M2_TERMINAL_STATES[view.state]){
+    if(!_m2IsRecord(view.terminal)||view.terminal.state!==view.state
+      ||!_m2IsRecord(view.terminal.identity)||view.terminal.identity.lifecycleId!==expectedLifecycleId
+      ||view.terminal.planDigest!==view.planDigest){
+      throw Object.assign(new Error('Server nevrátil canonical M2 terminal.'),{code:'M2_STUDIO_INVALID_TERMINAL'});
+    }
+    if(view.state==='succeeded'&&(!_m2IsRecord(view.result)||view.result.terminalStatus!=='succeeded'
+      ||!_m2IsRecord(view.result.changes)||!_m2IsRecord(view.result.focusedTest)||!_m2IsRecord(view.result.git)
+      ||!_m2IsRecord(view.audit)||!_m2IsRecord(view.audit.governanceReceipt))){
+      throw Object.assign(new Error('Success nemá úplnou result/test/Git/diff/audit evidenci.'),{code:'M2_STUDIO_FALSE_SUCCESS'});
+    }
+  }
+  return view;
+}
+function _m2Display(value,fallback){return value===null||value===undefined||value===''?(fallback||'—'):String(value);}
+function _m2RenderPlan(view){
+  var plan=view.plan;var decision=view.audit&&view.audit.governanceDecision;
+  var material=Array.isArray(view.diff)?view.diff:[];
+  var lines=[
+    'M2 EXACT PLAN — čeká na explicitní approval',
+    'Lifecycle ID: '+view.lifecycleId,
+    'Plan digest: '+view.planDigest,
+    'Request digest: '+_m2Display(plan.requestDigest),
+    'Patch-set digest: '+_m2Display(plan.patchSetDigest),
+    'Authority-set digest: '+_m2Display(plan.authoritySetDigest),
+    'Context snapshot digest: '+_m2Display(plan.contextSnapshotDigest),
+    'Expected workspace revision: '+_m2Display(plan.expectedAfterRevision),
+    'Exact changes:'
+  ];
+  (Array.isArray(plan.changes)?plan.changes:[]).forEach(function(change){
+    var file=material.find(function(entry){return entry&&entry.path===change.path;});
+    lines.push('- '+_m2Display(change.path)+' | beforeDigest: '+_m2Display(file&&file.before&&file.before.digest,'absent')
+      +' | afterDigest: '+_m2Display(change.afterDigest)+' | afterBytes: '+_m2Display(change.afterBytes));
+  });
+  var focused=plan.focusedTest||{};
+  lines.push('Focused test binary: '+_m2Display(focused.binary));
+  lines.push('Focused test argv: '+JSON.stringify(Array.isArray(focused.argv)?focused.argv:[]));
+  lines.push('Focused test argv digest: '+_m2Display(focused.argvDigest));
+  lines.push('Focused test environment digest: '+_m2Display(focused.environmentDigest));
+  lines.push('Focused test timeoutMs: '+_m2Display(focused.timeoutMs));
+  if(plan.gitCommit===null){
+    lines.push('Git intent: not_requested');
+  }else{
+    var git=plan.gitCommit||{};
+    lines.push('Git intent: commit | expectedHead: '+_m2Display(git.expectedHead)+' | branchRef: '+_m2Display(git.branchRef));
+    lines.push('Git paths: '+JSON.stringify(Array.isArray(git.paths)?git.paths:[]));
+    lines.push('Git message digest: '+_m2Display(git.messageDigest)+' | identity digest: '+_m2Display(git.identityDigest));
+  }
+  lines.push('Governance verdict: '+_m2Display(decision&&decision.verdict,'unavailable'));
+  lines.push('Governance decision digest: '+_m2Display(plan.governanceDecisionDigest));
+  lines.push('Approval expires at: '+_m2Display(plan.approvalExpiresAt));
+  lines.push('Před approval nebyl spuštěn žádný M2 efekt.');
+  lines.push('Schválení přesně tohoto plánu: /m2-approve');
+  return lines.join('\n');
+}
+function _m2RenderTerminal(view){
+  var terminal=view.terminal||{};var result=view.result||{};var changes=result.changes||{};
+  var focused=result.focusedTest||{};var git=result.git||{};var audit=view.audit||{};
+  var decision=audit.governanceDecision||{};var receipt=audit.governanceReceipt||{};
+  var lines=[
+    'M2 CANONICAL TERMINAL',
+    'Lifecycle ID: '+view.lifecycleId,
+    'Lifecycle state: '+_m2Display(view.state),
+    'Plan digest: '+_m2Display(view.planDigest),
+    'Terminal state: '+_m2Display(terminal.state),
+    'Terminal error code: '+_m2Display(terminal.errorCode,'none'),
+    'Terminal result digest: '+_m2Display(terminal.resultDigest),
+    'Terminal governance receipt digest: '+_m2Display(terminal.governanceReceiptDigest),
+    'Terminal completed at: '+_m2Display(terminal.completedAt),
+    'Result terminal status: '+_m2Display(result.terminalStatus),
+    'Result error code: '+_m2Display(result.errorCode,'none'),
+    'Diff paths: '+JSON.stringify(Array.isArray(changes.paths)?changes.paths:[]),
+    'Diff before revision: '+_m2Display(changes.beforeRevision),
+    'Diff after revision: '+_m2Display(changes.afterRevision),
+    'Diff digest: '+_m2Display(changes.diffDigest),
+    'Focused test terminal status: '+_m2Display(focused.terminalStatus),
+    'Focused test exit code: '+_m2Display(focused.exitCode),
+    'Focused test signal: '+_m2Display(focused.signal,'none'),
+    'Focused test stdout digest: '+_m2Display(focused.stdoutDigest),
+    'Focused test stderr digest: '+_m2Display(focused.stderrDigest),
+    'Git status: '+_m2Display(git.status),
+    'Git before head: '+_m2Display(git.beforeHead),
+    'Git after head: '+_m2Display(git.afterHead),
+    'Git commit ID: '+_m2Display(git.commitId,'none'),
+    'Git foreign dirt preserved: '+_m2Display(git.foreignDirtPreserved),
+    'Audit governance verdict: '+_m2Display(decision.verdict),
+    'Audit governance decision ID: '+_m2Display(decision.decisionId),
+    'Audit governance receipt ID: '+_m2Display(receipt.receiptId),
+    'Audit lifecycle event count: '+(Array.isArray(audit.lifecycleEvents)?audit.lifecycleEvents.length:0),
+    'Audit execution event count: '+(Array.isArray(audit.executionEvents)?audit.executionEvents.length:0),
+    'Audit evidence refs: '+JSON.stringify(Array.isArray(terminal.evidenceRefs)?terminal.evidenceRefs:[]),
+    'Exact diff material:'
+  ];
+  (Array.isArray(view.diff)?view.diff:[]).forEach(function(file){
+    lines.push('- '+_m2Display(file&&file.path)+' | beforeDigest: '+_m2Display(file&&file.before&&file.before.digest,'absent')
+      +' | afterDigest: '+_m2Display(file&&file.after&&file.after.digest)+' | beforeBytes: '+_m2Display(file&&file.before&&file.before.bytes,0)
+      +' | afterBytes: '+_m2Display(file&&file.after&&file.after.bytes,0));
+  });
+  return lines.join('\n');
+}
+function _m2RenderStatus(view){
+  if(view.terminal||_M2_TERMINAL_STATES[view.state])return _m2RenderTerminal(view);
+  if(view.state==='awaiting_approval')return _m2RenderPlan(view);
+  return ['M2 LIFECYCLE STATUS','Lifecycle ID: '+view.lifecycleId,'Lifecycle state: '+_m2Display(view.state),
+    'Plan digest: '+_m2Display(view.planDigest),'Cancel requested: '+_m2Display(view.cancelRequested),
+    'Obnovit durable stav: /m2-status '+view.lifecycleId].join('\n');
+}
+function _m2BeginStudioCommand(idx,st,ta,text){
+  if(ta){ta.value='';ta.style.height='22px';}
+  st.msgs.push({role:'user',text:text,tag:'M2'});
+  st._m2Busy=true;st._thinking={text:'M2 lifecycle…',ts:Date.now()};
+  _sessionActive=idx;_persistSessionState();renderChat();_chatScrollPane(idx);
+}
+function _m2FinishStudioCommand(idx,s,st,text,isError){
+  st._m2Busy=false;st._thinking=null;
+  st.msgs.push({role:isError?'system':'assistant',text:text,tag:isError?'M2_ERROR':'M2'});
+  _persistSessionState();renderChat();_chatScrollPane(idx);
+}
+function _m2StudioError(error){
+  var code=error&&error.code?error.code:'M2_STUDIO_REQUEST_FAILED';
+  var status=error&&error.status?' HTTP '+error.status:'';
+  return 'M2 chyba ['+code+status+']: '+(error&&error.message?error.message:String(error));
+}
+function _m2IsGenericApproval(text){return /^(?:ano|ok|spusť(?: to)?|spust(?: to)?|yes|approve)$/i.test(text.trim());}
+function _m2HandleStudioCommand(idx,s,st,ta,text,cmd,arg){
+  if(['/m2-plan','/m2-approve','/m2-status','/m2-cancel'].indexOf(cmd)<0)return false;
+  if(st._m2Busy){
+    st.msgs.push({role:'system',text:'M2 požadavek už běží. Vyčkejte na jeho pravdivý HTTP výsledek.',tag:'M2_ERROR'});renderChat();
+    return true;
+  }
+  var pending=_m2NormalizePending(s._m2Pending);s._m2Pending=pending;
+  var origin;var lifecycleId;var proposal;
+  try{
+    if(cmd==='/m2-plan'){
+      if(pending)throw Object.assign(new Error('Nejdřív použijte /m2-status '+pending.lifecycleId+' nebo /m2-cancel <reason>.'),{code:'M2_STUDIO_PLAN_PENDING'});
+      if(st.attachments.length>0)throw Object.assign(new Error('/m2-plan přijímá pouze strict JSON proposal bez příloh.'),{code:'M2_STUDIO_ATTACHMENTS_NOT_ALLOWED'});
+      if(!arg)throw Object.assign(new Error('Použití: /m2-plan <strict JSON proposal>'),{code:'M2_STUDIO_PROPOSAL_REQUIRED'});
+      try{proposal=JSON.parse(arg);}catch(parseError){throw Object.assign(new Error('Proposal není validní strict JSON.'),{code:'M2_STUDIO_PROPOSAL_JSON_INVALID'});}
+      if(!_m2IsRecord(proposal))throw Object.assign(new Error('Proposal musí být JSON object.'),{code:'M2_STUDIO_PROPOSAL_INVALID'});
+      origin=_m2StudioOrigin(s);
+    }else if(cmd==='/m2-approve'){
+      if(arg)throw Object.assign(new Error('Použití: /m2-approve'),{code:'M2_STUDIO_APPROVAL_ARGUMENTS_FORBIDDEN'});
+      if(!pending)throw Object.assign(new Error('Není uložen žádný exact M2 plán k approval.'),{code:'M2_STUDIO_PLAN_REQUIRED'});
+      origin=pending.origin;lifecycleId=pending.lifecycleId;_m2AssertCurrentContext(idx,s,origin);
+    }else if(cmd==='/m2-cancel'){
+      if(!pending)throw Object.assign(new Error('Není uložen žádný M2 lifecycle ke zrušení.'),{code:'M2_STUDIO_PLAN_REQUIRED'});
+      origin=pending.origin;lifecycleId=pending.lifecycleId;_m2AssertCurrentContext(idx,s,origin);
+    }else{
+      if(arg&&/\s/.test(arg))throw Object.assign(new Error('Použití: /m2-status [lifecycleId]'),{code:'M2_STUDIO_STATUS_ID_INVALID'});
+      lifecycleId=arg||(pending&&pending.lifecycleId);
+      if(!lifecycleId)throw Object.assign(new Error('Použití: /m2-status [lifecycleId]'),{code:'M2_STUDIO_STATUS_ID_REQUIRED'});
+      origin=pending&&pending.lifecycleId===lifecycleId?pending.origin:_m2StudioOrigin(s);
+      _m2AssertCurrentContext(idx,s,origin);
+    }
+  }catch(error){
+    if(ta){ta.value='';ta.style.height='22px';}
+    st.msgs.push({role:'system',text:_m2StudioError(error),tag:'M2_ERROR'});_persistSessionState();renderChat();_chatScrollPane(idx);
+    return true;
+  }
+
+  _m2BeginStudioCommand(idx,st,ta,text);
+  var request;
+  if(cmd==='/m2-plan'){
+    request=_m2FetchJSON('/api/m2/lifecycle/prepare',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({projectId:origin.projectId,origin:origin,proposal:proposal})},120000)
+    .then(function(view){
+      _m2AssertCurrentContext(idx,s,origin);
+      if(!_m2IsRecord(view)||typeof view.lifecycleId!=='string'||!view.lifecycleId)throw Object.assign(new Error('Prepare response nemá lifecycle ID.'),{code:'M2_STUDIO_INVALID_RESPONSE'});
+      _m2RequireStatusView(view,view.lifecycleId,origin);
+      var exact=_m2NormalizePending({lifecycleId:view.lifecycleId,planDigest:view.planDigest,origin:origin});
+      if(!exact)throw Object.assign(new Error('Prepare response nemá exact approval binding.'),{code:'M2_STUDIO_INVALID_RESPONSE'});
+      s._m2Pending=exact;return view;
+    });
+  }else if(cmd==='/m2-approve'){
+    request=_m2FetchJSON('/api/m2/lifecycle/approve',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({lifecycleId:pending.lifecycleId,planDigest:pending.planDigest,origin:pending.origin})},3600000)
+    .then(function(view){_m2AssertCurrentContext(idx,s,pending.origin);return _m2RequireStatusView(view,pending.lifecycleId,pending.origin,pending.planDigest);});
+  }else if(cmd==='/m2-cancel'){
+    request=_m2FetchJSON('/api/m2/lifecycle/cancel',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({lifecycleId:pending.lifecycleId,reason:arg||'user_cancelled',origin:pending.origin})},600000)
+    .then(function(view){_m2AssertCurrentContext(idx,s,pending.origin);return _m2RequireStatusView(view,pending.lifecycleId,pending.origin,pending.planDigest);});
+  }else{
+    var query='?id='+encodeURIComponent(lifecycleId)+'&surface='+encodeURIComponent(origin.surface)
+      +'&sessionId='+encodeURIComponent(origin.sessionId)+'&conversationId='+encodeURIComponent(origin.conversationId)
+      +'&projectId='+encodeURIComponent(origin.projectId);
+    request=_m2FetchJSON('/api/m2/lifecycle/status'+query,{method:'GET'},120000)
+      .then(function(view){_m2AssertCurrentContext(idx,s,origin);return _m2RequireStatusView(view,lifecycleId,origin,
+        pending&&pending.lifecycleId===lifecycleId?pending.planDigest:null);});
+  }
+  request.then(function(view){
+    if(view.state==='awaiting_approval'){
+      s._m2Pending=_m2NormalizePending({lifecycleId:view.lifecycleId,planDigest:view.planDigest,origin:view.plan.origin});
+    }else if(view.terminal||_M2_TERMINAL_STATES[view.state]){
+      if(s._m2Pending&&s._m2Pending.lifecycleId===view.lifecycleId)s._m2Pending=null;
+    }
+    _m2FinishStudioCommand(idx,s,st,_m2RenderStatus(view),false);
+  }).catch(function(error){_m2FinishStudioCommand(idx,s,st,_m2StudioError(error),true);});
+  return true;
+}
+
 function _chatSendPane(idx){
   var ta=document.getElementById('c3-chat-ta-'+idx);
   var s=_sessions[idx];if(!s)return;var st=s.chat;
@@ -6477,6 +6714,14 @@ function _chatSendPane(idx){
   st.acSuggestion=null;/* clear autocomplete on send */
   var rawDraft=ta?ta.value:'';
   var t=rawDraft.trim();if(!t&&st.attachments.length===0)return;
+
+  /* Ambiguous chat acknowledgements never grant M2 approval. */
+  if(_m2NormalizePending(s._m2Pending)&&_m2IsGenericApproval(t)){
+    if(ta){ta.value='';ta.style.height='22px';}
+    st.msgs.push({role:'user',text:t,tag:'M2'});
+    st.msgs.push({role:'system',text:'M2 approval nebyl proveden. Pro exact uložený plan digest použijte pouze /m2-approve.',tag:'M2'});
+    _persistSessionState();renderChat();_chatScrollPane(idx);return;
+  }
 
   /* ── Edit mode — replace message and resend (branch-from-here) ── */
   if(st.editingIdx!==null&&st.editingIdx!==undefined){
@@ -6506,6 +6751,7 @@ function _chatSendPane(idx){
   /* ── Slash commands ── */
   if(t.charAt(0)==='/'){
     var parts=t.split(/\s+/);var cmd=parts[0].toLowerCase();var arg=parts.slice(1).join(' ');
+    if(_m2HandleStudioCommand(idx,s,st,ta,t,cmd,arg))return;
     if(cmd==='/run'){
       if(ta){ta.value='';ta.style.height='22px';}
       st.msgs.push({role:'user',text:t});renderChat();

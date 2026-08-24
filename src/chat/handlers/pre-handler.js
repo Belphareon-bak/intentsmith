@@ -282,6 +282,42 @@ intercepts.push({
   },
 });
 
+// Negotiated Studio/M1 traffic is owned by the M2 lifecycle application
+// service. An already-present legacy handoff must not turn a generic reply
+// into Planner/lifecycle authority. This intercept runs before notifications,
+// build confirmation and C4 lifecycle auto-detection, so it cannot advance or
+// rebind either legacy state machine.
+intercepts.push({
+  name: 'm2_legacy_lifecycle_quarantine',
+  modes: ['*'],
+  async fn(_input, context, mode) {
+    if (context.m2LifecycleOnly !== true) return { handled: false };
+
+    const activeBuild = getActiveBuildHandoff
+      ? getActiveBuildHandoff(context.sessionId)
+      : null;
+    const activeLifecycle = getActiveLifecycleHandoff
+      ? getActiveLifecycleHandoff(context.sessionId)
+      : null;
+    if (!activeBuild && !activeLifecycle) return { handled: false };
+
+    return {
+      handled: true,
+      response: systemResponse(
+        '🔒 Tento legacy build/lifecycle handoff nelze z M1 Studia potvrdit. Použij přesný M2 lifecycle plán a schválení.',
+        mode,
+        {
+          handler: 'm2.lifecycle.authority',
+          m2LifecycleRequired: true,
+          legacyLifecycleQuarantined: true,
+          legacyState: activeLifecycle ? 'lifecycle' : 'build',
+          replacement: '/api/m2/lifecycle/prepare',
+        },
+      ),
+    };
+  },
+});
+
 // 0. UPGRADE NOTIFICATION (v103) — side-effect only, once per session
 intercepts.push({
   name: 'upgrade_notification',
@@ -794,6 +830,10 @@ intercepts.push({
   name: 'c4_lifecycle_autodetect',
   modes: ['*'],
   async fn(input, context, _mode) {
+    // C4 writes/rebinds legacy handoff state. Negotiated M1 must use the M2
+    // lifecycle application service and therefore cannot enter this recovery
+    // path, even when the DB contains an active legacy lifecycle.
+    if (context.m2LifecycleOnly === true) return { handled: false };
     if (!getActiveLifecycleHandoff || getActiveLifecycleHandoff(context.sessionId)) return { handled: false };
     const projectId = context.project?.id || context.projectId;
     if (!projectId || config.features.lifecycle === false) return { handled: false };

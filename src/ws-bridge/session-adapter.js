@@ -449,6 +449,12 @@ export function createSessionAdapter({
         context: {
           turnId,
           signal: ac.signal,
+          // Negotiated Studio/M1 traffic must never fall back to the legacy
+          // build/lifecycle state machines. Their generic confirmations and
+          // direct planner effects are outside M2 authority. Consumers use
+          // this explicit capability boundary to fail closed before creating
+          // a handoff or advancing an existing one.
+          m2LifecycleOnly: m1Command !== null,
           editMode: options.editMode || 'auto',
           projectId: options.projectId || null,
           agentId: options.agentId || null,
@@ -561,6 +567,22 @@ export function createSessionAdapter({
           },
         }));
         logger.info('WSSession', 'M1 turn needed a legacy shell effect — refused before ok', {
+          requestId: m1Command.requestId,
+          turnId,
+        });
+        return;
+      }
+
+      if (m1Egress && response.metadata?.m2LifecycleRequired) {
+        turnTelemetry?.finalize(turnStartTime);
+        m1Egress.terminal(createM1WsConversationResult(m1Command, {
+          status: 'error',
+          error: {
+            code: 'M2_LIFECYCLE_AUTHORITY_REQUIRED',
+            message: 'Legacy lifecycle je pro M1 Studio uzavřený. Použij přesný M2 lifecycle plán a schválení.',
+          },
+        }));
+        logger.info('WSSession', 'M1 turn reached quarantined legacy lifecycle path', {
           requestId: m1Command.requestId,
           turnId,
         });

@@ -53,7 +53,9 @@ samostatný census necommitnutých worktree migrací potvrdily obsazení do `074
 M2/4 následně spotřebovalo souvislý blok `075`–`077`. Bezprostřední opakovaný
 union census commitnutých větví a všech worktrees před oddílem M2/5 potvrdil,
 že `078` je volná; M2/5 ji rezervuje pro durable project-change authority.
-Všechny identity jsou zapsané zde i v níže strojově kontrolovaném source manifestu.
+Bezprostřední opakování stejného censusu před M2/6 potvrdilo volnou `079`;
+M2/6 ji používá pro durable lifecycle a governance authority. Všechny identity
+jsou zapsané zde i v níže strojově kontrolovaném source manifestu.
 
 | Číslo | Stav | Obsah |
 |---|---|---|
@@ -61,6 +63,7 @@ Všechny identity jsou zapsané zde i v níže strojově kontrolovaném source m
 | **076** | rezervováno a použito M2/4 | execution fencing a exact terminal truth pro `ToolResult` |
 | **077** | rezervováno a použito M2/4 | atomická invalidace pending effect authority a semantic result evidence |
 | **078** | rezervováno a použito M2/5 | durable project-change request, approval set, claim/fencing, journal a terminal truth |
+| **079** | rezervováno a použito M2/6 | exact lifecycle plan/approval/cancel, governance receipt, recovery a terminal truth |
 
 ### Strojově kontrolovaný manifest použitých migrací
 
@@ -139,6 +142,7 @@ záznamu selže v `artifact-validation`.
 | `2026_08_24_076_m2_tool_authority_truth.js` | použito |
 | `2026_08_24_077_m2_effect_invalidations.js` | použito |
 | `2026_08_24_078_m2_execution_authority.js` | použito |
+| `2026_08_24_079_m2_lifecycle_authority.js` | použito |
 <!-- migration-source-manifest:end -->
 
 ## Proč to nejsou 058 a 059

@@ -127,6 +127,7 @@ import { createChatRoutes } from './routes/chat.js';
 import { createMiscRoutes } from './routes/misc.js';
 import { createSpecialistRoutes } from './routes/specialists.js';
 import { createQualityRoutes } from './routes/quality.js';
+import { createM2LifecycleRoutes } from './routes/m2-lifecycle.js';
 import { createAutonomyRoutes } from './routes/autonomy.js';
 import { createSkillRoutes } from './routes/skills.js';
 import { createSystemRoutes } from './routes/system.js';
@@ -142,6 +143,7 @@ import { NotificationEmitter } from './notifications/emitter.js';
 import { skillRegistry } from './skills/registry.js';
 import { creDecisionEngine } from './chat/cre-decision.js';
 import { toolRegistry } from './tools/registry.js';
+import { createDefaultM2LifecycleApplicationService } from './lifecycle/m2-lifecycle-application-service.js';
 
 // v85: FeatureManager — runtime feature flags (hot-toggle from IDE)
 import { featureManager } from './core/feature-manager.js';
@@ -843,6 +845,25 @@ const routeDeps = {
   modelRegistry, modelBindingApplication,
 };
 
+// M2 small-project-change is the only effect-capable lifecycle surface. The
+// route overlay below also retires legacy mutators, so construct and census its
+// durable authority before accepting HTTP commands.
+const m2LifecycleService = createDefaultM2LifecycleApplicationService({
+  database: db.db,
+  projects: db.projects,
+});
+try {
+  const recovered = await m2LifecycleService.recoverIncompleteSmallProjectChanges();
+  if (recovered.length > 0) {
+    logger.info('M2Lifecycle', `Recovered ${recovered.length} durable lifecycle operation(s)`);
+  }
+} catch (error) {
+  // Recovery uncertainty is not converted into a clean terminal. Individual
+  // operations remain durable and all new execution attempts still fence on
+  // the Section 5 claim/recovery authority.
+  logger.error('M2Lifecycle', `Startup recovery did not converge: ${error?.code || error?.message || error}`);
+}
+
 // v93: notificationRouter + notificationPipeline initialized above (before agent platform)
 
 // One health handler, referenced by all three paths. Previously the two aliases
@@ -863,7 +884,7 @@ function healthHandler(req, res) {
       'GET /expertises',
       'GET /agents',
       'GET /chat-ui',
-      'POST /api/lifecycle/start',
+      'POST /api/m2/lifecycle/prepare',
       'GET /api/debug/modules (C3_TRACE=1)',
     ],
   });
@@ -882,6 +903,15 @@ const routes = {
   ...createExpertiseRoutes(routeDeps),
   ...createLifecycleRoutes(routeDeps),
   ...createProjectRoutes(routeDeps),
+  // Spread last among lifecycle/project routes: the returned map contains the
+  // authoritative M2 endpoints and a typed 410 overlay for every legacy
+  // lifecycle mutator.
+  ...createM2LifecycleRoutes({
+    m2LifecycleService,
+    parseBody,
+    sendJSON,
+    safeError,
+  }),
   ...createMiscRoutes(routeDeps),
   ...createSpecialistRoutes(routeDeps),
   ...createQualityRoutes(routeDeps),

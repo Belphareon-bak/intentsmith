@@ -12614,6 +12614,310 @@
       },
       "flakeCount": 0,
       "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M2-GOVERNANCE-CONTRACT-V1-TEST",
+      "path": "tests/m2-governance-contract-v1.test.js",
+      "argv": [
+        "node",
+        "tests/m2-governance-contract-v1.test.js"
+      ],
+      "capabilityId": "C3-018",
+      "tier": "T1",
+      "fixture": "offline",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M2-GOVERNANCE-EVALUATOR-TEST",
+      "path": "tests/m2-governance-evaluator.test.js",
+      "argv": [
+        "node",
+        "tests/m2-governance-evaluator.test.js"
+      ],
+      "capabilityId": "C3-018",
+      "tier": "T1",
+      "fixture": "offline",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M2-LIFECYCLE-APPLICATION-SERVICE-TEST",
+      "path": "tests/m2-lifecycle-application-service.test.js",
+      "argv": [
+        "node",
+        "tests/m2-lifecycle-application-service.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T1",
+      "fixture": "isolated-db-and-project-process",
+      "profile": "soak",
+      "timeoutMs": 60000,
+      "expectedDurationMs": 10000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false,
+        "toolchain": [
+          "bwrap",
+          "git"
+        ]
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M2-LIFECYCLE-AUTHORITY-REPOSITORY-TEST",
+      "path": "tests/m2-lifecycle-authority-repository.test.js",
+      "argv": [
+        "node",
+        "tests/m2-lifecycle-authority-repository.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T1",
+      "fixture": "isolated-db",
+      "profile": "database",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 5000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M2-LIFECYCLE-CONTRACT-V1-TEST",
+      "path": "tests/m2-lifecycle-contract-v1.test.js",
+      "argv": [
+        "node",
+        "tests/m2-lifecycle-contract-v1.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T1",
+      "fixture": "offline",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M2-LIFECYCLE-PROPOSAL-COMPILER-TEST",
+      "path": "tests/m2-lifecycle-proposal-compiler.test.js",
+      "argv": [
+        "node",
+        "tests/m2-lifecycle-proposal-compiler.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T1",
+      "fixture": "offline",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M2-LIFECYCLE-ROUTES-TEST",
+      "path": "tests/m2-lifecycle-routes.test.js",
+      "argv": [
+        "node",
+        "tests/m2-lifecycle-routes.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T1",
+      "fixture": "offline",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M2-LIFECYCLE-STUDIO-SURFACE-TEST",
+      "path": "tests/m2-lifecycle-studio-surface.test.js",
+      "argv": [
+        "node",
+        "tests/m2-lifecycle-studio-surface.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T1",
+      "fixture": "offline",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M2-LIFECYCLE-SURFACE-RETIREMENT-TEST",
+      "path": "tests/m2-lifecycle-surface-retirement.test.js",
+      "argv": [
+        "node",
+        "tests/m2-lifecycle-surface-retirement.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T1",
+      "fixture": "offline",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M2-NEGOTIATED-LIFECYCLE-QUARANTINE-TEST",
+      "path": "tests/m2-negotiated-lifecycle-quarantine.test.js",
+      "argv": [
+        "node",
+        "tests/m2-negotiated-lifecycle-quarantine.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T1",
+      "fixture": "offline",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
     }
   ]
 }

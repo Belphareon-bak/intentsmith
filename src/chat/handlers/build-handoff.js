@@ -41,6 +41,18 @@ function buildResponse(content, metadata = {}) {
   });
 }
 
+function m2LifecycleAuthorityRequiredResponse() {
+  return buildResponse(
+    '🔒 Legacy build/lifecycle handoff nelze z M1 Studia spustit. Použij přesný M2 lifecycle plán a schválení.',
+    {
+      handler: 'm2.lifecycle.authority',
+      m2LifecycleRequired: true,
+      legacyLifecycleQuarantined: true,
+      replacement: '/api/m2/lifecycle/prepare',
+    },
+  );
+}
+
 // ─── Handoff State (per session) ────────────────────────────────────────────
 
 const handoffStates = new Map();
@@ -153,6 +165,13 @@ export function isProjectScopeBuild(input, decision = null) {
 export function handleBuildDetected(input, decision, context) {
   const { sessionId } = context;
 
+  // This is the last common boundary before quick-build setHandoffState() and
+  // project-scope lifecycle setLcState(). M1 Studio must reach neither legacy
+  // state machine; its lifecycle authority is the M2 application service.
+  if (context.m2LifecycleOnly === true) {
+    return m2LifecycleAuthorityRequiredResponse();
+  }
+
   // v61: Project-scope gate — lifecycle path for complex projects
   if (isProjectScopeBuild(input, decision)) {
     logger.info('BuildHandoff', 'Project-scope BUILD → lifecycle handoff', {
@@ -200,6 +219,14 @@ export function handleBuildDetected(input, decision, context) {
  */
 export async function handleBuildConfirmed(input, context) {
   const { sessionId } = context;
+
+  // Defense in depth for direct callers. The shared pre-handler normally
+  // refuses active M1 handoffs first, but this guard also prevents Planner
+  // start if the confirmation function is invoked independently.
+  if (context.m2LifecycleOnly === true) {
+    return m2LifecycleAuthorityRequiredResponse();
+  }
+
   const state = getHandoffState(sessionId);
 
   if (!state || state.phase !== 'PROPOSED') {
