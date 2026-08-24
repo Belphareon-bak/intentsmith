@@ -320,7 +320,7 @@ function validateFocusedTest(value, canonicalRoot) {
     errors.push(`${context}:invalid-timeoutMs`);
   }
   if (value.expectedExitCode !== 0) errors.push(`${context}:zero-exit-required`);
-  if (value.sandboxProfile !== 'linux-bwrap-ro-v1') errors.push(`${context}:invalid-sandboxProfile`);
+  if (value.sandboxProfile !== 'linux-bwrap-ro-v2') errors.push(`${context}:invalid-sandboxProfile`);
   return errors;
 }
 

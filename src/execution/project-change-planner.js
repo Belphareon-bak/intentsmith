@@ -390,7 +390,7 @@ export async function planProjectChange({
       environmentDigest: computeM2ExecutionValueDigest(focusedInput.environment),
       timeoutMs: focusedInput.timeoutMs,
       expectedExitCode: 0,
-      sandboxProfile: 'linux-bwrap-ro-v1',
+      sandboxProfile: 'linux-bwrap-ro-v2',
     },
     gitCommit: gitEffect === null ? null : {
       authority: {

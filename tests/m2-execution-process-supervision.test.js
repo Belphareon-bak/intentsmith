@@ -12,6 +12,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { createServer } from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -23,6 +24,7 @@ import {
 } from '../src/execution/process-sandbox-provider.js';
 import {
   buildLinuxBwrapArguments,
+  buildLinuxFocusedTestSeccompProgram,
   LINUX_BWRAP_READ_ONLY_PROFILE,
 } from '../src/execution/process-supervisor-child.js';
 
@@ -91,7 +93,7 @@ function assertCleanTerminal(result, terminalStatus) {
 
 suite('M2 execution process supervision');
 
-test('bwrap profile is fixed to read-only root/project, isolated PID/network, tmpfs and no shell', () => {
+test('bwrap profile exposes only runtime/project/binary, isolated PID/network, tmpfs and no shell', () => {
   const args = buildLinuxBwrapArguments({
     projectRoot: '/workspace/project',
     canonicalCwd: '/workspace/project',
@@ -100,18 +102,47 @@ test('bwrap profile is fixed to read-only root/project, isolated PID/network, tm
     environment: { PATH: '/usr/bin:/bin' },
   });
   assert.deepEqual(args, [
-    '--die-with-parent', '--unshare-all', '--cap-drop', 'ALL',
-    '--ro-bind', '/', '/',
+    '--die-with-parent', '--unshare-all', '--unshare-user', '--disable-userns',
+    '--cap-drop', 'ALL',
+    '--ro-bind', '/usr', '/usr',
+    '--ro-bind-try', '/bin', '/bin',
+    '--ro-bind-try', '/lib', '/lib',
+    '--ro-bind-try', '/lib64', '/lib64',
+    '--ro-bind-try', '/sbin', '/sbin',
+    '--ro-bind-try', '/nix/store', '/nix/store',
+    '--ro-bind-try', '/gnu/store', '/gnu/store',
+    '--ro-bind-try', '/etc/ld.so.cache', '/etc/ld.so.cache',
+    '--ro-bind-try', '/etc/localtime', '/etc/localtime',
     '--tmpfs', '/tmp',
+    '--dir', '/workspace/project',
+    '--dir', '/usr/bin',
     '--ro-bind-fd', '4', '/workspace/project',
     '--ro-bind-fd', '5', '/usr/bin/node',
     '--proc', '/proc', '--dev', '/dev',
+    '--remount-ro', '/',
+    '--seccomp', '6',
     '--chdir', '/workspace/project', '--clearenv',
     '--setenv', 'PATH', '/usr/bin:/bin',
     '/usr/bin/node', 'script.js', '$(not-a-shell)',
   ]);
+  assert.equal(args.some((value, index) => (
+    value === '--ro-bind' && args[index + 1] === '/' && args[index + 2] === '/'
+  )), false);
   assert.equal(args.includes('--share-net'), false);
   assert.equal(args.includes('/bin/sh'), false);
+  assert.throws(() => buildLinuxBwrapArguments({
+    projectRoot: '/workspace/project',
+    canonicalCwd: '/workspace/project',
+    binary: '/usr/bin/node',
+    argv: [],
+    environment: {},
+    seccompFd: 5,
+  }), /invalid-seccomp-fd/);
+  assert.throws(
+    () => buildLinuxFocusedTestSeccompProgram('unsupported'),
+    /unsupported-seccomp-architecture/,
+  );
+  assert.equal(buildLinuxFocusedTestSeccompProgram().length > 64, true);
 });
 
 await testAsync('durable supervisor identity precedes start and argv remains byte-exact', async () => {
@@ -184,6 +215,7 @@ await testAsync('read-only project and outside root reject writes while private 
   const projectTarget = path.join(projectRoot, 'forbidden.txt');
   const outsideTarget = path.join(REPOSITORY_ROOT, `.m2-outside-sentinel-${randomUUID()}`);
   try {
+    writeFileSync(outsideTarget, 'host-secret', { mode: 0o600 });
     const scriptPath = writeScript(projectRoot, 'writes.cjs', [
       "'use strict';",
       "const fs = require('node:fs');",
@@ -192,6 +224,8 @@ await testAsync('read-only project and outside root reject writes while private 
       "  try { fs.writeFileSync(candidate, 'forbidden'); results.push('WROTE'); }",
       "  catch (error) { results.push(error.code || 'ERROR'); }",
       '}',
+      "try { fs.readFileSync(process.argv[3]); results.push('READ_OUTSIDE'); }",
+      "catch (error) { results.push('READ_' + (error.code || 'ERROR')); }",
       "try { fs.writeFileSync('/tmp/intentsmith-private-write', 'ok'); results.push('TMP_OK'); }",
       "catch (error) { results.push(error.code || 'TMP_ERROR'); }",
       'process.stdout.write(JSON.stringify(results));',
@@ -205,12 +239,90 @@ await testAsync('read-only project and outside root reject writes while private 
     const observed = JSON.parse(result.stdout);
     assert.match(observed[0], /^(?:EROFS|EACCES|EPERM)$/);
     assert.match(observed[1], /^(?:EROFS|EACCES|EPERM)$/);
-    assert.equal(observed[2], 'TMP_OK');
+    assert.equal(observed[2], 'READ_ENOENT');
+    assert.equal(observed[3], 'TMP_OK');
     assert.equal(existsSync(projectTarget), false);
-    assert.equal(existsSync(outsideTarget), false);
+    assert.equal(readFileSync(outsideTarget, 'utf8'), 'host-secret');
   } finally {
     removeProject(projectRoot);
     rmSync(outsideTarget, { force: true });
+  }
+}, 30_000);
+
+await testAsync('pathname Unix sockets outside the exact project are absent from the sandbox', async () => {
+  const projectRoot = createProject();
+  const socketPath = path.join(REPOSITORY_ROOT, `.m2-host-socket-${randomUUID()}.sock`);
+  let connections = 0;
+  const server = createServer(socket => {
+    connections += 1;
+    socket.end('forbidden-host-effect');
+  });
+  try {
+    await new Promise((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(socketPath, resolve);
+    });
+    const scriptPath = writeScript(projectRoot, 'unix-socket.cjs', [
+      "'use strict';",
+      "const fs = require('node:fs');",
+      "const net = require('node:net');",
+      'const evidence = [];',
+      "try { fs.lstatSync(process.argv[2]); evidence.push('PATH_VISIBLE'); }",
+      "catch (error) { evidence.push('PATH_' + (error.code || 'ERROR')); }",
+      'const client = net.connect(process.argv[2], () => client.write(\'sandbox-effect\'));',
+      "client.once('error', error => { evidence.push('CONNECT_' + (error.code || 'ERROR')); process.stdout.write(JSON.stringify(evidence)); process.exit(0); });",
+      "client.once('data', () => { process.stdout.write('HOST_SOCKET_REACHED'); process.exit(9); });",
+      "setTimeout(() => { process.stdout.write('SOCKET_TIMEOUT'); process.exit(8); }, 1000).unref();",
+    ].join('\n'));
+    const provider = createProcessSandboxProvider({ bwrapPath: BWRAP_PATH });
+    const result = await provider.run(
+      processSpec(projectRoot, [scriptPath, socketPath]),
+      { recordSupervisorIdentity: durableRecorder() },
+    );
+    assertCleanTerminal(result, 'succeeded');
+    assert.deepEqual(JSON.parse(result.stdout), ['PATH_ENOENT', 'CONNECT_EACCES']);
+    assert.equal(connections, 0);
+  } finally {
+    if (server.listening) await new Promise(resolve => server.close(resolve));
+    removeProject(projectRoot);
+    rmSync(socketPath, { force: true });
+  }
+}, 30_000);
+
+await testAsync('pathname Unix sockets inside the read-only project cannot produce host effects', async () => {
+  const projectRoot = createProject();
+  const socketPath = path.join(projectRoot, 'host.sock');
+  let connections = 0;
+  const server = createServer(socket => {
+    connections += 1;
+    socket.end('forbidden-host-effect');
+  });
+  try {
+    await new Promise((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(socketPath, resolve);
+    });
+    const scriptPath = writeScript(projectRoot, 'project-unix-socket.cjs', [
+      "'use strict';",
+      "const fs = require('node:fs');",
+      "const net = require('node:net');",
+      "if (!fs.lstatSync(process.argv[2]).isSocket()) process.exit(7);",
+      'const client = net.connect(process.argv[2], () => client.write(\'sandbox-effect\'));',
+      "client.once('error', error => { process.stdout.write(error.code || 'ERROR'); process.exit(0); });",
+      "client.once('data', () => { process.stdout.write('HOST_SOCKET_REACHED'); process.exit(9); });",
+      "setTimeout(() => { process.stdout.write('SOCKET_TIMEOUT'); process.exit(8); }, 1000).unref();",
+    ].join('\n'));
+    const provider = createProcessSandboxProvider({ bwrapPath: BWRAP_PATH });
+    const result = await provider.run(
+      processSpec(projectRoot, [scriptPath, socketPath]),
+      { recordSupervisorIdentity: durableRecorder() },
+    );
+    assertCleanTerminal(result, 'succeeded');
+    assert.equal(result.stdout, 'EACCES');
+    assert.equal(connections, 0);
+  } finally {
+    if (server.listening) await new Promise(resolve => server.close(resolve));
+    removeProject(projectRoot);
   }
 }, 30_000);
 

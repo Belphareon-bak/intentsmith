@@ -96,7 +96,7 @@ function request(changes, overrides = {}) {
       environmentDigest: EMPTY_DIGEST,
       timeoutMs: 120_000,
       expectedExitCode: 0,
-      sandboxProfile: 'linux-bwrap-ro-v1',
+      sandboxProfile: 'linux-bwrap-ro-v2',
     },
     gitCommit: {
       authority: authority('effect-git'),

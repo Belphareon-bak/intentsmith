@@ -114,7 +114,7 @@ function request(overrides = {}) {
       environmentDigest: sha(Buffer.from('environment')),
       timeoutMs: 120_000,
       expectedExitCode: 0,
-      sandboxProfile: 'linux-bwrap-ro-v1',
+      sandboxProfile: 'linux-bwrap-ro-v2',
     },
     gitCommit: null,
     authoritySetDigest: EMPTY_DIGEST,

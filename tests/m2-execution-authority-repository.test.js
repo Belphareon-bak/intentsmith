@@ -208,7 +208,7 @@ function fixture({ git = false } = {}) {
       environmentDigest: sha(Buffer.from('env')),
       timeoutMs: 30_000,
       expectedExitCode: 0,
-      sandboxProfile: 'linux-bwrap-ro-v1',
+      sandboxProfile: 'linux-bwrap-ro-v2',
     },
     gitCommit: git ? {
       authority: {

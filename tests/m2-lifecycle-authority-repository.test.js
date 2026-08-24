@@ -254,7 +254,7 @@ function makeFixture() {
       environmentDigest: computeM2ExecutionValueDigest(environment),
       timeoutMs: focused.timeoutMs,
       expectedExitCode: 0,
-      sandboxProfile: 'linux-bwrap-ro-v1',
+      sandboxProfile: 'linux-bwrap-ro-v2',
     },
     gitCommit: null,
     authoritySetDigest: null,

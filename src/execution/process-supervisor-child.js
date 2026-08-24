@@ -3,7 +3,48 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 export const PROCESS_SUPERVISOR_PROTOCOL = 'intentsmith-process-supervisor-v1';
-export const LINUX_BWRAP_READ_ONLY_PROFILE = 'linux-bwrap-ro-v1';
+export const LINUX_BWRAP_READ_ONLY_PROFILE = 'linux-bwrap-ro-v2';
+
+const REQUIRED_RUNTIME_ROOTS = Object.freeze(['/usr']);
+const OPTIONAL_RUNTIME_ROOTS = Object.freeze([
+  '/bin',
+  '/lib',
+  '/lib64',
+  '/sbin',
+  '/nix/store',
+  '/gnu/store',
+]);
+const OPTIONAL_RUNTIME_FILES = Object.freeze([
+  '/etc/ld.so.cache',
+  '/etc/localtime',
+]);
+
+const SECCOMP_DATA_NR_OFFSET = 0;
+const SECCOMP_DATA_ARCH_OFFSET = 4;
+const BPF_LD_W_ABS = 0x20;
+const BPF_JMP_JEQ_K = 0x15;
+const BPF_JMP_JGE_K = 0x35;
+const BPF_RET_K = 0x06;
+const SECCOMP_RET_KILL_PROCESS = 0x80000000;
+const SECCOMP_RET_ERRNO_EACCES = 0x0005000d;
+const SECCOMP_RET_ALLOW = 0x7fff0000;
+const X32_SYSCALL_BIT = 0x40000000;
+const LINUX_SECCOMP_ARCHITECTURES = Object.freeze({
+  x64: Object.freeze({
+    auditArchitecture: 0xc000003e,
+    rejectX32Abi: true,
+    // Filesystem-path Unix sockets cross mount namespaces. keyctl is not
+    // namespaced, and io_uring can issue operations without their ordinary
+    // syscall being observed by seccomp. None is required by an argv-only,
+    // network-free focused test.
+    blockedSyscalls: Object.freeze([41, 42, 248, 249, 250, 425]),
+  }),
+  arm64: Object.freeze({
+    auditArchitecture: 0xc00000b7,
+    rejectX32Abi: false,
+    blockedSyscalls: Object.freeze([198, 203, 217, 218, 219, 425]),
+  }),
+});
 
 const ENVIRONMENT_KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
 const MAX_ENVIRONMENT_VALUE_BYTES = 32_768;
@@ -62,6 +103,44 @@ function validateArguments(argv) {
   }
 }
 
+function encodeClassicBpf(instructions) {
+  const program = Buffer.alloc(instructions.length * 8);
+  for (const [index, instruction] of instructions.entries()) {
+    const [code, jumpTrue, jumpFalse, value] = instruction;
+    program.writeUInt16LE(code, index * 8);
+    program.writeUInt8(jumpTrue, index * 8 + 2);
+    program.writeUInt8(jumpFalse, index * 8 + 3);
+    program.writeUInt32LE(value >>> 0, index * 8 + 4);
+  }
+  return program;
+}
+
+export function buildLinuxFocusedTestSeccompProgram(architecture = process.arch) {
+  const profile = LINUX_SECCOMP_ARCHITECTURES[architecture];
+  if (!profile) throw new TypeError('process-supervisor:unsupported-seccomp-architecture');
+
+  const instructions = [
+    [BPF_LD_W_ABS, 0, 0, SECCOMP_DATA_ARCH_OFFSET],
+    [BPF_JMP_JEQ_K, 1, 0, profile.auditArchitecture],
+    [BPF_RET_K, 0, 0, SECCOMP_RET_KILL_PROCESS],
+    [BPF_LD_W_ABS, 0, 0, SECCOMP_DATA_NR_OFFSET],
+  ];
+  if (profile.rejectX32Abi) {
+    instructions.push(
+      [BPF_JMP_JGE_K, 0, 1, X32_SYSCALL_BIT],
+      [BPF_RET_K, 0, 0, SECCOMP_RET_KILL_PROCESS],
+    );
+  }
+  for (const syscallNumber of profile.blockedSyscalls) {
+    instructions.push(
+      [BPF_JMP_JEQ_K, 0, 1, syscallNumber],
+      [BPF_RET_K, 0, 0, SECCOMP_RET_ERRNO_EACCES],
+    );
+  }
+  instructions.push([BPF_RET_K, 0, 0, SECCOMP_RET_ALLOW]);
+  return encodeClassicBpf(instructions);
+}
+
 export function buildLinuxBwrapArguments({
   projectRoot,
   canonicalCwd,
@@ -70,6 +149,7 @@ export function buildLinuxBwrapArguments({
   environment,
   projectFd = 4,
   binaryFd = 5,
+  seccompFd = 6,
 }) {
   for (const [name, value] of Object.entries({ projectRoot, canonicalCwd, binary })) {
     if (!isCanonicalAbsolute(value)) throw new TypeError(`process-supervisor:invalid-${name}`);
@@ -81,21 +161,49 @@ export function buildLinuxBwrapArguments({
   if (!Number.isSafeInteger(binaryFd) || binaryFd < 3 || binaryFd > 64 || binaryFd === projectFd) {
     throw new TypeError('process-supervisor:invalid-binary-fd');
   }
+  if (
+    !Number.isSafeInteger(seccompFd)
+    || seccompFd < 3
+    || seccompFd > 64
+    || seccompFd === projectFd
+    || seccompFd === binaryFd
+  ) throw new TypeError('process-supervisor:invalid-seccomp-fd');
   validateArguments(argv);
   const environmentEntries = validateEnvironment(environment);
 
   const argumentsList = [
     '--die-with-parent',
     '--unshare-all',
+    // --unshare-all implies a user namespace at execution time, while
+    // bubblewrap requires the explicit option when --disable-userns is used.
+    '--unshare-user',
+    '--disable-userns',
     '--cap-drop',
     'ALL',
-    '--ro-bind',
-    '/',
-    '/',
-    // Keep /tmp ephemeral. Re-binding the project afterwards also supports a
-    // legitimate project root below /tmp while preserving its read-only mode.
+  ];
+  // Bubblewrap starts from an empty mount namespace. Binding the complete host
+  // root read-only is not containment: pathname Unix sockets remain effectful
+  // and every caller-readable host file remains observable. Expose only the
+  // system runtime, the exact project inode and the exact executable inode.
+  for (const runtimeRoot of REQUIRED_RUNTIME_ROOTS) {
+    argumentsList.push('--ro-bind', runtimeRoot, runtimeRoot);
+  }
+  for (const runtimeRoot of OPTIONAL_RUNTIME_ROOTS) {
+    argumentsList.push('--ro-bind-try', runtimeRoot, runtimeRoot);
+  }
+  for (const runtimeFile of OPTIONAL_RUNTIME_FILES) {
+    argumentsList.push('--ro-bind-try', runtimeFile, runtimeFile);
+  }
+  argumentsList.push(
     '--tmpfs',
     '/tmp',
+    // --dir creates missing parents in the otherwise empty namespace. The
+    // following FD binds replace only these exact targets, including projects
+    // or executables legitimately located below /tmp.
+    '--dir',
+    projectRoot,
+    '--dir',
+    path.posix.dirname(binary),
     '--ro-bind-fd',
     String(projectFd),
     projectRoot,
@@ -108,10 +216,18 @@ export function buildLinuxBwrapArguments({
     '/proc',
     '--dev',
     '/dev',
+    // The path scaffolding created by --dir lives on bubblewrap's otherwise
+    // private root tmpfs. Remount that root read-only so an absolute path
+    // outside the explicit mounts is neither host-visible nor writable even
+    // as disposable sandbox-local state. Child mounts keep their own modes.
+    '--remount-ro',
+    '/',
+    '--seccomp',
+    String(seccompFd),
     '--chdir',
     canonicalCwd,
     '--clearenv',
-  ];
+  );
   for (const [key, value] of environmentEntries) {
     argumentsList.push('--setenv', key, value);
   }
@@ -187,11 +303,13 @@ export function runProcessSupervisorChild() {
     clearTimeout(prestartTimer);
     const { token, spec } = message;
     let bwrapArguments;
+    let seccompProgram;
     try {
       if (!isCanonicalAbsolute(spec?.bwrapPath)) {
         throw new TypeError('process-supervisor:invalid-bwrapPath');
       }
       bwrapArguments = buildLinuxBwrapArguments(spec);
+      seccompProgram = buildLinuxFocusedTestSeccompProgram();
     } catch (error) {
       sendAndExit(terminalMessage(token, {
         exitCode: null,
@@ -209,11 +327,18 @@ export function runProcessSupervisorChild() {
         detached: false,
         shell: false,
         // The parent passes the approved project and executable as fd 4/5 to
-        // this supervisor. Preserve those exact descriptors into bubblewrap.
+        // this supervisor. Preserve those exact descriptors into bubblewrap;
+        // fd 6 is a private pipe carrying the compiled seccomp program.
         // Write directly to the supervisor's pipe descriptors. Avoiding a JS
         // pipe hop means process exit cannot truncate buffered evidence.
-        stdio: ['ignore', 1, 2, 'ignore', 4, 5],
+        stdio: ['ignore', 1, 2, 'ignore', 4, 5, 'pipe'],
       });
+      command.stdio[6].on('error', () => {
+        // Bubblewrap reports a missing/truncated filter through its own
+        // terminal status. Keep this listener solely to prevent an unhandled
+        // stream error if it exits before consuming the complete program.
+      });
+      command.stdio[6].end(seccompProgram);
     } catch (error) {
       sendAndExit(terminalMessage(token, {
         exitCode: null,
