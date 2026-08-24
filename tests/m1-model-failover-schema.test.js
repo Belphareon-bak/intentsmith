@@ -391,8 +391,8 @@ suite('M1 model failover schema — exact migration contract');
 
 await testAsync('fresh file-backed DB creates all failover tables, indexes and triggers', async () => {
   await withMigratedDb(async (db) => {
-    // M2 tool authority migration 074 is the current repository schema tip.
-    assertEqual(getCurrentVersion(db), '2026_08_24_074_m2_tool_authority');
+    // M2 tool/effect link migration 075 is the current repository schema tip.
+    assertEqual(getCurrentVersion(db), '2026_08_24_075_m2_tool_effect_links');
 
     for (const table of [
       'model_desired_bindings',
@@ -695,7 +695,7 @@ await testAsync('second migration run is a no-op with an identical schema snapsh
     const before = schemaSnapshot(db);
     const result = await runMigrations(db);
     assertEqual(result.applied.length, 0);
-    assertEqual(result.skipped.length, 64);
+    assertEqual(result.skipped.length, 65);
     assertEqual(schemaSnapshot(db), before);
   });
 });
@@ -737,10 +737,11 @@ await testAsync('migration 054 preserves pre-existing success as unconfirmed evi
         '2026_08_24_072_m2_effect_execution_claims',
         '2026_08_24_073_m2_effect_claim_truth',
         '2026_08_24_074_m2_tool_authority',
+        '2026_08_24_075_m2_tool_effect_links',
       ]),
     );
     assertEqual(result.skipped.length, 55);
-    assertEqual(getCurrentVersion(db), '2026_08_24_074_m2_tool_authority');
+    assertEqual(getCurrentVersion(db), '2026_08_24_075_m2_tool_effect_links');
     assertEqual(
       db.prepare(`
         SELECT COUNT(*) AS count
