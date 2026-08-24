@@ -1,6 +1,6 @@
 # 030 — Jedna current-contract autorita modelových evaluací
 
-**Stav:** implementováno, čeká na nezávislé review · **Datum:** 2026-08-25  
+**Stav:** implementováno, čeká na nezávislé review · **Datum:** 2026-08-25
 **WP:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Migrace:** 082
 
 ## Kontext
