@@ -1,6 +1,6 @@
 # WP-M2-EFFECT — project-path authority, první vertikální řez
 
-- **Stav:** `IMPLEMENTATION_GREEN / OPUS_MAX_REVIEW_BLOCKED_ACCOUNT_LIMIT`
+- **Stav:** `IMPLEMENTATION_GREEN / INTERNAL_AUDIT_REMEDIATED / OPUS_MAX_REVIEW_BLOCKED_ACCOUNT_LIMIT`
 - **Vlastník:** primární implementer M2-EFFECT
 - **Worktree:** `/home/belphareon/worktrees/is-m2-effect-20260823`
 - **Branch:** `codex/m2-effect-20260823`
@@ -9,6 +9,7 @@
 - **Review opravy:** `664d91d85b77e8524ac2515656d6c2e74035df2d`
 - **Re-review:** `8f31e34f` / `REVIEW_PASSED` pro `44a9ba87..eb22d10c`
 - **N1-N3 follow-up:** `86dfe4d8f4c8b47d2ff64c091bf8f30f3b8d65bf`
+- **Integrační truth hardening:** `4ddfe56e6ca2ea8e1eed0f60b80f2ab78711d5fe`
 - **Boundary baseline:** `b523a47f`
 
 ## 1. Uživatelský výsledek
@@ -80,6 +81,11 @@ větve mají široce odlišnou historii.
    `DEAD_IMPORT_RECOVERY`; to ještě není veřejný ani úplný M2 audit connector.
 9. `skipped` nese nepoužitelný vstup, zatímco pokus o zápis selhaný například
    na `ENOSPC` je oddělený v `effectFailures`.
+10. Relativní import směřující ven z projektu není ani metadata existence
+    probe; recovery jej považuje za nedostupný a vnější sentinel nečte.
+11. Selhání persistence authority evidence nesmí projít přes legacy
+    best-effort semantic wrapper. Post-rename durability failure přiznává
+    `effectApplied`, zkouší exact kompenzaci a neúspěch nese jako `orphaned`.
 
 ## 6. Focused pozitivní a negativní test
 
@@ -100,6 +106,17 @@ Ověřený výsledek follow-up commitu `86dfe4d8`:
 
 Registry gate prošel se `397` spustitelnými programy a fingerprintem
 `be1adcf9efc5bda2cfdcc7efdfb251643a092ec244359da5a1d226170a0939b4`.
+
+Aktuální integrační focused důkaz na `4ddfe56e`:
+
+- patch engine `72/72`;
+- execution loop `61/61`;
+- lifecycle BUILD `114/114`;
+- lifecycle DB `71/71`;
+- artifact validation `154/154`;
+- module boundary `13/13`;
+- registry `428` programů, fingerprint
+  `54dce9be3a18ef854097c5919d1471e53f38bf6ef0e828ecc5ff0438f9e302d2`.
 
 ## 7. Stop condition / eskalace
 
@@ -147,9 +164,10 @@ supervision, durable rollback, network/Git/tool mediation, úplný audit a
 skutečný M2 user journey.
 
 Aktuální čistý integrační gate na
-`0046cd9d76c19cb3160659b5caf56a32af5024c0` znovu spustil `patch-engine`,
+`4ddfe56e6ca2ea8e1eed0f60b80f2ab78711d5fe` znovu spustil `patch-engine`,
 `lifecycle-build`, `execution-loop`, `lifecycle-db` i module ratchet jako PASS.
 Celkový verdict zůstal pravdivě baseline `FAIL` s
 `260 PASS / 3 FAIL / 2 BLOCKED / 0 TIMEOUT`; tento pozdější důkaz nenahrazuje
 chybějící Opus max verdict rozšířeného section range. Exact report je
-`.intentsmith-artifacts/test-runs/2026-08-24T09-09-50-584Z/report.json`.
+`.intentsmith-artifacts/test-runs/2026-08-24T10-38-56-185Z/report.json`, SHA-256
+`458b3aa1a91f84020c57ef4235f15fe6adad7043c160a6ac51915d8cccb5127f`.

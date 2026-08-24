@@ -28,7 +28,7 @@ sekvenční. Každý base je ověřený lokální ancestor příslušného headu
 
 Tyto ranges určují původ a odpovědnost změny, nikoli povolení revidovat pouze
 historické bajty. Reviewer musí pro každý oddíl také porovnat jeho vlastněné
-soubory se současným product-integration headem `05c5a856`, trasovat aktuální
+soubory se současným product-integration headem, trasovat aktuální
 produkční konzumenty a ověřit, že pozdější oddíl nezměnil dříve posuzovaný
 terminální nebo authority kontrakt. Pozdější delta se věcně připíše oddílu,
 který ji zavedl, ale nalezená regrese blokuje aktuální review obou dotčených
@@ -77,8 +77,8 @@ nesmí uzavřít M2.
 ## Společná integrační evidence
 
 Poslední čistý `offline,database` gate na
-`816c5b1479064bd9c1b1ae529976f45b795ed0c9` má report
-`.intentsmith-artifacts/test-runs/2026-08-24T10-19-26-305Z/report.json`:
+`4ddfe56e6ca2ea8e1eed0f60b80f2ab78711d5fe` má report
+`.intentsmith-artifacts/test-runs/2026-08-24T10-38-56-185Z/report.json`:
 
 - `verdict: FAIL`, `exitCode: 1`;
 - `260 PASS / 3 FAIL / 0 TIMEOUT / 2 BLOCKED / 0 SKIPPED`;
@@ -128,3 +128,10 @@ rollback/recovery. Záznam, oprava `816c5b14` a nové důkazy jsou v
 `docs/review/2026-08-24-WP-M2-EXECUTION-V1-OPUS-MAX-RE-REVIEW.md` a
 `docs/review/2026-08-24-WP-M2-EXECUTION-V1-OPUS-MAX-RE-REVIEW-RESPONSE.md`.
 Ani toto opravné kolo není PASS; čeká na další celý Opus review.
+
+Section-1 interní audit současných bajtů byl remediován na `4ddfe56e`: storage
+failure evidence už neprojde best-effort wrapperem, dead-import import probe
+nečte metadata venku a post-rename durability failure přiznává efekt i
+kompenzaci/orphan. Exact section-1 Opus max příkaz na tomto čistém headu znovu
+skončil před modelovým výstupem měsíčním spend limitem. Nevznikl verdict;
+stav oddílu 1 zůstává `REVIEW_BLOCKED_ACCOUNT_LIMIT`.

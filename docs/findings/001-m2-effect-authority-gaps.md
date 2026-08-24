@@ -1,7 +1,7 @@
 # 001 — M2 effect authority gaps
 
 - **Zdroj:** read-only stopa `P1 M2-EFFECT-TRACE`
-- **Stav:** `OPEN / CONTAINMENT SLICE REVIEW_PASSED / N1-N3 CANDIDATE_CLOSED UNREVIEWED`
+- **Stav:** `OPEN / CONTAINMENT SLICE REVIEW_PASSED / N1-N6 CANDIDATE_CLOSED UNREVIEWED`
 - **Primární vlastník:** `WP-M2-EFFECT`
 - **Vstupní inventura:** `docs/inventory/22-effect-authority-trace.md`
 
@@ -36,6 +36,9 @@ nesmí se zaměnit za přijetí M2.
 | M2-PA-N1 | LOW/MEDIUM | Contained canonical alias byl chybně terminální containment incident. **CANDIDATE_CLOSED `86dfe4d8` / UNREVIEWED** | M2-EFFECT |
 | M2-PA-N2 | LOW | Loop/cleanup evidence byla jen tranzientní a logová. **CANDIDATE_CLOSED `86dfe4d8` / UNREVIEWED** | M2-EFFECT |
 | M2-PA-N3 | LOW | `skipped` míchalo nepoužitelný vstup se selhaným write efektem. **CANDIDATE_CLOSED `86dfe4d8` / UNREVIEWED** | M2-EFFECT |
+| M2-PA-N4 | HIGH | Druhý fix-loop a dead-import persistence error spolkl semantic best-effort wrapper. **CANDIDATE_CLOSED `4ddfe56e` / UNREVIEWED** | M2-EFFECT |
+| M2-PA-N5 | MEDIUM | Dead-import existence probe četl metadata relativního importu mimo projekt. **CANDIDATE_CLOSED `4ddfe56e` / UNREVIEWED** | M2-EFFECT |
+| M2-PA-N6 | HIGH | Post-rename durability failure tvrdil `written:false` a zahodil rollback materiál. **CANDIDATE_CLOSED `4ddfe56e` / UNREVIEWED** | M2-EFFECT |
 
 ## Evidence a acceptance směr
 
@@ -60,6 +63,27 @@ rozsah a vyžaduje vlastní review:
 Focused výsledek: patch `70/70`, execution loop `60/60`, lifecycle BUILD
 `107/107`, lifecycle DB `71/71`, boundary ratchet `13/13`. Celý runner na
 `86dfe4d8` má pravdivě `verdict: FAIL`, `exitCode: 1`, baseline `233/3/2`.
+
+### Integrační audit N4-N6
+
+Aktuální audit současných product bytes našel tři další mezery. Oprava
+`4ddfe56e` je kandidát, nikoli review verdict:
+
+- N4: `EFFECT_EVIDENCE_PERSISTENCE_FAILED` se z legacy semantic wrapperu
+  znovu vyhazuje; test ověřuje totožnost chyby i SQLite cause.
+- N5: každý import candidate nejprve projde lexical/canonical project
+  containmentem. Injektovaný `statSync` čítač potvrzuje nula metadata probes
+  mimo root a byte-identický vnější sentinel.
+- N6: chyba directory `fsync` po rename vrací
+  `write_durability_unconfirmed`, `effectApplied:true`, zkusí kompenzaci a
+  případný zbytek označí `orphaned`; execution loop a `drift_checks` toto pole
+  dál zachovají.
+
+Focused důkaz je `72/72`, `61/61`, `114/114`, `71/71`, artifact `154/154` a
+module ratchet `13/13`. Clean full runner na `4ddfe56e` zůstal pravdivě
+`FAIL / exitCode 1 / 260 PASS / 3 známé FAIL / 2 známé BLOCKED`, bez M2
+non-PASS. Opus max pokus skončil před review účtovým spend limitem; N1-N6 proto
+zůstávají `UNREVIEWED`.
 
 ### P1-FX-001 — patch traversal
 
