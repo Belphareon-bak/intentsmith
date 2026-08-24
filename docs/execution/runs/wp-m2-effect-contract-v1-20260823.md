@@ -6,6 +6,8 @@
 - **první product/test remediation:** `ad4d7eb3c066a76c9480f22b868f2f142cf755e8`
 - **finální section head:** `fa437d021e07728388eb61bbca88bcc98e208ddf`
 - **finální hardening revision:** `ba47da96ef7460335b5a4053605886e23c5f7924`
+- **current-byte semantic remediation:** `60d39810fce974f2c0fd8213ed9014a52d015a62`
+- **module ratchet revision:** `ab97809b`
 - **registry revision:** `fa437d021e07728388eb61bbca88bcc98e208ddf`
 - **module-graph revision:** `fe594fb8`
 - **větev:** `codex/m2-integration-20260824`
@@ -58,6 +60,16 @@ Navíc repository odmítá result, jehož `startedAt` předchází execution cla
 Coworker re-review opraveného rozsahu běží; jeho výsledek nenahradí povinný
 Opus verdict.
 
+Current-byte audit na `4e9f3a7d` našel dalších šest authority mezer a uzavřel
+je na `60d39810`: exact grant constraints jsou nyní společná kontraktová
+projekce v repository i SQLite migraci 080; neúspěšný `fs.write` musí přiznat
+exact path/rollback nebo prokázat pre-effect stav; reconnect identity není
+websocket session; restart orphan uvádí target; provider hash předobrazu je
+byte-exact; a pozdější project-change consumer už neukládá applied readback
+failure jako nulový efekt. Úplný rozpis a falzifikovatelné sondy jsou v
+`docs/review/2026-08-24-WP-M2-EFFECT-CONTRACT-V1-INTERNAL-AUDIT.md`. Jde o
+interní audit, ne Opus verdict.
+
 ## Focused evidence
 
 Assertion totals níže jsou obnovené cross-section revalidací na `05c5a856`;
@@ -66,8 +78,8 @@ section-local registry a module facts zůstávají připnuté k `fa437d02`.
 | Sada | Výsledek |
 |---|---:|
 | `m2-effect-contract-v1` | 20/20 PASS |
-| `m2-effect-authority-repository` | 43/43 PASS |
-| `m2-effect-broker-v1` | 25/25 PASS |
+| `m2-effect-authority-repository` | 45/45 PASS |
+| `m2-effect-broker-v1` | 28/28 PASS |
 | `m2-effect-execution-owner` | 5/5 PASS |
 | `m2-effect-file-consumer` | 7/7 PASS |
 | `m2-effect-file-runtime` | 6/6 PASS |
@@ -76,6 +88,7 @@ section-local registry a module facts zůstávají připnuté k `fa437d02`.
 | `capability-02-cre-behaviours` | 10/10 PASS |
 | `ws-bridge` | 87/87 PASS |
 | `execution-loop` | 61/61 PASS |
+| `m2-execution-project-change` | 18/18 PASS |
 | `module-boundary-ratchet` | 13/13 PASS |
 | `artifact-validation` | 154/154 PASS |
 
@@ -87,7 +100,7 @@ section-local registry a module facts zůstávají připnuté k `fa437d02`.
   `0358b40c2442e268f3e384def8b2471b496d94a65b9a3b363c8f8753d53e16d3`;
 - generovaný `docs/convergence/TEST-REGISTRY.md` je aktuální.
 
-Module graph baseline obsahuje 1 073 hran; ratchet zachovává 3 cykly / 28
+Aktuální module graph baseline obsahuje 1 117 hran; ratchet zachovává 3 cykly / 28
 souborů a všech 13 sentinelů prošlo.
 
 ## Celý deterministický gate
@@ -119,6 +132,14 @@ z něj nedělá section-local PASS.
 Cross-section audit na čistém product headu `05c5a856` navíc přímo zopakoval všech šest
 effect sad s aktuálními assertion totals 20/20, 43/43, 25/25, 5/5, 7/7 a 6/6
 PASS. Direct-test runtime byl po doběhu prázdný.
+
+Current-byte focused opakování na semantic remediation potvrdilo přesné totals
+20/45/28/5/7/6 pro šest effect sad, schema 38/38 na tipu 080 (70 migrací),
+M1 schema 20/20, CRE 10/10, WS 87/87, execution loop 61/61 a současný
+project-change consumer 18/18. Registry zůstává 428/14 s fingerprintem
+`54dce9be…`; artifact je 154/154 a module ratchet 13/13. První artifact/module
+běh po přidání migrace skončil červeně na neaktualizovaném census/edge
+baseline; až po explicitní opravě odvozených dokumentů a edge ratchetu prošel.
 
 ## Review
 

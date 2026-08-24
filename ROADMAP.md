@@ -1148,6 +1148,14 @@ restart i produkční lifecycle census jsou zelené. Runtime je 17/17, lifecycle
 6/6, celý gate na `816c5b14` je pravdivě `FAIL / 260 PASS / 3 FAIL / 2 BLOCKED`
 bez M2 non-PASS. Section 5 čeká na třetí Opus max kolo a stále není PASS.
 
+Následný current-byte audit oddílu 2 uzavřel semantic authority grantu a
+filesystem výsledku: migrace 080 odmítá podvržené grant constraints i přes
+přímé SQL, reconnect identity již nezávisí na websocket session a applied
+write/readback failure zůstává orphaned s rollback evidencí. Aktuální module graph má 1 117 hran,
+stále 3 cykly a 28 souborů v cyklech; explicitně přijatá
+nová hrana je pouze migrace 080 → effect-core fingerprint helper. Oddíl 2 je
+implementačně zelený, ale bez Opus max `REVIEW_PASSED` zůstává kandidátem.
+
 ### Závislostní sekvence Work Packages
 
 1. **WP-M2-EFFECT:** canonical effect broker vlastní policy, approval, timeout,

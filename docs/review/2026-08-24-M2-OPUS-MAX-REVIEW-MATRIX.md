@@ -135,3 +135,11 @@ nečte metadata venku a post-rename durability failure přiznává efekt i
 kompenzaci/orphan. Exact section-1 Opus max příkaz na tomto čistém headu znovu
 skončil před modelovým výstupem měsíčním spend limitem. Nevznikl verdict;
 stav oddílu 1 zůstává `REVIEW_BLOCKED_ACCOUNT_LIMIT`.
+
+Section-2 current-byte audit je zaznamenán v
+`docs/review/2026-08-24-WP-M2-EFFECT-CONTRACT-V1-INTERNAL-AUDIT.md` a
+remediován na `60d39810` s module ratchetem `ab97809b`. Uzavírá semantic grant
+constraints na repository/SQLite hranici, non-success fs.write evidence,
+reconnect identity, restart path evidence, byte-exact provider hash a pozdější
+project-change child result. Focused a integrační ratchety jsou zelené, ale
+nevznikl Opus verdict; oddíl 2 zůstává `REVIEW_BLOCKED_ACCOUNT_LIMIT`.

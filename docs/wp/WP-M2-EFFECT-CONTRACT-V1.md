@@ -27,7 +27,7 @@ lokální Claude Opus s `--effort max` nevrátí `REVIEW_PASSED`.
 ## Vlastněný rozsah
 
 - `contracts/m2/effect-v1.js`;
-- SQLite authority ledger a migrace 070–072;
+- SQLite authority ledger a current semantic ratchet přes migraci 080;
 - issuer, broker, execution-owner identity a filesystem provider v
   `src/effects/`;
 - Studio file-decision consumer a propagace typované chyby přes chat/M1/WS;
@@ -50,6 +50,8 @@ lokální Claude Opus s `--effort max` nevrátí `REVIEW_PASSED`.
 - Request, grant i result jsou striktní, kanonicky serializované a immutable.
 - Každý terminal result jmenuje přesný consumed grant a durable execution claim.
 - Grant je exact-scope, subject-bound, expirovatelný, revokovatelný a single-use.
+- Grant constraints jsou jedinou sdílenou projekcí requestu a stejnou
+  semantiku vynucuje repository i deterministický SQLite trigger.
 - Consume + execution claim proběhnou v jedné `BEGIN IMMEDIATE` transakci;
   přímé SQL ani druhý proces nesmějí autoritu obejít.
 - Result nesmí časově předcházet requestu ani durable execution claimu.
@@ -59,12 +61,13 @@ lokální Claude Opus s `--effort max` nevrátí `REVIEW_PASSED`.
   `ENOENT/ESRCH` při známém boot ID dokazuje smrt; I/O, permission a parse chyba
   je neznámý stav a fail-closed.
 - Filesystem target projde project-path authority, odmítá hardlinky a ověřuje
-  přesné výsledné bajty. Chybějící parent se nevytváří implicitně.
+  přesné before/after bajty. Chybějící parent se nevytváří implicitně.
 - Atomic write fsyncne soubor, rename a existující parent directory. Selhání
   durability nebo post-write verification je applied `orphaned` s pending
   rollbackem, nikdy obyčejné failure či success.
 - Cancel, timeout, nevalidní provider evidence a neznámé settlement nesou
-  konzervativní changes/evidence a `rollback: pending`.
+  konzervativní changes/evidence a po startu provideru `rollback: pending`;
+  pre-provider odmítnutí naopak nesmí tvrdit late completion ani efekt.
 - Append-only DB triggery chrání audit i při přímém SQL.
 
 ## Acceptance
