@@ -811,6 +811,40 @@ test('repository and database reject malformed persisted execution owner identit
   db.close();
 });
 
+test('database execution-owner checks match repository canonical identity grammar', () => {
+  const invalidOwners = [
+    { bootId: 'unknown:!', startIdentity: 'unknown:!' },
+    { bootId: 'unknown: fallback', startIdentity: 'unknown: fallback' },
+    { bootId: '11111111-1111-4111-8111-AAAAAAAAAAAA', startIdentity: '9191' },
+  ];
+
+  for (const [index, invalidOwner] of invalidOwners.entries()) {
+    const db = openDb();
+    const repository = repositoryAt(db);
+    registerAndGrant(repository);
+    expectCode(
+      () => repository.consumeApprovalGrant({
+        grantId: 'grant-1',
+        request: { ...repository.getEffectRequest('effect-1'), approvalGrantId: 'grant-1' },
+        executionOwner: { ...EXECUTION_OWNER, ...invalidOwner },
+      }),
+      EffectAuthorityErrorCode.INPUT_INVALID,
+    );
+    assert.throws(() => db.prepare(`
+      INSERT INTO m2_effect_execution_claims (
+        effect_id, grant_id, owner_id, owner_pid, owner_boot_id,
+        owner_start_identity, claimed_at_ms
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'effect-1', 'grant-1', `owner:invalid-${index}`, EXECUTION_OWNER.pid,
+      invalidOwner.bootId, invalidOwner.startIdentity, Date.parse(CONSUMED),
+    ), /CHECK constraint failed/);
+    assert.equal(repository.getExecutionClaim('effect-1'), null);
+    assert.equal(repository.getApprovalGrant('grant-1').consumedAt, null);
+    db.close();
+  }
+});
+
 test('database rejects a direct EffectResult that predates its execution claim', () => {
   const db = openDb();
   const repository = repositoryAt(db);

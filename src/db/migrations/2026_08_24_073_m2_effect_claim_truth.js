@@ -7,7 +7,7 @@ export const version = '2026_08_24_073_m2_effect_claim_truth';
 export const description = 'Harden M2 execution claim identities and result time ordering';
 
 // Filled from the canonical sqlite_master projection produced by this migration.
-export const EXPECTED_M2_SCHEMA_FINGERPRINT_V073 = '5b2beabf4faa47c0bff8ee8cbb07ce7e4b923634745972082c285620a69e7587';
+export const EXPECTED_M2_SCHEMA_FINGERPRINT_V073 = '8e8f0202eb6a5ff3d49bc64583abcd2f8348736a8a52e72e5e6cb41c193bf1d8';
 
 function quoteIdentifier(value) {
   return `"${String(value).replaceAll('"', '""')}"`;
@@ -54,6 +54,8 @@ function installClaimTruthHardening(db) {
         ) OR (
           substr(owner_boot_id, 1, 8) = 'unknown:'
           AND length(owner_boot_id) BETWEEN 9 AND 136
+          AND substr(owner_boot_id, 9, 1) GLOB '[A-Za-z0-9]'
+          AND substr(owner_boot_id, 9) NOT GLOB '*[^A-Za-z0-9._:-]*'
         )
       ),
       owner_start_identity TEXT NOT NULL CHECK (
@@ -63,6 +65,8 @@ function installClaimTruthHardening(db) {
         ) OR (
           substr(owner_start_identity, 1, 8) = 'unknown:'
           AND length(owner_start_identity) BETWEEN 9 AND 136
+          AND substr(owner_start_identity, 9, 1) GLOB '[A-Za-z0-9]'
+          AND substr(owner_start_identity, 9) NOT GLOB '*[^A-Za-z0-9._:-]*'
         )
       ),
       claimed_at_ms INTEGER NOT NULL CHECK (

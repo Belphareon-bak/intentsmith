@@ -82,7 +82,7 @@ function requireClock(clock) {
 
 function requireExecutionOwner(value) {
   const canonicalBootId = typeof value?.bootId === 'string'
-    && (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.bootId)
+    && (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value.bootId)
       || /^unknown:[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value.bootId));
   const canonicalStartIdentity = typeof value?.startIdentity === 'string'
     && (/^\d+$/.test(value.startIdentity)
