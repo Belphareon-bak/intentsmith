@@ -106,8 +106,13 @@ function runSuite(suite, env, timeoutMs, outPath) {
     const child = spawn(suite.argv[0], [suite.argv[1]], {
       cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'],
     });
-    const timer = setTimeout(() => { child.kill('SIGKILL'); }, timeoutMs);
     let killed = false;
+    const timer = setTimeout(() => {
+      killed = true;
+      child.kill('SIGKILL');
+    }, timeoutMs);
+    // A stale watchdog must never keep a completed development run alive.
+    timer.unref();
     child.on('exit', (code, signal) => {
       clearTimeout(timer);
       const output = Buffer.concat(chunks).toString('utf8');
@@ -120,7 +125,6 @@ function runSuite(suite, env, timeoutMs, outPath) {
     });
     child.stdout.on('data', c => chunks.push(c));
     child.stderr.on('data', c => chunks.push(c));
-    setTimeout(() => { killed = true; }, timeoutMs);
   });
 }
 
