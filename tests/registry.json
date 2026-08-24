@@ -12179,8 +12179,8 @@
       "owner": "primary implementer",
       "state": "ACTIVE",
       "lastGreen": {
-        "commit": "ba47da96ef7460335b5a4053605886e23c5f7924",
-        "artifact": "docs/execution/runs/wp-m2-effect-contract-v1-20260823.md"
+        "commit": "d172cc0fe0200556a2177600fe8b0e993bec462d",
+        "artifact": "docs/execution/runs/wp-m2-tool-contract-v1-20260824.md"
       },
       "flakeCount": 0,
       "quarantineExpiry": null
@@ -12269,8 +12269,8 @@
       "owner": "primary implementer",
       "state": "ACTIVE",
       "lastGreen": {
-        "commit": "ba47da96ef7460335b5a4053605886e23c5f7924",
-        "artifact": "docs/execution/runs/wp-m2-effect-contract-v1-20260823.md"
+        "commit": "d172cc0fe0200556a2177600fe8b0e993bec462d",
+        "artifact": "docs/execution/runs/wp-m2-tool-contract-v1-20260824.md"
       },
       "flakeCount": 0,
       "quarantineExpiry": null
@@ -12359,7 +12359,7 @@
       "owner": "primary implementer",
       "state": "ACTIVE",
       "lastGreen": {
-        "commit": "8ec1351e988f3a179ba64934813910ce8300c5c0",
+        "commit": "d172cc0fe0200556a2177600fe8b0e993bec462d",
         "artifact": "docs/execution/runs/wp-m2-tool-contract-v1-20260824.md"
       },
       "flakeCount": 0,
@@ -12389,7 +12389,7 @@
       "owner": "primary implementer",
       "state": "ACTIVE",
       "lastGreen": {
-        "commit": "8ec1351e988f3a179ba64934813910ce8300c5c0",
+        "commit": "d172cc0fe0200556a2177600fe8b0e993bec462d",
         "artifact": "docs/execution/runs/wp-m2-tool-contract-v1-20260824.md"
       },
       "flakeCount": 0,
@@ -12419,7 +12419,7 @@
       "owner": "primary implementer",
       "state": "ACTIVE",
       "lastGreen": {
-        "commit": "8ec1351e988f3a179ba64934813910ce8300c5c0",
+        "commit": "d172cc0fe0200556a2177600fe8b0e993bec462d",
         "artifact": "docs/execution/runs/wp-m2-tool-contract-v1-20260824.md"
       },
       "flakeCount": 0,
@@ -12449,7 +12449,7 @@
       "owner": "primary implementer",
       "state": "ACTIVE",
       "lastGreen": {
-        "commit": "8ec1351e988f3a179ba64934813910ce8300c5c0",
+        "commit": "d172cc0fe0200556a2177600fe8b0e993bec462d",
         "artifact": "docs/execution/runs/wp-m2-tool-contract-v1-20260824.md"
       },
       "flakeCount": 0,
