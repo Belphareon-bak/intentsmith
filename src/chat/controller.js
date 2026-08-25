@@ -1690,6 +1690,22 @@ class ChatSessionManager {
 const sessionManager = new ChatSessionManager();
 
 /**
+ * Resolve an expertise only through the active registry. Caller-provided
+ * fields are never treated as an executable expertise definition.
+ */
+export async function resolveRegisteredExpertise(candidate) {
+  const id = typeof candidate === 'string' ? candidate : candidate?.id;
+  if (typeof id !== 'string' || id.length === 0) return null;
+  const { expertiseRegistry } = await import('../expertises/expertise-layer.js');
+  const registered = expertiseRegistry.get(id);
+  if (!registered) return null;
+  const resolved = typeof registered.toJSON === 'function'
+    ? registered.toJSON()
+    : structuredClone(registered);
+  return Object.freeze(resolved);
+}
+
+/**
  * Static entry point for HTTP requests
  *
  * This is THE ONLY way external code should interact with ChatController.
@@ -1896,26 +1912,51 @@ ChatController.handle = async function(request) {
     state.clearExpertise();
   }
 
-  // If expertise provided in request, update state
+  let rejectedExpertiseId = null;
+
+  // A disabled or removed extension must stop participating even in sessions
+  // that still carry an older serialized expertise snapshot.
+  if (state.hasActiveExpertise) {
+    const resolvedActive = await resolveRegisteredExpertise(state.expertise);
+    if (!resolvedActive) {
+      rejectedExpertiseId = state.expertise.id;
+      state.clearExpertise();
+    } else {
+      state.setExpertise(resolvedActive, {
+        locked: state.expertiseLocked,
+        force: true,
+      });
+    }
+  }
+
+  // If expertise provided in request, update state. Resolve by ID so the raw
+  // /chat compatibility route cannot inject an unregistered prompt/persona.
   if (expertise !== undefined) {
     if (expertise === null) {
       state.clearExpertise();
-    } else if (expertise.id) {
-      state.setExpertise(expertise);
+      rejectedExpertiseId = null;
+    } else {
+      const resolvedRequested = await resolveRegisteredExpertise(expertise);
+      if (resolvedRequested) {
+        state.setExpertise(resolvedRequested);
+        rejectedExpertiseId = null;
+      } else {
+        rejectedExpertiseId = typeof expertise?.id === 'string' ? expertise.id : null;
+        state.clearExpertise();
+      }
     }
   }
 
   // v87: Auto-select expertise when none is manually active.
   // Deterministic vocabulary matching — no LLM call, <1ms.
-  if (!state.hasActiveExpertise) {
+  if (!state.hasActiveExpertise && rejectedExpertiseId === null) {
     try {
       const { autoSelectExpertise } = await import('../expertises/auto-select.js');
       const autoResult = autoSelectExpertise(message, {
         previousAutoExpertiseId: state.preferences._lastAutoExpertiseId || null,
       });
       if (autoResult.expertiseId) {
-        const { BUILTIN_EXPERTISES: _EXPERTISES } = await import('../expertises/expertise-layer.js');
-        const exp = _EXPERTISES[autoResult.expertiseId];
+        const exp = await resolveRegisteredExpertise(autoResult.expertiseId);
         if (exp) {
           state.setExpertise(
             { id: exp.id, name: exp.name, domain: exp.domain, _source: 'auto', _confidence: autoResult.confidence },
@@ -2073,6 +2114,15 @@ ChatController.handle = async function(request) {
   // Return structured response with state info
   return {
     ...finalizedResponse,
+    metadata: {
+      ...(finalizedResponse.metadata || {}),
+      ...(rejectedExpertiseId === null ? {} : {
+        expertiseRejection: {
+          id: rejectedExpertiseId,
+          code: 'M3_EXPERTISE_UNAVAILABLE',
+        },
+      }),
+    },
     // Include current state in response so UI can stay in sync
     state: {
       project: state.project,

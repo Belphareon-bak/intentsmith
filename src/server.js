@@ -380,6 +380,30 @@ logger.info('Server', `License: ${licenseStatus.tier} (${licenseStatus.valid ? '
 // v57.0: Initialize ExpertStore with DB (if experts enabled)
 if (getExpertiseStore) expertiseStore = getExpertiseStore(db);
 
+// M3: data-only expertise extensions share the versioned manifest boundary,
+// persist in the existing expertise authority, and receive no host capability.
+let expertiseExtensionService = null;
+if (expertiseLayer?.expertiseRegistry) {
+  try {
+    const { ExpertiseExtensionService } = await import('./extensions/expertise-extension-service.js');
+    const coreVersion = JSON.parse(
+      fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'),
+    ).version;
+    expertiseExtensionService = new ExpertiseExtensionService({
+      db: db.db,
+      expertiseRegistry: expertiseLayer.expertiseRegistry,
+      coreVersion,
+    });
+    const boot = expertiseExtensionService.boot();
+    logger.info(
+      'M3Expertise',
+      `Loaded ${boot.loaded.length} enabled extension(s); ${boot.quarantined.length} quarantined`,
+    );
+  } catch (err) {
+    logger.warn('M3Expertise', `Extension service unavailable: ${err.message}`);
+  }
+}
+
 // v74.0: Specialist Loader — discover, install, enable specialist packages
 import { getSpecialistLoader } from './specialists/specialist-loader.js';
 import { specialistRuntime } from './expertises/specialist-runtime.js';
@@ -834,7 +858,7 @@ function checkWizardRateLimit(key, intervalMs) {
 const routeDeps = {
   db, parseBody, sendJSON, sendHTML, sendStaticFile, safeError, safeParseInt,
   logger, config, path, fs, randomUUID,
-  ChatController, expertiseLayer, expertiseStore,
+  ChatController, expertiseLayer, expertiseStore, expertiseExtensionService,
   callWithAuth, createAuthToken, LLMCallerRole,
   getArchitectSession, setArchitectSession, getArchitectUIHTML,
   createMockResponse, agentRoutes, agentRunner,
@@ -1051,11 +1075,16 @@ function loadCustomExpertises() {
   
   try {
     const rows = db.db.prepare('SELECT id, config FROM custom_expertises').all();
+    let loaded = 0;
     for (const row of rows) {
+      // M3 rows use the durable expertises-table envelope. A legacy copy must
+      // never reactivate a disabled/removed extension during startup.
+      if (expertiseExtensionService?.get(row.id)) continue;
       const config = JSON.parse(row.config);
       expertiseLayer.expertiseRegistry.addCustom(config);
+      loaded += 1;
     }
-    logger.info('Server', `Loaded ${rows.length} custom experts`);
+    logger.info('Server', `Loaded ${loaded} custom experts`);
   } catch (err) {
     logger.warn('Server', `Could not load custom experts: ${err.message}`);
   }
@@ -1074,6 +1103,7 @@ function saveCustomExpertises() {
     // Insert all
     const insert = db.db.prepare('INSERT INTO custom_expertises (id, config) VALUES (?, ?)');
     for (const expert of experts) {
+      if (expertiseExtensionService?.get(expert.id)) continue;
       insert.run(expert.id, JSON.stringify(expert.toJSON()));
     }
     

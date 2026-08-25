@@ -363,7 +363,10 @@ try {
   //              the production specialist package graph to prove that every
   //              package canonicalizes. The shared harness protects that
   //              transitive database edge before package evaluation.
-  const expectedDatabaseReachableRootTests = 111;
+  //   111 -> 112 M3 expertise extension lifecycle imports the production chat
+  //              registry resolver to prove disabled modules fail closed. Its
+  //              canonical bootstrap precedes the controller/database graph.
+  const expectedDatabaseReachableRootTests = 112;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,

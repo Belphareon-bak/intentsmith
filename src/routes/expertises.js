@@ -14,7 +14,8 @@ export function createExpertiseRoutes(deps) {
   const {
     parseBody, sendJSON, safeError, safeParseInt, sendStaticFile,
     logger, config, path, fs, randomUUID,
-    expertiseLayer, expertiseStore, callWithAuth, createAuthToken, LLMCallerRole,
+    expertiseLayer, expertiseStore, expertiseExtensionService,
+    callWithAuth, createAuthToken, LLMCallerRole,
     checkWizardRateLimit, db,
   } = deps;
 
@@ -33,6 +34,7 @@ export function createExpertiseRoutes(deps) {
       // Insert all
       const insert = db.db.prepare('INSERT INTO custom_expertises (id, config) VALUES (?, ?)');
       for (const expert of experts) {
+        if (expertiseExtensionService?.get(expert.id)) continue;
         insert.run(expert.id, JSON.stringify(expert.toJSON()));
       }
 
@@ -43,6 +45,85 @@ export function createExpertiseRoutes(deps) {
   }
 
   return {
+    // M3 local expertise extension lifecycle. Expertise definitions are
+    // data-only: they can influence routing/prompting but cannot request a host
+    // capability or create an effect.
+    'GET /api/extensions/expertises': async (req, res) => {
+      if (!expertiseExtensionService) {
+        return sendJSON(res, 503, { error: 'M3 expertise extension service unavailable' });
+      }
+      return sendJSON(res, 200, {
+        ok: true,
+        extensions: expertiseExtensionService.list(),
+      });
+    },
+
+    'POST /api/extensions/expertises/install': async (req, res) => {
+      if (!expertiseExtensionService) {
+        return sendJSON(res, 503, { error: 'M3 expertise extension service unavailable' });
+      }
+      try {
+        const body = await parseBody(req);
+        const extension = expertiseExtensionService.install(body.manifest);
+        return sendJSON(res, 201, { ok: true, extension });
+      } catch (error) {
+        const status = error.code === 'M3_EXPERTISE_ALREADY_INSTALLED'
+          || error.code === 'M3_EXPERTISE_ID_CONFLICT'
+          || error.code === 'M3_EXPERTISE_BUILTIN_CONFLICT'
+          ? 409
+          : 400;
+        return sendJSON(res, status, {
+          error: error.message,
+          code: error.code || 'M3_EXPERTISE_INSTALL_FAILED',
+        });
+      }
+    },
+
+    'POST /api/extensions/expertises/:id/enable': async (req, res, params) => {
+      if (!expertiseExtensionService) {
+        return sendJSON(res, 503, { error: 'M3 expertise extension service unavailable' });
+      }
+      try {
+        const extension = expertiseExtensionService.enable(params.id);
+        return sendJSON(res, 200, { ok: true, extension });
+      } catch (error) {
+        return sendJSON(res, error.code === 'M3_EXPERTISE_NOT_FOUND' ? 404 : 400, {
+          error: error.message,
+          code: error.code || 'M3_EXPERTISE_ENABLE_FAILED',
+        });
+      }
+    },
+
+    'POST /api/extensions/expertises/:id/disable': async (req, res, params) => {
+      if (!expertiseExtensionService) {
+        return sendJSON(res, 503, { error: 'M3 expertise extension service unavailable' });
+      }
+      try {
+        const extension = expertiseExtensionService.disable(params.id);
+        return sendJSON(res, 200, { ok: true, extension });
+      } catch (error) {
+        return sendJSON(res, error.code === 'M3_EXPERTISE_NOT_FOUND' ? 404 : 400, {
+          error: error.message,
+          code: error.code || 'M3_EXPERTISE_DISABLE_FAILED',
+        });
+      }
+    },
+
+    'DELETE /api/extensions/expertises/:id': async (req, res, params) => {
+      if (!expertiseExtensionService) {
+        return sendJSON(res, 503, { error: 'M3 expertise extension service unavailable' });
+      }
+      try {
+        const result = expertiseExtensionService.remove(params.id);
+        return sendJSON(res, 200, { ok: true, ...result });
+      } catch (error) {
+        return sendJSON(res, error.code === 'M3_EXPERTISE_NOT_FOUND' ? 404 : 400, {
+          error: error.message,
+          code: error.code || 'M3_EXPERTISE_REMOVE_FAILED',
+        });
+      }
+    },
+
     // v63.0 — Merge Preview endpoint
     'GET /api/merge-preview': async (req, res) => {
       try {
