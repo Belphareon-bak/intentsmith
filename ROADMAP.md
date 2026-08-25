@@ -1149,7 +1149,8 @@ model. `matches_forward` a prokazatelné `matches_before` uzavírají účetní 
 z `m2_execution_files` jsou z této authority vyloučené. Focused evidence je
 effect repository 49/49, file runtime 10/10 a schema migrations 38/38; navazující
 project-change 20/20, execution repository 13/13 a lifecycle journey 6/6 jsou
-beze změny zelené. Stav je `IMPLEMENTATION_GREEN / REVIEW_PENDING`, ne M2 PASS.
+beze změny zelené. Přijatý module graph má 1 131 hran, stále 3 cykly a 28
+souborů v cyklech. Stav je `IMPLEMENTATION_GREEN / REVIEW_PENDING`, ne M2 PASS.
 
 První skutečný section-5 Opus max review následně proběhl a vrátil
 `CHANGES_REQUESTED`, nikoli PASS. HIGH nález prokázal, že legitimní změna mimo
