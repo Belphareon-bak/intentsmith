@@ -71,6 +71,7 @@ await asyncTest('T1: triggerAgent marks manual runs as in-flight and clears them
   await firstRun;
 
   assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].opts, { isManual: true });
   assert.equal(scheduler.getStatus().runningAgents.length, 0);
 });
 

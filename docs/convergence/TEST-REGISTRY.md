@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 435
+- Runnable programs: 437
 - Explicit support-module exclusions: 14
-- Profiles: offline=222, database=48, server=39, model=85, soak=25, manual=16
-- States: ACTIVE=338, HISTORICAL=16, BLOCKED=81
+- Profiles: offline=222, database=49, server=40, model=85, soak=25, manual=16
+- States: ACTIVE=340, HISTORICAL=16, BLOCKED=81
 
 ## Execution profiles
 
@@ -191,6 +191,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T3-E2E-61-AUTOCOMPLETE` | `tests/e2e/61-autocomplete.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-62-VALIDATION-SUITES` | `tests/e2e/62-validation-suites.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-63-AGENT-EXECUTION` | `tests/e2e/63-agent-execution.e2e.js` | `C3-003` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
+| `IS-T3-E2E-64-M3-PROJECT-HEALTH-AGENT` | `tests/e2e/64-m3-project-health-agent.e2e.js` | `C3-013` | T3 | `server` | 5 s | 2 min | network:loopback, temp-db, server | yes | `ACTIVE` | — | WP-M3-AGENT-PROJECT-HEALTH |
 | `IS-T3-E2E-70-CRE-INTENT-SEMANTIC` | `tests/e2e/70-cre-intent-semantic.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-71-LANGUAGE-ENFORCEMENT` | `tests/e2e/71-language-enforcement.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-72-FOLLOWUP-COHERENCE` | `tests/e2e/72-followup-coherence.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
@@ -346,6 +347,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M3-CODE-REVIEW-SPECIALIST-TEST` | `tests/m3-code-review-specialist.test.js` | `C3-013` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M3-SPECIALIST-CODE-REVIEW |
 | `IS-T1-TESTS-M3-EXPERTISE-EXTENSION-TEST` | `tests/m3-expertise-extension.test.js` | `C3-007` | T1 | `database` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-M3-EXPERTISE |
 | `IS-T1-TESTS-M3-EXTENSION-CONTRACT-V1-TEST` | `tests/m3-extension-contract-v1.test.js` | `C3-013` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M3-BOUNDARY |
+| `IS-T1-TESTS-M3-PROJECT-HEALTH-AGENT-TEST` | `tests/m3-project-health-agent.test.js` | `C3-013` | T1 | `database` | 2 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-M3-AGENT-PROJECT-HEALTH |
 | `IS-T1-TESTS-M3-SKILL-EFFECT-AUTHORITY-TEST` | `tests/m3-skill-effect-authority.test.js` | `C3-013` | T1 | `database` | 2 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-M3-SKILL |
 | `IS-T1-TESTS-MANIFEST-V2-TEST` | `tests/manifest-v2.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MARKETPLACE-CATALOG-V125-TEST` | `tests/marketplace-catalog-v125.test.js` | `C3-022` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

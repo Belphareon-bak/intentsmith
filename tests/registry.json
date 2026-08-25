@@ -11335,6 +11335,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T3-E2E-64-M3-PROJECT-HEALTH-AGENT",
+      "path": "tests/e2e/64-m3-project-health-agent.e2e.js",
+      "argv": [
+        "node",
+        "tests/e2e/64-m3-project-health-agent.e2e.js"
+      ],
+      "capabilityId": "C3-013",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 5000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M3-AGENT-PROJECT-HEALTH",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T3-E2E-70-CRE-INTENT-SEMANTIC",
       "path": "tests/e2e/70-cre-intent-semantic.e2e.js",
       "argv": [
@@ -13151,6 +13181,36 @@
       },
       "required": true,
       "owner": "WP-M3-SPECIALIST-CODE-REVIEW",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M3-PROJECT-HEALTH-AGENT-TEST",
+      "path": "tests/m3-project-health-agent.test.js",
+      "argv": [
+        "node",
+        "tests/m3-project-health-agent.test.js"
+      ],
+      "capabilityId": "C3-013",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "database",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 2000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M3-AGENT-PROJECT-HEALTH",
       "state": "ACTIVE",
       "lastGreen": {
         "commit": null,

@@ -369,7 +369,10 @@ try {
   //   112 -> 114 M3 governed skill authority and the code-review specialist
   //              each add one direct production-path suite. Both reach the
   //              database graph behind the canonical isolation bootstrap.
-  const expectedDatabaseReachableRootTests = 114;
+  //   114 -> 115 M3 project-health agent adds one direct production-path
+  //              suite. The canonical bootstrap still precedes its registry
+  //              and repository imports.
+  const expectedDatabaseReachableRootTests = 115;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,

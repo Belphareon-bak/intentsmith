@@ -10,14 +10,14 @@ const e2eDir = path.join(root, 'tests', 'e2e');
 const registryPath = path.join(root, 'tests', 'registry.json');
 const write = process.argv.slice(2).includes('--write');
 
-const EXPECTED_PATH_COUNT = 80;
-const EXPECTED_PATH_HASH = '005aadc4e4be04c3d6b972eb8b1a72c098bd0406054d400f7819624b667ed472';
+const EXPECTED_PATH_COUNT = 81;
+const EXPECTED_PATH_HASH = 'c96260ed80a0cf57668838fa0e44add470883ba8b05efcf1bb88a1c271109d57';
 // Suite 08 validates and stores an HTTPS source definition but never executes
 // it; only suites that actually perform external I/O belong here.
 const EXTERNAL_NETWORK = new Set([10, 51, 206]);
 const OLLAMA_ONLY_SERVER = new Set([14, 16]);
 const MIXED_SERVER_MODEL = new Set();
-const LOCAL_SERVER_ONLY = new Set([56, 60, 63, 80, 83, 84]);
+const LOCAL_SERVER_ONLY = new Set([56, 60, 63, 64, 80, 83, 84]);
 const QWEN_35_27B_DIGEST = '7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e';
 const MODEL_FIXTURE_PARALLELISM = new Map([
   [57, 1],
@@ -135,6 +135,16 @@ function metadataFor(testPath, source) {
       timeoutMs: 120_000,
       expectedDurationMs: 5_000,
       owner: 'WP-M3-SPECIALIST-CODE-REVIEW',
+      state: 'ACTIVE',
+    };
+  }
+  if (number === 64) {
+    return {
+      ...metadata,
+      capabilityId: 'C3-013',
+      timeoutMs: 120_000,
+      expectedDurationMs: 5_000,
+      owner: 'WP-M3-AGENT-PROJECT-HEALTH',
       state: 'ACTIVE',
     };
   }

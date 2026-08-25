@@ -11,6 +11,8 @@
 
 import { ConditionEvaluator } from './conditions.js';
 import { TriggerEvaluator } from './triggers.js';
+import { EXTENSION_HOST_CAPABILITY } from '../../contracts/m3/extension-v1.js';
+import { fetchProjectHealthSource } from './sources/project-health.js';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // v57.0 - RETRY CONFIGURATION
@@ -141,11 +143,21 @@ export const RUN_STATE_INFO = {
  * Agent Runner - deterministic execution engine
  */
 export class AgentRunner {
-  constructor({ repository, llmServices = null, notificationRouter = null, notificationPipeline = null, logger = console }) {
+  constructor({
+    repository,
+    llmServices = null,
+    notificationRouter = null,
+    notificationPipeline = null,
+    extensionService = null,
+    projectContextBridge = null,
+    logger = console,
+  }) {
     this.repo = repository;
     this.llm = llmServices;
     this.notificationRouter = notificationRouter;
     this.notificationPipeline = notificationPipeline;
+    this.extensionService = extensionService;
+    this.projectContextBridge = projectContextBridge;
     this.logger = logger;
     this.conditions = new ConditionEvaluator();
     this.triggers = new TriggerEvaluator();
@@ -155,7 +167,8 @@ export class AgentRunner {
       http: this.fetchHttp.bind(this),
       scraper: this.fetchScraper.bind(this),
       rss: this.fetchRss.bind(this),
-      database: this.fetchDatabase.bind(this)
+      database: this.fetchDatabase.bind(this),
+      project_context: this.fetchProjectContext.bind(this),
     };
   }
   
@@ -382,6 +395,8 @@ export class AgentRunner {
         return `Web scrape of ${source.config?.url || 'unknown URL'}`;
       case 'database':
         return `Database query`;
+      case 'project_context':
+        return 'Governed M2 ProjectContext health snapshot';
       default:
         return `${source.type} source`;
     }
@@ -517,8 +532,21 @@ export class AgentRunner {
         state: agent.state || {},
         now,
         sources: {},
+        execution: { agentId, runId },
         _schemaValidation: { errors: [], warnings: [] }
       };
+
+      if (def.sources.some(source => source.type === 'project_context')) {
+        if (!this.extensionService || !this.projectContextBridge) {
+          throw Object.assign(
+            new Error('M3 agent extension authority is unavailable'),
+            { code: 'M3_AGENT_EXTENSION_AUTHORITY_REQUIRED' },
+          );
+        }
+        const extension = this.extensionService.resolveExecution(agent);
+        context.execution.extensionId = extension.manifest.id;
+        context.execution.extensionContext = extension.context;
+      }
       
       // ══════════════════════════════════════════════════════════════════════
       // STEP 1: Fetch sources (parallel)
@@ -531,7 +559,7 @@ export class AgentRunner {
           const handler = this.sourceHandlers[source.type];
           if (!handler) throw new Error(`Unknown source type: ${source.type}`);
           
-          const config = this.interpolate(source.config, context);
+          const config = this.interpolateObject(source.config, context);
           const data = await handler(config, context);
 
           // v57.0 - Filter seen items for HUNTER pattern (uses DB, not in-memory state)
@@ -545,8 +573,16 @@ export class AgentRunner {
           };
           log.push(`  ✓ ${source.id}: OK (${context.sources[source.id].filtered_count} items)`);
         } catch (err) {
-          context.sources[source.id] = { status: 'error', error: err.message };
-          log.push(`  ✗ ${source.id}: ${err.message}`);
+          context.sources[source.id] = {
+            status: 'error',
+            error: err.message,
+            ...(err.code ? { errorCode: err.code } : {}),
+            ...(err.reason ? { errorReason: err.reason } : {}),
+          };
+          log.push(
+            `  ✗ ${source.id}: ${err.message}`
+            + (err.code ? ` [${err.code}${err.reason ? `:${err.reason}` : ''}]` : ''),
+          );
           sourceFailed = true;
         }
       });
@@ -554,11 +590,18 @@ export class AgentRunner {
       
       // Check if all sources failed
       if (sourceFailed && Object.values(context.sources).every(s => s.status === 'error')) {
+        const sourceErrors = Object.entries(context.sources).map(([id, source]) => ({
+          id,
+          error: source.error,
+          ...(source.errorCode ? { errorCode: source.errorCode } : {}),
+          ...(source.errorReason ? { errorReason: source.errorReason } : {}),
+        }));
         log.push(`[${this.timestamp()}] ⛔ All sources failed`);
         this.repo.completeRun(runId, {
           run_state: RUN_STATE.ERROR_SOURCE,
           status: 'error',
           error: 'All sources failed',
+          explain: { sources: sourceErrors },
           log: log.join('\n')
         });
         return {
@@ -566,6 +609,7 @@ export class AgentRunner {
           status: 'error',
           runId,
           error: 'All sources failed',
+          sourceErrors,
           log
         };
       }
@@ -589,11 +633,12 @@ export class AgentRunner {
       // ══════════════════════════════════════════════════════════════════════
       // STEP 2: Check for HUNTER pattern - no new items
       // ══════════════════════════════════════════════════════════════════════
-      const totalNewItems = Object.entries(context.sources)
-        .filter(([sid, s]) => sid !== '_merged' && s.status === 'ok')
+      const collectionSources = Object.entries(context.sources)
+        .filter(([sid, source]) => sid !== '_merged' && source.status === 'ok' && Array.isArray(source.data));
+      const totalNewItems = collectionSources
         .reduce((sum, [, s]) => sum + (s.filtered_count || 0), 0);
       
-      if (totalNewItems === 0 && !isFirstRun) {
+      if (collectionSources.length > 0 && totalNewItems === 0 && !isFirstRun) {
         log.push(`[${this.timestamp()}] 📭 No new items found - waiting for changes`);
         
         // Still update last_run
@@ -702,6 +747,12 @@ export class AgentRunner {
         schemaStatus,
         ...(schemaError && { schemaError })
       };
+      for (const condition of def.conditions || []) {
+        if (condition.type !== 'changed') continue;
+        const stateKey = condition.compare_field
+          || `_prev_${condition.field.replace(/\./g, '_')}`;
+        newState[stateKey] = structuredClone(this.conditions.getField(condition.field, context));
+      }
       
       // ══════════════════════════════════════════════════════════════════════
       // v57.0 STEP 5a: Execute mark_seen FIRST (before business actions)
@@ -819,11 +870,25 @@ export class AgentRunner {
         run_state: runState,
         is_manual: options.isManual || false,
         is_first_run: isFirstRun,
-        sources: Object.keys(context.sources).map(id => ({
-          id,
-          status: context.sources[id].status,
-          count: context.sources[id].filtered_count
-        })),
+        sources: Object.keys(context.sources).map(id => {
+          const source = context.sources[id];
+          return {
+            id,
+            status: source.status,
+            count: source.filtered_count,
+            ...(source.data?.snapshot_digest ? {
+              evidence: {
+                projectId: source.data.project_id,
+                workspaceRevision: source.data.workspace_revision,
+                snapshotDigest: source.data.snapshot_digest,
+                issueCount: source.data.issue_count,
+                filesObserved: source.data.files_observed,
+                truncated: source.data.truncated,
+                provenance: source.data.provenance,
+              },
+            } : {}),
+          };
+        }),
         conditions: conditionResults.details,
         triggers: triggerResults.details.filter(t => t.fired),
         actions: executedActions
@@ -1011,6 +1076,24 @@ export class AgentRunner {
     // Placeholder for database queries
     this.logger.warn('Database source not implemented');
     return [];
+  }
+
+  async fetchProjectContext(config, context) {
+    const execution = context.execution || {};
+    const capability = execution.extensionContext?.requireCapability(
+      EXTENSION_HOST_CAPABILITY.PROJECT_CONTEXT,
+    );
+    const invocation = await this.projectContextBridge.host.openInvocation({
+      extensionId: execution.extensionId,
+      agentId: execution.agentId,
+      runId: execution.runId,
+      projectId: Number(config.project_id),
+    });
+    try {
+      return await fetchProjectHealthSource({ config, invocation, capability });
+    } finally {
+      this.projectContextBridge.host.closeInvocation(invocation);
+    }
   }
   
   // ══════════════════════════════════════════════════════════════════════════════
@@ -1205,15 +1288,14 @@ export class AgentRunner {
 
     const title = this.interpolate(config.title || '', context);
     const priority = config.priority || 'normal';
+    const notificationData = config.data ? this.interpolateObject(config.data, context) : null;
 
     // Store notification in DB (always, regardless of channel)
-    this.repo.createNotification(agentId, {
-      run_id: runId,
-      channel: config.channel || 'in_app',
+    this.repo.createNotification(agentId, runId, {
       priority,
       title,
-      content,
-      data: config.data
+      body: content,
+      data: notificationData,
     });
 
     // Build notification context (plain object, not a class)
@@ -1231,7 +1313,7 @@ export class AgentRunner {
         source_id: Object.keys(context.sources || {})[0] || null,
         source_type: null,
       },
-      data: config.data || null,
+      data: notificationData,
     };
 
     // Deliver through pipeline (policy → escalation → immediate/digest/drop)
@@ -1254,7 +1336,7 @@ export class AgentRunner {
         body: content,
         priority,
         agentId,
-        data: config.data,
+        data: notificationData,
       });
       if (!delivery.delivered) {
         this.logger.warn('AgentRunner', `Notification delivery failed: ${delivery.error}`, { agentId });

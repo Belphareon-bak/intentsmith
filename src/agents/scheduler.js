@@ -247,7 +247,7 @@ export class AgentScheduler {
     this.runningAgents.add(agentId);
     try {
       // v34: Mark as manual run for better UX feedback
-      return await this.runner.execute(agentId, { force: true, isManual: true });
+      return await this.runner.execute(agentId, { isManual: true });
     } finally {
       this.runningAgents.delete(agentId);
     }

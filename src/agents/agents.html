@@ -2119,12 +2119,17 @@
           
           <div class="tabs">
             <button class="tab active" onclick="switchTab(this, 'logs')">📄 Logy</button>
+            <button class="tab" onclick="switchTab(this, 'notifications')">🔔 Výsledky</button>
             <button class="tab" onclick="switchTab(this, 'settings')">⚙️ Nastavení</button>
             <button class="tab" onclick="switchTab(this, 'advanced')">🔧 Pokročilé</button>
           </div>
           
           <div id="tab-logs" class="tab-content active">
             ${renderLogsTab(agent)}
+          </div>
+
+          <div id="tab-notifications" class="tab-content">
+            ${renderNotificationsTab(agent)}
           </div>
           
           <div id="tab-settings" class="tab-content">
@@ -2254,6 +2259,36 @@ ${JSON.stringify(agent.definition, null, 2)}
                     <div class="log-raw">${run.log}</div>
                   </div>
                 ` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function renderNotificationsTab(agent) {
+      const notifications = agent.notifications || [];
+      if (notifications.length === 0) {
+        return `
+          <div class="empty-state">
+            <div class="empty-state-icon">🔕</div>
+            <h3 class="empty-state-title">Žádné výsledky</h3>
+            <p class="empty-state-desc">Agent zatím nevytvořil žádnou in-app notifikaci.</p>
+          </div>
+        `;
+      }
+      return `
+        <div class="log-list">
+          ${notifications.map(notification => `
+            <div class="log-entry expanded">
+              <div class="log-header">
+                <strong>${escapeHtml(notification.title || 'Výsledek agenta')}</strong>
+                <span class="log-time">${formatDateTime(notification.created_at)}</span>
+              </div>
+              <div class="log-body" style="display:block">
+                <div class="log-section">
+                  <div class="log-detail-value">${escapeHtml(notification.body || '')}</div>
+                </div>
               </div>
             </div>
           `).join('')}
@@ -2802,6 +2837,12 @@ ${JSON.stringify(agent.definition, null, 2)}
     // HELPERS
     // ═══════════════════════════════════════════════════════════════════════════
     
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+      })[char]);
+    }
+
     function formatDateTime(dateStr) {
       if (!dateStr) return '-';
       const date = new Date(dateStr);

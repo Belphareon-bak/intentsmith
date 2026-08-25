@@ -12,7 +12,8 @@ export function createAgentPlatformRoutes(deps) {
     sendStaticFile,
     createMockResponse,
     agentRoutes,
-    agentRunner
+    agentRunner,
+    agentExtensionService,
   } = deps;
 
   return {
@@ -198,6 +199,46 @@ export function createAgentPlatformRoutes(deps) {
           }
         }
       });
+    },
+
+    'GET /api/agent-extensions': async (req, res) => {
+      sendJSON(res, 200, { extensions: agentExtensionService.list() });
+    },
+
+    'POST /api/agent-extensions/:id/install': async (req, res, params) => {
+      try {
+        const body = await parseBody(req);
+        const extensionParams = {
+          ...(body.params && typeof body.params === 'object' ? body.params : {}),
+          ...(body.projectId !== undefined ? { project_id: Number(body.projectId) } : {}),
+        };
+        const agent = agentExtensionService.install(params.id, {
+          instanceId: body.instanceId || params.id,
+          params: extensionParams,
+          enabled: body.enabled,
+        });
+        sendJSON(res, 201, agent);
+      } catch (error) {
+        const status = error.code === 'M3_AGENT_EXTENSION_NOT_FOUND'
+          ? 404
+          : error.code === 'M3_AGENT_EXTENSION_CONFLICT'
+            ? 409
+            : 400;
+        sendJSON(res, status, { error: error.message, code: error.code || 'M3_AGENT_EXTENSION_INVALID' });
+      }
+    },
+
+    'DELETE /api/agent-extensions/:id/instances/:agentId': async (req, res, params) => {
+      try {
+        const removed = agentExtensionService.uninstall(params.id, params.agentId);
+        if (!removed) {
+          sendJSON(res, 404, { error: 'Agent extension instance not found' });
+          return;
+        }
+        sendJSON(res, 200, { removed: true, agentId: params.agentId });
+      } catch (error) {
+        sendJSON(res, 409, { error: error.message, code: error.code || 'M3_AGENT_EXTENSION_INVALID' });
+      }
     },
 
     'POST /api/sources/inspect': async (req, res) => {

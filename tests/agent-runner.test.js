@@ -149,11 +149,11 @@ function createMockRepository() {
         .run(data.status, runId);
     },
 
-    createNotification(agentId, data) {
+    createNotification(agentId, runId, data) {
       const result = db.prepare(`
         INSERT INTO agent_notifications_v33 (agent_id, run_id, title, body, priority, data)
         VALUES (?, ?, ?, ?, ?, ?)
-      `).run(agentId, data.run_id, data.title, data.content, data.priority, null);
+      `).run(agentId, runId, data.title, data.body, data.priority, null);
       return result.lastInsertRowid;
     },
 

@@ -11,7 +11,7 @@ export const ALLOWED = {
   schedule_types: ['cron', 'interval', 'manual'],
   intervals: ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d', '7d'],
   
-  source_types: ['http', 'scraper', 'rss', 'database'],
+  source_types: ['http', 'scraper', 'rss', 'database', 'project_context'],
   http_methods: ['GET', 'POST'],
   database_tables: ['user_inventory', 'agent_data'],
   
@@ -274,6 +274,19 @@ function validateSource(src, index) {
         errors.push(`${prefix}: invalid table "${src.config.table}" (allowed: ${ALLOWED.database_tables.join(', ')})`);
       }
       break;
+
+    case 'project_context': {
+      const projectId = src.config.project_id;
+      const projectTemplate = typeof projectId === 'string'
+        && /^\{\{params\.[a-z0-9_]+\}\}$/.test(projectId);
+      if (!(Number.isSafeInteger(projectId) && projectId > 0) && !projectTemplate) {
+        errors.push(`${prefix}: project_context requires a positive project_id or params template`);
+      }
+      if (typeof src.config.query !== 'string' || src.config.query.trim().length === 0) {
+        errors.push(`${prefix}: project_context requires query`);
+      }
+      break;
+    }
   }
   
   return errors;

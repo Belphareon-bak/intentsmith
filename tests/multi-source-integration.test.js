@@ -138,9 +138,9 @@ function createMockRepository() {
     completeRun(runId, data) {
       db.prepare('UPDATE agent_runs_v33 SET status = ? WHERE id = ?').run(data.status, runId);
     },
-    createNotification(agentId, data) {
+    createNotification(agentId, runId, data) {
       return db.prepare('INSERT INTO agent_notifications_v33 (agent_id, run_id, title, body, priority, data) VALUES (?, ?, ?, ?, ?, ?)')
-        .run(agentId, data.run_id, data.title, data.content, data.priority, null).lastInsertRowid;
+        .run(agentId, runId, data.title, data.body, data.priority, null).lastInsertRowid;
     },
     isItemSeen(agentId, sourceId, itemId) {
       return !!db.prepare('SELECT 1 FROM agent_seen_items_v57 WHERE agent_id = ? AND source_id = ? AND item_id = ?').get(agentId, sourceId, itemId);

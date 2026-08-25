@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { realpath as defaultRealpath } from 'node:fs/promises';
 
 import {
   PROJECT_CONTEXT_CONTRACT_VERSION,
@@ -6,12 +7,12 @@ import {
 } from '../../contracts/m2/project-context-v1.js';
 import { projectContextProvider as defaultProvider } from '../code-intel/project-context-provider.js';
 
-const CAPABILITY_CONTRACT = 'SpecialistProjectContextCapability';
+const CAPABILITY_CONTRACT = 'AgentProjectContextCapability';
 const CAPABILITY_VERSION = 1;
 const DEFAULT_BUDGET = Object.freeze({
-  maxFiles: 8,
-  maxBytes: 32_768,
-  maxTokens: 8_192,
+  maxFiles: 12,
+  maxBytes: 49_152,
+  maxTokens: 12_288,
 });
 const MAX_BUDGET = Object.freeze({
   maxFiles: 16,
@@ -19,14 +20,14 @@ const MAX_BUDGET = Object.freeze({
   maxTokens: 16_384,
 });
 
-function fail(message, code = 'M3_SPECIALIST_PROJECT_CONTEXT_INVALID') {
+function fail(message, code = 'M3_AGENT_PROJECT_CONTEXT_INVALID') {
   throw Object.assign(new Error(message), { code });
 }
 
 function boundedInteger(value, fallback, maximum, label) {
   const resolved = value ?? fallback;
   if (!Number.isSafeInteger(resolved) || resolved < 1 || resolved > maximum) {
-    fail(`${label} is outside the specialist ProjectContext budget`);
+    fail(`${label} is outside the agent ProjectContext budget`);
   }
   return resolved;
 }
@@ -34,61 +35,70 @@ function boundedInteger(value, fallback, maximum, label) {
 function requestId(state, query) {
   const digest = createHash('sha256').update(JSON.stringify({
     extensionId: state.extensionId,
-    toolId: state.toolId,
-    conversationId: state.conversationId,
-    userMessageId: state.userMessageId,
+    agentId: state.agentId,
+    runId: state.runId,
     projectId: state.projectId,
-    queryText: query.queryText,
-    maxFiles: query.maxFiles,
-    maxBytes: query.maxBytes,
-    maxTokens: query.maxTokens,
+    query,
   })).digest('hex');
-  return `spctx:${digest}`;
+  return `agctx:${digest}`;
 }
 
 /**
- * A capability with split authority:
- * - only core receives `host.openInvocation()`;
- * - extensions receive `capability.query()` and an opaque per-turn token.
- *
- * An extension therefore cannot name another project or invent ambient path
- * authority. ProjectContext still re-resolves the registered root and checks
- * the workspace revision before and after retrieval.
+ * Split authority for autonomous agent reads. Only the host can bind a token
+ * to a durable agent run and an active project registry row. Extension data
+ * receives only the one-shot query capability and can neither nominate a path
+ * nor retain ambient read authority across runs.
  */
-export function createSpecialistProjectContextBridge({ provider = defaultProvider } = {}) {
+export function createAgentProjectContextBridge({
+  provider = defaultProvider,
+  projects,
+  realpath = defaultRealpath,
+} = {}) {
   if (
     !provider
     || typeof provider.observeWorkspaceRevision !== 'function'
     || typeof provider.queryProjectContext !== 'function'
   ) fail('A complete ProjectContext provider is required');
+  if (typeof projects?.findById?.get !== 'function') {
+    fail('The active project registry is required');
+  }
+  if (typeof realpath !== 'function') fail('A canonical root resolver is required');
 
   const invocations = new WeakMap();
 
   const host = Object.freeze({
-    openInvocation({ extensionId, toolId, project, conversationId, userMessageId, signal = null } = {}) {
-      const projectId = Number(project?.id);
+    async openInvocation({ extensionId, agentId, runId, projectId, signal = null } = {}) {
+      const numericProjectId = Number(projectId);
       if (
         typeof extensionId !== 'string'
-        || typeof toolId !== 'string'
-        || !Number.isSafeInteger(projectId)
-        || projectId <= 0
-        || typeof project?.path !== 'string'
-        || project.path.length === 0
-        || !conversationId
-        || !Number.isSafeInteger(Number(userMessageId))
-        || Number(userMessageId) <= 0
+        || extensionId.length === 0
+        || typeof agentId !== 'string'
+        || agentId.length === 0
+        || !Number.isSafeInteger(Number(runId))
+        || Number(runId) <= 0
+        || !Number.isSafeInteger(numericProjectId)
+        || numericProjectId <= 0
       ) fail(
-        'Specialist ProjectContext requires an exact extension, tool, persisted turn and active project',
-        'M3_SPECIALIST_PROJECT_CONTEXT_REQUIRED',
+        'Agent ProjectContext requires an exact extension, agent, run and project',
+        'M3_AGENT_PROJECT_CONTEXT_REQUIRED',
       );
+      const project = projects.findById.get(numericProjectId);
+      if (!project || project.status !== 'active' || typeof project.path !== 'string') {
+        fail('Agent ProjectContext project is not active', 'M3_AGENT_PROJECT_CONTEXT_REQUIRED');
+      }
+      let canonicalRoot;
+      try {
+        canonicalRoot = await realpath(project.path);
+      } catch {
+        fail('Agent ProjectContext project root is unavailable', 'M3_AGENT_PROJECT_CONTEXT_REQUIRED');
+      }
       const token = Object.freeze(Object.create(null));
       invocations.set(token, Object.freeze({
         extensionId,
-        toolId,
-        projectId,
-        canonicalRoot: project.path,
-        conversationId: String(conversationId),
-        userMessageId: Number(userMessageId),
+        agentId,
+        runId: Number(runId),
+        projectId: numericProjectId,
+        canonicalRoot,
         signal,
       }));
       return token;
@@ -104,11 +114,9 @@ export function createSpecialistProjectContextBridge({ provider = defaultProvide
     async query(invocation, options = {}) {
       const state = invocations.get(invocation);
       if (!state) fail(
-        'ProjectContext invocation is not owned by the specialist host',
-        'M3_SPECIALIST_PROJECT_CONTEXT_AUTHORITY_REQUIRED',
+        'ProjectContext invocation is not owned by the agent host',
+        'M3_AGENT_PROJECT_CONTEXT_AUTHORITY_REQUIRED',
       );
-      // A persisted-turn capability is deliberately one-shot. Package code
-      // cannot retain it and replay a later read after core returned control.
       invocations.delete(invocation);
       const allowed = new Set(['queryText', 'maxFiles', 'maxBytes', 'maxTokens']);
       if (!options || typeof options !== 'object' || Array.isArray(options)
@@ -128,7 +136,7 @@ export function createSpecialistProjectContextBridge({ provider = defaultProvide
       const observation = await provider.observeWorkspaceRevision({
         projectId: state.projectId,
         canonicalRoot: state.canonicalRoot,
-      }, invocationContext);
+      }, invocationContext, { projects });
       return provider.queryProjectContext({
         contract: PROJECT_CONTEXT_KIND.QUERY,
         version: PROJECT_CONTEXT_CONTRACT_VERSION,
@@ -137,13 +145,11 @@ export function createSpecialistProjectContextBridge({ provider = defaultProvide
         canonicalRoot: observation.canonicalRoot,
         workspaceRevision: observation.workspaceRevision,
         ...query,
-      }, invocationContext);
+      }, invocationContext, { projects });
     },
   });
 
   return Object.freeze({ host, capability });
 }
 
-export const specialistProjectContextBridge = createSpecialistProjectContextBridge();
-
-export default specialistProjectContextBridge;
+export default createAgentProjectContextBridge;

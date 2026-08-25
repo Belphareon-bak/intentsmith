@@ -46,7 +46,8 @@ import('./planner/lifecycle-build.js').then(m => m.setNotificationEmitter(notifi
 logger.info('Server', `Notification system initialized (channels: ${notificationRouter.getAvailableChannels().join(', ')})`);
 
 // ─── Optional: Agent Platform v33 (Phase B) ─────────────────────────────────
-let AgentRepository, AgentScheduler, AgentRunner, createAgentRoutes, LLMServices;
+let AgentRepository, AgentScheduler, AgentRunner, AgentExtensionService;
+let createAgentRoutes, createAgentProjectContextBridge, LLMServices, agentProjectContextCapabilityId;
 if (config.features.agents !== false) {
   try {
     const repo = await import('./agents/repository.js');
@@ -54,6 +55,11 @@ if (config.features.agents !== false) {
     repo.initAgentTables(db.db);
     AgentScheduler = (await import('./agents/scheduler.js')).AgentScheduler;
     AgentRunner = (await import('./agents/runner.js')).AgentRunner;
+    AgentExtensionService = (await import('./extensions/agent-extension-service.js')).AgentExtensionService;
+    createAgentProjectContextBridge = (await import('./extensions/agent-project-context.js')).createAgentProjectContextBridge;
+    agentProjectContextCapabilityId = (
+      await import('../contracts/m3/extension-v1.js')
+    ).EXTENSION_HOST_CAPABILITY.PROJECT_CONTEXT;
     createAgentRoutes = (await import('./agents/api.js')).createAgentRoutes;
     LLMServices = (await import('./agents/llm-services.js')).LLMServices;
     logger.info('Server', 'Agent platform loaded (Phase B)');
@@ -568,6 +574,7 @@ let agentRepository = null;
 let agentRunner = null;
 let agentScheduler = null;
 let agentRoutes = null;
+let agentExtensionService = null;
 
 if (AgentRepository) {
   agentLLMClient = {
@@ -596,8 +603,24 @@ if (AgentRepository) {
 
   agentRepository = new AgentRepository(db.db);
   const llmServices = new LLMServices({ llmClient: agentLLMClient });
-  agentRunner = new AgentRunner({ repository: agentRepository, llmServices, notificationRouter, notificationPipeline });
+  const agentProjectContextBridge = createAgentProjectContextBridge({ projects: db.projects });
+  agentExtensionService = new AgentExtensionService({
+    repository: agentRepository,
+    hostCapabilities: {
+      [agentProjectContextCapabilityId]: agentProjectContextBridge.capability,
+    },
+  });
+  agentExtensionService.discover();
+  agentRunner = new AgentRunner({
+    repository: agentRepository,
+    llmServices,
+    notificationRouter,
+    notificationPipeline,
+    extensionService: agentExtensionService,
+    projectContextBridge: agentProjectContextBridge,
+  });
   agentScheduler = new AgentScheduler({ repository: agentRepository, runner: agentRunner });
+  agentExtensionService.attachScheduler(agentScheduler);
   agentRoutes = createAgentRoutes({
     repository: agentRepository,
     scheduler: agentScheduler,
@@ -866,7 +889,7 @@ const routeDeps = {
   ChatController, expertiseLayer, expertiseStore, expertiseExtensionService,
   callWithAuth, createAuthToken, LLMCallerRole,
   getArchitectSession, setArchitectSession, getArchitectUIHTML,
-  createMockResponse, agentRoutes, agentRunner,
+  createMockResponse, agentRoutes, agentRunner, agentExtensionService,
   checkWizardRateLimit,
   specialistLoader, specialistRuntime, specialistTelemetry,
   notificationRouter, notificationEmitter,
@@ -995,7 +1018,7 @@ if (!agentRoutes) {
     error: 'Agent platform not available (C3_ENABLE_AGENTS=false)'
   });
   for (const key of Object.keys(routes)) {
-    if (key.includes('/api/agents') || key === 'GET /agents' ||
+    if (key.includes('/api/agents') || key.includes('/api/agent-extensions') || key === 'GET /agents' ||
         key.includes('/api/sources/') || key.includes('/api/notifications') ||
         key.includes('/api/scheduler')) {
       routes[key] = notAvailable;

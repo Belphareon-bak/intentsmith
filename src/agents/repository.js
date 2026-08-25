@@ -283,7 +283,7 @@ export class AgentRepository {
     return this.db.prepare(`
       SELECT * FROM agent_runs_v33 
       WHERE agent_id = ? 
-      ORDER BY started_at DESC 
+      ORDER BY started_at DESC, id DESC
       LIMIT ?
     `).all(agentId, limit).map(r => ({
       ...r,
@@ -296,7 +296,7 @@ export class AgentRepository {
     const row = this.db.prepare(`
       SELECT * FROM agent_runs_v33 
       WHERE agent_id = ? 
-      ORDER BY started_at DESC 
+      ORDER BY started_at DESC, id DESC
       LIMIT 1
     `).get(agentId);
     
