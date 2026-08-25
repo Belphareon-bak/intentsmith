@@ -1,10 +1,14 @@
 # M2 pinned closeout candidate — 2026-08-25
 
-- **Stav:** `IMPLEMENTATION_GREEN / PINNED_V1 / OPERATOR_REVIEW_PENDING`
+- **Stav:** `PINNED_V1 / 7 OF 7 REVIEW_PASSED / CLOSEOUT_PENDING`
 - **Větev:** `codex/m2-integration-20260824`
 - **Product revision:** `c070ed7383e522fb58b53a799cbbc0e16c4b09a7`
 - **Push:** neproveden
 - **Acceptance authority:** Decision 030 a operátorské review 7/7
+
+Finální operátorský verdict nad product targetem je `7/7 REVIEW_PASSED` bez
+blockeru. Čtyři neblokující nálezy jsou zachované ve Finding 012 a nemění
+revidované product bajty. Tento report čeká už jen na integrační closeout níže.
 
 Tento report dokládá připnutý M2 kandidát. Není to M2 acceptance ani tvrzení,
 že celý deterministic gate prošel. Gate má pravdivě `verdict: FAIL` a
@@ -120,8 +124,9 @@ Samostatně prošly:
   kompenzátor;
 - RemoteCorePort je pouze contract/unavailable provider. Listener, pairing,
   autentizace, device authority a remote runtime nejsou M2;
-- M2 acceptance čeká na sedm operátorských `REVIEW_PASSED` a integrační
-  closeout. Mechanické připnutí ani focused green nejsou review PASS.
+- Sedm operátorských `REVIEW_PASSED` je splněno; M2 acceptance čeká pouze na
+  integrační closeout. Mechanické připnutí ani focused green samy review PASS
+  nenahrazovaly.
 
 GPU, Ollama, síťové modelové běhy, coworkerovy procesy a cizí checkouty nebyly
 pro tento closeout použity ani změněny.

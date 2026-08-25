@@ -1,7 +1,7 @@
 # 001 — M2 effect authority gaps
 
 - **Zdroj:** read-only stopa `P1 M2-EFFECT-TRACE`
-- **Stav:** `OPEN / CONTAINMENT SLICE REVIEW_PASSED / N1-N6 CANDIDATE_CLOSED UNREVIEWED`
+- **Stav:** `CLOSED FOR M2 / FINAL OPERATOR REVIEW_PASSED`
 - **Primární vlastník:** `WP-M2-EFFECT`
 - **Vstupní inventura:** `docs/inventory/22-effect-authority-trace.md`
 
@@ -10,6 +10,12 @@ je dnes vzdáleně dosažitelná. Odděluje aktivní produkční call graph od
 neintegrovaného dluhu registru nástrojů. Vstupní P1 stopa sama nic neopravovala;
 kandidátní disposition jednotlivých položek se od zahájení M2 zapisuje níže a
 nesmí se zaměnit za přijetí M2.
+
+**Closeout 2026-08-25:** historické mezistavy `CANDIDATE_CLOSED / UNREVIEWED`
+níže byly supersedovány finálním operátorským review přesných product bajtů
+`c070ed73`, které vrátilo `7/7 REVIEW_PASSED` bez blockeru. Čtyři nové
+neblokující follow-upy vlastní Finding 012. Historická chronologie zůstává
+nezměněná pro audit.
 
 ## Souhrn
 

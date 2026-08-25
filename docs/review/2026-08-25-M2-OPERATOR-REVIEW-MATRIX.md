@@ -1,6 +1,6 @@
 # M2 — finální operátorská review matice
 
-- **Stav:** `7 PINNED_V1 / 0 OF 7 OPERATOR_REVIEW_PASSED`
+- **Stav:** `7 PINNED_V1 / 7 OF 7 OPERATOR_REVIEW_PASSED`
 - **Větev:** `codex/m2-integration-20260824`
 - **Přesný product target:** `c070ed7383e522fb58b53a799cbbc0e16c4b09a7`
 - **Clean evidence gate revision:** `22f2fb6f228dea34ab0a6a698ef11582b6133c3b`
@@ -35,13 +35,13 @@ nejsou review PASS.
 
 | # | Řez | Historická provenance | Finální stav |
 |---:|---|---|---|
-| 1 | project-path authority | `44a9ba87..7dc6a807` + pozdější hardening | `OPERATOR_REVIEW_PENDING` |
-| 2 | effect/approval authority | `33cf221c..fa437d02` + migrace 080–083/hardening | `OPERATOR_REVIEW_PENDING` |
-| 3 | ProjectContext | `44a9ba87..5e19b825` + integrační spotřebitelé | `OPERATOR_REVIEW_PENDING` |
-| 4 | ToolRequest/ToolResult | `fa437d02..a35805ee` + pozdější terminal fixes | `OPERATOR_REVIEW_PENDING` |
-| 5 | durable project execution | `a35805ee..da8698ff` + tři review hardening kola | `OPERATOR_REVIEW_PENDING` |
-| 6 | lifecycle/governance journey | `da8698ff..cb9058b4` + cross-section fixes | `OPERATOR_REVIEW_PENDING` |
-| 7 | RemoteCorePort contract-only | `cb9058b4..d034df62` + final pin | `OPERATOR_REVIEW_PENDING` |
+| 1 | project-path authority | `44a9ba87..7dc6a807` + pozdější hardening | `REVIEW_PASSED` |
+| 2 | effect/approval authority | `33cf221c..fa437d02` + migrace 080–083/hardening | `REVIEW_PASSED` |
+| 3 | ProjectContext | `44a9ba87..5e19b825` + integrační spotřebitelé | `REVIEW_PASSED` |
+| 4 | ToolRequest/ToolResult | `fa437d02..a35805ee` + pozdější terminal fixes | `REVIEW_PASSED` |
+| 5 | durable project execution | `a35805ee..da8698ff` + tři review hardening kola | `REVIEW_PASSED` |
+| 6 | lifecycle/governance journey | `da8698ff..cb9058b4` + cross-section fixes | `REVIEW_PASSED` |
+| 7 | RemoteCorePort contract-only | `cb9058b4..d034df62` + final pin | `REVIEW_PASSED` |
 
 ## 1. Project-path authority
 
@@ -219,6 +219,10 @@ node tests/routes-smoke.test.js
 ```
 
 ## Integrační closeout po 7/7
+
+Operátorský verdict je zaznamenaný v
+`2026-08-25-M2-OPERATOR-FINAL-REVIEW.md`. Review gate je splněný; následující
+body jsou poslední integrační podmínky před M2 acceptance.
 
 Po sedmi `REVIEW_PASSED` se ještě ověří:
 
