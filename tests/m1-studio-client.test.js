@@ -2192,8 +2192,8 @@ await testAsync('owned loopback carries three Studio panels over the negotiated 
     );
 
     durableDb = new Database(process.env.C3_DB_PATH);
-    durableDb.exec('CREATE TABLE conversations (id TEXT PRIMARY KEY)');
-    const insertConversation = durableDb.prepare('INSERT INTO conversations (id) VALUES (?)');
+    durableDb.exec('CREATE TABLE IF NOT EXISTS conversations (id TEXT PRIMARY KEY)');
+    const insertConversation = durableDb.prepare('INSERT OR IGNORE INTO conversations (id) VALUES (?)');
     for (const pane of panes) insertConversation.run(pane._convId);
     const findConversation = durableDb.prepare('SELECT id FROM conversations WHERE id = ?');
     resetConversationStore();

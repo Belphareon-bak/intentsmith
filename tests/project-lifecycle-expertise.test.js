@@ -346,7 +346,7 @@ import { scaffoldProject } from './tools/scaffold-project.js';
 import { recommendLibraries } from './tools/recommend-libs.js';
 
 export function register(ctx) {
-  const { runtime } = ctx;
+  const runtime = ctx.requireCapability('specialist.runtime.v1');
 
   runtime.registerSpecialist({
     id: 'mobile-dev',
@@ -427,38 +427,42 @@ export function register(ctx) {
 }
 
 export function unregister(ctx) {
-  const { runtime } = ctx;
+  const runtime = ctx.requireCapability('specialist.runtime.v1');
   if (typeof runtime.unregisterSpecialist === 'function') {
     runtime.unregisterSpecialist('mobile-dev');
   }
 }
 `,
-    'mobile-dev/tests/manifest-smoke.test.js': `import fs from 'node:fs';
+    'mobile-dev/tests/manifest-smoke.test.js': `import manifest from '../specialist.json' with { type: 'json' };
 import * as entry from '../index.js';
+import { detectFrameworks } from '../tools/detect-frameworks.js';
+import { scaffoldProject } from '../tools/scaffold-project.js';
+import { recommendLibraries } from '../tools/recommend-libs.js';
 
-const manifest = JSON.parse(
-  fs.readFileSync(new URL('../specialist.json', import.meta.url), 'utf8')
-);
 if (manifest.id !== 'mobile-dev' || manifest.tools?.length !== 3) {
   throw new Error('Manifest identity or tool declarations are invalid');
 }
 if (typeof entry.register !== 'function' || typeof entry.unregister !== 'function') {
   throw new Error('Entry point must export register and unregister');
 }
+const declaredFunctions = { detectFrameworks, scaffoldProject, recommendLibraries };
 for (const tool of manifest.tools) {
-  const moduleUrl = new URL(\`../\${tool.module.replace(/^\\.\\//, '')}\`, import.meta.url);
-  const toolModule = await import(moduleUrl);
-  if (typeof toolModule[tool.function] !== 'function') {
+  if (typeof declaredFunctions[tool.function] !== 'function') {
     throw new Error(\`Missing declared export \${tool.function} in \${tool.module}\`);
   }
 }
 
 let registered;
 entry.register({
-  runtime: {
-    registerSpecialist(value) {
-      registered = value;
-    },
+  requireCapability(capability) {
+    if (capability !== 'specialist.runtime.v1') {
+      throw new Error(\`Unexpected capability: \${capability}\`);
+    }
+    return {
+      registerSpecialist(value) {
+        registered = value;
+      },
+    };
   },
 });
 if (registered?.id !== manifest.id || registered.tools?.length !== manifest.tools.length) {
@@ -467,10 +471,15 @@ if (registered?.id !== manifest.id || registered.tools?.length !== manifest.tool
 
 let unregistered;
 entry.unregister({
-  runtime: {
-    unregisterSpecialist(id) {
-      unregistered = id;
-    },
+  requireCapability(capability) {
+    if (capability !== 'specialist.runtime.v1') {
+      throw new Error(\`Unexpected capability: \${capability}\`);
+    }
+    return {
+      unregisterSpecialist(id) {
+        unregistered = id;
+      },
+    };
   },
 });
 if (unregistered !== manifest.id) {
@@ -610,10 +619,15 @@ import { register } from '../index.js';
 
 let specialist;
 register({
-  runtime: {
-    registerSpecialist(value) {
-      specialist = value;
-    },
+  requireCapability(capability) {
+    if (capability !== 'specialist.runtime.v1') {
+      throw new Error(\`Unexpected capability: \${capability}\`);
+    }
+    return {
+      registerSpecialist(value) {
+        specialist = value;
+      },
+    };
   },
 });
 

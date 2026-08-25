@@ -24,10 +24,17 @@ import {
   _testInternals,
 } from '../src/expertises/auto-select.js';
 import { validateExpertiseConfig } from '../src/expertises/expertise-store.js';
+import { ToolAdapter } from '../src/expertises/tool-adapter.js';
+import {
+  EXTENSION_HOST_CAPABILITY,
+  canonicalizeLegacySpecialistManifest,
+  createExtensionContextV1,
+} from '../contracts/m3/extension-v1.js';
 import {
   register as registerAccountant,
   unregister as unregisterAccountant,
 } from '../specialists/accountant-cz/index.js';
+import accountantManifestJson from '../specialists/accountant-cz/specialist.json' with { type: 'json' };
 
 const { _sharedTerms, _getAllExpertises } = _testInternals;
 
@@ -286,18 +293,22 @@ test('custom vocab term overlapping with built-in → shared', () => {
 section('8. Regression — registered auto-select unchanged (3 tests)');
 
 const accountantRuntimeEntries = new Map();
-const accountantContext = {
-  runtime: {
-    registerSpecialist: specialist => accountantRuntimeEntries.set(specialist.id, specialist),
-    unregisterSpecialist: id => accountantRuntimeEntries.delete(id),
+const accountantManifest = canonicalizeLegacySpecialistManifest(accountantManifestJson);
+const accountantContext = createExtensionContextV1({
+  manifest: accountantManifest,
+  hostCapabilities: {
+    [EXTENSION_HOST_CAPABILITY.SPECIALIST_RUNTIME]: {
+      registerSpecialist: specialist => accountantRuntimeEntries.set(specialist.id, specialist),
+      unregisterSpecialist: id => accountantRuntimeEntries.delete(id),
+    },
+    [EXTENSION_HOST_CAPABILITY.TOOL_ADAPTER]: ToolAdapter,
+    [EXTENSION_HOST_CAPABILITY.EXPERTISE_REGISTRY]: expertiseRegistry,
+    [EXTENSION_HOST_CAPABILITY.AUTO_SELECT_REGISTRY]: {
+      registerBoostPatterns,
+      unregisterBoostPatterns,
+    },
   },
-  manifest: null,
-  logger: { warn: () => {} },
-  registries: {
-    expertise: expertiseRegistry,
-    autoSelect: { registerBoostPatterns, unregisterBoostPatterns },
-  },
-};
+});
 await registerAccountant(accountantContext);
 recomputeSharedTerms();
 

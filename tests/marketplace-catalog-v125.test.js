@@ -16,6 +16,12 @@ import { suite, test, testAsync, assert, assertEqual, assertIncludes, summary } 
 import { readFileSync, readdirSync } from 'fs';
 import { join, basename, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import {
+  EXTENSION_KIND,
+  canonicalizeExtensionManifestV1,
+  canonicalizeLegacySpecialistManifest,
+  legacySpecialistManifestView,
+} from '../contracts/m3/extension-v1.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -787,7 +793,11 @@ suite('Specialist manifests — structure');
 const SPECIALISTS = ['sazeni', 'code-reviewer'];
 
 for (const specId of SPECIALISTS) {
-  const manifest = readJson(`specialists/${specId}/specialist.json`);
+  const rawManifest = readJson(`specialists/${specId}/specialist.json`);
+  const extensionManifest = rawManifest.contract === 'ExtensionManifest'
+    ? canonicalizeExtensionManifestV1(rawManifest, EXTENSION_KIND.SPECIALIST)
+    : canonicalizeLegacySpecialistManifest(rawManifest);
+  const manifest = legacySpecialistManifestView(extensionManifest);
 
   test(`${specId}: manifest has required fields`, () => {
     assert(manifest.id, 'missing id');
