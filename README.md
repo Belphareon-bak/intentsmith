@@ -7,12 +7,11 @@ a současný autoritativní C3 Studio runtime už neobsahuje implicitní Google 
 egress. Spouštěné Studio UI je stále přechodný runtime, nikoli finální vzhled
 IntentSmithu.
 
-**Verze:** 136.1.0 | **428 registrovaných testovacích programů**
-(`331 ACTIVE`, `81 BLOCKED`, `0 KNOWN_DEFECTIVE`, `16 HISTORICAL`)
+**Verze:** 136.1.0 | **437 registrovaných testovacích programů**
+(`340 ACTIVE`, `81 BLOCKED`, `0 KNOWN_DEFECTIVE`, `16 HISTORICAL`)
 
-> **Stav: aktivní vývoj; M1 lokální runtime páteř je `ACCEPTED/PASS`.** Sedm z
-> 22 schopností je v `ACCEPTED/PASS`; M2 řízená práce nad projektem je ve vývoji
-> a zatím není přijata.
+> **Stav: aktivní vývoj; M1 a M2 jsou přijaté.** M3 modulární platforma má
+> implementation-green řezy a čeká na sjednocený closeout a operátorské review.
 > Registry řádek sám není akceptační důkaz.
 > Gate 0 a historická convergence evidence se používají až nad zmraženým
 > release kandidátem. Aktuální autorita: [PRODUCT.md](PRODUCT.md),
@@ -319,14 +318,14 @@ intentsmith/
 │   ├── report-gen.json           #   Generování reportů
 │   └── summarizer.json           #   Sumarizace textu
 │
-├── tests/                        # Testy a kanonický registr 428 programů
+├── tests/                        # Testy a kanonický registr 437 programů
 │   ├── harness.js                #   Custom ESM test harness
 │   ├── cre-*.test.js             #   CRE testy (401+)
 │   ├── lifecycle-*.test.js       #   Lifecycle testy (103+)
 │   ├── code-intel-*.test.js      #   Code Intelligence testy (339+)
 │   ├── execution-loop.test.js    #   Execution Engine testy (597+)
 │   ├── upgrade-*.test.js         #   Model Upgrade testy
-│   └── registry.json             #   Kanonický registr 428 programů
+│   └── registry.json             #   Kanonický registr 437 programů
 │
 ├── docs/                         # Aktivní dokumentace + archiv
 │   ├── ARCHITECTURE.md           #   Kompletní architektura

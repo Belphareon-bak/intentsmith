@@ -133,19 +133,19 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 | | |
 |---|---:|
-| `src/**/*.js` | **187 816 ř.**, 487 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **206 712 ř.**, 429 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **428** (`331 ACTIVE`, `81 BLOCKED`, `16 HISTORICAL`) |
+| `src/**/*.js` | **190 374 ř.**, 494 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **208 735 ř.**, 438 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **437** (`340 ACTIVE`, `81 BLOCKED`, `16 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **145 / 73** |
 | HTTP rout | ~230 |
 | **Schopností v `ACCEPTED/PASS`** | **1 z 22** (#2 CRE); #1 server/routing/DB je zatím `RUNTIME_VERIFIED` — jeho suite má 13 interních checků, zatímco behavior dokument obsahuje 16 řádků, takže tvrzení „13/13 chování“ není platný akceptační součet |
 
 Aktuální registry fingerprint je
-`54dce9be3a18ef854097c5919d1471e53f38bf6ef0e828ecc5ff0438f9e302d2`.
+`72bc64e6a6d8710ffd718ccb419b5106aa2637ae108eb92a8cef7442fa18bc97`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 
-Tool census ze zdroje: **9 JavaScript soubory, 8 659 řádků, 153 top-level
+Tool census ze zdroje: **9 JavaScript soubory, 8 664 řádků, 153 top-level
 nástrojových deklarací**. Počet 213 v dřívější inventuře byl textový false count.
 
 ---
