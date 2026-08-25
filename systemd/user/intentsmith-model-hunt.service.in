@@ -1,6 +1,6 @@
 [Unit]
 Description=IntentSmith safe local model scoring hunt
-Documentation=file:@PROJECT_ROOT@/docs/MODEL-UPGRADE-PROTOTYPE-v136.1.md
+Documentation=file:@PROJECT_ROOT@/docs/MODEL-UPGRADE-HUNT.md
 After=ollama.service
 
 [Service]

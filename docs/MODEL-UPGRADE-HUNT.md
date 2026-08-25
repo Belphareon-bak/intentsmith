@@ -48,3 +48,21 @@ Tento režim nevolá vzdálené discovery, nepřidá do fronty nenainstalovaný 
 a znovu změří i dřívější VRAM blokace, aby se pod aktuálními suite kontrakty
 zapsal čerstvý `CANDIDATE_VRAM_FIT_FAILED`. Model s CPU offloadem nepokračuje
 do capability ani quality sad. Režim nic neaktivuje ani nemaže.
+
+## Plánovaný hunt
+
+User timer používá šablony
+`systemd/user/intentsmith-model-hunt.service.in` a
+`systemd/user/intentsmith-model-hunt.timer.in`. Instalovaná service musí mířit
+na tento checkout a na jedinou aktuální cestu:
+
+```text
+scripts/model-upgrade-hunt.js --run --limit=2 --keep-inconclusive --scheduled
+```
+
+Před opětovným spuštěním timeru po změně scoring kontraktů se musí shodovat
+`WorkingDirectory`, cesta skriptu a tento dokument. `--scheduled` vyžaduje
+prázdný sdílený GPU slot a dostatečnou diskovou rezervu. Každý stažený artefakt
+se změří při produkčním contextu; nenulový CPU placement zapíše pouze terminal
+`BLOCKED/CANDIDATE_VRAM_FIT_FAILED` a nepustí model do quality sad. Timer nikdy
+nemění binding a bez explicitního `--allow-removal` model nemaže.
