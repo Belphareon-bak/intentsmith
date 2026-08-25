@@ -47,9 +47,10 @@ Pět nových modulových hran je přijato jednotlivě proti přesným párům; p
 cyklů ani cyclic membership nevzrostly. Baseline připíná výhradně product
 revision výše.
 
-Celý deterministic gate ani M3 closeout v tomto řezu spuštěné nejsou. Stav je
-proto pouze `IMPLEMENTATION_GREEN / REVIEW_PENDING`, nikoli `PASS` celého
-milníku.
+Samotný řez tehdy celý gate nespouštěl. Pozdější sjednocený closeout na
+`ad23c278` proběhl bez nové M3 regrese a je popsán v
+`m3-closeout-20260826.md`; operátorské review stále čeká, takže nejde o `PASS`
+celého milníku.
 
 ## Provozní hranice
 

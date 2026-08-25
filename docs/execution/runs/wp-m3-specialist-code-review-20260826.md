@@ -2,7 +2,7 @@
 
 - **Stav:** `IMPLEMENTATION_GREEN / REVIEW_PENDING`
 - **Product revisions:** `f35391a320cd98e077a0cb7e587a78297dc3ea1e`,
-  `5135a09a8ecfeebbc359d4aeb9707084a2c38556`
+  `5135a09a8ecfeebbc359d4aeb9707084a2c38556`, `52cc0d76`, `b278a0ab`
 - **Větev:** `codex/m3-integration-20260825`
 - **Push:** neproveden
 - **Review:** záměrně odloženo do společného operátorského review M3
@@ -39,25 +39,25 @@ cleanup čeká na skutečný exit child procesu místo kontroly `child.killed`.
 | Důkaz | Výsledek |
 |---|---|
 | `tests/m3-code-review-specialist.test.js` | 4/4 PASS |
-| `tests/e2e/84-m3-code-review-specialist.e2e.js` | 4/4 PASS |
+| `tests/e2e/84-m3-code-review-specialist.e2e.js` | 5/5 PASS |
 | `tests/e2e/04-projects.e2e.js` | 13/13 PASS |
 | `tests/specialist-runtime.test.js` | 23/23 PASS |
-| `tests/specialist-loader.test.js` | 277/277 PASS |
+| `tests/specialist-loader.test.js` | 294/294 PASS |
 | `tests/specialist-handler.test.js` | 20/20 PASS |
 | `tests/session-context.test.js` | 66/66 PASS |
 | `tests/m2-project-context-retrieval.test.js` | 9/9 PASS |
 | `tests/m3-extension-contract-v1.test.js` | 14/14 PASS |
-| `tests/specialist-boundary-ratchet.test.js` | 11/11 PASS |
+| `tests/specialist-boundary-ratchet.test.js` | 12/12 PASS |
 | `tests/routing-accuracy.test.js` | recall 8/8, precision 6/6, tool accuracy 8/8; exit 0 |
 | `tests/harness-exit-code.test.js` | PASS; 114 DB-reachable root tests protected, mutation rejected |
 | `tests/module-boundary-ratchet.test.js` | 13/13 PASS |
-| registry validace | 435 programů, `c0ba7525f6d65bfc52db1804b99068a6981111c5c5e8b9876c22daac8aaff0c4` |
-| module graph | 1 143 hran, 3 cykly / 28 souborů v cyklech |
+| registry validace | 437 programů, `72bc64e6a6d8710ffd718ccb419b5106aa2637ae108eb92a8cef7442fa18bc97` |
+| module graph | 1 148 hran, 3 cykly / 28 souborů v cyklech |
 | `git diff --check` | PASS |
 
-Canonical non-gate server run `2026-08-25T22-18-28-912Z` skončil 2/2 suites
-PASS a 17/17 steps PASS na source revision `5135a09a...`. Report sám pravdivě
-nese `gateEvidence: false`; není vydáván za Gate 0 ani za celý M3 gate.
+Aktuální společný non-gate server run `2026-08-25T23-08-49-411Z` zahrnul tuto
+sadu a skončil 5/5 suites, 32/32 steps PASS na source `ad23c278...`. Report
+pravdivě nese `gateEvidence: false`; není vydáván za Gate 0.
 
 Dvě nové modulové hrany byly přijaty jednotlivě proti přesným párům:
 
@@ -81,8 +81,11 @@ explicitně znovu přezkoumán a připnut na 114.
   nebyl žádný z těchto prostředků použit.
 - Analyzer pracuje pouze nad bounded snippet snapshotem a není náhradou plného
   compiler/AST review; tuto hranici říká i uživatelský výstup.
-- Disabled a neexistující/stale identita jsou fail-closed pokryté. Samostatná
-  destruktivní uninstall operace v tomto řezu přidána nebyla; lifecycle exit
-  `odebrat` proto zůstává položkou sjednoceného M3 closeoutu.
-- Celý deterministic gate ani M3 closeout v tomto řezu spuštěné nejsou. Stav je
-  proto pouze `IMPLEMENTATION_GREEN / REVIEW_PENDING`.
+- Disable, remove, stale identita i explicitní reinstall jsou fail-closed
+  pokryté. Durable tombstone brání samovolnému resurrection při discovery;
+  reinstall zůstane disabled do samostatného enable a busy operace se odmítne.
+- Rekurzivní scanner nyní odmítá i effectful builtin, third-party bare a známé
+  ambientní API. Je to statická supported-package hranice, ne hostile-code
+  runtime sandbox.
+- Sjednocený closeout je hotový, ale operátorské review stále čeká. Stav proto
+  zůstává `IMPLEMENTATION_GREEN / REVIEW_PENDING`.

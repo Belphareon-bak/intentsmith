@@ -133,8 +133,8 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 | | |
 |---|---:|
-| `src/**/*.js` | **190 374 ř.**, 494 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **208 735 ř.**, 438 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **190 668 ř.**, 494 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **208 995 ř.**, 438 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **437** (`340 ACTIVE`, `81 BLOCKED`, `16 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **145 / 73** |
 | HTTP rout | ~230 |
@@ -267,14 +267,12 @@ znění v [`CONTRACT.md`](CONTRACT.md) §2.
 5. QGv2 je deterministický a idempotentní, bez LLM
 6. Patch engine: 3-tier anchor, atomický zápis, plný rollback
 7. Execution loop: max 8 iterací
-8. Specialista neimportuje interní `src/**` — **aktuálně porušeno** jediným
-   vykonávaným importem `specialists/accountant-cz/adapters.js:12` →
-   `src/expertises/tool-adapter.js`; chybí fail-closed rekurzivní guard.
-   Změřeno 2026-08-07: existující guard (`specialist-loader.js:521-531`) čte
-   pouze `manifest.entry`, takže na všech 5 balíčcích vypíše **0 varování**,
-   zatímco porušení trvá. `ToolAdapter` má 0 importů a v `ctx` chybí. Oba
-   prototypy řešení postavené a spuštěné, výstup shodný s baseline —
-   `docs/review/2026-08-07-L0-8-BOUNDARY.md`
+8. Specialista neimportuje interní `src/**` — **M3 candidate splněno.**
+   `ToolAdapter` i registry poskytuje host jen jako deklarované capability.
+   Rekurzivní package scanner fail-closed odmítá interní, symlink/computed,
+   effectful builtin, third-party bare a známé ambient-effect cesty. Přesný
+   modulový ratchet má 1 148 hran, 3 cykly a 28 souborů v cyklech. Scanner je
+   statická extension hranice, nikoli hostile-code runtime sandbox.
 9. Model upgrade nikdy neupgraduje sám
 10. **Legacy listener nikdy neopustí loopback**
 11. Významný efekt zůstává pod přesnou uživatelskou authority — **UNVERIFIED
@@ -421,7 +419,7 @@ aktuální stav je samostatný řádek `Model failover opt-in surface`.
 | C3 Studio source/build | Operátor přijal funkční ručně udržovaný `lib` jako současný autoritativní runtime. Stale TS je historický archiv; package build/clean/watch ani starý v7 fix payload nesmějí runtime přepsat nebo smazat. Současný vzhled není finální UI kontrakt. |
 | C3 Studio current-HEAD runtime | **M1 ACCEPTED / B6 PASS:** produkční ACK `241b39ab` aktivoval exact `m1-wire-v1`; byte bridge je součástí shipped preloadu a postbuild guardu. Standalone fresh clone na `d518d7ec` prošel offline npm/Yarn instalací, produkčním Theia/Electron buildem a jednou B6 evidence envelope. Literal Studio renderer vedl deterministický i modelový turn přes skutečný server, izolovanou SQLite a exact lokální Ollamu; controlled wire backend reprodukoval 2 panely, success, provider error, ordered cancel a reconnect. Síťový census měl nula external/other-loopback/unsupported pokusů, všechny spinnery se vyčistily a Electron i backend skončily bez forced killu. Current UI je funkční M1 baseline, nikoli finální vizuální baseline. Důkaz: `docs/execution/runs/m1-b6-fresh-install-20260823.md`. |
 | `multi-source-external.test.js` | Explicitní public-service smoke; není deterministická offline evidence |
-| L0-8 specialist boundary | Potvrzeně porušený. **Rozhodnuto 2026-08-09, potvrzeno 2026-08-21: varianta A, strict injection** (`docs/decisions/019`); implementace neproběhla, nese ji `WP-M3-L0-8-INJECTION` a vynucení `WP-M3-L0-8-ENFORCEMENT`. **Evidence pro `§14` je od 2026-08-07 kompletní** — import graph, oba prototypy postavené a spuštěné, srovnávací tabulka. Vedle toho zjištěno, že 5 nástrojů existuje dvakrát bajtově identicky a core kopie `src/expertises/tools/**` nemá v `src/**` konzumenta |
+| L0-8 specialist boundary | **M3 CANDIDATE_COMPLETE / REVIEW_PENDING.** Rozhodnutí 019/A je implementované jako strict capability injection, `ExtensionManifest/Context` a rekurzivní fail-closed scanner všech package JS souborů. Účetní specialista už neimportuje interní ToolAdapter; package boundary odmítá interní, computed, effectful builtin, third-party bare a známé ambient-effect cesty. Focused scanner je 12/12 PASS, ale nejde o hostile-code runtime sandbox. Vedle toho zůstává starší zjištění, že 5 nástrojů existuje dvakrát bajtově identicky a core kopie `src/expertises/tools/**` nemá v `src/**` konzumenta. |
 | `src/expertises/tools/**` bez konzumenta | Runtime cesta vede přes kopii v balíčku specialisty; core kopii drží naživu jen testy. Disposition `RETAIN`/`RETIRE` nerozhodnuta |
 | Self-learning | PatternTracker má produkční zápisy, ale `getRelevantPatterns()` nemá produkčního volajícího; `pattern-miner.js` nemá produkční import a cross-project learner nemá prokázanou smyčku. M4 vyžaduje jeden uzavřený same-project E2E. |
 | Lineární matching rout, regex per request | Naměřeno 0,87 ms — vědomě ponecháno |

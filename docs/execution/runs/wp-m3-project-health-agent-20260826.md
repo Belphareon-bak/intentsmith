@@ -1,7 +1,7 @@
 # WP-M3-AGENT — governed local project-health journey
 
 - **Stav:** `IMPLEMENTATION_GREEN / REVIEW_PENDING`
-- **Product revision:** `f484ef766eb96cb738e36e147b0655755e5c94a3`
+- **Product revisions:** `f484ef766eb96cb738e36e147b0655755e5c94a3`, `b278a0ab`
 - **Větev:** `codex/m3-integration-20260825`
 - **Push:** neproveden
 - **Review:** záměrně odloženo do společného operátorského review M3
@@ -41,7 +41,7 @@ Object source už není chybně ukončen HUNTER zkratkou pro prázdné kolekce.
 
 | Důkaz | Výsledek |
 |---|---|
-| `tests/m3-project-health-agent.test.js` | 7/7 PASS |
+| `tests/m3-project-health-agent.test.js` | 9/9 PASS |
 | `tests/e2e/63-agent-execution.e2e.js` | 5/5 PASS |
 | `tests/e2e/64-m3-project-health-agent.e2e.js` | 6/6 PASS |
 | `tests/scheduler.test.js` | 3/3 PASS |
@@ -52,7 +52,7 @@ Object source už není chybně ukončen HUNTER zkratkou pro prázdné kolekce.
 | `tests/m3-extension-contract-v1.test.js` | 14/14 PASS |
 | `tests/m2-project-context-retrieval.test.js` | 9/9 PASS |
 | `tests/m3-code-review-specialist.test.js` | 4/4 PASS |
-| `tests/specialist-boundary-ratchet.test.js` | 11/11 PASS |
+| `tests/specialist-boundary-ratchet.test.js` | 12/12 PASS |
 | `tests/session-context.test.js` | 66/66 PASS |
 | `tests/harness-exit-code.test.js` | PASS; 115 DB-reachable root testů chráněno, mutation rejected |
 | `tests/module-boundary-ratchet.test.js` | 13/13 PASS |
@@ -61,10 +61,9 @@ Object source už není chybně ukončen HUNTER zkratkou pro prázdné kolekce.
 | module graph | 1 148 hran, 3 cykly / 28 souborů v cyklech |
 | `git diff --check` | PASS |
 
-Canonical non-gate server run `2026-08-25T22-38-52-092Z` skončil 2/2 suites a
-11/11 steps PASS na source revision `f484ef76...`. Report pravdivě nese
-`gateEvidence: false`; nemění registry `lastGreen` a není vydáván za celý M3
-gate.
+Aktuální společný non-gate server run `2026-08-25T23-08-49-411Z` skončil 5/5
+suites a 32/32 steps PASS na source `ad23c278...`. Report pravdivě nese
+`gateEvidence: false`; nemění registry `lastGreen` a není vydáván za Gate 0.
 
 Pět nových modulových hran bylo přijato proti jednomu úplnému přesnému seznamu:
 
@@ -82,12 +81,16 @@ membership nevzrostly.
 - Agent je záměrně local/effect-free: jediný výsledek je in-app SQLite
   notifikace. Manifest digest mu nedovolí změnit akci na filesystem, process,
   network ani webhook bez vytvoření nové, znovu schvalované identity.
+- Native M3 agent manifest je fail-closed omezen na ProjectContext source a
+  lokální `store`, `mark_seen` nebo non-LLM `in_app notify`; HTTP, webhook a
+  modelové action varianty jsou odmítnuté před instalací.
 - Legacy agent definitions mimo M3 extension cestu si zachovávají své starší
   source/action možnosti. Tento WP netvrdí, že je migroval pod novou hranici;
-  jejich vztah k globálnímu M3 effect exit kritériu patří do closeoutu.
+  jejich vztah k globálnímu M3 effect exit kritériu je výslovná review otázka
+  sjednoceného closeoutu.
 - Disable zabrání každému dalšímu startu; již běžící invocation se tímto WP
   aktivně necancelluje. Uninstall běžící instanci odmítne.
 - Server E2E používá jen loopback, izolovanou databázi a runner-owned projekt.
   Nebyl použit model, externí síť, GPU ani Ollama.
-- Celý deterministic gate ani sjednocený M3 closeout v tomto řezu spuštěné
-  nejsou. Stav je proto pouze `IMPLEMENTATION_GREEN / REVIEW_PENDING`.
+- Sjednocený closeout je hotový bez nové regrese, operátorské review ale stále
+  čeká. Stav je proto `IMPLEMENTATION_GREEN / REVIEW_PENDING`.

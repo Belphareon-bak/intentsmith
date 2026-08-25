@@ -65,7 +65,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M0 Produktová pravda** | `ACCEPTED / PASS` | současný C3/IntentSmith strom | Víme, co produkt je a co skutečně běží; deklarace nelžou o chování. |
 | **M1 Lokální runtime páteř** | `ACCEPTED / GATE_2_PASS` | M0 accepted; Gate 1 PASS | Stabilní Linux → Theia → chat → Ollama → persistence. |
 | **M2 Řízená práce nad projektem** | `ACCEPTED / CLOSEOUT_PASS` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
-| **M3 Modulární platforma** | `IN_PROGRESS / REVIEW_PENDING` | M2 accepted | Všech šest implementačních řezů včetně local project-health agenta je implementation-green; zbývá sjednocený closeout a operátorské review. |
+| **M3 Modulární platforma** | `CANDIDATE_COMPLETE / REVIEW_PENDING` | M2 accepted | Všech šest povinných řezů i sjednocený closeout jsou implementation-green; zbývá operátorské review sedmi oddílů a výslovné disposition legacy-agent effect scope. |
 | **M4 Auditovatelné self-learning** | `NOT_STARTED` | M2 accepted | Jedna uzavřená, scoped a vratná učící smyčka zlepšuje skutečný scénář. |
 | **M5 Production hardening** | `NOT_STARTED` | M3 + M4 accepted | Instalace, data, auth, procesy, síť, výkon a recovery jsou podporovatelné. |
 | **M6 IntentSmith 1.0 release** | `NOT_STARTED` | M5 accepted | Zmražený kandidát projde úplnou release validací a operátorskou demonstrací. |
@@ -1268,11 +1268,14 @@ dalším použití nevymýšlí znovu.
      a jeden ven. M3 neblokuje; do produktu se povýší jen po operátorském
      přijetí měřeného přínosu, jinak se explicitně odloží.
 
-Implementační stav k 2026-08-26: všech šest povinných řezů je
-`IMPLEMENTATION_GREEN / REVIEW_PENDING`. Registry má 437 programů a fingerprint
-`72bc64e6…`; aktuální module graph má 1 148 hran, stále 3 cykly a 28 souborů v
-cyklech. Project-health agent je doložen v
-[`wp-m3-project-health-agent-20260826.md`](docs/execution/runs/wp-m3-project-health-agent-20260826.md).
+Implementační stav k 2026-08-26: všech šest povinných řezů a sjednocený
+closeout jsou `CANDIDATE_COMPLETE / REVIEW_PENDING`. Registry má 437 programů
+a fingerprint `72bc64e6…`; aktuální module graph má 1 148 hran, stále 3 cykly
+a 28 souborů v cyklech. Čerstvý úplný běh skončil pravdivě
+`267 PASS / 2 FAIL / 2 BLOCKED`; žádný nový M3 non-PASS nevznikl. Evidence je v
+[`m3-closeout-20260826.md`](docs/execution/runs/m3-closeout-20260826.md) a
+operátorská matice v
+[`2026-08-26-M3-OPERATOR-REVIEW-MATRIX.md`](docs/review/2026-08-26-M3-OPERATOR-REVIEW-MATRIX.md).
 
 ### Exit kritéria
 

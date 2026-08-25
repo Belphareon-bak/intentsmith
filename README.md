@@ -11,7 +11,7 @@ IntentSmithu.
 (`340 ACTIVE`, `81 BLOCKED`, `0 KNOWN_DEFECTIVE`, `16 HISTORICAL`)
 
 > **Stav: aktivní vývoj; M1 a M2 jsou přijaté.** M3 modulární platforma má
-> implementation-green řezy a čeká na sjednocený closeout a operátorské review.
+> implementation-green candidate a čeká na společné operátorské review.
 > Registry řádek sám není akceptační důkaz.
 > Gate 0 a historická convergence evidence se používají až nad zmraženým
 > release kandidátem. Aktuální autorita: [PRODUCT.md](PRODUCT.md),
@@ -37,8 +37,8 @@ zpevňuje. Produktový kontrakt, cílový uživatel a hranice 1.0 jsou v
 
 ### Agenti a automatizace
 - **Worker agenti** — RSS/HTTP/DB zdroje, deterministické podmínky, cron scheduling, 6 notifikačních kanálů.
-- **Skills** — deterministické workflow (JSON): 8 vykonávaných typů kroků (`llm`, `template`, `write`, `shell`, `ask`, `review`, `validate`, `transform`) a samostatná substitution helper vrstva. 13 skills včetně meta-skills pro auto-generaci expertíz a specialistů.
-- **Specialisté** — rozšiřující balíčky s nástroji, expertízou, znalostní bází a scénáři. Cílová registrační hranice čeká na L0-8 rozhodnutí (strict injection versus veřejné verzované API); současný accountant stále porušuje interní import boundary.
+- **Skills** — deterministické workflow (JSON): 8 vykonávaných typů kroků (`llm`, `template`, `write`, `shell`, `ask`, `review`, `validate`, `transform`) a samostatná substitution helper vrstva. 14 skills včetně meta-skills a governed M3 project-note workflow.
+- **Specialisté** — rozšiřující balíčky s nástroji, expertízou, znalostní bází a scénáři. M3 candidate používá rozhodnutou strict-injection hranici, verzovaný manifest/context a rekurzivní fail-closed package scanner.
 
 ### Paměť a učení
 - **Dlouhodobá paměť (LTM)** — confidence decay (poločas 69 dní), reinforcement, feedback detekce, cross-session pattern learning.
@@ -177,9 +177,10 @@ tón, hloubku a styl odpovědí. Merge engine umožňuje kombinovat více expert
 ### Specialisté
 Rozšiřující balíčky s nástroji, expertízou, znalostní bází a scénáři. Pět
 současných balíčků: `accountant-cz`, `translator`, `code-reviewer`, `sazeni` a
-`dummy-logger`. Cílem je izolovaná extension boundary, ale dnes ji porušuje
-jeden přímý import `accountant-cz` do interního core; stav je vedený jako L0-8
-nález. Nové specialisty lze vytvořit přes `create-specialist` skill nebo IDE.
+`dummy-logger`. M3 candidate používá verzovaný `ExtensionManifest/Context`,
+strict capability injection a rekurzivní fail-closed package boundary; přímé
+importy do interního `src/**` už nejsou povolené. Nové specialisty lze vytvořit
+přes `create-specialist` skill nebo IDE.
 
 - [docs/SPECIALISTS.md](docs/SPECIALISTS.md) — architektura, API, průvodce vytvářením
 
@@ -203,7 +204,7 @@ Iterativní fix cyklus pro milníky: generuj → testuj → diagnostikuj → pat
 ### Skills
 Deterministické workflow definované v JSON. 8 vykonávaných typů kroků: `llm`,
 `template`, `write`, `shell`, `ask`, `review`, `validate`, `transform`; substitute
-je sdílená helper vrstva. 13 skills včetně meta-skills. `create-skill` umožňuje
+je sdílená helper vrstva. 14 skills včetně meta-skills. `create-skill` umožňuje
 vytvářet nové skills konverzačně.
 
 - [docs/skills-v1.md](docs/skills-v1.md) — kompletní specifikace
@@ -303,7 +304,7 @@ intentsmith/
 │   ├── sazeni/                   #   Doménový specialista
 │   └── dummy-logger/             #   Testovací utilita
 │
-├── skills/                       # Skill definice (13 JSON souborů)
+├── skills/                       # Skill definice (14 JSON souborů)
 │   ├── create-skill.json         #   Meta-skill pro tvorbu nových skills
 │   ├── create-expertise.json     #   Meta-skill pro tvorbu expertýz
 │   ├── create-specialist.json    #   Meta-skill pro tvorbu specialistů
@@ -313,6 +314,7 @@ intentsmith/
 │   ├── email-composer.json       #   Psaní emailů
 │   ├── interview-prep.json       #   Příprava na pohovor
 │   ├── meeting-notes.json        #   Zápisy z meetingů
+│   ├── m3-project-note.json      #   Governed M2-backed project note
 │   ├── presentation.json         #   Tvorba prezentací
 │   ├── project-bootstrap.json    #   Bootstrap nového projektu
 │   ├── report-gen.json           #   Generování reportů
