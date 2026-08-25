@@ -62,6 +62,13 @@ function readSpecialist(id) {
   );
 }
 
+function canonicalSpecialist(id) {
+  const raw = readSpecialist(id);
+  return raw.contract === EXTENSION_MANIFEST_CONTRACT
+    ? canonicalizeExtensionManifestV1(raw, EXTENSION_KIND.SPECIALIST)
+    : canonicalizeLegacySpecialistManifest(raw);
+}
+
 suite('M3 ExtensionManifest V1 identity');
 
 test('contract identity is explicit and still provisional pending operator review', () => {
@@ -115,18 +122,18 @@ test('required and optional capabilities are versioned, sorted and disjoint', ()
   ));
 });
 
-suite('legacy specialist canonicalization');
+suite('legacy and native specialist canonicalization');
 
 test('all five repository packages canonicalize to exact specialist manifests', () => {
   for (const id of fs.readdirSync(path.join(ROOT, 'specialists')).sort()) {
     const raw = readSpecialist(id);
-    const canonical = canonicalizeLegacySpecialistManifest(raw);
+    const canonical = canonicalSpecialist(id);
     const result = validateExtensionManifestV1(canonical, EXTENSION_KIND.SPECIALIST);
     assertEqual(result.valid, true, `${id}: ${result.errors.join(', ')}`);
     assertEqual(canonical.id, raw.id);
-    assertEqual(canonical.moduleVersion, raw.version);
-    assertEqual(canonical.coreContract, raw.engine);
-    assertEqual(canonical.payload.entry, raw.entry);
+    assertEqual(canonical.moduleVersion, raw.moduleVersion || raw.version);
+    assertEqual(canonical.coreContract, raw.coreContract || raw.engine);
+    assertEqual(canonical.payload.entry, raw.payload?.entry || raw.entry);
     assert(Object.isFrozen(canonical));
     assert(Object.isFrozen(canonical.payload.tools));
   }
@@ -155,7 +162,7 @@ test('legacy compatibility fills safe defaults but rejects unknown keys', () => 
 });
 
 test('legacy view is derived from canonical data and does not mutate it', () => {
-  const canonical = canonicalizeLegacySpecialistManifest(readSpecialist('code-reviewer'));
+  const canonical = canonicalSpecialist('code-reviewer');
   const legacy = legacySpecialistManifestView(canonical);
   assertEqual(legacy.id, canonical.id);
   assertEqual(legacy.version, canonical.moduleVersion);
@@ -184,13 +191,13 @@ suite('ExtensionContext V1');
 
 test('context exposes only declared capabilities and is frozen', () => {
   const runtime = { name: 'runtime' };
-  const logger = { info() {} };
-  const manifest = canonicalizeLegacySpecialistManifest(readSpecialist('code-reviewer'));
+  const projectContext = { contract: 'SpecialistProjectContextCapability', version: 1 };
+  const manifest = canonicalSpecialist('code-reviewer');
   const context = createExtensionContextV1({
     manifest,
     hostCapabilities: {
       [EXTENSION_HOST_CAPABILITY.SPECIALIST_RUNTIME]: runtime,
-      [EXTENSION_HOST_CAPABILITY.LOGGER]: logger,
+      [EXTENSION_HOST_CAPABILITY.PROJECT_CONTEXT]: projectContext,
       'internal.database.v1': { forbidden: true },
     },
   });
@@ -199,7 +206,8 @@ test('context exposes only declared capabilities and is frozen', () => {
   assertEqual(context.kind, EXTENSION_KIND.SPECIALIST);
   assertEqual(context.extensionId, 'code-reviewer');
   assertEqual(context.requireCapability(EXTENSION_HOST_CAPABILITY.SPECIALIST_RUNTIME), runtime);
-  assertEqual(context.getCapability(EXTENSION_HOST_CAPABILITY.LOGGER), logger);
+  assertEqual(context.requireCapability(EXTENSION_HOST_CAPABILITY.PROJECT_CONTEXT), projectContext);
+  throws(() => context.getCapability(EXTENSION_HOST_CAPABILITY.LOGGER), 'undeclared-capability');
   assertEqual(Object.hasOwn(context.capabilities, 'internal.database.v1'), false);
   assertEqual(Object.hasOwn(context, 'db'), false);
   assert(Object.isFrozen(context));

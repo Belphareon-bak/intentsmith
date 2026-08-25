@@ -1,39 +1,56 @@
 {
+  "contract": "ExtensionManifest",
+  "version": 1,
+  "kind": "specialist",
   "id": "code-reviewer",
-  "version": "1.0.0",
-  "manifestVersion": 2,
-  "name": "Code Reviewer",
-  "description": "Systematicke code review -- bezpecnost, vykon, citelnost, best practices, OWASP, SOLID",
-  "author": "c3-core",
-  "domain": "software_engineering",
-  "type": "domain",
-  "engine": ">=121.0.0",
-  "entry": "./index.js",
-
-  "tools": [
-    {
-      "id": "code-reviewer.analyze_code",
-      "name": "Analyza kodu",
-      "module": "./tools/analyze-code.js",
-      "function": "analyzeCode"
-    },
-    {
-      "id": "code-reviewer.security_scan",
-      "name": "Security Scan",
-      "module": "./tools/security-scan.js",
-      "function": "securityScan"
-    }
+  "moduleVersion": "1.1.0",
+  "coreContract": ">=136.0.0 <137.0.0",
+  "requiredCapabilities": [
+    "code-intel.project-context.v1",
+    "specialist.runtime.v1"
   ],
-
-  "capabilities": ["code.review", "code.security_scan"],
-
-  "expertises": ["code_reviewer"],
-
-  "knowledge_packs": [],
-
-  "migrations": [],
-
-  "settings": {},
-
-  "enabledByDefault": true
+  "optionalCapabilities": [
+    "specialist.registry.auto-select.v1",
+    "specialist.registry.capability.v1",
+    "specialist.registry.cre.v1",
+    "specialist.registry.expertise.v1",
+    "specialist.registry.tool-executor.v1"
+  ],
+  "payload": {
+    "name": "Code Reviewer",
+    "description": "Systematické project-bound code review s přesnou ProjectContext provenance",
+    "author": "c3-core",
+    "domain": "software_engineering",
+    "type": "domain",
+    "entry": "./index.js",
+    "tools": [
+      {
+        "id": "code-reviewer.analyze_code",
+        "name": "Analýza kódu",
+        "module": "./tools/review-project-context.js",
+        "function": "analyzeProjectContext"
+      },
+      {
+        "id": "code-reviewer.security_scan",
+        "name": "Security Scan",
+        "module": "./tools/review-project-context.js",
+        "function": "securityScanProjectContext"
+      }
+    ],
+    "providedCapabilities": [
+      "code.review",
+      "code.security_scan"
+    ],
+    "expertises": [
+      "code_reviewer"
+    ],
+    "knowledgePacks": [],
+    "migrations": [],
+    "settings": {
+      "deterministicPresentation": true,
+      "projectContextRequired": true
+    },
+    "dependencies": {},
+    "enabledByDefault": true
+  }
 }

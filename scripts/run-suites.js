@@ -107,8 +107,11 @@ function runSuite(suite, env, timeoutMs, outPath) {
     const child = spawn(suite.argv[0], [suite.argv[1]], {
       cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'],
     });
-    const timer = setTimeout(() => { child.kill('SIGKILL'); }, timeoutMs);
     let killed = false;
+    const timer = setTimeout(() => {
+      killed = true;
+      child.kill('SIGKILL');
+    }, timeoutMs);
     child.on('exit', (code, signal) => {
       clearTimeout(timer);
       const output = Buffer.concat(chunks).toString('utf8');
@@ -121,8 +124,30 @@ function runSuite(suite, env, timeoutMs, outPath) {
     });
     child.stdout.on('data', c => chunks.push(c));
     child.stderr.on('data', c => chunks.push(c));
-    setTimeout(() => { killed = true; }, timeoutMs);
   });
+}
+
+function waitForChildExit(child, timeoutMs) {
+  if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve(true);
+  return new Promise(resolve => {
+    const onExit = () => {
+      clearTimeout(timer);
+      resolve(true);
+    };
+    const timer = setTimeout(() => {
+      child.off('exit', onExit);
+      resolve(false);
+    }, timeoutMs);
+    child.once('exit', onExit);
+  });
+}
+
+async function terminateOwnedServer(server) {
+  if (server.exitCode !== null || server.signalCode !== null) return;
+  server.kill('SIGTERM');
+  if (await waitForChildExit(server, 2_000)) return;
+  server.kill('SIGKILL');
+  await waitForChildExit(server, 2_000);
 }
 
 async function main() {
@@ -210,9 +235,7 @@ Výstup NENÍ Gate 0 evidence — registr se nemění a lastGreen se nezapisuje.
     console.error(`CHYBA: ${error.message}`);
     exitCode = 1;
   } finally {
-    server.kill('SIGTERM');
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    if (!server.killed) server.kill('SIGKILL');
+    await terminateOwnedServer(server);
   }
 
   const summary = results.reduce((acc, r) => { acc[r.status] = (acc[r.status] || 0) + 1; return acc; }, {});

@@ -10,14 +10,14 @@ const e2eDir = path.join(root, 'tests', 'e2e');
 const registryPath = path.join(root, 'tests', 'registry.json');
 const write = process.argv.slice(2).includes('--write');
 
-const EXPECTED_PATH_COUNT = 78;
-const EXPECTED_PATH_HASH = '43108129171be799d282df0fc5b7db5d40daefda0bbcebe5cc287f3139b033ff';
+const EXPECTED_PATH_COUNT = 80;
+const EXPECTED_PATH_HASH = '005aadc4e4be04c3d6b972eb8b1a72c098bd0406054d400f7819624b667ed472';
 // Suite 08 validates and stores an HTTPS source definition but never executes
 // it; only suites that actually perform external I/O belong here.
 const EXTERNAL_NETWORK = new Set([10, 51, 206]);
 const OLLAMA_ONLY_SERVER = new Set([14, 16]);
 const MIXED_SERVER_MODEL = new Set();
-const LOCAL_SERVER_ONLY = new Set([56, 60, 63, 80]);
+const LOCAL_SERVER_ONLY = new Set([56, 60, 63, 80, 83, 84]);
 const QWEN_35_27B_DIGEST = '7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e';
 const MODEL_FIXTURE_PARALLELISM = new Map([
   [57, 1],
@@ -83,7 +83,7 @@ function metadataFor(testPath, source) {
   const gpuRequired = !isServer || MIXED_SERVER_MODEL.has(number);
   const modelFixture = modelFixtureFor(number);
 
-  return {
+  const metadata = {
     id: suiteId(tier, testPath),
     path: testPath,
     argv: ['node', testPath],
@@ -117,6 +117,28 @@ function metadataFor(testPath, source) {
     flakeCount: 0,
     quarantineExpiry: null,
   };
+  if (number === 83) {
+    return {
+      ...metadata,
+      capabilityId: 'C3-007',
+      fixture: 'server',
+      timeoutMs: 120_000,
+      expectedDurationMs: 2_000,
+      owner: 'WP-M3-EXPERTISE',
+      state: 'ACTIVE',
+    };
+  }
+  if (number === 84) {
+    return {
+      ...metadata,
+      capabilityId: 'C3-013',
+      timeoutMs: 120_000,
+      expectedDurationMs: 5_000,
+      owner: 'WP-M3-SPECIALIST-CODE-REVIEW',
+      state: 'ACTIVE',
+    };
+  }
+  return metadata;
 }
 
 async function main() {
@@ -152,7 +174,13 @@ async function main() {
       mode: 0o644,
     });
   } else {
-    const current = registry.suites.filter((suite) => rebuiltPaths.has(suite.path));
+    // Registry order is not E2E inventory authority: curated suites can be
+    // appended alongside their direct tests. Compare the same canonical path
+    // order used by discovery so validation does not demand a 2,000-line
+    // semantic no-op reorder.
+    const current = registry.suites
+      .filter((suite) => rebuiltPaths.has(suite.path))
+      .sort((left, right) => left.path.localeCompare(right.path));
     if (JSON.stringify(current) !== JSON.stringify(rebuilt)) {
       throw new Error(
         'Rebuilt E2E registry metadata is stale; run '

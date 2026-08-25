@@ -351,8 +351,16 @@ export function createChatRoutes(deps) {
         if (!manifest) {
           return sendJSON(res, 404, { error: `Specialist not found: ${body.specialistId}` });
         }
+        const enabled = loader.getEnabled().some(row => row.id === body.specialistId);
+        if (!enabled) {
+          return sendJSON(res, 409, {
+            error: `Specialist is disabled: ${body.specialistId}`,
+            errorCode: 'M3_SPECIALIST_UNAVAILABLE',
+          });
+        }
         ChatController.setSpecialist(sessionId, {
           id: manifest.id,
+          version: manifest.version,
           name: manifest.name,
           domain: manifest.domain,
           description: manifest.description,
@@ -426,6 +434,8 @@ export function createChatRoutes(deps) {
           response: result.response,
           mode: result.mode,
           confidence: result.confidence,
+          metadata: result.metadata || {},
+          state: result.state || null,
           session_id: sessionId, // v56.0: Return session_id for continuity
         });
 

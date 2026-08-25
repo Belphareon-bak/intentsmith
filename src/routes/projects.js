@@ -202,10 +202,10 @@ export function createProjectRoutes(deps) {
           logger.warn('Projects', `Initial analysis failed (non-fatal): ${err.message}`);
         }
 
-        // Set lifecycle phase to SPEC
-        if (project && project.id) {
-          try { db.db.prepare('UPDATE projects SET status = ? WHERE id = ?').run('SPEC', project.id); } catch (e) { /* column may not exist */ }
-        }
+        // `projects.status` is archive authority (active/archived/deleted), not
+        // lifecycle state. SPEC belongs to `project_lifecycles.phase`; writing
+        // it here made a newly created project unavailable to ProjectContext
+        // and invisible from the active-project list.
 
         // v89: Generate welcome message for new project
         let welcomeMessage = null;

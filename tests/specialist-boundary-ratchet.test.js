@@ -15,6 +15,7 @@ import { SpecialistLoader } from '../src/specialists/specialist-loader.js';
 import * as codeReviewer from '../specialists/code-reviewer/index.js';
 import {
   EXTENSION_HOST_CAPABILITY,
+  canonicalizeExtensionManifestV1,
   canonicalizeLegacySpecialistManifest,
   createExtensionContextV1,
 } from '../contracts/m3/extension-v1.js';
@@ -314,16 +315,19 @@ await testAsync('loader accepts a native ExtensionManifest V1 package', async ()
   db.close();
 });
 
-await testAsync('code-reviewer handlers execute without computed module imports', async () => {
+await testAsync('code-reviewer CRE handlers fail closed without core ProjectContext authority', async () => {
   const handlers = new Map();
   const runtime = createRuntime();
   const codeReviewerManifest = JSON.parse(
     fs.readFileSync(path.join(ROOT, 'specialists', 'code-reviewer', 'specialist.json'), 'utf8'),
   );
   const context = createExtensionContextV1({
-    manifest: canonicalizeLegacySpecialistManifest(codeReviewerManifest),
+    manifest: canonicalizeExtensionManifestV1(codeReviewerManifest, 'specialist'),
     hostCapabilities: {
       [EXTENSION_HOST_CAPABILITY.SPECIALIST_RUNTIME]: runtime,
+      [EXTENSION_HOST_CAPABILITY.PROJECT_CONTEXT]: {
+        query() { throw new Error('direct CRE registration must not query ProjectContext'); },
+      },
       [EXTENSION_HOST_CAPABILITY.TOOL_EXECUTOR_REGISTRY]: {
         register(id, handler) { handlers.set(id, handler); },
       },
@@ -337,10 +341,10 @@ await testAsync('code-reviewer handlers execute without computed module imports'
   const security = await handlers.get('code-reviewer.security_scan')({
     code: 'function execute(userInput) { return eval(userInput); }',
   });
-  assertEqual(analysis.status, 'ok');
-  assert(Array.isArray(analysis.data.findings));
-  assertEqual(security.status, 'ok');
-  assert(Array.isArray(security.data.vulnerabilities));
+  assertEqual(analysis.status, 'error');
+  assertEqual(analysis.errorCode, 'M3_SPECIALIST_PROJECT_CONTEXT_REQUIRED');
+  assertEqual(security.status, 'error');
+  assertEqual(security.errorCode, 'M3_SPECIALIST_PROJECT_CONTEXT_REQUIRED');
 });
 
 summary();

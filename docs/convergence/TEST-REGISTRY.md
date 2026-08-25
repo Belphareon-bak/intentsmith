@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 433
+- Runnable programs: 435
 - Explicit support-module exclusions: 14
-- Profiles: offline=221, database=48, server=38, model=85, soak=25, manual=16
-- States: ACTIVE=336, HISTORICAL=16, BLOCKED=81
+- Profiles: offline=222, database=48, server=39, model=85, soak=25, manual=16
+- States: ACTIVE=338, HISTORICAL=16, BLOCKED=81
 
 ## Execution profiles
 
@@ -205,6 +205,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T3-E2E-81-CONVERSATION-LIFECYCLE` | `tests/e2e/81-conversation-lifecycle.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-82-CRE-CONFLICT-RESOLUTION` | `tests/e2e/82-cre-conflict-resolution.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-83-M3-EXPERTISE-EXTENSION` | `tests/e2e/83-m3-expertise-extension.e2e.js` | `C3-007` | T3 | `server` | 2 s | 2 min | network:loopback, temp-db, server | yes | `ACTIVE` | — | WP-M3-EXPERTISE |
+| `IS-T3-E2E-84-M3-CODE-REVIEW-SPECIALIST` | `tests/e2e/84-m3-code-review-specialist.e2e.js` | `C3-013` | T3 | `server` | 5 s | 2 min | network:loopback, temp-db, server | yes | `ACTIVE` | — | WP-M3-SPECIALIST-CODE-REVIEW |
 | `IS-T3-E2E-85-LONG-SESSION-DEGRADATION` | `tests/e2e/85-long-session-degradation.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-86-CODE-SEMANTIC-QUALITY` | `tests/e2e/86-code-semantic-quality.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-87-SECURITY-INJECTION` | `tests/e2e/87-security-injection.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
@@ -342,6 +343,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M2-TOOL-BROKER-V1-TEST` | `tests/m2-tool-broker-v1.test.js` | `C3-020` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
 | `IS-T1-TESTS-M2-TOOL-CONTRACT-V1-TEST` | `tests/m2-tool-contract-v1.test.js` | `C3-020` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
 | `IS-T1-TESTS-M2-TOOL-PRODUCTION-CONSUMER-TEST` | `tests/m2-tool-production-consumer.test.js` | `C3-020` | T1 | `database` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
+| `IS-T1-TESTS-M3-CODE-REVIEW-SPECIALIST-TEST` | `tests/m3-code-review-specialist.test.js` | `C3-013` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M3-SPECIALIST-CODE-REVIEW |
 | `IS-T1-TESTS-M3-EXPERTISE-EXTENSION-TEST` | `tests/m3-expertise-extension.test.js` | `C3-007` | T1 | `database` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-M3-EXPERTISE |
 | `IS-T1-TESTS-M3-EXTENSION-CONTRACT-V1-TEST` | `tests/m3-extension-contract-v1.test.js` | `C3-013` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M3-BOUNDARY |
 | `IS-T1-TESTS-M3-SKILL-EFFECT-AUTHORITY-TEST` | `tests/m3-skill-effect-authority.test.js` | `C3-013` | T1 | `database` | 2 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-M3-SKILL |

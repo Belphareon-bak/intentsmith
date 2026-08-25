@@ -18,6 +18,7 @@ import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { logger } from '../core/logger.js';
 import { ToolAdapter } from '../expertises/tool-adapter.js';
+import { specialistProjectContextBridge } from '../extensions/specialist-project-context.js';
 import {
   formatSpecialistBoundaryFailure,
   scanSpecialistPackage,
@@ -255,6 +256,17 @@ export class SpecialistLoader {
     this.projectRoot = path.resolve(options.projectRoot || path.resolve(__dirname, '..', '..'));
     this.baseDir = options.baseDir || path.join(this.projectRoot, 'specialists');
     this.engineVersion = options.engineVersion || _readPackageVersion();
+    this._extensionHostCapabilities = Object.freeze({
+      [EXTENSION_HOST_CAPABILITY.PROJECT_CONTEXT]: specialistProjectContextBridge.capability,
+      ...(options.extensionHostCapabilities || {}),
+    });
+    if (
+      this._extensionHostCapabilities[EXTENSION_HOST_CAPABILITY.PROJECT_CONTEXT]
+        === specialistProjectContextBridge.capability
+      && typeof this.runtime?.setProjectContextHost === 'function'
+    ) {
+      this.runtime.setProjectContextHost(specialistProjectContextBridge.host);
+    }
 
     /** @type {Map<string, { manifest: Object, extensionManifest: Object, dir: string }>} */
     this._discovered = new Map();
@@ -637,6 +649,9 @@ export class SpecialistLoader {
     return createExtensionContextV1({
       manifest: extensionManifest,
       hostCapabilities: {
+        // Additive host extensions are composed here, but cannot replace the
+        // loader-owned capabilities below.
+        ...this._extensionHostCapabilities,
         [EXTENSION_HOST_CAPABILITY.LOGGER]: logger,
         [EXTENSION_HOST_CAPABILITY.SPECIALIST_RUNTIME]: this.runtime,
         [EXTENSION_HOST_CAPABILITY.TOOL_ADAPTER]: ToolAdapter,

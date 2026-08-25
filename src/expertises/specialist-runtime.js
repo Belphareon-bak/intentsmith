@@ -217,13 +217,27 @@ class ToolExecutor {
    *
    * @param {ToolDefinition} tool - The matched tool definition
    * @param {Object} params - Extracted parameters
+   * @param {Object} executionContext - Core-owned per-turn capability context
    * @returns {Promise<{ success: boolean, result: any, toolType: string, params: Object } | { status: 'clarify', missingParams: string[], toolType: string }>}
    */
-  async execute(tool, params) {
+  async execute(tool, params, executionContext = {}) {
+    let effectiveParams = params;
+    let evidence = null;
+    if (typeof tool.prepareParams === 'function') {
+      const prepared = await tool.prepareParams(params, executionContext);
+      if (!prepared || typeof prepared !== 'object' || !prepared.params) {
+        throw Object.assign(new Error(`Tool ${tool.id}: invalid prepared parameters`), {
+          code: 'M3_SPECIALIST_TOOL_PREPARATION_INVALID',
+        });
+      }
+      effectiveParams = prepared.params;
+      evidence = prepared.evidence || null;
+    }
+
     // v75: ToolAdapter path — validate → normalize → execute
     if (tool.toolAdapter) {
       const startTime = Date.now();
-      const adapterResult = tool.toolAdapter.run(params);
+      const adapterResult = tool.toolAdapter.run(effectiveParams);
       const duration = Date.now() - startTime;
 
       if (adapterResult.status === 'clarify') {
@@ -231,7 +245,7 @@ class ToolExecutor {
       }
 
       if (adapterResult.status === 'error') {
-        return { success: false, error: adapterResult.message, toolType: tool.id, params, duration };
+        return { success: false, error: adapterResult.message, toolType: tool.id, params, duration, evidence };
       }
 
       // status === 'ok'
@@ -239,32 +253,41 @@ class ToolExecutor {
         toolId: tool.id, paramsKeys: Object.keys(params), success: true,
       });
 
-      return { success: true, result: adapterResult.data, toolType: tool.id, params, duration };
+      return { success: true, result: adapterResult.data, toolType: tool.id, params, duration, evidence };
     }
 
     // Legacy path (tools without toolAdapter)
     const fn = await this.registry.loadToolFunction(tool);
 
     // Apply adapter if present (transforms params before calling tool function)
-    const args = tool.adapter ? tool.adapter(params) : params;
+    const args = tool.adapter ? tool.adapter(effectiveParams) : effectiveParams;
 
     const startTime = Date.now();
-    const result = fn(args);
+    const result = await fn(args);
     const duration = Date.now() - startTime;
+
+    const succeeded = result?.success !== false && result?.status !== 'error';
 
     logger.debug('SpecialistRuntime', `Tool ${tool.id} executed in ${duration}ms`, {
       toolId: tool.id,
       paramsKeys: Object.keys(params),
-      success: result?.success !== false,
+      success: succeeded,
     });
 
+    const structuredResult = result?.result || result;
+    const presentation = typeof tool.renderResult === 'function'
+      ? tool.renderResult({ result: structuredResult, evidence, params })
+      : null;
     return {
-      success: result?.success !== false,
-      result: result?.result || result,
+      success: succeeded,
+      result: structuredResult,
       error: result?.error || null,
       toolType: tool.id,
       params,
       duration,
+      evidence,
+      presentation,
+      expertiseEvidence: tool.expertiseEvidence || null,
     };
   }
 }
@@ -338,6 +361,8 @@ class SpecialistRuntime {
     this._memory = null;
     /** @type {import('../telemetry/specialist-telemetry.js').SpecialistTelemetry|null} v82: passive telemetry */
     this._telemetry = null;
+    /** @type {{openInvocation: Function}|null} strict-injected ProjectContext host */
+    this._projectContextHost = null;
   }
 
   /**
@@ -392,6 +417,13 @@ class SpecialistRuntime {
     this._telemetry = telemetry;
   }
 
+  setProjectContextHost(host) {
+    if (!host || typeof host.openInvocation !== 'function') {
+      throw new TypeError('Specialist ProjectContext host must implement openInvocation');
+    }
+    this._projectContextHost = host;
+  }
+
   /**
    * Check if an expert has specialist capabilities.
    */
@@ -408,10 +440,14 @@ class SpecialistRuntime {
    *
    * @param {string} expertiseId - Expert ID
    * @param {string} input - User message
-   * @param {{ sessionId?: string, conversationId?: string }} [options={}] - Session context options
+   * @param {{ sessionId?: string, conversationId?: string, userMessageId?: number, project?: Object, signal?: AbortSignal }} [options={}] - Session context options
    * @returns {Promise<{ toolType: string, result: any, params: Object } | null>}
    */
-  async tryToolExecution(expertiseId, input, { sessionId, conversationId } = {}) {
+  async tryToolExecution(
+    expertiseId,
+    input,
+    { sessionId, conversationId, userMessageId, project, signal = null } = {},
+  ) {
     const specialist = this.registry.getSpecialist(expertiseId);
     if (!specialist) return null;
 
@@ -469,8 +505,53 @@ class SpecialistRuntime {
 
     // Track execution for busy guard
     this._executingCount.set(expertiseId, (this._executingCount.get(expertiseId) || 0) + 1);
+    let projectContext = null;
     try {
-      const execResult = await this.executor.execute(match.tool, match.params);
+      if (match.tool.needsProjectContext === true) {
+        if (!this._projectContextHost) {
+          return {
+            status: 'error',
+            toolType: match.tool.id,
+            error: 'Specialist ProjectContext host is unavailable',
+            errorCode: 'M3_SPECIALIST_PROJECT_CONTEXT_UNAVAILABLE',
+          };
+        }
+        try {
+          projectContext = this._projectContextHost.openInvocation({
+            extensionId: specialist.extensionId || expertiseId,
+            toolId: match.tool.id,
+            project,
+            conversationId,
+            userMessageId,
+            signal,
+          });
+        } catch (error) {
+          return {
+            status: 'error',
+            toolType: match.tool.id,
+            error: error.message,
+            errorCode: error.code || 'M3_SPECIALIST_PROJECT_CONTEXT_REQUIRED',
+          };
+        }
+      }
+
+      let execResult;
+      try {
+        execResult = await this.executor.execute(match.tool, match.params, {
+          projectContext,
+        });
+      } catch (error) {
+        logger.warn('SpecialistRuntime', `Tool ${match.tool.id} preparation failed: ${error.message}`);
+        if (match.tool.failClosed === true) {
+          return {
+            status: 'error',
+            toolType: match.tool.id,
+            error: error.message,
+            errorCode: error.code || 'M3_SPECIALIST_TOOL_PREPARATION_FAILED',
+          };
+        }
+        throw error;
+      }
 
       // v75: Clarification — tool matched but needs more params
       if (execResult.status === 'clarify') {
@@ -497,6 +578,14 @@ class SpecialistRuntime {
           toolId: match.tool.id,
           metadata: { error: execResult.error?.slice?.(0, 200) },
         });
+        if (match.tool.failClosed === true) {
+          return {
+            status: 'error',
+            toolType: match.tool.id,
+            error: execResult.error || 'Specialist tool failed',
+            errorCode: 'M3_SPECIALIST_TOOL_FAILED',
+          };
+        }
         return null; // Fall back to LLM
       }
 
@@ -526,8 +615,14 @@ class SpecialistRuntime {
         result: execResult.result,
         params: execResult.params,
         duration: execResult.duration,
+        evidence: execResult.evidence,
+        presentation: execResult.presentation,
+        expertiseEvidence: execResult.expertiseEvidence,
       };
     } finally {
+      if (projectContext !== null) {
+        this._projectContextHost?.closeInvocation?.(projectContext);
+      }
       const count = (this._executingCount.get(expertiseId) || 1) - 1;
       if (count <= 0) this._executingCount.delete(expertiseId);
       else this._executingCount.set(expertiseId, count);

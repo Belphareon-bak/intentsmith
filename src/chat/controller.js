@@ -666,14 +666,16 @@ export class ChatController {
    * @returns {string|null} - Sticky mode or null
    */
   #getStickyMode(context) {
+    // D5/M3: An explicitly selected specialist may consume the active project
+    // only through its injected ProjectContext capability. It must therefore
+    // win over the otherwise-sticky project mode.
+    if (context.hasActiveSpecialist && context.specialist?.id) {
+      return ChatMode.SPECIALIST;
+    }
+
     // Project mode is sticky when project is active
     if (context.hasActiveProject && context.project?.id) {
       return ChatMode.PROJECT;
-    }
-
-    // D5: Specialist mode is sticky when specialist is explicitly selected
-    if (context.hasActiveSpecialist && context.specialist?.id) {
-      return ChatMode.SPECIALIST;
     }
 
     // Expertise mode is sticky when expertise is active
@@ -2129,6 +2131,7 @@ ChatController.handle = async function(request) {
       expertise: state.expertise,
       expertiseLocked: state.expertiseLocked, // v44.3
       expertiseSource: state.expertise?._source || (state.expertise ? 'manual' : null), // v87
+      specialist: state.specialist,
       // v44.2+ - Include working memory
       workingMemory: state.projectWorkingMemory,
     },

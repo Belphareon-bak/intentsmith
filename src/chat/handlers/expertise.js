@@ -140,6 +140,9 @@ export async function expertiseHandler(input, context) {
           const toolResult = await specialistRuntime.tryToolExecution(expertise.id, input, {
             sessionId: context.sessionId,
             conversationId: context.conversationId || context.sessionId,
+            userMessageId: context.userMessageId,
+            project: context.project,
+            signal: context.signal || null,
           });
 
           if (toolResult) {

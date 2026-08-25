@@ -11,8 +11,10 @@
 
 import { fileURLToPath } from 'url';
 import path from 'path';
-import { analyzeCode } from './tools/analyze-code.js';
-import { securityScan } from './tools/security-scan.js';
+import {
+  analyzeProjectContext,
+  securityScanProjectContext,
+} from './tools/review-project-context.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -118,15 +120,95 @@ Na konci KAZDE odpovedi obsahujici review:
 
 // ─── Tool Definitions ───────────────────────────────────────────────────────
 
-function buildToolDefinitions(toolsDir) {
+const EXPERTISE_EVIDENCE = Object.freeze({
+  id: 'code_reviewer',
+  moduleVersion: '1.1.0',
+  appliedRules: Object.freeze(['mandatory-disclaimer', 'severity-order']),
+});
+
+async function prepareProjectContextParams(projectContext, params, executionContext) {
+  const snapshot = await projectContext.query(executionContext.projectContext, {
+    queryText: params.queryText,
+    maxFiles: 8,
+    maxBytes: 32_768,
+    maxTokens: 8_192,
+  });
+  if (snapshot.status !== 'ok') {
+    throw Object.assign(new Error(snapshot.error?.message || 'ProjectContext retrieval failed'), {
+      code: snapshot.error?.code || 'M3_SPECIALIST_PROJECT_CONTEXT_FAILED',
+    });
+  }
+  if (snapshot.outcome !== 'found' || snapshot.items.length === 0) {
+    throw Object.assign(new Error('ProjectContext found no reviewable source for this query'), {
+      code: 'M3_SPECIALIST_PROJECT_CONTEXT_EMPTY',
+    });
+  }
+  return {
+    params: {
+      focus: params.focus || 'all',
+      contextSnapshotDigest: snapshot.snapshotDigest,
+      contextItems: snapshot.items,
+    },
+    evidence: {
+      contract: snapshot.contract,
+      version: snapshot.version,
+      projectId: snapshot.projectId,
+      workspaceRevision: snapshot.workspaceRevision,
+      snapshotDigest: snapshot.snapshotDigest,
+      outcome: snapshot.outcome,
+      items: snapshot.items.map(item => ({
+        path: item.path,
+        startLine: item.startLine,
+        endLine: item.endLine,
+        contentDigest: item.contentDigest,
+      })),
+    },
+  };
+}
+
+function renderReviewResult({ result, evidence }) {
+  const data = result?.data || {};
+  const findings = data.findings || data.vulnerabilities || [];
+  const heading = data.vulnerabilities ? 'Bezpečnostní review' : 'Code review';
+  const lines = [
+    `## ${heading}`,
+    '',
+    `ProjectContext: \`${evidence?.snapshotDigest || 'unavailable'}\``,
+    `Workspace revision: \`${evidence?.workspaceRevision || 'unavailable'}\``,
+    '',
+  ];
+  if (findings.length === 0) {
+    lines.push('V načteném výřezu nebyl deterministickými pravidly nalezen konkrétní problém.');
+  } else {
+    for (const finding of findings) {
+      const location = finding.line ? `${finding.path}:${finding.line}` : finding.path;
+      lines.push(`- **${String(finding.severity).toUpperCase()}** \`${location}\` — ${finding.message || finding.name}`);
+      if (finding.recommendation) lines.push(`  Oprava: ${finding.recommendation}`);
+    }
+  }
+  lines.push('', `Skóre: ${data.score ?? 'n/a'}/100`, '', `*${CODE_REVIEWER_EXPERTISE.modules.disclaimer}*`);
+  if (data.score === undefined) {
+    lines.splice(lines.length - 3, 1, `Riziko: ${data.riskLevel || 'unknown'}`);
+  }
+  return lines.join('\n');
+}
+
+function buildToolDefinitions(toolsDir, projectContext) {
   return [
     {
       id: 'code-reviewer.analyze_code',
       name: 'Analyza kodu',
       description: 'Analyze code for quality issues — readability, SOLID, performance, security',
-      modulePath: path.join(toolsDir, 'analyze-code.js'),
-      functionName: 'analyzeCode',
-      execute: analyzeCode,
+      modulePath: path.join(toolsDir, 'review-project-context.js'),
+      functionName: 'analyzeProjectContext',
+      execute: analyzeProjectContext,
+      needsProjectContext: true,
+      failClosed: true,
+      expertiseEvidence: EXPERTISE_EVIDENCE,
+      prepareParams: (params, executionContext) => (
+        prepareProjectContextParams(projectContext, params, executionContext)
+      ),
+      renderResult: renderReviewResult,
       patterns: [{
         priority: 8,
         patterns: [
@@ -144,6 +226,7 @@ function buildToolDefinitions(toolsDir) {
         else if (/[čc]itelnost|readab/i.test(lower)) params.focus = 'readability';
         else if (/\bsolid\b/i.test(lower)) params.focus = 'solid';
         else params.focus = 'all';
+        params.queryText = input;
         return params;
       },
     },
@@ -151,9 +234,16 @@ function buildToolDefinitions(toolsDir) {
       id: 'code-reviewer.security_scan',
       name: 'Security Scan',
       description: 'Scan code for security vulnerabilities — OWASP Top 10, hardcoded secrets, insecure crypto',
-      modulePath: path.join(toolsDir, 'security-scan.js'),
-      functionName: 'securityScan',
-      execute: securityScan,
+      modulePath: path.join(toolsDir, 'review-project-context.js'),
+      functionName: 'securityScanProjectContext',
+      execute: securityScanProjectContext,
+      needsProjectContext: true,
+      failClosed: true,
+      expertiseEvidence: EXPERTISE_EVIDENCE,
+      prepareParams: (params, executionContext) => (
+        prepareProjectContextParams(projectContext, params, executionContext)
+      ),
+      renderResult: renderReviewResult,
       patterns: [{
         priority: 10,
         patterns: [
@@ -163,7 +253,7 @@ function buildToolDefinitions(toolsDir) {
           /(?:zranitelnost|vulnerabilit)/i,
         ],
       }],
-      extractParams: () => ({}),
+      extractParams: input => ({ queryText: input, focus: 'security' }),
     },
   ];
 }
@@ -193,6 +283,7 @@ const CODE_REVIEWER_BOOST_PATTERNS = [
  */
 export async function register(ctx) {
   const runtime = ctx.requireCapability('specialist.runtime.v1');
+  const projectContext = ctx.requireCapability('code-intel.project-context.v1');
   const manifest = ctx.manifest.payload;
   const specialistId = ctx.extensionId;
   const registries = {
@@ -208,9 +299,10 @@ export async function register(ctx) {
   //    ID must match manifest.expertises[0] for integrity check consistency.
   runtime.registerSpecialist({
     id: 'code_reviewer',
+    extensionId: specialistId,
     domain: 'software_engineering',
     globalParamExtractor: null,
-    tools: buildToolDefinitions(toolsDir),
+    tools: buildToolDefinitions(toolsDir, projectContext),
   });
 
   // 2. Expertise — register custom expertise definition
@@ -232,9 +324,17 @@ export async function register(ctx) {
 
   // 5. ToolExecutor handlers — register tool execution handlers for CRE
   if (registries.toolExecutor?.register) {
-    const tools = buildToolDefinitions(toolsDir);
+    const tools = buildToolDefinitions(toolsDir, projectContext);
     for (const tool of tools) {
-      registries.toolExecutor.register(tool.id, (params) => tool.execute(params));
+      // The general CRE registry has no core-owned project/turn authority and
+      // must not become an ambient filesystem back door. Project-bound tools
+      // execute only through SpecialistRuntime, which mints an opaque
+      // invocation for the exact persisted chat turn.
+      registries.toolExecutor.register(tool.id, () => ({
+        status: 'error',
+        errorCode: 'M3_SPECIALIST_PROJECT_CONTEXT_REQUIRED',
+        error: 'This tool requires a specialist ProjectContext invocation',
+      }));
     }
   }
 

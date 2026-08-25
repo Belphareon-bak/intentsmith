@@ -118,6 +118,14 @@ export async function specialistHandler(input, context) {
 
   const { specialistRuntime } = await import('../../expertises/specialist-runtime.js');
 
+  // A persisted session selection is not runtime authority. Disable/remove
+  // unregisters the package first; a stale chat session must then fail closed
+  // without executing package code or falling through to a model persona.
+  if (!specialistRuntime.isSpecialist(specialist.primaryExpertiseId)) {
+    context.sessionState?.clearSpecialist?.();
+    return specialistUnavailableResponse(specialist);
+  }
+
   if (specialistRuntime.isSpecialist(specialist.primaryExpertiseId)) {
     if (typeof context.onSystemStep === 'function') {
       try { context.onSystemStep('specialist_dispatch', specialist.id, 1); } catch (_) {}
@@ -127,10 +135,16 @@ export async function specialistHandler(input, context) {
         specialist.primaryExpertiseId, input, {
           sessionId: context.sessionId,
           conversationId: context.conversationId || context.sessionId,
+          userMessageId: context.userMessageId,
+          project: context.project,
+          signal: context.signal || null,
         }
       );
 
       if (toolResult) {
+        if (toolResult.status === 'error') {
+          return specialistToolFailureResponse(toolResult, specialist);
+        }
         if (toolResult.status === 'clarify') {
           // Tool matched but needs more params — inject context for LLM
           context.toolClarification = {
@@ -151,6 +165,9 @@ export async function specialistHandler(input, context) {
             e => e.id === specialist.primaryExpertiseId
           ) || { id: specialist.id, name: specialist.name, domain: specialist.domain };
 
+          if (typeof toolResult.presentation === 'string') {
+            return deterministicSpecialistToolResponse(toolResult, specialist, primaryExpertise);
+          }
           return await wrapWithSpecialistPersona(input, toolResult, primaryExpertise, context);
         }
       }
@@ -214,6 +231,71 @@ export async function specialistHandler(input, context) {
   // ════════════════════════════════════════════════════════════════════════════
 
   return await handleSpecialistFallback(input, specialist, context);
+}
+
+function specialistUnavailableResponse(specialist) {
+  const tag = new ResponseTag({
+    speaker: ResponseSpeaker.SYSTEM,
+    mode: ChatMode.SPECIALIST,
+    confidence: 1,
+    canExecute: false,
+    metadata: {
+      specialistId: specialist.id,
+      specialistAvailable: false,
+      errorCode: 'M3_SPECIALIST_UNAVAILABLE',
+    },
+  });
+  return new TaggedResponse({
+    content: `Specialista **${specialist.name}** není aktivní. Nebyl spuštěn žádný jeho nástroj ani modelový fallback.`,
+    tag,
+  });
+}
+
+function specialistToolFailureResponse(toolResult, specialist) {
+  const tag = new ResponseTag({
+    speaker: ResponseSpeaker.SYSTEM,
+    mode: ChatMode.SPECIALIST,
+    confidence: 1,
+    canExecute: false,
+    metadata: {
+      specialistId: specialist.id,
+      specialistTool: toolResult.toolType,
+      executionStatus: 'FAILED',
+      errorCode: toolResult.errorCode,
+      fallbackSuppressed: true,
+    },
+  });
+  return new TaggedResponse({
+    content: `Code review nebylo spuštěno: ${toolResult.error}`,
+    tag,
+  });
+}
+
+function deterministicSpecialistToolResponse(toolResult, specialist, expertise) {
+  const tag = new ResponseTag({
+    speaker: ResponseSpeaker.EXPERTISE,
+    mode: ChatMode.SPECIALIST,
+    confidence: 0.95,
+    canExecute: false,
+    metadata: {
+      executionStatus: 'SUCCESS',
+      specialist: {
+        id: specialist.id,
+        name: specialist.name,
+        version: specialist.version || null,
+      },
+      expertise: {
+        id: expertise.id,
+        applied: true,
+        evidence: toolResult.expertiseEvidence,
+      },
+      specialistTool: toolResult.toolType,
+      toolResults: [{ type: toolResult.toolType, data: toolResult.result }],
+      projectContext: toolResult.evidence,
+      deterministicPresentation: true,
+    },
+  });
+  return new TaggedResponse({ content: toolResult.presentation, tag });
 }
 
 /**
@@ -395,7 +477,7 @@ Odpovídej v češtině.`;
  * Wrap specialist tool result with persona (reuses expertise wrapping).
  */
 async function wrapWithSpecialistPersona(input, toolResult, expertise, context) {
-  const { toolType, result, params } = toolResult;
+  const { toolType, result, params, evidence, expertiseEvidence } = toolResult;
 
   const toolContent = JSON.stringify(result, null, 2);
 
@@ -409,6 +491,8 @@ async function wrapWithSpecialistPersona(input, toolResult, expertise, context) 
       toolResults: [{ type: toolType, data: result }],
       specialistTool: toolType,
       extractedParams: params,
+      projectContext: evidence || null,
+      expertiseEvidence: expertiseEvidence || null,
     },
   });
 

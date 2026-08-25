@@ -21,6 +21,7 @@ export const EXTENSION_KIND = Object.freeze({
 });
 
 export const EXTENSION_HOST_CAPABILITY = Object.freeze({
+  PROJECT_CONTEXT: 'code-intel.project-context.v1',
   LOGGER: 'core.logger.v1',
   SPECIALIST_RUNTIME: 'specialist.runtime.v1',
   TOOL_ADAPTER: 'specialist.tool-adapter.v1',
@@ -43,6 +44,7 @@ const TOOL_ID_PATTERN = /^[a-z0-9][a-z0-9-]*\.[a-z][a-z0-9_]*$/;
 const DOMAIN_PATTERN = /^[a-z0-9_]+$/;
 const SPECIALIST_TYPES = new Set(['domain', 'utility', 'integration']);
 const LEGACY_OPTIONAL_CAPABILITIES = Object.freeze([
+  EXTENSION_HOST_CAPABILITY.PROJECT_CONTEXT,
   EXTENSION_HOST_CAPABILITY.AUTO_SELECT_REGISTRY,
   EXTENSION_HOST_CAPABILITY.CAPABILITY_REGISTRY,
   EXTENSION_HOST_CAPABILITY.CRE_REGISTRY,

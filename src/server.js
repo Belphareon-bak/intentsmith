@@ -421,7 +421,9 @@ try {
     specialistTelemetry = getSpecialistTelemetry(db.db);
     specialistRuntime.setTelemetry(specialistTelemetry);
   }
-  specialistLoader = getSpecialistLoader(db.db, specialistRuntime, { telemetry: specialistTelemetry });
+  specialistLoader = getSpecialistLoader(db.db, specialistRuntime, {
+    telemetry: specialistTelemetry,
+  });
   // v122: Wire registries BEFORE boot() so specialists can self-register
   if (expertiseLayer?.expertiseRegistry) {
     specialistLoader.setExpertiseRegistry(expertiseLayer.expertiseRegistry);
