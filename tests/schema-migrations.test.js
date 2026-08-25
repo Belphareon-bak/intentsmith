@@ -176,6 +176,7 @@ const ALL_MIGRATIONS = [
   '2026_08_24_080_m2_effect_semantic_authority',
   '2026_08_24_081_m2_effect_result_semantic_authority_v2',
   '2026_08_25_082_m2_preexecution_approval_terminals',
+  '2026_08_25_083_m2_effect_rollback_receipts',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -204,6 +205,7 @@ const EXPECTED_TABLES = [
   'm2_effect_requests', 'm2_effect_results', 'm2_pending_effect_payloads',
   'm2_effect_result_semantic_quarantine',
   'm2_effect_preexecution_terminal_claims',
+  'm2_effect_rollback_receipts',
   'm2_lifecycle_approval_intents', 'm2_lifecycle_cancel_intents', 'm2_lifecycle_events',
   'm2_lifecycle_governance_receipts', 'm2_lifecycle_grant_sets',
   'm2_lifecycle_operations', 'm2_lifecycle_terminals',

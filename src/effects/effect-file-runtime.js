@@ -5,9 +5,11 @@ import {
   computeEffectRequestDigest,
 } from '../../contracts/m2/effect-v1.js';
 import { db, projects } from '../db/database.js';
+import { readProjectFileBytes } from '../executor/project-path-authority.js';
 import { EffectAuthorityRepository } from './effect-authority-repository.js';
 import { createApprovalGrantIssuer } from './approval-grant-issuer.js';
 import { createEffectBroker } from './effect-broker.js';
+import { classifyRollbackObservation } from './effect-rollback-settlement.js';
 import {
   processExecutionLiveness,
   processExecutionOwner,
@@ -70,6 +72,10 @@ export function createEffectFileRuntime({
   });
   const issuer = issuerOverride || createApprovalGrantIssuer(repository, { clock });
   const activeEffects = new Set();
+  let lastRollbackReconciliation = Object.freeze({
+    recorded: Object.freeze([]),
+    skipped: Object.freeze([]),
+  });
 
   function removeTerminalPending(effectId) {
     const result = repository.getEffectResult(effectId);
@@ -197,6 +203,74 @@ export function createEffectFileRuntime({
       if (result) recovered.push(result);
     }
     return Object.freeze(recovered);
+  }
+
+  function reconcileRollbackReceipts() {
+    const installed = database.prepare(`
+      SELECT 1 AS present FROM sqlite_master
+      WHERE type = 'table' AND name = 'm2_effect_rollback_receipts'
+    `).get()?.present === 1;
+    if (!installed) return lastRollbackReconciliation;
+    const rows = database.prepare(`
+      SELECT result.effect_id AS effectId
+      FROM m2_effect_results result
+      JOIN m2_effect_requests request ON request.effect_id = result.effect_id
+      LEFT JOIN m2_effect_rollback_receipts receipt
+        ON receipt.effect_id = result.effect_id
+      LEFT JOIN m2_execution_files execution_file
+        ON execution_file.forward_effect_id = result.effect_id
+        OR execution_file.rollback_effect_id = result.effect_id
+      LEFT JOIN m2_effect_result_semantic_quarantine quarantine
+        ON quarantine.effect_id = result.effect_id
+      WHERE json_extract(request.request_json, '$.kind') = 'fs.write'
+        AND json_extract(result.result_json, '$.rollback.required') = 1
+        AND json_extract(result.result_json, '$.rollback.status') = 'pending'
+        AND receipt.effect_id IS NULL
+        AND execution_file.execution_id IS NULL
+        AND quarantine.effect_id IS NULL
+      ORDER BY result.effect_id
+    `).all();
+    const recorded = [];
+    const skipped = [];
+    for (const { effectId } of rows) {
+      if (activeEffects.has(effectId)) continue;
+      try {
+        const request = repository.getEffectRequest(effectId);
+        const settlement = repository.getEffectSettlement(effectId);
+        const observation = readProjectFileBytes(
+          request.target.canonicalRoot,
+          request.target.relativePath,
+        );
+        const observedDigest = observation.exists ? payloadDigest(observation.bytes) : null;
+        const observationCode = classifyRollbackObservation({
+          request,
+          result: settlement.result,
+          observedExists: observation.exists,
+          observedDigest,
+        });
+        const receipt = repository.recordRollbackReceipt({
+          effectId,
+          observationCode,
+          observedExists: observation.exists,
+          observedDigest,
+        });
+        recorded.push(receipt);
+      } catch (error) {
+        // An unreadable or drifted authority must not make unrelated runtime
+        // startup unavailable. No receipt means the debt remains visible and
+        // retryable through getEffectSettlement().
+        skipped.push(Object.freeze({
+          effectId,
+          errorCode: typeof error?.code === 'string' ? error.code : 'ROLLBACK_OBSERVATION_FAILED',
+          message: error?.message || String(error),
+        }));
+      }
+    }
+    lastRollbackReconciliation = Object.freeze({
+      recorded: Object.freeze(recorded),
+      skipped: Object.freeze(skipped),
+    });
+    return lastRollbackReconciliation;
   }
 
   function storePending({ effectId, sessionId, conversationId, subjectId, projectId, payload }) {
@@ -386,7 +460,16 @@ export function createEffectFileRuntime({
       return row ? Object.freeze(row) : null;
     },
 
+    getEffectSettlement(effectId) {
+      return repository.getEffectSettlement(effectId);
+    },
+
+    getLastRollbackReconciliation() {
+      return lastRollbackReconciliation;
+    },
+
     recoverInterruptedFilesystemEffects,
+    reconcileRollbackReceipts,
     reconcileInactiveApprovalGrants,
     reconcileTerminalPendingEffects,
   });
@@ -397,6 +480,7 @@ export function createEffectFileRuntime({
   reconcileInactiveApprovalGrants();
   reconcileTerminalPendingEffects();
   recoverInterruptedFilesystemEffects();
+  reconcileRollbackReceipts();
   return runtime;
 }
 

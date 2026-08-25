@@ -65,6 +65,20 @@ jsou zapsané zde i v níže strojově kontrolovaném source manifestu.
 | **078** | rezervováno a použito M2/5 | durable project-change request, approval set, claim/fencing, journal a terminal truth |
 | **079** | rezervováno a použito M2/6 | exact lifecycle plan/approval/cancel, governance receipt, recovery a terminal truth |
 
+## Navazující integrační použití 2026-08-25
+
+Integrační M2 linka po section review použila další souvislé identity pro
+aditivní hardening již existující effect authority. Jde o skutečné zdrojové
+migrace v tomto kandidátu; tento odstavec netvrdí nový union census cizích
+větví.
+
+| Číslo | Stav | Obsah |
+|---|---|---|
+| **080** | použito M2 hardening | exact ApprovalGrant constraints proti immutable EffectRequest |
+| **081** | použito M2 hardening | v2 semantic authority a karanténa neplatných legacy EffectResult řádků |
+| **082** | použito M2 hardening | pre-execution terminály pro expirované a revokované neprovedené granty |
+| **083** | použito M2 hardening | append-only rollback observation receipts pro standalone efekty |
+
 ### Strojově kontrolovaný manifest použitých migrací
 
 Každý současný migrační soubor musí být právě jednou v tomto seznamu. Tím se
@@ -144,6 +158,9 @@ záznamu selže v `artifact-validation`.
 | `2026_08_24_078_m2_execution_authority.js` | použito |
 | `2026_08_24_079_m2_lifecycle_authority.js` | použito |
 | `2026_08_24_080_m2_effect_semantic_authority.js` | použito |
+| `2026_08_24_081_m2_effect_result_semantic_authority_v2.js` | použito |
+| `2026_08_25_082_m2_preexecution_approval_terminals.js` | použito |
+| `2026_08_25_083_m2_effect_rollback_receipts.js` | použito |
 <!-- migration-source-manifest:end -->
 
 ## Proč to nejsou 058 a 059

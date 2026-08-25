@@ -31,6 +31,7 @@ import {
   computeM2EffectInvalidationSchemaFingerprint,
   up as applyEffectInvalidations,
 } from '../src/db/migrations/2026_08_24_077_m2_effect_invalidations.js';
+import { up as applyExecutionAuthority } from '../src/db/migrations/2026_08_24_078_m2_execution_authority.js';
 import {
   EXPECTED_M2_EFFECT_CORE_FINGERPRINT_V080,
   up as applyEffectSemanticAuthority,
@@ -47,6 +48,11 @@ import {
   computeM2PreexecutionTerminalFingerprintV082,
   up as applyPreexecutionApprovalTerminals,
 } from '../src/db/migrations/2026_08_25_082_m2_preexecution_approval_terminals.js';
+import {
+  EXPECTED_M2_EFFECT_ROLLBACK_RECEIPT_FINGERPRINT_V083,
+  computeM2EffectRollbackReceiptFingerprintV083,
+  up as applyEffectRollbackReceipts,
+} from '../src/db/migrations/2026_08_25_083_m2_effect_rollback_receipts.js';
 import {
   EXPECTED_M2_EFFECT_CORE_FINGERPRINT_V077,
   computeM2EffectCoreFingerprintV073,
@@ -274,6 +280,15 @@ function applyEffectAuthorityThrough082(db) {
   applyEffectSemanticAuthority(db);
   applyEffectResultSemanticV2(db);
   applyPreexecutionApprovalTerminals(db);
+}
+
+function applyEffectAuthorityThrough083(db) {
+  applyEffectAuthorityThrough077(db);
+  applyExecutionAuthority(db);
+  applyEffectSemanticAuthority(db);
+  applyEffectResultSemanticV2(db);
+  applyPreexecutionApprovalTerminals(db);
+  applyEffectRollbackReceipts(db);
 }
 
 function processRequest(overrides = {}) {
@@ -1534,6 +1549,83 @@ test('consumed execution authority cannot forge an approval-expired cancellation
     forged.approvalGrantId, forged.terminalStatus, JSON.stringify(forged), claimedAt,
   ), /M2_EFFECT_RESULT_AUTHORITY_MISSING/);
   assert.equal(repository.getEffectResult('effect-1'), null);
+  db.close();
+});
+
+test('083 accepts only an exact standalone rollback observation and exposes one settlement truth', () => {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  applyEffectAuthorityThrough083(db);
+  const repository = repositoryAt(db);
+  registerAndGrant(repository);
+  consume(repository, {
+    grantId: 'grant-1',
+    request: repository.getEffectRequest('effect-1'),
+  });
+  const pending = result({
+    terminalStatus: 'orphaned',
+    rollback: {
+      required: true,
+      status: 'pending',
+      evidenceRef: 'effect:effect-1:rollback-pending',
+    },
+    errorCode: 'EFFECT_FS_WRITE_VERIFICATION_FAILED',
+    lateCompletionRejected: true,
+  });
+  repository.recordEffectResult(pending);
+  const stored = db.prepare(`
+    SELECT request_digest AS requestDigest,
+           m2_effect_result_json_digest_v1(result_json) AS resultDigest
+    FROM m2_effect_results WHERE effect_id = 'effect-1'
+  `).get();
+  assert.throws(() => db.prepare(`
+    INSERT INTO m2_effect_rollback_receipts (
+      effect_id, request_digest, result_digest, observation_code,
+      observed_exists, observed_digest, observed_at_ms, evidence_ref
+    ) VALUES (?, ?, ?, 'matches_forward', 1, ?, ?, ?)
+  `).run(
+    'effect-1', stored.requestDigest, stored.resultDigest, DIGEST_B,
+    Date.parse('2026-08-23T20:00:13.000Z'),
+    'effect:effect-1:rollback-observation:matches_forward',
+  ), /M2_EFFECT_ROLLBACK_RECEIPT_AUTHORITY_MISMATCH/);
+
+  const receiptRepository = repositoryAt(db, '2026-08-23T20:00:13.000Z');
+  const receipt = receiptRepository.recordRollbackReceipt({
+    effectId: 'effect-1',
+    observationCode: 'matches_forward',
+    observedExists: true,
+    observedDigest: DIGEST_A,
+  });
+  assert.deepEqual(receiptRepository.recordRollbackReceipt({
+    effectId: 'effect-1',
+    observationCode: 'matches_forward',
+    observedExists: true,
+    observedDigest: DIGEST_A,
+  }), receipt);
+  const settlement = receiptRepository.getEffectSettlement('effect-1');
+  assert.deepEqual(settlement.result, pending);
+  assert.deepEqual(settlement.rollbackReceipt, receipt);
+  assert.deepEqual(settlement.rollbackDebt, {
+    required: false,
+    status: 'settled_by_observation',
+    sourceStatus: 'pending',
+    evidenceRef: 'effect:effect-1:rollback-observation:matches_forward',
+    observation: 'matches_forward',
+  });
+  expectCode(
+    () => receiptRepository.recordRollbackReceipt({
+      effectId: 'effect-1',
+      observationCode: 'foreign',
+      observedExists: true,
+      observedDigest: DIGEST_B,
+    }),
+    EffectAuthorityErrorCode.ROLLBACK_RECEIPT_CONFLICT,
+  );
+  assert.equal(
+    computeM2EffectRollbackReceiptFingerprintV083(db),
+    EXPECTED_M2_EFFECT_ROLLBACK_RECEIPT_FINGERPRINT_V083,
+  );
+  applyEffectRollbackReceipts(db);
   db.close();
 });
 

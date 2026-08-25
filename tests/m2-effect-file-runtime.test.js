@@ -1,12 +1,14 @@
 import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
   realpathSync,
   rmSync,
+  writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -19,9 +21,11 @@ import { up as applyToolAuthority } from '../src/db/migrations/2026_08_24_074_m2
 import { up as applyToolEffectLinks } from '../src/db/migrations/2026_08_24_075_m2_tool_effect_links.js';
 import { up as applyToolTruth } from '../src/db/migrations/2026_08_24_076_m2_tool_authority_truth.js';
 import { up as applyEffectInvalidations } from '../src/db/migrations/2026_08_24_077_m2_effect_invalidations.js';
+import { up as applyExecutionAuthority } from '../src/db/migrations/2026_08_24_078_m2_execution_authority.js';
 import { up as applyEffectSemanticAuthority } from '../src/db/migrations/2026_08_24_080_m2_effect_semantic_authority.js';
 import { up as applyEffectResultSemanticV2 } from '../src/db/migrations/2026_08_24_081_m2_effect_result_semantic_authority_v2.js';
 import { up as applyPreexecutionApprovalTerminals } from '../src/db/migrations/2026_08_25_082_m2_preexecution_approval_terminals.js';
+import { up as applyEffectRollbackReceipts } from '../src/db/migrations/2026_08_25_083_m2_effect_rollback_receipts.js';
 import { createEffectFileRuntime } from '../src/effects/effect-file-runtime.js';
 import { EffectAuthorityRepository } from '../src/effects/effect-authority-repository.js';
 import { createApprovalGrantIssuer } from '../src/effects/approval-grant-issuer.js';
@@ -52,10 +56,12 @@ function openDatabase(filename) {
     applyToolEffectLinks(database);
     applyToolTruth(database);
     applyEffectInvalidations(database);
+    applyExecutionAuthority(database);
     applyEffectSemanticAuthority(database);
     applyEffectResultSemanticV2(database);
   }
   applyPreexecutionApprovalTerminals(database);
+  applyEffectRollbackReceipts(database);
   return database;
 }
 
@@ -569,6 +575,11 @@ await testAsync('restart turns a consumed grant without committed result into a 
     assert.equal(stored.rollback.status, 'pending');
     assert.equal(stored.lateCompletionRejected, true);
     assert.deepEqual(stored.changes.paths, [input.relativePath]);
+    const settlement = restarted.getEffectSettlement(prepared.effectId);
+    assert.equal(settlement.rollbackReceipt.observationCode, 'matches_forward');
+    assert.equal(settlement.rollbackDebt.required, false);
+    assert.equal(settlement.rollbackDebt.status, 'settled_by_observation');
+    assert.equal(restarted.getLastRollbackReconciliation().recorded.length, 1);
     assert.equal(restarted.getPending(prepared.effectId), null);
     const secondRestart = environment.runtime({
       executionOwner: newOwner,
@@ -577,6 +588,7 @@ await testAsync('restart turns a consumed grant without committed result into a 
       },
     });
     assert.equal(secondRestart.recoverInterruptedFilesystemEffects().length, 0);
+    assert.equal(secondRestart.getLastRollbackReconciliation().recorded.length, 0);
     assert.equal(
       environment.database.prepare(
         'SELECT count(*) AS count FROM m2_effect_results WHERE effect_id = ?',
@@ -588,6 +600,148 @@ await testAsync('restart turns a consumed grant without committed result into a 
       readFileSync(path.join(environment.projectRoot, input.relativePath), 'utf8'),
       input.content,
       'restart recovery must never replay or rewrite the effect',
+    );
+  });
+});
+
+await testAsync('rollback receipts settle exact before images, retain foreign debt and never write', async () => {
+  await withEnvironment(async environment => {
+    const preparationRuntime = environment.runtime();
+    const seedPendingRollback = async ({ operationId, relativePath, before, after }) => {
+      const target = path.join(environment.projectRoot, relativePath);
+      writeFileSync(target, before);
+      const prepared = await preparationRuntime.requestFilesystemWrite(requestInput(environment.projectRoot, {
+        operationId,
+        relativePath,
+        content: after,
+      }));
+      const repository = new EffectAuthorityRepository(environment.database);
+      const grant = createApprovalGrantIssuer(repository).issue({
+        effectId: prepared.effectId,
+        authenticatedSubject: { actorType: 'user', actorId: 'local-operator' },
+      }).grant;
+      const request = repository.getEffectRequest(prepared.effectId);
+      repository.consumeApprovalGrant({
+        grantId: grant.grantId,
+        request,
+        executionOwner: processExecutionOwner,
+      });
+      const claimedAtMs = repository.getExecutionClaim(prepared.effectId).claimedAtMs;
+      const digest = value => `sha256:${createHash('sha256').update(value).digest('hex')}`;
+      repository.recordEffectResult({
+        contract: 'EffectResult', version: 1,
+        effectId: request.effectId, runId: request.runId,
+        projectId: request.origin.projectId,
+        requestDigest: computeEffectRequestDigest(request),
+        approvalGrantId: grant.grantId, terminalStatus: 'orphaned',
+        startedAt: new Date(claimedAtMs).toISOString(),
+        completedAt: new Date(claimedAtMs).toISOString(),
+        process: { pid: null, processGroupId: null, startIdentity: null, exitCode: null, signal: null },
+        changes: {
+          paths: [relativePath], beforeDigest: digest(before),
+          afterDigest: request.payloadDigest, diffArtifact: null,
+        },
+        network: { resolvedAddresses: [], finalUrl: null, status: null, bytes: 0 },
+        rollback: {
+          required: true, status: 'pending',
+          evidenceRef: `effect:${request.effectId}:rollback-pending`,
+        },
+        outputDigest: request.payloadDigest,
+        errorCode: 'EFFECT_FS_WRITE_VERIFICATION_FAILED',
+        evidenceRefs: [`effect:${request.effectId}:fs-write-post-commit-verification-failed`],
+        lateCompletionRejected: true,
+      });
+      return { effectId: prepared.effectId, target };
+    };
+
+    const beforeCase = await seedPendingRollback({
+      operationId: 'message:receipt-before',
+      relativePath: 'notes/receipt-before.md',
+      before: 'before image\n',
+      after: 'authorized forward image\n',
+    });
+    const foreignCase = await seedPendingRollback({
+      operationId: 'message:receipt-foreign',
+      relativePath: 'notes/receipt-foreign.md',
+      before: 'original image\n',
+      after: 'authorized image\n',
+    });
+    writeFileSync(foreignCase.target, 'unrelated foreign drift\n');
+    const unknownInput = requestInput(environment.projectRoot, {
+      operationId: 'message:receipt-unknown-before',
+      relativePath: 'notes/receipt-unknown-before.md',
+      content: 'possibly applied bytes\n',
+    });
+    const unknownPrepared = await preparationRuntime.requestFilesystemWrite(unknownInput);
+    const unknownRepository = new EffectAuthorityRepository(environment.database);
+    const unknownGrant = createApprovalGrantIssuer(unknownRepository).issue({
+      effectId: unknownPrepared.effectId,
+      authenticatedSubject: { actorType: 'user', actorId: unknownInput.subjectId },
+    }).grant;
+    const unknownRequest = unknownRepository.getEffectRequest(unknownPrepared.effectId);
+    unknownRepository.consumeApprovalGrant({
+      grantId: unknownGrant.grantId,
+      request: unknownRequest,
+      executionOwner: processExecutionOwner,
+    });
+    const unknownClaimedAt = unknownRepository
+      .getExecutionClaim(unknownPrepared.effectId).claimedAtMs;
+    unknownRepository.recordEffectResult({
+      contract: 'EffectResult', version: 1,
+      effectId: unknownRequest.effectId, runId: unknownRequest.runId,
+      projectId: unknownRequest.origin.projectId,
+      requestDigest: computeEffectRequestDigest(unknownRequest),
+      approvalGrantId: unknownGrant.grantId, terminalStatus: 'orphaned',
+      startedAt: new Date(unknownClaimedAt).toISOString(),
+      completedAt: new Date(unknownClaimedAt).toISOString(),
+      process: { pid: null, processGroupId: null, startIdentity: null, exitCode: null, signal: null },
+      changes: {
+        paths: [unknownInput.relativePath], beforeDigest: null,
+        afterDigest: null, diffArtifact: null,
+      },
+      network: { resolvedAddresses: [], finalUrl: null, status: null, bytes: 0 },
+      rollback: {
+        required: true, status: 'pending',
+        evidenceRef: `effect:${unknownRequest.effectId}:rollback-pending`,
+      },
+      outputDigest: null,
+      errorCode: 'EFFECT_RECOVERY_ORPHANED',
+      evidenceRefs: [`effect:${unknownRequest.effectId}:restart-recovery`],
+      lateCompletionRejected: true,
+    });
+    const beforeBytes = readFileSync(beforeCase.target);
+    const foreignBytes = readFileSync(foreignCase.target);
+
+    environment.reopen();
+    const restarted = environment.runtime();
+    const beforeSettlement = restarted.getEffectSettlement(beforeCase.effectId);
+    const foreignSettlement = restarted.getEffectSettlement(foreignCase.effectId);
+    const unknownSettlement = restarted.getEffectSettlement(unknownPrepared.effectId);
+
+    assert.equal(beforeSettlement.rollbackReceipt.observationCode, 'matches_before');
+    assert.equal(beforeSettlement.rollbackDebt.required, false);
+    assert.equal(beforeSettlement.rollbackDebt.status, 'settled_by_observation');
+    assert.equal(foreignSettlement.rollbackReceipt.observationCode, 'foreign');
+    assert.equal(foreignSettlement.rollbackDebt.required, true);
+    assert.equal(foreignSettlement.rollbackDebt.status, 'foreign');
+    assert.equal(unknownSettlement.rollbackReceipt.observationCode, 'foreign');
+    assert.equal(unknownSettlement.rollbackDebt.required, true);
+    assert.equal(unknownSettlement.rollbackDebt.status, 'foreign');
+    assert.deepEqual(readFileSync(beforeCase.target), beforeBytes);
+    assert.deepEqual(readFileSync(foreignCase.target), foreignBytes);
+    assert.equal(restarted.getLastRollbackReconciliation().recorded.length, 3);
+    assert.throws(
+      () => environment.database.prepare(`
+        UPDATE m2_effect_rollback_receipts SET observation_code = 'foreign'
+        WHERE effect_id = ?
+      `).run(beforeCase.effectId),
+      /append-only/,
+    );
+    assert.throws(
+      () => environment.database.prepare(
+        'DELETE FROM m2_effect_rollback_receipts WHERE effect_id = ?',
+      ).run(beforeCase.effectId),
+      /append-only/,
     );
   });
 });

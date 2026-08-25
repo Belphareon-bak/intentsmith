@@ -1132,6 +1132,25 @@ korekci `64e0583a` doběhl celý gate s pravdivým `verdict: FAIL`, `exitCode: 1
 `260 PASS / 3 FAIL / 2 BLOCKED / 0 TIMEOUT` a přesně nezměněnými baseline ID.
 To stále není Opus verdict ani M2 PASS.
 
+Operátor následně přijal [Decision 030](docs/decisions/030-m2-closeout-authority.md),
+která nahrazuje dřívější požadavek na sedm Opus review: finální nezávislé review
+všech sedmi připnutých řezů provádí operátor. Zjednodušený proces 1B nemění
+bezpečnostní gate — `CHANGES_REQUESTED` vrací řez do práce a celý M2 lze zavřít
+teprve po operátorově `REVIEW_PASSED` bez nové regrese.
+
+Navazující section-2 closeout hardening přidává migraci 082 pro pravdivé
+`cancelled / APPROVAL_GRANT_EXPIRED|REVOKED` terminály pouze nad
+nespotřebovaným grantem bez execution claimu. UNIQUE nonce/effect a single-use
+hranice se nerozvolnily; nový skutečný pokus používá explicitní novou operation
+generaci, zatímco reconnect stejné generace zůstává exact replay. Migrace 083
+přidává append-only rollback observation receipts a jednotný settlement read
+model. `matches_forward` a prokazatelné `matches_before` uzavírají účetní dluh,
+`foreign` jej ponechává; runtime nikdy nekompenzuje standalone soubor a efekty
+z `m2_execution_files` jsou z této authority vyloučené. Focused evidence je
+effect repository 49/49, file runtime 10/10 a schema migrations 38/38; navazující
+project-change 20/20, execution repository 13/13 a lifecycle journey 6/6 jsou
+beze změny zelené. Stav je `IMPLEMENTATION_GREEN / REVIEW_PENDING`, ne M2 PASS.
+
 První skutečný section-5 Opus max review následně proběhl a vrátil
 `CHANGES_REQUESTED`, nikoli PASS. HIGH nález prokázal, že legitimní změna mimo
 `ContextFilePolicy@1` source set po správném write/test/Git skončila výjimkou

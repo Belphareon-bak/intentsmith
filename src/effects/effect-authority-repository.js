@@ -12,6 +12,12 @@ import {
   validateEffectResultForRequest,
   validateEffectResultForRequestV1,
 } from '../../contracts/m2/effect-v1.js';
+import {
+  buildEffectSettlement,
+  digestStoredEffectResult,
+  rollbackObservationMatchesJson,
+  validateRollbackReceiptForResult,
+} from './effect-rollback-settlement.js';
 
 export const EffectAuthorityErrorCode = Object.freeze({
   INPUT_INVALID: 'EFFECT_AUTHORITY_INPUT_INVALID',
@@ -20,6 +26,8 @@ export const EffectAuthorityErrorCode = Object.freeze({
   RESULT_CONFLICT: 'EFFECT_RESULT_CONFLICT',
   RESULT_AUTHORITY_MISSING: 'EFFECT_RESULT_AUTHORITY_MISSING',
   RESULT_SEMANTIC_QUARANTINED: 'EFFECT_RESULT_SEMANTIC_QUARANTINED',
+  ROLLBACK_RECEIPT_AUTHORITY_MISSING: 'EFFECT_ROLLBACK_RECEIPT_AUTHORITY_MISSING',
+  ROLLBACK_RECEIPT_CONFLICT: 'EFFECT_ROLLBACK_RECEIPT_CONFLICT',
   GRANT_NOT_FOUND: 'APPROVAL_GRANT_NOT_FOUND',
   GRANT_SCOPE_MISMATCH: 'APPROVAL_GRANT_SCOPE_MISMATCH',
   GRANT_NOT_YET_VALID: 'APPROVAL_GRANT_NOT_YET_VALID',
@@ -193,6 +201,9 @@ export class EffectAuthorityRepository {
       if (typeof resultJson !== 'string') return null;
       return `sha256:${createHash('sha256').update(resultJson, 'utf8').digest('hex')}`;
     });
+    this.db.function('m2_effect_rollback_observation_matches_v1', {
+      deterministic: true,
+    }, rollbackObservationMatchesJson);
     this.db.function('m2_approval_grant_matches_request_v1', {
       deterministic: true,
     }, (requestJson, grantJson) => {
@@ -997,6 +1008,141 @@ export class EffectAuthorityRepository {
       ) throw error;
       storageFailure('result read', error);
     }
+  }
+
+  getRollbackReceipt(effectId) {
+    try {
+      const present = this.db.prepare(`
+        SELECT 1 AS present FROM sqlite_master
+        WHERE type = 'table' AND name = 'm2_effect_rollback_receipts'
+      `).get()?.present === 1;
+      if (!present) return null;
+      const row = this.db.prepare(`
+        SELECT receipt.effect_id AS effectId,
+               receipt.request_digest AS requestDigest,
+               receipt.result_digest AS resultDigest,
+               receipt.observation_code AS observationCode,
+               receipt.observed_exists AS observedExists,
+               receipt.observed_digest AS observedDigest,
+               receipt.observed_at_ms AS observedAtMs,
+               receipt.evidence_ref AS evidenceRef,
+               result.result_json AS resultJson
+        FROM m2_effect_rollback_receipts receipt
+        JOIN m2_effect_results result ON result.effect_id = receipt.effect_id
+        WHERE receipt.effect_id = ?
+      `).get(effectId);
+      if (!row) return null;
+      const receipt = Object.freeze({
+        effectId: row.effectId,
+        requestDigest: row.requestDigest,
+        resultDigest: row.resultDigest,
+        observationCode: row.observationCode,
+        observedExists: row.observedExists === 1,
+        observedDigest: row.observedDigest,
+        observedAtMs: row.observedAtMs,
+        evidenceRef: row.evidenceRef,
+      });
+      const request = this.getEffectRequest(effectId);
+      const result = this.getEffectResult(effectId);
+      if (!validateRollbackReceiptForResult({ request, result, resultJson: row.resultJson, receipt })) {
+        throw new Error('stored rollback receipt is not exact for its EffectResult');
+      }
+      return receipt;
+    } catch (error) {
+      if (error instanceof EffectAuthorityError) throw error;
+      storageFailure('rollback receipt read', error);
+    }
+  }
+
+  recordRollbackReceipt({ effectId, observationCode, observedExists, observedDigest } = {}) {
+    if (typeof effectId !== 'string' || effectId.length === 0 || effectId.length > 128) {
+      fail(EffectAuthorityErrorCode.INPUT_INVALID, 'A bounded effectId is required');
+    }
+    const existingReceipt = this.getRollbackReceipt(effectId);
+    if (existingReceipt) {
+      if (
+        existingReceipt.observationCode === observationCode
+        && existingReceipt.observedExists === observedExists
+        && existingReceipt.observedDigest === observedDigest
+      ) return existingReceipt;
+      fail(
+        EffectAuthorityErrorCode.ROLLBACK_RECEIPT_CONFLICT,
+        'Effect already has a different rollback receipt',
+        { effectId },
+      );
+    }
+    const resultRow = this.db.prepare(`
+      SELECT result_json AS resultJson FROM m2_effect_results WHERE effect_id = ?
+    `).get(effectId);
+    const request = this.getEffectRequest(effectId);
+    const result = this.getEffectResult(effectId);
+    if (!request || !result || !resultRow) {
+      fail(
+        EffectAuthorityErrorCode.ROLLBACK_RECEIPT_AUTHORITY_MISSING,
+        'Rollback receipt requires one exact EffectRequest and EffectResult',
+        { effectId },
+      );
+    }
+    const receipt = Object.freeze({
+      effectId,
+      requestDigest: result.requestDigest,
+      resultDigest: digestStoredEffectResult(resultRow.resultJson),
+      observationCode,
+      observedExists,
+      observedDigest,
+      observedAtMs: this.#now(),
+      evidenceRef: `effect:${effectId}:rollback-observation:${observationCode}`,
+    });
+    if (!validateRollbackReceiptForResult({
+      request,
+      result,
+      resultJson: resultRow.resultJson,
+      receipt,
+    })) {
+      fail(
+        EffectAuthorityErrorCode.ROLLBACK_RECEIPT_AUTHORITY_MISSING,
+        'Rollback receipt observation does not settle the exact standalone effect state',
+        { effectId, observationCode },
+      );
+    }
+    try {
+      this.db.prepare(`
+        INSERT INTO m2_effect_rollback_receipts (
+          effect_id, request_digest, result_digest, observation_code,
+          observed_exists, observed_digest, observed_at_ms, evidence_ref
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        receipt.effectId,
+        receipt.requestDigest,
+        receipt.resultDigest,
+        receipt.observationCode,
+        receipt.observedExists ? 1 : 0,
+        receipt.observedDigest,
+        receipt.observedAtMs,
+        receipt.evidenceRef,
+      );
+      return receipt;
+    } catch (error) {
+      const existing = this.getRollbackReceipt(effectId);
+      if (
+        existing
+        && existing.observationCode === observationCode
+        && existing.observedExists === observedExists
+        && existing.observedDigest === observedDigest
+      ) return existing;
+      if (!existing) storageFailure('rollback receipt recording', error);
+      fail(
+        EffectAuthorityErrorCode.ROLLBACK_RECEIPT_CONFLICT,
+        'Effect already has a different rollback receipt',
+        { effectId, cause: error.message },
+      );
+    }
+  }
+
+  getEffectSettlement(effectId) {
+    const result = this.getEffectResult(effectId);
+    if (!result) return null;
+    return buildEffectSettlement(result, this.getRollbackReceipt(effectId));
   }
 
   getEffectResultQuarantine(effectId) {
