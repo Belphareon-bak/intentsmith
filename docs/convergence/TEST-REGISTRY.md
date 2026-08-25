@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 384
+- Runnable programs: 386
 - Explicit support-module exclusions: 8
-- Profiles: offline=191, database=36, server=38, model=84, soak=19, manual=16
-- States: ACTIVE=289, HISTORICAL=14, BLOCKED=81
+- Profiles: offline=191, database=38, server=38, model=84, soak=19, manual=16
+- States: ACTIVE=291, HISTORICAL=14, BLOCKED=81
 
 ## Execution profiles
 
@@ -311,6 +311,8 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-MODEL-EVALUATION-CONSOLIDATION-TEST` | `tests/model-evaluation-consolidation.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODEL-EVALUATION-READ-MODEL-TEST` | `tests/model-evaluation-read-model.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODEL-EVALUATION-SUITES-TEST` | `tests/model-evaluation-suites.test.js` | `C3-010` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-MODEL-POLICY-TRIGGER-COMPATIBILITY-TEST` | `tests/model-policy-trigger-compatibility.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-MODEL-PROOF-TRIGGER-COMPATIBILITY-TEST` | `tests/model-proof-trigger-compatibility.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODEL-REGISTRY-CURRENT-AUTHORITY-TEST` | `tests/model-registry-current-authority.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODEL-SIMILARITY-TEST` | `tests/model-similarity.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODEL-SWEEP-TEST` | `tests/model-sweep.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
