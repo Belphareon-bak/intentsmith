@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-08-25T16:42:45.803Z",
-  "repoHead": "31234a6b67dfded03fbd49a00db204f4bbf3f365",
-  "workingTreeDirty": true,
+  "generatedAt": "2026-08-25T16:55:07.376Z",
+  "repoHead": "d66643daa772f09da4bc2a90c75f6458f7d347e1",
+  "workingTreeDirty": false,
   "taskContractVersion": "code-task-v2",
   "curationNote": "Removed tasks coupled to the superseded ranker, v123 validation and benchmark scoring implementation.",
   "tasks": [
