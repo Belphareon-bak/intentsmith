@@ -87,6 +87,8 @@ export function createSpecialistRoutes(deps) {
       'GET /api/specialists/:id': notAvailable,
       'POST /api/specialists/:id/enable': notAvailable,
       'POST /api/specialists/:id/disable': notAvailable,
+      'POST /api/specialists/:id/install': notAvailable,
+      'DELETE /api/specialists/:id': notAvailable,
       'POST /api/specialists/:id/update': notAvailable,
       'POST /api/specialists/discover': notAvailable,
       'GET /api/specialists/:id/integrity': notAvailable,
@@ -189,6 +191,41 @@ export function createSpecialistRoutes(deps) {
       } catch (err) {
         logger.error('SpecialistAPI', `Disable ${id} failed: ${err.message}`);
         sendJSON(res, 400, { ok: false, error: err.message });
+      } finally {
+        releaseLock(id);
+      }
+    }),
+
+    // ─── Reinstall a persistently removed specialist ────────────────────
+    'POST /api/specialists/:id/install': t(async (req, res, params) => {
+      const id = params.id;
+      if (!acquireLock(id)) {
+        return sendJSON(res, 409, { ok: false, error: `Operation in progress for ${id}` });
+      }
+      try {
+        specialistLoader.discoverAll();
+        const installed = await specialistLoader.install(id);
+        sendJSON(res, 200, { ok: true, ...installed });
+      } catch (err) {
+        const status = err.code === 'M3_SPECIALIST_NOT_FOUND' ? 404 : 409;
+        sendJSON(res, status, { ok: false, error: err.message, errorCode: err.code || null });
+      } finally {
+        releaseLock(id);
+      }
+    }),
+
+    // ─── Persistent remove (distribution bytes and migrations retained) ─
+    'DELETE /api/specialists/:id': t(async (req, res, params) => {
+      const id = params.id;
+      if (!acquireLock(id)) {
+        return sendJSON(res, 409, { ok: false, error: `Operation in progress for ${id}` });
+      }
+      try {
+        const removed = await specialistLoader.uninstall(id);
+        sendJSON(res, 200, { ok: true, ...removed });
+      } catch (err) {
+        const status = err.code === 'M3_SPECIALIST_NOT_INSTALLED' ? 404 : 409;
+        sendJSON(res, status, { ok: false, error: err.message, errorCode: err.code || null });
       } finally {
         releaseLock(id);
       }

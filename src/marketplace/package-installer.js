@@ -256,6 +256,16 @@ export class PackageInstaller {
       if (this._specialistLoader) {
         await this._specialistLoader.discoverAll();
         await this._specialistLoader.installPending();
+        if (typeof this._specialistLoader.install === 'function') {
+          try {
+            await this._specialistLoader.install(entry.id);
+          } catch (error) {
+            if (error.code !== 'M3_SPECIALIST_ALREADY_INSTALLED') throw error;
+          }
+        }
+        if (typeof this._specialistLoader.enableAll === 'function') {
+          await this._specialistLoader.enableAll();
+        }
         try {
           await this._specialistLoader.enable(entry.id);
         } catch (err) {
@@ -344,7 +354,11 @@ export class PackageInstaller {
 
   async _uninstallSpecialist(id) {
     if (this._specialistLoader) {
-      try { await this._specialistLoader.disable(id); } catch {}
+      if (typeof this._specialistLoader.uninstall === 'function') {
+        await this._specialistLoader.uninstall(id);
+      } else {
+        await this._specialistLoader.disable(id);
+      }
     }
     const dir = path.join(this._projectRoot, 'specialists', id);
     await fs.rm(dir, { recursive: true, force: true }).catch(() => {});

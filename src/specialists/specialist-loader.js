@@ -96,6 +96,32 @@ const SEMVER_PATTERN = /^\d+\.\d+\.\d+$/;
 const VALID_TYPES = ['domain', 'utility', 'integration'];
 // v121: Capability dotted notation (e.g. "tax.calculate", "vat.compute")
 const CAPABILITY_PATTERN = /^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/;
+const SPECIALIST_REMOVAL_CONTRACT = 'M3SpecialistRemoval';
+const SPECIALIST_REMOVAL_VERSION = 1;
+
+function lifecycleError(code, message) {
+  return Object.assign(new Error(message), { code });
+}
+
+function parseRemovalEnvelope(row) {
+  if (!row || typeof row.manifest_json !== 'string') return null;
+  try {
+    const value = JSON.parse(row.manifest_json);
+    if (
+      value?.contract !== SPECIALIST_REMOVAL_CONTRACT
+      || value.version !== SPECIALIST_REMOVAL_VERSION
+      || Object.keys(value).length !== 6
+      || value.id !== row.id
+      || value.moduleVersion !== row.version
+      || typeof value.removedAt !== 'string'
+      || !value.manifest
+      || typeof value.manifest !== 'object'
+    ) return null;
+    return value;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Validate a specialist.json manifest.
@@ -316,6 +342,9 @@ export class SpecialistLoader {
       insertMigration: this.db.prepare(
         'INSERT INTO specialist_migrations (specialist_id, migration_name) VALUES (?, ?)'
       ),
+      tableExists: this.db.prepare(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?"
+      ),
     };
   }
 
@@ -414,6 +443,9 @@ export class SpecialistLoader {
       const existing = this._stmts.getSpecialist.get(id);
 
       if (existing) {
+        // A removed extension remains tombstoned even when its bundled package
+        // is still present on disk. Only explicit install() may reactivate it.
+        if (parseRemovalEnvelope(existing)) continue;
         // Already installed — check version update
         if (existing.version !== manifest.version) {
           logger.info('SpecialistLoader', `Updating ${id}: ${existing.version} → ${manifest.version}`);
@@ -698,6 +730,12 @@ export class SpecialistLoader {
   async enable(specialistId) {
     const row = this._stmts.getSpecialist.get(specialistId);
     if (!row) throw new Error(`Specialist not found: ${specialistId}`);
+    if (parseRemovalEnvelope(row)) {
+      throw lifecycleError(
+        'M3_SPECIALIST_NOT_INSTALLED',
+        `Specialist not installed: ${specialistId}`,
+      );
+    }
     if (row.status === 'enabled') return; // noop
 
     const discovered = this._discovered.get(specialistId);
@@ -729,6 +767,12 @@ export class SpecialistLoader {
   async disable(specialistId) {
     const row = this._stmts.getSpecialist.get(specialistId);
     if (!row) throw new Error(`Specialist not found: ${specialistId}`);
+    if (parseRemovalEnvelope(row)) {
+      throw lifecycleError(
+        'M3_SPECIALIST_NOT_INSTALLED',
+        `Specialist not installed: ${specialistId}`,
+      );
+    }
     if (row.status === 'disabled') return; // noop
 
     // D7: Check dependents — refuse if other specialists depend on this one
@@ -743,6 +787,16 @@ export class SpecialistLoader {
     const manifest = discovered?.manifest
       || (extensionManifest ? legacySpecialistManifestView(extensionManifest) : null);
     const expertiseId = this._resolveExpertiseId(specialistId, manifest);
+
+    if (
+      typeof this.runtime.isSpecialistBusy === 'function'
+      && this.runtime.isSpecialistBusy(expertiseId)
+    ) {
+      throw lifecycleError(
+        'M3_SPECIALIST_BUSY',
+        `Cannot disable ${specialistId}: tools currently executing`,
+      );
+    }
 
     // Let specialist do custom cleanup (v121: pass full ctx for fail-safe unregister)
     const mod = this._modules.get(specialistId);
@@ -814,6 +868,93 @@ export class SpecialistLoader {
     this._telemetry?.record('lifecycle.disable', { specialistId });
   }
 
+  /**
+   * Persistently remove an installed package from routing without deleting its
+   * distribution bytes or migration history. Discovery cannot resurrect the
+   * package; a later explicit install() must revalidate the on-disk manifest.
+   */
+  async uninstall(specialistId) {
+    const initial = this._stmts.getSpecialist.get(specialistId);
+    if (!initial || parseRemovalEnvelope(initial)) {
+      throw lifecycleError(
+        'M3_SPECIALIST_NOT_INSTALLED',
+        `Specialist not installed: ${specialistId}`,
+      );
+    }
+    const dependents = this.getDependents(specialistId);
+    if (dependents.length > 0) {
+      throw lifecycleError(
+        'M3_SPECIALIST_DEPENDENTS',
+        `Cannot uninstall ${specialistId}: required by: ${dependents.join(', ')}`,
+      );
+    }
+    if (initial.status !== 'disabled') await this.disable(specialistId);
+
+    const row = this._stmts.getSpecialist.get(specialistId);
+    const removedAt = new Date().toISOString();
+    const envelope = Object.freeze({
+      contract: SPECIALIST_REMOVAL_CONTRACT,
+      version: SPECIALIST_REMOVAL_VERSION,
+      id: specialistId,
+      moduleVersion: row.version,
+      removedAt,
+      manifest: JSON.parse(row.manifest_json),
+    });
+    const persist = this.db.transaction(() => {
+      if (this._stmts.tableExists.get('specialist_expertises')) {
+        this.db.prepare('DELETE FROM specialist_expertises WHERE specialist_id = ?')
+          .run(specialistId);
+      }
+      this._stmts.updateVersion.run(row.version, JSON.stringify(envelope), specialistId);
+      this._stmts.updateStatus.run('disabled', null, removedAt, specialistId);
+    });
+    persist();
+    this._modules.delete(specialistId);
+    this._needsCacheBust.delete(specialistId);
+    this._telemetry?.record('lifecycle.uninstall', { specialistId });
+    return Object.freeze({ id: specialistId, removed: true, removedAt });
+  }
+
+  /**
+   * Reinstall a previously removed distribution package as disabled. The
+   * caller must enable it separately after observing the exact version.
+   */
+  async install(specialistId) {
+    const row = this._stmts.getSpecialist.get(specialistId);
+    if (!row || !parseRemovalEnvelope(row)) {
+      throw lifecycleError(
+        row ? 'M3_SPECIALIST_ALREADY_INSTALLED' : 'M3_SPECIALIST_NOT_FOUND',
+        row
+          ? `Specialist already installed: ${specialistId}`
+          : `Specialist package not found: ${specialistId}`,
+      );
+    }
+    const discovered = this._discovered.get(specialistId);
+    if (!discovered) {
+      throw lifecycleError(
+        'M3_SPECIALIST_PACKAGE_UNAVAILABLE',
+        `Specialist package unavailable: ${specialistId}`,
+      );
+    }
+    this._runMigrations(specialistId, discovered.dir, discovered.manifest);
+    await this._executePendingMigrations();
+    const persist = this.db.transaction(() => {
+      this._stmts.updateVersion.run(
+        discovered.manifest.version,
+        JSON.stringify(discovered.extensionManifest),
+        specialistId,
+      );
+      this._stmts.updateStatus.run('installed', null, null, specialistId);
+    });
+    persist();
+    this._telemetry?.record('lifecycle.install', { specialistId });
+    return Object.freeze({
+      id: specialistId,
+      status: 'installed',
+      version: discovered.manifest.version,
+    });
+  }
+
   // ─── Update Flow ──────────────────────────────────────────────────────
 
   /**
@@ -831,6 +972,12 @@ export class SpecialistLoader {
   async update(specialistId) {
     const row = this._stmts.getSpecialist.get(specialistId);
     if (!row) throw new Error(`Specialist not installed: ${specialistId}`);
+    if (parseRemovalEnvelope(row)) {
+      throw lifecycleError(
+        'M3_SPECIALIST_NOT_INSTALLED',
+        `Specialist not installed: ${specialistId}`,
+      );
+    }
 
     const discovered = this._discovered.get(specialistId);
     if (!discovered) throw new Error(`Specialist ${specialistId} not found on disk (call discoverAll() first)`);
@@ -1177,6 +1324,7 @@ export class SpecialistLoader {
     const installed = this._stmts.listAll.all();
     for (const row of installed) {
       if (row.id === specialistId) continue;
+      if (parseRemovalEnvelope(row)) continue;
       try {
         const normalized = normalizeSpecialistManifest(JSON.parse(row.manifest_json));
         const dependencies = normalized.valid
@@ -1198,7 +1346,7 @@ export class SpecialistLoader {
    * Get all installed specialists.
    */
   getInstalled() {
-    return this._stmts.listAll.all();
+    return this._stmts.listAll.all().filter(row => !parseRemovalEnvelope(row));
   }
 
   /**
@@ -1227,9 +1375,10 @@ export class SpecialistLoader {
    * Get the canonical ExtensionManifest V1 seen by registration code.
    */
   getExtensionManifest(specialistId) {
+    const row = this._stmts.getSpecialist.get(specialistId);
+    if (parseRemovalEnvelope(row)) return null;
     const discovered = this._discovered.get(specialistId);
     if (discovered) return discovered.extensionManifest;
-    const row = this._stmts.getSpecialist.get(specialistId);
     if (!row) return null;
     try {
       const normalized = normalizeSpecialistManifest(JSON.parse(row.manifest_json));

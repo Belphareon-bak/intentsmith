@@ -1789,6 +1789,88 @@ console.log('\n── 41. Recovery: re-enable old code after failed update ─�
   }
 }
 
+// ── 42. M3 persistent remove and explicit reinstall ───────────────────────
+
+console.log('\n── 42. M3 persistent remove and explicit reinstall ──');
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-m3-specialist-life-'));
+
+  try {
+    const db = createTestDb();
+    db.exec(`
+      CREATE TABLE specialist_expertises (
+        specialist_id TEXT NOT NULL,
+        expertise_id TEXT NOT NULL,
+        priority INTEGER NOT NULL,
+        UNIQUE(specialist_id, expertise_id)
+      )
+    `);
+    const runtime = new SpecialistRuntime();
+    writeTempSpecialist(tempDir, 'lifecycle', '1.0.0', 'lifecycle-ok');
+
+    const loader = new SpecialistLoader(db, runtime, {
+      baseDir: tempDir,
+      projectRoot: tempDir,
+      engineVersion: ENGINE_VERSION,
+    });
+    await loader.boot();
+    assert(runtime.isSpecialist('lifecycle'), 'lifecycle fixture starts enabled');
+    assertEq(
+      db.prepare('SELECT count(*) AS count FROM specialist_expertises').get().count,
+      1,
+      'enabled package has one durable expertise binding',
+    );
+
+    runtime._executingCount.set('lifecycle', 1);
+    let busyError = null;
+    try { await loader.uninstall('lifecycle'); } catch (error) { busyError = error; }
+    assertEq(busyError?.code, 'M3_SPECIALIST_BUSY', 'remove rejects a running specialist');
+    assert(runtime.isSpecialist('lifecycle'), 'busy rejection preserves runtime registration');
+    runtime._executingCount.delete('lifecycle');
+
+    const removed = await loader.uninstall('lifecycle');
+    assert(removed.removed, 'remove returns an explicit terminal receipt');
+    assert(!runtime.isSpecialist('lifecycle'), 'removed specialist leaves runtime routing');
+    assert(!loader.getInstalled().some(row => row.id === 'lifecycle'), 'removed specialist leaves installed list');
+    assertEq(loader.getManifest('lifecycle'), null, 'removed specialist has no routable manifest');
+    assertEq(
+      db.prepare('SELECT count(*) AS count FROM specialist_expertises').get().count,
+      0,
+      'remove clears durable expertise bindings',
+    );
+    const tombstone = JSON.parse(
+      db.prepare('SELECT manifest_json FROM specialists WHERE id = ?').get('lifecycle').manifest_json,
+    );
+    assertEq(tombstone.contract, 'M3SpecialistRemoval', 'durable row is an exact removal tombstone');
+
+    const restarted = new SpecialistLoader(db, runtime, {
+      baseDir: tempDir,
+      projectRoot: tempDir,
+      engineVersion: ENGINE_VERSION,
+    });
+    await restarted.boot();
+    assert(!runtime.isSpecialist('lifecycle'), 'restart discovery cannot resurrect removed package');
+    assert(!restarted.getInstalled().some(row => row.id === 'lifecycle'), 'restart keeps removed package absent');
+
+    const installed = await restarted.install('lifecycle');
+    assertEq(installed.status, 'installed', 'explicit reinstall returns disabled installed state');
+    assert(!runtime.isSpecialist('lifecycle'), 'reinstall does not implicitly execute package code');
+    await restarted.enable('lifecycle');
+    assert(runtime.isSpecialist('lifecycle'), 'explicit enable restores routing after reinstall');
+    assertEq(
+      db.prepare('SELECT count(*) AS count FROM specialist_expertises').get().count,
+      1,
+      're-enabled package restores one expertise binding',
+    );
+    const result = await runtime.tryToolExecution('lifecycle', 'echo test');
+    assertEq(result.result.value, 'lifecycle-ok', 'reinstalled specialist tool executes exact package');
+
+    db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 
 console.log(`\n══════════════════════════════════════════════════`);

@@ -24,6 +24,7 @@ await waitForServer();
 let project = null;
 let conversationId = null;
 let disabled = false;
+let removed = false;
 
 try {
   suite('M3 code-review specialist — setup and deterministic result');
@@ -134,7 +135,50 @@ try {
     });
     assertEqual(missing.status, 404);
   });
+
+  await testAsync('remove survives discovery and explicit reinstall restores only disabled package state', async () => {
+    const uninstall = await api('DELETE', '/api/specialists/code-reviewer');
+    assertEqual(uninstall.status, 200);
+    assertEqual(uninstall.data.removed, true);
+    removed = true;
+    disabled = false;
+
+    const rediscovered = await api('POST', '/api/specialists/discover');
+    assertEqual(rediscovered.status, 200);
+    const absent = await api('GET', '/api/specialists/code-reviewer');
+    assertEqual(absent.status, 404);
+    const rejected = await api('POST', '/api/chat/specialist', {
+      sessionId: conversationId,
+      specialistId: 'code-reviewer',
+    });
+    assertEqual(rejected.status, 404);
+
+    const install = await api('POST', '/api/specialists/code-reviewer/install');
+    assertEqual(install.status, 200);
+    assertEqual(install.data.status, 'installed');
+    removed = false;
+    disabled = true;
+
+    const beforeEnable = await api('POST', '/api/chat/specialist', {
+      sessionId: conversationId,
+      specialistId: 'code-reviewer',
+    });
+    assertEqual(beforeEnable.status, 409);
+    const enable = await api('POST', '/api/specialists/code-reviewer/enable');
+    assertEqual(enable.status, 200);
+    disabled = false;
+    const selected = await api('POST', '/api/chat/specialist', {
+      sessionId: conversationId,
+      specialistId: 'code-reviewer',
+    });
+    assertEqual(selected.status, 200);
+    assertEqual(selected.data.specialistId, 'code-reviewer');
+  });
 } finally {
+  if (removed) {
+    try { await api('POST', '/api/specialists/code-reviewer/install'); } catch {}
+    disabled = true;
+  }
   if (disabled) {
     try { await api('POST', '/api/specialists/code-reviewer/enable'); } catch {}
   }
