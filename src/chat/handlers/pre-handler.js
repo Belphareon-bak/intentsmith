@@ -25,7 +25,7 @@ let handleBuildConfirmed, handleClarificationAnswer, handlePlanVerdict,
 let getActiveLifecycleHandoff, cancelLifecycleHandoff, handleLifecycleInput;
 let detectResumeIntent, handleResumeRequest, handleProgressRequest;
 let getActiveWizard, cancelWizard, handleWizardInput;
-let handleSkillConfirmation;
+let handleSkillConfirmation, handleSkillEffectApproval, handleGovernedSkillTrigger;
 
 // Feedback detection (M3)
 let detectFeedback, classifyFeedback, FeedbackSignal;
@@ -103,6 +103,8 @@ async function _initModules() {
     try {
       const sk = await import('./skill.js');
       handleSkillConfirmation = sk.handleSkillConfirmation;
+      handleSkillEffectApproval = sk.handleSkillEffectApproval;
+      handleGovernedSkillTrigger = sk.handleGovernedSkillTrigger;
     } catch (err) {
       logger.debug('PreHandler', `Skills handler not available: ${err.message}`);
     }
@@ -192,6 +194,15 @@ intercepts.push({
   async fn(input, context, mode) {
     const effectId = parseExactEffectApproval(input);
     if (!effectId) return { handled: false };
+
+    // A skill-owned exact effect checkpoint must resume the skill state
+    // machine, which in turn invokes this same M2 authority and records the
+    // linked step output. The standalone interceptor remains the owner for
+    // ordinary file.write effects.
+    if (handleSkillEffectApproval) {
+      const skillResult = await handleSkillEffectApproval(input, context);
+      if (skillResult) return { handled: true, response: skillResult };
+    }
 
     if (
       context.authenticatedSubject?.actorType !== 'user'
@@ -315,6 +326,19 @@ intercepts.push({
         },
       ),
     };
+  },
+});
+
+// A versioned ExtensionManifest trigger is deterministic product authority,
+// not a model classification hint. Resolve it before CRE so repeating the
+// same invocation never redesigns or misroutes the committed procedure.
+intercepts.push({
+  name: 'm3_governed_skill_trigger',
+  modes: ['*'],
+  async fn(input, context) {
+    if (!handleGovernedSkillTrigger) return { handled: false };
+    const response = await handleGovernedSkillTrigger(input, context);
+    return response ? { handled: true, response } : { handled: false };
   },
 });
 

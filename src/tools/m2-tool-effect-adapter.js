@@ -56,6 +56,7 @@ export function createM2ToolEffectAdapter({ effectRuntime = null } = {}) {
         projectRoot,
         relativePath: request.input.path,
         content: request.input.content,
+        surface: request.origin.surface,
         signal,
       });
       return Object.freeze({

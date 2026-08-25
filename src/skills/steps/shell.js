@@ -1,21 +1,18 @@
-// Shell Step — executes whitelisted commands with workspace sandboxing (v90)
+// Shell Step — preserves legacy parsing while failing closed at the effect boundary
 // ══════════════════════════════════════════════════════════════════════════════
 //
-// Security: WHITELIST approach (NOT blacklist)
-//   - Only commands in ALLOWED_COMMANDS can be executed
-//   - Extracts first token from command, verifies against whitelist
-//   - Max 120s timeout, sandboxed to workspace cwd
-//   - On blocked command: { errorType: 'security', retryable: false }
+// Security:
+//   - No child process API is imported or invoked from the skill runtime
+//   - Legacy commands are parsed for compatible diagnostics only
+//   - Every otherwise-allowed command fails until an M2 process effect exists
 //
 // Step I/O contract: { status, output, retryable, errorType }
 //
-// v90: Expanded whitelist for executor capabilities — package managers,
-//      runtimes, build tools, test runners, VCS, filesystem ops.
-//      Skills are author-controlled (JSON definitions), not user-input.
+// The command vocabulary remains data-only compatibility surface. It is not
+// execution authority.
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
-import { execSync } from 'child_process';
 import { substitute } from './substitute.js';
 
 const ALLOWED_COMMANDS = new Set([
@@ -82,8 +79,6 @@ const ALLOWED_COMMANDS = new Set([
   'diff',       // Diff
 ]);
 
-const SHELL_TIMEOUT = 120_000; // 120 seconds (npm install can take >30s)
-
 /**
  * Execute a shell step.
  *
@@ -117,31 +112,20 @@ export async function executeShell(stepDef, context) {
       };
     }
 
-    const workspace = context.workspace || process.cwd();
-
-    const stdout = execSync(command, {
-      cwd: workspace,
-      timeout: SHELL_TIMEOUT,
-      encoding: 'utf-8',
-      maxBuffer: 1024 * 1024, // 1 MB
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-
-    return {
-      status: 'success',
-      output: stdout || '',
-      retryable: false,
-      errorType: null,
-    };
-  } catch (err) {
-    // Timeout or execution failure
-    const isTimeout = err.killed || (err.signal === 'SIGTERM');
     return {
       status: 'error',
-      output: err.stderr || null,
-      retryable: isTimeout, // timeout might be transient
-      errorType: isTimeout ? 'transient' : 'validation',
-      errorMessage: `Shell step "${stepDef.id}": ${isTimeout ? 'timeout (120s)' : err.message}`,
+      output: null,
+      retryable: false,
+      errorType: 'security',
+      errorMessage: `Shell step "${stepDef.id}": process execution has no installed M2 effect translation`,
+    };
+  } catch (err) {
+    return {
+      status: 'error',
+      output: null,
+      retryable: false,
+      errorType: 'validation',
+      errorMessage: `Shell step "${stepDef.id}": ${err.message}`,
     };
   }
 }

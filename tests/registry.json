@@ -13070,6 +13070,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-M3-SKILL-EFFECT-AUTHORITY-TEST",
+      "path": "tests/m3-skill-effect-authority.test.js",
+      "argv": [
+        "node",
+        "tests/m3-skill-effect-authority.test.js"
+      ],
+      "capabilityId": "C3-013",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "database",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 2000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M3-SKILL",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T3-E2E-83-M3-EXPERTISE-EXTENSION",
       "path": "tests/e2e/83-m3-expertise-extension.e2e.js",
       "argv": [

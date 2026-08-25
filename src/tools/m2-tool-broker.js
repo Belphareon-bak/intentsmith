@@ -112,7 +112,11 @@ function canonicalOrigin(context) {
     );
   }
   return {
-    surface: 'studio',
+    // Core-owned callers may narrow the audit surface. This never changes
+    // authority: actor, conversation, project and exact input remain bound by
+    // the same durable request. Unknown values fail closed to the Studio
+    // surface instead of becoming attacker-controlled contract data.
+    surface: context?.effectOriginSurface === 'skill' ? 'skill' : 'studio',
     // A websocket connection ID changes on reconnect. The durable authority
     // session is therefore derived from the persisted conversation identity;
     // the transient session is still required above as authenticated ingress.

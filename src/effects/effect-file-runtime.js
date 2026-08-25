@@ -321,6 +321,7 @@ export function createEffectFileRuntime({
       projectRoot,
       relativePath,
       content,
+      surface = 'studio',
       signal,
     } = {}) {
       requireText(sessionId, 'sessionId');
@@ -333,6 +334,11 @@ export function createEffectFileRuntime({
         throw error;
       }
       const payload = Buffer.from(content, 'utf8');
+      if (surface !== 'studio' && surface !== 'skill') {
+        const error = new TypeError('Filesystem effect surface is not supported by this runtime');
+        error.code = 'EFFECT_RUNTIME_INPUT_INVALID';
+        throw error;
+      }
       const runId = stableIdentifier('run', conversationId);
       const idempotencyKey = stableIdentifier(
         'operation',
@@ -342,7 +348,7 @@ export function createEffectFileRuntime({
         runId,
         actor: { type: 'user', id: subjectId },
         origin: {
-          surface: 'studio',
+          surface,
           // Websocket sessions are authenticated ingress metadata, not durable
           // effect identity. Reconnect retries must reproduce request bytes.
           sessionId: stableIdentifier('session', conversationId),
@@ -447,6 +453,67 @@ export function createEffectFileRuntime({
       } finally {
         activeEffects.delete(effectId);
       }
+    },
+
+    cancelFilesystemWrite({ effectId, conversationId, subjectId } = {}) {
+      requireText(effectId, 'effectId');
+      requireText(conversationId, 'conversationId');
+      requireActorIdentifier(subjectId);
+      const request = repository.getEffectRequest(effectId);
+      const exactConversationId = stableIdentifier('conversation', conversationId);
+      const pending = database.prepare(`
+        SELECT effect_id FROM m2_pending_effect_payloads
+        WHERE effect_id = ? AND conversation_id = ? AND subject_id = ?
+      `).get(effectId, conversationId, subjectId);
+      if (
+        !request
+        || request.actor?.type !== 'user'
+        || request.actor.id !== subjectId
+        || request.origin?.conversationId !== exactConversationId
+        || !pending
+      ) {
+        const terminal = repository.getEffectResult(effectId);
+        if (
+          terminal
+          && request?.actor?.id === subjectId
+          && request?.origin?.conversationId === exactConversationId
+        ) return terminal;
+        const error = new Error('No exact pending filesystem effect belongs to this caller');
+        error.code = 'EFFECT_PENDING_NOT_FOUND';
+        throw error;
+      }
+      if (activeEffects.has(effectId)) {
+        const error = new Error('Filesystem effect execution is already in progress');
+        error.code = 'EFFECT_EXECUTION_IN_PROGRESS';
+        throw error;
+      }
+      const terminal = removeTerminalPending(effectId);
+      if (terminal) return terminal;
+      let grant = request.approvalGrantId
+        ? repository.getApprovalGrant(request.approvalGrantId)
+        : null;
+      if (grant?.consumedAt) {
+        const error = new Error('Consumed filesystem effect cannot be cancelled as unstarted');
+        error.code = 'EFFECT_EXECUTION_IN_DOUBT';
+        throw error;
+      }
+      if (!grant) {
+        grant = issuer.issue({
+          effectId,
+          authenticatedSubject: { actorType: 'user', actorId: subjectId },
+        }).grant;
+      }
+      repository.revokeApprovalGrant({
+        grantId: grant.grantId,
+        reason: 'skill execution cancelled before effect start',
+      });
+      const cancelled = removeTerminalPending(effectId);
+      if (!cancelled) {
+        const error = new Error('Revoked filesystem effect has no durable terminal result');
+        error.code = 'EFFECT_RESULT_UNCOMMITTED';
+        throw error;
+      }
+      return cancelled;
     },
 
     getPending(effectId) {

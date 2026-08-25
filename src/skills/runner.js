@@ -29,6 +29,17 @@ import { substitute } from './steps/substitute.js';
 import { logger } from '../core/logger.js';
 
 const MAX_RETRIES = 2;
+const AUTHORITY_PARAM = '__m3AuthorityV1';
+const EFFECT_STEP_TYPES = new Set(['write', 'shell']);
+let installedEffectAuthority = null;
+
+export function setSkillEffectAuthority(authority) {
+  const methods = ['prepareWrite', 'approveWrite', 'cancelWrite'];
+  if (!authority || methods.some(method => typeof authority[method] !== 'function')) {
+    throw new TypeError('Skill M2 effect authority must implement prepareWrite, approveWrite and cancelWrite');
+  }
+  installedEffectAuthority = authority;
+}
 
 // Approval patterns for review step resume
 const REVIEW_APPROVE = /^(ano|yes|ok|schválit|approve|good|dobr[eéě]|souhlasím|v\s*pořádku)\s*[!.]?$/i;
@@ -57,7 +68,15 @@ const STEP_EXECUTORS = {
  * @param {string} [params.conversationId]
  * @returns {{ executionId: string, skill: Object } | null}
  */
-export function prepare({ skillId, skillParams, input, confidence, sessionId, conversationId }) {
+export function prepare({
+  skillId,
+  skillParams,
+  input,
+  confidence,
+  sessionId,
+  conversationId,
+  authorityContext = null,
+}) {
   try {
     const skill = skillRegistry.get(skillId);
     if (!skill) {
@@ -65,6 +84,14 @@ export function prepare({ skillId, skillParams, input, confidence, sessionId, co
       return null;
     }
 
+    const normalizedParams = _normalizeParams(skill, skillParams);
+    const hasEffects = skill.steps.some(step => EFFECT_STEP_TYPES.has(step.type));
+    const authorityBinding = hasEffects
+      ? _bindAuthority({ sessionId, conversationId, authorityContext })
+      : null;
+    const storedParams = authorityBinding
+      ? { ...normalizedParams, [AUTHORITY_PARAM]: authorityBinding }
+      : normalizedParams;
     const executionId = `exec-${Date.now()}-${Math.random().toString(36).substr(2, 8)}`;
 
     skillExecutions.add.run(
@@ -73,7 +100,7 @@ export function prepare({ skillId, skillParams, input, confidence, sessionId, co
       skill.version,
       'CONFIRMING',
       input,
-      JSON.stringify(skillParams),
+      JSON.stringify(storedParams),
       confidence,
       sessionId,
       conversationId || null,
@@ -99,7 +126,7 @@ export function prepare({ skillId, skillParams, input, confidence, sessionId, co
  * @param {string} executionId
  * @returns {{ status: string, output: Object, error?: string, prompt?: string, content?: string, stepId?: string, stepType?: string, executionId?: string }}
  */
-export async function confirmAndExecute(executionId) {
+export async function confirmAndExecute(executionId, executionContext = {}) {
   try {
     const exec = skillExecutions.findById.get(executionId);
     if (!exec) {
@@ -110,20 +137,27 @@ export async function confirmAndExecute(executionId) {
       return { status: 'error', output: null, error: `Execution "${executionId}" is in state ${exec.state}, expected CONFIRMING` };
     }
 
-    // Transition to EXECUTING
-    skillExecutions.confirm.run(executionId);
-
     const skill = skillRegistry.get(exec.skill_id);
     if (!skill) {
       _failExecution(executionId, `Skill "${exec.skill_id}" no longer in registry`);
       return { status: 'error', output: null, error: `Skill "${exec.skill_id}" not found` };
     }
 
-    const params = JSON.parse(exec.params || '{}');
-    return _executeSteps(executionId, skill, params, {}, 0, exec.input);
+    const storedParams = JSON.parse(exec.params || '{}');
+    const { params, authorityBinding } = _executionInputs(storedParams, executionContext);
+
+    // Caller authority is checked before the state transition so an unrelated
+    // authenticated user cannot burn another user's pending execution.
+    skillExecutions.confirm.run(executionId);
+    return _executeSteps(
+      executionId, skill, params, {}, 0, exec.input,
+      { authorityBinding, signal: executionContext.signal || null },
+    );
   } catch (err) {
     logger.error('SkillRunner', `confirmAndExecute() failed: ${err.message}`);
-    _failExecution(executionId, err.message);
+    if (err?.code !== 'M3_SKILL_AUTHORITY_CALLER_MISMATCH') {
+      _failExecution(executionId, err.message);
+    }
     return { status: 'error', output: null, error: err.message };
   }
 }
@@ -135,7 +169,7 @@ export async function confirmAndExecute(executionId) {
  * @param {string} userInput - User response to the interactive step
  * @returns {{ status: string, output: Object, error?: string, prompt?: string, content?: string, stepId?: string, stepType?: string, executionId?: string }}
  */
-export async function resume(executionId, userInput) {
+export async function resume(executionId, userInput, executionContext = {}) {
   try {
     const exec = skillExecutions.findById.get(executionId);
     if (!exec) {
@@ -152,7 +186,8 @@ export async function resume(executionId, userInput) {
       return { status: 'error', output: null, error: `Skill "${exec.skill_id}" not found` };
     }
 
-    const params = JSON.parse(exec.params || '{}');
+    const storedParams = JSON.parse(exec.params || '{}');
+    const { params, authorityBinding } = _executionInputs(storedParams, executionContext);
     const stepsOutput = JSON.parse(exec.steps_output || '{}');
 
     // Find the step that was awaiting input
@@ -163,6 +198,46 @@ export async function resume(executionId, userInput) {
     }
 
     const awaitingStep = skill.steps[awaitingIdx];
+
+    if (awaitingStep.type === 'write') {
+      const pending = stepsOutput[awaitingStep.id];
+      const approvedEffectId = _parseExactEffectApproval(userInput);
+      if (!pending?.effectId || approvedEffectId !== pending.effectId) {
+        return {
+          status: 'awaiting_input',
+          prompt: `Efekt zůstává neprovedený. Napiš přesně: schválit efekt ${pending?.effectId || '<effect-id>'}`,
+          content: null,
+          executionId,
+          stepId: awaitingStep.id,
+          stepType: awaitingStep.type,
+          output: stepsOutput,
+          errorCode: 'M3_SKILL_EXACT_EFFECT_APPROVAL_REQUIRED',
+        };
+      }
+      const context = {
+        executionId,
+        skillId: skill.id,
+        params: exec.input ? { ...params, input: exec.input } : params,
+        stepsOutput,
+        authorityBinding,
+        effectAuthority: installedEffectAuthority,
+        approvalEffectId: approvedEffectId,
+        signal: executionContext.signal || null,
+      };
+      const result = await _executeStepWithRetry(executeWrite, awaitingStep, context);
+      _recordStep(executionId, awaitingStep, result);
+      if (result.status !== 'success') {
+        const errMsg = result.errorMessage || `Step "${awaitingStep.id}" failed`;
+        _failExecution(executionId, errMsg);
+        return { status: 'error', output: stepsOutput, error: errMsg };
+      }
+      stepsOutput[awaitingStep.id] = result.output;
+      skillExecutions.updateState.run('EXECUTING', null, JSON.stringify(stepsOutput), executionId);
+      return _executeSteps(
+        executionId, skill, params, stepsOutput, awaitingIdx + 1, exec.input,
+        { authorityBinding, signal: executionContext.signal || null },
+      );
+    }
 
     // Process user input into step output
     const stepOutput = _processResumeInput(awaitingStep, userInput, params, stepsOutput);
@@ -184,10 +259,15 @@ export async function resume(executionId, userInput) {
 
     // Transition back to EXECUTING and continue from next step
     skillExecutions.updateState.run('EXECUTING', null, JSON.stringify(stepsOutput), executionId);
-    return _executeSteps(executionId, skill, params, stepsOutput, awaitingIdx + 1, exec.input);
+    return _executeSteps(
+      executionId, skill, params, stepsOutput, awaitingIdx + 1, exec.input,
+      { authorityBinding, signal: executionContext.signal || null },
+    );
   } catch (err) {
     logger.error('SkillRunner', `resume() failed: ${err.message}`);
-    _failExecution(executionId, err.message);
+    if (err?.code !== 'M3_SKILL_AUTHORITY_CALLER_MISMATCH') {
+      _failExecution(executionId, err.message);
+    }
     return { status: 'error', output: null, error: err.message };
   }
 }
@@ -196,12 +276,22 @@ export async function resume(executionId, userInput) {
  * Cancel a pending or awaiting execution.
  *
  * @param {string} executionId
- * @returns {boolean}
+ * @returns {Promise<boolean>}
  */
-export function cancel(executionId) {
+export async function cancel(executionId, executionContext = {}) {
   try {
     const exec = skillExecutions.findById.get(executionId);
     if (!exec || (exec.state !== 'CONFIRMING' && exec.state !== 'AWAITING_INPUT')) return false;
+    const storedParams = JSON.parse(exec.params || '{}');
+    const { authorityBinding } = _executionInputs(storedParams, executionContext);
+    const stepsOutput = JSON.parse(exec.steps_output || '{}');
+    const pendingEffectId = Object.values(stepsOutput)
+      .find(value => value?.state === 'approval_required' && typeof value.effectId === 'string')
+      ?.effectId;
+    if (pendingEffectId) {
+      if (!installedEffectAuthority) throw new Error('Skill M2 effect authority is not installed');
+      await installedEffectAuthority.cancelWrite({ binding: authorityBinding, effectId: pendingEffectId });
+    }
 
     skillExecutions.complete.run('CANCELLED', 'User cancelled', executionId);
     logger.info('SkillRunner', `Execution ${executionId} cancelled (was ${exec.state})`);
@@ -224,9 +314,13 @@ export function getStatus(executionId) {
     if (!exec) return null;
 
     const steps = skillSteps.findByExecution.all(executionId);
+    const params = JSON.parse(exec.params || '{}');
+    delete params[AUTHORITY_PARAM];
     return {
       ...exec,
-      params: JSON.parse(exec.params || '{}'),
+      // The durable binding is an internal authority fact, not skill output.
+      // Public status keeps the user parameters but never serializes it.
+      params,
       stepsOutput: JSON.parse(exec.steps_output || '{}'),
       steps,
     };
@@ -238,7 +332,15 @@ export function getStatus(executionId) {
 
 // ── Step execution loop (shared by confirmAndExecute + resume) ───────────────
 
-async function _executeSteps(executionId, skill, params, stepsOutput, startIdx, originalInput) {
+async function _executeSteps(
+  executionId,
+  skill,
+  params,
+  stepsOutput,
+  startIdx,
+  originalInput,
+  executionContext = {},
+) {
   // Make original user input available as {{input}} in all step templates
   const effectiveParams = originalInput ? { ...params, input: originalInput } : params;
 
@@ -247,6 +349,9 @@ async function _executeSteps(executionId, skill, params, stepsOutput, startIdx, 
     skillId: skill.id,
     params: effectiveParams,
     stepsOutput,
+    authorityBinding: executionContext.authorityBinding || null,
+    effectAuthority: executionContext.authorityBinding ? installedEffectAuthority : null,
+    signal: executionContext.signal || null,
   };
 
   for (let i = startIdx; i < skill.steps.length; i++) {
@@ -265,6 +370,7 @@ async function _executeSteps(executionId, skill, params, stepsOutput, startIdx, 
 
     // Interactive step — checkpoint and return
     if (result.status === 'awaiting_input') {
+      if (result.output != null) stepsOutput[stepDef.id] = result.output;
       _recordStep(executionId, stepDef, { ...result, status: 'awaiting_input' });
       skillExecutions.updateState.run('AWAITING_INPUT', stepDef.id, JSON.stringify(stepsOutput), executionId);
 
@@ -359,6 +465,94 @@ function _processResumeInput(stepDef, userInput, params, stepsOutput) {
   return userInput;
 }
 
+function _parseExactEffectApproval(input) {
+  const match = String(input || '').trim().match(
+    /^(?:schv[aá]lit\s+efekt|approve\s+effect)\s+(effect:[a-f0-9]{64})$/iu,
+  );
+  return match ? match[1] : null;
+}
+
+function _bindAuthority({ sessionId, conversationId, authorityContext }) {
+  const subject = authorityContext?.authenticatedSubject;
+  const projectId = Number(authorityContext?.project?.id ?? authorityContext?.projectId);
+  const userMessageId = Number(authorityContext?.userMessageId);
+  if (
+    subject?.actorType !== 'user'
+    || typeof subject.actorId !== 'string'
+    || !Number.isSafeInteger(projectId)
+    || projectId <= 0
+    || !Number.isSafeInteger(userMessageId)
+    || userMessageId <= 0
+    || !sessionId
+    || !conversationId
+  ) throw Object.assign(
+    new Error('Effectful skill requires an authenticated user, persisted message and active project'),
+    { code: 'M3_SKILL_EFFECT_AUTHORITY_REQUIRED' },
+  );
+  return Object.freeze({
+    actorType: 'user',
+    actorId: subject.actorId,
+    projectId,
+    userMessageId,
+    sessionId: String(sessionId),
+    conversationId: String(conversationId),
+  });
+}
+
+function _executionInputs(storedParams, executionContext) {
+  const params = { ...(storedParams || {}) };
+  const authorityBinding = params[AUTHORITY_PARAM] || null;
+  delete params[AUTHORITY_PARAM];
+  if (authorityBinding) {
+    const subject = executionContext?.authenticatedSubject;
+    if (subject?.actorType !== 'user' || subject.actorId !== authorityBinding.actorId) {
+      throw Object.assign(new Error('Skill continuation caller does not own its effect authority'), {
+        code: 'M3_SKILL_AUTHORITY_CALLER_MISMATCH',
+      });
+    }
+  }
+  return { params, authorityBinding };
+}
+
+function _normalizeParams(skill, provided) {
+  if (!provided || typeof provided !== 'object' || Array.isArray(provided)) {
+    throw new TypeError('Skill parameters must be an object');
+  }
+  if (Object.hasOwn(provided, AUTHORITY_PARAM)) {
+    throw new TypeError(`Skill parameter ${AUTHORITY_PARAM} is reserved`);
+  }
+  const schema = skill.parameters || {};
+  const normalized = {};
+  for (const [name, definition] of Object.entries(schema)) {
+    let value = provided[name];
+    if ((value === undefined || value === null || value === '') && definition.default !== undefined) {
+      value = definition.default;
+    }
+    if (value === undefined || value === null || value === '') {
+      if (definition.required) throw new TypeError(`Missing required skill parameter "${name}"`);
+      continue;
+    }
+    if (definition.type === 'string') {
+      if (typeof value !== 'string') throw new TypeError(`Skill parameter "${name}" must be a string`);
+      if (definition.maxLength && value.length > definition.maxLength) {
+        throw new TypeError(`Skill parameter "${name}" exceeds maxLength`);
+      }
+      if (definition.pattern && !(new RegExp(definition.pattern, 'u')).test(value)) {
+        throw new TypeError(`Skill parameter "${name}" does not match its pattern`);
+      }
+    } else if (definition.type === 'number' && (typeof value !== 'number' || !Number.isFinite(value))) {
+      throw new TypeError(`Skill parameter "${name}" must be a finite number`);
+    } else if (definition.type === 'boolean' && typeof value !== 'boolean') {
+      throw new TypeError(`Skill parameter "${name}" must be a boolean`);
+    }
+    normalized[name] = value;
+  }
+  for (const key of Object.keys(provided)) {
+    if (!Object.hasOwn(schema, key)) throw new TypeError(`Unknown skill parameter "${key}"`);
+  }
+  return normalized;
+}
+
 async function _executeStepWithRetry(executor, stepDef, context) {
   let lastResult;
 
@@ -392,7 +586,9 @@ async function _executeStepWithRetry(executor, stepDef, context) {
 
 function _recordStep(executionId, stepDef, result) {
   try {
-    const outputStr = result.output != null ? String(result.output) : null;
+    const outputStr = result.output != null
+      ? (typeof result.output === 'string' ? result.output : JSON.stringify(result.output))
+      : null;
     const outputHash = outputStr
       ? crypto.createHash('sha256').update(outputStr).digest('hex').substring(0, 16)
       : null;
@@ -429,4 +625,5 @@ export default {
   resume,
   cancel,
   getStatus,
+  setSkillEffectAuthority,
 };

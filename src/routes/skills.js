@@ -75,7 +75,9 @@ export function createSkillRoutes(deps) {
           return;
         }
 
-        const result = await confirmAndExecute(params.id);
+        const result = await confirmAndExecute(params.id, {
+          authenticatedSubject: req.authenticatedSubject,
+        });
         sendJSON(res, 200, { result });
       } catch (err) {
         logger.error('Skills', `Confirm error: ${err.message}`);
@@ -102,7 +104,9 @@ export function createSkillRoutes(deps) {
           return;
         }
 
-        const result = await resume(params.id, userInput);
+        const result = await resume(params.id, userInput, {
+          authenticatedSubject: req.authenticatedSubject,
+        });
         sendJSON(res, 200, { result });
       } catch (err) {
         logger.error('Skills', `Resume error: ${err.message}`);
@@ -111,9 +115,11 @@ export function createSkillRoutes(deps) {
     },
 
     // POST /api/skills/executions/:id/cancel — cancel pending or awaiting execution
-    'POST /api/skills/executions/:id/cancel': (req, res, params) => {
+    'POST /api/skills/executions/:id/cancel': async (req, res, params) => {
       try {
-        const success = cancel(params.id);
+        const success = await cancel(params.id, {
+          authenticatedSubject: req.authenticatedSubject,
+        });
         if (!success) {
           sendJSON(res, 409, { error: `Cannot cancel execution "${params.id}" (not in CONFIRMING or AWAITING_INPUT state)` });
           return;

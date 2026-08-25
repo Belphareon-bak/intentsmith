@@ -1,24 +1,23 @@
-// Write Step — writes content to a file with containment checks (v85)
+// Write Step — prepares and settles an exact M2 file.write effect
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Security:
-//   - path.resolve(workspace, filePath) + fs.realpath() before containment check
-//   - Rejects: '..', absolute paths, symlinks escaping workspace
+//   - Never writes directly; path and byte authority belong to the injected M2 bridge
+//   - Governed manifests must declare file.write explicitly
+//   - Legacy definitions without toolId retain compatibility but map only to file.write
 //   - On security violation: { errorType: 'security', retryable: false }
 //
 // Step I/O contract: { status, output, retryable, errorType }
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
-import fs from 'fs';
-import path from 'path';
 import { substitute } from './substitute.js';
 
 /**
  * Execute a write step.
  *
- * @param {Object} stepDef - Step definition { id, type: 'write', path, content }
- * @param {Object} context - { params, stepsOutput, workspace }
+ * @param {Object} stepDef - Step definition { id, type: 'write', path, content, toolId? }
+ * @param {Object} context - { params, stepsOutput, effectAuthority, authorityBinding }
  * @returns {{ status: string, output: string, retryable: boolean, errorType: string|null }}
  */
 export async function executeWrite(stepDef, context) {
@@ -33,92 +32,50 @@ export async function executeWrite(stepDef, context) {
       };
     }
 
-    const workspace = context.workspace || process.cwd();
-    let rawPath = substitute(stepDef.path, context.params, context.stepsOutput);
-
-    // Sanitize path segments: replace diacritics, spaces, and special chars
-    rawPath = rawPath.split(path.sep).map(segment => {
-      // Only sanitize non-directory segments that contain non-ASCII or spaces
-      if (/[^\x00-\x7F\s]/.test(segment) || /\s/.test(segment)) {
-        return segment
-          .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip diacritics
-          .replace(/\s+/g, '-')                              // spaces → hyphens
-          .replace(/[^a-zA-Z0-9._-]/g, '')                   // strip remaining special chars
-          .toLowerCase();
-      }
-      return segment;
-    }).join(path.sep);
-
-    // Security: reject absolute paths
-    if (path.isAbsolute(rawPath)) {
+    const toolId = stepDef.toolId ?? 'file.write';
+    if (toolId !== 'file.write') {
       return {
-        status: 'error',
-        output: null,
-        retryable: false,
-        errorType: 'security',
-        errorMessage: `Write step "${stepDef.id}": absolute paths not allowed ("${rawPath}")`,
+        status: 'error', output: null, retryable: false, errorType: 'security',
+        errorMessage: `Write step "${stepDef.id}": exact M2 toolId "file.write" is required`,
+      };
+    }
+    if (!context.effectAuthority || !context.authorityBinding) {
+      return {
+        status: 'error', output: null, retryable: false, errorType: 'security',
+        errorMessage: `Write step "${stepDef.id}": M2 effect authority is unavailable`,
       };
     }
 
-    // Security: reject path traversal
-    if (rawPath.includes('..')) {
-      return {
-        status: 'error',
-        output: null,
-        retryable: false,
-        errorType: 'security',
-        errorMessage: `Write step "${stepDef.id}": path traversal not allowed ("${rawPath}")`,
-      };
-    }
-
-    const resolvedPath = path.resolve(workspace, rawPath);
-
-    // Security: containment check (pre-realpath)
-    if (!resolvedPath.startsWith(workspace + path.sep) && resolvedPath !== workspace) {
-      return {
-        status: 'error',
-        output: null,
-        retryable: false,
-        errorType: 'security',
-        errorMessage: `Write step "${stepDef.id}": path escapes workspace`,
-      };
-    }
-
-    // Ensure parent directory exists
-    const dir = path.dirname(resolvedPath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
+    const rawPath = substitute(stepDef.path, context.params, context.stepsOutput);
 
     // Resolve content from stepDef.content or prior step output
     const content = stepDef.content
       ? substitute(stepDef.content, context.params, context.stepsOutput)
       : '';
 
-    // Write the file
-    fs.writeFileSync(resolvedPath, content, 'utf-8');
-
-    // Security: post-write realpath check (symlink protection)
-    try {
-      const realPath = fs.realpathSync(resolvedPath);
-      if (!realPath.startsWith(workspace + path.sep) && realPath !== workspace) {
-        // Symlink escape detected — delete the file we just wrote
-        fs.unlinkSync(resolvedPath);
-        return {
-          status: 'error',
-          output: null,
-          retryable: false,
-          errorType: 'security',
-          errorMessage: `Write step "${stepDef.id}": symlink escape detected (real path: ${realPath})`,
-        };
-      }
-    } catch (realpathErr) {
-      // realpath failed — file might not exist (unlikely after write)
+    if (context.approvalEffectId) {
+      const output = await context.effectAuthority.approveWrite({
+        binding: context.authorityBinding,
+        effectId: context.approvalEffectId,
+        signal: context.signal,
+      });
+      return { status: 'success', output, retryable: false, errorType: null };
     }
 
+    const prepared = await context.effectAuthority.prepareWrite({
+      binding: context.authorityBinding,
+      path: rawPath,
+      content,
+      signal: context.signal,
+    });
+    if (prepared.state === 'terminal') {
+      return { status: 'success', output: prepared, retryable: false, errorType: null };
+    }
     return {
-      status: 'success',
-      output: resolvedPath,
+      status: 'awaiting_input',
+      output: prepared,
+      prompt: `Pro provedení napiš přesně: schválit efekt ${prepared.effectId}`,
+      content: content.length <= 4096 ? content : `${content.slice(0, 4096)}\n…`,
       retryable: false,
       errorType: null,
     };
@@ -127,7 +84,7 @@ export async function executeWrite(stepDef, context) {
       status: 'error',
       output: null,
       retryable: false,
-      errorType: 'validation',
+      errorType: err?.code?.includes('AUTHORITY') || err?.code?.includes('EFFECT') ? 'security' : 'validation',
       errorMessage: `Write step "${stepDef.id}": ${err.message}`,
     };
   }

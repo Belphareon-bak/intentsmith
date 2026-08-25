@@ -141,6 +141,8 @@ import { WebhookChannel } from './notifications/channels/webhook.js';
 import { DesktopChannel } from './notifications/channels/desktop.js';
 import { NotificationEmitter } from './notifications/emitter.js';
 import { skillRegistry } from './skills/registry.js';
+import { setSkillEffectAuthority } from './skills/runner.js';
+import { skillM2EffectAuthority } from './skills/m2-effect-authority.js';
 import { creDecisionEngine } from './chat/cre-decision.js';
 import { toolRegistry } from './tools/registry.js';
 import { createDefaultM2LifecycleApplicationService } from './lifecycle/m2-lifecycle-application-service.js';
@@ -440,6 +442,7 @@ try {
 if (config.features.skills !== false) {
   try {
     const skillsPath = path.join(__dirname, '..', 'skills');
+    setSkillEffectAuthority(skillM2EffectAuthority);
     skillRegistry.load(skillsPath, logger);
     logger.info('Server', `Skills: ${skillRegistry.list().length} loaded from ${skillsPath}`);
   } catch (err) {

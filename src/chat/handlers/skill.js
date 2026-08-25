@@ -123,7 +123,11 @@ export async function handleSkillDecision(input, decision, context) {
   }
 
   // Resolve skill: deterministic first, then LLM fallback
-  const resolved = metaMatch || await resolveSkill(input, summaries, logger);
+  const extensionMatch = metaMatch ? null : skillRegistry.resolveDeterministic(input);
+  if (extensionMatch) {
+    logger.info('SkillHandler', `Governed skill trigger matched: ${extensionMatch.skillId}`);
+  }
+  const resolved = metaMatch || extensionMatch || await resolveSkill(input, summaries, logger);
 
   if (!resolved || !resolved.skillId) {
     logger.info('SkillHandler', 'Resolver returned no match', { input: input.substring(0, 80) });
@@ -150,6 +154,7 @@ export async function handleSkillDecision(input, decision, context) {
     confidence: resolved.confidence,
     sessionId,
     conversationId: context.conversationId,
+    authorityContext: context,
   });
 
   if (!prepared) {
@@ -176,6 +181,11 @@ export async function handleSkillDecision(input, decision, context) {
     `Potvrdit spuštění? (ano/ne)`,
     { skillExecution: executionId, skillId: skill.id, confirming: true }
   );
+}
+
+export async function handleGovernedSkillTrigger(input, context) {
+  if (!skillRegistry.resolveDeterministic(input)) return null;
+  return handleSkillDecision(input, null, context);
 }
 
 /**
@@ -245,6 +255,25 @@ export async function handleSkillConfirmation(input, context) {
   return null;
 }
 
+// Exact effect approvals are intercepted before ordinary skill confirmation.
+// This narrow entry point cannot cancel or confirm an unrelated skill: it only
+// resumes an execution already paused on an interactive step.
+export async function handleSkillEffectApproval(input, context) {
+  const { sessionId, sessionState } = context;
+  const awaitingId = sessionState?._awaitingSkillExecution;
+  const execution = awaitingId
+    ? skillExecutions.findById.get(awaitingId)
+    : skillExecutions.findAwaitingInput?.get(sessionId);
+  if (!execution || execution.state !== 'AWAITING_INPUT') return null;
+  const pending = JSON.parse(execution.steps_output || '{}')[execution.current_step_id];
+  const effectId = String(input || '').trim().match(
+    /^(?:schv[aá]lit\s+efekt|approve\s+effect)\s+(effect:[a-f0-9]{64})$/iu,
+  )?.[1];
+  if (pending?.state !== 'approval_required' || pending.effectId !== effectId) return null;
+  if (sessionState) sessionState._awaitingSkillExecution = execution.id;
+  return _handleResumeInput(input, execution.id, context);
+}
+
 // ── Confirmation handling (CONFIRMING state) ─────────────────────────────────
 
 async function _handleConfirmInput(input, executionId, context) {
@@ -257,7 +286,7 @@ async function _handleConfirmInput(input, executionId, context) {
     }
 
     logger.info('SkillHandler', `User confirmed skill execution ${executionId}`);
-    const result = await confirmAndExecute(executionId);
+    const result = await confirmAndExecute(executionId, context);
 
     return _handleExecutionResult(result, executionId, context);
   }
@@ -268,7 +297,7 @@ async function _handleConfirmInput(input, executionId, context) {
       context.sessionState._pendingSkillExecution = null;
     }
 
-    cancel(executionId);
+    await cancel(executionId, context);
     return skillResponse(
       'Skill zrušen.',
       { skillExecution: executionId, cancelled: true }
@@ -280,7 +309,7 @@ async function _handleConfirmInput(input, executionId, context) {
   if (context.sessionState) {
     context.sessionState._pendingSkillExecution = null;
   }
-  cancel(executionId);
+  await cancel(executionId, context);
   return null;
 }
 
@@ -295,7 +324,7 @@ async function _handleResumeInput(input, executionId, context) {
       context.sessionState._awaitingSkillExecution = null;
     }
 
-    cancel(executionId);
+    await cancel(executionId, context);
     return skillResponse(
       'Skill zrušen.',
       { skillExecution: executionId, cancelled: true }
@@ -308,7 +337,7 @@ async function _handleResumeInput(input, executionId, context) {
   }
 
   logger.info('SkillHandler', `Resuming skill execution ${executionId} with user input`);
-  const result = await resume(executionId, input);
+  const result = await resume(executionId, input, context);
 
   return _handleExecutionResult(result, executionId, context);
 }
@@ -342,6 +371,7 @@ async function _handleProposalResponse(input, proposal, context) {
       confidence: 1.0,
       sessionId,
       conversationId: context.conversationId,
+      authorityContext: context,
     });
 
     if (!prepared) {
@@ -352,7 +382,7 @@ async function _handleProposalResponse(input, proposal, context) {
     }
 
     // Auto-confirm since user already approved the proposal
-    const result = await confirmAndExecute(prepared.executionId);
+    const result = await confirmAndExecute(prepared.executionId, context);
     return _handleExecutionResult(result, prepared.executionId, context);
   }
 
@@ -391,7 +421,10 @@ function _handleExecutionResult(result, executionId, context) {
     // Find the final output (last step)
     const outputs = result.output || {};
     const keys = Object.keys(outputs);
-    const lastOutput = keys.length > 0 ? outputs[keys[keys.length - 1]] : '';
+    const lastOutputValue = keys.length > 0 ? outputs[keys[keys.length - 1]] : '';
+    const lastOutput = typeof lastOutputValue === 'string'
+      ? lastOutputValue
+      : JSON.stringify(lastOutputValue, null, 2);
 
     return skillResponse(
       `Skill dokončen.\n\n${lastOutput}`,

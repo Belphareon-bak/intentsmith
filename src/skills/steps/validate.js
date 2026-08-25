@@ -55,7 +55,9 @@ export async function executeValidate(stepDef, context) {
     }
 
     let resolvedContent = substitute(content, context.params, context.stepsOutput);
-    const resolvedCriteria = substitute(criteria, context.params, context.stepsOutput);
+    const resolvedCriteria = typeof criteria === 'string'
+      ? substitute(criteria, context.params, context.stepsOutput)
+      : criteria;
 
     // Pre-clean content: strip residual <think> blocks and code fences
     resolvedContent = resolvedContent
@@ -64,6 +66,38 @@ export async function executeValidate(stepDef, context) {
       .trim();
     if (/^```(?:json)?\s*\n/i.test(resolvedContent)) {
       resolvedContent = resolvedContent.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+    }
+
+    if (stepDef.mode === 'deterministic') {
+      if (!resolvedCriteria || typeof resolvedCriteria !== 'object' || Array.isArray(resolvedCriteria)) {
+        return {
+          status: 'error', output: null, retryable: false, errorType: 'validation',
+          errorMessage: `Validate step "${stepDef.id}": deterministic criteria must be an object`,
+        };
+      }
+      const failures = [];
+      if (Number.isSafeInteger(resolvedCriteria.minLength)
+        && resolvedContent.length < resolvedCriteria.minLength) failures.push('minLength');
+      if (Number.isSafeInteger(resolvedCriteria.maxLength)
+        && resolvedContent.length > resolvedCriteria.maxLength) failures.push('maxLength');
+      for (const required of resolvedCriteria.requiredSubstrings || []) {
+        const value = substitute(required, context.params, context.stepsOutput);
+        if (!resolvedContent.includes(value)) failures.push(`required:${value}`);
+      }
+      for (const forbidden of resolvedCriteria.forbiddenSubstrings || []) {
+        const value = substitute(forbidden, context.params, context.stepsOutput);
+        if (resolvedContent.includes(value)) failures.push(`forbidden:${value}`);
+      }
+      if (failures.length > 0) {
+        return {
+          status: 'error',
+          output: failures.join(', '),
+          retryable: false,
+          errorType: 'validation',
+          errorMessage: stepDef.failMessage || `Deterministic validation failed: ${failures.join(', ')}`,
+        };
+      }
+      return { status: 'success', output: resolvedContent, retryable: false, errorType: null };
     }
 
     const prompt = `## Obsah k validaci:\n\n${resolvedContent}\n\n## Kritéria:\n\n${resolvedCriteria}\n\nSplňuje obsah všechna kritéria?`;
