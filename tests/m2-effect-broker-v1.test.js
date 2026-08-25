@@ -28,6 +28,8 @@ import { up as applyToolEffectLinks } from '../src/db/migrations/2026_08_24_075_
 import { up as applyToolTruth } from '../src/db/migrations/2026_08_24_076_m2_tool_authority_truth.js';
 import { up as applyEffectInvalidations } from '../src/db/migrations/2026_08_24_077_m2_effect_invalidations.js';
 import { up as applyEffectSemanticAuthority } from '../src/db/migrations/2026_08_24_080_m2_effect_semantic_authority.js';
+import { up as applyEffectResultSemanticAuthorityV2 } from '../src/db/migrations/2026_08_24_081_m2_effect_result_semantic_authority_v2.js';
+import { up as applyPreexecutionApprovalTerminals } from '../src/db/migrations/2026_08_25_082_m2_preexecution_approval_terminals.js';
 import {
   EffectAuthorityError,
   EffectAuthorityErrorCode,
@@ -165,6 +167,8 @@ function openDatabase(filename = ':memory:') {
     applyToolTruth(db);
     applyEffectInvalidations(db);
     applyEffectSemanticAuthority(db);
+    applyEffectResultSemanticAuthorityV2(db);
+    applyPreexecutionApprovalTerminals(db);
   }
   return db;
 }
@@ -948,7 +952,7 @@ await testAsync('concurrent replay has one grant-consumption winner and one prov
   });
 });
 
-await testAsync('revoked and expired grants have zero provider calls and remain without results', async () => {
+await testAsync('revoked and expired grants have zero provider calls and exact cancelled terminals', async () => {
   await withEnvironment(async environment => {
     let providerCalls = 0;
     const broker = createBroker(environment, {
@@ -958,10 +962,11 @@ await testAsync('revoked and expired grants have zero provider calls and remain 
     const revokedCase = await prepareWrite(environment, broker, { relativePath: 'src/revoked.js' });
     const revokedGrant = issue(environment, revokedCase.effectId);
     environment.repository.revokeApprovalGrant({ grantId: revokedGrant.grantId, reason: 'user cancelled' });
-    await assert.rejects(
-      broker.execute({ effectId: revokedCase.effectId, grantId: revokedGrant.grantId, payload: 'after\n' }),
-      assertCode(EffectAuthorityErrorCode.GRANT_REVOKED),
-    );
+    const revokedResult = await broker.execute({
+      effectId: revokedCase.effectId,
+      grantId: revokedGrant.grantId,
+      payload: 'after\n',
+    });
 
     const expiredCase = await prepareWrite(environment, broker, { relativePath: 'src/expired.js' });
     const expiredGrant = issue(environment, expiredCase.effectId, { ttlMs: 10 });
@@ -970,10 +975,23 @@ await testAsync('revoked and expired grants have zero provider calls and remain 
       broker.execute({ effectId: expiredCase.effectId, grantId: expiredGrant.grantId, payload: 'after\n' }),
       assertCode(EffectAuthorityErrorCode.GRANT_EXPIRED),
     );
+    const expiredResult = environment.repository.terminalizeInactiveApprovalGrant(expiredCase.effectId);
 
     assert.equal(providerCalls, 0);
-    assert.equal(environment.repository.getEffectResult(revokedCase.effectId), null);
-    assert.equal(environment.repository.getEffectResult(expiredCase.effectId), null);
+    assert.equal(revokedResult.terminalStatus, 'cancelled');
+    assert.equal(revokedResult.errorCode, 'APPROVAL_GRANT_REVOKED');
+    assert.equal(expiredResult.terminalStatus, 'cancelled');
+    assert.equal(expiredResult.errorCode, 'APPROVAL_GRANT_EXPIRED');
+    for (const result of [revokedResult, expiredResult]) {
+      assert.deepEqual(result.rollback, {
+        required: false,
+        status: 'not_required',
+        evidenceRef: null,
+      });
+      assert.equal(result.lateCompletionRejected, false);
+    }
+    assert.deepEqual(environment.repository.getEffectResult(revokedCase.effectId), revokedResult);
+    assert.deepEqual(environment.repository.getEffectResult(expiredCase.effectId), expiredResult);
   });
 });
 

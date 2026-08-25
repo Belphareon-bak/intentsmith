@@ -297,6 +297,60 @@ test('same run, operation and normalized bytes yield stable request identity', (
   assert.equal(first.createdAt, second.createdAt);
 });
 
+test('explicit effect retry generation creates a new operation while reconnect replay stays exact', () => {
+  const repository = memoryRepository();
+  const broker = createM2ToolBroker({
+    repository,
+    clock: clockFrom([
+      1_777_000_000_000,
+      1_777_000_001_000,
+      1_777_000_002_000,
+      1_777_000_003_000,
+    ]),
+  });
+  const input = { path: 'notes/retry.txt', content: 'retry bytes\n' };
+  const original = broker.createRequest({ toolId: 'file.write', input, context });
+  const reconnect = broker.createRequest({
+    toolId: 'file.write',
+    input,
+    context: { ...context, sessionId: 'studio-session-after-reconnect' },
+  });
+  const retryOne = broker.createRequest({
+    toolId: 'file.write',
+    input,
+    context: { ...context, effectRetryGeneration: 1 },
+  });
+  const retryOneReplay = broker.createRequest({
+    toolId: 'file.write',
+    input,
+    context: { ...context, sessionId: 'retry-reconnect', effectRetryGeneration: 1 },
+  });
+  const retryTwo = broker.createRequest({
+    toolId: 'file.write',
+    input,
+    context: { ...context, effectRetryGeneration: 2 },
+  });
+
+  assert.equal(reconnect.requestId, original.requestId);
+  assert.equal(retryOneReplay.requestId, retryOne.requestId);
+  assert.notEqual(retryOne.requestId, original.requestId);
+  assert.notEqual(retryTwo.requestId, retryOne.requestId);
+  assert.notEqual(retryOne.idempotencyKey, original.idempotencyKey);
+  assert.throws(
+    () => broker.createRequest({
+      toolId: 'file.write', input, context: { ...context, effectRetryGeneration: -1 },
+    }),
+    error => error?.code === M2ToolBrokerErrorCode.INPUT_INVALID,
+  );
+  assert.throws(
+    () => broker.createRequest({
+      toolId: 'local.math', input: { query: '2+2' },
+      context: { ...context, effectRetryGeneration: 1 },
+    }),
+    error => error?.code === M2ToolBrokerErrorCode.INPUT_INVALID,
+  );
+});
+
 test('real SQLite stores one NFC input before digest and effect-binding derivation', () => {
   const database = realAuthorityDatabase();
   const repository = new M2ToolAuthorityRepository(database, { clock: () => 1_777_000_000_000 });

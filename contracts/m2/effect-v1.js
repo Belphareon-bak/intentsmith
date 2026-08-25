@@ -38,6 +38,10 @@ const ROLLBACK_STATUSES = Object.freeze([
   'succeeded',
   'failed',
 ]);
+const PRE_EXECUTION_APPROVAL_TERMINAL_CODES = Object.freeze([
+  'APPROVAL_GRANT_EXPIRED',
+  'APPROVAL_GRANT_REVOKED',
+]);
 const DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/;
 const ERROR_CODE_PATTERN = /^[A-Z][A-Z0-9_:-]{0,63}$/;
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
@@ -529,6 +533,29 @@ function validateNoRollbackEvidence(result, kind, errors) {
   ) errors.push(`effect-result:${kind}-rollback-evidence-mismatch`);
 }
 
+function validatePreExecutionApprovalTerminal(result, errors) {
+  const hasApprovalTerminalCode = PRE_EXECUTION_APPROVAL_TERMINAL_CODES
+    .includes(result.errorCode);
+  if (!hasApprovalTerminalCode) return false;
+  if (result.terminalStatus !== 'cancelled') {
+    errors.push('effect-result:approval-pre-execution-status-mismatch');
+    return false;
+  }
+  validateNoProcessEvidence(result, 'approval-pre-execution', errors);
+  validateNoNetworkEvidence(result, 'approval-pre-execution', errors);
+  validateNoRollbackEvidence(result, 'approval-pre-execution', errors);
+  if (!changesEvidenceIsEmpty(result)) {
+    errors.push('effect-result:approval-pre-execution-change-evidence-mismatch');
+  }
+  if (result.outputDigest !== null) {
+    errors.push('effect-result:approval-pre-execution-output-evidence-mismatch');
+  }
+  if (result.lateCompletionRejected !== false) {
+    errors.push('effect-result:approval-pre-execution-late-completion-mismatch');
+  }
+  return true;
+}
+
 function validateFsWriteResultForRequest(request, result, errors) {
   if (!processEvidenceIsEmpty(result)) {
     errors.push('effect-result:fs-write-success-process-mismatch');
@@ -803,6 +830,13 @@ export function validateEffectResultForRequest(request, result) {
   if (!validation.valid) return validationResult(validation.errors, result);
   if (result.evidenceRefs.length === 0) {
     validation.errors.push('effect-result:evidence-refs-empty');
+  }
+  // Expiry and revocation close authority before a provider starts. They are
+  // therefore one cross-kind cancellation shape, not provider timeout/error
+  // evidence. Durable repository/SQL authority separately proves that no
+  // execution claim exists for this result.
+  if (validatePreExecutionApprovalTerminal(result, validation.errors)) {
+    return validationResult(validation.errors, result);
   }
   switch (request.kind) {
     case 'fs.read':

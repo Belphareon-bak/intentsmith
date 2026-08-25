@@ -306,12 +306,38 @@ export function createM2ToolBroker({
     const actor = canonicalActor(context);
     const runSeed = context?.conversationId ?? context?.sessionId ?? 'anonymous';
     const runId = stableIdentifier('run', runSeed);
-    const operationSeed = {
+    const requestedEffectRetryGeneration = context?.effectRetryGeneration ?? 0;
+    if (
+      !Number.isSafeInteger(requestedEffectRetryGeneration)
+      || requestedEffectRetryGeneration < 0
+      || requestedEffectRetryGeneration > 1_000_000
+    ) {
+      fail(
+        M2ToolBrokerErrorCode.INPUT_INVALID,
+        'Effect retry generation must be a bounded non-negative integer',
+      );
+    }
+    if (
+      requestedEffectRetryGeneration > 0
+      && descriptor.authorityMode !== M2_TOOL_AUTHORITY_MODE.EFFECT
+    ) {
+      fail(
+        M2ToolBrokerErrorCode.INPUT_INVALID,
+        'Explicit effect retry generation is only valid for effect-authority tools',
+      );
+    }
+    const baseOperationSeed = {
       runId,
       toolId,
       inputDigest,
       userMessageId: context?.userMessageId ?? null,
     };
+    // Generation zero retains the accepted request bytes exactly. A positive
+    // generation is an explicit new operation after a terminal effect; it is
+    // never inferred from reconnect/replay, which must remain idempotent.
+    const operationSeed = requestedEffectRetryGeneration === 0
+      ? baseOperationSeed
+      : { ...baseOperationSeed, effectRetryGeneration: requestedEffectRetryGeneration };
     const idempotencyKey = stableIdentifier(
       'tool-operation',
       computeM2ToolValueDigest(operationSeed),

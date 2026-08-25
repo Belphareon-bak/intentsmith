@@ -42,6 +42,12 @@ import {
   up as applyEffectResultSemanticV2,
 } from '../src/db/migrations/2026_08_24_081_m2_effect_result_semantic_authority_v2.js';
 import {
+  EXPECTED_M2_EFFECT_CORE_FINGERPRINT_V082,
+  EXPECTED_M2_PREEXECUTION_TERMINAL_FINGERPRINT_V082,
+  computeM2PreexecutionTerminalFingerprintV082,
+  up as applyPreexecutionApprovalTerminals,
+} from '../src/db/migrations/2026_08_25_082_m2_preexecution_approval_terminals.js';
+import {
   EXPECTED_M2_EFFECT_CORE_FINGERPRINT_V077,
   computeM2EffectCoreFingerprintV073,
 } from '../src/db/m2-effect-core-v073-prerequisite.js';
@@ -261,6 +267,13 @@ function applyEffectAuthorityThrough077(db) {
   applyToolEffectLinks(db);
   applyToolTruth(db);
   applyEffectInvalidations(db);
+}
+
+function applyEffectAuthorityThrough082(db) {
+  applyEffectAuthorityThrough077(db);
+  applyEffectSemanticAuthority(db);
+  applyEffectResultSemanticV2(db);
+  applyPreexecutionApprovalTerminals(db);
 }
 
 function processRequest(overrides = {}) {
@@ -1421,6 +1434,106 @@ test('081 quarantines loose legacy non-fs terminals and enforces v2 on every new
     computeM2EffectResultSemanticV2Fingerprint(db),
     EXPECTED_M2_EFFECT_RESULT_SEMANTIC_V2_FINGERPRINT,
   );
+  db.close();
+});
+
+test('082 terminalizes an expired unstarted grant and fences every later execution claim', () => {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  applyEffectAuthorityThrough082(db);
+  const issuingRepository = repositoryAt(db, CONSUMED);
+  registerAndGrant(issuingRepository);
+  const repository = repositoryAt(db, EXPIRES);
+
+  const terminal = repository.terminalizeInactiveApprovalGrant('effect-1');
+  assert.equal(terminal.terminalStatus, 'cancelled');
+  assert.equal(terminal.errorCode, EffectAuthorityErrorCode.GRANT_EXPIRED);
+  assert.deepEqual(terminal.changes, {
+    paths: [], beforeDigest: null, afterDigest: null, diffArtifact: null,
+  });
+  assert.equal(terminal.rollback.required, false);
+  assert.equal(terminal.rollback.status, 'not_required');
+  assert.equal(terminal.lateCompletionRejected, false);
+  assert.equal(repository.getApprovalGrant('grant-1').consumedAt, null);
+  assert.equal(repository.getExecutionClaim('effect-1'), null);
+  assert.deepEqual(repository.getPreexecutionTerminalClaim('effect-1'), {
+    effectId: 'effect-1',
+    grantId: 'grant-1',
+    requestDigest: computeEffectRequestDigest(request()),
+    reasonCode: EffectAuthorityErrorCode.GRANT_EXPIRED,
+    claimedAtMs: Date.parse(EXPIRES),
+  });
+  assert.deepEqual(repository.terminalizeInactiveApprovalGrant('effect-1'), terminal);
+
+  assert.throws(() => db.prepare(`
+    INSERT INTO m2_effect_execution_claims (
+      effect_id, grant_id, owner_id, owner_pid, owner_boot_id,
+      owner_start_identity, claimed_at_ms
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    'effect-1', 'grant-1', EXECUTION_OWNER.ownerId, EXECUTION_OWNER.pid,
+    EXECUTION_OWNER.bootId, EXECUTION_OWNER.startIdentity, Date.parse(EXPIRES),
+  ), /PREEXECUTION_TERMINAL_ALREADY_CLAIMED/);
+  assert.throws(() => db.prepare(`
+    UPDATE m2_approval_grants
+    SET revoked_at_ms = ?, revocation_reason = 'late_revoke'
+    WHERE grant_id = 'grant-1'
+  `).run(Date.parse(EXPIRES)), /PREEXECUTION_TERMINAL_ALREADY_CLAIMED/);
+  assert.throws(() => db.prepare(`
+    UPDATE m2_effect_preexecution_terminal_claims
+    SET reason_code = 'APPROVAL_GRANT_REVOKED'
+    WHERE effect_id = 'effect-1'
+  `).run(), /append-only/);
+  assert.equal(
+    computeM2PreexecutionTerminalFingerprintV082(db),
+    EXPECTED_M2_PREEXECUTION_TERMINAL_FINGERPRINT_V082,
+  );
+  assert.equal(
+    computeM2EffectCoreFingerprintV073(db),
+    EXPECTED_M2_EFFECT_CORE_FINGERPRINT_V082,
+  );
+  applyPreexecutionApprovalTerminals(db);
+  db.close();
+});
+
+test('consumed execution authority cannot forge an approval-expired cancellation', () => {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  applyEffectAuthorityThrough082(db);
+  const repository = repositoryAt(db);
+  registerAndGrant(repository);
+  consume(repository, {
+    grantId: 'grant-1',
+    request: repository.getEffectRequest('effect-1'),
+  });
+  const claimedAt = repository.getExecutionClaim('effect-1').claimedAtMs;
+  const forged = result({
+    terminalStatus: 'cancelled',
+    startedAt: new Date(claimedAt).toISOString(),
+    completedAt: new Date(claimedAt).toISOString(),
+    process: { pid: null, processGroupId: null, startIdentity: null, exitCode: null, signal: null },
+    changes: { paths: [], beforeDigest: null, afterDigest: null, diffArtifact: null },
+    network: { resolvedAddresses: [], finalUrl: null, status: null, bytes: 0 },
+    rollback: { required: false, status: 'not_required', evidenceRef: null },
+    outputDigest: null,
+    errorCode: EffectAuthorityErrorCode.GRANT_EXPIRED,
+    evidenceRefs: ['effect:effect-1:forged-approval-expiry'],
+    lateCompletionRejected: false,
+  });
+  expectCode(
+    () => repository.recordEffectResult(forged),
+    EffectAuthorityErrorCode.RESULT_AUTHORITY_MISSING,
+  );
+  assert.throws(() => db.prepare(`
+    INSERT INTO m2_effect_results (
+      effect_id, run_id, project_id, request_digest, approval_grant_id,
+      terminal_status, result_json, completed_at_ms
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    forged.effectId, forged.runId, forged.projectId, forged.requestDigest,
+    forged.approvalGrantId, forged.terminalStatus, JSON.stringify(forged), claimedAt,
+  ), /M2_EFFECT_RESULT_AUTHORITY_MISSING/);
+  assert.equal(repository.getEffectResult('effect-1'), null);
   db.close();
 });
 

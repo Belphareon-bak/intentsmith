@@ -100,6 +100,35 @@ export function createEffectFileRuntime({
     return rows.length;
   }
 
+  function reconcileInactiveApprovalGrants() {
+    const atMs = clock();
+    if (!Number.isSafeInteger(atMs) || atMs < 0) {
+      const error = new TypeError('Effect runtime clock returned an invalid timestamp');
+      error.code = 'EFFECT_RUNTIME_INPUT_INVALID';
+      throw error;
+    }
+    const rows = database.prepare(`
+      SELECT pending.effect_id AS effectId
+      FROM m2_pending_effect_payloads pending
+      JOIN m2_approval_grants grant ON grant.effect_id = pending.effect_id
+      LEFT JOIN m2_effect_execution_claims execution
+        ON execution.effect_id = pending.effect_id
+      LEFT JOIN m2_effect_results result ON result.effect_id = pending.effect_id
+      WHERE grant.consumed_at_ms IS NULL
+        AND execution.effect_id IS NULL
+        AND result.effect_id IS NULL
+        AND (grant.revoked_at_ms IS NOT NULL OR grant.expires_at_ms <= ?)
+      ORDER BY pending.effect_id
+    `).all(atMs);
+    const terminalized = [];
+    for (const { effectId } of rows) {
+      if (activeEffects.has(effectId)) continue;
+      const result = repository.terminalizeInactiveApprovalGrant(effectId);
+      if (result) terminalized.push(result);
+    }
+    return Object.freeze(terminalized);
+  }
+
   function recoverConsumedEffect(effectId) {
     const request = repository.getEffectRequest(effectId);
     if (!request?.approvalGrantId) return null;
@@ -319,6 +348,10 @@ export function createEffectFileRuntime({
       const boundGrant = boundRequest?.approvalGrantId
         ? repository.getApprovalGrant(boundRequest.approvalGrantId)
         : null;
+      if (boundGrant?.consumedAt === null) {
+        const inactiveTerminal = repository.terminalizeInactiveApprovalGrant(effectId);
+        if (inactiveTerminal) return inactiveTerminal;
+      }
       if (boundGrant?.consumedAt) {
         const error = new Error('Consumed effect execution owner is still live or cannot be disproved');
         error.code = 'EFFECT_EXECUTION_IN_DOUBT';
@@ -354,12 +387,14 @@ export function createEffectFileRuntime({
     },
 
     recoverInterruptedFilesystemEffects,
+    reconcileInactiveApprovalGrants,
     reconcileTerminalPendingEffects,
   });
   // A newly-created runtime is the restart boundary for this SQLite authority.
   // Filesystem providers are synchronous and cannot survive the old process;
   // a consumed grant without a result is therefore terminally ambiguous and
   // must become a durable orphan instead of being replayed.
+  reconcileInactiveApprovalGrants();
   reconcileTerminalPendingEffects();
   recoverInterruptedFilesystemEffects();
   return runtime;

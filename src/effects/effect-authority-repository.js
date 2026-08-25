@@ -154,6 +154,11 @@ function grantFromRow(row) {
   }
 }
 
+const PRE_EXECUTION_APPROVAL_TERMINAL_CODES = Object.freeze([
+  EffectAuthorityErrorCode.GRANT_EXPIRED,
+  EffectAuthorityErrorCode.GRANT_REVOKED,
+]);
+
 export class EffectAuthorityRepository {
   constructor(db, { clock = Date.now } = {}) {
     this.db = requireDatabase(db);
@@ -583,6 +588,147 @@ export class EffectAuthorityRepository {
     return row ? Object.freeze(row) : null;
   }
 
+  getPreexecutionTerminalClaim(effectId) {
+    try {
+      const present = this.db.prepare(`
+        SELECT 1 AS present FROM sqlite_master
+        WHERE type = 'table' AND name = 'm2_effect_preexecution_terminal_claims'
+      `).get()?.present === 1;
+      if (!present) return null;
+      const row = this.db.prepare(`
+        SELECT effect_id AS effectId, grant_id AS grantId,
+               request_digest AS requestDigest, reason_code AS reasonCode,
+               claimed_at_ms AS claimedAtMs
+        FROM m2_effect_preexecution_terminal_claims
+        WHERE effect_id = ?
+      `).get(effectId);
+      if (!row) return null;
+      const request = this.getEffectRequest(effectId);
+      const grant = this.getApprovalGrant(row.grantId);
+      const executionClaim = this.getExecutionClaim(effectId);
+      const reasonMatches = row.reasonCode === EffectAuthorityErrorCode.GRANT_REVOKED
+        ? grant?.revokedAt !== null && requireTimestamp(grant.revokedAt, 'ApprovalGrant.revokedAt') <= row.claimedAtMs
+        : row.reasonCode === EffectAuthorityErrorCode.GRANT_EXPIRED
+          && grant?.revokedAt === null
+          && requireTimestamp(grant.expiresAt, 'ApprovalGrant.expiresAt') <= row.claimedAtMs;
+      const exact = request
+        && grant
+        && row.requestDigest === computeEffectRequestDigest(request)
+        && grant.grantId === row.grantId
+        && grant.scope.effectId === effectId
+        && grant.consumedAt === null
+        && grant.consumedByEffectId === null
+        && executionClaim === null
+        && Number.isSafeInteger(row.claimedAtMs)
+        && row.claimedAtMs >= requireTimestamp(request.createdAt, 'EffectRequest.createdAt')
+        && reasonMatches;
+      if (!exact) throw new Error('pre-execution terminal claim authority mismatch');
+      return Object.freeze(row);
+    } catch (error) {
+      if (error instanceof EffectAuthorityError) throw error;
+      storageFailure('pre-execution terminal claim read', error);
+    }
+  }
+
+  /**
+   * Atomically turn an expired or revoked, never-consumed grant into truthful
+   * cancellation authority. The same BEGIN IMMEDIATE transaction proves that
+   * no execution claim exists, records the immutable result, and releases the
+   * pending payload. Exact retries return the already-recorded terminal.
+   */
+  terminalizeInactiveApprovalGrant(effectId) {
+    if (typeof effectId !== 'string' || effectId.length === 0 || effectId.length > 128) {
+      fail(EffectAuthorityErrorCode.INPUT_INVALID, 'A bounded effectId is required');
+    }
+    const authorityInstalled = this.db.prepare(`
+      SELECT 1 AS present FROM sqlite_master
+      WHERE type = 'table' AND name = 'm2_effect_preexecution_terminal_claims'
+    `).get()?.present === 1;
+    if (!authorityInstalled) return null;
+    return immediate(this.db, () => {
+      const existing = this.getEffectResult(effectId);
+      if (existing) return existing;
+      const request = this.getEffectRequest(effectId);
+      if (!request) {
+        fail(
+          EffectAuthorityErrorCode.REQUEST_NOT_FOUND,
+          'Pre-execution terminal references an unknown EffectRequest',
+          { effectId },
+        );
+      }
+      if (!request.approvalGrantId || this.getEffectInvalidation(effectId)) return null;
+      const grant = this.getApprovalGrant(request.approvalGrantId);
+      if (!grant) {
+        fail(
+          EffectAuthorityErrorCode.GRANT_NOT_FOUND,
+          'Bound ApprovalGrant does not exist',
+          { effectId, grantId: request.approvalGrantId },
+        );
+      }
+      if (grant.consumedAt !== null || this.getExecutionClaim(effectId)) return null;
+      const claimedAtMs = this.#now();
+      const reasonCode = grant.revokedAt !== null
+        ? EffectAuthorityErrorCode.GRANT_REVOKED
+        : requireTimestamp(grant.expiresAt, 'ApprovalGrant.expiresAt') <= claimedAtMs
+          ? EffectAuthorityErrorCode.GRANT_EXPIRED
+          : null;
+      if (!reasonCode) return null;
+      const requestDigest = computeEffectRequestDigest(request);
+      try {
+        this.db.prepare(`
+          INSERT INTO m2_effect_preexecution_terminal_claims (
+            effect_id, grant_id, request_digest, reason_code, claimed_at_ms
+          ) VALUES (?, ?, ?, ?, ?)
+        `).run(effectId, grant.grantId, requestDigest, reasonCode, claimedAtMs);
+      } catch (error) {
+        storageFailure('pre-execution terminal claim', error);
+      }
+      const at = isoFromMs(claimedAtMs);
+      const result = {
+        contract: M2_EFFECT_CONTRACT_KIND.EFFECT_RESULT,
+        version: 1,
+        effectId,
+        runId: request.runId,
+        projectId: request.origin.projectId,
+        requestDigest,
+        approvalGrantId: grant.grantId,
+        terminalStatus: 'cancelled',
+        startedAt: at,
+        completedAt: at,
+        process: {
+          pid: null,
+          processGroupId: null,
+          startIdentity: null,
+          exitCode: null,
+          signal: null,
+        },
+        changes: {
+          paths: [],
+          beforeDigest: null,
+          afterDigest: null,
+          diffArtifact: null,
+        },
+        network: { resolvedAddresses: [], finalUrl: null, status: null, bytes: 0 },
+        rollback: { required: false, status: 'not_required', evidenceRef: null },
+        outputDigest: null,
+        errorCode: reasonCode,
+        evidenceRefs: [
+          `effect:${effectId}:${reasonCode === EffectAuthorityErrorCode.GRANT_EXPIRED
+            ? 'approval-grant-expired'
+            : 'approval-grant-revoked'}`,
+        ],
+        lateCompletionRejected: false,
+      };
+      this.recordEffectResult(result);
+      try {
+        this.db.prepare('DELETE FROM m2_pending_effect_payloads WHERE effect_id = ?').run(effectId);
+      } catch (error) {
+        storageFailure('pre-execution pending release', error);
+      }
+      return Object.freeze(result);
+    });
+  }
+
   #failGrantState(grantId, request, atMs) {
     const row = this.db.prepare('SELECT * FROM m2_approval_grants WHERE grant_id = ?').get(grantId);
     if (!row) fail(EffectAuthorityErrorCode.GRANT_NOT_FOUND, 'ApprovalGrant does not exist', { grantId });
@@ -623,7 +769,9 @@ export class EffectAuthorityRepository {
           AND revoked_at_ms IS NULL
       `).run(atMs, reason, grantId);
       if (update.changes === 1) {
-        return Object.freeze({ revoked: true, grant: this.getApprovalGrant(grantId) });
+        const grant = this.getApprovalGrant(grantId);
+        this.terminalizeInactiveApprovalGrant(grant.scope.effectId);
+        return Object.freeze({ revoked: true, grant });
       }
       const row = this.db.prepare('SELECT * FROM m2_approval_grants WHERE grant_id = ?').get(grantId);
       if (!row) fail(EffectAuthorityErrorCode.GRANT_NOT_FOUND, 'ApprovalGrant does not exist', { grantId });
@@ -631,7 +779,9 @@ export class EffectAuthorityRepository {
         fail(EffectAuthorityErrorCode.GRANT_CONSUMED, 'Consumed ApprovalGrant cannot be revoked', { grantId });
       }
       if (row.revoked_at_ms !== null) {
-        return Object.freeze({ revoked: false, grant: grantFromRow(row) });
+        const grant = grantFromRow(row);
+        this.terminalizeInactiveApprovalGrant(grant.scope.effectId);
+        return Object.freeze({ revoked: false, grant });
       }
       fail(EffectAuthorityErrorCode.GRANT_CONFLICT, 'ApprovalGrant revocation lost authority race', { grantId });
     });
@@ -666,7 +816,13 @@ export class EffectAuthorityRepository {
           });
         }
       }
-      return Object.freeze({ revoked: active.length, grantIds: Object.freeze(active.map(row => row.grant_id)) });
+      active
+        .map(row => this.getApprovalGrant(row.grant_id))
+        .forEach(grant => this.terminalizeInactiveApprovalGrant(grant.scope.effectId));
+      return Object.freeze({
+        revoked: active.length,
+        grantIds: Object.freeze(active.map(row => row.grant_id)),
+      });
     });
   }
 
@@ -709,20 +865,37 @@ export class EffectAuthorityRepository {
     }
     const grant = this.getApprovalGrant(result.approvalGrantId);
     const claim = this.getExecutionClaim(result.effectId);
-    if (
-      !grant
-      || !claim
-      || claim.grantId !== result.approvalGrantId
-      || grant.scope.effectId !== result.effectId
-      || grant.scope.runId !== result.runId
-      || grant.scope.projectId !== result.projectId
-      || grant.consumedAt === null
-      || grant.consumedByEffectId !== result.effectId
-      || grant.revokedAt !== null
-    ) {
+    const approvalTerminal = result.terminalStatus === 'cancelled'
+      && PRE_EXECUTION_APPROVAL_TERMINAL_CODES.includes(result.errorCode);
+    const preexecutionClaim = approvalTerminal
+      ? this.getPreexecutionTerminalClaim(result.effectId)
+      : null;
+    const exactGrantIdentity = grant
+      && grant.scope.effectId === result.effectId
+      && grant.scope.runId === result.runId
+      && grant.scope.projectId === result.projectId;
+    const executionAuthority = !approvalTerminal
+      && exactGrantIdentity
+      && claim
+      && claim.grantId === result.approvalGrantId
+      && grant.consumedAt !== null
+      && grant.consumedByEffectId === result.effectId
+      && grant.revokedAt === null;
+    const preexecutionAuthority = approvalTerminal
+      && exactGrantIdentity
+      && claim === null
+      && preexecutionClaim
+      && preexecutionClaim.grantId === result.approvalGrantId
+      && preexecutionClaim.requestDigest === requestDigest
+      && preexecutionClaim.reasonCode === result.errorCode
+      && grant.consumedAt === null
+      && grant.consumedByEffectId === null;
+    if (!executionAuthority && !preexecutionAuthority) {
       fail(
         EffectAuthorityErrorCode.RESULT_AUTHORITY_MISSING,
-        'EffectResult requires its exact consumed grant and execution claim',
+        approvalTerminal
+          ? 'Approval cancellation requires its exact unstarted terminal claim'
+          : 'EffectResult requires its exact consumed grant and execution claim',
         { effectId: result.effectId, grantId: result.approvalGrantId },
       );
     }
@@ -734,11 +907,20 @@ export class EffectAuthorityRepository {
         { effectId: result.effectId },
       );
     }
-    if (startedAtMs < claim.claimedAtMs) {
+    const authorityClaimedAtMs = approvalTerminal
+      ? preexecutionClaim.claimedAtMs
+      : claim.claimedAtMs;
+    if (
+      approvalTerminal
+        ? startedAtMs !== authorityClaimedAtMs
+        : startedAtMs < authorityClaimedAtMs
+    ) {
       fail(
         EffectAuthorityErrorCode.INPUT_INVALID,
-        'EffectResult cannot start before its execution authority was consumed',
-        { effectId: result.effectId, claimedAtMs: claim.claimedAtMs },
+        approvalTerminal
+          ? 'Approval cancellation must start at its pre-execution terminal claim'
+          : 'EffectResult cannot start before its execution authority was consumed',
+        { effectId: result.effectId, claimedAtMs: authorityClaimedAtMs },
       );
     }
     try {

@@ -391,6 +391,85 @@ test('historical v1 stays frozen while current process.exec requires execution e
   assert.equal(validateEffectResultForRequest(processRequest, proven).valid, true);
 });
 
+test('expired and revoked pre-execution approvals are one evidence-free cancellation shape for every kind', () => {
+  const filesystemTarget = request().target;
+  const argv = ['--version'];
+  const cases = [
+    ['fs.read', 'read', filesystemTarget],
+    ['fs.write', 'write', filesystemTarget],
+    ['fs.delete', 'destructive', filesystemTarget],
+    ['process.exec', 'exec', {
+      type: 'process', binary: '/usr/bin/node', argv,
+      argvDigest: computeEffectArgvDigest(argv), canonicalCwd: '/workspace/project',
+    }],
+    ['network.request', 'network', {
+      type: 'network', url: 'https://example.com/', origin: 'https://example.com',
+      method: 'GET', redirectPolicy: 'revalidate', dnsPolicy: 'public-only',
+    }],
+    ['git.commit', 'write', {
+      type: 'git', canonicalRepo: '/workspace/project', paths: ['src/app.js'],
+      expectedWorkspaceRevision: 'wsr1:revision-a', remote: null,
+    }],
+    ['git.push', 'network', {
+      type: 'git', canonicalRepo: '/workspace/project', paths: ['src/app.js'],
+      expectedWorkspaceRevision: 'wsr1:revision-a', remote: 'origin',
+    }],
+  ];
+  for (const [index, [kind, riskClass, target]] of cases.entries()) {
+    const exactRequest = request({
+      effectId: `effect-approval-${index}`,
+      idempotencyKey: `approval-operation-${index}`,
+      kind,
+      riskClass,
+      target,
+    });
+    for (const errorCode of ['APPROVAL_GRANT_EXPIRED', 'APPROVAL_GRANT_REVOKED']) {
+      const terminal = result({
+        effectId: exactRequest.effectId,
+        requestDigest: computeEffectRequestDigest(exactRequest),
+        terminalStatus: 'cancelled',
+        changes: { paths: [], beforeDigest: null, afterDigest: null, diffArtifact: null },
+        rollback: { required: false, status: 'not_required', evidenceRef: null },
+        outputDigest: null,
+        errorCode,
+        evidenceRefs: [`effect:${exactRequest.effectId}:${errorCode.toLowerCase()}`],
+        lateCompletionRejected: false,
+      });
+      assert.equal(
+        validateEffectResultForRequest(exactRequest, terminal).valid,
+        true,
+        `${kind}/${errorCode}`,
+      );
+    }
+  }
+});
+
+test('pre-execution approval cancellation rejects any effect, rollback, output or late evidence', () => {
+  const exactRequest = request();
+  const terminal = result({
+    requestDigest: computeEffectRequestDigest(exactRequest),
+    terminalStatus: 'cancelled',
+    changes: { paths: [], beforeDigest: null, afterDigest: null, diffArtifact: null },
+    rollback: { required: false, status: 'not_required', evidenceRef: null },
+    outputDigest: null,
+    errorCode: 'APPROVAL_GRANT_EXPIRED',
+    evidenceRefs: ['effect:effect-1:approval-grant-expired'],
+    lateCompletionRejected: false,
+  });
+  const mutations = [
+    { ...terminal, terminalStatus: 'failed' },
+    { ...terminal, changes: { ...terminal.changes, paths: ['src/app.js'] } },
+    { ...terminal, process: { ...terminal.process, pid: 4242 } },
+    { ...terminal, network: { ...terminal.network, status: 503 } },
+    { ...terminal, rollback: { required: true, status: 'pending', evidenceRef: 'rollback:1' } },
+    { ...terminal, outputDigest: DIGEST_A },
+    { ...terminal, lateCompletionRejected: true },
+  ];
+  for (const candidate of mutations) {
+    assert.equal(validateEffectResultForRequest(exactRequest, candidate).valid, false);
+  }
+});
+
 test('git.commit success is exact-path and an in-doubt failure cannot claim zero effects', () => {
   const gitRequest = request({
     approvalGrantId: 'grant-1',

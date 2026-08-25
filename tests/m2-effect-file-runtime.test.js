@@ -21,6 +21,7 @@ import { up as applyToolTruth } from '../src/db/migrations/2026_08_24_076_m2_too
 import { up as applyEffectInvalidations } from '../src/db/migrations/2026_08_24_077_m2_effect_invalidations.js';
 import { up as applyEffectSemanticAuthority } from '../src/db/migrations/2026_08_24_080_m2_effect_semantic_authority.js';
 import { up as applyEffectResultSemanticV2 } from '../src/db/migrations/2026_08_24_081_m2_effect_result_semantic_authority_v2.js';
+import { up as applyPreexecutionApprovalTerminals } from '../src/db/migrations/2026_08_25_082_m2_preexecution_approval_terminals.js';
 import { createEffectFileRuntime } from '../src/effects/effect-file-runtime.js';
 import { EffectAuthorityRepository } from '../src/effects/effect-authority-repository.js';
 import { createApprovalGrantIssuer } from '../src/effects/approval-grant-issuer.js';
@@ -52,7 +53,9 @@ function openDatabase(filename) {
     applyToolTruth(database);
     applyEffectInvalidations(database);
     applyEffectSemanticAuthority(database);
+    applyEffectResultSemanticV2(database);
   }
+  applyPreexecutionApprovalTerminals(database);
   return database;
 }
 
@@ -203,6 +206,101 @@ await testAsync('pending effect survives restart and remains bound to its origin
   });
 });
 
+await testAsync('startup terminalizes an expired unconsumed grant without starting or writing', async () => {
+  await withEnvironment(async environment => {
+    let now = 1_777_000_000_000;
+    const input = requestInput(environment.projectRoot, {
+      operationId: 'message:expired-approval',
+      relativePath: 'notes/expired-approval.md',
+      content: 'must never be written\n',
+    });
+    const runtime = environment.runtime({ clock: () => now });
+    const prepared = await runtime.requestFilesystemWrite(input);
+    const repository = new EffectAuthorityRepository(environment.database, { clock: () => now });
+    const grant = createApprovalGrantIssuer(repository, {
+      clock: () => now,
+      defaultTtlMs: 10,
+    }).issue({
+      effectId: prepared.effectId,
+      authenticatedSubject: { actorType: 'user', actorId: input.subjectId },
+    }).grant;
+
+    now += 10;
+    environment.reopen();
+    const restarted = environment.runtime({ clock: () => now });
+    const stored = new EffectAuthorityRepository(environment.database, { clock: () => now });
+    const terminal = stored.getEffectResult(prepared.effectId);
+
+    assert.equal(terminal.terminalStatus, 'cancelled');
+    assert.equal(terminal.errorCode, 'APPROVAL_GRANT_EXPIRED');
+    assert.equal(terminal.rollback.required, false);
+    assert.equal(terminal.lateCompletionRejected, false);
+    assert.equal(stored.getApprovalGrant(grant.grantId).consumedAt, null);
+    assert.equal(stored.getExecutionClaim(prepared.effectId), null);
+    assert.equal(
+      stored.getPreexecutionTerminalClaim(prepared.effectId).reasonCode,
+      'APPROVAL_GRANT_EXPIRED',
+    );
+    assert.equal(restarted.getPending(prepared.effectId), null);
+    assert.throws(
+      () => readFileSync(path.join(environment.projectRoot, input.relativePath)),
+      /ENOENT/,
+    );
+    const reconnect = await restarted.approveFilesystemWrite({
+      effectId: prepared.effectId,
+      conversationId: input.conversationId,
+      subjectId: input.subjectId,
+    });
+    assert.deepEqual(reconnect, terminal);
+  });
+});
+
+await testAsync('revocation mints one cancelled terminal and never consumes the grant', async () => {
+  await withEnvironment(async environment => {
+    const now = 1_777_000_100_000;
+    const input = requestInput(environment.projectRoot, {
+      operationId: 'message:revoked-approval',
+      relativePath: 'notes/revoked-approval.md',
+      content: 'must never be written either\n',
+    });
+    const runtime = environment.runtime({ clock: () => now });
+    const prepared = await runtime.requestFilesystemWrite(input);
+    const repository = new EffectAuthorityRepository(environment.database, { clock: () => now });
+    const grant = createApprovalGrantIssuer(repository, { clock: () => now }).issue({
+      effectId: prepared.effectId,
+      authenticatedSubject: { actorType: 'user', actorId: input.subjectId },
+    }).grant;
+    const revoked = repository.revokeApprovalGrant({
+      grantId: grant.grantId,
+      reason: 'operator_cancelled',
+    });
+
+    assert.equal(revoked.revoked, true);
+    const terminal = repository.getEffectResult(prepared.effectId);
+    assert.equal(terminal.terminalStatus, 'cancelled');
+    assert.equal(terminal.errorCode, 'APPROVAL_GRANT_REVOKED');
+    assert.equal(repository.getApprovalGrant(grant.grantId).consumedAt, null);
+    assert.equal(repository.getExecutionClaim(prepared.effectId), null);
+    assert.equal(runtime.getPending(prepared.effectId), null);
+    assert.throws(
+      () => readFileSync(path.join(environment.projectRoot, input.relativePath)),
+      /ENOENT/,
+    );
+    const replay = repository.revokeApprovalGrant({
+      grantId: grant.grantId,
+      reason: 'operator_cancelled',
+    });
+    assert.equal(replay.revoked, false);
+    assert.deepEqual(repository.getEffectResult(prepared.effectId), terminal);
+    assert.equal(
+      environment.database.prepare(`
+        SELECT count(*) AS count FROM m2_effect_results WHERE effect_id = ?
+      `).get(prepared.effectId).count,
+      1,
+    );
+  });
+});
+
 await testAsync('startup isolates a quarantined legacy terminal without disabling unrelated approvals', async () => {
   await withEnvironment(async environment => {
     const input = requestInput(environment.projectRoot, {
@@ -241,6 +339,11 @@ await testAsync('startup isolates a quarantined legacy terminal without disablin
       outputDigest: request.payloadDigest, errorCode: null,
       evidenceRefs: [], lateCompletionRejected: false,
     };
+    // Simulate a v1-accepted row already present when 081 was installed. The
+    // current test database is already at 082, so seed the historical bytes
+    // through the frozen non-semantic triggers and then add the exact 081
+    // quarantine evidence explicitly.
+    environment.database.exec('DROP TRIGGER trg_m2_effect_results_semantic_authority');
     environment.database.prepare(`
       INSERT INTO m2_effect_results (
         effect_id, run_id, project_id, request_digest, approval_grant_id,
@@ -251,7 +354,33 @@ await testAsync('startup isolates a quarantined legacy terminal without disablin
       result.approvalGrantId, result.terminalStatus, JSON.stringify(result),
       claimedAtMs + 1,
     );
-    applyEffectResultSemanticV2(environment.database);
+    environment.database.exec(`
+      CREATE TRIGGER trg_m2_effect_results_semantic_authority
+      BEFORE INSERT ON m2_effect_results
+      WHEN NOT EXISTS (
+        SELECT 1 FROM m2_effect_requests request
+        WHERE request.effect_id = NEW.effect_id
+          AND m2_effect_result_matches_request_v2(
+            request.request_json,
+            NEW.result_json
+          ) = 1
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'M2_EFFECT_RESULT_SEMANTIC_AUTHORITY_MISMATCH');
+      END;
+    `);
+    const stored = environment.database.prepare(`
+      SELECT request_digest AS requestDigest,
+             m2_effect_result_json_digest_v1(result_json) AS resultDigest
+      FROM m2_effect_results WHERE effect_id = ?
+    `).get(prepared.effectId);
+    environment.database.prepare(`
+      INSERT INTO m2_effect_result_semantic_quarantine (
+        effect_id, request_digest, result_digest, reason_code,
+        rejected_by_validator, source_migration
+      ) VALUES (?, ?, ?, 'LEGACY_RESULT_V2_SEMANTIC_MISMATCH', 2,
+        '2026_08_24_081_m2_effect_result_semantic_authority_v2')
+    `).run(prepared.effectId, stored.requestDigest, stored.resultDigest);
 
     const restarted = environment.runtime();
     assert.equal(restarted.getPending(prepared.effectId).effectId, prepared.effectId);
