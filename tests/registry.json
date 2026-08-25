@@ -8203,66 +8203,6 @@
       "quarantineExpiry": null
     },
     {
-      "id": "IS-T1-TESTS-MODEL-POLICY-TRIGGER-COMPATIBILITY-TEST",
-      "path": "tests/model-policy-trigger-compatibility.test.js",
-      "argv": [
-        "node",
-        "tests/model-policy-trigger-compatibility.test.js"
-      ],
-      "capabilityId": "C3-010",
-      "tier": "T1",
-      "fixture": "isolated-sqlite",
-      "profile": "database",
-      "timeoutMs": 120000,
-      "expectedDurationMs": 30000,
-      "requirements": {
-        "network": "none",
-        "database": true,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T1-TESTS-MODEL-PROOF-TRIGGER-COMPATIBILITY-TEST",
-      "path": "tests/model-proof-trigger-compatibility.test.js",
-      "argv": [
-        "node",
-        "tests/model-proof-trigger-compatibility.test.js"
-      ],
-      "capabilityId": "C3-010",
-      "tier": "T1",
-      "fixture": "isolated-sqlite",
-      "profile": "database",
-      "timeoutMs": 120000,
-      "expectedDurationMs": 30000,
-      "requirements": {
-        "network": "none",
-        "database": true,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
       "id": "IS-T1-TESTS-MODEL-EVALUATION-CONSOLIDATION-TEST",
       "path": "tests/model-evaluation-consolidation.test.js",
       "argv": [

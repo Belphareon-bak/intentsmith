@@ -62,6 +62,9 @@ import {
   hasTable,
   _testInternals as migrationTestInternals,
 } from '../src/db/migrate.js';
+import { up as up066ModelPolicy } from '../src/db/migrations/2026_08_22_066_model_automation_policy.js';
+import { up as repairModelPolicyTriggers } from '../src/db/migrations/2026_08_24_081_model_policy_trigger_compatibility.js';
+import { up as repairModelProofTriggers } from '../src/db/migrations/2026_08_24_081_model_proof_trigger_compatibility.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -810,6 +813,270 @@ describe('T-SM10: hasColumn / hasTable utilities', async () => {
     for (const t of ['chat_ai', 'chat_ad', 'messages_ai', 'messages_ad', 'messages_count_ai', 'messages_count_ad']) {
       assert.ok(triggers.includes(t), `Missing trigger: ${t}`);
     }
+    db.close();
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// T-SM11: NARROW COMPATIBILITY REPAIR FOR HISTORICAL 066/067 COLLISIONS
+// ══════════════════════════════════════════════════════════════════════════════
+
+const POLICY_LEGACY_TRIGGERS = [
+  'trg_model_automation_policy_events_no_update',
+  'trg_model_automation_policy_events_no_delete',
+  'trg_model_automation_policy_events_sequence',
+  'trg_model_automation_policy_projection_event',
+  'trg_model_automation_policy_projection_event_update',
+];
+
+const POLICY_M1_TRIGGERS = [
+  'trg_model_automation_event_identity_conflict',
+  'trg_model_automation_event_revision',
+  'trg_model_automation_event_lineage',
+  'trg_model_automation_event_projection',
+  'trg_model_automation_event_append_only_update',
+  'trg_model_automation_event_append_only_delete',
+  'trg_model_automation_projection_replace',
+  'trg_model_automation_projection_revision',
+  'trg_model_automation_projection_new_event',
+  'trg_model_automation_projection_current_event',
+  'trg_model_automation_projection_append_only_delete',
+];
+
+const PROOF_COLUMNS = [
+  'proof_id', 'validation_run_id', 'role', 'suite', 'role_contract_sha256',
+  'model_name', 'model_canonical_name', 'model_digest_sha256',
+  'validation_version', 'policy_version', 'score', 'required_score',
+  'passed_count', 'required_passed_count', 'total_count', 'duration_ms',
+  'result', 'inventory_before_name', 'inventory_before_digest',
+  'inventory_after_name', 'inventory_after_digest', 'started_at_ms',
+  'completed_at_ms', 'expires_at_ms', 'created_at_ms',
+  'measurement_artifact_sha256', 'acceptance_artifact_sha256', 'source_revision',
+];
+
+const PROOF_ARTIFACT_COLUMNS = [
+  'proof_id', 'validation_run_id', 'parent_run_id', 'source_revision',
+  'measurement_artifact_sha256', 'measurement_artifact_byte_length',
+  'acceptance_artifact_sha256', 'acceptance_artifact_byte_length', 'role',
+  'suite', 'role_contract_sha256', 'model_name', 'model_canonical_name',
+  'model_digest_sha256', 'validation_version', 'policy_version', 'score',
+  'required_score', 'passed_count', 'required_passed_count', 'total_count',
+  'duration_ms', 'result', 'inventory_before_name', 'inventory_before_digest',
+  'inventory_after_name', 'inventory_after_digest', 'measurement_started_at_ms',
+  'measurement_completed_at_ms', 'acceptance_completed_at_ms', 'proof_ttl_ms',
+  'expires_at_ms', 'issued_at_ms',
+];
+
+const PROOF_M1_TRIGGERS = [
+  'trg_model_failover_proof_artifacts_append_only_delete',
+  'trg_model_failover_proof_artifacts_append_only_update',
+  'trg_model_failover_proof_artifacts_historical_attach',
+  'trg_model_failover_proof_artifacts_identity_conflict',
+  'trg_model_failover_proofs_append_only_delete',
+  'trg_model_failover_proofs_append_only_insert_conflict',
+  'trg_model_failover_proofs_append_only_update',
+  'trg_model_failover_proofs_artifact_companion',
+  'trg_model_failover_proofs_identity_required',
+  'trg_model_failover_proofs_rowid_authority',
+  'trg_model_failover_proofs_rowid_positive',
+];
+
+function selectedTriggerNames(db, predicate = () => true) {
+  return db.prepare("SELECT name FROM sqlite_master WHERE type = 'trigger' ORDER BY name")
+    .all().map(row => row.name).filter(predicate);
+}
+
+function installM1PolicyFixture(db) {
+  db.exec(`
+    CREATE TABLE model_automation_policy_events (
+      seq INTEGER PRIMARY KEY AUTOINCREMENT, event_id TEXT NOT NULL UNIQUE,
+      request_id TEXT NOT NULL UNIQUE, schema_version INTEGER NOT NULL,
+      previous_revision INTEGER NOT NULL, committed_revision INTEGER NOT NULL UNIQUE,
+      event_kind TEXT NOT NULL, actor TEXT NOT NULL, source TEXT NOT NULL,
+      before_auto_failover_enabled INTEGER NOT NULL,
+      before_auto_cleanup_enabled INTEGER NOT NULL,
+      before_auto_cleanup_days INTEGER NOT NULL,
+      after_auto_failover_enabled INTEGER NOT NULL,
+      after_auto_cleanup_enabled INTEGER NOT NULL,
+      after_auto_cleanup_days INTEGER NOT NULL, legacy_quarantine_json TEXT,
+      created_at_ms INTEGER NOT NULL
+    );
+    CREATE TABLE model_automation_policy (
+      id INTEGER PRIMARY KEY, schema_version INTEGER NOT NULL,
+      revision INTEGER NOT NULL, auto_failover_enabled INTEGER NOT NULL,
+      auto_cleanup_enabled INTEGER NOT NULL, auto_cleanup_days INTEGER NOT NULL,
+      last_event_id TEXT NOT NULL, updated_at_ms INTEGER NOT NULL
+    );
+    INSERT INTO model_automation_policy_events (
+      event_id, request_id, schema_version, previous_revision, committed_revision,
+      event_kind, actor, source, before_auto_failover_enabled,
+      before_auto_cleanup_enabled, before_auto_cleanup_days,
+      after_auto_failover_enabled, after_auto_cleanup_enabled,
+      after_auto_cleanup_days, created_at_ms
+    ) VALUES (
+      'policy-event-migration-061', 'policy-request-migration-061', 1, 0, 1,
+      'MIGRATION_DEFAULT_OFF', 'system:migration-061', 'MIGRATION', 0, 0, 14,
+      0, 0, 14, 1
+    );
+    INSERT INTO model_automation_policy VALUES (
+      1, 1, 1, 0, 0, 14, 'policy-event-migration-061', 1
+    );
+  `);
+  for (const name of POLICY_M1_TRIGGERS) {
+    const table = name.startsWith('trg_model_automation_event_')
+      ? 'model_automation_policy_events'
+      : 'model_automation_policy';
+    db.exec(`CREATE TRIGGER ${name} BEFORE UPDATE ON ${table} BEGIN SELECT 1; END`);
+  }
+}
+
+function createTextTable(db, name, columns) {
+  db.exec(`CREATE TABLE ${name} (${columns.map(column => `${column} TEXT`).join(',')})`);
+}
+
+function installM1ProofFixture(db) {
+  createTextTable(db, 'model_failover_proofs', PROOF_COLUMNS);
+  createTextTable(db, 'model_failover_proof_artifacts', PROOF_ARTIFACT_COLUMNS);
+  for (const name of PROOF_M1_TRIGGERS) {
+    const table = name.startsWith('trg_model_failover_proof_artifacts_')
+      ? 'model_failover_proof_artifacts'
+      : 'model_failover_proofs';
+    db.exec(`CREATE TRIGGER ${name} BEFORE UPDATE ON ${table} BEGIN SELECT 1; END`);
+  }
+  db.exec(`
+    CREATE TRIGGER trg_model_failover_proofs_require_artifacts
+    BEFORE INSERT ON model_failover_proofs
+    BEGIN
+      SELECT RAISE(ABORT, 'proof requires a durable measurement artifact')
+      WHERE NEW.measurement_artifact_sha256 IS NULL
+        OR NOT EXISTS (
+          SELECT 1 FROM model_failover_proof_artifacts artifact
+          WHERE artifact.artifact_sha256 = NEW.measurement_artifact_sha256
+            AND artifact.kind = 'MEASUREMENT'
+        );
+      SELECT RAISE(ABORT, 'proof requires a durable parent acceptance artifact')
+      WHERE NEW.acceptance_artifact_sha256 IS NULL
+        OR NOT EXISTS (
+          SELECT 1 FROM model_failover_proof_artifacts artifact
+          WHERE artifact.artifact_sha256 = NEW.acceptance_artifact_sha256
+            AND artifact.kind = 'PARENT_ACCEPTANCE'
+        );
+      SELECT RAISE(ABORT, 'proof requires the source revision of both artifacts')
+      WHERE NEW.source_revision IS NULL
+        OR NOT EXISTS (
+          SELECT 1 FROM model_failover_proof_artifacts artifact
+          WHERE artifact.artifact_sha256 = NEW.measurement_artifact_sha256
+            AND artifact.source_revision = NEW.source_revision
+        )
+        OR NOT EXISTS (
+          SELECT 1 FROM model_failover_proof_artifacts artifact
+          WHERE artifact.artifact_sha256 = NEW.acceptance_artifact_sha256
+            AND artifact.source_revision = NEW.source_revision
+        );
+    END
+  `);
+}
+
+describe('T-SM11: historical model trigger compatibility repairs', async () => {
+  await it('leaves native legacy 066 policy storage unchanged', async () => {
+    const db = freshDb();
+    up066ModelPolicy(db);
+    const before = selectedTriggerNames(db, name => name.startsWith('trg_model_automation_'));
+    repairModelPolicyTriggers(db);
+    assert.deepStrictEqual(
+      selectedTriggerNames(db, name => name.startsWith('trg_model_automation_')),
+      before
+    );
+    db.close();
+  });
+
+  await it('removes only complete 066 triggers from exact M1 policy storage', async () => {
+    const db = freshDb();
+    installM1PolicyFixture(db);
+    up066ModelPolicy(db);
+    const beforeRows = JSON.stringify(db.prepare('SELECT * FROM model_automation_policy_events').all());
+    repairModelPolicyTriggers(db);
+    const after = selectedTriggerNames(db);
+    assert.ok(POLICY_LEGACY_TRIGGERS.every(name => !after.includes(name)));
+    assert.ok(POLICY_M1_TRIGGERS.every(name => after.includes(name)));
+    assert.strictEqual(
+      JSON.stringify(db.prepare('SELECT * FROM model_automation_policy_events').all()),
+      beforeRows
+    );
+    db.exec('CREATE TABLE schema_reparse_probe (id INTEGER PRIMARY KEY)');
+    repairModelPolicyTriggers(db);
+    db.close();
+  });
+
+  await it('fails closed on incomplete M1 policy protection', async () => {
+    const db = freshDb();
+    installM1PolicyFixture(db);
+    up066ModelPolicy(db);
+    db.exec('DROP TRIGGER trg_model_automation_event_lineage');
+    assert.throws(() => repairModelPolicyTriggers(db), /trigger set is incomplete/);
+    assert.ok(POLICY_LEGACY_TRIGGERS.every(name => selectedTriggerNames(db).includes(name)));
+    db.close();
+  });
+
+  await it('fails closed on a partial 066 policy collision', async () => {
+    const db = freshDb();
+    installM1PolicyFixture(db);
+    up066ModelPolicy(db);
+    db.exec(`DROP TRIGGER ${POLICY_LEGACY_TRIGGERS[0]}`);
+    assert.throws(() => repairModelPolicyTriggers(db), /partially present/);
+    assert.ok(POLICY_LEGACY_TRIGGERS.slice(1).every(
+      name => selectedTriggerNames(db).includes(name)
+    ));
+    db.close();
+  });
+
+  await it('leaves native 067 artifact storage unchanged', async () => {
+    const db = freshDb();
+    createTextTable(db, 'model_failover_proof_artifacts', [
+      'artifact_sha256', 'kind', 'byte_length', 'source_revision', 'created_at_ms',
+    ]);
+    const before = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table'").get().sql;
+    repairModelProofTriggers(db);
+    assert.strictEqual(
+      db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table'").get().sql,
+      before
+    );
+    db.close();
+  });
+
+  await it('removes only the exact 067 trigger from M1 proof storage', async () => {
+    const db = freshDb();
+    installM1ProofFixture(db);
+    const beforeColumns = db.prepare('PRAGMA table_info(model_failover_proofs)').all();
+    repairModelProofTriggers(db);
+    const after = selectedTriggerNames(db);
+    assert.ok(!after.includes('trg_model_failover_proofs_require_artifacts'));
+    assert.ok(PROOF_M1_TRIGGERS.every(name => after.includes(name)));
+    assert.deepStrictEqual(db.prepare('PRAGMA table_info(model_failover_proofs)').all(), beforeColumns);
+    db.exec('CREATE TABLE schema_reparse_probe (id INTEGER PRIMARY KEY)');
+    repairModelProofTriggers(db);
+    db.close();
+  });
+
+  await it('fails closed on incomplete M1 proof protection', async () => {
+    const db = freshDb();
+    installM1ProofFixture(db);
+    db.exec(`DROP TRIGGER ${PROOF_M1_TRIGGERS[0]}`);
+    assert.throws(() => repairModelProofTriggers(db), /trigger set is incomplete/);
+    assert.ok(selectedTriggerNames(db).includes('trg_model_failover_proofs_require_artifacts'));
+    db.close();
+  });
+
+  await it('fails closed on drifted 067 trigger SQL', async () => {
+    const db = freshDb();
+    installM1ProofFixture(db);
+    db.exec('DROP TRIGGER trg_model_failover_proofs_require_artifacts');
+    db.exec(`
+      CREATE TRIGGER trg_model_failover_proofs_require_artifacts
+      BEFORE INSERT ON model_failover_proofs BEGIN SELECT RAISE(ABORT, 'drifted'); END
+    `);
+    assert.throws(() => repairModelProofTriggers(db), /trigger SQL drifted/);
+    assert.ok(selectedTriggerNames(db).includes('trg_model_failover_proofs_require_artifacts'));
     db.close();
   });
 });
