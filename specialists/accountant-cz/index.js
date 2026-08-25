@@ -10,13 +10,7 @@
 
 import { fileURLToPath } from 'url';
 import path from 'path';
-import {
-  TaxCalculatorAdapter,
-  VATCalculatorAdapter,
-  SalaryCalculatorAdapter,
-  DeadlineCheckerAdapter,
-  CompareAdapter,
-} from './adapters.js';
+import { createAdapters } from './adapters.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -152,7 +146,15 @@ Na konci KAŽDÉ odpovědi obsahující výpočet nebo daňovou radu:
 
 // ─── Tool definitions ────────────────────────────────────────────────────────
 
-function buildToolDefinitions(toolsDir) {
+function buildToolDefinitions(toolsDir, ToolAdapter) {
+  const {
+    TaxCalculatorAdapter,
+    VATCalculatorAdapter,
+    SalaryCalculatorAdapter,
+    DeadlineCheckerAdapter,
+    CompareAdapter,
+  } = createAdapters(ToolAdapter);
+
   return [
     {
       id: 'accountant.compare_tax_entities',
@@ -318,14 +320,19 @@ const ACCOUNTANT_BOOST_PATTERNS = [
  */
 export async function register(ctx) {
   const { runtime, manifest, logger: log } = ctx;
+  if (typeof ctx.ToolAdapter !== 'function') {
+    throw new TypeError('accountant-cz requires registration capability ToolAdapter');
+  }
+
   const toolsDir = path.join(__dirname, 'tools');
+  const tools = buildToolDefinitions(toolsDir, ctx.ToolAdapter);
 
   // 1. Tools — register into SpecialistRuntime
   runtime.registerSpecialist({
     id: 'accountant',
     domain: 'finance',
     globalParamExtractor: null,
-    tools: buildToolDefinitions(toolsDir),
+    tools,
   });
 
   // 2. Expertise — register custom expertise definition
@@ -367,7 +374,6 @@ export async function register(ctx) {
 
   // 7. ToolExecutor handlers — register tool execution handlers for CRE
   if (ctx.registries?.toolExecutor?.register) {
-    const tools = buildToolDefinitions(toolsDir);
     for (const tool of tools) {
       ctx.registries.toolExecutor.register(tool.id, async (params) => {
         if (tool.toolAdapter) {

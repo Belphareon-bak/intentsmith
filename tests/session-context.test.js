@@ -19,6 +19,7 @@ import './helpers/isolated-test-db.js';
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { SessionParamCache } from '../src/expertises/specialist-runtime.js';
+import { ToolAdapter } from '../src/expertises/tool-adapter.js';
 import Database from 'better-sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -553,7 +554,8 @@ console.log('\n── 11. Validation false positive — low income ──');
 {
   // These tests verify that validateResult does NOT produce false negatives
   // for legitimate low-income tax calculations where minimums dominate.
-  const { TaxCalculatorAdapter } = await import('../specialists/accountant-cz/adapters.js');
+  const { createAdapters } = await import('../specialists/accountant-cz/adapters.js');
+  const { TaxCalculatorAdapter } = createAdapters(ToolAdapter);
   const tax = new TaxCalculatorAdapter();
 
   // 200k income — effective rate will be very high due to minimums

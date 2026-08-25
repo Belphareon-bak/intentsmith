@@ -9,13 +9,15 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { ToolAdapter } from '../src/expertises/tool-adapter.js';
-import {
+import { createAdapters } from '../specialists/accountant-cz/adapters.js';
+
+const {
   TaxCalculatorAdapter,
   VATCalculatorAdapter,
   SalaryCalculatorAdapter,
   DeadlineCheckerAdapter,
   CompareAdapter,
-} from '../specialists/accountant-cz/adapters.js';
+} = createAdapters(ToolAdapter);
 
 let passed = 0;
 let failed = 0;

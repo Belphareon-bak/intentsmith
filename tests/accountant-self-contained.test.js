@@ -6,6 +6,7 @@
 import { suite, test, testAsync, assert, assertEqual, summary } from './harness.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { ToolAdapter } from '../src/expertises/tool-adapter.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
@@ -112,6 +113,7 @@ function setup() {
     manifest,
     specialistDir: path.join(ROOT, 'specialists', 'accountant-cz'),
     logger: { warn: () => {}, info: () => {}, debug: () => {}, error: () => {} },
+    ToolAdapter,
     knowledgeBase,
     registries,
   };
@@ -128,6 +130,22 @@ await testAsync('tools registered into runtime', async () => {
   assert(spec, 'accountant specialist should be registered');
   assertEqual(spec.domain, 'finance');
   assert(spec.tools.length >= 5, `expected >=5 tools, got ${spec.tools.length}`);
+  assert(spec.tools.every(tool => tool.toolAdapter instanceof ToolAdapter),
+    'all adapters must preserve the injected ToolAdapter identity');
+});
+
+await testAsync('missing ToolAdapter capability fails declaratively', async () => {
+  const invalidCtx = { ...ctx };
+  delete invalidCtx.ToolAdapter;
+  let error = null;
+  try {
+    await accountant.register(invalidCtx);
+  } catch (caught) {
+    error = caught;
+  }
+  assert(error instanceof TypeError, 'missing ToolAdapter should throw TypeError');
+  assert(error?.message.includes('registration capability ToolAdapter'),
+    'error should name the missing registration capability');
 });
 
 await testAsync('boost patterns registered', async () => {
@@ -299,6 +317,7 @@ await testAsync('register works with only runtime', async () => {
   const minRuntime = createMockRuntime();
   const minCtx = {
     runtime: minRuntime,
+    ToolAdapter,
     manifest,
     specialistDir: path.join(ROOT, 'specialists', 'accountant-cz'),
     registries: {},
@@ -311,6 +330,7 @@ await testAsync('register works with null registries', async () => {
   const minRuntime = createMockRuntime();
   const minCtx = {
     runtime: minRuntime,
+    ToolAdapter,
     manifest,
     specialistDir: path.join(ROOT, 'specialists', 'accountant-cz'),
     registries: null,

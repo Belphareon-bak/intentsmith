@@ -17,6 +17,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { logger } from '../core/logger.js';
+import { ToolAdapter } from '../expertises/tool-adapter.js';
 
 // ── Engine version from package.json (fallback for default) ─────────────────
 let _packageVersion = null;
@@ -543,6 +544,7 @@ export class SpecialistLoader {
       manifest,
       specialistDir: dir,
       logger: logger,
+      ToolAdapter,
 
       // v121: Knowledge base (set via setKnowledgeBase)
       knowledgeBase: this._knowledgeBase || null,
