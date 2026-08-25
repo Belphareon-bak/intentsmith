@@ -164,6 +164,7 @@ const ALL_MIGRATIONS = [
   '2026_08_22_067_model_failover_proof_artifacts',
   '2026_08_22_070_model_evaluation_history',
   '2026_08_24_081_model_policy_trigger_compatibility',
+  '2026_08_24_081_model_proof_trigger_compatibility',
   '2026_08_24_082_model_evaluation_consolidation',
 ];
 
@@ -590,6 +591,7 @@ describe('T-SM7: Baseline creates all expected tables', async () => {
       '2026_08_22_066_model_automation_policy',
       '2026_08_22_067_model_failover_proof_artifacts',
       '2026_08_24_081_model_policy_trigger_compatibility',
+      '2026_08_24_081_model_proof_trigger_compatibility',
     ].includes(migration.version));
     migrationTestInternals.runMigrationPlan(db, pre050);
     db.prepare(`
