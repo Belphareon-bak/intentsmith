@@ -13008,6 +13008,36 @@
       },
       "flakeCount": 0,
       "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M3-EXTENSION-CONTRACT-V1-TEST",
+      "path": "tests/m3-extension-contract-v1.test.js",
+      "argv": [
+        "node",
+        "tests/m3-extension-contract-v1.test.js"
+      ],
+      "capabilityId": "C3-013",
+      "tier": "T1",
+      "fixture": "offline",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M3-BOUNDARY",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
     }
   ]
 }

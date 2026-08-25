@@ -7,6 +7,11 @@ import { suite, test, testAsync, assert, assertEqual, summary } from './harness.
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { ToolAdapter } from '../src/expertises/tool-adapter.js';
+import {
+  EXTENSION_HOST_CAPABILITY,
+  canonicalizeLegacySpecialistManifest,
+  createExtensionContextV1,
+} from '../contracts/m3/extension-v1.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
@@ -96,6 +101,7 @@ const manifestPath = path.join(ROOT, 'specialists', 'accountant-cz', 'specialist
 
 const accountant = await import(accountantPath);
 const { default: manifest } = await import(manifestPath, { with: { type: 'json' } });
+const extensionManifest = canonicalizeLegacySpecialistManifest(manifest);
 
 // ─── Registration ────────────────────────────────────────────────────────────
 
@@ -108,15 +114,23 @@ function setup() {
   runtime = createMockRuntime();
   registries = createMockRegistries();
   knowledgeBase = createMockKnowledgeBase();
-  ctx = {
-    runtime,
-    manifest,
-    specialistDir: path.join(ROOT, 'specialists', 'accountant-cz'),
-    logger: { warn: () => {}, info: () => {}, debug: () => {}, error: () => {} },
-    ToolAdapter,
-    knowledgeBase,
-    registries,
-  };
+  ctx = createExtensionContextV1({
+    manifest: extensionManifest,
+    hostCapabilities: {
+      [EXTENSION_HOST_CAPABILITY.SPECIALIST_RUNTIME]: runtime,
+      [EXTENSION_HOST_CAPABILITY.TOOL_ADAPTER]: ToolAdapter,
+      [EXTENSION_HOST_CAPABILITY.LOGGER]: {
+        warn: () => {}, info: () => {}, debug: () => {}, error: () => {},
+      },
+      [EXTENSION_HOST_CAPABILITY.KNOWLEDGE_BASE]: knowledgeBase,
+      [EXTENSION_HOST_CAPABILITY.AUTO_SELECT_REGISTRY]: registries.autoSelect,
+      [EXTENSION_HOST_CAPABILITY.SCENARIO_REGISTRY]: registries.scenario,
+      [EXTENSION_HOST_CAPABILITY.CRE_REGISTRY]: registries.cre,
+      [EXTENSION_HOST_CAPABILITY.TOOL_EXECUTOR_REGISTRY]: registries.toolExecutor,
+      [EXTENSION_HOST_CAPABILITY.CAPABILITY_REGISTRY]: registries.capability,
+      [EXTENSION_HOST_CAPABILITY.EXPERTISE_REGISTRY]: registries.expertise,
+    },
+  });
 }
 
 setup();
@@ -135,16 +149,19 @@ await testAsync('tools registered into runtime', async () => {
 });
 
 await testAsync('missing ToolAdapter capability fails declaratively', async () => {
-  const invalidCtx = { ...ctx };
-  delete invalidCtx.ToolAdapter;
   let error = null;
   try {
-    await accountant.register(invalidCtx);
+    createExtensionContextV1({
+      manifest: extensionManifest,
+      hostCapabilities: {
+        [EXTENSION_HOST_CAPABILITY.SPECIALIST_RUNTIME]: runtime,
+      },
+    });
   } catch (caught) {
     error = caught;
   }
   assert(error instanceof TypeError, 'missing ToolAdapter should throw TypeError');
-  assert(error?.message.includes('registration capability ToolAdapter'),
+  assert(error?.message.includes(EXTENSION_HOST_CAPABILITY.TOOL_ADAPTER),
     'error should name the missing registration capability');
 });
 
@@ -299,7 +316,7 @@ await testAsync('register fresh', async () => {
 
 test('unregister with broken registries continues cleanup', () => {
   // Break one registry
-  ctx.registries.autoSelect.unregisterBoostPatterns = () => { throw new Error('boom'); };
+  registries.autoSelect.unregisterBoostPatterns = () => { throw new Error('boom'); };
 
   // Should NOT throw despite broken autoSelect
   accountant.unregister(ctx);
@@ -315,26 +332,26 @@ suite('accountant with minimal ctx (no registries)');
 
 await testAsync('register works with only runtime', async () => {
   const minRuntime = createMockRuntime();
-  const minCtx = {
-    runtime: minRuntime,
-    ToolAdapter,
-    manifest,
-    specialistDir: path.join(ROOT, 'specialists', 'accountant-cz'),
-    registries: {},
-  };
+  const minCtx = createExtensionContextV1({
+    manifest: extensionManifest,
+    hostCapabilities: {
+      [EXTENSION_HOST_CAPABILITY.SPECIALIST_RUNTIME]: minRuntime,
+      [EXTENSION_HOST_CAPABILITY.TOOL_ADAPTER]: ToolAdapter,
+    },
+  });
   await accountant.register(minCtx);
   assert(minRuntime.isSpecialist('accountant'), 'should register tools even without registries');
 });
 
 await testAsync('register works with null registries', async () => {
   const minRuntime = createMockRuntime();
-  const minCtx = {
-    runtime: minRuntime,
-    ToolAdapter,
-    manifest,
-    specialistDir: path.join(ROOT, 'specialists', 'accountant-cz'),
-    registries: null,
-  };
+  const minCtx = createExtensionContextV1({
+    manifest: extensionManifest,
+    hostCapabilities: {
+      [EXTENSION_HOST_CAPABILITY.SPECIALIST_RUNTIME]: minRuntime,
+      [EXTENSION_HOST_CAPABILITY.TOOL_ADAPTER]: ToolAdapter,
+    },
+  });
   // Should not throw
   await accountant.register(minCtx);
   assert(minRuntime.isSpecialist('accountant'));

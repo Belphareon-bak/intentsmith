@@ -197,7 +197,16 @@ function buildToolDefinitions() {
 // ─── Registration ───────────────────────────────────────────────────────────
 
 export async function register(ctx) {
-  const { runtime, manifest, logger: log } = ctx;
+  const runtime = ctx.requireCapability('specialist.runtime.v1');
+  const manifest = ctx.manifest.payload;
+  const specialistId = ctx.extensionId;
+  const registries = {
+    autoSelect: ctx.getCapability('specialist.registry.auto-select.v1'),
+    cre: ctx.getCapability('specialist.registry.cre.v1'),
+    toolExecutor: ctx.getCapability('specialist.registry.tool-executor.v1'),
+    capability: ctx.getCapability('specialist.registry.capability.v1'),
+    expertise: ctx.getCapability('specialist.registry.expertise.v1'),
+  };
 
   // 1. Tools — register into SpecialistRuntime
   runtime.registerSpecialist({
@@ -208,49 +217,58 @@ export async function register(ctx) {
   });
 
   // 2. Expertise
-  if (ctx.registries?.expertise) {
-    ctx.registries.expertise.addCustom(TRANSLATOR_EXPERTISE);
+  if (registries.expertise) {
+    registries.expertise.addCustom(TRANSLATOR_EXPERTISE);
   }
 
   // 3. Boost patterns
-  if (ctx.registries?.autoSelect?.registerBoostPatterns) {
-    ctx.registries.autoSelect.registerBoostPatterns('translator', TRANSLATOR_BOOST_PATTERNS);
+  if (registries.autoSelect?.registerBoostPatterns) {
+    registries.autoSelect.registerBoostPatterns('translator', TRANSLATOR_BOOST_PATTERNS);
   }
 
   // 4. ToolType registration
-  if (ctx.registries?.cre?.registerToolType) {
+  if (registries.cre?.registerToolType) {
     for (const tool of manifest?.tools || []) {
-      ctx.registries.cre.registerToolType(tool.id);
+      registries.cre.registerToolType(tool.id);
     }
   }
 
   // 5. ToolExecutor handlers
-  if (ctx.registries?.toolExecutor?.register) {
-    ctx.registries.toolExecutor.register('translator.translate', translateText);
-    ctx.registries.toolExecutor.register('translator.detect_language', detectLanguageHandler);
+  if (registries.toolExecutor?.register) {
+    registries.toolExecutor.register('translator.translate', translateText);
+    registries.toolExecutor.register('translator.detect_language', detectLanguageHandler);
   }
 
   // 6. Capabilities
-  if (ctx.registries?.capability?.register) {
-    for (const cap of manifest?.capabilities || []) {
-      ctx.registries.capability.register(cap, manifest.id);
+  if (registries.capability?.register) {
+    for (const cap of manifest.providedCapabilities) {
+      registries.capability.register(cap, specialistId);
     }
   }
 }
 
 export function unregister(ctx) {
-  const { runtime, manifest } = ctx;
+  const runtime = ctx.requireCapability('specialist.runtime.v1');
+  const manifest = ctx.manifest.payload;
+  const specialistId = ctx.extensionId;
+  const registries = {
+    autoSelect: ctx.getCapability('specialist.registry.auto-select.v1'),
+    cre: ctx.getCapability('specialist.registry.cre.v1'),
+    toolExecutor: ctx.getCapability('specialist.registry.tool-executor.v1'),
+    capability: ctx.getCapability('specialist.registry.capability.v1'),
+    expertise: ctx.getCapability('specialist.registry.expertise.v1'),
+  };
 
   try { runtime?.unregisterSpecialist?.('translator'); } catch { /* noop */ }
-  try { ctx.registries?.expertise?.removeCustom('translator'); } catch { /* noop */ }
-  try { ctx.registries?.autoSelect?.unregisterBoostPatterns('translator'); } catch { /* noop */ }
+  try { registries.expertise?.removeCustom('translator'); } catch { /* noop */ }
+  try { registries.autoSelect?.unregisterBoostPatterns('translator'); } catch { /* noop */ }
 
   try {
     for (const tool of manifest?.tools || []) {
-      ctx.registries?.cre?.unregisterToolType(tool.id);
-      ctx.registries?.toolExecutor?.unregister(tool.id);
+      registries.cre?.unregisterToolType(tool.id);
+      registries.toolExecutor?.unregister(tool.id);
     }
   } catch { /* noop */ }
 
-  try { ctx.registries?.capability?.unregisterBySpecialist?.(manifest?.id); } catch { /* noop */ }
+  try { registries.capability?.unregisterBySpecialist?.(specialistId); } catch { /* noop */ }
 }

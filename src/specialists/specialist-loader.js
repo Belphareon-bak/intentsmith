@@ -22,6 +22,16 @@ import {
   formatSpecialistBoundaryFailure,
   scanSpecialistPackage,
 } from './specialist-boundary.js';
+import {
+  EXTENSION_HOST_CAPABILITY,
+  EXTENSION_KIND,
+  canonicalizeExtensionManifestV1,
+  canonicalizeLegacySpecialistManifest,
+  createExtensionContextV1,
+  legacySpecialistManifestView,
+  satisfiesCoreContract,
+  validateExtensionManifestV1,
+} from '../../contracts/m3/extension-v1.js';
 
 // ── Engine version from package.json (fallback for default) ─────────────────
 let _packageVersion = null;
@@ -196,6 +206,37 @@ function checkEngineCompat(engineRequirement, currentVersion) {
   return { compatible: true }; // exact match
 }
 
+function normalizeSpecialistManifest(rawManifest) {
+  if (rawManifest?.contract === 'ExtensionManifest') {
+    const validation = validateExtensionManifestV1(rawManifest, EXTENSION_KIND.SPECIALIST);
+    if (!validation.valid) {
+      return { valid: false, errors: validation.errors };
+    }
+    const extensionManifest = canonicalizeExtensionManifestV1(
+      rawManifest,
+      EXTENSION_KIND.SPECIALIST,
+    );
+    return {
+      valid: true,
+      manifest: legacySpecialistManifestView(extensionManifest),
+      extensionManifest,
+    };
+  }
+
+  const validation = validateManifest(rawManifest);
+  if (!validation.valid) return validation;
+  try {
+    const extensionManifest = canonicalizeLegacySpecialistManifest(rawManifest);
+    return {
+      valid: true,
+      manifest: legacySpecialistManifestView(extensionManifest),
+      extensionManifest,
+    };
+  } catch (error) {
+    return { valid: false, errors: [error.message] };
+  }
+}
+
 // ─── Specialist Loader ──────────────────────────────────────────────────────
 
 export class SpecialistLoader {
@@ -215,7 +256,7 @@ export class SpecialistLoader {
     this.baseDir = options.baseDir || path.join(this.projectRoot, 'specialists');
     this.engineVersion = options.engineVersion || _readPackageVersion();
 
-    /** @type {Map<string, { manifest: Object, dir: string }>} */
+    /** @type {Map<string, { manifest: Object, extensionManifest: Object, dir: string }>} */
     this._discovered = new Map();
 
     /** @type {Map<string, Object>} loaded module references */
@@ -297,23 +338,25 @@ export class SpecialistLoader {
 
       try {
         const raw = fs.readFileSync(manifestPath, 'utf-8');
-        const manifest = JSON.parse(raw);
+        const rawManifest = JSON.parse(raw);
 
-        // Validate
-        const validation = validateManifest(manifest);
-        if (!validation.valid) {
-          logger.warn('SpecialistLoader', `Invalid manifest in ${entry.name}: ${validation.errors.join(', ')}`);
+        // Canonicalize both legacy v1/v2 and native ExtensionManifest V1 before
+        // any registration or persistence boundary.
+        const normalized = normalizeSpecialistManifest(rawManifest);
+        if (!normalized.valid) {
+          logger.warn('SpecialistLoader', `Invalid manifest in ${entry.name}: ${normalized.errors.join(', ')}`);
           continue;
         }
+        const { manifest, extensionManifest } = normalized;
 
-        // Check engine compatibility
-        const compat = checkEngineCompat(manifest.engine, this.engineVersion);
-        if (!compat.compatible) {
-          logger.warn('SpecialistLoader', `Incompatible specialist ${manifest.id}: ${compat.error}`);
+        // Check canonical core contract compatibility fail-closed.
+        if (!satisfiesCoreContract(extensionManifest.coreContract, this.engineVersion)) {
+          logger.warn(
+            'SpecialistLoader',
+            `Incompatible specialist ${manifest.id}: requires core ${extensionManifest.coreContract}, `
+            + `running ${this.engineVersion}`,
+          );
           continue;
-        }
-        if (compat.warning) {
-          logger.debug('SpecialistLoader', compat.warning);
         }
 
         // Check entry point exists
@@ -334,7 +377,7 @@ export class SpecialistLoader {
           continue;
         }
 
-        this._discovered.set(manifest.id, { manifest, dir });
+        this._discovered.set(manifest.id, { manifest, extensionManifest, dir });
         results.push(manifest);
         logger.debug('SpecialistLoader', `Discovered: ${manifest.id} v${manifest.version}`);
       } catch (err) {
@@ -355,7 +398,7 @@ export class SpecialistLoader {
   installPending() {
     let installed = 0;
 
-    for (const [id, { manifest, dir }] of this._discovered) {
+    for (const [id, { manifest, extensionManifest, dir }] of this._discovered) {
       const existing = this._stmts.getSpecialist.get(id);
 
       if (existing) {
@@ -363,7 +406,11 @@ export class SpecialistLoader {
         if (existing.version !== manifest.version) {
           logger.info('SpecialistLoader', `Updating ${id}: ${existing.version} → ${manifest.version}`);
           this._runMigrations(id, dir, manifest);
-          this._stmts.updateVersion.run(manifest.version, JSON.stringify(manifest), id);
+          this._stmts.updateVersion.run(
+            manifest.version,
+            JSON.stringify(extensionManifest),
+            id,
+          );
         }
         continue;
       }
@@ -382,7 +429,7 @@ export class SpecialistLoader {
           manifest.domain,
           manifest.type || 'domain',
           status,
-          JSON.stringify(manifest),
+          JSON.stringify(extensionManifest),
         );
         installed++;
         logger.info('SpecialistLoader', `Installed: ${id} (status: ${status})`);
@@ -509,7 +556,7 @@ export class SpecialistLoader {
    *
    * v121: Expanded ctx with registries for self-contained specialists.
    */
-  async _enableOne(id, { manifest, dir }) {
+  async _enableOne(id, { manifest, extensionManifest, dir }) {
     const needsBust = this._needsCacheBust.has(id);
 
     if (this._modules.has(id) && !needsBust) {
@@ -549,36 +596,9 @@ export class SpecialistLoader {
       throw new Error(`${id}/index.js must export register(ctx)`);
     }
 
-    // v121: Build expanded registration context with registries
-    const [autoSelect, cre, toolExecutor] = await Promise.all([
-      _ensureAutoSelect(),
-      _ensureCRE(),
-      _ensureToolExecutor(),
-    ]);
+    const ctx = await this._createExtensionContext(extensionManifest);
 
-    const ctx = {
-      runtime: this.runtime,
-      db: this.db,
-      manifest,
-      specialistDir: dir,
-      logger: logger,
-      ToolAdapter,
-
-      // v121: Knowledge base (set via setKnowledgeBase)
-      knowledgeBase: this._knowledgeBase || null,
-
-      // v121: Registries — grouped namespace for specialist self-registration
-      registries: {
-        autoSelect,           // { registerBoostPatterns, unregisterBoostPatterns, getPatterns }
-        scenario: this._scenarioRegistry || null,  // scenarioRegistry instance
-        cre,                  // { registerToolType, unregisterToolType, isKnownTool }
-        toolExecutor,         // CRE ToolExecutor singleton (register/unregister handlers)
-        capability: this._capabilityRegistry || null, // v121 Krok 3
-        expertise: this._expertiseRegistry || null,   // v121: expertiseRegistry (addCustom, removeCustom, get)
-      },
-    };
-
-    // Call register — specialist wires itself into runtime + registries
+    // Call register — specialist wires itself into runtime + declared capabilities.
     await mod.register(ctx);
 
     this._modules.set(id, mod);
@@ -606,6 +626,29 @@ export class SpecialistLoader {
     this._seedExpertiseBindings(id, manifest);
 
     logger.info('SpecialistLoader', `Enabled: ${id} v${manifest.version}`);
+  }
+
+  async _createExtensionContext(extensionManifest) {
+    const [autoSelect, cre, toolExecutor] = await Promise.all([
+      _ensureAutoSelect(),
+      _ensureCRE(),
+      _ensureToolExecutor(),
+    ]);
+    return createExtensionContextV1({
+      manifest: extensionManifest,
+      hostCapabilities: {
+        [EXTENSION_HOST_CAPABILITY.LOGGER]: logger,
+        [EXTENSION_HOST_CAPABILITY.SPECIALIST_RUNTIME]: this.runtime,
+        [EXTENSION_HOST_CAPABILITY.TOOL_ADAPTER]: ToolAdapter,
+        [EXTENSION_HOST_CAPABILITY.KNOWLEDGE_BASE]: this._knowledgeBase || null,
+        [EXTENSION_HOST_CAPABILITY.AUTO_SELECT_REGISTRY]: autoSelect,
+        [EXTENSION_HOST_CAPABILITY.SCENARIO_REGISTRY]: this._scenarioRegistry || null,
+        [EXTENSION_HOST_CAPABILITY.CRE_REGISTRY]: cre,
+        [EXTENSION_HOST_CAPABILITY.TOOL_EXECUTOR_REGISTRY]: toolExecutor,
+        [EXTENSION_HOST_CAPABILITY.CAPABILITY_REGISTRY]: this._capabilityRegistry || null,
+        [EXTENSION_HOST_CAPABILITY.EXPERTISE_REGISTRY]: this._expertiseRegistry || null,
+      },
+    });
   }
 
   /**
@@ -679,30 +722,22 @@ export class SpecialistLoader {
       throw new Error(`Cannot disable ${specialistId}: required by: ${dependents.join(', ')}`);
     }
 
-    const manifest = this._getManifestFromDiscovered(specialistId);
+    const discovered = this._discovered.get(specialistId) || null;
+    const extensionManifest = discovered?.extensionManifest
+      || this.getExtensionManifest(specialistId);
+    const manifest = discovered?.manifest
+      || (extensionManifest ? legacySpecialistManifestView(extensionManifest) : null);
     const expertiseId = this._resolveExpertiseId(specialistId, manifest);
 
     // Let specialist do custom cleanup (v121: pass full ctx for fail-safe unregister)
     const mod = this._modules.get(specialistId);
     if (mod && typeof mod.unregister === 'function') {
       try {
-        const [autoSelect, cre, toolExecutor] = await Promise.all([
-          _ensureAutoSelect(),
-          _ensureCRE(),
-          _ensureToolExecutor(),
-        ]);
-        mod.unregister({
-          runtime: this.runtime,
-          manifest,
-          registries: {
-            autoSelect,
-            scenario: this._scenarioRegistry || null,
-            cre,
-            toolExecutor,
-            capability: this._capabilityRegistry || null,
-            expertise: this._expertiseRegistry || null,
-          },
-        });
+        if (!extensionManifest) {
+          throw new Error('canonical ExtensionManifest V1 unavailable');
+        }
+        const ctx = await this._createExtensionContext(extensionManifest);
+        await mod.unregister(ctx);
       } catch (err) {
         logger.warn('SpecialistLoader', `${specialistId} unregister() error: ${err.message}`);
       }
@@ -785,7 +820,7 @@ export class SpecialistLoader {
     const discovered = this._discovered.get(specialistId);
     if (!discovered) throw new Error(`Specialist ${specialistId} not found on disk (call discoverAll() first)`);
 
-    const { manifest, dir } = discovered;
+    const { manifest, extensionManifest, dir } = discovered;
     const oldVersion = row.version;
     const newVersion = manifest.version;
 
@@ -878,7 +913,11 @@ export class SpecialistLoader {
     }
 
     // 7. Commit DB version + manifest — ONLY after successful re-enable
-    this._stmts.updateVersion.run(newVersion, JSON.stringify(manifest), specialistId);
+    this._stmts.updateVersion.run(
+      newVersion,
+      JSON.stringify(extensionManifest),
+      specialistId,
+    );
 
     logger.info('SpecialistLoader', `Updated: ${specialistId} v${oldVersion} → v${newVersion}`);
     return { oldVersion, newVersion, wasEnabled, reversible };
@@ -1124,8 +1163,11 @@ export class SpecialistLoader {
     for (const row of installed) {
       if (row.id === specialistId) continue;
       try {
-        const manifest = JSON.parse(row.manifest_json);
-        if (manifest.dependencies && specialistId in manifest.dependencies) {
+        const normalized = normalizeSpecialistManifest(JSON.parse(row.manifest_json));
+        const dependencies = normalized.valid
+          ? normalized.extensionManifest.payload.dependencies
+          : null;
+        if (dependencies && specialistId in dependencies) {
           result.push(row.id);
         }
       } catch {
@@ -1162,10 +1204,21 @@ export class SpecialistLoader {
    * Get manifest for a specialist.
    */
   getManifest(specialistId) {
+    const extensionManifest = this.getExtensionManifest(specialistId);
+    return extensionManifest ? legacySpecialistManifestView(extensionManifest) : null;
+  }
+
+  /**
+   * Get the canonical ExtensionManifest V1 seen by registration code.
+   */
+  getExtensionManifest(specialistId) {
+    const discovered = this._discovered.get(specialistId);
+    if (discovered) return discovered.extensionManifest;
     const row = this._stmts.getSpecialist.get(specialistId);
     if (!row) return null;
     try {
-      return JSON.parse(row.manifest_json);
+      const normalized = normalizeSpecialistManifest(JSON.parse(row.manifest_json));
+      return normalized.valid ? normalized.extensionManifest : null;
     } catch {
       return null;
     }

@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 429
+- Runnable programs: 430
 - Explicit support-module exclusions: 14
-- Profiles: offline=220, database=46, server=37, model=85, soak=25, manual=16
-- States: ACTIVE=332, HISTORICAL=16, BLOCKED=81
+- Profiles: offline=221, database=46, server=37, model=85, soak=25, manual=16
+- States: ACTIVE=333, HISTORICAL=16, BLOCKED=81
 
 ## Execution profiles
 
@@ -341,6 +341,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M2-TOOL-BROKER-V1-TEST` | `tests/m2-tool-broker-v1.test.js` | `C3-020` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
 | `IS-T1-TESTS-M2-TOOL-CONTRACT-V1-TEST` | `tests/m2-tool-contract-v1.test.js` | `C3-020` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
 | `IS-T1-TESTS-M2-TOOL-PRODUCTION-CONSUMER-TEST` | `tests/m2-tool-production-consumer.test.js` | `C3-020` | T1 | `database` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
+| `IS-T1-TESTS-M3-EXTENSION-CONTRACT-V1-TEST` | `tests/m3-extension-contract-v1.test.js` | `C3-013` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M3-BOUNDARY |
 | `IS-T1-TESTS-MANIFEST-V2-TEST` | `tests/manifest-v2.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MARKETPLACE-CATALOG-V125-TEST` | `tests/marketplace-catalog-v125.test.js` | `C3-022` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MARKETPLACE-TEST` | `tests/marketplace.test.js` | `C3-022` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

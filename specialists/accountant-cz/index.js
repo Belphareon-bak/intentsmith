@@ -319,13 +319,23 @@ const ACCOUNTANT_BOOST_PATTERNS = [
  * @param {Object} ctx - Registration context from specialist-loader
  */
 export async function register(ctx) {
-  const { runtime, manifest, logger: log } = ctx;
-  if (typeof ctx.ToolAdapter !== 'function') {
-    throw new TypeError('accountant-cz requires registration capability ToolAdapter');
-  }
+  const runtime = ctx.requireCapability('specialist.runtime.v1');
+  const ToolAdapter = ctx.requireCapability('specialist.tool-adapter.v1');
+  const manifest = ctx.manifest.payload;
+  const specialistId = ctx.extensionId;
+  const log = ctx.getCapability('core.logger.v1');
+  const knowledgeBase = ctx.getCapability('specialist.knowledge-base.v1');
+  const registries = {
+    autoSelect: ctx.getCapability('specialist.registry.auto-select.v1'),
+    scenario: ctx.getCapability('specialist.registry.scenario.v1'),
+    cre: ctx.getCapability('specialist.registry.cre.v1'),
+    toolExecutor: ctx.getCapability('specialist.registry.tool-executor.v1'),
+    capability: ctx.getCapability('specialist.registry.capability.v1'),
+    expertise: ctx.getCapability('specialist.registry.expertise.v1'),
+  };
 
   const toolsDir = path.join(__dirname, 'tools');
-  const tools = buildToolDefinitions(toolsDir, ctx.ToolAdapter);
+  const tools = buildToolDefinitions(toolsDir, ToolAdapter);
 
   // 1. Tools — register into SpecialistRuntime
   runtime.registerSpecialist({
@@ -336,53 +346,53 @@ export async function register(ctx) {
   });
 
   // 2. Expertise — register custom expertise definition
-  if (ctx.registries?.expertise) {
-    ctx.registries.expertise.addCustom(ACCOUNTANT_EXPERTISE);
+  if (registries.expertise) {
+    registries.expertise.addCustom(ACCOUNTANT_EXPERTISE);
   }
 
   // 3. Boost patterns — register into auto-select
-  if (ctx.registries?.autoSelect?.registerBoostPatterns) {
-    ctx.registries.autoSelect.registerBoostPatterns('accountant', ACCOUNTANT_BOOST_PATTERNS);
+  if (registries.autoSelect?.registerBoostPatterns) {
+    registries.autoSelect.registerBoostPatterns('accountant', ACCOUNTANT_BOOST_PATTERNS);
   }
 
   // 4. Knowledge seeding
-  if (ctx.knowledgeBase) {
+  if (knowledgeBase) {
     try {
       const { seedAccountantKnowledge } = await import('./knowledge/seed.js');
-      seedAccountantKnowledge(ctx.knowledgeBase);
+      seedAccountantKnowledge(knowledgeBase);
     } catch (err) {
       log?.warn?.('Accountant', `Knowledge seed failed: ${err.message}`);
     }
   }
 
   // 5. Scenarios
-  if (ctx.registries?.scenario?.register) {
+  if (registries.scenario?.register) {
     try {
       const { taxOptimizationScenario } = await import('./scenarios/tax-optimization.js');
-      ctx.registries.scenario.register(taxOptimizationScenario);
+      registries.scenario.register(taxOptimizationScenario);
     } catch (err) {
       log?.warn?.('Accountant', `Scenario registration failed: ${err.message}`);
     }
   }
 
   // 6. ToolType registration — dynamic CRE tool types
-  if (ctx.registries?.cre?.registerToolType) {
+  if (registries.cre?.registerToolType) {
     for (const tool of manifest?.tools || []) {
-      ctx.registries.cre.registerToolType(tool.id);
+      registries.cre.registerToolType(tool.id);
     }
   }
 
   // 7. ToolExecutor handlers — register tool execution handlers for CRE
-  if (ctx.registries?.toolExecutor?.register) {
+  if (registries.toolExecutor?.register) {
     for (const tool of tools) {
-      ctx.registries.toolExecutor.register(tool.id, (params) => tool.toolAdapter.run(params));
+      registries.toolExecutor.register(tool.id, (params) => tool.toolAdapter.run(params));
     }
   }
 
   // 8. Capabilities (v121 Krok 3 — registered when CapabilityRegistry is available)
-  if (ctx.registries?.capability?.register) {
-    for (const cap of manifest?.capabilities || []) {
-      ctx.registries.capability.register(cap, manifest.id);
+  if (registries.capability?.register) {
+    for (const cap of manifest.providedCapabilities) {
+      registries.capability.register(cap, specialistId);
     }
   }
 }
@@ -394,7 +404,17 @@ export async function register(ctx) {
  * @param {Object} ctx - Registration context from specialist-loader
  */
 export function unregister(ctx) {
-  const { runtime, manifest } = ctx;
+  const runtime = ctx.requireCapability('specialist.runtime.v1');
+  const manifest = ctx.manifest.payload;
+  const specialistId = ctx.extensionId;
+  const registries = {
+    autoSelect: ctx.getCapability('specialist.registry.auto-select.v1'),
+    scenario: ctx.getCapability('specialist.registry.scenario.v1'),
+    cre: ctx.getCapability('specialist.registry.cre.v1'),
+    toolExecutor: ctx.getCapability('specialist.registry.tool-executor.v1'),
+    capability: ctx.getCapability('specialist.registry.capability.v1'),
+    expertise: ctx.getCapability('specialist.registry.expertise.v1'),
+  };
 
   // 1. Tools
   try {
@@ -405,29 +425,29 @@ export function unregister(ctx) {
 
   // 2. Expertise
   try {
-    ctx.registries?.expertise?.removeCustom('accountant');
+    registries.expertise?.removeCustom('accountant');
   } catch { /* noop */ }
 
   // 3. Boost patterns
   try {
-    ctx.registries?.autoSelect?.unregisterBoostPatterns('accountant');
+    registries.autoSelect?.unregisterBoostPatterns('accountant');
   } catch { /* noop */ }
 
   // 4. Scenarios
   try {
-    ctx.registries?.scenario?.unregisterBySpecialist?.('accountant');
+    registries.scenario?.unregisterBySpecialist?.('accountant');
   } catch { /* noop */ }
 
   // 5. ToolType + ToolExecutor
   try {
     for (const tool of manifest?.tools || []) {
-      ctx.registries?.cre?.unregisterToolType(tool.id);
-      ctx.registries?.toolExecutor?.unregister(tool.id);
+      registries.cre?.unregisterToolType(tool.id);
+      registries.toolExecutor?.unregister(tool.id);
     }
   } catch { /* noop */ }
 
   // 6. Capabilities
   try {
-    ctx.registries?.capability?.unregisterBySpecialist?.(manifest?.id);
+    registries.capability?.unregisterBySpecialist?.(specialistId);
   } catch { /* noop */ }
 }

@@ -241,7 +241,19 @@ function buildToolDefinitions() {
 // ─── Registration ───────────────────────────────────────────────────────────
 
 export async function register(ctx) {
-  const { runtime, manifest, logger: log } = ctx;
+  const runtime = ctx.requireCapability('specialist.runtime.v1');
+  const manifest = ctx.manifest.payload;
+  const specialistId = ctx.extensionId;
+  const log = ctx.getCapability('core.logger.v1');
+  const knowledgeBase = ctx.getCapability('specialist.knowledge-base.v1');
+  const registries = {
+    autoSelect: ctx.getCapability('specialist.registry.auto-select.v1'),
+    scenario: ctx.getCapability('specialist.registry.scenario.v1'),
+    cre: ctx.getCapability('specialist.registry.cre.v1'),
+    toolExecutor: ctx.getCapability('specialist.registry.tool-executor.v1'),
+    capability: ctx.getCapability('specialist.registry.capability.v1'),
+    expertise: ctx.getCapability('specialist.registry.expertise.v1'),
+  };
 
   // 1. Tools — register into SpecialistRuntime
   runtime.registerSpecialist({
@@ -252,77 +264,87 @@ export async function register(ctx) {
   });
 
   // 2. Expertise
-  if (ctx.registries?.expertise) {
-    ctx.registries.expertise.addCustom(SAZENI_EXPERTISE);
+  if (registries.expertise) {
+    registries.expertise.addCustom(SAZENI_EXPERTISE);
   }
 
   // 3. Boost patterns
-  if (ctx.registries?.autoSelect?.registerBoostPatterns) {
-    ctx.registries.autoSelect.registerBoostPatterns('sazeni', SAZENI_BOOST_PATTERNS);
+  if (registries.autoSelect?.registerBoostPatterns) {
+    registries.autoSelect.registerBoostPatterns('sazeni', SAZENI_BOOST_PATTERNS);
   }
 
   // 4. Knowledge seeding
-  if (ctx.knowledgeBase) {
+  if (knowledgeBase) {
     try {
       const { seedBettingKnowledge } = await import('./knowledge/seed.js');
-      seedBettingKnowledge(ctx.knowledgeBase);
+      seedBettingKnowledge(knowledgeBase);
     } catch (err) {
       log?.warn?.('Sazeni', `Knowledge seed failed: ${err.message}`);
     }
   }
 
   // 5. Scenarios
-  if (ctx.registries?.scenario?.register) {
+  if (registries.scenario?.register) {
     try {
       const { ticketConstructionScenario } = await import('./scenarios/ticket-construction.js');
-      ctx.registries.scenario.register(ticketConstructionScenario);
+      registries.scenario.register(ticketConstructionScenario);
     } catch (err) {
       log?.warn?.('Sazeni', `Scenario registration failed: ${err.message}`);
     }
   }
 
   // 6. ToolType registration
-  if (ctx.registries?.cre?.registerToolType) {
+  if (registries.cre?.registerToolType) {
     for (const tool of manifest?.tools || []) {
-      ctx.registries.cre.registerToolType(tool.id);
+      registries.cre.registerToolType(tool.id);
     }
   }
 
   // 7. ToolExecutor handlers
-  if (ctx.registries?.toolExecutor?.register) {
+  if (registries.toolExecutor?.register) {
     const { compareOdds } = await import('./tools/odds-compare.js');
     const { analyzeMatch } = await import('./tools/match-analysis.js');
     const { buildTicket } = await import('./tools/ticket-builder.js');
     const { findValue } = await import('./tools/value-finder.js');
 
-    ctx.registries.toolExecutor.register('sazeni.odds_compare', compareOdds);
-    ctx.registries.toolExecutor.register('sazeni.match_analysis', analyzeMatch);
-    ctx.registries.toolExecutor.register('sazeni.ticket_builder', buildTicket);
-    ctx.registries.toolExecutor.register('sazeni.value_finder', findValue);
+    registries.toolExecutor.register('sazeni.odds_compare', compareOdds);
+    registries.toolExecutor.register('sazeni.match_analysis', analyzeMatch);
+    registries.toolExecutor.register('sazeni.ticket_builder', buildTicket);
+    registries.toolExecutor.register('sazeni.value_finder', findValue);
   }
 
   // 8. Capabilities
-  if (ctx.registries?.capability?.register) {
-    for (const cap of manifest?.capabilities || []) {
-      ctx.registries.capability.register(cap, manifest.id);
+  if (registries.capability?.register) {
+    for (const cap of manifest.providedCapabilities) {
+      registries.capability.register(cap, specialistId);
     }
   }
 }
 
 export function unregister(ctx) {
-  const { runtime, manifest } = ctx;
+  const runtime = ctx.requireCapability('specialist.runtime.v1');
+  const manifest = ctx.manifest.payload;
+  const specialistId = ctx.extensionId;
+  const registries = {
+    autoSelect: ctx.getCapability('specialist.registry.auto-select.v1'),
+    scenario: ctx.getCapability('specialist.registry.scenario.v1'),
+    cre: ctx.getCapability('specialist.registry.cre.v1'),
+    toolExecutor: ctx.getCapability('specialist.registry.tool-executor.v1'),
+    capability: ctx.getCapability('specialist.registry.capability.v1'),
+    expertise: ctx.getCapability('specialist.registry.expertise.v1'),
+  };
 
   try { runtime?.unregisterSpecialist?.('sazeni'); } catch { /* noop */ }
-  try { ctx.registries?.expertise?.removeCustom('sazeni'); } catch { /* noop */ }
-  try { ctx.registries?.autoSelect?.unregisterBoostPatterns('sazeni'); } catch { /* noop */ }
-  try { ctx.registries?.scenario?.unregisterBySpecialist?.('sazeni'); } catch { /* noop */ }
+  try { registries.expertise?.removeCustom('sazeni'); } catch { /* noop */ }
+  try { registries.autoSelect?.unregisterBoostPatterns('sazeni'); } catch { /* noop */ }
+  try { registries.scenario?.unregisterBySpecialist?.('sazeni'); } catch { /* noop */ }
 
   try {
     for (const tool of manifest?.tools || []) {
-      ctx.registries?.cre?.unregisterToolType(tool.id);
-      ctx.registries?.toolExecutor?.unregister(tool.id);
+      registries.cre?.unregisterToolType(tool.id);
+      registries.toolExecutor?.unregister(tool.id);
     }
   } catch { /* noop */ }
 
-  try { ctx.registries?.capability?.unregisterBySpecialist?.(manifest?.id); } catch { /* noop */ }
+  try { registries.capability?.unregisterBySpecialist?.(specialistId); } catch { /* noop */ }
 }

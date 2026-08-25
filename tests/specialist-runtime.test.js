@@ -2,20 +2,35 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { strict as assert } from 'assert';
+import { readFileSync } from 'node:fs';
 import {
   specialistRuntime,
   ToolRegistry,
   IntentDetector,
   SpecialistRuntime,
 } from '../src/expertises/specialist-runtime.js';
+import { ToolAdapter } from '../src/expertises/tool-adapter.js';
+import {
+  EXTENSION_HOST_CAPABILITY,
+  canonicalizeLegacySpecialistManifest,
+  createExtensionContextV1,
+} from '../contracts/m3/extension-v1.js';
 import { register as registerAccountant } from '../specialists/accountant-cz/index.js';
 
 // Accountant is a self-contained dynamic specialist since v121. Activate its
-// real package entry point explicitly for this runtime unit test.
-await registerAccountant({
-  runtime: specialistRuntime,
-  registries: {},
-});
+// real package entry point explicitly through the same frozen ExtensionContext
+// boundary used by the production loader.
+const accountantManifest = canonicalizeLegacySpecialistManifest(JSON.parse(readFileSync(
+  new URL('../specialists/accountant-cz/specialist.json', import.meta.url),
+  'utf8',
+)));
+await registerAccountant(createExtensionContextV1({
+  manifest: accountantManifest,
+  hostCapabilities: {
+    [EXTENSION_HOST_CAPABILITY.SPECIALIST_RUNTIME]: specialistRuntime,
+    [EXTENSION_HOST_CAPABILITY.TOOL_ADAPTER]: ToolAdapter,
+  },
+}));
 
 let passed = 0, failed = 0;
 const failures = [];

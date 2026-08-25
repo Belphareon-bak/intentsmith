@@ -132,6 +132,11 @@ console.log('── 1. Discovery ──');
   assertEq(accountant.domain, 'finance', 'accountant-cz domain is finance');
   assert(accountant.tools.length === 5, 'accountant-cz has 5 tools in manifest');
   assertEq(accountant.enabledByDefault, true, 'accountant-cz enabledByDefault is true');
+  const extensionManifest = loader.getExtensionManifest('accountant-cz');
+  assertEq(extensionManifest.contract, 'ExtensionManifest', 'discovery canonicalizes manifest');
+  assertEq(extensionManifest.version, 1, 'canonical manifest version is 1');
+  assertEq(extensionManifest.kind, 'specialist', 'canonical manifest kind is specialist');
+  assert(!('engine' in extensionManifest), 'raw legacy fields do not reach canonical manifest');
 
   db.close();
 }
@@ -192,6 +197,9 @@ console.log('\n── 4. InstallPending ──');
   assertEq(row.version, '2.0.0', 'version stored correctly');
   assertEq(row.domain, 'finance', 'domain stored correctly');
   assertEq(row.status, 'enabled', 'status is enabled (enabledByDefault)');
+  const storedManifest = JSON.parse(row.manifest_json);
+  assertEq(storedManifest.contract, 'ExtensionManifest', 'DB stores canonical manifest');
+  assert(!('manifestVersion' in storedManifest), 'DB does not persist raw legacy manifest shape');
 
   // Idempotent — run again
   loader.installPending();
@@ -277,6 +285,32 @@ console.log('\n── 7. Disable ──');
   assertEq(row.status, 'disabled', 'DB status is disabled');
   assert(row.disabled_at !== null, 'disabled_at timestamp set');
 
+  db.close();
+}
+
+// ── 7b. Disable from durable manifest ────────────────────────────────────────
+
+console.log('\n── 7b. Disable uses durable canonical manifest ──');
+{
+  const db = createTestDb();
+  const runtime = createMockRuntime();
+  const loader = new SpecialistLoader(db, runtime, {
+    baseDir: path.join(PROJECT_ROOT, 'specialists'),
+    engineVersion: ENGINE_VERSION,
+  });
+
+  await loader.boot();
+  loader._discovered.clear();
+  assert(runtime.isSpecialist('accountant'), 'accountant enabled before durable fallback');
+
+  await loader.disable('accountant-cz');
+
+  assert(!runtime.isSpecialist('accountant'), 'durable canonical manifest supports unregister');
+  assertEq(
+    loader.getInstalled().find(r => r.id === 'accountant-cz').status,
+    'disabled',
+    'durable fallback records disabled status',
+  );
   db.close();
 }
 
@@ -959,7 +993,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export function register(ctx) {
-  ctx.runtime.registerSpecialist({
+  ctx.requireCapability('specialist.runtime.v1').registerSpecialist({
     id: '${name}',
     domain: 'test',
     tools: [{
@@ -975,7 +1009,7 @@ export function register(ctx) {
 }
 
 export function unregister(ctx) {
-  ctx.runtime.unregisterSpecialist('${name}');
+  ctx.requireCapability('specialist.runtime.v1').unregisterSpecialist('${name}');
 }
 `);
 

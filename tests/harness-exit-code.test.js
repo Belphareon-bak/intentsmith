@@ -359,7 +359,11 @@ try {
   //   108 -> 110 M2 lifecycle added durable repository and application-service
   //              suites. Both import the canonical isolation bootstrap before
   //              any production module can reach the shared database.
-  const expectedDatabaseReachableRootTests = 110;
+  //   110 -> 111 M3 ExtensionManifest/ExtensionContext contract coverage loads
+  //              the production specialist package graph to prove that every
+  //              package canonicalizes. The shared harness protects that
+  //              transitive database edge before package evaluation.
+  const expectedDatabaseReachableRootTests = 111;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,
@@ -1031,6 +1035,15 @@ summary();
   const accountantPackageUrl = pathToFileURL(
     join(__dirname, '../specialists/accountant-cz/index.js'),
   ).href;
+  const accountantManifestUrl = pathToFileURL(
+    join(__dirname, '../specialists/accountant-cz/specialist.json'),
+  ).href;
+  const toolAdapterUrl = pathToFileURL(
+    join(__dirname, '../src/expertises/tool-adapter.js'),
+  ).href;
+  const extensionContractUrl = pathToFileURL(
+    join(__dirname, '../contracts/m3/extension-v1.js'),
+  ).href;
   const specialistRuntimeSource = readFileSync(specialistRuntimeTestPath, 'utf8');
   const passingAssertion = "assert(specialistRuntime.isSpecialist('accountant'));";
   assert.match(specialistRuntimeSource, /process\.exitCode = failed > 0 \? 1 : 0/);
@@ -1047,6 +1060,18 @@ summary();
     .replace(
       "'../specialists/accountant-cz/index.js'",
       JSON.stringify(accountantPackageUrl),
+    )
+    .replace(
+      "'../src/expertises/tool-adapter.js'",
+      JSON.stringify(toolAdapterUrl),
+    )
+    .replace(
+      "'../contracts/m3/extension-v1.js'",
+      JSON.stringify(extensionContractUrl),
+    )
+    .replace(
+      "new URL('../specialists/accountant-cz/specialist.json', import.meta.url)",
+      `new URL(${JSON.stringify(accountantManifestUrl)})`,
     )
     .replace(
       passingAssertion,

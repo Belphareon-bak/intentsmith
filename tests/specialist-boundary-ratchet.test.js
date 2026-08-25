@@ -14,6 +14,11 @@ import {
 import { SpecialistLoader } from '../src/specialists/specialist-loader.js';
 import * as codeReviewer from '../specialists/code-reviewer/index.js';
 import {
+  EXTENSION_HOST_CAPABILITY,
+  canonicalizeLegacySpecialistManifest,
+  createExtensionContextV1,
+} from '../contracts/m3/extension-v1.js';
+import {
   assert,
   assertEqual,
   suite,
@@ -45,7 +50,7 @@ function manifest(id, additions = {}) {
     type: 'utility',
     engine: '>=1.0.0',
     entry: './index.js',
-    tools: [],
+    tools: [{ id: `${id}.probe`, name: 'Probe', module: './probe.js', function: 'probe' }],
     expertises: [id],
     knowledge_packs: [],
     migrations: [],
@@ -125,7 +130,7 @@ test('current tree scans every package and keeps JSDoc references informational'
   assertEqual(report.packages, 5);
   assertEqual(report.violations.length, 0);
   assertEqual(report.errors.length, 0);
-  assertEqual(report.typeReferences.length, 3);
+  assertEqual(report.typeReferences.length, 1);
   assertEqual(report.computedImports.length, 0);
   assert(report.scannedFiles > report.packages, 'scanner must inspect files beyond package entry points');
 });
@@ -255,7 +260,7 @@ await testAsync('loader re-scans immediately before first execution', async () =
   fs.writeFileSync(path.join(packageDir, 'specialist.json'), JSON.stringify(manifest(id)));
   fs.writeFileSync(
     path.join(packageDir, 'index.js'),
-    `export function register(ctx) { ctx.runtime.registerSpecialist({ id: '${id}', tools: [] }); }\n`,
+    `export function register(ctx) { ctx.requireCapability('specialist.runtime.v1').registerSpecialist({ id: '${id}', tools: [] }); }\n`,
   );
 
   const db = createDb();
@@ -276,22 +281,55 @@ await testAsync('loader re-scans immediately before first execution', async () =
   db.close();
 });
 
+await testAsync('loader accepts a native ExtensionManifest V1 package', async () => {
+  const loaderRoot = fs.mkdtempSync(path.join(scratch, 'loader-native-v1-'));
+  const id = 'native-v1';
+  const packageDir = path.join(loaderRoot, id);
+  fs.mkdirSync(packageDir, { recursive: true });
+  const canonical = canonicalizeLegacySpecialistManifest(manifest(id));
+  fs.writeFileSync(path.join(packageDir, 'specialist.json'), JSON.stringify(canonical));
+  fs.writeFileSync(
+    path.join(packageDir, 'index.js'),
+    `export function register(ctx) {
+      const runtime = ctx.requireCapability('specialist.runtime.v1');
+      runtime.registerSpecialist({ id: '${id}', tools: [{
+        id: '${id}.probe', name: 'Probe', modulePath: new URL('./probe.js', import.meta.url).pathname,
+        functionName: 'probe', patterns: []
+      }] });
+    }\n`,
+  );
+  fs.writeFileSync(path.join(packageDir, 'probe.js'), 'export function probe() { return true; }\n');
+
+  const db = createDb();
+  const runtime = createRuntime();
+  const loader = new SpecialistLoader(db, runtime, {
+    baseDir: loaderRoot,
+    projectRoot: ROOT,
+    engineVersion: ENGINE_VERSION,
+  });
+  await loader.boot();
+  assertEqual(runtime.registrations.has(id), true);
+  assertEqual(loader.getExtensionManifest(id).contract, 'ExtensionManifest');
+  assertEqual(loader.getManifest(id).version, '1.0.0');
+  db.close();
+});
+
 await testAsync('code-reviewer handlers execute without computed module imports', async () => {
   const handlers = new Map();
   const runtime = createRuntime();
   const codeReviewerManifest = JSON.parse(
     fs.readFileSync(path.join(ROOT, 'specialists', 'code-reviewer', 'specialist.json'), 'utf8'),
   );
-  await codeReviewer.register({
-    runtime,
-    manifest: codeReviewerManifest,
-    logger: { warn() {}, info() {}, debug() {}, error() {} },
-    registries: {
-      toolExecutor: {
+  const context = createExtensionContextV1({
+    manifest: canonicalizeLegacySpecialistManifest(codeReviewerManifest),
+    hostCapabilities: {
+      [EXTENSION_HOST_CAPABILITY.SPECIALIST_RUNTIME]: runtime,
+      [EXTENSION_HOST_CAPABILITY.TOOL_EXECUTOR_REGISTRY]: {
         register(id, handler) { handlers.set(id, handler); },
       },
     },
   });
+  await codeReviewer.register(context);
   const analysis = await handlers.get('code-reviewer.analyze_code')({
     code: 'function execute(userInput) { return eval(userInput); }',
     focus: 'security',

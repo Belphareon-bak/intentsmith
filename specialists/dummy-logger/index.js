@@ -41,10 +41,10 @@ function extractLogParams(input) {
  * Called by specialist-loader on enable().
  *
  * @param {Object} ctx
- * @param {import('../../src/expertises/specialist-runtime.js').SpecialistRuntime} ctx.runtime
+ * @param {Object} ctx ExtensionContext V1
  */
 export function register(ctx) {
-  const { runtime } = ctx;
+  const runtime = ctx.requireCapability('specialist.runtime.v1');
   const toolsDir = path.join(__dirname, 'tools');
 
   runtime.registerSpecialist({
@@ -77,10 +77,10 @@ export function register(ctx) {
  * Called by specialist-loader on disable().
  *
  * @param {Object} ctx
- * @param {import('../../src/expertises/specialist-runtime.js').SpecialistRuntime} ctx.runtime
+ * @param {Object} ctx ExtensionContext V1
  */
 export function unregister(ctx) {
-  const { runtime } = ctx;
+  const runtime = ctx.requireCapability('specialist.runtime.v1');
   if (typeof runtime.unregisterSpecialist === 'function') {
     runtime.unregisterSpecialist('logger');
   }
