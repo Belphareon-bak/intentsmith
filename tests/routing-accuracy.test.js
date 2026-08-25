@@ -370,3 +370,5 @@ if (recallOk && precisionOk && toolAccOk) {
 console.log('\n══════════════════════════════════════════════════════\n');
 
 db.close();
+
+process.exitCode = recallOk && precisionOk && toolAccOk ? 0 : 1;

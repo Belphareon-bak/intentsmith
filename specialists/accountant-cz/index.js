@@ -272,6 +272,7 @@ function buildToolDefinitions(toolsDir, ToolAdapter) {
         priority: 2,
         patterns: [
           /(?:kolik|jak[áa]|jakou|v[ýy][šs]e|celkov)\s*.{0,30}(?:da[ňn]|dan[ěe]|odvod|zaplat[ií]m)/i,
+          /(?:minim[áa]ln[ií]\s+)?z[áa]loh\w*\s*.{0,25}(?:soci[áa]ln|zdravotn)\w*\s*.{0,20}(?:osv[čc]|[žz]ivnost)/i,
           /(?:da[ňn]|dan[ěe])\s*.{0,20}(?:z\s+p[řr][ií]jm|osv[čc]|s\.?\s?r\.?\s?o)/i,
           /(?:zdan[ěe]n[ií]|da[ňn]ov[áa]\s+povinnost)\s*.{0,20}(?:\d|osv[čc]|s\.?\s?r\.?\s?o|[žz]ivnost)/i,
           /(?:odvody|dan[ěe])\s+(?:z|ze)\s+\d/i,

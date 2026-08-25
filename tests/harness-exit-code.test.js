@@ -366,7 +366,10 @@ try {
   //   111 -> 112 M3 expertise extension lifecycle imports the production chat
   //              registry resolver to prove disabled modules fail closed. Its
   //              canonical bootstrap precedes the controller/database graph.
-  const expectedDatabaseReachableRootTests = 112;
+  //   112 -> 114 M3 governed skill authority and the code-review specialist
+  //              each add one direct production-path suite. Both reach the
+  //              database graph behind the canonical isolation bootstrap.
+  const expectedDatabaseReachableRootTests = 114;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,
