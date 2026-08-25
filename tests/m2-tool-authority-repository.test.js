@@ -251,7 +251,7 @@ function failedFileWriteAuthority(token = '9') {
     rollback: { required: false, status: 'not_required', evidenceRef: null },
     outputDigest: null,
     errorCode: 'PROJECT_PATH_VIOLATION',
-    evidenceRefs: [],
+    evidenceRefs: [`effect:${boundEffectRequest.effectId}:fixture-failed`],
     lateCompletionRejected: false,
   };
   effectRepository.recordEffectResult(effectResult);

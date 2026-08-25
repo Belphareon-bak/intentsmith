@@ -482,7 +482,9 @@ export function createEffectBroker(repositoryValue, {
         outcome = {
           status: first.error?.code === 'EFFECT_CANCELLED' ? 'cancelled' : 'failed',
           errorCode: normalizedErrorCode(first.error),
-          evidence: first.error?.evidence,
+          evidence: first.error?.evidence || {
+            evidenceRefs: [`effect:${effectId}:provider-pre-effect-failed`],
+          },
           lateCompletionRejected: false,
         };
       }

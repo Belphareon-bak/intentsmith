@@ -601,6 +601,9 @@ await testAsync('missing parent is rejected before mkdir and produces no filesys
 
     assert.equal(result.terminalStatus, 'failed');
     assert.equal(result.errorCode, 'PROJECT_PATH_VIOLATION');
+    assert.deepEqual(result.evidenceRefs, [
+      `effect:${prepared.effectId}:provider-pre-effect-failed`,
+    ]);
     assert.equal(nativeFs.existsSync(missingParent), false);
     assert.equal(result.rollback.required, false);
   });
@@ -995,6 +998,9 @@ await testAsync('provider throw records a truthful failed terminal result after 
 
     assert.equal(result.terminalStatus, 'failed');
     assert.equal(result.errorCode, 'EIO');
+    assert.deepEqual(result.evidenceRefs, [
+      `effect:${prepared.effectId}:provider-pre-effect-failed`,
+    ]);
     assert.equal(environment.repository.getApprovalGrant(grant.grantId).consumedByEffectId, prepared.effectId);
     assert.deepEqual(environment.repository.getEffectResult(prepared.effectId), result);
   });
@@ -1271,6 +1277,9 @@ await testAsync('existing hardlinked filesystem target is not written and record
 
     assert.equal(result.terminalStatus, 'failed');
     assert.equal(result.errorCode, 'EFFECT_FS_HARDLINK_REJECTED');
+    assert.deepEqual(result.evidenceRefs, [
+      `effect:${prepared.effectId}:provider-pre-effect-failed`,
+    ]);
     assert.equal(readFileSync(target, 'utf8'), 'before\n');
     assert.equal(readFileSync(alias, 'utf8'), 'before\n');
     assert.deepEqual(environment.repository.getEffectResult(prepared.effectId), result);

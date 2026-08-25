@@ -20,7 +20,12 @@ import { up as applyToolEffectLinks } from '../src/db/migrations/2026_08_24_075_
 import { up as applyToolTruth } from '../src/db/migrations/2026_08_24_076_m2_tool_authority_truth.js';
 import { up as applyEffectInvalidations } from '../src/db/migrations/2026_08_24_077_m2_effect_invalidations.js';
 import { up as applyEffectSemanticAuthority } from '../src/db/migrations/2026_08_24_080_m2_effect_semantic_authority.js';
+import { up as applyEffectResultSemanticV2 } from '../src/db/migrations/2026_08_24_081_m2_effect_result_semantic_authority_v2.js';
 import { createEffectFileRuntime } from '../src/effects/effect-file-runtime.js';
+import { EffectAuthorityRepository } from '../src/effects/effect-authority-repository.js';
+import { createApprovalGrantIssuer } from '../src/effects/approval-grant-issuer.js';
+import { processExecutionOwner } from '../src/effects/execution-owner.js';
+import { computeEffectRequestDigest } from '../contracts/m2/effect-v1.js';
 import { db as applicationDatabase, projects } from '../src/db/database.js';
 import { suite, testAsync, summary } from './harness.js';
 
@@ -195,6 +200,66 @@ await testAsync('pending effect survives restart and remains bound to its origin
       input.content,
     );
     assert.equal(restarted.getPending(prepared.effectId), null);
+  });
+});
+
+await testAsync('startup isolates a quarantined legacy terminal without disabling unrelated approvals', async () => {
+  await withEnvironment(async environment => {
+    const input = requestInput(environment.projectRoot, {
+      operationId: 'message:quarantine-startup',
+      relativePath: 'notes/quarantine.md',
+      content: 'quarantine startup\n',
+    });
+    const prepared = await environment.runtime().requestFilesystemWrite(input);
+    const repository = new EffectAuthorityRepository(environment.database);
+    const request = repository.getEffectRequest(prepared.effectId);
+    const grant = createApprovalGrantIssuer(repository).issue({
+      effectId: prepared.effectId,
+      authenticatedSubject: { actorType: 'user', actorId: input.subjectId },
+    }).grant;
+    repository.consumeApprovalGrant({
+      grantId: grant.grantId,
+      request: repository.getEffectRequest(prepared.effectId),
+      executionOwner: processExecutionOwner,
+    });
+    const claimedAtMs = repository.getExecutionClaim(prepared.effectId).claimedAtMs;
+    const result = {
+      contract: 'EffectResult', version: 1,
+      effectId: prepared.effectId, runId: request.runId,
+      projectId: request.origin.projectId,
+      requestDigest: computeEffectRequestDigest(request),
+      approvalGrantId: grant.grantId, terminalStatus: 'succeeded',
+      startedAt: new Date(claimedAtMs).toISOString(),
+      completedAt: new Date(claimedAtMs + 1).toISOString(),
+      process: { pid: null, processGroupId: null, startIdentity: null, exitCode: null, signal: null },
+      changes: {
+        paths: [request.target.relativePath], beforeDigest: null,
+        afterDigest: request.payloadDigest, diffArtifact: null,
+      },
+      network: { resolvedAddresses: [], finalUrl: null, status: null, bytes: 0 },
+      rollback: { required: false, status: 'not_required', evidenceRef: null },
+      outputDigest: request.payloadDigest, errorCode: null,
+      evidenceRefs: [], lateCompletionRejected: false,
+    };
+    environment.database.prepare(`
+      INSERT INTO m2_effect_results (
+        effect_id, run_id, project_id, request_digest, approval_grant_id,
+        terminal_status, result_json, completed_at_ms
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      result.effectId, result.runId, result.projectId, result.requestDigest,
+      result.approvalGrantId, result.terminalStatus, JSON.stringify(result),
+      claimedAtMs + 1,
+    );
+    applyEffectResultSemanticV2(environment.database);
+
+    const restarted = environment.runtime();
+    assert.equal(restarted.getPending(prepared.effectId).effectId, prepared.effectId);
+    assert.equal(
+      new EffectAuthorityRepository(environment.database)
+        .getEffectResultQuarantine(prepared.effectId)?.reasonCode,
+      'LEGACY_RESULT_V2_SEMANTIC_MISMATCH',
+    );
   });
 });
 

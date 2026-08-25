@@ -90,7 +90,13 @@ export function createEffectFileRuntime({
       JOIN m2_effect_results result ON result.effect_id = pending.effect_id
       ORDER BY pending.effect_id
     `).all();
-    for (const { effectId } of rows) removeTerminalPending(effectId);
+    for (const { effectId } of rows) {
+      // A quarantined legacy result is evidence, but not current terminal
+      // authority. Keep its pending payload isolated without making module
+      // initialization unavailable for every unrelated effect.
+      if (repository.getEffectResultQuarantine(effectId)) continue;
+      removeTerminalPending(effectId);
+    }
     return rows.length;
   }
 

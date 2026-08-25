@@ -455,7 +455,7 @@ function effectSuccess(request, grantId, fixture) {
     rollback: { required: false, status: 'not_required', evidenceRef: null },
     outputDigest: filesystem ? request.payloadDigest : EMPTY_DIGEST,
     errorCode: null,
-    evidenceRefs: [],
+    evidenceRefs: [`effect:${request.effectId}:fixture-success`],
     lateCompletionRejected: false,
   };
 }

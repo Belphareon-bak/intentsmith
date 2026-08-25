@@ -1358,6 +1358,12 @@ test('081 quarantines loose legacy non-fs terminals and enforces v2 on every new
     () => repository.getEffectResult(legacyRequest.effectId),
     EffectAuthorityErrorCode.RESULT_SEMANTIC_QUARANTINED,
   );
+  assert.deepEqual(repository.getEffectResultQuarantine(legacyRequest.effectId), {
+    effectId: legacyRequest.effectId,
+    reasonCode: 'LEGACY_RESULT_V2_SEMANTIC_MISMATCH',
+    resultDigest: repository.getEffectResultQuarantine(legacyRequest.effectId).storedDigest,
+    storedDigest: repository.getEffectResultQuarantine(legacyRequest.effectId).storedDigest,
+  });
   assert.equal(db.prepare(`
     SELECT count(*) AS count FROM m2_effect_results WHERE effect_id = ?
   `).get(legacyRequest.effectId).count, 1, 'legacy source evidence remains append-only');

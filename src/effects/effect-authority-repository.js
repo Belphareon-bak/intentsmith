@@ -780,21 +780,8 @@ export class EffectAuthorityRepository {
     `).get(effectId);
     if (!row) return null;
     try {
-      const hasSemanticQuarantine = this.db.prepare(`
-        SELECT 1 AS present FROM sqlite_master
-        WHERE type = 'table' AND name = 'm2_effect_result_semantic_quarantine'
-      `).get()?.present === 1;
-      const quarantine = hasSemanticQuarantine
-        ? this.db.prepare(`
-          SELECT result_digest AS resultDigest, reason_code AS reasonCode
-          FROM m2_effect_result_semantic_quarantine
-          WHERE effect_id = ?
-        `).get(effectId)
-        : null;
+      const quarantine = this.getEffectResultQuarantine(effectId);
       if (quarantine) {
-        const storedDigest = `sha256:${createHash('sha256')
-          .update(row.result_json, 'utf8')
-          .digest('hex')}`;
         fail(
           EffectAuthorityErrorCode.RESULT_SEMANTIC_QUARANTINED,
           'Legacy EffectResult is quarantined from current semantic authority',
@@ -802,7 +789,7 @@ export class EffectAuthorityRepository {
             effectId,
             reasonCode: quarantine.reasonCode,
             resultDigest: quarantine.resultDigest,
-            storedDigest,
+            storedDigest: quarantine.storedDigest,
           },
         );
       }
@@ -827,6 +814,39 @@ export class EffectAuthorityRepository {
         && error.code === EffectAuthorityErrorCode.RESULT_SEMANTIC_QUARANTINED
       ) throw error;
       storageFailure('result read', error);
+    }
+  }
+
+  getEffectResultQuarantine(effectId) {
+    try {
+      const present = this.db.prepare(`
+        SELECT 1 AS present FROM sqlite_master
+        WHERE type = 'table' AND name = 'm2_effect_result_semantic_quarantine'
+      `).get()?.present === 1;
+      if (!present) return null;
+      const row = this.db.prepare(`
+        SELECT quarantine.result_digest AS resultDigest,
+               quarantine.reason_code AS reasonCode,
+               result.result_json AS resultJson
+        FROM m2_effect_result_semantic_quarantine quarantine
+        JOIN m2_effect_results result ON result.effect_id = quarantine.effect_id
+        WHERE quarantine.effect_id = ?
+      `).get(effectId);
+      if (!row) return null;
+      const storedDigest = `sha256:${createHash('sha256')
+        .update(row.resultJson, 'utf8')
+        .digest('hex')}`;
+      if (storedDigest !== row.resultDigest) {
+        throw new Error('quarantined EffectResult digest no longer matches its source evidence');
+      }
+      return Object.freeze({
+        effectId,
+        reasonCode: row.reasonCode,
+        resultDigest: row.resultDigest,
+        storedDigest,
+      });
+    } catch (error) {
+      storageFailure('result quarantine read', error);
     }
   }
 
