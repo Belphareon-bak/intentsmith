@@ -3,7 +3,7 @@
 **Typ:** M2 oddíl 5/7 — durable project-change, sandbox, focused test, exact Git
 a restart recovery
 
-**Stav:** `IMPLEMENTATION_GREEN / REVIEW_PENDING`
+**Stav:** `PINNED_V1 / IMPLEMENTATION_GREEN / OPERATOR_REVIEW_PENDING`
 
 **Autorita:** operátorské spuštění celé M2; `ROADMAP.md` §6 krok 3 a exit
 kritéria pro atomický patch, focused test, rollback, cancel/restart a audit
@@ -24,8 +24,8 @@ konverguje exact-path rollbackem; deterministicky zrekonstruovaný committed
 HEAD opraví jen povolené index entries a dokončí durable success. Cizí HEAD,
 foreign dirt nebo třetí obsah zůstane `in_doubt/orphaned` bez přepsání.
 
-Kontrakt je `CANDIDATE_V1`. `PINNED_V1` je zakázaný, dokud lokální Claude Opus
-s `--effort max` nevrátí `REVIEW_PASSED`.
+Kontrakt je podle Decision 030 mechanicky `PINNED_V1`. Připnutí není review
+PASS: přesné integrační bajty musí ještě přijmout operátor.
 
 ## Vlastněný rozsah
 
@@ -96,8 +96,8 @@ s `--effort max` nevrátí `REVIEW_PASSED`.
    a LF filename jsou byte-exact a `add -A` neexistuje.
 7. Registry, schema, module ratchet, artifact validation a deterministický gate
    se zopakují; známý celkový `FAIL/BLOCKED` se nevydává za PASS.
-8. Opus max vrátí `REVIEW_PASSED`; každý `CHANGES_REQUESTED` se opraví a review
-   se opakuje.
+8. Operátor vrátí nad přesným připnutým řezem `REVIEW_PASSED`; každý
+   `CHANGES_REQUESTED` se opraví, znovu připne a review se opakuje.
 
 ## Přiznané limity
 
@@ -109,9 +109,9 @@ s `--effort max` nevrátí `REVIEW_PASSED`.
   architektura skončí před spuštěním focused testu jako unsupported profil.
 - Tento oddíl je connector/direct journey. Aktivní lifecycle a Studio surface
   zůstávají do oddílu 6 na legacy cestě.
-- Dvě skutečná Opus max kola vrátila `CHANGES_REQUESTED`; druhá oprava je na
-  `816c5b14` a čeká na další exact-scope re-review. Account/tool failure ani
-  vlastní odpověď nesmí být přeloženy na review PASS.
+- Dvě historická Opus max kola vrátila `CHANGES_REQUESTED`; opravy jsou
+  integrované. Jejich záznam zůstává evidencí, ale finální verdict podle
+  Decision 030 vydává operátor nad připnutými integračními bajty.
 
 ## Ověření
 

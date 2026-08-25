@@ -3,7 +3,7 @@ import path from 'node:path';
 import { isIP } from 'node:net';
 
 export const M2_EFFECT_CONTRACT_VERSION = 1;
-export const M2_EFFECT_CONTRACT_STAGE = 'CANDIDATE_V1';
+export const M2_EFFECT_CONTRACT_STAGE = 'PINNED_V1';
 
 export const M2_EFFECT_CONTRACT_KIND = Object.freeze({
   EFFECT_REQUEST: 'EffectRequest',

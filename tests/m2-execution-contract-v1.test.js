@@ -177,8 +177,8 @@ function recomputeRequest(value) {
 
 suite('M2 ProjectChange v1 — canonical positive forms');
 
-test('contract remains CANDIDATE_V1 and publishes hard file-set bounds', () => {
-  assert.equal(M2_EXECUTION_CONTRACT_STAGE, 'CANDIDATE_V1');
+test('contract stage is PINNED_V1 and publishes hard file-set bounds', () => {
+  assert.equal(M2_EXECUTION_CONTRACT_STAGE, 'PINNED_V1');
   assert.deepEqual(M2_EXECUTION_LIMITS, {
     MAX_CHANGES: 32,
     MAX_FILE_BYTES: 1_048_576,

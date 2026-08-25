@@ -10,7 +10,7 @@ import {
 } from '../m1/shared.js';
 
 export const M2_TOOL_CONTRACT_VERSION = 1;
-export const M2_TOOL_CONTRACT_STAGE = 'CANDIDATE_V1';
+export const M2_TOOL_CONTRACT_STAGE = 'PINNED_V1';
 
 export const M2_TOOL_CONTRACT_KIND = Object.freeze({
   REQUEST: 'ToolRequest',

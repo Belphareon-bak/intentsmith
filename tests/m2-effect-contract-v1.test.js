@@ -136,8 +136,8 @@ function result(overrides = {}) {
 
 suite('M2 EffectRequest/Result and ApprovalGrant executable contract');
 
-test('contract remains CANDIDATE_V1 until independent review', () => {
-  assert.equal(M2_EFFECT_CONTRACT_STAGE, 'CANDIDATE_V1');
+test('contract stage is PINNED_V1 for exact-byte operator review', () => {
+  assert.equal(M2_EFFECT_CONTRACT_STAGE, 'PINNED_V1');
 });
 
 test('valid request has a canonical byte-stable encoding and round-trip', () => {

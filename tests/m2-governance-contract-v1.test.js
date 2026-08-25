@@ -238,8 +238,8 @@ function receipt(boundRequest, boundResult, decision, overrides = {}) {
 
 suite('M2 governance v1 — policy snapshot');
 
-test('stage remains CANDIDATE_V1 and required checks are fixed and sorted', () => {
-  assert.equal(M2_GOVERNANCE_CONTRACT_STAGE, 'CANDIDATE_V1');
+test('stage is PINNED_V1 and required checks are fixed and sorted', () => {
+  assert.equal(M2_GOVERNANCE_CONTRACT_STAGE, 'PINNED_V1');
   assert.deepEqual(M2_GOVERNANCE_REQUIRED_CHECKS, [
     'imports.allowed', 'inventory.complete', 'layers.mapped',
   ]);

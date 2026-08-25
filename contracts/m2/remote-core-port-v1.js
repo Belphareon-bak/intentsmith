@@ -10,7 +10,7 @@ import {
 } from '../m1/shared.js';
 
 export const M2_REMOTE_CORE_PORT_VERSION = 1;
-export const M2_REMOTE_CORE_PORT_STAGE = 'CANDIDATE_V1';
+export const M2_REMOTE_CORE_PORT_STAGE = 'PINNED_V1';
 
 export const M2_REMOTE_CORE_PORT_KIND = Object.freeze({
   DESCRIPTOR: 'RemoteCorePortDescriptor',

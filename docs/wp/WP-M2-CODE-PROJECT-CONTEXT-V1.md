@@ -2,7 +2,7 @@
 
 **Typ:** větší paralelní Work Package pro coworkera
 
-**Stav:** `IMPLEMENTED / FOCUSED_GREEN / OPUS_RE_REVIEW_BLOCKED_BY_ACCOUNT_LIMIT`
+**Stav:** `PINNED_V1 / IMPLEMENTATION_GREEN / OPERATOR_REVIEW_PENDING`
 
 **Contract-review base:** `c4ffb2de` — poslední commit této linie před M2
 implementací, který otevírá M2 po P0 closeoutu
@@ -33,6 +33,11 @@ project-context connector neprovádí write, exec, network ani Git efekt.
 Veřejný tvar, pozorovatelné chování a Containment V1 disposition v §7 operátor
 schválil 2026-08-23. M1 base `44a9ba87` nyní splňuje vstupní podmínku a tento
 samostatný produkční branch smí implementovat výhradně povolený scope v §4.
+
+Closeout autoritu nyní vlastní Decision 030. Veřejný
+`ProjectContextQuery/Snapshot@1` je mechanicky `PINNED_V1`; finální verdikt nad
+přesnými integračními bajty vydá operátor. Dřívější Opus review záznamy jsou
+historická evidence, nikoli aktuální acceptance podmínka.
 
 Balík je disjunktní od GPU/model hunta i od path-authority proudu. Contract
 review zůstává zachovaný na původní větvi; produkční větev vznikla přímo z

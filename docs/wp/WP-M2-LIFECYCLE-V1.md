@@ -2,7 +2,7 @@
 
 **Typ:** M2 oddíl 6/7 — exact lifecycle junction a deterministická governance
 
-**Stav:** `IMPLEMENTED / REVIEW_REQUIRED`
+**Stav:** `PINNED_V1 / IMPLEMENTATION_GREEN / OPERATOR_REVIEW_PENDING`
 
 **Autorita:** operátorské spuštění celé M2; `ROADMAP.md` §6 krok 4 a exit
 kritéria pro jeden viditelný plan → approval → change → test → diff → audit
@@ -36,7 +36,7 @@ durable autority.
 - start/approve/cancel/status/recover API a explicitní quarantine legacy
   effect-capable lifecycle vstupů;
 - offline fake-model-free journey se skutečným SQLite, temp Git a bubblewrap;
-- registry, module graph, schema/artifact/gate evidence a Opus max review.
+- registry, module graph, schema/artifact/gate evidence a operátorské review.
 
 ## Zakázaný rozsah
 
@@ -94,8 +94,8 @@ durable autority.
    používají tutéž application service; static sentinel nedovolí starý bypass.
 9. Registry, schema, module ratchet, artifact validation a deterministický gate
    se zopakují s přesně přiznaným verdict/counts/non-PASS setem.
-10. Lokální Claude Opus `--effort max` vrátí `REVIEW_PASSED`; každý
-    `CHANGES_REQUESTED` se opraví a review se opakuje.
+10. Operátor vrátí nad přesným připnutým řezem `REVIEW_PASSED`; každý
+    `CHANGES_REQUESTED` se opraví, znovu připne a review se opakuje.
 
 ## Přiznané limity
 
@@ -107,7 +107,7 @@ durable autority.
   success.
 - Jeden ProjectChange vlastní právě jeden focused process. Multi-command workflow
   není v1 a nevytváří se přes shellový wrapper.
-- Opus account limit není review verdict a nesmí být přeložen na PASS.
+- Mechanické `PINNED_V1` není review verdict a nesmí být přeloženo na PASS.
 
 ## Ověření
 

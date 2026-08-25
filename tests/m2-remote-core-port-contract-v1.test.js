@@ -95,6 +95,7 @@ suite('M2 RemoteCorePort v1 — frozen descriptor and hello');
 test('descriptor exactly freezes seven capabilities and the non-network boundary', () => {
   const validation = validateM2RemoteCorePortDescriptor(M2_REMOTE_CORE_PORT_DESCRIPTOR_V1);
   assert.equal(validation.valid, true, validation.errors.join(', '));
+  assert.equal(M2_REMOTE_CORE_PORT_STAGE, 'PINNED_V1');
   assert.equal(M2_REMOTE_CORE_PORT_DESCRIPTOR_V1.stage, M2_REMOTE_CORE_PORT_STAGE);
   assert.deepEqual(
     M2_REMOTE_CORE_PORT_DESCRIPTOR_V1.capabilities.map(value => value.capabilityId),

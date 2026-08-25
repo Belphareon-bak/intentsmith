@@ -1186,6 +1186,14 @@ stále 3 cykly a 28 souborů v cyklech; explicitně přijatá
 nová hrana je pouze migrace 080 → effect-core fingerprint helper. Oddíl 2 je
 implementačně zelený, ale bez Opus max `REVIEW_PASSED` zůstává kandidátem.
 
+Decision 030 tento historický review požadavek nahrazuje operátorským review
+přesných finálních bajtů. Closeout řez proto mechanicky přepíná všech sedm
+veřejných M2 stage markerů — ProjectContext, Effect, Tool, Execution,
+Governance, Lifecycle a RemoteCorePort — na `PINNED_V1`. Připnutí není
+acceptance: všech sedm section balíků i integrační closeout zůstávají
+`OPERATOR_REVIEW_PENDING`, dokud operátor nevydá `REVIEW_PASSED` bez nové
+regrese.
+
 ### Závislostní sekvence Work Packages
 
 1. **WP-M2-EFFECT:** canonical effect broker vlastní policy, approval, timeout,

@@ -3,14 +3,13 @@
 **Typ:** M2 oddíl 2/7 — effect connector, approval authority a první produkční
 filesystem consumer
 
-**Stav:** `IMPLEMENTATION_GREEN / REVIEW_BLOCKED_ACCOUNT_LIMIT`
+**Stav:** `PINNED_V1 / IMPLEMENTATION_GREEN / OPERATOR_REVIEW_PENDING`
 
 **Autorita:** explicitní operátorské spuštění M2; `ROADMAP.md` §6;
 `docs/decisions/011-m1-studio-http-fallback-effect-authority.md` varianta C;
 `docs/inventory/22-effect-authority-trace.md` § „Navrhovaný M2 connector“
 
-**Integrační vstup:** `33cf221c` — oddíly 1 a 3 sloučené, jejich dodatečné
-Opus review je rovněž blokované účtovým limitem
+**Integrační vstup:** `33cf221c` — oddíly 1 a 3 sloučené
 
 ## Uživatelský výsledek
 
@@ -21,8 +20,8 @@ spotřebuje spolu s durable execution claimem a uloží pravdivý
 ne životnost websocketu. Neautorizovaný legacy write končí typovanou chybou
 `M2_EFFECT_AUTHORITY_REQUIRED` před efektem.
 
-Kontrakt zůstává `CANDIDATE_V1`: přepnutí na `PINNED_V1` je zakázané, dokud
-lokální Claude Opus s `--effort max` nevrátí `REVIEW_PASSED`.
+Kontrakt je podle Decision 030 mechanicky `PINNED_V1`. Připnutí není review
+PASS: přesné integrační bajty musí ještě přijmout operátor.
 
 ## Vlastněný rozsah
 
@@ -87,8 +86,8 @@ lokální Claude Opus s `--effort max` nevrátí `REVIEW_PASSED`.
 7. Registry, module graph, focused sady a celý deterministický runner jsou
    zopakovány na čistém integračním commitu; známé baseline non-PASS nesmějí být
    přepsány na PASS.
-8. Opus `--effort max` vrátí pro přesný review range `REVIEW_PASSED`; při
-   `CHANGES_REQUESTED` se cyklus opakuje.
+8. Operátor vrátí pro přesný připnutý review řez `REVIEW_PASSED`; při
+   `CHANGES_REQUESTED` se cyklus opravy, nového připnutí a review opakuje.
 
 ## Přiznané limity
 
@@ -106,8 +105,8 @@ lokální Claude Opus s `--effort max` nevrátí `REVIEW_PASSED`.
 - authority by nešla vynutit v SQLite a na produkční consumer hranici;
 - terminal by mohl vzniknout bez přesného grantu/claimu nebo efekt po erroru;
 - práce by vstoupila do dalšího M2 oddílu či cizího/GPU scope;
-- Opus není dostupný: implementace může pokračovat, ale oddíl zůstává
-  `REVIEW_BLOCKED_ACCOUNT_LIMIT` a nesmí být označen jako hotový.
+- Chybějící operátorský verdict: oddíl zůstává `OPERATOR_REVIEW_PENDING` a
+  nesmí být označen jako hotový.
 
 ## Ověření
 

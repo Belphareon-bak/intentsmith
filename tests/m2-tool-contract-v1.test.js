@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 
 import { suite, test, summary } from './harness.js';
 import {
+  M2_TOOL_CONTRACT_STAGE,
   M2_TOOL_CONTRACT_KIND,
   M2_TOOL_CONTRACT_VERSION,
   M2_TOOL_ERROR_CODE,
@@ -17,6 +18,12 @@ import {
   validateM2ToolRequest,
   validateM2ToolResult,
 } from '../contracts/m2/tool-v1.js';
+
+suite('M2 Tool connector v1 — pinned contract identity');
+
+test('contract stage is PINNED_V1', () => {
+  assert.equal(M2_TOOL_CONTRACT_STAGE, 'PINNED_V1');
+});
 
 function clone(value) {
   return structuredClone(value);

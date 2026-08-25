@@ -28,7 +28,7 @@ import {
 } from '../m1/shared.js';
 
 export const M2_LIFECYCLE_CONTRACT_VERSION = 1;
-export const M2_LIFECYCLE_CONTRACT_STAGE = 'CANDIDATE_V1';
+export const M2_LIFECYCLE_CONTRACT_STAGE = 'PINNED_V1';
 
 export const M2_LIFECYCLE_CONTRACT_KIND = Object.freeze({
   PLAN_SNAPSHOT: 'LifecyclePlanSnapshot',

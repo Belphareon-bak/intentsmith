@@ -3,13 +3,13 @@
 **Typ:** M2 oddíl 7/7 — zmražený `RemoteCorePort` negotiation a security
 boundary kontrakt
 
-**Stav:** `IMPLEMENTATION_GREEN / REVIEW_REQUIRED`
+**Stav:** `PINNED_V1 / IMPLEMENTATION_GREEN / OPERATOR_REVIEW_PENDING`
 
 **Autorita:** operátorské spuštění celé M2; `ROADMAP.md` §6 krok 5 a M2 exit
 kritérium pro verzovaný remote connector bez legacy bypassu
 
 **Integrační vstup:** `cb9058b499961fc68711cbfc243ad2a7b68b0eba` — oddíl 6
-implementačně a gateově zelený, povinné Opus reviews blokuje účtový spend limit
+implementačně a gateově zelený
 
 ## Uživatelský výsledek
 
@@ -22,6 +22,9 @@ explicitně jako unavailable; nikdy nevrací prázdný nebo implicitní úspěch
 Tento oddíl nevytváří síťový listener, pairing, device token ani mobilní
 runtime. Legacy `/api/*` a `/c3/ws` zůstávají numericky loopback-only a nesmějí
 se stát implementací `RemoteCorePort`.
+
+Contract-only boundary je podle Decision 030 mechanicky `PINNED_V1`.
+Připnutí není review PASS: přesné integrační bajty musí ještě přijmout operátor.
 
 ## Vlastněný rozsah
 
@@ -86,8 +89,8 @@ se stát implementací `RemoteCorePort`.
    wildcard, LAN, symbolic i IPv6 hosty.
 7. Registry, module ratchet, artifact validation a celý deterministic gate se
    zopakují s pravdivým verdict/counts/non-PASS setem.
-8. Lokální Claude Opus `--effort max` vrátí `REVIEW_PASSED`; každý
-   `CHANGES_REQUESTED` se opraví a review zopakuje.
+8. Operátor vrátí nad přesným připnutým řezem `REVIEW_PASSED`; každý
+   `CHANGES_REQUESTED` se opraví, znovu připne a review zopakuje.
 
 ## Přiznané limity
 
@@ -98,8 +101,8 @@ se stát implementací `RemoteCorePort`.
   listener, pairing, autentizaci, device scope, expiry, revokaci a mobilní UI.
 - Existující `ConversationCommand/Result` a `CoreEvent` zůstávají přesně ve své
   verzi 1; Remote negotiation jejich význam nerozšiřuje.
-- Opus account limit není review verdict. Dokud limit trvá, stav zůstává
-  `REVIEW_BLOCKED_ACCOUNT_LIMIT`, ne hotovo.
+- Mechanické `PINNED_V1` není review verdict; stav zůstává
+  `OPERATOR_REVIEW_PENDING`, ne hotovo.
 
 ## Ověření
 

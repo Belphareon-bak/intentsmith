@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 
 import { suite, test, summary } from './harness.js';
 import {
+  PROJECT_CONTEXT_CONTRACT_STAGE,
   PROJECT_CONTEXT_CONTRACT_VERSION,
   PROJECT_CONTEXT_ERROR_CODE,
   PROJECT_CONTEXT_KIND,
@@ -20,6 +21,12 @@ import {
 const revisionA = `wsr1:${'a'.repeat(64)}`;
 const revisionB = `wsr1:${'b'.repeat(64)}`;
 const contentDigest = `sha256:${'c'.repeat(64)}`;
+
+suite('ProjectContext v1 — pinned contract identity');
+
+test('contract stage is PINNED_V1', () => {
+  assert.equal(PROJECT_CONTEXT_CONTRACT_STAGE, 'PINNED_V1');
+});
 
 const query = Object.freeze({
   contract: PROJECT_CONTEXT_KIND.QUERY,

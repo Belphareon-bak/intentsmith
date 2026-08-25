@@ -16,7 +16,7 @@ import {
 } from '../m1/shared.js';
 
 export const M2_GOVERNANCE_CONTRACT_VERSION = 1;
-export const M2_GOVERNANCE_CONTRACT_STAGE = 'CANDIDATE_V1';
+export const M2_GOVERNANCE_CONTRACT_STAGE = 'PINNED_V1';
 
 export const M2_GOVERNANCE_CONTRACT_KIND = Object.freeze({
   POLICY_SNAPSHOT: 'GovernancePolicySnapshot',

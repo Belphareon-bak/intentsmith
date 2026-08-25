@@ -371,8 +371,8 @@ function evidence() {
 
 suite('M2 lifecycle v1 — exact public contracts');
 
-test('stage and complete state vocabulary remain CANDIDATE_V1', () => {
-  assert.equal(M2_LIFECYCLE_CONTRACT_STAGE, 'CANDIDATE_V1');
+test('stage is PINNED_V1 and complete state vocabulary remains fixed', () => {
+  assert.equal(M2_LIFECYCLE_CONTRACT_STAGE, 'PINNED_V1');
   assert.deepEqual(M2_LIFECYCLE_STATE, {
     PLANNING: 'planning',
     AWAITING_APPROVAL: 'awaiting_approval',

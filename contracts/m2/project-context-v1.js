@@ -12,7 +12,7 @@ import {
 } from '../m1/shared.js';
 
 export const PROJECT_CONTEXT_CONTRACT_VERSION = 1;
-export const PROJECT_CONTEXT_CONTRACT_STAGE = 'PROVISIONAL_V1';
+export const PROJECT_CONTEXT_CONTRACT_STAGE = 'PINNED_V1';
 export const PROJECT_CONTEXT_NORMALIZATION_VERSION = 1;
 
 export const PROJECT_CONTEXT_KIND = Object.freeze({

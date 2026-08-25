@@ -3,7 +3,7 @@
 **Typ:** M2 oddíl 4/7 — jednotný `ToolRequest/ToolResult`, durable authority
 a aktivní Studio/chat consumer
 
-**Stav:** `IMPLEMENTATION_GREEN / CHANGES_REQUESTED`
+**Stav:** `PINNED_V1 / IMPLEMENTATION_GREEN / OPERATOR_REVIEW_PENDING`
 
 **Autorita:** operátorské spuštění celé M2; `ROADMAP.md` §6 krok 3;
 `ToolRequest/Result` connector v tabulce integračních kontraktů
@@ -24,8 +24,8 @@ Síťové, read, exec a databázové nástroje, pro které přesný provider je�
 končí pravdivě jako unavailable před efektem. Web denial zároveň potlačí
 starý LLM fallback, aby se nevrátila neozdrojovaná odpověď vydávaná za search.
 
-Kontrakt je `CANDIDATE_V1`. `PINNED_V1` je zakázaný, dokud lokální Claude Opus
-s `--effort max` nevrátí pro tento oddíl `REVIEW_PASSED`.
+Kontrakt je podle Decision 030 mechanicky `PINNED_V1`. Připnutí není review
+PASS: přesné integrační bajty musí ještě přijmout operátor.
 
 ## Vlastněný rozsah
 
@@ -97,8 +97,8 @@ s `--effort max` nevrátí pro tento oddíl `REVIEW_PASSED`.
 8. Registry, module graph, focused sady, artifact validace a deterministický gate
    se zopakují na čistém kandidátu; známý baseline `FAIL/BLOCKED` se nesmí
    přepsat na PASS.
-9. Opus max vrátí `REVIEW_PASSED`; každý `CHANGES_REQUESTED` se opraví a audit se
-   opakuje.
+9. Operátor vrátí nad přesným připnutým řezem `REVIEW_PASSED`; každý
+   `CHANGES_REQUESTED` se opraví, znovu připne a review se opakuje.
 
 ## Přiznané limity
 
@@ -119,8 +119,8 @@ s `--effort max` nevrátí pro tento oddíl `REVIEW_PASSED`.
 - success by šel commitnout bez durable requestu či přesného effect výsledku;
 - retry by mohl vytvořit druhý efekt nebo jiný terminal;
 - implementace by vstoupila do sandbox/lifecycle/remote nebo cizího scope;
-- Opus není dostupný: práce a hardening mohou pokračovat, ale oddíl nesmí být
-  označen jako reviewed/hotový.
+- Chybějící operátorský verdict: práce a hardening mohou pokračovat, ale oddíl
+  nesmí být označen jako reviewed/hotový.
 
 ## Ověření
 
