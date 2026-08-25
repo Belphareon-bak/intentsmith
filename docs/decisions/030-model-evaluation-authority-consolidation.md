@@ -1,6 +1,6 @@
 # 030 — Jedna current-contract autorita modelových evaluací
 
-**Stav:** implementováno, čeká na nezávislé review · **Datum:** 2026-08-25
+**Stav:** `ACCEPTED` po nezávislém rereview · **Datum:** 2026-08-25
 **WP:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Migrace:** 082
 
 ## Kontext
@@ -53,5 +53,6 @@ odstranit; C3 repo zůstává případnou historickou referencí.
   neověřitelný či malformed usage řádek retenci zablokuje, nikoli uvolní;
 - historické docs a migrace mohou obsahovat staré názvy, ale produkční source,
   route, registry a aktivní test ledger ne;
-- implementační green znamená nejvýše `REVIEW_PENDING`, dokud operátor
-  neprovede nezávislé review a všechny milníky nejsou PASS.
+- implementační green znamenal nejvýše `REVIEW_PENDING`; candidate `d8a2a108`
+  přešel na `ACCEPTED` až po nezávislém rereview a reprodukci `227/227` v runu
+  `2026-08-25T17-15-48-322Z`.

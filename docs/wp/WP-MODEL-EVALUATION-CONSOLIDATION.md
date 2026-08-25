@@ -11,11 +11,12 @@
 sjednotit scoring/evaluace a pokračovat přes všechny milníky až k jednomu
 review candidate.
 
-**Stav:** `IMPLEMENTATION_GREEN / REVIEW_PENDING (rereview)`. První candidate
-na `31234a6b` dostal `CHANGES_REQUESTED`; blokery i navazující nálezy byly
-opraveny. Přesná nová evidence a review rozsah jsou v
+**Stav:** `ACCEPTED`. První candidate na `31234a6b` dostal
+`CHANGES_REQUESTED`; blokery i navazující nálezy byly opraveny a candidate
+`d8a2a108` následně prošel nezávislým rereview. Přesná evidence a review
+rozsah jsou v
 [`model-evaluation-consolidation-review-remediation-20260825.md`](../execution/runs/model-evaluation-consolidation-review-remediation-20260825.md).
-Tento stav není nové nezávislé review ani `ACCEPTED` evidence.
+Nezávislý deterministic run `2026-08-25T17-15-48-322Z` skončil `227/227 PASS`.
 
 ## 1. Uživatelský výsledek
 
@@ -137,10 +138,10 @@ NOT RUN`.
 
 ## 8. Výstup a pravdivé omezení
 
-Výstupem je jeden souvislý review candidate s přesným base/head rozsahem,
+Výstupem je jeden souvislý přijatý review candidate s přesným base/head rozsahem,
 migrační a focused/daily evidencí, explicitním seznamem skutečných host/GPU
-běhů a známých baseline non-PASS. Implementační green bez nezávislého review
-není `ACCEPTED`; konečný stav po implementaci je nejvýše `REVIEW_PENDING`.
+běhů a známých baseline non-PASS. Samotný implementační green nebyl přijetím;
+stav `ACCEPTED` vznikl až následným nezávislým rereview.
 
 Po přijetí této modelové části následuje samostatný whole-repo audit dalších
 zastaralých nebo paralelních implementací IntentSmith. Tento následný audit je
@@ -163,9 +164,10 @@ tohoto WP.
 První nezávislé review: `CHANGES_REQUESTED`. Remediační R0–R7 opravily všech
 devět nálezů: úplnou suite identity, upgrade okno 070→082, governor reader,
 CODE snapshot/runtime blok, observed usage digest, retenci, registry disclosure,
-mrtvou speed větev a stabilní decision enum. Stav po lokálních branách je znovu
-jen `REVIEW_PENDING`, dokud neproběhne nezávislý rereview.
+mrtvou speed větev a stabilní decision enum. Druhý nezávislý rereview nad
+`d8a2a108` skončil `PASS`; run `2026-08-25T17-15-48-322Z` reprodukoval
+`227/227`.
 
-Přijetí operátorem zůstává `REVIEW_PENDING`. Ostrý GPU/Ollama eval panel nebyl
+Přijetí operátorem: `ACCEPTED`. Ostrý GPU/Ollama eval panel nebyl
 součástí cleanup acceptance a je pravdivě `NOT RUN`; starší výsledky se
 nepovyšují na current-contract PASS.

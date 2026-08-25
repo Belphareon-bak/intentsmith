@@ -1,6 +1,6 @@
 # Modelová platforma — aktuální handoff
 
-**Datum:** 2026-08-25 · **Stav:** `IMPLEMENTATION_GREEN / REVIEW_PENDING (rereview)`
+**Datum:** 2026-08-25 · **Stav:** `ACCEPTED`
 **Autoritativní popis:** [MODEL-SCORING-ACTIVATION.md](MODEL-SCORING-ACTIVATION.md)
 **Evidence:** [review remediation](execution/runs/model-evaluation-consolidation-review-remediation-20260825.md)
 
@@ -26,17 +26,18 @@
 - CODE fixture má čistou snapshot provenance a nedostupný historický oracle je
   explicitní pre-pull `BLOCKED`.
 
-## Co není hotový důkaz
+## Acceptance hranice a zbývající omezení
 
 - V tomto review kandidátovi zatím nebyl proveden nový ostrý sériový Ollama/GPU
   panel. Staré runy se automaticky nepovyšují na dnešní contract.
-- Implementační testy nenahrazují nezávislé review operátora.
+- Nezávislý rereview nad candidatem `d8a2a108` skončil `PASS`; samostatný run
+  `2026-08-25T17-15-48-322Z` reprodukoval `227/227`.
 - Automatický failover/proof issuance zůstává vypnutý; aktivace je ruční přes
   exact binding application.
-- `IMPLEMENTATION_GREEN` není `ACCEPTED`; konečný verdikt patří nezávislému
-  review operátora nad přesným rozsahem uvedeným v evidenci.
 - Předchozí candidate na `31234a6b` dostal `CHANGES_REQUESTED`; jeho 227 PASS
   evidence není přijetí ani evidence této opravené revize.
+- Šest drobných neblokujících follow-upů je vypsáno v remediation evidence;
+  nejsou součástí tohoto acceptance ani důvodem měnit autoritativní kontrakt.
 
 ## Praktický read-only start
 

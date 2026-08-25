@@ -15,7 +15,8 @@
 - Odstraněn v123 scoring/validation runtime, jeho endpointy, WS/UI, report a
   paralelní proof-measurement skripty; migrace 082 před dropem archivuje důkaz.
 - Všech sedm rolí má fail-closed task a discrimination minimum; CHAT vyžaduje
-  samostatný EN/CS důkaz. Stav implementace je `REVIEW_PENDING`.
+  samostatný EN/CS důkaz. Candidate `d8a2a108` je po nezávislém rereview
+  `ACCEPTED`; kontrolní run `2026-08-25T17-15-48-322Z` prošel `227/227`.
 - Odstraněny také heuristické benchmarky/quality score v katalogu a model
   universe a mrtvý telemetry scorer/blacklist. Pairwise výhra je akční pouze
   po portfolio gate s explicitním `activationEligible=true`.

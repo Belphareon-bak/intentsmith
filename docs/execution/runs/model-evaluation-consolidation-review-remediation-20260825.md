@@ -2,12 +2,14 @@
 
 **Datum:** 2026-08-25
 **WP:** `WP-MODEL-EVALUATION-CONSOLIDATION`
-**Stav:** `IMPLEMENTATION_GREEN / REVIEW_PENDING (rereview)`
+**Stav:** `ACCEPTED`
 **Původní odmítnutý candidate:** `31234a6b67dfded03fbd49a00db204f4bbf3f365`
 **Otestovaný remediation source head:** `5b7d259b3ecce72d2b02eabc4f83e3a966c0d20a`
+**Přijatý review candidate:** `d8a2a1081e48b18f6cc71de0ee851c46407d75b8`
 
-Toto je nový review candidate po nezávislém verdiktu `CHANGES_REQUESTED`.
-Neznamená `ACCEPTED` a nenahrazuje nový nezávislý rereview.
+Toto je přijatá remediace po prvním nezávislém verdiktu
+`CHANGES_REQUESTED`. Následný nezávislý rereview skončil `PASS`; podrobnosti
+jsou níže a původní odmítnutá evidence zůstává historicky zachovaná.
 
 ## Rozsah rereview
 
@@ -131,8 +133,41 @@ testy se po source headu `5b7d259b` nemění.
 - žádný stav z předchozího panelu se nepovyšuje na current-contract PASS,
   protože opravená suite identity vytváří nový contract SHA.
 
-## Zbývající gate
+## Nezávislý rereview a přijetí
 
-Pouze nezávislý rereview může tento candidate změnit z `REVIEW_PENDING` na
-`ACCEPTED`. Následný whole-repo audit dalších zastaralých implementací začne až
-po přijetí tohoto WP a není skrytě započítán do tohoto výsledku.
+Operátor 2026-08-25 potvrdil verdikt `PASS` nad nezměněným kandidátem
+`d8a2a108` a samostatně doložil:
+
+- mutace textového promptu, rubric, language, grading oracle a VISION pixelu
+  mění SHA právě dotčených sad; COMPLETE run pod starým SHA čte read model jako
+  `MISSING`. Kontrolní SHA začínají CHAT prompt `282a6ca5`, R2 rubric
+  `021622d4`, CHAT language `510fe22b`, D1 oracle `f0a93845` a VISION pixel
+  `3dff3485`;
+- pět scénářů migrace 082: konzistentní A–D zachovají runy i import evidence,
+  v úplném panelu `legacyRuns=5`, `importEvidence=5`; nekonzistentní kolize E
+  nadále fail-close končí `THROWS`;
+- CODE contract je stejný s dostupnou i nedostupnou historií, chybějící oracle
+  vrací `CODE_FIXTURE_RUNTIME_UNAVAILABLE` a všech sedm úloh se při dostupné
+  historii hydratuje přes `CodePatchEvaluationRunner.prepare()`;
+- governor, observed usage digest pod shared lease, odstraněná speed větev a
+  stabilní decision reason codes odpovídají deklarovanému kontraktu;
+- nezávislý deterministic run `2026-08-25T17-15-48-322Z` skončil
+  `verdict: PASS`, `227/227`.
+
+Tím je review gate uzavřený a WP přechází na `ACCEPTED`. Nový ostrý GPU/Ollama
+panel nebyl součástí tohoto acceptance a zůstává pravdivě `NOT RUN`.
+
+## Neblokující follow-upy
+
+Rereview ponechal šest drobných nálezů, které nemění verdikt ani autoritativní
+kontrakt a nesmějí být vydávány za součást hotové remediace:
+
+1. zpřesnit komentář v `gateway.js` u observed usage digestu;
+2. odstranit opt-in povahu `gradeMaterial` nebo ji silněji typově vynutit;
+3. zjednodušit negovaný `workingTreeDirty` zápis v `build-code-suite`;
+4. transakčně obalit smyčku zápisu decisions v `model-upgrade-hunt.js`;
+5. nere-konstruovat read model pro každé `analyzeUpgrades`;
+6. sjednotit tvar `bindingAuthority`.
+
+Následný whole-repo audit dalších zastaralých implementací je tímto odemčený;
+není skrytě započítán do acceptance tohoto WP.
