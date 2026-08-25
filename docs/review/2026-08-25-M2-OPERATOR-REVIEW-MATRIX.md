@@ -3,6 +3,7 @@
 - **Stav:** `7 PINNED_V1 / 0 OF 7 OPERATOR_REVIEW_PASSED`
 - **Větev:** `codex/m2-integration-20260824`
 - **Přesný product target:** `c070ed7383e522fb58b53a799cbbc0e16c4b09a7`
+- **Clean evidence gate revision:** `22f2fb6f228dea34ab0a6a698ef11582b6133c3b`
 - **Base přijatého M1:** `44a9ba87c99a448b1b1b5f479963c3b6aaac7e91`
 - **Push:** neproveden
 - **Autorita:** `docs/decisions/030-m2-closeout-authority.md`

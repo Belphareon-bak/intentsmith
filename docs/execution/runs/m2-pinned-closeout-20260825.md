@@ -62,6 +62,29 @@ Přesný non-PASS set je zděděný a nezměněný:
 
 Žádný M2 program není v non-PASS množině.
 
+## Post-evidence clean revalidation
+
+Po přepsání `lastGreen` všech 31 M2 sad na product revision a vygenerování
+review packetu byl celý gate zopakován nad čistým evidence commitem
+`22f2fb6f228dea34ab0a6a698ef11582b6133c3b`:
+
+- report
+  `.intentsmith-artifacts/test-runs/2026-08-25T17-33-34-051Z/report.json`;
+- znovu pravdivě `verdict: FAIL`, `exitCode: 1` a
+  `260 PASS / 3 FAIL / 0 TIMEOUT / 2 BLOCKED / 0 SKIPPED`;
+- přesně stejných pět non-PASS ID jako výše;
+- všech 27 vybraných M2 programů znovu PASS;
+- registry hash
+  `388d932406090b0c85e44e122a02096b678869bbe2cb2c93094ca3bc34e5ccb9`;
+- inventory fingerprint
+  `b2048d3c4e702aea3121611db49b9b7b8b9aa316639145ae2a7aef1f930735d4`;
+- options fingerprint
+  `b6c9a55d1eef4edd4cd3c3fc691fe87947b8aad52dc7249c05af5a41fed7db4e`.
+
+Commit, který tento odstavec zaznamená, je documentation-only následník
+revalidovaného evidence commitu. Přesný product target pro sedm review zůstává
+`c070ed7383e522fb58b53a799cbbc0e16c4b09a7`.
+
 ## Focused a cross-section evidence
 
 Všech 31 registrovaných `tests/m2-*` programů bylo na připnutých bajtech
