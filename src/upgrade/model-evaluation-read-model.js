@@ -164,6 +164,8 @@ export class ModelEvaluationReadModel {
             taskCount: plan.taskCount,
             minimumTaskCount: plan.minimumTaskCount,
             decisionReady: plan.decisionReady,
+            runtimeBlockCode: plan.runtimeBlockCode || null,
+            runtimeBlockReason: plan.runtimeBlockReason || null,
             isCurrentBinding: sameModelName(bindings[role], artifact.name),
             ...result,
           });
@@ -212,6 +214,8 @@ export class ModelEvaluationReadModel {
           taskCount: plan.taskCount,
           minimumTaskCount: plan.minimumTaskCount,
           decisionReady: plan.decisionReady,
+          runtimeBlockCode: plan.runtimeBlockCode || null,
+          runtimeBlockReason: plan.runtimeBlockReason || null,
           minimumDiscriminatingTasks: plan.minimumDiscriminatingTasks,
           minimumDiscriminatingByLanguage: plan.minimumDiscriminatingByLanguage,
           artifacts: Object.freeze(artifacts),

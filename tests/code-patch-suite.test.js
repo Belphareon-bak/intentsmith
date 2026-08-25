@@ -6,7 +6,10 @@ import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
 import { comparePair } from '../src/upgrade/pairwise-trial.js';
-import { codePatchSuite, CodePatchEvaluationRunner, MODEL_OPTIONS } from '../src/eval/code-patch-suite.js';
+import {
+  buildTests, codePatchRuntimeAvailability, codePatchSuite,
+  CodePatchEvaluationRunner, loadFixtureTasks, MODEL_OPTIONS,
+} from '../src/eval/code-patch-suite.js';
 import {
   incrementalBuildSeed, preserveCalibration, reconcileVerifiedTaskSupply,
 } from '../src/eval/build-code-suite.js';
@@ -14,6 +17,7 @@ import {
   calibrate, rebaseCalibrationPanel, buildPanelSummaries,
 } from '../src/eval/calibrate-code-suite.js';
 import { createRoleEvaluationPlans } from '../src/eval/role-evaluation-plan.js';
+import { suiteContract } from '../src/upgrade/model-evaluation-history.js';
 
 suite('code-patch-suite');
 
@@ -22,6 +26,7 @@ test('CODE role plan nese exact current code_patch suite', () => {
   assertEqual(plan.suiteName, 'code_patch');
   assert(plan.suite === codePatchSuite, 'plan must carry the exact suite object');
   assert(/^[a-f0-9]{64}$/.test(plan.suiteContractSha256), 'missing suite contract SHA');
+  assertEqual(plan.runtimeBlockCode, null);
 });
 
 // Souboj se neobchází: sada se do `comparePair` předá explicitně.
@@ -84,10 +89,62 @@ test('v běžné sadě jsou jen kalibrované aktivní úlohy', () => {
   assertEqual(codePatchSuite.tests.length, active.length);
 });
 
+test('CODE prompt fixture se načte i bez dosažitelného git repozitáře', () => {
+  const withoutHistory = loadFixtureTasks('/definitely/missing/git/history');
+  assertEqual(withoutHistory.length, codePatchSuite.tests.length);
+  assertEqual(
+    withoutHistory.map(task => task.taskFingerprint).join(','),
+    codePatchSuite.tests.map(testRow => testRow.contractMaterial.gradingInputs.taskFingerprint).join(','),
+  );
+  assert(withoutHistory.every(task => task.functionTexts.length > 0 && task.spans.length > 0));
+});
+
+test('CODE plán rozliší stabilní contract od nedostupného historického oracle', () => {
+  const unavailable = codePatchRuntimeAvailability('/definitely/missing/git/history');
+  assertEqual(unavailable.ready, false);
+  const plan = createRoleEvaluationPlans({
+    repeats: 1,
+    codeRuntimeAvailability: unavailable,
+  }).CODE;
+  assertEqual(plan.taskCount, 7);
+  assertEqual(plan.decisionReady, false);
+  assertEqual(plan.runtimeBlockCode, 'CODE_FIXTURE_RUNTIME_UNAVAILABLE');
+});
+
+test('CODE contract se změní se skutečným buildPrompt výstupem', () => {
+  const [task] = loadFixtureTasks();
+  const changed = { ...task, subject: `${task.subject} semantic change` };
+  const contractFor = current => suiteContract({
+    name: 'code_patch', version: 'fixture', tests: buildTests(process.cwd(), [current]),
+  }).sha256;
+  assert(contractFor(task) !== contractFor(changed));
+});
+
+await testAsync('chybějící historický oracle blokuje CODE před provider callem', async () => {
+  const [task] = loadFixtureTasks('/definitely/missing/git/history');
+  const isolatedSuite = { name: 'code_patch', tests: buildTests('/definitely/missing/git/history', [task]) };
+  const runner = new CodePatchEvaluationRunner('http://127.0.0.1:1', isolatedSuite);
+  let providerCalls = 0;
+  runner._callModel = async () => { providerCalls++; return { content: 'unexpected' }; };
+  let error = null;
+  try { await runner.runSuite('code_patch', 'fixture'); } catch (caught) { error = caught; }
+  assertEqual(error?.code, 'CODE_FIXTURE_RUNTIME_UNAVAILABLE');
+  assertEqual(providerCalls, 0);
+});
+
 test('fixture nenese úlohy odstraněné paralelní scoring cesty', () => {
   const fixture = JSON.parse(readFileSync(new URL('../src/eval/code-suite-tasks.json', import.meta.url), 'utf8'));
-  const deprecated = /model-ranker|validation-suites|benchmark-estimator|empirical-scorer|metrics-collector/;
-  assert(!deprecated.test(JSON.stringify(fixture.tasks)), 'deprecated scoring task remained in fixture');
+  const deprecated = /model-ranker|validation-suites|benchmark-estimator|empirical-scorer|metrics-collector|model-failover-proof-policy/;
+  assert(!fixture.tasks.some(task => deprecated.test(task.source || '')),
+    'deprecated scoring task remained in fixture');
+});
+
+test('fixture provenance is a clean reproducible source revision', () => {
+  const fixture = JSON.parse(readFileSync(new URL('../src/eval/code-suite-tasks.json', import.meta.url), 'utf8'));
+  assertEqual(fixture.fixtureSchemaVersion, 3);
+  assertEqual(fixture.workingTreeDirty, false);
+  assert(/^[0-9a-f]{40}$/.test(fixture.repoHead), 'fixture repoHead must be exact');
+  assert(fixture.tasks.every(task => task.snapshot), 'every task must carry a snapshot');
 });
 
 test('--help je read-only a fixture nepřegeneruje', () => {

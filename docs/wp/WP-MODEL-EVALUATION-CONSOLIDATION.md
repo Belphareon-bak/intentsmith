@@ -11,10 +11,11 @@
 sjednotit scoring/evaluace a pokračovat přes všechny milníky až k jednomu
 review candidate.
 
-**Stav:** `IMPLEMENTATION_GREEN / REVIEW_PENDING`; všechny implementační
-milníky doběhly. Přesná evidence a review rozsah jsou v
-[`model-evaluation-consolidation-20260825.md`](../execution/runs/model-evaluation-consolidation-20260825.md).
-Tento stav není nezávislé review ani `ACCEPTED` evidence.
+**Stav:** `IMPLEMENTATION_GREEN / REVIEW_PENDING (rereview)`. První candidate
+na `31234a6b` dostal `CHANGES_REQUESTED`; blokery i navazující nálezy byly
+opraveny. Přesná nová evidence a review rozsah jsou v
+[`model-evaluation-consolidation-review-remediation-20260825.md`](../execution/runs/model-evaluation-consolidation-review-remediation-20260825.md).
+Tento stav není nové nezávislé review ani `ACCEPTED` evidence.
 
 ## 1. Uživatelský výsledek
 
@@ -158,6 +159,12 @@ tohoto WP.
 | M5 — API, CLI, Studio, governor, registry a dokumentace | PASS |
 | M6 — registry, hygiene a module-boundary ratchet | PASS |
 | M7 — clean deterministic + server-owned read E2E handoff | PASS |
+
+První nezávislé review: `CHANGES_REQUESTED`. Remediační R0–R7 opravily všech
+devět nálezů: úplnou suite identity, upgrade okno 070→082, governor reader,
+CODE snapshot/runtime blok, observed usage digest, retenci, registry disclosure,
+mrtvou speed větev a stabilní decision enum. Stav po lokálních branách je znovu
+jen `REVIEW_PENDING`, dokud neproběhne nezávislý rereview.
 
 Přijetí operátorem zůstává `REVIEW_PENDING`. Ostrý GPU/Ollama eval panel nebyl
 součástí cleanup acceptance a je pravdivě `NOT RUN`; starší výsledky se

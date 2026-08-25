@@ -14,9 +14,8 @@
 //
 //   - úloha, kde oba dopadnou stejně, do rozhodnutí nevstupuje (nerozlišuje);
 //   - rozhoduje se z úloh, kde se skóre liší, podle **marže**, ne pass/fail;
-//   - když nerozlišuje ani jedna úloha, kvalita se prohlásí za nerozhodnou a
-//     rozhodne naměřená propustnost — což je poctivější než tvrdit, že je
-//     kandidát lepší, protože oba dali 100 %.
+//   - když nerozlišuje dost úloh, výsledek je explicitně INCONCLUSIVE. Rychlost
+//     je provozní metrika, ne náhradní důkaz kvality ani důvod k aktivaci.
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -30,7 +29,12 @@ export const TASK_MARGIN_EPSILON = 0.05;
 // because 1 - 0.333 is a few ten-thousandths larger than 0.666666....
 const SCORE_ROUNDING_EPSILON = 0.0005;
 export const MODEL_EVALUATION_DECISION_POLICY_VERSION = 'role-pairwise-v1';
-export const SPEED_WIN_RATIO = 1.25;
+export const MODEL_EVALUATION_DECISION_REASON = Object.freeze({
+  CANDIDATE_QUALITY: 'CANDIDATE_QUALITY',
+  INCUMBENT_QUALITY: 'INCUMBENT_QUALITY',
+  INSUFFICIENT_EVIDENCE: 'INSUFFICIENT_EVIDENCE',
+  QUALITY_INCONCLUSIVE: 'QUALITY_INCONCLUSIVE',
+});
 
 export function decisionPolicyForRole(plan, threshold = 0.05) {
   if (!plan?.role || !plan?.suiteContractSha256) {
@@ -46,7 +50,6 @@ export function decisionPolicyForRole(plan, threshold = 0.05) {
     taskMarginEpsilon: TASK_MARGIN_EPSILON,
     scoreRoundingEpsilon: SCORE_ROUNDING_EPSILON,
     improvementThreshold: threshold,
-    speedWinRatio: SPEED_WIN_RATIO,
     minimumDiscriminatingTasks: plan.minimumDiscriminatingTasks || 0,
     minimumDiscriminatingByLanguage: Object.freeze({
       ...(plan.minimumDiscriminatingByLanguage || {}),
@@ -260,15 +263,14 @@ export async function comparePair(runner, suiteName, candidate, incumbent, opts 
 /**
  * Rozhodne souboj pro jednu roli.
  *
- * Kvalita rozhoduje, dokud rozlišuje.  Když nerozlišuje, rozhodne rychlost —
- * ale jen když je rozdíl výrazný, jinak se stávající model nechává být.
- * Setrvačnost je záměrná: výměna má cenu jen tehdy, když je pro ni důvod.
+ * Kvalita rozhoduje jen nad explicitním důkazním minimem. Když sada
+ * nerozlišuje, výsledek zůstává nerozhodný; propustnost se nesmí stát skrytou
+ * náhradní aktivační politikou.
  *
  * @param {Object} comparison - výstup comparePair
- * @param {Object} speed - { candidate: tok/s, incumbent: tok/s }
  * @param {number} threshold - IMPROVEMENT_THRESHOLD pro roli
  */
-export function decideRole(comparison, speed = {}, threshold = 0.05, evidence = {}) {
+export function decideRole(comparison, _speed = {}, threshold = 0.05, evidence = {}) {
   const { margin, candidateWins, incumbentWins, inconclusive } = comparison;
 
   const minimumTotal = Math.max(0, Number(evidence.minimumDiscriminatingTasks) || 0);
@@ -290,6 +292,7 @@ export function decideRole(comparison, speed = {}, threshold = 0.05, evidence = 
     ].filter(Boolean).join(', ');
     return {
       winner: 'incumbent',
+      reasonCode: MODEL_EVALUATION_DECISION_REASON.INSUFFICIENT_EVIDENCE,
       basis: 'nedostatečný důkaz',
       confidence: 'nedostatečná',
       detail: `rozhodnutí kandidáta zablokováno: stabilně rozlišující úlohy ${requirements}`,
@@ -307,6 +310,7 @@ export function decideRole(comparison, speed = {}, threshold = 0.05, evidence = 
     if (margin >= threshold && candidateWins > incumbentWins) {
       return {
         winner: 'candidate',
+        reasonCode: MODEL_EVALUATION_DECISION_REASON.CANDIDATE_QUALITY,
         basis: 'kvalita',
         confidence,
         detail: `marže ${margin.toFixed(3)} ≥ práh ${threshold} na ${comparison.discriminating} rozlišujících úlohách `
@@ -316,6 +320,7 @@ export function decideRole(comparison, speed = {}, threshold = 0.05, evidence = 
     if (margin <= -threshold && incumbentWins > candidateWins) {
       return {
         winner: 'incumbent',
+        reasonCode: MODEL_EVALUATION_DECISION_REASON.INCUMBENT_QUALITY,
         basis: 'kvalita',
         confidence,
         detail: `kandidát ztrácí ${Math.abs(margin).toFixed(3)} na ${comparison.discriminating} úlohách, jistota ${confidence}`,
@@ -324,6 +329,7 @@ export function decideRole(comparison, speed = {}, threshold = 0.05, evidence = 
     if (margin >= threshold && candidateWins <= incumbentWins) {
       return {
         winner: 'incumbent',
+        reasonCode: MODEL_EVALUATION_DECISION_REASON.INCUMBENT_QUALITY,
         basis: 'kvalita',
         confidence,
         detail: `marže ${margin.toFixed(3)} splnila práh ${threshold}, ale poměr rozlišujících úloh `
@@ -332,35 +338,17 @@ export function decideRole(comparison, speed = {}, threshold = 0.05, evidence = 
     }
     return {
       winner: 'incumbent',
+      reasonCode: MODEL_EVALUATION_DECISION_REASON.INCUMBENT_QUALITY,
       basis: 'kvalita',
       detail: `rozdíl ${margin.toFixed(3)} nedosáhl prahu ${threshold} — stávající zůstává`,
     };
   }
 
-  // Kvalita nerozlišila. Rychlost rozhodne jen při zřetelném rozdílu.
-  const c = speed.candidate;
-  const i = speed.incumbent;
-  if (c > 0 && i > 0) {
-    const ratio = c / i;
-    if (ratio >= SPEED_WIN_RATIO) {
-      return {
-        winner: 'candidate',
-        basis: 'rychlost',
-        detail: `kvalita nerozlišila (všechny úlohy shodné), kandidát je ${ratio.toFixed(2)}× rychlejší `
-          + `(${c} vs ${i} tok/s)`,
-      };
-    }
-    return {
-      winner: 'incumbent',
-      basis: 'nerozhodně',
-      detail: `kvalita nerozlišila a rychlost se liší jen ${ratio.toFixed(2)}× — stávající zůstává`,
-    };
-  }
-
   return {
     winner: 'incumbent',
+    reasonCode: MODEL_EVALUATION_DECISION_REASON.QUALITY_INCONCLUSIVE,
     basis: 'nerozhodně',
-    detail: 'kvalita nerozlišila a rychlost není změřená',
+    detail: 'kvalita nerozlišila; rychlost není náhradní kvalitativní důkaz',
   };
 }
 
@@ -383,7 +371,7 @@ export async function trialRole(runner, role, candidate, incumbent, opts = {}) {
     suiteVersion: plan?.suiteVersion || opts.suiteVersion,
     suiteContractSha256: plan?.suiteContractSha256 || opts.suiteContractSha256,
   });
-  const decision = decideRole(comparison, opts.speed || {}, threshold, {
+  const decision = decideRole(comparison, {}, threshold, {
     minimumDiscriminatingTasks: plan?.minimumDiscriminatingTasks
       ?? opts.minimumDiscriminatingTasks,
     minimumDiscriminatingByLanguage: plan?.minimumDiscriminatingByLanguage
@@ -398,6 +386,6 @@ export async function trialRole(runner, role, candidate, incumbent, opts = {}) {
 
 export default {
   comparePair, decideRole, trialRole, createSuiteCache,
-  TASK_MARGIN_EPSILON, DEFAULT_REPEATS, SPEED_WIN_RATIO,
+  TASK_MARGIN_EPSILON, DEFAULT_REPEATS, MODEL_EVALUATION_DECISION_REASON,
   MODEL_EVALUATION_DECISION_POLICY_VERSION, decisionPolicyForRole,
 };

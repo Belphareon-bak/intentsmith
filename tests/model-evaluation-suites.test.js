@@ -1,6 +1,7 @@
 // Current versioned role-evaluation plans, suites, runner and image fixtures.
 
 import { suite, test, testAsync, assert, assertEqual, summary } from './harness.js';
+import { createHash } from 'node:crypto';
 import { ModelEvaluationRunner } from '../src/eval/model-evaluation-runner.js';
 import {
   ROLE_QUALITY_SUITES,
@@ -98,6 +99,12 @@ test('VISION fixtures are complete, valid and cached', () => {
   }
   const withImages = visionV2Suite.tests.filter(row => row.prompt().images?.length);
   assertEqual(withImages.length, 4);
+  for (const row of withImages) {
+    const expected = row.prompt().images.map(image => (
+      createHash('sha256').update(Buffer.from(image, 'base64')).digest('hex')
+    ));
+    assertEqual(row.contractMaterial.prompt.imageDigests.join(','), expected.join(','));
+  }
 });
 
 suite('model evaluation runner');

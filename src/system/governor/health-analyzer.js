@@ -3,7 +3,7 @@
 // Read-only. Each dimension: SQL aggregation → { score, status, details, trend, trendDirection, dataCompleteness }
 
 import { logger } from '../../core/logger.js';
-import { createRoleEvaluationPlans } from '../../eval/role-evaluation-plan.js';
+import { ModelEvaluationReadModel } from '../../upgrade/model-evaluation-read-model.js';
 
 const DIMENSION_WEIGHTS = {
   models: 0.25,
@@ -171,32 +171,35 @@ function analyzeSpecialists(db) {
 function analyzeUpgrades(db) {
   try {
     const evaluation = { complete: 0, missing: [], failed: [], blocked: [], durable: 0 };
-    if (tableExists(db, 'model_desired_bindings') && tableExists(db, 'model_evaluation_runs')) {
-      const plans = createRoleEvaluationPlans();
+    if (tableExists(db, 'model_desired_bindings')
+      && tableExists(db, 'model_evaluation_runs')
+      && tableExists(db, 'model_evaluation_decisions')) {
       const desired = db.prepare(
-        'SELECT role, digest_sha256 FROM model_desired_bindings ORDER BY role'
+        'SELECT role, model_name, digest_sha256 FROM model_desired_bindings ORDER BY role'
       ).all();
       evaluation.durable = desired.length;
+      const bindings = Object.fromEntries(desired.map(row => [row.role, row.model_name]));
+      const inventory = desired.map(row => ({
+        name: row.model_name,
+        digestSha256: row.digest_sha256,
+      }));
+      const current = new ModelEvaluationReadModel(db).read({
+        inventory,
+        bindings,
+        bindingAuthority: 'model_desired_bindings',
+      });
       for (const binding of desired) {
-        const plan = plans[binding.role];
-        if (!plan) {
+        const role = current.roles[binding.role];
+        const artifact = role?.artifacts.find(row => (
+          row.digestSha256 === binding.digest_sha256
+        ));
+        if (!role || !artifact) {
           evaluation.missing.push(binding.role);
           continue;
         }
-        const row = db.prepare(`
-          SELECT status
-          FROM model_evaluation_runs
-          WHERE model_digest_sha256 = ?
-            AND suite_name = ?
-            AND suite_contract_sha256 = ?
-          ORDER BY CASE status WHEN 'COMPLETE' THEN 0 ELSE 1 END,
-                   completed_at DESC,
-                   run_id DESC
-          LIMIT 1
-        `).get(binding.digest_sha256, plan.suiteName, plan.suiteContractSha256);
-        if (row?.status === 'COMPLETE') evaluation.complete++;
-        else if (row?.status === 'FAILED') evaluation.failed.push(binding.role);
-        else if (row?.status === 'BLOCKED') evaluation.blocked.push(binding.role);
+        if (artifact.status === 'COMPLETE') evaluation.complete++;
+        else if (artifact.status === 'FAILED') evaluation.failed.push(binding.role);
+        else if (artifact.status === 'BLOCKED') evaluation.blocked.push(binding.role);
         else evaluation.missing.push(binding.role);
       }
     }

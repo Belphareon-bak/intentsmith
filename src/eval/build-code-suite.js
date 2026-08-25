@@ -7,10 +7,9 @@
 //     node src/eval/build-code-suite.js [--max-function-lines 120] [--limit 1500]
 //     node src/eval/build-code-suite.js --append --count 40 [...stejne filtry...]
 //
-// Fixture drží jen **metadata** — hash, cestu ke zdrojáku, cestu k testu a
-// předmět commitu.  Zdrojový kód se nekopíruje: `deriveTask()` si ho v okamžiku
-// evaluace vytáhne přes `git show`, což trvá jednotky milisekund a nezanáší do
-// repa stovky kilobajtů duplikátů.
+// Fixture drží i přesný promptový snapshot. Runtime sestavení sady proto není
+// závislé na dosažitelnosti historického commitu; git historie se používá jen
+// v kurátorském buildu a při spuštění skrytého historického testu.
 //
 // Kurátorský filtr má čtyři síta a každé z nich něco vyřazuje:
 //
@@ -44,6 +43,7 @@ import { buildPrompt, deriveTask, verifyTask } from './code-patch-runner.js';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const FIXTURE_PATH = path.join(HERE, 'code-suite-tasks.json');
 export const CODE_TASK_CONTRACT_VERSION = 'code-task-v2';
+export const CODE_FIXTURE_SCHEMA_VERSION = 3;
 
 export function usage() {
   return [
@@ -93,6 +93,22 @@ export function taskFingerprint(task, verdict) {
     passToPass: verdict.passToPass,
     knownFailing: verdict.knownFailing,
   });
+}
+
+export function taskSnapshot(task) {
+  return {
+    spans: task.spans.map(span => ({
+      kind: span.kind,
+      name: span.name ?? null,
+      startLine: span.startLine,
+      endLine: span.endLine,
+      text: span.text,
+      header: span.header,
+      tail: span.tail ?? '',
+    })),
+    functionTexts: [...task.functionTexts],
+    requirements: [...task.requirements],
+  };
 }
 
 export function preserveCalibration(tasks, previous = null) {
@@ -264,6 +280,7 @@ export function buildSuite(repo, opts = {}) {
       passToPass: verdict.passToPass,
       knownFailing: verdict.knownFailing,
       taskFingerprint: taskFingerprint(task, verdict),
+      snapshot: taskSnapshot(task),
     });
     if (required) remainingRequired.delete(required);
     log(`  ✅ ${candidate.hash.slice(0, 8)} [${verdict.scoreMode}] `
@@ -327,6 +344,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToP
     : reconciled.rejected;
 
   writeFileSync(FIXTURE_PATH, JSON.stringify({
+    fixtureSchemaVersion: CODE_FIXTURE_SCHEMA_VERSION,
     generatedAt: new Date().toISOString(),
     repoHead,
     workingTreeDirty,
@@ -346,5 +364,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToP
 
 export default {
   buildSuite, FIXTURE_PATH, CODE_TASK_CONTRACT_VERSION,
+  CODE_FIXTURE_SCHEMA_VERSION,
   taskFingerprint, preserveCalibration, reconcileVerifiedTaskSupply, usage,
+  taskSnapshot,
 };

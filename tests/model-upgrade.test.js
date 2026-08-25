@@ -20,6 +20,7 @@ import { up as upEvaluationHistory } from '../src/db/migrations/2026_08_22_070_m
 import {
   ModelEvaluationHistory, suiteContract,
 } from '../src/upgrade/model-evaluation-history.js';
+import { textTask } from '../src/eval/role-quality-suites.js';
 import {
   applyWinningBindings, auditResponsibilitySegregation, buildInstalledCandidateQueue,
   resolveCurrentBindings, selectResponsibilityPortfolio,
@@ -576,13 +577,43 @@ test('history is append-only', () => {
 });
 
 test('suite contract changes when prompt, grader or repeats change', () => {
-  const suiteA = { name: 'x', version: '1', tests: [{ name: 't', prompt: () => 'A', grade: () => ({ score: 1 }) }] };
-  const suiteB = { name: 'x', version: '1', tests: [{ name: 't', prompt: () => 'B', grade: () => ({ score: 1 }) }] };
+  const grade = () => ({ score: 1 });
+  const suiteA = { name: 'x', version: '1', tests: [textTask({
+    name: 't', language: 'en', prompt: 'A', rubric: ['A'], grade,
+  })] };
+  const suiteB = { name: 'x', version: '1', tests: [textTask({
+    name: 't', language: 'en', prompt: 'B', rubric: ['A'], grade,
+  })] };
   const a = suiteContract(suiteA, { repeats: 3 });
   const b = suiteContract(suiteB, { repeats: 3 });
   const c = suiteContract(suiteA, { repeats: 2 });
   assert(a.sha256 !== b.sha256);
   assert(a.sha256 !== c.sha256);
+});
+
+test('suite contract changes with rubric, language and closed-over grading inputs', () => {
+  const grade = () => ({ score: 1 });
+  const make = ({ language = 'en', rubric = ['A'], expected = 1 } = {}) => ({
+    name: 'x', version: '1', tests: [textTask({
+      name: 't', language, prompt: 'same prompt', rubric, grade,
+      gradeMaterial: { expected },
+    })],
+  });
+  const baseline = suiteContract(make()).sha256;
+  assert(baseline !== suiteContract(make({ rubric: ['B'] })).sha256);
+  assert(baseline !== suiteContract(make({ language: 'cs' })).sha256);
+  assert(baseline !== suiteContract(make({ expected: 2 })).sha256);
+});
+
+test('suite contract fails closed without explicit prompt contract material', () => {
+  let error = null;
+  try {
+    suiteContract({
+      name: 'x', version: '1',
+      tests: [{ name: 't', prompt: () => 'hidden', grade: () => ({ score: 1 }) }],
+    });
+  } catch (caught) { error = caught; }
+  assert(String(error?.message || '').includes('explicit contractMaterial'));
 });
 
 test('installed queue marks exact current-contract model as scored', () => {

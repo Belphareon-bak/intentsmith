@@ -68,11 +68,11 @@ function gatewayToken(suffix) {
   });
 }
 
-function providerChatResponse(content) {
+function providerChatResponse(content, metadata = {}) {
   return {
     ok: true,
     status: 200,
-    json: async () => ({ message: { role: 'assistant', content } }),
+    json: async () => ({ message: { role: 'assistant', content }, ...metadata }),
   };
 }
 
@@ -401,7 +401,7 @@ await testAsync('default registry and pull wiring share the production singleton
 
 suite('M1 model use authority — gateway provider lifecycle');
 
-await testAsync('gateway usage binds caller telemetry to the served durable artifact digest', async () => {
+await testAsync('gateway usage binds telemetry only to a digest reported by the serving provider', async () => {
   const db = new Database(':memory:');
   db.exec(`
     CREATE TABLE model_desired_bindings (
@@ -419,7 +419,10 @@ await testAsync('gateway usage binds caller telemetry to the served durable arti
     INSERT INTO model_desired_bindings(role, model_name, digest_sha256)
     VALUES ('CHAT', 'usage-fixture:latest', ?)
   `).run(DIGEST);
-  globalThis.fetch = async () => providerChatResponse('tracked');
+  globalThis.fetch = async () => providerChatResponse('tracked', {
+    model: 'usage-fixture:latest',
+    digest: `sha256:${DIGEST}`,
+  });
   llmGateway.setUsageDb(db);
   try {
     const result = await callWithAuth(gatewayToken('digest-usage'), 'track me', {
@@ -429,6 +432,84 @@ await testAsync('gateway usage binds caller telemetry to the served durable arti
     const row = db.prepare('SELECT role, model_digest_sha256 FROM model_usage').get();
     assertEqual(row.role, 'CRE_DECISION');
     assertEqual(row.model_digest_sha256, DIGEST);
+  } finally {
+    llmGateway.setUsageDb(null);
+    db.close();
+    globalThis.fetch = originalFetch;
+  }
+});
+
+await testAsync('gateway usage keeps digest NULL when only desired binding claims identity', async () => {
+  const db = new Database(':memory:');
+  db.exec(`
+    CREATE TABLE model_desired_bindings (
+      role TEXT PRIMARY KEY, model_name TEXT NOT NULL, digest_sha256 TEXT NOT NULL
+    );
+    CREATE TABLE model_usage (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      model TEXT NOT NULL,
+      role TEXT NOT NULL,
+      request_type TEXT,
+      model_digest_sha256 TEXT
+    );
+  `);
+  db.prepare(`
+    INSERT INTO model_desired_bindings(role, model_name, digest_sha256)
+    VALUES ('CHAT', 'usage-fixture:latest', ?)
+  `).run(DIGEST);
+  globalThis.fetch = async () => providerChatResponse('tracked', {
+    model: 'usage-fixture:latest',
+  });
+  llmGateway.setUsageDb(db);
+  try {
+    await callWithAuth(gatewayToken('unknown-digest-usage'), 'track me', {
+      model: 'usage-fixture', capability: 'reasoning', retries: 1,
+    });
+    const row = db.prepare('SELECT model, model_digest_sha256 FROM model_usage').get();
+    assertEqual(row.model, 'usage-fixture:latest');
+    assertEqual(row.model_digest_sha256, null);
+  } finally {
+    llmGateway.setUsageDb(null);
+    db.close();
+    globalThis.fetch = originalFetch;
+  }
+});
+
+await testAsync('gateway usage prefers served inventory digest over a concurrent desired rebind', async () => {
+  const servedDigest = 'b'.repeat(64);
+  const db = new Database(':memory:');
+  db.exec(`
+    CREATE TABLE model_desired_bindings (
+      role TEXT PRIMARY KEY, model_name TEXT NOT NULL, digest_sha256 TEXT NOT NULL
+    );
+    CREATE TABLE model_usage (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      model TEXT NOT NULL,
+      role TEXT NOT NULL,
+      request_type TEXT,
+      model_digest_sha256 TEXT
+    );
+  `);
+  db.prepare(`
+    INSERT INTO model_desired_bindings(role, model_name, digest_sha256)
+    VALUES ('CHAT', 'usage-fixture:latest', ?)
+  `).run(DIGEST);
+  globalThis.fetch = async url => String(url).endsWith('/api/tags')
+    ? {
+      ok: true,
+      json: async () => ({
+        models: [{ name: 'usage-fixture:latest', digest: `sha256:${servedDigest}` }],
+      }),
+    }
+    : providerChatResponse('tracked', { model: 'usage-fixture:latest' });
+  llmGateway.setUsageDb(db);
+  try {
+    await callWithAuth(gatewayToken('served-digest-usage'), 'track me', {
+      model: 'usage-fixture', capability: 'reasoning', retries: 1,
+    });
+    const row = db.prepare('SELECT model_digest_sha256 FROM model_usage').get();
+    assertEqual(row.model_digest_sha256, servedDigest);
+    assert(row.model_digest_sha256 !== DIGEST, 'desired rebind digest must not stamp old runtime use');
   } finally {
     llmGateway.setUsageDb(null);
     db.close();

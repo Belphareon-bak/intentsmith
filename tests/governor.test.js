@@ -162,11 +162,35 @@ function createTestDb() {
     );
     CREATE TABLE model_evaluation_runs (
       run_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      model_name TEXT,
+      model_canonical_name TEXT,
       model_digest_sha256 TEXT NOT NULL,
       suite_name TEXT NOT NULL,
+      suite_version TEXT,
       suite_contract_sha256 TEXT NOT NULL,
+      role TEXT,
       status TEXT NOT NULL,
+      score REAL,
+      passed INTEGER DEFAULT 0,
+      total INTEGER DEFAULT 0,
+      repeats INTEGER DEFAULT 1,
+      duration_ms INTEGER DEFAULT 0,
+      error_code TEXT,
+      error_message TEXT,
+      started_at DATETIME,
       completed_at DATETIME
+    );
+    CREATE TABLE model_evaluation_decisions (
+      decision_id TEXT PRIMARY KEY,
+      role TEXT NOT NULL,
+      incumbent_run_id TEXT NOT NULL,
+      candidate_run_id TEXT NOT NULL,
+      policy_version TEXT NOT NULL,
+      policy_contract_sha256 TEXT NOT NULL,
+      outcome TEXT NOT NULL,
+      basis TEXT NOT NULL,
+      details_json TEXT NOT NULL DEFAULT '{}',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
     CREATE TABLE discovered_models (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

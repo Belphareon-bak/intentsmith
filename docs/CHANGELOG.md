@@ -19,6 +19,10 @@
 - Odstraněny také heuristické benchmarky/quality score v katalogu a model
   universe a mrtvý telemetry scorer/blacklist. Pairwise výhra je akční pouze
   po portfolio gate s explicitním `activationEligible=true`.
+- Po prvním `CHANGES_REQUESTED` review byl contract rozšířen na skutečné
+  prompty/rubric/language/VISION bytes/CODE prompt, migrace 082 opravena pro
+  post-070 zápisy, governor sjednocen na read model, usage svázáno s observed
+  artefaktem a decision převedeno z mrtvé speed/prose logiky na stabilní enum.
 
 Detail: [MODEL-SCORING-ACTIVATION.md](MODEL-SCORING-ACTIVATION.md) a rozhodnutí
 [030](decisions/030-model-evaluation-authority-consolidation.md).

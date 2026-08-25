@@ -1,6 +1,7 @@
 // Append-only role-specific decisions over two exact evaluation runs.
 
 import { createHash, randomUUID } from 'node:crypto';
+import { MODEL_EVALUATION_DECISION_REASON } from './pairwise-trial.js';
 
 function stable(value) {
   if (Array.isArray(value)) return value.map(stable);
@@ -30,12 +31,17 @@ function policyContract(policy) {
 }
 
 function outcomeForDecision(decision) {
-  if (decision?.basis === 'nerozhodně' || decision?.basis === 'nedostatečný důkaz') {
-    return 'INCONCLUSIVE';
+  switch (decision?.reasonCode) {
+    case MODEL_EVALUATION_DECISION_REASON.CANDIDATE_QUALITY:
+      return 'CANDIDATE';
+    case MODEL_EVALUATION_DECISION_REASON.INCUMBENT_QUALITY:
+      return 'INCUMBENT';
+    case MODEL_EVALUATION_DECISION_REASON.INSUFFICIENT_EVIDENCE:
+    case MODEL_EVALUATION_DECISION_REASON.QUALITY_INCONCLUSIVE:
+      return 'INCONCLUSIVE';
+    default:
+      throw new TypeError('decision.reasonCode must be a stable evaluation decision enum');
   }
-  if (decision?.winner === 'candidate') return 'CANDIDATE';
-  if (decision?.winner === 'incumbent') return 'INCUMBENT';
-  return 'BLOCKED';
 }
 
 export class ModelEvaluationDecisionStore {

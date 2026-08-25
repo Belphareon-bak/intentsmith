@@ -1,8 +1,15 @@
 # Model evaluation consolidation — candidate evidence
 
+> **Historický kandidát — `CHANGES_REQUESTED`.** Nezávislé review 2026-08-25
+> odmítlo tento candidate na `31234a6b` kvůli neúplnému suite contract SHA a
+> pádu migrace 082 na post-070 legacy zápisu. Níže uvedené runy zůstávají
+> neměnnou historickou evidencí této revize, nikoli current PASS. Opravený
+> candidate je v
+> [review remediation](model-evaluation-consolidation-review-remediation-20260825.md).
+
 **Datum:** 2026-08-25  
 **WP:** `WP-MODEL-EVALUATION-CONSOLIDATION`  
-**Stav:** `IMPLEMENTATION_GREEN / REVIEW_PENDING`  
+**Stav:** `CHANGES_REQUESTED / SUPERSEDED`
 **Větev:** `codex/model-evaluation-consolidation-20260824`
 
 Tento dokument je implementační handoff. Není nezávislé review ani přijetí
@@ -102,10 +109,8 @@ commitu; po zeleném handoff běhu už se produkční kód nezměnil.
 
 ## Nezávislé review
 
-Operátor má ověřit zejména migraci 082, skutečný final emitted read contract,
-absenci runtime importů odstraněné v123 cesty, decision/activation oddělení,
-fail-closed retenci a exact-digest binding application. Do kladného verdiktu
-zůstává stav `REVIEW_PENDING`, i když jsou implementační brány zelené.
+Tento konkrétní candidate nezávislým review neprošel. Jeho stav zůstává
+`CHANGES_REQUESTED / SUPERSEDED`; opravy jsou doložené v navazující evidenci.
 
 Whole-repo audit dalších zastaralých/paralelních částí IntentSmith je výslovně
 následující samostatná práce po přijetí tohoto WP; není skrytě započítán do

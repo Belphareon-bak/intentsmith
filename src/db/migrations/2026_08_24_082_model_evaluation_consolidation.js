@@ -31,6 +31,45 @@ export function up(db) {
     'validation_suite_scores',
   ]) requireTable(db, table);
 
+  // v123 remained live between migrations 070 and 082. Preserve summaries
+  // written in that legitimate upgrade window with the same deliberately
+  // non-reusable identity used by 070. INSERT OR IGNORE lets the integrity
+  // preflight below distinguish an exact prior import from a colliding or
+  // otherwise inconsistent run_id without overwriting append-only evidence.
+  db.exec(`
+    INSERT OR IGNORE INTO model_evaluation_runs (
+      run_id, model_name, model_canonical_name, model_digest_sha256,
+      suite_name, suite_version, suite_contract_sha256, role, status,
+      score, passed, total, repeats, duration_ms, task_results_json,
+      hardware_json, metadata_json, error_code, error_message,
+      started_at, completed_at
+    )
+    SELECT
+      'legacy_v123_' || id,
+      model,
+      lower(CASE WHEN model LIKE '%:latest'
+        THEN substr(model, 1, length(model) - 7) ELSE model END),
+      NULL,
+      suite,
+      'legacy-v123.1',
+      '22d7e14cb2800a9e43ee4e5c8cf093dc738e45e7b750c148ca61e26eeb7292ee',
+      NULL,
+      'BLOCKED',
+      score,
+      passed,
+      total,
+      1,
+      COALESCE(duration_ms, 0),
+      '[]',
+      '{}',
+      '{"source":"validation_suite_scores","reusable":false}',
+      'LEGACY_EXACT_IDENTITY_UNKNOWN',
+      'Legacy score retained, but exact model digest and suite contract were not stored',
+      COALESCE(validated_at, datetime('now')),
+      COALESCE(validated_at, datetime('now'))
+    FROM validation_suite_scores;
+  `);
+
   const missingSummaryImports = db.prepare(`
     SELECT COUNT(*) AS count
     FROM validation_suite_scores legacy

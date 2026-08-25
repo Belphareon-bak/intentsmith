@@ -1,6 +1,6 @@
 # Modelové evaluace a aktivace
 
-**Stav:** současný kontrakt v136.1 · **Aktualizováno:** 2026-08-24
+**Stav:** současný kontrakt v136.1 · **Aktualizováno:** 2026-08-25
 **Implementace:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Přijetí:** čeká na
 nezávislé review operátora
 
@@ -22,6 +22,13 @@ evaluace a oddělená, ručně autorizovaná cesta pro změnu bindingu.
    model registry.
 6. Skutečnou změnu role provádí výhradně manual binding application. Evaluace
    sama konfiguraci ani durable binding nemění.
+
+Suite contract nehashuje zdroj wrapper closure. Hashuje explicitní skutečný
+prompt, language, rubric, grader a jeho uzavřené vstupy, options a repeats.
+VISION přidává SHA-256 dekódovaných image bytes a CODE přesný výstup
+`buildPrompt()` i grading inputs. Úloha bez explicitního `contractMaterial`
+zastaví sestavení plánu; starý run se proto po sémantické změně promptu nemůže
+znovu vydávat za current.
 
 Discovery prior je pouze levné pořadí kandidátů. Katalog, universe ani externí
 benchmark se neukládají jako lokální quality score a nesmějí být zobrazeny
@@ -56,6 +63,12 @@ neakční, dokud celý portfolio solver nepotvrdí segregaci odpovědností a ul
 decision nemá `activationEligible=true`. Jedna šťastná úloha nemůže změnit
 binding.
 
+CODE prompt fixture je commitnutý snapshot a stejný contract lze sestavit i v
+shallow/package checkoutu. Samotný skrytý historický oracle vyžaduje dosažitelné
+commity; pokud chybějí, role nese `CODE_FIXTURE_RUNTIME_UNAVAILABLE`, není
+decision-ready a hunt skončí před pull/GPU. Infrastrukturní nedostupnost se
+nikdy nepřepočítá na nulu modelu.
+
 ## Odstraněná cesta
 
 Runtime soubor `src/upgrade/validation-suites.js`, jeho HTTP/WS/UI povrch,
@@ -64,6 +77,9 @@ Migrace 082 před dropem starých tabulek kontroluje import, jejich obsah uklád
 do `model_evaluation_import_evidence` a teprve potom odstraňuje
 `validation_results` a `validation_suite_scores`. Historické migrace a review
 dokumenty zůstávají reprodukovatelnou auditní stopou, nikoli fallbackem.
+Souhrny zapsané legitimně mezi migracemi 070 a 082 nejprve doplní jako
+nepoužitelnou `BLOCKED / LEGACY_EXACT_IDENTITY_UNKNOWN` evidenci; server kvůli
+nim při upgradu nespadne.
 
 ## Bezpečný provoz
 
@@ -72,5 +88,12 @@ dokumenty zůstávají reprodukovatelnou auditní stopou, nikoli fallbackem.
   s dostatečnou RAM, VRAM a 40 GiB rezervou po pullu.
 - `FAILED`, `BLOCKED`, `MISSING`, nerozhodný výsledek ani implementační green
   nejsou PASS.
+- Rychlost zůstává provozní metrika. Při nedostatečném kvalitativním důkazu
+  nesmí vyrobit vítěze; decision outcome používá stabilní `reasonCode`, ne
+  porovnání lokalizovaného textu `basis`.
+- Usage digest se bere z identity vrácené providerem nebo z exact `/api/tags`
+  inventory pod aktivním model-use lease. Desired binding není důkaz obsloužené
+  identity. Neověřitelná identita se zapíše jako `NULL` a cleanup fail-close
+  nemaže.
 - Automatický failover/proof issuer není tímto kontraktem zapnut. Případné
   budoucí zapnutí vyžaduje nové rozhodnutí a current-contract review.

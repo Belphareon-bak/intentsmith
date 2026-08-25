@@ -24,13 +24,14 @@
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
+import { execFileSync } from 'node:child_process';
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { logger } from '../core/logger.js';
 import { ModelEvaluationRunner } from './model-evaluation-runner.js';
 import {
-  deriveTask, buildPrompt, extractFunctionCodes, applyAndTest, normalizedGain,
+  applyAndTest, buildPrompt, deriveTask, extractFunctionCodes, normalizedGain,
 } from './code-patch-runner.js';
 import { codeTaskName } from './build-code-suite.js';
 
@@ -55,18 +56,74 @@ export const MODEL_OPTIONS = {
   temperature: 0.1,
 };
 
-/** Načte kurátorovanou sadu úloh; bez fixture je sada prázdná, ne rozbitá. */
+function taskFromSnapshot(entry) {
+  const snapshot = entry?.snapshot;
+  const spans = snapshot?.spans;
+  if (!Array.isArray(spans) || spans.length === 0
+    || !Array.isArray(snapshot.functionTexts)
+    || snapshot.functionTexts.length !== spans.length
+    || !Array.isArray(snapshot.requirements)) {
+    throw new Error(`CODE fixture task ${entry?.hash || 'unknown'} has no complete prompt snapshot`);
+  }
+  for (const span of spans) {
+    if (!Number.isSafeInteger(span.startLine) || !Number.isSafeInteger(span.endLine)
+      || span.startLine < 1 || span.endLine < span.startLine
+      || typeof span.text !== 'string' || typeof span.header !== 'string') {
+      throw new Error(`CODE fixture task ${entry.hash} has an invalid span snapshot`);
+    }
+  }
+  return {
+    hash: entry.hash,
+    source: entry.source,
+    taskFingerprint: entry.taskFingerprint || null,
+    test: entry.test,
+    tests: [...(entry.tests || [])],
+    subject: entry.subject,
+    spans: spans.map(span => ({ ...span })),
+    functionTexts: [...snapshot.functionTexts],
+    functionCount: spans.length,
+    functionLines: spans.reduce((sum, span) => sum + span.endLine - span.startLine + 1, 0),
+    requirements: [...snapshot.requirements],
+  };
+}
+
+export class CodePatchRuntimeError extends Error {
+  constructor(task, reason) {
+    super(`CODE fixture runtime unavailable for ${task.hash}: ${reason}`);
+    this.name = 'CodePatchRuntimeError';
+    this.code = 'CODE_FIXTURE_RUNTIME_UNAVAILABLE';
+  }
+}
+
+function hydrateRuntimeTask(repo, task) {
+  const { task: derived, reason } = deriveTask(repo, task);
+  if (!derived) throw new CodePatchRuntimeError(task, reason);
+  if (buildPrompt(derived) !== buildPrompt(task)) {
+    throw new CodePatchRuntimeError(task, 'historical prompt differs from the committed snapshot');
+  }
+  return {
+    ...derived,
+    taskFingerprint: task.taskFingerprint,
+    scoreMode: task.scoreMode,
+    failToPass: [...(task.failToPass || [])],
+    passToPass: [...(task.passToPass || [])],
+    knownFailing: [...(task.knownFailing || [])],
+  };
+}
+
+/** Načte kurátorovanou sadu úloh; chybějící/porušený snapshot fail-close blokuje plán. */
 export function loadFixtureTasks(repo = REPO_ROOT, fixturePath = FIXTURE, opts = {}) {
   if (!existsSync(fixturePath)) {
-    logger.warn('CodePatchSuite', `fixture chybí (${fixturePath}) — sada bude prázdná; spusť build-code-suite.js`);
-    return [];
+    throw new Error(`CODE fixture chybí (${fixturePath}); spusť build-code-suite.js`);
   }
   let meta;
   try {
     meta = JSON.parse(readFileSync(fixturePath, 'utf8'));
   } catch (err) {
-    logger.warn('CodePatchSuite', `fixture se nedá přečíst: ${err.message}`);
-    return [];
+    throw new Error(`CODE fixture se nedá přečíst: ${err.message}`);
+  }
+  if (meta.fixtureSchemaVersion !== 3) {
+    throw new Error(`CODE fixture schema ${meta.fixtureSchemaVersion ?? 'missing'} is not supported`);
   }
 
   // Po kalibraci se běžně měří jen aktivní úlohy: rezervy jsou buď nad síly
@@ -92,12 +149,7 @@ export function loadFixtureTasks(repo = REPO_ROOT, fixturePath = FIXTURE, opts =
       && entry.functionLines > pendingMaxFunctionLines) continue;
     // Fail closed: missing/pending/unknown status is not decision evidence.
     if (!statusSet.size && !onlyPending && !includeReserve && entry.status !== 'active') continue;
-    const { task, reason } = deriveTask(repo, entry);
-    if (!task) {
-      // Historie se přepsala (rebase, squash) — úloha se přestala odvozovat.
-      logger.warn('CodePatchSuite', `úloha ${entry.hash?.slice(0, 8)} vypadla: ${reason}`);
-      continue;
-    }
+    const task = taskFromSnapshot(entry);
     // Cílové sady jsou odvozené při kurátorské stavbě; přeměřovat je při každém
     // běhu by znamenalo dva testovací běhy navíc na úlohu a nic by to nepřineslo.
     task.scoreMode = entry.scoreMode || 'named';
@@ -113,6 +165,27 @@ export function loadFixtureTasks(repo = REPO_ROOT, fixturePath = FIXTURE, opts =
   return tasks;
 }
 
+export function codePatchRuntimeAvailability(repo = REPO_ROOT, tasks = null) {
+  const selected = tasks || loadFixtureTasks(repo);
+  try {
+    for (const task of selected) {
+      execFileSync('git', ['-C', repo, 'cat-file', '-e', `${task.hash}^{commit}`], {
+        stdio: 'ignore', timeout: 5_000,
+      });
+      execFileSync('git', ['-C', repo, 'cat-file', '-e', `${task.hash}~1^{commit}`], {
+        stdio: 'ignore', timeout: 5_000,
+      });
+    }
+    return Object.freeze({ ready: true, code: null, reason: null });
+  } catch {
+    return Object.freeze({
+      ready: false,
+      code: 'CODE_FIXTURE_RUNTIME_UNAVAILABLE',
+      reason: 'historical CODE oracle commits are unavailable',
+    });
+  }
+}
+
 /**
  * Postaví testy sady ve tvaru, kterému rozumí `ModelEvaluationRunner`.
  *
@@ -122,33 +195,64 @@ export function loadFixtureTasks(repo = REPO_ROOT, fixturePath = FIXTURE, opts =
  */
 export function buildTests(repo = REPO_ROOT, tasks = null) {
   const loaded = tasks || loadFixtureTasks(repo);
-  return loaded.map(task => ({
-    name: codeTaskName(task),
-    options: MODEL_OPTIONS,
-    prompt: () => ({ text: buildPrompt(task), _task: task }),
-    grade: (response, ctx) => {
-      const target = ctx?._task || task;
-      const codes = extractFunctionCodes(response, target.spans);
-      const result = applyAndTest(repo, target, codes);
-      // Podlaha je z definice nula: test, který procházel i před opravou, není
-      // cílový.  `normalizedGain` tak jen ořízne případné zhoršení na nulu.
-      const gain = normalizedGain(result.score, 0);
-      return {
-        passed: result.passed,
-        score: gain,
-        // Diagnostika: odlišuje „nepochopil vadu" od „nezvládl tvar odpovědi".
-        detail: {
-          rawScore: result.score,
-          syntaxOk: result.syntaxOk,
-          applied: result.applied,
-          targetedPassed: result.targetedPassed,
-          targeted: result.targeted,
-          regressions: result.regressions?.length ?? 0,
-          reason: result.reason,
-        },
-      };
-    },
-  }));
+  return loaded.map(task => {
+    const promptText = buildPrompt(task);
+    let runtimeTask = null;
+    return {
+      name: codeTaskName(task),
+      options: MODEL_OPTIONS,
+      promptText,
+      prepare: () => {
+        if (!runtimeTask) runtimeTask = hydrateRuntimeTask(repo, task);
+        return runtimeTask;
+      },
+      prompt: () => ({ text: promptText, _task: runtimeTask || task }),
+      contractMaterial: Object.freeze({
+        prompt: Object.freeze({ kind: 'code-patch', text: promptText }),
+        gradingInputs: Object.freeze({
+          source: task.source,
+          taskFingerprint: task.taskFingerprint,
+          tests: Object.freeze([...(task.tests || [])]),
+          spans: Object.freeze((task.spans || []).map(span => Object.freeze({
+            kind: span.kind,
+            name: span.name,
+            startLine: span.startLine,
+            endLine: span.endLine,
+            header: span.header,
+          }))),
+          scoreMode: task.scoreMode,
+          failToPass: Object.freeze([...(task.failToPass || [])]),
+          passToPass: Object.freeze([...(task.passToPass || [])]),
+          knownFailing: Object.freeze([...(task.knownFailing || [])]),
+        }),
+      }),
+      grade: (response, ctx) => {
+        const target = ctx?._task || runtimeTask;
+        if (!target?.beforeFile) {
+          throw new CodePatchRuntimeError(task, 'task was not prepared before grading');
+        }
+        const codes = extractFunctionCodes(response, target.spans);
+        const result = applyAndTest(repo, target, codes);
+        // Podlaha je z definice nula: test, který procházel i před opravou, není
+        // cílový.  `normalizedGain` tak jen ořízne případné zhoršení na nulu.
+        const gain = normalizedGain(result.score, 0);
+        return {
+          passed: result.passed,
+          score: gain,
+          // Diagnostika: odlišuje „nepochopil vadu" od „nezvládl tvar odpovědi".
+          detail: {
+            rawScore: result.score,
+            syntaxOk: result.syntaxOk,
+            applied: result.applied,
+            targetedPassed: result.targetedPassed,
+            targeted: result.targeted,
+            regressions: result.regressions?.length ?? 0,
+            reason: result.reason,
+          },
+        };
+      },
+    };
+  });
 }
 
 /**
@@ -180,6 +284,9 @@ export class CodePatchEvaluationRunner extends ModelEvaluationRunner {
     let totalScore = 0;
 
     const defs = this._suite.tests;
+    // Resolve every historical oracle before the first provider call. Missing
+    // git history is infrastructure BLOCKED, never a zero-quality model run.
+    for (const definition of defs) definition.prepare?.();
     for (let i = 0; i < defs.length; i++) {
       if (this._cancelled) break;
       onProgress?.({
@@ -249,5 +356,7 @@ export const codePatchSuite = {
 
 /** Pro testy — zahodí načtenou sadu, aby se dala postavit znovu. */
 export function _resetTests() { _tests = null; }
+
+export { taskFromSnapshot };
 
 export default { codePatchSuite, buildTests, loadFixtureTasks, MODEL_OPTIONS };

@@ -83,7 +83,7 @@ test('082 archives all legacy payloads before removing runtime tables', () => {
   db.close();
 });
 
-test('082 preflight refuses to drop an unimported legacy summary', () => {
+test('082 imports and archives a legacy summary written after 070', () => {
   const db = new Database(':memory:');
   up034(db);
   up039(db);
@@ -92,10 +92,51 @@ test('082 preflight refuses to drop an unimported legacy summary', () => {
     INSERT INTO validation_suite_scores (model, suite, score, passed, total)
     VALUES ('late:latest', 'chat', 0.5, 1, 2)
   `).run();
+  up082(db);
+  const imported = db.prepare(`
+    SELECT model_name, status, error_code, metadata_json
+    FROM model_evaluation_runs
+    WHERE run_id = 'legacy_v123_1'
+  `).get();
+  assertEqual(imported.model_name, 'late:latest');
+  assertEqual(imported.status, 'BLOCKED');
+  assertEqual(imported.error_code, 'LEGACY_EXACT_IDENTITY_UNKNOWN');
+  assertEqual(JSON.parse(imported.metadata_json).reusable, false);
+  const archived = db.prepare(`
+    SELECT payload_json FROM model_evaluation_import_evidence
+    WHERE source_schema = 'validation_suite_scores' AND source_row_id = 1
+  `).get();
+  assertEqual(JSON.parse(archived.payload_json).model, 'late:latest');
+  assertEqual(db.prepare(
+    "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='validation_suite_scores'"
+  ).get(), undefined);
+  db.close();
+});
+
+test('082 still refuses a colliding legacy run that does not match its source row', () => {
+  const db = new Database(':memory:');
+  up034(db);
+  up039(db);
+  up070(db);
+  db.prepare(`
+    INSERT INTO model_evaluation_runs (
+      run_id, model_name, model_canonical_name, suite_name, suite_version,
+      suite_contract_sha256, status, passed, total, repeats, duration_ms,
+      task_results_json, hardware_json, metadata_json, error_code,
+      error_message, started_at, completed_at
+    ) VALUES (
+      'legacy_v123_1', 'collision:latest', 'collision', 'chat', 'legacy-v123.1',
+      ?, 'BLOCKED', 0, 0, 1, 0, '[]', '{}', '{}',
+      'LEGACY_EXACT_IDENTITY_UNKNOWN', 'collision', datetime('now'), datetime('now')
+    )
+  `).run(CONTRACT);
+  db.prepare(`
+    INSERT INTO validation_suite_scores (model, suite, score, passed, total)
+    VALUES ('late:latest', 'chat', 0.5, 1, 2)
+  `).run();
   let error = null;
   try { up082(db); } catch (caught) { error = caught; }
-  assert(error);
-  assert(String(error.message).includes('summary import preflight failed'));
+  assert(String(error?.message || '').includes('summary import preflight failed'));
   assert(db.prepare(
     "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='validation_suite_scores'"
   ).get());
@@ -119,7 +160,10 @@ test('decision store links two exact COMPLETE current-contract runs append-only'
       incumbentRunId: 'incumbent-run', candidateRunId: 'candidate-run',
       candidateSuiteScore: 0.8, incumbentSuiteScore: 0.7, tasks: [],
     },
-    decision: { winner: 'candidate', basis: 'kvalita', detail: 'fixture' },
+    decision: {
+      winner: 'candidate', reasonCode: 'CANDIDATE_QUALITY',
+      basis: 'kvalita', detail: 'fixture',
+    },
   }, {
     candidateModel: 'candidate:latest',
     incumbentModel: 'incumbent:latest',
@@ -153,7 +197,7 @@ test('decision schema rejects mismatched suite contracts', () => {
         suiteVersion: 'chat-quality-v3', suiteContractSha256: CONTRACT,
       },
       comparison: { incumbentRunId: 'incumbent-run', candidateRunId: 'candidate-run' },
-      decision: { winner: 'candidate', basis: 'kvalita' },
+      decision: { winner: 'candidate', reasonCode: 'CANDIDATE_QUALITY', basis: 'kvalita' },
     });
   } catch (caught) { error = caught; }
   assert(error);
@@ -175,11 +219,56 @@ test('decision store rejects a policy that does not identify the measured suite 
         suiteVersion: 'chat-quality-v3', suiteContractSha256: 'd'.repeat(64),
       },
       comparison: { incumbentRunId: 'incumbent-run', candidateRunId: 'candidate-run' },
-      decision: { winner: 'candidate', basis: 'kvalita' },
+      decision: { winner: 'candidate', reasonCode: 'CANDIDATE_QUALITY', basis: 'kvalita' },
     });
   } catch (caught) { error = caught; }
   assert(error);
   assert(String(error.message).includes('exact COMPLETE suite contract'));
+  db.close();
+});
+
+test('decision outcome depends on stable reasonCode, not localized basis prose', () => {
+  const db = consolidatedDatabase();
+  insertRun(db, 'incumbent-run', DIGEST_A);
+  insertRun(db, 'candidate-run', DIGEST_B);
+  const row = new ModelEvaluationDecisionStore(db).recordTrial({
+    role: 'CHAT', skipped: false,
+    policy: {
+      version: 'role-pairwise-v1', role: 'CHAT', suiteName: 'chat_v3',
+      suiteVersion: 'chat-quality-v3', suiteContractSha256: CONTRACT,
+    },
+    comparison: { incumbentRunId: 'incumbent-run', candidateRunId: 'candidate-run' },
+    decision: {
+      winner: 'incumbent', reasonCode: 'QUALITY_INCONCLUSIVE',
+      basis: 'localized display text may change',
+    },
+  });
+  assertEqual(row.outcome, 'INCONCLUSIVE');
+  assertEqual(row.basis, 'localized display text may change');
+  db.close();
+});
+
+test('decision store rejects an unknown reasonCode instead of inferring from prose', () => {
+  const db = consolidatedDatabase();
+  insertRun(db, 'incumbent-run', DIGEST_A);
+  insertRun(db, 'candidate-run', DIGEST_B);
+  let error = null;
+  try {
+    new ModelEvaluationDecisionStore(db).recordTrial({
+      role: 'CHAT', skipped: false,
+      policy: {
+        version: 'role-pairwise-v1', role: 'CHAT', suiteName: 'chat_v3',
+        suiteVersion: 'chat-quality-v3', suiteContractSha256: CONTRACT,
+      },
+      comparison: { incumbentRunId: 'incumbent-run', candidateRunId: 'candidate-run' },
+      decision: {
+        winner: 'candidate', reasonCode: 'KANDIDAT_JE_RYCHLEJSI',
+        basis: 'kandidát je rychlejší',
+      },
+    });
+  } catch (caught) { error = caught; }
+  assert(error);
+  assert(String(error.message).includes('stable evaluation decision enum'));
   db.close();
 });
 

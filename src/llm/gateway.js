@@ -24,7 +24,7 @@ import {
 } from '../core/abort-error.js';
 import { logger } from '../core/logger.js';
 import { modelUniverseStore } from '../upgrade/model-universe-store.js';
-import { modelNameAliases } from '../upgrade/model-identity.js';
+import { normalizeModelDigestSha256, sameModelName } from '../upgrade/model-identity.js';
 import {
   MODEL_ACTIVITY_OWNER,
   modelUseAuthority,
@@ -90,6 +90,24 @@ function providerHttpError(status, cause = null) {
     `The local model provider returned HTTP ${status}.`,
     { cause, httpStatus: status, retryable: status >= 500 },
   );
+}
+
+async function resolveServedArtifactDigest(baseUrl, servedModel, providerData) {
+  const direct = normalizeModelDigestSha256(
+    providerData?.digest || providerData?.model_digest_sha256,
+  );
+  if (direct) return direct;
+  try {
+    const response = await fetch(`${baseUrl}/api/tags`, {
+      signal: AbortSignal.timeout(2_000),
+    });
+    if (!response.ok) return null;
+    const body = await response.json();
+    const installed = (body.models || []).find(row => sameModelName(row?.name, servedModel));
+    return normalizeModelDigestSha256(installed?.digest);
+  } catch {
+    return null;
+  }
 }
 
 function parseProviderOutput(data) {
@@ -987,21 +1005,21 @@ class LLMGateway {
         if (this._usageDb) {
           try {
             const usageRole = authToken?.role || 'UNKNOWN';
-            const aliases = modelNameAliases(model);
-            const desired = aliases.length ? this._usageDb.prepare(`
-              SELECT DISTINCT digest_sha256
-              FROM model_desired_bindings
-              WHERE lower(trim(model_name)) IN (${aliases.map(() => '?').join(', ')})
-              ORDER BY digest_sha256
-            `).all(...aliases) : [];
-            // Auth roles describe the caller (CRE, synthesizer, workflow), not
-            // the seven model slots. Resolve the served artifact by exact
-            // binding identity instead. Ambiguous bindings deliberately keep
-            // a NULL digest so retention cannot guess.
-            const usageDigest = desired.length === 1 ? desired[0].digest_sha256 : null;
+            const servedModel = typeof data.model === 'string' && data.model.trim()
+              ? data.model.trim()
+              : model;
+            // A desired binding is intent, not evidence of which artifact
+            // actually served this request. Persist a digest only when the
+            // provider response itself identifies it exactly; otherwise NULL
+            // preserves the fail-closed retention boundary during a rebind.
+            const usageDigest = await resolveServedArtifactDigest(
+              config.ollama?.baseUrl || 'http://127.0.0.1:11434',
+              servedModel,
+              data,
+            );
             this._usageDb.prepare(
               'INSERT INTO model_usage (model, role, request_type, model_digest_sha256) VALUES (?, ?, ?, ?)'
-            ).run(model, usageRole, requestType, usageDigest);
+            ).run(servedModel, usageRole, requestType, usageDigest);
           } catch (_) {}
         }
 

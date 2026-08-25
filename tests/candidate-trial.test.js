@@ -366,6 +366,30 @@ await testAsync('role se nesoutěží pod minimálním počtem aktivních úloh'
   restore();
 });
 
+await testAsync('nedostupný CODE oracle blokuje kandidáta před pull a GPU', async () => {
+  stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'qwen3-coder:30b' });
+  const stages = [];
+  const result = await tryCandidate('qwen3-coder:30b', {
+    ...FAST_DRAIN,
+    runner: fakeRunner({}),
+    roles: ['CODE'],
+    bindings: { CODE: 'inc:7b' },
+    evaluationPlans: {
+      CODE: {
+        suiteName: 'code_patch', taskCount: 7, minimumTaskCount: 6,
+        decisionReady: false,
+        runtimeBlockCode: 'CODE_FIXTURE_RUNTIME_UNAVAILABLE',
+        runtimeBlockReason: 'historical CODE oracle commits are unavailable',
+      },
+    },
+    onStage: stage => stages.push(stage),
+  });
+  assertEqual(result.stage, 'suite-readiness');
+  assert(result.trials[0].reason.includes('CODE_FIXTURE_RUNTIME_UNAVAILABLE'));
+  assert(!stages.includes('pull') && !stages.includes('measure'));
+  restore();
+});
+
 await testAsync('textový model se pro VISION vůbec nesoutěží', async () => {
   // Nemohl by tam vyhrát a stálo by to šest běhů sady navíc — o způsobilosti
   // rozhodl filtr, souboj ji nemá obcházet.

@@ -231,8 +231,10 @@ export async function tryCandidate(candidateName, ctx = {}) {
       out.trials.push({ role, skipped: true, reason });
       onStage('roleSkipped', candidateName, { role, reason });
     } else if (!plan.decisionReady || plan.taskCount < minimumTaskCount) {
-      const reason = `${plan.suiteName} má ${plan.taskCount}/${minimumTaskCount} `
-        + 'požadovaných aktivních úloh — current contract není decision-ready';
+      const reason = plan.runtimeBlockCode
+        ? `${plan.suiteName} je BLOCKED (${plan.runtimeBlockCode}): ${plan.runtimeBlockReason}`
+        : `${plan.suiteName} má ${plan.taskCount}/${minimumTaskCount} `
+          + 'požadovaných aktivních úloh — current contract není decision-ready';
       out.trials.push({ role, skipped: true, reason });
       onStage('roleSkipped', candidateName, { role, reason });
     } else {
@@ -353,7 +355,8 @@ export async function tryCandidate(candidateName, ctx = {}) {
     out.inconclusive = !out.accepted
       && Object.values(out.decisions).length > 0
       && Object.values(out.decisions).every(d => (
-        d.basis === 'nerozhodně' || d.basis === 'nedostatečný důkaz'
+        d.reasonCode === 'QUALITY_INCONCLUSIVE'
+        || d.reasonCode === 'INSUFFICIENT_EVIDENCE'
       ));
 
     if (!out.accepted && removalAllowed && !(out.inconclusive && ctx.keepInconclusive)) {

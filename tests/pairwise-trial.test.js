@@ -167,23 +167,12 @@ test('víc výher nestačí, když je marže malá', () => {
   assertEqual(d.winner, 'incumbent');
 });
 
-test('při remíze kvality rozhodne výrazně vyšší rychlost', () => {
+test('při remíze kvality nerozhodne ani výrazně vyšší rychlost', () => {
   const d = decideRole({ margin: 0, discriminating: 0, inconclusive: true }, { candidate: 140, incumbent: 70 }, 0.05);
-  assertEqual(d.winner, 'candidate');
-  assertEqual(d.basis, 'rychlost');
-  assert(/2\.00×/.test(d.detail), `detail má uvést poměr: ${d.detail}`);
-});
-
-test('malý rozdíl rychlosti výměnu neospravedlní', () => {
-  const d = decideRole({ margin: 0, discriminating: 0, inconclusive: true }, { candidate: 78, incumbent: 70 }, 0.05);
   assertEqual(d.winner, 'incumbent');
   assertEqual(d.basis, 'nerozhodně');
-});
-
-test('bez změřené rychlosti se při remíze nemění nic', () => {
-  const d = decideRole({ margin: 0, discriminating: 0, inconclusive: true }, {}, 0.05);
-  assertEqual(d.winner, 'incumbent');
-  assert(/není změřená/.test(d.detail));
+  assertEqual(d.reasonCode, 'QUALITY_INCONCLUSIVE');
+  assert(/není náhradní/.test(d.detail));
 });
 
 test('rozhodnutí vždy nese základ i vysvětlení', () => {
@@ -193,7 +182,7 @@ test('rozhodnutí vždy nese základ i vysvětlení', () => {
     { margin: 0, discriminating: 0, inconclusive: true },
   ]) {
     const d = decideRole(c, { candidate: 10, incumbent: 10 }, 0.05);
-    assert(d.basis && d.detail, 'každé rozhodnutí musí být zdůvodněné');
+    assert(d.reasonCode && d.basis && d.detail, 'každé rozhodnutí musí být zdůvodněné');
   }
 });
 
@@ -370,6 +359,7 @@ test('role-specific evidence gate blocks a narrow language sample', () => {
   });
   assertEqual(decision.winner, 'incumbent');
   assertEqual(decision.basis, 'nedostatečný důkaz');
+  assertEqual(decision.reasonCode, 'INSUFFICIENT_EVIDENCE');
   assert(/cs 2\/4/.test(decision.detail), decision.detail);
 });
 

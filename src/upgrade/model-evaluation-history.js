@@ -55,13 +55,25 @@ export function suiteContract(suite, opts = {}) {
   const suiteName = requireText(suite.name, 'suite.name', 128);
   const suiteVersion = requireText(opts.version || suite.version || 'unversioned', 'suite version', 128);
   const repeats = Number.isSafeInteger(opts.repeats) && opts.repeats > 0 ? opts.repeats : 1;
-  const tests = [...(suite.tests || [])].map(test => ({
-    name: test.name,
-    weight: test.weight ?? 1,
-    options: stableValue(test.options || {}),
-    prompt: String(test.prompt),
-    grade: String(test.grade),
-  }));
+  const tests = [...(suite.tests || [])].map(test => {
+    if (!Object.hasOwn(test || {}, 'contractMaterial')
+      || test.contractMaterial === null
+      || typeof test.contractMaterial !== 'object'
+      || Array.isArray(test.contractMaterial)) {
+      throw new TypeError(
+        `${suiteName}/${test?.name || 'unnamed'} must expose explicit contractMaterial`,
+      );
+    }
+    return {
+      name: test.name,
+      language: test.language ?? null,
+      weight: test.weight ?? 1,
+      options: stableValue(test.options || {}),
+      promptAndGradingInputs: stableValue(test.contractMaterial),
+      rubric: stableValue(test.rubric || []),
+      grade: String(test.grade),
+    };
+  });
   const material = stableValue({
     suiteName,
     suiteVersion,

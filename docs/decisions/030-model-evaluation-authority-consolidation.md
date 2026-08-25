@@ -36,12 +36,21 @@ odstranit; C3 repo zůstává případnou historickou referencí.
 9. Pairwise výhra je akční až po portfolio solveru. Read model vyžaduje
    explicitní `activationEligible=true`, jinak fail-close vrátí
    `PORTFOLIO_NOT_APPROVED`.
+10. Suite contract používá explicitní vykonávaný promptový a grading materiál,
+    včetně jazyka, rubric, VISION image digestů a CODE `buildPrompt`; closure
+    source není prompt identity.
+11. Nedostatečný kvalitativní důkaz je `INCONCLUSIVE`. Propustnost jej nesmí
+    změnit na vítězství a DB outcome se odvozuje ze stabilního `reasonCode`.
+12. Usage digest je observed runtime identity z provider response nebo exact
+    inventory pod lease; desired binding se pro usage audit nepoužije.
 
 ## Důsledky
 
 - name-only nebo jiný digest nikdy není současný výsledek;
 - timestamp se čte přímo, bez arbitrárního 14denního přeznačení;
 - cleanup selže zavřeně při neznámém digestu usage nebo ne-COMPLETE evaluaci;
+- model bez usage řádků používá jen provider `modified_at` grace clock; jakýkoli
+  neověřitelný či malformed usage řádek retenci zablokuje, nikoli uvolní;
 - historické docs a migrace mohou obsahovat staré názvy, ale produkční source,
   route, registry a aktivní test ledger ne;
 - implementační green znamená nejvýše `REVIEW_PENDING`, dokud operátor

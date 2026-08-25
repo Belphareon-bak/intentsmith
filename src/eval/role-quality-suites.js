@@ -3,6 +3,7 @@
 // Every task returns a graded 0..1 score and a public rubric; PASS is only a
 // readable task marker. Exact authority comes from the role evaluation plan.
 
+import { createHash } from 'node:crypto';
 import { CodePatchEvaluationRunner, codePatchSuite } from './code-patch-suite.js';
 import { getSyntheticTestImages } from './synthetic-images.js';
 
@@ -63,8 +64,20 @@ function checklist(parts, opts = {}) {
   };
 }
 
-function textTask({ name, language, prompt, rubric, grade, options }) {
-  return { name, language, prompt: () => prompt, rubric, grade, options };
+export function textTask({ name, language, prompt, rubric, grade, gradeMaterial = null, options }) {
+  return {
+    name,
+    language,
+    promptText: prompt,
+    prompt: () => prompt,
+    rubric,
+    grade,
+    options,
+    contractMaterial: Object.freeze({
+      prompt: Object.freeze({ kind: 'text', text: prompt }),
+      gradingInputs: gradeMaterial,
+    }),
+  };
 }
 
 // CHAT: twenty-four English tasks and sixteen Czech tasks. Equal task weights make
@@ -603,7 +616,7 @@ export const chatV3Suite = Object.freeze({
 
 function jsonReasoningTask(name, prompt, expected, rubric) {
   return textTask({
-    name, language: 'en', prompt, rubric,
+    name, language: 'en', prompt, rubric, gradeMaterial: { expected },
     grade: r => {
       const obj = parseJson(r);
       const parts = Object.entries(expected).map(([key, value]) => ({
@@ -677,6 +690,7 @@ function reviewTask(name, code, expected) {
       '15% exact JSON schema',
       '-15% per unsupported finding',
     ],
+    gradeMaterial: { expected },
     grade: r => gradeFindings(r, expected),
   });
 }
@@ -695,11 +709,19 @@ export const reviewV2Suite = Object.freeze({
 });
 
 function visionJsonTask(name, text, images, rubric, grader) {
+  const imageDigests = images.map(image => (
+    createHash('sha256').update(Buffer.from(image, 'base64')).digest('hex')
+  ));
   return {
     name, language: 'en', rubric,
+    promptText: text,
     prompt: () => ({ text, images }),
     grade: response => grader(parseJson(response), response),
     options: { num_predict: 256, num_ctx: 4096, timeout: 120_000, temperature: 0 },
+    contractMaterial: Object.freeze({
+      prompt: Object.freeze({ kind: 'vision', text, imageDigests: Object.freeze(imageDigests) }),
+      gradingInputs: Object.freeze({ graderSource: String(grader) }),
+    }),
   };
 }
 

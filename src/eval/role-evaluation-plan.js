@@ -3,7 +3,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { codePatchSuite } from './code-patch-suite.js';
+import { codePatchRuntimeAvailability, codePatchSuite } from './code-patch-suite.js';
 import {
   ROLE_QUALITY_VERSION,
   ROLE_SUITE_NAMES,
@@ -56,6 +56,7 @@ function fileSha256(url) {
 export function createRoleEvaluationPlans(opts = {}) {
   const repeats = opts.repeats ?? DEFAULT_REPEATS;
   const codeFixtureSha256 = opts.codeFixtureSha256 || fileSha256(CODE_FIXTURE_URL);
+  const codeRuntime = opts.codeRuntimeAvailability || codePatchRuntimeAvailability();
   const plans = {};
   for (const [role, suiteName] of Object.entries(ROLE_SUITE_NAMES)) {
     const suite = getQualitySuiteForRole(role);
@@ -83,7 +84,10 @@ export function createRoleEvaluationPlans(opts = {}) {
       repeats,
       taskCount: suite.tests.length,
       minimumTaskCount,
-      decisionReady: suite.tests.length >= minimumTaskCount,
+      decisionReady: suite.tests.length >= minimumTaskCount
+        && (role !== 'CODE' || codeRuntime.ready),
+      runtimeBlockCode: role === 'CODE' ? codeRuntime.code : null,
+      runtimeBlockReason: role === 'CODE' ? codeRuntime.reason : null,
       // CHAT needs breadth in both supported languages. The former 1:1
       // decision rested on just two Czech tasks and is diagnostic evidence,
       // not enough authority for an automatic user-facing model change.
