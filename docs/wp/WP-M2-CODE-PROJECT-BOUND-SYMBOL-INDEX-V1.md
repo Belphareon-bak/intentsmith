@@ -2,7 +2,7 @@
 
 **Typ:** okamžitý follow-up po `WP-M2-CODE-PROJECT-CONTEXT-V1`
 
-**Stav:** `PLANNED / BLOCKED_BY_CONTAINMENT_AND_INTEGRATION_BASE`;
+**Stav:** `PLANNED / POST_M2_FOLLOW_UP / NOT_PART_OF_M2_ACCEPTANCE`;
 žádná implementace
 
 **Operátorské rozhodnutí:** 2026-08-23 — Containment V1 je bezpečnostní

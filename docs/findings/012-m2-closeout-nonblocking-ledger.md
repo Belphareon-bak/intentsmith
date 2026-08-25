@@ -1,6 +1,6 @@
 # Finding 012 — M2 closeout neblokující ledger
 
-- **Stav:** `OPEN / NON-BLOCKING FOR M2 ACCEPTANCE`
+- **Stav:** `OPEN / NON-BLOCKING AFTER M2 ACCEPTANCE`
 - **Zdroj:** finální operátorské review M2, 2026-08-25
 - **Review target:** `c070ed7383e522fb58b53a799cbbc0e16c4b09a7`
 - **Počet:** 4 neblokující položky, 0 blockerů

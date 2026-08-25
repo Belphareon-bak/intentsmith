@@ -3,7 +3,7 @@
 **Typ:** M2 oddíl 7/7 — zmražený `RemoteCorePort` negotiation a security
 boundary kontrakt
 
-**Stav:** `PINNED_V1 / IMPLEMENTATION_GREEN / OPERATOR_REVIEW_PENDING`
+**Stav:** `PINNED_V1 / ACCEPTED / FINAL_OPERATOR_REVIEW_PASSED`
 
 **Autorita:** operátorské spuštění celé M2; `ROADMAP.md` §6 krok 5 a M2 exit
 kritérium pro verzovaný remote connector bez legacy bypassu
@@ -101,8 +101,8 @@ Připnutí není review PASS: přesné integrační bajty musí ještě přijmou
   listener, pairing, autentizaci, device scope, expiry, revokaci a mobilní UI.
 - Existující `ConversationCommand/Result` a `CoreEvent` zůstávají přesně ve své
   verzi 1; Remote negotiation jejich význam nerozšiřuje.
-- Mechanické `PINNED_V1` není review verdict; stav zůstává
-  `OPERATOR_REVIEW_PENDING`, ne hotovo.
+- Mechanické `PINNED_V1` samo nebylo review verdict. Finální operátorské review
+  přesných product bajtů následně vrátilo `REVIEW_PASSED`.
 
 ## Ověření
 

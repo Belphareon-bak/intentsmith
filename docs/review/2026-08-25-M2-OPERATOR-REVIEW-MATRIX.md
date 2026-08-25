@@ -1,6 +1,7 @@
 # M2 — finální operátorská review matice
 
 - **Stav:** `7 PINNED_V1 / 7 OF 7 OPERATOR_REVIEW_PASSED`
+- **M2 closeout:** `ACCEPTED / CLOSEOUT_PASS`
 - **Větev:** `codex/m2-integration-20260824`
 - **Přesný product target:** `c070ed7383e522fb58b53a799cbbc0e16c4b09a7`
 - **Clean evidence gate revision:** `22f2fb6f228dea34ab0a6a698ef11582b6133c3b`
@@ -233,5 +234,8 @@ Po sedmi `REVIEW_PASSED` se ještě ověří:
 - pravdivé označení remote scope jako contract-only;
 - žádný push bez výslovného pokynu.
 
-Teprve potom lze ROADMAP změnit z
-`IMPLEMENTATION_GREEN / OPERATOR_REVIEW_PENDING` na M2 acceptance.
+Všechny body byly ověřené nad clean review commitem `cea9b202`. Finální report
+`2026-08-25T20-21-48-818Z` má přesně přijatý baseline `260/3/2`, všech 27 M2
+programů PASS, registry/module/schema/artifact bez regrese, contract-only remote
+scope a čistý nepushnutý branch. ROADMAP proto může označit M2
+`ACCEPTED / CLOSEOUT_PASS`.

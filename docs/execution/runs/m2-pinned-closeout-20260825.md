@@ -1,6 +1,6 @@
-# M2 pinned closeout candidate — 2026-08-25
+# M2 pinned closeout — 2026-08-25
 
-- **Stav:** `PINNED_V1 / 7 OF 7 REVIEW_PASSED / CLOSEOUT_PENDING`
+- **Stav:** `ACCEPTED / CLOSEOUT_PASS`
 - **Větev:** `codex/m2-integration-20260824`
 - **Product revision:** `c070ed7383e522fb58b53a799cbbc0e16c4b09a7`
 - **Push:** neproveden
@@ -8,12 +8,12 @@
 
 Finální operátorský verdict nad product targetem je `7/7 REVIEW_PASSED` bez
 blockeru. Čtyři neblokující nálezy jsou zachované ve Finding 012 a nemění
-revidované product bajty. Tento report čeká už jen na integrační closeout níže.
+revidované product bajty. Integrační closeout níže je dokončený.
 
-Tento report dokládá připnutý M2 kandidát. Není to M2 acceptance ani tvrzení,
-že celý deterministic gate prošel. Gate má pravdivě `verdict: FAIL` a
-`exitCode: 1`; jeho přesně nezměněný zděděný baseline je samostatně přijatelný
-pouze podle Decision 030.
+Tento report dokládá připnutý product target, review i M2 acceptance. Netvrdí,
+že celý deterministic gate prošel: gate má pravdivě `verdict: FAIL` a
+`exitCode: 1`. Přijetí stojí na přesně nezměněném zděděném baseline podle
+Decision 030, ne na přepsání celkového verdictu na PASS.
 
 ## Připnuté kontraktové bajty
 
@@ -89,6 +89,29 @@ Commit, který tento odstavec zaznamená, je documentation-only následník
 revalidovaného evidence commitu. Přesný product target pro sedm review zůstává
 `c070ed7383e522fb58b53a799cbbc0e16c4b09a7`.
 
+## Finální post-review closeout gate
+
+Po operátorském `7/7 REVIEW_PASSED` byl celý closeout řetěz spuštěn nad čistým
+review commitem `cea9b202dcffdef18a89d6f57b50b538300213f3`.
+
+- report
+  `.intentsmith-artifacts/test-runs/2026-08-25T20-21-48-818Z/report.json`;
+- `verdict: FAIL`, `exitCode: 1`;
+- `260 PASS / 3 FAIL / 0 TIMEOUT / 2 BLOCKED / 0 SKIPPED`;
+- přesně stejných pět zděděných non-PASS ID, žádný nový non-PASS;
+- všech 27 vybraných M2 programů PASS;
+- registry hash
+  `388d932406090b0c85e44e122a02096b678869bbe2cb2c93094ca3bc34e5ccb9`;
+- inventory fingerprint
+  `b2048d3c4e702aea3121611db49b9b7b8b9aa316639145ae2a7aef1f930735d4`;
+- options fingerprint
+  `b6c9a55d1eef4edd4cd3c3fc691fe87947b8aad52dc7249c05af5a41fed7db4e`.
+
+Před gate samostatně prošly registry validace, module ratchet `13/13`, schema
+`38/38`, M1 schema compatibility `20/20` a artifact validation `154/154`.
+Operátorské review, přesný product target i všechny integrační exit podmínky
+jsou tím splněné. M2 je `ACCEPTED / CLOSEOUT_PASS`.
+
 ## Focused a cross-section evidence
 
 Všech 31 registrovaných `tests/m2-*` programů bylo na připnutých bajtech
@@ -124,9 +147,8 @@ Samostatně prošly:
   kompenzátor;
 - RemoteCorePort je pouze contract/unavailable provider. Listener, pairing,
   autentizace, device authority a remote runtime nejsou M2;
-- Sedm operátorských `REVIEW_PASSED` je splněno; M2 acceptance čeká pouze na
-  integrační closeout. Mechanické připnutí ani focused green samy review PASS
-  nenahrazovaly.
+- Sedm operátorských `REVIEW_PASSED` i integrační closeout jsou splněné.
+  Mechanické připnutí ani focused green samy review PASS nenahrazovaly.
 
 GPU, Ollama, síťové modelové běhy, coworkerovy procesy a cizí checkouty nebyly
 pro tento closeout použity ani změněny.

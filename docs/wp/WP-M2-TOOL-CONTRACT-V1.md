@@ -3,7 +3,7 @@
 **Typ:** M2 oddíl 4/7 — jednotný `ToolRequest/ToolResult`, durable authority
 a aktivní Studio/chat consumer
 
-**Stav:** `PINNED_V1 / IMPLEMENTATION_GREEN / OPERATOR_REVIEW_PENDING`
+**Stav:** `PINNED_V1 / ACCEPTED / FINAL_OPERATOR_REVIEW_PASSED`
 
 **Autorita:** operátorské spuštění celé M2; `ROADMAP.md` §6 krok 3;
 `ToolRequest/Result` connector v tabulce integračních kontraktů

@@ -2,7 +2,7 @@
 
 **Typ:** M2 oddíl 6/7 — exact lifecycle junction a deterministická governance
 
-**Stav:** `PINNED_V1 / IMPLEMENTATION_GREEN / OPERATOR_REVIEW_PENDING`
+**Stav:** `PINNED_V1 / ACCEPTED / FINAL_OPERATOR_REVIEW_PASSED`
 
 **Autorita:** operátorské spuštění celé M2; `ROADMAP.md` §6 krok 4 a exit
 kritéria pro jeden viditelný plan → approval → change → test → diff → audit

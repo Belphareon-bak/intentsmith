@@ -64,7 +64,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 |---|---|---|---|
 | **M0 Produktová pravda** | `ACCEPTED / PASS` | současný C3/IntentSmith strom | Víme, co produkt je a co skutečně běží; deklarace nelžou o chování. |
 | **M1 Lokální runtime páteř** | `ACCEPTED / GATE_2_PASS` | M0 accepted; Gate 1 PASS | Stabilní Linux → Theia → chat → Ollama → persistence. |
-| **M2 Řízená práce nad projektem** | `IN_PROGRESS / SECTION_7_IMPLEMENTATION_GREEN / REVIEWS_PENDING` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
+| **M2 Řízená práce nad projektem** | `ACCEPTED / CLOSEOUT_PASS` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
 | **M3 Modulární platforma** | `NOT_STARTED` | M2 accepted | Expertise, tool, skill, specialista a agent přidají schopnost bez obcházení core. |
 | **M4 Auditovatelné self-learning** | `NOT_STARTED` | M2 accepted | Jedna uzavřená, scoped a vratná učící smyčka zlepšuje skutečný scénář. |
 | **M5 Production hardening** | `NOT_STARTED` | M3 + M4 accepted | Instalace, data, auth, procesy, síť, výkon a recovery jsou podporovatelné. |
@@ -1193,6 +1193,21 @@ Governance, Lifecycle a RemoteCorePort — na `PINNED_V1`. Připnutí není
 acceptance: všech sedm section balíků i integrační closeout zůstávají
 `OPERATOR_REVIEW_PENDING`, dokud operátor nevydá `REVIEW_PASSED` bez nové
 regrese.
+
+**Stav 2026-08-25 — `ACCEPTED / CLOSEOUT_PASS`.** Operátor provedl nezávislé
+review přesného product targetu `c070ed73` a vrátil `7/7 REVIEW_PASSED` bez
+blockeru. Čtyři neblokující follow-upy jsou v Finding 012 a nemění přijaté
+product bajty. Finální clean closeout gate na `cea9b202`, run
+`2026-08-25T20-21-48-818Z`, zůstal pravdivě `verdict: FAIL / exitCode: 1` s
+přesně přijatým zděděným baseline
+`260 PASS / 3 FAIL / 2 BLOCKED / 0 TIMEOUT / 0 SKIPPED`; všech 27 vybraných M2
+programů prošlo a non-PASS množina se nezměnila. Registry má 428 programů a
+fingerprint `388d9324…`, schema `38/38`, M1 schema compatibility `20/20`,
+module ratchet `13/13` a artifact validation `154/154`. Remote scope zůstává
+pravdivě contract-only: listener, pairing, autentizace, device authority ani
+remote runtime nejsou součástí M2. M3 a M4 jsou tímto vstupně odblokované;
+project-bound symbol index zůstává explicitní post-M2 follow-up. Nic nebylo
+pushnuto.
 
 ### Závislostní sekvence Work Packages
 

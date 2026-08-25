@@ -58,3 +58,11 @@ Review gate je uzavřený. M2 lze označit jako přijaté až po samostatné
 integrační closeout kontrole z matice: clean worktree, registry, module graph,
 schema, artifact, přesně nezměněný baseline `3 FAIL / 2 BLOCKED`, pravdivý
 contract-only RemoteCorePort scope a žádný push bez pokynu.
+
+## Closeout disposition
+
+Integrační kontrola následně proběhla na čistém `cea9b202`. Registry, module
+ratchet, schema a artifact jsou zelené; celý runner má pravdivě přesně
+`260 PASS / 3 FAIL / 2 BLOCKED` a všech 27 M2 programů PASS. Remote scope je
+contract-only a branch nebyl pushnutý. M2 je proto
+`ACCEPTED / CLOSEOUT_PASS`.

@@ -1,6 +1,6 @@
 # WP-M2-EFFECT — project-path authority, první vertikální řez
 
-- **Stav:** `IMPLEMENTATION_GREEN / INTERNAL_AUDIT_REMEDIATED / OPUS_MAX_REVIEW_BLOCKED_ACCOUNT_LIMIT`
+- **Stav:** `ACCEPTED / FINAL_OPERATOR_REVIEW_PASSED`
 - **Vlastník:** primární implementer M2-EFFECT
 - **Worktree:** `/home/belphareon/worktrees/is-m2-effect-20260823`
 - **Branch:** `codex/m2-effect-20260823`

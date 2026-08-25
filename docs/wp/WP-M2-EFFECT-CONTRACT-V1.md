@@ -3,7 +3,7 @@
 **Typ:** M2 oddíl 2/7 — effect connector, approval authority a první produkční
 filesystem consumer
 
-**Stav:** `PINNED_V1 / IMPLEMENTATION_GREEN / OPERATOR_REVIEW_PENDING`
+**Stav:** `PINNED_V1 / ACCEPTED / FINAL_OPERATOR_REVIEW_PASSED`
 
 **Autorita:** explicitní operátorské spuštění M2; `ROADMAP.md` §6;
 `docs/decisions/011-m1-studio-http-fallback-effect-authority.md` varianta C;
@@ -105,8 +105,9 @@ PASS: přesné integrační bajty musí ještě přijmout operátor.
 - authority by nešla vynutit v SQLite a na produkční consumer hranici;
 - terminal by mohl vzniknout bez přesného grantu/claimu nebo efekt po erroru;
 - práce by vstoupila do dalšího M2 oddílu či cizího/GPU scope;
-- Chybějící operátorský verdict: oddíl zůstává `OPERATOR_REVIEW_PENDING` a
-  nesmí být označen jako hotový.
+- Pokud operátorský verdict chybí, oddíl zůstává `OPERATOR_REVIEW_PENDING` a
+  nesmí být označen jako hotový. Tato podmínka je splněná finálním
+  `REVIEW_PASSED` nad připnutými product bajty.
 
 ## Ověření
 

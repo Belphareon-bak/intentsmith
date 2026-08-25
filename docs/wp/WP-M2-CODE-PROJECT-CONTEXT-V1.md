@@ -2,7 +2,7 @@
 
 **Typ:** větší paralelní Work Package pro coworkera
 
-**Stav:** `PINNED_V1 / IMPLEMENTATION_GREEN / OPERATOR_REVIEW_PENDING`
+**Stav:** `PINNED_V1 / ACCEPTED / FINAL_OPERATOR_REVIEW_PASSED`
 
 **Contract-review base:** `c4ffb2de` — poslední commit této linie před M2
 implementací, který otevírá M2 po P0 closeoutu
