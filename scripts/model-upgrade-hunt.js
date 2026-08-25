@@ -17,6 +17,7 @@
 // Zapíná se vědomě: --allow-removal
 //   node scripts/model-upgrade-hunt.js --run --limit=3      zkusí 3 nejlepší kandidáty
 //   node scripts/model-upgrade-hunt.js --run --only=qwen3.8:27b
+//   node scripts/model-upgrade-hunt.js --run --installed-panel
 //   node scripts/model-upgrade-hunt.js --shortlist --json
 //
 // Bez `--run` skript nic nestahuje ani nemaže.
@@ -75,7 +76,8 @@ const val = n => { const h = args.find(a => a.startsWith(`--${n}=`)); return h ?
 
 const DO_RUN = flag('run');
 const AS_JSON = flag('json');
-const LIMIT = parseInt(val('limit') || '3', 10);
+const INSTALLED_PANEL = flag('installed-panel');
+const LIMIT = parseInt(val('limit') || (INSTALLED_PANEL ? String(Number.MAX_SAFE_INTEGER) : '3'), 10);
 const ONLY = (val('only') || '').split(',').map(s => s.trim()).filter(Boolean);
 // Kandidát, kterého sada nerozlišila, nebyl horší — jen to nešlo změřit.
 const KEEP_INCONCLUSIVE = flag('keep-inconclusive');
@@ -86,6 +88,10 @@ const REMOTE_ONLY = flag('remote-only');
 const EXPORT_CHAT_HISTORY = flag('export-chat-history');
 const SCHEDULED = flag('scheduled');
 const REPORT_PATH = val('report');
+if (INSTALLED_PANEL && (REMOTE_ONLY || ONLY.length > 0)) {
+  console.error('--installed-panel nelze kombinovat s --remote-only ani --only');
+  process.exit(1);
+}
 // `--json` is a machine contract. Imported discovery modules share this
 // logger object, so silence their human progress lines for this process only;
 // otherwise ANSI log prefixes would corrupt stdout before the JSON document.
@@ -465,7 +471,7 @@ if (!initialResponsibilityAudit.compliant) {
 // Ručně zadaný pilot zná své kandidáty předem. Neprocházet kvůli němu celý
 // vzdálený katalog je podstatné: --only má být rychlá a síťově úsporná cesta,
 // ne skrytá discovery fáze.
-const shortlist = ONLY.length
+const shortlist = (ONLY.length || INSTALLED_PANEL)
   ? { perRole: new Map(ROLES.map(role => [role, []])), queue: [], familiesTotal: 0 }
   : await buildRoleShortlists(gpu, installedNames, bindings);
 const { perRole, queue: remoteQueue, familiesTotal } = shortlist;
@@ -476,6 +482,9 @@ const installedQueue = REMOTE_ONLY ? [] : buildInstalledCandidateQueue({
   plans: evaluationPlans,
   history: modelEvaluationHistory,
   hardware: gpu,
+  // Explicitní lokální panel je fresh measurement. Starý VRAM block zůstává
+  // auditem, ale nesmí zabránit zápisu terminal row pod current contracts.
+  ignoreHardwareBlocks: INSTALLED_PANEL,
 });
 // Chybějící suite už staženého artefaktu má přednost před dalším downloadem:
 // je rychlejší, nezvětšuje disk a uzavírá přesně tu historii, kterou už máme.
@@ -524,6 +533,9 @@ if (ONLY.length) {
       reasons: [local ? 'zadáno ručně; již nainstalováno' : 'zadáno ručně'],
     };
   });
+}
+if (INSTALLED_PANEL && picked.some(candidate => candidate.installed !== true)) {
+  throw new Error('installed panel obsahuje nenainstalovaný artefakt');
 }
 
 if (!DO_RUN) {

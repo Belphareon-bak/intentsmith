@@ -557,6 +557,13 @@ test('measured CPU spill is reused across suite changes only on identical hardwa
   assertEqual(buildInstalledCandidateQueue({
     ...common, hardware: { model: 'RTX 3090', vramMb: 24576, numCtx: 16384 },
   }).length, 1);
+  const refreshed = buildInstalledCandidateQueue({
+    ...common,
+    hardware: { model: 'RTX 3090', vramMb: 24576, numCtx: 32768 },
+    ignoreHardwareBlocks: true,
+  });
+  assertEqual(refreshed.length, 1);
+  assertEqual(refreshed[0].evaluationState.state, 'unseen');
   db.close();
 });
 

@@ -96,6 +96,13 @@ async function main() {
     'WhatLLM is hunt-only and cannot score inside the background UpgradeManager',
   );
 
+  check(
+    hunt.includes('const shortlist = (ONLY.length || INSTALLED_PANEL)')
+      && hunt.includes("throw new Error('installed panel obsahuje nenainstalovaný artefakt')")
+      && hunt.includes('ignoreHardwareBlocks: INSTALLED_PANEL'),
+    'installed panel skips remote discovery, rejects remote artifacts and refreshes VRAM placement',
+  );
+
   console.log(`\n══ RESULTS: ${pass} passed, ${fail} failed ══`);
   if (failures.length) {
     console.error('\n  FAILURES:');

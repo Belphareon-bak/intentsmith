@@ -271,6 +271,7 @@ export function evaluationStateForArtifact(artifact, roles, plans, history, hard
 export function buildInstalledCandidateQueue(input = {}) {
   const {
     candidates = [], roles = [], bindings = {}, plans = {}, history, hardware = null,
+    ignoreHardwareBlocks = false,
   } = input;
   if (!history) throw new TypeError('history is required');
   const byModel = new Map();
@@ -296,7 +297,7 @@ export function buildInstalledCandidateQueue(input = {}) {
     }
     if (!candidateRoles.length) continue;
     const evalState = evaluationStateForArtifact(
-      artifact, candidateRoles, plans, history, hardware,
+      artifact, candidateRoles, plans, history, ignoreHardwareBlocks ? null : hardware,
     );
     // A deterministic failure for this exact artifact and suite contract is a
     // completed screening result, not a reason to spend GPU time again. Keep

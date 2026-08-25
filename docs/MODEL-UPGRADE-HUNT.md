@@ -37,3 +37,14 @@ aktuálního stavu je naproti tomu read-only:
 ```bash
 npm run report:model-evaluations
 ```
+
+Jednorázový úplný panel všech kompatibilních lokálních artefaktů se spouští:
+
+```bash
+node scripts/model-upgrade-hunt.js --run --installed-panel
+```
+
+Tento režim nevolá vzdálené discovery, nepřidá do fronty nenainstalovaný model
+a znovu změří i dřívější VRAM blokace, aby se pod aktuálními suite kontrakty
+zapsal čerstvý `CANDIDATE_VRAM_FIT_FAILED`. Model s CPU offloadem nepokračuje
+do capability ani quality sad. Režim nic neaktivuje ani nemaže.
