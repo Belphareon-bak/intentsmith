@@ -12,6 +12,12 @@ import JavaScript from 'tree-sitter-javascript';
 
 const CODE_EXTENSION = /\.(?:cjs|js|jsx|mjs)$/i;
 const SKIP_DIRECTORIES = new Set(['.git', 'node_modules']);
+const PURE_BARE_IMPORTS = new Set(['crypto', 'node:crypto', 'path', 'node:path', 'url', 'node:url']);
+const AMBIENT_CALLS = new Set(['eval', 'fetch', 'Function']);
+const AMBIENT_CONSTRUCTORS = new Set(['Function', 'WebSocket', 'Worker']);
+const PROCESS_EFFECT_METHODS = new Set([
+  'abort', 'binding', 'chdir', 'dlopen', 'exit', 'getBuiltinModule', 'kill', 'umask',
+]);
 
 let parser = null;
 const scanCache = new Map();
@@ -90,6 +96,22 @@ function collectSourceFacts(source, file) {
   const runtimeImports = [];
   const typeReferences = [];
   const computedImports = [];
+  const ambientEffects = [];
+
+  function ambientMember(node) {
+    if (node?.type !== 'member_expression') return null;
+    const object = node.childForFieldName('object');
+    const property = node.childForFieldName('property');
+    if (object?.type !== 'identifier' || property?.type !== 'property_identifier') return null;
+    if (object.text === 'process' && PROCESS_EFFECT_METHODS.has(property.text)) {
+      return `process.${property.text}`;
+    }
+    if (object.text === 'globalThis' && ['fetch', 'WebSocket', 'Worker'].includes(property.text)) {
+      return `globalThis.${property.text}`;
+    }
+    if (object.text === 'Bun' || object.text === 'Deno') return `${object.text}.${property.text}`;
+    return null;
+  }
 
   function visit(node) {
     if (node.type === 'import_statement' || node.type === 'export_statement') {
@@ -122,6 +144,28 @@ function collectSourceFacts(source, file) {
           runtimeImports.push({ kind, specifier, line: node.startPosition.row + 1 });
         }
       }
+      const ambient = callee?.type === 'identifier' && AMBIENT_CALLS.has(callee.text)
+        ? callee.text
+        : ambientMember(callee);
+      if (ambient) {
+        ambientEffects.push({
+          kind: 'ambient_call',
+          specifier: ambient,
+          line: node.startPosition.row + 1,
+        });
+      }
+    } else if (node.type === 'new_expression') {
+      const constructor = node.childForFieldName('constructor');
+      const ambient = constructor?.type === 'identifier' && AMBIENT_CONSTRUCTORS.has(constructor.text)
+        ? constructor.text
+        : ambientMember(constructor);
+      if (ambient) {
+        ambientEffects.push({
+          kind: 'ambient_constructor',
+          specifier: ambient,
+          line: node.startPosition.row + 1,
+        });
+      }
     } else if (node.type === 'comment') {
       const expression = /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
       let match;
@@ -141,6 +185,7 @@ function collectSourceFacts(source, file) {
     runtimeImports,
     typeReferences,
     computedImports,
+    ambientEffects,
     parseError: tree.rootNode.hasError
       ? { file, reason: 'javascript_parse_error' }
       : null,
@@ -200,6 +245,10 @@ function pointsIntoCore(fromFile, specifier, coreSourceRoot) {
     || (target.canonical !== null && isWithin(coreSourceRoot, target.canonical));
 }
 
+function isBareImport(specifier) {
+  return !specifier.startsWith('.') && !specifier.startsWith('file:') && !path.isAbsolute(specifier);
+}
+
 /**
  * Scan every executable JavaScript file in one specialist package.
  * JSDoc import() references are reported separately and do not violate L0-8.
@@ -213,6 +262,7 @@ export function scanSpecialistPackage(packageDir, { projectRoot } = {}) {
   const violations = [];
   const typeReferences = [];
   const computedImports = [];
+  const ambientEffects = [];
   const sourceFiles = [];
   const digest = createHash('sha256');
 
@@ -249,6 +299,8 @@ export function scanSpecialistPackage(packageDir, { projectRoot } = {}) {
     for (const item of facts.runtimeImports) {
       if (pointsIntoCore(file, item.specifier, coreSourceRoot)) {
         violations.push({ file: relativeFile, ...item, reason: 'specialist_core_import' });
+      } else if (isBareImport(item.specifier) && !PURE_BARE_IMPORTS.has(item.specifier)) {
+        violations.push({ file: relativeFile, ...item, reason: 'ambient_import_authority' });
       }
     }
     for (const item of facts.typeReferences) {
@@ -265,6 +317,14 @@ export function scanSpecialistPackage(packageDir, { projectRoot } = {}) {
         reason: 'computed_import_unverifiable',
       });
     }
+    for (const item of facts.ambientEffects) {
+      ambientEffects.push({ file: relativeFile, ...item });
+      violations.push({
+        file: relativeFile,
+        ...item,
+        reason: 'ambient_effect_authority',
+      });
+    }
   }
 
   const order = (left, right) => (
@@ -275,6 +335,7 @@ export function scanSpecialistPackage(packageDir, { projectRoot } = {}) {
   violations.sort(order);
   typeReferences.sort(order);
   computedImports.sort(order);
+  ambientEffects.sort(order);
   errors.sort(order);
 
   const result = Object.freeze({
@@ -284,6 +345,7 @@ export function scanSpecialistPackage(packageDir, { projectRoot } = {}) {
     violations: Object.freeze(violations),
     typeReferences: Object.freeze(typeReferences),
     computedImports: Object.freeze(computedImports),
+    ambientEffects: Object.freeze(ambientEffects),
     errors: Object.freeze(errors),
   });
   if (fingerprint !== null) scanCache.set(cacheKey, { fingerprint, result });

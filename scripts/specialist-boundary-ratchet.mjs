@@ -16,7 +16,7 @@ function usage() {
     '  --json                    emit one JSON report',
     '  --help                    show this help',
     '',
-    'Exit codes: 0 pass, 1 L0-8 violation, 2 invalid input or scan failure.',
+    'Exit codes: 0 pass, 1 import/effect boundary violation, 2 invalid input or scan failure.',
   ].join('\n');
 }
 
@@ -89,8 +89,11 @@ function main() {
   const computedImports = packages.flatMap(({ id, result }) => (
     result.computedImports.map((item) => ({ packageId: id, ...item }))
   ));
+  const ambientEffects = packages.flatMap(({ id, result }) => (
+    result.ambientEffects.map((item) => ({ packageId: id, ...item }))
+  ));
   const report = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     ok: violations.length === 0 && errors.length === 0,
     packages: packages.length,
     scannedFiles: packages.reduce((total, item) => total + item.result.scannedFiles, 0),
@@ -98,6 +101,7 @@ function main() {
     errors,
     typeReferences,
     computedImports,
+    ambientEffects,
   };
 
   if (options.json) {
@@ -108,7 +112,7 @@ function main() {
       `SPECIALIST_BOUNDARY_${verdict} packages=${report.packages} `
       + `files=${report.scannedFiles} violations=${violations.length} `
       + `scanErrors=${errors.length} typeReferences=${typeReferences.length} `
-      + `computedImports=${computedImports.length}`,
+      + `computedImports=${computedImports.length} ambientEffects=${ambientEffects.length}`,
     );
     for (const item of violations) {
       console.log(
@@ -129,4 +133,3 @@ function main() {
 }
 
 main();
-

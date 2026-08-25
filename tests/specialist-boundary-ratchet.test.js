@@ -127,12 +127,14 @@ test('current tree scans every package and keeps JSDoc references informational'
   const result = runChecker(path.join(ROOT, 'specialists'), ['--json']);
   assertEqual(result.status, 0, result.stderr || result.stdout);
   const report = JSON.parse(result.stdout);
+  assertEqual(report.schemaVersion, 2);
   assertEqual(report.ok, true);
   assertEqual(report.packages, 5);
   assertEqual(report.violations.length, 0);
   assertEqual(report.errors.length, 0);
   assertEqual(report.typeReferences.length, 1);
   assertEqual(report.computedImports.length, 0);
+  assertEqual(report.ambientEffects.length, 0);
   assert(report.scannedFiles > report.packages, 'scanner must inspect files beyond package entry points');
 });
 
@@ -203,6 +205,37 @@ test('computed and escaped module specifiers fail closed as unverifiable', () =>
   assertEqual(
     result.violations.filter((item) => item.reason === 'computed_import_unverifiable').length,
     2,
+  );
+});
+
+test('ambient filesystem, process, network and dynamic-code authority fails closed', () => {
+  const packageDir = createPackage('ambient-effects', {
+    'index.js': [
+      "import fs from 'node:fs';",
+      "import client from 'undici';",
+      "const pathModule = require('path');",
+      "fetch('https://example.invalid');",
+      "globalThis.fetch('https://example.invalid');",
+      "process.getBuiltinModule('node:child_process');",
+      "new WebSocket('wss://example.invalid');",
+      "Function('return process')();",
+      'export function register() {}',
+    ].join('\n'),
+  });
+  const result = scanSpecialistPackage(packageDir, { projectRoot: ROOT });
+  assertEqual(result.ok, false);
+  assertEqual(
+    result.violations.filter(item => item.reason === 'ambient_import_authority').length,
+    2,
+  );
+  assertEqual(result.ambientEffects.length, 5);
+  assertEqual(
+    result.violations.filter(item => item.reason === 'ambient_effect_authority').length,
+    5,
+  );
+  assert(
+    !result.violations.some(item => item.specifier === 'path'),
+    'pure path utility must remain available',
   );
 });
 

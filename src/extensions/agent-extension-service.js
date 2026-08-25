@@ -34,6 +34,36 @@ function fail(message, code = 'M3_AGENT_EXTENSION_INVALID') {
   throw Object.assign(new Error(message), { code });
 }
 
+function validateEffectPolicy(manifest) {
+  const definition = manifest.payload.definition;
+  if (definition.sources.some(source => source.type !== 'project_context')) {
+    fail(
+      `Agent extension ${manifest.id} requests a source without M2 authority`,
+      'M3_AGENT_EXTENSION_EFFECT_AUTHORITY_REQUIRED',
+    );
+  }
+  if (!manifest.requiredCapabilities.includes('code-intel.project-context.v1')) {
+    fail(
+      `Agent extension ${manifest.id} must declare ProjectContext authority`,
+      'M3_AGENT_EXTENSION_EFFECT_AUTHORITY_REQUIRED',
+    );
+  }
+  for (const action of definition.actions) {
+    const locallyContained = ['mark_seen', 'store'].includes(action.type)
+      || (
+        action.type === 'notify'
+        && (action.config?.channel || 'in_app') === 'in_app'
+        && action.config?.use_llm !== true
+      );
+    if (!locallyContained) {
+      fail(
+        `Agent extension ${manifest.id} requests an action without M2 authority`,
+        'M3_AGENT_EXTENSION_EFFECT_AUTHORITY_REQUIRED',
+      );
+    }
+  }
+}
+
 function extensionRoot() {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../agent-extensions');
 }
@@ -102,6 +132,7 @@ export class AgentExtensionService {
           'M3_AGENT_EXTENSION_DEFINITION_INVALID',
         );
       }
+      validateEffectPolicy(manifest);
       const context = createExtensionContextV1({
         manifest,
         hostCapabilities: this.hostCapabilities,
@@ -211,6 +242,7 @@ export const _testInternals = Object.freeze({
   canonicalJson,
   cloneDefinition,
   definitionDigest,
+  validateEffectPolicy,
 });
 
 export default AgentExtensionService;

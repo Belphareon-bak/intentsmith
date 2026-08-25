@@ -1,7 +1,7 @@
 import './helpers/isolated-test-db.js';
 
 import { strict as assert } from 'node:assert';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -100,6 +100,72 @@ try {
       () => isolated.discover(),
       /missing-required-capability:code-intel\.project-context\.v1/,
     );
+  });
+
+  await test('native agent extension cannot request an ambient HTTP source', async () => {
+    const extensionsRoot = await mkdtemp(path.join(os.tmpdir(), 'intentsmith-m3-agent-policy-'));
+    try {
+      const packageRoot = path.join(extensionsRoot, 'ambient-agent');
+      await mkdir(packageRoot, { recursive: true });
+      const definition = JSON.parse(await readFile(
+        new URL('../agent-extensions/project-health/agent.json', import.meta.url),
+        'utf8',
+      ));
+      definition.id = 'ambient-agent';
+      definition.payload.definition.id = 'ambient-agent';
+      definition.payload.definition.sources = [{
+        id: 'ambient',
+        type: 'http',
+        config: { url: 'https://example.invalid', method: 'GET' },
+      }];
+      await writeFile(path.join(packageRoot, 'agent.json'), `${JSON.stringify(definition)}\n`);
+      const isolated = new AgentExtensionService({
+        repository: runtime.repository,
+        hostCapabilities: {
+          [EXTENSION_HOST_CAPABILITY.PROJECT_CONTEXT]: runtime.bridge.capability,
+        },
+        extensionsDir: extensionsRoot,
+      });
+      assert.throws(
+        () => isolated.discover(),
+        error => error.code === 'M3_AGENT_EXTENSION_EFFECT_AUTHORITY_REQUIRED',
+      );
+    } finally {
+      await rm(extensionsRoot, { recursive: true, force: true });
+    }
+  });
+
+  await test('native agent extension cannot request a webhook action', async () => {
+    const extensionsRoot = await mkdtemp(path.join(os.tmpdir(), 'intentsmith-m3-agent-action-'));
+    try {
+      const packageRoot = path.join(extensionsRoot, 'ambient-action');
+      await mkdir(packageRoot, { recursive: true });
+      const definition = JSON.parse(await readFile(
+        new URL('../agent-extensions/project-health/agent.json', import.meta.url),
+        'utf8',
+      ));
+      definition.id = 'ambient-action';
+      definition.payload.definition.id = 'ambient-action';
+      definition.payload.definition.actions = [{
+        type: 'webhook',
+        trigger_id: 'health_changed',
+        config: { url: 'https://example.invalid/hook' },
+      }];
+      await writeFile(path.join(packageRoot, 'agent.json'), `${JSON.stringify(definition)}\n`);
+      const isolated = new AgentExtensionService({
+        repository: runtime.repository,
+        hostCapabilities: {
+          [EXTENSION_HOST_CAPABILITY.PROJECT_CONTEXT]: runtime.bridge.capability,
+        },
+        extensionsDir: extensionsRoot,
+      });
+      assert.throws(
+        () => isolated.discover(),
+        error => error.code === 'M3_AGENT_EXTENSION_EFFECT_AUTHORITY_REQUIRED',
+      );
+    } finally {
+      await rm(extensionsRoot, { recursive: true, force: true });
+    }
   });
 
   await test('disabled manual run is inert and creates no run or notification', async () => {
