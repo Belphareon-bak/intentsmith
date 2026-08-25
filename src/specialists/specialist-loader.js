@@ -18,6 +18,10 @@ import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { logger } from '../core/logger.js';
 import { ToolAdapter } from '../expertises/tool-adapter.js';
+import {
+  formatSpecialistBoundaryFailure,
+  scanSpecialistPackage,
+} from './specialist-boundary.js';
 
 // ── Engine version from package.json (fallback for default) ─────────────────
 let _packageVersion = null;
@@ -207,8 +211,8 @@ export class SpecialistLoader {
     this.runtime = runtime;
 
     // Default: project_root/specialists/
-    const projectRoot = path.resolve(__dirname, '..', '..');
-    this.baseDir = options.baseDir || path.join(projectRoot, 'specialists');
+    this.projectRoot = path.resolve(options.projectRoot || path.resolve(__dirname, '..', '..'));
+    this.baseDir = options.baseDir || path.join(this.projectRoot, 'specialists');
     this.engineVersion = options.engineVersion || _readPackageVersion();
 
     /** @type {Map<string, { manifest: Object, dir: string }>} */
@@ -219,6 +223,9 @@ export class SpecialistLoader {
 
     /** @type {Set<string>} specialists needing ESM cache bust on next enable */
     this._needsCacheBust = new Set();
+
+    /** @type {Map<string, ReturnType<typeof scanSpecialistPackage>>} */
+    this._boundaryFailures = new Map();
 
     /** @type {import('../telemetry/specialist-telemetry.js').SpecialistTelemetry|null} v82: passive telemetry */
     this._telemetry = options.telemetry || null;
@@ -267,6 +274,7 @@ export class SpecialistLoader {
    */
   discoverAll() {
     this._discovered.clear();
+    this._boundaryFailures.clear();
 
     if (!fs.existsSync(this.baseDir)) {
       logger.debug('SpecialistLoader', `No specialists directory at ${this.baseDir}`);
@@ -312,6 +320,17 @@ export class SpecialistLoader {
         const entryPath = path.join(dir, manifest.entry);
         if (!fs.existsSync(entryPath)) {
           logger.warn('SpecialistLoader', `Missing entry point: ${entryPath}`);
+          continue;
+        }
+
+        // L0-8: scan the complete package before migrations or executable imports.
+        const boundary = scanSpecialistPackage(dir, { projectRoot: this.projectRoot });
+        if (!boundary.ok) {
+          this._boundaryFailures.set(manifest.id, boundary);
+          logger.warn(
+            'SpecialistLoader',
+            formatSpecialistBoundaryFailure(manifest.id, boundary),
+          );
           continue;
         }
 
@@ -503,6 +522,17 @@ export class SpecialistLoader {
       this._modules.delete(id);
     }
 
+    // Re-scan at the execution boundary so a package changed after discovery
+    // cannot retain its prior authority.
+    const boundary = scanSpecialistPackage(dir, { projectRoot: this.projectRoot });
+    if (!boundary.ok) {
+      this._boundaryFailures.set(id, boundary);
+      const error = new Error(formatSpecialistBoundaryFailure(id, boundary));
+      error.code = 'SPECIALIST_BOUNDARY_VIOLATION';
+      throw error;
+    }
+    this._boundaryFailures.delete(id);
+
     const entryPath = path.join(dir, manifest.entry);
     let mod;
     if (needsBust) {
@@ -518,18 +548,6 @@ export class SpecialistLoader {
     if (typeof mod.register !== 'function') {
       throw new Error(`${id}/index.js must export register(ctx)`);
     }
-
-    // v121 2d: Plugin stability contract — warn on core imports (static analysis)
-    try {
-      const entryContent = fs.readFileSync(entryPath, 'utf-8');
-      const coreImportPattern = /from\s+['"]\.\.\/\.\.\/src\//g;
-      const matches = entryContent.match(coreImportPattern);
-      if (matches) {
-        logger.warn('SpecialistLoader',
-          `${id}/index.js imports from core (../../src/) — ${matches.length} occurrence(s). ` +
-          'Specialists should use ctx.registries instead. This will become an error in a future version.');
-      }
-    } catch { /* non-fatal — file read may fail */ }
 
     // v121: Build expanded registration context with registries
     const [autoSelect, cre, toolExecutor] = await Promise.all([
@@ -1131,6 +1149,13 @@ export class SpecialistLoader {
    */
   getEnabled() {
     return this._stmts.listEnabled.all();
+  }
+
+  /**
+   * Return packages rejected by the latest discovery/enable boundary check.
+   */
+  getBoundaryFailures() {
+    return new Map(this._boundaryFailures);
   }
 
   /**

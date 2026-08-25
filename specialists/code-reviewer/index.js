@@ -11,6 +11,8 @@
 
 import { fileURLToPath } from 'url';
 import path from 'path';
+import { analyzeCode } from './tools/analyze-code.js';
+import { securityScan } from './tools/security-scan.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -124,6 +126,7 @@ function buildToolDefinitions(toolsDir) {
       description: 'Analyze code for quality issues — readability, SOLID, performance, security',
       modulePath: path.join(toolsDir, 'analyze-code.js'),
       functionName: 'analyzeCode',
+      execute: analyzeCode,
       patterns: [{
         priority: 8,
         patterns: [
@@ -150,6 +153,7 @@ function buildToolDefinitions(toolsDir) {
       description: 'Scan code for security vulnerabilities — OWASP Top 10, hardcoded secrets, insecure crypto',
       modulePath: path.join(toolsDir, 'security-scan.js'),
       functionName: 'securityScan',
+      execute: securityScan,
       patterns: [{
         priority: 10,
         patterns: [
@@ -221,10 +225,7 @@ export async function register(ctx) {
   if (ctx.registries?.toolExecutor?.register) {
     const tools = buildToolDefinitions(toolsDir);
     for (const tool of tools) {
-      ctx.registries.toolExecutor.register(tool.id, async (params) => {
-        const mod = await import(tool.modulePath);
-        return mod[tool.functionName](params);
-      });
+      ctx.registries.toolExecutor.register(tool.id, (params) => tool.execute(params));
     }
   }
 

@@ -375,13 +375,7 @@ export async function register(ctx) {
   // 7. ToolExecutor handlers — register tool execution handlers for CRE
   if (ctx.registries?.toolExecutor?.register) {
     for (const tool of tools) {
-      ctx.registries.toolExecutor.register(tool.id, async (params) => {
-        if (tool.toolAdapter) {
-          return tool.toolAdapter.run(params);
-        }
-        const mod = await import(tool.modulePath);
-        return mod[tool.functionName](params);
-      });
+      ctx.registries.toolExecutor.register(tool.id, (params) => tool.toolAdapter.run(params));
     }
   }
 
