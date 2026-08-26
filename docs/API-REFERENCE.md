@@ -506,11 +506,10 @@ Lifecycle endpoints are spread across projects and expertises routes:
 
 ## Security
 
-> All `/api/security/*` endpoints require `X-Admin-Token` header — **except on
-> localhost when `NODE_ENV` is not `production`**, where `requireAuth()`
-> (`src/routes/security.js:20-38`) lets the request through with no credential.
-> That is the default development configuration; verified 2026-08-07,
-> `GET /api/security/audit` → 200 without a token.
+> Globální M5 guard klasifikuje `/api/security/*` jako admin surface a běží
+> před handlerem. Production vyžaduje admin authority; explicitní localhost
+> bypass existuje jen v development mode. Starší route-level kontrola zůstává
+> defense-in-depth, není však jedinou hranicí.
 
 | Method | Path | Query / Body | Response | Side Effects |
 |--------|------|-------------|----------|-------------|

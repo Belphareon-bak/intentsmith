@@ -67,7 +67,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M2 Řízená práce nad projektem** | `ACCEPTED / CLOSEOUT_PASS` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
 | **M3 Modulární platforma** | `CANDIDATE_COMPLETE / SECTION_7_RE_REVIEW_PENDING` | M2 accepted | Oddíly 1–6 mají operátorské `REVIEW_PASSED`; legacy agent mutační surface z oddílu 7 je fail-closed odstavený a čeká na re-review. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
-| **M5 Production hardening** | `IMPLEMENTATION_IN_PROGRESS / M3_GATE_OPEN` | M4 accepted; M3/7 re-review pending | PACKAGE je implementation-green; data, auth, procesy, síť, výkon a recovery pokračují. |
+| **M5 Production hardening** | `IMPLEMENTATION_GREEN / OPERATOR_REMEDIATION_REQUIRED / REVIEW_PENDING / M3_GATE_OPEN` | M4 accepted; M3/7 re-review pending | Všechny implementační bloky jsou zelené; privacy vyžaduje 8 rotací a history disposition. |
 | **M6 IntentSmith 1.0 release** | `NOT_STARTED` | M5 accepted | Zmražený kandidát projde úplnou release validací a operátorskou demonstrací. |
 | **M7 Remote Companion** | `DESIGN_ONLY` | M6 + remote boundary | Samostatný vzdálený companion release nad bezpečným core rozhraním. |
 
@@ -1444,7 +1444,18 @@ Autoritativní module graph má 1 176 hran, stále 3 cykly a 28 souborů v cykle
 Důkaz je v
 [`m5-remote-conditional-20260826.md`](docs/execution/runs/m5-remote-conditional-20260826.md).
 
-Nejde o M5 acceptance: M3 oddíl 7 a M5 privacy zůstávají otevřené.
+`WP-M5-PRIVACY` je implementation-green na product commitu `a92b9fde` a
+module baseline `a699b436`. Migrace 090 odstraní známé plaintext credential
+klíče z `user_settings`; SQLite, HTTP i WS je fail-closed odmítají a aktivní
+Studio je už nenabízí. Osm rotation kategorií a jedna history disposition mají
+append-only, transportně autentizované receipts bez secret values. Čistý scan
+1 835 souborů má nula current-tree findings, ale všech 13 známých incident
+objektů je stále dosažitelných. Autoritativní module graph má 1 184 hran, stále 3 cykly a
+28 souborů v cyklech. Důkaz je v
+[`m5-privacy-20260826.md`](docs/execution/runs/m5-privacy-20260826.md).
+
+Nejde o M5 acceptance: M3 oddíl 7, operátorská privacy remediation a M5 review
+zůstávají otevřené.
 
 ### Výsledek
 

@@ -29,6 +29,7 @@ posílá jeho sekce „Výstup" — ne sem.
 | [WP-M5-PERF](WP-M5-PERF.md) | zapisující WP | **implementation-green / review pending** | [M5 PERF report](../execution/runs/m5-perf-20260826.md) |
 | [WP-M5-REMOTE-PORT](WP-M5-REMOTE-PORT.md) | zapisující WP | **implementation-green / review pending** | [M5 REMOTE + CONDITIONAL report](../execution/runs/m5-remote-conditional-20260826.md) |
 | [WP-M5-CONDITIONAL-SURFACES](WP-M5-CONDITIONAL-SURFACES.md) | zapisující WP | **implementation-green / review pending** | [M5 REMOTE + CONDITIONAL report](../execution/runs/m5-remote-conditional-20260826.md) |
+| [WP-M5-PRIVACY](WP-M5-PRIVACY.md) | zapisující WP | **implementation-green / operator remediation required / review pending** | [M5 PRIVACY report](../execution/runs/m5-privacy-20260826.md) |
 | [WP-M1-BINDING-REPOSITORY](WP-M1-BINDING-REPOSITORY.md) | zapisující WP | **dokončeno** na `515fb6f7`, evidence `eb7e78b8` | [WP-M1-MODEL report](../execution/runs/wp-m1-model-report.md) |
 | [WP-M1-BINDING-APPLICATION](WP-M1-BINDING-APPLICATION.md) | zapisující WP | **dokončeno** na `e7d89b5e`, fresh-clone evidence `9b71c741` | [WP-M1-MODEL report](../execution/runs/wp-m1-model-report.md) |
 | [WP-M1-BINDING-FINALIZE-RECOVERY](WP-M1-BINDING-FINALIZE-RECOVERY.md) | zapisující WP | **fresh-clone verified** na `7c4aa73c`; review range `0a6bde54..7c4aa73c` | [Finding 008](../findings/008-model-binding-commit-point-split.md) |
