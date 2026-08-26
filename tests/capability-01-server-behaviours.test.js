@@ -278,6 +278,16 @@ async function main() {
       && stillAlive.status === 200,
       'B-14 — with no reachable model the LLM path answers 503 LLM_PROVIDER_UNAVAILABLE and the server keeps serving',
     );
+    const evaluationsWithoutProvider = await probe(port, {
+      pathname: '/api/system/models/evaluations',
+    });
+    check(
+      evaluationsWithoutProvider.status === 200
+      && evaluationsWithoutProvider.json?.bindingAuthority?.status === 'DEGRADED'
+      && evaluationsWithoutProvider.json?.bindingAuthority?.reason
+        === 'MODEL_BINDING_STARTUP_BASELINE_FAILED',
+      'B-14 — without a provider the evaluation API publishes DEGRADED binding authority',
+    );
 
     // B-06 - a fatal startup error fails closed.
     // Second server aimed at the same, already-bound port.

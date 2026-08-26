@@ -11,12 +11,12 @@
 sjednotit scoring/evaluace a pokračovat přes všechny milníky až k jednomu
 review candidate.
 
-**Stav:** `ACCEPTED`. První candidate na `31234a6b` dostal
-`CHANGES_REQUESTED`; blokery i navazující nálezy byly opraveny a candidate
-`d8a2a108` následně prošel nezávislým rereview. Přesná evidence a review
-rozsah jsou v
-[`model-evaluation-consolidation-review-remediation-20260825.md`](../execution/runs/model-evaluation-consolidation-review-remediation-20260825.md).
-Nezávislý deterministic run `2026-08-25T17-15-48-322Z` skončil `227/227 PASS`.
+**Stav:** `REMEDIATION_IN_PROGRESS / REREVIEW_REQUIRED`. Candidate
+`d8a2a108` sice prošel tehdejším rereview, ale pozdější review rozsahu
+`96c762db..4169c59d` prokázalo upgrade-unsafe migrace a nepravdivou startup
+autoritu. Historický `227/227 PASS` proto není přijetím současné revize.
+Aktuální evidence bude v
+[`model-evaluation-review-remediation-2-20260826.md`](../execution/runs/model-evaluation-review-remediation-2-20260826.md).
 
 ## 1. Uživatelský výsledek
 
@@ -159,7 +159,7 @@ tohoto WP.
 | M4 — sedm role suites a fail-closed minima | PASS |
 | M5 — API, CLI, Studio, governor, registry a dokumentace | PASS |
 | M6 — registry, hygiene a module-boundary ratchet | PASS |
-| M7 — clean deterministic + server-owned read E2E handoff | PASS |
+| M7 — clean deterministic + server-owned read E2E handoff | RERUN REQUIRED |
 
 První nezávislé review: `CHANGES_REQUESTED`. Remediační R0–R7 opravily všech
 devět nálezů: úplnou suite identity, upgrade okno 070→082, governor reader,
@@ -168,6 +168,7 @@ mrtvou speed větev a stabilní decision enum. Druhý nezávislý rereview nad
 `d8a2a108` skončil `PASS`; run `2026-08-25T17-15-48-322Z` reprodukoval
 `227/227`.
 
-Přijetí operátorem: `ACCEPTED`. Ostrý GPU/Ollama eval panel nebyl
-součástí cleanup acceptance a je pravdivě `NOT RUN`; starší výsledky se
-nepovyšují na current-contract PASS.
+Historické přijetí operátorem bylo navazujícím review zneplatněno. Nový stav
+`ACCEPTED` může vzniknout až po čistém gate na novém HEAD a novém nezávislém
+rereview. Ostrý GPU/Ollama eval panel není součástí této remediace; starší
+výsledky se nepovyšují na current-contract PASS.

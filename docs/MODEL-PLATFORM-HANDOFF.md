@@ -21,6 +21,10 @@
   agregované quality score, blacklist a paralelní telemetry scorer jsou pryč;
 - rozhodnutí je akční jen po portfolio gate a pouze s explicitním
   `activationEligible=true`.
+- `DURABLE` vzniká pouze z runtime+provider startup ověření všech rolí;
+  provider/drift failure je veřejné `DEGRADED` a blokuje actionability, zatímco
+  rehydrate failure zastaví start. Standalone CLI je vždy
+  `UNVERIFIED_RUNTIME`.
 - promptový contract pokrývá text, rubric, language, grading inputs, VISION
   image bytes a skutečný CODE `buildPrompt`; outcome používá stabilní enum;
 - migrace 082 bezpečně zachová i v123 zápisy vzniklé po aplikaci migrace 070;

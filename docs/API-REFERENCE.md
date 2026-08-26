@@ -494,6 +494,10 @@ Lifecycle endpoints are spread across projects and expertises routes:
 
 Každý artifact/role řádek obsahuje exact digest, suite version a contract SHA,
 stav `COMPLETE|FAILED|BLOCKED|MISSING`, score a timestamp tam, kde existují.
+`bindingAuthority.status` je `DURABLE` pouze po startup ověření všech sedmi
+runtime modelů a digestů. `DEGRADED`, `UNVERIFIED_RUNTIME` a bootstrap stavy
+blokují candidate actionability; jinak připravený kandidát dostane
+`BINDING_AUTHORITY_DEGRADED`. DB řádky samy actionability nezakládají.
 Odstraněné v123 endpointy `/validate` a `/validation-scores` vracejí 404;
 evaluace se spouštějí řízeným hunt workflow, nikoli skrytým HTTP/WS jobem.
 

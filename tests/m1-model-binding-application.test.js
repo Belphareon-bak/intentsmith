@@ -584,7 +584,7 @@ await testAsync('startup reconciliation persists every installed configured role
   });
 });
 
-await testAsync('startup rejects durable state when configured runtime differs from DB', async () => {
+await testAsync('startup degrades authority when configured runtime differs from DB', async () => {
   await withFixture(async ({ repository, provider, application }) => {
     for (const role of Object.keys(config.models)) config.models[role] = 'fixture-base';
     const first = await application.reconcileConfiguredBindingBaselines();
@@ -603,15 +603,20 @@ await testAsync('startup rejects durable state when configured runtime differs f
     assertEqual(provider.calls.resolve, 7);
     assertEqual(repository.getDesired('CODE').modelName, 'fixture-base');
 
-    const error = await captureError(() => requireModelBindingStartupAuthority({
+    const authority = requireModelBindingStartupAuthority({
       rehydrate: { failed: [] },
       baseline: mismatch,
-    }));
-    assertEqual(error.code, 'MODEL_BINDING_STARTUP_BASELINE_FAILED');
+    });
+    assertEqual(authority.status, 'DEGRADED');
+    assertEqual(authority.reason, 'MODEL_BINDING_STARTUP_BASELINE_FAILED');
+    assertEqual(authority.failures.length, 1);
+    assertEqual(authority.failures[0].role, 'CODE');
+    assertEqual(authority.failures[0].code, 'MODEL_BINDING_BASELINE_RUNTIME_MISMATCH');
+    assertEqual(authority.verifiedRoles.length, 6);
   });
 });
 
-await testAsync('startup rejects durable state when the installed artifact digest drifts', async () => {
+await testAsync('startup degrades authority when the installed artifact digest drifts', async () => {
   await withFixture(async ({ provider, application }) => {
     for (const role of Object.keys(config.models)) config.models[role] = 'fixture-base';
     const first = await application.reconcileConfiguredBindingBaselines();
@@ -621,12 +626,28 @@ await testAsync('startup rejects durable state when the installed artifact diges
     const drift = await application.reconcileConfiguredBindingBaselines();
     assertEqual(drift.failed, 7);
     assert(drift.roles.every(row => row.code === 'MODEL_BINDING_BASELINE_DIGEST_MISMATCH'));
-    const error = await captureError(() => requireModelBindingStartupAuthority({
+    const authority = requireModelBindingStartupAuthority({
       rehydrate: { failed: [] },
       baseline: drift,
-    }));
-    assertEqual(error.code, 'MODEL_BINDING_STARTUP_BASELINE_FAILED');
+    });
+    assertEqual(authority.status, 'DEGRADED');
+    assertEqual(authority.failures.length, 7);
+    assertEqual(authority.verifiedRoles.length, 0);
   });
+});
+
+await testAsync('startup rejects an inconsistent baseline summary instead of degrading it', async () => {
+  const error = await captureError(() => requireModelBindingStartupAuthority({
+    rehydrate: { failed: [] },
+    baseline: {
+      rolesChecked: 7,
+      created: 0,
+      alreadyDurable: 7,
+      failed: 0,
+      roles: [],
+    },
+  }));
+  assertEqual(error.code, 'MODEL_BINDING_STARTUP_AUTHORITY_INVALID');
 });
 
 await testAsync('startup stops immediately after any rehydrate failure', async () => {

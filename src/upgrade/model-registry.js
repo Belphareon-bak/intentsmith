@@ -147,6 +147,7 @@ export class ModelRegistry {
     this._upgradeManager = null;
     this._modelBindingApplication = null;
     this._bindingRepository = null;
+    this._bindingStartupAuthority = null;
     this._evaluationReadModel = null;
     this._broadcast = null;
     this._overviewCache = null;
@@ -163,6 +164,7 @@ export class ModelRegistry {
     upgradeManager,
     modelBindingApplication,
     bindingRepository,
+    bindingStartupAuthority,
     modelEvaluationReadModel,
     broadcast,
     clock,
@@ -173,6 +175,36 @@ export class ModelRegistry {
     this._upgradeManager = upgradeManager;
     this._modelBindingApplication = modelBindingApplication || null;
     this._bindingRepository = bindingRepository || null;
+    if (bindingStartupAuthority !== undefined && bindingStartupAuthority !== null) {
+      const expectedRoles = Object.keys(ROLE_PROFILES).sort();
+      const durableRoles = Array.isArray(bindingStartupAuthority?.roles)
+        ? [...bindingStartupAuthority.roles].sort()
+        : [];
+      const validDurable = bindingStartupAuthority?.status === 'DURABLE'
+        && durableRoles.length === expectedRoles.length
+        && durableRoles.every((role, index) => role === expectedRoles[index]);
+      const validDegraded = bindingStartupAuthority?.status === 'DEGRADED'
+        && typeof bindingStartupAuthority.reason === 'string'
+        && bindingStartupAuthority.reason.length > 0
+        && Array.isArray(bindingStartupAuthority.verifiedRoles)
+        && Array.isArray(bindingStartupAuthority.failures);
+      if (!validDurable && !validDegraded) {
+        registryFail(
+          'MODEL_BINDING_STARTUP_AUTHORITY_INVALID',
+          'Model binding startup authority is invalid',
+          503,
+        );
+      }
+      this._bindingStartupAuthority = Object.freeze({
+        status: bindingStartupAuthority.status,
+        roles: Object.freeze(durableRoles),
+        reason: bindingStartupAuthority.reason || null,
+        verifiedRoles: Object.freeze([...(bindingStartupAuthority.verifiedRoles || [])]),
+        failures: Object.freeze([...(bindingStartupAuthority.failures || [])]),
+      });
+    } else {
+      this._bindingStartupAuthority = null;
+    }
     this._evaluationReadModel = modelEvaluationReadModel || null;
     this._broadcast = broadcast || (() => {});
     this._clock = typeof clock === 'function' ? clock : Date.now;
@@ -272,23 +304,64 @@ export class ModelRegistry {
     if (!this._bindingRepository) {
       return Object.freeze({
         status: 'BOOTSTRAP_FALLBACK',
+        reason: 'MODEL_BINDING_REPOSITORY_UNAVAILABLE',
         bindings: Object.freeze({ ...config.models }),
         durable: Object.freeze({}),
+        verifiedRoles: Object.freeze([]),
+        failures: Object.freeze([]),
       });
     }
     try {
+      const roles = Object.keys(ROLE_PROFILES).sort();
       const resolved = resolveCurrentBindings(
         config.models,
         this._bindingRepository,
-        Object.keys(ROLE_PROFILES),
+        roles,
       );
       const durableCount = Object.keys(resolved.durable).length;
+      const startupAuthority = this._bindingStartupAuthority;
+      if (startupAuthority?.status === 'DEGRADED') {
+        return Object.freeze({
+          status: 'DEGRADED',
+          reason: startupAuthority.reason || 'MODEL_BINDING_STARTUP_BASELINE_FAILED',
+          // config.models is the runtime port observed during startup. Durable
+          // rows remain audit evidence but must not replace a mismatched runtime
+          // in the public projection.
+          bindings: Object.freeze({ ...config.models }),
+          durable: resolved.durable,
+          verifiedRoles: Object.freeze([...(startupAuthority.verifiedRoles || [])]),
+          failures: Object.freeze([...(startupAuthority.failures || [])]),
+        });
+      }
+
+      const runtimeMatchesDurable = roles.every(role => (
+        resolved.durable[role]
+        && sameModelName(resolved.durable[role], config.models[role])
+      ));
+      if (startupAuthority?.status === 'DURABLE'
+        && durableCount === roles.length
+        && runtimeMatchesDurable) {
+        return Object.freeze({
+          status: 'DURABLE',
+          reason: null,
+          bindings: resolved.bindings,
+          durable: resolved.durable,
+          verifiedRoles: Object.freeze([...roles]),
+          failures: Object.freeze([]),
+        });
+      }
+
       return Object.freeze({
-        status: durableCount === Object.keys(ROLE_PROFILES).length
-          ? 'DURABLE'
-          : 'DURABLE_WITH_BOOTSTRAP_FALLBACK',
-        bindings: resolved.bindings,
+        status: startupAuthority?.status === 'DURABLE'
+          ? 'DEGRADED'
+          : 'UNVERIFIED_RUNTIME',
+        reason: startupAuthority?.status === 'DURABLE'
+          ? 'MODEL_BINDING_RUNTIME_STATE_CHANGED'
+          : 'MODEL_BINDING_RUNTIME_NOT_OBSERVED',
+        bindings: Object.freeze({ ...config.models }),
         durable: resolved.durable,
+        verifiedRoles: Object.freeze([]),
+        failures: Object.freeze([]),
       });
     } catch (error) {
       throw new ModelRegistryError(
@@ -431,6 +504,9 @@ export class ModelRegistry {
       bindingAuthority: {
         status: bindingState.status,
         durableRoles: Object.keys(bindingState.durable).sort(),
+        verifiedRoles: bindingState.verifiedRoles,
+        reason: bindingState.reason,
+        failures: bindingState.failures,
       },
     });
   }

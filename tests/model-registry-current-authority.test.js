@@ -111,6 +111,7 @@ function createRegistry(db, opts = {}) {
       applyManualBinding: async () => ({ ok: true }),
     },
     bindingRepository: opts.bindingRepository || null,
+    bindingStartupAuthority: opts.bindingStartupAuthority,
     modelEvaluationReadModel: opts.modelEvaluationReadModel || completeEvaluationReadModel(),
     broadcast: opts.broadcast || (() => {}),
     clock: opts.clock,
@@ -142,6 +143,59 @@ test('artifact digests are exact normalized sha256 values', () => {
 });
 
 suite('registry binding and deletion authority');
+
+test('registry never derives DURABLE from DB row count without startup verification', () => {
+  const db = createTestDb();
+  try {
+    for (const role of Object.keys(config.models)) config.models[role] = `runtime-${role.toLowerCase()}`;
+    const bindingRepository = {
+      getDesired: role => ({ modelName: config.models[role] }),
+    };
+    const unverified = createRegistry(db, { bindingRepository });
+    assertEqual(unverified.getBindingState().status, 'UNVERIFIED_RUNTIME');
+
+    const durable = createRegistry(db, {
+      bindingRepository,
+      bindingStartupAuthority: {
+        status: 'DURABLE',
+        roles: Object.freeze(Object.keys(config.models).sort()),
+      },
+    });
+    assertEqual(durable.getBindingState().status, 'DURABLE');
+    assertEqual(durable.getBindingState().verifiedRoles.length, 7);
+  } finally { db.close(); restoreBindings(); }
+});
+
+await testAsync('registry publishes runtime bindings and disables durable claims when startup is degraded', async () => {
+  const db = createTestDb();
+  try {
+    for (const role of Object.keys(config.models)) config.models[role] = `runtime-${role.toLowerCase()}`;
+    const bindingRepository = {
+      getDesired: role => ({
+        modelName: role === 'CODE' ? 'stale-durable-code' : config.models[role],
+      }),
+    };
+    const registry = createRegistry(db, {
+      bindingRepository,
+      bindingStartupAuthority: {
+        status: 'DEGRADED',
+        reason: 'MODEL_BINDING_STARTUP_BASELINE_FAILED',
+        verifiedRoles: Object.keys(config.models).filter(role => role !== 'CODE'),
+        failures: [{ role: 'CODE', code: 'MODEL_BINDING_BASELINE_RUNTIME_MISMATCH' }],
+      },
+    });
+    const state = registry.getBindingState();
+    assertEqual(state.status, 'DEGRADED');
+    assertEqual(state.bindings.CODE, 'runtime-code');
+    assertEqual(state.durable.CODE, 'stale-durable-code');
+    assertEqual(state.failures[0].code, 'MODEL_BINDING_BASELINE_RUNTIME_MISMATCH');
+
+    const evaluations = await registry.getEvaluations([]);
+    assertEqual(evaluations.bindingAuthority.status, 'DEGRADED');
+    assertEqual(evaluations.bindingAuthority.durableRoles.length, 7);
+    assertEqual(evaluations.bindingAuthority.verifiedRoles.length, 6);
+  } finally { db.close(); restoreBindings(); }
+});
 
 await testAsync('bound aliases are blocked before provider effects', async () => {
   const db = createTestDb();

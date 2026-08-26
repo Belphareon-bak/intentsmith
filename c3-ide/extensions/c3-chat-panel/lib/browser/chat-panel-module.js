@@ -3022,12 +3022,17 @@ function _renderEvaluationsTab(){
   if(_evaluationLoading&&!_evaluationData)return h('div',{style:{color:C.tx3,padding:20,textAlign:'center'}},'Načítám evaluace modelů...');
   if(!_evaluationData||_evaluationData.error)return h('div',{style:{color:'#ef4444',padding:20,textAlign:'center'}},'Chyba: '+(_evaluationData?_evaluationData.error:'žádná data'));
   var roles=_evaluationData.roles||{};var roleNames=Object.keys(roles);
+  var bindingAuthority=_evaluationData.bindingAuthority||{status:'UNVERIFIED_RUNTIME'};
+  var bindingDurable=bindingAuthority.status==='DURABLE';
   var statusColor={COMPLETE:C.accent,FAILED:'#ef4444',BLOCKED:'#eab308',MISSING:C.tx4};
   function tested(value){return value?new Date(value).toLocaleString('cs-CZ'):'\u2014';}
   return h('div',null,
     h('div',{style:{fontSize:_fs(10),color:C.tx3,marginBottom:12,lineHeight:1.5}},
       'Autorita: model_evaluation_runs · pouze exact digest + current suite contract · bez legacy fallbacku. ',
       'Čas testu je auditní údaj; neexistuje skrytá 14denní platnost ani mezi-role průměr.'),
+    h('div',{style:{fontSize:_fs(10),color:bindingDurable?C.accent:'#eab308',marginBottom:12,padding:'7px 9px',borderRadius:6,background:C.bg2,border:'1px solid '+C.border}},
+      'Binding autorita: '+bindingAuthority.status+(bindingAuthority.reason?' · '+bindingAuthority.reason:'')+
+      (bindingDurable?'':' · doporučení a aktivace z evaluace jsou neakční')),
     roleNames.map(function(role){
       var rd=roles[role];var artifacts=rd.artifacts||[];var decisions=rd.decisions||[];
       return h('div',{key:role,style:{marginBottom:20}},

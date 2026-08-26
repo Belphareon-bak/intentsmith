@@ -25,8 +25,10 @@ evaluace a oddělená, ručně autorizovaná cesta pro změnu bindingu.
 7. Každá nakonfigurovaná role má durable exact-artifact baseline. Startup
    doplní pouze chybějící řádek z installed inventory; existující autoritu
    nepřepisuje, ale vždy ji znovu porovná s runtime jménem a installed exact
-   digestem. Rehydrate, runtime nebo digest mismatch zastaví startup před
-   zveřejněním API/CLI/Studio actionability.
+   digestem. Selhání rehydratace zastaví startup. Nedostupný provider, runtime
+   mismatch nebo digest mismatch ponechá nemodelové route dostupné, ale
+   zveřejní binding autoritu `DEGRADED`; žádné candidate rozhodnutí pak není
+   akční a jinak připravený kandidát nese `BINDING_AUTHORITY_DEGRADED`.
 
 Suite contract nehashuje zdroj wrapper closure. Hashuje explicitní skutečný
 prompt, language, rubric, grader a jeho uzavřené vstupy, options a repeats.
@@ -46,6 +48,12 @@ npm run report:model-evaluations
 npm run report:model-evaluations -- --json
 curl -s http://127.0.0.1:3335/api/system/models/evaluations
 ```
+
+Serverové API a Studio mohou hlásit `DURABLE` pouze po úspěšném startup
+ověření všech sedmi runtime bindingů a exact digestů. Samostatný CLI proces
+runtime serveru nepozoruje, proto poctivě hlásí `UNVERIFIED_RUNTIME` a nikdy
+nevydá `READY_FOR_MANUAL_BINDING`; skóre, digesty, contracty a timestampy tím
+zůstávají plně čitelné.
 
 Každá role/artifact položka uvádí stav `COMPLETE`, `FAILED`, `BLOCKED` nebo
 `MISSING`, přesný digest, suite/version/contract, `score` a `testedAt` tam, kde

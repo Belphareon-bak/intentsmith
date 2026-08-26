@@ -191,6 +191,10 @@ test('model evaluation tab renders every decision instead of only the latest row
     _fs: value => value,
     _evaluationLoading: false,
     _evaluationData: {
+      bindingAuthority: {
+        status: 'DEGRADED',
+        reason: 'MODEL_BINDING_STARTUP_BASELINE_FAILED',
+      },
       roles: {
         CODE: {
           binding: 'qwen3.5:27b',
@@ -237,6 +241,8 @@ test('model evaluation tab renders every decision instead of only the latest row
   assert.match(rendered, /qwen3\.8:latest/);
   assert.match(rendered, /INCUMBENT/);
   assert.match(rendered, /qwen3-coder:latest/);
+  assert.match(rendered, /Binding autorita: DEGRADED/);
+  assert.match(rendered, /doporučení a aktivace z evaluace jsou neakční/);
 });
 
 function validPostbuildProtocol() {

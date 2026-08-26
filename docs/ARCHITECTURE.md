@@ -779,7 +779,7 @@ User Query
 - **Role = model** — each role maps to exactly one model at any time
 - **Upgrade binding is user-controlled** — evaluation may produce a decision, but only an explicit manual binding command changes the role; the independent failover policy is default-off
 - **Single writer** — `ModelBindingApplication` durably records, applies and verifies the exact artifact; old `UpgradeManager` writers do not exist
-- **Complete startup authority** — a configured role without desired state is observed once with its installed exact digest; existing durable rows are never overwritten by bootstrap
+- **Complete startup authority** — a configured role without desired state is observed once with its installed exact digest; existing durable rows are never overwritten by bootstrap; only seven runtime+digest checks produce `DURABLE`, while provider/drift failures publish `DEGRADED` and disable evaluation actionability without taking non-model routes down
 - **Concurrency** — single-slot semaphore by default (`C3_MAX_CONCURRENT_LLM=1`), serializes all LLM calls across roles to prevent GPU contention
 
 **MODEL_PROFILES** (defined in `src/upgrade/model-profiles.js`) are metadata used by discovery and role eligibility. They are never a request-time router or quality authority.

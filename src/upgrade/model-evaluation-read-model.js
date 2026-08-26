@@ -97,7 +97,9 @@ function decodeDecision(row, context) {
   let actionability = 'NOT_CANDIDATE_WIN';
   if (row.outcome === 'CANDIDATE') {
     if (details.activationEligible !== true) actionability = 'PORTFOLIO_NOT_APPROVED';
-    else if (!bindingArtifact?.digestSha256) actionability = 'BINDING_ARTIFACT_UNRESOLVED';
+    else if (context.bindingAuthority.status !== 'DURABLE') {
+      actionability = 'BINDING_AUTHORITY_DEGRADED';
+    } else if (!bindingArtifact?.digestSha256) actionability = 'BINDING_ARTIFACT_UNRESOLVED';
     else if (bindingArtifact.digestSha256 !== row.incumbent_digest_sha256) {
       actionability = 'INCUMBENT_BINDING_CHANGED';
     } else if (!candidateArtifact) actionability = 'CANDIDATE_NOT_INSTALLED';
@@ -128,6 +130,25 @@ function decodeDecision(row, context) {
   });
 }
 
+function normalizeBindingAuthority(value) {
+  const authority = value && typeof value === 'object' ? value : {};
+  return Object.freeze({
+    status: typeof authority.status === 'string'
+      ? authority.status
+      : 'UNVERIFIED_RUNTIME',
+    durableRoles: Object.freeze(Array.isArray(authority.durableRoles)
+      ? [...authority.durableRoles]
+      : []),
+    verifiedRoles: Object.freeze(Array.isArray(authority.verifiedRoles)
+      ? [...authority.verifiedRoles]
+      : []),
+    reason: typeof authority.reason === 'string' ? authority.reason : null,
+    failures: Object.freeze(Array.isArray(authority.failures)
+      ? [...authority.failures]
+      : []),
+  });
+}
+
 export class ModelEvaluationReadModel {
   constructor(db, opts = {}) {
     if (!db || typeof db.prepare !== 'function') {
@@ -151,6 +172,7 @@ export class ModelEvaluationReadModel {
   read(input = {}) {
     const inventory = Array.isArray(input.inventory) ? input.inventory.map(exactArtifact) : [];
     const bindings = input.bindings && typeof input.bindings === 'object' ? input.bindings : {};
+    const bindingAuthority = normalizeBindingAuthority(input.bindingAuthority);
     try {
       const models = inventory.map(artifact => {
         const evaluations = {};
@@ -201,7 +223,7 @@ export class ModelEvaluationReadModel {
             AND candidate.suite_contract_sha256 = ?
           ORDER BY d.created_at DESC, d.decision_id DESC
         `).all(role, plan.suiteName, plan.suiteVersion, plan.suiteContractSha256).map(row => (
-          decodeDecision(row, { inventory, binding: bindings[role] })
+          decodeDecision(row, { inventory, binding: bindings[role], bindingAuthority })
         ));
         decisions.push(...roleDecisions);
         roles[role] = Object.freeze({
@@ -237,7 +259,7 @@ export class ModelEvaluationReadModel {
           currentContractOnly: true,
           legacyFallback: false,
         }),
-        bindingAuthority: input.bindingAuthority || null,
+        bindingAuthority,
         bindings: Object.freeze({ ...bindings }),
         statusCounts: Object.freeze(statusCounts),
         decisions: Object.freeze(decisions),

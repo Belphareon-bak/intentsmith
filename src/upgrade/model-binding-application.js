@@ -270,7 +270,11 @@ function defaultDelay(ms) {
  * Startup may expose model actionability only after rehydration and baseline
  * reconciliation are complete and truthful. Call once after rehydration (to
  * stop before any baseline writes on failure), then again with the baseline
- * summary before routes, CLI bridges or Studio can observe the registry.
+ * summary before routes or Studio can observe the registry. A rehydrate
+ * failure means the configured runtime is unknown and stops startup. A
+ * provider/baseline failure is instead published as explicit DEGRADED
+ * authority so non-model routes remain available while model decision
+ * actionability stays disabled.
  */
 export function requireModelBindingStartupAuthority(input) {
   const rehydrate = input?.rehydrate;
@@ -296,17 +300,25 @@ export function requireModelBindingStartupAuthority(input) {
   const expectedRoles = Object.keys(config.models).sort();
   const rows = Array.isArray(baseline?.roles) ? baseline.roles : [];
   const observedRoles = rows.map(row => row?.role).sort();
-  const complete = isPlainObject(baseline)
+  const allowedOutcomes = new Set(['CREATED', 'ALREADY_DURABLE', 'FAILED']);
+  const countersValid = ['rolesChecked', 'created', 'alreadyDurable', 'failed']
+    .every(key => Number.isInteger(baseline?.[key]) && baseline[key] >= 0);
+  const shapeValid = isPlainObject(baseline)
+    && countersValid
     && baseline.rolesChecked === expectedRoles.length
-    && baseline.failed === 0
-    && baseline.created + baseline.alreadyDurable === expectedRoles.length
     && rows.length === expectedRoles.length
     && observedRoles.every((role, index) => role === expectedRoles[index])
-    && rows.every(row => ['CREATED', 'ALREADY_DURABLE'].includes(row?.outcome));
-  if (!complete) {
+    && rows.every(row => isPlainObject(row)
+      && typeof row.role === 'string'
+      && allowedOutcomes.has(row.outcome))
+    && baseline.created === rows.filter(row => row.outcome === 'CREATED').length
+    && baseline.alreadyDurable === rows.filter(row => row.outcome === 'ALREADY_DURABLE').length
+    && baseline.failed === rows.filter(row => row.outcome === 'FAILED').length
+    && baseline.created + baseline.alreadyDurable + baseline.failed === expectedRoles.length;
+  if (!shapeValid) {
     fail(
-      'MODEL_BINDING_STARTUP_BASELINE_FAILED',
-      'Configured model binding baselines are incomplete or inconsistent',
+      'MODEL_BINDING_STARTUP_AUTHORITY_INVALID',
+      'Configured model binding baseline summary is invalid',
       {
         expectedRoles,
         rolesChecked: baseline?.rolesChecked ?? null,
@@ -316,6 +328,23 @@ export function requireModelBindingStartupAuthority(input) {
         roles: rows,
       },
     );
+  }
+
+  if (baseline.failed > 0) {
+    const failures = rows
+      .filter(row => row.outcome === 'FAILED')
+      .map(row => Object.freeze({ role: row.role, code: row.code || null }));
+    const verifiedRoles = rows
+      .filter(row => row.outcome !== 'FAILED')
+      .map(row => row.role)
+      .sort();
+    return Object.freeze({
+      status: 'DEGRADED',
+      reason: 'MODEL_BINDING_STARTUP_BASELINE_FAILED',
+      roles: Object.freeze(expectedRoles),
+      verifiedRoles: Object.freeze(verifiedRoles),
+      failures: Object.freeze(failures),
+    });
   }
   return Object.freeze({ status: 'DURABLE', roles: Object.freeze(expectedRoles) });
 }

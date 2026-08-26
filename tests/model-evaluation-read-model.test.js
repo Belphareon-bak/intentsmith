@@ -140,12 +140,17 @@ test('current decision is linked to exact runs and only actionable for the bound
     decisionId: 'decision-chat', role: 'CHAT', incumbentRunId: 'incumbent-chat',
     candidateRunId: 'candidate-chat', outcome: 'CANDIDATE', activationEligible: true,
   });
-  const result = new ModelEvaluationReadModel(db, { plans }).read({
+  const reader = new ModelEvaluationReadModel(db, { plans });
+  const input = {
     inventory: [
       { name: 'incumbent:latest', digest: DIGEST },
       { name: 'candidate:latest', digest: OLD_DIGEST },
     ],
     bindings: { CHAT: 'incumbent' },
+  };
+  const result = reader.read({
+    ...input,
+    bindingAuthority: { status: 'DURABLE', durableRoles: ['CHAT'], verifiedRoles: ['CHAT'] },
   });
   assertEqual(result.roles.CHAT.latestDecision.decisionId, 'decision-chat');
   assertEqual(result.roles.CHAT.latestDecision.actionable, true);
@@ -154,6 +159,22 @@ test('current decision is linked to exact runs and only actionable for the bound
   const rendered = renderEvaluationReport(result);
   assert(rendered.includes('DECISION CANDIDATE'));
   assert(rendered.includes('READY_FOR_MANUAL_BINDING'));
+
+  const degraded = reader.read({
+    ...input,
+    bindingAuthority: {
+      status: 'DEGRADED',
+      durableRoles: ['CHAT'],
+      verifiedRoles: [],
+      reason: 'MODEL_BINDING_STARTUP_BASELINE_FAILED',
+      failures: [{ role: 'CHAT', code: 'MODEL_BINDING_PROVIDER_UNAVAILABLE' }],
+    },
+  });
+  assertEqual(degraded.roles.CHAT.latestDecision.actionable, false);
+  assertEqual(
+    degraded.roles.CHAT.latestDecision.actionability,
+    'BINDING_AUTHORITY_DEGRADED',
+  );
   db.close();
 });
 
@@ -180,6 +201,7 @@ test('pairwise winner without final portfolio approval is not actionable', () =>
       { name: 'candidate:latest', digest: OLD_DIGEST },
     ],
     bindings: { R2: 'incumbent' },
+    bindingAuthority: { status: 'DURABLE', durableRoles: ['R2'], verifiedRoles: ['R2'] },
   }).roles.R2.latestDecision;
   assertEqual(decision.actionable, false);
   assertEqual(decision.actionability, 'PORTFOLIO_NOT_APPROVED');

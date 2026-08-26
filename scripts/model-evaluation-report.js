@@ -47,7 +47,7 @@ export function renderEvaluationReport(readModel) {
   const lines = [
     `Autorita: ${readModel.authority.tables.join(' + ')}; current contract only; legacy fallback OFF`,
     `Vygenerováno: ${readModel.generatedAt}`,
-    `Binding autorita: ${readModel.bindingAuthority?.status || 'UNKNOWN'}`,
+    `Binding autorita: ${readModel.bindingAuthority?.status || 'UNKNOWN'}${readModel.bindingAuthority?.reason ? ` (${readModel.bindingAuthority.reason})` : ''}`,
     '',
   ];
   for (const [role, state] of Object.entries(readModel.roles)) {
@@ -77,10 +77,14 @@ export async function buildEvaluationReport(options = {}) {
       inventory,
       bindings: bindingState.bindings,
       bindingAuthority: {
-        status: Object.keys(bindingState.durable).length === roles.length
-          ? 'DURABLE'
-          : 'DURABLE_WITH_BOOTSTRAP_FALLBACK',
+        // This process observes desired DB rows and provider inventory, but it
+        // does not own or inspect the running server's binding runtime. Never
+        // turn a complete row count into actionable runtime authority.
+        status: 'UNVERIFIED_RUNTIME',
         durableRoles: Object.keys(bindingState.durable).sort(),
+        verifiedRoles: [],
+        reason: 'MODEL_BINDING_RUNTIME_NOT_OBSERVED',
+        failures: [],
       },
     });
   } finally {

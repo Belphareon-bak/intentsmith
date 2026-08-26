@@ -283,10 +283,16 @@ for (const failure of bindingBaselineReconcile.roles.filter(row => row.outcome =
     `Configured model binding baseline failed for ${failure.role}: ${failure.code}`,
   );
 }
-requireModelBindingStartupAuthority({
+const bindingStartupAuthority = requireModelBindingStartupAuthority({
   rehydrate: bindingRehydrate,
   baseline: bindingBaselineReconcile,
 });
+if (bindingStartupAuthority.status === 'DEGRADED') {
+  logger.warn(
+    'Server',
+    `Model binding authority is DEGRADED; decision actionability disabled (${bindingStartupAuthority.reason})`,
+  );
+}
 
 // Registry metadata client supports factual online discovery only.
 try {
@@ -330,6 +336,7 @@ try {
     upgradeManager,
     modelBindingApplication,
     bindingRepository,
+    bindingStartupAuthority,
     modelEvaluationReadModel,
     broadcast: bindingBroadcast,
   });

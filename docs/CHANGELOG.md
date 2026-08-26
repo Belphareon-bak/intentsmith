@@ -8,7 +8,7 @@
 
 ---
 
-## v136.5 — upgrade-safe evaluace a fail-closed binding startup (2026-08-26)
+## v136.5 — upgrade-safe evaluace a pravdivá binding autorita (2026-08-26)
 
 - Obnoveny neměnné migrační identity 081/081/082. Omylem zavedené identity
   084–086 jsou trvale vyřazené a runner je atomicky adoptuje zpět bez druhého
@@ -18,8 +18,11 @@
 - Importní preflight 082 porovnává celý importovaný řádek včetně contractu,
   canonical identity, JSON payloadů a timestampu před odstraněním v123 tabulek.
 - Startup znovu ověřuje runtime model a installed digest proti každému durable
-  bindingu. Rehydrate, runtime či digest mismatch fail-closed zastaví server
-  před zveřejněním rout a modelové actionability.
+  bindingu. Rehydrate failure zastaví server; nedostupný provider, runtime či
+  digest mismatch zveřejní `DEGRADED` a blokuje modelovou actionability, ale
+  zachová kontrakt dostupných nemodelových rout. `DURABLE` se už nikdy
+  neodvozuje pouze z počtu DB řádků a standalone CLI je
+  `UNVERIFIED_RUNTIME`.
 - Setup config má schema v2: známé staré defaulty se povýší na současné
   sedmirolové portfolio, skutečné override se zachovají. Studio fallback a
   required T3 E2E prerequisites používají stejné portfolio jako installer.
