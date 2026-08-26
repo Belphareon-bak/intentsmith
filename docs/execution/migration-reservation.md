@@ -182,6 +182,7 @@ záznamu selže v `artifact-validation`.
 | `2026_08_26_088_m4_learning_plan_evaluations.js` | použito |
 | `2026_08_26_089_m5_outbound_audit.js` | použito |
 | `2026_08_26_090_m5_privacy_authority.js` | použito |
+| `2026_08_26_091_m5_privacy_writer_authority.js` | použito |
 <!-- migration-source-manifest:end -->
 
 ## Proč to nejsou 058 a 059

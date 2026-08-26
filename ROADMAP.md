@@ -1449,14 +1449,16 @@ Autoritativní module graph má 1 176 hran, stále 3 cykly a 28 souborů v cykle
 Důkaz je v
 [`m5-remote-conditional-20260826.md`](docs/execution/runs/m5-remote-conditional-20260826.md).
 
-`WP-M5-PRIVACY` je implementation-green na product commitu `a92b9fde` a
-module baseline `a699b436`. Migrace 090 odstraní známé plaintext credential
-klíče z `user_settings`; SQLite, HTTP i WS je fail-closed odmítají a aktivní
-Studio je už nenabízí. Osm rotation kategorií a jedna history disposition mají
-append-only, transportně autentizované receipts bez secret values. Čistý scan
-1 835 souborů má nula current-tree findings, ale všech 13 známých incident
-objektů je stále dosažitelných. Autoritativní module graph má 1 184 hran, stále 3 cykly a
-28 souborů v cyklech. Důkaz je v
+`WP-M5-PRIVACY` má remediation implementovanou na product commitu `1f4d15e3`
+a module baseline `d3829643`; oddíl zůstává `RE_REVIEW_REQUIRED`. Migrace 090
+odstraňuje známé plaintext credential klíče z `user_settings` a migrace 091
+navíc vyžaduje pro každý rotation/history INSERT přesnou opaque transportní
+writer authority až na SQL triggeru. Přímý canonical SQL INSERT proto
+fail-closed selže. Exact-HEAD scanner odvozuje čtené roots z distribučního
+manifestu, rozlišuje 1 844 tracked a 979 content-read souborů a má nula
+current-tree findings; všech 13 známých incident objektů je stále dosažitelných.
+Autoritativní module graph má 1 186 hran, stále 3 cykly a 28 souborů v cyklech.
+Původní důkaz je v
 [`m5-privacy-20260826.md`](docs/execution/runs/m5-privacy-20260826.md).
 
 Integrační kandidát `94ea4ea7` navíc opravil statický bootstrap čtyř M5 root
