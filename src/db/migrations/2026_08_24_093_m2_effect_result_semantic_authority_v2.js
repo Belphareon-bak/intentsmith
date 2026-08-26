@@ -16,8 +16,10 @@ import {
   computeM2EffectCoreFingerprintV073,
 } from '../m2-effect-core-v073-prerequisite.js';
 
-export const version = '2026_08_24_081_m2_effect_result_semantic_authority_v2';
+export const version = '2026_08_24_093_m2_effect_result_semantic_authority_v2';
 export const description = 'Version EffectResult semantic authority and quarantine loose legacy terminals';
+const QUARANTINE_SOURCE_MIGRATION =
+  '2026_08_24_081_m2_effect_result_semantic_authority_v2';
 
 export const EXPECTED_M2_EFFECT_RESULT_SEMANTIC_V2_FINGERPRINT = 'f00754e3600c2131224b1dd819c5c167ad548090db11773311818ee66f114236';
 export const EXPECTED_M2_EFFECT_INVALIDATION_SCHEMA_FINGERPRINT_V081 = 'edf827558f8ea9d9fd67f0c86585646dc291949fe5a8f3c53e9c03adbb2d23b9';
@@ -148,7 +150,15 @@ function quarantineLooseLegacyResults(db) {
       throw new Error(`M2_EFFECT_RESULT_SEMANTIC_081_EXISTING_V1_RESULT_INVALID:${row.effectId}`);
     }
     if (matches(validateEffectResultForRequest, row.requestJson, row.resultJson) === 1) continue;
-    insert.run(row.effectId, row.requestDigest, jsonDigest(row.resultJson), version);
+    // Keep the persisted provenance byte-identical to the already-applied 081
+    // schema. The migration stamp moves to 093, but historical quarantine rows
+    // remain attributable to the migration body which originally produced them.
+    insert.run(
+      row.effectId,
+      row.requestDigest,
+      jsonDigest(row.resultJson),
+      QUARANTINE_SOURCE_MIGRATION,
+    );
   }
 }
 

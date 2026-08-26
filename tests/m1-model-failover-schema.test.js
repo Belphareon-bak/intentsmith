@@ -392,7 +392,7 @@ suite('M1 model failover schema — exact migration contract');
 await testAsync('fresh file-backed DB creates all failover tables, indexes and triggers', async () => {
   await withMigratedDb(async (db) => {
     // M2 rollback receipt migration 083 is the current repository schema tip.
-    assertEqual(getCurrentVersion(db), '2026_08_25_083_m2_effect_rollback_receipts');
+    assertEqual(getCurrentVersion(db), '2026_08_25_095_m2_effect_rollback_receipts');
 
     for (const table of [
       'model_desired_bindings',
@@ -732,7 +732,7 @@ await testAsync('migration 054 preserves pre-existing success as unconfirmed evi
         '2026_08_22_066_model_automation_policy',
         '2026_08_22_067_model_failover_proof_artifacts',
         '2026_08_22_069_model_failover_runtime_finalization',
-        '2026_08_23_070_m2_effect_authority',
+        '2026_08_23_092_m2_effect_authority',
         '2026_08_24_071_m2_effect_authority_hardening',
         '2026_08_24_072_m2_effect_execution_claims',
         '2026_08_24_073_m2_effect_claim_truth',
@@ -743,13 +743,13 @@ await testAsync('migration 054 preserves pre-existing success as unconfirmed evi
         '2026_08_24_078_m2_execution_authority',
         '2026_08_24_079_m2_lifecycle_authority',
         '2026_08_24_080_m2_effect_semantic_authority',
-        '2026_08_24_081_m2_effect_result_semantic_authority_v2',
-        '2026_08_25_082_m2_preexecution_approval_terminals',
-        '2026_08_25_083_m2_effect_rollback_receipts',
+        '2026_08_24_093_m2_effect_result_semantic_authority_v2',
+        '2026_08_25_094_m2_preexecution_approval_terminals',
+        '2026_08_25_095_m2_effect_rollback_receipts',
       ]),
     );
     assertEqual(result.skipped.length, 55);
-    assertEqual(getCurrentVersion(db), '2026_08_25_083_m2_effect_rollback_receipts');
+    assertEqual(getCurrentVersion(db), '2026_08_25_095_m2_effect_rollback_receipts');
     assertEqual(
       db.prepare(`
         SELECT COUNT(*) AS count

@@ -1,5 +1,11 @@
 # M2 pinned closeout — 2026-08-25
 
+> **Superseded 2026-08-26:** tento dokument zůstává historickým důkazem nad
+> původním product targetem. Následný union census odhalil kolize M2 migrací
+> `070/081/082/083`; aktuální řada je `092/093/094/095` a její stav je
+> `IMPLEMENTATION_GREEN / REREVIEW_REQUIRED`. Původní acceptance se na nové
+> migrační bajty nepřenáší.
+
 - **Stav:** `ACCEPTED / CLOSEOUT_PASS`
 - **Větev:** `codex/m2-integration-20260824`
 - **Product revision:** `c070ed7383e522fb58b53a799cbbc0e16c4b09a7`

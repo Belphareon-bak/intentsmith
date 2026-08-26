@@ -163,7 +163,7 @@ const ALL_MIGRATIONS = [
   '2026_08_22_066_model_automation_policy',
   '2026_08_22_067_model_failover_proof_artifacts',
   '2026_08_22_069_model_failover_runtime_finalization',
-  '2026_08_23_070_m2_effect_authority',
+  '2026_08_23_092_m2_effect_authority',
   '2026_08_24_071_m2_effect_authority_hardening',
   '2026_08_24_072_m2_effect_execution_claims',
   '2026_08_24_073_m2_effect_claim_truth',
@@ -174,9 +174,9 @@ const ALL_MIGRATIONS = [
   '2026_08_24_078_m2_execution_authority',
   '2026_08_24_079_m2_lifecycle_authority',
   '2026_08_24_080_m2_effect_semantic_authority',
-  '2026_08_24_081_m2_effect_result_semantic_authority_v2',
-  '2026_08_25_082_m2_preexecution_approval_terminals',
-  '2026_08_25_083_m2_effect_rollback_receipts',
+  '2026_08_24_093_m2_effect_result_semantic_authority_v2',
+  '2026_08_25_094_m2_preexecution_approval_terminals',
+  '2026_08_25_095_m2_effect_rollback_receipts',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -261,6 +261,92 @@ describe('T-SM0: Migration identity preflight', async () => {
       /Duplicate migration version/,
       () => upCalls
     );
+  });
+
+  await it('rejects reused numeric slots before schema_migrations or up()', () => {
+    let upCalls = 0;
+    const up = () => { upCalls++; };
+    assertManifestRejectedBeforeMutation([
+      {
+        version: '2026_08_26_092_first_owner',
+        file: '2026_08_26_092_first_owner.js',
+        description: 'first',
+        up,
+      },
+      {
+        version: '2026_08_27_092_second_owner',
+        file: '2026_08_27_092_second_owner.js',
+        description: 'second',
+        up,
+      },
+    ], /Duplicate migration numeric slot 092/, () => upCalls);
+  });
+
+  await it('atomically adopts the retired M2 identities without rerunning migration bodies', async () => {
+    const db = freshDb();
+    await runMigrations(db);
+    const aliases = [
+      ['2026_08_23_092_m2_effect_authority', '2026_08_23_070_m2_effect_authority', '2026-08-25 17:00:00'],
+      ['2026_08_24_093_m2_effect_result_semantic_authority_v2', '2026_08_24_081_m2_effect_result_semantic_authority_v2', '2026-08-25 17:01:00'],
+      ['2026_08_25_094_m2_preexecution_approval_terminals', '2026_08_25_082_m2_preexecution_approval_terminals', '2026-08-25 17:02:00'],
+      ['2026_08_25_095_m2_effect_rollback_receipts', '2026_08_25_083_m2_effect_rollback_receipts', '2026-08-25 17:03:00'],
+    ];
+    for (const [canonical, retired, appliedAt] of aliases) {
+      db.prepare(`
+        UPDATE schema_migrations SET version = ?, applied_at = ? WHERE version = ?
+      `).run(retired, appliedAt, canonical);
+    }
+
+    const result = await runMigrations(db);
+    assert.strictEqual(result.applied.length, 0);
+    assert.strictEqual(result.skipped.length, MIGRATION_COUNT);
+    for (const [canonical, retired, appliedAt] of aliases) {
+      assert.deepStrictEqual(
+        db.prepare('SELECT applied_at FROM schema_migrations WHERE version = ?').get(canonical),
+        { applied_at: appliedAt },
+      );
+      assert.strictEqual(
+        db.prepare('SELECT 1 AS ok FROM schema_migrations WHERE version = ?').get(retired),
+        undefined,
+      );
+    }
+    db.close();
+  });
+
+  await it('continues a partially applied retired M2 history after adopting exact schemas', async () => {
+    const db = freshDb();
+    const migrations = await migrationTestInternals.discoverMigrations();
+    const preTerminal = migrations.filter(migration => ![
+      '2026_08_25_094_m2_preexecution_approval_terminals',
+      '2026_08_25_095_m2_effect_rollback_receipts',
+    ].includes(migration.version));
+    migrationTestInternals.runMigrationPlan(db, preTerminal);
+    db.prepare(`
+      UPDATE schema_migrations SET version = '2026_08_23_070_m2_effect_authority'
+      WHERE version = '2026_08_23_092_m2_effect_authority'
+    `).run();
+    db.prepare(`
+      UPDATE schema_migrations
+      SET version = '2026_08_24_081_m2_effect_result_semantic_authority_v2'
+      WHERE version = '2026_08_24_093_m2_effect_result_semantic_authority_v2'
+    `).run();
+
+    const result = migrationTestInternals.runMigrationPlan(db, migrations);
+    assert.deepStrictEqual(result.applied, [
+      '2026_08_25_094_m2_preexecution_approval_terminals',
+      '2026_08_25_095_m2_effect_rollback_receipts',
+    ]);
+    assert.strictEqual(
+      db.prepare(`
+        SELECT COUNT(*) AS count FROM schema_migrations
+        WHERE version IN (
+          '2026_08_23_070_m2_effect_authority',
+          '2026_08_24_081_m2_effect_result_semantic_authority_v2'
+        )
+      `).get().count,
+      0,
+    );
+    db.close();
   });
 
   await it('rejects invalid version format before schema_migrations or up()', () => {
