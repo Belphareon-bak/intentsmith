@@ -1311,7 +1311,7 @@ lokální integrační E2E jsou popsány v
 SQLite a deterministickým fake plannerem prokázalo dvě nezávislé schválené
 změny → pending proposal → explicitní approval → context injection → exact
 plan conformance `0 → 10000` → rollback → delete. Nejde o modelový quality
-benchmark ani o nezávislé review. Autoritativní module graph má 1 162 hran,
+benchmark ani o nezávislé review. Autoritativní module graph má 1 165 hran,
 stále 3 cykly a 28 souborů v cyklech; outcome řez je product commit `885cf959`
 a jeho jediná nová authority hrana byla explicitně přijata v `bd5eada6`.
 Úplný deterministický run `2026-08-26T08-52-35-050Z` na source `286f5ba8`
