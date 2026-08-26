@@ -280,6 +280,7 @@ function dependencies(
   owner = OWNER_ONE,
   liveness = { isProvablyDead: () => false },
   gitProvider = null,
+  processRecovery = null,
 ) {
   return {
     executionRepository: prepared.executionRepository,
@@ -291,6 +292,7 @@ function dependencies(
     observeGitBaseline: observeExactGitBaseline,
     processProvider,
     gitProvider,
+    ...(processRecovery ? { processRecovery } : {}),
   };
 }
 
@@ -979,6 +981,142 @@ await testAsync('restart takeover scans exact after-images and rolls the transac
     assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), 'export const value = 1;\n');
     assert.equal(fs.existsSync(path.join(root, 'src/new.js')), false);
     assert.equal(result.fencingGeneration, 2);
+    prepared.db.close();
+  } finally {
+    cleanup(root);
+  }
+});
+
+await testAsync('restart reaps durable process authority before touching recoverable files', async () => {
+  const root = makeProject();
+  try {
+    const prepared = await prepare(root, { twoFiles: false });
+    const claim = prepared.executionRepository.acquireClaim({
+      executionId: prepared.plan.request.executionId,
+      owner: OWNER_ONE,
+      leaseMs: 1_000,
+      liveness: { isProvablyDead: () => false },
+    });
+    const items = prepared.plan.effectRequests.map(effect => {
+      const grantId = prepared.grants.find(entry => entry.effectId === effect.effectId).grantId;
+      return { grantId, request: { ...effect, approvalGrantId: grantId } };
+    });
+    prepared.effectRepository.consumeApprovalGrantBatch({ items, executionOwner: OWNER_ONE });
+    prepared.executionRepository.recordApprovalSet({
+      executionId: prepared.plan.request.executionId,
+      generation: claim.generation,
+      grantIds: prepared.grants.map(entry => entry.grantId)
+        .sort((left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right))),
+    });
+    prepared.executionRepository.recordProcess({
+      executionId: prepared.plan.request.executionId,
+      generation: claim.generation,
+      effectId: prepared.plan.request.focusedTest.authority.effectId,
+      supervisorPid: 6301,
+      processGroupId: 6301,
+      ownerBootId: OWNER_ONE.bootId,
+      ownerStartIdentity: '401',
+    });
+    const file = prepared.plan.files[0];
+    writeProjectFileAtomic(root, file.path, file.afterBytes, {
+      expectedTarget: null,
+      createParents: false,
+      desiredMode: prepared.plan.request.changes[0].after.mode,
+    });
+    prepared.advance(2_000);
+    let observedDuringProcessRecovery = null;
+    const result = await executeProjectChange({
+      executionId: prepared.plan.request.executionId,
+      focusedEnvironment: prepared.environment,
+    }, dependencies(
+      prepared,
+      root,
+      { async execute() { throw new Error('recovery must not rerun focused test'); } },
+      OWNER_TWO,
+      { isProvablyDead: () => true },
+      null,
+      async processRecord => {
+        observedDuringProcessRecovery = fs.readFileSync(path.join(root, 'src/app.js'), 'utf8');
+        assert.equal(processRecord.supervisorPid, 6301);
+        return {
+          status: 'terminated',
+          reason: 'owned_group_reaped',
+          identityMatched: true,
+          termSent: true,
+          killSent: false,
+          groupState: 'empty',
+        };
+      },
+    ));
+    assert.equal(observedDuringProcessRecovery, 'export const value = 2;\n');
+    assert.equal(result.terminalStatus, 'orphaned');
+    assert.equal(result.rollback.status, 'succeeded');
+    assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), 'export const value = 1;\n');
+    const recoveryEvent = prepared.executionRepository.listEvents(result.executionId)
+      .find(event => event.phase === 'process_recovery');
+    assert.equal(recoveryEvent.type, 'process_terminated');
+    assert.equal(recoveryEvent.details.identityMatched, true);
+    assert.equal(prepared.executionRepository.listOutstandingProcesses(result.executionId).length, 0);
+    prepared.db.close();
+  } finally {
+    cleanup(root);
+  }
+});
+
+await testAsync('unproven process identity blocks recovery before rollback or terminalization', async () => {
+  const root = makeProject();
+  try {
+    const prepared = await prepare(root, { twoFiles: false });
+    const claim = prepared.executionRepository.acquireClaim({
+      executionId: prepared.plan.request.executionId,
+      owner: OWNER_ONE,
+      leaseMs: 1_000,
+      liveness: { isProvablyDead: () => false },
+    });
+    const items = prepared.plan.effectRequests.map(effect => {
+      const grantId = prepared.grants.find(entry => entry.effectId === effect.effectId).grantId;
+      return { grantId, request: { ...effect, approvalGrantId: grantId } };
+    });
+    prepared.effectRepository.consumeApprovalGrantBatch({ items, executionOwner: OWNER_ONE });
+    prepared.executionRepository.recordApprovalSet({
+      executionId: prepared.plan.request.executionId,
+      generation: claim.generation,
+      grantIds: prepared.grants.map(entry => entry.grantId)
+        .sort((left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right))),
+    });
+    prepared.executionRepository.recordProcess({
+      executionId: prepared.plan.request.executionId,
+      generation: claim.generation,
+      effectId: prepared.plan.request.focusedTest.authority.effectId,
+      supervisorPid: 6302,
+      processGroupId: 6302,
+      ownerBootId: OWNER_ONE.bootId,
+      ownerStartIdentity: '402',
+    });
+    const file = prepared.plan.files[0];
+    writeProjectFileAtomic(root, file.path, file.afterBytes, {
+      expectedTarget: null,
+      createParents: false,
+      desiredMode: prepared.plan.request.changes[0].after.mode,
+    });
+    prepared.advance(2_000);
+    await assert.rejects(() => executeProjectChange({
+      executionId: prepared.plan.request.executionId,
+      focusedEnvironment: prepared.environment,
+    }, dependencies(
+      prepared,
+      root,
+      successfulProcess(),
+      OWNER_TWO,
+      { isProvablyDead: () => true },
+      null,
+      async () => ({ status: 'unresolved', reason: 'proc_identity_unavailable' }),
+    )), error => error.code === ProjectChangeRuntimeErrorCode.PROCESS_RECOVERY_UNRESOLVED);
+    assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), 'export const value = 2;\n');
+    assert.equal(prepared.executionRepository.getResult(prepared.plan.request.executionId), null);
+    assert.equal(prepared.executionRepository.listOutstandingProcesses(prepared.plan.request.executionId).length, 1);
+    assert.equal(prepared.executionRepository.listEvents(prepared.plan.request.executionId)
+      .some(event => event.phase === 'process_recovery'), false);
     prepared.db.close();
   } finally {
     cleanup(root);

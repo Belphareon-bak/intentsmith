@@ -13608,6 +13608,40 @@
       },
       "flakeCount": 0,
       "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M5-PROCESS-HARDENING-TEST",
+      "path": "tests/m5-process-hardening.test.js",
+      "argv": [
+        "node",
+        "tests/m5-process-hardening.test.js"
+      ],
+      "capabilityId": "C3-011",
+      "tier": "T1",
+      "fixture": "owned-process-group",
+      "profile": "soak",
+      "timeoutMs": 60000,
+      "expectedDurationMs": 3000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false,
+        "toolchain": [
+          "bubblewrap",
+          "prlimit"
+        ]
+      },
+      "required": true,
+      "owner": "WP-M5-PROCESS",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
     }
   ]
 }

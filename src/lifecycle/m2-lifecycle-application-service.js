@@ -548,6 +548,9 @@ export function createM2LifecycleApplicationService(dependencyValues) {
   } = dependencies;
   const activeRuns = new Map();
   let recoveryCensusComplete = requireRecoveryCensus !== true;
+  let recoveryCensusAttempts = 0;
+  let recoveryCensusLastAttemptAt = null;
+  let recoveryCensusLastErrorCode = null;
 
   async function resolveProject(projectId) {
     if (!Number.isSafeInteger(projectId) || projectId < 1) {
@@ -1049,59 +1052,77 @@ export function createM2LifecycleApplicationService(dependencyValues) {
   }
 
   async function recoverIncompleteSmallProjectChanges() {
-    const recovered = [];
-    for (const operation of lifecycleRepository.listRecoverable()) {
-      const plan = operation.plan ?? lifecycleRepository.getPlan(operation.lifecycleId);
-      const approval = lifecycleRepository.getApprovalIntent(plan.identity.lifecycleId);
-      const cancelIntent = lifecycleRepository.getCancelIntent(plan.identity.lifecycleId);
-      const result = executionRepository.getResult(plan.identity.executionId);
-      if (result) {
-        await finalizeResult(plan, approval, result);
-      } else if (cancelIntent) {
-        effectRepository.revokeRunGrants({ runId: plan.identity.runId, reason: 'lifecycle_cancelled' });
-        const terminal = buildNonSuccessTerminal({
-          plan,
-          approval,
-          result: null,
-          state: M2_LIFECYCLE_STATE.CANCELLED,
-          errorCode: M2LifecycleServiceErrorCode.CANCELLED,
-          workspaceRevision: plan.project.workspaceRevision,
-          completedAt: canonicalTimestamp(clock()),
-        });
-        lifecycleRepository.recordTerminal({ lifecycleId: plan.identity.lifecycleId, terminal });
-      } else if (approval) {
-        const durableGrantSet = lifecycleRepository.getGrantSet(plan.identity.lifecycleId);
-        if (durableGrantSet) {
-          // Complete durable issuance is the execution authority. Approval
-          // expiry cannot relabel an already-started or recovery-only run.
-          await runApproved(plan, approval, durableGrantSet);
-        } else if (clock() >= Date.parse(approval.expiresAt)) {
-          // A crash after durable approval but before the complete grant-set
-          // must not wedge the startup census forever. Revoke any partial,
-          // still-unconsumed issuance and close the plan without an effect.
-          effectRepository.revokeRunGrants({
-            runId: plan.identity.runId,
-            reason: 'lifecycle_approval_expired',
-          });
+    recoveryCensusAttempts += 1;
+    recoveryCensusLastAttemptAt = canonicalTimestamp(clock());
+    try {
+      const recovered = [];
+      for (const operation of lifecycleRepository.listRecoverable()) {
+        const plan = operation.plan ?? lifecycleRepository.getPlan(operation.lifecycleId);
+        const approval = lifecycleRepository.getApprovalIntent(plan.identity.lifecycleId);
+        const cancelIntent = lifecycleRepository.getCancelIntent(plan.identity.lifecycleId);
+        const result = executionRepository.getResult(plan.identity.executionId);
+        if (result) {
+          await finalizeResult(plan, approval, result);
+        } else if (cancelIntent) {
+          effectRepository.revokeRunGrants({ runId: plan.identity.runId, reason: 'lifecycle_cancelled' });
           const terminal = buildNonSuccessTerminal({
             plan,
             approval,
             result: null,
-            state: M2_LIFECYCLE_STATE.BLOCKED,
-            errorCode: M2LifecycleServiceErrorCode.PLAN_EXPIRED,
+            state: M2_LIFECYCLE_STATE.CANCELLED,
+            errorCode: M2LifecycleServiceErrorCode.CANCELLED,
             workspaceRevision: plan.project.workspaceRevision,
             completedAt: canonicalTimestamp(clock()),
           });
           lifecycleRepository.recordTerminal({ lifecycleId: plan.identity.lifecycleId, terminal });
-        } else {
-          const grantSet = ensureGrantSet(plan, approval);
-          await runApproved(plan, approval, grantSet);
+        } else if (approval) {
+          const durableGrantSet = lifecycleRepository.getGrantSet(plan.identity.lifecycleId);
+          if (durableGrantSet) {
+            // Complete durable issuance is the execution authority. Approval
+            // expiry cannot relabel an already-started or recovery-only run.
+            await runApproved(plan, approval, durableGrantSet);
+          } else if (clock() >= Date.parse(approval.expiresAt)) {
+            // A crash after durable approval but before the complete grant-set
+            // must not wedge the startup census forever. Revoke any partial,
+            // still-unconsumed issuance and close the plan without an effect.
+            effectRepository.revokeRunGrants({
+              runId: plan.identity.runId,
+              reason: 'lifecycle_approval_expired',
+            });
+            const terminal = buildNonSuccessTerminal({
+              plan,
+              approval,
+              result: null,
+              state: M2_LIFECYCLE_STATE.BLOCKED,
+              errorCode: M2LifecycleServiceErrorCode.PLAN_EXPIRED,
+              workspaceRevision: plan.project.workspaceRevision,
+              completedAt: canonicalTimestamp(clock()),
+            });
+            lifecycleRepository.recordTerminal({ lifecycleId: plan.identity.lifecycleId, terminal });
+          } else {
+            const grantSet = ensureGrantSet(plan, approval);
+            await runApproved(plan, approval, grantSet);
+          }
         }
+        recovered.push(statusView(plan.identity.lifecycleId));
       }
-      recovered.push(statusView(plan.identity.lifecycleId));
+      recoveryCensusComplete = true;
+      recoveryCensusLastErrorCode = null;
+      return Object.freeze(recovered);
+    } catch (error) {
+      recoveryCensusComplete = false;
+      recoveryCensusLastErrorCode = String(error?.code || error?.name || 'ERROR').slice(0, 128);
+      throw error;
     }
-    recoveryCensusComplete = true;
-    return Object.freeze(recovered);
+  }
+
+  function getRecoveryCensusStatus() {
+    return Object.freeze({
+      complete: recoveryCensusComplete,
+      attempts: recoveryCensusAttempts,
+      lastAttemptAt: recoveryCensusLastAttemptAt,
+      lastErrorCode: recoveryCensusLastErrorCode,
+    });
   }
 
   return Object.freeze({
@@ -1110,6 +1131,7 @@ export function createM2LifecycleApplicationService(dependencyValues) {
     cancelSmallProjectChange,
     getSmallProjectChangeStatus,
     recoverIncompleteSmallProjectChanges,
+    getRecoveryCensusStatus,
   });
 }
 

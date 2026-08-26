@@ -1,9 +1,10 @@
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { access, open, readFile, realpath, stat } from 'node:fs/promises';
 import { constants as fsConstants } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 import { computeM2ExecutionValueDigest } from '../../contracts/m2/execution-v1.js';
 import {
@@ -12,6 +13,7 @@ import {
 } from './process-supervisor-child.js';
 
 const DEFAULT_BWRAP_PATH = '/usr/bin/bwrap';
+const DEFAULT_PRLIMIT_PATH = '/usr/bin/prlimit';
 const DEFAULT_OUTPUT_LIMIT_BYTES = 64 * 1024;
 const MAX_OUTPUT_LIMIT_BYTES = 1024 * 1024;
 const DEFAULT_HANDSHAKE_TIMEOUT_MS = 3_000;
@@ -22,6 +24,14 @@ const POLL_INTERVAL_MS = 20;
 const BOOT_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const ENVIRONMENT_KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
 const SUPERVISOR_PATH = fileURLToPath(new URL('./process-supervisor-child.js', import.meta.url));
+const execFileAsync = promisify(execFile);
+
+export const PROCESS_RESOURCE_LIMITS = Object.freeze({
+  addressSpaceBytes: 4 * 1024 * 1024 * 1024,
+  fileSizeBytes: 64 * 1024 * 1024,
+  openFiles: 256,
+  coreBytes: 0,
+});
 
 function delay(milliseconds) {
   return new Promise(resolve => setTimeout(resolve, milliseconds));
@@ -328,6 +338,24 @@ async function acknowledgeDurableIdentity(callback, identity, timeoutMs) {
   }
 }
 
+async function applyLinuxResourceLimits(pid, timeoutMs, prlimitPath) {
+  const cpuSeconds = Math.max(2, Math.ceil(timeoutMs / 1_000) + 1);
+  await execFileAsync(prlimitPath, [
+    '--pid', String(pid),
+    `--as=${PROCESS_RESOURCE_LIMITS.addressSpaceBytes}:${PROCESS_RESOURCE_LIMITS.addressSpaceBytes}`,
+    `--cpu=${cpuSeconds}:${cpuSeconds}`,
+    `--fsize=${PROCESS_RESOURCE_LIMITS.fileSizeBytes}:${PROCESS_RESOURCE_LIMITS.fileSizeBytes}`,
+    `--nofile=${PROCESS_RESOURCE_LIMITS.openFiles}:${PROCESS_RESOURCE_LIMITS.openFiles}`,
+    `--core=${PROCESS_RESOURCE_LIMITS.coreBytes}:${PROCESS_RESOURCE_LIMITS.coreBytes}`,
+  ], {
+    encoding: 'utf8',
+    timeout: DEFAULT_RECORD_TIMEOUT_MS,
+    windowsHide: true,
+    maxBuffer: 16 * 1024,
+  });
+  return Object.freeze({ ...PROCESS_RESOURCE_LIMITS, cpuSeconds });
+}
+
 function unavailable(errorCode, errorDetail) {
   return terminalResult({
     state: 'unavailable',
@@ -339,6 +367,7 @@ function unavailable(errorCode, errorDetail) {
 
 export function createProcessSandboxProvider({
   bwrapPath = DEFAULT_BWRAP_PATH,
+  prlimitPath = DEFAULT_PRLIMIT_PATH,
   nodePath = process.execPath,
   supervisorPath = SUPERVISOR_PATH,
   outputLimitBytes = DEFAULT_OUTPUT_LIMIT_BYTES,
@@ -372,14 +401,18 @@ export function createProcessSandboxProvider({
         });
       }
 
-      const [bwrapObservation, nodeObservation, binaryObservation, rootObservation] = await Promise.all([
+      const [bwrapObservation, prlimitObservation, nodeObservation, binaryObservation, rootObservation] = await Promise.all([
         exactExecutableObservation(bwrapPath),
+        exactExecutableObservation(prlimitPath),
         exactExecutableObservation(nodePath),
         exactExecutableObservation(spec.binary),
         exactDirectoryObservation(spec.projectRoot),
       ]);
       if (!bwrapObservation.ok) {
         return unavailable('PROCESS_SANDBOX_UNAVAILABLE', bwrapObservation.reason);
+      }
+      if (!prlimitObservation.ok) {
+        return unavailable('PROCESS_RESOURCE_LIMITER_UNAVAILABLE', prlimitObservation.reason);
       }
       if (!nodeObservation.ok) return unavailable('PROCESS_SUPERVISOR_RUNTIME_UNAVAILABLE', nodeObservation.reason);
       if (!binaryObservation.ok) return unavailable('PROCESS_BINARY_UNAVAILABLE', binaryObservation.reason);
@@ -453,6 +486,7 @@ export function createProcessSandboxProvider({
           closePromise.then(() => { throw new Error('PROCESS_SUPERVISOR_CLOSED_BEFORE_READY'); }),
         ]), handshakeTimeoutMs, 'PROCESS_SUPERVISOR_READY_TIMEOUT');
         supervisorIdentity = await readLinuxSupervisorIdentity(child.pid);
+        await applyLinuxResourceLimits(child.pid, spec.timeoutMs, prlimitPath);
         await acknowledgeDurableIdentity(recordSupervisorIdentity, supervisorIdentity, recordTimeoutMs);
       } catch (error) {
         const cleanup = await terminateProcessGroup({
@@ -663,6 +697,7 @@ export function createProcessSandboxProvider({
 export const processSandboxProvider = createProcessSandboxProvider();
 
 export const _testInternals = Object.freeze({
+  applyLinuxResourceLimits,
   collectedOutputEvidence,
   exactDirectoryObservation,
   exactExecutableObservation,

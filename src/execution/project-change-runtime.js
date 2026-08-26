@@ -14,6 +14,7 @@ import {
   readProjectFileBytes,
   writeProjectFileAtomic,
 } from '../executor/project-path-authority.js';
+import { reconcileOwnedProcess } from './process-recovery.js';
 
 export const ProjectChangeRuntimeErrorCode = Object.freeze({
   INPUT_INVALID: 'PROJECT_CHANGE_RUNTIME_INPUT_INVALID',
@@ -28,6 +29,7 @@ export const ProjectChangeRuntimeErrorCode = Object.freeze({
   GIT_FAILED: 'PROJECT_CHANGE_GIT_FAILED',
   ROLLBACK_FAILED: 'PROJECT_CHANGE_ROLLBACK_FAILED',
   RECOVERY_REQUIRED: 'PROJECT_CHANGE_RECOVERY_REQUIRED',
+  PROCESS_RECOVERY_UNRESOLVED: 'PROJECT_CHANGE_PROCESS_RECOVERY_UNRESOLVED',
 });
 
 export class ProjectChangeRuntimeError extends Error {
@@ -421,7 +423,46 @@ async function recoverOnly(request, claim, dependencies, startedAt) {
     observeGitBaseline,
     gitProvider,
     clock,
+    processRecovery = reconcileOwnedProcess,
   } = dependencies;
+  const outstandingProcesses = executionRepository.listOutstandingProcesses(request.executionId);
+  for (const processRecord of outstandingProcesses) {
+    const recovery = await processRecovery(processRecord);
+    if (!recovery || !['terminated', 'already_terminated'].includes(recovery.status)) {
+      fail(
+        ProjectChangeRuntimeErrorCode.PROCESS_RECOVERY_UNRESOLVED,
+        'A previously owned process group could not be proven empty',
+        {
+          effectId: processRecord.effectId,
+          recordedGeneration: processRecord.generation,
+          reason: recovery?.reason ?? 'invalid-recovery-result',
+        },
+      );
+    }
+    executionRepository.appendEvent({
+      eventId: eventId(
+        request.executionId,
+        claim.generation,
+        'process_terminated',
+        `${processRecord.effectId}:${processRecord.generation}`,
+      ),
+      executionId: request.executionId,
+      generation: claim.generation,
+      phase: 'process_recovery',
+      type: 'process_terminated',
+      effectId: processRecord.effectId,
+      details: {
+        recovered: true,
+        recordedGeneration: processRecord.generation,
+        status: recovery.status,
+        reason: recovery.reason,
+        identityMatched: recovery.identityMatched,
+        termSent: recovery.termSent,
+        killSent: recovery.killSent,
+        groupState: recovery.groupState,
+      },
+    });
+  }
   const material = executionRepository.getFileMaterial(request.executionId);
   const appliedPaths = new Set();
   const drift = [];

@@ -7,8 +7,8 @@ a současný autoritativní C3 Studio runtime už neobsahuje implicitní Google 
 egress. Spouštěné Studio UI je stále přechodný runtime, nikoli finální vzhled
 IntentSmithu.
 
-**Verze:** 136.1.0 | **449 registrovaných testovacích programů**
-(`352 ACTIVE`, `81 BLOCKED`, `0 KNOWN_DEFECTIVE`, `16 HISTORICAL`)
+**Verze:** 136.1.0 | **450 registrovaných testovacích programů**
+(`353 ACTIVE`, `81 BLOCKED`, `0 KNOWN_DEFECTIVE`, `16 HISTORICAL`)
 
 > **Stav: aktivní vývoj; M1 a M2 jsou přijaté.** M3 modulární platforma má
 > implementation-green candidate; oddíly 1–6 jsou review-passed a oprava
@@ -153,6 +153,8 @@ vývojovém režimu použijte `npm run dev`.
 | build-essential | - | C++ kompilátor pro native moduly |
 | Git | 2.x+ | Lifecycle (auto-commit, diff, tagging) |
 | Yarn | 1.22.22 | Povinná frozen instalace C3 Studio |
+| bubblewrap | system package | Linux namespace/seccomp sandbox pro governed focused test |
+| util-linux `prlimit` | system package | CPU, address-space, file-size, FD a core-dump limity procesu |
 | GPU | 12+ GB VRAM | Doporučeno pro 32B modely (8B modely běží na 8 GB) |
 
 Detailní pokyny: [docs/INSTALL.md](docs/INSTALL.md)
@@ -321,14 +323,14 @@ intentsmith/
 │   ├── report-gen.json           #   Generování reportů
 │   └── summarizer.json           #   Sumarizace textu
 │
-├── tests/                        # Testy a kanonický registr 449 programů
+├── tests/                        # Testy a kanonický registr 450 programů
 │   ├── harness.js                #   Custom ESM test harness
 │   ├── cre-*.test.js             #   CRE testy (401+)
 │   ├── lifecycle-*.test.js       #   Lifecycle testy (103+)
 │   ├── code-intel-*.test.js      #   Code Intelligence testy (339+)
 │   ├── execution-loop.test.js    #   Execution Engine testy (597+)
 │   ├── upgrade-*.test.js         #   Model Upgrade testy
-│   └── registry.json             #   Kanonický registr 449 programů
+│   └── registry.json             #   Kanonický registr 450 programů
 │
 ├── docs/                         # Aktivní dokumentace + archiv
 │   ├── ARCHITECTURE.md           #   Kompletní architektura

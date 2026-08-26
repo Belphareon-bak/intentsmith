@@ -177,7 +177,17 @@ await testAsync('real SQLite, ProjectContext, Git and bwrap journey reaches one 
   let db = openDatabase(databasePath);
   try {
     const service = createService(db, root);
+    assert.deepEqual(service.getRecoveryCensusStatus(), {
+      complete: false,
+      attempts: 0,
+      lastAttemptAt: null,
+      lastErrorCode: null,
+    });
     assert.deepEqual(await service.recoverIncompleteSmallProjectChanges(), []);
+    assert.equal(service.getRecoveryCensusStatus().complete, true);
+    assert.equal(service.getRecoveryCensusStatus().attempts, 1);
+    assert.match(service.getRecoveryCensusStatus().lastAttemptAt, /^2026-08-24T09:00:00\.001Z$/);
+    assert.equal(service.getRecoveryCensusStatus().lastErrorCode, null);
 
     const planned = await prepare(service);
     assert.equal(planned.state, 'awaiting_approval');

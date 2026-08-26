@@ -212,6 +212,27 @@ fi
 
 echo ""
 
+# Linux process containment is a supported core capability. The production
+# provider names these exact canonical executables and has no plain-spawn
+# fallback when either prerequisite is absent.
+echo -e "${BOLD}── Process Containment ──${NC}"
+if [ -x /usr/bin/bwrap ]; then
+  ok "bubblewrap found at /usr/bin/bwrap"
+else
+  fail "bubblewrap is required for governed process execution"
+  echo "       Install: sudo apt install bubblewrap"
+  ERRORS=$((ERRORS + 1))
+fi
+if [ -x /usr/bin/prlimit ]; then
+  ok "prlimit found at /usr/bin/prlimit"
+else
+  fail "prlimit is required for governed process resource ceilings"
+  echo "       Install: sudo apt install util-linux"
+  ERRORS=$((ERRORS + 1))
+fi
+
+echo ""
+
 # Yarn is a core prerequisite because the supported Linux package includes the
 # committed C3 Studio Electron application. Check it before any mutation so
 # --verify-only is a complete read-only core preflight.

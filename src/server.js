@@ -929,17 +929,27 @@ const learningService = createLearningApplicationService({
   repository: db.learningAuthority,
   projects: db.projects,
 });
-try {
-  const recovered = await m2LifecycleService.recoverIncompleteSmallProjectChanges();
-  if (recovered.length > 0) {
-    logger.info('M2Lifecycle', `Recovered ${recovered.length} durable lifecycle operation(s)`);
+let m2RecoveryFailureCount = 0;
+async function runM2StartupRecoveryCensus() {
+  try {
+    const recovered = await m2LifecycleService.recoverIncompleteSmallProjectChanges();
+    m2RecoveryFailureCount = 0;
+    if (recovered.length > 0) {
+      logger.info('M2Lifecycle', `Recovered ${recovered.length} durable lifecycle operation(s)`);
+    }
+  } catch (error) {
+    // A previous process may still own an unexpired fencing lease immediately
+    // after a crash. Keep the public lifecycle fail-closed and retry the
+    // durable census; never convert uncertainty into a clean terminal.
+    m2RecoveryFailureCount += 1;
+    if (m2RecoveryFailureCount === 1 || m2RecoveryFailureCount % 30 === 0) {
+      logger.error('M2Lifecycle', `Startup recovery did not converge: ${error?.code || error?.message || error}`);
+    }
+    const retryTimer = setTimeout(runM2StartupRecoveryCensus, 1_000);
+    retryTimer.unref?.();
   }
-} catch (error) {
-  // Recovery uncertainty is not converted into a clean terminal. Individual
-  // operations remain durable and all new execution attempts still fence on
-  // the Section 5 claim/recovery authority.
-  logger.error('M2Lifecycle', `Startup recovery did not converge: ${error?.code || error?.message || error}`);
 }
+await runM2StartupRecoveryCensus();
 
 // v93: notificationRouter + notificationPipeline initialized above (before agent platform)
 

@@ -647,6 +647,29 @@ export class ExecutionAuthorityRepository {
     }
   }
 
+  listOutstandingProcesses(executionId) {
+    return Object.freeze(this.db.prepare(`
+      SELECT process.execution_id AS executionId,
+             process.generation,
+             process.effect_id AS effectId,
+             process.supervisor_pid AS supervisorPid,
+             process.process_group_id AS processGroupId,
+             process.owner_boot_id AS ownerBootId,
+             process.owner_start_identity AS ownerStartIdentity,
+             process.started_at_ms AS startedAtMs
+      FROM m2_execution_processes process
+      WHERE process.execution_id = ?
+        AND NOT EXISTS (
+          SELECT 1 FROM m2_execution_events event
+          WHERE event.execution_id = process.execution_id
+            AND event.effect_id = process.effect_id
+            AND event.event_type = 'process_terminated'
+            AND event.occurred_at_ms >= process.started_at_ms
+        )
+      ORDER BY process.generation, process.effect_id
+    `).all(executionId).map(row => Object.freeze(row)));
+  }
+
   recordResult(resultValue) {
     const result = requireValid(resultValue, validateM2ProjectChangeResult, 'ProjectChangeResult');
     const request = this.getProjectChangeRequest(result.executionId);

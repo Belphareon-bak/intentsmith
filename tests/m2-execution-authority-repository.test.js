@@ -539,6 +539,44 @@ test('stale fencing generation cannot append an event after takeover', () => {
   db.close();
 });
 
+test('outstanding process census closes only after durable termination evidence', () => {
+  const db = openDb();
+  const { executionRepository } = registerFixture(db);
+  executionRepository.acquireClaim({
+    executionId: 'execution-1', owner: OWNER_ONE, liveness: { isProvablyDead: () => false },
+  });
+  executionRepository.recordProcess({
+    executionId: 'execution-1',
+    generation: 1,
+    effectId: 'effect-test',
+    supervisorPid: 8801,
+    processGroupId: 8801,
+    ownerBootId: OWNER_ONE.bootId,
+    ownerStartIdentity: '5501',
+  });
+  assert.deepEqual(executionRepository.listOutstandingProcesses('execution-1'), [{
+    executionId: 'execution-1',
+    generation: 1,
+    effectId: 'effect-test',
+    supervisorPid: 8801,
+    processGroupId: 8801,
+    ownerBootId: OWNER_ONE.bootId,
+    ownerStartIdentity: '5501',
+    startedAtMs: CLAIM_MS,
+  }]);
+  executionRepository.appendEvent({
+    eventId: 'event-process-terminated',
+    executionId: 'execution-1',
+    generation: 1,
+    phase: 'focused_test',
+    type: 'process_terminated',
+    effectId: 'effect-test',
+    details: { recovered: false },
+  });
+  assert.deepEqual(executionRepository.listOutstandingProcesses('execution-1'), []);
+  db.close();
+});
+
 test('approval set is accepted only after every exact child grant is atomically consumed', () => {
   const db = openDb();
   const { effectRepository, executionRepository, effects } = registerFixture(db);

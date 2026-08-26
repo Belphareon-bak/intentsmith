@@ -134,3 +134,11 @@ test('offline install is cache-only and skips the Ollama boundary', () => {
   assert.match(source, /Offline install: Ollama discovery and model operations skipped/);
   assert.doesNotMatch(source, /npm ci --offline[\s\S]{0,80}\|\|[\s\S]{0,80}npm ci/);
 });
+
+test('core preflight requires the exact process containment toolchain', () => {
+  const source = readFileSync(installer, 'utf8');
+  assert.match(source, /\[ -x \/usr\/bin\/bwrap \]/);
+  assert.match(source, /\[ -x \/usr\/bin\/prlimit \]/);
+  assert.match(source, /bubblewrap is required for governed process execution/);
+  assert.match(source, /prlimit is required for governed process resource ceilings/);
+});
