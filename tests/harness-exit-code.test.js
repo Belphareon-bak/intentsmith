@@ -375,7 +375,10 @@ try {
   //   115 -> 116 M4 learning journey loads the production database to prove
   //              the complete durable planner loop. The canonical bootstrap
   //              establishes its isolated DB before the dynamic import.
-  const expectedDatabaseReachableRootTests = 116;
+  //   116 -> 119 M5 DATA, global AUTH and PRIVACY each load a production path
+  //              that reaches the database. Their static bootstrap now also
+  //              protects direct execution and temp-root ownership.
+  const expectedDatabaseReachableRootTests = 119;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,
