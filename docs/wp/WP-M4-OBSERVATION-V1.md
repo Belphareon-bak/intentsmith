@@ -39,7 +39,8 @@ fyzické přepsání historie.
 Registrovaná sada `IS-T1-TESTS-M4-LEARNING-CONTRACT-V1-TEST` má 16/16 PASS.
 Registry po přidání obsahuje 439 programů a fingerprint
 `68979b823d6bc0a0c2e975e6646b7675fea6b03440ef312eb53d4153b151a694`.
-Module-boundary ratchet zůstal 13/13 PASS bez změny autoritativního grafu.
+Po contract-only commitu zůstal module-boundary ratchet 13/13 PASS bez změny
+autoritativního grafu.
 
 První pokus přes registry runner nebyl produktový výsledek: nový worktree neměl
 `node_modules` a runner-owned server skončil před testem na chybějícím
@@ -64,6 +65,9 @@ Focused repository sada má 14/14 PASS. Celý fresh-DB migrační runner má 38/
 PASS nad 74 migracemi a 148 tabulkami. Artifact validace má 154/154 PASS.
 Registry obsahuje 440 programů a fingerprint
 `18c4a54804b65ffe46ec67d17515d1d342409f5faae4eda8b2bceb8353cca71b`.
+Autoritativní graph následně explicitně přijal dvě authority hrany na product
+commitu `5a542600`; má 1 152 hran, stále 3 cykly a 28 souborů v cyklech a ratchet
+je 13/13 PASS.
 
 ## Mimo rozsah
 

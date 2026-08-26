@@ -1307,7 +1307,9 @@ stav. Rozhodnutí v kroku 1 určí podobu hranice; roadmapa ji sama nerozhoduje.
 append-only authority a focused evidence jsou v
 [`WP-M4-OBSERVATION-V1.md`](docs/wp/WP-M4-OBSERVATION-V1.md). Code Intelligence
 producent, HTTP/Studio surface a runtime consumer zatím nejsou tímto stavem
-prohlášeny za hotové.
+prohlášeny za hotové. Aktuální module graph má 1 152 hran, stále 3 cykly a 28
+souborů v cyklech; dvě přesně přiznané M4 authority hrany žádný cyklus
+nevytvořily.
 
 ### Výsledek
 
