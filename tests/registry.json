@@ -13972,6 +13972,36 @@
       },
       "flakeCount": 0,
       "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M6-CANDIDATE-PLAN-TEST",
+      "path": "tests/m6-candidate-plan.test.js",
+      "argv": [
+        "node",
+        "tests/m6-candidate-plan.test.js"
+      ],
+      "capabilityId": "C3-012",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M6-RELEASE",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
     }
   ]
 }

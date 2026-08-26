@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 461
+- Runnable programs: 462
 - Explicit support-module exclusions: 14
-- Profiles: offline=236, database=57, server=41, model=85, soak=26, manual=16
-- States: ACTIVE=366, HISTORICAL=16, BLOCKED=79
+- Profiles: offline=237, database=57, server=41, model=85, soak=26, manual=16
+- States: ACTIVE=367, HISTORICAL=16, BLOCKED=79
 
 ## Execution profiles
 
@@ -368,6 +368,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M5-PRIVACY-REMEDIATION-TEST` | `tests/m5-privacy-remediation.test.js` | `C3-012` | T1 | `database` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-M5-PRIVACY |
 | `IS-T1-TESTS-M5-PROCESS-HARDENING-TEST` | `tests/m5-process-hardening.test.js` | `C3-011` | T1 | `soak` | 3 s | 1 min | network:none, toolchain:bubblewrap, toolchain:prlimit | yes | `ACTIVE` | — | WP-M5-PROCESS |
 | `IS-T1-TESTS-M5-REMOTE-CORE-ADAPTER-TEST` | `tests/m5-remote-core-adapter.test.js` | `C3-023` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M5-REMOTE-PORT |
+| `IS-T1-TESTS-M6-CANDIDATE-PLAN-TEST` | `tests/m6-candidate-plan.test.js` | `C3-012` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M6-RELEASE |
 | `IS-T1-TESTS-M6-L0-EVIDENCE-TEST` | `tests/m6-l0-evidence.test.js` | `C3-012` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M6-RELEASE |
 | `IS-T1-TESTS-M6-MODEL-DISCOVERY-JOURNEY-TEST` | `tests/m6-model-discovery-journey.test.js` | `C3-023` | T1 | `offline` | 1 s | 30 s | network:loopback | yes | `ACTIVE` | — | WP-M6-RELEASE |
 | `IS-T1-TESTS-M6-PLATFORM-JOURNEY-TEST` | `tests/m6-platform-journey.test.js` | `C3-023` | T1 | `offline` | 2 s | 1 min | network:none | yes | `ACTIVE` | — | WP-M6-RELEASE |
