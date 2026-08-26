@@ -1403,6 +1403,15 @@ Startup census se po dočasném fencing/cleanup selhání opakuje a do konvergen
 blokuje nové lifecycle operace. Autoritativní module graph má 1 166 hran,
 stále 3 cykly a 28 souborů v cyklech. Důkaz je v
 [`m5-process-20260826.md`](docs/execution/runs/m5-process-20260826.md).
+`WP-M5-OBSERVE` je implementation-green na product commitu `44e74ae1`.
+Každý HTTP request má serverovou identitu; známé M2 request/lifecycle/run
+identity se korelují do bezpečného completion recordu a response headers.
+Failure taxonomy, bounded failure ledger a autentizovaný diagnostický endpoint
+neukládají libovolné payloady ani credential hodnoty. Veřejný health nyní
+pravdivě degraduje při nečitelné DB nebo neúplném startup recovery censu a
+všechny tři aliasy používají jediný produkční handler. Autoritativní module graph má 1 167 hran,
+stále 3 cykly a 28 souborů v cyklech. Důkaz je v
+[`m5-observe-20260826.md`](docs/execution/runs/m5-observe-20260826.md).
 
 Nejde o M5 acceptance: M3 oddíl 7 a zbývající M5 bloky jsou otevřené.
 
