@@ -1899,6 +1899,15 @@ mohou pokračovat.
    čistým shutdownem. Gate 2 i M1 jsou proto `ACCEPTED/PASS`; M2 smí navázat.
 9. M2 effect authority a project-change journey se otevírají až po M1.
 
+### Integrovaná model-evaluation autorita (2026-08-26)
+
+Integrační kandidát `568956f9` spojuje M2/M4/M5 s jedinou exact-artifact
+model-evaluation cestou a odstraňuje superseded v123 scoring/failover
+implementace. Autoritativní module graph má 1 190 hran, stále 3 cykly a 28
+souborů v cyklech: 40 explicitních hran nové autority nahradilo 36 starých
+vazeb. Stav zůstává `IMPLEMENTATION_GREEN / REREVIEW_REQUIRED`; nejde o
+nezávislé přijetí ani o dokončení 34 chybějících GPU-only scoring buněk.
+
 ## 14. Rozhodovací fronta — otázka až ve chvíli, kdy má data
 
 | Rozhodnutí | Kdy je skutečně potřeba | Jaká evidence musí být na stole |
