@@ -13,7 +13,7 @@ import { getStorageConfig, validateStorageConfig, autoClean } from '../db/data-r
 import { drainMessages, getHistoryStats } from '../core/history-drain.js';
 import { createStateBackup, listBackups, pruneBackups, getBackupStats } from '../core/db-backup.js';
 import { upgradeManager, UpgradeManager } from '../upgrade/upgrade-manager.js';
-import { broadcast } from '../ws-bridge/ws-server.js';
+import { broadcast, getWebSocketBridgeHealth } from '../ws-bridge/ws-server.js';
 import { modelUniverseStore } from '../upgrade/model-universe-store.js';
 import { parseModelName } from '../upgrade/model-profiles.js';
 import { estimateModelPrior } from '../upgrade/model-similarity.js';
@@ -280,6 +280,8 @@ export function createSystemRoutes({
   modelRegistry,
   modelBindingApplication = null,
   broadcastValidation = broadcast,
+  productionObservability = null,
+  m2LifecycleService = null,
 }) {
   const rawDb = db.db || db; // unwrap: db wrapper → raw better-sqlite3 instance
   const dataDir = config.db?.path ? path.dirname(path.resolve(config.db.path)) : path.resolve('./data');
@@ -356,6 +358,28 @@ export function createSystemRoutes({
   };
 
   return {
+    'GET /api/system/diagnostics': (_req, res) => {
+      if (!productionObservability || typeof productionObservability.snapshot !== 'function'
+        || !m2LifecycleService || typeof m2LifecycleService.getRecoveryCensusStatus !== 'function') {
+        return sendJSON(res, 503, {
+          error: 'Production diagnostics are unavailable',
+          code: 'PRODUCTION_DIAGNOSTICS_UNAVAILABLE',
+        });
+      }
+      let databaseReady = false;
+      try {
+        databaseReady = rawDb.prepare('SELECT 1 AS ready').get()?.ready === 1;
+      } catch { /* typed boolean below is the complete public fact */ }
+      return sendJSON(res, 200, {
+        ...productionObservability.snapshot(),
+        readiness: {
+          database: databaseReady,
+          lifecycleRecovery: m2LifecycleService.getRecoveryCensusStatus(),
+        },
+        websocket: getWebSocketBridgeHealth(),
+      });
+    },
+
     // ── GPU & System Profile ──────────────────────────────────────────────
     'GET /api/system/gpu': (req, res) => {
       try {

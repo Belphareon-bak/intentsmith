@@ -324,6 +324,10 @@ test('production server enforces one HTTP/WS auth boundary before effects', asyn
     const access = await waitForPortFile(child, portFile, () => output);
     const publicHealth = await request(access.port, 'GET', '/api/health');
     assert.equal(publicHealth.status, 200);
+    assert.equal(publicHealth.json.status, 'ok');
+    assert.equal(publicHealth.json.ready, true);
+    assert.deepEqual(publicHealth.json.health, { database: true, lifecycleRecovery: true });
+    assert.match(publicHealth.headers['x-request-id'], /^http:[A-Za-z0-9-]+$/);
 
     const deniedRead = await request(access.port, 'GET', '/api/projects');
     assert.equal(deniedRead.status, 401);
@@ -357,6 +361,21 @@ test('production server enforces one HTTP/WS auth boundary before effects', asyn
     });
     assert.equal(scopedWrite.status, 403);
     assert.equal(scopedWrite.json.code, GLOBAL_AUTH_SCOPE_REQUIRED);
+
+    const diagnostics = await request(access.port, 'GET', '/api/system/diagnostics', {
+      headers: { authorization: `Bearer ${issued.json.token}` },
+    });
+    assert.equal(diagnostics.status, 200, diagnostics.raw);
+    assert.equal(diagnostics.json.contract, 'intentsmith.production-diagnostics');
+    assert.equal(diagnostics.json.version, 1);
+    assert.equal(diagnostics.json.readiness.database, true);
+    assert.equal(diagnostics.json.readiness.lifecycleRecovery.complete, true);
+    assert.equal(diagnostics.json.http.failureCounts.authentication >= 1, true);
+    assert.equal(diagnostics.json.http.failureCounts.authorization >= 1, true);
+    assert.equal(diagnostics.json.http.recentFailures.some(item => (
+      item.errorCode === GLOBAL_AUTH_REQUIRED
+    )), true);
+    assert.doesNotMatch(JSON.stringify(diagnostics.json), new RegExp(adminToken));
 
     const wsUrl = `ws://${LOCAL}:${access.port}/c3/ws`;
     const unauthenticatedWs = await websocketAttempt(wsUrl);

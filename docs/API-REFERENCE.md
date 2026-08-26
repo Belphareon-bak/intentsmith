@@ -72,14 +72,15 @@ Produkční černá skříňka ověřuje, že `GET /api/projects` bez credential
 read-only token smí číst, ale zápis končí 403. Body nemůže tvrdit vlastní
 `authenticatedSubject`; ten vkládá pouze transportní guard.
 
-### Duplicate keys
+### Health and diagnostics
 
-Routes are merged by object spread (`src/server.js:804-844`), so a repeated key
-is silently overridden by the later definition. 21 of 272 definitions are
-duplicates. Most are intentional (two branches inside `specialists.js` and
-`marketplace.js`), but **`GET /api/health` is defined in two different files** —
-`src/server.js:800` and `src/routes/misc.js:81`. The spread at `src/server.js:811`
-wins, so the `server.js` definition is dead code.
+`GET /`, `GET /health` and `GET /api/health` use one production readiness
+handler. The `misc` route factory accepts that handler as a dependency; its
+legacy fallback exists only so the factory can still be tested in isolation.
+Health is public and exposes only readiness booleans. Authenticated
+`GET /api/system/diagnostics` adds bounded request/failure counters, recent
+failure taxonomy, lifecycle-recovery state and WebSocket health. It never
+stores or emits arbitrary response bodies or credential values.
 
 ---
 

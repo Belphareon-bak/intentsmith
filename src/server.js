@@ -21,6 +21,7 @@ import {
 import { listenOnLegacyLoopback } from './security/legacy-listener-policy.js';
 import { applyHttpTimeoutPolicy } from './timeout-policy.js';
 import { logger } from './core/logger.js';
+import { createProductionObservability } from './observability/production-observability.js';
 import { installGlobalHandlers, handleError } from './core/error-handler.js';
 import db from './db/database.js';
 
@@ -29,6 +30,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const legacyLocalCapability = createLegacyLocalCapability();
 let metricsCollector = null;
+const productionObservability = createProductionObservability({ logger });
 
 // Global error handlers (Phase 1 — error-handler.js)
 installGlobalHandlers({ logger, exitOnUncaught: false });
@@ -728,6 +730,7 @@ const CORS_VARY = [
 ].join(', ');
 
 function sendJSON(res, status, data, req = null) {
+  productionObservability.observeResponse(res, { statusCode: status, payload: data });
   const corsOrigin = res._corsOrigin || getCorsOrigin(req);
   const headers = {
     'Content-Type': 'application/json',
@@ -929,6 +932,8 @@ const learningService = createLearningApplicationService({
   repository: db.learningAuthority,
   projects: db.projects,
 });
+routeDeps.productionObservability = productionObservability;
+routeDeps.m2LifecycleService = m2LifecycleService;
 let m2RecoveryFailureCount = 0;
 async function runM2StartupRecoveryCensus() {
   try {
@@ -957,10 +962,21 @@ await runM2StartupRecoveryCensus();
 // were closures doing a runtime lookup into `routes`; the endpoints are
 // unchanged, only the indirection is gone.
 function healthHandler(req, res) {
+  let databaseReady = false;
+  try {
+    databaseReady = db.db.prepare('SELECT 1 AS ready').get()?.ready === 1;
+  } catch { /* health stays degraded without exposing storage details */ }
+  const lifecycleRecovery = m2LifecycleService.getRecoveryCensusStatus();
+  const ready = databaseReady && lifecycleRecovery.complete;
   sendJSON(res, 200, {
     name: 'p(AI)assistant',
     version: getCurrentVersion(),
-    status: 'ok',
+    status: ready ? 'ok' : 'degraded',
+    ready,
+    health: {
+      database: databaseReady,
+      lifecycleRecovery: lifecycleRecovery.complete,
+    },
     setupComplete,
     limits: config.limits,
     endpoints: [
@@ -976,6 +992,7 @@ function healthHandler(req, res) {
     ],
   });
 }
+routeDeps.healthHandler = healthHandler;
 
 const routes = {
   'GET /': healthHandler,
@@ -1296,6 +1313,7 @@ if (_rateLimitEnabled) {
 assertGlobalAuthRouteTable(routes);
 
 const server = http.createServer(async (req, res) => {
+  const httpObservation = productionObservability.beginHttpRequest(req, res);
   const address = server.address();
   const access = evaluateLegacyLocalAccess({
     host: req.headers.host,
@@ -1315,6 +1333,8 @@ const server = http.createServer(async (req, res) => {
     requestedHeaders: req.headers['access-control-request-headers'],
   });
   if (!access.allowed) {
+    httpObservation.setRoute('LOCAL_ACCESS');
+    productionObservability.markFailure(res, access.reasonCode || LEGACY_LOCAL_ACCESS_REQUIRED);
     logger.warn('Server', 'Legacy local HTTP request rejected', {
       reasonCode: access.reasonCode,
       method: req.method,
@@ -1347,6 +1367,7 @@ const server = http.createServer(async (req, res) => {
 
   // CORS preflight
   if (req.method === 'OPTIONS') {
+    httpObservation.setRoute('OPTIONS *');
     const headers = {
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
       'Access-Control-Allow-Headers':
@@ -1366,15 +1387,17 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
     pathname = url.pathname;
   } catch {
-    return sendJSON(res, 400, { error: 'Malformed URL' });
+    httpObservation.setRoute('MALFORMED_URL');
+    return sendJSON(res, 400, { error: 'Malformed URL', code: 'HTTP_URL_INVALID' });
   }
 
   // Rate limiting (v125: tiered)
   const clientIp = getClientIp(req);
   const rateTier = classifyEndpoint(req.method, pathname);
   if (!checkRateLimit(clientIp, rateTier)) {
-    res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '60', ...SECURITY_HEADERS });
-    return res.end(JSON.stringify({ error: 'Too many requests' }));
+    httpObservation.setRoute('RATE_LIMITED');
+    res.setHeader('Retry-After', '60');
+    return sendJSON(res, 429, { error: 'Too many requests', code: 'HTTP_RATE_LIMITED' });
   }
 
   logger.debug('Server', `${req.method} ${pathname}`);
@@ -1382,8 +1405,10 @@ const server = http.createServer(async (req, res) => {
   const route = matchRoute(req.method, pathname);
 
   if (!route) {
-    return sendJSON(res, 404, { error: 'Not found' });
+    httpObservation.setRoute('UNMATCHED');
+    return sendJSON(res, 404, { error: 'Not found', code: 'HTTP_ROUTE_NOT_FOUND' });
   }
+  httpObservation.setRoute(route.routeKey);
 
   const authorization = authorizeGlobalRequest({
     routeKey: route.routeKey,
@@ -1408,21 +1433,22 @@ const server = http.createServer(async (req, res) => {
   }
   req.authenticatedSubject = authorization.subject;
   req.authenticatedCredentialType = authorization.credentialType;
+  httpObservation.setCredentialType(authorization.credentialType);
 
   try {
     await route.handler(req, res, route.params);
   } catch (err) {
     if (err.message?.startsWith('Request body too large')) {
-      return sendJSON(res, 413, { error: err.message });
+      return sendJSON(res, 413, { error: err.message, code: 'HTTP_BODY_TOO_LARGE' });
     }
     if (err.message === 'Invalid JSON in request body') {
-      return sendJSON(res, 400, { error: 'Invalid JSON in request body' });
+      return sendJSON(res, 400, { error: 'Invalid JSON in request body', code: 'HTTP_BODY_INVALID_JSON' });
     }
     if (err.statusCode) {
-      return sendJSON(res, err.statusCode, { error: err.message });
+      return sendJSON(res, err.statusCode, { error: err.message, code: err.code || 'HTTP_REQUEST_FAILED' });
     }
     logger.error('Server', `Handler error: ${err.message}`);
-    sendJSON(res, 500, safeError(err));
+    sendJSON(res, 500, { ...safeError(err), code: 'HTTP_HANDLER_FAILED' });
   }
 });
 

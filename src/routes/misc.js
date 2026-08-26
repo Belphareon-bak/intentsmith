@@ -15,7 +15,29 @@ import {
 // H9: Settings, Health, Autocomplete, Audit, Logs routes
 const _fbRateMap = new Map(); // IP → last feedback timestamp (rate limit)
 export function createMiscRoutes(deps) {
-  const { db, parseBody, sendJSON, safeError, logger, callWithAuth, createAuthToken, LLMCallerRole } = deps;
+  const {
+    db,
+    parseBody,
+    sendJSON,
+    safeError,
+    logger,
+    callWithAuth,
+    createAuthToken,
+    LLMCallerRole,
+    healthHandler,
+  } = deps;
+  const effectiveHealthHandler = typeof healthHandler === 'function'
+    ? healthHandler
+    : (req, res) => {
+      sendJSON(res, 200, {
+        status: 'ok',
+        version: getCurrentVersion(),
+        timestamp: new Date().toISOString(),
+        llm: true,
+        cwd: process.cwd(),
+        wsBridge: getWebSocketBridgeHealth(),
+      });
+    };
   return {
     // Storage info
     'GET /api/storage/info': async (req, res) => {
@@ -146,16 +168,10 @@ export function createMiscRoutes(deps) {
       sendJSON(res, 200, { ok: true, features: featureManager.getAll() });
     },
 
-    'GET /api/health': (req, res) => {
-      sendJSON(res, 200, {
-        status: 'ok',
-        version: getCurrentVersion(),
-        timestamp: new Date().toISOString(),
-        llm: true,
-        cwd: process.cwd(),
-        wsBridge: getWebSocketBridgeHealth(),
-      });
-    },
+    // Production injects the canonical readiness handler. The fallback keeps
+    // this route factory usable in isolation without creating a second
+    // production health authority.
+    'GET /api/health': effectiveHealthHandler,
 
     'POST /api/autocomplete': async (req, res) => {
       const body = await parseBody(req);
