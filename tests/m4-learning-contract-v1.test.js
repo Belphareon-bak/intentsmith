@@ -144,6 +144,8 @@ function measured(sourceProposal, previous, overrides = {}) {
       observedScoreBps: 8000,
       deltaBps: 3000,
       sampleSize: 1,
+      baselineArtifactId: `lpa1:${'a'.repeat(64)}`,
+      observedArtifactId: `lpa1:${'b'.repeat(64)}`,
     },
     ...overrides,
   });

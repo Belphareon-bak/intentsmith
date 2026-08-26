@@ -70,6 +70,7 @@ const OBSERVATION_ID_PATTERN = /^lob1:[0-9a-f]{64}$/;
 const PROPOSAL_ID_PATTERN = /^lpr1:[0-9a-f]{64}$/;
 const OUTCOME_ID_PATTERN = /^lou1:[0-9a-f]{64}$/;
 const ITEM_ID_PATTERN = /^lit1:[0-9a-f]{64}$/;
+const PLAN_EVALUATION_ARTIFACT_ID_PATTERN = /^lpa1:[0-9a-f]{64}$/;
 const PRODUCER_PATTERN = /^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+\.v[1-9]\d*$/;
 const LEARNING_KEY_PATTERN = /^[a-z][a-z0-9._-]{0,127}$/;
 const MAX_TEXT_LENGTH = 4096;
@@ -461,7 +462,15 @@ function validateMeasurement(value) {
   const context = 'learning-outcome.measurement';
   const errors = validateExactKeys(
     value,
-    ['metric', 'baselineScoreBps', 'observedScoreBps', 'deltaBps', 'sampleSize'],
+    [
+      'metric',
+      'baselineScoreBps',
+      'observedScoreBps',
+      'deltaBps',
+      'sampleSize',
+      'baselineArtifactId',
+      'observedArtifactId',
+    ],
     [],
     context,
   );
@@ -482,6 +491,15 @@ function validateMeasurement(value) {
   ) errors.push(`${context}:deltaBps-mismatch`);
   if (!Number.isSafeInteger(value.sampleSize) || value.sampleSize < 1) {
     errors.push(`${context}:invalid-sampleSize`);
+  }
+  if (!PLAN_EVALUATION_ARTIFACT_ID_PATTERN.test(value.baselineArtifactId ?? '')) {
+    errors.push(`${context}:invalid-baselineArtifactId`);
+  }
+  if (!PLAN_EVALUATION_ARTIFACT_ID_PATTERN.test(value.observedArtifactId ?? '')) {
+    errors.push(`${context}:invalid-observedArtifactId`);
+  }
+  if (value.baselineArtifactId === value.observedArtifactId) {
+    errors.push(`${context}:artifactIds-not-distinct`);
   }
   return errors;
 }

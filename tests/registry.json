@@ -13458,6 +13458,66 @@
       },
       "flakeCount": 0,
       "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M4-LEARNING-OUTCOME-EVALUATOR-TEST",
+      "path": "tests/m4-learning-outcome-evaluator.test.js",
+      "argv": [
+        "node",
+        "tests/m4-learning-outcome-evaluator.test.js"
+      ],
+      "capabilityId": "C3-016",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "database",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M4-OUTCOME",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-TESTS-M4-LEARNING-JOURNEY-E2E-TEST",
+      "path": "tests/m4-learning-journey-e2e.test.js",
+      "argv": [
+        "node",
+        "tests/m4-learning-journey-e2e.test.js"
+      ],
+      "capabilityId": "C3-027",
+      "tier": "T3",
+      "fixture": "isolated-home",
+      "profile": "database",
+      "timeoutMs": 60000,
+      "expectedDurationMs": 3000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M4-E2E",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
     }
   ]
 }

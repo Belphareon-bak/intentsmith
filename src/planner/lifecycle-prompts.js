@@ -61,6 +61,15 @@ Identify:
     }
   ],
   "clarifying_questions": ["q1", "q2", ...],
+  "learned_pattern_conformance": [
+    {
+      "item_id": "exact learned item ID from User-Approved Project Patterns",
+      "item_version": 1,
+      "key": "exact pattern key",
+      "status": "conformed|conflict_explicit",
+      "explanation": "how the assessment conformed, or which request conflict was made explicit"
+    }
+  ],
   "initial_assessment": {
     "estimated_complexity": "LOW|MEDIUM|HIGH",
     "key_risks": [
@@ -70,7 +79,11 @@ Identify:
     "tech_stack_rationale": "string — why these specific choices"
   }
 }
-\`\`\``;
+\`\`\`
+
+When no User-Approved Project Patterns section is present, return
+\`"learned_pattern_conformance": []\`. When it is present, return exactly one
+entry for every supplied item ID; never invent an item, key, or version.`;
 }
 
 /**

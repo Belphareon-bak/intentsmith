@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 444
+- Runnable programs: 446
 - Explicit support-module exclusions: 14
-- Profiles: offline=225, database=53, server=40, model=85, soak=25, manual=16
-- States: ACTIVE=347, HISTORICAL=16, BLOCKED=81
+- Profiles: offline=225, database=55, server=40, model=85, soak=25, manual=16
+- States: ACTIVE=349, HISTORICAL=16, BLOCKED=81
 
 ## Execution profiles
 
@@ -353,6 +353,8 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M4-LEARNING-API-TEST` | `tests/m4-learning-api.test.js` | `C3-016` | T1 | `database` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-M4-HTTP |
 | `IS-T1-TESTS-M4-LEARNING-AUTHORITY-REPOSITORY-TEST` | `tests/m4-learning-authority-repository.test.js` | `C3-016` | T1 | `database` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-M4-MEMORY |
 | `IS-T1-TESTS-M4-LEARNING-CONTRACT-V1-TEST` | `tests/m4-learning-contract-v1.test.js` | `C3-016` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M4-OBSERVATION |
+| `IS-T3-TESTS-M4-LEARNING-JOURNEY-E2E-TEST` | `tests/m4-learning-journey-e2e.test.js` | `C3-027` | T3 | `database` | 3 s | 1 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M4-E2E |
+| `IS-T1-TESTS-M4-LEARNING-OUTCOME-EVALUATOR-TEST` | `tests/m4-learning-outcome-evaluator.test.js` | `C3-016` | T1 | `database` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-M4-OUTCOME |
 | `IS-T1-TESTS-M4-LEARNING-PATTERN-PRODUCER-TEST` | `tests/m4-learning-pattern-producer.test.js` | `C3-027` | T1 | `database` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-M4-CODEINTEL |
 | `IS-T1-TESTS-M4-LEARNING-STUDIO-SURFACE-TEST` | `tests/m4-learning-studio-surface.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M4-STUDIO |
 | `IS-T1-TESTS-M4-PROJECT-LEARNING-CONTEXT-TEST` | `tests/m4-project-learning-context.test.js` | `C3-027` | T1 | `database` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-M4-CONTEXT |

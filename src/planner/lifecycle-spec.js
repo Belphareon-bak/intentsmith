@@ -15,6 +15,53 @@ import { ProjectPhase } from './lifecycle.js';
 import { logSpecScore } from './quality-telemetry.js';
 import { formatProjectLearningContextForPlanner } from '../code-intel/project-learning-context.js';
 
+const LEARNED_PATTERN_STATUSES = new Set(['conformed', 'conflict_explicit']);
+
+function validateLearnedPatternConformance(value, projectLearningContext) {
+  const entries = value === undefined ? [] : value;
+  if (!Array.isArray(entries)) {
+    throw new TypeError('lifecycle-spec:learned-pattern-conformance-not-array');
+  }
+  const expectedItems = projectLearningContext?.items ?? [];
+  if (expectedItems.length === 0) {
+    if (entries.length !== 0) {
+      throw new TypeError('lifecycle-spec:unexpected-learned-pattern-conformance');
+    }
+    return [];
+  }
+  if (entries.length !== expectedItems.length) {
+    throw new TypeError('lifecycle-spec:incomplete-learned-pattern-conformance');
+  }
+  const expectedById = new Map(expectedItems.map(item => [item.itemId, item]));
+  const seen = new Set();
+  for (const entry of entries) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      throw new TypeError('lifecycle-spec:invalid-learned-pattern-conformance-entry');
+    }
+    const keys = Object.keys(entry).sort().join(',');
+    if (keys !== 'explanation,item_id,item_version,key,status') {
+      throw new TypeError('lifecycle-spec:invalid-learned-pattern-conformance-fields');
+    }
+    const expected = expectedById.get(entry.item_id);
+    if (
+      !expected
+      || seen.has(entry.item_id)
+      || entry.item_version !== expected.itemVersion
+      || entry.key !== expected.key
+    ) throw new TypeError('lifecycle-spec:learned-pattern-conformance-item-mismatch');
+    if (!LEARNED_PATTERN_STATUSES.has(entry.status)) {
+      throw new TypeError('lifecycle-spec:invalid-learned-pattern-conformance-status');
+    }
+    if (
+      typeof entry.explanation !== 'string'
+      || entry.explanation.trim() === ''
+      || entry.explanation.length > 4096
+    ) throw new TypeError('lifecycle-spec:invalid-learned-pattern-conformance-explanation');
+    seen.add(entry.item_id);
+  }
+  return structuredClone(entries);
+}
+
 // ─── Spec Validation ─────────────────────────────────────────────────────────
 
 /**
@@ -142,6 +189,10 @@ export async function startSpec(lifecycle, request, context = {}) {
   if (!parsed) {
     throw new Error('D1 failed to produce structured spec analysis');
   }
+  const learnedPatternConformance = validateLearnedPatternConformance(
+    parsed.learned_pattern_conformance,
+    context.projectLearningContext,
+  );
 
   // Store initial assessment in lifecycle (including technical decisions)
   const specDraft = {
@@ -151,6 +202,7 @@ export async function startSpec(lifecycle, request, context = {}) {
     _questions: parsed.clarifying_questions || [],
     _technicalDecisions: parsed.technical_decisions || [],
     _implicitAssumptions: parsed.implicit_assumptions || [],
+    _learnedPatternConformance: learnedPatternConformance,
   };
 
   lifecycleRepo.updateSpec.run(JSON.stringify(specDraft), lifecycle.id);
@@ -161,6 +213,7 @@ export async function startSpec(lifecycle, request, context = {}) {
     technicalDecisions: parsed.technical_decisions || [],
     implicitAssumptions: parsed.implicit_assumptions || [],
     coreGoal: parsed.core_goal || request,
+    learnedPatternConformance,
   };
 }
 

@@ -4,6 +4,7 @@ import {
   validateLearningOutcomeTransitionV1,
   validateLearningProposalV1,
 } from '../../contracts/m4/learning-v1.js';
+import { validateLearningPlanEvaluationArtifactV1 } from '../../contracts/m4/learning-plan-evaluation-v1.js';
 
 function exactCanonicalRecord(raw, validator) {
   if (typeof raw !== 'string') return 0;
@@ -41,4 +42,7 @@ export function registerM4LearningAuthorityFunctions(db) {
       return 0;
     }
   });
+  db.function('m4_learning_plan_evaluation_valid_v1', {
+    deterministic: true,
+  }, raw => exactCanonicalRecord(raw, validateLearningPlanEvaluationArtifactV1));
 }

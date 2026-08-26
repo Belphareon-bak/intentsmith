@@ -175,6 +175,7 @@ záznamu selže v `artifact-validation`.
 | `2026_08_25_082_m2_preexecution_approval_terminals.js` | použito |
 | `2026_08_25_083_m2_effect_rollback_receipts.js` | použito |
 | `2026_08_26_087_m4_learning_authority.js` | použito |
+| `2026_08_26_088_m4_learning_plan_evaluations.js` | použito |
 <!-- migration-source-manifest:end -->
 
 ## Proč to nejsou 058 a 059

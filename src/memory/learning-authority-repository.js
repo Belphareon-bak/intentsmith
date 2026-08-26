@@ -9,6 +9,7 @@ import {
   validateLearningProposalForObservations,
   validateLearningProposalV1,
 } from '../../contracts/m4/learning-v1.js';
+import { validateLearningPlanEvaluationArtifactV1 } from '../../contracts/m4/learning-plan-evaluation-v1.js';
 import { registerM4LearningAuthorityFunctions } from './learning-authority-validation.js';
 
 export const LearningAuthorityErrorCode = Object.freeze({
@@ -19,6 +20,7 @@ export const LearningAuthorityErrorCode = Object.freeze({
   OBSERVATION_CONFLICT: 'LEARNING_OBSERVATION_CONFLICT',
   PROPOSAL_CONFLICT: 'LEARNING_PROPOSAL_CONFLICT',
   OUTCOME_CONFLICT: 'LEARNING_OUTCOME_CONFLICT',
+  PLAN_EVALUATION_CONFLICT: 'LEARNING_PLAN_EVALUATION_CONFLICT',
   PROPOSAL_ALREADY_DECIDED: 'LEARNING_PROPOSAL_ALREADY_DECIDED',
   TRANSITION_INVALID: 'LEARNING_TRANSITION_INVALID',
   STORAGE_FAILURE: 'LEARNING_AUTHORITY_STORAGE_FAILURE',
@@ -202,6 +204,12 @@ export class LearningAuthorityRepository {
     return this.db.prepare(`
       SELECT record_json FROM m4_learning_outcomes WHERE outcome_id = ?
     `).get(outcomeId);
+  }
+
+  #planEvaluationRow(artifactId) {
+    return this.db.prepare(`
+      SELECT record_json FROM m4_learning_plan_evaluations WHERE artifact_id = ?
+    `).get(artifactId);
   }
 
   #currentOutcomeRow(proposalId) {
@@ -572,6 +580,32 @@ export class LearningAuthorityRepository {
         if (!previous || !activeStatus(previous.status) || !previous.learnedItem?.active) {
           fail(LearningAuthorityErrorCode.TRANSITION_INVALID, 'Only active learning can be measured');
         }
+        const baselineArtifact = this.getPlanEvaluationArtifact(
+          checkedMeasurement.baselineArtifactId,
+        );
+        const observedArtifact = this.getPlanEvaluationArtifact(
+          checkedMeasurement.observedArtifactId,
+        );
+        const artifactsMatch = [baselineArtifact, observedArtifact].every(artifact => (
+          artifact
+          && artifact.projectId === proposal.projectId
+          && artifact.proposalId === proposalId
+          && artifact.itemId === previous.learnedItem.itemId
+          && artifact.itemVersion === previous.learnedItem.itemVersion
+          && artifact.conformance.key === proposal.adaptation.key
+        ));
+        if (
+          !artifactsMatch
+          || baselineArtifact.learningContextDigest !== null
+          || baselineArtifact.conformance.status !== 'absent'
+          || observedArtifact.learningContextDigest === null
+          || observedArtifact.generatedAtMs <= baselineArtifact.generatedAtMs
+        ) {
+          fail(
+            LearningAuthorityErrorCode.TRANSITION_INVALID,
+            'Measurement requires exact durable baseline and observed artifacts',
+          );
+        }
         const outcome = createOutcomeOrFail({
           proposalId,
           projectId: proposal.projectId,
@@ -643,6 +677,60 @@ export class LearningAuthorityRepository {
       state,
       learnedItem: outcome?.learnedItem ?? null,
     });
+  }
+
+  recordPlanEvaluationArtifact(artifactValue) {
+    const artifact = requireValid(
+      artifactValue,
+      validateLearningPlanEvaluationArtifactV1,
+      'LearningPlanEvaluationArtifact',
+    );
+    const encoded = canonicalizeLearningValue(artifact);
+    try {
+      return immediate(this.db, () => {
+        const existing = this.#planEvaluationRow(artifact.artifactId);
+        if (existing) {
+          if (existing.record_json !== encoded) {
+            fail(
+              LearningAuthorityErrorCode.PLAN_EVALUATION_CONFLICT,
+              'Plan evaluation artifact ID conflict',
+            );
+          }
+          return parseStored(
+            existing.record_json,
+            validateLearningPlanEvaluationArtifactV1,
+            'LearningPlanEvaluationArtifact',
+          );
+        }
+        this.db.prepare(`
+          INSERT INTO m4_learning_plan_evaluations (
+            artifact_id, project_id, proposal_id, item_id, item_version,
+            generated_at_ms, learning_context_digest, record_json
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          artifact.artifactId,
+          artifact.projectId,
+          artifact.proposalId,
+          artifact.itemId,
+          artifact.itemVersion,
+          artifact.generatedAtMs,
+          artifact.learningContextDigest,
+          encoded,
+        );
+        return deepFreeze(structuredClone(artifact));
+      });
+    } catch (error) {
+      storageFailure('plan evaluation artifact insert', error);
+    }
+  }
+
+  getPlanEvaluationArtifact(artifactId) {
+    const row = this.#planEvaluationRow(artifactId);
+    return row ? parseStored(
+      row.record_json,
+      validateLearningPlanEvaluationArtifactV1,
+      'LearningPlanEvaluationArtifact',
+    ) : null;
   }
 
   getProposalObservations(proposalId) {

@@ -13,10 +13,15 @@ import {
   createLearningProposalV1,
 } from '../contracts/m4/learning-v1.js';
 import {
+  computeLearningPlanResponseDigest,
+  createLearningPlanEvaluationArtifactV1,
+} from '../contracts/m4/learning-plan-evaluation-v1.js';
+import {
   EXPECTED_M4_LEARNING_AUTHORITY_FINGERPRINT_V087,
   computeM4LearningAuthorityFingerprintV087,
   up as applyLearningAuthority,
 } from '../src/db/migrations/2026_08_26_087_m4_learning_authority.js';
+import { up as applyPlanEvaluations } from '../src/db/migrations/2026_08_26_088_m4_learning_plan_evaluations.js';
 import {
   LearningAuthorityError,
   LearningAuthorityErrorCode,
@@ -39,6 +44,7 @@ function openDb() {
     INSERT INTO projects (id) VALUES (17), (18);
   `);
   applyLearningAuthority(db);
+  applyPlanEvaluations(db);
   return db;
 }
 
@@ -118,6 +124,29 @@ function expectCode(operation, code) {
   assert.throws(operation, error => (
     error instanceof LearningAuthorityError && error.code === code
   ));
+}
+
+function planArtifact(seeded, approved, {
+  generatedAtMs,
+  learningContextDigest,
+  status,
+}) {
+  return createLearningPlanEvaluationArtifactV1({
+    projectId: seeded.proposal.projectId,
+    proposalId: seeded.proposal.proposalId,
+    itemId: approved.learnedItem.itemId,
+    itemVersion: approved.learnedItem.itemVersion,
+    learningContextDigest,
+    generatedAtMs,
+    responseDigest: computeLearningPlanResponseDigest({ generatedAtMs, status }),
+    conformance: {
+      key: seeded.proposal.adaptation.key,
+      status,
+      explanation: status === 'absent'
+        ? 'No learned project context was supplied.'
+        : 'The exact approved convention was applied.',
+    },
+  });
 }
 
 suite('M4 append-only learning authority repository');
@@ -247,6 +276,18 @@ test('measurement binds baseline, observed score and exact version', () => {
     reason: 'Approved.',
   });
   clock.setNow(approved.recordedAtMs + 10);
+  const baseline = planArtifact(seeded, approved, {
+    generatedAtMs: approved.recordedAtMs + 1,
+    learningContextDigest: null,
+    status: 'absent',
+  });
+  const observed = planArtifact(seeded, approved, {
+    generatedAtMs: approved.recordedAtMs + 2,
+    learningContextDigest: `plc1:${'c'.repeat(64)}`,
+    status: 'conformed',
+  });
+  clock.repository.recordPlanEvaluationArtifact(baseline);
+  clock.repository.recordPlanEvaluationArtifact(observed);
   const measured = clock.repository.recordMeasurement({
     proposalId: seeded.proposal.proposalId,
     reason: 'The next plan respected the pattern.',
@@ -256,11 +297,18 @@ test('measurement binds baseline, observed score and exact version', () => {
       observedScoreBps: 8500,
       deltaBps: 4500,
       sampleSize: 1,
+      baselineArtifactId: baseline.artifactId,
+      observedArtifactId: observed.artifactId,
     },
   });
   assert.equal(measured.status, LEARNING_OUTCOME_STATUS.MEASURED);
   assert.equal(measured.learnedItem.itemVersion, approved.learnedItem.itemVersion);
   assert.equal(measured.previousOutcomeId, approved.outcomeId);
+  assert.deepEqual(clock.repository.getPlanEvaluationArtifact(baseline.artifactId), baseline);
+  assert.throws(
+    () => db.prepare('DELETE FROM m4_learning_plan_evaluations').run(),
+    /append-only/,
+  );
   db.close();
 });
 
