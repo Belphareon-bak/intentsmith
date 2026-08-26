@@ -12,6 +12,7 @@ import {
 } from '../contracts/m6/release-v1.js';
 import {
   validateM6ReleaseEvidence,
+  validateM6EvidenceCommitBoundary,
   verifyM6ArtifactBindings,
 } from '../src/release/m6-release-validation.js';
 import { suite, summary, testAsync } from './harness.js';
@@ -148,5 +149,44 @@ await testAsync('artifact verifier binds bytes and rejects symlinked evidence', 
   assert.equal((await verifyM6ArtifactBindings(root, linked)).valid, false);
 });
 
-summary();
+await testAsync('evidence-only descendant may record review without rebinding product candidate', async () => {
+  const result = validateM6EvidenceCommitBoundary({
+    candidateSha,
+    evidenceHeadSha: 'c'.repeat(40),
+    candidateIsAncestor: true,
+    changedPaths: [
+      'ROADMAP.md',
+      'docs/execution/runs/m6-closeout.md',
+      'docs/review/2026-08-27-M6-REVIEW.md',
+    ],
+    worktreeClean: true,
+    candidateRegistryFingerprint: registryFingerprint,
+    evidenceRegistryFingerprint: registryFingerprint,
+  });
+  assert.equal(result.valid, true, result.errors.join('\n'));
+  assert.equal(result.evidenceOnly, true);
+});
 
+await testAsync('product, registry, ancestry and dirty drift behind evidence commit fail closed', async () => {
+  const base = {
+    candidateSha,
+    evidenceHeadSha: 'c'.repeat(40),
+    candidateIsAncestor: true,
+    changedPaths: ['docs/review/m6.md'],
+    worktreeClean: true,
+    candidateRegistryFingerprint: registryFingerprint,
+    evidenceRegistryFingerprint: registryFingerprint,
+  };
+  for (const mutate of [
+    value => { value.changedPaths = ['src/server.js']; },
+    value => { value.evidenceRegistryFingerprint = 'd'.repeat(64); },
+    value => { value.candidateIsAncestor = false; },
+    value => { value.worktreeClean = false; },
+  ]) {
+    const value = structuredClone(base);
+    mutate(value);
+    assert.equal(validateM6EvidenceCommitBoundary(value).valid, false);
+  }
+});
+
+summary();

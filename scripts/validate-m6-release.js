@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
@@ -12,6 +12,7 @@ import {
 } from '../src/release/conditional-surfaces.js';
 import {
   validateM6ReleaseEvidence,
+  validateM6EvidenceCommitBoundary,
   verifyM6ArtifactBindings,
 } from '../src/release/m6-release-validation.js';
 import {
@@ -27,7 +28,7 @@ function git(root, args) {
 }
 
 export async function validateCurrentM6Release(root = process.cwd()) {
-  const candidateSha = git(root, ['rev-parse', 'HEAD']);
+  const evidenceHeadSha = git(root, ['rev-parse', 'HEAD']);
   const worktreeClean = git(root, [
     'status', '--porcelain=v1', '--untracked-files=all',
   ]) === '';
@@ -48,14 +49,46 @@ export async function validateCurrentM6Release(root = process.cwd()) {
       exitCode: 2,
       errors: Object.freeze([]),
       reasonCode: 'M6_RELEASE_EVIDENCE_NOT_FOUND',
-      candidateSha,
+      candidateSha: evidenceHeadSha,
+      evidenceHeadSha,
       registryFingerprint: fingerprint,
       evidencePath: M6_RELEASE_EVIDENCE_PATH,
     });
   }
+  const candidateSha = evidence.candidateSha;
+  const ancestorProbe = spawnSync(
+    'git',
+    ['merge-base', '--is-ancestor', candidateSha, evidenceHeadSha],
+    { cwd: root, stdio: 'ignore' },
+  );
+  const candidateIsAncestor = ancestorProbe.status === 0;
+  let changedPaths = [];
+  let candidateRegistryFingerprint = null;
+  if (candidateIsAncestor) {
+    changedPaths = git(root, [
+      'diff', '--name-only', '--diff-filter=ACMR', `${candidateSha}..${evidenceHeadSha}`,
+    ]).split('\n').filter(Boolean);
+    try {
+      const candidateRegistry = JSON.parse(git(root, [
+        'show', `${candidateSha}:tests/registry.json`,
+      ]));
+      candidateRegistryFingerprint = registryFingerprint(candidateRegistry);
+    } catch {
+      candidateRegistryFingerprint = null;
+    }
+  }
+  const boundary = validateM6EvidenceCommitBoundary({
+    candidateSha,
+    evidenceHeadSha,
+    candidateIsAncestor,
+    changedPaths,
+    worktreeClean,
+    candidateRegistryFingerprint,
+    evidenceRegistryFingerprint: fingerprint,
+  });
   const validation = validateM6ReleaseEvidence(evidence, {
     candidateSha,
-    worktreeClean,
+    worktreeClean: boundary.valid,
     registryFingerprint: fingerprint,
     expectedConditionalJourneys: conditional.requiredM6Journeys,
   });
@@ -71,6 +104,8 @@ export async function validateCurrentM6Release(root = process.cwd()) {
         ...artifactValidation.errors,
       ]),
       candidateSha,
+      evidenceHeadSha,
+      evidenceBoundary: boundary,
       registryFingerprint: fingerprint,
       evidencePath: M6_RELEASE_EVIDENCE_PATH,
     });
@@ -78,6 +113,8 @@ export async function validateCurrentM6Release(root = process.cwd()) {
   return Object.freeze({
     ...validation,
     candidateSha,
+    evidenceHeadSha,
+    evidenceBoundary: boundary,
     registryFingerprint: fingerprint,
     evidencePath: M6_RELEASE_EVIDENCE_PATH,
   });
@@ -98,4 +135,3 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
     process.exitCode = 1;
   });
 }
-

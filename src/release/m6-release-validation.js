@@ -32,6 +32,15 @@ const CONDITIONAL_KEYS = Object.freeze([
   'status',
 ]);
 const ARTIFACT_KEYS = Object.freeze(['bytes', 'path', 'sha256']);
+const EVIDENCE_ONLY_EXACT_PATHS = new Set([
+  'ROADMAP.md',
+  'SYSTEM-MAP.md',
+  'docs/wp/WP-M6-RELEASE.md',
+]);
+const EVIDENCE_ONLY_PREFIXES = Object.freeze([
+  'docs/execution/runs/',
+  'docs/review/',
+]);
 
 function exactKeys(value, expected) {
   return value !== null
@@ -221,3 +230,44 @@ export async function verifyM6ArtifactBindings(root, evidence) {
   return Object.freeze({ valid: errors.length === 0, errors: Object.freeze(errors) });
 }
 
+export function validateM6EvidenceCommitBoundary({
+  candidateSha,
+  evidenceHeadSha,
+  candidateIsAncestor,
+  changedPaths,
+  worktreeClean,
+  candidateRegistryFingerprint,
+  evidenceRegistryFingerprint,
+} = {}) {
+  const errors = [];
+  if (!FULL_SHA_PATTERN.test(candidateSha || '')) errors.push('boundary:candidate');
+  if (!FULL_SHA_PATTERN.test(evidenceHeadSha || '')) errors.push('boundary:evidence-head');
+  if (candidateIsAncestor !== true) errors.push('boundary:not-descendant');
+  if (worktreeClean !== true) errors.push('boundary:dirty');
+  if (!SHA256_PATTERN.test(candidateRegistryFingerprint || '')) {
+    errors.push('boundary:candidate-registry');
+  }
+  if (candidateRegistryFingerprint !== evidenceRegistryFingerprint) {
+    errors.push('boundary:registry-drift');
+  }
+  if (!Array.isArray(changedPaths)) {
+    errors.push('boundary:changed-paths');
+  } else {
+    const normalized = changedPaths.map(value => String(value).replaceAll('\\', '/'));
+    if (new Set(normalized).size !== normalized.length) errors.push('boundary:duplicate-path');
+    for (const changedPath of normalized) {
+      const allowed = EVIDENCE_ONLY_EXACT_PATHS.has(changedPath)
+        || EVIDENCE_ONLY_PREFIXES.some(prefix => changedPath.startsWith(prefix));
+      if (!safeRelativePath(changedPath) || !allowed) {
+        errors.push(`boundary:product-path:${changedPath}`);
+      }
+    }
+  }
+  return Object.freeze({
+    valid: errors.length === 0,
+    errors: Object.freeze(errors),
+    candidateSha,
+    evidenceHeadSha,
+    evidenceOnly: candidateSha !== evidenceHeadSha,
+  });
+}
