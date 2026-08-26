@@ -137,20 +137,33 @@ export function normalizeLegacyLocalOrigins(origins) {
   return normalized;
 }
 
-export function extractLegacyLocalWebSocketCapability(rawProtocols) {
-  if (typeof rawProtocols !== 'string' || rawProtocols.length === 0) {
-    return null;
+export function parseLegacyLocalWebSocketCapability(rawProtocols) {
+  if (rawProtocols === undefined || rawProtocols === null || rawProtocols === '') {
+    return Object.freeze({ state: 'absent', token: null });
+  }
+  if (typeof rawProtocols !== 'string') {
+    return Object.freeze({ state: 'ambiguous', token: null });
   }
 
   const matches = rawProtocols
     .split(',')
     .map(value => value.trim())
-    .filter(value => value.startsWith(LEGACY_LOCAL_WS_CAPABILITY_PREFIX))
-    .map(value => value.slice(LEGACY_LOCAL_WS_CAPABILITY_PREFIX.length));
+    .filter(value => value.startsWith('c3-local-v1'));
+  if (matches.length === 0) {
+    return Object.freeze({ state: 'absent', token: null });
+  }
+  if (matches.length !== 1 || !matches[0].startsWith(LEGACY_LOCAL_WS_CAPABILITY_PREFIX)) {
+    return Object.freeze({ state: 'ambiguous', token: null });
+  }
+  const token = matches[0].slice(LEGACY_LOCAL_WS_CAPABILITY_PREFIX.length);
+  return isValidLegacyLocalCapability(token)
+    ? Object.freeze({ state: 'valid', token })
+    : Object.freeze({ state: 'ambiguous', token: null });
+}
 
-  return matches.length === 1 && isValidLegacyLocalCapability(matches[0])
-    ? matches[0]
-    : null;
+export function extractLegacyLocalWebSocketCapability(rawProtocols) {
+  const parsed = parseLegacyLocalWebSocketCapability(rawProtocols);
+  return parsed.state === 'valid' ? parsed.token : null;
 }
 
 export function legacyLocalCapabilitiesEqual(expected, presented) {

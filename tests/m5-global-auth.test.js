@@ -21,7 +21,10 @@ import {
   extractWebSocketBearerCredential,
   parseWebSocketBearerCredential,
 } from '../src/security/global-auth-policy.js';
-import { createLegacyLocalCapability } from '../src/security/legacy-local-access-policy.js';
+import {
+  createLegacyLocalCapability,
+  parseLegacyLocalWebSocketCapability,
+} from '../src/security/legacy-local-access-policy.js';
 import { _testInternals as wsInternals } from '../src/ws-bridge/ws-server.js';
 
 const LOCAL = '127.0.0.1';
@@ -156,6 +159,30 @@ test('WebSocket bearer protocol round-trips exactly and rejects malformed encodi
   assert.equal(parseWebSocketBearerCredential('intentsmith-auth-v1.%%%').state, 'ambiguous');
 });
 
+test('WebSocket local capability parser preserves absent, valid and ambiguous transport states', () => {
+  const first = createLegacyLocalCapability();
+  const second = createLegacyLocalCapability();
+  assert.deepEqual(parseLegacyLocalWebSocketCapability('c3-v1'), {
+    state: 'absent',
+    token: null,
+  });
+  assert.deepEqual(parseLegacyLocalWebSocketCapability(`c3-v1, c3-local-v1.${first}`), {
+    state: 'valid',
+    token: first,
+  });
+  for (const protocols of [
+    'c3-v1, c3-local-v1.invalid',
+    'c3-v1, c3-local-v1',
+    `c3-v1, c3-local-v1.${first}, c3-local-v1.${second}`,
+    `c3-v1, c3-local-v1.${first}, c3-local-v1.${first}`,
+  ]) {
+    assert.deepEqual(parseLegacyLocalWebSocketCapability(protocols), {
+      state: 'ambiguous',
+      token: null,
+    });
+  }
+});
+
 function verifyUpgrade({
   capability,
   protocols,
@@ -249,6 +276,25 @@ test('WS rejects mixed, duplicate and malformed transport credentials before ide
   assert.equal(malformedBearer.callback.allowed, false);
   assert.equal(malformedBearer.callback.status, 400);
   assert.equal(malformedBearer.request.authenticatedSubject, undefined);
+
+  const malformedLocalWithAdmin = verifyUpgrade({
+    capability,
+    protocols: 'c3-v1, c3-local-v1.invalid',
+    headers: { authorization: 'Bearer admin-secret' },
+  });
+  assert.equal(malformedLocalWithAdmin.callback.allowed, false);
+  assert.equal(malformedLocalWithAdmin.callback.status, 400);
+  assert.equal(malformedLocalWithAdmin.request.authenticatedSubject, undefined);
+
+  const otherCapability = createLegacyLocalCapability();
+  const multipleLocalWithAdmin = verifyUpgrade({
+    capability,
+    protocols: `c3-v1, c3-local-v1.${capability}, c3-local-v1.${otherCapability}`,
+    headers: { authorization: 'Bearer admin-secret' },
+  });
+  assert.equal(multipleLocalWithAdmin.callback.allowed, false);
+  assert.equal(multipleLocalWithAdmin.callback.status, 400);
+  assert.equal(multipleLocalWithAdmin.request.authenticatedSubject, undefined);
 });
 
 function delay(ms) {

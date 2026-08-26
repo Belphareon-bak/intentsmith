@@ -37,8 +37,8 @@ import { getConversationStore } from '../chat/conversation-store.js';
 import { isIdentifier } from '../../contracts/m1/shared.js';
 import {
   evaluateLegacyLocalAccess,
-  extractLegacyLocalWebSocketCapability,
   isValidLegacyLocalCapability,
+  parseLegacyLocalWebSocketCapability,
 } from '../security/legacy-local-access-policy.js';
 import {
   RouteAuthClass,
@@ -91,6 +91,9 @@ function createLegacyWebSocketVerifyClient({
     const expectedPort = typeof address === 'object' && address
       ? address.port
       : null;
+    const presentedLocalCredential = parseLegacyLocalWebSocketCapability(
+      info.req?.headers?.['sec-websocket-protocol'],
+    );
     const access = evaluateLegacyLocalAccess({
       host: info.req?.headers?.host,
       expectedPort,
@@ -98,9 +101,9 @@ function createLegacyWebSocketVerifyClient({
       origin: info.origin,
       allowedOrigins,
       expectedCapability: localCapability,
-      presentedCapability: extractLegacyLocalWebSocketCapability(
-        info.req?.headers?.['sec-websocket-protocol'],
-      ),
+      presentedCapability: presentedLocalCredential.state === 'valid'
+        ? presentedLocalCredential.token
+        : undefined,
       fetchSite: info.req?.headers?.['sec-fetch-site'],
     });
 
@@ -113,9 +116,6 @@ function createLegacyWebSocketVerifyClient({
       return;
     }
 
-    const presentedLocalCapability = extractLegacyLocalWebSocketCapability(
-      info.req?.headers?.['sec-websocket-protocol'],
-    );
     const authorization = authorizeGlobalRequest({
       routeKey: 'WS /c3/ws',
       routeClass: RouteAuthClass.MUTATE,
@@ -126,7 +126,7 @@ function createLegacyWebSocketVerifyClient({
       adminToken,
       validateApiToken,
       websocketProtocols: info.req?.headers?.['sec-websocket-protocol'],
-      websocketLocalCapability: presentedLocalCapability ?? undefined,
+      websocketLocalCredential: presentedLocalCredential,
     });
     if (!authorization.allowed) {
       logger.warn('WSBridge', 'Rejected unauthenticated WebSocket upgrade', {

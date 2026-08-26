@@ -167,6 +167,7 @@ export function authorizeGlobalRequest({
   validateApiToken,
   websocketProtocols,
   websocketLocalCapability,
+  websocketLocalCredential,
 } = {}) {
   if (!routeClass || !Object.values(RouteAuthClass).includes(routeClass)) {
     return decision(false, {
@@ -182,11 +183,19 @@ export function authorizeGlobalRequest({
   const adminHeader = oneHeader(headers, 'x-admin-token');
   const bearerHeader = bearer(headers);
   const bearerProtocol = parseWebSocketBearerCredential(websocketProtocols);
-  const localProtocol = websocketLocalCapability === undefined
-    ? parsedCredential(CREDENTIAL_PARSE_STATE.ABSENT)
-    : typeof websocketLocalCapability === 'string' && websocketLocalCapability.length > 0
-      ? parsedCredential(CREDENTIAL_PARSE_STATE.VALID, websocketLocalCapability)
-      : parsedCredential(CREDENTIAL_PARSE_STATE.AMBIGUOUS);
+  const localProtocol = websocketLocalCredential === undefined
+    ? websocketLocalCapability === undefined
+      ? parsedCredential(CREDENTIAL_PARSE_STATE.ABSENT)
+      : typeof websocketLocalCapability === 'string' && websocketLocalCapability.length > 0
+        ? parsedCredential(CREDENTIAL_PARSE_STATE.VALID, websocketLocalCapability)
+        : parsedCredential(CREDENTIAL_PARSE_STATE.AMBIGUOUS)
+    : websocketLocalCredential?.state === CREDENTIAL_PARSE_STATE.ABSENT
+      ? parsedCredential(CREDENTIAL_PARSE_STATE.ABSENT)
+      : websocketLocalCredential?.state === CREDENTIAL_PARSE_STATE.VALID
+        && typeof websocketLocalCredential.token === 'string'
+        && websocketLocalCredential.token.length > 0
+        ? parsedCredential(CREDENTIAL_PARSE_STATE.VALID, websocketLocalCredential.token)
+        : parsedCredential(CREDENTIAL_PARSE_STATE.AMBIGUOUS);
   const credentials = [localHeader, localProtocol, adminHeader, bearerHeader, bearerProtocol];
   if (credentials.some(item => item.state === CREDENTIAL_PARSE_STATE.AMBIGUOUS)) {
     return decision(false, {
