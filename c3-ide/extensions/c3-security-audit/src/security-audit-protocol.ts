@@ -75,6 +75,12 @@ export interface AuditReport {
 
 // ─── Security Test Matrix ────────────────────────────────
 
+const ENV_LEAKAGE_TEST_VALUES = Object.freeze({
+  anthropic: 'sk-ant-secret123',
+  database: 'postgres://user:pass@host/db',
+  custom: 'super-secret-value',
+});
+
 export const SECURITY_TESTS: SecurityTest[] = [
   // ── Command Injection (Layer 1) ──
   {
@@ -233,7 +239,7 @@ export const SECURITY_TESTS: SecurityTest[] = [
     id: 'env-001',
     category: 'env_leakage',
     description: 'ANTHROPIC_API_KEY must be stripped',
-    attack: { env: { ANTHROPIC_API_KEY: 'sk-ant-secret123' } },
+    attack: { env: { ANTHROPIC_API_KEY: ENV_LEAKAGE_TEST_VALUES.anthropic } },
     expected: 'sanitized',
     expectedLayer: 5,
     severity: 'critical',
@@ -242,7 +248,7 @@ export const SECURITY_TESTS: SecurityTest[] = [
     id: 'env-002',
     category: 'env_leakage',
     description: 'DATABASE_URL must be stripped',
-    attack: { env: { DATABASE_URL: 'postgres://user:pass@host/db' } },
+    attack: { env: { DATABASE_URL: ENV_LEAKAGE_TEST_VALUES.database } },
     expected: 'sanitized',
     expectedLayer: 5,
     severity: 'high',
@@ -251,7 +257,7 @@ export const SECURITY_TESTS: SecurityTest[] = [
     id: 'env-003',
     category: 'env_leakage',
     description: 'Custom MY_APP_SECRET must be stripped (suffix match)',
-    attack: { env: { MY_APP_SECRET: 'super-secret-value' } },
+    attack: { env: { MY_APP_SECRET: ENV_LEAKAGE_TEST_VALUES.custom } },
     expected: 'sanitized',
     expectedLayer: 5,
     severity: 'high',
