@@ -1433,7 +1433,18 @@ lifecycle a VRAM jsou vázané na přesné přijaté M1/M2 evidence; nový GPU r
 neproběhl, protože read-only census našel cizí aktivní Ollama compute. Důkaz je
 v [`m5-perf-20260826.md`](docs/execution/runs/m5-perf-20260826.md).
 
-Nejde o M5 acceptance: M3 oddíl 7 a zbývající M5 bloky jsou otevřené.
+`WP-M5-REMOTE-PORT` a `WP-M5-CONDITIONAL-SURFACES` jsou
+implementation-green na product commitu `9abf672c`. In-process adaptér nabízí
+jen exact `conversations@1` a `projects@1`; pět capability bez úplného payload
+kontraktu zůstává explicitně unavailable a listener/pairing/auth patří M7.
+Produkční conditional set obsahuje pouze podporovaný model discovery journey;
+external notifications, marketplace, ComfyUI a core updater jsou defaultně
+vypnuté, unsupported a jejich explicitní produkční zapnutí selže při startupu.
+Autoritativní module graph má 1 176 hran, stále 3 cykly a 28 souborů v cyklech.
+Důkaz je v
+[`m5-remote-conditional-20260826.md`](docs/execution/runs/m5-remote-conditional-20260826.md).
+
+Nejde o M5 acceptance: M3 oddíl 7 a M5 privacy zůstávají otevřené.
 
 ### Výsledek
 
