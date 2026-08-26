@@ -113,6 +113,9 @@ M3 konzumentských/extension suit: 359/359 PASS. Registry má 442 programů a
 fingerprint
 `ed993fccec0e605e2a07471214fe4058ab005d41bfbccd5a86f217dda173485f`.
 Fresh schema má 38/38 PASS a artifact validace 154/154 PASS.
+Module-boundary writer z čistého product commitu `998c3442` explicitně přijal
+čtyři pojmenované hrany. Graph má 1 156 hran, stále 3 cykly a 28 souborů v
+cyklech; ratchet má 13/13 PASS.
 
 ## Zbývající rozsah
 
