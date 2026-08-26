@@ -84,13 +84,15 @@ větví.
 Opakovaný union census všech commitnutých větví mimo `archive/**` a
 `recovery/**` našel identity `084`–`086` na živé cizí větvi
 `claude/gate1-mobile-app-progress-5sywlt`. Do této větve ani jejích migrací se
-nezasahovalo. Nejnižší volná identita **087** je použita pro append-only M4
-same-project learning authority.
+nezasahovalo. Identity **087–088** používá M4 learning authority a **089** M5
+append-only outbound audit.
 
 | Číslo | Stav | Obsah |
 |---|---|---|
 | **084–086** | obsazeno na cizí živé větvi | model policy/proof compatibility a model-evaluation consolidation |
 | **087** | rezervováno a použito M4 | exact Observation/Proposal/Outcome authority, user gate a lifecycle chain |
+| **088** | rezervováno a použito M4 | version-bound plan evaluation evidence |
+| **089** | rezervováno a použito M5 | append-only outbound policy decision a terminal audit |
 
 ### Strojově kontrolovaný manifest použitých migrací
 
@@ -176,6 +178,7 @@ záznamu selže v `artifact-validation`.
 | `2026_08_25_083_m2_effect_rollback_receipts.js` | použito |
 | `2026_08_26_087_m4_learning_authority.js` | použito |
 | `2026_08_26_088_m4_learning_plan_evaluations.js` | použito |
+| `2026_08_26_089_m5_outbound_audit.js` | použito |
 <!-- migration-source-manifest:end -->
 
 ## Proč to nejsou 058 a 059

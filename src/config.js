@@ -29,14 +29,10 @@ export const config = {
     //
     // Operator decision 2026-08-19 (DIRECTION.md): default ON, opt-OUT via
     // C3_ENABLE_ONLINE_DISCOVERY=false. Keeping a local model set current is
-    // worth the outbound traffic — without discovery the catalog silently ages
-    // and the ranking recommends models that were superseded months ago.
-    //
-    // This does not weaken local-first: the constraint is that nothing outside
-    // the machine is *required*. Every discovery path degrades on its own
-    // (registry goes offline after 3 failures, Ollama probe backs off for 30s,
-    // WhatLLM has an error cooldown), so an offline run still ranks models from
-    // the local catalog.
+    // worth the outbound traffic; without discovery the catalog silently ages.
+    // M5 does not reverse that decision: enabled requests cross the centralized
+    // exact-origin scope and append-only audit. Every discovery path still
+    // degrades independently, so the local catalog remains usable offline.
     onlineDiscovery: process.env.C3_ENABLE_ONLINE_DISCOVERY !== 'false',
   },
 

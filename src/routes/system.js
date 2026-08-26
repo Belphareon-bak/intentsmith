@@ -14,6 +14,7 @@ import { drainMessages, getHistoryStats } from '../core/history-drain.js';
 import { createStateBackup, listBackups, pruneBackups, getBackupStats } from '../core/db-backup.js';
 import { upgradeManager, UpgradeManager } from '../upgrade/upgrade-manager.js';
 import { broadcast, getWebSocketBridgeHealth } from '../ws-bridge/ws-server.js';
+import { getOutboundDiagnostics } from '../network/outbound-policy.js';
 import { modelUniverseStore } from '../upgrade/model-universe-store.js';
 import { parseModelName } from '../upgrade/model-profiles.js';
 import { estimateModelPrior } from '../upgrade/model-similarity.js';
@@ -376,6 +377,7 @@ export function createSystemRoutes({
           database: databaseReady,
           lifecycleRecovery: m2LifecycleService.getRecoveryCensusStatus(),
         },
+        outbound: getOutboundDiagnostics(),
         websocket: getWebSocketBridgeHealth(),
       });
     },

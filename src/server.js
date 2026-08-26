@@ -22,6 +22,10 @@ import { listenOnLegacyLoopback } from './security/legacy-listener-policy.js';
 import { applyHttpTimeoutPolicy } from './timeout-policy.js';
 import { logger } from './core/logger.js';
 import { createProductionObservability } from './observability/production-observability.js';
+import {
+  configureProductionOutboundPolicy,
+  installProductionOutboundGuard,
+} from './network/outbound-policy.js';
 import { installGlobalHandlers, handleError } from './core/error-handler.js';
 import db from './db/database.js';
 
@@ -31,6 +35,12 @@ const __dirname = path.dirname(__filename);
 const legacyLocalCapability = createLegacyLocalCapability();
 let metricsCollector = null;
 const productionObservability = createProductionObservability({ logger });
+configureProductionOutboundPolicy({
+  database: db.db,
+  logger,
+  enabledSurfaces: { 'model-discovery': config.features.onlineDiscovery === true },
+});
+installProductionOutboundGuard();
 
 // Global error handlers (Phase 1 — error-handler.js)
 installGlobalHandlers({ logger, exitOnUncaught: false });

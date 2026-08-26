@@ -18,6 +18,10 @@
 
 import { logger } from '../core/logger.js';
 import {
+  MODEL_DISCOVERY_OUTBOUND_AUTHORITY,
+  outboundFetch,
+} from '../network/outbound-policy.js';
+import {
   estimateVram, estimateBenchmarks,
   buildFamilyScalingModels, inheritFromNearest, extractLibraryName,
 } from './benchmark-estimator.js';
@@ -450,10 +454,10 @@ export class OnlineDiscovery {
     // Direct fetch fallback
     try {
       const url = `https://ollama.com/library/${encodeURIComponent(family)}`;
-      const res = await fetch(url, {
+      const res = await outboundFetch(url, {
         signal: AbortSignal.timeout(10000),
         headers: { 'User-Agent': 'c3-agent/1.0' },
-      });
+      }, MODEL_DISCOVERY_OUTBOUND_AUTHORITY);
       if (!res.ok) return null;
       return await res.text();
     } catch {

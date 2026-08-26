@@ -370,6 +370,8 @@ test('production server enforces one HTTP/WS auth boundary before effects', asyn
     assert.equal(diagnostics.json.version, 1);
     assert.equal(diagnostics.json.readiness.database, true);
     assert.equal(diagnostics.json.readiness.lifecycleRecovery.complete, true);
+    assert.deepEqual(diagnostics.json.outbound.decisions, {});
+    assert.deepEqual(diagnostics.json.outbound.recent, []);
     assert.equal(diagnostics.json.http.failureCounts.authentication >= 1, true);
     assert.equal(diagnostics.json.http.failureCounts.authorization >= 1, true);
     assert.equal(diagnostics.json.http.recentFailures.some(item => (

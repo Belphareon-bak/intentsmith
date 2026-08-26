@@ -179,6 +179,7 @@ const ALL_MIGRATIONS = [
   '2026_08_25_083_m2_effect_rollback_receipts',
   '2026_08_26_087_m4_learning_authority',
   '2026_08_26_088_m4_learning_plan_evaluations',
+  '2026_08_26_089_m5_outbound_audit',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;

@@ -82,6 +82,12 @@ Health is public and exposes only readiness booleans. Authenticated
 failure taxonomy, lifecycle-recovery state and WebSocket health. It never
 stores or emits arbitrary response bodies or credential values.
 
+The same authenticated diagnostics response includes the bounded view of the
+append-only outbound audit. Production installs the global outbound guard
+before optional services initialize: loopback stays local, unscoped external
+requests are durably denied before transport, and model metadata discovery is
+restricted to its declared read scope and exact HTTPS origins.
+
 ---
 
 ## Common Patterns

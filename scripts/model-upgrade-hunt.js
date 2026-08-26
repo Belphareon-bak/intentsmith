@@ -30,6 +30,11 @@ import { fileURLToPath } from 'node:url';
 
 import { config } from '../src/config.js';
 import { logger } from '../src/core/logger.js';
+import { runMigrations } from '../src/db/migrate.js';
+import {
+  configureProductionOutboundPolicy,
+  installProductionOutboundGuard,
+} from '../src/network/outbound-policy.js';
 import {
   fetchLibraryFamilies, rankCandidates, buildCandidatePool,
 } from '../src/upgrade/model-sweep.js';
@@ -189,6 +194,13 @@ log(`GPU: ${gpu.model}, ${gpu.vramMb} MB VRAM${gpu.igpu ? ' (integrovaná)' : ''
 if (!gpu.vramMb) log('⚠ VRAM se nepodařilo zjistit — předfiltr velikosti se neuplatní, rozhodne měření');
 
 const db = openDb();
+await runMigrations(db);
+configureProductionOutboundPolicy({
+  database: db,
+  logger,
+  enabledSurfaces: { 'model-discovery': config.features.onlineDiscovery === true },
+});
+installProductionOutboundGuard();
 validationRunner.setDb(db);
 
 const installed = buildCandidates(await fetchInstalledModels());

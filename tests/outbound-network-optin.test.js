@@ -2,11 +2,9 @@
 // Automatic online model discovery is gated and opt-out
 // ══════════════════════════════════════════════════════════════════════════════
 //
-// The product is local-first. Since the operator decision of 2026-08-19
-// (DIRECTION.md) that constraint is read as "nothing outside the machine is
-// *required*", not "nothing outside the machine may be used": keeping the local
-// model set current is a product goal, so discovery defaults ON and is switched
-// off explicitly with C3_ENABLE_ONLINE_DISCOVERY=false.
+// The explicit operator decision of 2026-08-19 keeps metadata discovery on by
+// default. M5 makes that communication non-silent through an exact scope and
+// append-only audit; this suite retains the existing feature switch contract.
 //
 // What still must hold, and is what this suite protects:
 //   - a single switch turns every outbound discovery path off;
@@ -65,8 +63,6 @@ async function main() {
   );
 
   // ── Only the exact string "false" opts out ────────────────────────────────
-  // A typo must not silently disable discovery, and must not silently enable
-  // it either — the switch has to mean one thing.
   process.env.C3_ENABLE_ONLINE_DISCOVERY = 'no';
   const { config: typo } = await import(
     `${path.join(ROOT, 'src/config.js')}?fresh=${Date.now()}-typo`
