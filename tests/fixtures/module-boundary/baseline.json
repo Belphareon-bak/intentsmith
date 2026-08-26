@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "f979641c2ce05806ed34f2087eb7f9be8482ad3f",
-  "sourceTree": "8da7b8cd843e965c8a1979cdd8f9c93c760733a7",
+  "sourceRevision": "44e74ae1dbbe0594c38847910210c164c5052cdc",
+  "sourceTree": "526c5b8be880c123a70ef19b30b4afe3a2eb9961",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -962,6 +962,7 @@
     "src/server.js -> src/notifications/index.js",
     "src/server.js -> src/notifications/trust-api.js",
     "src/server.js -> src/notifications/trust.js",
+    "src/server.js -> src/observability/production-observability.js",
     "src/server.js -> src/packaging/auto-updater.js",
     "src/server.js -> src/planner/lifecycle-build.js",
     "src/server.js -> src/routes/agents.js",
