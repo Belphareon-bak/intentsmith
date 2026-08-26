@@ -1,8 +1,11 @@
 # Model evaluation review remediation 2 (2026-08-26)
 
-**Stav:** `IMPLEMENTATION_GREEN / REREVIEW_REQUIRED`  
-**Vstupní review:** `96c762db..4169c59d` — `CHANGES_REQUIRED`  
-**Implementační rozsah pro nové review:** `4169c59d..7bf48ece`  
+**Stav:** `IMPLEMENTATION_GREEN / REREVIEW_REQUIRED`
+
+**Vstupní review:** `96c762db..4169c59d` — `CHANGES_REQUIRED`
+
+**Implementační rozsah pro nové review:** `4169c59d..7bf48ece`
+
 **Candidate:** `7bf48ece4df71d41b3a47de451eccabc1ef65434`
 
 Toto je bounded D-013 evidence implementačního kandidáta, nikoli nezávislé
@@ -155,4 +158,3 @@ migrace, exact import, wizard/Studio/T3 a přísné startup ověření; commit
 `7bf48ece` zachovává B-14 dostupnost přes explicitní `DEGRADED` autoritu a
 blokovanou actionability. M2 slot 070 zůstává samostatný integrační blocker a
 není vydáván za vyřešený tímto WP.
-
