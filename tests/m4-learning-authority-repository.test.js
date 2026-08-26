@@ -394,6 +394,40 @@ test('project export is exact, ordered and isolated', () => {
   db.close();
 });
 
+test('bounded proposal review reads expose exact same-project settlement and evidence', () => {
+  const db = openDb();
+  const clock = clockedRepository(db);
+  const local = seedProposal(clock.repository, 17);
+  const foreign = seedProposal(clock.repository, 18);
+  clock.repository.rejectProposal({
+    proposalId: foreign.proposal.proposalId,
+    actorId: 'user-18',
+    reason: 'Rejected.',
+  });
+  const pending = clock.repository.listProjectProposalSettlements(17, {
+    state: 'pending',
+    limit: 10,
+  });
+  assert.equal(pending.length, 1);
+  assert.equal(pending[0].proposal.proposalId, local.proposal.proposalId);
+  assert.equal(pending[0].state, 'pending');
+  assert.deepEqual(
+    clock.repository.getProposalObservations(local.proposal.proposalId),
+    local.sources,
+  );
+  assert.equal(clock.repository.listProjectProposalSettlements(17, { state: 'terminal' }).length, 0);
+  assert.equal(clock.repository.listProjectProposalSettlements(18, { state: 'terminal' }).length, 1);
+  expectCode(
+    () => clock.repository.listProjectProposalSettlements(17, { limit: 101 }),
+    LearningAuthorityErrorCode.INPUT_INVALID,
+  );
+  expectCode(
+    () => clock.repository.listProjectProposalSettlements(17, { state: 'unknown' }),
+    LearningAuthorityErrorCode.INPUT_INVALID,
+  );
+  db.close();
+});
+
 test('a second repository observes the committed user-gate decision', () => {
   const db = openDb();
   const first = clockedRepository(db);

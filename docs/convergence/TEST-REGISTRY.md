@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 442
+- Runnable programs: 443
 - Explicit support-module exclusions: 14
-- Profiles: offline=224, database=52, server=40, model=85, soak=25, manual=16
-- States: ACTIVE=345, HISTORICAL=16, BLOCKED=81
+- Profiles: offline=224, database=53, server=40, model=85, soak=25, manual=16
+- States: ACTIVE=346, HISTORICAL=16, BLOCKED=81
 
 ## Execution profiles
 
@@ -350,6 +350,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M3-LEGACY-AGENT-SURFACE-RETIREMENT-TEST` | `tests/m3-legacy-agent-surface-retirement.test.js` | `C3-013` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M3-LEGACY-AGENT-RETIREMENT |
 | `IS-T1-TESTS-M3-PROJECT-HEALTH-AGENT-TEST` | `tests/m3-project-health-agent.test.js` | `C3-013` | T1 | `database` | 2 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-M3-AGENT-PROJECT-HEALTH |
 | `IS-T1-TESTS-M3-SKILL-EFFECT-AUTHORITY-TEST` | `tests/m3-skill-effect-authority.test.js` | `C3-013` | T1 | `database` | 2 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-M3-SKILL |
+| `IS-T1-TESTS-M4-LEARNING-API-TEST` | `tests/m4-learning-api.test.js` | `C3-016` | T1 | `database` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-M4-HTTP |
 | `IS-T1-TESTS-M4-LEARNING-AUTHORITY-REPOSITORY-TEST` | `tests/m4-learning-authority-repository.test.js` | `C3-016` | T1 | `database` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-M4-MEMORY |
 | `IS-T1-TESTS-M4-LEARNING-CONTRACT-V1-TEST` | `tests/m4-learning-contract-v1.test.js` | `C3-016` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M4-OBSERVATION |
 | `IS-T1-TESTS-M4-LEARNING-PATTERN-PRODUCER-TEST` | `tests/m4-learning-pattern-producer.test.js` | `C3-027` | T1 | `database` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-M4-CODEINTEL |

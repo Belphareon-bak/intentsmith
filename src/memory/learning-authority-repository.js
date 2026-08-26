@@ -80,6 +80,20 @@ function requireConfidence(value) {
   return value;
 }
 
+function requireListLimit(value) {
+  if (!Number.isSafeInteger(value) || value < 1 || value > 100) {
+    fail(LearningAuthorityErrorCode.INPUT_INVALID, 'limit must be an integer from 1 to 100');
+  }
+  return value;
+}
+
+function requireSettlementState(value) {
+  if (!['all', 'pending', 'active', 'terminal'].includes(value)) {
+    fail(LearningAuthorityErrorCode.INPUT_INVALID, 'state must be all, pending, active, or terminal');
+  }
+  return value;
+}
+
 function requireMeasurement(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     fail(LearningAuthorityErrorCode.INPUT_INVALID, 'measurement must be an object');
@@ -629,6 +643,52 @@ export class LearningAuthorityRepository {
       state,
       learnedItem: outcome?.learnedItem ?? null,
     });
+  }
+
+  getProposalObservations(proposalId) {
+    const proposal = this.#proposalOrFail(proposalId);
+    return Object.freeze(proposal.observationIds.map((observationId) => {
+      const observation = this.getObservation(observationId);
+      if (!observation || observation.projectId !== proposal.projectId) {
+        fail(
+          LearningAuthorityErrorCode.STORAGE_FAILURE,
+          'Proposal observation provenance is unavailable',
+          { proposalId, observationId },
+        );
+      }
+      return observation;
+    }));
+  }
+
+  listProjectProposalSettlements(projectId, { state = 'all', limit = 50 } = {}) {
+    requireProjectId(projectId);
+    requireSettlementState(state);
+    requireListLimit(limit);
+    const statePredicate = {
+      all: '1 = 1',
+      pending: 'current.outcome_id IS NULL',
+      active: "current.status IN ('approved', 'measured', 'weakened')",
+      terminal: "current.outcome_id IS NOT NULL AND current.status NOT IN ('approved', 'measured', 'weakened')",
+    }[state];
+    try {
+      const rows = this.db.prepare(`
+        SELECT proposal.proposal_id
+        FROM m4_learning_proposals proposal
+        LEFT JOIN m4_learning_outcomes current
+          ON current.proposal_id = proposal.proposal_id
+         AND NOT EXISTS (
+           SELECT 1 FROM m4_learning_outcomes child
+           WHERE child.previous_outcome_id = current.outcome_id
+         )
+        WHERE proposal.project_id = ?
+          AND ${statePredicate}
+        ORDER BY proposal.created_at_ms DESC, proposal.proposal_id DESC
+        LIMIT ?
+      `).all(projectId, limit);
+      return Object.freeze(rows.map(row => this.getLearningSettlement(row.proposal_id)));
+    } catch (error) {
+      storageFailure('project proposal settlement read', error);
+    }
   }
 
   listActiveLearnedItems(projectId, { nowMs = this.#now() } = {}) {

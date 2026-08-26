@@ -117,8 +117,23 @@ Module-boundary writer z čistého product commitu `998c3442` explicitně přija
 čtyři pojmenované hrany. Graph má 1 156 hran, stále 3 cykly a 28 souborů v
 cyklech; ratchet má 13/13 PASS.
 
+## HTTP user gate
+
+Projektově vázané `/api/projects/:projectId/learning/proposals` zpřístupňuje
+omezený seznam a detail exact proposal/evidence/settlement view. Pět mutací
+approve, reject, weaken, rollback a delete odvozuje actor ID výhradně z
+autentizovaného transport subjectu; body nemůže podvrhnout uživatele ani
+projekt. Aktivní project registry row je povinná a proposal cizího projektu
+končí typed konfliktem ještě před změnou authority.
+
+Repository čtecí seam omezuje list na 100 položek, rozlišuje
+pending/active/terminal a vrací pouze exact observation IDs proposal. API sada
+má 7/7 PASS, repository po rozšíření 15/15 PASS a routes smoke včetně reálného
+owned HTTP server startu 114/114 PASS. Registry má 443 programů a fingerprint
+`1f009ef3772b486de29155d6922f6a3d4156d4c6f39d8b8bd21a4c25839348ae`.
+
 ## Zbývající rozsah
 
-Code Intelligence HTTP/Studio user gate a první úplné integrační E2E včetně
-outcome měření zatím nejsou hotové. Bez nezávislého review je celý dosavadní
-stav pouze `IMPLEMENTATION_GREEN / REVIEW_PENDING`.
+Studio konzument user gate a první úplné integrační E2E včetně outcome měření
+zatím nejsou hotové. Bez nezávislého review je celý dosavadní stav pouze
+`IMPLEMENTATION_GREEN / REVIEW_PENDING`.

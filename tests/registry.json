@@ -13398,6 +13398,36 @@
       },
       "flakeCount": 0,
       "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M4-LEARNING-API-TEST",
+      "path": "tests/m4-learning-api.test.js",
+      "argv": [
+        "node",
+        "tests/m4-learning-api.test.js"
+      ],
+      "capabilityId": "C3-016",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "database",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M4-HTTP",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
     }
   ]
 }

@@ -143,6 +143,7 @@ import { createNotificationRoutes } from './routes/notifications.js';
 import { createMarketplaceRoutes } from './routes/marketplace.js';
 import { createMediaRoutes, recoverStuckGenerations } from './routes/media.js';
 import { createGovernorRoutes } from './routes/governor.js';
+import { createLearningRoutes } from './routes/learning.js';
 import { createNotificationPipeline, initNotificationTables } from './notifications/index.js';
 import { WebhookChannel } from './notifications/channels/webhook.js';
 import { DesktopChannel } from './notifications/channels/desktop.js';
@@ -153,6 +154,7 @@ import { skillM2EffectAuthority } from './skills/m2-effect-authority.js';
 import { creDecisionEngine } from './chat/cre-decision.js';
 import { toolRegistry } from './tools/registry.js';
 import { createDefaultM2LifecycleApplicationService } from './lifecycle/m2-lifecycle-application-service.js';
+import { createLearningApplicationService } from './memory/learning-application-service.js';
 
 // v85: FeatureManager — runtime feature flags (hot-toggle from IDE)
 import { featureManager } from './core/feature-manager.js';
@@ -916,6 +918,10 @@ const m2LifecycleService = createDefaultM2LifecycleApplicationService({
   database: db.db,
   projects: db.projects,
 });
+const learningService = createLearningApplicationService({
+  repository: db.learningAuthority,
+  projects: db.projects,
+});
 try {
   const recovered = await m2LifecycleService.recoverIncompleteSmallProjectChanges();
   if (recovered.length > 0) {
@@ -972,6 +978,12 @@ const routes = {
   // lifecycle mutator.
   ...createM2LifecycleRoutes({
     m2LifecycleService,
+    parseBody,
+    sendJSON,
+    safeError,
+  }),
+  ...createLearningRoutes({
+    learningService,
     parseBody,
     sendJSON,
     safeError,
