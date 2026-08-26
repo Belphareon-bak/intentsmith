@@ -13,7 +13,7 @@ import {
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import Database from 'better-sqlite3';
-import { up as applyEffectAuthorityMigration } from '../src/db/migrations/2026_08_23_070_m2_effect_authority.js';
+import { up as applyEffectAuthorityMigration } from '../src/db/migrations/2026_08_23_092_m2_effect_authority.js';
 import { up as applyEffectAuthorityHardening } from '../src/db/migrations/2026_08_24_071_m2_effect_authority_hardening.js';
 import { up as applyEffectExecutionClaims } from '../src/db/migrations/2026_08_24_072_m2_effect_execution_claims.js';
 import { up as applyEffectClaimTruth } from '../src/db/migrations/2026_08_24_073_m2_effect_claim_truth.js';
@@ -23,9 +23,9 @@ import { up as applyToolTruth } from '../src/db/migrations/2026_08_24_076_m2_too
 import { up as applyEffectInvalidations } from '../src/db/migrations/2026_08_24_077_m2_effect_invalidations.js';
 import { up as applyExecutionAuthority } from '../src/db/migrations/2026_08_24_078_m2_execution_authority.js';
 import { up as applyEffectSemanticAuthority } from '../src/db/migrations/2026_08_24_080_m2_effect_semantic_authority.js';
-import { up as applyEffectResultSemanticV2 } from '../src/db/migrations/2026_08_24_081_m2_effect_result_semantic_authority_v2.js';
-import { up as applyPreexecutionApprovalTerminals } from '../src/db/migrations/2026_08_25_082_m2_preexecution_approval_terminals.js';
-import { up as applyEffectRollbackReceipts } from '../src/db/migrations/2026_08_25_083_m2_effect_rollback_receipts.js';
+import { up as applyEffectResultSemanticV2 } from '../src/db/migrations/2026_08_24_093_m2_effect_result_semantic_authority_v2.js';
+import { up as applyPreexecutionApprovalTerminals } from '../src/db/migrations/2026_08_25_094_m2_preexecution_approval_terminals.js';
+import { up as applyEffectRollbackReceipts } from '../src/db/migrations/2026_08_25_095_m2_effect_rollback_receipts.js';
 import { createEffectFileRuntime } from '../src/effects/effect-file-runtime.js';
 import { EffectAuthorityRepository } from '../src/effects/effect-authority-repository.js';
 import { createApprovalGrantIssuer } from '../src/effects/approval-grant-issuer.js';

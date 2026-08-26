@@ -5,7 +5,7 @@
 // The result table independently proves that success followed an exact consumed
 // grant, so callers cannot bypass the broker by writing a forged success row.
 
-export const version = '2026_08_23_070_m2_effect_authority';
+export const version = '2026_08_23_092_m2_effect_authority';
 export const description = 'Add durable M2 effect and single-use approval authority';
 
 export function up(db) {

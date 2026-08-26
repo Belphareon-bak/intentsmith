@@ -1,4 +1,4 @@
-import { up as createCurrentEffectAuthoritySchema } from './2026_08_23_070_m2_effect_authority.js';
+import { up as createCurrentEffectAuthoritySchema } from './2026_08_23_092_m2_effect_authority.js';
 
 export const version = '2026_08_24_071_m2_effect_authority_hardening';
 export const description = 'Harden pre-acceptance M2 effect authority schema';

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { up as createCandidateEffectAuthoritySchema } from './2026_08_23_070_m2_effect_authority.js';
+import { up as createCandidateEffectAuthoritySchema } from './2026_08_23_092_m2_effect_authority.js';
 
 export const version = '2026_08_24_072_m2_effect_execution_claims';
 export const description = 'Bind consumed M2 grants to durable execution owners and final schema';

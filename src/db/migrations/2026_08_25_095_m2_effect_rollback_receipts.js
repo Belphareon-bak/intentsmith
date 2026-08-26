@@ -7,7 +7,7 @@ import {
   EXPECTED_M2_EFFECT_CORE_FINGERPRINT_V082,
   EXPECTED_M2_PREEXECUTION_TERMINAL_FINGERPRINT_V082,
   computeM2PreexecutionTerminalFingerprintV082,
-} from './2026_08_25_082_m2_preexecution_approval_terminals.js';
+} from './2026_08_25_094_m2_preexecution_approval_terminals.js';
 import {
   computeM2EffectCoreFingerprintV073,
 } from '../m2-effect-core-v073-prerequisite.js';
@@ -16,7 +16,7 @@ import {
   computeM2ExecutionSchemaFingerprint,
 } from './2026_08_24_078_m2_execution_authority.js';
 
-export const version = '2026_08_25_083_m2_effect_rollback_receipts';
+export const version = '2026_08_25_095_m2_effect_rollback_receipts';
 export const description = 'Record append-only standalone effect rollback observations';
 
 // Filled from canonical sqlite_master projections after this migration.

@@ -7,7 +7,7 @@ import {
   EXPECTED_M2_EFFECT_INVALIDATION_SCHEMA_FINGERPRINT_V081,
   EXPECTED_M2_EFFECT_RESULT_SEMANTIC_V2_FINGERPRINT,
   computeM2EffectResultSemanticV2Fingerprint,
-} from './2026_08_24_081_m2_effect_result_semantic_authority_v2.js';
+} from './2026_08_24_093_m2_effect_result_semantic_authority_v2.js';
 import {
   computeM2EffectInvalidationSchemaFingerprint,
 } from './2026_08_24_077_m2_effect_invalidations.js';
@@ -15,7 +15,7 @@ import {
   computeM2EffectCoreFingerprintV073,
 } from '../m2-effect-core-v073-prerequisite.js';
 
-export const version = '2026_08_25_082_m2_preexecution_approval_terminals';
+export const version = '2026_08_25_094_m2_preexecution_approval_terminals';
 export const description = 'Close expired or revoked unstarted approvals with durable cancellation truth';
 
 // Filled from canonical sqlite_master projections after this migration.
