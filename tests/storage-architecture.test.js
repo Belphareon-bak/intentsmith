@@ -100,12 +100,11 @@ function createTestDb(dataDir) {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE TABLE IF NOT EXISTS migrations (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      version TEXT,
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      version TEXT PRIMARY KEY,
       applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
-    INSERT INTO migrations (version) VALUES ('001'), ('002'), ('003');
+    INSERT INTO schema_migrations (version) VALUES ('001'), ('002'), ('003');
   `);
 
   return db;
@@ -552,28 +551,33 @@ test('createStateBackup: creates backup directory with DB', () => {
     // Verify metadata.json
     const metadata = JSON.parse(fs.readFileSync(path.join(result.path, 'metadata.json'), 'utf-8'));
     assertEqual(metadata.type, 'state');
+    assertEqual(metadata.contract, 'IntentSmithStateBackup');
+    assertEqual(metadata.format_version, 2);
     assert(metadata.created_at, 'Should have created_at');
     assertEqual(metadata.schema_version, 3); // We inserted 3 migrations
+    assertEqual(metadata.migration_versions.join(','), '001,002,003');
+    assert(metadata.migration_fingerprint.startsWith('sha256:'), 'Should pin migrations');
+    assert(metadata.content_fingerprint.startsWith('sha256:'), 'Should pin payload');
     assert(metadata.db_size_bytes > 0, 'Should have db_size_bytes');
 
     db.close();
   } finally { cleanDir(dir); }
 });
 
-test('createStateBackup: same-day overwrites', () => {
+test('createStateBackup: same-day backups are immutable and distinct', () => {
   const dir = tmpDir();
   try {
     const db = createTestDb(dir);
     const result1 = createStateBackup(db, dir);
     const result2 = createStateBackup(db, dir);
 
-    // Both should succeed, same name
-    assertEqual(result1.name, result2.name);
+    // Both should succeed without deleting or overwriting the first snapshot.
+    assert(result1.name !== result2.name, 'Backups must receive distinct immutable names');
     assert(!result2.error, 'Second backup should succeed');
 
-    // Only one backup directory
+    // Both backup directories survive.
     const backups = listBackups(dir);
-    assertEqual(backups.length, 1);
+    assertEqual(backups.length, 2);
 
     db.close();
   } finally { cleanDir(dir); }
@@ -599,6 +603,8 @@ test('listBackups: returns backup metadata', () => {
     assertEqual(backups.length, 1);
     assert(backups[0].name.startsWith('c3-state-'), 'Should have correct name');
     assert(backups[0].created_at, 'Should have created_at');
+    assertEqual(backups[0].format_version, 2);
+    assertEqual(backups[0].restorable, true);
     assert(backups[0].total_size_bytes > 0, 'Should have size');
 
     db.close();

@@ -1,12 +1,12 @@
 # C3 Storage Architecture — Backup, Retention, History
 
-**Verze:** v1.3 (2026-03-02)
-**Status:** PLAN — ceka na schvaleni
-**Stav implementace overen:** 2026-08-07 na `1fc8f03e` — viz [Stav implementace](#stav-implementace)
+**Verze:** v2.0 (2026-08-26)
+**Status:** M5 DATA IMPLEMENTATION-GREEN — operator review pending
+**Stav implementace overen:** 2026-08-26 — viz [Stav implementace](#stav-implementace)
 
-> Tento dokument je **navrh**, ne popis hotoveho stavu. Cast je implementovana,
-> cast ne a na nekolika mistech se implementace od navrhu lisi. Sekce
-> [Stav implementace](#stav-implementace) rika, co plati dnes; podrobnosti jsou
+> Sekce [Stav implementace](#stav-implementace) je popis současného M5 DATA
+> řezu. Zbytek dokumentu zachovává širší návrh a není automaticky tvrzením o
+> hotové implementaci. Podrobnosti jsou
 > v [`docs/review/2026-08-07-SECRET-TYPES.md`](review/2026-08-07-SECRET-TYPES.md)
 > a v zadani [`docs/wp/WP-M5-DATA.md`](wp/WP-M5-DATA.md).
 
@@ -14,42 +14,56 @@
 
 ## Stav implementace
 
-Overeno ctenim `src/core/db-backup.js` a `src/routes/system.js` na revizi
-`1fc8f03e649dd561fb279ce68e5c119d35faad55`.
+Ověřeno čtením produkční cesty a zaměřeným round-trip testem. Přesná candidate
+revize a fresh-clone doklad jsou uvedené v M5 DATA execution reportu.
 
 | Cast navrhu | Stav | Kde |
 |---|---|---|
-| State backup — vytvoreni | **implementovano** | `createStateBackup()`, `src/core/db-backup.js:65` |
-| Vypis zaloh | **implementovano** | `listBackups()`, `:169` |
-| Retence 7 dennich + 4 tydenni | **implementovano** | `pruneBackups()`, `:216` |
-| Statistiky zaloh | **implementovano** | `getBackupStats()`, `:271` |
-| **State restore** | **NEIMPLEMENTOVANO** | slovo `restore` se v `db-backup.js` nevyskytuje |
+| State backup — vytvoření | **implementováno, V2** | `createStateBackup()`, `src/core/db-backup.js` |
+| Výpis záloh | **implementováno** | `listBackups()` |
+| Retence 7 denních + 4 týdenní | **implementováno** | `pruneBackups()` |
+| Statistiky záloh | **implementováno** | `getBackupStats()` |
+| **State restore** | **implementováno, offline-only** | `restoreStateBackup()`, `scripts/restore-state-backup.js` |
 | History restore | **NEIMPLEMENTOVANO** | — |
 | Daily drain | implementovano | `drainMessages()` |
 | Auto-clean | implementovano | `autoClean()` |
 
-Zaloha se spousti ze ctyr mist: `src/server.js:192` (startup),
-`src/server.js:1512` (shutdown), `POST /api/system/backup`
-(`src/routes/system.js:715`) a `POST /api/system/shutdown-backup` (`:771`).
-**Zadna route pro restore neexistuje.**
+Záloha se spouští při nakonfigurovaném startupu, shutdownu a přes systémové
+backup routy. `POST /api/system/restore` je úmyslně online connector bez
+zapisovací autority: vrací `409 DATABASE_RESTORE_REQUIRES_OFFLINE`. Obnovu smí
+provést pouze CLI se zastaveným serverem:
+
+```bash
+node scripts/restore-state-backup.js \
+  --data-dir /absolutni/cesta/k/data \
+  --backup c3-state-YYYY-MM-DDTHH-MM-SS-sssZ.backup
+```
+
+CLI ověří úplný manifest, SHA-256 každého souboru, SQLite `quick_check`, přesné
+řádky `schema_migrations` a jejich podporu aktuálním releasem. Linux `/proc`
+kontrola a vlastněný restore lock odmítnou otevřenou DB nebo souběžný opener.
+Před atomickou výměnou vznikne jedinečná `pre-restore-*.db` bezpečnostní kopie.
 
 ### Kde se implementace lisi od navrhu
 
 | Navrh rika | Skutecnost |
 |---|---|
-| `c3.db` se zalohuje pres `db.backup()` (SQLite native) | `db.pragma('wal_checkpoint(TRUNCATE)')` + `fs.copyFileSync()` (`db-backup.js:86-88`) |
-| `metadata.json` obsahuje `tables_excluded` | neobsahuje; zapisuji se `version`, `schema_version`, `created_at`, `type`, `db_size_bytes`, `files_count`, `total_size_bytes` (`db-backup.js:137-145`) |
-| `schema_version` je verze schematu | je to `SELECT COUNT(*) FROM migrations` (`db-backup.js:126`) — pocet, ktery neurcuje **ktere** migrace probehly |
+| `c3.db` se zálohuje přes `db.backup()` (SQLite native) | `wal_checkpoint(TRUNCATE)` + synchronní kopie + fsync |
+| `metadata.json` obsahuje jen souhrn | V2 obsahuje přesný content manifest a fingerprints |
+| `schema_version` je verze schématu | V2 ukládá seřazené identity z `schema_migrations`; počet je jen odvozený údaj |
 | Pruneable log tabulky nejsou v zaloze | jsou — kopiruje se cely soubor `c3.db`, ne vyber tabulek |
 
 ### Znama rizika, ktera navrh neresi
 
-**Zaloha stejneho dne se maze a prepisuje.** `db-backup.js:76-78` provede
-`fs.rmSync(backupPath, { recursive: true, force: true })` a teprve pak vytvori
-novy adresar. Nazev je datovy (`c3-state-YYYY-MM-DD.backup`). Ve spojeni se
-zalohou pri startu (`src/server.js:192`) to znamena: **uzivatel s poskozenou
-databazi, ktery restartuje server, prepise jedinou dnesni dobrou zalohu
-poskozenym stavem.**
+**Starý stejno-denní overwrite je odstraněný.** V2 názvy obsahují milisekundový
+UTC čas a při kolizi deterministický suffix. Hotová záloha se nikdy nepřepisuje;
+nejdřív vzniká privátní partial adresář, který se po fsync atomicky přejmenuje.
+
+**Automatický restore vlastní pouze SQLite databázi.** `skills/`,
+`specialists/` a konfigurace zůstávají v backupu jako `archival_only`. Jsou
+kódotvorné nebo release-owned, takže je obnova dat nesmí tiše downgradovat.
+Legacy V1 zálohy zůstávají listovatelné, ale bez přesného manifestu nejsou
+automaticky obnovitelné.
 
 **Zaloha nese tajemstvi v plaintextu.** `user_settings.data` obsahuje
 `webhookSecret` jako hodnotu (`src/routes/security.js:218-245`) a kopiruje se

@@ -6,6 +6,7 @@ import { logger } from '../core/logger.js';
 import { runMigrations } from './migrate.js';
 import { requireConfiguredDatabasePath } from './database-path.js';
 import { LearningAuthorityRepository } from '../memory/learning-authority-repository.js';
+import { assertNoDatabaseRestore } from '../core/database-restore-lock.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -118,6 +119,7 @@ if (!fs.existsSync(dbDir)) {
 }
 
 // Initialize database
+assertNoDatabaseRestore(dbPath);
 const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');

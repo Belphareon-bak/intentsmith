@@ -207,7 +207,10 @@ try {
     drainMessages(db.db, dataDir, { cutoffHours: storageConfig.drain.cutoff_hours });
   }
   if (storageConfig.backup.on_startup) {
-    createStateBackup(db.db, dataDir);
+    createStateBackup(db.db, dataDir, {
+      dbPath: config.db?.path,
+      projectRoot: path.resolve(__dirname, '..'),
+    });
     pruneBackups(dataDir, {
       maxDaily: storageConfig.backup.max_daily,
       maxWeekly: storageConfig.backup.max_weekly,
@@ -1724,7 +1727,10 @@ function gracefulShutdown(signal) {
       drainMessages(db.db, dataDir, { cutoffHours: storageConfig.drain.cutoff_hours });
     }
     if (storageConfig.backup.on_shutdown) {
-      createStateBackup(db.db, dataDir);
+      createStateBackup(db.db, dataDir, {
+        dbPath: config.db?.path,
+        projectRoot: path.resolve(__dirname, '..'),
+      });
       pruneBackups(dataDir, {
         maxDaily: storageConfig.backup.max_daily,
         maxWeekly: storageConfig.backup.max_weekly,

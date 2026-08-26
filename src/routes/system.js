@@ -7,6 +7,7 @@ import { logger } from '../core/logger.js';
 import config from '../config.js';
 import os from 'os';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { getCurrentVersion } from '../packaging/auto-updater.js';
 import { getStorageConfig, validateStorageConfig, autoClean } from '../db/data-retention.js';
 import { drainMessages, getHistoryStats } from '../core/history-drain.js';
@@ -23,6 +24,7 @@ import {
 } from '../db/model-policy.js';
 
 const FEATURE_UNIVERSE_ENABLED = (process.env.C3_MODEL_UNIVERSE_ENABLED || 'true') !== 'false';
+const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const FEATURE_UNIVERSE_MIRROR = (process.env.C3_DISCOVERY_MIRROR_DISCOVERED_MODELS || 'true') !== 'false';
 const SHOW_ATTEMPT_TIMEOUT_MS = parseInt(process.env.C3_MODEL_SHOW_ATTEMPT_TIMEOUT_MS || '2000', 10);
 const SHOW_MAX_TOTAL_MS = parseInt(process.env.C3_MODEL_SHOW_MAX_TOTAL_MS || '5000', 10);
@@ -625,7 +627,7 @@ export function createSystemRoutes({
         // Migration count
         let migrationCount = 0;
         try {
-          const row = rawDb.prepare('SELECT COUNT(*) as cnt FROM migrations').get();
+          const row = rawDb.prepare('SELECT COUNT(*) as cnt FROM schema_migrations').get();
           migrationCount = row?.cnt || 0;
         } catch (_) {}
 
@@ -762,7 +764,10 @@ export function createSystemRoutes({
     // ── Manual Backup ────────────────────────────────────────────────────
     'POST /api/system/backup': (req, res) => {
       try {
-        const result = createStateBackup(rawDb, dataDir);
+        const result = createStateBackup(rawDb, dataDir, {
+          dbPath: config.db?.path,
+          projectRoot: PROJECT_ROOT,
+        });
         if (result.error) {
           return sendJSON(res, 500, { error: result.error });
         }
@@ -783,6 +788,17 @@ export function createSystemRoutes({
       }
     },
 
+    // State restore is intentionally offline-only. An in-process SQLite swap
+    // would leave repositories and prepared statements bound to stale bytes.
+    'POST /api/system/restore': (_req, res) => {
+      sendJSON(res, 409, {
+        ok: false,
+        code: 'DATABASE_RESTORE_REQUIRES_OFFLINE',
+        error: 'Stop IntentSmith and use the offline restore command',
+        command: 'node scripts/restore-state-backup.js --data-dir <ABSOLUTE_DATA_DIR> --backup <BACKUP_NAME>',
+      });
+    },
+
     // ── List Backups ─────────────────────────────────────────────────────
     'GET /api/system/backups': (req, res) => {
       try {
@@ -792,7 +808,10 @@ export function createSystemRoutes({
             name: b.name,
             created_at: b.created_at,
             version: b.version,
+            format_version: b.format_version,
+            restorable: b.restorable,
             schema_version: b.schema_version,
+            migration_fingerprint: b.migration_fingerprint,
             db_size_mb: Math.round(b.db_size_bytes / (1024 * 1024) * 100) / 100,
             total_size_mb: Math.round(b.total_size_bytes / (1024 * 1024) * 100) / 100,
           })),
@@ -818,7 +837,10 @@ export function createSystemRoutes({
         // 2. State backup
         let backupResult = { name: null, error: null };
         if (storageConfig.backup.on_shutdown) {
-          backupResult = createStateBackup(rawDb, dataDir);
+          backupResult = createStateBackup(rawDb, dataDir, {
+            dbPath: config.db?.path,
+            projectRoot: PROJECT_ROOT,
+          });
           pruneBackups(dataDir, {
             maxDaily: storageConfig.backup.max_daily,
             maxWeekly: storageConfig.backup.max_weekly,

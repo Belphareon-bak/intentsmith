@@ -1375,6 +1375,15 @@ dispozice. Exact fresh clone prošel offline dependency instalací, Electron ABI
 Studio buildem, artifact smoke, production health, deterministickým chatem a
 čistým shutdownem. Důkaz je v
 [`m5-package-20260826.md`](docs/execution/runs/m5-package-20260826.md).
+`WP-M5-DATA` je implementation-green v tomto kandidátu: V2 backup je
+immutable a content-addressed, používá přesné identity `schema_migrations` a
+má skutečný backup→poškození→offline restore→porovnání round-trip. Online
+connector fail-closed odkazuje na CLI; restore lock a Linux `/proc` kontrola
+brání výměně otevřené DB. Automatická obnova úmyslně vlastní jen SQLite;
+kódotvorné skills/specialists a konfigurace jsou označené `archival_only`.
+Legacy V1 zůstává listovatelný, ale bez přesného manifestu není automaticky
+obnovitelný.
+
 Nejde o M5 acceptance: M3 oddíl 7 a zbývající M5 bloky jsou otevřené.
 
 ### Výsledek
