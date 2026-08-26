@@ -61,6 +61,7 @@ test('candidate runner materializes only named toolchain bindings', () => {
   assert.match(source, /environment\.C3_PDF_PYTHON = pdfPython/u);
   assert.match(source, /npm_config_devdir: nodeGypCache/u);
   assert.match(source, /electron_config_cache: electronCache/u);
+  assert.match(source, /electronHeaders: await copyCacheIfPresent/u);
   assert.doesNotMatch(source, /\.\.\.process\.env/u);
 });
 

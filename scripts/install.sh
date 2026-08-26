@@ -446,15 +446,21 @@ info "Rebuilding native modules for Electron ABI..."
 # Theia's canonical native set plus native watchers used by this application.
 REBUILD_MODULES="node-pty,native-keymap,find-git-repositories,drivelist,keytar,ssh2,cpu-features,nsfw,@parcel/watcher,@vscode/watcher"
 ELECTRON_REBUILD_BIN="$PROJECT_ROOT/c3-ide/node_modules/.bin/electron-rebuild"
+ELECTRON_REBUILD_ARGS=(-f --only "$REBUILD_MODULES")
+if [ "$OFFLINE" = true ]; then
+  # The fresh-clone runner provisions exact Electron headers locally. Avoid a
+  # prebuild probe entirely: the network namespace is intentionally empty.
+  ELECTRON_REBUILD_ARGS+=(--build-from-source)
+fi
 if [ ! -x "$ELECTRON_REBUILD_BIN" ]; then
   fail "Locked local electron-rebuild binary is missing"
   exit 1
 fi
-if (cd c3-ide/applications/electron && "$ELECTRON_REBUILD_BIN" -f --only "$REBUILD_MODULES" 2>&1 | tail -5); then
+if (cd c3-ide/applications/electron && "$ELECTRON_REBUILD_BIN" "${ELECTRON_REBUILD_ARGS[@]}" 2>&1 | tail -5); then
   ok "Native modules rebuilt for Electron"
 else
   warn "electron-rebuild had errors — retrying..."
-  if (cd c3-ide/applications/electron && "$ELECTRON_REBUILD_BIN" -f --only "$REBUILD_MODULES" 2>&1 | tail -5); then
+  if (cd c3-ide/applications/electron && "$ELECTRON_REBUILD_BIN" "${ELECTRON_REBUILD_ARGS[@]}" 2>&1 | tail -5); then
     ok "Native modules rebuilt for Electron (second attempt)"
   else
     fail "electron-rebuild failed; C3 Studio native modules are not trustworthy"

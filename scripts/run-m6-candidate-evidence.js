@@ -275,6 +275,7 @@ async function makeFreshCloneEnvironment({ cloneRoot, runtime, candidateSha, evi
   const corepackHome = path.join(runtime, 'corepack');
   const nodeGypCache = path.join(runtime, 'xdg', 'cache', 'node-gyp');
   const electronCache = path.join(runtime, 'xdg', 'cache', 'electron');
+  const electronHeaders = path.join(runtime, 'home', '.electron-gyp');
   const cacheReceipt = {
     npm: await copyCacheIfPresent(
       process.env.npm_config_cache || path.join(userHome, '.npm'),
@@ -295,6 +296,10 @@ async function makeFreshCloneEnvironment({ cloneRoot, runtime, candidateSha, evi
     electron: await copyCacheIfPresent(
       process.env.electron_config_cache || path.join(hostCacheRoot, 'electron'),
       electronCache,
+    ),
+    electronHeaders: await copyCacheIfPresent(
+      path.join(userHome, '.electron-gyp'),
+      electronHeaders,
     ),
   };
   await writePrivateJsonAtomic(path.join(evidenceRoot, 'fresh-clone', 'cache-receipt.json'), {

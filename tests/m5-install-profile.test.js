@@ -169,6 +169,7 @@ test('offline install is cache-only and skips the Ollama boundary', () => {
   assert.match(source, /yarn install --frozen-lockfile --non-interactive --offline/);
   assert.match(source, /if \[ "\$OFFLINE" = true \]; then\n  export COREPACK_ENABLE_NETWORK=0/);
   assert.match(source, /export PUPPETEER_SKIP_DOWNLOAD=true/);
+  assert.match(source, /ELECTRON_REBUILD_ARGS\+=\(--build-from-source\)/);
   assert.match(source, /Offline install: Ollama discovery and model operations skipped/);
   assert.doesNotMatch(source, /npm ci --offline[\s\S]{0,80}\|\|[\s\S]{0,80}npm ci/);
 });
