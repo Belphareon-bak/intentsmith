@@ -1308,9 +1308,9 @@ stav. Rozhodnutí v kroku 1 určí podobu hranice; roadmapa ji sama nerozhoduje.
 append-only authority, same-project producer, HTTP user gate, SPEC-planner konzument a focused evidence jsou v
 [`WP-M4-OBSERVATION-V1.md`](docs/wp/WP-M4-OBSERVATION-V1.md). Code Intelligence
 Studio surface a první úplné outcome E2E zatím nejsou tímto stavem prohlášeny
-za hotové. Autoritativní module graph má 1 156 hran, stále 3 cykly
-a 28 souborů v cyklech; čtyři M4.4 runtime hrany byly explicitně přijaty z
-product commitu `998c3442`.
+za hotové. Autoritativní module graph má 1 159 hran, stále 3 cykly
+a 28 souborů v cyklech. Čtyři M4.4 runtime hrany byly explicitně přijaty z
+`998c3442` a tři HTTP authority hrany z `d70f9b7d`.
 
 ### Výsledek
 

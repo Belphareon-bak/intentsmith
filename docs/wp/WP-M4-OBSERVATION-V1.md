@@ -131,6 +131,9 @@ pending/active/terminal a vrací pouze exact observation IDs proposal. API sada
 má 7/7 PASS, repository po rozšíření 15/15 PASS a routes smoke včetně reálného
 owned HTTP server startu 114/114 PASS. Registry má 443 programů a fingerprint
 `1f009ef3772b486de29155d6922f6a3d4156d4c6f39d8b8bd21a4c25839348ae`.
+Tři HTTP authority hrany byly explicitně přijaty z čistého product commitu
+`d70f9b7d`; module graph má 1 159 hran bez růstu cyklů nebo cyklického
+membershipu.
 
 ## Zbývající rozsah
 
