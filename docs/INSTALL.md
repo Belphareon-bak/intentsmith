@@ -10,7 +10,7 @@
 1. [Pozadavky na system](#1-pozadavky-na-system)
 2. [Kanonicka instalace](#2-kanonicka-instalace)
 3. [Vyvoj C3 Studio IDE](#3-vyvoj-c3-studio-ide)
-4. [Docker (neoverena legacy cesta)](#4-docker-neoverena-legacy-cesta)
+4. [Docker (unsupported legacy cesta)](#4-docker-unsupported-legacy-cesta)
 5. [Konfigurace (.env)](#5-konfigurace)
 6. [Overeni instalace](#6-overeni-instalace)
 7. [Reseni problemu](#7-reseni-problemu)
@@ -40,8 +40,8 @@
 | Yarn | 1.22.22 | Frozen IDE build (Theia workspaces) |
 | Ollama | latest | LLM inference server |
 | Git | 2.x+ | Lifecycle (auto-commit, diff) |
-| CPython | 3.12 + `venv` | Hash-locked PDF runtime + node-gyp |
-| DejaVu fonty | `fonts-dejavu-core` | PDF export s diakritikou |
+| CPython | 3.12 + `venv` | Volitelny full profil: hash-locked PDF runtime |
+| DejaVu fonty | `fonts-dejavu-core` | Volitelny full profil: PDF export s diakritikou |
 | build-essential | - | Kompilace better-sqlite3 |
 
 ### Instalace prerekvizit (Ubuntu/Debian)
@@ -94,7 +94,7 @@ kontroluje a na jinem distribucnim layoutu failne s konkretni chybou.
 
 ## 2. Kanonicka instalace
 
-### 2.1 Stahnuti a plna instalace
+### 2.1 Stahnuti a podporovane instalacni profily
 
 ```bash
 cd ~/Projects
@@ -102,13 +102,39 @@ git clone --branch codex/intentsmith-1.0 --single-branch \
   https://github.com/Belphareon-bak/intentsmith.git
 cd intentsmith
 
-# Backend, PDF runtime, C3 Studio, Electron ABI rebuild a artifact smoke
+# Podporovany core profil: backend, C3 Studio, Electron ABI rebuild a artifact smoke
 ./scripts/install.sh --minimal
 ```
 
-Toto je jedina Gate 0 cesta s plnou funkcni paritou. Installer failne pri
+`core` je vychozi podporovany profil. Nevyzaduje CPython 3.12 ani DejaVu fonty;
+jejich absence je hlasena jako chybejici volitelna PDF schopnost a nezastavi
+instalaci. Pokus o PDF export bez runtime skonci typovanou zpravu o chybejici
+prerekvizite, ne tichym uspechem.
+
+Plny profil PDF explicitne vyzadejte:
+
+```bash
+./scripts/install.sh --profile=full --minimal
+```
+
+`full` zachovava fail-closed chovani: chybejici CPython 3.12 `venv`, DejaVu
+font nebo hash-locked wheel instalaci zastavi. Staticky preflight bez zmeny
+stromu, stahovani, buildu a runtime sondy:
+
+```bash
+./scripts/install.sh --profile=core --verify-only
+./scripts/install.sh --profile=full --verify-only
+```
+
+Pro cache-only instalaci bez sondy Ollamy nebo modelovych operaci pouzijte
+`./scripts/install.sh --profile=core --minimal --offline`. Chybejici npm nebo
+Yarn artefakt v tomto rezimu instalaci zastavi; installer nikdy neprejde na
+sitovy fallback.
+
+Installer failne pri
 nesouladu locku, neuspesnem Electron rebuild nebo chybejicim/ABI-nekompatibilnim
-IDE artefaktu. Pouziva `npm ci`, frozen Yarn 1.22.22, hash-locked PDF wheels,
+IDE artefaktu. Pouziva `npm ci`, frozen Yarn 1.22.22 a v profilu `full`
+hash-locked PDF wheels,
 tracked Theia webpack konfiguraci a integrity-locked ripgrep platform package.
 Rucni `npm ci`, PDF installer nebo `yarn build` jsou jen dilci vyvojove kroky.
 
@@ -122,7 +148,21 @@ PDF runtime je ve
 `${XDG_DATA_HOME:-$HOME/.local/share}/intentsmith/python/pdf`; kanonicky
 absolutni override je `INTENTSMITH_PDF_PYTHON`.
 
-### 2.2 Konfigurace
+### 2.2 Podporovany upgrade zdrojove instalace
+
+1. Ukoncete IntentSmith a C3 Studio.
+2. Vytvorte a overte backup podle `docs/STORAGE.md`.
+3. Prejdete na presny podepsany release commit bez lokalnich produktovych zmen.
+4. Znovu spustte stejny profil, napriklad
+   `./scripts/install.sh --profile=core --minimal --offline` (pokud je release
+   dependency cache predem naplnena), jinak stejny prikaz bez `--offline`.
+5. Spustte produkt a overte `/api/status`, migracni stav a otevreni puvodniho
+   projektu. Pri selhani obnovte predchozi release commit a overeny backup.
+
+Installer je idempotentni nad jednim release stromem; nikdy nepouziva
+`npm install` jako fallback po selhani frozen `npm ci`.
+
+### 2.3 Konfigurace
 
 ```bash
 # Zkopiruj sablonu
@@ -133,9 +173,11 @@ cp .env.example .env
 #   OLLAMA_URL    — adresa Ollama serveru (default: http://127.0.0.1:11434)
 #   C3_PORT       — port backendu (default: 3335)
 #   C3_DB_PATH    — cesta k SQLite databazi (default: ./data/c3.db)
+#   C3_ADMIN_TOKEN — povinna tajna hodnota pro production start; neposilejte ji
+#                    do Git, logu ani prikazove historie
 ```
 
-### 2.3 Stazeni LLM modelu
+### 2.4 Stazeni LLM modelu
 
 ```bash
 # Spust Ollama (pokud nebezi jako systemd service)
@@ -153,7 +195,7 @@ ollama pull llava:13b             # VISION (analyza obrazku)
 > Stazeni modelu muze trvat desitky minut v zavislosti na rychlosti pripojeni.
 > Kazdy 32b model zabira ~18-20 GB na disku.
 
-### 2.4 Spusteni produktu
+### 2.5 Spusteni produktu
 
 ```bash
 cd ~/Projects/intentsmith
@@ -171,14 +213,14 @@ npm run dev
 Po spusteni:
 - Backend: `http://127.0.0.1:3335`
 - Chat UI: `http://127.0.0.1:3335/architect`
-- API status: `http://127.0.0.1:3335/api/status`
+- API health: `http://127.0.0.1:3335/api/health`
 - WebSocket: `ws://127.0.0.1:3335/ws`
 
-### 2.5 Overeni backendu
+### 2.6 Overeni backendu
 
 ```bash
 # Health check
-curl http://127.0.0.1:3335/api/status
+curl http://127.0.0.1:3335/api/health
 
 # Test odeslani zpravy (HTTP)
 curl -X POST http://127.0.0.1:3335/chat \
@@ -268,16 +310,20 @@ zkopirujte pozadovane polozky z puvodni zalohy zpet do
 
 ---
 
-## 4. Docker (neoverena legacy cesta)
+## 4. Docker (unsupported legacy cesta)
 
 Adresar `docker/` je zachovany kvuli funkcni parite C3, ale neni soucasti
 reprodukovatelneho Gate 0 installu. Aktualni image je zalozena na Alpine/musl,
 zatimco uzamceny PDF runtime vyzaduje glibc 2.27+, CPython 3.12 a systemove
 DejaVu fonty. Compose build context navic dosud neni pokryt kanonickym testem.
 
-Do opravy a deterministicke validace Docker cestu nepovazujte za podporovane
-produkční nasazeni. PDF export v ni neni garantovan. Tyto soubory nebyly
-odstraneny ani prepsany.
+Docker cesta je pro IntentSmith 1.0 explicitne `UNSUPPORTED`. Vsechny Compose
+services jsou za profilem pojmenovanym `unsupported`, takze obycejne
+`docker compose up` nic nespusti. Nepouzivejte ani explicitni legacy profil
+pro produkci: backend uvnitr kontejneru zachovava `127.0.0.1` a nema
+autentizovanou ingress proxy. Tato dispozice zabranuje tomu, aby neovereny
+`0.0.0.0` listener nebo promenlivy `latest` image vypadal jako podporovany
+instalacni kontrakt.
 
 ---
 

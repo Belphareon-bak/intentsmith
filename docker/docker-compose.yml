@@ -1,11 +1,9 @@
 # C3-Agent Docker Compose
 # ══════════════════════════════════════════════════════════════════════════════
-# Usage:
-#   docker compose up -d          # Start C3 + Ollama
-#   docker compose logs -f c3     # Watch C3 logs
-#   docker compose down           # Stop everything
-#
-# First run pulls Ollama models automatically via init container.
+# UNSUPPORTED LEGACY DISPOSITION:
+# No service starts under the default Compose profile. The explicit
+# `unsupported` profile exists only for repository archaeology and must not be
+# represented as a supported production deployment.
 # ══════════════════════════════════════════════════════════════════════════════
 
 version: '3.8'
@@ -13,6 +11,7 @@ version: '3.8'
 services:
   # ─── Ollama LLM Server ───────────────────────────────────────────────────
   ollama:
+    profiles: ["unsupported"]
     image: ollama/ollama:latest
     container_name: c3-ollama
     ports:
@@ -35,6 +34,7 @@ services:
 
   # ─── Ollama Model Pull (init) ────────────────────────────────────────────
   ollama-init:
+    profiles: ["unsupported"]
     image: ollama/ollama:latest
     container_name: c3-ollama-init
     depends_on:
@@ -56,6 +56,7 @@ services:
 
   # ─── C3-Agent Backend ────────────────────────────────────────────────────
   c3:
+    profiles: ["unsupported"]
     build:
       context: .
       dockerfile: Dockerfile
@@ -64,7 +65,7 @@ services:
       - "${C3_PORT:-3335}:3335"
     environment:
       - C3_PORT=3335
-      - C3_HOST=0.0.0.0
+      - C3_HOST=127.0.0.1
       - OLLAMA_URL=http://ollama:11434
       - C3_DB_PATH=/data/c3.db
       - C3_LOG_LEVEL=${C3_LOG_LEVEL:-info}
@@ -77,7 +78,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:3335/api/status').then(r => process.exit(r.ok ? 0 : 1))"]
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3335/api/health').then(r => process.exit(r.ok ? 0 : 1))"]
       interval: 15s
       timeout: 5s
       retries: 5

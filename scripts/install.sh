@@ -5,9 +5,10 @@
 # Idempotent setup: can be re-run safely at any time.
 #
 # Usage:
-#   ./scripts/install.sh            # interactive (asks about model pull)
-#   ./scripts/install.sh --minimal  # skip model pull prompt
-#   ./scripts/install.sh --full     # pull all models without asking
+#   ./scripts/install.sh                         # core profile, asks about model pull
+#   ./scripts/install.sh --profile=full --minimal # include PDF runtime, skip model pull
+#   ./scripts/install.sh --profile=core --offline # cache-only install, no Ollama probe
+#   ./scripts/install.sh --verify-only           # read-only prerequisite check
 #
 # ══════════════════════════════════════════════════════════════════════════════
 set -euo pipefail
@@ -27,23 +28,50 @@ info() { echo -e "  ${BLUE}→${NC} $1"; }
 
 # ── Parse args ──────────────────────────────────────────────────────────────
 MODE="interactive"
+INSTALL_PROFILE="${INTENTSMITH_INSTALL_PROFILE:-core}"
+VERIFY_ONLY=false
+OFFLINE=false
 for arg in "$@"; do
   case "$arg" in
     --minimal) MODE="minimal" ;;
     --full)    MODE="full" ;;
+    --profile=core) INSTALL_PROFILE="core" ;;
+    --profile=full) INSTALL_PROFILE="full" ;;
+    --verify-only) VERIFY_ONLY=true ;;
+    --offline) OFFLINE=true ;;
     --help|-h)
-      echo "Usage: ./scripts/install.sh [--minimal|--full]"
-      echo "  --minimal  Skip model pull"
-      echo "  --full     Pull all models without asking"
+      echo "Usage: ./scripts/install.sh [--profile=core|--profile=full] [--minimal|--full] [--offline] [--verify-only]"
+      echo "  --profile=core  Install supported backend + Studio; PDF remains optional (default)"
+      echo "  --profile=full  Require and install the isolated PDF runtime"
+      echo "  --minimal       Skip model pull"
+      echo "  --full          Pull all documented models without asking"
+      echo "  --verify-only   Check prerequisites without installs, builds, downloads or runtime probes"
+      echo "  --offline       Require cache-only npm/Yarn installation and skip Ollama probes"
       exit 0
       ;;
     *)
       echo "Unknown argument: $arg" >&2
-      echo "Usage: ./scripts/install.sh [--minimal|--full]" >&2
+      echo "Usage: ./scripts/install.sh [--profile=core|--profile=full] [--minimal|--full] [--offline] [--verify-only]" >&2
       exit 2
       ;;
   esac
 done
+
+case "$INSTALL_PROFILE" in
+  core|full) ;;
+  *)
+    echo "Unknown install profile: $INSTALL_PROFILE" >&2
+    echo "Expected core or full" >&2
+    exit 2
+    ;;
+esac
+
+# Corepack shims can otherwise attempt a package-manager download on their
+# first invocation. The prerequisite probe itself must obey offline mode.
+export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+if [ "$OFFLINE" = true ]; then
+  export COREPACK_ENABLE_NETWORK=0
+fi
 
 # ── Resolve project root ───────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -56,6 +84,8 @@ echo -e "${BOLD} IntentSmith + C3 Studio — Install${NC}"
 echo -e "${BOLD}═══════════════════════════════════════════════════════════${NC}"
 echo ""
 echo -e "  Project: ${PROJECT_ROOT}"
+echo -e "  Install profile: ${INSTALL_PROFILE}"
+echo -e "  Network mode: $([ "$OFFLINE" = true ] && echo offline || echo local-runtime)"
 echo ""
 
 ERRORS=0
@@ -144,16 +174,17 @@ else
 fi
 
 PDF_BOOTSTRAP_PYTHON="${PYTHON3:-python3.12}"
+PDF_PYTHON_OK=false
 if command -v "$PDF_BOOTSTRAP_PYTHON" >/dev/null 2>&1 &&
    "$PDF_BOOTSTRAP_PYTHON" -c 'import ensurepip, venv; raise SystemExit(0)' >/dev/null 2>&1; then
   ok "$PDF_BOOTSTRAP_PYTHON with venv support found"
+  PDF_PYTHON_OK=true
 else
-  fail "CPython 3.12 with venv support is required for locked PDF export"
+  warn "CPython 3.12 with venv support is unavailable (optional PDF export)"
   echo "       Install: sudo apt install python3.12 python3.12-venv"
-  ERRORS=$((ERRORS + 1))
 fi
 
-PDF_FONT_DIR="/usr/share/fonts/truetype/dejavu"
+PDF_FONT_DIR="${INTENTSMITH_PDF_FONT_DIR:-/usr/share/fonts/truetype/dejavu}"
 PDF_FONTS="DejaVuSans.ttf DejaVuSans-Bold.ttf DejaVuSans-Oblique.ttf DejaVuSans-BoldOblique.ttf DejaVuSansMono.ttf"
 MISSING_PDF_FONTS=""
 for font_name in $PDF_FONTS; do
@@ -164,9 +195,51 @@ done
 if [ -z "$MISSING_PDF_FONTS" ]; then
   ok "DejaVu PDF fonts found"
 else
-  fail "Missing required PDF fonts:$MISSING_PDF_FONTS"
+  warn "Missing optional PDF fonts:$MISSING_PDF_FONTS"
   echo "       Install: sudo apt install fonts-dejavu-core"
+fi
+
+PDF_AVAILABLE=true
+if [ "$PDF_PYTHON_OK" != true ] || [ -n "$MISSING_PDF_FONTS" ]; then
+  PDF_AVAILABLE=false
+fi
+if [ "$INSTALL_PROFILE" = "full" ] && [ "$PDF_AVAILABLE" != true ]; then
+  fail "Full profile requires CPython 3.12 venv support and all documented DejaVu fonts"
   ERRORS=$((ERRORS + 1))
+elif [ "$INSTALL_PROFILE" = "core" ]; then
+  info "PDF export is outside the core profile; use --profile=full to provision it"
+fi
+
+echo ""
+
+# Yarn is a core prerequisite because the supported Linux package includes the
+# committed C3 Studio Electron application. Check it before any mutation so
+# --verify-only is a complete read-only core preflight.
+echo -e "${BOLD}── C3 Studio Toolchain ──${NC}"
+YARN_VERSION=""
+if command -v yarn >/dev/null 2>&1; then
+  YARN_VERSION="$(cd c3-ide && yarn --version)"
+fi
+if [ "$YARN_VERSION" = "1.22.22" ]; then
+  ok "yarn $YARN_VERSION"
+else
+  fail "Yarn 1.22.22 required; found ${YARN_VERSION:-unavailable}"
+  echo "       Install: npm install -g yarn@1.22.22"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if [ "$VERIFY_ONLY" = true ]; then
+  echo ""
+  if [ "$ERRORS" -gt 0 ]; then
+    fail "Prerequisite verification failed — ${ERRORS} critical error(s)."
+    exit 1
+  fi
+  ok "Prerequisite verification passed for ${INSTALL_PROFILE} profile"
+  if [ "$INSTALL_PROFILE" = "core" ] && [ "$PDF_AVAILABLE" != true ]; then
+    warn "PDF export unavailable; core install remains supported"
+  fi
+  info "No installs, builds, downloads or runtime probes were performed"
+  exit 0
 fi
 
 echo ""
@@ -177,7 +250,9 @@ echo ""
 echo -e "${BOLD}── Ollama ──${NC}"
 
 OLLAMA_OK=false
-if command -v ollama >/dev/null 2>&1; then
+if [ "$OFFLINE" = true ]; then
+  warn "Offline install: Ollama discovery and model operations skipped"
+elif command -v ollama >/dev/null 2>&1; then
   OLLAMA_VER=$(ollama --version 2>/dev/null | head -1)
   ok "Ollama installed (${OLLAMA_VER})"
 
@@ -232,7 +307,14 @@ fi
 echo -e "${BOLD}── Backend Dependencies ──${NC}"
 
 info "Running npm ci from package-lock.json..."
-if npm ci 2>&1 | tail -3; then
+install_backend_dependencies() {
+  if [ "$OFFLINE" = true ]; then
+    npm ci --offline
+  else
+    npm ci
+  fi
+}
+if install_backend_dependencies 2>&1 | tail -3; then
   ok "npm ci complete"
 else
   fail "npm ci failed; package.json and package-lock.json must remain synchronized"
@@ -268,13 +350,17 @@ echo ""
 # ════════════════════════════════════════════════════════════════════════════
 echo -e "${BOLD}── PDF Export Runtime ──${NC}"
 
-info "Installing hash-locked ReportLab runtime..."
-if PYTHON3="$PDF_BOOTSTRAP_PYTHON" "$SCRIPT_DIR/install-pdf-runtime.sh"; then
-  ok "Isolated PDF export runtime ready"
+if [ "$INSTALL_PROFILE" = "full" ]; then
+  info "Installing hash-locked ReportLab runtime..."
+  if PYTHON3="$PDF_BOOTSTRAP_PYTHON" "$SCRIPT_DIR/install-pdf-runtime.sh"; then
+    ok "Isolated PDF export runtime ready"
+  else
+    fail "PDF runtime installation failed"
+    echo "       Re-run: ./scripts/install.sh --profile=full --minimal"
+    exit 1
+  fi
 else
-  fail "PDF runtime installation failed"
-  echo "       Re-run: ./scripts/install-pdf-runtime.sh"
-  exit 1
+  info "Skipped by core profile; PDF requests report the missing optional runtime"
 fi
 
 echo ""
@@ -284,27 +370,18 @@ echo ""
 # ════════════════════════════════════════════════════════════════════════════
 echo -e "${BOLD}── IDE Dependencies ──${NC}"
 
-# Corepack-backed Yarn shims otherwise prompt before downloading the exact
-# packageManager version on a first-use machine. Installation must be
-# non-interactive and must still fail if that exact bootstrap cannot complete.
-export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
-
-if ! command -v yarn >/dev/null 2>&1; then
-  fail "Yarn 1.22.22 not found"
-  echo "       Install: npm install -g yarn@1.22.22"
-  exit 1
-fi
-
-YARN_VERSION="$(cd c3-ide && yarn --version)"
-if [ "$YARN_VERSION" != "1.22.22" ]; then
-  fail "Yarn 1.22.22 required; found $YARN_VERSION"
-  echo "       Install: npm install -g yarn@1.22.22"
-  exit 1
-fi
 ok "yarn $YARN_VERSION"
 
 info "Running frozen Yarn install for IDE..."
-if (cd c3-ide && yarn install --frozen-lockfile --non-interactive 2>&1 | tail -3); then
+install_ide_dependencies() {
+  cd c3-ide
+  if [ "$OFFLINE" = true ]; then
+    yarn install --frozen-lockfile --non-interactive --offline
+  else
+    yarn install --frozen-lockfile --non-interactive
+  fi
+}
+if install_ide_dependencies 2>&1 | tail -3; then
   ok "IDE dependencies installed"
 else
   fail "Frozen IDE dependency installation failed"
@@ -516,6 +593,11 @@ fi
 echo -e "${BOLD}═══════════════════════════════════════════════════════════${NC}"
 echo -e "${BOLD} Installation Complete${NC}"
 echo -e "${BOLD}═══════════════════════════════════════════════════════════${NC}"
+echo ""
+echo "  Installed profile: ${INSTALL_PROFILE}"
+if [ "$INSTALL_PROFILE" = "core" ]; then
+  echo "  Optional PDF export: not provisioned (run --profile=full to add it)"
+fi
 echo ""
 echo -e "  ${GREEN}Next steps:${NC}"
 echo ""

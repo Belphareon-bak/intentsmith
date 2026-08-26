@@ -220,9 +220,8 @@ if node --input-type=module -e \
   2>/dev/null; then
   ok "Isolated PDF export runtime OK"
 else
-  fail "Isolated PDF export runtime unavailable"
-  echo "       Run ./scripts/install-pdf-runtime.sh first"
-  exit 1
+  warn "Optional PDF export runtime unavailable; core features remain available"
+  echo "       Enable it with: ./scripts/install.sh --profile=full --minimal"
 fi
 
 echo ""

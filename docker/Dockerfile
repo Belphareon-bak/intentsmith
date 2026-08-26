@@ -1,4 +1,7 @@
-# C3-Agent Dockerfile
+# IntentSmith legacy Dockerfile — unsupported in the 1.0 Linux support matrix.
+# The supported path is scripts/install.sh. This recipe remains gated by the
+# explicit Compose `unsupported` profile until an authenticated container
+# ingress can preserve the loopback-only core invariant.
 # ══════════════════════════════════════════════════════════════════════════════
 # Multi-stage build: deps → build → production
 # ══════════════════════════════════════════════════════════════════════════════
@@ -7,7 +10,7 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev --ignore-scripts 2>/dev/null || npm install --omit=dev
+RUN npm ci --omit=dev --ignore-scripts
 
 # ─── Stage 2: Build (obfuscation if enabled) ──────────────────────────────
 FROM node:22-alpine AS build
@@ -45,13 +48,13 @@ USER c3
 # Environment
 ENV NODE_ENV=production \
     C3_PORT=3335 \
-    C3_HOST=0.0.0.0 \
+    C3_HOST=127.0.0.1 \
     C3_DB_PATH=/data/c3.db \
     OLLAMA_URL=http://ollama:11434
 
 EXPOSE 3335
 
 HEALTHCHECK --interval=15s --timeout=5s --retries=3 \
-  CMD node -e "fetch('http://localhost:3335/api/status').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD node -e "fetch('http://localhost:3335/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 CMD ["node", "src/server.js"]
