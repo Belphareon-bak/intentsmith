@@ -1,0 +1,724 @@
+#!/usr/bin/env node
+
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import {
+  chmod,
+  cp,
+  lstat,
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import process from 'node:process';
+import { pathToFileURL } from 'node:url';
+
+import {
+  M6_DIRECT_FRESH_CLONE_PROGRAMS,
+} from '../contracts/m6/candidate-plan-v1.js';
+import {
+  buildM6CandidateExecutionPlan,
+  validateM6CandidateExecutionPlan,
+} from '../src/release/m6-candidate-plan.js';
+import {
+  validateM6ReleaseArtifact,
+} from '../src/release/m6-release-artifact.js';
+import {
+  evaluateM6TechnicalEvidence,
+  projectM6ReleaseEvidence,
+} from '../src/release/m6-technical-evidence.js';
+import {
+  runLogged,
+  runWithOwnedProcessTerminationHandling,
+} from './nightly-orchestrator.js';
+import {
+  loadTestRegistry,
+  registryFingerprint,
+} from './test-registry.js';
+
+const SHA_PATTERN = /^[a-f0-9]{40}$/u;
+const PHYSICAL_GPU_MINIMUM_FREE_MIB = 20_000;
+const OWNED_SERVER_REPORT = 'owned-server/report.json';
+
+function git(root, args) {
+  return execFileSync('git', args, {
+    cwd: root,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
+}
+
+function command(executable, args, options = {}) {
+  return execFileSync(executable, args, {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    ...options,
+  }).trim();
+}
+
+function sourceState(root) {
+  return {
+    head: git(root, ['rev-parse', 'HEAD']),
+    porcelain: git(root, ['status', '--porcelain=v1', '--untracked-files=all']),
+  };
+}
+
+function assertCleanCandidate(root, candidateSha, label) {
+  const state = sourceState(root);
+  if (state.head !== candidateSha || state.porcelain !== '') {
+    throw new Error(`${label}: exact M6 candidate is not clean`);
+  }
+}
+
+function relative(root, target) {
+  return path.relative(root, target).split(path.sep).join('/');
+}
+
+function safeBaseEnvironment() {
+  const environment = {};
+  for (const key of ['PATH', 'LANG', 'LC_ALL', 'TZ']) {
+    if (process.env[key] !== undefined) environment[key] = process.env[key];
+  }
+  return environment;
+}
+
+async function sha256File(filePath) {
+  return createHash('sha256').update(await readFile(filePath)).digest('hex');
+}
+
+async function artifactBinding(root, filePath) {
+  const metadata = await lstat(filePath);
+  if (!metadata.isFile() || metadata.isSymbolicLink()) {
+    throw new Error(`M6 evidence is not a regular file: ${filePath}`);
+  }
+  return {
+    path: relative(root, filePath),
+    bytes: metadata.size,
+    sha256: await sha256File(filePath),
+  };
+}
+
+async function writePrivateJsonAtomic(filePath, value) {
+  await mkdir(path.dirname(filePath), { recursive: true, mode: 0o700 });
+  const temporary = `${filePath}.tmp-${process.pid}`;
+  await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+  await rename(temporary, filePath);
+  await chmod(filePath, 0o600);
+}
+
+async function createEvidenceRoot(root, candidateSha) {
+  const evidenceRoot = path.join(
+    root,
+    '.intentsmith-artifacts',
+    'm6',
+    `candidate-${candidateSha}`,
+  );
+  await mkdir(path.dirname(evidenceRoot), { recursive: true, mode: 0o700 });
+  try {
+    await mkdir(evidenceRoot, { mode: 0o700 });
+  } catch (error) {
+    if (error.code === 'EEXIST') {
+      throw new Error(`Refusing to reuse M6 candidate evidence root: ${relative(root, evidenceRoot)}`);
+    }
+    throw error;
+  }
+  if (await realpath(evidenceRoot) !== evidenceRoot) {
+    throw new Error('M6 candidate evidence root is not canonical');
+  }
+  return evidenceRoot;
+}
+
+function auditArguments({ phase, evidenceRoot, root, candidateSha }) {
+  const outDir = relative(root, path.join(evidenceRoot, phase.id));
+  const args = [
+    'scripts/nightly-audit.js',
+    `--suite=${phase.programIds.join(',')}`,
+    `--run-id=${phase.id}-${candidateSha}`,
+    `--out-dir=${outDir}`,
+    '--concurrency=1',
+    '--timeout-minutes=60',
+    '--deadline-hours=8',
+  ];
+  for (const blocker of phase.allowedBlockers) args.push(`--allow-blocker=${blocker}`);
+  return args;
+}
+
+async function runAuditPhase({ root, candidateSha, evidenceRoot, phase }) {
+  assertCleanCandidate(root, candidateSha, `${phase.id}:pre-state`);
+  const logPath = path.join(evidenceRoot, 'logs', `${phase.id}.log`);
+  await runLogged(['node', ...auditArguments({ phase, evidenceRoot, root, candidateSha })], {
+    cwd: root,
+    env: safeBaseEnvironment(),
+    logPath,
+    allowFailure: true,
+    timeoutMs: 8 * 60 * 60 * 1000,
+  });
+  assertCleanCandidate(root, candidateSha, `${phase.id}:post-state`);
+  const runId = `${phase.id}-${candidateSha}`;
+  const reportPath = path.join(evidenceRoot, phase.id, runId, 'report.json');
+  await stat(reportPath);
+  return reportPath;
+}
+
+function parseCsvLine(line) {
+  return line.split(',').map(value => value.trim());
+}
+
+async function captureGpuCensus(evidenceRoot) {
+  let computeRaw;
+  let memoryRaw;
+  let ollamaRaw;
+  try {
+    computeRaw = command('nvidia-smi', [
+      '--query-compute-apps=pid,process_name,used_gpu_memory',
+      '--format=csv,noheader,nounits',
+    ]);
+    memoryRaw = command('nvidia-smi', [
+      '--query-gpu=index,name,memory.total,memory.used,memory.free,utilization.gpu',
+      '--format=csv,noheader,nounits',
+    ]);
+    ollamaRaw = command('ollama', ['ps']);
+  } catch (error) {
+    const typed = new Error(`M6 GPU census is unavailable: ${error.message}`);
+    typed.code = 'M6_GPU_CENSUS_UNAVAILABLE';
+    throw typed;
+  }
+  const compute = computeRaw ? computeRaw.split('\n').filter(Boolean).map(line => {
+    const [pid, processName, usedMemoryMiB] = parseCsvLine(line);
+    return { pid: Number(pid), processName, usedMemoryMiB: Number(usedMemoryMiB) };
+  }) : [];
+  const gpus = memoryRaw.split('\n').filter(Boolean).map(line => {
+    const [index, name, totalMiB, usedMiB, freeMiB, utilizationPercent] = parseCsvLine(line);
+    return {
+      index: Number(index),
+      name,
+      totalMiB: Number(totalMiB),
+      usedMiB: Number(usedMiB),
+      freeMiB: Number(freeMiB),
+      utilizationPercent: Number(utilizationPercent),
+    };
+  });
+  const ollamaLines = ollamaRaw.split('\n').map(line => line.trim()).filter(Boolean);
+  const census = {
+    contract: 'M6GpuCensus',
+    version: 1,
+    capturedAt: new Date().toISOString(),
+    compute,
+    gpus,
+    ollama: {
+      header: ollamaLines[0] || '',
+      runningRows: ollamaLines.slice(1),
+    },
+    minimumFreeMiB: PHYSICAL_GPU_MINIMUM_FREE_MIB,
+  };
+  census.available = gpus.length > 0
+    && gpus.every(gpu => Number.isFinite(gpu.freeMiB));
+  census.foreignActivity = compute.length > 0 || census.ollama.runningRows.length > 0;
+  census.sufficientFreeMemory = census.available
+    && Math.max(...gpus.map(gpu => gpu.freeMiB)) >= PHYSICAL_GPU_MINIMUM_FREE_MIB;
+  const censusPath = path.join(evidenceRoot, 'gpu', 'preflight.json');
+  await writePrivateJsonAtomic(censusPath, census);
+  if (!census.available || census.foreignActivity || !census.sufficientFreeMemory) {
+    const error = new Error('M6 physical GPU phase blocked by read-only host census');
+    error.code = 'M6_GPU_CENSUS_BLOCKED';
+    error.censusPath = censusPath;
+    throw error;
+  }
+  return censusPath;
+}
+
+async function copyCacheIfPresent(source, destination) {
+  try {
+    const metadata = await lstat(source);
+    if (!metadata.isDirectory() || metadata.isSymbolicLink()) return false;
+  } catch (error) {
+    if (error.code === 'ENOENT') return false;
+    throw error;
+  }
+  await cp(source, destination, {
+    recursive: true,
+    dereference: false,
+    errorOnExist: true,
+    force: false,
+    preserveTimestamps: true,
+  });
+  return true;
+}
+
+async function makeFreshCloneEnvironment({ cloneRoot, runtime, candidateSha, evidenceRoot }) {
+  for (const directory of [
+    runtime,
+    path.join(runtime, 'home'),
+    path.join(runtime, 'tmp'),
+    path.join(runtime, 'projects'),
+    path.join(runtime, 'artifacts'),
+    path.join(runtime, 'xdg', 'config'),
+    path.join(runtime, 'xdg', 'cache'),
+    path.join(runtime, 'xdg', 'data'),
+    path.join(runtime, 'xdg', 'state'),
+  ]) await mkdir(directory, { recursive: true, mode: 0o700 });
+  const userHome = os.homedir();
+  const npmCache = path.join(runtime, 'npm-cache');
+  const yarnCache = path.join(runtime, 'yarn-cache');
+  const corepackHome = path.join(runtime, 'corepack');
+  const cacheReceipt = {
+    npm: await copyCacheIfPresent(
+      process.env.npm_config_cache || path.join(userHome, '.npm'),
+      npmCache,
+    ),
+    yarn: await copyCacheIfPresent(
+      process.env.YARN_CACHE_FOLDER || path.join(userHome, '.cache', 'yarn'),
+      yarnCache,
+    ),
+    corepack: await copyCacheIfPresent(
+      process.env.COREPACK_HOME || path.join(userHome, '.cache', 'node', 'corepack'),
+      corepackHome,
+    ),
+  };
+  await writePrivateJsonAtomic(path.join(evidenceRoot, 'fresh-clone', 'cache-receipt.json'), {
+    ...cacheReceipt,
+    secretValuesRecorded: false,
+  });
+  const environment = {
+    ...safeBaseEnvironment(),
+    HOME: path.join(runtime, 'home'),
+    XDG_CONFIG_HOME: path.join(runtime, 'xdg', 'config'),
+    XDG_CACHE_HOME: path.join(runtime, 'xdg', 'cache'),
+    XDG_DATA_HOME: path.join(runtime, 'xdg', 'data'),
+    XDG_STATE_HOME: path.join(runtime, 'xdg', 'state'),
+    TMPDIR: path.join(runtime, 'tmp'),
+    TMP: path.join(runtime, 'tmp'),
+    TEMP: path.join(runtime, 'tmp'),
+    npm_config_cache: npmCache,
+    YARN_CACHE_FOLDER: yarnCache,
+    COREPACK_HOME: corepackHome,
+    C3_DB_PATH: path.join(runtime, 'fresh-clone.sqlite'),
+    C3_PROJECTS_DIR: path.join(runtime, 'projects'),
+    INTENTSMITH_TEST_PROJECTS_DIR: path.join(runtime, 'projects'),
+    INTENTSMITH_TEST_ARTIFACT_DIR: path.join(runtime, 'artifacts'),
+    INTENTSMITH_TEST_SOURCE_REVISION: candidateSha,
+    INTENTSMITH_M1_FRESH_CLONE: '1',
+    NODE_ENV: 'test',
+    CI: '1',
+    DOTENV_CONFIG_PATH: path.join(runtime, 'no-dotenv-file'),
+    DOTENV_CONFIG_QUIET: 'true',
+    C3_LIFECYCLE_AUTO_COMMIT: 'false',
+    C3_ENABLE_AUTONOMY: 'false',
+    C3_LOG_LEVEL: 'warn',
+  };
+  for (const key of ['DISPLAY', 'XAUTHORITY', 'INTENTSMITH_STUDIO_DISPLAY', 'INTENTSMITH_STUDIO_XAUTHORITY']) {
+    if (process.env[key] !== undefined) environment[key] = process.env[key];
+  }
+  if (environment.INTENTSMITH_STUDIO_DISPLAY === undefined && environment.DISPLAY !== undefined) {
+    environment.INTENTSMITH_STUDIO_DISPLAY = environment.DISPLAY;
+  }
+  if (environment.INTENTSMITH_STUDIO_XAUTHORITY === undefined && environment.XAUTHORITY !== undefined) {
+    environment.INTENTSMITH_STUDIO_XAUTHORITY = environment.XAUTHORITY;
+  }
+  return { environment, cloneRoot };
+}
+
+async function directProgramResult({
+  root,
+  candidateSha,
+  suite,
+  environment,
+  logPath,
+  authority,
+}) {
+  assertCleanCandidate(root, candidateSha, `${suite.id}:pre-state`);
+  const startedAt = new Date().toISOString();
+  const result = await runLogged([...suite.argv], {
+    cwd: root,
+    env: environment,
+    logPath,
+    allowFailure: true,
+    timeoutMs: suite.timeoutMs,
+  });
+  const endedAt = new Date().toISOString();
+  assertCleanCandidate(root, candidateSha, `${suite.id}:post-state`);
+  const passed = result.exitCode === 0
+    && result.signal === null
+    && !result.timedOut
+    && !result.leakDetected
+    && result.cleanupTerminated;
+  return {
+    id: suite.id,
+    path: suite.path,
+    profile: suite.profile,
+    category: suite.profile,
+    command: [...suite.argv],
+    blockers: [],
+    required: true,
+    start: startedAt,
+    end: endedAt,
+    durationMs: Math.max(0, Date.parse(endedAt) - Date.parse(startedAt)),
+    exitCode: result.exitCode,
+    signal: result.signal,
+    timedOut: result.timedOut,
+    status: passed ? 'PASS' : result.timedOut ? 'TIMEOUT' : 'FAIL',
+    retryCount: 0,
+    logPath: logPath,
+    sourceRevision: candidateSha,
+    modelFixturePreflight: null,
+    environment: { authority, sourceRevision: candidateSha },
+    cleanup: {
+      checked: true,
+      leakDetected: result.leakDetected,
+      terminated: result.cleanupTerminated,
+    },
+    sourceTree: {
+      checked: true,
+      clean: true,
+      porcelain: null,
+      head: candidateSha,
+    },
+    logError: null,
+    outputError: null,
+    logSha256: await sha256File(logPath),
+  };
+}
+
+function directReport({ candidateSha, fingerprint, results, startedAt, endedAt }) {
+  const failed = results.filter(result => result.status !== 'PASS');
+  return {
+    schemaVersion: 1,
+    manifestType: 'intentsmith.audit-report',
+    runId: `m6-fresh-clone-${candidateSha}`,
+    sourceRevision: candidateSha,
+    startedAt,
+    endedAt,
+    dryRun: false,
+    options: {
+      authority: 'm6-fresh-clone-install-build-studio-v1',
+      acceptsArguments: false,
+      concurrency: 1,
+      installNetwork: 'linux-user-network-namespace-none',
+    },
+    paths: {},
+    inventoryFingerprint: createHash('sha256')
+      .update(results.map(result => result.id).join('\n'))
+      .digest('hex'),
+    optionsFingerprint: createHash('sha256')
+      .update('m6-fresh-clone-install-build-studio-v1')
+      .digest('hex'),
+    registryHash: fingerprint,
+    interruptionSignal: null,
+    inventory: { selected: results.length },
+    statusCounts: Object.fromEntries(
+      [...new Set(results.map(result => result.status))]
+        .map(status => [status, results.filter(result => result.status === status).length]),
+    ),
+    verdict: failed.length === 0 ? 'PASS' : 'FAIL',
+    exitCode: failed.length === 0 ? 0 : 1,
+    requiredFailureCount: failed.length,
+    requiredBlockedCount: 0,
+    results,
+  };
+}
+
+async function runFreshClonePhase({
+  root,
+  candidateSha,
+  fingerprint,
+  registry,
+  evidenceRoot,
+}) {
+  const temporaryParent = await mkdtemp(path.join(os.tmpdir(), 'intentsmith-m6-clone-'));
+  const cloneRoot = path.join(temporaryParent, 'source');
+  const runtime = path.join(temporaryParent, 'runtime');
+  try {
+    await runLogged([
+      'git', 'clone', '--no-local', '--no-hardlinks', '--no-checkout', root, cloneRoot,
+    ], {
+      cwd: root,
+      env: safeBaseEnvironment(),
+      logPath: path.join(evidenceRoot, 'logs', 'fresh-clone.log'),
+      timeoutMs: 10 * 60 * 1000,
+    });
+    await runLogged(['git', 'checkout', '--detach', candidateSha], {
+      cwd: cloneRoot,
+      env: safeBaseEnvironment(),
+      logPath: path.join(evidenceRoot, 'logs', 'fresh-clone.log'),
+      timeoutMs: 5 * 60 * 1000,
+    });
+    if (git(cloneRoot, ['rev-parse', '--git-dir']) !== '.git'
+      || git(cloneRoot, ['rev-parse', '--git-common-dir']) !== '.git') {
+      throw new Error('M6 fresh clone is not a standalone Git clone');
+    }
+    const prepared = await makeFreshCloneEnvironment({
+      cloneRoot,
+      runtime,
+      candidateSha,
+      evidenceRoot,
+    });
+    const installLog = path.join(evidenceRoot, 'logs', 'fresh-clone-install.log');
+    await runLogged([
+      'unshare', '--user', '--map-root-user', '--net', '--',
+      './scripts/install.sh', '--profile=core', '--minimal', '--offline',
+    ], {
+      cwd: cloneRoot,
+      env: prepared.environment,
+      logPath: installLog,
+      timeoutMs: 45 * 60 * 1000,
+    });
+    assertCleanCandidate(cloneRoot, candidateSha, 'fresh-clone:post-install');
+    await runLogged(['node', 'scripts/capture-m6-release-artifact.js'], {
+      cwd: cloneRoot,
+      env: prepared.environment,
+      logPath: path.join(evidenceRoot, 'logs', 'release-artifact-capture.log'),
+      timeoutMs: 5 * 60 * 1000,
+    });
+
+    const startedAt = new Date().toISOString();
+    const results = [];
+    for (const programId of M6_DIRECT_FRESH_CLONE_PROGRAMS) {
+      const suite = registry.suites.find(item => item.id === programId);
+      if (!suite || suite.required !== true || suite.state !== 'ACTIVE') {
+        throw new Error(`M6 fresh-clone program unavailable: ${programId}`);
+      }
+      const programRuntime = path.join(
+        evidenceRoot,
+        'fresh-clone',
+        'runtime',
+        programId.toLowerCase(),
+      );
+      const programArtifacts = path.join(programRuntime, 'artifacts');
+      const programProjects = path.join(programRuntime, 'projects');
+      const programTemp = path.join(programRuntime, 'tmp');
+      const programNpmCache = path.join(programArtifacts, 'npm-cache');
+      for (const directory of [
+        programRuntime,
+        programArtifacts,
+        programProjects,
+        programTemp,
+        programNpmCache,
+        path.join(programRuntime, 'home'),
+        path.join(programRuntime, 'xdg', 'config'),
+        path.join(programRuntime, 'xdg', 'cache'),
+        path.join(programRuntime, 'xdg', 'data'),
+        path.join(programRuntime, 'xdg', 'state'),
+      ]) await mkdir(directory, { recursive: true, mode: 0o700 });
+      const environment = {
+        ...prepared.environment,
+        C3_AUDIT_RUN: '1',
+        HOME: path.join(programRuntime, 'home'),
+        XDG_CONFIG_HOME: path.join(programRuntime, 'xdg', 'config'),
+        XDG_CACHE_HOME: path.join(programRuntime, 'xdg', 'cache'),
+        XDG_DATA_HOME: path.join(programRuntime, 'xdg', 'data'),
+        XDG_STATE_HOME: path.join(programRuntime, 'xdg', 'state'),
+        TMPDIR: programTemp,
+        TMP: programTemp,
+        TEMP: programTemp,
+        npm_config_cache: programNpmCache,
+        C3_DB_PATH: path.join(programRuntime, 'program.sqlite'),
+        C3_PORT_FILE: path.join(programRuntime, 'program.port'),
+        C3_PROJECTS_DIR: programProjects,
+        INTENTSMITH_TEST_PROJECTS_DIR: programProjects,
+        INTENTSMITH_TEST_ARTIFACT_DIR: programArtifacts,
+      };
+      const logPath = path.join(evidenceRoot, 'logs', `${programId}.log`);
+      const result = await directProgramResult({
+        root: cloneRoot,
+        candidateSha,
+        suite,
+        environment,
+        logPath,
+        authority: 'm6-fresh-clone-install-build-studio-v1',
+      });
+      result.logPath = relative(root, logPath);
+      results.push(result);
+    }
+    const endedAt = new Date().toISOString();
+    const report = directReport({
+      candidateSha,
+      fingerprint,
+      results,
+      startedAt,
+      endedAt,
+    });
+    const reportPath = path.join(evidenceRoot, 'fresh-clone', 'report.json');
+    await writePrivateJsonAtomic(reportPath, report);
+
+    const cloneRelease = path.join(
+      cloneRoot,
+      '.intentsmith-artifacts',
+      'm6',
+      `candidate-${candidateSha}`,
+      'release',
+    );
+    const candidateRelease = path.join(evidenceRoot, 'release');
+    await cp(cloneRelease, candidateRelease, {
+      recursive: true,
+      dereference: false,
+      errorOnExist: true,
+      force: false,
+      preserveTimestamps: true,
+    });
+    const manifestPath = path.join(candidateRelease, 'manifest.json');
+    const releaseArtifact = JSON.parse(await readFile(manifestPath, 'utf8'));
+    const releaseValidation = await validateM6ReleaseArtifact(releaseArtifact, {
+      root,
+      candidateSha,
+      sourceTreeClean: sourceState(root).porcelain === '',
+    });
+    if (!releaseValidation.valid) {
+      throw new Error(`M6 copied release artifact invalid: ${releaseValidation.errors.join('; ')}`);
+    }
+    return { reportPath, manifestPath };
+  } finally {
+    const resolved = path.resolve(temporaryParent);
+    const temporaryRoot = path.resolve(os.tmpdir());
+    if (
+      path.dirname(resolved) !== temporaryRoot
+      || !path.basename(resolved).startsWith('intentsmith-m6-clone-')
+    ) {
+      throw new Error(`Refusing unsafe M6 temporary clone cleanup: ${resolved}`);
+    }
+    await rm(resolved, { recursive: true, force: false, maxRetries: 2 });
+  }
+}
+
+async function loadReportItem(root, reportPath) {
+  return {
+    report: JSON.parse(await readFile(reportPath, 'utf8')),
+    artifact: await artifactBinding(root, reportPath),
+  };
+}
+
+function promoteReleaseArtifact(releaseEvidence, manifestBinding) {
+  const value = structuredClone(releaseEvidence);
+  const row = value.checks.find(item => item.id === 'release-artifact');
+  row.status = 'PASS';
+  row.reasonCode = null;
+  row.artifacts = [manifestBinding];
+  return value;
+}
+
+export async function runM6CandidateEvidence(root = process.cwd(), argv = []) {
+  if (argv.length > 0) {
+    throw new Error('M6 candidate evidence uses a locked plan and accepts no arguments');
+  }
+  const canonicalRoot = git(root, ['rev-parse', '--show-toplevel']);
+  if (await realpath(root) !== await realpath(canonicalRoot)) {
+    throw new Error('M6 candidate evidence must run from the canonical worktree root');
+  }
+  const candidateSha = git(root, ['rev-parse', 'HEAD']);
+  if (!SHA_PATTERN.test(candidateSha)) throw new Error('M6 candidate SHA is invalid');
+  assertCleanCandidate(root, candidateSha, 'candidate:pre-state');
+  const registry = await loadTestRegistry(root);
+  const fingerprint = registryFingerprint(registry);
+  const plan = buildM6CandidateExecutionPlan(registry);
+  const planValidation = validateM6CandidateExecutionPlan(plan, registry);
+  if (!planValidation.valid) {
+    throw new Error(`M6 candidate plan invalid: ${planValidation.errors.join('; ')}`);
+  }
+  const evidenceRoot = await createEvidenceRoot(root, candidateSha);
+  await writePrivateJsonAtomic(path.join(evidenceRoot, 'plan.json'), {
+    ...plan,
+    candidateSha,
+    registryFingerprint: fingerprint,
+    generatedAt: new Date().toISOString(),
+  });
+
+  const reportPaths = [];
+  const deterministic = plan.phases.find(phase => phase.id === 'deterministic-offline-database');
+  reportPaths.push(await runAuditPhase({ root, candidateSha, evidenceRoot, phase: deterministic }));
+
+  const serverScript = await runLogged(['node', 'scripts/run-m6-owned-server-evidence.js'], {
+    cwd: root,
+    env: safeBaseEnvironment(),
+    logPath: path.join(evidenceRoot, 'logs', 'owned-production-server-runner.log'),
+    allowFailure: true,
+    timeoutMs: 10 * 60 * 1000,
+  });
+  if (serverScript.exitCode !== 0) {
+    throw new Error(`M6 owned production server phase failed: ${serverScript.exitCode}`);
+  }
+  reportPaths.push(path.join(evidenceRoot, OWNED_SERVER_REPORT));
+
+  await captureGpuCensus(evidenceRoot);
+  const controlledSoak = plan.phases.find(phase => phase.id === 'controlled-soak');
+  reportPaths.push(await runAuditPhase({ root, candidateSha, evidenceRoot, phase: controlledSoak }));
+
+  const fresh = await runFreshClonePhase({
+    root,
+    candidateSha,
+    fingerprint,
+    registry,
+    evidenceRoot,
+  });
+  reportPaths.push(fresh.reportPath);
+
+  const physicalGpu = plan.phases.find(phase => phase.id === 'physical-ollama-gpu');
+  reportPaths.push(await runAuditPhase({ root, candidateSha, evidenceRoot, phase: physicalGpu }));
+  assertCleanCandidate(root, candidateSha, 'candidate:post-state');
+
+  const reports = [];
+  for (const reportPath of reportPaths) reports.push(await loadReportItem(root, reportPath));
+  const technical = evaluateM6TechnicalEvidence({
+    candidateSha,
+    registryFingerprint: fingerprint,
+    registry,
+    reports,
+  });
+  await writePrivateJsonAtomic(path.join(evidenceRoot, 'technical-evidence.json'), technical);
+  if (!technical.valid || technical.checks.some(row => (
+    !['m5-acceptance', 'gate0-attestation', 'independent-read-only-review',
+      'release-artifact', 'operator-demo-approval'].includes(row.id)
+    && row.status !== 'PASS'
+  )) || technical.l0.some(row => row.status !== 'PASS')) {
+    throw new Error('M6 technical candidate evidence is incomplete or red');
+  }
+  const projected = projectM6ReleaseEvidence({
+    candidateSha,
+    registryFingerprint: fingerprint,
+    generatedAt: new Date().toISOString(),
+    technicalEvidence: technical,
+  });
+  const releaseEvidence = promoteReleaseArtifact(
+    projected,
+    await artifactBinding(root, fresh.manifestPath),
+  );
+  const releaseEvidencePath = path.join(
+    root,
+    '.intentsmith-artifacts',
+    'm6',
+    'release-evidence.json',
+  );
+  await writePrivateJsonAtomic(releaseEvidencePath, releaseEvidence);
+  return Object.freeze({
+    candidateSha,
+    registryFingerprint: fingerprint,
+    evidenceRoot: relative(root, evidenceRoot),
+    releaseEvidencePath: relative(root, releaseEvidencePath),
+    technicalImplementation: 'PASS',
+    releaseVerdict: 'BLOCKED',
+    reasonCode: 'M6_EXTERNAL_AUTHORITIES_PENDING',
+    exitCode: 2,
+  });
+}
+
+export async function main(argv = process.argv.slice(2)) {
+  return await runWithOwnedProcessTerminationHandling(async () => {
+    const result = await runM6CandidateEvidence(process.cwd(), argv);
+    console.log(JSON.stringify(result, null, 2));
+    return result.exitCode;
+  });
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
+  main().then(code => {
+    process.exitCode = code;
+  }).catch(error => {
+    console.error(error.stack || error.message);
+    process.exitCode = error.code === 'M6_GPU_CENSUS_BLOCKED' ? 2 : 1;
+  });
+}

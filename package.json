@@ -22,6 +22,7 @@
     "gate0:validate-attestation": "node scripts/validate-gate0-attestation.js",
     "m6:validate-release": "node scripts/validate-m6-release.js",
     "m6:capture-release-artifact": "node scripts/capture-m6-release-artifact.js",
+    "m6:run-candidate-evidence": "node scripts/run-m6-candidate-evidence.js",
     "test:offline": "node scripts/nightly-audit.js --profile=offline",
     "test:database": "node scripts/nightly-audit.js --profile=database",
     "test:deterministic": "node scripts/nightly-audit.js --profile=offline,database",

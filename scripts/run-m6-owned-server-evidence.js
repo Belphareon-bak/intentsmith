@@ -65,11 +65,13 @@ function safeEnvironment(runtime) {
     TMPDIR: path.join(runtime, 'tmp'),
     TMP: path.join(runtime, 'tmp'),
     TEMP: path.join(runtime, 'tmp'),
-    npm_config_cache: path.join(runtime, 'npm-cache'),
+    npm_config_cache: path.join(runtime, 'artifacts', 'npm-cache'),
     C3_DB_PATH: path.join(runtime, 'server-evidence.sqlite'),
+    C3_PORT_FILE: path.join(runtime, 'server-evidence.port'),
     C3_PROJECTS_DIR: path.join(runtime, 'projects'),
     INTENTSMITH_TEST_PROJECTS_DIR: path.join(runtime, 'projects'),
     INTENTSMITH_TEST_ARTIFACT_DIR: path.join(runtime, 'artifacts'),
+    C3_AUDIT_RUN: '1',
     NODE_ENV: 'test',
     CI: '1',
     DOTENV_CONFIG_PATH: path.join(runtime, 'no-dotenv-file'),
@@ -237,7 +239,7 @@ export async function runM6OwnedServerEvidence(root = process.cwd(), argv = []) 
     path.join(runtime, 'tmp'),
     path.join(runtime, 'projects'),
     path.join(runtime, 'artifacts'),
-    path.join(runtime, 'npm-cache'),
+    path.join(runtime, 'artifacts', 'npm-cache'),
     path.join(runtime, 'xdg', 'config'),
     path.join(runtime, 'xdg', 'cache'),
     path.join(runtime, 'xdg', 'data'),
@@ -292,4 +294,3 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
     process.exitCode = 2;
   });
 }
-
