@@ -391,8 +391,8 @@ suite('M1 model failover schema — exact migration contract');
 
 await testAsync('fresh file-backed DB creates all failover tables, indexes and triggers', async () => {
   await withMigratedDb(async (db) => {
-    // Evaluation consolidation added migration 082; this pin follows the real tip.
-    assertEqual(getCurrentVersion(db), '2026_08_24_082_model_evaluation_consolidation');
+    // Evaluation consolidation is migration 086; this pin follows the real tip.
+    assertEqual(getCurrentVersion(db), '2026_08_26_086_model_evaluation_consolidation');
 
     for (const table of [
       'model_desired_bindings',
@@ -713,13 +713,13 @@ await testAsync('migration 054 preserves pre-existing success as unconfirmed evi
         '2026_08_22_066_model_automation_policy',
         '2026_08_22_067_model_failover_proof_artifacts',
         '2026_08_22_070_model_evaluation_history',
-        '2026_08_24_081_model_policy_trigger_compatibility',
-        '2026_08_24_081_model_proof_trigger_compatibility',
-        '2026_08_24_082_model_evaluation_consolidation',
+        '2026_08_26_084_model_policy_trigger_compatibility',
+        '2026_08_26_085_model_proof_trigger_compatibility',
+        '2026_08_26_086_model_evaluation_consolidation',
       ]),
     );
     assertEqual(result.skipped.length, 55);
-    assertEqual(getCurrentVersion(db), '2026_08_24_082_model_evaluation_consolidation');
+    assertEqual(getCurrentVersion(db), '2026_08_26_086_model_evaluation_consolidation');
     assertEqual(
       db.prepare(`
         SELECT COUNT(*) AS count

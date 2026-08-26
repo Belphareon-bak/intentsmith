@@ -21,6 +21,17 @@ const __dirname = path.dirname(__filename);
 
 const MIGRATIONS_DIR = path.join(__dirname, 'migrations');
 const MIGRATION_VERSION_PATTERN = /^\d{4}_\d{2}_\d{2}_\d{3}(?:_[a-z0-9]+)*$/;
+const MIGRATION_NUMERIC_SLOT_PATTERN = /^\d{4}_\d{2}_\d{2}_(\d{3})(?:_|$)/;
+const HISTORICAL_NUMERIC_SLOT_COLLISIONS = new Map([
+  ['008', Object.freeze([
+    '2026_02_19_008',
+    '2026_02_20_008',
+  ])],
+  ['030', Object.freeze([
+    '2026_03_08_030_v103_model_overrides',
+    '2026_03_08_030_v107_task_memory',
+  ])],
+]);
 
 // ─── Internal Helpers ────────────────────────────────────────────────────────
 
@@ -72,6 +83,7 @@ function validateMigrationPlan(migrations) {
   }
 
   const versions = new Set();
+  const versionsByNumericSlot = new Map();
 
   for (const migration of migrations) {
     const file = migration?.file;
@@ -97,6 +109,25 @@ function validateMigrationPlan(migrations) {
       throw new Error(`Duplicate migration version: ${version}`);
     }
     versions.add(version);
+
+    const numericSlot = version.match(MIGRATION_NUMERIC_SLOT_PATTERN)?.[1];
+    const slotVersions = versionsByNumericSlot.get(numericSlot) || [];
+    slotVersions.push(version);
+    versionsByNumericSlot.set(numericSlot, slotVersions);
+  }
+
+  for (const [numericSlot, slotVersions] of versionsByNumericSlot) {
+    if (slotVersions.length < 2) continue;
+    const allowed = HISTORICAL_NUMERIC_SLOT_COLLISIONS.get(numericSlot);
+    const actualSorted = [...slotVersions].sort();
+    const allowedSorted = allowed ? [...allowed].sort() : [];
+    const isExactHistoricalPair = actualSorted.length === allowedSorted.length
+      && actualSorted.every((version, index) => version === allowedSorted[index]);
+    if (!isExactHistoricalPair) {
+      throw new Error(
+        `Duplicate migration numeric slot ${numericSlot}: ${actualSorted.join(', ')}`
+      );
+    }
   }
 
   return migrations;

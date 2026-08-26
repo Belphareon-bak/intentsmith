@@ -103,3 +103,40 @@ první volné číslo                                082
 Rezervace `082` je aktivní od 2026-08-24. Před vznikem souboru migrace se
 census zopakuje ještě jednou; případný novější konflikt dostane přednost a WP
 se posune na další volné číslo.
+
+## Kontrolní census 2026-08-26 — review remediace modelových evaluací
+
+Review rozsahu `e8c1ba85..96c762db` prokázalo, že M2 mezitím použilo 082 a 083
+a modelová linka po posledním censusu přidala dva různé suffixy pod 081.
+Opakovaný census všech dostupných lokálních a remote live refů mimo
+`archive/**` a `recovery/**` změřil:
+
+```text
+živé refs                                         364
+081                                               M2 + dva model compatibility repairy
+082                                               M2 + model evaluation consolidation
+083                                               M2 rollback receipts
+první souvislý volný blok                         084–086
+```
+
+Modelová linka proto uvolňuje 081/082 a používá následující identity v pořadí,
+ve kterém se musí aplikovat:
+
+| Číslo | Vlastník | Obsah |
+|---|---|---|
+| **084** | model-evaluation review remediace | kompatibilita policy triggerů |
+| **085** | model-evaluation review remediace | kompatibilita proof triggeru |
+| **086** | model-evaluation review remediace | exact-contract evaluace, decisions, audit a odstranění v123 runtime tabulek |
+
+Tento census je porovnaný s integračním tipem
+`codex/m2-integration-20260824@9f8a7019`, který vlastní 071–083. Samostatně
+zůstává v unionu starší konflikt čísla 070 mezi `model_evaluation_history`
+a `m2_effect_authority`; nevznikl v tomto review rozsahu a musí jej vyřešit
+integrační vlastník před sloučením obou linek. Není zde tiše přeznačen ani
+vydáván za vyřešený.
+
+Migrační preflight nyní vedle celého version stringu kontroluje i třímístný
+numerický slot. Povoluje pouze dvě přesně vyjmenované historické dvojice 008
+a 030; každou jinou kolizi odmítne před vytvořením `schema_migrations` nebo
+spuštěním `up()`. Po budoucím spojení modelové a M2 linky tak existující konflikt
+070 fail-closed zastaví integraci místo tichého průchodu.

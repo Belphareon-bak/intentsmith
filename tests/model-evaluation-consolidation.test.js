@@ -7,7 +7,7 @@ import { up as up039 } from '../src/db/migrations/2026_03_26_039_v133_model_usag
 import { up as up041 } from '../src/db/migrations/2026_04_08_041_v136_model_universe.js';
 import { up as up042 } from '../src/db/migrations/2026_04_08_042_v137_universe_reconciliation.js';
 import { up as up070 } from '../src/db/migrations/2026_08_22_070_model_evaluation_history.js';
-import { up as up082 } from '../src/db/migrations/2026_08_24_082_model_evaluation_consolidation.js';
+import { up as up086 } from '../src/db/migrations/2026_08_26_086_model_evaluation_consolidation.js';
 import { ModelEvaluationDecisionStore } from '../src/upgrade/model-evaluation-decision-store.js';
 
 const DIGEST_A = 'a'.repeat(64);
@@ -33,7 +33,7 @@ function consolidatedDatabase() {
     VALUES ('legacy:latest', 'chat', 0.75, 1, 1, 12)
   `).run();
   up070(db);
-  up082(db);
+  up086(db);
   return db;
 }
 
@@ -92,7 +92,7 @@ test('082 imports and archives a legacy summary written after 070', () => {
     INSERT INTO validation_suite_scores (model, suite, score, passed, total)
     VALUES ('late:latest', 'chat', 0.5, 1, 2)
   `).run();
-  up082(db);
+  up086(db);
   const imported = db.prepare(`
     SELECT model_name, status, error_code, metadata_json
     FROM model_evaluation_runs
@@ -135,7 +135,7 @@ test('082 still refuses a colliding legacy run that does not match its source ro
     VALUES ('late:latest', 'chat', 0.5, 1, 2)
   `).run();
   let error = null;
-  try { up082(db); } catch (caught) { error = caught; }
+  try { up086(db); } catch (caught) { error = caught; }
   assert(String(error?.message || '').includes('summary import preflight failed'));
   assert(db.prepare(
     "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='validation_suite_scores'"

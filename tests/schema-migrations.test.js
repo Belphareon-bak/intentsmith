@@ -63,8 +63,8 @@ import {
   _testInternals as migrationTestInternals,
 } from '../src/db/migrate.js';
 import { up as up066ModelPolicy } from '../src/db/migrations/2026_08_22_066_model_automation_policy.js';
-import { up as repairModelPolicyTriggers } from '../src/db/migrations/2026_08_24_081_model_policy_trigger_compatibility.js';
-import { up as repairModelProofTriggers } from '../src/db/migrations/2026_08_24_081_model_proof_trigger_compatibility.js';
+import { up as repairModelPolicyTriggers } from '../src/db/migrations/2026_08_26_084_model_policy_trigger_compatibility.js';
+import { up as repairModelProofTriggers } from '../src/db/migrations/2026_08_26_085_model_proof_trigger_compatibility.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -166,9 +166,9 @@ const ALL_MIGRATIONS = [
   '2026_08_22_066_model_automation_policy',
   '2026_08_22_067_model_failover_proof_artifacts',
   '2026_08_22_070_model_evaluation_history',
-  '2026_08_24_081_model_policy_trigger_compatibility',
-  '2026_08_24_081_model_proof_trigger_compatibility',
-  '2026_08_24_082_model_evaluation_consolidation',
+  '2026_08_26_084_model_policy_trigger_compatibility',
+  '2026_08_26_085_model_proof_trigger_compatibility',
+  '2026_08_26_086_model_evaluation_consolidation',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -245,6 +245,63 @@ describe('T-SM0: Migration identity preflight', async () => {
       /Duplicate migration version/,
       () => upCalls
     );
+  });
+
+  await it('rejects reused numeric slots with different version strings before mutation', () => {
+    let upCalls = 0;
+    const up = () => { upCalls++; };
+    const plan = [
+      {
+        version: '2026_08_24_081_first_owner',
+        file: '2026_08_24_081_first_owner.js',
+        description: 'first',
+        up,
+      },
+      {
+        version: '2026_08_25_081_second_owner',
+        file: '2026_08_25_081_second_owner.js',
+        description: 'second',
+        up,
+      },
+    ];
+
+    assertManifestRejectedBeforeMutation(
+      plan,
+      /Duplicate migration numeric slot 081/,
+      () => upCalls
+    );
+  });
+
+  await it('accepts only the two exact grandfathered numeric-slot pairs', () => {
+    const up = () => {};
+    assert.doesNotThrow(() => migrationTestInternals.validateMigrationPlan([
+      {
+        version: '2026_02_19_008',
+        file: '2026_02_19_008_v69_ledger_core.js',
+        description: 'historical first',
+        up,
+      },
+      {
+        version: '2026_02_20_008',
+        file: '2026_02_20_008_v69_expert_to_expertise.js',
+        description: 'historical second',
+        up,
+      },
+    ]));
+    assert.throws(() => migrationTestInternals.validateMigrationPlan([
+      {
+        version: '2026_02_19_008',
+        file: '2026_02_19_008_v69_ledger_core.js',
+        description: 'historical first',
+        up,
+      },
+      {
+        version: '2026_08_26_008_new_reuse',
+        file: '2026_08_26_008_new_reuse.js',
+        description: 'not grandfathered',
+        up,
+      },
+    ]), /Duplicate migration numeric slot 008/);
   });
 
   await it('rejects invalid version format before schema_migrations or up()', () => {
@@ -593,8 +650,8 @@ describe('T-SM7: Baseline creates all expected tables', async () => {
       '2026_08_09_054_model_binding_runtime_finalization',
       '2026_08_22_066_model_automation_policy',
       '2026_08_22_067_model_failover_proof_artifacts',
-      '2026_08_24_081_model_policy_trigger_compatibility',
-      '2026_08_24_081_model_proof_trigger_compatibility',
+      '2026_08_26_084_model_policy_trigger_compatibility',
+      '2026_08_26_085_model_proof_trigger_compatibility',
     ].includes(migration.version));
     migrationTestInternals.runMigrationPlan(db, pre050);
     db.prepare(`

@@ -1,7 +1,7 @@
 # 030 — Jedna current-contract autorita modelových evaluací
 
-**Stav:** `ACCEPTED` po nezávislém rereview · **Datum:** 2026-08-25
-**WP:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Migrace:** 082
+**Stav:** `CHANGES_REQUESTED` po navazujícím review · **Datum:** 2026-08-26
+**WP:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Migrace:** 086
 
 ## Kontext
 
@@ -22,7 +22,7 @@ odstranit; C3 repo zůstává případnou historickou referencí.
 4. Binding a evaluace jsou různé autority. Hunt nesmí binding změnit; ruční
    exact-digest binding application zůstává jedinou aktivační cestou.
 5. v123 runtime, endpointy, UI/WS, report a proof-measurement skripty se mažou.
-   Migrace 082 nejprve ověří import, archivuje důkaz a až potom dropne staré
+   Migrace 086 nejprve ověří import, archivuje důkaz a až potom dropne staré
    runtime tabulky.
 6. Automatický failover/proof issuer není zapnut. Historické proof DB schema a
    rozhodnutí 006/015 zůstávají auditní stopou, nikoli dnešním issuing
@@ -54,5 +54,6 @@ odstranit; C3 repo zůstává případnou historickou referencí.
 - historické docs a migrace mohou obsahovat staré názvy, ale produkční source,
   route, registry a aktivní test ledger ne;
 - implementační green znamenal nejvýše `REVIEW_PENDING`; candidate `d8a2a108`
-  přešel na `ACCEPTED` až po nezávislém rereview a reprodukci `227/227` v runu
-  `2026-08-25T17-15-48-322Z`.
+  přešel na `ACCEPTED` po nezávislém rereview a reprodukci `227/227` v runu
+  `2026-08-25T17-15-48-322Z`; navazující review později našlo blokující
+  migrační kolize, takže současný stav je znovu `CHANGES_REQUESTED`.

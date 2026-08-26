@@ -1,6 +1,6 @@
 # Modelová platforma — aktuální handoff
 
-**Datum:** 2026-08-25 · **Stav:** `ACCEPTED`
+**Datum:** 2026-08-26 · **Stav:** `CHANGES_REQUESTED / REMEDIATION_IN_PROGRESS`
 **Autoritativní popis:** [MODEL-SCORING-ACTIVATION.md](MODEL-SCORING-ACTIVATION.md)
 **Evidence:** [review remediation](execution/runs/model-evaluation-consolidation-review-remediation-20260825.md)
 
@@ -22,7 +22,7 @@
   `activationEligible=true`.
 - promptový contract pokrývá text, rubric, language, grading inputs, VISION
   image bytes a skutečný CODE `buildPrompt`; outcome používá stabilní enum;
-- migrace 082 bezpečně zachová i v123 zápisy vzniklé po aplikaci migrace 070;
+- migrace 086 bezpečně zachová i v123 zápisy vzniklé po aplikaci migrace 070;
 - CODE fixture má čistou snapshot provenance a nedostupný historický oracle je
   explicitní pre-pull `BLOCKED`.
 
@@ -30,8 +30,9 @@
 
 - V tomto review kandidátovi zatím nebyl proveden nový ostrý sériový Ollama/GPU
   panel. Staré runy se automaticky nepovyšují na dnešní contract.
-- Nezávislý rereview nad candidatem `d8a2a108` skončil `PASS`; samostatný run
-  `2026-08-25T17-15-48-322Z` reprodukoval `227/227`.
+- Dřívější nezávislý rereview nad candidatem `d8a2a108` skončil `PASS`, ale
+  pozdější review rozsahu `e8c1ba85..96c762db` našlo blokující číselné kolize
+  migrací. Kandidát proto zůstává `CHANGES_REQUESTED` do nového rereview.
 - Automatický failover/proof issuance zůstává vypnutý; aktivace je ruční přes
   exact binding application.
 - Předchozí candidate na `31234a6b` dostal `CHANGES_REQUESTED`; jeho 227 PASS

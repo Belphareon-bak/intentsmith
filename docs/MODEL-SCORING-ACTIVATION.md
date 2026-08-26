@@ -1,8 +1,8 @@
 # Modelové evaluace a aktivace
 
-**Stav:** současný kontrakt v136.1 · **Aktualizováno:** 2026-08-25
+**Stav:** současný kontrakt v136.1 · **Aktualizováno:** 2026-08-26
 **Implementace:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Přijetí:** čeká na
-nezávislé review operátora
+nezávislé rereview po opravě migračních kolizí
 
 Název souboru zůstává kvůli existujícím odkazům. IntentSmith už ale nemá
 samostatný „scoring“ runtime. Existuje jedna autoritativní cesta pro modelové
@@ -73,11 +73,11 @@ nikdy nepřepočítá na nulu modelu.
 
 Runtime soubor `src/upgrade/validation-suites.js`, jeho HTTP/WS/UI povrch,
 `model-scoring-report.js` a oddělené v123 proof-measurement skripty neexistují.
-Migrace 082 před dropem starých tabulek kontroluje import, jejich obsah ukládá
+Migrace 086 před dropem starých tabulek kontroluje import, jejich obsah ukládá
 do `model_evaluation_import_evidence` a teprve potom odstraňuje
 `validation_results` a `validation_suite_scores`. Historické migrace a review
 dokumenty zůstávají reprodukovatelnou auditní stopou, nikoli fallbackem.
-Souhrny zapsané legitimně mezi migracemi 070 a 082 nejprve doplní jako
+Souhrny zapsané legitimně mezi migracemi 070 a 086 nejprve doplní jako
 nepoužitelnou `BLOCKED / LEGACY_EXACT_IDENTITY_UNKNOWN` evidenci; server kvůli
 nim při upgradu nespadne.
 

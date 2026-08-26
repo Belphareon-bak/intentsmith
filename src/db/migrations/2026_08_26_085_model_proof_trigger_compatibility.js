@@ -13,7 +13,7 @@
 
 import { createHash } from 'node:crypto';
 
-export const version = '2026_08_24_081_model_proof_trigger_compatibility';
+export const version = '2026_08_26_085_model_proof_trigger_compatibility';
 export const description = 'Remove the legacy proof trigger from exact M1 artifact schemas';
 
 const LEGACY_REQUIRE_TRIGGER = 'trg_model_failover_proofs_require_artifacts';

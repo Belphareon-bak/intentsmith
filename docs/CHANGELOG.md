@@ -8,6 +8,16 @@
 
 ---
 
+## v136.4 — review remediace modelových evaluací (2026-08-26)
+
+- Modelové compatibility repairy byly po opakovaném union censusu přesunuty na
+  migrace 084 a 085; konsolidace je migrace 086. M2 vlastní 071–083.
+- Migrační runner fail-closed odmítá i shodný třímístný numerický slot s jiným
+  datem nebo suffixem; výjimkou jsou jen přesně vyjmenované historické dvojice
+  008 a 030.
+- Dřívější `ACCEPTED` je po navazujícím review nahrazeno stavem
+  `CHANGES_REQUESTED` do nového nezávislého rereview celé remediace.
+
 ## v136.3 — konsolidace modelových evaluací (2026-08-25)
 
 - Jedna current-contract autorita: exact-digest append-only runy a rozhodnutí,
