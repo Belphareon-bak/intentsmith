@@ -1,6 +1,9 @@
 import './helpers/isolated-test-db.js';
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   M6_CANDIDATE_PHASE_IDS,
@@ -13,6 +16,8 @@ import {
 } from '../src/release/m6-candidate-plan.js';
 import { suite, summary, test } from './harness.js';
 import registry from './registry.json' with { type: 'json' };
+
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 suite('M6 locked candidate execution plan');
 
@@ -46,6 +51,17 @@ test('no selected program may require external network', () => {
   }
 });
 
+test('candidate runner preserves only the named PDF toolchain bindings', () => {
+  const source = readFileSync(
+    path.join(repositoryRoot, 'scripts', 'run-m6-candidate-evidence.js'),
+    'utf8',
+  );
+  assert.match(source, /resolvePdfPythonInterpreter\(process\.env\)/u);
+  assert.match(source, /environment\.INTENTSMITH_PDF_PYTHON = pdfPython/u);
+  assert.match(source, /environment\.C3_PDF_PYTHON = pdfPython/u);
+  assert.doesNotMatch(source, /\.\.\.process\.env/u);
+});
+
 test('duplicate, reordered, concurrent or external-network plans fail closed', () => {
   const base = buildM6CandidateExecutionPlan(registry);
   for (const mutate of [
@@ -62,4 +78,3 @@ test('duplicate, reordered, concurrent or external-network plans fail closed', (
 });
 
 summary();
-

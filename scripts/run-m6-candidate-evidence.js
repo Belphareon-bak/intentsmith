@@ -34,6 +34,7 @@ import {
   evaluateM6TechnicalEvidence,
   projectM6ReleaseEvidence,
 } from '../src/release/m6-technical-evidence.js';
+import { resolvePdfPythonInterpreter } from '../src/chat/export/pdf-exporter.js';
 import {
   runLogged,
   runWithOwnedProcessTerminationHandling,
@@ -86,6 +87,9 @@ function safeBaseEnvironment() {
   for (const key of ['PATH', 'LANG', 'LC_ALL', 'TZ']) {
     if (process.env[key] !== undefined) environment[key] = process.env[key];
   }
+  const pdfPython = resolvePdfPythonInterpreter(process.env);
+  environment.INTENTSMITH_PDF_PYTHON = pdfPython;
+  environment.C3_PDF_PYTHON = pdfPython;
   return environment;
 }
 

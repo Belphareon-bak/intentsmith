@@ -378,7 +378,10 @@ try {
   //   116 -> 119 M5 DATA, global AUTH and PRIVACY each load a production path
   //              that reaches the database. Their static bootstrap now also
   //              protects direct execution and temp-root ownership.
-  const expectedDatabaseReachableRootTests = 119;
+  //   119 -> 120 M6 acceptance authority imports release validation to prove
+  //              that external operator receipts bind the exact candidate.
+  //              Its canonical bootstrap protects that repository graph.
+  const expectedDatabaseReachableRootTests = 120;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,

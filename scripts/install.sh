@@ -71,6 +71,11 @@ esac
 export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 if [ "$OFFLINE" = true ]; then
   export COREPACK_ENABLE_NETWORK=0
+  # npm --offline prevents registry access, but package lifecycle scripts can
+  # still attempt their own downloads. IntentSmith uses the system browser at
+  # runtime, so Puppeteer's bundled browser is neither required nor permitted
+  # during a cache-only install.
+  export PUPPETEER_SKIP_DOWNLOAD=true
 fi
 
 # ── Resolve project root ───────────────────────────────────────────────────
