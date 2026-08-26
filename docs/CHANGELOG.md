@@ -8,6 +8,66 @@
 
 ---
 
+## v136.5 — upgrade-safe evaluace a pravdivá binding autorita (2026-08-26)
+
+- Obnoveny neměnné migrační identity 081/081/082. Omylem zavedené identity
+  084–086 jsou trvale vyřazené a runner je atomicky adoptuje zpět bez druhého
+  spuštění konsolidace; `applied_at` zůstává zachovaný.
+- Migrační guard kontroluje i numerické sloty uložené v `schema_migrations`,
+  takže historickou M2 kolizi 070 nelze skrýt přejmenováním jediného souboru.
+- Importní preflight 082 porovnává celý importovaný řádek včetně contractu,
+  canonical identity, JSON payloadů a timestampu před odstraněním v123 tabulek.
+- Startup znovu ověřuje runtime model a installed digest proti každému durable
+  bindingu. Rehydrate failure zastaví server; nedostupný provider, runtime či
+  digest mismatch zveřejní `DEGRADED` a blokuje modelovou actionability, ale
+  zachová kontrakt dostupných nemodelových rout. `DURABLE` se už nikdy
+  neodvozuje pouze z počtu DB řádků a standalone CLI je
+  `UNVERIFIED_RUNTIME`.
+- Setup config má schema v2: známé staré defaulty se povýší na současné
+  sedmirolové portfolio, skutečné override se zachovají. Studio fallback a
+  required T3 E2E prerequisites používají stejné portfolio jako installer.
+- Stav zůstává `IMPLEMENTATION_GREEN / REREVIEW_REQUIRED`; tato oprava sama
+  není nezávislé přijetí.
+
+## v136.4 — review remediace modelových evaluací (2026-08-26)
+
+- Modelové compatibility repairy byly po opakovaném union censusu přesunuty na
+  migrace 084 a 085; konsolidace je migrace 086. M2 vlastní 071–083.
+  Toto přeznačení bylo později v136.5 zrušeno jako nebezpečné pro DB, které už
+  aplikovaly původní 081/081/082; tento bod zůstává historickým záznamem.
+- Migrační runner fail-closed odmítá i shodný třímístný numerický slot s jiným
+  datem nebo suffixem; výjimkou jsou jen přesně vyjmenované historické dvojice
+  008 a 030.
+- Dřívější `ACCEPTED` je po navazujícím review nahrazeno stavem
+  `IMPLEMENTATION_GREEN / REREVIEW_REQUIRED` do nového nezávislého rereview.
+- Startup doplní chybějící exact-artifact desired binding bez pullu, runtime
+  commitu nebo binding operace; živá DB nyní hlásí `DURABLE` pro všech 7 rolí.
+- CLI a Studio zobrazují všechna role decisions, výchozí portfolio je sjednocené
+  v configu/wizardu/installeru a current discovery JSON je uložen podle SHA.
+- Deterministický gate na `341016f3`, run `2026-08-26T07-13-17-823Z`, prošel
+  227/227. Starší cross-branch konflikt slotu 070 zůstává explicitně blokovaný
+  integračním preflightem.
+
+## v136.3 — konsolidace modelových evaluací (2026-08-25)
+
+- Jedna current-contract autorita: exact-digest append-only runy a rozhodnutí,
+  společný API/CLI/Studio reader a durable binding oddělený od evaluace.
+- Odstraněn v123 scoring/validation runtime, jeho endpointy, WS/UI, report a
+  paralelní proof-measurement skripty; migrace 082 před dropem archivuje důkaz.
+- Všech sedm rolí má fail-closed task a discrimination minimum; CHAT vyžaduje
+  samostatný EN/CS důkaz. Candidate `d8a2a108` je po nezávislém rereview
+  `ACCEPTED`; kontrolní run `2026-08-25T17-15-48-322Z` prošel `227/227`.
+- Odstraněny také heuristické benchmarky/quality score v katalogu a model
+  universe a mrtvý telemetry scorer/blacklist. Pairwise výhra je akční pouze
+  po portfolio gate s explicitním `activationEligible=true`.
+- Po prvním `CHANGES_REQUESTED` review byl contract rozšířen na skutečné
+  prompty/rubric/language/VISION bytes/CODE prompt, migrace 082 opravena pro
+  post-070 zápisy, governor sjednocen na read model, usage svázáno s observed
+  artefaktem a decision převedeno z mrtvé speed/prose logiky na stabilní enum.
+
+Detail: [MODEL-SCORING-ACTIVATION.md](MODEL-SCORING-ACTIVATION.md) a rozhodnutí
+[030](decisions/030-model-evaluation-authority-consolidation.md).
+
 ## v136.2 — Gate 1 fronta 1–5 (2026-08-22)
 
 Pět položek závazné Gate 1 fronty z `ROADMAP.md` §13. Všechny jsou rozhodnutí,

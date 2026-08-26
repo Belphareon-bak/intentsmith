@@ -3,6 +3,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 //
 //     node src/eval/discrimination-report.js qwen2.5-coder:32b qwen3-coder:latest …
+//         [--repeats 3] [--json <cesta>]
 //
 // Proč zvláštní krok:
 //
@@ -33,8 +34,9 @@ import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 // Sada se nepředává přes registr `SUITES` — ten je pod dohledem fail-closed
 // proof policy a šestá položka by ho shodila.  Viz hlavička `code-patch-suite.js`.
-import { codePatchSuite, CodePatchValidationRunner } from './code-patch-suite.js';
+import { codePatchSuite, CodePatchEvaluationRunner } from './code-patch-suite.js';
 import { comparePair, createSuiteCache, TASK_MARGIN_EPSILON } from '../upgrade/pairwise-trial.js';
+import { holdGpuEvaluationLock } from '../upgrade/gpu-evaluation-lock.js';
 
 const SUITE = 'code_patch';
 
@@ -67,7 +69,7 @@ export function classifyTask(values, noise) {
  * @returns {Promise<Object>} matice úloha × model, zařazení úloh a verdikt
  */
 export async function measureDiscrimination(models, opts = {}) {
-  const runner = opts.runner || new CodePatchValidationRunner();
+  const runner = opts.runner || new CodePatchEvaluationRunner();
   const repeats = opts.repeats ?? 3;
   const cache = createSuiteCache();
   const log = opts.log ?? (() => {});
@@ -117,17 +119,68 @@ export async function measureDiscrimination(models, opts = {}) {
   };
 }
 
+/**
+ * Změří jediný nově přidaný model bez zbytečného opakování celého panelu.
+ * Výstup má stejnou matici jako panelový report a lze ho bezpečně sloučit jen
+ * s exact-task historií; samotný single-model report o rozlišení nerozhoduje.
+ */
+export async function measureSingleModel(model, opts = {}) {
+  const runner = opts.runner || new CodePatchEvaluationRunner();
+  const repeats = opts.repeats ?? 3;
+  const cache = createSuiteCache();
+  const comparison = await comparePair(runner, SUITE, model, model, {
+    suite: codePatchSuite,
+    repeats,
+    suiteCache: cache,
+    between: () => unloadAll([model]),
+    onProgress: opts.onProgress,
+  });
+  const tasks = comparison.tasks.map(task => ({
+    name: task.name,
+    values: [task.candidateScore],
+    noise: task.candidateSpread,
+    verdict: classifyTask([task.candidateScore], task.candidateSpread),
+  }));
+  const score = tasks.reduce((sum, task) => sum + task.values[0], 0) / (tasks.length || 1);
+  return {
+    suite: SUITE,
+    models: [model],
+    repeats,
+    tasks,
+    scores: [[model, score]],
+    discriminating: 0,
+    total: tasks.length,
+    maxNoise: Math.max(0, ...tasks.map(task => task.noise)),
+    range: 0,
+    suiteDiscriminates: false,
+    singleModelExtension: true,
+    pairs: [],
+  };
+}
+
 if (process.argv[1]?.endsWith('discrimination-report.js')) {
   const jsonAt = process.argv.indexOf('--json');
   const jsonPath = jsonAt > -1 ? process.argv[jsonAt + 1] : null;
-  const models = process.argv.slice(2).filter((a, i, all) => a !== '--json' && all[i - 1] !== '--json');
-  if (models.length < 2) {
-    console.error('použití: node src/eval/discrimination-report.js <model> <model> [model…]');
+  // Opakování určuje, jak přesně se změří **šum** úlohy, a na něm stojí
+  // zařazení „nestabilní".  Snižovat se dá kvůli délce běhu, ale pod dvě ne:
+  // z jediného běhu se rozptyl spočítat nedá a všechny úlohy by vyšly jako
+  // bezšumové.
+  const repAt = process.argv.indexOf('--repeats');
+  const repeats = repAt > -1 ? Math.max(1, Number(process.argv[repAt + 1]) || 3) : 3;
+  const flagValue = (a, i, all) => a === '--json' || a === '--repeats'
+    || all[i - 1] === '--json' || all[i - 1] === '--repeats';
+  const models = process.argv.slice(2).filter((a, i, all) => !flagValue(a, i + 2, process.argv));
+  if (models.length < 1) {
+    console.error('použití: node src/eval/discrimination-report.js <model> [model…]');
     process.exit(1);
   }
 
+  holdGpuEvaluationLock({ command: `code-patch-discrimination ${models.join(' ')}` });
+
   const t0 = Date.now();
-  const r = await measureDiscrimination(models, {
+  const measure = models.length === 1 ? measureSingleModel : measureDiscrimination;
+  const r = await measure(models.length === 1 ? models[0] : models, {
+    repeats,
     log: (m) => console.log(m),
     onProgress: (p) => {
       if (p.status === 'running') process.stderr.write(`\r   ${p.suite} ${p.currentTest}/${p.totalTests} ${p.testName}      `);
@@ -173,6 +226,7 @@ if (process.argv[1]?.endsWith('discrimination-report.js')) {
       models: r.models, repeats: r.repeats,
       tasks: r.tasks, scores: r.scores,
       discriminating: r.discriminating, total: r.total,
+      singleModelExtension: r.singleModelExtension === true,
     }, null, 2) + '\n');
     console.log(`\nvýsledek uložen: ${jsonPath}`);
   }
@@ -180,4 +234,4 @@ if (process.argv[1]?.endsWith('discrimination-report.js')) {
   console.log(`\ncelkem ${((Date.now() - t0) / 60000).toFixed(1)} min`);
 }
 
-export default { measureDiscrimination, classifyTask };
+export default { measureDiscrimination, measureSingleModel, classifyTask };

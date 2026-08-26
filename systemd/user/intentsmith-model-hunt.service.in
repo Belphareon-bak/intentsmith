@@ -1,0 +1,10 @@
+[Unit]
+Description=IntentSmith safe local model scoring hunt
+Documentation=file:@PROJECT_ROOT@/docs/MODEL-UPGRADE-HUNT.md
+After=ollama.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=@PROJECT_ROOT@
+ExecStart=@NODE_BIN@ @PROJECT_ROOT@/scripts/model-upgrade-hunt.js --run --limit=2 --keep-inconclusive --scheduled
+Nice=10

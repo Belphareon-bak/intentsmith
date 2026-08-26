@@ -1,0 +1,311 @@
+{
+  "generatedAt": "2026-08-23T07:24:16.975Z",
+  "suite": "chat_v3",
+  "weighting": {
+    "en": 0.6,
+    "cs": 0.4
+  },
+  "tests": [
+    {
+      "name": "en_grounded_summary",
+      "language": "en",
+      "prompt": "Source: Project Northstar launches on October 14. The approved budget is $2.4 million. Maya Chen owns delivery. The only listed risk is a delayed battery supplier. Summarize the source in at most three sentences. Do not add facts.",
+      "rubric": [
+        "October 14",
+        "$2.4 million",
+        "Maya Chen owns delivery",
+        "battery supplier delay",
+        "at most 3 sentences",
+        "no conflicting date or budget"
+      ]
+    },
+    {
+      "name": "en_action_email",
+      "language": "en",
+      "prompt": "Write a concise professional email to Priya. State that she owns the security review, the decision is due June 12, and a late decision delays the rollout. Use a greeting and no more than five sentences.",
+      "rubric": [
+        "professional greeting",
+        "Priya owns security review",
+        "June 12 deadline",
+        "late decision delays rollout",
+        "maximum 5 sentences"
+      ]
+    },
+    {
+      "name": "en_context_correction",
+      "language": "en",
+      "prompt": "Conversation record: (1) The Atlas workshop was initially planned for London with 18 attendees. (2) Correction: the final location is Oslo and the confirmed attendance is 24. State only the current location and attendance in one sentence.",
+      "rubric": [
+        "Oslo",
+        "24 attendees",
+        "does not present London or 18 as current",
+        "one sentence"
+      ]
+    },
+    {
+      "name": "en_missing_context",
+      "language": "en",
+      "prompt": "User says: \"Deploy it tomorrow.\" No project, environment, time zone, or deployment window is known. Respond helpfully without claiming that deployment has started.",
+      "rubric": [
+        "asks which project",
+        "asks environment",
+        "asks time zone or window",
+        "does not claim execution"
+      ]
+    },
+    {
+      "name": "en_structured_extraction",
+      "language": "en",
+      "prompt": "Source: Risk R-17 is owned by Elena Rossi. The risk is database saturation. The mitigation is to cap concurrent imports at 12. Return ONLY JSON with exactly these keys: risk, owner, mitigation.",
+      "rubric": [
+        "valid JSON object",
+        "exact three keys",
+        "R-17/database saturation",
+        "Elena Rossi",
+        "cap concurrent imports at 12"
+      ]
+    },
+    {
+      "name": "en_translation_from_czech",
+      "language": "en",
+      "prompt": "Translate faithfully into English: \"Schůzka byla přesunuta z úterý na čtvrtek v 9:30. Petra pošle podklady nejpozději ve středu.\"",
+      "rubric": [
+        "moved from Tuesday",
+        "to Thursday at 9:30",
+        "Petra sends materials",
+        "no later than Wednesday"
+      ]
+    },
+    {
+      "name": "en_instruction_priority",
+      "language": "en",
+      "prompt": "Record: The obsolete plan assigned the audit to Mina for Friday. Latest correction: Luis owns the audit and the deadline is Monday. Return exactly two lines: \"Owner: <name>\" and \"Deadline: <day>\". Do not mention obsolete values.",
+      "rubric": [
+        "exactly two non-empty lines",
+        "Owner: Luis",
+        "Deadline: Monday",
+        "does not mention Mina or Friday"
+      ]
+    },
+    {
+      "name": "en_state_updates",
+      "language": "en",
+      "prompt": "State log: (1) Mercury is yellow and owned by Nora. (2) Its status changes to green. (3) Ownership transfers to Imran. Return ONLY JSON {\"service\":\"Mercury\",\"status\":\"green\",\"owner\":\"Imran\"}.",
+      "rubric": [
+        "valid JSON object",
+        "exact three keys",
+        "Mercury",
+        "latest status green",
+        "latest owner Imran"
+      ]
+    },
+    {
+      "name": "en_capability_boundary",
+      "language": "en",
+      "prompt": "A user asks: \"Open my bank account and tell me the current balance.\" You have no account access or banking tool. Respond in at most three sentences, state the limitation, and offer a safe useful next step without inventing a balance.",
+      "rubric": [
+        "states no account access",
+        "does not claim to have checked",
+        "does not invent a balance",
+        "offers a safe next step",
+        "maximum 3 sentences"
+      ]
+    },
+    {
+      "name": "en_exact_markdown_table",
+      "language": "en",
+      "prompt": "Return ONLY a Markdown table with columns Item and Owner, in that order. It must contain exactly two data rows: Backup — Asha; Restore test — Ben. No text before or after the table.",
+      "rubric": [
+        "only a Markdown table",
+        "columns Item then Owner",
+        "exactly two data rows",
+        "Backup/Asha",
+        "Restore test/Ben"
+      ]
+    },
+    {
+      "name": "en_professional_rewrite",
+      "language": "en",
+      "prompt": "Rewrite professionally in at most two sentences without changing the facts: \"Sam, you messed up incident I-42. Send me the logs by 16:00 today so we can finish the review.\" Preserve I-42, the logs, 16:00 today, and the review; remove blame.",
+      "rubric": [
+        "mentions Sam",
+        "incident I-42",
+        "logs by 16:00 today",
+        "review purpose",
+        "removes blame",
+        "maximum 2 sentences"
+      ]
+    },
+    {
+      "name": "en_conditional_action",
+      "language": "en",
+      "prompt": "Rule: for severity P1, page OnCall immediately. For P2, email OnCall by 14:00. For P3, add it to the weekly report. Incident Kestrel is P2. Return ONLY JSON {\"action\":string,\"recipient\":string,\"deadline\":string}.",
+      "rubric": [
+        "valid JSON object",
+        "exact three keys",
+        "action email",
+        "recipient OnCall",
+        "deadline 14:00",
+        "does not choose P1/P3 action"
+      ]
+    },
+    {
+      "name": "en_exact_csv",
+      "language": "en",
+      "prompt": "Return ONLY CSV with exactly these three lines and no code fence: header service,owner,status; then Atlas,Mina,green; then Boreal,Luis,yellow.",
+      "rubric": [
+        "exactly three non-empty lines",
+        "exact header service,owner,status",
+        "exact Atlas row",
+        "exact Boreal row",
+        "no Markdown fence or surrounding text"
+      ]
+    },
+    {
+      "name": "en_ambiguous_reference",
+      "language": "en",
+      "prompt": "Jordan told Casey that their deployment token had expired. The word \"their\" could refer to either person. Ask exactly one concise clarifying question before giving advice. Do not assume whose token it is.",
+      "rubric": [
+        "asks whose token",
+        "mentions Jordan and Casey as alternatives",
+        "exactly one question",
+        "does not choose an owner",
+        "no advice before clarification"
+      ]
+    },
+    {
+      "name": "en_completion_vs_verification",
+      "language": "en",
+      "prompt": "Source: Backups B1 and B3 completed and were verified. B2 completed but was not verified. In one sentence, state the completion and verification status without saying that B2 failed.",
+      "rubric": [
+        "all B1/B2/B3 completed",
+        "B1 and B3 verified",
+        "B2 not verified",
+        "does not say B2 failed",
+        "one sentence"
+      ]
+    },
+    {
+      "name": "cz_grounded_summary",
+      "language": "cs",
+      "prompt": "Zdroj: Brněnská kancelář se otevře 3. května. Tým bude mít 12 lidí. Rozpočet je 480 000 Kč a vedoucí je Eva Šímová. Shrň zdroj nejvýše dvěma větami a nic si nevymýšlej.",
+      "rubric": [
+        "3. května",
+        "Brno/brněnská kancelář",
+        "12 lidí",
+        "480 000 Kč",
+        "Eva Šímová",
+        "nejvýše 2 věty a česká diakritika"
+      ]
+    },
+    {
+      "name": "cz_exact_bullets",
+      "language": "cs",
+      "prompt": "Vrať přesně tři odrážky v češtině: první musí říct „záloha databáze“, druhá „ověření obnovy“ a třetí „zápis výsledku do auditu“. Bez úvodu a bez závěru.",
+      "rubric": [
+        "přesně 3 odrážky",
+        "správné pořadí tří požadavků",
+        "bez textu mimo odrážky",
+        "česká diakritika"
+      ]
+    },
+    {
+      "name": "cz_context_correction",
+      "language": "cs",
+      "prompt": "Záznam: Projekt Javor měl původně běžet v Ostravě s 8 účastníky. Oprava: platí Olomouc, 11 účastníků a termín 30. září. Jednou větou uveď pouze aktuální stav.",
+      "rubric": [
+        "Olomouc",
+        "11 účastníků",
+        "30. září",
+        "neuvádí Ostravu ani 8 jako aktuální",
+        "jedna česká věta"
+      ]
+    },
+    {
+      "name": "cz_professional_reply",
+      "language": "cs",
+      "prompt": "Napiš profesionální odpověď nejvýše třemi větami: potvrď přijetí požadavku, slib odpověď nejpozději v pátek a případné dotazy směruj na Jana Kříže.",
+      "rubric": [
+        "potvrzení přijetí",
+        "odpověď nejpozději v pátek",
+        "Jan Kříž jako kontakt",
+        "maximálně 3 věty",
+        "přirozená česká diakritika",
+        "bez zjevné chyby ve shodě rodu u slova požadavek"
+      ]
+    },
+    {
+      "name": "cz_declension",
+      "language": "cs",
+      "prompt": "Napiš jedinou profesionální větu, ve které poděkuješ Evě Šímové za pomoc a oznámíš, že dokument pošleš Janu Křížovi zítra. Nepoužívej odrážky.",
+      "rubric": [
+        "správný tvar Evě Šímové",
+        "správný tvar Janu Křížovi",
+        "dokument bude odeslán zítra",
+        "poděkování za pomoc",
+        "jedna věta bez odrážek"
+      ]
+    },
+    {
+      "name": "cz_plural_agreement",
+      "language": "cs",
+      "prompt": "Převeď do množného čísla a vrať pouze výslednou větu: „Nový zákazník byl spokojený, protože jeho požadavek byl vyřešený.“",
+      "rubric": [
+        "Noví zákazníci",
+        "byli spokojení/spokojeni",
+        "jejich požadavky",
+        "byly vyřešené/vyřešeny",
+        "pouze jedna česká věta"
+      ]
+    },
+    {
+      "name": "cz_formal_register",
+      "language": "cs",
+      "prompt": "Odpověz zákaznici paní Novákové formálně nejvýše dvěma větami: potvrď, že její žádost evidujeme pod číslem 418, a slib, že jí výsledek pošleme v pondělí. Nepřecházej na tykání.",
+      "rubric": [
+        "formální oslovení nebo vykání",
+        "žádost číslo 418",
+        "žádost evidujeme",
+        "výsledek v pondělí",
+        "žádné tykání",
+        "maximálně dvě věty"
+      ]
+    },
+    {
+      "name": "cz_ambiguity_clarification",
+      "language": "cs",
+      "prompt": "Uživatel napíše pouze: „Pošli mu to zítra.“ Není známo komu, co ani v jakém časovém pásmu. Polož jednu stručnou objasňující otázku, která si vyžádá všechny tři chybějící údaje. Nic neposílej a netvrď, že jsi začal.",
+      "rubric": [
+        "ptá se komu",
+        "ptá se co poslat",
+        "ptá se na čas nebo časové pásmo",
+        "právě jedna otázka",
+        "netvrdí, že něco odeslal nebo začal"
+      ]
+    },
+    {
+      "name": "cz_vocative_request",
+      "language": "cs",
+      "prompt": "Napiš jedinou profesionální větu, která začíná přesně „Vážený pane Dvořáku,“ a požádá Petra Dvořáka o zaslání podepsané smlouvy nejpozději ve středu. Bez podpisu a bez dalšího textu.",
+      "rubric": [
+        "přesný začátek Vážený pane Dvořáku,",
+        "žádost o zaslání",
+        "podepsaná smlouva",
+        "nejpozději ve středu",
+        "jedna věta bez podpisu a okolního textu"
+      ]
+    },
+    {
+      "name": "cz_double_negation_counts",
+      "language": "cs",
+      "prompt": "Zdroj: Z pěti auditů neplatí, že neprošel žádný; přesně dva audity prošly. Jednou českou větou uveď pouze počet úspěšných a neúspěšných auditů.",
+      "rubric": [
+        "přesně 2 audity prošly",
+        "přesně 3 audity neprošly",
+        "nezamění dvojitou negaci",
+        "žádná další fakta",
+        "jedna česká věta"
+      ]
+    }
+  ]
+}

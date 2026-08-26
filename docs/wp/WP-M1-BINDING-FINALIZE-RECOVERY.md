@@ -1,5 +1,9 @@
 # WP-M1-BINDING-FINALIZE-RECOVERY — durable runtime finalize receipt
 
+> **Historická přijatá review jednotka.** Příkazy na odstraněné compatibility
+> testy nejsou současným runbookem; current binding/evaluation brány jsou v
+> [WP-MODEL-EVALUATION-CONSOLIDATION](WP-MODEL-EVALUATION-CONSOLIDATION.md).
+
 **Typ:** zapisující WP · **Slot:** hlavní zapisující vlastník, hlavní checkout
 
 **Vstupní revision:** `20b1b93387ab3c165dc01473178aca239a53e21b`

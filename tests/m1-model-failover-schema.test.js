@@ -391,8 +391,8 @@ suite('M1 model failover schema — exact migration contract');
 
 await testAsync('fresh file-backed DB creates all failover tables, indexes and triggers', async () => {
   await withMigratedDb(async (db) => {
-    // M5 privacy writer authority migration 091 is the current repository schema tip.
-    assertEqual(getCurrentVersion(db), '2026_08_26_091_m5_privacy_writer_authority');
+    // The append-only evaluation import audit is the current integrated tip.
+    assertEqual(getCurrentVersion(db), '2026_08_26_096_model_evaluation_import_audit');
 
     for (const table of [
       'model_desired_bindings',
@@ -406,9 +406,7 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
       'model_binding_user_noop_receipts',
       'model_binding_user_noop_provider_supersedes',
       'model_failover_events',
-      'model_failover_health_events',
       'model_failover_proofs',
-      'model_failover_runtime_finalize_receipts',
       'model_failover_state',
     ]) {
       assert(names(db, 'table').includes(table), `missing table ${table}`);
@@ -451,17 +449,6 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
     assertEqual(JSON.stringify(columns(db, 'model_binding_provider_claims')), JSON.stringify([
       'operation_id', 'role', 'provider_origin', 'requested_canonical_name',
       'claim_token', 'fencing_revision', 'lease_expires_at_ms', 'updated_at_ms',
-    ]));
-    assertEqual(
-      JSON.stringify(columns(db, 'model_failover_runtime_finalize_receipts')),
-      JSON.stringify([
-        'receipt_id', 'operation_id', 'terminal_event_id', 'role', 'episode_id',
-        'finalize_kind', 'config_version', 'created_at_ms',
-      ]),
-    );
-    assertEqual(JSON.stringify(columns(db, 'model_failover_health_events')), JSON.stringify([
-      'health_event_id', 'role', 'episode_id', 'active_event_id', 'proof_id',
-      'health_status', 'observed_at_ms',
     ]));
     assertEqual(JSON.stringify(columns(db, 'model_binding_user_noop_receipts')), JSON.stringify([
       'receipt_id', 'request_key', 'role', 'binding_revision', 'model_name',
@@ -610,12 +597,6 @@ await testAsync('fresh file-backed DB creates all failover tables, indexes and t
       'trg_model_failover_events_sequence_authority',
       'trg_model_failover_events_sequence_positive',
       'trg_model_failover_events_append_only_insert_conflict',
-      'trg_model_failover_runtime_finalize_receipts_identity',
-      'trg_model_failover_runtime_finalize_receipts_append_only_update',
-      'trg_model_failover_runtime_finalize_receipts_append_only_delete',
-      'trg_model_failover_health_events_identity',
-      'trg_model_failover_health_events_append_only_update',
-      'trg_model_failover_health_events_append_only_delete',
       'trg_model_binding_operations_append_only_insert_conflict',
       'trg_model_binding_operations_identity_required',
       'trg_model_binding_operations_rowid_authority',
@@ -695,7 +676,7 @@ await testAsync('second migration run is a no-op with an identical schema snapsh
     const before = schemaSnapshot(db);
     const result = await runMigrations(db);
     assertEqual(result.applied.length, 0);
-    assertEqual(result.skipped.length, 78);
+    assertEqual(result.skipped.length, 83);
     assertEqual(schemaSnapshot(db), before);
   });
 });
@@ -732,6 +713,7 @@ await testAsync('migration 054 preserves pre-existing success as unconfirmed evi
         '2026_08_22_066_model_automation_policy',
         '2026_08_22_067_model_failover_proof_artifacts',
         '2026_08_22_069_model_failover_runtime_finalization',
+        '2026_08_22_070_model_evaluation_history',
         '2026_08_23_092_m2_effect_authority',
         '2026_08_24_071_m2_effect_authority_hardening',
         '2026_08_24_072_m2_effect_execution_claims',
@@ -743,6 +725,9 @@ await testAsync('migration 054 preserves pre-existing success as unconfirmed evi
         '2026_08_24_078_m2_execution_authority',
         '2026_08_24_079_m2_lifecycle_authority',
         '2026_08_24_080_m2_effect_semantic_authority',
+        '2026_08_24_081_model_policy_trigger_compatibility',
+        '2026_08_24_081_model_proof_trigger_compatibility',
+        '2026_08_24_082_model_evaluation_consolidation',
         '2026_08_24_093_m2_effect_result_semantic_authority_v2',
         '2026_08_25_094_m2_preexecution_approval_terminals',
         '2026_08_25_095_m2_effect_rollback_receipts',
@@ -751,10 +736,11 @@ await testAsync('migration 054 preserves pre-existing success as unconfirmed evi
         '2026_08_26_089_m5_outbound_audit',
         '2026_08_26_090_m5_privacy_authority',
         '2026_08_26_091_m5_privacy_writer_authority',
+        '2026_08_26_096_model_evaluation_import_audit',
       ]),
     );
     assertEqual(result.skipped.length, 55);
-    assertEqual(getCurrentVersion(db), '2026_08_26_091_m5_privacy_writer_authority');
+    assertEqual(getCurrentVersion(db), '2026_08_26_096_model_evaluation_import_audit');
     assertEqual(
       db.prepare(`
         SELECT COUNT(*) AS count

@@ -29,6 +29,13 @@ const RUNTIME_FAILURE_CODES = new Set([
   'MODEL_BINDING_RUNTIME_GUARD_REJECTED',
   'MODEL_BINDING_RUNTIME_COMMIT_FAILED',
 ]);
+const STARTUP_PROVIDER_UNAVAILABLE_CODES = new Set([
+  'MODEL_BINDING_PROVIDER_URL_INVALID',
+  'MODEL_BINDING_PROVIDER_UNAVAILABLE',
+  'MODEL_BINDING_REHYDRATE_TARGET_UNAVAILABLE',
+  'MODEL_BINDING_TARGET_NOT_INSTALLED',
+  'PROVIDER_RECONCILIATION_UNAVAILABLE',
+]);
 
 export class ModelBindingApplicationError extends Error {
   constructor(code, message, options = {}) {
@@ -205,7 +212,8 @@ function runtimeFailureCode(error) {
 }
 
 function rehydrateFailureCode(error) {
-  if (error?.code === 'MODEL_BINDING_PROVIDER_UNAVAILABLE') {
+  if (error?.code === 'MODEL_BINDING_PROVIDER_UNAVAILABLE'
+    || error?.code === 'MODEL_BINDING_PROVIDER_URL_INVALID') {
     return 'MODEL_BINDING_REHYDRATE_TARGET_UNAVAILABLE';
   }
   if (error?.code === 'MODEL_BINDING_TARGET_NOT_INSTALLED') {
@@ -217,6 +225,10 @@ function rehydrateFailureCode(error) {
     return 'MODEL_BINDING_REHYDRATE_DIGEST_DRIFT';
   }
   return 'MODEL_BINDING_REHYDRATE_RUNTIME_COMMIT_FAILED';
+}
+
+function isStartupProviderUnavailable(failure) {
+  return STARTUP_PROVIDER_UNAVAILABLE_CODES.has(failure?.code);
 }
 
 function verificationFailureCode(error) {
@@ -265,6 +277,124 @@ function defaultDelay(ms) {
     const timer = setTimeout(resolve, ms);
     timer.unref?.();
   });
+}
+
+/**
+ * Startup may expose model actionability only after rehydration and baseline
+ * reconciliation are complete and truthful. Provider unavailability is an
+ * explicit DEGRADED state so non-model routes remain available. Digest,
+ * runtime or audit integrity failures still stop startup before routes exist.
+ */
+export function requireModelBindingStartupAuthority(input) {
+  const rehydrate = input?.rehydrate;
+  if (!isPlainObject(rehydrate) || !Array.isArray(rehydrate.failed)) {
+    fail(
+      'MODEL_BINDING_STARTUP_AUTHORITY_INVALID',
+      'Model binding rehydrate summary is invalid',
+    );
+  }
+  const fatalRehydrateFailures = rehydrate.failed.filter(failure => (
+    !isStartupProviderUnavailable(failure)
+  ));
+  if (fatalRehydrateFailures.length > 0) {
+    fail(
+      'MODEL_BINDING_STARTUP_REHYDRATE_FAILED',
+      `Model binding startup rehydrate failed for ${fatalRehydrateFailures.length} integrity item(s)`,
+      { failures: fatalRehydrateFailures },
+    );
+  }
+
+  if (input.baseline === undefined) {
+    if (rehydrate.failed.length === 0) return Object.freeze({ status: 'REHYDRATED' });
+    const failedRoles = new Set(rehydrate.failed.map(row => row?.role).filter(Boolean));
+    const roles = Object.keys(config.models).sort();
+    return Object.freeze({
+      status: 'DEGRADED',
+      reason: 'MODEL_BINDING_STARTUP_PROVIDER_UNAVAILABLE',
+      roles: Object.freeze(roles),
+      verifiedRoles: Object.freeze(roles.filter(role => !failedRoles.has(role))),
+      failures: Object.freeze(rehydrate.failed.map(row => Object.freeze({
+        phase: 'REHYDRATE',
+        role: row?.role || null,
+        code: row?.code || null,
+      }))),
+    });
+  }
+
+  const baseline = input.baseline;
+  const expectedRoles = Object.keys(config.models).sort();
+  const rows = Array.isArray(baseline?.roles) ? baseline.roles : [];
+  const observedRoles = rows.map(row => row?.role).sort();
+  const allowedOutcomes = new Set(['CREATED', 'ALREADY_DURABLE', 'FAILED']);
+  const countersValid = ['rolesChecked', 'created', 'alreadyDurable', 'failed']
+    .every(key => Number.isInteger(baseline?.[key]) && baseline[key] >= 0);
+  const shapeValid = isPlainObject(baseline)
+    && countersValid
+    && baseline.rolesChecked === expectedRoles.length
+    && rows.length === expectedRoles.length
+    && observedRoles.every((role, index) => role === expectedRoles[index])
+    && rows.every(row => isPlainObject(row)
+      && typeof row.role === 'string'
+      && allowedOutcomes.has(row.outcome))
+    && baseline.created === rows.filter(row => row.outcome === 'CREATED').length
+    && baseline.alreadyDurable === rows.filter(row => row.outcome === 'ALREADY_DURABLE').length
+    && baseline.failed === rows.filter(row => row.outcome === 'FAILED').length
+    && baseline.created + baseline.alreadyDurable + baseline.failed === expectedRoles.length;
+  if (!shapeValid) {
+    fail(
+      'MODEL_BINDING_STARTUP_AUTHORITY_INVALID',
+      'Configured model binding baseline summary is invalid',
+      {
+        expectedRoles,
+        rolesChecked: baseline?.rolesChecked ?? null,
+        created: baseline?.created ?? null,
+        alreadyDurable: baseline?.alreadyDurable ?? null,
+        failed: baseline?.failed ?? null,
+        roles: rows,
+      },
+    );
+  }
+
+  if (baseline.failed > 0) {
+    const baselineFailures = rows
+      .filter(row => row.outcome === 'FAILED')
+      .map(row => ({ role: row.role, code: row.code || null }));
+    const fatalBaselineFailures = baselineFailures.filter(failure => (
+      !isStartupProviderUnavailable(failure)
+    ));
+    if (fatalBaselineFailures.length > 0) {
+      fail(
+        'MODEL_BINDING_STARTUP_BASELINE_INTEGRITY_FAILED',
+        `Model binding startup baseline failed for ${fatalBaselineFailures.length} integrity item(s)`,
+        { failures: fatalBaselineFailures },
+      );
+    }
+  }
+
+  if (rehydrate.failed.length > 0 || baseline.failed > 0) {
+    const failures = [
+      ...rehydrate.failed.map(row => Object.freeze({
+        phase: 'REHYDRATE',
+        role: row?.role || null,
+        code: row?.code || null,
+      })),
+      ...rows.filter(row => row.outcome === 'FAILED').map(row => Object.freeze({
+        phase: 'BASELINE',
+        role: row.role,
+        code: row.code || null,
+      })),
+    ];
+    const failedRoles = new Set(failures.map(row => row.role).filter(Boolean));
+    const verifiedRoles = expectedRoles.filter(role => !failedRoles.has(role));
+    return Object.freeze({
+      status: 'DEGRADED',
+      reason: 'MODEL_BINDING_STARTUP_PROVIDER_UNAVAILABLE',
+      roles: Object.freeze(expectedRoles),
+      verifiedRoles: Object.freeze(verifiedRoles),
+      failures: Object.freeze(failures),
+    });
+  }
+  return Object.freeze({ status: 'DURABLE', roles: Object.freeze(expectedRoles) });
 }
 
 export class OllamaModelBindingProvider {
@@ -511,7 +641,6 @@ export class ModelBindingApplication {
     this._background = new Map();
     this._pendingVerification = new Map();
     this._pendingNotifications = new Map();
-    this._pendingProposalRepairs = new Map();
     this._ownedProviderClaims = new Map();
     this._providerRecoveryTimers = new Map();
     this._runtimeFinalizeRecoveryTimers = new Map();
@@ -571,7 +700,6 @@ export class ModelBindingApplication {
       'commit',
       'compensate',
       'rehydrateLegacy',
-      'resolvePendingProposals',
     ]) {
       if (typeof this.runtime[method] !== 'function') {
         fail('MODEL_BINDING_APPLICATION_OPTIONS_INVALID', `Runtime port is missing ${method}`);
@@ -673,6 +801,125 @@ export class ModelBindingApplication {
 
   async applyManualBinding(inputValue) {
     return this.#applyManualBinding(inputValue, null);
+  }
+
+  /**
+   * Persist exact baselines for configured roles that do not yet have durable
+   * desired state. This is observation-only: existing desired rows are never
+   * changed and no provider pull, runtime commit or binding operation occurs.
+   */
+  async reconcileConfiguredBindingBaselines() {
+    return this.#runExclusive('reconcile-configured-bindings', async () => {
+      const roles = Object.keys(config.models).sort();
+      const compatibilityOverrides = this.repository.listCompatibilityOverridesForRehydrate();
+      const results = [];
+      let created = 0;
+      let alreadyDurable = 0;
+      let failed = 0;
+      let inventory = null;
+      let inventoryError = null;
+      try {
+        inventory = await this.provider.listInstalled();
+      } catch (error) {
+        inventoryError = error;
+      }
+
+      for (const role of roles) {
+        const existing = this.repository.getDesired(role);
+        try {
+          const runtime = this.runtime.snapshot(role);
+          const runtimeModel = requireString(runtime?.modelName, 'runtime.modelName');
+          // Always resolve the artifact actually named by the runtime. Existing
+          // DB rows are evidence to compare, never a shortcut around runtime
+          // and provider observation.
+          if (inventoryError) throw inventoryError;
+          const resolved = this.provider.resolveFromInventory(inventory, runtimeModel);
+          if (existing) {
+            if (!sameModelName(existing.modelName, runtimeModel)
+              || !sameModelName(existing.modelName, resolved.name)) {
+              fail(
+                'MODEL_BINDING_BASELINE_RUNTIME_MISMATCH',
+                'Durable desired binding differs from the configured runtime binding',
+                {
+                  role,
+                  desiredModel: existing.modelName,
+                  runtimeModel,
+                  resolvedModel: resolved.name,
+                },
+              );
+            }
+            if (existing.digestSha256 !== resolved.digestSha256) {
+              fail(
+                'MODEL_BINDING_BASELINE_DIGEST_MISMATCH',
+                'Durable desired binding digest differs from the installed runtime artifact',
+                {
+                  role,
+                  modelName: resolved.name,
+                  desiredDigestSha256: existing.digestSha256,
+                  runtimeDigestSha256: resolved.digestSha256,
+                },
+              );
+            }
+            alreadyDurable += 1;
+            results.push(Object.freeze({
+              role,
+              outcome: 'ALREADY_DURABLE',
+              source: existing.source,
+              code: null,
+            }));
+            continue;
+          }
+
+          const roleOverrides = compatibilityOverrides.filter(row => row?.role === role);
+          if (roleOverrides.length > 1) {
+            fail(
+              'MODEL_BINDING_BASELINE_AUTHORITY_AMBIGUOUS',
+              'Configured binding baseline has multiple compatibility overrides',
+              { role },
+            );
+          }
+          const legacy = roleOverrides[0] || null;
+          if (legacy && !sameModelName(legacy.modelName, runtimeModel)) {
+            fail(
+              'MODEL_BINDING_BASELINE_AUTHORITY_MISMATCH',
+              'Compatibility override differs from the configured runtime binding',
+              { role, runtimeModel, legacyModel: legacy.modelName },
+            );
+          }
+          const observed = this.repository.observeDesiredBinding({
+            role,
+            modelName: resolved.name,
+            digestSha256: resolved.digestSha256,
+            source: legacy ? 'LEGACY_OVERRIDE' : 'CONFIG_DEFAULT',
+            actor: 'system:binding-application',
+            expectedAbsent: true,
+          });
+          created += observed.outcome === 'CREATED' ? 1 : 0;
+          results.push(Object.freeze({
+            role,
+            outcome: observed.outcome,
+            source: observed.binding.source,
+            code: null,
+          }));
+        } catch (error) {
+          failed += 1;
+          results.push(Object.freeze({
+            role,
+            outcome: 'FAILED',
+            source: existing?.source || null,
+            code: error?.code || 'MODEL_BINDING_BASELINE_RECONCILE_FAILED',
+          }));
+        }
+      }
+
+      return Object.freeze({
+        rolesChecked: roles.length,
+        created,
+        alreadyDurable,
+        failed,
+        roles: Object.freeze(results),
+      });
+    });
   }
 
   async beginManualBinding(inputValue) {
@@ -869,12 +1116,6 @@ export class ModelBindingApplication {
             operationId: null,
           });
           const snapshot = this.runtime.snapshot(role);
-          const proposalResolution = this.#tryResolvePendingProposals({
-            operationId: receipt.receiptId,
-            role,
-            targetModelName: receipt.modelName,
-            kind: 'USER_APPLY',
-          });
           return {
             ok: true,
             role,
@@ -885,11 +1126,7 @@ export class ModelBindingApplication {
             configVersion: snapshot.configVersion,
             operationId: null,
             noOpReceiptId: receipt.receiptId,
-            proposalResolutionStatus: proposalResolution.status,
-            warningCode: proposalResolution.warningCode,
-            outcome: proposalResolution.status === 'SUCCEEDED'
-              ? result.outcome
-              : 'UNCHANGED_PROPOSAL_REPAIR_PENDING',
+            outcome: result.outcome,
           };
         }
         accept({
@@ -1204,13 +1441,6 @@ export class ModelBindingApplication {
           executionStarted = true;
           const restored = await this.#executeOperation(operation, { startup: true });
           summary.restored++;
-          if (restored.proposalResolutionStatus === 'REPAIR_PENDING') {
-            summary.warnings.push({
-              role: operation.role,
-              operationId: operation.operationId,
-              code: restored.warningCode,
-            });
-          }
         } catch (error) {
           const state = this.repository.getBindingApplicationState(operation.operationId);
           if (!executionStarted
@@ -1284,9 +1514,6 @@ export class ModelBindingApplication {
 
   startBackgroundVerification() {
     this._verificationStarted = true;
-    for (const operation of [...this._pendingProposalRepairs.values()]) {
-      this.#enqueueProposalRepair(operation);
-    }
     for (const entry of [...this._pendingNotifications.values()]) {
       this.#enqueueNotification(entry.operation, entry.runtimeResult);
     }
@@ -1979,7 +2206,6 @@ export class ModelBindingApplication {
       && state.runtimeStatus === 'APPLIED'
       && state.runtimeFinalizeStatus === 'DIRECT_CONFIRMED') {
       const runtime = this.runtime.snapshot(operation.role);
-      const proposalResolution = this.#tryResolvePendingProposals(operation);
       let outcome = 'REPLAYED';
       if (state.notificationStatus === 'NOT_RECORDED') {
         const notification = await this.#publishBindingCommitted(operation, {
@@ -1993,20 +2219,11 @@ export class ModelBindingApplication {
           : 'APPLIED_NOTIFICATION_DEGRADED';
       }
       if (state.verificationStatus === 'NOT_VERIFIED') this.#scheduleVerification(operation);
-      if (proposalResolution.status === 'REPAIR_PENDING'
-        && outcome !== 'APPLIED_NOTIFICATION_DEGRADED') {
-        outcome = 'APPLIED_PROPOSAL_REPAIR_PENDING';
-      } else if (proposalResolution.status === 'SUCCEEDED'
-        && proposalResolution.repaired
-        && outcome === 'REPLAYED') {
-        outcome = 'POST_COMMIT_REPAIRED';
-      }
       return this.#result(
         operation,
         runtime.configVersion,
         state,
         outcome,
-        proposalResolution,
       );
     }
     if (state.runtimeStatus === 'FAILED' && state.retryable === false) {
@@ -2192,10 +2409,6 @@ export class ModelBindingApplication {
 
   async #finishCommittedOperation(operation, state, runtimeResult, startup) {
     if (startup) {
-      const proposalResolution = this.#tryResolvePendingProposals(operation);
-      if (proposalResolution.status === 'REPAIR_PENDING') {
-        this.#scheduleProposalRepair(operation);
-      }
       const currentState = this.repository.getBindingApplicationState(operation.operationId);
       if (currentState.notificationStatus === 'NOT_RECORDED') {
         this.#scheduleNotification(operation, runtimeResult);
@@ -2205,14 +2418,10 @@ export class ModelBindingApplication {
         operation,
         runtimeResult.configVersion,
         state,
-        proposalResolution.status === 'SUCCEEDED'
-          ? 'REHYDRATED'
-          : 'REHYDRATED_PROPOSAL_REPAIR_PENDING',
-        proposalResolution,
+        'REHYDRATED',
       );
     }
 
-    const proposalResolution = this.#tryResolvePendingProposals(operation);
     const notification = await this.#publishBindingCommitted(operation, runtimeResult);
     this.#scheduleVerification(operation);
     return this.#result(
@@ -2221,88 +2430,8 @@ export class ModelBindingApplication {
       this.repository.getBindingApplicationState(operation.operationId),
       notification.status !== 'SUCCEEDED'
         ? 'APPLIED_NOTIFICATION_DEGRADED'
-        : proposalResolution.status === 'SUCCEEDED'
-          ? 'APPLIED'
-          : 'APPLIED_PROPOSAL_REPAIR_PENDING',
-      proposalResolution,
+        : 'APPLIED',
     );
-  }
-
-  #tryResolvePendingProposals(operation) {
-    try {
-      const result = this.#resolvePendingProposals(operation);
-      return Object.freeze({
-        status: 'SUCCEEDED',
-        warningCode: null,
-        repaired: result.approved !== null || result.expired > 0,
-        result,
-      });
-    } catch (error) {
-      this.logger.warn(
-        'ModelBindingApplication',
-        `Binding ${operation.operationId} committed; proposal repair remains pending: ${error.message}`,
-      );
-      return Object.freeze({
-        status: 'REPAIR_PENDING',
-        warningCode: error?.code || 'MODEL_BINDING_PROPOSAL_RESOLUTION_FAILED',
-        repaired: false,
-        result: null,
-      });
-    }
-  }
-
-  #resolvePendingProposals(operation) {
-    try {
-      const result = this.runtime.resolvePendingProposals(
-        operation.role,
-        operation.targetModelName,
-        operation.kind,
-      );
-      if (!isPlainObject(result)
-        || !(result.approved === null || Number.isSafeInteger(result.approved))
-        || !Number.isSafeInteger(result.expired)
-        || result.expired < 0) {
-        fail(
-          'MODEL_BINDING_PROPOSAL_RESOLUTION_INVALID',
-          'Proposal resolver returned an invalid result',
-          { operationId: operation.operationId },
-        );
-      }
-      return result;
-    } catch (error) {
-      throw asApplicationError(
-        error,
-        'MODEL_BINDING_PROPOSAL_RESOLUTION_FAILED',
-        'Binding committed but proposal resolution needs an idempotent retry',
-        { operationId: operation.operationId, bindingCommitted: true },
-      );
-    }
-  }
-
-  #scheduleProposalRepair(operation) {
-    if (this._pendingProposalRepairs.has(operation.operationId)
-      || this._background.has(`proposal:${operation.operationId}`)) return;
-    this._pendingProposalRepairs.set(operation.operationId, operation);
-    if (this._verificationStarted) this.#enqueueProposalRepair(operation);
-  }
-
-  #enqueueProposalRepair(operation) {
-    const key = `proposal:${operation.operationId}`;
-    if (this._background.has(key)) return;
-    this._pendingProposalRepairs.delete(operation.operationId);
-    const task = Promise.resolve()
-      .then(() => this.#tryResolvePendingProposals(operation))
-      .then(result => {
-        if (result.status === 'REPAIR_PENDING') {
-          this.logger.warn(
-            'ModelBindingApplication',
-            `Proposal repair remains pending for ${operation.operationId}`,
-          );
-        }
-        return result;
-      })
-      .finally(() => this._background.delete(key));
-    this._background.set(key, task);
   }
 
   async #recordRuntimeFailure(operation, state, error, startup) {
@@ -2505,7 +2634,7 @@ export class ModelBindingApplication {
     }
   }
 
-  #result(operation, configVersion, state, outcome, proposalResolution = null) {
+  #result(operation, configVersion, state, outcome) {
     const publicState = publicApplicationState(state);
     return {
       ok: true,
@@ -2518,8 +2647,6 @@ export class ModelBindingApplication {
       operationId: operation.operationId,
       applicationState: publicState.state,
       notificationStatus: publicState.notificationStatus,
-      proposalResolutionStatus: proposalResolution?.status || 'NOT_APPLICABLE',
-      warningCode: proposalResolution?.warningCode || null,
       outcome,
     };
   }

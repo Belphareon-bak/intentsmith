@@ -24,6 +24,7 @@ import {
 } from '../core/abort-error.js';
 import { logger } from '../core/logger.js';
 import { modelUniverseStore } from '../upgrade/model-universe-store.js';
+import { normalizeModelDigestSha256, sameModelName } from '../upgrade/model-identity.js';
 import {
   MODEL_ACTIVITY_OWNER,
   modelUseAuthority,
@@ -89,6 +90,24 @@ function providerHttpError(status, cause = null) {
     `The local model provider returned HTTP ${status}.`,
     { cause, httpStatus: status, retryable: status >= 500 },
   );
+}
+
+async function resolveServedArtifactDigest(baseUrl, servedModel, providerData) {
+  const direct = normalizeModelDigestSha256(
+    providerData?.digest || providerData?.model_digest_sha256,
+  );
+  if (direct) return direct;
+  try {
+    const response = await fetch(`${baseUrl}/api/tags`, {
+      signal: AbortSignal.timeout(2_000),
+    });
+    if (!response.ok) return null;
+    const body = await response.json();
+    const installed = (body.models || []).find(row => sameModelName(row?.name, servedModel));
+    return normalizeModelDigestSha256(installed?.digest);
+  } catch {
+    return null;
+  }
 }
 
 function parseProviderOutput(data) {
@@ -421,6 +440,11 @@ class LLMGateway {
     // v133: Usage tracking DB (set via setUsageDb)
     this._usageDb = null;
 
+    // Set by server startup after durable binding reconciliation. A degraded
+    // startup must not later serve a configured fallback that differs from a
+    // durable manual binding merely because the provider came back online.
+    this._bindingStartupAuthority = null;
+
     // v125: Concurrency semaphore — gates concurrent LLM calls
     // With single GPU, only 1 call at a time (model swap = 10-30s VRAM load/unload).
     // With multi-GPU, increase maxConcurrentLLM via config.sessions.maxConcurrentLLM.
@@ -438,6 +462,16 @@ class LLMGateway {
 
   /** v133: Set DB for usage tracking */
   setUsageDb(db) { this._usageDb = db; }
+
+  setBindingStartupAuthority(authority) {
+    if (!authority || !['DURABLE', 'DEGRADED'].includes(authority.status)) {
+      throw new TypeError('LLM binding startup authority must be DURABLE or DEGRADED');
+    }
+    this._bindingStartupAuthority = Object.freeze({
+      status: authority.status,
+      reason: authority.reason || null,
+    });
+  }
 
   /**
    * v125: Acquire LLM slot (semaphore). Returns immediately if slot available,
@@ -743,6 +777,20 @@ class LLMGateway {
       }
     }
 
+    if (this._bindingStartupAuthority?.status === 'DEGRADED') {
+      this.audit.log('LLM_BINDING_AUTHORITY_DEGRADED', {
+        role: authToken?.role,
+        decisionId: authToken?.decisionId,
+        reason: this._bindingStartupAuthority.reason,
+        ...safeCorrelation(options, authToken),
+      });
+      throw new LLMGatewayError(
+        LLMGatewayErrorCode.PROVIDER_UNAVAILABLE,
+        'The local model binding authority is degraded; restart after provider recovery.',
+        { retryable: true },
+      );
+    }
+
     // ════════════════════════════════════════════════════════════════════════
     // RATE LIMIT CHECK
     // ════════════════════════════════════════════════════════════════════════
@@ -985,9 +1033,22 @@ class LLMGateway {
         // v133: Usage tracking for auto-cleanup decisions
         if (this._usageDb) {
           try {
+            const usageRole = authToken?.role || 'UNKNOWN';
+            const servedModel = typeof data.model === 'string' && data.model.trim()
+              ? data.model.trim()
+              : model;
+            // A desired binding is intent, not evidence of which artifact
+            // actually served this request. Persist a digest only when the
+            // provider response itself identifies it exactly; otherwise NULL
+            // preserves the fail-closed retention boundary during a rebind.
+            const usageDigest = await resolveServedArtifactDigest(
+              config.ollama?.baseUrl || 'http://127.0.0.1:11434',
+              servedModel,
+              data,
+            );
             this._usageDb.prepare(
-              'INSERT INTO model_usage (model, role, request_type) VALUES (?, ?, ?)'
-            ).run(model, authToken?.role || 'UNKNOWN', requestType);
+              'INSERT INTO model_usage (model, role, request_type, model_digest_sha256) VALUES (?, ?, ?, ?)'
+            ).run(servedModel, usageRole, requestType, usageDigest);
           } catch (_) {}
         }
 

@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 456
+- Runnable programs: 449
 - Explicit support-module exclusions: 14
-- Profiles: offline=231, database=57, server=41, model=85, soak=26, manual=16
-- States: ACTIVE=359, HISTORICAL=16, BLOCKED=81
+- Profiles: offline=223, database=57, server=42, model=84, soak=26, manual=17
+- States: ACTIVE=353, HISTORICAL=15, BLOCKED=81
 
 ## Execution profiles
 
@@ -39,7 +39,6 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T5-TESTS-LEGACY-E2E-LLM-VALIDATION` | `tests/_legacy/e2e-llm-validation.cjs` | `C3-027` | T5 | `manual` | 30 min | 60 min | network:external, temp-db, server, ollama, gpu | no | `HISTORICAL` | — | primary implementer |
 | `IS-T5-TESTS-LEGACY-E2E-LOOP` | `tests/_legacy/e2e-loop.js` | `C3-027` | T5 | `manual` | 30 min | 60 min | network:external, temp-db, server, ollama, gpu | no | `HISTORICAL` | — | primary implementer |
 | `IS-T5-TESTS-LEGACY-E2E-QUALITY-DEEP` | `tests/_legacy/e2e-quality-deep.cjs` | `C3-027` | T5 | `manual` | 30 min | 60 min | network:external, temp-db, server, ollama, gpu | no | `HISTORICAL` | — | primary implementer |
-| `IS-T5-TESTS-LEGACY-P5-SCORING-SIMULATION` | `tests/_legacy/p5-scoring-simulation.js` | `C3-027` | T5 | `manual` | 30 min | 60 min | network:external, temp-db, server, ollama, gpu | no | `HISTORICAL` | — | primary implementer |
 | `IS-T5-TESTS-LEGACY-PHASE-C-TEST` | `tests/_legacy/phase-c.test.cjs` | `C3-027` | T5 | `manual` | 30 min | 60 min | network:external, temp-db, server, ollama, gpu | no | `HISTORICAL` | — | primary implementer |
 | `IS-T5-TESTS-LEGACY-PHASE-F-TEST` | `tests/_legacy/phase-f.test.cjs` | `C3-027` | T5 | `manual` | 30 min | 60 min | network:external, temp-db, server, ollama, gpu | no | `HISTORICAL` | — | primary implementer |
 | `IS-T5-TESTS-LEGACY-RUN-ALL-EXPERTISE-E2E` | `tests/_legacy/run-all-expertise-e2e.sh` | `C3-027` | T5 | `manual` | 30 min | 60 min | network:external, temp-db, server, ollama, gpu | no | `HISTORICAL` | — | primary implementer |
@@ -82,8 +81,8 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-CAPABILITY-ENFORCER-TEST` | `tests/capability-enforcer.test.js` | `C3-020` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CAPABILITY-REGISTRY-TEST` | `tests/capability-registry.test.js` | `C3-020` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CAPABILITY-SANDBOX-TEST` | `tests/capability-sandbox.test.js` | `C3-020` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
-| `IS-T1-TESTS-CATALOG-ENRICHMENT-TEST` | `tests/catalog-enrichment.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
-| `IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST` | `tests/chat-export-budget.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none, toolchain:python-pdf-runtime | yes | `BLOCKED` | — | primary implementer |
+| `IS-T1-TESTS-CATALOG-METADATA-TEST` | `tests/catalog-metadata.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST` | `tests/chat-export-budget.test.js` | `C3-003` | T1 | `manual` | 30 s | 2 min | network:none, toolchain:python-pdf-runtime | yes | `BLOCKED` | — | primary implementer |
 | `IS-T1-TESTS-CHAT-FIXES-TEST` | `tests/chat-fixes.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CHAT-OUTPUT-QUALITY-TEST` | `tests/chat-output-quality.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-CHAT-PERSISTENCE-TEST` | `tests/chat-persistence.test.js` | `C3-003` | T3 | `server` | 30 s | 3 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |
@@ -100,7 +99,6 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-CODE-SEARCH-TEST` | `tests/code-search.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CODE-TASK-EXTRACTOR-TEST` | `tests/code-task-extractor.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CONCEPT-REGISTRY-TEST` | `tests/concept-registry.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
-| `IS-T1-TESTS-CONFIRMATION-OWNERSHIP-TEST` | `tests/confirmation-ownership.test.js` | `C3-027` | T1 | `offline` | 5 s | 1 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CONTEXT-BUILDER-TEST` | `tests/context-builder.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CONTEXT-COMPACT-MODEL-CTX-TEST` | `tests/context-compact-model-ctx.test.js` | `C3-016` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CONTEXT-DELTA-TEST` | `tests/context-delta.test.js` | `C3-016` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
@@ -189,7 +187,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T3-E2E-59-CROSS-FEATURE` | `tests/e2e/59-cross-feature.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu, model:qwen3.5:27b@sha256:7653528ba5cb, ctx:8192x1, free-vram:20128MiB, headroom:1024MiB, gpu-residency:100%, fallback:forbid | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-60-WS-CHAT` | `tests/e2e/60-ws-chat.e2e.js` | `C3-003` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-61-AUTOCOMPLETE` | `tests/e2e/61-autocomplete.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
-| `IS-T3-E2E-62-VALIDATION-SUITES` | `tests/e2e/62-validation-suites.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
+| `IS-T3-E2E-62-MODEL-EVALUATIONS` | `tests/e2e/62-model-evaluations.e2e.js` | `C3-003` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-63-AGENT-EXECUTION` | `tests/e2e/63-agent-execution.e2e.js` | `C3-003` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-64-M3-PROJECT-HEALTH-AGENT` | `tests/e2e/64-m3-project-health-agent.e2e.js` | `C3-013` | T3 | `server` | 5 s | 2 min | network:loopback, temp-db, server | yes | `ACTIVE` | — | WP-M3-AGENT-PROJECT-HEALTH |
 | `IS-T3-E2E-70-CRE-INTENT-SEMANTIC` | `tests/e2e/70-cre-intent-semantic.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
@@ -238,7 +236,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-EXPERTISE-SYSTEM-TEST` | `tests/expertise-system.test.js` | `C3-011` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-EXPERTISE-WIZARD-TEST` | `tests/expertise-wizard.test.js` | `C3-011` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-EXPLORATION-AGENT-TEST` | `tests/exploration-agent.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
-| `IS-T1-TESTS-EXPORT-PDF-DOCX-TEST` | `tests/export-pdf-docx.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none, toolchain:python-pdf-runtime | yes | `BLOCKED` | — | primary implementer |
+| `IS-T1-TESTS-EXPORT-PDF-DOCX-TEST` | `tests/export-pdf-docx.test.js` | `C3-027` | T1 | `manual` | 30 s | 2 min | network:none, toolchain:python-pdf-runtime | yes | `BLOCKED` | — | primary implementer |
 | `IS-T1-TESTS-FILE-DISCOVERY-TEST` | `tests/file-discovery.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-FILE-WRITE-EXTRACT-TEST` | `tests/file-write-extract.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-FIX-STRATEGY-TEST` | `tests/fix-strategy.test.js` | `C3-007` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
@@ -297,16 +295,11 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M1-MODEL-CONTRACT-TEST` | `tests/m1-model-contract.test.js` | `C3-010` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-FAILOVER-APPLICATION-TEST` | `tests/m1-model-failover-application.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-FAILOVER-COORDINATOR-TEST` | `tests/m1-model-failover-coordinator.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
-| `IS-T1-TESTS-M1-MODEL-FAILOVER-MEASUREMENT-TEST` | `tests/m1-model-failover-measurement.test.js` | `C3-010` | T1 | `offline` | 30 s | 2 min | network:loopback | yes | `ACTIVE` | — | primary implementer |
-| `IS-T1-TESTS-M1-MODEL-FAILOVER-PARENT-ACCEPTANCE-TEST` | `tests/m1-model-failover-parent-acceptance.test.js` | `C3-010` | T1 | `offline` | 30 s | 2 min | network:loopback | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-FAILOVER-PROOF-ARTIFACTS-TEST` | `tests/m1-model-failover-proof-artifacts.test.js` | `C3-010` | T1 | `offline` | 10 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
-| `IS-T1-TESTS-M1-MODEL-FAILOVER-PROOF-ISSUER-TEST` | `tests/m1-model-failover-proof-issuer.test.js` | `C3-010` | T1 | `database` | 10 s | 2 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |
-| `IS-T1-TESTS-M1-MODEL-FAILOVER-PROOF-POLICY-TEST` | `tests/m1-model-failover-proof-policy.test.js` | `C3-010` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-FAILOVER-REPOSITORY-TEST` | `tests/m1-model-failover-repository.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST` | `tests/m1-model-failover-schema.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-FAILOVER-TERMINAL-TEST` | `tests/m1-model-failover-terminal.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-M1-MODEL-GPU-PILOT-TEST` | `tests/m1-model-gpu-pilot.test.js` | `C3-010` | T3 | `model` | 10 min | 15 min | network:loopback, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
-| `IS-T1-TESTS-M1-MODEL-IDENTITY-TEST` | `tests/m1-model-identity.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-SETTINGS-TEST` | `tests/m1-model-settings.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-USE-AUTHORITY-TEST` | `tests/m1-model-use-authority.test.js` | `C3-010` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-QUALITY-CONTRACT-TEST` | `tests/m1-quality-contract.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
@@ -374,13 +367,17 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-MERGE-COMPATIBILITY-TEST` | `tests/merge-compatibility.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MERGE-ENFORCEMENT-INTEGRATION-TEST` | `tests/merge-enforcement-integration.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MERGE-ENGINE-TEST` | `tests/merge-engine.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-METRICS-COLLECTOR-TEST` | `tests/metrics-collector.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MILESTONE-SIZE-TEST` | `tests/milestone-size.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-MODEL-CATALOG-REGISTRY-TEST` | `tests/model-catalog-registry.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODEL-CTX-TEST` | `tests/model-ctx.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-MODEL-EVALUATION-CONSOLIDATION-TEST` | `tests/model-evaluation-consolidation.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-MODEL-EVALUATION-READ-MODEL-TEST` | `tests/model-evaluation-read-model.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-MODEL-EVALUATION-SUITES-TEST` | `tests/model-evaluation-suites.test.js` | `C3-010` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-MODEL-REGISTRY-CURRENT-AUTHORITY-TEST` | `tests/model-registry-current-authority.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODEL-SIMILARITY-TEST` | `tests/model-similarity.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODEL-SWEEP-TEST` | `tests/model-sweep.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODEL-UNIVERSE-STORE-TEST` | `tests/model-universe-store.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
-| `IS-T1-TESTS-MODEL-UPGRADE-PHASE2-TEST` | `tests/model-upgrade-phase2.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
-| `IS-T1-TESTS-MODEL-UPGRADE-PHASE3-TEST` | `tests/model-upgrade-phase3.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODEL-UPGRADE-TEST` | `tests/model-upgrade.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODULE-BOUNDARY-RATCHET-TEST` | `tests/module-boundary-ratchet.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M1-BOUNDARY-RATCHET |
 | `IS-T1-TESTS-MODULES-TEST` | `tests/modules.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
@@ -414,7 +411,6 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T2-TESTS-PROJECT-LIFECYCLE-KLICENKA-TEST` | `tests/project-lifecycle-klicenka.test.js` | `C3-005` | T2 | `database` | 1 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-PROJECT-WELCOME-TEST` | `tests/project-welcome.test.js` | `C3-005` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-PROMPT-BUILDER-TEST` | `tests/prompt-builder.test.js` | `C3-016` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
-| `IS-T2-TESTS-PROPOSAL-STALE-CLEANUP-TEST` | `tests/proposal-stale-cleanup.test.js` | `C3-025` | T2 | `database` | 1 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-PUSH-CHANNEL-TEST` | `tests/push-channel.test.js` | `C3-021` | T3 | `model` | 5 min | 15 min | network:external | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-QG-IDEMPOTENCE-TEST` | `tests/qg-idempotence.test.js` | `C3-008` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-QUALITY-GATE-TEST` | `tests/quality-gate.test.js` | `C3-008` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
@@ -478,11 +474,8 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-TOOL-REGISTRY-E2E-TEST` | `tests/tool-registry-e2e.test.js` | `C3-020` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-TRUST-FEEDBACK-TEST` | `tests/trust-feedback.test.js` | `C3-021` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-ULTIMATE-E2E-TEST` | `tests/ultimate-e2e.test.js` | `C3-027` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
-| `IS-T1-TESTS-UPGRADE-APPLY-TEST` | `tests/upgrade-apply.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
-| `IS-T1-TESTS-UPGRADE-FLOW-TEST` | `tests/upgrade-flow.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-UPGRADE-UX-V125-TEST` | `tests/upgrade-ux-v125.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-V583-TIER1-TEST` | `tests/v583-tier1.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
-| `IS-T1-TESTS-VALIDATION-SUITES-TEST` | `tests/validation-suites.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-VRAM-COORDINATION-TEST` | `tests/vram-coordination.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-VRAM-MEASUREMENT-TEST` | `tests/vram-measurement.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-WHATLLM-CLIENT-TEST` | `tests/whatllm-client.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

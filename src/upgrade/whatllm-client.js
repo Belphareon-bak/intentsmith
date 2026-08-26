@@ -1,4 +1,4 @@
-// WhatLLM.org External Benchmark Client — L5 Discovery Layer
+// WhatLLM.org external discovery signal client
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Fetches real-world quality scores from whatllm.org (Artificial Analysis
@@ -8,11 +8,8 @@
 // Data format: { name, qualityIndex (0-100), creator, contextWindow, outputSpeed }
 // No individual benchmark breakdowns — only the composite qualityIndex.
 //
-// Integration:
-//   enrichCandidates(candidates) → upgrades benchmarkConfidence for matched models
-//   Called from upgrade-manager.js during fullCycle discovery.
-//
-// Priority: empirical > local validation > L5 (whatllm) > L4 (estimated) > L2 (catalog)
+// The composite index is used only to order exact-evaluation work. It is never
+// converted into a local score or persisted as model evaluation evidence.
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -29,16 +26,6 @@ const CACHE_TTL = 24 * 3600 * 1000;    // 24h
 const ERROR_COOLDOWN = 3600 * 1000;     // 1h retry after failure
 const MIN_MODELS = 20;                  // Sanity: expect at least 20 models
 
-// Confidence for whatllm-sourced benchmarks (real data > estimates, < catalog)
-export const WHATLLM_CONFIDENCE = 0.85;
-
-// Quantization penalty — full-precision benchmarks don't apply 1:1 to quantized models
-const QUANT_PENALTY = {
-  'q2_k': 0.82, 'q3_k_s': 0.85, 'q3_k_m': 0.87, 'q3_k_l': 0.88,
-  'q4_0': 0.88, 'q4_k_s': 0.90, 'q4_k_m': 0.92,
-  'q5_0': 0.94, 'q5_k_s': 0.95, 'q5_k_m': 0.96,
-  'q6_k': 0.97, 'q8_0': 0.99, 'fp16': 1.0,
-};
 
 // Known creator → family mappings (whatllm uses "Meta", Ollama uses "llama3.2:3b")
 const CREATOR_FAMILIES = {
@@ -413,21 +400,6 @@ export function matchModels(whatllmModels, candidates) {
   return matches;
 }
 
-// ─── Quantization Penalty ────────────────────────────────────────────────────
-
-/**
- * Get quantization degradation factor for a model.
- * whatllm benchmarks are full-precision; Ollama models are typically Q4_K_M.
- *
- * @param {string} [quant] - Quantization level (e.g. "q4_k_m")
- * @returns {number} 0.82-1.0 penalty factor
- */
-export function getQuantPenalty(quant) {
-  if (!quant) return QUANT_PENALTY['q4_k_m']; // Default assumption for Ollama
-  const key = quant.toLowerCase().replace(/-/g, '_');
-  return QUANT_PENALTY[key] ?? QUANT_PENALTY['q4_k_m'];
-}
-
 // ─── Fetch + Cache ───────────────────────────────────────────────────────────
 
 /**
@@ -474,159 +446,6 @@ export async function fetchModels() {
   }
 }
 
-// ─── Enrichment ──────────────────────────────────────────────────────────────
-
-/**
- * Enrich model candidates with real benchmark data from whatllm.org.
- *
- * For each matched candidate with estimated benchmarks (benchmarkConfidence < 0.85):
- *   - Replaces benchmark scores with normalized qualityIndex
- *   - Upgrades benchmarkConfidence to 0.85
- *   - Applies quantization penalty
- *
- * Does NOT touch:
- *   - Catalog models (benchmarkConfidence >= 0.85)
- *   - Models with empirical data (handled separately by empirical-scorer)
- *   - Unmatched models (keep existing estimates)
- *
- * @param {Array} candidates - Model candidates to enrich
- * @param {Object} [opts]
- * @param {Array}  [opts.whatllmModels] - Pre-fetched whatllm data (for testing)
- * @returns {Promise<{ enriched: number, total: number }>}
- */
-/** Průměr neprázdných benchmarků katalogové položky. */
-function catalogBenchmarkAverage(entry) {
-  const values = Object.values(entry?.benchmarks || {}).filter(v => v != null);
-  if (values.length === 0) return null;
-  return values.reduce((a, b) => a + b, 0) / values.length;
-}
-
-/** Hodnota v zadaném percentilu seřazeného pole (lineární interpolace). */
-function quantile(sorted, p) {
-  if (sorted.length === 0) return null;
-  if (sorted.length === 1) return sorted[0];
-  const pos = Math.min(Math.max(p, 0), 1) * (sorted.length - 1);
-  const lo = Math.floor(pos);
-  const hi = Math.ceil(pos);
-  if (lo === hi) return sorted[lo];
-  return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);
-}
-
-/**
- * Sestaví převod z whatllm `qualityIndex` na stupnici katalogových benchmarků.
- *
- * Obě čísla jsou „kvalita modelu“, ale měří ji v jiném režimu obtížnosti:
- * whatllm skládá index z frontier sad (GPQA Diamond, AIME, SWE-Bench Verified),
- * kde lokální 14B model dostane ~5 ze 100, zatímco katalog nese klasické sady
- * (HumanEval, MMLU), kde tentýž model dá 0.6–0.8.  Na modelech, které jsou v
- * obou zdrojích, spolu ty hodnoty prakticky nekorelují — lineární přepočet by
- * proto fitoval šum.
- *
- * Dělení globálním maximem (původní chování) posunulo každý whatllm model o
- * polovinu dolů proti katalogovým, takže scoring trestal právě ty modely, které
- * whatllm náhodou zná.  Místo toho se zachová jen **pořadí**: percentil modelu
- * v rozdělení whatllm se přeloží na tentýž percentil rozdělení katalogu.
- * Výsledek je s katalogem souměřitelný z konstrukce, aniž by se předstíral
- * vztah mezi absolutními hodnotami.
- *
- * @returns {(qualityIndex: number) => number|null}
- */
-export async function buildScaleCalibration(whatllmModels, catalogOverride) {
-  let catalog = catalogOverride;
-  if (!catalog) {
-    try {
-      const mod = await import('./model-catalog.js');
-      catalog = mod.CATALOG || mod.default?.CATALOG;
-    } catch { catalog = null; }
-  }
-
-  const catalogScores = (catalog || [])
-    .map(catalogBenchmarkAverage)
-    .filter(v => v != null)
-    .sort((a, b) => a - b);
-
-  const whatllmScores = (whatllmModels || [])
-    .map(m => m.qualityIndex)
-    .filter(v => v != null && v > 0)
-    .sort((a, b) => a - b);
-
-  // Bez obou rozdělení nelze převádět; raději nic než nesouměřitelné číslo.
-  if (catalogScores.length < 2 || whatllmScores.length < 2) {
-    logger.warn('WhatLLM', 'Kalibrace stupnice není k dispozici — enrichment přeskočen');
-    return () => null;
-  }
-
-  return (qualityIndex) => {
-    if (qualityIndex == null || qualityIndex <= 0) return null;
-    let below = 0;
-    for (const v of whatllmScores) {
-      if (v < qualityIndex) below++; else break;
-    }
-    const percentile = below / (whatllmScores.length - 1);
-    const mapped = quantile(catalogScores, percentile);
-    return mapped == null ? null : Math.max(0, Math.min(1, mapped));
-  };
-}
-
-export async function enrichCandidates(candidates, opts = {}) {
-  const whatllmModels = opts.whatllmModels || await fetchModels();
-  if (!whatllmModels || whatllmModels.length === 0) {
-    return { enriched: 0, total: candidates.length };
-  }
-
-  const matches = matchModels(whatllmModels, candidates);
-  let enriched = 0;
-
-  const calibration = await buildScaleCalibration(whatllmModels, opts.catalog);
-
-  for (const candidate of candidates) {
-    // Skip models that already have high-confidence benchmarks (catalog, manually set)
-    if ((candidate.benchmarkConfidence ?? 1.0) >= WHATLLM_CONFIDENCE) continue;
-
-    const whatllm = matches.get(candidate.name);
-    if (!whatllm || !whatllm.qualityIndex) continue;
-
-    // Převod na škálu katalogu (viz buildScaleCalibration).  Dřív se dělilo
-    // globálním maximem, což míchalo dvě nesouměřitelné stupnice.
-    const rawScore = calibration(whatllm.qualityIndex);
-    if (rawScore == null) continue;
-
-    // Apply quantization penalty
-    const qp = getQuantPenalty(candidate.recommendedQuant || candidate.quant);
-    const adjustedScore = rawScore * qp;
-
-    // Set ALL benchmark keys to the adjusted score so computeBenchmarkScore()
-    // produces the same value regardless of role weights.
-    // This is a known limitation — we lose role-specific differentiation.
-    // However, for L4 provisionals with confidence 0.30-0.60, this is a net gain.
-    candidate.benchmarks = {
-      swebench: adjustedScore,
-      livecodebench: adjustedScore,
-      humaneval: adjustedScore,
-      mmlu: adjustedScore,
-      arena: adjustedScore,
-      reasoning: adjustedScore,
-    };
-    candidate.benchmarkConfidence = WHATLLM_CONFIDENCE;
-    candidate.benchmarkSource = 'whatllm';
-    candidate.whatllmQuality = whatllm.qualityIndex;
-    candidate.whatllmVersion = `whatllm-${new Date().toISOString().slice(0, 10)}`;
-
-    // Also update contextWindow if whatllm has better data and candidate has none
-    if (whatllm.contextWindow && !candidate.contextWindow) {
-      candidate.contextWindow = whatllm.contextWindow;
-    }
-
-    enriched++;
-  }
-
-  if (enriched > 0) {
-    logger.info('WhatLLM', `Enriched ${enriched}/${candidates.length} candidates (${matches.size} matched)`);
-  }
-
-  return { enriched, total: candidates.length };
-}
-
 // ─── Cache Control (for testing) ─────────────────────────────────────────────
 
 export function clearCache() {
@@ -649,13 +468,10 @@ export function getCacheState() {
 
 export default {
   fetchModels,
-  enrichCandidates,
   parseModels,
   parseWhatllmName,
   parseOllamaName,
   matchModels,
-  getQuantPenalty,
   clearCache,
   getCacheState,
-  WHATLLM_CONFIDENCE,
 };

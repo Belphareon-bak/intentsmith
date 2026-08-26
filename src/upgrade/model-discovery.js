@@ -15,7 +15,7 @@ import { config } from '../config.js';
 import { logger } from '../core/logger.js';
 import { parseModelName, MODEL_FAMILIES } from './model-profiles.js';
 import { parseModelNameExtended } from './model-family-extensions.js';
-import { catalogLookupKey, enrichLocalCandidates } from './catalog-enrichment.js';
+import { catalogLookupKey, enrichLocalCandidateMetadata } from './catalog-metadata.js';
 import { enrichFromHuggingFace } from './huggingface-client.js';
 
 // ─── Ollama API ────────────────────────────────────────────────────────────
@@ -159,6 +159,8 @@ export function buildCandidates(ollamaModels) {
       modifiedAt: m.modified_at || null,
       installed: true,
       source: 'local',
+      digest: m.digest || null,
+      details: m.details || null,
     });
   }
 
@@ -178,7 +180,7 @@ export const UPGRADE_HINTS = [
   {
     from: /^qwen2\.5/i,
     to: ['qwen3', 'qwen3.5'],
-    reason: 'Qwen 3/3.5 significantly outperforms 2.5 on code and reasoning benchmarks',
+    reason: 'Newer Qwen generation candidate; exact role evaluation required',
   },
   {
     from: /^qwen3(?!\.5)/i,
@@ -296,14 +298,6 @@ function _filterCatalog(catalog, installedNames, minDays) {
       continue;
     }
 
-    // Benchmark sanity: reject if ALL benchmarks are null
-    if (entry.benchmarks) {
-      const hasAny = Object.values(entry.benchmarks).some(v => v != null);
-      if (!hasAny) continue;
-    } else {
-      continue;
-    }
-
     const parsed = parseModelNameExtended(entry.name);
     candidates.push({
       name: entry.name,
@@ -317,8 +311,6 @@ function _filterCatalog(catalog, installedNames, minDays) {
       modifiedAt: entry.releaseDate || null,
       installed: false,
       source: 'catalog',
-      // Catalog-specific fields passed through for ranker
-      benchmarks: entry.benchmarks,
       baseVramMb: entry.baseVramMb,
       contextWindow: entry.contextWindow,
       capabilities: entry.capabilities,
@@ -382,9 +374,8 @@ export async function discover(opts = {}) {
   const ollamaAvailable = ollamaModels.length > 0;
   const localCandidates = buildCandidates(ollamaModels);
 
-  // Katalog se načítá vždy, ne jen pro L2.  Lokální kandidáti z něj berou
-  // benchmarky a metadata i v rychlém cyklu — bez toho je jejich skóre řízené
-  // pouze velikostí modelu (viz catalog-enrichment.js).
+  // Katalog se načítá vždy, ne jen pro L2. Lokální kandidáti z něj
+  // berou pouze factual metadata; kvalita patří exact-contract evaluaci.
   let catalog = null;
   try {
     const mod = await import('./model-catalog.js');
@@ -393,9 +384,9 @@ export async function discover(opts = {}) {
     logger.warn('ModelDiscovery', `Catalog load failed: ${err.message}`);
   }
 
-  let enrichment = { exact: 0, estimated: 0, unmatched: [] };
+  let enrichment = { exact: 0, unmatched: [] };
   if (catalog) {
-    enrichment = enrichLocalCandidates(localCandidates, catalog);
+    enrichment = enrichLocalCandidateMetadata(localCandidates, catalog);
     if (enrichment.unmatched.length > 0) {
       logger.warn(
         'ModelDiscovery',
@@ -460,12 +451,10 @@ export async function discover(opts = {}) {
             modifiedAt: entry.discoveredAt || null,
             installed: false,
             source: 'L4',
-            benchmarks: entry.benchmarks,
             baseVramMb: entry.baseVramMb,
             contextWindow: entry.contextWindow,
             capabilities: entry.capabilities,
             releaseDate: entry.releaseDate,
-            benchmarkConfidence: entry.benchmarkConfidence,
             provisional: true,
             discoveredAt: entry.discoveredAt,
           });

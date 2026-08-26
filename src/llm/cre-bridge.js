@@ -694,7 +694,7 @@ export async function analyzeImages(prompt, images, systemPrompt = '', options =
   });
 
   // Vision uses /api/generate endpoint (not /api/chat)
-  const model = config.models?.VISION || 'llava:13b';
+  const model = config.models?.VISION || 'llava-llama3:8b';
   const timeout = config.timeouts?.VISION || 60000;
   const startTime = Date.now();
 

@@ -31,12 +31,14 @@ const HISTORICAL_NUMERIC_SLOT_COLLISIONS = new Map([
     '2026_03_08_030_v103_model_overrides',
     '2026_03_08_030_v107_task_memory',
   ])],
+  ['081', Object.freeze([
+    '2026_08_24_081_model_policy_trigger_compatibility',
+    '2026_08_24_081_model_proof_trigger_compatibility',
+  ])],
 ]);
 
-// The accepted standalone M2 line used numeric slots which later collided
-// with older model-evaluation migrations. These aliases preserve applied_at
-// while moving the authoritative M2 manifest to the globally free 092-095
-// block. The migration bodies and dependency order remain unchanged.
+// Exact retired identities are adopted atomically before pending migrations
+// run. This preserves applied_at while keeping one collision-free manifest.
 const RETIRED_MIGRATION_IDENTITY_ADOPTIONS = Object.freeze([
   Object.freeze({
     retired: '2026_08_23_070_m2_effect_authority',
@@ -53,6 +55,18 @@ const RETIRED_MIGRATION_IDENTITY_ADOPTIONS = Object.freeze([
   Object.freeze({
     retired: '2026_08_25_083_m2_effect_rollback_receipts',
     canonical: '2026_08_25_095_m2_effect_rollback_receipts',
+  }),
+  Object.freeze({
+    retired: '2026_08_26_084_model_policy_trigger_compatibility',
+    canonical: '2026_08_24_081_model_policy_trigger_compatibility',
+  }),
+  Object.freeze({
+    retired: '2026_08_26_085_model_proof_trigger_compatibility',
+    canonical: '2026_08_24_081_model_proof_trigger_compatibility',
+  }),
+  Object.freeze({
+    retired: '2026_08_26_086_model_evaluation_consolidation',
+    canonical: '2026_08_24_082_model_evaluation_consolidation',
   }),
 ]);
 
@@ -126,36 +140,48 @@ function validateManifestAndHistoryUnion(appliedVersions, migrations, label) {
     new Set([...projected, ...migrations.map(migration => migration.version)]),
     label,
   );
+  return projected;
+}
+
+function adoptRetiredMigrationIdentities(db, migrations) {
+  const rows = new Set(db.prepare(
+    'SELECT version FROM schema_migrations'
+  ).all().map(row => row.version));
+  // Resolve the complete hypothetical state before the first identity write.
+  // This catches collisions split across the manifest and stored history and
+  // also proves that every retired identity has a canonical manifest target.
+  validateManifestAndHistoryUnion(
+    rows,
+    migrations,
+    'migration manifest + schema_migrations after identity adoption',
+  );
+
+  for (const { retired, canonical } of RETIRED_MIGRATION_IDENTITY_ADOPTIONS) {
+    if (!rows.has(retired)) continue;
+    if (rows.has(canonical)) {
+      // The original migration already ran. The later stamp represents only
+      // a redundant execution under the invalid renamed identity.
+      db.prepare('DELETE FROM schema_migrations WHERE version = ?').run(retired);
+    } else {
+      // Preserve the exact original applied_at while restoring the identity.
+      db.prepare(
+        'UPDATE schema_migrations SET version = ? WHERE version = ?'
+      ).run(canonical, retired);
+      rows.add(canonical);
+    }
+    rows.delete(retired);
+  }
 }
 
 function prepareMigrationHistory(db, migrations) {
   ensureMigrationsTable(db);
   const prepare = db.transaction(() => {
-    const rows = new Set(db.prepare(
-      'SELECT version FROM schema_migrations'
-    ).all().map(row => row.version));
-    validateManifestAndHistoryUnion(
-      rows,
-      migrations,
-      'migration manifest + schema_migrations after identity adoption',
-    );
-
-    for (const { retired, canonical } of RETIRED_MIGRATION_IDENTITY_ADOPTIONS) {
-      if (!rows.has(retired)) continue;
-      if (rows.has(canonical)) {
-        db.prepare('DELETE FROM schema_migrations WHERE version = ?').run(retired);
-      } else {
-        db.prepare(
-          'UPDATE schema_migrations SET version = ? WHERE version = ?'
-        ).run(canonical, retired);
-        rows.add(canonical);
-      }
-      rows.delete(retired);
-    }
-
+    adoptRetiredMigrationIdentities(db, migrations);
     const finalVersions = db.prepare(
       'SELECT version FROM schema_migrations ORDER BY version'
     ).all().map(row => row.version);
+    // Keep the final read and validation inside the adoption transaction. A
+    // failed postcondition therefore rolls every stamp change back.
     validateManifestAndHistoryUnion(
       finalVersions,
       migrations,
@@ -223,6 +249,7 @@ function validateMigrationPlan(migrations) {
       throw new Error(`Duplicate migration version: ${version}`);
     }
     versions.add(version);
+
   }
 
   validateNumericSlots(versions, 'migration manifest');
@@ -362,6 +389,7 @@ export const _testInternals = Object.freeze({
   validateMigrationPlan,
   validateManifestAndHistoryUnion,
   projectAdoptedMigrationVersions,
+  adoptRetiredMigrationIdentities,
 });
 
 export default { runMigrations, getCurrentVersion, listMigrations, hasColumn, hasTable };

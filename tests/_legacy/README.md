@@ -13,7 +13,6 @@ command, output, and exit code are recorded.
 
 - `*.cjs`, `sprints/*.cjs`: historical `node:test`, benchmark, stress, and
   live-server programs.
-- `p5-scoring-simulation.js`: an empirical scoring simulation.
 - `run-all-expertise-e2e.sh`: a manual expertise E2E launcher.
 - `e2e-loop.js`: a manual, potentially unbounded live-server/LLM/GPU loop.
   Its paths were repaired after relocation and its generated reports default

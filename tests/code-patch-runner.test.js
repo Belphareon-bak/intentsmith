@@ -13,6 +13,7 @@ import path from 'node:path';
 import {
   changedLines, deriveTask, buildPrompt, extractFunctionCode, extractFunctionCodes,
   applyAndTest, verifyTask, addedTestNames, parseTestOutput, scoreFromOutput, normalizedGain,
+  runIsolatedTests,
 } from '../src/eval/code-patch-runner.js';
 
 function git(repo, args) {
@@ -57,6 +58,17 @@ function buildFixture() {
 const fx = buildFixture();
 
 suite('code-patch-runner');
+
+test('vícesouborový test po prvním timeoutu končí fail-fast', () => {
+  const seen = [];
+  const runs = runIsolatedTests('/tmp/unused', ['a.test.js', 'b.test.js', 'c.test.js'], 10,
+    (_work, file) => {
+      seen.push(file);
+      return { passed: false, timedOut: file === 'b.test.js', output: '' };
+    });
+  assertEqual(seen.join(','), 'a.test.js,b.test.js');
+  assertEqual(runs.length, 2);
+});
 
 test('changedLines najde upravený řádek v obou verzích', () => {
   const cl = changedLines(fx.repo, fx.hash, 'src/math.js');
@@ -477,4 +489,160 @@ test('málo bloků se nedoplňuje odhadem', () => {
 rmSync(multi.repo, { recursive: true, force: true });
 
 rmSync(fx.repo, { recursive: true, force: true });
+// ─── úloha zasahující i mimo funkce ─────────────────────────────────────────
+//
+// Tenhle tvar tvořil 20 z 32 kandidátů v historii repa: commit sáhne na
+// konstantu nahoře a zároveň do těla funkce dole.  Dokud byla jednotkou jen
+// funkce, propadl celý.
+
+const TOP_BROKEN = `// hlavicka souboru
+const KROK = 1;
+
+export function posun(a) {
+  return a - KROK;
+}
+`;
+const TOP_FIXED = `// hlavicka souboru, jina
+const KROK = 10;
+
+export function posun(a) {
+  return a + KROK;
+}
+`;
+
+function buildTopLevelFixture() {
+  const repo = mkdtempSync(path.join(tmpdir(), 'patchtop-'));
+  git(repo, ['init', '-q']);
+  git(repo, ['config', 'user.email', 'test@example.com']);
+  git(repo, ['config', 'user.name', 'Test']);
+  mkdirSync(path.join(repo, 'src'), { recursive: true });
+  mkdirSync(path.join(repo, 'tests'), { recursive: true });
+  writeFileSync(path.join(repo, 'src', 'krok.js'), TOP_BROKEN);
+  git(repo, ['add', '-A']); git(repo, ['commit', '-qm', 'initial']);
+  writeFileSync(path.join(repo, 'src', 'krok.js'), TOP_FIXED);
+  writeFileSync(path.join(repo, 'tests', 'krok.test.js'),
+    "import { posun } from '../src/krok.js';\n"
+    + "if (posun(1) !== 11) { process.exit(1); }\n");
+  git(repo, ['add', '-A']); git(repo, ['commit', '-qm', 'fix(krok): posunout o deset dopredu']);
+  const hash = git(repo, ['rev-parse', 'HEAD']).trim();
+  return { repo, meta: { hash, source: 'src/krok.js', test: 'tests/krok.test.js', subject: 'fix(krok): posunout o deset dopredu' } };
+}
+
+const top = buildTopLevelFixture();
+
+test('úloha unese změnu konstanty i funkce najednou', () => {
+  const { task, reason } = deriveTask(top.repo, top.meta);
+  assert(task, `úloha se neodvodila: ${reason}`);
+  assertEqual(task.functionCount, 2);
+  assertEqual(task.spans[0].kind, 'top-level');
+  assertEqual(task.spans[0].name, 'KROK');
+  assertEqual(task.spans[1].kind, 'function');
+  assert(task.functionTexts[0].includes('KROK = 1;'), 'chybí vadná konstanta');
+  assert(task.functionTexts[1].includes('a - KROK'), 'chybí vadná funkce');
+});
+
+// Změněný komentář nad konstantou nesmí úlohu shodit — nenese chování.
+test('změněná hlavička souboru se zahodí, úloha zůstane', () => {
+  const { task } = deriveTask(top.repo, top.meta);
+  assert(!task.functionTexts.some(t => t.includes('hlavicka souboru')), 'komentář se dostal do zadání');
+});
+
+// Totožnost konstanty je jméno, ne text: `KROK = 1` → `KROK = 10` je tentýž úsek.
+test('oprava uvnitř hlavičky konstrukce úlohu neshodí', () => {
+  const { task } = deriveTask(top.repo, top.meta);
+  assert(task.goldTexts[0].includes('KROK = 10;'), 'gold nemá opravenou konstantu');
+});
+
+test('zadání pojmenuje, že jde o vrchol souboru', () => {
+  const { task } = deriveTask(top.repo, top.meta);
+  const prompt = buildPrompt(task);
+  assert(prompt.includes('Kód na nejvyšší úrovni souboru 1:'), `chybí popis úseku:\n${prompt}`);
+  assert(prompt.includes('Funkce 2:'), `chybí popis funkce:\n${prompt}`);
+  assert(!prompt.includes('a + KROK'), 'prompt prozradil opravu');
+});
+
+test('gold patch přes konstantu i funkci projde testem', () => {
+  const { task } = deriveTask(top.repo, top.meta);
+  const r = applyAndTest(top.repo, task, task.goldTexts);
+  assert(r.passed, `gold neprošel: ${r.reason}`);
+});
+
+// Kdyby se rozsahy vkládaly shora, druhá náhrada by trefila posunuté řádky —
+// tady je to vidět na tom, že oprava jednoho ze dvou úseků nestačí.
+test('oprava jen funkce bez konstanty neprojde', () => {
+  const { task } = deriveTask(top.repo, top.meta);
+  const r = applyAndTest(top.repo, task, [task.functionTexts[0], task.goldTexts[1]]);
+  assertEqual(r.score, 0);
+  assert(r.syntaxOk, 'mělo jít o selhání chování, ne syntaxe');
+});
+
+// ─── úloha s víc testovými soubory ──────────────────────────────────────────
+//
+// Commit, který k jedné opravě dopsal testy do víc souborů, je pro sadu
+// cennější než průměrný: víc cílů znamená, že úloha umí i mezistupeň mezi
+// 0 a 1.  Musí ale projít **všechny** soubory, jinak by částečná oprava
+// dostala plné skóre.
+
+function buildTwoTestFixture() {
+  const repo = mkdtempSync(path.join(tmpdir(), 'patchdvatesty-'));
+  git(repo, ['init', '-q']);
+  git(repo, ['config', 'user.email', 'test@example.com']);
+  git(repo, ['config', 'user.name', 'Test']);
+  mkdirSync(path.join(repo, 'src'), { recursive: true });
+  mkdirSync(path.join(repo, 'tests'), { recursive: true });
+  writeFileSync(path.join(repo, 'src', 'obe.js'), 'export function obe(a) {\n  return a - 1;\n}\n');
+  git(repo, ['add', '-A']); git(repo, ['commit', '-qm', 'initial']);
+  writeFileSync(path.join(repo, 'src', 'obe.js'), 'export function obe(a) {\n  return a + 1;\n}\n');
+  writeFileSync(path.join(repo, 'tests', 'prvni.test.js'),
+    "import { obe } from '../src/obe.js';\nif (obe(1) !== 2) { process.exit(1); }\n");
+  writeFileSync(path.join(repo, 'tests', 'druhy.test.js'),
+    "import { obe } from '../src/obe.js';\nif (obe(5) !== 6) { process.exit(1); }\n");
+  git(repo, ['add', '-A']); git(repo, ['commit', '-qm', 'fix(obe): scitat misto odcitat']);
+  const hash = git(repo, ['rev-parse', 'HEAD']).trim();
+  return {
+    repo,
+    meta: {
+      hash, source: 'src/obe.js',
+      tests: ['tests/prvni.test.js', 'tests/druhy.test.js'],
+      subject: 'fix(obe): scitat misto odcitat',
+    },
+  };
+}
+
+const dva = buildTwoTestFixture();
+
+test('úloha si nese všechny testové soubory', () => {
+  const { task, reason } = deriveTask(dva.repo, dva.meta);
+  assert(task, `úloha se neodvodila: ${reason}`);
+  assertEqual(task.tests.length, 2);
+  assertEqual(task.test, 'tests/prvni.test.js');
+});
+
+test('gold patch projde oběma testovými soubory', () => {
+  const { task } = deriveTask(dva.repo, dva.meta);
+  const r = applyAndTest(dva.repo, task, task.goldTexts);
+  assert(r.passed, `gold neprošel: ${r.reason}`);
+});
+
+test('vadný kód propadne, i když je testů víc', () => {
+  const { task } = deriveTask(dva.repo, dva.meta);
+  const r = applyAndTest(dva.repo, task, task.functionTexts);
+  assertEqual(r.score, 0);
+});
+
+// Oprava, která spraví jen jeden soubor, nesmí dostat plné skóre.
+test('oprava platná jen pro jeden testový soubor neprojde', () => {
+  const { task } = deriveTask(dva.repo, dva.meta);
+  const r = applyAndTest(dva.repo, task, ['export function obe(a) {\n  return a === 1 ? 2 : a - 1;\n}']);
+  assertEqual(r.score, 0);
+  assert(r.syntaxOk, 'mělo jít o selhání chování, ne syntaxe');
+});
+
+// Stejné jméno testu ve dvou souborech: jednou prošlo, jednou spadlo.
+test('rozporný název testu se počítá jako spadlý', () => {
+  const parsed = parseTestOutput('  ✅ stejny nazev\n  ❌ stejny nazev: rozbite\n');
+  assert(!parsed.passed.has('stejny nazev'), 'rozporný název zůstal mezi prošlými');
+  assert(parsed.failed.has('stejny nazev'), 'rozporný název chybí mezi spadlými');
+});
+
 summary();

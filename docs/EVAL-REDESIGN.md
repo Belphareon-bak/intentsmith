@@ -1,6 +1,11 @@
-# Přestavba evaluace modelů — návrh
+# Přestavba evaluace modelů — přijatý podklad
 
-**Stav:** přijato jako zadání 2026-08-20 · **Odhad:** 4–5 dní, po dnech použitelné
+**Stav:** superseded current implementací · **Aktualizováno:** 2026-08-25
+
+Tento dokument zachovává zdůvodnění a původní návrh. Současný normativní stav,
+odlišné role suites, DB autoritu a aktivační hranici popisuje
+[MODEL-SCORING-ACTIVATION.md](MODEL-SCORING-ACTIVATION.md); v123 sady, o nichž
+se níže mluví v přítomném čase, byly odstraněny.
 
 ---
 

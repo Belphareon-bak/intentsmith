@@ -378,7 +378,11 @@ try {
   //   116 -> 119 M5 DATA, global AUTH and PRIVACY each load a production path
   //              that reaches the database. Their static bootstrap now also
   //              protects direct execution and temp-root ownership.
-  const expectedDatabaseReachableRootTests = 119;
+  //   119 -> 118 model-validation-integration.test.js was removed with the
+  //              retired validation/ranker path during model-evaluation
+  //              consolidation. The active replacement imports the same
+  //              isolated database bootstrap through its current suites.
+  const expectedDatabaseReachableRootTests = 118;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,

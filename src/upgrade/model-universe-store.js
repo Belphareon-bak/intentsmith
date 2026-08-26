@@ -287,18 +287,6 @@ function hashObject(value) {
   return createHash('sha1').update(JSON.stringify(value)).digest('hex');
 }
 
-function quantScore(q) {
-  const v = String(q || '').toUpperCase();
-  if (!v) return 0.55;
-  if (v.startsWith('Q2')) return 0.35;
-  if (v.startsWith('Q3')) return 0.52;
-  if (v.startsWith('Q4')) return 0.70;
-  if (v.startsWith('Q5')) return 0.80;
-  if (v.startsWith('Q6')) return 0.88;
-  if (v.startsWith('Q8')) return 0.96;
-  return 0.60;
-}
-
 export function resolveFieldValue(field, rows, opts = {}) {
   const validationContextCap = normalizeContextLength(opts.validationContextCap);
   const candidates = [];
@@ -405,18 +393,6 @@ function computeDerivedState(modelName, tag, resolvedRaw, rows, resolutions) {
   const quantization = normalizeFieldValue('quantization', resolvedRaw.quantization);
   const modality = normalizeFieldValue('modality', resolvedRaw.modality) || 'text';
 
-  const paramsScore = params != null ? clamp01(Math.log2(params + 1) / 7.5) : 0.10;
-  const contextScore = contextLength != null ? clamp01(Math.log2(contextLength / 2048 + 1) / 5.5) : 0.10;
-  const modalityScore = modality === 'vision' ? 0.90 : modality === 'text' ? 0.72 : 0.60;
-
-  const scoreEstimated = clamp01(
-    paramsScore * 0.45 +
-    contextScore * 0.18 +
-    quantScore(quantization) * 0.12 +
-    modalityScore * 0.10 +
-    confidence * 0.15
-  );
-
   const rawFingerprint = rows.map(r => ({
     source: normalizeSource(r.source),
     metadata_state: normalizeState(r.metadata_state),
@@ -460,10 +436,8 @@ function computeDerivedState(modelName, tag, resolvedRaw, rows, resolutions) {
   };
 
   return {
-    scoreEstimated,
     confidence,
     confidenceState,
-    scoreState: 'reconciled',
     capabilityVector,
     basedOnVersion,
     lastComputedAt: new Date().toISOString(),
@@ -485,7 +459,6 @@ class ModelUniverseStore {
     this._db = null;
     this._stmts = null;
     this._discoveredStmt = null;
-    this._hasBenchmarkSource = null;
     this._derivedHasBasedOnVersion = false;
     this._derivedHasLastComputedAt = false;
     this._reconHasReasonCode = false;
@@ -561,7 +534,6 @@ class ModelUniverseStore {
     this._db = db;
     this._stmts = null;
     this._discoveredStmt = null;
-    this._hasBenchmarkSource = null;
     this._derivedHasBasedOnVersion = false;
     this._derivedHasLastComputedAt = false;
     this._reconHasReasonCode = false;
@@ -997,10 +969,8 @@ class ModelUniverseStore {
     const derivedColumns = [
       'model_name',
       'tag',
-      'score_estimated',
       'confidence',
       'confidence_state',
-      'score_state',
       'capability_vector_json',
       'recompute_at',
     ];
@@ -1008,10 +978,8 @@ class ModelUniverseStore {
     if (this._derivedHasLastComputedAt) derivedColumns.push('last_computed_at');
 
     const derivedUpdate = [
-      'score_estimated = COALESCE(excluded.score_estimated, model_universe_derived.score_estimated)',
       'confidence = COALESCE(excluded.confidence, model_universe_derived.confidence)',
       'confidence_state = COALESCE(excluded.confidence_state, model_universe_derived.confidence_state)',
-      'score_state = COALESCE(excluded.score_state, model_universe_derived.score_state)',
       'capability_vector_json = COALESCE(excluded.capability_vector_json, model_universe_derived.capability_vector_json)',
       'recompute_at = COALESCE(excluded.recompute_at, model_universe_derived.recompute_at)',
     ];
@@ -1185,47 +1153,17 @@ class ModelUniverseStore {
     this._ensureDb();
     if (this._discoveredStmt) return;
 
-    try {
-      const cols = this._db.prepare(`PRAGMA table_info('discovered_models')`).all();
-      this._hasBenchmarkSource = cols.some(c => c.name === 'benchmark_source');
-    } catch {
-      this._hasBenchmarkSource = false;
-    }
-
-    const discoveredSql = this._hasBenchmarkSource
-      ? `
+    const discoveredSql = `
         INSERT INTO discovered_models (
           name, family, params, category, base_vram_mb, context_window,
-          benchmarks_json, benchmark_confidence, capabilities_json,
-          source, benchmark_source, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+          capabilities_json, source, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(name) DO UPDATE SET
           family = excluded.family,
           params = COALESCE(excluded.params, discovered_models.params),
           category = COALESCE(excluded.category, discovered_models.category),
           base_vram_mb = COALESCE(excluded.base_vram_mb, discovered_models.base_vram_mb),
           context_window = COALESCE(excluded.context_window, discovered_models.context_window),
-          benchmarks_json = COALESCE(excluded.benchmarks_json, discovered_models.benchmarks_json),
-          benchmark_confidence = COALESCE(excluded.benchmark_confidence, discovered_models.benchmark_confidence),
-          capabilities_json = COALESCE(excluded.capabilities_json, discovered_models.capabilities_json),
-          source = COALESCE(excluded.source, discovered_models.source),
-          benchmark_source = COALESCE(excluded.benchmark_source, discovered_models.benchmark_source),
-          updated_at = CURRENT_TIMESTAMP
-      `
-      : `
-        INSERT INTO discovered_models (
-          name, family, params, category, base_vram_mb, context_window,
-          benchmarks_json, benchmark_confidence, capabilities_json,
-          source, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        ON CONFLICT(name) DO UPDATE SET
-          family = excluded.family,
-          params = COALESCE(excluded.params, discovered_models.params),
-          category = COALESCE(excluded.category, discovered_models.category),
-          base_vram_mb = COALESCE(excluded.base_vram_mb, discovered_models.base_vram_mb),
-          context_window = COALESCE(excluded.context_window, discovered_models.context_window),
-          benchmarks_json = COALESCE(excluded.benchmarks_json, discovered_models.benchmarks_json),
-          benchmark_confidence = COALESCE(excluded.benchmark_confidence, discovered_models.benchmark_confidence),
           capabilities_json = COALESCE(excluded.capabilities_json, discovered_models.capabilities_json),
           source = COALESCE(excluded.source, discovered_models.source),
           updated_at = CURRENT_TIMESTAMP
@@ -1253,10 +1191,8 @@ class ModelUniverseStore {
     const values = [
       modelName,
       tag,
-      entry.scoreEstimated ?? null,
       entry.confidence ?? null,
       entry.confidenceState ?? null,
-      entry.scoreState ?? 'estimated',
       safeJson(entry.capabilityVector),
       entry.recomputeAt ? toIso(entry.recomputeAt) : null,
     ];
@@ -1350,23 +1286,12 @@ class ModelUniverseStore {
     const category = entry.category || parsed.category || 'general';
     const baseVramMb = entry.baseVramMb ?? null;
     const contextWindow = entry.contextLength ?? null;
-    const benchmarksJson = safeJson(entry.benchmarks);
-    const benchmarkConfidence = entry.benchmarkConfidence ?? null;
     const capabilitiesJson = safeJson(entry.capabilities);
     const source = entry.source || 'universe';
-    const benchmarkSource = entry.benchmarkSource || null;
-
-    if (this._hasBenchmarkSource) {
-      this._discoveredStmt.run(
-        modelName, family, params, category, baseVramMb, contextWindow,
-        benchmarksJson, benchmarkConfidence, capabilitiesJson, source, benchmarkSource
-      );
-    } else {
-      this._discoveredStmt.run(
-        modelName, family, params, category, baseVramMb, contextWindow,
-        benchmarksJson, benchmarkConfidence, capabilitiesJson, source
-      );
-    }
+    this._discoveredStmt.run(
+      modelName, family, params, category, baseVramMb, contextWindow,
+      capabilitiesJson, source
+    );
 
     return { ok: true };
   }
@@ -1527,10 +1452,8 @@ class ModelUniverseStore {
       this._runUpsertDerived({
         modelName: normalizedModel,
         tag: normalizedTag,
-        scoreEstimated: derived.scoreEstimated,
         confidence: derived.confidence,
         confidenceState: derived.confidenceState,
-        scoreState: derived.scoreState,
         capabilityVector: derived.capabilityVector,
         recomputeAt: null,
         basedOnVersion: derived.basedOnVersion,
@@ -1655,10 +1578,8 @@ class ModelUniverseStore {
       contextLength: row.context_length != null ? Number(row.context_length) : null,
       quantization: row.quantization || null,
       modality: row.modality || null,
-      scoreEstimated: row.score_estimated != null ? Number(row.score_estimated) : null,
       confidence: row.confidence != null ? Number(row.confidence) : null,
       confidenceState: row.confidence_state || null,
-      scoreState: row.score_state || null,
       lastComputedAt: row.derived_last_computed_at || row.derived_updated_at || null,
       updatedAt: row.raw_updated_at || null,
       lastVerifiedAt: row.last_verified_at || null,
@@ -1707,17 +1628,16 @@ class ModelUniverseStore {
       };
     }
 
-    const sortInput = String(opts.sort || 'score').trim().toLowerCase();
+    const sortInput = String(opts.sort || 'confidence').trim().toLowerCase();
     const orderInput = String(opts.order || 'desc').trim().toLowerCase();
     const sortMap = {
-      score: 'd.score_estimated',
       confidence: 'd.confidence',
       updated: 'COALESCE(d.last_computed_at, d.updated_at, r.updated_at)',
       name: 'r.model_name',
       context: 'r.context_length',
       params: 'r.parameters',
     };
-    const sortBy = sortMap[sortInput] ? sortInput : 'score';
+    const sortBy = sortMap[sortInput] ? sortInput : 'confidence';
     const sortSql = sortMap[sortBy];
     const orderSql = orderInput === 'asc' ? 'ASC' : 'DESC';
 
@@ -1746,7 +1666,7 @@ class ModelUniverseStore {
         r.model_name, r.tag, r.metadata_state,
         r.parameters, r.context_length, r.quantization, r.modality,
         r.updated_at AS raw_updated_at, r.last_verified_at,
-        d.score_estimated, d.confidence, d.confidence_state, d.score_state,
+        d.confidence, d.confidence_state,
         d.last_computed_at AS derived_last_computed_at, d.updated_at AS derived_updated_at,
         ${selectSql}
       ${fromSql}
@@ -1810,7 +1730,7 @@ class ModelUniverseStore {
         r.model_name, r.tag, r.metadata_state,
         r.parameters, r.context_length, r.quantization, r.modality,
         r.metadata_json, r.updated_at AS raw_updated_at, r.last_verified_at,
-        d.score_estimated, d.confidence, d.confidence_state, d.score_state,
+        d.confidence, d.confidence_state,
         d.capability_vector_json, d.based_on_version,
         d.last_computed_at AS derived_last_computed_at, d.updated_at AS derived_updated_at,
         ${selectSql}
@@ -1829,7 +1749,7 @@ class ModelUniverseStore {
           r.model_name, r.tag, r.metadata_state,
           r.parameters, r.context_length, r.quantization, r.modality,
           r.metadata_json, r.updated_at AS raw_updated_at, r.last_verified_at,
-          d.score_estimated, d.confidence, d.confidence_state, d.score_state,
+          d.confidence, d.confidence_state,
           d.capability_vector_json, d.based_on_version,
           d.last_computed_at AS derived_last_computed_at, d.updated_at AS derived_updated_at,
           ${selectSql}

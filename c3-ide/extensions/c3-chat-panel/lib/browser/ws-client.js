@@ -1156,8 +1156,6 @@ function _wsConnect() {
       case 'control':
         if (d.action === 'model_pull_progress') {
           C3Bus.emit('model:pull_progress', d);
-        } else if (d.action === 'model_validation_progress') {
-          C3Bus.emit('model:validation_progress', d);
         } else if (d.action === 'model_changed') {
           C3Bus.emit('model:changed', d);
         } else if (d.action === 'upgrade_progress') {
@@ -1168,8 +1166,6 @@ function _wsConnect() {
           C3Bus.emit('upgrade:verify_failed', d);
         } else if (d.action === 'upgrade_verify_cleared') {
           C3Bus.emit('upgrade:verify_cleared', d);
-        } else if (d.action === 'model_validation_prompt') {
-          C3Bus.emit('model:validation_prompt', d);
         } else if (d.action === 'comfyui_progress') {
           C3Bus.emit('comfyui:progress', d);
         } else if (d.action === 'comfyui_complete') {

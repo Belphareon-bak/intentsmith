@@ -560,69 +560,52 @@ if [ "$OLLAMA_OK" = true ]; then
     echo "$INSTALLED_MODELS" | grep -Fqx -- "$1" 2>/dev/null
   }
 
-  # Primary model (covers CHAT, CODE, R2)
-  PRIMARY="qwen3.5:27b"
-  # Reasoning model (covers D1, R1)
-  REASONING="deepseek-r1:32b"
+  PORTFOLIO_MODELS=(
+    "qwen3.5:27b"
+    "qwen3.8:latest"
+    "qwen3:14b"
+    "llava-llama3:8b"
+  )
+  PORTFOLIO_ROLES=(
+    "D1, CODE, CHAT"
+    "D2, R1"
+    "R2"
+    "VISION"
+  )
+  MISSING_MODELS=()
 
-  if has_model "$PRIMARY"; then
-    ok "${PRIMARY} installed"
-    PRIMARY_NEEDED=false
-  else
-    warn "${PRIMARY} not found (required for chat, code, review)"
-    PRIMARY_NEEDED=true
-  fi
-
-  if has_model "$REASONING"; then
-    ok "${REASONING} installed"
-    REASONING_NEEDED=false
-  else
-    info "${REASONING} not found (optional — deep reasoning)"
-    REASONING_NEEDED=true
-  fi
+  for i in "${!PORTFOLIO_MODELS[@]}"; do
+    model="${PORTFOLIO_MODELS[$i]}"
+    roles="${PORTFOLIO_ROLES[$i]}"
+    if has_model "$model"; then
+      ok "${model} installed (${roles})"
+    else
+      warn "${model} not found (default for ${roles})"
+      MISSING_MODELS+=("$model")
+    fi
+  done
 
   if [ "$MODE" = "full" ]; then
-    # Pull everything
-    if [ "$PRIMARY_NEEDED" = true ]; then
-      info "Pulling ${PRIMARY} (this may take a while)..."
-      if ! ollama pull "$PRIMARY"; then
-        fail "Failed to pull required model ${PRIMARY}"
+    for model in "${MISSING_MODELS[@]}"; do
+      info "Pulling ${model} (this may take a while)..."
+      if ! ollama pull "$model"; then
+        fail "Failed to pull required default model ${model}"
         exit 1
       fi
-    fi
-    if [ "$REASONING_NEEDED" = true ]; then
-      info "Pulling ${REASONING} (this may take a while)..."
-      if ! ollama pull "$REASONING"; then
-        fail "Failed to pull requested model ${REASONING}"
-        exit 1
-      fi
-    fi
-  elif [ "$MODE" = "interactive" ] && [ "$PRIMARY_NEEDED" = true ]; then
-    echo ""
-    echo -e "  ${YELLOW}?${NC} Pull primary model ${PRIMARY} (~17GB)?"
-    echo "    This is needed for chat, code generation and reviews."
-    read -rp "    [Y/n] " PULL_PRIMARY
-    if [ "${PULL_PRIMARY,,}" != "n" ]; then
-      info "Pulling ${PRIMARY}..."
-      if ! ollama pull "$PRIMARY"; then
-        fail "Failed to pull requested model ${PRIMARY}"
-        exit 1
-      fi
-    fi
-
-    if [ "$REASONING_NEEDED" = true ]; then
+    done
+  elif [ "$MODE" = "interactive" ]; then
+    for model in "${MISSING_MODELS[@]}"; do
       echo ""
-      echo -e "  ${YELLOW}?${NC} Pull reasoning model ${REASONING} (~20GB)?"
-      echo "    Optional — enables deep analysis and project planning."
-      read -rp "    [y/N] " PULL_REASONING
-      if [ "${PULL_REASONING,,}" = "y" ]; then
-        info "Pulling ${REASONING}..."
-        if ! ollama pull "$REASONING"; then
-          fail "Failed to pull requested model ${REASONING}"
+      echo -e "  ${YELLOW}?${NC} Pull default portfolio model ${model}?"
+      read -rp "    [Y/n] " PULL_MODEL
+      if [ "${PULL_MODEL,,}" != "n" ]; then
+        info "Pulling ${model}..."
+        if ! ollama pull "$model"; then
+          fail "Failed to pull requested model ${model}"
           exit 1
         fi
       fi
-    fi
+    done
   fi
 
   echo ""

@@ -1,0 +1,338 @@
+{
+  "measuredAt": "2026-08-23T12:23:18.467Z",
+  "models": [
+    "qwen3.8:latest"
+  ],
+  "repeats": 3,
+  "tasks": [
+    {
+      "name": "patch_2c702a2a5997",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_e4407e5ef59d",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_f31a4fa57def",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_f18b9b453b5f",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_8cae1b583963",
+      "values": [
+        1
+      ],
+      "noise": 0,
+      "verdict": "strop"
+    },
+    {
+      "name": "patch_8e48b3cf8012",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_4db486d33c95",
+      "values": [
+        1
+      ],
+      "noise": 0,
+      "verdict": "strop"
+    },
+    {
+      "name": "patch_4003af52e8bd",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_a0bcfd802dd5",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_2f4a5b872f80",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_4ae0131cd8b2",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_c1936094daaf",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_14ebe01fa15f",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_5abababeb21b",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_dcc0aaec3ce8",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_0fe346cc820c",
+      "values": [
+        1
+      ],
+      "noise": 0,
+      "verdict": "strop"
+    },
+    {
+      "name": "patch_f3b7e352922f",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_9eb8e2f6aa83",
+      "values": [
+        0.4
+      ],
+      "noise": 0,
+      "verdict": "shodné"
+    },
+    {
+      "name": "patch_50421d22f6eb",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_e2414b1b4dd8",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_6fc5e4eb7dce",
+      "values": [
+        1
+      ],
+      "noise": 0,
+      "verdict": "strop"
+    },
+    {
+      "name": "patch_727092a465f2",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_c942a94a44ed",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_a0b210eec49c",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_18fd66257fb3",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_33de28b4a8e2",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_b8aea1378156",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_ef4ae48ec16e",
+      "values": [
+        0.333
+      ],
+      "noise": 0,
+      "verdict": "shodné"
+    },
+    {
+      "name": "patch_5a3cd6915a80",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_631a881577aa",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_8b7557d1f9f5",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_e8cdbe02e5de",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_10d69c206162",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_885b6573fcee",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_a6043570f797",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_1eae54b0a568",
+      "values": [
+        0.333
+      ],
+      "noise": 0,
+      "verdict": "shodné"
+    },
+    {
+      "name": "patch_2eb4bd7aac02",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_031b0c7348f8",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_3b5956a4c058",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_50584fdde027",
+      "values": [
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    }
+  ],
+  "scores": [
+    [
+      "qwen3.8:latest",
+      0.12665
+    ]
+  ],
+  "discriminating": 0,
+  "total": 40,
+  "singleModelExtension": true
+}

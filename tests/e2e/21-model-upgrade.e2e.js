@@ -1,4 +1,4 @@
-// tests/e2e/21-model-upgrade.e2e.js — Model upgrade apply/rollback, bindings
+// tests/e2e/21-model-upgrade.e2e.js — Manual binding application/rollback
 // ══════════════════════════════════════════════════════════════════════════════
 import { suite, testAsync, assert, assertEqual, summary, api, waitForServer } from './_helpers.js';
 
@@ -43,12 +43,12 @@ await testAsync('apply with invalid role returns error', async () => {
 // ── Rollback Error Paths ────────────────────────────────────────────────────
 suite('Upgrade Rollback — Error Paths');
 
-await testAsync('rollback without previous upgrade returns error', async () => {
+await testAsync('rollback without exact recovery identity returns error', async () => {
   const { status, data } = await api('POST', '/api/system/upgrades/rollback', {
     role: 'CHAT'
   });
-  assertEqual(status, 404);
-  assert(data.error.includes('No override found'), 'missing-override error required');
+  assertEqual(status, 400);
+  assert(data.error.includes('Missing required rollback identity'), 'exact-identity error required');
 });
 
 await testAsync('rollback with invalid role is rejected before lookup', async () => {
@@ -69,21 +69,16 @@ await testAsync('cannot delete model bound to role', async () => {
   assert(typeof data.error === 'string' && data.error.length > 0, 'bound-model error required');
 });
 
-// ── Validation Trigger ──────────────────────────────────────────────────────
-suite('Validation Results');
+// ── Current evaluation read model ──────────────────────────────────────────
+suite('Model Evaluation State');
 
-await testAsync('GET validation requires a model', async () => {
-  const { status, data } = await api('GET', '/api/system/models/validate');
-  assertEqual(status, 400);
-  assert(data.error.includes('Missing model'), 'missing-model error required');
-});
-
-await testAsync('GET validation returns an exact empty result for an unknown model', async () => {
-  const model = 'nonexistent-model-xyz:latest';
-  const { status, data } = await api('GET', `/api/system/models/validate?model=${encodeURIComponent(model)}`);
+await testAsync('GET evaluations exposes the current exact-contract authority', async () => {
+  const { status, data } = await api('GET', '/api/system/models/evaluations');
   assertEqual(status, 200);
-  assertEqual(data.model, model);
-  assertEqual(Object.keys(data.suites).length, 0);
+  assert(data.authority.tables.includes('model_evaluation_runs'), 'run authority required');
+  assert(data.authority.tables.includes('model_evaluation_decisions'), 'decision authority required');
+  assertEqual(data.authority.legacyFallback, false);
+  assert(data.roles && data.roles.CODE && data.roles.CHAT, 'role contracts required');
 });
 
 const result = summary();
