@@ -1391,7 +1391,8 @@ timing-safe token a vydané API tokeny route-class scopes. Production HTTP bez
 credentialu končí 401, nedostatečný scope 403. WS provádí stejnou kontrolu při
 upgradu a do session předává pouze transportem vytvořený immutable subject;
 native production loopback bez credentialu už není bypass. Non-production
-loopback výjimka zůstala explicitně zachovaná.
+loopback výjimka zůstala explicitně zachovaná. Product candidate a black-box
+důkaz jsou v [`m5-auth-20260826.md`](docs/execution/runs/m5-auth-20260826.md).
 
 Nejde o M5 acceptance: M3 oddíl 7 a zbývající M5 bloky jsou otevřené.
 
