@@ -6,7 +6,11 @@ import { logger } from '../core/logger.js';
 import { runMigrations } from './migrate.js';
 import { requireConfiguredDatabasePath } from './database-path.js';
 import { LearningAuthorityRepository } from '../memory/learning-authority-repository.js';
-import { assertNoDatabaseRestore } from '../core/database-restore-lock.js';
+import {
+  acquireDatabaseOpenLease,
+  assertNoDatabaseRestore,
+  releaseDatabaseOpenLease,
+} from '../core/database-restore-lock.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -118,9 +122,28 @@ if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
 
-// Initialize database
-assertNoDatabaseRestore(dbPath);
-const db = new Database(dbPath);
+// Hold the shared OS lease across the actual SQLite connection lifetime. An
+// offline restore must acquire the exclusive side before it can inspect or
+// replace any member of the DB/WAL/SHM file-set.
+const databaseOpenLease = acquireDatabaseOpenLease(dbPath);
+let db;
+try {
+  assertNoDatabaseRestore(dbPath);
+  db = new Database(dbPath);
+} catch (error) {
+  releaseDatabaseOpenLease(databaseOpenLease);
+  throw error;
+}
+const closeSqliteConnection = db.close.bind(db);
+let databaseOpenLeaseReleased = false;
+db.close = (...args) => {
+  const result = closeSqliteConnection(...args);
+  if (!databaseOpenLeaseReleased) {
+    releaseDatabaseOpenLease(databaseOpenLease);
+    databaseOpenLeaseReleased = true;
+  }
+  return result;
+};
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 db.pragma('busy_timeout = 5000');

@@ -2,12 +2,12 @@ import './helpers/isolated-test-db.js';
 
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import Database from 'better-sqlite3';
 import {
   createStateBackup,
@@ -16,10 +16,13 @@ import {
   validateStateBackup,
 } from '../src/core/db-backup.js';
 import {
+  _testInternals,
+  acquireDatabaseOpenLease,
   acquireDatabaseRestoreLock,
   assertDatabaseFileClosed,
   assertNoDatabaseRestore,
   databaseRestoreLockPath,
+  releaseDatabaseOpenLease,
   releaseDatabaseRestoreLock,
 } from '../src/core/database-restore-lock.js';
 import { createSystemRoutes } from '../src/routes/system.js';
@@ -92,6 +95,25 @@ function backup(state, now = '2026-08-26T12:00:00.000Z') {
   });
   assert.equal(result.error, null, result.error);
   return result;
+}
+
+function waitForOutput(stream, marker, timeoutMs = 15_000) {
+  return new Promise((resolve, reject) => {
+    let output = '';
+    const timer = setTimeout(() => reject(new Error(`Timed out waiting for ${marker}`)), timeoutMs);
+    stream.setEncoding('utf8');
+    stream.on('data', chunk => {
+      output += chunk;
+      if (output.includes(marker)) {
+        clearTimeout(timer);
+        resolve(output);
+      }
+    });
+    stream.on('error', error => {
+      clearTimeout(timer);
+      reject(error);
+    });
+  });
 }
 
 test('V2 backup is immutable, exact and marks code-bearing payload archival-only', () => {
@@ -293,6 +315,97 @@ test('live restore lock blocks a new database opener and stale ownership is not 
   } finally { cleanup(state); }
 });
 
+test('shared database lease and exclusive restore lease cover the complete connection/restore race', () => {
+  const state = fixture();
+  try {
+    state.db.close();
+    state.db = null;
+    const openLease = acquireDatabaseOpenLease(state.dbPath);
+    assert.throws(
+      () => acquireDatabaseRestoreLock(state.dbPath),
+      error => error.code === 'DATABASE_RESTORE_TARGET_OPEN',
+    );
+    releaseDatabaseOpenLease(openLease);
+
+    const restoreLease = acquireDatabaseRestoreLock(state.dbPath);
+    assert.throws(
+      () => acquireDatabaseOpenLease(state.dbPath),
+      error => error.code === 'DATABASE_RESTORE_IN_PROGRESS',
+    );
+    releaseDatabaseRestoreLock(restoreLease);
+    assert.doesNotThrow(() => {
+      const nextOpen = acquireDatabaseOpenLease(state.dbPath);
+      releaseDatabaseOpenLease(nextOpen);
+    });
+  } finally { cleanup(state); }
+});
+
+test('database opener keeps its shared lease while stale metadata is quarantined', () => {
+  const state = fixture();
+  try {
+    state.db.close();
+    state.db = null;
+    const lockPath = databaseRestoreLockPath(state.dbPath);
+    fs.writeFileSync(lockPath, `${JSON.stringify(restoreLockPayload({
+      pid: 2_147_483_647,
+      processStartTicks: '1',
+      token: 'stale-stale-stale-stale-token',
+    }))}\n`, { mode: 0o600 });
+    const openLease = acquireDatabaseOpenLease(state.dbPath);
+    let concurrentRestoreBlocked = false;
+    assert.doesNotThrow(() => assertNoDatabaseRestore(state.dbPath, {
+      beforeQuarantine() {
+        assert.throws(
+          () => acquireDatabaseRestoreLock(state.dbPath),
+          error => error.code === 'DATABASE_RESTORE_TARGET_OPEN',
+        );
+        concurrentRestoreBlocked = true;
+      },
+    }));
+    assert.equal(concurrentRestoreBlocked, true);
+    releaseDatabaseOpenLease(openLease);
+  } finally { cleanup(state); }
+});
+
+test('production database module holds the shared lease until its real SQLite close', async () => {
+  const state = fixture();
+  let child;
+  try {
+    state.db.close();
+    state.db = null;
+    const productionDbPath = path.join(state.dataDir, 'production-c3.db');
+    const databaseModule = pathToFileURL(path.join(root, 'src', 'db', 'database.js')).href;
+    child = spawn(process.execPath, ['--input-type=module', '-e', `
+      const database = await import(${JSON.stringify(databaseModule)});
+      process.stdout.write('DATABASE_LEASE_READY\\n');
+      process.stdin.once('data', () => {
+        database.close();
+        process.stdout.write('DATABASE_LEASE_CLOSED\\n');
+      });
+    `], {
+      env: { ...process.env, C3_DB_PATH: productionDbPath },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    await waitForOutput(child.stdout, 'DATABASE_LEASE_READY');
+    assert.throws(
+      () => acquireDatabaseRestoreLock(productionDbPath),
+      error => error.code === 'DATABASE_RESTORE_TARGET_OPEN',
+    );
+    child.stdin.end('close\n');
+    await waitForOutput(child.stdout, 'DATABASE_LEASE_CLOSED');
+    await new Promise((resolve, reject) => {
+      child.once('exit', code => code === 0 ? resolve() : reject(new Error(`DB child exited ${code}`)));
+      child.once('error', reject);
+    });
+    child = null;
+    const restoreLease = acquireDatabaseRestoreLock(productionDbPath);
+    releaseDatabaseRestoreLock(restoreLease);
+  } finally {
+    if (child?.pid) child.kill('SIGKILL');
+    cleanup(state);
+  }
+});
+
 test('unreadable process identity and process census fail closed without clearing authority', () => {
   const state = fixture();
   try {
@@ -330,6 +443,77 @@ test('unreadable process identity and process census fail closed without clearin
       error => error.code === 'DATABASE_RESTORE_PROCESS_CENSUS_UNREADABLE',
     );
   } finally { cleanup(state); }
+});
+
+test('production fuser adapter treats exit 1 as closed only with completely clean diagnostics', () => {
+  const pathList = ['/tmp/non-sensitive-c3.db'];
+  const databaseLease = Object.freeze({
+    contract: 'IntentSmithDatabaseOsLease',
+    mode: 'exclusive',
+    leasePath: '/tmp/non-sensitive-c3.db.restore.lease',
+  });
+  const runWithTarget = target => {
+    let call = 0;
+    return () => {
+      call += 1;
+      if (call === 1) {
+        return {
+          status: 0,
+          signal: null,
+          error: null,
+          stdout: String(process.pid),
+          stderr: 'fuser self-probe header',
+        };
+      }
+      return target;
+    };
+  };
+  assert.deepEqual(
+    _testInternals.censusDatabaseFiles(pathList, {
+      databaseLease,
+      runFuser: runWithTarget({
+        status: 1,
+        signal: null,
+        error: null,
+        stdout: '',
+        stderr: '',
+      }),
+    }),
+    { state: 'closed' },
+  );
+  for (const result of [
+    { status: 1, signal: null, error: null, stdout: '', stderr: 'Permission denied' },
+    { status: 1, signal: null, error: null, stdout: 'partial', stderr: '' },
+    { status: 2, signal: null, error: null, stdout: '', stderr: '' },
+  ]) {
+    assert.deepEqual(
+      _testInternals.censusDatabaseFiles(pathList, {
+        databaseLease,
+        runFuser: runWithTarget(result),
+      }),
+      { state: 'unknown' },
+    );
+  }
+  assert.deepEqual(
+    _testInternals.censusDatabaseFiles(pathList, {
+      databaseLease,
+      runFuser: runWithTarget({
+        status: 0,
+        signal: null,
+        error: null,
+        stdout: '1234',
+        stderr: '',
+      }),
+    }),
+    { state: 'open' },
+  );
+  assert.deepEqual(
+    _testInternals.censusDatabaseFiles(pathList, {
+      databaseLease,
+      runFuser: () => ({ status: 1, signal: null, error: null, stdout: '', stderr: '' }),
+    }),
+    { state: 'unknown' },
+  );
 });
 
 test('stale-lock cleanup preserves a replacement live lock across the cleanup race', () => {

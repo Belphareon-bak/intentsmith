@@ -659,7 +659,10 @@ export function restoreStateBackup(dataDir, backupName, opts = {}) {
   const lease = acquireDatabaseRestoreLock(targetDbPath, restoreLockOptions);
   const stagingPath = path.join(resolvedDataDir, `.c3.db.restore-${randomUUID()}.tmp`);
   try {
-    assertDatabaseFileClosed(targetDbPath, restoreLockOptions);
+    assertDatabaseFileClosed(targetDbPath, {
+      ...restoreLockOptions,
+      databaseLease: lease.osLease,
+    });
     const validated = validateStateBackup(resolvedDataDir, backupName, opts);
     fs.copyFileSync(validated.backupDbPath, stagingPath, fs.constants.COPYFILE_EXCL);
     fs.chmodSync(stagingPath, 0o600);
