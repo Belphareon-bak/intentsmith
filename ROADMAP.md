@@ -1269,8 +1269,8 @@ dalším použití nevymýšlí znovu.
      přijetí měřeného přínosu, jinak se explicitně odloží.
 
 Implementační stav k 2026-08-26: všech šest povinných řezů a sjednocený
-closeout jsou `CANDIDATE_COMPLETE / REVIEW_PENDING`. Registry má 437 programů
-a fingerprint `72bc64e6…`; aktuální module graph má 1 148 hran, stále 3 cykly
+closeout jsou `CANDIDATE_COMPLETE / REVIEW_PENDING`. Registry má 438 programů
+a fingerprint `ca2aa642…`; aktuální module graph má 1 150 hran, stále 3 cykly
 a 28 souborů v cyklech. Čerstvý úplný běh skončil pravdivě
 `267 PASS / 2 FAIL / 2 BLOCKED`; žádný nový M3 non-PASS nevznikl. Evidence je v
 [`m3-closeout-20260826.md`](docs/execution/runs/m3-closeout-20260826.md) a
