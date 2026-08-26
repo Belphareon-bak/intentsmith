@@ -169,6 +169,7 @@ const ALL_MIGRATIONS = [
   '2026_08_24_081_model_policy_trigger_compatibility',
   '2026_08_24_081_model_proof_trigger_compatibility',
   '2026_08_24_082_model_evaluation_consolidation',
+  '2026_08_26_096_model_evaluation_import_audit',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -195,7 +196,7 @@ const EXPECTED_TABLES = [
   'memory', 'merge_audit_log', 'messages', 'messages_fts', 'milestones',
   'model_binding_application_attempts', 'model_binding_operations', 'model_binding_runtime_finalize_cutoffs', 'model_binding_runtime_finalize_receipts', 'model_catalog_cache', 'model_desired_bindings', 'model_failover_events', 'model_failover_proofs',
   'model_failover_state', 'model_overrides', 'model_performance', 'model_reconciliation_log',
-  'model_evaluation_decisions', 'model_evaluation_import_evidence', 'model_evaluation_runs',
+  'model_evaluation_decisions', 'model_evaluation_import_audits', 'model_evaluation_import_evidence', 'model_evaluation_runs',
   'model_runtime_guard',
   'model_signal_events', 'model_universe_derived', 'model_universe_raw',
   'model_usage', 'model_write_log',
@@ -414,22 +415,73 @@ describe('T-SM0: Migration identity preflight', async () => {
     db.close();
   });
 
-  await it('rejects a numeric-slot collision already stored in schema_migrations', () => {
+  await it('rejects a numeric-slot collision split across DB history and the manifest before up()', () => {
+    const db = freshDb();
+    let upCalls = 0;
+    db.exec(`
+      CREATE TABLE schema_migrations (
+        version TEXT PRIMARY KEY,
+        applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      INSERT INTO schema_migrations(version, applied_at) VALUES
+        ('2026_08_23_070_m2_effect_authority', '2026-08-25 19:02:00');
+    `);
+    const plan = [{
+      version: '2026_08_22_070_model_evaluation_history',
+      file: '2026_08_22_070_model_evaluation_history.js',
+      description: 'model evaluation history',
+      up: () => { upCalls++; },
+    }];
+    assert.throws(
+      () => migrationTestInternals.runMigrationPlan(db, plan),
+      /Duplicate migration numeric slot 070 in migration manifest \+ schema_migrations/
+    );
+    assert.strictEqual(upCalls, 0);
+    assert.deepStrictEqual(
+      db.prepare('SELECT version, applied_at FROM schema_migrations').all(),
+      [{
+        version: '2026_08_23_070_m2_effect_authority',
+        applied_at: '2026-08-25 19:02:00',
+      }],
+    );
+    db.close();
+  });
+
+  await it('leaves retired stamps unchanged when their hypothetical adoption would collide', () => {
     const db = freshDb();
     db.exec(`
       CREATE TABLE schema_migrations (
         version TEXT PRIMARY KEY,
         applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
-      INSERT INTO schema_migrations(version) VALUES
-        ('2026_08_22_070_model_evaluation_history'),
-        ('2026_08_24_070_m2_effect_authority');
+      INSERT INTO schema_migrations(version, applied_at) VALUES
+        ('2026_08_24_081_m2_effect_result_semantic_authority_v2', '2026-08-25 18:00:00'),
+        ('2026_08_26_084_model_policy_trigger_compatibility', '2026-08-25 20:14:48');
     `);
+    const plan = [{
+      version: '2026_08_24_081_model_policy_trigger_compatibility',
+      file: '2026_08_24_081_model_policy_trigger_compatibility.js',
+      description: 'model policy repair',
+      up: () => {},
+    }];
+
     assert.throws(
-      () => migrationTestInternals.runMigrationPlan(db, []),
-      /Duplicate migration numeric slot 070 in schema_migrations/
+      () => migrationTestInternals.runMigrationPlan(db, plan),
+      /Duplicate migration numeric slot 081 in migration manifest \+ schema_migrations/
     );
-    assert.strictEqual(db.prepare('SELECT COUNT(*) AS count FROM schema_migrations').get().count, 2);
+    assert.deepStrictEqual(
+      db.prepare('SELECT version, applied_at FROM schema_migrations ORDER BY version').all(),
+      [
+        {
+          version: '2026_08_24_081_m2_effect_result_semantic_authority_v2',
+          applied_at: '2026-08-25 18:00:00',
+        },
+        {
+          version: '2026_08_26_084_model_policy_trigger_compatibility',
+          applied_at: '2026-08-25 20:14:48',
+        },
+      ],
+    );
     db.close();
   });
 

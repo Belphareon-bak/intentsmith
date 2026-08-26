@@ -111,44 +111,78 @@ function validateAppliedMigrationHistory(db) {
   validateNumericSlots(versions, 'schema_migrations');
 }
 
-function adoptRetiredMigrationIdentities(db, migrations) {
+function projectAdoptedMigrationVersions(appliedVersions, migrations) {
   const canonicalVersions = new Set(migrations.map(migration => migration.version));
+  const projected = new Set(appliedVersions);
+
+  for (const { retired, canonical } of RETIRED_MIGRATION_IDENTITY_ADOPTIONS) {
+    if (!projected.has(retired)) continue;
+    if (!canonicalVersions.has(canonical)) {
+      throw new Error(
+        `Cannot adopt retired migration ${retired}: canonical identity ${canonical} is absent from manifest`
+      );
+    }
+    projected.delete(retired);
+    projected.add(canonical);
+  }
+  return projected;
+}
+
+function validateManifestAndHistoryUnion(appliedVersions, migrations, label) {
+  const projected = projectAdoptedMigrationVersions(appliedVersions, migrations);
+  validateNumericSlots(
+    new Set([...projected, ...migrations.map(migration => migration.version)]),
+    label,
+  );
+  return projected;
+}
+
+function adoptRetiredMigrationIdentities(db, migrations) {
   const rows = new Set(db.prepare(
     'SELECT version FROM schema_migrations'
   ).all().map(row => row.version));
+  // Resolve the complete hypothetical state before the first identity write.
+  // This catches collisions split across the manifest and stored history and
+  // also proves that every retired identity has a canonical manifest target.
+  validateManifestAndHistoryUnion(
+    rows,
+    migrations,
+    'migration manifest + schema_migrations after identity adoption',
+  );
 
-  const adopt = db.transaction(() => {
-    for (const { retired, canonical } of RETIRED_MIGRATION_IDENTITY_ADOPTIONS) {
-      if (!rows.has(retired)) continue;
-      if (!canonicalVersions.has(canonical)) {
-        throw new Error(
-          `Cannot adopt retired migration ${retired}: canonical identity ${canonical} is absent from manifest`
-        );
-      }
-
-      if (rows.has(canonical)) {
-        // The original migration already ran. The later stamp represents only
-        // a redundant execution under the invalid renamed identity.
-        db.prepare('DELETE FROM schema_migrations WHERE version = ?').run(retired);
-      } else {
-        // Preserve the exact original applied_at while restoring the identity.
-        db.prepare(
-          'UPDATE schema_migrations SET version = ? WHERE version = ?'
-        ).run(canonical, retired);
-      }
+  for (const { retired, canonical } of RETIRED_MIGRATION_IDENTITY_ADOPTIONS) {
+    if (!rows.has(retired)) continue;
+    if (rows.has(canonical)) {
+      // The original migration already ran. The later stamp represents only
+      // a redundant execution under the invalid renamed identity.
+      db.prepare('DELETE FROM schema_migrations WHERE version = ?').run(retired);
+    } else {
+      // Preserve the exact original applied_at while restoring the identity.
+      db.prepare(
+        'UPDATE schema_migrations SET version = ? WHERE version = ?'
+      ).run(canonical, retired);
+      rows.add(canonical);
     }
-  });
-  adopt();
+    rows.delete(retired);
+  }
 }
 
 function prepareMigrationHistory(db, migrations) {
   ensureMigrationsTable(db);
-  // Reject a stored branch collision before the adoption transaction mutates
-  // any version stamp. This catches integration drift that is no longer
-  // visible in the current filesystem manifest.
-  validateAppliedMigrationHistory(db);
-  adoptRetiredMigrationIdentities(db, migrations);
-  validateAppliedMigrationHistory(db);
+  const prepare = db.transaction(() => {
+    adoptRetiredMigrationIdentities(db, migrations);
+    const finalVersions = db.prepare(
+      'SELECT version FROM schema_migrations ORDER BY version'
+    ).all().map(row => row.version);
+    // Keep the final read and validation inside the adoption transaction. A
+    // failed postcondition therefore rolls every stamp change back.
+    validateManifestAndHistoryUnion(
+      finalVersions,
+      migrations,
+      'migration manifest + schema_migrations after identity adoption',
+    );
+  });
+  prepare();
 }
 
 async function discoverMigrations() {
@@ -348,6 +382,8 @@ export const _testInternals = Object.freeze({
   runMigrationPlan,
   validateMigrationPlan,
   validateAppliedMigrationHistory,
+  validateManifestAndHistoryUnion,
+  projectAdoptedMigrationVersions,
   adoptRetiredMigrationIdentities,
 });
 

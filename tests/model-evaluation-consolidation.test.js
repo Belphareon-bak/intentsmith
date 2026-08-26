@@ -8,6 +8,7 @@ import { up as up041 } from '../src/db/migrations/2026_04_08_041_v136_model_univ
 import { up as up042 } from '../src/db/migrations/2026_04_08_042_v137_universe_reconciliation.js';
 import { up as up070 } from '../src/db/migrations/2026_08_22_070_model_evaluation_history.js';
 import { up as up082 } from '../src/db/migrations/2026_08_24_082_model_evaluation_consolidation.js';
+import { up as up096 } from '../src/db/migrations/2026_08_26_096_model_evaluation_import_audit.js';
 import { ModelEvaluationDecisionStore } from '../src/upgrade/model-evaluation-decision-store.js';
 
 const DIGEST_A = 'a'.repeat(64);
@@ -182,6 +183,66 @@ test('082 refuses a collision that only differs in contract, metadata and timest
   assert(db.prepare(
     "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='validation_suite_scores'"
   ).get());
+  db.close();
+});
+
+test('096 verifies a complete non-null legacy import against archived evidence', () => {
+  const db = consolidatedDatabase();
+  up096(db);
+  const audits = db.prepare(`
+    SELECT source_schema, outcome, reason_code
+    FROM model_evaluation_import_audits
+    ORDER BY source_schema
+  `).all();
+  assertEqual(audits.length, 2);
+  assert(audits.some(row => row.source_schema === 'validation_results'
+    && row.outcome === 'ARCHIVED'
+    && row.reason_code === 'ARCHIVE_PAYLOAD_ONLY'));
+  assert(audits.some(row => row.source_schema === 'validation_suite_scores'
+    && row.outcome === 'VERIFIED'
+    && row.reason_code === 'EXACT_ARCHIVE_MATCH'));
+  db.close();
+});
+
+test('096 quarantines an import whose source timestamp was NULL', () => {
+  const db = new Database(':memory:');
+  up034(db);
+  up039(db);
+  db.prepare(`
+    INSERT INTO validation_suite_scores (
+      model, suite, score, passed, total, duration_ms, validated_at
+    ) VALUES ('unknown-time:latest', 'chat', 0.5, 1, 2, 12, NULL)
+  `).run();
+  up070(db);
+  up082(db);
+  up096(db);
+  const audit = db.prepare(`
+    SELECT outcome, reason_code FROM model_evaluation_import_audits
+    WHERE source_schema = 'validation_suite_scores' AND source_row_id = 1
+  `).get();
+  assertEqual(audit.outcome, 'QUARANTINED');
+  assertEqual(audit.reason_code, 'SOURCE_TIMESTAMP_UNKNOWN');
+  db.close();
+});
+
+test('096 quarantines a weak-086-style imported row that disagrees with its archive', () => {
+  const db = consolidatedDatabase();
+  db.exec(`
+    DROP TRIGGER trg_model_evaluation_runs_no_update;
+    UPDATE model_evaluation_runs
+    SET suite_contract_sha256 = '${CONTRACT}',
+        metadata_json = '{"source":"forged","reusable":false}',
+        started_at = '2000-01-01 00:00:00',
+        completed_at = '2000-01-01 00:00:00'
+    WHERE run_id = 'legacy_v123_1';
+  `);
+  up096(db);
+  const audit = db.prepare(`
+    SELECT outcome, reason_code FROM model_evaluation_import_audits
+    WHERE source_schema = 'validation_suite_scores' AND source_row_id = 1
+  `).get();
+  assertEqual(audit.outcome, 'QUARANTINED');
+  assertEqual(audit.reason_code, 'IMPORTED_RUN_MISMATCH');
   db.close();
 });
 
