@@ -167,6 +167,42 @@ test('connection abort finalizes once as cancelled and does not forge an HTTP st
   assert.equal(snapshot.http.recentFailures[0].statusCode, null);
 });
 
+test('close without finish finalizes even when Node already reports writableEnded', () => {
+  const { logger } = loggerRecords();
+  const observability = createProductionObservability({
+    logger,
+    clock: clock(),
+    idFactory: () => 'aborted-after-end-request',
+  });
+  const res = new FakeResponse();
+  observability.beginHttpRequest({ headers: {} }, res).setRoute('POST /api/chat');
+  res.writableEnded = true;
+  res.emit('close');
+  const snapshot = observability.snapshot();
+  assert.equal(snapshot.http.activeRequests, 0);
+  assert.equal(snapshot.http.completedRequests, 1);
+  assert.equal(snapshot.http.statusCounts.aborted, 1);
+  assert.equal(snapshot.http.failureCounts.cancelled, 1);
+});
+
+test('normal finish followed by close remains exact-once success', () => {
+  const { logger } = loggerRecords();
+  const observability = createProductionObservability({
+    logger,
+    clock: clock(),
+    idFactory: () => 'finished-then-closed-request',
+  });
+  const res = new FakeResponse();
+  observability.beginHttpRequest({ headers: {} }, res).setRoute('GET /api/health');
+  complete(res, 200);
+  res.emit('close');
+  const snapshot = observability.snapshot();
+  assert.equal(snapshot.http.activeRequests, 0);
+  assert.equal(snapshot.http.completedRequests, 1);
+  assert.equal(snapshot.http.statusCounts['2xx'], 1);
+  assert.equal(snapshot.http.statusCounts.aborted, 0);
+});
+
 test('invalid client identifiers and error strings cannot enter structured logs', () => {
   const { logger, records } = loggerRecords();
   const observability = createProductionObservability({

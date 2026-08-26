@@ -207,9 +207,7 @@ export function createProductionObservability({
       else logger.debug('Observe', 'http_request_completed', record);
     };
     res.once('finish', () => finalize(false));
-    res.once('close', () => {
-      if (!res.writableEnded) finalize(true);
-    });
+    res.once('close', () => finalize(true));
 
     return Object.freeze({
       requestId: state.requestId,

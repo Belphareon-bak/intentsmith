@@ -150,14 +150,17 @@ absolutni override je `INTENTSMITH_PDF_PYTHON`.
 
 ### 2.2 Podporovany upgrade zdrojove instalace
 
-1. Ukoncete IntentSmith a C3 Studio.
-2. Vytvorte a overte backup podle `docs/STORAGE.md`.
+1. Na bezicim puvodnim releasu vytvorte a overte backup podle sekce
+   [State backup](STORAGE-ARCHITECTURE.md#state-backup).
+2. Ukoncete IntentSmith a C3 Studio.
 3. Prejdete na presny podepsany release commit bez lokalnich produktovych zmen.
 4. Znovu spustte stejny profil, napriklad
    `./scripts/install.sh --profile=core --minimal --offline` (pokud je release
    dependency cache predem naplnena), jinak stejny prikaz bez `--offline`.
-5. Spustte produkt a overte `/api/status`, migracni stav a otevreni puvodniho
-   projektu. Pri selhani obnovte predchozi release commit a overeny backup.
+5. Spustte produkt a overte verejny health endpoint prikazem
+   `curl --fail http://127.0.0.1:${C3_PORT:-3335}/api/health`, migracni stav a
+   otevreni puvodniho projektu. Pri selhani obnovte predchozi release commit a
+   overeny backup.
 
 Installer je idempotentni nad jednim release stromem; nikdy nepouziva
 `npm install` jako fallback po selhani frozen `npm ci`.
@@ -429,15 +432,18 @@ je platny pouze s prikazem, reportem a skutecnym navratovym kodem procesu.
 
 ```bash
 # Server musi bezet
-curl -s http://127.0.0.1:3335/api/status | python3 -m json.tool
+curl --fail -s http://127.0.0.1:3335/api/health | python3 -m json.tool
 ```
 
 Ocekavany vystup:
 ```json
 {
   "status": "ok",
-  "version": "...",
-  "uptime": "..."
+  "ready": true,
+  "health": {
+    "database": true,
+    "lifecycleRecovery": true
+  }
 }
 ```
 

@@ -103,8 +103,13 @@ if command -v node >/dev/null 2>&1; then
     ok "Node.js v${NODE_VERSION}"
   else
     warn "Node.js v${NODE_VERSION} (need 22.x)"
-    # Try nvm auto-fix
-    if command -v nvm >/dev/null 2>&1; then
+    # Verification is a strictly read-only observation. It must never source or
+    # invoke nvm, even when nvm could repair the active shell.
+    if [ "$VERIFY_ONLY" = true ]; then
+      fail "Node.js 22.x required; verify-only never changes the active runtime"
+      ERRORS=$((ERRORS + 1))
+    # Interactive install may use the existing nvm remediation path.
+    elif command -v nvm >/dev/null 2>&1; then
       info "Found nvm — installing Node 22..."
       nvm install 22 && nvm use 22
       NODE_VERSION=$(node -v | sed 's/v//')

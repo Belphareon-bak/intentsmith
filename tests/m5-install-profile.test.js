@@ -1,7 +1,15 @@
 import './helpers/isolated-test-db.js';
 
 import assert from 'node:assert/strict';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -16,7 +24,7 @@ function executable(target, source) {
   chmodSync(target, 0o700);
 }
 
-function fixture({ nodeVersion = '22.14.0', pdf = false } = {}) {
+function fixture({ nodeVersion = '22.14.0', nvm = false, pdf = false } = {}) {
   const directory = mkdtempSync(path.join(tmpdir(), 'intentsmith-m5-install-'));
   const bin = path.join(directory, 'bin');
   const home = path.join(directory, 'home');
@@ -27,6 +35,12 @@ function fixture({ nodeVersion = '22.14.0', pdf = false } = {}) {
   executable(path.join(bin, 'node'), `if [ "${'$'}1" = "-v" ]; then echo v${nodeVersion}; fi; exit 0`);
   executable(path.join(bin, 'npm'), 'if [ "$1" = "-v" ]; then echo 10.9.4; fi; exit 0');
   executable(path.join(bin, 'yarn'), 'if [ "$1" = "--version" ]; then echo 1.22.22; fi; exit 0');
+  if (nvm) {
+    executable(
+      path.join(bin, 'nvm'),
+      'printf called > "$INTENTSMITH_TEST_NVM_MARKER"; exit 0',
+    );
+  }
   if (pdf) {
     executable(path.join(bin, 'python3.12'), 'exit 0');
     for (const name of [
@@ -42,10 +56,10 @@ function fixture({ nodeVersion = '22.14.0', pdf = false } = {}) {
 
 function verify(profile, options = {}) {
   const state = fixture(options);
+  const nvmMarker = path.join(state.directory, 'nvm-called');
   const result = spawnSync('/bin/bash', [
     installer,
     `--profile=${profile}`,
-    '--minimal',
     '--verify-only',
   ], {
     cwd: root,
@@ -56,11 +70,13 @@ function verify(profile, options = {}) {
       XDG_DATA_HOME: path.join(state.directory, 'data'),
       PYTHON3: options.pdf ? 'python3.12' : 'missing-python3.12',
       INTENTSMITH_PDF_FONT_DIR: state.fonts,
+      INTENTSMITH_TEST_NVM_MARKER: nvmMarker,
       TERM: 'dumb',
     },
   });
+  const nvmCalled = existsSync(nvmMarker);
   rmSync(state.directory, { recursive: true, force: true });
-  return { ...result, output: `${result.stdout}${result.stderr}` };
+  return { ...result, nvmCalled, output: `${result.stdout}${result.stderr}` };
 }
 
 test('core preflight succeeds without optional PDF and performs no mutation phase', () => {
@@ -87,9 +103,28 @@ test('full preflight succeeds with exact optional interpreter and font set', () 
 });
 
 test('core profile does not weaken the Node 22 boundary', () => {
-  const result = verify('core', { nodeVersion: '20.19.0' });
+  const result = verify('core', { nodeVersion: '20.19.0', nvm: true });
   assert.equal(result.status, 1, result.output);
   assert.match(result.output, /Node\.js v20\.19\.0 \(need 22\.x\)/);
+  assert.match(result.output, /verify-only never changes the active runtime/);
+  assert.equal(result.nvmCalled, false);
+});
+
+test('documented upgrade references and smoke commands match real files and routes', () => {
+  const installDoc = readFileSync(path.join(root, 'docs', 'INSTALL.md'), 'utf8');
+  assert.match(installDoc, /\[State backup\]\(STORAGE-ARCHITECTURE\.md#state-backup\)/);
+  assert.equal(existsSync(path.join(root, 'docs', 'STORAGE-ARCHITECTURE.md')), true);
+  assert.doesNotMatch(installDoc, /docs\/STORAGE\.md|\/api\/status/);
+  assert.match(
+    installDoc,
+    /curl --fail http:\/\/127\.0\.0\.1:\$\{C3_PORT:-3335\}\/api\/health/,
+  );
+  const serverSource = readFileSync(path.join(root, 'src', 'server.js'), 'utf8');
+  assert.match(serverSource, /'GET \/api\/health': healthHandler/);
+  for (const command of [
+    './scripts/install.sh --profile=core --verify-only',
+    './scripts/install.sh --profile=full --verify-only',
+  ]) assert.equal(installDoc.includes(command), true, command);
 });
 
 test('unknown profile is rejected before any prerequisite probe', () => {
