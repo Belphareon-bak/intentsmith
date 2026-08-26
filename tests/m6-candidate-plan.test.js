@@ -51,7 +51,7 @@ test('no selected program may require external network', () => {
   }
 });
 
-test('candidate runner preserves only the named PDF toolchain bindings', () => {
+test('candidate runner materializes only named toolchain bindings', () => {
   const source = readFileSync(
     path.join(repositoryRoot, 'scripts', 'run-m6-candidate-evidence.js'),
     'utf8',
@@ -59,6 +59,8 @@ test('candidate runner preserves only the named PDF toolchain bindings', () => {
   assert.match(source, /resolvePdfPythonInterpreter\(process\.env\)/u);
   assert.match(source, /environment\.INTENTSMITH_PDF_PYTHON = pdfPython/u);
   assert.match(source, /environment\.C3_PDF_PYTHON = pdfPython/u);
+  assert.match(source, /npm_config_devdir: nodeGypCache/u);
+  assert.match(source, /electron_config_cache: electronCache/u);
   assert.doesNotMatch(source, /\.\.\.process\.env/u);
 });
 

@@ -269,9 +269,12 @@ async function makeFreshCloneEnvironment({ cloneRoot, runtime, candidateSha, evi
     path.join(runtime, 'xdg', 'state'),
   ]) await mkdir(directory, { recursive: true, mode: 0o700 });
   const userHome = os.homedir();
+  const hostCacheRoot = process.env.XDG_CACHE_HOME || path.join(userHome, '.cache');
   const npmCache = path.join(runtime, 'npm-cache');
   const yarnCache = path.join(runtime, 'yarn-cache');
   const corepackHome = path.join(runtime, 'corepack');
+  const nodeGypCache = path.join(runtime, 'xdg', 'cache', 'node-gyp');
+  const electronCache = path.join(runtime, 'xdg', 'cache', 'electron');
   const cacheReceipt = {
     npm: await copyCacheIfPresent(
       process.env.npm_config_cache || path.join(userHome, '.npm'),
@@ -284,6 +287,14 @@ async function makeFreshCloneEnvironment({ cloneRoot, runtime, candidateSha, evi
     corepack: await copyCacheIfPresent(
       process.env.COREPACK_HOME || path.join(userHome, '.cache', 'node', 'corepack'),
       corepackHome,
+    ),
+    nodeGyp: await copyCacheIfPresent(
+      process.env.npm_config_devdir || path.join(hostCacheRoot, 'node-gyp'),
+      nodeGypCache,
+    ),
+    electron: await copyCacheIfPresent(
+      process.env.electron_config_cache || path.join(hostCacheRoot, 'electron'),
+      electronCache,
     ),
   };
   await writePrivateJsonAtomic(path.join(evidenceRoot, 'fresh-clone', 'cache-receipt.json'), {
@@ -303,6 +314,8 @@ async function makeFreshCloneEnvironment({ cloneRoot, runtime, candidateSha, evi
     npm_config_cache: npmCache,
     YARN_CACHE_FOLDER: yarnCache,
     COREPACK_HOME: corepackHome,
+    npm_config_devdir: nodeGypCache,
+    electron_config_cache: electronCache,
     C3_DB_PATH: path.join(runtime, 'fresh-clone.sqlite'),
     C3_PROJECTS_DIR: path.join(runtime, 'projects'),
     INTENTSMITH_TEST_PROJECTS_DIR: path.join(runtime, 'projects'),
