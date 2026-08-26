@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "e6cc6ebb8957f6f506cf00b41cc65b6919a00700",
-  "sourceTree": "23cca0c70664a13bb0341af6330705654b151782",
+  "sourceRevision": "5b855e2655073dddd1d1622b3a88c93140aa4777",
+  "sourceTree": "36bd916ed29c716cbf57c3320abc8ddd58bd8b16",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -939,6 +939,7 @@
     "src/server.js -> src/ws-bridge/index.js",
     "src/server.js -> src/ws-bridge/session-adapter.js",
     "src/server.js -> src/ws-bridge/ws-server.js",
+    "src/setup/wizard.js -> src/config.js",
     "src/setup/wizard.js -> src/core/logger.js",
     "src/skills/detector.js -> src/core/logger.js",
     "src/skills/detector.js -> src/db/database.js",
